@@ -1627,7 +1627,7 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 /* This won't run into any roundoff problems and will protect from */
 /* roundoff errors up to 0.6. */
 
-		if (maxerr_recovery_mode) {
+		if (maxerr_recovery_mode && counter == last_counter) {
 			careful_iteration (LLDATA, &units_bit);
 			maxerr_recovery_mode = 0;
 			echk = 0;
