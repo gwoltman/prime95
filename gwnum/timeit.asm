@@ -183,7 +183,7 @@ sse2mac MACRO	lab, memused, memarea, ops:vararg
 IFDEF AMD
 lab&amd:
 ELSE
-lab:	cmp	_CPU_FLAGS, 40h		;; Is 3dnow! supported?
+lab:	test	_CPU_FLAGS, 40h		;; Is 3dnow! supported?
 	jnz	lab&amd			;; Yes, do amd version of macro
 ENDIF
 	mov	rbx, 262144		;; Offset for some sse2 macros
@@ -359,6 +359,16 @@ _timeit	PROC
 	subpd	xmm5, xmm5
 	subpd	xmm6, xmm6
 	subpd	xmm7, xmm7
+IFDEF X86_64
+	subpd	xmm8, xmm8
+	subpd	xmm9, xmm9
+	subpd	xmm10, xmm10
+	subpd	xmm11, xmm11
+	subpd	xmm12, xmm12
+	subpd	xmm13, xmm13
+	subpd	xmm14, xmm14
+	subpd	xmm15, xmm15
+ENDIF
 
 ; Jump to desired test case
 
