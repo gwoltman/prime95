@@ -31,6 +31,7 @@ char ERRMSG1B[] = "ERROR: SUM(INPUTS) != SUM(OUTPUTS), %.16g != %.16g\n";
 char ERRMSG1C[] = "ERROR: ROUND OFF (%.10g) > 0.40\n";
 char ERRMSG1D[] = "ERROR: Shift counter corrupt.\n";
 char ERRMSG1E[] = "ERROR: Illegal double encountered.\n";
+char ERRMSG1F[] = "ERROR: FFT data has been zeroed!\n";
 char ERRMSG2[] = "Possible hardware failure, consult the readme.txt file.\n";
 char ERRMSG3[] = "Continuing from last save file.\n";
 char ERRMSG4[] = "Waiting five minutes before restarting.\n";
@@ -1733,6 +1734,7 @@ int prime (
 	char	filename[20];
 	double	reallyminerr = 1.0;
 	double	reallymaxerr = 0.0;
+	double	*addr1;
 	int	priority_work = 0;
 	int	escaped, saving, near_fft_limit, sleep5;
 	unsigned long i, high32, low32;
@@ -1826,6 +1828,11 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 /* will error check all iterations */
 
 	near_fft_limit = exponent_near_fft_limit ();
+
+/* Get address of second FFT data element.  We'll use this for very */
+/* quickly checking for zeroed FFT data. */
+
+	addr1 = addr (LLDATA, 1);
 
 /* Compute numbers in the lucas series, write out every 30 minutes to a file */
 
@@ -1945,7 +1952,7 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 			sprintf (buf, ERRMSG0, counter, p, ERRMSG1A);
 			OutputBoth (buf);
 			inc_error_count (2, &error_count);
-			sleep5 = 1;
+			sleep5 = TRUE;
 			goto restart;
 		}
 
@@ -1973,7 +1980,7 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 				last_suminp = gwsuminp (LLDATA);
 				last_sumout = gwsumout (LLDATA);
 				inc_error_count (0, &error_count);
-				sleep5 = 1;
+				sleep5 = TRUE;
 				goto restart;
 			}
 		}
@@ -1991,7 +1998,7 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 				GWERROR = 0;
 				OutputBoth (ERRMSG5);
 				maxerr_recovery_mode = 1;
-				sleep5 = 0;
+				sleep5 = FALSE;
 				goto restart;
 			} else {
 				char	msg[100];
@@ -2001,7 +2008,7 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 				last_counter = counter;
 				last_maxerr = MAXERR;
 				inc_error_count (1, &error_count);
-				sleep5 = 0;
+				sleep5 = FALSE;
 				goto restart;
 			}
 		}
@@ -2015,8 +2022,26 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 			sprintf (buf, ERRMSG0, counter, p, ERRMSG1D);
 			OutputBoth (buf);
 			inc_error_count (2, &error_count);
-			sleep5 = 1;
+			sleep5 = TRUE;
 			goto restart;
+		}
+
+/* Check if the FFT data has been zeroed. This will help reduce the chances */
+/* of another false positive being reported. */
+
+		if (*addr1 == 0.0 && p > 1000 &&
+		    counter > 50 && counter < p-2 && counter != last_counter) {
+			for (i = 2; ; i++) {
+				if (*addr (LLDATA, i) != 0.0) break;
+				if (i == 50) {
+					sprintf (buf, ERRMSG0, counter, p, ERRMSG1F);
+					OutputBoth (buf);
+					inc_error_count (2, &error_count);
+					last_counter = counter;
+					sleep5 = TRUE;
+					goto restart;
+				}
+			}
 		}
 
 /* Some special debugging code to dump out FFT results */
@@ -2157,7 +2182,7 @@ _close (fd);
 			sprintf (buf, ERRMSG0, counter, p, ERRMSG1E);
 			OutputBoth (buf);
 			inc_error_count (2, &error_count);
-			sleep5 = 1;
+			sleep5 = TRUE;
 			goto restart;
 		}
 		get_fft_value (LLDATA, i, &val);
