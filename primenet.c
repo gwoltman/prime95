@@ -98,7 +98,7 @@ void scramble (char *s)
 	unsigned int i, c = strlen (SCRAMBLE_STRING);
 
 	for (i = 0; i < strlen (s); i++) {
-		int b = *p++ ^ SCRAMBLE_STRING[i % c];
+		int b = (unsigned char) *p++ ^ SCRAMBLE_STRING[i % c];
 		*z++ = hx[b >> 4];
 		*z++ = hx[b % 16];
 	}
