@@ -7,7 +7,7 @@
  *  Massive rewrite by G. Woltman for 32-bit support
  *
  *  c. 1997,1998 Perfectly Scientific, Inc.
- *  c. 1998-2002 Just For Fun Software, Inc.
+ *  c. 1998-2004 Just For Fun Software, Inc.
  *  All Rights Reserved.
  *
  **************************************************************/
@@ -84,6 +84,8 @@ gstacknode *stack = NULL;
 double	*ooura_sincos=NULL, *ooura_sincosorig = NULL;
 int	*ooura_ip = NULL;
 int	ooura_fft_size = 0;
+giant	cur_recip = NULL;
+giant	cur_den = NULL;
 
 /* Private function prototypes. */
 
@@ -106,15 +108,17 @@ void 		giant_to_double(giant x, int sizex, double *z, int L);
 #define gswap(p,q)  {giant tgq; tgq = *(p); *(p) = *(q); *(q) = tgq;}
 #define ulswap(p,q)  {unsigned long tgq; tgq = p; p = q; q = tgq;}
 
-int	 	cextgcdg (giant *, giant *, gmatrix A);
-int		ggcd (giant *, giant *, gmatrix);
+int		invg_common (giant, giant, int);
+int		gcdg_common (giant, giant, int);
+int	 	cextgcdg (giant *, giant *, gmatrix A, int);
+int		ggcd (giant *, giant *, gmatrix, int);
 void 		onestep (giant *, giant *, gmatrix);
 void 		mulvM (gmatrix, giant, giant);
 void 		mulmM (gmatrix, gmatrix);
 void 		mulmMsp (gmatrix, gmatrix, int);
 void		punch (giant, gmatrix);
-int		hgcd (int, giant *, giant *, gmatrix);
-int		rhgcd (giant *, giant *, gmatrix);
+int		hgcd (int, giant *, giant *, gmatrix, int);
+int		rhgcd (giant *, giant *, gmatrix, int);
 
 EXTERNC unsigned long EGCD_A=0;	/* Returned by assembly GCD helper */
 EXTERNC unsigned long EGCD_B=0;
@@ -145,6 +149,10 @@ void term_giants (void)
 	free (ooura_ip);
 	ooura_ip = NULL;
 	ooura_fft_size = 0;
+	free (cur_recip);
+	free (cur_den);
+	cur_recip = NULL;
+	cur_den = NULL;
 }
 
 giant newgiant (		/* Create a new giant */
@@ -191,6 +199,22 @@ void ultog (		/* The giant g becomes set to the integer value i. */
 	} else {
 		g->sign = 1;
 		g->n[0] = i;
+	}
+}
+
+void dbltog (		/* The giant g becomes set to the double i. */
+	double	i,
+	giant	g)
+{
+	if (i < 0.0) {
+		dbltog (-i, g);
+		negg (g);
+	} else if (i < 4294967296.0) {
+		ultog ((unsigned long) i, g);
+	} else {
+		g->sign = 2;
+		g->n[1] = (unsigned long) (i / 4294967296.0);
+		g->n[0] = (unsigned long) (i - g->n[1] * 4294967296.0);
 	}
 }
 
@@ -637,8 +661,37 @@ void ulmulg (			/* Giant g becomes g * i. */
 	grammarmulg (&tmp, g);
 }
 
+void imulg (			/* Giant g becomes g * i. */
+	long	i,
+	giant	g)
+{
+	giantstruct tmp;
+	unsigned long data;
+
+	if (i == 0) {g->sign = 0; return;}
+	if (i == 1) return;
+
+	tmp.n = &data;
+	itog (i, &tmp);
+	mulg (&tmp, g);
+}
+
+void dblmulg (			/* Giant g becomes g * i. */
+	double	i,
+	giant	g)
+{
+	giantstruct tmp;
+	unsigned long tmparray[2];
+
+	tmp.n = (unsigned long *) &tmparray;
+	setmaxsize (&tmp, 2);
+	dbltog (i, &tmp);
+	grammarmulg (&tmp, g);
+}
+
 void modg (		/* n becomes n%d. n is arbitrary, but the
-			 * denominator d must be positive! */
+			 * denominator d must be positive! returned
+			 * n will always be positive. */
 	giant 	d,
 	giant 	n)
 {
@@ -650,14 +703,29 @@ void modg (		/* n becomes n%d. n is arbitrary, but the
 
 /* Use divg to compute the mod */
 
-	tmp = popg (n->sign);
+	tmp = popg (abs(n->sign));
 	gtog (n, tmp);
 	divg (d, tmp);
 	mulg (d, tmp);
 	subg (tmp, n);
+	if (n->sign < 0) addg (d, n);
 	pushg (1);
 
-	ASSERTG (n->sign == 0 || n->n[abs(n->sign)-1] != 0);
+	ASSERTG (n->sign >= 0);
+	ASSERTG (n->sign == 0 || n->n[n->sign-1] != 0);
+}
+
+void dbldivg (			/* Giant g becomes g / i. */
+	double	i,
+	giant	g)
+{
+	giantstruct tmp;
+	unsigned long tmparray[2];
+
+	tmp.n = (unsigned long *) &tmparray;
+	setmaxsize (&tmp, 2);
+	dbltog (i, &tmp);
+	divg (&tmp, g);
 }
 
 void divg (		/* n becomes n/d. n is arbitrary, but the
@@ -778,11 +846,22 @@ void divg (		/* n becomes n/d. n is arbitrary, but the
 
 /* Divide using reciprocals */
 
-	else {
+	else if (d->sign < 30) {
 		r = popg ((d->sign << 1) + 1);
 		make_recip (d, r);
 		divg_via_recip (d, r, n);
 		pushg (1);
+	}
+	else {
+		if (cur_recip == NULL || gcompg (d, cur_den)) {
+			free (cur_recip);
+			free (cur_den);
+			cur_recip = newgiant ((d->sign << 1) + 1);
+			cur_den = newgiant (d->sign << 1);
+			gtog (d, cur_den);
+			make_recip (d, cur_recip);
+		}
+		divg_via_recip (d, cur_recip, n);
 	}
 
 	ASSERTG (n->sign == 0 || n->n[abs(n->sign)-1] != 0);
@@ -812,10 +891,15 @@ void power (			/* x becomes x^n. */
 {
 	giant ng;
 
-	ng = popg (1);
-	itog (n, ng);
-	powerg (x, ng);
-	pushg (1);
+	if (istwo (x)) {
+		itog (1, x);
+		gshiftleft (n, x);
+	} else {
+		ng = popg (1);
+		itog (n, ng);
+		powerg (x, ng);
+		pushg (1);
+	}
 }
 
 void powermodg (		/* x becomes x^n (mod g). */
@@ -1164,6 +1248,26 @@ void karatmulg (		/* y becomes x*y. */
 	ASSERTG (y->sign <= y->maxsize);
 }
 
+void gmaskbits (	/* keep rightmost bits. Equivalent to g = g%2^bits. */
+	int	bits,
+	giant	g)
+{
+	int 	rem = bits&31, words = bits>>5;
+	int 	size = abs (g->sign);
+
+	ASSERTG (bits >= 0);
+	ASSERTG (g->sign >= 0 || g->n[abs(g->sign)-1] != 0);
+
+	if (size <= words) return;
+
+	if (rem) {
+		g->n[words] &= ((1 << rem) - 1);
+		words++;
+	}
+	g->sign = (g->sign < 0) ? -words : words;
+	while (g->sign && g->n[g->sign-1] == 0) g->sign--;
+}
+
 void gshiftleft (	/* shift g left bits. Equivalent to g = g*2^bits. */
 	int	bits,
 	giant	g)
@@ -1237,11 +1341,26 @@ void gtogshiftright (	/* shift src right. Equivalent to dest = src/2^bits. */
 	ASSERTG (dest->sign == 0 || dest->n[abs(dest->sign)-1] != 0);
 }
 
-int invg (		/* Computes 1/y, that is the number n such that */
-			/* n * y mod x = 1.  Now, if x and y are not */
+void invg (		/* Computes 1/y, that is the number n such that */
+			/* n * y mod x = 1.  If x and y are not */
 			/* relatively prime, y is the -1 * GCD (x, y). */
 	giant 	xx,
 	giant 	yy)
+{
+	invg_common (xx, yy, 0);
+}
+
+int invgi (		/* Interruptable version of invg */
+	giant 	xx,
+	giant 	yy)
+{
+	return (invg_common (xx, yy, 1));
+}
+
+int invg_common (	/* Common invg code */
+	giant 	xx,
+	giant 	yy,
+	int	interruptable)
 {
 	giant	x, y;
 	gmatrixstruct A;
@@ -1272,11 +1391,11 @@ int invg (		/* Computes 1/y, that is the number n such that */
 	if (y->sign <= GCDLIMIT) {
 		A.ul = &ul; setzero (A.ul); setmaxsize (A.ul, 1);
 		A.ll = &ll; setzero (A.ll); setmaxsize (A.ll, 1);
-		if (!cextgcdg (&x, &y, &A)) goto esc;
+		if (!cextgcdg (&x, &y, &A, interruptable)) goto esc;
 	} else {
 		A.ul = popg (x->sign); setone (A.ul);
 		A.ll = popg (x->sign); setzero (A.ll);
-		if (!ggcd (&x, &y, &A)) goto esc;
+		if (!ggcd (&x, &y, &A, interruptable)) goto esc;
 		pushg (2);
 	}
 
@@ -1380,10 +1499,25 @@ int egcdhlp_wrapper (
 }
 
 
-int gcdg (	/* Computes the GCD of x and y and returns the GCD in y */
+void gcdg (	/* Computes the GCD of x and y and returns the GCD in y */
 		/* The x argument is not destroyed */
 	giant	xx,
 	giant	yy)
+{
+	gcdg_common (xx, yy, 0);
+}
+
+int gcdgi (	/* Interruptable version of the aove */
+	giant	xx,
+	giant	yy)
+{
+	return (gcdg_common (xx, yy, 1));
+}
+
+int gcdg_common (	/* Common code for above */
+	giant	xx,
+	giant	yy,
+	int	interruptable)
 {
 	giant	x, y;
 	int	ss;
@@ -1404,9 +1538,9 @@ int gcdg (	/* Computes the GCD of x and y and returns the GCD in y */
 /* Compute the GCD the fastest way possible */
 
 	if (abs (y->sign) <= GCDLIMIT) {
-		if (!cextgcdg (&x, &y, NULL)) goto esc;
+		if (!cextgcdg (&x, &y, NULL, interruptable)) goto esc;
 	} else {
-		if (!ggcd (&x, &y, NULL)) goto esc;
+		if (!ggcd (&x, &y, NULL, interruptable)) goto esc;
 	}
 
 /* If the routines we called happened to return the result in yy, then great */
@@ -1426,7 +1560,8 @@ esc:	pushall (ss);
 int cextgcdg (		/* Classical Euclid GCD. a becomes gcd(a, b). */
 	giant 	*a,
 	giant 	*b,
-	gmatrix	A)
+	gmatrix	A,
+	int	interruptable)
 {
 	giant	u, v;
 
@@ -1445,7 +1580,7 @@ int cextgcdg (		/* Classical Euclid GCD. a becomes gcd(a, b). */
 
 /* Check for an interrupt */
 
-		if (stopCheck ()) return (FALSE);
+		if (interruptable && stopCheck ()) return (FALSE);
 
 /* If the quotient will fit in one word, use the GCD helper */
 /* function which can do several GCD steps in single precision, */
@@ -1493,14 +1628,15 @@ giant popg (
 static	long	gwnumsize = 0;
 	int	memsize;
 
+	ASSERTG (size > 0);
+
 /* Initialize the stack if we're just starting out. */
 
 	if (cur_stack_size == 0) {
 		cur_stack_size = STACK_GROW;
 		stack = (gstacknode *)
 			malloc (cur_stack_size * sizeof (gstacknode));
-		if (FFTLEN) gwnumsize = (long) addr (NULL, FFTLEN-1) + 8;
-		else gwnumsize = 0;
+		gwnumsize = 0;
 	}
 
 /* Expand the stack if we need to. */
@@ -1510,6 +1646,12 @@ static	long	gwnumsize = 0;
 		stack = (gstacknode *)
 			realloc (stack, cur_stack_size * sizeof (gstacknode));
 	}
+
+/* Set gwnum_size if FFTs have been initialized.  This lets giants and gwnum */
+/* share the same memory space.  Pretty handy in conserving allocated memory */
+
+	if (gwnumsize == 0 && FFTLEN)
+		gwnumsize = (long) addr (NULL, FFTLEN-1) + 8;
 
 /* Malloc our giant */
 
@@ -1651,8 +1793,8 @@ void divg_via_recip (		/* n := n/d, where r is the precalculated
 
 	ASSERTG (d->sign > 0);
 	
-	tmp = popg (n->sign + r->sign);
-	tmp2 = popg (n->sign + r->sign);
+	tmp = popg (abs (n->sign) + r->sign);
+	tmp2 = popg (abs (n->sign) + r->sign);
 	
 	n->sign = abs (n->sign);
 	setzero (tmp2);
@@ -2048,7 +2190,8 @@ void punch (		/* Multiply the matrix A on the left by [0,1,1,-q]. */
 int ggcd (		/* A giant gcd.  Modifies its arguments. */
 	giant 	*x,
 	giant 	*y,
-	gmatrix	R)
+	gmatrix	R,
+	int	interruptable)
 {
 	gmatrixstruct A;
 
@@ -2063,8 +2206,8 @@ int ggcd (		/* A giant gcd.  Modifies its arguments. */
 /* optimum efficiency. */
 
 	if (R != NULL) {
-		if (! hgcd (0, x, y, R)) return (FALSE);
-		return (rhgcd (x, y, R));
+		if (! hgcd (0, x, y, R, interruptable)) return (FALSE);
+		return (rhgcd (x, y, R, interruptable));
 	}
 
 /* Call half GCDs until the numbers get pretty small.  The half GCD code */
@@ -2093,7 +2236,8 @@ int ggcd (		/* A giant gcd.  Modifies its arguments. */
 
 /* Do the first recursion */
 
-		if (! hgcd ((*y)->sign - (a_size + a_size + 1), x, y, &A))
+		if (! hgcd ((*y)->sign - (a_size + a_size + 1),
+			    x, y, &A, interruptable))
 			return (FALSE);
 
 /* Do a single step if the hgcd call didn't make any progress */
@@ -2113,14 +2257,15 @@ int ggcd (		/* A giant gcd.  Modifies its arguments. */
 
 /* Do the last few words in a brute force way */
 
-	return (cextgcdg (x, y, NULL));
+	return (cextgcdg (x, y, NULL, interruptable));
 }
 
 int rhgcd (	/* recursive hgcd calls accumulating extended GCD info */
 		/* when done. */
 	giant	*x,
 	giant 	*y,
-	gmatrix R)
+	gmatrix R,
+	int	interruptable)
 {
 	gmatrixstruct A;
 
@@ -2128,12 +2273,12 @@ int rhgcd (	/* recursive hgcd calls accumulating extended GCD info */
 	A.ll = popg ((*x)->sign); setzero (A.ll);
 	A.ur = popg ((*x)->sign); setzero (A.ur);
 	A.lr = popg ((*x)->sign); setone (A.lr);
-	if ((*y)->sign <= GCDLIMIT)
-		cextgcdg (x, y, &A);
-	else {
-		if (! hgcd (0, x, y, &A)) return (FALSE);
+	if ((*y)->sign <= GCDLIMIT) {
+		if (! cextgcdg (x, y, &A, interruptable)) return (FALSE);
+	} else {
+		if (! hgcd (0, x, y, &A, interruptable)) return (FALSE);
 		if (isone (A.lr)) onestep (x, y, &A);
-		if (! rhgcd (x, y, &A)) return (FALSE);
+		if (! rhgcd (x, y, &A, interruptable)) return (FALSE);
 	}
 	mulmM (&A, R);
 	pushg (4);
@@ -2147,7 +2292,8 @@ int hgcd (	/* hgcd(n,x,y,A) chops n words off x and y and computes the
 	int 	n,
 	giant	*xx,
 	giant 	*yy,
-	gmatrix A)
+	gmatrix A,
+	int	interruptable)
 {
 	giant 	x, y;
 	int	half_size;
@@ -2208,12 +2354,13 @@ int hgcd (	/* hgcd(n,x,y,A) chops n words off x and y and computes the
 
 /* Check for an interrupt */
 
-		if (stopCheck ()) return (FALSE);
+		if (interruptable && stopCheck ()) return (FALSE);
 
 /* Do the first recursion */
 
 		a_size = half_size >> 1;
-		if (! hgcd (y->sign - (a_size + a_size + 1), &x, &y, A))
+		if (! hgcd (y->sign - (a_size + a_size + 1),
+			    &x, &y, A, interruptable))
 			return (FALSE);
 		a_size = abs (A->lr->sign);
 
@@ -2235,7 +2382,8 @@ int hgcd (	/* hgcd(n,x,y,A) chops n words off x and y and computes the
 		B.ll = &ll; setzero (&ll);
 		B.lr = &lr; setone (&lr);
 		if (b_size > ((y->sign - 1) >> 1)) b_size = (y->sign - 1) >> 1;
-		if (! hgcd (y->sign - (b_size + b_size + 1), &x, &y, &B))
+		if (! hgcd (y->sign - (b_size + b_size + 1),
+			    &x, &y, &B, interruptable))
 			return (FALSE);
 		mulmMsp (&B, A, half_size);
 	}

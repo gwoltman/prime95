@@ -1,4 +1,4 @@
-; Copyright 2001-2003 Just For Fun Software, Inc., all rights reserved
+; Copyright 2001-2004 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -29,23 +29,25 @@ PREFETCHING = 1
 ;; Routines to do the last 11 levels in a two-pass FFT
 
 PUBLIC	xpass2_11_levels
+PUBLIC	xpass2_11_levels_p
 
 ;; Do the last 11 levels of a two pass FFT
 
 xpass2_11_levels PROC NEAR
-start_timer 2
+	start_timer 2
 	xpass2_11_levels_real 0
 	add	esi, pass1blkdst
-end_timer 2
-start_timer 3
+	end_timer 2
+xpass2_11_levels_p:
+	start_timer 3
 	mov	ecx, count1		; Number of complex iterations
 	mov	edx, pass2_premults	; Address of the group multipliers
 p2lp:	xpass2_11_levels_complex 0
 	add	esi, pass1blkdst
 	sub	ecx, 1
-	JNZ_X	p2lp
+	jnz	p2lp
 	mov	esi, _DESTARG		; Restore source pointer
-end_timer 3
+	end_timer 3
 	ret
 xpass2_11_levels ENDP
 

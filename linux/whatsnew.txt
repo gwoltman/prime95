@@ -1,3 +1,14 @@
+New features in Version 24.6 of mprime
+--------------------------------------
+
+1)  Athlon users should see a 20% to 30% speed increase.
+2)  Pentium, Pentium II, Pentium III users should see dramatically WORSE
+    performance.  Run version 23 instead.
+3)  P-1 and ECM now support numbers of the form k*b^n+c.  This cannot be done
+    from the menus.  Add these entries to worktodo.ini:
+	Pminus1=k,b,n,c,B1,B2
+	ECM2=k,b,n,c,B1,B2,curves_to_do[,specific_sigma]
+
 New features in Version 23.9 of mprime
 --------------------------------------
 

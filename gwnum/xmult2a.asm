@@ -1,4 +1,4 @@
-; Copyright 2001-2003 Just For Fun Software, Inc., all rights reserved
+; Copyright 2001-2004 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -29,6 +29,7 @@ PREFETCHING = 1
 ;; Routines to do the last 8 levels in a two-pass FFT
 
 PUBLIC	xpass2_8_levels
+PUBLIC	xpass2_8_levels_p
 
 ;; Distance between two pass 2 data blocks.  Pass 2 does 8 FFT levels
 ;; 2 sets of data (2 * 2^8 complex values = 2^10 doubles = 8KB).
@@ -40,11 +41,12 @@ blkdst	EQU	(8192+128)
 
 xpass2_8_levels PROC NEAR
 	xpass2_8_levels_real blkdst
+xpass2_8_levels_p:
 	mov	ecx, count1		; Number of complex iterations
 	mov	edx, pass2_premults	; Address of the group multipliers
 p2lp:	xpass2_8_levels_complex blkdst
 	sub	ecx, 1
-	JNZ_X	p2lp
+	jnz	p2lp
 	mov	esi, _DESTARG		; Restore source pointer
 	ret
 xpass2_8_levels ENDP

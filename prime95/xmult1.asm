@@ -1,4 +1,4 @@
-; Copyright 2001 Just For Fun Software, Inc., all rights reserved
+; Copyright 2001-2004 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -34,6 +34,7 @@ INCLUDE xmult.mac
 _gw_xffts1 PROC NEAR
 	EXPANDING = 1
 	xfft	32
+	xfft	48
 	xfft	64
 	xfft	80
 	xfft	96
@@ -63,6 +64,24 @@ _gw_xffts1 PROC NEAR
 	xfft	6144
 	xfft	7168
 	xfft	8192
+
+	xfft	32p
+	xfft	48p
+	xfft	64p
+	xfft	96p
+	xfft	128p
+	xfft	192p
+	xfft	256p
+	xfft	384p
+	xfft	512p
+	xfft	768p
+	xfft	1024p
+	xfft	1536p
+	xfft	2048p
+	xfft	3072p
+	xfft	4096p
+	xfft	6144p
+	xfft	8192p
 _gw_xffts1 ENDP
 
 _TEXT32	ENDS

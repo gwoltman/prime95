@@ -1,13 +1,9 @@
-; Copyright 1995-2000 Just For Fun Software, Inc., all rights reserved
+; Copyright 1995-2004 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
-; This routine implements a discrete weighted transform to quickly multiply
-; two numbers.
-;
-; This code handles FFTs that use the convoluted memory model.
-; FFT sizes between than 10K and 64K doubles are supported.
-; This code does two passes, eight levels on the second pass.
+; This code handles FFTs that use two passes with 10 levels done on the
+; second pass.
 ;
 ; You will not stand a chance of understanding any of this code without
 ; thoroughly familiarizing yourself with fast fourier transforms.  This
@@ -29,39 +25,74 @@ INCLUDE	unravel.mac
 INCLUDE	lucas.mac
 INCLUDE pfa.mac
 INCLUDE mult.mac
-INCLUDE fft2b.mac
+INCLUDE pass1.mac
+INCLUDE fft3.mac
 INCLUDE memory.mac
+INCLUDE normal.mac
 
 IFDEF PPRO
 INCLUDE	lucasp.mac
 ENDIF
 
-EXTRNP	pass2_eight_levels_type_123
-EXTRNP	pass2_eight_levels_type_123p
-EXTRNP	pass2_eight_levels_type_4
-EXTRNP	pass2_eight_levels_type_4p
+EXTRN gw_finish_fft:PROC
+EXTRN gw_carries:PROC
+EXTRN gw_finish_mult:PROC
 
-	convoluted_distances
+EXTRNP	pass2_10_levels
+EXTRNP	pass2_10_levels_p
 
-;; All the FFT routines for each FFT length
+	flat_distances
+
+;; Distance between two pass 2 data blocks.  Pass 2 does 10 FFT levels.
+;; 2^10 complex values = 2^11 doubles = 16KB.
+
+blkdst = (4*(4096+64)+64)
+
+;; All the FFT routines for each FFT length.
 
 PROCP	_gw_ffts3
 	EXPANDING = 2
-	fft	10K
-	fft	12K
-	fft	14K
-	fft	16K
-	fft	16K, p
-	fft	20K
-	fft	24K
-	fft	28K
-	fft	32K
-	fft	32K, p
-	fft	40K
-	fft	48K
-	fft	56K
-	fft	64K
-	fft	64K, p
+IFNDEF PFETCH
+;	fft	20K
+;	fft	24K
+;	fft	24Kp
+;	fft	28K
+;	fft	32K
+;	fft	32Kp
+ENDIF
+;	fft	40K
+;	fft	48K
+;	fft	48Kp
+;	fft	56K
+;	fft	64K
+;	fft	64Kp
+;	fft	80K
+	fft	96K
+	fft	96Kp
+	fft	112K
+	fft	128K
+	fft	128Kp
+
+INCLUDE pass1scr.mac
+
+	fft	160K
+	fft	192K
+	fft	192Kp
+	fft	224K
+	fft	256K
+	fft	256Kp
+	fft	320K
+	fft	384K
+	fft	384Kp
+	fft	448K
+	fft	512K
+	fft	512Kp
+	fft	640K
+	fft	768K
+	fft	768Kp
+	fft	896K
+	fftclm	1024K, 2
+	fft	1024Kp
 ENDPP	_gw_ffts3
 
 _TEXT32	ENDS

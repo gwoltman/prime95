@@ -43,7 +43,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="../prime95/cpuid.obj ../prime95/mult.obj ../prime95/mult1.obj ../prime95/mult1aux.obj ../prime95/mult2.obj ../prime95/mult2a.obj ../prime95/mult2aux.obj ../prime95/mult3.obj ../prime95/mult3a.obj ../prime95/mult3aux.obj ../prime95/mult3auq.obj ../prime95/mult4.obj ../prime95/mult4a.obj ../prime95/mult4b.obj ../prime95/mult1p.obj ../prime95/mult2p.obj ../prime95/mult2ap.obj ../prime95/mult3p.obj ../prime95/mult3ap.obj ../prime95/mult4p.obj ../prime95/mult4ap.obj ../prime95/mult4bp.obj ../prime95/mult4aux.obj ../prime95/mult4auq.obj ../prime95/mult3q.obj ../prime95/mult3aq.obj ../prime95/mult4q.obj ../prime95/mult4aq.obj ../prime95/mult4bq.obj ../prime95/ecmhelp.obj ../prime95/xmult1.obj ../prime95/xmult1ax.obj ../prime95/xmult2.obj ../prime95/xmult2a.obj ../prime95/xmult2ax.obj ../prime95/xmult3.obj ../prime95/xmult3a.obj ../prime95/xmult3ax.obj ..\prime95\service.obj nafxcw.lib libcmt.lib"
+				AdditionalDependencies="../prime95/cpuid.obj ../prime95/mult.obj ../prime95/mult1.obj ../prime95/mult1aux.obj ../prime95/mult2.obj ../prime95/mult2a.obj ../prime95/mult2aux.obj ../prime95/mult3.obj ../prime95/mult3a.obj ../prime95/mult4.obj ../prime95/mult2p.obj ../prime95/mult2ap.obj ../prime95/mult3p.obj ../prime95/mult3ap.obj ../prime95/mult4p.obj ../prime95/ecmhelp.obj ../prime95/xmult1.obj ../prime95/xmult1ax.obj ../prime95/xmult2.obj ../prime95/xmult2a.obj ../prime95/xmult2ax.obj ../prime95/xmult3.obj ../prime95/xmult3a.obj ../prime95/xmult3ax.obj ..\prime95\service.obj nafxcw.lib libcmt.lib"
 				OutputFile=".\Release/prp.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
@@ -108,7 +108,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="../prime95/cpuid.obj ../prime95/mult.obj ../prime95/mult1.obj ../prime95/mult1aux.obj ../prime95/mult2.obj ../prime95/mult2a.obj ../prime95/mult2aux.obj ../prime95/mult3.obj ../prime95/mult3a.obj ../prime95/mult3aux.obj ../prime95/mult3auq.obj ../prime95/mult4.obj ../prime95/mult4a.obj ../prime95/mult4b.obj ../prime95/mult1p.obj ../prime95/mult2p.obj ../prime95/mult2ap.obj ../prime95/mult3p.obj ../prime95/mult3ap.obj ../prime95/mult4p.obj ../prime95/mult4ap.obj ../prime95/mult4bp.obj ../prime95/mult4aux.obj ../prime95/mult4auq.obj ../prime95/mult3q.obj ../prime95/mult3aq.obj ../prime95/mult4q.obj ../prime95/mult4aq.obj ../prime95/mult4bq.obj ../prime95/ecmhelp.obj ../prime95/xmult1.obj ../prime95/xmult1ax.obj ../prime95/xmult2.obj ../prime95/xmult2a.obj ../prime95/xmult2ax.obj ../prime95/xmult3.obj ../prime95/xmult3a.obj ../prime95/xmult3ax.obj ..\prime95\service.obj"
+				AdditionalDependencies="../prime95/cpuid.obj ../prime95/mult.obj ../prime95/mult1.obj ../prime95/mult1aux.obj ../prime95/mult2.obj ../prime95/mult2a.obj ../prime95/mult2aux.obj ../prime95/mult3.obj ../prime95/mult3a.obj ../prime95/mult4.obj ../prime95/mult2p.obj ../prime95/mult2ap.obj ../prime95/mult3p.obj ../prime95/mult3ap.obj ../prime95/mult4p.obj ../prime95/ecmhelp.obj ../prime95/xmult1.obj ../prime95/xmult1ax.obj ../prime95/xmult2.obj ../prime95/xmult2a.obj ../prime95/xmult2ax.obj ../prime95/xmult3.obj ../prime95/xmult3a.obj ../prime95/xmult3ax.obj ..\prime95\service.obj"
 				OutputFile=".\Debug/prp.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="TRUE"

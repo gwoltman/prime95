@@ -71,11 +71,14 @@ int 	bitlen(giant n);
 /* Returns the value of the pos bit of g. */
 #define bitval(g,pos)	((g)->n[(pos)>>5] & (1 << ((pos)&31)))
 
+/* Returns whether g is zero. */
+#define isZero(g)	((g)->sign == 0)
+
 /* Returns whether g is one. */
 #define isone(g)	(((g)->sign == 1) && ((g)->n[0] == 1))
 
-/* Returns whether g is zero. */
-#define isZero(g)	((g)->sign == 0)
+/* Returns whether g is one. */
+#define istwo(g)	(((g)->sign == 1) && ((g)->n[0] == 2))
 
 /* Copies one giant to another. */
 void 	gtog(giant src, giant dest);
@@ -85,6 +88,9 @@ void 	gtog(giant src, giant dest);
 #define setone(g)	(g)->sign = (g)->n[0] = 1
 void 	itog(int n, giant g);
 void 	ultog(unsigned long n, giant g);
+
+/* Double -> giant. */
+void 	dbltog(double n, giant g);
 
 /* Character string <-> giant. */
 void 	ctog (char *s, giant g);
@@ -139,12 +145,20 @@ void	mulg(giant a, giant b);
 
 /* g *= i, where i is an unsigned long */
 void 	ulmulg (unsigned long i, giant g);
+void 	imulg (long i, giant g);
+
+/* g *= n, where n is a double */
+void 	dblmulg (double n, giant g);
 
 /* num := num % den, any positive den. */
 void 	modg(giant den, giant num);
 
 /* num := [num/den], any positive den. */
 void 	divg(giant den, giant num);
+void 	dbldivg(double den, giant num);
+
+/* Mask rightmost bits in g, same as g = g % 2^bits. */
+void 	gmaskbits(int bits, giant g);
 
 /* Shift g left by bits, introducing zeros on the right. */
 void 	gshiftleft(int bits, giant g);
@@ -153,12 +167,14 @@ void 	gshiftleft(int bits, giant g);
 #define	gshiftright(n,g)	{if (n) gtogshiftright (n, g, g);}
 void 	gtogshiftright (int bits, giant src, giant dest);
 
-/* If 1/x exists (mod n), 1 is returned and x := 1/x.  If
- * inverse does not exist, 0 is returned and x := GCD(n, x). */
-int 	invg(giant n, giant x);
+/* If 1/x exists (mod n), then x := 1/x.  If
+ * inverse does not exist, then x := - GCD(n, x). */
+void 	invg(giant n, giant x);
+int 	invgi(giant n, giant x);	/* Interruptable version */
 
 /* General GCD, x:= GCD(n, x). */
-int 	gcdg(giant n, giant x);
+void 	gcdg(giant n, giant x);
+int 	gcdgi(giant n, giant x);	/* Interruptable version */
 
 /* x becomes x^n, NO mod performed. */
 void power (giant x, int n);

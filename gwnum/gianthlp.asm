@@ -205,7 +205,7 @@ noshft:	fld1				; A
 	mov	ebx, _SRCARG		; Giant U
 	mov	ebx, [ebx]		; U->sign
 	cmp	ebx, 2
-	JLE_X	simple
+	jle	simple
 
 ; Do as many single precision operations as we can
 ;	FPU contains U, V, D, B, C, A
@@ -239,11 +239,11 @@ dloop:	fld	st(0)			; U, U, V, D, B, C, A
 	fcomp	st(7)			; B+Q*D, U, V, D, B, C, A
 	fstsw	ax			; Copy comparison results
 	and	eax, 4100h		; Isolate C0 & C3 bits
-	JNZ_X	lpdone			; Break if less than or equal
+	jnz	lpdone			; Break if less than or equal
 	fcom	TWOPOW32		; Will new D be too large?
 	fstsw	ax			; Copy comparison results
 	and	eax, 0100h		; Isolate C0 bit
-	JZ_X	lpdone			; Break if not less than
+	jz	lpdone			; Break if not less than
 	fxch	st(4)			; oldB, U, V, newB, newD, C, A
 	fcomp	st(1)			; U, V, newB, newD, C, A
 	fld	QWORD PTR fltval	; Q, U, V, newB, newD, C, A
@@ -283,11 +283,11 @@ dloop:	fld	st(0)			; U, U, V, D, B, C, A
 	fcomp	st(4)			; B+Q*D, V, U, B, D, A, C
 	fstsw	ax			; Copy comparison results
 	and	eax, 4100h		; Isolate C0 & C3 bits
-	JNZ_X	lpdone1			; Break if less than or equal
+	jnz	lpdone1			; Break if less than or equal
 	fcom	TWOPOW32		; Will new D be too large?
 	fstsw	ax			; Copy comparison results
 	and	eax, 0100h		; Isolate C0 bit
-	JZ_X	lpdone1			; Break if not less than
+	jz	lpdone1			; Break if not less than
 	fxch	st(3)			; oldB, V, U, newD, newB, A, C
 	fcomp	st(1)			; V, U, newD, newB, A, C
 	fld	QWORD PTR fltval	; Q, V, U, newD, newB, A, C
@@ -297,7 +297,7 @@ dloop:	fld	st(0)			; U, U, V, D, B, C, A
 	fxch	st(1)			; Q*C, Q*V, V, U, newD, newB, A, C
 	faddp	st(6), st		; Q*V, V, U, newD, newB, newC, newA
 	fsubp	st(2), st		; newU, newV, newD, newB, newC, newA
-	JMP_X	dloop
+	jmp	dloop
 
 ; The single precision case:
 ;	Compute U/V, the quotient
@@ -365,7 +365,7 @@ lpd1:	fcompp				; Pop 3 values
 	mov	edx, fltval1
 	mov	_EGCD_C, eax
 	mov	_EGCD_A, edx
-	JMP_X	egdone
+	jmp	egdone
 
 ; In this case the main loop couldn't determine even a single quotient.
 ; Return FALSE, so caller can handle by more sophisticated means.

@@ -566,14 +566,14 @@ nextf:	add	ecx, twop
 
 	mov	eax, 2			; Return for ESC check
 	mov	_FACMSW, 1		; Restart at 1
-	JMP_X	done
+	jmp	done
 
 ; Divisor found, return TRUE
 
 win32:	mov	eax, 1
 	mov	_FACMSW, 0
 	mov	_FACLSW, ecx
-	JMP_X	done
+	jmp	done
 
 ;
 ; More data
@@ -634,7 +634,7 @@ _factor64 PROC NEAR
 	mov	eax, _FACHSW
 	mov	ecx, _FACMSW
 	or	eax, ecx
-	JZ_X	fac32
+	jz	fac32
 
 ; Set number of repetitions
 
@@ -643,7 +643,7 @@ _factor64 PROC NEAR
 ; Check/Set firstcall
 
 	cmp	firstcall, 0
-	JNE_X	slp
+	jne	slp
 	inc	firstcall
 
 ; Clear counts of queued factors
@@ -804,7 +804,7 @@ clrdn:	mov	last_primearray, esi	; Save for later patching
 
 ; Pre-square the number as much as possible.
 
-	CALL_X	presq
+	call	presq
 
 ; Fill sieve for the first time
 
@@ -814,7 +814,7 @@ clrdn:	mov	last_primearray, esi	; Save for later patching
 
 ; Pre-square the number as much as possible.
 
-slp:	CALL_X	presq
+slp:	call	presq
 
 ;
 ; This is the RE-fill sieve entry point.
@@ -919,7 +919,7 @@ clear2	MACRO	b0,b1,start,incr,clrnxt
 	mov	[edi+(start+incr)/8][ebx], dl	;; Store byte #1
 	lea	edi, [edi+(start+2*incr)/8][ebx*2]
 	test	edi, sievemask		;; Past the end of the sieve?
-	JZ_X	clrnxt
+	jz	clrnxt
 	sub	edi, sievesize		;; U - Sieve address for next time
 	mov	[ebp-12+8], OFFSET clrnxt ;; V - Save jump addr for next time
 	mov	[ebp-12+4], edi		;; U - Save sieve address for next time
@@ -938,7 +938,7 @@ clear3	MACRO	b0,start,incr,clrnxt
 	mov	[edi], al		;;*U - Store byte #0
 	lea	edi, [edi+(start+incr)/8][ebx] ;; V
 	test	edi, sievemask		;; U - Past the end of the sieve?
-	JZ_X	clrnxt			;; V
+	jz	clrnxt			;; V
 	sub	edi, sievesize		;; U - Sieve address for next time
 	mov	[ebp-12+8], OFFSET clrnxt ;; V - Save jump addr for next time
 	mov	[ebp-12+4], edi		;; U - Save sieve address for next time
@@ -954,7 +954,7 @@ clear4	MACRO	b0,start,incr,clrnxt
 	LOCAL	stay
 ;;	align	4
 	test	edi, sievemask		;; U - Past the end of the sieve?
-	JNZ_X	stay			;; V - Yes, stay here next dispatch
+	jnz	short stay		;; V - Yes, stay here next dispatch
 	mov	ebx, [ebp-12]		;; U - Load small prime divided by 8
 	mov	al, [edi]		;; V - Load byte #0
 	mov	[ebp-12+8], OFFSET clrnxt ;; U - Save jump addr for next time
@@ -1124,61 +1124,61 @@ tlp60:	mov	esi, sieve
 	mov	eax, [esi]
 	lea	esi, [esi+4]
 tx0:	test	al, 01h
-	JNZ_X	tst0
+	jnz	tst0
 tx1:	test	al, 02h
-	JNZ_X	tst1
+	jnz	tst1
 tx2:	test	al, 04h
-	JNZ_X	tst2
+	jnz	tst2
 tx3:	test	al, 08h
-	JNZ_X	tst3
+	jnz	tst3
 tx4:	test	al, 10h
-	JNZ_X	tst4
+	jnz	tst4
 tx5:	test	al, 20h
-	JNZ_X	tst5
+	jnz	tst5
 tx6:	test	al, 40h
-	JNZ_X	tst6
+	jnz	tst6
 tx7:	test	al, 80h
-	JNZ_X	tst7
+	jnz	tst7
 tx8:	test	eax, 100h
-	JNZ_X	tst8
+	jnz	tst8
 tx9:	test	eax, 200h
-	JNZ_X	tst9
+	jnz	tst9
 tx10:	test	eax, 400h
-	JNZ_X	tst10
+	jnz	tst10
 tx11:	test	eax, 800h
-	JNZ_X	tst11
+	jnz	tst11
 tx12:	test	eax, 1000h
-	JNZ_X	tst12
+	jnz	tst12
 tx13:	test	eax, 2000h
-	JNZ_X	tst13
+	jnz	tst13
 tx14:	test	eax, 4000h
-	JNZ_X	tst14
+	jnz	tst14
 tx15:	test	eax, 8000h
-	JNZ_X	tst15
+	jnz	tst15
 tx16:	test	eax, 10000h
-	JNZ_X	tst16
+	jnz	tst16
 tx17:	test	eax, 20000h
-	JNZ_X	tst17
+	jnz	tst17
 tx18:	test	eax, 40000h
-	JNZ_X	tst18
+	jnz	tst18
 tx19:	test	eax, 80000h
-	JNZ_X	tst19
+	jnz	tst19
 tx20:	test	eax, 100000h
-	JNZ_X	tst20
+	jnz	tst20
 tx21:	test	eax, 200000h
-	JNZ_X	tst21
+	jnz	tst21
 tx22:	test	eax, 400000h
-	JNZ_X	tst22
+	jnz	tst22
 tx23:	test	eax, 800000h
-	JNZ_X	tst23
+	jnz	tst23
 tx24:	test	eax, 1000000h
-	JNZ_X	tst24
+	jnz	tst24
 tx25:	test	eax, 2000000h
-	JNZ_X	tst25
+	jnz	tst25
 tx26:	test	eax, 4000000h
-	JNZ_X	tst26
+	jnz	tst26
 tx27:	test	eax, 8000000h
-	JNZ_X	tst27
+	jnz	tst27
 tx28:	test	eax, 10000000h
 	jnz	short tst28
 tx29:	test	eax, 20000000h
@@ -1192,107 +1192,107 @@ tlp5:	add	fac2, 999		; U - Add facdist * 32 to the factor
 	adc	fac1, 0			; U - Add carry
 	test	esi, sievesize		; V - End of sieve?
 	lea	esi, [esi+4]		; U - Bump pointer
-	JZ_X	tx0			; V - Loop to test next sieve dword
+	jz	tx0			; V - Loop to test next sieve dword
 	mov	savefac1, fac1		; Save for the restart or more sieving
 	mov	savefac2, fac2
 
 ; Check repetition counter
 
 	dec	reps
-	JNZ_X	slp0
+	jnz	slp0
 
 ; Return so caller can check for ESC
 
 	mov	eax, 2			; Return for ESC check
 	mov	_FACMSW, fac1
-	JMP_X	done
+	jmp	done
 
 ; Entry points for testing each bit#
 
 tst28:	mov	dl, 28			; Test factor corresponding to bit 28
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst29:	mov	dl, 29			; Test factor corresponding to bit 29
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst30:	mov	dl, 30			; Test factor corresponding to bit 30
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst31:	mov	dl, 31			; Test factor corresponding to bit 31
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst27:	mov	dl, 27			; Test factor corresponding to bit 27
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst26:	mov	dl, 26			; Test factor corresponding to bit 26
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst25:	mov	dl, 25			; Test factor corresponding to bit 25
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst24:	mov	dl, 24			; Test factor corresponding to bit 24
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst23:	mov	dl, 23			; Test factor corresponding to bit 23
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst22:	mov	dl, 22			; Test factor corresponding to bit 22
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst21:	mov	dl, 21			; Test factor corresponding to bit 21
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst20:	mov	dl, 20			; Test factor corresponding to bit 20
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst19:	mov	dl, 19			; Test factor corresponding to bit 19
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst18:	mov	dl, 18			; Test factor corresponding to bit 18
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst17:	mov	dl, 17			; Test factor corresponding to bit 17
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst16:	mov	dl, 16			; Test factor corresponding to bit 16
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst15:	mov	dl, 15			; Test factor corresponding to bit 15
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst14:	mov	dl, 14			; Test factor corresponding to bit 14
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst13:	mov	dl, 13			; Test factor corresponding to bit 13
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst12:	mov	dl, 12			; Test factor corresponding to bit 12
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst11:	mov	dl, 11			; Test factor corresponding to bit 11
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
-	JMP_X	testit
+	jmp	testit
 tst10:	mov	dl, 10			; Test factor corresponding to bit 10
 	add	fac2, 999		; Compute factor to test
 	adc	fac1, 0
@@ -1561,7 +1561,7 @@ sqloop:	fmul	st, st			;1 rem^2,fhi,rem
 	fxch	st(1)			;   res,rem,fhi,reslo
 	faddp	st(3), st(0)		;33 rem,fhi,rem
 	dec	ecx			;34u
-	JNZ_X	sqloop			;34v
+	jnz	sqloop			;34v
 
 ;
 ; If result = 1 mod factor, then we found a divisor of 2**p - 1.
@@ -1629,61 +1629,61 @@ tlp62:	mov	esi, sieve
 	lea	esi, [esi+4]
 	mov	edi, -2			; Count of queued factors to be tested
 vx0:	test	al, 01h
-	JNZ_X	vst0
+	jnz	vst0
 vx1:	test	al, 02h
-	JNZ_X	vst1
+	jnz	vst1
 vx2:	test	al, 04h
-	JNZ_X	vst2
+	jnz	vst2
 vx3:	test	al, 08h
-	JNZ_X	vst3
+	jnz	vst3
 vx4:	test	al, 10h
-	JNZ_X	vst4
+	jnz	vst4
 vx5:	test	al, 20h
-	JNZ_X	vst5
+	jnz	vst5
 vx6:	test	al, 40h
-	JNZ_X	vst6
+	jnz	vst6
 vx7:	test	al, 80h
-	JNZ_X	vst7
+	jnz	vst7
 vx8:	test	eax, 100h
-	JNZ_X	vst8
+	jnz	vst8
 vx9:	test	eax, 200h
-	JNZ_X	vst9
+	jnz	vst9
 vx10:	test	eax, 400h
-	JNZ_X	vst10
+	jnz	vst10
 vx11:	test	eax, 800h
-	JNZ_X	vst11
+	jnz	vst11
 vx12:	test	eax, 1000h
-	JNZ_X	vst12
+	jnz	vst12
 vx13:	test	eax, 2000h
-	JNZ_X	vst13
+	jnz	vst13
 vx14:	test	eax, 4000h
-	JNZ_X	vst14
+	jnz	vst14
 vx15:	test	eax, 8000h
-	JNZ_X	vst15
+	jnz	vst15
 vx16:	test	eax, 10000h
-	JNZ_X	vst16
+	jnz	vst16
 vx17:	test	eax, 20000h
-	JNZ_X	vst17
+	jnz	vst17
 vx18:	test	eax, 40000h
-	JNZ_X	vst18
+	jnz	vst18
 vx19:	test	eax, 80000h
-	JNZ_X	vst19
+	jnz	vst19
 vx20:	test	eax, 100000h
-	JNZ_X	vst20
+	jnz	vst20
 vx21:	test	eax, 200000h
-	JNZ_X	vst21
+	jnz	vst21
 vx22:	test	eax, 400000h
-	JNZ_X	vst22
+	jnz	vst22
 vx23:	test	eax, 800000h
-	JNZ_X	vst23
+	jnz	vst23
 vx24:	test	eax, 1000000h
-	JNZ_X	vst24
+	jnz	vst24
 vx25:	test	eax, 2000000h
-	JNZ_X	vst25
+	jnz	vst25
 vx26:	test	eax, 4000000h
-	JNZ_X	vst26
+	jnz	vst26
 vx27:	test	eax, 8000000h
-	JNZ_X	vst27
+	jnz	vst27
 vx28:	test	eax, 10000000h
 	jnz	short vst28
 vx29:	test	eax, 20000000h
@@ -1697,95 +1697,95 @@ vlp5:	add	ebp, 999		; U - Add facdist * 32 to the factor
 	adc	ebx, 0			; U - Add carry
 	test	esi, sievesize		; V - End of sieve?
 	lea	esi, [esi+4]		; U - Bump pointer
-	JZ_X	vx0			; V - Loop to test next sieve dword
-	JMP_X	vlpdn
+	jz	vx0			; V - Loop to test next sieve dword
+	jmp	vlpdn
 
 ; Entry points for testing each bit#
 
 vst28:	mov	dl, 28			; Test factor corresponding to bit 28
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst29:	mov	dl, 29			; Test factor corresponding to bit 29
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst30:	mov	dl, 30			; Test factor corresponding to bit 30
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst31:	mov	dl, 31			; Test factor corresponding to bit 31
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst27:	mov	dl, 27			; Test factor corresponding to bit 27
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst26:	mov	dl, 26			; Test factor corresponding to bit 26
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst25:	mov	dl, 25			; Test factor corresponding to bit 25
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst24:	mov	dl, 24			; Test factor corresponding to bit 24
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst23:	mov	dl, 23			; Test factor corresponding to bit 23
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst22:	mov	dl, 22			; Test factor corresponding to bit 22
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst21:	mov	dl, 21			; Test factor corresponding to bit 21
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst20:	mov	dl, 20			; Test factor corresponding to bit 20
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst19:	mov	dl, 19			; Test factor corresponding to bit 19
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst18:	mov	dl, 18			; Test factor corresponding to bit 18
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst17:	mov	dl, 17			; Test factor corresponding to bit 17
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst16:	mov	dl, 16			; Test factor corresponding to bit 16
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst15:	mov	dl, 15			; Test factor corresponding to bit 15
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst14:	mov	dl, 14			; Test factor corresponding to bit 14
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst13:	mov	dl, 13			; Test factor corresponding to bit 13
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst12:	mov	dl, 12			; Test factor corresponding to bit 12
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst11:	mov	dl, 11			; Test factor corresponding to bit 11
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	vestit
+	jmp	vestit
 vst10:	mov	dl, 10			; Test factor corresponding to bit 10
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
@@ -2296,7 +2296,7 @@ vqloop:					; qhi,qlo,res,2*rhi,rlo,rem,qhi*fhi
 					; qhi,quot,res,2*rhi,rlo,rem,qhi*fhi
 	  fsub	st(1), st(0)		;69   qlo = quot - qhi
 	dec	ecx			;70u
-	JNZ_X	vqloop			;70v
+	jnz	vqloop			;70v
 
 ; Finish off the computation of fac2's remainder.  Test for rem1 and
 ; rem2 being one (after doubling and making positive).  I think this
@@ -2384,7 +2384,7 @@ vincom:	fistp	QWORD PTR savefac2	; Save as an integer
 	mov	_FACMSW, edx		; Store MSW
 	mov	eax, 1			; Factor found!!! Return TRUE
 	add	esp, 4			; pop return address
-	JMP_X	done
+	jmp	done
 
 ; One sieve is done, save registers and see if another
 ; sieve will be tested before we check for an ESC.
@@ -2398,14 +2398,14 @@ vlpdn:	cmp	edi, -2			; Is a factor queued up?
 	fld	st(2)
 	fld	st(2)
 	fld	st(2)
-	CALL_X	vest2
+	call	vest2
 vlpdn2:	mov	savefac1, ebx		; Save for the restart or more sieving
 	mov	savefac2, ebp
 	dec	reps			; Check repetition counter
-	JNZ_X	slp0
+	jnz	slp0
 	mov	eax, 2			; Return for ESC check
 	mov	_FACMSW, ebx
-	JMP_X	done
+	jmp	done
 
 
 ;***********************************************************************
@@ -2432,61 +2432,61 @@ tlp64:	mov	esi, sieve
 	mov	eax, [esi]		; Load first sieve word
 	lea	esi, [esi+4]
 wx0:	test	al, 01h
-	JNZ_X	wst0
+	jnz	wst0
 wx1:	test	al, 02h
-	JNZ_X	wst1
+	jnz	wst1
 wx2:	test	al, 04h
-	JNZ_X	wst2
+	jnz	wst2
 wx3:	test	al, 08h
-	JNZ_X	wst3
+	jnz	wst3
 wx4:	test	al, 10h
-	JNZ_X	wst4
+	jnz	wst4
 wx5:	test	al, 20h
-	JNZ_X	wst5
+	jnz	wst5
 wx6:	test	al, 40h
-	JNZ_X	wst6
+	jnz	wst6
 wx7:	test	al, 80h
-	JNZ_X	wst7
+	jnz	wst7
 wx8:	test	eax, 100h
-	JNZ_X	wst8
+	jnz	wst8
 wx9:	test	eax, 200h
-	JNZ_X	wst9
+	jnz	wst9
 wx10:	test	eax, 400h
-	JNZ_X	wst10
+	jnz	wst10
 wx11:	test	eax, 800h
-	JNZ_X	wst11
+	jnz	wst11
 wx12:	test	eax, 1000h
-	JNZ_X	wst12
+	jnz	wst12
 wx13:	test	eax, 2000h
-	JNZ_X	wst13
+	jnz	wst13
 wx14:	test	eax, 4000h
-	JNZ_X	wst14
+	jnz	wst14
 wx15:	test	eax, 8000h
-	JNZ_X	wst15
+	jnz	wst15
 wx16:	test	eax, 10000h
-	JNZ_X	wst16
+	jnz	wst16
 wx17:	test	eax, 20000h
-	JNZ_X	wst17
+	jnz	wst17
 wx18:	test	eax, 40000h
-	JNZ_X	wst18
+	jnz	wst18
 wx19:	test	eax, 80000h
-	JNZ_X	wst19
+	jnz	wst19
 wx20:	test	eax, 100000h
-	JNZ_X	wst20
+	jnz	wst20
 wx21:	test	eax, 200000h
-	JNZ_X	wst21
+	jnz	wst21
 wx22:	test	eax, 400000h
-	JNZ_X	wst22
+	jnz	wst22
 wx23:	test	eax, 800000h
-	JNZ_X	wst23
+	jnz	wst23
 wx24:	test	eax, 1000000h
-	JNZ_X	wst24
+	jnz	wst24
 wx25:	test	eax, 2000000h
-	JNZ_X	wst25
+	jnz	wst25
 wx26:	test	eax, 4000000h
-	JNZ_X	wst26
+	jnz	wst26
 wx27:	test	eax, 8000000h
-	JNZ_X	wst27
+	jnz	wst27
 wx28:	test	eax, 10000000h
 	jnz	short wst28
 wx29:	test	eax, 20000000h
@@ -2500,98 +2500,98 @@ wlp5:	add	ebp, 999		; U - Add facdist * 32 to the factor
 	adc	ebx, 0			; U - Add carry
 	test	esi, sievesize		; V - End of sieve?
 	lea	esi, [esi+4]		; U - Bump pointer
-	JZ_X	wx0			; V - Loop to test next sieve dword
+	jz	wx0			; V - Loop to test next sieve dword
 	add	ebx, base_int
-	JNC_X	wlpdn			; Jump if not past the 64-bit limit?
+	jnc	wlpdn			; Jump if not past the 64-bit limit?
 	mov	ebx, -1			; Indicate end of testing
-	JMP_X	wlpdn1			; Rejoin code that returns
+	jmp	wlpdn1			; Rejoin code that returns
 
 ; Entry points for testing each bit#
 
 wst28:	mov	dl, 28			; Test factor corresponding to bit 28
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst29:	mov	dl, 29			; Test factor corresponding to bit 29
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst30:	mov	dl, 30			; Test factor corresponding to bit 30
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst31:	mov	dl, 31			; Test factor corresponding to bit 31
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst27:	mov	dl, 27			; Test factor corresponding to bit 27
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst26:	mov	dl, 26			; Test factor corresponding to bit 26
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst25:	mov	dl, 25			; Test factor corresponding to bit 25
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst24:	mov	dl, 24			; Test factor corresponding to bit 24
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst23:	mov	dl, 23			; Test factor corresponding to bit 23
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst22:	mov	dl, 22			; Test factor corresponding to bit 22
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst21:	mov	dl, 21			; Test factor corresponding to bit 21
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst20:	mov	dl, 20			; Test factor corresponding to bit 20
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst19:	mov	dl, 19			; Test factor corresponding to bit 19
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst18:	mov	dl, 18			; Test factor corresponding to bit 18
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst17:	mov	dl, 17			; Test factor corresponding to bit 17
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst16:	mov	dl, 16			; Test factor corresponding to bit 16
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst15:	mov	dl, 15			; Test factor corresponding to bit 15
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst14:	mov	dl, 14			; Test factor corresponding to bit 14
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst13:	mov	dl, 13			; Test factor corresponding to bit 13
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst12:	mov	dl, 12			; Test factor corresponding to bit 12
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst11:	mov	dl, 11			; Test factor corresponding to bit 11
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
-	JMP_X	westit
+	jmp	westit
 wst10:	mov	dl, 10			; Test factor corresponding to bit 10
 	add	ebp, 999		; Compute factor to test
 	adc	ebx, 0
@@ -3168,7 +3168,7 @@ wqloop:					; qhi,qlo,res,2*rhi,rlo,rem,qhi*fhi
 					; qhi,quot,res,2*rhi,rlo,rem,qhi*fhi
 	  fsub	st(1), st(0)		;81   qlo = quot - qhi
 	dec	ecx			;82u
-	JNZ_X	wqloop			;82v
+	jnz	wqloop			;82v
 
 ; Finish off the computation of fac2's remainder.  Test for rem1 and
 ; rem2 being one (after doubling and making positive).  I think this
@@ -3261,7 +3261,7 @@ wincom:	fsub	ONE			; Make it fit in 63 bits
 	mov	_FACMSW, edx		; Store MSW
 	mov	eax, 1			; Factor found!!! Return TRUE
 	add	esp, 4			; pop return address
-	JMP_X	done
+	jmp	done
 
 ; One sieve is done, save registers and see if another
 ; sieve will be tested before we check for an ESC.
@@ -3274,22 +3274,22 @@ wlpdn:	cmp	edi, -2			; Is a factor queued up?
 	fstp	FACLO2
 	fld	st(1)
 	fld	st(1)
-	CALL_X	west2
+	call	west2
 wlpdn2:	mov	savefac1, ebx		; Save for the restart or more sieving
 	mov	savefac2, ebp
 	dec	reps			; Check repetition counter
-	JNZ_X	slp0
+	jnz	slp0
 	cmp	ebx, -1			; do one more rep if FACMSW is maxed
 	jne	short wlpdn1
 	inc	reps
-	JMP_X	slp0
+	jmp	slp0
 wlpdn1:	mov	eax, 2			; Return for ESC check
 	mov	_FACMSW, ebx
 	cmp	ebx, -1			; Check for special value
-	JNE_X	done
+	jne	done
 	mov	_FACHSW, 1		; Return 2^64
 	mov	_FACMSW, 0
-	JMP_X	done
+	jmp	done
 
 ;***********************************************************************
 ; For 486 machines only
@@ -3306,51 +3306,51 @@ ulp:	mov	esi, sieve
 	mov	eax, [esi]
 	lea	esi, [esi+4]
 ux0:	test	al, 01h
-	JNZ_X	ust0
+	jnz	ust0
 ux1:	test	al, 02h
-	JNZ_X	ust1
+	jnz	ust1
 ux2:	test	al, 04h
-	JNZ_X	ust2
+	jnz	ust2
 ux3:	test	al, 08h
-	JNZ_X	ust3
+	jnz	ust3
 ux4:	test	al, 10h
-	JNZ_X	ust4
+	jnz	ust4
 ux5:	test	al, 20h
-	JNZ_X	ust5
+	jnz	ust5
 ux6:	test	al, 40h
-	JNZ_X	ust6
+	jnz	ust6
 ux7:	test	al, 80h
-	JNZ_X	ust7
+	jnz	ust7
 ux8:	test	eax, 100h
-	JNZ_X	ust8
+	jnz	ust8
 ux9:	test	eax, 200h
-	JNZ_X	ust9
+	jnz	ust9
 ux10:	test	eax, 400h
-	JNZ_X	ust10
+	jnz	ust10
 ux11:	test	eax, 800h
-	JNZ_X	ust11
+	jnz	ust11
 ux12:	test	eax, 1000h
-	JNZ_X	ust12
+	jnz	ust12
 ux13:	test	eax, 2000h
-	JNZ_X	ust13
+	jnz	ust13
 ux14:	test	eax, 4000h
-	JNZ_X	ust14
+	jnz	ust14
 ux15:	test	eax, 8000h
-	JNZ_X	ust15
+	jnz	ust15
 ux16:	test	eax, 10000h
-	JNZ_X	ust16
+	jnz	ust16
 ux17:	test	eax, 20000h
-	JNZ_X	ust17
+	jnz	ust17
 ux18:	test	eax, 40000h
-	JNZ_X	ust18
+	jnz	ust18
 ux19:	test	eax, 80000h
-	JNZ_X	ust19
+	jnz	ust19
 ux20:	test	eax, 100000h
-	JNZ_X	ust20
+	jnz	ust20
 ux21:	test	eax, 200000h
-	JNZ_X	ust21
+	jnz	ust21
 ux22:	test	eax, 400000h
-	JNZ_X	ust22
+	jnz	ust22
 ux23:	test	eax, 800000h
 	jnz	short ust23
 ux24:	test	eax, 1000000h
@@ -3374,20 +3374,20 @@ ulp5:	add	fac2, 999		; U - Add facdist * 32 to the factor
 	adc	fac1, 0			; U - Add carry
 	test	esi, sievesize		; V - End of sieve?
 	lea	esi, [esi+4]		; U - Bump pointer
-	JZ_X	ux0			; V - Loop to test next sieve dword
+	jz	ux0			; V - Loop to test next sieve dword
 	mov	savefac1, fac1		; Save for the restart or more sieving
 	mov	savefac2, fac2
 
 ; Check repetition counter
 
 	dec	reps
-	JNZ_X	slp0
+	jnz	slp0
 
 ; Return so caller can check for ESC
 
 	mov	eax, 2			; Return for ESC check
 	mov	_FACMSW, fac1
-	JMP_X	done
+	jmp	done
 
 ; Entry points for testing each bit#
 ; This scheme is faster on 486 where the above sieve testing code
@@ -3535,17 +3535,17 @@ uqloop:	mov	rem1, edi		; Write remainder to memory
 ;
 
 	add	ebp, ebp		; One squaring completed, shift
-	JNC_X	uqloop			; Is a mul by 2 needed?
+	jnc	uqloop			; Is a mul by 2 needed?
 	jz	short uqexit		; Are we done squaring?
 	add	esi, esi		; Multiply remainder by 2
 	adc	edi, edi
 	jc	short uaddf		; Jump if remainder is negative
 	sub	esi, fac2		; Sub fac so that |remainder| < factor
 	sbb	edi, fac1
-	JMP_X	uqloop
+	jmp	uqloop
 uaddf:	add	esi, fac2		; Add fac so that |remainder| < factor
 	adc	edi, fac1
-	JMP_X	uqloop
+	jmp	uqloop
 
 ;
 ; Multiply remainder by two one last time (for the last carry out of shifter)
@@ -3584,7 +3584,7 @@ umaybe:	cmp	esi, 1
 	mov	_FACLSW, fac2
 	add	esp, 8			; pop sieve testing register
 					; and testit's return address
-	JMP_X	done
+	jmp	done
 
 
 ;***********************************************************************
@@ -3611,14 +3611,14 @@ px1:	bsf	edx, eax		; Look for a set bit
 ; Check repetition counter
 
 	dec	reps
-	JNZ_X	slp0
+	jnz	slp0
 
 ; Return so caller can check for ESC
 
 	mov	eax, savefac1		; Return for ESC check
 	mov	_FACMSW, eax
 	mov	eax, 2
-	JMP_X	done
+	jmp	done
 
 ;
 ; This is the Pentium Pro version of testit.  It gathers 4 potential factors
@@ -3646,7 +3646,7 @@ pestit:	fld	QWORD PTR facdistsflt[edx*8] ; Determine factor to test
 	btr	eax, edx		; Clear the sieve bit
 	inc	edi			; One more factor queued up
 	cmp	edi, 4			; Have enough been queued up?
-	JNE_X	px1			; No, go test more sieve bits
+	jne	px1			; No, go test more sieve bits
 
 ;
 ; Now test the 4 factors
@@ -3799,7 +3799,7 @@ pqloop:	fild	QWORD PTR rem2		; Load remainder
 	sub	ecx, edx
 
 	add	ebp, ebp		; Will a mul by 2 be needed?
-	JC_X	pmul2			; Yes, go to that code
+	jc	pmul2			; Yes, go to that code
 
 	mov	rem2, esi
 	mov	rem1, edi
@@ -3847,13 +3847,13 @@ pqloop:	fild	QWORD PTR rem2		; Load remainder
 	mov	rem5, edi
 	mov	rem8, ebx
 	mov	rem7, ecx
-	JMP_X	pqloop
+	jmp	pqloop
 
 ;
 ; Multiply by two after finding the remainder
 ;
 
-pmul2:	JZ_X	pqexit			; Jmp if this is the last iteration
+pmul2:	jz	pqexit			; Jmp if this is the last iteration
 
 	mov	eax, pfac2
 	mov	edx, pfac1
@@ -3935,7 +3935,7 @@ pmul2:	JZ_X	pqexit			; Jmp if this is the last iteration
 	adc	ecx, edx		; |remainder| < factor
 	mov	rem8, ebx
 	mov	rem7, ecx
-	JMP_X	pqloop
+	jmp	pqloop
 
 ;
 ; After doubling the remainders, see if we've found a factor.
@@ -3957,7 +3957,7 @@ pqexit:	fxch	st(4)
 	cmp	eax, pneg2		; Is value equal to -factor?
 	jne	short pq2a		; No
 pwin1:	xor	eax, eax		; Set al to indicate pfac1/pfac2
-	CALL_X	pwin			; Go to found-a-factor code
+	call	pwin			; Go to found-a-factor code
 pq2a:	lea	eax, [ebx*2-1]		; Compute LSW of remainder*2-1
 	cmp	eax, pfac4		; Is value equal to factor?
 	je	short pwin2		; Jump if it might be
@@ -3966,7 +3966,7 @@ pq2a:	lea	eax, [ebx*2-1]		; Compute LSW of remainder*2-1
 pwin2:	mov	esi, ebx		; pwin expects remainder in edi/esi
 	mov	edi, ecx
 	mov	al, 1			; Set al to indicate pfac3/pfac4
-	CALL_X	pwin			; Go to found-a-factor code
+	call	pwin			; Go to found-a-factor code
 
 pq3a:	mov	edi, rem5		; Load rem5
 	mov	eax, rem6		; Load rem6
@@ -4011,7 +4011,7 @@ pq3a:	mov	edi, rem5		; Load rem5
 	cmp	eax, pneg6		; Is value equal to -factor?
 	jne	short pq4a		; No
 pwin3:	mov	al, 2			; Set al to indicate pfac5/pfac6
-	CALL_X	pwin			; Go to found-a-factor code
+	call	pwin			; Go to found-a-factor code
 pq4a:	lea	eax, [ebx*2-1]		; Compute LSW of remainder*2-1
 	cmp	eax, pfac8		; Is value equal to factor?
 	je	short pwin4		; Jump if it might be
@@ -4020,14 +4020,14 @@ pq4a:	lea	eax, [ebx*2-1]		; Compute LSW of remainder*2-1
 pwin4:	mov	esi, ebx		; pwin expects remainder in edi/esi
 	mov	edi, ecx
 	mov	al, 3			; Set edi to indicate pfac7/pfac8
-	CALL_X	pwin			; Go to found-a-factor code
+	call	pwin			; Go to found-a-factor code
 
 ; No factors found, go search for more
 
 pret:	pop	eax			; Restore sieve testing registers
 	pop	esi
 	sub	edi, edi		; Clear count of queued factors
-	JMP_X	px1			; Test next factor from sieve
+	jmp	px1			; Test next factor from sieve
 
 ; We probably found a factor, test it out more thoroughly
 
@@ -4056,7 +4056,7 @@ pfound:	fstp	temp			; Toss the value on the FPU stack
 	mov	eax, 1			; Factor found!!! Return TRUE
 	add	esp, 12			; Pop sieve testing registers
 					; and the pwin return address
-	JMP_X	done
+	jmp	done
 
 ;***********************************************************************
 ; For all machines - 80 bit factors
@@ -4096,14 +4096,14 @@ zx1:	bsf	edx, eax		; Look for a set bit
 ; Check repetition counter
 
 	dec	reps
-	JNZ_X	slp0
+	jnz	slp0
 
 ; Return so caller can check for ESC
 
 	mov	_FACMSW, eax
 	mov	_FACHSW, edx
 	mov	eax, 2
-	JMP_X	done
+	jmp	done
 
 ;
 ; This is the version of testit for nearly 80-bit factors.
@@ -4333,12 +4333,12 @@ zzz:
 ;
 
 	add	ebp, ebp		; One squaring completed, shift
-	JNC_X	zqloop			; Is a mul by 2 needed?
+	jnc	zqloop			; Is a mul by 2 needed?
 	jz	short zqexit		; Are we done squaring?
 	add	esi, esi		; Multiply remainder by 2
 	adc	ecx, ecx
 	adc	ebx, ebx
-	JMP_X	zqloop
+	jmp	zqloop
 ;
 ; Multiply remainder by two one last time (for the last carry out of shifter)
 ; If result = 1 mod factor, then we found a divisor of 2**p - 1
@@ -4357,7 +4357,7 @@ zqexit:	fstp	quotient2		; Pop 1 / factor from FPU
 	jz	short zwin
 zloser:	pop	esi			; Restore sieve testing register
 	pop	eax
-	JMP_X	zx1			; Test next factor from sieve
+	jmp	zx1			; Test next factor from sieve
 zwin:	mov	eax, fachigh		; Factor found!!! Return it
 	mov	_FACHSW, eax
 	mov	eax, facmid
@@ -4366,7 +4366,7 @@ zwin:	mov	eax, fachigh		; Factor found!!! Return it
 	mov	_FACLSW, eax
 	add	esp, 8			; pop sieve testing registers
 	mov	eax, 1			; return TRUE
-	JMP_X	done
+	jmp	done
 
 ;***********************************************************************
 ; For SSE2 machines only - factors up to 86 bits
@@ -4407,14 +4407,14 @@ ax1:	bsf	edx, eax		; Look for a set bit
 ; Check repetition counter
 
 	dec	reps
-	JNZ_X	slp0
+	jnz	slp0
 
 ; Return so caller can check for ESC
 
 	mov	_FACMSW, eax
 	mov	_FACHSW, edx
 	mov	eax, 2
-	JMP_X	done
+	jmp	done
 
 ;
 ; This is the SSE2 version of testit for nearly 86-bit factors.
@@ -4486,7 +4486,7 @@ aestit:	fld	QWORD PTR facdistsflt[edx*8]
 	mov	ecx, SSE2_LOOP_COUNTER	; Number of times to loop
 aqloop:	sse2_fac 74
 	dec	ecx			; Decrement loop counter
-	JNZ_X	aqloop
+	jnz	aqloop
 
 ;
 ; If result = factor + 1, then we found a divisor of 2**p - 1
@@ -4502,7 +4502,7 @@ aqloop:	sse2_fac 74
 	je	short awin1		; Yes! Factor found
 	cmp	ch, 0FFh		; See if we matched
 	je	short awin2		; Yes! Factor found
-	JMP_X	ax1			; Test next factor from sieve
+	jmp	ax1			; Test next factor from sieve
 awin1:	mov	eax, XMM_F3		; Factor found!!! Return it
 	mov	ebx, XMM_F2
 	mov	ecx, XMM_F1
@@ -4519,7 +4519,7 @@ awin3:	shl	eax, 2
 	mov	_FACMSW, ebx
 	mov	_FACHSW, ecx
 	mov	eax, 1			; return TRUE
-	JMP_X	done
+	jmp	done
 
 ;
 ; Check all the bits in the sieve looking for a factor to test
@@ -4556,14 +4556,14 @@ bx1:	bsf	edx, eax		; Look for a set bit
 ; Check repetition counter
 
 	dec	reps
-	JNZ_X	slp0
+	jnz	slp0
 
 ; Return so caller can check for ESC
 
 	mov	_FACMSW, eax
 	mov	_FACHSW, edx
 	mov	eax, 2
-	JMP_X	done
+	jmp	done
 
 ;
 ; This is the SSE2 version of testit for nearly 86-bit factors.
@@ -4635,7 +4635,7 @@ bestit:	fld	QWORD PTR facdistsflt[edx*8]
 	mov	ecx, SSE2_LOOP_COUNTER	; Number of times to loop
 bqloop:	sse2_fac 86
 	dec	ecx			; Decrement loop counter
-	JNZ_X	bqloop
+	jnz	bqloop
 
 ;
 ; If result = factor + 1, then we found a divisor of 2**p - 1
@@ -4651,7 +4651,7 @@ bqloop:	sse2_fac 86
 	je	awin1			; Yes! Factor found
 	cmp	ch, 0FFh		; See if we matched
 	je	awin2			; Yes! Factor found
-	JMP_X	bx1			; Test next factor from sieve
+	jmp	bx1			; Test next factor from sieve
 
 _factor64 ENDP
 

@@ -1,4 +1,4 @@
-/* Copyright 1995-2002 Just For Fun Software, Inc. */
+/* Copyright 1995-2004 Just For Fun Software, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 

@@ -1,6 +1,6 @@
 /* Constants */
 
-#define VERSION		"2.3"
+#define VERSION		"3.0"
 
 /* Global variables */
 

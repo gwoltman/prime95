@@ -1,12 +1,11 @@
-; Copyright 1995-2000 Just For Fun Software, Inc., all rights reserved
+; Copyright 1995-2004 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
 ; This routine implements a discrete weighted transform to quickly multiply
 ; two numbers.
 ;
-; This code handles FFTs that use the very convoluted memory model.
-; FFT sizes greater than 64K doubles are supported.
+; This code handles FFTs that uses a scratch area in pass 1.
 ;
 ; You will not stand a chance of understanding any of this code without
 ; thoroughly familiarizing yourself with fast fourier transforms.  This
@@ -28,66 +27,73 @@ INCLUDE	unravel.mac
 INCLUDE	lucas.mac
 INCLUDE pfa.mac
 INCLUDE mult.mac
-INCLUDE fft3.mac
+INCLUDE pass1.mac
+INCLUDE fft4.mac
 INCLUDE memory.mac
+INCLUDE normal.mac
 
 IFDEF PPRO
 INCLUDE	lucasp.mac
 ENDIF
 
-EXTRNP	pass1_6_levels_fft
-EXTRNP	pass1_6_levels_unfft
-EXTRNP	pass1_6a_levels_fft
-EXTRNP	pass1_6a_levels_unfft
-EXTRNP	pass1_6_levels_fftp
-EXTRNP	pass1_6_levels_unfftp
-EXTRNP	pass1_7_levels_fft
-EXTRNP	pass1_7_levels_unfft
-EXTRNP	pass1_7a_levels_fft
-EXTRNP	pass1_7a_levels_unfft
-EXTRNP	pass1_7_levels_fftp
-EXTRNP	pass1_7_levels_unfftp
-EXTRNP	pass2_8_levels_type_123
-EXTRNP	pass2_8_levels_type_123p
-EXTRNP	pass2_8_levels_type_4
-EXTRNP	pass2_8_levels_type_4p
+EXTRN gw_finish_fft:PROC
+EXTRN gw_carries:PROC
+EXTRN gw_finish_mult:PROC
 
-	very_convoluted_distances
+EXTRNP	pass2_12_levels
+EXTRNP	pass2_12_levels_p
+
+	flat_distances
 
 ;; All the FFT routines for each FFT length
 
 PROCP	_gw_ffts4
 	EXPANDING = 2
-	fft	80K
-	fft	96K
-	fft	112K
-	fft	128K
-	fft	128K, p
-	fft	160K
-	fft	192K
-	fft	224K
-	fft	256K
-	fft	256K, p
-	fft	320K
-	fft	384K
-	fft	448K
-	fft	512K
-	fft	512K, p
-	fft	640K
-	fft	768K
-	fft	896K
-	fft	1024K
-	fft	1024K, p
+
+;; Distance between two pass 2 data blocks.  Pass 2 does 12 FFT levels.
+;; 2^12 complex values = 2^13 doubles = 64KB.
+
+blkdst = (16*(4096+64)+64)
+
+;	fft	80K
+;	fft	96K
+;	fft	96Kp
+;	fft	112K
+;	fft	128K
+;	fft	128Kp
+;	fft	160K
+;	fft	192K
+;	fft	192Kp
+;	fft	224K
+;	fft	256K
+;	fft	256Kp
+;	fft	320K
+;	fft	384K
+;	fft	384Kp
+;	fft	448K
+;	fft	512K
+;	fft	512Kp
+
+INCLUDE pass1scr.mac
+
+;	fft	640K
+;	fft	768K
+;	fft	768Kp
+;	fft	896K
+;	fftclm	1024K, 2
+;	fft	1024Kp
 	fft	1280K
 	fft	1536K
+	fft	1536Kp
 	fft	1792K
-	fft	2048K
-	fft	2048K, p
-	fft	2560K
-	fft	3072K
-	fft	3584K
-	fft	4096K
-	fft	4096K, p
+	fftclm	2048K, 2
+	fft	2048Kp
+	fftclm	2560K, 2
+	fftclm	3072K, 2
+	fftclm	3072Kp, 2
+	fftclm	3584K, 2
+	fftclm	4096K, 2
+	fftclm	4096Kp, 2
 ENDPP	_gw_ffts4
 
 _TEXT32	ENDS

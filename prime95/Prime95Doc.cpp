@@ -499,11 +499,13 @@ void CPrime95Doc::OnPminus1()
 	if (dlg.DoModal () == IDOK) {
 		work_unit w;
 		w.work_type = WORK_PMINUS1;
-		w.p = dlg.m_p;
+		w.k = 1.0;
+		w.b = 2;
+		w.n = dlg.m_p;
+		w.c = dlg.m_plus1 ? 1 : -1;
 		w.B1 = dlg.m_bound1;
 		w.B2_start = 0;
 		w.B2_end = dlg.m_bound2;
-		w.plus1 = dlg.m_plus1;
 		addWorkToDoLine (&w);
 		OnContinue ();
 	}
@@ -523,14 +525,15 @@ void CPrime95Doc::OnEcm()
 	if (dlg.DoModal () == IDOK) {
 		work_unit w;
 		w.work_type = WORK_ECM;
-		w.p = dlg.m_p;
+		w.k = 1.0;
+		w.b = 2;
+		w.n = dlg.m_p;
+		w.c = dlg.m_plus1 ? 1 : -1;
 		w.B1 = dlg.m_bound1;
 		w.B2_start = 0;
 		w.B2_end = dlg.m_bound2;
 		w.curves_to_do = dlg.m_num_curves;
-		w.curves_completed = 0;
 		w.curve = dlg.m_curve;
-		w.plus1 = dlg.m_plus1;
 		addWorkToDoLine (&w);
 		OnContinue ();
 	}

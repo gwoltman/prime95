@@ -1,7 +1,6 @@
-; Copyright 1995-2000 Just For Fun Software, Inc., all rights reserved
+; Copyright 1995-2004 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
-;
 ;
 
 	TITLE   setup
@@ -19,7 +18,7 @@ INCLUDE mult.mac
 INCLUDE memory.mac
 INCLUDE normal.mac
 
-	dist1 =	8
+	flat_distances
 
 ;;
 ;; Add two numbers without carry propogation.  Caller can use this for
@@ -30,52 +29,12 @@ INCLUDE normal.mac
 IFNDEF PPRO
 	PUBLIC	gwaddq1
 gwaddq1	PROC NEAR
-	mov	ecx, _SRCARG		; U - Address of first number
-	mov	edx, _SRC2ARG		; V - Address of second number
-	push	esi			; U - Save registers
-	push	edi			; V - Save registers
-	mov	eax, [ecx-4]		; U - Load needs-normalize counter
-	mov	edi, [edx-4]		; V - Load needs-normalize counter
-	mov	esi, _DESTARG		; U - Address of destination
-					; V - Stall
-	lea	eax, [eax+edi+1]	; U - Set new needs-normalize counter
-	mov	edi, _FFTLEN		; V - Load loop counter
-	mov	[esi-4], eax		; U - Store needs-normalize counter
-	jmp	short uaddlp		; V - Do the unnormalized add
-gwaddq1	ENDP
-
-
-;;
-;; Add two numbers.  This will be done without carry propogation
-;; (for extra speed) if it can be done safely.
-;;
-
-	PUBLIC	gwadd1
-gwadd1	PROC NEAR
-
-; See if add can be done without normalization
-
-	mov	ecx, _SRCARG		; U - Address of first number
-	mov	edx, _SRC2ARG		; V - Address of second number
-	push	esi			; U - Save registers
-	push	edi			; V - Save registers
-	mov	eax, [ecx-4]		; U - Load needs-normalize counter
-	mov	edi, [edx-4]		; V - Load needs-normalize counter
-	mov	esi, _DESTARG		; U - Address of destination
-					; V - Stall
-	lea	eax, [eax+edi+1]	; U - Set new needs-normalize counter
-	mov	edi, extra_bits		; V - Load compare value
-	cmp	eax, edi		; U - Is normalization needed?
-	mov	edi, _FFTLEN		; V - Load loop counter
-	mov	[esi-4], eax		; U - Store needs-normalize counter
-	jg	short nadd		; V - Yes, do a normalized add
-
-; Do an unnormalized add
-; ecx = src arg #1
-; edx = src arg #2
-; esi = dest arg
-; edi = loop counter
-
+	mov	ecx, _SRCARG		; Address of first number
+	mov	edx, _SRC2ARG		; Address of second number
+	push	esi			; Save registers
+	push	edi			; Save registers
+	mov	esi, _DESTARG		; Address of destination
+	mov	edi, _FFTLEN		; Load loop counter
 uaddlp:	fld	QWORD PTR [ecx][edi*8-32] ; Load first number
 	fadd	QWORD PTR [edx][edi*8-32] ; Add in second number
 	fld	QWORD PTR [ecx][edi*8-24] ; Load first number
@@ -90,40 +49,43 @@ uaddlp:	fld	QWORD PTR [ecx][edi*8-32] ; Load first number
 	fstp	QWORD PTR [esi][edi*8-24] ; Save result
 	fstp	QWORD PTR [esi][edi*8-16] ; Save result
 	fstp	QWORD PTR [esi][edi*8-8]  ; Save result
-	sub	edi, 4			; U - Check loop counter
-	jnz	short uaddlp		; V - Loop if necessary
-	pop	edi			; U - Restore registers
-	pop	esi			; V - Restore registers
+	sub	edi, 4			; Check loop counter
+	jnz	short uaddlp		; Loop if necessary
+	pop	edi			; Restore registers
+	pop	esi			; Restore registers
 	ret
+gwaddq1	ENDP
 
-; Do a normalized add
-; ecx = src arg #1
-; edx = src arg #2
-; esi = dest arg
-; edi = loop counter
+;;
+;; Add two numbers with carry propogation
+;;
 
-nadd:	fninit
-	push	ebp			; U - Save registers
-	push	ebx			; V - Save registers
-	fld	BIGVAL			; UV - Start process with no carry
-	mov	ebx, norm_col_mults	; U - Address of the multipliers
-	mov	ebp, scaled_numlit	; V - Computes big vs little word flag
-	mov	eax, -1			; U - First word is a big word (-1)
+	PUBLIC	gwadd1
+gwadd1	PROC NEAR
+	push	esi			; Save registers
+	push	edi			; Save registers
+	push	ebp			; Save registers
+	push	ebx			; Save registers
+	mov	ecx, _SRCARG		; Address of first number
+	mov	edx, _SRC2ARG		; Address of second number
+	mov	esi, _DESTARG		; Address of destination
+	mov	ebp, _FFTLEN		; Load loop counter
+	fninit
+	fld	BIGVAL			; Start process with no carry
+	fld	BIGVAL
+	mov	ebx, norm_col_mults	; Address of the multipliers
+	mov	edi, norm_biglit_array	; Computes big vs little word flag
+	sub	eax, eax		; Clear big/lit flags
 naddlp:	norm_op_1d fadd			; Add and normalize 8 values
-	sub	edi, 8			; U - Decrement loop counter
-	JNZ_X	naddlp			; V - Loop til done
-	fsub	BIGVAL			; UV - Get carry without BIGVAL
-	mov	ecx, _DESTARG		; U - Address of squared number
-	cmp	_PLUS1, 0		; UV - Are we working mod 2^N+1
-	jz	short nadd1		; V - No, leave carry alone
-	fchs				; UV - Yes, flip carry's sign bit
-nadd1:	fadd	QWORD PTR [ecx]		; UV - Add in carry
-	mov	DWORD PTR [ecx-4], 0	; UV - Clear needs-normalize flag
-	pop	ebx			; U - Restore registers
-	pop	ebp			; V - Restore registers
-	pop	edi			; U - Restore registers
-	pop	esi			; V - Restore registers
-	fstp	QWORD PTR [ecx]		; UV - Save new value
+	sub	ebp, 8			; Decrement loop counter
+	jnz	naddlp			; Loop til done
+	mov	esi, _DESTARG		; Address of squared number
+	mov	ebx, norm_col_mults	; Address of the multipliers
+	norm_op_1d_cleanup
+	pop	ebx			; Restore registers
+	pop	ebp			; Restore registers
+	pop	edi			; Restore registers
+	pop	esi			; Restore registers
 	ret
 gwadd1	ENDP
 
@@ -136,51 +98,12 @@ gwadd1	ENDP
 
 	PUBLIC	gwsubq1
 gwsubq1	PROC NEAR
-	mov	ecx, _SRCARG		; U - Address of first number
-	mov	edx, _SRC2ARG		; V - Address of second number
-	push	esi			; U - Save registers
-	push	edi			; V - Save registers
-	mov	eax, [ecx-4]		; U - Load needs-normalize counter
-	mov	edi, [edx-4]		; V - Load needs-normalize counter
-	mov	esi, _DESTARG		; U - Address of destination
-					; V - Stall
-	lea	eax, [eax+edi+1]	; U - Set new needs-normalize counter
-	mov	edi, _FFTLEN		; V - Load loop counter
-	mov	[esi-4], eax		; U - Store needs-normalize counter
-	jmp	short usublp		; V - Do the unnormalized sub
-gwsubq1	ENDP
-
-;;
-;; Subtract two numbers.  This will be done without carry propogation
-;; (for extra speed) if it can be done safely.
-;;
-
-	PUBLIC	gwsub1
-gwsub1	PROC NEAR
-
-; See if subtract can be done without normalization
-
-	mov	ecx, _SRCARG		; U - Address of first number
-	mov	edx, _SRC2ARG		; V - Address of second number
-	push	esi			; U - Save registers
-	push	edi			; V - Save registers
-	mov	eax, [ecx-4]		; U - Load needs-normalize counter
-	mov	edi, [edx-4]		; V - Load needs-normalize counter
-	mov	esi, _DESTARG		; U - Address of destination
-					; V - Stall
-	lea	eax, [eax+edi+1]	; U - Set new needs-normalize counter
-	mov	edi, extra_bits		; V - Load compare value
-	cmp	eax, edi		; U - Is normalization needed?
-	mov	edi, _FFTLEN		; V - Load loop counter
-	mov	[esi-4], eax		; U - Store needs-normalize counter
-	jg	short nsub		; V - Yes, do a normalized subtract
-
-; Do an unnormalized subtract
-; ecx = src arg #1
-; edx = src arg #2
-; esi = dest arg
-; edi = loop counter
-
+	mov	ecx, _SRCARG		; Address of first number
+	mov	edx, _SRC2ARG		; Address of second number
+	push	esi			; Save registers
+	push	edi			; Save registers
+	mov	esi, _DESTARG		; Address of destination
+	mov	edi, _FFTLEN		; Load loop counter
 usublp:	fld	QWORD PTR [edx][edi*8-32] ; Load second number
 	fsub	QWORD PTR [ecx][edi*8-32] ; Subtract first number
 	fld	QWORD PTR [edx][edi*8-24] ; Load second number
@@ -195,40 +118,43 @@ usublp:	fld	QWORD PTR [edx][edi*8-32] ; Load second number
 	fstp	QWORD PTR [esi][edi*8-24] ; Save result
 	fstp	QWORD PTR [esi][edi*8-16] ; Save result
 	fstp	QWORD PTR [esi][edi*8-8]  ; Save result
-	sub	edi, 4			; U - Check loop counter
-	jnz	short usublp		; V - Loop if necessary
-	pop	edi			; U - Restore registers
-	pop	esi			; V - Restore registers
+	sub	edi, 4			; Check loop counter
+	jnz	short usublp		; Loop if necessary
+	pop	edi			; Restore registers
+	pop	esi			; Restore registers
 	ret
+gwsubq1	ENDP
 
-; Do a normalized subtract
-; ecx = src arg #1
-; edx = src arg #2
-; esi = dest arg
-; edi = loop counter
+;;
+;; Subtract two numbers with carry propogation
+;;
 
-nsub:	fninit
-	push	ebp			; U - Save registers
-	push	ebx			; V - Save registers
-	fld	BIGVAL			; UV - Start process with no carry
-	mov	ebx, norm_col_mults	; U - Address of the multipliers
-	mov	ebp, scaled_numlit	; V - Computes big vs little word flag
-	mov	eax, -1			; U - First word is a big word (-1)
+	PUBLIC	gwsub1
+gwsub1	PROC NEAR
+	push	esi			; Save registers
+	push	edi			; Save registers
+	push	ebp			; Save registers
+	push	ebx			; Save registers
+	mov	ecx, _SRCARG		; Address of first number
+	mov	edx, _SRC2ARG		; Address of second number
+	mov	esi, _DESTARG		; Address of destination
+	mov	ebp, _FFTLEN		; Load loop counter
+	fninit
+	fld	BIGVAL			; Start process with no carry
+	fld	BIGVAL
+	mov	ebx, norm_col_mults	; Address of the multipliers
+	mov	edi, norm_biglit_array	; Computes big vs little word flag
+	sub	eax, eax		; Clear big/lit flags
 nsublp:	norm_op_1d fsub			; Subtract and normalize 8 values
-	sub	edi, 8			; Decrement loop counter
-	JNZ_X	nsublp			; Loop til done
-	fsub	BIGVAL
-	mov	ecx, _DESTARG		; Address of squared number
-	cmp	_PLUS1, 0
-	jz	short nsub1
-	fchs
-nsub1:	fadd	QWORD PTR [ecx]		; Add in carry
-	mov	DWORD PTR [ecx-4], 0	; Clear needs-normalize flag
+	sub	ebp, 8			; Decrement loop counter
+	jnz	nsublp			; Loop til done
+	mov	esi, _DESTARG		; Address of squared number
+	mov	ebx, norm_col_mults	; Address of the multipliers
+	norm_op_1d_cleanup
 	pop	ebx
 	pop	ebp
 	pop	edi
 	pop	esi
-	fstp	QWORD PTR [ecx]		; Save new value
 	ret
 gwsub1	ENDP
 
@@ -239,56 +165,14 @@ gwsub1	ENDP
 
 	PUBLIC	gwaddsubq1
 gwaddsubq1 PROC NEAR
-	mov	ecx, _SRCARG		; U - Address of first number
-	mov	edx, _SRC2ARG		; V - Address of second number
-	push	esi			; U - Save registers
-	push	edi			; V - Save registers
-	mov	eax, [ecx-4]		; U - Load needs-normalize counter
-	mov	edi, [edx-4]		; V - Load needs-normalize counter
-	push	ebp			; U - Save registers
-	mov	esi, _DESTARG		; V - Address of destination #1
-	mov	ebp, _DEST2ARG  	; U - Address of destination #2
-	lea	eax, [eax+edi+1]	; V - Set new needs-normalize counter
-	mov	edi, _FFTLEN		; U - Load loop counter
-	mov	[esi-4], eax		; V - Store needs-normalize counter
-	mov	[ebp-4], eax		; U - Store needs-normalize counter
-	jmp	short uaddsublp		; V - Do the unnormalized add
-gwaddsubq1 ENDP
-
-;;
-;; Add and subtract two numbers.  This will be done without carry propogation
-;; (for extra speed) if it can be done safely.
-;;
-
-	PUBLIC	gwaddsub1
-gwaddsub1 PROC NEAR
-
-; See if add can be done without normalization
-
-	mov	ecx, _SRCARG		; U - Address of first number
-	mov	edx, _SRC2ARG		; V - Address of second number
-	push	esi			; U - Save registers
-	push	edi			; V - Save registers
-	mov	eax, [ecx-4]		; U - Load needs-normalize counter
-	mov	edi, [edx-4]		; V - Load needs-normalize counter
-	push	ebp			; U - Save registers
-	mov	esi, _DESTARG		; V - Address of destination
-	lea	eax, [eax+edi+1]	; U - Set new needs-normalize counter
-	mov	edi, extra_bits		; V - Load compare value
-	mov	ebp, _DEST2ARG  	; U - Address of destination #2
-	cmp	eax, edi		; V - Is normalization needed?
-	mov	edi, _FFTLEN		; U - Load loop counter
-	mov	[esi-4], eax		; V - Store needs-normalize counter
-	mov	[ebp-4], eax		; U - Store needs-normalize counter
-	jg	short naddsub		; V - Yes, do a normalized add
-
-; Do an unnormalized add
-; ecx = src arg #1
-; edx = src arg #2
-; esi = dest arg #1
-; ebp = dest arg #2
-; edi = loop counter
-
+	mov	ecx, _SRCARG		; Address of first number
+	mov	edx, _SRC2ARG		; Address of second number
+	push	esi			; Save registers
+	push	edi			; Save registers
+	push	ebp			; Save registers
+	mov	esi, _DESTARG		; Address of destination #1
+	mov	ebp, _DEST2ARG  	; Address of destination #2
+	mov	edi, _FFTLEN		; Load loop counter
 uaddsublp:
 	fld	QWORD PTR [ecx][edi*8-32] ; Load first number
 	fld	st(0)			  ; Dup first number
@@ -319,55 +203,50 @@ uaddsublp:
 	fstp	QWORD PTR [esi][edi*8-24] ; Save result
 	fstp	QWORD PTR [ebp][edi*8-8]  ; Save result
 	fstp	QWORD PTR [esi][edi*8-8]  ; Save result
-	sub	edi, 4			; U - Check loop counter
-	jnz	short uaddsublp		; V - Loop if necessary
-	pop	ebp			; U - Restore registers
-	pop	edi			; U - Restore registers
-	pop	esi			; V - Restore registers
+	sub	edi, 4			; Check loop counter
+	jnz	short uaddsublp		; Loop if necessary
+	pop	ebp			; Restore registers
+	pop	edi			; Restore registers
+	pop	esi			; Restore registers
 	ret
+gwaddsubq1 ENDP
 
-; Do a normalized add and subtract
-; ecx = src arg #1
-; edx = src arg #2
-; esi = dest arg #1
-; ebp = dest arg #2
-; edi = loop counter
+;;
+;; Add and subtract two numbers with carry propogation
+;;
 
-naddsub:fninit
-	mov	loopcount1, edi		; U - Loop counter
-	push	ebx			; V - Save registers
-	fld	BIGVAL			; UV - Start process with no carry
-	fld	BIGVAL			; UV - Start process with no carry
-	mov	ebx, norm_col_mults	; U - Address of the multipliers
-	mov	edi, scaled_numlit	; V - Computes big vs little word flag
-	mov	eax, -1			; U - First word is a big word (-1)
+	PUBLIC	gwaddsub1
+gwaddsub1 PROC NEAR
+	push	esi			; Save registers
+	push	edi			; Save registers
+	push	ebp			; Save registers
+	push	ebx			; Save registers
+	mov	ecx, _SRCARG		; Address of first number
+	mov	edx, _SRC2ARG		; Address of second number
+	mov	esi, _DESTARG		; Address of destination
+	mov	ebp, _DEST2ARG  	; Address of destination #2
+	mov	eax, _FFTLEN		; Load loop counter
+	mov	loopcount1, eax		; Save loop counter
+	fninit
+	fld	BIGVAL			; Start process with no carry
+	fld	BIGVAL
+	fld	BIGVAL
+	fld	BIGVAL
+	mov	ebx, norm_col_mults	; Address of the multipliers
+	mov	edi, norm_biglit_array	; Computes big vs little word flag
+	sub	eax, eax		; Clear big/lit flag
 naddsublp:
-	norm_addsub_1d			; Add/sub and normalize 8 values
-	sub	loopcount1, 8		; UU - Decrement loop counter
-	JNZ_X	naddsublp		; V - Loop til done
-	fsub	BIGVAL			; UV - Get carry without BIGVAL
-	fxch	st(1)
-	fsub	BIGVAL			; UV - Get carry without BIGVAL
-	mov	ecx, _DESTARG		; U - Address of squared number
-	mov	eax, _DEST2ARG		; V - Address of squared number
-	cmp	_PLUS1, 0		; UV - Are we working mod 2^N+1
-	jz	short naddsub1		; V - No, leave carry alone
-	fchs				; UV - Yes, flip carry's sign bit
-	fxch	st(1)
-	fchs				; UV - Yes, flip carry's sign bit
-	fxch	st(1)
-naddsub1:
-	fadd	QWORD PTR [ecx]		; UV - Add in carry
-	fxch	st(1)
-	fadd	QWORD PTR [eax]		; UV - Add in carry
-	mov	DWORD PTR [ecx-4], 0	; UV - Clear needs-normalize flag
-	mov	DWORD PTR [eax-4], 0	; UV - Clear needs-normalize flag
-	pop	ebx			; U - Restore registers
-	pop	ebp			; V - Restore registers
-	pop	edi			; U - Restore registers
-	pop	esi			; V - Restore registers
-	fstp	QWORD PTR [eax]		; UV - Save new value
-	fstp	QWORD PTR [ecx]		; UV - Save new value
+	norm_addsub_1d			; Add/sub and normalize 4 values
+	sub	loopcount1, 4		; Decrement loop counter
+	jnz	naddsublp		; Loop til done
+	mov	esi, _DESTARG		; Address of squared number
+	mov	ebp, _DEST2ARG		; Address of squared number
+	mov	ebx, norm_col_mults	; Address of the multipliers
+	norm_addsub_1d_cleanup
+	pop	ebx			; Restore registers
+	pop	ebp			; Restore registers
+	pop	edi			; Restore registers
+	pop	esi			; Restore registers
 	ret
 gwaddsub1 ENDP
 
@@ -377,57 +256,96 @@ gwaddsub1 ENDP
 
 	PUBLIC	gwcopyzero1
 gwcopyzero1 PROC NEAR
-	push	esi			; U - Save registers
-	push	edi			; V - Save registers
-	mov	esi, _SRCARG		; U - Address of first number
-	mov	edi, _DESTARG		; V - Address of destination
-	mov	edx, _FFTLEN		; U - Total number of values
-	mov	ecx, _SRC2ARG		; V - Values to zero
-	sub	edx, ecx		; U - Number of values to copy
-	mov	eax, [esi-4]		; V - Load needs-normalize counter
-	mov	[edi-4], eax		; U - Store needs-normalize counter
-	lea	esi, [esi+8*ecx]	; V - First value to copy
-	sub	eax, eax		; U - Create the zero to store
-	add	ecx, ecx		; V - Convert num values to num words
-	rep	stosd			; UV - Zero words
-	lea	ecx, [edx+edx]		; U - Convert num values to num words
-	rep	movsd			; UV - Copy words
-	pop	edi			; U - Restore registers
-	pop	esi			; V - Restore registers
+	push	esi			; Save registers
+	push	edi			; Save registers
+	mov	esi, _SRCARG		; Address of first number
+	mov	edi, _DESTARG		; Address of destination
+	mov	ecx, _SRC2ARG		; Values to zero
+	mov	edx, _FFTLEN		; Total number of values
+	mov	eax, [esi-4]		; Load needs-normalize counter
+	mov	[edi-4], eax		; Store needs-normalize counter
+zlp1:	fldz				; Zero low word
+	fstp	QWORD PTR [edi]
+	fld	QWORD PTR [esi+8]	; Copy high word
+	fstp	QWORD PTR [edi+8]
+	lea	esi, [esi+16]
+	lea	edi, [edi+16]
+	sub	edx, 2
+	dec	ecx
+	jnz	short zlp1
+zlp2:	fld	QWORD PTR [esi]		; Copy low word
+	fstp	QWORD PTR [edi]
+	fld	QWORD PTR [esi+8]	; Copy high word
+	fstp	QWORD PTR [edi+8]
+	lea	esi, [esi+16]
+	lea	edi, [edi+16]
+	sub	edx, 2
+	jnz	short zlp2
+	pop	edi			; Restore registers
+	pop	esi			; Restore registers
 	ret
 gwcopyzero1 ENDP
 
-;;
-;; Do a mod k*2^n+/-1
-;;
-
-	PUBLIC	gwprothmod1
-gwprothmod1 PROC NEAR
-	push	esi			; U - Save registers
-	push	edi			; V - Save registers
-	mov	esi, _SRCARG		; U - Address of first number
-	prothmod_upper_prep_0d		; Prepare for prothmod
-pmulp:	prothmod_upper_0d pmudn		; Divide upper values by k
-	lea	esi, [esi-8*dist1]	; Next source word
-	lea	edi, [edi+8*8]		; Next scratch words
-	JMP_X	pmulp			; Loop til done
-pmudn:	prothmod_lower_prep_0d		; Prepare for prothmod
-pmllp:	prothmod_lower_0d		; Divide upper values by k
-	lea	esi, [esi+8*dist1]	; Next source word
-	lea	edi, [edi-8*8]		; Next scratch words
-	dec	edx
-	jz	short pmldn
-	JMP_X	pmllp			; Loop til done
-pmldn:	prothmod_final_0d		; Finish off the mod
-	pop	edi			; U - Restore registers
-	pop	esi			; V - Restore registers
-	ret
-gwprothmod1 ENDP
 ENDIF
 
 ;;
 ;; Routines to do the normalization after a multiply
 ;;
+
+;; When doing zero-padded FFTs, the multiplied 7 words around the halfway point
+;; must be subtracted from the bottom of the FFT.  This must be done before
+;; normalization multiplies the FFT data by k.
+
+sub_7_words MACRO
+	fld	QWORD PTR [esi+0*16]	;; Subtract 1st word
+	fld	XMM_ZPAD0		;; Load ZPAD data
+	fmul	XMM_NORM012_FF		;; Scale by FFTLEN/2
+	fsub	st(1), st
+	faddp	st(2), st		;; Adjust sumout
+	fstp	QWORD PTR [esi+0*16]
+
+	fld	QWORD PTR [esi+1*16]	;; Subtract 2nd word
+	fld	XMM_ZPAD1		;; Load ZPAD data
+	fmul	XMM_NORM012_FF		;; Scale by FFTLEN/2
+	fsub	st(1), st
+	faddp	st(2), st		;; Adjust sumout
+	fstp	QWORD PTR [esi+1*16]
+
+	fld	QWORD PTR [esi+2*16]	;; Subtract 3rd word
+	fld	XMM_ZPAD2		;; Load ZPAD data
+	fmul	XMM_NORM012_FF		;; Scale by FFTLEN/2
+	fsub	st(1), st
+	faddp	st(2), st		;; Adjust sumout
+	fstp	QWORD PTR [esi+2*16]
+
+	fld	QWORD PTR [esi+3*16]	;; Subtract 4th word
+	fld	XMM_ZPAD3		;; Load ZPAD data
+	fmul	XMM_NORM012_FF		;; Scale by FFTLEN/2
+	fsub	st(1), st
+	faddp	st(2), st		;; Adjust sumout
+	fstp	QWORD PTR [esi+3*16]
+
+	fld	QWORD PTR [esi+4*16]	;; Subtract 5th word
+	fld	XMM_ZPAD4		;; Load ZPAD data
+	fmul	XMM_NORM012_FF		;; Scale by FFTLEN/2
+	fsub	st(1), st
+	faddp	st(2), st		;; Adjust sumout
+	fstp	QWORD PTR [esi+4*16]
+
+	fld	QWORD PTR [esi+5*16]	;; Subtract 6th word
+	fld	XMM_ZPAD5		;; Load ZPAD data
+	fmul	XMM_NORM012_FF		;; Scale by FFTLEN/2
+	fsub	st(1), st
+	faddp	st(2), st		;; Adjust sumout
+	fstp	QWORD PTR [esi+5*16]
+
+	fld	QWORD PTR [esi+6*16]	;; Subtract 7th word
+	fld	XMM_ZPAD6		;; Load ZPAD data
+	fmul	XMM_NORM012_FF		;; Scale by FFTLEN/2
+	fsub	st(1), st
+	faddp	st(2), st		;; Adjust sumout
+	fstp	QWORD PTR [esi+6*16]
+	ENDM
 
 IFNDEF PPRO
 _simpnorm PROC NEAR
@@ -435,110 +353,118 @@ _simpnorm PROC NEAR
 ; Macro to loop through all the FFT values and apply the proper normalization
 ; routine.  Used whenever we are using an irrational-base FFT.
 
-inorm	MACRO	lab, norm_macro
+inorm	MACRO	lab, ttp, zero, echk, const
 	LOCAL	ilp
 	PUBLIC	lab
 lab:	mov	esi, _DESTARG		;; Address of multiplied number
-	mov	edi, _ADDIN_OFFSET	;; Get address to add value into
-	fld	QWORD PTR [esi][edi]	;; Get the value
-	fadd	_ADDIN_VALUE		;; Add in the requested value
-	fstp	QWORD PTR [esi][edi]	;; Save the new value
+	fld	_MAXERR			;; Load MAXERR
 	fldz				;; Init SUMOUT
-	fsub	_ADDIN_VALUE		;; Do not include addin in sumout
-	fld	BIGVAL			;; Start process with no carry
+no zero	mov	edi, _ADDIN_OFFSET	;; Get address to add value into
+no zero	fld	QWORD PTR [esi][edi]	;; Get the value
+no zero	fadd	_ADDIN_VALUE		;; Add in the requested value
+no zero	fstp	QWORD PTR [esi][edi]	;; Save the new value
+no zero	fsub	_ADDIN_VALUE		;; Do not include addin in sumout
+	fld	BIGVAL			;; Init carry #1
+	fld	BIGVAL			;; Init carry #2
 	mov	ebx, norm_col_mults	;; Address of the multipliers
-	mov	edi, scaled_numlit	;; Used to compute big vs little words
-	mov	ebp, scaled_numbig
-	mov	eax, -1			;; First word is a big word (-1)
+	mov	edi, norm_biglit_array	;; Big/lit array pointer
+	sub	eax, eax		;; Clear big/lit flag
 	mov	ecx, _FFTLEN		;; Load loop counter
-	mov	edx, _FFTZERO		;; Count of words to NOT zero
-ilp:	norm_macro			;; Normalize 8 values
-	lea	esi, [esi+8*dist1]	;; Next source
-	lea	ebx, [ebx+8*NMD]	;; Next set of 8 multipliers
+ilp:	norm_1d ttp, zero, echk, const	;; Normalize 8 values
+	lea	esi, [esi+64]		;; Next source
+ttp	lea	ebx, [ebx+128]		;; Next set of 8 multipliers
+ttp	lea	edi, [edi+4]		;; Next big/lit array ptr
 	sub	ecx, 8			;; Test loop counter
-	JNZ_X	ilp			;; Loop til done
-	JMP_X	idn
+	jnz	ilp			;; Loop til done
+zero	jmp	zdn			;; Go to zero upper half end code
+no zero	jmp	idn			;; Go to normal end code
 	ENDM
 
-; Macro to loop through all the FFT values and apply the proper normalization
-; routine.  Used whenever we are using a rational-base FFT.
+; Do a zero-padded normalization.
 
-rnorm	MACRO	lab, norm_macro
-	LOCAL	rlp
+zpnorm	MACRO	lab, ttp, echk, const
+	LOCAL	ilp
 	PUBLIC	lab
 lab:	mov	esi, _DESTARG		;; Address of multiplied number
-	mov	edi, _ADDIN_OFFSET	;; Get address to add value into
-	fld	QWORD PTR [esi][edi]	;; Get the value
-	fadd	_ADDIN_VALUE		;; Add in the requested value
-	fstp	QWORD PTR [esi][edi]	;; Save the new value
-	fld	ttmp_ff_inv		;; Preload 2 / FFTLEN
+	fld	_MAXERR			;; Load MAXERR
 	fldz				;; Init SUMOUT
-	fsub	_ADDIN_VALUE		;; Do not include addin in sumout
-	fld	BIGVAL			;; Start process with no carry
+	sub_7_words			;; Subtract 7 ZPAD words
+	fld	BIGVAL			;; Init traditional carry
+	fldz				;; Init high FFT data carry
+	mov	ebx, norm_col_mults	;; Address of the multipliers
+	mov	edi, norm_biglit_array	;; Big/lit array pointer
+	sub	eax, eax		;; Clear big/lit flag
 	mov	ecx, _FFTLEN		;; Load loop counter
-	mov	edx, _FFTZERO		;; Count of words to NOT zero
-rlp:	norm_macro			;; Normalize 8 values
-	lea	esi, [esi+8*dist1]	;; Next source
-	sub	ecx, 8			;; Test loop counter
-	JNZ_X	rlp			;; Loop til done
-	JMP_X	rdn
+ilp:	norm_1d_zpad ttp, echk, const	;; Normalize 4 values
+	lea	esi, [esi+4*8]		;; Next source
+ttp	lea	ebx, [ebx+4*16]		;; Next set of 4 multipliers
+ttp	lea	edi, [edi+2]		;; Next big/lit array ptr
+	sub	ecx, 4			;; Test loop counter
+	jnz	ilp			;; Loop til done
+const	jmp	zpcdn			;; Go to zero padded FFT end code
+no const jmp	zpdn			;; Go to zero padded FFT end code
 	ENDM
 
 ; The 16 different normalization routines
 
-	rnorm	r1, norm_0d
-	rnorm	r1e, norm_0d_e
-	rnorm	r1c, norm_0d_c
-	rnorm	r1ec, norm_0d_e_c
-	rnorm	r1z, norm_0d_z
-	rnorm	r1ze, norm_0d_z_e
-	inorm	i1, norm_1d
-	inorm	i1e, norm_1d_e
-	inorm	i1c, norm_1d_c
-	inorm	i1ec, norm_1d_e_c
-	inorm	i1z, norm_1d_z
-	inorm	i1ze, norm_1d_z_e
+	inorm	r1, noexec, noexec, noexec, noexec
+	inorm	r1e, noexec, noexec, exec, noexec
+	inorm	r1c, noexec, noexec, noexec, exec
+	inorm	r1ec, noexec, noexec, exec, exec
+	inorm	r1z, noexec, exec, noexec, noexec
+	inorm	r1ze, noexec, exec, exec, noexec
+	inorm	i1, exec, noexec, noexec, noexec
+	inorm	i1e, exec, noexec, exec, noexec
+	inorm	i1c, exec, noexec, noexec, exec
+	inorm	i1ec, exec, noexec, exec, exec
+	inorm	i1z, exec, exec, noexec, noexec
+	inorm	i1ze, exec, exec, exec, noexec
+
+	zpnorm	r1zp, noexec, noexec, noexec
+	zpnorm	r1zpe, noexec, exec, noexec
+	zpnorm	r1zpc, noexec, noexec, exec
+	zpnorm	r1zpec, noexec, exec, exec
+	zpnorm	i1zp, exec, noexec, noexec
+	zpnorm	i1zpe, exec, exec, noexec
+	zpnorm	i1zpc, exec, noexec, exec
+	zpnorm	i1zpec, exec, exec, exec
 
 ; Finish off the normalization process by add any carry to first values.
-; Handle both the with and without two-to-phi array cases.
+; FPU stack is now: carry #2, carry #1, sumout, maxerr
 
-rdn:	mov	esi, _DESTARG		; Address of squared number
-	norm012_0d
-	jmp	short cmnend
+zpcdn:	mov	esi, _DESTARG		; Address of squared number
+	mov	edi, norm_biglit_array	; Address of the big/little flags array
+	mov	ebx, norm_col_mults	; Restart the column multipliers
+	sub	eax, eax
+	norm012_1d_zpad exec		; Add in carries
+	jmp	cmnend			; All done, go cleanup
+
+zpdn:	mov	esi, _DESTARG		; Address of squared number
+	mov	edi, norm_biglit_array	; Address of the big/little flags array
+	mov	ebx, norm_col_mults	; Restart the column multipliers
+	sub	eax, eax
+	norm012_1d_zpad noexec		; Add in carries
+	jmp	cmnend			; All done, go cleanup
+
+zdn:	mov	esi, _DESTARG		; Address of squared number
+	mov	edi, norm_biglit_array	; Address of the big/little flags array
+	mov	ebx, norm_col_mults	; Restart the column multipliers
+	norm012_1d exec			; Add in carries
+	jmp	cmnend			; All done, go cleanup
 
 idn:	mov	esi, _DESTARG		; Address of squared number
+	norm_top_carry_1d		; Adjust top carry when k > 1
+	sub	eax, eax		; Clear big/lit flag
+	mov	edi, norm_biglit_array	; Big/lit array pointer
 	mov	ebx, norm_col_mults	; Restart the column multipliers
-	norm012_1d
-
-; Clear needs-normalize counter
-
-cmnend:	mov	DWORD PTR [esi-4], 0
+	norm012_1d noexec
 
 ; Normalize SUMOUT value by multiplying by 1 / (fftlen/2).
+; FPU stack is now: sumout, maxerr
 
-	fmul	ttmp_ff_inv
-	fst	QWORD PTR [esi-24]	; Save sum of FFT outputs
-
-; Test if the sum of the output values is an error (such as infinity or NaN)
-
-	fxam				; Test the sum of FFT outputs
-	fnstsw	ax
-	and	eax, 0100h		; Isolate the C0 bit (nan or infinity)
-	jz	short noerr1		; If zero, no error
-	or	_GWERROR, 1		; Set error flag
-	fcomp	st(0)			; Pop the bad value
-	jmp	short exit		; Skip second error check
-
-; Check that the sum of the input numbers squared is approximately
-; equal to the sum of inverse fft results.
-
-noerr1:	fsub	QWORD PTR [esi-16]	; Compare to product of sum of inputs
-	fabs
-	fcomp	_MAXDIFF		; Compare diff to maximum allowable
-	fnstsw	ax
-	and	eax, 4100h		; Isolate the C3 and C0 bits
-	jnz	short exit		; If non-zero, no error
-	or	_GWERROR, 2		; Set error flag
+cmnend:	fmul	ttmp_ff_inv
+	fstp	QWORD PTR [esi-24]	; Save sum of FFT outputs
+	fstp	_MAXERR			; Save new maximum roundoff error
 
 ; Return
 

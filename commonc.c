@@ -1774,7 +1774,7 @@ short default_work_type (void)
 
 /* Get estimated iteration time for a 512K length FFT */
 
-	speed = map_fftlen_to_timing (524288, GW_MERSENNE_MOD, CPU_TYPE, CPU_SPEED) *
+	speed = gwmap_to_timing (1.0, 2, 524288, -1, CPU_TYPE) *
 			24.0 / CPU_HOURS * 1000.0 / ROLLING_AVERAGE;
 
 /* PIII-900 and faster get first-time LL tests */
@@ -1786,6 +1786,20 @@ short default_work_type (void)
 	return (PRIMENET_ASSIGN_FACTOR);
 }
 
+/* Count commas in a string */
+
+unsigned int countCommas (
+	char *p)
+{
+	unsigned int cnt;
+	for (cnt = 0; ; cnt++) {
+		p = strchr (p, ',');
+		if (p == NULL) break;
+		p++;
+	}
+	return (cnt);
+}
+
 /* Parse a line from the work-to-do file */
 
 int parseWorkToDoLine (
@@ -1795,7 +1809,14 @@ int parseWorkToDoLine (
 	char	keyword[20];
 	char	value[80];
 	char	*comma;
-		
+
+/* Set some default values.  Historically, this program worked on */
+/* Mersenne numbers only. */
+
+	w->k = 1.0;
+	w->b = 2;
+	w->c = -1;
+
 /* Get the line from work-to-do file */
 
 loop:	if (line > IniGetNumLines (WORKTODO_FILE)) return (FALSE);
@@ -1806,43 +1827,118 @@ loop:	if (line > IniGetNumLines (WORKTODO_FILE)) return (FALSE);
 
 	if (stricmp (keyword, "Factor") == 0)
 		w->work_type = WORK_FACTOR;
-	else if (stricmp (keyword, "PFactor") == 0)
-		w->work_type = WORK_PFACTOR;
 	else if (stricmp (keyword, "Test") == 0)
 		w->work_type = WORK_TEST;
 	else if (stricmp (keyword, "AdvancedTest") == 0)
 		w->work_type = WORK_ADVANCEDTEST;
 	else if (stricmp (keyword, "DoubleCheck") == 0)
 		w->work_type = WORK_DBLCHK;
+
+// Handle Pfactor= lines.  Old style is:
+//	Pfactor=exponent,how_far_factored,double_check_flag
+// New style is:
+//	Pfactor=k,b,n,c,how_far_factored,ll_tests_saved_if_factor_found
+
+	else if (stricmp (keyword, "PFactor") == 0) {
+		w->work_type = WORK_PFACTOR;
+		if (countCommas (value) > 3) {		// New style
+			char	*q;
+			float	sieve_depth;
+			float	tests_saved;
+			q = strchr (value, ','); *q = 0; w->k = atof (value);
+			sscanf (q+1, "%lu,%lu,%ld,%f,%f",
+				&w->b, &w->n, &w->c, &sieve_depth,
+				&tests_saved);
+			w->sieve_depth = sieve_depth;
+			w->tests_saved = tests_saved;
+			w->bits = (unsigned long) sieve_depth;
+			return (TRUE);
+		} else {				// Old style
+			int	dblchk;
+			sscanf (value, "%lu,%lu,%ld",
+				&w->n, &w->bits, &dblchk);
+			w->sieve_depth = (double) w->bits;
+			w->tests_saved = dblchk ? 1.0 : 2.0;
+			return (TRUE);
+		}
+	}
+
+// Handle ECM= lines.  Old style is:
+//	ECM=exponent,B1,B2,curves_to_do,unused[,specific_sigma,plus1,B2_start]
+// New style is:
+//	ECM2=k,b,n,c,B1,B2,curves_to_do[,specific_sigma,B2_start]
+
 	else if (stricmp (keyword, "ECM") == 0) {
 		int	i;
 		unsigned long j;
 		char	*q;
 		w->work_type = WORK_ECM;
-		sscanf (value, "%ld,%lu,%lu,%ld,%ld",
-			 &w->p, &w->B1, &w->B2_end, &w->curves_to_do,
-			 &w->curves_completed);
+		sscanf (value, "%ld,%lu,%lu,%ld",
+			 &w->n, &w->B1, &w->B2_end, &w->curves_to_do);
 		w->B2_start = w->B1;
 		w->curve = 0;
-		w->plus1 = 0;
 		for (i = 1, q = value; i <= 5; i++, q++)
 			if ((q = strchr (q, ',')) == NULL) return (TRUE);
 		w->curve = atof (q);
 		if ((q = strchr (q, ',')) == NULL) return (TRUE);
-		w->plus1 = atoi (q+1);
+		w->c = atoi (q+1);
+		if (w->c == 0) w->c = -1; // Compatibility with old plus1 arg
 		if ((q = strchr (q+1, ',')) == NULL) return (TRUE);
 		j = atoi (q+1);
 		if (j > w->B1) w->B2_start = j;
 		return (TRUE);
-	} else if (stricmp (keyword, "Pminus1") == 0) {
-		w->work_type = WORK_PMINUS1;
-		sscanf (value, "%ld,%lu,%lu,%ld,%ld",
-			&w->p, &w->B1, &w->B2_end, &w->plus1, &w->B2_start);
-		if (w->B2_start < w->B1) w->B2_start = w->B1;
+	} else if (stricmp (keyword, "ECM2") == 0) {
+		int	i;
+		unsigned long j;
+		char	*q;
+		w->work_type = WORK_ECM;
+		if ((q = strchr (value, ',')) != NULL) {
+			*q = 0;
+			w->k = atof (value);
+			strcpy (value, q+1);
+		}
+		sscanf (value, "%lu,%lu,%ld,%lu,%lu,%lu",
+			 &w->b, &w->n, &w->c, &w->B1, &w->B2_end,
+			 &w->curves_to_do);
+		w->B2_start = w->B1;
+		w->curve = 0;
+		for (i = 1, q = value; i <= 6; i++, q++)
+			if ((q = strchr (q, ',')) == NULL) return (TRUE);
+		w->curve = atof (q);
+		if ((q = strchr (q, ',')) == NULL) return (TRUE);
+		j = atoi (q+1);
+		if (j > w->B1) w->B2_start = j;
 		return (TRUE);
-	} else if (stricmp (keyword, "AdvancedFactor") == 0) {
+	}
+
+// Handle Pminus1 lines:  Old style:
+//	Pminus1=exponent,B1,B2,plus1,B2_start
+// New style is:
+//	Pminus1=k,b,n,c,B1,B2[,B2_start]
+
+	else if (stricmp (keyword, "Pminus1") == 0) {
+		w->work_type = WORK_PMINUS1;
+		w->B2_start = 0;
+		if (countCommas (value) <= 4) {
+			sscanf (value, "%ld,%lu,%lu,%ld,%ld",
+				&w->n, &w->B1, &w->B2_end, &w->c, &w->B2_start);
+			if (w->c == 0) w->c = -1; // Compatibility with old plus1 arg
+			if (w->B2_start < w->B1) w->B2_start = w->B1;
+			return (TRUE);
+		} else {
+			char	*q;
+			q = strchr (value, ','); *q = 0; w->k = atof (value);
+			sscanf (q+1, "%lu,%lu,%ld,%lu,%lu,%lu",
+				&w->b, &w->n, &w->c, &w->B1, &w->B2_end,
+				&w->B2_start);
+			if (w->B2_start < w->B1) w->B2_start = w->B1;
+			return (TRUE);
+		}
+	}
+
+	else if (stricmp (keyword, "AdvancedFactor") == 0) {
 		w->work_type = WORK_ADVANCEDFACTOR;
-		w->p = 0;
+		w->n = 0;
 		sscanf (value, "%d,%d,%d,%d",
 			&w->bits, &w->B1, &w->B2_start, &w->B2_end);
 		return (TRUE);
@@ -1874,7 +1970,7 @@ loop:	if (line > IniGetNumLines (WORKTODO_FILE)) return (FALSE);
 
 /* Get the exponent being tested */
 
-	w->p = atol (value);
+	w->n = atol (value);
 	return (TRUE);
 }
 
@@ -1908,14 +2004,13 @@ void addWorkToDoLine (
 /* Format and insert line into ini file */
 
 		if (w->work_type == WORK_ECM) {
-			sprintf (buf, "%lu,%lu,%lu,%lu,%lu,%.0f,%lu,%lu",
-				 w->p, w->B1, w->B2_end, w->curves_to_do,
-				 w->curves_completed, w->curve, w->plus1,
-				 w->B2_start);
-			IniAppendLineAsString (WORKTODO_FILE, "ECM", buf);
+			sprintf (buf, "%.0f,%lu,%lu,%ld,%lu,%lu,%.0f,%lu",
+				 w->k, w->b, w->n, w->c, w->B1, w->B2_end,
+				 w->curves_to_do, w->curve, w->B2_start);
+			IniAppendLineAsString (WORKTODO_FILE, "ECM2", buf);
 		} else {
-			sprintf (buf, "%lu,%lu,%lu,%lu,%lu",
-				 w->p, w->B1, w->B2_end, w->plus1,
+			sprintf (buf, "%.0f,%lu,%lu,%ld,%lu,%lu,%lu",
+				 w->k, w->b, w->n, w->c, w->B1, w->B2_end,
 				 w->B2_start);
 			IniAppendLineAsString (WORKTODO_FILE, "Pminus1", buf);
 		}
@@ -1933,7 +2028,7 @@ void addWorkToDoLine (
 
 /* Skip the line if p is not in the range */
 
-		if (w->p != temp.p) continue;
+		if (w->n != temp.n) continue;
 
 /* Ignore this add request if it is a subset of the */
 /* entry that is already in the work-to-do file */
@@ -1947,21 +2042,27 @@ void addWorkToDoLine (
 		break;
 	}
 
-/* Format the number, how far factored, a P-1 factoring flag */
-/* Actually, the pminus1ed flag doubles as a first vs. second LL flag */
-/* in the WORK_PFACTOR case. */
+/* Format aand add a Pfactor line */
+
+	if (w->work_type == WORK_PFACTOR) {
+		sprintf (buf, "%.0f,%lu,%lu,%ld,%f,%f",
+			 w->k, w->b, w->n, w->c, w->sieve_depth,
+			 w->tests_saved);
+		IniAppendLineAsString (WORKTODO_FILE, "Pfactor", buf);
+		return;
+	}
+
+/* Format the number, how far factored, and P-1 factoring flag */
 
 	if (w->work_type == WORK_FACTOR)
-		sprintf (buf, "%ld,%d", w->p, w->bits);
+		sprintf (buf, "%ld,%d", w->n, w->bits);
 	else
-		sprintf (buf, "%ld,%d,%d", w->p, w->bits, w->pminus1ed);
+		sprintf (buf, "%ld,%d,%d", w->n, w->bits, w->pminus1ed);
 
 /* Append a line */
 
 	if (w->work_type == WORK_FACTOR)
 		IniAppendLineAsString (WORKTODO_FILE, "Factor", buf);
-	if (w->work_type == WORK_PFACTOR)
-		IniAppendLineAsString (WORKTODO_FILE, "PFactor", buf);
 	if (w->work_type == WORK_TEST)
 		IniAppendLineAsString (WORKTODO_FILE, "Test", buf);
 	if (w->work_type == WORK_DBLCHK)
@@ -2168,7 +2269,7 @@ unsigned long advanced_map_exponent_to_fftlen (
 	unsigned long p)
 {
 	unsigned long fftlen = fftlen_from_ini_file (p);
-	return (fftlen ? fftlen : map_exponent_to_fftlen (p, GW_MERSENNE_MOD));
+	return (fftlen ? fftlen : gwmap_to_fftlen (1.0, 2, p, -1));
 }
 
 /* Make a guess as to how long a chore should take. */
@@ -2197,11 +2298,11 @@ double raw_work_estimate (
 
 	if (w->work_type == WORK_FACTOR) {
 		unsigned int limit;
-		limit = factorLimit (w->p, w->work_type);
+		limit = factorLimit (w->n, w->work_type);
 		timing = (limit > 64) ? 13.511 :
 			 (limit > 62) ? 5.949 :
 			 (limit > 60) ? 3.204 : 3.198;
-		est = timing * 178945.25 * (1L << (limit - 44)) / w->p;
+		est = timing * 178945.25 * (1L << (limit - 44)) / w->n;
 		est = est * 400.0 / CPU_SPEED;
 		if (CPU_TYPE <= 4) est *= REL_486_SPEED;
 		if (CPU_TYPE == 7) est *= REL_K6_SPEED;
@@ -2213,20 +2314,21 @@ double raw_work_estimate (
 		else if (w->bits == limit-3) est *= 0.875;
 	}
 
-/* If P-1 factoring, then estimate the time.  Remember the pminus1ed */
-/* flag doubles as a first vs. second LL flag. */
+/* If P-1 factoring, then estimate the time. */
 
 	if (w->work_type == WORK_PFACTOR) {
-		unsigned int bits;
+		double	bits;
 		unsigned long bound1, bound2, squarings;
 		double	prob;
-		bits = factorLimit (w->p, w->work_type);
-		if (w->bits > bits) bits = w->bits;
-		guess_pminus1_bounds (w->p, bits, w->pminus1ed,
-				      &bound1, &bound2, &squarings, &prob);
-		est = squarings * map_fftlen_to_timing (
-			advanced_map_exponent_to_fftlen (w->p),
-			GW_MERSENNE_MOD, CPU_TYPE, CPU_SPEED);
+		if (w->k == 1.0 && w->b == 2 && w->c == -1)
+			bits = factorLimit (w->n, w->work_type);
+		else
+			bits = 0.0;
+		if (w->sieve_depth > bits) bits = w->sieve_depth;
+		guess_pminus1_bounds (w->k, w->b, w->n, w->c, bits,
+				      w->tests_saved, &bound1, &bound2,
+				      &squarings, &prob);
+		est = squarings * gwmap_to_timing (w->k, w->b, w->n, w->c, CPU_TYPE);
 	}
 
 /* If testing add in the Lucas-Lehmer testing time */
@@ -2234,9 +2336,7 @@ double raw_work_estimate (
 	if (w->work_type == WORK_TEST ||
 	    w->work_type == WORK_ADVANCEDTEST ||
 	    w->work_type == WORK_DBLCHK) {
-		est = w->p * map_fftlen_to_timing (
-			advanced_map_exponent_to_fftlen (w->p),
-			GW_MERSENNE_MOD, CPU_TYPE, CPU_SPEED);
+		est = w->n * gwmap_to_timing (w->k, w->b, w->n, w->c, CPU_TYPE);
 	}
 
 /* Return the total estimated time in seconds */
@@ -2425,7 +2525,7 @@ void unreserve (
 
 /* Skip the line if exponent is not a match */
 
-		if (p != temp.p) continue;
+		if (p != temp.n) continue;
 
 /* Delete the line */
 
@@ -2726,7 +2826,7 @@ loop:	time (&this_time);
 /* Adjust our time estimate */
 
 		work = work_estimate (&w);
-		pct = pct_complete (w.work_type, w.p, &iteration);
+		pct = pct_complete (w.work_type, w.n, &iteration);
 		if (pct == 999.0) est_is_accurate = FALSE;
 		else work *= (1.0 - pct);
 		est += work;
@@ -2747,7 +2847,7 @@ loop:	time (&this_time);
 			  pct == 0.0)) {
 			struct primenetAssignmentResult pkt;
 			memset (&pkt, 0, sizeof (pkt));
-			pkt.exponent = w.p;
+			pkt.exponent = w.n;
 			pkt.resultType = PRIMENET_RESULT_UNRESERVE;
 			msgs_to_send |= 0x1;
 			rc = sendMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
@@ -2769,7 +2869,7 @@ loop:	time (&this_time);
 			struct primenetCompletionDate pkt2;
 			double	comp_date;
 			memset (&pkt2, 0, sizeof (pkt2));
-			pkt2.exponent = w.p;
+			pkt2.exponent = w.n;
 			if (!ON_DURING_VACATION)
 				comp_date = est + vacation_time;
 			else if (est < vacation_time)
@@ -2911,7 +3011,7 @@ loop:	time (&this_time);
 						WORK_PFACTOR :
 			      (pkt1.requestType == PRIMENET_ASSIGN_TEST) ?
 						WORK_TEST : WORK_DBLCHK;
-		w.p = pkt1.exponent;
+		w.n = pkt1.exponent;
 		w.bits = (unsigned int) pkt1.how_far_factored;
 		/* Kludge that uses 0.5 to indicate P-1 factoring has been done */
 		w.pminus1ed = (pkt1.how_far_factored - (double) w.bits) == 0.5;
@@ -3117,18 +3217,20 @@ double F (double x)
 /* Analyze how well P-1 factoring will perform */
 
 void guess_pminus1_bounds (
-	unsigned long p,
-	unsigned int how_far_factored,
-	int	double_check,		/* True if double-checking */
+	double	k,		/* K in K*B^N+C. Must be a positive integer. */
+	unsigned long b,	/* B in K*B^N+C. Must be two. */
+	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
+	signed long c,		/* C in K*B^N+C. */
+	double	how_far_factored,	/* Bit depth of trial factoring */
+	double	tests_saved,		/* 1 if doublecheck, 2 if first test */
 	unsigned long *bound1,
 	unsigned long *bound2,
 	unsigned long *squarings,
 	double	*success_rate)
 {
 	unsigned long B1, B2, fftlen, vals;
-	unsigned int h;
-	double	pass1_squarings, pass2_squarings;
-	double	logB1, logB2, k, logk, temp, logtemp, log2;
+	double	h, pass1_squarings, pass2_squarings;
+	double	logB1, logB2, kk, logkk, temp, logtemp, log2;
 	double	size, prob, gcd_cost, ll_tests, numprimes;
 	struct {
 		unsigned long B1;
@@ -3141,8 +3243,7 @@ void guess_pminus1_bounds (
 /* Balance P-1 against 1 or 2 LL tests (actually more since we get a */
 /* corrupt result reported some of the time). */
 
-	ll_tests = 2.0 + 2 * ERROR_RATE;
-	if (double_check) ll_tests = 1.0 + 2 * ERROR_RATE;
+	ll_tests = tests_saved + 2 * ERROR_RATE;
 
 /* Precompute the cost of a GCD.  We used Excel to come up with the */
 /* formula GCD is equivalent to 861 * Ln (p) - 7775 transforms. */
@@ -3150,14 +3251,14 @@ void guess_pminus1_bounds (
 /* NOTE: In version 22, the GCD speed has approximately doubled.  I've */
 /* adjusted the formula accordingly. */
 
-	gcd_cost = (430.5 * log (p) - 3887.5) / 2.0;
+	gcd_cost = (430.5 * log (n) - 3887.5) / 2.0;
 	if (gcd_cost < 50.0) gcd_cost = 50.0;
 
 /* Compute how many temporaries we can use given our memory constraints. */
 
-	fftlen = map_exponent_to_fftlen (p, 0);
+	fftlen = gwmap_to_fftlen (k, b, n, c);
 	temp = (double) max_mem () * 1000000.0 -
-		(double) map_fftlen_to_memused (fftlen, 0);
+		(double) gwmap_to_memused (k, b, n, c);
 	size = (double) gwnum_size (fftlen);
 	if (temp <= size) vals = 1;
 	else vals = (unsigned long) (temp / size);
@@ -3213,16 +3314,19 @@ void guess_pminus1_bounds (
 
 	pass2_squarings *= 1.2;
 
-/* What is the average value of k in 2kp+1 s.t. you get a number */
-/* between 2^how_far_factored and 2^(how_far_factored+1)? */
+/* What is the "average" value that must be smooth for P-1 to succeed? */
+/* Ordinarily this is 1.5 * 2^how_far_factored.  However, for Mersenne */
+/* numbers the factor must be of the form 2kp+1.  Consequently, the */
+/* value that must be smooth (k) is much smaller. */
 
-	k = 1.5 * pow (2.0, how_far_factored) / 2.0 / p;
-	logk = log (k);
+	kk = 1.5 * pow (2.0, how_far_factored);
+	if (k == 1.0 && b == 2 && c == -1) kk = kk / 2.0 / n;
+	logkk = log (kk);
 
 /* Set temp to the number that will need B1 smooth if k has an */
 /* average-sized factor found in stage 2 */
 
-	temp = k / ((B1 + B2) / 2);
+	temp = kk / ((B1 + B2) / 2);
 	logtemp = log (temp);
 
 /* Loop over increasing bit lengths for the factor */
@@ -3234,30 +3338,30 @@ void guess_pminus1_bounds (
 /* See how many smooth k's we should find using B1 */
 /* Using Dickman's function (see Knuth pg 382-383) we want k^a <= B1 */
 
-		prob1 = F (logB1 / logk);
+		prob1 = F (logB1 / logkk);
 
 /* See how many smooth k's we should find using B2 */
 /* Adjust this slightly to eliminate k's that have two primes > B1 and < B2 */
 /* Do this by assuming the largest factor is the average of B1 and B2 */
 /* and the remaining cofactor is B1 smooth */
 
-		prob2 = prob1 + (F (logB2 / logk) - prob1) *
+		prob2 = prob1 + (F (logB2 / logkk) - prob1) *
 				(F (logB1 / logtemp) / F (logB2 / logtemp));
-		if (prob2 < 0.001) break;
+		if (prob2 < 0.0001) break;
 
 /* Add this data in to the total chance of finding a factor */
 
-		h++;
-		logk += log2;
+		prob += prob2 / (h + 0.5);
+		h += 1.0;
+		logkk += log2;
 		logtemp += log2;
-		prob += prob2 / h;
 	}
 
 /* See if this is a new best case scenario */
 
 	if (B2 == B1 ||
-	    prob * ll_tests * p - pass2_squarings >
-			best[0].prob * ll_tests * p - best[0].pass2_squarings){
+	    prob * ll_tests * n - pass2_squarings >
+			best[0].prob * ll_tests * n - best[0].pass2_squarings){
 		best[0].B2 = B2;
 		best[0].prob = prob;
 		best[0].pass2_squarings = pass2_squarings;
@@ -3265,8 +3369,8 @@ void guess_pminus1_bounds (
 		continue;
 	}
 
-	if (prob * ll_tests * p - pass2_squarings <
-		0.9 * (best[0].prob * ll_tests * p - best[0].pass2_squarings))
+	if (prob * ll_tests * n - pass2_squarings <
+		0.9 * (best[0].prob * ll_tests * n - best[0].pass2_squarings))
 		break;
 	continue;
 	}
@@ -3274,9 +3378,9 @@ void guess_pminus1_bounds (
 /* Is this the best B1 thusfar? */
 
 	if (B1 == 10000 ||
-	    best[0].prob * ll_tests * p -
+	    best[0].prob * ll_tests * n -
 			(pass1_squarings + best[0].pass2_squarings) >
-		best[1].prob * ll_tests * p -
+		best[1].prob * ll_tests * n -
 			(best[1].pass1_squarings + best[1].pass2_squarings)) {
 		best[1].B1 = B1;
 		best[1].B2 = best[0].B2;
@@ -3285,9 +3389,9 @@ void guess_pminus1_bounds (
 		best[1].pass2_squarings = best[0].pass2_squarings;
 		continue;
 	}
-	if (best[0].prob * ll_tests * p -
+	if (best[0].prob * ll_tests * n -
 			(pass1_squarings + best[0].pass2_squarings) <
-	    0.9 * (best[1].prob * ll_tests * p -
+	    0.9 * (best[1].prob * ll_tests * n -
 			(best[1].pass1_squarings + best[1].pass2_squarings)))
 		break;
 	continue;
@@ -3295,7 +3399,7 @@ void guess_pminus1_bounds (
 
 /* Return the final best choice */
 
-	if (best[1].prob * ll_tests * p >
+	if (best[1].prob * ll_tests * n >
 		best[1].pass1_squarings + best[1].pass2_squarings + gcd_cost) {
 		*bound1 = best[1].B1;
 		*bound2 = best[1].B2;

@@ -1,4 +1,4 @@
-; Copyright 2001-2003 - Just For Fun Software, Inc., all rights reserved
+; Copyright 2001-2004 - Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -17,19 +17,19 @@
 ;;	4) multiply (multiply src1 by src2, inverse FFT)
 ;;
 
-xfft	MACRO fft_length, p
-	type1	&fft_length&p, _1
-	type2	&fft_length&p, _2
-	type3	&fft_length&p, _3
-	type4	&fft_length&p, _4
-	purge	xfft&fft_length&p
+xfft	MACRO fft_length
+	type1	&fft_length, _1
+	type2	&fft_length, _2
+	type3	&fft_length, _3
+	type4	&fft_length, _4
+	purge	xfft&fft_length
 	ENDM
 
-xfftclm	MACRO fft_length, clm, jump_to_common, p
-	type1	&fft_length&p, _1, clm, jump_to_common
-	type2	&fft_length&p, _2, clm, jump_to_common
-	type3	&fft_length&p, _3, clm, jump_to_common
-	type4	&fft_length&p, _4, clm, jump_to_common
+xfftclm	MACRO fft_length, clm
+	type1	&fft_length, _1, clm
+	type2	&fft_length, _2, clm
+	type3	&fft_length, _3, clm
+	type4	&fft_length, _4, clm
 	ENDM
 
 ;;
@@ -37,7 +37,7 @@ xfftclm	MACRO fft_length, clm, jump_to_common, p
 ;; Do the forward FFT
 ;;
 
-type1	MACRO fft_length, suffix, clm, jump_to_common
+type1	MACRO fft_length, suffix, clm
 	PUBLIC	xfft&fft_length&clm&suffix
 xfft&fft_length&clm&suffix:
 	fninit
@@ -50,7 +50,7 @@ xfft&fft_length&clm&suffix:
 	sub	ebx, esi
 	IF EXPANDING GE 2
 	mov	ffttype, 1
-	JMP_X	xfft2a&fft_length&clm
+	jmp	xfft2a&fft_length&clm
 	ELSE
 	xfft&fft_length 1
 	ENDIF
@@ -61,7 +61,7 @@ xfft&fft_length&clm&suffix:
 ;; Do the forward FFT, squaring, and inverse FFT
 ;;
 
-type2	MACRO fft_length, suffix, clm, jump_to_common
+type2	MACRO fft_length, suffix, clm
 	PUBLIC	xfft&fft_length&clm&suffix
 xfft&fft_length&clm&suffix:
 	fninit
@@ -77,7 +77,7 @@ xfft2a&fft_length&clm:
 	IF EXPANDING EQ 2
 	xfft&fft_length
 	ELSE
-	xfft&fft_length clm, jump_to_common
+	xfft&fft_length clm
 	ENDIF
 	ELSE
 	xfft&fft_length 2
@@ -90,7 +90,7 @@ xfft2a&fft_length&clm:
 ;; Do the forward FFT, multiply, and inverse FFT
 ;;
 
-type3	MACRO fft_length, suffix, clm, jump_to_common
+type3	MACRO fft_length, suffix, clm
 	PUBLIC	xfft&fft_length&clm&suffix
 xfft&fft_length&clm&suffix:
 	fninit
@@ -99,12 +99,10 @@ xfft&fft_length&clm&suffix:
 	push	edi
 	push	esi
 	mov	esi, _DESTARG
-	mov	ebp, _SRCARG
 	sub	ebx, ebx
-	sub	ebp, esi
 	IF EXPANDING GE 2
 	mov	ffttype, 3
-	JMP_X	xfft2a&fft_length&clm
+	jmp	xfft2a&fft_length&clm
 	ELSE
 	xfft&fft_length 3
 	ENDIF
@@ -116,7 +114,7 @@ xfft&fft_length&clm&suffix:
 ;; Do the multiply and inverse FFT
 ;;
 
-type4	MACRO fft_length, suffix, clm, jump_to_common
+type4	MACRO fft_length, suffix, clm
 	PUBLIC	xfft&fft_length&clm&suffix
 xfft&fft_length&clm&suffix:
 	fninit
@@ -125,13 +123,11 @@ xfft&fft_length&clm&suffix:
 	push	edi
 	push	esi
 	mov	esi, _DESTARG
-	mov	ebp, _SRCARG
 	mov	ebx, _SRC2ARG
-	sub	ebp, esi
 	sub	ebx, esi
 	IF EXPANDING GE 2
 	mov	ffttype, 4
-	JMP_X	xfft2a&fft_length&clm
+	jmp	xfft2a&fft_length&clm
 	ELSE
 	xfft&fft_length 4
 	ENDIF

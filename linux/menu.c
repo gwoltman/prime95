@@ -1,4 +1,4 @@
-/* Copyright 1995-2003 Just For Fun Software, Inc. */
+/* Copyright 1995-2004 Just For Fun Software, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -461,11 +461,13 @@ void advanced_pminus1 (void)
 	if (askOkCancel ()) {
 		struct work_unit w;
 		w.work_type = WORK_PMINUS1;
-		w.p = m_p;
+		w.k = 1.0;
+		w.b = 2;
+		w.n = m_p;
+		w.c = m_plus1 ? 1 : -1;
 		w.B1 = m_bound1;
 		w.B2_start = 0;
 		w.B2_end = m_bound2;
-		w.plus1 = m_plus1;
 		addWorkToDoLine (&w);
 		linuxContinue ("\nWork added to worktodo.ini file.  Another mprime is running.\n");
 		askOK ();
@@ -495,15 +497,16 @@ void advanced_ecm (void)
 
 	if (askOkCancel ()) {
 		struct work_unit w;
-		w.work_type = WORK_ECM; 
-		w.p = m_p;
+		w.work_type = WORK_ECM;
+		w.k = 1.0;
+		w.b = 2;
+		w.n = m_p;
+		w.c = m_plus1 ? 1 : -1;
 		w.B1 = m_bound1;
 		w.B2_start = 0;
 		w.B2_end = m_bound2;
 		w.curves_to_do = m_num_curves;
-		w.curves_completed = 0;
 		w.curve = m_curve;
-		w.plus1 = m_plus1;
 		addWorkToDoLine (&w);
 		linuxContinue ("\nWork added to worktodo.ini file.  Another mprime is running.\n");
 		askOK ();

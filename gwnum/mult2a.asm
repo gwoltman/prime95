@@ -1,9 +1,8 @@
-; Copyright 1995-2000 Just For Fun Software, Inc., all rights reserved
+; Copyright 1995-2004 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
-; This routine implements the 6 level 2nd pass for FFTs from 1024 doubles to
-; 8192 doubles.
+; This routine implements the 8 level 2nd pass for FFTs.
 ;
 
 	TITLE   setup
@@ -28,99 +27,29 @@ ENDIF
 
 	flat_distances
 
-;; Routines to do the last six levels in a two-pass FFT
+;; Routines to do the last 8 levels in a two-pass FFT
 
-	PUBLICP	pass2_six_levels_type_123
-	PUBLICP	pass2_six_levels_type_123p
-	PUBLICP	pass2_six_levels_type_4
-	PUBLICP	pass2_six_levels_type_4p
+PUBLICP	pass2_8_levels
+PUBLICP	pass2_8_levels_p
 
-PROCP	pass2_procs2
+;; Distance between two pass 2 data blocks.  Pass 2 does 8 FFT levels
+;; 2^8 complex values = 2^9 doubles = 4KB.
 
-;; Branch to the proper forward FFT code - mod 2^N+1 arithmetic
+blkdst	EQU	(4096+64+64)
 
-LABELP	pass2_six_levels_type_123p
-	cmp	ffttype, 2
-	JE_X	pass2_six_levels_type_2p
-	JG_X	pass2_six_levels_type_3p
-	JMP_X	pass2_six_levels_type_1p
+;; Do the last 8 levels of a two pass FFT
 
-;; Branch to the proper forward FFT code
-
-LABELP	pass2_six_levels_type_123
-	cmp	ffttype, 2
-	JE_X	pass2_six_levels_type_2
-	JG_X	pass2_six_levels_type_3
-	;; Fall through
-
-;; Do the last six levels of a forward FFT
-
-pass2_six_levels_type_1:
-	pass2_six_levels_real 1
-pass2_six_levels_type_1p:
-	mov	ecx, count1		;; Number of complex iterations
-	mov	edx, pass2_premults	;; Address of the group multipliers
-p261lp:	pass2_six_levels_complex 1
-	dec	cl
-	jnz	short p261lq
-	lea	esi, [esi-512*dist1+dist512]
-	mov	cl, 4
-p261lq:	dec	ch
-	JNZ_X	p261lp
-	pop	esi			;; Pop values and return to C code
-	pop	edi
-	pop	ebx
-	pop	ebp
+PROCP	pass2_8_levels
+	pass2_eight_levels_real
+LABELP	pass2_8_levels_p
+	mov	ecx, count1		; Number of complex iterations
+	mov	edx, pass2_premults	; Address of the group multipliers
+p2lp:	pass2_eight_levels_complex
+	dec	ecx
+	jnz	p2lp
+	mov	esi, _DESTARG		; Restore source pointer
 	ret
-
-;; Do the last six levels of a squaring (forward FFT, square, inverse FFT)
-
-pass2_six_levels_type_2:
-	pass2_six_levels_real 2
-pass2_six_levels_type_2p:
-	mov	ecx, count1		;; Number of complex iterations
-	mov	edx, pass2_premults	;; Address of the group multipliers
-p262lp:	pass2_six_levels_complex 2
-	dec	cl
-	jnz	short p262lq
-	lea	esi, [esi-512*dist1+dist512]
-	mov	cl, 4
-p262lq:	dec	ch
-	JNZ_X	p262lp
-	ret
-
-;; Do the last six levels of a multiply (forward FFT, multiply, inverse FFT)
-
-pass2_six_levels_type_3:
-	pass2_six_levels_real 3
-pass2_six_levels_type_3p:
-	mov	ecx, count1		;; Number of complex iterations
-	mov	edx, pass2_premults	;; Address of the group multipliers
-p263lp:	pass2_six_levels_complex 3
-	dec	cl
-	jnz	short p263lq
-	lea	esi, [esi-512*dist1+dist512]
-	mov	cl, 4
-p263lq:	dec	ch
-	JNZ_X	p263lp
-	ret
-
-;; Do the last six levels of a FFT multiply (multiply, inverse FFT)
-
-LABELP	pass2_six_levels_type_4
-	pass2_six_levels_real 4
-LABELP	pass2_six_levels_type_4p
-	mov	ecx, count1		;; Number of complex iterations
-	mov	edx, pass2_premults	;; Address of the group multipliers
-p264lp:	pass2_six_levels_complex 4
-	dec	cl
-	jnz	short p264lq
-	lea	esi, [esi-512*dist1+dist512]
-	mov	cl, 4
-p264lq:	dec	ch
-	JNZ_X	p264lp
-	ret
-ENDPP	pass2_procs2
+ENDPP	pass2_8_levels
 
 _TEXT32	ENDS
 END

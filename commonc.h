@@ -1,8 +1,9 @@
 /* Constants */
 
-#define VERSION		"23.9"
-#define VERSION_BIT	13      	/* Bit number in broadcast map */
+#define VERSION		"24.6"
+#define VERSION_BIT	14      	/* Bit number in broadcast map */
 /* The list of assigned version bits follows: */
+/* Version 24.0    uses bit #14 */
 /* Version 23.0    uses bit #13 */
 /* Version 22.0    uses bit #12 */
 /* Version 21.0    uses bit #11 */
@@ -182,16 +183,20 @@ void LogMsg (char *);
 
 struct work_unit {
 	int	work_type;	/* Type of work to do */
-	unsigned long p;	/* Exponent to work on */
+	double	k;		/* K in k*b^n+c */
+	unsigned long b;	/* B in k*b^n+c */
+	unsigned long n;	/* N in k*b^n+c */
+	signed long c;		/* C in k*b^n+c */
 	unsigned int bits;	/* How far factored */
 	int	pminus1ed;	/* TRUE if has been P-1 factored */
 	unsigned long B1;	/* ECM and P-1 - Stage 1 bound */
 	unsigned long B2_start;	/* ECM and P-1 - Stage #2 start */
 	unsigned long B2_end;	/* ECM and P-1 - Stage #2 end */
 	unsigned int curves_to_do; /* ECM - curves to try */
-	unsigned int curves_completed; /* ECM - curves done */
 	double	curve;		/* ECM - Specific curve to test */
-	int	plus1;		/* Flag for factoring 2^p+1 */
+	double	sieve_depth;	/* Pfactor - how far trial factored */
+	double	tests_saved;	/* Pfactor - primality tests saved if */
+				/* a factor is found */
 };
 short default_work_type (void);
 #define WORK_FACTOR		0
@@ -214,7 +219,8 @@ unsigned long advanced_map_exponent_to_fftlen (unsigned long);
 double raw_work_estimate (struct work_unit *);
 double work_estimate (struct work_unit *);
 unsigned int factorLimit (unsigned long, int);
-void guess_pminus1_bounds (unsigned long, unsigned int, int, unsigned long *,
+void guess_pminus1_bounds (double, unsigned long, unsigned long, signed long,
+			   double, double, unsigned long *,
 			   unsigned long *, unsigned long *, double *);
 
 void strupper (char *);
