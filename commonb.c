@@ -2096,7 +2096,7 @@ _close (fd);
 		if (interimResidues && counter % interimResidues <= 2) {
 			generateResidue64 (units_bit, &high32, &low32);
 			sprintf (buf, 
-				 "M%ld interim WY%d residue %08lX%08lX at iteration %ld\n",
+				 "M%ld interim WZ%d residue %08lX%08lX at iteration %ld\n",
 				 p, PORT, high32, low32, counter);
 			OutputBoth (buf);
 		}
@@ -2145,13 +2145,13 @@ _close (fd);
 /* Format the output message */
 
 	if (isPrime) {
-		sprintf (buf, "M%ld is prime! WY%d: %08lX\n",
+		sprintf (buf, "M%ld is prime! WZ%d: %08lX\n",
 			 p, PORT, SEC1 (p));
 		high32 = low32 = 0;
 	} else {
 		generateResidue64 (units_bit, &high32, &low32);
 		sprintf (buf,
-			 "M%ld is not prime. Res64: %08lX%08lX. WY%d: %08lX,%ld,%08lX\n",
+			 "M%ld is not prime. Res64: %08lX%08lX. WZ%d: %08lX,%ld,%08lX\n",
 			 p, high32, low32, PORT,
 			 SEC2 (p, high32, low32, units_bit, error_count),
 			 units_bit, error_count);
@@ -3685,7 +3685,7 @@ done:	if (*result)
 		pkt.resultInfo.how_far_factored = bits;
 		spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
 
-		sprintf (buf, "M%ld no factor to 2^%d, WY%d: %08lX\n",
+		sprintf (buf, "M%ld no factor to 2^%d, WZ%d: %08lX\n",
 			 p, bits, PORT, SEC3 (p));
 		OutputBoth (buf);
 		spoolMessage (PRIMENET_RESULT_MESSAGE, buf);
@@ -3721,7 +3721,7 @@ readerr:_close (fd);
 
 /* Factor a range of primes using factors of the specified size */
 
-char NOFAC[] = "M%ld no factor from 2^%d to 2^%d, WY%d: %08lX\n";
+char NOFAC[] = "M%ld no factor from 2^%d to 2^%d, WZ%d: %08lX\n";
 
 int primeSieve (
 	unsigned long startp,
