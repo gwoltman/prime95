@@ -1466,7 +1466,7 @@ int prime (
 	time_t	start_time, current_time;
 	unsigned long interimFiles, interimResidues;
 static	unsigned long last_counter = 0;		/* Iteration of last error */
-static	int maxerr_recovery_mode = 0;		/* Big roundoff err rerun */
+static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 
 /* A new option to create interim save files every N iterations. */
 /* This allows two machines to simultanously work on the same exponent */
@@ -1630,6 +1630,7 @@ static	int maxerr_recovery_mode = 0;		/* Big roundoff err rerun */
 		if (maxerr_recovery_mode) {
 			careful_iteration (LLDATA, &units_bit);
 			maxerr_recovery_mode = 0;
+			echk = 0;
 		}
 
 /* Otherwise, do a normal iteration */
@@ -1704,8 +1705,7 @@ static	int maxerr_recovery_mode = 0;		/* Big roundoff err rerun */
 
 		if (echk && MAXERR > 0.40) {
 			static double last_maxerr = 0.0;
-			if (counter == last_counter &&
-			    MAXERR == last_maxerr) {
+			if (counter == last_counter && MAXERR == last_maxerr) {
 				OutputBoth (ERROK);
 				inc_error_count (3, &error_count);
 				GWERROR = 0;
