@@ -21,17 +21,6 @@ mulhalfs MACRO	r
 	mulsd	r, XMM_HALF
 	ENDM
 
-xprefetch MACRO addr
-	IFDEF AMD
-	prefetch addr
-	ENDIF
-	ENDM
-xprefetchw MACRO addr
-	IFDEF AMD
-	prefetchw addr
-	ENDIF
-	ENDM
-
 ; No noticeable difference between these two identical unpack instructions.
 ; The P4 optimization manual lists a 2 clock latency difference
 unpckhi MACRO dest, src

@@ -179,6 +179,8 @@ xtouch	MACRO	addr
 	ENDIF
 	ENDM
 
+; Macro to prefetch a line into the L2 cache
+
 xprefetcht1 MACRO addr
 	IF PREFETCHING NE 0
 	IFDEF AMD
@@ -189,3 +191,17 @@ xprefetcht1 MACRO addr
 	ENDIF
 	ENDIF
 	ENDM
+
+; Macro to prefetch a line into the L1 cache (AMD only)
+
+xprefetch MACRO addr
+	IFDEF AMD
+	prefetch addr
+	ENDIF
+	ENDM
+xprefetchw MACRO addr
+	IFDEF AMD
+	prefetchw addr
+	ENDIF
+	ENDM
+
