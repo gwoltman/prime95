@@ -981,7 +981,7 @@ int gcd (
 
 /* If a factor was found, save it in FAC */
 
-	if (retval && ! isone (v) && !gcompg (N, v)) {
+	if (retval && ! isone (v) && gcompg (N, v)) {
 		FAC = newgiant ((bitlen (v) >> 4) + 1);
 		gtog (v, FAC);
 	}

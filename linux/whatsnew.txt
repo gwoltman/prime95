@@ -1,3 +1,10 @@
+New features in Version 22.11 of mprime
+---------------------------------------
+
+1)  A bug that caused factors to be missed in the last stage of P-1 and ECM
+    factoring was fixed.  The bug was introduced in executables built after
+    Sept. 28, 2002.
+
 New features in Version 22.10 of mprime
 ---------------------------------------
 
