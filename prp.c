@@ -5,7 +5,7 @@
 | common #defines and common routine definitions.
 +---------------------------------------------------------------------*/
 
-char JUNK[]="Copyright 1996-2002 Just For Fun Software, All rights reserved";
+char JUNK[]="Copyright 1996-2003 Just For Fun Software, All rights reserved";
 char	INI_FILE[80] = {0};
 char	RESFILE[80] = {0};
 char	LOGFILE[80] = {0};
@@ -1482,7 +1482,9 @@ restart:
 //t2 = popg ((PARG >> 4) + 3);
 //gwtobinary (x, t1);
 //			end_timer (0);
+	//	start_timer(2);
 		gwprothmod (x);
+	//	end_timer(2);
 //			start_timer (0);
 //specialgwtobinary (x, t2);
 //modg (N, t1);
@@ -1648,6 +1650,7 @@ restart:
 	ReplaceableLine (2);	/* Replace line */
 	OutputStr (buf);
 	print_timer (1, TIMER_CLR | TIMER_NL);
+//	print_timer (2, TIMER_CLR | TIMER_NL);
 	free (N);
 	term_giants ();
 	gwdone ();
