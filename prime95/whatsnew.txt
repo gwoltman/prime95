@@ -4,6 +4,8 @@ New features in Version 23.8 of prime95.exe
 1)  A communication bug, Primenet Error 1, was fixed in the case where
     proxy software inserted the text "NetAnts: MaxConnection=1" in the HTML
     response from the Primenet server.
+2)  Fixed memory allocation bug in torture test when using 926MB of memory
+    on the 20K FFT size.
 
 New features in Version 23.7 of prime95.exe
 -------------------------------------------
