@@ -2064,7 +2064,7 @@ int ggcd (		/* A giant gcd.  Modifies its arguments. */
 		if (! hgcd (0, x, y, R)) return (FALSE);
 		return (rhgcd (x, y, R));
 	}
-	
+
 /* Call half GCDs until the numbers get pretty small.  The half GCD code */
 /* is most efficient when computing 1/3 of the GCD result size.  But more */
 /* importantly, the FFT code is most efficient when operating on a power */
@@ -2075,11 +2075,11 @@ int ggcd (		/* A giant gcd.  Modifies its arguments. */
 /* If FFTmulg ever implemented non-power-of-2 FFTs, then we likely would */
 /* always do a 1/3 hgcd call */
 
-	while ((*x)->sign > GCDLIMIT) {
+	while ((*y)->sign > GCDLIMIT) {
 		int 	quarter_size, third_size, a_size;
 
-		quarter_size = ((*x)->sign - 1) >> 2;
-		third_size = ((*x)->sign - 1) / 3;
+		quarter_size = ((*y)->sign - 1) >> 2;
+		third_size = ((*y)->sign - 1) / 3;
 		if (lpt (quarter_size) == lpt (third_size))
 			a_size = third_size;
 		else
@@ -2091,7 +2091,7 @@ int ggcd (		/* A giant gcd.  Modifies its arguments. */
 
 /* Do the first recursion */
 
-		if (! hgcd ((*x)->sign - (a_size + a_size + 1), x, y, &A))
+		if (! hgcd ((*y)->sign - (a_size + a_size + 1), x, y, &A))
 			return (FALSE);
 
 /* Do a single step if the hgcd call didn't make any progress */
@@ -2126,7 +2126,7 @@ int rhgcd (	/* recursive hgcd calls accumulating extended GCD info */
 	A.ll = popg ((*x)->sign); setzero (A.ll);
 	A.ur = popg ((*x)->sign); setzero (A.ur);
 	A.lr = popg ((*x)->sign); setone (A.lr);
-	if ((*x)->sign <= GCDLIMIT)
+	if ((*y)->sign <= GCDLIMIT)
 		cextgcdg (x, y, &A);
 	else {
 		if (! hgcd (0, x, y, &A)) return (FALSE);
@@ -2167,11 +2167,12 @@ int hgcd (	/* hgcd(n,x,y,A) chops n words off x and y and computes the
 	y->n += n;
 	setmaxsize (y, y->maxsize - n);
 
-/* If the numbers are small do the final level of recursion */
+/* If the numbers are small or the size of the first quotient won't let */
+/* split the numbers further, then do the final level of recursion */
 /* using a brute force algorithm */
 
-	half_size = (x->sign - 1) >> 1;
-	if (half_size <= CHGCD_BREAK) {
+	half_size = (y->sign - 1) >> 1;
+	if (half_size <= CHGCD_BREAK || x->sign - y->sign > half_size >> 1) {
 		for ( ; ; ) {
 			int	quot_length, a_length;
 
@@ -2210,7 +2211,7 @@ int hgcd (	/* hgcd(n,x,y,A) chops n words off x and y and computes the
 /* Do the first recursion */
 
 		a_size = half_size >> 1;
-		if (! hgcd (x->sign - (a_size + a_size + 1), &x, &y, A))
+		if (! hgcd (y->sign - (a_size + a_size + 1), &x, &y, A))
 			return (FALSE);
 		a_size = abs (A->lr->sign);
 
@@ -2230,7 +2231,7 @@ int hgcd (	/* hgcd(n,x,y,A) chops n words off x and y and computes the
 		B.ur = &ur; setzero (&ur);
 		B.ll = &ll; setzero (&ll);
 		B.lr = &lr; setone (&lr);
-		if (! hgcd (x->sign - (b_size + b_size + 1), &x, &y, &B))
+		if (! hgcd (y->sign - (b_size + b_size + 1), &x, &y, &B))
 			return (FALSE);
 		mulmMsp (&B, A, half_size);
 	}
