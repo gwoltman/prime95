@@ -17,6 +17,7 @@
 
 #define MIN_PRIME	5L		/* Smallest testable prime */
 #define MAX_FACTOR	MAX_PRIME	/* Largest factorable number */
+#define ERROR_RATE	0.018		/* Estimated error rate on clean run */
 
 /* Factoring limits based on complex formulas given the speed of the */
 /* factoring code vs. the speed of the Lucas-Lehmer code */

@@ -66,7 +66,7 @@ void rangeStatusMessage (
 		if (!parseWorkToDoLine (i, &w)) break;
 
 /* If testing then adjust our probabilities */
-/* This assumes our error rate is roughly 1.0% */
+/* This assumes our error rate is roughly 1.8% */
 
 		if (w.bits < 32) w.bits = 32;
 		if (w.work_type == WORK_TEST) {
@@ -79,9 +79,9 @@ void rangeStatusMessage (
 		if (w.work_type == WORK_DBLCHK) {
 			ll_cnt++;
 			if (w.pminus1ed)
-				prob += (double) ((w.bits - 1)*0.01803) / w.p;
+				prob += (double) ((w.bits - 1) * 1.803 * ERROR_RATE) / w.p;
 			else
-				prob += (double) ((w.bits - 1)*0.01733) / w.p;
+				prob += (double) ((w.bits - 1) * 1.733 * ERROR_RATE) / w.p;
 		}
 
 /* Adjust our time estimate */
