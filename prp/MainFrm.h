@@ -40,7 +40,7 @@ protected:
 	//{{AFX_MSG(CMainFrame)
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg void OnEndSession(BOOL bEnding);
-	afx_msg void OnActivateApp(BOOL bActive, HTASK hTask);
+	afx_msg void OnActivateApp(BOOL bActive, DWORD hTask);
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };

@@ -189,7 +189,7 @@ void Service95 ()
 	RegCloseKey (hkey);
 }
 
-void CMainFrame::OnActivateApp(BOOL bActive, HTASK hTask) 
+void CMainFrame::OnActivateApp(BOOL bActive, DWORD hTask) 
 {
 	CFrameWnd::OnActivateApp(bActive, hTask);
 }
