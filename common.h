@@ -19,6 +19,16 @@
 #define TRUE	1
 #define FALSE	0
 
+/* Define the world/group/owner read/write attributes for creating files */
+/* I've always used 0666 in Unix (everyone gets R/W access), but MSVC 8 */
+/* now refuses to work with that setting -- insisting on 0600 instead. */
+
+#ifdef _WIN32
+#define	CREATE_FILE_ACCESS	0600
+#else
+#define	CREATE_FILE_ACCESS	0666
+#endif
+
 /* Define the ASSERT macro I use while debugging */
 
 #ifdef GDEBUG

@@ -496,7 +496,7 @@ void writeIniFile (
 
 /* Create and write out the INI file */
 
-	fd = _open (p->filename, _O_CREAT | _O_TRUNC | _O_WRONLY | _O_TEXT, 0666);
+	fd = _open (p->filename, _O_CREAT | _O_TRUNC | _O_WRONLY | _O_TEXT, CREATE_FILE_ACCESS);
 	if (fd < 0) return;
 	for (j = 0; j < p->num_lines; j++) {
 		strcpy (buf, p->lines[j]->keyword);
@@ -674,7 +674,7 @@ int IniFileWritable (
 /* Create and write out the INI file */
 
 	p = openIniFile (filename, 0);
-	fd = _open (p->filename, _O_CREAT | _O_TRUNC | _O_WRONLY | _O_TEXT, 0666);
+	fd = _open (p->filename, _O_CREAT | _O_TRUNC | _O_WRONLY | _O_TEXT, CREATE_FILE_ACCESS);
 	if (fd < 0) return (FALSE);
 	for (j = 0; j < p->num_lines; j++) {
 		strcpy (buf, p->lines[j]->keyword);
@@ -916,7 +916,7 @@ static	time_t	last_time = 0;
 
 /* Open the log file and position to the end */
 
-	fd = _open (LOGFILE, _O_TEXT | _O_RDWR | _O_CREAT, 0666);
+	fd = _open (LOGFILE, _O_TEXT | _O_RDWR | _O_CREAT, CREATE_FILE_ACCESS);
 	if (fd < 0) {
 		OutputStr ("Unable to open log file.\n");
 		return;
@@ -996,7 +996,7 @@ static	time_t	last_time = 0;
 
 /* Open file, position to end */
 
-	fd = _open (RESFILE, _O_TEXT | _O_RDWR | _O_CREAT | _O_APPEND, 0666);
+	fd = _open (RESFILE, _O_TEXT | _O_RDWR | _O_CREAT | _O_APPEND, CREATE_FILE_ACCESS);
 	if (fd < 0) {
 		LogMsg ("Error opening the results file.\n");
 		return (FALSE);
@@ -1108,7 +1108,7 @@ int writeToFile (
 
 /* Create the intermediate file */
 
-	fd = _open (newfilename, _O_BINARY|_O_WRONLY|_O_TRUNC|_O_CREAT, 0666);
+	fd = _open (newfilename, _O_BINARY|_O_WRONLY|_O_TRUNC|_O_CREAT, CREATE_FILE_ACCESS);
 	if (fd < 0) return (FALSE);
 
 /* Write the file header. */
@@ -1690,7 +1690,7 @@ void primeContinue ()
 		if (chainlen == 0) chainlen = 1;
 
 		if (! fileExists (outputfile)) {
-			outfd = _open (outputfile, _O_TEXT | _O_RDWR | _O_CREAT, 0666);
+			outfd = _open (outputfile, _O_TEXT | _O_RDWR | _O_CREAT, CREATE_FILE_ACCESS);
 			if (outfd) {
 				char	buf[100];
 				if (mask == 0)
@@ -1805,7 +1805,7 @@ void primeContinue ()
 /* If all numbers tested were probable primes, copy the line to the output file */
 
 			if (res) {
-				outfd = _open (outputfile, _O_TEXT | _O_RDWR | _O_APPEND | _O_CREAT, 0666);
+				outfd = _open (outputfile, _O_TEXT | _O_RDWR | _O_APPEND | _O_CREAT, CREATE_FILE_ACCESS);
 				if (outfd) {
 					char	buf[100];
 					sprintf (buf, "%lu %lu\n", k, n);
@@ -1971,7 +1971,7 @@ void primeContinue ()
 /* If all numbers tested were probable primes, copy the line to the output file */
 
 			if (res) {
-				outfd = _open (outputfile, _O_TEXT | _O_RDWR | _O_APPEND | _O_CREAT, 0666);
+				outfd = _open (outputfile, _O_TEXT | _O_RDWR | _O_APPEND | _O_CREAT, CREATE_FILE_ACCESS);
 				if (outfd) {
 					char	buf[100];
 					sprintf (buf, "%.0f %lu\n", k, n);

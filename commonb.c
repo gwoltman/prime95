@@ -240,7 +240,7 @@ int writeToFile (
 
 /* Now save to the intermediate file */
 
-	fd = _open (filename, _O_BINARY | _O_WRONLY | _O_TRUNC | _O_CREAT, 0666);
+	fd = _open (filename, _O_BINARY | _O_WRONLY | _O_TRUNC | _O_CREAT, CREATE_FILE_ACCESS);
 	if (fd < 0) return (FALSE);
 	if (FFTLEN < 8192)
 		type = (short) FFTLEN + 1;
@@ -2016,7 +2016,7 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 xxx:{
 unsigned long i;
 char	buf[1024];
-int	fd = _open (RESFILE, _O_TEXT | _O_RDWR | _O_CREAT, 0666);
+int	fd = _open (RESFILE, _O_TEXT | _O_RDWR | _O_CREAT, CREATE_FILE_ACCESS);
 while (_read (fd, buf, sizeof (buf)));
 for (i = 0; i < FFTLEN; i++) {
 	double *dblp = addr (LLDATA, i);
@@ -3917,7 +3917,7 @@ int primeFactor (
 			if (stopping || saving) {
 				short	shortdummy;
 				long	longdummy;
-				fd = _creat (filename, 0666);
+				fd = _creat (filename, CREATE_FILE_ACCESS);
 				_close (fd);
 				fd = _open (filename, _O_BINARY | _O_RDWR);
 				shortdummy = 2;
@@ -4238,7 +4238,7 @@ int primeSieve (
 
 			if (stopping || saving) {
 				short	four = 4;
-				fd = _open (filename, _O_BINARY | _O_WRONLY | _O_TRUNC | _O_CREAT, 0666);
+				fd = _open (filename, _O_BINARY | _O_WRONLY | _O_TRUNC | _O_CREAT, CREATE_FILE_ACCESS);
 				_write (fd, &four, sizeof (short));
 				_write (fd, &p, sizeof (long)); /* dummy */
 				_write (fd, &p, sizeof (long));

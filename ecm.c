@@ -1768,7 +1768,7 @@ void ecm_save (
 
 /* Create the intermediate file */
 
-	fd = _open (newfilename, _O_BINARY|_O_WRONLY|_O_TRUNC|_O_CREAT, 0666);
+	fd = _open (newfilename, _O_BINARY|_O_WRONLY|_O_TRUNC|_O_CREAT, CREATE_FILE_ACCESS);
 	if (fd < 0) return;
 
 /* Write the file header. */
@@ -3265,7 +3265,7 @@ void pm1_save (
 
 /* Create the intermediate file */
 
-	fd = _open (newfilename, _O_BINARY|_O_WRONLY|_O_TRUNC|_O_CREAT, 0666);
+	fd = _open (newfilename, _O_BINARY|_O_WRONLY|_O_TRUNC|_O_CREAT, CREATE_FILE_ACCESS);
 	if (fd < 0) return;
 
 /* Write the file header */
