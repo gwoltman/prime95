@@ -127,9 +127,8 @@ MANUAL METHOD INSTRUCTIONS
     file called worktodo.ini
 2)  Run ntsetup.exe.  You will see 3 dialog boxes:
 2a) In the first dialog box, enter your name and email address.  Click OK.
-2b) In the second dialog box, change the CPU type and speed if necessary.
-    Fill in roughly how many hours a day you leave your computer running.
-    Click OK.
+2b) In the second dialog box, fill in roughly how many hours a day you leave
+    your computer running.  Click OK.
 2c) In the third dialog box, uncheck "Use PrimeNet to get work and report
     results", click OK.
 3)  Exit ntsetup.exe.

@@ -110,8 +110,7 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
     reports on your progress.  If you do not enter a user ID or if you pick a
     user ID that is already in use, then the server will assign a user ID.
 3b) The second set of questions gathers information about your machine.
-    Change the CPU type and speed as necessary.  Fill in roughly how many
-    hours a day you leave your computer running.
+    Fill in roughly how many hours a day you leave your computer running.
 3c) The third set of questions gathers information about using the
     Primenet server.  Note that mprime will never dial-up to connect to
     the Internet, rather it waits for a time when you are already connected
@@ -135,8 +134,7 @@ MANUAL METHOD INSTRUCTIONS
 2a) The first set gathers information about you.  Enter your name and email
     address.
 2b) The second set of questions gathers information about your machine.
-    Change the CPU type and speed as necessary.  Fill in roughly how many
-    hours a day you leave your computer running.
+    Fill in roughly how many hours a day you leave your computer running.
 2c) The third set of questions gathers information about using the
     Primenet server.  Answer "No" to the first question.
 3)  Configure your startup scripts so that mprime runs every time you
