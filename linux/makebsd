@@ -3,10 +3,7 @@
 # NOTE: We use Linux to convert the COFF object files to ELF.
 
 CC = gcc
-CFLAGS = -I.. -O2 -m486 -malign-double
-
-#CFLAGS for Pentium (I don't know who recommended these settings)
-#CFLAGS = -I.. -O2 -m486 -malign-double -malign-loops=2 -malign-jumps=2 -malign-functions=2
+CFLAGS = -I.. -O2 -march=i486 -malign-double
 
 LFLAGS = -Wl,-M
 LIBS   = -lm -lcompat

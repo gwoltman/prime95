@@ -29,9 +29,9 @@ EXE2	 = sprime
 # on 32 byte boundaries.  Use dummyNN.o to align mult.o and dummytNN.o
 # to align factor64.o
 
-DUMMY1   = dummy0.o
-DUMMY2   = dummyt12.o
-DUMMY3   = dummy0.o
+DUMMY1   = dummy28.o
+DUMMY2   = dummyt0.o
+DUMMY3   = dummy28.o
 DUMMY4   = dummyt12.o
 
 #########################################################################
