@@ -1,4 +1,4 @@
-//Microsoft Developer Studio generated resource script.
+// Microsoft Visual C++ generated resource script.
 //
 #include "resource.h"
 
@@ -27,18 +27,18 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 // TEXTINCLUDE
 //
 
-1 TEXTINCLUDE DISCARDABLE 
+1 TEXTINCLUDE 
 BEGIN
     "resource.h\0"
 END
 
-2 TEXTINCLUDE DISCARDABLE 
+2 TEXTINCLUDE 
 BEGIN
     "#include ""afxres.h""\r\n"
     "\0"
 END
 
-3 TEXTINCLUDE DISCARDABLE 
+3 TEXTINCLUDE 
 BEGIN
     "#define _AFX_NO_SPLITTER_RESOURCES\r\n"
     "#define _AFX_NO_OLE_RESOURCES\r\n"
@@ -65,15 +65,15 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-IDR_MAINFRAME           ICON    DISCARDABLE     "res\\Prime95.ico"
-IDI_YELLOW_ICON         ICON    DISCARDABLE     "res\\yellow_i.ico"
+IDR_MAINFRAME           ICON                    "res\\Prime95.ico"
+IDI_YELLOW_ICON         ICON                    "res\\yellow_i.ico"
 
 /////////////////////////////////////////////////////////////////////////////
 //
 // Menu
 //
 
-IDR_MAINFRAME MENU PRELOAD DISCARDABLE 
+IDR_MAINFRAME MENU 
 BEGIN
     POPUP "&Test"
     BEGIN
@@ -111,7 +111,7 @@ END
 // Accelerator
 //
 
-IDR_MAINFRAME ACCELERATORS PRELOAD MOVEABLE PURE 
+IDR_MAINFRAME ACCELERATORS 
 BEGIN
     VK_ESCAPE,      IDM_STOP,               VIRTKEY, NOINVERT
     VK_F1,          ID_HELP,                VIRTKEY, NOINVERT
@@ -124,13 +124,13 @@ END
 // Dialog
 //
 
-IDD_ABOUTBOX DIALOG DISCARDABLE  0, 0, 238, 63
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_ABOUTBOX DIALOGEX 0, 0, 238, 63
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Setup for NT Service version of Prime95"
-FONT 8, "MS Sans Serif"
+FONT 8, "MS Sans Serif", 0, 0, 0x0
 BEGIN
-    ICON            IDR_MAINFRAME,IDC_STATIC,11,17,18,20
-    LTEXT           "NTPrime Setup - Version 22.3.5",IDC_STATIC,40,12,119,8,
+    ICON            IDR_MAINFRAME,IDC_STATIC,11,17,20,20
+    LTEXT           "NTPrime Setup - Version 22.4.5",IDC_STATIC,40,12,119,8,
                     SS_NOPREFIX
     LTEXT           "Copyright © 1996-2002 Just For Fun Software, Inc.",
                     IDC_STATIC,39,22,154,8
@@ -139,8 +139,8 @@ BEGIN
     LTEXT           "Email:  woltman@alum.mit.edu",IDC_STATIC,39,42,161,8
 END
 
-IDD_CPU DIALOG DISCARDABLE  0, 0, 227, 151
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_CPU DIALOG  0, 0, 227, 151
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "CPU Settings and Information"
 FONT 8, "MS Sans Serif"
 BEGIN
@@ -165,8 +165,8 @@ BEGIN
     LTEXT           "",IDC_CPU_INFO,14,95,200,43
 END
 
-IDD_PREFERENCES DIALOG DISCARDABLE  0, 0, 230, 103
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_PREFERENCES DIALOG  0, 0, 230, 103
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Preferences"
 FONT 8, "MS Sans Serif"
 BEGIN
@@ -192,8 +192,8 @@ BEGIN
                     109,10
 END
 
-IDD_USER DIALOG DISCARDABLE  0, 0, 278, 144
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_USER DIALOG  0, 0, 278, 144
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "End User Information"
 FONT 8, "MS Sans Serif"
 BEGIN
@@ -219,8 +219,8 @@ BEGIN
                     IDC_STATIC,7,51,264,19
 END
 
-IDD_PRIMENET DIALOG DISCARDABLE  0, 0, 281, 121
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_PRIMENET DIALOG  0, 0, 281, 121
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Configure PrimeNet"
 FONT 8, "MS Sans Serif"
 BEGIN
@@ -240,8 +240,8 @@ BEGIN
                     10
     CONTROL         "Request Mersenne numbers to &double-check",IDC_DBLCHK,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,13,90,189,10
-    CONTROL         "Request Mersenne numbers to &factor",IDC_FACTOR,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,13,102,190,10
+    CONTROL         "Request Mersenne numbers to &factor",IDC_FACTOR,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,13,102,190,10
     DEFPUSHBUTTON   "OK",IDOK,224,7,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,224,24,50,14
     LTEXT           "Always have at least this many days of &work queued up:",
@@ -250,8 +250,8 @@ BEGIN
                     55,212,59
 END
 
-IDD_PRIORITY DIALOG DISCARDABLE  0, 0, 221, 121
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_PRIORITY DIALOG  0, 0, 221, 121
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Set Priority"
 FONT 8, "MS Sans Serif"
 BEGIN
@@ -267,8 +267,8 @@ BEGIN
                     IDC_STATIC,7,66,200,26
 END
 
-IDD_ABOUTSERVER DIALOG DISCARDABLE  0, 0, 280, 52
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_ABOUTSERVER DIALOG  0, 0, 280, 52
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About PrimeNet Server"
 FONT 8, "MS Sans Serif"
 BEGIN
@@ -282,8 +282,8 @@ BEGIN
     LTEXT           "Email Addr:",IDC_STATIC,43,32,36,8
 END
 
-IDD_VACATION DIALOG DISCARDABLE  0, 0, 249, 100
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_VACATION DIALOG  0, 0, 249, 100
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Vacation or Holiday Absence"
 FONT 8, "MS Sans Serif"
 BEGIN
@@ -299,8 +299,8 @@ BEGIN
                     -1,7,43,202,19
 END
 
-IDD_MANUAL_COMM DIALOG DISCARDABLE  0, 0, 238, 51
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_MANUAL_COMM DIALOG  0, 0, 238, 51
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Manual PrimeNet Communication"
 FONT 8, "MS Sans Serif"
 BEGIN
@@ -316,8 +316,8 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,181,24,50,14
 END
 
-IDD_AFFINITY DIALOG DISCARDABLE  0, 0, 221, 97
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_AFFINITY DIALOG  0, 0, 221, 97
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Set Processor Affinity"
 FONT 8, "MS Sans Serif"
 BEGIN
@@ -333,8 +333,8 @@ BEGIN
     LTEXT           "Specific &CPU to run on:",IDC_AFFINITY_TEXT,7,79,75,8
 END
 
-IDD_ECM DIALOG DISCARDABLE  0, 0, 171, 92
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_ECM DIALOG  0, 0, 171, 92
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Factor Exponent Using ECM"
 FONT 8, "MS Sans Serif"
 BEGIN
@@ -354,8 +354,8 @@ BEGIN
     LTEXT           "&Curves to test:",-1,7,49,48,8
 END
 
-IDD_PMINUS1 DIALOG DISCARDABLE  0, 0, 171, 66
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_PMINUS1 DIALOG  0, 0, 171, 66
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Factor Exponent Using P-1"
 FONT 8, "MS Sans Serif"
 BEGIN
@@ -372,15 +372,14 @@ BEGIN
 END
 
 
-#ifndef _MAC
 /////////////////////////////////////////////////////////////////////////////
 //
 // Version
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 22,3,5,0
- PRODUCTVERSION 22,3,5,0
+ FILEVERSION 22,4,5,0
+ PRODUCTVERSION 22,4,5,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -395,14 +394,13 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "CompanyName", "\0"
-            VALUE "FileDescription", "PRIME95 NT Setup Application\0"
-            VALUE "FileVersion", "22, 3, 5, 0\0"
-            VALUE "InternalName", "PRIME95\0"
-            VALUE "LegalCopyright", "Copyright © 1996-2002\0"
-            VALUE "OriginalFilename", "PRIME95.EXE\0"
-            VALUE "ProductName", "PRIME95 Application\0"
-            VALUE "ProductVersion", "22, 3, 5, 0\0"
+            VALUE "FileDescription", "PRIME95 NT Setup Application"
+            VALUE "FileVersion", "22, 4, 5, 0"
+            VALUE "InternalName", "PRIME95"
+            VALUE "LegalCopyright", "Copyright © 1996-2002"
+            VALUE "OriginalFilename", "PRIME95.EXE"
+            VALUE "ProductName", "PRIME95 Application"
+            VALUE "ProductVersion", "22, 4, 5, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -411,8 +409,6 @@ BEGIN
     END
 END
 
-#endif    // !_MAC
-
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -420,7 +416,7 @@ END
 //
 
 #ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO DISCARDABLE 
+GUIDELINES DESIGNINFO 
 BEGIN
     IDD_ABOUTBOX, DIALOG
     BEGIN
@@ -526,27 +522,27 @@ END
 // Cursor
 //
 
-IDC_CURSOR1             CURSOR  DISCARDABLE     "res\\cursor1.cur"
-IDC_CURSOR2             CURSOR  DISCARDABLE     "res\\cursor2.cur"
+IDC_CURSOR1             CURSOR                  "res\\cursor1.cur"
+IDC_CURSOR2             CURSOR                  "res\\cursor2.cur"
 
 /////////////////////////////////////////////////////////////////////////////
 //
 // String Table
 //
 
-STRINGTABLE PRELOAD DISCARDABLE 
+STRINGTABLE 
 BEGIN
     IDR_MAINFRAME           "Prime95\n\nPrime9\n\n\nPrime95.Document\nPrime9 Document"
 END
 
-STRINGTABLE PRELOAD DISCARDABLE 
+STRINGTABLE 
 BEGIN
     AFX_IDS_APP_TITLE       "Prime95"
     AFX_IDS_IDLEMESSAGE     "For Help, press F1"
     AFX_IDS_HELPMODEMESSAGE "Select an object on which to get Help"
 END
 
-STRINGTABLE DISCARDABLE 
+STRINGTABLE 
 BEGIN
     ID_APP_ABOUT            "Display program information, version number and copyright\nAbout"
     ID_APP_EXIT             "Quit the application; prompts to save documents\nExit"
@@ -557,7 +553,7 @@ BEGIN
     ID_HELP                 "Display help for current task or command\nHelp"
 END
 
-STRINGTABLE DISCARDABLE 
+STRINGTABLE 
 BEGIN
     AFX_IDS_SCSIZE          "Change the window size"
     AFX_IDS_SCMOVE          "Change the window position"
@@ -566,7 +562,7 @@ BEGIN
     AFX_IDS_SCCLOSE         "Close the active window and prompts to save the documents"
 END
 
-STRINGTABLE DISCARDABLE 
+STRINGTABLE 
 BEGIN
     AFX_IDS_SCRESTORE       "Restore the window to normal size"
     AFX_IDS_SCTASKLIST      "Activate Task List"
