@@ -4611,7 +4611,7 @@ found_a_bit:;
 /* Mul this eQx - nQx value into gg */
 
 		escaped = stopCheck ();
-		gwstartnextfft (!escaped && !saving && !last_pass);
+		gwstartnextfft (!escaped && !saving);
 		if (using_t3) {
 			gwfftsub3 (eQx[0], nQx[j], t3);
 			gwfftmul (t3, gg);
@@ -4724,6 +4724,13 @@ errchk:		if (gw_test_for_error () || MAXERR >= 0.40625) goto error;
 		j = i >> 1;
 		if (nQx[j] != NULL) gwfree (nQx[j]);
 	}
+
+/* Since we set gwstartnextfft above, we must do another harmless squaring */
+/* here to make sure gg has not been partially FFTed.  We cannot convert gg */
+/* to an integer for GCD if it has been partially FFTed. */
+
+	gwstartnextfft (FALSE);
+	gwsquare (gg);
 
 /* Check to see if another pass is required */
 
