@@ -21,14 +21,11 @@ void options_cpu (void);
 void get_line (
 	char	*buf)
 {
-	char	c;
-	int	i;
-	for (i = 0; ; i++) {
-		if (_read (0, &c, 1) != 1) break;
-		if (c == '\n' || c == 0) break;
-		if (i < 80) *buf++ = c;
-	}
-	*buf++ = 0;
+	int	len;
+	buf[0] = 0;
+	fgets (buf, 80, stdin);
+	len = strlen (buf);
+	if (len > 0 && buf[len-1] == '\n') buf[len-1] = 0;
 }
 
 /* Get a number from the user */
