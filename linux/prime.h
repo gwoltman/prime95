@@ -85,6 +85,7 @@
 
 /* Handle the difference in the way the two C compilers name routines */
 
+#define timeit _timeit
 #define setupf	 _setupf
 #define factor64 _factor64
 #define gw_setup1 _gw_setup1
