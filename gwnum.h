@@ -365,7 +365,7 @@ void gwtogiant (gwnum, giant);
 /* The maximum value k * mulbyconst can be in a zero pad FFT.  Larger */
 /* values must use generic modular reduction. */
 
-#define MAX_ZEROPAD_K	22517998113685247.0	/* 51-bit k's are OK. */
+#define MAX_ZEROPAD_K	2251799813685247.0	/* 51-bit k's are OK. */
 
 /* The maximum value c * mulbyconst can be in a zero pad FFT.  Larger */
 /* values must use generic modular reduction. */
