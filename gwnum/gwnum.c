@@ -640,7 +640,7 @@ void gwsetup (
 /* The SSE2 code has trouble with real small and real large exponents. */
 /* Turn off the SSE2 flag if testing one of these (a simplistic workaround). */
 
-	if (p < 256 || p > 78360000) CPU_FLAGS &= ~CPU_SSE2;
+	if (p < 256 || p > MAX_PRIME_SSE2) CPU_FLAGS &= ~CPU_SSE2;
 
 /* The SSE2 code for 2^N+1 testing has not been written yet. */
 /* Use the old code for now */
@@ -866,7 +866,7 @@ void gwdone (void)
 /* The SSE2 code has trouble with real small exponents, real large */
 /* exponents and 2^N+1 modulo.  Undo the workaround used in gwsetup. */
 
-	if (PARG < 256 || PARG > 78360000 || PLUS1) getCpuInfo ();
+	if (PARG < 256 || PARG > MAX_PRIME_SSE2 || PLUS1) getCpuInfo ();
 }
 
 /* Routine to allocate aligned memory for our big numbers */

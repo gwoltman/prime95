@@ -1,6 +1,6 @@
 /* Constants */
 
-#define VERSION		"22.3"
+#define VERSION		"22.4"
 #define VERSION_BIT	12      	/* Bit number in broadcast map */
 /* The list of assigned version bits follows: */
 /* Version 21.0    uses bit #11 */
@@ -18,6 +18,7 @@
 #define MIN_PRIME	5L		/* Smallest testable prime */
 #define MAX_PRIME	79300000L	/* Largest testable prime */
 #define MAX_FACTOR	79300000L	/* Largest factorable number */
+#define MAX_PRIME_SSE2	77910000L	/* Largest testable prime */
 
 /* Factoring limits based on complex formulas given the speed of the */
 /* factoring code vs. the speed of the Lucas-Lehmer code */
