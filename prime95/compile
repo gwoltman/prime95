@@ -1,8 +1,8 @@
 # Standard options
 masm=ml /c /coff /I..\gwnum
 #masm=ml /c /coff /I..\gwnum /Fl /Sf /Sa
-masm64=ml64 /c /DX86_64
-#masm64=ml64 /c /Fl /Sf /Sa /DX86_64
+masm64=ml64 /c /DX86_64 /I..\gwnum
+#masm64=ml64 /c /DX86_64 /I..\gwnum /Fl /Sf /Sa
 cl4=\msdev\bin\cl /I.. /I C:\msdev\include\ /O2 /GF /W3 /MT /c
 #cl4=\msdev\bin\cl /I.. /I C:\msdev\include\ /O2 /GF /W3 /MT /Zi /c
 cl=cl /I.. /GF /W3 /MT /D_WINDOWS /c
