@@ -2120,7 +2120,6 @@ return 0;
 
 /* Get the current time */
 
-
 	time (&start_time);
 
 /* Init the random number generator */
@@ -3155,6 +3154,7 @@ int pm1_restore (
 	*x = gwalloc ();
 	if (! read_gwnum (fd, *x, &sum)) goto readerr;
 
+	*gg = NULL;
 	if (state->stage == PM1_STAGE2) {
 		*gg = gwalloc ();
 		if (! read_gwnum (fd, *gg, &sum)) goto readerr;
@@ -3364,9 +3364,10 @@ int pminus1 (
 	unsigned long SQRT_B, last_output, last_contact, last_output_r;
 	unsigned long numvals, numrels, next_relprime;
 	unsigned long i, j, m, stage2incr, prime, len, bit_number;
+	unsigned long error_recovery_mode = 0;
 	gwnum	x, gg, t3;
 	char	filename[16], buf[100];
-	int	retval, stage, escaped, saving, echk;
+	int	retval, stage, escaped, saving, near_fft_limit, echk;
 	long	write_time = DISK_WRITE_TIME * 60;
 	time_t	start_time, current_time;
 	double	pct;
@@ -3400,10 +3401,15 @@ restart:
 /* Perform setup functions */
 
 	pm1_setup1 (p, plus1);
-	gwsetnormroutine (0, ERRCHK, 0);
 	last_contact = last_output = last_output_r = fft_count = 0;
 	EXP_BEING_WORKED_ON = p;
 	EXP_BEING_FACTORED = 1;
+
+/* If we are near the maximum exponent this fft length can test, then we */
+/* will roundoff check all multiplies */
+
+	near_fft_limit = exponent_near_fft_limit ();
+	gwsetnormroutine (0, ERRCHK || near_fft_limit, 0);
 
 /* Compute the number we are factoring */
 
@@ -3415,11 +3421,13 @@ restart:
 /* Output startup message */
 
 	title ("P-1");
-	sprintf (buf, "P-1 on %c%ld with B1=%lu, B2=%lu\n",
-		 PLUS1 ? 'P' : 'M', PARG, B, C);
-	if (E > 2)
-		sprintf (buf+strlen(buf)-1, ", E=%lu\n", E);
-	OutputStr (buf);
+	if (!error_recovery_mode) {
+		sprintf (buf, "P-1 on %c%ld with B1=%lu, B2=%lu\n",
+			 PLUS1 ? 'P' : 'M', PARG, B, C);
+		if (E > 2)
+			sprintf (buf+strlen(buf)-1, ", E=%lu\n", E);
+		OutputStr (buf);
+	}
 
 /* Check for a continuation file */
 
@@ -3440,6 +3448,16 @@ restart:
 		if (state.stage == PM1_STAGE0) {
 			bit_number = processed;
 			goto restart0;
+		}
+
+/* To avoid an infinite loop of repeatable roundoff errors, we square */
+/* the value read in from the P-1 save file.  This won't affect our final */
+/* results, but will change the FFT data. */
+
+		if (error_recovery_mode) {
+			gwsquare (x);
+			pm1_save (filename, &state, processed, x, gg);
+			error_recovery_mode = 0;
 		}
 
 /* Handle stage 1 save files */
@@ -3573,25 +3591,49 @@ restart0:
 			last_contact = fft_count;
 		}
 
-/* Set various flags.  They can control whether error-checking or */
-/* the next FFT can be started. */
+/* To avoid an infinite loop of repeatable roundoff errors, carefully */
+/* get us past the offending iteration. */
 
-		escaped |= stopCheck ();
-		time (&current_time);
-		saving = (current_time - start_time > write_time);
-		echk = escaped || saving || ERRCHK || (bit_number & 127) == 64;
+		if (error_recovery_mode && bit_number == error_recovery_mode) {
+			careful_iteration (x, NULL);
+			if (bitval (exp, len - bit_number - 1)) {
+				gwnum	three;
+				three = gwalloc ();
+				dbltogw (3.0, three);
+				gwsetnormroutine (0, 0, 0);
+				gwmul (three, x);
+				gwfree (three);
+			}
+			error_recovery_mode = 0;
+			saving = TRUE;
+		}
+
+/* Set various flags.  They control whether error-checking or the next FFT */
+/* can be started. */
+
+		else {
+			escaped |= stopCheck ();
+			saving = FALSE;
+			echk = escaped || ERRCHK || near_fft_limit;
+			if ((bit_number & 127) == 64) {
+				time (&current_time);
+				saving = (current_time - start_time > write_time);
+				echk = 1;
+			}
 
 /* Either square x or square x and multiply it by three. */
 
-		gwstartnextfft (!escaped && !saving && !(bit_number+1 == len));
-		if (bitval (exp, len - bit_number - 1)) {
-			gwsetnormroutine (0, echk, 1);
-			gwsquare (x);
-		} else {
-			gwsetnormroutine (0, echk, 0);
-			gwsquare (x);
+			gwstartnextfft (!escaped && !saving &&
+					!error_recovery_mode &&
+					bit_number+1 != len);
+			if (bitval (exp, len - bit_number - 1)) {
+				gwsetnormroutine (0, echk, 1);
+				gwsquare (x);
+			} else {
+				gwsetnormroutine (0, echk, 0);
+				gwsquare (x);
+			}
 		}
-		bit_number++;
 //{char buf[200]; unsigned long high32, low32;
 //LLDATA = x; generateResidue64 (0, &high32, &low32);
 //sprintf (buf, "interim P-1 residue %08lX%08lX at bit %ld\n", high32, low32, bit_number);
@@ -3599,7 +3641,8 @@ restart0:
 
 /* Test for an error */
 
-		if (gw_test_for_error ()) goto error;
+		if (gw_test_for_error () || MAXERR > 0.40) goto error;
+		bit_number++;
 
 /* Every N squarings, output a progress report */
 
@@ -3660,7 +3703,7 @@ restart0:
 
 		doMiscTasks ();
 	}
-	gwsetnormroutine (0, ERRCHK, 0);
+	gwsetnormroutine (0, ERRCHK || near_fft_limit, 0);
 	free (exp);
 	end_timer (0);
 	end_timer (1);
@@ -3695,7 +3738,7 @@ restart1:
 
 /* Test for an error */
 
-		if (gw_test_for_error ()) goto error;
+		if (gw_test_for_error () || MAXERR > 0.40) goto error;
 
 /* Test for user interrupt */
 
@@ -3894,7 +3937,7 @@ restart3d:
 		if (i >= D) break;
 		if (numrels == state.numvals - 3) break;
 		fd_next ();
-		if (gw_test_for_error ()) goto error;
+		if (gw_test_for_error () || MAXERR > 0.40) goto error;
 		if (stopCheck ()) {
 			fd_term ();
 			gwfftfftmul (x, x, x);	/* Unfft x - generates x^2 */
@@ -3966,7 +4009,7 @@ restart3d:
 
 /* Test for errors */
 
-errchk:		if (gw_test_for_error ()) goto error;
+errchk:		if (gw_test_for_error () || MAXERR > 0.40) goto error;
 
 /* Test for user interrupt */
 
@@ -4211,11 +4254,19 @@ bingo:	if (stage == 1)
 	retval = TRUE;
 	goto exit;
 
-/* Output a error message saying we are restarting. */
+/* Output an error message saying we are restarting. */
 /* Sleep five minutes before restarting from last save file. */
+/* Once errors start occurring, decrease the disk write time */
 
-error:	OutputBoth ("SUMOUT error occurred.\n");
-	pm1_cleanup ();
-	if (! SleepFive ()) return (FALSE);
+error:	pm1_cleanup ();
+	if (near_fft_limit && MAXERR > 0.40) {
+		OutputStr ("Possible roundoff error, backtracking to last save file.\n");
+	} else {
+		OutputBoth ("SUMOUT error occurred.\n");
+		if (! SleepFive ()) return (FALSE);
+	}
+	error_recovery_mode = bit_number ? bit_number : 1;
+	write_time >>= 1;
+	if (write_time < 300) write_time = 300;
 	goto restart;
 }

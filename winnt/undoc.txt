@@ -31,30 +31,6 @@ as to the proper format.  Add this line to prime.ini:
 	AMPM=n
 where n is 1 for AM/PM formatting and n is 2 for 24-hour formatting.
 
-You can adjust how many decimal digits of precision are displayed
-in lines output to the screen.  In prime.ini enter a value between 0 and 6:
-	PercentPrecision=n
-
-You can choose whether the program uses the system clock or the read timestamp
-counter instruction (RDTSC) to time events.  In prime.ini, enter 0 for
-using the system clock, 1 for using RDTSC but not outputting clock counts,
-and 2 for using RDTSC and outputting clock counts.
-	RdtscTiming=n
-
-You can alter the way the program outputs timings.  In prime.ini set:
-	TimingOutput=n
-Where n=1 for seconds with 3 digits of precision, n=2 for milliseconds
-with 1 digit of precision, n=3 for milliseconds with 2 digits of precision,
-n=4 for milliseconds with 3 digit of precision.
-
-You can turn off the outputting of date and time to the screen.  In prime.ini:
-	TimeStamp=0
-
-You can have the timings that are output to the screen be cumulative
-(from program restart or start of a new exponent) rather than resetting
-after each screen output.  Add this line to prime.ini:
-	CumulativeTiming=1
-
 The program normally will not start any calculation until 90 seconds after
 a reboot.  This is done so that your normal boot up procedure can be as
 fast as possible.  You can control how long this delay is by adding this
@@ -70,13 +46,19 @@ combination of these settings in local.ini:
 	CpuSupportsPrefetch=0 or 1
 	CpuSupportsSSE=0 or 1
 	CpuSupportsSSE2=0 or 1
-This shouldn't be necessary though.  Setting the CPU type in Options/CPU
-is the preferred method.  There is one IMPORTANT EXCEPTION.  If you have
-a Celeron the program distinguishes between a Celeron 1 and a Celeron 2
-by the clock speed you enter.  Anything above 533 is assumed to be a
-Celeron 2.  If you have a Celeron 1 chip running above 533 MHz, then
-set CpuSupportsPrefetch=0.  If you have a Celeron 2 and it is running
-at 533 MHz or less, then set CpuSupportsPrefetch=1.
+This shouldn't be necessary though as the program uses the CPUID instruction
+to see if the CPU supports these features.
+
+The program automatically computes the CPU type and speed.  The CPU type
+is used to tell the server what kind of CPU you have (to display in the
+reports).  The CPU type and speed is also used to calculate how much work
+to get.  If the program did not correctly figure out your CPU information,
+you can override the info in local.ini:
+	CpuOverride=1
+	CpuType=n
+	CpuSpeed=s
+Where n is 3=Cyrix, 4=486, 5=Pentium, 6=Pro, 7=K6, 8=Celeron, 9=P-II,
+10=P-III, 11=K7, 12=P4 and s is the speed in MHz.
 
 The program used to do factoring and P-1 testing on exponents even if
 they were not the first entry in worktodo.ini.  The rationale was that
@@ -105,10 +87,6 @@ You can skip the GCD in stage 1 of P-1 factoring with this prime.ini setting:
 You can prevent users from accessing the Test/User Information dialog box.
 In prime.ini enter:
 	LockUserInfo=1
-
-You can make prime95 ping the Primenet server every time it starts up.
-I don't know why you'd want to do this.  In prime.ini enter:
-	PingAtStartup=1
 
 You can have the program generate save files every n iterations.  The files
 will have a .XXX extension where XXX equals the current iteration divided
@@ -170,3 +148,12 @@ potential factors.
 In local.ini, both the DayMemory and NightMemory values can be negative
 numbers meaning use all but this many megabytes.  Thus on a 128MB system
 a value of -32 means the program can use 96MB of memory.
+
+The program normally does round-off error checking every 128 iterations.
+When you are testing an exponent near the limit of an FFT length, the program
+does this error checking every iteration.  
+	NearFFTLimitPct=value
+The default value is 1.0 (if the exponent you are testing is within 1% of the
+maximum exponent that can be tested using the current FFT length, then the
+extra error checking is performed).  A value of 0.0 will turn off this extra
+error checking.
