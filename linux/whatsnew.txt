@@ -1,3 +1,9 @@
+New features in Version 23.9 of mprime
+--------------------------------------
+
+1)  Fixed mprime crash bug that arose when Fedora users upgraded to
+    kernel 2.6.8-1.520.
+
 New features in Version 23.8 of mprime
 --------------------------------------
 
