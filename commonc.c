@@ -3151,8 +3151,7 @@ void guess_pminus1_bounds (
 	gcd_cost = (430.5 * log (p) - 3887.5) / 2.0;
 	if (gcd_cost < 50.0) gcd_cost = 50.0;
 
-/* Compute how many temporaries we can use given our memory constraints */
-/* Compute how many stage 2 passes are required in low memory situations */
+/* Compute how many temporaries we can use given our memory constraints. */
 
 	fftlen = map_exponent_to_fftlen (p, 0);
 	vals = (unsigned long)
@@ -3177,26 +3176,31 @@ void guess_pminus1_bounds (
 
 	for (B2 = B1; ; B2 += B1 >> 2) {
 
-/* Compute how many squarings will be required in pass 2 */
+/* Compute how many squarings will be required in pass 2.  In the */
+/* low-memory cases, assume choose_pminus1_plan will pick D = 210, E = 1 */
+/* If more memory is available assume choose_pminus1_plan will pick */
+/* D = 2310, E = 2.  This will provide an accurate enough cost for our */
+/* purposes even if different D and E values are picked.  See */
+/* choose_pminus1_plan for a description of the costs of P-1 stage 2. */
 
 	logB2 = log (B2);
 	numprimes = (unsigned long) (B2 / (logB2 - 1.0) - B1 / (logB1 - 1.0));
 	if (B2 <= B1) {
 		pass2_squarings = 0.0;
-	} else if (vals < 12) {
+	} else if (vals <= 8) {		/* D = 210, E = 1, passes = 48/temps */
 		unsigned long num_passes;
 		num_passes = (unsigned long) ceil (48.0 / (vals - 3));
-		pass2_squarings = numprimes;
-		pass2_squarings += ceil ((B2 - B1) / 210.0) * num_passes;
+		pass2_squarings = ceil ((B2 - B1) / 210.0) * num_passes;
+		pass2_squarings += numprimes * 1.1;
 	} else {
+		unsigned long num_passes;
 		double	numpairings;
-		unsigned long d;
+		num_passes = (unsigned long) ceil (480.0 / (vals - 5));
 		numpairings = (unsigned long)
-			(numprimes / 2.0 * numprimes / ((B2-B1) * 8.0/30.0));
-		pass2_squarings = numprimes - numpairings;
-		d = (vals - 5) / 8 * 30;
-		if (d == 0) d = 30;
-		pass2_squarings += ceil ((B2 - B1) / (d + d)) * 2.0;
+			(numprimes / 2.0 * numprimes / ((B2-B1) * 480.0/2310.0));
+		pass2_squarings = 2400.0 + num_passes * 90.0; /* setup costs */
+		pass2_squarings += ceil ((B2-B1) / 4620.0) * 2.0 * num_passes;
+		pass2_squarings += numprimes - numpairings;
 	}
 
 /* Pass 2 FFT multiplications seem to be at least 20% slower than */
