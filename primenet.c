@@ -344,7 +344,7 @@ int pnHttpServer (char *pbuf, unsigned cbuf, char* postargs)
 /* GET method, data follows ? in URL */
 
 	strcpy (szURL, "GET ");
-	if (*szProxyHost) {
+	if (*szProxyHost || IniGetInt (INIFILENAME, "UseFullURL", 1)) {
 		strcat (szURL, "http://");
 		strcat (szURL, szSITE);
 		strcat (szURL, ":");

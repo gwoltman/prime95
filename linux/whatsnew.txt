@@ -4,6 +4,15 @@ New features in Version 23.4 of mprime
 1)  Further performance improvements in the SSE2 FFT code.  I've tried to
     do more work while data is in the L1 data cache.
 
+2)  The program should now work with a "redirected proxy server".  This was
+    done by sending full URLs in Primenet requests.  While I don't anticipate
+    any problems, the old relative URL functionality can be had by setting
+    UseFullURL=0 in primenet.ini.
+
+3)  A bug in the assembly language add and subtract routines was fixed.  The
+    bug could affect ECM on exponents just below
+    MAXIMUM_EXPONENT_FOR_FFTLEN - FFTLEN/2.
+
 New features in Version 23.3 of mprime
 --------------------------------------
 
