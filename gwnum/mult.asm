@@ -12,7 +12,7 @@
 	.MMX
 	.XMM
 
-VERSION_NUMBER = 2406		;; Version 24.6
+VERSION_NUMBER = 2407		;; Version 24.7
 
 _DATA SEGMENT PAGE USE32 PUBLIC 'DATA'
 
@@ -682,7 +682,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			5, 1, 1, 1, 0
-	DD	1295,	56,	0.0000084,	1356
+	DD	1303,	56,	0.0000084,	1356
 	DD			OFFSET fft56_1PPRO, OFFSET fft56_2PPRO
 	DD			OFFSET fft56_3PPRO, OFFSET fft56_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -718,7 +718,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			11, 2, 1, 1, 0
-	DD	2557,	112,	0.0000179,	2616
+	DD	2585,	112,	0.0000179,	2616
 	DD			OFFSET fft112_1PPRO, OFFSET fft112_2PPRO
 	DD			OFFSET fft112_3PPRO, OFFSET fft112_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -727,7 +727,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			13, 3, 1, 1, 0
-	DD	2955,	128,	0.0000178,	2832
+	DD	2953,	128,	0.0000178,	2832
 	DD			OFFSET fft128_1PPRO, OFFSET fft128_2PPRO
 	DD			OFFSET fft128_3PPRO, OFFSET fft128_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -736,7 +736,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			15, 3, 1, 1, 0
-	DD	3655,	160,	0.0000296,	3840
+	DD	3663,	160,	0.0000296,	3840
 	DD			OFFSET fft160_1PPRO, OFFSET fft160_2PPRO
 	DD			OFFSET fft160_3PPRO, OFFSET fft160_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -745,7 +745,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			19, 4, 2, 1, 0
-	DD	4355,	192,	0.000035,	4608
+	DD	4359,	192,	0.000035,	4608
 	DD			OFFSET fft192_1PPRO, OFFSET fft192_2PPRO
 	DD			OFFSET fft192_3PPRO, OFFSET fft192_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -754,7 +754,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			23, 5, 2, 1, 0
-	DD	5049,	224,	0.000045,	5424
+	DD	5093,	224,	0.000045,	5424
 	DD			OFFSET fft224_1PPRO, OFFSET fft224_2PPRO
 	DD			OFFSET fft224_3PPRO, OFFSET fft224_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -763,7 +763,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			27, 6, 3, 1, 0
-	DD	5825,	256,	0.000045,	5712
+	DD	5833,	256,	0.000045,	5712
 	DD			OFFSET fft256_1PPRO, OFFSET fft256_2PPRO
 	DD			OFFSET fft256_3PPRO, OFFSET fft256_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -772,7 +772,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			31, 7, 3, 1, 0
-	DD	7235,	320,	0.000062,	7680
+	DD	7243,	320,	0.000062,	7680
 	DD			OFFSET fft320_1PPRO, OFFSET fft320_2PPRO
 	DD			OFFSET fft320_3PPRO, OFFSET fft320_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -781,7 +781,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			39, 9, 2, 1, 0
-	DD	8625,	384,	0.000075,	9216
+	DD	8639,	384,	0.000075,	9216
 	DD			OFFSET fft384_1PPRO, OFFSET fft384_2PPRO
 	DD			OFFSET fft384_3PPRO, OFFSET fft384_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -790,7 +790,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			47, 11, 2, 1, 0
-	DD	10035,	448,	0.000093,	10800
+	DD	10085,	448,	0.000093,	10800
 	DD			OFFSET fft448_1PPRO, OFFSET fft448_2PPRO
 	DD			OFFSET fft448_3PPRO, OFFSET fft448_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -799,7 +799,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			55, 13, 3, 1, 0
-	DD	11525,	512,	0.000097,	11472
+	DD	11537,	512,	0.000097,	11472
 	DD			OFFSET fft512_1PPRO, OFFSET fft512_2PPRO
 	DD			OFFSET fft512_3PPRO, OFFSET fft512_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -808,7 +808,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			63, 15, 3, 1, 0
-	DD	14247,	640,	0.000140,	15552
+	DD	14301,	640,	0.000140,	15552
 	DD			OFFSET fft640_1PPRO, OFFSET fft640_2PPRO
 	DD			OFFSET fft640_3PPRO, OFFSET fft640_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -817,7 +817,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			79, 19, 4, 2, 0
-	DD	16991,	768,	0.000167,	18672
+	DD	17047,	768,	0.000167,	18672
 	DD			OFFSET fft768_1PPRO, OFFSET fft768_2PPRO
 	DD			OFFSET fft768_3PPRO, OFFSET fft768_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -826,7 +826,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			95, 23, 5, 2, 0
-	DD	19821,	896,	0.000210,	21840
+	DD	19881,	896,	0.000210,	21840
 	DD			OFFSET fft896_1PPRO, OFFSET fft896_2PPRO
 	DD			OFFSET fft896_3PPRO, OFFSET fft896_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -835,7 +835,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			111, 27, 6, 3, 0
-	DD	22703,	1024,	0.000218,	22992
+	DD	22799,	1024,	0.000218,	22992
 	DD			OFFSET fft1024_1PPRO, OFFSET fft1024_2PPRO
 	DD			OFFSET fft1024_3PPRO, OFFSET fft1024_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -853,7 +853,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			159, 39, 9, 2, 0
-	DD	33671,	1536,	0.000365,	37392
+	DD	33761,	1536,	0.000365,	37392
 	DD			OFFSET fft1536_1PPRO, OFFSET fft1536_2PPRO
 	DD			OFFSET fft1536_3PPRO, OFFSET fft1536_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -862,7 +862,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			191, 47, 11, 2, 0
-	DD	39271,	1792,	0.000456,	43680
+	DD	39411,	1792,	0.000456,	43680
 	DD			OFFSET fft1792_1PPRO, OFFSET fft1792_2PPRO
 	DD			OFFSET fft1792_3PPRO, OFFSET fft1792_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -889,7 +889,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			319, 79, 19, 4, 2, 0
-	DD	66349,	3072,	0.000851,	75072
+	DD	66519,	3072,	0.000851,	75072
 	DD			OFFSET fft3072_1PPRO, OFFSET fft3072_2PPRO
 	DD			OFFSET fft3072_3PPRO, OFFSET fft3072_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -898,7 +898,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			383, 95, 23, 5, 2, 0
-	DD	77369,	3584,	0.00107,	87648
+	DD	77599,	3584,	0.00107,	87648
 	DD			OFFSET fft3584_1PPRO, OFFSET fft3584_2PPRO
 	DD			OFFSET fft3584_3PPRO, OFFSET fft3584_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -907,7 +907,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			447, 111, 27, 6, 3, 0
-	DD	88877,	4096,	0.00113,	92112
+	DD	89047,	4096,	0.00113,	92112
 	DD			OFFSET fft4096_1PPRO, OFFSET fft4096_2PPRO
 	DD			OFFSET fft4096_3PPRO, OFFSET fft4096_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -925,7 +925,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			10, 1, 1, 1
 	DD			9, 1, 1, 1, 0
-	DD	131400,	6144,	0.00191,	28016
+	DD	131100,	6144,	0.00191,	28016
 	DD			OFFSET fft6144_1PPRO, OFFSET fft6144_2PPRO
 	DD			OFFSET fft6144_3PPRO, OFFSET fft6144_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -934,7 +934,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			12, 1, 1, 1
 	DD			11, 1, 1, 1, 0
-	DD	153400,	7168,	0.00226,	31232
+	DD	152800,	7168,	0.00226,	31232
 	DD			OFFSET fft7168_1PPRO, OFFSET fft7168_2PPRO
 	DD			OFFSET fft7168_3PPRO, OFFSET fft7168_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -943,7 +943,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			14, 1, 1, 1
 	DD			13, 1, 1, 1, 0
-	DD	175500,	8192,	0.00242,	34400
+	DD	175300,	8192,	0.00242,	34400
 	DD			OFFSET fft8192_1PPRO, OFFSET fft8192_2PPRO
 	DD			OFFSET fft8192_3PPRO, OFFSET fft8192_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -952,7 +952,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			16, 1, 1, 1
 	DD			15, 1, 1, 1, 0
-	DD	217800,	10240,	0.00333,	40880
+	DD	217700,	10240,	0.00333,	40880
 	DD			OFFSET fft10K_1PPRO, OFFSET fft10K_2PPRO
 	DD			OFFSET fft10K_3PPRO, OFFSET fft10K_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -961,7 +961,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			20, 1, 1, 1
 	DD			19, 1, 1, 1, 0
-	DD	259600,	12288,	0.00397,	47264
+	DD	258200,	12288,	0.00397,	47264
 	DD			OFFSET fft12K_1PPRO, OFFSET fft12K_2PPRO
 	DD			OFFSET fft12K_3PPRO, OFFSET fft12K_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -970,7 +970,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			24, 1, 1, 1
 	DD			23, 1, 1, 1, 0
-	DD	302500,	14336,	0.00488,	53696
+	DD	301400,	14336,	0.00488,	53696
 	DD			OFFSET fft14K_1PPRO, OFFSET fft14K_2PPRO
 	DD			OFFSET fft14K_3PPRO, OFFSET fft14K_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -979,7 +979,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			28, 1, 1, 1
 	DD			27, 1, 1, 1, 0
-	DD	346500,	16384,	0.00522,	59936
+	DD	346100,	16384,	0.00522,	59936
 	DD			OFFSET fft16K_1PPRO, OFFSET fft16K_2PPRO
 	DD			OFFSET fft16K_3PPRO, OFFSET fft16K_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -988,7 +988,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			32, 1, 1, 1
 	DD			31, 1, 1, 1, 0
-	DD	430800,	20480,	0.00692,	72800
+	DD	430300,	20480,	0.00692,	72800
 	DD			OFFSET fft20K_1PPRO, OFFSET fft20K_2PPRO
 	DD			OFFSET fft20K_3PPRO, OFFSET fft20K_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -997,7 +997,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			40, 1, 1, 1
 	DD			39, 1, 1, 1, 0
-	DD	512400,	24576,	0.00826,	85568
+	DD	511600,	24576,	0.00826,	85568
 	DD			OFFSET fft24K_1PPRO, OFFSET fft24K_2PPRO
 	DD			OFFSET fft24K_3PPRO, OFFSET fft24K_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -1006,7 +1006,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			48, 1, 1, 1
 	DD			47, 1, 1, 1, 0
-	DD	597500,	28672,	0.0101,		98384
+	DD	596100,	28672,	0.0101,		98384
 	DD			OFFSET fft28K_1PPRO, OFFSET fft28K_2PPRO
 	DD			OFFSET fft28K_3PPRO, OFFSET fft28K_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -1015,7 +1015,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			56, 1, 1, 1
 	DD			55, 1, 1, 1, 0
-	DD	682500,	32768,	0.0109,		111008
+	DD	683700,	32768,	0.0109,		111008
 	DD			OFFSET fft32K_1PPRO, OFFSET fft32K_2PPRO
 	DD			OFFSET fft32K_3PPRO, OFFSET fft32K_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -1024,7 +1024,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			64, 1, 1, 1
 	DD			63, 1, 1, 1, 0
-	DD	847200,	40960,	0.0151,		136832
+	DD	848800,	40960,	0.0151,		136832
 	DD			OFFSET fft40K_1P3, OFFSET fft40K_2P3
 	DD			OFFSET fft40K_3P3, OFFSET fft40K_4P3
 	DD			RPF+4		;; Flags, min_l2_cache, clm
@@ -1033,7 +1033,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			80, 1, 1, 1
 	DD			79, 1, 1, 1, 0
-	DD	847200,	40960,	0.0151,		136832
+	DD	848800,	40960,	0.0151,		136832
 	DD			OFFSET fft40K_1PPRO, OFFSET fft40K_2PPRO
 	DD			OFFSET fft40K_3PPRO, OFFSET fft40K_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -1042,7 +1042,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			80, 1, 1, 1
 	DD			79, 1, 1, 1, 0
-	DD	1011000, 49152,	0.0184,		162416
+	DD	1009000, 49152,	0.0184,		162416
 	DD			OFFSET fft48K_1P3, OFFSET fft48K_2P3
 	DD			OFFSET fft48K_3P3, OFFSET fft48K_4P3
 	DD			RPF+4		;; Flags, min_l2_cache, clm
@@ -1051,7 +1051,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			96, 1, 1, 1
 	DD			95, 1, 1, 1, 0
-	DD	1011000, 49152,	0.0184,		162416
+	DD	1009000, 49152,	0.0184,		162416
 	DD			OFFSET fft48K_1PPRO, OFFSET fft48K_2PPRO
 	DD			OFFSET fft48K_3PPRO, OFFSET fft48K_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -1060,7 +1060,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			96, 1, 1, 1
 	DD			95, 1, 1, 1, 0
-	DD	1180000, 57344,	0.0227,		188048
+	DD	1177000, 57344,	0.0227,		188048
 	DD			OFFSET fft56K_1P3, OFFSET fft56K_2P3
 	DD			OFFSET fft56K_3P3, OFFSET fft56K_4P3
 	DD			RPF+4		;; Flags, min_l2_cache, clm
@@ -1069,7 +1069,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			112, 1, 1, 1
 	DD			111, 1, 1, 1, 0
-	DD	1180000, 57344,	0.0227,		188048
+	DD	1177000, 57344,	0.0227,		188048
 	DD			OFFSET fft56K_1PPRO, OFFSET fft56K_2PPRO
 	DD			OFFSET fft56K_3PPRO, OFFSET fft56K_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -1078,7 +1078,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			112, 1, 1, 1
 	DD			111, 1, 1, 1, 0
-	DD	1351000, 65536,	0.0252,		213152
+	DD	1350000, 65536,	0.0252,		213152
 	DD			OFFSET fft64K_1P3, OFFSET fft64K_2P3
 	DD			OFFSET fft64K_3P3, OFFSET fft64K_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1087,7 +1087,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			128, 1, 1, 1
 	DD			127, 1, 1, 1, 0
-	DD	1351000, 65536,	0.0252,		213152
+	DD	1350000, 65536,	0.0252,		213152
 	DD			OFFSET fft64K_1PPRO, OFFSET fft64K_2PPRO
 	DD			OFFSET fft64K_3PPRO, OFFSET fft64K_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1096,7 +1096,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			128, 1, 1, 1
 	DD			127, 1, 1, 1, 0
-	DD	1675000, 81920, 0.0360,		264752
+	DD	1678000, 81920, 0.0360,		264752
 	DD			OFFSET fft80K_1P3, OFFSET fft80K_2P3
 	DD			OFFSET fft80K_3P3, OFFSET fft80K_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1105,7 +1105,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			160, 1, 1, 1
 	DD			159, 1, 1, 1, 0
-	DD	1675000, 81920, 0.0360,		264752
+	DD	1678000, 81920, 0.0360,		264752
 	DD			OFFSET fft80K_1PPRO, OFFSET fft80K_2PPRO
 	DD			OFFSET fft80K_3PPRO, OFFSET fft80K_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1114,7 +1114,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			160, 1, 1, 1
 	DD			159, 1, 1, 1, 0
-	DD	2003000, 98304, 0.0445,		297536
+	DD	1994000, 98304, 0.0445,		297536
 	DD			OFFSET fft96K_1P3, OFFSET fft96K_2P3
 	DD			OFFSET fft96K_3P3, OFFSET fft96K_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1123,7 +1123,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			48, 1, 1, 1
 	DD			47, 1, 1, 1, 0
-	DD	2003000, 98304, 0.0445,		297536
+	DD	1994000, 98304, 0.0445,		297536
 	DD			OFFSET fft96K_1PPRO, OFFSET fft96K_2PPRO
 	DD			OFFSET fft96K_3PPRO, OFFSET fft96K_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1132,7 +1132,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			48, 1, 1, 1
 	DD			47, 1, 1, 1, 0
-	DD	2335000, 114688, 0.0548,	341072
+	DD	2324000, 114688, 0.0548,	341072
 	DD			OFFSET fft112K_1P3, OFFSET fft112K_2P3
 	DD			OFFSET fft112K_3P3, OFFSET fft112K_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1141,7 +1141,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			56, 1, 1, 1
 	DD			55, 1, 1, 1, 0
-	DD	2335000, 114688, 0.0548,	341072
+	DD	2324000, 114688, 0.0548,	341072
 	DD			OFFSET fft112K_1PPRO, OFFSET fft112K_2PPRO
 	DD			OFFSET fft112K_3PPRO, OFFSET fft112K_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1168,7 +1168,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			64, 1, 1, 1
 	DD			63, 1, 1, 1, 0
-	DD	3301000, 163840, 0.0830,	471680+5120
+	DD	3310000, 163840, 0.0830,	471680+5120
 	DD			OFFSET fft160K_1P3, OFFSET fft160K_2P3
 	DD			OFFSET fft160K_3P3, OFFSET fft160K_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1177,7 +1177,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			80, 1, 1, 1
 	DD			79, 1, 1, 1, 0
-	DD	3301000, 163840, 0.0830,	471680+5120
+	DD	3310000, 163840, 0.0830,	471680+5120
 	DD			OFFSET fft160K_1PPRO, OFFSET fft160K_2PPRO
 	DD			OFFSET fft160K_3PPRO, OFFSET fft160K_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1186,7 +1186,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			80, 1, 1, 1
 	DD			79, 1, 1, 1, 0
-	DD	3945000, 196608, 0.0982,	558704+6144
+	DD	3933000, 196608, 0.0982,	558704+6144
 	DD			OFFSET fft192K_1P3, OFFSET fft192K_2P3
 	DD			OFFSET fft192K_3P3, OFFSET fft192K_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1195,7 +1195,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			96, 1, 1, 1
 	DD			95, 1, 1, 1, 0
-	DD	3945000, 196608, 0.0982,	558704+6144
+	DD	3933000, 196608, 0.0982,	558704+6144
 	DD			OFFSET fft192K_1PPRO, OFFSET fft192K_2PPRO
 	DD			OFFSET fft192K_3PPRO, OFFSET fft192K_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1204,7 +1204,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			96, 1, 1, 1
 	DD			95, 1, 1, 1, 0
-	DD	4602000, 229376, 0.1193,	645776+7168
+	DD	4593000, 229376, 0.1193,	645776+7168
 	DD			OFFSET fft224K_1P3, OFFSET fft224K_2P3
 	DD			OFFSET fft224K_3P3, OFFSET fft224K_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1213,7 +1213,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			112, 1, 1, 1
 	DD			111, 1, 1, 1, 0
-	DD	4602000, 229376, 0.1193,	645776+7168
+	DD	4593000, 229376, 0.1193,	645776+7168
 	DD			OFFSET fft224K_1PPRO, OFFSET fft224K_2PPRO
 	DD			OFFSET fft224K_3PPRO, OFFSET fft224K_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1222,7 +1222,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			112, 1, 1, 1
 	DD			111, 1, 1, 1, 0
-	DD	5255000, 262144, 0.1316,	732320+8192+3*64
+	DD	5264000, 262144, 0.1316,	732320+8192+3*64
 	DD			OFFSET fft256K_1P3, OFFSET fft256K_2P3
 	DD			OFFSET fft256K_3P3, OFFSET fft256K_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1231,7 +1231,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			128, 1, 1, 1
 	DD			127, 1, 1, 1, 0
-	DD	5255000, 262144, 0.1316,	732320+8192+3*64
+	DD	5264000, 262144, 0.1316,	732320+8192+3*64
 	DD			OFFSET fft256K_1PPRO, OFFSET fft256K_2PPRO
 	DD			OFFSET fft256K_3PPRO, OFFSET fft256K_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1258,7 +1258,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			160, 1, 1, 1
 	DD			159, 1, 1, 1, 0
-	DD	7779000, 393216, 0.2107,	1080848+12288+5*64
+	DD	7772000, 393216, 0.2107,	1080848+12288+5*64
 	DD			OFFSET fft384K_1P3, OFFSET fft384K_2P3
 	DD			OFFSET fft384K_3P3, OFFSET fft384K_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1267,7 +1267,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			192, 1, 1, 1
 	DD			191, 1, 1, 1, 0
-	DD	7779000, 393216, 0.2107,	1080848+12288+5*64
+	DD	7772000, 393216, 0.2107,	1080848+12288+5*64
 	DD			OFFSET fft384K_1PPRO, OFFSET fft384K_2PPRO
 	DD			OFFSET fft384K_3PPRO, OFFSET fft384K_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1330,7 +1330,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			320, 1, 1, 1
 	DD			319, 1, 1, 1, 0
-	DD	15340000, 786432, 0.453,	2125376+24576+11*64
+	DD	15310000, 786432, 0.453,	2125376+24576+11*64
 	DD			OFFSET fft768K_1P3, OFFSET fft768K_2P3
 	DD			OFFSET fft768K_3P3, OFFSET fft768K_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1339,7 +1339,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			384, 1, 1, 1
 	DD			383, 1, 1, 1, 0
-	DD	15340000, 786432, 0.453,	2125376+24576+11*64
+	DD	15310000, 786432, 0.453,	2125376+24576+11*64
 	DD			OFFSET fft768K_1PPRO, OFFSET fft768K_2PPRO
 	DD			OFFSET fft768K_3PPRO, OFFSET fft768K_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1529,7 +1529,7 @@ jmptable DD	755,	32,	0.0000036,	672
 	DD			512, 1, 1, 1
 	DD			511, 1, 1, 1, 0
 	DD	0
-jmptablep DD	753,	32,	0.000004,	976
+jmptablep DD	755,	32,	0.000004,	976
 	DD			OFFSET fft32p_1PPRO, OFFSET fft32p_2PPRO
 	DD			OFFSET fft32p_3PPRO, OFFSET fft32p_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -1538,7 +1538,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			4, 1, 1, 1, 0
-	DD	1101,	48,	0.000007,	1608
+	DD	1111,	48,	0.000007,	1608
 	DD			OFFSET fft48p_1PPRO, OFFSET fft48p_2PPRO
 	DD			OFFSET fft48p_3PPRO, OFFSET fft48p_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -1547,7 +1547,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			6, 3, 1, 1, 0
-	DD	1489,	64,	0.000010,	1952
+	DD	1485,	64,	0.000010,	1952
 	DD			OFFSET fft64p_1PPRO, OFFSET fft64p_2PPRO
 	DD			OFFSET fft64p_3PPRO, OFFSET fft64p_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -1556,7 +1556,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			8, 4, 1, 1, 0
-	DD	2189,	96,	0.0000141,	3072
+	DD	2199,	96,	0.0000141,	3072
 	DD			OFFSET fft96p_1PPRO, OFFSET fft96p_2PPRO
 	DD			OFFSET fft96p_3PPRO, OFFSET fft96p_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -1565,7 +1565,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			12, 3, 1, 1, 0
-	DD	2935,	128,	0.000021,	3904
+	DD	2947,	128,	0.000021,	3904
 	DD			OFFSET fft128p_1PPRO, OFFSET fft128p_2PPRO
 	DD			OFFSET fft128p_3PPRO, OFFSET fft128p_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -1574,7 +1574,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			16, 4, 1, 1, 1, 0
-	DD	4311,	192,	0.000035,	6288
+	DD	4345,	192,	0.000035,	6288
 	DD			OFFSET fft192p_1PPRO, OFFSET fft192p_2PPRO
 	DD			OFFSET fft192p_3PPRO, OFFSET fft192p_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -1583,7 +1583,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			24, 6, 3, 1, 0
-	DD	5797,	256,	0.000051,	7808
+	DD	5817,	256,	0.000051,	7808
 	DD			OFFSET fft256p_1PPRO, OFFSET fft256p_2PPRO
 	DD			OFFSET fft256p_3PPRO, OFFSET fft256p_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -1592,7 +1592,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			32, 8, 4, 1, 1, 0
-	DD	8539,	384,	0.000075,	12432
+	DD	8607,	384,	0.000075,	12432
 	DD			OFFSET fft384p_1PPRO, OFFSET fft384p_2PPRO
 	DD			OFFSET fft384p_3PPRO, OFFSET fft384p_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -1601,7 +1601,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			48, 12, 3, 1, 0
-	DD	11469,	512,	0.000106,	15616
+	DD	11515,	512,	0.000106,	15616
 	DD			OFFSET fft512p_1PPRO, OFFSET fft512p_2PPRO
 	DD			OFFSET fft512p_3PPRO, OFFSET fft512p_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -1610,7 +1610,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			64, 16, 4, 1, 1, 0
-	DD	16821,	768,	0.000167,	25008
+	DD	17001,	768,	0.000167,	25008
 	DD			OFFSET fft768p_1PPRO, OFFSET fft768p_2PPRO
 	DD			OFFSET fft768p_3PPRO, OFFSET fft768p_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -1619,7 +1619,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			96, 24, 6, 3, 1, 0
-	DD	22599,	1024,	0.000249,	31232
+	DD	22701,	1024,	0.000249,	31232
 	DD			OFFSET fft1024p_1PPRO, OFFSET fft1024p_2PPRO
 	DD			OFFSET fft1024p_3PPRO, OFFSET fft1024p_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -1628,7 +1628,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			128, 32, 8, 4, 1, 0
-	DD	33331,	1536,	0.000365,	49872
+	DD	33569,	1536,	0.000365,	49872
 	DD			OFFSET fft1536p_1PPRO, OFFSET fft1536p_2PPRO
 	DD			OFFSET fft1536p_3PPRO, OFFSET fft1536p_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -1637,7 +1637,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			192, 48, 12, 3, 0
-	DD	44771,	2048,	0.000582,	62464
+	DD	44951,	2048,	0.000582,	62464
 	DD			OFFSET fft2048p_1PPRO, OFFSET fft2048p_2PPRO
 	DD			OFFSET fft2048p_3PPRO, OFFSET fft2048p_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -1646,7 +1646,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			256, 64, 16, 4, 1, 0
-	DD	65689,	3072,	0.000851,	99888
+	DD	66319,	3072,	0.000851,	99888
 	DD			OFFSET fft3072p_1PPRO, OFFSET fft3072p_2PPRO
 	DD			OFFSET fft3072p_3PPRO, OFFSET fft3072p_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -1655,7 +1655,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			384, 96, 24, 6, 3, 0
-	DD	88500,	4096,	0.00135,	124928
+	DD	88747,	4096,	0.00135,	124928
 	DD			OFFSET fft4096p_1PPRO, OFFSET fft4096p_2PPRO
 	DD			OFFSET fft4096p_3PPRO, OFFSET fft4096p_4PPRO
 	DD			0		;; Flags, min_l2_cache, clm
@@ -1664,7 +1664,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab1	;; Table of add/sub/norm procs
 	DD			1, 1, 1, 1
 	DD			512, 128, 32, 8, 4, 0
-	DD	130100,	6144,	0.00191,	26512
+	DD	130600,	6144,	0.00191,	26512
 	DD			OFFSET fft6144p_1PPRO, OFFSET fft6144p_2PPRO
 	DD			OFFSET fft6144p_3PPRO, OFFSET fft6144p_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -1673,7 +1673,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			12, 1, 1, 1
 	DD			12, 1, 1, 1, 0
-	DD	174600,	8192,	0.00284,	32960
+	DD	174000,	8192,	0.00284,	32960
 	DD			OFFSET fft8192p_1PPRO, OFFSET fft8192p_2PPRO
 	DD			OFFSET fft8192p_3PPRO, OFFSET fft8192p_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -1682,7 +1682,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			16, 1, 1, 1
 	DD			16, 1, 1, 1, 0
-	DD	257100,	12288,	0.00397,	46000
+	DD	257700,	12288,	0.00397,	46000
 	DD			OFFSET fft12Kp_1PPRO, OFFSET fft12Kp_2PPRO
 	DD			OFFSET fft12Kp_3PPRO, OFFSET fft12Kp_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -1691,7 +1691,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			24, 1, 1, 1
 	DD			24, 1, 1, 1, 0
-	DD	345400,	16384,	0.00588,	58752
+	DD	344700,	16384,	0.00588,	58752
 	DD			OFFSET fft16Kp_1PPRO, OFFSET fft16Kp_2PPRO
 	DD			OFFSET fft16Kp_3PPRO, OFFSET fft16Kp_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -1700,7 +1700,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			32, 1, 1, 1
 	DD			32, 1, 1, 1, 0
-	DD	507400,	24576,	0.00826,	84688
+	DD	508600,	24576,	0.00826,	84688
 	DD			OFFSET fft24Kp_1PPRO, OFFSET fft24Kp_2PPRO
 	DD			OFFSET fft24Kp_3PPRO, OFFSET fft24Kp_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -1709,7 +1709,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			48, 1, 1, 1
 	DD			48, 1, 1, 1, 0
-	DD	680000,	32768,	0.01299,	110336
+	DD	679400,	32768,	0.01299,	110336
 	DD			OFFSET fft32Kp_1PPRO, OFFSET fft32Kp_2PPRO
 	DD			OFFSET fft32Kp_3PPRO, OFFSET fft32Kp_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -1718,7 +1718,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			64, 1, 1, 1
 	DD			64, 1, 1, 1, 0
-	DD	1001000, 49152,	0.0184,		162352
+	DD	1006000, 49152,	0.0184,		162352
 	DD			OFFSET fft48Kp_1P3, OFFSET fft48Kp_2P3
 	DD			OFFSET fft48Kp_3P3, OFFSET fft48Kp_4P3
 	DD			RPF+4		;; Flags, min_l2_cache, clm
@@ -1727,7 +1727,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			96, 1, 1, 1
 	DD			96, 1, 1, 1, 0
-	DD	1001000, 49152,	0.0184,		162352
+	DD	1006000, 49152,	0.0184,		162352
 	DD			OFFSET fft48Kp_1PPRO, OFFSET fft48Kp_2PPRO
 	DD			OFFSET fft48Kp_3PPRO, OFFSET fft48Kp_4PPRO
 	DD			4		;; Flags, min_l2_cache, clm
@@ -1772,7 +1772,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			48, 1, 1, 1
 	DD			48, 1, 1, 1, 0
-	DD	2655500, 131072, 0.0719,	377600
+	DD	2652000, 131072, 0.0719,	377600
 	DD			OFFSET fft128Kp_1P3, OFFSET fft128Kp_2P3
 	DD			OFFSET fft128Kp_3P3, OFFSET fft128Kp_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1781,7 +1781,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			64, 1, 1, 1
 	DD			64, 1, 1, 1, 0
-	DD	2655500, 131072, 0.0719,	377600
+	DD	2652000, 131072, 0.0719,	377600
 	DD			OFFSET fft128Kp_1PPRO, OFFSET fft128Kp_2PPRO
 	DD			OFFSET fft128Kp_3PPRO, OFFSET fft128Kp_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1790,7 +1790,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			64, 1, 1, 1
 	DD			64, 1, 1, 1, 0
-	DD	3915000, 196608, 0.0982,	552496+6144
+	DD	3924000, 196608, 0.0982,	552496+6144
 	DD			OFFSET fft192Kp_1P3, OFFSET fft192Kp_2P3
 	DD			OFFSET fft192Kp_3P3, OFFSET fft192Kp_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1799,7 +1799,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			96, 1, 1, 1
 	DD			96, 1, 1, 1, 0
-	DD	3915000, 196608, 0.0982,	552496+6144
+	DD	3924000, 196608, 0.0982,	552496+6144
 	DD			OFFSET fft192Kp_1PPRO, OFFSET fft192Kp_2PPRO
 	DD			OFFSET fft192Kp_3PPRO, OFFSET fft192Kp_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1808,7 +1808,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			96, 1, 1, 1
 	DD			96, 1, 1, 1, 0
-	DD	5250000, 262144, 0.155,		726528+8192+3*64
+	DD	5242000, 262144, 0.155,		726528+8192+3*64
 	DD			OFFSET fft256Kp_1P3, OFFSET fft256Kp_2P3
 	DD			OFFSET fft256Kp_3P3, OFFSET fft256Kp_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1817,7 +1817,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			128, 1, 1, 1
 	DD			128, 1, 1, 1, 0
-	DD	5250000, 262144, 0.155,		726528+8192+3*64
+	DD	5242000, 262144, 0.155,		726528+8192+3*64
 	DD			OFFSET fft256Kp_1PPRO, OFFSET fft256Kp_2PPRO
 	DD			OFFSET fft256Kp_3PPRO, OFFSET fft256Kp_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1826,7 +1826,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			128, 1, 1, 1
 	DD			128, 1, 1, 1, 0
-	DD	7709000, 393216, 0.2107,	1076176+12288+5*64
+	DD	7733000, 393216, 0.2107,	1076176+12288+5*64
 	DD			OFFSET fft384Kp_1P3, OFFSET fft384Kp_2P3
 	DD			OFFSET fft384Kp_3P3, OFFSET fft384Kp_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1835,7 +1835,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			192, 1, 1, 1
 	DD			192, 1, 1, 1, 0
-	DD	7709000, 393216, 0.2107,	1076176+12288+5*64
+	DD	7733000, 393216, 0.2107,	1076176+12288+5*64
 	DD			OFFSET fft384Kp_1PPRO, OFFSET fft384Kp_2PPRO
 	DD			OFFSET fft384Kp_3PPRO, OFFSET fft384Kp_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1862,7 +1862,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			256, 1, 1, 1
 	DD			256, 1, 1, 1, 0
-	DD	15200000, 786432, 0.453,	2123824+24576+11*64
+	DD	15260000, 786432, 0.453,	2123824+24576+11*64
 	DD			OFFSET fft768Kp_1P3, OFFSET fft768Kp_2P3
 	DD			OFFSET fft768Kp_3P3, OFFSET fft768Kp_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1871,7 +1871,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			384, 1, 1, 1
 	DD			384, 1, 1, 1, 0
-	DD	15200000, 786432, 0.453,	2123824+24576+11*64
+	DD	15260000, 786432, 0.453,	2123824+24576+11*64
 	DD			OFFSET fft768Kp_1PPRO, OFFSET fft768Kp_2PPRO
 	DD			OFFSET fft768Kp_3PPRO, OFFSET fft768Kp_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1880,7 +1880,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			384, 1, 1, 1
 	DD			384, 1, 1, 1, 0
-	DD	20400000, 1048576, 0.681,	2820096+32768+15*64
+	DD	20360000, 1048576, 0.681,	2820096+32768+15*64
 	DD			OFFSET fft1024Kp_1P3, OFFSET fft1024Kp_2P3
 	DD			OFFSET fft1024Kp_3P3, OFFSET fft1024Kp_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1889,7 +1889,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			512, 1, 1, 1
 	DD			512, 1, 1, 1, 0
-	DD	20400000, 1048576, 0.681,	2820096+32768+15*64
+	DD	20360000, 1048576, 0.681,	2820096+32768+15*64
 	DD			OFFSET fft1024Kp_1PPRO, OFFSET fft1024Kp_2PPRO
 	DD			OFFSET fft1024Kp_3PPRO, OFFSET fft1024Kp_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1898,7 +1898,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			128, 1, 1, 1
 	DD			128, 1, 1, 1, 0
-	DD	29900000, 1572864, 0.934,	4111312+24576+5*64
+	DD	30070000, 1572864, 0.934,	4111312+24576+5*64
 	DD			OFFSET fft1536Kp_1P3, OFFSET fft1536Kp_2P3
 	DD			OFFSET fft1536Kp_3P3, OFFSET fft1536Kp_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1907,7 +1907,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			192, 1, 1, 1
 	DD			192, 1, 1, 1, 0
-	DD	29900000, 1572864, 0.934,	4111312+24576+5*64
+	DD	30070000, 1572864, 0.934,	4111312+24576+5*64
 	DD			OFFSET fft1536Kp_1PPRO, OFFSET fft1536Kp_2PPRO
 	DD			OFFSET fft1536Kp_3PPRO, OFFSET fft1536Kp_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1916,7 +1916,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			192, 1, 1, 1
 	DD			192, 1, 1, 1, 0
-	DD	40250000, 2097152, 1.380,	5442560+32768+7*64
+	DD	40110000, 2097152, 1.380,	5442560+32768+7*64
 	DD			OFFSET fft2048Kp_1P3, OFFSET fft2048Kp_2P3
 	DD			OFFSET fft2048Kp_3P3, OFFSET fft2048Kp_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1925,7 +1925,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			256, 1, 1, 1
 	DD			256, 1, 1, 1, 0
-	DD	40250000, 2097152, 1.380,	5442560+32768+7*64
+	DD	40110000, 2097152, 1.380,	5442560+32768+7*64
 	DD			OFFSET fft2048Kp_1PPRO, OFFSET fft2048Kp_2PPRO
 	DD			OFFSET fft2048Kp_3PPRO, OFFSET fft2048Kp_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1934,7 +1934,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			256, 1, 1, 1
 	DD			256, 1, 1, 1, 0
-	DD	59000000, 3145728, 1.990,	8108080+24576+11*64
+	DD	59360000, 3145728, 1.990,	8108080+24576+11*64
 	DD			OFFSET fft3072Kp2_1P3, OFFSET fft3072Kp2_2P3
 	DD			OFFSET fft3072Kp2_3P3, OFFSET fft3072Kp2_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1943,7 +1943,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			384, 1, 1, 1
 	DD			384, 1, 1, 1, 0
-	DD	59000000, 3145728, 1.990,	8108080+24576+11*64
+	DD	59360000, 3145728, 1.990,	8108080+24576+11*64
 	DD			OFFSET fft3072Kp2_1PPRO, OFFSET fft3072Kp2_2PPRO
 	DD			OFFSET fft3072Kp2_3PPRO, OFFSET fft3072Kp2_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -1952,7 +1952,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			384, 1, 1, 1
 	DD			384, 1, 1, 1, 0
-	DD	78600000, 4194304, 2.919,	10770432+32768+15*64
+	DD	79100000, 4194304, 2.919,	10770432+32768+15*64
 	DD			OFFSET fft4096Kp2_1P3, OFFSET fft4096Kp2_2P3
 	DD			OFFSET fft4096Kp2_3P3, OFFSET fft4096Kp2_4P3
 	DD			RPF+2		;; Flags, min_l2_cache, clm
@@ -1961,7 +1961,7 @@ jmptablep DD	753,	32,	0.000004,	976
 	DD			OFFSET prctab2	;; Table of add/sub/norm procs
 	DD			512, 1, 1, 1
 	DD			512, 1, 1, 1, 0
-	DD	78600000, 4194304, 2.919,	10770432+32768+15*64
+	DD	79100000, 4194304, 2.919,	10770432+32768+15*64
 	DD			OFFSET fft4096Kp2_1PPRO, OFFSET fft4096Kp2_2PPRO
 	DD			OFFSET fft4096Kp2_3PPRO, OFFSET fft4096Kp2_4PPRO
 	DD			2		;; Flags, min_l2_cache, clm
@@ -2843,7 +2843,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			512, 1
 	DD			511, 1, 512, 1, 1, 0
 	DD	0
-xjmptablep DD	735,	32,	0.00000111,	976
+xjmptablep DD	739,	32,	0.00000111,	976
 	DD			OFFSET xfft32p_1, OFFSET xfft32p_2
 	DD			OFFSET xfft32p_3, OFFSET xfft32p_4
 	DD			0		;; Flags, min_l2_cache, clm
@@ -2852,7 +2852,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab1	;; Table of add/sub/norm procs
 	DD			4, 4
 	DD			2, 1, 1, 1, 1, 0
-	DD	1089,	48,	0.00000144,	1752
+	DD	1095,	48,	0.00000144,	1752
 	DD			OFFSET xfft48p_1, OFFSET xfft48p_2
 	DD			OFFSET xfft48p_3, OFFSET xfft48p_4
 	DD			0		;; Flags, min_l2_cache, clm
@@ -2861,7 +2861,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab1	;; Table of add/sub/norm procs
 	DD			6, 6
 	DD			3, 1, 1, 1, 1, 0
-	DD	1455,	64,	0.00000178,	2336
+	DD	1465,	64,	0.00000178,	2336
 	DD			OFFSET xfft64p_1, OFFSET xfft64p_2
 	DD			OFFSET xfft64p_3, OFFSET xfft64p_4
 	DD			0		;; Flags, min_l2_cache, clm
@@ -2870,7 +2870,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab1	;; Table of add/sub/norm procs
 	DD			8, 8
 	DD			4, 1, 1, 1, 1, 0
-	DD	2157,	96,	0.00000259,	3216
+	DD	2173,	96,	0.00000259,	3216
 	DD			OFFSET xfft96p_1, OFFSET xfft96p_2
 	DD			OFFSET xfft96p_3, OFFSET xfft96p_4
 	DD			0		;; Flags, min_l2_cache, clm
@@ -2879,7 +2879,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab1	;; Table of add/sub/norm procs
 	DD			12, 12
 	DD			6, 3, 1, 1, 1, 0
-	DD	2875,	128,	0.00000319,	4288
+	DD	2897,	128,	0.00000319,	4288
 	DD			OFFSET xfft128p_1, OFFSET xfft128p_2
 	DD			OFFSET xfft128p_3, OFFSET xfft128p_4
 	DD			0		;; Flags, min_l2_cache, clm
@@ -2888,7 +2888,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab1	;; Table of add/sub/norm procs
 	DD			16, 16
 	DD			8, 4, 1, 2, 1, 0
-	DD	4267,	192,	0.00000542,	6720
+	DD	4295,	192,	0.00000542,	6720
 	DD			OFFSET xfft192p_1, OFFSET xfft192p_2
 	DD			OFFSET xfft192p_3, OFFSET xfft192p_4
 	DD			0		;; Flags, min_l2_cache, clm
@@ -2897,7 +2897,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab1	;; Table of add/sub/norm procs
 	DD			24, 24
 	DD			12, 6, 3, 3, 1, 0
-	DD	5697,	256,	0.00000691,	8576
+	DD	5729,	256,	0.00000691,	8576
 	DD			OFFSET xfft256p_1, OFFSET xfft256p_2
 	DD			OFFSET xfft256p_3, OFFSET xfft256p_4
 	DD			0		;; Flags, min_l2_cache, clm
@@ -2906,7 +2906,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab1	;; Table of add/sub/norm procs
 	DD			32, 32
 	DD			16, 8, 4, 4, 1, 0
-	DD	8441,	384,	0.0000111,	13152
+	DD	8493,	384,	0.0000111,	13152
 	DD			OFFSET xfft384p_1, OFFSET xfft384p_2
 	DD			OFFSET xfft384p_3, OFFSET xfft384p_4
 	DD			0		;; Flags, min_l2_cache, clm
@@ -2915,7 +2915,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab1	;; Table of add/sub/norm procs
 	DD			48, 48
 	DD			24, 12, 3, 6, 1, 0
-	DD	11245,	512,	0.0000143,	17152
+	DD	11319,	512,	0.0000143,	17152
 	DD			OFFSET xfft512p_1, OFFSET xfft512p_2
 	DD			OFFSET xfft512p_3, OFFSET xfft512p_4
 	DD			0		;; Flags, min_l2_cache, clm
@@ -2924,7 +2924,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab1	;; Table of add/sub/norm procs
 	DD			64, 64
 	DD			32, 16, 4, 2*256+8, 1, 0
-	DD	16671,	768,	0.0000260,	26592
+	DD	16779,	768,	0.0000260,	26592
 	DD			OFFSET xfft768p_1, OFFSET xfft768p_2
 	DD			OFFSET xfft768p_3, OFFSET xfft768p_4
 	DD			0		;; Flags, min_l2_cache, clm
@@ -2933,7 +2933,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab1	;; Table of add/sub/norm procs
 	DD			96, 96
 	DD			48, 24, 3*256+6, 3*256+12, 1, 0
-	DD	22253,	1024,	0.0000349,	34304
+	DD	22381,	1024,	0.0000349,	34304
 	DD			OFFSET xfft1024p_1, OFFSET xfft1024p_2
 	DD			OFFSET xfft1024p_3, OFFSET xfft1024p_4
 	DD			0		;; Flags, min_l2_cache, clm
@@ -2942,7 +2942,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab1	;; Table of add/sub/norm procs
 	DD			128, 128
 	DD			64, 32, 4*256+8, 4*256+16, 1, 0
-	DD	32957,	1536,	0.0000601,	52896
+	DD	33189,	1536,	0.0000601,	52896
 	DD			OFFSET xfft1536p_1, OFFSET xfft1536p_2
 	DD			OFFSET xfft1536p_3, OFFSET xfft1536p_4
 	DD			0		;; Flags, min_l2_cache, clm
@@ -2951,7 +2951,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab1	;; Table of add/sub/norm procs
 	DD			192, 192
 	DD			96, 48, 12, 6*256+24, 3, 0
-	DD	43895,	2048,	0.0000773,	68608
+	DD	44221,	2048,	0.0000773,	68608
 	DD			OFFSET xfft2048p_1, OFFSET xfft2048p_2
 	DD			OFFSET xfft2048p_3, OFFSET xfft2048p_4
 	DD			0		;; Flags, min_l2_cache, clm
@@ -2960,7 +2960,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab1	;; Table of add/sub/norm procs
 	DD			256, 256
 	DD			128, 64, 16, 8*256+32, 2*256+4, 0
-	DD	65071,	3072,	0.000131,	106080
+	DD	65519,	3072,	0.000131,	106080
 	DD			OFFSET xfft3072p_1, OFFSET xfft3072p_2
 	DD			OFFSET xfft3072p_3, OFFSET xfft3072p_4
 	DD			0		;; Flags, min_l2_cache, clm
@@ -2969,7 +2969,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab1	;; Table of add/sub/norm procs
 	DD			384, 384
 	DD			192, 96, 6*256+24, 12*256+48, 3*256+3, 0
-	DD	86673,	4096,	0.000172,	137216
+	DD	87271,	4096,	0.000172,	137216
 	DD			OFFSET xfft4096p_1, OFFSET xfft4096p_2
 	DD			OFFSET xfft4096p_3, OFFSET xfft4096p_4
 	DD			0		;; Flags, min_l2_cache, clm
@@ -2978,7 +2978,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab1	;; Table of add/sub/norm procs
 	DD			512, 512
 	DD			256, 128, 8*256+32, 16*256+64, 4*256+4, 0
-	DD	128600,	6144,	0.000291,	211872
+	DD	132000,	6144,	0.000291,	211872
 	DD			OFFSET xfft6144p_1, OFFSET xfft6144p_2
 	DD			OFFSET xfft6144p_3, OFFSET xfft6144p_4
 	DD			0		;; Flags, min_l2_cache, clm
@@ -2987,7 +2987,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab1	;; Table of add/sub/norm procs
 	DD			768, 768
 	DD			384, 192, 12*256+48, 24*256+96, 6*256+3, 0
-	DD	171000,	8192,	0.000395,	274432
+	DD	172400,	8192,	0.000395,	274432
 	DD			OFFSET xfft8192p_1, OFFSET xfft8192p_2
 	DD			OFFSET xfft8192p_3, OFFSET xfft8192p_4
 	DD			0		;; Flags, min_l2_cache, clm
@@ -2996,7 +2996,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab1	;; Table of add/sub/norm procs
 	DD			1024, 1024
 	DD			512, 256, 16*256+64, 32*256+128, 8*256+4, 0
-	DD	252700,	12288,	0.000626,	51040
+	DD	254800,	12288,	0.000626,	51040
 	DD			OFFSET xfft12Kp_1, OFFSET xfft12Kp_2
 	DD			OFFSET xfft12Kp_3, OFFSET xfft12Kp_4
 	DD			2*4		;; Flags, min_l2_cache, clm
@@ -3005,7 +3005,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			12, 1
 	DD			12, 1, 12, 1, 1, 0
-	DD	337000,	16384,	0.000857,	64256
+	DD	339100,	16384,	0.000857,	64256
 	DD			OFFSET xfft16Kp_1, OFFSET xfft16Kp_2
 	DD			OFFSET xfft16Kp_3, OFFSET xfft16Kp_4
 	DD			2*4		;; Flags, min_l2_cache, clm
@@ -3014,7 +3014,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			16, 1
 	DD			16, 1, 16, 1, 1, 0
-	DD	499600,	24576,	0.00135,	91552
+	DD	503400,	24576,	0.00135,	91552
 	DD			OFFSET xfft24Kp_1, OFFSET xfft24Kp_2
 	DD			OFFSET xfft24Kp_3, OFFSET xfft24Kp_4
 	DD			2*4		;; Flags, min_l2_cache, clm
@@ -3023,7 +3023,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			24, 1
 	DD			24, 1, 24, 1, 1, 0
-	DD	664700,	32768,	0.00179,	118272
+	DD	669600,	32768,	0.00179,	118272
 	DD			OFFSET xfft32Kp_1, OFFSET xfft32Kp_2
 	DD			OFFSET xfft32Kp_3, OFFSET xfft32Kp_4
 	DD			2*4		;; Flags, min_l2_cache, clm
@@ -3032,7 +3032,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			32, 1
 	DD			32, 1, 32, 1, 1, 0
-	DD	985500, 49152,	0.00303,	209696
+	DD	992800, 49152,	0.00303,	209696
 	DD			OFFSET xfft48Kp_1, OFFSET xfft48Kp_2
 	DD			OFFSET xfft48Kp_3, OFFSET xfft48Kp_4
 	DD			2*4		;; Flags, min_l2_cache, clm
@@ -3041,7 +3041,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			6, 1
 	DD			6, 1, 6, 1, 1, 0
-	DD	1312000, 65536,	0.00404,	252288
+	DD	1320000, 65536,	0.00404,	252288
 	DD			OFFSET xfft64Kp_1, OFFSET xfft64Kp_2
 	DD			OFFSET xfft64Kp_3, OFFSET xfft64Kp_4
 	DD			2*4		;; Flags, min_l2_cache, clm
@@ -3050,7 +3050,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			8, 1
 	DD			8, 1, 8, 1, 1, 0
-	DD	1946000, 98304, 0.00644,	337760
+	DD	1962000, 98304, 0.00644,	337760
 	DD			OFFSET xfft96Kp_1, OFFSET xfft96Kp_2
 	DD			OFFSET xfft96Kp_3, OFFSET xfft96Kp_4
 	DD			2*4		;; Flags, min_l2_cache, clm
@@ -3059,7 +3059,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			12, 1
 	DD			12, 1, 12, 1, 1, 0
-	DD	2588000, 131072, 0.00871,	422656
+	DD	2610000, 131072, 0.00871,	422656
 	DD			OFFSET xfft128Kp_1, OFFSET xfft128Kp_2
 	DD			OFFSET xfft128Kp_3, OFFSET xfft128Kp_4
 	DD			2*4		;; Flags, min_l2_cache, clm
@@ -3068,7 +3068,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			16, 1
 	DD			16, 1, 16, 1, 1, 0
-	DD	3836000, 196608, 0.0136,	593312
+	DD	3867000, 196608, 0.0136,	593312
 	DD			OFFSET xfft192Kp_1, OFFSET xfft192Kp_2
 	DD			OFFSET xfft192Kp_3, OFFSET xfft192Kp_4
 	DD			2*4		;; Flags, min_l2_cache, clm
@@ -3077,7 +3077,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			24, 1
 	DD			24, 1, 24, 1, 1, 0
-	DD	5106000, 262144, 0.0179,	763392
+	DD	5146000, 262144, 0.0179,	763392
 	DD			OFFSET xfft256Kp_1, OFFSET xfft256Kp_2
 	DD			OFFSET xfft256Kp_3, OFFSET xfft256Kp_4
 	DD			2*4		;; Flags, min_l2_cache, clm
@@ -3086,7 +3086,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			32, 1
 	DD			32, 1, 32, 1, 1, 0
-	DD	7574000, 393216, 0.0273,	1104992
+	DD	7635000, 393216, 0.0273,	1104992
 	DD			OFFSET xfft384Kp_1, OFFSET xfft384Kp_2
 	DD			OFFSET xfft384Kp_3, OFFSET xfft384Kp_4
 	DD			2*4		;; Flags, min_l2_cache, clm
@@ -3095,7 +3095,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			48, 1
 	DD			48, 1, 48, 1, 1, 0
-	DD	10080000, 524288, 0.0368,	1444864
+	DD	10150000, 524288, 0.0368,	1444864
 	DD			OFFSET xfft512Kp_1, OFFSET xfft512Kp_2
 	DD			OFFSET xfft512Kp_3, OFFSET xfft512Kp_4
 	DD			2*4		;; Flags, min_l2_cache, clm
@@ -3104,7 +3104,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			64, 1
 	DD			64, 1, 64, 1, 1, 0
-	DD	14920000, 786432, 0.0566,	2178464
+	DD	15040000, 786432, 0.0566,	2178464
 	DD			OFFSET xfft768Kp4_1, OFFSET xfft768Kp4_2
 	DD			OFFSET xfft768Kp4_3, OFFSET xfft768Kp4_4
 	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
@@ -3113,7 +3113,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			96, 1
 	DD			96, 1, 96, 1, 1, 0
-	DD	14920000, 786432, 0.0566,	2153888
+	DD	15040000, 786432, 0.0566,	2153888
 	DD			OFFSET xfft768Kp2_1, OFFSET xfft768Kp2_2
 	DD			OFFSET xfft768Kp2_3, OFFSET xfft768Kp2_4
 	DD			2*2		;; Flags, min_l2_cache, clm
@@ -3122,7 +3122,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			96, 1
 	DD			96, 1, 96, 1, 1, 0
-	DD	19850000, 1048576, 0.0761,	2875392
+	DD	20000000, 1048576, 0.0761,	2875392
 	DD			OFFSET xfft1024Kp4_1, OFFSET xfft1024Kp4_2
 	DD			OFFSET xfft1024Kp4_3, OFFSET xfft1024Kp4_4
 	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
@@ -3131,7 +3131,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			128, 1
 	DD			128, 1, 128, 1, 1, 0
-	DD	19850000, 1048576, 0.0761,	2842624
+	DD	20000000, 1048576, 0.0761,	2842624
 	DD			OFFSET xfft1024Kp2_1, OFFSET xfft1024Kp2_2
 	DD			OFFSET xfft1024Kp2_3, OFFSET xfft1024Kp2_4
 	DD			256*65536+2*2	;; Flags, min_l2_cache, clm
@@ -3140,7 +3140,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			128, 1
 	DD			128, 1, 128, 1, 1, 0
-	DD	19850000, 1048576, 0.0761,	2826240
+	DD	20000000, 1048576, 0.0761,	2826240
 	DD			OFFSET xfft1024Kp1_1, OFFSET xfft1024Kp1_2
 	DD			OFFSET xfft1024Kp1_3, OFFSET xfft1024Kp1_4
 	DD			2*1		;; Flags, min_l2_cache, clm
@@ -3149,7 +3149,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			128, 1
 	DD			128, 1, 128, 1, 1, 0
-	DD	29390000, 1572864, 0.125,	4275296
+	DD	29640000, 1572864, 0.125,	4275296
 	DD			OFFSET xfft1536Kp4_1, OFFSET xfft1536Kp4_2
 	DD			OFFSET xfft1536Kp4_3, OFFSET xfft1536Kp4_4
 	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
@@ -3158,7 +3158,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			192, 1
 	DD			192, 1, 192, 1, 1, 0
-	DD	29390000, 1572864, 0.125,	4226144
+	DD	29640000, 1572864, 0.125,	4226144
 	DD			OFFSET xfft1536Kp2_1, OFFSET xfft1536Kp2_2
 	DD			OFFSET xfft1536Kp2_3, OFFSET xfft1536Kp2_4
 	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
@@ -3167,7 +3167,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			192, 1
 	DD			192, 1, 192, 1, 1, 0
-	DD	29390000, 1572864, 0.125,	4201568
+	DD	29640000, 1572864, 0.125,	4201568
 	DD			OFFSET xfft1536Kp1_1, OFFSET xfft1536Kp1_2
 	DD			OFFSET xfft1536Kp1_3, OFFSET xfft1536Kp1_4
 	DD			2*1		;; Flags, min_l2_cache, clm
@@ -3176,7 +3176,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			192, 1
 	DD			192, 1, 192, 1, 1, 0
-	DD	39110000, 2097152, 0.169,	5668864
+	DD	39390000, 2097152, 0.169,	5668864
 	DD			OFFSET xfft2048Kp4_1, OFFSET xfft2048Kp4_2
 	DD			OFFSET xfft2048Kp4_3, OFFSET xfft2048Kp4_4
 	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
@@ -3185,7 +3185,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			256, 1, 256, 1, 1, 0
-	DD	39110000, 2097152, 0.169,	5603328
+	DD	39390000, 2097152, 0.169,	5603328
 	DD			OFFSET xfft2048Kp2_1, OFFSET xfft2048Kp2_2
 	DD			OFFSET xfft2048Kp2_3, OFFSET xfft2048Kp2_4
 	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
@@ -3194,7 +3194,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			256, 1, 256, 1, 1, 0
-	DD	39110000, 2097152, 0.169,	5570560
+	DD	39390000, 2097152, 0.169,	5570560
 	DD			OFFSET xfft2048Kp1_1, OFFSET xfft2048Kp1_2
 	DD			OFFSET xfft2048Kp1_3, OFFSET xfft2048Kp1_4
 	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
@@ -3203,7 +3203,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			256, 1, 256, 1, 1, 0
-	DD	39110000, 2097152, 0.169,	5570560
+	DD	39390000, 2097152, 0.169,	5570560
 	DD			OFFSET xfft2048Kp0_1, OFFSET xfft2048Kp0_2
 	DD			OFFSET xfft2048Kp0_3, OFFSET xfft2048Kp0_4
 	DD			2*1		;; Flags, min_l2_cache, clm
@@ -3212,7 +3212,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			256, 1, 256, 1, 1, 0
-	DD	57930000, 3145728, 0.289,	8370080
+	DD	58410000, 3145728, 0.289,	8370080
 	DD			OFFSET xfft3072Kp2_1, OFFSET xfft3072Kp2_2
 	DD			OFFSET xfft3072Kp2_3, OFFSET xfft3072Kp2_4
 	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
@@ -3221,7 +3221,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			384, 1
 	DD			384, 1, 384, 1, 1, 0
-	DD	57930000, 3145728, 0.289,	8320928
+	DD	58410000, 3145728, 0.289,	8320928
 	DD			OFFSET xfft3072Kp1_1, OFFSET xfft3072Kp1_2
 	DD			OFFSET xfft3072Kp1_3, OFFSET xfft3072Kp1_4
 	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
@@ -3230,7 +3230,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			384, 1
 	DD			384, 1, 384, 1, 1, 0
-	DD	57930000, 3145728, 0.289,	8320928
+	DD	58410000, 3145728, 0.289,	8320928
 	DD			OFFSET xfft3072Kp0_1, OFFSET xfft3072Kp0_2
 	DD			OFFSET xfft3072Kp0_3, OFFSET xfft3072Kp0_4
 	DD			2*1		;; Flags, min_l2_cache, clm
@@ -3239,7 +3239,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			384, 1
 	DD			384, 1, 384, 1, 1, 0
-	DD	77130000, 4194304, 0.425,	11124736
+	DD	77700000, 4194304, 0.425,	11124736
 	DD			OFFSET xfft4096Kp2_1, OFFSET xfft4096Kp2_2
 	DD			OFFSET xfft4096Kp2_3, OFFSET xfft4096Kp2_4
 	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
@@ -3248,7 +3248,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			512, 1
 	DD			512, 1, 512, 1, 1, 0
-	DD	77130000, 4194304, 0.425,	11059200
+	DD	77700000, 4194304, 0.425,	11059200
 	DD			OFFSET xfft4096Kp1_1, OFFSET xfft4096Kp1_2
 	DD			OFFSET xfft4096Kp1_3, OFFSET xfft4096Kp1_4
 	DD			512*65536+2*1	;; Flags, min_l2_cache, clm
@@ -3257,7 +3257,7 @@ xjmptablep DD	735,	32,	0.00000111,	976
 	DD			OFFSET xprctab3	;; Table of add/sub/norm procs
 	DD			512, 1
 	DD			512, 1, 512, 1, 1, 0
-	DD	77130000, 4194304, 0.425,	11059200
+	DD	77700000, 4194304, 0.425,	11059200
 	DD			OFFSET xfft4096Kp0_1, OFFSET xfft4096Kp0_2
 	DD			OFFSET xfft4096Kp0_3, OFFSET xfft4096Kp0_4
 	DD			2*1		;; Flags, min_l2_cache, clm
