@@ -140,7 +140,8 @@ LONG CMainFrame::OnTrayMessage(UINT uID, LONG uMouseMsg)
 
 LRESULT CMainFrame::OnTaskBarCreated (WPARAM wp, LPARAM lp)
 {
-	((CPrime95App *)AfxGetApp())->TrayMessage (NIM_ADD, "Prime95", 0);
+	if (!HIDE_ICON)
+		((CPrime95App *)AfxGetApp())->TrayMessage (NIM_ADD, "Prime95", 0);
 	return 0;
 }
 
