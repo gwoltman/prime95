@@ -369,6 +369,7 @@ void guessCpuType (void)
 						CPU_L1_CACHE_SIZE = 8;
 						CPU_L1_CACHE_LINE_SIZE = 64;
 						break;
+					case 0x60:
 					case 0x67:
 						CPU_L1_CACHE_SIZE = 16;
 						CPU_L1_CACHE_LINE_SIZE = 64;
