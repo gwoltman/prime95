@@ -305,8 +305,8 @@ exfft	448K, 15
 exfft	512K, 15
 exfft	640K, 15, 6
 exfft	768K, 15, 6
-exfft	896K, 15, 6
-exfft	1024K, 15, 6
+exfft	896K, 15, 7
+exfft	1024K, 15, 7
 exfft	1280K, 15, 7
 exfft	1536K, 15, 7
 exfft	1792K, 15, 7
@@ -406,10 +406,13 @@ PUBLIC	norm_grp_mults
 PUBLIC	norm_col_mults
 PUBLIC	norm_biglit_array
 PUBLIC	carries
+PUBLIC	scratch_area
 PUBLIC	zero_fft
 PUBLIC	extra_bits
 PUBLIC	ffttype
 PUBLIC	normgrpptr
+PUBLIC	pass1blkdst
+PUBLIC	normblkdst
 PUBLIC	loopcount1
 PUBLIC	loopcount2
 PUBLIC	loopcount3
@@ -547,11 +550,14 @@ norm_grp_mults	DD	0		; Ptr to array of normalize multipliers
 norm_col_mults	DD	0
 norm_biglit_array DD	0		; Ptr to byte array of big/lit flags
 carries		DD	0		; Ptr to array of carries (2 pass FFT)
+scratch_area	DD	0		; Scratch area for pass 1 of SSE2 FFTs
 zero_fft	DD	0		; TRUE if doing an FFTZERO normalize
 extra_bits	DD	0		; Number of unnormalized adds
 					; that can be safely performed.
 ffttype		DD	0		; Type of fft (1, 2, 3, or 4)
 normgrpptr	DD	0
+pass1blkdst	DD	0		; Dist between blocks, pass 1 SSE2 FFTs
+normblkdst	DD	0		; Dist between blocks in normalization
 loopcount1	DD	0
 loopcount2	DD	0
 loopcount3	DD	0
@@ -1854,164 +1860,171 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			OFFSET xfft320K_1, OFFSET xfft320K_2
 	DD			OFFSET xfft320K_3, OFFSET xfft320K_4
 	DD			40, 1, 1
-	DD			39, 2*clm320K, 32*1024+8, 1, 1, 0
+	DD			39, 2*clm, 32*1024+8, 1, 1, 0
 	DD	7651000, 393216, 0.0291,	1162016
 	DD			OFFSET xfft384K_1, OFFSET xfft384K_2
 	DD			OFFSET xfft384K_3, OFFSET xfft384K_4
 	DD			48, 1, 1
-	DD			47, 2*clm384K, 32*1024+16, 1, 1, 0
+	DD			47, 2*clm, 32*1024+16, 1, 1, 0
 	DD	8908000, 458752, 0.0346,	1332672
 	DD			OFFSET xfft448K_1, OFFSET xfft448K_2
 	DD			OFFSET xfft448K_3, OFFSET xfft448K_4
 	DD			56, 1, 1
-	DD			55, 2*clm448K, (32*1024+16)*1024+8, 1, 1, 0
+	DD			55, 2*clm, (32*1024+16)*1024+8, 1, 1, 0
 	DD	10180000, 524288, 0.0391,	1501504
 	DD			OFFSET xfft512K_1, OFFSET xfft512K_2
 	DD			OFFSET xfft512K_3, OFFSET xfft512K_4
 	DD			64, 1, 1
-	DD			63, 2*clm512K, 64, 1, 1, 0
-	;; CLM = 2 for L2 = 128KB, CLM = 4 for >= 256KB
-	DD	12650000, 655360, 0.0513,	1843296
+	DD			63, 2*clm, 64, 1, 1, 0
+	DD	12650000, 655360, 0.0513,	1838176+42240
 	DD			OFFSET xfft640K4_1, OFFSET xfft640K4_2
 	DD			OFFSET xfft640K4_3, OFFSET xfft640K4_4
-	DD			80, 1, 1
+	DD			80, 42240, 1
 	DD			79, 256*65536+2*4, 64*1024+16, 1, 1, 0
-	DD	12650000, 655360, 0.0513,	1843296
+	DD	12650000, 655360, 0.0513,	1838176+21760
 	DD			OFFSET xfft640K2_1, OFFSET xfft640K2_2
 	DD			OFFSET xfft640K2_3, OFFSET xfft640K2_4
-	DD			80, 1, 1
+	DD			80, 21760, 1
 	DD			79, 2*2, 64*1024+16, 1, 1, 0
-	DD	15070000, 786432, 0.0628,	2184224
+	DD	15070000, 786432, 0.0628,	2178080+50688
 	DD			OFFSET xfft768K4_1, OFFSET xfft768K4_2
 	DD			OFFSET xfft768K4_3, OFFSET xfft768K4_4
-	DD			96, 1, 1
-	DD			95, 256*65536+2*4, 64*1024+32, 1, 1, 0
-	DD	15070000, 786432, 0.0628,	2184224
+	DD			96, 50688, 1
+	DD			95, 512*65536+2*4, 64*1024+32, 1, 1, 0
+	DD	15070000, 786432, 0.0628,	2178080+26112
 	DD			OFFSET xfft768K2_1, OFFSET xfft768K2_2
 	DD			OFFSET xfft768K2_3, OFFSET xfft768K2_4
-	DD			96, 1, 1
+	DD			96, 26112, 1
 	DD			95, 2*2, 64*1024+32, 1, 1, 0
-	DD	17550000, 917504, 0.0785,	2525248
+	DD	17550000, 917504, 0.0785,	2518080+59136
 	DD			OFFSET xfft896K4_1, OFFSET xfft896K4_2
 	DD			OFFSET xfft896K4_3, OFFSET xfft896K4_4
-	DD			112, 1, 1
-	DD			111, 256*65536+2*4, (64*1024+32)*1024+16, 1, 1, 0
-	DD	17550000, 917504, 0.0785,	2525248
+	DD			112, 59136, 1
+	DD			111, 512*65536+2*4, (64*1024+32)*1024+16, 1, 1, 0
+	DD	17550000, 917504, 0.0785,	2518080+30464
 	DD			OFFSET xfft896K2_1, OFFSET xfft896K2_2
 	DD			OFFSET xfft896K2_3, OFFSET xfft896K2_4
-	DD			112, 1, 1
-	DD			111, 2*2, (64*1024+32)*1024+16, 1, 1, 0
-	DD	20050000, 1048576, 0.0859,	2864448
+	DD			112, 30464, 1
+	DD			111, 256*655362*2, (64*1024+32)*1024+16, 1, 1, 0
+	DD	17550000, 917504, 0.0785,	2518080+16128
+	DD			OFFSET xfft896K1_1, OFFSET xfft896K1_2
+	DD			OFFSET xfft896K1_3, OFFSET xfft896K1_4
+	DD			112, 16128, 1
+	DD			111, 2*1, (64*1024+32)*1024+16, 1, 1, 0
+	DD	20050000, 1048576, 0.0859,	2856256+67584
 	DD			OFFSET xfft1024K4_1, OFFSET xfft1024K4_2
 	DD			OFFSET xfft1024K4_3, OFFSET xfft1024K4_4
-	DD			128, 1, 1
-	DD			127, 256*65536+2*4, 128, 1, 1, 0
-	DD	20050000, 1048576, 0.0859,	2864448
+	DD			128, 67584, 1
+	DD			127, 512*65536+2*4, 128, 1, 1, 0
+	DD	20050000, 1048576, 0.0859,	2856256+34816
 	DD			OFFSET xfft1024K2_1, OFFSET xfft1024K2_2
 	DD			OFFSET xfft1024K2_3, OFFSET xfft1024K2_4
-	DD			128, 1, 1
-	DD			127, 2*2, 128, 1, 1, 0
-	;; CLM = 1 for L2 = 128KB, CLM = 2 for 256KB, CLM = 4 for 512KB
-	DD	24930000, 1310720, 0.120,	3548800
+	DD			128, 34816, 1
+	DD			127, 256*65536+2*2, 128, 1, 1, 0
+	DD	20050000, 1048576, 0.0859,	2856256+18432
+	DD			OFFSET xfft1024K1_1, OFFSET xfft1024K1_2
+	DD			OFFSET xfft1024K1_3, OFFSET xfft1024K1_4
+	DD			128, 18432, 1
+	DD			127, 2*1, 128, 1, 1, 0
+	DD	24930000, 1310720, 0.120,	3538560+84480
 	DD			OFFSET xfft1280K4_1, OFFSET xfft1280K4_2
 	DD			OFFSET xfft1280K4_3, OFFSET xfft1280K4_4
-	DD			160, 1, 1
+	DD			160, 84480, 1
 	DD			159, 512*65536+2*4, 128*1024+32, 1, 1, 0
-	DD	24930000, 1310720, 0.120,	3548800
+	DD	24930000, 1310720, 0.120,	3538560+43520
 	DD			OFFSET xfft1280K2_1, OFFSET xfft1280K2_2
 	DD			OFFSET xfft1280K2_3, OFFSET xfft1280K2_4
-	DD			160, 1, 1
+	DD			160, 43520, 1
 	DD			159, 256*65536+2*2, 128*1024+32, 1, 1, 0
-	DD	24930000, 1310720, 0.120,	3548800
+	DD	24930000, 1310720, 0.120,	3538560+23040
 	DD			OFFSET xfft1280K1_1, OFFSET xfft1280K1_2
 	DD			OFFSET xfft1280K1_3, OFFSET xfft1280K1_4
-	DD			160, 1, 1
+	DD			160, 23040, 1
 	DD			159, 2*1, 128*1024+32, 1, 1, 0
-	DD	29690000, 1572864, 0.148,	4230848
+	DD	29690000, 1572864, 0.148,	4218560+101376
 	DD			OFFSET xfft1536K4_1, OFFSET xfft1536K4_2
 	DD			OFFSET xfft1536K4_3, OFFSET xfft1536K4_4
-	DD			192, 1, 1
-	DD			191, 512*65536+2*4, 128*1024+64, 1, 1, 0
-	DD	29690000, 1572864, 0.148,	4230848
+	DD			192, 101376, 1
+	DD			191, 1024*65536+2*4, 128*1024+64, 1, 1, 0
+	DD	29690000, 1572864, 0.148,	4218560+52224
 	DD			OFFSET xfft1536K2_1, OFFSET xfft1536K2_2
 	DD			OFFSET xfft1536K2_3, OFFSET xfft1536K2_4
-	DD			192, 1, 1
-	DD			191, 256*65536+2*2, 128*1024+64, 1, 1, 0
-	DD	29690000, 1572864, 0.148,	4230848
+	DD			192, 52224, 1
+	DD			191, 512*65536+2*2, 128*1024+64, 1, 1, 0
+	DD	29690000, 1572864, 0.148,	4218560+27648
 	DD			OFFSET xfft1536K1_1, OFFSET xfft1536K1_2
 	DD			OFFSET xfft1536K1_3, OFFSET xfft1536K1_4
 	DD			192, 1, 1
 	DD			191, 2*1, 128*1024+64, 1, 1, 0
-	DD	34560000, 1835008, 0.183,	4912992
+	DD	34560000, 1835008, 0.183,	4898656+118272
 	DD			OFFSET xfft1792K4_1, OFFSET xfft1792K4_2
 	DD			OFFSET xfft1792K4_3, OFFSET xfft1792K4_4
-	DD			224, 1, 1
-	DD			223, 512*65536+2*4, (128*1024+64)*1024+32, 1, 1, 0
-	DD	34560000, 1835008, 0.183,	4912992
+	DD			224, 118272, 1
+	DD			223, 1024*65536+2*4, (128*1024+64)*1024+32, 1, 1, 0
+	DD	34560000, 1835008, 0.183,	4898656+60928
 	DD			OFFSET xfft1792K2_1, OFFSET xfft1792K2_2
 	DD			OFFSET xfft1792K2_3, OFFSET xfft1792K2_4
-	DD			224, 1, 1
-	DD			223, 256*65536+2*2, (128*1024+64)*1024+32, 1, 1, 0
-	DD	34560000, 1835008, 0.183,	4912992
+	DD			224, 60928, 1
+	DD			223, 512*65536+2*2, (128*1024+64)*1024+32, 1, 1, 0
+	DD	34560000, 1835008, 0.183,	4898656+32256
 	DD			OFFSET xfft1792K1_1, OFFSET xfft1792K1_2
 	DD			OFFSET xfft1792K1_3, OFFSET xfft1792K1_4
-	DD			224, 1, 1
+	DD			224, 32256, 1
 	DD			223, 2*1, (128*1024+64)*1024+32, 1, 1, 0
-	DD	39500000, 2097152, 0.211,	5590336
+	DD	39500000, 2097152, 0.211,	5573952+135168
 	DD			OFFSET xfft2048K4_1, OFFSET xfft2048K4_2
 	DD			OFFSET xfft2048K4_3, OFFSET xfft2048K4_4
-	DD			256, 1, 1
-	DD			255, 512*65536+2*4, 256, 1, 1, 0
-	DD	39500000, 2097152, 0.211,	5590336
+	DD			256, 135168, 1
+	DD			255, 1024*65536+2*4, 256, 1, 1, 0
+	DD	39500000, 2097152, 0.211,	5573952+69632
 	DD			OFFSET xfft2048K2_1, OFFSET xfft2048K2_2
 	DD			OFFSET xfft2048K2_3, OFFSET xfft2048K2_4
-	DD			256, 1, 1
-	DD			255, 256*65536+2*2, 256, 1, 1, 0
-	DD	39500000, 2097152, 0.211,	5590336
+	DD			256, 69632, 1
+	DD			255, 512*65536+2*2, 256, 1, 1, 0
+	DD	39500000, 2097152, 0.211,	5573952+36864
 	DD			OFFSET xfft2048K1_1, OFFSET xfft2048K1_2
 	DD			OFFSET xfft2048K1_3, OFFSET xfft2048K1_4
-	DD			256, 1, 1
+	DD			256, 36864, 1
 	DD			255, 2*1, 256, 1, 1, 0
-	;; CLM = 1 for L2 <= 256KB, CLM = 2 for 512KB
-	DD	49100000, 2621440, 0.295,	6958080
+	DD	49100000, 2621440, 0.295,	6937600+87040
 	DD			OFFSET xfft2560K2_1, OFFSET xfft2560K2_2
 	DD			OFFSET xfft2560K2_3, OFFSET xfft2560K2_4
-	DD			320, 1, 1
+	DD			320, 87040, 1
 	DD			319, 512*65536+2*2, 256*1024+64, 1, 1, 0
-	DD	49100000, 2621440, 0.295,	6958080
+	DD	49100000, 2621440, 0.295,	6937600+46080
 	DD			OFFSET xfft2560K1_1, OFFSET xfft2560K1_2
 	DD			OFFSET xfft2560K1_3, OFFSET xfft2560K1_4
-	DD			320, 1, 1
+	DD			320, 46080, 1
 	DD			319, 2*1, 256*1024+64, 1, 1, 0
-	DD	58520000, 3145728, 0.343,	8321984
+	DD	58520000, 3145728, 0.343,	8297408+104448
 	DD			OFFSET xfft3072K2_1, OFFSET xfft3072K2_2
 	DD			OFFSET xfft3072K2_3, OFFSET xfft3072K2_4
-	DD			384, 1, 1
-	DD			383, 512*65536+2*2, 256*1024+128, 1, 1, 0
-	DD	58520000, 3145728, 0.343,	8321984
+	DD			384, 104448, 1
+	DD			383, 1024*65536+2*2, 256*1024+128, 1, 1, 0
+	DD	58520000, 3145728, 0.343,	8297408+55296
 	DD			OFFSET xfft3072K1_1, OFFSET xfft3072K1_2
 	DD			OFFSET xfft3072K1_3, OFFSET xfft3072K1_4
-	DD			384, 1, 1
+	DD			384, 55296, 1
 	DD			383, 2*1, 256*1024+128, 1, 1, 0
-	DD	68130000, 3670016, 0.438,	9685984
+	DD	68130000, 3670016, 0.438,	9657312+121856
 	DD			OFFSET xfft3584K2_1, OFFSET xfft3584K2_2
 	DD			OFFSET xfft3584K2_3, OFFSET xfft3584K2_4
-	DD			448, 1, 1
-	DD			447, 512*65536+2*2, (256*1024+128)*1024+64, 1, 1,0
-	DD	68130000, 3670016, 0.438,	9685984
+	DD			448, 121856, 1
+	DD			447, 1024*65536+2*2, (256*1024+128)*1024+64, 1, 1,0
+	DD	68130000, 3670016, 0.438,	9657312+64512
 	DD			OFFSET xfft3584K1_1, OFFSET xfft3584K1_2
 	DD			OFFSET xfft3584K1_3, OFFSET xfft3584K1_4
-	DD			448, 1, 1
+	DD			448, 64512, 1
 	DD			447, 2*1, (256*1024+128)*1024+64, 1, 1,0
-	DD	77910000, 4194304, 0.531,	11042112
+	DD	77910000, 4194304, 0.531,	11009344+139264
 	DD			OFFSET xfft4096K2_1, OFFSET xfft4096K2_2
 	DD			OFFSET xfft4096K2_3, OFFSET xfft4096K2_4
-	DD			512, 1, 1
-	DD			511, 512*65536+2*2, 512, 1, 1, 0
-	DD	77910000, 4194304, 0.531,	11042112
+	DD			512, 139264, 1
+	DD			511, 1024*65536+2*2, 512, 1, 1, 0
+	DD	77910000, 4194304, 0.531,	11009344+73728
 	DD			OFFSET xfft4096K1_1, OFFSET xfft4096K1_2
 	DD			OFFSET xfft4096K1_3, OFFSET xfft4096K1_4
-	DD			512, 1, 1
+	DD			512, 73728, 1
 	DD			511, 2*1, 512, 1, 1, 0
 xjmptablep DD	747,	32,	0.000004,	768
 	DD			OFFSET fft32p_1, OFFSET fft32p_2
@@ -2512,11 +2525,11 @@ p4init:
 	fstp	XMM_NORM012_FF+8
 
 ; Copy pointers to 1 premultiplier, 11 sin/cos, 3 normalization tables
-; and 1 carries table.
+; 1 carries table, and 1 scratch area.
 
 	mov	edi, OFFSET pass2_premults ; Addr to store table pointers
 	mov	esi, OFFSET _GWPROCPTRS	; C code put ptrs here
-	mov	ecx, 16			; Copy 16 table ptrs
+	mov	ecx, 17			; Copy 17 table ptrs
 	rep	movsd
 
 ; Set procedure pointers and counters
@@ -2536,6 +2549,24 @@ p4init:
 	jl	short clmok		; for larger FFTs
 	and	count2, 0FFFFh
 clmok:
+	; Calculate pass 1 blkdst and normalize blkdst for xmult3 routines.
+	; Small 2-pass FFTs use the in-place v22 blkdst of (65536+4096+128).
+	; Larger FFTs use the scratch area with 16 byte gap in clmblkdst.
+	cmp	_FFTLEN, 524288
+	jg	short lg2p		; Jump if this is a larger FFT
+	mov	eax, 65536+4096+128	; V22 blkdst
+	mov	pass1blkdst, eax
+	mov	edx, count2		; clm
+	shl	edx, 6			; clm*64
+	sub	eax, edx		; Normblkdst = pass1blkdst - clm*64
+	mov	normblkdst, eax
+	jmp	short done3
+lg2p:	mov	eax, count2		; Calc pass1blkdst
+	shl	eax, 7
+	add	eax, 65536
+	mov	pass1blkdst, eax	; 65536 + clm*128
+	mov	normblkdst, 16		; Pad in clmblkdst is 16
+done3:
 
 ; Compute more normalization counters and constants
 
@@ -2787,13 +2818,45 @@ qqq:	movdqa	xmm0, xmm1
 	jmp	exit
 ENDIF
 
+;; Touch lots of memory - get it in L2 cache
+
+	mov	edi, _SRCARG
+	lea	esi, [edi+4096]
+	lea	edx, [esi+524288]
+	mov	ecx, 100
+ooo:	mov	eax, [esi]
+	mov	eax, [esi+128]
+	mov	eax, [edx]
+	mov	eax, [edx+128]
+	mov	eax, [edi]
+	mov	eax, [edi+128]
+	lea	esi, [esi+256]
+	lea	edx, [edx+256]
+	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
+	dec	ecx
+	jnz	short ooo
+
+;; Time 10000 macro executions
+
 	mov	eax, 1000
 ppp:	mov	edi, _SRCARG
 	lea	esi, [edi+4096]
+	lea	edx, [esi+524288+4096+128]
 	mov	ecx, 10
 ;;qqq:	x7cl_seven_reals_first_fft esi, 8*64, 64
+;;qqq:	x7cl_seven_reals_last_unfft esi, 8*64, 64
+;;qqq:	x2cl_four_complex_fft esi, 2*64, 64
+;;qqq:	x4cl_four_complex_fft esi, 4*64, 64, 2*64
 ;;qqq:	x4cl_four_complex_unfft esi, 4*64, 64, 2*64
-qqq:	x4cl_four_complex_with_square esi, 4*64, 64, 2*64
+;;qqq:	x2cl_four_complex_unfft esi, 2*64, 64
+qqq:	g2cl_four_complex_unfft esi, 2*64, 64,  edx, 2*64+16, 64
+;;qqq:	x4cl_four_complex_with_square esi, 4*64, 64, 2*64
+;;qqq:	x4cl_four_complex_cpm01_fft esi, 4*64, 64, 2*64
+;;qqq:	x4cl_four_complex_cpm0_unfft esi, 4*64, 64, 2*64
+;;qqq:	s4cl_four_complex_gpm_unfft esi, 4*64, 64, 2*64, 8*XMM_PMD
+;;qqq:	s2cl_four_complex_gpm_fft esi, 2*64, 64
+;;qqq:	x2cl_two_complex_fft esi, 2*64, 64
+;;qqq:	x2cl_two_complex_unfft esi, 2*64, 64
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
 	dec	ecx
 	jnz	qqq
