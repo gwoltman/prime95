@@ -433,6 +433,8 @@ int readFileData (
 				goto err;
 			x = y;
 		}
+		if ((x & 0xFF000000) != 0 && (x & 0xFF000000) != 0xFF000000)
+			goto err;
 		sum += x;
 		if (x) zero = FALSE;
 		set_fft_value (LLDATA, i, x);
