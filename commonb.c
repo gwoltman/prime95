@@ -805,7 +805,7 @@ void start_timer (
 {
 	if (RDTSC_TIMING < 10) {
 		timers[i] -= getHighResTimer ();
-	} else if (RDTSC_TIMING && (CPU_FLAGS & CPU_RDTSC)) {
+	} else if (RDTSC_TIMING > 10 && (CPU_FLAGS & CPU_RDTSC)) {
 		unsigned long hi, lo;
 		rdtsc (&hi, &lo);
 		timers[i] -= (double) hi * 4294967296.0 + lo;
@@ -821,7 +821,7 @@ void end_timer (
 {
 	if (RDTSC_TIMING < 10) {
 		timers[i] += getHighResTimer ();
-	} else if (RDTSC_TIMING && (CPU_FLAGS & CPU_RDTSC)) {
+	} else if (RDTSC_TIMING > 10 && (CPU_FLAGS & CPU_RDTSC)) {
 		unsigned long hi, lo;
 		rdtsc (&hi, &lo);
 		timers[i] += (double) hi * 4294967296.0 + lo;
@@ -844,7 +844,7 @@ double timer_value (
 {
 	if (RDTSC_TIMING < 10)
 		return (timers[i] / getHighResTimerFrequency ());
-	else if (RDTSC_TIMING && (CPU_FLAGS & CPU_RDTSC))
+	else if (RDTSC_TIMING > 10 && (CPU_FLAGS & CPU_RDTSC))
 		return (timers[i] / CPU_SPEED / 1000000.0);
 	else
 		return (timers[i] / 1000.0);
