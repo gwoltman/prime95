@@ -50,6 +50,8 @@ unsigned int mQx_count;
 unsigned long modinv_count = 0;
 int	TWO_FFT_STAGE2 = 0;	/* Type of ECM stage 2 to execute */
 
+int	QA_IN_PROGRESS = FALSE;
+int	QA_TYPE = 0;
 
 /* Bit manipulation macros */
 
@@ -792,6 +794,10 @@ int setN (void)
 	gshiftleft (PARG, N);
 	iaddg (PLUS1 ? 1 : -1, N);
 
+/* Ignore file of known factors when QAing */
+
+	if (QA_IN_PROGRESS) return (TRUE);
+
 /* Open file of known factors */
 
 	fd = fopen (PLUS1 ? "lowp.txt" : "lowm.txt", "r");
@@ -1339,6 +1345,8 @@ int printFactor (void)
 	spoolMessage (PRIMENET_RESULT_MESSAGE, msg);
 	free (msg);
 
+	if (QA_IN_PROGRESS) return (TRUE);
+
 	if (PARG < 10000) {
 		divg (FAC, N);
 		if (isProbablePrime ()) {
@@ -1620,7 +1628,8 @@ void choose_stage2_plan (
 /* or	13 + 2*relprime gwnums if 3N pooling			*/
 /* Note that MQ_init requires B is at least 4 times D		*/
 
-		if (B >= 4*d && 13 + relprime <= numvals) {
+		if (B >= 4*d && 13 + relprime <= numvals &&
+		    (QA_TYPE == 0 || QA_TYPE == 1)) {
 			cost = d/2 * ELL_ADD_COST +
 			       relprime * relprime * N_SQUARED_POOL_COST +
 			       numsections * ELL_ADD_COST +
@@ -1633,7 +1642,8 @@ void choose_stage2_plan (
 				bestcost = cost;
 			}
 		}
-		if (B >= 4*d && 13 + relprime*2 <= numvals) {
+		if (B >= 4*d && 13 + relprime*2 <= numvals &&
+		    (QA_TYPE == 0 || QA_TYPE == 2)) {
 			cost = d/2 * ELL_ADD_COST +
 			       relprime * MULT3_POOL_COST +
 			       numsections * ELL_ADD_COST +
@@ -1657,7 +1667,8 @@ void choose_stage2_plan (
 /*	13 + relprime gwnums if N^2 pooling			*/
 /* or	13 + 2*relprime gwnums if 3N pooling			*/
 
-		if (B >= 4*d && 13 + relprime <= numvals) {
+		if (B >= 4*d && 13 + relprime <= numvals &&
+		    (QA_TYPE == 0 || QA_TYPE == 3)) {
 			e = numvals - relprime - 13;
 			if (e == 0) e = 1;
 			if (e > beste) e = beste;
@@ -1676,7 +1687,8 @@ void choose_stage2_plan (
 				bestcost = cost;
 			}
 		}
-		if (B >= 4*d && 13 + relprime*2 <= numvals) {
+		if (B >= 4*d && 13 + relprime*2 <= numvals &&
+		    (QA_TYPE == 0 || QA_TYPE == 4)) {
 			e = (numvals - relprime - 13) / 2;
 			if (e == 0) e = 1;
 			numgcdsections = ceil (numsections / e);
@@ -1702,6 +1714,24 @@ void choose_stage2_plan (
 		else if (d > 210) d = d - 210;
 		else if (d > 30) d = d - 30;
 		else break;
+	}
+
+/* Print out our selection */
+
+	if (QA_IN_PROGRESS) {
+		char	buf[200];
+		if (pool_type == POOL_N_SQUARED)
+			sprintf (buf, "num temps = %d, D = %d, E = %d\n",
+				 numvals, D, E);
+		else
+			sprintf (buf, "num temps = %d, D = %d\n",
+				 numvals, D);
+		OutputBoth (buf);
+		sprintf (buf, "Stage 2 FFTs = %d, Pool type = %s\n",
+			 TWO_FFT_STAGE2 ? 2 : 4,
+			 pool_type == POOL_N_SQUARED ? "N squared" :
+						       "3 multiplies");
+		OutputBoth (buf);
 	}
 }
 
@@ -2539,6 +2569,22 @@ restart1:
 		goto more_curves;
 	}
 
+/* If we find a factor in stage 1 of a QA run then */
+/* print the factor, divide it from N, and continue stage 2. */
+
+	if (QA_IN_PROGRESS) {
+		if (!gcd (z)) {
+			retval = FALSE;
+			goto exit;
+		}
+		if (FAC != NULL) {
+			printFactor ();
+			divg (FAC, N);
+			free (FAC);
+			FAC = NULL;
+		}
+	}
+
 /*
    Stage 2:  We support two types of stage 2's here.  One uses
    less memory and uses fewer extended GCDs, but is slower in accumulating
@@ -2646,6 +2692,9 @@ restart3:
 		retval = FALSE;
 		goto exit;
 	}
+
+/* If we found a factor, we're done */
+
 	if (FAC != NULL) goto bingo;
 
 /* Free rest of the memory used in computing nQx values */
@@ -2859,8 +2908,10 @@ bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n",
 	/*spoolMessage (PRIMENET_RESULT_MESSAGE, buf);*/
 	if (printFactor ()) {
 		_unlink (filename);
-		free (FAC);
-		FAC = NULL;
+		if (!QA_IN_PROGRESS) {
+			free (FAC);
+			FAC = NULL;
+		}
 		retval = TRUE;
 		goto exit;
 	}
@@ -2922,6 +2973,8 @@ int ecm_QA ()
 		int	plus1;
 		char	fac_str[80];
 		double	sigma;
+		giant	f;
+		int	success;
 
 /* Read a line from the file */
 
@@ -2930,29 +2983,58 @@ int ecm_QA ()
 			&p, &plus1, &sigma, &B1, &B2_start, &B2_end, &fac_str);
 		if (p == 0) break;
 
+/* If p is 1, set QA_TYPE */
+
+		if (p == 1) {
+			QA_TYPE = plus1;
+			continue;
+		}
+
+/* Convert the factor we expect to find into a "giant" type */
+
+		f = newgiant (strlen (fac_str));
+		ctog (fac_str, f);
+
 /*test various num_tmps
 test 4 (or more?) stage 2 code paths
 print out each test case (all relevant data)*/
 
 /* Set some global variables indicating QA is in progress. */
 
+		QA_IN_PROGRESS = TRUE;
+
 /* Do the ECM */
 
 		if (B2_start < B1) B2_start = B1;
 		if (! ecm (p, B1, B2_start, B2_end, 1, 0, sigma, plus1)) {
 			fclose (fd);
+			QA_IN_PROGRESS = FALSE;
+			QA_TYPE = 0;
 			return (FALSE);
 		}
 
 /* See if we found the factor */
 
-//		if (FAC == NULL || strcmp (FAC, fac_str)) {
-//			sprintf (buf, "Warning: Factor not found. Expected %s\n", fac_str);
-//			OutputBoth (buf);
-//		}
+		if (FAC == NULL) success = FALSE;
+		else {
+			modg (f, FAC);
+			success = isZero (FAC);
+			free (FAC);
+			FAC = NULL;
+		}
+		if (!success) {
+			char	buf[200];
+			sprintf (buf, "ERROR: Factor not found. Expected %s\n", fac_str);
+			OutputBoth (buf);
+		}
+		free (f);
 	}
-	fclose (fd);
 
+/* Cleanup */
+
+	QA_IN_PROGRESS = FALSE;
+	QA_TYPE = 0;
+	fclose (fd);
 	return (TRUE);
 }
 
@@ -3324,6 +3406,10 @@ unsigned long choose_pminus1_numvals (void)
 {
 	unsigned long memory;		/* Available memory in MB */
 
+/* Override numvals when QAing */
+
+	if (QA_TYPE) return (QA_TYPE);
+
 /* Default is to use up to 24MB of memory */
 
 	memory = avail_mem ();
@@ -3346,7 +3432,7 @@ unsigned long choose_pminus1_numvals (void)
 void choose_pminus1_plan (
 	unsigned long B,		/* Stage 1 bound */
 	unsigned long C,		/* Stage 2 bound */
-	unsigned long numvals)		/* Returns max number of temps */
+	unsigned long numvals)		/* Max number of temps */
 {
 
 /* Handle case where there is no stage 2 */
@@ -3409,6 +3495,14 @@ done:	free (nQx);
 	nQx = (gwnum *) malloc ((D>>1) * sizeof (gwnum));
 	eQx = (gwnum *) malloc ((E+1) * sizeof (gwnum));
 	pairings = (char *) malloc ((D + 15) >> 4);
+
+/* Print out our selection */
+
+	if (QA_IN_PROGRESS) {
+		char	buf[200];
+		sprintf (buf, "num temps = %d, D = %d, E = %d\n", numvals, D, E);
+		OutputBoth (buf);
+	}
 }
 
 /* Recursively compute exponent used in initial 3^exp calculation */
@@ -4002,7 +4096,8 @@ more_B:		state.B = B;
 /* Check to see if we found a factor - do GCD (x-1, N) */
 
 restart2:
-	if (C <= B || IniGetInt (INI_FILE, "Stage1GCD", 1)) {
+	if (C <= B ||
+	    (!QA_IN_PROGRESS && IniGetInt (INI_FILE, "Stage1GCD", 1))) {
 		if (ll_testing)
 			OutputStr ("Starting stage 1 GCD - please be patient.\n");
 		start_timer (0);
@@ -4381,6 +4476,11 @@ bingo:	if (stage == 1)
 	writeResults (buf);
 	printFactor ();
 	if (isone (FAC)) goto msg_and_exit;
+	if (QA_IN_PROGRESS) {
+		_unlink (filename);
+		retval = TRUE;
+		goto exit;
+	}
 
 /* If LL testing, output result to the server and free all save files */
 
@@ -4461,6 +4561,8 @@ int pminus1_QA ()
 		unsigned long p, B1, B2_start, B2_end;
 		int	plus1;
 		char	fac_str[80];
+		giant	f;
+		int	success;
 
 /* Read a line from the file */
 
@@ -4469,28 +4571,57 @@ int pminus1_QA ()
 			&p, &plus1, &B1, &B2_start, &B2_end, &fac_str);
 		if (p == 0) break;
 
+/* If p is 1, set QA_TYPE */
+
+		if (p == 1) {
+			QA_TYPE = plus1;
+			continue;
+		}
+
+/* Convert the factor we expect to find into a "giant" type */
+
+		f = newgiant (strlen (fac_str));
+		ctog (fac_str, f);
+
 /*test various num_tmps
 test 4 (or more?) stage 2 code paths
 print out each test case (all relevant data)*/
 
 /* Set some global variables indicating QA is in progress. */
 
+		QA_IN_PROGRESS = TRUE;
+
 /* Do the P-1 */
 
 		if (B2_start < B1) B2_start = B1;
 		if (! pminus1 (p, B1, B2_start, B2_end, plus1, FALSE)) {
+			QA_IN_PROGRESS = FALSE;
+			QA_TYPE = 0;
 			fclose (fd);
 			return (FALSE);
 		}
 
 /* See if we found the factor */
 
-//		if (FAC == NULL || strcmp (FAC, fac_str)) {
-//			sprintf (buf, "Warning: Factor not found. Expected %s\n", fac_str);
-//			OutputBoth (buf);
-//		}
+		if (FAC == NULL) success = FALSE;
+		else {
+			modg (f, FAC);
+			success = isZero (FAC);
+			free (FAC);
+			FAC = NULL;
+		}
+		if (!success) {
+			char	buf[200];
+			sprintf (buf, "ERROR: Factor not found. Expected %s\n", fac_str);
+			OutputBoth (buf);
+		}
+		free (f);
 	}
-	fclose (fd);
 
+/* Cleanup */
+
+	QA_IN_PROGRESS = FALSE;
+	QA_TYPE = 0;
+	fclose (fd);
 	return (TRUE);
 }
