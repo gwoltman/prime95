@@ -231,10 +231,11 @@ void gwsetmulbyconst (long s);
 #define gwsetnormroutine(z,e,c) {NORMNUM=2*(c)+(e);}
 
 /* If you know the result of a multiplication will be the input to another */
-/* multiplication, then a small performance gain can be had in larger FFTs */
-/* by doing some of the next forward FFT at the end of the multiplication. */
-/* Call this macro to tell the multiplication code whether or not it can */
-/* start the forward FFT on the result. */
+/* multiplication (but not gwsquare_carefully), then a small performance */
+/* gain can be had in larger FFTs by doing some of the next forward FFT at */
+/* the end of the multiplication.  Call this macro to tell the */
+/* multiplication code whether or not it can start the forward FFT on */
+/* the result. */
 
 #define gwstartnextfft(f) {if (!GENERAL_MOD) POSTFFT=f;}
 
@@ -301,7 +302,7 @@ void gwfftaddsub4 (		/* Add & sub two FFTed numbers */
 
 /* Square a number using a slower method that will have reduced */
 /* round-off error on non-random input data.  Caller must make sure the */
-/* input number has not been partially or fully FFTed. */
+/* input number has not been partially (via gwstartnextfft) or fully FFTed. */
 
 void gwsquare_carefully (
 	gwnum	s);		/* Source and destination */
