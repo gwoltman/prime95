@@ -8,6 +8,7 @@
 #include "Prime95Doc.h"
 #include "Prime95View.h"
 
+#include <aclapi.h>
 #include <direct.h>
 #include <fcntl.h>
 #include <io.h>
@@ -172,36 +173,104 @@ BOOL CPrime95App::InitInstance()
 // from different directories or use different -A switches.
 
 	{
-		HWND	hwndPrevInst;
 		char	buf[256];
 		char	*p;
+		DWORD mutex_error_code;
+		PSID pEveryoneSID = NULL, pAdminSID = NULL;
+		PACL pACL = NULL;
+		PSECURITY_DESCRIPTOR pSD = NULL;
+		EXPLICIT_ACCESS ea[1];
+		SID_IDENTIFIER_AUTHORITY SIDAuthWorld = SECURITY_WORLD_SID_AUTHORITY;
+		SECURITY_ATTRIBUTES sa;
 
 // Turn directory name into a (likely) unique integer
-// Add in the -A value.
+// Add in the -A value.  Use this integer to create a mutex name.
 
 		_getcwd (buf, 255);
 		for (p = buf; *p; p++)
 			g_MutexNum = g_MutexNum * 17 + *p;
 		g_MutexNum += named_ini_files;
+		sprintf (buf, "Global\\GIMPS%ld", g_MutexNum);
 
-// Create our mutex
+/* Create a world access security descriptor to share the Mutex we */
+/* are about to create.  If we run into any troubles, assume this is */
+/* a Windows 95/98/Me system and create a simple Mutex. */
+		
+// Create a well-known SID for the Everyone group.
 
-		sprintf (buf, "GIMPS %ld", g_MutexNum);
+		if (! AllocateAndInitializeSid (
+				&SIDAuthWorld, 1, SECURITY_WORLD_RID,
+				0, 0, 0, 0, 0, 0, 0, &pEveryoneSID))
+			goto simple_mutex;
+
+// Initialize an EXPLICIT_ACCESS structure for an ACE.
+// The ACE will allow the Administrators group full access to the key.
+
+		ZeroMemory (&ea, sizeof (EXPLICIT_ACCESS));
+		ea[0].grfAccessPermissions = EVENT_ALL_ACCESS;
+		ea[0].grfAccessMode = SET_ACCESS;
+		ea[0].grfInheritance= NO_INHERITANCE;
+		ea[0].Trustee.TrusteeForm = TRUSTEE_IS_SID;
+		ea[0].Trustee.TrusteeType = TRUSTEE_IS_WELL_KNOWN_GROUP;
+		ea[0].Trustee.ptstrName  = (LPTSTR) pEveryoneSID;
+
+// Create a new ACL that contains the new ACEs.
+
+		if (SetEntriesInAcl (1, ea, NULL, &pACL) != ERROR_SUCCESS)
+			goto simple_mutex;
+
+// Initialize a security descriptor.
+
+		pSD = (PSECURITY_DESCRIPTOR)
+			LocalAlloc (LPTR, SECURITY_DESCRIPTOR_MIN_LENGTH);
+		if (pSD == NULL) goto simple_mutex;
+		if (! InitializeSecurityDescriptor (pSD, SECURITY_DESCRIPTOR_REVISION))
+			goto simple_mutex;
+
+// Add the ACL to the security descriptor.
+
+		if (! SetSecurityDescriptorDacl (pSD, TRUE, pACL, FALSE))
+			goto simple_mutex;
+
+// Initialize a security attributes structure.
+
+		sa.nLength = sizeof (SECURITY_ATTRIBUTES);
+		sa.lpSecurityDescriptor = pSD;
+		sa.bInheritHandle = FALSE;
+
+// Create our mutex.  Windows XP uses terminal services to support user
+// switching.  The "Global\" prefix is required so that this mutex is
+// is created in the global kernel objects namespace.  Unfortunately,
+// the "\" character raises an error on Windows 95/98/Me systems.
+
 		g_hMutexInst = CreateMutex (
-			NULL,  // No security stuff
+			&sa,   // World access
 			FALSE, // Not owned !!
 			buf);  // Unique name
+		if (g_hMutexInst == NULL)
+simple_mutex:	 	g_hMutexInst = CreateMutex (
+				NULL,  // No security stuff
+				FALSE, // Not owned !!
+				buf+7);  // Unique name
+		mutex_error_code = GetLastError ();
+
+// Cleanup all the security structures we initialized
+
+		if (pEveryoneSID) FreeSid (pEveryoneSID);
+		if (pACL) LocalFree (pACL);
+	        if (pSD) LocalFree (pSD);
 
 // Test for failure
 		
 		if (g_hMutexInst == NULL)
 			return 0;
 
-// If mutex existed before another inst is running
+// If mutex already exists then another instance is already running
 
-		if (GetLastError () == ERROR_ALREADY_EXISTS) {
+		if (mutex_error_code == ERROR_ALREADY_EXISTS) {
+			HWND	hwndPrevInst = 0;
 
-// Allow other instance to display it's main window
+// Give other instance a little time to display it's main window
 
 			Sleep (750);
 
@@ -211,9 +280,11 @@ BOOL CPrime95App::InitInstance()
 
 // Unhide the other instance's window
 
-			ShowWindow (hwndPrevInst, SW_HIDE);
-			ShowWindow (hwndPrevInst, SW_SHOWMINIMIZED);
-			ShowWindow (hwndPrevInst, SW_SHOWNORMAL);
+			if (hwndPrevInst) {
+				ShowWindow (hwndPrevInst, SW_HIDE);
+				ShowWindow (hwndPrevInst, SW_SHOWMINIMIZED);
+				ShowWindow (hwndPrevInst, SW_SHOWNORMAL);
+			}
 			return 0;
 		}
 
@@ -531,3 +602,4 @@ int	WINDOWS95_TRAY_ADD = 0;
 int	CHECK_BATTERY = 0;
 int	STOPPED_ON_BATTERY = 0;
 char	*BROADCAST_MESSAGE = NULL;
+

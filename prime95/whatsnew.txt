@@ -5,6 +5,8 @@ New features in Version 22.4 of prime95.exe
 2)  A GCD hang bug was fixed in case where there were a large number of
     entries in the lowm.txt file.  Another GCD bug affecting ECM on F18
     was fixed.
+3)  Prime95 now properly detects if the program is running by another
+    logged in Windows XP user.
 
 New features in Version 22.3 of prime95.exe
 -------------------------------------------
