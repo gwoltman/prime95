@@ -1002,7 +1002,7 @@ UINT threadDispatch (
 
 // Stall if we've just booted (within 5 minutes of Windows starting)
 
-	if (GetTickCount () < 300000) {
+	if (GetTickCount () < 300000 && thread_pkt.op == OP_CONTINUE) {
 		int	delay;
 		delay = IniGetInt (INI_FILE, "BootDelay", 90);
 		delay -= GetTickCount () / 1000;
