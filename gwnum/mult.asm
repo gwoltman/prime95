@@ -3441,6 +3441,7 @@ cp6:	mov	rax, [rsi]		; Load norm routine ptr
 
 ; P4 SSE2 initialization is different than non-SSE2 initialization
 
+IFNDEF X86_64
 	test	_CPU_FLAGS, 0010h	; See if we should run P4 SSE2 routines
 	jnz	p4init			; Yes, go to SSE2 init code
 
@@ -3489,6 +3490,7 @@ notscr:
 	mov	normval3, rdx		; Flags ptr fudge factor #2 in add/sub
 not2:
 	jmp	pop_and_ret
+ENDIF
 
 ; P4 SSE2 initialization code
 
