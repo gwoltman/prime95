@@ -535,7 +535,7 @@ void advanced_affinity (void)
 	unsigned long m_cpu;
 
 	m_all_cpus = (CPU_AFFINITY == 99);
-	m_cpu = CPU_AFFINITY;
+	m_cpu = (CPU_AFFINITY == 99) ? 0 : CPU_AFFINITY;
 
 	outputLongLine ("On multi-CPU systems, performance will be enhanced if you assign each instance of the program to run on a specific CPU.\n");
 	outputLongLine ("For example, if you have a dual-CPU machine, run one instance of mprime on CPU 0, run another instance on CPU 1.\n");
