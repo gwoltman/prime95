@@ -6911,7 +6911,7 @@ d7b:	x4cl_four_complex_fft esi, 64*64, 64, 2*64
 ;; Perform a 640K-element FFT.  This is done in two passes.  Pass 1
 ;; does 9 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft640K MACRO clm
+xfft640K MACRO clm, jump_to_common
 	LOCAL	a0b, b0b, a1b, b1a, b1b, b2b, b3a, b3b, b4b, b5a, b5b, b6b, b7b
 	LOCAL	c0b, c1a, c1b, c2b, c3a, c3b, c4b, c5a, c5b, c6b, c7b
 	LOCAL	d1b, d2b, d3b, d4b, d5b, d6b, d7b
@@ -7433,7 +7433,10 @@ fftdn:	lea	esi, [esi-512*128]	;; Restore source pointer
 
 ;; Do FFT levels 1,2,3
 
-	start_timer 27
+	IF jump_to_common EQ 1
+	jmp	d640K
+	ELSE
+d640K:	start_timer 27
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	eax, 16			;; 16 iterations of 2
@@ -7514,13 +7517,14 @@ d7b:	x4cl_four_complex_fft esi, 80*64, 64, 2*64
 ;; Now add in the FFT'ed carries, cleanup and return
 
 	JMP_X	gw_finish_mult_3
+	ENDIF
 	ENDM
 
 
 ;; Perform a 768K-element FFT.  This is done in two passes.  Pass 1
 ;; does 9 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft768K MACRO clm
+xfft768K MACRO clm, jump_to_common
 	LOCAL	a0b, b0b, a1b, b1a, b1b, b2b, b3a, b3b, b4b, b5a, b5b, b6b, b7b
 	LOCAL	c0b, c1a, c1b, c2b, c3a, c3b, c4b, c5a, c5b, c6b, c7b
 	LOCAL	d1b, d2b, d3b, d4b, d5b, d6b, d7b
@@ -8046,7 +8050,10 @@ fftdn:	lea	esi, [esi-512*128]	;; Restore source pointer
 
 ;; Do FFT levels 1,2,3
 
-	start_timer 27
+	IF jump_to_common EQ 1
+	jmp	d768K
+	ELSE
+d768K:	start_timer 27
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	eax, 32			;; 32 iterations of 2
@@ -8128,13 +8135,14 @@ d7b:	x4cl_four_complex_fft esi, 96*64, 64, 2*64
 ;; Now add in the FFT'ed carries, cleanup and return
 
 	JMP_X	gw_finish_mult_3
+	ENDIF
 	ENDM
 
 
 ;; Perform a 896K-element FFT.  This is done in two passes.  Pass 1
 ;; does 9 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft896K MACRO clm
+xfft896K MACRO clm, jump_to_common
 	LOCAL	a0b, b0b, a1b, b1a, b1b, b2b, b3a
 	LOCAL	b3, b3b, b4b, b5a, b5b, b6b, b7b
 	LOCAL	c0b, c1a, c1b, c2b, c3a, c3b, c4b, c5a, c5b, c6b, c7b
@@ -8702,7 +8710,10 @@ fftdn:	lea	esi, [esi-512*128]	;; Restore source pointer
 
 ;; Do FFT levels 1,2,3
 
-	start_timer 27
+	IF jump_to_common EQ 1
+	jmp	d896K
+	ELSE
+d896K:	start_timer 27
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	eax, 16			;; 16 iterations of 2
@@ -8793,13 +8804,14 @@ d7b:	x4cl_four_complex_fft esi, 112*64, 64, 2*64
 ;; Now add in the FFT'ed carries, cleanup and return
 
 	JMP_X	gw_finish_mult_3
+	ENDIF
 	ENDM
 
 
 ;; Perform a 1M-element FFT.  This is done in two passes.  Pass 1
 ;; does 9 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft1024K MACRO clm
+xfft1024K MACRO clm, jump_to_common
 	LOCAL	a0b, b0b, a1b, b1a, b1b, b2a, b2b, b3a, b3b
 	LOCAL	b4a, b4b, b5a, b5b, b6b, b7b
 	LOCAL	c0b, c1a, c1b, c2a, c2b, c3a, c3b, c4a, c4b, c5a, c5b, c6b, c7b
@@ -9370,7 +9382,10 @@ fftdn:	lea	esi, [esi-512*128]	;; Restore source pointer
 
 ;; Do FFT levels 1,2,3
 
-	start_timer 27
+	IF jump_to_common EQ 1
+	jmp	d1024K
+	ELSE
+d1024K:	start_timer 27
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	eax, 64			;; 64 iterations of 2
@@ -9453,13 +9468,14 @@ d7b:	x4cl_four_complex_fft esi, 128*64, 64, 2*64
 ;; Now add in the FFT'ed carries, cleanup and return
 
 	JMP_X	gw_finish_mult_3
+	ENDIF
 	ENDM
 
 
 ;; Perform a 1280K-element FFT.  This is done in two passes.  Pass 1
 ;; does 10 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft1280K MACRO clm
+xfft1280K MACRO clm, jump_to_common
 	LOCAL	a0b, b0b, a1b, b1a, b1b, b2b, b3a, b3b
 	LOCAL	b4b, b5b, b6b, b7a, b7b, b8b, b9b
 	LOCAL	c0b, c1a, c1b, c2b, c3a, c3b, c4b, c5b, c6b, c7a, c7b, c8b, c9b
@@ -10101,7 +10117,10 @@ fftdn:	lea	esi, [esi-512*128]	;; Restore source pointer
 
 ;; Do FFT levels 1,2,3
 
-	start_timer 29
+	IF jump_to_common EQ 1
+	jmp	d1280K
+	ELSE
+d1280K:	start_timer 29
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	eax, 32			;; 32 iterations of 2
@@ -10209,13 +10228,14 @@ d9b:	x4cl_four_complex_fft esi, 160*64, 64, 2*64
 ;; Now add in the FFT'ed carries, cleanup and return
 
 	JMP_X	gw_finish_mult_3
+	ENDIF
 	ENDM
 
 
 ;; Perform a 2M-element FFT.  This is done in two passes.  Pass 1
 ;; does 10 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft1536K MACRO clm
+xfft1536K MACRO clm, jump_to_common
 	LOCAL	a0b, b0b, a1b, b1b, b2b, b3a, b3b, b4b
 	LOCAL	b5b, b6b, b7a, b7b, b8b, b9b
 	LOCAL	c0b, c1a, c1b, c2b, c3a, c3b, c4b, c5b, c6b, c7a, c7b, c8b, c9b
@@ -10853,7 +10873,10 @@ fftdn:	lea	esi, [esi-512*128]	;; Restore source pointer
 
 ;; Do FFT levels 1,2,3
 
-	start_timer 29
+	IF jump_to_common EQ 1
+	jmp	d1536K
+	ELSE
+d1536K:	start_timer 29
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	eax, 64			;; 64 iterations of 2
@@ -10962,13 +10985,14 @@ d9b:	x4cl_four_complex_fft esi, 192*64, 64, 2*64
 ;; Now add in the FFT'ed carries, cleanup and return
 
 	JMP_X	gw_finish_mult_3
+	ENDIF
 	ENDM
 
 
 ;; Perform a 1792K-element FFT.  This is done in two passes.  Pass 1
 ;; does 10 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft1792K MACRO clm
+xfft1792K MACRO clm, jump_to_common
 	LOCAL	a0b, b0b, a1b, b1a, b1b, b2b, b3, b3a, b3b, b4b
 	LOCAL	b5b, b6a, b6b, b7a, b7b, b8b, b9b
 	LOCAL	c0b, c1a, c1b, c2b, c3a, c3b, c4b, c5b
@@ -11661,7 +11685,10 @@ fftdn:	lea	esi, [esi-512*128]	;; Restore source pointer
 
 ;; Do FFT levels 1,2,3
 
-	start_timer 29
+	IF jump_to_common EQ 1
+	jmp	d1792K
+	ELSE
+d1792K:	start_timer 29
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	al, 32			;; 32 iterations of 2
@@ -11779,13 +11806,14 @@ d9b:	x4cl_four_complex_fft esi, 224*64, 64, 2*64
 ;; Now add in the FFT'ed carries, cleanup and return
 
 	JMP_X	gw_finish_mult_3
+	ENDIF
 	ENDM
 
 
 ;; Perform a 2M-element FFT.  This is done in two passes.  Pass 1
 ;; does 10 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft2048K MACRO clm
+xfft2048K MACRO clm, jump_to_common
 	LOCAL	a0b, b0b, a1b, b1b, b2a, b2b, b3a, b3b, b4b
 	LOCAL	b5b, b6a, b6b, b7a, b7b, b8b, b9b
 	LOCAL	c0b, c1a, c1b, c2a, c2b, c3a, c3b, c4b
@@ -12455,7 +12483,10 @@ fftdn:	lea	esi, [esi-512*128]	;; Restore source pointer
 
 ;; Do FFT levels 1,2,3
 
-	start_timer 29
+	IF jump_to_common EQ 1
+	jmp	d2048K
+	ELSE
+d2048K:	start_timer 29
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	eax, 128*256		;; 128 iterations of 2
@@ -12565,13 +12596,14 @@ d9b:	x4cl_four_complex_fft esi, 256*64, 64, 2*64
 ;; Now add in the FFT'ed carries, cleanup and return
 
 	JMP_X	gw_finish_mult_3
+	ENDIF
 	ENDM
 
 
 ;; Perform a 2560K-element FFT.  This is done in two passes.  Pass 1
 ;; does 11 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft2560K MACRO clm
+xfft2560K MACRO clm, jump_to_common
 	LOCAL	a0b, b0b, a1b, b1a, b1b, b2b, b3a, b3b
 	LOCAL	b4b, b5a, b5b, b6b, b7a, b7b, b8b, b9b
 	LOCAL	c0b, c1a, c1b, c2b, c3a, c3b, c4b
@@ -13247,7 +13279,10 @@ fftdn:	lea	esi, [esi-512*128]	;; Restore source pointer
 
 ;; Do FFT levels 1,2,3
 
-	start_timer 29
+	IF jump_to_common EQ 1
+	jmp	d2560K
+	ELSE
+d2560K:	start_timer 29
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	eax, 64			;; 64 iterations of 2
@@ -13355,13 +13390,14 @@ d9b:	x4cl_four_complex_fft esi, 320*64, 64, 2*64
 ;; Now add in the FFT'ed carries, cleanup and return
 
 	JMP_X	gw_finish_mult_3
+	ENDIF
 	ENDM
 
 
 ;; Perform a 3M-element FFT.  This is done in two passes.  Pass 1
 ;; does 11 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft3072K MACRO clm
+xfft3072K MACRO clm, jump_to_common
 	LOCAL	a0b, b0b, a1b, b1a, b1b, b2a, b2b, b3a, b3b, b4b
 	LOCAL	b5a, b5b, b6b, b7a, b7b, b8b, b9b
 	LOCAL	c0b, c1a, c1b, c2b, c3a, c3b, c4b
@@ -14059,7 +14095,10 @@ fftdn:	lea	esi, [esi-512*128]	;; Restore source pointer
 
 ;; Do FFT levels 1,2,3
 
-	start_timer 29
+	IF jump_to_common EQ 1
+	jmp	d3072K
+	ELSE
+d3072K:	start_timer 29
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	eax, 128*256		;; 128 iterations of 2
@@ -14168,13 +14207,14 @@ d9b:	x4cl_four_complex_fft esi, 384*64, 64, 2*64
 ;; Now add in the FFT'ed carries, cleanup and return
 
 	JMP_X	gw_finish_mult_3
+	ENDIF
 	ENDM
 
 
 ;; Perform a 3584K-element FFT.  This is done in two passes.  Pass 1
 ;; does 11 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft3584K MACRO clm
+xfft3584K MACRO clm, jump_to_common
 	LOCAL	a0b, b0b, a1b, b1a, b1b, b2b, b3a0, b3a, b3, b3b, b4a, b4b
 	LOCAL	b5a, b5b, b6b, b7a, b7b, b8b, b9b
 	LOCAL	c0b, c1a, c1b, c2b, c3a, c3b, c4a, c4b, c5a, c5b
@@ -14919,7 +14959,10 @@ fftdn:	lea	esi, [esi-512*128]	;; Restore source pointer
 
 ;; Do FFT levels 1,2,3
 
-	start_timer 29
+	IF jump_to_common EQ 1
+	jmp	d3584K
+	ELSE
+d3584K:	start_timer 29
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	eax, 64			;; 64 iterations of 2
@@ -15037,13 +15080,14 @@ d9b:	x4cl_four_complex_fft esi, 448*64, 64, 2*64
 ;; Now add in the FFT'ed carries, cleanup and return
 
 	JMP_X	gw_finish_mult_3
+	ENDIF
 	ENDM
 
 
 ;; Perform a 4M-element FFT.  This is done in two passes.  Pass 1
 ;; does 11 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft4096K MACRO clm
+xfft4096K MACRO clm, jump_to_common
 	LOCAL	a0b, b0b, a1b, b1a, b1b, b2a, b2b, b3a, b3b, b4a, b4b
 	LOCAL	b5a, b5b, b6a, b6b, b7a, b7b, b8b, b9b
 	LOCAL	c0b, c1a, c1b, c2a, c2b, c3a, c3b, c4a, c4b, c5a, c5b
@@ -15792,7 +15836,10 @@ fftdn:	lea	esi, [esi-512*128]	;; Restore source pointer
 
 ;; Do FFT levels 1,2,3
 
-	start_timer 29
+	IF jump_to_common EQ 1
+	jmp	d4096K
+	ELSE
+d4096K:	start_timer 29
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	eax, 256*256		;; 256 iterations of 2
@@ -15902,4 +15949,5 @@ d9b:	x4cl_four_complex_fft esi, 512*64, 64, 2*64
 ;; Now add in the FFT'ed carries, cleanup and return
 
 	JMP_X	gw_finish_mult_3
+	ENDIF
 	ENDM

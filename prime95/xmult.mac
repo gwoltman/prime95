@@ -25,11 +25,11 @@ xfft	MACRO fft_length, p
 	purge	xfft&fft_length&p
 	ENDM
 
-xfftclm	MACRO fft_length, clm, p
-	type1	&fft_length&p, _1, clm
-	type2	&fft_length&p, _2, clm
-	type3	&fft_length&p, _3, clm
-	type4	&fft_length&p, _4, clm
+xfftclm	MACRO fft_length, clm, jump_to_common, p
+	type1	&fft_length&p, _1, clm, jump_to_common
+	type2	&fft_length&p, _2, clm, jump_to_common
+	type3	&fft_length&p, _3, clm, jump_to_common
+	type4	&fft_length&p, _4, clm, jump_to_common
 	ENDM
 
 ;;
@@ -37,7 +37,7 @@ xfftclm	MACRO fft_length, clm, p
 ;; Do the forward FFT
 ;;
 
-type1	MACRO fft_length, suffix, clm
+type1	MACRO fft_length, suffix, clm, jump_to_common
 	PUBLIC	xfft&fft_length&clm&suffix
 xfft&fft_length&clm&suffix:
 	fninit
@@ -48,7 +48,7 @@ xfft&fft_length&clm&suffix:
 	mov	esi, _DESTARG
 	mov	ebx, _SRCARG
 	sub	ebx, esi
-	IF EXPANDING EQ 2
+	IF EXPANDING GE 2
 	mov	ffttype, 1
 	JMP_X	xfft2a&fft_length&clm
 	ELSE
@@ -61,7 +61,7 @@ xfft&fft_length&clm&suffix:
 ;; Do the forward FFT, squaring, and inverse FFT
 ;;
 
-type2	MACRO fft_length, suffix, clm
+type2	MACRO fft_length, suffix, clm, jump_to_common
 	PUBLIC	xfft&fft_length&clm&suffix
 xfft&fft_length&clm&suffix:
 	fninit
@@ -71,10 +71,14 @@ xfft&fft_length&clm&suffix:
 	push	esi
 	mov	esi, _DESTARG
 	sub	ebx, ebx
-	IF EXPANDING EQ 2
+	IF EXPANDING GE 2
 	mov	ffttype, 2
 xfft2a&fft_length&clm:
-	xfft&fft_length clm
+	IF EXPANDING EQ 2
+	xfft&fft_length
+	ELSE
+	xfft&fft_length clm, jump_to_common
+	ENDIF
 	ELSE
 	xfft&fft_length 2
 	ENDIF
@@ -86,7 +90,7 @@ xfft2a&fft_length&clm:
 ;; Do the forward FFT, multiply, and inverse FFT
 ;;
 
-type3	MACRO fft_length, suffix, clm
+type3	MACRO fft_length, suffix, clm, jump_to_common
 	PUBLIC	xfft&fft_length&clm&suffix
 xfft&fft_length&clm&suffix:
 	fninit
@@ -98,7 +102,7 @@ xfft&fft_length&clm&suffix:
 	mov	ebp, _SRCARG
 	sub	ebx, ebx
 	sub	ebp, esi
-	IF EXPANDING EQ 2
+	IF EXPANDING GE 2
 	mov	ffttype, 3
 	JMP_X	xfft2a&fft_length&clm
 	ELSE
@@ -112,7 +116,7 @@ xfft&fft_length&clm&suffix:
 ;; Do the multiply and inverse FFT
 ;;
 
-type4	MACRO fft_length, suffix, clm
+type4	MACRO fft_length, suffix, clm, jump_to_common
 	PUBLIC	xfft&fft_length&clm&suffix
 xfft&fft_length&clm&suffix:
 	fninit
@@ -125,7 +129,7 @@ xfft&fft_length&clm&suffix:
 	mov	ebx, _SRC2ARG
 	sub	ebp, esi
 	sub	ebx, esi
-	IF EXPANDING EQ 2
+	IF EXPANDING GE 2
 	mov	ffttype, 4
 	JMP_X	xfft2a&fft_length&clm
 	ELSE
