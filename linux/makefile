@@ -18,22 +18,27 @@ LFLAGS = -Wl,-M
 LIBS   = -lm
 LIBS2  = -lm -static
 
-# arrange factor64.o below so that it is on a 8 byte boundary
-COFFOBJS = mult.o mult1.o mult2.o factor64.o mult2a.o mult3.o mult3a.o mult4.o mult4a.o mult4b.o mult1p.o mult2p.o mult2ap.o mult3p.o mult3ap.o mult3q.o mult3aq.o mult4p.o mult4ap.o mult4bp.o mult4q.o mult4aq.o mult4bq.o mult1aux.o mult2aux.o mult3aux.o mult3auq.o mult4aux.o mult4auq.o xmult1.o xmult1ax.o xmult2.o xmult2a.o xmult2ax.o xmult3.o xmult3a.o xmult3ax.o ecmhelp.o cpuid.o
+COFFOBJS = mult.o mult1.o mult2.o mult2a.o mult3.o mult3a.o mult4.o mult4a.o mult4b.o mult1p.o mult2p.o mult2ap.o mult3p.o mult3ap.o mult3q.o mult3aq.o mult4p.o mult4ap.o mult4bp.o mult4q.o mult4aq.o mult4bq.o mult1aux.o mult2aux.o mult3aux.o mult3auq.o mult4aux.o mult4auq.o xmult1.o xmult1ax.o xmult2.o xmult2a.o xmult2ax.o xmult3.o xmult3a.o xmult3ax.o ecmhelp.o cpuid.o
+FACTOROBJ = factor64.o
 DUMMYOBJS = dummy4.o dummy8.o dummy12.o dummy16.o dummy20.o dummy24.o dummy28.o
 LINUXOBJS = prime.o menu.o
 EXE      = mprime
 EXE2	 = sprime
-DUMMY1   = dummy16.o
+
+# insert proper dummyNN.o file to get mult.o and factor64.o's data aligned
+# on 32 byte boundaries
+DUMMY1   =
 DUMMY2   = dummy16.o
+DUMMY3   = 
+DUMMY4   = dummy16.o
 
 #########################################################################
 
-$(EXE): security $(LINUXOBJS) $(COFFOBJS) $(DUMMYOBJS)
-	$(CC) $(LFLAGS) -o $(EXE) $(LINUXOBJS) $(DUMMY1) $(COFFOBJS) $(LIBS)
+$(EXE): security $(LINUXOBJS) $(COFFOBJS) $(FACTOROBJ) $(DUMMYOBJS)
+	$(CC) $(LFLAGS) -o $(EXE) $(LINUXOBJS) $(DUMMY1) $(COFFOBJS) $(DUMMY2) $(FACTOROBJ) $(LIBS)
 
 $(EXE2): $(LINUXOBJS) $(COFFOBJS) $(DUMMYOBJS)
-	$(CC) $(LFLAGS) -o $(EXE2) $(LINUXOBJS) $(DUMMY2) $(COFFOBJS) $(LIBS2)
+	$(CC) $(LFLAGS) -o $(EXE2) $(LINUXOBJS) $(DUMMY3) $(COFFOBJS) $(DUMMY4) $(FACTOROBJ) $(LIBS2)
 
 security:
 	[ ! -e ../security.h ] && touch ../security.h || true
@@ -42,7 +47,7 @@ security:
 clean:
 	rm -f $(EXE) $(LINUXOBJS) $(COFFOBJS) $(DUMMYOBJS)
 
-$(COFFOBJS) $(DUMMYOBJS): %.o : %.obj
+$(COFFOBJS) $(FACTOROBJ) $(DUMMYOBJS): %.o : %.obj
 	objcopy -Oelf32-i386 -Icoff-i386 $< $@
 
 .c.o:
