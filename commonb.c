@@ -861,28 +861,45 @@ void print_timer (
 	int	flags)
 {
 	double	t;
-	int	style;
 	char	buf[40];
+
+/* The timer could be less than zero if the computer went into hibernation. */
+/* Hibernation is where the memory image is saved to disk and the computer */
+/* shut off.  Upon power up the memory image is restored but the RDTSC */
+/* timestamp counter has been reset to zero. */
+
+	t = timer_value (i);
+	if (t < 0.0) {
+		strcpy (buf, "Unknown");
+		timers[i] = 0.0;
+	}
 
 /* Format the timer value in one of several styles */
 
-	t = timer_value (i);
-	style = IniGetInt (INI_FILE, "TimingOutput", 0);
-	if (style == 0) {
-		if (flags & TIMER_MS) style = 4;
-		else style = 1;
+	else {
+		int	style;
+
+		style = IniGetInt (INI_FILE, "TimingOutput", 0);
+		if (style == 0) {
+			if (flags & TIMER_MS) style = 4;
+			else style = 1;
+		}
+
+		if (style == 1)
+			sprintf (buf, "%.3f sec.", t);
+		else if (style == 2)
+			sprintf (buf, "%.1f ms.", t * 1000.0);
+		else if (style == 3)
+			sprintf (buf, "%.2f ms.", t * 1000.0);
+		else
+			sprintf (buf, "%.3f ms.", t * 1000.0);
+		if (RDTSC_TIMING == 12 && (CPU_FLAGS & CPU_RDTSC)) {
+			sprintf (buf+strlen(buf), " (%.0f clocks)", timers[i]);
+		}
 	}
-	if (style == 1)
-		sprintf (buf, "%.3f sec.", t);
-	else if (style == 2)
-		sprintf (buf, "%.1f ms.", t * 1000.0);
-	else if (style == 3)
-		sprintf (buf, "%.2f ms.", t * 1000.0);
-	else
-		sprintf (buf, "%.3f ms.", t * 1000.0);
-	if (RDTSC_TIMING == 12 && (CPU_FLAGS & CPU_RDTSC)) {
-		sprintf (buf+strlen(buf), " (%.0f clocks)", timers[i]);
-	}
+
+/* Append optional newline */
+
 	if (flags & TIMER_NL) strcat (buf, "\n");
 
 /* Clear the timer */
