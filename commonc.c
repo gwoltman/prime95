@@ -102,17 +102,20 @@ void getCpuSpeed (void)
 
 /* If CPU speed has changed greatly since the last time, then */
 /* tell the server, recalculate new completion dates, and reset the */
-/* rolling average. */
+/* rolling average.  Don't do this on the first run (before the Welcome */
+/* dialog has been displayed). */
 
 	old_cpu_speed = IniGetInt (LOCALINI_FILE, "OldCpuSpeed", 0);
 	if (CPU_SPEED < (double) old_cpu_speed - 5.0 ||
 	    CPU_SPEED > (double) old_cpu_speed + 5.0) {
-		ROLLING_AVERAGE = 1000;
-		IniWriteInt (LOCALINI_FILE, "RollingAverage", 1000);
-		IniWriteInt (LOCALINI_FILE, "RollingStartTime", 0);
-		spoolMessage (PRIMENET_SET_COMPUTER_INFO, NULL);
-		UpdateEndDates ();
 		IniWriteInt (LOCALINI_FILE, "OldCpuSpeed", (int) (CPU_SPEED + 0.5));
+		if (old_cpu_speed) {
+			ROLLING_AVERAGE = 1000;
+			IniWriteInt (LOCALINI_FILE, "RollingAverage", 1000);
+			IniWriteInt (LOCALINI_FILE, "RollingStartTime", 0);
+			spoolMessage (PRIMENET_SET_COMPUTER_INFO, NULL);
+			UpdateEndDates ();
+		}
 	}
 }
 
@@ -176,16 +179,19 @@ void getCpuInfo (void)
 
 /* If CPU has changed greatly since the last time prime95 ran, then */
 /* tell the server, recalculate new completion dates, and reset the */
-/* rolling average. */
+/* rolling average.  However, don't do this on the first call where */
+/* the Welcome screen has yet to be displayed. */
 
 	old_cpu_type = IniGetInt (LOCALINI_FILE, "OldCpuType", 0);
 	if ((int) CPU_TYPE != old_cpu_type) {
-		ROLLING_AVERAGE = 1000;
-		IniWriteInt (LOCALINI_FILE, "RollingAverage", 1000);
-		IniWriteInt (LOCALINI_FILE, "RollingStartTime", 0);
-		spoolMessage (PRIMENET_SET_COMPUTER_INFO, NULL);
-		UpdateEndDates ();
 		IniWriteInt (LOCALINI_FILE, "OldCpuType", CPU_TYPE);
+		if (old_cpu_type) {
+			ROLLING_AVERAGE = 1000;
+			IniWriteInt (LOCALINI_FILE, "RollingAverage", 1000);
+			IniWriteInt (LOCALINI_FILE, "RollingStartTime", 0);
+			spoolMessage (PRIMENET_SET_COMPUTER_INFO, NULL);
+			UpdateEndDates ();
+		}
 	}
 
 /* Now get the CPU speed */
