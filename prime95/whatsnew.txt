@@ -1,3 +1,8 @@
+New features in Version 24.10 of prime95.exe
+--------------------------------------------
+
+1)  64-bit version of prime95 available for 64-bit Windows.
+
 New features in Version 24.9 of prime95.exe
 -------------------------------------------
 
