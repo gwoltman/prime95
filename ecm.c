@@ -2103,6 +2103,7 @@ print_timer (2, TIMER_OUT_BOTH | TIMER_NL | TIMER_CLR);
 if (min_test) exit (0);
 }
 aligned_free (SRCARG);
+gwdone ();
 return 0;
 }
 #endif
