@@ -14,17 +14,17 @@ xmlns="http://www.w3.org/TR/REC-html40">
  <o:DocumentProperties>
   <o:Template>Normal</o:Template>
   <o:LastAuthor>George Woltman</o:LastAuthor>
-  <o:Revision>30</o:Revision>
-  <o:TotalTime>1239</o:TotalTime>
+  <o:Revision>31</o:Revision>
+  <o:TotalTime>1243</o:TotalTime>
   <o:Created>2001-04-20T18:44:00Z</o:Created>
-  <o:LastSaved>2003-02-21T03:23:00Z</o:LastSaved>
+  <o:LastSaved>2003-04-28T03:07:00Z</o:LastSaved>
   <o:Pages>4</o:Pages>
-  <o:Words>1925</o:Words>
-  <o:Characters>10974</o:Characters>
+  <o:Words>1952</o:Words>
+  <o:Characters>11130</o:Characters>
   <o:Company>Watson Wyatt</o:Company>
-  <o:Lines>91</o:Lines>
-  <o:Paragraphs>21</o:Paragraphs>
-  <o:CharactersWithSpaces>13476</o:CharactersWithSpaces>
+  <o:Lines>92</o:Lines>
+  <o:Paragraphs>22</o:Paragraphs>
+  <o:CharactersWithSpaces>13668</o:CharactersWithSpaces>
   <o:Version>9.3821</o:Version>
  </o:DocumentProperties>
 </xml><![endif]--><!--[if gte mso 9]><xml>
@@ -310,9 +310,9 @@ style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&
 </span></span><![endif]><span style='font-family:"Times New Roman";mso-fareast-font-family:
 "MS Mincho"'>You can choose whether the program uses the system clock or the
 read timestamp counter instruction (RDTSC) to time events.<span
-style="mso-spacerun: yes">  </span>In prime.ini, enter 0 for using the system
-clock, 1 for using RDTSC but not outputting clock counts, and 2 for using RDTSC
-and outputting clock counts.<o:p></o:p></span></p>
+style="mso-spacerun: yes">  </span>In prime.ini, enter 0 for using the system clock,
+1 for using RDTSC but not outputting clock counts, and 2 for using RDTSC and
+outputting clock counts.<o:p></o:p></span></p>
 
 <p class=MsoPlainText style='margin-left:.5in'><span style='font-family:"Times New Roman";
 mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
@@ -340,12 +340,11 @@ style='font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho"'>Timing
 mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <p class=MsoPlainText style='margin-left:.5in'><span style='font-family:"Times New Roman";
-mso-fareast-font-family:"MS Mincho"'>Where n=1 for seconds with 3 digits of
-precision, n=2 for milliseconds with 1 digit of precision, n=3 for milliseconds
-with 2 digits of precision, n=4 for milliseconds with 3 digit of
-precision.<span style="mso-spacerun: yes">  </span>You can turn off the
-outputting of timestamps to the screen.<span style="mso-spacerun: yes"> 
-</span>In prime.ini:<o:p></o:p></span></p>
+mso-fareast-font-family:"MS Mincho"'>Where n=1 for seconds with 3 digits of precision,
+n=2 for milliseconds with 1 digit of precision, n=3 for milliseconds with 2
+digits of precision, n=4 for milliseconds with 3 digit of precision.<span
+style="mso-spacerun: yes">  </span>You can turn off the outputting of
+timestamps to the screen.<span style="mso-spacerun: yes">  </span>In prime.ini:<o:p></o:p></span></p>
 
 <p class=MsoPlainText style='margin-left:.75in;text-indent:.25in'><span
 style='font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
@@ -433,12 +432,12 @@ mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <p class=MsoBodyTextIndent>This shouldn't be necessary though.<span
 style="mso-spacerun: yes">  </span>Setting the CPU type in Options/CPU is the
-preferred method.<span style="mso-spacerun: yes">  </span>There is one
-IMPORTANT EXCEPTION.<span style="mso-spacerun: yes">  </span>If you have a
-Celeron the program distinguishes between a Celeron 1 and a Celeron 2 by the
-clock speed you enter.<span style="mso-spacerun: yes">  </span>Anything above
-533 is assumed to be a Celeron 2.<span style="mso-spacerun: yes">  </span>If
-you have a Celeron 1 chip running above 533 MHz, then set CpuSupportsPrefetch=0.<span
+preferred method.<span style="mso-spacerun: yes">  </span>There is one IMPORTANT
+EXCEPTION.<span style="mso-spacerun: yes">  </span>If you have a Celeron the
+program distinguishes between a Celeron 1 and a Celeron 2 by the clock speed
+you enter.<span style="mso-spacerun: yes">  </span>Anything above 533 is
+assumed to be a Celeron 2.<span style="mso-spacerun: yes">  </span>If you have
+a Celeron 1 chip running above 533 MHz, then set CpuSupportsPrefetch=0.<span
 style="mso-spacerun: yes">  </span>If you have a Celeron 2 and it is running at
 533 MHz or less, then set CpuSupportsPrefetch=1.</p>
 
@@ -484,9 +483,9 @@ style='font-size:10.0pt;mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></
 
 <p class=MsoBodyTextIndent2 style='margin-left:.5in;text-indent:0in'>&nbsp;</p>
 
-<p class=MsoBodyTextIndent2 style='margin-left:.5in;text-indent:0in'>One added benefit
-is time estimates in Test/Status will be more accurate because we'll know no
-factors will be found and the LL test must be run.</p>
+<p class=MsoBodyTextIndent2 style='margin-left:.5in;text-indent:0in'>One added
+benefit is time estimates in Test/Status will be more accurate because we'll
+know no factors will be found and the LL test must be run.</p>
 
 <p class=MsoPlainText><span style='font-family:"Times New Roman";mso-fareast-font-family:
 "MS Mincho"'>&nbsp;<o:p></o:p></span></p>
@@ -630,9 +629,9 @@ tab-stops:list .5in'><![if !supportLists]><span style='font-family:Symbol;
 mso-fareast-font-family:"MS Mincho";mso-bidi-font-family:"Times New Roman"'>·<span
 style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='font-family:"Times New Roman";mso-fareast-font-family:
-"MS Mincho"'>You can force prime95 to skip the trial factoring step prior to running
-a Lucas-Lehmer test.<span style="mso-spacerun: yes">  </span>In prime.ini add
-this line:<o:p></o:p></span></p>
+"MS Mincho"'>You can force prime95 to skip the trial factoring step prior to
+running a Lucas-Lehmer test.<span style="mso-spacerun: yes">  </span>In
+prime.ini add this line:<o:p></o:p></span></p>
 
 <p class=MsoPlainText style='margin-left:.5in'><span style='font-family:"Times New Roman";
 mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
@@ -684,11 +683,11 @@ style="mso-spacerun: yes"> </span><b>WellBehavedWork=1<o:p></o:p></b></span></p>
 "MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <p class=MsoPlainText style='margin-left:.5in'><span style='font-family:"Times New Roman";
-mso-fareast-font-family:"MS Mincho"'>This only works for worktodo.ini files
-that contain only Factor= lines.<span style="mso-spacerun: yes">  </span>Only
-turn this on if you have BIG worktodo.ini files and each Factor=operation does
-not take much time.<span style="mso-spacerun: yes">  </span>You must stop
-prime95 before manually editing the worktodo.ini file.<o:p></o:p></span></p>
+mso-fareast-font-family:"MS Mincho"'>This only works for worktodo.ini files that
+contain only Factor= lines.<span style="mso-spacerun: yes">  </span>Only turn
+this on if you have BIG worktodo.ini files and each Factor=operation does not
+take much time.<span style="mso-spacerun: yes">  </span>You must stop prime95
+before manually editing the worktodo.ini file.<o:p></o:p></span></p>
 
 <p class=MsoPlainText><span style='font-family:"Times New Roman";mso-fareast-font-family:
 "MS Mincho"'>&nbsp;<o:p></o:p></span></p>
@@ -716,8 +715,8 @@ mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 mso-fareast-font-family:"MS Mincho"'>Where the first value is the exponent, the
 second value is the FFT size where zero means use the default FFT size.<span
 style="mso-spacerun: yes">  </span>The third value is the number of iterations
-to run.<span style="mso-spacerun: yes">  </span>The fourth value is the shift count
-(if the shift count is greater than the exponent a random shift count is
+to run.<span style="mso-spacerun: yes">  </span>The fourth value is the shift
+count (if the shift count is greater than the exponent a random shift count is
 used).<span style="mso-spacerun: yes">  </span>The final value is the expected
 64-bit residue.<span style="mso-spacerun: yes">  </span>The dialog box values
 between 9994 and 9999 force slightly different code to run.<span
@@ -865,9 +864,9 @@ mso-fareast-font-family:"MS Mincho";mso-bidi-font-family:"Times New Roman"'>·<sp
 style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='font-family:"Times New Roman";mso-fareast-font-family:
 "MS Mincho"'>The program normally does round-off error checking every 128
-iterations.<span style="mso-spacerun: yes">  </span>When you are testing an exponent
-near the limit of an FFT length, the program does this error checking every
-iteration.<span style="mso-spacerun: yes">  </span><o:p></o:p></span></p>
+iterations.<span style="mso-spacerun: yes">  </span>When you are testing an
+exponent near the limit of an FFT length, the program does this error checking
+every iteration.<span style="mso-spacerun: yes">  </span><o:p></o:p></span></p>
 
 <p class=MsoPlainText style='margin-left:.25in'><span style='font-family:"Times New Roman";
 mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
@@ -879,9 +878,9 @@ style='font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho"'>NearFF
 style='font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <p class=MsoPlainText style='margin-left:.5in'><span style='font-family:"Times New Roman";
-mso-fareast-font-family:"MS Mincho"'>The default value is 0.5 (if the exponent
-you are testing is within 0.5% of the maximum exponent that can be tested using
-the current FFT length, then the extra error checking is performed).<span
+mso-fareast-font-family:"MS Mincho"'>The default value is 0.5 (if the exponent you
+are testing is within 0.5% of the maximum exponent that can be tested using the
+current FFT length, then the extra error checking is performed).<span
 style="mso-spacerun: yes">  </span>A value of 0.0 will turn off this extra
 error checking.<o:p></o:p></span></p>
 
@@ -966,11 +965,11 @@ style="mso-spacerun: yes"> </span>SoftCrossoverAdjust=n<o:p></o:p></span></b></p
 <p class=MsoPlainText style='margin-left:.5in'><span style='font-family:"Times New Roman";
 mso-fareast-font-family:"MS Mincho"'>The first setting controls which exponents
 are examined.<span style="mso-spacerun: yes">  </span>The default value is
-0.2.<span style="mso-spacerun: yes">  </span>This means that an exponent that is
-0.2% above or below an FFT crossover point are tested for the best FFT size to
-use.<span style="mso-spacerun: yes">  </span>A value of 0.0 will turn off this
-soft FFT crossovers feature.<span style="mso-spacerun: yes">  </span>The second
-setting defaults to 0.000.<span style="mso-spacerun: yes">  </span>This
+0.2.<span style="mso-spacerun: yes">  </span>This means that an exponent that
+is 0.2% above or below an FFT crossover point are tested for the best FFT size
+to use.<span style="mso-spacerun: yes">  </span>A value of 0.0 will turn off
+this soft FFT crossovers feature.<span style="mso-spacerun: yes">  </span>The
+second setting defaults to 0.000.<span style="mso-spacerun: yes">  </span>This
 controls how aggressive or conservative the program is in selecting the best
 FFT size.<span style="mso-spacerun: yes">  </span>The program normally uses the
 smaller FFT size if the average roundoff error is below a value in 0.241 to
@@ -1024,10 +1023,10 @@ tab-stops:list .5in'><![if !supportLists]><span style='font-family:Symbol;
 mso-fareast-font-family:"MS Mincho";mso-bidi-font-family:"Times New Roman"'>·<span
 style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='font-family:"Times New Roman";mso-fareast-font-family:
-"MS Mincho"'>In rare cases, users have reported the program can interfere with
-the performance of some programs such as disk defragmenters and some games. You
-can pause prime95 automatically when these programs are running by adding this
-line to prime.ini:<o:p></o:p></span></p>
+"MS Mincho"'>In rare cases, users have reported the program can interfere with the
+performance of some programs such as disk defragmenters and some games. You can
+pause prime95 automatically when these programs are running by adding this line
+to prime.ini:<o:p></o:p></span></p>
 
 <p class=MsoPlainText><span style='font-family:"Times New Roman";mso-fareast-font-family:
 "MS Mincho"'><span style="mso-spacerun: yes"> </span><o:p></o:p></span></p>
@@ -1086,9 +1085,9 @@ style='font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho"'><![if 
 
 <p class=MsoPlainText style='text-indent:.5in'><span style='font-family:"Times New Roman";
 mso-fareast-font-family:"MS Mincho"'>where n is the number of days.<span
-style="mso-spacerun: yes">  </span>You should increase this value if you are loading
-up worktodo.ini with a large amount of work and do not want any of the work to
-be unreserved.<o:p></o:p></span></p>
+style="mso-spacerun: yes">  </span>You should increase this value if you are
+loading up worktodo.ini with a large amount of work and do not want any of the
+work to be unreserved.<o:p></o:p></span></p>
 
 <p class=MsoPlainText><span style='font-family:"Times New Roman";mso-fareast-font-family:
 "MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
@@ -1133,6 +1132,24 @@ mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><
 <p class=MsoPlainText style='margin-left:.25in;text-indent:.25in'><span
 style='font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho"'>where
 n is the number of milliseconds to sleep after each iteration.<o:p></o:p></span></p>
+
+<p class=MsoPlainText><span style='font-family:"Times New Roman";mso-fareast-font-family:
+"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
+
+<p class=MsoPlainText style='margin-left:.5in;text-indent:-.25in;mso-list:l1 level1 lfo8;
+tab-stops:list .5in'><![if !supportLists]><span style='font-family:Symbol;
+mso-fareast-font-family:"MS Mincho";mso-bidi-font-family:"Times New Roman"'>·<span
+style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span></span><![endif]><span style='font-family:"Times New Roman";mso-fareast-font-family:
+"MS Mincho"'>Since P-1 stage 2 runs faster with more memory available you can
+have the program only run stage 2 at night when more memory is available.<span
+style="mso-spacerun: yes">  </span>In prime.ini set:<o:p></o:p></span></p>
+
+<p class=MsoPlainText style='margin-left:.25in'><span style='font-family:"Times New Roman";
+mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
+
+<p class=MsoPlainText style='margin-left:.5in;text-indent:.5in'><b><span
+style='font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho"'>OnlyRunStage2WithMaxMemory=1<o:p></o:p></span></b></p>
 
 <p class=MsoPlainText><span style='font-family:"Times New Roman";mso-fareast-font-family:
 "MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>

@@ -281,3 +281,8 @@ If you are running on a laptop or in a hot room and you want to slow the
 program down to reduce heat, then you can add this line to prime.ini:
 	Throttle=n
 where n is the number of milliseconds to sleep after each iteration.
+
+Since P-1 stage 2 runs faster with more memory available you can have the
+program only run stage 2 at night when more memory is available.  In
+prime.ini set:
+	OnlyRunStage2WithMaxMemory=1

@@ -15,17 +15,17 @@ href="./New%20features%20in%20Version%2023_files/filelist.xml">
  <o:DocumentProperties>
   <o:Template>Normal</o:Template>
   <o:LastAuthor>George Woltman</o:LastAuthor>
-  <o:Revision>12</o:Revision>
+  <o:Revision>13</o:Revision>
   <o:TotalTime>75</o:TotalTime>
   <o:Created>2003-01-22T04:30:00Z</o:Created>
-  <o:LastSaved>2003-03-10T01:23:00Z</o:LastSaved>
+  <o:LastSaved>2003-04-28T03:03:00Z</o:LastSaved>
   <o:Pages>1</o:Pages>
-  <o:Words>140</o:Words>
-  <o:Characters>800</o:Characters>
+  <o:Words>179</o:Words>
+  <o:Characters>1025</o:Characters>
   <o:Company>Watson Wyatt</o:Company>
-  <o:Lines>6</o:Lines>
-  <o:Paragraphs>1</o:Paragraphs>
-  <o:CharactersWithSpaces>982</o:CharactersWithSpaces>
+  <o:Lines>8</o:Lines>
+  <o:Paragraphs>2</o:Paragraphs>
+  <o:CharactersWithSpaces>1258</o:CharactersWithSpaces>
   <o:Version>9.3821</o:Version>
  </o:DocumentProperties>
 </xml><![endif]--><!--[if gte mso 9]><xml>
@@ -198,8 +198,13 @@ ul
 
 <ol style='margin-top:0in' start=2 type=1>
  <li class=MsoNormal style='mso-list:l1 level1 lfo3;tab-stops:list .5in'><span
-     style='mso-fareast-font-family:"MS Mincho"'>Stage 2 of P-1 factoring on a
-     P4 has been sped up by roughly 4%.<o:p></o:p></span></li>
+     style='mso-fareast-font-family:"MS Mincho"'>Stage 2 of P-1 factoring has
+     been recoded for more speed.<span style="mso-spacerun: yes"> 
+     </span>WARNING: when continuing from a save file created in stage 2 by a
+     previous prime95 version, this version will restart stage 2 from the
+     beginning.<span style="mso-spacerun: yes">  </span>ALSO: the stage 2 P-1
+     save file format has changed - in dual boot scenarios you must upgrade
+     mprime and prime95 at the same time.<o:p></o:p></span></li>
 </ol>
 
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
@@ -210,7 +215,7 @@ ul
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=1 type=1>
- <li class=MsoNormal style='mso-list:l0 level1 lfo6;tab-stops:list .5in'>Further
+ <li class=MsoNormal style='mso-list:l0 level1 lfo7;tab-stops:list .5in'>Further
      performance improvements in the SSE2 code.<span style="mso-spacerun:
      yes">  </span>You can expect about a 4% improvement.</li>
 </ol>
@@ -223,7 +228,7 @@ ul
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=1 type=1>
- <li class=MsoNormal style='mso-list:l2 level1 lfo9;tab-stops:list .5in'>Big
+ <li class=MsoNormal style='mso-list:l2 level1 lfo10;tab-stops:list .5in'>Big
      SSE2 FFTs now take the L2 cache size into account.<span
      style="mso-spacerun: yes">  </span>P4 Celeron (128KB L2 cache) is faster
      for FFTs between 512K and 2M.<span style="mso-spacerun: yes">  </span>P4
@@ -233,28 +238,28 @@ ul
 <p class=MsoNormal><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></p>
 
 <ol style='margin-top:0in' start=2 type=1>
- <li class=MsoNormal style='mso-list:l2 level1 lfo9;tab-stops:list .5in'>Benchmark
+ <li class=MsoNormal style='mso-list:l2 level1 lfo10;tab-stops:list .5in'>Benchmark
      no longer times 256K and 320K FFTs, but does time 2048K FFT.</li>
 </ol>
 
 <p class=MsoNormal><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></p>
 
 <ol style='margin-top:0in' start=3 type=1>
- <li class=MsoNormal style='mso-list:l2 level1 lfo9;tab-stops:list .5in'>Support
+ <li class=MsoNormal style='mso-list:l2 level1 lfo10;tab-stops:list .5in'>Support
      for torture testing FFT sizes from 1280K to 4096K added.</li>
 </ol>
 
 <p class=MsoNormal><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></p>
 
 <ol style='margin-top:0in' start=4 type=1>
- <li class=MsoNormal style='mso-list:l2 level1 lfo9;tab-stops:list .5in'>A 900
+ <li class=MsoNormal style='mso-list:l2 level1 lfo10;tab-stops:list .5in'>A 900
      MHz P-III is now required to get first time LL tests by default.</li>
 </ol>
 
 <p class=MsoNormal><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></p>
 
 <ol style='margin-top:0in' start=5 type=1>
- <li class=MsoNormal style='mso-list:l2 level1 lfo9;tab-stops:list .5in'>Slightly
+ <li class=MsoNormal style='mso-list:l2 level1 lfo10;tab-stops:list .5in'>Slightly
      faster SSE2 FFTs for lengths of 5*2^N and 7*2^N (e.g. 640K, 896K).</li>
 </ol>
 
