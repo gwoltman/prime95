@@ -3058,10 +3058,18 @@ void primeTime (
 
 	clear_timers ();
 
-/* Look for special values to run QA suite */
+/* Look for special values to run QA suites */
 
 	if (p >= 9994 && p <= 9999) {
 		lucas_QA (9999 - p);
+		return;
+	}
+	if (p == 9991) {
+		ecm_QA ();
+		return;
+	}
+	if (p == 9992) {
+		pminus1_QA ();
 		return;
 	}
 

@@ -54,6 +54,8 @@ int ecm (unsigned long, unsigned long, unsigned long, unsigned long,
 	 unsigned long, unsigned long, double, int);
 int pminus1 (unsigned long, unsigned long, unsigned long, unsigned long,
 	     int, int);
+int ecm_QA (void);
+int pminus1_QA (void);
 
 /* Messages */
 
