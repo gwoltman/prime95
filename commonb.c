@@ -3050,6 +3050,8 @@ void primeTime (
 	char	buf[80];
 	double	time, saved_times[SAVED_LIMIT];
 	int	days, hours, minutes;
+	unsigned long best_asm_timers[32]= {0};
+	unsigned long *asm_timer;
 
 /* Set the process/thread priority */
 
@@ -3095,12 +3097,26 @@ void primeTime (
 
 	save_limit = (CPU_TYPE >= 12 && p <= 4000000) ? SAVED_LIMIT : 1;
 	for (i = 0, saved = 0; i < iterations; i++) {
+
+/* Time a single squaring
+
 		start_timer (0);
 		gwsquare (LLDATA);
 		end_timer (0);
 		timers[1] += timers[0];
 		saved_times[saved++] = timers[0];
 		timers[0] = 0;
+
+/* Remember the best asm timers (used when I'm optimizing assembly code) */
+
+		asm_timer = (unsigned long *) COPYZERO[0];
+		if (asm_timer != NULL)
+		for (int j = 0; j < 32; j++)
+			if (i == 0 || asm_timer[j] < best_asm_timers[j])
+				best_asm_timers[j] = asm_timer[j];
+
+/* Output timer squaring times */
+
 		if (saved == save_limit || i == iterations - 1) {
 			unsigned long j;
 			for (j = 0; j < saved; j++) {
@@ -3112,6 +3128,9 @@ void primeTime (
 			}
 			saved = 0;
 		}
+
+/* Abort early if so requested */
+
 		if (escapeCheck ()) {
 			lucasDone ();
 			return;
@@ -3137,11 +3156,9 @@ void primeTime (
 	OutputStr (buf);
 	sprintf (buf, minutes == 1 ? "%d minute, " : "%d minutes.\n", minutes);
 	OutputStr (buf);
-//unsigned long *z;
-//z = (unsigned long *) COPYZERO[0];
-//if (z != NULL) for (i = 0; i < 32; i++) {
-//sprintf (buf, "timer %d: %d\n", i, z[i]);
-//if(z[i]) OutputBoth (buf);}
+//for (i = 0; i < 32; i++) {
+//sprintf (buf, "timer %d: %d\n", i, best_asm_timers[i]);
+//if(best_asm_timers[i]) OutputBoth (buf);}
 }
 
 #define BENCH1 "\nYour timings will be written to the results.txt file.\n"
