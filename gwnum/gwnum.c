@@ -825,7 +825,7 @@ OutputBoth(buf);
 		loglen *= 0.69;
 		total_bits = bits_per_double * 2.0 + loglen * 2.0;
 		MAXDIFF = pow (2.0, total_bits -
-				((CPU_FLAGS & CPU_SSE2) ? 47.08 : 50.65));
+				((CPU_FLAGS & CPU_SSE2) ? 47.08 : 49.65));
 	}
 
 /* Clear counters */
