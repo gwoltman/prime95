@@ -12,9 +12,9 @@ char	CPU_BRAND[49] = "";
 double	CPU_SPEED = 100.0;
 EXTERNC unsigned int CPU_FLAGS = 0;
 int	CPU_L1_CACHE_SIZE = -1;
-EXTERNC int CPU_L2_CACHE_SIZE = -1;
+int	CPU_L2_CACHE_SIZE = -1;
 int	CPU_L1_CACHE_LINE_SIZE = -1;
-EXTERNC int CPU_L2_CACHE_LINE_SIZE = -1;
+int	CPU_L2_CACHE_LINE_SIZE = -1;
 int	CPU_L1_DATA_TLBS = -1;
 int	CPU_L2_DATA_TLBS = -1;
 
@@ -411,6 +411,10 @@ void guessCpuType (void)
 						CPU_L2_CACHE_SIZE = 1024;
 						CPU_L2_CACHE_LINE_SIZE = 128;
 						break;
+					case 0x7D:
+						CPU_L2_CACHE_SIZE = 2048;
+						CPU_L2_CACHE_LINE_SIZE = 64;
+						break;
 					case 0x82:
 						CPU_L2_CACHE_SIZE = 256;
 						CPU_L2_CACHE_LINE_SIZE = 32;
@@ -427,10 +431,12 @@ void guessCpuType (void)
 						CPU_L2_CACHE_SIZE = 2048;
 						CPU_L2_CACHE_LINE_SIZE = 32;
 						break;
+					case 0x7F:
 					case 0x86:
 						CPU_L2_CACHE_SIZE = 512;
 						CPU_L2_CACHE_LINE_SIZE = 64;
 						break;
+					case 0x78:
 					case 0x87:
 						CPU_L2_CACHE_SIZE = 1024;
 						CPU_L2_CACHE_LINE_SIZE = 64;

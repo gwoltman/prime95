@@ -1,13 +1,33 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2003 Just For Fun Software, Inc., all rights reserved
+| Copyright 1995-2004 Just For Fun Software, Inc., all rights reserved
 | Author:  George Woltman
 | Email: woltman@alum.mit.edu
 |
 | This file contains routines to determine the CPU type and speed.
 +---------------------------------------------------------------------*/
 
+/* Routines that the user should call */
+
 void guessCpuType (void);
 void guessCpuSpeed (void);
+
+/* Handle the difference between the naming conventions in */
+/* C compilers.  We need to to this for global variables that are */
+/* referenced by the assembly routines.  Most non-Windows systems */
+/* should #define ADD_UNDERSCORES before including this file. */
+
+#ifdef ADD_UNDERSCORES
+#define CPU_FLAGS	_CPU_FLAGS
+#define CPU_TYPE	_CPU_TYPE
+#define CPUID_EAX	_CPUID_EAX
+#define CPUID_EBX	_CPUID_EBX
+#define CPUID_ECX	_CPUID_ECX
+#define CPUID_EDX	_CPUID_EDX
+#define fpu_init	_fpu_init
+#define erdtsc		_erdtsc
+#define ecpuidsupport	_ecpuidsupport
+#define ecpuid		_ecpuid
+#endif
 
 /* Global variables describing the CPU we are running on */
 
@@ -21,9 +41,9 @@ extern double CPU_SPEED;		/* Actual CPU Speed in MHz */
 #define CPU_MMX		0x0020
 EXTERNC unsigned int CPU_FLAGS;		/* Cpu capabilities */
 extern int CPU_L1_CACHE_SIZE;
-EXTERNC int CPU_L2_CACHE_SIZE;
+extern int CPU_L2_CACHE_SIZE;
 extern int CPU_L1_CACHE_LINE_SIZE;
-EXTERNC int CPU_L2_CACHE_LINE_SIZE;
+extern int CPU_L2_CACHE_LINE_SIZE;
 extern int CPU_L1_DATA_TLBS;
 extern int CPU_L2_DATA_TLBS;
 
