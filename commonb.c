@@ -1540,13 +1540,14 @@ void inc_error_count (
 /* of the location of the ever changing units bit. */
 
 void lucas_fixup (
-	unsigned long *units_bit)
+	unsigned long *units_bit,
+	unsigned long p)	/* Exponent being tested */
 {
 
 /* We are about to square the number, the units bit position will double */
 
 	*units_bit <<= 1;
-	if (*units_bit >= PARG) *units_bit -= PARG;
+	if (*units_bit >= p) *units_bit -= p;
 
 /* Tell gwnum code the value to subtract 2 from the squared result. */
 
@@ -1686,7 +1687,8 @@ int exponent_near_fft_limit ()
 
 void careful_iteration (
 	gwnum	x,			/* Number to square */
-	unsigned long *units_bit)	/* Units bit (if subtracting two) */
+	unsigned long *units_bit,	/* Units bit (if subtracting two) */
+	unsigned long p)		/* Exponent being tested */
 {
 	gwnum	hi, lo;
 	unsigned long i;
@@ -1709,7 +1711,7 @@ void careful_iteration (
 	gwfft (lo, lo);
 	gwfftfftmul (lo, hi, x);
 	gwfftfftmul (hi, hi, hi);
-	if (units_bit != NULL) lucas_fixup (units_bit);
+	if (units_bit != NULL) lucas_fixup (units_bit, p);
 	gwfftfftmul (lo, lo, lo);
 	gwaddquick (x, x);
 	gwaddquick (hi, x);
@@ -1911,7 +1913,7 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 /* roundoff errors up to 0.6. */
 
 		if (maxerr_recovery_mode && counter == last_counter) {
-			careful_iteration (LLDATA, &units_bit);
+			careful_iteration (LLDATA, &units_bit, p);
 			maxerr_recovery_mode = 0;
 			echk = 0;
 		}
@@ -1926,7 +1928,7 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 					counter+1 != p &&
 					(interimResidues == 0 ||
 					 (counter+1) % interimResidues > 2));
-			lucas_fixup (&units_bit);
+			lucas_fixup (&units_bit, p);
 //gwnum qw = gwalloc ();
 //gwfft (LLDATA, qw);
 //gwfftfftmul (qw, qw, LLDATA);
@@ -2988,7 +2990,7 @@ restart_test:	units_bit = 0;
 
 			gwsetnormroutine (0, 1, 0);
 			gwstartnextfft (k != 100 && k != ll_iters - 1);
-			lucas_fixup (&units_bit);
+			lucas_fixup (&units_bit, p);
 			gwsquare (g);
 
 /* If the sum of the output values is an error (such as infinity) */
@@ -3213,15 +3215,15 @@ int lucas_QA (
 				gwsetnormroutine (0, (i & 63) == 37, 0);
 				gwstartnextfft (i < iters / 2);
 				if (i > iters / 2 && (i & 63) == 44)
-					careful_iteration (LLDATA, &units_bit);
+					careful_iteration (LLDATA, &units_bit, p);
 				else {
-					lucas_fixup (&units_bit);
+					lucas_fixup (&units_bit, p);
 					gwsquare (LLDATA);
 				}
 			} else if (type == 1 || type == 4) { /* Gather stats */
 				gwsetnormroutine (0, 1, 0);
 				gwstartnextfft (i < iters / 2);
-				lucas_fixup (&units_bit);
+				lucas_fixup (&units_bit, p);
 				gwsquare (LLDATA);
 			} else if (type == 2) {		/* Thorough test */
 				unsigned long j;
@@ -3238,7 +3240,7 @@ int lucas_QA (
 					gwaddsub (t1, LLDATA);
 					gwadd (t2, LLDATA);
 				}
-				lucas_fixup (&units_bit);
+				lucas_fixup (&units_bit, p);
 				if ((i & 3) == 0) {
 					gwsquare (LLDATA);
 				} else if ((i & 3) == 1) {
@@ -3249,7 +3251,7 @@ int lucas_QA (
 					gwfftmul (t1, LLDATA);
 				}
 			} else if (type == 3) {		/* Typical ECM run */
-				lucas_fixup (&units_bit);
+				lucas_fixup (&units_bit, p);
 				gwfftsub3 (t1, t2, t2);
 				gwfft (LLDATA, LLDATA);
 				gwfftfftmul (t2, LLDATA, t2);
