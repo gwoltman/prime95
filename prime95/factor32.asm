@@ -14,7 +14,7 @@ TITLE   setup
 	.MODEL	FLAT
 
 INCLUDE	unravel.mac
-INCLUDE factor64.mac
+INCLUDE factor32.mac
 
 EXTRN	_SRCARG:EXTPTR
 EXTRN	_FACHSW:DWORD

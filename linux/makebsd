@@ -13,7 +13,7 @@ LFLAGS = -Wl,-M
 LIBS   = ../gwnum/gwnum.lib -lm -lcompat -lstdc++
 LIBS2  = ../gwnum/gwnum.lib -lm -lcompat -lstdc++ -static
 
-FACTOROBJ = factor64.o
+FACTOROBJ = factor32.o
 DUMMYOBJS = dummy0.o dummy4.o dummy8.o dummy12.o dummy16.o dummy20.o dummy24.o dummy28.o
 LINUXOBJS = prime.o menu.o
 EXE      = mprime

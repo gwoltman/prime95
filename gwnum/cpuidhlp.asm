@@ -52,9 +52,9 @@ _erdtsc ENDP
 ; Returns non-zero if CPUID is supported
 ;
 
-IFNDEF	X86_64
 	PUBLIC	_ecpuidsupport
 _ecpuidsupport PROC
+IFNDEF	X86_64
         pushfd				; Get original EFLAGS
 	pop	eax
 	mov 	ecx, eax
@@ -64,9 +64,11 @@ _ecpuidsupport PROC
         pushfd				; Get new EFLAGS
         pop     eax			; Store new EFLAGS in EAX
         xor     eax, ecx		; Test toggled ID bit
+ELSE
+	mov	rax, 1			; 64-bit CPUs support CPUID
+ENDIF
 	ret				; Processor supports CPUID if eax != 0
 _ecpuidsupport ENDP
-ENDIF
 
 ;
 ; Utility routine to execute CPUID

@@ -12640,7 +12640,7 @@ nogap:
 
 touch	MACRO
 	IF PREFETCHING NE 0
-	cmp	esp, BYTE PTR [ecx+(clm-1)*32]
+	cmp	esp, DWORD PTR [ecx+(clm-1)*32]
 	ENDIF
 	ENDM
 

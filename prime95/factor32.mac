@@ -211,7 +211,7 @@ sse2_fac MACRO fac_size
 ;; Q2 = (temp1 >> BS) & 0x3FFFFFFF			(30)
 ;; Q1 = temp1 >> (30 + BS)
 
-	movq	xmm2, XMM_BS
+	movd	xmm2, XMM_BS
 	psrlq	xmm0, xmm2		;;30-31 temp1 >> BS
 	movdqa	xmm1, XMM_BITS30
 	pand	xmm1, xmm0		;;32-33 Q2 = (temp1 >> BS) & 0x3FFFFFFF
@@ -258,7 +258,7 @@ sse2_fac MACRO fac_size
 
 ;; If mul by 2 is required:  mul temp1, temp2 by 2 here
 
-	movq	xmm1, XMM_SHIFTER[ecx*8]
+	movd	xmm1, XMM_SHIFTER[ecx*8]
 	psllq	xmm6, xmm1		;;65-66 temp1 *= 1 or 2
 	psllq	xmm7, xmm1		;;67-68 temp2 *= 1 or 2
 
@@ -358,7 +358,7 @@ ok2:
 ;; Compute quotient for 2^120 / factor call it Q1,Q2.
 
 	movdqa	xmm7, XMM_INVFAC	; Load factor inverse
-	movq	xmm0, XMM_INIT120BS
+	movd	xmm0, XMM_INIT120BS
 	psrlq	xmm7, xmm0		; Compute 2^120 / factor
 	movdqa	xmm6, XMM_BITS30
 	pand	xmm6, xmm7		; Q2 = bottom bits of quotient
@@ -428,7 +428,7 @@ ok2:
 ;; Q1 = temp1 >> (30 + INITBS)
 
 	movdqa	xmm0, XMM_INVFAC	;; Load 1/factor
-	movq	xmm1, XMM_INITBS
+	movd	xmm1, XMM_INITBS
 	psrlq	xmm0, xmm1		;; temp1 >> INITBS
 	movdqa	xmm1, XMM_BITS30
 	pand	xmm1, xmm0		;; Q2 = (temp1 >> BS) & 0x3FFFFFFF
