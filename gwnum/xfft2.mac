@@ -135,7 +135,7 @@ xfft5K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -366,7 +366,7 @@ xfft6K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -617,7 +617,7 @@ xfft7K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -879,7 +879,7 @@ xfft8K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -1136,7 +1136,7 @@ xfft10K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -1479,7 +1479,7 @@ xfft12K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -1832,7 +1832,7 @@ xfft12Kp MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels_p
+	CALLP	xpass2_8_levels_p
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -2147,7 +2147,7 @@ xfft14K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -2517,7 +2517,7 @@ xfft16K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -2869,7 +2869,7 @@ xfft16Kp MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels_p
+	CALLP	xpass2_8_levels_p
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -3180,7 +3180,7 @@ xfft20K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -3556,7 +3556,7 @@ xfft24K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -3933,7 +3933,7 @@ xfft24Kp MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels_p
+	CALLP	xpass2_8_levels_p
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -4256,7 +4256,7 @@ xfft28K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -4667,7 +4667,7 @@ xfft32K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -5043,7 +5043,7 @@ xfft32Kp MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels_p
+	CALLP	xpass2_8_levels_p
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -5357,7 +5357,7 @@ xfft40K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -5850,7 +5850,7 @@ xfft48K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -6346,7 +6346,7 @@ xfft56K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -6873,7 +6873,7 @@ xfft64K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -7368,7 +7368,7 @@ xfft80K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -7870,7 +7870,7 @@ xfft96K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -8375,7 +8375,7 @@ xfft112K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 
@@ -8910,7 +8910,7 @@ xfft128K MACRO
 
 pass2:	mov	rbp, _SRCARG
 	sub	rbp, rsi
-	CALL_Y	xpass2_8_levels
+	CALLP	xpass2_8_levels
 	cmp	ffttype, 1		;; We're done if FFTing only
 	je	gw_finish_fft_2
 

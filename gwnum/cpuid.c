@@ -79,6 +79,9 @@ int canExecInstruction (
 		case CPU_PREFETCH:	/* PREFETCHT1 */
 			__asm__ __volatile__ (".byte 0x0F\n .byte 0x18\n .byte 0x16\n");
 			break;
+		case CPU_3DNOW:		/* PREFETCHW */
+			__asm__ __volatile__ (".byte 0x0F\n .byte 0x0D\n .byte 0x0E\n");
+			break;
 		}
 	}
 	(void) signal (SIGILL, SIG_DFL);
@@ -142,6 +145,11 @@ int canExecInstruction (
 			__asm __emit 0x0F
 			__asm __emit 0x18
 			__asm __emit 0x16
+			break;
+		case CPU_3DNOW:		/* PREFETCHW */
+			__asm __emit 0x0F
+			__asm __emit 0x0D
+			__asm __emit 0x0E
 			break;
 		}
 		succeeded = TRUE;
@@ -619,6 +627,17 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			if ((CPUID_EDX >> 22) & 0x1 &&
 			    canExecInstruction (CPU_PREFETCH))
 				CPU_FLAGS |= CPU_PREFETCH;
+		}
+
+/* Check for support of 3DNow! instructions.  The prefetchw instruction */
+/* from the 3DNow! instruction set is used by the assembly code. */
+
+		if (max_extended_cpuid_value >= 0x80000001 &&
+		    ! (CPU_FLAGS & CPU_3DNOW)) {
+			Cpuid (0x80000001);
+			if ((CPUID_EDX >> 31) & 0x1 &&
+			    canExecInstruction (CPU_3DNOW))
+				CPU_FLAGS |= CPU_3DNOW;
 		}
 
 /* Get the L1 cache size and number of data TLBs */

@@ -76,6 +76,7 @@ combination of these settings in local.ini:
 	CpuSupportsPrefetch=0 or 1
 	CpuSupportsSSE=0 or 1
 	CpuSupportsSSE2=0 or 1
+	CpuSupports3DNow=0 or 1
 This shouldn't be necessary though as the program uses the CPUID instruction
 to see if the CPU supports these features.
 

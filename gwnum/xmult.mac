@@ -38,8 +38,8 @@ xfftclm	MACRO fft_length, clm
 ;;
 
 type1	MACRO fft_length, suffix, clm
-	PUBLIC	xfft&fft_length&clm&suffix
-xfft&fft_length&clm&suffix:
+PUBLICP	xfft&fft_length&clm&suffix
+LABELP	xfft&fft_length&clm&suffix
 	push	rbp
 	push	rbx
 	push	rdi
@@ -49,7 +49,7 @@ xfft&fft_length&clm&suffix:
 	sub	rbx, rsi
 	IF EXPANDING GE 2
 	mov	ffttype, 1
-	jmp	xfft2a&fft_length&clm
+	JMPP	xfft2a&fft_length&clm
 	ELSE
 	xfft&fft_length 1
 	ENDIF
@@ -61,8 +61,8 @@ xfft&fft_length&clm&suffix:
 ;;
 
 type2	MACRO fft_length, suffix, clm
-	PUBLIC	xfft&fft_length&clm&suffix
-xfft&fft_length&clm&suffix:
+PUBLICP	xfft&fft_length&clm&suffix
+LABELP	xfft&fft_length&clm&suffix
 	push	rbp
 	push	rbx
 	push	rdi
@@ -71,7 +71,7 @@ xfft&fft_length&clm&suffix:
 	sub	rbx, rbx
 	IF EXPANDING GE 2
 	mov	ffttype, 2
-xfft2a&fft_length&clm:
+LABELP	xfft2a&fft_length&clm
 	IF EXPANDING EQ 2
 	xfft&fft_length
 	ELSE
@@ -89,8 +89,8 @@ xfft2a&fft_length&clm:
 ;;
 
 type3	MACRO fft_length, suffix, clm
-	PUBLIC	xfft&fft_length&clm&suffix
-xfft&fft_length&clm&suffix:
+PUBLICP	xfft&fft_length&clm&suffix
+LABELP	xfft&fft_length&clm&suffix
 	push	rbp
 	push	rbx
 	push	rdi
@@ -99,7 +99,7 @@ xfft&fft_length&clm&suffix:
 	sub	rbx, rbx
 	IF EXPANDING GE 2
 	mov	ffttype, 3
-	jmp	xfft2a&fft_length&clm
+	JMPP	xfft2a&fft_length&clm
 	ELSE
 	xfft&fft_length 3
 	ENDIF
@@ -112,8 +112,8 @@ xfft&fft_length&clm&suffix:
 ;;
 
 type4	MACRO fft_length, suffix, clm
-	PUBLIC	xfft&fft_length&clm&suffix
-xfft&fft_length&clm&suffix:
+PUBLICP	xfft&fft_length&clm&suffix
+LABELP	xfft&fft_length&clm&suffix
 	push	rbp
 	push	rbx
 	push	rdi
@@ -123,7 +123,7 @@ xfft&fft_length&clm&suffix:
 	sub	rbx, rsi
 	IF EXPANDING GE 2
 	mov	ffttype, 4
-	jmp	xfft2a&fft_length&clm
+	JMPP	xfft2a&fft_length&clm
 	ELSE
 	xfft&fft_length 4
 	ENDIF
@@ -181,6 +181,11 @@ xtouch	MACRO	addr
 
 xprefetcht1 MACRO addr
 	IF PREFETCHING NE 0
+	IFDEF AMD
+	prefetchw addr
+	prefetchw addr[64]
+	ELSE
 	prefetcht1 addr
+	ENDIF
 	ENDIF
 	ENDM

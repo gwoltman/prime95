@@ -33,8 +33,8 @@ IFDEF X86_64
 INCLUDE	xlucas64.mac
 ENDIF
 
-EXTRN	xpass2_8_levels:PROC
-EXTRN	xpass2_8_levels_p:PROC
+EXTRNP	xpass2_8_levels
+EXTRNP	xpass2_8_levels_p
 
 _TEXT SEGMENT
 
@@ -45,7 +45,7 @@ blkdst	EQU	(8192+128)
 
 ;; All the FFT routines for each FFT length
 
-_xmm_gw_ffts2 PROC
+PROCP	_xmm_gw_ffts2
 	EXPANDING = 2
 ;	xfft	5K
 ;	xfft	6K
@@ -84,7 +84,6 @@ gw_finish_fft_2:
 ; low carry.  Handle both the with and without two-to-phi array cases.
 ; Add these carries back into the FFT data.
 
-	PUBLIC	gw_carries_2
 gw_carries_2:
 	cmp	_ZERO_PADDED_FFT, 0	; Special case the zero padded FFT case
 	jne	gw_carries_2_zpad
@@ -202,7 +201,7 @@ exit:	pop	rsi
 	pop	rbp
 	ret
 
-_xmm_gw_ffts2 ENDP
+ENDPP	_xmm_gw_ffts2
 
 _TEXT	ENDS
 END

@@ -1277,13 +1277,19 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 
 /* Check L2 cache size constraints */
 		
-			if (l2_cache_size < ((zpad_jmptab[4] >> 16) & 0x7FFF))
+			if (l2_cache_size < ((zpad_jmptab[4] >> 16) & 0x3FFF))
 				goto next1;
 
 /* Check FFT requires prefetch capability */
 
 			if (zpad_jmptab[4] & 0x80000000 &&
 			    ! (CPU_FLAGS & CPU_PREFETCH))
+				goto next1;
+
+/* Check FFT requires prefetchw (3DNow!) capability */
+
+			if (zpad_jmptab[4] & 0x40000000 &&
+			    ! (CPU_FLAGS & CPU_3DNOW))
 				goto next1;
 
 /* Compare the maximum number of bits allowed in the FFT input word */
@@ -1321,13 +1327,18 @@ next1:			for (zpad_jmptab += 18; *zpad_jmptab; zpad_jmptab++);
 	while ((max_exp = jmptab[0]) != 0) {
 
 /* Check L2 cache size constraints */
-		
-		if (l2_cache_size < ((jmptab[4] >> 16) & 0x7FFF))
+
+		if (l2_cache_size < ((jmptab[4] >> 16) & 0x3FFF))
 			goto next2;
 
 /* Check FFT requires prefetch capability */
 
 		if (jmptab[4] & 0x80000000 && ! (CPU_FLAGS & CPU_PREFETCH))
+			goto next2;
+
+/* Check FFT requires prefetchw (3DNow!) capability */
+
+		if (jmptab[4] & 0x40000000 && ! (CPU_FLAGS & CPU_3DNOW))
 			goto next2;
 
 /* Check if this table entry matches the specified FFT length. */

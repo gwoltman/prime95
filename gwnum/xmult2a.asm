@@ -28,8 +28,8 @@ ENDIF
 
 ;; Routines to do the last 8 levels in a two-pass FFT
 
-PUBLIC	xpass2_8_levels
-PUBLIC	xpass2_8_levels_p
+PUBLICP	xpass2_8_levels
+PUBLICP	xpass2_8_levels_p
 
 _TEXT SEGMENT
 
@@ -43,9 +43,9 @@ blkdst	EQU	(8192+128)
 
 ;; Do the last 8 levels of a two pass FFT
 
-xpass2_8_levels PROC
+PROCP	xpass2_8_levels
 	xpass2_8_levels_real blkdst
-xpass2_8_levels_p:
+LABELP	xpass2_8_levels_p
 	mov	ecx, count1		; Number of complex iterations
 	mov	rdx, pass2_premults	; Address of the group multipliers
 p2lp:	xpass2_8_levels_complex blkdst
@@ -53,7 +53,7 @@ p2lp:	xpass2_8_levels_complex blkdst
 	jnz	p2lp
 	mov	rsi, _DESTARG		; Restore source pointer
 	ret
-xpass2_8_levels ENDP
+ENDPP	xpass2_8_levels
 
 _TEXT	ENDS
 END

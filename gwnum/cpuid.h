@@ -61,6 +61,7 @@ extern double CPU_SPEED;		/* Actual CPU Speed in MHz */
 #define CPU_SSE		0x0008
 #define CPU_SSE2	0x0010
 #define CPU_MMX		0x0020
+#define CPU_3DNOW	0x0040
 extern unsigned int CPU_FLAGS;		/* Cpu capabilities */
 extern int CPU_L1_CACHE_SIZE;
 extern int CPU_L2_CACHE_SIZE;

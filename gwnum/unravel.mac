@@ -78,6 +78,134 @@ trace_cache_flush MACRO
 rrr:	mov	ds:BYTE PTR rrr, 0C6h
 	ENDM
 
+
+;
+; Macros to create different labels from the same source code.  This
+; allows us to use the same source to create AMD, P3, Pentium Pro, and Pentium
+; specific versions of the code.
+;
+
+EXTRNP	MACRO x
+IFDEF AMD
+EXTRN	&x&AMD:PROC
+ELSE
+IFDEF PFETCH
+EXTRN	&x&P3:PROC
+ELSE
+IFDEF PPRO
+EXTRN	&x&PPRO:PROC
+ELSE
+EXTRN	&x:PROC
+ENDIF
+ENDIF
+ENDIF
+	ENDM
+
+PUBLICP	MACRO x
+IFDEF AMD
+PUBLIC	&x&AMD
+ELSE
+IFDEF PFETCH
+PUBLIC	&x&P3
+ELSE
+IFDEF PPRO
+PUBLIC	&x&PPRO
+ELSE
+PUBLIC	&x
+ENDIF
+ENDIF
+ENDIF
+	ENDM
+
+PROCP	MACRO x
+IFDEF X86_64
+IFDEF AMD
+&x&AMD	PROC
+ELSE
+&x	PROC
+ENDIF
+ELSE
+IFDEF AMD
+&x&AMD	PROC NEAR
+ELSE
+IFDEF PFETCH
+&x&P3	PROC NEAR
+ELSE
+IFDEF PPRO
+&x&PPRO	PROC NEAR
+ELSE
+&x	PROC NEAR
+ENDIF
+ENDIF
+ENDIF
+ENDIF
+	ENDM
+
+ENDPP	MACRO x
+IFDEF AMD
+&x&AMD ENDP
+ELSE
+IFDEF PFETCH
+&x&P3 ENDP
+ELSE
+IFDEF PPRO
+&x&PPRO ENDP
+ELSE
+&x	ENDP
+ENDIF
+ENDIF
+ENDIF
+	ENDM
+
+LABELP	MACRO x
+IFDEF AMD
+&x&AMD:
+ELSE
+IFDEF PFETCH
+&x&P3:
+ELSE
+IFDEF PPRO
+&x&PPRO:
+ELSE
+&x:
+ENDIF
+ENDIF
+ENDIF
+	ENDM
+
+CALLP	MACRO x
+IFDEF AMD
+	CALL_Y	&x&AMD
+ELSE
+IFDEF PFETCH
+	CALL_Y	&x&P3
+ELSE
+IFDEF PPRO
+	CALL_Y	&x&PPRO
+ELSE
+	CALL_Y	&x
+ENDIF
+ENDIF
+ENDIF
+	ENDM
+
+JMPP	MACRO x
+IFDEF AMD
+	JMP_Y	&x&AMD
+ELSE
+IFDEF PFETCH
+	JMP_Y	&x&P3
+ELSE
+IFDEF PPRO
+	JMP_Y	&x&PPRO
+ELSE
+	JMP_Y	&x
+ENDIF
+ENDIF
+ENDIF
+	ENDM
+
+
 ;
 ; Call and Jump instructions to make Linux objcopy happy
 ; Use these for calling or jumping to labels outside the object file
@@ -145,7 +273,7 @@ IFDEF TIMERS
 	push	eax
 	push	edx
 	rdtsc
-	add	asm_timers[n*4], eax
+	add	_ASM_TIMERS[n*4], eax
 	pop	edx
 	pop	eax
 ENDIF

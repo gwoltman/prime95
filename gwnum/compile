@@ -2,8 +2,6 @@
 
 masm=ml /c /coff
 #masm=ml /c /coff /Fl /Sf /Sa
-masm64=ml64 /c /DX86_64
-#masm64=ml64 /c /Fl /Sf /Sa /DX86_64
 
 # The MSVC compiler I own does not have an optimizer, so compile critical
 # routines with an older MSVC compiler that can optimize code
@@ -16,22 +14,17 @@ cl4d=\msdev\bin\cl /I. /I C:\msdev\include\ /DGDEBUG /GF /W3 /MT /Zi /c
 cl=cl /GF /W3 /MT /D_CRT_SECURE_NO_DEPRECATE /O2 /c
 cld=cl /GF /W3 /MT /D_CRT_SECURE_NO_DEPRECATE /DGDEBUG /Zi /c
 
-# Use the 64-bit C compiler
-
-cl64=cl /GF /W3 /MT /DX86_64 /D_CRT_SECURE_NO_DEPRECATE /O2 /c
-cl64d=cl /GF /W3 /MT /DX86_64 /D_CRT_SECURE_NO_DEPRECATE /DGDEBUG /Zi /c
-
 # List of all buildables in this makefile
 
 all:	gwnum.lib gwnumd.lib
 
 # Make libraries out of the object files
 
-gwnum.lib: release\cpuid.obj release\gwnum.obj release\gwutil.obj release\gwdbldbl.obj release\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2ap.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ax.obj xmult3.obj xmult3a.obj xmult3ax.obj 
+gwnum.lib: release\cpuid.obj release\gwnum.obj release\gwutil.obj release\gwdbldbl.obj release\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2ap.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2p.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3p.obj xmult3a.obj xmult3ap.obj xmult3ax.obj 
     del gwnum.lib
     lib /OUT:gwnum.lib release\*.obj *.obj
 
-gwnumd.lib: debug\cpuid.obj debug\gwnum.obj debug\gwutil.obj debug\gwdbldbl.obj debug\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2ap.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ax.obj xmult3.obj xmult3a.obj xmult3ax.obj 
+gwnumd.lib: debug\cpuid.obj debug\gwnum.obj debug\gwutil.obj debug\gwdbldbl.obj debug\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2ap.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2p.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3p.obj xmult3a.obj xmult3ap.obj xmult3ax.obj 
     del gwnumd.lib
     lib /OUT:gwnumd.lib debug\*.obj *.obj
 
@@ -128,8 +121,14 @@ xmult1ax.obj: xmult1ax.asm xmult.mac xnormal.mac
 xmult2.obj: xmult2.asm xmult.mac xlucas.mac xfft2.mac xnormal.mac
     $(masm) xmult2.asm
 
+xmult2p.obj: xmult2.asm xmult.mac xlucas.mac xfft2.mac xnormal.mac
+    $(masm) /DAMD /Foxmult2p.obj xmult2.asm
+
 xmult2a.obj: xmult2a.asm xmult.mac xpass2.mac xlucas.mac
     $(masm) xmult2a.asm
+
+xmult2ap.obj: xmult2a.asm xmult.mac xpass2.mac xlucas.mac
+    $(masm) /DAMD /Foxmult2ap.obj xmult2a.asm
 
 xmult2ax.obj: xmult2ax.asm xmult.mac xnormal.mac
     $(masm) xmult2ax.asm
@@ -137,8 +136,14 @@ xmult2ax.obj: xmult2ax.asm xmult.mac xnormal.mac
 xmult3.obj: xmult3.asm xmult.mac xlucas.mac xfft3.mac xnormal.mac
     $(masm) xmult3.asm
 
+xmult3p.obj: xmult3.asm xmult.mac xlucas.mac xfft3.mac xnormal.mac
+    $(masm) /DAMD /Foxmult3p.obj xmult3.asm
+
 xmult3a.obj: xmult3a.asm xmult.mac xpass2.mac xlucas.mac
     $(masm) xmult3a.asm
+
+xmult3ap.obj: xmult3a.asm xmult.mac xpass2.mac xlucas.mac
+    $(masm) /DAMD /Foxmult3ap.obj xmult3a.asm
 
 xmult3ax.obj: xmult3ax.asm xmult.mac xnormal.mac
     $(masm) xmult3ax.asm

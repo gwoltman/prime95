@@ -1,6 +1,6 @@
 /* Constants */
 
-#define VERSION		"24.10"
+#define VERSION		"24.11"
 #define VERSION_BIT	14      	/* Bit number in broadcast map */
 /* The list of assigned version bits follows: */
 /* Version 24.0    uses bit #14 */
@@ -19,7 +19,7 @@
 /* OS/2		   uses bit #7 */
 
 #define MIN_PRIME	5L		/* Smallest testable prime */
-#define MAX_FACTOR	MAX_PRIME	/* Largest factorable number */
+#define MAX_FACTOR	2000000000	/* Largest factorable Mersenne number*/
 #define ERROR_RATE	0.018		/* Estimated error rate on clean run */
 
 /* Factoring limits based on complex formulas given the speed of the */

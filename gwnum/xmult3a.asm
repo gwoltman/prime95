@@ -28,8 +28,8 @@ ENDIF
 
 ;; Routines to do the last 11 levels in a two-pass FFT
 
-PUBLIC	xpass2_11_levels
-PUBLIC	xpass2_11_levels_p
+PUBLICP	xpass2_11_levels
+PUBLICP	xpass2_11_levels_p
 
 _TEXT SEGMENT
 
@@ -37,12 +37,12 @@ PREFETCHING = 1
 
 ;; Do the last 11 levels of a two pass FFT
 
-xpass2_11_levels PROC
+PROCP	xpass2_11_levels
 	start_timer 2
 	xpass2_11_levels_real 0
 	add	rsi, pass1blkdst
 	end_timer 2
-xpass2_11_levels_p:
+LABELP	xpass2_11_levels_p
 	start_timer 3
 	mov	ecx, count1		; Number of complex iterations
 	mov	rdx, pass2_premults	; Address of the group multipliers
@@ -53,7 +53,7 @@ p2lp:	xpass2_11_levels_complex 0
 	mov	rsi, _DESTARG		; Restore source pointer
 	end_timer 3
 	ret
-xpass2_11_levels ENDP
+ENDPP	xpass2_11_levels
 
 _TEXT	ENDS
 END
