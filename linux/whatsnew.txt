@@ -1,3 +1,16 @@
+New features in Version 22.3 of mprime
+--------------------------------------
+
+1)  Given more data, the roundoff error checking is now done on every
+    iteration for exponents within 1% of the maximum that can be tested
+    by the current FFT length.  If a roundoff error above 0.4 occurs,
+    then the iteration is now repeated without any change to the shift count.
+    It now takes a roundoff error greater than 0.6 to corrupt the results.
+2)  Many of the FFT ranges have changed.  Version 21 was too aggressive
+    in choosing FFT sizes for the P4.  The new handling of roundoff
+    errors above 0.4 lets us be more aggressive with the non-P4 code.
+3)  Result lines are now WYn rather than WXn.
+
 New features in Version 22.2 of mprime
 --------------------------------------
 
