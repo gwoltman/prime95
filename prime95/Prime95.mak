@@ -610,26 +610,26 @@ SOURCE=.\hlp\Prime95.hpj
 !IF  "$(CFG)" == "Prime95 - Win32 Release"
 
 # Begin Custom Build - Making help file...
-OutDir=.\Release
-ProjDir=.
-TargetName=Prime95
-InputPath=.\hlp\Prime95.hpj
+#OutDir=.\Release
+#ProjDir=.
+#TargetName=Prime95
+#InputPath=.\hlp\Prime95.hpj
 
-"$(OutDir)\$(TargetName).hlp" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-   "$(ProjDir)\makehelp.bat"
+#"$(OutDir)\$(TargetName).hlp" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+#   "$(ProjDir)\makehelp.bat"
 
 # End Custom Build
 
 !ELSEIF  "$(CFG)" == "Prime95 - Win32 Debug"
 
 # Begin Custom Build - Making help file...
-OutDir=.\Debug
-ProjDir=.
-TargetName=Prime95
-InputPath=.\hlp\Prime95.hpj
+#OutDir=.\Debug
+#ProjDir=.
+#TargetName=Prime95
+#InputPath=.\hlp\Prime95.hpj
 
-"$(OutDir)\$(TargetName).hlp" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-   "$(ProjDir)\makehelp.bat"
+#"$(OutDir)\$(TargetName).hlp" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+#   "$(ProjDir)\makehelp.bat"
 
 # End Custom Build
 
