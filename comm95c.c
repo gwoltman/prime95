@@ -8,6 +8,7 @@
 
 #include <ras.h>
 #include <winsock.h>
+#include <wininet.h>
 
 int	SOCKETS_INITIALIZED = 0;
 
@@ -52,6 +53,17 @@ static	DWORD (APIENTRY *RAS_STAT)(HRASCONN, LPRASCONNSTATUSA);
 /* already connected before we call primenet.  Otherwise, if */
 /* no one is at the computer to respond to the "Connect To" */
 /* dialog, the thread hangs until some one does respond. */
+
+/* RAS calls, see below, is no longer the MS-prefered method of detecting */
+/* an Internet connection.  Starting in version 22.10 we offer a way for */
+/* for users to use the prefered wininet.dll method. */
+/* InternetGetConnectedState should return FALSE if the modem is not */
+/* connected to the Internet. */
+
+	if (IniGetInt (INI_FILE, "AlternateModemDetection", 0)) {
+		DWORD	flags;
+		return (InternetGetConnectedState (&flags, 0));
+	}
 
 // Unfortunately, the RASAPI32.DLL is not installed on every
 // system.  We must load it dynamically.  If the RAS library

@@ -269,3 +269,9 @@ where n is the number of days.  You should increase this value if you are
 loading up worktodo.ini with a large amount of work and do not want any of
 the work to be unreserved.
 
+By default, Prime95 uses RAS routines to determine if your modem is connected
+to the Internet.  Microsoft now prefers the InternetGetConnectedState call
+in WININET.DLL.  To use this method instead of the RAS routines, add this
+line to prime.ini:
+	AlternateModemDetection=1
+
