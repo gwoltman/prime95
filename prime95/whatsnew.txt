@@ -1,3 +1,17 @@
+New features in Version 23.6 of prime95.exe
+-------------------------------------------
+
+1)  Several changes have been made to the torture test.
+    a) Machines faster than 1 GHz will use new test data that runs a lot more
+       iterations.  This will reduce time spent in initialization code,
+       hopefully increasing stress on the CPU.
+    b) The torture test stops after 100 ILLEGAL SUMOUT errors.
+    c) There are now 3 flavors of torture testing.  One that operates on small
+       FFTs only, theoretically maximizing FPU stress.  One that operates 
+       in place on large FFTs only, maximizing heat and power drain.  One that
+       runs a blend of tests using lots of memory, possibly catching errors
+       that might only occur at a specific memory address.
+
 New features in Version 23.5 of prime95.exe
 -------------------------------------------
 

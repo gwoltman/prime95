@@ -164,6 +164,16 @@ div.Section1
 	{mso-list-id:1888298215;
 	mso-list-type:hybrid;
 	mso-list-template-ids:-1283168378 67698703 67698713 67698715 67698703 67698713 67698715 67698703 67698713 67698715;}
+@list l5
+	{mso-list-id:1934779424;
+	mso-list-type:hybrid;
+	mso-list-template-ids:-477050626 67698703 67698711 67698715 67698703 67698713 67698715 67698703 67698713 67698715;}
+@list l5:level2
+	{mso-level-number-format:alpha-lower;
+	mso-level-text:"%2\)";
+	mso-level-tab-stop:1.0in;
+	mso-level-number-position:left;
+	text-indent:-.25in;}
 ol
 	{margin-bottom:0in;}
 ul
@@ -179,6 +189,44 @@ ul
 <div class=Section1>
 
 <h4><span style='mso-fareast-font-family:"MS Mincho"'>New features in Version
+23.6 of prime95.exe<o:p></o:p></span></h4>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=1 type=1>
+ <li class=MsoNormal style='mso-list:l5 level1 lfo24;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>Several changes have been made
+     to the torture test.<o:p></o:p></span></li>
+</ol>
+
+<p class=MsoNormal style='margin-left:1.0in;text-indent:-.25in;mso-list:l5 level2 lfo24;
+tab-stops:list 1.0in'><![if !supportLists]><span style='mso-fareast-font-family:
+"MS Mincho"'>a)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span></span><![endif]><span style='mso-fareast-font-family:"MS Mincho"'>Machines
+faster than 1 GHz will use new test data that runs a lot more iterations.<span
+style="mso-spacerun: yes">  </span>This will reduce time spent in
+initialization code, hopefully increasing stress on the CPU.<o:p></o:p></span></p>
+
+<p class=MsoNormal style='margin-left:1.0in;text-indent:-.25in;mso-list:l5 level2 lfo24;
+tab-stops:list 1.0in'><![if !supportLists]><span style='mso-fareast-font-family:
+"MS Mincho"'>b)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span></span><![endif]><span style='mso-fareast-font-family:"MS Mincho"'>The
+torture test stops after 100 ILLEGAL SUMOUT errors.<o:p></o:p></span></p>
+
+<p class=MsoNormal style='margin-left:1.0in;text-indent:-.25in;mso-list:l5 level2 lfo24;
+tab-stops:list 1.0in'><![if !supportLists]><span style='mso-fareast-font-family:
+"MS Mincho"'>c)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span></span><![endif]><span style='mso-fareast-font-family:"MS Mincho"'>There
+are now 3 flavors of torture testing.<span style="mso-spacerun: yes"> 
+</span>One that operates on small FFTs only, theoretically maximizing FPU
+stress.<span style="mso-spacerun: yes">  </span>One that operates in place on
+large FFTs only, maximizing heat and power drain.<span style="mso-spacerun:
+yes">  </span>One that runs a blend of tests using lots of memory, possibly
+catching errors that might only occur at a specific memory address.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
+
+<h4><span style='mso-fareast-font-family:"MS Mincho"'>New features in Version
 23.5 of prime95.exe<o:p></o:p></span></h4>
 
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
@@ -191,7 +239,7 @@ ul
 
 <p class=MsoNormal style='margin-left:1.0in;text-indent:-.25in;mso-list:l1 level2 lfo3;
 tab-stops:list 1.0in'><![if !supportLists]><span style='mso-fareast-font-family:
-"MS Mincho"'>a)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+"MS Mincho"'>a)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='mso-fareast-font-family:"MS Mincho"'>The
 program now returns the number of errors that occurred when the result is
 prime.<span style="mso-spacerun: yes">  </span>A non-zero value will make us
@@ -199,7 +247,7 @@ more suspect of the reported prime.<o:p></o:p></span></p>
 
 <p class=MsoNormal style='margin-left:1.0in;text-indent:-.25in;mso-list:l1 level2 lfo3;
 tab-stops:list 1.0in'><![if !supportLists]><span style='mso-fareast-font-family:
-"MS Mincho"'>b)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+"MS Mincho"'>b)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='mso-fareast-font-family:"MS Mincho"'>The
 save files will not be deleted.<span style="mso-spacerun: yes">  </span>The
 user can then email these to me and we can rerun the last 30 minutes of the LL
@@ -208,7 +256,7 @@ false positive report in this mini LL run.<o:p></o:p></span></p>
 
 <p class=MsoNormal style='margin-left:1.0in;text-indent:-.25in;mso-list:l1 level2 lfo3;
 tab-stops:list 1.0in'><![if !supportLists]><span style='mso-fareast-font-family:
-"MS Mincho"'>c)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+"MS Mincho"'>c)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='mso-fareast-font-family:"MS Mincho"'>The
 shift counter is now checked every iteration.<span style="mso-spacerun: yes"> 
 </span>If this variable AND the FFT data was corrupted, then and endless loop
@@ -217,13 +265,13 @@ report.<o:p></o:p></span></p>
 
 <p class=MsoNormal style='margin-left:1.0in;text-indent:-.25in;mso-list:l1 level2 lfo3;
 tab-stops:list 1.0in'><![if !supportLists]><span style='mso-fareast-font-family:
-"MS Mincho"'>d)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+"MS Mincho"'>d)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='mso-fareast-font-family:"MS Mincho"'>Every
 iteration the FFT data is checked to see if the data has been zeroed.<o:p></o:p></span></p>
 
 <p class=MsoNormal style='margin-left:1.0in;text-indent:-.25in;mso-list:l1 level2 lfo3;
 tab-stops:list 1.0in'><![if !supportLists]><span style='mso-fareast-font-family:
-"MS Mincho"'>e)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+"MS Mincho"'>e)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='mso-fareast-font-family:"MS Mincho"'>The
 is-this-a-prime check now makes sure the FFT data is not NaN.<span
 style="mso-spacerun: yes">   </span>NaN stands for not a number and means the

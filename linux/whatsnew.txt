@@ -1,3 +1,12 @@
+New features in Version 23.6 of mprime
+--------------------------------------
+
+1)  Several changes have been made to the torture test.
+    a) Machines faster than 1 GHz will use new test data that runs a lot more
+       iterations.  This will reduce time spent in initialization code,
+       hopefully increasing stress on the CPU.
+    b) The torture test stops after 100 ILLEGAL SUMOUT errors.
+
 New features in Version 23.5 of mprime
 --------------------------------------
 
