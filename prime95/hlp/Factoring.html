@@ -13,19 +13,23 @@ xmlns="http://www.w3.org/TR/REC-html40">
 <!--[if gte mso 9]><xml>
  <o:DocumentProperties>
   <o:Author>enduser</o:Author>
-  <o:LastAuthor>enduser</o:LastAuthor>
-  <o:Revision>11</o:Revision>
+  <o:LastAuthor>RavvinGe</o:LastAuthor>
+  <o:Revision>12</o:Revision>
   <o:TotalTime>21</o:TotalTime>
   <o:Created>2001-07-06T03:53:00Z</o:Created>
-  <o:LastSaved>2001-08-12T01:47:00Z</o:LastSaved>
+  <o:LastSaved>2002-05-21T14:28:00Z</o:LastSaved>
   <o:Pages>2</o:Pages>
-  <o:Words>736</o:Words>
-  <o:Characters>4198</o:Characters>
+  <o:Words>735</o:Words>
+  <o:Characters>4195</o:Characters>
   <o:Lines>34</o:Lines>
   <o:Paragraphs>8</o:Paragraphs>
-  <o:CharactersWithSpaces>5155</o:CharactersWithSpaces>
-  <o:Version>9.3821</o:Version>
+  <o:CharactersWithSpaces>5151</o:CharactersWithSpaces>
+  <o:Version>9.4402</o:Version>
  </o:DocumentProperties>
+</xml><![endif]--><!--[if gte mso 9]><xml>
+ <w:WordDocument>
+  <w:Zoom>88</w:Zoom>
+ </w:WordDocument>
 </xml><![endif]-->
 <style>
 <!--
@@ -40,6 +44,7 @@ xmlns="http://www.w3.org/TR/REC-html40">
 	mso-font-signature:-1610612033 1757936891 16 0 131231 0;}
 @font-face
 	{font-family:"\@MS Mincho";
+	panose-1:2 2 6 9 4 2 5 8 3 4;
 	mso-font-charset:128;
 	mso-generic-font-family:modern;
 	mso-font-pitch:fixed;
@@ -139,7 +144,9 @@ font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho";color:black'>F
 DETAILS</span></b><span style='font-family:"Times New Roman";mso-fareast-font-family:
 "MS Mincho";color:black'><o:p></o:p></span></p>
 
-<p class=MsoPlainText><span style='mso-fareast-font-family:"MS Mincho"'>--------------------<o:p></o:p></span></p>
+<p class=MsoPlainText><span style='font-family:"Times New Roman";mso-fareast-font-family:
+"MS Mincho";color:black'>--------------------</span><span style='mso-fareast-font-family:
+"MS Mincho"'><o:p></o:p></span></p>
 
 <h4><span style='font-size:10.0pt;font-family:"Times New Roman";mso-fareast-font-family:
 "MS Mincho";color:black'>Forming a list<o:p></o:p></span></h4>
@@ -149,8 +156,8 @@ font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho";color:black'>I
 dealing with Mersenne numbers, it is easy to <a
 href="http://www.utm.edu/research/primes/notes/proofs/Theorem2.html"><span
 style='color:black;text-decoration:none;text-underline:none'>prove</span></a>
-that if 2<sup>P</sup>-1 is prime, then P must be a prime. Thus, the first step in
-the search is to create a list of prime exponents to test.<o:p></o:p></span></p>
+that if 2<sup>P</sup>-1 is prime, then P must be a prime. Thus, the first step
+in the search is to create a list of prime exponents to test.<o:p></o:p></span></p>
 
 <h4><span style='font-size:10.0pt;font-family:"Times New Roman";mso-fareast-font-family:
 "MS Mincho";color:black'>Trial Factoring<o:p></o:p></span></h4>
@@ -158,11 +165,11 @@ the search is to create a list of prime exponents to test.<o:p></o:p></span></p>
 <p><span style='font-size:10.0pt;font-family:"Times New Roman";mso-fareast-font-family:
 "MS Mincho";color:black'>The next step is to eliminate exponents by finding a
 small factor. There are very efficient algorithms for determining if a number
-divides 2<sup>P</sup>-1. For example, let's see if 47 divides 2<sup>23</sup>-1.
-<span style="mso-spacerun: yes"> </span>Convert the exponent 23 to binary, you
-get 10111. Starting with 1, repeatedly square, remove the top bit of the
-exponent and if 1 multiply squared value by 2, then compute the remainder upon
-division by 47. <o:p></o:p></span></p>
+divides 2<sup>P</sup>-1. For example, let's see if 47 divides 2<sup>23</sup>-1.<span
+style="mso-spacerun: yes">  </span>Convert the exponent 23 to binary, you get
+10111. Starting with 1, repeatedly square, remove the top bit of the exponent
+and if 1 multiply squared value by 2, then compute the remainder upon division
+by 47. <o:p></o:p></span></p>
 
 <table border=1 cellspacing=0 cellpadding=0 style='margin-left:17.6pt;
  border-collapse:collapse;border:none;mso-border-top-alt:solid black 1.5pt;
@@ -397,10 +404,10 @@ style='font-size:10.0pt;font-family:"Times New Roman";mso-fareast-font-family:
 
 <p style='margin:0in;margin-bottom:.0001pt;tab-stops:45.8pt 91.6pt 137.4pt 183.2pt 229.0pt 274.8pt 320.6pt 366.4pt 412.2pt 458.0pt 503.8pt 549.6pt 595.4pt 641.2pt 687.0pt 732.8pt'><span
 style='font-size:10.0pt;font-family:"Times New Roman";mso-fareast-font-family:
-"MS Mincho";color:black'>Now the only question remaining is how much trial
-factoring should be done? The answer depends on three variables: the cost of
-factoring, the chance of finding a factor, and the cost of a primality test.
-The formula used is: <o:p></o:p></span></p>
+"MS Mincho";color:black'>Now the only question remaining is how much trial factoring
+should be done? The answer depends on three variables: the cost of factoring,
+the chance of finding a factor, and the cost of a primality test. The formula
+used is: <o:p></o:p></span></p>
 
 <pre><span style='font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho";
 color:black'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></pre><pre
@@ -436,7 +443,7 @@ mso-fareast-font-family:"MS Mincho";color:black'>---------<span style="mso-space
 style='margin-left:.25in'><span style='font-family:"Times New Roman";
 mso-fareast-font-family:"MS Mincho";color:black'>3960000<span style="mso-spacerun: yes">         </span>2<sup>60</sup><o:p></o:p></span></pre><pre
 style='margin-left:.25in'><span style='font-family:"Times New Roman";
-mso-fareast-font-family:"MS Mincho";color:black'>5160000<span style="mso-spacerun: yes">         </span>2<sup>61</sup><o:p></o:p></span></pre><pre
+mso-fareast-font-family:"MS Mincho";color:black'>5160000<span style="mso-spacerun: yes">      </span><span style="mso-spacerun: yes">   </span>2<sup>61</sup><o:p></o:p></span></pre><pre
 style='margin-left:.25in'><span style='font-family:"Times New Roman";
 mso-fareast-font-family:"MS Mincho";color:black'>6515000<span style="mso-spacerun: yes">         </span>2<sup>62</sup><o:p></o:p></span></pre><pre
 style='margin-left:.25in'><span style='font-family:"Times New Roman";
@@ -511,15 +518,15 @@ style='font-size:10.0pt;font-family:"Times New Roman";mso-fareast-font-family:
 factors. For example: <o:p></o:p></span></p>
 
 <pre><span style='font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho";
-color:black'><span style='mso-tab-count:1'>                    </span><o:p></o:p></span></pre><pre><span
+color:black'><span style='mso-tab-count:1'>                  </span><o:p></o:p></span></pre><pre><span
 style='font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho";
-color:black'><span style='mso-tab-count:1'>                    </span>2<sup>2944999</sup>-1 is divisible by 314584703073057080643101377.<o:p></o:p></span></pre><pre><span
+color:black'><span style='mso-tab-count:1'>                  </span>2<sup>2944999</sup>-1 is divisible by 314584703073057080643101377.<o:p></o:p></span></pre><pre><span
 style='font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho";
-color:black'><span style='mso-tab-count:1'>                    </span>314584703073057080643101377 is 2 * 53409984701702289312 * 2944999 + 1.<o:p></o:p></span></pre><pre><span
+color:black'><span style='mso-tab-count:1'>                  </span>314584703073057080643101377 is 2 * 53409984701702289312 * 2944999 + 1.<o:p></o:p></span></pre><pre><span
 style='font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho";
-color:black'><span style='mso-tab-count:1'>                    </span>The value k, 53409984701702289312, is very smooth:<o:p></o:p></span></pre><pre><span
+color:black'><span style='mso-tab-count:1'>                  </span>The value k, 53409984701702289312, is very smooth:<o:p></o:p></span></pre><pre><span
 style='font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho";
-color:black'><span style='mso-tab-count:1'>                    </span>53409984701702289312 = 25 * 3 * 19 * 947 * 7187 * 62297 * 69061<o:p></o:p></span></pre>
+color:black'><span style='mso-tab-count:1'>                  </span>53409984701702289312 = 25 * 3 * 19 * 947 * 7187 * 62297 * 69061<o:p></o:p></span></pre>
 
 <p style='margin:0in;margin-bottom:.0001pt;tab-stops:45.8pt 91.6pt 137.4pt 183.2pt 229.0pt 274.8pt 320.6pt 366.4pt 412.2pt 458.0pt 503.8pt 549.6pt 595.4pt 641.2pt 687.0pt 732.8pt'><span
 style='font-size:10.0pt;font-family:"Times New Roman";mso-fareast-font-family:
@@ -527,13 +534,13 @@ style='font-size:10.0pt;font-family:"Times New Roman";mso-fareast-font-family:
 
 <p style='margin:0in;margin-bottom:.0001pt;tab-stops:45.8pt 91.6pt 137.4pt 183.2pt 229.0pt 274.8pt 320.6pt 366.4pt 412.2pt 458.0pt 503.8pt 549.6pt 595.4pt 641.2pt 687.0pt 732.8pt'><span
 style='font-size:10.0pt;font-family:"Times New Roman";mso-fareast-font-family:
-"MS Mincho";color:black'>So how does GIMPS intelligently choose B1 and B2? We use
-a variation of the formula used in trial factoring. We must maximize: <o:p></o:p></span></p>
+"MS Mincho";color:black'>So how does GIMPS intelligently choose B1 and B2? We
+use a variation of the formula used in trial factoring. We must maximize: <o:p></o:p></span></p>
 
 <pre><span style='font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho";
-color:black'><span style='mso-tab-count:2'>                                         </span><o:p></o:p></span></pre><pre><span
+color:black'><span style='mso-tab-count:2'>                                    </span><o:p></o:p></span></pre><pre><span
 style='font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho";
-color:black'><span style='mso-tab-count:1'>                    </span>chance_of_finding_factor * 2 * primality_test_cost - factoring_cost<o:p></o:p></span></pre>
+color:black'><span style='mso-tab-count:1'>                  </span>chance_of_finding_factor * 2 * primality_test_cost - factoring_cost<o:p></o:p></span></pre>
 
 <p style='tab-stops:45.8pt 91.6pt 137.4pt 183.2pt 229.0pt 274.8pt 320.6pt 366.4pt 412.2pt 458.0pt 503.8pt 549.6pt 595.4pt 641.2pt 687.0pt 732.8pt'><span
 style='font-size:10.0pt;font-family:"Times New Roman";mso-fareast-font-family:
