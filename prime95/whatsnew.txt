@@ -8,6 +8,10 @@ New features in Version 22.10 of prime95.exe
     administrator privileges then prime95 cannot install itself as a service.
     Thus, the Start at Bootup option will set prime95 to run at login time
     rather than bootup time.
+3)  A crash bug when selecting "Start at Bootup" on Windows NT3 and Windows NT4
+    systems was fixed.
+4)  Bug in starting more than one prime95 as NT services on multi-processor
+    machines was fixed.
 
 New features in Version 22.9 of prime95.exe
 -------------------------------------------

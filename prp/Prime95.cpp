@@ -118,6 +118,12 @@ BOOL CPrime95App::InitInstance()
 		_chdir (buf);
 	}
 
+/* NT services are not passed command line arguments.  In this case we */
+/* encode the -An information in the NT service name. */
+
+	if (NTSERVICENAME[0] && NTSERVICENAME[15] == '-')
+		named_ini_files = atoi (&NTSERVICENAME[16]);
+
 // Process command line switches
 
 	for (p = m_lpCmdLine; *p == '//' || *p == '-'; ) {
@@ -285,9 +291,7 @@ simple_mutex:	 	g_hMutexInst = CreateMutex (
 		SetWindowLong (m_pMainWnd->m_hWnd, GWL_USERDATA, g_MutexNum);
 	}
 
-/* Determine the names of the INI files and read them.  Note that NT */
-/* services are not passed command line arguments.  In this case we */
-/* encode this information in the NT service name. */
+/* Read the INI files. */
 
 	if (NTSERVICENAME[0] && NTSERVICENAME[15] == '-')
 		named_ini_files = atoi (&NTSERVICENAME[16]);

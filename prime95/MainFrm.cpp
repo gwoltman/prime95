@@ -434,8 +434,6 @@ void Service95 ()
 // Create the service entry
 
 		if (WINDOWS95_SERVICE) {
-			SERVICE_DESCRIPTION svc_desc;
-
 			schService = CreateService (
 				schSCManager,		// SCManager database
 				servicename,		// name of service
@@ -457,12 +455,17 @@ void Service95 ()
 				goto done;
 			}
 
-			svc_desc.lpDescription =
-				"GIMPS client to find large prime numbers";
-			ChangeServiceConfig2 (
-				schService,
-				SERVICE_CONFIG_DESCRIPTION,
-				&svc_desc);
+// Set description for Win2K and later
+
+			if (isWindows2000 ()) {
+				SERVICE_DESCRIPTION svc_desc;
+				svc_desc.lpDescription =
+					"GIMPS client to find large prime numbers";
+				ChangeServiceConfig2 (
+					schService,
+					SERVICE_CONFIG_DESCRIPTION,
+					&svc_desc);
+			}
 		}
 
 // Remove the service entry
