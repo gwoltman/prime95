@@ -1,0 +1,12 @@
+mkdir ../release
+rm -f ../release/*
+cp readme.txt ../release
+strip prp
+strip sprp
+cp prp ../release
+cd ../release
+tar -czvf ../prp.tgz *
+rm prp
+cp ../linuxprp/sprp ./prp
+tar -czvf ../sprp.tgz *
+rm *

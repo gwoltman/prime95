@@ -1,0 +1,427 @@
+New features in Version 22.2 of mprime
+--------------------------------------
+
+1)  Factoring assignments go to machines slower than a 233 MHz Pentium.
+    Double-checks are assigned machines slower than a 500 MHz P-III.
+2)  The speed of the GCD has been improved.
+3)  Some of the P4 FFT ranges have changed.  Version 21 was too aggresive
+    in choosing FFT sizes for the P4.
+4)  Roundoff error checking is now done on every iteration for exponents
+    within 2% of the maximum that can be tested by the current FFT length.
+    See undoc.txt for ways to disable this new feature.
+5)  The previous version would get into an infinite loop if a repeatable
+    roundoff error larger than 0.48 was discovered.  Now if a repeatable
+    roundoff error greater than 0.45 is found, then the iteration is
+    repeated after shifting the FFT data.
+
+New features in Version 22.1 of mprime
+--------------------------------------
+
+1)  Some bugs in error handling when communicating with the server have
+    been fixed.
+2)  "Basic" Proxy server authentication is supported.
+3)  The program now uses a high resolution timer rather than the RDTSC
+    instruction to time events.  This should help the program display accurate
+    timings on laptops with SpeedStep or desktops that can hibernate.  You can
+    force the program to use the old RDTSC timing method with the RdtscTiming
+    option described in undoc.txt.
+4)  The program uses a updated algorithm to automatically detect CPU type and
+    speed.  The Options/CPU dialog box no longer let's you set this
+    information.  Instead, the Options/CPU dialog displays the detected
+    CPU type and speed.  This new feature helps prevent incorrect settings
+    when users upgrade or try several overclocking speeds.  If the new
+    algorithm fails, you can overide the settings as described in undoc.txt.
+5)  Benchmark now writes the program version, timing methodology, cpu type
+    and speed, L1 and L2 cache information to results.txt.  Refuse to
+    benchmark if rdtsctiming is 10.
+
+
+New features in Version 21.4 of mprime
+--------------------------------------
+
+1)  Exiting the Torture Test now prints out how long it ran.
+2)  P4 error checking was relaxed slightly to reduce false alarms.
+
+New features in Version 21.3 of mprime
+--------------------------------------
+
+1)  The program will now skip the P-1 factoring stage if another user has
+    already performed this step.
+2)  The Advanced/Quit GIMPS menu choice now lets you quit after current
+    work completes or quit immediately.
+3)  A bug was fixed in the error recovery code.  After getting a "Disregard
+    last error" message, the user was treated to a new error on every
+    iteration.  The end result was incorrect.  The bug only affected the
+    error recovery of the new P4 FFT introduced in the beta version 21.2.
+
+New features in Version 21.2 of mprime
+--------------------------------------
+
+1)  The program now uses the SSE2 instructions introduced on the Pentium 4 CPU.
+    This version is about 3 times faster than the previous version on a P4.
+2)  The program now uses the prefetch instructions on the Celeron 2, Pentium 3,
+    and all Athlon CPUs.  This results in about a 20% performance boost on
+    these machines.
+3)  The default crossover between double-check assignments and first-time
+    tests has been increased to a 400 MHz PII.
+4)  The program used to do factoring and P-1 testing on new exponents before
+    completing LL tests on older exponents.  This was confusing to many.
+    The program now processes the worktodo.ini file in sequential order.
+    See undoc.txt on how to restore the old behavior.
+5)  Error messages such as ILLEGAL SUMOUT, SUMINP != SUMOUT, etc. are no
+    longer sent to the server since the final result contains a count of how
+    many errors occured during the LL test.
+6)  Some of the FFT crossover points have changed slightly.
+7)  Test/Status now outputs the day of the week each work item will complete.
+8)  Interim output lines have changed - hopefully, so they are more useful
+    especially to newbies.  By default, output lines no longer contain the
+    clocks count.  Lines now contain a timestamp.  Benchmark timings are now
+    output in milliseconds.  These defaults can be changed using options
+    in undoc.txt.
+9)  A new welcome screen for new users will encourage stress testers
+    to use the program without reserving exponents.
+10) There is now a menu choice that lets you unreserve a specific exponent.
+    This is for knowledgable users only.  You might do this if the server
+    assigned a small exponent and you'd rather be testing larger ones.  Or
+    the prime95 you set up on another machine had a hard drive failure.
+11) The self-test menu choice was deleted - use the torture test instead.
+12) A benchmark menu choice has been added.
+13) The torture test code now includes more FFT lengths including smaller
+    ones that run completely in the L2 cache which may increase CPU
+    temperatures.  Each FFT size is tested for 15 minutes by default.
+    There are now several options in the undoc.txt for fine tuning the
+    torture test's behavior.
+
+New features in Version 20.4 of mprime
+--------------------------------------
+
+1)  If stage 2 of P-1 was postponed because of insufficient memory, the
+    program did not restart stage 2 when nighttime started.  This bug was
+    fixed.
+2)  The -B switch, now properly documented in readme.txt, takes an optional
+    parameter for the number of mprime instances to run in background.
+3)  The undocumented RouteRequired INI setting was added.
+4)  By default, PII-300's and faster get first-time LL tests, P-90 and faster
+    get double-checking work, and all slower machines get factoring work.
+
+New features in Version 20.3 of mprime
+--------------------------------------
+
+1)  Another fairly uncommon ECM bug was fixed.  The bug caused "Factor does
+    not divide N!" errors.
+2)  A couple of minor bugs in computing the optimal P-1 bounds to use prior
+    to a Lucas-Lehmer test were fixed.  The program now does a better job at
+    estimating the memory required in P-1 stage 2.  Finally, although P-1
+    stage 2 working set size is unchanged, the program allocates less memory
+    in stage 2.
+3)  Mprime no longer searches for a smaller factor when trial factoring
+    discovers a factor.  The reasons are two-fold.  1)  Version 19 had a
+    bug where stopping and restarting the program bypassed the search for
+    smaller factors.  Thus, my database may already be missing smaller
+    factors.  2) As we factor larger exponents to a deeper depth it may
+    no longer be a quick job to determine if there are smaller factors.
+    Note, that version 20 will still look for smaller factors if you are
+    looking for factors below 2^60 with the undocumented FactorOverride option.
+4)  The undocumented AMPM feature controls how times are formatted in the
+    Options/CPU dialog box.
+
+New features in Version 20.2 of mprime
+--------------------------------------
+
+1)  If P-1 stage 1 completed and there was not enough memory to start
+    stage 2 immediately, then an incorrect save file was generated.  This
+    bug was introduced in version 20.1.  Upon restart of the P-1 factoring
+    job a crash or other unpredictable behavior was possible.  This bug was
+    fixed and this version has special code to properly read these
+    incorrect save files.
+2)  P-1 will restart any time the memory settings change.  This is done
+    so that the optimal P-1 bounds can be computed with the new memory
+    settings.
+3)  A bug in ECM testing was fixed.
+
+New features in Version 20.1 of mprime
+--------------------------------------
+
+1)  The program now does some P-1 factoring prior to running first time
+    and double-checking Lucas-Lehmer tests.  This will increase overall
+    GIMPS throughput.  If you install version 20 in the middle of an LL test
+    the program will run the P-1 step if the LL test is less than 50%
+    complete.
+2)  The Options/CPU dialog box now asks how much memory the program can
+    use during the P-1 factoring.  See the "Setting Available Memory"
+    section in the readme.txt file.
+3)  Stage 1 of P-1 factoring is now faster.
+4)  The GCD used in P-1 and ECM factoring is now faster.
+5)  The Test/Manual Operation menu choice has been deleted.
+6)  The memory options in P-1 and ECM dialog boxes have been deleted.
+7)  The "send new completion dates" checkbox was moved from the Test/Primenet
+    dialog box to the Advanced/Manual Communication dialog box.
+8)  A bug in estimating time remaining for a factoring job was fixed.
+9)  The Advanced/Quit GIMPS menu option now defaults to NO.
+10) ECM and P-1 are now consistent with Lucas-Lehmer testing in the use
+    of the "Iterations between screen outputs" setting.  An iteration is
+    defined as the time it takes to do a squaring.  If you are doing ECM
+    on small exponents you will probably want to increase this setting.
+11) Timings in P-1 are no longer cumulative.  There is a new
+    feature in undoc.txt for those that prefer cumulative timings.
+12) The FactorOverride undocumented feature (not for use with PrimeNet) now
+    supports factoring to a deeper level than prime95 would ordinarily factor.
+13) Resuming an LL test now outputs a line to the screen,
+14) Advanced/Factor menu choice was deleted.
+15) A -B switch was added to run mprime in the background.
+
+New features in Version 19.1 of mprime
+--------------------------------------
+
+1)  A new undocumented feature, Stage1GCD, lets you speed up P-1 tests
+    on large exponents - see undoc.txt for details.
+2)  K6 CPUs now default to the Pentium code path instead of the Pentium
+    Pro code path.  This is faster on the K6.
+3)  A bug that caused negative elapsed time on 486 and Cyrix CPUs has been
+    fixed.
+4)  The rolling average formula was adjusted to work better on machines
+    that are not on 24 hours a day.
+5)  You can now put EntropiaIP=207.104.25.155 in primenet.ini to work
+    around error 2250 problems when using the statically linked mprime
+    on older Linux versions.
+6)  An alignment bug that caused factoring to be slower than the Windows
+    program was fixed.
+
+New features in Version 19.0 of mprime
+--------------------------------------
+
+1)  Faster - in some cases as much as 10% faster!.  The FFTs were recoded
+    for improved memory and TLB efficiency.  Furthermore, optimizations
+    specific to the Pentium Pro and later processors were added.
+2)  New FFT lengths.  The program can now test exponents as large as
+    79.3 million.  Also, smaller FFT lengths are supported for use in
+    ECM and P-1 factoring.
+3)  More conservative FFT breakpoints.  This could actually result in
+    some exponents being slower to test in this version.  However, the
+    chance of a fatal rounding error has been reduced.
+4)  P-1 factoring has been added.  Although it is not very practical for
+    large exponents because of a slow GCD routine, it can be used to
+    find new factors of exponents below a million or so.
+5)  ECM can now run on large exponents.  Once again, the slow GCD routine
+    might make this impractical for large exponents.
+6)  ECM and P-1 factoring now support save files.  Very handy on lengthy runs.
+    The count of completed ECM curves is maintained in the save file instead
+    of the worktodo.ini file.
+7)  ECM and P-1 factoring lets you specify the amount of memory to use.
+    More memory can improve execution speed slightly.
+8)  A bug in guessing the CPU speed on initial install has been fixed.
+9)  Error checking has been improved slightly.
+10) Factoring is now "layered".  That is, prime95 now factors to 2^50, then
+    2^51, 2^52, and so forth up to the appropriate limit.  The factoring
+    output lines have been changed to show percent complete in the current
+    "layer".
+11) A bug in running two or more self or torture tests in the same directory
+    has been fixed
+12) Trial factoring above 2^64 is now supported.
+13) More trial factoring is now done to take into account the cost of
+    double-checking.
+14) By default, the percent complete value is now displayed to 2 decimal
+    places.  You can change this by setting PercentPrecision in prime.ini
+    to a value between 0 and 6.
+15) An option to get only 10,000,000 digit numbers to run primality tests
+    on has been added to the Test/Primenet dialog box.  See
+    http://www.mersenne.org/prize.htm for rules on claiming the EFF award
+    for finding a 10,000,000 digit prime.
+16) The User Information dialog box allows you to request newsletters and
+    form a team user ID where the team members cannot alter the team name.
+17) A bug in the reporting of error counts in the results.txt file has
+    been fixed.
+18) The server can now broadcast important messages to the mprime client.
+19) Mprime now tries to prevent two copies of mprime from running
+    simultaneously.  Although not foolproof, it should greatly reduce
+    the chances of corrupting the intermediate files.  Note, multi-processor
+    systems are not affected due to using the -An switch or running in
+    different directories.
+20) The -c option allows you to run mprime, have it communicate with the
+    PrimeNet server, and then exit.
+21) A computer ID will be generated for computers that do not have one.  If
+    you want to assign your own computer ID, please try to make each
+    computer ID using the same user ID unique.
+
+New features in Version 18.1 of mprime
+--------------------------------------
+
+1)  Bug fixed in Lucas-Lehmer testing of exponents above 4194304.
+2)  Added code so that server can distinguish between a v17 and v18 client.
+
+New features in Version 17.1 of mprime
+--------------------------------------
+
+1)  You can now fine tune your control of the program by adding Time=
+    lines to your prime.ini file - see the readme.txt file.
+2)  ECM factoring for 2^N+1 is now available.
+3)  By default, ECM factoring stops if a factor is found for exponents
+    above 5825 and continues (if the cofactor is composite) for exponents
+    below 5825.  You can override this behavior by setting ContinueECM=0
+    or 1 in prime.ini.
+
+New features in Version 17.0 of mprime
+--------------------------------------
+
+1)  Mprime can now be used to double-check its own results.
+2)  Machines less powerful than a P133 will default to double-checking
+    assignments.
+3)  The total number of errors that occur during the Lucas-Lehmer test
+    are now output in results.txt.
+
+New features in Version 16.4 of mprime
+--------------------------------------
+
+1)  Lucas-Lehmer testing output now shows percent complete.
+2)  ECM factoring is available for small exponents.  See
+    http://www.mersenne.org/ecm.htm for a list of exponents that
+    need factoring.
+3)  A bug that prevented 486 & Cyrix machines from factoring above 2^62
+    has been fixed.
+4)  The LockUserInfo feature no longer sends user info every time prime95
+    starts up.
+5)  Test/Status now shows expected completion dates.
+
+New features in Version 16.3 of mprime
+--------------------------------------
+
+1)  Mprime can now test exponents up to 20.5 million.
+2)  Mprime can now find factors up to 2^64.
+3)  The program now reports to the PrimeNet server new completion dates
+    every 28 days (actually user adjustable from 1 to 60 days).  This will
+    improve the reclaiming of exponents that are not being actively tested.
+4)  The program now reports the current iteration number to the server
+    for more informative status reports.
+5)  Intermediate files are now less likely to fail.  If an error occurs
+    during the writing of an intermediate file, the program continues on
+    trying to write the intermediate file every 10 minutes.
+6)  A bug in the rolling average code has been fixed.  Mprime now modifies
+    the rolling average when factoring too.
+7)  The prime.log file is now limited in size to 256K bytes.
+8)  The user information dialog box now has a checkbox to tell the server
+    not to send email.
+9)  Setting LockUserInfo=1 in prime.ini will make the user information
+    dialog box inaccessible.  This setting is also sent to the server
+    so that no member of a team can accidentally transfer the credit
+    for work previously performed by the team.
+
+New features in Version 15.4 of mprime
+--------------------------------------
+
+1)  Mprime can now contact a central server to get exponents to test,
+    report results, and change your email address.  No database is required!
+    The old manual reservation system is still supported.
+2)  The command line interface is replaced by a series of menus and
+    questions to control your preferences.  These menus are similar
+    to the menus in the Windows executable.  All preferences are
+    now stored in local INI files that are compatible with the Windows
+    program.  This should make mprime easier to use, especially for those
+    users running both operating systems.
+3)  The Pentium factoring code (up to 60 bit factors) is about 4.5% faster.
+4)  The CPU menu now has an entry for the AMD K6 and an entry
+    for how many hours per day you expect to be running the program.
+5)  Mprime will no longer let you select Pentium Pro or Pentium CPU type
+    unless your CPU supports the process-specific instructions.
+6)  You can now change how often prime95 saves intermediate files to disk.
+7)  You can now select one save file or two.
+8)  -A switch added.  This allows you to run multiple copies of prime95
+    from the same directory.  This is useful on multi-processor machines.
+9)  Mprime now changes its working directory to the same directory that
+    mprime is located.  This makes it easier to launch mprime from startup
+    scripts.  If you must run mprime from a different directory than the
+    rest of the files, then use the new -W switch.
+10) The time estimate in the Status menu choice now takes into account
+    the time you've invested in the current Lucas-Lehmer test.  It also
+    takes into account how many hours per day you are running the program.
+    It also adjusts its time estimate if your computer seems to be running
+    faster or slower than expected.
+11) Timestamps in the results.txt file.  
+12) The results file is now named results.txt, not results.  
+
+New features in Version 14.4 of mprime
+--------------------------------------
+
+1)  The Pentium Pro factoring code is nearly twice as
+    fast compared to the previous version.
+
+New features in Version 14.2 of mprime
+--------------------------------------
+
+1)  Corrected floating point round-off bugs in the factoring code that
+    affected testing factors larger than 2^59.
+2)  The Pentium factoring code is 5-10% faster.
+3)  When an error is detected the program now waits 5 minutes before 
+    restarting from the last save file.
+4)  The detection of corrupt save files has improved.
+
+New features in Version 14.1 of mprime
+--------------------------------------
+
+1)  The Pentium factoring code is 5% faster.
+
+New features in Version 14.0 of mprime
+--------------------------------------
+
+1)  The program can now check exponents up to 5.26 million!  To test
+    these big exponents, you will need a new database and great patience.
+2)  The per-iteration error checking code has been improved.  It will
+    detect more errors and automatically restart from the previous save
+    file.
+3)  The -c option now has a number for Cyrix machines.  There is no
+    Cyrix-specific code.  This change does provide better estimates in
+    status option.
+4)  There is a machine torture test option which runs a continuous Self Test.
+    This is great for "burning in" a new machine.
+5)  The time estimates in status option have been changed slightly.
+    Hopefully, the new estimates are a little more accurate.
+6)  The self test option now takes nine hours.
+
+New features in Version 13.3.2 of mprime
+----------------------------------------
+
+1) It's smaller.  Mprime is no longer linked
+   with the static C runtime library.  The staticly
+   linked version is still available for a.out Linux systems.
+2) Improved error checking should detect more
+   hardware problems with fewer false alarms.
+
+New features in Version 13.1.2 of mprime
+----------------------------------------
+
+1) Faster!  Support for non-power-of-2 FFT lengths
+   has been added.
+2) The -I switch has been added.  This switch prints
+   a status line to the results file every N iterations.
+   For example, -I50000 will print a line to the results
+   file after Lucas-Lehmer iteration 50000, 100000, etc.
+3) The program now creates two backup files in case one
+   is corrupted during a system crash.
+
+New features in Version 1.3 of mprime
+-------------------------------------
+
+1) A minor bug in the status report code is fixed.
+2) The -L and -P switches have been implemented, but
+   not tested.  The -L switch takes a floating point
+   number as an argument.  If the load as reported in
+   /proc/loadavg rises above this threshold, then the
+   program pauses for as many seconds as specified by
+   the -P switch.  This allows you to free up mprime's
+   memory for other tasks to use during high load
+   conditions.
+
+New features in Version 1.2 of mprime
+-------------------------------------
+
+1)  A minor bug in the Pentium factoring code has been fixed.
+
+New features in Version 1.1 of mprime
+-------------------------------------
+
+1)  Factoring is now 6% faster due to a 16 pass
+    process rather than a 2 pass process.
+
+New features in Version 1.0 of mprime
+-------------------------------------
+
+1)  Initial release - all features are new!
