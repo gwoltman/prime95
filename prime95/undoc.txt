@@ -239,3 +239,10 @@ above 0.6 will occur.  On the plus side, using the smaller FFT size each
 iteration will be a bit quicker.  I wouldn't set this adjustment to more
 than 0.006. If you set SoftCrossoverAdjust to say -0.002, then the program
 will be more conservative and use the larger FFT size more often.
+
+Alexander Kruppa wrote some code that allows the output of ECM stage 1 to
+be passed to Paul Zimmermann's more efficient GMP-ECM stage 2.  This program
+is usually faster in stage 1.  You can activate this feature by entering
+	GmpEcmHook=1
+in prime.ini.  Then select ECM bound #2 between 1 and bound #1.  Results.txt
+will contain data that can be fed to GMP-ECM for stage 2.

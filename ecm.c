@@ -2468,6 +2468,61 @@ restart1:
 		OutputStr ("Stage 1 GCD complete. Time: ");
 		print_timer (0, TIMER_NL | TIMER_CLR);
 		if (FAC != NULL) goto bingo;
+
+/* Alexander Kruppa wrote this code to normalize and output the x value */
+/* along with N and sigma so that it can be used in Paul Zimmermann's */
+/* superior GMP-ECM implementation of stage 2. */
+
+		if (IniGetInt (INI_FILE, "GmpEcmHook", 0)) {
+			char	*msg, *buf;
+			int	msglen, i;
+			giant	gx;
+			char	*hex = "0123456789ABCDEF";
+
+			normalize (x, z);
+
+			gx = popg ((PARG >> 5) + 1);
+			gwtobinary (x, gx);
+			modg (N, gx); // thus gx->sign >= 0
+
+			msglen = N->sign * 8 + 5;
+			buf = (char *) malloc (msglen + msglen + 80);
+			if (buf != NULL) {
+				strcpy (buf, "N=");
+				msg = buf + strlen (buf);
+				for (i = 0; i < N->sign * 8; i++) {
+				  msg[i+2] = hex[ ( N->n[N->sign - 1 - i/8] 
+				                    >> ((7-i%8)*4)
+				                  ) & 0xF ];
+				}
+				msg[i+2] = 0;
+				for (i = 0; i < N->sign * 8 - 1; i++)
+				  if (msg[i+2] != '0') break;
+				msg[i] = '0'; msg[i+1] = 'x';
+				strcpy (msg, msg+i);
+				strcat (buf, "; QX=");
+				msg = buf + strlen (buf);
+				for (i = 0; i < gx->sign * 8; i++) {
+				  msg[i+2] = hex[ ( gx->n[gx->sign - 1 - i/8] 
+				                    >> ((7-i%8)*4)  
+				                  ) & 0xF ];
+				}
+				msg[2+i] = 0;
+				for (i = 0; i < gx->sign * 8 - 1; i++)
+				  if (msg[i+2] != '0') break;
+				msg[i] = '0'; msg[i+1] = 'x';
+				strcpy (msg, msg+i);
+				strcat (buf, "; SIGMA=");
+				msg = buf + strlen (buf);
+				sprintf (msg, "%.0f\n", sigma);
+				writeResults (buf);
+				free (buf);
+			}
+			pushg (1);
+		}
+
+/* Now do the next ECM curve */
+
 		goto more_curves;
 	}
 

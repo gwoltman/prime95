@@ -14,17 +14,17 @@ xmlns="http://www.w3.org/TR/REC-html40">
  <o:DocumentProperties>
   <o:Template>Normal</o:Template>
   <o:LastAuthor>George Woltman</o:LastAuthor>
-  <o:Revision>23</o:Revision>
-  <o:TotalTime>1227</o:TotalTime>
+  <o:Revision>24</o:Revision>
+  <o:TotalTime>1229</o:TotalTime>
   <o:Created>2001-04-20T18:44:00Z</o:Created>
-  <o:LastSaved>2002-08-08T23:48:00Z</o:LastSaved>
+  <o:LastSaved>2002-09-03T02:03:00Z</o:LastSaved>
   <o:Pages>4</o:Pages>
-  <o:Words>1580</o:Words>
-  <o:Characters>9006</o:Characters>
+  <o:Words>1634</o:Words>
+  <o:Characters>9316</o:Characters>
   <o:Company>Watson Wyatt</o:Company>
-  <o:Lines>75</o:Lines>
+  <o:Lines>77</o:Lines>
   <o:Paragraphs>18</o:Paragraphs>
-  <o:CharactersWithSpaces>11060</o:CharactersWithSpaces>
+  <o:CharactersWithSpaces>11440</o:CharactersWithSpaces>
   <o:Version>9.3821</o:Version>
  </o:DocumentProperties>
 </xml><![endif]--><!--[if gte mso 9]><xml>
@@ -244,8 +244,8 @@ style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='font-family:"Times New Roman";mso-fareast-font-family:
 "MS Mincho"'>You can limit how far the program tries to factor a number.<span
 style="mso-spacerun: yes">  </span>This feature should not be used with the
-Primenet server.<span style="mso-spacerun: yes">  </span>To prevent the
-factoring code from factoring higher than 2^n, enter this in prime.ini:<o:p></o:p></span></p>
+Primenet server.<span style="mso-spacerun: yes">  </span>To prevent the factoring
+code from factoring higher than 2^n, enter this in prime.ini:<o:p></o:p></span></p>
 
 <p class=MsoPlainText style='margin-left:.5in'><span style='font-family:"Times New Roman";
 mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
@@ -341,9 +341,9 @@ mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 mso-fareast-font-family:"MS Mincho"'>Where n=1 for seconds with 3 digits of
 precision, n=2 for milliseconds with 1 digit of precision, n=3 for milliseconds
 with 2 digits of precision, n=4 for milliseconds with 3 digit of
-precision.<span style="mso-spacerun: yes">  </span>You can turn off the outputting
-of timestamps to the screen.<span style="mso-spacerun: yes">  </span>In
-prime.ini:<o:p></o:p></span></p>
+precision.<span style="mso-spacerun: yes">  </span>You can turn off the
+outputting of timestamps to the screen.<span style="mso-spacerun: yes"> 
+</span>In prime.ini:<o:p></o:p></span></p>
 
 <p class=MsoPlainText style='margin-left:.75in;text-indent:.25in'><span
 style='font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
@@ -381,8 +381,8 @@ style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 "MS Mincho"'>The program normally will not start any calculation until 90
 seconds after a reboot.<span style="mso-spacerun: yes">  </span>This is done so
 that your normal boot up procedure can be as fast as possible.<span
-style="mso-spacerun: yes">  </span>You can control how long this delay is by adding
-this line to prime.ini, where n is the number of seconds to sleep:<o:p></o:p></span></p>
+style="mso-spacerun: yes">  </span>You can control how long this delay is by
+adding this line to prime.ini, where n is the number of seconds to sleep:<o:p></o:p></span></p>
 
 <p class=MsoNormal style='margin-left:.5in'><span style='font-size:10.0pt;
 mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
@@ -395,12 +395,12 @@ style='font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho"'>BootDe
 
 <ul style='margin-top:0in' type=disc>
  <li class=MsoNormal style='mso-list:l0 level1 lfo4;tab-stops:list .5in'><span
-     style='font-size:10.0pt;mso-fareast-font-family:"MS Mincho"'>The program
-     supports 4 different code paths for LL testing depending on the CPU
-     type.<span style="mso-spacerun: yes">  </span>It also has a few different
-     factoring code paths.<span style="mso-spacerun: yes">  </span>You can
-     force the program to choose a specific code path by setting the proper
-     combination of these settings in local.ini:<o:p></o:p></span></li>
+     style='font-size:10.0pt;mso-fareast-font-family:"MS Mincho"'>The program supports
+     4 different code paths for LL testing depending on the CPU type.<span
+     style="mso-spacerun: yes">  </span>It also has a few different factoring
+     code paths.<span style="mso-spacerun: yes">  </span>You can force the
+     program to choose a specific code path by setting the proper combination
+     of these settings in local.ini:<o:p></o:p></span></li>
 </ul>
 
 <p class=MsoNormal style='margin-left:.25in'><span style='font-size:10.0pt;
@@ -699,15 +699,15 @@ style="mso-spacerun: yes">  </span>The third value is the number of iterations
 to run.<span style="mso-spacerun: yes">  </span>The fourth value is the shift
 count (if the shift count is greater than the exponent a random shift count is
 used).<span style="mso-spacerun: yes">  </span>The final value is the expected
-64-bit residue.<span style="mso-spacerun: yes">  </span>The dialog box values between
-9994 and 9999 force slightly different code to run.<span style="mso-spacerun:
-yes">  </span>9999 and 9998 run straightforward squaring code, 9998 differs by
-gathering some standard deviation data.<span style="mso-spacerun: yes"> 
-</span>9997 does squarings also but exercises the general purpose add/sub/mul
-routines too.<span style="mso-spacerun: yes">  </span>9996 does operations
-typical during ECM - the final residue won't match but the convolution error
-data can be useful.<span style="mso-spacerun: yes">  </span>9994 and 9995
-probably blow up.<o:p></o:p></span></p>
+64-bit residue.<span style="mso-spacerun: yes">  </span>The dialog box values
+between 9994 and 9999 force slightly different code to run.<span
+style="mso-spacerun: yes">  </span>9999 and 9998 run straightforward squaring
+code, 9998 differs by gathering some standard deviation data.<span
+style="mso-spacerun: yes">  </span>9997 does squarings also but exercises the
+general purpose add/sub/mul routines too.<span style="mso-spacerun: yes"> 
+</span>9996 does operations typical during ECM - the final residue won't match
+but the convolution error data can be useful.<span style="mso-spacerun: yes"> 
+</span>9994 and 9995 probably blow up.<o:p></o:p></span></p>
 
 <p class=MsoPlainText><span style='font-family:"Times New Roman";mso-fareast-font-family:
 "MS Mincho"'>&nbsp;<o:p></o:p></span></p>
@@ -740,11 +740,11 @@ tab-stops:list .5in'><![if !supportLists]><span style='font-family:Symbol;
 mso-fareast-font-family:"MS Mincho";mso-bidi-font-family:"Times New Roman"'>·<span
 style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='font-family:"Times New Roman";mso-fareast-font-family:
-"MS Mincho"'>AdvancedFactor uses the file p0000000 as the name of the
-continuation file.<span style="mso-spacerun: yes">  </span>This causes problems
-if you try to run two prime95s doing Advanced/Factoring on a dual-CPU machine
-from the same directory.<span style="mso-spacerun: yes">  </span>Add this line
-to prime.ini to use a different Advanced/Factor continuation file name:<o:p></o:p></span></p>
+"MS Mincho"'>AdvancedFactor uses the file p0000000 as the name of the continuation
+file.<span style="mso-spacerun: yes">  </span>This causes problems if you try
+to run two prime95s doing Advanced/Factoring on a dual-CPU machine from the
+same directory.<span style="mso-spacerun: yes">  </span>Add this line to
+prime.ini to use a different Advanced/Factor continuation file name:<o:p></o:p></span></p>
 
 <p class=MsoPlainText style='margin-left:.5in'><span style='font-family:"Times New Roman";
 mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
@@ -845,9 +845,9 @@ mso-fareast-font-family:"MS Mincho";mso-bidi-font-family:"Times New Roman"'>·<sp
 style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='font-family:"Times New Roman";mso-fareast-font-family:
 "MS Mincho"'>The program normally does round-off error checking every 128
-iterations.<span style="mso-spacerun: yes">  </span>When you are testing an exponent
-near the limit of an FFT length, the program does this error checking every
-iteration.<span style="mso-spacerun: yes">  </span><o:p></o:p></span></p>
+iterations.<span style="mso-spacerun: yes">  </span>When you are testing an
+exponent near the limit of an FFT length, the program does this error checking
+every iteration.<span style="mso-spacerun: yes">  </span><o:p></o:p></span></p>
 
 <p class=MsoPlainText style='margin-left:.25in'><span style='font-family:"Times New Roman";
 mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
@@ -875,8 +875,8 @@ style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='font-family:"Times New Roman";mso-fareast-font-family:
 "MS Mincho"'>When Tray Icon or No Icon is selected the &quot;X&quot; at the
 right of the title bar will minimize rather than exit.<span
-style="mso-spacerun: yes">  </span>You can make prime95 exit if you prefer.<span
-style="mso-spacerun: yes">  </span>In prime.ini set:<o:p></o:p></span></p>
+style="mso-spacerun: yes">  </span>You can make prime95 exit if you
+prefer.<span style="mso-spacerun: yes">  </span>In prime.ini set:<o:p></o:p></span></p>
 
 <p class=MsoPlainText style='margin-left:.5in'><span style='font-family:"Times New Roman";
 mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
@@ -966,6 +966,38 @@ each iteration will be a bit quicker.<span style="mso-spacerun: yes">  </span>I
 wouldn't set this adjustment to more than 0.006. If you set SoftCrossoverAdjust
 to say -0.002, then the program will be more conservative and use the larger
 FFT size more often.<o:p></o:p></span></p>
+
+<p class=MsoPlainText><span style='font-family:"Times New Roman";mso-fareast-font-family:
+"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
+
+<p class=MsoPlainText style='margin-left:.5in;text-indent:-.25in;mso-list:l1 level1 lfo8;
+tab-stops:list .5in'><![if !supportLists]><span style='font-family:Symbol;
+mso-fareast-font-family:"MS Mincho";mso-bidi-font-family:"Times New Roman"'>·<span
+style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span></span><![endif]><span style='font-family:"Times New Roman";mso-fareast-font-family:
+"MS Mincho"'>Alexander Kruppa wrote some code that allows the output of ECM
+stage 1 to be passed to Paul Zimmermann's more efficient GMP-ECM stage 2.<span
+style="mso-spacerun: yes">  </span>This program is usually faster in stage
+1.<span style="mso-spacerun: yes">  </span>You can activate this feature by
+entering:<o:p></o:p></span></p>
+
+<p class=MsoPlainText style='margin-left:.25in'><span style='font-family:"Times New Roman";
+mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
+
+<p class=MsoPlainText style='margin-left:.75in;text-indent:.25in'><b><span
+style='font-family:"Times New Roman";mso-fareast-font-family:"MS Mincho"'>GmpEcmHook=1<o:p></o:p></span></b></p>
+
+<p class=MsoPlainText style='margin-left:.5in'><span style='font-family:"Times New Roman";
+mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
+
+<p class=MsoPlainText style='margin-left:.5in'><span style='font-family:"Times New Roman";
+mso-fareast-font-family:"MS Mincho"'>in prime.ini.<span style="mso-spacerun:
+yes">  </span>Then select ECM bound #2 between 1 and bound #1.<span
+style="mso-spacerun: yes">  </span>Results.txt will contain data that can be
+fed to GMP-ECM for stage 2.<o:p></o:p></span></p>
+
+<p class=MsoPlainText><span style='font-family:"Times New Roman";mso-fareast-font-family:
+"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
 
 </div>
 
