@@ -1402,9 +1402,12 @@ restart:
 	gwsetup (p, fftlen, GW_MERSENNE_MOD);
 	x = gwalloc ();
 
-/* Setup the proth mod code */
+/* Setup the proth mod code.  Work around gwnum bug where if k is large and */
+/* bits_per_word is small (due to a small n), then a SUMINP != SUMOUT error */
+/* can occur.  The test case is 290499495*2^31-1. */
 
 	gwprothsetup (k, n, inc);
+	for (bit = bits_per_word; bit < 15; bit++) MAXDIFF *= 2.0;
 
 /* Init filename */
 
@@ -1482,9 +1485,18 @@ restart:
 //t2 = popg ((PARG >> 4) + 3);
 //gwtobinary (x, t1);
 //			end_timer (0);
+
+/* Do the mod k*2^n+/-1 step.  Work around gwnum bug where if k is large and */
+/* n is small, then gwprothmod might not reduce the result enough.  Simply */
+/* call gwprothmod again.  Of course, PRP wasn't really designed to test */
+/* small numbers!  The test case is 290499495*2^31-1.  I'm not sure this */
+/* will cure all error cases - worst case is k large and n equal to 1 or 2. */
+
 	//	start_timer(2);
 		gwprothmod (x);
+		if (n < 50) gwprothmod (x);
 	//	end_timer(2);
+
 //			start_timer (0);
 //specialgwtobinary (x, t2);
 //modg (N, t1);
