@@ -1773,7 +1773,7 @@ restart:
 /* Do the PRP test */
 
 	zerowordslow = (len - EB) / bits_per_word;
-	zerowordshigh = fftlen - (len + bits_per_word - 1) / bits_per_word;
+	zerowordshigh = fftlen - len / bits_per_word - 1;
 	gwsetmulbyconst (a);
 	y = gwalloc ();
 	iters = 0;
