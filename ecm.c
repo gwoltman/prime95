@@ -4067,6 +4067,8 @@ restart:
 					goto more_B;
 				}
 				B = state.B_done;
+				sprintf (buf, "Ignoring suggested B1 value, using B1=%lu from the save file\n", B);
+				OutputStr (buf);
 			}
 
 /* If we've already done enough stage 2, go do the stage 2 GCD */
@@ -4082,7 +4084,11 @@ restart:
 
 /* If LL testing and bound #2 has changed then use the original bound #2 */
 
-			if (ll_testing && C > state.C) C = state.C;
+			if (ll_testing && C > state.C) {
+				C = state.C;
+				sprintf (buf, "Ignoring suggested B2 value, using B2=%lu from the save file\n", C);
+				OutputStr (buf);
+			}
 
 /* Resume stage 2 */
 
