@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2003 Just For Fun Software, Inc., all rights reserved
+| Copyright 1995-2004 Just For Fun Software, Inc., all rights reserved
 | Author:  George Woltman
 | Email: woltman@alum.mit.edu
 |
@@ -464,6 +464,8 @@ void guessCpuType (void)
 				strcpy (CPU_BRAND, "Intel Pentium III Xeon processor");
 			if (model_number == 7 && CPU_L2_CACHE_SIZE == 512)
 				strcpy (CPU_BRAND, "Intel Pentium III or Pentium III Xeon processor");
+			if (model_number == 8)
+				strcpy (CPU_BRAND, "Intel Celeron 2 (Mobile/XBOX) processor");
 		}
 
 /* If we've failed to figure out the brand string, create a default. */
