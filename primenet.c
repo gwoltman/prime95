@@ -74,6 +74,17 @@ int inet_aton (char *cp, struct in_addr *inp)
 }
 #endif
 
+/* Routine to get the error number after a failed sockets call */
+
+int getLastSocketError (void)
+{
+#ifdef _WINDOWS_
+	return (WSAGetLastError ());
+#else
+	return (errno);
+#endif
+}
+
 /* simple password de/scrambler */
 
 char SCRAMBLE_STRING[] = "/cgi-bin/pnHttp.exe";
@@ -269,7 +280,8 @@ int pnHttpServer (char *pbuf, unsigned cbuf, char* postargs)
 		}
 		if (!inet_aton (con_host, &defaddr)) {
 			if (debug) {
-				sprintf (buf, "PrimeNet: unknown host: %s\n", con_host);
+				sprintf (buf, "PrimeNet: unknown host: %s\n",
+					 con_host);
 				LogMsg (buf);
 			}
 			return (PRIMENET_ERROR_CONNECT_FAILED);
@@ -284,7 +296,8 @@ int pnHttpServer (char *pbuf, unsigned cbuf, char* postargs)
 	}
 
 	if (debug) {
-		sprintf (buf, "IP-addr = %s\n", inet_ntoa (*(struct in_addr *)hp->h_addr));
+		sprintf (buf, "IP-addr = %s\n",
+			 inet_ntoa (*(struct in_addr *)hp->h_addr));
 		LogMsg (buf);
 	}
 
@@ -299,12 +312,20 @@ int pnHttpServer (char *pbuf, unsigned cbuf, char* postargs)
 /* Create a socket and connect to server */
 
 	if ((s = socket (hp->h_addrtype, SOCK_STREAM, 0)) < 0) {
-		if (debug) LogMsg ("SocketErr: socket\n");
+		if (debug) {
+			sprintf (buf, "Error in socket call: %d\n",
+				 getLastSocketError ());
+			LogMsg (buf);
+		}
 		return (PRIMENET_ERROR_CONNECT_FAILED);
 	}
 
 	if (connect (s, (struct sockaddr *) &sn, sizeof (sn)) < 0) {
-		if (debug) LogMsg ("SocketErr: connect\n");
+		if (debug) {
+			sprintf (buf, "Error in connect call: %d\n",
+				 getLastSocketError ());
+			LogMsg (buf);
+		}
 		closesocket (s);
 		return (PRIMENET_ERROR_CONNECT_FAILED);
 	}
@@ -342,7 +363,11 @@ int pnHttpServer (char *pbuf, unsigned cbuf, char* postargs)
 
 	res = send (s, szURL, strlen (szURL), 0);
 	if (res < 0) {
-		if (debug) LogMsg ("SocketErr: send\n");
+		if (debug) {
+			sprintf (buf, "Error in send call: %d\n",
+				 getLastSocketError ());
+			LogMsg (buf);
+		}
 		closesocket (s);
 		return (PRIMENET_ERROR_SEND_FAILED);
 	}
@@ -353,7 +378,11 @@ int pnHttpServer (char *pbuf, unsigned cbuf, char* postargs)
 	while (count < cbuf) {
 		res = recv (s, szBuffer, 999, 0);
 		if (res < 0) {
-			if (debug) LogMsg ("SocketErr: recv\n");
+			if (debug) {
+				sprintf (buf, "Error in recv call: %d\n",
+					 getLastSocketError ());
+				LogMsg (buf);
+			}
 			closesocket (s);
 			return (PRIMENET_ERROR_RECV_FAILED);
 		}
