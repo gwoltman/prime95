@@ -2425,7 +2425,8 @@ int selfTest (
 /* Check for the torture-test case (pArg = 1) */
 
 	if (pArg <= 1) {
-		int	lengths[29] = {1024,8,10,896,768,12,14,640,512,16,20,448,384,24,28,320,256,32,40,224,192,48,56,160,128,64,80,112,96};
+#define SELF_FFT_LENGTHS	37
+		int	lengths[SELF_FFT_LENGTHS] = {1024,8,10,896,768,12,14,640,512,16,20,448,384,24,28,320,256,32,40,224,192,48,56,160,128,64,80,112,96,1280,1536,1768,2048,2560,3072,3584,4096};
 		int	min_fft, max_fft, test_time;
 		time_t	start_time, current_time;
 
@@ -2448,7 +2449,7 @@ int selfTest (
 		min_fft = IniGetInt (INI_FILE, "MinTortureFFT", 8);
 		max_fft = IniGetInt (INI_FILE, "MaxTortureFFT", 4096);
 		for ( ; ; ) {
-		    for (i = 0; i < 29; i++) {
+		    for (i = 0; i < SELF_FFT_LENGTHS; i++) {
 			if (lengths[i] < min_fft || lengths[i] > max_fft)
 				continue;
 			if (! selfTestInternal (lengths[i]*1024, test_time, i)) {
@@ -2520,7 +2521,7 @@ int selfTestInternal (
 	char	buf[120];
 	char	iniName[32];
 	time_t	start_time, current_time;
-static	int	data_index[29] = {0};
+static	int	data_index[SELF_FFT_LENGTHS] = {0};
 
 /* Set the title */
 
