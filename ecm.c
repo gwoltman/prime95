@@ -1920,8 +1920,8 @@ int ecm (
 {
 	unsigned int memory;
 	unsigned long sieve_start, SQRT_B, orig_B;
-	double	sigma;
-	unsigned long i, j, m, curve, prime, last_output;
+	double	sigma, last_output;
+	unsigned long i, j, m, curve, prime;
 	char	filename[16], buf[100];
 	int	retval, stage, escaped;
 	long	write_time = DISK_WRITE_TIME * 60;
@@ -2433,7 +2433,7 @@ restart1:
 /* Stage 1 complete */
 
 	end_timer (0);
-	sprintf (buf, "Stage 1 complete. %lu transforms, %lu modular inverses. Time: ",
+	sprintf (buf, "Stage 1 complete. %.0f transforms, %lu modular inverses. Time: ",
 		 fft_count, modinv_count);
 	OutputStr (buf);
 	print_timer (0, TIMER_NL | TIMER_CLR);
@@ -2602,7 +2602,7 @@ restart3:
 /* Initialization of stage 2 complete */
 
 	end_timer (0);
-	sprintf (buf, "Stage 2 init complete. %lu transforms, %lu modular inverses. Time: ",
+	sprintf (buf, "Stage 2 init complete. %.0f transforms, %lu modular inverses. Time: ",
 		 fft_count, modinv_count);
 	OutputStr (buf);
 	print_timer (0, TIMER_NL | TIMER_CLR);
@@ -2718,7 +2718,7 @@ restart3:
 /* Stage 2 is complete */
 
 	end_timer (0);
-	sprintf (buf, "Stage 2 complete. %lu transforms, %lu modular inverses. Time: ",
+	sprintf (buf, "Stage 2 complete. %.0f transforms, %lu modular inverses. Time: ",
 		 fft_count, modinv_count);
 	OutputStr (buf);
 	print_timer (0, TIMER_NL | TIMER_CLR);
@@ -3361,7 +3361,7 @@ int pminus1 (
 	struct pm1_state state;
 	giant	exp;
 	unsigned long stage_0_limit;
-	unsigned long SQRT_B, last_output, last_contact, last_output_r;
+	unsigned long SQRT_B;
 	unsigned long numvals, numrels, next_relprime;
 	unsigned long i, j, m, stage2incr, prime, len, bit_number;
 	unsigned long error_recovery_mode = 0;
@@ -3370,7 +3370,7 @@ int pminus1 (
 	int	retval, stage, escaped, saving, near_fft_limit, echk;
 	long	write_time = DISK_WRITE_TIME * 60;
 	time_t	start_time, current_time;
-	double	pct;
+	double	pct, last_output, last_contact, last_output_r;
 
 /* Clear all timers */
 
@@ -3840,7 +3840,7 @@ more_B:		state.B = B;
 /* Stage 1 complete, print a message */
 
 	buf[0] = PLUS1 ? 'P' : 'M';
-	sprintf (buf+1, "%lu stage 1 complete. %lu transforms. Time: ",
+	sprintf (buf+1, "%lu stage 1 complete. %.0f transforms. Time: ",
 		 PARG, fft_count);
 	OutputStr (buf);
 	print_timer (1, TIMER_NL | TIMER_CLR);
@@ -4138,7 +4138,7 @@ errchk:		if (gw_test_for_error () || MAXERR > 0.40) goto error;
 /* Stage 2 is complete */
 
 	buf[0] = PLUS1 ? 'P' : 'M';
-	sprintf (buf+1, "%lu stage 2 complete. %lu transforms. Time: ",
+	sprintf (buf+1, "%lu stage 2 complete. %.0f transforms. Time: ",
 		 PARG, fft_count);
 	OutputStr (buf);
 	print_timer (1, TIMER_NL | TIMER_CLR);

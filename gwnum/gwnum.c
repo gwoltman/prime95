@@ -36,7 +36,7 @@ EXTERNC void *SRCARG = NULL;	/* For assembly language arg passing */
 EXTERNC void *SRC2ARG = NULL;	/* For assembly language arg passing */
 EXTERNC void *DESTARG = NULL;	/* For assembly language arg passing */
 EXTERNC void *DEST2ARG = NULL;	/* For assembly language arg passing */
-unsigned long fft_count = 0;	/* Count of forward and inverse FFTs */
+double	fft_count = 0;		/* Count of forward and inverse FFTs */
 void	*gwnum_memory;		/* Allocated memory */
 unsigned long GW_ALIGNMENT = 0;	/* How to align allocated gwnums */
 
