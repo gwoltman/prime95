@@ -2083,7 +2083,8 @@ gwsetup (10000000, 0, 0);
 f = (long) malloc (20000000);
 SRCARG = (void *) ((f + 4095) & ~4095);
 memset (SRCARG, 0, 20000000 - 4096);
-        SetThreadPriority (CURRENT_THREAD, THREAD_PRIORITY_TIME_CRITICAL);
+ RDTSC_TIMING = 12;
+    //    SetThreadPriority (CURRENT_THREAD, THREAD_PRIORITY_TIME_CRITICAL);
 for (j = 0; j < 4; j++) {
 	cnt = 0;
 for (i = 1; i <= 200; i++) {
