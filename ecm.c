@@ -1,4 +1,4 @@
-EXTERNC void timeit (void);
+EXTERNC int timeit (void);
 /*
    is sieve tuned properly?  could be even faster.  use assembly?
 	do sieve once and store in a file?
@@ -2158,24 +2158,27 @@ return 0;
 }
 #endif
 
-/*#define TIMING2*/
+#define TIMING2
 #ifdef TIMING2
 if (p == 600) {
-long f; int j, cnt;
+long f; int j, test, cnt, NUM_X87_TESTS, NUM_SSE2_TESTS;
 gwsetup (10000000, 0, 0);
 f = (long) malloc (40000000);
 SRCARG = (void *) ((f + 4095) & ~4095);
 memset (SRCARG, 0, 40000000 - 4096);
- RDTSC_TIMING = 12;
-    //    SetThreadPriority (CURRENT_THREAD, THREAD_PRIORITY_TIME_CRITICAL);
-for (j = 0; j < 4; j++) {
+RDTSC_TIMING = 12;
+DESTARG = (void *) -1; NUM_X87_TESTS = timeit ();
+DESTARG = (void *) -2; NUM_SSE2_TESTS = timeit ();
+//SetThreadPriority (CURRENT_THREAD, THREAD_PRIORITY_TIME_CRITICAL);
+for (j = 0; j < NUM_X87_TESTS + NUM_SSE2_TESTS; j++) {
 	cnt = 0;
-for (i = 1; i <= 200; i++) {
+	test = (j < NUM_X87_TESTS ? j : 1000 + j - NUM_X87_TESTS);
+	if (! (CPU_FLAGS & CPU_SSE2) && test >= 1000) break;
+for (i = 1; i <= 50; i++) {
 	start_timer (0);
-	DESTARG = (void *) j;
+	DESTARG = (void *) test;
 	timeit ();
 	end_timer (0);
-/*	if (j == 0) for (int k = 0; k < 40000000; k++); */
 	if (timers[1] == 0 || timers[1] > timers[0]) timers[1] = timers[0];
 	if (i > 1 && timers[0] < 3.0 * timers[1]) {
 		if (timers[0] > 1.5 * timers[1])
@@ -2185,9 +2188,12 @@ for (i = 1; i <= 200; i++) {
 	}
 	timers[0] = 0;
 }
-OutputStr ("1000 iters: ");  print_timer (1, TIMER_CLR);
+sprintf (buf, "Test %d: ", test);
+OutputBoth (buf);
+print_timer (1, TIMER_OUT_BOTH | TIMER_CLR);
 timers[2] /= cnt;
-OutputStr (", avg: "); print_timer (2, TIMER_NL | TIMER_CLR);
+OutputBoth (", avg: ");
+print_timer (2, TIMER_OUT_BOTH | TIMER_NL | TIMER_CLR);
 }
 
 free ((void *) f);
