@@ -31,10 +31,6 @@ INCLUDE mult.mac
 INCLUDE fft1.mac
 INCLUDE memory.mac
 
-IFDEF PPRO
-INCLUDE	lucasp.mac
-ENDIF
-
 	flat_distances
 
 ;; All the FFT routines for each FFT length

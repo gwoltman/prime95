@@ -18,10 +18,6 @@ INCLUDE mult.mac
 INCLUDE pass2.mac
 INCLUDE memory.mac
 
-IFDEF PPRO
-INCLUDE	lucasp.mac
-ENDIF
-
 _TEXT SEGMENT
 
 	flat_distances

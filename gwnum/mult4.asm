@@ -29,10 +29,6 @@ INCLUDE fft4.mac
 INCLUDE memory.mac
 INCLUDE normal.mac
 
-IFDEF PPRO
-INCLUDE	lucasp.mac
-ENDIF
-
 EXTRN gw_finish_fft:PROC
 EXTRN gw_carries:PROC
 EXTRN gw_finish_mult:PROC

@@ -66,7 +66,7 @@ debug\giants.obj: giants.c giants.h
 # Create 32-bit object files
 
 mult.obj: mult.asm
-    $(masm) mult.asm
+    $(masm) /DPPRO mult.asm
 
 mult1.obj: mult1.asm mult.mac fft1.mac lucas.mac
     $(masm) /DPPRO mult1.asm

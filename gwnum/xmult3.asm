@@ -29,9 +29,6 @@ INCLUDE xfft3.mac
 INCLUDE	xlucas.mac
 INCLUDE xmult.mac
 INCLUDE xnormal.mac
-IFDEF X86_64
-INCLUDE	xlucas64.mac
-ENDIF
 
 EXTRNP	xpass2_11_levels
 EXTRNP	xpass2_11_levels_p

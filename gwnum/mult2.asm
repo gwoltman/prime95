@@ -30,10 +30,6 @@ INCLUDE fft2.mac
 INCLUDE memory.mac
 INCLUDE normal.mac
 
-IFDEF PPRO
-INCLUDE	lucasp.mac
-ENDIF
-
 IFNDEF PFETCH
 PUBLIC gw_finish_fft
 PUBLIC gw_carries

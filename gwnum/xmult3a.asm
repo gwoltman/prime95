@@ -24,10 +24,6 @@ INCLUDE	xlucas.mac
 INCLUDE xpass2.mac
 INCLUDE xnormal.mac
 
-IFDEF X86_64
-INCLUDE	xlucas64.mac
-ENDIF
-
 ;; Routines to do the last 11 levels in a two-pass FFT
 
 PUBLICP	xpass2_11_levels
