@@ -30,7 +30,3 @@ giants.obj: ..\giants.c ..\giants.h
 
 ntprime.exe: main.obj prime.obj service.obj
     link @main.lnk
-    del ntprime.exe
-    del main.lib
-    del main.exp
-    rename main.exe ntprime.exe
