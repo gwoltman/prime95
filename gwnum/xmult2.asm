@@ -29,6 +29,9 @@ INCLUDE xfft2.mac
 INCLUDE	xlucas.mac
 INCLUDE xmult.mac
 INCLUDE xnormal.mac
+IFDEF X86_64
+INCLUDE	xlucas64.mac
+ENDIF
 
 EXTRN	xpass2_8_levels:PROC
 EXTRN	xpass2_8_levels_p:PROC

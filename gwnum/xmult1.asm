@@ -27,6 +27,9 @@ INCLUDE extrn.mac
 INCLUDE xfft1.mac
 INCLUDE	xlucas.mac
 INCLUDE xmult.mac
+IFDEF X86_64
+INCLUDE	xlucas64.mac
+ENDIF
 
 ;; All the FFT routines for each FFT length
 

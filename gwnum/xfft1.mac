@@ -339,6 +339,7 @@ xfft48 MACRO type
 x48_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xsix_reals_fft_preload
 b1b:	s3cl_six_reals_first_fft rsi, 64, 2*64
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -428,6 +429,7 @@ c3b:	x2cl_two_complex_unfft rsi, 2*64, 64
 ;;	distance between fft data elements is 16
 ;;	do 2 macros each processing 24 data values
 
+	xsix_reals_unfft_preload
 c1b:	x3cl_six_reals_last_unfft rsi, 64, 2*64
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -970,6 +972,7 @@ xfft80 MACRO type
 x80_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	s5cl_five_reals_first_fft rsi, 64, 2*64
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -1027,6 +1030,7 @@ x80_finish_unfft:
 ;;	distance between fft data elements is 16
 ;;	do 2 macros each processing 40 data values
 
+	xfive_reals_unfft_preload	;; Preload consts for five real macros
 c1b:	x5cl_five_reals_last_unfft rsi, 64, 2*64
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -1103,6 +1107,7 @@ xfft96 MACRO type
 x96_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xsix_reals_fft_preload
 b1b:	s3cl_six_reals_first_fft rsi, 64, 4*64
 	add	al, 256/4		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -1182,6 +1187,7 @@ x96_finish_unfft:
 ;;	distance between fft data elements is 16
 ;;	do 4 macros each processing 24 data values
 
+	xsix_reals_unfft_preload
 c1b:	x3cl_six_reals_last_unfft rsi, 64, 4*64
 	add	al, 256/4		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -1402,6 +1408,7 @@ xfft112 MACRO type
 x112_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xseven_reals_fft_preload
 b1b:	s7cl_seven_reals_first_fft rsi, 64, 2*64
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -1465,6 +1472,7 @@ x112_finish_unfft:
 ;;	distance between fft data elements is 16
 ;;	do 2 macros each processing 56 data values
 
+	xseven_reals_unfft_preload
 c1b:	x7cl_seven_reals_last_unfft rsi, 64, 2*64
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -1888,6 +1896,7 @@ xfft160 MACRO type
 x160_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	s5cl_five_reals_first_fft rsi, 64, 4*64
 	add	al, 256/4		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -1937,6 +1946,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 rsi, 64, 2*64
 ;;	distance between fft data elements is 32
 ;;	do 4 macros each processing 40 data values
 
+	xfive_reals_unfft_preload	;; Preload consts for five real macros
 c1b:	x5cl_five_reals_last_unfft rsi, 64, 4*64
 	add	al, 256/4		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -2013,6 +2023,7 @@ xfft192 MACRO type
 x192_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xsix_reals_fft_preload
 b1b:	s3cl_six_reals_first_fft rsi, 64, 8*64
 	add	al, 256/8		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -2097,6 +2108,7 @@ c2b:	x4cl_eight_reals_unfft_2 rsi, 64, 2*64, 4*64
 ;;	distance between fft data elements is 32
 ;;	do 8 macros each processing 24 data values
 
+	xsix_reals_unfft_preload
 c1b:	x3cl_six_reals_last_unfft rsi, 64, 8*64
 	add	al, 256/8		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -2325,6 +2337,7 @@ xfft224 MACRO type
 x224_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xseven_reals_fft_preload
 b1b:	s7cl_seven_reals_first_fft rsi, 64, 4*64
 	add	al, 256/4		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -2394,6 +2407,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 rsi, 64, 2*64
 ;;	distance between fft data elements is 32
 ;;	do 4 macros each processing 56 data values
 
+	xseven_reals_unfft_preload
 c1b:	x7cl_seven_reals_last_unfft rsi, 64, 4*64
 	add	al, 256/4		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -2949,6 +2963,7 @@ xfft320 MACRO type
 x320_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	s5cl_five_reals_first_fft rsi, 64, 8*64
 	add	al, 256/8		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -2998,6 +3013,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 rsi, 64, 4*64
 ;;	distance between fft data elements is 64
 ;;	do 8 macros each processing 40 data values
 
+	xfive_reals_unfft_preload	;; Preload consts for five real macros
 c1b:	x5cl_five_reals_last_unfft rsi, 64, 8*64
 	add	al, 256/8		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -3074,6 +3090,7 @@ xfft384 MACRO type
 x384_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xsix_reals_fft_preload
 b1b:	s3cl_six_reals_first_fft rsi, 64, 16*64
 	add	al, 256/16		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -3158,6 +3175,7 @@ c2b:	x4cl_eight_reals_unfft_2 rsi, 64, 4*64, 8*64
 ;;	distance between fft data elements is 64
 ;;	do 16 macros each processing 24 data values
 
+	xsix_reals_unfft_preload
 c1b:	x3cl_six_reals_last_unfft rsi, 64, 16*64
 	add	al, 256/16		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -3385,6 +3403,7 @@ xfft448 MACRO type
 x448_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xseven_reals_fft_preload
 b1b:	s7cl_seven_reals_first_fft rsi, 64, 8*64
 	add	al, 256/8		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -3455,6 +3474,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 rsi, 64, 4*64
 ;;	distance between fft data elements is 64
 ;;	do 8 macros each processing 56 data values
 
+	xseven_reals_unfft_preload
 c1b:	x7cl_seven_reals_last_unfft rsi, 64, 8*64
 	add	al, 256/8		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -3961,6 +3981,7 @@ xfft640 MACRO type
 x640_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	s5cl_five_reals_first_fft rsi, 64, 16*64
 	add	al, 256/16		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -4010,6 +4031,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 rsi, 64, 8*64
 ;;	distance between fft data elements is 128
 ;;	do 16 macros each processing 40 data values
 
+	xfive_reals_unfft_preload	;; Preload consts for five real macros
 c1b:	x5cl_five_reals_last_unfft rsi, 64, 16*64
 	add	al, 256/16		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -4086,6 +4108,7 @@ xfft768 MACRO type
 x768_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xsix_reals_fft_preload
 b1b:	s3cl_six_reals_first_fft rsi, 64, 32*64
 	add	al, 256/32		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -4170,6 +4193,7 @@ c2b:	x4cl_eight_reals_unfft_2 rsi, 64, 8*64, 16*64
 ;;	distance between fft data elements is 128
 ;;	do 32 macros each processing 24 data values
 
+	xsix_reals_unfft_preload
 c1b:	x3cl_six_reals_last_unfft rsi, 64, 32*64
 	add	al, 256/32		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -4396,6 +4420,7 @@ xfft896 MACRO type
 x896_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xseven_reals_fft_preload
 b1b:	s7cl_seven_reals_first_fft rsi, 64, 16*64
 	add	al, 256/16		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -4466,6 +4491,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 rsi, 64, 8*64
 ;;	distance between fft data elements is 128
 ;;	do 16 macros each processing 56 data values
 
+	xseven_reals_unfft_preload
 c1b:	x7cl_seven_reals_last_unfft rsi, 64, 16*64
 	add	al, 256/16		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -5105,6 +5131,7 @@ xfft1280 MACRO type
 x1280_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	s5cl_five_reals_first_fft rsi, 64, 32*64
 	add	al, 256/32		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -5154,6 +5181,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 rsi, 64, 16*64
 ;;	distance between fft data elements is 256
 ;;	do 32 macros each processing 40 data values
 
+	xfive_reals_unfft_preload	;; Preload consts for five real macros
 c1b:	x5cl_five_reals_last_unfft rsi, 64, 32*64
 	add	al, 256/32		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -5230,6 +5258,7 @@ xfft1536 MACRO type
 x1536_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xsix_reals_fft_preload
 b1b:	s3cl_six_reals_first_fft rsi, 64, 64*64
 	add	al, 256/64		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -5314,6 +5343,7 @@ c2b:	x4cl_eight_reals_unfft_2 rsi, 64, 16*64, 32*64
 ;;	distance between fft data elements is 256
 ;;	do 64 macros each processing 24 data values
 
+	xsix_reals_unfft_preload
 c1b:	x3cl_six_reals_last_unfft rsi, 64, 64*64
 	add	al, 256/64		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -5541,6 +5571,7 @@ xfft1792 MACRO type
 x1792_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xseven_reals_fft_preload
 b1b:	s7cl_seven_reals_first_fft rsi, 64, 32*64
 	add	al, 256/32		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -5611,6 +5642,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 rsi, 64, 16*64
 ;;	distance between fft data elements is 256
 ;;	do 32 macros each processing 56 data values
 
+	xseven_reals_unfft_preload
 c1b:	x7cl_seven_reals_last_unfft rsi, 64, 32*64
 	add	al, 256/32		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -6198,6 +6230,7 @@ xfft2560 MACRO type
 x2560_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	s5cl_five_reals_first_fft rsi, 64, 64*64
 	add	al, 256/64		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -6247,6 +6280,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 rsi, 64, 32*64
 ;;	distance between fft data elements is 512
 ;;	do 64 macros each processing 40 data values
 
+	xfive_reals_unfft_preload	;; Preload consts for five real macros
 c1b:	x5cl_five_reals_last_unfft rsi, 64, 64*64
 	add	al, 256/64		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -6323,6 +6357,7 @@ xfft3072 MACRO type
 x3072_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xsix_reals_fft_preload
 b1b:	s3cl_six_reals_first_fft rsi, 64, 128*64
 	add	al, 256/128		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -6408,6 +6443,7 @@ c2b:	x4cl_eight_reals_unfft_2 rsi, 64, 32*64, 64*64
 ;;	distance between fft data elements is 512
 ;;	do 128 macros each processing 24 data values
 
+	xsix_reals_unfft_preload
 c1b:	x3cl_six_reals_last_unfft rsi, 64, 128*64
 	add	al, 256/128		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -6634,6 +6670,7 @@ xfft3584 MACRO type
 x3584_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xseven_reals_fft_preload
 b1b:	s7cl_seven_reals_first_fft rsi, 64, 64*64
 	add	al, 256/64		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -6704,6 +6741,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 rsi, 64, 32*64
 ;;	distance between fft data elements is 512
 ;;	do 64 macros each processing 56 data values
 
+	xseven_reals_unfft_preload
 c1b:	x7cl_seven_reals_last_unfft rsi, 64, 64*64
 	add	al, 256/64		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -7423,6 +7461,7 @@ xfft5120 MACRO type
 x5120_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	s5cl_five_reals_first_fft rsi, 64, 128*64
 	add	al, 256/128		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -7472,6 +7511,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 rsi, 64, 64*64
 ;;	distance between fft data elements is 1024
 ;;	do 128 macros each processing 40 data values
 
+	xfive_reals_unfft_preload	;; Preload consts for five real macros
 c1b:	x5cl_five_reals_last_unfft rsi, 64, 128*64
 	add	al, 256/128		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -7547,6 +7587,7 @@ xfft6144 MACRO type
 x6144_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xsix_reals_fft_preload
 b1b:	s3cl_six_reals_first_fft rsi, 64, 256*64
 	add	al, 256/256		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -7631,6 +7672,7 @@ c2b:	x4cl_eight_reals_unfft_2 rsi, 64, 64*64, 128*64
 ;;	distance between fft data elements is 1024
 ;;	do 256 macros each processing 24 data values
 
+	xsix_reals_unfft_preload
 c1b:	x3cl_six_reals_last_unfft rsi, 64, 256*64
 	add	al, 256/256		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -7855,6 +7897,7 @@ xfft7168 MACRO type
 x7168_fft:
 	xcopy_7_words
 	sub	eax, eax
+	xseven_reals_fft_preload
 b1b:	s7cl_seven_reals_first_fft rsi, 64, 128*64
 	add	al, 256/128		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -7925,6 +7968,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 rsi, 64, 64*64
 ;;	distance between fft data elements is 1024
 ;;	do 128 macros each processing 56 data values
 
+	xseven_reals_unfft_preload
 c1b:	x7cl_seven_reals_last_unfft rsi, 64, 128*64
 	add	al, 256/128		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary

@@ -297,6 +297,7 @@ c3b:	x2cl_four_complex_unfft rsi, 64, blkdst
 ;;	do 1 macros each processing 40 data values
 
 	start_timer 19
+	xfive_reals_unfft_preload	;; Preload consts for five real macros
 c1b:	x5cl_five_reals_last_unfft rsi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -344,6 +345,7 @@ c1b:	x5cl_five_reals_last_unfft rsi, 64, blkdst
 
 b0b:	start_timer 21
 	sub	eax, eax		;; 1 iteration of 2*clm
+	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	x5cl_five_reals_first_fft rsi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -546,6 +548,7 @@ c3b:	x2cl_four_complex_unfft rsi, 64, blkdst
 
 	start_timer 19
 	mov	al, 2			;; 2 iterations of 2*clm
+	xsix_reals_unfft_preload
 c1b:	x3cl_six_reals_last_unfft rsi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -596,6 +599,7 @@ c1b:	x3cl_six_reals_last_unfft rsi, 64, 2*blkdst
 
 b0b:	start_timer 21
 	mov	eax, 2			;; 2 iterations of 2*clm
+	xsix_reals_fft_preload
 b1b:	x3cl_six_reals_first_fft rsi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -1051,6 +1055,7 @@ c3b:	x2cl_four_complex_unfft rsi, 64, blkdst
 ;;	do 1 macros each processing 56 data values
 
 	start_timer 19
+	xseven_reals_unfft_preload
 c1b:	x7cl_seven_reals_last_unfft rsi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -1109,6 +1114,7 @@ c1b:	x7cl_seven_reals_last_unfft rsi, 64, blkdst
 
 b0b:	start_timer 21
 	sub	eax, eax		;; 1 iteration of 2*clm
+	xseven_reals_fft_preload
 b1b:	x7cl_seven_reals_first_fft rsi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -1878,6 +1884,7 @@ c3b:	x4cl_four_complex_unfft rsi, 64, blkdst, 2*blkdst
 
 	start_timer 19
 	mov	al, 2			;; 2 iterations of 2*clm
+	xfive_reals_unfft_preload	;; Preload consts for five real macros
 c1b:	x5cl_five_reals_last_unfft rsi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -1935,6 +1942,7 @@ c1b:	x5cl_five_reals_last_unfft rsi, 64, 2*blkdst
 
 b0b:	start_timer 21
 	mov	eax, 2			;; 2 iterations of 2*clm
+	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	x5cl_five_reals_first_fft rsi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -2246,6 +2254,7 @@ c3b:	x4cl_four_complex_unfft rsi, 64, blkdst, 2*blkdst
 
 	start_timer 19
 	mov	al, 4			;; 4 iterations of 2*clm
+	xsix_reals_unfft_preload
 c1b:	x3cl_six_reals_last_unfft rsi, 64, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -2300,6 +2309,7 @@ c1b:	x3cl_six_reals_last_unfft rsi, 64, 4*blkdst
 
 b0b:	start_timer 21
 	mov	eax, 4			;; 4 iterations of 2*clm
+	xsix_reals_fft_preload
 b1b:	x3cl_six_reals_first_fft rsi, 64, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -2945,6 +2955,7 @@ c3b:	x4cl_four_complex_unfft rsi, 64, blkdst, 2*blkdst
 
 	start_timer 19
 	mov	al, 2			;; 2 iterations of 2*clm
+	xseven_reals_unfft_preload
 c1b:	x7cl_seven_reals_last_unfft rsi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -3012,6 +3023,7 @@ c1b:	x7cl_seven_reals_last_unfft rsi, 64, 2*blkdst
 
 b0b:	start_timer 21
 	mov	eax, 2			;; 2 iterations of 2*clm
+	xseven_reals_fft_preload
 b1b:	x7cl_seven_reals_first_fft rsi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -4052,6 +4064,7 @@ c3b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst
 
 	start_timer 19
 	mov	al, 4			;; 4 iterations of 2*clm
+	xfive_reals_unfft_preload	;; Preload consts for five real macros
 c1b:	x5cl_five_reals_last_unfft rsi, 64, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -4113,6 +4126,7 @@ c1b:	x5cl_five_reals_last_unfft rsi, 64, 4*blkdst
 
 b0b:	start_timer 21
 	mov	eax, 4			;; 4 iterations of 2*clm
+	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	x5cl_five_reals_first_fft rsi, 64, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -4449,6 +4463,7 @@ c3b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst
 
 	start_timer 19
 	mov	al, 8			;; 8 iterations of 2*clm
+	xsix_reals_unfft_preload
 c1b:	x3cl_six_reals_last_unfft rsi, 64, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -4503,6 +4518,7 @@ c1b:	x3cl_six_reals_last_unfft rsi, 64, 8*blkdst
 
 b0b:	start_timer 21
 	mov	eax, 8			;; 8 iterations of 2*clm
+	xsix_reals_fft_preload
 b1b:	x3cl_six_reals_first_fft rsi, 64, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -5196,6 +5212,7 @@ c3b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst
 
 	start_timer 19
 	mov	al, 4			;; 4 iterations of 2*clm
+	xseven_reals_unfft_preload
 c1b:	x7cl_seven_reals_last_unfft rsi, 64, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -5267,6 +5284,7 @@ c1b:	x7cl_seven_reals_last_unfft rsi, 64, 4*blkdst
 
 b0b:	start_timer 21
 	mov	eax, 4			;; 4 iterations of 2*clm
+	xseven_reals_fft_preload
 b1b:	x7cl_seven_reals_first_fft rsi, 64, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -6410,6 +6428,7 @@ c3b:	x4cl_four_complex_unfft rsi, 64, 4*blkdst, 8*blkdst
 
 	start_timer 19
 	mov	al, 8			;; 8 iterations of 2*clm
+	xfive_reals_unfft_preload	;; Preload consts for five real macros
 c1b:	x5cl_five_reals_last_unfft rsi, 64, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -6471,6 +6490,7 @@ c1b:	x5cl_five_reals_last_unfft rsi, 64, 8*blkdst
 
 b0b:	start_timer 21
 	mov	eax, 8			;; 8 iterations of 2*clm
+	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	x5cl_five_reals_first_fft rsi, 64, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -6928,6 +6948,7 @@ c3b:	x4cl_four_complex_unfft rsi, 64, 4*blkdst, 8*blkdst
 
 	start_timer 19
 	mov	al, 16			;; 16 iterations of 2*clm
+	xsix_reals_unfft_preload
 c1b:	x3cl_six_reals_last_unfft rsi, 64, 16*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -6982,6 +7003,7 @@ c1b:	x3cl_six_reals_last_unfft rsi, 64, 16*blkdst
 
 b0b:	start_timer 21
 	mov	eax, 16			;; 16 iterations of 2*clm
+	xsix_reals_fft_preload
 b1b:	x3cl_six_reals_first_fft rsi, 64, 16*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -7868,6 +7890,7 @@ c3b:	x4cl_four_complex_unfft rsi, 64, 4*blkdst, 8*blkdst
 
 	start_timer 19
 	mov	al, 8			;; 8 iterations of 2*clm
+	xseven_reals_unfft_preload
 c1b:	x7cl_seven_reals_last_unfft rsi, 64, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -7939,6 +7962,7 @@ c1b:	x7cl_seven_reals_last_unfft rsi, 64, 8*blkdst
 
 b0b:	start_timer 21
 	mov	eax, 8			;; 8 iterations of 2*clm
+	xseven_reals_fft_preload
 b1b:	x7cl_seven_reals_first_fft rsi, 64, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -9312,6 +9336,7 @@ c5b:	x4cl_four_complex_unfft rcx, 64, 2*clmblkdst, 4*clmblkdst
 	start_timer 18
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	al, 8			;; 8 iterations
+	xfive_reals_unfft_preload	;; Preload consts for five real macros
 
 c2a:	xtouchlines 3			;; Preload TLBs
 
@@ -9471,6 +9496,7 @@ yes_fft:start_timer 21
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	rbp, sincos2		;; Load sin/cos pointer
 	mov	eax, 4			;; 4 iterations
+	xfive_reals_fft_preload		;; Preload consts for five real macros
 
 b1a:	xtouchlines 10			;; Preload TLBs
 
@@ -9822,6 +9848,7 @@ c5b:	x4cl_four_complex_unfft rcx, 64, 2*clmblkdst, 4*clmblkdst
 	start_timer 18
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	al, 8			;; 8 iterations
+	xsix_reals_unfft_preload
 
 c2a:	xtouchlines 3			;; Preload TLBs
 
@@ -9978,6 +10005,7 @@ yes_fft:start_timer 21
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	rbp, sincos2		;; Load sin/cos pointer
 	mov	eax, 4			;; 4 iterations
+	xsix_reals_fft_preload
 
 b1a:	xtouchlines 13			;; Preload TLBs
 
@@ -10317,7 +10345,7 @@ c1b:	x3cl_three_complex_last_unfft rcx, 64, 4*clmblkdst8
 	xloop1	c1b, clmblkdst		;; 2*clm iterations
 	lea	rdi, [rdi+192]		;; Next premultiplier pointer
 	sub	al, 1			;; Test loop counter
-	jnz	c1a			;; Iterate if necessaryxn
+	jnz	c1a			;; Iterate if necessary
 	lea	rcx, [rcx-8*clmblkdst+clmblkdst8];; Next source pointer
 	sub	ah, 1			;; Test outer loop counter
 	mov	al, 8			;; Load middle loop counter
@@ -10756,6 +10784,7 @@ c5b:	x4cl_four_complex_unfft rcx, 64, 2*clmblkdst, 4*clmblkdst
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	lea	rsi, [rsi-4*blkdst]	;; Restore prefetch pointer
 	mov	al, 8			;; 8 iterations
+	xseven_reals_unfft_preload
 
 c2a:	xtouchlines 5			;; Preload TLBs
 
@@ -10925,6 +10954,7 @@ yes_fft:start_timer 21
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	rbp, sincos2		;; Load sin/cos pointer
 	mov	eax, 4			;; 4 iterations
+	xseven_reals_fft_preload
 
 b1a:	xtouchlines 14			;; Preload TLBs
 
@@ -12236,6 +12266,7 @@ c7b:	x4cl_four_complex_unfft rcx, 64, 2*clmblkdst, 4*clmblkdst
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	rbp, sincos4		;; Load sin/cos pointer
 	mov	eax, 8			;; 8 iterations 
+	xfive_reals_unfft_preload	;; Preload consts for five real macros
 
 c2a:	xtouchlines 8			;; Preload TLBs
 
@@ -12413,6 +12444,7 @@ yes_fft:start_timer 22
 	mov	rdi, sincos4		;; Load sin/cos pointer
 	mov	rbp, sincos3		;; Load sin/cos pointer
 	mov	eax, 2			;; 16 iterations
+	xfive_reals_fft_preload		;; Preload consts for five real macros
 
 b1a:	xtouchlines 4			;; Preload TLBs
 
@@ -12839,6 +12871,7 @@ c7b:	x4cl_four_complex_unfft rcx, 64, 2*clmblkdst, 4*clmblkdst
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	rbp, sincos4		;; Load sin/cos pointer
 	mov	al, 8			;; 8 iterations 
+	xsix_reals_unfft_preload
 
 c2a:	xtouchlines 12			;; Preload TLB
 
@@ -13013,6 +13046,7 @@ yes_fft:start_timer 22
 	mov	rdi, sincos4		;; Load sin/cos pointer
 	mov	rbp, sincos3		;; Load sin/cos pointer
 	mov	eax, 2			;; 16 iterations
+	xsix_reals_fft_preload
 
 b1a:	xtouchlines 2			;; Preload TLBs
 
@@ -13946,6 +13980,7 @@ c7b:	x4cl_four_complex_unfft rcx, 64, 2*clmblkdst, 4*clmblkdst
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	rbp, sincos4		;; Load sin/cos pointer
 	mov	al, 8			;; 8 iterations 
+	xseven_reals_unfft_preload
 
 c2a:	xtouchlines 14			;; Preload TLBs
 
@@ -14137,6 +14172,7 @@ yes_fft:start_timer 22
 	mov	rdi, sincos4		;; Load sin/cos pointer
 	mov	rbp, sincos3		;; Load sin/cos pointer
 	mov	eax, 2			;; 16 iterations
+	xseven_reals_fft_preload
 
 b1a:	xtouchlines 6			;; Preload TLBs
 
@@ -15682,6 +15718,7 @@ c5b:	x4cl_four_complex_unfft rcx, 64, clmblkdst8, 2*clmblkdst8
 	start_timer 19
 	mov	rdi, sincos4		;; Load sin/cos pointer
 	mov	al, 4			;; 32 iterations
+	xfive_reals_unfft_preload	;; Preload consts for five real macros
 
 c2a:	xtouchlines 3			;; Preload TLBs
 
@@ -15844,6 +15881,7 @@ yes_fft:start_timer 22
 	mov	rdi, sincos4		;; Load sin/cos pointer
 	mov	rbp, sincos3		;; Load sin/cos pointer
 	mov	eax, 2			;; 16 iterations
+	xfive_reals_fft_preload		;; Preload consts for five real macros
 
 b1a:	xtouchlines 7			;; Preload TLBs
 
@@ -16302,6 +16340,7 @@ c5b:	x4cl_four_complex_unfft rcx, 64, clmblkdst8, 2*clmblkdst8
 	start_timer 19
 	mov	rdi, sincos4		;; Load sin/cos pointer
 	mov	al, 4			;; 32 iterations
+	xsix_reals_unfft_preload
 
 c2a:	xtouchlines 3			;; Preload TLBs
 
@@ -16407,6 +16446,7 @@ yes_fft:start_timer 22
 	mov	rcx, scratch_area	;; Get address of scratch area
 	lea	rsi, [rsi+186*blkdst]	;; Create prefetching pointer
 	mov	eax, 16			;; 16 iterations of 4 iters of 2*2*clm
+	xsix_reals_fft_preload
 b1a:	xtouch	[rsi+(clm-1)*128]	;; Preload TLB
 b1b:	x3cl_six_reals_fft rcx, 64, 16*clmblkdst8
 	xloop2	b1b, clmblkdst
@@ -17430,6 +17470,7 @@ c5b:	x4cl_four_complex_unfft rcx, 64, clmblkdst8, 2*clmblkdst8
 	start_timer 19
 	mov	rdi, sincos4		;; Load sin/cos pointer
 	mov	al, 4			;; 32 iterations
+	xseven_reals_unfft_preload
 
 c2a:	xtouchlines 5			;; Preload TLBs
 
@@ -17543,6 +17584,7 @@ yes_fft:start_timer 22
 	mov	rcx, scratch_area	;; Get address of scratch area
 	lea	rsi, [rsi+162*blkdst]	;; Create prefetching pointer
 	mov	eax, 8			;; 8 iterations 8 iters of 2*clm
+	xseven_reals_fft_preload
 b1a:	xtouch	[rsi+(clm-1)*128]	;; Preload TLB
 	xtouch	[rsi+(clm-1)*128+blkdst]
 b1b:	x7cl_seven_reals_fft rcx, 64, 8*clmblkdst8
