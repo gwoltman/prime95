@@ -82,6 +82,7 @@ typedef double *gwnum;
 #define GWERROR_TOO_LARGE	1002	/* Number too large for the FFTs. */
 #define GWERROR_K_TOO_SMALL	1003	/* k < 1 is not supported */
 #define GWERROR_K_TOO_LARGE	1004	/* k > 53 bits is not supported */
+#define GWERROR_MALLOC		1005	/* Insufficient memory available */
 
 /* There are three different setup routines.  The first, gwsetup, is for */
 /* gwnum's primary use - support for fast operations modulo K*B^N+C. */

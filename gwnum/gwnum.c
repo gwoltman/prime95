@@ -1676,6 +1676,7 @@ int internal_gwsetup (
 	info = INFT[0];
 	mem_needed = info[3];
 	gwnum_memory = tables = (double *) aligned_malloc (mem_needed, 4096);
+	if (tables == NULL) return (GWERROR_MALLOC);
 
 /* Do a seemingly pointless memset! */
 /* The memset will walk through the allocated memory sequentially, which */
@@ -2277,6 +2278,7 @@ gwnum gwalloc (void)
 {
 	unsigned long size, aligned_size;
 	char	*p, *q;
+	long	freeable;
 
 /* Return cached gwnum if possible */
 
@@ -2316,20 +2318,14 @@ gwnum gwalloc (void)
 		p = GW_BIGBUF;
 		GW_BIGBUF += aligned_size;
 		GW_BIGBUF_SIZE -= aligned_size;
+		freeable = 0;
 	} else {
 		p = (char *) aligned_offset_malloc (
 				size + GW_HEADER_SIZE, GW_ALIGNMENT,
 				GW_HEADER_SIZE + GW_ALIGNMENT_MOD);
 		if (p == NULL) return (NULL);
+		freeable = 1;
 	}
-
-/* Set byte in header that indicates whether the memory should be freed. */
-
-	q = p + GW_HEADER_SIZE;
-	if (GW_BIGBUF_SIZE >= size + aligned_size)
-		* (long *) (q - 32) = 0;	/* Don't free this memory */
-	else
-		* (long *) (q - 32) = 1;	/* Do free this memory */
 
 /* Do a seemingly pointless memset!  This actual is very important. */
 /* The memset will walk through the allocated memory sequentially, which */
@@ -2339,6 +2335,7 @@ gwnum gwalloc (void)
 /* is in contiguous physical memory.  Failure to do this results in as */
 /* much as a 30% performance hit in an SSE2 2M FFT. */
 
+	q = p + GW_HEADER_SIZE;
 	memset (q, 0, size);
 
 /* Initialize the header */
@@ -2346,6 +2343,7 @@ gwnum gwalloc (void)
 	* (unsigned long *) (q - 8) = size;	/* Size in bytes */
 	* (unsigned long *) (q - 4) = 0;	/* Unnormalized adds count */
 	* (unsigned long *) (q - 28) = 0;	/* Has-been-pre-ffted flag */
+	* (long *) (q - 32) = freeable;		/* Mem should be freed flag */
 	* (double *) (q - 16) = 0.0;
 	* (double *) (q - 24) = 0.0;
 
