@@ -9,10 +9,10 @@ manufacturers can have hidden flaws.  If any of several key components such
 as CPU, memory, cooling, etc. are not up to spec, it can lead to incorrect
 calculations and/or unexplained system crashes.
 
-Overclocking is the practice of trying to increase the speed of the CPU and
-memory in an effort to make a machine faster at little cost.  Typically,
-overclocking involves pushing their machine to the limits and then backing
-off just a little bit.
+Overclocking is the practice of increasing the speed of the CPU and/or
+memory to make a machine faster at little cost.  Typically, overclocking
+involves pushing a machine past its limits and then backing off just a
+little bit.
 
 For these reasons, both non-overclockers and overclockers need programs
 that test the stability of their computers.  This is done by running
@@ -24,8 +24,8 @@ are excellent at stress testing a computer.
 RESOURCES
 ---------
 
-This program is a good stress test for the CPU, memory, caches, CPU
-cooling, and case cooling.  The torture test runs continuously, comparing
+This program is a good stress test for the CPU, memory, L1 and L2 caches,
+CPU cooling, and case cooling.  The torture test runs continuously, comparing
 your computer's results to results that are known to be correct.  Any
 mismatch and you've got a problem!  Note that the torture test sometimes
 reads from and writes to disk but cannot be considered a stress test for
@@ -34,7 +34,7 @@ hard drives.
 You'll need other programs to stress video cards, PCI bus, disk access,
 networking and other important components.  In addition, this is only one
 of several good programs that are freely available.  Some people report
-better finding problems only when running two or more stress test programs
+finding problems only when running two or more stress test programs
 concurrently.  You may need to raise prime95's priority when running two
 stress test programs so that each gets about 50% of the CPU time.
 
@@ -47,7 +47,7 @@ web addresses for these):
 	3DMark2001
 	CPU Stability test
 	Sisoft sandra
-	Quake
+	Quake and other games
 	Folding@Home
 	Seti@home
 	Genome@home
@@ -80,7 +80,7 @@ If so, make sure the heat sink is properly attached, fans are operational,
 and air flow inside the case is good.  For isolating memory problems, try
 swapping memory DIMMs with a co-worker's or friend's machine.  If the errors
 go away, then you can be fairly confidant that memory was the cause of
-the trouble.  A power supply problem can often be identified by a dangerous
+the trouble.  A power supply problem can often be identified by a significant
 drop in the voltages when prime95 starts running.  Once again the overclocker
 forums are a good resource for what voltages are acceptable.
 
@@ -96,13 +96,15 @@ CAN I IGNORE THE PROBLEM?
 Ignoring the problem is a matter of personal preference.  There are
 two schools of thought on this subject.
 
-It is likely that most programs you run will not stress your computer
-enough to cause a wrong result or system crash.  A few games stress your
-machine and a system crash could result.  Stay away from distributed
-computing projects where an incorrect calculation might cause you to
-return wrong results.  You are not helping these projects by returning
-bad data!  In conclusion, if you are comfortable with a small risk of
-an occasional system crash then feel free to live a little dangerously!
+Most programs you run will not stress your computer enough to cause a
+wrong result or system crash.  If you ignore the problem, then video games
+may stress your machine resulting in a system crash.  Also, stay away from
+distributed computing projects where an incorrect calculation might cause
+you to return wrong results.  Bad data will not help these projects!
+In conclusion, if you are comfortable with a small risk of an occasional
+system crash then feel free to live a little dangerously!  Keep in mind
+that the faster prime95 finds a hardware error the more likely it is that
+other programs will experience problems.
 
 The second school of thought is, "Why run a stress test if you are going
 to ignore the results?"  These people want a guaranteed 100% rock solid

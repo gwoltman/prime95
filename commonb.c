@@ -2305,6 +2305,7 @@ char SELFFAIL2[] = "FATAL ERROR: Resulting sum was %.16g, expected: %.16g\n";
 char SELFFAIL3[] = "FATAL ERROR: Rounding was %.10g, expected less than 0.4\n";
 char SELFFAIL4[] = "Possible hardware failure, consult readme.txt file, restarting test.\n";
 char SELFFAIL5[] = "Hardware failure detected, consult stress.txt file.\n";
+char SELFFAIL6[] = "Maximum number of warnings exceeded.\n";
 
 #define SELFPASS "Self-test %iK passed!\n"
 char SelfTestIniMask[] = "SelfTest%iPassed";
@@ -2711,9 +2712,16 @@ restart_test:	units_bit = 0;
 
 			if (gw_test_illegal_sumout ()) {
 				OutputBoth (SELFFAIL1);
-				OutputBoth (SELFFAIL4);
 				SELF_TEST_WARNINGS++;
-				goto restart_test;
+				if (SELF_TEST_WARNINGS < 100) {
+					OutputBoth (SELFFAIL4);
+					goto restart_test;
+				} else {
+					OutputBoth (SELFFAIL6);
+					lucasDone ();
+					free (gwarray);
+					return (FALSE);
+				}
 			}
 
 /* Check that the sum of the input numbers squared is approximately */
