@@ -63,15 +63,6 @@ nonoexec MACRO ops:vararg
 
 Q	EQU	<QWORD PTR>
 
-;; Load a 32-bit value into a register - zero padded on x86_64
-
-mov32	MACRO	reg, halfreg, mem
-	IFDEF	X86_64
-	sub	reg, reg
-	ENDIF
-	mov	halfreg, mem
-	ENDM
-
 ;; Bump a pointer by an amount - generates no code if amount is zero
 
 bump	MACRO	reg, amt
@@ -130,7 +121,7 @@ IFDEF TIMERS
 	push	edi
 	sub	eax, eax
 	mov	ecx, 32
-	mov	edi, OFFSET asm_timers
+	mov	edi, OFFSET _ASM_TIMERS
 	rep	stosd
 	pop	edi
 	pop	ecx

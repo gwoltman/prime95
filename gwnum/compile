@@ -13,191 +13,132 @@ cl4d=\msdev\bin\cl /I. /I C:\msdev\include\ /DGDEBUG /GF /W3 /MT /Zi /c
 
 # Use the latest C compiler even though it does not optimize code
 
-cl=cl /I. /GF /W3 /MT /c
-cld=cl /I. /GF /W3 /MT /DGDEBUG /Zi /c
+cl=cl /GF /W3 /MT /D_CRT_SECURE_NO_DEPRECATE /O2 /c
+cld=cl /GF /W3 /MT /D_CRT_SECURE_NO_DEPRECATE /DGDEBUG /Zi /c
+
+# Use the 64-bit C compiler
+
+cl64=cl /GF /W3 /MT /DX86_64 /D_CRT_SECURE_NO_DEPRECATE /O2 /c
+cl64d=cl /GF /W3 /MT /DX86_64 /D_CRT_SECURE_NO_DEPRECATE /DGDEBUG /Zi /c
+
+# List of all buildables in this makefile
+
+all:	gwnum.lib gwnumd.lib
+
+# Make libraries out of the object files
+
+gwnum.lib: release\cpuid.obj release\gwnum.obj release\gwutil.obj release\gwdbldbl.obj release\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2ap.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ax.obj xmult3.obj xmult3a.obj xmult3ax.obj 
+    del gwnum.lib
+    lib /OUT:gwnum.lib release\*.obj *.obj
+
+gwnumd.lib: debug\cpuid.obj debug\gwnum.obj debug\gwutil.obj debug\gwdbldbl.obj debug\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2ap.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ax.obj xmult3.obj xmult3a.obj xmult3ax.obj 
+    del gwnumd.lib
+    lib /OUT:gwnumd.lib debug\*.obj *.obj
 
 # Compile C code
 
 release\cpuid.obj: cpuid.c cpuid.h
     $(cl) /Forelease\cpuid.obj cpuid.c
-    del *.lib
 
 debug\cpuid.obj: cpuid.c cpuid.h
     $(cld) /Fodebug\cpuid.obj cpuid.c
-    del *.lib
 
 release\gwnum.obj: gwnum.c gwnum.h
     $(cl) /Forelease\gwnum.obj gwnum.c
-    del *.lib
 
 debug\gwnum.obj: gwnum.c gwnum.h
     $(cld) /Fodebug\gwnum.obj gwnum.c
-    del *.lib
 
 release\gwutil.obj: gwutil.c gwutil.h
     $(cl) /Forelease\gwutil.obj gwutil.c
-    del *.lib
 
 debug\gwutil.obj: gwutil.c gwutil.h
     $(cld) /Fodebug\gwutil.obj gwutil.c
-    del *.lib
 
 release\gwdbldbl.obj: gwdbldbl.cpp gwdbldbl.h
     $(cl) /I..\qd /Forelease\gwdbldbl.obj gwdbldbl.cpp
-    del *.lib
 
 debug\gwdbldbl.obj: gwdbldbl.cpp gwdbldbl.h
     $(cld) /I..\qd /Fodebug\gwdbldbl.obj gwdbldbl.cpp
-    del *.lib
 
 # Create optimized giants.obj
 
 release\giants.obj: giants.c giants.h
-    $(cl4) /Forelease\giants.obj giants.c
-    del *.lib
+    $(cl) /Forelease\giants.obj giants.c
 
 debug\giants.obj: giants.c giants.h
     $(cld) /Fodebug\giants.obj giants.c
-    del *.lib
 
 # Create 32-bit object files
 
 mult.obj: mult.asm mult.mac xmult.mac timeit.inc
     $(masm) mult.asm
-    del *.lib
 
 mult1.obj: mult1.asm mult.mac fft1.mac
     $(masm) /DPPRO mult1.asm
-    del *.lib
 
 mult1aux.obj: mult1aux.asm mult.mac normal.mac
     $(masm) mult1aux.asm
-    del *.lib
 
 mult2.obj: mult2.asm mult.mac fft2.mac
     $(masm) /DPPRO mult2.asm
-    del *.lib
 
 mult2p.obj: mult2.asm mult.mac fft2.mac
     $(masm) /DPPRO /DPFETCH /Fomult2p.obj mult2.asm
-    del *.lib
 
 mult2a.obj: mult2a.asm mult.mac pass2.mac
     $(masm) /DPPRO mult2a.asm
-    del *.lib
 
 mult2ap.obj: mult2a.asm mult.mac pass2.mac
     $(masm) /DPPRO /DPFETCH /Fomult2ap.obj mult2a.asm
-    del *.lib
 
 mult2aux.obj: mult2aux.asm mult.mac normal.mac
     $(masm) mult2aux.asm
-    del *.lib
 
 mult3.obj: mult3.asm mult.mac fft3.mac
     $(masm) /DPPRO mult3.asm
-    del *.lib
 
 mult3p.obj: mult3.asm mult.mac fft3.mac
     $(masm) /DPPRO /DPFETCH /Fomult3p.obj mult3.asm
-    del *.lib
 
 mult3a.obj: mult3a.asm mult.mac pass2.mac
     $(masm) /DPPRO mult3a.asm
-    del *.lib
 
 mult3ap.obj: mult3a.asm mult.mac pass2.mac
     $(masm) /DPPRO /DPFETCH /Fomult3ap.obj mult3a.asm
-    del *.lib
 
 mult4.obj: mult4.asm mult.mac fft4.mac
     $(masm) /DPPRO mult4.asm
-    del *.lib
 
 mult4p.obj: mult4.asm mult.mac fft4.mac
     $(masm) /DPPRO /DPFETCH /Fomult4p.obj mult4.asm
-    del *.lib
 
 gianthlp.obj: gianthlp.asm
     $(masm) gianthlp.asm
-    del *.lib
 
 cpuidhlp.obj: cpuidhlp.asm
     $(masm) cpuidhlp.asm
-    del *.lib
 
 xmult1.obj: xmult1.asm xmult.mac xlucas.mac xfft1.mac
     $(masm) xmult1.asm
-    del *.lib
 
 xmult1ax.obj: xmult1ax.asm xmult.mac xnormal.mac
     $(masm) xmult1ax.asm
-    del *.lib
 
 xmult2.obj: xmult2.asm xmult.mac xlucas.mac xfft2.mac xnormal.mac
     $(masm) xmult2.asm
-    del *.lib
 
 xmult2a.obj: xmult2a.asm xmult.mac xpass2.mac xlucas.mac
     $(masm) xmult2a.asm
-    del *.lib
 
 xmult2ax.obj: xmult2ax.asm xmult.mac xnormal.mac
     $(masm) xmult2ax.asm
-    del *.lib
 
 xmult3.obj: xmult3.asm xmult.mac xlucas.mac xfft3.mac xnormal.mac
     $(masm) xmult3.asm
-    del *.lib
 
 xmult3a.obj: xmult3a.asm xmult.mac xpass2.mac xlucas.mac
     $(masm) xmult3a.asm
-    del *.lib
 
 xmult3ax.obj: xmult3ax.asm xmult.mac xnormal.mac
     $(masm) xmult3ax.asm
-    del *.lib
-
-gwnum.lib: 
-    del gwnum.lib
-    lib /OUT:gwnum.lib release\*.obj *.obj
-
-gwnumd.lib: 
-    del gwnumd.lib
-    lib /OUT:gwnumd.lib debug\*.obj *.obj
-
-# Create 64-bit object files
-
-amd64\xmult1.obj: xmult1.asm xmult.mac xlucas.mac xfft1.mac
-    $(masm64) /Foamd64\xmult1.obj xmult1.asm
-
-amd64\xmult1ax.obj: xmult1ax.asm xmult.mac xnormal.mac
-    $(masm64) /Foamd64\xmult1ax.obj xmult1ax.asm
-
-amd64\xmult2.obj: xmult2.asm xmult.mac xlucas.mac xfft2.mac
-    $(masm64) /Foamd64\xmult2.obj xmult2.asm
-
-amd64\xmult2a.obj: xmult2a.asm xmult.mac xnormal.mac
-    $(masm64) /Foamd64\xmult2a.obj xmult2a.asm
-
-amd64\xmult2ax.obj: xmult2ax.asm xmult.mac xnormal.mac
-    $(masm64) /Foamd64\xmult2ax.obj xmult2ax.asm
-
-amd64\xmult3.obj: xmult3.asm xmult.mac xlucas.mac xfft3.mac
-    $(masm64) /Foamd64\xmult3.obj xmult3.asm
-
-amd64\xmult3a.obj: xmult3a.asm xmult.mac xnormal.mac
-    $(masm64) /Foamd64\xmult3a.obj xmult3a.asm
-
-amd64\xmult3ax.obj: xmult3ax.asm xmult.mac xnormal.mac
-    $(masm64) /Foamd64\xmult3ax.obj xmult3ax.asm
-
-amd64\cpuidhlp.obj: cpuidhlp.asm
-    $(masm64) /Foamd64\cpuidhlp.obj cpuidhlp.asm
-
-amd64\mult.obj: mult.asm mult.mac xmult.mac timeit.inc
-    $(masm64) /Foamd64\mult.obj mult.asm
-
-amd64\gianthlp.obj: gianthlp.asm
-    $(masm64) /Foamd64\gianthlp.obj gianthlp.asm
-

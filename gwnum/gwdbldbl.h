@@ -24,6 +24,7 @@ extern "C" {
 
 /* Extended precision helper routines */
 
+void gwasm_constants (double, signed long, int, int, unsigned long, unsigned long, double *);
 void gwfft_weight_setup (int, double, unsigned long, signed long, unsigned long);
 double gwfft_weight (unsigned long);
 double gwfft_weight_sloppy (unsigned long);

@@ -522,7 +522,7 @@ zero	mov	zero_fft, 1		;; Set flag saying zero upper half
 	movapd	xmm6, XMM_MAXERR	;; Load maximum error
 no zero	cmp	edx, _ADDIN_ROW		;; Is this the time to do our addin?
 no zero	jne	short noadd		;; Jump if addin does not occur now
-no zero	mov32	rdi, edi, _ADDIN_OFFSET	;; Get address to add value into
+no zero	mov	edi, _ADDIN_OFFSET	;; Get address to add value into
 no zero	_movsd	xmm0, [rsi][rdi]	;; Get the value
 no zero	addsd	xmm0, _ADDIN_VALUE	;; Add in the requested value
 no zero	_movsd	[rsi][rdi], xmm0	;; Save the new value

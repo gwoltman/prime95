@@ -1,3 +1,9 @@
+New features in Version 24.9 of prime95.exe
+-------------------------------------------
+
+1)  Fixed crash when running on machines with "no-execute" protection.
+2)  Fixed mis-detection of some P3 and Celeron CPUs.
+
 New features in Version 24.6 of prime95.exe
 -------------------------------------------
 

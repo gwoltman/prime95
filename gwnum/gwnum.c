@@ -94,7 +94,6 @@ double	ZPAD_K5_MID = 0.0;
 double	ZPAD_K4_MID = 0.0;
 double	ZPAD_K3_MID = 0.0;
 double	ZPAD_K2_MID = 0.0;
-double	ZPAD_K1_MID = 0.0;
 double	ZPAD_K6_LO = 0.0;
 double	ZPAD_K5_LO = 0.0;
 double	ZPAD_K4_LO = 0.0;
@@ -774,10 +773,10 @@ double *build_biglit_table (
 /* that tell the assembly code the big/lit array distance between words */
 /* 0 and 2, and words 0 and 4. */
 
-		if (word == 2) 
-			BIGLIT_INCR2 = (char *) p - (char *) table;
-		if (word == 4) 
-			BIGLIT_INCR4 = (char *) p - (char *) table;
+		if (word == 2)
+			BIGLIT_INCR2 = (unsigned long) ((char *) p - (char *) table);
+		if (word == 4)
+			BIGLIT_INCR4 = (unsigned long) ((char *) p - (char *) table);
 	}
 	p++;
 	}
@@ -1202,10 +1201,10 @@ double *build_x87_biglit_table (
 /* that tell the assembly code the big/lit array distance between words */
 /* 0 and 2, and words 0 and 4. */
 
-		if (word == 2) 
-			BIGLIT_INCR2 = (char *) p - (char *) table;
-		if (word == 4) 
-			BIGLIT_INCR4 = (char *) p - (char *) table;
+		if (word == 2)
+			BIGLIT_INCR2 = (unsigned long) ((char *) p - (char *) table);
+		if (word == 4)
+			BIGLIT_INCR4 = (unsigned long) ((char *) p - (char *) table);
 	}
 	p++;
 	}
@@ -1278,12 +1277,12 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 
 /* Check L2 cache size constraints */
 		
-			if (l2_cache_size < ((zpad_jmptab[8] >> 16) & 0x7FFF))
+			if (l2_cache_size < ((zpad_jmptab[4] >> 16) & 0x7FFF))
 				goto next1;
 
 /* Check FFT requires prefetch capability */
 
-			if (zpad_jmptab[8] & 0x80000000 &&
+			if (zpad_jmptab[4] & 0x80000000 &&
 			    ! (CPU_FLAGS & CPU_PREFETCH))
 				goto next1;
 
@@ -1298,7 +1297,7 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 
 /* Move to next jmptable entry */
 
-next1:			for (zpad_jmptab += 14; *zpad_jmptab; zpad_jmptab++);
+next1:			for (zpad_jmptab += 18; *zpad_jmptab; zpad_jmptab++);
 			zpad_jmptab++;
 		}
 	}
@@ -1323,12 +1322,12 @@ next1:			for (zpad_jmptab += 14; *zpad_jmptab; zpad_jmptab++);
 
 /* Check L2 cache size constraints */
 		
-		if (l2_cache_size < ((jmptab[8] >> 16) & 0x7FFF))
+		if (l2_cache_size < ((jmptab[4] >> 16) & 0x7FFF))
 			goto next2;
 
 /* Check FFT requires prefetch capability */
 
-		if (jmptab[8] & 0x80000000 && ! (CPU_FLAGS & CPU_PREFETCH))
+		if (jmptab[4] & 0x80000000 && ! (CPU_FLAGS & CPU_PREFETCH))
 			goto next2;
 
 /* Check if this table entry matches the specified FFT length. */
@@ -1387,13 +1386,13 @@ next1:			for (zpad_jmptab += 14; *zpad_jmptab; zpad_jmptab++);
 /* if this is this k can be handled.  K must fit in the top three words */
 /* for one-pass FFTs and within the top two words of two-pass FFTs. */
 
-				if (jmptab[10] == 0 &&
+				if (jmptab[6] == 0 &&
 				    log2k > floor (3.0 * bits_per_word)) {
 					ASSERTG (zpad_jmptab == NULL ||
 						 jmptab[1] >= zpad_jmptab[1]);
 					goto next2;
 				}
-				if (jmptab[10] != 0 &&
+				if (jmptab[6] != 0 &&
 				    log2k > floor (2.0 * bits_per_word)) {
 					ASSERTG (zpad_jmptab == NULL ||
 						 jmptab[1] >= zpad_jmptab[1]);
@@ -1405,7 +1404,7 @@ next1:			for (zpad_jmptab += 14; *zpad_jmptab; zpad_jmptab++);
 
 /* Move to next jmptable entry */
 
-next2:		for (jmptab += 14; *jmptab; jmptab++);
+next2:		for (jmptab += 18; *jmptab; jmptab++);
 		jmptab++;
 	}
 
@@ -1661,6 +1660,7 @@ int internal_gwsetup (
 	double	fft_bit_length;		/* Bit length of the FFT */
 	double	*tables;		/* Pointer tables we are building */
 	unsigned long pass1_size, pass2_size;
+	double	asm_values[100];
 
 	ASSERTG (FFTLEN == 0);
 
@@ -1748,18 +1748,18 @@ int internal_gwsetup (
 /* we build the normalization tables.  Note that cache line sizes are */
 /* different in the x87 (16 bytes) and SSE2 code (64 bytes). */
 
-	PASS1_CACHE_LINES = (info[8] & 0xFFFF);
+	PASS1_CACHE_LINES = (info[4] & 0xFFFF);
 
 /* Determine the pass 1 & pass 2 sizes.  This affects how we build */
 /* many of the sin/cos tables. */
 
-	PASS2_LEVELS = info[10];	/* Num FFT levels done in pass2 */
+	PASS2_LEVELS = info[6];	/* Num FFT levels done in pass2 */
 	pass2_size = 1 << PASS2_LEVELS;	/* Complex values in pass2 section */
 	pass1_size = FFTLEN / pass2_size; /* Real values in a pass1 section */
 
 /* Remember the size of the scratch area */
 
-	SCRATCH_SIZE = info[9];
+	SCRATCH_SIZE = info[5];
 
 /* Initialize tables for the SSE2 assembly code. */
 
@@ -1972,8 +1972,19 @@ int internal_gwsetup (
 		OutputBoth(buf);}}}
 #endif
 
+/* Now compute a number of constants the assembly code needs.  These will */
+/* be copied to properly aligned (SSE2 constants must be on 16-byte */
+/* boundaries) and grouped (for better cache line locality) assembly */
+/* global variables.  We compute these constants in C code because it is */
+/* easier and because early Pentiums do not support SSE2 instructions and */
+/* x86-64 does not support x87 instructions. */
+
+	gwasm_constants (k, c, CPU_FLAGS & CPU_SSE2, ZERO_PADDED_FFT,
+			 FFTLEN, BITS_PER_WORD, (double *) &asm_values);
+
 /* Now call assembly routine to finish off the initialization */
 
+	SRCARG = (void *) &asm_values;
 	gwsetup2 ();
 
 /* If the carry must be spread over more than 2 words, then set global */
@@ -3065,6 +3076,45 @@ static	unsigned long saved_n = 0;
 	((long *) d)[-7] = 0;
 }
 
+/* Set the constant which the results of a multiplication should be */
+/* multiplied by.  Use this macro in conjunction with the c argument of */
+/* gwsetnormroutine. */
+
+void gwsetmulbyconst (
+	long	val)
+{
+	double	asm_values[6], ktimesval, big_word;
+#define XMM_MULCONST			asm_values[0]
+#define	XMM_MINUS_CARG_TIMES_MULCONST	asm_values[1]
+#define XMM_K_TIMES_MULCONST_HI		asm_values[2]
+#define XMM_K_TIMES_MULCONST_LO		asm_values[3]
+#define XMM_K_TIMES_MULCONST_HI_2	asm_values[4]
+#define XMM_K_TIMES_MULCONST_HI_1	asm_values[5]
+
+/* Save mulbyconst and -c * mulbyconst as a double */
+
+	XMM_MULCONST = (double) val;
+	XMM_MINUS_CARG_TIMES_MULCONST = (double) -CARG * (double) val;
+
+/* Split k*mulconst for zero-padded FFTs emulating modulo k*2^n+c */
+
+	ktimesval = KARG * (double) val;
+	big_word = (double) (1 << (BITS_PER_WORD + 1));
+	XMM_K_TIMES_MULCONST_HI = floor (ktimesval / big_word) * big_word;
+	XMM_K_TIMES_MULCONST_LO = ktimesval - XMM_K_TIMES_MULCONST_HI;
+
+	big_word = big_word * big_word;
+	XMM_K_TIMES_MULCONST_HI_2 =
+		floor (XMM_K_TIMES_MULCONST_HI / big_word) * big_word;
+	XMM_K_TIMES_MULCONST_HI_1 =
+		XMM_K_TIMES_MULCONST_HI - XMM_K_TIMES_MULCONST_HI_2;
+
+/* Call assembly code to copy these constants to properly aligned and */
+/* grouped assembler global variables. */
+
+	SRCARG = &asm_values;
+	eset_mul_const();
+}
 
 /* Add a small constant at the specified bit position after the */
 /* next multiplication.  This only works if k=1. */
@@ -3466,7 +3516,7 @@ int gwtogiant (
 
 /* Set the length */
 
-	v->sign = (outptr - v->n);
+	v->sign = (long) (outptr - v->n);
 	while (v->sign && v->n[v->sign-1] == 0) v->sign--;
 
 /* If carry is -1, the gwnum is negative.  Ugh.  Flip the bits and sign. */

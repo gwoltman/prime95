@@ -336,7 +336,7 @@ inorm	MACRO	lab, ttp, zero, echk, const
 	LOCAL	ilp0, ilp1
 	PUBLIC	lab
 lab:	mov	rsi, _DESTARG		;; Addr of multiplied number
-no zero	mov32	rdi, edi, _ADDIN_OFFSET	;; Get address to add value into
+no zero	mov	edi, _ADDIN_OFFSET	;; Get address to add value into
 no zero	_movsd	xmm0, [rsi][rdi]	;; Get the value
 no zero	addsd	xmm0, _ADDIN_VALUE	;; Add in the requested value
 no zero	_movsd	[rsi][rdi], xmm0	;; Save the new value

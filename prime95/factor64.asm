@@ -92,7 +92,7 @@ rems		DD	1,7,17,23,31,41,47,49,71,73,79,89,97,103,113,119
 ;
 ; More data
 ;
-
+IFDEF NOT_READY
 	align	32
 returns5	DD	OFFSET tx1, OFFSET tx2, OFFSET tx3, OFFSET tx4
 		DD	OFFSET tx5, OFFSET tx6, OFFSET tx7, OFFSET tx8
@@ -143,6 +143,7 @@ clrtab	DD	OFFSET clr01, OFFSET clr03, OFFSET clr05, OFFSET clr07
 	DD	OFFSET clr451,OFFSET clr453,OFFSET clr455,OFFSET clr457
 	DD	OFFSET clr461,OFFSET clr463,OFFSET clr465,OFFSET clr467
 	DD	OFFSET clr471,OFFSET clr473,OFFSET clr475,OFFSET clr477
+ENDIF
 sivinfo	DB	1, 2, 1, 2, 1, 2, 3, 1, 3, 2, 1, 2, 3
 	DB	3, 1, 3, 2, 1, 3, 2, 3, 4, 2, 1, 2, 1, 2, 7
 	DB	2, 3, 1, 5, 1, 3, 3, 2, 3, 3, 1, 5, 1, 2, 1
@@ -996,6 +997,7 @@ _setupf	PROC
 
 ; Save p (passed in _FACLSW), compute various constants and addresses
 
+IFDEF NOT_READY
 	mov32	rcx, ecx, _FACLSW
 	mov	p, rcx
 
@@ -1098,7 +1100,7 @@ ilp6:	sub	edx, ecx		; Compute bit# mod smallp
 	jnz	short ilp5
 	test	eax, eax		; Is lookup table completely built?
 	jnz	short ilp4
-
+ENDIF
 ; Set firstcall
 
 	sub	eax, eax
@@ -1122,6 +1124,7 @@ _setupf	ENDP
 ; will be 62 bits or less.
 
 presq	PROC
+IFDEF NOT_READY
 	mov	edx, 126
 	mov	eax, _FACHSW
 	or	eax, eax
@@ -1190,8 +1193,8 @@ cntlp:	inc	ecx
 	add	eax, eax
 	jnz	short cntlp
 	mov	sqloop_counter, ecx
-
-	retn
+ENDIF
+	ret
 presq	ENDP
 
 ;
@@ -1200,7 +1203,7 @@ presq	ENDP
 
 
 tlp64:
-
+IFDEF NOT_READY
 fac64:	mov	rcx, p
 s64lp:	add	rcx, rcx		; Shift until top bit on
 	jns	short s64lp
@@ -1269,6 +1272,7 @@ win64:	mov	rax, 1
 	mov	_FACMSW, 0
 	mov	_FACLSW, rcx
 	jmp	done
+ENDIF
 
 ;
 ; Register allocations
@@ -1288,7 +1292,7 @@ _factor64 PROC
 	push	rsi
 	push	rbp
 	push	rbx
-
+IFDEF NOT_READY
 ; Is this a request to test 32-bit factors?  If so, go to special code.
 
 	mov	rax, _FACHSW
@@ -2812,7 +2816,7 @@ pfound:	fstp	temp			; Toss the value on the FPU stack
 	add	esp, 12			; Pop sieve testing registers
 					; and the pwin return address
 	jmp	done
-
+ENDIF
 _factor64 ENDP
 
 _TEXT	ENDS

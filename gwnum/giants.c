@@ -1446,8 +1446,10 @@ int egcdhlp_wrapper (
 	int	i;
 	unsigned long r, ch, cl;
 
-	SRCARG = u;
-	SRC2ARG = v;
+	SRCARG = u->n;
+	SRC2ARG = v->n;
+	NUMARG = u->sign;
+	NUM2ARG = v->sign;
 	if (!egcdhlp ()) return (FALSE);
 	if (A != NULL) {
 		gmatrixstruct B;

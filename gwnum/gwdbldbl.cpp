@@ -51,6 +51,200 @@
 
 /* Now write all the routines that use the dd_real package. */
 
+
+/* Utility routine to compute many of the constants used by the */
+/* assembly language code */
+
+extern "C"
+void gwasm_constants (
+	double	k,
+	signed long c,
+	int	sse2,
+	int	zero_pad,
+	unsigned long fftlen,
+	unsigned long bits_in_small_word,
+	double	*asm_values)
+{
+	dd_real arg, sine1, cosine1, sine2, cosine2, sine3, cosine3;
+	double	small_word, big_word, temp;
+#define MINUS_CARG			asm_values[0]
+#define BIGVAL				asm_values[1]
+#define BIGBIGVAL			asm_values[2]
+#define XMM_BIGVAL			asm_values[3]
+#define XMM_BIGBIGVAL			asm_values[4]
+#define SQRTHALF			asm_values[5]
+#define ttmp_ff_inv			asm_values[6]
+#define XMM_NORM012_FF			asm_values[7]
+#define XMM_K_HI			asm_values[8]
+#define XMM_K_LO			asm_values[9]
+#define XMM_K_HI_2			asm_values[10]
+#define XMM_K_HI_1			asm_values[11]
+#define XMM_LIMIT_INVERSE		(asm_values+12)
+#define XMM_LIMIT_BIGMAX		(asm_values+20)
+#define XMM_LIMIT_BIGMAX_NEG		(asm_values+28)
+#define P951				asm_values[36]
+#define P618				asm_values[37]
+#define P309				asm_values[38]
+#define M262				asm_values[39]
+#define P588				asm_values[40]
+#define M162				asm_values[41]
+#define M809				asm_values[42]
+#define M382				asm_values[43]
+#define P866				asm_values[44]
+#define P433				asm_values[45]
+#define P577				asm_values[46]
+#define P975				asm_values[47]
+#define P445				asm_values[48]
+#define P180				asm_values[49]
+#define P623				asm_values[50]
+#define M358				asm_values[51]
+#define P404				asm_values[52]
+#define M223				asm_values[53]
+#define M901				asm_values[54]
+#define M691				asm_values[55]
+
+/* Do some initial setup */
+	
+	x86_FIX
+	small_word = (double) (1 << bits_in_small_word);
+	big_word = (double) (1 << (bits_in_small_word + 1));
+	
+/* Negate c and store as a double */
+
+	MINUS_CARG = (double) -c;
+
+/* Compute the x87 (64-bit) rounding constants */
+
+	BIGVAL = 3.0 * pow (2.0, 62.0);
+	BIGBIGVAL = big_word * BIGVAL;
+
+/* Compute the SSE2 (53-bit) rounding constants */
+
+	XMM_BIGVAL = 3.0 * pow (2.0, 51.0);
+	XMM_BIGBIGVAL = big_word * XMM_BIGVAL;
+
+/* Compute square root of 0.5 */
+
+	SQRTHALF = sqrt (0.5);
+
+/* The sumout value is FFTLEN/2 times larger than it should be.  Create an */
+/* inverse to properly calculate the sumout when a multiplication ends. */
+
+	ttmp_ff_inv = 2.0 / (double) fftlen;
+
+/* Compute constant that converts fft_weight_over_fftlen found in the */
+/* two-to-minus-phi tables into the true fft_weight value.  This is usually */
+/* FFTLEN / 2, but when doing a non-zero-padded FFT this is FFTLEN / 2k. */
+
+	XMM_NORM012_FF = (double) fftlen / 2.0;
+	if (!zero_pad) XMM_NORM012_FF /= k;
+
+/* Split k for zero-padded FFTs emulating modulo k*2^n+c */
+
+	XMM_K_HI = floor (k / big_word) * big_word;
+	XMM_K_LO = k - XMM_K_HI;
+	XMM_K_HI_2 = floor (k / big_word / big_word) * big_word * big_word;
+	XMM_K_HI_1 = XMM_K_HI - XMM_K_HI_2;
+
+/* Compute the normalization constants indexed by biglit array entries */
+
+	temp = 1.0 / small_word;	/* Compute lower limit inverse */
+	XMM_LIMIT_INVERSE[0] =
+	XMM_LIMIT_INVERSE[1] =
+	XMM_LIMIT_INVERSE[3] =
+	XMM_LIMIT_INVERSE[4] = temp;
+
+					/* Compute lower limit bigmax */
+	if (sse2) temp = small_word * XMM_BIGVAL - XMM_BIGVAL;
+	else temp = temp * BIGVAL - BIGVAL;
+	XMM_LIMIT_BIGMAX[0] =
+	XMM_LIMIT_BIGMAX[1] =
+	XMM_LIMIT_BIGMAX[3] =
+	XMM_LIMIT_BIGMAX[4] = temp;
+
+	temp = -temp;			/* Negative lower limit bigmax */
+	XMM_LIMIT_BIGMAX_NEG[0] =
+	XMM_LIMIT_BIGMAX_NEG[1] =
+	XMM_LIMIT_BIGMAX_NEG[3] =
+	XMM_LIMIT_BIGMAX_NEG[4] = temp;
+
+	temp = 1.0 / big_word;		/* Compute upper limit inverse */
+	XMM_LIMIT_INVERSE[2] =
+	XMM_LIMIT_INVERSE[5] =
+	XMM_LIMIT_INVERSE[6] =
+	XMM_LIMIT_INVERSE[7] = temp;
+
+					/* Compute upper limit bigmax */
+	if (sse2) temp = big_word * XMM_BIGVAL - XMM_BIGVAL;
+	else temp = temp * BIGVAL - BIGVAL;
+	XMM_LIMIT_BIGMAX[2] =
+	XMM_LIMIT_BIGMAX[5] =
+	XMM_LIMIT_BIGMAX[6] =
+	XMM_LIMIT_BIGMAX[7] = temp;
+
+	temp = -temp;			/* Negative upper limit bigmax */
+	XMM_LIMIT_BIGMAX_NEG[2] =
+	XMM_LIMIT_BIGMAX_NEG[5] =
+	XMM_LIMIT_BIGMAX_NEG[6] =
+	XMM_LIMIT_BIGMAX_NEG[7] = temp;
+
+/* Initialize the five_reals sine-cosine data. */
+/* NOTE: When computing cosine / sine, divide by the 64-bit sine not the */
+/* extra precision sine since macros will multiply by the 64-bit sine. */
+
+	arg = dd_real::_2pi / 5.0;		// 2*PI * 1 / 5
+	sincos (arg, sine1, cosine1);
+
+	arg = arg * 2.0;			// 2*PI * 2 / 5
+	sincos (arg, sine2, cosine2);
+
+	P951 = double (sine1);
+	P618 = double (sine2 / P951);		// 0.588 / 0.951
+
+	P309 = double (cosine1);
+	M262 = double (cosine2 / P309);		// -0.809 / 0.309
+
+	P588 = double (sine2);
+	M162 = double (-sine1 / P588);		// -0.951 / 0.588
+
+	M809 = double (cosine2);
+	M382 = double (cosine1 / M809);		// 0.309 / -0.809
+
+/* Initialize the six_reals sine-cosine data. */
+
+	arg = dd_real::_2pi / 3.0;		// 2*PI / 3
+	sine1 = sin (arg);			// Compute sine (0.866)
+
+	P866 = double (sine1);
+	P433 = double (sine1 * 0.5);		// 0.5 * P866
+	P577 = double (dd_real (0.5) / sine1);	// 0.5 / 0.866
+
+/* Initialize the seven_reals sine-cosine data. */
+
+	arg = dd_real::_2pi / 7.0;		// 2*PI * 1 / 7
+	sincos (arg, sine1, cosine1);		// cosine (0.623), sine (0.782)
+
+	arg = arg * 2.0;			// 2*PI * 2 / 7
+	sincos (arg, sine2, cosine2);		// cosine (-.223), sine (0.975)
+
+	arg = arg * 1.5;			// 2*PI * 3 / 7
+	sincos (arg, sine3, cosine3);		// cosine (-.901), sine (0.434)
+		
+	P975 = double (sine2);
+	P445 = double (sine3 / P975);		// 0.434 / 0.975
+	P180 = double (sine1 / P975 / P445);	// 0.782 / (0.975 * 0.445)
+
+	P623 = double (cosine1);
+	M358 = double (cosine2 / P623);		// -0.223 / 0.623
+	P404 = double (cosine3 / P623 / M358);	// -.901 / (.623 * -.358)
+
+	M223 = double (cosine2);
+	M901 = double (cosine3);
+	M691 = double (cosine1 / M901);		// 0.623 / -0.901
+
+	END_x86_FIX
+}
+
 // Utility routine to compute a sin/cos premultiplier or a set of 3
 // sine-cosine values.
 // This is used during setup, formerly written in assembly language to take

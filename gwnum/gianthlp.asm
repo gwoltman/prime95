@@ -14,8 +14,6 @@ ENDIF
 
 INCLUDE unravel.mac
 
-EXTRN	_PARG:DWORD
-EXTRN	_FFTLEN:DWORD
 EXTRN	_SRCARG:EXTPTR
 EXTRN	_SRC2ARG:EXTPTR
 EXTRN	_DESTARG:EXTPTR
@@ -110,13 +108,14 @@ _emulsubhlp ENDP
 ; Routine to help in computing extended GCD quickly
 ;
 ; Do several single-precision steps for the extended GCD code
-; U is larger than V - both are the same length.  Returns A,B,C,D
-; as defined in Knuth vol 2. description of extended GCD for
-; large numbers.
-; This was implemented in assembly language to deal with 64-bit integers.
+; U is larger than V.  Both are the same length or U is one larger
+; than V.  Returns A,B,C,D as defined in Knuth vol 2. description of
+; extended GCD for large numbers.  This was implemented in assembly
+; language to better deal with 64-bit integers.
 
 	PUBLIC	_egcdhlp
 _egcdhlp PROC
+IFNDEF X86_64
 	fninit
 	push	ebp
 	push	ebx
@@ -128,11 +127,9 @@ _egcdhlp PROC
 ;	V will be in esi:ebp with bits shifted in from ebx
 
 	mov	edi, _SRCARG		; Giant U
-	mov	ebx, [edi]		; U->sign
-	mov	edi, [edi+4]		; U->n
+	mov	ebx, _NUMARG		; U->sign
 	mov	ecx, _SRC2ARG		; Giant V
-	mov	ebp, [ecx]		; V->sign
-	mov	ecx, [ecx+4]		; V->n
+	mov	ebp, _NUM2ARG		; V->sign
 
 	mov	edx, [edi-4][ebx*4]	; U[Ulen-1]
 
@@ -204,9 +201,7 @@ noshft:	fld1				; A
 
 ; Check if we are doing an exact GCD
 
-	mov	ebx, _SRCARG		; Giant U
-	mov	ebx, [ebx]		; U->sign
-	cmp	ebx, 2
+	cmp	_NUMARG, 2
 	jle	simple
 
 ; Do as many single precision operations as we can
@@ -405,6 +400,179 @@ egdone1:fstcw	FPCNTRL
 	pop	edi
 	pop	ebx
 	pop	ebp
+
+
+; The x86-64 version uses integer instructions
+
+
+ELSE
+	push	rbp
+	push	rbx
+	push	r12
+	push	r14
+	push	r15
+
+; Init extended GCD information
+;	EGCD_A = 1;			; R8
+;	EGCD_B = 0;			; R9
+;	EGCD_C = 0;			; R10
+;	EGCD_D = 1;			; R11
+;	EGCD_ODD = 0;			; R12
+
+	mov	r8, 1			; A
+	xor	r9, r9			; B
+	xor	r10, r10		; C
+	mov	r11, 1			; D
+	xor	r12, r12		; ODD
+
+; Load up to 64 bits of U and V
+;	U will be in r14
+;	V will be in r15
+
+	mov	rdi, _SRCARG		; Giant U
+	mov	ebx, _NUMARG		; U->sign
+	mov	r14d, [rdi-4][rbx*4]	; U[Ulen-1]
+
+	mov	rsi, _SRC2ARG		; Giant V
+	mov	ebp, _NUM2ARG		; V->sign
+	xor	r15, r15		; Zero V in case U and V not same len
+	cmp	rbx, rbp		; Load top V word if U and V same len
+	jne	short noload
+	mov	r15d, [rsi-4][rbx*4]	; V[Ulen-1]
+
+	cmp	rbx, 1			; Are there more words to shift
+	je	simple			; bits from?
+
+noload:	shl	r14, 32
+	shl	r15, 32
+	mov	eax, [rdi-8][rbx*4]	; U[Ulen-2]
+	mov	edx, [rsi-8][rbx*4]	; V[Ulen-2]
+	add	r14, rax
+	add	r15, rdx
+
+	cmp	ebx, 2			; Are there more words to shift
+	je	simple			; bits from?
+
+	mov	eax, [rdi-12][rbx*4]	; U[Ulen-3]
+	mov	edx, [rsi-12][rbx*4]	; V[Ulen-3]
+
+	bsr	rcx, r14		; Count bits to shift U
+	xor	cl, 63			; Turn bit # into a shift count
+
+	shl	rax, 32
+	shl	rdx, 32
+	shld	r14, rax, cl		; Shift U
+	shld	r15, rdx, cl		; Shift V
+
+; Do as many operations as we can constrained by a maximum 32-bit result
+;	FPU contains U, V, D, B, C, A
+; As Knuth suggests:
+;	Compute (U-B)/(V+D), the smaller quotient
+;	Compute (U+A)/(V-C), the larger quotient, break if not equal
+;	Set newB = D, newD = B+Q*D, break if newD won't fit in 32 bits
+;	Set newA = C, newC = A+Q*C
+;	Set newU = V, newV = U-Q*V
+
+	mov	rsi, 1			; Compute 2^32
+	shl	rsi, 32
+	shr	r14, 1			; Lose a bit so we can use signed
+	shr	r15, 1			; multiply and divide instructions
+dloop:	mov	rax, r14		; U
+	sub	rax, r9			; U-B
+	mov	rcx, r15		; V
+	add	rcx, r11		; V+D
+	xor	rdx, rdx
+	idiv	rcx			; Q = (U-B)/(V+D)
+
+	mov	rcx, r15		; V
+	sub	rcx, r10		; V-C
+	mov	rbp, rax		; Copy Q
+	imul	rbp, rcx		; Q*(V-C)
+	add	rbp, rcx		; (Q+1)*(V-C)
+	lea	rbx, [r14+r8]		; U+A
+	cmp	rbx, rbp		; Compare U+A to (Q+1)*(V-C)
+	jae	lpdone			; Break if above or equal
+
+	mov	rbx, r11		; D
+	imul	rbx, rax		; Q*D
+	add	rbx, r9			; B+Q*D (newD)
+	cmp	rbx, rsi		; Will new D be too large?
+	jae	lpdone			; Break if newD is 32-bits or more
+	mov	r9, r11			; newB = D
+	mov	r11, rbx		; newD = B+Q*D
+
+	mov	rcx, r10		; C
+	imul	rcx, rax		; Q*C
+	add	rcx, r8			; A+Q*C (newC)
+	mov	r8, r10			; newA = C
+	mov	r10, rcx		; newC = A+Q*C
+
+	imul	rax, r15		; Q*V
+	sub	r14, rax		; U-Q*V (newV)
+	xchg	r14, r15		; newU = V, newV = U-Q*V
+
+	xor	r12, 1			; Flip ODD
+	jmp	dloop
+
+; The single precision case:
+;	Compute U/V, the quotient
+;	Set newB = D, newD = B+Q*D, break if newD won't fit in 32 bits
+;	Set newA = C, newC = A+Q*C
+;	Set newU = V, newV = U-Q*V
+
+simple:	mov	rsi, 1			; Compute 2^32
+	shl	rsi, 32
+sloop:	mov	rax, r14		; U
+	xor	rdx, rdx
+	div	r15			; Q = U/V
+	mov	rbp, rax		; Copy Q
+
+	mul	r11			; Q*D
+	add	rax, r9			; B+Q*D
+	cmp	rax, rsi		; Will new D be too large?
+	jae	short lpdone		; Break if D >= 2^32
+	mov	r9, r11			; newB = D
+	mov	r11, rax		; newD = B+Q*D
+
+	mov	rax, r10		; C
+	mul	rbp			; Q*C
+	add	rax, r8			; A+Q*C (newC)
+	mov	r8, r10			; newA = C
+	mov	r10, rax		; newC = A+Q*C
+
+	mov	rax, r15		; V
+	mul	rbp			; Q*V
+	sub	r14, rax		; U-Q*V (newV)
+	xchg	r14, r15		; newU = V, newV = U-Q*V
+
+	xor	r12, 1			; Flip ODD
+
+	and	r15, r15		; Loop if V is not zero
+	jnz	short sloop
+
+; Copy extended GCD info to globals
+
+lpdone:	mov	_EGCD_A, r8d
+	mov	_EGCD_B, r9d
+	mov	_EGCD_C, r10d
+	mov	_EGCD_D, r11d
+	mov	_EGCD_ODD, r12d
+	and	r9, r9			; Check for special case (B = 0)
+	jnz	short egdone
+
+; In this case the main loop couldn't determine even a single quotient.
+; Return FALSE, so caller can handle by more sophisticated means.
+
+	xor	rax, rax
+	jmp	short egdone1
+
+egdone:	mov	rax, 1
+egdone1:pop	r15
+	pop	r14
+	pop	r12
+	pop	rbx
+	pop	rbp
+ENDIF
 	ret
 _egcdhlp ENDP
 

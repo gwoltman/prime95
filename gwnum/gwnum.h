@@ -56,7 +56,7 @@ typedef double *gwnum;
 /* gwsetup verifies that the version numbers match.  This prevents bugs */
 /* from accidentally linking in the wrong gwnum object files. */
 
-#define GWNUM_VERSION	"24.9"
+#define GWNUM_VERSION	"24.10"
 
 /* Prior to calling one of the gwsetup routines, you can have the library */
 /* "play it safe" by reducing the maximum allowable bits per FFT data word. */
@@ -219,7 +219,7 @@ long gwtobinary (
 /* multiplied by.  Use this macro in conjunction with the c argument of */
 /* gwsetnormroutine. */
 
-#define gwsetmulbyconst(s) {NUMARG = (long)(s); eset_mul_const();}
+void gwsetmulbyconst (long s);
 
 /* The multiplication code has two options that you can set using this */
 /* macro.  The e argument tells the multiplication code whether or not */

@@ -4548,6 +4548,12 @@ xmult7	MACRO	src1, src2
 	mulsd	xmm0, Q [src2-64]
 	_movsd	XMM_ZPAD6, xmm0
 
+	IFDEF X86_64
+	mov	r8, OFFSET XMM_ZPAD0
+	mov	zpad_addr, r8
+	ELSE
 	mov	zpad_addr, OFFSET XMM_ZPAD0
+	ENDIF
+
 nozpad:
 	ENDM

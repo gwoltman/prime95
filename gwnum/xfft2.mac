@@ -27,15 +27,15 @@ xcopy_7_words MACRO
 	_movsd	[rsi-56], xmm2
 	_movsd	xmm3, [rsi+rbx+224]	;; Copy 4th word
 	_movsd	[rsi-64], xmm3
-	mov32	rax, eax, _HIGH_WORD1_OFFSET;; Copy 1st word below half-way
+	mov	eax, _HIGH_WORD1_OFFSET	;; Copy 1st word below half-way
 	add	rax, rsi
 	_movsd	xmm0, [rax+rbx]
 	_movsd	[rsi-72], xmm0
-	mov32	rax, eax, _HIGH_WORD2_OFFSET;; Copy 2nd word below
+	mov	eax, _HIGH_WORD2_OFFSET	;; Copy 2nd word below
 	add	rax, rsi
 	_movsd	xmm1, [rax+rbx]
 	_movsd	[rsi-80], xmm1
-	mov32	rax, eax, _HIGH_WORD3_OFFSET;; Copy 3rd word below
+	mov	eax, _HIGH_WORD3_OFFSET	;; Copy 3rd word below
 	add	rax, rsi
 	_movsd	xmm2, [rax+rbx]
 	_movsd	[rsi-88], xmm2
@@ -66,13 +66,13 @@ xcopy_3_words MACRO clm			;; Assumes clm >= 2
 	cmp	edx, 1			;; Only copy on last inverse FFT pass
 	jne	short nozpad		;; Jump if delaying
 	mov	rdi, _DESTARG		;; Load destination pointer
-	mov32	rax, eax, _HIGH_WORD1_OFFSET;; Copy 1st word below half-way
+	mov	eax, _HIGH_WORD1_OFFSET	;; Copy 1st word below half-way
 	_movsd	xmm0, [rdi+rax]
 	_movsd	[rdi-72], xmm0
-	mov32	rax, eax, _HIGH_WORD2_OFFSET;; Copy 2nd word below
+	mov	eax, _HIGH_WORD2_OFFSET	;; Copy 2nd word below
 	_movsd	xmm1, [rdi+rax]
 	_movsd	[rdi-80], xmm1
-	mov32	rax, eax, _HIGH_WORD3_OFFSET;; Copy 3rd word below
+	mov	eax, _HIGH_WORD3_OFFSET	;; Copy 3rd word below
 	_movsd	xmm2, [rdi+rax]
 	_movsd	[rdi-88], xmm2
 nozpad:

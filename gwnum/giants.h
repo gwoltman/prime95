@@ -208,6 +208,16 @@ giant	popg(int);	/* Number of longs in data area */
 void	pushg(int);	/* Number of items to return to stack */
 
 
+
+/* Handle the difference between the naming conventions in */
+/* C compilers.  We need to do this for global variables that */
+/* referenced by the assembly routines.  Most non-Windows systems */
+/* should #define ADD_UNDERSCORES before including this file. */
+
+#ifdef ADD_UNDERSCORES
+#include "gwrename.h"
+#endif
+
 /* Low-level math routines the caller can use for multi-precision */
 /* arithmetic */
 

@@ -1665,7 +1665,7 @@ xnorm_top_carry_cmn MACRO srcreg, xreg, twopass
 
 	IF twopass EQ 1			;; Two pass case - load the carry
 	mov	rdi, carries		;; Addr of the carries
-	mov32	rax, eax, addcount1	;; Load count of carry rows
+	mov	eax, addcount1		;; Load count of carry rows
 	shl	rax, 6			;; Compute addr of the high carries
 	add	rdi, rax
 	_movsd	xreg, [rdi-8]		;; Load very last carry
@@ -1692,27 +1692,27 @@ xnorm_top_carry_cmn MACRO srcreg, xreg, twopass
 	mulsd	xmm1, _CARRY_ADJUST3	;; Weight integer part
 
 	IF twopass EQ 1			;; Two pass scratch area case
-	mov32	rax, eax, _HIGH_SCRATCH1_OFFSET ;; Add integer part to top word
+	mov	eax, _HIGH_SCRATCH1_OFFSET ;; Add integer part to top word
 	addsd	xmm1, Q [srcreg][rax]
 	_movsd	[srcreg][rax], xmm1
 	mulsd	xmm0, _CARRY_ADJUST4	;; Shift and weight fractional part
-	mov32	rax, eax, _HIGH_SCRATCH2_OFFSET;; Add frac part to top-1 word
+	mov	eax, _HIGH_SCRATCH2_OFFSET;; Add frac part to top-1 word
 	addsd	xmm0, Q [srcreg][rax]
 	_movsd	[srcreg][rax], xmm0
 	ENDIF
 
 	IF twopass EQ 2			;; Two pass FFT data case
-	mov32	rax, eax, _HIGH_WORD1_OFFSET ;; Add integer part to top word
+	mov	eax, _HIGH_WORD1_OFFSET	;; Add integer part to top word
 	addsd	xmm1, Q [srcreg][rax]
 	_movsd	[srcreg][rax], xmm1
 	mulsd	xmm0, _CARRY_ADJUST4	;; Shift and weight fractional part
-	mov32	rax, eax, _HIGH_WORD2_OFFSET ;; Add frac part to top-1 word
+	mov	eax, _HIGH_WORD2_OFFSET	;; Add frac part to top-1 word
 	addsd	xmm0, Q [srcreg][rax]
 	_movsd	[srcreg][rax], xmm0
 	ENDIF
 
 	IF twopass EQ 0			;; Single pass case
-	mov32	rax, eax, _HIGH_WORD1_OFFSET ;; Add integer part to top word
+	mov	eax, _HIGH_WORD1_OFFSET ;; Add integer part to top word
 	addsd	xmm1, Q [srcreg][rax]
 	_movsd	[srcreg][rax], xmm1
 	mulsd	xmm0, _CARRY_ADJUST4	;; Shift fractional part
@@ -1721,11 +1721,11 @@ xnorm_top_carry_cmn MACRO srcreg, xreg, twopass
 	subsd	xmm1, XMM_BIGVAL
 	subsd	xmm0, xmm1		;; Fractional part
 	mulsd	xmm1, _CARRY_ADJUST5	;; Weight integer part
-	mov32	rax, eax, _HIGH_WORD2_OFFSET ;; Add frac part to top-1 word
+	mov	eax, _HIGH_WORD2_OFFSET ;; Add frac part to top-1 word
 	addsd	xmm1, Q [srcreg][rax]
 	_movsd	[srcreg][rax], xmm1
 	mulsd	xmm0, _CARRY_ADJUST6	;; Shift and weight fractional part
-	mov32	rax, eax, _HIGH_WORD3_OFFSET ;; Add frac part to top-2 word
+	mov	eax, _HIGH_WORD3_OFFSET ;; Add frac part to top-2 word
 	addsd	xmm0, Q [srcreg][rax]
 	_movsd	[srcreg][rax], xmm0
 	ENDIF
@@ -1871,7 +1871,7 @@ xnorm012_2d MACRO
 
 ;; Same as above, but spread carry over 4 words
 
-hard:	mov32	rcx, ecx, _BIGLIT_INCR2	;; Different clm values step through
+hard:	mov	ecx, _BIGLIT_INCR2	;; Different clm values step through
 					;; big/lit array differently
 
 	mov	al, [rdi+0]		;; Load big vs. little flag
@@ -2157,7 +2157,7 @@ const	mulsd	xmm0, XMM_MINUS_CARG_TIMES_MULCONST
 	mulsd	xmm4, XMM_LIMIT_INVERSE[rax];; Shift high ZPAD data
 	_movsd	XMM_ZPAD1, xmm0
 
-	mov32	rcx, ecx, _BIGLIT_INCR2	;; Different clm values step through
+	mov	ecx, _BIGLIT_INCR2	;; Different clm values step through
 					;; big/lit array differently
 	mov	al, [rdi+rcx]		;; Load big vs. little flags
 	_movsd	xmm0, XMM_ZPAD2		;; Load values1
@@ -2203,7 +2203,7 @@ const	mulsd	xmm0, XMM_MINUS_CARG_TIMES_MULCONST
 	mulsd	xmm4, XMM_LIMIT_INVERSE[rax];; Shift high ZPAD data
 	_movsd	XMM_ZPAD3, xmm0
 
-	mov32	rcx, ecx, _BIGLIT_INCR4	;; Different clm values step through
+	mov	ecx, _BIGLIT_INCR4	;; Different clm values step through
 					;; big/lit array differently
 	mov	al, [rdi+rcx]		;; Load big vs. little flags
 	_movsd	xmm0, XMM_ZPAD4		;; Load values1
@@ -2567,7 +2567,7 @@ div_k_done:
 	mulsd	xmm2, Q [rbp+1*32+16]	;; new value2 = val * two-to-phi
 	_movsd	[rsi+1*64+32], xmm2	;; Save value2
 
-	mov32	rcx, ecx, _BIGLIT_INCR2	;; Different clm values step through
+	mov	ecx, _BIGLIT_INCR2	;; Different clm values step through
 					;; big/lit array differently
 	mov	al, [rdi+rcx]		;; Load big vs. little flags
 	_movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
@@ -2622,7 +2622,7 @@ div_k_done:
 	mulsd	xmm0, Q [rbp+1*32+16]	;; new value2 = val * two-to-phi
 	_movsd	[rsi+1*64], xmm0	;; Save value2
 
-	mov32	rcx, ecx, _BIGLIT_INCR2	;; Different clm values step through
+	mov	ecx, _BIGLIT_INCR2	;; Different clm values step through
 					;; big/lit array differently
 	mov	al, [rdi+rcx]		;; Load big vs. little flags
 	_movsd	xmm0, XMM_TMP3		;; Load remainder of divide by k
@@ -2658,7 +2658,7 @@ div_k_done:
 	mulsd	xmm0, Q [rbp+3*32+16]	;; new value4 = val * two-to-phi
 	_movsd	[rsi+3*64], xmm0	;; Save value4
 
-	mov32	rcx, ecx, _BIGLIT_INCR4	;; Different clm values step through
+	mov	ecx, _BIGLIT_INCR4	;; Different clm values step through
 					;; big/lit array differently
 	mov	al, [rdi+rcx]		;; Load big vs. little flags
 	_movsd	xmm0, XMM_TMP5		;; Load remainder of divide by k
@@ -2760,7 +2760,7 @@ const	mulpd	xmm2, XMM_K_TIMES_MULCONST_HI_2
 	mulpd	xmm0, xmm4		;; data *= fudged col two-to-phi
 	movapd	[rbp+1*64], xmm0	;; Save FFT data
 
-	mov32	rcx, ecx, _BIGLIT_INCR2	;; Different clm values step through
+	mov	ecx, _BIGLIT_INCR2	;; Different clm values step through
 					;; big/lit array differently
 	mov	al, [rdi+rcx]		;; Load big vs. little flag
 	movapd	xmm0, [rbp+2*64]	;; Load FFT data
@@ -2802,7 +2802,7 @@ const	mulpd	xmm2, XMM_K_TIMES_MULCONST_HI_2
 	mulpd	xmm0, xmm4		;; data *= fudged col two-to-phi
 	movapd	[rbp+3*64], xmm0	;; Save FFT data
 
-	mov32	rcx, ecx, _BIGLIT_INCR4	;; Different clm values step through
+	mov	ecx, _BIGLIT_INCR4	;; Different clm values step through
 					;; big/lit array differently
 	mov	al, [rdi+rcx]		;; Load big vs. little flag
 	subpd	xmm5, XMM_BIGVAL	;; Remove rounding const from carry
@@ -2866,7 +2866,7 @@ const	mulpd	xmm3, XMM_K_TIMES_MULCONST_HI_2
 	mulpd	xmm1, xmm4		;; data *= fudged col two-to-phi
 	movapd	[rbp+1*64+16], xmm1	;; Save FFT data
 
-	mov32	rcx, ecx, _BIGLIT_INCR2	;; Different clm values step through
+	mov	ecx, _BIGLIT_INCR2	;; Different clm values step through
 					;; big/lit array differently
 	mov	al, [rdi+rcx+1]		;; Load big vs. little flag
 	movapd	xmm1, [rbp+2*64+16]	;; Load FFT data
@@ -2908,7 +2908,7 @@ const	mulpd	xmm3, XMM_K_TIMES_MULCONST_HI_2
 	mulpd	xmm1, xmm4		;; data *= fudged col two-to-phi
 	movapd	[rbp+3*64+16], xmm1	;; Save FFT data
 
-	mov32	rcx, ecx, _BIGLIT_INCR4	;; Different clm values step through
+	mov	ecx, _BIGLIT_INCR4	;; Different clm values step through
 					;; big/lit array differently
 	mov	al, [rdi+rcx+1]		;; Load big vs. little flag
 	subpd	xmm5, XMM_BIGVAL	;; Remove rounding const from carry

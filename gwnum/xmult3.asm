@@ -136,7 +136,7 @@ gw_carries_3:
 	cmp	_ZERO_PADDED_FFT, 0	; Special case the zero padded FFT case
 	jne	gw_carries_3_zpad
 	mov	rsi, carries		; Addr of the carries
-	mov32	rbx, ebx, addcount1	; Compute addr after carries
+	mov	ebx, addcount1		; Compute addr after carries
 	shl	rbx, 6
 	add	rbx, rsi
 	xnorm012_2d_part1
@@ -159,7 +159,7 @@ ilp0:	mov	eax, loopcount1		; Get list of counts
 	sub	rax, rax		; Clear big/little flag
 ilp1:	mov	rbx, norm_col_mults	; Addr of the column multipliers
 	xnorm012_2d			; Split carries for one cache line
-	mov32	rbx, ebx, cache_line_multiplier; Cache lines in each pass1 loop
+	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
 	lea	rsi, [rsi+64]		; Next carries pointer
 	add	rbp, pass1blkdst	; Next FFT data pointer
 	cmp	_RATIONAL_FFT, 0	; Don't bump these two pointers
@@ -174,7 +174,7 @@ spldn:	mov	zero_fft, 0		; Clear zero-high-words-fft flag
 
 gw_carries_3_zpad:
 	mov	rsi, carries		; Addr of the carries
-	mov32	rbx, ebx, addcount1	; Compute addr after carries
+	mov	ebx, addcount1		; Compute addr after carries
 	shl	rbx, 6
 	add	rbx, rsi
 	mov	rsi, _DESTARG		; Addr of the FFT data
@@ -208,7 +208,7 @@ zlp1:	mov	rbx, norm_col_mults	; Addr of the column multipliers
 	xnorm012_2d_zpad exec		; Split carries for one cache line
 	jmp	c2d
 c2c:	xnorm012_2d_zpad noexec		; Split carries for one cache line
-c2d:	mov32	rbx, ebx, cache_line_multiplier; Cache lines in each pass1 loop
+c2d:	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
 	lea	rsi, [rsi+64]		; Next carries pointer
 	add	rbp, pass1blkdst	; Next FFT data pointer
 	cmp	_RATIONAL_FFT, 0	; Don't bump these two pointers
