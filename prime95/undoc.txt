@@ -205,3 +205,9 @@ The default value is 1.0 (if the exponent you are testing is within 1% of the
 maximum exponent that can be tested using the current FFT length, then the
 extra error checking is performed).  A value of 0.0 will turn off this extra
 error checking.
+
+When Tray Icon or No Icon is selected the "X" at the right of the title bar
+will minimize rather than exit.  You can make prime95 exit if you prefer.
+In prime.ini set:
+	ExitOnX=1
+

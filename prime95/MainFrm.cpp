@@ -458,13 +458,16 @@ void CMainFrame::OnActivateApp(BOOL bActive, DWORD hTask)
 	CFrameWnd::OnActivateApp(bActive, hTask);
 }
 
+// Override the Upper Right X to do a minimize instead of a close.
+// This has become common practice for tray applications.
+
 void CMainFrame::OnSysCommand(UINT nID, LPARAM lParam)
 {
-	if ((nID & 0xFFF0) == SC_CLOSE) {
-		if (TRAY_ICON || HIDE_ICON) {
-			SendMessage (WM_SYSCOMMAND, SC_MINIMIZE, 0);
-			return;
-		}
+	if ((nID & 0xFFF0) == SC_CLOSE &&
+	    ! IniGetInt (INI_FILE, "ExitOnX", 0) &&
+	    (TRAY_ICON || HIDE_ICON) {
+		SendMessage (WM_SYSCOMMAND, SC_MINIMIZE, 0);
+		return;
 	}
 	CFrameWnd::OnSysCommand (nID, lParam);
 }
