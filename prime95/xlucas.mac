@@ -671,6 +671,7 @@ s4cl_seven_reals_first_fft MACRO srcreg,srcinc,d1,d2
 	movapd	[srcreg+d2+d1+48], xmm7	;; Save R7
 	lea	srcreg, [srcreg+srcinc]
 	ENDM
+;; 215.55 clocks
 x7cl_seven_reals_first_fft MACRO srcreg,srcinc,d1
 	x7r_fft_mem [srcreg], [srcreg+d1], [srcreg+d1+32], [srcreg+3*d1], [srcreg+3*d1+16], [srcreg+3*d1+32], [srcreg+3*d1+48]
 	x7r_fft_mem [srcreg+32], [srcreg+d1+16], [srcreg+d1+48], [srcreg+5*d1], [srcreg+5*d1+16], [srcreg+5*d1+32], [srcreg+5*d1+48]
@@ -679,6 +680,7 @@ x7cl_seven_reals_first_fft MACRO srcreg,srcinc,d1
 	lea	srcreg, [srcreg+srcinc]
 	ENDM
 IFDEF SHOULD_BE_FASTER_BUT_ISNT
+;(207 clocks, but 1 million clocks worse in 1792K FFT)
 x7r_fft_mem MACRO m1, m2, m3, m4, m5, m6, m7
 	movapd	xmm1, m2[ebx]		;;	T1 = R2
 	addpd	xmm1, m7[ebx]		;;1-4	T1 = R2+R7
@@ -902,6 +904,7 @@ x4cl_seven_reals_last_unfft MACRO srcreg,srcinc,d1,d2
 	movapd	[srcreg+d2+d1+16], xmm2	;; Save R4
 	lea	srcreg, [srcreg+srcinc]
 	ENDM
+;; 198.15 clocks
 x7cl_seven_reals_last_unfft MACRO srcreg,srcinc,d1
 	movapd	xmm3, [srcreg+3*d1]	;; R4
 	movapd	xmm4, [srcreg+3*d1+32]	;; R5
@@ -2021,6 +2024,54 @@ x2c_unfft MACRO r1, r2, r3, r4, t1, t2
 	mulpd	t1, r1			;; A2 = A2 * sine (final R2)
 	mulpd	t2, r1			;; B2 = B2 * sine (final I2)
 	ENDM
+IFDEF SHOULD_BE_FASTER_BUT_ISNT
+;; 28.35 clocks, but is slower in practice
+x2cl_two_complex_unfft MACRO srcreg,srcinc,d1
+	movapd	xmm4, [srcreg]		;; R1
+	movapd	xmm2, [srcreg+d1]	;; R2
+	subpd	xmm4, xmm2		;; new R2 = R1 - R2		;1-4
+	movapd	xmm5, [srcreg+32]	;; I1
+	subpd	xmm5, [srcreg+d1+32]	;; new I2 = I1 - I2		;3-6
+	movapd	xmm6, [srcreg+16]	;; R1_2
+	subpd	xmm6, [srcreg+d1+16]	;; new R2_2 = R1_2 - R2_2	;5-8
+	movapd	xmm7, [edi+48]		;; cosine/sine
+	movapd	xmm0, xmm4		;; save new R2
+	mulpd	xmm4, xmm7		;; A2 = new R2 * cosine/sine	;6-11
+	movapd	xmm3, [srcreg+48]	;; I1_2
+	subpd	xmm3, [srcreg+d1+48]	;; new I2_2 = I1_2 - I2_2	;7-10
+	movapd	xmm1, xmm5		;; save new I2
+	mulpd	xmm5, xmm7		;; B2 = new I2 * cosine/sine	;8-13
+	addpd	xmm4, xmm1		;; A2 = A2 + new I2		;13-16
+	movapd	xmm1, [srcreg]		;; R1
+	addpd	xmm1, xmm2		;; new R1 = R1 + R2		;9-12
+	movapd	xmm2, xmm6		;; save new R2_2
+	mulpd	xmm6, xmm7		;; A2_2 = new R2_2 * cosine/sine;10-15
+	subpd	xmm5, xmm0		;; B2 = B2 - new R2		;15-18
+	movapd	xmm0, [srcreg+32]	;; I1
+	addpd	xmm0, [srcreg+d1+32]	;; new I1 = I1 + I2		;11-14
+	mulpd	xmm7, xmm3		;; B2_2 = new I2_2 * cosine/sine;12-17
+	addpd	xmm6, xmm3		;; A2_2 = A2_2 + new I2_2	;17-20
+	subpd	xmm7, xmm2		;; B2_2 = B2_2 - new R2_2	;19-22
+	movapd	xmm3, [srcreg+16]	;; R1_2
+	addpd	xmm3, [srcreg+d1+16]	;; new R1_2 = R1_2 + R2_2	;21-24
+	movapd	[srcreg], xmm1		;; Save R1
+	movapd	xmm1, [edi+32]		;; sine
+	mulpd	xmm4, xmm1		;; A2 = A2 * sine (final R2)	;22-27
+	movapd	xmm2, [srcreg+48]	;; I1_2
+	addpd	xmm2, [srcreg+d1+48]	;; new I1_2 = I1_2 + I2_2	;23-26
+	mulpd	xmm5, xmm1		;; B2 = B2 * sine (final I2)	;24-29
+	mulpd	xmm6, xmm1		;; A2_2 = A2_2*sine (final R2_2);26-31
+	mulpd	xmm7, xmm1		;; B2_2 = B2_2*sine (final I2_2);28-33
+	movapd	[srcreg+16], xmm4	;; Save R2
+	movapd	[srcreg+32], xmm0	;; Save R3
+	movapd	[srcreg+48], xmm5	;; Save R4
+	movapd	[srcreg+d1], xmm3	;; Save R1_2
+	movapd	[srcreg+d1+16], xmm6	;; Save R2_2
+	movapd	[srcreg+d1+32], xmm2	;; Save R3_2
+	movapd	[srcreg+d1+48], xmm7	;; Save R4_2
+	lea	srcreg, [srcreg+srcinc]
+	ENDM
+ENDIF
 
 
 ;***********************************************************************
