@@ -177,9 +177,7 @@ void spoolMessage (short, void *);
 void readMessage (int, long *, short *, void *);
 int sendMessage (short, void *);
 void spoolExistingResultsFile (void);
-//Defined in common.h so that gwnum library can "cheat" while debugging and
-//call this routine that it really should not have access to
-//EXTERNC void OutputBoth (char *);
+EXTERNC void OutputBoth (char *);
 void OutputSomewhere (char *);
 void LogMsg (char *);
 

@@ -106,7 +106,6 @@ BOOL CPrime95App::InitInstance()
 
 	// Dispatch commands specified on the command line
 	orig_cmdShow = m_nCmdShow;
-	m_nCmdShow = SW_HIDE;
 	if (!ProcessShellCommand(cmdInfo))
 		return FALSE;
 
@@ -120,6 +119,13 @@ BOOL CPrime95App::InitInstance()
 		strrchr (buf, '\\')[1] = 0;
 		_chdir (buf);
 	}
+
+/* Initialize gwnum call back routines.  Using callback routines lets the */
+/* gwnum library have a nice clean interface for users that do not need */
+/* additional functionality that only prime95 uses. */
+
+	StopCheckRoutine = stopCheck;
+	OutputBothRoutine = OutputBoth;
 
 /* NT services are not passed command line arguments.  In this case we */
 /* encode the -An information in the NT service name. */

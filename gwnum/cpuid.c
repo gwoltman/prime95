@@ -12,7 +12,6 @@
 #include <math.h>
 #include <memory.h>
 #include <string.h>
-#include <sys/time.h>
 #include <sys/timeb.h>
 #if defined (__linux__) || defined (__FreeBSD__) || defined (__EMX__)
 #define _timeb		timeb

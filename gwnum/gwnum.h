@@ -502,6 +502,13 @@ void gwrealloc_temporarily (gwnum);
 unsigned long addr_offset (unsigned long, unsigned long);
 extern void eset_mul_const (void);
 
+/* When debugging gwnum and giants, I sometimes write code that "cheats" */
+/* by calling a routine that is part of prime95 rather than the gwnum and */
+/* giants library.  Prime95 will set this routine pointer so that gwnum */
+/* code can cheat while keeping the gwnum library interface clean. */
+
+extern void (*OutputBothRoutine)(char *);
+
 #ifdef __cplusplus
 }
 #endif

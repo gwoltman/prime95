@@ -19,9 +19,7 @@ void clear_memory (unsigned long, unsigned long);
 void makestr (unsigned long, unsigned long, unsigned long, char *buf);
 void updateWorkToDo (double, unsigned long, unsigned long, signed long, int, unsigned long);
 
-//Defined in common.h so that gwnum library can "cheat" and
-//call this routine that it really should not have access to
-//EXTERNC int stopCheck (void);
+EXTERNC int stopCheck (void);
 #define STOP_ESCAPE		1
 #define STOP_TIMEOUT		2
 #define STOP_MEM_CHANGED	3

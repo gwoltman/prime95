@@ -158,6 +158,14 @@ unsigned int gwnum_alloc_array_size = 0; /* Size of gwnum_alloc array */
 gwnum	*gwnum_free = NULL;	/* Array of available gwnums */
 unsigned int gwnum_free_count = 0; /* Count of available gwnums */
 
+/* When debugging gwnum and giants, I sometimes write code that "cheats" */
+/* by calling a routine that is part of prime95 rather than the gwnum and */
+/* giants library.  Prime95 will set this routine pointer so that gwnum */
+/* code can cheat while keeping the gwnum library interface clean. */
+
+void (*OutputBothRoutine)(char *) = NULL;
+#define OutputBoth(x)	(*OutputBothRoutine)(x)
+
 /* Assembly helper routines */
 
 void gwinfo1 (void);

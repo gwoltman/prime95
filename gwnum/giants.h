@@ -226,6 +226,10 @@ extern void emulsubhlp (void);
 #define muladd2hlp(a,b)	{NUMARG=(long)(a); NUM2ARG=(long)(b); emuladd2hlp();}
 #define mulsubhlp(a,b)	{NUMARG=(long)(a); NUM2ARG=(long)(b); emulsubhlp();}
 
+/* External routine pointers. */
+
+extern int (*StopCheckRoutine)(void);
+
 #ifdef __cplusplus
 }
 #endif
