@@ -42,12 +42,14 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
+				AdditionalOptions="/MACHINE:I386
+"
 				AdditionalDependencies="cpuid.obj factor64.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2a.obj mult2aux.obj mult3.obj mult3a.obj mult3aux.obj mult4.obj mult4a.obj mult4b.obj mult1p.obj mult2p.obj mult2ap.obj mult3p.obj mult3ap.obj mult3q.obj mult3aq.obj mult3auq.obj mult4p.obj mult4ap.obj mult4bp.obj mult4aux.obj mult4q.obj mult4aq.obj mult4bq.obj mult4auq.obj ecmhelp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ax.obj xmult3.obj xmult3a.obj xmult3ax.obj giants.obj wsock32.lib nafxcw.lib libcmt.lib"
 				OutputFile=".\Release/prime95.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
 				IgnoreDefaultLibraryNames="nafxcw.lib libcmt.lib"
+				DelayLoadDLLs="oleacc.dll;ole32.dll;oleaut32.dll"
 				ProgramDatabaseFile=".\Release/prime95.pdb"
 				GenerateMapFile="TRUE"
 				MapFileName=".\Release/prime95.map"
@@ -110,6 +112,7 @@
 				OutputFile=".\Debug/prime95.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="TRUE"
+				DelayLoadDLLs=""
 				GenerateDebugInformation="TRUE"
 				ProgramDatabaseFile=".\Debug/prime95.pdb"
 				SubSystem="2"/>
@@ -232,9 +235,9 @@
 				RelativePath="MainFrm.h">
 			</File>
 			<File
- 				RelativePath="Resource.h">
+				RelativePath="Resource.h">
 				<FileConfiguration
-					Name="Debug|Win32">
+					Name="Release|Win32">
 					<Tool
 						Name="VCCustomBuildTool"
 						Description="Generating map file for help compiler..."
@@ -258,7 +261,7 @@ makehm /h /a afxhh.h IDW_,HIDW_,0x50000 &quot;$(InputFileName)&quot; &gt;&gt; &q
 						Outputs="hlp\HTMLDefines.h"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release|Win32">
+					Name="Debug|Win32">
 					<Tool
 						Name="VCCustomBuildTool"
 						Description="Generating map file for help compiler..."
@@ -310,7 +313,7 @@ makehm /h /a afxhh.h IDW_,HIDW_,0x50000 &quot;$(InputFileName)&quot; &gt;&gt; &q
 			<File
 				RelativePath="hlp\prime95.hhp">
 				<FileConfiguration
-					Name="Debug|Win32">
+					Name="Release|Win32">
 					<Tool
 						Name="VCCustomBuildTool"
 						Description="Making help file..."
@@ -328,7 +331,7 @@ echo.
 						Outputs="$(OutDir)\$(ProjectName).chm"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release|Win32">
+					Name="Debug|Win32">
 					<Tool
 						Name="VCCustomBuildTool"
 						Description="Making help file..."

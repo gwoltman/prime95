@@ -49,6 +49,7 @@
 				OutputFile=".\Release/ntsetup.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
+				DelayLoadDLLs="oleacc.dll;ole32.dll;oleaut32.dll"
 				ProgramDatabaseFile=".\Release/ntsetup.pdb"
 				SubSystem="2"/>
 			<Tool
