@@ -213,6 +213,7 @@ int pnHttpServer (char *pbuf, unsigned cbuf, char* postargs)
 	struct hostent *hp, def;
 	struct sockaddr_in sn;
 	int	s, res, debug, url_format;
+	int	timeout;
 	char	*alist[1];
 	unsigned int count;
 	char	szProxyHost[120], szUser[50], szPass[50], *con_host;
@@ -344,6 +345,22 @@ rel_url:
 		return (PRIMENET_ERROR_CONNECT_FAILED);
 	}
 
+/* Prevent SIGPIPE signals in Linux (and other) environments */
+
+#ifdef SO_NOSIGPIPE
+	{
+		int	i = 1;
+		res = setsockopt (s, SOL_SOCKET, SO_NOSIGPIPE, &i, sizeof(i));
+		if (res < 0) {
+			if (debug) {
+				sprintf (buf, "Error in NOSIGPIPE call: %d\n",
+					 getLastSocketError ());
+				LogMsg (buf);
+			}
+		}
+	}
+#endif
+
 /* GET method, data follows ? in URL */
 
 	strcpy (szURL, "GET ");
@@ -375,6 +392,16 @@ rel_url:
 
 /* Send the URL request */
 
+	timeout = 90000;		/* 90 seconds */
+	res = setsockopt (s, SOL_SOCKET, SO_SNDTIMEO, (char *) &timeout,
+			  sizeof (timeout));
+	if (res != NO_ERROR) {
+		if (debug) {
+			sprintf (buf, "Error in send timeout call: %d\n",
+				 getLastSocketError ());
+			LogMsg (buf);
+		}
+	}
 	res = send (s, szURL, strlen (szURL), 0);
 	if (res < 0) {
 		if (debug) {
@@ -388,6 +415,16 @@ rel_url:
 
 /* Now accumulate the response */
 
+	timeout = 90000;		/* 90 seconds */
+	res = setsockopt (s, SOL_SOCKET, SO_RCVTIMEO, (char *) &timeout,
+			  sizeof (timeout));
+	if (res != NO_ERROR) {
+		if (debug) {
+			sprintf (buf, "Error in receive timeout call: %d\n",
+				 getLastSocketError ());
+			LogMsg (buf);
+		}
+	}
 	*pbuf = 0; count = 1;
 	while (count < cbuf) {
 		res = recv (s, szBuffer, 999, 0);
