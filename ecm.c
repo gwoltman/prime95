@@ -4314,6 +4314,10 @@ restart3d:
 	if (numvals > 12) t3 = gwalloc ();
 	for ( ; state.C > m-D; m += stage2incr) {
 	    int	inner_loop_done = FALSE;
+	    int	last_pass = (m + stage2incr - D >= state.C);
+	    time (&current_time);
+	    saving = (current_time - start_time > write_time ||
+		      (QA_SAVE_FILES & 0x10));
 	    memset (pairings, 0, (D + 15) >> 4);
 	    for ( ; ; prime = sieve ()) {
 		if (prime < m) {	/* Do the m-D to m range */
@@ -4325,9 +4329,12 @@ restart3d:
 		} else {		/* Compute next x^(m^e) */
 			fd_next ();
 			inner_loop_done = TRUE;
+			escaped = stopCheck ();
 			goto errchk;
 		}
 		if (nQx[i] == NULL) continue;
+		escaped = stopCheck ();
+		gwstartnextfft (!escaped && !saving && !last_pass);
 		if (numvals > 12) {
 			gwfftsub3 (eQx[0], nQx[i], t3);
 			gwfftmul (t3, gg);
@@ -4340,10 +4347,6 @@ restart3d:
 /* Test for errors */
 
 errchk:		if (gw_test_for_error () || MAXERR >= 0.40625) goto error;
-
-/* Test for user interrupt */
-
-		escaped = stopCheck ();
 
 /* Contact the server every now and then */
 
@@ -4404,9 +4407,7 @@ errchk:		if (gw_test_for_error () || MAXERR >= 0.40625) goto error;
 /* "Touch" gg so that in low memory situations, the reading in of x */
 /* swaps out one of the eQx or nQx values rather than gg. */
 
-		time (&current_time);
-		if (escaped || (QA_SAVE_FILES & 0x10) ||
-		    current_time-start_time > write_time) {
+		if (escaped || saving) {
 			if (escaped) fd_term ();
 			if (numvals > 12) gwfree (t3);
 			gwtouch (gg);
@@ -4421,6 +4422,7 @@ errchk:		if (gw_test_for_error () || MAXERR >= 0.40625) goto error;
 				goto exit;
 			}
 			start_time = current_time;
+			saving = FALSE;
 			if (numvals > 12) t3 = gwalloc ();
 		}
 
