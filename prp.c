@@ -2076,7 +2076,8 @@ void primeContinue ()
 		else
 			isPRP (buf, 3, &retval);
 		free (N);
-		exit (retval);
+		printf ("%d\n", retval);
+		exit (0);
 	}
 
 /* If we are done, return */
