@@ -18,4 +18,3 @@ $(EXE): $(PRIMEOBJS) $(OMFOBJS) $(DUMMYOBJS)
 prime.obj: prime.c
 
 menu.obj: menu.c
-
