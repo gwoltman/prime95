@@ -780,7 +780,7 @@ void test_welcome (void)
 		if (mem > 8) {
 			char	buf[160];
 			sprintf (buf, "\nThe torture test will use up to %dMB of memory.  You can change this using Options/CPU menu choice.\n\n", DAY_MEMORY);
-			OutputLongLine (buf);
+			outputLongLine (buf);
 			askOK ();
 		}
 		STARTUP_IN_PROGRESS = 0;
