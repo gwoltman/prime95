@@ -66,6 +66,7 @@ primearray12	DD	0
 	align 32
 facdistsflt	DQ	32 DUP(0.0)
 facdist_flt	DQ	0	; Distance between trial factors (32 * 120 * p)
+facdata		DQ	0.0, 0.0, 0.0
 quotient2	DD	0	; The result of a 486 or PPro division
 quotient1	DD	0
 quotient4	DD	0	; The result of a PPro division
@@ -99,6 +100,7 @@ pneg5		DD	0
 pneg8		DD	0	; The fourth PPro -factor value
 pneg7		DD	0
 queuedpro	DD	0	; Saved count of PPro queued factors
+	
 	;; 80-bit factoring globals
 	align 32
 faclow		DD	0
@@ -4249,7 +4251,13 @@ umaybe:	cmp	esi, 1
 ;
 
 plp:	mov	esi, sieve		; Sieve address
-	mov	edi, queuedpro		; Count of queued factors to be tested
+	sub	edi, edi		; Count of queued factors to be tested
+resdata:cmp	edi, queuedpro		; Restore queued factor data
+	je	short resdone
+	fld	facdata[edi*4]
+	inc	edi
+	jmp	short resdata
+resdone:
 	fild	QWORD PTR savefac2
 px0:	mov	eax, [esi]		; Load word from sieve
 	lea	esi, [esi+4]		; Bump sieve address
@@ -4259,7 +4267,16 @@ px1:	bsf	edx, eax		; Look for a set bit
 	test	esi, sievesize		; End of sieve?
 	jz	short px0		; Loop to test next sieve dword
 	fistp	QWORD PTR savefac2	; Save for the restart or more sieving
+
+; If factors are queued up, save the floating point values on the stack
+
 	mov	queuedpro, edi		; Save count of queued factors
+svdata:	and	edi, edi
+	jz	short svdone
+	dec	edi
+	fstp	facdata[edi*4]
+	jmp	short svdata
+svdone:
 
 ; Check repetition counter
 
