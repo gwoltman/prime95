@@ -21,14 +21,6 @@
 #include "giants.h"
 #include "fftsg.c"
 
-#ifdef GDEBUG
-#define ASSERTG		ASSERT
-#define setmaxsize(g,s)	(g)->maxsize = s
-#else
-#define ASSERTG(a)
-#define setmaxsize(g,s)
-#endif
-
 /**************************************************************
  *
  * Preprocessor definitions

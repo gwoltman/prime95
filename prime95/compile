@@ -1,6 +1,7 @@
 # Standard options
 masm=ml /c /coff
 #masm=ml /c /coff /Fl /Sf /Sa
+cl=\msdev\bin\cl /I.. /I C:\msdev\include\ /O2 /GF /W3 /MT /c
 
 # Create 32-bit executables
 
@@ -142,3 +143,7 @@ xmult3a.obj: xmult3a.asm xmult.mac xpass2.mac xlucas.mac
 xmult3ax.obj: xmult3ax.asm xmult.mac xnormal.mac
     $(masm) xmult3ax.asm
 
+# Create optimized giants.obj
+
+giants.obj: ..\giants.c ..\giants.h
+    $(cl) giants.cpp
