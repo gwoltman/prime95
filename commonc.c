@@ -439,10 +439,15 @@ void readIniFiles (void)
 
 /* Get the option controlling which timer to use.  If the high resolution */
 /* performance counter is not available on this machine, then add 10 to */
-/* the value. */
+/* the RDTSC_TIMING value. */
+/* Strangely, some Athlon systems (or maybe its a bizarre Windows option) */
+/* report a slow high performance counter.  Only use the high performance */
+/* counter if it is accurate to at least 1/10 of a millisecond. */
 
 	RDTSC_TIMING = IniGetInt (INI_FILE, "RdtscTiming", 1);
-	if (RDTSC_TIMING < 10 && ! isHighResTimerAvailable ())
+	if (RDTSC_TIMING < 10 &&
+	    (! isHighResTimerAvailable () ||
+	     getHighResTimerFrequency () < 10000.0))
 		RDTSC_TIMING += 10;
 
 /* Other oddball options */
