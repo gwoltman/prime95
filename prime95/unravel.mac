@@ -199,7 +199,7 @@ ENDIF
 
 
 
-;;TIMERS EQU 3
+TIMERS EQU 3
 
 clear_timers MACRO
 IFDEF TIMERS
