@@ -16,13 +16,13 @@ LFLAGS = -Wl,-M
 LIBS   = -lm
 LIBS2  = -lm -static
 
-COFFOBJS = mult.o mult1.o mult2.o mult2a.o mult3.o mult3a.o mult4.o mult4a.o mult4b.o mult1p.o mult2p.o mult2ap.o mult3p.o mult3ap.o mult3q.o mult3aq.o mult4p.o mult4ap.o mult4bp.o mult4q.o mult4aq.o mult4bq.o mult1aux.o mult2aux.o mult3aux.o mult3auq.o mult4aux.o mult4auq.o xmult1.o xmult1ax.o xmult2.o xmult2a.o xmult2ax.o xmult3.o xmult3a.o xmult3ax.o ecmhelp.o cpuid.o
-DUMMYOBJS = dummy4.o dummy8.o dummy12.o dummy16.o dummy20.o dummy24.o dummy28.o
+COFFOBJS = ../linux/mult.o ../linux/mult1.o ../linux/mult2.o ../linux/mult2a.o ../linux/mult3.o ../linux/mult3a.o ../linux/mult4.o ../linux/mult4a.o ../linux/mult4b.o ../linux/mult1p.o ../linux/mult2p.o ../linux/mult2ap.o ../linux/mult3p.o ../linux/mult3ap.o ../linux/mult3q.o ../linux/mult3aq.o ../linux/mult4p.o ../linux/mult4ap.o ../linux/mult4bp.o ../linux/mult4q.o ../linux/mult4aq.o ../linux/mult4bq.o ../linux/mult1aux.o ../linux/mult2aux.o ../linux/mult3aux.o ../linux/mult3auq.o ../linux/mult4aux.o ../linux/mult4auq.o ../linux/xmult1.o ../linux/xmult1ax.o ../linux/xmult2.o ../linux/xmult2a.o ../linux/xmult2ax.o ../linux/xmult3.o ../linux/xmult3a.o ../linux/xmult3ax.o ../linux/ecmhelp.o ../linux/cpuid.o
+DUMMYOBJS = ../linux/dummy4.o ../linux/dummy8.o ../linux/dummy12.o ../linux/dummy16.o ../linux/dummy20.o ../linux/dummy24.o ../linux/dummy28.o
 LINUXOBJS = prime.o menu.o
 EXE      = prp
 EXE2	 = sprp
-DUMMY1   = dummy24.o
-DUMMY2   = dummy24.o
+DUMMY1   = ../linux/dummy24.o
+DUMMY2   = ../linux/dummy24.o
 
 #########################################################################
 
@@ -34,9 +34,6 @@ $(EXE2): $(LINUXOBJS) $(COFFOBJS) $(DUMMYOBJS)
 
 clean:
 	rm -f $(EXE) $(LINUXOBJS) $(COFFOBJS) $(DUMMYOBJS)
-
-$(COFFOBJS) $(DUMMYOBJS): %.o : %.obj
-	objcopy -Oelf32-i386 -Icoff-i386 $< $@
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<
