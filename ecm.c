@@ -2787,6 +2787,7 @@ bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n",
 		_unlink (filename);
 		free (FAC);
 		FAC = NULL;
+		retval = TRUE;
 		goto exit;
 	}
 	clear_timer (0);
@@ -2796,6 +2797,7 @@ bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n",
 		_unlink (filename);
 		free (FAC);
 		FAC = NULL;
+		retval = TRUE;
 		goto exit;
 	}
 
