@@ -231,23 +231,37 @@ by editing prime.ini and change the line &quot;HideIcon=1&quot; to
 <p class=MsoPlainText><a name=WinService></a><span style='font-family:"Times New Roman";
 mso-fareast-font-family:"MS Mincho";color:black'>Checking the <b>Start at
 Bootup</b> menu choice will run prime95 as a service that is started when your
-computer boots up.<span style="mso-spacerun: yes">  </span>This method of
-starting prime95 is better than creating a shortcut to prime95 in the startup
-folder.<span style="mso-spacerun: yes">  </span>That is because services run
-even when no one is logged on.<span style="mso-spacerun: yes">  </span>There
-are few details you should be aware of.<o:p></o:p></span></p>
+computer boots up.<span style="mso-spacerun: yes">  </span>Windows NT/2000/XP
+users need administrator privileges to use this feature.<span
+style="mso-spacerun: yes">  </span>This method of starting prime95 is better
+than creating a shortcut to prime95 in the startup folder.<span
+style="mso-spacerun: yes">  </span>That is because services run even when no
+one is logged on.<span style="mso-spacerun: yes">  </span>These are the details
+you should be aware of:<o:p></o:p></span></p>
 
 <p class=MsoPlainText style='text-indent:.5in'><span style='font-family:"Times New Roman";
 mso-fareast-font-family:"MS Mincho";color:black'>In Windows 95/98/Me:<o:p></o:p></span></p>
 
 <p class=MsoPlainText><span style='font-family:"Times New Roman";mso-fareast-font-family:
-"MS Mincho";color:black'>The HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunServices
+"MS Mincho";color:black'>The
+HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunServices
 registry entry is created.<span style="mso-spacerun: yes">  </span>You will not
 be able to tell any difference between prime95 running as a service and prime95
 running as an ordinary process.<o:p></o:p></span></p>
 
 <p class=MsoPlainText style='text-indent:.5in'><span style='font-family:"Times New Roman";
-mso-fareast-font-family:"MS Mincho";color:black'>In Windows NT/2000/XP:<o:p></o:p></span></p>
+mso-fareast-font-family:"MS Mincho";color:black'>In Windows NT/2000/XP (without
+administrator privileges):<o:p></o:p></span></p>
+
+<p class=MsoPlainText><span style='font-family:"Times New Roman";mso-fareast-font-family:
+"MS Mincho";color:black'>In this case the menu text is changed to &quot;Start
+at Logon&quot;.<span style="mso-spacerun: yes">  </span>The HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run
+is created.<span style="mso-spacerun: yes">  </span>Prime95 will run only when
+you are logged in.<o:p></o:p></span></p>
+
+<p class=MsoPlainText style='text-indent:.5in'><span style='font-family:"Times New Roman";
+mso-fareast-font-family:"MS Mincho";color:black'>In Windows NT/2000/XP (with
+administrator privileges):<o:p></o:p></span></p>
 
 <p class=MsoPlainText><span style='font-family:"Times New Roman";mso-fareast-font-family:
 "MS Mincho";color:black'>There are a few minor quirks when running as a
@@ -262,13 +276,14 @@ will only appear on one users desktop.<span style="mso-spacerun: yes"> 
 style="mso-spacerun: yes">  </span>If you have a dual processor system you'll
 want to run two instances of prime95.<span style="mso-spacerun: yes"> 
 </span>Instead of running a second prime95 from another directory, run the
-second prime95 from with the -A1 switch.<span style="mso-spacerun: yes"> 
+second prime95 from the same directory with the -A1 switch and add a
+NTServiceName entry in prim0001.ini.<span style="mso-spacerun: yes"> 
 </span>Finally, if you are worried about giving users access to a GUI service
 running in the Local System account, you can turn off the &quot;Allow service
 to interact with desktop&quot; option in the services control panel applet or
-run the GUI-less NT service version available at http://www.mersenne.org/freesoft.htm.<span
-style="mso-spacerun: yes">  </span>These options are more secure than using the
-No Icon menu choice.<o:p></o:p></span></p>
+run the GUI-less NT service version available at
+http://www.mersenne.org/freesoft.htm.<span style="mso-spacerun: yes"> 
+</span>These options are more secure than using the No Icon menu choice.<o:p></o:p></span></p>
 
 </div>
 

@@ -523,15 +523,20 @@ editing prime.ini and change the line "HideIcon=1" to "HideIcon=0",
 then reboot.
 
 Checking the Start at Bootup menu choice will run prime95 as a service
-that is started when your computer boots up.  This method of starting prime95
+that is started when your computer boots up.  Windows NT/2000/XP users need
+administrator privileges to use this feature.  This method of starting prime95
 is better than creating a shortcut to prime95 in the startup folder.  That
-is because services run even when no one is logged on.  There are few details
-you should be aware of.
+is because services run even when no one is logged on.  These are the details
+you should be aware of:
 	In Windows 95/98/Me:
 The HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunServices
 registry entry is created.  You will not be able to tell any difference between
 prime95 running as a service and prime95 running as an ordinary process.
-	In Windows NT/2000/XP:
+	In Windows NT/2000/XP (without administrator privileges):
+In this case the menu text is changed to "Start at Logon".  The
+HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run registry entry
+is created.  Prime95 will run only when you are logged in.
+	In Windows NT/2000/XP (with administrator privileges):
 There are a few minor quirks when running as a service.  You shouldn't run
 into these quirks in normal operation.  You can only change this option once
 and it will take effect when the service is started or stopped.  You will
@@ -539,11 +544,11 @@ need to exit prime95 running as a normal process before starting the prime95
 service.  The prime95 window will only appear on one users desktop.  Only
 one prime95.exe program can be run as a service.  If you have a dual processor
 system you'll want to run two instances of prime95.  Instead of running a
-second prime95 from another directory, run the second prime95 from with
-the -A1 switch.  Finally, if you are worried about giving users access to
-a GUI service running in the Local System account, you can turn off the
-"Allow service to interact with desktop" option in the services control
-panel applet or run the GUI-less NT service version available at
+second prime95 from another directory, run the second prime95 from the same directory with the -A1 switch and add a NTServiceName entry in prim0001.ini.
+Finally, if you are worried about giving users access to a GUI service
+running in the Local System account, you can turn off the "Allow service to
+interact with desktop" option in the services control panel applet or run
+the GUI-less NT service version available at
 http://www.mersenne.org/freesoft.htm.  These options are more secure than
 using the No Icon menu choice.
 

@@ -800,10 +800,14 @@ void CPrime95Doc::OnHide()
 // When running as an NT service we can delete the service (it will take
 // effect when the service is stopped), but we cannot recreate the service
 // until the next time prime95 is run.  Thus, disable this menu choice once
-// an NT service has turned this option off.
+// an NT service has turned this option off.  Also, some NT users do not
+// have permission to create and delete services.  For those users, change
+// the menu text to "Start at logon."
 
-void CPrime95Doc::OnUpdateService(CCmdUI* pCmdUI) 
+void CPrime95Doc::OnUpdateService(CCmdUI* pCmdUI)
 {
+	pCmdUI->SetText (canModifyServices () ?
+				"Start at Bootup" : "Start at Logon");
 	pCmdUI->Enable (!NTSERVICENAME[0] || WINDOWS95_SERVICE);
 	pCmdUI->SetCheck (WINDOWS95_SERVICE);
 }

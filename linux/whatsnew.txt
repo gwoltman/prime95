@@ -1,3 +1,10 @@
+New features in Version 22.10 of mprime
+---------------------------------------
+
+1)  When running a double-check assignment the preferred trial factoring
+    depth is reduced one bit.  This is done because finding a factor will
+    save one LL test instead of the usual two LL tests.
+
 New features in Version 22.9 of mprime
 --------------------------------------
 

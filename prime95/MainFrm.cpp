@@ -243,9 +243,30 @@ void CMainFrame::OnEndSession (BOOL bEnding)
 		CFrameWnd::OnEndSession (bEnding);
 }
 
-/* Handle all the details for running prime95 as a service */
+/* Return true if user has permission to create and delete services */
 
 #include <winsvc.h>
+int canModifyServices ()
+{
+	SC_HANDLE schSCManager;
+
+/* All Windows 9x users have permission */
+
+	if (isWindows95 ()) return (TRUE);
+
+/* See if Windows NT user can open service control manager */
+
+	schSCManager = OpenSCManager (
+		NULL,		// machine (NULL == local)
+		NULL,		// database (NULL == default)
+		SC_MANAGER_ALL_ACCESS);	// access required
+	if (! schSCManager) return (FALSE);
+	CloseServiceHandle (schSCManager);
+	return (TRUE);
+}
+
+/* Handle all the details for running prime95 as a service */
+
 #define RSP_SIMPLE_SERVICE	1
 #define RSP_UNREGISTER_SERVICE	0
 void Service95 ()
@@ -300,10 +321,98 @@ void Service95 ()
 	else
 		sprintf (regkey, "Prime95-%d", WINDOWS95_A_SWITCH);
 
-// For Windows NT/2000/XP we call the service control manager to
-// maintain the services database
+// For Windows 95/98/Me create a RunServices entry
 
-	if (! isWindows95 ()) {
+	if (isWindows95 ()) {
+		if (RegCreateKeyEx (
+				HKEY_LOCAL_MACHINE,
+				"Software\\Microsoft\\Windows\\CurrentVersion\\RunServices",
+				0,
+				NULL,
+				REG_OPTION_NON_VOLATILE,
+				KEY_ALL_ACCESS,
+				NULL,
+				&hkey,
+				&disposition) != ERROR_SUCCESS) {
+			OutputStr ("Can't create registry key.\n");
+			goto done;
+		}
+
+/* Now create or delete an entry for prime95 */
+
+		if (WINDOWS95_SERVICE) {
+			if (WINDOWS95_A_SWITCH >= 0) {
+				char	append[20];
+				sprintf (append, " -A%d", WINDOWS95_A_SWITCH);
+				strcat (pathname, append);
+			}
+			rc = RegSetValueEx (hkey, regkey, 0, REG_SZ,
+				(BYTE *) pathname, strlen (pathname) + 1);
+			if (rc != ERROR_SUCCESS) {
+				OutputStr ("Can't write registry value.\n");
+				goto done;
+			}
+		} else {
+			rc = RegDeleteValue (hkey, regkey);
+			if (rc != ERROR_SUCCESS && rc != ERROR_FILE_NOT_FOUND){
+				OutputStr ("Can't delete registry entry.\n");
+				goto done;
+			}
+		}
+		RegCloseKey (hkey);
+		hkey = 0;
+	}
+
+// For Windows NT/2000/XP we call the service control manager to maintain the
+// services database.  If we don't have administrator privileges (can't open
+// the service control manager) then simply create a registry entry to start
+// the program at logon.  So, attempt to open the service control manager on
+// NULL = local machine, NULL = default database, all access required.
+
+	else if (! (schSCManager = OpenSCManager (NULL, NULL,
+						  SC_MANAGER_ALL_ACCESS))) {
+		if (RegCreateKeyEx (
+				HKEY_CURRENT_USER,
+				"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+				0,
+				NULL,
+				REG_OPTION_NON_VOLATILE,
+				KEY_ALL_ACCESS,
+				NULL,
+				&hkey,
+				&disposition) != ERROR_SUCCESS) {
+			OutputStr ("Can't create registry key.\n");
+			goto done;
+		}
+
+/* Now create or delete an entry for prime95 */
+
+		if (WINDOWS95_SERVICE) {
+			if (WINDOWS95_A_SWITCH >= 0) {
+				char	append[20];
+				sprintf (append, " -A%d", WINDOWS95_A_SWITCH);
+				strcat (pathname, append);
+			}
+			rc = RegSetValueEx (hkey, regkey, 0, REG_SZ,
+				(BYTE *) pathname, strlen (pathname) + 1);
+			if (rc != ERROR_SUCCESS) {
+				OutputStr ("Can't write registry value.\n");
+				goto done;
+			}
+		} else {
+			rc = RegDeleteValue (hkey, regkey);
+			if (rc != ERROR_SUCCESS && rc != ERROR_FILE_NOT_FOUND){
+				OutputStr ("Can't delete registry entry.\n");
+				goto done;
+			}
+		}
+		RegCloseKey (hkey);
+		hkey = 0;
+	}
+
+// Make the necessary NT/2000/XP service control changes
+
+	else {
 		char	servicename[80];
 		char	displayname[80];
 
@@ -321,17 +430,6 @@ void Service95 ()
 
 		IniGetString (LOCALINI_FILE, "DisplayName", displayname,
 			      sizeof (displayname), servicename);
-
-// Open connection to the service control manager
-
-		schSCManager = OpenSCManager (
-				NULL,		// machine (NULL == local)
-				NULL,		// database (NULL == default)
-				SC_MANAGER_ALL_ACCESS);	// access required
-		if (! schSCManager) {
-			OutputStr ("Couldn't open service control manager.\n");
-			goto done;
-		}
 
 // Create the service entry
 
@@ -384,56 +482,11 @@ void Service95 ()
 				goto done;
 			}
 		}
-	}
 
-// For Windows 95/98/Me create a RunServices entry
+/* Delete the old-style (version 21) Run entry for the current user */
 
-	else {
 		if (RegCreateKeyEx (
-				HKEY_LOCAL_MACHINE,
-				"Software\\Microsoft\\Windows\\CurrentVersion\\RunServices",
-				0,
-				NULL,
-				REG_OPTION_NON_VOLATILE,
-				KEY_ALL_ACCESS,
-				NULL,
-				&hkey,
-				&disposition) != ERROR_SUCCESS) {
-			OutputStr ("Can't create registry key.\n");
-			goto done;
-		}
-
-/* Now create or delete an entry for prime95 */
-
-		if (WINDOWS95_SERVICE) {
-			if (WINDOWS95_A_SWITCH >= 0) {
-				char	append[20];
-				sprintf (append, " -A%d", WINDOWS95_A_SWITCH);
-				strcat (pathname, append);
-			}
-			rc = RegSetValueEx (hkey, regkey, 0, REG_SZ,
-				(BYTE *) pathname, strlen (pathname) + 1);
-			if (rc != ERROR_SUCCESS) {
-				OutputStr ("Can't write registry value.\n");
-				goto done;
-			}
-		} else {
-			rc = RegDeleteValue (hkey, regkey);
-			if (rc != ERROR_SUCCESS && rc != ERROR_FILE_NOT_FOUND){
-				OutputStr ("Can't delete registry entry.\n");
-				goto done;
-			}
-		}
-		RegCloseKey (hkey);
-		hkey = 0;
-	}
-
-/* For Windows NT/2000/XP delete the old-style Run entry for the local */
-/* machine and current user */
-
-	if (! isWindows95 ()) {
-		if (RegCreateKeyEx (
-				HKEY_LOCAL_MACHINE,
+				HKEY_CURRENT_USER,
 				"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
 				0,
 				NULL,
@@ -446,8 +499,14 @@ void Service95 ()
 			RegCloseKey (hkey);
 			hkey = 0;
 		}
+	}
+
+/* For Windows NT/2000/XP delete the old-style (version 21) Run entry for */
+/* the local machine */
+
+	if (! isWindows95 ()) {
 		if (RegCreateKeyEx (
-				HKEY_CURRENT_USER,
+				HKEY_LOCAL_MACHINE,
 				"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
 				0,
 				NULL,

@@ -84,4 +84,5 @@ extern "C" HWND MAINFRAME_HWND;		// Handle of main frame window
 // Internal routines
 
 UINT threadDispatch (LPVOID);
+int canModifyServices ();
 void Service95 ();

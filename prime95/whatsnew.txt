@@ -1,3 +1,14 @@
+New features in Version 22.10 of prime95.exe
+-------------------------------------------
+
+1)  When running a double-check assignment the preferred trial factoring
+    depth is reduced one bit.  This is done because finding a factor will
+    save one LL test instead of the usual two LL tests.
+2)  On a Windows NT/2000/XP system, if prime95 is run by a user without
+    administrator privileges then prime95 cannot install itself as a service.
+    Thus, the Start at Bootup option will set prime95 to run at login time
+    rather than bootup time.
+
 New features in Version 22.9 of prime95.exe
 -------------------------------------------
 
