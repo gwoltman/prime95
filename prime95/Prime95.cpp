@@ -317,8 +317,7 @@ simple_mutex:	 	g_hMutexInst = CreateMutex (
 		wp.rcNormalPosition.right = right;
 		wp.rcNormalPosition.bottom = bottom;
 	}
-	wp.showCmd = (HIDE_ICON || TRAY_ICON) ?
-			SW_HIDE : SW_SHOWMINIMIZED;
+	wp.showCmd = HIDE_ICON ? SW_HIDE : SW_SHOWMINIMIZED;
 	m_pMainWnd->SetWindowPlacement (&wp);
 
 	if (TRAY_ICON) TrayMessage (NIM_ADD, "Prime95", 0);
@@ -346,6 +345,7 @@ simple_mutex:	 	g_hMutexInst = CreateMutex (
 
 	// Run the torture test if asked to
 	if (torture_test) {
+		m_pMainWnd->ShowWindow (orig_cmdShow);
 		m_pMainWnd->PostMessage (WM_COMMAND, IDM_TORTURE, 0);
 	}
 

@@ -310,7 +310,7 @@ void CMainFrame::OnSysCommand(UINT nID, LPARAM lParam)
 {
 	if ((nID & 0xFFF0) == SC_CLOSE) {
 		if (TRAY_ICON || HIDE_ICON) {
-			ShowWindow (FALSE);		// Minimize instead
+			SendMessage (WM_SYSCOMMAND, SC_MINIMIZE, 0);
 			return;
 		}
 	}
