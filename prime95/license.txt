@@ -1,5 +1,5 @@
 Great Internet Mersenne Prime Search
-Research Computing Software v22.9
+Research Computing Software v22.10
 
 END USER LICENSE AGREEMENT
 
