@@ -285,6 +285,7 @@ simple_mutex:	 	g_hMutexInst = CreateMutex (
 				ShowWindow (hwndPrevInst, SW_SHOWMINIMIZED);
 				ShowWindow (hwndPrevInst, SW_SHOWNORMAL);
 			}
+			CloseHandle (g_hMutexInst);
 			return 0;
 		}
 
