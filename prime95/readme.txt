@@ -130,12 +130,8 @@ MANUAL METHOD INSTRUCTIONS
 NOTES
 -----
 
-Let prime95.exe run at all times.  It runs at the lowest possible priority,
-making use of all your idle CPU cycles.  It should not interfere with your
-normal work.  Let the program run overnight and on weekends.  Never turn
-your computer off.  Turn off your monitor to conserve energy.  NOTE:
-Running your computer non-stop could increase your electric bill by $30
-per year or more.
+Running prime95 may significantly increase your electric bill.  The amount
+depends on your computer and your local electric rates.
 
 It can take many CPU weeks to test a large Mersenne number.  This program
 can be safely interrupted by using the ESC key to write intermediate results
