@@ -32,6 +32,7 @@ EXTRN	_DEST2ARG:DWORD
 EXTRN	_GWPROCPTRS:DWORD
 EXTRN	_PLUS1:DWORD
 EXTRN	_GWERROR:DWORD
+EXTRN	_COPYZERO:DWORD
 
 EXTRN	gwadd1:PROC
 EXTRN	gwaddq1:PROC
@@ -420,6 +421,7 @@ PUBLIC	normval3
 PUBLIC	normval4
 
 PUBLIC	XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4
+PUBLIC	XMM_TMP5, XMM_TMP6, XMM_TMP7, XMM_TMP8
 PUBLIC	XMM_TWO
 PUBLIC	XMM_HALF
 PUBLIC	XMM_SQRTHALF
@@ -579,6 +581,10 @@ XMM_TMP1	DQ	0.0, 0.0
 XMM_TMP2	DQ	0.0, 0.0
 XMM_TMP3	DQ	0.0, 0.0
 XMM_TMP4	DQ	0.0, 0.0
+XMM_TMP5	DQ	0.0, 0.0
+XMM_TMP6	DQ	0.0, 0.0
+XMM_TMP7	DQ	0.0, 0.0
+XMM_TMP8	DQ	0.0, 0.0
 XMM_TWO		DQ	2.0, 2.0
 XMM_HALF	DQ	0.5, 0.5
 XMM_SQRTHALF	DQ	0.5, 0.5
@@ -2752,6 +2758,7 @@ _timeit	PROC NEAR
 	push	ebp
 	push	ebx
 
+	clear_timers
 	sub	eax, eax
 	sub	ebx, ebx
 	sub	ebp, ebp
@@ -2782,8 +2789,12 @@ ENDIF
 
 	mov	eax, 1000
 ppp:	mov	edi, _SRCARG
+	lea	esi, [edi+4096]
 	mov	ecx, 10
-qqq:	x7cl_seven_reals_first_fft edi, 8*64, 64
+;;qqq:	x7cl_seven_reals_first_fft esi, 8*64, 64
+;;qqq:	x4cl_four_complex_unfft esi, 4*64, 64, 2*64
+qqq:	x4cl_four_complex_with_square esi, 4*64, 64, 2*64
+	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
 	dec	ecx
 	jnz	qqq
 	dec	eax
