@@ -17,7 +17,7 @@ LFLAGS = -Wl,-M
 LIBS   = -lm
 LIBS2  = -lm -static
 
-COFFOBJS = ../linux/mult.o ../linux/mult1.o ../linux/mult2.o ../linux/mult2a.o ../linux/mult3.o ../linux/mult3a.o ../linux/mult4.o ../linux/mult2p.o ../linux/mult2ap.o ../linux/mult3p.o ../linux/mult3ap.o ../linux/mult4p.o ../linux/mult1aux.o ../linux/mult2aux.o ../linux/xmult1.o ../linux/xmult1ax.o ../linux/xmult2.o ../linux/xmult2a.o ../linux/xmult2ax.o ../linux/xmult3.o ../linux/xmult3a.o ../linux/xmult3ax.o ../linux/ecmhelp.o ../linux/cpuid.o
+COFFOBJS = ../linux/mult.o ../linux/mult1.o ../linux/mult2.o ../linux/mult2a.o ../linux/mult3.o ../linux/mult3a.o ../linux/mult4.o ../linux/mult2p.o ../linux/mult2ap.o ../linux/mult3p.o ../linux/mult3ap.o ../linux/mult4p.o ../linux/mult1aux.o ../linux/mult2aux.o ../linux/xmult1.o ../linux/xmult1ax.o ../linux/xmult2.o ../linux/xmult2a.o ../linux/xmult2ax.o ../linux/xmult3.o ../linux/xmult3a.o ../linux/xmult3ax.o ../linux/ecmhelp.o ../linux/cpuidhlp.o
 DUMMYOBJS = ../linux/dummy0.o ../linux/dummy4.o ../linux/dummy8.o ../linux/dummy12.o ../linux/dummy16.o ../linux/dummy20.o ../linux/dummy24.o ../linux/dummy28.o
 LINUXOBJS = prime.o menu.o
 EXE      = prp

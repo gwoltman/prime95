@@ -55,8 +55,8 @@ mult4p.obj: mult4.asm mult.mac fft4.mac
 ecmhelp.obj: ecmhelp.asm
     $(masm) ecmhelp.asm
 
-cpuid.obj: cpuid.asm
-    $(masm) cpuid.asm
+cpuidhlp.obj: cpuidhlp.asm
+    $(masm) cpuidhlp.asm
 
 factor64.obj: factor32.asm
     $(masm) /Fofactor64.obj factor32.asm

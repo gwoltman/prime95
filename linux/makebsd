@@ -9,7 +9,7 @@ LFLAGS = -Wl,-M
 LIBS   = -lm -lcompat
 LIBS2  = -lm -lcompat -static
 
-COFFOBJS = mult.o mult1.o mult2.o mult2a.o mult3.o mult3a.o mult4.o mult2p.o mult2ap.o mult3p.o mult3ap.o mult4p.o mult1aux.o mult2aux.o xmult1.o xmult1ax.o xmult2.o xmult2a.o xmult2ax.o xmult3.o xmult3a.o xmult3ax.o ecmhelp.o cpuid.o
+COFFOBJS = mult.o mult1.o mult2.o mult2a.o mult3.o mult3a.o mult4.o mult2p.o mult2ap.o mult3p.o mult3ap.o mult4p.o mult1aux.o mult2aux.o xmult1.o xmult1ax.o xmult2.o xmult2a.o xmult2ax.o xmult3.o xmult3a.o xmult3ax.o ecmhelp.o cpuidhlp.o
 FACTOROBJ = factor64.o
 DUMMYOBJS = dummy0.o dummy4.o dummy8.o dummy12.o dummy16.o dummy20.o dummy24.o dummy28.o dummyt0.o dummyt4.o dummyt8.o dummyt12.o dummyt16.o dummyt20.o dummyt24.o dummyt28.o
 LINUXOBJS = prime.o menu.o
