@@ -1587,9 +1587,14 @@ static	int maxerr_recovery_mode = 0;		/* Big roundoff err rerun */
 /* Error check the last 50 iterations, before writing an */
 /* intermediate file (either user-requested stop or a */
 /* 30 minute interval expired), and every 128th iteration. */
+/* Also save right after a we pass an errored iteration and several */
+/* iterations before retesting an errored iteration so that we don't */
+/* have to backtrack very far to do a careful_iteration	(we don't do the */
+/* iteration immediately before because on the P4 a save/restore will */
+/* change the FFT data and make the error non-reproducible. */
 
 		escaped |= stopCheck ();
-		saving = (counter == last_counter-1 || counter == last_counter);
+		saving = (counter == last_counter-8 || counter == last_counter);
 		stopping = escaped || priority_work;
 		echk = stopping || saving || near_fft_limit || ERRCHK || (counter >= p - 50);
 		if ((counter & 127) == 0) {
