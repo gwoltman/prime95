@@ -56,8 +56,7 @@ int isKnownMersennePrime (
 		p == 21701 || p == 23209 || p == 44497 || p == 86243 ||
 		p == 110503 || p == 132049 || p == 216091 || p == 756839 ||
 		p == 859433 || p == 1257787 || p == 1398269 || p == 2976221 ||
-		p == 3021377 || p == 6972593 || p == 13466917 ||
-		p == 16811549);
+		p == 3021377 || p == 6972593 || p == 13466917);
 }
 
 /* Routine to set the stop timer when available memory settings change */
@@ -2152,8 +2151,8 @@ _close (fd);
 /* Format the output message */
 
 	if (isPrime) {
-		sprintf (buf, "M%ld is prime! WZ%d: %08lX\n",
-			 p, PORT, SEC1 (p));
+		sprintf (buf, "M%ld is prime! WZ%d: %08lX,%08lX\n",
+			 p, PORT, SEC1 (p), error_count);
 		high32 = low32 = 0;
 	} else {
 		generateResidue64 (units_bit, &high32, &low32);
