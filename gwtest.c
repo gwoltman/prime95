@@ -1,4 +1,4 @@
-#define CHECK_OFTEN		01
+#define CHECK_OFTEN		0
 #define MIN_K_BITS		1
 #define MAX_K_BITS		49
 #define MAX_C_BITS_FOR_SMALL_K	4
@@ -324,7 +324,6 @@ void test_randomly (void)
 		k = gen_k (kbits);
 		c = gen_c (cbits);
 		n = gen_n ();
-//k=1;n=800;c=-1;
 		switch (rand () % 5) {
 		case 0:	CPU_L2_CACHE_SIZE = 128; break;
 		case 1:	CPU_L2_CACHE_SIZE = 256; break;
