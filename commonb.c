@@ -1589,7 +1589,7 @@ static	int maxerr_recovery_mode = 0;		/* Big roundoff err rerun */
 /* 30 minute interval expired), and every 128th iteration. */
 
 		escaped |= stopCheck ();
-		saving = (counter == last_counter);
+		saving = (counter == last_counter-1 || counter == last_counter);
 		stopping = escaped || priority_work;
 		echk = stopping || saving || near_fft_limit || ERRCHK || (counter >= p - 50);
 		if ((counter & 127) == 0) {
@@ -1680,10 +1680,8 @@ static	int maxerr_recovery_mode = 0;		/* Big roundoff err rerun */
 
 /* Check for excessive roundoff error.  If round off is too large, repeat */
 /* the iteration to see if this was a hardware error.  If it was repeatable */
-/* and the roundoff error was really, really large, then repeat the */
-/* iteration after shifting the data in hopes of creating different FFT data */
-/* that has a more reasonable roundoff error.  This can happen when */
-/* operating near the limit of an FFT. */
+/* then repeat the iteration using a safer, slower method.  This can */
+/* happen when operating near the limit of an FFT. */
 
 		if (echk && MAXERR > 0.40) {
 			static double last_maxerr = 0.0;
