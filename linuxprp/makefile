@@ -37,7 +37,7 @@ $(EXE2): $(LINUXOBJS) $(COFFOBJS) $(DUMMYOBJS)
 	$(CC) $(LFLAGS) -o $(EXE2) $(LINUXOBJS) $(DUMMY2) $(COFFOBJS) $(LIBS2)
 
 clean:
-	rm -f $(EXE) $(LINUXOBJS) $(COFFOBJS) $(DUMMYOBJS)
+	rm -f $(EXE) $(EXE2) $(LINUXOBJS) $(COFFOBJS) $(DUMMYOBJS)
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<

@@ -43,7 +43,7 @@ DUMMY4   = dummyt12.o
 $(EXE): security $(LINUXOBJS) $(COFFOBJS) $(FACTOROBJ) $(DUMMYOBJS)
 	$(CC) $(LFLAGS) -o $(EXE) $(LINUXOBJS) $(DUMMY1) $(COFFOBJS) $(DUMMY2) $(FACTOROBJ) $(LIBS)
 
-$(EXE2): $(LINUXOBJS) $(COFFOBJS) $(DUMMYOBJS)
+$(EXE2): security $(LINUXOBJS) $(COFFOBJS) $(FACTOROBJ) $(DUMMYOBJS)
 	$(CC) $(LFLAGS) -o $(EXE2) $(LINUXOBJS) $(DUMMY3) $(COFFOBJS) $(DUMMY4) $(FACTOROBJ) $(LIBS2)
 
 security:
@@ -51,7 +51,7 @@ security:
 	[ ! -e ../security.c ] && touch ../security.c || true
 
 clean:
-	rm -f $(EXE) $(LINUXOBJS) $(COFFOBJS) $(DUMMYOBJS)
+	rm -f $(EXE) $(EXE2) $(LINUXOBJS) $(COFFOBJS) $(DUMMYOBJS)
 
 $(COFFOBJS) $(FACTOROBJ) $(DUMMYOBJS): %.o : %.obj
 	objcopy -Oelf32-i386 -Icoff-i386 $< $@
