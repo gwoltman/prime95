@@ -4063,8 +4063,8 @@ restart3d:
 	stage = 2;
 
 /* When E >= 2, we can do prime pairing and each loop iteration */
-/* handles the range m-D to m+D.  Otherwise, each iteration handles */
-/* the range m-D to m+D. */
+/* handles the range m-D to m+D.  When E = 1, each iteration handles */
+/* the range m-D to m. */
 
 	if (numvals > 12) t3 = gwalloc ();
 	for ( ; state.C > m-D; m += stage2incr) {
@@ -4074,7 +4074,7 @@ restart3d:
 		if (prime < m) {	/* Do the m-D to m range */
 			i = (m - prime) >> 1;
 			bitset (pairings, i);
-		} else if (prime < m+D) { /* Do the D to m+D range */
+		} else if (prime < m+D && E >= 2) { /* Do the D to m+D range */
 			i = (prime - m) >> 1;
 			if (bittst (pairings, i)) continue;
 		} else {		/* Compute next x^(m^e) */
