@@ -2158,7 +2158,7 @@ flp:	mov	edx, [esi]		; Load maximum exponent
 	mov	edx, [esi+48]		; Get required L2 cache size
 	shr	edx, 16
 	cmp	_CPU_L2_CACHE_SIZE, edx	; Is L2 cache large enough?
-	jl	short fnext		; No, skip this entry
+	jb	short fnext		; No, skip this entry
 	mov	edx, [esi]		; Load maximum exponent again
 fcache:	cmp	eax, edx		; Is our exp less than maximum exp?
 	jbe	short fdn		; Yes, we've found our table entry
