@@ -94,7 +94,6 @@ void rangeStatusMessage (
 
 /* Add the exponent to the output message */
 
-
 		buf[len] = 'M';
 
 		if (w.work_type == WORK_ECM)
