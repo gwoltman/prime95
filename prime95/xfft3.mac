@@ -33,8 +33,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -59,9 +58,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 4,5
@@ -82,7 +79,7 @@ start_timer 18
 c2b:	x1cl_half_eight_reals_unfft_2 esi, 64
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c2b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 
 ;; Do 8 four_complex_unfft macros
@@ -97,7 +94,7 @@ c3b:	x2cl_four_complex_unfft esi, 64, blkdst
 	JNC_X	c3b			;; Iterate if necessary
 	prefetcht1 [esi-128+2*blkdst]
 	prefetcht1 [esi-128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -126,7 +123,7 @@ start_timer 19
 c1b:	x5cl_five_reals_last_unfft esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c1b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64]	;; Restore source pointer
 end_timer 19
@@ -137,7 +134,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -165,7 +161,7 @@ start_timer 21
 b1b:	x5cl_five_reals_first_fft esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	b1b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64]	;; Restore source pointer
 end_timer 21
@@ -194,7 +190,7 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 
 ;; Do 8 four_complex_fft macros
@@ -210,7 +206,7 @@ b3b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64-blkdst];; Restore source pointer
 end_timer 22
@@ -218,7 +214,7 @@ end_timer 22
 ;; Work on next 4 sets of 20 values
 
 no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -287,8 +283,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -313,9 +308,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 4,5
@@ -338,7 +331,7 @@ start_timer 18
 c2b:	x2cl_eight_reals_unfft_2 esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c2b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 
 ;; Do 8 four_complex_unfft macros
@@ -353,7 +346,7 @@ c3b:	x2cl_four_complex_unfft esi, 64, blkdst
 	JNC_X	c3b			;; Iterate if necessary
 	prefetcht1 [esi-128+2*blkdst]
 	prefetcht1 [esi-128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -388,7 +381,7 @@ c1b:	x3cl_six_reals_last_unfft esi, 64, 2*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -402,7 +395,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -433,7 +425,7 @@ b1b:	x3cl_six_reals_first_fft esi, 64, 2*blkdst
 	JNC_X	b1b			;; Iterate if necessary
 	prefetcht1 [esi-128+blkdst]
 	prefetcht1 [esi-128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -468,7 +460,7 @@ b2b:	x2cl_eight_reals_fft_2 esi, 64, blkdst
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 
 ;; Do 8 four_complex_fft macros
@@ -484,7 +476,7 @@ b3b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64-2*blkdst];; Restore source pointer
 end_timer 22
@@ -492,7 +484,7 @@ end_timer 22
 ;; Work on next 4 sets of 24 values
 
 no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -564,8 +556,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -590,9 +581,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 4,5
@@ -615,7 +604,7 @@ start_timer 18
 c2b:	x1cl_half_eight_reals_unfft_2 esi, 64
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c2b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 
 ;; Do 12 four_complex_unfft macros
@@ -630,7 +619,7 @@ c3b:	x2cl_four_complex_unfft esi, 64, blkdst
 	JNC_X	c3b			;; Iterate if necessary
 	prefetcht1 [esi-128+2*blkdst]
 	prefetcht1 [esi-128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -670,7 +659,7 @@ c1b:	x7cl_seven_reals_last_unfft esi, 64, blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+5*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64]	;; Restore source pointer
 end_timer 19
@@ -681,7 +670,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -711,7 +699,7 @@ start_timer 21
 b1b:	x7cl_seven_reals_first_fft esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	b1b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64]	;; Restore source pointer
 end_timer 21
@@ -742,7 +730,7 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 
 ;; Do 4 four_complex_fft macros
@@ -756,7 +744,7 @@ b3a:	x2cl_four_complex_fft esi, 64, blkdst
 	JNC_X	b3a			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3a
 
 ;; Do 8 four_complex_fft macros
@@ -772,7 +760,7 @@ b3b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64-3*blkdst];; Restore source pointer
 end_timer 22
@@ -780,7 +768,7 @@ end_timer 22
 ;; Work on next 4 sets of 28 values
 
 no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -855,8 +843,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -881,9 +868,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 4,5
@@ -906,7 +891,7 @@ start_timer 18
 c2b:	x2cl_eight_reals_unfft_2 esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c2b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 
 ;; Do 12 four_complex_unfft macros
@@ -921,7 +906,7 @@ c3b:	x2cl_four_complex_unfft esi, 64, blkdst
 	JNC_X	c3b			;; Iterate if necessary
 	prefetcht1 [esi-128+2*blkdst]
 	prefetcht1 [esi-128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -955,7 +940,7 @@ c1b:	x4cl_eight_reals_last_unfft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -969,7 +954,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -1005,7 +989,7 @@ b1b:	x2cl_eight_reals_first_fft esi, 64, 4*blkdst
 	JNC_X	b1b			;; Iterate if necessary
 	prefetcht1 [esi-128+2*blkdst]
 	prefetcht1 [esi-128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -1044,7 +1028,7 @@ b2b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 
 ;; Do 8 four_complex_fft macros
@@ -1060,7 +1044,7 @@ b3b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64-4*blkdst];; Restore source pointer
 end_timer 22
@@ -1068,7 +1052,7 @@ end_timer 22
 ;; Work on next 4 sets of 32 values
 
 no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -1141,8 +1125,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -1167,9 +1150,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 6
@@ -1198,7 +1179,7 @@ c5b:	x1cl_two_complex_unfft esi, 64
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c5b			;; Iterate if necessary
 	prefetcht1 [esi-128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -1228,7 +1209,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, blkdst
 	JNC_X	c2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 
 ;; Do 16 four_complex_unfft macros
@@ -1245,7 +1226,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -1282,7 +1263,7 @@ c1b:	x5cl_five_reals_last_unfft esi, 64, 2*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -1296,7 +1277,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -1330,7 +1310,7 @@ b1b:	x5cl_five_reals_first_fft esi, 64, 2*blkdst
 	prefetcht1 [esi-128+5*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
 	prefetcht1 [esi-128+9*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -1365,7 +1345,7 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -1384,7 +1364,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -1415,7 +1395,7 @@ start_timer 24
 b4b:	x2cl_eight_reals_fft_1 esi, 64, blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b4b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 
 ;; Do 32 two_complex_fft macros
@@ -1430,7 +1410,7 @@ b5b:	x2cl_two_complex_fft esi, 64, blkdst
 	JNC_X	b5b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
@@ -1442,7 +1422,7 @@ end_timer 24
 ;; Work on next 4 sets of 40 values
 
 no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -1540,8 +1520,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -1566,9 +1545,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 6
@@ -1597,7 +1574,7 @@ c5b:	x1cl_two_complex_unfft esi, 64
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c5b			;; Iterate if necessary
 	prefetcht1 [esi-128+blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -1632,7 +1609,7 @@ c2b:	x4cl_eight_reals_unfft_2 esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 
 ;; Do 16 four_complex_unfft macros
@@ -1649,7 +1626,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -1688,7 +1665,7 @@ c1b:	x3cl_six_reals_last_unfft esi, 64, 4*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -1702,7 +1679,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -1736,7 +1712,7 @@ b1b:	x3cl_six_reals_first_fft esi, 64, 4*blkdst
 	prefetcht1 [esi-128+blkdst]
 	prefetcht1 [esi-128+5*blkdst]
 	prefetcht1 [esi-128+9*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -1775,7 +1751,7 @@ b2b:	x2cl_eight_reals_fft_2 esi, 64, 2*blkdst
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -1795,7 +1771,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -1826,7 +1802,7 @@ start_timer 24
 b4b:	x2cl_eight_reals_fft_1 esi, 64, blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b4b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 
 ;; Do 40 two_complex_fft macros
@@ -1841,7 +1817,7 @@ b5b:	x2cl_two_complex_fft esi, 64, blkdst
 	JNC_X	b5b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
@@ -1853,7 +1829,7 @@ end_timer 24
 ;; Work on next 4 sets of 48 values
 
 no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -1952,8 +1928,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -1978,9 +1953,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 6
@@ -2009,7 +1982,7 @@ c5b:	x1cl_two_complex_unfft esi, 64
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c5b			;; Iterate if necessary
 	prefetcht1 [esi-128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -2039,7 +2012,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, blkdst
 	JNC_X	c2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 
 ;; Do 24 four_complex_unfft macros
@@ -2056,7 +2029,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -2099,7 +2072,7 @@ c1b:	x7cl_seven_reals_last_unfft esi, 64, 2*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+10*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -2113,7 +2086,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -2146,7 +2118,7 @@ start_timer 21
 b1b:	x7cl_seven_reals_first_fft esi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	b1b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -2185,7 +2157,7 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -2202,7 +2174,7 @@ b3a:	x2cl_four_complex_fft esi, 64, 2*blkdst
 	JNC_X	b3a			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3a
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -2222,7 +2194,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -2253,7 +2225,7 @@ start_timer 24
 b4b:	x2cl_eight_reals_fft_1 esi, 64, blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b4b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 
 ;; Do 48 two_complex_fft macros
@@ -2268,7 +2240,7 @@ b5b:	x2cl_two_complex_fft esi, 64, blkdst
 	JNC_X	b5b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
@@ -2280,7 +2252,7 @@ end_timer 24
 ;; Work on next 4 sets of 56 values
 
 no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -2388,8 +2360,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -2414,9 +2385,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 6
@@ -2445,7 +2414,7 @@ c5b:	x1cl_two_complex_unfft esi, 64
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c5b			;; Iterate if necessary
 	prefetcht1 [esi-128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -2480,7 +2449,7 @@ c2b:	x4cl_eight_reals_unfft_2 esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 
 ;; Do 24 four_complex_unfft macros
@@ -2497,7 +2466,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -2533,7 +2502,7 @@ c1b:	x4cl_eight_reals_last_unfft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -2547,7 +2516,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -2583,7 +2551,7 @@ b1b:	x2cl_eight_reals_first_fft esi, 64, 8*blkdst
 	JNC_X	b1b			;; Iterate if necessary
 	prefetcht1 [esi-128+4*blkdst]
 	prefetcht1 [esi-128+12*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -2624,7 +2592,7 @@ b2b:	x4cl_eight_reals_fft_2 esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -2644,7 +2612,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -2675,7 +2643,7 @@ start_timer 24
 b4b:	x2cl_eight_reals_fft_1 esi, 64, blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b4b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 
 ;; Do 56 two_complex_fft macros
@@ -2690,7 +2658,7 @@ b5b:	x2cl_two_complex_fft esi, 64, blkdst
 	JNC_X	b5b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
@@ -2702,7 +2670,7 @@ end_timer 24
 ;; Work on next 4 sets of 64 values
 
 no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -2802,8 +2770,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -2828,9 +2795,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 6,7
@@ -2866,7 +2831,7 @@ c5b:	x2cl_four_complex_unfft esi, 64, blkdst
 	JNC_X	c5b			;; Iterate if necessary
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -2900,7 +2865,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 2*blkdst
 	JNC_X	c2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -2920,7 +2885,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -2965,7 +2930,7 @@ c1b:	x5cl_five_reals_last_unfft esi, 64, 4*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -2979,7 +2944,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -3015,7 +2979,7 @@ b1b:	x5cl_five_reals_first_fft esi, 64, 4*blkdst
 	prefetcht1 [esi-128+9*blkdst]
 	prefetcht1 [esi-128+13*blkdst]
 	prefetcht1 [esi-128+17*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -3053,7 +3017,7 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -3072,7 +3036,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -3107,7 +3071,7 @@ start_timer 24
 b4b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b4b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 
 ;; Do 32 four_complex_fft macros
@@ -3124,7 +3088,7 @@ b5b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
@@ -3136,7 +3100,7 @@ end_timer 24
 ;; Work on next 4 sets of 80 values
 
 no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -3234,8 +3198,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -3260,9 +3223,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 6,7
@@ -3298,7 +3259,7 @@ c5b:	x2cl_four_complex_unfft esi, 64, blkdst
 	JNC_X	c5b			;; Iterate if necessary
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -3335,7 +3296,7 @@ c2b:	x4cl_eight_reals_unfft_2 esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -3355,7 +3316,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -3398,7 +3359,7 @@ c1b:	x3cl_six_reals_last_unfft esi, 64, 8*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -3412,7 +3373,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -3446,7 +3406,7 @@ b1b:	x3cl_six_reals_first_fft esi, 64, 8*blkdst
 	prefetcht1 [esi-128+blkdst]
 	prefetcht1 [esi-128+9*blkdst]
 	prefetcht1 [esi-128+17*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -3487,7 +3447,7 @@ b2b:	x2cl_eight_reals_fft_2 esi, 64, 4*blkdst
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -3507,7 +3467,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -3542,7 +3502,7 @@ start_timer 24
 b4b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b4b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 
 ;; Do 40 four_complex_fft macros
@@ -3559,7 +3519,7 @@ b5b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
@@ -3571,7 +3531,7 @@ end_timer 24
 ;; Work on next 4 sets of 96 values
 
 no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -3670,8 +3630,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -3696,9 +3655,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 6,7
@@ -3734,7 +3691,7 @@ c5b:	x2cl_four_complex_unfft esi, 64, blkdst
 	JNC_X	c5b			;; Iterate if necessary
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -3768,7 +3725,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 2*blkdst
 	JNC_X	c2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -3788,7 +3745,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -3839,7 +3796,7 @@ c1b:	x7cl_seven_reals_last_unfft esi, 64, 4*blkdst
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+20*blkdst]
 	prefetcht1 [esi-128+clm*128+24*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -3853,7 +3810,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -3895,7 +3851,7 @@ b1b:	x7cl_seven_reals_first_fft esi, 64, 4*blkdst
 	prefetcht1 [esi-128+18*blkdst]
 	prefetcht1 [esi-128+22*blkdst]
 	prefetcht1 [esi-128+26*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -3938,7 +3894,7 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -3955,7 +3911,7 @@ b3a:	x2cl_four_complex_fft esi, 64, 4*blkdst
 	JNC_X	b3a			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3a
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -3975,7 +3931,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -4010,7 +3966,7 @@ start_timer 24
 b4b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b4b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 
 ;; Do 48 four_complex_fft macros
@@ -4027,7 +3983,7 @@ b5b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
@@ -4039,7 +3995,7 @@ end_timer 24
 ;; Work on next 4 sets of 112 values
 
 no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -4147,8 +4103,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -4173,9 +4128,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 6,7
@@ -4211,7 +4164,7 @@ c5b:	x2cl_four_complex_unfft esi, 64, blkdst
 	JNC_X	c5b			;; Iterate if necessary
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -4248,7 +4201,7 @@ c2b:	x4cl_eight_reals_unfft_2 esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -4268,7 +4221,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -4308,7 +4261,7 @@ c1b:	x4cl_eight_reals_last_unfft esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+24*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -4322,7 +4275,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -4358,7 +4310,7 @@ b1b:	x2cl_eight_reals_first_fft esi, 64, 16*blkdst
 	JNC_X	b1b			;; Iterate if necessary
 	prefetcht1 [esi-128+4*blkdst]
 	prefetcht1 [esi-128+20*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -4401,7 +4353,7 @@ b2b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -4421,7 +4373,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -4456,7 +4408,7 @@ start_timer 24
 b4b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b4b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 
 ;; Do 56 four_complex_fft macros
@@ -4473,7 +4425,7 @@ b5b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
@@ -4485,7 +4437,7 @@ end_timer 24
 ;; Work on next 4 sets of 128 values
 
 no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -4585,8 +4537,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm320K	;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm320K*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -4611,9 +4562,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm320K	;; Load loop counter
+	mov	edx, 512/clm320K*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 7,8
@@ -4649,7 +4598,7 @@ c7b:	x2cl_four_complex_unfft esi, 64, blkdst
 	JNC_X	c7b			;; Iterate if necessary
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
-	add	cl, 256/clm320K
+	add	dl, 256/clm320K
 	jnc	c7b
 	lea	esi, [esi-2*clm320K*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -4683,7 +4632,7 @@ c4b:	x2cl_eight_reals_unfft_1 esi, 64, 2*blkdst
 	JNC_X	c4b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm320K*128]
 	prefetcht1 [esi-128+clm320K*128+2*blkdst]
-	add	cl, 256/clm320K
+	add	dl, 256/clm320K
 	jnc	c4b
 	lea	esi, [esi-2*clm320K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -4701,7 +4650,7 @@ c5b:	x2cl_two_complex_unfft esi, 64, 2*blkdst
 	JNC_X	c5b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm320K*128]
 	prefetcht1 [esi-128+clm320K*128+2*blkdst]
-	add	cl, 256/clm320K
+	add	dl, 256/clm320K
 	jnc	c5b
 	lea	esi, [esi-2*clm320K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
@@ -4741,7 +4690,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 4*blkdst
 	JNC_X	c2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm320K*128]
 	prefetcht1 [esi-128+clm320K*128+4*blkdst]
-	add	cl, 256/clm320K
+	add	dl, 256/clm320K
 	jnc	c2b
 	lea	esi, [esi-2*clm320K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -4761,7 +4710,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm320K*128+4*blkdst]
 	prefetcht1 [esi-128+clm320K*128+8*blkdst]
 	prefetcht1 [esi-128+clm320K*128+12*blkdst]
-	add	cl, 256/clm320K
+	add	dl, 256/clm320K
 	jnc	c3b
 	lea	esi, [esi-2*clm320K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -4806,7 +4755,7 @@ c1b:	x5cl_five_reals_last_unfft esi, 64, 8*blkdst
 	prefetcht1 [esi-128+clm320K*128+16*blkdst]
 	prefetcht1 [esi-128+clm320K*128+24*blkdst]
 	prefetcht1 [esi-128+clm320K*128+32*blkdst]
-	add	cl, 256/clm320K
+	add	dl, 256/clm320K
 	jnc	c1b
 	lea	esi, [esi-2*clm320K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -4820,7 +4769,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -4856,7 +4804,7 @@ b1b:	x5cl_five_reals_first_fft esi, 64, 8*blkdst
 	prefetcht1 [esi-128+18*blkdst]
 	prefetcht1 [esi-128+26*blkdst]
 	prefetcht1 [esi-128+34*blkdst]
-	add	cl, 256/clm320K
+	add	dl, 256/clm320K
 	jnc	b1b
 	lea	esi, [esi-2*clm320K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -4894,7 +4842,7 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm320K*128]
-	add	cl, 256/clm320K
+	add	dl, 256/clm320K
 	jnc	b2b
 	lea	esi, [esi-2*clm320K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -4913,7 +4861,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm320K*128+8*blkdst]
 	prefetcht1 [esi-128+clm320K*128+16*blkdst]
 	prefetcht1 [esi-128+clm320K*128+24*blkdst]
-	add	cl, 256/clm320K
+	add	dl, 256/clm320K
 	jnc	b3b
 	lea	esi, [esi-2*clm320K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -4953,7 +4901,7 @@ b4b:	x2cl_eight_reals_fft_1 esi, 64, 4*blkdst
 	JNC_X	b4b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm320K*128]
 	prefetcht1 [esi-128+clm320K*128+4*blkdst]
-	add	cl, 256/clm320K
+	add	dl, 256/clm320K
 	jnc	b4b
 	lea	esi, [esi-2*clm320K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -4971,7 +4919,7 @@ b5b:	x2cl_two_complex_fft esi, 64, 4*blkdst
 	JNC_X	b5b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm320K*128]
 	prefetcht1 [esi-128+clm320K*128+4*blkdst]
-	add	cl, 256/clm320K
+	add	dl, 256/clm320K
 	jnc	b5b
 	lea	esi, [esi-2*clm320K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
@@ -5011,7 +4959,7 @@ start_timer 24
 b6b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b6b			;; Iterate if necessary
-	add	cl, 256/clm320K
+	add	dl, 256/clm320K
 	jnc	b6b
 
 ;; Do 72 four_complex_fft macros
@@ -5028,7 +4976,7 @@ b7b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm320K*128+blkdst]
 	prefetcht1 [esi-128+clm320K*128+2*blkdst]
 	prefetcht1 [esi-128+clm320K*128+3*blkdst]
-	add	cl, 256/clm320K
+	add	dl, 256/clm320K
 	jnc	b7b
 	lea	esi, [esi-2*clm320K*64+4*blkdst];; Next source pointer
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
@@ -5040,7 +4988,7 @@ end_timer 24
 ;; Work on next 4 sets of 160 values
 
 no_fft:	lea	esi, [esi+clm320K*128]	;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -5165,8 +5113,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm384K	;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm384K*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -5191,9 +5138,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm384K	;; Load loop counter
+	mov	edx, 512/clm384K*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 7,8
@@ -5229,7 +5174,7 @@ c7b:	x2cl_four_complex_unfft esi, 64, blkdst
 	JNC_X	c7b			;; Iterate if necessary
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
-	add	cl, 256/clm384K
+	add	dl, 256/clm384K
 	jnc	c7b
 	lea	esi, [esi-2*clm384K*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -5263,7 +5208,7 @@ c4b:	x2cl_eight_reals_unfft_1 esi, 64, 2*blkdst
 	JNC_X	c4b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm384K*128]
 	prefetcht1 [esi-128+clm384K*128+2*blkdst]
-	add	cl, 256/clm384K
+	add	dl, 256/clm384K
 	jnc	c4b
 	lea	esi, [esi-2*clm384K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -5281,7 +5226,7 @@ c5b:	x2cl_two_complex_unfft esi, 64, 2*blkdst
 	JNC_X	c5b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm384K*128]
 	prefetcht1 [esi-128+clm384K*128+2*blkdst]
-	add	cl, 256/clm384K
+	add	dl, 256/clm384K
 	jnc	c5b
 	lea	esi, [esi-2*clm384K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
@@ -5324,7 +5269,7 @@ c2b:	x4cl_eight_reals_unfft_2 esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm384K*128+4*blkdst]
 	prefetcht1 [esi-128+clm384K*128+8*blkdst]
 	prefetcht1 [esi-128+clm384K*128+12*blkdst]
-	add	cl, 256/clm384K
+	add	dl, 256/clm384K
 	jnc	c2b
 	lea	esi, [esi-2*clm384K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -5344,7 +5289,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm384K*128+4*blkdst]
 	prefetcht1 [esi-128+clm384K*128+8*blkdst]
 	prefetcht1 [esi-128+clm384K*128+12*blkdst]
-	add	cl, 256/clm384K
+	add	dl, 256/clm384K
 	jnc	c3b
 	lea	esi, [esi-2*clm384K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -5387,7 +5332,7 @@ c1b:	x3cl_six_reals_last_unfft esi, 64, 16*blkdst
 	prefetcht1 [esi-128+clm384K*128]
 	prefetcht1 [esi-128+clm384K*128+16*blkdst]
 	prefetcht1 [esi-128+clm384K*128+32*blkdst]
-	add	cl, 256/clm384K
+	add	dl, 256/clm384K
 	jnc	c1b
 	lea	esi, [esi-2*clm384K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -5401,7 +5346,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -5435,7 +5379,7 @@ b1b:	x3cl_six_reals_first_fft esi, 64, 16*blkdst
 	prefetcht1 [esi-128+2*blkdst]
 	prefetcht1 [esi-128+18*blkdst]
 	prefetcht1 [esi-128+34*blkdst]
-	add	cl, 256/clm384K
+	add	dl, 256/clm384K
 	jnc	b1b
 	lea	esi, [esi-2*clm384K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -5476,7 +5420,7 @@ b2b:	x2cl_eight_reals_fft_2 esi, 64, 8*blkdst
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm384K*128]
 	prefetcht1 [esi-128+clm384K*128+8*blkdst]
-	add	cl, 256/clm384K
+	add	dl, 256/clm384K
 	jnc	b2b
 	lea	esi, [esi-2*clm384K*64+blkdst];; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -5496,7 +5440,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm384K*128+8*blkdst]
 	prefetcht1 [esi-128+clm384K*128+16*blkdst]
 	prefetcht1 [esi-128+clm384K*128+24*blkdst]
-	add	cl, 256/clm384K
+	add	dl, 256/clm384K
 	jnc	b3b
 	lea	esi, [esi-2*clm384K*64+blkdst];; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -5536,7 +5480,7 @@ b4b:	x2cl_eight_reals_fft_1 esi, 64, 4*blkdst
 	JNC_X	b4b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm384K*128]
 	prefetcht1 [esi-128+clm384K*128+4*blkdst]
-	add	cl, 256/clm384K
+	add	dl, 256/clm384K
 	jnc	b4b
 	lea	esi, [esi-2*clm384K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -5554,7 +5498,7 @@ b5b:	x2cl_two_complex_fft esi, 64, 4*blkdst
 	JNC_X	b5b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm384K*128]
 	prefetcht1 [esi-128+clm384K*128+4*blkdst]
-	add	cl, 256/clm384K
+	add	dl, 256/clm384K
 	jnc	b5b
 	lea	esi, [esi-2*clm384K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
@@ -5594,7 +5538,7 @@ start_timer 24
 b6b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b6b			;; Iterate if necessary
-	add	cl, 256/clm384K
+	add	dl, 256/clm384K
 	jnc	b6b
 
 ;; Do 88 four_complex_fft macros
@@ -5611,7 +5555,7 @@ b7b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm384K*128+blkdst]
 	prefetcht1 [esi-128+clm384K*128+2*blkdst]
 	prefetcht1 [esi-128+clm384K*128+3*blkdst]
-	add	cl, 256/clm384K
+	add	dl, 256/clm384K
 	jnc	b7b
 	lea	esi, [esi-2*clm384K*64+4*blkdst];; Next source pointer
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
@@ -5623,7 +5567,7 @@ end_timer 24
 ;; Work on next 4 sets of 192 values
 
 no_fft:	lea	esi, [esi+clm384K*128]	;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -5749,8 +5693,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm448K		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm448K*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -5775,9 +5718,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm448K		;; Load loop counter
+	mov	edx, 512/clm448K*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 7,8
@@ -5813,7 +5754,7 @@ c7b:	x2cl_four_complex_unfft esi, 64, blkdst
 	JNC_X	c7b			;; Iterate if necessary
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
-	add	cl, 256/clm448K
+	add	dl, 256/clm448K
 	jnc	c7b
 	lea	esi, [esi-2*clm448K*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -5847,7 +5788,7 @@ c4b:	x2cl_eight_reals_unfft_1 esi, 64, 2*blkdst
 	JNC_X	c4b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm448K*128]
 	prefetcht1 [esi-128+clm448K*128+2*blkdst]
-	add	cl, 256/clm448K
+	add	dl, 256/clm448K
 	jnc	c4b
 	lea	esi, [esi-2*clm448K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -5865,7 +5806,7 @@ c5b:	x2cl_two_complex_unfft esi, 64, 2*blkdst
 	JNC_X	c5b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm448K*128]
 	prefetcht1 [esi-128+clm448K*128+2*blkdst]
-	add	cl, 256/clm448K
+	add	dl, 256/clm448K
 	jnc	c5b
 	lea	esi, [esi-2*clm448K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
@@ -5905,7 +5846,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 4*blkdst
 	JNC_X	c2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm448K*128]
 	prefetcht1 [esi-128+clm448K*128+4*blkdst]
-	add	cl, 256/clm448K
+	add	dl, 256/clm448K
 	jnc	c2b
 	lea	esi, [esi-2*clm448K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -5925,7 +5866,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm448K*128+4*blkdst]
 	prefetcht1 [esi-128+clm448K*128+8*blkdst]
 	prefetcht1 [esi-128+clm448K*128+12*blkdst]
-	add	cl, 256/clm448K
+	add	dl, 256/clm448K
 	jnc	c3b
 	lea	esi, [esi-2*clm448K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -5976,7 +5917,7 @@ c1b:	x7cl_seven_reals_last_unfft esi, 64, 8*blkdst
 	prefetcht1 [esi-128+clm448K*128+32*blkdst]
 	prefetcht1 [esi-128+clm448K*128+40*blkdst]
 	prefetcht1 [esi-128+clm448K*128+48*blkdst]
-	add	cl, 256/clm448K
+	add	dl, 256/clm448K
 	jnc	c1b
 	lea	esi, [esi-2*clm448K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -5990,7 +5931,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -6032,7 +5972,7 @@ b1b:	x7cl_seven_reals_first_fft esi, 64, 8*blkdst
 	prefetcht1 [esi-128+34*blkdst]
 	prefetcht1 [esi-128+42*blkdst]
 	prefetcht1 [esi-128+50*blkdst]
-	add	cl, 256/clm448K
+	add	dl, 256/clm448K
 	jnc	b1b
 	lea	esi, [esi-2*clm448K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -6074,7 +6014,7 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm448K*128]
-	add	cl, 256/clm448K
+	add	dl, 256/clm448K
 	jnc	b2b
 	lea	esi, [esi-2*clm448K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -6091,7 +6031,7 @@ b3a:	x2cl_four_complex_fft esi, 64, 8*blkdst
 	JNC_X	b3a			;; Iterate if necessary
 	prefetcht1 [esi-128+clm448K*128]
 	prefetcht1 [esi-128+clm448K*128+8*blkdst]
-	add	cl, 256/clm448K
+	add	dl, 256/clm448K
 	jnc	b3a
 	lea	esi, [esi-2*clm448K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -6111,7 +6051,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm448K*128+8*blkdst]
 	prefetcht1 [esi-128+clm448K*128+16*blkdst]
 	prefetcht1 [esi-128+clm448K*128+24*blkdst]
-	add	cl, 256/clm448K
+	add	dl, 256/clm448K
 	jnc	b3b
 	lea	esi, [esi-2*clm448K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -6151,7 +6091,7 @@ b4b:	x2cl_eight_reals_fft_1 esi, 64, 4*blkdst
 	JNC_X	b4b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm448K*128]
 	prefetcht1 [esi-128+clm448K*128+4*blkdst]
-	add	cl, 256/clm448K
+	add	dl, 256/clm448K
 	jnc	b4b
 	lea	esi, [esi-2*clm448K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -6169,7 +6109,7 @@ b5b:	x2cl_two_complex_fft esi, 64, 4*blkdst
 	JNC_X	b5b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm448K*128]
 	prefetcht1 [esi-128+clm448K*128+4*blkdst]
-	add	cl, 256/clm448K
+	add	dl, 256/clm448K
 	jnc	b5b
 	lea	esi, [esi-2*clm448K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
@@ -6209,7 +6149,7 @@ start_timer 24
 b6b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b6b			;; Iterate if necessary
-	add	cl, 256/clm448K
+	add	dl, 256/clm448K
 	jnc	b6b
 
 ;; Do 104 four_complex_fft macros
@@ -6226,7 +6166,7 @@ b7b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm448K*128+blkdst]
 	prefetcht1 [esi-128+clm448K*128+2*blkdst]
 	prefetcht1 [esi-128+clm448K*128+3*blkdst]
-	add	cl, 256/clm448K
+	add	dl, 256/clm448K
 	jnc	b7b
 	lea	esi, [esi-2*clm448K*64+4*blkdst];; Next source pointer
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
@@ -6237,8 +6177,8 @@ end_timer 24
 
 ;; Work on next 4 sets of 224 values
 
-no_fft:	lea	esi, [esi+clm448K*128]		;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+no_fft:	lea	esi, [esi+clm448K*128]	;; Next source pointer
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -6373,8 +6313,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm512K		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm512K*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -6399,9 +6338,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm512K		;; Load loop counter
+	mov	edx, 512/clm512K*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 7,8
@@ -6437,7 +6374,7 @@ c7b:	x2cl_four_complex_unfft esi, 64, blkdst
 	JNC_X	c7b			;; Iterate if necessary
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
-	add	cl, 256/clm512K
+	add	dl, 256/clm512K
 	jnc	c7b
 	lea	esi, [esi-2*clm512K*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -6471,7 +6408,7 @@ c4b:	x2cl_eight_reals_unfft_1 esi, 64, 2*blkdst
 	JNC_X	c4b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm512K*128]
 	prefetcht1 [esi-128+clm512K*128+2*blkdst]
-	add	cl, 256/clm512K
+	add	dl, 256/clm512K
 	jnc	c4b
 	lea	esi, [esi-2*clm512K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -6489,7 +6426,7 @@ c5b:	x2cl_two_complex_unfft esi, 64, 2*blkdst
 	JNC_X	c5b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm512K*128]
 	prefetcht1 [esi-128+clm512K*128+2*blkdst]
-	add	cl, 256/clm512K
+	add	dl, 256/clm512K
 	jnc	c5b
 	lea	esi, [esi-2*clm512K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
@@ -6532,7 +6469,7 @@ c2b:	x4cl_eight_reals_unfft_2 esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm512K*128+4*blkdst]
 	prefetcht1 [esi-128+clm512K*128+8*blkdst]
 	prefetcht1 [esi-128+clm512K*128+12*blkdst]
-	add	cl, 256/clm512K
+	add	dl, 256/clm512K
 	jnc	c2b
 	lea	esi, [esi-2*clm512K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -6552,7 +6489,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm512K*128+4*blkdst]
 	prefetcht1 [esi-128+clm512K*128+8*blkdst]
 	prefetcht1 [esi-128+clm512K*128+12*blkdst]
-	add	cl, 256/clm512K
+	add	dl, 256/clm512K
 	jnc	c3b
 	lea	esi, [esi-2*clm512K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -6592,7 +6529,7 @@ c1b:	x4cl_eight_reals_last_unfft esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm512K*128+16*blkdst]
 	prefetcht1 [esi-128+clm512K*128+32*blkdst]
 	prefetcht1 [esi-128+clm512K*128+48*blkdst]
-	add	cl, 256/clm512K
+	add	dl, 256/clm512K
 	jnc	c1b
 	lea	esi, [esi-2*clm512K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -6606,7 +6543,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -6642,7 +6578,7 @@ b1b:	x2cl_eight_reals_first_fft esi, 64, 32*blkdst
 	JNC_X	b1b			;; Iterate if necessary
 	prefetcht1 [esi-128+4*blkdst]
 	prefetcht1 [esi-128+36*blkdst]
-	add	cl, 256/clm512K
+	add	dl, 256/clm512K
 	jnc	b1b
 	lea	esi, [esi-2*clm512K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -6685,7 +6621,7 @@ b2b:	x4cl_eight_reals_fft_2 esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm512K*128+8*blkdst]
 	prefetcht1 [esi-128+clm512K*128+16*blkdst]
 	prefetcht1 [esi-128+clm512K*128+24*blkdst]
-	add	cl, 256/clm512K
+	add	dl, 256/clm512K
 	jnc	b2b
 	lea	esi, [esi-2*clm512K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -6705,7 +6641,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm512K*128+8*blkdst]
 	prefetcht1 [esi-128+clm512K*128+16*blkdst]
 	prefetcht1 [esi-128+clm512K*128+24*blkdst]
-	add	cl, 256/clm512K
+	add	dl, 256/clm512K
 	jnc	b3b
 	lea	esi, [esi-2*clm512K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -6745,7 +6681,7 @@ b4b:	x2cl_eight_reals_fft_1 esi, 64, 4*blkdst
 	JNC_X	b4b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm512K*128]
 	prefetcht1 [esi-128+clm512K*128+4*blkdst]
-	add	cl, 256/clm512K
+	add	dl, 256/clm512K
 	jnc	b4b
 	lea	esi, [esi-2*clm512K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -6763,7 +6699,7 @@ b5b:	x2cl_two_complex_fft esi, 64, 4*blkdst
 	JNC_X	b5b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm512K*128]
 	prefetcht1 [esi-128+clm512K*128+4*blkdst]
-	add	cl, 256/clm512K
+	add	dl, 256/clm512K
 	jnc	b5b
 	lea	esi, [esi-2*clm512K*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
@@ -6803,7 +6739,7 @@ start_timer 24
 b6b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b6b			;; Iterate if necessary
-	add	cl, 256/clm512K
+	add	dl, 256/clm512K
 	jnc	b6b
 
 ;; Do 120 four_complex_fft macros
@@ -6820,7 +6756,7 @@ b7b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm512K*128+blkdst]
 	prefetcht1 [esi-128+clm512K*128+2*blkdst]
 	prefetcht1 [esi-128+clm512K*128+3*blkdst]
-	add	cl, 256/clm512K
+	add	dl, 256/clm512K
 	jnc	b7b
 	lea	esi, [esi-2*clm512K*64+4*blkdst];; Next source pointer
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
@@ -6831,8 +6767,8 @@ end_timer 24
 
 ;; Work on next 4 sets of 256 values
 
-no_fft:	lea	esi, [esi+clm512K*128]		;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+no_fft:	lea	esi, [esi+clm512K*128]	;; Next source pointer
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -6959,8 +6895,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -6985,9 +6920,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 8,9
@@ -7023,7 +6956,7 @@ c7b:	x2cl_four_complex_unfft esi, 64, blkdst
 	JNC_X	c7b			;; Iterate if necessary
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c7b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -7060,7 +6993,7 @@ c4b:	x4cl_eight_reals_unfft_2 esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c4b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -7080,7 +7013,7 @@ c5b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
@@ -7120,7 +7053,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 8*blkdst
 	JNC_X	c2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -7140,7 +7073,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+24*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -7185,7 +7118,7 @@ c1b:	x5cl_five_reals_last_unfft esi, 64, 16*blkdst
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
 	prefetcht1 [esi-128+clm*128+64*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -7199,7 +7132,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -7235,7 +7167,7 @@ b1b:	x5cl_five_reals_first_fft esi, 64, 16*blkdst
 	prefetcht1 [esi-128+34*blkdst]
 	prefetcht1 [esi-128+50*blkdst]
 	prefetcht1 [esi-128+66*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -7273,7 +7205,7 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -7292,7 +7224,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -7334,7 +7266,7 @@ b4b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -7354,7 +7286,7 @@ b5b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
@@ -7394,7 +7326,7 @@ start_timer 24
 b6b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b6b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b6b
 
 ;; Do 152 four_complex_fft macros
@@ -7411,7 +7343,7 @@ b7b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b7b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
@@ -7422,8 +7354,8 @@ end_timer 24
 
 ;; Work on next 4 sets of 320 values
 
-no_fft:	lea	esi, [esi+clm*128]		;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -7548,8 +7480,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -7574,9 +7505,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 8,9
@@ -7612,7 +7541,7 @@ c7b:	x2cl_four_complex_unfft esi, 64, blkdst
 	JNC_X	c7b			;; Iterate if necessary
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c7b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -7649,7 +7578,7 @@ c4b:	x4cl_eight_reals_unfft_2 esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c4b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -7669,7 +7598,7 @@ c5b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
@@ -7712,7 +7641,7 @@ c2b:	x4cl_eight_reals_unfft_2 esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+24*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -7732,7 +7661,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+24*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -7775,7 +7704,7 @@ c1b:	x3cl_six_reals_last_unfft esi, 64, 32*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+64*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -7789,7 +7718,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -7823,7 +7751,7 @@ b1b:	x3cl_six_reals_first_fft esi, 64, 32*blkdst
 	prefetcht1 [esi-128+2*blkdst]
 	prefetcht1 [esi-128+34*blkdst]
 	prefetcht1 [esi-128+66*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -7864,7 +7792,7 @@ b2b:	x2cl_eight_reals_fft_2 esi, 64, 16*blkdst
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -7884,7 +7812,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -7926,7 +7854,7 @@ b4b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -7946,7 +7874,7 @@ b5b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
@@ -7986,7 +7914,7 @@ start_timer 24
 b6b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b6b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b6b
 
 ;; Do 184 four_complex_fft macros
@@ -8003,7 +7931,7 @@ b7b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b7b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
@@ -8014,8 +7942,8 @@ end_timer 24
 
 ;; Work on next 4 sets of 384 values
 
-no_fft:	lea	esi, [esi+clm*128]		;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -8141,8 +8069,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -8167,9 +8094,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 8,9
@@ -8205,7 +8130,7 @@ c7b:	x2cl_four_complex_unfft esi, 64, blkdst
 	JNC_X	c7b			;; Iterate if necessary
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c7b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -8242,7 +8167,7 @@ c4b:	x4cl_eight_reals_unfft_2 esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c4b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -8262,7 +8187,7 @@ c5b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
@@ -8302,7 +8227,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 8*blkdst
 	JNC_X	c2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -8322,7 +8247,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+24*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -8373,7 +8298,7 @@ c1b:	x7cl_seven_reals_last_unfft esi, 64, 16*blkdst
 	prefetcht1 [esi-128+clm*128+64*blkdst]
 	prefetcht1 [esi-128+clm*128+80*blkdst]
 	prefetcht1 [esi-128+clm*128+96*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -8387,7 +8312,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -8429,7 +8353,7 @@ b1b:	x7cl_seven_reals_first_fft esi, 64, 16*blkdst
 	prefetcht1 [esi-128+66*blkdst]
 	prefetcht1 [esi-128+82*blkdst]
 	prefetcht1 [esi-128+98*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -8471,7 +8395,7 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -8488,7 +8412,7 @@ b3a:	x2cl_four_complex_fft esi, 64, 16*blkdst
 	JNC_X	b3a			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3a
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -8508,7 +8432,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -8550,7 +8474,7 @@ b4b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -8570,7 +8494,7 @@ b5b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
@@ -8610,7 +8534,7 @@ start_timer 24
 b6b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b6b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b6b
 
 ;; Do 208 four_complex_fft macros
@@ -8627,7 +8551,7 @@ b7b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b7b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
@@ -8638,8 +8562,8 @@ end_timer 24
 
 ;; Work on next 4 sets of 448 values
 
-no_fft:	lea	esi, [esi+clm*128]		;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -8774,8 +8698,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -8800,9 +8723,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 8,9
@@ -8838,7 +8759,7 @@ c7b:	x2cl_four_complex_unfft esi, 64, blkdst
 	JNC_X	c7b			;; Iterate if necessary
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c7b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -8875,7 +8796,7 @@ c4b:	x4cl_eight_reals_unfft_2 esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c4b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -8895,7 +8816,7 @@ c5b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
@@ -8938,7 +8859,7 @@ c2b:	x4cl_eight_reals_unfft_2 esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+24*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -8958,7 +8879,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+24*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -8998,7 +8919,7 @@ c1b:	x4cl_eight_reals_last_unfft esi, 64, 32*blkdst, 64*blkdst
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+64*blkdst]
 	prefetcht1 [esi-128+clm*128+96*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -9012,7 +8933,6 @@ start_timer 20
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 20
 
 ;; Have we been given permission to start the FFT on the result?
@@ -9048,7 +8968,7 @@ b1b:	x2cl_eight_reals_first_fft esi, 64, 64*blkdst
 	JNC_X	b1b			;; Iterate if necessary
 	prefetcht1 [esi-128+4*blkdst]
 	prefetcht1 [esi-128+68*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test loop counter
@@ -9091,7 +9011,7 @@ b2b:	x4cl_eight_reals_fft_2 esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -9111,7 +9031,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -9153,7 +9073,7 @@ b4b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
@@ -9173,7 +9093,7 @@ b5b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
@@ -9213,7 +9133,7 @@ start_timer 24
 b6b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b6b			;; Iterate if necessary
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b6b
 
 ;; Do 248 four_complex_fft macros
@@ -9230,7 +9150,7 @@ b7b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+blkdst]
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b7b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
@@ -9241,8 +9161,8 @@ end_timer 24
 
 ;; Work on next 4 sets of 512 values
 
-no_fft:	lea	esi, [esi+clm*128]		;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -9369,8 +9289,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -9395,9 +9314,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 9,10
@@ -9434,7 +9351,7 @@ c9b:	x2cl_four_complex_unfft esi, 64, blkdst
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c9b
 	ENDIF
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -9473,7 +9390,7 @@ c6b:	x4cl_eight_reals_unfft_2 esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c6b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -9495,7 +9412,7 @@ c7b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c7b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -9537,7 +9454,7 @@ c4b:	x2cl_eight_reals_unfft_1 esi, 64, 8*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c4b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -9557,7 +9474,7 @@ c5b:	x2cl_two_complex_unfft esi, 64, 8*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -9599,7 +9516,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 16*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -9621,7 +9538,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -9668,7 +9585,7 @@ c1b:	x5cl_five_reals_last_unfft esi, 64, 32*blkdst
 	prefetcht1 [esi-128+clm*128+96*blkdst]
 	prefetcht1 [esi-128+clm*128+128*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -9683,7 +9600,6 @@ start_timer 21
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 21
 
 ;; Have we been given permission to start the FFT on the result?
@@ -9720,7 +9636,7 @@ b1b:	x5cl_five_reals_first_fft esi, 64, 32*blkdst
 	prefetcht1 [esi-128+100*blkdst]
 	prefetcht1 [esi-128+132*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -9760,7 +9676,7 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -9781,7 +9697,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 32*blkdst, 64*blkdst
 	prefetcht1 [esi-128+clm*128+64*blkdst]
 	prefetcht1 [esi-128+clm*128+96*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -9823,7 +9739,7 @@ b4b:	x2cl_eight_reals_fft_1 esi, 64, 16*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -9843,7 +9759,7 @@ b5b:	x2cl_two_complex_fft esi, 64, 16*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -9892,7 +9808,7 @@ b6b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b6b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -9914,7 +9830,7 @@ b7b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b7b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -9956,7 +9872,7 @@ b8b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b8b			;; Iterate if necessary
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b8b
 	ENDIF
 
@@ -9975,7 +9891,7 @@ b9b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b9b
 	ENDIF
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -9987,8 +9903,8 @@ end_timer 26
 
 ;; Work on next 4 sets of 640 values
 
-no_fft:	lea	esi, [esi+clm*128]		;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -10140,8 +10056,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -10166,9 +10081,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 9,10
@@ -10205,7 +10118,7 @@ c9b:	x2cl_four_complex_unfft esi, 64, blkdst
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c9b
 	ENDIF
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -10244,7 +10157,7 @@ c6b:	x4cl_eight_reals_unfft_2 esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c6b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -10266,7 +10179,7 @@ c7b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c7b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -10308,7 +10221,7 @@ c4b:	x2cl_eight_reals_unfft_1 esi, 64, 8*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c4b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -10328,7 +10241,7 @@ c5b:	x2cl_two_complex_unfft esi, 64, 8*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -10373,7 +10286,7 @@ c2b:	x4cl_eight_reals_unfft_2 esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -10395,7 +10308,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -10440,7 +10353,7 @@ c1b:	x3cl_six_reals_last_unfft esi, 64, 64*blkdst
 	prefetcht1 [esi-128+clm*128+64*blkdst]
 	prefetcht1 [esi-128+clm*128+128*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -10455,7 +10368,6 @@ start_timer 21
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 21
 
 ;; Have we been given permission to start the FFT on the result?
@@ -10490,7 +10402,7 @@ b1b:	x3cl_six_reals_first_fft esi, 64, 64*blkdst
 	prefetcht1 [esi-128+68*blkdst]
 	prefetcht1 [esi-128+132*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -10533,7 +10445,7 @@ b2b:	x2cl_eight_reals_fft_2 esi, 64, 32*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -10555,7 +10467,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 32*blkdst, 64*blkdst
 	prefetcht1 [esi-128+clm*128+64*blkdst]
 	prefetcht1 [esi-128+clm*128+96*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -10597,7 +10509,7 @@ b4b:	x2cl_eight_reals_fft_1 esi, 64, 16*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -10617,7 +10529,7 @@ b5b:	x2cl_two_complex_fft esi, 64, 16*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -10666,7 +10578,7 @@ b6b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b6b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -10688,7 +10600,7 @@ b7b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b7b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -10730,7 +10642,7 @@ b8b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b8b			;; Iterate if necessary
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b8b
 	ENDIF
 
@@ -10749,7 +10661,7 @@ b9b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b9b
 	ENDIF
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -10761,8 +10673,8 @@ end_timer 26
 
 ;; Work on next 4 sets of 768 values
 
-no_fft:	lea	esi, [esi+clm*128]		;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -10915,8 +10827,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm		;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -10941,9 +10852,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm		;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 9,10
@@ -10980,7 +10889,7 @@ c9b:	x2cl_four_complex_unfft esi, 64, blkdst
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c9b
 	ENDIF
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -11019,7 +10928,7 @@ c6b:	x4cl_eight_reals_unfft_2 esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c6b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11041,7 +10950,7 @@ c7b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c7b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11083,7 +10992,7 @@ c4b:	x2cl_eight_reals_unfft_1 esi, 64, 8*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c4b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11103,7 +11012,7 @@ c5b:	x2cl_two_complex_unfft esi, 64, 8*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11145,7 +11054,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 16*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11167,7 +11076,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11220,7 +11129,7 @@ c1b:	x7cl_seven_reals_last_unfft esi, 64, 32*blkdst
 	prefetcht1 [esi-128+clm*128+160*blkdst]
 	prefetcht1 [esi-128+clm*128+192*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11235,7 +11144,6 @@ start_timer 21
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 21
 
 ;; Have we been given permission to start the FFT on the result?
@@ -11278,7 +11186,7 @@ b1b:	x7cl_seven_reals_first_fft esi, 64, 32*blkdst
 	prefetcht1 [esi-128+162*blkdst]
 	prefetcht1 [esi-128+194*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11323,7 +11231,7 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11342,7 +11250,7 @@ b3a:	x2cl_four_complex_fft esi, 64, 32*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3a
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11364,7 +11272,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 32*blkdst, 64*blkdst
 	prefetcht1 [esi-128+clm*128+64*blkdst]
 	prefetcht1 [esi-128+clm*128+96*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11406,7 +11314,7 @@ b4b:	x2cl_eight_reals_fft_1 esi, 64, 16*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11426,7 +11334,7 @@ b5b:	x2cl_two_complex_fft esi, 64, 16*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11475,7 +11383,7 @@ b6b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b6b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11497,7 +11405,7 @@ b7b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b7b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11539,7 +11447,7 @@ b8b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b8b			;; Iterate if necessary
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b8b
 	ENDIF
 
@@ -11558,7 +11466,7 @@ b9b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b9b
 	ENDIF
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -11570,8 +11478,8 @@ end_timer 26
 
 ;; Work on next 4 sets of 896 values
 
-no_fft:	lea	esi, [esi+clm*128]		;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -11733,8 +11641,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm	;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -11759,9 +11666,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm	;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 9,10
@@ -11798,7 +11703,7 @@ c9b:	x2cl_four_complex_unfft esi, 64, blkdst
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c9b
 	ENDIF
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -11837,7 +11742,7 @@ c6b:	x4cl_eight_reals_unfft_2 esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c6b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11859,7 +11764,7 @@ c7b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c7b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11901,7 +11806,7 @@ c4b:	x2cl_eight_reals_unfft_1 esi, 64, 8*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c4b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11921,7 +11826,7 @@ c5b:	x2cl_two_complex_unfft esi, 64, 8*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11966,7 +11871,7 @@ c2b:	x4cl_eight_reals_unfft_2 esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -11988,7 +11893,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12030,7 +11935,7 @@ c1b:	x4cl_eight_reals_last_unfft esi, 64, 64*blkdst, 128*blkdst
 	prefetcht1 [esi-128+clm*128+128*blkdst]
 	prefetcht1 [esi-128+clm*128+256*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12045,7 +11950,6 @@ start_timer 21
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 21
 
 ;; Have we been given permission to start the FFT on the result?
@@ -12082,7 +11986,7 @@ b1b:	x2cl_eight_reals_first_fft esi, 64, 128*blkdst
 	prefetcht1 [esi-128+4*blkdst]
 	prefetcht1 [esi-128+132*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12127,7 +12031,7 @@ b2b:	x4cl_eight_reals_fft_2 esi, 64, 32*blkdst, 64*blkdst
 	prefetcht1 [esi-128+clm*128+64*blkdst]
 	prefetcht1 [esi-128+clm*128+96*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12149,7 +12053,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 32*blkdst, 64*blkdst
 	prefetcht1 [esi-128+clm*128+64*blkdst]
 	prefetcht1 [esi-128+clm*128+96*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12191,7 +12095,7 @@ b4b:	x2cl_eight_reals_fft_1 esi, 64, 16*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12211,7 +12115,7 @@ b5b:	x2cl_two_complex_fft esi, 64, 16*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12260,7 +12164,7 @@ b6b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b6b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12282,7 +12186,7 @@ b7b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b7b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12339,7 +12243,7 @@ b9b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b9b
 	ENDIF
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -12351,8 +12255,8 @@ end_timer 26
 
 ;; Work on next 4 sets of 1024 values
 
-no_fft:	lea	esi, [esi+clm*128]		;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -12506,8 +12410,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm	;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -12532,9 +12435,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm	;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 10,11
@@ -12571,7 +12472,7 @@ c9b:	x2cl_four_complex_unfft esi, 64, blkdst
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c9b
 	ENDIF
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -12610,7 +12511,7 @@ c6b:	x4cl_eight_reals_unfft_2 esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c6b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -12632,7 +12533,7 @@ c7b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c7b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12677,7 +12578,7 @@ c4b:	x4cl_eight_reals_unfft_2 esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+24*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c4b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12699,7 +12600,7 @@ c5b:	x4cl_four_complex_unfft esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+24*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12741,7 +12642,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 32*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12763,7 +12664,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 32*blkdst, 64*blkdst
 	prefetcht1 [esi-128+clm*128+64*blkdst]
 	prefetcht1 [esi-128+clm*128+96*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12810,7 +12711,7 @@ c1b:	x5cl_five_reals_last_unfft esi, 64, 64*blkdst
 	prefetcht1 [esi-128+clm*128+192*blkdst]
 	prefetcht1 [esi-128+clm*128+256*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12825,7 +12726,6 @@ start_timer 21
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 21
 
 ;; Have we been given permission to start the FFT on the result?
@@ -12862,7 +12762,7 @@ b1b:	x5cl_five_reals_first_fft esi, 64, 64*blkdst
 	prefetcht1 [esi-128+196*blkdst]
 	prefetcht1 [esi-128+260*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12902,7 +12802,7 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12923,7 +12823,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 64*blkdst, 128*blkdst
 	prefetcht1 [esi-128+clm*128+128*blkdst]
 	prefetcht1 [esi-128+clm*128+192*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12967,7 +12867,7 @@ b4b:	x4cl_eight_reals_fft_2 esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -12989,7 +12889,7 @@ b5b:	x4cl_four_complex_fft esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -13038,7 +12938,7 @@ b6b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b6b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -13060,7 +12960,7 @@ b7b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b7b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -13117,7 +13017,7 @@ b9b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b9b
 	ENDIF
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -13130,7 +13030,7 @@ end_timer 26
 ;; Work on next 4 sets of 1280 values
 
 no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -13282,8 +13182,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm	;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -13308,9 +13207,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm	;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 10,11
@@ -13347,7 +13244,7 @@ c9b:	x2cl_four_complex_unfft esi, 64, blkdst
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c9b
 	ENDIF
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -13386,7 +13283,7 @@ c6b:	x4cl_eight_reals_unfft_2 esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c6b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -13408,7 +13305,7 @@ c7b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c7b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -13453,7 +13350,7 @@ c4b:	x4cl_eight_reals_unfft_2 esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+24*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c4b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -13475,7 +13372,7 @@ c5b:	x4cl_four_complex_unfft esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+24*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -13520,7 +13417,7 @@ c2b:	x4cl_eight_reals_unfft_2 esi, 64, 32*blkdst, 64*blkdst
 	prefetcht1 [esi-128+clm*128+64*blkdst]
 	prefetcht1 [esi-128+clm*128+96*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -13542,7 +13439,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 32*blkdst, 64*blkdst
 	prefetcht1 [esi-128+clm*128+64*blkdst]
 	prefetcht1 [esi-128+clm*128+96*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -13587,7 +13484,7 @@ c1b:	x3cl_six_reals_last_unfft esi, 64, 128*blkdst
 	prefetcht1 [esi-128+clm*128+128*blkdst]
 	prefetcht1 [esi-128+clm*128+256*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -13602,7 +13499,6 @@ start_timer 21
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 21
 
 ;; Have we been given permission to start the FFT on the result?
@@ -13637,7 +13533,7 @@ b1b:	x3cl_six_reals_first_fft esi, 64, 128*blkdst
 	prefetcht1 [esi-128+132*blkdst]
 	prefetcht1 [esi-128+260*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -13683,7 +13579,7 @@ b2b:	x2cl_eight_reals_fft_2 esi, 64, 64*blkdst
 	prefetcht1 [esi-128+clm*128+128*blkdst]
 	prefetcht1 [esi-128+clm*128+192*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -13705,7 +13601,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 64*blkdst, 128*blkdst
 	prefetcht1 [esi-128+clm*128+128*blkdst]
 	prefetcht1 [esi-128+clm*128+192*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -13749,7 +13645,7 @@ b4b:	x4cl_eight_reals_fft_2 esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -13771,7 +13667,7 @@ b5b:	x4cl_four_complex_fft esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -13820,7 +13716,7 @@ b6b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b6b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -13842,7 +13738,7 @@ b7b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b7b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -13899,7 +13795,7 @@ b9b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b9b
 	ENDIF
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -13912,7 +13808,7 @@ end_timer 26
 ;; Work on next 4 sets of 1536 values
 
 no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -14065,8 +13961,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm	;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -14091,9 +13986,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm	;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 10,11
@@ -14130,7 +14023,7 @@ c9b:	x2cl_four_complex_unfft esi, 64, blkdst
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c9b
 	ENDIF
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -14169,7 +14062,7 @@ c6b:	x4cl_eight_reals_unfft_2 esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c6b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -14191,7 +14084,7 @@ c7b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c7b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -14236,7 +14129,7 @@ c4b:	x4cl_eight_reals_unfft_2 esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+24*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c4b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -14258,7 +14151,7 @@ c5b:	x4cl_four_complex_unfft esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+24*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -14300,7 +14193,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 32*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -14322,7 +14215,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 32*blkdst, 64*blkdst
 	prefetcht1 [esi-128+clm*128+64*blkdst]
 	prefetcht1 [esi-128+clm*128+96*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -14375,7 +14268,7 @@ c1b:	x7cl_seven_reals_last_unfft esi, 64, 64*blkdst
 	prefetcht1 [esi-128+clm*128+320*blkdst]
 	prefetcht1 [esi-128+clm*128+384*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -14390,7 +14283,6 @@ start_timer 21
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 21
 
 ;; Have we been given permission to start the FFT on the result?
@@ -14433,7 +14325,7 @@ b1b:	x7cl_seven_reals_first_fft esi, 64, 64*blkdst
 	prefetcht1 [esi-128+323*blkdst]
 	prefetcht1 [esi-128+387*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -14478,7 +14370,7 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	JNC_X	b2b			;; Iterate if necessary
 	prefetcht1 [esi-128+clm*128]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -14497,7 +14389,7 @@ b3a:	x2cl_four_complex_fft esi, 64, 64*blkdst
 	prefetcht1 [esi-128+clm*128]
 	prefetcht1 [esi-128+clm*128+64*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3a
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -14519,7 +14411,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 64*blkdst, 128*blkdst
 	prefetcht1 [esi-128+clm*128+128*blkdst]
 	prefetcht1 [esi-128+clm*128+192*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -14563,7 +14455,7 @@ b4b:	x4cl_eight_reals_fft_2 esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -14585,7 +14477,7 @@ b5b:	x4cl_four_complex_fft esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -14634,7 +14526,7 @@ b6b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b6b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -14656,7 +14548,7 @@ b7b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b7b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -14713,7 +14605,7 @@ b9b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b9b
 	ENDIF
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -14726,7 +14618,7 @@ end_timer 26
 ;; Work on next 4 sets of 1792 values
 
 no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration
@@ -14888,8 +14780,7 @@ clear_timers
 	cmp	DWORD PTR [esi-28][ebx], 0	;; Test FFT-started flag
 	jne	short pass2		;; Jump if FFT already started
 	mov	norm_ptr1, 0		;; Set FFT-ing flag
-	mov	edx, 512/clm	;; Load loop counter
-	sub	ecx, ecx
+	mov	edx, 512/clm*256	;; Load loop counter
 	JMP_X	b0b			;; Do the pass 1 fft
 
 ;; Do the last 11 FFT levels
@@ -14914,9 +14805,7 @@ start_timer 1
 	mov	norm_ptr1, edx		;; Save ptr
 	mov	edx, norm_col_mults	;; Addr of the column multipliers
 	mov	norm_ptr2, edx		;; Save ptr
-	sub	ecx, ecx
-
-	mov	edx, 512/clm	;; Load loop counter
+	mov	edx, 512/clm*256	;; Load loop counter
 c0b:
 
 ;; Do inverse FFT levels 10,11
@@ -14953,7 +14842,7 @@ c9b:	x2cl_four_complex_unfft esi, 64, blkdst
 	prefetcht1 [esi-128+6*blkdst]
 	prefetcht1 [esi-128+7*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c9b
 	ENDIF
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -14992,7 +14881,7 @@ c6b:	x4cl_eight_reals_unfft_2 esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c6b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -15014,7 +14903,7 @@ c7b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	prefetcht1 [esi-128+clm*128+4*blkdst]
 	prefetcht1 [esi-128+clm*128+6*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c7b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -15059,7 +14948,7 @@ c4b:	x4cl_eight_reals_unfft_2 esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+24*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c4b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -15081,7 +14970,7 @@ c5b:	x4cl_four_complex_unfft esi, 64, 8*blkdst, 16*blkdst
 	prefetcht1 [esi-128+clm*128+16*blkdst]
 	prefetcht1 [esi-128+clm*128+24*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c5b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -15126,7 +15015,7 @@ c2b:	x4cl_eight_reals_unfft_2 esi, 64, 32*blkdst, 64*blkdst
 	prefetcht1 [esi-128+clm*128+64*blkdst]
 	prefetcht1 [esi-128+clm*128+96*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c2b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -15148,7 +15037,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 32*blkdst, 64*blkdst
 	prefetcht1 [esi-128+clm*128+64*blkdst]
 	prefetcht1 [esi-128+clm*128+96*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c3b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -15190,7 +15079,7 @@ c1b:	x4cl_eight_reals_last_unfft esi, 64, 128*blkdst, 256*blkdst
 	prefetcht1 [esi-128+clm*128+256*blkdst]
 	prefetcht1 [esi-128+clm*128+384*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	c1b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -15205,7 +15094,6 @@ start_timer 21
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
-	sub	ecx, ecx
 end_timer 21
 
 ;; Have we been given permission to start the FFT on the result?
@@ -15242,7 +15130,7 @@ b1b:	x2cl_eight_reals_first_fft esi, 64, 256*blkdst
 	prefetcht1 [esi-128+4*blkdst]
 	prefetcht1 [esi-128+260*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b1b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -15287,7 +15175,7 @@ b2b:	x4cl_eight_reals_fft_2 esi, 64, 64*blkdst, 128*blkdst
 	prefetcht1 [esi-128+clm*128+128*blkdst]
 	prefetcht1 [esi-128+clm*128+192*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b2b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -15309,7 +15197,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 64*blkdst, 128*blkdst
 	prefetcht1 [esi-128+clm*128+128*blkdst]
 	prefetcht1 [esi-128+clm*128+192*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b3b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -15353,7 +15241,7 @@ b4b:	x4cl_eight_reals_fft_2 esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b4b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -15375,7 +15263,7 @@ b5b:	x4cl_four_complex_fft esi, 64, 16*blkdst, 32*blkdst
 	prefetcht1 [esi-128+clm*128+32*blkdst]
 	prefetcht1 [esi-128+clm*128+48*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b5b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -15424,7 +15312,7 @@ b6b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b6b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -15446,7 +15334,7 @@ b7b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	prefetcht1 [esi-128+clm*128+8*blkdst]
 	prefetcht1 [esi-128+clm*128+12*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b7b
 	ENDIF
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -15503,7 +15391,7 @@ b9b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	prefetcht1 [esi-128+clm*128+2*blkdst]
 	prefetcht1 [esi-128+clm*128+3*blkdst]
 	IF clm NE 1
-	add	cl, 256/clm
+	add	dl, 256/clm
 	jnc	b9b
 	ENDIF
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -15516,7 +15404,7 @@ end_timer 26
 ;; Work on next 4 sets of 2048 values
 
 no_fft:	lea	esi, [esi+clm*128]	;; Next source pointer
-	sub	edx, 1			;; Test loop counter
+	sub	edx, 256		;; Test loop counter
 	jz	short fftdn		;; Jump if done looping
 	cmp	norm_ptr1, 0		;; What was the loop start point?
 	JNE_X	c0b			;; Do inverse-FFT/norm/FFT iteration

@@ -1645,7 +1645,7 @@ void gwsetaddin (
 			ADDIN_OFFSET -= row * PASS1_CACHE_LINES * 64;
 		} else {
 			row = (word & 1023) / PASS1_CACHE_LINES;
-			ADDIN_ROW = 1024 / PASS1_CACHE_LINES - row;
+			ADDIN_ROW = (1024 / PASS1_CACHE_LINES - row) * 256;
 			ADDIN_OFFSET -= row * PASS1_CACHE_LINES * 64;
 		}
 	}
