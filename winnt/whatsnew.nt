@@ -1,0 +1,428 @@
+New features in Version 22.6 of ntprime.exe
+-------------------------------------------
+
+1)  The ntsetup program is no longer supported.  The regular GIMPS client,
+    prime95.exe, is now used to configure the service.
+
+    FROM NOW ON, CONSULT THE PRIME95 WHATSNEW.TXT FILE FOR INFORMATION ON
+    NEW FEATURES.
+
+New features in Version 22.5 of ntprime.exe
+-------------------------------------------
+
+1)  A bug in P4 roundoff error recovery was fixed.  Bug was present in
+    version 22 executables dated between May 22 and June 18.
+
+New features in Version 22.4 of ntprime.exe
+-------------------------------------------
+
+1)  A little more tweaking of the FFT crossovers.
+2)  A GCD hang bug was fixed in case where there were a large number of
+    entries in the lowm.txt file.  Another GCD bug affecting ECM on F18
+    was fixed.
+
+New features in Version 22.3 of ntprime.exe
+-------------------------------------------
+
+1)  Given more data, the roundoff error checking is now done on every
+    iteration for exponents within 0.5% of the maximum that can be tested
+    by the current FFT length.  If a roundoff error above 0.4 occurs,
+    then the iteration is now repeated without any change to the shift count.
+    It now takes a roundoff error greater than 0.6 to corrupt the results.
+2)  Many of the FFT ranges have changed.  Version 21 was too aggressive
+    in choosing FFT sizes for the P4.  The new handling of roundoff
+    errors above 0.4 lets us be more aggressive with the non-P4 code.
+3)  Result lines are now WYn rather than WXn.
+4)  A crash bug affecting P-1 and ECM using the 2^N+1 option for large N was
+    fixed.
+5)  A rare memory corruption and possible crash bug in the GCD code was
+    fixed.
+6)  To reduce wild fluctuations in the RollingAverage, it will be updated
+    roughly twice per day.
+
+New features in Version 22.2 of ntprime.exe
+-------------------------------------------
+
+1)  Factoring assignments go to machines slower than a 233 MHz Pentium.
+    Double-checks are assigned machines slower than a 500 MHz P-III.
+2)  The speed of the GCD has been improved.
+3)  Some of the P4 FFT ranges have changed.  Version 21 was too aggresive
+    in choosing FFT sizes for the P4.
+4)  Roundoff error checking is now done on every iteration for exponents
+    within 2% of the maximum that can be tested by the current FFT length.
+    See undoc.txt for ways to disable this new feature.
+5)  The previous version would get into an infinite loop if a repeatable
+    roundoff error larger than 0.48 was discovered.  Now if a repeatable
+    roundoff error greater than 0.45 is found, then the iteration is
+    repeated after shifting the FFT data.
+
+New features in Version 22.1 of ntprime.exe
+-------------------------------------------
+
+1)  Some bugs in error handling when communicating with the server have
+    been fixed.
+2)  Communicating with the server by RPC is no longer supported.  The
+    HTTPNET.DLL and RPCNET.DLL have been deleted.  Only "Basic" Proxy server
+    authentication is supported.  Version 21 may have supported MS Proxy
+    Server 2.0's NTLM (NT Lan Manager) challenge/response authentication.
+3)  The program uses a updated algorithm to automatically detect CPU type and
+    speed.  The Options/CPU dialog box no longer let's you set this
+    information.  Instead, the Options/CPU dialog displays the detected
+    CPU type and speed.  This new feature helps prevent incorrect settings
+    when users upgrade or try several overclocking speeds.  If the new
+    algorithm fails, you can overide the settings as described in undoc.txt.
+
+New features in Version 21.4 of ntprime.exe
+-------------------------------------------
+
+1)  P4 error checking was relaxed slightly to reduce false alarms.
+
+New features in Version 21.3 of ntprime.exe
+-------------------------------------------
+
+1)  The program will now skip the P-1 factoring stage if another user has
+    already performed this step.
+2)  A bug was fixed in the error recovery code.  After getting a "Disregard
+    last error" message, the user was treated to a new error on every
+    iteration.  The end result was incorrect.  The bug only affected the
+    error recovery of the new P4 FFT introduced in the beta version 21.2.
+
+New features in Version 21.2 of ntprime.exe
+-------------------------------------------
+
+1)  The program now uses the SSE2 instructions introduced on the Pentium 4 CPU.
+    This version is about 3 times faster than the previous version on a P4.
+2)  The program now uses the prefetch instructions on the Celeron 2, Pentium 3,
+    and all Athlon CPUs.  This results in about a 20% performance boost on
+    these machines.
+3)  Process priority is now set to idle.  Microsoft documentation says that
+    an idle thread priority overrides process priority.  The program's
+    priority scheme has always worked well.  However, several Win2K users
+    have reported that the program works better if the process priority is
+    also set to idle.
+4)  The program now delays calculations until 90 seconds after bootup.  This
+    lets your machine boot up as fast as possible.  This can be changed, see
+    undoc.txt.
+5)  The default crossover between double-check assignments and first-time
+    tests has been increased to a 400 MHz PII.
+6)  The program used to do factoring and P-1 testing on new exponents before
+    completing LL tests on older exponents.  This was confusing to many.
+    The program now processes the worktodo.ini file in sequential order.
+    See undoc.txt on how to restore the old behavior.
+7)  Error messages such as ILLEGAL SUMOUT, SUMINP != SUMOUT, etc. are no
+    longer sent to the server since the final result contains a count of how
+    many errors occured during the LL test.
+8)  Some of the FFT crossover points have changed slightly.
+9)  Test/Status now outputs the day of the week each work item will complete.
+
+New features in Version 20.6 of ntprime.exe
+-------------------------------------------
+
+1)  A crash bug was fixed.  If you did P-1 factoring followed by trial
+    factoring, then if you found a factor unallocated memory was accessed
+    usually resulting in a crash.
+
+New features in Version 20.5 of ntprime.exe
+-------------------------------------------
+
+1)  A rare error was fixed.  When the memory settings changed during the
+    GCD step in P-1 or ECM factoring, then a spurious "ERROR: Factor
+    does not divide N!" error was raised.
+
+New features in Version 20.4 of ntprime.exe
+-------------------------------------------
+
+1)  If stage 2 of P-1 was postponed because of insufficient memory, the
+    program did not restart stage 2 when nighttime started.  This bug was
+    fixed.
+2)  By default, PII-300's and faster get first-time LL tests, P-90 and faster
+    get double-checking work, and all slower machines get factoring work.
+3)  An ECM bug during stage 2 init on huge exponents caused false ILLEGAL
+    SUMOUT errors.  This bug was fixed.
+
+New features in Version 20.3 of ntprime.exe
+-------------------------------------------
+
+1)  The program now does some P-1 factoring prior to running first time
+    and double-checking Lucas-Lehmer tests.  This will increase overall
+    GIMPS throughput.  If you install version 20 in the middle of an LL test
+    the program will run the P-1 step if the LL test is less than 50%
+    complete.
+2)  The Options/CPU dialog box now asks how much memory the program can
+    use during the P-1 factoring.  See the "Setting Available Memory"
+    section in the readme.txt file.
+3)  Stage 1 of P-1 factoring is now faster.
+4)  The GCD used in P-1 and ECM factoring is now faster.
+5)  The Test/Manual Operation menu choice has been deleted.
+6)  The memory options in P-1 and ECM dialog boxes have been deleted.
+7)  The "send new completion dates" checkbox was moved from the Test/Primenet
+    dialog box to the Advanced/Manual Communication dialog box.
+8)  A bug in estimating time remaining for a factoring job was fixed.
+9)  ECM and P-1 are now consistent with Lucas-Lehmer testing in the use
+    of the "Iterations between screen outputs" setting.  An iteration is
+    defined as the time it takes to do a squaring.  If you are doing ECM
+    on small exponents you will probably want to increase this setting.
+10) Timings in P-1 are no longer cumulative.  There is a new
+    feature in undoc.txt for those that prefer cumulative timings.
+11) The FactorOverride undocumented feature (not for use with PrimeNet) now
+    supports factoring to a deeper level than prime95 would ordinarily factor.
+12) Resuming an LL test now outputs a line to the screen,
+13) Ntprime no longer searches for a smaller factor when trial factoring
+    discovers a factor.  The reasons are two-fold.  1)  Version 19 had a
+    bug where stopping and restarting the program bypassed the search for
+    smaller factors.  Thus, my database may already be missing smaller
+    factors.  2) As we factor larger exponents to a deeper depth it may
+    no longer be a quick job to determine if there are smaller factors.
+    Note, that version 20 will still look for smaller factors if you are
+    looking for factors below 2^60 with the undocumented FactorOverride option.
+14) The undocumented AMPM feature controls how times are formatted in the
+    Options/CPU dialog box.
+15) By default, PII-300's and faster get first-time LL tests, P-90 and faster
+    get double-checking work, and all slower machines get factoring work.
+
+New features in Version 19.2 of ntprime.exe
+-------------------------------------------
+
+1)  A bug in factoring exponents above 35.79 million was fixed.
+
+New features in Version 19.1 of ntprime.exe
+-------------------------------------------
+
+1)  A new undocumented feature, Stage1GCD, lets you speed up P-1 tests
+    on large exponents - see undoc.txt for details.
+2)  K6 CPUs now default to the Pentium code path instead of the Pentium
+    Pro code path.  This is faster on the K6.
+3)  The rolling average formula was adjusted to work better on machines
+    that are not on 24 hours a day.
+
+New features in Version 19.0 of ntprime.exe
+-------------------------------------------
+
+1)  Faster - in some cases as much as 10% faster!.  The FFTs were recoded
+    for improved memory and TLB efficiency.  Furthermore, optimizations
+    specific to the Pentium Pro and later processors were added.
+2)  New FFT lengths.  The program can now test exponents as large as
+    79.3 million.  Also, smaller FFT lengths are supported for use in
+    ECM and P-1 factoring.
+3)  More conservative FFT breakpoints.  This could actually result in
+    some exponents being slower to test in this version.  However, the
+    chance of a fatal rounding error has been reduced.
+4)  P-1 factoring has been added.  Although it is not very practical for
+    large exponents because of a slow GCD routine, it can be used to
+    find new factors of exponents below a few million or so.
+5)  ECM can now run on large exponents.  Once again, the slow GCD routine
+    and high memory requirements might make this impractical for large
+    exponents.
+6)  ECM and P-1 factoring now support save files.  Very handy on lengthy runs.
+    The count of completed ECM curves is maintained in the save file instead
+    of the worktodo.ini file.
+7)  ECM and P-1 factoring lets you specify the amount of memory to use.
+    In some cases, more memory can improve execution speed slightly.
+8)  A bug in guessing the CPU speed on initial install has been fixed.
+9)  Error checking has been improved slightly.
+10) Factoring is now "layered".  That is, ntprime now factors to 2^50, then
+    2^51, 2^52, and so forth up to the appropriate limit.  The factoring
+    output lines have been changed to show percent complete in the current
+    "layer".
+11) A bug in running two or more self or torture tests in the same directory
+    has been fixed.
+12) Trial factoring above 2^64 is now supported.
+13) More trial factoring is now done to take into account the cost of
+    double-checking.
+14) Affinity and service name settings moved from prime.ini to local.ini file.
+    ntprime will automatically move these settings for you.
+15) An option to get only 10,000,000 digit numbers to run primality tests
+    on has been added to the Test/Primenet dialog box.  See
+    http://www.mersenne.org/prize.htm for rules on claiming the EFF award
+    for finding a 10,000,000 digit prime.
+16) The Advanced/Clear primes menu choice has been deleted.
+17) The User Information dialog box allows you to request newsletters and
+    form a team user ID where the team members cannot alter the team name.
+18) A bug in the reporting of error counts in the results.txt file has
+    been fixed.
+19) The server can now broadcast important messages to the ntprime client.
+    ntprime will blink the icon until ntprime is activated and then it will
+    display the message.
+20) The -c option allows you to run ntprime, have it communicate with the
+    PrimeNet server, and then exit.
+21) A computer ID will be generated for computers that do not have one.  If
+    you want to assign your own computer ID, please try to make each
+    computer ID using the same user ID unique.
+
+New features in Version 18.1 of ntprime.exe
+-------------------------------------------
+
+1)  Added code so that server can distinguish between a v17 and v18 client.
+2)  Only v17 save files above 4194304 are deleted.
+
+New features in Version 18.0 of ntprime.exe
+-------------------------------------------
+
+1)  Bug fixed in Lucas-Lehmer testing of exponents above 4194304.
+
+New features in Version 17.1 of ntprime.exe
+-------------------------------------------
+
+1)  You can now fine tune your control of the program by adding Time=
+    lines to your prime.ini file - see the readme.txt file.
+2)  ECM factoring for 2^N+1 is now available.
+3)  By default, ECM factoring stops if a factor is found for exponents
+    above 5825 and continues (if the cofactor is composite) for exponents
+    below 5825.  You can override this behavior by setting ContinueECM=0
+    or 1 in prime.ini.
+
+New features in Version 17.0 of ntprime.exe
+-------------------------------------------
+
+1)  Ntprime can now be used to double-check its own results.
+2)  Machines less powerful than a P133 will default to double-checking
+    assignments.
+3)  The total number of errors that occur during the Lucas-Lehmer test
+    are now output in results.txt.
+
+
+New features in Version 16.5 of ntprime.exe
+-------------------------------------------
+
+1)  Windows NT users can now set processor affinity on multi-CPU systems.
+2)  ECM factoring is available for small exponents.  See
+    http://www.mersenne.org/ecm.htm for a list of exponents that
+    need factoring.
+3)  A bug that prevented 486 & Cyrix machines from factoring above 2^62
+    has been fixed.
+4)  The LockUserInfo feature no longer sends user info every time ntprime
+    starts up.
+5)  Test/Status now shows expected completion dates.
+6)  A new httpnet.dll can provide Scott Kurowski with debugging information.
+    Simply create a primenet.ini file with these lines:
+	[Debug]
+	PacketLog=1
+    Output file is pnHttp.txt.
+7)  The old network retry time has been replaced by two settings.
+    The modem retry time (default 2 minutes) controls how often ntprime
+    polls your modem to see if you are connected to the Internet.
+    The network retry time (default 60 minutes) controls how long ntprime
+    waits after a failed attempt to contact the server.
+8)  A timestamp and program version number is written to the prime.log file.
+9)  You can now switch between HTTP-based and RPC-based PrimeNet protocols
+    from the Test/Primenet dialog box.
+
+New features in Version 16.3 of ntprime.exe
+-------------------------------------------
+
+1)  Ntprime can now test exponents up to 20.5 million.
+2)  Ntprime can now find factors up to 2^64.
+3)  The program now reports to the PrimeNet server new completion dates
+    every 28 days (actually user adjustable from 1 to 60 days).  This will
+    improve the reclaiming of exponents that are not being actively tested.
+4)  The program now reports the current iteration number to the server
+    for more informative status reports.
+5)  Intermediate files are now less likely to fail.  If an error occurs
+    during the writing of an intermediate file, the program continues on
+    trying to write the intermediate file every 10 minutes.
+6)  A bug in the rolling average code has been fixed.  Ntprime now modifies
+    the rolling average when factoring too.
+7)  The prime.log file is now limited in size to 256K bytes.
+8)  The user information dialog box now has a checkbox to tell the server
+    not to send email.
+9)  Setting LockUserInfo=1 in prime.ini will make the user information
+    dialog box inaccessible.  This setting is also sent to the server
+    so that no member of a team can accidentally transfer the credit
+    for work previously performed by the team.
+
+New features in Version 15.4 of ntprime.exe dated March 1, 1998
+---------------------------------------------------------------
+
+1)  Allows setting of the service display name in the INI file.
+    This is necessary for dual-processor installations.
+
+New features in Version 15.3 of ntprime.exe
+-------------------------------------------
+
+1)  Ntprime can now contact a central server to get exponents to test,
+    report results, and change your email address.  No database is required!
+    The old manual reservation system is still supported.
+    This has led to a major reworking of the user interface.
+    See the readme file for more details.
+2)  The Pentium factoring code (up to 60 bit factors) is about 4.5% faster.
+3)  You can now change how often ntprime saves intermediate files to disk.
+4)  You can now select one save file or two.
+5)  The preferences dialog box lets you select whether
+    the program should be quiet if a new Mersenne prime is found.
+6)  The menus now have a dialog box that lets you select the priority.
+7)  Ntprime no longer uses a ntprime.ini file in the Windows directory.
+    All information is kept in 3 local ini files:  prime.ini, local.ini,
+    and worktodo.ini.  Eventually, all ports to other operating systems
+    will use these same ini files.
+8)  The CPU dialog box now has an entry for the AMD K6 and an entry
+    for how many hours per day you expect to be running the program.
+9)  The time estimate in the Status dialog box now takes into account
+    the time you've invested in the current Lucas-Lehmer test.  It also
+    takes into account how many hours per day you are running the program.
+    It also adjusts its time estimate if your computer seems to be running
+    faster or slower than expected.
+10) Timestamps in the results.txt file.  
+11) The results file is now named results.txt, not results.  
+12) An alternative primenet.dll that uses HTTP to communicate with the server
+    is available.  This should allow ntprime to work in many environments that
+    have firewalls installed.
+13) An option that allows you to write a progress line to the results file
+    every N iterations is available.
+14) A dialog box lets you tell ntprime when you go on vacation.  This
+    will prevent the server from reassigning your exponents when you're
+    on an extended vacation.
+15) An option for you to manually initiate all contact with the Primenet server
+    is now available.
+16) Ntprime now changes its working directory to the same directory that
+    ntprime.exe is located.
+17) There is now a way to install two ntprime services.
+18) Ntprime will no longer let you select Pentium Pro or Pentium CPU type
+    unless your CPU supports the process-specific instructions.
+
+New features in Version 14.3 of ntprime.exe
+-------------------------------------------
+
+1)  The Pentium Pro factoring code is nearly twice as fast compared
+    to version 14.2.
+2)  NTprime now returns to normal priority during service shutdown.
+
+New features in Version 14.2a of ntprime.exe
+-------------------------------------------
+
+1)  A bug where the wrong FFT length was occasionally chosen has
+    been corrected.
+
+New features in Version 14.2 of ntprime.exe
+-------------------------------------------
+
+1)  Corrected floating point round-off bugs in the factoring code that
+    affected testing factors larger than 2^59.
+2)  The Pentium factoring code is 5-10% faster.
+3)  When an error is detected the program now waits 5 minutes before
+    restarting from the last save file.
+4)  The detection of corrupt save files has improved.
+
+New features in Version 14.1 of ntprime.exe
+-------------------------------------------
+
+1)  The Pentium factoring code is 5% faster.
+
+New features in Version 14.0 of ntprime.exe
+-------------------------------------------
+
+1)  The program can now check exponents up to 5.26 million!  To test
+    these big exponents, you will need a new database and great patience.
+2)  The per-iteration error checking code has been improved.  It will
+    detect more errors and automatically restart from the previous save
+    file.
+3)  A checkbox lets you send results to a file called "results.txt" rather
+    than "results".
+4)  CPU dialog box now has a Cyrix checkbox.  There is no Cyrix-specific
+    code.  This change provides better estimates in Range/Status.
+5)  The estimates in Status dialog box have been changed slightly.  Hopefully,
+    these new estimate are a little more accurate.
+
+New features in Version 13.2 of ntprime.exe
+-------------------------------------------
+
+1)  Initial release.
