@@ -3991,7 +3991,11 @@ void gwadd3quick (		/* Add two numbers without normalizing */
 	gwnum	d)		/* Destination */
 {
 
-	ASSERTG (((unsigned long *) s1)[-7] == ((unsigned long *) s2)[-7]);
+/* We could support partially FFTed inputs if we updated the 7 zero pad */
+/* values.  Until then, assert inputs are not partially FFTed. */
+
+	ASSERTG (((unsigned long *) s1)[-7] == 0);
+	ASSERTG (((unsigned long *) s2)[-7] == 0);
 
 /* Update the count of unnormalized adds and subtracts */
 
@@ -4016,7 +4020,11 @@ void gwsub3quick (		/* Compute s1 - s2 without normalizing */
 	gwnum	d)		/* Destination */
 {
 
-	ASSERTG (((unsigned long *) s1)[-7] == ((unsigned long *) s2)[-7]);
+/* We could support partially FFTed inputs if we updated the 7 zero pad */
+/* values.  Until then, assert inputs are not partially FFTed. */
+
+	ASSERTG (((unsigned long *) s1)[-7] == 0);
+	ASSERTG (((unsigned long *) s2)[-7] == 0);
 
 /* Update the count of unnormalized adds and subtracts */
 
@@ -4042,7 +4050,11 @@ void gwaddsub4quick (		/* Add & sub two numbers without normalizing */
 	gwnum	d2)		/* Destination #2 */
 {
 
-	ASSERTG (((unsigned long *) s1)[-7] == ((unsigned long *) s2)[-7]);
+/* We could support partially FFTed inputs if we updated the 7 zero pad */
+/* values.  Until then, assert inputs are not partially FFTed. */
+
+	ASSERTG (((unsigned long *) s1)[-7] == 0);
+	ASSERTG (((unsigned long *) s2)[-7] == 0);
 
 /* Update the counts of unnormalized adds and subtracts */
 
@@ -4266,16 +4278,18 @@ void gwfftaddsub4 (		/* Add & sub two FFTed numbers */
 	((unsigned long *) d2)[-7] = ((unsigned long *) s1)[-7];
 
 /* If this is a zero-padded FFT, then also add & sub the 7 copied doubles in */
-/* the gwnum header */
+/* the gwnum header.  Copy data to temporaries first in case s1, s2 pointers */
+/* are equal to the d1, d2 pointers! */
 
 	if (ZERO_PADDED_FFT) {
-		d1[-5] = s1[-5] + s2[-5];	d2[-5] = s1[-5] - s2[-5];
-		d1[-6] = s1[-6] + s2[-6];	d2[-6] = s1[-6] - s2[-6];
-		d1[-7] = s1[-7] + s2[-7];	d2[-7] = s1[-7] - s2[-7];
-		d1[-8] = s1[-8] + s2[-8];	d2[-8] = s1[-8] - s2[-8];
-		d1[-9] = s1[-9] + s2[-9];	d2[-9] = s1[-9] - s2[-9];
-		d1[-10] = s1[-10] + s2[-10];	d2[-10] = s1[-10] - s2[-10];
-		d1[-11] = s1[-11] + s2[-11];	d2[-11] = s1[-11] - s2[-11];
+		double	v1, v2;
+		v1 = s1[-5]; v2 = s2[-5]; d1[-5] = v1 + v2; d2[-5] = v1 - v2;
+		v1 = s1[-6]; v2 = s2[-6]; d1[-6] = v1 + v2; d2[-6] = v1 - v2;
+		v1 = s1[-7]; v2 = s2[-7]; d1[-7] = v1 + v2; d2[-7] = v1 - v2;
+		v1 = s1[-8]; v2 = s2[-8]; d1[-8] = v1 + v2; d2[-8] = v1 - v2;
+		v1 = s1[-9]; v2 = s2[-9]; d1[-9] = v1 + v2; d2[-9] = v1 - v2;
+		v1 = s1[-10]; v2 = s2[-10]; d1[-10] = v1+v2; d2[-10] = v1-v2;
+		v1 = s1[-11]; v2 = s2[-11]; d1[-11] = v1+v2; d2[-11] = v1-v2;
 	}
 
 /* Now do the add & subtract */

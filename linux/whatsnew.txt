@@ -9,6 +9,8 @@ New features in Version 24.11 of mprime
     when contacting the PrimeNet server.
 5)  Fixed rare bug where P-1's GCD could miss a factor.
 6)  Added trial factoring to the benchmark.
+7)  Processor affinity is now supported.
+8)  Fixed bug in ECM when using zero-padded FFTs.
 
 New features in Version 24.9 of mprime
 --------------------------------------

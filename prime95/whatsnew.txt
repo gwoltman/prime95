@@ -11,6 +11,7 @@ New features in Version 24.11 of prime95.exe
     when contacting the PrimeNet server.
 6)  Fixed rare bug where P-1's GCD could miss a factor.
 7)  Added trial factoring to the benchmark.
+8)  Fixed bug in ECM when using zero-padded FFTs.
 
 New features in Version 24.10 of prime95.exe
 --------------------------------------------
