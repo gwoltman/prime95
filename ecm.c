@@ -1484,7 +1484,8 @@ int isProbablePrime (void)
 
 int printFactor (void)
 {
-	char	msg[250], buf[200];
+	int	msglen;
+	char	*msg;
 
 	if (!testFactor (FAC)) {
 		OutputBoth ("ERROR: Factor doesn't divide N!\n");
@@ -1492,11 +1493,15 @@ int printFactor (void)
 		return (FALSE);
 	}
 
-	gtoc (FAC, buf, sizeof (buf));
+	msglen = FAC->sign * 10 + 80;
+	msg = (char *) malloc (msglen);
 	msg[0] = PLUS1 ? 'P' : 'M';
-	sprintf (msg+1, "%ld has a factor: %s\n", PARG, buf);
+	sprintf (msg+1, "%ld has a factor: ", PARG);
+	gtoc (FAC, msg+strlen(msg), msglen);
+	strcat (msg, "\n");
 	OutputBoth (msg);
 	spoolMessage (PRIMENET_RESULT_MESSAGE, msg);
+	free (msg);
 
 	if (PARG < 10000) {
 		divg (FAC, N);
