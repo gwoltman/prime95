@@ -48,6 +48,12 @@ typedef double *gwnum;
 
 #define gwset_safety_margin(m)	(GWSAFETY_MARGIN = m)
 
+/* Error codes returned by the three gwsetup routines */
+
+#define GWERROR_VERSION		1001	/* GWNUM.H and FFT code version */
+					/* numbers do not match. */
+#define GWERROR_TOO_LARGE	1002	/* Number too large for the FFTs. */
+
 /* There are three different setup routines.  The first, gwsetup, is for */
 /* gwnum's primary use - support for fast operations modulo K*B^N+C. */
 /* Smaller K and C values result in smaller FFT sizes and faster operations. */
@@ -64,7 +70,7 @@ typedef double *gwnum;
 /* You will not get any warning when using a k or c value that is too large, */
 /* you will just get incorrect results. */
 
-void gwsetup (
+int gwsetup (
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
 	unsigned long b,	/* B in K*B^N+C. Must be two. */
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
@@ -75,7 +81,7 @@ void gwsetup (
 /* This is three times slower than the special forms above. */
 /* Only choose a specific FFT size if you know what you are doing!! */
 
-void gwsetup_general_mod (
+int gwsetup_general_mod (
 	unsigned long *array,	/* The modulus as an array of longs */
 	unsigned long arraylen,	/* The number of longs in the array */
 	unsigned long fftlen);	/* Zero or specific FFT size to use. */
@@ -84,11 +90,11 @@ void gwsetup_general_mod (
 /* you are using gwnums as a general-purpose FFT multiply library. */
 /* Only choose a specific FFT size if you know what you are doing!! */
 
-void gwsetup_without_mod (
+int gwsetup_without_mod (
 	unsigned long n,	/* Maximum number of bits in OUTPUT numbers. */
 	unsigned long fftlen);	/* Zero or specific FFT size to use. */
 
-/* Free all memory allocated by gwnum routines since setup was called. */
+/* Free all memory allocated by gwnum routines since gwsetup was called. */
 
 void gwdone (void);
 
@@ -338,8 +344,8 @@ void gw_as_string(char *buf, double k, unsigned long b, unsigned long n,
 
 #include "giants.h"
 
-/* Same as gwsetup_general_mod but uses giants */
-void gwsetup_general_mod_giant (
+/* Same as gwsetup_general_mod but uses giants instead of array of longs */
+int gwsetup_general_mod_giant (
 	giant n,		/* The modulus */
 	unsigned long fftlen);	/* Zero or specific FFT size to use. */
 
@@ -389,14 +395,12 @@ void gwtogiant (gwnum, giant);
 
 extern double GWSAFETY_MARGIN;	/* Reduce maximum allowable bits per */
 				/* FFT data word by this amount. */
-EXTERNC double KARG;		/* K in K*2^N+C */
-EXTERNC unsigned long BARG;	/* B in K*2^N+C */
-EXTERNC unsigned long PARG;	/* N in K*2^N+C */
-EXTERNC signed long CARG;	/* C in K*2^N+C */
+EXTERNC double KARG;		/* K in K*B^N+C */
+EXTERNC unsigned long BARG;	/* B in K*B^N+C */
+EXTERNC unsigned long PARG;	/* N in K*B^N+C */
+EXTERNC signed long CARG;	/* C in K*B^N+C */
 EXTERNC unsigned long FFTLEN;	/* The FFT size we are using */
 EXTERNC unsigned long RATIONAL_FFT;/* TRUE if bits per FFT word is integer */
-EXTERNC unsigned long NUMBIG;	/* Number of big words in the FFT */
-EXTERNC unsigned long NUMLIT;	/* Number of little words in the FFT */
 EXTERNC unsigned long GWERROR;	/* True if an error is detected */
 EXTERNC double MAXERR;		/* Convolution error in a multiplication */
 EXTERNC double MAXDIFF;		/* Maximum allowable difference between */

@@ -14,8 +14,6 @@ EXTERNC unsigned long PARG=0;	/* N in K*B^N+C */
 EXTERNC signed long CARG=-1;	/* C in K*B^N+C */
 EXTERNC unsigned long FFTLEN=0;	/* The FFT size we are using */
 EXTERNC unsigned long RATIONAL_FFT=0;/* TRUE if bits per FFT word is integer */
-EXTERNC unsigned long NUMBIG=0;	/* Number of big words in the FFT */
-EXTERNC unsigned long NUMLIT=0;	/* Number of little words in the FFT */
 EXTERNC unsigned long BITS_PER_WORD=0;/* Bits in a little word */
 EXTERNC unsigned long GWERROR=0;/* True if an error is detected */
 EXTERNC double MAXERR = 0.0;	/* Convolution error in a multiplication */
@@ -175,7 +173,7 @@ EXTERNC void esincos3 (void);
 
 /* Forward declarations */
 
-void internal_gwsetup (
+int internal_gwsetup (
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
 	unsigned long b,	/* B in K*B^N+C. Must be two. */
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
@@ -1246,8 +1244,10 @@ double *build_x87_biglit_table (
 
 /* This routine used to be in assembly language.  It scans the assembly */
 /* code arrays looking for the best FFT size to implement our k*b^n+c FFT. */
+/* Returns 0 for IBDWT FFTs, 1 for zero padded FFTs, or a gwsetup error */
+/* code. */
 
-int gwinfo (			/* Return true if using zero-padded fft. */
+int gwinfo (			/* Return zero-padded fft flag or error code */
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
 	unsigned long b,	/* N in K*B^N+C. Base must be two. */
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
@@ -1277,9 +1277,7 @@ int gwinfo (			/* Return true if using zero-padded fft. */
 
 	version = (unsigned long) INFT[4];
 	sprintf (buf, "%d.%d", version / 100, version % 100);
-	if (strcmp (buf, GWNUM_VERSION)) {
-		exit (1);
-	}
+	if (strcmp (buf, GWNUM_VERSION)) return (GWERROR_VERSION);
 
 /* Precalculate some needed values */
 
@@ -1287,10 +1285,11 @@ int gwinfo (			/* Return true if using zero-padded fft. */
 	log2c = log (abs (c)) / log (2.0);
 		
 /* First, see what FFT length we would get if we emulate the k*b^n+c modulo */
-/* with a zero padded FFT. */
+/* with a zero padded FFT.  If k is 1 and abs (c) is 1 then we can skip this */
+/* loop as we're sure to find an IBDWT that will do the job. */
 
 	zpad_jmptab = NULL;
-	if (fftlen == 0 && (k > 1.0 || abs (c) > 1)) {
+	if (fftlen == 0 && (k > 1.0 || n < 500 || abs (c) > 1)) {
 
 /* Use the proper 2^N-1 jmptable */
 
@@ -1379,11 +1378,11 @@ next1:			for (zpad_jmptab += 14; *zpad_jmptab; zpad_jmptab++);
 /* For historical reasons, the jmptable computes maximum exponent based on */
 /* a Mersenne-mod FFT (i.e k=1.0, c=-1).  Handle more complex cases here. */
 /* A Mersenne-mod FFT produces 2 * bits_per_word in each FFT result word. */
-/* The more general case produces 2 * bits_per_word + log2(k) + 2 * log2(c) */
+/* The more general case yields 2 * bits_per_word + log2(k) + 1.5 * log2(c) */
 /* in each FFT result word. */
 
 			bits_per_word = (log2k + n) / jmptab[1];
-			if (2.0 * bits_per_word + log2k + 2.0 * log2c <
+			if (2.0 * bits_per_word + log2k + 1.5 * log2c <
 					2.0 * max_bits_per_word) {
 				double total_bits, loglen;
 
@@ -1454,21 +1453,21 @@ next2:		for (jmptab += 14; *jmptab; jmptab++);
 /* Error - neither method could handle this huge number */
 
 	INFT[0] = NULL;
-	return (FALSE);
+	return (GWERROR_TOO_LARGE);
 }
 
 
 /* Allocate memory and initialize assembly code for arithmetic */
 /* modulo k*b^n+c */
 
-void gwsetup (
+int gwsetup (
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
 	unsigned long b,	/* B in K*B^N+C. */
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
-	signed long c,		/* C in K*B^N+C. Must be rel. prime to K. */
+	signed long c,		/* C in K*B^N+C. */
 	unsigned long fftlen)	/* Specific FFT size to use (or zero) */
 {
-	int	gcd;
+	int	gcd, error_code;
 
 /* Our code fast code fails if k and c are not relatively prime.  This */
 /* is because we cannot calculate 1/k.  Although the user shouldn't call */
@@ -1498,7 +1497,8 @@ void gwsetup (
 /* are more efficient. */
 
 	if (b == 2 && gcd == 1 && n >= 350) {
-		internal_gwsetup (k, b, n, c, fftlen);
+		error_code = internal_gwsetup (k, b, n, c, fftlen);
+		if (error_code) return (error_code);
 		GENERAL_MOD = 0;
 	}
 
@@ -1515,20 +1515,25 @@ void gwsetup (
 		power (g, n);
 		dblmulg (k, g);
 		iaddg (c, g);
-		gwsetup_general_mod_giant (g, fftlen);
+		error_code = gwsetup_general_mod_giant (g, fftlen);
 		free (g);
+		if (error_code) return (error_code);
 	}
 
 /* For future messages, format the input number as a string */
 
 	gw_as_string (GWSTRING_REP, k, b, n, c);
+
+/* Return success */
+
+	return (0);
 }
 
 /* This setup routine is for operations modulo an arbitrary binary number. */
 /* This is three times slower than the special forms above. */
 /* Only choose a specific FFT size if you know what you are doing!! */
 
-void gwsetup_general_mod (
+int gwsetup_general_mod (
 	unsigned long *array,	/* The modulus as an array of longs */
 	unsigned long arraylen,	/* The number of longs in the array */
 	unsigned long fftlen)	/* Zero or specific FFT size to use. */
@@ -1537,10 +1542,10 @@ void gwsetup_general_mod (
 	tmp.sign = arraylen;
 	tmp.n = array;
 	while (tmp.sign && tmp.n[tmp.sign-1] == 0) tmp.sign--;
-	gwsetup_general_mod_giant (&tmp, fftlen);
+	return (gwsetup_general_mod_giant (&tmp, fftlen));
 }
 
-void gwsetup_general_mod_giant (
+int gwsetup_general_mod_giant (
 	giant	n,		/* The modulus */
 	unsigned long fftlen)	/* Zero or specific FFT size to use. */
 {
@@ -1595,17 +1600,22 @@ void gwsetup_general_mod_giant (
 /* several digits would be better, but it is too slow. */
 
 	sprintf (GWSTRING_REP, "A %ld-bit number", len);
+
+/* Return success */
+
+	return (0);
 }
 
 /* This setup routine is for operations without a modulo. In essence, */
 /* you are using gwnums as a general-purpose FFT multiply library. */
 /* Only choose a specific FFT size if you know what you are doing!! */
 
-void gwsetup_without_mod (
+int gwsetup_without_mod (
 	unsigned long n,	/* Maximum number of bits in OUTPUT numbers. */
 	unsigned long fftlen)	/* Zero or specific FFT size to use. */
 {
 	unsigned long *info, max_exponent, desired_n;
+	int	error_code;
 
 /* Call gwinfo and have it figure out the FFT length we will use. */
 /* Since the user must zero the upper half of FFT input data, the FFT */
@@ -1613,8 +1623,12 @@ void gwsetup_without_mod (
 /* per input word. */
 
 	GWSAFETY_MARGIN -= 0.3;
-	gwinfo (1.0, 2, n, -1, fftlen);
+	error_code = gwinfo (1.0, 2, n, -1, fftlen);
 	GWSAFETY_MARGIN += 0.3;
+
+	ASSERTG (error_code != 1);
+	if (error_code) return (error_code);
+
 	info = INFT[0];
 	max_exponent = info[0];
 	fftlen = info[1];
@@ -1633,7 +1647,8 @@ void gwsetup_without_mod (
 
 /* Now setup the assembly code */
 
-	gwsetup (1.0, 2, n, -1, fftlen);
+	error_code = gwsetup (1.0, 2, n, -1, fftlen);
+	ASSERTG (error_code == 0);
 
 /* Set flag indicating general-purpose modulo operations are not in force */
 
@@ -1642,6 +1657,10 @@ void gwsetup_without_mod (
 /* Create dummy string representation. */
 
 	strcpy (GWSTRING_REP, "No modulus");
+
+/* Return success */
+
+	return (0);
 }
 
 
@@ -1649,13 +1668,14 @@ void gwsetup_without_mod (
 /* Allocate memory and initialize assembly code for arithmetic */
 /* modulo k*b^n+c */
 
-void internal_gwsetup (
+int internal_gwsetup (
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
 	unsigned long b,	/* B in K*B^N+C. Must be two. */
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
 	signed long c,		/* C in K*B^N+C. Must be rel. prime to K. */
 	unsigned long fftlen)	/* Specific FFT size to use (or zero) */
 {
+	int	error_code;
 	unsigned long mem_needed;
 	unsigned long *info;
 	double	fft_bit_length;		/* Bit length of the FFT */
@@ -1666,7 +1686,9 @@ void internal_gwsetup (
 
 /* Select the proper FFT size for this k,n,c combination */
 
-	ZERO_PADDED_FFT = gwinfo (k, b, n, c, fftlen);
+	error_code = gwinfo (k, b, n, c, fftlen);
+	if (error_code > 1) return (error_code);
+	ZERO_PADDED_FFT = error_code;
 
 /* Get pointer to fft info and allocate needed memory */
 
@@ -2226,6 +2248,10 @@ void internal_gwsetup (
 			GW_ALIGNMENT = 4096;	/* Page alignment */
 		GW_ALIGNMENT_MOD = 0;
 	}
+
+/* Return success */
+
+	return (0);
 }
 
 
@@ -2919,12 +2945,6 @@ unsigned long gwmap_to_fftlen (
 /* Handle exponents larger than SSE2 FFTs can handle */
 
 	if (n > MAX_PRIME_SSE2) return (MAX_FFTLEN);
-
-/* Small exponents will use generic reduction.  Since gwinfo will */
-/* return an error if n is too small, make n large enough to keep */
-/* gwinfo happy */
-
-	if (n < 500) n = 500;
 
 /* Get pointer to fft info and return the FFT length */
 
