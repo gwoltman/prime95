@@ -27,7 +27,7 @@ At the time of this software release, the Electronic Frontier Foundation is offe
 
 6. These rules may be changed at any time prior to the discovery of a 10,000,000 digit prime.  The decisions of the GIMPS board of directors in applying the rules above and granting awards is final.  Prior to GIMPS' incorporation the decision of George Woltman is final.  See http://www.mersenne.org/prize.htm for updates.
 
-7. If you were to find a 10,000,000 digit prime today the above rules imply that $5,000 would go to the discoverer of the 39th Mersenne prime, $5,000 would go to the discoverer of the 40th known Mersenne prime, $5,000 would go to the discoverer of the 41st known Mersenne prime, $25,000 would go to charity, $10,000 would go to GIMPS primarily to fund future awards, and $50,000 would go to you.  Now the bad news.  Testing a single 10,000,000 digit number takes a month on a 2 GHz Pentium 4 computer.  Your chance of success is roughly 1 in 250,000.  Furthermore, someone may find a 10,000,000 digit prime before GIMPS does.
+7. If you were to find a 10,000,000 digit prime today the above rules imply that $5,000 would go to the discoverer of the 39th Mersenne prime, $5,000 would go to the discoverer of the 40th known Mersenne prime, $5,000 would go to the discoverer of the 41st known Mersenne prime, $5,000 would go to the discoverer of the 42nd known Mersenne prime, $25,000 would go to charity, $5,000 would go to GIMPS primarily to fund future awards, and $50,000 would go to you.  Now the bad news.  Testing a single 10,000,000 digit number takes a month on a 2 GHz Pentium 4 computer.  Your chance of success is roughly 1 in 250,000.  Furthermore, someone may find a 10,000,000 digit prime before GIMPS does.
 
 
 Third Party Software Redistribution License
