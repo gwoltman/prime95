@@ -286,8 +286,6 @@ DEP_CPP_PRIME=\
 	".\MainFrm.h"\
 	".\Prime95Doc.h"\
 	".\Prime95View.h"\
-	".\EditDropFiles.h"\
-	".\..\cpuid.h"\
 	
 
 "$(INTDIR)\Prime95.obj" : $(SOURCE) $(DEP_CPP_PRIME) "$(INTDIR)"\
@@ -370,8 +368,6 @@ DEP_CPP_MAINF=\
 	".\StdAfx.h"\
 	".\Prime95.h"\
 	".\MainFrm.h"\
-	".\EditDropFiles.h"\
-	".\..\cpuid.h"\
 	
 
 "$(INTDIR)\MainFrm.obj" : $(SOURCE) $(DEP_CPP_MAINF) "$(INTDIR)"\
@@ -423,8 +419,6 @@ DEP_CPP_PRIME9=\
 	".\..\gwnum.c"\
 	".\..\prp.c"\
 	".\..\prp95.c"\
-	".\EditDropFiles.h"\
-	".\..\cpuid.h"\
 	".\..\fftsg.c"\
 	
 
@@ -479,8 +473,6 @@ DEP_CPP_PRIME95=\
 	".\Prime95.h"\
 	".\Prime95Doc.h"\
 	".\Prime95View.h"\
-	".\EditDropFiles.h"\
-	".\..\cpuid.h"\
 	
 
 "$(INTDIR)\Prime95View.obj" : $(SOURCE) $(DEP_CPP_PRIME95) "$(INTDIR)"\
@@ -533,27 +525,27 @@ SOURCE=.\hlp\Prime95.hpj
 !IF  "$(CFG)" == "Prime95 - Win32 Release"
 
 # Begin Custom Build - Making help file...
-OutDir=.\Release
-ProjDir=.
-TargetName=Prime95
-InputPath=.\hlp\Prime95.hpj
-
-"$(OutDir)\$(TargetName).hlp" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-   "$(ProjDir)\makehelp.bat"
-
+#OutDir=.\Release
+#ProjDir=.
+#TargetName=Prime95
+#InputPath=.\hlp\Prime95.hpj
+#
+#"$(OutDir)\$(TargetName).hlp" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+#   "$(ProjDir)\makehelp.bat"
+#
 # End Custom Build
 
 !ELSEIF  "$(CFG)" == "Prime95 - Win32 Debug"
 
 # Begin Custom Build - Making help file...
-OutDir=.\Debug
-ProjDir=.
-TargetName=Prime95
-InputPath=.\hlp\Prime95.hpj
-
-"$(OutDir)\$(TargetName).hlp" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-   "$(ProjDir)\makehelp.bat"
-
+#OutDir=.\Debug
+#ProjDir=.
+#TargetName=Prime95
+#InputPath=.\hlp\Prime95.hpj
+#
+#"$(OutDir)\$(TargetName).hlp" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+#   "$(ProjDir)\makehelp.bat"
+#
 # End Custom Build
 
 !ENDIF 
@@ -570,8 +562,6 @@ DEP_CPP_CPUDL=\
 	".\StdAfx.h"\
 	".\Prime95.h"\
 	".\CpuDlg.h"\
-	".\EditDropFiles.h"\
-	".\..\cpuid.h"\
 	
 
 "$(INTDIR)\CpuDlg.obj" : $(SOURCE) $(DEP_CPP_CPUDL) "$(INTDIR)"\
@@ -609,8 +599,6 @@ DEP_CPP_PREFE=\
 	".\StdAfx.h"\
 	".\Prime95.h"\
 	".\PreferencesDlg.h"\
-	".\EditDropFiles.h"\
-	".\..\cpuid.h"\
 	
 
 "$(INTDIR)\PreferencesDlg.obj" : $(SOURCE) $(DEP_CPP_PREFE) "$(INTDIR)"\
@@ -648,8 +636,6 @@ DEP_CPP_TESTD=\
 	".\StdAfx.h"\
 	".\Prime95.h"\
 	".\TestDlg.h"\
-	".\EditDropFiles.h"\
-	".\..\cpuid.h"\
 	
 
 "$(INTDIR)\TestDlg.obj" : $(SOURCE) $(DEP_CPP_TESTD) "$(INTDIR)"\
@@ -687,8 +673,6 @@ DEP_CPP_PRIOR=\
 	".\StdAfx.h"\
 	".\Prime95.h"\
 	".\Priority.h"\
-	".\EditDropFiles.h"\
-	".\..\cpuid.h"\
 	
 
 "$(INTDIR)\Priority.obj" : $(SOURCE) $(DEP_CPP_PRIOR) "$(INTDIR)"\
@@ -726,8 +710,6 @@ DEP_CPP_AFFIN=\
 	".\StdAfx.h"\
 	".\Prime95.h"\
 	".\AffinityDlg.h"\
-	".\EditDropFiles.h"\
-	".\..\cpuid.h"\
 	
 
 "$(INTDIR)\AffinityDlg.obj" : $(SOURCE) $(DEP_CPP_AFFIN) "$(INTDIR)"\
@@ -764,8 +746,6 @@ SOURCE=.\EditDropFiles.cpp
 DEP_CPP_EDITD=\
 	".\StdAfx.h"\
 	".\Prime95.h"\
-	".\EditDropFiles.h"\
-	".\..\cpuid.h"\
 	
 
 "$(INTDIR)\EditDropFiles.obj" : $(SOURCE) $(DEP_CPP_EDITD) "$(INTDIR)"\
@@ -802,8 +782,6 @@ DEP_CPP_CONTE=\
 	".\StdAfx.h"\
 	".\Prime95.h"\
 	".\ContentsDlg.h"\
-	".\EditDropFiles.h"\
-	".\..\cpuid.h"\
 	
 
 "$(INTDIR)\ContentsDlg.obj" : $(SOURCE) $(DEP_CPP_CONTE) "$(INTDIR)"\
