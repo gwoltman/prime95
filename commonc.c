@@ -1762,26 +1762,25 @@ static	time_t	last_time = 0;
 
 
 /* Determine the preferred work type (based on CPU speed) */
-/* Anything slower than a 50 MHz Pentium will be relegated */
-/* to just factoring.  Less than a 120 MHz Pentium will be */
-/* given double-checking assignments.  As time goes on these */
-/* values should drift upward (since LL tests become harder) */
+/* Slower machines will be relegated to just factoring.  Medium speed */
+/* machines will be given double-checking assignments.  Faster machines */
+/* get first time LL tests. */
 
 short default_work_type (void)
 {
 	double	speed;
 
-/* Get estimated iteration time for a 256K length FFT */
+/* Get estimated iteration time for a 512K length FFT */
 
-	speed = map_fftlen_to_timing (262144, GW_MERSENNE_MOD, CPU_TYPE, CPU_SPEED) *
+	speed = map_fftlen_to_timing (524288, GW_MERSENNE_MOD, CPU_TYPE, CPU_SPEED) *
 			24.0 / CPU_HOURS * 1000.0 / ROLLING_AVERAGE;
 
-/* PIII-500 and faster get first-time LL tests */
+/* PIII-900 and faster get first-time LL tests */
 /* P-233 and faster get double-checking work */
 /* All slower machines get factoring work */
 
-	if (speed < 0.090) return (PRIMENET_ASSIGN_TEST);
-	if (speed < 0.270) return (PRIMENET_ASSIGN_DBLCHK);
+	if (speed < 0.115) return (PRIMENET_ASSIGN_TEST);
+	if (speed < 0.555) return (PRIMENET_ASSIGN_DBLCHK);
 	return (PRIMENET_ASSIGN_FACTOR);
 }
 
