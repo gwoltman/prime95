@@ -742,6 +742,7 @@ dd_real polyeval(const dd_real *c, int n, const dd_real &x) {
   return r;
 }
 
+#ifdef POLYROOT
 /* polyroot(c, n, x0)
    Given an n-th degree polynomial, finds a root close to 
    the given guess x0.  Note that this uses simple Newton
@@ -778,7 +779,7 @@ dd_real polyroot(const dd_real *c, int n, const dd_real &x0,
 
   return x;
 }
-
+#endif
 
 /* Constructor.  Reads a double-double number from the string s
    and constructs a double-double number.                         */
@@ -803,8 +804,6 @@ istream &operator>>(istream &s, dd_real &a) {
   a = dd_real(str);
   return s;
 }
-
-#endif
 
 /* Writes the double-double number into the string s.
    The integer d specifies how many significant digits to write.
@@ -902,6 +901,8 @@ void dd_real::write(char *s, int d) const {
 
   delete [] a;}
 }
+
+#endif
 
 /* Reads in a double-double number from the string s. */
 int dd_real::read(const char *s, dd_real &a) {

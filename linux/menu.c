@@ -1,4 +1,4 @@
-/* Copyright 1995-2004 Just For Fun Software, Inc. */
+/* Copyright 1995-2005 Just For Fun Software, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -732,7 +732,7 @@ void options_preferences (void)
 void help_about (void)
 {
 	printf ("Mersenne Prime Finder - Version %s.%d\n", VERSION, PORT);
-	printf ("Copyright 1996-2004 Just For Fun Software, Inc.\n");
+	printf ("Copyright 1996-2005 Just For Fun Software, Inc.\n");
 	printf ("Author: George Woltman\n");
 	printf ("Email:  woltman@alum.mit.edu\n");
 	askOK ();

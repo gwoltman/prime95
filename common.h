@@ -28,20 +28,4 @@
 #define ASSERTG(a)
 #endif
 
-/* If you compile the gwnum library without STPCHK defined, then the */
-/* code that lets prime95 ESC out of a long GCD operation will not */
-/* be compiled in. */
-
-#ifdef STPCHK
-EXTERNC int stopCheck();
-#else
-#define stopCheck()	FALSE
-#endif
-
-/* When debugging gwnum and giants, I sometimes write code that "cheats" */
-/* by calling a routine that is part of prime95 rather than the gwnum and */
-/* giants library.  Make that forward declaration here. */
-
-EXTERNC void OutputBoth (char *);
-
 #endif

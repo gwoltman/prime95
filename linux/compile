@@ -31,27 +31,3 @@ dummy24.obj: dummy24.asm
 dummy28.obj: dummy28.asm
     $(masm) dummy28.asm
 
-dummyt0.obj: dummyt0.asm
-    $(masm) dummyt0.asm
-
-dummyt4.obj: dummyt4.asm
-    $(masm) dummyt4.asm
-
-dummyt8.obj: dummyt8.asm
-    $(masm) dummyt8.asm
-
-dummyt12.obj: dummyt12.asm
-    $(masm) dummyt12.asm
-
-dummyt16.obj: dummyt16.asm
-    $(masm) dummyt16.asm
-
-dummyt20.obj: dummyt20.asm
-    $(masm) dummyt20.asm
-
-dummyt24.obj: dummyt24.asm
-    $(masm) dummyt24.asm
-
-dummyt28.obj: dummyt28.asm
-    $(masm) dummyt28.asm
-

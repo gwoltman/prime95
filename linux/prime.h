@@ -69,6 +69,7 @@
 #include <time.h>
 /*#define SERVER_TESTING*/
 extern int NO_GUI;
+#include "common.h"
 #include "cpuid.h"
 #include "gwnum.h"
 #include "giants.h"
