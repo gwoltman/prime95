@@ -3474,8 +3474,8 @@ unsigned long choose_pminus1_numvals (void)
 }
 
 /* Choose a good value for D and E.  One that reduces the number of */
-/* multiplications, yet doesn't use too much memory.  We choose a D */
-/* such that D + E + 4 <= numvals with the preferred value of D being */
+/* multiplications, yet doesn't use too much memory.  We choose a D such */
+/* that numrels(D) + E + 3 <= numvals with the preferred value of D being */
 /* the SQRT (C-B).  NOTE: we could choose a smaller D when restarting in */
 /* the middle of stage 2.  However, this is a relatively rare event. */
 
@@ -3494,6 +3494,10 @@ void choose_pminus1_plan (
 	}
 
 /* Handle case where we are very low on the number of temporaries available */
+/* According to the numrels(D) + E + 3 <= numvals formula, you'd think we'd */
+/* require a minimum of 13 numvals for D=30,E=2 case.  However, there is a */
+/* special/slower method that lets us save one numval in the D=30,E=2 case */
+/* so that the numvals=12 case can be done in a single pass. */
 
 	if (numvals < 12) {
 		D = 210;
@@ -3521,11 +3525,11 @@ void choose_pminus1_plan (
 
 		if (D * D < C + C) {
 			if (D >= 2310) {
-				if (D / 2310 * 480 + E + 4 <= numvals) break;
+				if (D / 2310 * 480 + E + 3 <= numvals) break;
 			} else if (D >= 210) {
-				if (D / 210 * 48 + E + 4 <= numvals) break;
+				if (D / 210 * 48 + E + 3 <= numvals) break;
 			} else {
-				if (D / 30 * 8 + E + 4 <= numvals) break;
+				if (D / 30 * 8 + E + 3 <= numvals) break;
 			}
 		}
 
