@@ -24,6 +24,7 @@ int	HIDE_ICON = FALSE;
 unsigned int PRECISION = 2;
 int	CUMULATIVE_TIMING = 0;
 int	HIGH_RES_TIMER = 0;
+char	*PRP_CMDLINE = NULL;
 
 int isPRP (char	*, unsigned long, int *);
 
@@ -1675,7 +1676,6 @@ error:	free (N);
 
 
 /* Test if N is a probable prime.  The number N can be of ANY form. */
-/* Used to test code for Chris Nash's PFORM program. */
 
 int isPRP (
 	char	*str,		/* string representation of N */
@@ -1713,6 +1713,7 @@ restart:
 	for (ptmp = p / 2; ; ptmp = pmax + 1) {
 		fftlen = map_exponent_to_fftlen (ptmp, GW_MERSENNE_MOD);
 		pmax = map_fftlen_to_max_exponent (fftlen, GW_MERSENNE_MOD);
+		if (PRP_CMDLINE != NULL && p <= pmax - fftlen - fftlen) break;
 		if (p <= (pmax + fftlen / 2) / fftlen * fftlen) break;
 	}
 	bits_per_word = (p + fftlen - 1) / fftlen;
@@ -2028,9 +2029,55 @@ int process_num (
 
 
 
+/* Test if a small N is a probable prime. */
+/* Compute 3^(N-1) mod N */
+
+int isProbablePrime (void)
+{
+	int	retval;
+	giant	x;
+
+	if (isone (N)) return (FALSE);
+	x = newgiant (N->sign + 8);
+	itog (3, x);
+	powermodg (x, N, N);
+	iaddg (-3, x);
+	retval = isZero (x);
+	free (x);
+	return (retval);
+}
+
+
 void primeContinue ()
 {
 	int	work;
+
+/* Check for Chris Caldwell's command line PRP test */
+
+	if (PRP_CMDLINE != NULL) {
+		char	buf[20];
+		int	bits, retval;
+		if (!isdigit (PRP_CMDLINE[0])) {
+			int	f;
+			f = _open (PRP_CMDLINE, _O_RDONLY);
+			if (f < 0) exit (-1);
+			PRP_CMDLINE = (char *) malloc (5000000);
+			PRP_CMDLINE[_read (f, PRP_CMDLINE, 5000000 - 1)] = 0;
+			_close (f);
+		}
+		memcpy (buf, PRP_CMDLINE, 16);
+		buf[16] = 0;
+		strcat (buf, "...");
+		bits = (int) ((double) strlen (PRP_CMDLINE) / 0.30103);
+		N = newgiant ((bits >> 4) + 8);
+		ctog (PRP_CMDLINE, N);
+		if (bits < 50)
+			retval = isProbablePrime ();
+		else
+			isPRP (buf, 3, &retval);
+		free (N);
+		exit (retval);
+	}
 
 /* If we are done, return */
 
