@@ -198,8 +198,8 @@ void gwprothsetup (unsigned long k, unsigned long n, int inc);
 #define REL_486_SPEED	8.4	/* 486 is over 8 times slower than PII */
 #define REL_K6_SPEED	3.0	/* K6 is 3 times slower than PII */
 #define REL_PENT_SPEED	1.2	/* Pentium is 20% slower than PII */
-#define REL_K7_SPEED	1.0	/* Assume K7 is same speed as a PII */
-#define REL_P4_SPEED	1.0	/* Assume P4 is same speed as a PII factoring*/
+#define REL_K7_SPEED	0.7	/* Assume K7 is faster than a PII */
+#define REL_P4_SPEED	0.7	/* Assume P4 is faster than a PII factoring*/
 
 /* Other low-level math routines the caller can use for multi-precision */
 /* arithmetic */
