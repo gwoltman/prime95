@@ -140,7 +140,7 @@ int egcdhlp (void);
 /* External routines */
 
 int (*StopCheckRoutine)(void) = NULL;
-#define StopCheck	(StopCheckRoutine != NULL && *StopCheckRoutine())
+#define stopCheck()	(StopCheckRoutine != NULL && (*StopCheckRoutine)())
 
 /**************************************************************
  *
