@@ -13,6 +13,7 @@ cl4d=\msdev\bin\cl /I. /I C:\msdev\include\ /DGDEBUG /GF /W3 /MT /Zi /c
 
 cl=cl /GF /W3 /MT /D_CRT_SECURE_NO_DEPRECATE /O2 /c
 cld=cl /GF /W3 /MT /D_CRT_SECURE_NO_DEPRECATE /DGDEBUG /Zi /c
+cldo=cl /GF /W3 /MT /D_CRT_SECURE_NO_DEPRECATE /DGDEBUG /Zi /O2 /c
 
 # List of all buildables in this makefile
 
@@ -52,7 +53,7 @@ release\gwdbldbl.obj: gwdbldbl.cpp gwdbldbl.h
     $(cl) /I..\qd /Forelease\gwdbldbl.obj gwdbldbl.cpp
 
 debug\gwdbldbl.obj: gwdbldbl.cpp gwdbldbl.h
-    $(cld) /I..\qd /Fodebug\gwdbldbl.obj gwdbldbl.cpp
+    $(cldo) /I..\qd /Fodebug\gwdbldbl.obj gwdbldbl.cpp
 
 # Create optimized giants.obj
 
