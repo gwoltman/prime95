@@ -32,6 +32,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_COMMAND(ID_CONTEXT_HELP, CFrameWnd::OnContextHelp)
 	ON_COMMAND(ID_DEFAULT_HELP, CFrameWnd::OnHelpFinder)
 	ON_COMMAND(IDM_TRAY_OPEN, OnTrayOpenWindow)
+	ON_MESSAGE(USR_SERVICE_STOP, OnServiceStop)
 	ON_MESSAGE(WM_POWERBROADCAST, OnPower)
 	ON_MESSAGE(MYWM_TRAYMESSAGE, OnTrayMessage)
 END_MESSAGE_MAP()
@@ -134,6 +135,14 @@ void CMainFrame::OnTrayOpenWindow()
 		PostMessage (WM_SYSCOMMAND, SC_MINIMIZE, 0L);
 }
 
+LRESULT CMainFrame::OnServiceStop (WPARAM wParam, LONG lParam)
+{
+	if (TRAY_ICON) ((CPrime95App *)AfxGetApp())->TrayMessage (NIM_DELETE, NULL, 0);
+	ShowWindow (FALSE);
+	CloseHandle (g_hMutexInst);
+	return (0);
+}
+
 BOOL CMainFrame::DestroyWindow() 
 {
 	if (TRAY_ICON) ((CPrime95App *)AfxGetApp())->TrayMessage (NIM_DELETE, NULL, 0);
@@ -149,35 +158,81 @@ void CMainFrame::OnSize(UINT nType, int cx, int cy)
 	CFrameWnd::OnSize(nType, cx, cy);
 }
 
-LRESULT CMainFrame::WindowProc(UINT message, WPARAM wParam, LPARAM lParam) 
+LRESULT CMainFrame::WindowProc (UINT message, WPARAM wParam, LPARAM lParam)
 {
 	WM_ENDSESSION_LPARAM = lParam;
 	return CFrameWnd::WindowProc(message, wParam, lParam);
 }
 
-void CMainFrame::OnEndSession(BOOL bEnding) 
+
+// Special WM_ENDSESSION code from knowledge base article Q164166
+
+static const TCHAR szAfxOldWndProc[] = _T("AfxOldWndProc423");
+BOOL CALLBACK EnumProc (HWND hWnd, LPARAM lParam)
 {
-	if (WINDOWS95_SERVICE && WM_ENDSESSION_LPARAM && isWindows95 ()) {
-		if (TRAY_ICON) WINDOWS95_TRAY_ADD = 1;
-	} else
-		CFrameWnd::OnEndSession(bEnding);
+	//check for property and unsubclass if necessary
+	WNDPROC oldWndProc = (WNDPROC)::GetProp (hWnd, szAfxOldWndProc);
+	if (oldWndProc!=NULL) {
+		SetWindowLong (hWnd, GWL_WNDPROC, (DWORD) oldWndProc);
+		RemoveProp (hWnd, szAfxOldWndProc);
+	}
+	return TRUE;
 }
 
+void CMainFrame::OnEndSession (BOOL bEnding)
+{
+
+// If we are running as a service, then do not end the program at logoff
+// Instead, just remove the icon from the system tray.
+
+	if (NTSERVICENAME[0] ||
+	    (WINDOWS95_SERVICE && WM_ENDSESSION_LPARAM && isWindows95 ())) {
+		if (TRAY_ICON) {
+			((CPrime95App *)AfxGetApp())->TrayMessage (NIM_DELETE, NULL, 0);
+			WINDOWS95_TRAY_ADD = 1;
+		}
+
+// In addition a Windows NT service must take special actions.  MFC was
+// not designed to be used in a NT service as it uses Global Atoms which are
+// cleared at logoff.  This fix from knowledge base article Q164166 seems
+// to fix the problem.
+
+		if (NTSERVICENAME[0]) {
+			DWORD	dwProcessId, dwThreadId;
+			dwThreadId = GetWindowThreadProcessId (m_hWnd, &dwProcessId);
+			EnumThreadWindows (dwThreadId, EnumProc, (LPARAM) dwThreadId);
+		}
+	}
+
+// If we aren't running as a service, just do normal processing
+
+	else
+		CFrameWnd::OnEndSession (bEnding);
+}
+
+#include <winsvc.h>
 #define RSP_SIMPLE_SERVICE	1
 #define RSP_UNREGISTER_SERVICE	0
 void Service95 ()
 {
-	HMODULE	hlib;
-	DWORD (__stdcall *proc)(DWORD, DWORD);
-	DWORD	rc;
+	char	pathname[256];
+	char	regkey[20];		/* Win9x registry name */
+	SC_HANDLE schSCManager = 0;
+	SC_HANDLE schService = 0;
+	HKEY	hkey = 0;
+	DWORD	rc, disposition;
 
-/* Call RegisterServiceProcess in the Kernel */
+/* In Windows 95/98/Me, call RegisterServiceProcess in the Kernel */
+/* This will prevent prime95 from terminating on logoff. */
 
 	if (isWindows95 ()) {
+		HMODULE	hlib;
+		DWORD (__stdcall *proc)(DWORD, DWORD);
+
 		hlib = LoadLibrary ("KERNEL32.DLL");
 		if (!hlib) {
 			OutputStr ("Unable to load KERNEL32.DLL\n");
-			return;
+			goto done;
 		}
 		proc = (DWORD (__stdcall *)(DWORD, DWORD))
 			GetProcAddress (hlib, "RegisterServiceProcess");
@@ -194,14 +249,103 @@ void Service95 ()
 		FreeLibrary (hlib);
 	}
 
-/* Make sure the registry has an entry to run the service */
-/* For Windows 95/98/Me create a RunServices entry */
-/* For Windows NT/2000/XP create a Run entry for the local machine or current user */
+/* Now we deal with making the registry entries correct for proper starting */
+/* or not starting of the service. */
 
-	HKEY	hkey;
-	DWORD	disposition;
+/* Get pathname of executable */
 
-	if (isWindows95 ()) {
+	GetModuleFileName (NULL, pathname, sizeof (pathname));
+
+/* In Win95/98/Me, we create a registry entry for each -A command line value */
+/* We used to do this in WinNT/2000/XP, but now we just delete these old */
+/* registry entries. */
+
+	if (WINDOWS95_A_SWITCH < 0)
+		strcpy (regkey, "Prime95");
+	else
+		sprintf (regkey, "Prime95-%d", WINDOWS95_A_SWITCH);
+
+// For Windows NT/2000/XP we call the service control manager to
+// maintain the services database
+
+	if (! isWindows95 ()) {
+		char	servicename[32];
+
+// Create the Windows NT service name and display name
+
+		if (WINDOWS95_A_SWITCH < 0)
+			strcpy (servicename, "Prime95 Service");
+		else
+			sprintf (servicename, "Prime95 Service-%d",
+				 WINDOWS95_A_SWITCH);
+
+// Open connection to the service control manager
+
+		schSCManager = OpenSCManager (
+				NULL,		// machine (NULL == local)
+				NULL,		// database (NULL == default)
+				SC_MANAGER_ALL_ACCESS);	// access required
+		if (! schSCManager) {
+			OutputStr ("Couldn't open service control manager.\n");
+			goto done;
+		}
+
+// Create the service entry
+
+		if (WINDOWS95_SERVICE) {
+			SERVICE_DESCRIPTION svc_desc;
+
+			schService = CreateService (
+				schSCManager,		// SCManager database
+				servicename,	        // name of service
+				servicename,		// display name is same
+				SERVICE_ALL_ACCESS,	// desired access
+				SERVICE_INTERACTIVE_PROCESS |
+				SERVICE_WIN32_OWN_PROCESS,  // service type
+				SERVICE_AUTO_START,	// start type
+				SERVICE_ERROR_NORMAL,	// error control type
+				pathname,		// service's binary
+				NULL,			// no load ordering
+				NULL,			// no tag identifier
+				NULL,			// no dependencies
+				NULL,			// LocalSystem account
+				NULL);			// no password
+			if (!schService) {
+				if (GetLastError () != ERROR_SERVICE_EXISTS)
+					OutputStr ("Error creating service.\n");
+				goto done;
+			}
+
+			svc_desc.lpDescription =
+				"GIMPS client to find large prime numbers";
+			ChangeServiceConfig2 (
+				schService,
+				SERVICE_CONFIG_DESCRIPTION,
+				&svc_desc);
+		}
+
+// Remove the service entry
+
+		else {
+			schService = OpenService (
+					schSCManager,
+					servicename,
+					SERVICE_ALL_ACCESS);
+			if (!schService) {
+				if (GetLastError () != ERROR_SERVICE_DOES_NOT_EXIST)
+					OutputStr ("Error opening service.\n");
+				goto done;
+			}
+			if (! DeleteService (schService)) {
+				OutputStr ("Error deleting service.\n");
+				goto done;
+			}
+		}
+	}
+
+// For Windows 95/98/Me create a RunServices entry
+
+	else {
 		if (RegCreateKeyEx (
 				HKEY_LOCAL_MACHINE,
 				"Software\\Microsoft\\Windows\\CurrentVersion\\RunServices",
@@ -213,9 +357,33 @@ void Service95 ()
 				&hkey,
 				&disposition) != ERROR_SUCCESS) {
 			OutputStr ("Can't create registry key.\n");
-			return;
+			goto done;
 		}
-	} else {
+
+/* Now create or delete an entry for prime95 */
+
+		if (WINDOWS95_SERVICE) {
+			if (WINDOWS95_A_SWITCH >= 0) {
+				char	append[20];
+				sprintf (append, " -A%d", WINDOWS95_A_SWITCH);
+				strcat (pathname, append);
+			}
+			rc = RegSetValueEx (hkey, regkey, 0, REG_SZ,
+				(BYTE *) pathname, strlen (pathname) + 1);
+		} else
+			rc = RegDeleteValue (hkey, regkey);
+		if (rc != ERROR_SUCCESS) {
+			OutputStr ("Can't write registry value.\n");
+			goto done;
+		}
+		RegCloseKey (hkey);
+		hkey = 0;
+	}
+
+/* For Windows NT/2000/XP delete the old-style Run entry for the local */
+/* machine and current user */
+
+	if (! isWindows95 ()) {
 		if (RegCreateKeyEx (
 				HKEY_LOCAL_MACHINE,
 				"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
@@ -225,8 +393,12 @@ void Service95 ()
 				KEY_ALL_ACCESS,
 				NULL,
 				&hkey,
-				&disposition) != ERROR_SUCCESS &&
-		    RegCreateKeyEx (
+				&disposition) == ERROR_SUCCESS) {
+			RegDeleteValue (hkey, regkey);
+			RegCloseKey (hkey);
+			hkey = 0;
+		}
+		if (RegCreateKeyEx (
 				HKEY_CURRENT_USER,
 				"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
 				0,
@@ -235,41 +407,16 @@ void Service95 ()
 				KEY_ALL_ACCESS,
 				NULL,
 				&hkey,
-				&disposition) != ERROR_SUCCESS) {
-			OutputStr ("Can't create registry key.\n");
-			return;
+				&disposition) == ERROR_SUCCESS) {
+			RegDeleteValue (hkey, regkey);
+			RegCloseKey (hkey);
+			hkey = 0;
 		}
 	}
 
-/* We create a different entry for each -A command line value */
-
-	char prog[20];
-	if (WINDOWS95_A_SWITCH < 0)
-		strcpy (prog, "Prime95");
-	else
-		sprintf (prog, "Prime95-%d", WINDOWS95_A_SWITCH);
-
-/* Now create or delete an entry for prime95 */
-
-	if (WINDOWS95_SERVICE) {
-		char	buf[256];
-		GetModuleFileName (NULL, buf, sizeof (buf));
-		if (WINDOWS95_A_SWITCH >= 0) {
-			char	append[20];
-			sprintf (append, " -A%d", WINDOWS95_A_SWITCH);
-			strcat (buf, append);
-		}
-		rc = RegSetValueEx (hkey, prog, 0, REG_SZ,
-				    (BYTE *) buf, strlen (buf) + 1);
-	} else
-		rc = RegDeleteValue (hkey, prog);
-	if (rc != ERROR_SUCCESS)
-		OutputStr ("Can't write registry value.\n");
-	RegCloseKey (hkey);
-
-/* Now delete and shortcuts to the program.  We do this so that as users upgrade */
-/* from version 20 and try this menu choice they do not end up with both a registry */
-/* entry and a StartUp menu shortcut. */
+/* Now delete any shortcuts to the program.  We do this so that as users */
+/* upgrade from version 20 and try this menu choice they do not end up with */
+/* both a registry entry and a StartUp menu shortcut. */
 
 	if (WINDOWS95_SERVICE) {
 		char	buf[256];
@@ -286,15 +433,20 @@ void Service95 ()
 				NULL,
 				&hkey,
 				&disposition) != ERROR_SUCCESS)
-			return;
+			goto done;
 		if (RegQueryValueEx (hkey, "Startup", NULL, &type,
 				(BYTE *) buf, &bufsize) == ERROR_SUCCESS &&
 		    type == REG_SZ) {
 			strcat (buf, "\\prime95.lnk");
 			_unlink (buf);
 		}
-		RegCloseKey (hkey);
 	}
+
+// Cleanup and return
+
+done:	if (schService) CloseServiceHandle (schService);
+	if (schSCManager) CloseServiceHandle (schSCManager);
+	if (hkey) RegCloseKey (hkey);
 }
 
 void CMainFrame::OnActivateApp(BOOL bActive, DWORD hTask) 
@@ -315,4 +467,12 @@ void CMainFrame::OnSysCommand(UINT nID, LPARAM lParam)
 		}
 	}
 	CFrameWnd::OnSysCommand (nID, lParam);
+}
+
+BOOL CMainFrame::Create(LPCTSTR lpszClassName, LPCTSTR lpszWindowName, DWORD dwStyle , const RECT& rect , CWnd* pParentWnd , LPCTSTR lpszMenuName , DWORD dwExStyle , CCreateContext* pContext)
+{
+	BOOL	retval;
+	retval = CFrameWnd::Create(lpszClassName, lpszWindowName, dwStyle, rect, pParentWnd, lpszMenuName, dwExStyle, pContext);
+	MAINFRAME_HWND = m_hWnd;
+	return (retval);
 }

@@ -1,3 +1,9 @@
+New features in Version 22.6 of ntprime.exe
+-------------------------------------------
+
+1)  The ntsetup program is no longer supported.  The regular GIMPS client,
+    prime95.exe, is now used to configure the service.
+
 New features in Version 22.5 of ntprime.exe
 -------------------------------------------
 

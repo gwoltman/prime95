@@ -44,7 +44,7 @@
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386
 "
-				AdditionalDependencies="cpuid.obj factor64.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2a.obj mult2aux.obj mult3.obj mult3a.obj mult3aux.obj mult4.obj mult4a.obj mult4b.obj mult1p.obj mult2p.obj mult2ap.obj mult3p.obj mult3ap.obj mult3q.obj mult3aq.obj mult3auq.obj mult4p.obj mult4ap.obj mult4bp.obj mult4aux.obj mult4q.obj mult4aq.obj mult4bq.obj mult4auq.obj ecmhelp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ax.obj xmult3.obj xmult3a.obj xmult3ax.obj giants.obj wsock32.lib nafxcw.lib libcmt.lib"
+				AdditionalDependencies="cpuid.obj factor64.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2a.obj mult2aux.obj mult3.obj mult3a.obj mult3aux.obj mult4.obj mult4a.obj mult4b.obj mult1p.obj mult2p.obj mult2ap.obj mult3p.obj mult3ap.obj mult3q.obj mult3aq.obj mult3auq.obj mult4p.obj mult4ap.obj mult4bp.obj mult4aux.obj mult4q.obj mult4aq.obj mult4bq.obj mult4auq.obj ecmhelp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ax.obj xmult3.obj xmult3a.obj xmult3ax.obj giants.obj service.obj wsock32.lib nafxcw.lib libcmt.lib"
 				OutputFile=".\Release/prime95.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
@@ -53,7 +53,8 @@
 				ProgramDatabaseFile=".\Release/prime95.pdb"
 				GenerateMapFile="TRUE"
 				MapFileName=".\Release/prime95.map"
-				SubSystem="2"/>
+				SubSystem="2"
+				EntryPointSymbol="MyWinMainCRTStartup"/>
 			<Tool
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="NDEBUG"
@@ -108,14 +109,16 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="htmlhelp.lib wsock32.lib cpuid.obj factor64.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2a.obj mult2aux.obj mult3.obj mult3a.obj mult3aux.obj mult4.obj mult4a.obj mult4b.obj mult1p.obj mult2p.obj mult2ap.obj mult3p.obj mult3ap.obj mult3q.obj mult3aq.obj mult3auq.obj mult4p.obj mult4ap.obj mult4bp.obj mult4aux.obj mult4q.obj mult4aq.obj mult4bq.obj mult4auq.obj ecmhelp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ax.obj xmult3.obj xmult3a.obj xmult3ax.obj"
+				AdditionalDependencies="cpuid.obj factor64.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2a.obj mult2aux.obj mult3.obj mult3a.obj mult3aux.obj mult4.obj mult4a.obj mult4b.obj mult1p.obj mult2p.obj mult2ap.obj mult3p.obj mult3ap.obj mult3q.obj mult3aq.obj mult3auq.obj mult4p.obj mult4ap.obj mult4bp.obj mult4aux.obj mult4q.obj mult4aq.obj mult4bq.obj mult4auq.obj ecmhelp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ax.obj xmult3.obj xmult3a.obj xmult3ax.obj service.obj wsock32.lib"
 				OutputFile=".\Debug/prime95.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="TRUE"
+				IgnoreDefaultLibraryNames="libcmt.lib"
 				DelayLoadDLLs=""
 				GenerateDebugInformation="TRUE"
 				ProgramDatabaseFile=".\Debug/prime95.pdb"
-				SubSystem="2"/>
+				SubSystem="2"
+				EntryPointSymbol="MyWinMainCRTStartup"/>
 			<Tool
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="_DEBUG"

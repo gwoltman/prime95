@@ -261,7 +261,7 @@ simple_mutex:	 	g_hMutexInst = CreateMutex (
 	        if (pSD) LocalFree (pSD);
 
 // Test for failure
-		
+
 		if (g_hMutexInst == NULL)
 			return 0;
 
@@ -295,8 +295,12 @@ simple_mutex:	 	g_hMutexInst = CreateMutex (
 		SetWindowLong (m_pMainWnd->m_hWnd, GWL_USERDATA, g_MutexNum);
 	}
 
-/* Determine the names of the INI files and read them */
+/* Determine the names of the INI files and read them.  Note that NT */
+/* services are not passed command line arguments.  In this case we */
+/* encode this information in the NT service name. */
 
+	if (NTSERVICENAME[0] && NTSERVICENAME[15] == '-')
+		named_ini_files = atoi (&NTSERVICENAME[16]);
 	nameIniFiles (named_ini_files);
 	readIniFiles ();
 
@@ -325,7 +329,7 @@ simple_mutex:	 	g_hMutexInst = CreateMutex (
 	// See if we are running as a Windows95 service
 	WINDOWS95_SERVICE = IniGetInt (INI_FILE, "Windows95Service", 0);
 	WINDOWS95_A_SWITCH = named_ini_files;
-	if (WINDOWS95_SERVICE && isWindows95 ()) Service95 ();
+	Service95 ();
 
 	// Set flag to read spool file.  We must see if there
 	// are messages queued up for the server.
@@ -589,7 +593,6 @@ int CPrime95App::ExitInstance()
 // My application-wide stuff went here
 /////////////////////////////////////////////////////////////////////////////
 
-int	THREAD_ACTIVE = 0;
 int volatile THREAD_STOP = 0;
 int	EXIT_IN_PROGRESS = 0;
 

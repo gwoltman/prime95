@@ -1,3 +1,11 @@
+New features in Version 22.6 of prime95.exe
+-------------------------------------------
+
+1)  The Start At Bootup option now runs prime95 as a Windows NT/2000/XP
+    service!!  Normally Windows NT/2000/XP will not run GUI programs as
+    services, but several tricks have allowed us to get this working
+    almost flawlessly.
+
 New features in Version 22.5 of prime95.exe
 -------------------------------------------
 

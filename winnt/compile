@@ -34,4 +34,3 @@ ntprime.exe: main.obj prime.obj service.obj
     del main.lib
     del main.exp
     rename main.exe ntprime.exe
-    copy ..\ntsetup\release\ntsetup.exe ntsetup.exe

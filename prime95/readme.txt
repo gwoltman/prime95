@@ -99,8 +99,7 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
     is not practical, consider raising prime95's priority to 4 or 5.
 
     The "Start at Bootup" menu choice (on by default) will run prime95
-    every time you boot your computer (Windows 95/98/Me) or when you
-    logon (Windows NT/2000/XP).
+    every time you boot your computer.
 
 
 MANUAL METHOD INSTRUCTIONS
@@ -126,8 +125,7 @@ MANUAL METHOD INSTRUCTIONS
     not reassigned to someone else.
 
     The "Start at Bootup" menu choice (on by default) will run prime95
-    every time you boot your computer (Windows 95/98/Me) or when you
-    logon (Windows NT/2000/XP).
+    every time you boot your computer.
 
 NOTES
 -----
@@ -147,7 +145,7 @@ in case there is a power failure.
 To fully utilize a dual processor machine, you must run two copies of
 prime95.exe.  Run one copy of prime95 as described above.  Run the second
 copy of prime95.exe with the -A1 command line argument.  Make sure the
-second copy also has the "Boot at Startup" option set.
+second copy also has the "Start at Bootup" option set.
 
 Dual processor machines can also improve performance by setting
 processor affinity.  Use the Advanced/Affinity dialog box to do this.
@@ -155,7 +153,7 @@ processor affinity.  Use the Advanced/Affinity dialog box to do this.
 You can compare your computer's speed with other users by checking the
 site http://www.mersenne.org/bench.htm.  If you are much slower than
 comparable machines, there are several utilities available (such as
-TaskInfo2000, http://www.iarsn.com/) that can find programs that are
+TaskInfo2002, http://www.iarsn.com/) that can find programs that are
 stealing prime95's CPU cycles.
 
 You can get a report of your PrimeNet server account status on the web
@@ -524,14 +522,29 @@ prime95 a second time.  Alternatively, you can turn this feature off by
 editing prime.ini and change the line "HideIcon=1" to "HideIcon=0",
 then reboot.
 
-Checking the Start at Bootup menu choice will run prime95 at boot up
-for (Windows 95/98/Me) and at logon time (Windows NT/2000/XP).
-You will not need to place a shortcut to prime95 in the startup folder.
-The Prime95 value in following registry keys may be written to:
-HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunServices
-HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run
-HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run
- 
+Checking the Start at Bootup menu choice will run prime95 as a service
+that is started when your computer boots up.  This method of starting prime95
+is better than creating a shortcut to prime95 in the startup folder.  That
+is because services run even when no one is logged on.  There are few details
+you should be aware of.
+	In Windows 95/98/Me:
+The HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunServices
+registry entry is created.  You will not be able to tell any difference between
+prime95 running as a service and prime95 running as an ordinary process.
+	In Windows NT/2000/XP:
+There are a few minor quirks when running as a service.  You shouldn't run
+into these quirks in normal operation.  You can only change this option once
+and it will take effect when the service is started or stopped.  You will
+need to exit prime95 running as a normal process before starting the prime95
+service.  The prime95 window will only appear on one users desktop.  Only
+one prime95.exe program can be run as a service.  If you have a dual processor
+system you'll want to run two instances of prime95.  Instead of running a
+second prime95 from another directory, run the second prime95 from with
+the -A1 switch.  Finally, if you are worried about giving users access to
+a GUI service running in the Local System account, you can turn off the
+"Allow service to interact with desktop" option in the services control
+panel applet.  This is more secure than using the No Icon menu choice.
+
 
 COMMAND LINE ARGUMENTS
 ----------------------

@@ -55,7 +55,9 @@ public:
 
 // Global variables
 
-extern int THREAD_ACTIVE;		// True if a thread is active
+extern HANDLE g_hMutexInst;
+
+extern "C" int THREAD_ACTIVE;		// True if a thread is active
 extern int volatile THREAD_STOP;	// one if thread should stop with msg
 					// two if thread should stop quietly
 extern int EXIT_IN_PROGRESS;		// True if we are exiting
@@ -73,6 +75,11 @@ extern int CHECK_BATTERY;		// TRUE if we need to test battery status
 extern int STOPPED_ON_BATTERY;		// TRUE if we need to autocontinue on a power
 					// change event
 extern char *BROADCAST_MESSAGE;		// Message broadcast from the server
+
+// Variables used to communicate with the NT service code
+
+extern "C" char NTSERVICENAME[32];	// name of the NT service
+extern "C" HWND MAINFRAME_HWND;		// Handle of main frame window
 
 // Internal routines
 
