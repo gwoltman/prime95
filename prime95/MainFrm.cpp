@@ -34,6 +34,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_COMMAND(ID_CONTEXT_HELP, CFrameWnd::OnContextHelp)
 	ON_COMMAND(ID_DEFAULT_HELP, CFrameWnd::OnHelpFinder)
 	ON_COMMAND(IDM_TRAY_OPEN, OnTrayOpenWindow)
+	ON_COMMAND(IDM_STOP_CONTINUE, OnStopContinue)
 	ON_MESSAGE(USR_SERVICE_STOP, OnServiceStop)
 	ON_MESSAGE(WM_POWERBROADCAST, OnPower)
 	ON_MESSAGE(MYWM_TRAYMESSAGE, OnTrayMessage)
@@ -104,19 +105,26 @@ LONG CMainFrame::OnTrayMessage(UINT uID, LONG uMouseMsg)
 	if (uID == 352 && uMouseMsg == WM_RBUTTONUP) {
 		POINT	point;
 		HMENU	hMenu, hSubMenu;
+		MENUITEMINFO m;
 
 		GetCursorPos (&point);		// Get cursor location
 		hMenu = LoadMenu (AfxGetApp()->m_hInstance,
 				  MAKEINTRESOURCE (IDR_TRAYMENU));
 		hSubMenu = GetSubMenu (hMenu, 0);
+		m.cbSize = sizeof (m);
 		if (!IsIconic ()) {
-			MENUITEMINFO m;
-			m.cbSize = sizeof (m);
 			m.fMask = MIIM_STRING;
 			m.fType = MFT_STRING;
 			m.dwTypeData = "Minimize Window";
 			m.cch = strlen (m.dwTypeData);
 			SetMenuItemInfo (hSubMenu, IDM_TRAY_OPEN, FALSE, &m);
+		}
+		if (!THREAD_ACTIVE) {
+			m.fMask = MIIM_STRING;
+			m.fType = MFT_STRING;
+			m.dwTypeData = "Continue";
+			m.cch = strlen (m.dwTypeData);
+			SetMenuItemInfo (hSubMenu, IDM_STOP_CONTINUE, FALSE, &m);
 		}
 		SetMenuDefaultItem (hSubMenu, IDM_TRAY_OPEN, FALSE);
 		SetForegroundWindow ();	// Per KB Article Q135788
@@ -136,12 +144,20 @@ LRESULT CMainFrame::OnTaskBarCreated (WPARAM wp, LPARAM lp)
 	return 0;
 }
 
-void CMainFrame::OnTrayOpenWindow() 
+void CMainFrame::OnTrayOpenWindow()
 {
 	if (IsIconic ())
 		PostMessage (WM_SYSCOMMAND, SC_RESTORE, 0L);
 	else
 		PostMessage (WM_SYSCOMMAND, SC_MINIMIZE, 0L);
+}
+
+void CMainFrame::OnStopContinue()
+{
+	if (THREAD_ACTIVE)
+		PostMessage (WM_COMMAND, IDM_STOP, 0);
+	else
+		PostMessage (WM_COMMAND, IDM_CONTINUE, 0);
 }
 
 LRESULT CMainFrame::OnServiceStop (WPARAM wParam, LONG lParam)

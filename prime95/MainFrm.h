@@ -44,6 +44,7 @@ protected:
 	afx_msg void OnActivateApp(BOOL bActive, DWORD hTask);
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
 	afx_msg void OnTrayOpenWindow();
+	afx_msg void OnStopContinue();
 	afx_msg LRESULT OnServiceStop(WPARAM wParam, LPARAM lParam);
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()

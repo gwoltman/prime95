@@ -157,7 +157,8 @@
 #define USR_WELCOME                     32806
 #define IDM_BENCHMARK                   32807
 #define IDM_TRAY_OPEN                   32808
-#define USR_SERVICE_STOP		32809
+#define USR_SERVICE_STOP                32809
+#define IDM_STOP_CONTINUE               32810
 
 // Next default values for new objects
 // 
@@ -165,7 +166,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_3D_CONTROLS                     1
 #define _APS_NEXT_RESOURCE_VALUE        160
-#define _APS_NEXT_COMMAND_VALUE         32810
+#define _APS_NEXT_COMMAND_VALUE         32811
 #define _APS_NEXT_CONTROL_VALUE         1058
 #define _APS_NEXT_SYMED_VALUE           102
 #endif

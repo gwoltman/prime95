@@ -130,6 +130,7 @@ BEGIN
     POPUP "Dummy"
     BEGIN
         MENUITEM "Open Window",                 IDM_TRAY_OPEN
+        MENUITEM "Stop",                        IDM_STOP_CONTINUE
         MENUITEM "Exit",                        ID_APP_EXIT
     END
 END
