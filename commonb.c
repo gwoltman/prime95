@@ -3175,10 +3175,10 @@ void primeTime (
 
 void primeBench (void)
 {
-	unsigned long i, j, iterations;
+	unsigned long num_lengths, i, j, iterations;
 	double	best_time;
 	char	buf[512];
-	int	fft_lengths[] = {384, 448, 512, 640, 768, 896, 1024, 1280, 1536, 1792, 2048};
+	int	fft_lengths[] = {384, 448, 512, 640, 768, 896, 1024, 1280, 1536, 1792, 2048, 2560, 3072, 3584, 4096};
 
 /* Set the process/thread priority */
 
@@ -3200,7 +3200,9 @@ void primeBench (void)
 
 /* Loop over all FFT lengths */
 
-	for (i = 0; i < sizeof (fft_lengths) / sizeof (int); i++) {
+	num_lengths = sizeof (fft_lengths) / sizeof (int);
+	if (!IniGetInt (INI_FILE, "FullBench", 0)) num_lengths -= 4;
+	for (i = 0; i < num_lengths; i++) {
 
 /* Initialize for this FFT length.  Compute the number of iterations to */
 /* time.  This is based on the fact that it doesn't take too long for */
