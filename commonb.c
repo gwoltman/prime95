@@ -2960,7 +2960,7 @@ void generateRandomData (void)
 
 /* Fill data space with random values. */
 
-	srand ((unsigned int) PARG);
+	srand ((unsigned) time (NULL));
 	for (i = 0; i < FFTLEN; i++) {
 		set_fft_value (LLDATA, i, rand() & 0xFF);
 	}
