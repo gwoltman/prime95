@@ -1285,12 +1285,12 @@ gwtogiant (x, t1);
 	iters = 0;
 	while (bit < Nlen) {
 
-/* Error check the last 50 iterations, before writing an */
+/* Error check the first and last 50 iterations, before writing an */
 /* intermediate file (either user-requested stop or a */
 /* 30 minute interval expired), and every 128th iteration. */
 
 		stopping = stopCheck ();
-		echk = stopping || ERRCHK || bit+50 >= Nlen;
+		echk = stopping || ERRCHK || bit <= 50 || bit >= Nlen-50;
 		if ((bit & 127) == 0) {
 			echk = 1;
 			time (&current_time);
@@ -1298,9 +1298,11 @@ gwtogiant (x, t1);
 		} else
 			saving = 0;
 
-/* Process this bit */
+/* Process this bit.  Use square carefully the first and last 30 iterations. */
+/* This should avoid any pathological non-random bit pattterns. */
 
-		gwstartnextfft (!stopping && !saving && bit+26 < Nlen);
+		gwstartnextfft (!stopping && !saving &&
+				bit >= 30 && bit < Nlen-31);
 #ifdef CHECK_ITER
 squareg (t1);
 if (bitval (N, Nlen-bit-1)) imulg (a, t1);
@@ -1313,7 +1315,7 @@ echk=1;
 		} else {
 			gwsetnormroutine (0, echk, 0);
 		}
-		if (bit+25 < Nlen) gwsquare (x);
+		if (bit > 30 && bit < Nlen-30) gwsquare (x);
 		else gwsquare_carefully (x);
 
 #ifdef CHECK_ITER
