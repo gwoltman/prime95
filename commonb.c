@@ -2453,9 +2453,10 @@ int lucas_QA (
 {
 	FILE	*fd;
 
-/* Set the title */
+/* Set the title, init random generator */
 
 	title ("QA");
+	srand ((unsigned) time (NULL));
 
 /* Open QA file */
 
@@ -2471,10 +2472,9 @@ int lucas_QA (
 		unsigned long p, fftlen, iters, units_bit;
 		char	buf[500], res[80];
 		unsigned long reshi, reslo;
-		unsigned long i, word, bit_in_word, maxerrcnt;
+		unsigned long i, word, bit_in_word, maxerrcnt, loops;
 		double	maxsumdiff, maxerr, toterr, M, S;
 		unsigned long ge_300, ge_325, ge_350, ge_375, ge_400;
-/*		unsigned long bins[501]; */
 		gwnum	t1, t2;
 		unsigned int iters_unchecked;
 
@@ -2485,20 +2485,25 @@ int lucas_QA (
 			&p, &fftlen, &iters, &units_bit, &res);
 		if (p == 0) break;
 
+/* In a type 4 run, we decrement through exponents to find any with */
+/* anamolously high average errors.  After selecting a tentative FFT */
+/* crossover, we do a type 4 run looking for a higher average error */
+/* below the crossover we selected. */
+
+		for (loops = (type != 4 ? 1 : units_bit % 100); loops--; p-=2){
+
 /* Now run Lucas setup */
 
 		lucasSetup (p, fftlen);
 		maxsumdiff = 0.0;
 		ge_300 = ge_325 = ge_350 = ge_375 = ge_400 = 0;
 		maxerr = 0.0; maxerrcnt = 0; toterr = 0.0;
-/*		memset (bins, 0, sizeof (bins)); */
-		iters_unchecked = (type >= 2) ? 12 : (type >= 1) ? 5 : 40;
+		iters_unchecked = (type > 3) ? 2 : 40;
 
 /* Check for a randomized units bit */
 
 		if (units_bit >= p) {
 			unsigned long hi, lo;
-			srand ((unsigned) time (NULL));
 			units_bit = (rand () << 16) + rand ();
 			if (CPU_FLAGS & CPU_RDTSC) { rdtsc (&hi,&lo); units_bit += lo; }
 			units_bit = units_bit % p;
@@ -2511,13 +2516,14 @@ int lucas_QA (
 		bitaddr ((units_bit + 2) % p, &word, &bit_in_word);
 		for (i = 0; i < FFTLEN; i++) {
 			set_fft_value (LLDATA, i,
-				       (type == 3) ? i % 97 :
+				       (type == 3 || type == 4) ?
+					 (rand () & 1) ? rand () : -rand () :
 				       (i == word) ? (1L << bit_in_word) : 0);
 		}
 
 /* The thorough, P-1, and ECM tests use more than one number */
 
-		if (type >= 2) {
+		if (type == 2 || type == 3) {
 			t1 = gwalloc ();
 			dbltogw (234872639921.0, t1);
 			gwfft (t1, t1);
@@ -2542,7 +2548,7 @@ int lucas_QA (
 					lucas_fixup (&units_bit);
 					gwsquare (LLDATA);
 				}
-			} else if (type == 1) {		/* Stats collecting */
+			} else if (type == 1 || type == 4) { /* Gather stats */
 				gwsetnormroutine (0, 1, 0);
 				gwstartnextfft (i < iters / 2);
 				lucas_fixup (&units_bit);
@@ -2583,8 +2589,7 @@ int lucas_QA (
 
 /* Keep track of the standard deviation - see Knuth vol 2 */
 
-			if ((type == 1 || type == 3) && i > iters_unchecked) {
-/*				bins[(int)(MAXERR*1000.0+0.5)]++; */
+			if (i > iters_unchecked) {
 				toterr += MAXERR;
 				if (i == iters_unchecked + 1) {
 					M = MAXERR;
@@ -2673,22 +2678,18 @@ int lucas_QA (
 
 /* Output array of distributions of MAXERR */
 
-		if (type == 1 || type == 3) {
+		if (type == 1 || type == 3 || type == 4) {
 			S = sqrt (S / (iters - iters_unchecked - 1));
 			toterr /= iters - iters_unchecked;
 			sprintf (buf, "avg: %6.6f, stddev: %6.6f, #stdev to 0.5: %6.6f\n",
 				 toterr, S, (0.50 - toterr) / S);
 			OutputBoth (buf);
-/*			for (i = 0; i < 501; i++) {
-				sprintf (buf, "%lu,%lu\n", i, bins[i]);
-				OutputBoth (buf);
-			} */
 		}
 
 /* Compare residue with correct residue from the input file */
 
 		sprintf (buf, "%08X%08X", reshi, reslo);
-		if (stricmp (res, buf)) {
+		if (type <= 2 && stricmp (res, buf)) {
 			sprintf (buf, "Warning: Residue mismatch. Expected %s\n", res);
 			OutputBoth (buf);
 		}
@@ -2700,6 +2701,7 @@ int lucas_QA (
 			 ge_300, ge_325, ge_350, ge_375, ge_400,
 			 maxsumdiff, MAXDIFF);
 		OutputBoth (buf);
+		}
 	}
 	fclose (fd);
 
