@@ -130,7 +130,7 @@ CAPTION "Setup for NT Service version of Prime95"
 FONT 8, "MS Sans Serif"
 BEGIN
     ICON            IDR_MAINFRAME,IDC_STATIC,11,17,18,20
-    LTEXT           "NTPrime Setup - Version 22.2.5",IDC_STATIC,40,12,119,8,
+    LTEXT           "NTPrime Setup - Version 22.3.5",IDC_STATIC,40,12,119,8,
                     SS_NOPREFIX
     LTEXT           "Copyright © 1996-2002 Just For Fun Software, Inc.",
                     IDC_STATIC,39,22,154,8
