@@ -298,3 +298,10 @@ prime.ini set:
 You can control the maximum prime.log file size.  The default is 250K.  Add
 this line to prime.ini to change the default:
 	MaxLogFileSize=n
+
+You can control what type of URLs are used to contact the PrimeNet server.
+In primenet.ini enter:
+	UseFullURL=n
+where n is 0 for use relative URLs, 1 for use full URLs, 2 for try full URL
+and if an error is returned try a relative URL.  The default setting is 2.
+Note that a full URL is always sent when using a proxy server.
