@@ -157,7 +157,7 @@ LRESULT CMainFrame::WindowProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 void CMainFrame::OnEndSession(BOOL bEnding) 
 {
-	if (WINDOWS95_SERVICE && WM_ENDSESSION_LPARAM) {
+	if (WINDOWS95_SERVICE && WM_ENDSESSION_LPARAM && isWindows95 ()) {
 		if (TRAY_ICON) WINDOWS95_TRAY_ADD = 1;
 	} else
 		CFrameWnd::OnEndSession(bEnding);
