@@ -16,8 +16,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "HtmlHelp.h"
-
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #undef THIS_FILE
@@ -141,12 +139,6 @@ BOOL CPrime95App::InitInstance()
 	// If you are not using these features and wish to reduce the size
 	//  of your final executable, you should remove from the following
 	//  the specific initialization routines you do not need.
-
-#ifdef _AFXDLL
-	Enable3dControls();		// Call this when using MFC in a shared DLL
-#else
-	Enable3dControlsStatic();	// Call this when linking to MFC statically
-#endif
 
 	//LoadStdProfileSettings(0);  // Load standard INI file options (including MRU)
 
@@ -336,9 +328,8 @@ BOOL CPrime95App::InitInstance()
 
 	// Init help system
 
-#ifndef _DEBUG
-	HtmlHelp(NULL, NULL, HH_INITIALIZE, (DWORD)&dwHelpCookie);
-#endif
+	EnableHtmlHelp ();
+	m_pszHelpFilePath = "prime95.chm";
 
 	// Run the torture test if asked to
 	if (torture_test) {
@@ -571,9 +562,6 @@ int CPrime95App::ExitInstance()
 {
 	if( NULL != g_hMutexInst ) {
 		CloseHandle( g_hMutexInst );
-#ifndef _DEBUG
-		HtmlHelp (NULL, NULL, HH_UNINITIALIZE, (DWORD)dwHelpCookie);
-#endif
 	}
 	
 	return CWinApp::ExitInstance();
@@ -589,7 +577,6 @@ void CPrime95App::WinHelp( DWORD dwData, UINT nCmd )
       {
       case HELP_CONTEXT:
 
-#ifndef _DEBUG
          // If it is a help context command, search for the
          // control ID in the array.
          for (i= 0; i < numHelpIDs*2; i+=2)
@@ -597,8 +584,7 @@ void CPrime95App::WinHelp( DWORD dwData, UINT nCmd )
            if (aMenuHelpIDs[i] == LOWORD (dwData) )
            {
              i++;  // pass the help context id to HTMLHelp
-             HtmlHelp(m_pMainWnd->m_hWnd,"prime95.chm",
-                HH_HELP_CONTEXT,aMenuHelpIDs[i]);
+             HtmlHelp (HH_HELP_CONTEXT,aMenuHelpIDs[i]);
              return;
            }
          }
@@ -606,8 +592,7 @@ void CPrime95App::WinHelp( DWORD dwData, UINT nCmd )
          // If the control ID cannot be found,
          // display the default topic.
          if (i == numHelpIDs*2)
-         HtmlHelp(m_pMainWnd->m_hWnd,"prime95.chm",HH_DISPLAY_TOPIC,0);
-#endif
+		 HtmlHelp (HH_DISPLAY_TOPIC,0);
          break;
          }
       }

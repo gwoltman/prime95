@@ -262,7 +262,7 @@ void Service95 ()
 	}
 }
 
-void CMainFrame::OnActivateApp(BOOL bActive, HTASK hTask) 
+void CMainFrame::OnActivateApp(BOOL bActive, DWORD hTask) 
 {
 	if (bActive && BROADCAST_MESSAGE != NULL) {
 		if (HIDE_ICON) BlinkIcon (0);
