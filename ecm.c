@@ -52,6 +52,8 @@ int	TWO_FFT_STAGE2 = 0;	/* Type of ECM stage 2 to execute */
 
 int	QA_IN_PROGRESS = FALSE;
 int	QA_TYPE = 0;
+int	QA_SAVE_FILES = 0;
+#define QA_SAVE_TEST 33
 
 /* Bit manipulation macros */
 
@@ -2468,11 +2470,17 @@ restart1:
 
 		escaped = stopCheck ();
 		time (&current_time);
-		if (escaped || current_time - start_time > write_time) {
+		if (escaped || (QA_SAVE_FILES & 0x1) ||
+		    current_time - start_time > write_time) {
 			ecm_save (filename, ECM_STAGE1, curve, sigma,
 				  B, prime, 0, x, z);
 			if (escaped) {
 				retval = FALSE;
+				goto exit;
+			}
+			if (QA_SAVE_FILES & 0x1) {
+				QA_SAVE_FILES &= ~0x1;
+				retval = QA_SAVE_TEST;
 				goto exit;
 			}
 			start_time = current_time;
@@ -2501,9 +2509,14 @@ restart1:
 
 	if (C <= B) {
 		start_timer (0);
-		if (!gcd (z)) {
+		if ((QA_SAVE_FILES & 0x2) || !gcd (z)) {
 			ecm_save (filename, ECM_STAGE1, curve, sigma,
 				  B, B, 0, x, z);
+			if (QA_SAVE_FILES & 0x2) {
+				QA_SAVE_FILES &= ~0x2;
+				retval = QA_SAVE_TEST;
+				goto exit;
+			}
 			retval = FALSE;
 			goto exit;
 		}
@@ -2569,11 +2582,23 @@ restart1:
 		goto more_curves;
 	}
 
+/*
+   Stage 2:  We support two types of stage 2's here.  One uses
+   less memory and uses fewer extended GCDs, but is slower in accumulating
+   each found prime.  Thanks to Richard Crandall and Paul Zimmerman
+   for letting me liberally use their code and ideas here.
+   x, z: coordinates of Q at the beginning of stage 2
+*/
+
 /* If we find a factor in stage 1 of a QA run then */
 /* print the factor, divide it from N, and continue stage 2. */
+/* On a QA continuation z is one, so do the GCD on x */
 
+restart3:
 	if (QA_IN_PROGRESS) {
-		if (!gcd (z)) {
+		gwnum	p;
+		p = (*(double *)z == 1.0) ? x : z;
+		if (!gcd (p)) {
 			retval = FALSE;
 			goto exit;
 		}
@@ -2585,19 +2610,10 @@ restart1:
 		}
 	}
 
-/*
-   Stage 2:  We support two types of stage 2's here.  One uses
-   less memory and uses fewer extended GCDs, but is slower in accumulating
-   each found prime.  Thanks to Richard Crandall and Paul Zimmerman
-   for letting me liberally use their code and ideas here.
-   x, z: coordinates of Q at the beginning of stage 2
-*/
-
 /* Initialize variables for second stage */
 /* Our goal is to fill up the nQx array with Q^1, Q^3, Q^5, ... */
 /* normalized with only one modular inverse call. */
 
-restart3:
 	start_timer (0);
 
 /* Allocate memory for computing nQx values */
@@ -2633,10 +2649,15 @@ restart3:
 
 		if (gw_test_for_error ()) goto error;
 
-		if (stopCheck ()) {
+		if (stopCheck () || (QA_SAVE_FILES & 0x4)) {
 			if (gg == NULL) {
 				ecm_save (filename, ECM_STAGE1, curve, sigma,
 					  B, B, 0, Qdiffx, Qdiffz);
+			}
+			if (QA_SAVE_FILES & 0x4) {
+				QA_SAVE_FILES &= ~0x4;
+				retval = QA_SAVE_TEST;
+				goto exit;
 			}
 			retval = FALSE;
 			goto exit;
@@ -2680,7 +2701,7 @@ restart3:
 /* MEMUSED: 4 + nQx gwnums (AD4, Q2x, Qiminus2x&z, nQx values) */
 /* MEMPEAK: 4 + nQx + 3 for UV, normalize, and pooled_modinv temporaries */
 
-	if (! normalize_pool ()) {
+	if (! normalize_pool () || (QA_SAVE_FILES & 0x8)) {
 		if (gg == NULL) {
 			dbltogw (1.0, Q2x);
 			gwfft (Q2x, Q2x);
@@ -2688,6 +2709,11 @@ restart3:
 			gwfftfftmul (Q2x, Qiminus2z, Qiminus2z);
 			ecm_save (filename, ECM_STAGE1, curve, sigma,
 				  B, B, 0, Qiminus2x, Qiminus2z);
+		}
+		if (QA_SAVE_FILES & 0x8) {
+			QA_SAVE_FILES &= ~0x8;
+			retval = QA_SAVE_TEST;
+			goto exit;
 		}
 		retval = FALSE;
 		goto exit;
@@ -2749,12 +2775,17 @@ restart3:
 /* MEMUSED: 7 + nQx + E gwnums (6 for computing mQx, gg, nQx and E values) */
 /* MEMPEAK: 7 + nQx + E + 2 for ell_add temporaries */
 
-		if (!mQ_next (&mQx, &mQz)) {
+		if (!mQ_next (&mQx, &mQz) || (QA_SAVE_FILES & 0x10)) {
 			dbltogw (1.0, Q2x);
 			gwfft (Q2x, Q2x);
 			gwfftfftmul (Q2x, nQx[0], nQx[0]);
 			ecm_save (filename, ECM_STAGE2, curve, sigma,
 				  B, B, prime, nQx[0], gg);
+			if (QA_SAVE_FILES & 0x10) {
+				QA_SAVE_FILES &= ~0x10;
+				retval = QA_SAVE_TEST;
+				goto exit;
+			}
 			retval = FALSE;
 			goto exit;
 		}
@@ -2821,7 +2852,8 @@ restart3:
 
 		escaped = stopCheck ();
 		time (&current_time);
-		if (escaped || current_time - start_time > write_time) {
+		if (escaped || (QA_SAVE_FILES & 0x20) ||
+		    current_time - start_time > write_time) {
 			t1 = gwalloc ();
 			dbltogw (1.0, t1);
 			gwfft (t1, t1);
@@ -2831,6 +2863,11 @@ restart3:
 			gwfree (t1);
 			if (escaped) {
 				retval = FALSE;
+				goto exit;
+			}
+			if (QA_SAVE_FILES & 0x20) {
+				QA_SAVE_FILES &= ~0x20;
+				retval = QA_SAVE_TEST;
 				goto exit;
 			}
 			start_time = current_time;
@@ -2859,9 +2896,14 @@ restart3:
 
 restart4:
 	start_timer (0);
-	if (!gcd (gg)) {
+	if ((QA_SAVE_FILES & 0x40) || !gcd (gg)) {
 		ecm_save (filename, ECM_STAGE2, curve, sigma,
 			  B, B, C, gg, gg);
+		if (QA_SAVE_FILES & 0x40) {
+			QA_SAVE_FILES &= ~0x40;
+			retval = QA_SAVE_TEST;
+			goto exit;
+		}
 		retval = FALSE;
 		goto exit;
 	}
@@ -2953,6 +2995,7 @@ error:	OutputBoth ("SUMOUT error occurred.\n");
 int ecm_QA ()
 {
 	FILE	*fd;
+	int	savefiles;
 
 /* Set the title */
 
@@ -2974,7 +3017,7 @@ int ecm_QA ()
 		char	fac_str[80];
 		double	sigma;
 		giant	f;
-		int	success;
+		int	retval, success;
 
 /* Read a line from the file */
 
@@ -2987,6 +3030,7 @@ int ecm_QA ()
 
 		if (p == 1) {
 			QA_TYPE = plus1;
+			savefiles = B1;
 			continue;
 		}
 
@@ -3002,16 +3046,21 @@ print out each test case (all relevant data)*/
 /* Set some global variables indicating QA is in progress. */
 
 		QA_IN_PROGRESS = TRUE;
+		QA_SAVE_FILES = savefiles;
 
 /* Do the ECM */
 
 		if (B2_start < B1) B2_start = B1;
-		if (! ecm (p, B1, B2_start, B2_end, 1, 0, sigma, plus1)) {
-			fclose (fd);
-			QA_IN_PROGRESS = FALSE;
-			QA_TYPE = 0;
-			return (FALSE);
-		}
+		do {
+			retval = ecm (p, B1, B2_start, B2_end, 1, 0, sigma, plus1);
+			if (!retval) {
+				fclose (fd);
+				QA_IN_PROGRESS = FALSE;
+				QA_TYPE = 0;
+				QA_SAVE_FILES = 0;
+				return (FALSE);
+			}
+		} while (retval == QA_SAVE_TEST);
 
 /* See if we found the factor */
 
@@ -3034,6 +3083,7 @@ print out each test case (all relevant data)*/
 
 	QA_IN_PROGRESS = FALSE;
 	QA_TYPE = 0;
+	QA_SAVE_FILES = 0;
 	fclose (fd);
 	return (TRUE);
 }
@@ -3739,7 +3789,10 @@ restart:
 
 /* If we've already done enough stage 2, go do the stage 2 GCD */
 
-			if (C <= state.C_done) goto restart4;
+			if (C <= state.C_done) {
+				stage = 2;
+				goto restart4;
+			}
 
 /* If we weren't in the middle of a stage 2 pass, then go start stage 2 */
 
@@ -3859,6 +3912,7 @@ restart0:
 /* Either square x or square x and multiply it by three. */
 
 			gwstartnextfft (!escaped && !saving &&
+					!(QA_SAVE_FILES & 0x1) &&
 					!error_recovery_mode &&
 					bit_number+1 != len);
 			if (bitval (exp, len - bit_number - 1)) {
@@ -3923,11 +3977,17 @@ restart0:
 
 /* Check for escape and/or if its time to write a save file */
 
-		if (escaped || saving) {
+		if (escaped || saving || (QA_SAVE_FILES & 0x1)) {
 			pm1_save (filename, &state, bit_number, x, NULL);
 			if (escaped) {
 				free (exp);
 				retval = FALSE;
+				goto exit;
+			}
+			if (QA_SAVE_FILES & 0x1) {
+				free (exp);
+				QA_SAVE_FILES &= ~0x1;
+				retval = QA_SAVE_TEST;
 				goto exit;
 			}
 			start_time = current_time;
@@ -4045,10 +4105,16 @@ restart1:
 /* Check for escape and/or if its time to write a save file */
 
 		time (&current_time);
-		if (escaped || current_time - start_time > write_time) {
+		if (escaped || (QA_SAVE_FILES & 0x2) ||
+		    current_time - start_time > write_time) {
 			pm1_save (filename, &state, prime, x, NULL);
 			if (escaped) {
 				retval = FALSE;
+				goto exit;
+			}
+			if (QA_SAVE_FILES & 0x2) {
+				QA_SAVE_FILES &= ~0x2;
+				retval = QA_SAVE_TEST;
 				goto exit;
 			}
 			start_time = current_time;
@@ -4142,8 +4208,13 @@ restart3a:
 
 restart3b:
 	numvals = choose_pminus1_numvals ();
-	if (numvals < 4) {
+	if (numvals < 4 || (QA_SAVE_FILES & 0x4)) {
 		pm1_save (filename, &state, prime, x, gg);
+		if (QA_SAVE_FILES & 0x4) {
+			QA_SAVE_FILES &= ~0x4;
+			retval = QA_SAVE_TEST;
+			goto exit;
+		}
 		goto nomem;
 	}
 	choose_pminus1_plan (B, C, numvals);
@@ -4188,10 +4259,15 @@ restart3d:
 		if (numrels == state.numvals - 3) break;
 		fd_next ();
 		if (gw_test_for_error () || MAXERR >= 0.40625) goto error;
-		if (stopCheck ()) {
+		if (stopCheck () || (QA_SAVE_FILES & 0x8)) {
 			fd_term ();
 			gwfftfftmul (x, x, x);	/* Unfft x - generates x^2 */
 			pm1_save (filename, &state, prime, x, gg);
+			if (QA_SAVE_FILES & 0x8) {
+				QA_SAVE_FILES &= ~0x8;
+				retval = QA_SAVE_TEST;
+				goto exit;
+			}
 			retval = FALSE;
 			goto exit;
 		}
@@ -4325,13 +4401,19 @@ errchk:		if (gw_test_for_error () || MAXERR >= 0.40625) goto error;
 /* swaps out one of the eQx or nQx values rather than gg. */
 
 		time (&current_time);
-		if (escaped || current_time-start_time > write_time) {
+		if (escaped || (QA_SAVE_FILES & 0x10) ||
+		    current_time-start_time > write_time) {
 			if (escaped) fd_term ();
 			if (numvals > 12) gwfree (t3);
 			gwtouch (gg);
 			pm1_save (filename, &state, prime, x, gg);
 			if (escaped) {
 				retval = FALSE;
+				goto exit;
+			}
+			if (QA_SAVE_FILES & 0x10) {
+				QA_SAVE_FILES &= ~0x10;
+				retval = QA_SAVE_TEST;
 				goto exit;
 			}
 			start_time = current_time;
@@ -4398,8 +4480,13 @@ restart4:
 	if (ll_testing)
 		OutputStr ("Starting stage 2 GCD - please be patient.\n");
 	start_timer (0);
-	if (!gcd (gg)) {
+	if ((QA_SAVE_FILES & 0x20) || !gcd (gg)) {
 		pm1_save (filename, &state, C, x, gg);
+		if (QA_SAVE_FILES & 0x20) {
+			QA_SAVE_FILES &= ~0x20;
+			retval = QA_SAVE_TEST;
+			goto exit;
+		}
 		retval = FALSE;
 		goto exit;
 	}
@@ -4542,6 +4629,7 @@ error:	pm1_cleanup ();
 int pminus1_QA ()
 {
 	FILE	*fd;
+	int	savefiles;
 
 /* Set the title */
 
@@ -4562,7 +4650,7 @@ int pminus1_QA ()
 		int	plus1;
 		char	fac_str[80];
 		giant	f;
-		int	success;
+		int	retval, success;
 
 /* Read a line from the file */
 
@@ -4575,6 +4663,7 @@ int pminus1_QA ()
 
 		if (p == 1) {
 			QA_TYPE = plus1;
+			savefiles = B1;
 			continue;
 		}
 
@@ -4590,16 +4679,21 @@ print out each test case (all relevant data)*/
 /* Set some global variables indicating QA is in progress. */
 
 		QA_IN_PROGRESS = TRUE;
+		QA_SAVE_FILES = savefiles;
 
 /* Do the P-1 */
 
 		if (B2_start < B1) B2_start = B1;
-		if (! pminus1 (p, B1, B2_start, B2_end, plus1, FALSE)) {
-			QA_IN_PROGRESS = FALSE;
-			QA_TYPE = 0;
-			fclose (fd);
-			return (FALSE);
-		}
+		do {
+			retval = pminus1 (p, B1, B2_start, B2_end, plus1, FALSE);
+			if (!retval) {
+				QA_IN_PROGRESS = FALSE;
+				QA_TYPE = 0;
+				QA_SAVE_FILES = 0;
+				fclose (fd);
+				return (FALSE);
+			}
+		} while (retval == QA_SAVE_TEST);
 
 /* See if we found the factor */
 
@@ -4622,6 +4716,7 @@ print out each test case (all relevant data)*/
 
 	QA_IN_PROGRESS = FALSE;
 	QA_TYPE = 0;
+	QA_SAVE_FILES = 0;
 	fclose (fd);
 	return (TRUE);
 }
