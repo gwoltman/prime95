@@ -1560,11 +1560,6 @@ static	int maxerr_recovery_mode = 0;		/* Big roundoff err rerun */
 
 /* Every so often, communicate with the server. */
 /* Even more rarely, set flag to see if we have enough work queued up. */
-/* Also, see if we should switch to factoring.  This is sometimes done */
-/* when we get a new assignment that hasn't been factored.  To be sure */
-/* that we will be able to immediately startup a LL test when this one */
-/* completes, we will factor the next exponent and then come back to */
-/* finish the LL test of this exponent. */
 
 		if ((counter & 0x3F) == 0) {
 			EXP_PERCENT_COMPLETE = (double) counter / (double) p;
@@ -1573,14 +1568,33 @@ static	int maxerr_recovery_mode = 0;		/* Big roundoff err rerun */
 				CHECK_WORK_QUEUE = 1;
 			}
 			if (!communicateWithServer ()) escaped = 1;
+
+/* See if we should switch to factoring.  This is sometimes done */
+/* when we get a new assignment that hasn't been factored.  To be sure */
+/* that we will be able to immediately startup a LL test when this one */
+/* completes, we will factor the next exponent and then come back to */
+/* finish the LL test of this exponent. */
+
 			if ((counter & 0xFFFF) == 0) {
+				unsigned long sets;
+				double	timing, iters_per_day;
 				if (getPriorityWork ()) priority_work = 1;
-				updateRollingAverage (
-					map_fftlen_to_timing (
+
+/* In an effort to reduce wild fluctuations in the rolling average */
+/* we will try to update the rolling average only twice a day. */
+
+				timing = map_fftlen_to_timing (
 						FFTLEN, GW_MERSENNE_MOD,
-						CPU_TYPE, CPU_SPEED) *
-					65536.0 * 24.0 / CPU_HOURS);
-				startRollingAverage ();
+						CPU_TYPE, CPU_SPEED);
+				iters_per_day = CPU_HOURS * 3600.0 / timing;
+				sets = (unsigned long) (iters_per_day / 2.0 / 65536.0);
+				if (sets == 0) sets = 1;
+				if ((counter >> 16) % sets == 0) {
+					updateRollingAverage (
+						timing * sets * 65536.0 *
+						24.0 / CPU_HOURS);
+					startRollingAverage ();
+				}
 			}
 		}
 
@@ -1590,7 +1604,7 @@ static	int maxerr_recovery_mode = 0;		/* Big roundoff err rerun */
 /* Also save right after a we pass an errored iteration and several */
 /* iterations before retesting an errored iteration so that we don't */
 /* have to backtrack very far to do a careful_iteration	(we don't do the */
-/* iteration immediately before because on the P4 a save/restore will */
+/* iteration immediately before because on the P4 a save operation will */
 /* change the FFT data and make the error non-reproducible. */
 
 		escaped |= stopCheck ();
