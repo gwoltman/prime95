@@ -1549,8 +1549,10 @@ void choose_stage2_plan (
 
 /* Figure out how many gwnum values fit in our MB limit */
 
-	memory = (memory << 20) - map_fftlen_to_memused (FFTLEN, PLUS1);
-	numvals = memory / gwnum_size (FFTLEN);
+	numvals = (unsigned long)
+			(((double) memory * 1000000.0 -
+			  (double) map_fftlen_to_memused (FFTLEN, PLUS1)) /
+			 (double) gwnum_size (FFTLEN));
 
 /* If memory is really tight, then the 4 FFT - O(n^2) pooling is the */
 /* most memory efficient ECM implementation.  Note: D=30 (8 nQx values) */
@@ -3257,8 +3259,10 @@ unsigned long choose_pminus1_numvals (void)
 
 /* Compute the number of gwnum temporaries available */
 
-	memory = (memory << 20) - map_fftlen_to_memused (FFTLEN, PLUS1);
-	return (memory / gwnum_size (FFTLEN));
+	return ((unsigned long)
+			(((double) memory * 1000000.0 -
+			  (double) map_fftlen_to_memused (FFTLEN, PLUS1)) /
+			 (double) gwnum_size (FFTLEN)));
 }
 
 /* Choose a good value for D and E.  One that reduces the number of */

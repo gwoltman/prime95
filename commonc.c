@@ -3117,7 +3117,6 @@ void guess_pminus1_bounds (
 	unsigned long *squarings,
 	double	*success_rate)
 {
-	unsigned int memory;
 	unsigned long B1, B2, fftlen, vals;
 	unsigned int h;
 	double	pass1_squarings, pass2_squarings;
@@ -3150,8 +3149,10 @@ void guess_pminus1_bounds (
 /* Compute how many stage 2 passes are required in low memory situations */
 
 	fftlen = map_exponent_to_fftlen (p, 0);
-	memory = (max_mem () << 20) - map_fftlen_to_memused (fftlen, 0);
-	vals = memory / gwnum_size (fftlen);
+	vals = (unsigned long)
+			(((double) max_mem () * 1000000.0 -
+			  (double) map_fftlen_to_memused (fftlen, 0)) /
+			 (double) gwnum_size (fftlen));
 
 /* Find the best B1 */
 
