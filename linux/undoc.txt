@@ -248,3 +248,13 @@ is usually faster in stage 1.  You can activate this feature by entering
 	GmpEcmHook=1
 in prime.ini.  Then select ECM bound #2 between 1 and bound #1.  Results.txt
 will contain data that can be fed to GMP-ECM for stage 2.
+
+In rare cases, users have reported the program can interfere with the
+performance of some programs such as disk defragmenters and some games.
+You can pause mprime automatically when these programs are running by
+adding this line to prime.ini:
+	PauseWhileRunning=prog1,prog2,prog3,etc
+Note that mprime will pause if the program name matches any part of the
+running program's name as returned by "ps -eo comm".  That is, "foobar"
+will match "foobar" and "myfoobarprog".
+

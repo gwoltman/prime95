@@ -49,6 +49,7 @@ extern double __timers[10];		/* 10 timers are available */
 void title (char *);
 void flashWindowAndBeep (void);
 void SetPriority (void);
+int checkPauseList ();
 int ecm (unsigned long, unsigned long, unsigned long, unsigned long,
 	 unsigned long, unsigned long, double, int);
 int pminus1 (unsigned long, unsigned long, unsigned long, unsigned long,

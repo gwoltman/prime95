@@ -4,6 +4,8 @@ New features in Version 22.9 of prime95.exe
 1)  Error rate for a clean run is now estimated at 1.8% raising your chances
     of finding a Mersenne prime while double-checking.
 2)  You can now stop and continue testing from the system tray menu.
+3)  You can now pause prime95 when another program starts running.  See the
+    PauseWhileRunning option in undoc.txt.
 
 New features in Version 22.8 of prime95.exe
 -------------------------------------------

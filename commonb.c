@@ -916,6 +916,63 @@ void print_timer (
 
 /* More utility routines */
 
+static int PAUSED = FALSE;
+
+int pauseWhileRunning ()
+{
+	int	i;
+
+/* In most installations, there is no pause list.  Return quickly. */
+
+	if (PAUSE_WHILE_RUNNING == NULL) return (TRUE);
+
+/* Check if a process is running such that we should pause */
+
+	if (! checkPauseList ()) return (TRUE);
+	PAUSED = TRUE;
+
+/* Every 10 seconds see if we should resume processing.  More frequently */
+/* see if we should write a save file and stop processing - most likely */
+/* due to a shutdown. */
+
+	for ( ; ; ) {
+		for (i = 0; i < 20; i++) {
+			Sleep (500);
+			if (escapeCheck ()) {
+				PAUSED = FALSE;
+				return (FALSE);
+			}
+		}
+		if (! checkPauseList ()) {
+			OutputStr ("Resuming processing.\n");
+			PAUSED = FALSE;
+			return (TRUE);
+		}
+	}
+}
+
+int isInPauseList (
+	char	*program_name)
+{
+	char	buf[512];
+	char	**p;
+
+	strcpy (buf, program_name);
+	strupper (buf);
+	for (p = PAUSE_WHILE_RUNNING; *p; p++) {
+		if (strstr (buf, *p) != NULL) {
+			if (!PAUSED) {
+				sprintf (buf,
+					 "Pausing because %s is running.\n",
+					 program_name);
+				OutputStr (buf);
+			}
+			return (TRUE);
+		}
+	}
+	return (FALSE);
+}
+
 /* Prepare for making a factoring run */
 
 void factorSetup (unsigned long p)
@@ -1762,6 +1819,7 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 		if ((counter & 0x3F) == 0) {
 			EXP_PERCENT_COMPLETE = (double) counter / (double) p;
 			if (!communicateWithServer ()) escaped = 1;
+			if (!pauseWhileRunning ()) escaped = 1;
 
 /* See if we should switch to factoring.  This is sometimes done */
 /* when we get a new assignment that hasn't been factored.  To be sure */
@@ -3448,6 +3506,7 @@ int primeFactor (
 			stopping = stopCheck ();
 			if ((iters_r & 0x7F) == 0 && !stopping) {
 				if (!communicateWithServer ()) stopping = 1;
+				if (!pauseWhileRunning ()) stopping = 1;
 				time (&current_time);
 				saving = (current_time-start_time > write_time);
 			} else
@@ -3776,6 +3835,7 @@ int primeSieve (
 			stopping = stopCheck ();
 			if ((iters_r & 0x7F) == 0 && !stopping) {
 				if (!communicateWithServer ()) stopping = 1;
+				if (!pauseWhileRunning ()) stopping = 1;
 				time (&current_time);
 				saving = (current_time-start_time > write_time);
 			} else

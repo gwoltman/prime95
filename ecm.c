@@ -3652,6 +3652,7 @@ restart0:
 			if (prime < B) pct *= (double) prime / (double) B;
 			if (B != C) EXP_PERCENT_COMPLETE = 0.5 - pct * 0.5;
 			if (!communicateWithServer ()) escaped = 1;
+			if (!pauseWhileRunning ()) escaped = 1;
 			last_contact = fft_count;
 		}
 
@@ -3827,6 +3828,7 @@ restart1:
 			pct = (double) prime / (double) B;
 			if (B != C) EXP_PERCENT_COMPLETE = pct * 0.5;
 			if (!communicateWithServer ()) escaped = 1;
+			if (!pauseWhileRunning ()) escaped = 1;
 			last_contact = fft_count;
 		}
 
@@ -4099,6 +4101,7 @@ errchk:		if (gw_test_for_error () || MAXERR >= 0.40625) goto error;
 						prime, C_start, C);
 			EXP_PERCENT_COMPLETE = 0.5 + pct * 0.5;
 			if (!communicateWithServer ()) escaped = 1;
+			if (!pauseWhileRunning ()) escaped = 1;
 			last_contact = fft_count;
 		}
 

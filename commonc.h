@@ -116,6 +116,8 @@ extern int WELL_BEHAVED_WORK;		/* TRUE if undocumented feature */
 					/* is on.  This reduces the number */
 					/* of times worktodo.ini is read */
 					/* and written. */
+extern char **PAUSE_WHILE_RUNNING;	/* An array of program names that, */
+					/* if running, prime95 should pause. */
 
 extern unsigned long EXP_BEING_WORKED_ON; /* Exponent being tested */
 extern int EXP_BEING_FACTORED;		/* TRUE is exp is being factored */
@@ -213,6 +215,7 @@ unsigned int factorLimit (unsigned long, int);
 void guess_pminus1_bounds (unsigned long, unsigned int, int, unsigned long *,
 			   unsigned long *, unsigned long *, double *);
 
+void strupper (char *);
 void tempFileName (char	*, unsigned long);
 int fileExists (char *);
 int readFileHeader (char *, int *, short *, unsigned long *);

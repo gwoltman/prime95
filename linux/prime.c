@@ -502,7 +502,7 @@ void Sleep (
 #ifdef __IBMC__
 	DosSleep(ms);
 #else
-	sleep (ms/1000);
+	usleep (ms * 1000);
 #endif
 }
 
@@ -775,4 +775,24 @@ double getHighResTimer (void)
 double getHighResTimerFrequency (void)
 {
 	return (1000000.0);
+}
+
+int checkPauseList ()
+{
+	FILE	*fd;
+	char	buf[80];
+
+	fd = popen ("ps -eo comm", "r");
+	if (fd != NULL) {
+		while (fgets (buf, sizeof (buf), fd) != NULL) {
+			int	len;
+			while (len && isspace (buf[len-1)) buf[--len] == 0;
+			if (isInPauseList (buf)) {
+				fclose (fd);
+				return (TRUE);
+			}
+		}
+		fclose (fd);
+	}
+	return (FALSE);
 }

@@ -63,6 +63,7 @@ int	RDTSC_TIMING = 1;
 int	TIMESTAMPING = 1;
 int	CUMULATIVE_TIMING = 0;
 int	WELL_BEHAVED_WORK = 0;
+char	**PAUSE_WHILE_RUNNING = NULL;
 
 unsigned long EXP_BEING_WORKED_ON = 0;
 int	EXP_BEING_FACTORED = 0;
@@ -264,6 +265,14 @@ unsigned int max_mem (void)
 	return (NIGHT_MEMORY);
 }
 
+/* Upper case a string */
+
+void strupper (
+	char	*p)
+{
+	for ( ; *p; p++) if (*p >= 'a' && *p <= 'z') *p = *p - 'a' + 'A';
+}
+
 /* Convert a string (e.g "11:30 AM") to minutes since midnight */
 
 unsigned int strToMinutes (
@@ -349,6 +358,7 @@ void nameIniFiles (
 void readIniFiles (void)
 {
 	int	temp;
+	char	buf[512];
 
 	processTimedIniFile (INI_FILE);
 	IniGetString (INI_FILE, "UserID", USERID, sizeof (USERID), NULL);
@@ -456,6 +466,23 @@ void readIniFiles (void)
 	TIMESTAMPING = IniGetInt (INI_FILE, "TimeStamp", 1);
 	CUMULATIVE_TIMING = IniGetInt (INI_FILE, "CumulativeTiming", 0);
 	WELL_BEHAVED_WORK = IniGetInt (INI_FILE, "WellBehavedWork", 0);
+	IniGetString (INI_FILE, "PauseWhileRunning", buf, sizeof (buf), NULL);
+	if (buf[0]) {
+		char	*p;
+		int	i, cnt;
+		for (cnt = 1, p = buf; p = strchr (p, ','); cnt++) *p++ = 0;
+		PAUSE_WHILE_RUNNING = (char **)
+			malloc ((cnt + 1) * sizeof (char *));
+		for (i = 0, p = buf; i < cnt; i++) {
+			PAUSE_WHILE_RUNNING[i] = (char *)
+				malloc (strlen (p) + 1);
+			strupper (p);
+			strcpy (PAUSE_WHILE_RUNNING[i], p);
+			p += strlen (p) + 1;
+		}
+		PAUSE_WHILE_RUNNING[i] = NULL;
+	} else
+		PAUSE_WHILE_RUNNING = NULL;
 }
 
 /*----------------------------------------------------------------------
