@@ -2219,7 +2219,8 @@ int hgcd (	/* hgcd(n,x,y,A) chops n words off x and y and computes the
 /* in order to save a lot of memory.  Be wary of the matrix multiply of B */
 /* and A in mulmMsp.  It adds two multiplied products together - so that */
 /* if B->lr's top word is 32 bits A->lr's top word is 32 bits, then a */
-/* carry overflow will occur. */
+/* carry overflow will occur.  Also be careful that we don't ask hgcd to */
+/* compute more than y->sign / 2 words. */
 
 		b_size = half_size - a_size;
 		if (A->lr->n[a_size-1] & 0x80000000) b_size--;
@@ -2231,6 +2232,7 @@ int hgcd (	/* hgcd(n,x,y,A) chops n words off x and y and computes the
 		B.ur = &ur; setzero (&ur);
 		B.ll = &ll; setzero (&ll);
 		B.lr = &lr; setone (&lr);
+		if (b_size > ((y->sign - 1) >> 1)) b_size = (y->sign - 1) >> 1;
 		if (! hgcd (y->sign - (b_size + b_size + 1), &x, &y, &B))
 			return (FALSE);
 		mulmMsp (&B, A, half_size);
