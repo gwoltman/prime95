@@ -7043,14 +7043,7 @@ c4b:	x4cl_eight_reals_unfft_2 ecx, 64, 2*clmblkdst, 4*clmblkdst
 	mov	eax, 9*256+2		;; 9 iterations of 2 iters of 2
 c5a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c5b:	x4cl_four_complex_unfft ecx, 64, 2*clmblkdst, 4*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c5b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	add	dl, 256/clm
-	jnc	c5b
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c5b, clmblkdst
 	sub	al, 1			;; Test middle loop counter
 	JNZ_X	c5a			;; Iterate if necessary
 	lea	ecx, [ecx-2*clmblkdst+8*clmblkdst];; Next source pointer
@@ -7099,14 +7092,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 ecx, 64, 8*clmblkdst
 	mov	eax, 2*256+8		;; 2 iterations of 8 iters of 2
 c3a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c3b:	x4cl_four_complex_unfft ecx, 64, 8*clmblkdst, 16*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c3b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	add	dl, 256/clm
-	jnc	c3b
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c3b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	c3a			;; Iterate if necessary
 	lea	ecx, [ecx-8*clmblkdst+32*clmblkdst];; Next source pointer
@@ -7143,14 +7129,7 @@ c3b:	x4cl_four_complex_unfft ecx, 64, 8*clmblkdst, 16*clmblkdst
 	mov	al, 16			;; Load loop counter
 c1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c1b:	x5cl_five_reals_last_unfft ecx, 64, 16*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	add	dl, 256/clm
-	jnc	c1b
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c1b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	c1a			;; Iterate if necessary
 	lea	esi, [esi-50*blkdst]	;; Restore prefetch pointer
@@ -7233,14 +7212,7 @@ yes_fft:start_timer 21
 	mov	eax, 16			;; 16 iterations of 2
 b1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b1b:	x5cl_five_reals_first_fft ecx, 64, 16*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	b1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	add	dl, 256/clm
-	jnc	b1b
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b1b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	b1a			;; Iterate if necessary
 	lea	ecx, [ecx-16*clmblkdst]	;; Restore source pointer
@@ -7287,14 +7259,7 @@ b2b:	x1cl_half_eight_reals_fft_2 ecx, 64
 	mov	al, 16			;; 16 iterations of 2
 b3a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b3b:	x4cl_four_complex_fft ecx, 64, 16*clmblkdst, 32*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b3b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	add	dl, 256/clm
-	jnc	b3b
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b3b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b3a			;; Iterate if necessary
 	lea	ecx, [ecx-16*clmblkdst-16*clmblkdst];; Restore source pointer
@@ -7343,14 +7308,7 @@ b4b:	x4cl_eight_reals_fft_2 ecx, 64, 4*clmblkdst, 8*clmblkdst
 	mov	eax, 4*256+4		;; 4 iterations of 4 iters of 2
 b5a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b5b:	x4cl_four_complex_fft ecx, 64, 4*clmblkdst, 8*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b5b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	add	dl, 256/clm
-	jnc	b5b
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b5b, clmblkdst
 	sub	al, 1			;; Test middle loop counter
 	JNZ_X	b5a			;; Iterate if necessary
 	lea	ecx, [ecx-4*clmblkdst+16*clmblkdst];; Next source pointer
@@ -7655,14 +7613,7 @@ c4b:	x4cl_eight_reals_unfft_2 ecx, 64, 2*clmblkdst, 4*clmblkdst
 	mov	eax, 11*256+2		;; 11 iterations of 2 iters of 2
 c5a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c5b:	x4cl_four_complex_unfft ecx, 64, 2*clmblkdst, 4*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c5b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	add	dl, 256/clm
-	jnc	c5b
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c5b, clmblkdst
 	sub	al, 1			;; Test middle loop counter
 	JNZ_X	c5a			;; Iterate if necessary
 	lea	ecx, [ecx-2*clmblkdst+8*clmblkdst];; Next source pointer
@@ -7712,14 +7663,7 @@ c2b:	x4cl_eight_reals_unfft_2 ecx, 64, 8*clmblkdst, 16*clmblkdst
 	mov	eax, 2*256+8		;; 2 iterations of 8 iters of 2
 c3a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c3b:	x4cl_four_complex_unfft ecx, 64, 8*clmblkdst, 16*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c3b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	add	dl, 256/clm
-	jnc	c3b
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c3b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	c3a			;; Iterate if necessary
 	lea	ecx, [ecx-8*clmblkdst+32*clmblkdst];; Next source pointer
@@ -7756,14 +7700,7 @@ c3b:	x4cl_four_complex_unfft ecx, 64, 8*clmblkdst, 16*clmblkdst
 	mov	al, 32			;; Load loop counter
 c1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c1b:	x3cl_six_reals_last_unfft ecx, 64, 32*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	add	dl, 256/clm
-	jnc	c1b
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c1b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	c1a			;; Iterate if necessary
 	lea	esi, [esi-70*blkdst]	;; Restore source pointer
@@ -7846,14 +7783,7 @@ yes_fft:start_timer 21
 	mov	eax, 32			;; 32 iterations of 2
 b1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b1b:	x3cl_six_reals_first_fft ecx, 64, 32*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	b1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	add	dl, 256/clm
-	jnc	b1b
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b1b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	b1a			;; Iterate if necessary
 	lea	ecx, [ecx-32*clmblkdst]	;; Restore source pointer
@@ -7903,14 +7833,7 @@ b2b:	x2cl_eight_reals_fft_2 ecx, 64, 16*clmblkdst
 	mov	al, 16			;; 16 iterations of 2
 b3a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b3b:	x4cl_four_complex_fft ecx, 64, 16*clmblkdst, 32*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b3b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	add	dl, 256/clm
-	jnc	b3b
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b3b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b3a			;; Iterate if necessary
 	lea	ecx, [ecx-16*clmblkdst-32*clmblkdst];; Restore source pointer
@@ -7959,14 +7882,7 @@ b4b:	x4cl_eight_reals_fft_2 ecx, 64, 4*clmblkdst, 8*clmblkdst
 	mov	eax, 5*256+4		;; 5 iterations of 4 iters of 2
 b5a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b5b:	x4cl_four_complex_fft ecx, 64, 4*clmblkdst, 8*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b5b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	add	dl, 256/clm
-	jnc	b5b
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b5b, clmblkdst
 	sub	al, 1			;; Test middle loop counter
 	JNZ_X	b5a			;; Iterate if necessary
 	lea	ecx, [ecx-4*clmblkdst+16*clmblkdst];; Next source pointer
@@ -8273,16 +8189,7 @@ c4b:	x4cl_eight_reals_unfft_2 ecx, 64, 2*clmblkdst, 4*clmblkdst
 	mov	eax, 13*256+2		;; 13 iterations of 2 iters of 2
 c5a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c5b:	x4cl_four_complex_unfft ecx, 64, 2*clmblkdst, 4*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c5b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c5b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c5b, clmblkdst
 	sub	al, 1			;; Test middle loop counter
 	JNZ_X	c5a			;; Iterate if necessary
 	lea	ecx, [ecx-2*clmblkdst+8*clmblkdst];; Next source pointer
@@ -8331,16 +8238,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 ecx, 64, 8*clmblkdst
 	mov	eax, 3*256+8		;; 3 iterations of 8 iters of 2
 c3a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c3b:	x4cl_four_complex_unfft ecx, 64, 8*clmblkdst, 16*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c3b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c3b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c3b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	c3a			;; Iterate if necessary
 	lea	ecx, [ecx-8*clmblkdst+32*clmblkdst];; Next source pointer
@@ -8383,17 +8281,7 @@ c3b:	x4cl_four_complex_unfft ecx, 64, 8*clmblkdst, 16*clmblkdst
 c1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 	xtouch	[esi+(clm-1)*128+blkdst]
 c1b:	x7cl_seven_reals_last_unfft ecx, 64, 16*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	xprefetcht1 [esi+clm*128+blkdst]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c1b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+2*blkdst];; Next prefetch pointer
+	xloop1prefetch2 c1b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	c1a			;; Iterate if necessary
 	lea	esi, [esi-78*blkdst]	;; Restore prefetch pointer
@@ -8481,17 +8369,7 @@ yes_fft:start_timer 21
 b1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 	xtouch	[esi+(clm-1)*128+blkdst]
 b1b:	x7cl_seven_reals_first_fft ecx, 64, 16*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	b1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	xprefetcht1 [esi+clm*128+blkdst]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b1b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+2*blkdst];; Next prefetch pointer
+	xloop1prefetch2 b1b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	b1a			;; Iterate if necessary
 	lea	ecx, [ecx-16*clmblkdst]	;; Restore source pointer
@@ -8556,16 +8434,7 @@ b3a:	x2cl_four_complex_fft ecx, 64, 16*clmblkdst
 	mov	al, 16			;; 16 iterations of 2
 b3:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b3b:	x4cl_four_complex_fft ecx, 64, 16*clmblkdst, 32*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b3b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b3b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b3b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b3			;; Iterate if necessary
 	lea	ecx, [ecx-16*clmblkdst-48*clmblkdst];; Restore source pointer
@@ -8614,16 +8483,7 @@ b4b:	x4cl_eight_reals_fft_2 ecx, 64, 4*clmblkdst, 8*clmblkdst
 	mov	eax, 6*256+4		;; 6 iterations of 4 iters of 2
 b5a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b5b:	x4cl_four_complex_fft ecx, 64, 4*clmblkdst, 8*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b5b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b5b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b5b, clmblkdst
 	sub	al, 1			;; Test middle loop counter
 	JNZ_X	b5a			;; Iterate if necessary
 	lea	ecx, [ecx-4*clmblkdst+16*clmblkdst];; Next source pointer
@@ -8927,16 +8787,7 @@ c7b:	g2cl_four_complex_unfft esi, 64, blkdst, ecx, 64, clmblkdst
 	mov	al, 2			;; 2 iterations of 2
 c4a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c4b:	x4cl_eight_reals_unfft_2 ecx, 64, 2*clmblkdst, 4*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c4b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c4b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c4b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	c4a			;; Iterate if necessary
 
@@ -8949,16 +8800,7 @@ c4b:	x4cl_eight_reals_unfft_2 ecx, 64, 2*clmblkdst, 4*clmblkdst
 	mov	eax, 15*256+2		;; 15 iterations of 2 iters of 2
 c5a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c5b:	x4cl_four_complex_unfft ecx, 64, 2*clmblkdst, 4*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c5b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c5b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c5b, clmblkdst
 	sub	al, 1			;; Test middle loop counter
 	JNZ_X	c5a			;; Iterate if necessary
 	lea	ecx, [ecx-2*clmblkdst+8*clmblkdst];; Next source pointer
@@ -8994,16 +8836,7 @@ c5b:	x4cl_four_complex_unfft ecx, 64, 2*clmblkdst, 4*clmblkdst
 	mov	al, 8			;; 8 iterations of 2
 c2a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c2b:	x4cl_eight_reals_unfft_2 ecx, 64, 8*clmblkdst, 16*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c2b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c2b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c2b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	c2a			;; Iterate if necessary
 
@@ -9016,16 +8849,7 @@ c2b:	x4cl_eight_reals_unfft_2 ecx, 64, 8*clmblkdst, 16*clmblkdst
 	mov	eax, 3*256+8		;; 3 iterations of 8 iters of 2
 c3a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c3b:	x4cl_four_complex_unfft ecx, 64, 8*clmblkdst, 16*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c3b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c3b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c3b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	c3a			;; Iterate if necessary
 	lea	ecx, [ecx-8*clmblkdst+32*clmblkdst];; Next source pointer
@@ -9058,16 +8882,7 @@ c3b:	x4cl_four_complex_unfft ecx, 64, 8*clmblkdst, 16*clmblkdst
 	mov	al, 32			;; Load loop counter
 c1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c1b:	x4cl_eight_reals_last_unfft ecx, 64, 32*clmblkdst, 64*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c1b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c1b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	c1a			;; Iterate if necessary
 	lea	esi, [esi-96*blkdst]	;; Restore prefetch pointer
@@ -9152,16 +8967,7 @@ yes_fft:start_timer 21
 	mov	eax, 64			;; 64 iterations of 2
 b1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b1b:	x2cl_eight_reals_first_fft ecx, 64, 64*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	b1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b1b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b1b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	b1a			;; Iterate if necessary
 	lea	ecx, [ecx-64*clmblkdst]	;; Restore source pointer
@@ -9197,16 +9003,7 @@ level4:	start_timer 22
 	mov	al, 16			;; 16 iterations of 2
 b2a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b2b:	x4cl_eight_reals_fft_2 ecx, 64, 16*clmblkdst, 32*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b2b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b2b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b2b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b2a			;; Iterate if necessary
 
@@ -9219,16 +9016,7 @@ b2b:	x4cl_eight_reals_fft_2 ecx, 64, 16*clmblkdst, 32*clmblkdst
 	mov	al, 16			;; 16 iterations of 2
 b3a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b3b:	x4cl_four_complex_fft ecx, 64, 16*clmblkdst, 32*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b3b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b3b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b3b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b3a			;; Iterate if necessary
 	lea	ecx, [ecx-16*clmblkdst-64*clmblkdst];; Restore source pointer
@@ -9263,16 +9051,7 @@ b3b:	x4cl_four_complex_fft ecx, 64, 16*clmblkdst, 32*clmblkdst
 	mov	al, 4			;; 4 iterations of 2
 b4a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b4b:	x4cl_eight_reals_fft_2 ecx, 64, 4*clmblkdst, 8*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b4b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b4b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b4b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b4a			;; Iterate if necessary
 
@@ -9285,16 +9064,7 @@ b4b:	x4cl_eight_reals_fft_2 ecx, 64, 4*clmblkdst, 8*clmblkdst
 	mov	eax, 7*256+4		;; 7 iterations of 4 iters of 2
 b5a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b5b:	x4cl_four_complex_fft ecx, 64, 4*clmblkdst, 8*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b5b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b5b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b5b, clmblkdst
 	sub	al, 1			;; Test middle loop counter
 	JNZ_X	b5a			;; Iterate if necessary
 	lea	ecx, [ecx-4*clmblkdst+16*clmblkdst];; Next source pointer
@@ -9604,16 +9374,7 @@ c6b:	x4cl_eight_reals_unfft_2 ecx, 64, 2*clmblkdst, 4*clmblkdst
 	mov	eax, 19*256+2		;; 19 iterations of 2 iters of 2
 c7a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c7b:	x4cl_four_complex_unfft ecx, 64, 2*clmblkdst, 4*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c7b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c7b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c7b, clmblkdst
 	sub	al, 1			;; Test middle loop counter
 	JNZ_X	c7a			;; Iterate if necessary
 	lea	ecx, [ecx-2*clmblkdst+8*clmblkdst];; Next source pointer
@@ -9712,16 +9473,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 ecx, 64, 16*clmblkdst
 	mov	eax, 2*256+16		;; 2 iterations of 16 iters of 2
 c3a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c3b:	x4cl_four_complex_unfft ecx, 64, 16*clmblkdst, 32*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c3b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c3b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c3b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	c3a			;; Iterate if necessary
 	lea	ecx, [ecx-16*clmblkdst+64*clmblkdst];; Next source pointer
@@ -9758,16 +9510,7 @@ c3b:	x4cl_four_complex_unfft ecx, 64, 16*clmblkdst, 32*clmblkdst
 	mov	al, 32			;; Load loop counter
 c1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c1b:	x5cl_five_reals_last_unfft ecx, 64, 32*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c1b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c1b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	c1a			;; Iterate if necessary
 	lea	esi, [esi-102*blkdst]	;; Restore prefetch pointer
@@ -9850,16 +9593,7 @@ yes_fft:start_timer 22
 	mov	eax, 32			;; 32 iterations of 2
 b1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b1b:	x5cl_five_reals_first_fft ecx, 64, 32*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	b1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b1b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b1b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	b1a			;; Iterate if necessary
 	lea	ecx, [ecx-32*clmblkdst]	;; Restore source pointer
@@ -9906,16 +9640,7 @@ b2b:	x1cl_half_eight_reals_fft_2 ecx, 64
 	mov	al, 32			;; 32 iterations of 2
 b3a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b3b:	x4cl_four_complex_fft ecx, 64, 32*clmblkdst, 64*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b3b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b3b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b3b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b3a			;; Iterate if necessary
 	lea	ecx, [ecx-32*clmblkdst-32*clmblkdst];; Restore source pointer
@@ -10019,16 +9744,7 @@ b6b:	x4cl_eight_reals_fft_2 ecx, 64, 4*clmblkdst, 8*clmblkdst
 	mov	eax, 9*256+4		;; 9 iterations of 4 iters of 2
 b7a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b7b:	x4cl_four_complex_fft ecx, 64, 4*clmblkdst, 8*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b7b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b7b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b7b, clmblkdst
 	sub	al, 1			;; Test middle loop counter
 	JNZ_X	b7a			;; Iterate if necessary
 	lea	ecx, [ecx-4*clmblkdst+16*clmblkdst];; Next source pointer
@@ -10363,16 +10079,7 @@ c6b:	x4cl_eight_reals_unfft_2 ecx, 64, 2*clmblkdst, 4*clmblkdst
 	mov	eax, 23*256+2		;; 23 iterations of 2 iters of 2
 c7a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c7b:	x4cl_four_complex_unfft ecx, 64, 2*clmblkdst, 4*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c7b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c7b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c7b, clmblkdst
 	sub	al, 1			;; Test middle loop counter
 	JNZ_X	c7a			;; Iterate if necessary
 	lea	ecx, [ecx-2*clmblkdst+8*clmblkdst];; Next source pointer
@@ -10472,16 +10179,7 @@ c2b:	x4cl_eight_reals_unfft_2 ecx, 64, 16*clmblkdst, 32*clmblkdst
 	mov	eax, 2*256+16		;; 2 iterations of 16 iters of 2
 c3a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c3b:	x4cl_four_complex_unfft ecx, 64, 16*clmblkdst, 32*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c3b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c3b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c3b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	c3a			;; Iterate if necessary
 	lea	ecx, [ecx-16*clmblkdst+64*clmblkdst];; Next source pointer
@@ -10518,16 +10216,7 @@ c3b:	x4cl_four_complex_unfft ecx, 64, 16*clmblkdst, 32*clmblkdst
 	mov	al, 64			;; Load loop counter
 c1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c1b:	x3cl_six_reals_last_unfft ecx, 64, 64*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c1b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c1b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	c1a			;; Iterate if necessary
 	lea	esi, [esi-142*blkdst]	;; Restore source pointer
@@ -10661,16 +10350,7 @@ b2b:	x2cl_eight_reals_fft_2 ecx, 64, 32*clmblkdst
 	mov	al, 32			;; 32 iterations of 2
 b3a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b3b:	x4cl_four_complex_fft ecx, 64, 32*clmblkdst, 64*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b3b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b3b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b3b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b3a			;; Iterate if necessary
 	lea	ecx, [ecx-32*clmblkdst-64*clmblkdst];; Restore source pointer
@@ -10774,16 +10454,7 @@ b6b:	x4cl_eight_reals_fft_2 ecx, 64, 4*clmblkdst, 8*clmblkdst
 	mov	eax, 11*256+4		;; 11 iterations of 4 iters of 2
 b7a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b7b:	x4cl_four_complex_fft ecx, 64, 4*clmblkdst, 8*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b7b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b7b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b7b, clmblkdst
 	sub	al, 1			;; Test middle loop counter
 	JNZ_X	b7a			;; Iterate if necessary
 	lea	ecx, [ecx-4*clmblkdst+16*clmblkdst];; Next source pointer
@@ -11106,16 +10777,7 @@ c9b:	g2cl_four_complex_unfft esi, 64, blkdst, ecx, 64, clmblkdst
  	mov	al, 2			;; 2 iterations of 2
 c6a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c6b:	x4cl_eight_reals_unfft_2 ecx, 64, 2*clmblkdst, 4*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c6b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c6b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c6b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	c6a			;; Iterate if necessary
 
@@ -11128,16 +10790,7 @@ c6b:	x4cl_eight_reals_unfft_2 ecx, 64, 2*clmblkdst, 4*clmblkdst
 	mov	eax, 27*256+2		;; 27 iterations of 2 iters of 2
 c7a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c7b:	x4cl_four_complex_unfft ecx, 64, 2*clmblkdst, 4*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c7b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c7b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c7b, clmblkdst
 	sub	al, 1			;; Test middle loop counter
 	JNZ_X	c7a			;; Iterate if necessary
 	lea	ecx, [ecx-2*clmblkdst+8*clmblkdst];; Next source pointer
@@ -11236,16 +10889,7 @@ c2b:	x2cl_half_eight_reals_unfft_2 ecx, 64, 16*clmblkdst
 	mov	eax, 3*256+16		;; 3 iterations of 16 iters of 2
 c3a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c3b:	x4cl_four_complex_unfft ecx, 64, 16*clmblkdst, 32*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c3b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c3b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c3b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	c3a			;; Iterate if necessary
 	lea	ecx, [ecx-16*clmblkdst+64*clmblkdst];; Next source pointer
@@ -11287,17 +10931,7 @@ c3b:	x4cl_four_complex_unfft ecx, 64, 16*clmblkdst, 32*clmblkdst
 c1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 	xtouch	[esi+(clm-1)*128+blkdst]
 c1b:	x7cl_seven_reals_last_unfft ecx, 64, 32*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	xprefetcht1 [esi+clm*128+blkdst]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c1b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+2*blkdst];; Next prefetch pointer
+	xloop1prefetch2 c1b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	c1a			;; Iterate if necessary
 	lea	esi, [esi-168*blkdst]	;; Restore prefetch pointer
@@ -11385,17 +11019,7 @@ yes_fft:start_timer 22
 b1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 	xtouch	[esi+(clm-1)*128+blkdst]
 b1b:	x7cl_seven_reals_first_fft ecx, 64, 32*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	b1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	xprefetcht1 [esi+clm*128+blkdst]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b1b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+2*blkdst];; Next prefetch pointer
+	xloop1prefetch2 b1b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	b1a			;; Iterate if necessary
 	lea	ecx, [ecx-32*clmblkdst]	;; Restore source pointer
@@ -11464,16 +11088,7 @@ b3a:	x2cl_four_complex_fft ecx, 64, 32*clmblkdst
 	mov	al, 32			;; 32 iterations of 2
 b3:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b3b:	x4cl_four_complex_fft ecx, 64, 32*clmblkdst, 64*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b3b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b3b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b3b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b3			;; Iterate if necessary
 	lea	ecx, [ecx-32*clmblkdst-96*clmblkdst];; Restore source pointer
@@ -11563,16 +11178,7 @@ b5b:	x2cl_two_complex_fft ecx, 64, 16*clmblkdst
 	mov	al, 4			;; 4 iterations of 2
 b6a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b6b:	x4cl_eight_reals_fft_2 ecx, 64, 4*clmblkdst, 8*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b6b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b6b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b6b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b6a			;; Iterate if necessary
 
@@ -11585,16 +11191,7 @@ b6b:	x4cl_eight_reals_fft_2 ecx, 64, 4*clmblkdst, 8*clmblkdst
 	mov	eax, 13*256+4		;; 13 iterations of 4 iters of 2
 b7a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b7b:	x4cl_four_complex_fft ecx, 64, 4*clmblkdst, 8*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b7b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b7b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b7b, clmblkdst
 	sub	al, 1			;; Test middle loop counter
 	JNZ_X	b7a			;; Iterate if necessary
 	lea	ecx, [ecx-4*clmblkdst+16*clmblkdst];; Next source pointer
@@ -11926,16 +11523,7 @@ c9b:	g2cl_four_complex_unfft esi, 64, blkdst, ecx, 64, clmblkdst
 	mov	al, 2			;; 2 iterations of 2 
 c6a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c6b:	x4cl_eight_reals_unfft_2 ecx, 64, 2*clmblkdst, 4*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c6b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c6b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c6b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	c6a			;; Iterate if necessary
 
@@ -11948,16 +11536,7 @@ c6b:	x4cl_eight_reals_unfft_2 ecx, 64, 2*clmblkdst, 4*clmblkdst
 	mov	eax, 31*256+2		;; 31 iterations of 2 iters of 2
 c7a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c7b:	x4cl_four_complex_unfft ecx, 64, 2*clmblkdst, 4*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c7b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c7b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c7b, clmblkdst
 	sub	al, 1			;; Test middle loop counter
 	JNZ_X	c7a			;; Iterate if necessary
 	lea	ecx, [ecx-2*clmblkdst+8*clmblkdst];; Next source pointer
@@ -12043,16 +11622,7 @@ c5b:	x2cl_two_complex_unfft ecx, 64, 8*clmblkdst
 	mov	al, 16			;; 16 iterations of 2
 c2a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c2b:	x4cl_eight_reals_unfft_2 ecx, 64, 16*clmblkdst, 32*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c2b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c2b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c2b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	c2a			;; Iterate if necessary
 
@@ -12065,16 +11635,7 @@ c2b:	x4cl_eight_reals_unfft_2 ecx, 64, 16*clmblkdst, 32*clmblkdst
 	mov	eax, 3*256+16		;; 3 iterations of 16 iters of 2
 c3a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c3b:	x4cl_four_complex_unfft ecx, 64, 16*clmblkdst, 32*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c3b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c3b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c3b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	c3a			;; Iterate if necessary
 	lea	ecx, [ecx-16*clmblkdst+64*clmblkdst];; Next source pointer
@@ -12107,16 +11668,7 @@ c3b:	x4cl_four_complex_unfft ecx, 64, 16*clmblkdst, 32*clmblkdst
 	mov	al, 64			;; Load loop counter
 c1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c1b:	x4cl_eight_reals_last_unfft ecx, 64, 64*clmblkdst, 128*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c1b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c1b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	c1a			;; Iterate if necessary
 	lea	esi, [esi-192*blkdst]	;; Restore prefetch pointer
@@ -12239,16 +11791,7 @@ level4:	start_timer 23
 	mov	al, 32			;; 32 iterations of 2
 b2a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b2b:	x4cl_eight_reals_fft_2 ecx, 64, 32*clmblkdst, 64*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b2b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b2b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b2b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b2a			;; Iterate if necessary
 
@@ -12261,16 +11804,7 @@ b2b:	x4cl_eight_reals_fft_2 ecx, 64, 32*clmblkdst, 64*clmblkdst
 	mov	al, 32			;; 32 iterations of 2
 b3a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b3b:	x4cl_four_complex_fft ecx, 64, 32*clmblkdst, 64*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b3b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b3b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b3b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b3a			;; Iterate if necessary
 	lea	ecx, [ecx-32*clmblkdst-128*clmblkdst];; Restore source pointer
@@ -12360,16 +11894,7 @@ b5b:	x2cl_two_complex_fft ecx, 64, 16*clmblkdst
 	mov	al, 4			;; 4 iterations of 2
 b6a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b6b:	x4cl_eight_reals_fft_2 ecx, 64, 4*clmblkdst, 8*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b6b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b6b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b6b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b6a			;; Iterate if necessary
 
@@ -12382,16 +11907,7 @@ b6b:	x4cl_eight_reals_fft_2 ecx, 64, 4*clmblkdst, 8*clmblkdst
 	mov	eax, 15*256+4		;; 15 iterations of 4 iters of 2
 b7a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b7b:	x4cl_four_complex_fft ecx, 64, 4*clmblkdst, 8*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b7b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b7b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b7b, clmblkdst
 	sub	al, 1			;; Test middle loop counter
 	JNZ_X	b7a			;; Iterate if necessary
 	lea	ecx, [ecx-4*clmblkdst+16*clmblkdst];; Next source pointer
@@ -12862,16 +12378,7 @@ c3b:	x4cl_four_complex_unfft ecx, 64, 32*clmblkdst, 64*clmblkdst
 	mov	eax, 64			;; Load loop counter
 c1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c1b:	x5cl_five_reals_last_unfft ecx, 64, 64*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c1b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c1b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	c1a			;; Iterate if necessary
 	lea	esi, [esi-171*blkdst]	;; Restore prefetch pointer
@@ -12954,16 +12461,7 @@ yes_fft:start_timer 22
 	mov	eax, 64			;; 64 iterations of 2
 b1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b1b:	x5cl_five_reals_first_fft ecx, 64, 64*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	b1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b1b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	b1b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	b1a			;; Iterate if necessary
 	lea	ecx, [ecx-64*clmblkdst]	;; Restore source pointer
@@ -13580,23 +13078,11 @@ c3b:	x4cl_four_complex_unfft ecx, 64, 32*clmblkdst, 64*clmblkdst
 ;;	do 256 macros each processing 24 data values
 
 	start_timer 20
-	mov	al, 64			;; 64 iters of 2 iters of 2
+	mov	eax, 64*256		;; 64 iters of 2 iters of 2
 c1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c1b:	x3cl_six_reals_last_unfft ecx, 64, 128*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c1b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128]	;; Next prefetch pointer
-	add	ah, 256/2		;; Test middle loop counter
-	JNC_X	c1b			;; Iterate if necessary
-	lea	esi, [esi+blkdst]	;; Next prefetch pointer
-	sub	al, 1			;; Test loop counter
+	xloop2	c1b, clmblkdst
+	sub	eax, 256		;; Test loop counter
 	JNZ_X	c1a			;; Iterate if necessary
 	lea	esi, [esi-187*blkdst]	;; Restore source pointer
 	end_timer 20
@@ -13675,23 +13161,11 @@ a1b:	g3cl_six_reals_first_fft esi, 64, 128*blkdst, ecx, 64, 128*clmblkdst
 yes_fft:start_timer 22
 	mov	ecx, scratch_area	;; Get address of scratch area
 	lea	esi, [esi+186*blkdst]	;; Create prefetching pointer
-	mov	al, 64			;; 64 iterations 2 iters of 2
+	mov	eax, 64*256		;; 64 iterations 2 iters of 2
 b1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b1b:	x3cl_six_reals_first_fft ecx, 64, 128*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	b1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b1b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128]	;; Next prefetch pointer
-	add	ah, 256/2		;; Test middle loop counter
-	JNC_X	b1b			;; Iterate if necessary
-	lea	esi, [esi+blkdst]	;; Next prefetch pointer
-	sub	al, 1			;; Test loop counter
+	xloop2	b1b, clmblkdst
+	sub	eax, 256		;; Test loop counter
 	JNZ_X	b1a			;; Iterate if necessary
 	lea	ecx, [ecx-128*clmblkdst];; Restore source pointer
 	end_timer 22
@@ -13727,19 +13201,7 @@ level4:	start_timer 23
 	mov	al, 16			;; 16 iterations of 4 iters of 2
 b2a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b2b:	x2cl_eight_reals_fft_2 ecx, 64, 64*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b2b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b2b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128]	;; Next prefetch pointer
-	add	ah, 256/4		;; Test middle loop counter
-	JNC_X	b2b			;; Iterate if necessary
-	lea	esi, [esi+blkdst]	;; Next prefetch pointer
+	xloop4	b2b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b2a			;; Iterate if necessary
 
@@ -13747,7 +13209,7 @@ b2b:	x2cl_eight_reals_fft_2 ecx, 64, 64*clmblkdst
 ;;	distance between fft data elements is 128K
 ;;	do 128 macros each processing 32 data values
 
-	lea	ecx, [ecx-64*clmblkdst+128*clmblkdst];; Next source pointer
+	lea	ecx, [ecx-16*4*clmblkdst+128*clmblkdst];; Next source pointer
 	mov	edi, sincos4		;; Load sin/cos pointer
 	mov	al, 32			;; 32 iterations of 2 iters of 2
 b3a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
@@ -14178,16 +13640,7 @@ c9b:	g2cl_four_complex_unfft esi, 64, blkdst, ecx, 64, clmblkdst
 	mov	al, 2			;; 2 iterations of 2
 c6a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c6b:	x4cl_eight_reals_unfft_2 ecx, 64, 2*clmblkdst, 4*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c6b			;; Iterate if necessary
-	prefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c6b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c6b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	c6a			;; Iterate if necessary
 
@@ -14233,16 +13686,7 @@ c7b:	x4cl_four_complex_unfft ecx, 64, 2*clmblkdst, 4*clmblkdst
 	mov	al, 8			;; 8 iterations of 2
 c4a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c4b:	x4cl_eight_reals_unfft_2 ecx, 64, 8*clmblkdst, 16*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c4b			;; Iterate if necessary
-	prefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c4b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	xloop1	c4b, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	c4a			;; Iterate if necessary
 
@@ -14346,17 +13790,7 @@ c3b:	x4cl_four_complex_unfft ecx, 64, 32*clmblkdst, 64*clmblkdst
 c1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 	xtouch	[esi+(clm-1)*128+blkdst]
 c1b:	x7cl_seven_reals_last_unfft ecx, 64, 64*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	c1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	xprefetcht1 [esi+clm*128+blkdst]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	c1b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+2*blkdst];; Next prefetch pointer
+	xloop1prefetch2 c1b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	c1a			;; Iterate if necessary
 	lea	esi, [esi-293*blkdst]	;; Restore prefetch pointer
@@ -14444,17 +13878,7 @@ yes_fft:start_timer 22
 b1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 	xtouch	[esi+(clm-1)*128+blkdst]
 b1b:	x7cl_seven_reals_first_fft ecx, 64, 64*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	b1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	xprefetcht1 [esi+clm*128+blkdst]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b1b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128+2*blkdst];; Next prefetch pointer
+	xloop1prefetch2 b1b, clmblkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	b1a			;; Iterate if necessary
 	lea	ecx, [ecx-64*clmblkdst]	;; Restore source pointer
@@ -14506,19 +13930,7 @@ b2b:	x1cl_half_eight_reals_fft_2 ecx, 64
 	mov	al, 16			;; 16 iterations of 4 iters of 2
 b3a0:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b3a:	x2cl_four_complex_fft ecx, 64, 64*clmblkdst
-	add	al, 256/2		;; Test inner loop counter
-	JNC_X	b3a			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b3a
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128]	;; Next prefetch pointer
-	add	ah, 256/4		;; Test middle loop counter
-	JNC_X	b3a			;; Iterate if necessary
-	lea	esi, [esi+blkdst]	;; Next prefetch pointer
+	xloop4	b3a, clmblkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b3a0			;; Iterate if necessary
 
@@ -14526,7 +13938,7 @@ b3a:	x2cl_four_complex_fft ecx, 64, 64*clmblkdst
 ;;	distance between fft data elements is 128K
 ;;	do 128 macros each processing 32 data values
 
-	lea	ecx, [ecx-64*clmblkdst+128*clmblkdst];; Next source pointer
+	lea	ecx, [ecx-16*4*clmblkdst+128*clmblkdst];; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
 	mov	al, 32			;; 32 iterations of 2 of 2
 b3:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
@@ -14962,7 +14374,6 @@ c9b:	g2cl_four_complex_unfft esi, 64, blkdst, ecx, 64, clmblkdst
 ;;	do 4 macros each processing 32 data values
 
 	start_timer 17
-					;; 1 iterations of 2 of 2
 	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 c6b:	x4cl_eight_reals_unfft_2 ecx, 64, 2*clmblkdst, 4*clmblkdst
 	xloop2	c6b, clmblkdst
@@ -15187,25 +14598,13 @@ a1b:	g2cl_eight_reals_first_fft esi, 64, 256*blkdst, ecx, 64, 256*clmblkdst
 yes_fft:start_timer 22
 	mov	ecx, scratch_area	;; Get address of scratch area
 	lea	esi, [esi+256*blkdst]	;; Create prefetching pointer
-	mov	al, 64			;; 64 iterations of 4 iters of 2
+	mov	eax, 64*256		;; 64 iterations of 4 iters of 2
 b1a:	xtouch	[esi+(clm-1)*128]	;; Preload TLB
 b1b:	x2cl_eight_reals_first_fft ecx, 64, 256*clmblkdst
-	add	al, 256/2		;; Test loop counter
-	JNC_X	b1b			;; Iterate if necessary
-	xprefetcht1 [esi+clm*128]
-	lea	esi, [esi+128]
-	IF clm NE 1
-	add	dl, 256/clm
-	jnc	b1b
-	ENDIF
-	lea	ecx, [ecx-2*clm*64+clmblkdst];; Next source pointer
-	lea	esi, [esi-clm*128]	;; Next prefetch pointer
-	add	ah, 256/4		;; Test middle loop counter
-	JNC_X	b1b			;; Iterate if necessary
-	lea	esi, [esi+blkdst]	;; Next prefetch pointer
-	sub	al, 1			;; Test loop counter
+	xloop4	b1b, clmblkdst
+	sub	eax, 256		;; Test loop counter
 	JNZ_X	b1a			;; Iterate if necessary
-	lea	ecx, [ecx-256*clmblkdst];; Restore source pointer
+	lea	ecx, [ecx-64*4*clmblkdst];; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 4,5
@@ -15564,9 +14963,60 @@ d9b:	x4cl_four_complex_fft esi, 512*64, 64, 2*64
 	ENDIF
 	ENDM
 
-;; Macro that helps looping.  It is called after a building block macro.
+
+;; Macros that help in looping.  They are called right after a building block
+;; macro.
+
+;; This macro then loops 2*clm times. If prefetching, a prefetch is done
+;; every 2 times the building block macro is called.
+xloop1	MACRO	label2, incr
+	IF clm EQ 1
+	add	al, 256/2/clm		;; Test inner loop counter
+	JNC_X	label2			;; Iterate if necessary
+	lea	ecx, [ecx-2*clm*64+incr];; Next source pointer
+	xprefetcht1 [esi+clm*128]
+	lea	esi, [esi+blkdst]	;; Next prefetch pointer
+	ENDIF
+
+	IF clm GE 2
+	add	al, 256/2		;; Test inner loop counter
+	JNC_X	label2			;; Iterate if necessary
+	xprefetcht1 [esi+clm*128]
+	lea	esi, [esi+128]
+	add	dl, 256/clm
+	jnc	label2
+	lea	ecx, [ecx-2*clm*64+incr];; Next source pointer
+	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	ENDIF
+	ENDM
+
+;; This macro then loops 2*clm times. If prefetching, two prefetches are done
+;; every 2 times the building block macro is called.
+xloop1prefetch2	MACRO label2, incr
+	IF clm EQ 1
+	add	al, 256/2/clm		;; Test inner loop counter
+	JNC_X	label2			;; Iterate if necessary
+	lea	ecx, [ecx-2*clm*64+incr];; Next source pointer
+	xprefetcht1 [esi+clm*128]
+	xprefetcht1 [esi+clm*128+blkdst]
+	lea	esi, [esi+2*blkdst]	;; Next prefetch pointer
+	ENDIF
+
+	IF clm GE 2
+	add	al, 256/2		;; Test inner loop counter
+	JNC_X	label2			;; Iterate if necessary
+	xprefetcht1 [esi+clm*128]
+	xprefetcht1 [esi+clm*128+blkdst]
+	lea	esi, [esi+128]
+	add	dl, 256/clm
+	jnc	label2
+	lea	ecx, [ecx-2*clm*64+incr];; Next source pointer
+	lea	esi, [esi-clm*128+2*blkdst];; Next prefetch pointer
+	ENDIF
+	ENDM
+
 ;; This macro then loops 4*clm times. If prefetching, a prefetch is done
-;; every 4 times the build block macro is called.
+;; every 4 times the building block macro is called.
 xloop2	MACRO	label2, incr
 	IF clm EQ 1
 	add	al, 256/2		;; Test inner loop counter
@@ -15598,6 +15048,44 @@ xloop2	MACRO	label2, incr
 	jnc	label2
 	lea	ecx, [ecx-2*clm*64+incr];; Next source pointer
 	add	ah, 256/2		;; Test middle loop counter
+	JNC_X	label2			;; Iterate if necessary
+	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	ENDIF
+	ENDM
+
+;; This macro then loops 8*clm times. If prefetching, a prefetch is done
+;; every 8 times the building block macro is called.
+xloop4	MACRO	label2, incr
+	IF clm EQ 1
+	add	al, 256/2/clm		;; Test inner loop counter
+	JNC_X	label2			;; Iterate if necessary
+	lea	ecx, [ecx-2*clm*64+incr];; Next source pointer
+	add	dl, 256/4		;; Test outer loop counter
+	JNC_X	label2			;; Iterate if necessary
+	xprefetcht1 [esi+clm*128]
+	lea	esi, [esi+blkdst]	;; Next prefetch pointer
+	ENDIF
+
+	IF clm EQ 2
+	add	al, 256/2/clm		;; Test inner loop counter
+	JNC_X	label2			;; Iterate if necessary
+	lea	ecx, [ecx-2*clm*64+incr];; Next source pointer
+	add	dl, 256/2		;; Test middle loop counter
+	JNC_X	label2			;; Iterate if necessary
+	xprefetcht1 [esi+clm*128]
+	lea	esi, [esi+128]
+	add	ah, 256/2		;; Test outer loop counter
+	JNC_X	label2			;; Iterate if necessary
+	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
+	ENDIF
+
+	IF clm EQ 4
+	add	al, 256/2/clm		;; Test inner loop counter
+	JNC_X	label2			;; Iterate if necessary
+	lea	ecx, [ecx-2*clm*64+incr];; Next source pointer
+	xprefetcht1 [esi+clm*128]
+	lea	esi, [esi+128]
+	add	dl, 256/4		;; Test outer loop counter
 	JNC_X	label2			;; Iterate if necessary
 	lea	esi, [esi-clm*128+blkdst];; Next prefetch pointer
 	ENDIF
