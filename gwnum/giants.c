@@ -1628,7 +1628,7 @@ giant popg (
 static	long	gwnumsize = 0;
 	int	memsize;
 
-	ASSERTG (size > 0);
+	ASSERTG (size >= 0);
 
 /* Initialize the stack if we're just starting out. */
 
