@@ -1323,7 +1323,9 @@ readerr:		sprintf (buf, READFILEERR, filename);
 	      ((pass == 1 && !sequential) || pass == 2) &&
 	      ! IniGetInt (INI_FILE, "SkipTrialFactoring", 0))) &&
 	    (fd == 0 || fftlen == 0) &&
-	    w.bits < factorLimit (w.p, w.work_type)) {
+	    w.bits < factorLimit (w.p,
+			          w.work_type != WORK_PFACTOR ? w.work_type :
+			          w.pminus1ed ? WORK_DBLCHK : WORK_TEST)) {
 		int	res;
 		if (! primeFactor (w.p, w.bits, &res, w.work_type, fd))
 			goto check_stop_code;
