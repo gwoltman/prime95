@@ -22,7 +22,6 @@
 			CharacterSet="2">
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalOptions="/Gs "
 				Optimization="4"
 				InlineFunctionExpansion="1"
 				EnableIntrinsicFunctions="TRUE"
