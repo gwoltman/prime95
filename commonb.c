@@ -1400,7 +1400,7 @@ int exponent_near_fft_limit ()
 	char	pct[30];
 
 	max_exponent = map_fftlen_to_max_exponent (FFTLEN, GW_MERSENNE_MOD);
-	IniGetString (INI_FILE, "NearFFTLimitPct", pct, sizeof(pct), "1.0");
+	IniGetString (INI_FILE, "NearFFTLimitPct", pct, sizeof(pct), "0.5");
 	return (PARG > (100.0 - atof (pct)) / 100.0 * max_exponent);
 }
 
