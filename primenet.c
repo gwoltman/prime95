@@ -46,6 +46,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <errno.h>
 #ifndef __IBMC__
 #include <arpa/inet.h>
 #include <unistd.h>
