@@ -600,7 +600,8 @@ incorrect results.  This won't hurt the GIMPS project since all results
 will be double-checked.  However, you could be wasting your CPU time.
 If you are getting several errors during each primality test, then I
 recommend using your machine to factor Mersenne numbers or run less
-strenuous distributed computing projects at http://www.mersenne.org
+strenuous distributed computing projects at
+http://www.mersenne.org/projects.htm.
 
 
 LUCAS-LEHMER DETAILS
