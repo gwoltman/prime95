@@ -240,7 +240,9 @@ checked for zero and my C compiler returns TRUE for the test NaN == 0.0!<o:p></o
      style='mso-fareast-font-family:"MS Mincho"'>Some prefetching improvements
      were made for the Athlon, Pentium 3, and Celeron 2 processors.<span
      style="mso-spacerun: yes">  </span>You can expect speed improvements
-     between 3% and 10% for most FFT sizes.<o:p></o:p></span></li>
+     between 3% and 10% for most FFT sizes.<span style="mso-spacerun: yes"> 
+     </span>Warning: the new code is slower for Durons and Celeron's with small
+     L2 caches for FFT sizes 1024K and above.<o:p></o:p></span></li>
 </ol>
 
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
@@ -303,9 +305,9 @@ checked for zero and my C compiler returns TRUE for the test NaN == 0.0!<o:p></o
      been recoded for more speed.<span style="mso-spacerun: yes"> 
      </span>WARNING: when continuing from a save file created in stage 2 by a
      previous prime95 version, this version will restart stage 2 from the
-     beginning.<span style="mso-spacerun: yes">  </span>ALSO: the stage 2 P-1 save
-     file format has changed - in dual boot scenarios you must upgrade mprime
-     and prime95 at the same time.<o:p></o:p></span></li>
+     beginning.<span style="mso-spacerun: yes">  </span>ALSO: the stage 2 P-1
+     save file format has changed - in dual boot scenarios you must upgrade
+     mprime and prime95 at the same time.<o:p></o:p></span></li>
 </ol>
 
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
@@ -329,11 +331,11 @@ checked for zero and my C compiler returns TRUE for the test NaN == 0.0!<o:p></o
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=1 type=1>
- <li class=MsoNormal style='mso-list:l4 level1 lfo19;tab-stops:list .5in'>Big SSE2
-     FFTs now take the L2 cache size into account.<span style="mso-spacerun:
-     yes">  </span>P4 Celeron (128KB L2 cache) is faster for FFTs between 512K
-     and 2M.<span style="mso-spacerun: yes">  </span>P4 Northwood (512KB L2
-     cache) is faster for FFTs larger than 1M.</li>
+ <li class=MsoNormal style='mso-list:l4 level1 lfo19;tab-stops:list .5in'>Big
+     SSE2 FFTs now take the L2 cache size into account.<span
+     style="mso-spacerun: yes">  </span>P4 Celeron (128KB L2 cache) is faster
+     for FFTs between 512K and 2M.<span style="mso-spacerun: yes">  </span>P4
+     Northwood (512KB L2 cache) is faster for FFTs larger than 1M.</li>
 </ol>
 
 <p class=MsoNormal><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></p>

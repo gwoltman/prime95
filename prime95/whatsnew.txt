@@ -22,7 +22,8 @@ New features in Version 23.5 of prime95.exe
     with this feature introduced in 23.4.  So, UseFullURL=0 is now the default.
 3)  Some prefetching improvements were made for the Athlon, Pentium 3, and 
     Celeron 2 processors.  You can expect speed improvements between 3%
-    and 10% for most FFT sizes.
+    and 10% for most FFT sizes.  Warning: the new code is slower for Durons
+    and Celeron's with small L2 caches for FFT sizes 1024K and above.
 
 New features in Version 23.4 of prime95.exe
 -------------------------------------------
