@@ -14,7 +14,7 @@ EXTERNC unsigned int CPU_FLAGS = 0;
 int	CPU_L1_CACHE_SIZE = -1;
 EXTERNC int CPU_L2_CACHE_SIZE = -1;
 int	CPU_L1_CACHE_LINE_SIZE = -1;
-int	CPU_L2_CACHE_LINE_SIZE = -1;
+EXTERNC int CPU_L2_CACHE_LINE_SIZE = -1;
 int	CPU_L1_DATA_TLBS = -1;
 int	CPU_L2_DATA_TLBS = -1;
 
@@ -316,10 +316,12 @@ void guessCpuType (void)
 					case 0x03:
 						CPU_L2_DATA_TLBS = 64;
 						break;
+					case 0x06:
 					case 0x0A:
 						CPU_L1_CACHE_SIZE = 8;
 						CPU_L1_CACHE_LINE_SIZE = 32;
 						break;
+					case 0x08:
 					case 0x0C:
 						CPU_L1_CACHE_SIZE = 16;
 						CPU_L1_CACHE_LINE_SIZE = 32;
@@ -355,6 +357,7 @@ void guessCpuType (void)
 						CPU_L2_DATA_TLBS = 64;
 						break;
 					case 0x5C:
+					case 0xB3:
 						CPU_L2_DATA_TLBS = 128;
 						break;
 					case 0x5D:
@@ -376,20 +379,20 @@ void guessCpuType (void)
 					case 0x3B:
 					case 0x79:
 						CPU_L2_CACHE_SIZE = 128;
-						CPU_L2_CACHE_LINE_SIZE = 64;
+						CPU_L2_CACHE_LINE_SIZE = 128;
 						break;
 					case 0x3C:
 					case 0x7A:
 						CPU_L2_CACHE_SIZE = 256;
-						CPU_L2_CACHE_LINE_SIZE = 64;
+						CPU_L2_CACHE_LINE_SIZE = 128;
 						break;
 					case 0x7B:
 						CPU_L2_CACHE_SIZE = 512;
-						CPU_L2_CACHE_LINE_SIZE = 64;
+						CPU_L2_CACHE_LINE_SIZE = 128;
 						break;
 					case 0x7C:
 						CPU_L2_CACHE_SIZE = 1024;
-						CPU_L2_CACHE_LINE_SIZE = 64;
+						CPU_L2_CACHE_LINE_SIZE = 128;
 						break;
 					case 0x82:
 						CPU_L2_CACHE_SIZE = 256;
@@ -406,6 +409,14 @@ void guessCpuType (void)
 					case 0x85:
 						CPU_L2_CACHE_SIZE = 2048;
 						CPU_L2_CACHE_LINE_SIZE = 32;
+						break;
+					case 0x86:
+						CPU_L2_CACHE_SIZE = 512;
+						CPU_L2_CACHE_LINE_SIZE = 64;
+						break;
+					case 0x87:
+						CPU_L2_CACHE_SIZE = 1024;
+						CPU_L2_CACHE_LINE_SIZE = 64;
 						break;
 					}
 				}

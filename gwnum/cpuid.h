@@ -23,7 +23,7 @@ EXTERNC unsigned int CPU_FLAGS;		/* Cpu capabilities */
 extern int CPU_L1_CACHE_SIZE;
 EXTERNC int CPU_L2_CACHE_SIZE;
 extern int CPU_L1_CACHE_LINE_SIZE;
-extern int CPU_L2_CACHE_LINE_SIZE;
+EXTERNC int CPU_L2_CACHE_LINE_SIZE;
 extern int CPU_L1_DATA_TLBS;
 extern int CPU_L2_DATA_TLBS;
 
