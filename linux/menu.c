@@ -401,8 +401,8 @@ void rangeStatus (void)
 	char	buf[2000];
 
 	rangeStatusMessage (buf);
+	strcat (buf, "\n");
 	outputLongLine (buf);
-	askOK ();
 }
 
 /* Advanced/Test dialog */
@@ -851,6 +851,7 @@ loop:	printf ("\n");
 
 	case 4:
 		rangeStatus ();
+		askOK ();
 		break;
 
 /* Test/Continue */

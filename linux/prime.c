@@ -262,9 +262,18 @@ int main (
 
 		case 'M':
 		case 'm':
-			MENUING = TRUE;
+			MENUING = 1;
 			NO_GUI = FALSE;
 			break;
+
+/* -S - status */
+
+		case 'S':
+		case 's':
+			MENUING = 2;
+			NO_GUI = FALSE;
+			break;
+		  
 
 /* -T - Torture test */
 
@@ -364,7 +373,7 @@ int main (
 		if (USE_PRIMENET || IniGetNumLines (WORKTODO_FILE)) {
 			IniWriteInt (INI_FILE, "StressTester", 0);
 		} else {
-			MENUING = TRUE;
+			MENUING = 1;
 			VERBOSE = TRUE;
 			NO_GUI = FALSE;
 		}
@@ -403,8 +412,11 @@ int main (
 
 /* Bring up the main menu */
 
-	else if (MENUING)
+	else if (MENUING == 1)
 		main_menu ();
+	else if (MENUING == 2)
+		rangeStatus();
+	
 
 /* Continue testing */
 
@@ -417,11 +429,12 @@ int main (
 
 /* Invalid args message */
 
-usage:	printf ("Usage: mprime [-cdhmtv] [-aN] [-b[N]] [-wDIR]\n");
+usage:	printf ("Usage: mprime [-cdhmstv] [-aN] [-b[N]] [-wDIR]\n");
 	printf ("-c\tContact the PrimeNet server, then exit.\n");
 	printf ("-d\tPrint detailed information to stdout.\n");
 	printf ("-h\tPrint this.\n");
 	printf ("-m\tMenu to configure mprime.\n");
+	printf ("-s\tDisplay status.\n");
 	printf ("-t\tRun the torture test.\n");
 	printf ("-v\tPrint the version number.\n");
 	printf ("-aN\tUse an alternate set of INI and output files.\n");
