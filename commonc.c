@@ -3011,7 +3011,10 @@ loop:	time (&this_time);
 						WORK_PFACTOR :
 			      (pkt1.requestType == PRIMENET_ASSIGN_TEST) ?
 						WORK_TEST : WORK_DBLCHK;
+		w.k = 1.0;
+		w.b = 2;
 		w.n = pkt1.exponent;
+		w.c = -1;
 		w.bits = (unsigned int) pkt1.how_far_factored;
 		/* Kludge that uses 0.5 to indicate P-1 factoring has been done */
 		w.pminus1ed = (pkt1.how_far_factored - (double) w.bits) == 0.5;
