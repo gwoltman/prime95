@@ -2183,9 +2183,11 @@ _close (fd);
 /* Delete the continuation files - assuming the results file write */
 /* was successful. */
 
-	if (rc) _unlink (filename);
-	filename[0] = 'q';
-	_unlink (filename);
+	if (!isPrime || isKnownMersennePrime (p)) {
+		if (rc) _unlink (filename);
+		filename[0] = 'q';
+		_unlink (filename);
+	}
 
 /* Clear prime from the to-do list */
 
