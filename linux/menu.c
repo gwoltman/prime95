@@ -527,6 +527,30 @@ void advanced_priority (void)
 	}
 }
 
+/* Advanced/Affinity dialog */
+
+void advanced_affinity (void)
+{
+	int	m_all_cpus;
+	unsigned long m_cpu;
+
+	m_all_cpus = (CPU_AFFINITY == 99);
+	m_cpu = CPU_AFFINITY;
+
+	outputLongLine ("On multi-CPU systems, performance will be enhanced if you assign each instance of the program to run on a specific CPU.\n");
+	outputLongLine ("For example, if you have a dual-CPU machine, run one instance of mprime on CPU 0, run another instance on CPU 1.\n");
+
+	askYN ("Let program run on any CPU", &m_all_cpus);
+	if (!m_all_cpus)
+		askNum ("Specific CPU to run on", &m_cpu, 0, 31);
+
+	if (askOkCancel ()) {
+		if (m_all_cpus) CPU_AFFINITY = 99;
+		else CPU_AFFINITY = m_cpu;
+		IniWriteInt (LOCALINI_FILE, "Affinity", CPU_AFFINITY);
+	}
+}
+
 /* Advanced/Manual Communication dialog */
 
 void advanced_manualcomm (void)
@@ -804,18 +828,19 @@ loop:	printf ("\n");
 	printf ("\t 9.  Advanced/P-1\n");
 	printf ("\t10.  Advanced/ECM\n");
 	printf ("\t11.  Advanced/Priority\n");
-	printf ("\t12.  Advanced/Manual Communication\n");
-	printf ("\t13.  Advanced/Unreserve Exponent\n");
-	printf ("\t14.  Advanced/Quit Gimps\n");
-	printf ("\t15.  Options/CPU\n");
-	printf ("\t16.  Options/Preferences\n");
-	printf ("\t17.  Options/Torture Test\n");
-	printf ("\t18.  Options/Benchmark\n");
-	printf ("\t19.  Help/About\n");
-	printf ("\t20.  Help/About PrimeNet Server\n");
+	printf ("\t12.  Advanced/Affinity\n");
+	printf ("\t13.  Advanced/Manual Communication\n");
+	printf ("\t14.  Advanced/Unreserve Exponent\n");
+	printf ("\t15.  Advanced/Quit Gimps\n");
+	printf ("\t16.  Options/CPU\n");
+	printf ("\t17.  Options/Preferences\n");
+	printf ("\t18.  Options/Torture Test\n");
+	printf ("\t19.  Options/Benchmark\n");
+	printf ("\t20.  Help/About\n");
+	printf ("\t21.  Help/About PrimeNet Server\n");
 	printf ("Your choice: ");
 	choice = get_number (0);
-	if (choice <= 0 || choice >= 21) {
+	if (choice <= 0 || choice >= 22) {
 		printf ("\t     Invalid choice\n");
 		goto loop;
 	}
@@ -874,7 +899,7 @@ loop:	printf ("\n");
 		advanced_time ();
 		break;
 
-/* Advanced/ECM dialog */
+/* Advanced/P-1 dialog */
 
 	case 9:
 		advanced_pminus1 ();
@@ -892,59 +917,65 @@ loop:	printf ("\n");
 		advanced_priority ();
 		break;
 
-/* Advanced/Manual Communication dialog */
+/* Advanced/Affinity dialog */
 
 	case 12:
+		advanced_affinity ();
+		break;
+
+/* Advanced/Manual Communication dialog */
+
+	case 13:
 		advanced_manualcomm ();
 		break;
 
 /* Advanced/Unreserve exponent dialog */
 
-	case 13:
+	case 14:
 		advanced_unreserve ();
 		break;
 
 /* Advanced/Quit Gimps dialog */
 
-	case 14:
+	case 15:
 		advanced_quit ();
 		break;
 
 /* Options/CPU dialog */
 
-	case 15:
+	case 16:
 		options_cpu ();
 		break;
 
 /* Options/Preferences dialog */
 
-	case 16:
+	case 17:
 		options_preferences ();
 		break;
 
 /* Options/Torture Test */
 
-	case 17:
+	case 18:
 		selfTest (1);
 		askOK ();
 		break;
 
 /* Options/Benchmark Test */
 
-	case 18:
+	case 19:
 		primeBench ();
 		askOK ();
 		break;
 
 /* Help/About */
 
-	case 19:
+	case 20:
 		help_about ();
 		break;
 
 /* Help/About PrimeNet Server */
 
-	case 20:
+	case 21:
 		help_about_server ();
 		break;
 	}

@@ -428,7 +428,6 @@ int main (
 	else if (MENUING == 2)
 		rangeStatus();
 	
-
 /* Continue testing */
 
 	else
@@ -663,9 +662,20 @@ void linuxContinue (
 	if (error_message != NULL) printf ("%s", error_message);
 	return;
 
-/* All is OK.  Save our pid, run, then delete our pid */
+/* All is OK, set affinity before running mprime. */
 
-ok:	IniWriteInt (LOCALINI_FILE, "Pid", my_pid);
+ok:
+#ifdef __linux__
+	{
+		int	affinity_mask;
+		affinity_mask = (CPU_AFFINITY == 99) ? -1 : (1 << CPU_AFFINITY);
+		sched_setaffinity (0, sizeof (affinity_mask), &affinity_mask);
+	}
+#endif
+
+/* Save our pid, run, then delete our pid */
+
+	IniWriteInt (LOCALINI_FILE, "Pid", my_pid);
 	primeContinue ();
 	IniWriteInt (LOCALINI_FILE, "Pid", 0);
 }
