@@ -1,5 +1,5 @@
 //{{NO_DEPENDENCIES}}
-// Microsoft Developer Studio generated include file.
+// Microsoft Visual C++ generated include file.
 // Used by Prime95.rc
 //
 #define IDH_PRIMENET                    11
@@ -52,6 +52,10 @@
 #define IDI_YELLOW_ICON                 153
 #define IDD_WELCOME                     153
 #define IDD_UNRESERVE                   154
+#define IDR_TRAYMENU                    156
+#define ID_OPEN_EXIT                    157
+#define ID_TRAY_RESTORE                 158
+#define ID_DUMMY_SAD                    159
 #define IDC_CHECK1                      1000
 #define IDC_LL                          1000
 #define IDC_NOISE                       1000
@@ -152,14 +156,15 @@
 #define IDM_UNRESERVE                   32805
 #define USR_WELCOME                     32806
 #define IDM_BENCHMARK                   32807
+#define IDM_TRAY_OPEN                   32808
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_3D_CONTROLS                     1
-#define _APS_NEXT_RESOURCE_VALUE        155
-#define _APS_NEXT_COMMAND_VALUE         32808
+#define _APS_NEXT_RESOURCE_VALUE        160
+#define _APS_NEXT_COMMAND_VALUE         32809
 #define _APS_NEXT_CONTROL_VALUE         1058
 #define _APS_NEXT_SYMED_VALUE           102
 #endif

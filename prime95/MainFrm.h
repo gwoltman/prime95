@@ -41,6 +41,8 @@ protected:
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg void OnEndSession(BOOL bEnding);
 	afx_msg void OnActivateApp(BOOL bActive, DWORD hTask);
+	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
+	afx_msg void OnTrayOpenWindow();
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };

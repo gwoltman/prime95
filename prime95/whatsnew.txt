@@ -7,6 +7,9 @@ New features in Version 22.4 of prime95.exe
     was fixed.
 3)  Prime95 now properly detects if the program is running by another
     logged in Windows XP user.
+4)  When Tray Icon or Hide Icon is set, the "X" in the upper right corner
+    no longer closes prime95 rather it minimizes it.  Also right clicking
+    the tray icon now brings up a popup menu.
 
 New features in Version 22.3 of prime95.exe
 -------------------------------------------

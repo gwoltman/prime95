@@ -125,6 +125,15 @@ BEGIN
     END
 END
 
+IDR_TRAYMENU MENU 
+BEGIN
+    POPUP "Dummy"
+    BEGIN
+        MENUITEM "Open Window",                 IDM_TRAY_OPEN
+        MENUITEM "Exit",                        ID_APP_EXIT
+    END
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -678,7 +687,7 @@ END
 STRINGTABLE 
 BEGIN
     ID_APP_ABOUT            "Display program information, version number and copyright\nAbout"
-    ID_APP_EXIT             "Quit the application; prompts to save documents\nExit"
+    ID_APP_EXIT             "Quit the application\nExit"
     ID_HELP_INDEX           "Opens Help\nHelp Topics"
     ID_HELP_FINDER          "List Help topics\nHelp Topics"
     ID_HELP_USING           "Display instructions about how to use help\nHelp"

@@ -25,11 +25,13 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_WM_ENDSESSION()
 	ON_WM_ACTIVATEAPP()
 	//}}AFX_MSG_MAP
+	ON_WM_SYSCOMMAND()
 	// Global help commands
 	ON_COMMAND(ID_HELP_FINDER, CFrameWnd::OnHelpFinder)
 	ON_COMMAND(ID_HELP, CFrameWnd::OnHelp)
 	ON_COMMAND(ID_CONTEXT_HELP, CFrameWnd::OnContextHelp)
 	ON_COMMAND(ID_DEFAULT_HELP, CFrameWnd::OnHelpFinder)
+	ON_COMMAND(IDM_TRAY_OPEN, OnTrayOpenWindow)
 	ON_MESSAGE(WM_POWERBROADCAST, OnPower)
 	ON_MESSAGE(MYWM_TRAYMESSAGE, OnTrayMessage)
 END_MESSAGE_MAP()
@@ -40,7 +42,6 @@ END_MESSAGE_MAP()
 CMainFrame::CMainFrame()
 {
 	// TODO: add member initialization code here
-	
 }
 
 CMainFrame::~CMainFrame()
@@ -87,17 +88,51 @@ LONG CMainFrame::OnPower(UINT uID, LONG uMouseMsg)
 
 LONG CMainFrame::OnTrayMessage(UINT uID, LONG uMouseMsg)
 {
-	if (uID == 352 && uMouseMsg == WM_LBUTTONDBLCLK)
+	if (uID == 352 && uMouseMsg == WM_LBUTTONDBLCLK) {
 		if (IsWindowVisible())
 			ShowWindow(FALSE);	// hide it
 		else {
 			ShowWindow(TRUE);	// show it
 			SetForegroundWindow();
 		}
+	}
+
+	if (uID == 352 && uMouseMsg == WM_RBUTTONUP) {
+		POINT	point;
+		HMENU	hMenu, hSubMenu;
+
+		GetCursorPos (&point);		// Get cursor location
+		hMenu = LoadMenu (AfxGetApp()->m_hInstance,
+				  MAKEINTRESOURCE (IDR_TRAYMENU));
+		hSubMenu = GetSubMenu (hMenu, 0);
+		if (!IsIconic ()) {
+			MENUITEMINFO m;
+			m.cbSize = sizeof (m);
+			m.fMask = MIIM_STRING;
+			m.fType = MFT_STRING;
+			m.dwTypeData = "Minimize Window";
+			m.cch = strlen (m.dwTypeData);
+			SetMenuItemInfo (hSubMenu, IDM_TRAY_OPEN, FALSE, &m);
+		}
+		SetMenuDefaultItem (hSubMenu, IDM_TRAY_OPEN, FALSE);
+		SetForegroundWindow ();	// Per KB Article Q135788
+		TrackPopupMenu (hSubMenu,
+			TPM_LEFTBUTTON | TPM_RIGHTBUTTON | TPM_LEFTALIGN,
+			point.x, point.y, 0, m_hWnd, NULL);
+		PostMessage (WM_NULL, 0, 0);// Per KB Article Q135788
+		DestroyMenu (hMenu);
+	}
 
 	return 0;
 }
 
+void CMainFrame::OnTrayOpenWindow() 
+{
+	if (IsIconic ())
+		PostMessage (WM_SYSCOMMAND, SC_RESTORE, 0L);
+	else
+		PostMessage (WM_SYSCOMMAND, SC_MINIMIZE, 0L);
+}
 
 BOOL CMainFrame::DestroyWindow() 
 {
@@ -269,4 +304,15 @@ void CMainFrame::OnActivateApp(BOOL bActive, DWORD hTask)
 		AfxGetApp()->m_pMainWnd->PostMessage (WM_COMMAND, USR_BROADCAST, 0);
 	}
 	CFrameWnd::OnActivateApp(bActive, hTask);
+}
+
+void CMainFrame::OnSysCommand(UINT nID, LPARAM lParam)
+{
+	if ((nID & 0xFFF0) == SC_CLOSE) {
+		if (TRAY_ICON || HIDE_ICON) {
+			ShowWindow (FALSE);		// Minimize instead
+			return;
+		}
+	}
+	CFrameWnd::OnSysCommand (nID, lParam);
 }
