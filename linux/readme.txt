@@ -6,7 +6,7 @@ http://www.mersenne.org/prize.htm
 
 In case you ever forget, the URL is http://www.mersenne.org/prime.htm.
 My email address is woltman@alum.mit.edu.  For networking questions,
-contact Scott Kurowski's technical support team at primenet@entropia.com.
+contact Scott Kurowski's technical support team at primenet@mersenne.org.
 
 
 FILE LIST
@@ -125,7 +125,7 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
 MANUAL METHOD INSTRUCTIONS
 --------------------------
 
-1)  Use the Web (http://entropia.com/ips/manualtests.html) to create
+1)  Use the Web (http://mersenne.org/ips/manualtests.html) to create
     a userid for yourself and to get a set of exponents to work on.
     Alternatively, you can get some work from
     http://www.mersenne.org/range2.htm.  Copy these exponents to a
@@ -169,7 +169,7 @@ You can compare your computer's speed with other users by checking the
 site http://www2.tripnet.se/~nlg/mersenne/benchmk.htm.
 
 You can get a report of your PrimeNet server account status on the web
-(http://entropia.com/primenet/status.shtml).  Type your UserID and
+(http://mersenne.org/primenet/status.shtml).  Type your UserID and
 password into the web form, and click "Get Account Report".  You can
 get your UserID and password from the Test/User Information
 dialog box.
@@ -220,7 +220,7 @@ SETTING UP A PROXY SERVER
 -------------------------
 
 For the latest information on this and other networking issues visit
-the FAQ at http://www.entropia.com/ips/faq.html
+the FAQ at http://mersenne.org/ips/faq.html
 
 Create a file called "primenet.ini" in the same directory as mprime.
 Add the line "ProxyHost=foo.com:1234" where foo.com is the proxy and

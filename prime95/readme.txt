@@ -6,7 +6,7 @@ http://www.mersenne.org/prize.htm
 
 In case you ever forget, the URL is http://www.mersenne.org/prime.htm.
 My email address is woltman@alum.mit.edu.  For networking questions,
-contact Scott Kurowski's technical support team at primenet@entropia.com.
+contact Scott Kurowski's technical support team at primenet@mersenne.org.
 
 
 FILE LIST
@@ -105,7 +105,7 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
 MANUAL METHOD INSTRUCTIONS
 --------------------------
 
-1)  Use the Web (http://entropia.com/ips/manualtests.html) to create
+1)  Use the Web (http://mersenne.org/ips/manualtests.html) to create
     a userid for yourself and to get a set of exponents to work on.
     Alternatively, you can get some work from
     http://www.mersenne.org/range2.htm.  Copy these exponents to a
@@ -157,14 +157,14 @@ TaskInfo2002, http://www.iarsn.com/) that can find programs that are
 stealing prime95's CPU cycles.
 
 You can get a report of your PrimeNet server account status on the web
-(http://entropia.com/primenet/status.shtml).  Type your UserID and
+(http://mersenne.org/primenet/status.shtml).  Type your UserID and
 password into the web form, and click "Get Account Report".  You can
 get your UserID and password from the Test/User Information
 dialog box.
 
 Information about running a local PrimeNet server is also available.
-See http://entropia.com/primenet.  If you have any questions about the
-PrimeNet server, you can send e-mail to primenet@entropia.com.
+See http://mersenne.org/primenet.  If you have any questions about the
+PrimeNet server, you can send e-mail to primenet@mersenne.org.
 
 Before testing an exponent, the program may perform an hour long
 self-test to make sure the Lucas-Lehmer code is running properly
@@ -210,7 +210,7 @@ SETTING UP A PROXY SERVER
 -------------------------
 
 For the latest information on this and other networking issues visit
-the FAQ at http://www.entropia.com/ips/faq.html
+the FAQ at http://mersenne.org/ips/faq.html
 
 Create a file in the same local folder as Prime95.exe, called "primenet.ini".
 Add these text lines, substituting the appropriate proxy server URL and port:

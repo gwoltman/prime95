@@ -3,7 +3,7 @@ Research Computing Software v23.4
 
 END USER LICENSE AGREEMENT
 
-It is up to you to get your employer's permission before installing this software on any office machines.  Many companies have a strict policy against running any non-business software, however hundreds of companies and other large organizations are participating successfully in the GIMPS research project.  Your network administrator, MIS or IT manager is welcome to contact us about this software at primenet@entropia.com.
+It is up to you to get your employer's permission before installing this software on any office machines.  Many companies have a strict policy against running any non-business software, however hundreds of companies and other large organizations are participating successfully in the GIMPS research project.  Your network administrator, MIS or IT manager is welcome to contact us about this software at primenet@mersenne.org.
 
 Every effort has been made to ensure that you will be assigned an exponent that no one else has tested or is testing.  We are not responsible for lost prize money, fame, credit, etc. should someone accidentally or maliciously test the number you are working on and find it to be prime.  We are not responsible should the program determine a number composite even though it is prime - the program's heavy use of memory and FPU could trigger an error that goes undetected. 
 
