@@ -2473,6 +2473,7 @@ int lucas_QA (
 		unsigned long reshi, reslo;
 		unsigned long i, word, bit_in_word, maxerrcnt;
 		double	maxsumdiff, maxerr, toterr, M, S;
+		unsigned long ge_300, ge_325, ge_350, ge_375, ge_400;
 /*		unsigned long bins[501]; */
 		gwnum	t1, t2;
 		unsigned int iters_unchecked;
@@ -2488,6 +2489,7 @@ int lucas_QA (
 
 		lucasSetup (p, fftlen);
 		maxsumdiff = 0.0;
+		ge_300 = ge_325 = ge_350 = ge_375 = ge_400 = 0;
 		maxerr = 0.0; maxerrcnt = 0; toterr = 0.0;
 /*		memset (bins, 0, sizeof (bins)); */
 		iters_unchecked = (type >= 2) ? 12 : (type >= 1) ? 5 : 40;
@@ -2596,6 +2598,14 @@ int lucas_QA (
 				}
 			}
 
+/* Maintain range info */
+
+			if (MAXERR >= 0.300) ge_300++;
+			if (MAXERR >= 0.325) ge_325++;
+			if (MAXERR >= 0.350) ge_350++;
+			if (MAXERR >= 0.375) ge_375++;
+			if (MAXERR >= 0.400) ge_400++;
+
 /* Maintain maximum error info */
 
 			if (MAXERR > maxerr) maxerr = MAXERR, maxerrcnt = 1;
@@ -2685,8 +2695,10 @@ int lucas_QA (
 
 /* Output message */
 
-		sprintf (buf, "Exp/iters: %lu/%lu, res: %08X%08X, maxerr: %6.6f/%lu, maxdiff: %9.9f/%9.9f\n",
-			 p, iters, reshi, reslo, maxerr, maxerrcnt, maxsumdiff, MAXDIFF);
+		sprintf (buf, "Exp/iters: %lu/%lu, res: %08X%08X, maxerr: %6.6f/%lu, %lu/%lu/%lu/%lu/%lu, maxdiff: %9.9f/%9.9f\n",
+			 p, iters, reshi, reslo, maxerr, maxerrcnt,
+			 ge_300, ge_325, ge_350, ge_375, ge_400,
+			 maxsumdiff, MAXDIFF);
 		OutputBoth (buf);
 	}
 	fclose (fd);
