@@ -1540,7 +1540,7 @@ int fastIsPRP (
 	int	retval;
 	double	bits;
 
-//k=1.0;n=216091;c=-1;
+//k=63487503855107.0;n=111125;c=1;
 
 /* Compute the number we are testing */
 
@@ -1579,7 +1579,7 @@ int slowIsPRP (
 /* Setup the gwnum code */
 
 	do {
-		gwsetup_general_mod (N, 0);
+		gwsetup_general_mod_giant (N, 0);
 		strcpy (GWSTRING_REP, str);
 
 /* Do the PRP test */

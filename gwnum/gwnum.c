@@ -1515,7 +1515,7 @@ void gwsetup (
 		power (g, n);
 		dblmulg (k, g);
 		iaddg (c, g);
-		gwsetup_general_mod (g, fftlen);
+		gwsetup_general_mod_giant (g, fftlen);
 		free (g);
 	}
 
@@ -1529,6 +1529,18 @@ void gwsetup (
 /* Only choose a specific FFT size if you know what you are doing!! */
 
 void gwsetup_general_mod (
+	unsigned long *array,	/* The modulus as an array of longs */
+	unsigned long arraylen,	/* The number of longs in the array */
+	unsigned long fftlen)	/* Zero or specific FFT size to use. */
+{
+	giantstruct tmp;
+	tmp.sign = arraylen;
+	tmp.n = array;
+	while (tmp.sign && tmp.n[tmp.sign-1] == 0) tmp.sign--;
+	gwsetup_general_mod_giant (&tmp, fftlen);
+}
+
+void gwsetup_general_mod_giant (
 	giant	n,		/* The modulus */
 	unsigned long fftlen)	/* Zero or specific FFT size to use. */
 {
@@ -3241,7 +3253,21 @@ void dbltogw (double d, gwnum g)
 	gianttogw (&tmp, g);
 }
 
-/* Convert a giant to the gwnum FFT format.  Giant must be a positive number. */
+/* Convert a binary value to a gwnum */
+
+void binarytogw (
+	unsigned long *array,	/* Array containing the binary value */
+	unsigned long arraylen,	/* Length of the array */
+	gwnum	n)		/* Destination gwnum */
+{
+	giantstruct tmp;
+	tmp.sign = arraylen;
+	tmp.n = array;
+	while (tmp.sign && tmp.n[tmp.sign-1] == 0) tmp.sign--;
+	gianttogw (&tmp, n);
+}
+
+/* Convert a giant to gwnum FFT format.  Giant must be a positive number. */
 
 void gianttogw (
 	giant	a,
@@ -3344,7 +3370,28 @@ void gianttogw (
 	if (KARG > 1.0) pushg (1);
 }
 
-/* Convert a gwnum value to giant */
+/* Convert a gwnum to a binary value.  Returns the number of longs */
+/* written to the array.  The array is NOT zero-padded. */
+
+unsigned long gwtobinary (
+	gwnum	n,		/* Source gwnum */
+	unsigned long *array,	/* Array to contain the binary value */
+	unsigned long arraylen)	/* Maximum size of the array */
+{
+	giant	tmp;
+
+	tmp = popg ((PARG >> 5) + 5);
+	gwtogiant (n, tmp);
+	ASSERTG ((unsigned long) tmp->sign >= arraylen);
+	memcpy (array, tmp->n, tmp->sign * sizeof (unsigned long));
+	pushg (1);
+	return (tmp->sign);
+}
+
+/* Convert a gwnum to a giant.  WARNING: Caller must allocate an array that */
+/* is several words larger than the maximum result that can be returned. */
+/* This is a gross kludge that lets gwtogiant use the giant for intermediate */
+/* calculations. */
 
 void gwtogiant (
 	gwnum	gg,

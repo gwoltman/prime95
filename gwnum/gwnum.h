@@ -20,15 +20,6 @@
 #include "gwrename.h"
 #endif
 
-/* The giants library from Dr. Richard Crandall, Perfectly Scientific, */
-/* is used for a few infrequent operations.  It is also used in the */
-/* interface to convert from gwnum data type to binary.  I do not recommend */
-/* you use this library as there are faster ones available.  You'll need to */
-/* look at the giants include file only to understand the very simple giant */
-/* data type to convert a gwnum to and from binary. */
-
-#include "giants.h"
-
 /* The gwnum data type.  A gwnum points to an array of doubles - the */
 /* FFT data.  In practice, there is data stored before the doubles. */
 /* See the internals section below if you really must know. */
@@ -64,10 +55,14 @@ typedef double *gwnum;
 /* Only choose a specific FFT size if you know what you are doing!! */
 
 /* The maximum k supported seems to be 50 bits.  However, if you use */
-/* gwsetmulbyconst, then k * const must be 50 bits in size. */
+/* gwsetmulbyconst, then k * const must not exceed 50 bits in size. */
 
 /* The maximum c supported seems to be about 20 bits.  However, if you use */
-/* gwsetmulbyconst, then c * const must be 20 bits or less. */
+/* gwsetmulbyconst, then c * const must not exceed 20 bits or less. */
+
+/* WARNING: The maximum supported k and c values has not been studied. */
+/* You will not get any warning when using a k or c value that is too large, */
+/* you will just get incorrect results. */
 
 void gwsetup (
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
@@ -81,7 +76,8 @@ void gwsetup (
 /* Only choose a specific FFT size if you know what you are doing!! */
 
 void gwsetup_general_mod (
-	giant n,		/* The modulus */
+	unsigned long *array,	/* The modulus as an array of longs */
+	unsigned long arraylen,	/* The number of longs in the array */
 	unsigned long fftlen);	/* Zero or specific FFT size to use. */
 
 /* This setup routine is for operations without a modulo. In essence, */
@@ -116,11 +112,18 @@ void gwfreeall (void);
 /* Convert a double (must be an integer) to a gwnum */
 void dbltogw (double, gwnum);
 
-/* Convert a giant to a gwnum */
-void gianttogw (giant, gwnum);
+/* Convert a binary value to a gwnum */
+void binarytogw (
+	unsigned long *array,	/* Array containing the binary value */
+	unsigned long arraylen,	/* Length of the array */
+	gwnum	n);		/* Destination gwnum */
 
-/* Convert a gwnum to a giant */
-void gwtogiant (gwnum, giant);
+/* Convert a gwnum to a binary value.  Returns the number of longs */
+/* written to the array.  The array is NOT zero-padded. */
+unsigned long gwtobinary (
+	gwnum	n,		/* Source gwnum */
+	unsigned long *array,	/* Array to contain the binary value */
+	unsigned long arraylen);/* Maximum size of the array */
 
 /*---------------------------------------------------------------------+
 |                          GWNUM MATH OPERATIONS                       |
@@ -324,6 +327,32 @@ void gw_as_string(char *buf, double k, unsigned long b, unsigned long n,
 #define gwmodulo_as_string()	(GWSTRING_REP)
 
 /*---------------------------------------------------------------------+
+|                 ALTERNATIVE INTERFACES USING GIANTS                  |
++---------------------------------------------------------------------*/
+
+/* The giants library from Dr. Richard Crandall, Perfectly Scientific, */
+/* is used internally for a few infrequent operations.  It can optionally */
+/* be used in the interfaces to convert between gwnum data type and binary. */
+/* I do not recommend this.  There are many other faster and more robust */
+/* libraries available. */
+
+#include "giants.h"
+
+/* Same as gwsetup_general_mod but uses giants */
+void gwsetup_general_mod_giant (
+	giant n,		/* The modulus */
+	unsigned long fftlen);	/* Zero or specific FFT size to use. */
+
+/* Convert a giant to a gwnum */
+void gianttogw (giant, gwnum);
+
+/* Convert a gwnum to a giant.  WARNING: Caller must allocate an array that */
+/* is several words larger than the maximum result that can be returned. */
+/* This is a gross kludge that lets gwtogiant use the giant for intermediate */
+/* calculations. */
+void gwtogiant (gwnum, giant);
+
+/*---------------------------------------------------------------------+
 |                             GWNUM INTERNALS                          |
 +---------------------------------------------------------------------*/
 
@@ -428,7 +457,7 @@ EXTERNC void emulsubhlp (void);
 #define muladd2hlp(a,b)	{SRCARG=(void*)a; SRC2ARG=(void*)b; emuladd2hlp();}
 #define mulsubhlp(a,b)	{SRCARG=(void*)a; SRC2ARG=(void*)b; emulsubhlp();}
 
-/* Specialized routines that let the giants code share the free */
+/* Specialized routines that let the internal giants code share the free */
 /* memory pool used by gwnums. */
 
 void gwfree_temporarily (gwnum);
@@ -438,3 +467,4 @@ void gwrealloc_temporarily (gwnum);
 
 unsigned long addr_offset (unsigned long, unsigned long);
 EXTERNC void eset_mul_const (void);
+
