@@ -785,8 +785,8 @@ int checkPauseList ()
 	fd = popen ("ps -eo comm", "r");
 	if (fd != NULL) {
 		while (fgets (buf, sizeof (buf), fd) != NULL) {
-			int	len;
-			while (len && isspace (buf[len-1)) buf[--len] == 0;
+			int	len = strlen (buf);
+			while (len && isspace (buf[len-1])) buf[--len] = 0;
 			if (isInPauseList (buf)) {
 				fclose (fd);
 				return (TRUE);
