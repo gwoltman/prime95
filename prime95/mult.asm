@@ -460,6 +460,8 @@ PUBLIC	XMM_P404
 PUBLIC	XMM_P975
 PUBLIC	XMM_P445
 PUBLIC	XMM_P180
+PUBLIC	XMM_P434
+PUBLIC	XMM_M223
 
 ;
 ; Global variables needed in multiplication routines
@@ -622,6 +624,8 @@ XMM_P404	DQ	4.04, 4.04
 XMM_P975	DQ	0.975, 0.975
 XMM_P445	DQ	0.445, 0.445
 XMM_P180	DQ	1.80, 1.80
+XMM_P434	DQ	0.434, 0.434
+XMM_M223	DQ	-0.223, -0.223
 
 PUBLIC	asm_timers
 asm_timers	DD	32 DUP (0)
@@ -2749,6 +2753,8 @@ _timeit	PROC NEAR
 	push	ebx
 
 	sub	eax, eax
+	sub	ebx, ebx
+	sub	ebp, ebp
 	sub	ecx, ecx
 
 	subpd	xmm0, xmm0
@@ -2760,7 +2766,7 @@ _timeit	PROC NEAR
 	subpd	xmm6, xmm6
 	subpd	xmm7, xmm7
 
-
+IFDEF TIMING_SNIPET
 	mov	eax, 10000
 qqq:	movdqa	xmm0, xmm1
 	movdqa	xmm1, xmm2
@@ -2772,7 +2778,17 @@ qqq:	movdqa	xmm0, xmm1
 	dec	eax
 	jnz	short qqq
 	jmp	exit
-	
+ENDIF
+
+	mov	eax, 1000
+ppp:	mov	edi, _SRCARG
+	mov	ecx, 10
+qqq:	x7cl_seven_reals_first_fft edi, 8*64, 64
+	dec	ecx
+	jnz	qqq
+	dec	eax
+	jnz	ppp
+	jmp	exit
 
 IFDEF LUCASING
 	mov	eax, _DESTARG

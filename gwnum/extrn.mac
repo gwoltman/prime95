@@ -1,4 +1,4 @@
-; Copyright 1995-2001 Just For Fun Software, Inc., all rights reserved
+; Copyright 1995-2003 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -160,7 +160,7 @@ EXTRN	XMM_P404:QWORD
 EXTRN	XMM_P975:QWORD
 EXTRN	XMM_P445:QWORD
 EXTRN	XMM_P180:QWORD
-
-
+EXTRN	XMM_P434:QWORD
+EXTRN	XMM_M223:QWORD
 
 EXTRN asm_timers:DWORD

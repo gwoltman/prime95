@@ -4,9 +4,10 @@ New features in Version 23.1 of prime95.exe
 1)  Big SSE2 FFTs now take the L2 cache size into account.  P4 Celeron (128KB
     L2 cache) is faster for FFTs between 512K and 2M.  P4 Northwood (512KB
     L2 cache) is faster for FFTs larger than 1M.
-2)  Benchmark no longer times 256K and 320K FFTs, but will time 2048K FFT.
+2)  Benchmark no longer times 256K and 320K FFTs, but does time 2048K FFT.
 3)  Support for torture testing FFT sizes from 1280K to 4096K added.
 4)  A 900 MHz P-III is now required to get first time LL tests by default.
+5)  Slightly faster SSE2 FFTs for lengths of 5*2^N and 7*2^N (e.g. 640K, 896K).
 
 New features in Version 22.13 of prime95.exe
 --------------------------------------------
