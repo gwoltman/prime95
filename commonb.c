@@ -3046,7 +3046,7 @@ void primeTime (
 	unsigned long iterations)
 {
 #define SAVED_LIMIT	10
-	unsigned long i, saved, save_limit;
+	unsigned long i, j, saved, save_limit;
 	char	buf[80];
 	double	time, saved_times[SAVED_LIMIT];
 	int	days, hours, minutes;
@@ -3098,7 +3098,7 @@ void primeTime (
 	save_limit = (CPU_TYPE >= 12 && p <= 4000000) ? SAVED_LIMIT : 1;
 	for (i = 0, saved = 0; i < iterations; i++) {
 
-/* Time a single squaring
+/* Time a single squaring */
 
 		start_timer (0);
 		gwsquare (LLDATA);
@@ -3111,14 +3111,13 @@ void primeTime (
 
 		asm_timer = (unsigned long *) COPYZERO[0];
 		if (asm_timer != NULL)
-		for (int j = 0; j < 32; j++)
+		for (j = 0; j < 32; j++)
 			if (i == 0 || asm_timer[j] < best_asm_timers[j])
 				best_asm_timers[j] = asm_timer[j];
 
 /* Output timer squaring times */
 
 		if (saved == save_limit || i == iterations - 1) {
-			unsigned long j;
 			for (j = 0; j < saved; j++) {
 				OutputStr ("p: ");
 				OutputNum (p);
