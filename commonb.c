@@ -3154,7 +3154,7 @@ void primeBench (void)
 	unsigned long i, j, iterations;
 	double	best_time;
 	char	buf[512];
-	int	fft_lengths[12] = {256, 320, 384, 448, 512, 640, 768, 896, 1024, 1280, 1536, 1792};
+	int	fft_lengths[] = {384, 448, 512, 640, 768, 896, 1024, 1280, 1536, 1792, 2048};
 
 /* Set the process/thread priority */
 
@@ -3174,9 +3174,9 @@ void primeBench (void)
 		 VERSION, RDTSC_TIMING);
 	writeResults (buf);
 
-/* Loop over all 12 FFT lengths */
+/* Loop over all FFT lengths */
 
-	for (i = 0; i < 12; i++) {
+	for (i = 0; i < sizeof (fft_lengths) / sizeof (int); i++) {
 
 /* Initialize for this FFT length.  Compute the number of iterations to */
 /* time.  This is based on the fact that it doesn't take too long for */
