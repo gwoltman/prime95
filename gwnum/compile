@@ -13,8 +13,8 @@ cl4d=\msdev\bin\cl /I. /I C:\msdev\include\ /DGDEBUG /GF /W3 /MT /Zi /c
 
 # Use the latest C compiler even though it does not optimize code
 
-cl=cl /I. /GF /W3 /MT /D_WINDOWS /c
-cld=cl /I. /GF /W3 /MT /D_WINDOWS /DGDEBUG /Zi /c
+cl=cl /I. /GF /W3 /MT /c
+cld=cl /I. /GF /W3 /MT /DGDEBUG /Zi /c
 
 # Compile C code
 
