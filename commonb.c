@@ -1130,7 +1130,7 @@ static	int	first_call = TRUE;
 
 again:	if (SLEEP_TIME) {
 		time_t	current_time;
-		char	buf[30];
+		char	buf[80];
 		sprintf (buf, "Sleeping until %s\n", ctime (&SLEEP_TIME));
 		OutputStr (buf);
 		title ("Sleeping");
@@ -1463,7 +1463,7 @@ readerr:		sprintf (buf, READFILEERR, filename);
 
 	if (STOP_TIME) {
 		time_t	current_time;
-		char	buf[30];
+		char	buf[80];
 		sprintf (buf, "Sleeping until %s\n", ctime (&STOP_TIME));
 		OutputStr (buf);
 		title ("Sleeping");
