@@ -1,3 +1,15 @@
+New features in Version 23.8 of mprime
+--------------------------------------
+
+1)  A communication bug, Primenet Error 1, was fixed in the case where
+    proxy software inserted the text "NetAnts: MaxConnection=1" in the HTML
+    response from the Primenet server.
+2)  The program will now try both full and a relative URL in trying to
+    contact the PrimeNet server.  Some rare setups only work with full URLs
+    and some only work with relative URLs.  The small downside is there might
+    be an increase in network traffic when the server is down.  If this is
+    a concern you can use the UseFullURL option described in undoc.txt.
+
 New features in Version 23.6 of mprime
 --------------------------------------
 

@@ -6,6 +6,11 @@ New features in Version 23.8 of prime95.exe
     response from the Primenet server.
 2)  Fixed memory allocation bug in torture test when using 926MB of memory
     on the 20K FFT size.
+3)  The program will now try both full and a relative URL in trying to
+    contact the PrimeNet server.  Some rare setups only work with full URLs
+    and some only work with relative URLs.  The small downside is there might
+    be an increase in network traffic when the server is down.  If this is
+    a concern you can use the UseFullURL option described in undoc.txt.    
 
 New features in Version 23.7 of prime95.exe
 -------------------------------------------
