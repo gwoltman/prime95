@@ -9,12 +9,12 @@ masm64=ml64 /c /DX86_64
 # routines with an older MSVC compiler that can optimize code
 
 cl4=\msdev\bin\cl /I. /I C:\msdev\include\ /O2 /GF /W3 /MT /c
-cl4d=\msdev\bin\cl /I. /I C:\msdev\include\ /O2 /GF /W3 /MT /Zi /c
+cl4d=\msdev\bin\cl /I. /I C:\msdev\include\ /DGDEBUG /GF /W3 /MT /Zi /c
 
 # Use the latest C compiler even though it does not optimize code
 
 cl=cl /I. /GF /W3 /MT /D_WINDOWS /c
-cld=cl /I. /GF /W3 /MT /D_WINDOWS /Zi /c
+cld=cl /I. /GF /W3 /MT /D_WINDOWS /DGDEBUG /Zi /c
 
 # Compile C code
 
