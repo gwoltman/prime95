@@ -45,7 +45,7 @@
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386
 "
-				AdditionalDependencies="factor64.obj service.obj ..\gwnum\gwnum.lib wsock32.lib nafxcw.lib libcmt.lib"
+				AdditionalDependencies="factor32.obj service.obj ..\gwnum\gwnum.lib wsock32.lib nafxcw.lib libcmt.lib"
 				OutputFile=".\Release/prime95.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
@@ -111,7 +111,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="factor64.obj service.obj ..\gwnum\gwnumd.lib wsock32.lib wininet.lib"
+				AdditionalDependencies="factor32.obj service.obj ..\gwnum\gwnumd.lib wsock32.lib wininet.lib"
 				OutputFile=".\Debug/prime95.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="TRUE"
