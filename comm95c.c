@@ -149,13 +149,13 @@ unsigned long GetSuggestedMemory (unsigned long nDesiredMemory)
 {
 	MEMORYSTATUS ms = {0};
 
-	GlobalMemoryStatus (&ms);
-
 	// In-use Physical RAM in bytes
 	DWORD dwUsedMem			= ms.dwTotalPhys - ms.dwAvailPhys;
 	// Desired memory in bytes
 	DWORD dwDesiredMem		= nDesiredMemory << 20;
 	DWORD dwDesiredMemNew	= dwDesiredMem;
+
+	GlobalMemoryStatus (&ms);
 
 	// if very small/no page-file (pagefile <= total RAM) and
 	// in-use memory + desired memory > total RAM, then

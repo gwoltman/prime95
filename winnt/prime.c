@@ -18,6 +18,7 @@
 #include "giants.h"
 #include "gwnum.h"
 #include "gwutil.h"
+#include "commona.c"
 #include "commonb.c"
 #include "commonc.c"
 #include "ecm.c"
