@@ -9,7 +9,7 @@
 // THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
 // PARTICULAR PURPOSE.
 //
-// Copyright (c) 1997-2002 Just for Fun Software, Entropia Inc. and
+// Copyright (c) 1997-2004 Just for Fun Software, Entropia Inc. and
 //		 Peter Hunter.
 // Used by Premission Only for Great Internet Mersenne Prime Search.
 // All Rights Reserved.
@@ -212,15 +212,16 @@ int pnHttpServer (char *pbuf, unsigned cbuf, char* postargs)
 	struct in_addr defaddr;
 	struct hostent *hp, def;
 	struct sockaddr_in sn;
-	int	s, res, debug;
+	int	s, res, debug, url_format;
 	char	*alist[1];
 	unsigned int count;
 	char	szProxyHost[120], szUser[50], szPass[50], *con_host;
 	unsigned short nProxyPort, con_port;
 
-/* Get debug logging flag */
+/* Get debug logging and URL format flags */
 
 	debug = IniGetInt (INIFILENAME, "Debug", 0);
+	url_format = IniGetInt (INIFILENAME, "UseFullURL", 2);
  
 /* Get the host name of the optional proxy server.  If using a proxy */
 /* server strip the optional http:// prefix. */
@@ -323,6 +324,7 @@ redirect:
 
 /* Create a socket and connect to server */
 
+rel_url:
 	if ((s = socket (hp->h_addrtype, SOCK_STREAM, 0)) < 0) {
 		if (debug) {
 			sprintf (buf, "Error in socket call: %d\n",
@@ -345,7 +347,7 @@ redirect:
 /* GET method, data follows ? in URL */
 
 	strcpy (szURL, "GET ");
-	if (*szProxyHost || IniGetInt (INIFILENAME, "UseFullURL", 0)) {
+	if (*szProxyHost || url_format) {
 		strcat (szURL, "http://");
 		strcat (szURL, szSITE);
 		strcat (szURL, ":");
@@ -452,9 +454,16 @@ redirect:
 		}
 	}
 
-/* Any return code other than 200 is an error */
+/* Any return code other than 200 is an error.  We've had problems using */
+/* both full URLs and relative URLs.  Thus, our default behavior is to try */
+/* both before giving up. */
 
 	if (res != 200) {
+		if (url_format == 2 && *szProxyHost == 0) {
+			if (debug) LogMsg ("Trying relative URL\n");
+			url_format = 0;
+			goto rel_url;
+		}
 		if (debug) LogMsg ("Return code is not 200\n");
 		return (PRIMENET_ERROR_SERVER_UNSPEC);
 	}
