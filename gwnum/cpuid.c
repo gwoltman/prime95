@@ -167,6 +167,33 @@ void guessCpuType (void)
 	unsigned long extended_family, extended_model, type, family_code;
 	unsigned long model_number, stepping_id, brand_index;
 	char	vendor_id[13];
+static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
+			"",	/* brand_index = 0 */
+			"Intel(R) Celeron(R) processor",
+			"Intel(R) Pentium(R) III processor",
+			"Intel(R) Pentium(R) III Xeon(TM) processor",
+			"Intel(R) Pentium(R) III processor",
+			"",	/* brand_index = 5 */
+			"Mobile Intel(R) Pentium(R) III Processor - M",
+			"Mobile Intel(R) Celeron(R) processor",
+			"Intel(R) Pentium(R) 4 processor",
+			"Intel(R) Pentium(R) 4 processor",
+			"Intel(R) Celeron(R) processor",
+			"Intel(R) Xeon(TM) processor",
+			"Intel(R) Xeon(TM) Processor MP",
+			"",	/* brand_index = 13 */
+			"Mobile Intel(R) Pentium(R) 4 Processor - M",
+			"Mobile Intel(R) Celeron(R) processor",
+			"",	/* brand_index = 16 */
+			"Mobile Intel(R) processor",
+			"Mobile Intel(R) Celeron(R) M processor",
+			"Mobile Intel(R) Celeron(R) processor",
+			"Intel(R) Celeron(R) processor",
+			"Mobile Intel(R) processor",
+			"Intel(R) Pentium(R) M processor"
+			"Mobile Intel(R) Celeron(R) processor"
+	};
+#define NUM_BRAND_NAMES	(sizeof (BRAND_NAMES) / sizeof (char *))
 
 /* Set up default values for features we cannot determine with CPUID */
 
@@ -261,64 +288,6 @@ void guessCpuType (void)
 +-------------------------------------------------------------------*/
 
 	if (strcmp ((const char *) vendor_id, "GenuineIntel") == 0) {
-
-/* If we haven't figured out the brand string, create one based on the */
-/* brand_index as recommended in the AP-485 document. */
-
-/* Information from "Intel(R) Processor Identification and the CPUID
-/* Instruction" Application Note 486 February 2004 */
-/* Chap.5 Brand ID and Brand String */
-/* Table 10. Brand ID, CPUID (EAX=1) Return Values in EBX (bits 7 through 0) */
-
-		if (CPU_BRAND[0] == 0) {
-			switch (brand_index) {
-			case 1:
-			case 0xA:
-				strcpy (CPU_BRAND, "Intel(R) Celeron(R) processor");
-				break;
-			case 2:
-			case 4:
-				strcpy (CPU_BRAND, "Intel(R) Pentium(R) III processor");
-				break;
-			case 3:
-				if (family_code != 6 ||
-				    model_number != 0xB ||
-				    stepping_id != 1)
-					strcpy (CPU_BRAND, "Intel(R) Pentium(R) III Xeon processor");
-				else
-					strcpy (CPU_BRAND, "Intel(R) Celeron(R) processor");
-				break;
-			case 6:
-				strcpy (CPU_BRAND, "Mobile Intel(R) Pentium(R) III processor");
-				break;
-			case 7:
-			case 0xF:
-			case 0x13:
-				strcpy (CPU_BRAND, "Mobile Intel(R) Celeron(R) processor");
-				break;
-			case 8:
-				if ((family_code << 8) +
-				    (model_number << 4) +
-				    stepping_id < 0xF20)
-					strcpy (CPU_BRAND, "Intel(R) Pentium(R) 4 processor");
-				else
-					strcpy (CPU_BRAND, "Intel(R) Genuine processor");
-				break;
-			case 9:
-				strcpy (CPU_BRAND, "Intel(R) Pentium(R) 4 processor");
-				break;
-			case 0xB:
-			case 0xE:
-				strcpy (CPU_BRAND, "Intel(R) Xeon processor");
-				break;
-			case 0xC:
-				strcpy (CPU_BRAND, "Intel(R) Xeon processor MP");
-				break;
-			case 0x16:
-				strcpy (CPU_BRAND, "Intel(R) Pentium(R) M processor");
-				break;				
-			}
-		}
 
 /* Call CPUID with 2 argument.  It returns the cache size and structure */
 /* in a series of 8-bit descriptors */
@@ -475,52 +444,76 @@ void guessCpuType (void)
 			}
 		}
 
-/* Deduce the cpu type given the family, model, stepping, etc.  If we */
-/* haven't figured out the brand string, create one based on the cpu type. */
+/* If we haven't figured out the brand string, create one based on the */
+/* sample code in Intel's AP-485 document. */
 
-		if (family_code == 4) {
-			strcpy (CPU_BRAND, "Intel 486 processor");
-		}
-		if (family_code == 5) {
-			if (type == 0 && model_number <= 2)
-				strcpy (CPU_BRAND, "Intel Pentium processor");
-			if (type == 1 && model_number <= 3)
-				strcpy (CPU_BRAND, "Intel Pentium OverDrive processor");
-			if (type == 0 && model_number >= 4)
-				strcpy (CPU_BRAND, "Intel Pentium MMX processor");
-			if (type == 1 && model_number >= 4)
-				strcpy (CPU_BRAND, "Intel Pentium MMX OverDrive processor");
-		}
-		if (family_code == 6 && model_number == 1) {
-			strcpy (CPU_BRAND, "Intel Pentium Pro processor");
-		}
-		if (family_code == 6 && model_number <= 6) {
-			if (type == 0 && model_number == 3)
-				strcpy (CPU_BRAND, "Intel Pentium II processor");
-			if (model_number == 5 && CPU_L2_CACHE_SIZE == 0 ||
-			    model_number == 6) {
-				strcpy (CPU_BRAND, "Intel Celeron processor");
+		if (CPU_BRAND[0] == 0) {
+
+			if (family_code == 4)
+				strcpy (CPU_BRAND, "Intel 486 processor");
+
+			else if (family_code == 5) {
+				if (type == 0 && model_number <= 2)
+					strcpy (CPU_BRAND, "Intel Pentium processor");
+				else if (type == 1 && model_number <= 3)
+					strcpy (CPU_BRAND, "Intel Pentium OverDrive processor");
+				else if (type == 0 && model_number >= 4)
+					strcpy (CPU_BRAND, "Intel Pentium MMX processor");
+				else if (type == 1 && model_number >= 4)
+					strcpy (CPU_BRAND, "Intel Pentium MMX OverDrive processor");
+				else
+					strcpy (CPU_BRAND, "Intel Pentium processor");
 			}
-			if (model_number == 5 && CPU_L2_CACHE_SIZE == 512)
-				strcpy (CPU_BRAND, "Intel Pentium II or Pentium II Xeon processor");
-			if (model_number == 5 && CPU_L2_CACHE_SIZE >= 1024)
-				strcpy (CPU_BRAND, "Intel Pentium II Xeon processor");
-			if (type == 1 && model_number == 3)
-				strcpy (CPU_BRAND, "Intel Pentium II OverDrive processor");
-		}
-		if (family_code == 6 && model_number >= 7) {
-			if (model_number == 7 && CPU_L2_CACHE_SIZE >= 1024)
-				strcpy (CPU_BRAND, "Intel Pentium III Xeon processor");
-			if (model_number == 7 && CPU_L2_CACHE_SIZE == 512)
-				strcpy (CPU_BRAND, "Intel Pentium III or Pentium III Xeon processor");
-			if (model_number == 8)
-				strcpy (CPU_BRAND, "Intel Celeron 2 (Mobile/XBOX) processor");
-		}
+
+			else if (family_code == 6 && model_number == 1)
+				strcpy (CPU_BRAND, "Intel Pentium Pro processor");
+
+			else if (family_code == 6 && model_number == 3) {
+				if (type == 0)
+					strcpy (CPU_BRAND, "Intel Pentium II processor");
+				else
+					strcpy (CPU_BRAND, "Intel Pentium II OverDrive processor");
+			}
+
+			else if (family_code == 6 && model_number == 5) {
+				if (CPU_L2_CACHE_SIZE == 0)
+					strcpy (CPU_BRAND, "Intel Celeron processor");
+				else if (CPU_L2_CACHE_SIZE >= 1024)
+					strcpy (CPU_BRAND, "Intel Pentium II Xeon processor");
+				else
+					strcpy (CPU_BRAND, "Intel Pentium II or Pentium II Xeon processor");
+			}
+
+			else if (family_code == 6 && model_number == 6)
+				strcpy (CPU_BRAND, "Intel Celeron processor");
+
+			else if (family_code == 6 && model_number == 7) {
+				if (CPU_L2_CACHE_SIZE >= 1024)
+					strcpy (CPU_BRAND, "Intel Pentium III Xeon processor");
+				else
+					strcpy (CPU_BRAND, "Intel Pentium III or Pentium III Xeon processor");
+			}
+
+			else if (family_code == 6 && model_number == 0xB &&
+				 stepping_id == 1 && brand_index == 0x3)
+				strcpy (CPU_BRAND, "Intel(R) Celeron(R) processor");
+
+			else if (family_code == 15 && model_number == 1 &&
+				 stepping_id == 3 && brand_index == 0xB)
+				strcpy (CPU_BRAND, "Intel(R) Xeon(TM) processor MP");
+
+			else if (family_code == 15 && model_number == 1 &&
+				 stepping_id == 3 && brand_index == 0xE)
+				strcpy (CPU_BRAND, "Intel(R) Xeon(TM) processor");
+
+			else if (brand_index != 0 &&
+				 brand_index < NUM_BRAND_NAMES)
+				strcpy (CPU_BRAND, BRAND_NAMES[brand_index]);
 
 /* If we've failed to figure out the brand string, create a default. */
 
-		if (CPU_BRAND[0] == 0) {
-			strcpy (CPU_BRAND, "Unknown Intel CPU");
+			else if (CPU_BRAND[0] == 0)
+				strcpy (CPU_BRAND, "Unknown Intel CPU");
 		}
 	}
 
