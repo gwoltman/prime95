@@ -34,6 +34,9 @@
 
 #define PRIMENET_NO_ERROR 0
 
+#ifdef __WATCOMC__
+#include <types.h>
+#endif
 #include <stdlib.h>
 #include <sys/types.h>
 #include <string.h>

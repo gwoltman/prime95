@@ -780,8 +780,11 @@ double getHighResTimerFrequency (void)
 	return (1000000.0);
 }
 
+/* Check if a program is currently running - not implemented for OS/2 */
+
 int checkPauseList ()
 {
+#ifndef __OS2__
 	FILE	*fd;
 	char	buf[80];
 
@@ -797,5 +800,6 @@ int checkPauseList ()
 		}
 		fclose (fd);
 	}
+#endif
 	return (FALSE);
 }
