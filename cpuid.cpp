@@ -207,7 +207,7 @@ void guessCpuType (void)
 /* brand string (if supported) at cpuid calls 0x8000002, 0x80000003, and */
 /* 0x80000004.  We'll assume future vendors will do the same. */
 
-	if (max_extended_cpuid_value >= 80000004) {
+	if (max_extended_cpuid_value >= 0x80000004) {
 		Cpuid (0x80000002);
 		memcpy (CPU_BRAND, &CPUID_EAX, 4);
 		memcpy (CPU_BRAND+4, &CPUID_EBX, 4);
@@ -236,9 +236,15 @@ void guessCpuType (void)
 /* If we haven't figured out the brand string, create one based on the */
 /* brand_index as recommended in the AP-485 document. */
 
+/* Information from "Intel(R) Processor Identification and the CPUID
+/* Instruction" Application Note 486 February 2004 */
+/* Chap.5 Brand ID and Brand String */
+/* Table 10. Brand ID, CPUID (EAX=1) Return Values in EBX (bits 7 through 0) */
+
 		if (CPU_BRAND[0] == 0) {
 			switch (brand_index) {
 			case 1:
+			case 0xA:
 				strcpy (CPU_BRAND, "Intel(R) Celeron(R) processor");
 				break;
 			case 2:
@@ -257,6 +263,8 @@ void guessCpuType (void)
 				strcpy (CPU_BRAND, "Mobile Intel(R) Pentium(R) III processor");
 				break;
 			case 7:
+			case 0xF:
+			case 0x13:
 				strcpy (CPU_BRAND, "Mobile Intel(R) Celeron(R) processor");
 				break;
 			case 8:
@@ -274,6 +282,12 @@ void guessCpuType (void)
 			case 0xE:
 				strcpy (CPU_BRAND, "Intel(R) Xeon processor");
 				break;
+			case 0xC:
+				strcpy (CPU_BRAND, "Intel(R) Xeon processor MP");
+				break;
+			case 0x16:
+				strcpy (CPU_BRAND, "Intel(R) Pentium(R) M processor");
+				break;				
 			}
 		}
 
@@ -480,23 +494,98 @@ void guessCpuType (void)
 +---------------------------------------------------------------*/
 
 	else if (strcmp ((const char *) vendor_id, "AuthenticAMD") == 0) {
+		unsigned long extended_feature_bits = 0;
+		unsigned long advanced_power_mgmt = 0;
+
+		if (max_extended_cpuid_value >= 0x80000001) {
+			Cpuid (0x80000001);
+			extended_feature_bits = CPUID_EDX;
+		}
+
+		if (max_extended_cpuid_value >= 0x80000007) {
+			Cpuid (0x80000007);
+			advanced_power_mgmt = CPUID_EDX;
+		}
 
 /* Deduce the cpu type given the family, model, stepping, etc.  If we */
 /* haven't figured out the brand string, create one based on the cpu type. */
 
+/* Information from AMD Processor Recognition Application Note, */
+/* Publication # 20734 Revision: 3.07 February 2004 */
+/* Chap.3 Table 4: Summary of Processor Signatures for AMD Processors */
+
 		if (family_code == 4) {
 			strcpy (CPU_BRAND, "AMD Am486 or Am5x86 processor");
 		}
-		if (family_code == 5 && model_number <= 3) {
-			if (CPU_BRAND[0] == 0)
-				strcpy (CPU_BRAND, "AMD K5 processor");
+		if ((CPU_BRAND[0] == 0) || (strstr (CPU_BRAND, "Unknown"))) {
+			if (family_code == 5) {
+				if (model_number <= 3) {
+					strcpy (CPU_BRAND, "AMD K5 processor");
+				}
+				else if ((model_number >= 6) && (model_number <= 7)) {
+					strcpy (CPU_BRAND, "AMD K6 processor");
+				}
+				else if (model_number == 8) {
+					strcpy (CPU_BRAND, "AMD K6-2 processor");
+				}
+				else if (model_number == 9) {
+					strcpy (CPU_BRAND, "AMD K6-III processor");
+				}
+			}
+			if (family_code == 6) {
+				int mobileCPU = (advanced_power_mgmt & 7) == 7;
+				int mp = 0 != (extended_feature_bits & (1 << 19));
+				char *szCPU = "";
+
+				switch (model_number)
+				{
+					case 1:
+					case 2:
+					case 4:
+						szCPU = "AMD Athlon processor";
+						break;
+					case 3:
+						szCPU = "AMD Duron processor";
+						break;
+					case 6:
+						if (mobileCPU) {
+							szCPU = "Mobile AMD Athlon 4 processor";
+						}
+						else {
+							szCPU = (mp) ? "AMD Athlon MP processor" : "AMD Athlon XP processor";
+						}
+						break;
+					case 7:
+						szCPU = (mobileCPU) ? "Mobile AMD Duron processor" : "AMD Duron processor";
+						break;
+					case 8:
+						szCPU = (mp) ? "AMD Athlon MP processor" : "AMD Athlon XP processor";
+						break;
+					case 10:
+						if (mobileCPU) {
+							szCPU = "Mobile AMD Athlon XP-M processor";
+						}
+						else {
+							szCPU = (mp) ? "AMD Athlon MP processor" : "AMD Athlon XP processor";
+						}
+				}
+				strcpy (CPU_BRAND, szCPU);
+			}
+			if (family_code == 15) {
+				if (model_number == 4) {
+					strcpy (CPU_BRAND, "AMD Athlon 64 processor");
+				}
+				else if (model_number == 5) {
+					strcpy (CPU_BRAND, "AMD Opteron processor");
+				}
+			}
 		}
 
 /* Early Athlon CPUs support the SSE prefetch instructions even though */
 /* they do not support the full SSE instruction set.  I think testing for */
 /* the AMD MMX extensions capability will detect this case. */
 
-		if (max_extended_cpuid_value >= 80000001 &&
+		if (max_extended_cpuid_value >= 0x80000001 &&
 		    ! (CPU_FLAGS & CPU_PREFETCH)) {
 			Cpuid (0x80000001);
 			if ((CPUID_EDX >> 22) & 0x1 &&
@@ -506,7 +595,7 @@ void guessCpuType (void)
 
 /* Get the L1 cache size and number of data TLBs */
 
-		if (max_extended_cpuid_value >= 80000005) {
+		if (max_extended_cpuid_value >= 0x80000005) {
 			Cpuid (0x80000005);
 			CPU_L1_DATA_TLBS = (CPUID_EBX >> 16) & 0xFF;
 			CPU_L1_CACHE_SIZE = (CPUID_ECX >> 24) & 0xFF;
@@ -515,7 +604,7 @@ void guessCpuType (void)
 
 /* Get the L2 cache size */
 
-		if (max_extended_cpuid_value >= 80000006) {
+		if (max_extended_cpuid_value >= 0x80000006) {
 			Cpuid (0x80000006);
 			CPU_L2_DATA_TLBS = (CPUID_EBX >> 16) & 0xFFF;
 			CPU_L2_CACHE_SIZE = (CPUID_ECX >> 16) & 0xFFFF;
@@ -538,7 +627,7 @@ void guessCpuType (void)
 
 /* Get the L1 cache size and number of data TLBs */
 
-		if (max_extended_cpuid_value >= 80000005) {
+		if (max_extended_cpuid_value >= 0x80000005) {
 			Cpuid (0x80000005);
 			CPU_L2_DATA_TLBS = (CPUID_EBX >> 16) & 0xFF;
 			CPU_L1_CACHE_SIZE = (CPUID_ECX >> 24) & 0xFF;
@@ -547,7 +636,7 @@ void guessCpuType (void)
 
 /* Get the L2 cache size */
 
-		if (max_extended_cpuid_value >= 80000006) {
+		if (max_extended_cpuid_value >= 0x80000006) {
 			Cpuid (0x80000006);
 			CPU_L2_CACHE_SIZE = (CPUID_ECX >> 24) & 0xFF;
 			CPU_L2_CACHE_LINE_SIZE = CPUID_ECX & 0xFF;
