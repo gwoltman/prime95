@@ -11,7 +11,7 @@ cl=\msdev\bin\cl /I.. /I C:\msdev\include\ /O2 /GF /W3 /MT /c
 mult.obj: mult.asm mult.mac xmult.mac timeit.inc
     $(masm) mult.asm
 
-mult1.obj: mult1.asm mult.mac fft1a.mac
+mult1.obj: mult1.asm mult.mac fft1.mac
     $(masm) /DPPRO mult1.asm
 
 mult1aux.obj: mult1aux.asm mult.mac normal.mac
