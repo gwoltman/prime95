@@ -498,12 +498,11 @@ appears in the results.txt file, then the program's error-checking has
 detected a problem.  After waiting 5 minutes, the program will continue
 testing from the last save file.
 
-Could it be a software problem?  If the error is ILLEGAL SUMOUT, then
-there is a good chance that this is a software problem.  A device driver
-or VxD may not be saving and restoring FPU state correctly.  The good news
-is that the program recovers very well from ILLEGAL SUMOUT errors.  Try seeing
-if the problem occurs only when a specific device is active or a specific
-program is running.
+Could it be a software problem?  If the error is ILLEGAL SUMOUT, then 
+it is very likely a true hardware error.  Although, it is impossible
+to rule out an OS error corrupting part of mprime's address space.
+The good news is that the program recovers very well from ILLEGAL SUMOUT
+errors.
 
 The other two errors messages, SUMINP != SUMOUT and ROUND OFF > 0.40 are
 caused by one of two things:

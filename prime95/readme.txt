@@ -575,9 +575,11 @@ appears in the results.txt file, then prime95's error-checking has
 detected a problem.  After waiting 5 minutes, the program will continue
 testing from the last save file.
 
-Could it be a software problem?  If the error is ILLEGAL SUMOUT, then
-there is a good chance that this is a software problem.  A device driver
-or VxD may not be saving and restoring FPU state correctly.  The good news
+Could it be a software problem?  If the error is ILLEGAL SUMOUT and you are
+running Windows 95/98/Me, then there is some chance that this is a software
+problem.  A device driver or VxD may not be saving and restoring FPU state
+correctly.  Windows NT/2000/XP protects prime95 from bad device drivers.
+In that case ILLEGAL SUMOUT is very likely a true hardware error. The good news
 is that prime95 recovers very well from ILLEGAL SUMOUT errors.  Try seeing
 if the problem occurs only when a specific device is active or a specific
 program is running.
