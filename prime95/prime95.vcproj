@@ -225,6 +225,9 @@
 				RelativePath=".\TimeDlg.cpp">
 			</File>
 			<File
+				RelativePath="TortureDlg.cpp">
+			</File>
+			<File
 				RelativePath=".\UnreserveDlg.cpp">
 			</File>
 			<File
@@ -293,6 +296,9 @@ makehm /h /a afxhh.h IDW_,HIDW_,0x50000 &quot;$(InputFileName)&quot; &gt;&gt; &q
 "
 						Outputs="hlp\HTMLDefines.h"/>
 				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="TortureDlg.h">
 			</File>
 			<File
 				RelativePath="prime95.h">
