@@ -23,7 +23,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				InlineFunctionExpansion="1"
-				AdditionalIncludeDirectories="..;..\qd"
+				AdditionalIncludeDirectories="..;..\gwnum"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
 				StringPooling="TRUE"
 				RuntimeLibrary="0"
@@ -42,7 +42,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="../prime95/cpuid.obj ../prime95/mult.obj ../prime95/mult1.obj ../prime95/mult1aux.obj ../prime95/mult2.obj ../prime95/mult2a.obj ../prime95/mult2aux.obj ../prime95/mult3.obj ../prime95/mult3a.obj ../prime95/mult4.obj ../prime95/mult2p.obj ../prime95/mult2ap.obj ../prime95/mult3p.obj ../prime95/mult3ap.obj ../prime95/mult4p.obj ../prime95/ecmhelp.obj ../prime95/xmult1.obj ../prime95/xmult1ax.obj ../prime95/xmult2.obj ../prime95/xmult2a.obj ../prime95/xmult2ax.obj ../prime95/xmult3.obj ../prime95/xmult3a.obj ../prime95/xmult3ax.obj ..\prime95\service.obj nafxcw.lib libcmt.lib"
+				AdditionalDependencies="..\prime95\service.obj ..\gwnum\gwnum.lib nafxcw.lib libcmt.lib"
 				OutputFile=".\Release/prp.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
@@ -86,7 +86,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				InlineFunctionExpansion="1"
-				AdditionalIncludeDirectories="..;..\qd"
+				AdditionalIncludeDirectories="..;..\gwnum"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;GDEBUG"
 				StringPooling="TRUE"
 				BasicRuntimeChecks="3"
@@ -106,7 +106,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="../prime95/cpuid.obj ../prime95/mult.obj ../prime95/mult1.obj ../prime95/mult1aux.obj ../prime95/mult2.obj ../prime95/mult2a.obj ../prime95/mult2aux.obj ../prime95/mult3.obj ../prime95/mult3a.obj ../prime95/mult4.obj ../prime95/mult2p.obj ../prime95/mult2ap.obj ../prime95/mult3p.obj ../prime95/mult3ap.obj ../prime95/mult4p.obj ../prime95/ecmhelp.obj ../prime95/xmult1.obj ../prime95/xmult1ax.obj ../prime95/xmult2.obj ../prime95/xmult2a.obj ../prime95/xmult2ax.obj ../prime95/xmult3.obj ../prime95/xmult3a.obj ../prime95/xmult3ax.obj ..\prime95\service.obj"
+				AdditionalDependencies="..\prime95\service.obj ..\gwnum\gwnumd.lib"
 				OutputFile=".\Debug/prp.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="TRUE"
@@ -198,21 +198,6 @@
 			</File>
 			<File
 				RelativePath=".\TestDlg.cpp">
-			</File>
-			<File
-				RelativePath="..\cpuid.c">
-			</File>
-			<File
-				RelativePath="..\giants.c">
-			</File>
-			<File
-				RelativePath="..\gwdbldbl.cpp">
-			</File>
-			<File
-				RelativePath="..\gwnum.c">
-			</File>
-			<File
-				RelativePath="..\gwutil.c">
 			</File>
 		</Filter>
 		<File
