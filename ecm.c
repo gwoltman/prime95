@@ -4067,6 +4067,7 @@ restart:
 					goto more_B;
 				}
 				B = state.B_done;
+				C_start = state.B_done;
 				sprintf (buf, "Ignoring suggested B1 value, using B1=%lu from the save file\n", B);
 				OutputStr (buf);
 			}
@@ -4494,6 +4495,11 @@ restart3a:
 more_C:	state.C_start = (C_start > state.C_done) ? C_start : state.C_done;
 	state.C = C;
 	choose_pminus1_plan (&state);
+	if (D == 0) {		/* We'll never have enough memory for stage 2 */
+		OutputStr ("Insufficient memory to ever run stage 2.\n");
+		C = state.B_done;
+		goto restart4;
+	}
 	if (! fill_pminus1_bitarray (&state)) {
 		pm1_save (filename, &state, 0, x, gg);
 		retval = FALSE;
