@@ -2181,16 +2181,24 @@ int hgcd (	/* hgcd(n,x,y,A) chops n words off x and y and computes the
 	half_size = (x->sign - 1) >> 1;
 	if (half_size <= CHGCD_BREAK) {
 		for ( ; ; ) {
-			int	quot_length;
+			int	quot_length, a_length;
 
+/* Determine if applying quotient to the matrix will put us over half_size. */
+/* Be wary of the final matrix multiply of A in egcdhlp and onestep.  It */
+/* adds two multiplied products together - so that a 32-bit quotient applied */
+/* to a 20 word A->lr value can produce a 22 word result if the top word */
+/* of A->lr is also 32 bits long. */
+
+			quot_length = x->sign - y->sign;
+			if (x->n[x->sign-1] >= y->n[y->sign-1]) quot_length++;
+			a_length = abs (A->lr->sign);
+			if (A->lr->n[a_length-1] & 0x80000000) a_length++;
+			if (a_length + quot_length > half_size) break;
+		
 /* If the quotient will fit in one word, use the GCD helper */
 /* function which can do several GCD steps in single precision, */
 /* postponing multi-precision operations as long as possible. */
 
-			quot_length = x->sign - y->sign;
-			if (x->n[x->sign-1] >= y->n[y->sign-1]) quot_length++;
-			if (abs (A->lr->sign) + quot_length > half_size) break;
-		
 			if (quot_length > 1 || !egcdhlp_wrapper (x, y, A))
 				onestep (&x, &y, A);
 		}
@@ -2215,9 +2223,13 @@ int hgcd (	/* hgcd(n,x,y,A) chops n words off x and y and computes the
 		a_size = abs (A->lr->sign);
 
 /* Do the second recursion.  Note how we use the upper half of the gmatrix A */
-/* in order to save a lot of memory. */
+/* in order to save a lot of memory.  Be wary of the matrix multiply of B */
+/* and A in mulmMsp.  It adds two multiplied products together - so that */
+/* if B->lr's top word is 32 bits A->lr's top word is 32 bits, then a */
+/* carry overflow will occur. */
 
 		b_size = half_size - a_size;
+		if (A->lr->n[a_size-1] & 0x80000000) b_size--;
 		ul.n = A->ul->n + a_size; setmaxsize (&ul, b_size);
 		ur.n = A->ur->n + a_size; setmaxsize (&ur, b_size);
 		ll.n = A->ll->n + a_size; setmaxsize (&ll, b_size);
@@ -2228,7 +2240,7 @@ int hgcd (	/* hgcd(n,x,y,A) chops n words off x and y and computes the
 		B.lr = &lr; setone (&lr);
 		if (! hgcd (x->sign - (b_size + b_size + 1), &x, &y, &B))
 			return (FALSE);
-		mulmMsp (&B, A, b_size + b_size);
+		mulmMsp (&B, A, half_size);
 	}
 
 /* Copy the x and y values, then undo the changes we made to the input */

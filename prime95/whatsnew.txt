@@ -12,6 +12,8 @@ New features in Version 22.3 of prime95.exe
 3)  Result lines are now WYn rather than WXn.
 4)  A crash bug affecting P-1 and ECM using the 2^N+1 option for large N was
     fixed.
+5)  A rare memory corruption and possible crash bug in the GCD code was
+    fixed.
 
 
 New features in Version 22.2 of prime95.exe
