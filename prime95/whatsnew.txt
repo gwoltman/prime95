@@ -1,3 +1,24 @@
+New features in Version 23.5 of prime95.exe
+-------------------------------------------
+
+1)  Four changes have been made after GIMPS' first false positive report
+    in 7 1/2 years of operation.
+    a) The program now returns the number of errors that occurred when the
+       result is prime.  A non-zero value will make us more suspect of the
+       reported prime.
+    b) The save files will not be deleted.  The user can then email these to
+       me and we can rerun the last 30 minutes of the LL test.  It is hard
+       to imagine a second false positive report in this mini LL run.
+    c) The shift counter is now checked every iteration.  If this variable
+       AND the FFT data was corrupted, then and endless loop of LL iterations
+       generating zero is possible - resulting in a false prime report.
+    d) Every iteration the FFT data is checked to see if the data has been
+       zeroed.
+    e) The is-this-a-prime check now makes sure the FFT data is not NaN.
+       NaN stands for not a number and means the data is corrupt.  The
+       previous version checked for zero and my C compiler returns TRUE for
+       the test NaN == 0.0!
+
 New features in Version 23.4 of prime95.exe
 -------------------------------------------
 
