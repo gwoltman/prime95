@@ -3478,6 +3478,70 @@ void primeTime (
 #define BENCH2 "Compare your results to other computers at http://www.mersenne.org/bench.htm\n"
 #define BENCH3 "That web page also contains instructions on how your results can be included.\n\n"
 
+void factorBench (void)
+{
+	unsigned long num_lengths, i, j;
+	double	best_time;
+	char	buf[512];
+	int	bit_lengths[] = {58, 59, 60, 61, 62, 63, 64, 65, 66, 67};
+	int	res;
+
+/* Loop over all trial factor lengths */
+
+	num_lengths = sizeof (bit_lengths) / sizeof (int);
+	for (i = 0; i < num_lengths; i++) {
+
+/* Initialize for this bit length. */
+
+		if (bit_lengths[i] < 64) {
+			FACHSW = 0;
+			FACMSW = 1L << (bit_lengths[i]-32);
+		} else {
+			FACHSW = 1L << (bit_lengths[i]-64);
+			FACMSW = 0;
+		}
+		FACPASS = 0;
+		factorSetup (35000011);
+
+/* Output start message for this FFT length */
+
+		sprintf (buf, "Timing trial factoring of M35000011 with %d bit length factors.  ", bit_lengths[i]);
+		OutputStr (buf);
+
+/* Do one "iteration" untimed, to prime the caches. */
+
+		res = factor64 ();
+
+/* Time 10 iterations. Take best time. */
+
+		for (j = 0; j < 10; j++) {
+			if (escapeCheck ()) {
+				OutputStr ("\nExecution halted.\n");
+				factorDone ();
+				return;
+			}
+			clear_timers ();
+			start_timer (0);
+			res = factor64 ();
+			end_timer (0);
+			if (j == 0 || timers[0] < best_time) best_time = timers[0];
+		}
+		factorDone ();
+
+/* Print the best time for this bit length.  Take into account that */
+/* X86_64 factoring code does 3 times as much work (bigger sieve). */
+
+#ifdef X86_64
+		best_time = best_time / 3;
+#endif
+		OutputStr ("Best time: ");
+		sprintf (buf, "Best time for %d bit trial factors: ", bit_lengths[i]);
+		writeResults (buf);
+		timers[0] = best_time;
+		print_timer (0, TIMER_NL | TIMER_MS | TIMER_OUT_BOTH);
+	}
+}
+
 /* Time a few iterations of many FFT lengths */
 
 void primeBench (void)
@@ -3568,6 +3632,7 @@ void primeBench (void)
 		timers[0] = best_time;
 		print_timer (0, TIMER_NL | TIMER_MS | TIMER_OUT_BOTH);
 	}
+	factorBench ();
 	OutputStr ("Benchmark complete.\n");
 }
 

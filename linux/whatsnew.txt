@@ -5,6 +5,10 @@ New features in Version 24.11 of mprime
 2)  Prime95 now detects support for 3DNow! instructions.  See undoc.txt
     for overriding this detection with CpuSupports3DNow=n in local.ini.
 3)  Factoring entries in worktodo.ini now accept exponents up to 2 billion.
+4)  Added timeouts to PrimeNet communications in hopes of avoiding rare hangs
+    when contacting the PrimeNet server.
+5)  Fixed rare bug where P-1's GCD could miss a factor.
+6)  Added trial factoring to the benchmark.
 
 New features in Version 24.9 of mprime
 --------------------------------------
