@@ -508,8 +508,7 @@ int format_args (char* args, short operation, void* pkt)
 		struct primenetUserInfo *z = (struct primenetUserInfo*) pkt;
 		if (validateID (z) ||
 		    validate (z->oldUserID, 1) ||
-		    validate (z->oldUserPW, 1) ||
-		    validate (z->userEmailAddr, 1))
+		    validate (z->oldUserPW, 1))
 			return (PRIMENET_ERROR_INVALID_PARAM);
 
 		armor (z->userName);
