@@ -63,16 +63,6 @@ int MENUING = 0;
 
 /* Common code */
 
-#ifdef __linux__
-#define PORT	2
-#endif
-#ifdef __FreeBSD__
-#define PORT	6
-#endif
-#if defined (__EMX__) || defined (__IBMC__)
-#define PORT	7
-#endif
-
 #include "cpuid.c"
 #include "giants.c"
 #include "gwnum.c"
@@ -287,7 +277,7 @@ int main (
 
 		case 'V':
 		case 'v':
-			printf ("Mersenne Prime Test Program, Version %s.2\n", VERSION);
+			printf ("Mersenne Prime Test Program, Version %s.%d\n", VERSION, PORT);
 			return (0); 
 
 /* -W - use a different working directory */

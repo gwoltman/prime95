@@ -731,7 +731,7 @@ void options_preferences (void)
 
 void help_about (void)
 {
-	printf ("Mersenne Prime Finder - Version %s.2\n", VERSION);
+	printf ("Mersenne Prime Finder - Version %s.%d\n", VERSION, PORT);
 	printf ("Copyright 1996-2002 Just For Fun Software, Inc.\n");
 	printf ("Author: George Woltman\n");
 	printf ("Email:  woltman@alum.mit.edu\n");

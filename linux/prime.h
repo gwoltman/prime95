@@ -3,6 +3,18 @@
 #define FALSE	0
 #define TRUE	1
 
+/* Port number used in version numbers and result reporting. */
+
+#ifdef __linux__
+#define PORT	2
+#endif
+#ifdef __FreeBSD__
+#define PORT	6
+#endif
+#if defined (__EMX__) || defined (__IBMC__)
+#define PORT	7
+#endif
+
 /* This controls whether we want to pause computation if the load average */
 /* becomes too great.  This does not apply to OS/2. */
 
