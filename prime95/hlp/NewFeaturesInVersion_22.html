@@ -15,17 +15,17 @@ href="./New%20features%20in%20Version%2022_files/filelist.xml">
  <o:DocumentProperties>
   <o:Template>Normal</o:Template>
   <o:LastAuthor>George Woltman</o:LastAuthor>
-  <o:Revision>29</o:Revision>
-  <o:TotalTime>33</o:TotalTime>
+  <o:Revision>30</o:Revision>
+  <o:TotalTime>36</o:TotalTime>
   <o:Created>2002-04-26T15:20:00Z</o:Created>
-  <o:LastSaved>2002-07-02T04:26:00Z</o:LastSaved>
+  <o:LastSaved>2002-07-15T22:56:00Z</o:LastSaved>
   <o:Pages>2</o:Pages>
-  <o:Words>615</o:Words>
-  <o:Characters>3506</o:Characters>
+  <o:Words>670</o:Words>
+  <o:Characters>3822</o:Characters>
   <o:Company>Watson Wyatt</o:Company>
-  <o:Lines>29</o:Lines>
+  <o:Lines>31</o:Lines>
   <o:Paragraphs>7</o:Paragraphs>
-  <o:CharactersWithSpaces>4305</o:CharactersWithSpaces>
+  <o:CharactersWithSpaces>4693</o:CharactersWithSpaces>
   <o:Version>9.3821</o:Version>
  </o:DocumentProperties>
 </xml><![endif]--><!--[if gte mso 9]><xml>
@@ -159,18 +159,22 @@ div.Section1
 	mso-list-type:hybrid;
 	mso-list-template-ids:-1610570646 67698703 67698713 67698715 67698703 67698713 67698715 67698703 67698713 67698715;}
 @list l1
+	{mso-list-id:234125564;
+	mso-list-type:hybrid;
+	mso-list-template-ids:1147721758 67698703 67698713 67698715 67698703 67698713 67698715 67698703 67698713 67698715;}
+@list l2
 	{mso-list-id:723141022;
 	mso-list-type:hybrid;
 	mso-list-template-ids:362415850 67698703 67698713 67698715 67698703 67698713 67698715 67698703 67698713 67698715;}
-@list l2
+@list l3
 	{mso-list-id:808326169;
 	mso-list-type:hybrid;
 	mso-list-template-ids:1591607480 67698703 67698713 67698715 67698703 67698713 67698715 67698703 67698713 67698715;}
-@list l3
+@list l4
 	{mso-list-id:1396591353;
 	mso-list-type:hybrid;
 	mso-list-template-ids:-548747986 67698703 67698713 67698715 67698703 67698713 67698715 67698703 67698713 67698715;}
-@list l4
+@list l5
 	{mso-list-id:1473980059;
 	mso-list-type:hybrid;
 	mso-list-template-ids:1675003538 67698703 67698713 67698715 67698703 67698713 67698715 67698703 67698713 67698715;}
@@ -189,6 +193,30 @@ ul
 <div class=Section1>
 
 <h4><span style='mso-fareast-font-family:"MS Mincho"'>New features in Version
+22.7 of prime95.exe<o:p></o:p></span></h4>
+
+<h4><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></h4>
+
+<ol style='margin-top:0in' start=1 type=1>
+ <li class=MsoNormal style='mso-list:l1 level1 lfo30;tab-stops:list .5in'>Trial
+     factoring above 2^64 on a P4 now uses the SSE2 instructions.<span
+     style="mso-spacerun: yes">  </span>This is more than twice as fast as
+     previous version.</li>
+</ol>
+
+<p class=MsoNormal style='margin-left:.25in'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></p>
+
+<ol style='margin-top:0in' start=2 type=1>
+ <li class=MsoNormal style='mso-list:l1 level1 lfo30;tab-stops:list .5in'>Old
+     Advanced/Factoring save files are not compatible with this version. They
+     are named p0000000 and should be deleted.<span style="mso-spacerun: yes"> 
+     </span>This should not be a problem as no one should be using this
+     obsolete and unsupported feature.&nbsp;</li>
+</ol>
+
+<p class=MsoNormal style='margin-left:-.25in'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></p>
+
+<h4><span style='mso-fareast-font-family:"MS Mincho"'>New features in Version
 22.6 of prime95.exe<o:p></o:p></span></h4>
 
 <h4><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></h4>
@@ -197,8 +225,8 @@ ul
  <li class=MsoNormal style='mso-list:l0 level1 lfo3;tab-stops:list .5in'>The
      Start At Bootup option now runs prime95 as a Windows NT/2000/XP
      service!!<span style="mso-spacerun: yes">  </span>Normally Windows
-     NT/2000/XP will not run GUI programs as services, but several tricks have
-     allowed us to get this working almost flawlessly.</li>
+     NT/2000/XP will not run GUI programs as services, but several tricks have allowed
+     us to get this working almost flawlessly.</li>
 </ol>
 
 <p class=MsoNormal><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></p>
@@ -217,9 +245,9 @@ features in Version 22.5 of prime95.exe<o:p></o:p></span></h4>
 
 <h4 style='tab-stops:22.5pt'><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></h4>
 
-<p class=MsoNormal style='margin-left:.5in;text-indent:-.25in;mso-list:l4 level1 lfo5;
+<p class=MsoNormal style='margin-left:.5in;text-indent:-.25in;mso-list:l5 level1 lfo6;
 tab-stops:22.5pt list .5in'><![if !supportLists]><span style='mso-fareast-font-family:
-"MS Mincho"'>1.<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+"MS Mincho"'>1.<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='mso-fareast-font-family:"MS Mincho"'>A bug
 in P4 roundoff error recovery was fixed.<span style="mso-spacerun: yes"> 
 </span>Bug was present in version 22 executables dated between May 22 and June
@@ -228,9 +256,9 @@ in P4 roundoff error recovery was fixed.<span style="mso-spacerun: yes"> 
 <p class=MsoNormal style='tab-stops:22.5pt'><span style='mso-fareast-font-family:
 "MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
 
-<p class=MsoNormal style='margin-left:.5in;text-indent:-.25in;mso-list:l4 level1 lfo5;
+<p class=MsoNormal style='margin-left:.5in;text-indent:-.25in;mso-list:l5 level1 lfo6;
 tab-stops:22.5pt list .5in'><![if !supportLists]><span style='mso-fareast-font-family:
-"MS Mincho"'>2.<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+"MS Mincho"'>2.<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='mso-fareast-font-family:"MS Mincho"'>Prime95
 now properly detects if the program is running by another logged in Windows XP
 user.<o:p></o:p></span></p>
@@ -238,8 +266,8 @@ user.<o:p></o:p></span></p>
 <p class=MsoNormal style='tab-stops:22.5pt'><span style='mso-fareast-font-family:
 "MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
 
-<p class=MsoNormal style='margin-left:.5in;text-indent:-.25in;mso-list:l4 level1 lfo5;
-tab-stops:22.5pt list .5in'><![if !supportLists]>3.<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<p class=MsoNormal style='margin-left:.5in;text-indent:-.25in;mso-list:l5 level1 lfo6;
+tab-stops:22.5pt list .5in'><![if !supportLists]>3.<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span><![endif]><span style='mso-fareast-font-family:"MS Mincho"'>When Tray
 Icon or Hide Icon is set, the &quot;X&quot; in the upper right corner no longer
 closes prime95 rather it minimizes it.<span style="mso-spacerun: yes"> 
@@ -247,8 +275,8 @@ closes prime95 rather it minimizes it.<span style="mso-spacerun: yes"> 
 
 <p class=MsoNormal style='tab-stops:22.5pt'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></p>
 
-<p class=MsoNormal style='margin-left:.5in;text-indent:-.25in;mso-list:l4 level1 lfo5;
-tab-stops:22.5pt list .5in'><![if !supportLists]>4.<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<p class=MsoNormal style='margin-left:.5in;text-indent:-.25in;mso-list:l5 level1 lfo6;
+tab-stops:22.5pt list .5in'><![if !supportLists]>4.<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span><![endif]>Changed the way prime95 shuts down.<span style="mso-spacerun:
 yes">  </span>Logoff in WinXP used to hang.</p>
 
@@ -261,7 +289,7 @@ Version 22.4 of prime95.exe <o:p></o:p></span></u></p>
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
 
 <p class=MsoNormal style='margin-left:.25in'><span style='mso-fareast-font-family:
-"MS Mincho"'>1.<span style='mso-tab-count:1'>     </span>A little more tweaking
+"MS Mincho"'>1.<span style='mso-tab-count:1'>    </span>A little more tweaking
 of the FFT crossovers. <o:p></o:p></span></p>
 
 <p class=MsoNormal style='margin-left:.25in'><span style='mso-fareast-font-family:
@@ -281,12 +309,12 @@ features in Version 22.3 of prime95.exe<o:p></o:p></span></u></p>
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=1 type=1>
- <li class=MsoNormal style='mso-list:l2 level1 lfo8;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l3 level1 lfo9;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>Given more data, the roundoff
      error checking is now done on every iteration for exponents within 0.5% of
      the maximum that can be tested by the current FFT length.<span
-     style="mso-spacerun: yes">  </span>If a roundoff error above 0.4 occurs,
-     then the iteration is now repeated without any change to the shift count.<span
+     style="mso-spacerun: yes">  </span>If a roundoff error above 0.4 occurs, then
+     the iteration is now repeated without any change to the shift count.<span
      style="mso-spacerun: yes">  </span>It now takes a roundoff error greater
      than 0.6 to corrupt the results.<o:p></o:p></span></li>
 </ol>
@@ -295,7 +323,7 @@ features in Version 22.3 of prime95.exe<o:p></o:p></span></u></p>
 "MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=2 type=1>
- <li class=MsoNormal style='mso-list:l2 level1 lfo8;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l3 level1 lfo9;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>Many of the FFT ranges have
      changed.<span style="mso-spacerun: yes">  </span>Version 21 was too
      aggressive in choosing FFT sizes for the P4.<span style="mso-spacerun:
@@ -306,7 +334,7 @@ features in Version 22.3 of prime95.exe<o:p></o:p></span></u></p>
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=3 type=1>
- <li class=MsoNormal style='mso-list:l2 level1 lfo8;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l3 level1 lfo9;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>Result lines are now WYn
      rather than WXn.<o:p></o:p></span></li>
 </ol>
@@ -314,7 +342,7 @@ features in Version 22.3 of prime95.exe<o:p></o:p></span></u></p>
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=4 type=1>
- <li class=MsoNormal style='mso-list:l2 level1 lfo8;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l3 level1 lfo9;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>A crash bug affecting P-1 and
      ECM using the 2^N+1 option for large N was fixed.<o:p></o:p></span></li>
 </ol>
@@ -322,7 +350,7 @@ features in Version 22.3 of prime95.exe<o:p></o:p></span></u></p>
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=5 type=1>
- <li class=MsoNormal style='mso-list:l2 level1 lfo8;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l3 level1 lfo9;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>A rare memory corruption and
      possible crash bug in the GCD code was fixed.<o:p></o:p></span></li>
 </ol>
@@ -330,7 +358,7 @@ features in Version 22.3 of prime95.exe<o:p></o:p></span></u></p>
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=6 type=1>
- <li class=MsoNormal style='mso-list:l2 level1 lfo8;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l3 level1 lfo9;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>The -t command line argument
      will run the torture test.<o:p></o:p></span></li>
 </ol>
@@ -338,7 +366,7 @@ features in Version 22.3 of prime95.exe<o:p></o:p></span></u></p>
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=7 type=1>
- <li class=MsoNormal style='mso-list:l2 level1 lfo8;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l3 level1 lfo9;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>To reduce wild fluctuations in
      the RollingAverage, it will be updated roughly twice per day.<o:p></o:p></span></li>
 </ol>
@@ -350,7 +378,7 @@ features in Version 22.3 of prime95.exe<o:p></o:p></span></u></p>
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=1 type=1>
- <li class=MsoNormal style='mso-list:l3 level1 lfo17;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l4 level1 lfo18;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>Factoring assignments go to
      machines slower than a 233 MHz Pentium.<span style="mso-spacerun: yes"> 
      </span>Double-checks are assigned to machines slower than a 500 MHz P-III.<o:p></o:p></span></li>
@@ -360,7 +388,7 @@ features in Version 22.3 of prime95.exe<o:p></o:p></span></u></p>
 "MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=2 type=1>
- <li class=MsoNormal style='mso-list:l3 level1 lfo17;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l4 level1 lfo18;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>The speed of the GCD has been
      improved.<o:p></o:p></span></li>
 </ol>
@@ -368,7 +396,7 @@ features in Version 22.3 of prime95.exe<o:p></o:p></span></u></p>
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=3 type=1>
- <li class=MsoNormal style='mso-list:l3 level1 lfo17;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l4 level1 lfo18;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>Some of the P4 FFT ranges have
      changed.<span style="mso-spacerun: yes">  </span>Version 21 was too
      aggressive in choosing FFT sizes for the P4.<o:p></o:p></span></li>
@@ -377,7 +405,7 @@ features in Version 22.3 of prime95.exe<o:p></o:p></span></u></p>
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=4 type=1>
- <li class=MsoNormal style='mso-list:l3 level1 lfo17;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l4 level1 lfo18;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>Roundoff error checking is now
      done on every iteration for exponents within 2% of the maximum that can be
      tested by the current FFT length.<span style="mso-spacerun: yes"> 
@@ -387,7 +415,7 @@ features in Version 22.3 of prime95.exe<o:p></o:p></span></u></p>
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=5 type=1>
- <li class=MsoNormal style='mso-list:l3 level1 lfo17;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l4 level1 lfo18;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>The previous version would get
      into an infinite loop if a repeatable roundoff error larger than 0.48 was
      discovered.<span style="mso-spacerun: yes">  </span>Now, if a repeatable
@@ -403,7 +431,7 @@ features in Version 22.3 of prime95.exe<o:p></o:p></span></u></p>
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=1 type=1>
- <li class=MsoNormal style='mso-list:l1 level1 lfo24;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l2 level1 lfo25;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>Some bugs in error handling
      when communicating with the server have been fixed.<o:p></o:p></span></li>
 </ol>
@@ -411,7 +439,7 @@ features in Version 22.3 of prime95.exe<o:p></o:p></span></u></p>
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=2 type=1>
- <li class=MsoNormal style='mso-list:l1 level1 lfo24;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l2 level1 lfo25;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>Communicating with the server
      by RPC is no longer supported.<span style="mso-spacerun: yes">  </span>The
      HTTPNET.DLL and RPCNET.DLL have been deleted.<span style="mso-spacerun:
@@ -424,20 +452,20 @@ features in Version 22.3 of prime95.exe<o:p></o:p></span></u></p>
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=3 type=1>
- <li class=MsoNormal style='mso-list:l1 level1 lfo24;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l2 level1 lfo25;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>The program now uses a high
      resolution timer rather than the RDTSC instruction to time events.<span
      style="mso-spacerun: yes">  </span>This should help the program display
-     accurate timings on laptops with SpeedStep or desktops that can hibernate.
-     <span style="mso-spacerun: yes"> </span>You can force the program to use
-     the old RDTSC timing method with the RdtscTiming option described in
-     undoc.txt.<o:p></o:p></span></li>
+     accurate timings on laptops with SpeedStep or desktops that can
+     hibernate.<span style="mso-spacerun: yes">  </span>You can force the
+     program to use the old RDTSC timing method with the RdtscTiming option
+     described in undoc.txt.<o:p></o:p></span></li>
 </ol>
 
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=4 type=1>
- <li class=MsoNormal style='mso-list:l1 level1 lfo24;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l2 level1 lfo25;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>The program uses a updated
      algorithm to automatically detect CPU type and speed.<span
      style="mso-spacerun: yes">  </span>The Options/CPU dialog box no longer
@@ -452,7 +480,7 @@ features in Version 22.3 of prime95.exe<o:p></o:p></span></u></p>
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=5 type=1>
- <li class=MsoNormal style='mso-list:l1 level1 lfo24;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l2 level1 lfo25;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>Benchmark now writes the
      program version, timing methodology, cpu type and speed, L1 and L2 cache
      information to results.txt.<span style="mso-spacerun: yes">  </span>It

@@ -919,12 +919,75 @@ void print_timer (
 
 /* Prepare for making a factoring run */
 
-void factorSetup (void)
+void factorSetup (unsigned long p)
 {
 
 /* Allocate 1MB memory for factoring */
 
-	SRCARG = FACDATA = malloc (1000000);
+	if (FACDATA == NULL) FACDATA = malloc (1000000);
+
+/* Call the factoring setup assembly code */
+
+	FACLSW = p;
+	SRCARG = FACDATA;
+	setupf ();
+
+/* If using the SSE2 factoring code, do more initialization */
+/* We need to initialize much of the following data: */
+/*	XMM_BITS30		DD	0,3FFFFFFFh,0,3FFFFFFFh
+	XMM_INITVAL		DD	0,0,0,0
+	XMM_INVFAC		DD	0,0,0,0
+	XMM_I1			DD	0,0,0,0
+	XMM_I2			DD	0,0,0,0
+	XMM_F1			DD	0,0,0,0
+	XMM_F2			DD	0,0,0,0
+	XMM_F3			DD	0,0,0,0
+	XMM_TWO_120_MODF1	DD	0,0,0,0
+	XMM_TWO_120_MODF2	DD	0,0,0,0
+	XMM_TWO_120_MODF3	DD	0,0,0,0
+	XMM_INIT120BS		DD	0,0
+	XMM_INITBS		DD	0,0
+	XMM_BS			DD	0,0
+	XMM_SHIFTER		DD	48 DUP (0)
+	TWO_TO_FACSIZE_PLUS_62	DQ	0.0
+	SSE2_LOOP_COUNTER	DD	0 */
+/* The address to XMM_BITS30 was returned in SRCARG. */
+
+	if (CPU_FLAGS & CPU_SSE2) {
+		unsigned long i, bits_in_factor;
+		unsigned long *xmm_data;
+
+/* Compute the number of bits in the factors we will be testing */
+
+		if (FACHSW) bits_in_factor = 64, i = FACHSW;
+		else if (FACMSW) bits_in_factor = 32, i = FACMSW;
+		else return;
+		while (i) bits_in_factor++, i >>= 1;
+
+/* Factors 63 bits and below use the non-SSE2 code */
+
+		if (bits_in_factor <= 63) return;
+
+/* Set XMM_SHIFTER values (the first shifter value is not used). */
+/* Also compute the initial value. */
+
+		xmm_data = (unsigned long *) SRCARG;
+		for (i = 0; p > bits_in_factor + 59; i++) {
+			xmm_data[52+i*2] = (p & 1) ? 1 : 0;
+			p >>= 1;
+		}
+		xmm_data[4] =			/* XMM_INITVAL */
+		xmm_data[6] = p >= 90 ? 0 : (1 << (p - 60));
+		xmm_data[44] = 62 - (120 - bits_in_factor);/* XMM_INIT120BS */
+		xmm_data[46] = 62 - (p - bits_in_factor);/* XMM_INITBS */
+		xmm_data[100] = i;		/* SSE2_LOOP_COUNTER */
+		*(double *)(&xmm_data[98]) = pow (2.0, bits_in_factor + 62);
+						/* TWO_TO_FACSIZE_PLUS_62 */
+
+/* Set XMM_BS to 60 - (120 - fac_size + 1) as defined in factor64.mac */
+
+		xmm_data[48] = bits_in_factor - 61;
+	}
 }
 
 /* Cleanup after making a factoring run */
@@ -935,6 +998,7 @@ void factorDone (void)
 /* Free factoring data */
 
 	free (FACDATA);
+	FACDATA = NULL;
 }
 
 /* Prepare for running a Lucas-Lehmer test */
@@ -1148,10 +1212,14 @@ readerr:		sprintf (buf, READFILEERR, filename);
 			goto readloop;
 		}
 
-/* Type 2 files are factoring continuation files */
-/* Type 3 files are Advanced / Factoring continuation files */
+/* Type 3 files are obsolete Advanced / Factoring continuation files */
 
-		if (type != 2 && type != 3) {
+		if (type == 3) goto readerr;
+
+/* Type 2 files are factoring continuation files */
+/* Type 4 files are Advanced / Factoring continuation files */
+
+		if (type < 2 || type > 4) {
 
 /* Deduce the fftlen from the type field */
 
@@ -2973,11 +3041,9 @@ loop:	res = factor64 ();
 
 	OutputBoth ("ERROR: Incorrect factor found.\n");
 	if (! SleepFive ()) return (FALSE);
-	FACLSW = p;
-	SRCARG = FACDATA;
-	setupf ();
 	FACHSW = hsw;
 	FACMSW = msw;
+	factorSetup (p);
 	goto loop;
 }
 
@@ -3114,10 +3180,6 @@ int primeFactor (
 		 fd ? "Resuming" : "Starting", p, test_bits);
 	OutputStr (buf);
 
-/* Load the factoring code */
-
-	factorSetup ();
-
 /* Loop testing larger and larger factors until we've tested to the */
 /* appropriate number of bits.  Advance one bit at a time to minimize wasted */
 /* time looking for a second factor after a first factor is found. */
@@ -3188,9 +3250,7 @@ int primeFactor (
 /* Setup the factoring program */
 
 		FACPASS = pass;
-		FACLSW = p;
-		SRCARG = FACDATA;
-		setupf ();
+		factorSetup (p);
 
 /* Loop until all factors tested or factor found */
 
@@ -3437,7 +3497,8 @@ int primeSieve (
 	char	filename[20], buf[80], str[80];
 	int	increasing, continuation;
 	unsigned long p, endpthi, endptlo, iters, iters_r;
-	short	pass, found_factor;
+	unsigned short bits;
+	short	pass;
 	int	stopping, saving;
 	time_t	start_time, current_time;
 
@@ -3464,21 +3525,11 @@ int primeSieve (
 /* Is this a continuation?  If so, read continuation file. */
 
 	if (fd) {
-		short	oldfromfile;
-		_read (fd, &startp, sizeof (long));
-		_read (fd, &endp, sizeof (long));
-		_read (fd, &minbits, sizeof (short));
-		_read (fd, &maxbits, sizeof (short));
-		_read (fd, &oldfromfile, sizeof (short));
 		_read (fd, &p, sizeof (long));
-		_read (fd, &FACMSW, sizeof (long));
 		_read (fd, &pass, sizeof (short));
-		_read (fd, &endptlo, sizeof (long));
-		_read (fd, &found_factor, sizeof (short));
-		FACHSW = 0;
+		_read (fd, &bits, sizeof (short));
 		_read (fd, &FACHSW, sizeof (long));
-		endpthi = 0;
-		_read (fd, &endpthi, sizeof (long));
+		_read (fd, &FACMSW, sizeof (long));
 		_close (fd);
 		continuation = TRUE;
 	} else
@@ -3487,10 +3538,6 @@ int primeSieve (
 /* Init filename */
 
 	tempFileName (filename, 0);
-
-/* Load the factoring code */
-
-	factorSetup ();
 
 /* Loop until all the entire range is factored */
 
@@ -3511,46 +3558,45 @@ int primeSieve (
 
 		if (!isPrime (p)) goto nextp;
 
+/* Loop through all the bit levels */
+
+		if (!continuation) bits = minbits;
+		for ( ; bits <= maxbits; bits++) {
+
 /* Determine how much we should factor */
 
-		if (!continuation) {
-			if (maxbits < 64) {
-				endpthi = 0;
-				endptlo = 1L << (maxbits-32);
-			} else {
-				endpthi = 1L << (maxbits-64);
-				endptlo = 0;
-			}
+		if (bits < 64) {
+			endpthi = 0;
+			endptlo = 1L << (bits-32);
+		} else {
+			endpthi = 1L << (bits-64);
+			endptlo = 0;
 		}
 
 /* Sixteen passes! two for the 1 or 7 mod 8 factors times two for the */
 /* 1 or 2 mod 3 factors times four for the 1, 2, 3, or 4 mod 5 factors. */
 
-		if (!continuation) {
-			pass = 1;
-			found_factor = FALSE;
-		}
-		for ( ; pass <= 16; pass++) {
+		if (!continuation) pass = 0;
+		for ( ; pass < 16; pass++) {
 
 /* Setup the factoring program */
 
 		if (!continuation) {
-			if (minbits <= 32) {
+			if (bits <= 32) {
 				FACHSW = 0;
 				FACMSW = 0;
-			} else if (minbits <= 64) {
+			} else if (bits <= 64) {
 				FACHSW = 0;
-				FACMSW = 1L << (minbits-33);
+				FACMSW = 1L << (bits-33);
 			} else {
-				FACHSW = 1L << (minbits-65);
+				FACHSW = 1L << (bits-65);
 				FACMSW = 0;
 			}
-			if (pass > 1 && FACMSW == 0) FACMSW = 1;
+			if (pass > 0 && FACMSW == 0) FACMSW = 1;
 		}
-		FACPASS = pass-1;
-		FACLSW = p;
-		SRCARG = FACDATA;
-		setupf ();
+		FACPASS = pass;
+		factorSetup (p);
+		continuation = FALSE;
 
 /* Loop until all factors tested or factor found */
 
@@ -3563,14 +3609,14 @@ int primeSieve (
 
 			if (FACHSW > endpthi ||
 			    (FACHSW == endpthi && FACMSW >= endptlo))
-				goto nextpass;
+				break;
 
 /* Factor some more */
 
 			start_timer (0);
 			res = factorAndVerify (p);
 			end_timer (0);
-			if (res != 2) break;
+			if (res != 2) goto bingo;
 
 /* Send queued messages to the server every so often */
 /* Set flag if we are saving or stopping */
@@ -3588,10 +3634,10 @@ int primeSieve (
 			if (++iters >= ITER_OUTPUT) {
 				char	fmt_mask[80];
 				double	percent;
-				percent = facpct ((short) (pass-1), minbits-1, endpthi, endptlo);
+				percent = facpct (pass, bits-1, endpthi, endptlo);
 				percent = trunc_percent (percent);
 				sprintf (fmt_mask, FACMSG, PRECISION);
-				sprintf (buf, fmt_mask, p, maxbits, percent);
+				sprintf (buf, fmt_mask, p, bits, percent);
 				OutputTimeStamp ();
 				OutputStr (buf);
 				OutputStr ("  Time: ");
@@ -3607,10 +3653,10 @@ int primeSieve (
 			if (++iters_r >= ITER_OUTPUT_RES) {
 				char	fmt_mask[80];
 				double	percent;
-				percent = facpct ((short) (pass-1), minbits-1, endpthi, endptlo);
+				percent = facpct (pass, bits-1, endpthi, endptlo);
 				percent = trunc_percent (percent);
 				sprintf (fmt_mask, FACMSG, PRECISION);
-				sprintf (buf, fmt_mask, p, maxbits, percent);
+				sprintf (buf, fmt_mask, p, bits, percent);
 				strcat (buf, "\n");
 				writeResults (buf);
 				iters_r = 0;
@@ -3619,22 +3665,15 @@ int primeSieve (
 /* If an escape key was hit, write out the results and return */
 
 			if (stopping || saving) {
-				short	three = 3;
+				short	four = 4;
 				fd = _open (filename, _O_BINARY | _O_WRONLY | _O_TRUNC | _O_CREAT, 0666);
-				_write (fd, &three, sizeof (short));
+				_write (fd, &four, sizeof (short));
 				_write (fd, &p, sizeof (long)); /* dummy */
-				_write (fd, &startp, sizeof (long));
-				_write (fd, &endp, sizeof (long));
-				_write (fd, &minbits, sizeof (short));
-				_write (fd, &maxbits, sizeof (short));
-				_write (fd, &three, sizeof (short));
 				_write (fd, &p, sizeof (long));
-				_write (fd, &FACMSW, sizeof (long));
 				_write (fd, &pass, sizeof (short));
-				_write (fd, &endptlo, sizeof (long));
-				_write (fd, &found_factor, sizeof (short));
+				_write (fd, &bits, sizeof (short));
 				_write (fd, &FACHSW, sizeof (long));
-				_write (fd, &endpthi, sizeof (long));
+				_write (fd, &FACMSW, sizeof (long));
 				_commit (fd);
 				_close (fd);
 				if (stopping) {
@@ -3645,12 +3684,28 @@ int primeSieve (
 			}
 		}
 
-/* Format the output message */
+/* Next pass */
 
-		makestr (FACHSW, FACMSW, FACLSW, str);
+		if (FACMSW != 0xFFFFFFFF) {
+			endpthi = FACHSW;
+			endptlo = FACMSW+1;
+		} else {
+			endpthi = FACHSW+1;
+			endptlo = 0;
+		}
+		}
+		}
 
-/* Output results */
+/* Output message if no factor found */
 
+		sprintf (buf, NOFAC, p, minbits-1, maxbits, PORT, SEC4 (p));
+		OutputBoth (buf);
+		spoolMessage (PRIMENET_RESULT_MESSAGE, buf);
+		goto nextp;
+
+/* Format and output the factor found message */
+
+bingo:		makestr (FACHSW, FACMSW, FACLSW, str);
 		{
 			struct primenetAssignmentResult pkt;
 			memset (&pkt, 0, sizeof (pkt));
@@ -3663,30 +3718,9 @@ int primeSieve (
 		OutputBoth (buf);
 		spoolMessage (PRIMENET_RESULT_MESSAGE, buf);
 
-/* Next pass */
-
-		if (FACMSW != 0xFFFFFFFF) {
-			endpthi = FACHSW;
-			endptlo = FACMSW+1;
-		} else {
-			endpthi = FACHSW+1;
-			endptlo = 0;
-		}
-		found_factor = TRUE;
-nextpass:	continuation = FALSE;
-		}
-
-/* Output message if no factor found */
-
-		if (! found_factor) {
-			sprintf (buf, NOFAC, p, minbits-1, maxbits, PORT, SEC4 (p));
-			OutputBoth (buf);
-			spoolMessage (PRIMENET_RESULT_MESSAGE, buf);
-		}
-
 /* Factor next prime */
 
-nextp:		continuation = FALSE;
+nextp:		;
 	}
 
 /* Delete the continuation file */
@@ -3711,10 +3745,6 @@ void primeSieveTest (void)
 	char	buf[500];
 	FILE	*fd;
 	unsigned long p;
-
-/* Load the factoring code */
-
-	factorSetup ();
 
 /* Open factors file */
 
@@ -3743,8 +3773,9 @@ void primeSieveTest (void)
 			muladdhlp (facmid, 10);
 			facmid = RES;
 			fachi = fachi * 10 + CARRYL;
-			if (fachi >= 4096) {
-				sprintf (buf, "%s factor too big.\n", fac);
+			if (fachi >= 4194304 ||
+			    (fachi >= 65536 && !(CPU_FLAGS & CPU_SSE2))) {
+				sprintf (buf, "%ld%s factor too big.\n", p, fac);
 				OutputBoth (buf);
 				goto nextp;
 			}
@@ -3780,9 +3811,7 @@ void primeSieveTest (void)
 		else goto bad;
 		FACHSW = fachi;
 		FACMSW = facmid;
-		FACLSW = p;
-		SRCARG = FACDATA;
-		setupf ();
+		factorSetup (p);
 
 /* Factor found, is it a match? */
 
@@ -3791,7 +3820,7 @@ void primeSieveTest (void)
 			    FACHSW == fachi &&
 			    FACMSW == facmid &&
 			    FACLSW == faclo) {
-				sprintf (buf, "%ld factored OK.\n", p);
+				sprintf (buf, "%ld%s factored OK.\n", p, fac);
 				OutputSomewhere (buf);
 				goto nextp;
 			}
@@ -3799,7 +3828,7 @@ void primeSieveTest (void)
 
 /* Uh oh. */
 
-bad:		sprintf (buf, "%ld factor not found.\n", p);
+bad:		sprintf (buf, "%ld%s factor not found.\n", p, fac);
 		OutputBoth (buf);
 
 /* If an escape key was hit, write out the results and return */
