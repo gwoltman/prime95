@@ -764,10 +764,10 @@ void CPrime95Doc::OnTorture()
 	dlg.m_maxfft = 4096;
 	mem = physical_memory ();
 	if (mem >= 500) {
-		dlg.m_memory = mem - 256;
+		dlg.m_memory = GetSuggestedMemory (mem - 256);
 		dlg.m_in_place_fft = FALSE;
 	} else if (mem >= 200) {
-		dlg.m_memory = mem / 2;
+		dlg.m_memory = GetSuggestedMemory (mem / 2);
 		dlg.m_in_place_fft = TRUE;
 	} else {
 		dlg.m_memory = 8;

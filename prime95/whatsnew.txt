@@ -5,6 +5,8 @@ New features in Version 24.11 of prime95.exe
 2)  Prime95 now detects support for 3DNow! instructions.  See undoc.txt
     for overriding this detection with CpuSupports3DNow=n in local.ini.
 3)  Factoring entries in worktodo.ini now accept exponents up to 2 billion.
+4)  Improved checking for memory allocation errors during a torture test.
+    Better guessing of amount of memory to use in a blend test.
 
 New features in Version 24.10 of prime95.exe
 --------------------------------------------

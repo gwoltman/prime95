@@ -239,6 +239,7 @@ void UnloadPrimeNet (void);
 int PRIMENET (short, void *);
 void OutputStr (char *);
 unsigned long physical_memory (void);
+unsigned long GetSuggestedMemory (unsigned long nDesiredMemory);
 unsigned long num_cpus (void);
 int getDefaultTimeFormat (void);
 void doMiscTasks (void);

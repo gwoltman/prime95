@@ -505,6 +505,17 @@ unsigned long physical_memory (void)
 	return (atoi (mem) >> 20);
 }
 
+/* Return a better guess for amount of memory to use in a torture test. */
+/* Caller passes in its guess for amount of memory to use, but this routine */
+/* can reduce that guess based on OS-specific code that looks at amount */
+/* of available physical memory. */
+/* This code was written by an anonymous GIMPS user. */
+
+unsigned long GetSuggestedMemory (unsigned long nDesiredMemory)
+{
+	return (nDesiredMemory);
+}
+
 int getDefaultTimeFormat (void)
 {
 	return (2);
