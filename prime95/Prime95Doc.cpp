@@ -36,7 +36,7 @@ static char THIS_FILE[] = __FILE__;
 #define OP_CONTINUE	1
 #define OP_TIME		2
 #define OP_BENCH	3
-#define OP_TORTURE5
+#define OP_TORTURE	5
 struct thread_info {
 	int	op;		// Opcode defined above
 	unsigned long p;	// Prime to test
@@ -763,7 +763,7 @@ void CPrime95Doc::OnTorture()
 	if (mem >= 500) {
 		dlg.m_memory = mem - 256;
 		dlg.m_in_place_fft = FALSE;
-	else if (mem >= 200) {
+	} else if (mem >= 200) {
 		dlg.m_memory = mem / 2;
 		dlg.m_in_place_fft = TRUE;
 	} else {

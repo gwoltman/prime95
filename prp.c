@@ -1728,7 +1728,7 @@ restart:
 	for (ptmp = p / 2; ; ptmp = pmax + 1) {
 		fftlen = map_exponent_to_fftlen (ptmp, GW_MERSENNE_MOD);
 		pmax = map_fftlen_to_max_exponent (fftlen, GW_MERSENNE_MOD);
-		if (PRP_CMDLINE != NULL && p <= pmax - fftlen - fftlen) break;
+//		if (PRP_CMDLINE != NULL && p <= pmax - fftlen - fftlen) break;
 		if (p <= (pmax + fftlen / 2) / fftlen * fftlen) break;
 	}
 	bits_per_word = (p + fftlen - 1) / fftlen;
@@ -1739,6 +1739,9 @@ restart:
 	binarytogw (N, n);
 	gwfft (n, n);
 	x = gwalloc ();
+
+			sprintf (buf, "FFTLEN %ld, bits-per-limb %ld\n", FFTLEN, bits_per_word);
+			writeResults (buf);
 
 /* Precompute the reciprocal */
 
@@ -2068,7 +2071,7 @@ void primeContinue ()
 	int	work;
 
 /* Check for Chris Caldwell's command line PRP test */
-
+PRP_CMDLINE = "\\pfgwnum";
 	if (PRP_CMDLINE != NULL) {
 		char	buf[20];
 		int	bits, retval;

@@ -770,8 +770,8 @@ void test_welcome (void)
 		IniWriteInt (INI_FILE, "StressTester", 1);
 		IniWriteInt (INI_FILE, "UsePrimenet", USE_PRIMENET = 0);
 		mem = physical_memory ();
-		DAY_MEMORY = NIGHT_MEMORY = (mem <= 32) ? 8 :
-					    (mem <= 256) ? mem / 2 : mem - 128;
+		DAY_MEMORY = NIGHT_MEMORY = (mem < 200) ? 8 :
+					    (mem < 500) ? mem / 2 : mem - 256;
 		IniWriteInt (LOCALINI_FILE, "DayMemory", DAY_MEMORY);
 		IniWriteInt (LOCALINI_FILE, "NightMemory", NIGHT_MEMORY);
 		if (mem > 8) {
