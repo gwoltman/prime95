@@ -2157,17 +2157,6 @@ _close (fd);
 			writeToFile (interimfile, counter,
 				     units_bit, error_count);
 		}
-
-/* This is a kludge to handle exponents smaller than the FFT length. */
-/* The multiply normalize code can leave the second FFT value non-zero */
-/* even though it should contain no data. */
-
-//		if (p < FFTLEN) {
-//			giant g = popg(1);
-//			gwtogiant (LLDATA, g);
-//			gianttogw (g, LLDATA);
-//			pushg (1);
-//		}
 	}
 
 /* Check for a successful completion */
@@ -2186,9 +2175,7 @@ _close (fd);
 		get_fft_value (LLDATA, i, &val);
 		if (isPrime <= 2 && val == 0)
 			isPrime = 2;
-		else if ((isPrime & 1) &&
-			 (val == -1 ||
-			  (p < FFTLEN && !is_big_word (i))))
+		else if ((isPrime & 1) && val == -1)
 			isPrime = 3;
 		else
 			isPrime = FALSE;

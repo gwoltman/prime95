@@ -1571,7 +1571,8 @@ void gwsetup_general_mod (
 
 /* Calculate number of words to zero during copy */
 
-	GW_ZEROWORDSLOW = (unsigned long)
+	if (len < EB) GW_ZEROWORDSLOW = 0;
+	else GW_ZEROWORDSLOW = (unsigned long)
 		((double) (len - EB) / fft_bits_per_word);
 
 /* Set flag indicating general-purpose modulo operations are in force */
@@ -2907,6 +2908,12 @@ unsigned long gwmap_to_fftlen (
 
 	if (n > MAX_PRIME_SSE2) return (MAX_FFTLEN);
 
+/* Small exponents will use generic reduction.  Since gwinfo will */
+/* return an error if n is too small, make n large enough to keep */
+/* gwinfo happy */
+
+	if (n < 500) n = 500;
+
 /* Get pointer to fft info and return the FFT length */
 
 	gwinfo (k, b, n, c, 0);
@@ -3015,6 +3022,16 @@ void gwcopyzero (
 	unsigned long n)
 {
 static	unsigned long saved_n = 0;
+
+/* Handle case where no words are zeroed.  Some of the assembly routines */
+/* do not like a word count of zero. */
+
+	if (n == 0) {
+		gwcopy (s, d);
+		return;
+	}
+
+/* Call assembly language copy-and-zeroing routine */
 
 	SRCARG = s;
 	DESTARG = d;
