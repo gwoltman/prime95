@@ -49,7 +49,7 @@
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
 				IgnoreDefaultLibraryNames="nafxcw.lib libcmt.lib"
-				DelayLoadDLLs="oleacc.dll;ole32.dll;oleaut32.dll;advapi32.dll;wininet.dll"
+				DelayLoadDLLs="oleacc.dll;ole32.dll;oleaut32.dll;advapi32.dll;wininet.dll;shlwapi.dll"
 				ProgramDatabaseFile=".\Release/prime95.pdb"
 				GenerateMapFile="TRUE"
 				MapFileName=".\Release/prime95.map"
