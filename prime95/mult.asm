@@ -2262,8 +2262,8 @@ counts:	mov	ecx, [esi+64]		; Save 2 normalize counters
 ; Generate the premultipliers used in pass 2
 
 	mov	esi, _SRCARG		; Load next available address
-	add	esi, 31			; Make it a cache line boundary
-	and	esi, 0FFFFFFE0h
+	add	esi, 63			; Make it a 64 byte cache line boundary
+	and	esi, 0FFFFFFC0h
 	mov	pass2_premults, esi	; Store the premult data there
 	mov	eax, _FFTLEN		; Load params based on FFT length
 	cmp	eax, 1024		; Are there any pass2 multipliers?
@@ -2278,8 +2278,8 @@ nop2:	mov	_SRCARG, esi		; Save address for next table
 ; Generate the premultipliers used in pass 1
 
 	mov	esi, _SRCARG		; Load next available address
-	add	esi, 31			; Make it a cache line boundary
-	and	esi, 0FFFFFFE0h
+	add	esi, 63			; Make it a 64 byte cache line boundary
+	and	esi, 0FFFFFFC0h
 	mov	pass1_premults, esi	; Store the premult data there
 	mov	eax, _FFTLEN		; Load params based on FFT length
 	cmp	eax, 65536		; Are there any pass1 multipliers?
@@ -2295,8 +2295,8 @@ nop1:	mov	_SRCARG, esi		; Save address for next table
 ; Compute two-to-phi and two-to-minus-phi normalization multipliers
 
 	mov	eax, _SRCARG		; Load next available address
-	add	eax, 31			; Make it a cache line boundary
-	and	eax, 0FFFFFFE0h
+	add	eax, 63			; Make it a 64 byte cache line boundary
+	and	eax, 0FFFFFFC0h
 	mov	norm_col_mults, eax	; Store the column data there
 	add	eax, 128*NMD		; There are up to 128 columns
 	mov	norm_grp_mults, eax	; Store the group data there
@@ -2311,8 +2311,8 @@ nop1:	mov	_SRCARG, esi		; Save address for next table
 	mov	DWORD PTR [edi+8], sincos_real
 	mov	DWORD PTR [edi+12], sincos_real
 	mov	esi, _SRCARG		; Load next available address
-	add	esi, 31			; Make it a cache line boundary
-	and	esi, 0FFFFFFE0h
+	add	esi, 63			; Make it a 64 byte cache line boundary
+	and	esi, 0FFFFFFC0h
 slp:	pop	ebp			; Get pointer to number of PFA elements
 	mov	ebx, [ebp]		; Get number of PFA elements
 	cmp	ebx, 0
@@ -2332,8 +2332,8 @@ sdn:	mov	_SRCARG, esi		; Save address for next table
 	cmp	_PLUS1, 0
 	JZ_X	minus1
 	mov	esi, _SRCARG		; Load next available address
-	add	esi, 31			; Make it a cache line boundary
-	and	esi, 0FFFFFFE0h
+	add	esi, 63			; Make it a 64 byte cache line boundary
+	and	esi, 0FFFFFFC0h
 	mov	plus1_premults, esi
 	plus1_mult_setup
 	mov	_SRCARG, esi		; Save address for next table
