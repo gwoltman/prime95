@@ -3424,8 +3424,6 @@ restart:
 	if (!error_recovery_mode) {
 		sprintf (buf, "P-1 on %c%ld with B1=%lu, B2=%lu\n",
 			 PLUS1 ? 'P' : 'M', PARG, B, C);
-		if (E > 2)
-			sprintf (buf+strlen(buf)-1, ", E=%lu\n", E);
 		OutputStr (buf);
 	}
 
@@ -3634,7 +3632,7 @@ restart0:
 				gwsquare (x);
 			}
 		}
-//{char buf[200]; unsigned long high32, low32;
+//{unsigned long high32, low32;
 //LLDATA = x; generateResidue64 (0, &high32, &low32);
 //sprintf (buf, "interim P-1 residue %08lX%08lX at bit %ld\n", high32, low32, bit_number);
 //OutputBoth (buf);}
@@ -4162,8 +4160,14 @@ restart4:
 
 msg_and_exit:
 	buf[0] = PLUS1 ? 'P' : 'M';
-	sprintf (buf+1, "%ld completed P-1, B1=%lu, B2=%lu, WX%d: %08lX\n",
-		 PARG, B, C, PORT, SEC5 (PARG, B, C));
+	sprintf (buf+1, "%ld completed P-1, B1=%lu", PARG, B);
+	if (C > B) {
+		if (E <= 1)
+			sprintf (buf+strlen(buf), ", B2=%lu", C);
+		else
+			sprintf (buf+strlen(buf), ", B2=%lu, E=%lu", C, E);
+	}
+	sprintf (buf+strlen(buf), ", WY%d: %08lX\n", PORT, SEC5 (PARG, B, C));
 	writeResults (buf);
 	if (ll_testing) spoolMessage (PRIMENET_RESULT_MESSAGE, buf);
 
@@ -4260,7 +4264,8 @@ bingo:	if (stage == 1)
 
 error:	pm1_cleanup ();
 	if (near_fft_limit && MAXERR > 0.40) {
-		OutputStr ("Possible roundoff error, backtracking to last save file.\n");
+		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file.\n", MAXERR);
+		OutputStr (buf);
 	} else {
 		OutputBoth ("SUMOUT error occurred.\n");
 		if (! SleepFive ()) return (FALSE);
