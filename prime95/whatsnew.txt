@@ -1,3 +1,9 @@
+New features in Version 23.7 of prime95.exe
+-------------------------------------------
+
+1)  A bug was fixed where the torture test used more virtual memory than
+    necessary, sometimes resulting in an "Out of memory" error.
+
 New features in Version 23.6 of prime95.exe
 -------------------------------------------
 
