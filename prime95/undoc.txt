@@ -211,3 +211,10 @@ will minimize rather than exit.  You can make prime95 exit if you prefer.
 In prime.ini set:
 	ExitOnX=1
 
+You can change the Windows NT/2000/XP service name and service display name.
+The default for both is "Prime95 Service".  In local.ini, set:
+	ServiceName=your service name
+	DisplayName=your service display name
+You might want to do this if running on a dual CPU machine and running two
+prime95's in different directories rather than running in the same directory
+with the -A1 switch.

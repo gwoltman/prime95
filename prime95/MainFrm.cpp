@@ -217,6 +217,7 @@ void CMainFrame::OnEndSession (BOOL bEnding)
 #define RSP_UNREGISTER_SERVICE	0
 void Service95 ()
 {
+	char	servicename[80];
 	char	pathname[256];
 	char	regkey[20];		/* Win9x registry name */
 	SC_HANDLE schSCManager = 0;
@@ -272,14 +273,24 @@ void Service95 ()
 
 	if (! isWindows95 ()) {
 		char	servicename[32];
+		char	displayname[32];
 
 // Create the Windows NT service name and display name
 
-		if (WINDOWS95_A_SWITCH < 0)
-			strcpy (servicename, "Prime95 Service");
-		else
-			sprintf (servicename, "Prime95 Service-%d",
-				 WINDOWS95_A_SWITCH);
+		IniGetString (LOCALINI_FILE, "ServiceName", servicename,
+			      sizeof (servicename), NULL);
+		if (servicename[0] == 0) {
+			if (WINDOWS95_A_SWITCH < 0)
+				strcpy (servicename, "Prime95 Service");
+			else
+				sprintf (servicename, "Prime95 Service-%d",
+					 WINDOWS95_A_SWITCH);
+		}
+
+		IniGetString (LOCALINI_FILE, "DisplayName", displayname,
+			      sizeof (displayname), NULL);
+		if (displayname[0] == 0)
+			strcpy (displayname, servicename);
 
 // Open connection to the service control manager
 
@@ -300,7 +311,7 @@ void Service95 ()
 			schService = CreateService (
 				schSCManager,		// SCManager database
 				servicename,	        // name of service
-				servicename,		// display name is same
+				displayname,		// display name
 				SERVICE_ALL_ACCESS,	// desired access
 				SERVICE_INTERACTIVE_PROCESS |
 				SERVICE_WIN32_OWN_PROCESS,  // service type

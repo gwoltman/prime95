@@ -8,6 +8,9 @@ New features in Version 22.7 of prime95.exe
     problem as no one should be using this obsolete and unsupported feature.
 3)  Four more x87 FFT crossover changes as suggested by Brian Beesley's
     research.
+4)  You can now change the NT/2000/XP service name and service display name.
+    See undoc.txt for details.
+5)  Bug where found factors were silently truncated to 200 digits was fixed.
 
 New features in Version 22.6 of prime95.exe
 -------------------------------------------
