@@ -1570,7 +1570,10 @@ g2cl_eight_reals_unfft_2 MACRO srcreg,srcinc,d1,dstreg,dstinc,e1
 ;; in a one pass FFT.
 ;; 98.35 clocks
 x4cl_four_complex_fft MACRO srcreg,srcinc,d1,d2
-	x4c_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],0
+	x4cl_four_complex_fft_screg srcreg,srcinc,d1,d2,edi
+	ENDM
+x4cl_four_complex_fft_screg MACRO srcreg,srcinc,d1,d2,screg
+	x4c_fft_mem_screg [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],0,screg
 	movapd	[srcreg], xmm5		;; Save R1
 	movapd	xmm5, [srcreg+32]	;; R1
 	movapd	[srcreg+16], xmm7	;; Save R2
@@ -1586,7 +1589,7 @@ x4cl_four_complex_fft MACRO srcreg,srcinc,d1,d2
 	movapd	[srcreg+d1+32], xmm6	;; Save R7
 	movapd	xmm6, [srcreg+d2+d1+32]	;; R4
 	movapd	[srcreg+d1+48], xmm0	;; Save R8
-	x4c_fft xmm5, xmm1, xmm2, xmm6, xmm7, xmm3, xmm4, xmm0, [srcreg+d2+d1+48], XMM_SCD
+	x4c_fft_screg xmm5, xmm1, xmm2, xmm6, xmm7, xmm3, xmm4, xmm0, [srcreg+d2+d1+48], XMM_SCD, screg
 	movapd	[srcreg+d2], xmm6	;; Save R1
 	movapd	[srcreg+d2+16], xmm1	;; Save R2
 	movapd	[srcreg+d2+32], xmm0	;; Save R3
@@ -1633,31 +1636,34 @@ x2cl_four_complex_fft MACRO srcreg,srcinc,d1
 	lea	srcreg, [srcreg+srcinc]
 	ENDM
 x4c_fft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, off
-	movapd	r8, [edi+off+32+16]	;; cosine/sine
+	x4c_fft_screg r1, r2, r3, r4, r5, r6, r7, r8, mem8, off, edi
+	ENDM
+x4c_fft_screg MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, off, screg
+	movapd	r8, [screg+off+32+16]	;; cosine/sine
 	mulpd	r8, r3			;; A3 = R3 * cosine/sine	;1-6
 	subpd	r8, r7			;; A3 = A3 - I3			;8-11
-	mulpd	r7, [edi+off+32+16]	;; B3 = I3 * cosine/sine	;3-8
+	mulpd	r7, [screg+off+32+16]	;; B3 = I3 * cosine/sine	;3-8
 	addpd	r7, r3			;; B3 = B3 + R3			;10-13
-	movapd	r3, [edi+off+0+16]	;; cosine/sine
+	movapd	r3, [screg+off+0+16]	;; cosine/sine
 	mulpd	r3, r2			;; A2 = R2 * cosine/sine	;5-10
 	subpd	r3, r6			;; A2 = A2 - I2			;12-15
-	mulpd	r6, [edi+off+0+16]	;; B2 = I2 * cosine/sine	;9-14
+	mulpd	r6, [screg+off+0+16]	;; B2 = I2 * cosine/sine	;9-14
 	addpd	r6, r2			;; B2 = B2 + R2			;16-19
-	movapd	r2, [edi+off+64+16]	;; cosine/sine
+	movapd	r2, [screg+off+64+16]	;; cosine/sine
 	mulpd	r2, mem8		;; B4 = I4 * cosine/sine	;11-16
 	addpd	r2, r4			;; B4 = B4 + R4			;18-21
-	mulpd	r4, [edi+off+64+16]	;; A4 = R4 * cosine/sine	;7-12
+	mulpd	r4, [screg+off+64+16]	;; A4 = R4 * cosine/sine	;7-12
 	subpd	r4, mem8		;; A4 = A4 - I4			;14-17
-	mulpd	r8, [edi+off+32]	;; A3 = A3 * sine (new R3)	;13-18
-	mulpd	r7, [edi+off+32]	;; B3 = B3 * sine (new I3)	;15-20
-	mulpd	r3, [edi+off+0]		;; A2 = A2 * sine (new R2)	;17-22
-	mulpd	r4, [edi+off+64]	;; A4 = A4 * sine (new R4)	;19-24
+	mulpd	r8, [screg+off+32]	;; A3 = A3 * sine (new R3)	;13-18
+	mulpd	r7, [screg+off+32]	;; B3 = B3 * sine (new I3)	;15-20
+	mulpd	r3, [screg+off+0]	;; A2 = A2 * sine (new R2)	;17-22
+	mulpd	r4, [screg+off+64]	;; A4 = A4 * sine (new R4)	;19-24
 	 subpd	r1, r8			;; R1 = R1 - R3 (new R3)	;20-23
 	 multwo	r8
-	mulpd	r6, [edi+off+0]		;; B2 = B2 * sine (new I2)	;21-26
+	mulpd	r6, [screg+off+0]	;; B2 = B2 * sine (new I2)	;21-26
 	 subpd	r5, r7			;; I1 = I1 - I3 (new I3)	;22-25
 	 multwo	r7
-	mulpd	r2, [edi+off+64]	;; B4 = B4 * sine (new I4)	;23-28
+	mulpd	r2, [screg+off+64]	;; B4 = B4 * sine (new I4)	;23-28
 	 addpd	r8, r1			;; R3 = R1 + R3 (new R1)	;24-27
 	 subpd	r3, r4			;; R2 = R2 - R4 (new R4)	;26-29
 	 multwo	r4			;; R4 = R4 * 2			;27-32
@@ -1680,17 +1686,20 @@ x4c_fft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, off
 	addpd	r2, r7			;; I2 = I1 + I2 (final I1)	;50-53
 	ENDM
 x4c_fft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,off
+	x4c_fft_mem_screg R1,R2,R3,R4,R5,R6,R7,R8,off,edi
+	ENDM
+x4c_fft_mem_screg MACRO R1,R2,R3,R4,R5,R6,R7,R8,off,screg
 	movapd	xmm0, R3		;; R3
-	movapd	xmm1, [edi+off+32+16]	;; cosine/sine
+	movapd	xmm1, [screg+off+32+16]	;; cosine/sine
 	mulpd	xmm1, xmm0		;; A3 = R3 * cosine/sine	;1-6
 	movapd	xmm2, R7		;; I3
-	movapd	xmm3, [edi+off+32+16]	;; cosine/sine
+	movapd	xmm3, [screg+off+32+16]	;; cosine/sine
 	mulpd	xmm3, xmm2		;; B3 = I3 * cosine/sine	;3-8
 	movapd	xmm4, R2		;; R2
-	movapd	xmm6, [edi+off+0+16]	;; cosine/sine
+	movapd	xmm6, [screg+off+0+16]	;; cosine/sine
 	mulpd	xmm4, xmm6		;; A2 = R2 * cosine/sine	;5-10
 	movapd	xmm5, R4		;; R4
-	movapd	xmm7, [edi+off+64+16]	;; cosine/sine
+	movapd	xmm7, [screg+off+64+16]	;; cosine/sine
 	mulpd	xmm5, xmm7		;; A4 = R4 * cosine/sine	;7-12
 	subpd	xmm1, xmm2		;; A3 = A3 - I3			;8-11
 	movapd	xmm2, R6		;; I2
@@ -1699,21 +1708,21 @@ x4c_fft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,off
 	movapd	xmm0, R8		;; I4
 	mulpd	xmm7, xmm0		;; B4 = I4 * cosine/sine	;11-16
 	subpd	xmm4, xmm2		;; A2 = A2 - I2			;12-15
-	movapd	xmm2, [edi+off+32]	;; sine
+	movapd	xmm2, [screg+off+32]	;; sine
 	mulpd	xmm1, xmm2		;; A3 = A3 * sine (new R3)	;13-18
 	subpd	xmm5, xmm0		;; A4 = A4 - I4			;14-17
 	mulpd	xmm3, xmm2		;; B3 = B3 * sine (new I3)	;15-20
 	addpd	xmm6, R2		;; B2 = B2 + R2			;16-19
-	movapd	xmm0, [edi+off+0]	;; sine
+	movapd	xmm0, [screg+off+0]	;; sine
 	mulpd	xmm4, xmm0		;; A2 = A2 * sine (new R2)	;17-22
 	addpd	xmm7, R4		;; B4 = B4 + R4			;18-21
-	mulpd	xmm5, [edi+off+64]	;; A4 = A4 * sine (new R4)	;19-24
+	mulpd	xmm5, [screg+off+64]	;; A4 = A4 * sine (new R4)	;19-24
 	 movapd	xmm2, R1		;; R1
 	 subpd	xmm2, xmm1		;; R1 = R1 - R3 (new R3)	;20-23
 	mulpd	xmm6, xmm0		;; B2 = B2 * sine (new I2)	;21-26
 	 movapd	xmm0, R5		;; I1
 	 subpd	xmm0, xmm3		;; I1 = I1 - I3 (new I3)	;22-25
-	mulpd	xmm7, [edi+off+64]	;; B4 = B4 * sine (new I4)	;23-28
+	mulpd	xmm7, [screg+off+64]	;; B4 = B4 * sine (new I4)	;23-28
 	 addpd	xmm1, R1		;; R3 = R1 + R3 (new R1)	;24-27
 	 subpd	xmm4, xmm5		;; R2 = R2 - R4 (new R4)	;26-29
 	 multwo	xmm5			;; R4 = R4 * 2			;27-32
@@ -1741,13 +1750,16 @@ x4c_fft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,off
 ;; in a one pass FFT.
 ;; 94.35 clocks
 x4cl_four_complex_unfft MACRO srcreg,srcinc,d1,d2
+	x4cl_four_complex_unfft_screg srcreg,srcinc,d1,d2,edi
+	ENDM
+x4cl_four_complex_unfft_screg MACRO srcreg,srcinc,d1,d2,screg
 	movapd	xmm0, [srcreg]		;; R1
 	movapd	xmm1, [srcreg+32]	;; R2
 	movapd	xmm2, [srcreg+d1]	;; R3
 	movapd	xmm3, [srcreg+d1+32]	;; R4
 	movapd	xmm4, [srcreg+d2]	;; R5
 	movapd	xmm5, [srcreg+d2+32]	;; R6
-	best_x4c_unfft xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, [srcreg+d2+d1], [srcreg+d2+d1+32], [srcreg], [srcreg+32], 0
+	best_x4c_unfft_screg xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, [srcreg+d2+d1], [srcreg+d2+d1+32], [srcreg], [srcreg+32], 0, screg
 	movapd	xmm2, [srcreg+16]	;; R1
 	movapd	xmm3, [srcreg+d2+16]	;; R5
 	movapd	[srcreg+d2], xmm1	;; Save R2
@@ -1760,7 +1772,7 @@ x4cl_four_complex_unfft MACRO srcreg,srcinc,d1,d2
 	movapd	[srcreg+48], xmm6	;; Save R7
 	movapd	xmm0, [srcreg+d1+16]	;; R3
 	movapd	xmm5, [srcreg+d1+48]	;; R4
-	best_x4c_unfft xmm2, xmm1, xmm0, xmm5, xmm3, xmm4, xmm6, xmm7, [srcreg+d2+d1+16], [srcreg+d2+d1+48], [srcreg+d1], [srcreg+d1+32], 0
+	best_x4c_unfft_screg xmm2, xmm1, xmm0, xmm5, xmm3, xmm4, xmm6, xmm7, [srcreg+d2+d1+16], [srcreg+d2+d1+48], [srcreg+d1], [srcreg+d1+32], 0, screg
 	movapd	[srcreg+d2+d1], xmm1	;; Save R2
 	movapd	[srcreg+d2+d1+16], xmm3	;; Save R4
 	movapd	[srcreg+d2+d1+32], xmm2	;; Save R6
@@ -1770,6 +1782,9 @@ x4cl_four_complex_unfft MACRO srcreg,srcinc,d1,d2
 	lea	srcreg, [srcreg+srcinc]
 	ENDM
 best_x4c_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem7, mem8, dest1, dest2, off
+	best_x4c_unfft_screg r1, r2, r3, r4, r5, r6, r7, r8, mem7, mem8, dest1, dest2, off, edi
+	ENDM
+best_x4c_unfft_screg MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem7, mem8, dest1, dest2, off, screg
 	subpd	r1, r3			;; new R2 = R1 - R2
 	multwo	r3
 	movapd	r8, mem8
@@ -1796,30 +1811,30 @@ best_x4c_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem7, mem8, dest1, dest2, o
 	addpd	r8, r4			;; I3 = I1 + I3 (new & final I1)
 	movapd	dest1, r5		;; Save final R1
 	movapd	dest2, r8		;; Save final I1
-	movapd	r5, [edi+off+64+16]	;; cosine/sine
+	movapd	r5, [screg+off+64+16]	;; cosine/sine
 	mulpd	r5, r1			;; A4 = new R4 * cosine/sine
-	movapd	r8, [edi+off+64+16]	;; cosine/sine
+	movapd	r8, [screg+off+64+16]	;; cosine/sine
 	mulpd	r8, r2			;; B4 = new I4 * cosine/sine
 	addpd	r5, r2			;; A4 = A4 + new I4
 	subpd	r8, r1			;; B4 = B4 - new R4
-	mulpd	r5, [edi+off+64]	;; A4 = A4 * sine (final R4)
-	mulpd	r8, [edi+off+64]	;; B4 = A4 * sine (final I4)
-	movapd	r2, [edi+off+0+16]	;; cosine/sine
+	mulpd	r5, [screg+off+64]	;; A4 = A4 * sine (final R4)
+	mulpd	r8, [screg+off+64]	;; B4 = A4 * sine (final I4)
+	movapd	r2, [screg+off+0+16]	;; cosine/sine
 	mulpd	r2, r6			;; A2 = new R2 * cosine/sine
-	movapd	r1, [edi+off+0+16]	;; cosine/sine
+	movapd	r1, [screg+off+0+16]	;; cosine/sine
 	mulpd	r1, r7			;; B2 = new I2 * cosine/sine
 	addpd	r2, r7			;; A2 = A2 + new I2
 	subpd	r1, r6			;; B2 = B2 - new R2
-	movapd	r6, [edi+off+32+16]	;; cosine/sine
+	movapd	r6, [screg+off+32+16]	;; cosine/sine
 	mulpd	r6, r3			;; A3 = new R3 * cosine/sine
-	movapd	r7, [edi+off+32+16]	;; cosine/sine
+	movapd	r7, [screg+off+32+16]	;; cosine/sine
 	mulpd	r7, r4			;; B3 = new I3 * cosine/sine
 	addpd	r6, r4			;; A3 = A3 + new I3
 	subpd	r7, r3			;; B3 = B3 - new R3
-	mulpd	r2, [edi+off+0]		;; A2 = A2 * sine (final R2)
-	mulpd	r1, [edi+off+0]		;; B2 = B2 * sine (final I2)
-	mulpd	r6, [edi+off+32]	;; A3 = A3 * sine (final R3)
-	mulpd	r7, [edi+off+32]	;; B3 = B3 * sine (final I3)
+	mulpd	r2, [screg+off+0]	;; A2 = A2 * sine (final R2)
+	mulpd	r1, [screg+off+0]	;; B2 = B2 * sine (final I2)
+	mulpd	r6, [screg+off+32]	;; A3 = A3 * sine (final R3)
+	mulpd	r7, [screg+off+32]	;; B3 = B3 * sine (final I3)
 	ENDM
 new_x4c_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, dest1, off
 	subpd	r1, r3			;; new R2 = R1 - R2
