@@ -2,14 +2,28 @@
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
+; Time low-level operations for optimizing macros and comparing CPUs
+;
 
+	TITLE   setup
+
+IFNDEF X86_64
+	.686
+	.XMM
+	.MODEL	FLAT
+ENDIF
+
+INCLUDE	unravel.mac
+INCLUDE extrn.mac
+INCLUDE memory.mac
 INCLUDE pfa.mac
 INCLUDE lucas.mac
 INCLUDE lucasp.mac
 INCLUDE xmult.mac
 INCLUDE xlucas.mac
-INCLUDE xnormal.mac
-INCLUDE xpass2.mac
+IFDEF X86_64
+INCLUDE	xlucas64.mac
+ENDIF
 
 IFDEF X86_64
 X87_CASES	EQU	0
@@ -28,9 +42,6 @@ looptab	MACRO	y, cnt		; Create the loop entry table
 	x = x + 1
 	ENDM
 	ENDM
-
-x87table: looptab case, X87_CASES
-sse2table: looptab sscase, SSE2_CASES
 
 ;; Macros from p4notes.doc
 
@@ -186,6 +197,10 @@ ss0b:	&ops
 	jnz	ss0a
 	ENDM
 
+_TEXT	SEGMENT
+
+x87table: looptab case, X87_CASES
+sse2table: looptab sscase, SSE2_CASES
 
 PUBLIC _timeit
 _timeit	PROC
@@ -685,9 +700,6 @@ sscase119:
 	sse2mac	448, 100000, x7cl_seven_reals_last_unfft rsi, 7*64, 64
 	jmp	exit
 
-
-
-
 ; Exit the timing code
 
 exit:	pop	rbx
@@ -697,3 +709,6 @@ exit:	pop	rbx
 	ret
 
 _timeit	ENDP
+
+_TEXT ENDS
+END

@@ -4384,17 +4384,5 @@ _eset_mul_const PROC
 	ret
 _eset_mul_const ENDP
 
-;
-; Time low-level operations for optimizing macros and comparing CPUs
-;
-
-INCLUDE	lucas.mac
-INCLUDE pfa.mac
-INCLUDE memory.mac
-INCLUDE xmult.mac
-INCLUDE normal.mac
-
-INCLUDE timeit.inc
-
 _TEXT ENDS
 END

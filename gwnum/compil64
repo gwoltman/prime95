@@ -14,11 +14,11 @@ all:	gwnum64.lib gwnum64d.lib
 
 # Make libraries out of the object files
 
-gwnum64.lib: amd64\release\cpuid.obj amd64\release\gwnum.obj amd64\release\gwutil.obj amd64\release\gwdbldbl.obj amd64\release\giants.obj amd64\xmult1.obj amd64\xmult1ax.obj amd64\xmult2.obj amd64\xmult2p.obj amd64\xmult2a.obj amd64\xmult2ap.obj amd64\xmult2ax.obj amd64\xmult3.obj amd64\xmult3p.obj amd64\xmult3a.obj amd64\xmult3ap.obj amd64\xmult3ax.obj amd64\cpuidhlp.obj amd64\mult.obj amd64\gianthlp.obj
+gwnum64.lib: amd64\release\cpuid.obj amd64\release\gwnum.obj amd64\release\gwutil.obj amd64\release\gwdbldbl.obj amd64\release\giants.obj amd64\xmult1.obj amd64\xmult1ax.obj amd64\xmult2.obj amd64\xmult2p.obj amd64\xmult2a.obj amd64\xmult2ap.obj amd64\xmult2ax.obj amd64\xmult3.obj amd64\xmult3p.obj amd64\xmult3a.obj amd64\xmult3ap.obj amd64\xmult3ax.obj amd64\cpuidhlp.obj amd64\mult.obj amd64\gianthlp.obj amd64\timeit.obj
     del gwnum64.lib
     lib /OUT:gwnum64.lib amd64\release\*.obj amd64\*.obj
 
-gwnum64d.lib: amd64\debug\cpuid.obj amd64\debug\gwnum.obj amd64\debug\gwutil.obj amd64\debug\gwdbldbl.obj amd64\debug\giants.obj amd64\xmult1.obj amd64\xmult1ax.obj amd64\xmult2.obj amd64\xmult2p.obj amd64\xmult2a.obj amd64\xmult2ap.obj amd64\xmult2ax.obj amd64\xmult3.obj amd64\xmult3p.obj amd64\xmult3a.obj amd64\xmult3ap.obj amd64\xmult3ax.obj amd64\cpuidhlp.obj amd64\mult.obj amd64\gianthlp.obj
+gwnum64d.lib: amd64\debug\cpuid.obj amd64\debug\gwnum.obj amd64\debug\gwutil.obj amd64\debug\gwdbldbl.obj amd64\debug\giants.obj amd64\xmult1.obj amd64\xmult1ax.obj amd64\xmult2.obj amd64\xmult2p.obj amd64\xmult2a.obj amd64\xmult2ap.obj amd64\xmult2ax.obj amd64\xmult3.obj amd64\xmult3p.obj amd64\xmult3a.obj amd64\xmult3ap.obj amd64\xmult3ax.obj amd64\cpuidhlp.obj amd64\mult.obj amd64\gianthlp.obj amd64\timeit.obj
     del gwnum64d.lib
     lib /OUT:gwnum64d.lib amd64\debug\*.obj amd64\*.obj
 
@@ -95,8 +95,11 @@ amd64\xmult3ax.obj: xmult3ax.asm xmult.mac xnormal.mac
 amd64\cpuidhlp.obj: cpuidhlp.asm
     $(masm64) /Foamd64\cpuidhlp.obj cpuidhlp.asm
 
-amd64\mult.obj: mult.asm mult.mac xmult.mac timeit.inc
+amd64\mult.obj: mult.asm
     $(masm64) /Foamd64\mult.obj mult.asm
 
 amd64\gianthlp.obj: gianthlp.asm
     $(masm64) /Foamd64\gianthlp.obj gianthlp.asm
+
+amd64\timeit.obj: timeit.asm xmult.mac xlucas.mac
+    $(masm64) /Foamd64\timeit.obj timeit.asm
