@@ -14,6 +14,7 @@
 /* Win9x (prime95) uses bit #1 */
 /* Linux (mprime)  uses bit #2 */
 /* Solaris	   uses bit #3 */
+/* Win 64-bit	   uses bit #4 */
 /* WinNT (ntprime) uses bit #5 */
 /* FreeBSD(mprime) uses bit #6 */
 /* OS/2		   uses bit #7 */

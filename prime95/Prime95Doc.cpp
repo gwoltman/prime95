@@ -1020,7 +1020,11 @@ void CPrime95Doc::OutputStr (
 #include <sys/timeb.h>
 #include <gwutil.h>
 
+#ifdef X86_64
+#define PORT	4
+#else
 #define PORT	1
+#endif
 #include "commona.c"
 #include "commonb.c"
 #include "commonc.c"
