@@ -1392,12 +1392,25 @@ void lucas_fixup (
 	gwsetaddin (word, addin);
 }
 
+/* Test if we are near the maximum exponent this fft length can test */
+
+int exponent_near_fft_limit ()
+{
+	unsigned long max_exponent;
+	char	pct[30];
+
+	max_exponent = map_fftlen_to_max_exponent (FFTLEN, GW_MERSENNE_MOD);
+	IniGetString (INI_FILE, "NearFFTLimitPct", pct, sizeof(pct), "1.0");
+	return (PARG > (100.0 - atof (pct)) / 100.0 * max_exponent);
+}
+
 /* Do an LL iteration very carefully.  This is done after a normal */
 /* iteration gets a roundoff error above 0.40.  This careful iteration */
 /* will not generate a roundoff error. */
 
 void careful_iteration (
-	unsigned long *units_bit)
+	gwnum	x,			/* Number to square */
+	unsigned long *units_bit)	/* Units bit (if subtracting two) */
 {
 	gwnum	hi, lo;
 	unsigned long i;
@@ -1406,8 +1419,8 @@ void careful_iteration (
 
 	hi = gwalloc ();
 	lo = gwalloc ();
-	gwcopy (LLDATA, hi);
-	gwcopy (LLDATA, lo);
+	gwcopy (x, hi);
+	gwcopy (x, lo);
 	for (i = 0; i < FFTLEN/2; i++) set_fft_value (hi, i, 0);
 	for ( ; i < FFTLEN; i++) set_fft_value (lo, i, 0);
 
@@ -1418,13 +1431,13 @@ void careful_iteration (
 	gwsetaddin (0, 0);
 	gwfft (hi, hi);
 	gwfft (lo, lo);
-	gwfftfftmul (lo, hi, LLDATA);
+	gwfftfftmul (lo, hi, x);
 	gwfftfftmul (hi, hi, hi);
-	lucas_fixup (units_bit);
+	if (units_bit != NULL) lucas_fixup (units_bit);
 	gwfftfftmul (lo, lo, lo);
-	gwaddquick (LLDATA, LLDATA);
-	gwaddquick (hi, LLDATA);
-	gwadd (lo, LLDATA);
+	gwaddquick (x, x);
+	gwaddquick (hi, x);
+	gwadd (lo, x);
 
 /* Free memory and return */
 
@@ -1529,14 +1542,9 @@ static	int maxerr_recovery_mode = 0;		/* Big roundoff err rerun */
 	}
 
 /* If we are near the maximum exponent this fft length can test, then we */
-/* will error check all iterations (unless the advanced user overrides) */
+/* will error check all iterations */
 
-	{
-		unsigned long percentage, max_exponent;
-		max_exponent = map_fftlen_to_max_exponent (FFTLEN, GW_MERSENNE_MOD);
-		percentage = IniGetInt (INI_FILE, "NearFFTLimitPct", 2);
-		near_fft_limit = (p > (100 - percentage) / 100.0 * max_exponent);
-	}
+	near_fft_limit = exponent_near_fft_limit ();
 
 /* Compute numbers in the lucas series, write out every 30 minutes to a file */
 
@@ -1601,7 +1609,7 @@ static	int maxerr_recovery_mode = 0;		/* Big roundoff err rerun */
 /* roundoff errors up to 0.6. */
 
 		if (maxerr_recovery_mode) {
-			careful_iteration (&units_bit);
+			careful_iteration (LLDATA, &units_bit);
 			maxerr_recovery_mode = 0;
 		}
 
@@ -2510,7 +2518,7 @@ int lucas_QA (
 				gwsetnormroutine (0, (i & 63) == 37, 0);
 				gwstartnextfft (i < iters / 2);
 				if (i > iters / 2 && (i & 63) == 44)
-					careful_iteration (&units_bit);
+					careful_iteration (LLDATA, &units_bit);
 				else {
 					lucas_fixup (&units_bit);
 					gwsquare (LLDATA);
