@@ -11,7 +11,7 @@
 #ifdef __FreeBSD__
 #define PORT	6
 #endif
-#if defined (__EMX__) || defined (__IBMC__) || defined (__WATCOMC__)
+#if defined (__EMX__) || defined (__IBMC__) || defined (__OS2__)
 #define PORT	7
 #endif
 
