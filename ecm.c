@@ -2161,18 +2161,21 @@ return 0;
 #define TIMING2
 #ifdef TIMING2
 if (p == 600) {
-long f; int j, test, cnt, NUM_X87_TESTS, NUM_SSE2_TESTS;
+long f; int j, min_test, max_test, test, cnt, NUM_X87_TESTS, NUM_SSE2_TESTS;
 gwsetup (10000000, 0, 0);
 f = (long) malloc (40000000);
 SRCARG = (void *) ((f + 4095) & ~4095);
 memset (SRCARG, 0, 40000000 - 4096);
 RDTSC_TIMING = 12;
+min_test = IniGetInt (INI_FILE, "MinTest", 0);
+max_test = IniGetInt (INI_FILE, "MaxTest", min_test);
 DESTARG = (void *) -1; NUM_X87_TESTS = timeit ();
 DESTARG = (void *) -2; NUM_SSE2_TESTS = timeit ();
 //SetThreadPriority (CURRENT_THREAD, THREAD_PRIORITY_TIME_CRITICAL);
 for (j = 0; j < NUM_X87_TESTS + NUM_SSE2_TESTS; j++) {
 	cnt = 0;
 	test = (j < NUM_X87_TESTS ? j : 1000 + j - NUM_X87_TESTS);
+	if (min_test && (test < min_test || test > max_test)) continue;
 	if (! (CPU_FLAGS & CPU_SSE2) && test >= 1000) break;
 for (i = 1; i <= 50; i++) {
 	start_timer (0);
@@ -2194,6 +2197,7 @@ print_timer (1, TIMER_OUT_BOTH | TIMER_CLR);
 timers[2] /= cnt;
 OutputBoth (", avg: ");
 print_timer (2, TIMER_OUT_BOTH | TIMER_NL | TIMER_CLR);
+if (min_test) exit (0);
 }
 
 free ((void *) f);
