@@ -4530,7 +4530,9 @@ restart3b:
 
 	if (nQx == NULL) {
 		nQx = (gwnum *) malloc ((D>>1) * sizeof (gwnum));
+		if (nQx == NULL) goto lowmem;
 		eQx = (gwnum *) malloc ((E+1) * sizeof (gwnum));
+		if (eQx == NULL) goto lowmem;
 	}
 
 /* Clear the nQx array for this pass */
@@ -4550,6 +4552,10 @@ restart3b:
 		if (relatively_prime (i, D)) {
 			j = (i - 1) >> 1;
 			nQx[j] = gwalloc ();
+			if (nQx[j] == NULL) {
+				gwfftfftmul (x, x, x);	/* Unfft x for save */
+				goto lowmem;
+			}
 			gwcopy (eQx[0], nQx[j]);
 			numrels++;
 			last_rel = i;
@@ -4626,7 +4632,10 @@ found_a_bit:;
 /* handles the range m-D to m+D.  When E = 1, each iteration handles */
 /* the range m-D to m. */
 
-	if (using_t3) t3 = gwalloc ();
+	if (using_t3) {
+		t3 = gwalloc ();
+		if (t3 == NULL) goto lowmem;
+	}
 	for ( ; state.C > m-D; m += stage2incr) {
 	    int	inner_loop_done = FALSE;
 	    int	last_pass = (m + stage2incr - D >= state.C);
@@ -4881,6 +4890,19 @@ done:	retval = TRUE;
 
 exit:	pm1_cleanup ();
 	return (retval);
+
+/* Low on memory, reduce memory settings and try again */
+
+lowmem:	fd_term ();
+	pm1_save (filename, &state, 0, x, gg);
+	pm1_cleanup ();
+	i = (unsigned int) (0.80 * max_mem ());
+	if (DAY_MEMORY >= i) DAY_MEMORY = i;
+	if (NIGHT_MEMORY >= i) NIGHT_MEMORY = i;
+	sprintf (buf, "Memory allocation error.  Day and night memory settings changed to %dMB and %dMB.\n",
+		 DAY_MEMORY, NIGHT_MEMORY);
+	OutputBoth (buf);
+	goto restart;
 
 /* Return stop code indicating we don't have enough memory right now */
 
