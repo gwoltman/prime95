@@ -51,6 +51,8 @@ EXTERNC void *SRCARG;		/* For assembly language arg passing */
 EXTERNC void *SRC2ARG;		/* For assembly language arg passing */
 EXTERNC void *DESTARG;		/* For assembly language arg passing */
 EXTERNC void *DEST2ARG;		/* For assembly language arg passing */
+extern void *GW_BIGBUF;		/* Optional buffer to allocate gwnums in */
+extern unsigned long GW_BIGBUF_SIZE;	/* Size of the optional buffer */
 extern gwnum *gwnum_alloc;		/* Array of allocated gwnums */
 extern unsigned int gwnum_alloc_count;	/* Count of allocated gwnums */
 extern unsigned int gwnum_alloc_array_size;/* Size of gwnum_alloc array */

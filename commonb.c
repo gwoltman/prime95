@@ -2741,6 +2741,7 @@ int selfTest (
 		int	min_fft, max_fft, test_time;
 		time_t	start_time, current_time;
 		unsigned int memory;	/* Memory to use during torture test */
+		void	*bigbuf = NULL;
 
 /* Make sure the user really wants to spend many hours doing this now */
 
@@ -2761,11 +2762,15 @@ int selfTest (
 		min_fft = IniGetInt (INI_FILE, "MinTortureFFT", 8);
 		max_fft = IniGetInt (INI_FILE, "MaxTortureFFT", 4096);
 		memory = IniGetInt (INI_FILE, "TortureMem", DAY_MEMORY > NIGHT_MEMORY ? DAY_MEMORY : NIGHT_MEMORY);
+		while (memory > 8 && bigbuf == NULL) {
+			bigbuf = malloc (memory * 1000000);
+			if (bigbuf == NULL) memory--;
+		}
 		for ( ; ; ) {
 		    for (i = 0; i < SELF_FFT_LENGTHS; i++) {
 			if (lengths[i] < min_fft || lengths[i] > max_fft)
 				continue;
-			if (! selfTestInternal (lengths[i]*1024, test_time, i, memory)) {
+			if (! selfTestInternal (lengths[i]*1024, test_time, i, memory, bigbuf)) {
 				if (pArg == 1) {
 					char	buf[100];
 					int	hours, minutes;
@@ -2781,11 +2786,17 @@ int selfTest (
 					sprintf (buf, "%d minutes - %d errors, %d warnings.\n", minutes, SELF_TEST_ERRORS, SELF_TEST_WARNINGS);
 					OutputStr (buf);
 				}
+				GW_BIGBUF = NULL;
+				GW_BIGBUF_SIZE = 0;
+				free (bigbuf);
 				return (FALSE);
 			}
 		    }
 		    if (pArg == 0) break;
 		}
+		GW_BIGBUF = NULL;
+		GW_BIGBUF_SIZE = 0;
+		free (bigbuf);
 	}
 
 /* Otherwise we are self-testing a specific word length. */
@@ -2815,7 +2826,8 @@ int selfTest (
 
 /* Do the self test */
 
-		if (! selfTestInternal (fftlen, 60, -1, 0)) return (FALSE);
+		if (! selfTestInternal (fftlen, 60, -1, 0, NULL))
+			return (FALSE);
 	}
 
 /* Self test completed! */
@@ -2827,7 +2839,8 @@ int selfTestInternal (
 	unsigned long fftlen,
 	unsigned int test_time,	/* Number of minutes to self-test */
 	int	torture_count,	/* Index into array of fft sizes */
-	unsigned int memory)	/* MB of memory the torture test can use */
+	unsigned int memory,	/* MB of memory the torture test can use */
+	void	*bigbuf)	/* Memory block for the torture test */
 {
 	unsigned long k, limit;
 	unsigned int i, iter, countdown;
@@ -2918,6 +2931,8 @@ static	int	data_index[SELF_FFT_LENGTHS] = {0};
 /* Now run Lucas setup, for extra safety double the maximum allowable */
 /* sum(inputs) vs. sum(outputs) difference. */
 
+		GW_BIGBUF = bigbuf;
+		GW_BIGBUF_SIZE = (bigbuf != NULL) ? memory * 1000000 : 0;
 		lucasSetup (p, fftlen);
 		MAXDIFF *= 2.0;
 		if (LLDATA == NULL) {		/* Shouldn't ever happen... */
@@ -2931,9 +2946,10 @@ static	int	data_index[SELF_FFT_LENGTHS] = {0};
 		if (memory <= 8 || (iter & 1) == 0)
 			num_gwnums = 1;
 		else {
-			num_gwnums = (memory * 1000000 -
-				      map_fftlen_to_memused (FFTLEN, PLUS1)) /
-					gwnum_size (FFTLEN);
+			num_gwnums = (unsigned int)
+				(((double) memory * 1000000.0 -
+				  (double) map_fftlen_to_memused (FFTLEN, 0)) /
+				 (double) gwnum_size (FFTLEN));
 			if (num_gwnums < 1) num_gwnums = 1;
 			if (num_gwnums > ll_iters) num_gwnums = ll_iters;
 		}

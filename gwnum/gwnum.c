@@ -42,7 +42,9 @@ unsigned long GW_ALIGNMENT = 0;	/* How to align allocated gwnums */
 unsigned long GW_ALIGNMENT_MOD = 0; /* How to align allocated gwnums */
 unsigned long PASS1_CACHE_LINES = 0; /* Cache lines grouped together in */
 				/* first pass of an SSE2 FFT. */
-				
+
+void	*GW_BIGBUF = NULL;	/* Optional buffer to allocate gwnums in */
+unsigned long GW_BIGBUF_SIZE = 0;/* Size of the optional buffer */
 
 gwnum	*gwnum_alloc = NULL;	/* Array of allocated gwnums */
 unsigned int gwnum_alloc_count = 0; /* Count of allocated gwnums */
@@ -962,16 +964,26 @@ gwnum gwalloc (void)
 /* extra bytes to assure the data is aligned on a cache line */
 
 	size = gwnum_size (FFTLEN);
-	p = (char *) malloc (size + 32 + GW_ALIGNMENT);
-	if (p == NULL) return (NULL);
+	if (GW_BIGBUF_SIZE >= size)
+		p = (char *) GW_BIGBUF;
+	else {
+		p = (char *) malloc (size + 32 + GW_ALIGNMENT);
+		if (p == NULL) return (NULL);
+	}
 	q = (char *) (
 		(((unsigned long) p + 32 + GW_ALIGNMENT - 1 - GW_ALIGNMENT_MOD) &
 		 ~(GW_ALIGNMENT - 1)) +
 		GW_ALIGNMENT_MOD);
+	* (char **) (q - 32) = p;		/* Ptr to free */
+	if (GW_BIGBUF_SIZE >= size) {
+		GW_BIGBUF_SIZE -= (q + size) - (char *) GW_BIGBUF;
+		GW_BIGBUF = (void *) (q + size);
+		* (char **) (q - 32) = NULL;	/* Don't free this memory */
+	}
 
 /* Do a seemingly pointless memset!  This actual is very important. */
 /* The memset will walk through the allocated memory sequentially, which */
-/* increases the liklihood that contiguous virtual memory will map to */
+/* increases the likelihood that contiguous virtual memory will map to */
 /* contiguous physical memory.  The FFTs, especially the larger ones, */
 /* optimizes L2 cache line collisions on the assumption that the FFT data */
 /* is in contiguous physical memory.  Failure to do this results in as */
@@ -981,7 +993,6 @@ gwnum gwalloc (void)
 
 /* Initialize the header */
 
-	* (char **) (q - 32) = p;		/* Ptr to free */
 	* (unsigned long *) (q - 8) = size;	/* Size in bytes */
 	* (unsigned long *) (q - 4) = 0;	/* Unnormalized adds count */
 	* (unsigned long *) (q - 28) = 0;	/* Has-been-pre-ffted flag */
