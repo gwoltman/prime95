@@ -544,7 +544,8 @@ need to exit prime95 running as a normal process before starting the prime95
 service.  The prime95 window will only appear on one users desktop.  Only
 one prime95.exe program can be run as a service.  If you have a dual processor
 system you'll want to run two instances of prime95.  Instead of running a
-second prime95 from another directory, run the second prime95 from the same directory with the -A1 switch and add a NTServiceName entry in prim0001.ini.
+second prime95 from another directory, run the second prime95 from the same
+directory with the -A1 switch (type "prime95 -A1" in a DOS window).
 Finally, if you are worried about giving users access to a GUI service
 running in the Local System account, you can turn off the "Allow service to
 interact with desktop" option in the services control panel applet or run
