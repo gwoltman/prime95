@@ -1,7 +1,6 @@
 /* Handy definitions */
 
-#define FALSE	0
-#define TRUE	1
+#include "common.h"
 
 /* Port number used in version numbers and result reporting. */
 
@@ -69,15 +68,10 @@
 
 #include <time.h>
 /*#define SERVER_TESTING*/
-#ifdef __WATCOMC__
-#define EXTERNC extern
-#else
-#define EXTERNC
-#endif
 extern int NO_GUI;
 #include "cpuid.h"
-#include "giants.h"
 #include "gwnum.h"
+#include "giants.h"
 #include "commona.h"
 #include "commonc.h"
 #include "commonb.h"

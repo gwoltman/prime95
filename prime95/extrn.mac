@@ -1,4 +1,4 @@
-; Copyright 1995-2004 Just For Fun Software, Inc., all rights reserved
+; Copyright 1995-2005 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -8,21 +8,19 @@
 EXTRN	_COPYZERO:DWORD
 EXTRN	_ASM_TIMERS:DWORD
 EXTRN	_MAXERR:QWORD
-EXTRN	_MAXDIFF:QWORD
 EXTRN	_KARG:QWORD
 EXTRN	_PARG:DWORD
 EXTRN	_CARG:DWORD
 EXTRN	_FFTLEN:DWORD
 EXTRN	_ZERO_PADDED_FFT:DWORD
 EXTRN	_RATIONAL_FFT:DWORD
-EXTRN	_SRCARG:DWORD
-EXTRN	_SRC2ARG:DWORD
-EXTRN	_DESTARG:DWORD
-EXTRN	_DEST2ARG:DWORD
+EXTRN	_SRCARG:EXTPTR
+EXTRN	_SRC2ARG:EXTPTR
+EXTRN	_DESTARG:EXTPTR
+EXTRN	_DEST2ARG:EXTPTR
 EXTRN	_NUMARG:DWORD
 EXTRN	_NUM2ARG:DWORD
-EXTRN	_GWERROR:DWORD
-EXTRN	_NORMRTN:DWORD
+EXTRN	_NORMRTN:EXTPTR
 EXTRN	_POSTFFT:DWORD
 EXTRN	_ADDIN_ROW:DWORD
 EXTRN	_ADDIN_OFFSET:DWORD
@@ -110,20 +108,6 @@ EXTRN	P25:DWORD
 EXTRN	P75:DWORD
 EXTRN	P3:DWORD
 
-EXTRN	limit_inverse_high:QWORD
-EXTRN	limit_inverse_low:QWORD
-limit_inverse		EQU	limit_inverse_low
-EXTRN	limit_bigmax_high:QWORD
-EXTRN	limit_bigmax_low:QWORD
-limit_bigmax		EQU	limit_bigmax_low
-EXTRN	limit_ttp_mult_high:DWORD
-EXTRN	limit_ttp_mult_low:DWORD
-limit_ttp_mult		EQU	limit_ttp_mult_low
-EXTRN	limit_ttmp_mult_high:DWORD
-EXTRN	limit_ttmp_mult_low:DWORD
-limit_ttmp_mult		EQU	limit_ttmp_mult_low
-EXTRN	pass1_premults:DWORD
-EXTRN	plus1_premults:DWORD
 EXTRN	addcount1:DWORD
 EXTRN	addcount2:DWORD
 EXTRN	normcount1:DWORD
@@ -133,42 +117,42 @@ EXTRN	count2:DWORD
 EXTRN	count3:DWORD
 EXTRN	count4:DWORD
 EXTRN	count5:DWORD
-EXTRN	xsincos_complex:DWORD
-EXTRN	pass2_premults:DWORD
-EXTRN	sincos1:DWORD
-EXTRN	sincos2:DWORD
-EXTRN	sincos3:DWORD
-EXTRN	sincos4:DWORD
-EXTRN	sincos5:DWORD
-EXTRN	sincos6:DWORD
-EXTRN	sincos7:DWORD
-EXTRN	sincos8:DWORD
-EXTRN	sincos9:DWORD
-EXTRN	sincos10:DWORD
-EXTRN	norm_grp_mults:DWORD
-EXTRN	norm_col_mults:DWORD
-EXTRN	norm_biglit_array:DWORD
-EXTRN	carries:DWORD
-EXTRN	scratch_area:DWORD
+EXTRN	pass2_premults:EXTPTR
+EXTRN	xsincos_complex:EXTPTR
+EXTRN	sincos1:EXTPTR
+EXTRN	sincos2:EXTPTR
+EXTRN	sincos3:EXTPTR
+EXTRN	sincos4:EXTPTR
+EXTRN	sincos5:EXTPTR
+EXTRN	sincos6:EXTPTR
+EXTRN	sincos7:EXTPTR
+EXTRN	sincos8:EXTPTR
+EXTRN	sincos9:EXTPTR
+EXTRN	sincos10:EXTPTR
+EXTRN	norm_grp_mults:EXTPTR
+EXTRN	norm_col_mults:EXTPTR
+EXTRN	norm_biglit_array:EXTPTR
+EXTRN	carries:EXTPTR
+EXTRN	scratch_area:EXTPTR
+EXTRN	plus1_premults:EXTPTR
 EXTRN	zero_fft:DWORD
 EXTRN	const_fft:DWORD
-EXTRN	zpad_addr:DWORD
+EXTRN	zpad_addr:EXTPTR
 EXTRN	ffttype:DWORD
-EXTRN	normgrpptr:DWORD
 EXTRN	cache_line_multiplier:DWORD
-EXTRN	pass1blkdst:DWORD
-EXTRN	normblkdst:DWORD
-EXTRN	normblkdst8:DWORD
+EXTRN	pass1blkdst:EXTPTR
+EXTRN	normblkdst:EXTPTR
+EXTRN	normblkdst8:EXTPTR
 EXTRN	loopcount1:DWORD
 EXTRN	loopcount2:DWORD
 EXTRN	loopcount3:DWORD
 EXTRN	loopcount4:DWORD
-EXTRN	norm_ptr1:DWORD
-EXTRN	norm_ptr2:DWORD
-EXTRN	norm_ptr3:DWORD
+EXTRN	norm_ptr1:EXTPTR
+EXTRN	norm_ptr2:EXTPTR
+EXTRN	norm_ptr3:EXTPTR
 EXTRN	normval1:DWORD
-EXTRN	normval2:DWORD
-EXTRN	normval3:DWORD
+EXTRN	normval2:EXTPTR
+EXTRN	normval3:EXTPTR
 EXTRN	normval4:DWORD
 
 EXTRN	XMM_TWO:QWORD

@@ -4,16 +4,15 @@
 ;
 ; This routine implements fast trial factoring of Mersenne numbers
 ;
+; This only runs on 64-bit CPUs.  For 32-bit, see factor32.asm
+;
 
 TITLE   setup
 
-IFNDEF X86_64
-	.686
-	.XMM
-	.MODEL	FLAT
-ENDIF
+INCLUDE	unravel.mac
+INCLUDE factor64.mac
 
-EXTRN	_SRCARG:DWORD
+EXTRN	_SRCARG:EXTPTR
 EXTRN	_FACHSW:DWORD
 EXTRN	_FACMSW:DWORD
 EXTRN	_FACLSW:DWORD
@@ -24,45 +23,23 @@ EXTRN	_CPU_FLAGS:DWORD
 ; Global variables
 ;
 
-_GWDATA SEGMENT PAGE PUBLIC 'DATA'
-returns6	DD	OFFSET wx1, OFFSET wx2, OFFSET wx3, OFFSET wx4
-		DD	OFFSET wx5, OFFSET wx6, OFFSET wx7, OFFSET wx8
-		DD	OFFSET wx9, OFFSET wx10, OFFSET wx11, OFFSET wx12
-		DD	OFFSET wx13, OFFSET wx14, OFFSET wx15, OFFSET wx16
-		DD	OFFSET wx17, OFFSET wx18, OFFSET wx19, OFFSET wx20
-		DD	OFFSET wx21, OFFSET wx22, OFFSET wx23, OFFSET wx24
-		DD	OFFSET wx25, OFFSET wx26, OFFSET wx27, OFFSET wx28
-		DD	OFFSET wx29, OFFSET wx30, OFFSET wx31, OFFSET wlp5
-facdists	DD	64 DUP(0) ; 32 distances between sieve factors
-facdist32	DD	0, 0	; 32 * facdist
-BASE		DQ	0.0	; Used in 64-bit factoring code
-FACDIFF		DQ	0.0	; Distance between 1/fac1 and 1/fac2
-FACHI		DQ	0.0	; High 32 bits of trial factor
-FACHI2		DQ	0.0	; High 32 bits of trial factor #2
-FACLO		DQ	0.0	; Low 32 bits of trial factor
-FACLO2		DQ	0.0	; Low 32 bits of trial factor #2
-BIGVAL0		DD	0.0	; For rounding to an integer
-BIGVAL1		DD	0.0	; For rounding to multiple of 2^32
+_GWDATA SEGMENT PAGE
+facdists	DQ	64 DUP(0) ; 64 distances between sieve factors
+facdist64	DQ	0	; 64 * facdist
 initval		DD	0.0	; Initial value for squarer (as a float)
 initval_inv	DD	0.0	; 1/initval (to compute 1/fac)
 fachi_shf_count	DD	0	; Shift count for making FACHI
 fachi_shf_mask	DD	0	; Shift mask for making FACHI
-savefac2	DD	0	; The 80-bit factor being tested
-savefac1	DD	0
-savefac0	DD	0
-HALF		DD	0.5
-base_int	DD	0	; Used in 64-bit factoring
-wqloop_counter	DD	0	; Number of iterations in 64-bit wqloop
+savefac1	DQ	0	; The LSW of the 96-bit factor being tested
+savefac0	DQ	0	; The MSW of the 96-bit factor being tested
 temp		DD	0
-primearray	DD	0	; Array of primes and offsets
-initsieve	DD	0	; Array used to init sieve
-initlookup	DD	0	; Lookup table into initsieve
-sieve		DD	0	; Array of sieve bits
-primearray12	DD	0
+primearray	DPTR	0	; Array of primes and offsets
+initsieve	DPTR	0	; Array used to init sieve
+initlookup	DPTR	0	; Lookup table into initsieve
+sieve		DPTR	0	; Array of sieve bits
+primearray12	DPTR	0
 	;; Pentium Pro globals
 	align 32
-facdistsflt	DQ	32 DUP(0.0)
-facdist_flt	DQ	0	; Distance between trial factors (32 * 120 * p)
 quotient2	DD	0	; The result of a 486 or PPro division
 quotient1	DD	0
 quotient4	DD	0	; The result of a PPro division
@@ -96,32 +73,10 @@ pneg5		DD	0
 pneg8		DD	0	; The fourth PPro -factor value
 pneg7		DD	0
 queuedpro	DD	0	; Saved count of PPro queued factors
-	;; 80-bit factoring globals
-	align 32
-faclow		DD	0
-facmid		DD	0
-fachigh		DD	0
-two_to_123_modf_lo DD	0
-two_to_123_modf_mid DD	0
-two_to_123_modf_hi DD	0
-TWO_TO_123	DD	0.0
-TWO_TO_MINUS_59 DD	0.0
-initval64	DD	0.0
 
 	;; From here down are globals not used in 64-bit code
-returns5a	DD	OFFSET vx1, OFFSET vx2, OFFSET vx3, OFFSET vx4
-		DD	OFFSET vx5, OFFSET vx6, OFFSET vx7, OFFSET vx8
-		DD	OFFSET vx9, OFFSET vx10, OFFSET vx11, OFFSET vx12
-		DD	OFFSET vx13, OFFSET vx14, OFFSET vx15, OFFSET vx16
-		DD	OFFSET vx17, OFFSET vx18, OFFSET vx19, OFFSET vx20
-		DD	OFFSET vx21, OFFSET vx22, OFFSET vx23, OFFSET vx24
-		DD	OFFSET vx25, OFFSET vx26, OFFSET vx27, OFFSET vx28
-		DD	OFFSET vx29, OFFSET vx30, OFFSET vx31, OFFSET vlp5
 cmpvalmask	DD	0	; The bits to test in sqexit
 cmpval		DD	0	; The value to match in sqexit
-ONE		DD	1.0	; The floating point constant 1.0
-REMMULTS	DD	24 DUP (0.0)
-FACMULTS	DD	24 DUP (0.0)
 shifter		DD	0
 sqloop_counter	DD	0	; Number of iterations in 60-bit sqloop
 initstart	DD	0	; First dword in initsieve to copy
@@ -129,43 +84,10 @@ firstcall	DD	0
 initval1	DD	0	; Bits 33-64 of 486 initial value for squarer
 initval0	DD	0	; Bits 65-96 of initial value for squarer
 reps		DD	0
-p		DD	0	; Mersenne prime being tested
-twop		DD	0	; Multiples of p + p
+p		DQ	0	; Mersenne prime being tested
+twop		DQ	0	; Multiples of p + p
 last_primearray	DD	0	; Last address in primearray
 rems		DD	1,7,17,23,31,41,47,49,71,73,79,89,97,103,113,119
-QUARTER		DD	0.25
-TWO		DD	2.0
-FOUR		DD	4.0
-TWO_TO_32	DD	0.0
-TWO_TO_64	DQ	0.0
-FDMULT		DD	3840.0	; 32 * 120 (to compute facdist_flt)
-
-	;; From here down are globals used in SSE2 code
-	align 16
-XMM_LOWONE		DD	1,0,0,0
-XMM_HIGHONE		DD	0,0,1,0
-XMM_COMPARE_VAL1	DD	0,0,0,0
-XMM_COMPARE_VAL2	DD	0,0,0,0
-XMM_COMPARE_VAL3	DD	0,0,0,0
-XMM_BITS28		DD	0FFFFFFFh,0,0FFFFFFFh,0
-XMM_BITS30		DD	3FFFFFFFh,0,3FFFFFFFh,0
-XMM_INITVAL		DD	0,0,0,0
-XMM_INVFAC		DD	0,0,0,0
-XMM_I1			DD	0,0,0,0
-XMM_I2			DD	0,0,0,0
-XMM_F1			DD	0,0,0,0
-XMM_F2			DD	0,0,0,0
-XMM_F3			DD	0,0,0,0
-XMM_TWO_120_MODF1	DD	0,0,0,0
-XMM_TWO_120_MODF2	DD	0,0,0,0
-XMM_TWO_120_MODF3	DD	0,0,0,0
-XMM_INIT120BS		DD	0,0
-XMM_INITBS		DD	0,0
-XMM_BS			DD	0,0
-XMM_SHIFTER		DD	48 DUP (0)
-TWO_TO_FACSIZE_PLUS_62	DQ	0.0
-SSE2_LOOP_COUNTER	DD	0
-
 
 ;
 ; More data
@@ -1051,9 +973,6 @@ ENDIF
 _GWDATA ENDS
 
 
-INCLUDE	unravel.mac
-INCLUDE factor64.mac
-
 initsize	EQU	7*11*13*17	; First 4 primes cleared in initsieve
 initcount	EQU	4		; Count of primes cleared in initsieve
 sievesize	EQU	00001000h	; 4KB sieve
@@ -1070,61 +989,50 @@ _TEXT	SEGMENT
 
 	PUBLIC	_setupf
 _setupf	PROC
-	push	edi
-	push	esi
-	push	ebp
-	push	ebx
+	push	rdi
+	push	rsi
+	push	rbp
+	push	rbx
 
 ; Save p (passed in _FACLSW), compute various constants and addresses
 
-	mov	ecx, _FACLSW
-	mov	p, ecx
+	mov32	rcx, ecx, _FACLSW
+	mov	p, rcx
 
-	mov	eax, _SRCARG		; Addr of allocated memory
-	add	eax, 0FFFFh		; Align area on a 64K boundary
-	and	eax, 0FFFF0000h
-	mov	primearray, eax		; Array of primes and offsets
-	add	eax, 30000h
-	mov	initsieve, eax		; Array used to init sieve
-	add	eax, 20000h
-	mov	initlookup, eax		; Lookup table into initsieve
-	add	eax, 20000h
-	mov	sieve, eax		; Array of sieve bits
-	mov	eax, primearray
-	add	eax, initcount*12
-	mov	primearray12, eax
+	mov	rax, _SRCARG		; Addr of allocated memory
+	mov	primearray, rax		; Array of primes and offsets
+	add	rax, 30000h
+	mov	initsieve, rax		; Array used to init sieve
+	add	rax, 20000h
+	mov	initlookup, rax		; Lookup table into initsieve
+	add	rax, 20000h
+	mov	sieve, rax		; Array of sieve bits
+	mov	rax, primearray
+	add	rax, initcount*12
+	mov	primearray12, rax
 
-	add	ecx, ecx		; Two times p
-	mov	twop, ecx
+	add	rcx, rcx		; Two times p
+	mov	twop, rcx
 
-	mov	eax, 120		; Compute 120 (8 * 3 * 5) * p
+	mov	rax, 120		; Compute 120 (8 * 3 * 5) * p
 	mul	p
-	sub	ebx, ebx		; LSW of multiple of facdist
-	sub	ecx, ecx		; MSW of multiple of facdist
-	mov	edi, OFFSET facdists
-fdlp:	mov	[edi], ebx
-	mov	[edi+4], ecx
-	fild	QWORD PTR [edi]		; Convert from integer to float point
-	fstp	QWORD PTR [edi][00000000h + OFFSET facdistsflt - OFFSET facdists]
-	lea	edi, [edi+8]		; Bump pointers
-	add	ebx, eax		; Next distance
-	adc	ecx, edx
-	cmp	edi, OFFSET facdists+32*8; Loop 32 times
+	sub	rbx, rbx		; LSW of multiple of facdist
+	mov	rdi, OFFSET facdists
+fdlp:	mov	[rdi], rbx
+	lea	rdi, [rdi+8]		; Bump pointers
+	add	rbx, rax		; Next distance
+	cmp	rdi, OFFSET facdists+64*8; Loop 64 times
 	jne	short fdlp
-	mov	facdist32, ebx		; Save 32 * facdist
-	mov	facdist32+4, ecx
-	fild	p			; Save 32 * facdist as a float
-	fmul	FDMULT
-	fstp	facdist_flt
+	mov	facdist64, rbx		; Save 64 * facdist
 
 ; Copy byte based prime array to double word based array
 
-	mov	esi, OFFSET sivinfo	; Source - array of bytes
-	mov	edi, primearray		; Destination - array of double words
+	mov	rsi, OFFSET sivinfo	; Source - array of bytes
+	mov	rdi, primearray		; Destination - array of double words
 	mov	edx, 5			; Sivinfo contains primes larger than 5
 	sub	eax, eax
-initlp:	mov	al, [esi]
-	inc	esi
+initlp:	mov	al, [rsi]
+	inc	rsi
 	add	edx, eax
 	add	edx, eax
 	mov	[edi], edx
@@ -1196,54 +1104,17 @@ ilp6:	sub	edx, ecx		; Compute bit# mod smallp
 	sub	eax, eax
 	mov	firstcall, eax
 
-; Init floating point unit and constants
-
-	finit
-	mov	temp, 32
-	fild	temp			; Load scaling factor 32
-	mov	temp, 60
-	fild	temp			; Load scaling factor 60
-	mov	temp, 12
-	fild	temp			; Load 12 = 3*2^2
-	fscale				; 3*2^62
-	fxch	st(1)			; Two instructions to pop 60
-	fstp	FACLO
-	fst	BIGVAL0			; Save 3*2^62
-	fscale				; 3*2^94
-	fstp	BIGVAL1			; Save 3*2^94
-	fstp	FACLO			; Pop 32
-	fld	FOUR			; 2^2
-	fmul	st, st			; 2^4
-	fmul	st, st			; 2^8
-	fmul	st, st			; 2^16
-	fmul	st, st			; 2^32
-	fst	TWO_TO_32
-	fmul	st, st			; 2^64
-	fstp	TWO_TO_64
-	mov	temp, 123
-	fild	temp			; Load scaling factor
-	fld1
-	fscale				; 2^123
-	fstp	TWO_TO_123		; Save 2^123
-	fstp	FACLO
-	mov	temp, -59
-	fild	temp			; Load scaling factor
-	fld1
-	fscale				; 2^-59
-	fstp	TWO_TO_MINUS_59		; Save 2^-59
-	fstp	FACLO
-
 ; Return address of XMM area so that we can init that with C code
 ; I wish I'd done that with the x86 factoring code too!
 
-	mov	_SRCARG, OFFSET XMM_BITS30
+	mov	_SRCARG, 0
 
 ; Return
 
-	pop	ebx
-	pop	ebp
-	pop	esi
-	pop	edi
+	pop	rbx
+	pop	rbp
+	pop	rsi
+	pop	rdi
 	ret
 _setupf	ENDP
 
@@ -1295,7 +1166,7 @@ idone:	mov	initval1, eax		; Save bits 33-64 of initval
 	shl	eax, cl
 idone2:	mov	initval0, eax		; Save bits 65-96 of initval
 
-; Now use the CPU_FLAGS to determine which version of sieve tester to run
+; Now use the factor size to determine which version of sieve tester to run
 ; First compute the value corresponding to the last bit in the sieve.
 
 	mov	eax, sievesize * 8 * repcnt * 120; true sieve size (times 120)
@@ -1305,29 +1176,11 @@ idone2:	mov	initval0, eax		; Save bits 65-96 of initval
 	mov	ecx, _FACHSW
 	adc	ecx, 0			; Add in carry and test for >= 65-bits
 	jz	short not65		; Jump if not >= 65 bits
-	mov	eax, OFFSET tlp80	; 80 bit all cpus version
-	test	_CPU_FLAGS, 10h		; Is this an SSE2 machine?
-	jz	short cp1		; No, use all purpose code
-	mov	eax, OFFSET tlp86	; 75-86 bit SSE2 version
-	cmp	ecx, 3FFh		; Are we testing 75-bits or greater?
-	ja	short cp1		; Yes, jump
-	mov	eax, OFFSET tlp74	; 64-74 bit SSE2 version
+	mov	eax, OFFSET tlp96	; 96-bit version
 	jmp	short cp1		; Yes, jump
 not65:	mov	eax, OFFSET tlp64	; 64 bit all cpus version
-	cmp	edx, 3FFFFFFFh		; Are we testing 63-bits or greater?
-	ja	short cp1		; Yes, jump
-	mov	eax, OFFSET plp		; Pentium Pro version
-	test	_CPU_FLAGS, 2		; Is this a Pentium Pro or better?
-	jnz	short cp1		; Yes - CMOV is supported, jump
-	mov	eax, OFFSET ulp		; 486 version
-	test	_CPU_FLAGS, 1		; Is this a 486 or AMD K6?
-	jz	short cp1		; Yes RDTSC not supported, jump
-	mov	eax, OFFSET tlp60	; 60 bit Pentium version
-	cmp	edx, 0FFFFFFFh		; Are we testing 61-bits or greater?
-	jl	short cp1		; No, jump
-	mov	eax, OFFSET tlp62	; 62 bit Pentium version
-cp1:	mov	esi, last_primearray	; Load address to patch
-	mov	[esi+8], eax		; Store "sieve done" address
+cp1:	mov	rsi, last_primearray	; Load address to patch
+	mov	[rsi+8], eax		; Store "sieve done" address
 
 ; Compute number of times we will loop in sqloop
 
@@ -1337,136 +1190,110 @@ cntlp:	inc	ecx
 	add	eax, eax
 	jnz	short cntlp
 	mov	sqloop_counter, ecx
-	mov	eax, ecx
-	dec	eax
-	mov	wqloop_counter, eax
-
-; Init the multipliers for 60-bit factoring code
-
-	mov	eax, shifter
-	fld	ONE			; Starting 1/fac multiplier
-	fst	REMMULTS[ecx*4+4]
-mlp:	add	eax, eax		; Test shifter bit
-	jnc	short nodbl		; No doubling rem if bit is off
-	fld	TWO			; Double the remainder
-	fstp	REMMULTS[ecx*4]		; Save remainder multiplier
-	fmul	FOUR			; Modify 1/fac multiplier
-	fstp	FACMULTS[ecx*4]		; Store 1/fac multiplier
-	fld	QUARTER			; Next 1/fac multiplier
-	jmp	short mlptst
-nodbl:	fld	ONE			; Don't double the remainder
-	fstp	REMMULTS[ecx*4]		; Save remainder multiplier
-	fstp	FACMULTS[ecx*4]		; Store 1/fac multiplier
-	fld	ONE			; Next 1/fac multiplier
-mlptst:	dec	ecx			; Decrement loop counter
-	jnz	short mlp		; Loop if necessary
-	fstp	temp			; Discard float values
 
 	retn
 presq	ENDP
 
 ;
-; Try to find a 32-bit factor of 2**p - 1
+; Try to find a 64-bit factor of 2**p - 1
 ;
 
-fac32:	mov	ecx, p
-s32lp:	add	ecx, ecx		; Shift until top bit on
-	jns	short s32lp
-	mov	eax, ecx
-	shl	eax, 5
-	mov	shifter, eax
-	shr	ecx, 27
-	mov	eax, 1
-	shl	eax, cl
-	mov	temp, eax
+
+tlp64:
+
+fac64:	mov	rcx, p
+s64lp:	add	rcx, rcx		; Shift until top bit on
+	jns	short s64lp
+	mov	rax, rcx
+	shl	rax, 6
+	mov	shifter, rax
+	shr	rcx, 58
+	mov	rax, 1
+	shl	rax, cl
+	mov	temp, rax
 
 ; First trial factor is 2p + 1
 
-	mov	ecx, twop
-	inc	ecx
+	mov	rcx, twop
+	inc	rcx
 
 ; If factor = 3 or 5 mod 8, then it can't be a factor of 2**p - 1
 
-testf:	mov	eax, ecx
+testf:	mov	rax, rcx
 	and	al, 6
-	jz	short test32
+	jz	short test64
 	cmp	al, 6
 	jnz	short nextf
 
 ; Square the number until we computed 2**p MOD factor
 
-test32:	mov	ebx, shifter
-	mov	eax, temp
-	sub	edx, edx
-	div	ecx
-loop32:	mov	eax, edx
-	mul	eax
-	div	ecx
-	add	ebx, ebx
-	jnc	short loop32
-	jz	short exit32
-	add	edx, edx
-	jc	short sub32
-	cmp	edx, ecx
-	jb	short loop32
-sub32:	sub	edx, ecx
-	jmp	short loop32
+test64:	mov	rbx, shifter
+	mov	rax, temp
+	sub	rdx, rdx
+	div	rcx
+loop64:	mov	rax, rdx
+	mul	rax
+	div	rcx
+	add	rbx, rbx
+	jnc	short loop64
+	jz	short exit64
+	add	rdx, rdx
+	jc	short sub64
+	cmp	rdx, rcx
+	jb	short loop64
+sub64:	sub	rdx, rcx
+	jmp	short loop64
 
 ; Multiply remainder by two one last time (for the last carry out of shifter)
 ; If result = 1 mod factor, then we found a divisor of 2**p - 1
 
-exit32:	add	edx, edx
-	dec	edx
-	cmp	edx, ecx
-	jz	short win32
+exit64:	add	rdx, rdx
+	dec	rdx
+	cmp	rdx, rcx
+	jz	short win64
 
 ; Try next possible factor
 
-nextf:	add	ecx, twop
+nextf:	add	rcx, twop
 	jnc	short testf
 
 ; No 32-bit factor found - return for ESC check
 
-	mov	eax, 2			; Return for ESC check
+	mov	rax, 2			; Return for ESC check
 	mov	_FACMSW, 1		; Restart at 1
 	jmp	done
 
 ; Divisor found, return TRUE
 
-win32:	mov	eax, 1
+win64:	mov	rax, 1
 	mov	_FACMSW, 0
-	mov	_FACLSW, ecx
+	mov	_FACLSW, rcx
 	jmp	done
 
 ;
 ; Register allocations
 ;
 
-fac0	equ	edi
-fac1	equ	ebx			; Keep factor in edi, ebx, ecx
-fac2	equ	ecx
+fac0	equ	rdi			; Keep factor in rdi, rbx
+fac1	equ	rbx
 
 ;
 ; Try to find a 64-bit factor of 2**p - 1
-; ecx = Starting point (times 2**32)
+; rcx = Starting point (times 2**32)
 ;
 
 	PUBLIC	_factor64
 _factor64 PROC
-	push	edi
-	push	esi
-	push	ebp
-	push	ebx
-
-; Init the FPU every iteration just to be safe
-
-	finit
+	push	rdi
+	push	rsi
+	push	rbp
+	push	rbx
 
 ; Is this a request to test 32-bit factors?  If so, go to special code.
 
-	mov	eax, _FACHSW
-	mov	ecx, _FACMSW
-	or	eax, ecx
+	mov	rax, _FACHSW
+	mov	rcx, _FACMSW
+	or	rax, rcx
 	jz	fac32
 
 ; Set number of repetitions
@@ -1491,31 +1318,33 @@ _factor64 PROC
 ; First trial factor is first number of the form 2kp + 1
 ; greater than FACMSW * 2^32
 
-	mov	fac0, _FACHSW		; Start point * 2^64
-	mov	fac1, _FACMSW		; Start point * 2^32
+	mov32	fac0, fac0d, _FACHSW	; Start point * 2^64
+	mov32	fac1, fac1d, _FACMSW	; Start point * 2^32
+	shl	fac1, 32
+
 	mov	fac2, twop		; Load twop for dividing
-	mov	eax, fac0		; Do a mod on the start point
-	sub	edx, edx
+	mov	rax, fac0		; Do a mod on the start point
+	sub	rdx, rdx
 	div	fac2
-	mov	eax, fac1
+	mov	rax, fac1
 	div	fac2			
-	sub	eax, eax		; Now do a mod on the remainder * 2^32
+	sub	rax, rax		; Now do a mod on the remainder * 2^32
 	div	fac2
-	sub	fac2, edx		; Subtract remainder from twop
+	sub	fac2, rdx		; Subtract remainder from twop
 	inc	fac2			; and add 1 to find first test factor
 
 ; Make sure we have a factor with the right modulo for this pass
 
 	mov	esi, _FACPASS		; Get the pass number (0 to 15)
 	mov	ebp, 120
-flp1:	mov	eax, fac0		; Do a mod 120 in three parts
-	sub	edx, edx
+flp1:	mov	rax, fac0		; Do a mod 120 in three parts
+	sub	rdx, rdx
 	div	ebp
-	mov	eax, fac1		; Do a mod 120
+	mov	rax, fac1		; Do a mod 120
 	div	ebp
-	mov	eax, fac2		; Do a mod 120
+	mov	rax, fac2		; Do a mod 120
 	div	ebp
-	cmp	edx, rems[esi*4]	; Is this the desired remainder
+	cmp	rdx, rems[esi*4]	; Is this the desired remainder
 	jz	short flp2		; Yes, jump to flp2
 	add	fac2, twop		; No, try next factor
 	adc	fac1, 0
@@ -1523,23 +1352,22 @@ flp1:	mov	eax, fac0		; Do a mod 120 in three parts
 	jmp	short flp1		; Loop
 flp2:	mov	savefac0, fac0
 	mov	savefac1, fac1
-	mov	savefac2, fac2
 
 ; Loop through all the small primes determining sieve bit to clear
 
-testp	EQU	ebp
-prev	EQU	ebx
-cur	EQU	ecx
-bigrem	EQU	edi
-litrem	EQU	esi
+testp	EQU	rbp
+prev	EQU	rbx
+cur	EQU	rcx
+bigrem	EQU	rdi
+litrem	EQU	rsi
 
-	mov	esi, primearray
-smlp:	mov	testp, [esi]
+	mov	rsi, primearray
+smlp:	mov	testp, [rsi]
 	and	testp, testp
 	jz	short smdn
 	cmp	testp, p
 	jne	short smok
-	mov	DWORD PTR [esi], 0
+	mov	DWORD PTR [rsi], 0
 	jmp	short smdn
 smok:
 
@@ -1552,40 +1380,38 @@ smok:
 ; clearing.
 ;
 
-	push	esi
+	push	rsi
 	sub	prev, prev		; Set up: set bigrem = testp,
 	mov	cur, 1			; litrem = facdist mod testp
 	mov	bigrem, testp
-	mov	edx, facdists+12
-	mov	eax, facdists+8
+	mov	rdx, facdists+12
+	mov	rax, facdists+8
 	div	bigrem
-	mov	litrem, edx
+	mov	litrem, rdx
 euclp:	cmp	litrem, 1		; Loop ends when litrem equals 1
 	je	short eucdn
-	sub	edx, edx		; Compute bigrem mod litrem
-	mov	eax, bigrem
+	sub	rdx, rdx		; Compute bigrem mod litrem
+	mov	rax, bigrem
 	div	litrem
 	mov	bigrem, litrem
-	mov	litrem, edx
+	mov	litrem, rdx
 	imul	cur
-	sub	prev, eax
+	sub	prev, rax
 	xchg	prev, cur
 	jmp	short euclp
 eucdn:	neg	cur			; set x = -cur if cur was negative
 	jns	short eucdn2
 	add	cur, testp		; else set x = testp - cur
-eucdn2:	sub	edx, edx		; Divide first factor by testp
-	mov	eax, savefac0
+eucdn2:	sub	rdx, rdx		; Divide first factor by testp
+	mov	rax, savefac0
 	div	testp
-	mov	eax, savefac1
+	mov	rax, savefac1
 	div	testp
-	mov	eax, savefac2
-	div	testp
-	mov	eax, edx		; Multiply remainder by x
+	mov	rax, rdx		; Multiply remainder by x
 	mul	cur
-	div	testp			; edx now contains the bit number!
+	div	testp			; rdx now contains the bit number!
 	pop	esi			; save it for sieve clearing
-	mov	[esi+4], edx
+	mov	[esi+4], rdx
 	lea	esi, [esi+12]
 	jmp	short smlp
 smdn:
@@ -1593,44 +1419,44 @@ smdn:
 ; Use the initlookup table to determine the first dword in initsieve to copy
 
 	mov	esi, primearray		; Ptr to first small prime
-	sub	eax, eax		; Build the index in eax
+	sub	rax, rax		; Build the index in rax
 lk1:	mul	DWORD PTR [esi]		; Multiply index by the small prime
-	add	eax, [esi+4]		; Add the bit# to the index
+	add	rax, [esi+4]		; Add the bit# to the index
 	lea	esi, [esi+12]
 	cmp	esi, primearray12	; Last small prime?
 	jnz	short lk1
 	mov	esi, initlookup		; Load the address of the initsieve
-	mov	eax, [esi][eax*4]	; Load the address of the initsieve
-	mov	initstart, eax		; word that clears the correct bits
+	mov	rax, [esi][rax*4]	; Load the address of the initsieve
+	mov	initstart, rax		; word that clears the correct bits
 
 ; Compute the clrXX addresses
 
 	mov	esi, primearray		; Ptr to first small prime
-clr1:	mov	eax, [esi]		; The small prime
-	and	eax, eax		; End of table?
+clr1:	mov	rax, [esi]		; The small prime
+	and	rax, rax		; End of table?
 	jz	short clrdn		; Yes if zero
-	mov	ecx, eax		; Isolate bottom 3 bits
-	and	ecx, 7
-	shr	eax, 3
-	mov	[esi], eax		; Save small prime / 8
-	mov	ebx, [esi+4]		; The bit# to clear
-	mov	edx, ebx		; Isolate bottom 3 bits
-	and	edx, 7
-	shr	ebx, 3
-	add	ebx, sieve
-	mov	[esi+4], ebx		; The first sieve address
-	cmp	eax, sievesize/8	; Use the 2 or 8 unravelling
+	mov	rcx, rax		; Isolate bottom 3 bits
+	and	rcx, 7
+	shr	rax, 3
+	mov	[esi], rax		; Save small prime / 8
+	mov	rbx, [esi+4]		; The bit# to clear
+	mov	rdx, rbx		; Isolate bottom 3 bits
+	and	rdx, 7
+	shr	rbx, 3
+	add	rbx, sieve
+	mov	[esi+4], rbx		; The first sieve address
+	cmp	rax, sievesize/8	; Use the 2 or 8 unravelling
 	jb	short clr2
-	add	edx, 8
-	cmp	eax, sievesize/2	; Use the 1 or 2 unravelling
+	add	rdx, 8
+	cmp	rax, sievesize/2	; Use the 1 or 2 unravelling
 	jb	short clr2
-	add	edx, 8
-	cmp	eax, sievesize		; Use the 0 or 1 unravelling
+	add	rdx, 8
+	cmp	rax, sievesize		; Use the 0 or 1 unravelling
 	jb	short clr2
-	add	edx, 8
-clr2:	lea	ecx, [edx*8][ecx-1]
-	mov	ecx, clrtab[ecx*2]
-	mov	[esi+8], ecx		; Store correct address
+	add	rdx, 8
+clr2:	lea	rcx, [rdx*8][rcx-1]
+	mov	rcx, clrtab[rcx*2]
+	mov	[esi+8], rcx		; Store correct address
 	lea	esi, [esi+12]
 	jnz	short clr1
 clrdn:	mov	last_primearray, esi	; Save for later patching
@@ -1642,7 +1468,7 @@ clrdn:	mov	last_primearray, esi	; Save for later patching
 ; Fill sieve for the first time
 
 	mov	edi, sieve		; EDI is the destination
-	mov	eax, (sievesize+sieveextra)/4 ; EAX = Count of dwords to copy
+	mov	rax, (sievesize+sieveextra)/4 ; rax = Count of dwords to copy
 	jmp	short slp1
 
 ; Pre-square the number as much as possible.
@@ -1656,29 +1482,29 @@ slp:	call	presq
 
 slp0:	mov	edi, sieve
 	lea	esi, [edi+sievesize]
-	mov	ecx, sieveextra / 4
+	mov	rcx, sieveextra / 4
 	rep	movsd
-	mov	eax, sievesize / 4	; count of dwords left to copy
+	mov	rax, sievesize / 4	; count of dwords left to copy
 
 ;
 ; Init the sieve, the first call will fill up the sieve and sieveextra
 ;
 
-slp1:	mov	edx, initstart		; load offset to first dword to copy
+slp1:	mov	rdx, initstart		; load offset to first dword to copy
 	mov	esi, initsieve
-	lea	esi, [esi][edx*4]
-	mov	ecx, initsize		; ECX is count of dwords to copy
-	sub	ecx, edx
-slp2:	sub	eax, ecx		; Lower count of bytes left to copy
+	lea	esi, [esi][rdx*4]
+	mov	rcx, initsize		; rcx is count of dwords to copy
+	sub	rcx, rdx
+slp2:	sub	rax, rcx		; Lower count of bytes left to copy
 	js	short slpdn		; Special case count going negative
 	rep	movsd			; Copy the bytes
 	mov	esi, initsieve		; Setup for copying next batch
-	mov	ecx, initsize
-	sub	edx, edx
+	mov	rcx, initsize
+	sub	rdx, rdx
 	jmp	short slp2
-slpdn:	add	ecx, eax		; Make count positive again
-	add	edx, ecx
-	mov	initstart, edx		; Save start position for next time
+slpdn:	add	rcx, rax		; Make count positive again
+	add	rdx, rcx
+	mov	initstart, rdx		; Save start position for next time
 	rep	movsd			; Copy the bytes
 
 ;
@@ -1702,65 +1528,65 @@ clear	MACRO	b0,b1,b2,b3,b4,b5,b6,b7,start,incr
 	LOCAL	clrlp
 ;;	align	4
 clrlp:	mov	al, [edi]			;; Load byte #0
-	mov	dl, [edi+(start+incr)/8][ebx]	;; Load byte #1
+	mov	dl, [edi+(start+incr)/8][rbx]	;; Load byte #1
 	and	al, b0				;; Clear bit 0
 	and	dl, b1				;; Clear bit 1
 	mov	[edi], al			;; Store byte #0
-	mov	[edi+(start+incr)/8][ebx], dl	;; Store byte #1
-	lea	edi, [edi+(start+4*incr)/8][ebx*4]
+	mov	[edi+(start+incr)/8][rbx], dl	;; Store byte #1
+	lea	edi, [edi+(start+4*incr)/8][rbx*4]
 	mov	al, [esi+(start+2*incr)/8]	;; Load byte #2
-	mov	dl, [esi+(start+3*incr)/8][ebx]	;; Load byte #3
+	mov	dl, [esi+(start+3*incr)/8][rbx]	;; Load byte #3
 	and	al, b2				;; Clear bit 2
 	and	dl, b3				;; Clear bit 3
 	mov	[esi+(start+2*incr)/8], al	;; Store byte #2
-	mov	[esi+(start+3*incr)/8][ebx], dl	;; Store byte #3
-	lea	esi, [esi+(start+6*incr)/8][ebx*4]
+	mov	[esi+(start+3*incr)/8][rbx], dl	;; Store byte #3
+	lea	esi, [esi+(start+6*incr)/8][rbx*4]
 	mov	al, [edi]			;; Load byte #4
-	mov	dl, [edi+(start+5*incr)/8-(start+4*incr)/8][ebx];; Load byte #5
+	mov	dl, [edi+(start+5*incr)/8-(start+4*incr)/8][rbx];; Load byte #5
 	and	al, b4				;; Clear bit 4
 	and	dl, b5				;; Clear bit 5
 	mov	[edi], al			;; Store byte #4
-	mov	[edi+(start+5*incr)/8-(start+4*incr)/8][ebx], dl;; Save byte #5
-	lea	edi, [edi+incr-(start+4*incr)/8][ebx*4]
+	mov	[edi+(start+5*incr)/8-(start+4*incr)/8][rbx], dl;; Save byte #5
+	lea	edi, [edi+incr-(start+4*incr)/8][rbx*4]
 	mov	al, [esi]			;; Load byte #6
-	mov	dl, [esi+(start+7*incr)/8-(start+6*incr)/8][ebx];; Load byte #7
+	mov	dl, [esi+(start+7*incr)/8-(start+6*incr)/8][rbx];; Load byte #7
 	and	al, b6				;; Clear bit 6
 	and	dl, b7				;; Clear bit 7
 	mov	[esi], al			;; Store byte #6
-	mov	[esi+(start+7*incr)/8-(start+6*incr)/8][ebx], dl;; Save byte #7
-	lea	esi, [esi+incr-(start+6*incr)/8][ebx*4]
+	mov	[esi+(start+7*incr)/8-(start+6*incr)/8][rbx], dl;; Save byte #7
+	lea	esi, [esi+incr-(start+6*incr)/8][rbx*4]
 	test	edi, sievesize		;; Past the end of the sieve?
 	jz	short clrlp
 	sub	edi, sievesize		;; U - Sieve address for next time
-	mov	ebx, [ebp]		;; V - Load small prime divided by 8
+	mov	rbx, [ebp]		;; V - Load small prime divided by 8
 	mov	[ebp-12+4], edi		;; U - Save sieve address for next time
 	mov	edi, [ebp+4]		;; V - Load sieve address
-	mov	eax, [ebp+8]		;; U - Address to jump to
+	mov	rax, [ebp+8]		;; U - Address to jump to
 	lea	ebp, [ebp+12]		;; V - Next primearray address
-	lea	esi, [edi][ebx*2]	;; U - Second sieve address
-	jmp	eax			;; V - Dispatch
+	lea	esi, [edi][rbx*2]	;; U - Second sieve address
+	jmp	rax			;; V - Dispatch
 	ENDM
 
 ;; 2 to 8 bit clearings required
 clear2	MACRO	b0,b1,start,incr,clrnxt
 ;;	align	4
 	mov	al, [edi]			;; Load byte #0
-	mov	dl, [edi+(start+incr)/8][ebx]	;; Load byte #1
+	mov	dl, [edi+(start+incr)/8][rbx]	;; Load byte #1
 	and	al, b0				;; Clear bit 0
 	and	dl, b1				;; Clear bit 1
 	mov	[edi], al			;; Store byte #0
-	mov	[edi+(start+incr)/8][ebx], dl	;; Store byte #1
-	lea	edi, [edi+(start+2*incr)/8][ebx*2]
+	mov	[edi+(start+incr)/8][rbx], dl	;; Store byte #1
+	lea	edi, [edi+(start+2*incr)/8][rbx*2]
 	test	edi, sievemask		;; Past the end of the sieve?
 	jz	clrnxt
 	sub	edi, sievesize		;; U - Sieve address for next time
 	mov	[ebp-12+8], OFFSET clrnxt ;; V - Save jump addr for next time
 	mov	[ebp-12+4], edi		;; U - Save sieve address for next time
-	mov	ebx, [ebp]		;; V - Load small prime divided by 8
+	mov	rbx, [ebp]		;; V - Load small prime divided by 8
 	mov	edi, [ebp+4]		;; U - Load sieve address
-	mov	eax, [ebp+8]		;; V - Address to jump to
+	mov	rax, [ebp+8]		;; V - Address to jump to
 	lea	ebp, [ebp+12]		;; U - Next primearray address
-	jmp	eax			;; V - Dispatch
+	jmp	rax			;; V - Dispatch
 	ENDM
 
 ;; 1 or 2 bit clearings required
@@ -1769,17 +1595,17 @@ clear3	MACRO	b0,start,incr,clrnxt
 	mov	al, [edi]		;; U - Load byte #0
 	and	al, b0			;;*U - Clear bit 0
 	mov	[edi], al		;;*U - Store byte #0
-	lea	edi, [edi+(start+incr)/8][ebx] ;; V
+	lea	edi, [edi+(start+incr)/8][rbx] ;; V
 	test	edi, sievemask		;; U - Past the end of the sieve?
 	jz	clrnxt			;; V
 	sub	edi, sievesize		;; U - Sieve address for next time
 	mov	[ebp-12+8], OFFSET clrnxt ;; V - Save jump addr for next time
 	mov	[ebp-12+4], edi		;; U - Save sieve address for next time
-	mov	ebx, [ebp]		;; V - Load small prime divided by 8
+	mov	rbx, [ebp]		;; V - Load small prime divided by 8
 	mov	edi, [ebp+4]		;; U - Load sieve address
-	mov	eax, [ebp+8]		;; V - Address to jump to
+	mov	rax, [ebp+8]		;; V - Address to jump to
 	lea	ebp, [ebp+12]		;; U - Next primearray address
-	jmp	eax			;; V - Dispatch
+	jmp	rax			;; V - Dispatch
 	ENDM
 
 ;; 0 or 1 bit clearings required
@@ -1788,27 +1614,27 @@ clear4	MACRO	b0,start,incr,clrnxt
 ;;	align	4
 	test	edi, sievemask		;; U - Past the end of the sieve?
 	jnz	short stay		;; V - Yes, stay here next dispatch
-	mov	ebx, [ebp-12]		;; U - Load small prime divided by 8
+	mov	rbx, [ebp-12]		;; U - Load small prime divided by 8
 	mov	al, [edi]		;; V - Load byte #0
 	mov	[ebp-12+8], OFFSET clrnxt ;; U - Save jump addr for next time
 	and	al, b0			;; V - Clear bit 0
 	mov	[edi], al		;; U - Store byte #0
-	lea	edi, [edi+(start+incr)/8][ebx] ;; V - Next bit address
+	lea	edi, [edi+(start+incr)/8][rbx] ;; V - Next bit address
 stay:	sub	edi, sievesize		;; U - Sieve address for next time
-	mov	eax, [ebp+8]		;; V - Address to jump to
+	mov	rax, [ebp+8]		;; V - Address to jump to
 	mov	[ebp-12+4], edi		;; U - Save sieve address for next time
 	mov	edi, [ebp+4]		;; V - Load sieve address
 	lea	ebp, [ebp+12]		;; U - Next primearray address
-	jmp	eax			;; V - Dispatch
+	jmp	rax			;; V - Dispatch
 	ENDM
 
 	mov	ebp, primearray12	; Ptr to first prime in array
-	mov	ebx, [ebp]		; Load small prime divided by 8
+	mov	rbx, [ebp]		; Load small prime divided by 8
 	mov	edi, [ebp+4]		; Load sieve address
-	mov	eax, [ebp+8]		; Address to jump to
+	mov	rax, [ebp+8]		; Address to jump to
 	lea	ebp, [ebp+12]		; Next primearray address
-	lea	esi, [edi][ebx*2]	; Second sieve address
-	jmp	eax
+	lea	esi, [edi][rbx*2]	; Second sieve address
+	jmp	rax
 
 clr01:	clear	BIT0,BIT1,BIT2,BIT3,BIT4,BIT5,BIT6,BIT7,0,1
 clr03:	clear	BIT0,BIT3,BIT6,BIT1,BIT4,BIT7,BIT2,BIT5,0,3
@@ -1953,8 +1779,8 @@ clr477:	clear4	BIT7,7,7,clr467
 tlp60:	mov	esi, sieve
 	mov	fac1, savefac1
 	mov	fac2, savefac2
-	sub	edx, edx
-	mov	eax, [esi]
+	sub	rdx, rdx
+	mov	rax, [esi]
 	lea	esi, [esi+4]
 tx0:	test	al, 01h
 	jnz	tst0
@@ -1972,56 +1798,56 @@ tx6:	test	al, 40h
 	jnz	tst6
 tx7:	test	al, 80h
 	jnz	tst7
-tx8:	test	eax, 100h
+tx8:	test	rax, 100h
 	jnz	tst8
-tx9:	test	eax, 200h
+tx9:	test	rax, 200h
 	jnz	tst9
-tx10:	test	eax, 400h
+tx10:	test	rax, 400h
 	jnz	tst10
-tx11:	test	eax, 800h
+tx11:	test	rax, 800h
 	jnz	tst11
-tx12:	test	eax, 1000h
+tx12:	test	rax, 1000h
 	jnz	tst12
-tx13:	test	eax, 2000h
+tx13:	test	rax, 2000h
 	jnz	tst13
-tx14:	test	eax, 4000h
+tx14:	test	rax, 4000h
 	jnz	tst14
-tx15:	test	eax, 8000h
+tx15:	test	rax, 8000h
 	jnz	tst15
-tx16:	test	eax, 10000h
+tx16:	test	rax, 10000h
 	jnz	tst16
-tx17:	test	eax, 20000h
+tx17:	test	rax, 20000h
 	jnz	tst17
-tx18:	test	eax, 40000h
+tx18:	test	rax, 40000h
 	jnz	tst18
-tx19:	test	eax, 80000h
+tx19:	test	rax, 80000h
 	jnz	tst19
-tx20:	test	eax, 100000h
+tx20:	test	rax, 100000h
 	jnz	tst20
-tx21:	test	eax, 200000h
+tx21:	test	rax, 200000h
 	jnz	tst21
-tx22:	test	eax, 400000h
+tx22:	test	rax, 400000h
 	jnz	tst22
-tx23:	test	eax, 800000h
+tx23:	test	rax, 800000h
 	jnz	tst23
-tx24:	test	eax, 1000000h
+tx24:	test	rax, 1000000h
 	jnz	tst24
-tx25:	test	eax, 2000000h
+tx25:	test	rax, 2000000h
 	jnz	tst25
-tx26:	test	eax, 4000000h
+tx26:	test	rax, 4000000h
 	jnz	tst26
-tx27:	test	eax, 8000000h
+tx27:	test	rax, 8000000h
 	jnz	tst27
-tx28:	test	eax, 10000000h
+tx28:	test	rax, 10000000h
 	jnz	short tst28
-tx29:	test	eax, 20000000h
+tx29:	test	rax, 20000000h
 	jnz	short tst29
-tx30:	test	eax, 40000000h
+tx30:	test	rax, 40000000h
 	jnz	short tst30
-tx31:	test	eax, 80000000h
+tx31:	test	rax, 80000000h
 	jnz	short tst31
 tlp5:	add	fac2, facdist32		; U - Add facdist * 32 to the factor
-	mov	eax, [esi]		; V - Next sieve word
+	mov	rax, [esi]		; V - Next sieve word
 	adc	fac1, facdist32+4	; U - Add carry
 	test	esi, sievesize		; V - End of sieve?
 	lea	esi, [esi+4]		; U - Bump pointer
@@ -2036,7 +1862,7 @@ tlp5:	add	fac2, facdist32		; U - Add facdist * 32 to the factor
 
 ; Return so caller can check for ESC
 
-	mov	eax, 2			; Return for ESC check
+	mov	rax, 2			; Return for ESC check
 	mov	_FACMSW, fac1
 	jmp	done
 
@@ -2110,19 +1936,17 @@ tst1:	mov	dl, 1			; Test factor corresponding to bit 1
 ; The sieve has suggested we test this factor.  Check it out.
 ; OPTIMIZED FOR PENTIUMS
 ;
-; eax = sieve word - must be preserved
-; ebx = fac1 - must be preserved as fac1 for sieve bit 0
-; ecx = fac2 - must be preserved as fac2 for sieve bit 0
-; edx = sieve bit being tested - must return with top 24 bits zero
+; rax = sieve word - must be preserved
+; rbx = fac1 - must be preserved as fac1 for sieve bit 0
+; rcx = fac2 - must be preserved as fac2 for sieve bit 0
+; rdx = sieve bit being tested - must return with top 24 bits zero
 ; esi = sieve address - must be preserved
 ;
 
 ; Precompute 1 / factor
 
-testit:	add	fac2, facdists[edx*8]	; Determine factor to test
-	adc	fac1, facdists+4[edx*8]	; Add carry
+testit:	add	fac2, facdists[rdx*8]	; Determine factor to test
 testit0:mov	savefac2, fac2		; U - Store factor so FPU can load it
-	mov	savefac1, fac1		; V - Store factor so FPU can load it
 	fild	QWORD PTR savefac2	; Load 64-bit factor (3 clocks)
 	fild	savefac2		; faclo
 	fld	initval			; rem^2
@@ -2132,1817 +1956,93 @@ testit0:mov	savefac2, fac2		; U - Store factor so FPU can load it
 ; with other float instructions.  This gives us 37 clocks
 ; to do something useful with the integer units.
 
-	mov	edi, returns5[edx*4]	; U - Load return address
-	mov	ebp, facdists[edx*8]	; V - fac2 adjustment
+	mov	edi, returns5[rdx*4]	; U - Load return address
+	mov	ebp, facdists[rdx*8]	; V - fac2 adjustment
 	push	edi			; U - Push return address
-	push	eax			; V - Save sieve test register
+	push	rax			; V - Save sieve test register
 
 	; Recompute original fac1 and fac2.  That is, the fac1/fac2 values
-	; for the first sieve bit in EAX 
+	; for the first sieve bit in rax 
 	sub	fac2, ebp		; U - Recompute original fac2
-	mov	edi, facdists+4[edx*8]	; V - fac1 adjustment
+	mov	edi, facdists+4[rdx*8]	; V - fac1 adjustment
 	sbb	fac1, edi		; U - Recompute original fac1
-	push	ecx			; V - Save another register
+	push	rcx			; V - Save another register
 
 	; Compute the shift count to create floating point values
 	; We'd like to use the BSF instruction but it is very slow.
 	; Simulate BSF by taking advantage of the fact that factors
 	; increase in size very slowly.
-	mov	eax, savefac1		; U - Load fac MSW
-	mov	edx, savefac2		; V - Load fac LSW
-	mov	ecx, fachi_shf_count	; U - Load last shift count
+	mov	rax, savefac1		; U - Load fac MSW
+	mov	rdx, savefac2		; V - Load fac LSW
+	mov	rcx, fachi_shf_count	; U - Load last shift count
 	mov	ebp, fachi_shf_mask	; V - Load last shift mask
-fhilp:	test	eax, ebp		; U - Is value wider than last time?
+fhilp:	test	rax, ebp		; U - Is value wider than last time?
 	jz	short fhiok		; V - No, jump
 	add	ebp, ebp		; U - Compute new shift mask
-	dec	ecx			; V - Decrement the shift count
-	mov	fachi_shf_count, ecx	; U - Save the new shift count
+	dec	rcx			; V - Decrement the shift count
+	mov	fachi_shf_count, rcx	; U - Save the new shift count
 	mov	fachi_shf_mask, ebp	; V - Save the new shift mask
 	jmp	short fhilp		; V - Loop in case fachi is much wider
 fhiok:
 
 	; Compute the floating value (1-fac)/2 = -(fac-1)/2
-	shld	eax, edx, cl		;5UV - Normalize (top bit always on)
-	shr	eax, 8			; U - Make room for the exponent
-	adc	eax, 0DE000000h		; U - Round and normalize exponent!
+	shld	rax, rdx, cl		;5UV - Normalize (top bit always on)
+	shr	rax, 8			; U - Make room for the exponent
+	adc	rax, 0DE000000h		; U - Round and normalize exponent!
 	 mov	edi, 80000001h		; V - Increment and change sign
-	shl	ecx, 23			; U - Put shift count in exponent byte
+	shl	rcx, 23			; U - Put shift count in exponent byte
 	 mov	ebp, savefac1		; V - Copy fac MSW (will become FACHI)
-	sub	eax, ecx		; U - Sub shift count float exponent
-	 mov	ecx, fachi_shf_count	; V - Reload shift count
+	sub	rax, rcx		; U - Sub shift count float exponent
+	 mov	rcx, fachi_shf_count	; V - Reload shift count
 
 	; Compute the floating value (fac+1)/2.  Well, we don't have
 	; enough free cycles to do that.  At worst, computing fac+1 will
 	; cause a carry, so just increment the fac-1 float's LSB.  Note that
 	; we can afford to be sloppy as cmpval is only used to quickly
 	; eliminate most remainders.
-	add	edi, eax		; U - Forms (fac+1)/2 float
+	add	edi, rax		; U - Forms (fac+1)/2 float
 
 	; Now merge the info on the two comparison values (the indented code).
 	; Also, convert FACHI to floating point format.  Round FACHI up
 	; if FACLO is negative.  Handle overflows by decrementing 
 	; the shift count.
-	add	edx, edx		; V - Set carry if FACLO is negative
+	add	rdx, rdx		; V - Set carry if FACLO is negative
 	adc	ebp, 0			; U - Increment FACHI if FACLO neg.
-	 xor	eax, edi		; V - The bits that are different
+	 xor	rax, edi		; V - The bits that are different
 	shl	ebp, cl			;4UV - Normalize (top bit always on)
 	jnc	short fhiok1		; UV - Did FACHI incr cause an oflow?
 	mov	ebp, 80000000h		; U - The true normalized value
-	dec	ecx			; V - The true shift count
-fhiok1:	mov	edx, ebp		; U - Now build the IEEE float
-	 xor	eax, 0FFFFFFFFh		; V - The bits that are the same
+	dec	rcx			; V - The true shift count
+fhiok1:	mov	rdx, ebp		; U - Now build the IEEE float
+	 xor	rax, 0FFFFFFFFh		; V - The bits that are the same
 	shr	ebp, 11			; U - High 32 bits of the float
-	 mov	cmpvalmask, eax		; V - Save this mask
-	shl	ecx, 20			; U - Put shift count in exponent byte
-	 and	eax, edi		; V - The value to compare against
+	 mov	cmpvalmask, rax		; V - Save this mask
+	shl	rcx, 20			; U - Put shift count in exponent byte
+	 and	rax, edi		; V - The value to compare against
 	add	ebp, 43D00000h 		; U - Make the exponent byte right
-	 mov	cmpval, eax		; V - Save the compare value
-	shl	edx, 21			; U - Low 32 bits of the float
-	sub	ebp, ecx		; V - Sub shift count float exponent
-	mov	DWORD PTR FACHI, edx	; U - Store FACHI LSW
+	 mov	cmpval, rax		; V - Save the compare value
+	shl	rdx, 21			; U - Low 32 bits of the float
+	sub	ebp, rcx		; V - Sub shift count float exponent
+	mov	DWORD PTR FACHI, rdx	; U - Store FACHI LSW
 	mov	DWORD PTR FACHI+4, ebp	; V - Store FACHI MSW
 
 	; More miscellaneous initialization
-	mov	ecx, sqloop_counter	; U - Load loop counter
-	sub	edx, edx		; V - Clear edx
+	mov	rcx, sqloop_counter	; U - Load loop counter
+	sub	rdx, rdx		; V - Clear rdx
 
-;
-; Perform a division on the initial value to get started.
-;
-
-	fld	BIGVAL0			; bigval0, faclo, q
-	fld	BIGVAL1			; bigval1, bigval0, faclo, q
-	fadd	st, st(3)		; qhi, bigval0, faclo, q
-	fxch	st(1)			; bigval0, qhi, faclo, q
-	fadd	st, st(3)		; qlo, qhi, faclo, q
-	fld	FACHI			; fachi, qlo, qhi, faclo, q
-	fxch	st(2)			; qhi, qlo, fachi, faclo, q
-	fsub	BIGVAL1			; qhi, qlo, fachi, faclo, q
-	fxch	st(1)			; qlo, qhi, fachi, faclo, q
-	fsub	BIGVAL0			; qlo, qhi, fachi, faclo, q
-	fld	st(2)			; fachi, qlo, qhi, fachi, faclo, q
-	fmul	st, st(2)		; qhi*fhi, qlo, qhi, fhi, flo, q
-	fxch	st(2)			; qhi, qlo, qhi*fhi, fhi, flo, q
-	fsub	st(1), st		; qhi, qlo, qhi*fhi, fhi, flo, q
-	fmul	st, st(4)		; qhi*flo, qlo, qhi*fhi, fhi, flo, q
-	fxch	st(2)			; qhi*fhi, qlo, qhi*flo, fhi, flo, q
-	fsubr	initval			; res, qlo, qhi*flo, fhi, flo, q
-	fxch	st(1)			; qlo, res, qhi*flo, fhi, flo, q
-	fmul	st(3), st		; qlo, res, qhi*flo, qlo*fhi, flo, q
-					; STALL
-	fxch	st(2)			; qhi*flo, res, qlo, qlo*fhi, flo, q
-	fsubp	st(1), st		; res, qlo, qlo*fhi, flo, q
-	fxch	st(1)			; qlo, res, qlo*fhi, flo, q
-	fmul	st, st(3)		; qlo*flo, res, qlo*fhi, flo, q
-					; STALL
-	fxch	st(2)			; qlo*fhi, res, qlo*flo, flo, q
-	fsubp	st(1), st		; res, qlo*flo, flo, q
-	fxch	st(2)			; flo, qlo*flo, res, q
-	fstp	FACLO			; qlo*flo, res, q
-	fsubp	st(1), st		; res, q
-	fxch	st(1)			; q, res
-	fmul	initval_inv		; 1/fac, res
-	fxch	st(1)			; res, 1/fac
-	fld	FACHI			; fachi, res, 1/fac
-	fld	st(1)			; res, fachi, res, 1/fac
-
-; Square remainder and get new remainder
-; The remainder is 61 bits, fac is 60 bits.
-; At start of loop,
-;	st(3) contains 1/fac,
-;	st(2) contains remainder
-;	st(1) contains FACHI
-;	st(0) contains remainder
-; basic algorithm:
-; Let q = rem * rem * 1/fac
-; Let rem = remlo * remlo - qlo * faclo +
-;	    2^32 * (2 * remlo * remhi - qlo * fachi - qhi * faclo) +
-;	    2^64 * (remhi * remhi - qhi * fachi)
-;
-; q is 61 + 61 - 60 = 62 bits
-; remhi is 29 bits, remlo is 31 bits
-; qhi is 30 bits, qlo is 31 bits
-; fachi is 28 bits, faclo is 31 bits
-;
-; NOTES:
-;
-; The end of this loops uses some instructions that would otherwise be
-; STALLs to produce two copies of the remainder.
-;
-; This code also delays doubling the remainder until the start of
-; the next loop.  Furthermore, the remainder used to compute the quotient
-; is not doubled, rather the 1/fac value is divided by four.
-;
-; Special thanks to Peter-Lawrence Montgomery for proving that the
-; error in computing rem * rem * 1/fac will never exceed 1/2.
-;
-
-sqloop:	fmul	st, st			;1 rem^2,fhi,rem
-	fld	BIGVAL1			;2 bigval1,rem^2,fhi,rem
-	fxch	st(3)			;  rem,rem^2,fhi,bigval1
-	fmul	REMMULTS[ecx*4+4]	;3 rem,rem^2,fhi,bigval1
-	fld	BIGVAL1			;4 bigval1,rem,rem^2,fhi,bigval1
-	fxch	st(2)			;  rem^2,rem,bigval1,fhi,bigval1
-	fmul	st(0), st(5)		;5 q,rem,bigval1,fhi,bigval1
-	fxch	st(1)			;  rem,q,bigval1,fhi,bigval1
-	fadd	st(2), st(0)		;6 rem,q,rhi,fhi,bigval1
-	fld	FACHI			;7 fhi,rem,q,rhi,fhi,bigval1
-	fxch	st(2)			;  q,rem,fhi,rhi,fhi,bigval1
-	fadd	st(5), st(0)		;8 q,rem,fhi,rhi,fhi,qhi
-	fxch	st(3)			;  rhi,rem,fhi,q,fhi,qhi
-	fsub	BIGVAL1			;9 rhi,rem,fhi,q,fhi,qhi
-	fxch	st(3)			;  q,rem,fhi,rhi,fhi,qhi
-	fadd	BIGVAL0			;10 qlo,rem,fhi,rhi,fhi,qhi
-	fxch	st(5)			;   qhi,rem,fhi,rhi,fhi,qlo
-	fsub	BIGVAL1			;11 qhi,rem,fhi,rhi,fhi,qlo
-	fld	st(3)			;12 rhi,qhi,rem,fhi,rhi,fhi,qlo
-	fmul	st, st			;13 res,qhi,rem,fhi,rhi,fhi,qlo
-	fxch	st(1)			;   qhi,res,rem,fhi,rhi,fhi,qlo
-	fsub	st(6), st(0)		;14 qhi,res,rem,fhi,rhi,fhi,qlo
-	fmul	st(3), st(0)		;15 qhi,res,rem,qhi*fhi,rhi,fhi,qlo
-	fxch	st(2)			;   rem,res,qhi,qhi*fhi,rhi,fhi,qlo
-	fsub	st(0), st(4)		;16 rlo,res,qhi,qhi*fhi,rhi,fhi,qlo
-	fxch	st(2)			;   qhi,res,rlo,qhi*fhi,rhi,fhi,qlo
-	fmul	FACLO			;17 qhi*flo,res,rlo,qhi*fhi,rhi,fhi,qlo
-	fxch	st(6)			;   qlo,res,rlo,qhi*fhi,rhi,fhi,qhi*flo
-	fsub	BIGVAL0			;18 qlo,res,rlo,qhi*fhi,rhi,fhi,qhi*flo
-	fxch	st(2)			;   rlo,res,qlo,qhi*fhi,rhi,fhi,qhi*flo
-	fmul	st(4), st(0)		;19 rlo,res,qlo,qhi*fhi,rhi*rlo,fhi,etc
-	fxch	st(3)			;   qhi*fhi,res,qlo,rlo,rhi*rlo,fhi,etc
-	fsubp	st(1), st(0)		;20 res,qlo,rlo,rhi*rlo,fhi,qhi*flo
-	fxch	st(1)			;   qlo,res,rlo,rhi*rlo,fhi,qhi*flo
-	fmul	st(4), st(0)		;21 qlo,res,rlo,rhi*rlo,qlo*fhi,qhi*flo
-	fxch	st(5)			;   qhi*flo,res,rlo,rhi*rlo,qlo*fhi,qlo
-	fsubr	st(0), st(3)		;22 resmid0,res,rlo,rhi*rlo,qlo*fhi,qlo
-	fxch	st(2)			;   rlo,res,resmid0,rhi*rlo,qlo*fhi,qlo
-	fmul	st, st			;23 rlo*rlo,res,rm0,rhi*rlo,qlo*fhi,qlo
-	fxch	st(4)			;   qlo*fhi,res,rm0,rhi*rlo,rlo*rlo,qlo
-	fsubp	st(3), st(0)		;24 res,resmid0,resmid1,rlo*rlo,qlo
-	fxch	st(4)			;   qlo,resmid0,resmid1,rlo*rlo,res
-	fmul	FACLO			;25 qlo*flo,resmid0,resmid1,rlo*rlo,res
-	fxch	st(4)			;   res,resmid0,resmid1,rlo*rlo,qlo*flo
-	faddp	st(1), st(0)		;26 res,resmid1,rlo*rlo,qlo*flo
-	fld	FACHI			;27 fhi,res,resmid1,rlo*rlo,qlo*flo
-	fxch	st(3)			;   rlo*rlo,res,resmid1,fhi,qlo*flo
-	fsubrp	st(4), st(0)		;28 res,resmid1,fhi,reslo
-	faddp	st(1), st(0)		;29 res,fhi,reslo
-	fxch	st(3)			;
-	fmul	FACMULTS[ecx*4]		;30 Adjust 1/fac if rem should be dbl'd
-	fxch	st(3)			;
-	fld	st(2)			;31 reslo,res,fhi,reslo
-	fadd	st(0), st(1)		;32 rem,res,fhi,reslo
-	fxch	st(1)			;   res,rem,fhi,reslo
-	faddp	st(3), st(0)		;33 rem,fhi,rem
-	dec	ecx			;34u
-	jnz	sqloop			;34v
-
-;
-; If result = 1 mod factor, then we found a divisor of 2**p - 1.
-; As a quick test, compare the top 32 bits of the float using integer
-; instructions.  This will quickly eliminate most values.
-;
-
-					; rem, fachi, rem, 1/fac
-	fst	temp			; Store the undoubled remainder
-	mov	eax, temp		; U - Load the undoubled remainder
-	mov	ecx, cmpvalmask		; V - Load the value to compare against
-	and	eax, ecx		; U - Only test some of the bits
-	mov	ecx, cmpval		; V - Load the value to compare against
-	cmp	eax, ecx		; U - Do the values match?
-	je	short smaybe		; V - Yes, it may be a factor
-	fcompp				; Pop two floats
-	fcompp				; Pop two floats
-	pop	ecx			; U - Restore sieve registers
-	pop	eax			; V - Restore sieve registers
-	retn				; UV - Test next factor from sieve
-	; Subtract one and test if number equals factor or -factor.
-smaybe:	fadd	st, st			; dbl rem, trash, trash, trash
-	fxch	st(3)			; trash, trash, trash, result
-	fcomp	st(0)			; Pop one trash value
-	fcompp				; Pop two trash values
-	fsub	ONE			; Subtract one
-	fild	QWORD PTR savefac2	; factor, result
-	fxch	st(1)			; result, factor
-	fabs				; Take absolute value of result
-	fcompp				; Does result = factor
-	fstsw	ax			; Copy comparison results
-	and	eax, 4000h		; Isolate C3 bit
-	jnz	short winner
-	pop	ecx			; Restore sieve testing register
-	pop	eax			; Restore sieve testing register
-	retn				; UV - Test next factor from sieve
-
-winner:	mov	eax, savefac1		; Load MSW
-	mov	_FACMSW, eax
-	mov	eax, savefac2		; Load LSW
-	mov	_FACLSW, eax
-	mov	eax, 1			; Factor found!!! Return TRUE
+winner:	mov	rax, savefac1		; Load MSW
+	mov	_FACMSW, rax
+	mov	rax, savefac2		; Load LSW
+	mov	_FACLSW, rax
+	mov	rax, 1			; Factor found!!! Return TRUE
 	add	esp, 12			; pop sieve testing registers and
 					; return address
 	
-done:	pop	ebx
-	pop	ebp
-	pop	esi
-	pop	edi
+done:	pop	rbx
+	pop	rbp
+	pop	rsi
+	pop	rdi
 	ret
-
-;***********************************************************************
-; For Pentium machines only - 62 bit factors
-;***********************************************************************
-
-;
-; Check all the bits in the sieve looking for a factor to test
-;
-
-tlp62:	mov	esi, sieve
-	mov	ebx, savefac1
-	mov	ebp, savefac2
-	sub	edx, edx
-	mov	eax, [esi]
-	lea	esi, [esi+4]
-	mov	edi, -2			; Count of queued factors to be tested
-vx0:	test	al, 01h
-	jnz	vst0
-vx1:	test	al, 02h
-	jnz	vst1
-vx2:	test	al, 04h
-	jnz	vst2
-vx3:	test	al, 08h
-	jnz	vst3
-vx4:	test	al, 10h
-	jnz	vst4
-vx5:	test	al, 20h
-	jnz	vst5
-vx6:	test	al, 40h
-	jnz	vst6
-vx7:	test	al, 80h
-	jnz	vst7
-vx8:	test	eax, 100h
-	jnz	vst8
-vx9:	test	eax, 200h
-	jnz	vst9
-vx10:	test	eax, 400h
-	jnz	vst10
-vx11:	test	eax, 800h
-	jnz	vst11
-vx12:	test	eax, 1000h
-	jnz	vst12
-vx13:	test	eax, 2000h
-	jnz	vst13
-vx14:	test	eax, 4000h
-	jnz	vst14
-vx15:	test	eax, 8000h
-	jnz	vst15
-vx16:	test	eax, 10000h
-	jnz	vst16
-vx17:	test	eax, 20000h
-	jnz	vst17
-vx18:	test	eax, 40000h
-	jnz	vst18
-vx19:	test	eax, 80000h
-	jnz	vst19
-vx20:	test	eax, 100000h
-	jnz	vst20
-vx21:	test	eax, 200000h
-	jnz	vst21
-vx22:	test	eax, 400000h
-	jnz	vst22
-vx23:	test	eax, 800000h
-	jnz	vst23
-vx24:	test	eax, 1000000h
-	jnz	vst24
-vx25:	test	eax, 2000000h
-	jnz	vst25
-vx26:	test	eax, 4000000h
-	jnz	vst26
-vx27:	test	eax, 8000000h
-	jnz	vst27
-vx28:	test	eax, 10000000h
-	jnz	short vst28
-vx29:	test	eax, 20000000h
-	jnz	short vst29
-vx30:	test	eax, 40000000h
-	jnz	short vst30
-vx31:	test	eax, 80000000h
-	jnz	short vst31
-vlp5:	add	ebp, facdist32		; U - Add facdist * 32 to the factor
-	mov	eax, [esi]		; V - Next sieve word
-	adc	ebx, facdist32+4	; U - Add carry
-	test	esi, sievesize		; V - End of sieve?
-	lea	esi, [esi+4]		; U - Bump pointer
-	jz	vx0			; V - Loop to test next sieve dword
-	jmp	vlpdn
-
-; Entry points for testing each bit#
-
-vst0:	mov	dl, 0			; Test factor corresponding to bit 0
-	jmp	vestit0
-vst28:	mov	dl, 28			; Test factor corresponding to bit 28
-	jmp	short vestit
-vst29:	mov	dl, 29			; Test factor corresponding to bit 29
-	jmp	short vestit
-vst30:	mov	dl, 30			; Test factor corresponding to bit 30
-	jmp	short vestit
-vst31:	mov	dl, 31			; Test factor corresponding to bit 31
-	jmp	short vestit
-vst27:	mov	dl, 27			; Test factor corresponding to bit 27
-	jmp	short vestit
-vst26:	mov	dl, 26			; Test factor corresponding to bit 26
-	jmp	short vestit
-vst25:	mov	dl, 25			; Test factor corresponding to bit 25
-	jmp	short vestit
-vst24:	mov	dl, 24			; Test factor corresponding to bit 24
-	jmp	short vestit
-vst23:	mov	dl, 23			; Test factor corresponding to bit 23
-	jmp	short vestit
-vst22:	mov	dl, 22			; Test factor corresponding to bit 22
-	jmp	short vestit
-vst21:	mov	dl, 21			; Test factor corresponding to bit 21
-	jmp	short vestit
-vst20:	mov	dl, 20			; Test factor corresponding to bit 20
-	jmp	short vestit
-vst19:	mov	dl, 19			; Test factor corresponding to bit 19
-	jmp	vestit
-vst18:	mov	dl, 18			; Test factor corresponding to bit 18
-	jmp	short vestit
-vst17:	mov	dl, 17			; Test factor corresponding to bit 17
-	jmp	short vestit
-vst16:	mov	dl, 16			; Test factor corresponding to bit 16
-	jmp	short vestit
-vst15:	mov	dl, 15			; Test factor corresponding to bit 15
-	jmp	short vestit
-vst14:	mov	dl, 14			; Test factor corresponding to bit 14
-	jmp	short vestit
-vst13:	mov	dl, 13			; Test factor corresponding to bit 13
-	jmp	short vestit
-vst12:	mov	dl, 12			; Test factor corresponding to bit 12
-	jmp	short vestit
-vst11:	mov	dl, 11			; Test factor corresponding to bit 11
-	jmp	short vestit
-vst10:	mov	dl, 10			; Test factor corresponding to bit 10
-	jmp	short vestit
-vst9:	mov	dl, 9			; Test factor corresponding to bit 9
-	jmp	short vestit
-vst8:	mov	dl, 8			; Test factor corresponding to bit 8
-	jmp	short vestit
-vst7:	mov	dl, 7			; Test factor corresponding to bit 7
-	jmp	short vestit
-vst6:	mov	dl, 6			; Test factor corresponding to bit 6
-	jmp	short vestit
-vst5:	mov	dl, 5			; Test factor corresponding to bit 5
-	jmp	short vestit
-vst4:	mov	dl, 4			; Test factor corresponding to bit 4
-	jmp	short vestit
-vst3:	mov	dl, 3			; Test factor corresponding to bit 3
-	jmp	short vestit
-vst2:	mov	dl, 2			; Test factor corresponding to bit 2
-	jmp	short vestit
-vst1:	mov	dl, 1			; Test factor corresponding to bit 1
-
-;
-; This is the Pentium version of testit for 62-bit factors.  It gathers
-; 2 potential factors to be tested together to minimize processor stalls.
-;
-; OPTIMIZED FOR PENTIUMS
-;
-; eax = sieve word - must be preserved or reloaded
-; ebx = fachi - must be preserved as fachi for sieve bit 0
-; edx = sieve bit being tested - must return with top 24 bits zero
-; edi = count of potential factors queued up - must return -2
-; esi = sieve address - must be preserved
-; ebp = faclo - must be preserved as faclo for sieve bit 0
-;
-; Total for two exponents - assuming 18 interior loops:
-; 2*43 + 89 + 70*17 + 4 (mispredicted jump) + 33 = 702
-
-;
-; Precompute initval / factor
-;
-
-vestit:	add	ebp, facdists[edx*8]	; Determine factor to test
-	adc	ebx, facdists+4[edx*8]	; Add carry
-vestit0:mov	savefac2, ebp		;1U Save factor so FPU can load it
-	mov	savefac1, ebx		;1V
-	fild	QWORD PTR savefac2	;2  fac
-	fild	savefac2		;3  faclo, fac
-	fld	initval			;4  initval, faclo, fac
-	fdivr	st(2), st(0)		;5-43 initval, faclo, quot
-
-; The FDIV takes 39 clocks and only the last two can overlap
-; with other float instructions.  This gives us 37 clocks
-; to do something useful with the integer units.
-
-	; Compute FACHI for conversion to floating point format.
-	; Round FACHI up if FACLO is negative.
-	add	ebp, ebp		; U - Set carry if FACLO is negative
-	mov	ecx, fachi_shf_count	; V - Load last shift count
-	adc	ebx, 0			; U - Increment FACHI if FACLO neg.
-	mov	eax, fachi_shf_mask	; V - Load last shift mask
-
-	; Compute the shift count to create floating point values.
-	; We'd like to use the BSF instruction but it is very slow.
-	; Simulate BSF by taking advantage of the fact that factors
-	; increase in size very slowly.
-vhilp:	test	ebx, eax		; U - Is value wider than last time?
-	jz	short vhiok		; V - No, jump
-	add	eax, eax		; U - Compute new shift mask
-	dec	ecx			; V - Decrement the shift count
-	mov	fachi_shf_count, ecx	; U - Save the new shift count
-	mov	fachi_shf_mask, eax	; V - Save the new shift mask
-	jmp	short vhilp		; V - Loop in case fachi is much wider
-
-	; We now have enough information to convert FACHI
-	; to floating point format.
-vhiok:	shl	ebx, cl			;4UV - Normalize (top bit always on)
-	mov	ebp, ebx		; U - EBP will hold the float LSW
-	mov	eax, returns5a[edx*4]	; V - Load return address
-	shr	ebx, 11			; U - EAX will hold the float MSW
-	push	eax			; V - Push return address
-	shl	ecx, 20			; U - Put shift count in exponent byte
-	add	ebx, 43D00000h 		; V - Make the exponent byte right
-	shl	ebp, 21			; U - Low 32 bits of the float
-	sub	ebx, ecx		; V - Sub shift count from exponent
-
-	; Recompute original fachi and faclo.  That is, the fachi/faclo values
-	; for the first sieve bit in EAX
-	mov	DWORD PTR FACHI[edi*8+16], ebp ; U - Store FACHI LSW
-	mov	ebp, savefac2		; V - Reload faclo
-	mov	ecx, facdists[edx*8]	; U - faclo adjustment
-	mov	DWORD PTR FACHI+4[edi*8+16], ebx ; V - Store FACHI MSW
-	mov	ebx, savefac1		; U - Reload fachi
-	sub	ebp, ecx		; V - Recompute original faclo
-	mov	ecx, facdists+4[edx*8]	; U - fachi adjustment
-	mov	eax, [esi-4]		; V - Reload eax
-	sbb	ebx, ecx		; U - Recompute original fachi
-
-	inc	edi			;*U - Bump count of queued factors
-	jz	short vest2		; V - Jump if enough are queued
-	retn				; UV - return to sieve testing
-
-;
-; Now test the 2 factors
-;
-
-	; More miscellaneous initialization
-
-vest2:	mov	ecx, wqloop_counter	; U - Load loop counter
-	mov	edi, -2			; V - Restore queued factor counter
-
-; Work on initval
-; At start of loop, registers contain:
-
-					; initval,flo2,q2,initval,flo1,q1
-	fld	BIGVAL1			;   for qhi
-					; qhi,initval,flo2,q2,initval,flo1,q1
-	fadd	st(0),st(6)		;   qhi = quot + BIGVAL1
-	fld	BIGVAL0			;1  for q and qlo
-					; q,qhi,initval,flo2,q2,initval,flo1,q1
-	fadd	st(0),st(7)		;2  q = quot + BIGVAL0
-	fxch	st(1)			; qhi,q,initval,flo2,q2,initval,flo1,q1
-	fsub	BIGVAL1			;3  qhi = qhi - BIGVAL1
-	fxch	st(3)			; flo2,q,initval,qhi,q2,initval,flo1,q1
-	fstp	FACLO2			;4-5 Save FACLO2
-					; q,initval,qhi,q2,initval,flo,q1
-	fsub	BIGVAL0			;6  q = q - BIGVAL0
-	fld	FACHI			;7  for qhi*fhi
-					; fhi,q,initval,qhi,q2,initval,flo,q1
-	fmul	st(0),st(3)		;8  qhi*fhi
-					; qhi*fhi,q,initval,qhi,q2,iv,flo,q1
-	fxch	st(3)			; qhi,q,initval,qhi*fhi,q2,iv,flo,q1
-	fsub	st(1),st(0)		;9  qlo = q - qhi
-					; qhi,qlo,initval,qhi*fhi,q2,iv,flo,q1
-	fxch	st(6)			; flo,qlo,initval,qhi*fhi,q2,iv,qhi,q1
-	fst	FACLO			;10-11 Save FACLO
-	fmul	st(6), st(0)		;12 qhi*flo
-					; flo,qlo,iv,qhi*fhi,q2,iv,qhi*flo,q1
-	fxch	st(3)			; qhi*fhi,qlo,iv,flo,q2,iv,qhi*flo,q1
-	fsubp	st(5),st(0)		;13 res = initval - qhi*fhi
-					; qlo,initval,flo,q2,res,qhi*flo,q1
-	fmul	st(2),st(0)		;14 qlo*flo
-					; qlo,initval,qlo*flo,q2,res,qhi*flo,q1
-	  fld	BIGVAL1			;15   for qhi
-					; qhi,qlo,iv,qlo*flo,q2,res,qhi*flo,q1
-	  fxch	st(6)			; qhi*flo,qlo,iv,qlo*flo,q2,res,qhi,q1
-	fsubp	st(5),st(0)		;16 res -= qhi*flo
-					; qlo,initval,qlo*flo,q2,res,qhi,q1
-	fmul	FACHI			;17 qlo*fhi
-					; qlo*fhi,initval,qlo*flo,q2,res,qhi,q1
-	  fld	BIGVAL0			;18   for q and qlo
-					; q,qlo*fhi,iv,qlo*flo,q2,res,qhi,q1
-	  fxch	st(4)			; q2,qlo*fhi,iv,qlo*flo,q,res,qhi,q1
-	  fadd	st(6),st(0)		;19   qhi = quot + BIGVAL1
-	  fxch	st(1)			; qlo*fhi,q2,iv,qlo*flo,q,res,qhi,q1
-	fsubp	st(5),st(0)		;20 res -= qlo*fhi
-					; q2,iv,qlo*flo,q,res,qhi,q1
-	  fadd	st(3),st(0)		;21   q = quot + BIGVAL0
-	  fxch	st(6)			; q1,iv,qlo*flo,q,res,qhi,q2
-	fmul	initval_inv		;22 1/fac = quot * initval_inv
-					; 1/fac,iv,qlo*flo,q,res,qhi,q2
-	fxch	st(6)			; q2,iv,qlo*flo,q,res,qhi,1/fac
-					; (now on 1/fac1 is assumed on stack)
-	  fld	FACHI2			;23   for qhi*fhi
-					; fhi,q2,iv,qlo*flo,q,res,qhi
-	  fxch	st(6)			; qhi,q2,iv,qlo*flo,q,res,fhi
-	  fsub	BIGVAL1			;24   qhi = qhi - BIGVAL1
-	  fxch	st(4)			; q,q2,iv,qlo*flo,qhi,res,fhi
-	  fsub	BIGVAL0			;25   q = q - BIGVAL0
-	  fxch	st(3)			; qlo*flo,q2,iv,q,qhi,res,fhi
-	fsubp	st(5),st(0)		;26 rem = res - qlo*flo
-					; q2,iv,q,qhi,rem,fhi
-	fxch	st(3)			; qhi,iv,q,q2,rem,fhi
-	  fmul	st(5),st(0)		;27   qhi*fhi
-					; qhi,iv,q,q2,rem,qhi*fhi
-	  fsub	st(2),st(0)		;28   qlo = q - qhi
-					; qhi,iv,qlo,q2,rem,qhi*fhi
-	  fmul	FACLO2			;29   qhi*flo
-					; qhi*flo,iv,qlo,q2,rem,qhi*fhi
-	  fxch	st(5)			; qhi*fhi,iv,qlo,q2,rem,qhi*flo
-	  fsubp	st(1),st(0)		;30   res = initval - qhi*fhi
-					; res,qlo,q2,rem,qhi*flo
-	  fld	FACHI2			;31   For qlo*fhi
-					; fhi,res,qlo,q2,rem,qhi*flo
-	  fmul	st(0),st(2)		;32   qlo*fhi
-					; qlo*fhi,res,qlo,q2,rem,qhi*flo
-	  fxch	st(5)			; qhi*flo,res,qlo,q2,rem,qlo*fhi
-	  fsubp	st(1),st(0)		;33   res -= qhi*flo
-					; res,qlo,q2,rem,qlo*fhi
-	  fxch	st(2)			; q2,qlo,res,rem,qlo*fhi
-	  fmul	initval_inv		;34   1/fac = quot * initval_inv
-					; 1/fac2,qlo,res,rem,qlo*fhi
-	fld	st(5)			;35 quot = 1/fac
-					; quot,1/fac2,qlo,res,rem,qlo*fhi
-	fxch	st(2)			; qlo,1/fac2,quot,res,rem,qlo*fhi
-	  fmul	FACLO2			;36   qlo*flo
-					; qlo*flo,1/fac2,quot,res,rem,qlo*fhi
-	  fxch	st(5)			; qlo*fhi,1/fac2,quot,res,rem,qlo*flo
-	  fsubp	st(3),st(0)		;37   res -= qlo*fhi
-					; 1/fac2,quot,res,rem,qlo*flo
-
-; First iteration of vqloop - to "get the pipeline going"
-
-	fsub	st(0), st(5)		;38 facdiff = 1/fac2 - 1/fac1
-					; facdiff,quot,res,rem,qlo*flo
-	fld	BIGVAL1			;39 For rhi
-					; rhi,facdiff,quot,res,rem,qlo*flo
-	fxch	st(5)			; qlo*flo,facdiff,quot,res,rem,rhi
-	  fsubp	st(3),st(0)		;40   rem = res - qlo*flo
-					; facdiff,quot,rem2,rem1,rhi
-	  fxch	st(3)			; rem1,quot,rem2,facdiff,rhi
-	fadd	st(4),st(0)		;41 rhi = rem + BIGVAL1
-	fld	BIGVAL1			;42 for qhi
-					; qhi,rem1,quot,rem2,facdiff,rhi
-	fxch	st(2)			; quot,rem1,qhi,rem2,facdiff,rhi
-	fmul	st(0),st(1)		;43 quot = rem * 1/fac
-	fxch	st(4)			; facdiff,rem1,qhi,rem2,quot,rhi
-	  fstp	FACDIFF			;44-45 store FACDIFF
-					; rem1,qhi,rem2,quot,rhi
-	fmul	st(3),st(0)		;46 quot = rem * rem * 1/fac
-	fxch	st(4)			; rhi,qhi,rem2,quot,rem1
-	fsub	BIGVAL1			;47 rhi = rhi - BIGVAL1
-	fld	FACHI			;48 for qhi*fhi
-					; fhi,rhi,qhi,rem2,quot,rem1
-	fxch	st(4)			; quot,rhi,qhi,rem2,fhi,rem1
-	fadd	st(2),st(0)		;49 qhi = quot + BIGVAL1
-	fadd	BIGVAL0			;50 quot = quot + BIGVAL0
-	fxch	st(5)			; rem1,rhi,qhi,rem2,fhi,quot
-	fsub	st(0),st(1)		;51 rlo = rem - rhi
-					; rlo,rhi,qhi,rem,fhi,quot
-	fxch	st(2)			; qhi,rhi,rlo,rem,fhi,quot
-	fsub	BIGVAL1			;52 qhi = qhi - BIGVAL1
-	fxch	st(5)			; quot,rhi,rlo,rem,fhi,qhi
-	fsub	BIGVAL0			;53 quot = quot - BIGVAL0
-	fld	st(1)			;54 for res (dup rhi)
-					; res,quot,rhi,rlo,rem,fhi,qhi
-	fmul	st,st			;55 res = rhi^2
-	fxch	st(2)			; rhi,quot,res,rlo,rem,fhi,qhi
-	fadd	st,st			;56 double rhi to compute 2*rhi*rlo
-					; 2*rhi,quot,res,rlo,rem,fhi,qhi
-	fxch	st(6)			; qhi,quot,res,rlo,rem,fhi,2*rhi
-	fmul	st(5),st(0)		;57 qhi*fhi
-					; qhi,quot,res,rlo,rem,qhi*fhi,2*rhi
-	fsub	st(1),st(0)		;58 qlo = quot - qhi
-					; qhi,qlo,res,rlo,rem,qhi*fhi,2*rhi
-	fmul	FACLO			;59 qhi*flo
-					; qhi*flo,qlo,res,rlo,rem,qhi*fhi,2*rhi
-	fxch	st(5)			; qhi*fhi,qlo,res,rlo,rem,qhi*flo,2*rhi
-	fsubp	st(2),st(0)		;60 res -= qhi*fhi
-					; qlo,res,rlo,rem,qhi*flo,2*rhi
-	fxch	st(5)			; 2*rhi,res,rlo,rem,qhi*flo,qlo
-	fmul	st(0),st(2)		;61 2*rhi*rlo
-					; 2*rhi*rlo,res,rlo,rem,qhi*flo,qlo
-	fld	FACHI			;62 For qlo*fhi
-					; fhi,2*rhi*rlo,res,rlo,rem,qhi*flo,qlo
-	fxch	st(3)			; rlo,2*rhi*rlo,res,fhi,rem,qhi*flo,qlo
-	fmul	st,st			;63 rlo*rlo
-					; rlo^2,2*rhi*rlo,res,fhi,r,qhi*flo,qlo
-	fxch	st(5)			; qhi*flo,2*rhi*rlo,res,fhi,r,rlo^2,qlo
-	fsubp	st(1),st(0)		;64 resmid = 2*rhi*rlo - qhi*flo
-					; resmid,res,fhi,rem,rlo^2,qlo
-	fxch	st(5)			; qlo,res,fhi,rem,rlo^2,resmid
-	fmul	st(2),st(0)		;65 qlo*fhi
-					; qlo,res,qlo*fhi,rem,rlo^2,resmid
-	  fld	FACDIFF			;66   quot = 1/fac2 - 1/fac1
-					; quot,qlo,res,qlo*fhi,rem,rlo^2,resmid
-	  fxch	st(1)			; qlo,quot,res,qlo*fhi,rem,rlo^2,resmid
-	fmul	FACLO			;67 qlo*flo
-					; qlo*flo,q,res,qlo*fhi,r,rlo^2,resmid
-	fxch	st(6)			; resmid,q,res,qlo*fhi,r,rlo^2,qlo*flo
-	faddp	st(2),st(0)		;68 res += resmid
-					; quot,res,qlo*fhi,rem,rlo^2,qlo*flo
-	  fadd	st(0),st(6)		;69   quot = 1/fac2 - 1/fac1 + 1/fac1
-	  fxch	st(5)			; qlo*flo,res,qlo*fhi,rem,rlo^2,quot
-	fsubp	st(4),st(0)		;70 reslow = rlo*rlo - qlo*flo
-					; res,qlo*fhi,rem,reslow,quot
-	fsubrp	st(1),st(0)		;71 res -= qlo*fhi
-					; res,rem,reslow,quot
-	  fld	BIGVAL1			;72   For rhi
-					; rhi,res,rem,reslow,quot
-	  fxch	st(4)			; quot,res,rem,reslow,rhi
-	  fmul	st(0), st(2)		;73   quot = rem * 1/fac
-	  fxch	st(1)			; res,quot,rem,reslow,rhi
-	faddp	st(3),st(0)		;74 res += reslow
-					; quot,rem,res,rhi
-	fxch	st(1)			; rem,quot,res,rhi
-	  fadd	st(3), st(0)		;75   rhi = rem + BIGVAL1
-					; rem,quot,res,rhi
-	  fld	BIGVAL1			;76   for qhi
-					; qhi,rem,quot,res,rhi
-	  fxch	st(2)			; quot,rem,qhi,res,rhi
-	  fmul	st(0), st(1)		;77   quot = rem * rem * 1/fac
-	  fxch	st(4)			; rhi,rem,qhi,res,quot
-	  fsub	BIGVAL1			;78   rhi = rhi - BIGVAL1
-	  fld	FACHI2			;79   for qhi*fhi
-					; fhi,rhi,rem,qhi,res,quot
-	  fxch	st(5)			; quot,rhi,rem,qhi,res,fhi
-	  fadd	st(3), st(0)		;80   qhi = quot + BIGVAL1
-	  fadd	BIGVAL0			;81   quot = quot + BIGVAL0
-	  fxch	st(2)			; rem,rhi,quot,qhi,res,fhi
-	  fsub	st(0), st(1)		;82   rlo = rem - rhi
-					; rlo,rhi,quot,qhi,rem,fhi
-	  fxch	st(3)			; qhi,rhi,quot,rlo,rem,fhi
-	  fsub	BIGVAL1			;83   qhi = qhi - BIGVAL1
-	  fxch	st(2)			; quot,rhi,qhi,rlo,rem,fhi
-	  fsub	BIGVAL0			;84   quot = quot - BIGVAL0
-	  fld	st(1)			;85   for res (dup rhi)
-					; res,quot,rhi,qhi,rlo,rem,fhi
-	  fmul	st, st			;86   res = rhi^2
-	  fxch	st(2)			; rhi,quot,res,qhi,rlo,rem,fhi
-	  fadd	st, st			;87   double rhi to compute 2*rhi*rlo
-					; 2*rhi,quot,res,qhi,rlo,rem,fhi
-	  fxch	st(3)			; qhi,quot,res,2*rhi,rlo,rem,fhi
-	  fmul	st(6), st(0)		;88   qhi*fhi
-					; qhi,quot,res,2*rhi,rlo,rem,qhi*fhi
-	  fsub	st(1), st(0)		;89   qlo = quot - qhi
-
-; Square remainder and get new remainder.
-; The remainder is between -fac and fac.  Fac is up to 62 bits.
-; Basic algorithm:
-; 1) Possibly double the remainder.  Computed as:
-;	rem = possible_double (abs (rem)) - fac
-; 2) Compute the quotient:  q = rem * rem * 1/fac.  The error will be
-;    at most 3/8.
-; 3) Compute the new remainder.
-;	 rem = remhi * remhi - qhi * fachi +
-;	       2 * remlo * remhi - qlo * fachi - qhi * faclo +
-;	       remlo * remlo - qlo * faclo
-;
-; q is 62 + 62 - 62 = 62 bits
-; remhi is 30 bits, remlo is signed 31 bits
-; qhi is 30 bits, qlo is signed 31 bits
-; fachi is 30 bits, faclo is signed 31 bits
-;
-; At start of loop, registers contain:
-;	qhi2, qlo2, res2, 2*rhi2, rlo2, rem1, qhi2*fhi2, 1/fac1
-
-vqloop:					; qhi,qlo,res,2*rhi,rlo,rem,qhi*fhi
-	  fmul	FACLO2			;1    qhi*flo
-					; qhi*flo,qlo,res,2*rhi,rlo,rem,qhi*fhi
-	  fxch	st(6)			; qhi*fhi,qlo,res,2*rhi,rlo,rem,qhi*flo
-	  fsubp	st(2), st(0)		;2    res -= qhi*fhi
-					; qlo,res,2*rhi,rlo,rem,qhi*flo
-	  fxch	st(2)			; 2*rhi,res,qlo,rlo,rem,qhi*flo
-	  fmul	st(0), st(3)		;3    2*rhi*rlo
-					; 2*rhi*rlo,res,qlo,rlo,rem,qhi*flo
-	  fld	FACHI2			;4    For computing qlo*fhi
-					; fhi,2*rhi*rlo,res,qlo,rlo,rem,qhi*flo
-	  fxch	st(4)			; rlo,2*rhi*rlo,res,qlo,fhi,rem,qhi*flo
-	  fmul	st, st			;5    rlo*rlo
-					; rlo^2,2*rhi*rlo,res,qlo,fhi,r,qhi*flo
-	  fxch	st(6)			; qhi*flo,2*rhi*rlo,res,qlo,fhi,r,rlo^2
-	  fsubp	st(1), st		;6    resmid = 2*rhi*rlo - qhi*flo
-					; resmid,res,qlo,fhi,rem,rlo^2
-	  fxch	st(3)			; fhi,res,qlo,resmid,rem,rlo^2
-	  fmul	st(0), st(2)		;7    qlo*fhi
-					; qlo*fhi,res,qlo,resmid,rem,rlo^2
-	  fxch	st(4)			; rem,res,qlo,resmid,qlo*fhi,rlo^2
-	fabs				;8  rem = |rem|
-	fmul	REMMULTS[ecx*4+4]	;9  rem = rem * 1-or-2
-	fxch	st(3)			; resmid,res,qlo,rem,qlo*fhi,rlo^2
-	  faddp	st(1), st(0)		;10   res += resmid
-					; res,qlo,rem,qlo*fhi,rlo^2
-	  fxch	st(1)			; qlo,res,rem,qlo*fhi,rlo^2
-	  fmul	FACLO2			;11   qlo*flo
-					; qlo*flo,res,rem,qlo*fhi,rlo^2
-	  fxch	st(2)			; rem,res,qlo*flo,qlo*fhi,rlo^2
-	fsub	FACHI			;12 rem = rem - fachi
-	fxch	st(3)			; qlo*fhi,res,qlo*flo,rem,rlo^2
-	  fsubp	st(1), st(0)		;13   res -= qlo*fhi
-					; res,qlo*flo,rem,rlo^2
-	  fxch	st(1)			; qlo*flo,res,rem,rlo^2
-	  fsubp	st(3), st(0)		;14   reslow = rlo*rlo - qlo*flo
-					; res,rem,reslow
-	  fxch	st(1)			; rem,res,reslow
-	fsub	FACLO			;15 rem = rem - faclo
-	fld	st(3)			;16 quot = 1/fac
-					; quot,rem,res,reslow
-	fld	BIGVAL1			;17 For rhi
-					; rhi,quot,rem,res,reslow
-	fxch	st(4)			; reslow,quot,rem,res,rhi
-	  faddp	st(3), st(0)		;18   res += reslow
-					; quot,rem,res,rhi
-	fmul	st(0), st(1)		;19 quot = rem * 1/fac
-	fxch	st(1)			; rem,quot,res,rhi
-	fadd	st(3), st(0)		;20 rhi = rem + BIGVAL1
-	fld	BIGVAL1			;21 for qhi
-					; qhi,rem,quot,res,rhi
-	fxch	st(2)			; quot,rem,qhi,res,rhi
-	fmul	st(0), st(1)		;22 quot = rem * rem * 1/fac
-	fxch	st(4)			; rhi,rem,qhi,res,quot
-	fsub	BIGVAL1			;23 rhi = rhi - BIGVAL1
-	fld	FACHI			;24 for qhi*fhi
-					; fhi,rhi,rem,qhi,res,quot
-	fxch	st(5)			; quot,rhi,rem,qhi,res,fhi
-	fadd	st(3), st(0)		;25 qhi = quot + BIGVAL1
-	fadd	BIGVAL0			;26 quot = quot + BIGVAL0
-	fxch	st(2)			; rem,rhi,quot,qhi,res,fhi
-	fsub	st(0), st(1)		;27 rlo = rem - rhi
-					; rlo,rhi,quot,qhi,rem,fhi
-	fxch	st(3)			; qhi,rhi,quot,rlo,rem,fhi
-	fsub	BIGVAL1			;28 qhi = qhi - BIGVAL1
-	fxch	st(2)			; quot,rhi,qhi,rlo,rem,fhi
-	fsub	BIGVAL0			;29 quot = quot - BIGVAL0
-	fld	st(1)			;30 for res (dup rhi)
-					; res,quot,rhi,qhi,rlo,rem,fhi
-	fmul	st, st			;31 res = rhi^2
-	fxch	st(2)			; rhi,quot,res,qhi,rlo,rem,fhi
-	fadd	st, st			;32 double rhi to compute 2*rhi*rlo
-	fxch	st(3)			; qhi,quot,res,2*rhi,rlo,rem,fhi
-	fmul	st(6), st(0)		;33 qhi*fhi
-					; qhi,quot,res,2*rhi,rlo,rem,qhi*fhi
-	fsub	st(1), st(0)		;34 qlo = quot - qhi
-					; qhi,qlo,res,2*rhi,rlo,rem,qhi*fhi
-	fmul	FACLO			;35 qhi*flo
-					; qhi*flo,qlo,res,2*rhi,rlo,rem,qhi*fhi
-	fxch	st(6)			; qhi*fhi,qlo,res,2*rhi,rlo,rem,qhi*flo
-	fsubp	st(2), st(0)		;36 res -= qhi*fhi
-					; qlo,res,2*rhi,rlo,rem,qhi*flo
-	fxch	st(2)			; 2*rhi,res,qlo,rlo,rem,qhi*flo
-	fmul	st(0), st(3)		;37 2*rhi*rlo
-					; 2*rhi*rlo,res,qlo,rlo,rem,qhi*flo
-	fld	FACHI			;38 For qlo*fhi
-					; fhi,2*rhi*rlo,res,qlo,rlo,rem,qhi*flo
-	fxch	st(4)			; rlo,2*rhi*rlo,res,qlo,fhi,rem,qhi*flo
-	fmul	st, st			;39 rlo*rlo
-					; rlo^2,2*rhi*rlo,res,qlo,fhi,r,qhi*flo
-	fxch	st(6)			; qhi*flo,2*rhi*rlo,res,qlo,fhi,r,rlo^2
-	fsubp	st(1), st(0)		;40 resmid = 2*rhi*rlo - qhi*flo
-					; resmid,res,qlo,fhi,rem,rlo^2
-	fxch	st(3)			; fhi,res,qlo,resmid,rem,rlo^2
-	fmul	st(0), st(2)		;41 qlo*fhi
-					; qlo*fhi,res,qlo,resmid,rem,rlo^2
-	fxch	st(4)			; rem,res,qlo,resmid,qlo*fhi,rlo^2
-	  fabs				;42   rem = |rem|
-	  fmul	REMMULTS[ecx*4+4]	;43   rem = rem * 1-or-2
-	  fxch	st(3)			; resmid,res,qlo,rem,qlo*fhi,rlo^2
-	faddp	st(1), st(0)		;44 res += resmid
-					; res,qlo,rem,qlo*fhi,rlo^2
-	fxch	st(1)			; qlo,res,rem,qlo*fhi,rlo^2
-	fmul	FACLO			;45 qlo*flo
-					; qlo*flo,res,rem,qlo*fhi,rlo^2
-	fxch	st(2)			; rem,res,qlo*flo,qlo*fhi,rlo^2
-	  fsub	FACHI2			;46   rem = rem - fachi
-	  fxch	st(3)			; qlo*fhi,res,qlo*flo,rem,rlo^2
-	fsubp	st(1), st(0)		;47 res -= qlo*fhi
-					; res,qlo*flo,rem,rlo^2
-	fxch	st(1)			; qlo*flo,res,rem,rlo^2
-	fsubp	st(3), st(0)		;48 reslow = rlo*rlo - qlo*flo
-					; res,rem,reslow
-	fxch	st(1)			; rem,res,reslow
-	  fsub	FACLO2			;49   rem = rem - faclo
-	  fld	FACDIFF			;50   quot = 1/fac2 - 1/fac1
-					; quot,rem,res,reslow
-	  fadd	st(0), st(4)		;51   quot = 1/fac2 - 1/fac1 + 1/fac1
-	  fld	BIGVAL1			;52   For rhi
-					; rhi,quot,rem,res,reslow
-	  fxch	st(4)			; reslow,quot,rem,res,rhi
-	faddp	st(3), st(0)		;53 res += reslow
-					; quot,rem,res,rhi
-	  fmul	st(0), st(1)		;54   quot = rem * 1/fac
-	  fxch	st(1)			; rem,quot,res,rhi
-	  fadd	st(3), st(0)		;55   rhi = rem + BIGVAL1
-	  fld	BIGVAL1			;56   for qhi
-					; qhi,rem,quot,res,rhi
-	  fxch	st(2)			; quot,rem,qhi,res,rhi
-	  fmul	st(0), st(1)		;57   quot = rem * rem * 1/fac
-	  fxch	st(4)			; rhi,rem,qhi,res,quot
-	  fsub	BIGVAL1			;58   rhi = rhi - BIGVAL1
-	  fld	FACHI2			;59   for qhi*fhi
-					; fhi,rhi,rem,qhi,res,quot
-	  fxch	st(5)			; quot,rhi,rem,qhi,res,fhi
-	  fadd	st(3), st(0)		;60   qhi = quot + BIGVAL1
-	  fadd	BIGVAL0			;61   quot = quot + BIGVAL0
-	  fxch	st(2)			; rem,rhi,quot,qhi,res,fhi
-	  fsub	st(0), st(1)		;62   rlo = rem - rhi
-					; rlo,rhi,quot,qhi,rem,fhi
-	  fxch	st(3)			; qhi,rhi,quot,rlo,rem,fhi
-	  fsub	BIGVAL1			;63   qhi = qhi - BIGVAL1
-	  fxch	st(2)			; quot,rhi,qhi,rlo,rem,fhi
-	  fsub	BIGVAL0			;64   quot = quot - BIGVAL0
-	  fld	st(1)			;65   for res (dup rhi)
-					; res,quot,rhi,qhi,rlo,rem,fhi
-	  fmul	st, st			;66   res = rhi^2
-	  fxch	st(2)			; rhi,quot,res,qhi,rlo,rem,fhi
-	  fadd	st, st			;67   double rhi to compute 2*rhi*rlo
-					; 2*rhi,quot,res,qhi,rlo,rem,fhi
-	  fxch	st(3)			; qhi,quot,res,2*rhi,rlo,rem,fhi
-	  fmul	st(6), st(0)		;68   qhi*fhi
-					; qhi,quot,res,2*rhi,rlo,rem,qhi*fhi
-	  fsub	st(1), st(0)		;69   qlo = quot - qhi
-	dec	ecx			;70u
-	jnz	vqloop			;70v
-
-; Finish off the computation of fac2's remainder.  Test for rem1 and
-; rem2 being one (after doubling and making positive).  I think this
-; could be improved by a clock or two.
-
-					; qhi,qlo,res,2*rhi,rlo,rem,qhi*fhi
-	  fmul	FACLO2			;1    qhi*flo
-					; qhi*flo,qlo,res,2*rhi,rlo,rem,qhi*fhi
-	  fxch	st(6)			; qhi*fhi,qlo,res,2*rhi,rlo,rem,qhi*flo
-	  fsubp	st(2), st(0)		;2    res -= qhi*fhi
-					; qlo,res,2*rhi,rlo,rem,qhi*flo
-	  fxch	st(2)			; 2*rhi,res,qlo,rlo,rem,qhi*flo
-	  fmul	st(0), st(3)		;3    2*rhi*rlo
-					; 2*rhi*rlo,res,qlo,rlo,rem,qhi*flo
-	  fxch	st(4)			; rem,res,qlo,rlo,2*rhi*rlo,qhi*flo
-	  fld	FACLO2			;4    For computing qlo*flo
-	  				; flo,rem,res,qlo,rlo,2*rhi*rlo,qhi*flo
-	  fxch	st(4)			; rlo,rem,res,qlo,flo,2*rhi*rlo,qhi*flo
-	  fmul	st, st			;5    rlo*rlo
-	  				; rlo^2,r,res,qlo,flo,2*rhi*rlo,qhi*flo
-	  fxch	st(6)			; qhi*flo,r,res,qlo,flo,2*rhi*rlo,rlo^2
-	  fsubp	st(5), st		;6    resmid = 2*rhi*rlo - qhi*flo
-					; rem,res,qlo,flo,resmid,rlo^2
-	  fxch	st(2)			; qlo,res,rem,flo,resmid,rlo^2
-	  fmul	st(3), st(0)		;7    qlo*flo
-					; qlo,res,rem,qlo*flo,resmid,rlo^2
-	  fxch	st(2)			; rem,res,qlo,qlo*flo,resmid,rlo^2
-	fadd	st, st			;8  rem1 = rem1 * 2
-	fxch	st(4)			; resmid,res,qlo,qlo*flo,rem,rlo^2
-	  faddp	st(1), st(0)		;9    res += resmid
-					; res,qlo,qlo*flo,rem,rlo^2
-	  fxch	st(1)			; qlo,res,qlo*flo,rem,rlo^2
-	  fmul	FACHI2			;10   qlo*fhi
-					; qlo*fhi,res,qlo*flo,rem,rlo^2
-	  fxch	st(2)			; qlo*flo,res,qlo*fhi,rem,rlo^2
-	  fsubp	st(4), st(0)		;11   reslow = rlo*rlo - qlo*flo
-					; res,qlo*fhi,rem,reslow
-	  fxch	st(2)			; rem,qlo*fhi,res,reslow
-	fsub	ONE			;12 rem1 = rem1 - 1
-	fxch	st(1)			; qlo*fhi,rem,res,reslow
-	  fsubp	st(2), st(0)		;13   res -= qlo*fhi
-					; rem,res,reslow
-	  fld	FACHI2			;14   fac2 = fachi
-					; fac2,rem,res,reslow
-	  fadd	FACLO2			;15   fac2 = fachi + faclo
-	  fxch	st(3)			; reslow,rem,res,fac2
-	  faddp	st(2), st(0)		;16   res += reslow
-					; rem1,rem2,fac2
-	fabs				;17 rem1 = |rem1|
-	fsub	FACHI			;18 rem1 -= FACHI
-	fxch	st(2)			; fac2,rem2,rem1
-	  fmul	HALF			;19   fac2/2 = fac2/2
-					; fac2/2,rem2,rem1
-	  fxch	st(1)			; rem2,fac2/2,rem1
-	  fsub	HALF			;20   rem2 = rem2 - 1/2
-	  fxch	st(2)			; rem1,fac2/2,rem2
-	fsub	FACLO			;21 rem1 -= FACLO
-	fxch	st(3)			; 1/fac1,fac2/2,rem2,rem1
-	fcomp	st			;22 pop 1/fac value
-					; fac2/2,rem2,rem1
-	fxch	st(1)			; rem2,fac2/2,rem1
-	  fabs				;23   rem2 = |rem2|
-	  fsubrp st(1),st(0)		;24   rem2 = rem2 - fac2/2
-					; rem2,rem1
-	  fxch	st(1)			; rem1,rem2
-	fstp	temp			;25-26 Save rem1 for comparing
-	mov	ecx, temp		;27
-	cmp	ecx, 00000000h		;28U Compare remainder to 0.0
-	je	short vin1		;28V
-	  fstp	temp			;29-30 Save rem2 for comparing
-	mov	ecx, temp		;31
-	cmp	ecx, 00000000h		;32U Compare remainder to 0.0
-	je	short vin2		;32V
-	retn				;33UV - Test next factor from sieve
-
-vin1:	fld	FACHI			; Load MSW
-	fadd	FACLO			; Load LSW
-	jmp	short vincom		; Join common code
-vin2:	fld	FACHI2			; Load MSW
-	fadd	FACLO2			; Load LSW
-vincom:	fistp	QWORD PTR savefac2	; Save as an integer
-	mov	eax, savefac2		; Load LSW
-	mov	edx, savefac1		; Load MSW
-	mov	_FACLSW, eax		; Store LSW
-	mov	_FACMSW, edx		; Store MSW
-	mov	eax, 1			; Factor found!!! Return TRUE
-	add	esp, 4			; pop return address
-	jmp	done
-
-; One sieve is done, save registers and see if another
-; sieve will be tested before we check for an ESC.
-
-vlpdn:	cmp	edi, -2			; Is a factor queued up?
-	je	short vlpdn2		; No
-	fld	FACHI			; Yes, go test it
-	fstp	FACHI2
-	fld	FACLO
-	fstp	FACLO2
-	fld	st(2)
-	fld	st(2)
-	fld	st(2)
-	call	vest2
-vlpdn2:	mov	savefac1, ebx		; Save for the restart or more sieving
-	mov	savefac2, ebp
-	dec	reps			; Check repetition counter
-	jnz	slp0
-	mov	eax, 2			; Return for ESC check
-	mov	_FACMSW, ebx
-	jmp	done
-
-
-;***********************************************************************
-; For all machines - 64 bit factors
-; Optimized for the Pentium
-;***********************************************************************
-
-;
-; Check all the bits in the sieve looking for a factor to test
-;
-
-tlp64:	mov	esi, sieve
-	mov	edi, -2			; Count of queued factors to be tested
-	sub	edx, edx
-	mov	ebp, savefac2		; Load factor corresponding to first
-	mov	ebx, savefac1		; first sieve bit.  But since FILD only
-	mov	savefac2, ebx		; loads signed values, remember
-	mov	savefac1, edx		; savefac1 as a float and ebx/ebp
-	fild	QWORD PTR savefac2	; as an addin to that float.
-	mov	base_int, ebx
-	sub	ebx, ebx
-	fmul	TWO_TO_32
-	fstp	BASE
-	mov	eax, [esi]		; Load first sieve word
-	lea	esi, [esi+4]
-wx0:	test	al, 01h
-	jnz	wst0
-wx1:	test	al, 02h
-	jnz	wst1
-wx2:	test	al, 04h
-	jnz	wst2
-wx3:	test	al, 08h
-	jnz	wst3
-wx4:	test	al, 10h
-	jnz	wst4
-wx5:	test	al, 20h
-	jnz	wst5
-wx6:	test	al, 40h
-	jnz	wst6
-wx7:	test	al, 80h
-	jnz	wst7
-wx8:	test	eax, 100h
-	jnz	wst8
-wx9:	test	eax, 200h
-	jnz	wst9
-wx10:	test	eax, 400h
-	jnz	wst10
-wx11:	test	eax, 800h
-	jnz	wst11
-wx12:	test	eax, 1000h
-	jnz	wst12
-wx13:	test	eax, 2000h
-	jnz	wst13
-wx14:	test	eax, 4000h
-	jnz	wst14
-wx15:	test	eax, 8000h
-	jnz	wst15
-wx16:	test	eax, 10000h
-	jnz	wst16
-wx17:	test	eax, 20000h
-	jnz	wst17
-wx18:	test	eax, 40000h
-	jnz	wst18
-wx19:	test	eax, 80000h
-	jnz	wst19
-wx20:	test	eax, 100000h
-	jnz	wst20
-wx21:	test	eax, 200000h
-	jnz	wst21
-wx22:	test	eax, 400000h
-	jnz	wst22
-wx23:	test	eax, 800000h
-	jnz	wst23
-wx24:	test	eax, 1000000h
-	jnz	wst24
-wx25:	test	eax, 2000000h
-	jnz	wst25
-wx26:	test	eax, 4000000h
-	jnz	wst26
-wx27:	test	eax, 8000000h
-	jnz	wst27
-wx28:	test	eax, 10000000h
-	jnz	short wst28
-wx29:	test	eax, 20000000h
-	jnz	short wst29
-wx30:	test	eax, 40000000h
-	jnz	short wst30
-wx31:	test	eax, 80000000h
-	jnz	short wst31
-wlp5:	add	ebp, facdist32		; U - Add facdist * 32 to the factor
-	mov	eax, [esi]		; V - Next sieve word
-	adc	ebx, facdist32+4	; U - Add carry
-	test	esi, sievesize		; V - End of sieve?
-	lea	esi, [esi+4]		; U - Bump pointer
-	jz	wx0			; V - Loop to test next sieve dword
-	add	ebx, base_int
-	jnc	wlpdn			; Jump if not past the 64-bit limit?
-	mov	ebx, -1			; Indicate end of testing
-	jmp	wlpdn1			; Rejoin code that returns
-
-; Entry points for testing each bit#
-
-wst0:	mov	dl, 0			; Test factor corresponding to bit 0
-	jmp	westit0
-wst28:	mov	dl, 28			; Test factor corresponding to bit 28
-	jmp	short westit
-wst29:	mov	dl, 29			; Test factor corresponding to bit 29
-	jmp	short westit
-wst30:	mov	dl, 30			; Test factor corresponding to bit 30
-	jmp	short westit
-wst31:	mov	dl, 31			; Test factor corresponding to bit 31
-	jmp	short westit
-wst27:	mov	dl, 27			; Test factor corresponding to bit 27
-	jmp	short westit
-wst26:	mov	dl, 26			; Test factor corresponding to bit 26
-	jmp	short westit
-wst25:	mov	dl, 25			; Test factor corresponding to bit 25
-	jmp	short westit
-wst24:	mov	dl, 24			; Test factor corresponding to bit 24
-	jmp	short westit
-wst23:	mov	dl, 23			; Test factor corresponding to bit 23
-	jmp	short westit
-wst22:	mov	dl, 22			; Test factor corresponding to bit 22
-	jmp	short westit
-wst21:	mov	dl, 21			; Test factor corresponding to bit 21
-	jmp	short westit
-wst20:	mov	dl, 20			; Test factor corresponding to bit 20
-	jmp	short westit
-wst19:	mov	dl, 19			; Test factor corresponding to bit 19
-	jmp	short westit
-wst18:	mov	dl, 18			; Test factor corresponding to bit 18
-	jmp	short westit
-wst17:	mov	dl, 17			; Test factor corresponding to bit 17
-	jmp	short westit
-wst16:	mov	dl, 16			; Test factor corresponding to bit 16
-	jmp	short westit
-wst15:	mov	dl, 15			; Test factor corresponding to bit 15
-	jmp	short westit
-wst14:	mov	dl, 14			; Test factor corresponding to bit 14
-	jmp	short westit
-wst13:	mov	dl, 13			; Test factor corresponding to bit 13
-	jmp	short westit
-wst12:	mov	dl, 12			; Test factor corresponding to bit 12
-	jmp	short westit
-wst11:	mov	dl, 11			; Test factor corresponding to bit 11
-	jmp	short westit
-wst10:	mov	dl, 10			; Test factor corresponding to bit 10
-	jmp	short westit
-wst9:	mov	dl, 9			; Test factor corresponding to bit 9
-	jmp	short westit
-wst8:	mov	dl, 8			; Test factor corresponding to bit 8
-	jmp	short westit
-wst7:	mov	dl, 7			; Test factor corresponding to bit 7
-	jmp	short westit
-wst6:	mov	dl, 6			; Test factor corresponding to bit 6
-	jmp	short westit
-wst5:	mov	dl, 5			; Test factor corresponding to bit 5
-	jmp	short westit
-wst4:	mov	dl, 4			; Test factor corresponding to bit 4
-	jmp	short westit
-wst3:	mov	dl, 3			; Test factor corresponding to bit 3
-	jmp	short westit
-wst2:	mov	dl, 2			; Test factor corresponding to bit 2
-	jmp	short westit
-wst1:	mov	dl, 1			; Test factor corresponding to bit 1
-
-;
-; This is the Pentium version of testit for 64-bit factors.  It gathers
-; 2 potential factors to be tested together to minimize processor stalls.
-;
-; OPTIMIZED FOR PENTIUMS
-;
-; eax = sieve word - must be preserved or reloaded
-; ebx = fachi - must be preserved as fachi for sieve bit 0
-; edx = sieve bit being tested - must return with top 24 bits zero
-; edi = count of potential factors queued up - must return -2
-; esi = sieve address - must be preserved
-; ebp = faclo - must be preserved as faclo for sieve bit 0
-;
-; Total for two exponents - assuming 18 interior loops:
-; 2*46 + 100 + 82*17 + 4 (mispredicted jump) + 33 = 811.5 per exponent
-
-;
-; Precompute initval / factor
-;
-
-westit:	add	ebp, facdists[edx*8]	; Determine factor to test
-	adc	ebx, facdists+4[edx*8]	; Add carry
-westit0:mov	savefac2, ebp		;1U Save addin so FPU can load it
-	mov	savefac1, ebx		;1V
-	fild	QWORD PTR savefac2	;2  Addin = amount to add to base
-	fild	savefac2		;3  faclo, addin
-	fld	initval			;4  initval, faclo, addin
-	fxch	st(2)			;   addin, faclo, initval
-	fadd	BASE			;5  fac, faclo, initval
-	fxch				;   faclo, fac, initval
-	fstp	FACLO[edi*8+16]		;6-7 fac, initval
-	fdivr	st(0), st(1)		;8-46 quot, initval
-
-; The FDIV takes 39 clocks and only the last two can overlap
-; with other float instructions.  This gives us 37 clocks
-; to do something useful with the integer units.
-
-	; Compute FACHI for conversion to floating point format.
-	; Round FACHI up if FACLO is negative.
-	add	ebp, ebp		; U - Set carry if FACLO is negative
-	mov	eax, base_int		; V - For computing fac MSW
-	adc	ebx, 0			; U - Increment FACHI if FACLO neg.
-	add	eax, ebx		;*U - Compute fac MSW
-	jnc	short whi		; V - An overflow occured 
-	mov	eax, DWORD PTR TWO_TO_64+4; U - Make FACHI equal 2^64
-	mov	ebx, returns6[edx*4]	; V - Load return address
-	sub	ebp, ebp		; V - FACHI LSW
-	push	ebx			; V - Push return address
-	jmp	short whidn		;UV - Rejoin code
-
-	; Compute the shift count to create floating point values.
-	; We'd like to use the BSF instruction but it is very slow.
-	; Simulate BSF by taking advantage of the fact that factors
-	; increase in size very slowly.
-whi:	mov	ecx, fachi_shf_count	; U - Load last shift count
-	mov	ebx, fachi_shf_mask	; V - Load last shift mask
-whilp:	test	eax, ebx		; U - Is value wider than last time?
-	jz	short whiok		; V - No, jump
-	add	ebx, ebx		; U - Compute new shift mask
-	dec	ecx			; V - Decrement the shift count
-	mov	fachi_shf_count, ecx	; U - Save the new shift count
-	mov	fachi_shf_mask, ebx	; V - Save the new shift mask
-	jmp	short whilp		; V - Loop in case fachi is much wider
-
-	; We now have enough information to convert FACHI
-	; to floating point format.
-whiok:	shl	eax, cl			;4UV - Normalize (top bit always on)
-	mov	ebp, eax		; U - EBP will hold the float LSW
-	mov	ebx, returns6[edx*4]	; V - Load return address
-	shr	eax, 11			; U - EAX will hold the float MSW
-	push	ebx			; V - Push return address
-	shl	ecx, 20			; U - Put shift count in exponent byte
-	add	eax, 43D00000h 		; V - Make the exponent byte right
-	shl	ebp, 21			; U - Low 32 bits of the float
-	sub	eax, ecx		; V - Sub shift count from exponent
-
-	; Recompute original fachi and faclo.  That is, the fachi/faclo values
-	; for the first sieve bit in EAX 
-whidn:	mov	DWORD PTR FACHI[edi*8+16], ebp ; U - Store FACHI LSW
-	mov	ebp, savefac2		; V - Reload faclo
-	mov	ecx, facdists[edx*8]	; U - faclo adjustment
-	mov	ebx, savefac1		; V - Reload addin fachi
-	sub	ebp, ecx		; U - Recompute original faclo
-	mov	ecx, facdists+4[edx*8]	; V - fachi adjustment
-	sbb	ebx, ecx		; U - Recompute original fachi
-	mov	DWORD PTR FACHI+4[edi*8+16], eax ; V - Store FACHI MSW
-
-	mov	eax, [esi-4]		; U - Reload eax
-	inc	edi			;*U - Bump count of queued factors
-	jz	short west2		; V - Jump if enough are queued
-	retn				; UV - return to sieve testing
-
-;
-; Now test the 2 factors
-;
-
-	; More miscellaneous initialization
-
-west2:	mov	ecx, wqloop_counter	; U - Load loop counter
-	mov	edi, -2			; V - Restore queued factor counter
-
-; Work on initval
-; At start of loop, registers contain:
-
-					; quot2,initval,quot1,initval
-	fld	BIGVAL1			;   for qhi
-					; qhi,quot2,initval,quot1,initval
-	fld	BIGVAL0			;   for q and qlo
-					; q,qhi,quot2,initval,quot1,initval
-	fxch	st(1)			; qhi,q,quot2,initval,quot1,initval
-	fadd	st(0),st(4)		;1  qhi = quot + BIGVAL1
-	fxch	st(1)			; q,qhi,quot2,initval,quot1,initval
-	fadd	st(0),st(4)		;2  q = quot + BIGVAL0
-	fld	FACHI			;3  for qhi*fhi
-					; fhi,q,qhi,quot2,initval,quot1,initval
-	fxch	st(2)			; qhi,q,fhi,quot2,initval,quot1,initval
-	fsub	BIGVAL1			;4  qhi = qhi - BIGVAL1
-	fxch	st(1)			; q,qhi,fhi,quot2,initval,quot1,initval
-	fsub	BIGVAL0			;5  q = q - BIGVAL0
-	fld	FACHI			;6  fhi
-					; fhi,q,qhi,fhi,quot2,initval,quot1,iv
-	fxch	st(2)			; qhi,q,fhi,fhi,quot2,initval,quot1,iv
-	fmul	st(3),st(0)		;7  qhi*fhi
-					; qhi,q,fhi,qhi*fhi,quot2,iv,quot1,iv
-	fsub	st(1),st(0)		;8  qlo = q - qhi
-					; qhi,qlo,fhi,qhi*fhi,quot2,iv,quot1,iv
-	fmul	FACLO			;9  qhi*flo
-					; qhi*flo,qlo,fhi,qhi*fhi,quot2,
-					;		initval,quot1,initval
-	fxch	st(3)			; qhi*fhi,qlo,fhi,qhi*flo,quot2,
-					;		initval,quot1,initval
-	fsubp	st(7),st(0)		;10 res = initval - qhi*fhi
-					; qlo,fhi,qhi*flo,quot2,iv,quot1,res
-	fmul	st(1),st(0)		;11 qlo*fhi
-					; qlo,qlo*fhi,qhi*flo,quot2,iv,q1,res
-	  fld	BIGVAL1			;12   for qhi
-					; qhi,qlo,qlo*fhi,qhi*flo,q2,iv,q1,res
-	  fxch	st(3)			; qhi*flo,qlo,qlo*fhi,qhi,q2,iv,q1,res
-	fsubp	st(7),st(0)		;13 res -= qhi*flo
-					; qlo,qlo*fhi,qhi,quot2,iv,quot1,res
-	fmul	FACLO			;14 qlo*flo
-					; qlo*flo,qlo*fhi,qhi,quot2,iv,q1,res
-	  fld	BIGVAL0			;15   for q and qlo
-					; q,qlo*flo,qlo*fhi,qhi,quot2,iv,q1,res
-	  fxch	st(2)			; qlo*fhi,qlo*flo,q,qhi,quot2,iv,q1,res
-	fsubp	st(7),st(0)		;16 res -= qlo*fhi
-					; qlo*flo,q,qhi,quot2,initval,quot1,res
-	fxch	st(3)			; quot2,q,qhi,qlo*flo,initval,quot1,res
-	  fadd	st(2),st(0)		;17   qhi = quot + BIGVAL1
-	  fadd	st(1),st(0)		;18   q = quot + BIGVAL0
-	  fxch	st(5)			; quot1,q,qhi,qlo*flo,initval,quot2,res
-	fmul	initval_inv		;19 1/fac = quot * initval_inv
-					; 1/fac,q,qhi,qlo*flo,initval,quot2,res
-	fxch	st(6)			; res,q,qhi,qlo*flo,initval,quot2,1/fac
-					; (now on 1/fac1 is assumed on stack)
-	  fld	FACHI2			;20   for qhi*fhi
-					; fhi,res,q,qhi,qlo*flo,initval,quot2
-	  fxch	st(3)			; qhi,res,q,fhi,qlo*flo,initval,quot2
-	  fsub	BIGVAL1			;21   qhi = qhi - BIGVAL1
-	  fxch	st(2)			; q,res,qhi,fhi,qlo*flo,initval,quot2
-	  fsub	BIGVAL0			;22   q = q - BIGVAL0
-	  fxch	st(4)			; qlo*flo,res,qhi,fhi,q,initval,quot2
-	fsubp	st(1),st(0)		;23 rem = res - qlo*flo
-					; rem,qhi,fhi,q,initval,quot2
-	fxch	st(1)			; qhi,rem,fhi,q,initval,quot2
-	  fmul	st(2),st(0)		;24   qhi*fhi
-					; qhi,rem,qhi*fhi,q,initval,quot2
-	  fsub	st(3),st(0)		;25   qlo = q - qhi
-					; qhi,rem,qhi*fhi,qlo,initval,quot2
-	  fmul	FACLO2			;26   qhi*flo
-					; qhi*flo,rem,qhi*fhi,qlo,initval,quot2
-	  fxch	st(2)			; qhi*fhi,rem,qhi*flo,qlo,initval,quot2
-	  fsubp	st(4),st(0)		;27   res = initval - qhi*fhi
-					; rem,qhi*flo,qlo,res,quot2
-	  fld	FACHI2			;28   For qlo*fhi
-					; fhi,rem,qhi*flo,qlo,res,quot2
-	  fmul	st(0),st(3)		;29   qlo*fhi
-					; qlo*fhi,rem,qhi*flo,qlo,res,quot2
-	  fxch	st(2)			; qhi*flo,rem,qlo*fhi,qlo,res,quot2
-	  fsubp	st(4),st(0)		;30   res -= qhi*flo
-					; rem,qlo*fhi,qlo,res,quot2
-	fld	FACLO			;31 fac = faclo
-					; fac,rem,qlo*fhi,qlo,res,quot2
-	fxch	st(5)			; quot2,rem,qlo*fhi,qlo,res,fac
-	  fmul	initval_inv		;32   1/fac = quot * initval_inv
-					; 1/fac2,rem,qlo*fhi,qlo,res,fac
-	  fxch	st(5)			; fac,rem,qlo*fhi,qlo,res,1/fac2
-	fadd	FACHI			;33 fac = fachi + faclo
-	fxch	st(3)			; qlo,rem,qlo*fhi,fac,res,1/fac2
-	  fmul	FACLO2			;34   qlo*flo
-					; qlo*flo,rem,qlo*fhi,fac,res,1/fac2
-	  fxch	st(2)			; qlo*fhi,rem,qlo*flo,fac,res,1/fac2
-	  fsubp	st(4),st(0)		;35   res -= qlo*fhi
-					; rem,qlo*flo,fac,res,1/fac2
-
-; First iteration of wqloop - to "get the pipeline going"
-
-	  fxch	st(2)			; fac,qlo*flo,rem,res,1/fac2
-	fmul	HALF			;36 fac/2 = fac / 2
-					; fac/2,qlo*flo,rem,res,1/fac2
-	fxch	st(4)			; 1/fac2,qlo*flo,rem,res,fac/2
-	fsub	st(0), st(5)		;37 facdiff = 1/fac2 - 1/fac1
-					; facdiff,qlo*flo,rem,res,fac/2
-	fxch	st(2)			; rem,qlo*flo,facdiff,res,fac/2
-	fabs				;38 rem = 64-bit remainder
-	fsub	st(0),st(4)		;39 rem = rem - fac/2
-	fld	st(5)			;40 quot = 1/fac
-					; quot,rem,qlo*flo,facdiff,res,fac/2
-	fxch	st(2)			; qlo*flo,rem,quot,facdiff,res,fac/2
-	  fsubp	st(4),st(0)		;41   rem = res - qlo*flo
-					; rem1,quot,facdiff,rem2,fac/2
-	fabs				;42 rem = |rem|
-	fsubp	st(4),st(0)		;43 rem = fac/2-rem (63-bit remainder!)
-					; quot,facdiff,rem2,rem1
-	fxch	st(1)			; facdiff,quot,rem2,rem1
-	  fstp	FACDIFF			;44-45 store FACDIFF
-					; quot,rem2,rem1
-	fld	BIGVAL1			;46 For rhi
-					; rhi,quot,rem2,rem1
-	fxch	st(3)			; rem1,quot,rem2,rhi
-	fmul	st(1),st(0)		;47 quot = rem * 1/fac
-	fadd	st(3),st(0)		;48 rhi = rem + BIGVAL1
-	fld	BIGVAL1			;49 for qhi
-					; qhi,rem1,quot,rem2,rhi
-	fxch	st(2)			; quot,rem1,qhi,rem2,rhi
-	fmul	st(0),st(1)		;50 quot = rem * rem * 1/fac
-	fxch	st(4)			; rhi,rem1,qhi,rem2,quot
-	fsub	BIGVAL1			;51 rhi = rhi - BIGVAL1
-	fld	FACHI			;52 for qhi*fhi
-					; fhi,rhi,rem1,qhi,rem2,quot
-	fxch	st(5)			; quot,rhi,rem1,qhi,rem2,fhi
-	fadd	st(3),st(0)		;53 qhi = quot + BIGVAL1
-	fadd	BIGVAL0			;54 quot = quot + BIGVAL0
-	fxch	st(2)			; rem1,rhi,quot,qhi,rem2,fhi
-	fsub	st(0),st(1)		;55 rlo = rem - rhi
-					; rlo,rhi,quot,qhi,rem,fhi
-	fxch	st(3)			; qhi,rhi,quot,rlo,rem,fhi
-	fsub	BIGVAL1			;56 qhi = qhi - BIGVAL1
-	fxch	st(2)			; quot,rhi,qhi,rlo,rem,fhi
-	fsub	BIGVAL0			;57 quot = quot - BIGVAL0
-	fld	st(1)			;58 for res (dup rhi)
-					; res,quot,rhi,qhi,rlo,rem,fhi
-	fmul	st,st			;59 res = rhi^2
-	fxch	st(2)			; rhi,quot,res,qhi,rlo,rem,fhi
-	fadd	st,st			;60 double rhi to compute 2*rhi*rlo
-					; 2*rhi,quot,res,qhi,rlo,rem,fhi
-	fxch	st(3)			; qhi,quot,res,2*rhi,rlo,rem,fhi
-	fmul	st(6),st(0)		;61 qhi*fhi
-					; qhi,quot,res,2*rhi,rlo,rem,qhi*fhi
-	fsub	st(1),st(0)		;62 qlo = quot - qhi
-					; qhi,qlo,res,2*rhi,rlo,rem,qhi*fhi
-	fmul	FACLO			;63 qhi*flo
-					; qhi*flo,qlo,res,2*rhi,rlo,rem,qhi*fhi
-	fxch	st(6)			; qhi*fhi,qlo,res,2*rhi,rlo,rem,qhi*flo
-	fsubp	st(2),st(0)		;64 res -= qhi*fhi
-					; qlo,res,2*rhi,rlo,rem,qhi*flo
-	fxch	st(2)			; 2*rhi,res,qlo,rlo,rem,qhi*flo
-	fmul	st(0),st(3)		;65 2*rhi*rlo
-					; 2*rhi*rlo,res,qlo,rlo,rem,qhi*flo
-	  fld	FACLO2			;66   fac = faclo
-					; fac,2*rhi*rlo,res,qlo,rlo,rem,qhi*flo
-	  fadd	FACHI2			;67   fac = fachi + faclo
-	  fxch	st(6)			; qhi*flo,2*rhi*rlo,res,qlo,rlo,rem,fac
-	fsubp	st(1),st(0)		;68 resmid = 2*rhi*rlo - qhi*flo
-					; resmid,res,qlo,rlo,rem,fac
-	fxch	st(3)			; rlo,res,qlo,resmid,rem,fac
-	fmul	st,st			;69 rlo*rlo
-					; rlo*rlo,res,qlo,resmid,rem,fac
-	fld	FACHI			;70 For qlo*fhi
-					; fhi,rlo*rlo,res,qlo,resmid,rem,fac
-	fmul	st(0),st(3)		;71 qlo*fhi
-					; qlo*fhi,rlo^2,res,qlo,resmid,rem,fac
-	fxch	st(6)			; fac,rlo^2,res,qlo,resmid,rem,qlo*fhi
-	  fmul	HALF			;72   fac/2 = fac / 2
-					; fac/2,rlo^2,res,qlo,resm,rem,qlo*fhi
-	  fxch	st(4)			; resm,rlo^2,res,qlo,fac/2,rem,qlo*fhi
-	faddp	st(2),st(0)		;73 res += resmid
-					; rlo*rlo,res,qlo,fac/2,rem,qlo*fhi
-	fxch	st(2)			; qlo,res,rlo*rlo,fac/2,rem,qlo*fhi
-	fmul	FACLO			;74 qlo*flo
-					; qlo*flo,res,rlo*rlo,fac/2,rem,qlo*fhi
-	fxch	st(4)			; rem,res,rlo*rlo,fac/2,qlo*flo,qlo*fhi
-	  fabs				;75   rem = 64-bit remainder
-	  fsub	st(0),st(3)		;76   rem = rem - fac/2
-	  fld	FACDIFF			;77   quot = 1/fac2 - 1/fac1
-					; q,rem,res,rlo^2,fac/2,qlo*flo,qlo*fhi
-	  fadd	st(0),st(7)		;78   quot = 1/fac2 - 1/fac1 + 1/fac1
-	  fxch	st(6)			; qlo*fhi,rem,res,rlo^2,fac/2,qlo*flo,q
-	fsubp	st(2),st(0)		;79 res -= qlo*fhi
-					; rem,res,rlo*rlo,fac/2,qlo*flo,quot
-	fxch	st(4)			; qlo*flo,res,rlo*rlo,fac/2,rem,quot
-	fsubp	st(2),st(0)		;80 reslow = rlo*rlo - qlo*flo
-					; res,reslow,fac/2,rem,quot
-	fxch	st(3)			; rem,reslow,fac/2,res,quot
-	  fabs				;81   rem = |rem|
-	  fsubp	st(2),st(0)		;82   rem = 63-bit remainder!
-					; reslow,rem,res,quot
-	faddp	st(2),st(0)		;83 res += reslow
-					; rem,res,quot
-	fxch	st(2)			; quot,res,rem
-	  fld	BIGVAL1			;84   For rhi
-					; rhi,quot,res,rem
-	  fxch	st(3)			; rem,quot,res,rhi
-	  fmul	st(1), st(0)		;85   quot = rem * 1/fac
-	  fadd	st(3), st(0)		;86   rhi = rem + BIGVAL1
-	  fld	BIGVAL1			;87   for qhi
-					; qhi,rem,quot,res,rhi
-	  fxch	st(2)			; quot,rem,qhi,res,rhi
-	  fmul	st(0), st(1)		;88   quot = rem * rem * 1/fac
-	  fxch	st(4)			; rhi,rem,qhi,res,quot
-	  fsub	BIGVAL1			;89   rhi = rhi - BIGVAL1
-	  fld	FACHI2			;90   for qhi*fhi
-					; fhi,rhi,rem,qhi,res,quot
-	  fxch	st(5)			; quot,rhi,rem,qhi,res,fhi
-	  fadd	st(3), st(0)		;91   qhi = quot + BIGVAL1
-	  fadd	BIGVAL0			;92   quot = quot + BIGVAL0
-	  fxch	st(2)			; rem,rhi,quot,qhi,res,fhi
-	  fsub	st(0), st(1)		;93   rlo = rem - rhi
-					; rlo,rhi,quot,qhi,rem,fhi
-	  fxch	st(3)			; qhi,rhi,quot,rlo,rem,fhi
-	  fsub	BIGVAL1			;94   qhi = qhi - BIGVAL1
-	  fxch	st(2)			; quot,rhi,qhi,rlo,rem,fhi
-	  fsub	BIGVAL0			;95   quot = quot - BIGVAL0
-	  fld	st(1)			;96   for res (dup rhi)
-					; res,quot,rhi,qhi,rlo,rem,fhi
-	  fmul	st, st			;97   res = rhi^2
-	  fxch	st(2)			; rhi,quot,res,qhi,rlo,rem,fhi
-	  fadd	st, st			;98   double rhi to compute 2*rhi*rlo
-					; 2*rhi,quot,res,qhi,rlo,rem,fhi
-	  fxch	st(3)			; qhi,quot,res,2*rhi,rlo,rem,fhi
-	  fmul	st(6), st(0)		;99   qhi*fhi
-					; qhi,quot,res,2*rhi,rlo,rem,qhi*fhi
-	  fsub	st(1), st(0)		;100  qlo = quot - qhi
-
-; Square remainder and get new remainder.
-; The remainder is between -fac and fac.  Fac is up to 64 bits.
-; Basic algorithm:
-; 1) Possibly double the remainder.  Computed as:
-;	rem = possible_double (abs (rem)) - fac
-; 2) Get a 63-bit remainder, that is min (rem, fac - rem).  Computed as:
-;	rem = fac/2 - abs (abs (rem) - fac/2)
-; 3) Compute the quotient:  q = rem * rem * 1/fac.  The error will be
-;    at most 3/8.
-; 4) Compute the new remainder.
-;	 rem = remhi * remhi - qhi * fachi +
-;	       2 * remlo * remhi - qlo * fachi - qhi * faclo +
-;	       remlo * remlo - qlo * faclo
-;
-; q is 63 + 63 - 64 = 62 bits
-; remhi is 31 bits, remlo is signed 31 bits
-; qhi is 30 bits, qlo is signed 31 bits
-; fachi is 32 bits, faclo is signed 31 bits
-;
-; At start of loop, registers contain:
-;	qhi2, qlo2, res2, 2*rhi2, rlo2, rem1, qhi2*fhi2, 1/fac1
-
-wqloop:					; qhi,qlo,res,2*rhi,rlo,rem,qhi*fhi
-	  fmul	FACLO2			;1    qhi*flo
-					; qhi*flo,qlo,res,2*rhi,rlo,rem,qhi*fhi
-	  fxch	st(6)			; qhi*fhi,qlo,res,2*rhi,rlo,rem,qhi*flo
-	  fsubp	st(2), st(0)		;2    res -= qhi*fhi
-					; qlo,res,2*rhi,rlo,rem,qhi*flo
-	  fxch	st(2)			; 2*rhi,res,qlo,rlo,rem,qhi*flo
-	  fmul	st(0), st(3)		;3    2*rhi*rlo
-					; 2*rhi*rlo,res,qlo,rlo,rem,qhi*flo
-	  fxch	st(4)			; rem,res,qlo,rlo,2*rhi*rlo,qhi*flo
-	fabs				;4  rem = |rem|
-					; rem,res,qlo,rlo,2*rhi*rlo,qhi*flo
-	fmul	REMMULTS[ecx*4+4]	;5  rem = rem * 1-or-2
-	fxch	st(5)			; qhi*flo,res,qlo,rlo,2*rhi*rlo,rem
-	  fsubp	st(4), st		;6    resmid = 2*rhi*rlo - qhi*flo
-					; res,qlo,rlo,resmid,rem
-	fld	FACLO			;7  fac = faclo
-					; fac,res,qlo,rlo,resmid,rem
-	fadd	FACHI			;8  fac = fachi + faclo
-	fxch	st(3)			; rlo,res,qlo,fac,resmid,rem
-	  fmul	st, st			;9    rlo*rlo
-					; rlo*rlo,res,qlo,fac,resmid,rem
-	  fld	FACHI2			;10   For computing qlo*fhi
-					; fhi,rlo*rlo,res,qlo,fac,resmid,rem
-	  fmul	st(0), st(3)		;11   qlo*fhi
-					; qlo*fhi,rlo^2,res,qlo,fac,resmid,rem
-	  fxch	st(4)			; fac,rlo^2,res,qlo,qlo*fhi,resmid,rem
-	fsub	st(6), st(0)		;12 rem = rem - fac
-	fmul	HALF			;13 fac/2 = fac / 2
-					; fac/2,rlo^2,res,qlo,qlo*fhi,resm,rem
-	fxch	st(5)			; resm,rlo^2,res,qlo,qlo*fhi,fac/2,rem
-	  faddp	st(2), st(0)		;14   res += resmid
-					; rlo*rlo,res,qlo,qlo*fhi,fac/2,rem
-	  fxch	st(2)			; qlo,res,rlo*rlo,qlo*fhi,fac/2,rem
-	  fmul	FACLO2			;15   qlo*flo
-					; qlo*flo,res,rlo*rlo,qlo*fhi,fac/2,rem
-	  fxch	st(5)			; rem,res,rlo*rlo,qlo*fhi,fac/2,qlo*flo
-	fabs				;16 rem = 64-bit remainder
-	fxch	st(4)			; fac/2,res,rlo*rlo,qlo*fhi,rem,qlo*flo
-	fsub	st(4), st(0)		;17 rem = rem - fac/2
-	fld	st(6)			;18 quot = 1/fac
-					; quot,fac/2,res,rlo*rlo,qlo*fhi,
-					;			rem,qlo*flo
-	fxch	st(4)			; qlo*fhi,fac/2,res,rlo*rlo,quot,
-					;			rem,qlo*flo
-	  fsubp	st(2), st(0)		;19   res -= qlo*fhi
-					; fac/2,res,rlo*rlo,quot,rem,qlo*flo
-	  fxch	st(5)			; qlo*flo,res,rlo*rlo,quot,rem,fac/2
-	  fsubp	st(2), st(0)		;20   reslow = rlo*rlo - qlo*flo
-					; res,reslow,quot,rem,fac/2
-	  fxch	st(3)			; rem,reslow,quot,res,fac/2
-	fabs				;21 rem = |rem|
-	fxch	st(4)			; fac/2,reslow,quot,res,rem
-	fsubrp	st(4), st(0)		;22 rem = fac/2-rem (63-bit remainder!)
-					; reslow,quot,res,rem
-	  faddp	st(2), st(0)		;23   res += reslow
-					; quot,res,rem
-	fld	BIGVAL1			;24 For rhi
-					; rhi,quot,res,rem
-	fxch	st(3)			; rem,quot,res,rhi
-	fmul	st(1), st(0)		;25 quot = rem * 1/fac
-	fadd	st(3), st(0)		;26 rhi = rem + BIGVAL1
-	fld	BIGVAL1			;27 for qhi
-					; qhi,rem,quot,res,rhi
-	fxch	st(2)			; quot,rem,qhi,res,rhi
-	fmul	st(0), st(1)		;28 quot = rem * rem * 1/fac
-	fxch	st(4)			; rhi,rem,qhi,res,quot
-	fsub	BIGVAL1			;29 rhi = rhi - BIGVAL1
-	fld	FACHI			;30 for qhi*fhi
-					; fhi,rhi,rem,qhi,res,quot
-	fxch	st(5)			; quot,rhi,rem,qhi,res,fhi
-	fadd	st(3), st(0)		;31 qhi = quot + BIGVAL1
-	fadd	BIGVAL0			;32 quot = quot + BIGVAL0
-	fxch	st(2)			; rem,rhi,quot,qhi,res,fhi
-	fsub	st(0), st(1)		;33 rlo = rem - rhi
-					; rlo,rhi,quot,qhi,rem,fhi
-	fxch	st(3)			; qhi,rhi,quot,rlo,rem,fhi
-	fsub	BIGVAL1			;34 qhi = qhi - BIGVAL1
-	fxch	st(2)			; quot,rhi,qhi,rlo,rem,fhi
-	fsub	BIGVAL0			;35 quot = quot - BIGVAL0
-	fld	st(1)			;36 for res (dup rhi)
-					; res,quot,rhi,qhi,rlo,rem,fhi
-	fmul	st, st			;37 res = rhi^2
-	fxch	st(2)			; rhi,quot,res,qhi,rlo,rem,fhi
-	fadd	st, st			;38 double rhi to compute 2*rhi*rlo
-	fxch	st(3)			; qhi,quot,res,2*rhi,rlo,rem,fhi
-	fmul	st(6), st(0)		;39 qhi*fhi
-					; qhi,quot,res,2*rhi,rlo,rem,qhi*fhi
-	fsub	st(1), st(0)		;40 qlo = quot - qhi
-					; qhi,qlo,res,2*rhi,rlo,rem,qhi*fhi
-	fmul	FACLO			;41 qhi*flo
-					; qhi*flo,qlo,res,2*rhi,rlo,rem,qhi*fhi
-	fxch	st(6)			; qhi*fhi,qlo,res,2*rhi,rlo,rem,qhi*flo
-	fsubp	st(2), st(0)		;42 res -= qhi*fhi
-					; qlo,res,2*rhi,rlo,rem,qhi*flo
-	fxch	st(2)			; 2*rhi,res,qlo,rlo,rem,qhi*flo
-	fmul	st(0), st(3)		;43 2*rhi*rlo
-					; 2*rhi*rlo,res,qlo,rlo,rem,qhi*flo
-	fxch	st(4)			; rem,res,qlo,rlo,2*rhi*rlo,qhi*flo
-	  fabs				;44   rem = |rem|
-	  fmul	REMMULTS[ecx*4+4]	;45   rem = rem * 1-or-2
-	  fxch	st(5)			; qhi*flo,res,qlo,rlo,2*rhi*rlo,rem
-	fsubp	st(4), st(0)		;46 resmid = 2*rhi*rlo - qhi*flo
-					; res,qlo,rlo,resmid,rem
-	  fld	FACLO2			;47   fac = faclo
-					; fac,res,qlo,rlo,resmid,rem
-	  fadd	FACHI2			;48   fac = fachi + faclo
-	  fxch	st(3)			; rlo,res,qlo,fac,resmid,rem
-	fmul	st, st			;49 rlo*rlo
-					; rlo*rlo,res,qlo,fac,resmid,rem
-	fld	FACHI			;50 fhi
-					; fhi,rlo*rlo,res,qlo,fac,resmid,rem
-	fmul	st(0), st(3)		;51 qlo*fhi
-					; qlo*fhi,rlo^2,res,qlo,fac,resmid,rem
-	fxch	st(4)			; fac,rlo^2,res,qlo,qlo*fhi,resmid,rem
-	  fsub	st(6), st(0)		;52   rem = rem - fac
-	  fmul	HALF			;53   fac/2 = fac / 2
-					; fac/2,rlo^2,res,qlo,qlo*fhi,resm,rem
-	  fxch	st(5)			; resm,rlo^2,res,qlo,qlo*fhi,fac/2,rem
-	faddp	st(2), st(0)		;54 res += resmid
-					; rlo*rlo,res,qlo,qlo*fhi,fac/2,rem
-	fxch	st(2)			; qlo,res,rlo*rlo,qlo*fhi,fac/2,rem
-	fmul	FACLO			;55 qlo*flo
-					; qlo*flo,res,rlo*rlo,qlo*fhi,fac/2,rem
-	fxch	st(5)			; rem,res,rlo*rlo,qlo*fhi,fac/2,qlo*flo
-	  fabs				;56   rem = 64-bit remainder
-	  fxch	st(4)			; fac/2,res,rlo*rlo,qlo*fhi,rem,qlo*flo
-	  fsub	st(4), st(0)		;57   rem = rem - fac/2
-	  fld	FACDIFF			;58   quot = 1/fac2 - 1/fac1
-					; quot,fac/2,res,rlo*rlo,qlo*fhi,
-					;			rem,qlo*flo
-	  fadd	st(0), st(7)		;59   quot = 1/fac2 - 1/fac1 + 1/fac1
-	  fxch	st(4)			; qlo*fhi,fac/2,res,rlo*rlo,quot,
-					;			rem,qlo*flo
-	fsubp	st(2), st(0)		;60 res -= qlo*fhi
-					; fac/2,res,rlo*rlo,quot,rem,qlo*flo
-	fxch	st(5)			; qlo*flo,res,rlo*rlo,quot,rem,fac/2
-	fsubp	st(2), st(0)		;61 reslow = rlo*rlo - qlo*flo
-					; res,reslow,quot,rem,fac/2
-	fxch	st(3)			; rem,reslow,quot,res,fac/2
-	  fabs				;62   rem = |rem|
-	  fxch	st(4)			; fac/2,reslow,quot,res,rem
-	  fsubrp st(4), st(0)		;63   rem = 63-bit remainder!
-					; reslow,quot,res,rem
-	faddp	st(2), st(0)		;64 res += reslow
-					; quot,res,rem
-	  fld	BIGVAL1			;65   For rhi
-					; rhi,quot,res,rem
-	  fxch	st(3)			; rem,quot,res,rhi
-	  fmul	st(1), st(0)		;66   quot = rem * 1/fac
-	  fadd	st(3), st(0)		;67   rhi = rem + BIGVAL1
-	  fld	BIGVAL1			;68   for qhi
-					; qhi,rem,quot,res,rhi
-	  fxch	st(2)			; quot,rem,qhi,res,rhi
-	  fmul	st(0), st(1)		;69   quot = rem * rem * 1/fac
-	  fxch	st(4)			; rhi,rem,qhi,res,quot
-	  fsub	BIGVAL1			;70   rhi = rhi - BIGVAL1
-	  fld	FACHI2			;71   for qhi*fhi
-					; fhi,rhi,rem,qhi,res,quot
-	  fxch	st(5)			; quot,rhi,rem,qhi,res,fhi
-	  fadd	st(3), st(0)		;72   qhi = quot + BIGVAL1
-	  fadd	BIGVAL0			;73   quot = quot + BIGVAL0
-	  fxch	st(2)			; rem,rhi,quot,qhi,res,fhi
-	  fsub	st(0), st(1)		;74   rlo = rem - rhi
-					; rlo,rhi,quot,qhi,rem,fhi
-	  fxch	st(3)			; qhi,rhi,quot,rlo,rem,fhi
-	  fsub	BIGVAL1			;75   qhi = qhi - BIGVAL1
-	  fxch	st(2)			; quot,rhi,qhi,rlo,rem,fhi
-	  fsub	BIGVAL0			;76   quot = quot - BIGVAL0
-	  fld	st(1)			;77   for res (dup rhi)
-					; res,quot,rhi,qhi,rlo,rem,fhi
-	  fmul	st, st			;78   res = rhi^2
-	  fxch	st(2)			; rhi,quot,res,qhi,rlo,rem,fhi
-	  fadd	st, st			;79   double rhi to compute 2*rhi*rlo
-					; 2*rhi,quot,res,qhi,rlo,rem,fhi
-	  fxch	st(3)			; qhi,quot,res,2*rhi,rlo,rem,fhi
-	  fmul	st(6), st(0)		;80   qhi*fhi
-					; qhi,quot,res,2*rhi,rlo,rem,qhi*fhi
-	  fsub	st(1), st(0)		;81   qlo = quot - qhi
-	dec	ecx			;82u
-	jnz	wqloop			;82v
-
-; Finish off the computation of fac2's remainder.  Test for rem1 and
-; rem2 being one (after doubling and making positive).  I think this
-; could be improved by a clock or two.
-
-					; qhi,qlo,res,2*rhi,rlo,rem,qhi*fhi
-	  fmul	FACLO2			;1    qhi*flo
-					; qhi*flo,qlo,res,2*rhi,rlo,rem,qhi*fhi
-	  fxch	st(6)			; qhi*fhi,qlo,res,2*rhi,rlo,rem,qhi*flo
-	  fsubp	st(2), st(0)		;2    res -= qhi*fhi
-					; qlo,res,2*rhi,rlo,rem,qhi*flo
-	  fxch	st(2)			; 2*rhi,res,qlo,rlo,rem,qhi*flo
-	  fmul	st(0), st(3)		;3    2*rhi*rlo
-					; 2*rhi*rlo,res,qlo,rlo,rem,qhi*flo
-	  fxch	st(4)			; rem,res,qlo,rlo,2*rhi*rlo,qhi*flo
-	  fld	FACLO2			;4    For computing qlo*flo
-	  				; flo,rem,res,qlo,rlo,2*rhi*rlo,qhi*flo
-	  fxch	st(4)			; rlo,rem,res,qlo,flo,2*rhi*rlo,qhi*flo
-	  fmul	st, st			;5    rlo*rlo
-	  				; rlo^2,r,res,qlo,flo,2*rhi*rlo,qhi*flo
-	  fxch	st(6)			; qhi*flo,r,res,qlo,flo,2*rhi*rlo,rlo^2
-	  fsubp	st(5), st		;6    resmid = 2*rhi*rlo - qhi*flo
-					; rem,res,qlo,flo,resmid,rlo^2
-	  fxch	st(2)			; qlo,res,rem,flo,resmid,rlo^2
-	  fmul	st(3), st(0)		;7    qlo*flo
-					; qlo,res,rem,qlo*flo,resmid,rlo^2
-	  fxch	st(2)			; rem,res,qlo,qlo*flo,resmid,rlo^2
-	fadd	st, st			;8  rem1 = rem1 * 2
-	fxch	st(4)			; resmid,res,qlo,qlo*flo,rem,rlo^2
-	  faddp	st(1), st(0)		;9    res += resmid
-					; res,qlo,qlo*flo,rem,rlo^2
-	  fxch	st(1)			; qlo,res,qlo*flo,rem,rlo^2
-	  fmul	FACHI2			;10   qlo*fhi
-					; qlo*fhi,res,qlo*flo,rem,rlo^2
-	  fxch	st(2)			; qlo*flo,res,qlo*fhi,rem,rlo^2
-	  fsubp	st(4), st(0)		;11   reslow = rlo*rlo - qlo*flo
-					; res,qlo*fhi,rem,reslow
-	  fxch	st(2)			; rem,qlo*fhi,res,reslow
-	fsub	ONE			;12 rem1 = rem1 - 1
-	fxch	st(1)			; qlo*fhi,rem,res,reslow
-	  fsubp	st(2), st(0)		;13   res -= qlo*fhi
-					; rem,res,reslow
-	  fld	FACHI2			;14   fac2 = fachi
-					; fac2,rem,res,reslow
-	  fadd	FACLO2			;15   fac2 = fachi + faclo
-	  fxch	st(3)			; reslow,rem,res,fac2
-	  faddp	st(2), st(0)		;16   res += reslow
-					; rem1,rem2,fac2
-	fabs				;17 rem1 = |rem1|
-	fsub	FACHI			;18 rem1 -= FACHI
-	fxch	st(2)			; fac2,rem2,rem1
-	  fmul	HALF			;19   fac2/2 = fac2/2
-					; fac2/2,rem2,rem1
-	  fxch	st(1)			; rem2,fac2/2,rem1
-	  fsub	HALF			;20   rem2 = rem2 - 1/2
-	  fxch	st(2)			; rem1,fac2/2,rem2
-	fsub	FACLO			;21 rem1 -= FACLO
-	fxch	st(3)			; 1/fac1,fac2/2,rem2,rem1
-	fcomp	st			;22 pop 1/fac value
-					; fac2/2,rem2,rem1
-	fxch	st(1)			; rem2,fac2/2,rem1
-	  fabs				;23   rem2 = |rem2|
-	  fsubrp st(1),st(0)		;24   rem2 = rem2 - fac2/2
-					; rem2,rem1
-	  fxch	st(1)			; rem1,rem2
-	fstp	temp			;25-26 Save rem1 for comparing
-	mov	ecx, temp		;27
-	cmp	ecx, 00000000h		;28U Compare remainder to 0.0
-	je	short win1		;28V
-	  fstp	temp			;29-30 Save rem2 for comparing
-	mov	ecx, temp		;31
-	cmp	ecx, 00000000h		;32U Compare remainder to 0.0
-	je	short win2		;32V
-	retn				;33UV - Test next factor from sieve
-
-win1:	fld	FACHI			; Load MSW
-	fadd	FACLO			; Load LSW
-	jmp	short wincom		; Join common code
-win2:	fld	FACHI2			; Load MSW
-	fadd	FACLO2			; Load LSW
-wincom:	fsub	ONE			; Make it fit in 63 bits
-	fmul	HALF
-	fistp	QWORD PTR savefac2	; Save as a 64-bit integer
-	mov	eax, savefac2		; Load LSW
-	mov	edx, savefac1		; Load MSW
-	add	eax, eax		; Double it to 64 bits again
-	adc	edx, edx
-	inc	eax			; Undo the decrement
-	mov	_FACLSW, eax		; Store LSW
-	mov	_FACMSW, edx		; Store MSW
-	mov	eax, 1			; Factor found!!! Return TRUE
-	add	esp, 4			; pop return address
-	jmp	done
-
-; One sieve is done, save registers and see if another
-; sieve will be tested before we check for an ESC.
-
-wlpdn:	cmp	edi, -2			; Is a factor queued up?
-	je	short wlpdn2		; No
-	fld	FACHI			; Yes, go test it
-	fstp	FACHI2
-	fld	FACLO
-	fstp	FACLO2
-	fld	st(1)
-	fld	st(1)
-	call	west2
-wlpdn2:	mov	savefac1, ebx		; Save for the restart or more sieving
-	mov	savefac2, ebp
-	dec	reps			; Check repetition counter
-	jnz	slp0
-	cmp	ebx, -1			; do one more rep if FACMSW is maxed
-	jne	short wlpdn1
-	inc	reps
-	jmp	slp0
-wlpdn1:	mov	eax, 2			; Return for ESC check
-	mov	_FACMSW, ebx
-	cmp	ebx, -1			; Check for special value
-	jne	done
-	mov	_FACHSW, 1		; Return 2^64
-	mov	_FACMSW, 0
-	jmp	done
 
 ;***********************************************************************
 ; For 486 machines only
@@ -3955,8 +2055,8 @@ wlpdn1:	mov	eax, 2			; Return for ESC check
 ulp:	mov	esi, sieve
 	mov	fac1, savefac1
 	mov	fac2, savefac2
-	sub	edx, edx
-	mov	eax, [esi]
+	sub	rdx, rdx
+	mov	rax, [esi]
 	lea	esi, [esi+4]
 ux0:	test	al, 01h
 	jnz	ust0
@@ -3974,56 +2074,56 @@ ux6:	test	al, 40h
 	jnz	ust6
 ux7:	test	al, 80h
 	jnz	ust7
-ux8:	test	eax, 100h
+ux8:	test	rax, 100h
 	jnz	ust8
-ux9:	test	eax, 200h
+ux9:	test	rax, 200h
 	jnz	ust9
-ux10:	test	eax, 400h
+ux10:	test	rax, 400h
 	jnz	ust10
-ux11:	test	eax, 800h
+ux11:	test	rax, 800h
 	jnz	ust11
-ux12:	test	eax, 1000h
+ux12:	test	rax, 1000h
 	jnz	ust12
-ux13:	test	eax, 2000h
+ux13:	test	rax, 2000h
 	jnz	ust13
-ux14:	test	eax, 4000h
+ux14:	test	rax, 4000h
 	jnz	ust14
-ux15:	test	eax, 8000h
+ux15:	test	rax, 8000h
 	jnz	ust15
-ux16:	test	eax, 10000h
+ux16:	test	rax, 10000h
 	jnz	ust16
-ux17:	test	eax, 20000h
+ux17:	test	rax, 20000h
 	jnz	ust17
-ux18:	test	eax, 40000h
+ux18:	test	rax, 40000h
 	jnz	ust18
-ux19:	test	eax, 80000h
+ux19:	test	rax, 80000h
 	jnz	ust19
-ux20:	test	eax, 100000h
+ux20:	test	rax, 100000h
 	jnz	ust20
-ux21:	test	eax, 200000h
+ux21:	test	rax, 200000h
 	jnz	ust21
-ux22:	test	eax, 400000h
+ux22:	test	rax, 400000h
 	jnz	ust22
-ux23:	test	eax, 800000h
+ux23:	test	rax, 800000h
 	jnz	short ust23
-ux24:	test	eax, 1000000h
+ux24:	test	rax, 1000000h
 	jnz	short ust24
-ux25:	test	eax, 2000000h
+ux25:	test	rax, 2000000h
 	jnz	short ust25
-ux26:	test	eax, 4000000h
+ux26:	test	rax, 4000000h
 	jnz	short ust26
-ux27:	test	eax, 8000000h
+ux27:	test	rax, 8000000h
 	jnz	short ust27
-ux28:	test	eax, 10000000h
+ux28:	test	rax, 10000000h
 	jnz	short ust28
-ux29:	test	eax, 20000000h
+ux29:	test	rax, 20000000h
 	jnz	short ust29
-ux30:	test	eax, 40000000h
+ux30:	test	rax, 40000000h
 	jnz	short ust30
-ux31:	test	eax, 80000000h
+ux31:	test	rax, 80000000h
 	jnz	short ust31
 ulp5:	add	fac2, facdist32		; U - Add facdist * 32 to the factor
-	mov	eax, [esi]		; V - Next sieve word
+	mov	rax, [esi]		; V - Next sieve word
 	adc	fac1, facdist32+4	; U - Add carry
 	test	esi, sievesize		; V - End of sieve?
 	lea	esi, [esi+4]		; U - Bump pointer
@@ -4038,7 +2138,7 @@ ulp5:	add	fac2, facdist32		; U - Add facdist * 32 to the factor
 
 ; Return so caller can check for ESC
 
-	mov	eax, 2			; Return for ESC check
+	mov	rax, 2			; Return for ESC check
 	mov	_FACMSW, fac1
 	jmp	done
 
@@ -4115,12 +2215,12 @@ ust0:	mov	dl, 0			; Test factor corresponding to bit 0
 ; this algorithm.
 ;
 
-uestit:	push	returns4[edx*4]		; Push return address
+uestit:	push	returns4[rdx*4]		; Push return address
 	push	esi			; Save sieve testing registers
-	add	fac2, facdists[edx*8]	; Determine factor to test
-	adc	fac1, facdists+4[edx*8]	; Add carry
-	push	edx	
-	push	eax			; Save sieve testing registers
+	add	fac2, facdists[rdx*8]	; Determine factor to test
+	adc	fac1, facdists+4[rdx*8]	; Add carry
+	push	rdx	
+	push	rax			; Save sieve testing registers
 
 ;
 ; Precompute 1 / factor
@@ -4142,16 +2242,16 @@ uestit:	push	returns4[edx*4]		; Push return address
 	sub	esi, esi		; LSW of initval should be zero
 	mov	edi, initval1		; MSW of initval
 	fistp	QWORD PTR quotient2	; Save the quotient
-	mov	eax, fac2		; Compute quotient2 * fac2
+	mov	rax, fac2		; Compute quotient2 * fac2
 	mul	quotient2
-	sub	esi, eax
-	sbb	edi, edx
-	mov	eax, fac2		; Compute quotient1 * fac2
-	imul	eax, quotient1
-	sub	edi, eax
-	mov	eax, fac1		; Compute quotient2 * fac1
-	imul	eax, quotient2
-	sub	edi, eax
+	sub	esi, rax
+	sbb	edi, rdx
+	mov	rax, fac2		; Compute quotient1 * fac2
+	imul	rax, quotient1
+	sub	edi, rax
+	mov	rax, fac1		; Compute quotient2 * fac1
+	imul	rax, quotient2
+	sub	edi, rax
 
 ;
 ; Square remainder (edi, esi) and get new remainder.  Amazingly, this
@@ -4167,21 +2267,21 @@ uqloop:	mov	rem1, edi		; Write remainder to memory
 	fmul	st, st(1)		; Multiply by 1 / factor
 	fistp	QWORD PTR quotient2	; Save the quotient
 	imul	edi, esi		; Compute rem2 * rem1
-	mov	eax, esi		; Load rem2
-	mul	eax			; Compute rem2 * rem2
+	mov	rax, esi		; Load rem2
+	mul	rax			; Compute rem2 * rem2
 	add	edi, edi		; Double rem2 * rem1
-	mov	esi, eax		; Save rem2 * rem2 low
-	add	edi, edx		; Add in rem2 * rem2 high
-	mov	eax, fac2		; Compute quotient2 * fac2
+	mov	esi, rax		; Save rem2 * rem2 low
+	add	edi, rdx		; Add in rem2 * rem2 high
+	mov	rax, fac2		; Compute quotient2 * fac2
 	mul	quotient2
-	sub	esi, eax
-	sbb	edi, edx
-	mov	eax, fac2		; Compute quotient1 * fac2
-	imul	eax, quotient1
-	sub	edi, eax
-	mov	eax, fac1		; Compute quotient2 * fac1
-	imul	eax, quotient2
-	sub	edi, eax
+	sub	esi, rax
+	sbb	edi, rdx
+	mov	rax, fac2		; Compute quotient1 * fac2
+	imul	rax, quotient1
+	sub	edi, rax
+	mov	rax, fac1		; Compute quotient2 * fac1
+	imul	rax, quotient2
+	sub	edi, rax
 
 ;
 ; Multiply by two if necessary, test for end of squaring loop
@@ -4208,8 +2308,8 @@ uaddf:	add	esi, fac2		; Add fac so that |remainder| < factor
 uqexit:	fstp	quotient2		; Pop 1 / factor from FPU
 	add	esi, esi		; Double the remainder
 	adc	edi, edi		; Propogate carry
-	pop	eax			; Restore sieve testing register
-	pop	edx
+	pop	rax			; Restore sieve testing register
+	pop	rdx
 
 	; Handle a negative remainder, add factor and see if value is 1
 	jnc	short upos		; Positive remainder?
@@ -4217,8 +2317,8 @@ uqexit:	fstp	quotient2		; Pop 1 / factor from FPU
 	adc	edi, fac1
 	jz	short umaybe		; Check if remainder is one
 	pop	esi			; Restore sieve testing register
-	sub	fac2, facdists[edx*8]	; Subtract factor increment
-	sbb	fac1, facdists+4[edx*8]
+	sub	fac2, facdists[rdx*8]	; Subtract factor increment
+	sbb	fac1, facdists+4[rdx*8]
 	retn				; Test next factor from sieve
 
 	; Handle a positive remainder, subtract factor and see if value is 1
@@ -4226,13 +2326,13 @@ upos:	sub	esi, fac2		; No, make remainder positive
 	sbb	edi, fac1
 	jz	short umaybe
 unext:	pop	esi			; Restore sieve testing register
-	sub	fac2, facdists[edx*8]	; Subtract factor increment
-	sbb	fac1, facdists+4[edx*8]
+	sub	fac2, facdists[rdx*8]	; Subtract factor increment
+	sbb	fac1, facdists+4[rdx*8]
 	retn				; Test next factor from sieve
 umaybe:	cmp	esi, 1
 	jne	short unext
 
-	mov	eax, 1			; Factor found!!! Return TRUE
+	mov	rax, 1			; Factor found!!! Return TRUE
 	mov	_FACMSW, fac1
 	mov	_FACLSW, fac2
 	add	esp, 8			; pop sieve testing register
@@ -4241,19 +2341,21 @@ umaybe:	cmp	esi, 1
 
 
 ;***********************************************************************
-; For Pentium Pro machines only
+; For 65-bit factors and above
 ;***********************************************************************
 
 ;
 ; Check all the bits in the sieve looking for a factor to test
 ;
 
-plp:	mov	esi, sieve		; Sieve address
-	mov	edi, queuedpro		; Count of queued factors to be tested
+tlp96:
+
+plp:	mov	rsi, sieve		; Sieve address
+	mov	rdi, queuedpro		; Count of queued factors to be tested
 	fild	QWORD PTR savefac2
-px0:	mov	eax, [esi]		; Load word from sieve
-	lea	esi, [esi+4]		; Bump sieve address
-px1:	bsf	edx, eax		; Look for a set bit
+px0:	mov	rax, [rsi]		; Load word from sieve
+	lea	rsi, [rsi+4]		; Bump sieve address
+px1:	bsf	rdx, rax		; Look for a set bit
 	jnz	short pestit		; Found one, go test the factor
 	fadd	facdist_flt     	; Add facdist * 32 to the factor
 	test	esi, sievesize		; End of sieve?
@@ -4268,9 +2370,9 @@ px1:	bsf	edx, eax		; Look for a set bit
 
 ; Return so caller can check for ESC
 
-	mov	eax, savefac1		; Return for ESC check
-	mov	_FACMSW, eax
-	mov	eax, 2
+	mov	rax, savefac1		; Return for ESC check
+	mov	_FACMSW, rax
+	mov	rax, 2
 	jmp	done
 
 ;
@@ -4278,7 +2380,7 @@ px1:	bsf	edx, eax		; Look for a set bit
 ; to be tested all at once to minimize processor stalls.
 ;
 
-pestit:	fld	QWORD PTR facdistsflt[edx*8] ; Determine factor to test
+pestit:	fld	QWORD PTR facdistsflt[rdx*8] ; Determine factor to test
 	fadd	st, st(1)
 	fld	st(0)
 	fistp	QWORD PTR pfac2[edi*8]	; Save the factor to test
@@ -4296,7 +2398,7 @@ pestit:	fld	QWORD PTR facdistsflt[edx*8] ; Determine factor to test
 
 ; Schedule integer arithmetic while fdiv finishes up.
 
-	btr	eax, edx		; Clear the sieve bit
+	btr	rax, rdx		; Clear the sieve bit
 	inc	edi			; One more factor queued up
 	cmp	edi, 4			; Have enough been queued up?
 	jne	px1			; No, go test more sieve bits
@@ -4306,7 +2408,7 @@ pestit:	fld	QWORD PTR facdistsflt[edx*8] ; Determine factor to test
 ;
 
 	push	esi			; Save sieve testing registers
-	push	eax
+	push	rax
 	mov	ebp, shifter		; Load shifter
 
 ;
@@ -4328,69 +2430,69 @@ pestit:	fld	QWORD PTR facdistsflt[edx*8] ; Determine factor to test
 
 	mov	edi, initval1		; MSW of initval
 	sub	esi, esi		; LSW of initval should be zero
-	mov	ecx, initval1		; MSW of initval
-	sub	ebx, ebx		; LSW of initval should be zero
+	mov	rcx, initval1		; MSW of initval
+	sub	rbx, rbx		; LSW of initval should be zero
 
-	mov	eax, quotient2		; Compute quotient2 * fac2
+	mov	rax, quotient2		; Compute quotient2 * fac2
 	mul	pfac2
-	sub	esi, eax
-	sbb	edi, edx
-	mov	eax, quotient4		; Compute quotient4 * fac4
+	sub	esi, rax
+	sbb	edi, rdx
+	mov	rax, quotient4		; Compute quotient4 * fac4
 	mul	pfac4
-	sub	ebx, eax
-	sbb	ecx, edx
+	sub	rbx, rax
+	sbb	rcx, rdx
 
-	mov	eax, quotient1		; Compute quotient1 * fac2
-	mov	edx, quotient3		; Compute quotient3 * fac4
-	imul	eax, pfac2
-	imul	edx, pfac4
-	sub	edi, eax
-	sub	ecx, edx
+	mov	rax, quotient1		; Compute quotient1 * fac2
+	mov	rdx, quotient3		; Compute quotient3 * fac4
+	imul	rax, pfac2
+	imul	rdx, pfac4
+	sub	edi, rax
+	sub	rcx, rdx
 
-	mov	eax, quotient2		; Compute quotient2 * fac1
-	mov	edx, quotient4		; Compute quotient4 * fac3
-	imul	eax, pfac1
-	imul	edx, pfac3
-	sub	edi, eax
-	sub	ecx, edx
+	mov	rax, quotient2		; Compute quotient2 * fac1
+	mov	rdx, quotient4		; Compute quotient4 * fac3
+	imul	rax, pfac1
+	imul	rdx, pfac3
+	sub	edi, rax
+	sub	rcx, rdx
 
 	mov	rem2, esi
 	mov	rem1, edi
-	mov	rem4, ebx
-	mov	rem3, ecx
+	mov	rem4, rbx
+	mov	rem3, rcx
 
 	mov	edi, initval1		; MSW of initval
 	sub	esi, esi		; LSW of initval should be zero
-	mov	ecx, initval1		; MSW of initval
-	sub	ebx, ebx		; LSW of initval should be zero
+	mov	rcx, initval1		; MSW of initval
+	sub	rbx, rbx		; LSW of initval should be zero
 
-	mov	eax, quotient6		; Compute quotient6 * fac6
+	mov	rax, quotient6		; Compute quotient6 * fac6
 	mul	pfac6
-	sub	esi, eax
-	sbb	edi, edx
-	mov	eax, quotient8		; Compute quotient8 * fac8
+	sub	esi, rax
+	sbb	edi, rdx
+	mov	rax, quotient8		; Compute quotient8 * fac8
 	mul	pfac8
-	sub	ebx, eax
-	sbb	ecx, edx
+	sub	rbx, rax
+	sbb	rcx, rdx
 
-	mov	eax, quotient5		; Compute quotient5 * fac6
-	mov	edx, quotient7		; Compute quotient7 * fac8
-	imul	eax, pfac6
-	imul	edx, pfac8
-	sub	edi, eax
-	sub	ecx, edx
+	mov	rax, quotient5		; Compute quotient5 * fac6
+	mov	rdx, quotient7		; Compute quotient7 * fac8
+	imul	rax, pfac6
+	imul	rdx, pfac8
+	sub	edi, rax
+	sub	rcx, rdx
 
-	mov	eax, quotient6		; Compute quotient6 * fac5
-	mov	edx, quotient8		; Compute quotient8 * fac7
-	imul	eax, pfac5
-	imul	edx, pfac7
-	sub	edi, eax
-	sub	ecx, edx
+	mov	rax, quotient6		; Compute quotient6 * fac5
+	mov	rdx, quotient8		; Compute quotient8 * fac7
+	imul	rax, pfac5
+	imul	rdx, pfac7
+	sub	edi, rax
+	sub	rcx, rdx
 
 	mov	rem6, esi
 	mov	rem5, edi
-	mov	rem8, ebx
-	mov	rem7, ecx
+	mov	rem8, rbx
+	mov	rem7, rcx
 
 ;
 ; Square remainders (rem1 through rem8) and get new remainders.
@@ -4415,91 +2517,91 @@ pqloop:	fild	QWORD PTR rem2		; Load remainder
 	fistp	QWORD PTR quotient8	; Save the quotient
 
 	mov	edi, rem1		; Load rem1
-	mov	eax, rem2		; Load rem2
-	imul	edi, eax		; Compute rem2 * rem1
-	mul	eax			; Compute rem2 * rem2
-	mov	esi, eax		; Save rem2 * rem2 low
-	lea	edi, [edi*2+edx]	; Add in 2 * rem2 * rem1
+	mov	rax, rem2		; Load rem2
+	imul	edi, rax		; Compute rem2 * rem1
+	mul	rax			; Compute rem2 * rem2
+	mov	esi, rax		; Save rem2 * rem2 low
+	lea	edi, [edi*2+rdx]	; Add in 2 * rem2 * rem1
 
-	mov	ecx, rem3		; Load rem3
-	mov	eax, rem4		; Load rem4
-	imul	ecx, eax		; Compute rem4 * rem3
-	mul	eax			; Compute rem4 * rem4
-	mov	ebx, eax		; Save rem4 * rem4 low
-	lea	ecx, [ecx*2+edx]	; Add in 2 * rem4 * rem3
+	mov	rcx, rem3		; Load rem3
+	mov	rax, rem4		; Load rem4
+	imul	rcx, rax		; Compute rem4 * rem3
+	mul	rax			; Compute rem4 * rem4
+	mov	rbx, rax		; Save rem4 * rem4 low
+	lea	rcx, [rcx*2+rdx]	; Add in 2 * rem4 * rem3
 
-	mov	eax, quotient2		; Compute quotient2 * fac2
+	mov	rax, quotient2		; Compute quotient2 * fac2
 	mul	pfac2
-	sub	esi, eax
-	sbb	edi, edx
-	mov	eax, quotient4		; Compute quotient4 * fac4
+	sub	esi, rax
+	sbb	edi, rdx
+	mov	rax, quotient4		; Compute quotient4 * fac4
 	mul	pfac4
-	sub	ebx, eax
-	sbb	ecx, edx
+	sub	rbx, rax
+	sbb	rcx, rdx
 
-	mov	eax, quotient1		; Compute quotient1 * fac2
-	mov	edx, quotient3		; Compute quotient3 * fac4
-	imul	eax, pfac2
-	imul	edx, pfac4
-	sub	edi, eax
-	sub	ecx, edx
+	mov	rax, quotient1		; Compute quotient1 * fac2
+	mov	rdx, quotient3		; Compute quotient3 * fac4
+	imul	rax, pfac2
+	imul	rdx, pfac4
+	sub	edi, rax
+	sub	rcx, rdx
 
-	mov	eax, quotient2		; Compute quotient2 * fac1
-	mov	edx, quotient4		; Compute quotient4 * fac3
-	imul	eax, pfac1
-	imul	edx, pfac3
-	sub	edi, eax
-	sub	ecx, edx
+	mov	rax, quotient2		; Compute quotient2 * fac1
+	mov	rdx, quotient4		; Compute quotient4 * fac3
+	imul	rax, pfac1
+	imul	rdx, pfac3
+	sub	edi, rax
+	sub	rcx, rdx
 
 	add	ebp, ebp		; Will a mul by 2 be needed?
 	jc	pmul2			; Yes, go to that code
 
 	mov	rem2, esi
 	mov	rem1, edi
-	mov	rem4, ebx
-	mov	rem3, ecx
+	mov	rem4, rbx
+	mov	rem3, rcx
 
 	mov	edi, rem5		; Load rem5
-	mov	eax, rem6		; Load rem6
-	imul	edi, eax		; Compute rem6 * rem5
-	mul	eax			; Compute rem6 * rem6
-	mov	esi, eax		; Save rem6 * rem6 low
-	lea	edi, [edi*2+edx]	; Add in 2 * rem6 * rem5
+	mov	rax, rem6		; Load rem6
+	imul	edi, rax		; Compute rem6 * rem5
+	mul	rax			; Compute rem6 * rem6
+	mov	esi, rax		; Save rem6 * rem6 low
+	lea	edi, [edi*2+rdx]	; Add in 2 * rem6 * rem5
 
-	mov	ecx, rem7		; Load rem7
-	mov	eax, rem8		; Load rem8
-	imul	ecx, eax		; Compute rem8 * rem7
-	mul	eax			; Compute rem8 * rem8
-	mov	ebx, eax		; Save rem8 * rem8 low
-	lea	ecx, [ecx*2+edx]	; Add in 2 * rem8 * rem7
+	mov	rcx, rem7		; Load rem7
+	mov	rax, rem8		; Load rem8
+	imul	rcx, rax		; Compute rem8 * rem7
+	mul	rax			; Compute rem8 * rem8
+	mov	rbx, rax		; Save rem8 * rem8 low
+	lea	rcx, [rcx*2+rdx]	; Add in 2 * rem8 * rem7
 
-	mov	eax, quotient6		; Compute quotient6 * fac6
+	mov	rax, quotient6		; Compute quotient6 * fac6
 	mul	pfac6
-	sub	esi, eax
-	sbb	edi, edx
-	mov	eax, quotient8		; Compute quotient8 * fac8
+	sub	esi, rax
+	sbb	edi, rdx
+	mov	rax, quotient8		; Compute quotient8 * fac8
 	mul	pfac8
-	sub	ebx, eax
-	sbb	ecx, edx
+	sub	rbx, rax
+	sbb	rcx, rdx
 
-	mov	eax, quotient5		; Compute quotient5 * fac6
-	mov	edx, quotient7		; Compute quotient7 * fac8
-	imul	eax, pfac6
-	imul	edx, pfac8
-	sub	edi, eax
-	sub	ecx, edx
+	mov	rax, quotient5		; Compute quotient5 * fac6
+	mov	rdx, quotient7		; Compute quotient7 * fac8
+	imul	rax, pfac6
+	imul	rdx, pfac8
+	sub	edi, rax
+	sub	rcx, rdx
 
-	mov	eax, quotient6		; Compute quotient6 * fac5
-	mov	edx, quotient8		; Compute quotient8 * fac7
-	imul	eax, pfac5
-	imul	edx, pfac7
-	sub	edi, eax
-	sub	ecx, edx
+	mov	rax, quotient6		; Compute quotient6 * fac5
+	mov	rdx, quotient8		; Compute quotient8 * fac7
+	imul	rax, pfac5
+	imul	rdx, pfac7
+	sub	edi, rax
+	sub	rcx, rdx
 
 	mov	rem6, esi
 	mov	rem5, edi
-	mov	rem8, ebx
-	mov	rem7, ecx
+	mov	rem8, rbx
+	mov	rem7, rcx
 	jmp	pqloop
 
 ;
@@ -4508,86 +2610,86 @@ pqloop:	fild	QWORD PTR rem2		; Load remainder
 
 pmul2:	jz	pqexit			; Jmp if this is the last iteration
 
-	mov	eax, pfac2
-	mov	edx, pfac1
+	mov	rax, pfac2
+	mov	rdx, pfac1
 	add	esi, esi		; Multiply remainder by 2
 	adc	edi, edi
-	cmovnc	eax, pneg2
-	cmovnc	edx, pneg1
-	add	esi, eax		; Sub or add factor so that
-	adc	edi, edx		; |remainder| < factor
+	cmovnc	rax, pneg2
+	cmovnc	rdx, pneg1
+	add	esi, rax		; Sub or add factor so that
+	adc	edi, rdx		; |remainder| < factor
 	mov	rem2, esi
 	mov	rem1, edi
 
-	mov	eax, pfac4
-	mov	edx, pfac3
-	add	ebx, ebx		; Multiply remainder by 2
-	adc	ecx, ecx
-	cmovnc	eax, pneg4
-	cmovnc	edx, pneg3
-	add	ebx, eax		; Sub or add factor so that
-	adc	ecx, edx		; |remainder| < factor
-	mov	rem4, ebx
-	mov	rem3, ecx
+	mov	rax, pfac4
+	mov	rdx, pfac3
+	add	rbx, rbx		; Multiply remainder by 2
+	adc	rcx, rcx
+	cmovnc	rax, pneg4
+	cmovnc	rdx, pneg3
+	add	rbx, rax		; Sub or add factor so that
+	adc	rcx, rdx		; |remainder| < factor
+	mov	rem4, rbx
+	mov	rem3, rcx
 
 	mov	edi, rem5		; Load rem5
-	mov	eax, rem6		; Load rem6
-	imul	edi, eax		; Compute rem6 * rem5
-	mul	eax			; Compute rem6 * rem6
-	mov	esi, eax		; Save rem6 * rem6 low
-	lea	edi, [edi*2+edx]	; Add in 2 * rem6 * rem5
+	mov	rax, rem6		; Load rem6
+	imul	edi, rax		; Compute rem6 * rem5
+	mul	rax			; Compute rem6 * rem6
+	mov	esi, rax		; Save rem6 * rem6 low
+	lea	edi, [edi*2+rdx]	; Add in 2 * rem6 * rem5
 
-	mov	ecx, rem7		; Load rem7
-	mov	eax, rem8		; Load rem8
-	imul	ecx, eax		; Compute rem8 * rem7
-	mul	eax			; Compute rem8 * rem8
-	mov	ebx, eax		; Save rem8 * rem8 low
-	lea	ecx, [ecx*2+edx]	; Add in 2 * rem8 * rem7
+	mov	rcx, rem7		; Load rem7
+	mov	rax, rem8		; Load rem8
+	imul	rcx, rax		; Compute rem8 * rem7
+	mul	rax			; Compute rem8 * rem8
+	mov	rbx, rax		; Save rem8 * rem8 low
+	lea	rcx, [rcx*2+rdx]	; Add in 2 * rem8 * rem7
 
-	mov	eax, quotient6		; Compute quotient6 * fac6
+	mov	rax, quotient6		; Compute quotient6 * fac6
 	mul	pfac6
-	sub	esi, eax
-	sbb	edi, edx
-	mov	eax, quotient8		; Compute quotient8 * fac8
+	sub	esi, rax
+	sbb	edi, rdx
+	mov	rax, quotient8		; Compute quotient8 * fac8
 	mul	pfac8
-	sub	ebx, eax
-	sbb	ecx, edx
+	sub	rbx, rax
+	sbb	rcx, rdx
 
-	mov	eax, quotient5		; Compute quotient5 * fac6
-	mov	edx, quotient7		; Compute quotient7 * fac8
-	imul	eax, pfac6
-	imul	edx, pfac8
-	sub	edi, eax
-	sub	ecx, edx
+	mov	rax, quotient5		; Compute quotient5 * fac6
+	mov	rdx, quotient7		; Compute quotient7 * fac8
+	imul	rax, pfac6
+	imul	rdx, pfac8
+	sub	edi, rax
+	sub	rcx, rdx
 
-	mov	eax, quotient6		; Compute quotient6 * fac5
-	mov	edx, quotient8		; Compute quotient8 * fac7
-	imul	eax, pfac5
-	imul	edx, pfac7
-	sub	edi, eax
-	sub	ecx, edx
+	mov	rax, quotient6		; Compute quotient6 * fac5
+	mov	rdx, quotient8		; Compute quotient8 * fac7
+	imul	rax, pfac5
+	imul	rdx, pfac7
+	sub	edi, rax
+	sub	rcx, rdx
 
-	mov	eax, pfac6
-	mov	edx, pfac5
+	mov	rax, pfac6
+	mov	rdx, pfac5
 	add	esi, esi		; Multiply remainder by 2
 	adc	edi, edi
-	cmovnc	eax, pneg6
-	cmovnc	edx, pneg5
-	add	esi, eax		; Sub or add factor so that
-	adc	edi, edx		; |remainder| < factor
+	cmovnc	rax, pneg6
+	cmovnc	rdx, pneg5
+	add	esi, rax		; Sub or add factor so that
+	adc	edi, rdx		; |remainder| < factor
 	mov	rem6, esi
 	mov	rem5, edi
 
-	mov	eax, pfac8
-	mov	edx, pfac7
-	add	ebx, ebx		; Multiply remainder by 2
-	adc	ecx, ecx
-	cmovnc	eax, pneg8
-	cmovnc	edx, pneg7
-	add	ebx, eax		; Sub or add factor so that
-	adc	ecx, edx		; |remainder| < factor
-	mov	rem8, ebx
-	mov	rem7, ecx
+	mov	rax, pfac8
+	mov	rdx, pfac7
+	add	rbx, rbx		; Multiply remainder by 2
+	adc	rcx, rcx
+	cmovnc	rax, pneg8
+	cmovnc	rdx, pneg7
+	add	rbx, rax		; Sub or add factor so that
+	adc	rcx, rdx		; |remainder| < factor
+	mov	rem8, rbx
+	mov	rem7, rcx
 	jmp	pqloop
 
 ;
@@ -4604,87 +2706,87 @@ pqexit:	fxch	st(4)
 	fcompp				; Pop two 1 / factor from FPU
 	fcompp				; Pop two 1 / factor from FPU
 
-	lea	eax, [esi*2-1]		; Compute LSW of remainder*2-1
-	cmp	eax, pfac2		; Is value equal to factor?
+	lea	rax, [esi*2-1]		; Compute LSW of remainder*2-1
+	cmp	rax, pfac2		; Is value equal to factor?
 	je	short pwin1		; Jump if it might be
-	cmp	eax, pneg2		; Is value equal to -factor?
+	cmp	rax, pneg2		; Is value equal to -factor?
 	jne	short pq2a		; No
-pwin1:	xor	eax, eax		; Set al to indicate pfac1/pfac2
+pwin1:	xor	rax, rax		; Set al to indicate pfac1/pfac2
 	call	pwin			; Go to found-a-factor code
-pq2a:	lea	eax, [ebx*2-1]		; Compute LSW of remainder*2-1
-	cmp	eax, pfac4		; Is value equal to factor?
+pq2a:	lea	rax, [rbx*2-1]		; Compute LSW of remainder*2-1
+	cmp	rax, pfac4		; Is value equal to factor?
 	je	short pwin2		; Jump if it might be
-	cmp	eax, pneg4		; Is value equal to -factor?
+	cmp	rax, pneg4		; Is value equal to -factor?
 	jne	short pq3a		; No
-pwin2:	mov	esi, ebx		; pwin expects remainder in edi/esi
-	mov	edi, ecx
+pwin2:	mov	esi, rbx		; pwin expects remainder in edi/esi
+	mov	edi, rcx
 	mov	al, 1			; Set al to indicate pfac3/pfac4
 	call	pwin			; Go to found-a-factor code
 
 pq3a:	mov	edi, rem5		; Load rem5
-	mov	eax, rem6		; Load rem6
-	imul	edi, eax		; Compute rem6 * rem5
-	mul	eax			; Compute rem6 * rem6
-	mov	esi, eax		; Save rem6 * rem6 low
-	lea	edi, [edi*2+edx]	; Add in 2 * rem6 * rem5
+	mov	rax, rem6		; Load rem6
+	imul	edi, rax		; Compute rem6 * rem5
+	mul	rax			; Compute rem6 * rem6
+	mov	esi, rax		; Save rem6 * rem6 low
+	lea	edi, [edi*2+rdx]	; Add in 2 * rem6 * rem5
 
-	mov	ecx, rem7		; Load rem7
-	mov	eax, rem8		; Load rem8
-	imul	ecx, eax		; Compute rem8 * rem7
-	mul	eax			; Compute rem8 * rem8
-	mov	ebx, eax		; Save rem8 * rem8 low
-	lea	ecx, [ecx*2+edx]	; Add in 2 * rem8 * rem7
+	mov	rcx, rem7		; Load rem7
+	mov	rax, rem8		; Load rem8
+	imul	rcx, rax		; Compute rem8 * rem7
+	mul	rax			; Compute rem8 * rem8
+	mov	rbx, rax		; Save rem8 * rem8 low
+	lea	rcx, [rcx*2+rdx]	; Add in 2 * rem8 * rem7
 
-	mov	eax, quotient6		; Compute quotient6 * fac6
+	mov	rax, quotient6		; Compute quotient6 * fac6
 	mul	pfac6
-	sub	esi, eax
-	sbb	edi, edx
-	mov	eax, quotient8		; Compute quotient8 * fac8
+	sub	esi, rax
+	sbb	edi, rdx
+	mov	rax, quotient8		; Compute quotient8 * fac8
 	mul	pfac8
-	sub	ebx, eax
-	sbb	ecx, edx
+	sub	rbx, rax
+	sbb	rcx, rdx
 
-	mov	eax, quotient5		; Compute quotient5 * fac6
-	mov	edx, quotient7		; Compute quotient7 * fac8
-	imul	eax, pfac6
-	imul	edx, pfac8
-	sub	edi, eax
-	sub	ecx, edx
+	mov	rax, quotient5		; Compute quotient5 * fac6
+	mov	rdx, quotient7		; Compute quotient7 * fac8
+	imul	rax, pfac6
+	imul	rdx, pfac8
+	sub	edi, rax
+	sub	rcx, rdx
 
-	mov	eax, quotient6		; Compute quotient6 * fac5
-	mov	edx, quotient8		; Compute quotient8 * fac7
-	imul	eax, pfac5
-	imul	edx, pfac7
-	sub	edi, eax
-	sub	ecx, edx
+	mov	rax, quotient6		; Compute quotient6 * fac5
+	mov	rdx, quotient8		; Compute quotient8 * fac7
+	imul	rax, pfac5
+	imul	rdx, pfac7
+	sub	edi, rax
+	sub	rcx, rdx
 
-	lea	eax, [esi*2-1]		; Compute LSW of remainder*2-1
-	cmp	eax, pfac6		; Is value equal to factor?
+	lea	rax, [esi*2-1]		; Compute LSW of remainder*2-1
+	cmp	rax, pfac6		; Is value equal to factor?
 	je	short pwin3		; Jump if it might be
-	cmp	eax, pneg6		; Is value equal to -factor?
+	cmp	rax, pneg6		; Is value equal to -factor?
 	jne	short pq4a		; No
 pwin3:	mov	al, 2			; Set al to indicate pfac5/pfac6
 	call	pwin			; Go to found-a-factor code
-pq4a:	lea	eax, [ebx*2-1]		; Compute LSW of remainder*2-1
-	cmp	eax, pfac8		; Is value equal to factor?
+pq4a:	lea	rax, [rbx*2-1]		; Compute LSW of remainder*2-1
+	cmp	rax, pfac8		; Is value equal to factor?
 	je	short pwin4		; Jump if it might be
-	cmp	eax, pneg8		; Is value equal to -factor?
+	cmp	rax, pneg8		; Is value equal to -factor?
 	jne	short pret		; No
-pwin4:	mov	esi, ebx		; pwin expects remainder in edi/esi
-	mov	edi, ecx
+pwin4:	mov	esi, rbx		; pwin expects remainder in edi/esi
+	mov	edi, rcx
 	mov	al, 3			; Set edi to indicate pfac7/pfac8
 	call	pwin			; Go to found-a-factor code
 
 ; No factors found, go search for more
 
-pret:	pop	eax			; Restore sieve testing registers
+pret:	pop	rax			; Restore sieve testing registers
 	pop	esi
 	sub	edi, edi		; Clear count of queued factors
 	jmp	px1			; Test next factor from sieve
 
 ; We probably found a factor, test it out more thoroughly
 
-pwin:	xor	edx, edx		; Zero extend al
+pwin:	xor	rdx, rdx		; Zero extend al
 	mov	dl, al
 	mov	rem2, esi		; Save remainder for FPU to load
 	mov	rem1, edi
@@ -4692,619 +2794,24 @@ pwin:	xor	edx, edx		; Zero extend al
 	fadd	st, st			; Double the remainder
 	fsub	ONE			; Subtract one
 	fabs				; Take the absolute value
-	fild	QWORD PTR pfac2[edx*8]	; Load the factor
+	fild	QWORD PTR pfac2[rdx*8]	; Load the factor
 	fcompp				; Compare remainder to factor
 	fstsw	ax			; Copy comparison results
-	and	eax, 4000h		; Isolate C3 bit
+	and	rax, 4000h		; Isolate C3 bit
 	jnz	short pfound		; Jump if equal
 	retn				; Not a factor, continue searching
 
 ; We found a factor, return it
 
 pfound:	fstp	temp			; Toss the value on the FPU stack
-	mov	eax, pfac1[edx*8]	; Copy factor to fixed memory address
-	mov	_FACMSW, eax
-	mov	eax, pfac2[edx*8]
-	mov	_FACLSW, eax
-	mov	eax, 1			; Factor found!!! Return TRUE
+	mov	rax, pfac1[rdx*8]	; Copy factor to fixed memory address
+	mov	_FACMSW, rax
+	mov	rax, pfac2[rdx*8]
+	mov	_FACLSW, rax
+	mov	rax, 1			; Factor found!!! Return TRUE
 	add	esp, 12			; Pop sieve testing registers
 					; and the pwin return address
 	jmp	done
-
-;***********************************************************************
-; For all machines - 80 bit factors
-; Not really optimized.  The bit check code is best on the Pentium Pro
-;***********************************************************************
-
-;
-; Check all the bits in the sieve looking for a factor to test
-;
-
-tlp80:	mov	esi, sieve
-	fild	QWORD PTR savefac1	; Load savefac0 and savefac1
-	fmul	TWO_TO_32
-	mov	eax, savefac2		; Copy savefac2 for loading as a QWORD
-	mov	faclow, eax
-	mov	facmid, 0
-	fild	QWORD PTR faclow	; Load savefac2
-zx0:	mov	eax, [esi]		; Load word from sieve
-	lea	esi, [esi+4]		; Bump sieve address
-zx1:	bsf	edx, eax		; Look for a set bit
-	jnz	short zestit		; Found one, go test the factor
-	fadd	facdist_flt     	; Add facdist * 32 to the factor
-	test	esi, sievesize		; End of sieve?
-	jz	short zx0		; Loop to test next sieve dword
-
-; Bump savefac value
-
-	mov	eax, savefac1		; Compute new savefac0 and savefac1
-	mov	edx, savefac0
-	fistp	QWORD PTR savefac2
-	add	eax, savefac1
-	adc	edx, 0
-	mov	savefac1, eax
-	mov	savefac0, edx
-	fstp	temp			; Pop trash
-
-; Check repetition counter
-
-	dec	reps
-	jnz	slp0
-
-; Return so caller can check for ESC
-
-	mov	_FACMSW, eax
-	mov	_FACHSW, edx
-	mov	eax, 2
-	jmp	done
-
-;
-; This is the version of testit for nearly 80-bit factors.
-;
-; NOT OPTIMIZED
-;
-; eax = sieve word - must be preserved or reloaded
-; edx = sieve bit being tested
-; esi = sieve address - must be preserved
-; st(1) = savefac0 and savefac1 of the first sieve bit
-; st(0) = savefac2 + accumulated facdist_flts
-;
-
-;
-; Compute the factor to test and 2^123 / factor
-;
-
-zestit:	fld	QWORD PTR facdistsflt[edx*8]
-	fadd	st, st(1)
-	fld	st(0)
-	fistp	QWORD PTR faclow	; Save lower bits of factor
-	fadd	st, st(2)		; We now have the factor to test
-	fld	TWO_TO_123
-	fdivrp	st(1), st		; quotient
-
-; The FDIV takes 39 clocks and only the last two can overlap
-; with other float instructions.  This gives us 37 clocks
-; to do something useful with the integer units.
-
-	btr	eax, edx		; Clear the sieve bit
-	push	eax			; Save registers
-	push	esi
-	mov	ebp, shifter		; Load shifter
-	mov	eax, savefac1		; Finish computing factor as an integer
-	mov	edx, savefac0
-	add	eax, facmid
-	adc	edx, 0
-	mov	facmid, eax
-	mov	fachigh, edx
-
-; Now precompute 2^123 mod factor
-
-	sub	ebx, ebx		; Compute remainder in ebx/ecx/esi
-	sub	ecx, ecx
-	sub	esi, esi
-	fld	st(0)
-	fistp	QWORD PTR quotient2	; Save the quotient
-	mov	eax, quotient2		; Subtract quotient * fac
-	mul	faclow
-	sub	esi, eax
-	sbb	ecx, edx
-	sbb	ebx, 0
-	mov	eax, quotient2
-	mul	facmid
-	sub	ecx, eax
-	sbb	ebx, edx
-	mov	eax, quotient2
-	mul	fachigh
-	sub	ebx, eax
-
-	mov	eax, quotient1
-	mul	faclow
-	sub	ecx, eax
-	sbb	ebx, edx
-	mov	eax, quotient1
-	mul	facmid
-	sub	ebx, eax
-
-jns short zzz2
-add esi, faclow
-adc ecx, facmid
-adc ebx, fachigh
-zzz2:
-
-	mov	two_to_123_modf_hi, ebx
-	mov	two_to_123_modf_mid, ecx
-	mov	two_to_123_modf_lo, esi
-
-; Now compute 2^64 / factor
-
-	fmul	TWO_TO_MINUS_59
-
-; Work on initval.
-; This is like the zqloop code except that we avoid the initial squaring.
-
-	fld	initval64		; Compute initval / factor
-	fmul	st, st(1)
-	fistp	QWORD PTR quotient2	; Save the quotient
-	mov	ebx, initval0
-	mov	ecx, initval1
-	sub	esi, esi
-
-; Subtract out quotient * factor
-
-	mov	eax, quotient2		; Subtract quotient * fac
-	mul	faclow
-	sub	esi, eax
-	sbb	ecx, edx
-	sbb	ebx, 0
-	mov	eax, quotient2
-	mul	facmid
-	sub	ecx, eax
-	sbb	ebx, edx
-	mov	eax, quotient2
-	mul	fachigh
-	sub	ebx, eax
-
-	mov	eax, quotient1
-	mul	faclow
-	sub	ecx, eax
-	sbb	ebx, edx
-	mov	eax, quotient1
-	mul	facmid
-	sub	ebx, eax
-
-jns short zzz1
-add esi, faclow
-adc ecx, facmid
-adc ebx, fachigh
-zzz1:
-
-; Square remainder (ebx, edi, esi) and get new remainder.
-; This code should handle factors up to 76 bits long.
-; In this code, remainder is in ebx, ecx, esi - these
-; registers also double as third, fourth, and fifth word of the
-; squared remainder.
-
-zqloop:	push	ebp
-	mov	ebp, ebx		; Compute upper 2 words of squared rem
-	imul	ebp, ebp		; remhi * remhi
-	lea	eax, [ebx+ebx]
-	mul	ecx			; 2 * remhi * remmid
-	mov	edi, eax
-	add	ebp, edx
-	lea	eax, [ebx+ebx]		; Compute third word of squared rem
-	mul	esi			; 2 * remhi * remlo
-	mov	ebx, eax
-	add	edi, edx
-	adc	ebp, 0
-	mov	eax, ecx		; remmid * remmid
-	mul	eax
-	add	ebx, eax
-	adc	edi, edx
-	adc	ebp, 0
-	shld	ebp, edi, 5		; Scale first word up by 5 bits
-	and	edi, 07FFFFFFh		; Mask off upper 5 bits of second word
-
-; Now compute the rest of the squared remainder and add in the scaled
-; upper word times 2^123 mod fac.  This gives us a 4 word result and
-; we can use the FPU to estimate the quotient properly.
-
-	mov	eax, two_to_123_modf_hi	; scaled first word * high(2^123 mod f)
-	mul	ebp
-	add	ebx, eax
-	adc	edi, edx
-
-; Now compute the rest of the squared remainder and add in the scaled
-; upper word times 2^123 mod fac.
-
-	mov	eax, esi		; Compute fourth word of squared rem
-	mul	ecx			; remlo * remmid
-	mov	ecx, eax
-	add	ebx, edx
-	adc	edi, 0
-	add	ecx, eax
-	adc	ebx, edx
-	adc	edi, 0
-	mov	eax, two_to_123_modf_mid; scaled first word * mid(2^123 mod f)
-	mul	ebp
-	add	ecx, eax
-	adc	ebx, edx
-	adc	edi, 0
-
-	mov	eax, esi		; Compute fifth word of squared rem
-	mul	eax
-	mov	esi, eax
-	add	ecx, edx
-	adc	ebx, 0
-	adc	edi, 0
-	mov	eax, two_to_123_modf_lo	; scaled first word * low(2^123 mod f)
-	mul	ebp
-	add	esi, eax
-	adc	ecx, edx
-	adc	ebx, 0
-	adc	edi, 0
-	pop	ebp
-
-; Now compute the remaining bits of the quotient
-
-	mov	rem2, ebx		; Write second and third words to
-	mov	rem1, edi		; memory so FPU can load it
-	fild	QWORD PTR rem2		; Load second and third words
-	fmul	st, st(1)		; Multiply by 1 / factor
-	fistp	QWORD PTR quotient2	; Save the quotient
-
-; Subtract out quotient * factor.
-
-	mov	eax, quotient2		; Subtract quotient * fac
-	mul	faclow
-	sub	esi, eax
-	sbb	ecx, edx
-	sbb	ebx, 0
-	mov	eax, quotient2
-	mul	facmid
-	sub	ecx, eax
-	sbb	ebx, edx
-	mov	eax, quotient2
-	mul	fachigh
-	sub	ebx, eax
-
-	mov	eax, quotient1
-	mul	faclow
-	sub	ecx, eax
-	sbb	ebx, edx
-	mov	eax, quotient1
-	mul	facmid
-	sub	ebx, eax
-
-jns short zzz
-add esi, faclow
-adc ecx, facmid
-adc ebx, fachigh
-zzz:
-
-;
-; Multiply by two if necessary, test for end of squaring loop
-;
-
-	add	ebp, ebp		; One squaring completed, shift
-	jnc	zqloop			; Is a mul by 2 needed?
-	jz	short zqexit		; Are we done squaring?
-	add	esi, esi		; Multiply remainder by 2
-	adc	ecx, ecx
-	adc	ebx, ebx
-	jmp	zqloop
-;
-; Multiply remainder by two one last time (for the last carry out of shifter)
-; If result = 1 mod factor, then we found a divisor of 2**p - 1
-;
-
-zqexit:	fstp	quotient2		; Pop 1 / factor from FPU
-	add	esi, esi		; Double the remainder
-	adc	ecx, ecx
-	adc	ebx, ebx
-	dec	esi			; See if remainder is factor + 1
-	sub	esi, faclow
-	jnz	short zloser
-	sbb	ecx, facmid
-	jnz	short zloser
-	sbb	ebx, fachigh
-	jz	short zwin
-zloser:	pop	esi			; Restore sieve testing register
-	pop	eax
-	jmp	zx1			; Test next factor from sieve
-zwin:	mov	eax, fachigh		; Factor found!!! Return it
-	mov	_FACHSW, eax
-	mov	eax, facmid
-	mov	_FACMSW, eax
-	mov	eax, faclow
-	mov	_FACLSW, eax
-	add	esp, 8			; pop sieve testing registers
-	mov	eax, 1			; return TRUE
-	jmp	done
-
-;***********************************************************************
-; For SSE2 machines only - factors up to 86 bits
-;***********************************************************************
-
-;
-; Check all the bits in the sieve looking for a factor to test
-;
-
-tlp74:	mov	esi, sieve
-	wait
-	sub	edi, edi		; Count of queued factors
-	fild	QWORD PTR savefac1	; Load savefac0 and savefac1
-	fmul	TWO_TO_32
-	mov	eax, savefac2		; Copy savefac2 for loading as a QWORD
-	mov	faclow, eax
-	mov	facmid, 0
-	fild	QWORD PTR faclow	; Load savefac2
-ax0:	mov	eax, [esi]		; Load word from sieve
-	lea	esi, [esi+4]		; Bump sieve address
-ax1:	bsf	edx, eax		; Look for a set bit
-	jnz	short aestit		; Found one, go test the factor
-	fadd	facdist_flt     	; Add facdist * 32 to the factor
-	test	esi, sievesize		; End of sieve?
-	jz	short ax0		; Loop to test next sieve dword
-
-; Bump savefac value
-
-	mov	eax, savefac1		; Compute new savefac0 and savefac1
-	mov	edx, savefac0
-	fistp	QWORD PTR savefac2
-	add	eax, savefac1
-	adc	edx, 0
-	mov	savefac1, eax
-	mov	savefac0, edx
-	fstp	temp			; Pop trash
-
-; Check repetition counter
-
-	dec	reps
-	jnz	slp0
-
-; Return so caller can check for ESC
-
-	mov	_FACMSW, eax
-	mov	_FACHSW, edx
-	mov	eax, 2
-	jmp	done
-
-;
-; This is the SSE2 version of testit for nearly 86-bit factors.
-;
-; eax = sieve word - must be preserved or reloaded
-; edx = sieve bit being tested
-; esi = sieve address - must be preserved
-; edi = count of queued factors
-; st(1) = savefac0 and savefac1 of the first sieve bit
-; st(0) = savefac2 + accumulated facdist_flts
-;
-
-;
-; Compute the factor to test and 63 most significant bits of 1 / factor
-;
-
-aestit:	fld	QWORD PTR facdistsflt[edx*8]
-	fadd	st, st(1)
-	fld	st(0)
-	fistp	QWORD PTR faclow	; Save lower bits of factor
-	fadd	st, st(2)		; We now have the factor to test
-	fld	TWO_TO_FACSIZE_PLUS_62	; Constant to generate 63 bit inverse
-	fdivrp	st(1), st
-	fistp	QWORD PTR XMM_INVFAC[edi*8]
-
-; Compute the factor in 30 bit chunks
-
-	mov	ebx, savefac1		; Finish computing factor as an integer
-	mov	ecx, savefac0
-	mov	ebp, faclow
-	add	ebx, facmid
-	adc	ecx, 0
-	shld	ecx, ebx, 4
-	shld	ebx, ebp, 2
-	and	ebp, 3FFFFFFFh
-	and	ebx, 3FFFFFFFh
-	mov	XMM_F3[edi*8], ebp
-	mov	XMM_F2[edi*8], ebx
-	mov	XMM_F1[edi*8], ecx
-
-; Compute factor + 1 for comparing against when loop is done
-
-	inc	ebp
-	shl	ebp, 2
-	adc	ebx, 0
-	shr	ebp, 2
-	shl	ebx, 2
-	adc	ecx, 0
-	shr	ebx, 2
-	mov	XMM_COMPARE_VAL3[edi*8], ebp
-	mov	XMM_COMPARE_VAL2[edi*8], ebx
-	mov	XMM_COMPARE_VAL1[edi*8], ecx
-
-; Do other initialization work
-
-	btr	eax, edx		; Clear the sieve bit
-	inc	edi			; Increment count of queued factors
-	cmp	edi, 2			; Test count of queued factors
-	jne	ax1			; Get another factor
-	sub	edi, edi		; Reset count of queued factors
-
-; Work on initval.
-; This is like the aqloop code except that we avoid the initial squaring.
-
-	sse2_fac_initval
-
-; Square remainder and get new remainder.
-
-	mov	ecx, SSE2_LOOP_COUNTER	; Number of times to loop
-aqloop:	sse2_fac 74
-	dec	ecx			; Decrement loop counter
-	jnz	aqloop
-
-;
-; If result = factor + 1, then we found a divisor of 2**p - 1
-;
-
-	pcmpeqd	xmm2, XMM_COMPARE_VAL3	; See if remainder is factor + 1
-	pcmpeqd	xmm1, XMM_COMPARE_VAL2
-	pcmpeqd	xmm0, XMM_COMPARE_VAL1
-	pand	xmm2, xmm1
-	pand	xmm2, xmm0
-	pmovmskb ecx, xmm2
-	cmp	cl, 0FFh		; See if we matched
-	je	short awin1		; Yes! Factor found
-	cmp	ch, 0FFh		; See if we matched
-	je	short awin2		; Yes! Factor found
-	jmp	ax1			; Test next factor from sieve
-awin1:	mov	eax, XMM_F3		; Factor found!!! Return it
-	mov	ebx, XMM_F2
-	mov	ecx, XMM_F1
-	jmp	short awin3
-awin2:	mov	eax, XMM_F3+8		; Factor found!!! Return it
-	mov	ebx, XMM_F2+8
-	mov	ecx, XMM_F1+8
-awin3:	shl	eax, 2
-	shrd	eax, ebx, 2
-	shl	ebx, 2
-	shrd	ebx, ecx, 4
-	shr	ecx, 4
-	mov	_FACLSW, eax
-	mov	_FACMSW, ebx
-	mov	_FACHSW, ecx
-	mov	eax, 1			; return TRUE
-	jmp	done
-
-;
-; Check all the bits in the sieve looking for a factor to test
-;
-
-tlp86:	mov	esi, sieve
-	wait
-	sub	edi, edi		; Count of queued factors
-	fild	QWORD PTR savefac1	; Load savefac0 and savefac1
-	fmul	TWO_TO_32
-	mov	eax, savefac2		; Copy savefac2 for loading as a QWORD
-	mov	faclow, eax
-	mov	facmid, 0
-	fild	QWORD PTR faclow	; Load savefac2
-bx0:	mov	eax, [esi]		; Load word from sieve
-	lea	esi, [esi+4]		; Bump sieve address
-bx1:	bsf	edx, eax		; Look for a set bit
-	jnz	short bestit		; Found one, go test the factor
-	fadd	facdist_flt     	; Add facdist * 32 to the factor
-	test	esi, sievesize		; End of sieve?
-	jz	short bx0		; Loop to test next sieve dword
-
-; Bump savefac value
-
-	mov	eax, savefac1		; Compute new savefac0 and savefac1
-	mov	edx, savefac0
-	fistp	QWORD PTR savefac2
-	add	eax, savefac1
-	adc	edx, 0
-	mov	savefac1, eax
-	mov	savefac0, edx
-	fstp	temp			; Pop trash
-
-; Check repetition counter
-
-	dec	reps
-	jnz	slp0
-
-; Return so caller can check for ESC
-
-	mov	_FACMSW, eax
-	mov	_FACHSW, edx
-	mov	eax, 2
-	jmp	done
-
-;
-; This is the SSE2 version of testit for nearly 86-bit factors.
-;
-; eax = sieve word - must be preserved or reloaded
-; edx = sieve bit being tested
-; esi = sieve address - must be preserved
-; edi = count of queued factors
-; st(1) = savefac0 and savefac1 of the first sieve bit
-; st(0) = savefac2 + accumulated facdist_flts
-;
-
-;
-; Compute the factor to test and 63 most significant bits of 1 / factor
-;
-
-bestit:	fld	QWORD PTR facdistsflt[edx*8]
-	fadd	st, st(1)
-	fld	st(0)
-	fistp	QWORD PTR faclow	; Save lower bits of factor
-	fadd	st, st(2)		; We now have the factor to test
-	fld	TWO_TO_FACSIZE_PLUS_62	; Constant to generate 63 bit inverse
-	fdivrp	st(1), st
-	fistp	QWORD PTR XMM_INVFAC[edi*8]
-
-; Compute the factor in 30 bit chunks
-
-	mov	ebx, savefac1		; Finish computing factor as an integer
-	mov	ecx, savefac0
-	mov	ebp, faclow
-	add	ebx, facmid
-	adc	ecx, 0
-	shld	ecx, ebx, 4
-	shld	ebx, ebp, 2
-	and	ebp, 3FFFFFFFh
-	and	ebx, 3FFFFFFFh
-	mov	XMM_F3[edi*8], ebp
-	mov	XMM_F2[edi*8], ebx
-	mov	XMM_F1[edi*8], ecx
-
-; Compute factor + 1 for comparing against when loop is done
-
-	inc	ebp
-	shl	ebp, 2
-	adc	ebx, 0
-	shr	ebp, 2
-	shl	ebx, 2
-	adc	ecx, 0
-	shr	ebx, 2
-	mov	XMM_COMPARE_VAL3[edi*8], ebp
-	mov	XMM_COMPARE_VAL2[edi*8], ebx
-	mov	XMM_COMPARE_VAL1[edi*8], ecx
-
-; Do other initialization work
-
-	btr	eax, edx		; Clear the sieve bit
-	inc	edi			; Increment count of queued factors
-	cmp	edi, 2			; Test count of queued factors
-	jne	bx1			; Get another factor
-	sub	edi, edi		; Reset count of queued factors
-
-; Work on initval.
-; This is like the aqloop code except that we avoid the initial squaring.
-
-	sse2_fac_initval
-
-; Square remainder and get new remainder.
-
-	mov	ecx, SSE2_LOOP_COUNTER	; Number of times to loop
-bqloop:	sse2_fac 86
-	dec	ecx			; Decrement loop counter
-	jnz	bqloop
-
-;
-; If result = factor + 1, then we found a divisor of 2**p - 1
-;
-
-	pcmpeqd	xmm2, XMM_COMPARE_VAL3	; See if remainder is factor + 1
-	pcmpeqd	xmm1, XMM_COMPARE_VAL2
-	pcmpeqd	xmm0, XMM_COMPARE_VAL1
-	pand	xmm2, xmm1
-	pand	xmm2, xmm0
-	pmovmskb ecx, xmm2
-	cmp	cl, 0FFh		; See if we matched
-	je	awin1			; Yes! Factor found
-	cmp	ch, 0FFh		; See if we matched
-	je	awin2			; Yes! Factor found
-	jmp	bx1			; Test next factor from sieve
 
 _factor64 ENDP
 

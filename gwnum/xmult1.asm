@@ -22,15 +22,15 @@ IFNDEF X86_64
 	.MODEL	FLAT
 ENDIF
 
-_TEXT SEGMENT
-
-INCLUDE extrn.mac
 INCLUDE	unravel.mac
+INCLUDE extrn.mac
 INCLUDE xfft1.mac
 INCLUDE	xlucas.mac
 INCLUDE xmult.mac
 
 ;; All the FFT routines for each FFT length
+
+_TEXT SEGMENT
 
 _gw_xffts1 PROC
 	EXPANDING = 1

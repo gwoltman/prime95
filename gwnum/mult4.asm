@@ -19,10 +19,8 @@
 	.XMM
 	.MODEL	FLAT
 
-_TEXT SEGMENT
-
-INCLUDE extrn.mac
 INCLUDE	unravel.mac
+INCLUDE extrn.mac
 INCLUDE	lucas.mac
 INCLUDE pfa.mac
 INCLUDE mult.mac
@@ -41,6 +39,8 @@ EXTRN gw_finish_mult:PROC
 
 EXTRNP	pass2_12_levels
 EXTRNP	pass2_12_levels_p
+
+_TEXT SEGMENT
 
 	flat_distances
 

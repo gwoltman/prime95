@@ -9,10 +9,10 @@
 # and rebuilding libbfd.so .
 
 CC = gcc
-CFLAGS = -I.. -O2 -march=i486 -malign-double
+CFLAGS = -I.. -O2 -march=i486 -malign-double -DSTPCHK
 
-#CFLAGS for Pentium (I don't know who recommended these settings)
-#CFLAGS = -I.. -O2 -malign-double -malign-loops=2 -malign-jumps=2 -malign-functions=2
+CPP = g++
+CPPFLAGS = -I.. -I../qd -O2 -march=i486 -malign-double -DSTPCHK
 
 LFLAGS = -Wl,-M
 LIBS   = -lm
@@ -22,6 +22,7 @@ COFFOBJS = mult.o mult1.o mult2.o mult2a.o mult3.o mult3a.o mult4.o mult2p.o mul
 FACTOROBJ = factor64.o
 DUMMYOBJS = dummy0.o dummy4.o dummy8.o dummy12.o dummy16.o dummy20.o dummy24.o dummy28.o dummyt0.o dummyt4.o dummyt8.o dummyt12.o dummyt16.o dummyt20.o dummyt24.o dummyt28.o
 LINUXOBJS = prime.o menu.o
+COMMONOBJS = cpuid.o gwnum.o gwutil.o gwdbldbl.o
 EXE      = mprime
 EXE2	 = sprime
 
@@ -36,11 +37,11 @@ DUMMY4   = dummyt12.o
 
 #########################################################################
 
-$(EXE): security $(LINUXOBJS) $(COFFOBJS) $(FACTOROBJ) $(DUMMYOBJS)
-	$(CC) $(LFLAGS) -o $(EXE) $(LINUXOBJS) $(DUMMY1) $(COFFOBJS) $(DUMMY2) $(FACTOROBJ) $(LIBS)
+$(EXE): security $(LINUXOBJS) $(COMMONOBJS) $(COFFOBJS) $(FACTOROBJ) $(DUMMYOBJS)
+	$(CC) $(LFLAGS) -o $(EXE) $(LINUXOBJS) $(COMMONOBJS) $(DUMMY1) $(COFFOBJS) $(DUMMY2) $(FACTOROBJ) $(LIBS)
 
-$(EXE2): security $(LINUXOBJS) $(COFFOBJS) $(FACTOROBJ) $(DUMMYOBJS)
-	$(CC) $(LFLAGS) -o $(EXE2) $(LINUXOBJS) $(DUMMY3) $(COFFOBJS) $(DUMMY4) $(FACTOROBJ) $(LIBS2)
+$(EXE2): security $(LINUXOBJS) $(COMMONOBJS) $(COFFOBJS) $(FACTOROBJ) $(DUMMYOBJS)
+	$(CC) $(LFLAGS) -o $(EXE2) $(LINUXOBJS) $(COMMONOBJS) $(DUMMY3) $(COFFOBJS) $(DUMMY4) $(FACTOROBJ) $(LIBS2)
 
 security:
 	[ ! -e ../security.h ] && touch ../security.h || true
@@ -54,3 +55,6 @@ $(COFFOBJS) $(FACTOROBJ) $(DUMMYOBJS): %.o : %.obj
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<
+
+.cpp.o:
+	$(CPP) $(CPPFLAGS) -c $<

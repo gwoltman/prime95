@@ -13,6 +13,8 @@ IFNDEF X86_64
 	.MODEL	FLAT
 ENDIF
 
+INCLUDE unravel.mac
+
 _TEXT SEGMENT
 
 EXTRN	_CPUID_EAX:DWORD
@@ -26,7 +28,9 @@ EXTRN	_CPUID_EDX:DWORD
 
 	PUBLIC	_fpu_init
 _fpu_init PROC
+IFNDEF X86_64
 	fninit
+ENDIF
 	ret
 _fpu_init ENDP
 
@@ -48,6 +52,7 @@ _erdtsc ENDP
 ; Returns non-zero if CPUID is supported
 ;
 
+IFNDEF	X86_64
 	PUBLIC	_ecpuidsupport
 _ecpuidsupport PROC
         pushfd				; Get original EFLAGS
@@ -61,6 +66,7 @@ _ecpuidsupport PROC
         xor     eax, ecx		; Test toggled ID bit
 	ret				; Processor supports CPUID if eax != 0
 _ecpuidsupport ENDP
+ENDIF
 
 ;
 ; Utility routine to execute CPUID
@@ -68,14 +74,14 @@ _ecpuidsupport ENDP
 
 	PUBLIC	_ecpuid
 _ecpuid PROC
-	push	ebx
+	push	rbx
 	mov	eax, _CPUID_EAX		; Argument to CPUID
 	cpuid				; Perform the CPUID
 	mov	_CPUID_EAX, eax		; Return the results
 	mov	_CPUID_EBX, ebx		; Return the results
 	mov	_CPUID_ECX, ecx		; Return the results
 	mov	_CPUID_EDX, edx		; Return the results
-	pop	ebx
+	pop	rbx
 	ret
 _ecpuid ENDP
 

@@ -1,15 +1,37 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2004 Just For Fun Software, Inc., all rights reserved
+| Copyright 1995-2005 Just For Fun Software, Inc., all rights reserved
 | Author:  George Woltman
 | Email: woltman@alum.mit.edu
 |
 | This file contains routines to determine the CPU type and speed.
+| Plus, as a bonus, you get 3 routines to portably access the high
+| resolution timer!
 +---------------------------------------------------------------------*/
+
+#ifndef _CPUID_H
+#define _CPUID_H
+
+/* This is a C library.  If used in a C++ program, don't let the C++ */
+/* compiler mangle names. */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* Include common definitions */
+
+#include "common.h"
 
 /* Routines that the user should call */
 
 void guessCpuType (void);
 void guessCpuSpeed (void);
+
+/* Routines to access the high resolution timer */
+
+int isHighResTimerAvailable (void);
+double getHighResTimer (void);
+double getHighResTimerFrequency (void);
 
 /* Handle the difference between the naming conventions in */
 /* C compilers.  We need to to this for global variables that are */
@@ -39,7 +61,7 @@ extern double CPU_SPEED;		/* Actual CPU Speed in MHz */
 #define CPU_SSE		0x0008
 #define CPU_SSE2	0x0010
 #define CPU_MMX		0x0020
-EXTERNC unsigned int CPU_FLAGS;		/* Cpu capabilities */
+extern unsigned int CPU_FLAGS;		/* Cpu capabilities */
 extern int CPU_L1_CACHE_SIZE;
 extern int CPU_L2_CACHE_SIZE;
 extern int CPU_L1_CACHE_LINE_SIZE;
@@ -49,20 +71,25 @@ extern int CPU_L2_DATA_TLBS;
 
 /* Internal global variables */
 
-EXTERNC unsigned long CPUID_EAX;	/* For communicating to asm routines */
-EXTERNC unsigned long CPUID_EBX;
-EXTERNC unsigned long CPUID_ECX;
-EXTERNC unsigned long CPUID_EDX;
+extern unsigned long CPUID_EAX;	/* For communicating to asm routines */
+extern unsigned long CPUID_EBX;
+extern unsigned long CPUID_ECX;
+extern unsigned long CPUID_EDX;
 
 /* Internal assembly routines */
 
-EXTERNC void fpu_init (void);
-EXTERNC unsigned long ecpuidsupport (void);
-EXTERNC void ecpuid (void);
+void fpu_init (void);
+unsigned long ecpuidsupport (void);
+void ecpuid (void);
 #define isCpuidSupported()	ecpuidsupport ()
 #define Cpuid(a)		{ CPUID_EAX = a; ecpuid (); }
 
 /* Routine used to time code chunks */
 #define rdtsc(hi,lo)	erdtsc(),*(hi)=CPUID_EDX,*(lo)=CPUID_EAX
-EXTERNC void erdtsc(void);
+void erdtsc(void);
 
+#ifdef __cplusplus
+}
+#endif
+
+#endif

@@ -10,12 +10,24 @@
  *	    20 Apr 97  RDW
  *
  *	c. 1997 Perfectly Scientific, Inc.
+ *	c. 1998-2005 Just For Fun Software, Inc.
  *	All Rights Reserved.
  *
  **************************************************************/
 
 #ifndef _GIANTS_H_
 #define _GIANTS_H_
+
+/* This is a C library.  If used in a C++ program, don't let the C++ */
+/* compiler mangle names. */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* Include common definitions */
+
+#include "common.h"
 
 /**************************************************************
  *
@@ -46,10 +58,8 @@ typedef struct
 typedef giantstruct *giant;
 
 #ifdef GDEBUG
-#define ASSERTG		ASSERT
 #define setmaxsize(g,s)	(g)->maxsize = s
 #else
-#define ASSERTG(a)
 #define setmaxsize(g,s)
 #endif
 
@@ -196,5 +206,28 @@ void	divg_via_recip(giant d, giant r, giant n);
 /* stack handling functions */
 giant	popg(int);	/* Number of longs in data area */
 void	pushg(int);	/* Number of items to return to stack */
+
+
+/* Low-level math routines the caller can use for multi-precision */
+/* arithmetic */
+
+extern unsigned long CARRYH;	/* For multi-precision asm routines */
+extern unsigned long CARRYL;
+extern unsigned long RES;
+
+extern void eaddhlp (void);
+extern void esubhlp (void);
+extern void emuladdhlp (void);
+extern void emuladd2hlp (void);
+extern void emulsubhlp (void);
+#define addhlp(a)	NUMARG=(long)(a), eaddhlp()
+#define subhlp(a)	NUMARG=(long)(a), esubhlp()
+#define muladdhlp(a,b)	{NUMARG=(long)(a); NUM2ARG=(long)(b); emuladdhlp();}
+#define muladd2hlp(a,b)	{NUMARG=(long)(a); NUM2ARG=(long)(b); emuladd2hlp();}
+#define mulsubhlp(a,b)	{NUMARG=(long)(a); NUM2ARG=(long)(b); emulsubhlp();}
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

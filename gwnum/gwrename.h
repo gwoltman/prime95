@@ -1,6 +1,16 @@
-/* Handle the difference between the naming conventions in */
-/* C compilers.  We need to do this for global variables that are */
-/* referenced by the assembly routines. */
+/*----------------------------------------------------------------------
+| gwrename.h
+|
+| Handle the difference between the naming conventions in
+| C compilers.  We need to do this for global variables that are
+| referenced by the assembly routines.
+| 
+|  Copyright 2004-2005 Just For Fun Software, Inc.
+|  All Rights Reserved.
++---------------------------------------------------------------------*/
+
+#ifndef _GWRENAME_H
+#define _GWRENAME_H
 
 #define ERRCHK		_ERRCHK
 #define MAXERR		_MAXERR
@@ -26,8 +36,6 @@
 #define GWPROCPTRS	_GWPROCPTRS
 
 #define NORMRTN		_NORMRTN
-#define NUMLIT		_NUMLIT
-#define NUMBIG		_NUMBIG
 #define BITS_PER_WORD	_BITS_PER_WORD
 #define ADDIN_ROW	_ADDIN_ROW
 #define ADDIN_OFFSET	_ADDIN_OFFSET
@@ -35,6 +43,7 @@
 #define BIGLIT_INCR2	_BIGLIT_INCR2
 #define BIGLIT_INCR4	_BIGLIT_INCR4
 #define COPYZERO	_COPYZERO
+#define ASM_TIMERS	_ASM_TIMERS
 #define POSTFFT		_POSTFFT
 
 #define TOP_CARRY_NEEDS_ADJUSTING _TOP_CARRY_NEEDS_ADJUSTING
@@ -100,15 +109,7 @@
 /* Handle the difference in the way the two C compilers name routines */
 
 #define gwinfo1		_gwinfo1
-#define gwsetup1	_gwsetup1
 #define gwsetup2	_gwsetup2
-#define eisvaliddouble	_eisvaliddouble
-#define efft_base	_efft_base
-#define efft_weight	_efft_weight
-#define efft_weight_inverse _efft_weight_inverse
-#define efft_weight_inverse_over_fftlen _efft_weight_inverse_over_fftlen
-#define esincos		_esincos
-#define esincos3	_esincos3
 #define eset_mul_const	_eset_mul_const
 #define timeit		_timeit
 
@@ -119,3 +120,4 @@
 #define emuladd2hlp	_emuladd2hlp
 #define egcdhlp		_egcdhlp
 
+#endif

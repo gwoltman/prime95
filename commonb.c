@@ -162,62 +162,27 @@ void makestr (
 	while (buf[0] == '0') strcpy (buf, buf+1);
 }
 
-/* Generate the 64-bit residue of a Lucas-Lehmer test */
+/* Generate the 64-bit residue of a Lucas-Lehmer test.  Returns -1 for an */
+/* illegal result, 0 for a zero result, 1 for a non-zero result. */
 
-void generateResidue64 (
+int generateResidue64 (
 	unsigned long units_bit,
 	unsigned long *reshi,
 	unsigned long *reslo)
 {
-	unsigned long i, word, bit_in_word, high32, low32;
-	long	val;
-	int	j, bits, bitsout, carry;
+	giant	tmp;
+	int	err_code;
 
-/* Find out where the least significant bit is */
-
-	bitaddr (units_bit, &word, &bit_in_word);
-
-/* Check for a carry out of the previous word */
-
-	for (i = word; ; ) {
-		if (i == 0) i = FFTLEN;
-		i--;
-		get_fft_value (LLDATA, i, &val);
-		if (val != 0 || i == word) {
-			carry = (val >= 0) ? 0 : -1;
-			break;
-		}
-	}
-
-/* Collect bits until we have 64 of them */
-
-	high32 = low32 = 0;
-	bitsout = 0;
-	for (i = word; bitsout < 64; i = (i + 1) % FFTLEN) {
-		get_fft_value (LLDATA, i, &val);
-		val += carry;
-		bits = (int) BITS_PER_WORD;
-		if (is_big_word (i)) bits++;
-		if (bit_in_word) {
-			val >>= bit_in_word;
-			bits -= (int) bit_in_word;
-			bit_in_word = 0;
-		}
-		for (j = 0; j < bits && bitsout < 64; j++) {
-			low32 >>= 1;
-			if (high32 & 1) low32 += 0x80000000;
-			high32 >>= 1;
-			if (val & 1) high32 += 0x80000000;
-			val >>= 1;
-			bitsout++;
-		}
-		carry = (int) val;
-	}
-
-/* Return the result */
-
-	*reshi = high32;
-	*reslo = low32;
+	*reshi = *reslo = 0;
+	tmp = popg ((PARG >> 5) + 5);
+	err_code = gwtogiant (LLDATA, tmp);
+	if (err_code < 0) return (err_code);
+	if (tmp->sign == 0) return (0);
+	gshiftright (units_bit, tmp);
+	if (tmp->sign > 0) *reslo = tmp->n[0];
+	if (tmp->sign > 1) *reshi = tmp->n[1];
+	pushg (1);
+	return (1);
 }
 
 /* Return TRUE if a continuation file exists.  If one does exist, */
@@ -716,6 +681,7 @@ void OutputNum (
 	OutputStr (buf);
 }
 
+EXTERNC
 int stopCheck (void)
 {
 static	int	time_counter = 0;
@@ -1740,7 +1706,7 @@ int prime (
 	int	priority_work = 0;
 	int	escaped, saving, near_fft_limit, sleep5;
 	unsigned long i, high32, low32;
-	int	isPrime, rc;
+	int	rc, isPrime;
 	char	buf[160];
 	time_t	start_time, current_time;
 	unsigned long interimFiles, interimResidues, throttle;
@@ -2163,30 +2129,21 @@ _close (fd);
 /* We found a prime if result is zero */
 /* Note that all values of -1 is the same as zero */
 
-	for (i = 0, isPrime = 1; isPrime && i < FFTLEN; i++) {
-		long	val;
-		if (! is_valid_fft_value (LLDATA, i)) {
-			sprintf (buf, ERRMSG0, counter, p, ERRMSG1E);
-			OutputBoth (buf);
-			inc_error_count (2, &error_count);
-			sleep5 = TRUE;
-			goto restart;
-		}
-		get_fft_value (LLDATA, i, &val);
-		if (isPrime <= 2 && val == 0)
-			isPrime = 2;
-		else if ((isPrime & 1) && val == -1)
-			isPrime = 3;
-		else
-			isPrime = FALSE;
+	rc = generateResidue64 (units_bit, &high32, &low32);
+	if (rc < 0) {
+		sprintf (buf, ERRMSG0, counter, p, ERRMSG1E);
+		OutputBoth (buf);
+		inc_error_count (2, &error_count);
+		sleep5 = TRUE;
+		goto restart;
 	}
+	isPrime = (rc == 0);
 
 /* Format the output message */
 
 	if (isPrime) {
 		sprintf (buf, "M%ld is prime! Wa%d: %08lX,%08lX\n",
 			 p, PORT, SEC1 (p), error_count);
-		high32 = low32 = 0;
 	} else {
 		generateResidue64 (units_bit, &high32, &low32);
 		sprintf (buf,

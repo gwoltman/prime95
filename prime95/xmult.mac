@@ -1,4 +1,4 @@
-; Copyright 2001-2004 - Just For Fun Software, Inc., all rights reserved
+; Copyright 2001-2005 - Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -40,13 +40,13 @@ xfftclm	MACRO fft_length, clm
 type1	MACRO fft_length, suffix, clm
 	PUBLIC	xfft&fft_length&clm&suffix
 xfft&fft_length&clm&suffix:
-	push	ebp
-	push	ebx
-	push	edi
-	push	esi
-	mov	esi, _DESTARG
-	mov	ebx, _SRCARG
-	sub	ebx, esi
+	push	rbp
+	push	rbx
+	push	rdi
+	push	rsi
+	mov	rsi, _DESTARG
+	mov	rbx, _SRCARG
+	sub	rbx, rsi
 	IF EXPANDING GE 2
 	mov	ffttype, 1
 	jmp	xfft2a&fft_length&clm
@@ -63,12 +63,12 @@ xfft&fft_length&clm&suffix:
 type2	MACRO fft_length, suffix, clm
 	PUBLIC	xfft&fft_length&clm&suffix
 xfft&fft_length&clm&suffix:
-	push	ebp
-	push	ebx
-	push	edi
-	push	esi
-	mov	esi, _DESTARG
-	sub	ebx, ebx
+	push	rbp
+	push	rbx
+	push	rdi
+	push	rsi
+	mov	rsi, _DESTARG
+	sub	rbx, rbx
 	IF EXPANDING GE 2
 	mov	ffttype, 2
 xfft2a&fft_length&clm:
@@ -91,12 +91,12 @@ xfft2a&fft_length&clm:
 type3	MACRO fft_length, suffix, clm
 	PUBLIC	xfft&fft_length&clm&suffix
 xfft&fft_length&clm&suffix:
-	push	ebp
-	push	ebx
-	push	edi
-	push	esi
-	mov	esi, _DESTARG
-	sub	ebx, ebx
+	push	rbp
+	push	rbx
+	push	rdi
+	push	rsi
+	mov	rsi, _DESTARG
+	sub	rbx, rbx
 	IF EXPANDING GE 2
 	mov	ffttype, 3
 	jmp	xfft2a&fft_length&clm
@@ -114,13 +114,13 @@ xfft&fft_length&clm&suffix:
 type4	MACRO fft_length, suffix, clm
 	PUBLIC	xfft&fft_length&clm&suffix
 xfft&fft_length&clm&suffix:
-	push	ebp
-	push	ebx
-	push	edi
-	push	esi
-	mov	esi, _DESTARG
-	mov	ebx, _SRC2ARG
-	sub	ebx, esi
+	push	rbp
+	push	rbx
+	push	rdi
+	push	rsi
+	mov	rsi, _DESTARG
+	mov	rbx, _SRC2ARG
+	sub	rbx, rsi
 	IF EXPANDING GE 2
 	mov	ffttype, 4
 	jmp	xfft2a&fft_length&clm
@@ -132,10 +132,10 @@ xfft&fft_length&clm&suffix:
 ; Return from a type 1 FFT - return to caller
 
 xfft_1_ret MACRO
-	pop	esi			;; Pop values and return
-	pop	edi
-	pop	ebx
-	pop	ebp
+	pop	rsi			;; Pop values and return
+	pop	rdi
+	pop	rbx
+	pop	rbp
 	ret
 	ENDM
 
@@ -143,8 +143,8 @@ xfft_1_ret MACRO
 ; used in one-pass FFTs only.
 
 xfft_3_ret MACRO
-	mov	eax, _NORMRTN
-	jmp	eax
+	mov	rax, _NORMRTN
+	jmp	rax
 	ENDM
 
 ;;

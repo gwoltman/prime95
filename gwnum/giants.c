@@ -16,11 +16,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <string.h>
-#include <gwutil.h>
 #include <math.h>
 #include "giants.h"
+#include "gwnum.h"
 #include "fftsg.c"
+#include "gwutil.h"
 
 /**************************************************************
  *
@@ -121,15 +123,19 @@ void		punch (giant, gmatrix);
 int		hgcd (int, giant *, giant *, gmatrix, int);
 int		rhgcd (giant *, giant *, gmatrix, int);
 
-EXTERNC unsigned long EGCD_A=0;	/* Returned by assembly GCD helper */
-EXTERNC unsigned long EGCD_B=0;
-EXTERNC unsigned long EGCD_C=0;
-EXTERNC unsigned long EGCD_D=0;
-EXTERNC unsigned long EGCD_ODD=0;
+unsigned long EGCD_A=0;	/* Returned by assembly GCD helper */
+unsigned long EGCD_B=0;
+unsigned long EGCD_C=0;
+unsigned long EGCD_D=0;
+unsigned long EGCD_ODD=0;
+
+unsigned long CARRYH=0;	/* For multi-precision asm routines */
+unsigned long CARRYL=0;
+unsigned long RES=0;
 
 /* Internal routines */
 
-EXTERNC int egcdhlp (void);
+int egcdhlp (void);
 
 
 /**************************************************************

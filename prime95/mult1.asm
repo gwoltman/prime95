@@ -23,8 +23,8 @@
 
 _TEXT SEGMENT
 
-INCLUDE extrn.mac
 INCLUDE	unravel.mac
+INCLUDE extrn.mac
 INCLUDE	lucas.mac
 INCLUDE pfa.mac
 INCLUDE mult.mac

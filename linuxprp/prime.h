@@ -1,7 +1,6 @@
 /* Handy definitions */
 
-#define FALSE	0
-#define TRUE	1
+#include "common.h"
 
 /* This controls whether we want to pause computation if the load average */
 /* becomes too great.  This does not apply to OS/2. */
@@ -44,7 +43,6 @@
 
 #include <time.h>
 /*#define SERVER_TESTING*/
-#define EXTERNC
 extern int NO_GUI;
 #include "cpuid.h"
 #include "giants.h"

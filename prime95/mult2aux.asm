@@ -9,13 +9,13 @@
 	.XMM
 	.MODEL	FLAT
 
-_TEXT SEGMENT
-
-INCLUDE extrn.mac
 INCLUDE	unravel.mac
+INCLUDE extrn.mac
 INCLUDE mult.mac
 INCLUDE memory.mac
 INCLUDE normal.mac
+
+_TEXT SEGMENT
 
 	flat_distances
 

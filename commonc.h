@@ -1,6 +1,6 @@
 /* Constants */
 
-#define VERSION		"24.6"
+#define VERSION		"24.9"
 #define VERSION_BIT	14      	/* Bit number in broadcast map */
 /* The list of assigned version bits follows: */
 /* Version 24.0    uses bit #14 */
@@ -177,7 +177,9 @@ void spoolMessage (short, void *);
 void readMessage (int, long *, short *, void *);
 int sendMessage (short, void *);
 void spoolExistingResultsFile (void);
-void OutputBoth (char *);
+//Defined in common.h so that gwnum library can "cheat" while debugging and
+//call this routine that it really should not have access to
+//EXTERNC void OutputBoth (char *);
 void OutputSomewhere (char *);
 void LogMsg (char *);
 
@@ -237,9 +239,6 @@ void unreserve (unsigned long);
 int LoadPrimeNet (void);
 void UnloadPrimeNet (void);
 int PRIMENET (short, void *);
-int isHighResTimerAvailable (void);
-double getHighResTimer (void);
-double getHighResTimerFrequency (void);
 void OutputStr (char *);
 unsigned long physical_memory (void);
 unsigned long num_cpus (void);

@@ -1,7 +1,19 @@
 /*----------------------------------------------------------------------
+| gwutil.c
+|
 | This file contains various utility routines that may be used by gwnum
 | routines, prime95, or PRP.
+| 
+|  Copyright 2004-2005 Just For Fun Software, Inc.
+|  All Rights Reserved.
 +---------------------------------------------------------------------*/
+
+/* Include files */
+
+#include <stdlib.h>
+#include <malloc.h>
+#include "gwutil.h"
+
 
 /* Aligned malloc routines.  MSVC 8 supports these in the C runtime library. */
 /* Emulate these routines for other ports. */
@@ -38,7 +50,7 @@ void aligned_free (
 	void	*ptr)
 {
 #ifdef _WIN64
-	_aligned_free (size, alignment));
+	_aligned_free (ptr);
 #else
 	if (ptr == NULL) return;
 	free (* (void **) ((char *) ptr - sizeof (void *)));

@@ -17,20 +17,20 @@ IFNDEF X86_64
 	.MODEL	FLAT
 ENDIF
 
-_TEXT SEGMENT
-
-INCLUDE extrn.mac
 INCLUDE	unravel.mac
+INCLUDE extrn.mac
 INCLUDE xmult.mac
 INCLUDE	xlucas.mac
 INCLUDE xpass2.mac
-
-PREFETCHING = 1
 
 ;; Routines to do the last 8 levels in a two-pass FFT
 
 PUBLIC	xpass2_8_levels
 PUBLIC	xpass2_8_levels_p
+
+_TEXT SEGMENT
+
+PREFETCHING = 1
 
 ;; Distance between two pass 2 data blocks.  Pass 2 does 8 FFT levels
 ;; 2 sets of data (2 * 2^8 complex values = 2^10 doubles = 8KB).
@@ -44,11 +44,11 @@ xpass2_8_levels PROC
 	xpass2_8_levels_real blkdst
 xpass2_8_levels_p:
 	mov	ecx, count1		; Number of complex iterations
-	mov	edx, pass2_premults	; Address of the group multipliers
+	mov	rdx, pass2_premults	; Address of the group multipliers
 p2lp:	xpass2_8_levels_complex blkdst
 	sub	ecx, 1
 	jnz	p2lp
-	mov	esi, _DESTARG		; Restore source pointer
+	mov	rsi, _DESTARG		; Restore source pointer
 	ret
 xpass2_8_levels ENDP
 

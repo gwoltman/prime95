@@ -12,7 +12,7 @@
 #include "resource.h"       // main symbols
 //#define SERVER_TESTING
 #define NO_GUI		0
-#define EXTERNC		extern "C"
+#include "common.h"
 #include "cpuid.h"
 #include "gwnum.h"
 #include "commona.h"

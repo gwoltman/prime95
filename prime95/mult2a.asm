@@ -11,10 +11,8 @@
 	.XMM
 	.MODEL	FLAT
 
-_TEXT SEGMENT
-
-INCLUDE extrn.mac
 INCLUDE	unravel.mac
+INCLUDE extrn.mac
 INCLUDE	lucas.mac
 INCLUDE mult.mac
 INCLUDE pass2.mac
@@ -23,6 +21,8 @@ INCLUDE memory.mac
 IFDEF PPRO
 INCLUDE	lucasp.mac
 ENDIF
+
+_TEXT SEGMENT
 
 	flat_distances
 

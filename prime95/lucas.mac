@@ -34,7 +34,6 @@ dispc1	MACRO mac, d1, d2, d4, c
 ; Take macro name and eight distance values and call that
 ; macro with all eight addresses.
 
-Q	EQU	<QWORD PTR>
 dispi	MACRO mac, d1, d2, d3, d4, d5, d6, d7, d8
 	mac	<Q[esi+d1]>,<Q[esi+d2]>,<Q[esi+d3]>,<Q[esi+d4]>,<Q[esi+d5]>,<Q[esi+d6]>,<Q[esi+d7]>,<Q[esi+d8]>
 	ENDM

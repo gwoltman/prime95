@@ -5,7 +5,9 @@
 | common #defines and common routine definitions.
 +---------------------------------------------------------------------*/
 
-char JUNK[]="Copyright 1996-2004 Just For Fun Software, All rights reserved";
+#include "gwnum.h"
+
+char JUNK[]="Copyright 1996-2005 Just For Fun Software, All rights reserved";
 char	INI_FILE[80] = {0};
 char	RESFILE[80] = {0};
 char	LOGFILE[80] = {0};
@@ -1289,7 +1291,7 @@ gwtogiant (x, t1);
 /* intermediate file (either user-requested stop or a */
 /* 30 minute interval expired), and every 128th iteration. */
 
-		stopping = stopCheck ();
+		stopping = escapeCheck ();
 		echk = stopping || ERRCHK || bit <= 50 || bit >= Nlen-50;
 		if ((bit & 127) == 0) {
 			echk = 1;

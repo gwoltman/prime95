@@ -17,37 +17,37 @@ IFNDEF X86_64
 	.MODEL	FLAT
 ENDIF
 
-_TEXT SEGMENT
-
-INCLUDE extrn.mac
 INCLUDE	unravel.mac
+INCLUDE extrn.mac
 INCLUDE xmult.mac
 INCLUDE	xlucas.mac
 INCLUDE xpass2.mac
-
-PREFETCHING = 1
 
 ;; Routines to do the last 11 levels in a two-pass FFT
 
 PUBLIC	xpass2_11_levels
 PUBLIC	xpass2_11_levels_p
 
+_TEXT SEGMENT
+
+PREFETCHING = 1
+
 ;; Do the last 11 levels of a two pass FFT
 
 xpass2_11_levels PROC
 	start_timer 2
 	xpass2_11_levels_real 0
-	add	esi, pass1blkdst
+	add	rsi, pass1blkdst
 	end_timer 2
 xpass2_11_levels_p:
 	start_timer 3
 	mov	ecx, count1		; Number of complex iterations
-	mov	edx, pass2_premults	; Address of the group multipliers
+	mov	rdx, pass2_premults	; Address of the group multipliers
 p2lp:	xpass2_11_levels_complex 0
-	add	esi, pass1blkdst
+	add	rsi, pass1blkdst
 	sub	ecx, 1
 	jnz	p2lp
-	mov	esi, _DESTARG		; Restore source pointer
+	mov	rsi, _DESTARG		; Restore source pointer
 	end_timer 3
 	ret
 xpass2_11_levels ENDP

@@ -20,10 +20,8 @@
 	.XMM
 	.MODEL	FLAT
 
-_TEXT SEGMENT
-
-INCLUDE extrn.mac
 INCLUDE	unravel.mac
+INCLUDE extrn.mac
 INCLUDE	lucas.mac
 INCLUDE pfa.mac
 INCLUDE mult.mac
@@ -48,6 +46,8 @@ ENDIF
 
 EXTRNP	pass2_8_levels
 EXTRNP	pass2_8_levels_p
+
+_TEXT SEGMENT
 
 	flat_distances
 

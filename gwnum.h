@@ -1,4 +1,6 @@
 /*----------------------------------------------------------------------
+| gwnum.h
+|
 | This file contains the headers and definitions that are used in the
 | multi-precision IBDWT arithmetic routines.  That is, all routines
 | that deal with the gwnum data type.
@@ -9,7 +11,24 @@
 |
 | Gwnums are not suited to applications that need to convert to and from
 | binary frequently or need to change the modulus frequently.
+| 
+|  Copyright 2002-2005 Just For Fun Software, Inc.
+|  All Rights Reserved.
 +---------------------------------------------------------------------*/
+
+#ifndef _GWNUM_H
+#define _GWNUM_H
+
+/* This is a C library.  If used in a C++ program, don't let the C++ */
+/* compiler mangle names. */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* Include common definitions */
+
+#include "common.h"
 
 /* Handle the difference between the naming conventions in */
 /* C compilers.  We need to do this for global variables that */
@@ -37,7 +56,7 @@ typedef double *gwnum;
 /* gwsetup verifies that the version numbers match.  This prevents bugs */
 /* from accidentally linking in the wrong gwnum object files. */
 
-#define GWNUM_VERSION	"24.8"
+#define GWNUM_VERSION	"24.9"
 
 /* Prior to calling one of the gwsetup routines, you can have the library */
 /* "play it safe" by reducing the maximum allowable bits per FFT data word. */
@@ -125,8 +144,10 @@ void binarytogw (
 	gwnum	n);		/* Destination gwnum */
 
 /* Convert a gwnum to a binary value.  Returns the number of longs */
-/* written to the array.  The array is NOT zero-padded. */
-unsigned long gwtobinary (
+/* written to the array.  The array is NOT zero-padded.  Returns a */
+/* negative number if an error occurs during the conversion.  An error */
+/* can happen if the FFT data contains a NaN or infinity value. */
+long gwtobinary (
 	gwnum	n,		/* Source gwnum */
 	unsigned long *array,	/* Array to contain the binary value */
 	unsigned long arraylen);/* Maximum size of the array */
@@ -355,8 +376,9 @@ void gianttogw (giant, gwnum);
 /* Convert a gwnum to a giant.  WARNING: Caller must allocate an array that */
 /* is several words larger than the maximum result that can be returned. */
 /* This is a gross kludge that lets gwtogiant use the giant for intermediate */
-/* calculations. */
-void gwtogiant (gwnum, giant);
+/* calculations.  Returns a negative number if an error occurs.  Returns */
+/* zero on success. */
+int gwtogiant (gwnum, giant);
 
 /*---------------------------------------------------------------------+
 |          MISC. CONSTANTS YOU PROBABLY SHOULDN'T CARE ABOUT           |
@@ -413,24 +435,26 @@ extern long GWMAXMULBYCONST;	/* Gwsetup needs to know the maximum value */
 				/* the caller will use in gwsetmulbyconst. */
 				/* The default value is 3, commonly used */
 				/* in a base-3 Fermat PRP test. */
-EXTERNC double KARG;		/* K in K*B^N+C */
-EXTERNC unsigned long BARG;	/* B in K*B^N+C */
-EXTERNC unsigned long PARG;	/* N in K*B^N+C */
-EXTERNC signed long CARG;	/* C in K*B^N+C */
-EXTERNC unsigned long FFTLEN;	/* The FFT size we are using */
-EXTERNC unsigned long RATIONAL_FFT;/* TRUE if bits per FFT word is integer */
-EXTERNC unsigned long GWERROR;	/* True if an error is detected */
-EXTERNC double MAXERR;		/* Convolution error in a multiplication */
-EXTERNC double MAXDIFF;		/* Maximum allowable difference between */
+extern double KARG;		/* K in K*B^N+C */
+extern unsigned long BARG;	/* B in K*B^N+C */
+extern unsigned long PARG;	/* N in K*B^N+C */
+extern signed long CARG;	/* C in K*B^N+C */
+extern unsigned long FFTLEN;	/* The FFT size we are using */
+extern unsigned long RATIONAL_FFT;/* TRUE if bits per FFT word is integer */
+extern unsigned long BITS_PER_WORD;/* Bits in a little word */
+extern int GWERROR;		/* Set if an error is detected */
+extern double MAXERR;		/* Convolution error in a multiplication */
+extern double MAXDIFF;		/* Maximum allowable difference between */
 				/* sum of inputs and outputs */
-EXTERNC void (*GWPROCPTRS[24])(void);/* Ptrs to assembly routines */
+extern void (*GWPROCPTRS[24])(void);/* Ptrs to assembly routines */
 extern unsigned int NORMNUM;	/* The post-multiply normalization routine */
-EXTERNC void *SRCARG;		/* For assembly language arg passing */
-EXTERNC void *SRC2ARG;		/* For assembly language arg passing */
-EXTERNC void *DESTARG;		/* For assembly language arg passing */
-EXTERNC void *DEST2ARG;		/* For assembly language arg passing */
-EXTERNC long NUMARG;		/* For assembly language arg passing */
-EXTERNC long NUM2ARG;		/* For assembly language arg passing */
+extern void *SRCARG;		/* For assembly language arg passing */
+extern void *SRC2ARG;		/* For assembly language arg passing */
+extern void *DESTARG;		/* For assembly language arg passing */
+extern void *DEST2ARG;		/* For assembly language arg passing */
+extern long NUMARG;		/* For assembly language arg passing */
+extern long NUM2ARG;		/* For assembly language arg passing */
+extern double fft_count;	/* Count of forward and inverse FFTs */
 extern char *GW_BIGBUF;		/* Optional buffer to allocate gwnums in */
 extern unsigned long GW_BIGBUF_SIZE;	/* Size of the optional buffer */
 extern gwnum *gwnum_alloc;		/* Array of allocated gwnums */
@@ -440,14 +464,18 @@ extern gwnum *gwnum_free;		/* Array of available gwnums */
 extern unsigned int gwnum_free_count;	/* Count of available gwnums */
 extern unsigned long GW_ALIGNMENT;	/* How to align allocated gwnums */
 extern int GENERAL_MOD;		/* True if doing general-purpose mod */
+extern char GWSTRING_REP[40];	/* The gwsetup modulo number as a string. */
+extern unsigned long ASM_TIMERS[32];/* Assembly language timers */
+extern unsigned long POSTFFT;	/* True if assembly code can start the */
+				/* FFT process on the result of a multiply */
 
 double *addr (gwnum, unsigned long);
 unsigned long gwnum_size (unsigned long);
-void get_fft_value (gwnum, unsigned long, long *);
+int get_fft_value (gwnum, unsigned long, long *);
 void set_fft_value (gwnum, unsigned long, long);
-int is_valid_fft_value (gwnum, unsigned long);
 int is_big_word (unsigned long);
 void bitaddr (unsigned long, unsigned long *, unsigned long *);
+void specialmodg (giant);
 #define gw_set_max_allocs(n)	if (gwnum_alloc==NULL) gwnum_alloc_array_size=n
 
 unsigned long gwmap_to_fftlen (double, unsigned long, unsigned long, signed long);
@@ -463,24 +491,6 @@ unsigned long map_fftlen_to_max_exponent (unsigned long);
 #define REL_K7_SPEED	0.7	/* Assume K7 is faster than a PII */
 #define REL_P4_SPEED	0.7	/* Assume P4 is faster than a PII factoring*/
 
-/* Other low-level math routines the caller can use for multi-precision */
-/* arithmetic */
-
-EXTERNC unsigned long CARRYH;	/* For multi-precision asm routines */
-EXTERNC unsigned long CARRYL;
-EXTERNC unsigned long RES;
-
-EXTERNC void eaddhlp (void);
-EXTERNC void esubhlp (void);
-EXTERNC void emuladdhlp (void);
-EXTERNC void emuladd2hlp (void);
-EXTERNC void emulsubhlp (void);
-#define addhlp(a)	NUMARG=(long)(a), eaddhlp()
-#define subhlp(a)	NUMARG=(long)(a), esubhlp()
-#define muladdhlp(a,b)	{NUMARG=(long)(a); NUM2ARG=(long)(b); emuladdhlp();}
-#define muladd2hlp(a,b)	{NUMARG=(long)(a); NUM2ARG=(long)(b); emuladd2hlp();}
-#define mulsubhlp(a,b)	{NUMARG=(long)(a); NUM2ARG=(long)(b); emulsubhlp();}
-
 /* Specialized routines that let the internal giants code share the free */
 /* memory pool used by gwnums. */
 
@@ -490,5 +500,10 @@ void gwrealloc_temporarily (gwnum);
 /* Other routines used internally */
 
 unsigned long addr_offset (unsigned long, unsigned long);
-EXTERNC void eset_mul_const (void);
+extern void eset_mul_const (void);
 
+#ifdef __cplusplus
+}
+#endif
+
+#endif

@@ -1,6 +1,36 @@
 
 	OPTION	NOSCOPED
 
+; So that source code can assemble in both 32-bit and 64-bit mode, 
+; define the x86_64 registers as their 32-bit counterparts.  As long as
+; we use the x86_64 registers to hold pointers, the code will execute
+; successfully on both platforms.
+
+IFNDEF	X86_64
+rax	EQU	eax
+rbx	EQU	ebx
+rcx	EQU	ecx
+rdx	EQU	edx
+rsi	EQU	esi
+rdi	EQU	edi
+rbp	EQU	ebp
+rsp	EQU	esp
+ENDIF
+
+; Since pointers are different sizes in 32-bit and 64-bit mode, we
+; define shortcuts that let us declare an EXTRN pointer and allocate
+; storage.
+
+IFNDEF	X86_64
+EXTPTR	EQU	<DWORD>
+DPTR	EQU	DD
+SZPTR	EQU	4
+ELSE
+EXTPTR	EQU	<QWORD>
+DPTR	EQU	DQ
+SZPTR	EQU	8
+ENDIF
+
 ; The SSE2 movsd instruction as opposed to the string mov instruction
 ; Thanks to a sandpile.org discussion group contributor for this macro
 
@@ -29,6 +59,19 @@ nonoexec MACRO ops:vararg
 	&ops
 	ENDM
 
+;; A handy shortcut:
+
+Q	EQU	<QWORD PTR>
+
+;; Load a 32-bit value into a register - zero padded on x86_64
+
+mov32	MACRO	reg, halfreg, mem
+	IFDEF	X86_64
+	sub	reg, reg
+	ENDIF
+	mov	halfreg, mem
+	ENDM
+
 ;; Bump a pointer by an amount - generates no code if amount is zero
 
 bump	MACRO	reg, amt
@@ -51,9 +94,13 @@ rrr:	mov	ds:BYTE PTR rrr, 0C6h
 
 CALL_Y	MACRO	DEST
 	LOCAL	xxx
+	IFDEF	X86_64
+	call	DEST
+	ELSE
 	push	OFFSET xxx
 	JMP_Y	DEST
 xxx:
+	ENDIF
 	ENDM
 JE_Y	MACRO	DEST
 	LOCAL	xxx
@@ -62,8 +109,12 @@ JE_Y	MACRO	DEST
 xxx:
 	ENDM
 JMP_Y	MACRO	DEST
+	IFDEF	X86_64
+	jmp	DEST
+	ELSE
 	push	OFFSET DEST
 	retn
+	ENDIF
 	ENDM
 
 ;

@@ -23,14 +23,13 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				InlineFunctionExpansion="1"
-				AdditionalIncludeDirectories=".."
-				PreprocessorDefinitions="WIN32,NDEBUG,_WINDOWS"
+				AdditionalIncludeDirectories="..;..\qd"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
 				StringPooling="TRUE"
 				RuntimeLibrary="0"
 				BufferSecurityCheck="FALSE"
 				EnableFunctionLevelLinking="FALSE"
-				UsePrecompiledHeader="3"
-				PrecompiledHeaderThrough="stdafx.h"
+				UsePrecompiledHeader="0"
 				PrecompiledHeaderFile=".\Release/prp.pch"
 				AssemblerListingLocation=".\Release/"
 				ObjectFile=".\Release/"
@@ -87,14 +86,13 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				InlineFunctionExpansion="1"
-				AdditionalIncludeDirectories=".."
+				AdditionalIncludeDirectories="..;..\qd"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;GDEBUG"
 				StringPooling="TRUE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				EnableFunctionLevelLinking="TRUE"
-				UsePrecompiledHeader="3"
-				PrecompiledHeaderThrough="stdafx.h"
+				UsePrecompiledHeader="0"
 				PrecompiledHeaderFile=".\Debug/prp.pch"
 				AssemblerListingLocation=".\Debug/"
 				ObjectFile=".\Debug/"
@@ -200,6 +198,21 @@
 			</File>
 			<File
 				RelativePath=".\TestDlg.cpp">
+			</File>
+			<File
+				RelativePath="..\cpuid.c">
+			</File>
+			<File
+				RelativePath="..\giants.c">
+			</File>
+			<File
+				RelativePath="..\gwdbldbl.cpp">
+			</File>
+			<File
+				RelativePath="..\gwnum.c">
+			</File>
+			<File
+				RelativePath="..\gwutil.c">
 			</File>
 		</Filter>
 		<File

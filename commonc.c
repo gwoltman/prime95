@@ -9,7 +9,7 @@
 | Commonc contains information used during setup and execution
 +---------------------------------------------------------------------*/
 
-char JUNK[]="Copyright 1996-2004 Just For Fun Software, All rights reserved";
+char JUNK[]="Copyright 1996-2005 Just For Fun Software, All rights reserved";
 
 char	INI_FILE[80] = {0};
 char	LOCALINI_FILE[80] = {0};
@@ -1699,6 +1699,7 @@ void OutputSomewhere (
 
 /* Output string to both the screen and results file */
 
+EXTERNC
 void OutputBoth (
 	char	*buf)
 {
@@ -2004,7 +2005,7 @@ void addWorkToDoLine (
 /* Format and insert line into ini file */
 
 		if (w->work_type == WORK_ECM) {
-			sprintf (buf, "%.0f,%lu,%lu,%ld,%lu,%lu,%.0f,%lu",
+			sprintf (buf, "%.0f,%lu,%lu,%ld,%lu,%lu,%lu,%.0f,%lu",
 				 w->k, w->b, w->n, w->c, w->B1, w->B2_end,
 				 w->curves_to_do, w->curve, w->B2_start);
 			IniAppendLineAsString (WORKTODO_FILE, "ECM2", buf);

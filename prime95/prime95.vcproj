@@ -23,15 +23,14 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				InlineFunctionExpansion="1"
-				AdditionalIncludeDirectories=".."
-				PreprocessorDefinitions="WIN32,NDEBUG,_WINDOWS"
+				AdditionalIncludeDirectories="..;..\qd"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;STPCHK"
 				StringPooling="TRUE"
 				BasicRuntimeChecks="0"
 				RuntimeLibrary="0"
 				BufferSecurityCheck="FALSE"
 				EnableFunctionLevelLinking="FALSE"
-				UsePrecompiledHeader="3"
-				PrecompiledHeaderThrough="stdafx.h"
+				UsePrecompiledHeader="2"
 				PrecompiledHeaderFile=".\Release/prime95.pch"
 				AssemblerListingLocation=".\Release/"
 				ObjectFile=".\Release/"
@@ -46,7 +45,7 @@
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386
 "
-				AdditionalDependencies="cpuid.obj factor64.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2a.obj mult2aux.obj mult3.obj mult3a.obj mult4.obj mult2p.obj mult2ap.obj mult3p.obj mult3ap.obj mult4p.obj ecmhelp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ax.obj xmult3.obj xmult3a.obj xmult3ax.obj giants.obj service.obj wsock32.lib nafxcw.lib libcmt.lib"
+				AdditionalDependencies="cpuid.obj factor64.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2a.obj mult2aux.obj mult3.obj mult3a.obj mult4.obj mult2p.obj mult2ap.obj mult3p.obj mult3ap.obj mult4p.obj ecmhelp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ax.obj xmult3.obj xmult3a.obj xmult3ax.obj service.obj wsock32.lib nafxcw.lib libcmt.lib"
 				OutputFile=".\Release/prime95.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
@@ -91,13 +90,12 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories=".."
-				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;GDEBUG"
+				AdditionalIncludeDirectories="..;..\qd"
+				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;GDEBUG;STPCHK"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="2"
 				BufferSecurityCheck="TRUE"
-				UsePrecompiledHeader="3"
-				PrecompiledHeaderThrough="stdafx.h"
+				UsePrecompiledHeader="2"
 				PrecompiledHeaderFile=".\Debug/prime95.pch"
 				AssemblerOutput="0"
 				AssemblerListingLocation=".\Debug/"
@@ -238,6 +236,21 @@
 			</File>
 			<File
 				RelativePath=".\WelcomeDlg.cpp">
+			</File>
+			<File
+				RelativePath="..\cpuid.c">
+			</File>
+			<File
+				RelativePath="..\giants.c">
+			</File>
+			<File
+				RelativePath="..\gwdbldbl.cpp">
+			</File>
+			<File
+				RelativePath="..\gwnum.c">
+			</File>
+			<File
+				RelativePath="..\gwutil.c">
 			</File>
 		</Filter>
 		<Filter

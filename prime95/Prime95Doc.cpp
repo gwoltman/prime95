@@ -1018,16 +1018,9 @@ void CPrime95Doc::OutputStr (
 #include <stdlib.h>
 #include <string.h>
 #include <sys/timeb.h>
-
-#include "cpuid.c"
+#include <gwutil.h>
 
 #define PORT	1
-#include "giants.h"
-#if defined (_DEBUG) || defined (_WIN64)
-#include "giants.c"
-#endif
-#include "gwnum.c"
-#include "gwutil.c"
 #include "commona.c"
 #include "commonb.c"
 #include "commonc.c"

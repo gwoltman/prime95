@@ -1,16 +1,29 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2004 Just For Fun Software, Inc., all rights reserved
+| Copyright 1995-2005 Just For Fun Software, Inc., all rights reserved
 | Author:  George Woltman
 | Email: woltman@alum.mit.edu
 |
 | This file contains routines to determine the CPU type and speed.
 +---------------------------------------------------------------------*/
 
+/* Include files */
+
+#include <stdlib.h>
+#include <math.h>
+#include <memory.h>
+#include <string.h>
+#include <sys/time.h>
+#include <sys/timeb.h>
+#if defined (__linux__) || defined (__FreeBSD__) || defined (__EMX__)
+#define _timeb		timeb
+#endif
+#include "cpuid.h"
+
 /* Global variables describing the CPU we are running on */
 
 char	CPU_BRAND[49] = "";
 double	CPU_SPEED = 100.0;
-EXTERNC unsigned int CPU_FLAGS = 0;
+unsigned int CPU_FLAGS = 0;
 int	CPU_L1_CACHE_SIZE = -1;
 int	CPU_L2_CACHE_SIZE = -1;
 int	CPU_L1_CACHE_LINE_SIZE = -1;
@@ -20,10 +33,10 @@ int	CPU_L2_DATA_TLBS = -1;
 
 /* Internal global variables */
 
-EXTERNC unsigned long CPUID_EAX = 0;	/* For communicating to asm routines */
-EXTERNC unsigned long CPUID_EBX = 0;
-EXTERNC unsigned long CPUID_ECX = 0;
-EXTERNC unsigned long CPUID_EDX = 0;
+unsigned long CPUID_EAX = 0;	/* For communicating to asm routines */
+unsigned long CPUID_EBX = 0;
+unsigned long CPUID_ECX = 0;
+unsigned long CPUID_EDX = 0;
 
 /* Internal routines to see if CPU-specific instructions (RDTSC, CMOV */
 /* SSE, SSE2) are supported.  CPUID could report them as supported yet */
@@ -32,6 +45,7 @@ EXTERNC unsigned long CPUID_EDX = 0;
 #if defined (__linux__) || defined (__FreeBSD__) || defined (__EMX__)
 
 #include <setjmp.h>
+#include <signal.h>
 int	boom;
 jmp_buf	env;
 void sigboom_handler (int i)
@@ -86,8 +100,8 @@ int canExecInstruction (
 
 #else
 
-#ifdef __WATCOMC__
 #include <excpt.h>
+#ifdef __WATCOMC__
 #define __asm	_asm
 #define __emit	db
 #endif
@@ -820,4 +834,91 @@ void guessCpuSpeed (void)
 
 		CPU_SPEED = avg_speed;
 	}
+}
+
+
+/*--------------------------------------------------------------------------
+| And now, the routines that access the high resolution performance counter.
++-------------------------------------------------------------------------*/
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+int isHighResTimerAvailable (void)
+{
+#ifdef _WIN32
+	LARGE_INTEGER large;
+	return (QueryPerformanceCounter (&large));
+#endif
+#ifdef __OS2__
+/* DosTmrQueryTime/DosTmrQueryFreq functions use the 8253/4 timer chip to */
+/* obtain a timestamp.  DosTmrQueryTime returns the current count, and */
+/* DosTmrQueryFreq returns the frequency at which the counter increments. */
+/* This frequency is about 1.1MHz, which gives you a timer that's accurate */
+/* to the microsecond. */
+        return (TRUE);
+#endif
+#if defined (__linux__) || defined (__FreeBSD__)
+	struct timeval start, end;
+	struct timezone tz;
+	int	i;
+
+/* Return true if gettimeofday is more accurate than 1/10 millisecond. */
+/* Try 10 times to see if gettimeofday returns two values less than */
+/* 100 microseconds apart. */
+
+	for (i = 0; i < 10; i++) {
+		gettimeofday (&start, &tz);
+		for ( ; ; ) {
+			gettimeofday (&end, &tz);
+			if (start.tv_sec != end.tv_sec) break;
+			if (start.tv_usec == end.tv_usec) continue;
+			if (end.tv_usec - start.tv_usec < 100) return (TRUE);
+		}
+	}
+	return (FALSE);
+#endif
+}
+
+double getHighResTimer (void)
+{
+#ifdef _WIN32
+	LARGE_INTEGER large;
+
+	QueryPerformanceCounter (&large);
+	return ((double) large.HighPart * 4294967296.0 +
+		(double) large.LowPart);
+#endif
+#ifdef __OS2__
+        unsigned long long qwTmrTime;
+        DosTmrQueryTime((PQWORD)&qwTmrTime);
+        return (qwTmrTime);
+#endif
+#if defined (__linux__) || defined (__FreeBSD__)
+	struct timeval x;
+	struct timezone tz;
+
+	gettimeofday (&x, &tz);
+	return ((double) x.tv_sec * 1000000.0 + (double) x.tv_usec);
+#endif
+}
+
+double getHighResTimerFrequency (void)
+{
+#ifdef _WIN32
+	LARGE_INTEGER large;
+
+	QueryPerformanceFrequency (&large);
+	return ((double) large.HighPart * 4294967296.0 +
+		(double) large.LowPart);
+#endif
+#ifdef __OS2__
+	ULONG ulTmrFreq;
+	DosTmrQueryFreq(&ulTmrFreq);
+	return (ulTmrFreq);
+#endif
+#if defined (__linux__) || defined (__FreeBSD__)
+	return (1000000.0);
+#endif
 }

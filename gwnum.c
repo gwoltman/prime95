@@ -1,10 +1,26 @@
 /*----------------------------------------------------------------------
+| gwnum.c
+|
 | This file contains the C routines and global variables that are used
 | in the multi-precision arithmetic routines.  That is, all routines
 | that deal with the gwnum data type.
+| 
+|  Copyright 2002-2005 Just For Fun Software, Inc.
+|  All Rights Reserved.
 +---------------------------------------------------------------------*/
 
-#include <gwutil.h>
+/* Include files */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <malloc.h>
+#include <math.h>
+#include <memory.h>
+#include <string.h>
+#include "cpuid.h"
+#include "gwnum.h"
+#include "gwutil.h"
+#include "gwdbldbl.h"
 
 /* global variables */
 
@@ -14,96 +30,96 @@ long	GWMAXMULBYCONST = 3;	/* Gwsetup needs to know the maximum value */
 				/* the caller will use in gwsetmulbyconst. */
 				/* The default value is 3, commonly used */
 				/* in a base-3 Fermat PRP test. */
-EXTERNC double KARG=1.0;	/* K in K*B^N+C */
-EXTERNC unsigned long BARG=0;	/* B in K*B^N+C */
-EXTERNC unsigned long PARG=0;	/* N in K*B^N+C */
-EXTERNC signed long CARG=-1;	/* C in K*B^N+C */
-EXTERNC unsigned long FFTLEN=0;	/* The FFT size we are using */
-EXTERNC unsigned long RATIONAL_FFT=0;/* TRUE if bits per FFT word is integer */
-EXTERNC unsigned long BITS_PER_WORD=0;/* Bits in a little word */
-EXTERNC unsigned long GWERROR=0;/* True if an error is detected */
-EXTERNC double MAXERR = 0.0;	/* Convolution error in a multiplication */
-EXTERNC double MAXDIFF = 0.0;	/* Maximum allowable difference between */
+double	KARG = 1.0;		/* K in K*B^N+C */
+unsigned long BARG = 0;		/* B in K*B^N+C */
+unsigned long PARG = 0;		/* N in K*B^N+C */
+signed long CARG = -1;		/* C in K*B^N+C */
+unsigned long FFTLEN = 0;	/* The FFT size we are using */
+unsigned long RATIONAL_FFT = 0;	/* TRUE if bits per FFT word is integer */
+unsigned long BITS_PER_WORD = 0;/* Bits in a little word */
+int	GWERROR = 0;		/* Set if an error is detected */
+double	MAXERR = 0.0;	/* Convolution error in a multiplication */
+double	MAXDIFF = 0.0;		/* Maximum allowable difference between */
 				/* sum of inputs and outputs */
-EXTERNC unsigned long COPYZERO[8] = {0};/* Ptrs to help in gwcopyzero */
-EXTERNC unsigned long ASM_TIMERS[32] = {0};/* Assembly language timers */
-EXTERNC void (*GWPROCPTRS[24])()={NULL}; /* Ptrs to assembly routines */
+unsigned long COPYZERO[8] = {0};/* Ptrs to help in gwcopyzero */
+unsigned long ASM_TIMERS[32] = {0};/* Assembly language timers */
+void	(*GWPROCPTRS[24])()={NULL}; /* Ptrs to assembly routines */
 unsigned int NORMNUM = 0;	/* The post-multiply normalize routine index */
-EXTERNC void (*NORMRTN)() = NULL; /* The post-multiply normalization routine */
-EXTERNC unsigned long POSTFFT = 0;/* True if assembly code can start the */
+void (*NORMRTN)() = NULL;	/* The post-multiply normalization routine */
+unsigned long POSTFFT = 0;	/* True if assembly code can start the */
 				/* FFT process on the result of a multiply */
-EXTERNC unsigned long ADDIN_ROW = 0;/* For adding a constant after multiply */
-EXTERNC unsigned long ADDIN_OFFSET = 0;
-EXTERNC double ADDIN_VALUE = 0.0;
+unsigned long ADDIN_ROW = 0;	/* For adding a constant after multiply */
+unsigned long ADDIN_OFFSET = 0;
+double ADDIN_VALUE = 0.0;
 
 unsigned long EXTRA_BITS=0;	/* Number of unnormalized adds that can */
 				/* be safely performed. */
-EXTERNC	int SPREAD_CARRY_OVER_4_WORDS=0;/* True when carry out of top word */
+int	SPREAD_CARRY_OVER_4_WORDS=0;/* True when carry out of top word */
 				/* must be spread over more than 2 words */
-EXTERNC	int TOP_CARRY_NEEDS_ADJUSTING=0;/* True when carry out of top word */
+int	TOP_CARRY_NEEDS_ADJUSTING=0;/* True when carry out of top word */
 				/* needs adjusting */
-EXTERNC	double INVERSE_KARG=0.0;/* 1/K */
-EXTERNC	double KARG_HI=0.0;	/* Upper bits of K */
-EXTERNC	double KARG_LO=0.0;	/* Lower bits of K */
-EXTERNC	double CARRY_ADJUST1=0.0;/* Adjustment constant #1 in wrapping carry */
-EXTERNC	double CARRY_ADJUST2=0.0;/* Adjustment constant #2 in wrapping carry */
-EXTERNC	double CARRY_ADJUST3=0.0;/* Adjustment constant #3 in wrapping carry */
-EXTERNC	double CARRY_ADJUST4=0.0;/* Adjustment constant #4 in wrapping carry */
-EXTERNC	double CARRY_ADJUST5=0.0;/* Adjustment constant #5 in wrapping carry */
-EXTERNC	double CARRY_ADJUST6=0.0;/* Adjustment constant #6 in wrapping carry */
-EXTERNC unsigned long HIGH_WORD1_OFFSET=0;/* Offset of top FFT word */
-EXTERNC unsigned long HIGH_WORD2_OFFSET=0;/* Offset of second high FFT word */
-EXTERNC unsigned long HIGH_WORD3_OFFSET=0;/* Offset of third high FFT word */
-EXTERNC unsigned long HIGH_SCRATCH1_OFFSET=0;
+double	INVERSE_KARG = 0.0;	/* 1/K */
+double	KARG_HI = 0.0;		/* Upper bits of K */
+double	KARG_LO = 0.0;		/* Lower bits of K */
+double	CARRY_ADJUST1 = 0.0;	/* Adjustment constant #1 in wrapping carry */
+double	CARRY_ADJUST2 = 0.0;	/* Adjustment constant #2 in wrapping carry */
+double	CARRY_ADJUST3 = 0.0;	/* Adjustment constant #3 in wrapping carry */
+double	CARRY_ADJUST4 = 0.0;	/* Adjustment constant #4 in wrapping carry */
+double	CARRY_ADJUST5 = 0.0;	/* Adjustment constant #5 in wrapping carry */
+double	CARRY_ADJUST6 = 0.0;	/* Adjustment constant #6 in wrapping carry */
+unsigned long HIGH_WORD1_OFFSET=0;/* Offset of top FFT word */
+unsigned long HIGH_WORD2_OFFSET=0;/* Offset of second high FFT word */
+unsigned long HIGH_WORD3_OFFSET=0;/* Offset of third high FFT word */
+unsigned long HIGH_SCRATCH1_OFFSET=0;
 				/* Offset of top FFT word in scratch area */
-EXTERNC unsigned long HIGH_SCRATCH2_OFFSET=0;
+unsigned long HIGH_SCRATCH2_OFFSET=0;
 				/* Offset of second highest FFT word */
-EXTERNC unsigned long HIGH_SCRATCH3_OFFSET=0;
+unsigned long HIGH_SCRATCH3_OFFSET=0;
 				/* Offset of third highest FFT word */
 
-EXTERNC	unsigned long ZPAD_TYPE=0; /* 1,2,or 3 words in k (used by zero pad) */
-EXTERNC	double ZPAD_INVERSE_K6=0.0; /* Zero padded FFT constants */
-EXTERNC	double ZPAD_INVERSE_K5=0.0;
-EXTERNC	double ZPAD_INVERSE_K4=0.0;
-EXTERNC	double ZPAD_INVERSE_K3=0.0;
-EXTERNC	double ZPAD_INVERSE_K2=0.0;
-EXTERNC	double ZPAD_INVERSE_K1=0.0;
-EXTERNC	double ZPAD_K6_HI=0.0;
-EXTERNC	double ZPAD_K5_HI=0.0;
-EXTERNC	double ZPAD_K4_HI=0.0;
-EXTERNC	double ZPAD_K3_HI=0.0;
-EXTERNC	double ZPAD_K2_HI=0.0;
-EXTERNC	double ZPAD_K1_HI=0.0;
-EXTERNC	double ZPAD_K6_MID=0.0;
-EXTERNC	double ZPAD_K5_MID=0.0;
-EXTERNC	double ZPAD_K4_MID=0.0;
-EXTERNC	double ZPAD_K3_MID=0.0;
-EXTERNC	double ZPAD_K2_MID=0.0;
-EXTERNC	double ZPAD_K1_MID=0.0;
-EXTERNC	double ZPAD_K6_LO=0.0;
-EXTERNC	double ZPAD_K5_LO=0.0;
-EXTERNC	double ZPAD_K4_LO=0.0;
-EXTERNC	double ZPAD_K3_LO=0.0;
-EXTERNC	double ZPAD_K2_LO=0.0;
-EXTERNC	double ZPAD_K1_LO=0.0;
-EXTERNC	double ZPAD_SHIFT6=0.0;
-EXTERNC	double ZPAD_SHIFT5=0.0;
-EXTERNC	double ZPAD_SHIFT4=0.0;
-EXTERNC	double ZPAD_SHIFT3=0.0;
-EXTERNC	double ZPAD_SHIFT2=0.0;
-EXTERNC	double ZPAD_SHIFT1=0.0;
+unsigned long ZPAD_TYPE = 0;	/* 1,2,or 3 words in k (used by zero pad) */
+double	ZPAD_INVERSE_K6 = 0.0;	/* Zero padded FFT constants */
+double	ZPAD_INVERSE_K5 = 0.0;
+double	ZPAD_INVERSE_K4 = 0.0;
+double	ZPAD_INVERSE_K3 = 0.0;
+double	ZPAD_INVERSE_K2 = 0.0;
+double	ZPAD_INVERSE_K1 = 0.0;
+double	ZPAD_K6_HI = 0.0;
+double	ZPAD_K5_HI = 0.0;
+double	ZPAD_K4_HI = 0.0;
+double	ZPAD_K3_HI = 0.0;
+double	ZPAD_K2_HI = 0.0;
+double	ZPAD_K1_HI = 0.0;
+double	ZPAD_K6_MID = 0.0;
+double	ZPAD_K5_MID = 0.0;
+double	ZPAD_K4_MID = 0.0;
+double	ZPAD_K3_MID = 0.0;
+double	ZPAD_K2_MID = 0.0;
+double	ZPAD_K1_MID = 0.0;
+double	ZPAD_K6_LO = 0.0;
+double	ZPAD_K5_LO = 0.0;
+double	ZPAD_K4_LO = 0.0;
+double	ZPAD_K3_LO = 0.0;
+double	ZPAD_K2_LO = 0.0;
+double	ZPAD_K1_LO = 0.0;
+double	ZPAD_SHIFT6 = 0.0;
+double	ZPAD_SHIFT5 = 0.0;
+double	ZPAD_SHIFT4 = 0.0;
+double	ZPAD_SHIFT3 = 0.0;
+double	ZPAD_SHIFT2 = 0.0;
+double	ZPAD_SHIFT1 = 0.0;
 
-EXTERNC	unsigned long BIGLIT_INCR2=0; /* Offset to step in big/lit array */
-EXTERNC	unsigned long BIGLIT_INCR4=0; /* Offset to step in big/lit array */
+unsigned long BIGLIT_INCR2 = 0;	/* Offset to step in big/lit array */
+unsigned long BIGLIT_INCR4 = 0;	/* Offset to step in big/lit array */
 
-EXTERNC unsigned long* INFT[4]={0};/* For assembly language arg passing */
-EXTERNC unsigned long GWVERNUM=0;/* For assembly language arg passing */
-EXTERNC void *SRCARG = NULL;	/* For assembly language arg passing */
-EXTERNC void *SRC2ARG = NULL;	/* For assembly language arg passing */
-EXTERNC void *DESTARG = NULL;	/* For assembly language arg passing */
-EXTERNC void *DEST2ARG = NULL;	/* For assembly language arg passing */
-EXTERNC long NUMARG = 0;	/* For assembly language arg passing */
-EXTERNC long NUM2ARG = 0;	/* For assembly language arg passing */
+unsigned long* INFT[4] = {0};	/* For assembly language arg passing */
+unsigned long GWVERNUM = 0;	/* For assembly language arg passing */
+void	*SRCARG = NULL;		/* For assembly language arg passing */
+void	*SRC2ARG = NULL;	/* For assembly language arg passing */
+void	*DESTARG = NULL;	/* For assembly language arg passing */
+void	*DEST2ARG = NULL;	/* For assembly language arg passing */
+long	NUMARG = 0;		/* For assembly language arg passing */
+long	NUM2ARG = 0;		/* For assembly language arg passing */
 double	fft_count = 0;		/* Count of forward and inverse FFTs */
 double	*gwnum_memory;		/* Allocated memory */
 unsigned long GW_ALIGNMENT = 0;	/* How to align allocated gwnums */
@@ -113,7 +129,7 @@ unsigned long PASS1_CACHE_LINES = 0; /* Cache lines grouped together in */
 unsigned long PASS2_LEVELS = 0; /* FFT levels done in pass 2. */
 unsigned long SCRATCH_SIZE = 0;	/* Size of the pass 1 scratch area */
 double	bit_length;		/* Bit length of k*b^n */
-EXTERNC int ZERO_PADDED_FFT=0;	/* True if doing a zero pad FFT */
+int	ZERO_PADDED_FFT=0;	/* True if doing a zero pad FFT */
 double	fft_bits_per_word;	/* Num bits in each fft word */
 double	fft_max_bits_per_word;	/* Maximum bits per data word that */
 				/* this FFT size can support */
@@ -142,22 +158,10 @@ unsigned int gwnum_alloc_array_size = 0; /* Size of gwnum_alloc array */
 gwnum	*gwnum_free = NULL;	/* Array of available gwnums */
 unsigned int gwnum_free_count = 0; /* Count of available gwnums */
 
-EXTERNC unsigned long CARRYH=0;	/* For multi-precision asm routines */
-EXTERNC unsigned long CARRYL=0;
-EXTERNC unsigned long RES=0;
-
 /* Assembly helper routines */
 
-EXTERNC void gwinfo1 (void);
-EXTERNC void gwsetup1 (void);
-EXTERNC void gwsetup2 (void);
-EXTERNC void eisvaliddouble (void);
-EXTERNC void efft_weight (void);
-EXTERNC void efft_weight_inverse (void);
-EXTERNC void efft_weight_inverse_over_fftlen (void);
-EXTERNC void efft_base (void);
-EXTERNC void esincos (void);
-EXTERNC void esincos3 (void);
+void gwinfo1 (void);
+void gwsetup2 (void);
 
 /* gwnum assembly routine pointers */
 
@@ -179,7 +183,14 @@ EXTERNC void esincos3 (void);
 
 /* Helper macros */
 
-#define fftinc(x)	(fft_count += x)
+#define fftinc(x)		(fft_count += x)
+#define isinf(x)		((x) != 0.0 && (x) == 2.0*(x))
+#define isnan(x)		((x) != (x))
+#define is_valid_double(x)	(! isnan (x) && ! isinf (x))
+
+/* Error codes returned */
+
+#define GWERROR_BAD_FFT_DATA	-1
 
 /* Forward declarations */
 
@@ -191,17 +202,6 @@ int internal_gwsetup (
 	unsigned long fftlen);	/* Specific FFT size to use (or zero) */
 double virtual_bits_per_word ();
 void raw_gwsetaddin (unsigned long word, long val);
-
-
-/* Wrapper for eisvaliddouble */
-
-int is_valid_double (
-	double d)
-{
-	SRCARG = (void *) &d;
-	eisvaliddouble ();
-	return ((int) NUMARG);
-}
 
 /* Find the power of two greater than or equal to N. */
 
@@ -219,47 +219,6 @@ static	unsigned long save_result = 0;
 	return (save_result);
 }
 
-
-/* Routines to compute the FFT weights and inverse FFT weights */
-/* This is done in assembly language to take advantage of the x86 */
-/* 80-bit floating point registers */
-
-double fft_weight (
-	unsigned long n)
-{
-	double	result;
-	NUMARG = (long) n;
-	DESTARG = (void*) &result;
-	efft_weight ();
-	return (result);
-}
-double fft_weight_inverse (
-	long	n)
-{
-	double	result;
-	NUMARG = (long) n;
-	DESTARG = (void*) &result;
-	efft_weight_inverse ();
-	return (result);
-}
-double fft_weight_inverse_over_fftlen (
-	unsigned long n)
-{
-	double	result;
-	NUMARG = (long) n;
-	DESTARG = (void*) &result;
-	efft_weight_inverse_over_fftlen ();
-	return (result);
-}
-unsigned long fft_base (
-	unsigned long n)
-{
-	unsigned long result;
-	NUMARG = (long) n;
-	DESTARG = (void*) &result;
-	efft_base ();
-	return (result);
-}
 
 /* This routine builds a sin/cos table - used by gwsetup */
 
@@ -333,7 +292,7 @@ double *build_sin_cos_table (
 		NUMARG = (long) flipped_i;
 		NUM2ARG = (long) N;
 		DESTARG = (void *) &sincos;
-		esincos3 ();
+		gwsincos3 (NUMARG, NUM2ARG, (double *) &sincos);
 
 /* Copy the sin/cos values in the appropriate way */
 
@@ -440,7 +399,7 @@ double *build_premult_table (
 					NUMARG = (long) (((l * incr/4 + k) * flipped_i) % N);
 					NUM2ARG = (long) N;
 					DESTARG = (void *) &sincos;
-					esincos ();
+					gwsincos (NUMARG, NUM2ARG, (double *) &sincos);
 				}
 
 /* If C > 0, then also multiply by the proper root of -1.  This is done */
@@ -450,7 +409,7 @@ double *build_premult_table (
 					NUMARG = (long) (((l * incr/4 + k) * flipped_i * 4 + l*incr/4+k) % (N*4));
 					NUM2ARG = (long) (N*4);
 					DESTARG = (void *) &sincos;
-					esincos ();
+					gwsincos (NUMARG, NUM2ARG, (double *) &sincos);
 				}
 
 /* Save the premultiplier value */
@@ -472,7 +431,7 @@ double *build_premult_table (
 					NUMARG = (long) ((k * flipped_i + l * N/16) % N);
 					NUM2ARG = (long) N;
 					DESTARG = (void *) &sincos;
-					esincos ();
+					gwsincos (NUMARG, NUM2ARG, (double *) &sincos);
 				}
 
 /* If C > 0, then also multiply by the proper root of -1.  This is done */
@@ -482,7 +441,7 @@ double *build_premult_table (
 					NUMARG = (long) (((k * flipped_i * 2 + l * N/8) *2 + k) % (N*4));
 					NUM2ARG = (long) (N*4);
 					DESTARG = (void *) &sincos;
-					esincos ();
+					gwsincos (NUMARG, NUM2ARG, (double *) &sincos);
 				}
 
 /* Save the premultiplier value */
@@ -544,7 +503,7 @@ double *build_plus1_table (
 				NUMARG = (long) ((i * 4 + l * 2 + j + k * N/8) % N);
 			NUM2ARG = (long) (N*2);
 			DESTARG = (void *) &sincos;
-			esincos ();
+			gwsincos (NUMARG, NUM2ARG, (double *) &sincos);
 
 /* Save the premultiplier value */
 
@@ -592,8 +551,7 @@ double *build_norm_table (
 
 /* Call asm routines to compute the two multipliers */
 
-			ttp = fft_weight (i);
-			ttmp = fft_weight_inverse_over_fftlen (i);
+			gwfft_weights3 (i, &ttp, NULL, &ttmp);
 
 /* Find where this data appears in the FFT array and in the table we are building. */
 
@@ -620,8 +578,7 @@ double *build_norm_table (
 
 /* Call asm routines to compute the two multipliers */
 
-			ttp = fft_weight (i);
-			ttmp = fft_weight_inverse_over_fftlen (i);
+			gwfft_weights3 (i, &ttp, NULL, &ttmp);
 
 /* Now set the entry for BOTH the MSW and LSW in an SSE2 pair */
 
@@ -679,8 +636,7 @@ double *build_norm_table (
 /* Call asm routines to compute the two multipliers */
 
 				n = haddin + u * umult + m * mmult + k * num_cols;
-				ttp = fft_weight (n);
-				ttmp = fft_weight_inverse (n);
+				gwfft_weights3 (n, &ttp, &ttmp, NULL);
 
 /* Now set the entry for BOTH the MSW and LSW in an SSE2 pair */
 
@@ -794,8 +750,8 @@ double *build_biglit_table (
 /* Since we can't do equality compares on floats, this test is a little bit */
 /* cryptic. */
 
-		if (fft_weight (word) * 1.5 <
-		    fft_weight (word&(gap-1)) * fft_weight (word&~(gap-1))) {
+		if (gwfft_weight (word) * 1.5 <
+		    gwfft_weight (word&(gap-1)) * gwfft_weight (word&~(gap-1))) {
 			if (k == 0) *p += 64;
 			else *p += 128;
 		}
@@ -887,7 +843,7 @@ double *build_x87_sin_cos_table (
 		NUMARG = (long) flipped_i;
 		NUM2ARG = (long) N;
 		DESTARG = (void *) &sincos;
-		esincos3 ();
+		gwsincos3 (NUMARG, NUM2ARG, (double *) &sincos);
 
 /* Copy the sin/cos values to the table */
 
@@ -966,7 +922,7 @@ double *build_x87_premult_table (
 					NUMARG = (long) (((l * incr/4 + k) * flipped_i) % N);
 					NUM2ARG = (long) N;
 					DESTARG = (void *) &sincos;
-					esincos ();
+					gwsincos (NUMARG, NUM2ARG, (double *) &sincos);
 				}
 
 /* If C > 0, then also multiply by the proper root of -1.  This is done */
@@ -976,7 +932,7 @@ double *build_x87_premult_table (
 					NUMARG = (long) (((l * incr/4 + k) * flipped_i * 4 + l*incr/4+k) % (N*4));
 					NUM2ARG = (long) (N*4);
 					DESTARG = (void *) &sincos;
-					esincos ();
+					gwsincos (NUMARG, NUM2ARG, (double *) &sincos);
 				}
 
 /* Save the premultiplier values */
@@ -998,7 +954,7 @@ double *build_x87_premult_table (
 					NUMARG = (long) ((k * flipped_i + l * N/16) % N);
 					NUM2ARG = (long) N;
 					DESTARG = (void *) &sincos;
-					esincos ();
+					gwsincos (NUMARG, NUM2ARG, (double *) &sincos);
 				}
 
 /* If C > 0, then also multiply by the proper root of -1.  This is done */
@@ -1008,7 +964,7 @@ double *build_x87_premult_table (
 					NUMARG = (long) (((k * flipped_i * 2 + l * N/8) *2 + k) % (N*4));
 					NUM2ARG = (long) (N*4);
 					DESTARG = (void *) &sincos;
-					esincos ();
+					gwsincos (NUMARG, NUM2ARG, (double *) &sincos);
 				}
 
 /* Save the premultiplier value */
@@ -1061,7 +1017,7 @@ double *build_x87_plus1_table (
 				NUMARG = (long) ((i + k * N/8) % N);
 			NUM2ARG = (long) (N*2);
 			DESTARG = (void *) &sincos;
-			esincos ();
+			gwsincos (NUMARG, NUM2ARG, (double *) &sincos);
 
 /* Save the premultiplier value */
 
@@ -1097,8 +1053,7 @@ double *build_x87_norm_table (
 
 /* Call asm routines to compute the two multipliers */
 
-			ttp = fft_weight (i);
-			ttmp = fft_weight_inverse_over_fftlen (i);
+			gwfft_weights3 (i, &ttp, NULL, &ttmp);
 
 /* Find where this data appears in the FFT array and in the table we are building. */
 
@@ -1125,8 +1080,7 @@ double *build_x87_norm_table (
 
 /* Call asm routines to compute the two multipliers */
 
-			ttp = fft_weight (i);
-			ttmp = fft_weight_inverse_over_fftlen (i);
+			gwfft_weights3 (i, &ttp, NULL, &ttmp);
 
 /* Now set the appropriate table entry.  These are put into the array */
 /* in the same order that the normalization code needs them. */
@@ -1150,8 +1104,7 @@ double *build_x87_norm_table (
 
 /* Call asm routines to compute the two multipliers */
 
-			ttp = fft_weight (i * num_cols);
-			ttmp = fft_weight_inverse (i * num_cols);
+			gwfft_weights3 (i * num_cols, &ttp, &ttmp, NULL);
 
 /* Now set the appropriate table entry.  These are put into the array */
 /* in the same order that the normalization code needs them. */
@@ -1225,9 +1178,9 @@ double *build_x87_biglit_table (
 /* Set the ttp and ttmp fudge flags for two pass FFTs */
 /* The fudge flag is set if col mult * grp mult will be greater than 2 */
 
-		if (fft_weight (word) * 1.5 <
-				fft_weight (word & (pass2_size-1)) *
-				fft_weight (word & ~(pass2_size-1))) {
+		if (gwfft_weight (word) * 1.5 <
+				gwfft_weight (word & (pass2_size-1)) *
+				gwfft_weight (word & ~(pass2_size-1))) {
 			if (m == 0) *p += 64;
 			else *p += 128;
 		}
@@ -1729,6 +1682,10 @@ int internal_gwsetup (
 	CARG = c;
 	FFTLEN = info[1];
 
+/* Initialize the extended precision code that computes the FFT weights */
+
+	gwfft_weight_setup (ZERO_PADDED_FFT, k, n, c, FFTLEN);
+
 /* Calculate the number of bits in k*2^n.  This will be helpful in */
 /* determining how much meory to allocate for giants. */
 
@@ -1769,10 +1726,6 @@ int internal_gwsetup (
 
 	EXTRA_BITS = (unsigned long)
 		pow (2.0, (fft_max_bits_per_word - virtual_bits_per_word ()) / 2.0);
-
-/* Do some preliminary assembly-language FFT setup */
-
-	gwsetup1 ();
 
 /* This debug code will make sure the memory allocated is appropriate */
 /* for the tables we are about to init. */
@@ -2052,7 +2005,7 @@ int internal_gwsetup (
 
 		CARRY_ADJUST1 = (double) (1 << kbits);
 		CARRY_ADJUST2 = (double) (1 << topwordbits) / (double) (1 << kbits);
-		CARRY_ADJUST3 = fft_weight (FFTLEN-1);
+		CARRY_ADJUST3 = gwfft_weight (FFTLEN-1);
 
 /* Get the addr of the top three words.  This is funky because in two-pass */
 /* FFTs we want the scratch area offset when normalizing after a multiply, */
@@ -2076,7 +2029,7 @@ int internal_gwsetup (
 		if (PASS2_LEVELS) {
 			ASSERTG (kbits <= topwordbits + secondwordbits);
 			CARRY_ADJUST4 = (double) (1 << secondwordbits) *
-							fft_weight (FFTLEN-2);
+							gwfft_weight (FFTLEN-2);
 		}
 
 /* In one-pass FFTs, we adjust the top three words.  More adjustment */
@@ -2085,9 +2038,9 @@ int internal_gwsetup (
 		else {
 			ASSERTG (kbits <= topwordbits + secondwordbits + thirdwordbits);
 			CARRY_ADJUST4 = (double) (1 << secondwordbits);
-			CARRY_ADJUST5 = fft_weight (FFTLEN-2);
+			CARRY_ADJUST5 = gwfft_weight (FFTLEN-2);
 			CARRY_ADJUST6 = (double) (1 << thirdwordbits) *
-							fft_weight (FFTLEN-3);
+							gwfft_weight (FFTLEN-3);
 		}
 	}
 
@@ -2799,27 +2752,37 @@ unsigned long gwnum_size (unsigned long fftlen)
 /* routines set and get the FFT value without the two-to-phi */
 /* multiplier. */
 
-void get_fft_value (
+int get_fft_value (
 	gwnum	g,
 	unsigned long i,
 	long	*retval)
 {
 	double	val;
 
+/* Get the FFT data and validate it */
+
+	val = * addr (g, i);
+	if (! is_valid_double (val)) return (GWERROR_BAD_FFT_DATA);
+
 /* Handle the rational FFT case quickly */
 
 	if (RATIONAL_FFT) {
-		*retval = (long) * addr (g, i);
-		return;
+		*retval = (long) val;
 	}
 
 /* Multiply by two-to-minus-phi to generate an integer. */
 
-	val = * addr (g, i) * fft_weight_inverse (i);
-	if (val < -0.5)
-		*retval = (long) (val - 0.5);
-	else
-		*retval = (long) (val + 0.5);
+	else {
+		val = val * gwfft_weight_inverse (i);
+		if (val < -0.5)
+			*retval = (long) (val - 0.5);
+		else
+			*retval = (long) (val + 0.5);
+	}
+
+/* Return success */
+
+	return (0);
 }
 
 void set_fft_value (
@@ -2837,18 +2800,7 @@ void set_fft_value (
 
 /* Multiply by two-to-phi to generate the proper double. */
 
-	* addr (g, i) = val * fft_weight (i);
-}
-
-/* This routine checks to see if the FFT data value is valid. */
-/* It always should be valid, but hardware errors sometime generate */
-/* NaNs and infinity. */
-
-int is_valid_fft_value (
-	gwnum	g,
-	unsigned long i)
-{
-	return (is_valid_double (* addr (g, i)));
+	* addr (g, i) = val * gwfft_weight (i);
 }
 
 /* Some words in the FFT data contain floor(p/N), some words contain */
@@ -2862,8 +2814,8 @@ int is_big_word (
 /* Compute the number of bits in this word.  It is a big word if */
 /* the number of bits is more than BITS_PER_WORD. */
 
-	base = fft_base (i);
-	next_base = fft_base (i+1);
+	base = gwfft_base (i);
+	next_base = gwfft_base (i+1);
 	return ((next_base - base) > BITS_PER_WORD);
 }
 
@@ -2882,7 +2834,7 @@ void bitaddr (
 
 /* Compute the bit within the word. */
 
-	*bit_in_word = bit - fft_base (*word);
+	*bit_in_word = bit - gwfft_base (*word);
 }
 
 /* Return a description of the FFT type chosen */
@@ -3255,7 +3207,7 @@ void raw_gwsetaddin (
 
 /* Set the addin value - multiply it by two-to-phi and FFTLEN/2/KARG. */
 
-	ADDIN_VALUE = (double) val * fft_weight (word) * FFTLEN * 0.5 / KARG;
+	ADDIN_VALUE = (double) val * gwfft_weight (word) * FFTLEN * 0.5 / KARG;
 }
 
 
@@ -3419,17 +3371,21 @@ void gianttogw (
 }
 
 /* Convert a gwnum to a binary value.  Returns the number of longs */
-/* written to the array.  The array is NOT zero-padded. */
+/* written to the array.  The array is NOT zero-padded.  Returns a */
+/* negative number if an error occurs during the conversion.  An error */
+/* can happen if the FFT data contains a NaN or infinity value. */
 
-unsigned long gwtobinary (
+long gwtobinary (
 	gwnum	n,		/* Source gwnum */
 	unsigned long *array,	/* Array to contain the binary value */
 	unsigned long arraylen)	/* Maximum size of the array */
 {
 	giant	tmp;
+	int	err_code;
 
 	tmp = popg ((PARG >> 5) + 5);
-	gwtogiant (n, tmp);
+	err_code = gwtogiant (n, tmp);
+	if (err_code < 0) return (err_code);
 	ASSERTG ((unsigned long) tmp->sign >= arraylen);
 	memcpy (array, tmp->n, tmp->sign * sizeof (unsigned long));
 	pushg (1);
@@ -3441,12 +3397,12 @@ unsigned long gwtobinary (
 /* This is a gross kludge that lets gwtogiant use the giant for intermediate */
 /* calculations. */
 
-void gwtogiant (
+int gwtogiant (
 	gwnum	gg,
 	giant	v)
 {
 	long	val;
-	int	j, bits, bitsout, carry;
+	int	j, bits, bitsout, carry, err_code;
 	unsigned long i, limit, *outptr;
 
 	ASSERTG (((long *) gg)[-7] == 0);	// Number not partially FFTed?
@@ -3467,7 +3423,8 @@ void gwtogiant (
 	outptr = v->n;
 	*outptr = 0;
 	for (i = 0; i < limit; i++) {
-		get_fft_value (gg, i, &val);
+		err_code = get_fft_value (gg, i, &val);
+		if (err_code) return (err_code);
 		bits = BITS_PER_WORD;
 		if (is_big_word (i)) bits++;
 		val += carry;
@@ -3528,6 +3485,10 @@ void gwtogiant (
 		gtog (newg, v);
 		pushg (1);
 	}
+
+/* Return success */
+
+	return (0);
 }
 
 /* Special modg.  This is a fast implementation of mod k*2^n+c using just */
