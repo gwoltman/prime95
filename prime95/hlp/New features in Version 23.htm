@@ -191,7 +191,7 @@ ul
 
 <p class=MsoNormal style='margin-left:1.0in;text-indent:-.25in;mso-list:l1 level2 lfo3;
 tab-stops:list 1.0in'><![if !supportLists]><span style='mso-fareast-font-family:
-"MS Mincho"'>a)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+"MS Mincho"'>a)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='mso-fareast-font-family:"MS Mincho"'>The
 program now returns the number of errors that occurred when the result is
 prime.<span style="mso-spacerun: yes">  </span>A non-zero value will make us
@@ -199,7 +199,7 @@ more suspect of the reported prime.<o:p></o:p></span></p>
 
 <p class=MsoNormal style='margin-left:1.0in;text-indent:-.25in;mso-list:l1 level2 lfo3;
 tab-stops:list 1.0in'><![if !supportLists]><span style='mso-fareast-font-family:
-"MS Mincho"'>b)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+"MS Mincho"'>b)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='mso-fareast-font-family:"MS Mincho"'>The
 save files will not be deleted.<span style="mso-spacerun: yes">  </span>The
 user can then email these to me and we can rerun the last 30 minutes of the LL
@@ -208,7 +208,7 @@ false positive report in this mini LL run.<o:p></o:p></span></p>
 
 <p class=MsoNormal style='margin-left:1.0in;text-indent:-.25in;mso-list:l1 level2 lfo3;
 tab-stops:list 1.0in'><![if !supportLists]><span style='mso-fareast-font-family:
-"MS Mincho"'>c)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+"MS Mincho"'>c)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='mso-fareast-font-family:"MS Mincho"'>The
 shift counter is now checked every iteration.<span style="mso-spacerun: yes"> 
 </span>If this variable AND the FFT data was corrupted, then and endless loop
@@ -217,13 +217,13 @@ report.<o:p></o:p></span></p>
 
 <p class=MsoNormal style='margin-left:1.0in;text-indent:-.25in;mso-list:l1 level2 lfo3;
 tab-stops:list 1.0in'><![if !supportLists]><span style='mso-fareast-font-family:
-"MS Mincho"'>d)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+"MS Mincho"'>d)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='mso-fareast-font-family:"MS Mincho"'>Every
 iteration the FFT data is checked to see if the data has been zeroed.<o:p></o:p></span></p>
 
 <p class=MsoNormal style='margin-left:1.0in;text-indent:-.25in;mso-list:l1 level2 lfo3;
 tab-stops:list 1.0in'><![if !supportLists]><span style='mso-fareast-font-family:
-"MS Mincho"'>e)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+"MS Mincho"'>e)<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </span></span><![endif]><span style='mso-fareast-font-family:"MS Mincho"'>The
 is-this-a-prime check now makes sure the FFT data is not NaN.<span
 style="mso-spacerun: yes">   </span>NaN stands for not a number and means the
@@ -236,6 +236,11 @@ checked for zero and my C compiler returns TRUE for the test NaN == 0.0!<o:p></o
      sending relative URLs.<span style="mso-spacerun: yes">  </span>Some users
      had trouble with this feature introduced in 23.4.<span
      style="mso-spacerun: yes">  </span>So, UseFullURL=0 is now the default.<o:p></o:p></span></li>
+ <li class=MsoNormal style='mso-list:l1 level1 lfo3;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>Some prefetching improvements
+     were made for the Athlon, Pentium 3, and Celeron 2 processors.<span
+     style="mso-spacerun: yes">  </span>You can expect speed improvements
+     between 3% and 10% for most FFT sizes.<o:p></o:p></span></li>
 </ol>
 
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
@@ -246,7 +251,7 @@ checked for zero and my C compiler returns TRUE for the test NaN == 0.0!<o:p></o
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=1 type=1>
- <li class=MsoNormal style='mso-list:l3 level1 lfo6;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l3 level1 lfo7;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>Further performance
      improvements in the SSE2 FFT code.<span style="mso-spacerun: yes"> 
      </span>I've tried to do more work while data is in the L1 data cache.<o:p></o:p></span></li>
@@ -255,7 +260,7 @@ checked for zero and my C compiler returns TRUE for the test NaN == 0.0!<o:p></o
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=2 type=1>
- <li class=MsoNormal style='mso-list:l3 level1 lfo6;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l3 level1 lfo7;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>The program should now work
      with a &quot;redirected proxy server&quot;.<span style="mso-spacerun:
      yes">  </span>This was done by sending full URLs in Primenet
@@ -267,7 +272,7 @@ checked for zero and my C compiler returns TRUE for the test NaN == 0.0!<o:p></o
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=3 type=1>
- <li class=MsoNormal style='mso-list:l3 level1 lfo6;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l3 level1 lfo7;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>A bug in the assembly language
      add and subtract routines was fixed.<span style="mso-spacerun: yes"> 
      </span>The bug could affect ECM on exponents just below
@@ -282,7 +287,7 @@ checked for zero and my C compiler returns TRUE for the test NaN == 0.0!<o:p></o
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=1 type=1>
- <li class=MsoNormal style='mso-list:l2 level1 lfo11;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l2 level1 lfo12;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>Further performance
      improvements in the SSE2 code for FFTs larger than 640K.<span
      style="mso-spacerun: yes">  </span>You should see about a 4% improvement
@@ -293,14 +298,14 @@ checked for zero and my C compiler returns TRUE for the test NaN == 0.0!<o:p></o
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=2 type=1>
- <li class=MsoNormal style='mso-list:l2 level1 lfo11;tab-stops:list .5in'><span
+ <li class=MsoNormal style='mso-list:l2 level1 lfo12;tab-stops:list .5in'><span
      style='mso-fareast-font-family:"MS Mincho"'>Stage 2 of P-1 factoring has
      been recoded for more speed.<span style="mso-spacerun: yes"> 
      </span>WARNING: when continuing from a save file created in stage 2 by a
      previous prime95 version, this version will restart stage 2 from the
-     beginning.<span style="mso-spacerun: yes">  </span>ALSO: the stage 2 P-1
-     save file format has changed - in dual boot scenarios you must upgrade
-     mprime and prime95 at the same time.<o:p></o:p></span></li>
+     beginning.<span style="mso-spacerun: yes">  </span>ALSO: the stage 2 P-1 save
+     file format has changed - in dual boot scenarios you must upgrade mprime
+     and prime95 at the same time.<o:p></o:p></span></li>
 </ol>
 
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
@@ -311,7 +316,7 @@ checked for zero and my C compiler returns TRUE for the test NaN == 0.0!<o:p></o
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=1 type=1>
- <li class=MsoNormal style='mso-list:l0 level1 lfo15;tab-stops:list .5in'>Further
+ <li class=MsoNormal style='mso-list:l0 level1 lfo16;tab-stops:list .5in'>Further
      performance improvements in the SSE2 code.<span style="mso-spacerun:
      yes">  </span>You can expect about a 4% improvement.</li>
 </ol>
@@ -324,38 +329,38 @@ checked for zero and my C compiler returns TRUE for the test NaN == 0.0!<o:p></o
 <p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></span></p>
 
 <ol style='margin-top:0in' start=1 type=1>
- <li class=MsoNormal style='mso-list:l4 level1 lfo18;tab-stops:list .5in'>Big
-     SSE2 FFTs now take the L2 cache size into account.<span
-     style="mso-spacerun: yes">  </span>P4 Celeron (128KB L2 cache) is faster
-     for FFTs between 512K and 2M.<span style="mso-spacerun: yes">  </span>P4
-     Northwood (512KB L2 cache) is faster for FFTs larger than 1M.</li>
+ <li class=MsoNormal style='mso-list:l4 level1 lfo19;tab-stops:list .5in'>Big SSE2
+     FFTs now take the L2 cache size into account.<span style="mso-spacerun:
+     yes">  </span>P4 Celeron (128KB L2 cache) is faster for FFTs between 512K
+     and 2M.<span style="mso-spacerun: yes">  </span>P4 Northwood (512KB L2
+     cache) is faster for FFTs larger than 1M.</li>
 </ol>
 
 <p class=MsoNormal><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></p>
 
 <ol style='margin-top:0in' start=2 type=1>
- <li class=MsoNormal style='mso-list:l4 level1 lfo18;tab-stops:list .5in'>Benchmark
+ <li class=MsoNormal style='mso-list:l4 level1 lfo19;tab-stops:list .5in'>Benchmark
      no longer times 256K and 320K FFTs, but does time 2048K FFT.</li>
 </ol>
 
 <p class=MsoNormal><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></p>
 
 <ol style='margin-top:0in' start=3 type=1>
- <li class=MsoNormal style='mso-list:l4 level1 lfo18;tab-stops:list .5in'>Support
+ <li class=MsoNormal style='mso-list:l4 level1 lfo19;tab-stops:list .5in'>Support
      for torture testing FFT sizes from 1280K to 4096K added.</li>
 </ol>
 
 <p class=MsoNormal><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></p>
 
 <ol style='margin-top:0in' start=4 type=1>
- <li class=MsoNormal style='mso-list:l4 level1 lfo18;tab-stops:list .5in'>A 900
+ <li class=MsoNormal style='mso-list:l4 level1 lfo19;tab-stops:list .5in'>A 900
      MHz P-III is now required to get first time LL tests by default.</li>
 </ol>
 
 <p class=MsoNormal><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></p>
 
 <ol style='margin-top:0in' start=5 type=1>
- <li class=MsoNormal style='mso-list:l4 level1 lfo18;tab-stops:list .5in'>Slightly
+ <li class=MsoNormal style='mso-list:l4 level1 lfo19;tab-stops:list .5in'>Slightly
      faster SSE2 FFTs for lengths of 5*2^N and 7*2^N (e.g. 640K, 896K).</li>
 </ol>
 

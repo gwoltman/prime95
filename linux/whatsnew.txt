@@ -45,6 +45,9 @@ New features in Version 23.3 of mprime
     version, this version will restart stage 2 from the beginning.  ALSO:
     the stage 2 P-1 save file format has changed - in dual boot scenarios
     you must upgrade mprime and prime95 at the same time.
+3)  Some prefetching improvements were made for the Athlon, Pentium 3, and 
+    Celeron 2 processors.  You can expect speed improvements between 3%
+    and 10% for most FFT sizes.
 
 New features in Version 23.2 of mprime
 --------------------------------------
