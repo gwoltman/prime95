@@ -5,6 +5,9 @@ New features in Version 22.6 of prime95.exe
     service!!  Normally Windows NT/2000/XP will not run GUI programs as
     services, but several tricks have allowed us to get this working
     almost flawlessly.
+2)  To reduce spurious error reports on x86 LL tests near the crossover
+    points, the program now allows roundoff errors less than 0.40625
+    rather than less than 0.4.
 
 New features in Version 22.5 of prime95.exe
 -------------------------------------------

@@ -1,3 +1,10 @@
+New features in Version 22.6 of mprime
+--------------------------------------
+
+1)  To reduce spurious error reports on x86 LL tests near the crossover
+    points, the program now allows roundoff errors less than 0.40625
+    rather than less than 0.4.
+
 New features in Version 22.5 of mprime
 --------------------------------------
 
