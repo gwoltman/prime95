@@ -1,3 +1,14 @@
+New features in Version 22.12 of mprime
+---------------------------------------
+
+1)  A bug was fixed that caused some factors to be missed in stage 2 of P-1
+    when the available memory did not let the program allocate 12 temporary
+    variables.  If testing a number in the 16 millions using an FFT size of
+    768K, then each temporary takes 768K * 8 bytes or 6MB.  If your memory
+    setting was less than 72MB (6MB * 12 temporaries) then you were affected
+    by the bug.  Actual the program allocates some fixed tables so anything
+    less than about 75MB triggered the bug.
+
 New features in Version 22.11 of mprime
 ---------------------------------------
 
