@@ -24,6 +24,9 @@ typedef struct {
 				/* This array is variably sized. */
 } *gwnum;
 
+#define MAX_PRIME	79300000L	/* Maximum number of bits */
+#define MAX_PRIME_SSE2	77910000L	/* SSE2 bit limit */
+
 /* global variables */
 
 EXTERNC unsigned long PARG;	/* The exponent we are testing */

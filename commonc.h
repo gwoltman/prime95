@@ -16,9 +16,7 @@
 /* OS/2		   uses bit #7 */
 
 #define MIN_PRIME	5L		/* Smallest testable prime */
-#define MAX_PRIME	79300000L	/* Largest testable prime */
-#define MAX_FACTOR	79300000L	/* Largest factorable number */
-#define MAX_PRIME_SSE2	77910000L	/* Largest testable prime */
+#define MAX_FACTOR	MAX_PRIME	/* Largest factorable number */
 
 /* Factoring limits based on complex formulas given the speed of the */
 /* factoring code vs. the speed of the Lucas-Lehmer code */
