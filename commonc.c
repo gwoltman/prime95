@@ -3051,7 +3051,7 @@ void guess_pminus1_bounds (
 /* corrupt result over 1% of the time). */
 
 	ll_tests = 2.03;
-	if (double_check) ll_tests = 1.015;
+	if (double_check) ll_tests = 1.03;
 
 /* Precompute the cost of a GCD.  We used Excel to come up with the */
 /* formula GCD is equivalent to 861 * Ln (p) - 7775 transforms. */
