@@ -641,58 +641,6 @@ void lucas_mul (
 	gwfree (zt);
 }
 
-/* Try a series of Lucas chains to find the cheapest. */
-/* First try v = (1+sqrt(5))/2, then (2+v)/(1+v), then (3+2*v)/(2+v), */
-/* then (5+3*v)/(3+2*v), etc.  Finally, execute the cheapest. */
-/* This is much faster than bin_ell_mul, but uses more memory. */
-
-void ell_mul (
-	gwnum	xx,
-	gwnum	zz,
-	unsigned long n)
-{
-	unsigned long zeros;
-
-	for (zeros = 0; (n & 1) == 0; zeros++) n >>= 1;
-
-	if (n > 1) {
-		unsigned long c, min;
-		double	minv;
-
-		min = lucas_cost (n, minv = 1.61803398875);/*v=(1+sqrt(5))/2*/
-
-		c = lucas_cost (n, 1.38196601125);	/*(2+v)/(1+v)*/
-		if (c < min) min = c, minv = 1.38196601125;
-
-		c = lucas_cost (n, 1.72360679775);	/*(3+2*v)/(2+v)*/
-		if (c < min) min = c, minv = 1.72360679775;
-
-		c = lucas_cost (n, 1.580178728295);	/*(5+3*v)/(3+2*v)*/
-		if (c < min) min = c, minv = 1.580178728295;
-
-		c = lucas_cost (n, 1.632839806089);	/*(8+5*v)/(5+3*v)*/
-		if (c < min) min = c, minv = 1.632839806089;
-
-		c = lucas_cost (n, 1.612429949509);	/*(13+8*v)/(8+5*v)*/
-		if (c < min) min = c, minv = 1.612429949509;
-
-		c = lucas_cost (n, 1.620181980807);	/*(21+13*v)/(13+8*v)*/
-		if (c < min) min = c, minv = 1.620181980807;
-
-		c = lucas_cost (n, 1.617214616534);	/*(34+21*v)/(21+13*v)*/
-		if (c < min) min = c, minv = 1.617214616534;
-
-		c = lucas_cost (n, 1.618347119656);	/*(55+34*v)/(34+21*v)*/
-		if (c < min) min = c, minv = 1.618347119656;
-
-		c = lucas_cost (n, 1.617914406529);	/*(89+55*v)/(55+34*v)*/
-		if (c < min) min = c, minv = 1.617914406529;
-
-		lucas_mul (xx, zz, n, minv);
-	}
-	while (zeros--) ell_dbl (xx, zz, xx, zz);
-}
-
 /* Multiplies the point (xx,zz) by n using a combination */
 /* of ell_dbl and ell_add calls */
 
@@ -755,6 +703,58 @@ void bin_ell_mul (
 	gwfree (xs); 
 	gwfree (zs); 
 
+	while (zeros--) ell_dbl (xx, zz, xx, zz);
+}
+
+/* Try a series of Lucas chains to find the cheapest. */
+/* First try v = (1+sqrt(5))/2, then (2+v)/(1+v), then (3+2*v)/(2+v), */
+/* then (5+3*v)/(3+2*v), etc.  Finally, execute the cheapest. */
+/* This is much faster than bin_ell_mul, but uses more memory. */
+
+void ell_mul (
+	gwnum	xx,
+	gwnum	zz,
+	unsigned long n)
+{
+	unsigned long zeros;
+
+	for (zeros = 0; (n & 1) == 0; zeros++) n >>= 1;
+
+	if (n > 1) {
+		unsigned long c, min;
+		double	minv;
+
+		min = lucas_cost (n, minv = 1.61803398875);/*v=(1+sqrt(5))/2*/
+
+		c = lucas_cost (n, 1.38196601125);	/*(2+v)/(1+v)*/
+		if (c < min) min = c, minv = 1.38196601125;
+
+		c = lucas_cost (n, 1.72360679775);	/*(3+2*v)/(2+v)*/
+		if (c < min) min = c, minv = 1.72360679775;
+
+		c = lucas_cost (n, 1.580178728295);	/*(5+3*v)/(3+2*v)*/
+		if (c < min) min = c, minv = 1.580178728295;
+
+		c = lucas_cost (n, 1.632839806089);	/*(8+5*v)/(5+3*v)*/
+		if (c < min) min = c, minv = 1.632839806089;
+
+		c = lucas_cost (n, 1.612429949509);	/*(13+8*v)/(8+5*v)*/
+		if (c < min) min = c, minv = 1.612429949509;
+
+		c = lucas_cost (n, 1.620181980807);	/*(21+13*v)/(13+8*v)*/
+		if (c < min) min = c, minv = 1.620181980807;
+
+		c = lucas_cost (n, 1.617214616534);	/*(34+21*v)/(21+13*v)*/
+		if (c < min) min = c, minv = 1.617214616534;
+
+		c = lucas_cost (n, 1.618347119656);	/*(55+34*v)/(34+21*v)*/
+		if (c < min) min = c, minv = 1.618347119656;
+
+		c = lucas_cost (n, 1.617914406529);	/*(89+55*v)/(55+34*v)*/
+		if (c < min) min = c, minv = 1.617914406529;
+
+		lucas_mul (xx, zz, n, minv);
+	}
 	while (zeros--) ell_dbl (xx, zz, xx, zz);
 }
 
@@ -1281,6 +1281,76 @@ exit:	pool_count = 0;
 }
 
 
+/* Test if N is a probable prime */
+/* Compute i^(N-1) mod N for i = 3,5,7 */
+
+int isProbablePrime (void)
+{
+	int	i, j, len, retval;
+	gwnum	t1, t2;
+	giant	x;
+
+	if (isone (N)) return (TRUE);
+
+	retval = TRUE;		/* Assume it is a probable prime */
+	t1 = gwalloc ();
+	len = bitlen (N);
+	for (i = 3; retval && i <= 7; i += 2) {
+		t2 = gwalloc ();
+		dbltogw ((double) 1.0, t1);
+		dbltogw ((double) i, t2);
+		gwfft (t2, t2);
+		for (j = 1; j <= len; j++) {
+			gwsquare (t1);
+			if (bitval (N, len-j)) gwfftmul (t2, t1);
+		}
+		gwfree (t2);
+		x = popg ((PARG >> 5) + 1);
+		gwtobinary (t1, x);
+		modg (N, x);
+		iaddg (-i, x);
+		if (!isZero (x)) retval = FALSE;	/* Not a prime */
+		pushg (1);
+	}
+	gwfree (t1);
+	return (retval);
+}
+
+/* Print the factor we just found */
+
+int printFactor (void)
+{
+	int	msglen;
+	char	*msg;
+
+	if (!testFactor (FAC)) {
+		OutputBoth ("ERROR: Factor doesn't divide N!\n");
+		ultog (1, FAC);
+		return (FALSE);
+	}
+
+	msglen = FAC->sign * 10 + 80;
+	msg = (char *) malloc (msglen);
+	msg[0] = PLUS1 ? 'P' : 'M';
+	sprintf (msg+1, "%ld has a factor: ", PARG);
+	gtoc (FAC, msg+strlen(msg), msglen);
+	strcat (msg, "\n");
+	OutputBoth (msg);
+	spoolMessage (PRIMENET_RESULT_MESSAGE, msg);
+	free (msg);
+
+	if (PARG < 10000) {
+		divg (FAC, N);
+		if (isProbablePrime ()) {
+			OutputBoth ("Cofactor is a probable prime!\n");
+			updateWorkToDo (PARG, WORK_FACTOR, 0);
+			return (TRUE);
+		}
+		mulg (FAC, N);
+	}
+	return (FALSE);
+}
+
 /* From R. P. Brent, priv. comm. 1996:
 Let s > 5 be a pseudo-random seed (called $\sigma$ in the Tech. Report),
 
@@ -1305,7 +1375,7 @@ void choose12 (
 	t2 = gwalloc ();
 	t3 = gwalloc ();
 
-	dbltogw (curve, zs);
+again:	dbltogw (curve, zs);
 	gwcopy (zs, xs);
 	gwsquare (xs);			/* s^2 */
 	dbltogw (5.0, t1);
@@ -1338,6 +1408,15 @@ void choose12 (
 	dbltogw (4.0, Ad4);
 	gwmul (t3, Ad4);	/* An/Ad is now A + 2 */
 	normalize (Ad4, t2);	/* Normalize so that An is one */
+	if (FAC != NULL) {	/* If a factor was found, then normalize */
+				/* failed to find a modular inverse. */
+		gwfree (Ad4);
+		printFactor ();
+		divg (FAC, N);
+		free (FAC);
+		FAC = NULL;
+		goto again;
+	}
 	dbltogw (4.0, t1);	/* For extra speed, precompute Ad * 4 */
 	gwmul (t1, Ad4);
 	gwfft (Ad4, Ad4);	/* Even more speed, save FFT of Ad4 */
@@ -1443,76 +1522,6 @@ void mQ_term (void)
 	gwfree (Qmx);
 	gwfree (Qmz);
 	gwfree (Q2Dxminus1);
-}
-
-/* Test if N is a probable prime */
-/* Compute i^(N-1) mod N for i = 3,5,7 */
-
-int isProbablePrime (void)
-{
-	int	i, j, len, retval;
-	gwnum	t1, t2;
-	giant	x;
-
-	if (isone (N)) return (TRUE);
-
-	retval = TRUE;		/* Assume it is a probable prime */
-	t1 = gwalloc ();
-	len = bitlen (N);
-	for (i = 3; retval && i <= 7; i += 2) {
-		t2 = gwalloc ();
-		dbltogw ((double) 1.0, t1);
-		dbltogw ((double) i, t2);
-		gwfft (t2, t2);
-		for (j = 1; j <= len; j++) {
-			gwsquare (t1);
-			if (bitval (N, len-j)) gwfftmul (t2, t1);
-		}
-		gwfree (t2);
-		x = popg ((PARG >> 5) + 1);
-		gwtobinary (t1, x);
-		modg (N, x);
-		iaddg (-i, x);
-		if (!isZero (x)) retval = FALSE;	/* Not a prime */
-		pushg (1);
-	}
-	gwfree (t1);
-	return (retval);
-}
-
-/* Print the factor we just found */
-
-int printFactor (void)
-{
-	int	msglen;
-	char	*msg;
-
-	if (!testFactor (FAC)) {
-		OutputBoth ("ERROR: Factor doesn't divide N!\n");
-		ultog (1, FAC);
-		return (FALSE);
-	}
-
-	msglen = FAC->sign * 10 + 80;
-	msg = (char *) malloc (msglen);
-	msg[0] = PLUS1 ? 'P' : 'M';
-	sprintf (msg+1, "%ld has a factor: ", PARG);
-	gtoc (FAC, msg+strlen(msg), msglen);
-	strcat (msg, "\n");
-	OutputBoth (msg);
-	spoolMessage (PRIMENET_RESULT_MESSAGE, msg);
-	free (msg);
-
-	if (PARG < 10000) {
-		divg (FAC, N);
-		if (isProbablePrime ()) {
-			OutputBoth ("Cofactor is a probable prime!\n");
-			updateWorkToDo (PARG, WORK_FACTOR, 0);
-			return (TRUE);
-		}
-		mulg (FAC, N);
-	}
-	return (FALSE);
 }
 
 /* Choose 4 FFT stage 2 of the 2 FFT stage 2.  Also choose a good */
@@ -2885,6 +2894,67 @@ error:	OutputBoth ("SUMOUT error occurred.\n");
 	goto restart;
 }
 
+/* Read a file of ECM tests to run as part of a QA process */
+/* The format of this file is: */
+/*	exponent, plus1_flag, sigma, B1, B2_start, B2_end, factor */
+/* Use Advanced/Time 9991 to run the QA suite */
+
+int ecm_QA ()
+{
+	FILE	*fd;
+
+/* Set the title */
+
+	title ("QA");
+
+/* Open QA file */
+
+	fd = fopen ("qa_ecm", "r");
+	if (fd == NULL) {
+		OutputStr ("File named 'qa_ecm' could not be opened.\n");
+		return (TRUE);
+	}
+
+/* Loop until the entire file is processed */
+
+	for ( ; ; ) {
+		unsigned long p, B1, B2_start, B2_end;
+		int	plus1;
+		char	fac_str[80];
+		double	sigma;
+
+/* Read a line from the file */
+
+		p = 0;
+		fscanf (fd, "%lu,%d,%lf,%lu,%lu,%lu,%s\n",
+			&p, &plus1, &sigma, &B1, &B2_start, &B2_end, &fac_str);
+		if (p == 0) break;
+
+/*test various num_tmps
+test 4 (or more?) stage 2 code paths
+print out each test case (all relevant data)*/
+
+/* Set some global variables indicating QA is in progress. */
+
+/* Do the ECM */
+
+		if (B2_start < B1) B2_start = B1;
+		if (! ecm (p, B1, B2_start, B2_end, 1, 0, sigma, plus1)) {
+			fclose (fd);
+			return (FALSE);
+		}
+
+/* See if we found the factor */
+
+//		if (FAC == NULL || strcmp (FAC, fac_str)) {
+//			sprintf (buf, "Warning: Factor not found. Expected %s\n", fac_str);
+//			OutputBoth (buf);
+//		}
+	}
+	fclose (fd);
+
+	return (TRUE);
+}
 
 /**************************************************************
  *
@@ -4362,4 +4432,65 @@ error:	pm1_cleanup ();
 	write_time >>= 1;
 	if (write_time < 300) write_time = 300;
 	goto restart;
+}
+
+/* Read a file of P-1 tests to run as part of a QA process */
+/* The format of this file is: */
+/*	exponent, plus1_flag, B1, B2_start, B2_end, factor */
+/* Use Advanced/Time 9992 to run the QA suite */
+
+int pminus1_QA ()
+{
+	FILE	*fd;
+
+/* Set the title */
+
+	title ("QA");
+
+/* Open QA file */
+
+	fd = fopen ("qa_pm1", "r");
+	if (fd == NULL) {
+		OutputStr ("File named 'qa_pm1' could not be opened.\n");
+		return (TRUE);
+	}
+
+/* Loop until the entire file is processed */
+
+	for ( ; ; ) {
+		unsigned long p, B1, B2_start, B2_end;
+		int	plus1;
+		char	fac_str[80];
+
+/* Read a line from the file */
+
+		p = 0;
+		fscanf (fd, "%lu,%d,%lu,%lu,%lu,%s\n",
+			&p, &plus1, &B1, &B2_start, &B2_end, &fac_str);
+		if (p == 0) break;
+
+/*test various num_tmps
+test 4 (or more?) stage 2 code paths
+print out each test case (all relevant data)*/
+
+/* Set some global variables indicating QA is in progress. */
+
+/* Do the P-1 */
+
+		if (B2_start < B1) B2_start = B1;
+		if (! pminus1 (p, B1, B2_start, B2_end, plus1, FALSE)) {
+			fclose (fd);
+			return (FALSE);
+		}
+
+/* See if we found the factor */
+
+//		if (FAC == NULL || strcmp (FAC, fac_str)) {
+//			sprintf (buf, "Warning: Factor not found. Expected %s\n", fac_str);
+//			OutputBoth (buf);
+//		}
+	}
+	fclose (fd);
+
+	return (TRUE);
 }
