@@ -797,7 +797,7 @@ int setN (
 /* Create the binary representation of the number we are factoring */
 /* Allocate 10 extra words to handle any possible k value. */
 
-	bits = (unsigned long) (n * log (b) / log (2));
+	bits = (unsigned long) (n * log ((double) b) / log ((double) 2.0));
 	N = newgiant ((bits >> 4) + 10);
 	ultog (b, N);
 	power (N, n);
@@ -1459,7 +1459,7 @@ void choose_stage2_plan (
 #define ELL_ADD_COST		12
 #define N_SQUARED_POOL_COST	2
 #define MULT3_POOL_COST		7
-	gcd_cost = 861.0 * log (n) - 7775.0;
+	gcd_cost = 861.0 * log ((double) n) - 7775.0;
 	if (gcd_cost < 100.0) gcd_cost = 100.0;
 
 /* Will there even be a stage 2?  If not, set D and E appropriately */
@@ -1491,7 +1491,7 @@ void choose_stage2_plan (
 /* Numprimes below C approximately equals C / (ln(C)-1) */
 /* Compute numprimes between B and C */
 
-	numprimes = ceil ((C / (log (C) - 1)) - (B / (log (B) - 1)));
+	numprimes = ceil ((C / (log ((double) C) - 1)) - (B / (log ((double) B) - 1)));
 
 /* Figure out the best value for E when using the O(N^2) pool method */
 
@@ -1500,7 +1500,7 @@ void choose_stage2_plan (
 /* Loop through various D values choosing the most cost effective one */
 
 	bestcost = 1.0E99;
-	d = ((unsigned long) sqrt (C-B) / 2310 + 3) * 2310;
+	d = ((unsigned long) sqrt ((double) (C-B)) / 2310 + 3) * 2310;
 	for ( ; ; ) {
 		if (d >= 2310) {
 			relprime = d / 2310 * 480;
@@ -1523,7 +1523,7 @@ void choose_stage2_plan (
 
 /* There will be (C-B)/2D sections */
 
-		numsections = ceil ((C-B) / (d+d));
+		numsections = ceil ((double) (C-B) / (double) (d+d));
 
 /* Cost out the 4FFT stage 2 using this D			*/
 /* The cost will be:						*/
@@ -2138,7 +2138,7 @@ return 0;
 
 /* Set other constants */
 
-	SQRT_B = (unsigned long) sqrt (B);
+	SQRT_B = (unsigned long) sqrt ((double) B);
 
 /* Perform setup functions */
 
@@ -2492,6 +2492,7 @@ restart1:
 
 			gx = popg ((PARG >> 5) + 10);
 			gwtogiant (x, gx);
+			modg (N, gx);
 
 			msglen = N->sign * 8 + 5;
 			buf = (char *) malloc (msglen + msglen + 80);
@@ -3487,7 +3488,7 @@ double cost_pminus1_plan (
 
 /* Estimate the number of primes */
 
-	numprimes = (unsigned long) (C / (log(C) - 1.0) - B / (log(B) - 1.0));
+	numprimes = (unsigned long) (C / (log((double) C) - 1.0) - B / (log((double) B) - 1.0));
 
 /* Calculate the number of values relatively prime to D */
 
@@ -3512,7 +3513,7 @@ double cost_pminus1_plan (
 /* at a cost of about 1.5 multiplies per bit.  In other words, */
 /* (E+1) * E*log2(startpoint) * 1.5. */
 
-	cost = passes * (e+1) * e*log(d/2)/log(2) * 1.5 +
+	cost = passes * (e+1) * e*log((double)(d/2))/log((double)2.0) * 1.5 +
 
 /* Then there are the D/2 calls to fd_next at E multiplies each. */
 
@@ -3521,7 +3522,7 @@ double cost_pminus1_plan (
 /* Compute the eQx setup costs.  To calculate eQx values, one fd_init is */
 /* required on each pass with a start point of B. */
 
-		passes * (e+1) * e*log(B)/log(2) * 1.5;
+		passes * (e+1) * e*log((double)B)/log((double)2.0) * 1.5;
 
 /* If E=1 add the cost of (C-B)/D fd_next calls.  If E>=2, add the cost */
 /* of (C-B)/(D+D) calls to fd_next (E multiplies). */
@@ -4250,7 +4251,7 @@ restart1:
 	start_timer (0);
 	start_timer (1);
 	state.stage = PM1_STAGE1;
-	SQRT_B = (unsigned long) sqrt (state.B);
+	SQRT_B = (unsigned long) sqrt ((double) state.B);
 	for ( ; prime <= state.B; prime = sieve ()) {
 
 /* Apply as many powers of prime as long as prime^n <= B */
