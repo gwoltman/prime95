@@ -981,7 +981,7 @@ int gcd (
 
 /* If a factor was found, save it in FAC */
 
-	if (retval && ! isone (v)) {
+	if (retval && ! isone (v) && !gcompg (N, v)) {
 		FAC = newgiant ((bitlen (v) >> 4) + 1);
 		gtog (v, FAC);
 	}
@@ -1706,8 +1706,9 @@ int read_gwnum (
 	giant	tmp;
 	long	i, len, bytes;
 
-	tmp = popg ((PARG >> 5) + 1);
 	if (_read (fd, &len, sizeof (long)) != sizeof (long)) return (FALSE);
+	if (len == 0) return (FALSE);
+	tmp = popg ((PARG >> 5) + 1);
 	bytes = len * sizeof (long);
 	if (_read (fd, tmp->n, bytes) != bytes) return (FALSE);
 	tmp->sign = len;
@@ -1729,6 +1730,7 @@ int write_gwnum (
 	tmp = popg ((PARG >> 5) + 1);
 	gwtobinary (g, tmp);
 	len = tmp->sign;
+	if (len == 0) return (FALSE);
 	if (_write (fd, &len, sizeof (long)) != sizeof (long)) return (FALSE);
 	bytes = len * sizeof (long);
 	if (_write (fd, tmp->n, bytes) != bytes) return (FALSE);
