@@ -100,7 +100,8 @@ void CTortureDlg::OnBnClickedBlend()
 	m_maxfft = 4096;
 	m_in_place_fft = FALSE;
 	mem = physical_memory ();
-	if (mem > 104) m_memory = mem - 96;
+	if (mem >= 500) m_memory = mem - 256;
+	else if (mem >= 200) m_memory = mem / 2;
 	else m_memory = 8;
 	m_timefft = 15;
 	UpdateData (0);

@@ -2,9 +2,9 @@ New features in Version 23.9 of prime95.exe
 -------------------------------------------
 
 1)  The blend torture test now uses less memory by default to prevent
-    thrashing.  The in-place torture test is now the default to reduce
-    complaints dealing with memory allocation issues (no pagefile, thrashing,
-    etc.)
+    thrashing.  The in-place torture test is now the default more cases
+    to reduce complaints dealing with memory allocation issues (no pagefile,
+    thrashing, etc.)
 2)  A bug in continuing after finding a factor when using AdvancedFactor was
     fixed.
 
