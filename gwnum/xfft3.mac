@@ -16,8 +16,9 @@
 ;; 2^13 doubles = 64KB).
 
 set_small_FFT_constants MACRO
-	blkdst = (65536+4096+128)
+	PREFETCHING = 1
 	clm = 4
+	blkdst = (65536+4096+128)
 	ENDM
 
 ;; For larger FFTs, we use a scratch area to reduce TLB thrashing.  This
@@ -116,8 +117,8 @@ c2b:	x1cl_half_eight_reals_unfft_2 esi, 64
 c3b:	x2cl_four_complex_unfft esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c3b			;; Iterate if necessary
-	prefetcht1 [esi-128+2*blkdst]
-	prefetcht1 [esi-128+3*blkdst]
+	xprefetcht1 [esi-128+2*blkdst]
+	xprefetcht1 [esi-128+3*blkdst]
 	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -214,7 +215,7 @@ b1b:	x5cl_five_reals_first_fft esi, 64, blkdst
 b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128]
 	add	dl, 256/clm
 	jnc	b2b
 
@@ -227,10 +228,10 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 b3b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64-blkdst];; Restore source pointer
@@ -369,8 +370,8 @@ c2b:	x2cl_eight_reals_unfft_2 esi, 64, blkdst
 c3b:	x2cl_four_complex_unfft esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c3b			;; Iterate if necessary
-	prefetcht1 [esi-128+2*blkdst]
-	prefetcht1 [esi-128+3*blkdst]
+	xprefetcht1 [esi-128+2*blkdst]
+	xprefetcht1 [esi-128+3*blkdst]
 	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -403,9 +404,9 @@ c3b:	x2cl_four_complex_unfft esi, 64, blkdst
 c1b:	x3cl_six_reals_last_unfft esi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c1b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
 	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -449,8 +450,8 @@ b0b:	start_timer 21
 b1b:	x3cl_six_reals_first_fft esi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	b1b			;; Iterate if necessary
-	prefetcht1 [esi-128+blkdst]
-	prefetcht1 [esi-128+3*blkdst]
+	xprefetcht1 [esi-128+blkdst]
+	xprefetcht1 [esi-128+3*blkdst]
 	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -484,8 +485,8 @@ b1b:	x3cl_six_reals_first_fft esi, 64, 2*blkdst
 b2b:	x2cl_eight_reals_fft_2 esi, 64, blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
 	add	dl, 256/clm
 	jnc	b2b
 
@@ -498,10 +499,10 @@ b2b:	x2cl_eight_reals_fft_2 esi, 64, blkdst
 b3b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64-2*blkdst];; Restore source pointer
@@ -643,8 +644,8 @@ c2b:	x1cl_half_eight_reals_unfft_2 esi, 64
 c3b:	x2cl_four_complex_unfft esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c3b			;; Iterate if necessary
-	prefetcht1 [esi-128+2*blkdst]
-	prefetcht1 [esi-128+3*blkdst]
+	xprefetcht1 [esi-128+2*blkdst]
+	xprefetcht1 [esi-128+3*blkdst]
 	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -678,13 +679,13 @@ c3b:	x2cl_four_complex_unfft esi, 64, blkdst
 c1b:	x7cl_seven_reals_last_unfft esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c1b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+5*blkdst]
-	prefetcht1 [esi-128+clm*128+6*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+5*blkdst]
+	xprefetcht1 [esi-128+clm*128+6*blkdst]
 	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64]	;; Restore source pointer
@@ -756,7 +757,7 @@ b1b:	x7cl_seven_reals_first_fft esi, 64, blkdst
 b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128]
 	add	dl, 256/clm
 	jnc	b2b
 
@@ -769,8 +770,8 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 b3a:	x2cl_four_complex_fft esi, 64, blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3a			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
 	add	dl, 256/clm
 	jnc	b3a
 
@@ -783,10 +784,10 @@ b3a:	x2cl_four_complex_fft esi, 64, blkdst
 b3b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64-3*blkdst];; Restore source pointer
@@ -931,8 +932,8 @@ c2b:	x2cl_eight_reals_unfft_2 esi, 64, blkdst
 c3b:	x2cl_four_complex_unfft esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c3b			;; Iterate if necessary
-	prefetcht1 [esi-128+2*blkdst]
-	prefetcht1 [esi-128+3*blkdst]
+	xprefetcht1 [esi-128+2*blkdst]
+	xprefetcht1 [esi-128+3*blkdst]
 	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -963,10 +964,10 @@ c3b:	x2cl_four_complex_unfft esi, 64, blkdst
 c1b:	x4cl_eight_reals_last_unfft esi, 64, 2*blkdst, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c1b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+6*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+6*blkdst]
 	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -1015,8 +1016,8 @@ b0b:	start_timer 21
 b1b:	x2cl_eight_reals_first_fft esi, 64, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	b1b			;; Iterate if necessary
-	prefetcht1 [esi-128+2*blkdst]
-	prefetcht1 [esi-128+6*blkdst]
+	xprefetcht1 [esi-128+2*blkdst]
+	xprefetcht1 [esi-128+6*blkdst]
 	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -1052,10 +1053,10 @@ b1b:	x2cl_eight_reals_first_fft esi, 64, 4*blkdst
 b2b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	b2b
 
@@ -1068,10 +1069,10 @@ b2b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 b3b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64-4*blkdst];; Restore source pointer
@@ -1206,7 +1207,7 @@ c4b:	x1cl_eight_reals_unfft_1 esi, 64
 c5b:	x1cl_two_complex_unfft esi, 64
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c5b			;; Iterate if necessary
-	prefetcht1 [esi-128+3*blkdst]
+	xprefetcht1 [esi-128+3*blkdst]
 	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -1235,8 +1236,8 @@ c5b:	x1cl_two_complex_unfft esi, 64
 c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
 	add	dl, 256/clm
 	jnc	c2b
 
@@ -1250,10 +1251,10 @@ c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, blkdst
 c3b:	x4cl_four_complex_unfft esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -1286,11 +1287,11 @@ c3b:	x4cl_four_complex_unfft esi, 64, blkdst, 2*blkdst
 c1b:	x5cl_five_reals_last_unfft esi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c1b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+6*blkdst]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+6*blkdst]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
 	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -1334,11 +1335,11 @@ b0b:	start_timer 21
 b1b:	x5cl_five_reals_first_fft esi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	b1b			;; Iterate if necessary
-	prefetcht1 [esi-128+blkdst]
-	prefetcht1 [esi-128+3*blkdst]
-	prefetcht1 [esi-128+5*blkdst]
-	prefetcht1 [esi-128+7*blkdst]
-	prefetcht1 [esi-128+9*blkdst]
+	xprefetcht1 [esi-128+blkdst]
+	xprefetcht1 [esi-128+3*blkdst]
+	xprefetcht1 [esi-128+5*blkdst]
+	xprefetcht1 [esi-128+7*blkdst]
+	xprefetcht1 [esi-128+9*blkdst]
 	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -1373,7 +1374,7 @@ b1b:	x5cl_five_reals_first_fft esi, 64, 2*blkdst
 b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128]
 	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -1389,10 +1390,10 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 b3b:	x4cl_four_complex_fft esi, 64, 2*blkdst, 4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+6*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+6*blkdst]
 	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -1437,8 +1438,8 @@ b4b:	x2cl_eight_reals_fft_1 esi, 64, blkdst
 b5b:	x2cl_two_complex_fft esi, 64, blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b5b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
 	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -1602,7 +1603,7 @@ c4b:	x1cl_eight_reals_unfft_1 esi, 64
 c5b:	x1cl_two_complex_unfft esi, 64
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c5b			;; Iterate if necessary
-	prefetcht1 [esi-128+blkdst]
+	xprefetcht1 [esi-128+blkdst]
 	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -1634,10 +1635,10 @@ c5b:	x1cl_two_complex_unfft esi, 64
 c2b:	x4cl_eight_reals_unfft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	c2b
 
@@ -1651,10 +1652,10 @@ c2b:	x4cl_eight_reals_unfft_2 esi, 64, blkdst, 2*blkdst
 c3b:	x4cl_four_complex_unfft esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -1691,9 +1692,9 @@ c3b:	x4cl_four_complex_unfft esi, 64, blkdst, 2*blkdst
 c1b:	x3cl_six_reals_last_unfft esi, 64, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c1b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
 	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -1739,9 +1740,9 @@ b0b:	start_timer 21
 b1b:	x3cl_six_reals_first_fft esi, 64, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	b1b			;; Iterate if necessary
-	prefetcht1 [esi-128+blkdst]
-	prefetcht1 [esi-128+5*blkdst]
-	prefetcht1 [esi-128+9*blkdst]
+	xprefetcht1 [esi-128+blkdst]
+	xprefetcht1 [esi-128+5*blkdst]
+	xprefetcht1 [esi-128+9*blkdst]
 	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -1779,8 +1780,8 @@ b1b:	x3cl_six_reals_first_fft esi, 64, 4*blkdst
 b2b:	x2cl_eight_reals_fft_2 esi, 64, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
 	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -1797,10 +1798,10 @@ b2b:	x2cl_eight_reals_fft_2 esi, 64, 2*blkdst
 b3b:	x4cl_four_complex_fft esi, 64, 2*blkdst, 4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+6*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+6*blkdst]
 	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -1845,8 +1846,8 @@ b4b:	x2cl_eight_reals_fft_1 esi, 64, blkdst
 b5b:	x2cl_two_complex_fft esi, 64, blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b5b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
 	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -2011,7 +2012,7 @@ c4b:	x1cl_eight_reals_unfft_1 esi, 64
 c5b:	x1cl_two_complex_unfft esi, 64
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c5b			;; Iterate if necessary
-	prefetcht1 [esi-128+3*blkdst]
+	xprefetcht1 [esi-128+3*blkdst]
 	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -2040,8 +2041,8 @@ c5b:	x1cl_two_complex_unfft esi, 64
 c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
 	add	dl, 256/clm
 	jnc	c2b
 
@@ -2055,10 +2056,10 @@ c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, blkdst
 c3b:	x4cl_four_complex_unfft esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -2095,13 +2096,13 @@ c3b:	x4cl_four_complex_unfft esi, 64, blkdst, 2*blkdst
 c1b:	x7cl_seven_reals_last_unfft esi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c1b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+6*blkdst]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+10*blkdst]
-	prefetcht1 [esi-128+clm*128+12*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+6*blkdst]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+10*blkdst]
+	xprefetcht1 [esi-128+clm*128+12*blkdst]
 	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -2187,7 +2188,7 @@ b1b:	x7cl_seven_reals_first_fft esi, 64, 2*blkdst
 b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128]
 	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -2203,8 +2204,8 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 b3a:	x2cl_four_complex_fft esi, 64, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3a			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
 	add	dl, 256/clm
 	jnc	b3a
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -2221,10 +2222,10 @@ b3a:	x2cl_four_complex_fft esi, 64, 2*blkdst
 b3b:	x4cl_four_complex_fft esi, 64, 2*blkdst, 4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+6*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+6*blkdst]
 	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -2269,8 +2270,8 @@ b4b:	x2cl_eight_reals_fft_1 esi, 64, blkdst
 b5b:	x2cl_two_complex_fft esi, 64, blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b5b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
 	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -2444,7 +2445,7 @@ c4b:	x1cl_eight_reals_unfft_1 esi, 64
 c5b:	x1cl_two_complex_unfft esi, 64
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c5b			;; Iterate if necessary
-	prefetcht1 [esi-128+3*blkdst]
+	xprefetcht1 [esi-128+3*blkdst]
 	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -2476,10 +2477,10 @@ c5b:	x1cl_two_complex_unfft esi, 64
 c2b:	x4cl_eight_reals_unfft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	c2b
 
@@ -2493,10 +2494,10 @@ c2b:	x4cl_eight_reals_unfft_2 esi, 64, blkdst, 2*blkdst
 c3b:	x4cl_four_complex_unfft esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -2529,10 +2530,10 @@ c3b:	x4cl_four_complex_unfft esi, 64, blkdst, 2*blkdst
 c1b:	x4cl_eight_reals_last_unfft esi, 64, 4*blkdst, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c1b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+12*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+12*blkdst]
 	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -2581,8 +2582,8 @@ b0b:	start_timer 21
 b1b:	x2cl_eight_reals_first_fft esi, 64, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	b1b			;; Iterate if necessary
-	prefetcht1 [esi-128+4*blkdst]
-	prefetcht1 [esi-128+12*blkdst]
+	xprefetcht1 [esi-128+4*blkdst]
+	xprefetcht1 [esi-128+12*blkdst]
 	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -2620,10 +2621,10 @@ b1b:	x2cl_eight_reals_first_fft esi, 64, 8*blkdst
 b2b:	x4cl_eight_reals_fft_2 esi, 64, 2*blkdst, 4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+6*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+6*blkdst]
 	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -2640,10 +2641,10 @@ b2b:	x4cl_eight_reals_fft_2 esi, 64, 2*blkdst, 4*blkdst
 b3b:	x4cl_four_complex_fft esi, 64, 2*blkdst, 4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+6*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+6*blkdst]
 	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -2688,8 +2689,8 @@ b4b:	x2cl_eight_reals_fft_1 esi, 64, blkdst
 b5b:	x2cl_two_complex_fft esi, 64, blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b5b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
 	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -2861,8 +2862,8 @@ c4b:	x2cl_eight_reals_unfft_2 esi, 64, blkdst
 c5b:	x2cl_four_complex_unfft esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c5b			;; Iterate if necessary
-	prefetcht1 [esi-128+6*blkdst]
-	prefetcht1 [esi-128+7*blkdst]
+	xprefetcht1 [esi-128+6*blkdst]
+	xprefetcht1 [esi-128+7*blkdst]
 	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -2895,8 +2896,8 @@ c5b:	x2cl_four_complex_unfft esi, 64, blkdst
 c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
 	add	dl, 256/clm
 	jnc	c2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -2913,10 +2914,10 @@ c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 2*blkdst
 c3b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+6*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+6*blkdst]
 	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -2957,11 +2958,11 @@ c3b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 c1b:	x5cl_five_reals_last_unfft esi, 64, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c1b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+12*blkdst]
-	prefetcht1 [esi-128+clm*128+16*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+12*blkdst]
+	xprefetcht1 [esi-128+clm*128+16*blkdst]
 	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -3007,11 +3008,11 @@ b0b:	start_timer 21
 b1b:	x5cl_five_reals_first_fft esi, 64, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	b1b			;; Iterate if necessary
-	prefetcht1 [esi-128+blkdst]
-	prefetcht1 [esi-128+5*blkdst]
-	prefetcht1 [esi-128+9*blkdst]
-	prefetcht1 [esi-128+13*blkdst]
-	prefetcht1 [esi-128+17*blkdst]
+	xprefetcht1 [esi-128+blkdst]
+	xprefetcht1 [esi-128+5*blkdst]
+	xprefetcht1 [esi-128+9*blkdst]
+	xprefetcht1 [esi-128+13*blkdst]
+	xprefetcht1 [esi-128+17*blkdst]
 	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -3049,7 +3050,7 @@ b1b:	x5cl_five_reals_first_fft esi, 64, 4*blkdst
 b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128]
 	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -3065,10 +3066,10 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 b3b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+12*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+12*blkdst]
 	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -3117,10 +3118,10 @@ b4b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 b5b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b5b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -3290,8 +3291,8 @@ c4b:	x2cl_eight_reals_unfft_2 esi, 64, blkdst
 c5b:	x2cl_four_complex_unfft esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c5b			;; Iterate if necessary
-	prefetcht1 [esi-128+6*blkdst]
-	prefetcht1 [esi-128+7*blkdst]
+	xprefetcht1 [esi-128+6*blkdst]
+	xprefetcht1 [esi-128+7*blkdst]
 	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -3325,10 +3326,10 @@ c5b:	x2cl_four_complex_unfft esi, 64, blkdst
 c2b:	x4cl_eight_reals_unfft_2 esi, 64, 2*blkdst, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+6*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+6*blkdst]
 	add	dl, 256/clm
 	jnc	c2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -3345,10 +3346,10 @@ c2b:	x4cl_eight_reals_unfft_2 esi, 64, 2*blkdst, 4*blkdst
 c3b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+6*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+6*blkdst]
 	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -3389,9 +3390,9 @@ c3b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 c1b:	x3cl_six_reals_last_unfft esi, 64, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c1b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+16*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+16*blkdst]
 	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -3437,9 +3438,9 @@ b0b:	start_timer 21
 b1b:	x3cl_six_reals_first_fft esi, 64, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	b1b			;; Iterate if necessary
-	prefetcht1 [esi-128+blkdst]
-	prefetcht1 [esi-128+9*blkdst]
-	prefetcht1 [esi-128+17*blkdst]
+	xprefetcht1 [esi-128+blkdst]
+	xprefetcht1 [esi-128+9*blkdst]
+	xprefetcht1 [esi-128+17*blkdst]
 	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -3479,8 +3480,8 @@ b1b:	x3cl_six_reals_first_fft esi, 64, 8*blkdst
 b2b:	x2cl_eight_reals_fft_2 esi, 64, 4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
 	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -3497,10 +3498,10 @@ b2b:	x2cl_eight_reals_fft_2 esi, 64, 4*blkdst
 b3b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+12*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+12*blkdst]
 	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -3549,10 +3550,10 @@ b4b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 b5b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b5b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -3723,8 +3724,8 @@ c4b:	x2cl_eight_reals_unfft_2 esi, 64, blkdst
 c5b:	x2cl_four_complex_unfft esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c5b			;; Iterate if necessary
-	prefetcht1 [esi-128+6*blkdst]
-	prefetcht1 [esi-128+7*blkdst]
+	xprefetcht1 [esi-128+6*blkdst]
+	xprefetcht1 [esi-128+7*blkdst]
 	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -3757,8 +3758,8 @@ c5b:	x2cl_four_complex_unfft esi, 64, blkdst
 c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
 	add	dl, 256/clm
 	jnc	c2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -3775,10 +3776,10 @@ c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 2*blkdst
 c3b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+6*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+6*blkdst]
 	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -3823,13 +3824,13 @@ c3b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 c1b:	x7cl_seven_reals_last_unfft esi, 64, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c1b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+12*blkdst]
-	prefetcht1 [esi-128+clm*128+16*blkdst]
-	prefetcht1 [esi-128+clm*128+20*blkdst]
-	prefetcht1 [esi-128+clm*128+24*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+12*blkdst]
+	xprefetcht1 [esi-128+clm*128+16*blkdst]
+	xprefetcht1 [esi-128+clm*128+20*blkdst]
+	xprefetcht1 [esi-128+clm*128+24*blkdst]
 	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -3879,13 +3880,13 @@ b0b:	start_timer 21
 b1b:	x7cl_seven_reals_first_fft esi, 64, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	b1b			;; Iterate if necessary
-	prefetcht1 [esi-128+2*blkdst]
-	prefetcht1 [esi-128+6*blkdst]
-	prefetcht1 [esi-128+10*blkdst]
-	prefetcht1 [esi-128+14*blkdst]
-	prefetcht1 [esi-128+18*blkdst]
-	prefetcht1 [esi-128+22*blkdst]
-	prefetcht1 [esi-128+26*blkdst]
+	xprefetcht1 [esi-128+2*blkdst]
+	xprefetcht1 [esi-128+6*blkdst]
+	xprefetcht1 [esi-128+10*blkdst]
+	xprefetcht1 [esi-128+14*blkdst]
+	xprefetcht1 [esi-128+18*blkdst]
+	xprefetcht1 [esi-128+22*blkdst]
+	xprefetcht1 [esi-128+26*blkdst]
 	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -3928,7 +3929,7 @@ b1b:	x7cl_seven_reals_first_fft esi, 64, 4*blkdst
 b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128]
 	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -3944,8 +3945,8 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 b3a:	x2cl_four_complex_fft esi, 64, 4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3a			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
 	add	dl, 256/clm
 	jnc	b3a
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -3962,10 +3963,10 @@ b3a:	x2cl_four_complex_fft esi, 64, 4*blkdst
 b3b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+12*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+12*blkdst]
 	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -4014,10 +4015,10 @@ b4b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 b5b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b5b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -4197,8 +4198,8 @@ c4b:	x2cl_eight_reals_unfft_2 esi, 64, blkdst
 c5b:	x2cl_four_complex_unfft esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c5b			;; Iterate if necessary
-	prefetcht1 [esi-128+6*blkdst]
-	prefetcht1 [esi-128+7*blkdst]
+	xprefetcht1 [esi-128+6*blkdst]
+	xprefetcht1 [esi-128+7*blkdst]
 	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -4232,10 +4233,10 @@ c5b:	x2cl_four_complex_unfft esi, 64, blkdst
 c2b:	x4cl_eight_reals_unfft_2 esi, 64, 2*blkdst, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+6*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+6*blkdst]
 	add	dl, 256/clm
 	jnc	c2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -4252,10 +4253,10 @@ c2b:	x4cl_eight_reals_unfft_2 esi, 64, 2*blkdst, 4*blkdst
 c3b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+6*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+6*blkdst]
 	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -4292,10 +4293,10 @@ c3b:	x4cl_four_complex_unfft esi, 64, 2*blkdst, 4*blkdst
 c1b:	x4cl_eight_reals_last_unfft esi, 64, 8*blkdst, 16*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c1b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+16*blkdst]
-	prefetcht1 [esi-128+clm*128+24*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+16*blkdst]
+	xprefetcht1 [esi-128+clm*128+24*blkdst]
 	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -4344,8 +4345,8 @@ b0b:	start_timer 21
 b1b:	x2cl_eight_reals_first_fft esi, 64, 16*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	b1b			;; Iterate if necessary
-	prefetcht1 [esi-128+4*blkdst]
-	prefetcht1 [esi-128+20*blkdst]
+	xprefetcht1 [esi-128+4*blkdst]
+	xprefetcht1 [esi-128+20*blkdst]
 	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -4385,10 +4386,10 @@ b1b:	x2cl_eight_reals_first_fft esi, 64, 16*blkdst
 b2b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+12*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+12*blkdst]
 	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -4405,10 +4406,10 @@ b2b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
 b3b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+12*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+12*blkdst]
 	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst]	;; Next source pointer
@@ -4457,10 +4458,10 @@ b4b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 b5b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b5b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -4632,8 +4633,8 @@ c6b:	x2cl_eight_reals_unfft_2 esi, 64, blkdst
 c7b:	x2cl_four_complex_unfft esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c7b			;; Iterate if necessary
-	prefetcht1 [esi-128+6*blkdst]
-	prefetcht1 [esi-128+7*blkdst]
+	xprefetcht1 [esi-128+6*blkdst]
+	xprefetcht1 [esi-128+7*blkdst]
 	add	dl, 256/clm
 	jnc	c7b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -4666,8 +4667,8 @@ c7b:	x2cl_four_complex_unfft esi, 64, blkdst
 c4b:	x2cl_eight_reals_unfft_1 esi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c4b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
 	add	dl, 256/clm
 	jnc	c4b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -4684,8 +4685,8 @@ c4b:	x2cl_eight_reals_unfft_1 esi, 64, 2*blkdst
 c5b:	x2cl_two_complex_unfft esi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c5b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
 	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -4724,8 +4725,8 @@ c5b:	x2cl_two_complex_unfft esi, 64, 2*blkdst
 c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
 	add	dl, 256/clm
 	jnc	c2b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -4742,10 +4743,10 @@ c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 4*blkdst
 c3b:	x4cl_four_complex_unfft esi, 64, 4*blkdst, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+12*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+12*blkdst]
 	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -4786,11 +4787,11 @@ c3b:	x4cl_four_complex_unfft esi, 64, 4*blkdst, 8*blkdst
 c1b:	x5cl_five_reals_last_unfft esi, 64, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c1b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+16*blkdst]
-	prefetcht1 [esi-128+clm*128+24*blkdst]
-	prefetcht1 [esi-128+clm*128+32*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+16*blkdst]
+	xprefetcht1 [esi-128+clm*128+24*blkdst]
+	xprefetcht1 [esi-128+clm*128+32*blkdst]
 	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -4836,11 +4837,11 @@ b0b:	start_timer 21
 b1b:	x5cl_five_reals_first_fft esi, 64, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	b1b			;; Iterate if necessary
-	prefetcht1 [esi-128+2*blkdst]
-	prefetcht1 [esi-128+10*blkdst]
-	prefetcht1 [esi-128+18*blkdst]
-	prefetcht1 [esi-128+26*blkdst]
-	prefetcht1 [esi-128+34*blkdst]
+	xprefetcht1 [esi-128+2*blkdst]
+	xprefetcht1 [esi-128+10*blkdst]
+	xprefetcht1 [esi-128+18*blkdst]
+	xprefetcht1 [esi-128+26*blkdst]
+	xprefetcht1 [esi-128+34*blkdst]
 	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -4878,7 +4879,7 @@ b1b:	x5cl_five_reals_first_fft esi, 64, 8*blkdst
 b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128]
 	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -4894,10 +4895,10 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 b3b:	x4cl_four_complex_fft esi, 64, 8*blkdst, 16*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+16*blkdst]
-	prefetcht1 [esi-128+clm*128+24*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+16*blkdst]
+	xprefetcht1 [esi-128+clm*128+24*blkdst]
 	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -4936,8 +4937,8 @@ b3b:	x4cl_four_complex_fft esi, 64, 8*blkdst, 16*blkdst
 b4b:	x2cl_eight_reals_fft_1 esi, 64, 4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b4b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
 	add	dl, 256/clm
 	jnc	b4b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -4954,8 +4955,8 @@ b4b:	x2cl_eight_reals_fft_1 esi, 64, 4*blkdst
 b5b:	x2cl_two_complex_fft esi, 64, 4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b5b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
 	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -5009,10 +5010,10 @@ b6b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 b7b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b7b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	b7b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -5209,8 +5210,8 @@ c6b:	x2cl_eight_reals_unfft_2 esi, 64, blkdst
 c7b:	x2cl_four_complex_unfft esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c7b			;; Iterate if necessary
-	prefetcht1 [esi-128+6*blkdst]
-	prefetcht1 [esi-128+7*blkdst]
+	xprefetcht1 [esi-128+6*blkdst]
+	xprefetcht1 [esi-128+7*blkdst]
 	add	dl, 256/clm
 	jnc	c7b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -5243,8 +5244,8 @@ c7b:	x2cl_four_complex_unfft esi, 64, blkdst
 c4b:	x2cl_eight_reals_unfft_1 esi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c4b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
 	add	dl, 256/clm
 	jnc	c4b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -5261,8 +5262,8 @@ c4b:	x2cl_eight_reals_unfft_1 esi, 64, 2*blkdst
 c5b:	x2cl_two_complex_unfft esi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c5b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
 	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -5302,10 +5303,10 @@ c5b:	x2cl_two_complex_unfft esi, 64, 2*blkdst
 c2b:	x4cl_eight_reals_unfft_2 esi, 64, 4*blkdst, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+12*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+12*blkdst]
 	add	dl, 256/clm
 	jnc	c2b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -5322,10 +5323,10 @@ c2b:	x4cl_eight_reals_unfft_2 esi, 64, 4*blkdst, 8*blkdst
 c3b:	x4cl_four_complex_unfft esi, 64, 4*blkdst, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+12*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+12*blkdst]
 	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -5366,9 +5367,9 @@ c3b:	x4cl_four_complex_unfft esi, 64, 4*blkdst, 8*blkdst
 c1b:	x3cl_six_reals_last_unfft esi, 64, 16*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c1b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+16*blkdst]
-	prefetcht1 [esi-128+clm*128+32*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+16*blkdst]
+	xprefetcht1 [esi-128+clm*128+32*blkdst]
 	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -5414,9 +5415,9 @@ b0b:	start_timer 21
 b1b:	x3cl_six_reals_first_fft esi, 64, 16*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	b1b			;; Iterate if necessary
-	prefetcht1 [esi-128+2*blkdst]
-	prefetcht1 [esi-128+18*blkdst]
-	prefetcht1 [esi-128+34*blkdst]
+	xprefetcht1 [esi-128+2*blkdst]
+	xprefetcht1 [esi-128+18*blkdst]
+	xprefetcht1 [esi-128+34*blkdst]
 	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -5456,8 +5457,8 @@ b1b:	x3cl_six_reals_first_fft esi, 64, 16*blkdst
 b2b:	x2cl_eight_reals_fft_2 esi, 64, 8*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
 	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -5474,10 +5475,10 @@ b2b:	x2cl_eight_reals_fft_2 esi, 64, 8*blkdst
 b3b:	x4cl_four_complex_fft esi, 64, 8*blkdst, 16*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+16*blkdst]
-	prefetcht1 [esi-128+clm*128+24*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+16*blkdst]
+	xprefetcht1 [esi-128+clm*128+24*blkdst]
 	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -5516,8 +5517,8 @@ b3b:	x4cl_four_complex_fft esi, 64, 8*blkdst, 16*blkdst
 b4b:	x2cl_eight_reals_fft_1 esi, 64, 4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b4b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
 	add	dl, 256/clm
 	jnc	b4b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -5534,8 +5535,8 @@ b4b:	x2cl_eight_reals_fft_1 esi, 64, 4*blkdst
 b5b:	x2cl_two_complex_fft esi, 64, 4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b5b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
 	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -5589,10 +5590,10 @@ b6b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 b7b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b7b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	b7b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -5790,8 +5791,8 @@ c6b:	x2cl_eight_reals_unfft_2 esi, 64, blkdst
 c7b:	x2cl_four_complex_unfft esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c7b			;; Iterate if necessary
-	prefetcht1 [esi-128+6*blkdst]
-	prefetcht1 [esi-128+7*blkdst]
+	xprefetcht1 [esi-128+6*blkdst]
+	xprefetcht1 [esi-128+7*blkdst]
 	add	dl, 256/clm
 	jnc	c7b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -5824,8 +5825,8 @@ c7b:	x2cl_four_complex_unfft esi, 64, blkdst
 c4b:	x2cl_eight_reals_unfft_1 esi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c4b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
 	add	dl, 256/clm
 	jnc	c4b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -5842,8 +5843,8 @@ c4b:	x2cl_eight_reals_unfft_1 esi, 64, 2*blkdst
 c5b:	x2cl_two_complex_unfft esi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c5b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
 	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -5882,8 +5883,8 @@ c5b:	x2cl_two_complex_unfft esi, 64, 2*blkdst
 c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 4*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
 	add	dl, 256/clm
 	jnc	c2b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -5900,10 +5901,10 @@ c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 4*blkdst
 c3b:	x4cl_four_complex_unfft esi, 64, 4*blkdst, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+12*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+12*blkdst]
 	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -5948,13 +5949,13 @@ c3b:	x4cl_four_complex_unfft esi, 64, 4*blkdst, 8*blkdst
 c1b:	x7cl_seven_reals_last_unfft esi, 64, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c1b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+16*blkdst]
-	prefetcht1 [esi-128+clm*128+24*blkdst]
-	prefetcht1 [esi-128+clm*128+32*blkdst]
-	prefetcht1 [esi-128+clm*128+40*blkdst]
-	prefetcht1 [esi-128+clm*128+48*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+16*blkdst]
+	xprefetcht1 [esi-128+clm*128+24*blkdst]
+	xprefetcht1 [esi-128+clm*128+32*blkdst]
+	xprefetcht1 [esi-128+clm*128+40*blkdst]
+	xprefetcht1 [esi-128+clm*128+48*blkdst]
 	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -6004,13 +6005,13 @@ b0b:	start_timer 21
 b1b:	x7cl_seven_reals_first_fft esi, 64, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	b1b			;; Iterate if necessary
-	prefetcht1 [esi-128+2*blkdst]
-	prefetcht1 [esi-128+10*blkdst]
-	prefetcht1 [esi-128+18*blkdst]
-	prefetcht1 [esi-128+26*blkdst]
-	prefetcht1 [esi-128+34*blkdst]
-	prefetcht1 [esi-128+42*blkdst]
-	prefetcht1 [esi-128+50*blkdst]
+	xprefetcht1 [esi-128+2*blkdst]
+	xprefetcht1 [esi-128+10*blkdst]
+	xprefetcht1 [esi-128+18*blkdst]
+	xprefetcht1 [esi-128+26*blkdst]
+	xprefetcht1 [esi-128+34*blkdst]
+	xprefetcht1 [esi-128+42*blkdst]
+	xprefetcht1 [esi-128+50*blkdst]
 	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -6052,7 +6053,7 @@ b1b:	x7cl_seven_reals_first_fft esi, 64, 8*blkdst
 b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128]
 	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -6068,8 +6069,8 @@ b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 b3a:	x2cl_four_complex_fft esi, 64, 8*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3a			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
 	add	dl, 256/clm
 	jnc	b3a
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -6086,10 +6087,10 @@ b3a:	x2cl_four_complex_fft esi, 64, 8*blkdst
 b3b:	x4cl_four_complex_fft esi, 64, 8*blkdst, 16*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+16*blkdst]
-	prefetcht1 [esi-128+clm*128+24*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+16*blkdst]
+	xprefetcht1 [esi-128+clm*128+24*blkdst]
 	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -6128,8 +6129,8 @@ b3b:	x4cl_four_complex_fft esi, 64, 8*blkdst, 16*blkdst
 b4b:	x2cl_eight_reals_fft_1 esi, 64, 4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b4b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
 	add	dl, 256/clm
 	jnc	b4b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -6146,8 +6147,8 @@ b4b:	x2cl_eight_reals_fft_1 esi, 64, 4*blkdst
 b5b:	x2cl_two_complex_fft esi, 64, 4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b5b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
 	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -6201,10 +6202,10 @@ b6b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 b7b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b7b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	b7b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer
@@ -6411,8 +6412,8 @@ c6b:	x2cl_eight_reals_unfft_2 esi, 64, blkdst
 c7b:	x2cl_four_complex_unfft esi, 64, blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c7b			;; Iterate if necessary
-	prefetcht1 [esi-128+6*blkdst]
-	prefetcht1 [esi-128+7*blkdst]
+	xprefetcht1 [esi-128+6*blkdst]
+	xprefetcht1 [esi-128+7*blkdst]
 	add	dl, 256/clm
 	jnc	c7b
 	lea	esi, [esi-2*clm*64+2*blkdst];; Next source pointer
@@ -6445,8 +6446,8 @@ c7b:	x2cl_four_complex_unfft esi, 64, blkdst
 c4b:	x2cl_eight_reals_unfft_1 esi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c4b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
 	add	dl, 256/clm
 	jnc	c4b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -6463,8 +6464,8 @@ c4b:	x2cl_eight_reals_unfft_1 esi, 64, 2*blkdst
 c5b:	x2cl_two_complex_unfft esi, 64, 2*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c5b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
 	add	dl, 256/clm
 	jnc	c5b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -6504,10 +6505,10 @@ c5b:	x2cl_two_complex_unfft esi, 64, 2*blkdst
 c2b:	x4cl_eight_reals_unfft_2 esi, 64, 4*blkdst, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+12*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+12*blkdst]
 	add	dl, 256/clm
 	jnc	c2b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -6524,10 +6525,10 @@ c2b:	x4cl_eight_reals_unfft_2 esi, 64, 4*blkdst, 8*blkdst
 c3b:	x4cl_four_complex_unfft esi, 64, 4*blkdst, 8*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+12*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+12*blkdst]
 	add	dl, 256/clm
 	jnc	c3b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -6564,10 +6565,10 @@ c3b:	x4cl_four_complex_unfft esi, 64, 4*blkdst, 8*blkdst
 c1b:	x4cl_eight_reals_last_unfft esi, 64, 16*blkdst, 32*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	c1b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+16*blkdst]
-	prefetcht1 [esi-128+clm*128+32*blkdst]
-	prefetcht1 [esi-128+clm*128+48*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+16*blkdst]
+	xprefetcht1 [esi-128+clm*128+32*blkdst]
+	xprefetcht1 [esi-128+clm*128+48*blkdst]
 	add	dl, 256/clm
 	jnc	c1b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -6616,8 +6617,8 @@ b0b:	start_timer 21
 b1b:	x2cl_eight_reals_first_fft esi, 64, 32*blkdst
 	add	al, 256/2		;; Test loop counter
 	JNC_X	b1b			;; Iterate if necessary
-	prefetcht1 [esi-128+4*blkdst]
-	prefetcht1 [esi-128+36*blkdst]
+	xprefetcht1 [esi-128+4*blkdst]
+	xprefetcht1 [esi-128+36*blkdst]
 	add	dl, 256/clm
 	jnc	b1b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -6657,10 +6658,10 @@ b1b:	x2cl_eight_reals_first_fft esi, 64, 32*blkdst
 b2b:	x4cl_eight_reals_fft_2 esi, 64, 8*blkdst, 16*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+16*blkdst]
-	prefetcht1 [esi-128+clm*128+24*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+16*blkdst]
+	xprefetcht1 [esi-128+clm*128+24*blkdst]
 	add	dl, 256/clm
 	jnc	b2b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -6677,10 +6678,10 @@ b2b:	x4cl_eight_reals_fft_2 esi, 64, 8*blkdst, 16*blkdst
 b3b:	x4cl_four_complex_fft esi, 64, 8*blkdst, 16*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+8*blkdst]
-	prefetcht1 [esi-128+clm*128+16*blkdst]
-	prefetcht1 [esi-128+clm*128+24*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+8*blkdst]
+	xprefetcht1 [esi-128+clm*128+16*blkdst]
+	xprefetcht1 [esi-128+clm*128+24*blkdst]
 	add	dl, 256/clm
 	jnc	b3b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -6719,8 +6720,8 @@ b3b:	x4cl_four_complex_fft esi, 64, 8*blkdst, 16*blkdst
 b4b:	x2cl_eight_reals_fft_1 esi, 64, 4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b4b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
 	add	dl, 256/clm
 	jnc	b4b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -6737,8 +6738,8 @@ b4b:	x2cl_eight_reals_fft_1 esi, 64, 4*blkdst
 b5b:	x2cl_two_complex_fft esi, 64, 4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b5b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+4*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+4*blkdst]
 	add	dl, 256/clm
 	jnc	b5b
 	lea	esi, [esi-2*clm*64+blkdst];; Next source pointer
@@ -6792,10 +6793,10 @@ b6b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 b7b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b7b			;; Iterate if necessary
-	prefetcht1 [esi-128+clm*128]
-	prefetcht1 [esi-128+clm*128+blkdst]
-	prefetcht1 [esi-128+clm*128+2*blkdst]
-	prefetcht1 [esi-128+clm*128+3*blkdst]
+	xprefetcht1 [esi-128+clm*128]
+	xprefetcht1 [esi-128+clm*128+blkdst]
+	xprefetcht1 [esi-128+clm*128+2*blkdst]
+	xprefetcht1 [esi-128+clm*128+3*blkdst]
 	add	dl, 256/clm
 	jnc	b7b
 	lea	esi, [esi-2*clm*64+4*blkdst];; Next source pointer

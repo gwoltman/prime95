@@ -95,7 +95,7 @@ b0c:	mov	ecx, [edi-128]		;; Read from last page
 
 	mov	eax, 512		;; Load loop counter
 b1b:	s2cl_eight_reals_fft_1 esi, 2*64, 64
-	prefetcht1 [esi+7*128]		;; Prefetch a few iterations ahead
+	xprefetcht1 [esi+7*128]		;; Prefetch a few iterations ahead
 	sub	eax, 1			;; Test loop counter
 	JNZ_X	b1b			;; Iterate if necessary
 	lea	esi, [esi-512*2*64]	;; Restore source pointer
@@ -141,7 +141,7 @@ b2b:	x4cl_eight_reals_fft_2 esi, 2*64, 256*64, 512*64
 	lea	esi, [esi-128*2*64+64]	;; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
 b3b:	x4cl_four_complex_fft esi, 2*64, 256*64, 512*64
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/128		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
@@ -698,12 +698,12 @@ start_timer 4
 	mov	edi, edx		;; The 512 group multipliers
 	mov	eax, 128*256		;; 128 iterations of 4
 b1b:	s2cl_four_complex_gpm_fft esi, 64, 512*64
-	prefetcht1 [esi+7*64]		;; Prefetch a few iterations ahead in
-	prefetcht1 [esi+519*64]		;; case they are not in the L2 cache
+	xprefetcht1 [esi+7*64]		;; Prefetch a few iterations ahead in
+	xprefetcht1 [esi+519*64]		;; case they are not in the L2 cache
 	add	al, 256/4		;; Test inner loop counter
 	JNC_X	b1b			;; Iterate if necessary
 	lea	edi, [edi+XMM_PMD]	;; Next group multiplier
-	prefetcht1 [edi+4*XMM_PMD]
+	xprefetcht1 [edi+4*XMM_PMD]
 	sub	eax, 256		;; Test outer loop counter
 	JNZ_X	b1b			;; Iterate if necessary
 	lea	esi, [esi-512*64]	;; Restore source pointer
@@ -743,7 +743,7 @@ start_timer 5
 	mov	al, 32			;; 32 iterations of 4
 b2b:	x4cl_four_complex_cpm01_fft esi, 64, 128*64, 256*64
 	lea	edi, [edi+XMM_PMD]	;; Next column premultiplier
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/4		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
@@ -751,14 +751,14 @@ b2b:	x4cl_four_complex_cpm01_fft esi, 64, 128*64, 256*64
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b2b			;; Iterate if necessary
 	lea	esi, [esi-128*64+512*64];; Next source pointer
-	prefetcht1 [ecx]
-	prefetcht1 [ecx+128]
+	xprefetcht1 [ecx]
+	xprefetcht1 [ecx+128]
 
 	lea	ecx, [edx+132*XMM_PMD]	;; Prefetch pointer
 	mov	al, 32			;; 32 iterations of 4
 b2c:	x4cl_four_complex_cpm23_fft esi, 64, 128*64, 256*64
 	lea	edi, [edi+XMM_PMD]	;; Next column premultiplier
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/4		;; Test inner loop counter
 	JNC_X	b2c			;; Iterate if necessary
@@ -766,8 +766,8 @@ b2c:	x4cl_four_complex_cpm23_fft esi, 64, 128*64, 256*64
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b2c			;; Iterate if necessary
 	lea	esi, [esi-128*64-512*64];; Restore source pointer
-	prefetcht1 [ecx+256]
-	prefetcht1 [ecx+384]
+	xprefetcht1 [ecx+256]
+	xprefetcht1 [ecx+384]
 end_timer 5
 
 ;; Do FFT levels 5
@@ -799,7 +799,7 @@ start_timer 6
 b3b:	x2cl_two_complex_fft esi, 64, 64*64
 	add	eax, 40000000h		;; 4 iterations
 	JNC_X	b3b			;; Iterate if necessary
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/16		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
@@ -837,7 +837,7 @@ start_timer 7
 b4b:	x4cl_four_complex_fft esi, 64, 16*64, 32*64
 	add	eax, 80000000h		;; Test inner loop counter
 	JNC_X	b4b			;; Iterate if necessary
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/8		;; Test inner loop counter
 	JNC_X	b4b			;; Iterate if necessary
@@ -875,7 +875,7 @@ start_timer 8
 b5b:	x4cl_four_complex_fft esi, 64, 4*64, 8*64
 	add	eax, 80000000h		;; Test inner loop counter
 	JNC_X	b5b			;; Iterate if necessary
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b5b			;; Iterate if necessary
@@ -919,7 +919,7 @@ b6a:	x4cl_four_complex_with_square esi, 4*64, 64, 2*64
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
 	add	eax, 80000000h		;; Test inner loop counter
 	JNC_X	b6a			;; Iterate if necessary
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/128		;; Test loop counter
 	JNC_X	b6a			;; Loop if necessary
@@ -933,7 +933,7 @@ b6b:	x4cl_four_complex_fft_final esi, 4*64, 64, 2*64
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
 	add	eax, 80000000h		;; Test inner loop counter
 	JNC_X	b6b			;; Iterate if necessary
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/128		;; Test loop counter
 	JNC_X	b6b			;; Loop if necessary
@@ -947,7 +947,7 @@ b6c:	x4cl_four_complex_with_mult esi, 4*64, 64, 2*64
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
 	add	eax, 80000000h		;; Test inner loop counter
 	JNC_X	b6c			;; Iterate if necessary
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/128		;; Test loop counter
 	JNC_X	b6c			;; Loop if necessary
@@ -963,7 +963,7 @@ b6d:	x4cl_four_complex_with_mulf esi, 4*64, 64, 2*64
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
 	add	eax, 80000000h		;; Test inner loop counter
 	JNC_X	b6d			;; Iterate if necessary
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/128		;; Test loop counter
 	JNC_X	b6d			;; Loop if necessary
@@ -997,7 +997,7 @@ start_timer 10
 c5b:	x4cl_four_complex_unfft esi, 64, 2*64, 4*64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	c5b			;; Iterate if necessary
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	lea	esi, [esi-2*64+8*64]	;; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -1032,7 +1032,7 @@ start_timer 11
 c4b:	x4cl_four_complex_unfft esi, 64, 8*64, 16*64
 	add	eax, 80000000h		;; Test inner loop counter
 	JNC_X	c4b			;; Iterate if necessary
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/4		;; Test inner loop counter
 	JNC_X	c4b			;; Iterate if necessary
@@ -1069,7 +1069,7 @@ start_timer 12
 c3b:	x2cl_two_complex_unfft esi, 64, 32*64
 	add	eax, 40000000h		;; Test inner loop counter
 	JNC_X	c3b			;; Iterate if necessary
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/8		;; Test inner loop counter
 	JNC_X	c3b			;; Iterate if necessary
@@ -1117,8 +1117,8 @@ c2b:	x4cl_four_complex_cpm0_unfft esi, 64, 64*64, 128*64
 	lea	edi, [edi+XMM_PMD]	;; Next column premultiplier
 	add	al, 256/4		;; Test inner loop counter
 	JNC_X	c2b			;; Iterate if necessary
-	prefetcht1 [ecx]
-	prefetcht1 [ecx+128]
+	xprefetcht1 [ecx]
+	xprefetcht1 [ecx+128]
 	lea	ecx, [ecx+256]
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	c2a			;; Iterate if necessary
@@ -1130,8 +1130,8 @@ d2b:	x4cl_four_complex_cpm1_unfft esi, 64, 64*64, 128*64
 	lea	edi, [edi+XMM_PMD]	;; Next column premultiplier
 	add	al, 256/4		;; Test inner loop counter
 	JNC_X	d2b			;; Iterate if necessary
-	prefetcht1 [ecx]
-	prefetcht1 [ecx+128]
+	xprefetcht1 [ecx]
+	xprefetcht1 [ecx+128]
 	lea	ecx, [ecx+256]
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	d2a			;; Iterate if necessary
@@ -1143,8 +1143,8 @@ e2b:	x4cl_four_complex_cpm2_unfft esi, 64, 64*64, 128*64
 	lea	edi, [edi+XMM_PMD]	;; Next column premultiplier
 	add	al, 256/4		;; Test inner loop counter
 	JNC_X	e2b			;; Iterate if necessary
-	prefetcht1 [ecx]
-	prefetcht1 [ecx+128]
+	xprefetcht1 [ecx]
+	xprefetcht1 [ecx+128]
 	lea	ecx, [ecx+256]
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	e2a			;; Iterate if necessary
@@ -1156,8 +1156,8 @@ f2b:	x4cl_four_complex_cpm3_unfft esi, 64, 64*64, 128*64
 	lea	edi, [edi+XMM_PMD]	;; Next column premultiplier
 	add	al, 256/4		;; Test inner loop counter
 	JNC_X	f2b			;; Iterate if necessary
-	prefetcht1 [ecx]
-	prefetcht1 [ecx+128]
+	xprefetcht1 [ecx]
+	xprefetcht1 [ecx+128]
 	lea	ecx, [ecx+256]
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	f2a			;; Iterate if necessary
@@ -1189,7 +1189,7 @@ start_timer 14
 c1b:	s4cl_four_complex_gpm_unfft esi, 64, 256*64, 512*64, 64*XMM_PMD
 	add	eax, 80000000h		;; Test inner loop counter
 	JNC_X	c1b			;; Iterate if necessary
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	c1b			;; Iterate if necessary
@@ -1266,7 +1266,7 @@ b0b:	mov	edi, [esi]		;; Read from this page (loads the TLB)
 
 	mov	eax, 64			;; Load loop counter
 b1b:	s2cl_eight_reals_fft_1 esi, 2*64, 64
-	prefetcht1 [esi+7*128]		;; Prefetch a few iterations ahead
+	xprefetcht1 [esi+7*128]		;; Prefetch a few iterations ahead
 	sub	eax, 1			;; Test loop counter
 	JNZ_X	b1b			;; Iterate if necessary
 	lea	esi, [esi-64*2*64]	;; Restore source pointer
@@ -1311,7 +1311,7 @@ b2b:	x4cl_eight_reals_fft_2 esi, 2*64, 32*64, 64*64
 	lea	esi, [esi-16*2*64+64]	;; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
 b3b:	x4cl_four_complex_fft esi, 2*64, 32*64, 64*64
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/16		;; Test inner loop counter
 	JNC_X	b3b			;; Iterate if necessary
@@ -1754,12 +1754,12 @@ start_timer 4
 	mov	edi, edx		;; The 64 group multipliers
 	mov	eax, 16			;; 16 iterations of 4
 b1b:	s2cl_four_complex_gpm_fft esi, 64, 64*64
-	prefetcht1 [esi+7*64]		;; Prefetch a few iterations ahead in
-	prefetcht1 [esi+71*64]		;; case they are not in the L2 cache
+	xprefetcht1 [esi+7*64]		;; Prefetch a few iterations ahead in
+	xprefetcht1 [esi+71*64]		;; case they are not in the L2 cache
 	add	al, 256/4		;; Test inner loop counter
 	JNC_X	b1b			;; Iterate if necessary
 	lea	edi, [edi+XMM_PMD]	;; Next group multiplier
-	prefetcht1 [edi+4*XMM_PMD]
+	xprefetcht1 [edi+4*XMM_PMD]
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b1b			;; Iterate if necessary
 	lea	esi, [esi-64*64]	;; Restore source pointer
@@ -1799,7 +1799,7 @@ start_timer 5
 	mov	al, 4			;; 4 iterations of 4
 b2b:	x4cl_four_complex_cpm01_fft esi, 64, 16*64, 32*64
 	lea	edi, [edi+XMM_PMD]	;; Next column premultiplier
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/4		;; Test inner loop counter
 	JNC_X	b2b			;; Iterate if necessary
@@ -1807,14 +1807,14 @@ b2b:	x4cl_four_complex_cpm01_fft esi, 64, 16*64, 32*64
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b2b			;; Iterate if necessary
 	lea	esi, [esi-16*64+64*64]	;; Next source pointer
-	prefetcht1 [ecx]
-	prefetcht1 [ecx+128]
+	xprefetcht1 [ecx]
+	xprefetcht1 [ecx+128]
 
 	lea	ecx, [edx+20*XMM_PMD]	;; Prefetch pointer
 	mov	al, 4			;; 4 iterations of 4
 b2c:	x4cl_four_complex_cpm23_fft esi, 64, 16*64, 32*64
 	lea	edi, [edi+XMM_PMD]	;; Next column premultiplier
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/4		;; Test inner loop counter
 	JNC_X	b2c			;; Iterate if necessary
@@ -1822,8 +1822,8 @@ b2c:	x4cl_four_complex_cpm23_fft esi, 64, 16*64, 32*64
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b2c			;; Iterate if necessary
 	lea	esi, [esi-16*64-64*64]	;; Restore source pointer
-	prefetcht1 [ecx+256]
-	prefetcht1 [ecx+384]
+	xprefetcht1 [ecx+256]
+	xprefetcht1 [ecx+384]
 end_timer 5
 
 ;; Do FFT levels 5,6
@@ -1854,7 +1854,7 @@ start_timer 8
 b5b:	x4cl_four_complex_fft esi, 64, 4*64, 8*64
 	add	eax, 80000000h		;; Test inner loop counter
 	JNC_X	b5b			;; Iterate if necessary
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	b5b			;; Iterate if necessary
@@ -1898,7 +1898,7 @@ b6a:	x4cl_four_complex_with_square esi, 4*64, 64, 2*64
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
 	add	eax, 80000000h		;; Test inner loop counter
 	JNC_X	b6a			;; Iterate if necessary
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/16		;; Test loop counter
 	JNC_X	b6a			;; Loop if necessary
@@ -1912,7 +1912,7 @@ b6b:	x4cl_four_complex_fft_final esi, 4*64, 64, 2*64
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
 	add	eax, 80000000h		;; Test inner loop counter
 	JNC_X	b6b			;; Iterate if necessary
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/16		;; Test loop counter
 	JNC_X	b6b			;; Loop if necessary
@@ -1926,7 +1926,7 @@ b6c:	x4cl_four_complex_with_mult esi, 4*64, 64, 2*64
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
 	add	eax, 80000000h		;; Test inner loop counter
 	JNC_X	b6c			;; Iterate if necessary
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/16		;; Test loop counter
 	JNC_X	b6c			;; Loop if necessary
@@ -1943,7 +1943,7 @@ b6d:	x4cl_four_complex_with_mulf esi, 4*64, 64, 2*64
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
 	add	eax, 80000000h		;; Test inner loop counter
 	JNC_X	b6d			;; Iterate if necessary
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/16		;; Test loop counter
 	JNC_X	b6d			;; Loop if necessary
@@ -1976,7 +1976,7 @@ start_timer 10
 c5b:	x4cl_four_complex_unfft esi, 64, 2*64, 4*64
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	c5b			;; Iterate if necessary
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	lea	esi, [esi-2*64+8*64]	;; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
@@ -2022,8 +2022,8 @@ c2b:	x4cl_four_complex_cpm0_unfft esi, 64, 8*64, 16*64
 	lea	edi, [edi+XMM_PMD]	;; Next column premultiplier
 	add	al, 256/4		;; Test inner loop counter
 	JNC_X	c2b			;; Iterate if necessary
-	prefetcht1 [ecx]
-	prefetcht1 [ecx+128]
+	xprefetcht1 [ecx]
+	xprefetcht1 [ecx+128]
 	lea	ecx, [ecx+256]
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	c2a			;; Iterate if necessary
@@ -2035,8 +2035,8 @@ d2b:	x4cl_four_complex_cpm1_unfft esi, 64, 8*64, 16*64
 	lea	edi, [edi+XMM_PMD]	;; Next column premultiplier
 	add	al, 256/4		;; Test inner loop counter
 	JNC_X	d2b			;; Iterate if necessary
-	prefetcht1 [ecx]
-	prefetcht1 [ecx+128]
+	xprefetcht1 [ecx]
+	xprefetcht1 [ecx+128]
 	lea	ecx, [ecx+256]
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	d2a			;; Iterate if necessary
@@ -2048,8 +2048,8 @@ e2b:	x4cl_four_complex_cpm2_unfft esi, 64, 8*64, 16*64
 	lea	edi, [edi+XMM_PMD]	;; Next column premultiplier
 	add	al, 256/4		;; Test inner loop counter
 	JNC_X	e2b			;; Iterate if necessary
-	prefetcht1 [ecx]
-	prefetcht1 [ecx+128]
+	xprefetcht1 [ecx]
+	xprefetcht1 [ecx+128]
 	lea	ecx, [ecx+256]
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	e2a			;; Iterate if necessary
@@ -2061,8 +2061,8 @@ f2b:	x4cl_four_complex_cpm3_unfft esi, 64, 8*64, 16*64
 	lea	edi, [edi+XMM_PMD]	;; Next column premultiplier
 	add	al, 256/4		;; Test inner loop counter
 	JNC_X	f2b			;; Iterate if necessary
-	prefetcht1 [ecx]
-	prefetcht1 [ecx+128]
+	xprefetcht1 [ecx]
+	xprefetcht1 [ecx+128]
 	lea	ecx, [ecx+256]
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	f2a			;; Iterate if necessary
@@ -2094,7 +2094,7 @@ start_timer 14
 c1b:	s4cl_four_complex_gpm_unfft esi, 64, 32*64, 64*64, 8*XMM_PMD
 	add	eax, 80000000h		;; Test inner loop counter
 	JNC_X	c1b			;; Iterate if necessary
-	prefetcht1 [ecx]
+	xprefetcht1 [ecx]
 	lea	ecx, [ecx+128]
 	add	al, 256/2		;; Test inner loop counter
 	JNC_X	c1b			;; Iterate if necessary

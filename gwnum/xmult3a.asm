@@ -24,6 +24,8 @@ INCLUDE xmult.mac
 INCLUDE	xlucas.mac
 INCLUDE xpass2.mac
 
+PREFETCHING = 1
+
 ;; Routines to do the last 11 levels in a two-pass FFT
 
 PUBLIC	xpass2_11_levels
