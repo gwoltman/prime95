@@ -554,6 +554,7 @@ COMMAND LINE ARGUMENTS
 		INI files, the results file, the log file, and the spool file.
 		Just use a different value of n for each copy of
 		prime95.exe you start.
+-t		Run the torture test.  Same as Options/Torture Test.
 -Wdirectory	This tells prime95 to find all its files in a different
 		directory than the executable.
 

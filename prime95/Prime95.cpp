@@ -134,6 +134,7 @@ BOOL CPrime95App::InitInstance()
 {
 	int	orig_cmdShow;
 	int	named_ini_files = -1;
+	int	torture_test = 0;
 	char	*p;
 
 	// Standard initialization
@@ -198,6 +199,13 @@ BOOL CPrime95App::InitInstance()
 				named_ini_files = named_ini_files * 10 + (*p - '0');
 				p++;
 			}
+			break;
+
+// Accept a -T switch to run the torture test.
+
+		case 'T':
+		case 't':
+			torture_test = 1;
 			break;
 
 // Accept a -W switch indicating an alternate working directory.
@@ -332,9 +340,15 @@ BOOL CPrime95App::InitInstance()
 	HtmlHelp(NULL, NULL, HH_INITIALIZE, (DWORD)&dwHelpCookie);
 #endif
 
+	// Run the torture test if asked to
+	if (torture_test) {
+		m_pMainWnd->PostMessage (WM_COMMAND, IDM_TORTURE, 0);
+	}
+
 	// On first run, get user name and email address
 	// before contacting server for a work assignment
-	if (USE_PRIMENET && USERID[0] == 0 && !IniGetInt (INI_FILE, "StressTester", 0)) {
+	else if (USE_PRIMENET && USERID[0] == 0 &&
+		 !IniGetInt (INI_FILE, "StressTester", 0)) {
 		m_pMainWnd->ShowWindow (orig_cmdShow);
 		STARTUP_IN_PROGRESS = 1;
 		m_pMainWnd->PostMessage (WM_COMMAND, USR_WELCOME, 0);

@@ -69,6 +69,7 @@ on an idle machine.
 -d		Prints more detailed information to stdout.  Normally
 		mprime does not send any output to stdout.
 -m		Bring up the menus to set mprime's preferences.
+-t		Run the torture test.  Same as Options/Torture Test.
 -v		Print the version number of mprime.
 -Wdirectory	This tells mprime to find all its files in a different
 		directory than the executable.

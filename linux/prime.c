@@ -186,6 +186,7 @@ int main (
 	int	named_ini_files = -1;
 	int	background = 0;
 	int	contact_server = 0;
+	int	torture_test = 0;
 	int	i;
 	char	*p;
 
@@ -273,6 +274,13 @@ int main (
 		case 'm':
 			MENUING = TRUE;
 			NO_GUI = FALSE;
+			break;
+
+/* -T - Torture test */
+
+		case 'T':
+		case 't':
+			torture_test = TRUE;
 			break;
 
 /* -V - version number */
@@ -372,13 +380,21 @@ int main (
 		}
 	}
 
+/* If running the torture test, do so now. */
+
+	if (torture_test) {
+		VERBOSE = TRUE;
+		NO_GUI = FALSE;
+		selfTest (1);
+	}
+
 /* On first run, get user name and email address before contacting server */
 /* for a work assignment.  To make first time user more comfortable, we will */
 /* display data to the screen, rather than running silently. */
 
-	if (USE_PRIMENET &&
-	    USERID[0] == 0 &&
-	    !IniGetInt (INI_FILE, "StressTester", 0)) {
+	else if (USE_PRIMENET &&
+		 USERID[0] == 0 &&
+		 !IniGetInt (INI_FILE, "StressTester", 0)) {
 		VERBOSE = TRUE;
 		NO_GUI = FALSE;
 		STARTUP_IN_PROGRESS = 1;
@@ -400,7 +416,7 @@ int main (
 	else if (MENUING)
 		main_menu ();
 
-/* Continue testing the range */
+/* Continue testing */
 
 	else
 		linuxContinue ("Another mprime is already running!\n");
@@ -411,11 +427,12 @@ int main (
 
 /* Invalid args message */
 
-usage:	printf ("Usage: mprime [-cdhmv] [-aN] [-b[N]] [-wDIR]\n");
+usage:	printf ("Usage: mprime [-cdhmtv] [-aN] [-b[N]] [-wDIR]\n");
 	printf ("-c\tContact the PrimeNet server, then exit.\n");
 	printf ("-d\tPrint detailed information to stdout.\n");
 	printf ("-h\tPrint this.\n");
 	printf ("-m\tMenu to configure mprime.\n");
+	printf ("-t\tRun the torture test.\n");
 	printf ("-v\tPrint the version number.\n");
 	printf ("-aN\tUse an alternate set of INI and output files.\n");
 	printf ("-bN\tRun in the background.  N is number of CPUs.\n");
