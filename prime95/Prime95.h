@@ -29,7 +29,6 @@ class CPrime95App : public CWinApp
 public:
 	CPrime95App();
 	void TrayMessage (UINT, LPCSTR, UINT);
-	virtual void WinHelp( DWORD dwData, UINT nCmd = HELP_CONTEXT ); 
 
 // Overrides
 	// ClassWizard generated virtual function overrides

@@ -21,7 +21,6 @@
 #define IDH_QUIT                        27
 #define IDH_CPU                         28
 #define IDH_PREFERENCES                 29
-#define IDH_OPTIONS_SELFTEST            30
 #define IDH_TORTURE                     31
 #define IDH_TRAY                        32
 #define IDH_HIDE                        33

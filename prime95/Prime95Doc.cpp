@@ -96,7 +96,6 @@ BEGIN_MESSAGE_MAP(CPrime95Doc, CDocument)
 	ON_UPDATE_COMMAND_UI(IDM_PMINUS1, OnUpdatePminus1)
 	ON_COMMAND(USR_WELCOME, OnWelcome)
 	ON_COMMAND(USR_BROADCAST, OnBroadcast)
-	ON_COMMAND(ID_HELP_FINDER, OnHelpFinder)
 	ON_COMMAND(IDM_UNRESERVE, OnUnreserve)
 	ON_UPDATE_COMMAND_UI(IDM_UNRESERVE, OnUpdateUnreserve)
 	ON_UPDATE_COMMAND_UI(IDM_VACATION, OnUpdateVacation)
@@ -815,11 +814,6 @@ void CPrime95Doc::OnService()
 void CPrime95Doc::OnUpdateHelpFinder(CCmdUI* pCmdUI) 
 {
 	pCmdUI->Enable (TRUE);
-}
-
-void CPrime95Doc::OnHelpFinder() 
-{
-	AfxGetApp()->HtmlHelp (HH_DISPLAY_TOPIC,0);
 }
 
 void CPrime95Doc::OnUpdateServer(CCmdUI* pCmdUI) 

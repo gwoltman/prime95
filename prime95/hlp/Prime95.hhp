@@ -77,6 +77,7 @@ What are Mersenne primes.htm
 
 [MAP]
 #include HelpTopics.h
+#include HtmlDefines.h
 
 [INFOTYPES]
 

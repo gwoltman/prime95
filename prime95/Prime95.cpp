@@ -41,62 +41,6 @@ BOOL CALLBACK MyEnumProc (
 	return (FALSE);
 }
 
-// HTML Help table - maps menu ids to help ids
-// Described in knowledge base article Q191118
-static const DWORD aMenuHelpIDs[] =
-      {
-	IDD_WELCOME,		IDH_WELCOME,
-	IDD_PRIMENET,		IDH_PRIMENET,
-	IDM_PRIMENET,		IDH_PRIMENET,
-	IDD_USER,		IDH_USERINFORMATION,
-	ID_RANGE_USERINFORMATION, IDH_USERINFORMATION,
-	IDD_VACATION,		IDH_VACATION,
-	IDM_VACATION,		IDH_VACATION,
-	ID_RANGE_STATUS,	IDH_RANGE_STATUS,
-	IDM_CONTINUE,		IDH_CONTINUE,
-	IDM_STOP,		IDH_STOP,
-	ID_APP_EXIT,		IDH_APP_EXIT,
-	IDD_PASSWORD,		IDH_PASSWORD,
-	IDM_PASSWORD,		IDH_PASSWORD,
-	IDD_TEST,		IDH_TEST,
-	IDM_TEST,		IDH_TEST,
-	IDD_TIME,		IDH_TIME,
-	IDM_TIME,		IDH_TIME,
-	IDD_PMINUS1,		IDH_PMINUS1,
-	IDM_PMINUS1,		IDH_PMINUS1,
-	IDD_ECM,		IDH_ECM,
-	IDM_ECM,		IDH_ECM,
-	IDM_ERRCHK,		IDH_ERRCHK,
-	IDD_PRIORITY,		IDH_PRIORITY,
-	IDM_PRIORITY,		IDH_PRIORITY,
-	IDD_AFFINITY,		IDH_AFFINITY,
-	IDM_AFFINITY,		IDH_AFFINITY,
-	IDD_MANUAL_COMM,	IDH_MANUALCOMM,
-	ID_MANUALCOMM,		IDH_MANUALCOMM,
-	IDD_UNRESERVE,		IDH_UNRESERVE,
-	IDM_UNRESERVE,		IDH_UNRESERVE,
-	IDM_QUIT,		IDH_QUIT,
-	IDD_CPU,		IDH_CPU,
-	IDM_CPU,		IDH_CPU,
-	IDD_PREFERENCES,	IDH_PREFERENCES,
-	IDM_PREFERENCES,	IDH_PREFERENCES,
-	IDM_TORTURE,		IDH_TORTURE,
-	IDM_BENCHMARK,		IDH_BENCHMARK,
-	IDM_TRAY,		IDH_TRAY,
-	IDM_HIDE,		IDH_HIDE,
-	IDM_SERVICE,		IDH_SERVICE,
-	ID_HELP_FINDER,		IDH_HELP_FINDER,
-	IDD_ABOUTBOX,		IDH_APP_ABOUT,
-	ID_APP_ABOUT,		IDH_APP_ABOUT,
-	IDD_ABOUTSERVER,	IDH_SERVER,
-	IDM_SERVER,		IDH_SERVER,
-        0,			0
-      };
-// Subtract 1 from the total number of ID pairs to account
-// for the NULL pair at the end of the array.
-DWORD numHelpIDs = (sizeof(aMenuHelpIDs)/sizeof(DWORD))/2 - 1;
-DWORD dwHelpCookie = NULL;
-
 /////////////////////////////////////////////////////////////////////////////
 // CPrime95App
 
@@ -116,6 +60,8 @@ END_MESSAGE_MAP()
 
 CPrime95App::CPrime95App()
 {
+	EnableHtmlHelp ();
+
 	// TODO: add construction code here,
 	// Place all significant initialization in InitInstance
 }
@@ -328,7 +274,6 @@ BOOL CPrime95App::InitInstance()
 
 	// Init help system
 
-	EnableHtmlHelp ();
 	m_pszHelpFilePath = "prime95.chm";
 
 	// Run the torture test if asked to
@@ -567,35 +512,6 @@ int CPrime95App::ExitInstance()
 	return CWinApp::ExitInstance();
 }
 
-
-// HTML help!
-
-void CPrime95App::WinHelp( DWORD dwData, UINT nCmd )
-      {
-      DWORD i;
-      switch (nCmd)
-      {
-      case HELP_CONTEXT:
-
-         // If it is a help context command, search for the
-         // control ID in the array.
-         for (i= 0; i < numHelpIDs*2; i+=2)
-         {
-           if (aMenuHelpIDs[i] == LOWORD (dwData) )
-           {
-             i++;  // pass the help context id to HTMLHelp
-             HtmlHelp (HH_HELP_CONTEXT,aMenuHelpIDs[i]);
-             return;
-           }
-         }
-
-         // If the control ID cannot be found,
-         // display the default topic.
-         if (i == numHelpIDs*2)
-		 HtmlHelp (HH_DISPLAY_TOPIC,0);
-         break;
-         }
-      }
 
 /////////////////////////////////////////////////////////////////////////////
 // CPrime95App commands
