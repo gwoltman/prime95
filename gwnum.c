@@ -1766,7 +1766,7 @@ void gwprothsetup (
 
 	*((unsigned long *) &PROTHVALS[3]) = addr_offset (FFTLEN, FFTLEN - 1);
 	*((unsigned long *) &PROTHVALS[4]) = (PARG - n) / bits;
-	*((unsigned long *) &PROTHVALS[5]) = ((PARG - n) / bits + 9) / 8;
+	*((unsigned long *) &PROTHVALS[5]) = ((PARG - n) / bits + 7) / 8;
 
 	temp = (n + bits - 1) / bits;
 	*((unsigned long *) &PROTHVALS[6]) = addr_offset (FFTLEN, temp + 4);
