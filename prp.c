@@ -1338,7 +1338,7 @@ void gen64 (char *str, gwnum x)
 	char	buf[200];
 	tmp = popg ((PARG >> 5) + 3);
 	specialgwtobinary (x, tmp); /* Compensate for possible negative x */
-	sprintf (buf, "%s res64: %08lX%08lX\n", str, tmp->n[0], tmp->n[1]);
+	sprintf (buf, "%s res64: %08lX%08lX\n", str, tmp->n[1], tmp->n[0]);
 	writeResults (buf);
 	pushg (1);
 }
@@ -1460,7 +1460,7 @@ restart:
 /* Process this bit */
 
 		if (bitval (N, len-bit-1)) {
-			gwsetnormroutine (0, ERRCHK, 1);
+			gwsetnormroutine (0, echk, 1);
 			gwsquare (x);
 		} else {
 //{giant t1, t2;
@@ -1468,7 +1468,7 @@ restart:
 //t2 = popg ((PARG >> 4) + 3);
 //specialgwtobinary (x, t1);
 //binarytogw (t1, x);
-			gwsetnormroutine (0, ERRCHK, 0);
+			gwsetnormroutine (0, echk, 0);
 			gwsquare (x);
 //squareg (t1);
 //gwtobinary (x, t2);
@@ -1542,8 +1542,7 @@ restart:
 		if (echk && MAXERR > 0.40) {
 			static unsigned long last_bit = 0;
 			static double last_maxerr = 0.0;
-			if (MAXERR < 0.48 &&
-			    bit == last_bit &&
+			if (bit == last_bit &&
 			    MAXERR == last_maxerr) {
 				writeResults (ERROK);
 				saving = 1;
@@ -1629,7 +1628,7 @@ restart:
 	ulsubg (a, tmp);
 	if (!isZero (tmp)) {
 		*res = FALSE;	/* Not a prime */
-		sprintf (res64, "%08lX%08lX", tmp->n[0], tmp->n[1]);
+		sprintf (res64, "%08lX%08lX", tmp->n[1], tmp->n[0]);
 	}
 	pushg (1);
 	gwfree (x);
@@ -1796,22 +1795,21 @@ restart:
 /* Process this bit */
 
 		if (bitval (N, len-bit-1)) {
-			gwsetnormroutine (0, ERRCHK, 1);
+			gwsetnormroutine (0, echk, 1);
 			gwsquare (x);
 		} else {
-			gwsetnormroutine (0, ERRCHK, 0);
+			gwsetnormroutine (0, echk, 0);
 			gwsquare (x);
 		}
 
 		gwcopyzero (x, y, zerowordslow);
-
-		gwsetnormroutine (zerowordshigh, ERRCHK, 0);
+		gwsetnormroutine (zerowordshigh, echk, 0);
 		gwfftmul (recip, y);
 
-		gwsetnormroutine (0, ERRCHK, 0);
+		gwsetnormroutine (0, echk, 0);
 		gwfftmul (n, y);
-
 		gwsub (y, x);
+
 		bit++;
 		iters++;
 #ifdef GTEST
@@ -1952,7 +1950,7 @@ restart:
 	ulsubg (a, tmp);
 	if (!isZero (tmp)) {
 		*res = FALSE;	/* Not a prime */
-		sprintf (res64, "%08lX%08lX", tmp->n[0], tmp->n[1]);
+		sprintf (res64, "%08lX%08lX", tmp->n[1], tmp->n[0]);
 	}
 	pushg (1);
 	gwfree (x);
@@ -2005,12 +2003,17 @@ int process_num (
 	int	incr,
 	int	*res)
 {
-	if (base == 2) {
+	if (base == 2 && (incr == -1 || incr == +1)) {
 		return (isProthPRP (3, k, n, incr, res));
 	} else {
 		char	buf[100];
 		int	bits, retval;
-		sprintf (buf, "%lu*%lu^%lu%c1", k, base, n, incr < 0 ? '-' : '+');
+		if (k == 1)
+			sprintf (buf, "%lu^%lu%c%lu", base, n,
+				 incr < 0 ? '-' : '+', abs(incr));
+		else
+			sprintf (buf, "%lu*%lu^%lu%c%lu", k, base, n,
+				 incr < 0 ? '-' : '+', abs(incr));
 		bits = (int) ((n * log(base) + log(k)) / log(2));
 		N = newgiant ((bits >> 4) + 8);
 		ultog (base, N);
