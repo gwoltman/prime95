@@ -1,6 +1,10 @@
 // Prime95.h : main header file for the PRIME95 application
 //
 
+#ifdef _WIN64
+#define X86_64
+#endif
+
 #ifndef __AFXWIN_H__
 	#error include 'stdafx.h' before including this file for PCH
 #endif

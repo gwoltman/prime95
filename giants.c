@@ -1845,7 +1845,7 @@ void init_sincos (
 	ooura_sincosorig = (double *) malloc ((n/2) * sizeof (double) + 8);
 	ooura_sincos = (double *) (((long) ooura_sincosorig + 7) & 0xFFFFFFF8);
 	if (ooura_ip) free (ooura_ip);
-	ooura_ip = (int *) malloc (((int) sqrt(n/2) + 2) * sizeof (int));
+	ooura_ip = (int *) malloc (((int) sqrt((double)(n/2)) + 2) * sizeof (int));
 	ooura_ip[0] = 0;
 	ooura_fft_size = n;
         makewt (n >> 2, ooura_ip, ooura_sincos);

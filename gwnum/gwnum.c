@@ -1286,9 +1286,9 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 
 /* Precalculate some needed values */
 
-	log2k = log (k) / log (2.0);
-	log2c = log (abs (c)) / log (2.0);
-	log2maxmulbyconst = log (abs (GWMAXMULBYCONST)) / log (2.0);
+	log2k = log (k) / log ((double) 2.0);
+	log2c = log ((double) abs (c)) / log ((double) 2.0);
+	log2maxmulbyconst = log ((double) abs (GWMAXMULBYCONST)) / log ((double) 2.0);
 
 /* First, see what FFT length we would get if we emulate the k*b^n+c modulo */
 /* with a zero padded FFT.  If k is 1 and abs (c) is 1 then we can skip this */
@@ -1728,7 +1728,7 @@ int internal_gwsetup (
 /* Calculate the number of bits in k*2^n.  This will be helpful in */
 /* determining how much meory to allocate for giants. */
 
-	bit_length = log (k) / log (2) + n;
+	bit_length = log (k) / log ((double) 2.0) + n;
 
 /* Calculate the number of bits the underlying FFT computes.  That is, */
 /* the point at which data wraps around to the low FFT word.  For a zero */
@@ -2117,12 +2117,12 @@ int internal_gwsetup (
 		bits4 = BITS_PER_WORD; if (is_big_word (4)) bits4++;
 		bits5 = BITS_PER_WORD; if (is_big_word (5)) bits5++;
 
-		ZPAD_SHIFT1 = pow (2.0, bits0);
-		ZPAD_SHIFT2 = pow (2.0, bits1);
-		ZPAD_SHIFT3 = pow (2.0, bits2);
-		ZPAD_SHIFT4 = pow (2.0, bits3);
-		ZPAD_SHIFT5 = pow (2.0, bits4);
-		ZPAD_SHIFT6 = pow (2.0, bits5);
+		ZPAD_SHIFT1 = pow ((double) 2.0, (int) bits0);
+		ZPAD_SHIFT2 = pow ((double) 2.0, (int) bits1);
+		ZPAD_SHIFT3 = pow ((double) 2.0, (int) bits2);
+		ZPAD_SHIFT4 = pow ((double) 2.0, (int) bits3);
+		ZPAD_SHIFT5 = pow ((double) 2.0, (int) bits4);
+		ZPAD_SHIFT6 = pow ((double) 2.0, (int) bits5);
 
 		if (kbits <= BITS_PER_WORD + 3) ZPAD_TYPE = 1;
 		else if (kbits <= 2 * BITS_PER_WORD + 3) ZPAD_TYPE = 2;
@@ -2155,32 +2155,32 @@ int internal_gwsetup (
 		}
 
 		if (ZPAD_TYPE == 3) {
-			pow2 = pow (2.0, bits0);
-			bigpow2 = pow (2.0, bits0 + bits1);
+			pow2 = pow ((double) 2.0, (int) bits0);
+			bigpow2 = pow ((double) 2.0, (int) (bits0 + bits1));
 			ZPAD_K2_HI = floor (k / bigpow2);
 			ZPAD_K2_MID = floor ((k - ZPAD_K2_HI*bigpow2) / pow2);
 			ZPAD_K2_LO = k - ZPAD_K2_HI*bigpow2 - ZPAD_K2_MID*pow2;
 			ZPAD_INVERSE_K2 = pow2 / k;
-			pow2 = pow (2.0, bits1);
-			bigpow2 = pow (2.0, bits1 + bits2);
+			pow2 = pow ((double) 2.0, (int) bits1);
+			bigpow2 = pow ((double) 2.0, (int) (bits1 + bits2));
 			ZPAD_K3_HI = floor (k / bigpow2);
 			ZPAD_K3_MID = floor ((k - ZPAD_K3_HI*bigpow2) / pow2);
 			ZPAD_K3_LO = k - ZPAD_K3_HI*bigpow2 - ZPAD_K3_MID*pow2;
 			ZPAD_INVERSE_K3 = pow2 / k;
-			pow2 = pow (2.0, bits2);
-			bigpow2 = pow (2.0, bits2 + bits3);
+			pow2 = pow ((double) 2.0, (int) bits2);
+			bigpow2 = pow ((double) 2.0, (int) (bits2 + bits3));
 			ZPAD_K4_HI = floor (k / bigpow2);
 			ZPAD_K4_MID = floor ((k - ZPAD_K4_HI*bigpow2) / pow2);
 			ZPAD_K4_LO = k - ZPAD_K4_HI*bigpow2 - ZPAD_K4_MID*pow2;
 			ZPAD_INVERSE_K4 = pow2 / k;
-			pow2 = pow (2.0, bits3);
-			bigpow2 = pow (2.0, bits3 + bits4);
+			pow2 = pow ((double) 2.0, (int) bits3);
+			bigpow2 = pow ((double) 2.0, (int) (bits3 + bits4));
 			ZPAD_K5_HI = floor (k / bigpow2);
 			ZPAD_K5_MID = floor ((k - ZPAD_K5_HI*bigpow2) / pow2);
 			ZPAD_K5_LO = k - ZPAD_K5_HI*bigpow2 - ZPAD_K5_MID*pow2;
 			ZPAD_INVERSE_K5 = pow2 / k;
-			pow2 = pow (2.0, bits4);
-			bigpow2 = pow (2.0, bits4 + bits5);
+			pow2 = pow ((double) 2.0, (int) bits4);
+			bigpow2 = pow ((double) 2.0, (int) (bits4 + bits5));
 			ZPAD_K6_HI = floor (k / bigpow2);
 			ZPAD_K6_MID = floor ((k - ZPAD_K6_HI*bigpow2) / pow2);
 			ZPAD_K6_LO = k - ZPAD_K6_HI*bigpow2 - ZPAD_K6_MID*pow2;
@@ -2217,11 +2217,11 @@ int internal_gwsetup (
 	else {
 		double bits_per_double, total_bits, loglen;
 		bits_per_double = fft_bits_per_word - 1.0;
-		if (!ZERO_PADDED_FFT) bits_per_double += log (-c) / log (2);
-		loglen = log ((double) FFTLEN) / log (2.0);
+		if (!ZERO_PADDED_FFT) bits_per_double += log ((double) -c) / log ((double) 2.0);
+		loglen = log ((double) FFTLEN) / log ((double) 2.0);
 		loglen *= 0.69;
 		total_bits = bits_per_double * 2.0 + loglen * 2.0;
-		MAXDIFF = pow (2.0, total_bits -
+		MAXDIFF = pow ((double) 2.0, total_bits -
 				((CPU_FLAGS & CPU_SSE2) ? 47.08 : 47.65));
 	}
 
@@ -2938,8 +2938,8 @@ double virtual_bits_per_word ()
 	if (ZERO_PADDED_FFT)
 		return ((double) (PARG + PARG) / (double) FFTLEN);
 	else {
-		logk = log (KARG) / log (2);
-		logc = log (abs (CARG)) / log (2);
+		logk = log (KARG) / log ((double) 2.0);
+		logc = log ((double) abs (CARG)) / log ((double) 2.0);
 		return ((double) (logk + PARG) / (double) FFTLEN +
 			0.5 * logk + 0.75 * logc);
 	}

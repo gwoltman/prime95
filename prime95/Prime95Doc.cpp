@@ -1023,7 +1023,7 @@ void CPrime95Doc::OutputStr (
 
 #define PORT	1
 #include "giants.h"
-#ifdef _DEBUG
+#if defined (_DEBUG) || defined (_WIN64)
 #include "giants.c"
 #endif
 #include "gwnum.c"

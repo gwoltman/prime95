@@ -1056,7 +1056,7 @@ void factorSetup (unsigned long p)
 		xmm_data[44] = 62 - (120 - bits_in_factor);/* XMM_INIT120BS */
 		xmm_data[46] = 62 - (p - bits_in_factor);/* XMM_INITBS */
 		xmm_data[100] = i;		/* SSE2_LOOP_COUNTER */
-		*(double *)(&xmm_data[98]) = pow (2.0, bits_in_factor + 62);
+		*(double *)(&xmm_data[98]) = pow ((double) 2.0, (int) (bits_in_factor + 62));
 						/* TWO_TO_FACSIZE_PLUS_62 */
 
 /* Set XMM_BS to 60 - (120 - fac_size + 1) as defined in factor64.mac */
@@ -1603,8 +1603,8 @@ int pick_fft_size (
 /* between 0.241 and 0.243 depending on the FFT size. */
 
 	max_avg_error = 0.241 + 0.002 *
-		(log (small_fftlen) - log (262144.0)) /
-		(log (4194304.0) - log (262144.0));
+		(log ((double) small_fftlen) - log ((double) 262144.0)) /
+		(log ((double) 4194304.0) - log ((double) 262144.0));
 	IniGetString (INI_FILE, "SoftCrossoverAdjust", buf, sizeof (buf), "0");
 	max_avg_error += atof (buf);
 
@@ -3674,7 +3674,7 @@ double facpct (
 	endpt = endpthi * 4294967296.0 + endptlo;
 	if (current > endpt) current = endpt;
         if (bits < 32) bits = 32;
-        startpt = pow (2.0, bits-32);
+        startpt = pow ((double) 2.0, (int) (bits-32));
 	return ((pass + (current - startpt) / (endpt - startpt)) / 16.0 * 100.0);
 }
 
@@ -3884,7 +3884,7 @@ int primeFactor (
 					EXP_PERCENT_COMPLETE = 999.0;
 				else
 					EXP_PERCENT_COMPLETE =
-						pow (0.5, test_bits - end_bits + 1) *
+						pow ((double) 0.5, (int) (test_bits - end_bits + 1)) *
 						(1.0 + facpct (pass, bits, endpthi, endptlo) / 100.0);
 			}
 

@@ -33,7 +33,7 @@ BOOL CALLBACK MyEnumProc (
 
 // Return true to continue enumerating Windows
 
-	if (GetWindowLong (hwnd, GWL_USERDATA) != g_MutexNum)
+	if (GetWindowLongPtr (hwnd, GWLP_USERDATA) != g_MutexNum)
 		return (TRUE);
 
 // We've found the instance, return the window handle
@@ -298,7 +298,7 @@ simple_mutex:	 	g_hMutexInst = CreateMutex (
 // Set the window user data so we can be identified by
 // another instance of this program.
 
-		SetWindowLong (m_pMainWnd->m_hWnd, GWL_USERDATA, g_MutexNum);
+		SetWindowLongPtr (m_pMainWnd->m_hWnd, GWLP_USERDATA, (LONG_PTR) g_MutexNum);
 	}
 
 /* Read the INI files. */
@@ -386,7 +386,7 @@ simple_mutex:	 	g_hMutexInst = CreateMutex (
 void CALLBACK EXPORT TimerCallback (
 	HWND	hWnd,		//handle of CWnd that called SetTimer
 	UINT	nMsg,		//WM_TIMER
-	UINT	nIDEvent,	//timer identification
+	UINT_PTR nIDEvent,	//timer identification
 	DWORD	dwTime)		//system time
 {
 	BlinkIcon (-2);
@@ -609,3 +609,11 @@ int	CHECK_BATTERY = 0;
 int	STOPPED_ON_BATTERY = 0;
 char	*BROADCAST_MESSAGE = NULL;
 
+// For Windows 64, define variables from service.c -- until we can
+// figure out the 64-bit equivalent for this routine.
+
+#ifdef _WIN64
+EXTERNC char	NTSERVICENAME[32] = {0};	// name of the NT service
+EXTERNC HWND	MAINFRAME_HWND = 0;		// Handle of main frame window
+EXTERNC int	THREAD_ACTIVE = 0;		// TRUE if worker thread is active
+#endif

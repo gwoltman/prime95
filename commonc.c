@@ -3254,7 +3254,7 @@ void guess_pminus1_bounds (
 /* NOTE: In version 22, the GCD speed has approximately doubled.  I've */
 /* adjusted the formula accordingly. */
 
-	gcd_cost = (430.5 * log (n) - 3887.5) / 2.0;
+	gcd_cost = (430.5 * log ((double) n) - 3887.5) / 2.0;
 	if (gcd_cost < 50.0) gcd_cost = 50.0;
 
 /* Compute how many temporaries we can use given our memory constraints. */
@@ -3268,12 +3268,12 @@ void guess_pminus1_bounds (
 
 /* Find the best B1 */
 
-	log2 = log (2);
+	log2 = log ((double) 2.0);
 	for (B1 = 10000; ; B1 += 5000) {
 
 /* Constants */
 
-	logB1 = log (B1);
+	logB1 = log ((double) B1);
 
 /* Compute how many squarings will be required in pass 1 */
 
@@ -3290,7 +3290,7 @@ void guess_pminus1_bounds (
 /* purposes even if different D and E values are picked.  See */
 /* choose_pminus1_plan for a description of the costs of P-1 stage 2. */
 
-	logB2 = log (B2);
+	logB2 = log ((double) B2);
 	numprimes = (unsigned long) (B2 / (logB2 - 1.0) - B1 / (logB1 - 1.0));
 	if (B2 <= B1) {
 		pass2_squarings = 0.0;

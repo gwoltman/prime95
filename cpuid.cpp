@@ -73,6 +73,19 @@ int canExecInstruction (
 
 #else
 
+/* The MS 64-bit compiler does not allow inline assembly.  Fortunately, any */
+/* CPU capable of running x86-64 bit code can execute these instructions. */
+
+#ifdef X86_64
+
+int canExecInstruction (
+	unsigned long cpu_flag)
+{
+	return (TRUE);
+}
+
+#else
+
 #ifdef __WATCOMC__
 #include <excpt.h>
 #define __asm	_asm
@@ -124,6 +137,7 @@ int canExecInstruction (
 	fpu_init ();
 	return (succeeded);
 }
+#endif
 #endif
 
 
