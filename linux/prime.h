@@ -148,7 +148,11 @@
 
 #include <time.h>
 /*#define SERVER_TESTING*/
+#ifdef __WATCOMC__
+#define EXTERNC extern
+#else
 #define EXTERNC
+#endif
 extern int NO_GUI;
 #include "cpuid.h"
 #include "giants.h"
