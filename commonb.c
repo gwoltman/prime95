@@ -1721,7 +1721,7 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 /* then repeat the iteration using a safer, slower method.  This can */
 /* happen when operating near the limit of an FFT. */
 
-		if (echk && MAXERR > 0.40) {
+		if (echk && MAXERR >= 0.40625) {
 			static double last_maxerr = 0.0;
 			if (counter == last_counter && MAXERR == last_maxerr) {
 				OutputBoth (ERROK);
