@@ -175,20 +175,10 @@ clm512K		=	4
 ;; Common utility macros used in one and two pass SSE2 FFTs
 ;;
 
-; IDEA!!!
-; Replace mulpd XMM_TWO with a PADD integer instruction (operating on the
-; exponent).  This has a shorter latency than mulpd and will make other
-; mulpd instructions easier to schedule.  Also can be used for scaling
-; in normalize routines.  Downside:  the Intel optimization guide suggests
-; there may be penalties mixing packed double and integer SSE2 instructions.
-
 multwo	MACRO	r
-;PADDB r, XMM_TWO
 	mulpd	r, XMM_TWO
 	ENDM
 
 mulhalf	MACRO	r
-;PADDB r, XMM_TWO
 	mulpd	r, XMM_HALF
 	ENDM
-
