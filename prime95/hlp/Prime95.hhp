@@ -1,0 +1,112 @@
+[OPTIONS]
+Compatibility=1.1 or later
+Compiled file=Prime95.chm
+Contents file=Prime95.hhc
+Default topic=Welcome.htm
+Display compile progress=Yes
+Full-text search=Yes
+Index file=Prime95.hhk
+Language=0x409 English (United States)
+Title=Prime95 Help
+
+
+[FILES]
+AdvancedMenu.htm
+AdvancedMenu_files\image001.png
+AdvancedMenu_files\image003.png
+AdvancedMenu_files\image005.png
+AdvancedMenu_files\image007.png
+AdvancedMenu_files\image009.png
+AdvancedMenu_files\image011.png
+AdvancedMenu_files\image013.png
+AdvancedMenu_files\image015.png
+AdvancedMenuECM.htm
+AdvancedMenuECM_files\image001.png
+AdvancedMenuManual.htm
+AdvancedMenuManual_files\image001.png
+AdvancedMenuP1.htm
+AdvancedMenuP1_files\image001.png
+AdvancedMenuPassword.htm
+AdvancedMenuPriority.htm
+AdvancedMenuPriority_files\image001.png
+AdvancedMenuQuit.htm
+AdvancedMenuRoundoff.htm
+AdvancedMenuTest.htm
+AdvancedMenuTest_files\image001.png
+AdvancedMenuTime.htm
+AdvancedMenuTime_files\image001.png
+AdvancedMenuUnreserve.htm
+AdvancedMenuUnreserve_files\image001.png
+AvailableMemory.htm
+CommandLine.htm
+DISCLAIMER.htm
+DoubleChecking.htm
+Factoring.htm
+FileList.htm
+How GIMPS works.htm
+Instructions.htm
+InstructionsAutomatic.htm
+LUCAS-LEHMER DETAILS.htm
+ManualInstructions.htm
+New features in Version 10.htm
+New features in Version 12.htm
+New features in Version 13.htm
+New features in Version 14.htm
+New features in Version 15.htm
+New features in Version 16.htm
+New features in Version 17.htm
+New features in Version 18.htm
+New features in Version 19.htm
+New features in Version 20.htm
+New features in Version 21.htm
+New features in Version 8.htm
+Newsletters.htm
+Notes.htm
+Notes_files\image001.png
+OptionsMenu.htm
+OptionsMenu_files\image001.png
+OptionsMenu_files\image003.png
+OptionsMenu_files\image005.png
+OptionsMenuCPU.htm
+OptionsMenuCPU_files\image001.png
+OptionsMenuPreferences.htm
+OptionsMenuPreferences_files\image001.png
+OptionsMenuBenchmark.htm
+OptionsMenuTortureTest.htm
+OptionsMenuTrayIcon.htm
+OptionsMenuWin95.htm
+PossibleHardwareFailure.htm
+ProgramOutput.htm
+Proxy.htm
+RunningonSeveralMachines.htm
+Success.htm
+StressTestingYourComputer.htm
+TestMenu.htm
+TestMenu_files\image001.png
+TestMenu_files\image003.png
+TestMenu_files\image005.png
+TestMenu_files\image007.png
+TestMenu_files\image009.png
+TestMenuContinue.htm
+TestMenuPrimeNet.htm
+TestMenuPrimeNet_files\image001.png
+TestMenuStatus.htm
+TestMenuStatus_files\image001.png
+TestMenuStop.htm
+TestMenuUserInfo.htm
+TestMenuUserInfo_files\image001.png
+TestMenuVacation.htm
+TestMenuVacation_files\image001.png
+THANKS.htm
+Undoc.htm
+Welcome.htm
+What are Mersenne primes.htm
+
+[ALIAS]
+#include Alias.h
+
+[MAP]
+#include HelpTopics.h
+
+[INFOTYPES]
+
