@@ -10,8 +10,12 @@
 
 CC = gcc
 CFLAGS = -I.. -O2 -m486 -malign-double
-#CFLAGS for Pentium
-#CFLAGS = -O2 -m486 -malign-loops=2 -malign-jumps=2 -malign-functions=2
+
+#CFLAGS for Pentium (I don't know who recommended these settings)
+#CFLAGS = -I.. -O2 -malign-double -malign-loops=2 -malign-jumps=2 -malign-functions=2
+
+# Setting suggested by FenwayFrank - I don't know what it does
+VPATH=../prime95
 
 # fixup data segment offset to accomodate asm objects
 LFLAGS = -Wl,-M
