@@ -12,10 +12,11 @@
 #include <math.h>
 #include <memory.h>
 #include <string.h>
-#include <sys/timeb.h>
 #if defined (__linux__) || defined (__FreeBSD__) || defined (__EMX__)
+#include <sys/time.h>
 #define _timeb		timeb
 #endif
+#include <sys/timeb.h>
 #include "cpuid.h"
 
 /* Global variables describing the CPU we are running on */
