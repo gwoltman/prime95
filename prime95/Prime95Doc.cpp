@@ -937,6 +937,7 @@ void flashWindowAndBeep ()
 void CPrime95Doc::OutputStr (
 	char	*str)
 {
+	if (EXIT_IN_PROGRESS) return;
 	if (lines[0] == NULL) {
 		for (int i = 0; i < NumLines; i++) {
 			lines[i] = (char *) malloc (128);

@@ -8,6 +8,7 @@ New features in Version 22.5 of prime95.exe
 3)  When Tray Icon or Hide Icon is set, the "X" in the upper right corner
     no longer closes prime95 rather it minimizes it.  Also right clicking
     the tray icon now brings up a popup menu.
+4)  Changed the way prime95 shuts down.  Logoff in WinXP used to hang.
 
 New features in Version 22.4 of prime95.exe
 -------------------------------------------
