@@ -1,6 +1,6 @@
 /* Constants */
 
-#define VERSION		"22.7"
+#define VERSION		"22.8"
 #define VERSION_BIT	12      	/* Bit number in broadcast map */
 /* The list of assigned version bits follows: */
 /* Version 21.0    uses bit #11 */
@@ -204,10 +204,11 @@ void getWorkFromDatabase (unsigned long, unsigned long, int, int);
 
 unsigned long secondsUntilVacationEnds (void);
 double pct_complete (int, unsigned long, unsigned long *);
+unsigned long fftlen_from_ini_file (unsigned long);
+unsigned long advanced_map_exponent_to_fftlen (unsigned long);
 double raw_work_estimate (struct work_unit *);
 double work_estimate (struct work_unit *);
 unsigned int factorLimit (unsigned long, int);
-unsigned long pick_fft_length (unsigned long);
 void guess_pminus1_bounds (unsigned long, unsigned int, int, unsigned long *,
 			   unsigned long *, unsigned long *, double *);
 

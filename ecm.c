@@ -2840,10 +2840,13 @@ void pm1_setup1 (
 	unsigned long p,
 	int	type)
 {
+	unsigned long fftlen;
 
 /* Setup the assembly code */
 
-	gwsetup (p, 0, type);
+	fftlen = (type == GW_MERSENNE_MOD) ?
+		advanced_map_exponent_to_fftlen (p) : 0;
+	gwsetup (p, fftlen, type);
 	modinv_count = 0;
 	N = NULL;
 	nQx = NULL;

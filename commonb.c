@@ -477,11 +477,10 @@ void updateWorkToDo (
 {
 	unsigned int i;
 
-
 /* Note if the well-behaved-work-option is on, then just */
 /* delete the first line and write the file every half hour */
 
-	if (WELL_BEHAVED_WORK) {
+	if (WELL_BEHAVED_WORK && work_type == WORK_FACTOR) {
 		static time_t last_time_written = 0;
 		time_t	current_time;
 		IniDeleteLine (WORKTODO_FILE, 1);
@@ -1282,6 +1281,7 @@ readerr:		sprintf (buf, READFILEERR, filename);
 	      ((pass == 1 && !sequential) || pass == 2) &&
 	      (fd == 0 || fftlen == 0 || counter < w.p / 2)))) {
 		if (fd) _close (fd);
+		if (! pick_fft_size (w.p)) goto check_stop_code;
 		if (! pfactor (&w)) {
 			if (STOP_REASON != STOP_NOT_ENOUGH_MEM) goto check_stop_code;
 		} else
@@ -1297,7 +1297,8 @@ readerr:		sprintf (buf, READFILEERR, filename);
 
 /* Setup */
 
-		lucasSetup (w.p, fftlen);
+		if (! pick_fft_size (w.p)) goto check_stop_code;
+		lucasSetup (w.p, fftlen ? fftlen : advanced_map_exponent_to_fftlen (w.p));
 
 /* Read the initial data from the file, on failure try the backup */
 /* intermediate file. */
@@ -1310,14 +1311,14 @@ readerr:		sprintf (buf, READFILEERR, filename);
 
 /* Handle case where the save file was for a different FFT length than */
 /* we would prefer to use.  This can happen, for example, when upgrading */
-/* to a Pentium 4 with its SSE2-based FFT using less precicion. */
+/* to a Pentium 4 with its SSE2-based FFT using less precision. */
 
-			if (fftlen != map_exponent_to_fftlen (w.p, 0)) {
+			if (fftlen != advanced_map_exponent_to_fftlen (w.p)) {
 				giant	g;
 				g = newgiant ((w.p + 32) / sizeof (short));
 				gwtobinary (LLDATA, g);
 				lucasDone ();
-				lucasSetup (w.p, 0);
+				lucasSetup (w.p, advanced_map_exponent_to_fftlen (w.p));
 				binarytogw (g, LLDATA);
 				free (g);
 			}
@@ -1366,6 +1367,7 @@ readerr:		sprintf (buf, READFILEERR, filename);
 /* See if this is an P-1 factoring line */
 
 	if (w.work_type == WORK_PMINUS1 && pass == 2) {
+		if (! pick_fft_size (w.p)) goto check_stop_code;
 		if (! pminus1 (w.p, w.B1, w.B2_start, w.B2_end, w.plus1, FALSE))
 			goto check_stop_code;
 		goto did_some_work;
@@ -1475,6 +1477,117 @@ void lucas_fixup (
 
 	addin = -(1L << bit_in_word);
 	gwsetaddin (word, addin);
+}
+
+/* For exponents that are near an FFT limit, do 1000 sample iterations */
+/* to see if we should use the smaller or larger FFT size.  We examine */
+/* the average roundoff error to determine which FFT size to use. */
+
+int pick_fft_size (
+	unsigned long p)
+{
+	char	buf[120];
+	double	softpct, total_error, avg_error, max_avg_error;
+	unsigned long small_fftlen, large_fftlen, fftlen;
+	int	i;
+
+/* We don't do this for small exponents.  We've not studied the average */
+/* error enough on smaller FFT sizes to intelligently pick the FFT size. */
+/* Also, for really large exponents there is no larger FFT size to use! */
+
+	if (p <= 5000000) return (TRUE);
+	if (p >= 75000000) return (TRUE);
+
+/* Get the info on how what percentage of exponents on either side of */
+/* an FFT crossover we will do this 1000 iteration test. */
+
+	IniGetString (INI_FILE, "SoftCrossover", buf, sizeof (buf), "0.2");
+	softpct = atof (buf) / 100.0;
+
+/* If this exponent is not close to an FFT crossover, then we are done */
+
+	small_fftlen = map_exponent_to_fftlen (
+			(unsigned long) ((1.0 - softpct) * p),
+			GW_MERSENNE_MOD);
+	large_fftlen = map_exponent_to_fftlen (
+			(unsigned long) ((1.0 + softpct) * p),
+			GW_MERSENNE_MOD);
+	if (small_fftlen == large_fftlen) return (TRUE);
+
+/* If we've already picked an FFT length, then return */
+
+	if (fftlen_from_ini_file (p)) return (TRUE);
+
+/* Let the user be more conservative or more aggressive in picking the */
+/* acceptable average error.  By default, we accept an average error */
+/* between 0.241 and 0.243 depending on the FFT size. */
+
+	max_avg_error = 0.241 + 0.002 *
+		(log (small_fftlen) - log (262144.0)) /
+		(log (4194304.0) - log (262144.0));
+	IniGetString (INI_FILE, "SoftCrossoverAdjust", buf, sizeof (buf), "0");
+	max_avg_error += atof (buf);
+
+/* Print message to let user know what is going on */
+
+	sprintf (buf,
+		 "Trying 1000 iterations for exponent %ld using %dK FFT.\n",
+		 p, small_fftlen / 1024);
+	OutputBoth (buf);
+	sprintf (buf,
+		 "If average roundoff error is above %.5g, then a larger FFT will be used.\n",
+		 max_avg_error);
+	OutputBoth (buf);
+
+/* Init the FFT code using the smaller FFT size */
+
+	lucasSetup (p, small_fftlen);
+
+/* Fill data space with random values then do one squaring to make */
+/* the data truly random. */
+
+	generateRandomData ();
+	gwsetnormroutine (0, TRUE, 0);
+	gwstartnextfft (TRUE);
+	gwsquare (LLDATA);
+
+/* Average the roundoff error over a 1000 iterations. */
+
+	for (i = 0, total_error = 0.0; ; ) {
+		MAXERR = 0.0;
+		gwsquare (LLDATA);
+		total_error += MAXERR;
+		if (escapeCheck ()) {
+			lucasDone ();
+			return (FALSE);
+		}
+		if (++i == 1000) break;
+		if (i % 100 == 0) {
+			sprintf (buf,
+				 "After %d iterations average roundoff error is %.5g.\n",
+				 i, total_error / (double) i);
+			OutputStr (buf);
+		}
+	}
+	avg_error = total_error / 1000.0;
+	lucasDone ();
+
+/* Now decide which FFT size to use based on the average error. */
+/* Save this info in local.ini so that we don't need to do this again. */
+/* We write the SSE2 flag to the INI file so that it won't cause a problem */
+/* if the local.ini file is copied between P3 and P4 machines. */
+
+	fftlen = (avg_error <= max_avg_error) ? small_fftlen : large_fftlen;
+	sprintf (buf, "%ld,%ld,%d", p, fftlen, CPU_FLAGS & CPU_SSE2 ? 1 : 0);
+	IniWriteString (LOCALINI_FILE, "SoftCrossoverData", buf);
+
+/* Output message to user informing him of the outcome. */
+
+	sprintf (buf,
+		 "Final average roundoff error is %.5g, using %dK FFT for exponent %ld.\n",
+		 avg_error, fftlen / 1024, p);
+	OutputBoth (buf);
+	return (TRUE);
 }
 
 /* Test if we are near the maximum exponent this fft length can test */

@@ -1822,14 +1822,14 @@ loop:	if (line > IniGetNumLines (WORKTODO_FILE)) return (FALSE);
 	else {
 		*comma++ = 0;
 		w->bits = (unsigned int) atol (comma);
+		w->pminus1ed = 0;
 
 /* And get the "has been P-1 factored" bit too. */
 
 		comma = strchr (comma, ',');
-		if (comma == NULL) w->pminus1ed = 0;
-		else {
+		if (comma != NULL) {
 			*comma++ = 0;
-			w->pminus1ed = (unsigned int) atol (comma);
+			w->pminus1ed = (int) atol (comma);
 		}
 	}
 
@@ -2091,6 +2091,47 @@ no_est:			_close (fd);
 	return (0.0);
 }
 
+/* Given an exponent, return the fft length from the local.ini file. */
+/* Used in implementing the "soft" FFT crossover points in version 22.8 */
+
+unsigned long fftlen_from_ini_file (
+	unsigned long p)
+{
+	char	buf[80];
+
+	IniGetString (LOCALINI_FILE, "SoftCrossoverData",
+		      buf, sizeof (buf), "0");
+	if (p == (unsigned long) atol (buf)) {
+		char	*comma;
+		unsigned long fftlen;
+		comma = strchr (buf, ',');
+		if (comma != NULL) {
+			*comma++ = 0;
+			fftlen = atol (comma);
+			comma = strchr (comma, ',');
+			if (comma != NULL) {
+				unsigned long sse2;
+				*comma++ = 0;
+				sse2 = atol (comma);
+				if ((sse2 && (CPU_FLAGS & CPU_SSE2)) ||
+				    (!sse2 && !(CPU_FLAGS & CPU_SSE2)))
+					return (fftlen);
+			}
+		}
+	}
+	return (0);
+}
+
+/* Given an exponent, determine the fft length.  Handles the "soft" */
+/* FFT crossover points implemented in version 22.8 */
+
+unsigned long advanced_map_exponent_to_fftlen (
+	unsigned long p)
+{
+	unsigned long fftlen = fftlen_from_ini_file (p);
+	return (fftlen ? fftlen : map_exponent_to_fftlen (p, GW_MERSENNE_MOD));
+}
+
 /* Make a guess as to how long a chore should take. */
 
 double raw_work_estimate (
@@ -2145,7 +2186,7 @@ double raw_work_estimate (
 		guess_pminus1_bounds (w->p, bits, w->pminus1ed,
 				      &bound1, &bound2, &squarings, &prob);
 		est = squarings * map_fftlen_to_timing (
-			map_exponent_to_fftlen (w->p, GW_MERSENNE_MOD),
+			advanced_map_exponent_to_fftlen (w->p),
 			GW_MERSENNE_MOD, CPU_TYPE, CPU_SPEED);
 	}
 
@@ -2155,7 +2196,7 @@ double raw_work_estimate (
 	    w->work_type == WORK_ADVANCEDTEST ||
 	    w->work_type == WORK_DBLCHK) {
 		est = w->p * map_fftlen_to_timing (
-			map_exponent_to_fftlen (w->p, GW_MERSENNE_MOD),
+			advanced_map_exponent_to_fftlen (w->p),
 			GW_MERSENNE_MOD, CPU_TYPE, CPU_SPEED);
 	}
 
