@@ -1923,47 +1923,54 @@ x8r1_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem3, mem4
 
 ;; Macro to operate on 2 64-byte cache lines.  It does 2 two_complex_ffts
 ;; in a one pass FFT.
+;; 30.45 clocks
 x2cl_two_complex_fft MACRO srcreg,srcinc,d1
-	movapd	xmm0, [srcreg]		;; R1
-	movapd	xmm1, [srcreg+d1]	;; R2
-	movapd	xmm2, [srcreg+16]	;; R3
+	movapd	xmm2, [srcreg+d1]	;; R2
+	movapd	xmm0, [edi+48]		;; cosine/sine
+	mulpd	xmm0, xmm2		;; A2 = R2 * cosine/sine	;1-6
 	movapd	xmm3, [srcreg+d1+16]	;; R4
-	x2c_fft xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, 0
-	movapd	[srcreg], xmm4		;; Save R1
-	movapd	xmm4, [srcreg+32]	;; R1
-	movapd	[srcreg+16], xmm5	;; Save R2
-	movapd	xmm5, [srcreg+d1+32]	;; R2
-	movapd	[srcreg+32], xmm0	;; Save R3
-	movapd	xmm0, [srcreg+48]	;; R3
-	movapd	[srcreg+48], xmm2	;; Save R4
-	movapd	xmm2, [srcreg+d1+48]	;; R4
-	x2c_fft xmm4, xmm5, xmm0, xmm2, xmm1, xmm3, XMM_SCD
-	movapd	[srcreg+d1], xmm1	;; Save R1
-	movapd	[srcreg+d1+16], xmm3	;; Save R2
-	movapd	[srcreg+d1+32], xmm4	;; Save R3
-	movapd	[srcreg+d1+48], xmm0	;; Save R4
+	movapd	xmm1, [edi+48]		;; cosine/sine
+	mulpd	xmm1, xmm3		;; B2 = I2 * cosine/sine	;3-8
+	movapd	xmm6, [srcreg+d1+32]	;; R2_2
+	movapd	xmm4, [edi+XMM_SCD+48]	;; cosine/sine
+	mulpd	xmm4, xmm6		;; A2_2 = R2_2 * cosine/sine	;5-10
+	movapd	xmm7, [srcreg+d1+48]	;; R4_2
+	movapd	xmm5, [edi+XMM_SCD+48]	;; cosine/sine
+	mulpd	xmm5, xmm7		;; B2_2 = I2_2 * cosine/sine	;7-12
+	subpd	xmm0, xmm3		;; A2 = A2 - I2			;8-11
+	addpd	xmm1, xmm2		;; B2 = B2 + R2			;10-13
+	subpd	xmm4, xmm7		;; A2_2 = A2_2 - I2_2		;12-15
+	mulpd	xmm0, [edi+32]		;; A2 = A2 * sine (new R2)	;13-18
+	addpd	xmm5, xmm6		;; B2_2 = B2_2 + R2_2		;14-17
+	mulpd	xmm1, [edi+32]		;; B2 = B2 * sine (new I2)	;15-20
+	mulpd	xmm4, [edi+XMM_SCD+32]	;; A2_2 = A2_2 * sine (new R2_2);17-22
+	movapd	xmm2, [srcreg]		;; R1
+	subpd	xmm2, xmm0		;; R1 = R1 - R2 (final R2)	;18-21
+	mulpd	xmm5, [edi+XMM_SCD+32]	;; B2_2 = B2_2 * sine (new I2_2);19-24
+	addpd	xmm0, [srcreg]		;; R2 = R1 + R2 (final R1)	;20-23
+	movapd	xmm3, [srcreg+16]	;; R3
+	subpd	xmm3, xmm1		;; I1 = I1 - I2 (final I2)	;22-25
+	addpd	xmm1, [srcreg+16]	;; I2 = I1 + I2 (final I1)	;24-27
+	movapd	xmm6, [srcreg+32]	;; R1_2
+	subpd	xmm6, xmm4		;; R1_2 = R1_2-R2_2 (final R2_2);26-29
+	addpd	xmm4, [srcreg+32]	;; R2_2 = R1_2+R2_2 (final R1_2);28-31
+	movapd	xmm7, [srcreg+48]	;; R3_2
+	subpd	xmm7, xmm5		;; I1_2 = I1_2-I2_2 (final I2_2);30-33
+	addpd	xmm5, [srcreg+48]	;; I2_2 = I1_2+I2_2 (final I1_2);32-35
+	movapd	[srcreg], xmm0		;; Save R1
+	movapd	[srcreg+16], xmm1	;; Save R2
+	movapd	[srcreg+32], xmm2	;; Save R3
+	movapd	[srcreg+48], xmm3	;; Save R4
+	movapd	[srcreg+d1], xmm4	;; Save R1_2
+	movapd	[srcreg+d1+16], xmm5	;; Save R2_2
+	movapd	[srcreg+d1+32], xmm6	;; Save R3_2
+	movapd	[srcreg+d1+48], xmm7	;; Save R4_2
 	lea	srcreg, [srcreg+srcinc]
-	ENDM
-x2c_fft MACRO r1, r2, r3, r4, t1, t2, off
-	movapd	t1, [edi+off+32+16]	;; cosine/sine
-	mulpd	t1, r2			;; A2 = R2 * cosine/sine	;1-6
-	subpd	t1, r4			;; A2 = A2 - I2			;8-11
-	movapd	t2, [edi+off+32+16]	;; cosine/sine
-	mulpd	t2, r4			;; B2 = I2 * cosine/sine	;3-8
-	addpd	t2, r2			;; B2 = B2 + R2			;10-13
-	movapd	r2, [edi+off+32]	;; sine
-	mulpd	t1, r2			;; A2 = A2 * sine (new R2)	;13-18
-	mulpd	t2, r2			;; B2 = B2 * sine (new I2)	;15-20
-	subpd	r1, t1			;; R1 = R1 - R2 (new R2)	;20-23
-	multwo	t1
-	addpd	t1, r1			;; R2 = R1 + R2 (new R1)	;24-27
-	subpd	r3, t2			;; I1 = I1 - I2 (new I2)	;22-25
-	multwo	t2
-	addpd	t2, r3			;; I2 = I1 + I2 (new I1)	;28-31
 	ENDM
 
 ;; Macro to operate on 2 64-byte cache lines.  It does 2 two_complex_unffts
 ;; in a one pass FFT.
+;; 31.45 clocks
 x2cl_two_complex_unfft MACRO srcreg,srcinc,d1
 	movapd	xmm0, [srcreg]		;; R1
 	movapd	xmm1, [srcreg+32]	;; R2
@@ -2014,7 +2021,6 @@ x2c_unfft MACRO r1, r2, r3, r4, t1, t2
 	mulpd	t1, r1			;; A2 = A2 * sine (final R2)
 	mulpd	t2, r1			;; B2 = B2 * sine (final I2)
 	ENDM
-
 
 
 ;***********************************************************************
