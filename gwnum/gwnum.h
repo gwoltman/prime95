@@ -511,6 +511,11 @@ extern void eset_mul_const (void);
 
 extern void (*OutputBothRoutine)(char *);
 
+/* This routine lets me time many assembly language building blocks -- used */
+/* when optimizing these building blocks. */
+
+int timeit (void);
+
 #ifdef __cplusplus
 }
 #endif

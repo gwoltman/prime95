@@ -1,4 +1,3 @@
-EXTERNC int timeit (void);
 /*
    is sieve tuned properly?  could be even faster.  use assembly?
 	do sieve once and store in a file?
@@ -18,7 +17,7 @@ EXTERNC int timeit (void);
  *	Other important ideas courtesy of Peter Montgomery.
  *
  *	c. 1997 Perfectly Scientific, Inc.
- *	c. 1998-2004 Just For Fun Software, Inc.
+ *	c. 1998-2005 Just For Fun Software, Inc.
  *	All Rights Reserved.
  *
  *************************************************************/
@@ -2062,8 +2061,8 @@ return 0;
 }
 #endif
 
-#define TIMING2
-#ifdef TIMING2
+/* Include timing code when building the debug version of prime95 */
+#ifdef GDEBUG
 if (n == 600) {
 int j, min_test, max_test, test, cnt, NUM_X87_TESTS, NUM_SSE2_TESTS;
 gwsetup (1.0, 2, 10000000, -1, 0);
