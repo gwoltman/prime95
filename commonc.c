@@ -2105,7 +2105,7 @@ double pct_complete (
 
 			*iteration = pass;
 			if (result) return ((double) pass / 16.0);
-			limit = factorLimit (p, 1);
+			limit = factorLimit (p, work_type);
 			pct = pow (2.0, bits - limit);
 			return (pct * (1.0 + (double) pass / 16.0));
 
@@ -2191,7 +2191,7 @@ double raw_work_estimate (
 
 	if (w->work_type == WORK_FACTOR) {
 		unsigned int limit;
-		limit = factorLimit (w->p, 1);
+		limit = factorLimit (w->p, w->work_type);
 		timing = (limit > 64) ? 13.511 :
 			 (limit > 62) ? 5.949 :
 			 (limit > 60) ? 3.204 : 3.198;
@@ -2214,7 +2214,7 @@ double raw_work_estimate (
 		unsigned int bits;
 		unsigned long bound1, bound2, squarings;
 		double	prob;
-		bits = factorLimit (w->p, 0);
+		bits = factorLimit (w->p, w->work_type);
 		if (w->bits > bits) bits = w->bits;
 		guess_pminus1_bounds (w->p, bits, w->pminus1ed,
 				      &bound1, &bound2, &squarings, &prob);
@@ -2255,7 +2255,7 @@ double work_estimate (
 
 unsigned int factorLimit (
 	unsigned long p,
-	int	factoring)
+	int	work_type)
 {
 	unsigned int test, override;
 
@@ -2277,11 +2277,12 @@ unsigned int factorLimit (
 	else if (p > FAC57) test = 57;	/* Test all 57 bit factors */
 	else if (p > FAC56) test = 56;	/* Test all 56 bit factors */
 	else test = 40;			/* Test all 40 bit factors */
-	if (factoring && !USE_PRIMENET) {
+	if (work_type == WORK_FACTOR && !USE_PRIMENET) {
 		override = (unsigned int)
 			IniGetInt (INI_FILE, "FactorOverride", 99);
 		if (override != 99) test = override;
 	}
+	if (work_type == WORK_DBLCHK) test--;
 	return (test);
 }
 

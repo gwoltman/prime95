@@ -594,7 +594,8 @@ int isPriorityWork (
 	if (IniGetInt (INI_FILE, "SequentialWorkToDo", 1)) return (FALSE);
 	if ((w->work_type == WORK_TEST ||
 	     w->work_type == WORK_DBLCHK) &&
-	    (w->bits < factorLimit (w->p, 0) || !w->pminus1ed)) return (TRUE);
+	    (w->bits < factorLimit (w->p, w->work_type) || !w->pminus1ed))
+		return (TRUE);
 	return (FALSE);
 }
 
@@ -1253,7 +1254,7 @@ again:	if (SLEEP_TIME) {
 		goto did_some_work;
 	}
 	if (w.work_type == WORK_FACTOR &&
-	    (w.p < 727 || w.p > MAX_FACTOR || w.bits >= factorLimit (w.p, 1))) {
+	    (w.p < 727 || w.p > MAX_FACTOR || w.bits >= factorLimit (w.p, w.work_type))) {
 		char	buf[100];
 		sprintf (buf, "Error: Work-to-do file contained bad factoring assignment: %ld,%d\n", w.p, w.bits);
 		LogMsg (buf);
@@ -1320,7 +1321,7 @@ readerr:		sprintf (buf, READFILEERR, filename);
 	      ((pass == 1 && !sequential) || pass == 2) &&
 	      ! IniGetInt (INI_FILE, "SkipTrialFactoring", 0))) &&
 	    (fd == 0 || fftlen == 0) &&
-	    w.bits < factorLimit (w.p, w.work_type == WORK_FACTOR)) {
+	    w.bits < factorLimit (w.p, w.work_type)) {
 		int	res;
 		if (! primeFactor (w.p, w.bits, &res, w.work_type, fd))
 			goto check_stop_code;
@@ -3331,7 +3332,7 @@ int primeFactor (
 
 /* Determine how much we should factor (in bits) */
 
-	test_bits = factorLimit (p, work_type == WORK_FACTOR);
+	test_bits = factorLimit (p, work_type);
 	if (test_bits < 32) test_bits = 32;
 
 /* By default we do not do the old style of factoring which was 16 passes */
