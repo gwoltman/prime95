@@ -64,46 +64,46 @@ debug\giants.obj: giants.c giants.h
 
 # Create 32-bit object files
 
-mult.obj: mult.asm mult.mac xmult.mac timeit.inc
+mult.obj: mult.asm mult.mac xmult.mac timeit.inc lucas.mac xlucas.mac
     $(masm) mult.asm
 
-mult1.obj: mult1.asm mult.mac fft1.mac
+mult1.obj: mult1.asm mult.mac fft1.mac lucas.mac
     $(masm) /DPPRO mult1.asm
 
 mult1aux.obj: mult1aux.asm mult.mac normal.mac
     $(masm) mult1aux.asm
 
-mult2.obj: mult2.asm mult.mac fft2.mac
+mult2.obj: mult2.asm mult.mac fft2.mac lucas.mac
     $(masm) /DPPRO mult2.asm
 
-mult2p.obj: mult2.asm mult.mac fft2.mac
+mult2p.obj: mult2.asm mult.mac fft2.mac lucas.mac
     $(masm) /DPPRO /DPFETCH /Fomult2p.obj mult2.asm
 
-mult2a.obj: mult2a.asm mult.mac pass2.mac
+mult2a.obj: mult2a.asm mult.mac pass2.mac lucas.mac
     $(masm) /DPPRO mult2a.asm
 
-mult2ap.obj: mult2a.asm mult.mac pass2.mac
+mult2ap.obj: mult2a.asm mult.mac pass2.mac lucas.mac
     $(masm) /DPPRO /DPFETCH /Fomult2ap.obj mult2a.asm
 
 mult2aux.obj: mult2aux.asm mult.mac normal.mac
     $(masm) mult2aux.asm
 
-mult3.obj: mult3.asm mult.mac fft3.mac
+mult3.obj: mult3.asm mult.mac fft3.mac lucas.mac
     $(masm) /DPPRO mult3.asm
 
-mult3p.obj: mult3.asm mult.mac fft3.mac
+mult3p.obj: mult3.asm mult.mac fft3.mac lucas.mac
     $(masm) /DPPRO /DPFETCH /Fomult3p.obj mult3.asm
 
-mult3a.obj: mult3a.asm mult.mac pass2.mac
+mult3a.obj: mult3a.asm mult.mac pass2.mac lucas.mac
     $(masm) /DPPRO mult3a.asm
 
-mult3ap.obj: mult3a.asm mult.mac pass2.mac
+mult3ap.obj: mult3a.asm mult.mac pass2.mac lucas.mac
     $(masm) /DPPRO /DPFETCH /Fomult3ap.obj mult3a.asm
 
-mult4.obj: mult4.asm mult.mac fft4.mac
+mult4.obj: mult4.asm mult.mac fft4.mac lucas.mac
     $(masm) /DPPRO mult4.asm
 
-mult4p.obj: mult4.asm mult.mac fft4.mac
+mult4p.obj: mult4.asm mult.mac fft4.mac lucas.mac
     $(masm) /DPPRO /DPFETCH /Fomult4p.obj mult4.asm
 
 gianthlp.obj: gianthlp.asm
