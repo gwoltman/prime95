@@ -150,7 +150,7 @@ CAPTION "About Prime95"
 FONT 8, "MS Sans Serif"
 BEGIN
     ICON            IDR_MAINFRAME,IDC_STATIC,11,17,18,20
-    LTEXT           "Mersenne Number Tests- Version 22.2.1",IDC_STATIC,40,12,
+    LTEXT           "Mersenne Number Tests- Version 22.3.1",IDC_STATIC,40,12,
                     137,8,SS_NOPREFIX
     LTEXT           "Copyright © 1996-2002 Just For Fun Software, Inc.",
                     IDC_STATIC,39,22,154,8
@@ -472,8 +472,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 22,2,1,0
- PRODUCTVERSION 22,2,1,0
+ FILEVERSION 22,3,1,0
+ PRODUCTVERSION 22,3,1,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -490,12 +490,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "\0"
             VALUE "FileDescription", "PRIME95 Application\0"
-            VALUE "FileVersion", "22, 2, 1, 0\0"
+            VALUE "FileVersion", "22, 3, 1, 0\0"
             VALUE "InternalName", "PRIME95\0"
             VALUE "LegalCopyright", "Copyright © 1996-2002\0"
             VALUE "OriginalFilename", "PRIME95.EXE\0"
             VALUE "ProductName", "PRIME95 Application\0"
-            VALUE "ProductVersion", "22, 2, 1, 0\0"
+            VALUE "ProductVersion", "22, 3, 1, 0\0"
         END
     END
     BLOCK "VarFileInfo"

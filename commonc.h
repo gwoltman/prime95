@@ -1,6 +1,6 @@
 /* Constants */
 
-#define VERSION		"22.2"
+#define VERSION		"22.3"
 #define VERSION_BIT	12      	/* Bit number in broadcast map */
 /* The list of assigned version bits follows: */
 /* Version 21.0    uses bit #11 */
