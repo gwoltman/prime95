@@ -223,6 +223,19 @@ void gwfft_weights3 (
 	END_x86_FIX
 }
 
+EXTERNC
+double gwfft_weight_exponent (
+	unsigned long j)
+{
+	dd_real temp, twopow;
+
+	x86_FIX
+	temp = dd_real ((double) j) * gw__bits_per_word;
+	twopow = ceil (temp) - temp;
+	END_x86_FIX
+	return (double (twopow));
+}
+
 //
 // Utility routine to compute fft base for j-th fft word
 //

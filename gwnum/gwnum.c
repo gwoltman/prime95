@@ -758,8 +758,9 @@ double *build_biglit_table (
 /* Since we can't do equality compares on floats, this test is a little bit */
 /* cryptic. */
 
-		if (gwfft_weight (word) * 1.5 <
-		    gwfft_weight (word&(gap-1)) * gwfft_weight (word&~(gap-1))) {
+		if (gwfft_weight_exponent (word) + 0.5 <
+				gwfft_weight_exponent (word&(gap-1)) +
+				gwfft_weight_exponent (word&~(gap-1))) {
 			if (k == 0) *p += 64;
 			else *p += 128;
 		}
@@ -1186,9 +1187,9 @@ double *build_x87_biglit_table (
 /* Set the ttp and ttmp fudge flags for two pass FFTs */
 /* The fudge flag is set if col mult * grp mult will be greater than 2 */
 
-		if (gwfft_weight (word) * 1.5 <
-				gwfft_weight (word & (pass2_size-1)) *
-				gwfft_weight (word & ~(pass2_size-1))) {
+		if (gwfft_weight_exponent (word) + 0.5 <
+				gwfft_weight_exponent (word & (pass2_size-1)) +
+				gwfft_weight_exponent (word & ~(pass2_size-1))) {
 			if (m == 0) *p += 64;
 			else *p += 128;
 		}
@@ -2801,7 +2802,7 @@ void set_fft_value (
 
 /* Handle the rational FFT case quickly */
 
-	if (RATIONAL_FFT || val == 0.0) {
+	if (RATIONAL_FFT || val == 0) {
 		* addr (g, i) = val;
 		return;
 	}

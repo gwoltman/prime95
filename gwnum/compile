@@ -28,19 +28,19 @@ release\gwnum.obj: gwnum.c gwnum.h
     $(cl) /Forelease\gwnum.obj gwnum.c
 
 debug\gwnum.obj: gwnum.c gwnum.h
-    $(cl) /Fodebug\gwnum.obj gwnum.c
+    $(cld) /Fodebug\gwnum.obj gwnum.c
 
 release\gwutil.obj: gwutil.c gwutil.h
     $(cl) /Forelease\gwutil.obj gwutil.c
 
 debug\gwutil.obj: gwutil.c gwutil.h
-    $(cl) /Fodebug\gwutil.obj gwutil.c
+    $(cld) /Fodebug\gwutil.obj gwutil.c
 
 release\gwdbldbl.obj: gwdbldbl.cpp gwdbldbl.h
     $(cl) /I..\qd /Forelease\gwdbldbl.obj gwdbldbl.cpp
 
 debug\gwdbldbl.obj: gwdbldbl.cpp gwdbldbl.h
-    $(cl) /I..\qd /Fodebug\gwdbldbl.obj gwdbldbl.cpp
+    $(cld) /I..\qd /Fodebug\gwdbldbl.obj gwdbldbl.cpp
 
 # Create optimized giants.obj
 
@@ -48,7 +48,7 @@ release\giants.obj: giants.c giants.h
     $(cl4) /Forelease\giants.obj giants.c
 
 debug\giants.obj: giants.c giants.h
-    $(cl) /Fodebug\giants.obj giants.c
+    $(cld) /Fodebug\giants.obj giants.c
 
 # Create 32-bit object files
 
