@@ -76,7 +76,7 @@ time_t	next_comm_time = 0;	/* Next time we should contact server */
 
 char READFILEERR[] = "Error reading intermediate file: %s\n";
 char BLACKMSG1[] = "The PrimeNet Server has temporarily requested your computer not contact the server.\n";
-char BLACKMSG2[] = "The PrimeNet Server has permanently requested your computer not contact the server.\nTry downloading a new version from http://www.mersenne.org/freesoft.htm or contact primenet@entropia.com\n";
+char BLACKMSG2[] = "The PrimeNet Server has permanently requested your computer not contact the server.\nTry downloading a new version from http://www.mersenne.org/freesoft.htm or contact woltman@alum.mit.edu\n";
 
 /* Determine the CPU speed either empirically or by user overrides. */
 /* getCpuType must be called prior to calling this routine. */
@@ -1581,7 +1581,7 @@ int sendMessage (
 	case PRIMENET_ERROR_OK:
 		break;
 	case 12029:
-		sprintf (buf, "ERROR %d: Cannot find server.  See http://www.entropia.com/ips/faq.html\n", return_code);
+		sprintf (buf, "ERROR %d: Cannot find server.  See http://www.mersenne.org/ips/faq.html\n", return_code);
 		if (msgType == PRIMENET_PING_SERVER_INFO)
 			OutputStr (buf);
 		else
@@ -1642,7 +1642,7 @@ int sendMessage (
 /* Print out message saying where more help may be found. */
 
 	if (return_code)
-		OutputStr ("The FAQ at http://www.entropia.com/ips/faq.html may have more information.\n");
+		OutputStr ("The FAQ at http://www.mersenne.org/ips/faq.html may have more information.\n");
 
 /* Return the return code */
 
