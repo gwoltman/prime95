@@ -126,6 +126,13 @@ LONG CMainFrame::OnTrayMessage(UINT uID, LONG uMouseMsg)
 			m.cch = strlen (m.dwTypeData);
 			SetMenuItemInfo (hSubMenu, IDM_STOP_CONTINUE, FALSE, &m);
 		}
+		if ((THREAD_ACTIVE && THREAD_STOP) ||
+		    (!THREAD_ACTIVE &&
+		     !USE_PRIMENET && IniGetNumLines (WORKTODO_FILE) == 0)) {
+			m.fMask = MIIM_STATE;
+			m.fState = MFS_DISABLED;
+			SetMenuItemInfo (hSubMenu, IDM_STOP_CONTINUE, FALSE, &m);
+		}
 		SetMenuDefaultItem (hSubMenu, IDM_TRAY_OPEN, FALSE);
 		SetForegroundWindow ();	// Per KB Article Q135788
 		TrackPopupMenu (hSubMenu,
