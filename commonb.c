@@ -1639,6 +1639,7 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 		else {
 			gwsetnormroutine (0, echk, 0);
 			gwstartnextfft (!stopping && !saving &&
+					!maxerr_recovery_mode &&
 					counter+1 != p &&
 					(interimResidues == 0 ||
 					 (counter+1) % interimResidues > 2));

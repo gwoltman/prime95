@@ -1,3 +1,9 @@
+New features in Version 22.5 of ntprime.exe
+-------------------------------------------
+
+1)  A bug in P4 roundoff error recovery was fixed.  Bug was present in
+    version 22 executables dated between May 22 and June 19.
+
 New features in Version 22.4 of ntprime.exe
 -------------------------------------------
 

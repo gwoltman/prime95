@@ -1,3 +1,14 @@
+New features in Version 22.5 of prime95.exe
+-------------------------------------------
+
+1)  A bug in P4 roundoff error recovery was fixed.  Bug was present in
+    version 22 executables dated between May 22 and June 19.
+2)  Prime95 now properly detects if the program is running by another
+    logged in Windows XP user.
+3)  When Tray Icon or Hide Icon is set, the "X" in the upper right corner
+    no longer closes prime95 rather it minimizes it.  Also right clicking
+    the tray icon now brings up a popup menu.
+
 New features in Version 22.4 of prime95.exe
 -------------------------------------------
 
@@ -5,11 +16,6 @@ New features in Version 22.4 of prime95.exe
 2)  A GCD hang bug was fixed in case where there were a large number of
     entries in the lowm.txt file.  Another GCD bug affecting ECM on F18
     was fixed.
-3)  Prime95 now properly detects if the program is running by another
-    logged in Windows XP user.
-4)  When Tray Icon or Hide Icon is set, the "X" in the upper right corner
-    no longer closes prime95 rather it minimizes it.  Also right clicking
-    the tray icon now brings up a popup menu.
 
 New features in Version 22.3 of prime95.exe
 -------------------------------------------
