@@ -4022,7 +4022,7 @@ int primeFactor (
 /* small factors. */
 
 		if (work_type != WORK_FACTOR ||
-		    IniGetInt (INI_FILE, "FactorOverride", 0) <= 60) break;
+		    IniGetInt (INI_FILE, "FactorOverride", 0) > 60) break;
 
 		if (FACMSW != 0xFFFFFFFF) {
 			endpthi = FACHSW;
