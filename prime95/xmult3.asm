@@ -33,11 +33,6 @@ INCLUDE xnormal.mac
 
 EXTRN	xpass2_11_levels:PROC
 
-;; Distance between two pass 2 data blocks.  Pass 2 does 11 FFT levels
-;; 2 sets of data (2 * 2^11 complex values = 2^13 doubles = 64KB).
-
-blkdst	EQU	(65536+4096+128)
-
 ;; All the FFT routines for each FFT length
 
 _xmm_gw_ffts3 PROC NEAR
@@ -64,8 +59,10 @@ _xmm_gw_ffts3 PROC NEAR
 	xfftclm	768K, 2
 	xfftclm	896K, 4
 	xfftclm	896K, 2
+	xfftclm	896K, 1
 	xfftclm	1024K, 4
 	xfftclm	1024K, 2
+	xfftclm	1024K, 1
 	xfftclm	1280K, 4
 	xfftclm	1280K, 2
 	xfftclm	1280K, 1
@@ -99,6 +96,7 @@ gw_finish_fft_3:
 ; low carry.  Handle both the with and without two-to-phi array cases.
 
 gw_split_carries_3:
+	sub	ecx, ecx		; Clear big/little flag
 	mov	edx, count3		; Load 3 section counts
 	mov	loopcount1, edx		; Save for later
 	mov	edx, addcount1		; Load count of carry rows
@@ -148,14 +146,14 @@ gw_finish_mult_3:
 	cmp	zero_fft, 1		; Is this a zero high words fft?
 	JE_X	idz			; Yes, do special add in of carries
 ilp2:	xnorm012_2d_addin noexec	; Add carries to FFT data
-	lea	esi, [esi+blkdst]	; Next carries pointer
+	add	esi, pass1blkdst	; Next carries pointer
 	lea	ebp, [ebp+64]		; Next carries pointer
 	lea	ebx, [ebx+64]		; Next high carries pointer
 	sub	edx, 1			; Test loop counter
 	JNZ_X	ilp2
 	JMP_X	cmnend
 idz:	xnorm012_2d_addin exec		; Add carries to FFT data
-	lea	esi, [esi+blkdst]	; Next carries pointer
+	add	esi, pass1blkdst	; Next carries pointer
 	lea	ebp, [ebp+64]		; Next carries pointer
 	lea	ebx, [ebx+64]		; Next high carries pointer
 	sub	edx, 1			; Test loop counter

@@ -39,6 +39,7 @@ EXTERNC void *DEST2ARG = NULL;	/* For assembly language arg passing */
 double	fft_count = 0;		/* Count of forward and inverse FFTs */
 void	*gwnum_memory;		/* Allocated memory */
 unsigned long GW_ALIGNMENT = 0;	/* How to align allocated gwnums */
+unsigned long GW_ALIGNMENT_MOD = 0; /* How to align allocated gwnums */
 unsigned long PASS1_CACHE_LINES = 0; /* Cache lines grouped together in */
 				/* first pass of an SSE2 FFT. */
 				
@@ -691,17 +692,44 @@ void gwsetup (
 
 		PASS1_CACHE_LINES = (info[12] & 0xFFFF);
 
-/* Determine how big the pass 2 size is.  This affects how we build */
+/* Determine the pass 1 & pass 2 sizes.  This affects how we build */
 /* many of the sin/cos tables. */
 
 		if (FFTLEN <= 8192) pass2_size = 1;
 		else if (FFTLEN <= 32768) pass2_size = 256;
 		else pass2_size = 2048;
+		pass1_size = FFTLEN / pass2_size;
+
+/* Allocate a table for carries.  Init with XMM_BIGVAL.  For best */
+/* distribution of data in the L2 cache, make this table contiguous */
+/* with the scratch area which is also used in the first pass.  In fact, */
+/* the high carries scratch area overlaps the scratch area. */
+
+		if (pass2_size > 1) {
+			int	i, carry_table_size;
+			double	xmm_bigval;
+			((double **)GWPROCPTRS)[15] = tables;
+			carry_table_size = FFTLEN / (pass2_size / 2);
+			xmm_bigval = 3.0 * 131072.0 * 131072.0 * 131072.0;
+			for (i = 0; i < carry_table_size; i++) *tables++ = xmm_bigval;
+			if (FFTLEN <= 524288) tables += carry_table_size;
+		}
+
+/* Reserve room for the pass 1 scratch area. */
+
+		((double**)GWPROCPTRS)[16] = tables;
+		if (FFTLEN > 524288)
+			tables = (double *) ((char *) tables + info[9]);
+
+/* Build the group muliplier normalization table.  Keep this table */
+/* contiguous with other data used in pass 1. */
+
+		((double **)GWPROCPTRS)[12] = tables;
+		tables = build_norm_table (tables, 0);
 
 /* Build sin/cos tables used in pass 1.  If FFTLEN is a power of two, */
 /* many of the sin/cos tables can be shared. */
 
-		pass1_size = FFTLEN / pass2_size;
 
 		((double **)GWPROCPTRS)[2] = tables;
 		tables = build_sin_cos_table (tables, pass1_size, 1, pass2_size == 1 ? 3 : 1);
@@ -754,11 +782,8 @@ void gwsetup (
 //			}
 		}
 
-/* Build the normalization tables.  The first table is the group normalization */
-/* multipliers.  The second table is the column normalization multipliers. */
+/* Build the column normalization multiplier table. */
 
-		((double **)GWPROCPTRS)[12] = tables;
-		tables = build_norm_table (tables, 0);
 		((double **)GWPROCPTRS)[13] = tables;
 		tables = build_norm_table (tables, 1);
 
@@ -766,18 +791,6 @@ void gwsetup (
 
 		((double **)GWPROCPTRS)[14] = tables;
 		tables = build_biglit_table (tables);
-
-/* Allocate a table for carries.  Init with XMM_BIGVAL. */
-
-		if (pass2_size > 1) {
-			int	i, carry_table_size;
-			double	xmm_bigval;
-			((double **)GWPROCPTRS)[15] = tables;
-			carry_table_size = FFTLEN / (pass2_size / 2);
-			xmm_bigval = 3.0 * 131072.0 * 131072.0 * 131072.0;
-			for (i = 0; i < carry_table_size; i++) *tables++ = xmm_bigval;
-			tables += carry_table_size;
-		}
 //{
 //char buf[80];
 //sprintf (buf, "%d, mem: %d\n", FFTLEN, (int) tables - (int) t1);
@@ -851,12 +864,30 @@ OutputBoth(buf);
 	gwnum_free = NULL;
 	gwnum_free_count = 0;
 
-/* Compute alignment for allocated data */
+/* Compute alignment for allocated data.  Strangely enough assembly */
+/* prefetching works best in pass 1 on a P4 if the data is allocated */
+/* on an odd cache line.  An optimal 31 of the 32 cache lines on a 4KB */
+/* page will be prefetchable.  Page aligned data would only prefetch */
+/* 28 of the 32 cache lines. */
 
-	if (FFTLEN <= 8192)		/* One pass */
-		GW_ALIGNMENT = 128;	/* P4 cache line alignment */
-	else				/* Two passes */
-		GW_ALIGNMENT = 4096;	/* Page alignment */
+	if (CPU_FLAGS & CPU_SSE2) {
+		if (FFTLEN <= 8192) {		/* One pass */
+			GW_ALIGNMENT = 128;	/* P4 cache line alignment */
+			GW_ALIGNMENT_MOD = 0;
+		} else if (FFTLEN <= 524288) {	/* Small two passes */
+			GW_ALIGNMENT = 4096;	/* Page alignment */
+			GW_ALIGNMENT_MOD = 0;
+		} else {			/* Large two passes */
+			GW_ALIGNMENT = 512;	/* Clmblkdst + 1 cache line */
+			GW_ALIGNMENT_MOD = 128;
+		}
+	} else {
+		if (FFTLEN <= 8192)		/* One pass */
+			GW_ALIGNMENT = 128;	/* P4 cache line alignment */
+		else				/* Two passes */
+			GW_ALIGNMENT = 4096;	/* Page alignment */
+		GW_ALIGNMENT_MOD = 0;
+	}
 }
 
 /* Cleanup any memory allocated for multi-precision math */
@@ -922,7 +953,10 @@ gwnum gwalloc (void)
 	size = gwnum_size (FFTLEN);
 	p = (char *) malloc (size + 32 + GW_ALIGNMENT);
 	if (p == NULL) return (NULL);
-	q = (char *) (((unsigned long) p + 32 + GW_ALIGNMENT - 1) & ~(GW_ALIGNMENT - 1));
+	q = (char *) (
+		(((unsigned long) p + 32 + GW_ALIGNMENT - 1 - GW_ALIGNMENT_MOD) &
+		 ~(GW_ALIGNMENT - 1)) +
+		GW_ALIGNMENT_MOD);
 
 /* Do a seemingly pointless memset!  This actual is very important. */
 /* The memset will walk through the allocated memory sequentially, which */
@@ -1262,7 +1296,11 @@ unsigned long addr_offset (unsigned long fftlen, unsigned long i)
 			if (pfa && sets) {
 				i3 += i & (sets - 1); i /= sets;
 			}
-			addr = (((((i3 * 1090) + i1) << 2) + i) << 1) + i2;
+			if (FFTLEN <= 524288)
+				addr = i3 * 1090;
+			else
+				addr = i3 * (1024 + PASS1_CACHE_LINES*2);
+			addr = ((((addr + i1) << 2) + i) << 1) + i2;
 			addr = addr * sizeof (double);
 		}
 	}
@@ -1643,10 +1681,20 @@ void gwsetaddin (
 			row = (word & 127) / PASS1_CACHE_LINES;
 			ADDIN_ROW = 128 / PASS1_CACHE_LINES - row;
 			ADDIN_OFFSET -= row * PASS1_CACHE_LINES * 64;
-		} else {
+		}
+
+/* This case is particularly nasty as we have to convert the FFT data offset */
+/* into the scratch area offset.  In assembly language terms, this means */
+/* subtracting out multiples of blkdst and adding in multiples of clmblkdst. */
+
+		else {
 			row = (word & 1023) / PASS1_CACHE_LINES;
 			ADDIN_ROW = (1024 / PASS1_CACHE_LINES - row) * 256;
 			ADDIN_OFFSET -= row * PASS1_CACHE_LINES * 64;
+			if (FFTLEN > 524288)
+				ADDIN_OFFSET -= ADDIN_OFFSET /
+					(65536 + PASS1_CACHE_LINES * 128) *
+					(65536 + PASS1_CACHE_LINES * 64 - 16);
 		}
 	}
 

@@ -102,10 +102,13 @@ EXTRN	norm_grp_mults:DWORD
 EXTRN	norm_col_mults:DWORD
 EXTRN	norm_biglit_array:DWORD
 EXTRN	carries:DWORD
+EXTRN	scratch_area:DWORD
 EXTRN	zero_fft:DWORD
 EXTRN	extra_bits:DWORD
 EXTRN	ffttype:DWORD
 EXTRN	normgrpptr:DWORD
+EXTRN	pass1blkdst:DWORD
+EXTRN	normblkdst:DWORD
 EXTRN	loopcount1:DWORD
 EXTRN	loopcount2:DWORD
 EXTRN	loopcount3:DWORD

@@ -1,4 +1,4 @@
-; Copyright 2001 - Just For Fun Software, Inc., all rights reserved
+; Copyright 2001-2003 - Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -42,7 +42,7 @@
 ; the inverse FFT.
 
 xpass2_11_levels_real MACRO incr
-	LOCAL	b0b, b0d, b1b, b2b, b3b, b4b, b5b, b6b, b7b, b8b, b9b
+	LOCAL	b0b, b0c, b0d, b1b, b2b, b3b, b4b, b5b, b6b, b7b, b8b, b9b
 	LOCAL	baa, bab, bac, bad
 	LOCAL	c0b, c1b, c2b, c3b, c4b, c5b, c6b, c7b, c8b
 
@@ -55,15 +55,17 @@ xpass2_11_levels_real MACRO incr
 ;; sets do not start on exact on 4KB boudaries.
 
 	mov	al, 2			;; Load loop counter
-b0b:	mov	edi, [esi]		;; Read from this page (loads the TLB)
-	lea	esi, [esi+4096]		;; Next page
+	mov	edi, esi
+b0b:	mov	ecx, [edi]		;; Read from this page (loads the TLB)
+	lea	edi, [edi+4096]		;; Next page
 	add	al, 256/16		;; Test loop counter
 	jnc	short b0b		;; Iterate if necessary
-	lea	esi, [esi-16*4096+blkdst];; Next block
 	sub	al, 1			;; Test outer loop counter
-	jnz	short b0b		;; Iterate if necessary
-	mov	edi, [esi-blkdst+16*4096-128];; Read from last page
-	lea	esi, [esi-2*blkdst]	;; Next source pointer
+	jz	short b0c		;; Iterate if necessary
+	lea	edi, [edi-16*4096]	;; Next block
+	add	edi, pass1blkdst
+	jmp	short b0b		;; Iterate if necessary
+b0c:	mov	ecx, [edi-128]		;; Read from last page
 
 ;; Type 4 FFTs skip the forward FFT process
 
@@ -134,7 +136,8 @@ b2b:	x4cl_eight_reals_fft_2 esi, 2*64, 256*64, 512*64
 ;;	distance between fft data elements is 256
 ;;	do 128 macros each processing 32 data values
 
-	lea	ecx, [esi+blkdst]	;; Prefetch pointer
+	mov	ecx, esi		;; Prefetch pointer
+	add	ecx, pass1blkdst
 	lea	esi, [esi-128*2*64+64]	;; Next source pointer
 	lea	edi, [edi+XMM_SCD]	;; Next sine/cosine pointer
 b3b:	x4cl_four_complex_fft esi, 2*64, 256*64, 512*64
@@ -629,7 +632,8 @@ xpass2_11_real_done:
 ; edx = Pointer to the group and column pre-multiplier values
 
 xpass2_11_levels_complex MACRO incr
-	LOCAL	b0b, b0c, b0d, b1b, b2b, b2c, b3b, b4b, b5b, b6a, b6b, b6c, b6d
+	LOCAL	b0b, b0c, b0d, b0e, b1b, b2b, b2c
+	LOCAL	b3b, b4b, b5b, b6a, b6b, b6c, b6d
 	LOCAL	c1b, c2a, c2b, d2a, d2b, e2a, e2b, f2a, f2b, c3b, c4b, c5b
 
 ;; Load the TLBs for this data set and the next data set.
@@ -642,22 +646,24 @@ xpass2_11_levels_complex MACRO incr
 	cmp	ecx, 1			;; Test pass2 counter
 	je	short b0c		;; Skip if this is last data set
 	mov	al, 2			;; Load loop counter
-b0b:	mov	edi, [esi]		;; Read from this page (loads the TLB)
-	lea	esi, [esi+4096]		;; Next page
+	mov	edi, esi
+b0b:	mov	ecx, [edi]		;; Read from this page (loads the TLB)
+	lea	edi, [edi+4096]		;; Next page
 	add	al, 256/16		;; Test loop counter
 	jnc	short b0b		;; Iterate if necessary
-	lea	esi, [esi-16*4096+blkdst];; Next block
 	sub	al, 1			;; Test outer loop counter
-	jnz	short b0b		;; Iterate if necessary
-	mov	edi, [esi-blkdst+16*4096-128];; Read from last page
-	lea	esi, [esi-2*blkdst]	;; Next source pointer
+	jz	short b0e		;; Are we done?
+	lea	edi, [edi-16*4096]	;; No, next block
+	add	edi, pass1blkdst
+	jmp	short b0b		;; Iterate
+b0e:	mov	ecx, [edi-128]		;; Read from last page
 	mov	al, 8			;; Load loop counter
-	mov	ecx, edx		;; Premultiplier table address
-b0d:	mov	edi, [ecx]		;; Load premultiplier TLB
-	lea	ecx, [ecx+4096]		;; Next page
+	mov	edi, edx		;; Premultiplier table address
+b0d:	mov	ecx, [edi]		;; Load premultiplier TLB
+	lea	edi, [edi+4096]		;; Next page
 	sub	al, 1			;; Test loop counter
 	jnz	short b0d		;; Iterate til done
-	mov	edi, [edx+263*XMM_PMD]	;; Load last TLB
+	mov	ecx, [edx+263*XMM_PMD]	;; Load last TLB
 b0c:
 
 ;; Type 4 FFTs skip the forward FFT process
@@ -786,7 +792,8 @@ end_timer 5
 ;;	do 512 macros each processing 16 data values
 
 start_timer 6
-	lea	ecx, [esi+blkdst]	;; Prefetch pointer
+	mov	ecx, esi		;; Prefetch pointer
+	add	ecx, pass1blkdst
 	mov	edi, xsincos_complex	;; Load sin/cos pointer
 	mov	eax, 8*256		;; 8 iterations of 64
 b3b:	x2cl_two_complex_fft esi, 64, 64*64
@@ -983,7 +990,8 @@ end_timer 9
 
 xpass2_11_levels_complex_unfft:
 start_timer 10
-	lea	ecx, [esi+blkdst]	;; Prefetch pointer
+	mov	ecx, esi		;; Prefetch pointer
+	add	ecx, pass1blkdst
 	mov	edi, xsincos_complex	;; Load sin/cos pointer
 	mov	eax, 128*256		;; 128 iterations of 2
 c5b:	x4cl_four_complex_unfft esi, 64, 2*64, 4*64
