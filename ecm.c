@@ -3701,6 +3701,19 @@ restart0:
 
 		doMiscTasks ();
 	}
+
+/* If roundoff error recovery returned to restart0, but the roundoff error */
+/* occurs after the above loop, then square the value and create a save file. */
+/* This won't affect our final results, but will change the FFT data. */
+
+	if (error_recovery_mode) {
+		gwsquare (x);
+		pm1_save (filename, &state, bit_number, x, NULL);
+		error_recovery_mode = 0;
+	}
+
+/* Do stage 0 cleanup */
+
 	gwsetnormroutine (0, ERRCHK || near_fft_limit, 0);
 	free (exp);
 	end_timer (0);
