@@ -3774,7 +3774,7 @@ void primeSieveTest (void)
 			facmid = RES;
 			fachi = fachi * 10 + CARRYL;
 			if (fachi >= 4194304 ||
-			    (fachi >= 65536 && !(CPU_FLAGS & CPU_SSE2))) {
+			    (fachi >= 4096 && !(CPU_FLAGS & CPU_SSE2))) {
 				sprintf (buf, "%ld%s factor too big.\n", p, fac);
 				OutputBoth (buf);
 				goto nextp;
