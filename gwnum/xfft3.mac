@@ -9529,7 +9529,7 @@ end_timer 17
 ;;	distance between fft data elements is 32K
 ;;	do 16 macros each processing 16 data values
 
-start_timer 17
+start_timer 18
 	mov	al, 8			;; 8 iterations of 2 
 c4b:	x2cl_eight_reals_unfft_1 esi, 64, 8*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -9569,7 +9569,7 @@ c5b:	x2cl_two_complex_unfft esi, 64, 8*blkdst
 	mov	al, 8			;; Load middle loop counter
 	JNZ_X	c5b			;; Iterate if necessary
 	lea	esi, [esi-10*16*blkdst]	;; Restore source pointer
-end_timer 17
+end_timer 18
 
 ;; Do inverse FFT levels 4,5
 ;; On input the 64-byte cache lines hold these data values:
@@ -9591,7 +9591,7 @@ end_timer 17
 ;;	distance between fft data elements is 64K
 ;;	do 32 macros each processing 16 data values
 
-start_timer 18
+start_timer 19
 	mov	al, 16			;; 16 iterations of 2
 c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 16*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -9633,7 +9633,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 16*blkdst, 32*blkdst
 	mov	al, 16			;; Reload middle counter
 	JNZ_X	c3b			;; Iterate if necessary
 	lea	esi, [esi-2*64*blkdst-32*blkdst];; Restore source pointer
-end_timer 18
+end_timer 19
 
 ;; Do inverse FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -9657,7 +9657,7 @@ end_timer 18
 ;;	distance between fft data elements is 256K
 ;;	do 64 macros each processing 40 data values
 
-start_timer 19
+start_timer 20
 	mov	al, 32			;; Load loop counter
 c1b:	x5cl_five_reals_last_unfft esi, 64, 32*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -9675,16 +9675,16 @@ c1b:	x5cl_five_reals_last_unfft esi, 64, 32*blkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	c1b			;; Iterate if necessary
 	lea	esi, [esi-32*blkdst]	;; Restore source pointer
-end_timer 19
+end_timer 20
 
 ;; Normalize these values
 
-start_timer 20
+start_timer 21
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
 	sub	ecx, ecx
-end_timer 20
+end_timer 21
 
 ;; Have we been given permission to start the FFT on the result?
 ;; If so, do so now while the data is in the L2 cache.
@@ -9709,7 +9709,7 @@ end_timer 20
 ;;	do 64 iterations each processing 40 data values
 
 b0b:
-start_timer 21
+start_timer 22
 	mov	eax, 32			;; 32 iterations of 2
 b1b:	x5cl_five_reals_first_fft esi, 64, 32*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -9727,7 +9727,7 @@ b1b:	x5cl_five_reals_first_fft esi, 64, 32*blkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	b1b			;; Iterate if necessary
 	lea	esi, [esi-32*blkdst]	;; Restore source pointer
-end_timer 21
+end_timer 22
 
 ;; Do FFT levels 4,5
 ;; Values 0K-255K is real data, 256K-1279K is complex data.
@@ -9753,7 +9753,7 @@ end_timer 21
 ;;	distance between fft data elements is 64K
 ;;	do 64 macros each processing 8 data values
 
-start_timer 22
+start_timer 23
 	mov	al, 32			;; 32 iterations of 2
 b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
@@ -9788,7 +9788,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 32*blkdst, 64*blkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b3b			;; Iterate if necessary
 	lea	esi, [esi-32*blkdst-32*blkdst];; Restore source pointer
-end_timer 22
+end_timer 23
 
 ;; Do FFT levels 6
 ;; Values 0K-63K is real data, 64K-127K is semi-real data, 128K-1279K is
@@ -9814,7 +9814,7 @@ end_timer 22
 ;;	distance between fft data elements is 32K
 ;;	do 32 macros each processing 16 data values
 
-start_timer 23
+start_timer 24
 	mov	edi, sincos3		;; Load sin/cos pointer
 	mov	al, 16			;; 16 iterations of 2
 b4b:	x2cl_eight_reals_fft_1 esi, 64, 16*blkdst
@@ -9855,7 +9855,7 @@ b5b:	x2cl_two_complex_fft esi, 64, 16*blkdst
 	mov	al, 16			;; Load middle loop counter
 	JNZ_X	b5b			;; Iterate if necessary
 	lea	esi, [esi-5*32*blkdst]	;; Restore source pointer
-end_timer 23
+end_timer 24
 
 ;; Do FFT levels 7,8
 ;; Values 0K-31K is real data, 32K-63K is semi-real data, 64K-2047K is
@@ -9881,7 +9881,7 @@ end_timer 23
 ;;	distance between fft data elements is 8K
 ;;	do 8 macros each processing 32 data values
 
-start_timer 23
+start_timer 25
 	mov	edi, sincos2		;; Load sin/cos pointer
 	mov	al, 4			;; 4 iterations of 2
 b6b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
@@ -9926,7 +9926,7 @@ b7b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	mov	al, 4			;; Load middle loop counter
 	JNZ_X	b7b			;; Iterate if necessary
 	lea	esi, [esi-10*16*blkdst]	;; Restore source pointer
-end_timer 23
+end_timer 25
 
 ;; Do FFT levels 9,10
 ;; Values 0K-7K is real data, 8K-15K is semi-real data, 16K-2047K is
@@ -9950,7 +9950,7 @@ end_timer 23
 ;;	distance between fft data elements is 2K
 ;;	do 2 macros each processing 32 data values
 
-start_timer 24
+start_timer 26
 	mov	edi, sincos1		;; Load sin/cos pointer
 b8b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
@@ -9983,7 +9983,7 @@ b9b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b9b			;; Iterate if necessary
 	lea	esi, [esi-40*4*blkdst]	;; Restore source pointer
-end_timer 24
+end_timer 26
 
 ;; Work on next 4 sets of 640 values
 
@@ -10002,9 +10002,9 @@ end_timer 1
 ;; Split the carries into high and low carries (so they do not exceed
 ;; the desired number of bits per FFT word.
 
-start_timer 26
+start_timer 28
 	CALL_X	gw_split_carries_3
-end_timer 26
+end_timer 28
 
 ;; Have we been given permission to start the FFT on the result?
 ;; If so, do so now while the data is in the L2 cache.
@@ -10014,7 +10014,7 @@ end_timer 26
 
 ;; Do FFT levels 1,2,3
 
-start_timer 27
+start_timer 29
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	eax, 32			;; 32 iterations of 2
@@ -10117,7 +10117,7 @@ d9b:	x4cl_four_complex_fft esi, 160*64, 64, 2*64
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	d9b			;; Iterate if necessary
-end_timer 27
+end_timer 29
 
 ;; Now add in the FFT'ed carries, cleanup and return
 
@@ -10300,7 +10300,7 @@ end_timer 17
 ;;	distance between fft data elements is 32K
 ;;	do 16 macros each processing 16 data values
 
-start_timer 17
+start_timer 18
 	mov	al, 8			;; 8 iterations of 2 
 c4b:	x2cl_eight_reals_unfft_1 esi, 64, 8*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -10340,7 +10340,7 @@ c5b:	x2cl_two_complex_unfft esi, 64, 8*blkdst
 	mov	al, 8			;; Load middle loop counter
 	JNZ_X	c5b			;; Iterate if necessary
 	lea	esi, [esi-12*16*blkdst]	;; Restore source pointer
-end_timer 17
+end_timer 18
 
 ;; Do inverse FFT levels 4,5
 ;; On input the 64-byte cache lines hold these data values:
@@ -10363,7 +10363,7 @@ end_timer 17
 ;;	distance between fft data elements is 64K
 ;;	do 32 macros each processing 32 data values
 
-start_timer 18
+start_timer 19
 	mov	al, 16			;; 16 iterations of 2
 c2b:	x4cl_eight_reals_unfft_2 esi, 64, 16*blkdst, 32*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -10407,7 +10407,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 16*blkdst, 32*blkdst
 	mov	al, 16			;; Reload middle counter
 	JNZ_X	c3b			;; Iterate if necessary
 	lea	esi, [esi-3*64*blkdst]	;; Restore source pointer
-end_timer 18
+end_timer 19
 
 ;; Do inverse FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -10431,7 +10431,7 @@ end_timer 18
 ;;	distance between fft data elements is 256K
 ;;	do 128 macros each processing 24 data values
 
-start_timer 19
+start_timer 20
 	mov	al, 64			;; Load loop counter
 c1b:	x3cl_six_reals_last_unfft esi, 64, 64*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -10447,16 +10447,16 @@ c1b:	x3cl_six_reals_last_unfft esi, 64, 64*blkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	c1b			;; Iterate if necessary
 	lea	esi, [esi-64*blkdst]	;; Restore source pointer
-end_timer 19
+end_timer 20
 
 ;; Normalize these values
 
-start_timer 20
+start_timer 21
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
 	sub	ecx, ecx
-end_timer 20
+end_timer 21
 
 ;; Have we been given permission to start the FFT on the result?
 ;; If so, do so now while the data is in the L2 cache.
@@ -10481,7 +10481,7 @@ end_timer 20
 ;;	do 128 iterations each processing 24 data values
 
 b0b:
-start_timer 21
+start_timer 22
 	mov	eax, 64			;; 64 iterations of 2
 b1b:	x3cl_six_reals_first_fft esi, 64, 64*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -10497,7 +10497,7 @@ b1b:	x3cl_six_reals_first_fft esi, 64, 64*blkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	b1b			;; Iterate if necessary
 	lea	esi, [esi-64*blkdst]	;; Restore source pointer
-end_timer 21
+end_timer 22
 
 ;; Do FFT levels 4,5
 ;; Values 0K-255K is real data, 256K-511K is semi-real data, 512K-1535K is
@@ -10525,7 +10525,7 @@ end_timer 21
 ;;	distance between fft data elements is 64K
 ;;	do 64 macros each processing 16 data values
 
-start_timer 22
+start_timer 23
 	mov	al, 32			;; 32 iterations of 2
 b2b:	x2cl_eight_reals_fft_2 esi, 64, 32*blkdst
 	add	al, 256/2		;; Test inner loop counter
@@ -10562,7 +10562,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 32*blkdst, 64*blkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b3b			;; Iterate if necessary
 	lea	esi, [esi-32*blkdst-64*blkdst];; Restore source pointer
-end_timer 22
+end_timer 23
 
 ;; Do FFT levels 6
 ;; Values 0K-63K is real data, 64K-127K is semi-real data, 128K-1535K is
@@ -10588,7 +10588,7 @@ end_timer 22
 ;;	distance between fft data elements is 32K
 ;;	do 32 macros each processing 16 data values
 
-start_timer 23
+start_timer 24
 	mov	edi, sincos3		;; Load sin/cos pointer
 	mov	al, 16			;; 16 iterations of 2
 b4b:	x2cl_eight_reals_fft_1 esi, 64, 16*blkdst
@@ -10629,7 +10629,7 @@ b5b:	x2cl_two_complex_fft esi, 64, 16*blkdst
 	mov	al, 16			;; Load middle loop counter
 	JNZ_X	b5b			;; Iterate if necessary
 	lea	esi, [esi-6*32*blkdst]	;; Restore source pointer
-end_timer 23
+end_timer 24
 
 ;; Do FFT levels 7,8
 ;; Values 0K-31K is real data, 32K-63K is semi-real data, 64K-1535K is
@@ -10655,7 +10655,7 @@ end_timer 23
 ;;	distance between fft data elements is 8K
 ;;	do 8 macros each processing 32 data values
 
-start_timer 23
+start_timer 25
 	mov	edi, sincos2		;; Load sin/cos pointer
 	mov	al, 4			;; 4 iterations of 2
 b6b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
@@ -10700,7 +10700,7 @@ b7b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	mov	al, 4			;; Load middle loop counter
 	JNZ_X	b7b			;; Iterate if necessary
 	lea	esi, [esi-12*16*blkdst]	;; Restore source pointer
-end_timer 23
+end_timer 25
 
 ;; Do FFT levels 9,10
 ;; Values 0K-7K is real data, 8K-15K is semi-real data, 16K-1535K is
@@ -10724,7 +10724,7 @@ end_timer 23
 ;;	distance between fft data elements is 2K
 ;;	do 2 macros each processing 32 data values
 
-start_timer 24
+start_timer 26
 	mov	edi, sincos1		;; Load sin/cos pointer
 b8b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
@@ -10757,7 +10757,7 @@ b9b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b9b			;; Iterate if necessary
 	lea	esi, [esi-48*4*blkdst]	;; Restore source pointer
-end_timer 24
+end_timer 26
 
 ;; Work on next 4 sets of 768 values
 
@@ -10776,9 +10776,9 @@ end_timer 1
 ;; Split the carries into high and low carries (so they do not exceed
 ;; the desired number of bits per FFT word.
 
-start_timer 26
+start_timer 28
 	CALL_X	gw_split_carries_3
-end_timer 26
+end_timer 28
 
 ;; Have we been given permission to start the FFT on the result?
 ;; If so, do so now while the data is in the L2 cache.
@@ -10788,7 +10788,7 @@ end_timer 26
 
 ;; Do FFT levels 1,2,3
 
-start_timer 27
+start_timer 29
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	eax, 64			;; 64 iterations of 2
@@ -10892,7 +10892,7 @@ d9b:	x4cl_four_complex_fft esi, 192*64, 64, 2*64
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	d9b			;; Iterate if necessary
-end_timer 27
+end_timer 29
 
 ;; Now add in the FFT'ed carries, cleanup and return
 
@@ -11075,7 +11075,7 @@ end_timer 17
 ;;	distance between fft data elements is 32K
 ;;	do 16 macros each processing 16 data values
 
-start_timer 17
+start_timer 18
 	mov	al, 8			;; 8 iterations of 2 
 c4b:	x2cl_eight_reals_unfft_1 esi, 64, 8*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -11115,7 +11115,7 @@ c5b:	x2cl_two_complex_unfft esi, 64, 8*blkdst
 	mov	al, 8			;; Load middle loop counter
 	JNZ_X	c5b			;; Iterate if necessary
 	lea	esi, [esi-14*16*blkdst]	;; Restore source pointer
-end_timer 17
+end_timer 18
 
 ;; Do inverse FFT levels 4,5
 ;; On input the 64-byte cache lines hold these data values:
@@ -11137,7 +11137,7 @@ end_timer 17
 ;;	distance between fft data elements is 64K
 ;;	do 32 macros each processing 16 data values
 
-start_timer 18
+start_timer 19
 	mov	al, 16			;; 16 iterations of 2
 c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 16*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -11179,7 +11179,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 16*blkdst, 32*blkdst
 	mov	al, 16			;; Reload middle counter
 	JNZ_X	c3b			;; Iterate if necessary
 	lea	esi, [esi-3*64*blkdst-32*blkdst];; Restore source pointer
-end_timer 18
+end_timer 19
 
 ;; Do inverse FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -11207,7 +11207,7 @@ end_timer 18
 ;;	distance between fft data elements is 256K
 ;;	do 64 macros each processing 56 data values
 
-start_timer 19
+start_timer 20
 	mov	al, 32			;; Load loop counter
 c1b:	x7cl_seven_reals_last_unfft esi, 64, 32*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -11227,16 +11227,16 @@ c1b:	x7cl_seven_reals_last_unfft esi, 64, 32*blkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	c1b			;; Iterate if necessary
 	lea	esi, [esi-32*blkdst]	;; Restore source pointer
-end_timer 19
+end_timer 20
 
 ;; Normalize these values
 
-start_timer 20
+start_timer 21
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
 	sub	ecx, ecx
-end_timer 20
+end_timer 21
 
 ;; Have we been given permission to start the FFT on the result?
 ;; If so, do so now while the data is in the L2 cache.
@@ -11265,7 +11265,7 @@ end_timer 20
 ;;	do 64 iterations each processing 56 data values
 
 b0b:
-start_timer 21
+start_timer 22
 	mov	eax, 32			;; 32 iterations of 2
 b1b:	x7cl_seven_reals_first_fft esi, 64, 32*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -11285,7 +11285,7 @@ b1b:	x7cl_seven_reals_first_fft esi, 64, 32*blkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	b1b			;; Iterate if necessary
 	lea	esi, [esi-32*blkdst]	;; Restore source pointer
-end_timer 21
+end_timer 22
 
 ;; Do FFT levels 4,5
 ;; Values 0K-255K is real data, 256K-511K is semi-real data, 512K-1791K is
@@ -11316,7 +11316,7 @@ end_timer 21
 ;;	distance between fft data elements is 64K
 ;;	do 64 macros each processing 8 data values
 
-start_timer 22
+start_timer 23
 	mov	al, 32			;; 32 iterations of 2
 b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
@@ -11371,7 +11371,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 32*blkdst, 64*blkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b3b			;; Iterate if necessary
 	lea	esi, [esi-32*blkdst-96*blkdst];; Restore source pointer
-end_timer 22
+end_timer 23
 
 ;; Do FFT levels 6
 ;; Values 0K-63K is real data, 64K-127K is semi-real data, 128K-1791K is
@@ -11397,7 +11397,7 @@ end_timer 22
 ;;	distance between fft data elements is 32K
 ;;	do 32 macros each processing 16 data values
 
-start_timer 23
+start_timer 24
 	mov	edi, sincos3		;; Load sin/cos pointer
 	mov	al, 16			;; 16 iterations of 2
 b4b:	x2cl_eight_reals_fft_1 esi, 64, 16*blkdst
@@ -11438,7 +11438,7 @@ b5b:	x2cl_two_complex_fft esi, 64, 16*blkdst
 	mov	al, 16			;; Load middle loop counter
 	JNZ_X	b5b			;; Iterate if necessary
 	lea	esi, [esi-7*32*blkdst]	;; Restore source pointer
-end_timer 23
+end_timer 24
 
 ;; Do FFT levels 7,8
 ;; Values 0K-31K is real data, 32K-63K is semi-real data, 64K-1791K is
@@ -11464,7 +11464,7 @@ end_timer 23
 ;;	distance between fft data elements is 8K
 ;;	do 8 macros each processing 32 data values
 
-start_timer 23
+start_timer 25
 	mov	edi, sincos2		;; Load sin/cos pointer
 	mov	al, 4			;; 4 iterations of 2
 b6b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
@@ -11509,7 +11509,7 @@ b7b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	mov	al, 4			;; Load middle loop counter
 	JNZ_X	b7b			;; Iterate if necessary
 	lea	esi, [esi-14*16*blkdst]	;; Restore source pointer
-end_timer 23
+end_timer 25
 
 ;; Do FFT levels 9,10
 ;; Values 0K-7K is real data, 8K-15K is semi-real data, 16K-1791K is
@@ -11533,7 +11533,7 @@ end_timer 23
 ;;	distance between fft data elements is 2K
 ;;	do 2 macros each processing 32 data values
 
-start_timer 24
+start_timer 26
 	mov	edi, sincos1		;; Load sin/cos pointer
 b8b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2		;; Test inner loop counter
@@ -11566,7 +11566,7 @@ b9b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b9b			;; Iterate if necessary
 	lea	esi, [esi-56*4*blkdst]	;; Restore source pointer
-end_timer 24
+end_timer 26
 
 ;; Work on next 4 sets of 896 values
 
@@ -11585,9 +11585,9 @@ end_timer 1
 ;; Split the carries into high and low carries (so they do not exceed
 ;; the desired number of bits per FFT word.
 
-start_timer 26
+start_timer 28
 	CALL_X	gw_split_carries_3
-end_timer 26
+end_timer 28
 
 ;; Have we been given permission to start the FFT on the result?
 ;; If so, do so now while the data is in the L2 cache.
@@ -11597,7 +11597,7 @@ end_timer 26
 
 ;; Do FFT levels 1,2,3
 
-start_timer 27
+start_timer 29
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	al, 32			;; 32 iterations of 2
@@ -11710,7 +11710,7 @@ d9b:	x4cl_four_complex_fft esi, 224*64, 64, 2*64
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	d9b			;; Iterate if necessary
-end_timer 27
+end_timer 29
 
 ;; Now add in the FFT'ed carries, cleanup and return
 
@@ -11893,7 +11893,7 @@ end_timer 17
 ;;	distance between fft data elements is 32K
 ;;	do 16 macros each processing 16 data values
 
-start_timer 17
+start_timer 18
 	mov	al, 8			;; 8 iterations of 2 
 c4b:	x2cl_eight_reals_unfft_1 esi, 64, 8*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -11933,7 +11933,7 @@ c5b:	x2cl_two_complex_unfft esi, 64, 8*blkdst
 	mov	al, 8			;; Load middle loop counter
 	JNZ_X	c5b			;; Iterate if necessary
 	lea	esi, [esi-16*16*blkdst]	;; Restore source pointer
-end_timer 17
+end_timer 18
 
 ;; Do inverse FFT levels 4,5
 ;; On input the 64-byte cache lines hold these data values:
@@ -11956,7 +11956,7 @@ end_timer 17
 ;;	distance between fft data elements is 64K
 ;;	do 32 macros each processing 32 data values
 
-start_timer 18
+start_timer 19
 	mov	al, 16			;; 16 iterations of 2
 c2b:	x4cl_eight_reals_unfft_2 esi, 64, 16*blkdst, 32*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -12000,7 +12000,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 16*blkdst, 32*blkdst
 	mov	al, 16			;; Reload middle counter
 	JNZ_X	c3b			;; Iterate if necessary
 	lea	esi, [esi-4*64*blkdst]	;; Restore source pointer
-end_timer 18
+end_timer 19
 
 ;; Do inverse FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -12020,7 +12020,7 @@ end_timer 18
 ;;	distance between fft data elements is 256K
 ;;	do 128 macros each processing 32 data values
 
-start_timer 19
+start_timer 20
 	mov	al, 64			;; Load loop counter
 c1b:	x4cl_eight_reals_last_unfft esi, 64, 64*blkdst, 128*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -12037,16 +12037,16 @@ c1b:	x4cl_eight_reals_last_unfft esi, 64, 64*blkdst, 128*blkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	c1b			;; Iterate if necessary
 	lea	esi, [esi-64*blkdst]	;; Restore source pointer
-end_timer 19
+end_timer 20
 
 ;; Normalize these values
 
-start_timer 20
+start_timer 21
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
 	sub	ecx, ecx
-end_timer 20
+end_timer 21
 
 ;; Have we been given permission to start the FFT on the result?
 ;; If so, do so now while the data is in the L2 cache.
@@ -12074,7 +12074,7 @@ end_timer 20
 ;;	do 256 iterations each processing 16 data values
 
 b0b:
-start_timer 21
+start_timer 22
 	mov	eax, 128*256		;; 128 iterations of 2
 b1b:	x2cl_eight_reals_first_fft esi, 64, 128*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -12089,7 +12089,7 @@ b1b:	x2cl_eight_reals_first_fft esi, 64, 128*blkdst
 	sub	eax, 256		;; Test loop counter
 	JNZ_X	b1b			;; Iterate if necessary
 	lea	esi, [esi-128*blkdst]	;; Restore source pointer
-end_timer 21
+end_timer 22
 
 ;; Do FFT levels 4,5
 ;; Values 0K-255K is real data, 256K-511K is semi-real data, 512K-2047K is
@@ -12116,7 +12116,7 @@ end_timer 21
 ;;	distance between fft data elements is 64K
 ;;	do 64 macros each processing 32 data values
 
-start_timer 22
+start_timer 23
 	mov	edi, sincos4		;; Load sin/cos pointer
 	mov	al, 32			;; 32 iterations of 2
 b2b:	x4cl_eight_reals_fft_2 esi, 64, 32*blkdst, 64*blkdst
@@ -12156,7 +12156,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 32*blkdst, 64*blkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b3b			;; Iterate if necessary
 	lea	esi, [esi-32*blkdst-128*blkdst];; Restore source pointer
-end_timer 22
+end_timer 23
 
 ;; Do FFT levels 6
 ;; Values 0K-63K is real data, 64K-127K is semi-real data, 128K-2047K is
@@ -12182,7 +12182,7 @@ end_timer 22
 ;;	distance between fft data elements is 32K
 ;;	do 32 macros each processing 16 data values
 
-start_timer 23
+start_timer 24
 	mov	edi, sincos3		;; Load sin/cos pointer
 	mov	al, 16			;; 16 iterations of 2
 b4b:	x2cl_eight_reals_fft_1 esi, 64, 16*blkdst
@@ -12223,7 +12223,7 @@ b5b:	x2cl_two_complex_fft esi, 64, 16*blkdst
 	mov	al, 16			;; Load middle loop counter
 	JNZ_X	b5b			;; Iterate if necessary
 	lea	esi, [esi-8*32*blkdst]	;; Restore source pointer
-end_timer 23
+end_timer 24
 
 ;; Do FFT levels 7,8
 ;; Values 0K-31K is real data, 32K-63K is semi-real data, 64K-2047K is
@@ -12249,7 +12249,7 @@ end_timer 23
 ;;	distance between fft data elements is 8K
 ;;	do 8 macros each processing 32 data values
 
-start_timer 23
+start_timer 25
 	mov	edi, sincos2		;; Load sin/cos pointer
 	mov	al, 4			;; 4 iterations of 2
 b6b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
@@ -12294,7 +12294,7 @@ b7b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	mov	al, 4			;; Load middle loop counter
 	JNZ_X	b7b			;; Iterate if necessary
 	lea	esi, [esi-16*16*blkdst]	;; Restore source pointer
-end_timer 23
+end_timer 25
 
 ;; Do FFT levels 9,10
 ;; Values 0K-7K is real data, 8K-15K is semi-real data, 16K-2047K is
@@ -12318,7 +12318,7 @@ end_timer 23
 ;;	distance between fft data elements is 2K
 ;;	do 2 macros each processing 32 data values
 
-start_timer 24
+start_timer 26
 	mov	edi, sincos1		;; Load sin/cos pointer
 b8b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2/clm	;; Test inner loop counter
@@ -12347,7 +12347,7 @@ b9b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b9b			;; Iterate if necessary
 	lea	esi, [esi-64*4*blkdst]	;; Restore source pointer
-end_timer 24
+end_timer 26
 
 ;; Work on next 4 sets of 1024 values
 
@@ -12366,9 +12366,9 @@ end_timer 1
 ;; Split the carries into high and low carries (so they do not exceed
 ;; the desired number of bits per FFT word.
 
-start_timer 26
+start_timer 28
 	CALL_X	gw_split_carries_3
-end_timer 26
+end_timer 28
 
 ;; Have we been given permission to start the FFT on the result?
 ;; If so, do so now while the data is in the L2 cache.
@@ -12378,7 +12378,7 @@ end_timer 26
 
 ;; Do FFT levels 1,2,3
 
-start_timer 27
+start_timer 29
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	eax, 128*256		;; 128 iterations of 2
@@ -12483,7 +12483,7 @@ d9b:	x4cl_four_complex_fft esi, 256*64, 64, 2*64
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	d9b			;; Iterate if necessary
-end_timer 27
+end_timer 29
 
 ;; Now add in the FFT'ed carries, cleanup and return
 
@@ -12667,7 +12667,7 @@ end_timer 17
 ;;	distance between fft data elements is 32K
 ;;	do 16 macros each processing 32 data values
 
-start_timer 17
+start_timer 18
 	mov	al, 8			;; 8 iterations of 2
 c4b:	x4cl_eight_reals_unfft_2 esi, 64, 8*blkdst, 16*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -12711,7 +12711,7 @@ c5b:	x4cl_four_complex_unfft esi, 64, 8*blkdst, 16*blkdst
 	mov	al, 8			;; Load middle loop counter
 	JNZ_X	c5b			;; Iterate if necessary
 	lea	esi, [esi-10*32*blkdst]	;; Restore source pointer
-end_timer 17
+end_timer 18
 
 ;; Do inverse FFT levels 4,5
 ;; On input the 64-byte cache lines hold these data values:
@@ -12733,7 +12733,7 @@ end_timer 17
 ;;	distance between fft data elements is 128K
 ;;	do 64 macros each processing 16 data values
 
-start_timer 18
+start_timer 19
 	mov	al, 32			;; 32 iterations of 2
 c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 32*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -12775,7 +12775,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 32*blkdst, 64*blkdst
 	mov	al, 32			;; Reload middle counter
 	JNZ_X	c3b			;; Iterate if necessary
 	lea	esi, [esi-2*128*blkdst-64*blkdst];; Restore source pointer
-end_timer 18
+end_timer 19
 
 ;; Do inverse FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -12799,7 +12799,7 @@ end_timer 18
 ;;	distance between fft data elements is 512K
 ;;	do 128 macros each processing 40 data values
 
-start_timer 19
+start_timer 20
 	mov	eax, 64			;; Load loop counter
 c1b:	x5cl_five_reals_last_unfft esi, 64, 64*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -12817,16 +12817,16 @@ c1b:	x5cl_five_reals_last_unfft esi, 64, 64*blkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	c1b			;; Iterate if necessary
 	lea	esi, [esi-64*blkdst]	;; Restore source pointer
-end_timer 19
+end_timer 20
 
 ;; Normalize these values
 
-start_timer 20
+start_timer 21
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
 	sub	ecx, ecx
-end_timer 20
+end_timer 21
 
 ;; Have we been given permission to start the FFT on the result?
 ;; If so, do so now while the data is in the L2 cache.
@@ -12851,7 +12851,7 @@ end_timer 20
 ;;	do 128 iterations each processing 40 data values
 
 b0b:
-start_timer 21
+start_timer 22
 	mov	eax, 64			;; 64 iterations of 2
 b1b:	x5cl_five_reals_first_fft esi, 64, 64*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -12869,7 +12869,7 @@ b1b:	x5cl_five_reals_first_fft esi, 64, 64*blkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	b1b			;; Iterate if necessary
 	lea	esi, [esi-64*blkdst]	;; Restore source pointer
-end_timer 21
+end_timer 22
 
 ;; Do FFT levels 4,5
 ;; Values 0K-511K is real data, 512K-2559K is complex data.
@@ -12895,7 +12895,7 @@ end_timer 21
 ;;	distance between fft data elements is 128K
 ;;	do 128 macros each processing 8 data values
 
-start_timer 22
+start_timer 23
 	mov	al, 64			;; 64 iterations of 2
 b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
@@ -12930,7 +12930,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 64*blkdst, 128*blkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b3b			;; Iterate if necessary
 	lea	esi, [esi-64*blkdst-64*blkdst];; Restore source pointer
-end_timer 22
+end_timer 23
 
 ;; Do FFT levels 6,7
 ;; Values 0K-127K is real data, 128K-255K is semi-real data, 256K-2559K is
@@ -12956,7 +12956,7 @@ end_timer 22
 ;;	distance between fft data elements is 32K
 ;;	do 32 macros each processing 32 data values
 
-start_timer 23
+start_timer 24
 	mov	edi, sincos3		;; Load sin/cos pointer
 	mov	al, 16			;; 16 iterations of 2
 b4b:	x4cl_eight_reals_fft_2 esi, 64, 16*blkdst, 32*blkdst
@@ -13001,7 +13001,7 @@ b5b:	x4cl_four_complex_fft esi, 64, 16*blkdst, 32*blkdst
 	mov	al, 16			;; Load middle loop counter
 	JNZ_X	b5b			;; Iterate if necessary
 	lea	esi, [esi-5*64*blkdst]	;; Restore source pointer
-end_timer 23
+end_timer 24
 
 ;; Do FFT levels 8,9
 ;; Values 0K-31K is real data, 32K-63K is semi-real data, 64K-2559K is
@@ -13027,7 +13027,7 @@ end_timer 23
 ;;	distance between fft data elements is 8K
 ;;	do 8 macros each processing 32 data values
 
-start_timer 23
+start_timer 25
 	mov	edi, sincos2		;; Load sin/cos pointer
 	mov	al, 4			;; 4 iterations of 2
 b6b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
@@ -13072,7 +13072,7 @@ b7b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	mov	al, 4			;; Load middle loop counter
 	JNZ_X	b7b			;; Iterate if necessary
 	lea	esi, [esi-20*16*blkdst]	;; Restore source pointer
-end_timer 23
+end_timer 25
 
 ;; Do FFT levels 10,11
 ;; Values 0K-7K is real data, 8K-15K is semi-real data, 16K-2559K is
@@ -13096,7 +13096,7 @@ end_timer 23
 ;;	distance between fft data elements is 2K
 ;;	do 2 macros each processing 32 data values
 
-start_timer 24
+start_timer 26
 	mov	edi, sincos1		;; Load sin/cos pointer
 b8b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2/clm	;; Test inner loop counter
@@ -13125,7 +13125,7 @@ b9b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b9b			;; Iterate if necessary
 	lea	esi, [esi-80*4*blkdst]	;; Restore source pointer
-end_timer 24
+end_timer 26
 
 ;; Work on next 4 sets of 1280 values
 
@@ -13144,9 +13144,9 @@ end_timer 1
 ;; Split the carries into high and low carries (so they do not exceed
 ;; the desired number of bits per FFT word.
 
-start_timer 26
+start_timer 28
 	CALL_X	gw_split_carries_3
-end_timer 26
+end_timer 28
 
 ;; Have we been given permission to start the FFT on the result?
 ;; If so, do so now while the data is in the L2 cache.
@@ -13156,7 +13156,7 @@ end_timer 26
 
 ;; Do FFT levels 1,2,3
 
-start_timer 27
+start_timer 29
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	eax, 64			;; 64 iterations of 2
@@ -13259,7 +13259,7 @@ d9b:	x4cl_four_complex_fft esi, 320*64, 64, 2*64
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	d9b			;; Iterate if necessary
-end_timer 27
+end_timer 29
 
 ;; Now add in the FFT'ed carries, cleanup and return
 
@@ -13443,7 +13443,7 @@ end_timer 17
 ;;	distance between fft data elements is 32K
 ;;	do 16 macros each processing 32 data values
 
-start_timer 17
+start_timer 18
 	mov	al, 8			;; 8 iterations of 2
 c4b:	x4cl_eight_reals_unfft_2 esi, 64, 8*blkdst, 16*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -13487,7 +13487,7 @@ c5b:	x4cl_four_complex_unfft esi, 64, 8*blkdst, 16*blkdst
 	mov	al, 8			;; Load middle loop counter
 	JNZ_X	c5b			;; Iterate if necessary
 	lea	esi, [esi-12*32*blkdst]	;; Restore source pointer
-end_timer 17
+end_timer 18
 
 ;; Do inverse FFT levels 4,5
 ;; On input the 64-byte cache lines hold these data values:
@@ -13510,7 +13510,7 @@ end_timer 17
 ;;	distance between fft data elements is 128K
 ;;	do 64 macros each processing 32 data values
 
-start_timer 18
+start_timer 19
 	mov	al, 32			;; 32 iterations of 2
 c2b:	x4cl_eight_reals_unfft_2 esi, 64, 32*blkdst, 64*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -13554,7 +13554,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 32*blkdst, 64*blkdst
 	mov	al, 32			;; Reload middle counter
 	JNZ_X	c3b			;; Iterate if necessary
 	lea	esi, [esi-3*128*blkdst]	;; Restore source pointer
-end_timer 18
+end_timer 19
 
 ;; Do inverse FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -13578,7 +13578,7 @@ end_timer 18
 ;;	distance between fft data elements is 512K
 ;;	do 256 macros each processing 24 data values
 
-start_timer 19
+start_timer 20
 	mov	eax, 128*256		;; Load loop counter
 c1b:	x3cl_six_reals_last_unfft esi, 64, 128*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -13594,16 +13594,16 @@ c1b:	x3cl_six_reals_last_unfft esi, 64, 128*blkdst
 	sub	eax, 256		;; Test loop counter
 	JNZ_X	c1b			;; Iterate if necessary
 	lea	esi, [esi-128*blkdst]	;; Restore source pointer
-end_timer 19
+end_timer 20
 
 ;; Normalize these values
 
-start_timer 20
+start_timer 21
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
 	sub	ecx, ecx
-end_timer 20
+end_timer 21
 
 ;; Have we been given permission to start the FFT on the result?
 ;; If so, do so now while the data is in the L2 cache.
@@ -13628,7 +13628,7 @@ end_timer 20
 ;;	do 128 iterations each processing 24 data values
 
 b0b:
-start_timer 21
+start_timer 22
 	mov	eax, 128*256		;; 128 iterations of 2
 b1b:	x3cl_six_reals_first_fft esi, 64, 128*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -13644,7 +13644,7 @@ b1b:	x3cl_six_reals_first_fft esi, 64, 128*blkdst
 	sub	eax, 256		;; Test loop counter
 	JNZ_X	b1b			;; Iterate if necessary
 	lea	esi, [esi-128*blkdst]	;; Restore source pointer
-end_timer 21
+end_timer 22
 
 ;; Do FFT levels 4,5
 ;; Values 0K-511K is real data, 512K-1023K is semi-real data, 1024K-3071K is
@@ -13673,7 +13673,7 @@ end_timer 21
 ;;	distance between fft data elements is 128K
 ;;	do 128 macros each processing 16 data values
 
-start_timer 22
+start_timer 23
 	mov	al, 64			;; 64 iterations of 2
 b2b:	x2cl_eight_reals_fft_2 esi, 64, 64*blkdst
 	add	al, 256/2		;; Test inner loop counter
@@ -13712,7 +13712,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 64*blkdst, 128*blkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b3b			;; Iterate if necessary
 	lea	esi, [esi-64*blkdst-128*blkdst];; Restore source pointer
-end_timer 22
+end_timer 23
 
 ;; Do FFT levels 6,7
 ;; Values 0K-127K is real data, 128K-255K is semi-real data, 256K-4095K is
@@ -13738,7 +13738,7 @@ end_timer 22
 ;;	distance between fft data elements is 32K
 ;;	do 32 macros each processing 32 data values
 
-start_timer 23
+start_timer 24
 	mov	edi, sincos3		;; Load sin/cos pointer
 	mov	al, 16			;; 16 iterations of 2
 b4b:	x4cl_eight_reals_fft_2 esi, 64, 16*blkdst, 32*blkdst
@@ -13783,7 +13783,7 @@ b5b:	x4cl_four_complex_fft esi, 64, 16*blkdst, 32*blkdst
 	mov	al, 16			;; Load middle loop counter
 	JNZ_X	b5b			;; Iterate if necessary
 	lea	esi, [esi-6*64*blkdst]	;; Restore source pointer
-end_timer 23
+end_timer 24
 
 ;; Do FFT levels 8,9
 ;; Values 0K-31K is real data, 32K-63K is semi-real data, 64K-3071K is
@@ -13809,7 +13809,7 @@ end_timer 23
 ;;	distance between fft data elements is 8K
 ;;	do 8 macros each processing 32 data values
 
-start_timer 23
+start_timer 25
 	mov	edi, sincos2		;; Load sin/cos pointer
 	mov	al, 4			;; 4 iterations of 2
 b6b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
@@ -13854,7 +13854,7 @@ b7b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	mov	al, 4			;; Load middle loop counter
 	JNZ_X	b7b			;; Iterate if necessary
 	lea	esi, [esi-24*16*blkdst]	;; Restore source pointer
-end_timer 23
+end_timer 25
 
 ;; Do FFT levels 10,11
 ;; Values 0K-7K is real data, 8K-15K is semi-real data, 16K-3071K is
@@ -13878,7 +13878,7 @@ end_timer 23
 ;;	distance between fft data elements is 2K
 ;;	do 2 macros each processing 32 data values
 
-start_timer 24
+start_timer 26
 	mov	edi, sincos1		;; Load sin/cos pointer
 b8b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2/clm	;; Test inner loop counter
@@ -13907,7 +13907,7 @@ b9b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b9b			;; Iterate if necessary
 	lea	esi, [esi-96*4*blkdst]	;; Restore source pointer
-end_timer 24
+end_timer 26
 
 ;; Work on next 4 sets of 1536 values
 
@@ -13926,9 +13926,9 @@ end_timer 1
 ;; Split the carries into high and low carries (so they do not exceed
 ;; the desired number of bits per FFT word.
 
-start_timer 26
+start_timer 28
 	CALL_X	gw_split_carries_3
-end_timer 26
+end_timer 28
 
 ;; Have we been given permission to start the FFT on the result?
 ;; If so, do so now while the data is in the L2 cache.
@@ -13938,7 +13938,7 @@ end_timer 26
 
 ;; Do FFT levels 1,2,3
 
-start_timer 27
+start_timer 29
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	eax, 128*256		;; 128 iterations of 2
@@ -14042,7 +14042,7 @@ d9b:	x4cl_four_complex_fft esi, 384*64, 64, 2*64
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	d9b			;; Iterate if necessary
-end_timer 27
+end_timer 29
 
 ;; Now add in the FFT'ed carries, cleanup and return
 
@@ -14226,7 +14226,7 @@ end_timer 17
 ;;	distance between fft data elements is 32K
 ;;	do 16 macros each processing 32 data values
 
-start_timer 17
+start_timer 18
 	mov	al, 8			;; 8 iterations of 2
 c4b:	x4cl_eight_reals_unfft_2 esi, 64, 8*blkdst, 16*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -14270,7 +14270,7 @@ c5b:	x4cl_four_complex_unfft esi, 64, 8*blkdst, 16*blkdst
 	mov	al, 8			;; Load middle loop counter
 	JNZ_X	c5b			;; Iterate if necessary
 	lea	esi, [esi-14*32*blkdst]	;; Restore source pointer
-end_timer 17
+end_timer 18
 
 ;; Do inverse FFT levels 4,5
 ;; On input the 64-byte cache lines hold these data values:
@@ -14292,7 +14292,7 @@ end_timer 17
 ;;	distance between fft data elements is 128K
 ;;	do 64 macros each processing 32 data values
 
-start_timer 18
+start_timer 19
 	mov	al, 32			;; 32 iterations of 2
 c2b:	x2cl_half_eight_reals_unfft_2 esi, 64, 32*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -14334,7 +14334,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 32*blkdst, 64*blkdst
 	mov	al, 32			;; Reload middle counter
 	JNZ_X	c3b			;; Iterate if necessary
 	lea	esi, [esi-3*128*blkdst-64*blkdst];; Restore source pointer
-end_timer 18
+end_timer 19
 
 ;; Do inverse FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -14362,7 +14362,7 @@ end_timer 18
 ;;	distance between fft data elements is 512K
 ;;	do 128 macros each processing 56 data values
 
-start_timer 19
+start_timer 20
 	mov	al, 64			;; Load loop counter
 c1b:	x7cl_seven_reals_last_unfft esi, 64, 64*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -14382,16 +14382,16 @@ c1b:	x7cl_seven_reals_last_unfft esi, 64, 64*blkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	c1b			;; Iterate if necessary
 	lea	esi, [esi-64*blkdst]	;; Restore source pointer
-end_timer 19
+end_timer 20
 
 ;; Normalize these values
 
-start_timer 20
+start_timer 21
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
 	sub	ecx, ecx
-end_timer 20
+end_timer 21
 
 ;; Have we been given permission to start the FFT on the result?
 ;; If so, do so now while the data is in the L2 cache.
@@ -14420,7 +14420,7 @@ end_timer 20
 ;;	do 128 iterations each processing 56 data values
 
 b0b:
-start_timer 21
+start_timer 22
 	mov	eax, 64			;; 64 iterations of 2
 b1b:	x7cl_seven_reals_first_fft esi, 64, 64*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -14440,7 +14440,7 @@ b1b:	x7cl_seven_reals_first_fft esi, 64, 64*blkdst
 	sub	al, 1			;; Test loop counter
 	JNZ_X	b1b			;; Iterate if necessary
 	lea	esi, [esi-64*blkdst]	;; Restore source pointer
-end_timer 21
+end_timer 22
 
 ;; Do FFT levels 4,5
 ;; Values 0K-511K is real data, 512K-1023K is semi-real data, 1024K-3583K is
@@ -14471,7 +14471,7 @@ end_timer 21
 ;;	distance between fft data elements is 128K
 ;;	do 128 macros each processing 8 data values
 
-start_timer 22
+start_timer 23
 	mov	al, 64			;; 64 iterations of 2
 b2b:	x1cl_half_eight_reals_fft_2 esi, 64
 	add	al, 256/2		;; Test inner loop counter
@@ -14526,7 +14526,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 64*blkdst, 128*blkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b3b			;; Iterate if necessary
 	lea	esi, [esi-64*blkdst-192*blkdst];; Restore source pointer
-end_timer 22
+end_timer 23
 
 ;; Do FFT levels 6,7
 ;; Values 0K-127K is real data, 128K-255K is semi-real data, 256K-3583K is
@@ -14552,7 +14552,7 @@ end_timer 22
 ;;	distance between fft data elements is 32K
 ;;	do 32 macros each processing 32 data values
 
-start_timer 23
+start_timer 24
 	mov	edi, sincos3		;; Load sin/cos pointer
 	mov	al, 16			;; 16 iterations of 2
 b4b:	x4cl_eight_reals_fft_2 esi, 64, 16*blkdst, 32*blkdst
@@ -14597,7 +14597,7 @@ b5b:	x4cl_four_complex_fft esi, 64, 16*blkdst, 32*blkdst
 	mov	al, 16			;; Load middle loop counter
 	JNZ_X	b5b			;; Iterate if necessary
 	lea	esi, [esi-7*64*blkdst]	;; Restore source pointer
-end_timer 23
+end_timer 24
 
 ;; Do FFT levels 8,9
 ;; Values 0K-31K is real data, 32K-63K is semi-real data, 64K-3583K is
@@ -14623,7 +14623,7 @@ end_timer 23
 ;;	distance between fft data elements is 8K
 ;;	do 8 macros each processing 32 data values
 
-start_timer 23
+start_timer 25
 	mov	edi, sincos2		;; Load sin/cos pointer
 	mov	al, 4			;; 4 iterations of 2
 b6b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
@@ -14668,7 +14668,7 @@ b7b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	mov	al, 4			;; Load middle loop counter
 	JNZ_X	b7b			;; Iterate if necessary
 	lea	esi, [esi-28*16*blkdst]	;; Restore source pointer
-end_timer 23
+end_timer 25
 
 ;; Do FFT levels 10,11
 ;; Values 0K-7K is real data, 8K-15K is semi-real data, 16K-3583K is
@@ -14692,7 +14692,7 @@ end_timer 23
 ;;	distance between fft data elements is 2K
 ;;	do 2 macros each processing 32 data values
 
-start_timer 24
+start_timer 26
 	mov	edi, sincos1		;; Load sin/cos pointer
 b8b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2/clm	;; Test inner loop counter
@@ -14721,7 +14721,7 @@ b9b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b9b			;; Iterate if necessary
 	lea	esi, [esi-112*4*blkdst]	;; Restore source pointer
-end_timer 24
+end_timer 26
 
 ;; Work on next 4 sets of 1792 values
 
@@ -14740,9 +14740,9 @@ end_timer 1
 ;; Split the carries into high and low carries (so they do not exceed
 ;; the desired number of bits per FFT word.
 
-start_timer 26
+start_timer 28
 	CALL_X	gw_split_carries_3
-end_timer 26
+end_timer 28
 
 ;; Have we been given permission to start the FFT on the result?
 ;; If so, do so now while the data is in the L2 cache.
@@ -14752,7 +14752,7 @@ end_timer 26
 
 ;; Do FFT levels 1,2,3
 
-start_timer 27
+start_timer 29
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	eax, 64			;; 64 iterations of 2
@@ -14865,7 +14865,7 @@ d9b:	x4cl_four_complex_fft esi, 448*64, 64, 2*64
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	d9b			;; Iterate if necessary
-end_timer 27
+end_timer 29
 
 ;; Now add in the FFT'ed carries, cleanup and return
 
@@ -15049,7 +15049,7 @@ end_timer 17
 ;;	distance between fft data elements is 32K
 ;;	do 16 macros each processing 32 data values
 
-start_timer 17
+start_timer 18
 	mov	al, 8			;; 8 iterations of 2
 c4b:	x4cl_eight_reals_unfft_2 esi, 64, 8*blkdst, 16*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -15093,7 +15093,7 @@ c5b:	x4cl_four_complex_unfft esi, 64, 8*blkdst, 16*blkdst
 	mov	al, 8			;; Load middle loop counter
 	JNZ_X	c5b			;; Iterate if necessary
 	lea	esi, [esi-16*32*blkdst]	;; Restore source pointer
-end_timer 17
+end_timer 18
 
 ;; Do inverse FFT levels 4,5
 ;; On input the 64-byte cache lines hold these data values:
@@ -15116,7 +15116,7 @@ end_timer 17
 ;;	distance between fft data elements is 128K
 ;;	do 64 macros each processing 32 data values
 
-start_timer 18
+start_timer 19
 	mov	al, 32			;; 32 iterations of 2
 c2b:	x4cl_eight_reals_unfft_2 esi, 64, 32*blkdst, 64*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -15160,7 +15160,7 @@ c3b:	x4cl_four_complex_unfft esi, 64, 32*blkdst, 64*blkdst
 	mov	al, 32			;; Reload middle counter
 	JNZ_X	c3b			;; Iterate if necessary
 	lea	esi, [esi-4*128*blkdst]	;; Restore source pointer
-end_timer 18
+end_timer 19
 
 ;; Do inverse FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -15180,7 +15180,7 @@ end_timer 18
 ;;	distance between fft data elements is 512K
 ;;	do 256 macros each processing 32 data values
 
-start_timer 19
+start_timer 20
 	mov	eax, 128*256		;; Load loop counter
 c1b:	x4cl_eight_reals_last_unfft esi, 64, 128*blkdst, 256*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -15197,16 +15197,16 @@ c1b:	x4cl_eight_reals_last_unfft esi, 64, 128*blkdst, 256*blkdst
 	sub	eax, 256		;; Test loop counter
 	JNZ_X	c1b			;; Iterate if necessary
 	lea	esi, [esi-128*blkdst]	;; Restore source pointer
-end_timer 19
+end_timer 20
 
 ;; Normalize these values
 
-start_timer 20
+start_timer 21
 	mov	eax, _NORMRTN		;; Addr of normalization routine
 	call	eax
 	sub	eax, eax
 	sub	ecx, ecx
-end_timer 20
+end_timer 21
 
 ;; Have we been given permission to start the FFT on the result?
 ;; If so, do so now while the data is in the L2 cache.
@@ -15234,7 +15234,7 @@ end_timer 20
 ;;	do 512 iterations each processing 16 data values
 
 b0b:
-start_timer 21
+start_timer 22
 	mov	eax, 256*256		;; 256 iterations of 2
 b1b:	x2cl_eight_reals_first_fft esi, 64, 256*blkdst
 	add	al, 256/2		;; Test loop counter
@@ -15249,7 +15249,7 @@ b1b:	x2cl_eight_reals_first_fft esi, 64, 256*blkdst
 	sub	eax, 256		;; Test loop counter
 	JNZ_X	b1b			;; Iterate if necessary
 	lea	esi, [esi-256*blkdst]	;; Restore source pointer
-end_timer 21
+end_timer 22
 
 ;; Do FFT levels 4,5
 ;; Values 0K-511K is real data, 512K-1023K is semi-real data, 1024K-4095K is
@@ -15276,7 +15276,7 @@ end_timer 21
 ;;	distance between fft data elements is 128K
 ;;	do 128 macros each processing 32 data values
 
-start_timer 22
+start_timer 23
 	mov	edi, sincos4		;; Load sin/cos pointer
 	mov	al, 64			;; 64 iterations of 2
 b2b:	x4cl_eight_reals_fft_2 esi, 64, 64*blkdst, 128*blkdst
@@ -15316,7 +15316,7 @@ b3b:	x4cl_four_complex_fft esi, 64, 64*blkdst, 128*blkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b3b			;; Iterate if necessary
 	lea	esi, [esi-64*blkdst-256*blkdst];; Restore source pointer
-end_timer 22
+end_timer 23
 
 ;; Do FFT levels 6,7
 ;; Values 0K-127K is real data, 128K-255K is semi-real data, 256K-4095K is
@@ -15342,7 +15342,7 @@ end_timer 22
 ;;	distance between fft data elements is 32K
 ;;	do 32 macros each processing 32 data values
 
-start_timer 23
+start_timer 24
 	mov	edi, sincos3		;; Load sin/cos pointer
 	mov	al, 16			;; 16 iterations of 2
 b4b:	x4cl_eight_reals_fft_2 esi, 64, 16*blkdst, 32*blkdst
@@ -15387,7 +15387,7 @@ b5b:	x4cl_four_complex_fft esi, 64, 16*blkdst, 32*blkdst
 	mov	al, 16			;; Load middle loop counter
 	JNZ_X	b5b			;; Iterate if necessary
 	lea	esi, [esi-8*64*blkdst]	;; Restore source pointer
-end_timer 23
+end_timer 24
 
 ;; Do FFT levels 8,9
 ;; Values 0K-31K is real data, 32K-63K is semi-real data, 64K-4095K is
@@ -15413,7 +15413,7 @@ end_timer 23
 ;;	distance between fft data elements is 8K
 ;;	do 8 macros each processing 32 data values
 
-start_timer 23
+start_timer 25
 	mov	edi, sincos2		;; Load sin/cos pointer
 	mov	al, 4			;; 4 iterations of 2
 b6b:	x4cl_eight_reals_fft_2 esi, 64, 4*blkdst, 8*blkdst
@@ -15458,7 +15458,7 @@ b7b:	x4cl_four_complex_fft esi, 64, 4*blkdst, 8*blkdst
 	mov	al, 4			;; Load middle loop counter
 	JNZ_X	b7b			;; Iterate if necessary
 	lea	esi, [esi-32*16*blkdst]	;; Restore source pointer
-end_timer 23
+end_timer 25
 
 ;; Do FFT levels 10,11
 ;; Values 0K-7K is real data, 8K-15K is semi-real data, 16K-4095K is
@@ -15482,7 +15482,7 @@ end_timer 23
 ;;	distance between fft data elements is 2K
 ;;	do 2 macros each processing 32 data values
 
-start_timer 24
+start_timer 26
 	mov	edi, sincos1		;; Load sin/cos pointer
 b8b:	x4cl_eight_reals_fft_2 esi, 64, blkdst, 2*blkdst
 	add	al, 256/2/clm	;; Test inner loop counter
@@ -15511,7 +15511,7 @@ b9b:	x4cl_four_complex_fft esi, 64, blkdst, 2*blkdst
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	b9b			;; Iterate if necessary
 	lea	esi, [esi-128*4*blkdst]	;; Restore source pointer
-end_timer 24
+end_timer 26
 
 ;; Work on next 4 sets of 2048 values
 
@@ -15530,9 +15530,9 @@ end_timer 1
 ;; Split the carries into high and low carries (so they do not exceed
 ;; the desired number of bits per FFT word.
 
-start_timer 26
+start_timer 28
 	CALL_X	gw_split_carries_3
-end_timer 26
+end_timer 28
 
 ;; Have we been given permission to start the FFT on the result?
 ;; If so, do so now while the data is in the L2 cache.
@@ -15542,7 +15542,7 @@ end_timer 26
 
 ;; Do FFT levels 1,2,3
 
-start_timer 27
+start_timer 29
 	mov	esi, carries		;; Load addr of carries (data to FFT)
 	sub	ebx, ebx
 	mov	eax, 256*256		;; 256 iterations of 2
@@ -15647,7 +15647,7 @@ d9b:	x4cl_four_complex_fft esi, 512*64, 64, 2*64
 	lea	edi, [edi+2*XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	JNZ_X	d9b			;; Iterate if necessary
-end_timer 27
+end_timer 29
 
 ;; Now add in the FFT'ed carries, cleanup and return
 
