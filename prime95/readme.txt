@@ -543,7 +543,9 @@ second prime95 from another directory, run the second prime95 from with
 the -A1 switch.  Finally, if you are worried about giving users access to
 a GUI service running in the Local System account, you can turn off the
 "Allow service to interact with desktop" option in the services control
-panel applet.  This is more secure than using the No Icon menu choice.
+panel applet or run the GUI-less NT service version available at
+http://www.mersenne.org/freesoft.htm.  These options are more secure than
+using the No Icon menu choice.
 
 
 COMMAND LINE ARGUMENTS

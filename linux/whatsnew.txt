@@ -1,3 +1,15 @@
+New features in Version 22.8 of mprime
+--------------------------------------
+
+1)  Soft FFT crossovers have been implemented.  If you test an exponent that
+    is within 0.2% of the old hard FFT crossover point, then 1000 test
+    iterations are run to determine if the smaller or larger FFT is
+    appropriate for the exponent.  Although not recommended, you can adjust
+    prime95's behavior to be more aggressive using the SoftCrossover and
+    SoftCrossoverAdjust features discussed in undoc.txt.
+2)  To better stress main memory, the torture test will now use up to the
+    amount of memory specified in the Options/CPU dialog box.
+
 New features in Version 22.7 of mprime
 --------------------------------------
 

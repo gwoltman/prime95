@@ -201,7 +201,7 @@ The program normally does round-off error checking every 128 iterations.
 When you are testing an exponent near the limit of an FFT length, the program
 does this error checking every iteration.  
 	NearFFTLimitPct=value
-The default value is 1.0 (if the exponent you are testing is within 1% of the
+The default value is 0.5 (if the exponent you are testing is within 0.5% of the
 maximum exponent that can be tested using the current FFT length, then the
 extra error checking is performed).  A value of 0.0 will turn off this extra
 error checking.
@@ -218,3 +218,24 @@ The default for both is "Prime95 Service".  In local.ini, set:
 You might want to do this if running on a dual CPU machine and running two
 prime95's in different directories rather than running in the same directory
 with the -A1 switch.
+
+The program no longer uses hard FFT crossover points.  The soft crossovers
+have two adjustments in prime.ini:
+	SoftCrossovers=n
+	SoftCrossoverAdjust=n
+The first setting controls which exponents are examined.  The default value
+is 0.2.  This means that an exponent that is 0.2% above or below an FFT
+crossover point are tested for the best FFT size to use.  A value of 0.0
+will turn off this soft FFT crossovers feature.  The second setting
+defaults to 0.000.  This controls how aggressive or conservative the program
+is in selecting the best FFT size.  The program normally uses the smaller
+FFT size if the average roundoff error is below a value in 0.241 to 0.243
+range.  If you set SoftCrossoverAdjust to say 0.003 then the program will
+use the smaller FFT size if the average roundoff error is below a value
+in 0.244 to 0.246 range.  This will generate more iterations that generate
+roundoff error above 0.40 warnings and a time loss returning to the previous
+save file.  It also increases the chance that a deadly roundoff error
+above 0.6 will occur.  On the plus side, using the smaller FFT size each
+iteration will be a bit quicker.  I wouldn't set this adjustment to more
+than 0.006. If you set SoftCrossoverAdjust to say -0.002, then the program
+will be more conservative and use the larger FFT size more often.

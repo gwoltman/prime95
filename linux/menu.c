@@ -769,8 +769,20 @@ void test_welcome (void)
 	if (m_join) {
 		test_user ();
 	} else {
+		unsigned int mem;
 		IniWriteInt (INI_FILE, "StressTester", 1);
 		IniWriteInt (INI_FILE, "UsePrimenet", USE_PRIMENET = 0);
+		mem = physical_memory ();
+		DAY_MEMORY = NIGHT_MEMORY = (mem <= 32) ? 8 :
+					    (mem <= 256) ? mem / 2 : mem - 128;
+		IniWriteInt (LOCALINI_FILE, "DayMemory", DAY_MEMORY);
+		IniWriteInt (LOCALINI_FILE, "NightMemory", NIGHT_MEMORY);
+		if (mem > 8) {
+			char	buf[160];
+			sprintf (buf, "\nThe torture test will use up to %dMB of memory.  You can change this using Options/CPU menu choice.\n\n", DAY_MEMORY);
+			OutputLongLine (buf);
+			askOK ();
+		}
 		STARTUP_IN_PROGRESS = 0;
 		main_menu ();
 	}

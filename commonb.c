@@ -2479,6 +2479,8 @@ static	int	data_index[29] = {0};
 	for (iter = 1; ; iter++) {
 		unsigned long p, reshi, reslo, units_bit;
 		unsigned int ll_iters;
+		long	memory, num_gwnums;
+		gwnum	*gwarray, g;
 
 /* Find next self test data entry to work on */
 
@@ -2516,10 +2518,36 @@ static	int	data_index[29] = {0};
 		lucasSetup (p, fftlen);
 		MAXDIFF *= 2.0;
 
+/* Determine how many gwnums we can allocate in the memory we are given */
+
+		memory = (DAY_MEMORY > NIGHT_MEMORY) ? DAY_MEMORY : NIGHT_MEMORY;
+		if (memory <= 8 || torture_count < 0 || (iter & 1) == 0)
+			num_gwnums = 1;
+		else {
+			memory = memory * 1000000 -
+				 map_fftlen_to_memused (FFTLEN, PLUS1);
+			num_gwnums = memory / gwnum_size (FFTLEN);
+			if (num_gwnums < 1) num_gwnums = 1;
+			if (num_gwnums > (long) ll_iters) num_gwnums = ll_iters;
+		}
+
+/* Allocate gwnums to eat up the available memory */
+
+		gwarray = (gwnum *) malloc (num_gwnums * sizeof (gwnum));
+		gwarray[0] = LLDATA;
+		for (k = 1; k < (unsigned int) num_gwnums; k++) {
+			gwarray[k] = gwalloc ();
+			if (gwarray[k] == NULL) {
+				num_gwnums = k;
+				break;
+			}
+		}
+
 /* Init data area with a pre-determined value */
 
 restart_test:	units_bit = 0;
 		dbltogw (4.0, LLDATA);
+		g = LLDATA;
 
 /* Do Lucas-Lehmer iterations */
 
@@ -2528,12 +2556,21 @@ restart_test:	units_bit = 0;
 			short	type;
 			unsigned long trash;
 
+/* Copy previous squared value (so we plow through memory) */
+
+			if (k && num_gwnums > 1) {
+				gwnum	prev;
+				prev = g;
+				g = gwarray[k % num_gwnums];
+				gwcopy (prev, g);
+			}
+
 /* One Lucas-Lehmer test with error checking */
 
 			gwsetnormroutine (0, 1, 0);
 			gwstartnextfft (k != 100 && k != ll_iters - 1);
 			lucas_fixup (&units_bit);
-			gwsquare (LLDATA);
+			gwsquare (g);
 
 /* If the sum of the output values is an error (such as infinity) */
 /* then raise an error. */
@@ -2550,12 +2587,13 @@ restart_test:	units_bit = 0;
 
 			if (gw_test_mismatched_sums ()) {
 				sprintf (buf, SELFFAIL2,
-					 gwsumout (LLDATA),
-					 gwsuminp (LLDATA));
+					 gwsumout (g),
+					 gwsuminp (g));
 				OutputBoth (buf);
 				OutputBoth (SELFFAIL5);
 				SELF_TEST_ERRORS++;
 				lucasDone ();
+				free (gwarray);
 				return (FALSE);
 			}
 
@@ -2567,6 +2605,7 @@ restart_test:	units_bit = 0;
 				OutputBoth (SELFFAIL5);
 				SELF_TEST_ERRORS++;
 				lucasDone ();
+				free (gwarray);
 				return (FALSE);
 			}
 
@@ -2574,6 +2613,7 @@ restart_test:	units_bit = 0;
 
 			if (escapeCheck ()) {
 				lucasDone ();
+				free (gwarray);
 				return (FALSE);
 			}
 
@@ -2581,10 +2621,12 @@ restart_test:	units_bit = 0;
 
 			if (k != 100) continue;
 			if (--countdown) continue;
+			if (g != LLDATA) gwcopy (g, LLDATA);
 			if (! writeToFile (filename, 0, 0, 0)) {
 				OutputBoth (SELFFAILW);
 				SELF_TEST_ERRORS++;
 				lucasDone ();
+				free (gwarray);
 				return (FALSE);
 			}
 			countdown = 9;
@@ -2594,6 +2636,7 @@ restart_test:	units_bit = 0;
 				OutputBoth (SELFFAILR);
 				SELF_TEST_ERRORS++;
 				lucasDone ();
+				free (gwarray);
 				return (FALSE);
 			}
 			_unlink (filename);
@@ -2601,8 +2644,10 @@ restart_test:	units_bit = 0;
 
 /* Compare final 32 bits with the pre-computed array of correct residues */
 
+		if (g != LLDATA) gwcopy (g, LLDATA);
 		generateResidue64 (units_bit, &reshi, &reslo);
 		lucasDone ();
+		free (gwarray);
 		if (reshi != SELF_TEST_DATA[i].reshi) {
 			sprintf (buf, SELFFAIL, reshi, SELF_TEST_DATA[i].reshi);
 			OutputBoth (buf);
