@@ -1,0 +1,25 @@
+# Assembler command lines, without and with listings
+
+masm64=ml64 /c /DX86_64 /I..\gwnum
+#masm64=ml64 /c /DX86_64 /DGDEBUG /I..\gwnum
+#masm64=ml64 /c /DX86_64 /I..\gwnum /Fl /Sf /Sa
+
+# Use the 64-bit C compiler - optimization not necessary
+
+cl64=cl /GF /W3 /MT /DX86_64 /D_CRT_SECURE_NO_DEPRECATE /c
+cl64d=cl /GF /W3 /MT /DX86_64 /D_CRT_SECURE_NO_DEPRECATE /DGDEBUG /Zi /c
+
+# List of all buildables in this makefile
+
+all:	amd64\factor64.obj amd64\service.obj
+
+# Create 64-bit object files
+
+amd64\factor64.obj: factor64.asm
+    $(masm64) /Foamd64\factor64.obj factor64.asm
+
+# Compile special services code
+
+amd64\service.obj: service.c
+    $(cl64) /Foamd64\service.obj service.c
+
