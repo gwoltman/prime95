@@ -2630,7 +2630,7 @@ struct self_test_info SELF_TEST_DATA2[MAX_SELF_TEST_ITERS2] = {
 {2539613, 34000, 0x2226BA6B}, {2495213, 34000, 0xE3577D9F},
 {2408447, 34000, 0x594C9155}, {2388831, 34000, 0x55CE9F16},
 {2359297, 34000, 0x09A72A40}, {2359295, 34000, 0x621E8BF9},
-{2236671, 39000, 0x4B50CA20}, {2244765, 39000, 0xEC2F362D},
+{2244765, 39000, 0xEC2F362D}, {2236671, 39000, 0x4B50CA20},
 {2222517, 39000, 0x8DA427C0}, {2193011, 39000, 0xD1DE8993},
 {2130357, 39000, 0x4B5EBB90}, {2122923, 39000, 0x5F9110FC},
 {2100559, 39000, 0xE0CF8904}, {2088461, 39000, 0x26AD1DEA},
@@ -2740,6 +2740,7 @@ int selfTest (
 		int	lengths[SELF_FFT_LENGTHS] = {1024,8,10,896,768,12,14,640,512,16,20,448,384,24,28,320,256,32,40,224,192,48,56,160,128,64,80,112,96,1280,1536,1792,2048,2560,3072,3584,4096};
 		int	min_fft, max_fft, test_time;
 		time_t	start_time, current_time;
+		unsigned int memory;	/* Memory to use during torture test */
 
 /* Make sure the user really wants to spend many hours doing this now */
 
@@ -2759,13 +2760,14 @@ int selfTest (
 
 		min_fft = IniGetInt (INI_FILE, "MinTortureFFT", 8);
 		max_fft = IniGetInt (INI_FILE, "MaxTortureFFT", 4096);
+		memory = IniGetInt (INI_FILE, "TortureMem", DAY_MEMORY > NIGHT_MEMORY ? DAY_MEMORY : NIGHT_MEMORY);
 		for ( ; ; ) {
 		    for (i = 0; i < SELF_FFT_LENGTHS; i++) {
 			if (lengths[i] < min_fft || lengths[i] > max_fft)
 				continue;
-			if (! selfTestInternal (lengths[i]*1024, test_time, i)) {
+			if (! selfTestInternal (lengths[i]*1024, test_time, i, memory)) {
 				if (pArg == 1) {
-					char buf[100];
+					char	buf[100];
 					int	hours, minutes;
 					time (&current_time);
 					minutes = (current_time - start_time) / 60;
@@ -2813,7 +2815,7 @@ int selfTest (
 
 /* Do the self test */
 
-		if (! selfTestInternal (fftlen, 60, -1)) return (FALSE);
+		if (! selfTestInternal (fftlen, 60, -1, 0)) return (FALSE);
 	}
 
 /* Self test completed! */
@@ -2824,7 +2826,8 @@ int selfTest (
 int selfTestInternal (
 	unsigned long fftlen,
 	unsigned int test_time,	/* Number of minutes to self-test */
-	int	torture_count)	/* Index into array of fft sizes */
+	int	torture_count,	/* Index into array of fft sizes */
+	unsigned int memory)	/* MB of memory the torture test can use */
 {
 	unsigned long k, limit;
 	unsigned int i, iter, countdown;
@@ -2877,8 +2880,7 @@ static	int	data_index[SELF_FFT_LENGTHS] = {0};
 	countdown = 1;
 	for (iter = 1; ; iter++) {
 		unsigned long p, reshi, reslo, units_bit;
-		unsigned int ll_iters;
-		long	memory, num_gwnums;
+		unsigned int ll_iters, num_gwnums;
 		gwnum	*gwarray, g;
 
 /* Find next self test data entry to work on */
@@ -2926,22 +2928,21 @@ static	int	data_index[SELF_FFT_LENGTHS] = {0};
 
 /* Determine how many gwnums we can allocate in the memory we are given */
 
-		memory = (DAY_MEMORY > NIGHT_MEMORY) ? DAY_MEMORY : NIGHT_MEMORY;
-		if (memory <= 8 || torture_count < 0 || (iter & 1) == 0)
+		if (memory <= 8 || (iter & 1) == 0)
 			num_gwnums = 1;
 		else {
-			memory = memory * 1000000 -
-				 map_fftlen_to_memused (FFTLEN, PLUS1);
-			num_gwnums = memory / gwnum_size (FFTLEN);
+			num_gwnums = (memory * 1000000 -
+				      map_fftlen_to_memused (FFTLEN, PLUS1)) /
+					gwnum_size (FFTLEN);
 			if (num_gwnums < 1) num_gwnums = 1;
-			if (num_gwnums > (long) ll_iters) num_gwnums = ll_iters;
+			if (num_gwnums > ll_iters) num_gwnums = ll_iters;
 		}
 
 /* Allocate gwnums to eat up the available memory */
 
 		gwarray = (gwnum *) malloc (num_gwnums * sizeof (gwnum));
 		gwarray[0] = LLDATA;
-		for (k = 1; k < (unsigned int) num_gwnums; k++) {
+		for (k = 1; k < num_gwnums; k++) {
 			gwarray[k] = gwalloc ();
 			if (gwarray[k] == NULL) {
 				num_gwnums = k;

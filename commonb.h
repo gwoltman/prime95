@@ -31,7 +31,7 @@ void primeContinue (void);
 int pick_fft_size (unsigned long);
 int prime (unsigned long, unsigned long, unsigned long, unsigned long);
 int selfTest (unsigned long);
-int selfTestInternal (unsigned long, unsigned int, int);
+int selfTestInternal (unsigned long, unsigned int, int, unsigned int);
 void generateRandomData (void);
 void primeTime (unsigned long, unsigned long);
 void primeBench (void);

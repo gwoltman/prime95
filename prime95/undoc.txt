@@ -203,6 +203,13 @@ In prime.ini set:
 	TortureTime=n
 The default value is 15 minutes.
 
+You can control how much memory the torture test uses.  In prime.ini set:
+	TortureMem=n
+The default value is the larger of your daytime and nighttime memory settings.
+If this is set to 8MB or less, then the torture test does FFTs in-place.  This
+may be more stressful but could memory errors that only occur at a specific
+physical address.
+
 The program normally does round-off error checking every 128 iterations.
 When you are testing an exponent near the limit of an FFT length, the program
 does this error checking every iteration.  
