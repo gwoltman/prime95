@@ -16,8 +16,6 @@ readme.txt	This file.
 ntsetup.exe	This program is used to configure ntprime.exe options.
 ntprime.exe	This is the NT Service that runs the Lucas-Lehmer tests
 		to find Mersenne primes.
-rpcnet.dll	Communicates with the Internet PrimeNet server using RPCs.
-httpnet.dll	Communicates with the Internet PrimeNet server using HTTP.
 whatsnew.txt	A list of new features in ntprime.exe.
 prime.ini	A file containing your preferences.  The menu choices
 		and dialog boxes are used to change your preferences.
@@ -95,9 +93,8 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
     plan to visit the PrimeNet server's web page to view reports on your
     progress.  If you do not enter a user ID or if you pick a user ID that
     is already in use, then the server will assign a user ID.
-3b) In the second dialog box, change the CPU type and speed if necessary.
-    Fill in roughly how many hours a day you leave your computer running.
-    Click OK.
+3b) In the second dialog box, fill in roughly how many hours a day you leave
+    your computer running.  Click OK.
 3c) In the third dialog box, leave the "Use Primenet..." checkbox
     checked.  Do not turn this checkbox off even if you disconnect
     from the Internet.   Check the "Use a dial-up..." checkbox
@@ -108,17 +105,9 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
     work for your computer to do.
 4)  Try contacting the PrimeNet server by choosing
     Preferences/Manual Communication.  Hit OK.
-    If you get the error message "Unable to load HTTPNET.DLL", then
-    you are probably missing WININET.DLL.  This DLL is shipped with 
-    Microsoft's Internet Explorer.  It is also installed by default in
-    later versions of Windows 95 and Windows NT.  You can download and
-    install WININET.DLL from Scott Kurowski's web site.  See
-    http://entropia.com/ips/faq.html#wininet for details.
-4a) If you still cannot contact the PrimeNet server, you may want to try the
-    RPC-based DLL.  Choose "Use RPC-based DLL" from the Test/Primenet dialog.
-4b) If a proxy server is the cause of your connection troubles, see the
+4a) If a proxy server is causing connection troubles, see the
     later section on "SETTING UP A PROXY SERVER".
-4c) If the neither DLL will not connect to the server, then
+4b) If you cannot contact the PrimeNet server,
     you will have to use the manual method described below.
 5)  Exit ntsetup.exe.
 6)  Run "ntprime -install" to install the Service.

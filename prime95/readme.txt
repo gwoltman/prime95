@@ -15,8 +15,6 @@ FILE LIST
 readme.txt	This file.
 prime95.exe	The program to factor and run Lucas-Lehmer tests on
 		Mersenne numbers.
-rpcnet.dll	Communicates with the Internet PrimeNet server using RPCs.
-httpnet.dll	Communicates with the Internet PrimeNet server using HTTP.
 prime95.chm	The help file in HTML help format.
 whatsnew.txt	A list of new features in prime95.exe.
 stress.txt	A discussion of issues relating to stress testing a computer.
@@ -83,9 +81,8 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
     plan to visit the PrimeNet server's web page to view reports on your
     progress.  If you do not enter a user ID or if you pick a user ID that
     is already in use, then the server will assign a user ID.
-3c) In the third dialog box, change the CPU type and speed if necessary.
-    Fill in roughly how many hours a day you leave your computer running.
-    Click OK.
+3c) In the third dialog box, fill in roughly how many hours a day you leave
+    your computer running.  Click OK.
 3d) In the fourth dialog box, leave the "Use Primenet..." checkbox
     checked.  Do not turn this checkbox off even if you disconnect
     from the Internet.   Check the "Use a dial-up..." checkbox
@@ -94,17 +91,9 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
     for a time when you are already connected to contact the server.
     Click OK.  Prime95 will now contact the PrimeNet server to get some
     work for your computer to do.
-4)  If you get the error message "Unable to load HTTPNET.DLL", then
-    you are probably missing WININET.DLL.  This DLL is shipped with 
-    Microsoft's Internet Explorer.  It is also installed by default in
-    later versions of Windows 95 and Windows NT.  You can download and
-    install WININET.DLL from Scott Kurowski's web site.  See
-    http://entropia.com/ips/faq.html#wininet for details.
-4a) If you still cannot contact the PrimeNet server, you may want to try the
-    RPC-based DLL.  Choose "Use RPC-based DLL" from the Test/Primenet dialog.
-4b) If a proxy server is the cause of your connection troubles, see the
+4a)  If a proxy server is the causing connection troubles, see the
     later section on "SETTING UP A PROXY SERVER".
-4c) If the neither DLL will not connect to the server, then
+4b) If the program will not connect to the server, then
     you will have to use the manual method described below.
 5)  Disable screen savers or use the "blank screen" screen saver.  If this
     is not practical, consider raising prime95's priority to 4 or 5.
