@@ -1392,6 +1392,46 @@ void lucas_fixup (
 	gwsetaddin (word, addin);
 }
 
+/* Do an LL iteration very carefully.  This is done after a normal */
+/* iteration gets a roundoff error above 0.40.  This careful iteration */
+/* will not generate a roundoff error. */
+
+void careful_iteration (
+	unsigned long *units_bit)
+{
+	gwnum	hi, lo;
+	unsigned long i;
+
+/* Copy the data to hi and lo.  Zero out half the FFT data in each. */
+
+	hi = gwalloc ();
+	lo = gwalloc ();
+	gwcopy (LLDATA, hi);
+	gwcopy (LLDATA, lo);
+	for (i = 0; i < FFTLEN/2; i++) set_fft_value (hi, i, 0);
+	for ( ; i < FFTLEN; i++) set_fft_value (lo, i, 0);
+
+/* Now do the squaring using three multiplies and adds */
+
+	gwsetnormroutine (0, 0, 0);
+	gwstartnextfft (0);
+	gwsetaddin (0, 0);
+	gwfft (hi, hi);
+	gwfft (lo, lo);
+	gwfftfftmul (lo, hi, LLDATA);
+	gwfftfftmul (hi, hi, hi);
+	lucas_fixup (units_bit);
+	gwfftfftmul (lo, lo, lo);
+	gwaddquick (LLDATA, LLDATA);
+	gwaddquick (hi, LLDATA);
+	gwadd (lo, LLDATA);
+
+/* Free memory and return */
+
+	gwfree (hi);
+	gwfree (lo);
+}
+
 /* Do the Lucas-Lehmer test */
 
 int prime (
@@ -1406,14 +1446,14 @@ int prime (
 	double	reallyminerr = 1.0;
 	double	reallymaxerr = 0.0;
 	int	priority_work = 0;
-	int	escaped, saving, near_fft_limit;
+	int	escaped, saving, near_fft_limit, sleep5;
 	unsigned long i, high32, low32;
 	int	isPrime, rc;
 	char	buf[160];
 	time_t	start_time, current_time;
 	unsigned long interimFiles, interimResidues;
 static	unsigned long last_counter = 0;		/* Iteration of last error */
-static	int shift_hack = 0;			/* Hack for big roundoff err */
+static	int maxerr_recovery_mode = 0;		/* Big roundoff err rerun */
 
 /* A new option to create interim save files every N iterations. */
 /* This allows two machines to simultanously work on the same exponent */
@@ -1488,15 +1528,6 @@ static	int shift_hack = 0;			/* Hack for big roundoff err */
 		OutputStr (buf);
 	}
 
-/* Special hack for shifting the data in hopes of producing friendlier */
-/* values in the FFT (less roundoff error). */
-
-	if (shift_hack) {
-		gwadd (LLDATA, LLDATA);
-		units_bit = (units_bit + 1) % p;
-		shift_hack = 0;
-	}
-
 /* If we are near the maximum exponent this fft length can test, then we */
 /* will error check all iterations (unless the advanced user overrides) */
 
@@ -1563,19 +1594,39 @@ static	int shift_hack = 0;			/* Hack for big roundoff err */
 /* Do a Lucas-Lehmer iteration */
 
 		start_timer (0);
+
+/* If we are recovering from a big roundoff error, then run one */
+/* iteration using three multiplies where half the data is zeroed. */
+/* This won't run into any roundoff problems and will protect from */
+/* roundoff errors up to 0.6. */
+
+		if (maxerr_recovery_mode) {
+			careful_iteration (&units_bit);
+			maxerr_recovery_mode = 0;
+		}
+
+/* Otherwise, do a normal iteration */
+
 #ifndef SERVER_TESTING
-		gwsetnormroutine (0, echk, 0);
-		gwstartnextfft (!stopping && !saving && !(counter+1 == p) &&
-				!(interimResidues && (counter+1) % interimResidues <= 2));
-		lucas_fixup (&units_bit);
+		else {
+			gwsetnormroutine (0, echk, 0);
+			gwstartnextfft (!stopping && !saving &&
+					counter+1 != p &&
+					(interimResidues == 0 ||
+					 (counter+1) % interimResidues > 2));
+			lucas_fixup (&units_bit);
 //gwnum qw = gwalloc ();
 //gwfft (LLDATA, qw);
 //gwfftfftmul (qw, qw, LLDATA);
 //	gwcopy (LLDATA, qw);
 //	gwmul (qw, LLDATA);
 //gwfree(qw);
-		gwsquare (LLDATA);
+			gwsquare (LLDATA);
+		}
 #endif
+
+/* End iteration timing and increase count of iteration completed */
+
 		end_timer (0);
 		iters++;
 
@@ -1586,6 +1637,7 @@ static	int shift_hack = 0;			/* Hack for big roundoff err */
 			sprintf (buf, ERRMSG0, counter, p, ERRMSG1A);
 			OutputBoth (buf);
 			inc_error_count (2, &error_count);
+			sleep5 = 1;
 			goto restart;
 		}
 
@@ -1613,6 +1665,7 @@ static	int shift_hack = 0;			/* Hack for big roundoff err */
 				last_suminp = gwsuminp (LLDATA);
 				last_sumout = gwsumout (LLDATA);
 				inc_error_count (0, &error_count);
+				sleep5 = 1;
 				goto restart;
 			}
 		}
@@ -1631,11 +1684,10 @@ static	int shift_hack = 0;			/* Hack for big roundoff err */
 				OutputBoth (ERROK);
 				inc_error_count (3, &error_count);
 				GWERROR = 0;
-				if (MAXERR > 0.45) {
-					OutputBoth (ERRMSG5);
-					shift_hack = 1;
-					goto restart;
-				}
+				OutputBoth (ERRMSG5);
+				maxerr_recovery_mode = 1;
+				sleep5 = 0;
+				goto restart;
 			} else {
 				char	msg[100];
 				sprintf (msg, ERRMSG1C, MAXERR);
@@ -1644,6 +1696,7 @@ static	int shift_hack = 0;			/* Hack for big roundoff err */
 				last_counter = counter;
 				last_maxerr = MAXERR;
 				inc_error_count (1, &error_count);
+				sleep5 = 0;
 				goto restart;
 			}
 		}
@@ -1747,7 +1800,7 @@ _close (fd);
 		if (interimResidues && counter % interimResidues <= 2) {
 			generateResidue64 (units_bit, &high32, &low32);
 			sprintf (buf, 
-				 "M%ld interim WX%d residue %08lX%08lX at iteration %ld\n",
+				 "M%ld interim WY%d residue %08lX%08lX at iteration %ld\n",
 				 p, PORT, high32, low32, counter);
 			OutputBoth (buf);
 		}
@@ -1796,13 +1849,13 @@ _close (fd);
 /* Format the output message */
 
 	if (isPrime) {
-		sprintf (buf, "M%ld is prime! WX%d: %08lX\n",
+		sprintf (buf, "M%ld is prime! WY%d: %08lX\n",
 			 p, PORT, SEC1 (p));
 		high32 = low32 = 0;
 	} else {
 		generateResidue64 (units_bit, &high32, &low32);
 		sprintf (buf,
-			 "M%ld is not prime. Res64: %08lX%08lX. WX%d: %08lX,%ld,%08lX\n",
+			 "M%ld is not prime. Res64: %08lX%08lX. WY%d: %08lX,%ld,%08lX\n",
 			 p, high32, low32, PORT,
 			 SEC2 (p, high32, low32, units_bit, error_count),
 			 units_bit, error_count);
@@ -1865,7 +1918,7 @@ restart:clearRollingStart ();
 
 /* Output a message saying we are restarting */
 
-	if (!shift_hack) OutputBoth (ERRMSG2);
+	if (sleep5) OutputBoth (ERRMSG2);
 	OutputBoth (ERRMSG3);
 
 /* Update the error count in the save file */
@@ -1874,7 +1927,7 @@ restart:clearRollingStart ();
 
 /* Sleep five minutes before restarting */
 
-	if (!shift_hack && ! SleepFive ()) return (FALSE);
+	if (sleep5 && ! SleepFive ()) return (FALSE);
 
 /* Return so that last continuation file is read in */
 
@@ -2362,6 +2415,13 @@ restart_test:	units_bit = 0;
 /* Read a file of exponents to run LL iterations on as part of a QA process */
 /* The format of this file is: */
 /*	exponent,optional fft length,num iters,optional shift count,residue */
+/* An Advanced/Time 9999 corresponds to type 0, Advanced/Time 9998 */
+/* corresponds to type 1, etc. */
+/* Type 0 executes much like an LL test, error checking and doing a */
+/* careful iteration occasionally */
+/* Type 1 does roundoff checking every iteration and accumulates */
+/* statistics on the round off data. */
+/* Type 2 and higher have not been used much and may not work */
 
 int lucas_QA (
 	int	type)
@@ -2386,7 +2446,7 @@ int lucas_QA (
 		unsigned long p, fftlen, iters, units_bit;
 		char	buf[500], res[80];
 		unsigned long reshi, reslo;
-		unsigned long i, word, bit_in_word;
+		unsigned long i, word, bit_in_word, maxerrcnt;
 		double	maxsumdiff, maxerr, toterr, M, S;
 /*		unsigned long bins[501]; */
 		gwnum	t1, t2;
@@ -2403,7 +2463,7 @@ int lucas_QA (
 
 		lucasSetup (p, fftlen);
 		maxsumdiff = 0.0;
-		maxerr = 0.0; toterr = 0.0;
+		maxerr = 0.0; maxerrcnt = 0; toterr = 0.0;
 /*		memset (bins, 0, sizeof (bins)); */
 		iters_unchecked = (type >= 2) ? 12 : (type >= 1) ? 5 : 40;
 
@@ -2446,9 +2506,18 @@ int lucas_QA (
 
 /* One Lucas-Lehmer iteration with error checking */
 
-			gwsetnormroutine (0, ERRCHK || (i & 127) == 64, 0);
-			gwstartnextfft (i < iters / 2);
-			if (type <= 1) {		/* Typical LL test */
+			if (type == 0) {		/* Typical LL test */
+				gwsetnormroutine (0, (i & 63) == 37, 0);
+				gwstartnextfft (i < iters / 2);
+				if (i > iters / 2 && (i & 63) == 44)
+					careful_iteration (&units_bit);
+				else {
+					lucas_fixup (&units_bit);
+					gwsquare (LLDATA);
+				}
+			} else if (type == 1) {		/* Stats collecting */
+				gwsetnormroutine (0, 1, 0);
+				gwstartnextfft (i < iters / 2);
 				lucas_fixup (&units_bit);
 				gwsquare (LLDATA);
 			} else if (type == 2) {		/* Thorough test */
@@ -2504,7 +2573,8 @@ int lucas_QA (
 
 /* Maintain maximum error info */
 
-			if (MAXERR > maxerr) maxerr = MAXERR;
+			if (MAXERR > maxerr) maxerr = MAXERR, maxerrcnt = 1;
+			else if (MAXERR == maxerr) maxerrcnt++;
 			MAXERR = 0.0;
 
 /* Maintain maximum suminp/sumout difference */
@@ -2590,8 +2660,8 @@ int lucas_QA (
 
 /* Output message */
 
-		sprintf (buf, "Exp/iters: %lu/%lu, res: %08X%08X, maxerr: %6.6f, maxdiff: %9.9f/%9.9f\n",
-			 p, iters, reshi, reslo, maxerr, maxsumdiff, MAXDIFF);
+		sprintf (buf, "Exp/iters: %lu/%lu, res: %08X%08X, maxerr: %6.6f/%lu, maxdiff: %9.9f/%9.9f\n",
+			 p, iters, reshi, reslo, maxerr, maxerrcnt, maxsumdiff, MAXDIFF);
 		OutputBoth (buf);
 	}
 	fclose (fd);
@@ -3261,7 +3331,7 @@ done:	if (*result)
 		pkt.resultInfo.how_far_factored = bits;
 		spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
 
-		sprintf (buf, "M%ld no factor to 2^%d, WX%d: %08lX\n",
+		sprintf (buf, "M%ld no factor to 2^%d, WY%d: %08lX\n",
 			 p, bits, PORT, SEC3 (p));
 		OutputBoth (buf);
 		spoolMessage (PRIMENET_RESULT_MESSAGE, buf);
@@ -3297,7 +3367,7 @@ readerr:_close (fd);
 
 /* Factor a range of primes using factors of the specified size */
 
-char NOFAC[] = "M%ld no factor from 2^%d to 2^%d, WX%d: %08lX\n";
+char NOFAC[] = "M%ld no factor from 2^%d to 2^%d, WY%d: %08lX\n";
 
 int primeSieve (
 	unsigned long startp,
