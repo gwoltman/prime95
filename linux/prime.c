@@ -25,7 +25,7 @@
 #ifndef __IBMC__
 #include <unistd.h>
 #endif
-#if defined (__linux__) || defined (__FreeBSD__)
+#if defined (__linux__) || defined (__FreeBSD__) || defined(__WATCOMC__)
 #include <sys/time.h>
 #include <sys/timeb.h>
 #endif
@@ -45,7 +45,9 @@ typedef int pid_t;
 
 /* Globals */
 
+#ifndef __WATCOMC__
 #define OPEN_MAX 20
+#endif
 
 #ifdef MPRIME_LOADAVG
 #define LINUX_LDAV_FILE "/proc/loadavg"
@@ -720,7 +722,7 @@ int LoadPrimeNet (void)
 	  fclose(fd);
 	}
 #endif
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__WATCOMC__)
 	/* The /proc/net/route test is not really meaningful under FreeBSD */
 	/* There doesn't seem to be any meaningful test to see whether the */
 	/* computer is connected to the Internet at the time using a non- */

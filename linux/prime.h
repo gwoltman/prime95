@@ -11,7 +11,7 @@
 #ifdef __FreeBSD__
 #define PORT	6
 #endif
-#if defined (__EMX__) || defined (__IBMC__)
+#if defined (__EMX__) || defined (__IBMC__) || defined (__WATCOMC__)
 #define PORT	7
 #endif
 
@@ -110,7 +110,6 @@
 
 /* Handle differences between Windows and Linux runtime libraries */
 
-#define stricmp(x,y)	strcasecmp(x,y)
 #define _commit(f)	fsync(f)
 #define _open		open
 #define _close		close
@@ -121,9 +120,12 @@
 #define _creat		creat
 #define _chdir		chdir
 #define _ftime		ftime
-#define _timeb		timeb
 #define closesocket	close
 #define IsCharAlphaNumeric(c) isalnum(c)
+
+#ifndef __WATCOMC__
+#define stricmp(x,y)	strcasecmp(x,y)
+#define _timeb		timeb
 #define _O_APPEND	O_APPEND
 #define _O_RDONLY	O_RDONLY
 #define _O_WRONLY	O_WRONLY
@@ -132,6 +134,7 @@
 #define _O_TRUNC	O_TRUNC
 #define _O_BINARY 	0
 #define _O_TEXT		0
+#endif
 
 /* Handle differences between Windows and OS/2 runtime libraries */
 
