@@ -12638,10 +12638,9 @@ nogap:
 
 ;; Preload a TLB so that later calls to prefetcht1 do their work
 
-touch	MACRO	target
+touch	MACRO
 	IF PREFETCHING NE 0
-	mov	dl, BYTE PTR [ecx+(clm-1)*32]
-	sub	dl, dl
+	cmp	esp, BYTE PTR [ecx+(clm-1)*32]
 	ENDIF
 	ENDM
 

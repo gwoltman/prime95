@@ -175,7 +175,7 @@ mulhalf	MACRO	r
 
 xtouch	MACRO	addr
 	IF PREFETCHING NE 0
-	movapd	xmm0, addr
+	cmp	rsp, addr
 	ENDIF
 	ENDM
 
