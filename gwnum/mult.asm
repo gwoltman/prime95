@@ -2958,7 +2958,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DPTR			OFFSET xprctab1	;; Table of add/sub/norm procs
 	DD			512, 512
 	DD			256, 128, 8*256+32, 16*256+64, 4*256+4, 0
-	DD	132000,	6144,	0.000291,	211872
+	DD	129600,	6144,	0.000291,	211872
 	DD			0		;; Flags, min_l2_cache, clm
 	DD			0		;; scratch area size
 	DD			0		;; FFT levels done in pass2
