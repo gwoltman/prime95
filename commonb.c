@@ -62,10 +62,7 @@ int isKnownMersennePrime (
 /* Routine to set the stop timer when available memory settings change */
 
 void memSettingsChanged (void) {
-	if (HIGH_MEMORY_USAGE || STOP_TIME) {
-		OutputStr ("Restarting with new memory settings.\n");
-		STOP_TIME = 1;
-	}
+	if (HIGH_MEMORY_USAGE || STOP_TIME) STOP_TIME = 1;
 }
 
 /* Return memory available now */
@@ -740,8 +737,7 @@ static	int	time_counter = 0;
 		}
 	}
 
-/* If this is a timed run, check if our time has expired */
-/* This is a little used feature described in the readme.txt file */
+/* If we're checking for the day/night memory change, check the timer now. */
 
 	if (STOP_TIME) {
 		time_t	this_time;
@@ -1500,7 +1496,10 @@ check_stop_code:
 /* the worktodo file from the beginning in case there are items that */
 /* were stalled waiting for more memory. */
 
-	if (STOP_REASON == STOP_MEM_CHANGED) goto did_some_work;
+	if (STOP_REASON == STOP_MEM_CHANGED) {
+		OutputStr ("Restarting with new memory settings.\n");
+		goto did_some_work;
+	}
 
 /* Otherwise the escape key was hit, close the worktodo file in case */
 /* WELL_BEHAVED_WORK caused us to delay writing the file, then return */
