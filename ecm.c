@@ -4139,7 +4139,7 @@ restart0:
 	start_sieve (2);
 	prime = sieve ();
 	stage_0_limit = (state.B > 1000000) ? 1000000 : state.B;
-	i = ((unsigned long) (stage_0_limit * 1.5) >> 5) + 1;
+	i = ((unsigned long) (stage_0_limit * 1.5) >> 5) + 4;
 	exp = newgiant (i << 1);
 	calc_exp (exp, state.B, &prime, 0, i);
 
