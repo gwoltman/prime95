@@ -274,6 +274,7 @@ int pnHttpServer (char *pbuf, unsigned cbuf, char* postargs)
 
 /* Output debug info */
 
+redirect:
 	if (debug) {
 		sprintf (buf, "host = %s, port = %d\n", con_host, con_port);
 		LogMsg (buf);
@@ -344,7 +345,7 @@ int pnHttpServer (char *pbuf, unsigned cbuf, char* postargs)
 /* GET method, data follows ? in URL */
 
 	strcpy (szURL, "GET ");
-	if (*szProxyHost || IniGetInt (INIFILENAME, "UseFullURL", 1)) {
+	if (*szProxyHost || IniGetInt (INIFILENAME, "UseFullURL", 0)) {
 		strcat (szURL, "http://");
 		strcat (szURL, szSITE);
 		strcat (szURL, ":");
@@ -411,10 +412,49 @@ int pnHttpServer (char *pbuf, unsigned cbuf, char* postargs)
 
 	closesocket (s);
 
-/* pbuf + 9 is where the message following HTTP/1.0 starts */
-/* TODO: more subtle checking here */
+/* pbuf + 9 is where the message code following HTTP/1.0 starts */
 
-	if (count <= 10 || atoi (pbuf + 9) != 200) {
+	if (count <= 10) res = -1;
+	else res = atoi (pbuf + 9);
+
+/* Some proxy servers can redirect us to another host.  These are */
+/* the 300 series of error codes.  This code probably isn't right. */
+/* We can improve it as people find problems. */
+
+	if (res >= 300 && res <= 399) {
+		char	*location, *colon;
+		location = strstr (pbuf, "Location:");
+		if (location != NULL) {
+			if (debug) LogMsg ("Attempting a redirect.\n");
+			location += 9;
+			while (isspace (*location)) location++;
+			strcpy (szProxyHost, location);
+
+/* Parse the redirection address */
+
+			if ((location[0] == 'H' || location[0] == 'h') &&
+			    (location[1] == 'T' || location[1] == 't') &&
+			    (location[2] == 'T' || location[2] == 't') &&
+			    (location[3] == 'P' || location[3] == 'p') &&
+			    location[4] == ':' && location[5] == '/' &&
+			    location[6] == '/')
+				strcpy (location, location + 7);
+			con_host = location;
+
+/* Get optional port number */
+
+			if ((colon = strchr (location, ':')) != NULL) {
+				con_port = (unsigned short) atoi (colon + 1);
+				*colon = 0;
+			} else
+				con_port = 80;
+			goto redirect;
+		}
+	}
+
+/* Any return code other than 200 is an error */
+
+	if (res != 200) {
 		if (debug) LogMsg ("Return code is not 200\n");
 		return (PRIMENET_ERROR_SERVER_UNSPEC);
 	}
