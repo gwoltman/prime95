@@ -1,16 +1,17 @@
-; Copyright 2001-2004 Just For Fun Software, Inc., all rights reserved
+; Copyright 2001-2005 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
 
 	TITLE   setup
 
+IFNDEF X86_64
 	.686
 	.XMM
+	.MODEL	FLAT
+ENDIF
 
-_TEXT32 SEGMENT PARA USE32 PUBLIC 'DATA'
-
-	ASSUME  CS: _TEXT32, DS: _TEXT32, SS: _TEXT32, ES: _TEXT32
+_TEXT SEGMENT
 
 INCLUDE extrn.mac
 INCLUDE	unravel.mac
@@ -18,7 +19,7 @@ INCLUDE xmult.mac
 INCLUDE memory.mac
 INCLUDE xnormal.mac
 
-gwx1procs PROC NEAR
+gwx1procs PROC
 
 ;;
 ;; Add two numbers without carry propogation.  Caller can use this for
@@ -326,7 +327,7 @@ gwx1procs ENDP
 ;; Routines to do the normalization after a multiply
 ;;
 
-_xsimpnorm PROC NEAR
+_xsimpnorm PROC
 
 ; Macro to loop through all the FFT values and apply the proper normalization
 ; routine.
@@ -481,5 +482,5 @@ exit:	pop	esi
 	ret
 _xsimpnorm ENDP
 
-_TEXT32	ENDS
+_TEXT	ENDS
 END

@@ -1,4 +1,4 @@
-; Copyright 1995-2004 Just For Fun Software, Inc., all rights reserved
+; Copyright 1995-2005 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -7,9 +7,10 @@
 
 	TITLE   setup
 
+IFNDEF X86_64
 	.386
-
-_TEXT32 SEGMENT PAGE USE32 PUBLIC 'DATA'
+	.MODEL	FLAT
+ENDIF
 
 EXTRN	_PARG:DWORD
 EXTRN	_FFTLEN:DWORD
@@ -31,7 +32,7 @@ EXTRN	_EGCD_ODD:DWORD
 ; Global variables
 ;
 
-	align	32
+_DATA SEGMENT
 fltval		DD	0
 fltvalhi	DD	0
 fltval1		DD	0
@@ -39,17 +40,16 @@ fltval1hi	DD	0
 TWOPOW32	DD	4294967296.0		; 2^32
 BIGVAL		DD	5F000000h		; 2^63
 FPCNTRL		DW	0
-_TEXT32	ENDS
+_DATA	ENDS
 
-	ASSUME  CS: _TEXT32, DS: _TEXT32, SS: _TEXT32, ES: _TEXT32
-_TEXT32	SEGMENT
+_TEXT	SEGMENT
 
 INCLUDE unravel.mac
 
 ; Add integer to carryh,carryl,res
 
 	PUBLIC	_eaddhlp
-_eaddhlp PROC NEAR
+_eaddhlp PROC
 	mov	eax, _NUMARG		; Integer1
 	add	_RES, eax		; Add two integers
 	adc	_CARRYL, 0		; Add the carry
@@ -60,7 +60,7 @@ _eaddhlp ENDP
 ; Subtract integer from carryh,carryl,res
 
 	PUBLIC	_esubhlp
-_esubhlp PROC NEAR
+_esubhlp PROC
 	mov	eax, _NUMARG		; Integer1
 	sub	_RES, eax		; Subtract two integers
 	sbb	_CARRYL, 0		; Subtract the carry
@@ -71,7 +71,7 @@ _esubhlp ENDP
 ; Multiply integer1 and integer2 adding result to carryh,carryl,res
 
 	PUBLIC	_emuladdhlp
-_emuladdhlp PROC NEAR
+_emuladdhlp PROC
 	mov	eax, _NUMARG		; Integer1
 	mul	_NUM2ARG		; Integer2
 	add	_RES, eax		; Add result to 3 word accumulator
@@ -83,7 +83,7 @@ _emuladdhlp ENDP
 ; Multiply integer1 and integer2 adding twice the result to carryh,carryl,res
 
 	PUBLIC	_emuladd2hlp
-_emuladd2hlp PROC NEAR
+_emuladd2hlp PROC
 	mov	eax, _NUMARG		; Integer1
 	mul	_NUM2ARG		; Integer2
 	add	eax, eax		; Add 2*result to 3 word accumulator
@@ -98,7 +98,7 @@ _emuladd2hlp ENDP
 ; Multiply integer1 and integer2 subtracting result from carryh,carryl,res
 
 	PUBLIC	_emulsubhlp
-_emulsubhlp PROC NEAR
+_emulsubhlp PROC
 	mov	eax, _NUMARG		; Integer1
 	mul	_NUM2ARG		; Integer2
 	sub	_RES, eax		; Sub result from 3 word accumulator
@@ -116,7 +116,7 @@ _emulsubhlp ENDP
 ; This was implemented in assembly language to deal with 64-bit integers.
 
 	PUBLIC	_egcdhlp
-_egcdhlp PROC NEAR
+_egcdhlp PROC
 	fninit
 	push	ebp
 	push	ebx
@@ -408,6 +408,5 @@ egdone1:fstcw	FPCNTRL
 	ret
 _egcdhlp ENDP
 
-
-_TEXT32	ENDS
+_TEXT	ENDS
 END

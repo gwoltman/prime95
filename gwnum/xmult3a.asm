@@ -1,4 +1,4 @@
-; Copyright 2001-2004 Just For Fun Software, Inc., all rights reserved
+; Copyright 2001-2005 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -11,12 +11,13 @@
 
 	TITLE   setup
 
+IFNDEF X86_64
 	.686
 	.XMM
+	.MODEL	FLAT
+ENDIF
 
-_TEXT32 SEGMENT PARA USE32 PUBLIC 'DATA'
-
-	ASSUME  CS: _TEXT32, DS: _TEXT32, SS: _TEXT32, ES: _TEXT32
+_TEXT SEGMENT
 
 INCLUDE extrn.mac
 INCLUDE	unravel.mac
@@ -33,7 +34,7 @@ PUBLIC	xpass2_11_levels_p
 
 ;; Do the last 11 levels of a two pass FFT
 
-xpass2_11_levels PROC NEAR
+xpass2_11_levels PROC
 	start_timer 2
 	xpass2_11_levels_real 0
 	add	esi, pass1blkdst
@@ -51,5 +52,5 @@ p2lp:	xpass2_11_levels_complex 0
 	ret
 xpass2_11_levels ENDP
 
-_TEXT32	ENDS
+_TEXT	ENDS
 END

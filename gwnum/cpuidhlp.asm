@@ -1,4 +1,4 @@
-; Copyright 1995-2002 Just For Fun Software, Inc., all rights reserved
+; Copyright 1995-2005 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -8,9 +8,12 @@
 
 	TITLE   setup
 
+IFNDEF X86_64
 	.586
+	.MODEL	FLAT
+ENDIF
 
-_TEXT32 SEGMENT PAGE USE32 PUBLIC 'DATA'
+_TEXT SEGMENT
 
 EXTRN	_CPUID_EAX:DWORD
 EXTRN	_CPUID_EBX:DWORD
@@ -18,20 +21,11 @@ EXTRN	_CPUID_ECX:DWORD
 EXTRN	_CPUID_EDX:DWORD
 
 ;
-; Global variables
-;
-
-_TEXT32	ENDS
-
-	ASSUME  CS: _TEXT32, DS: _TEXT32, SS: _TEXT32, ES: _TEXT32
-_TEXT32	SEGMENT
-
-;
 ; Utility routine to initialize the FPU
 ;
 
 	PUBLIC	_fpu_init
-_fpu_init PROC NEAR
+_fpu_init PROC
 	fninit
 	ret
 _fpu_init ENDP
@@ -41,7 +35,7 @@ _fpu_init ENDP
 ;
 
 	PUBLIC	_erdtsc
-_erdtsc PROC NEAR
+_erdtsc PROC
 	rdtsc
 	mov	_CPUID_EAX, eax		; low 32 bits
 	mov	_CPUID_EDX, edx		; high 32 bits
@@ -55,7 +49,7 @@ _erdtsc ENDP
 ;
 
 	PUBLIC	_ecpuidsupport
-_ecpuidsupport PROC NEAR
+_ecpuidsupport PROC
         pushfd				; Get original EFLAGS
 	pop	eax
 	mov 	ecx, eax
@@ -73,7 +67,7 @@ _ecpuidsupport ENDP
 ;
 
 	PUBLIC	_ecpuid
-_ecpuid PROC NEAR
+_ecpuid PROC
 	push	ebx
 	mov	eax, _CPUID_EAX		; Argument to CPUID
 	cpuid				; Perform the CPUID
@@ -86,5 +80,5 @@ _ecpuid PROC NEAR
 _ecpuid ENDP
 
 
-_TEXT32	ENDS
+_TEXT	ENDS
 END

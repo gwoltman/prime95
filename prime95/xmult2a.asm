@@ -1,4 +1,4 @@
-; Copyright 2001-2004 Just For Fun Software, Inc., all rights reserved
+; Copyright 2001-2005 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -11,12 +11,13 @@
 
 	TITLE   setup
 
+IFNDEF X86_64
 	.686
 	.XMM
+	.MODEL	FLAT
+ENDIF
 
-_TEXT32 SEGMENT PARA USE32 PUBLIC 'DATA'
-
-	ASSUME  CS: _TEXT32, DS: _TEXT32, SS: _TEXT32, ES: _TEXT32
+_TEXT SEGMENT
 
 INCLUDE extrn.mac
 INCLUDE	unravel.mac
@@ -39,7 +40,7 @@ blkdst	EQU	(8192+128)
 
 ;; Do the last 8 levels of a two pass FFT
 
-xpass2_8_levels PROC NEAR
+xpass2_8_levels PROC
 	xpass2_8_levels_real blkdst
 xpass2_8_levels_p:
 	mov	ecx, count1		; Number of complex iterations
@@ -51,5 +52,5 @@ p2lp:	xpass2_8_levels_complex blkdst
 	ret
 xpass2_8_levels ENDP
 
-_TEXT32	ENDS
+_TEXT	ENDS
 END

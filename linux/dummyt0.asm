@@ -1,4 +1,4 @@
-; Copyright 1995-2004 Just For Fun Software, Inc., all rights reserved
+; Copyright 1995-2005 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -9,8 +9,9 @@
 	TITLE   setup
 
 	.386
+	.MODEL	FLAT
 
-_TEXT32 SEGMENT PAGE USE32 PUBLIC 'DATA'
-_TEXT32 ENDS
+_TEXT SEGMENT
+_TEXT ENDS
 
 END

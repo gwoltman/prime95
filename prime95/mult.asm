@@ -8,14 +8,15 @@
 
 	TITLE   setup
 
+IFNDEF X86_64
 	.686
-	.MMX
 	.XMM
 	.MODEL	FLAT
+ENDIF
 
 VERSION_NUMBER = 2408		;; Version 24.8
 
-_GWDATA SEGMENT PAGE
+_GWDATA SEGMENT PAGE PUBLIC 'DATA'
 
 EXTRN	_CPU_FLAGS:DWORD
 EXTRN	_KARG:QWORD
@@ -3266,6 +3267,8 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			512, 1
 	DD			512, 1, 512, 1, 1, 0
 	DD	0
+	;; Align so that other GWDATA areas are aligned on a cache line
+	align 128
 _GWDATA ENDS
 
 INCLUDE	unravel.mac
@@ -3276,7 +3279,7 @@ INCLUDE setup.mac
 INCLUDE xmult.mac
 ;;INCLUDE normal.mac
 
-_TEXT32	SEGMENT
+_TEXT	SEGMENT
 
 ; Return address of jmp tables for C code to examine
 
@@ -4022,5 +4025,5 @@ _esincos3 ENDP
 
 INCLUDE timeit.inc
 
-_TEXT32 ENDS
+_TEXT ENDS
 END

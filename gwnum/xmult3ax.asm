@@ -1,16 +1,17 @@
-; Copyright 2001-2004 Just For Fun Software, Inc., all rights reserved
+; Copyright 2001-2005 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
 
 	TITLE   setup
 
+IFNDEF X86_64
 	.686
 	.XMM
+	.MODEL	FLAT
+ENDIF
 
-_TEXT32 SEGMENT PARA USE32 PUBLIC 'DATA'
-
-	ASSUME  CS: _TEXT32, DS: _TEXT32, SS: _TEXT32, ES: _TEXT32
+_TEXT SEGMENT
 
 INCLUDE extrn.mac
 INCLUDE	unravel.mac
@@ -20,7 +21,7 @@ INCLUDE xnormal.mac
 
 blkrows	EQU	1024
 
-gwx3procs PROC NEAR
+gwx3procs PROC
 
 ;;
 ;; Add two numbers without carry propogation.  Caller can use this for
@@ -496,7 +497,7 @@ gwx3procs ENDP
 ;;
 
 	PUBLIC	gwxcopyzero3
-gwxcopyzero3 PROC NEAR
+gwxcopyzero3 PROC
 	push	esi			; Save registers
 	push	edi			; Save registers
 	mov	esi, _SRCARG		; Address of first number
@@ -527,7 +528,7 @@ gwxcopyzero3 ENDP
 ;; Routines to do the normalization after a multiply
 ;;
 
-_xnorm3 PROC NEAR
+_xnorm3 PROC
 
 ; Macro to loop through all the FFT values and apply the proper normalization
 ; routine.
@@ -664,5 +665,5 @@ top_carry_adjust_3:
 
 _xnorm3 ENDP
 
-_TEXT32	ENDS
+_TEXT	ENDS
 END

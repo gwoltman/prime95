@@ -40,7 +40,6 @@ xfftclm	MACRO fft_length, clm
 type1	MACRO fft_length, suffix, clm
 	PUBLIC	xfft&fft_length&clm&suffix
 xfft&fft_length&clm&suffix:
-	fninit
 	push	ebp
 	push	ebx
 	push	edi
@@ -64,7 +63,6 @@ xfft&fft_length&clm&suffix:
 type2	MACRO fft_length, suffix, clm
 	PUBLIC	xfft&fft_length&clm&suffix
 xfft&fft_length&clm&suffix:
-	fninit
 	push	ebp
 	push	ebx
 	push	edi
@@ -93,7 +91,6 @@ xfft2a&fft_length&clm:
 type3	MACRO fft_length, suffix, clm
 	PUBLIC	xfft&fft_length&clm&suffix
 xfft&fft_length&clm&suffix:
-	fninit
 	push	ebp
 	push	ebx
 	push	edi
@@ -117,7 +114,6 @@ xfft&fft_length&clm&suffix:
 type4	MACRO fft_length, suffix, clm
 	PUBLIC	xfft&fft_length&clm&suffix
 xfft&fft_length&clm&suffix:
-	fninit
 	push	ebp
 	push	ebx
 	push	edi

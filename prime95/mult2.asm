@@ -1,4 +1,4 @@
-; Copyright 1995-2004 Just For Fun Software, Inc., all rights reserved
+; Copyright 1995-2005 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -18,10 +18,9 @@
 
 	.686
 	.XMM
+	.MODEL	FLAT
 
-_TEXT32 SEGMENT PARA USE32 PUBLIC 'DATA'
-
-	ASSUME  CS: _TEXT32, DS: _TEXT32, SS: _TEXT32, ES: _TEXT32
+_TEXT SEGMENT
 
 INCLUDE extrn.mac
 INCLUDE	unravel.mac
@@ -209,5 +208,5 @@ ENDIF
 
 ENDPP	_gw_ffts2
 
-_TEXT32	ENDS
+_TEXT	ENDS
 END

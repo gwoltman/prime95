@@ -1,4 +1,4 @@
-; Copyright 2001-2004 Just For Fun Software, Inc., all rights reserved
+; Copyright 2001-2005 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -17,12 +17,13 @@
 
 	TITLE   setup
 
+IFNDEF X86_64
 	.686
 	.XMM
+	.MODEL	FLAT
+ENDIF
 
-_TEXT32 SEGMENT PARA USE32 PUBLIC 'DATA'
-
-	ASSUME  CS: _TEXT32, DS: _TEXT32, SS: _TEXT32, ES: _TEXT32
+_TEXT SEGMENT
 
 INCLUDE extrn.mac
 INCLUDE	unravel.mac
@@ -36,7 +37,7 @@ EXTRN	xpass2_11_levels_p:PROC
 
 ;; All the FFT routines for each FFT length
 
-_xmm_gw_ffts3 PROC NEAR
+_xmm_gw_ffts3 PROC
 	EXPANDING = 2
 	xfft	40K
 	xfft	48K
@@ -250,5 +251,5 @@ exit:	pop	esi
 
 _xmm_gw_ffts3 ENDP
 
-_TEXT32	ENDS
+_TEXT	ENDS
 END
