@@ -26,8 +26,6 @@
 #include "VacationDlg.h"
 #include "WelcomeDlg.h"
 
-#include "HtmlHelp.h"
-
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #undef THIS_FILE
@@ -821,9 +819,7 @@ void CPrime95Doc::OnUpdateHelpFinder(CCmdUI* pCmdUI)
 
 void CPrime95Doc::OnHelpFinder() 
 {
-#ifndef _DEBUG
-	HtmlHelp(AfxGetApp()->m_pMainWnd->m_hWnd,"prime95.chm",HH_DISPLAY_TOPIC,0);
-#endif
+	AfxGetApp()->HtmlHelp (HH_DISPLAY_TOPIC,0);
 }
 
 void CPrime95Doc::OnUpdateServer(CCmdUI* pCmdUI) 
@@ -980,7 +976,9 @@ void CPrime95Doc::OutputStr (
 
 #define PORT	1
 #include "giants.h"
+#ifdef _DEBUG
 #include "giants.c"
+#endif
 #include "gwnum.c"
 #include "commona.c"
 #include "commonb.c"
