@@ -178,6 +178,11 @@ void getCpuInfo (void)
 	if (temp == 0) CPU_FLAGS &= ~CPU_SSE2;
 	if (temp == 1) CPU_FLAGS |= CPU_SSE2;
 
+/* Let the user override the L2 cache size in local.ini file */
+
+	CPU_L2_CACHE_SIZE =
+		IniGetInt (LOCALINI_FILE, "CpuL2CacheSize", CPU_L2_CACHE_SIZE);
+
 /* If CPU has changed greatly since the last time prime95 ran, then */
 /* tell the server, recalculate new completion dates, and reset the */
 /* rolling average.  However, don't do this on the first call where */

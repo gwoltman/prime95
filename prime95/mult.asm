@@ -1,4 +1,4 @@
-; Copyright 1995-2002 Just For Fun Software, Inc., all rights reserved
+; Copyright 1995-2003 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -15,6 +15,7 @@
 _DATA SEGMENT PAGE USE32 PUBLIC 'DATA'
 
 EXTRN	_CPU_FLAGS:DWORD
+EXTRN	_CPU_L2_CACHE_SIZE:DWORD
 EXTRN	_PARG:DWORD
 EXTRN	_FFTLEN:DWORD
 EXTRN	_NUMBIG:DWORD
@@ -207,13 +208,13 @@ EXTRN	i4ecP3:PROC
 EXTRN	i4zP3:PROC
 EXTRN	i4zeP3:PROC
 
-exfft	MACRO fft_length, x
-	exfft1	fft_length, _1, x
-	exfft1	fft_length, _2, x
-	exfft1	fft_length, _3, x
-	exfft1	fft_length, _4, x
+exfft	MACRO fft_length, x, clm
+	exfft1	fft_length, _1, x, clm
+	exfft1	fft_length, _2, x, clm
+	exfft1	fft_length, _3, x, clm
+	exfft1	fft_length, _4, x, clm
 	ENDM
-exfft1	MACRO fft_length, suffix, x
+exfft1	MACRO fft_length, suffix, x, clm
 	IF x AND 1
 	EXTRN	fft&fft_length&suffix:PROC
 	ENDIF
@@ -224,7 +225,23 @@ exfft1	MACRO fft_length, suffix, x
 	EXTRN	fft&fft_length&suffix&P3:PROC
 	ENDIF
 	IF x AND 8
+	IFB <clm>
 	EXTRN	xfft&fft_length&suffix:PROC
+	ENDIF
+	IFNB <clm>
+	exfft2	xfft&fft_length, suffix, clm, 1, 2, 4
+	ENDIF
+	ENDIF
+	ENDM
+exfft2	MACRO basename, suffix, clm, c1, c2, c4
+	IF clm AND 4
+	EXTRN	&basename&c4&suffix:PROC
+	ENDIF
+	IF clm AND 2
+	EXTRN	&basename&c2&suffix:PROC
+	ENDIF
+	IF clm AND 1
+	EXTRN	&basename&c1&suffix:PROC
 	ENDIF
 	ENDM
 
@@ -285,18 +302,18 @@ exfft	320K, 15
 exfft	384K, 15
 exfft	448K, 15
 exfft	512K, 15
-exfft	640K, 15
-exfft	768K, 15
-exfft	896K, 15
-exfft	1024K, 15
-exfft	1280K, 15
-exfft	1536K, 15
-exfft	1792K, 15
-exfft	2048K, 15
-exfft	2560K, 15
-exfft	3072K, 15
-exfft	3584K, 15
-exfft	4096K, 15
+exfft	640K, 15, 6
+exfft	768K, 15, 6
+exfft	896K, 15, 6
+exfft	1024K, 15, 6
+exfft	1280K, 15, 7
+exfft	1536K, 15, 7
+exfft	1792K, 15, 7
+exfft	2048K, 15, 7
+exfft	2560K, 15, 3
+exfft	3072K, 15, 3
+exfft	3584K, 15, 3
+exfft	4096K, 15, 3
 
 exfft	32p, 3
 exfft	64p, 3
@@ -1843,66 +1860,149 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			OFFSET xfft512K_3, OFFSET xfft512K_4
 	DD			64, 1, 1
 	DD			63, 2*clm512K, 64, 1, 1, 0
+	;; CLM = 2 for L2 = 128KB, CLM = 4 for >= 256KB
 	DD	12650000, 655360, 0.0513,	1843296
-	DD			OFFSET xfft640K_1, OFFSET xfft640K_2
-	DD			OFFSET xfft640K_3, OFFSET xfft640K_4
+	DD			OFFSET xfft640K4_1, OFFSET xfft640K4_2
+	DD			OFFSET xfft640K4_3, OFFSET xfft640K4_4
 	DD			80, 1, 1
-	DD			79, 2*clm640K, 64*1024+16, 1, 1, 0
+	DD			79, 256*65536+2*4, 64*1024+16, 1, 1, 0
+	DD	12650000, 655360, 0.0513,	1843296
+	DD			OFFSET xfft640K2_1, OFFSET xfft640K2_2
+	DD			OFFSET xfft640K2_3, OFFSET xfft640K2_4
+	DD			80, 1, 1
+	DD			79, 2*2, 64*1024+16, 1, 1, 0
 	DD	15070000, 786432, 0.0628,	2184224
-	DD			OFFSET xfft768K_1, OFFSET xfft768K_2
-	DD			OFFSET xfft768K_3, OFFSET xfft768K_4
+	DD			OFFSET xfft768K4_1, OFFSET xfft768K4_2
+	DD			OFFSET xfft768K4_3, OFFSET xfft768K4_4
 	DD			96, 1, 1
-	DD			95, 2*clm768K, 64*1024+32, 1, 1, 0
+	DD			95, 256*65536+2*4, 64*1024+32, 1, 1, 0
+	DD	15070000, 786432, 0.0628,	2184224
+	DD			OFFSET xfft768K2_1, OFFSET xfft768K2_2
+	DD			OFFSET xfft768K2_3, OFFSET xfft768K2_4
+	DD			96, 1, 1
+	DD			95, 2*2, 64*1024+32, 1, 1, 0
 	DD	17550000, 917504, 0.0785,	2525248
-	DD			OFFSET xfft896K_1, OFFSET xfft896K_2
-	DD			OFFSET xfft896K_3, OFFSET xfft896K_4
+	DD			OFFSET xfft896K4_1, OFFSET xfft896K4_2
+	DD			OFFSET xfft896K4_3, OFFSET xfft896K4_4
 	DD			112, 1, 1
-	DD			111, 2*clm896K, (64*1024+32)*1024+16, 1, 1, 0
+	DD			111, 256*65536+2*4, (64*1024+32)*1024+16, 1, 1, 0
+	DD	17550000, 917504, 0.0785,	2525248
+	DD			OFFSET xfft896K2_1, OFFSET xfft896K2_2
+	DD			OFFSET xfft896K2_3, OFFSET xfft896K2_4
+	DD			112, 1, 1
+	DD			111, 2*2, (64*1024+32)*1024+16, 1, 1, 0
 	DD	20050000, 1048576, 0.0859,	2864448
-	DD			OFFSET xfft1024K_1, OFFSET xfft1024K_2
-	DD			OFFSET xfft1024K_3, OFFSET xfft1024K_4
+	DD			OFFSET xfft1024K4_1, OFFSET xfft1024K4_2
+	DD			OFFSET xfft1024K4_3, OFFSET xfft1024K4_4
 	DD			128, 1, 1
-	DD			127, 2*clm1024K, 128, 1, 1, 0
+	DD			127, 256*65536+2*4, 128, 1, 1, 0
+	DD	20050000, 1048576, 0.0859,	2864448
+	DD			OFFSET xfft1024K2_1, OFFSET xfft1024K2_2
+	DD			OFFSET xfft1024K2_3, OFFSET xfft1024K2_4
+	DD			128, 1, 1
+	DD			127, 2*2, 128, 1, 1, 0
+	;; CLM = 1 for L2 = 128KB, CLM = 2 for 256KB, CLM = 4 for 512KB
 	DD	24930000, 1310720, 0.120,	3548800
-	DD			OFFSET xfft1280K_1, OFFSET xfft1280K_2
-	DD			OFFSET xfft1280K_3, OFFSET xfft1280K_4
+	DD			OFFSET xfft1280K4_1, OFFSET xfft1280K4_2
+	DD			OFFSET xfft1280K4_3, OFFSET xfft1280K4_4
 	DD			160, 1, 1
-	DD			159, 2*clm1280K, 128*1024+32, 1, 1, 0
+	DD			159, 512*65536+2*4, 128*1024+32, 1, 1, 0
+	DD	24930000, 1310720, 0.120,	3548800
+	DD			OFFSET xfft1280K2_1, OFFSET xfft1280K2_2
+	DD			OFFSET xfft1280K2_3, OFFSET xfft1280K2_4
+	DD			160, 1, 1
+	DD			159, 256*65536+2*2, 128*1024+32, 1, 1, 0
+	DD	24930000, 1310720, 0.120,	3548800
+	DD			OFFSET xfft1280K1_1, OFFSET xfft1280K1_2
+	DD			OFFSET xfft1280K1_3, OFFSET xfft1280K1_4
+	DD			160, 1, 1
+	DD			159, 2*1, 128*1024+32, 1, 1, 0
 	DD	29690000, 1572864, 0.148,	4230848
-	DD			OFFSET xfft1536K_1, OFFSET xfft1536K_2
-	DD			OFFSET xfft1536K_3, OFFSET xfft1536K_4
+	DD			OFFSET xfft1536K4_1, OFFSET xfft1536K4_2
+	DD			OFFSET xfft1536K4_3, OFFSET xfft1536K4_4
 	DD			192, 1, 1
-	DD			191, 2*clm1536K, 128*1024+64, 1, 1, 0
+	DD			191, 512*65536+2*4, 128*1024+64, 1, 1, 0
+	DD	29690000, 1572864, 0.148,	4230848
+	DD			OFFSET xfft1536K2_1, OFFSET xfft1536K2_2
+	DD			OFFSET xfft1536K2_3, OFFSET xfft1536K2_4
+	DD			192, 1, 1
+	DD			191, 256*65536+2*2, 128*1024+64, 1, 1, 0
+	DD	29690000, 1572864, 0.148,	4230848
+	DD			OFFSET xfft1536K1_1, OFFSET xfft1536K1_2
+	DD			OFFSET xfft1536K1_3, OFFSET xfft1536K1_4
+	DD			192, 1, 1
+	DD			191, 2*1, 128*1024+64, 1, 1, 0
 	DD	34560000, 1835008, 0.183,	4912992
-	DD			OFFSET xfft1792K_1, OFFSET xfft1792K_2
-	DD			OFFSET xfft1792K_3, OFFSET xfft1792K_4
+	DD			OFFSET xfft1792K4_1, OFFSET xfft1792K4_2
+	DD			OFFSET xfft1792K4_3, OFFSET xfft1792K4_4
 	DD			224, 1, 1
-	DD			223, 2*clm1792K, (128*1024+64)*1024+32, 1, 1, 0
+	DD			223, 512*65536+2*4, (128*1024+64)*1024+32, 1, 1, 0
+	DD	34560000, 1835008, 0.183,	4912992
+	DD			OFFSET xfft1792K2_1, OFFSET xfft1792K2_2
+	DD			OFFSET xfft1792K2_3, OFFSET xfft1792K2_4
+	DD			224, 1, 1
+	DD			223, 256*65536+2*2, (128*1024+64)*1024+32, 1, 1, 0
+	DD	34560000, 1835008, 0.183,	4912992
+	DD			OFFSET xfft1792K1_1, OFFSET xfft1792K1_2
+	DD			OFFSET xfft1792K1_3, OFFSET xfft1792K1_4
+	DD			224, 1, 1
+	DD			223, 2*1, (128*1024+64)*1024+32, 1, 1, 0
 	DD	39500000, 2097152, 0.211,	5590336
-	DD			OFFSET xfft2048K_1, OFFSET xfft2048K_2
-	DD			OFFSET xfft2048K_3, OFFSET xfft2048K_4
+	DD			OFFSET xfft2048K4_1, OFFSET xfft2048K4_2
+	DD			OFFSET xfft2048K4_3, OFFSET xfft2048K4_4
 	DD			256, 1, 1
-	DD			255, 2*clm2048K, 256, 1, 1, 0
+	DD			255, 512*65536+2*4, 256, 1, 1, 0
+	DD	39500000, 2097152, 0.211,	5590336
+	DD			OFFSET xfft2048K2_1, OFFSET xfft2048K2_2
+	DD			OFFSET xfft2048K2_3, OFFSET xfft2048K2_4
+	DD			256, 1, 1
+	DD			255, 256*65536+2*2, 256, 1, 1, 0
+	DD	39500000, 2097152, 0.211,	5590336
+	DD			OFFSET xfft2048K1_1, OFFSET xfft2048K1_2
+	DD			OFFSET xfft2048K1_3, OFFSET xfft2048K1_4
+	DD			256, 1, 1
+	DD			255, 2*1, 256, 1, 1, 0
+	;; CLM = 1 for L2 <= 256KB, CLM = 2 for 512KB
 	DD	49100000, 2621440, 0.295,	6958080
-	DD			OFFSET xfft2560K_1, OFFSET xfft2560K_2
-	DD			OFFSET xfft2560K_3, OFFSET xfft2560K_4
+	DD			OFFSET xfft2560K2_1, OFFSET xfft2560K2_2
+	DD			OFFSET xfft2560K2_3, OFFSET xfft2560K2_4
 	DD			320, 1, 1
-	DD			319, 2*clm2560K, 256*1024+64, 1, 1, 0
+	DD			319, 512*65536+2*2, 256*1024+64, 1, 1, 0
+	DD	49100000, 2621440, 0.295,	6958080
+	DD			OFFSET xfft2560K1_1, OFFSET xfft2560K1_2
+	DD			OFFSET xfft2560K1_3, OFFSET xfft2560K1_4
+	DD			320, 1, 1
+	DD			319, 2*1, 256*1024+64, 1, 1, 0
 	DD	58520000, 3145728, 0.343,	8321984
-	DD			OFFSET xfft3072K_1, OFFSET xfft3072K_2
-	DD			OFFSET xfft3072K_3, OFFSET xfft3072K_4
+	DD			OFFSET xfft3072K2_1, OFFSET xfft3072K2_2
+	DD			OFFSET xfft3072K2_3, OFFSET xfft3072K2_4
 	DD			384, 1, 1
-	DD			383, 2*clm3072K, 256*1024+128, 1, 1, 0
+	DD			383, 512*65536+2*2, 256*1024+128, 1, 1, 0
+	DD	58520000, 3145728, 0.343,	8321984
+	DD			OFFSET xfft3072K1_1, OFFSET xfft3072K1_2
+	DD			OFFSET xfft3072K1_3, OFFSET xfft3072K1_4
+	DD			384, 1, 1
+	DD			383, 2*1, 256*1024+128, 1, 1, 0
 	DD	68130000, 3670016, 0.438,	9685984
-	DD			OFFSET xfft3584K_1, OFFSET xfft3584K_2
-	DD			OFFSET xfft3584K_3, OFFSET xfft3584K_4
+	DD			OFFSET xfft3584K2_1, OFFSET xfft3584K2_2
+	DD			OFFSET xfft3584K2_3, OFFSET xfft3584K2_4
 	DD			448, 1, 1
-	DD			447, 2*clm3584K, (256*1024+128)*1024+64, 1, 1,0
+	DD			447, 512*65536+2*2, (256*1024+128)*1024+64, 1, 1,0
+	DD	68130000, 3670016, 0.438,	9685984
+	DD			OFFSET xfft3584K1_1, OFFSET xfft3584K1_2
+	DD			OFFSET xfft3584K1_3, OFFSET xfft3584K1_4
+	DD			448, 1, 1
+	DD			447, 2*1, (256*1024+128)*1024+64, 1, 1,0
 	DD	77910000, 4194304, 0.531,	11042112
-	DD			OFFSET xfft4096K_1, OFFSET xfft4096K_2
-	DD			OFFSET xfft4096K_3, OFFSET xfft4096K_4
+	DD			OFFSET xfft4096K2_1, OFFSET xfft4096K2_2
+	DD			OFFSET xfft4096K2_3, OFFSET xfft4096K2_4
 	DD			512, 1, 1
-	DD			511, 2*clm4096K, 512, 1, 1, 0
+	DD			511, 512*65536+2*2, 512, 1, 1, 0
+	DD	77910000, 4194304, 0.531,	11042112
+	DD			OFFSET xfft4096K1_1, OFFSET xfft4096K1_2
+	DD			OFFSET xfft4096K1_3, OFFSET xfft4096K1_4
+	DD			512, 1, 1
+	DD			511, 2*1, 512, 1, 1, 0
 xjmptablep DD	747,	32,	0.000004,	768
 	DD			OFFSET fft32p_1, OFFSET fft32p_2
 	DD			OFFSET fft32p_3, OFFSET fft32p_4
@@ -2051,12 +2151,21 @@ mmod:	mov	ecx, _INFF		; FFT length to lookup (or zero)
 fexp:	mov	eax, _INFP		; Exponent to lookup
 	mov	ecx, -1			; Invalidate searching by fft length
 flp:	mov	edx, [esi]		; Load maximum exponent
-	cmp	eax, edx		; Is our exp less than maximum exp?
+	test	_CPU_FLAGS, 0010h	; Check P4 L2 cache size constraints
+	jz	short fcache		; Not P4, don't check L2 cache size
+	cmp	edx, 1000000		; Only large cache sizes check cache
+	jl	fcache
+	mov	edx, [esi+48]		; Get required L2 cache size
+	shr	edx, 16
+	cmp	_CPU_L2_CACHE_SIZE, edx	; Is L2 cache large enough?
+	jl	short fnext		; No, skip this entry
+	mov	edx, [esi]		; Load maximum exponent again
+fcache:	cmp	eax, edx		; Is our exp less than maximum exp?
 	jbe	short fdn		; Yes, we've found our table entry
 	mov	edx, [esi+4]		; Load fft length
 	cmp	ecx, edx		; Is this the fftlen caller wanted?
 	jbe	short fdn		; Yes, we've found our table entry
-	lea	esi, [esi+56]
+fnext:	lea	esi, [esi+56]
 flp1:	cmp	DWORD PTR [esi], 0	; Look for zero terminator
 	lea	esi, [esi+4]		; Point to next word
 	jnz	short flp1		; Scan until zero found
@@ -2413,6 +2522,10 @@ p4init:
 	mov	edi, OFFSET count1	; Copy 5 counts
 	mov	ecx, 5
 	rep	movsd
+	cmp	_FFTLEN, 256000		; Clear the high word of clm data
+	jl	short clmok		; for larger FFTs
+	and	count2, 0FFFFh
+clmok:
 
 ; Compute more normalization counters and constants
 

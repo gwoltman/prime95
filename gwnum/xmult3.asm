@@ -1,4 +1,4 @@
-; Copyright 2001 Just For Fun Software, Inc., all rights reserved
+; Copyright 2001-2003 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -58,18 +58,34 @@ _xmm_gw_ffts3 PROC NEAR
 	xfft	384K
 	xfft	448K
 	xfft	512K
-	xfft	640K
-	xfft	768K
-	xfft	896K
-	xfft	1024K
-	xfft	1280K
-	xfft	1536K
-	xfft	1792K
-	xfft	2048K
-	xfft	2560K
-	xfft	3072K
-	xfft	3584K
-	xfft	4096K
+	xfftclm	640K, 4
+	xfftclm	640K, 2
+	xfftclm	768K, 4
+	xfftclm	768K, 2
+	xfftclm	896K, 4
+	xfftclm	896K, 2
+	xfftclm	1024K, 4
+	xfftclm	1024K, 2
+	xfftclm	1280K, 4
+	xfftclm	1280K, 2
+	xfftclm	1280K, 1
+	xfftclm	1536K, 4
+	xfftclm	1536K, 2
+	xfftclm	1536K, 1
+	xfftclm	1792K, 4
+	xfftclm	1792K, 2
+	xfftclm	1792K, 1
+	xfftclm	2048K, 4
+	xfftclm	2048K, 2
+	xfftclm	2048K, 1
+	xfftclm	2560K, 2
+	xfftclm	2560K, 1
+	xfftclm	3072K, 2
+	xfftclm	3072K, 1
+	xfftclm	3584K, 2
+	xfftclm	3584K, 1
+	xfftclm	4096K, 2
+	xfftclm	4096K, 1
 
 ; Common code to finish the FFT by restoring state and returning.
 

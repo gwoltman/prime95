@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2002 Just For Fun Software, Inc., all rights reserved
+| Copyright 1995-2003 Just For Fun Software, Inc., all rights reserved
 | Author:  George Woltman
 | Email: woltman@alum.mit.edu
 |
@@ -12,7 +12,7 @@ char	CPU_BRAND[49] = "";
 double	CPU_SPEED = 100.0;
 EXTERNC unsigned int CPU_FLAGS = 0;
 int	CPU_L1_CACHE_SIZE = -1;
-int	CPU_L2_CACHE_SIZE = -1;
+EXTERNC int CPU_L2_CACHE_SIZE = -1;
 int	CPU_L1_CACHE_LINE_SIZE = -1;
 int	CPU_L2_CACHE_LINE_SIZE = -1;
 int	CPU_L1_DATA_TLBS = -1;

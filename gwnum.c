@@ -39,6 +39,9 @@ EXTERNC void *DEST2ARG = NULL;	/* For assembly language arg passing */
 double	fft_count = 0;		/* Count of forward and inverse FFTs */
 void	*gwnum_memory;		/* Allocated memory */
 unsigned long GW_ALIGNMENT = 0;	/* How to align allocated gwnums */
+unsigned long PASS1_CACHE_LINES = 0; /* Cache lines grouped together in */
+				/* first pass of an SSE2 FFT. */
+				
 
 gwnum	*gwnum_alloc = NULL;	/* Array of allocated gwnums */
 unsigned int gwnum_alloc_count = 0; /* Count of allocated gwnums */
@@ -508,7 +511,7 @@ double *build_biglit_table (
 	double	*table)		/* Pointer to the table to fill in */
 {
 	unsigned char *p;
-	unsigned long h, i, j, k, m, half_filled, gap, pass1_cache_lines;
+	unsigned long h, i, j, k, m, half_filled, gap;
 	unsigned long pfa, hlimit, haddin, mmult;
 
 /* Handle one pass FFTs differently */
@@ -556,16 +559,12 @@ double *build_biglit_table (
 	if (FFTLEN <= 32768) gap = 128;
 	else gap = 1024;
 
-	if (FFTLEN <= 1048576) pass1_cache_lines = 8;
-	else if (FFTLEN <= 2097152) pass1_cache_lines = 4;
-	else pass1_cache_lines = 2;
-
 /* Loop to build table in exactly the same order that it will be */
 /* used by the assembly code.  This is especially ugly in the PFA cases */
 
 	p = (unsigned char *) table;
 	hlimit = FFTLEN / 4 / (2*gap);
-	for (i = 0; i < gap; i += pass1_cache_lines) {
+	for (i = 0; i < gap; i += PASS1_CACHE_LINES) {
 	for (h = 0; h < hlimit; h++) {
 		if (pfa == 5) {
 			if (h < hlimit / 5) {
@@ -598,7 +597,7 @@ double *build_biglit_table (
 			haddin = h * 2 * gap;
 			mmult = FFTLEN / 4;
 		}
-	for (j = 0; j < pass1_cache_lines; j++) {
+	for (j = 0; j < PASS1_CACHE_LINES; j++) {
 	for (m = 0; m < 4; m++) {
 	for (k = 0; k < 2 * gap; k += gap) {
 		unsigned long word;
@@ -654,7 +653,14 @@ void gwsetup (
 	info = (unsigned long *) INFT;
 	mem_needed = info[3];
 	gwnum_memory = malloc (mem_needed + 4096);
-		
+
+/* Do a seemingly pointless memset! */
+/* The memset will walk through the allocated memory sequentially, which */
+/* increases the liklihood that contiguous virtual memory will map to */
+/* contiguous physical memory. */
+
+	memset (gwnum_memory, 0, mem_needed + 4096);
+
 /* Setup some useful global variables */
 
 	PARG = p;
@@ -679,6 +685,11 @@ void gwsetup (
 		tables = (double *)
 			(((unsigned long) gwnum_memory + 4095) & ~4095);
 //double *t1=tables;
+
+/* See how many 64-byte cache lines are grouped in pass 1.  This will */
+/* affect how we build the normalization tables. */
+
+		PASS1_CACHE_LINES = (info[12] & 0xFFFF);
 
 /* Determine how big the pass 2 size is.  This affects how we build */
 /* many of the sin/cos tables. */
@@ -912,6 +923,16 @@ gwnum gwalloc (void)
 	p = (char *) malloc (size + 32 + GW_ALIGNMENT);
 	if (p == NULL) return (NULL);
 	q = (char *) (((unsigned long) p + 32 + GW_ALIGNMENT - 1) & ~(GW_ALIGNMENT - 1));
+
+/* Do a seemingly pointless memset!  This actual is very important. */
+/* The memset will walk through the allocated memory sequentially, which */
+/* increases the liklihood that contiguous virtual memory will map to */
+/* contiguous physical memory.  The FFTs, especially the larger ones, */
+/* optimizes L2 cache line collisions on the assumption that the FFT data */
+/* is in contiguous physical memory.  Failure to do this results in as */
+/* much as a 30% performance hit in an SSE2 2M FFT. */
+
+	memset (q, 0, size);
 
 /* Initialize the header */
 
@@ -1609,22 +1630,19 @@ void gwsetaddin (
 /* take place */
 
 	if (CPU_FLAGS & CPU_SSE2) {
-		unsigned long row, pass1_cache_lines;
-		if (FFTLEN <= 1048576) pass1_cache_lines = 8;
-		else if (FFTLEN <= 2097152) pass1_cache_lines = 4;
-		else pass1_cache_lines = 2;
+		unsigned long row;
 		if (FFTLEN <= 8192) {
 			row = ADDIN_OFFSET & 31;
 			if (row == 8) ADDIN_OFFSET += 8;
 			if (row == 16) ADDIN_OFFSET -= 8;
 		} else if (FFTLEN <= 32768) {
-			row = (word & 127) / pass1_cache_lines;
-			ADDIN_ROW = 128 / pass1_cache_lines - row;
-			ADDIN_OFFSET -= row * pass1_cache_lines * 64;
+			row = (word & 127) / PASS1_CACHE_LINES;
+			ADDIN_ROW = 128 / PASS1_CACHE_LINES - row;
+			ADDIN_OFFSET -= row * PASS1_CACHE_LINES * 64;
 		} else {
-			row = (word & 1023) / pass1_cache_lines;
-			ADDIN_ROW = 1024 / pass1_cache_lines - row;
-			ADDIN_OFFSET -= row * pass1_cache_lines * 64;
+			row = (word & 1023) / PASS1_CACHE_LINES;
+			ADDIN_ROW = 1024 / PASS1_CACHE_LINES - row;
+			ADDIN_OFFSET -= row * PASS1_CACHE_LINES * 64;
 		}
 	}
 

@@ -1,4 +1,4 @@
-; Copyright 2001-2002 - Just For Fun Software, Inc., all rights reserved
+; Copyright 2001-2003 - Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -18,11 +18,18 @@
 ;;
 
 xfft	MACRO fft_length, p
-	type1	fft_length, p, _1
-	type2	fft_length, p, _2
-	type3	fft_length, p, _3
-	type4	fft_length, p, _4
+	type1	&fft_length&p, _1
+	type2	&fft_length&p, _2
+	type3	&fft_length&p, _3
+	type4	&fft_length&p, _4
 	purge	xfft&fft_length&p
+	ENDM
+
+xfftclm	MACRO fft_length, clm, p
+	type1	&fft_length&p, _1, clm
+	type2	&fft_length&p, _2, clm
+	type3	&fft_length&p, _3, clm
+	type4	&fft_length&p, _4, clm
 	ENDM
 
 ;;
@@ -30,9 +37,9 @@ xfft	MACRO fft_length, p
 ;; Do the forward FFT
 ;;
 
-type1	MACRO fft_length, p, suffix
-	PUBLIC	xfft&fft_length&p&suffix
-xfft&fft_length&p&suffix:
+type1	MACRO fft_length, suffix, clm
+	PUBLIC	xfft&fft_length&clm&suffix
+xfft&fft_length&clm&suffix:
 	fninit
 	push	ebp
 	push	ebx
@@ -43,9 +50,9 @@ xfft&fft_length&p&suffix:
 	sub	ebx, esi
 	IF EXPANDING EQ 2
 	mov	ffttype, 1
-	JMP_X	xfft2a&fft_length&p
+	JMP_X	xfft2a&fft_length&clm
 	ELSE
-	xfft&fft_length&p 1
+	xfft&fft_length 1
 	ENDIF
 	ENDM
 
@@ -54,9 +61,9 @@ xfft&fft_length&p&suffix:
 ;; Do the forward FFT, squaring, and inverse FFT
 ;;
 
-type2	MACRO fft_length, p, suffix
-	PUBLIC	xfft&fft_length&p&suffix
-xfft&fft_length&p&suffix:
+type2	MACRO fft_length, suffix, clm
+	PUBLIC	xfft&fft_length&clm&suffix
+xfft&fft_length&clm&suffix:
 	fninit
 	push	ebp
 	push	ebx
@@ -66,10 +73,10 @@ xfft&fft_length&p&suffix:
 	sub	ebx, ebx
 	IF EXPANDING EQ 2
 	mov	ffttype, 2
-xfft2a&fft_length&p:
-	xfft&fft_length&p
+xfft2a&fft_length&clm:
+	xfft&fft_length clm
 	ELSE
-	xfft&fft_length&p 2
+	xfft&fft_length 2
 	ENDIF
 	ENDM
 
@@ -79,9 +86,9 @@ xfft2a&fft_length&p:
 ;; Do the forward FFT, multiply, and inverse FFT
 ;;
 
-type3	MACRO fft_length, p, suffix
-	PUBLIC	xfft&fft_length&p&suffix
-xfft&fft_length&p&suffix:
+type3	MACRO fft_length, suffix, clm
+	PUBLIC	xfft&fft_length&clm&suffix
+xfft&fft_length&clm&suffix:
 	fninit
 	push	ebp
 	push	ebx
@@ -93,9 +100,9 @@ xfft&fft_length&p&suffix:
 	sub	ebp, esi
 	IF EXPANDING EQ 2
 	mov	ffttype, 3
-	JMP_X	xfft2a&fft_length&p
+	JMP_X	xfft2a&fft_length&clm
 	ELSE
-	xfft&fft_length&p 3
+	xfft&fft_length 3
 	ENDIF
 	ENDM
 
@@ -105,9 +112,9 @@ xfft&fft_length&p&suffix:
 ;; Do the multiply and inverse FFT
 ;;
 
-type4	MACRO fft_length, p, suffix
-	PUBLIC	xfft&fft_length&p&suffix
-xfft&fft_length&p&suffix:
+type4	MACRO fft_length, suffix, clm
+	PUBLIC	xfft&fft_length&clm&suffix
+xfft&fft_length&clm&suffix:
 	fninit
 	push	ebp
 	push	ebx
@@ -120,9 +127,9 @@ xfft&fft_length&p&suffix:
 	sub	ebx, esi
 	IF EXPANDING EQ 2
 	mov	ffttype, 4
-	JMP_X	xfft2a&fft_length&p
+	JMP_X	xfft2a&fft_length&clm
 	ELSE
-	xfft&fft_length&p 4
+	xfft&fft_length 4
 	ENDIF
 	ENDM
 
@@ -163,18 +170,6 @@ clm320K		=	4
 clm384K		=	4
 clm448K		=	4
 clm512K		=	4
-clm640K		=	4
-clm768K		=	4
-clm896K		=	4
-clm1024K	=	4
-clm1280K	=	2
-clm1536K	=	2
-clm1792K	=	2
-clm2048K	=	2
-clm2560K	=	1
-clm3072K	=	1
-clm3584K	=	1
-clm4096K	=	1
 
 ;;
 ;; Common utility macros used in one and two pass SSE2 FFTs

@@ -79,6 +79,12 @@ combination of these settings in local.ini:
 This shouldn't be necessary though as the program uses the CPUID instruction
 to see if the CPU supports these features.
 
+The program also supports different code paths for LL testing on a Pentium 4
+based on the size of the L2 cache.  You can explicitly specify the L2 cache
+size although this shouldn't be necessary since the program uses the CPUID
+instruction to determine the L2 cache size.  In local.ini enter:
+	CpuL2CacheSize=128 or 256 or 512
+
 The program automatically computes the CPU type and speed.  The CPU type
 is used to tell the server what kind of CPU you have (to display in the
 reports).  The CPU type and speed is also used to calculate how much work
