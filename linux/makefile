@@ -20,17 +20,19 @@ LIBS2  = -lm -static
 
 COFFOBJS = mult.o mult1.o mult2.o mult2a.o mult3.o mult3a.o mult4.o mult4a.o mult4b.o mult1p.o mult2p.o mult2ap.o mult3p.o mult3ap.o mult3q.o mult3aq.o mult4p.o mult4ap.o mult4bp.o mult4q.o mult4aq.o mult4bq.o mult1aux.o mult2aux.o mult3aux.o mult3auq.o mult4aux.o mult4auq.o xmult1.o xmult1ax.o xmult2.o xmult2a.o xmult2ax.o xmult3.o xmult3a.o xmult3ax.o ecmhelp.o cpuid.o
 FACTOROBJ = factor64.o
-DUMMYOBJS = dummy4.o dummy8.o dummy12.o dummy16.o dummy20.o dummy24.o dummy28.o
+DUMMYOBJS = dummy4.o dummy8.o dummy12.o dummy16.o dummy20.o dummy24.o dummy28.o dummyt4.o dummyt8.o dummyt12.o dummyt16.o dummyt20.o dummyt24.o dummyt28.o
 LINUXOBJS = prime.o menu.o
 EXE      = mprime
 EXE2	 = sprime
 
-# insert proper dummyNN.o file to get mult.o and factor64.o's data aligned
-# on 32 byte boundaries
+# insert proper dummy file to get mult.o and factor64.o's data aligned
+# on 32 byte boundaries.  Use dummyNN.o to align mult.o and dummytNN.o
+# to align factor64.o
+
 DUMMY1   =
-DUMMY2   = dummy16.o
+DUMMY2   = dummyt12.o
 DUMMY3   = 
-DUMMY4   = dummy16.o
+DUMMY4   = dummyt12.o
 
 #########################################################################
 
