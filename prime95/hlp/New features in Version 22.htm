@@ -1,0 +1,364 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+xmlns:w="urn:schemas-microsoft-com:office:word"
+xmlns="http://www.w3.org/TR/REC-html40">
+	
+
+<head>
+<meta http-equiv=Content-Type content="text/html; charset=windows-1252">
+<meta name=ProgId content=Word.Document>
+<meta name=Generator content="Microsoft Word 9">
+<meta name=Originator content="Microsoft Word 9">
+<link rel=File-List
+href="./New%20features%20in%20Version%2022_files/filelist.xml">
+<title>New features in Version 22 of Prime95</title>
+<!--[if gte mso 9]><xml>
+ <o:DocumentProperties>
+  <o:Template>Normal</o:Template>
+  <o:LastAuthor>George Woltman</o:LastAuthor>
+  <o:Revision>22</o:Revision>
+  <o:TotalTime>23</o:TotalTime>
+  <o:Created>2002-04-26T15:20:00Z</o:Created>
+  <o:LastSaved>2002-06-15T19:43:00Z</o:LastSaved>
+  <o:Pages>2</o:Pages>
+  <o:Words>490</o:Words>
+  <o:Characters>2797</o:Characters>
+  <o:Company>Watson Wyatt</o:Company>
+  <o:Lines>23</o:Lines>
+  <o:Paragraphs>5</o:Paragraphs>
+  <o:CharactersWithSpaces>3434</o:CharactersWithSpaces>
+  <o:Version>9.3821</o:Version>
+ </o:DocumentProperties>
+</xml><![endif]--><!--[if gte mso 9]><xml>
+ <w:WordDocument>
+  <w:Zoom>88</w:Zoom>
+  <w:DisplayHorizontalDrawingGridEvery>0</w:DisplayHorizontalDrawingGridEvery>
+  <w:DisplayVerticalDrawingGridEvery>0</w:DisplayVerticalDrawingGridEvery>
+  <w:UseMarginsForDrawingGridOrigin/>
+  <w:Compatibility>
+   <w:FootnoteLayoutLikeWW8/>
+   <w:ShapeLayoutLikeWW8/>
+   <w:AlignTablesRowByRow/>
+   <w:ForgetLastTabAlignment/>
+   <w:LayoutRawTableWidth/>
+   <w:LayoutTableRowsApart/>
+  </w:Compatibility>
+ </w:WordDocument>
+</xml><![endif]-->
+<style>
+<!--
+ /* Font Definitions */
+@font-face
+	{font-family:"MS Mincho";
+	panose-1:2 2 6 9 4 2 5 8 3 4;
+	mso-font-alt:"\FF2D\FF33 \660E\671D";
+	mso-font-charset:128;
+	mso-generic-font-family:modern;
+	mso-font-pitch:fixed;
+	mso-font-signature:-1610612033 1757936891 16 0 131231 0;}
+@font-face
+	{font-family:"\@MS Mincho";
+	panose-1:2 2 6 9 4 2 5 8 3 4;
+	mso-font-charset:128;
+	mso-generic-font-family:modern;
+	mso-font-pitch:fixed;
+	mso-font-signature:-1610612033 1757936891 16 0 131231 0;}
+ /* Style Definitions */
+p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{mso-style-parent:"";
+	margin:0in;
+	margin-bottom:.0001pt;
+	mso-pagination:widow-orphan;
+	font-size:10.0pt;
+	font-family:"Times New Roman";
+	mso-fareast-font-family:"Times New Roman";}
+h1
+	{mso-style-next:Normal;
+	margin:0in;
+	margin-bottom:.0001pt;
+	mso-pagination:widow-orphan;
+	page-break-after:avoid;
+	mso-outline-level:1;
+	font-size:10.0pt;
+	font-family:"Times New Roman";
+	mso-fareast-font-family:"MS Mincho";
+	mso-font-kerning:0pt;}
+h2
+	{mso-style-next:Normal;
+	margin:0in;
+	margin-bottom:.0001pt;
+	mso-pagination:widow-orphan;
+	page-break-after:avoid;
+	mso-outline-level:2;
+	font-size:16.0pt;
+	mso-bidi-font-size:10.0pt;
+	font-family:"Times New Roman";
+	mso-fareast-font-family:"MS Mincho";}
+p.MsoPlainText, li.MsoPlainText, div.MsoPlainText
+	{margin:0in;
+	margin-bottom:.0001pt;
+	mso-pagination:widow-orphan;
+	font-size:10.0pt;
+	font-family:"Courier New";
+	mso-fareast-font-family:"Times New Roman";}
+@page Section1
+	{size:8.5in 11.0in;
+	margin:1.0in 66.0pt 1.0in 66.0pt;
+	mso-header-margin:.5in;
+	mso-footer-margin:.5in;
+	mso-paper-source:0;}
+div.Section1
+	{page:Section1;}
+ /* List Definitions */
+@list l0
+	{mso-list-id:723141022;
+	mso-list-type:hybrid;
+	mso-list-template-ids:362415850 67698703 67698713 67698715 67698703 67698713 67698715 67698703 67698713 67698715;}
+@list l1
+	{mso-list-id:808326169;
+	mso-list-type:hybrid;
+	mso-list-template-ids:1591607480 67698703 67698713 67698715 67698703 67698713 67698715 67698703 67698713 67698715;}
+@list l2
+	{mso-list-id:1396591353;
+	mso-list-type:hybrid;
+	mso-list-template-ids:-548747986 67698703 67698713 67698715 67698703 67698713 67698715 67698703 67698713 67698715;}
+@list l3
+	{mso-list-id:2029141002;
+	mso-list-type:hybrid;
+	mso-list-template-ids:611869372 67698703 67698713 67698715 67698703 67698713 67698715 67698703 67698713 67698715;}
+ol
+	{margin-bottom:0in;}
+ul
+	{margin-bottom:0in;}
+-->
+</style>
+</head>
+
+	
+
+<body lang=EN-US style='tab-interval:.5in'>
+
+<div class=Section1>
+
+<h1><u><span style='font-size:16.0pt;mso-bidi-font-size:10.0pt'>New features in
+Version 22.4 of prime95.exe<o:p></o:p></span></u></h1>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=1 type=1>
+ <li class=MsoNormal style='mso-list:l3 level1 lfo3;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>A little more tweaking of the
+     FFT crossovers.<o:p></o:p></span></li>
+</ol>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=2 type=1>
+ <li class=MsoNormal style='mso-list:l3 level1 lfo3;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>A GCD hang bug was fixed in
+     case where there were a large number of&nbsp;</span>entries in the
+     lowm.txt file. Another GCD bug affecting ECM on F18 was fixed. </li>
+</ol>
+
+<p class=MsoNormal><![if !supportEmptyParas]>&nbsp;<![endif]><o:p></o:p></p>
+
+<ol style='margin-top:0in' start=3 type=1>
+ <li class=MsoNormal style='mso-list:l3 level1 lfo3;tab-stops:list .5in'>Prime95
+     now properly detects if the program is running by another logged in
+     Windows XP user.</li>
+</ol>
+
+<p class=MsoNormal>&nbsp;</p>
+
+<h1><u><span style='font-size:16.0pt;mso-bidi-font-size:10.0pt'>New features in
+Version 22.3 of prime95.exe<o:p></o:p></span></u></h1>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=1 type=1>
+ <li class=MsoNormal style='mso-list:l1 level1 lfo7;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>Given more data, the roundoff
+     error checking is now done on every iteration for exponents within 0.5% of
+     the maximum that can be tested by the current FFT length.<span
+     style="mso-spacerun: yes">  </span>If a roundoff error above 0.4 occurs,
+     then the iteration is now repeated without any change to the shift
+     count.<span style="mso-spacerun: yes">  </span>It now takes a roundoff
+     error greater than 0.6 to corrupt the results.<o:p></o:p></span></li>
+</ol>
+
+<p class=MsoNormal style='margin-left:.25in'><span style='mso-fareast-font-family:
+"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=2 type=1>
+ <li class=MsoNormal style='mso-list:l1 level1 lfo7;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>Many of the FFT ranges have
+     changed.<span style="mso-spacerun: yes">  </span>Version 21 was too
+     aggressive in choosing FFT sizes for the P4.<span style="mso-spacerun:
+     yes">  </span>The new handling of roundoff errors above 0.4 lets us be
+     more aggressive with the non-P4 code.<o:p></o:p></span></li>
+</ol>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=3 type=1>
+ <li class=MsoNormal style='mso-list:l1 level1 lfo7;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>Result lines are now WYn
+     rather than WXn.<o:p></o:p></span></li>
+</ol>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=4 type=1>
+ <li class=MsoNormal style='mso-list:l1 level1 lfo7;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>A crash bug affecting P-1 and
+     ECM using the 2^N+1 option for large N was fixed.<o:p></o:p></span></li>
+</ol>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=5 type=1>
+ <li class=MsoNormal style='mso-list:l1 level1 lfo7;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>A rare memory corruption and
+     possible crash bug in the GCD code was fixed.<o:p></o:p></span></li>
+</ol>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=6 type=1>
+ <li class=MsoNormal style='mso-list:l1 level1 lfo7;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>The -t command line argument
+     will run the torture test.<o:p></o:p></span></li>
+</ol>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=7 type=1>
+ <li class=MsoNormal style='mso-list:l1 level1 lfo7;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>To reduce wild fluctuations in
+     the RollingAverage, it will be updated roughly twice per day.<o:p></o:p></span></li>
+</ol>
+
+<h1><span style='font-size:16.0pt;mso-bidi-font-size:10.0pt'>&nbsp;<o:p></o:p></span></h1>
+
+<h1><u><span style='font-size:16.0pt;mso-bidi-font-size:10.0pt'>New features in
+Version 22.2 of prime95.exe<o:p></o:p></span></u></h1>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=1 type=1>
+ <li class=MsoNormal style='mso-list:l2 level1 lfo16;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>Factoring assignments go to
+     machines slower than a 233 MHz Pentium.<span style="mso-spacerun: yes"> 
+     </span>Double-checks are assigned to machines slower than a 500 MHz P-III.<o:p></o:p></span></li>
+</ol>
+
+<p class=MsoNormal style='margin-left:.25in'><span style='mso-fareast-font-family:
+"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=2 type=1>
+ <li class=MsoNormal style='mso-list:l2 level1 lfo16;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>The speed of the GCD has been
+     improved.<o:p></o:p></span></li>
+</ol>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=3 type=1>
+ <li class=MsoNormal style='mso-list:l2 level1 lfo16;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>Some of the P4 FFT ranges have
+     changed.<span style="mso-spacerun: yes">  </span>Version 21 was too
+     aggressive in choosing FFT sizes for the P4.<o:p></o:p></span></li>
+</ol>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=4 type=1>
+ <li class=MsoNormal style='mso-list:l2 level1 lfo16;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>Roundoff error checking is now
+     done on every iteration for exponents within 2% of the maximum that can be
+     tested by the current FFT length.<span style="mso-spacerun: yes"> 
+     </span>See undoc.txt for ways to disable this new feature.<o:p></o:p></span></li>
+</ol>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=5 type=1>
+ <li class=MsoNormal style='mso-list:l2 level1 lfo16;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>The previous version would get
+     into an infinite loop if a repeatable roundoff error larger than 0.48 was
+     discovered.<span style="mso-spacerun: yes">  </span>Now, if a repeatable
+     roundoff error greater than 0.45 is found, then the iteration is repeated
+     after shifting the FFT data.<o:p></o:p></span></li>
+</ol>
+
+<p class=MsoPlainText><span style='font-family:"Times New Roman";mso-fareast-font-family:
+"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<h2><u>New features in Version 22.1 of prime95.exe</u></h2>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=1 type=1>
+ <li class=MsoNormal style='mso-list:l0 level1 lfo23;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>Some bugs in error handling
+     when communicating with the server have been fixed.<o:p></o:p></span></li>
+</ol>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=2 type=1>
+ <li class=MsoNormal style='mso-list:l0 level1 lfo23;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>Communicating with the server
+     by RPC is no longer supported.<span style="mso-spacerun: yes">  </span>The
+     HTTPNET.DLL and RPCNET.DLL have been deleted.<span style="mso-spacerun:
+     yes">  </span>Only &quot;Basic&quot; Proxy server authentication is
+     supported.<span style="mso-spacerun: yes">  </span>Version 21 may have
+     supported MS Proxy Server 2.0's NTLM (NT Lan Manager) challenge/response
+     authentication.<o:p></o:p></span></li>
+</ol>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=3 type=1>
+ <li class=MsoNormal style='mso-list:l0 level1 lfo23;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>The program now uses a high
+     resolution timer rather than the RDTSC instruction to time events.<span
+     style="mso-spacerun: yes">  </span>This should help the program display
+     accurate timings on laptops with SpeedStep or desktops that can
+     hibernate.<span style="mso-spacerun: yes">  </span>You can force the
+     program to use the old RDTSC timing method with the RdtscTiming option
+     described in undoc.txt.<o:p></o:p></span></li>
+</ol>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=4 type=1>
+ <li class=MsoNormal style='mso-list:l0 level1 lfo23;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>The program uses a updated
+     algorithm to automatically detect CPU type and speed.<span
+     style="mso-spacerun: yes">  </span>The Options/CPU dialog box no longer
+     let's you set this information.<span style="mso-spacerun: yes"> 
+     </span>Instead, the Options/CPU dialog displays the detected CPU type and
+     speed.<span style="mso-spacerun: yes">  </span>This new feature helps
+     prevent incorrect settings when users upgrade or try several overclocking
+     speeds.<span style="mso-spacerun: yes">  </span>If the new algorithm
+     fails, you can override the settings as described in undoc.txt.<o:p></o:p></span></li>
+</ol>
+
+<p class=MsoNormal><span style='mso-fareast-font-family:"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+<ol style='margin-top:0in' start=5 type=1>
+ <li class=MsoNormal style='mso-list:l0 level1 lfo23;tab-stops:list .5in'><span
+     style='mso-fareast-font-family:"MS Mincho"'>Benchmark now writes the
+     program version, timing methodology, cpu type and speed, L1 and L2 cache
+     information to results.txt.<span style="mso-spacerun: yes">  </span>It
+     will refuse to benchmark if rdtsctiming is 10.<o:p></o:p></span></li>
+</ol>
+
+<p class=MsoPlainText><span style='font-family:"Times New Roman";mso-fareast-font-family:
+"MS Mincho"'>&nbsp;<o:p></o:p></span></p>
+
+</div>
+
+</body>
+
+</html>
