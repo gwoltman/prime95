@@ -210,6 +210,8 @@ void CMainFrame::OnEndSession (BOOL bEnding)
 		CFrameWnd::OnEndSession (bEnding);
 }
 
+/* Handle all the details for running prime95 as a service */
+
 #include <winsvc.h>
 #define RSP_SIMPLE_SERVICE	1
 #define RSP_UNREGISTER_SERVICE	0
@@ -370,11 +372,16 @@ void Service95 ()
 			}
 			rc = RegSetValueEx (hkey, regkey, 0, REG_SZ,
 				(BYTE *) pathname, strlen (pathname) + 1);
-		} else
+			if (rc != ERROR_SUCCESS) {
+				OutputStr ("Can't write registry value.\n");
+				goto done;
+			}
+		} else {
 			rc = RegDeleteValue (hkey, regkey);
-		if (rc != ERROR_SUCCESS) {
-			OutputStr ("Can't write registry value.\n");
-			goto done;
+			if (rc != ERROR_SUCCESS && rc != ERROR_FILE_NOT_FOUND){
+				OutputStr ("Can't delete registry entry.\n");
+				goto done;
+			}
 		}
 		RegCloseKey (hkey);
 		hkey = 0;
