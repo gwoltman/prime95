@@ -3647,7 +3647,7 @@ restart0:
 
 /* Test for an error */
 
-		if (gw_test_for_error () || MAXERR > 0.40) goto error;
+		if (gw_test_for_error () || MAXERR >= 0.40625) goto error;
 		bit_number++;
 
 /* Every N squarings, output a progress report */
@@ -3757,7 +3757,7 @@ restart1:
 
 /* Test for an error */
 
-		if (gw_test_for_error () || MAXERR > 0.40) goto error;
+		if (gw_test_for_error () || MAXERR >= 0.40625) goto error;
 
 /* Test for user interrupt */
 
@@ -3956,7 +3956,7 @@ restart3d:
 		if (i >= D) break;
 		if (numrels == state.numvals - 3) break;
 		fd_next ();
-		if (gw_test_for_error () || MAXERR > 0.40) goto error;
+		if (gw_test_for_error () || MAXERR >= 0.40625) goto error;
 		if (stopCheck ()) {
 			fd_term ();
 			gwfftfftmul (x, x, x);	/* Unfft x - generates x^2 */
@@ -4028,7 +4028,7 @@ restart3d:
 
 /* Test for errors */
 
-errchk:		if (gw_test_for_error () || MAXERR > 0.40) goto error;
+errchk:		if (gw_test_for_error () || MAXERR >= 0.40625) goto error;
 
 /* Test for user interrupt */
 
@@ -4284,7 +4284,7 @@ bingo:	if (stage == 1)
 /* Once errors start occurring, decrease the disk write time */
 
 error:	pm1_cleanup ();
-	if (near_fft_limit && MAXERR > 0.40) {
+	if (near_fft_limit && MAXERR >= 0.40625) {
 		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file.\n", MAXERR);
 		OutputStr (buf);
 	} else {
