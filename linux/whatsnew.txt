@@ -8,6 +8,7 @@ New features in Version 22.12 of mprime
     setting was less than 72MB (6MB * 12 temporaries) then you were affected
     by the bug.  Actual the program allocates some fixed tables so anything
     less than about 75MB triggered the bug.
+2)  The command line argument -s prints the current status and exits.
 
 New features in Version 22.11 of mprime
 ---------------------------------------
