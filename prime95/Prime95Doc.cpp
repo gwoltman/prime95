@@ -378,6 +378,7 @@ void CPrime95Doc::OnVacation()
                 IniWriteInt (LOCALINI_FILE, "VacationOn", ON_DURING_VACATION);
 		if (VACATION_END && !ON_DURING_VACATION)
 			IniWriteInt (LOCALINI_FILE, "RollingStartTime", 0);
+		next_comm_time = 0;
 		UpdateEndDates ();
 	}
 }
@@ -658,6 +659,7 @@ again:	if (dlg.DoModal () == IDOK) {
 			IniWriteInt (LOCALINI_FILE, "RollingAverage", 1000);
 			IniWriteInt (LOCALINI_FILE, "RollingStartTime", 0);
 			spoolMessage (PRIMENET_SET_COMPUTER_INFO, NULL);
+			next_comm_time = 0;
 			UpdateEndDates ();
 		}
 		new_day_start_time = strToMinutes ((char *)(LPCTSTR) dlg.m_start_time);

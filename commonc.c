@@ -1190,7 +1190,6 @@ void hash_packet (short operation, void *pkt)
 
 void UpdateEndDates (void)
 {
-	next_comm_time = 0;
 	spoolMessage (PRIMENET_COMPLETION_DATE, NULL);
 }
 
