@@ -1027,6 +1027,7 @@ void CPrime95Doc::OutputStr (
 #include "giants.c"
 #endif
 #include "gwnum.c"
+#include "gwutil.c"
 #include "commona.c"
 #include "commonb.c"
 #include "commonc.c"

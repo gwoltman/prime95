@@ -12,7 +12,7 @@
 	.MMX
 	.XMM
 
-VERSION_NUMBER = 2407		;; Version 24.7
+VERSION_NUMBER = 2408		;; Version 24.8
 
 _DATA SEGMENT PAGE USE32 PUBLIC 'DATA'
 
@@ -25,13 +25,14 @@ EXTRN	_RATIONAL_FFT:DWORD
 EXTRN	_BITS_PER_WORD:DWORD
 EXTRN	_ZERO_PADDED_FFT:DWORD
 EXTRN	_INFT:DWORD
+EXTRN	_GWVERNUM:DWORD
 EXTRN	_SRCARG:DWORD
 EXTRN	_SRC2ARG:DWORD
 EXTRN	_DESTARG:DWORD
 EXTRN	_DEST2ARG:DWORD
+EXTRN	_NUMARG:DWORD
+EXTRN	_NUM2ARG:DWORD
 EXTRN	_GWPROCPTRS:DWORD
-EXTRN	_GWERROR:DWORD
-EXTRN	_COPYZERO:DWORD
 
 EXTRN	gwadd1:PROC
 EXTRN	gwaddq1:PROC
@@ -649,9 +650,6 @@ XMM_P445	DQ	0.445, 0.445
 XMM_P180	DQ	1.80, 1.80
 XMM_P434	DQ	0.434, 0.434
 XMM_M223	DQ	-0.223, -0.223
-
-PUBLIC	asm_timers
-asm_timers	DD	32 DUP (0)
 
 RPF	EQU	80000000h	; FFT requires prefetch capability
 
@@ -3289,7 +3287,7 @@ _gwinfo1 PROC NEAR
 	mov	_INFT+4, OFFSET xjmptablep ; P4 2^N+1 mod FFTs
 	mov	_INFT+8, OFFSET jmptable ; x86 mersenne mod FFTs
 	mov	_INFT+12, OFFSET jmptablep ; x86 2^N+1 mod FFTs
-	mov	_INFT+16, VERSION_NUMBER
+	mov	_GWVERNUM, VERSION_NUMBER
 	ret
 _gwinfo1 ENDP
 
@@ -3766,9 +3764,9 @@ _eisvaliddouble PROC NEAR
 	and	eax, 0100h		; Isolate the C0 bit (nan or infinity)
 	fcomp	st(0)			; Pop the bad value
 	jz	short noerr1		; If zero, no error
-	mov	_DESTARG, 0		; Return FALSE for bad doubles
+	mov	_NUMARG, 0		; Return FALSE for bad doubles
 	ret
-noerr1:	mov	_DESTARG, 1		; Return TRUE for good doubles
+noerr1:	mov	_NUMARG, 1		; Return TRUE for good doubles
 	ret
 _eisvaliddouble ENDP
 
@@ -3779,12 +3777,12 @@ _eisvaliddouble ENDP
 
 	PUBLIC	_eset_mul_const
 _eset_mul_const PROC NEAR
-	fild	_SRCARG			; Integer
+	fild	_NUMARG			; Integer
 	fst	XMM_MULCONST
 	fstp	XMM_MULCONST+8
 
 	fld	_KARG			; The zero padding case is harder
-	fimul	_SRCARG
+	fimul	_NUMARG
 	fld	st
 	fadd	BIGBIGVAL
 	fsub	BIGBIGVAL
@@ -3809,7 +3807,7 @@ _eset_mul_const PROC NEAR
 	fcompp
 
 	fld	MINUS_CARG
-	fimul	_SRCARG
+	fimul	_NUMARG
 	fst	XMM_MINUS_CARG_TIMES_MULCONST
 	fstp	XMM_MINUS_CARG_TIMES_MULCONST+8
 
@@ -3895,11 +3893,11 @@ fft_weight_exponent PROC NEAR
 	fild	_FFTLEN			; Load for future FPREM calls
 
 	fild	FFT_BITS_PER_WORD_INT	; Load integer fft_bit_length
-	fimul	_SRCARG			; j * fft_bit_length
+	fimul	_NUMARG			; j * fft_bit_length
 	fprem				; Mod FFTLEN
 
 	fld	FFT_BITS_PER_WORD_FRAC	; Load fractional fft_bit_length
-	fimul	_SRCARG			; j * fft_bit_length
+	fimul	_NUMARG			; j * fft_bit_length
 	faddp	st(1), st
 
 	fsubr	st(0), st(1)		; FFTLEN - j*q%FFTLEN
@@ -3916,7 +3914,7 @@ fft_weight_exponent PROC NEAR
 					; Weight is abs(c) ^ j/FFTLEN
 					; or, 2 ^ (log2(abs(c)) * j/FFTLEN)
 	fld	LOG2_ABS_CARG
-	fimul	_SRCARG
+	fimul	_NUMARG
 	fld	FFTLEN_INVERSE
 	fmulp	st(1), st
 	faddp	st(1), st		; Add two weight exponents together
@@ -3941,12 +3939,12 @@ _efft_base PROC NEAR
 	mov	ecx, _DESTARG		; Address for the result
 
 	mov	eax, FFT_BITS_PER_WORD_INT ; Load integer fft_bit_length
-	mul	_SRCARG			; Mul by j
+	mul	_NUMARG			; Mul by j
 	div	_FFTLEN			; Divide by FFTLEN
 	mov	_DESTARG, edx		; Save remainder for FPU use
 
 	fld	FFT_BITS_PER_WORD_FRAC	; Load fractional fft_bit_length
-	fimul	_SRCARG			; Mul by j
+	fimul	_NUMARG			; Mul by j
 	fiadd	_DESTARG		; Add in remainder
 	fld	FFTLEN_INVERSE		; 1 / FFTLEN
 	fmulp	st(1), st		; Divide by FFTLEN
@@ -3980,8 +3978,8 @@ _esincos PROC NEAR
 	mov	eax, _DESTARG
 	fldpi				;; PI
 	fadd	st, st			;; 2*PI
-	fimul	_SRCARG			;; 2*PI*x
-	fidiv	_SRC2ARG		;; 2*PI*x / N
+	fimul	_NUMARG			;; 2*PI*x
+	fidiv	_NUM2ARG		;; 2*PI*x / N
 	fsincos				;; Compute sine and cosine
 	fxch	st(1)			;; Place sine on top of stack
 	fadd	EPSILON			;; Protect against divide by zero
@@ -3996,8 +3994,8 @@ _esincos3 PROC NEAR
 	mov	eax, _DESTARG
 	fldpi				;; PI
 	fadd	st, st			;; 2*PI
-	fimul	_SRCARG			;; 2*PI*x
-	fidiv	_SRC2ARG		;; 2*PI*x / N
+	fimul	_NUMARG			;; 2*PI*x
+	fidiv	_NUM2ARG		;; 2*PI*x / N
 	fld	st			;; Compute 2 times the above val
 	fadd	st, st
 	fld	st			;; Compute 3 times the above val

@@ -1,4 +1,4 @@
-; Copyright 1995-2000 Just For Fun Software, Inc., all rights reserved
+; Copyright 1995-2004 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -16,6 +16,8 @@ EXTRN	_FFTLEN:DWORD
 EXTRN	_SRCARG:DWORD
 EXTRN	_SRC2ARG:DWORD
 EXTRN	_DESTARG:DWORD
+EXTRN	_NUMARG:DWORD
+EXTRN	_NUM2ARG:DWORD
 EXTRN	_CARRYH:DWORD
 EXTRN	_CARRYL:DWORD
 EXTRN	_RES:DWORD
@@ -48,7 +50,7 @@ INCLUDE unravel.mac
 
 	PUBLIC	_eaddhlp
 _eaddhlp PROC NEAR
-	mov	eax, _SRCARG		; Integer1
+	mov	eax, _NUMARG		; Integer1
 	add	_RES, eax		; Add two integers
 	adc	_CARRYL, 0		; Add the carry
 	adc	_CARRYH, 0		; Add the carry
@@ -59,7 +61,7 @@ _eaddhlp ENDP
 
 	PUBLIC	_esubhlp
 _esubhlp PROC NEAR
-	mov	eax, _SRCARG		; Integer1
+	mov	eax, _NUMARG		; Integer1
 	sub	_RES, eax		; Subtract two integers
 	sbb	_CARRYL, 0		; Subtract the carry
 	sbb	_CARRYH, 0		; Subtract the carry
@@ -70,8 +72,8 @@ _esubhlp ENDP
 
 	PUBLIC	_emuladdhlp
 _emuladdhlp PROC NEAR
-	mov	eax, _SRCARG		; Integer1
-	mul	_SRC2ARG		; Integer2
+	mov	eax, _NUMARG		; Integer1
+	mul	_NUM2ARG		; Integer2
 	add	_RES, eax		; Add result to 3 word accumulator
 	adc	_CARRYL, edx
 	adc	_CARRYH, 0
@@ -82,8 +84,8 @@ _emuladdhlp ENDP
 
 	PUBLIC	_emuladd2hlp
 _emuladd2hlp PROC NEAR
-	mov	eax, _SRCARG		; Integer1
-	mul	_SRC2ARG		; Integer2
+	mov	eax, _NUMARG		; Integer1
+	mul	_NUM2ARG		; Integer2
 	add	eax, eax		; Add 2*result to 3 word accumulator
 	adc	edx, edx
 	adc	_CARRYH, 0
@@ -97,8 +99,8 @@ _emuladd2hlp ENDP
 
 	PUBLIC	_emulsubhlp
 _emulsubhlp PROC NEAR
-	mov	eax, _SRCARG		; Integer1
-	mul	_SRC2ARG		; Integer2
+	mov	eax, _NUMARG		; Integer1
+	mul	_NUM2ARG		; Integer2
 	sub	_RES, eax		; Sub result from 3 word accumulator
 	sbb	_CARRYL, edx
 	sbb	_CARRYH, 0

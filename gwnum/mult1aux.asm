@@ -260,7 +260,7 @@ gwcopyzero1 PROC NEAR
 	push	edi			; Save registers
 	mov	esi, _SRCARG		; Address of first number
 	mov	edi, _DESTARG		; Address of destination
-	mov	ecx, _SRC2ARG		; Values to zero
+	mov	ecx, _NUMARG		; Values to zero
 	mov	edx, _FFTLEN		; Total number of values
 zlp1:	fldz				; Zero low word
 	fstp	QWORD PTR [edi]

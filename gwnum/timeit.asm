@@ -195,7 +195,7 @@ _timeit	PROC NEAR
 	mov	edi, _SRCARG
 	mov	esi, _SRCARG
 	
-	mov	edx, _DESTARG		; Get test number
+	mov	edx, _NUMARG		; Get test number
 
 	mov	eax, X87_CASES
 	cmp	edx, -1			; -1 = get num x87 cases

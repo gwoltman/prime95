@@ -64,6 +64,7 @@ Several useful websites for help (look for overclocking community or forum):
 Utility programs you may find useful (I'm sure there are others - look around):
 	Motherboard monitor from http://mbm.livewiredev.com
 	Memtest86 from http://www.memtest86.com
+	Cpuburn by redelm: http://pages.sbcglobal.net/redelm/
 	TaskInfo2002 from http://www.iarsn.com/
 
 

@@ -37,7 +37,7 @@ typedef double *gwnum;
 /* gwsetup verifies that the version numbers match.  This prevents bugs */
 /* from accidentally linking in the wrong gwnum object files. */
 
-#define GWNUM_VERSION	"24.7"
+#define GWNUM_VERSION	"24.8"
 
 /* Prior to calling one of the gwsetup routines, you can have the library */
 /* "play it safe" by reducing the maximum allowable bits per FFT data word. */
@@ -198,7 +198,7 @@ unsigned long gwtobinary (
 /* multiplied by.  Use this macro in conjunction with the c argument of */
 /* gwsetnormroutine. */
 
-#define gwsetmulbyconst(s) {SRCARG = (void*)(long)(s); eset_mul_const();}
+#define gwsetmulbyconst(s) {NUMARG = (long)(s); eset_mul_const();}
 
 /* The multiplication code has two options that you can set using this */
 /* macro.  The e argument tells the multiplication code whether or not */
@@ -429,7 +429,9 @@ EXTERNC void *SRCARG;		/* For assembly language arg passing */
 EXTERNC void *SRC2ARG;		/* For assembly language arg passing */
 EXTERNC void *DESTARG;		/* For assembly language arg passing */
 EXTERNC void *DEST2ARG;		/* For assembly language arg passing */
-extern void *GW_BIGBUF;		/* Optional buffer to allocate gwnums in */
+EXTERNC long NUMARG;		/* For assembly language arg passing */
+EXTERNC long NUM2ARG;		/* For assembly language arg passing */
+extern char *GW_BIGBUF;		/* Optional buffer to allocate gwnums in */
 extern unsigned long GW_BIGBUF_SIZE;	/* Size of the optional buffer */
 extern gwnum *gwnum_alloc;		/* Array of allocated gwnums */
 extern unsigned int gwnum_alloc_count;	/* Count of allocated gwnums */
@@ -473,11 +475,11 @@ EXTERNC void esubhlp (void);
 EXTERNC void emuladdhlp (void);
 EXTERNC void emuladd2hlp (void);
 EXTERNC void emulsubhlp (void);
-#define addhlp(a)	SRCARG=(void*)a, eaddhlp()
-#define subhlp(a)	SRCARG=(void*)a, esubhlp()
-#define muladdhlp(a,b)	{SRCARG=(void*)a; SRC2ARG=(void*)b; emuladdhlp();}
-#define muladd2hlp(a,b)	{SRCARG=(void*)a; SRC2ARG=(void*)b; emuladd2hlp();}
-#define mulsubhlp(a,b)	{SRCARG=(void*)a; SRC2ARG=(void*)b; emulsubhlp();}
+#define addhlp(a)	NUMARG=(long)(a), eaddhlp()
+#define subhlp(a)	NUMARG=(long)(a), esubhlp()
+#define muladdhlp(a,b)	{NUMARG=(long)(a); NUM2ARG=(long)(b); emuladdhlp();}
+#define muladd2hlp(a,b)	{NUMARG=(long)(a); NUM2ARG=(long)(b); emuladd2hlp();}
+#define mulsubhlp(a,b)	{NUMARG=(long)(a); NUM2ARG=(long)(b); emulsubhlp();}
 
 /* Specialized routines that let the internal giants code share the free */
 /* memory pool used by gwnums. */

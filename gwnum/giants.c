@@ -7,7 +7,7 @@
  *  Massive rewrite by G. Woltman for 32-bit support
  *
  *  c. 1997,1998 Perfectly Scientific, Inc.
- *  c. 1998-2004 Just For Fun Software, Inc.
+ *  c. 1998-2005 Just For Fun Software, Inc.
  *  All Rights Reserved.
  *
  **************************************************************/
@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <gwutil.h>
 #include <math.h>
 #include "giants.h"
 #include "fftsg.c"
@@ -69,7 +70,7 @@ typedef gmatrixstruct *gmatrix;
 
 typedef struct gstacknodestruct {
 	 gwnum	gw;			/* gwnum used */
-	 long	space_left;
+	 unsigned long space_left;
 	 long	offset;
 	 long	next_offset;
 } gstacknode;
@@ -81,7 +82,7 @@ int	mulmode = AUTO_MUL;
 int	cur_stack_size = 0;
 int	cur_stack_elem = 0;
 gstacknode *stack = NULL;
-double	*ooura_sincos=NULL, *ooura_sincosorig = NULL;
+double	*ooura_sincos = NULL;
 int	*ooura_ip = NULL;
 int	ooura_fft_size = 0;
 giant	cur_recip = NULL;
@@ -144,8 +145,8 @@ void term_giants (void)
 	stack = NULL;
 	cur_stack_elem = 0;
 	cur_stack_size = 0;
-	free (ooura_sincosorig);
-	ooura_sincosorig = NULL;
+	aligned_free (ooura_sincos);
+	ooura_sincos = NULL;
 	free (ooura_ip);
 	ooura_ip = NULL;
 	ooura_fft_size = 0;
@@ -1625,8 +1626,8 @@ giant popg (
 {
 	giant	g;
 	gstacknode *s, *sprev;
-static	long	gwnumsize = 0;
-	int	memsize;
+static	unsigned long gwnumsize = 0;
+	unsigned long memsize;
 
 	ASSERTG (size >= 0);
 
@@ -1651,7 +1652,7 @@ static	long	gwnumsize = 0;
 /* share the same memory space.  Pretty handy in conserving allocated memory */
 
 	if (gwnumsize == 0 && FFTLEN)
-		gwnumsize = (long) addr (NULL, FFTLEN-1) + 8;
+		gwnumsize = gwnum_size (FFTLEN);
 
 /* Malloc our giant */
 
@@ -1841,9 +1842,8 @@ void init_sincos (
 	int 	n)
 {
 	if (n <= ooura_fft_size) return;
-	if (ooura_sincosorig) free (ooura_sincosorig);
-	ooura_sincosorig = (double *) malloc ((n/2) * sizeof (double) + 8);
-	ooura_sincos = (double *) (((long) ooura_sincosorig + 7) & 0xFFFFFFF8);
+	aligned_free (ooura_sincos);
+	ooura_sincos = (double *) aligned_malloc ((n/2) * sizeof (double), sizeof (double));
 	if (ooura_ip) free (ooura_ip);
 	ooura_ip = (int *) malloc (((int) sqrt((double)(n/2)) + 2) * sizeof (int));
 	ooura_ip[0] = 0;
@@ -1935,15 +1935,14 @@ void FFTsquareg (
 	giant	x)
 {
 	int	size = x->sign;
-	double	*z1, *z1orig;
+	double	*z1;
 	register int 	L;
 
 	ASSERTG (x->sign >= 4 && x->n[x->sign-1] != 0);
 
 	L = lpt (size+size) << 1;
 	init_sincos (L);
-	z1orig = (double *) popg (L*sizeof(double)/sizeof(unsigned long) + 8);
-	z1 = (double *) (((long) z1orig + 7) & 0xFFFFFFF8);
+	z1 = (double *) aligned_malloc (L * sizeof (double), sizeof (double));
 
 	giant_to_double (x, size, z1, L);
 	rdft (L, 1, z1, ooura_ip, ooura_sincos);
@@ -1951,7 +1950,7 @@ void FFTsquareg (
 	rdft (L, -1, z1, ooura_ip, ooura_sincos);
 	addsignal (x, size+size, z1, L);
 
-	pushg (1);
+	aligned_free (z1);
 }
 
 void FFTmulg (			/* x becomes y*x. */
@@ -1959,7 +1958,7 @@ void FFTmulg (			/* x becomes y*x. */
 	giant	x)
 {
 	int	sizex = x->sign, sizey = y->sign;
-	double	*z1, *z1orig, *z2, *z2orig;
+	double	*z1, *z2;
 	register int	L;
 
 	ASSERTG (y->sign >= 4 && y->n[y->sign-1] != 0);
@@ -1970,10 +1969,8 @@ void FFTmulg (			/* x becomes y*x. */
 
 	L = lpt (sizex+sizey) << 1;
 	init_sincos (L);
-	z1orig = (double *) popg (L*sizeof(double)/sizeof(unsigned long) + 1);
-	z1 = (double *) (((long) z1orig + 7) & 0xFFFFFFF8);
-	z2orig = (double *) popg (L*sizeof(double)/sizeof(unsigned long) + 1);
-	z2 = (double *) (((long) z2orig + 7) & 0xFFFFFFF8);
+	z1 = (double *) aligned_malloc (L * sizeof (double), sizeof (double));
+	z2 = (double *) aligned_malloc (L * sizeof (double), sizeof (double));
 
 	giant_to_double (x, sizex, z1, L);
 	giant_to_double (y, sizey, z2, L);
@@ -1983,7 +1980,8 @@ void FFTmulg (			/* x becomes y*x. */
 	rdft (L, -1, z1, ooura_ip, ooura_sincos);
 	addsignal (x, sizex+sizey, z1, L);
 
-	pushg (2);
+	aligned_free (z1);
+	aligned_free (z2);
 	ASSERTG (y->sign > 0 && y->n[y->sign-1] != 0);
 }
 

@@ -80,7 +80,6 @@ IFDEF TIMERS
 	sub	eax, eax
 	mov	ecx, 32
 	mov	edi, OFFSET asm_timers
-	mov	_COPYZERO, edi		;; Save addr for C code to access
 	rep	stosd
 	pop	edi
 	pop	ecx
@@ -93,7 +92,7 @@ IFDEF TIMERS
 	push	eax
 	push	edx
 	rdtsc
-	sub	asm_timers[n*4], eax
+	sub	_ASM_TIMERS[n*4], eax
 	pop	edx
 	pop	eax
 ENDIF

@@ -2748,7 +2748,7 @@ int selfTest (
 		max_fft = IniGetInt (INI_FILE, "MaxTortureFFT", 4096);
 		memory = IniGetInt (INI_FILE, "TortureMem", DAY_MEMORY > NIGHT_MEMORY ? DAY_MEMORY : NIGHT_MEMORY);
 		while (memory > 8 && bigbuf == NULL) {
-			bigbuf = malloc (memory * 1000000);
+			bigbuf = aligned_malloc (memory * 1000000, 128);
 			if (bigbuf == NULL) memory--;
 		}
 		for ( ; ; ) {
@@ -2773,7 +2773,7 @@ int selfTest (
 				}
 				GW_BIGBUF = NULL;
 				GW_BIGBUF_SIZE = 0;
-				free (bigbuf);
+				aligned_free (bigbuf);
 				return (FALSE);
 			}
 		    }
@@ -2781,7 +2781,7 @@ int selfTest (
 		}
 		GW_BIGBUF = NULL;
 		GW_BIGBUF_SIZE = 0;
-		free (bigbuf);
+		aligned_free (bigbuf);
 	}
 
 /* Otherwise we are self-testing a specific word length. */
@@ -2916,7 +2916,7 @@ static	int	data_index[SELF_FFT_LENGTHS] = {0};
 /* Now run Lucas setup, for extra safety double the maximum allowable */
 /* sum(inputs) vs. sum(outputs) difference. */
 
-		GW_BIGBUF = bigbuf;
+		GW_BIGBUF = (char *) bigbuf;
 		GW_BIGBUF_SIZE = (bigbuf != NULL) ? memory * 1000000 : 0;
 		lucasSetup (p, fftlen);
 		MAXDIFF *= 2.0;
@@ -2934,7 +2934,7 @@ static	int	data_index[SELF_FFT_LENGTHS] = {0};
 			num_gwnums = (unsigned int)
 				(((double) memory * 1000000.0 -
 				  (double) gwmap_to_memused (1.0, 2, p, -1)) /
-				 (double) (gwnum_size (FFTLEN) + 32 + GW_ALIGNMENT));
+				 (double) (gwnum_size (FFTLEN) + GW_HEADER_SIZE + GW_ALIGNMENT));
 			if (num_gwnums < 1) num_gwnums = 1;
 			if (num_gwnums > ll_iters) num_gwnums = ll_iters;
 		}
@@ -3393,7 +3393,6 @@ void primeTime (
 	double	time, saved_times[SAVED_LIMIT];
 	int	days, hours, minutes;
 	unsigned long best_asm_timers[32]= {0};
-	unsigned long *asm_timer;
 
 /* Set the process/thread priority */
 
@@ -3457,11 +3456,9 @@ void primeTime (
 
 /* Remember the best asm timers (used when I'm optimizing assembly code) */
 
-		asm_timer = (unsigned long *) COPYZERO[0];
-		if (asm_timer != NULL)
 		for (j = 0; j < 32; j++)
-			if (i == 0 || asm_timer[j] < best_asm_timers[j])
-				best_asm_timers[j] = asm_timer[j];
+			if (i == 0 || ASM_TIMERS[j] < best_asm_timers[j])
+				best_asm_timers[j] = ASM_TIMERS[j];
 
 /* Output timer squaring times */
 
@@ -3503,9 +3500,14 @@ void primeTime (
 	OutputStr (buf);
 	sprintf (buf, minutes == 1 ? "%d minute.\n" : "%d minutes.\n", minutes);
 	OutputStr (buf);
-for (i = 0; i < 32; i++) {
-sprintf (buf, "timer %d: %d\n", i, best_asm_timers[i]);
-if(best_asm_timers[i]) OutputBoth (buf);}
+
+/* I use these assembly language timers to time various chunks of */
+/* assembly code.  Print these timers out. */
+
+	for (i = 0; i < 32; i++) {
+		sprintf (buf, "timer %d: %d\n", i, best_asm_timers[i]);
+		if (best_asm_timers[i]) OutputBoth (buf);
+	}
 }
 
 #define BENCH1 "\nYour timings will be written to the results.txt file.\n"

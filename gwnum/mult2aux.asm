@@ -398,7 +398,7 @@ gwcopyzero2 PROC NEAR
 	push	ebx
 	mov	esi, _SRCARG		; Address of first number
 	mov	edi, _DESTARG		; Address of destination
-	mov	ecx, _SRC2ARG		; Count of words to zero
+	mov	ecx, _NUMARG		; Count of words to zero
 	mov	ebx, addcount1		; Load blk count
 zlp0:	mov	eax, normval4		; Load count of 4KB pages in a block
 zlp:	dec	ecx			; Decrement count of words to zero

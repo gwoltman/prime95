@@ -4,6 +4,8 @@
 | that deal with the gwnum data type.
 +---------------------------------------------------------------------*/
 
+#include <gwutil.h>
+
 /* global variables */
 
 double	GWSAFETY_MARGIN = 0.0;	/* Reduce maximum allowable bits per */
@@ -24,6 +26,7 @@ EXTERNC double MAXERR = 0.0;	/* Convolution error in a multiplication */
 EXTERNC double MAXDIFF = 0.0;	/* Maximum allowable difference between */
 				/* sum of inputs and outputs */
 EXTERNC unsigned long COPYZERO[8] = {0};/* Ptrs to help in gwcopyzero */
+EXTERNC unsigned long ASM_TIMERS[32] = {0};/* Assembly language timers */
 EXTERNC void (*GWPROCPTRS[24])()={NULL}; /* Ptrs to assembly routines */
 unsigned int NORMNUM = 0;	/* The post-multiply normalize routine index */
 EXTERNC void (*NORMRTN)() = NULL; /* The post-multiply normalization routine */
@@ -93,13 +96,16 @@ EXTERNC	double ZPAD_SHIFT1=0.0;
 EXTERNC	unsigned long BIGLIT_INCR2=0; /* Offset to step in big/lit array */
 EXTERNC	unsigned long BIGLIT_INCR4=0; /* Offset to step in big/lit array */
 
-EXTERNC unsigned long* INFT[5]={0};/* For assembly language arg passing */
+EXTERNC unsigned long* INFT[4]={0};/* For assembly language arg passing */
+EXTERNC unsigned long GWVERNUM=0;/* For assembly language arg passing */
 EXTERNC void *SRCARG = NULL;	/* For assembly language arg passing */
 EXTERNC void *SRC2ARG = NULL;	/* For assembly language arg passing */
 EXTERNC void *DESTARG = NULL;	/* For assembly language arg passing */
 EXTERNC void *DEST2ARG = NULL;	/* For assembly language arg passing */
+EXTERNC long NUMARG = 0;	/* For assembly language arg passing */
+EXTERNC long NUM2ARG = 0;	/* For assembly language arg passing */
 double	fft_count = 0;		/* Count of forward and inverse FFTs */
-void	*gwnum_memory;		/* Allocated memory */
+double	*gwnum_memory;		/* Allocated memory */
 unsigned long GW_ALIGNMENT = 0;	/* How to align allocated gwnums */
 unsigned long GW_ALIGNMENT_MOD = 0; /* How to align allocated gwnums */
 unsigned long PASS1_CACHE_LINES = 0; /* Cache lines grouped together in */
@@ -127,7 +133,7 @@ gwnum	GW_RANDOM = NULL;	/* A random number used in */
 
 char	GWSTRING_REP[40];	/* The gwsetup modulo number as a string. */
 
-void	*GW_BIGBUF = NULL;	/* Optional buffer to allocate gwnums in */
+char	*GW_BIGBUF = NULL;	/* Optional buffer to allocate gwnums in */
 unsigned long GW_BIGBUF_SIZE = 0;/* Size of the optional buffer */
 
 gwnum	*gwnum_alloc = NULL;	/* Array of allocated gwnums */
@@ -194,7 +200,7 @@ int is_valid_double (
 {
 	SRCARG = (void *) &d;
 	eisvaliddouble ();
-	return ((int) DESTARG);
+	return ((int) NUMARG);
 }
 
 /* Find the power of two greater than or equal to N. */
@@ -222,7 +228,7 @@ double fft_weight (
 	unsigned long n)
 {
 	double	result;
-	SRCARG = (void*) n;
+	NUMARG = (long) n;
 	DESTARG = (void*) &result;
 	efft_weight ();
 	return (result);
@@ -231,7 +237,7 @@ double fft_weight_inverse (
 	long	n)
 {
 	double	result;
-	SRCARG = (void*) n;
+	NUMARG = (long) n;
 	DESTARG = (void*) &result;
 	efft_weight_inverse ();
 	return (result);
@@ -240,7 +246,7 @@ double fft_weight_inverse_over_fftlen (
 	unsigned long n)
 {
 	double	result;
-	SRCARG = (void*) n;
+	NUMARG = (long) n;
 	DESTARG = (void*) &result;
 	efft_weight_inverse_over_fftlen ();
 	return (result);
@@ -249,7 +255,7 @@ unsigned long fft_base (
 	unsigned long n)
 {
 	unsigned long result;
-	SRCARG = (void*) n;
+	NUMARG = (long) n;
 	DESTARG = (void*) &result;
 	efft_base ();
 	return (result);
@@ -324,8 +330,8 @@ double *build_sin_cos_table (
 
 /* Compute the 3 sin/cos values */
 
-		SRCARG = (void *) flipped_i;
-		SRC2ARG = (void *) N;
+		NUMARG = (long) flipped_i;
+		NUM2ARG = (long) N;
 		DESTARG = (void *) &sincos;
 		esincos3 ();
 
@@ -431,8 +437,8 @@ double *build_premult_table (
 /* Compute the sin/cos value (root of unity) */
 
 				if (CARG < 0 || ZERO_PADDED_FFT) {
-					SRCARG = (void *) (((l * incr/4 + k) * flipped_i) % N);
-					SRC2ARG = (void *) N;
+					NUMARG = (long) (((l * incr/4 + k) * flipped_i) % N);
+					NUM2ARG = (long) N;
 					DESTARG = (void *) &sincos;
 					esincos ();
 				}
@@ -441,8 +447,8 @@ double *build_premult_table (
 /* by changing the value we are taking the sin/cos of */
 
 				else {
-					SRCARG = (void *) (((l * incr/4 + k) * flipped_i * 4 + l*incr/4+k) % (N*4));
-					SRC2ARG = (void *) (N*4);
+					NUMARG = (long) (((l * incr/4 + k) * flipped_i * 4 + l*incr/4+k) % (N*4));
+					NUM2ARG = (long) (N*4);
 					DESTARG = (void *) &sincos;
 					esincos ();
 				}
@@ -463,8 +469,8 @@ double *build_premult_table (
 /* Compute the sin/cos value (root of unity) */
 
 				if (CARG < 0 || ZERO_PADDED_FFT) {
-					SRCARG = (void *) ((k * flipped_i + l * N/16) % N);
-					SRC2ARG = (void *) N;
+					NUMARG = (long) ((k * flipped_i + l * N/16) % N);
+					NUM2ARG = (long) N;
 					DESTARG = (void *) &sincos;
 					esincos ();
 				}
@@ -473,8 +479,8 @@ double *build_premult_table (
 /* by changing the value we are taking the sin/cos of */
 
 				else {
-					SRCARG = (void *) (((k * flipped_i * 2 + l * N/8) *2 + k) % (N*4));
-					SRC2ARG = (void *) (N*4);
+					NUMARG = (long) (((k * flipped_i * 2 + l * N/8) *2 + k) % (N*4));
+					NUM2ARG = (long) (N*4);
 					DESTARG = (void *) &sincos;
 					esincos ();
 				}
@@ -533,10 +539,10 @@ double *build_plus1_table (
 /* Compute the sin/cos value */
 
 			if (pfa)
-				SRCARG = (void *) ((i * 2 + l * N/12 + j + k * N/6) % N);
+				NUMARG = (long) ((i * 2 + l * N/12 + j + k * N/6) % N);
 			else
-				SRCARG = (void *) ((i * 4 + l * 2 + j + k * N/8) % N);
-			SRC2ARG = (void *) (N*2);
+				NUMARG = (long) ((i * 4 + l * 2 + j + k * N/8) % N);
+			NUM2ARG = (long) (N*2);
 			DESTARG = (void *) &sincos;
 			esincos ();
 
@@ -878,8 +884,8 @@ double *build_x87_sin_cos_table (
 
 /* Compute the 3 sin/cos values */
 
-		SRCARG = (void *) flipped_i;
-		SRC2ARG = (void *) N;
+		NUMARG = (long) flipped_i;
+		NUM2ARG = (long) N;
 		DESTARG = (void *) &sincos;
 		esincos3 ();
 
@@ -957,8 +963,8 @@ double *build_x87_premult_table (
 /* Compute the sin/cos value (root of unity) */
 
 				if (CARG < 0 || ZERO_PADDED_FFT) {
-					SRCARG = (void *) (((l * incr/4 + k) * flipped_i) % N);
-					SRC2ARG = (void *) N;
+					NUMARG = (long) (((l * incr/4 + k) * flipped_i) % N);
+					NUM2ARG = (long) N;
 					DESTARG = (void *) &sincos;
 					esincos ();
 				}
@@ -967,8 +973,8 @@ double *build_x87_premult_table (
 /* by changing the value we are taking the sin/cos of */
 
 				else {
-					SRCARG = (void *) (((l * incr/4 + k) * flipped_i * 4 + l*incr/4+k) % (N*4));
-					SRC2ARG = (void *) (N*4);
+					NUMARG = (long) (((l * incr/4 + k) * flipped_i * 4 + l*incr/4+k) % (N*4));
+					NUM2ARG = (long) (N*4);
 					DESTARG = (void *) &sincos;
 					esincos ();
 				}
@@ -989,8 +995,8 @@ double *build_x87_premult_table (
 /* Compute the sin/cos value (root of unity) */
 
 				if (CARG < 0 || ZERO_PADDED_FFT) {
-					SRCARG = (void *) ((k * flipped_i + l * N/16) % N);
-					SRC2ARG = (void *) N;
+					NUMARG = (long) ((k * flipped_i + l * N/16) % N);
+					NUM2ARG = (long) N;
 					DESTARG = (void *) &sincos;
 					esincos ();
 				}
@@ -999,8 +1005,8 @@ double *build_x87_premult_table (
 /* by changing the value we are taking the sin/cos of */
 
 				else {
-					SRCARG = (void *) (((k * flipped_i * 2 + l * N/8) *2 + k) % (N*4));
-					SRC2ARG = (void *) (N*4);
+					NUMARG = (long) (((k * flipped_i * 2 + l * N/8) *2 + k) % (N*4));
+					NUM2ARG = (long) (N*4);
 					DESTARG = (void *) &sincos;
 					esincos ();
 				}
@@ -1050,10 +1056,10 @@ double *build_x87_plus1_table (
 /* Compute the sin/cos value */
 
 			if (pfa)
-				SRCARG = (void *) ((i + k * N/6) % N);
+				NUMARG = (long) ((i + k * N/6) % N);
 			else
-				SRCARG = (void *) ((i + k * N/8) % N);
-			SRC2ARG = (void *) (N*2);
+				NUMARG = (long) ((i + k * N/8) % N);
+			NUM2ARG = (long) (N*2);
 			DESTARG = (void *) &sincos;
 			esincos ();
 
@@ -1258,7 +1264,6 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 	signed long c,		/* C in K*B^N+C. Must be rel. prime to K. */
 	unsigned long fftlen)	/* Specific FFT size to use (or zero) */
 {
-	unsigned long version;
 	unsigned long *jmptab, *zpad_jmptab;
 	double	log2k, log2c, log2maxmulbyconst;
 	double	max_bits_per_word, bits_per_word;
@@ -1280,8 +1285,7 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 /* number.  If they do not match, then the user linked in the wrong gwnum */
 /* object files! */
 
-	version = (unsigned long) INFT[4];
-	sprintf (buf, "%d.%d", version / 100, version % 100);
+	sprintf (buf, "%d.%d", GWVERNUM / 100, GWVERNUM % 100);
 	if (strcmp (buf, GWNUM_VERSION)) return (GWERROR_VERSION);
 
 /* Precalculate some needed values */
@@ -1708,14 +1712,14 @@ int internal_gwsetup (
 	fpu_init ();
 	info = INFT[0];
 	mem_needed = info[3];
-	gwnum_memory = malloc (mem_needed + 4096);
+	gwnum_memory = tables = (double *) aligned_malloc (mem_needed, 4096);
 
 /* Do a seemingly pointless memset! */
 /* The memset will walk through the allocated memory sequentially, which */
 /* increases the liklihood that contiguous virtual memory will map to */
 /* contiguous physical memory. */
 
-	memset (gwnum_memory, 0, mem_needed + 4096);
+	memset (tables, 0, mem_needed);
 
 /* Setup some useful global variables */
 
@@ -1769,10 +1773,6 @@ int internal_gwsetup (
 /* Do some preliminary assembly-language FFT setup */
 
 	gwsetup1 ();
-
-/* Align the allocated memory on a 4KB boundary */
-
-	tables = (double *) (((unsigned long) gwnum_memory + 4095) & ~4095);
 
 /* This debug code will make sure the memory allocated is appropriate */
 /* for the tables we are about to init. */
@@ -2275,17 +2275,17 @@ void gwdone (void)
 	unsigned int i;
 
 	term_giants ();
-	free (gwnum_memory);
+	aligned_free (gwnum_memory);
 	gwnum_memory = NULL;
 	free (gwnum_free);
 	gwnum_free = NULL;
 	if (gwnum_alloc != NULL) {
 		for (i = 0; i < gwnum_alloc_count; i++) {
 			char	*p;
-			long	pad;
+			long	freeable;
 			p = (char *) gwnum_alloc[i];
-			pad = * (long *) (p - 32);
-			if (pad) free (p - pad);
+			freeable = * (long *) (p - 32);
+			if (freeable) aligned_free ((char *) p - GW_HEADER_SIZE);
 		}
 		free (gwnum_alloc);
 		gwnum_alloc = NULL;
@@ -2301,7 +2301,7 @@ void gwdone (void)
 
 gwnum gwalloc (void)
 {
-	unsigned long size;
+	unsigned long size, aligned_size;
 	char	*p, *q;
 
 /* Return cached gwnum if possible */
@@ -2331,26 +2331,31 @@ gwnum gwalloc (void)
 	}
 
 /* Use addr function on the last FFT value to compute the size. */
-/* Allocate 32 extra bytes for header information and allocate */
-/* extra bytes to assure the data is aligned on a cache line */
+/* Allocate 96 extra bytes for header information and align the data */
+/* appropriately.  When allocating memory out of the big buffer for */
+/* the torture test, then only allocate data on 128 byte boundaries */
+/* to maximize the number of gwnums allocated. */
 
 	size = gwnum_size (FFTLEN);
-	if (GW_BIGBUF_SIZE >= size + GW_HEADER_SIZE + GW_ALIGNMENT)
-		p = (char *) GW_BIGBUF;
-	else {
-		p = (char *) malloc (size + GW_HEADER_SIZE + GW_ALIGNMENT);
+	aligned_size = (size + GW_HEADER_SIZE + 127) & ~127;
+	if (GW_BIGBUF_SIZE >= size + aligned_size) {
+		p = GW_BIGBUF;
+		GW_BIGBUF += aligned_size;
+		GW_BIGBUF_SIZE -= aligned_size;
+	} else {
+		p = (char *) aligned_offset_malloc (
+				size + GW_HEADER_SIZE, GW_ALIGNMENT,
+				GW_HEADER_SIZE + GW_ALIGNMENT_MOD);
 		if (p == NULL) return (NULL);
 	}
-	q = (char *) (
-		(((unsigned long) p + GW_HEADER_SIZE + GW_ALIGNMENT - 1 - GW_ALIGNMENT_MOD) &
-		 ~(GW_ALIGNMENT - 1)) +
-		GW_ALIGNMENT_MOD);
-	if (GW_BIGBUF_SIZE >= size + GW_HEADER_SIZE + GW_ALIGNMENT) {
-		GW_BIGBUF_SIZE -= (q + size) - (char *) GW_BIGBUF;
-		GW_BIGBUF = (void *) (q + size);
+
+/* Set byte in header that indicates whether the memory should be freed. */
+
+	q = p + GW_HEADER_SIZE;
+	if (GW_BIGBUF_SIZE >= size + aligned_size)
 		* (long *) (q - 32) = 0;	/* Don't free this memory */
-	} else
-		* (long *) (q - 32) = (long) (q - p); /* Number of pad bytes */
+	else
+		* (long *) (q - 32) = 1;	/* Do free this memory */
 
 /* Do a seemingly pointless memset!  This actual is very important. */
 /* The memset will walk through the allocated memory sequentially, which */
@@ -2429,7 +2434,9 @@ void gwcopy (			/* Copy a gwnum */
 
 /* Copy the data and 96-byte header */
 
-	memcpy ((char *) d - 96, (char *) s - 96, ((unsigned long *) s)[-2] + 96);
+	memcpy ((char *) d - GW_HEADER_SIZE,
+		(char *) s - GW_HEADER_SIZE,
+		((unsigned long *) s)[-2] + GW_HEADER_SIZE);
 
 /* Restore the one piece of information that should not be copied over */
 
@@ -2778,7 +2785,7 @@ unsigned long addr_offset (unsigned long fftlen, unsigned long i)
 
 double *addr (gwnum g, unsigned long i)
 {
-	return ((double *) ((unsigned long) g + addr_offset (FFTLEN, i)));
+	return ((double *) ((char *) g + addr_offset (FFTLEN, i)));
 }
 
 /* Return the size of a gwnum */
@@ -3082,7 +3089,7 @@ static	unsigned long saved_n = 0;
 
 	SRCARG = s;
 	DESTARG = d;
-	SRC2ARG = (void*)(n);
+	NUMARG = (long)(n);
 	if ((CPU_FLAGS & CPU_SSE2) && (COPYZERO[0] == 0 || n != saved_n)) {
 		saved_n = n;
 		calc8ptrs (n, (unsigned long *) COPYZERO);
