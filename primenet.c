@@ -50,8 +50,8 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <errno.h>
-#ifndef __IBMC__
 #include <arpa/inet.h>
+#ifndef __IBMC__
 #include <unistd.h>
 #endif
 #endif
@@ -66,7 +66,7 @@ unsigned short bswap(unsigned short);
 
 /* implement the missing inet_aton call */
 
-#if defined (_WINDOWS_) || defined (__EMX__) || defined (__IBMC__)
+#if defined (_WINDOWS_) || defined (__EMX__)
 int inet_aton (char *cp, struct in_addr *inp)
 {
 	u_long temp;

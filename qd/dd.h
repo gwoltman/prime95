@@ -252,7 +252,7 @@ dd_real ddrand(void);
 /* X86 fix lifted from the double-double library */
 
 #ifdef x86
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__WATCOMC__)
 #include <float.h>
 #define x86_FIX _controlfp (_PC_53, _MCW_PC);
 #define END_x86_FIX  _controlfp (_PC_64, _MCW_PC);

@@ -39,13 +39,13 @@
 #define _unlink		unlink
 #define _creat		creat
 #define _chdir		chdir
-#define _ftime		ftime
 #define closesocket	close
 #define IsCharAlphaNumeric(c) isalnum(c)
 
 #ifndef __WATCOMC__
 #define stricmp(x,y)	strcasecmp(x,y)
 #define _timeb		timeb
+#define _ftime		ftime
 #define _O_APPEND	O_APPEND
 #define _O_RDONLY	O_RDONLY
 #define _O_WRONLY	O_WRONLY
@@ -97,3 +97,7 @@ void test_welcome(void);
 void setupf (void);
 int factor64 (void);
 
+/* Routine definitions */
+
+void rangeStatus (void);
+void options_cpu (void);

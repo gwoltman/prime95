@@ -77,7 +77,7 @@ extern unsigned int PRIORITY;		/* Desired priority level */
 extern unsigned int CPU_AFFINITY;	/* NT Processor affinity */
 extern int MANUAL_COMM;			/* Set on if user explicitly starts */
 					/* all communication with the server */
-EXTERNC unsigned int volatile CPU_TYPE;	/* 3=Cyrix, 4=486, 5=Pentium, */
+extern unsigned int volatile CPU_TYPE;	/* 3=Cyrix, 4=486, 5=Pentium, */
 					/* 6=Pro, 7=K6, 8=Celeron, 9=P-II */
 					/* 10=P-III, 11=K7, 12=P4 */
 extern unsigned int volatile CPU_HOURS;	/* Hours per day program will run */

@@ -10,11 +10,7 @@
 #endif
 #include <stdio.h>
 #include <string.h>
-
-/* Routine definitions */
-
-void rangeStatus (void);
-void options_cpu (void);
+#include <stdlib.h>
 
 /* Get line from the user (stdin) */
 
