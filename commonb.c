@@ -921,10 +921,23 @@ static int PAUSED = FALSE;
 int pauseWhileRunning ()
 {
 	int	i;
+static	time_t	last_check = 0;
+static	int	how_often = -1;
 
 /* In most installations, there is no pause list.  Return quickly. */
 
 	if (PAUSE_WHILE_RUNNING == NULL) return (TRUE);
+
+/* Only check the paused list every 10 seconds */
+
+	if (how_often < 0)
+		how_often = IniGetInt (INI_FILE, "PauseCheckInterval", 10);
+	if (how_often) {
+		time_t	current_time;
+		time (&current_time);
+		if (current_time < last_check + how_often) return (TRUE);
+		last_check = current_time;
+	}
 
 /* Check if a process is running such that we should pause */
 

@@ -256,5 +256,9 @@ adding this line to prime.ini:
 	PauseWhileRunning=prog1,prog2,prog3,etc
 Note that mprime will pause if the program name matches any part of the
 running program's name as returned by "ps -eo comm".  That is, "foobar"
-will match "foobar" and "myfoobarprog".
+will match "foobar" and "myfoobarprog".  Mprime will check the list of
+running programs every 64 iterations, but not more frequently than every
+10 seconds.  You can adjust the ten seconds value by this setting in
+prime.ini:
+	PauseCheckInterval=10
 
