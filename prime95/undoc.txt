@@ -281,3 +281,7 @@ in WININET.DLL.  To use this method instead of the RAS routines, add this
 line to prime.ini:
 	AlternateModemDetection=1
 
+If you are running on a laptop or in a hot room and you want to slow the
+program down to reduce heat, then you can add this line to prime.ini:
+	Throttle=n
+where n is the number of milliseconds to sleep after each iteration.

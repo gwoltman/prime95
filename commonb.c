@@ -1737,7 +1737,7 @@ int prime (
 	int	isPrime, rc;
 	char	buf[160];
 	time_t	start_time, current_time;
-	unsigned long interimFiles, interimResidues;
+	unsigned long interimFiles, interimResidues, throttle;
 static	unsigned long last_counter = 0;		/* Iteration of last error */
 static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 
@@ -1747,6 +1747,12 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 
 	interimFiles = IniGetInt (INI_FILE, "InterimFiles", 0);
 	interimResidues = IniGetInt (INI_FILE, "InterimResidues", interimFiles);
+
+/* Option to slow down the program by sleeping after every iteration.  You */
+/* might use this on a laptop or a computer running in a hot room to keep */
+/* temperatures down and thus reduce the chance of a hardware error.  */
+
+	throttle = IniGetInt (INI_FILE, "Throttle", 0);
 
 /* Clear all timers */
 
@@ -1921,6 +1927,7 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 //	gwmul (qw, LLDATA);
 //gwfree(qw);
 			gwsquare (LLDATA);
+			if (throttle) Sleep (throttle);
 		}
 #endif
 

@@ -277,3 +277,7 @@ where n is the number of days.  You should increase this value if you are
 loading up worktodo.ini with a large amount of work and do not want any of
 the work to be unreserved.
 
+If you are running on a laptop or in a hot room and you want to slow the
+program down to reduce heat, then you can add this line to prime.ini:
+	Throttle=n
+where n is the number of milliseconds to sleep after each iteration.
