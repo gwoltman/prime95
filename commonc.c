@@ -182,6 +182,8 @@ void getCpuInfo (void)
 
 	CPU_L2_CACHE_SIZE =
 		IniGetInt (LOCALINI_FILE, "CpuL2CacheSize", CPU_L2_CACHE_SIZE);
+	CPU_L2_CACHE_LINE_SIZE =
+		IniGetInt (LOCALINI_FILE, "CpuL2CacheLineSize", CPU_L2_CACHE_LINE_SIZE);
 
 /* If CPU has changed greatly since the last time prime95 ran, then */
 /* tell the server, recalculate new completion dates, and reset the */
@@ -1729,7 +1731,7 @@ static	time_t	last_time = 0;
 
 /* Output to the log file only if it hasn't grown too big */
 
-	if (filelen < 250000) {
+	if (filelen < IniGetInt (INI_FILE, "MaxLogFileSize", 250000)) {
 
 /* If it has been at least 5 minutes since the last time stamp */
 /* was output, then output a new timestamp */
