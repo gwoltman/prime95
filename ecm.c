@@ -4175,7 +4175,7 @@ msg_and_exit:
 	buf[0] = PLUS1 ? 'P' : 'M';
 	sprintf (buf+1, "%ld completed P-1, B1=%lu", PARG, B);
 	if (C > B) {
-		if (E <= 1)
+		if (E <= 2)
 			sprintf (buf+strlen(buf), ", B2=%lu", C);
 		else
 			sprintf (buf+strlen(buf), ", B2=%lu, E=%lu", C, E);
