@@ -244,37 +244,37 @@ JMP_Y	MACRO	DEST
 
 clear_timers MACRO
 IFDEF TIMERS
-	push	eax
-	push	ecx
-	push	edi
-	sub	eax, eax
-	mov	ecx, 32
-	mov	edi, OFFSET _ASM_TIMERS
+	push	rax
+	push	rcx
+	push	rdi
+	sub	rax, rax
+	mov	rcx, 32
+	mov	rdi, OFFSET _ASM_TIMERS
 	rep	stosd
-	pop	edi
-	pop	ecx
-	pop	eax
+	pop	rdi
+	pop	rcx
+	pop	rax
 ENDIF
 	ENDM
 
 start_timer MACRO n
 IFDEF TIMERS
-	push	eax
-	push	edx
+	push	rax
+	push	rdx
 	rdtsc
 	sub	_ASM_TIMERS[n*4], eax
-	pop	edx
-	pop	eax
+	pop	rdx
+	pop	rax
 ENDIF
 	ENDM
 
 end_timer MACRO n
 IFDEF TIMERS
-	push	eax
-	push	edx
+	push	rax
+	push	rdx
 	rdtsc
 	add	_ASM_TIMERS[n*4], eax
-	pop	edx
-	pop	eax
+	pop	rdx
+	pop	rax
 ENDIF
 	ENDM

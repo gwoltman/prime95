@@ -194,8 +194,6 @@ _timeit	PROC
 	push	rbp
 	push	rbx
 
-	clear_timers
-
 	sub	ebx, ebx
 	sub	ecx, ecx
 	sub	ebp, ebp
