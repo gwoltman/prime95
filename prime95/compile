@@ -1,12 +1,12 @@
 # Standard options
 masm=ml /c /coff
 #masm=ml /c /coff /Fl /Sf /Sa
-masm64=ml64 /c
-#masm64=ml64 /c /Fl /Sf /Sa
+masm64=ml64 /c /DX86_64
+#masm64=ml64 /c /Fl /Sf /Sa /DX86_64
 cl=\msdev\bin\cl /I.. /I C:\msdev\include\ /O2 /GF /W3 /MT /c
 #cl=\msdev\bin\cl /I.. /I C:\msdev\include\ /O2 /GF /W3 /MT /Zi /c
 
-# Create 32-bit executables
+# Create 32-bit object files
 
 mult.obj: mult.asm mult.mac xmult.mac timeit.inc
     $(masm) mult.asm
@@ -140,4 +140,42 @@ giants.obj: ..\giants.c ..\giants.h
 
 service.obj: service.c
     $(cl) service.c
+
+# Create 32-bit object files
+
+amd64\mult.obj: mult.asm mult.mac xmult.mac timeit.inc
+    $(masm64) mult.asm
+
+amd64\ecmhelp.obj: ecmhelp.asm
+    $(masm64) ecmhelp.asm
+
+amd64\cpuid.obj: cpuid.asm
+    $(masm64) cpuid.asm
+
+amd64\factor64.obj: factor64.asm
+    $(masm64) factor64.asm
+
+amd64\xmult1.obj: xmult1.asm xmult.mac xlucas.mac xfft1.mac
+    $(masm64) xmult1.asm
+
+amd64\xmult1ax.obj: xmult1ax.asm xmult.mac xnormal.mac
+    $(masm64) xmult1ax.asm
+
+amd64\xmult2.obj: xmult2.asm xmult.mac xlucas.mac xfft2.mac xnormal.mac
+    $(masm64) xmult2.asm
+
+amd64\xmult2a.obj: xmult2a.asm xmult.mac xpass2.mac xlucas.mac
+    $(masm64) xmult2a.asm
+
+amd64\xmult2ax.obj: xmult2ax.asm xmult.mac xnormal.mac
+    $(masm64) xmult2ax.asm
+
+amd64\xmult3.obj: xmult3.asm xmult.mac xlucas.mac xfft3.mac xnormal.mac
+    $(masm64) xmult3.asm
+
+amd64\xmult3a.obj: xmult3a.asm xmult.mac xpass2.mac xlucas.mac
+    $(masm64) xmult3a.asm
+
+amd64\xmult3ax.obj: xmult3ax.asm xmult.mac xnormal.mac
+    $(masm64) xmult3ax.asm
 
