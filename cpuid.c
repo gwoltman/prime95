@@ -518,6 +518,8 @@ void guessCpuType (void)
 			Cpuid (0x80000006);
 			CPU_L2_DATA_TLBS = (CPUID_EBX >> 16) & 0xFFF;
 			CPU_L2_CACHE_SIZE = (CPUID_ECX >> 16) & 0xFFFF;
+			if (CPU_L2_CACHE_SIZE == 1) /* Workaround Duron bug */
+				CPU_L2_CACHE_SIZE = 64;
 			CPU_L2_CACHE_LINE_SIZE = CPUID_ECX & 0xFF;
 		}
 
