@@ -36,6 +36,8 @@
 #include "prime95.h"
 #include "main.h"
 #include "service.h"
+#include "gwnum.h"
+#include "giants.h"
 
 
 
