@@ -2464,6 +2464,15 @@ static	int	work_queue_counter = 0;
 
 	if (!USE_PRIMENET) return (TRUE);
 
+/* Every now and then (remember this routine is called frequently), see */
+/* if we need to update server completion dates or check the work queue. */
+
+	if (++work_queue_counter > 1000) {
+		ConditionallyUpdateEndDates ();
+		CHECK_WORK_QUEUE = 1;
+		work_queue_counter = 0;
+	}
+
 /* If all communication with the server is manually initiated, */
 /* then handle that case here */
 
@@ -2486,15 +2495,6 @@ static	int	work_queue_counter = 0;
 		sprintf (COMPID, "C%08X", id);
 		IniWriteString (LOCALINI_FILE, "ComputerID", COMPID);
 		spoolMessage (PRIMENET_SET_COMPUTER_INFO, NULL);
-	}
-
-/* Every now and then (remember this routine is called frequently), see */
-/* if we need to update server completion dates or check the work queue. */
-
-	if (++work_queue_counter > 1000) {
-		ConditionallyUpdateEndDates ();
-		CHECK_WORK_QUEUE = 1;
-		work_queue_counter = 0;
 	}
 
 /* Open and read the spool file to set msgs_to_send correctly */
