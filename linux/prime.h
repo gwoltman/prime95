@@ -134,7 +134,6 @@
 #define _O_TRUNC	O_TRUNC
 #define _O_BINARY 	0
 #define _O_TEXT		0
-#endif
 
 /* Handle differences between Windows and OS/2 runtime libraries */
 
@@ -142,6 +141,7 @@
 #define stricmp(x,y)  stricmp(x,y)
 #define _commit(f)    /* no commit/fsync on OS/2 */
 #define _ftime        _ftime
+#endif
 #endif
 
 /* The common include files */
