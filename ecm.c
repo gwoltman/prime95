@@ -2130,9 +2130,9 @@ return 0;
 if (p == 600) {
 long f; int j, cnt;
 gwsetup (10000000, 0, 0);
-f = (long) malloc (20000000);
+f = (long) malloc (40000000);
 SRCARG = (void *) ((f + 4095) & ~4095);
-memset (SRCARG, 0, 20000000 - 4096);
+memset (SRCARG, 0, 40000000 - 4096);
  RDTSC_TIMING = 12;
     //    SetThreadPriority (CURRENT_THREAD, THREAD_PRIORITY_TIME_CRITICAL);
 for (j = 0; j < 4; j++) {
@@ -4507,7 +4507,7 @@ msg_and_exit:
 		else
 			sprintf (buf+strlen(buf), ", B2=%lu, E=%lu", C, E);
 	}
-	sprintf (buf+strlen(buf), ", WY%d: %08lX\n", PORT, SEC5 (PARG, B, C));
+	sprintf (buf+strlen(buf), ", WZ%d: %08lX\n", PORT, SEC5 (PARG, B, C));
 	writeResults (buf);
 	if (ll_testing) spoolMessage (PRIMENET_RESULT_MESSAGE, buf);
 
