@@ -3164,7 +3164,7 @@ void primeTime (
 	OutputStr (buf);
 	sprintf (buf, hours == 1 ? "%d hour, " : "%d hours, ", hours);
 	OutputStr (buf);
-	sprintf (buf, minutes == 1 ? "%d minute, " : "%d minutes.\n", minutes);
+	sprintf (buf, minutes == 1 ? "%d minute.\n" : "%d minutes.\n", minutes);
 	OutputStr (buf);
 //for (i = 0; i < 32; i++) {
 //sprintf (buf, "timer %d: %d\n", i, best_asm_timers[i]);
@@ -3238,6 +3238,7 @@ void primeBench (void)
 
 		for (j = 0; j < iterations; j++) {
 			if (escapeCheck ()) {
+				OutputStr ("\nExecution halted.\n");
 				lucasDone ();
 				return;
 			}
@@ -3257,7 +3258,7 @@ void primeBench (void)
 		timers[0] = best_time;
 		print_timer (0, TIMER_NL | TIMER_MS | TIMER_OUT_BOTH);
 	}
-	OutputStr ("\n");
+	OutputStr ("Benchmark complete.\n");
 }
 
 /* Wrapper code that verifies any factors found by the assembly code */

@@ -1054,8 +1054,10 @@ UINT threadDispatch (
 // Output informative message
 
 	if (!GIMPS_QUIT && !STOPPED_ON_BATTERY && !RESTARTING) {
-		OutputStr ("Execution halted.\n");
-		OutputStr ("Choose Test/Continue to restart.\n");
+		if (thread_pkt.op == OP_CONTINUE || thread_pkt.op == OP_TORTURE)
+			OutputStr ("Execution halted.\n");
+		if (thread_pkt.op == OP_CONTINUE)
+			OutputStr ("Choose Test/Continue to restart.\n");
 	}
 
 // Clear thread-active flags
