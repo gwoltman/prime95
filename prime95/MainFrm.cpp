@@ -14,6 +14,8 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
+const UINT WM_TASKBARCREATED = ::RegisterWindowMessage(_T("TaskbarCreated"));
+
 /////////////////////////////////////////////////////////////////////////////
 // CMainFrame
 
@@ -35,6 +37,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_MESSAGE(USR_SERVICE_STOP, OnServiceStop)
 	ON_MESSAGE(WM_POWERBROADCAST, OnPower)
 	ON_MESSAGE(MYWM_TRAYMESSAGE, OnTrayMessage)
+	ON_REGISTERED_MESSAGE(WM_TASKBARCREATED, OnTaskBarCreated)
 END_MESSAGE_MAP()
 
 /////////////////////////////////////////////////////////////////////////////
@@ -124,6 +127,12 @@ LONG CMainFrame::OnTrayMessage(UINT uID, LONG uMouseMsg)
 		DestroyMenu (hMenu);
 	}
 
+	return 0;
+}
+
+LRESULT CMainFrame::OnTaskBarCreated (WPARAM wp, LPARAM lp)
+{
+	((CPrime95App *)AfxGetApp())->TrayMessage (NIM_ADD, "Prime95", 0);
 	return 0;
 }
 
@@ -217,7 +226,6 @@ void CMainFrame::OnEndSession (BOOL bEnding)
 #define RSP_UNREGISTER_SERVICE	0
 void Service95 ()
 {
-	char	servicename[80];
 	char	pathname[256];
 	char	regkey[20];		/* Win9x registry name */
 	SC_HANDLE schSCManager = 0;
@@ -272,8 +280,8 @@ void Service95 ()
 // maintain the services database
 
 	if (! isWindows95 ()) {
-		char	servicename[32];
-		char	displayname[32];
+		char	servicename[80];
+		char	displayname[80];
 
 // Create the Windows NT service name and display name
 
@@ -308,7 +316,7 @@ void Service95 ()
 
 			schService = CreateService (
 				schSCManager,		// SCManager database
-				servicename,	        // name of service
+				servicename,		// name of service
 				displayname,		// display name
 				SERVICE_ALL_ACCESS,	// desired access
 				SERVICE_INTERACTIVE_PROCESS |

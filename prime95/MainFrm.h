@@ -26,6 +26,7 @@ public:
 	//}}AFX_VIRTUAL
 	afx_msg LONG OnPower( UINT, LONG );
 	afx_msg LONG OnTrayMessage( UINT, LONG );
+	LRESULT OnTaskBarCreated (WPARAM, LPARAM);
 
 // Implementation
 public:
