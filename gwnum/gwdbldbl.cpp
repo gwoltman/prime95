@@ -56,7 +56,7 @@
 // NOTE: When computing cosine / sine, divide by the 64-bit sine
 // not the 80-bit sine since macros will multiply by the 64-bit sine.
 
-EXTERNC
+extern "C"
 void gwsincos (
 	unsigned long x,
 	unsigned long N,
@@ -73,7 +73,7 @@ void gwsincos (
 	END_x86_FIX
 }
 
-EXTERNC
+extern "C"
 void gwsincos3 (
 	unsigned long x,
 	unsigned long N,
@@ -114,7 +114,7 @@ static	dd_real gw__log2_abs_c_div_fftlen;
 static	dd_real gw__fftlen_inverse;
 static	dd_real gw__over_fftlen;
 
-EXTERNC
+extern "C"
 void gwfft_weight_setup (
 	int	zero_pad,
 	double	k,
@@ -143,7 +143,7 @@ void gwfft_weight_setup (
 	END_x86_FIX
 }
 
-EXTERNC
+extern "C"
 double gwfft_weight (
 	unsigned long j)
 {
@@ -159,7 +159,7 @@ double gwfft_weight (
 	return (double (result));
 }
 
-EXTERNC
+extern "C"
 double gwfft_weight_inverse (
 	unsigned long j)
 {
@@ -180,7 +180,7 @@ double gwfft_weight_inverse (
 // constant is 2/FFTLEN for a zero-padded FFT and k*2/FFTLEN for a
 // non-zero-padded FFT.
 
-EXTERNC
+extern "C"
 double gwfft_weight_inverse_over_fftlen (
 	unsigned long j)
 {
@@ -199,7 +199,7 @@ double gwfft_weight_inverse_over_fftlen (
 // This computes the three FFT weights in one call.  It is faster than
 // calling the above individually.
 
-EXTERNC
+extern "C"
 void gwfft_weights3 (
 	unsigned long j,
 	double	*fft_weight,
@@ -223,7 +223,7 @@ void gwfft_weights3 (
 	END_x86_FIX
 }
 
-EXTERNC
+extern "C"
 double gwfft_weight_exponent (
 	unsigned long j)
 {
@@ -248,7 +248,7 @@ double gwfft_weight_exponent (
 // differently than the weighting functions.
 //
 
-EXTERNC
+extern "C"
 unsigned long gwfft_base (
 	unsigned long j)
 {
