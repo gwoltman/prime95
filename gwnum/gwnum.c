@@ -964,7 +964,7 @@ gwnum gwalloc (void)
 /* extra bytes to assure the data is aligned on a cache line */
 
 	size = gwnum_size (FFTLEN);
-	if (GW_BIGBUF_SIZE >= size)
+	if (GW_BIGBUF_SIZE >= size + 32 + GW_ALIGNMENT)
 		p = (char *) GW_BIGBUF;
 	else {
 		p = (char *) malloc (size + 32 + GW_ALIGNMENT);
@@ -974,12 +974,12 @@ gwnum gwalloc (void)
 		(((unsigned long) p + 32 + GW_ALIGNMENT - 1 - GW_ALIGNMENT_MOD) &
 		 ~(GW_ALIGNMENT - 1)) +
 		GW_ALIGNMENT_MOD);
-	* (char **) (q - 32) = p;		/* Ptr to free */
-	if (GW_BIGBUF_SIZE >= size) {
+	if (GW_BIGBUF_SIZE >= size + 32 + GW_ALIGNMENT) {
 		GW_BIGBUF_SIZE -= (q + size) - (char *) GW_BIGBUF;
 		GW_BIGBUF = (void *) (q + size);
 		* (char **) (q - 32) = NULL;	/* Don't free this memory */
-	}
+	} else
+		* (char **) (q - 32) = p;	/* Ptr to free */
 
 /* Do a seemingly pointless memset!  This actual is very important. */
 /* The memset will walk through the allocated memory sequentially, which */

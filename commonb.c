@@ -2950,7 +2950,7 @@ static	int	data_index[SELF_FFT_LENGTHS] = {0};
 			num_gwnums = (unsigned int)
 				(((double) memory * 1000000.0 -
 				  (double) map_fftlen_to_memused (FFTLEN, 0)) /
-				 (double) gwnum_size (FFTLEN));
+				 (double) (gwnum_size (FFTLEN) + 32 + GW_ALIGNMENT));
 			if (num_gwnums < 1) num_gwnums = 1;
 			if (num_gwnums > ll_iters) num_gwnums = ll_iters;
 		}
