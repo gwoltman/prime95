@@ -7,6 +7,13 @@
 #define MIN_N			300
 #define MAX_N			12000000
 
+/* Some gwnum.c internal definitions */
+
+extern "C" double bit_length;		/* Bit length of k*b^n */
+extern "C" double fft_max_bits_per_word;/* Maximum bits per data word that */
+					/* this FFT size can support */
+extern "C" double virtual_bits_per_word ();
+
 /* Generate a random k of the given size */
 
 double gen_k (int bits)
