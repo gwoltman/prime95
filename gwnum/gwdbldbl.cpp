@@ -455,6 +455,10 @@ void gwfft_weights3 (
 	END_x86_FIX
 }
 
+// Returns log2(fft_weight).  This is used in determining the FFT weight
+// fudge factor in two-pass FFTs.  This is much faster than computing the
+// fft_weight because it eliminates a call to the double-double exp routine.
+
 extern "C"
 double gwfft_weight_exponent (
 	unsigned long j)
