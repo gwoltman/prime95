@@ -84,6 +84,7 @@ based on the size of the L2 cache.  You can explicitly specify the L2 cache
 size although this shouldn't be necessary since the program uses the CPUID
 instruction to determine the L2 cache size.  In local.ini enter:
 	CpuL2CacheSize=128 or 256 or 512
+	CpuL2CacheLineSize=32 or 64 or 128
 
 The program automatically computes the CPU type and speed.  The CPU type
 is used to tell the server what kind of CPU you have (to display in the
@@ -297,3 +298,7 @@ Since P-1 stage 2 runs faster with more memory available you can have the
 program only run stage 2 at night when more memory is available.  In
 prime.ini set:
 	OnlyRunStage2WithMaxMemory=1
+
+You can control the maximum prime.log file size.  The default is 250K.  Add
+this line to prime.ini to change the default:
+	MaxLogFileSize=n
