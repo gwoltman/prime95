@@ -62,7 +62,8 @@ static	DWORD (APIENTRY *RAS_STAT)(HRASCONN, LPRASCONNSTATUSA);
 
 	if (IniGetInt (INI_FILE, "AlternateModemDetection", 0)) {
 		DWORD	flags;
-		return (InternetGetConnectedState (&flags, 0));
+		if (InternetGetConnectedState (&flags, 0)) return (TRUE);
+		goto no_modem_connection;
 	}
 
 // Unfortunately, the RASAPI32.DLL is not installed on every
@@ -106,6 +107,7 @@ static	DWORD (APIENTRY *RAS_STAT)(HRASCONN, LPRASCONNSTATUSA);
 
 // Print error message if no there are no connections
 
+no_modem_connection:
 	OutputStr ("Dial-up connection not active.\n");
 	return (FALSE);
 }
