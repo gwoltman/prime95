@@ -2,6 +2,8 @@ New features in Version 22.4 of prime95.exe
 -------------------------------------------
 
 1)  A little more tweaking of the FFT crossovers.
+2)  A GCD hang bug was fixed in case where there were a large number of
+    entries in the lowm.txt file.
 
 New features in Version 22.3 of prime95.exe
 -------------------------------------------
