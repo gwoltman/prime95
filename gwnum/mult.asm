@@ -2599,6 +2599,23 @@ _emulmod PROC NEAR
 	ret
 _emulmod ENDP
 
+; Utility routine that checks for a NaN or infinity value
+
+	PUBLIC	_eisvaliddouble
+_eisvaliddouble PROC NEAR
+	mov	eax, _SRCARG		; Addr of double
+	fld	QWORD PTR [eax]
+	fxam				; Test the double
+	fnstsw	ax
+	and	eax, 0100h		; Isolate the C0 bit (nan or infinity)
+	fcomp	st(0)			; Pop the bad value
+	jz	short noerr1		; If zero, no error
+	mov	_DESTARG, 0		; Return FALSE for bad doubles
+	ret
+noerr1:	mov	_DESTARG, 1		; Return TRUE for good doubles
+	ret
+_eisvaliddouble ENDP
+
 ;
 ; Set multiplication constant (we can assume properly aligned
 ; XMM variables in ASM code).

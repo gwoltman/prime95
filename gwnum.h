@@ -75,6 +75,7 @@ double *addr (gwnum, unsigned long);
 unsigned long gwnum_size (unsigned long);
 void get_fft_value (gwnum, unsigned long, long *);
 void set_fft_value (gwnum, unsigned long, long);
+int is_valid_fft_value (gwnum, unsigned long);
 int is_big_word (unsigned long);
 void bitaddr (unsigned long, unsigned long *, unsigned long *);
 #define gw_set_max_allocs(n)	if (gwnum_alloc==NULL) gwnum_alloc_array_size=n

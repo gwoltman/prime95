@@ -100,6 +100,7 @@
 #define gwsetup2 _gwsetup2
 #define esubhlp _esubhlp
 #define emulmod	_emulmod
+#define eisvaliddouble _eisvaliddouble
 #define fpu_init _fpu_init
 #define erdtsc	_erdtsc
 #define etwo_to_pow _etwo_to_pow

@@ -59,6 +59,7 @@ EXTERNC unsigned long RES=0;
 EXTERNC void gwsetup2 (void);
 EXTERNC void gwinfo1 (void);
 EXTERNC void emulmod (void);
+EXTERNC void eisvaliddouble (void);
 EXTERNC void etwo_to_pow (void);
 EXTERNC void etwo_to_pow_over_fftlen (void);
 EXTERNC void esincos (void);
@@ -77,6 +78,16 @@ unsigned long mulmod (
 	DESTARG = (void*) c;
 	emulmod ();
 	return ((unsigned long) DESTARG);
+}
+
+/* Wrapper for eisvaliddouble */
+
+int is_valid_double (
+	double d)
+{
+	SRCARG = (void *) &d;
+	eisvaliddouble ();
+	return ((int) DESTARG);
 }
 
 /* Find the power of two greater than or equal to N. */
@@ -1430,6 +1441,17 @@ void set_fft_value (
 /* Multiply by two-to-phi to generate the proper double. */
 
 	* addr (g, i) = val * ttp;
+}
+
+/* This routine checks to see if the FFT data value is valid. */
+/* It always should be valid, but hardware errors sometime generate */
+/* NaNs and infinity. */
+
+int is_valid_fft_value (
+	gwnum	g,
+	unsigned long i)
+{
+	return (is_valid_double (* addr (g, i)));
 }
 
 /* Convert a double to a gwnum */

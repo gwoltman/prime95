@@ -29,6 +29,8 @@ char ERRMSG0[] = "Iteration: %ld/%ld, %s";
 char ERRMSG1A[] = "ERROR: ILLEGAL SUMOUT\n";
 char ERRMSG1B[] = "ERROR: SUM(INPUTS) != SUM(OUTPUTS), %.16g != %.16g\n";
 char ERRMSG1C[] = "ERROR: ROUND OFF (%.10g) > 0.40\n";
+char ERRMSG1D[] = "ERROR: Shift counter corrupt.\n";
+char ERRMSG1E[] = "ERROR: Illegal double encountered.\n";
 char ERRMSG2[] = "Possible hardware failure, consult the readme.txt file.\n";
 char ERRMSG3[] = "Continuing from last save file.\n";
 char ERRMSG4[] = "Waiting five minutes before restarting.\n";
@@ -460,6 +462,7 @@ int readFileData (
 	if (PARG < 4194304) sum &= 0xFFFFFFFE, filesum &= 0xFFFFFFFE;
 	if (filesum != sum) goto err;
 	if (zero) goto err;
+	if (*units_bit >= PARG) goto err;
 	_close (fd);
 	return (TRUE);
 err:	_close (fd);
@@ -2003,6 +2006,19 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 			}
 		}
 
+/* Check if the units_bit is corrupt.  This will make sure we are always */
+/* subtracting 2 from the FFT data.  If the FFT data was mysteriously zeroed */
+/* and the units_bit value was corrupt then we could get a false positive */
+/* result.  With this fix we should get into a safe -2, 2, 2, 2 loop. */
+
+		if (units_bit >= p) {
+			sprintf (buf, ERRMSG0, counter, p, ERRMSG1D);
+			OutputBoth (buf);
+			inc_error_count (2, &error_count);
+			sleep5 = 1;
+			goto restart;
+		}
+
 /* Some special debugging code to dump out FFT results */
 
 #ifdef XXX
@@ -2137,6 +2153,13 @@ _close (fd);
 
 	for (i = 0, isPrime = 1; isPrime && i < FFTLEN; i++) {
 		long	val;
+		if (! is_valid_fft_value (LLDATA, i)) {
+			sprintf (buf, ERRMSG0, counter, p, ERRMSG1E);
+			OutputBoth (buf);
+			inc_error_count (2, &error_count);
+			sleep5 = 1;
+			goto restart;
+		}
 		get_fft_value (LLDATA, i, &val);
 		if (isPrime <= 2 && val == 0)
 			isPrime = 2;
