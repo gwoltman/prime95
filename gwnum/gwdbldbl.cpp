@@ -156,7 +156,7 @@ void gwasm_constants (
 
 					/* Compute lower limit bigmax */
 	if (sse2) temp = small_word * XMM_BIGVAL - XMM_BIGVAL;
-	else temp = temp * BIGVAL - BIGVAL;
+	else temp = small_word * BIGVAL - BIGVAL;
 	XMM_LIMIT_BIGMAX[0] =
 	XMM_LIMIT_BIGMAX[1] =
 	XMM_LIMIT_BIGMAX[3] =
@@ -176,7 +176,7 @@ void gwasm_constants (
 
 					/* Compute upper limit bigmax */
 	if (sse2) temp = big_word * XMM_BIGVAL - XMM_BIGVAL;
-	else temp = temp * BIGVAL - BIGVAL;
+	else temp = big_word * BIGVAL - BIGVAL;
 	XMM_LIMIT_BIGMAX[2] =
 	XMM_LIMIT_BIGMAX[5] =
 	XMM_LIMIT_BIGMAX[6] =
