@@ -714,7 +714,7 @@ _xnorm3 PROC NEAR
 ; routine.
 
 inorm	MACRO	lab, ttp, zero, echk, const
-	LOCAL	noadd, ilp0, ilp1
+	LOCAL	noadd, ilp0, ilp1, ilexit
 	PUBLIC	lab
 lab:
 zero	cmp	zero_fft, 0		;; Is the first call to inorm?
@@ -734,6 +734,7 @@ noadd:	push	edx
 	mov	edi, norm_ptr1		;; Load big/little flags array ptr
 	mov	eax, addcount1		;; Load loop counter
 	mov	loopcount2, eax		;; Save loop counter
+	mov	loopcount3, 0		;; Clear outermost loop counter
 	mov	eax, 48			;; Rational FFTs are all big words
 	mov	ecx, 48
 ilp0:	mov	ebx, count2		;; Load inner loop counter
@@ -749,8 +750,12 @@ ttp	lea	edi, [edi+4]		;; Next big/little flags
 	lea	ebp, [ebp+64]		;; Next set of carries
 ttp	lea	edx, [edx+128]		;; Next set of 8 group multipliers
 	sub	loopcount2, 1		;; Test loop counter
-	JNZ_X	ilp0
-	movapd	XMM_SUMOUT, xmm7	;; Save SUMOUT
+	JZ_X	ilexit			;; Jump when loop complete
+	add	loopcount3, 80000000h/4 ;; 8 iterations
+	jnc	ilp0
+	add	esi, normblkdst8	;; Add 128 every 8 clmblkdsts
+	jmp	ilp0			;; Iterate
+ilexit:	movapd	XMM_SUMOUT, xmm7	;; Save SUMOUT
 	movapd	XMM_MAXERR, xmm6	;; Save maximum error
 ttp	mov	norm_ptr1, edi		;; Save big/little flags array ptr
 ttp	mov	norm_ptr2, ebx		;; Save column multipliers ptr

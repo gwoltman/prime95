@@ -1683,18 +1683,28 @@ void gwsetaddin (
 			ADDIN_OFFSET -= row * PASS1_CACHE_LINES * 64;
 		}
 
-/* This case is particularly nasty as we have to convert the FFT data offset */
-/* into the scratch area offset.  In assembly language terms, this means */
-/* subtracting out multiples of blkdst and adding in multiples of clmblkdst. */
+/* Factor in the blkdst value in xfft3.mac to compute the two pass */
+/* SSE2 addin_offset. */
 
 		else {
 			row = (word & 1023) / PASS1_CACHE_LINES;
 			ADDIN_ROW = (1024 / PASS1_CACHE_LINES - row) * 256;
 			ADDIN_OFFSET -= row * PASS1_CACHE_LINES * 64;
-			if (FFTLEN > 524288)
-				ADDIN_OFFSET -= ADDIN_OFFSET /
-					(65536 + PASS1_CACHE_LINES * 128) *
-					(65536 + PASS1_CACHE_LINES * 64 - 16);
+
+/* This case is particularly nasty as we have to convert the FFT data offset */
+/* into a scratch area offset.  In assembly language terms, this means */
+/* subtracting out multiples of blkdst and adding in multiples of clmblkdst */
+/* and clmblkdst8. */
+
+			if (FFTLEN > 524288) {
+				row = ADDIN_OFFSET /
+					(65536 + PASS1_CACHE_LINES * 128);
+				ADDIN_OFFSET -= row *
+					(65536 + PASS1_CACHE_LINES * 128);
+				ADDIN_OFFSET +=
+					row * (PASS1_CACHE_LINES * 64) +
+					(row >> 3) * 128;
+			}
 		}
 	}
 

@@ -109,6 +109,7 @@ EXTRN	ffttype:DWORD
 EXTRN	normgrpptr:DWORD
 EXTRN	pass1blkdst:DWORD
 EXTRN	normblkdst:DWORD
+EXTRN	normblkdst8:DWORD
 EXTRN	loopcount1:DWORD
 EXTRN	loopcount2:DWORD
 EXTRN	loopcount3:DWORD
