@@ -726,10 +726,10 @@ xnorm_op_1d_cleanup MACRO
 	xnorm_rotate_carries xmm2, xmm3	;; Rotate the carries
 	movapd	xmm0, [ecx]		;; Load values1
 	movapd	xmm1, [ecx+32]		;; Load values2
-	subpd	xmm2, XMM_BIGVAL	;; Remove BIGVAL from carries
-	subpd	xmm3, XMM_BIGVAL
-	mulpd	xmm2, [ebp+16]		;; carry *= two-to-phi
-	mulpd	xmm3, [ebp+80]		;; carry *= two-to-phi
+	subpd	xmm3, XMM_BIGVAL	;; Remove BIGVAL from carries
+	subpd	xmm2, XMM_BIGVAL
+	mulpd	xmm3, [ebp+16]		;; carry *= two-to-phi
+	mulpd	xmm2, [ebp+80]		;; carry *= two-to-phi
 	addpd	xmm0, xmm3		;; value1 = values + carry
 	addpd	xmm1, xmm2		;; value2 = values + carry
 	movapd	[ecx], xmm0		;; Save new value1
@@ -948,10 +948,10 @@ xnorm_addsub_1d_cleanup MACRO
 	xnorm_rotate_carries xmm2, xmm3	;; Rotate the carries
 	movapd	xmm0, [esi]		;; Load values1
 	movapd	xmm1, [esi+32]		;; Load values2
-	subpd	xmm2, XMM_BIGVAL	;; Remove BIGVAL from carries
-	subpd	xmm3, XMM_BIGVAL
-	mulpd	xmm2, [ebx+16]		;; carry *= two-to-phi
-	mulpd	xmm3, [ebx+80]		;; carry *= two-to-phi
+	subpd	xmm3, XMM_BIGVAL	;; Remove BIGVAL from carries
+	subpd	xmm2, XMM_BIGVAL
+	mulpd	xmm3, [ebx+16]		;; carry *= two-to-phi
+	mulpd	xmm2, [ebx+80]		;; carry *= two-to-phi
 	addpd	xmm0, xmm3		;; value1 = values + carry
 	addpd	xmm1, xmm2		;; value2 = values + carry
 	movapd	[esi], xmm0		;; Save new value1
@@ -960,10 +960,10 @@ xnorm_addsub_1d_cleanup MACRO
 	xnorm_rotate_carries xmm6, xmm7	;; Rotate the carries
 	movapd	xmm0, [ebp]		;; Load values1
 	movapd	xmm1, [ebp+32]		;; Load values2
-	subpd	xmm6, XMM_BIGVAL	;; Remove BIGVAL from carries
-	subpd	xmm7, XMM_BIGVAL
-	mulpd	xmm6, [ebx+16]		;; carry *= two-to-phi
-	mulpd	xmm7, [ebx+80]		;; carry *= two-to-phi
+	subpd	xmm7, XMM_BIGVAL	;; Remove BIGVAL from carries
+	subpd	xmm6, XMM_BIGVAL
+	mulpd	xmm7, [ebx+16]		;; carry *= two-to-phi
+	mulpd	xmm6, [ebx+80]		;; carry *= two-to-phi
 	addpd	xmm0, xmm7		;; value1 = values + carry
 	addpd	xmm1, xmm6		;; value2 = values + carry
 	movapd	[ebp], xmm0		;; Save new value1
