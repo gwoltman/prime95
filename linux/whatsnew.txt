@@ -1,3 +1,10 @@
+New features in Version 22.13 of mprime
+---------------------------------------
+
+1)  A P-1 and ECM QA suite was implemented.  A bug in ECM for exponents
+    below 172,700 and near the limit of an FFT size and using SSE2 code
+    was fixed.
+
 New features in Version 22.12 of mprime
 ---------------------------------------
 
