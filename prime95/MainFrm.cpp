@@ -465,7 +465,7 @@ void CMainFrame::OnSysCommand(UINT nID, LPARAM lParam)
 {
 	if ((nID & 0xFFF0) == SC_CLOSE &&
 	    ! IniGetInt (INI_FILE, "ExitOnX", 0) &&
-	    (TRAY_ICON || HIDE_ICON) {
+	    (TRAY_ICON || HIDE_ICON)) {
 		SendMessage (WM_SYSCOMMAND, SC_MINIMIZE, 0);
 		return;
 	}
