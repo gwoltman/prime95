@@ -1244,11 +1244,11 @@ unsigned long addr_offset (unsigned long fftlen, unsigned long i)
 
 		else if (fftlen <= 32768) {
 			unsigned long sets, pfa, temp;
-			sets = FFTLEN >> 10;
+			sets = fftlen >> 10;
 			i1 = i & 127; i >>= 7;
 			i2 = i & 1; i >>= 1;
 			i3 = 0;
-			for (pfa = FFTLEN; pfa > 8; pfa >>= 1);
+			for (pfa = fftlen; pfa > 8; pfa >>= 1);
 			if (pfa & 1) {		/* pfa is 5 or 7 */
 				temp = sets / pfa;
 				if (i < temp * 4) {
@@ -1272,11 +1272,11 @@ unsigned long addr_offset (unsigned long fftlen, unsigned long i)
 			addr = addr * sizeof (double);
 		} else {
 			unsigned long sets, pfa, temp;
-			sets = FFTLEN >> 13;
+			sets = fftlen >> 13;
 			i1 = i & 1023; i >>= 10;
 			i2 = i & 1; i >>= 1;
 			i3 = 0;
-			for (pfa = FFTLEN; pfa > 8; pfa >>= 1);
+			for (pfa = fftlen; pfa > 8; pfa >>= 1);
 			if (pfa & 1) {		/* pfa is 5 or 7 */
 				temp = sets / pfa;
 				if (i < temp * 4) {
@@ -1296,7 +1296,7 @@ unsigned long addr_offset (unsigned long fftlen, unsigned long i)
 			if (pfa && sets) {
 				i3 += i & (sets - 1); i /= sets;
 			}
-			if (FFTLEN <= 524288)
+			if (fftlen <= 524288)
 				addr = i3 * 1090;
 			else
 				addr = i3 * (1024 + PASS1_CACHE_LINES*2);
