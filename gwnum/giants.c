@@ -779,7 +779,7 @@ void divg (		/* n becomes n/d. n is arbitrary, but the
 /* Divide using reciprocals */
 
 	else {
-		r = popg (d->sign << 1);
+		r = popg ((d->sign << 1) + 1);
 		make_recip (d, r);
 		divg_via_recip (d, r, n);
 		pushg (1);
