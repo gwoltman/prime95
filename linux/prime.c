@@ -1,4 +1,4 @@
-/* Copyright 1995-2004 Just For Fun Software, Inc. */
+/* Copyright 1995-2005 Just For Fun Software, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -70,6 +70,7 @@ int MENUING = 0;
 #include "cpuid.c"
 #include "giants.c"
 #include "gwnum.c"
+#include "gwutil.c"
 #include "commona.c"
 #include "commonb.c"
 #include "commonc.c"

@@ -1,4 +1,4 @@
-; Copyright 1995-2004 Just For Fun Software, Inc., all rights reserved
+; Copyright 1995-2005 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -11,10 +11,11 @@
 	.686
 	.MMX
 	.XMM
+	.MODEL	FLAT
 
 VERSION_NUMBER = 2408		;; Version 24.8
 
-_DATA SEGMENT PAGE USE32 PUBLIC 'DATA'
+_GWDATA SEGMENT PAGE
 
 EXTRN	_CPU_FLAGS:DWORD
 EXTRN	_KARG:QWORD
@@ -3265,9 +3266,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			512, 1
 	DD			512, 1, 512, 1, 1, 0
 	DD	0
-_DATA ENDS
-
-	ASSUME  CS: _TEXT32, DS: _DATA, SS: _DATA, ES: _DATA
+_GWDATA ENDS
 
 INCLUDE	unravel.mac
 INCLUDE	lucas.mac
@@ -3282,7 +3281,7 @@ _TEXT32	SEGMENT
 ; Return address of jmp tables for C code to examine
 
 	PUBLIC	_gwinfo1
-_gwinfo1 PROC NEAR
+_gwinfo1 PROC
 	mov	_INFT, OFFSET xjmptable ; P4 mersenne mod FFTs
 	mov	_INFT+4, OFFSET xjmptablep ; P4 2^N+1 mod FFTs
 	mov	_INFT+8, OFFSET jmptable ; x86 mersenne mod FFTs
@@ -3295,7 +3294,7 @@ _gwinfo1 ENDP
 ; Setup routine.  Caller has called gwinfo1 and set KARG, PARG, CARG.
 
 	PUBLIC	_gwsetup1
-_gwsetup1 PROC NEAR
+_gwsetup1 PROC
 
 ;; Precompute some values useful in computing FFT weights
 ;; Bit length of the fft is LOG2(KARG) + PARG.
@@ -3390,7 +3389,7 @@ _gwsetup1 ENDP
 ; Setup routine.  Caller has called gwinfo1 and gwsetup1.
 
 	PUBLIC	_gwsetup2
-_gwsetup2 PROC NEAR
+_gwsetup2 PROC
 	push	ebp
 	push	ebx
 	push	edi
@@ -3756,7 +3755,7 @@ _gwsetup2 ENDP
 ; Utility routine that checks for a NaN or infinity value
 
 	PUBLIC	_eisvaliddouble
-_eisvaliddouble PROC NEAR
+_eisvaliddouble PROC
 	mov	eax, _SRCARG		; Addr of double
 	fld	QWORD PTR [eax]
 	fxam				; Test the double
@@ -3776,7 +3775,7 @@ _eisvaliddouble ENDP
 ;
 
 	PUBLIC	_eset_mul_const
-_eset_mul_const PROC NEAR
+_eset_mul_const PROC
 	fild	_NUMARG			; Integer
 	fst	XMM_MULCONST
 	fstp	XMM_MULCONST+8
@@ -3822,7 +3821,7 @@ _eset_mul_const ENDP
 ;
 
 	PUBLIC	_efft_weight
-_efft_weight PROC NEAR
+_efft_weight PROC
 	call	fft_weight_exponent
 	call	two_pow			;; FFT weight = 2 ^ exponent
 	mov	eax, _DESTARG		;; Address for the result
@@ -3831,7 +3830,7 @@ _efft_weight PROC NEAR
 _efft_weight ENDP
 
 	PUBLIC	_efft_weight_inverse
-_efft_weight_inverse PROC NEAR
+_efft_weight_inverse PROC
 	call	fft_weight_exponent
 	fchs				;; Negate exponent for inverse weight
 	call	two_pow			;; FFT inverse weight = 2 ^ -exponent
@@ -3846,7 +3845,7 @@ _efft_weight_inverse ENDP
 ; non-zero-padded FFT.
 
 	PUBLIC	_efft_weight_inverse_over_fftlen
-_efft_weight_inverse_over_fftlen PROC NEAR
+_efft_weight_inverse_over_fftlen PROC
 	call	fft_weight_exponent
 	fchs				;; Negate exponent for inverse weight
 	call	two_pow			;; FFT inverse weight = 2 ^ -exponent
@@ -3888,7 +3887,7 @@ two_pow:fld	st(0)			;; Copy exponent
 ; problems.  The integer portion and fractional portions of q are precomputed
 ; in the setup code.
 
-fft_weight_exponent PROC NEAR
+fft_weight_exponent PROC
 	fld	FFTLEN_INVERSE		; Load for later divide by FFTLEN
 	fild	_FFTLEN			; Load for future FPREM calls
 
@@ -3935,7 +3934,7 @@ fft_weight_exponent ENDP
 ;
 
 	PUBLIC	_efft_base
-_efft_base PROC NEAR
+_efft_base PROC
 	mov	ecx, _DESTARG		; Address for the result
 
 	mov	eax, FFT_BITS_PER_WORD_INT ; Load integer fft_bit_length
@@ -3974,7 +3973,7 @@ _efft_base ENDP
 ;
 
 	PUBLIC	_esincos
-_esincos PROC NEAR
+_esincos PROC
 	mov	eax, _DESTARG
 	fldpi				;; PI
 	fadd	st, st			;; 2*PI
@@ -3990,7 +3989,7 @@ _esincos PROC NEAR
 _esincos ENDP
 
 	PUBLIC	_esincos3
-_esincos3 PROC NEAR
+_esincos3 PROC
 	mov	eax, _DESTARG
 	fldpi				;; PI
 	fadd	st, st			;; 2*PI

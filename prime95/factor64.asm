@@ -1,4 +1,4 @@
-; Copyright 1995-2002 Just For Fun Software, Inc., all rights reserved
+; Copyright 1995-2005 Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -10,8 +10,7 @@ TITLE   setup
 	.686
 	.MMX
 	.XMM
-
-_TEXT32	SEGMENT USE32 PAGE PUBLIC 'DATA'
+	.MODEL	FLAT
 
 EXTRN	_SRCARG:DWORD
 EXTRN	_FACHSW:DWORD
@@ -24,6 +23,7 @@ EXTRN	_CPU_FLAGS:DWORD
 ; Global variables
 ;
 
+_FACDATA SEGMENT PAGE
 	align 32
 returns6	DD	OFFSET wx1, OFFSET wx2, OFFSET wx3, OFFSET wx4
 		DD	OFFSET wx5, OFFSET wx6, OFFSET wx7, OFFSET wx8
@@ -164,10 +164,39 @@ XMM_BS			DD	0,0
 XMM_SHIFTER		DD	48 DUP (0)
 TWO_TO_FACSIZE_PLUS_62	DQ	0.0
 SSE2_LOOP_COUNTER	DD	0
-_TEXT32	ENDS
 
 
-	ASSUME  CS: _TEXT32, DS: _TEXT32, SS: _TEXT32, ES: _TEXT32
+;
+; More data
+;
+
+	align	32
+returns5	DD	OFFSET tx1, OFFSET tx2, OFFSET tx3, OFFSET tx4
+		DD	OFFSET tx5, OFFSET tx6, OFFSET tx7, OFFSET tx8
+		DD	OFFSET tx9, OFFSET tx10, OFFSET tx11, OFFSET tx12
+		DD	OFFSET tx13, OFFSET tx14, OFFSET tx15, OFFSET tx16
+		DD	OFFSET tx17, OFFSET tx18, OFFSET tx19, OFFSET tx20
+		DD	OFFSET tx21, OFFSET tx22, OFFSET tx23, OFFSET tx24
+		DD	OFFSET tx25, OFFSET tx26, OFFSET tx27, OFFSET tx28
+		DD	OFFSET tx29, OFFSET tx30, OFFSET tx31, OFFSET tlp5
+returns4	DD	OFFSET ux1, OFFSET ux2, OFFSET ux3, OFFSET ux4
+		DD	OFFSET ux5, OFFSET ux6, OFFSET ux7, OFFSET ux8
+		DD	OFFSET ux9, OFFSET ux10, OFFSET ux11, OFFSET ux12
+		DD	OFFSET ux13, OFFSET ux14, OFFSET ux15, OFFSET ux16
+		DD	OFFSET ux17, OFFSET ux18, OFFSET ux19, OFFSET ux20
+		DD	OFFSET ux21, OFFSET ux22, OFFSET ux23, OFFSET ux24
+		DD	OFFSET ux25, OFFSET ux26, OFFSET ux27, OFFSET ux28
+		DD	OFFSET ux29, OFFSET ux30, OFFSET ux31, OFFSET ulp5
+distoff5	DD	OFFSET tst1, OFFSET tst1, OFFSET tst2, OFFSET tst3
+		DD	OFFSET tst4, OFFSET tst5, OFFSET tst6, OFFSET tst7
+		DD	OFFSET tst8, OFFSET tst9, OFFSET tst10, OFFSET tst11
+		DD	OFFSET tst12, OFFSET tst13, OFFSET tst14, OFFSET tst15
+		DD	OFFSET tst16, OFFSET tst17, OFFSET tst18, OFFSET tst19
+		DD	OFFSET tst20, OFFSET tst21, OFFSET tst22, OFFSET tst23
+		DD	OFFSET tst24, OFFSET tst25, OFFSET tst26, OFFSET tst27
+		DD	OFFSET tst28, OFFSET tst29, OFFSET tst30, OFFSET tst31
+_FACDATA ENDS
+
 
 INCLUDE	unravel.mac
 INCLUDE factor64.mac
@@ -187,7 +216,7 @@ _TEXT32	SEGMENT
 ; Initialize - FACLSW contains p
 
 	PUBLIC	_setupf
-_setupf	PROC NEAR
+_setupf	PROC
 	push	edi
 	push	esi
 	push	ebp
@@ -387,7 +416,7 @@ _setupf	ENDP
 ; Do some of the initial squarings here.  Shift p such that the first quotient
 ; will be 62 bits or less.
 
-presq	PROC NEAR
+presq	PROC
 	mov	edx, 126
 	mov	eax, _FACHSW
 	or	eax, eax
@@ -576,36 +605,6 @@ win32:	mov	eax, 1
 	jmp	done
 
 ;
-; More data
-;
-
-	align	32
-returns5	DD	OFFSET tx1, OFFSET tx2, OFFSET tx3, OFFSET tx4
-		DD	OFFSET tx5, OFFSET tx6, OFFSET tx7, OFFSET tx8
-		DD	OFFSET tx9, OFFSET tx10, OFFSET tx11, OFFSET tx12
-		DD	OFFSET tx13, OFFSET tx14, OFFSET tx15, OFFSET tx16
-		DD	OFFSET tx17, OFFSET tx18, OFFSET tx19, OFFSET tx20
-		DD	OFFSET tx21, OFFSET tx22, OFFSET tx23, OFFSET tx24
-		DD	OFFSET tx25, OFFSET tx26, OFFSET tx27, OFFSET tx28
-		DD	OFFSET tx29, OFFSET tx30, OFFSET tx31, OFFSET tlp5
-returns4	DD	OFFSET ux1, OFFSET ux2, OFFSET ux3, OFFSET ux4
-		DD	OFFSET ux5, OFFSET ux6, OFFSET ux7, OFFSET ux8
-		DD	OFFSET ux9, OFFSET ux10, OFFSET ux11, OFFSET ux12
-		DD	OFFSET ux13, OFFSET ux14, OFFSET ux15, OFFSET ux16
-		DD	OFFSET ux17, OFFSET ux18, OFFSET ux19, OFFSET ux20
-		DD	OFFSET ux21, OFFSET ux22, OFFSET ux23, OFFSET ux24
-		DD	OFFSET ux25, OFFSET ux26, OFFSET ux27, OFFSET ux28
-		DD	OFFSET ux29, OFFSET ux30, OFFSET ux31, OFFSET ulp5
-distoff5	DD	OFFSET tst1, OFFSET tst1, OFFSET tst2, OFFSET tst3
-		DD	OFFSET tst4, OFFSET tst5, OFFSET tst6, OFFSET tst7
-		DD	OFFSET tst8, OFFSET tst9, OFFSET tst10, OFFSET tst11
-		DD	OFFSET tst12, OFFSET tst13, OFFSET tst14, OFFSET tst15
-		DD	OFFSET tst16, OFFSET tst17, OFFSET tst18, OFFSET tst19
-		DD	OFFSET tst20, OFFSET tst21, OFFSET tst22, OFFSET tst23
-		DD	OFFSET tst24, OFFSET tst25, OFFSET tst26, OFFSET tst27
-		DD	OFFSET tst28, OFFSET tst29, OFFSET tst30, OFFSET tst31
-
-;
 ; Register allocations
 ;
 
@@ -619,7 +618,7 @@ fac2	equ	ecx
 ;
 
 	PUBLIC	_factor64
-_factor64 PROC NEAR
+_factor64 PROC
 	push	edi
 	push	esi
 	push	ebp
