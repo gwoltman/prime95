@@ -3127,7 +3127,7 @@ void guess_pminus1_bounds (
 	unsigned int h;
 	double	pass1_squarings, pass2_squarings;
 	double	logB1, logB2, k, logk, temp, logtemp, log2;
-	double	prob, gcd_cost, ll_tests, numprimes;
+	double	size, prob, gcd_cost, ll_tests, numprimes;
 	struct {
 		unsigned long B1;
 		unsigned long B2;
@@ -3154,10 +3154,11 @@ void guess_pminus1_bounds (
 /* Compute how many temporaries we can use given our memory constraints. */
 
 	fftlen = map_exponent_to_fftlen (p, 0);
-	vals = (unsigned long)
-			(((double) max_mem () * 1000000.0 -
-			  (double) map_fftlen_to_memused (fftlen, 0)) /
-			 (double) gwnum_size (fftlen));
+	temp = (double) max_mem () * 1000000.0 -
+		(double) map_fftlen_to_memused (fftlen, 0);
+	size = (double) gwnum_size (fftlen);
+	if (temp <= size) vals = 1;
+	else vals = (unsigned long) (temp / size);
 
 /* Find the best B1 */
 

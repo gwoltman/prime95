@@ -3518,6 +3518,7 @@ unsigned long choose_pminus1_numvals (
 					/* maximum available memory */
 {
 	unsigned long memory;		/* Available memory in MB */
+	double	temp, size;
 
 /* Override numvals when QAing */
 
@@ -3530,10 +3531,11 @@ unsigned long choose_pminus1_numvals (
 
 /* Compute the number of gwnum temporaries available */
 
-	return ((unsigned long)
-			(((double) memory * 1000000.0 -
-			  (double) map_fftlen_to_memused (FFTLEN, PLUS1)) /
-			 (double) gwnum_size (FFTLEN)));
+	temp = (double) memory * 1000000.0 - 
+		(double) map_fftlen_to_memused (FFTLEN, PLUS1);
+	size = (double) gwnum_size (FFTLEN);
+	if (temp <= size) return (1);
+	return ((unsigned long) (temp / size));
 }
 
 /* Calculate the number of values relatively prime to D.  D is a multiple */
