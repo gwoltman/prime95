@@ -2596,6 +2596,11 @@ static	int	data_index[SELF_FFT_LENGTHS] = {0};
 
 		lucasSetup (p, fftlen);
 		MAXDIFF *= 2.0;
+		if (LLDATA == NULL) {		/* Shouldn't ever happen... */
+			OutputStr ("Out of memory\n");
+			lucasDone ();
+			return (FALSE);
+		}
 
 /* Determine how many gwnums we can allocate in the memory we are given */
 
