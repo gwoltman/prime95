@@ -416,6 +416,7 @@ PUBLIC	ffttype
 PUBLIC	normgrpptr
 PUBLIC	pass1blkdst
 PUBLIC	normblkdst
+PUBLIC	normblkdst8
 PUBLIC	loopcount1
 PUBLIC	loopcount2
 PUBLIC	loopcount3
@@ -561,6 +562,7 @@ ffttype		DD	0		; Type of fft (1, 2, 3, or 4)
 normgrpptr	DD	0
 pass1blkdst	DD	0		; Dist between blocks, pass 1 SSE2 FFTs
 normblkdst	DD	0		; Dist between blocks in normalization
+normblkdst8	DD	0		; Dist between 8 blocks in normalize
 loopcount1	DD	0
 loopcount2	DD	0
 loopcount3	DD	0
@@ -2150,7 +2152,7 @@ _gwsetup2 PROC NEAR
 
 ; Compute extra bits (the number of adds we can tolerate without
 ; a normalization operation).  Studies show that exponents below
-; maxp - fftlen/2 - 4 can withstand one addition without normalization.
+; maxp - fftlen*3/4 can withstand one addition without normalization.
 
 	mov	esi, _INFT
 	mov	edx, DWORD PTR [esi]	; Load maximum exponent for fft size
@@ -2158,12 +2160,10 @@ _gwsetup2 PROC NEAR
 	jns	subok			; Test for PARG > maxp
 	sub	eax, eax		; If so, no extra bits allowed
 	jmp	short noxb
-subok:	mov	eax, _FFTLEN
-	shr	eax, 1
-	add	edx, eax
-	sub	edx, 4
-	mov	eax, edx
-	sub	edx, edx
+subok:	mov	eax, _FFTLEN		; Compute (maxp + fftlen/4 - PARG)
+	shr	eax, 2
+	add	eax, edx
+	sub	edx, edx		; Extra_bits = value_above / fftlen
 	div	_FFTLEN
 noxb:	mov	extra_bits, eax
 
@@ -2475,7 +2475,8 @@ p4init:
 clmok:
 	; Calculate pass 1 blkdst and normalize blkdst for xmult3 routines.
 	; Small 2-pass FFTs use the in-place v22 blkdst of (65536+4096+128).
-	; Larger FFTs use the scratch area with 16 byte gap in clmblkdst.
+	; Larger FFTs use the scratch area with sporadic 128 byte gaps
+	; in clmblkdst.
 	cmp	_FFTLEN, 524288
 	jg	short lg2p		; Jump if this is a larger FFT
 	mov	eax, 65536+4096+128	; V22 blkdst
@@ -2484,12 +2485,14 @@ clmok:
 	shl	edx, 6			; clm*64
 	sub	eax, edx		; Normblkdst = pass1blkdst - clm*64
 	mov	normblkdst, eax
+	mov	normblkdst8, 0
 	jmp	short done3
 lg2p:	mov	eax, count2		; Calc pass1blkdst
 	shl	eax, 7
 	add	eax, 65536
 	mov	pass1blkdst, eax	; 65536 + clm*128
-	mov	normblkdst, 16		; Pad in clmblkdst is 16
+	mov	normblkdst, 0		; Pad in clmblkdst is zero
+	mov	normblkdst8, 128	; Pad for clmblkdst8 is 128
 done3:
 
 ; Compute more normalization counters and constants
