@@ -272,10 +272,6 @@ BOOL CPrime95App::InitInstance()
 		sendMessage (PRIMENET_PING_SERVER_INFO, &pkt);
 	}
 
-	// Init help system
-
-	m_pszHelpFilePath = "prime95.chm";
-
 	// Run the torture test if asked to
 	if (torture_test) {
 		m_pMainWnd->PostMessage (WM_COMMAND, IDM_TORTURE, 0);
