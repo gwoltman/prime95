@@ -288,9 +288,7 @@ void Service95 ()
 		}
 
 		IniGetString (LOCALINI_FILE, "DisplayName", displayname,
-			      sizeof (displayname), NULL);
-		if (displayname[0] == 0)
-			strcpy (displayname, servicename);
+			      sizeof (displayname), servicename);
 
 // Open connection to the service control manager
 
