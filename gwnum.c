@@ -6,8 +6,12 @@
 
 /* global variables */
 
-double	GWSAFETY_MARGIN=0.0;	/* Reduce maximum allowable bits per */
+double	GWSAFETY_MARGIN = 0.0;	/* Reduce maximum allowable bits per */
 				/* FFT data word by this amount. */
+long	GWMAXMULBYCONST = 3;	/* Gwsetup needs to know the maximum value */
+				/* the caller will use in gwsetmulbyconst. */
+				/* The default value is 3, commonly used */
+				/* in a base-3 Fermat PRP test. */
 EXTERNC double KARG=1.0;	/* K in K*B^N+C */
 EXTERNC unsigned long BARG=0;	/* B in K*B^N+C */
 EXTERNC unsigned long PARG=0;	/* N in K*B^N+C */
@@ -1256,7 +1260,8 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 {
 	unsigned long version;
 	unsigned long *jmptab, *zpad_jmptab;
-	double	log2k, log2c, max_bits_per_word, bits_per_word;
+	double	log2k, log2c, log2maxmulbyconst;
+	double	max_bits_per_word, bits_per_word;
 	unsigned long l2_cache_size, max_exp;
 	char	buf[20];
 
@@ -1283,7 +1288,8 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 
 	log2k = log (k) / log (2.0);
 	log2c = log (abs (c)) / log (2.0);
-		
+	log2maxmulbyconst = log (abs (GWMAXMULBYCONST)) / log (2.0);
+
 /* First, see what FFT length we would get if we emulate the k*b^n+c modulo */
 /* with a zero padded FFT.  If k is 1 and abs (c) is 1 then we can skip this */
 /* loop as we're sure to find an IBDWT that will do the job. */
@@ -1396,10 +1402,12 @@ next1:			for (zpad_jmptab += 14; *zpad_jmptab; zpad_jmptab++);
 /* words adds some bits proportional to the size of the FFT.  Experience */
 /* has shown this to be 0.6 * log (FFTLEN).  This entire result is */
 /* multiplied by k in the normalization code, so add another log2(k) bits. */
+/* Finally, the mulbyconst adds to the size of the carry. */
 
 				loglen = log ((double) jmptab[1]) / log (2.0);
-				total_bits = ((bits_per_word - 1.0) + log2c) *
-						2.0 + log2k + loglen * 0.6;
+				total_bits = (bits_per_word - 1.0) * 2.0 +
+					     1.5 * log2c + loglen * 0.6 +
+					     log2k + log2maxmulbyconst;
 				if (total_bits > 5.0 * bits_per_word) {
 					ASSERTG (zpad_jmptab == NULL ||
 						 jmptab[1] >= zpad_jmptab[1]);
@@ -1469,12 +1477,17 @@ int gwsetup (
 {
 	int	gcd, error_code;
 
+/* Sanity check the k value */
+
+	if (k < 1.0) return (GWERROR_K_TOO_SMALL);
+	if (k > 18014398509481983.0) return (GWERROR_K_TOO_LARGE);
+
 /* Our code fast code fails if k and c are not relatively prime.  This */
 /* is because we cannot calculate 1/k.  Although the user shouldn't call */
 /* us with this case, we handle it anyway by reverting to the slow general */
 /* purpose multiply routines. */
 
-	if (k == 1.0 && abs (c) == 1)
+	if (k == 1.0 || abs (c) == 1)
 		gcd = 1;
 	else {
 		giant	kg, cg;
@@ -1488,22 +1501,22 @@ int gwsetup (
 		free (cg);
 	}
 
-/* If b == 2, then simply call the internal setup routine. */
-/* Turn off flag indicating general-purpose modulos are being performed. */
-/* Since the FFTs don't handle cases where there are few bits per word */
-/* because carries must be propagated over too many words, we will force */
-/* small values of n to use the general purpose modulo code.  Smart */
-/* users won't call us anyway with small n because other math libraries */
-/* are more efficient. */
+/* Call the internal setup routine when we can.  B must be 2, the */
+/* gcd (k, c) must be 1, n must big enough so that their aren't too few */
+/* bits per FFT word, also k * mulbyconst and c * mulbyconst cannot be too */
+/* large.  Turn off flag indicating general-purpose modulos are being */
+/* performed. */
 
-	if (b == 2 && gcd == 1 && n >= 350) {
+	if (b == 2 && gcd == 1 && n >= 350 &&
+	    k * GWMAXMULBYCONST <= MAX_ZEROPAD_K &&
+	    abs (c) * GWMAXMULBYCONST <= MAX_ZEROPAD_C) {
 		error_code = internal_gwsetup (k, b, n, c, fftlen);
 		if (error_code) return (error_code);
 		GENERAL_MOD = 0;
 	}
 
-/* Emulate b != 2 and k not relatively prime to c and small n values */
-/* with a call to the general purpose modulo setup code. */
+/* Emulate b != 2, k not relatively prime to c, small n values, and */
+/* large k or c values with a call to the general purpose modulo setup code. */
 
 	else {
 		double	bits;
@@ -2928,7 +2941,7 @@ double virtual_bits_per_word ()
 		logk = log (KARG) / log (2);
 		logc = log (abs (CARG)) / log (2);
 		return ((double) (logk + PARG) / (double) FFTLEN +
-			logk / 2 + logc);
+			0.5 * logk + 0.75 * logc);
 	}
 }
 

@@ -48,27 +48,27 @@ typedef double *gwnum;
 
 #define gwset_safety_margin(m)	(GWSAFETY_MARGIN = m)
 
+/* The gwsetup routines needs to know the maximum value that will be used */
+/* in a call to gwsetmulbyconst.  By default this value is assumed to be 3, */
+/* which is what you would use in a base-3 Fermat PRP test.  Gwsetup must */
+/* switch to a generic modular reduction if k * mulbyconst or c * mulbyconst */
+/* is too large.  Call this routine prior to calling gwsetup. */
+
+#define gwsetmaxmulbyconst(c) (GWMAXMULBYCONST = c)
+
 /* Error codes returned by the three gwsetup routines */
 
 #define GWERROR_VERSION		1001	/* GWNUM.H and FFT code version */
 					/* numbers do not match. */
 #define GWERROR_TOO_LARGE	1002	/* Number too large for the FFTs. */
+#define GWERROR_K_TOO_SMALL	1003	/* k < 1 is not supported */
+#define GWERROR_K_TOO_LARGE	1004	/* k > 53 bits is not supported */
 
 /* There are three different setup routines.  The first, gwsetup, is for */
 /* gwnum's primary use - support for fast operations modulo K*B^N+C. */
 /* Smaller K and C values result in smaller FFT sizes and faster operations. */
 /* Right now, if B<>2 defaults to the slower gwsetup_general_mod case. */
 /* Only choose a specific FFT size if you know what you are doing!! */
-
-/* The maximum k supported seems to be 50 bits.  However, if you use */
-/* gwsetmulbyconst, then k * const must not exceed 50 bits in size. */
-
-/* The maximum c supported seems to be about 20 bits.  However, if you use */
-/* gwsetmulbyconst, then c * const must not exceed 20 bits or less. */
-
-/* WARNING: The maximum supported k and c values has not been studied. */
-/* You will not get any warning when using a k or c value that is too large, */
-/* you will just get incorrect results. */
 
 int gwsetup (
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
@@ -359,6 +359,20 @@ void gianttogw (giant, gwnum);
 void gwtogiant (gwnum, giant);
 
 /*---------------------------------------------------------------------+
+|          MISC. CONSTANTS YOU PROBABLY SHOULDN'T CARE ABOUT           |
++---------------------------------------------------------------------*/
+
+/* The maximum value k * mulbyconst can be in a zero pad FFT.  Larger */
+/* values must use generic modular reduction. */
+
+#define MAX_ZEROPAD_K	22517998113685247.0	/* 51-bit k's are OK. */
+
+/* The maximum value c * mulbyconst can be in a zero pad FFT.  Larger */
+/* values must use generic modular reduction. */
+
+#define MAX_ZEROPAD_C	8388607			/* 23-bit c's seem to work. */
+
+/*---------------------------------------------------------------------+
 |                             GWNUM INTERNALS                          |
 +---------------------------------------------------------------------*/
 
@@ -395,6 +409,10 @@ void gwtogiant (gwnum, giant);
 
 extern double GWSAFETY_MARGIN;	/* Reduce maximum allowable bits per */
 				/* FFT data word by this amount. */
+extern long GWMAXMULBYCONST;	/* Gwsetup needs to know the maximum value */
+				/* the caller will use in gwsetmulbyconst. */
+				/* The default value is 3, commonly used */
+				/* in a base-3 Fermat PRP test. */
 EXTERNC double KARG;		/* K in K*B^N+C */
 EXTERNC unsigned long BARG;	/* B in K*B^N+C */
 EXTERNC unsigned long PARG;	/* N in K*B^N+C */
