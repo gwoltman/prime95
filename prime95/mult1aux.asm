@@ -262,8 +262,6 @@ gwcopyzero1 PROC NEAR
 	mov	edi, _DESTARG		; Address of destination
 	mov	ecx, _SRC2ARG		; Values to zero
 	mov	edx, _FFTLEN		; Total number of values
-	mov	eax, [esi-4]		; Load needs-normalize counter
-	mov	[edi-4], eax		; Store needs-normalize counter
 zlp1:	fldz				; Zero low word
 	fstp	QWORD PTR [edi]
 	fld	QWORD PTR [esi+8]	; Copy high word

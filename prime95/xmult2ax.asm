@@ -484,10 +484,7 @@ gwxcopyzero2 PROC NEAR
 	push	edi			; Save registers
 	mov	esi, _SRCARG		; Address of first number
 	mov	edi, _DESTARG		; Address of destination
-	mov	eax, [esi-4]		; Load needs-normalize counter
-	mov	[edi-4], eax		; Store needs-normalize counter
 	sub	ecx, ecx		; Offset to compare to COPYZERO
-	mov	DWORD PTR [edi-28], ecx	; Save has-been-FFTed flag
 	mov	eax, addcount1		; Get number of blocks
 cz1:	mov	edx, blkrows		; Number of cache lines in one block
 cz2:	xcopyzero

@@ -308,8 +308,6 @@ gwxcopyzero1:
 	push	edi			; Save registers
 	mov	esi, _SRCARG		; Address of first number
 	mov	edi, _DESTARG		; Address of destination
-	mov	eax, [esi-4]		; Load needs-normalize counter
-	mov	[edi-4], eax		; Store needs-normalize counter
 	sub	ecx, ecx		; Offset to compare to COPYZERO
 	mov	eax, addcount1		; Load loop counter
 cz1:	xcopyzero			; Copy/zero 8 values

@@ -3068,6 +3068,8 @@ void gwcopyzero (
 {
 static	unsigned long saved_n = 0;
 
+	ASSERTG (((long *) s)[-7] == 0);	// Number not partially FFTed?
+
 /* Handle case where no words are zeroed.  Some of the assembly routines */
 /* do not like a word count of zero. */
 
@@ -3086,6 +3088,12 @@ static	unsigned long saved_n = 0;
 		calc8ptrs (n, (unsigned long *) COPYZERO);
 	}
 	gw_copyzero ();
+
+/* Copy the unnormalized add counter and clear the */
+/* has been partially FFTed flag. */
+
+	((long *) d)[-1] = ((long *) s)[-1];
+	((long *) d)[-7] = 0;
 }
 
 

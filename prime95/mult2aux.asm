@@ -399,8 +399,6 @@ gwcopyzero2 PROC NEAR
 	mov	esi, _SRCARG		; Address of first number
 	mov	edi, _DESTARG		; Address of destination
 	mov	ecx, _SRC2ARG		; Count of words to zero
-	mov	eax, [esi-4]		; Load needs-normalize counter
-	mov	[edi-4], eax		; Store needs-normalize counter
 	mov	ebx, addcount1		; Load blk count
 zlp0:	mov	eax, normval4		; Load count of 4KB pages in a block
 zlp:	dec	ecx			; Decrement count of words to zero
