@@ -374,8 +374,10 @@ void readIniFiles (void)
 	processTimedIniFile (INI_FILE);
 	IniGetString (INI_FILE, "UserID", USERID, sizeof (USERID), NULL);
 	USERID[PRIMENET_USER_ID_LENGTH] = 0;
+	sanitizeString (USERID);
 	IniGetString (INI_FILE, "UserPWD", USER_PWD, sizeof (USER_PWD), NULL);
 	USER_PWD[PRIMENET_USER_PW_LENGTH] = 0;
+	sanitizeString (USER_PWD);
 	IniGetString (INI_FILE, "OldUserID", OLD_USERID, sizeof (OLD_USERID), NULL);
 	OLD_USERID[PRIMENET_USER_ID_LENGTH] = 0;
 	IniGetString (INI_FILE, "OldUserPWD", OLD_USER_PWD, sizeof (OLD_USER_PWD), NULL);
@@ -387,6 +389,7 @@ void readIniFiles (void)
 	IniGetString (LOCALINI_FILE, "ComputerID", COMPID,
 		      sizeof (COMPID), NULL);
 	COMPID[PRIMENET_COMPUTER_ID_LENGTH] = 0;
+	sanitizeString (COMPID);
 	NEWSLETTERS = (int) IniGetInt (INI_FILE, "Newsletters", 0);
 	USE_PRIMENET = (int) IniGetInt (INI_FILE, "UsePrimenet", 1);
 	DIAL_UP = (int) IniGetInt (INI_FILE, "DialUp", 0);
