@@ -71,15 +71,13 @@ int canExecInstruction (
 	return (!boom);
 }
 
-#elif defined (__IBMC__)
-
-int canExecInstruction (
-	unsigned long cpu_flag)
-{
-	return TRUE;
-}
-
 #else
+
+#ifdef __WATCOMC__
+#include <excpt.h>
+#define __asm	_asm
+#define __emit	db
+#endif
 
 int canExecInstruction (
 	unsigned long cpu_flag)
