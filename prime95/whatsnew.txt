@@ -2,7 +2,7 @@ New features in Version 22.5 of prime95.exe
 -------------------------------------------
 
 1)  A bug in P4 roundoff error recovery was fixed.  Bug was present in
-    version 22 executables dated between May 22 and June 19.
+    version 22 executables dated between May 22 and June 18.
 2)  Prime95 now properly detects if the program is running by another
     logged in Windows XP user.
 3)  When Tray Icon or Hide Icon is set, the "X" in the upper right corner
