@@ -68,40 +68,40 @@ void gwasm_constants (
 	dd_real arg, sine1, cosine1, sine2, cosine2, sine3, cosine3;
 	double	small_word, big_word, temp;
 #define MINUS_CARG			asm_values[0]
-#define BIGVAL				asm_values[1]
-#define BIGBIGVAL			asm_values[2]
-#define XMM_BIGVAL			asm_values[3]
-#define XMM_BIGBIGVAL			asm_values[4]
-#define SQRTHALF			asm_values[5]
-#define ttmp_ff_inv			asm_values[6]
-#define XMM_NORM012_FF			asm_values[7]
-#define XMM_K_HI			asm_values[8]
-#define XMM_K_LO			asm_values[9]
-#define XMM_K_HI_2			asm_values[10]
-#define XMM_K_HI_1			asm_values[11]
-#define XMM_LIMIT_INVERSE		(asm_values+12)
-#define XMM_LIMIT_BIGMAX		(asm_values+20)
-#define XMM_LIMIT_BIGMAX_NEG		(asm_values+28)
-#define P951				asm_values[36]
-#define P618				asm_values[37]
-#define P309				asm_values[38]
-#define M262				asm_values[39]
-#define P588				asm_values[40]
-#define M162				asm_values[41]
-#define M809				asm_values[42]
-#define M382				asm_values[43]
-#define P866				asm_values[44]
-#define P433				asm_values[45]
-#define P577				asm_values[46]
-#define P975				asm_values[47]
-#define P445				asm_values[48]
-#define P180				asm_values[49]
-#define P623				asm_values[50]
-#define M358				asm_values[51]
-#define P404				asm_values[52]
-#define M223				asm_values[53]
-#define M901				asm_values[54]
-#define M691				asm_values[55]
+#define BIGVAL				((float *) &asm_values[1])[0]
+#define BIGBIGVAL			((float *) &asm_values[1])[1]
+#define XMM_BIGVAL			asm_values[2]
+#define XMM_BIGBIGVAL			asm_values[3]
+#define SQRTHALF			asm_values[4]
+#define ttmp_ff_inv			asm_values[5]
+#define XMM_NORM012_FF			asm_values[6]
+#define XMM_K_HI			asm_values[7]
+#define XMM_K_LO			asm_values[8]
+#define XMM_K_HI_2			asm_values[9]
+#define XMM_K_HI_1			asm_values[10]
+#define XMM_LIMIT_INVERSE		(asm_values+11)
+#define XMM_LIMIT_BIGMAX		(asm_values+19)
+#define XMM_LIMIT_BIGMAX_NEG		(asm_values+27)
+#define P951				asm_values[35]
+#define P618				asm_values[36]
+#define P309				asm_values[37]
+#define M262				asm_values[38]
+#define P588				asm_values[39]
+#define M162				asm_values[40]
+#define M809				asm_values[41]
+#define M382				asm_values[42]
+#define P866				asm_values[43]
+#define P433				asm_values[44]
+#define P577				asm_values[45]
+#define P975				asm_values[46]
+#define P445				asm_values[47]
+#define P180				asm_values[48]
+#define P623				asm_values[49]
+#define M358				asm_values[50]
+#define P404				asm_values[51]
+#define M223				asm_values[52]
+#define M901				asm_values[53]
+#define M691				asm_values[54]
 
 /* Do some initial setup */
 	
@@ -115,8 +115,8 @@ void gwasm_constants (
 
 /* Compute the x87 (64-bit) rounding constants */
 
-	BIGVAL = 3.0 * pow (2.0, 62.0);
-	BIGBIGVAL = big_word * BIGVAL;
+	BIGVAL = (float) (3.0 * pow (2.0, 62.0));
+	BIGBIGVAL = (float) (big_word * BIGVAL);
 
 /* Compute the SSE2 (53-bit) rounding constants */
 

@@ -593,8 +593,8 @@ XMM_TTMP_FUDGE	DQ	1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0
 MINUS_CARG	DQ	0.0		; CARG negated and stored as double
 SQRTHALF	DQ	0.0		; Used in all ffts
 ttmp_ff_inv	DQ	0.0		; Inverse FFT adjust (2/FFTLEN)
-BIGVAL		DQ	0.0		; Used to round to an integer
-BIGBIGVAL	DQ	0.0		; Used to round to multiple of big word 
+BIGVAL		DD	0.0		; Used to round to an integer
+BIGBIGVAL	DD	0.0		; Used to round to multiple of big word 
 P309		DQ	0.309		; Used in five_reals_fft/unfft
 M809		DQ	-0.809		; Used in five_reals_fft/unfft
 M262		DQ	-2.618		; Used in five_reals_fft/unfft
@@ -4111,6 +4111,11 @@ _GWDATA ENDS
 ; C code has calculated the value and we must copy or copy and duplicate it in
 ; the x87 and XMM global variables.
 
+copy_float_once MACRO dest
+	mov	rdi, OFFSET dest
+	movsd				; Copy float once
+	ENDM
+
 copy_double_once MACRO dest
 	mov	rdi, OFFSET dest
 	movsd				; Copy double once
@@ -4259,8 +4264,8 @@ cp6:	mov	rax, [rsi]		; Load norm routine ptr
 
 	mov	rsi, _SRCARG		;; Address of C computed constants
 	copy_double_thrice MINUS_CARG, XMM_MINUS_CARG
-	copy_double_once BIGVAL
-	copy_double_once BIGBIGVAL
+	copy_float_once BIGVAL
+	copy_float_once BIGBIGVAL
 	copy_double_twice XMM_BIGVAL
 	copy_double_twice XMM_BIGBIGVAL
 	copy_double_thrice SQRTHALF, XMM_SQRTHALF
