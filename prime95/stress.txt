@@ -118,9 +118,13 @@ FREQUENTLY ASKED QUESTIONS
 Q)  My machine is not overclocked.  If I'm getting an error, then there must
 be a bug in the program, right?
 
-	A)  Unfortunately, no.  The torture test is comparing your machines
-	results against KNOWN CORRECT RESULTS.  If your machine cannot
-	generate correct results, you have a hardware problem.
+	A)  The torture test is comparing your machines	results against
+	KNOWN CORRECT RESULTS.  If your machine cannot generate correct
+	results, you have a hardware problem.  HOWEVER, if you are failing
+	the torture test in the SAME SPOT with the SAME ERROR MESSAGE
+	every time, then ask for help at http://mersenneforum.org - it is
+	possible that a recent change to the torture test code may have
+	introduced a software bug.
 
 Q)  How long should I run the torture test?
 
