@@ -2390,7 +2390,8 @@ gwnum gwalloc (void)
 void gwfree (
 	gwnum	q)
 {
-	gwnum_free[gwnum_free_count++] = q;
+	if (gwnum_free != NULL && q != NULL)
+		gwnum_free[gwnum_free_count++] = q;
 }
 
 /* Specialized routines that let the giants code share the free */

@@ -1050,11 +1050,16 @@ void lucasSetup (
 	unsigned long p,	/* Exponent to test */
 	unsigned long fftlen)	/* Specific FFT length to use, or zero */
 {
+	int	res;
 
 /* Init the FFT code for squaring modulo 1.0*2^p-1 */
 
-	gwsetup (1.0, 2, p, -1, fftlen);
-
+	res = gwsetup (1.0, 2, p, -1, fftlen);
+	if (res) {
+		LLDATA = NULL;
+		return;
+	}
+		
 /* Allocate memory for the Lucas-Lehmer data (the number to square) */
 
 	LLDATA = gwalloc ();
