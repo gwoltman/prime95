@@ -14,6 +14,8 @@ New features in Version 22.3 of ntprime.exe
     fixed.
 5)  A rare memory corruption and possible crash bug in the GCD code was
     fixed.
+6)  To reduce wild fluctuations in the RollingAverage, it will be updated
+    roughly twice per day.
 
 New features in Version 22.2 of ntprime.exe
 -------------------------------------------

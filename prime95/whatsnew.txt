@@ -15,7 +15,8 @@ New features in Version 22.3 of prime95.exe
 5)  A rare memory corruption and possible crash bug in the GCD code was
     fixed.
 6)  The -t command line argument will run the torture test.
-
+7)  To reduce wild fluctuations in the RollingAverage, it will be updated
+    roughly twice per day.
 
 New features in Version 22.2 of prime95.exe
 -------------------------------------------
