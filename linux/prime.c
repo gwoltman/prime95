@@ -327,7 +327,8 @@ int main (
 				exit (1);
 			}
 			if (fd != 0) {
-				exit (0);
+				if (i == background - 1) exit (0);
+				else continue;
 			}
 			for (fd = 0; fd < OPEN_MAX; fd++) {
 				close (fd);
@@ -338,6 +339,7 @@ int main (
 			setsid ();
 
 			if (i) named_ini_files = i;
+			break;
 		}
 	}
 #endif
