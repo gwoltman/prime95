@@ -2425,6 +2425,7 @@ static	int	msgs_to_send = 0;/* 0 = no messages, 0x1 = messages */
 	int	rc;
 	int	talked_to_server = 0;
 	int	manual_comm = 0;
+static	int	work_queue_counter = 0;
 
 /* Use this opportunity to perform other miscellaneous tasks that may */
 /* be required by this particular OS port */
@@ -2457,6 +2458,15 @@ static	int	msgs_to_send = 0;/* 0 = no messages, 0x1 = messages */
 		sprintf (COMPID, "C%08X", id);
 		IniWriteString (LOCALINI_FILE, "ComputerID", COMPID);
 		spoolMessage (PRIMENET_SET_COMPUTER_INFO, NULL);
+	}
+
+/* Every now and then (remember this routine is called frequently), see */
+/* if we need to update server completion dates or check the work queue. */
+
+	if (++work_queue_counter > 1000) {
+		ConditionallyUpdateEndDates ();
+		CHECK_WORK_QUEUE = 1;
+		work_queue_counter = 0;
 	}
 
 /* Open and read the spool file to set msgs_to_send correctly */

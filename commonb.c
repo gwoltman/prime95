@@ -1761,10 +1761,6 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 
 		if ((counter & 0x3F) == 0) {
 			EXP_PERCENT_COMPLETE = (double) counter / (double) p;
-			if ((counter & 0xFFFF) == 0) {
-				ConditionallyUpdateEndDates ();
-				CHECK_WORK_QUEUE = 1;
-			}
 			if (!communicateWithServer ()) escaped = 1;
 
 /* See if we should switch to factoring.  This is sometimes done */
@@ -3573,11 +3569,9 @@ int primeFactor (
 			endptlo = 0;
 		}
 
-/* Every so often, set flag to see if we have enough work queued up */
-/* Also, update the percent complete */
+/* Do next of the 16 passes */
 
-nextpass:	ConditionallyUpdateEndDates ();
-		CHECK_WORK_QUEUE = 1;
+nextpass:	;
 	    }
 
 /* If we've found a factor, then we are done factoring */
