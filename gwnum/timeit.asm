@@ -18,12 +18,10 @@ INCLUDE extrn.mac
 INCLUDE memory.mac
 INCLUDE pfa.mac
 INCLUDE lucas.mac
-INCLUDE lucasp.mac
 INCLUDE xmult.mac
 INCLUDE xlucas.mac
-IFDEF X86_64
-INCLUDE	xlucas64.mac
-ENDIF
+
+EXTRN	_CPU_FLAGS:DWORD
 
 IFDEF X86_64
 X87_CASES	EQU	0
@@ -178,10 +176,16 @@ ss0b:	disp	&ops
 	jnz	ss0a
 	ENDM
 
-sse2mac	MACRO	memused, memarea, ops:vararg
+sse2mac MACRO	lab, memused, memarea, ops:vararg
 	LOCAL	ss0a, ss0b
 	inner_iters = memarea / memused
 	outer_iters = 10000 / inner_iters
+IFDEF AMD
+lab&amd:
+ELSE
+lab:	cmp	_CPU_FLAGS, 40h		;; Is 3dnow! supported?
+	jnz	lab&amd			;; Yes, do amd version of macro
+ENDIF
 	mov	rbx, 262144		;; Offset for some sse2 macros
 	mov	rbp, 524288		;; Offset for mulf sse2 macros
 	mov	eax, outer_iters
@@ -195,6 +199,127 @@ ss0b:	&ops
 	jnz	ss0b
 	dec	eax
 	jnz	ss0a
+	jmp	exit
+	ENDM
+
+sse2macros MACRO
+	sse2mac sscase12, 128, 4096, x2cl_eight_reals_fft rsi, 2*64, 64
+	sse2mac sscase13, 128, 100000, x2cl_eight_reals_fft rsi, 2*64, 64
+	sse2mac sscase14, 128, 4096, x2cl_eight_reals_first_fft rsi, 2*64, 64
+	sse2mac sscase15, 128, 100000, x2cl_eight_reals_first_fft rsi, 2*64, 64
+	sse2mac sscase16, 128, 4096, x2cl_eight_reals_fft_2 rsi, 2*64, 64
+	sse2mac sscase17, 128, 100000, x2cl_eight_reals_fft_2 rsi, 2*64, 64
+	sse2mac sscase18, 128, 4096, x2cl_eight_reals_fft_1 rsi, 2*64, 64
+	sse2mac sscase19, 128, 100000, x2cl_eight_reals_fft_1 rsi, 2*64, 64
+	sse2mac sscase20, 128, 4096, s2cl_eight_reals_first_fft rsi, 2*64, 64
+	sse2mac sscase21, 128, 100000, s2cl_eight_reals_first_fft rsi, 2*64, 64
+	sse2mac sscase22, 128, 4096, s2cl_eight_reals_fft_1 rsi, 2*64, 64
+	sse2mac sscase23, 128, 100000, s2cl_eight_reals_fft_1 rsi, 2*64, 64
+	sse2mac sscase24, 128, 4096, s2cl_eight_reals_with_square_2 rsi, 2*64, 64
+	sse2mac sscase25, 128, 100000, s2cl_eight_reals_with_square_2 rsi, 2*64, 64
+	sse2mac sscase26, 128, 4096, s2cl_eight_reals_fft_2_final rsi, 2*64, 64
+	sse2mac sscase27, 128, 100000, s2cl_eight_reals_fft_2_final rsi, 2*64, 64
+	sse2mac sscase28, 128, 4096, s2cl_eight_reals_with_square_2 rsi, 2*64, 64
+	sse2mac sscase29, 128, 100000, s2cl_eight_reals_with_square_2 rsi, 2*64, 64
+	sse2mac sscase30, 128, 4096, s2cl_eight_reals_with_mult_2 rsi, 2*64, 64
+	sse2mac sscase31, 128, 100000, s2cl_eight_reals_with_mult_2 rsi, 2*64, 64
+	sse2mac sscase32, 128, 4096, s2cl_eight_reals_with_mulf_2 rsi, 2*64, 64
+	sse2mac sscase33, 128, 100000, s2cl_eight_reals_with_mulf_2 rsi, 2*64, 64
+	sse2mac sscase34, 256, 4096, x4cl_eight_reals_fft_2 rsi, 4*64, 64, 2*64
+	sse2mac sscase35, 256, 100000, x4cl_eight_reals_fft_2 rsi, 4*64, 64, 2*64
+	sse2mac sscase36, 256, 4096, g4cl_eight_reals_fft_2 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
+	sse2mac sscase37, 256, 100000, g4cl_eight_reals_fft_2 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
+
+	sse2mac sscase38, 128, 4096, x2cl_eight_reals_unfft_2 rsi, 2*64, 64
+	sse2mac sscase39, 128, 100000, x2cl_eight_reals_unfft_2 rsi, 2*64, 64
+	sse2mac sscase40, 128, 4096, x2cl_half_eight_reals_unfft_2 rsi, 2*64, 64
+	sse2mac sscase41, 128, 100000, x2cl_half_eight_reals_unfft_2 rsi, 2*64, 64
+	sse2mac sscase42, 128, 4096, g2cl_eight_reals_unfft_2 rsi, 2*64, 64, rdx, 2*64, 64
+	sse2mac sscase43, 128, 100000, g2cl_eight_reals_unfft_2 rsi, 2*64, 64, rdx, 2*64, 64
+	sse2mac sscase44, 256, 4096, x4cl_eight_reals_last_unfft rsi, 4*64, 64, 2*64
+	sse2mac sscase45, 256, 100000, x4cl_eight_reals_last_unfft rsi, 4*64, 64, 2*64
+	sse2mac sscase46, 256, 4096, x4cl_eight_reals_unfft_2 rsi, 4*64, 64, 2*64
+	sse2mac sscase47, 256, 100000, x4cl_eight_reals_unfft_2 rsi, 4*64, 64, 2*64
+	sse2mac sscase48, 256, 4096, s4cl_eight_reals_unfft_1 rsi, 4*64, 64, 2*64
+	sse2mac sscase49, 256, 100000, s4cl_eight_reals_unfft_1 rsi, 4*64, 64, 2*64
+
+	sse2mac sscase50, 128, 4096, x2cl_two_complex_fft rsi, 2*64, 64
+	sse2mac sscase51, 128, 100000, x2cl_two_complex_fft rsi, 2*64, 64
+	sse2mac sscase52, 128, 4096, x2cl_two_complex_fft_in_place rsi, 2*64, 64
+	sse2mac sscase53, 128, 100000, x2cl_two_complex_fft_in_place rsi, 2*64, 64
+
+	sse2mac sscase54, 128, 4096, x2cl_two_complex_unfft rsi, 2*64, 64
+	sse2mac sscase55, 128, 100000, x2cl_two_complex_unfft rsi, 2*64, 64
+
+	sse2mac sscase56, 128, 4096, x2cl_four_complex_fft rsi, 2*64, 64
+	sse2mac sscase57, 128, 100000, x2cl_four_complex_fft rsi, 2*64, 64
+	sse2mac sscase58, 128, 4096, x2cl_four_complex_first_fft rsi, 2*64, 64
+	sse2mac sscase59, 128, 100000, x2cl_four_complex_first_fft rsi, 2*64, 64
+	sse2mac sscase60, 128, 4096, s2cl_four_complex_gpm_fft rsi, 2*64, 64
+	sse2mac sscase61, 128, 100000, s2cl_four_complex_gpm_fft rsi, 2*64, 64
+	sse2mac sscase62, 128, 4096, s2cl_four_complex_first_fft rsi, 2*64, 64
+	sse2mac sscase63, 128, 100000, s2cl_four_complex_first_fft rsi, 2*64, 64
+	sse2mac sscase64, 128, 4096, s2cl_four_complex_fft_final rsi, 2*64, 64
+	sse2mac sscase65, 128, 100000, s2cl_four_complex_fft_final rsi, 2*64, 64
+	sse2mac sscase66, 128, 4096, s2cl_four_complex_with_square rsi, 2*64, 64
+	sse2mac sscase67, 128, 100000, s2cl_four_complex_with_square rsi, 2*64, 64
+	sse2mac sscase68, 128, 4096, s2cl_four_complex_with_mult rsi, 2*64, 64
+	sse2mac sscase69, 128, 100000, s2cl_four_complex_with_mult rsi, 2*64, 64
+	sse2mac sscase70, 128, 4096, s2cl_four_complex_with_mulf rsi, 2*64, 64
+	sse2mac sscase71, 128, 100000, s2cl_four_complex_with_mulf rsi, 2*64, 64
+	sse2mac sscase72, 256, 4096, x4cl_four_complex_fft rsi, 4*64, 64, 2*64
+	sse2mac sscase73, 256, 100000, x4cl_four_complex_fft rsi, 4*64, 64, 2*64
+	sse2mac sscase74, 256, 4096, x4cl_four_complex_cpm01_fft rsi, 4*64, 64, 2*64
+	sse2mac sscase75, 256, 100000, x4cl_four_complex_cpm01_fft rsi, 4*64, 64, 2*64
+	sse2mac sscase76, 256, 4096, x4cl_four_complex_cpm23_fft rsi, 4*64, 64, 2*64
+	sse2mac sscase77, 256, 100000, x4cl_four_complex_cpm23_fft rsi, 4*64, 64, 2*64
+	sse2mac sscase78, 256, 4096, g4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
+	sse2mac sscase79, 256, 100000, g4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
+	sse2mac sscase80, 256, 4096, x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	sse2mac sscase81, 256, 100000, x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	sse2mac sscase82, 256, 4096, x4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
+	sse2mac sscase83, 256, 100000, x4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
+	sse2mac sscase84, 256, 4096, x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	sse2mac sscase85, 256, 100000, x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
+
+	sse2mac sscase86, 128, 4096, x2cl_four_complex_unfft rsi, 2*64, 64
+	sse2mac sscase87, 128, 100000, x2cl_four_complex_unfft rsi, 2*64, 64
+	sse2mac sscase88, 128, 4096, g2cl_four_complex_unfft rsi, 2*64, 64, rdx, 2*64, 64
+	sse2mac sscase89, 128, 100000, g2cl_four_complex_unfft rsi, 2*64, 64, rdx, 2*64, 64
+	sse2mac sscase90, 256, 4096, x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
+	sse2mac sscase91, 256, 100000, x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
+	sse2mac sscase92, 256, 4096, x4cl_four_complex_last_unfft rsi, 4*64, 64, 2*64, 0
+	sse2mac sscase93, 256, 100000, x4cl_four_complex_last_unfft rsi, 4*64, 64, 2*64, 0
+	sse2mac sscase94, 256, 4096, s4cl_four_complex_gpm_unfft rsi, 4*64, 64, 2*64, 0
+	sse2mac sscase95, 256, 100000, s4cl_four_complex_gpm_unfft rsi, 4*64, 64, 2*64, 0
+	sse2mac sscase96, 256, 4096, x4cl_four_complex_cpm0_unfft rsi, 4*64, 64, 2*64
+	sse2mac sscase97, 256, 100000, x4cl_four_complex_cpm0_unfft rsi, 4*64, 64, 2*64
+	sse2mac sscase98, 256, 4096, x4cl_four_complex_cpm1_unfft rsi, 4*64, 64, 2*64
+	sse2mac sscase99, 256, 100000, x4cl_four_complex_cpm1_unfft rsi, 4*64, 64, 2*64
+	sse2mac sscase100, 256, 4096, x4cl_four_complex_cpm2_unfft rsi, 4*64, 64, 2*64
+	sse2mac sscase101, 256, 100000, x4cl_four_complex_cpm2_unfft rsi, 4*64, 64, 2*64
+	sse2mac sscase102, 256, 4096, x4cl_four_complex_cpm3_unfft rsi, 4*64, 64, 2*64
+	sse2mac sscase103, 256, 100000, x4cl_four_complex_cpm3_unfft rsi, 4*64, 64, 2*64
+
+	sse2mac sscase104, 192, 4096, x3cl_six_reals_first_fft rsi, 3*64, 64
+	sse2mac sscase105, 192, 100000, x3cl_six_reals_first_fft rsi, 3*64, 64
+	sse2mac sscase106, 192, 4096, x3cl_six_reals_last_unfft rsi, 3*64, 64
+	sse2mac sscase107, 192, 100000, x3cl_six_reals_last_unfft rsi, 3*64, 64
+
+	sse2mac sscase108, 192, 4096, x3cl_three_complex_first_fft rsi, 3*64, 64
+	sse2mac sscase109, 192, 100000, x3cl_three_complex_first_fft rsi, 3*64, 64
+	sse2mac sscase110, 192, 4096, x3cl_three_complex_last_unfft rsi, 3*64, 64
+	sse2mac sscase111, 192, 100000, x3cl_three_complex_last_unfft rsi, 3*64, 64
+
+	sse2mac sscase112, 320, 4096, x5cl_five_reals_first_fft rsi, 5*64, 64
+	sse2mac sscase113, 320, 100000, x5cl_five_reals_first_fft rsi, 5*64, 64
+	sse2mac sscase114, 320, 4096, x5cl_five_reals_last_unfft rsi, 5*64, 64
+	sse2mac sscase115, 320, 100000, x5cl_five_reals_last_unfft rsi, 5*64, 64
+
+	sse2mac sscase116, 448, 4096, x7cl_seven_reals_first_fft rsi, 7*64, 64
+	sse2mac sscase117, 448, 100000, x7cl_seven_reals_first_fft rsi, 7*64, 64
+	sse2mac sscase118, 448, 4096, x7cl_seven_reals_last_unfft rsi, 7*64, 64
+	sse2mac sscase119, 448, 100000, x7cl_seven_reals_last_unfft rsi, 7*64, 64
 	ENDM
 
 _TEXT	SEGMENT
@@ -366,339 +491,9 @@ sscase11:
 
 ; Time ~10000 iterations of the SSE2 macros in L1 and L2 caches
 
-sscase12:
-	sse2mac	128, 4096, x2cl_eight_reals_fft rsi, 2*64, 64
-	jmp	exit
-sscase13:
-	sse2mac	128, 100000, x2cl_eight_reals_fft rsi, 2*64, 64
-	jmp	exit
-sscase14:
-	sse2mac	128, 4096, x2cl_eight_reals_first_fft rsi, 2*64, 64
-	jmp	exit
-sscase15:
-	sse2mac	128, 100000, x2cl_eight_reals_first_fft rsi, 2*64, 64
-	jmp	exit
-sscase16:
-	sse2mac	128, 4096, x2cl_eight_reals_fft_2 rsi, 2*64, 64
-	jmp	exit
-sscase17:
-	sse2mac	128, 100000, x2cl_eight_reals_fft_2 rsi, 2*64, 64
-	jmp	exit
-sscase18:
-	sse2mac	128, 4096, x2cl_eight_reals_fft_1 rsi, 2*64, 64
-	jmp	exit
-sscase19:
-	sse2mac	128, 100000, x2cl_eight_reals_fft_1 rsi, 2*64, 64
-	jmp	exit
-sscase20:
-	sse2mac	128, 4096, s2cl_eight_reals_first_fft rsi, 2*64, 64
-	jmp	exit
-sscase21:
-	sse2mac	128, 100000, s2cl_eight_reals_first_fft rsi, 2*64, 64
-	jmp	exit
-sscase22:
-	sse2mac	128, 4096, s2cl_eight_reals_fft_1 rsi, 2*64, 64
-	jmp	exit
-sscase23:
-	sse2mac	128, 100000, s2cl_eight_reals_fft_1 rsi, 2*64, 64
-	jmp	exit
-sscase24:
-	sse2mac	128, 4096, s2cl_eight_reals_with_square_2 rsi, 2*64, 64
-	jmp	exit
-sscase25:
-	sse2mac	128, 100000, s2cl_eight_reals_with_square_2 rsi, 2*64, 64
-	jmp	exit
-sscase26:
-	sse2mac	128, 4096, s2cl_eight_reals_fft_2_final rsi, 2*64, 64
-	jmp	exit
-sscase27:
-	sse2mac	128, 100000, s2cl_eight_reals_fft_2_final rsi, 2*64, 64
-	jmp	exit
-sscase28:
-	sse2mac	128, 4096, s2cl_eight_reals_with_square_2 rsi, 2*64, 64
-	jmp	exit
-sscase29:
-	sse2mac	128, 100000, s2cl_eight_reals_with_square_2 rsi, 2*64, 64
-	jmp	exit
-sscase30:
-	sse2mac	128, 4096, s2cl_eight_reals_with_mult_2 rsi, 2*64, 64
-	jmp	exit
-sscase31:
-	sse2mac	128, 100000, s2cl_eight_reals_with_mult_2 rsi, 2*64, 64
-	jmp	exit
-sscase32:
-	sse2mac	128, 4096, s2cl_eight_reals_with_mulf_2 rsi, 2*64, 64
-	jmp	exit
-sscase33:
-	sse2mac	128, 100000, s2cl_eight_reals_with_mulf_2 rsi, 2*64, 64
-	jmp	exit
-sscase34:
-	sse2mac	256, 4096, x4cl_eight_reals_fft_2 rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase35:
-	sse2mac	256, 100000, x4cl_eight_reals_fft_2 rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase36:
-	sse2mac	256, 4096, g4cl_eight_reals_fft_2 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
-	jmp	exit
-sscase37:
-	sse2mac	256, 100000, g4cl_eight_reals_fft_2 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
-	jmp	exit
-
-sscase38:
-	sse2mac	128, 4096, x2cl_eight_reals_unfft_2 rsi, 2*64, 64
-	jmp	exit
-sscase39:
-	sse2mac	128, 100000, x2cl_eight_reals_unfft_2 rsi, 2*64, 64
-	jmp	exit
-sscase40:
-	sse2mac	128, 4096, x2cl_half_eight_reals_unfft_2 rsi, 2*64, 64
-	jmp	exit
-sscase41:
-	sse2mac	128, 100000, x2cl_half_eight_reals_unfft_2 rsi, 2*64, 64
-	jmp	exit
-sscase42:
-	sse2mac	128, 4096, g2cl_eight_reals_unfft_2 rsi, 2*64, 64, rdx, 2*64, 64
-	jmp	exit
-sscase43:
-	sse2mac	128, 100000, g2cl_eight_reals_unfft_2 rsi, 2*64, 64, rdx, 2*64, 64
-	jmp	exit
-sscase44:
-	sse2mac	256, 4096, x4cl_eight_reals_last_unfft rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase45:
-	sse2mac	256, 100000, x4cl_eight_reals_last_unfft rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase46:
-	sse2mac	256, 4096, x4cl_eight_reals_unfft_2 rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase47:
-	sse2mac	256, 100000, x4cl_eight_reals_unfft_2 rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase48:
-	sse2mac	256, 4096, s4cl_eight_reals_unfft_1 rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase49:
-	sse2mac	256, 100000, s4cl_eight_reals_unfft_1 rsi, 4*64, 64, 2*64
-	jmp	exit
-
-sscase50:
-	sse2mac	128, 4096, x2cl_two_complex_fft rsi, 2*64, 64
-	jmp	exit
-sscase51:
-	sse2mac	128, 100000, x2cl_two_complex_fft rsi, 2*64, 64
-	jmp	exit
-sscase52:
-	sse2mac	128, 4096, x2cl_two_complex_fft_in_place rsi, 2*64, 64
-	jmp	exit
-sscase53:
-	sse2mac	128, 100000, x2cl_two_complex_fft_in_place rsi, 2*64, 64
-	jmp	exit
-
-sscase54:
-	sse2mac	128, 4096, x2cl_two_complex_unfft rsi, 2*64, 64
-	jmp	exit
-sscase55:
-	sse2mac	128, 100000, x2cl_two_complex_unfft rsi, 2*64, 64
-	jmp	exit
-
-sscase56:
-	sse2mac	128, 4096, x2cl_four_complex_fft rsi, 2*64, 64
-	jmp	exit
-sscase57:
-	sse2mac	128, 100000, x2cl_four_complex_fft rsi, 2*64, 64
-	jmp	exit
-sscase58:
-	sse2mac	128, 4096, x2cl_four_complex_first_fft rsi, 2*64, 64
-	jmp	exit
-sscase59:
-	sse2mac	128, 100000, x2cl_four_complex_first_fft rsi, 2*64, 64
-	jmp	exit
-sscase60:
-	sse2mac	128, 4096, s2cl_four_complex_gpm_fft rsi, 2*64, 64
-	jmp	exit
-sscase61:
-	sse2mac	128, 100000, s2cl_four_complex_gpm_fft rsi, 2*64, 64
-	jmp	exit
-sscase62:
-	sse2mac	128, 4096, s2cl_four_complex_first_fft rsi, 2*64, 64
-	jmp	exit
-sscase63:
-	sse2mac	128, 100000, s2cl_four_complex_first_fft rsi, 2*64, 64
-	jmp	exit
-sscase64:
-	sse2mac	128, 4096, s2cl_four_complex_fft_final rsi, 2*64, 64
-	jmp	exit
-sscase65:
-	sse2mac	128, 100000, s2cl_four_complex_fft_final rsi, 2*64, 64
-	jmp	exit
-sscase66:
-	sse2mac	128, 4096, s2cl_four_complex_with_square rsi, 2*64, 64
-	jmp	exit
-sscase67:
-	sse2mac	128, 100000, s2cl_four_complex_with_square rsi, 2*64, 64
-	jmp	exit
-sscase68:
-	sse2mac	128, 4096, s2cl_four_complex_with_mult rsi, 2*64, 64
-	jmp	exit
-sscase69:
-	sse2mac	128, 100000, s2cl_four_complex_with_mult rsi, 2*64, 64
-	jmp	exit
-sscase70:
-	sse2mac	128, 4096, s2cl_four_complex_with_mulf rsi, 2*64, 64
-	jmp	exit
-sscase71:
-	sse2mac	128, 100000, s2cl_four_complex_with_mulf rsi, 2*64, 64
-	jmp	exit
-sscase72:
-	sse2mac	256, 4096, x4cl_four_complex_fft rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase73:
-	sse2mac	256, 100000, x4cl_four_complex_fft rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase74:
-	sse2mac	256, 4096, x4cl_four_complex_cpm01_fft rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase75:
-	sse2mac	256, 100000, x4cl_four_complex_cpm01_fft rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase76:
-	sse2mac	256, 4096, x4cl_four_complex_cpm23_fft rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase77:
-	sse2mac	256, 100000, x4cl_four_complex_cpm23_fft rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase78:
-	sse2mac 256, 4096, g4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
-	jmp	exit
-sscase79:
-	sse2mac 256, 100000, g4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
-	jmp	exit
-sscase80:
-	sse2mac 256, 4096, x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase81:
-	sse2mac 256, 100000, x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase82:
-	sse2mac 256, 4096, x4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase83:
-	sse2mac 256, 100000, x4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase84:
-	sse2mac 256, 4096, x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase85:
-	sse2mac 256, 100000, x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
-	jmp	exit
-
-sscase86:
-	sse2mac	128, 4096, x2cl_four_complex_unfft rsi, 2*64, 64
-	jmp	exit
-sscase87:
-	sse2mac	128, 100000, x2cl_four_complex_unfft rsi, 2*64, 64
-	jmp	exit
-sscase88:
-	sse2mac	128, 4096, g2cl_four_complex_unfft rsi, 2*64, 64, rdx, 2*64, 64
-	jmp	exit
-sscase89:
-	sse2mac	128, 100000, g2cl_four_complex_unfft rsi, 2*64, 64, rdx, 2*64, 64
-	jmp	exit
-sscase90:
-	sse2mac	256, 4096, x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase91:
-	sse2mac	256, 100000, x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase92:
-	sse2mac	256, 4096, x4cl_four_complex_last_unfft rsi, 4*64, 64, 2*64, 0
-	jmp	exit
-sscase93:
-	sse2mac	256, 100000, x4cl_four_complex_last_unfft rsi, 4*64, 64, 2*64, 0
-	jmp	exit
-sscase94:
-	sse2mac	256, 4096, s4cl_four_complex_gpm_unfft rsi, 4*64, 64, 2*64, 0
-	jmp	exit
-sscase95:
-	sse2mac	256, 100000, s4cl_four_complex_gpm_unfft rsi, 4*64, 64, 2*64, 0
-	jmp	exit
-sscase96:
-	sse2mac	256, 4096, x4cl_four_complex_cpm0_unfft rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase97:
-	sse2mac	256, 100000, x4cl_four_complex_cpm0_unfft rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase98:
-	sse2mac	256, 4096, x4cl_four_complex_cpm1_unfft rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase99:
-	sse2mac	256, 100000, x4cl_four_complex_cpm1_unfft rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase100:
-	sse2mac	256, 4096, x4cl_four_complex_cpm2_unfft rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase101:
-	sse2mac	256, 100000, x4cl_four_complex_cpm2_unfft rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase102:
-	sse2mac	256, 4096, x4cl_four_complex_cpm3_unfft rsi, 4*64, 64, 2*64
-	jmp	exit
-sscase103:
-	sse2mac	256, 100000, x4cl_four_complex_cpm3_unfft rsi, 4*64, 64, 2*64
-	jmp	exit
-
-sscase104:
-	sse2mac	192, 4096, x3cl_six_reals_first_fft rsi, 3*64, 64
-	jmp	exit
-sscase105:
-	sse2mac	192, 100000, x3cl_six_reals_first_fft rsi, 3*64, 64
-	jmp	exit
-sscase106:
-	sse2mac	192, 4096, x3cl_six_reals_last_unfft rsi, 3*64, 64
-	jmp	exit
-sscase107:
-	sse2mac	192, 100000, x3cl_six_reals_last_unfft rsi, 3*64, 64
-	jmp	exit
-
-sscase108:
-	sse2mac	192, 4096, x3cl_three_complex_first_fft rsi, 3*64, 64
-	jmp	exit
-sscase109:
-	sse2mac	192, 100000, x3cl_three_complex_first_fft rsi, 3*64, 64
-	jmp	exit
-sscase110:
-	sse2mac	192, 4096, x3cl_three_complex_last_unfft rsi, 3*64, 64
-	jmp	exit
-sscase111:
-	sse2mac	192, 100000, x3cl_three_complex_last_unfft rsi, 3*64, 64
-	jmp	exit
-
-sscase112:
-	sse2mac	320, 4096, x5cl_five_reals_first_fft rsi, 5*64, 64
-	jmp	exit
-sscase113:
-	sse2mac	320, 100000, x5cl_five_reals_first_fft rsi, 5*64, 64
-	jmp	exit
-sscase114:
-	sse2mac	320, 4096, x5cl_five_reals_last_unfft rsi, 5*64, 64
-	jmp	exit
-sscase115:
-	sse2mac	320, 100000, x5cl_five_reals_last_unfft rsi, 5*64, 64
-	jmp	exit
-
-sscase116:
-	sse2mac	448, 4096, x7cl_seven_reals_first_fft rsi, 7*64, 64
-	jmp	exit
-sscase117:
-	sse2mac	448, 100000, x7cl_seven_reals_first_fft rsi, 7*64, 64
-	jmp	exit
-sscase118:
-	sse2mac	448, 4096, x7cl_seven_reals_last_unfft rsi, 7*64, 64
-	jmp	exit
-sscase119:
-	sse2mac	448, 100000, x7cl_seven_reals_last_unfft rsi, 7*64, 64
-	jmp	exit
+	sse2macros
+AMD EQU 0
+	sse2macros
 
 ; Exit the timing code
 
