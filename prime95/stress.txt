@@ -53,17 +53,18 @@ web addresses for these):
 	Genome@home
 
 Several useful websites for help (look for overclocking community or forum):
+	http://www.overclockers.com
+	http://www.arstechnica.com
 	http://www.hardocp.com
 	http://www.anandtech.com
 	http://www.tomshardware.com
 	http://www.sharkyextreme.com
-	http://www.overclockers.com
 	Also try the alt.comp.hardware.overclocking Usenet newsgroup.
 
 Utility programs you may find useful (I'm sure there are others - look around):
 	Motherboard monitor from http://mbm.livewiredev.com
 	Memtest86 from http://www.memtest86.com
-	TaskInfo2000 from http://www.iarsn.com/
+	TaskInfo2002 from http://www.iarsn.com/
 
 
 WHAT TO DO IF A PROBLEM IS FOUND?
@@ -72,14 +73,16 @@ WHAT TO DO IF A PROBLEM IS FOUND?
 The exact cause of a hardware problem can be very hard to find.
 
 If you are not overclocking, the most likely cause is an overheating CPU
-or memory SIMMs that are not quite up to spec.  Another possibility is
+or memory DIMMs that are not quite up to spec.  Another possibility is
 you might need a better power supply.  Try running MotherBoard monitor
 and browse the forums above to see if your CPU is running too hot.
 If so, make sure the heat sink is properly attached, fans are operational,
 and air flow inside the case is good.  For isolating memory problems, try
-swapping memory SIMMs with a co-worker's or friend's machine.  If the errors
+swapping memory DIMMs with a co-worker's or friend's machine.  If the errors
 go away, then you can be fairly confidant that memory was the cause of
-the trouble.
+the trouble.  A power supply problem can often be identified by a dangerous
+drop in the voltages when prime95 starts running.  Once again the overclocker
+forums are a good resource for what voltages are acceptable.
 
 If you are overclocking then try increasing the core voltage, reduce the
 CPU speed, reduce the front side bus speed, or change the memory timings
@@ -104,7 +107,7 @@ an occasional system crash then feel free to live a little dangerously!
 The second school of thought is, "Why run a stress test if you are going
 to ignore the results?"  These people want a guaranteed 100% rock solid
 machine.  Passing these stability tests gives them the ability to run
-any program with confidence.
+CPU intensive programs with confidence.
 
 
 FREQUENTLY ASKED QUESTIONS
@@ -119,9 +122,10 @@ be a bug in the program, right?
 
 Q)  How long should I run the torture test?
 
-	A)  I recommend running it for 24 hours.  The program has been
-	known to fail only after several hours of operation.  In most
-	cases though, it will fail within a few minutes on a flaky machine.
+	A)  I recommend running it for somewhere between 6 and 24 hours.
+	The program has been known to fail only after several hours and in
+	some cases several weeks of operation.  In most cases though, it will
+	fail within a few minutes on a flaky machine.
 
 Q)  Prime95 reports errors during the torture test, but other stability
 tests don't.  Do I have a problem?
@@ -132,13 +136,13 @@ tests don't.  Do I have a problem?
 	machine that could have problems in rare circumstances.
 
 Q)  A forum member said "Don't bother with prime95, it always pukes on me,
-and my system is stable!".  What do you make of that?
+and my system is stable!.  What do you make of that?"
 
 	or
 
-We had a server at work that ran for 2 MONTHS straight, without a reboot
+"We had a server at work that ran for 2 MONTHS straight, without a reboot
 I installed Prime95 on it and ran it - a couple minutes later I get an error.
-You are going to tell me that the server wasn't stable?
+You are going to tell me that the server wasn't stable?"
 
 	A)  These users obviously do not subscribe to the 100% rock solid
 	school of thought.  THEIR MACHINES DO HAVE HARDWARE PROBLEMS.
