@@ -51,7 +51,7 @@ MTL=mktyplib.exe
 OUTDIR=.\Release
 INTDIR=.\Release
 
-ALL : "$(OUTDIR)\Prime95.exe" "$(OUTDIR)\Prime95.hlp"
+ALL : "$(OUTDIR)\Prime95.exe"
 
 CLEAN : 
 	-@erase ".\Release\Prime95.exe"
@@ -79,7 +79,6 @@ CLEAN :
 	-@erase ".\Release\PreferencesDlg.obj"
 	-@erase ".\Release\Prime95.res"
 	-@erase ".\Release\Prime95.map"
-	-@erase ".\Release\Prime95.hlp"
 
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
@@ -158,7 +157,7 @@ LINK32_OBJS= \
 OUTDIR=.\Debug
 INTDIR=.\Debug
 
-ALL : "$(OUTDIR)\Prime95.exe" "$(OUTDIR)\Prime95.hlp"
+ALL : "$(OUTDIR)\Prime95.exe"
 
 CLEAN : 
 	-@erase ".\Debug\vc40.pdb"
@@ -189,7 +188,6 @@ CLEAN :
 	-@erase ".\Debug\Prime95.res"
 	-@erase ".\Debug\Prime95.ilk"
 	-@erase ".\Debug\Prime95.pdb"
-	-@erase ".\Debug\Prime95.hlp"
 
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
@@ -609,29 +607,7 @@ SOURCE=.\hlp\Prime95.hpj
 
 !IF  "$(CFG)" == "Prime95 - Win32 Release"
 
-# Begin Custom Build - Making help file...
-#OutDir=.\Release
-#ProjDir=.
-#TargetName=Prime95
-#InputPath=.\hlp\Prime95.hpj
-
-#"$(OutDir)\$(TargetName).hlp" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-#   "$(ProjDir)\makehelp.bat"
-
-# End Custom Build
-
 !ELSEIF  "$(CFG)" == "Prime95 - Win32 Debug"
-
-# Begin Custom Build - Making help file...
-#OutDir=.\Debug
-#ProjDir=.
-#TargetName=Prime95
-#InputPath=.\hlp\Prime95.hpj
-
-#"$(OutDir)\$(TargetName).hlp" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-#   "$(ProjDir)\makehelp.bat"
-
-# End Custom Build
 
 !ENDIF 
 
