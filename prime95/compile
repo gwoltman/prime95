@@ -6,7 +6,7 @@ cl=\msdev\bin\cl /I.. /I C:\msdev\include\ /O2 /GF /W3 /MT /c
 
 # Create 32-bit executables
 
-mult.obj: mult.asm mult.mac
+mult.obj: mult.asm mult.mac xmult.mac
     $(masm) mult.asm
 
 mult1.obj: mult1.asm mult.mac
