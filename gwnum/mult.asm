@@ -1180,7 +1180,7 @@ jmptable DD	755,	32,	0.0000036,	512
 	DD			1, 1
 	DD			1279*32768, 1
 	DD			39*65536+8*256+256/2+16, 2, 1, 1, 20, 0
-	DD	15350000, 786432, 0.453,	1974752
+	DD	15340000, 786432, 0.453,	1974752
 	DD			OFFSET fft768K_1, OFFSET fft768K_2
 	DD			OFFSET fft768K_3, OFFSET fft768K_4
 	DD			OFFSET fft768K_1PPRO, OFFSET fft768K_2PPRO
@@ -1253,7 +1253,7 @@ jmptable DD	755,	32,	0.0000036,	512
 	DD			1, 1
 	DD			4095*32768, 1
 	DD			127*65536+8*256+256/2+16, 1, 1, 1, 0
-	DD	50000000, 2621440, 1.636,	6582416
+	DD	50020000, 2621440, 1.636,	6582416
 	DD			OFFSET fft2560K_1, OFFSET fft2560K_2
 	DD			OFFSET fft2560K_3, OFFSET fft2560K_4
 	DD			OFFSET fft2560K_1PPRO, OFFSET fft2560K_2PPRO
@@ -1264,7 +1264,7 @@ jmptable DD	755,	32,	0.0000036,	512
 	DD			5119*32768, 1
 	DD			159*65536+8*256+256/2+16, 2, 1, 1
 	DD			20, 80, 0
-	DD	59550000, 3145728, 1.990,	7898864
+	DD	59510000, 3145728, 1.990,	7898864
 	DD			OFFSET fft3072K_1, OFFSET fft3072K_2
 	DD			OFFSET fft3072K_3, OFFSET fft3072K_4
 	DD			OFFSET fft3072K_1PPRO, OFFSET fft3072K_2PPRO
@@ -1286,7 +1286,7 @@ jmptable DD	755,	32,	0.0000036,	512
 	DD			7167*32768, 1
 	DD			223*65536+8*256+256/2+16, 2, 1, 1
 	DD			28, 112, 0
-	DD	79420000, 4194304, 2.604,	10530944
+	DD	79400000, 4194304, 2.604,	10530944
 	DD			OFFSET fft4096K_1, OFFSET fft4096K_2
 	DD			OFFSET fft4096K_3, OFFSET fft4096K_4
 	DD			OFFSET fft4096K_1PPRO, OFFSET fft4096K_2PPRO
@@ -2617,7 +2617,7 @@ _esincos3 PROC NEAR
 	ret
 _esincos3 ENDP
 
-;TIMING2 EQU 1
+;;TIMING2 EQU 1
 IFDEF TIMING2
 INCLUDE pfa.mac
 INCLUDE lucas.mac
@@ -2637,15 +2637,30 @@ _timeit	PROC NEAR
 	sub	eax, eax
 	sub	ecx, ecx
 
-;	subpd	xmm0, xmm0
-;	subpd	xmm1, xmm1
-;	subpd	xmm2, xmm2
-;	subpd	xmm3, xmm3
-;	subpd	xmm4, xmm4
-;	subpd	xmm5, xmm5
-;	subpd	xmm6, xmm6
-;	subpd	xmm7, xmm7
+	subpd	xmm0, xmm0
+	subpd	xmm1, xmm1
+	subpd	xmm2, xmm2
+	subpd	xmm3, xmm3
+	subpd	xmm4, xmm4
+	subpd	xmm5, xmm5
+	subpd	xmm6, xmm6
+	subpd	xmm7, xmm7
 
+
+	mov	eax, 10000
+qqq:	movdqa	xmm0, xmm1
+	movdqa	xmm1, xmm2
+	movdqa	xmm2, xmm3
+	movdqa	xmm3, xmm4
+	movdqa	xmm4, xmm5
+	movdqa	xmm5, xmm6
+	movdqa	xmm6, xmm7
+	dec	eax
+	jnz	short qqq
+	jmp	exit
+	
+
+IFDEF LUCASING
 	mov	eax, _DESTARG
 	cmp	eax, 0
 	je	use_128_bytes
@@ -2723,7 +2738,6 @@ loop4:	disp macro_to_test, d, 2*d, 4*d
 
 
 
-
 IFDEF norm_test
 use_64KB:
 tlbs=64
@@ -2777,6 +2791,7 @@ loop5:	disp macro_to_test, d, 2*d, 4*d
 	sub	edx, 1			; Check loop counter
 	jnz	loop5			; Loop if necessary
 	jmp	exit
+ENDIF
 
 
 
