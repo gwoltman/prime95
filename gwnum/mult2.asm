@@ -196,7 +196,7 @@ cmnend:	mov	esi, _DESTARG		; Addr of FFT data
 
 	fld	XMM_SUMOUT
 	fmul	ttmp_ff_inv
-	fst	QWORD PTR [esi-24]	; Save sum of FFT outputs
+	fstp	QWORD PTR [esi-24]	; Save sum of FFT outputs
 
 ; Return
 
