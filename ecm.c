@@ -1746,9 +1746,11 @@ int read_array (
 	long	*sum)
 {
 	unsigned long i;
+	signed char *sbuf;
 
 	if (_read (fd, buf, len) != len) return (FALSE);
-	for (i = 0; i < len; i++) *sum += buf[i];
+	sbuf = (signed char *) buf;  /* Watcom default for char is unsigned! */
+	for (i = 0; i < len; i++) *sum += sbuf[i];
 	return (TRUE);
 }
 
@@ -1759,10 +1761,12 @@ int write_array (
 	long	*sum)
 {
 	unsigned long i;
+	signed char *sbuf;
 
 	if (len == 0) return (TRUE);
 	if (_write (fd, buf, len) != len) return (FALSE);
-	for (i = 0; i < len; i++) *sum += buf[i];
+	sbuf = (signed char *) buf;  /* Watcom default for char is unsigned! */
+	for (i = 0; i < len; i++) *sum += sbuf[i];
 	return (TRUE);
 }
 
