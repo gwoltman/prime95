@@ -112,9 +112,11 @@ void unscramble (char *s)
 	char	*q = s, *z = out;
 	unsigned int i, c = strlen (SCRAMBLE_STRING);
 
-	for (i = 0; i < strlen (s) >> 1; i++)
-		*z++ = ((strchr (hx, *q++) - hx) * 16 +
-			(strchr (hx, *q++) - hx)) ^ SCRAMBLE_STRING[i % c];
+	for (i = 0; i < strlen (s) >> 1; i++) {
+		*z = (strchr (hx, *q++) - hx) * 16;
+		*z += (strchr (hx, *q++) - hx);
+		*z++ ^= SCRAMBLE_STRING[i % c];
+	}
 	*z = 0;
 	strcpy (s, out);
 }
@@ -213,6 +215,10 @@ int pnHttpServer (char *pbuf, unsigned cbuf, char* postargs)
 	char	szProxyHost[120], szUser[50], szPass[50], *con_host;
 	unsigned short nProxyPort, con_port;
 
+/* Get debug logging flag */
+
+	debug = IniGetInt (INIFILENAME, "Debug", 0);
+ 
 /* Get the host name of the optional proxy server.  If using a proxy */
 /* server strip the optional http:// prefix. */
 
@@ -263,7 +269,8 @@ int pnHttpServer (char *pbuf, unsigned cbuf, char* postargs)
 		con_port = nHostPort;
 	}
 
-	debug = IniGetInt (INIFILENAME, "Debug", 0);
+/* Output debug info */
+
 	if (debug) {
 		sprintf (buf, "host = %s, port = %d\n", con_host, con_port);
 		LogMsg (buf);

@@ -5,6 +5,7 @@ New features in Version 22.9 of mprime
     of finding a Mersenne prime while double-checking.
 2)  You can now pause mprime when another program starts running.  See the
     PauseWhileRunning option in undoc.txt.
+3)  A bug in unscrambling the proxy server password in primenet.ini was fixed.
 
 New features in Version 22.8 of mprime
 --------------------------------------
