@@ -367,9 +367,14 @@ void CPrime95Doc::OnHide()
 	IniWriteInt (INI_FILE, "TrayIcon", TRAY_ICON);
 }
 
+// When running as an NT service we can delete the service (it will take
+// effect when the service is stopped), but we cannot recreate the service
+// until the next time prime95 is run.  Thus, disable this menu choice once
+// an NT service has turned this option off.
+
 void CPrime95Doc::OnUpdateService(CCmdUI* pCmdUI) 
 {
-	pCmdUI->Enable (isWindows95 ());
+	pCmdUI->Enable (!NTSERVICENAME[0] || WINDOWS95_SERVICE);
 	pCmdUI->SetCheck (WINDOWS95_SERVICE);
 }
 

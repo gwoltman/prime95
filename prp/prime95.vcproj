@@ -43,14 +43,16 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="../prime95/cpuid.obj ../prime95/mult.obj ../prime95/mult1.obj ../prime95/mult1aux.obj ../prime95/mult2.obj ../prime95/mult2a.obj ../prime95/mult2aux.obj ../prime95/mult3.obj ../prime95/mult3a.obj ../prime95/mult3aux.obj ../prime95/mult3auq.obj ../prime95/mult4.obj ../prime95/mult4a.obj ../prime95/mult4b.obj ../prime95/mult1p.obj ../prime95/mult2p.obj ../prime95/mult2ap.obj ../prime95/mult3p.obj ../prime95/mult3ap.obj ../prime95/mult4p.obj ../prime95/mult4ap.obj ../prime95/mult4bp.obj ../prime95/mult4aux.obj ../prime95/mult4auq.obj ../prime95/mult3q.obj ../prime95/mult3aq.obj ../prime95/mult4q.obj ../prime95/mult4aq.obj ../prime95/mult4bq.obj ../prime95/ecmhelp.obj ../prime95/xmult1.obj ../prime95/xmult1ax.obj ../prime95/xmult2.obj ../prime95/xmult2a.obj ../prime95/xmult2ax.obj ../prime95/xmult3.obj ../prime95/xmult3a.obj ../prime95/xmult3ax.obj"
+				AdditionalDependencies="../prime95/cpuid.obj ../prime95/mult.obj ../prime95/mult1.obj ../prime95/mult1aux.obj ../prime95/mult2.obj ../prime95/mult2a.obj ../prime95/mult2aux.obj ../prime95/mult3.obj ../prime95/mult3a.obj ../prime95/mult3aux.obj ../prime95/mult3auq.obj ../prime95/mult4.obj ../prime95/mult4a.obj ../prime95/mult4b.obj ../prime95/mult1p.obj ../prime95/mult2p.obj ../prime95/mult2ap.obj ../prime95/mult3p.obj ../prime95/mult3ap.obj ../prime95/mult4p.obj ../prime95/mult4ap.obj ../prime95/mult4bp.obj ../prime95/mult4aux.obj ../prime95/mult4auq.obj ../prime95/mult3q.obj ../prime95/mult3aq.obj ../prime95/mult4q.obj ../prime95/mult4aq.obj ../prime95/mult4bq.obj ../prime95/ecmhelp.obj ../prime95/xmult1.obj ../prime95/xmult1ax.obj ../prime95/xmult2.obj ../prime95/xmult2a.obj ../prime95/xmult2ax.obj ../prime95/xmult3.obj ../prime95/xmult3a.obj ../prime95/xmult3ax.obj ..\prime95\service.obj"
 				OutputFile=".\Release/prime95.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
-				ProgramDatabaseFile=".\Release/prime95.pdb"
+				IgnoreDefaultLibraryNames="libcmt.lib"
+				ProgramDatabaseFile=".\Release/prp.pdb"
 				GenerateMapFile="TRUE"
-				MapFileName=".\Release/prime95.map"
-				SubSystem="2"/>
+				MapFileName=".\Release/prp.map"
+				SubSystem="2"
+				EntryPointSymbol="MyWinMainCRTStartup"/>
 			<Tool
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="NDEBUG"
@@ -105,13 +107,15 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="../prime95/cpuid.obj ../prime95/mult.obj ../prime95/mult1.obj ../prime95/mult1aux.obj ../prime95/mult2.obj ../prime95/mult2a.obj ../prime95/mult2aux.obj ../prime95/mult3.obj ../prime95/mult3a.obj ../prime95/mult3aux.obj ../prime95/mult3auq.obj ../prime95/mult4.obj ../prime95/mult4a.obj ../prime95/mult4b.obj ../prime95/mult1p.obj ../prime95/mult2p.obj ../prime95/mult2ap.obj ../prime95/mult3p.obj ../prime95/mult3ap.obj ../prime95/mult4p.obj ../prime95/mult4ap.obj ../prime95/mult4bp.obj ../prime95/mult4aux.obj ../prime95/mult4auq.obj ../prime95/mult3q.obj ../prime95/mult3aq.obj ../prime95/mult4q.obj ../prime95/mult4aq.obj ../prime95/mult4bq.obj ../prime95/ecmhelp.obj ../prime95/xmult1.obj ../prime95/xmult1ax.obj ../prime95/xmult2.obj ../prime95/xmult2a.obj ../prime95/xmult2ax.obj ../prime95/xmult3.obj ../prime95/xmult3a.obj ../prime95/xmult3ax.obj"
-				OutputFile=".\Debug/prime95.exe"
+				AdditionalDependencies="../prime95/cpuid.obj ../prime95/mult.obj ../prime95/mult1.obj ../prime95/mult1aux.obj ../prime95/mult2.obj ../prime95/mult2a.obj ../prime95/mult2aux.obj ../prime95/mult3.obj ../prime95/mult3a.obj ../prime95/mult3aux.obj ../prime95/mult3auq.obj ../prime95/mult4.obj ../prime95/mult4a.obj ../prime95/mult4b.obj ../prime95/mult1p.obj ../prime95/mult2p.obj ../prime95/mult2ap.obj ../prime95/mult3p.obj ../prime95/mult3ap.obj ../prime95/mult4p.obj ../prime95/mult4ap.obj ../prime95/mult4bp.obj ../prime95/mult4aux.obj ../prime95/mult4auq.obj ../prime95/mult3q.obj ../prime95/mult3aq.obj ../prime95/mult4q.obj ../prime95/mult4aq.obj ../prime95/mult4bq.obj ../prime95/ecmhelp.obj ../prime95/xmult1.obj ../prime95/xmult1ax.obj ../prime95/xmult2.obj ../prime95/xmult2a.obj ../prime95/xmult2ax.obj ../prime95/xmult3.obj ../prime95/xmult3a.obj ../prime95/xmult3ax.obj ..\prime95\service.obj"
+				OutputFile=".\Debug/prp.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="TRUE"
+				IgnoreDefaultLibraryNames="libcmt.lib"
 				GenerateDebugInformation="TRUE"
-				ProgramDatabaseFile=".\Debug/prime95.pdb"
-				SubSystem="2"/>
+				ProgramDatabaseFile=".\Debug/prp.pdb"
+				SubSystem="2"
+				EntryPointSymbol="MyWinMainCRTStartup"/>
 			<Tool
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="_DEBUG"
@@ -143,7 +147,7 @@
 				RelativePath=".\AffinityDlg.cpp">
 			</File>
 			<File
-				RelativePath=".\ContentsDlg.cpp">
+				RelativePath="ContentsDlg.cpp">
 			</File>
 			<File
 				RelativePath=".\CpuDlg.cpp">
@@ -197,6 +201,21 @@
 				RelativePath=".\TestDlg.cpp">
 			</File>
 		</Filter>
+		<File
+			RelativePath="res\Prime95.ico">
+		</File>
+		<File
+			RelativePath="res\cursor1.cur">
+		</File>
+		<File
+			RelativePath="res\cursor2.cur">
+		</File>
+		<File
+			RelativePath="resource.h">
+		</File>
+		<File
+			RelativePath="res\yellow_i.ico">
+		</File>
 	</Files>
 	<Globals>
 	</Globals>

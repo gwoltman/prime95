@@ -90,7 +90,7 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "Tray &Icon",                  IDM_TRAY
         MENUITEM "&No Icon",                    IDM_HIDE
-        MENUITEM "&Windows Me/98/95 Service",   IDM_SERVICE, CHECKED
+        MENUITEM "&Start at Bootup",            IDM_SERVICE, CHECKED
         MENUITEM SEPARATOR
         MENUITEM "&Round off checking",         IDM_ERRCHK, CHECKED
         MENUITEM "Priorit&y...",                IDM_PRIORITY
@@ -100,6 +100,15 @@ BEGIN
     BEGIN
         MENUITEM "&Contents...",                ID_HELP_CONTENTS
         MENUITEM "&About PRP...",               ID_APP_ABOUT
+    END
+END
+
+IDR_TRAYMENU MENU 
+BEGIN
+    POPUP "Dummy"
+    BEGIN
+        MENUITEM "Open Window",                 IDM_TRAY_OPEN
+        MENUITEM "Exit",                        ID_APP_EXIT
     END
 END
 

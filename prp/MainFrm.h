@@ -41,8 +41,13 @@ protected:
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg void OnEndSession(BOOL bEnding);
 	afx_msg void OnActivateApp(BOOL bActive, DWORD hTask);
+	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
+	afx_msg void OnTrayOpenWindow();
+	afx_msg LRESULT OnServiceStop(WPARAM wParam, LPARAM lParam);
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
+public:
+	virtual BOOL Create(LPCTSTR lpszClassName, LPCTSTR lpszWindowName, DWORD dwStyle = WS_OVERLAPPEDWINDOW, const RECT& rect = rectDefault, CWnd* pParentWnd = NULL, LPCTSTR lpszMenuName = NULL, DWORD dwExStyle = 0, CCreateContext* pContext = NULL);
 };
 
 /////////////////////////////////////////////////////////////////////////////
