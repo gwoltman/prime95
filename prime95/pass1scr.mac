@@ -12533,12 +12533,16 @@ fftdn1:	end_timer 1
 ;; means used a clm of one but don't do any prefetching.
 
 set_FFT_constants MACRO clmarg
-	IF clmarg NE 0
-	PREFETCHING = 1
-	clm = clmarg
-	ELSE
+	IF clmarg EQ 0
 	PREFETCHING = 0
 	clm = 1
+	ELSE
+	clm = clmarg
+	IFNDEF PFETCH
+	PREFETCHING = 0
+	ELSE
+	PREFETCHING = 1
+	ENDIF
 	ENDIF
 	clmblkdst = (32*clm)
 	clmblkdst32 = (32*clmblkdst+64)
@@ -12650,7 +12654,7 @@ loop1	MACRO label, incr
 
 loop1edi MACRO label, incr, incr_edi
 
-	IF	clm EQ 1
+	IF	PREFETCHING EQ 0 OR clm EQ 1
 	lea	esi, [esi+dist1]	;; Next source pointer
 	add	dl, 256/2/clm		;; Test inner loop counter
 	jnc	label			;; Iterate if necessary
@@ -12658,8 +12662,8 @@ loop1edi MACRO label, incr, incr_edi
 	bump	edi, incr_edi		;; Next premultiplier
 pfing	prefetcht1 [ecx][ebp]		;; Prefetch a cache line
 pfing	lea	ecx, [ecx+blkdst]	;; Next prefetch pointer
-	ENDIF
 
+	ELSE
 	IF	clm GE 2
 	lea	esi, [esi+dist1]	;; Next source pointer
 	add	al, 256/2		;; Test inner loop counter
@@ -12671,6 +12675,7 @@ pfing	lea	ecx, [ecx+blkdst]	;; Next prefetch pointer
 	bump	esi, -clm*2*dist1+incr	;; Next source pointer
 	bump	edi, incr_edi		;; Next premultiplier
 	lea	ecx, [ecx-clm*32+blkdst];; Next prefetch pointer
+	ENDIF
 	ENDIF
 
 	ENDM
@@ -12684,7 +12689,7 @@ loop2	MACRO label, incr
 
 loop2edi MACRO label, incr, incr_edi
 
-	IF	clm EQ 1
+	IF	PREFETCHING EQ 0 OR clm EQ 1
 	lea	esi, [esi+dist1]	;; Next source pointer
 	IF incr NE clm*2*dist1 OR incr_edi NE 0
 	add	dl, 256/2/clm		;; Test inner loop counter
@@ -12699,8 +12704,8 @@ loop2edi MACRO label, incr, incr_edi
 	ENDIF
 pfing	prefetcht1 [ecx][ebp]		;; Prefetch a cache line
 pfing	lea	ecx, [ecx+blkdst]	;; Next prefetch pointer
-	ENDIF
 
+	ELSE
 	IF	clm EQ 2
 	lea	esi, [esi+dist1]	;; Next source pointer
 	add	dl, 256/2/clm		;; Test inner loop counter
@@ -12712,8 +12717,8 @@ pfing	lea	ecx, [ecx+blkdst]	;; Next prefetch pointer
 	add	al, 256/2		;; Test loop counter
 	jnc	label			;; Iterate if necessary
 	lea	ecx, [ecx-clm*32+blkdst];; Next prefetch pointer
-	ENDIF
 
+	ELSE
 	IF	clm GE 4
 	lea	esi, [esi+dist1]	;; Next source pointer
 	add	al, 256/2/2		;; Test inner loop counter
@@ -12733,6 +12738,8 @@ pfing	lea	ecx, [ecx+blkdst]	;; Next prefetch pointer
 	ENDIF
 	lea	ecx, [ecx-clm*32+blkdst];; Next prefetch pointer
 	ENDIF
+	ENDIF
+	ENDIF
 
 	ENDM
 
@@ -12741,7 +12748,7 @@ pfing	lea	ecx, [ecx+blkdst]	;; Next prefetch pointer
 
 loop4	MACRO label, incr
 
-	IF	clm EQ 1
+	IF	PREFETCHING EQ 0 OR clm EQ 1
 	lea	esi, [esi+dist1]	;; Next source pointer
 	IF incr NE clm*2*dist1
 	add	al, 256/2/clm		;; Test inner loop counter
@@ -12755,8 +12762,8 @@ loop4	MACRO label, incr
 	ENDIF
 pfing	prefetcht1 [ecx][ebp]		;; Prefetch a cache line
 pfing	lea	ecx, [ecx+blkdst]	;; Next prefetch pointer
-	ENDIF
 
+	ELSE
 	IF	clm EQ 2
 	lea	esi, [esi+dist1]	;; Next source pointer
 	IF incr NE clm*2*dist1
@@ -12774,8 +12781,8 @@ pfing	lea	ecx, [ecx+blkdst]	;; Next prefetch pointer
 	add	ah, 256/2		;; Test loop counter
 	jnc	label			;; Iterate if necessary
 	lea	ecx, [ecx-clm*32+blkdst];; Next prefetch pointer
-	ENDIF
 
+	ELSE
 	IF	clm EQ 4
 	lea	esi, [esi+dist1]	;; Next source pointer
 	add	dl, 256/2/clm		;; Test inner loop counter
@@ -12786,6 +12793,8 @@ pfing	lea	ecx, [ecx+blkdst]	;; Next prefetch pointer
 	add	al, 256/4		;; Test loop counter
 	jnc	label			;; Iterate if necessary
 	lea	ecx, [ecx-clm*32+blkdst];; Next prefetch pointer
+	ENDIF
+	ENDIF
 	ENDIF
 
 	ENDM
