@@ -1,3 +1,9 @@
+New features in Version 23.4 of prime95.exe
+-------------------------------------------
+
+1)  Further performance improvements in the SSE2 FFT code.  I've tried to
+    do more work while data is in the L1 data cache.
+
 New features in Version 23.3 of prime95.exe
 -------------------------------------------
 
