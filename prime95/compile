@@ -12,7 +12,7 @@ cl=cl /I.. /GF /W3 /MT /D_CRT_SECURE_NO_DEPRECATE /c
 # Create 32-bit object files
 
 factor32.obj: factor32.asm factor32.mac
-    $(masm) /Fofactor32.obj factor32.asm
+    $(masm) factor32.asm
 
 # Compile special services code
 
