@@ -3448,6 +3448,7 @@ cp6:	mov	rax, [rsi]		; Load norm routine ptr
 ; and normalize blkdst for auxillary mult routines.  The two values are the
 ; same except for larger FFTs which use a scratch area.
 
+	mov	esi, _INFT		; Reload table pointer
 	mov	ecx, [esi+24]		; levels done in pass2
 	cmp	ecx, 0			; skip calculations for one pass FFTs
 	je	not2
