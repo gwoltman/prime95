@@ -1490,6 +1490,7 @@ int gwsetup (
 
 		bits = log ((double) b) / log (2.0) * (double) n;
 		g = newgiant (((unsigned long) bits >> 4) + 8);
+		if (g == NULL) return (GWERROR_MALLOC);
 		ultog (b, g);
 		power (g, n);
 		dblmulg (k, g);
@@ -1543,17 +1544,29 @@ int gwsetup_general_mod_giant (
 /* Copy the modulus */
 
 	GW_MODULUS = newgiant ((len >> 4) + 1);
+	if (GW_MODULUS == NULL) {
+		gwdone ();
+		return (GWERROR_MALLOC);
+	}
 	gtog (n, GW_MODULUS);
 
 /* Remember the modulus.  FFT it for faster use. */
 
 	GW_MODULUS_FFT = gwalloc ();
+	if (GW_MODULUS_FFT == NULL) {
+		gwdone ();
+		return (GWERROR_MALLOC);
+	}
 	gianttogw (n, GW_MODULUS_FFT);
 	gwfft (GW_MODULUS_FFT, GW_MODULUS_FFT);
 
 /* Precompute the reciprocal */
 
 	tmp = newgiant ((PARG >> 4) + 1);
+	if (tmp == NULL) {
+		gwdone ();
+		return (GWERROR_MALLOC);
+	}
 	itog (1, tmp);
 	gshiftleft (len + len + EB, tmp);
 	divg (n, tmp);		/* computes len+EB+1 bits of reciprocal */
@@ -1561,6 +1574,11 @@ int gwsetup_general_mod_giant (
 				/* shift so gwmul routines wrap */
 				/* quotient to lower end of fft */
 	GW_RECIP = gwalloc ();
+	if (GW_RECIP == NULL) {
+		free (tmp);
+		gwdone ();
+		return (GWERROR_MALLOC);
+	}
 	gianttogw (tmp, GW_RECIP);
 	gwfft (GW_RECIP, GW_RECIP);
 	free (tmp);
