@@ -2,7 +2,7 @@ New features in Version 22.7 of mprime
 --------------------------------------
 
 1)  Trial factoring above 2^64 on a P4 now uses the SSE2 instructions.
-    This is more than twice as fast as previous version.
+    This is more than four times as fast as the previous version.
 2)  Old Advanced/Factoring save files are not compatible with this version.
     They are named p0000000 and should be deleted.  This should not be a
     problem as no one should be using this obsolete and unsupported feature.
