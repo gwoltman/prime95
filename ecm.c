@@ -2375,7 +2375,7 @@ restart0:
 		sigma = (rand () & 0x1F) * 65536.0 * 65536.0 * 65536.0;
 		sigma += (rand () & 0xFFFF) * 65536.0 * 65536.0;
 		if (CPU_FLAGS & CPU_RDTSC) rdtsc (&hi, &lo);
-		sigma += lo ^ ((unsigned long) rand () << 16);
+		sigma += lo ^ hi ^ ((unsigned long) rand () << 16);
 	} while (sigma <= 5.0);
 	if (specific_sigma > 5.0) sigma = specific_sigma;
 	curve_start_msg (curves_completed + curve, sigma, B, C);
