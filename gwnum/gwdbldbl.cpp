@@ -21,6 +21,7 @@
 /* Pick which doubledouble package we will use. */
 
 #define QD
+//#define KEITH_BRIGGS
 
 /* Turn on #define that will disable extended precision floating point */
 /* registers, as they wreak havoc with double-double library routines. */
@@ -44,6 +45,7 @@
 #include "math.cc"
 #define	dd_real doubledouble
 #define	_2pi TwoPi
+#define	_log2 Log2
 #endif
 
 
@@ -159,6 +161,25 @@ double gwfft_weight (
 	return (double (result));
 }
 
+// Like the above, but faster and does not guarantee quite as much accuracy.
+
+extern "C"
+double gwfft_weight_sloppy (
+	unsigned long j)
+{
+	dd_real temp, twopow;
+
+	x86_FIX
+	temp = dd_real ((double) j) * gw__bits_per_word;
+	twopow = ceil (temp) - temp;
+	if (! gw__c_is_one)
+		twopow += gw__log2_abs_c_div_fftlen * dd_real ((double) j);
+	END_x86_FIX
+	return (pow (2.0, double (twopow)));
+}
+
+// Compute the inverse of the fft weight
+
 extern "C"
 double gwfft_weight_inverse (
 	unsigned long j)
@@ -173,6 +194,23 @@ double gwfft_weight_inverse (
 	result = exp (dd_real::_log2 * -twopow);
 	END_x86_FIX
 	return (double (result));
+}
+
+// Like the above, but faster and does not guarantee quite as much accuracy.
+
+extern "C"
+double gwfft_weight_inverse_sloppy (
+	unsigned long j)
+{
+	dd_real temp, twopow, result;
+
+	x86_FIX
+	temp = dd_real ((double) j) * gw__bits_per_word;
+	twopow = ceil (temp) - temp;
+	if (! gw__c_is_one)
+		twopow += gw__log2_abs_c_div_fftlen * dd_real ((double) j);
+	END_x86_FIX
+	return (pow (2.0, - double (twopow)));
 }
 
 // This computes the inverse FFT weight multiplied by the appropriate constant

@@ -758,9 +758,8 @@ double *build_biglit_table (
 /* Since we can't do equality compares on floats, this test is a little bit */
 /* cryptic. */
 
-		if (gwfft_weight_exponent (word) + 0.5 <
-				gwfft_weight_exponent (word&(gap-1)) +
-				gwfft_weight_exponent (word&~(gap-1))) {
+		if (gwfft_weight_exponent (word&(gap-1)) +
+		    gwfft_weight_exponent (word&~(gap-1)) > 1.0) {
 			if (k == 0) *p += 64;
 			else *p += 128;
 		}
@@ -1187,9 +1186,8 @@ double *build_x87_biglit_table (
 /* Set the ttp and ttmp fudge flags for two pass FFTs */
 /* The fudge flag is set if col mult * grp mult will be greater than 2 */
 
-		if (gwfft_weight_exponent (word) + 0.5 <
-				gwfft_weight_exponent (word & (pass2_size-1)) +
-				gwfft_weight_exponent (word & ~(pass2_size-1))) {
+		if (gwfft_weight_exponent (word & (pass2_size-1)) +
+		    gwfft_weight_exponent (word & ~(pass2_size-1)) > 1.0) {
 			if (m == 0) *p += 64;
 			else *p += 128;
 		}
@@ -2782,7 +2780,7 @@ int get_fft_value (
 /* Multiply by two-to-minus-phi to generate an integer. */
 
 	else {
-		val = val * gwfft_weight_inverse (i);
+		val = val * gwfft_weight_inverse_sloppy (i);
 		if (val < -0.5)
 			*retval = (long) (val - 0.5);
 		else
@@ -2809,7 +2807,7 @@ void set_fft_value (
 
 /* Multiply by two-to-phi to generate the proper double. */
 
-	* addr (g, i) = val * gwfft_weight (i);
+	* addr (g, i) = val * gwfft_weight_sloppy (i);
 }
 
 /* Some words in the FFT data contain floor(p/N), some words contain */
@@ -3216,7 +3214,7 @@ void raw_gwsetaddin (
 
 /* Set the addin value - multiply it by two-to-phi and FFTLEN/2/KARG. */
 
-	ADDIN_VALUE = (double) val * gwfft_weight (word) * FFTLEN * 0.5 / KARG;
+	ADDIN_VALUE = (double) val * gwfft_weight_sloppy (word) * FFTLEN * 0.5 / KARG;
 }
 
 

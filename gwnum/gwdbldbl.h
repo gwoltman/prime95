@@ -26,7 +26,9 @@ extern "C" {
 
 void gwfft_weight_setup (int, double, unsigned long, signed long, unsigned long);
 double gwfft_weight (unsigned long);
+double gwfft_weight_sloppy (unsigned long);
 double gwfft_weight_inverse (unsigned long);
+double gwfft_weight_inverse_sloppy (unsigned long);
 double gwfft_weight_inverse_over_fftlen (unsigned long);
 void gwfft_weights3 (unsigned long, double *, double *, double *);
 double gwfft_weight_exponent (unsigned long);
