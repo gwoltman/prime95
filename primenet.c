@@ -665,6 +665,14 @@ int format_args (char* args, short operation, void* pkt)
 
 /* skip over the token name and point to the data string */
 
+char* skip_to_pnResult (char *s)
+{
+	char	*p;
+	p = strstr (s, "pnResult=");
+	if (p == NULL) return (s + strlen (s));
+	return (p + 9);
+}
+
 char* skip_token (char *s)
 {
 	while (*s && *s != '=') s++;
@@ -697,7 +705,7 @@ int parse_page (char *buf, short operation, void *pkt)
 
 /* get result code, which is always first */
 
-	s = skip_token (buf);
+	s = skip_to_pnResult (buf);
 	if (*s == 0 || *s < '0' || *s > '9')
 		return (PRIMENET_ERROR_HTTP_BAD_PAGE);
 
