@@ -59,7 +59,8 @@ int isKnownMersennePrime (
 		p == 21701 || p == 23209 || p == 44497 || p == 86243 ||
 		p == 110503 || p == 132049 || p == 216091 || p == 756839 ||
 		p == 859433 || p == 1257787 || p == 1398269 || p == 2976221 ||
-		p == 3021377 || p == 6972593 || p == 13466917);
+		p == 3021377 || p == 6972593 || p == 13466917 ||
+		p == 20996011);
 }
 
 /* Routine to set the stop timer when available memory settings change */
