@@ -326,6 +326,10 @@ void guessCpuType (void)
 						CPU_L1_CACHE_SIZE = 16;
 						CPU_L1_CACHE_LINE_SIZE = 32;
 						break;
+					case 0x2C:
+						CPU_L1_CACHE_SIZE = 32;
+						CPU_L1_CACHE_LINE_SIZE = 64;
+						break;
 					case 0x40:
 						if (family_code == 15) {
 							/* no L3 cache */
