@@ -26,6 +26,7 @@ typedef struct {
 
 #define MAX_PRIME	79300000L	/* Maximum number of bits */
 #define MAX_PRIME_SSE2	77910000L	/* SSE2 bit limit */
+#define MAX_FFTLEN	4194304		/* 4096K FFT */
 
 /* global variables */
 

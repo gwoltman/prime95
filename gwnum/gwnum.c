@@ -1470,6 +1470,10 @@ unsigned long map_exponent_to_fftlen (
 {
 	unsigned long *info;
 
+/* Handle exponents larger than SSE2 FFTs can handle */
+
+	if (p > MAX_PRIME_SSE2) return (MAX_FFTLEN);
+
 /* Get pointer to fft info and return the FFT length */
 
 	gwinfo (p, 0, fft_type);
