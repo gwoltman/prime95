@@ -762,16 +762,20 @@ void ell_mul (
 /* Test if factor divides N, return TRUE if it does */
 
 int testFactor (
+	double	k,		/* K in K*B^N+C */
+	unsigned long b,	/* B in K*B^N+C */
+	unsigned long n,	/* N in K*B^N+C */
+	signed long c,		/* C in K*B^N+C */
 	giant	f)
 {
 	giant	tmp;
 	int	divides_ok;
 
 	tmp = popg (f->sign + 5);	/* Allow room for mul by KARG */
-	itog (BARG, tmp);
-	powermod (tmp, PARG, f);
-	dblmulg (KARG, tmp);
-	iaddg (CARG, tmp);
+	itog (b, tmp);
+	powermod (tmp, n, f);
+	dblmulg (k, tmp);
+	iaddg (c, tmp);
 	modg (f, tmp);
 	divides_ok = isZero (tmp);
 	pushg (1);
@@ -781,19 +785,20 @@ int testFactor (
 /* Set N, the number we are trying to factor */
 
 int setN (
-	double	k,		/* K in K*B^N+C. Must be a positive integer. */
-	unsigned long b,	/* B in K*B^N+C. Must be two. */
-	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
-	signed long c)		/* C in K*B^N+C. Must be relatively prime to K. */
+	double	k,		/* K in K*B^N+C */
+	unsigned long b,	/* B in K*B^N+C */
+	unsigned long n,	/* N in K*B^N+C */
+	signed long c)		/* C in K*B^N+C */
 {
-	unsigned long p;
+	unsigned long bits, p;
 	FILE	*fd;
 	char	buf[2500];
 
 /* Create the binary representation of the number we are factoring */
 /* Allocate 10 extra words to handle any possible k value. */
 
-	N = newgiant ((n >> 4) + 10);
+	bits = (unsigned long) (n * log (b) / log (2));
+	N = newgiant ((bits >> 4) + 10);
 	ultog (b, N);
 	power (N, n);
 	dblmulg (k, N);
@@ -830,7 +835,7 @@ int setN (
 
 /* Divide N by factor - but first verify the factor */
 
-		if (!testFactor (f)) {
+		if (!testFactor (k, b, n, c, f)) {
 			free (f);
 			fclose (fd);
 			OutputBoth (c == 1 ?
@@ -1214,12 +1219,16 @@ int isProbablePrime (void)
 
 /* Print the factor we just found */
 
-int printFactor (void)
+int printFactor (
+	double	k,		/* K in K*B^N+C */
+	unsigned long b,	/* B in K*B^N+C */
+	unsigned long n,	/* N in K*B^N+C */
+	signed long c)		/* C in K*B^N+C */
 {
 	int	msglen;
 	char	*msg;
 
-	if (!testFactor (FAC)) {
+	if (!testFactor (k, b, n, c, FAC)) {
 		OutputBoth ("ERROR: Factor doesn't divide N!\n");
 		ultog (1, FAC);
 		return (FALSE);
@@ -1236,11 +1245,11 @@ int printFactor (void)
 
 	if (QA_IN_PROGRESS) return (TRUE);
 
-	if (PARG < 10000) {
+	if (n < 10000) {
 		divg (FAC, N);
 		if (isProbablePrime ()) {
 			OutputBoth ("Cofactor is a probable prime!\n");
-			updateWorkToDo (KARG, BARG, PARG, CARG, WORK_FACTOR, 0);
+			updateWorkToDo (k, b, n, c, WORK_FACTOR, 0);
 			return (TRUE);
 		}
 		mulg (FAC, N);
@@ -1260,6 +1269,10 @@ and
 	a = (v-u)^3(3u+v)/(4u^3 v) - 2
 */
 void choose12 (
+	double	k,			/* K in K*B^N+C */
+	unsigned long b,		/* B in K*B^N+C */
+	unsigned long n,		/* N in K*B^N+C */
+	signed long c,			/* C in K*B^N+C */
 	gwnum 	x,
 	gwnum 	z,
 	double 	curve)
@@ -1308,7 +1321,7 @@ again:	dbltogw (curve, zs);
 	if (FAC != NULL) {	/* If a factor was found, then normalize */
 				/* failed to find a modular inverse. */
 		gwfree (Ad4);
-		printFactor ();
+		printFactor (k, b, n, c);
 		divg (FAC, N);
 		free (FAC);
 		FAC = NULL;
@@ -1446,7 +1459,7 @@ void choose_stage2_plan (
 #define ELL_ADD_COST		12
 #define N_SQUARED_POOL_COST	2
 #define MULT3_POOL_COST		7
-	gcd_cost = 861.0 * log (PARG) - 7775.0;
+	gcd_cost = 861.0 * log (n) - 7775.0;
 	if (gcd_cost < 100.0) gcd_cost = 100.0;
 
 /* Will there even be a stage 2?  If not, set D and E appropriately */
@@ -1882,10 +1895,10 @@ error:
  **************************************************************/
 
 int ecm (
-	double	k,			/* K in K*B^N+C. */
-	unsigned long b,		/* B in K*B^N+C. */
-	unsigned long n,		/* N in K*B^N+C. */
-	signed long c,			/* C in K*B^N+C. */
+	double	k,			/* K in K*B^N+C */
+	unsigned long b,		/* B in K*B^N+C */
+	unsigned long n,		/* N in K*B^N+C */
+	signed long c,			/* C in K*B^N+C */
 	unsigned long B,		/* Stage 1 bound */
 	unsigned long C_start,		/* Stage 2 starting point (usually equals B) */
 	unsigned long C,		/* Stage 2 ending point */
@@ -2307,7 +2320,7 @@ n++;
 		curve_start_msg (curve, sigma, B, C);
 		t1 = gwalloc ();
 		t2 = gwalloc ();
-		choose12 (t1, t2, sigma);
+		choose12 (k, b, n, c, t1, t2, sigma);
 		gwfree (t1);
 		gwfree (t2);
 
@@ -2360,7 +2373,7 @@ restart0:
 	} while (sigma <= 5.0);
 	if (specific_sigma > 5.0) sigma = specific_sigma;
 	curve_start_msg (curve, sigma, B, C);
-	choose12 (x, z, sigma);
+	choose12 (k, b, n, c, x, z, sigma);
 	sieve_start = 2;
 
 /* The stage 1 restart point */
@@ -2542,7 +2555,7 @@ restart3:
 			goto exit;
 		}
 		if (FAC != NULL) {
-			printFactor ();
+			printFactor (k, b, n, c);
 			divg (FAC, N);
 			free (FAC);
 			FAC = NULL;
@@ -2885,7 +2898,7 @@ bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n",
 	sprintf (buf, "Sigma=%.0f, B1=%lu, B2=%lu.\n", sigma, B, C);
 	writeResults (buf);
 	/*spoolMessage (PRIMENET_RESULT_MESSAGE, buf);*/
-	if (printFactor ()) {
+	if (printFactor (k, b, n, c)) {
 		_unlink (filename);
 		if (!QA_IN_PROGRESS) {
 			free (FAC);
@@ -2896,7 +2909,7 @@ bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n",
 	}
 	clear_timer (0);
 
-	if (! IniGetInt (INI_FILE, "ContinueECM", PARG < 5825)) {
+	if (! IniGetInt (INI_FILE, "ContinueECM", n < 5825)) {
 		updateWorkToDo (k, b, n, c, WORK_FACTOR, 0);
 		_unlink (filename);
 		free (FAC);
@@ -3790,12 +3803,17 @@ errexit:	state->bitarray_len = 0;
 	return (TRUE);
 }
 
-/* Recursively compute exponent used in initial 3^exp calculation */
-/* Don't forget to include 2 * PARG in the exponent */
+/* Recursively compute exp used in initial 3^exp calculation of a P-1 */
+/* factoring run.  Don't forget to include 2*n in exp when factoring */
+/* Mersenne numbers since factors must be 1 mod 2n */
 
 void calc_exp (
+	double	k,		/* K in K*B^N+C */
+	unsigned long b,	/* B in K*B^N+C */
+	unsigned long n,	/* N in K*B^N+C */
+	signed long c,		/* C in K*B^N+C */
 	giant	g,
-	unsigned long B,
+	unsigned long B1,	/* P-1 stage 1 bound */
 	unsigned long *p,
 	unsigned long lower,
 	unsigned long upper)
@@ -3811,9 +3829,9 @@ void calc_exp (
 
 	if (len >= 50) {
 		giant	x;
-		calc_exp (g, B, p, lower, lower + (len >> 1));
+		calc_exp (k, b, n, c, g, B1, p, lower, lower + (len >> 1));
 		x = newgiant (len + len);
-		calc_exp (x, B, p, lower + (len >> 1), upper);
+		calc_exp (k, b, n, c, x, B1, p, lower + (len >> 1), upper);
 		mulg (x, g);
 		free (x);
 		return;
@@ -3821,12 +3839,12 @@ void calc_exp (
 
 /* Find all the primes in the range and use as many powers as possible */
 
-	if (lower == 0) itog (2 * PARG, g);
+	if (lower == 0 && k == 1.0 && b == 2 && c == -1) itog (2*n, g);
 	else setone (g);
-	for ( ; *p <= B && (unsigned long) g->sign < len; *p = sieve ()) {
+	for ( ; *p <= B1 && (unsigned long) g->sign < len; *p = sieve ()) {
 		unsigned long val, max;
 		val = *p;
-		max = B / *p;
+		max = B1 / *p;
 		while (val <= max) val *= *p;
 		ulmulg (val, g);
 	}
@@ -3843,10 +3861,10 @@ double calc_stage2_pct (
 /* Main P-1 entry point */
 
 int pminus1 (
-	double	k,		/* K in K*B^N+C. */
-	unsigned long b,	/* B in K*B^N+C. */
-	unsigned long n,	/* N in K*B^N+C. */
-	signed long c,		/* C in K*B^N+C. */
+	double	k,		/* K in K*B^N+C */
+	unsigned long b,	/* B in K*B^N+C */
+	unsigned long n,	/* N in K*B^N+C */
+	signed long c,		/* C in K*B^N+C */
 	unsigned long B,	/* Stage 1 bound */
 	unsigned long C_start,	/* Stage 2 starting point (usually equals B) */
 	unsigned long C,	/* Stage 2 ending point */
@@ -4066,7 +4084,7 @@ restart0:
 	stage_0_limit = (state.B > 1000000) ? 1000000 : state.B;
 	i = ((unsigned long) (stage_0_limit * 1.5) >> 5) + 4;
 	exp = newgiant (i << 1);
-	calc_exp (exp, state.B, &prime, 0, i);
+	calc_exp (k, b, n, c, exp, state.B, &prime, 0, i);
 
 /* Find most significant bit and then ignore it */
 
@@ -4093,7 +4111,7 @@ restart0:
 /* get us past the offending iteration. */
 
 		if (error_recovery_mode && bit_number == error_recovery_mode) {
-			careful_iteration (x, NULL);
+			careful_iteration (x, NULL, n);
 			if (bitval (exp, len - bit_number - 1)) {
 				gwnum	three;
 				three = gwalloc ();
@@ -4772,7 +4790,7 @@ msg_and_exit:
 		else
 			sprintf (buf+strlen(buf), ", B2=%lu, E=%lu", C, E);
 	}
-	sprintf (buf+strlen(buf), ", Wa%d: %08lX\n", PORT, SEC5 (PARG, B, C));
+	sprintf (buf+strlen(buf), ", Wa%d: %08lX\n", PORT, SEC5 (n, B, C));
 	writeResults (buf);
 	if (ll_testing) spoolMessage (PRIMENET_RESULT_MESSAGE, buf);
 
@@ -4839,7 +4857,7 @@ bingo:	if (stage == 1)
 			 "P-1 found a factor in stage #2, B1=%lu, B2=%lu.\n",
 			 B, C);
 	writeResults (buf);
-	printFactor ();
+	printFactor (k, b, n, c);
 	if (isone (FAC)) goto msg_and_exit;
 	if (QA_IN_PROGRESS) {
 		_unlink (filename);
