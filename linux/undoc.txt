@@ -256,9 +256,18 @@ adding this line to prime.ini:
 	PauseWhileRunning=prog1,prog2,prog3,etc
 Note that mprime will pause if the program name matches any part of the
 running program's name as returned by "ps -eo comm".  That is, "foobar"
-will match "foobar" and "myfoobarprog".  Mprime will check the list of
-running programs every 64 iterations, but not more frequently than every
-10 seconds.  You can adjust the ten seconds value by this setting in
-prime.ini:
-	PauseCheckInterval=10
+will match "foobar" and "myfoobarprog".    By default, mprime will check
+the list of running programs every 64 iterations, but not more
+frequently than every 10 seconds.  You can adjust the time period with this
+prime.ini setting:
+	PauseCheckInterval=n
+where n is the number of seconds between checking which programs are running.
+
+Normally, the program will unreserve an exponent if it is scheduled to start
+thirty days after the Test/Primenet Days of work to get value.  You can adjust
+this interval by setting in prime.ini:
+	UnreserveDays=n
+where n is the number of days.  You should increase this value if you are
+loading up worktodo.ini with a large amount of work and do not want any of
+the work to be unreserved.
 

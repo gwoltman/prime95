@@ -2448,7 +2448,7 @@ static	int	msgs_to_send = 0;/* 0 = no messages, 0x1 = messages */
 	time_t	this_time, blackout_end_time;
 	unsigned int i;
 	int	have_enough_work, retries, est_is_accurate;
-	double	est, work_to_get;
+	double	est, work_to_get, unreserve_threshold;
 	unsigned long vacation_time;
 	int	rc;
 	int	talked_to_server = 0;
@@ -2701,6 +2701,7 @@ loop:	time (&this_time);
 /* If we have too much work to do, lets give some back. */
 
 	have_enough_work = 0;
+	unreserve_threshold = IniGetInt (INI_FILE, "UnreserveDays", 30) * 86400.0;
 	est = 0.0; est_is_accurate = TRUE;
 	vacation_time = secondsUntilVacationEnds ();
 	work_to_get = DAYS_OF_WORK * 86400.0;
@@ -2736,7 +2737,7 @@ loop:	time (&this_time);
 		else if (header_byte & 0x10 ||
 			 (have_enough_work &&
 			  est_is_accurate &&
-			  est - work >= work_to_get + 30.0 * 86400.0 &&
+			  est - work >= work_to_get + unreserve_threshold &&
 			  pct == 0.0)) {
 			struct primenetAssignmentResult pkt;
 			memset (&pkt, 0, sizeof (pkt));
