@@ -72,18 +72,24 @@ _xmm_gw_ffts3 PROC NEAR
 	xfftclm	1536K, 1, 0
 	xfftclm	1792K, 4, 1
 	xfftclm	1792K, 2, 1
-	xfftclm	1792K, 1, 0
+	xfftclm	1792K, 1, 1
+	xfftclm	1792K, 0, 0
 	xfftclm	2048K, 4, 1
 	xfftclm	2048K, 2, 1
-	xfftclm	2048K, 1, 0
+	xfftclm	2048K, 1, 1
+	xfftclm	2048K, 0, 0
 	xfftclm	2560K, 2, 1
-	xfftclm	2560K, 1, 0
+	xfftclm	2560K, 1, 1
+	xfftclm	2560K, 0, 0
 	xfftclm	3072K, 2, 1
-	xfftclm	3072K, 1, 0
+	xfftclm	3072K, 1, 1
+	xfftclm	3072K, 0, 0
 	xfftclm	3584K, 2, 1
-	xfftclm	3584K, 1, 0
+	xfftclm	3584K, 1, 1
+	xfftclm	3584K, 0, 0
 	xfftclm	4096K, 2, 1
-	xfftclm	4096K, 1, 0
+	xfftclm	4096K, 1, 1
+	xfftclm	4096K, 0, 0
 
 ; Common code to finish the FFT by restoring state and returning.
 

@@ -180,3 +180,15 @@ multwo	MACRO	r
 mulhalf	MACRO	r
 	mulpd	r, XMM_HALF
 	ENDM
+
+xtouch	MACRO	addr
+	IF PREFETCHING NE 0
+	movapd	xmm0, addr
+	ENDIF
+	ENDM
+
+xprefetcht1 MACRO addr
+	IF PREFETCHING NE 0
+	prefetcht1 addr
+	ENDIF
+	ENDM
