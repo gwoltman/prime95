@@ -28,6 +28,7 @@
 
 #define ERRCHK	 _ERRCHK
 #define CPU_TYPE _CPU_TYPE
+#define CPU_L2_CACHE_SIZE _CPU_L2_CACHE_SIZE
 #define MAXERR	 _MAXERR
 #define GWERROR	 _GWERROR
 #define PARG	 _PARG
