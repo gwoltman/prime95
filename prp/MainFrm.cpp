@@ -216,7 +216,6 @@ void CMainFrame::OnEndSession(BOOL bEnding)
 #define RSP_UNREGISTER_SERVICE	0
 void Service95 ()
 {
-	char	servicename[80];
 	char	pathname[256];
 	char	regkey[20];		/* Win9x registry name */
 	SC_HANDLE schSCManager = 0;
