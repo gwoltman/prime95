@@ -615,11 +615,3 @@ int	CHECK_BATTERY = 0;
 int	STOPPED_ON_BATTERY = 0;
 char	*BROADCAST_MESSAGE = NULL;
 
-// For Windows 64, define variables from service.c -- until we can
-// figure out the 64-bit equivalent for this routine.
-
-#ifdef _WIN64
-EXTERNC char	NTSERVICENAME[32] = {0};	// name of the NT service
-EXTERNC HWND	MAINFRAME_HWND = 0;		// Handle of main frame window
-EXTERNC int	THREAD_ACTIVE = 0;		// TRUE if worker thread is active
-#endif
