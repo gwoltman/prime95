@@ -42,7 +42,7 @@ security:
 	[ ! -e ../security.c ] && touch ../security.c || true
 
 clean:
-	rm -f $(EXE) $(EXE2) $(LINUXOBJS) $(COFFOBJS) $(DUMMYOBJS)
+	rm -f $(EXE) $(EXE2) $(LINUXOBJS) $(FACTOROBJ) $(DUMMYOBJS)
 
 $(FACTOROBJ) $(DUMMYOBJS): %.o : %.obj
 	objcopy -Oelf32-i386 -Icoff-i386 $< $@

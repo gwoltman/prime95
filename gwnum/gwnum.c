@@ -13,7 +13,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <malloc.h>
 #include <math.h>
 #include <memory.h>
 #include <string.h>
@@ -192,8 +191,12 @@ void gwsetup2 (void);
 /* Helper macros */
 
 #define fftinc(x)		(fft_count += x)
+#ifndef isinf
 #define isinf(x)		((x) != 0.0 && (x) == 2.0*(x))
+#endif
+#ifndef isnan
 #define isnan(x)		((x) != (x))
+#endif
 #define is_valid_double(x)	(! isnan (x) && ! isinf (x))
 
 /* Error codes returned */

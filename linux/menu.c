@@ -698,11 +698,11 @@ void options_preferences (void)
 	askNum ("Iterations between results file outputs",
 		&m_r_iter, 10000, 999999999);
 	askNum ("Minutes between disk writes", &m_disk_write_time, 10, 999999);
-	if (PRIMENET)
+	if (USE_PRIMENET)
 		askNum ("Minutes between modem retries", &m_modem, 1, 300);
-	if (PRIMENET)
+	if (USE_PRIMENET)
 		askNum ("Minutes between network retries", &m_retry, 1, 300);
-	if (PRIMENET)
+	if (USE_PRIMENET)
 		askNum ("Days between sending end dates", &m_end_dates, 1, 60);
 	askYN ("Create Two Backup Files", &m_backup);
 	askYN ("Make noise if new Mersenne prime is found", &m_noise);

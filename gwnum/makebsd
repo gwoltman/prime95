@@ -1,11 +1,7 @@
-# Makefile for Linux gwnum library
+# Makefile for FreeBSD gwnum library
 #
-# NOTE: To convert the included object files to ELF, your binutils 
-# installation must be able to read the coff-i386 object format.  
+# NOTE: A Linux system must be used to convert the MASM object files to ELF.
 #
-# Assuming your binutils are dynamically linked, you can add COFF support
-# by configuring binutils with the switch '--enable-targets=i386-go32'
-# and rebuilding libbfd.so .
 
 CC = gcc
 CFLAGS = -I.. -O2 -march=i486 -malign-double -DADD_UNDERSCORES
@@ -25,10 +21,7 @@ $(LIB): $(LINUXOBJS) $(COFFOBJS)
 	ar -qs gwnum.lib $(LINUXOBJS) $(COFFOBJS)
 
 clean:
-	rm -f $(LIB) $(LINUXOBJS) $(COFFOBJS)
-
-$(COFFOBJS): %.o : %.obj
-	objcopy -Oelf32-i386 -Icoff-i386 $< $@
+	rm -f $(LIB) $(LINUXOBJS)
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<
