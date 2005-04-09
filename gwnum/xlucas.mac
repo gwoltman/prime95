@@ -3350,7 +3350,7 @@ x4cl_four_complex_with_mulf MACRO srcreg,srcinc,d1,d2
 ; These macros are used in the premultiplier step of two pass FFTs
 ;*******************************************************************
 
-;; 74.05 clocks
+;; 84 clocks
 s2cl_four_complex_gpm_fft MACRO srcreg,srcinc,d1
 	movapd	xmm0, [srcreg][rbx]	;; R1,R3
 	movapd	xmm1, [srcreg+32][rbx]	;; R1,R3
@@ -3364,83 +3364,118 @@ s2cl_four_complex_gpm_fft MACRO srcreg,srcinc,d1
 	movapd	xmm5, [srcreg+d1+32][rbx];; R2,R4
 	unpcklpd xmm4, xmm5		;; R2,R2
 	movlpd	xmm5, Q [srcreg+d1+8][rbx];; R4,R4
+
+	movapd	xmm6, xmm0		;; Save R1
+	mulpd	xmm0, [rdi+16]		;; A1 = R1 * premul_real/premul_imag
+	subpd	xmm0, xmm2		;; A1 = A1 - I1
+	mulpd	xmm2, [rdi+16]		;; B1 = I1 * premul_real/premul_imag
+	addpd	xmm2, xmm6		;; B1 = B1 + R1
+	mulpd	xmm0, [rdi]		;; A1 = A1 * premul_imag (new R1)
+	movapd	[srcreg], xmm0		;; Save new R1
+
 	movapd	xmm6, [srcreg+d1+16][rbx];; R6,R8
 	movapd	xmm7, [srcreg+d1+48][rbx];; R6,R8
 	unpcklpd xmm6, xmm7		;; R6,R6
 	movlpd	xmm7, Q [srcreg+d1+24][rbx];; R8,R8
 
-	movapd	[srcreg], xmm5		;; Save R4
-
-	movapd	xmm5, xmm0		;; Save R1
-	mulpd	xmm0, [rdi+16]		;; A1 = R1 * premul_real/premul_imag
-	subpd	xmm0, xmm2		;; A1 = A1 - I1
-	mulpd	xmm2, [rdi+16]		;; B1 = I1 * premul_real/premul_imag
-	addpd	xmm2, xmm5		;; B1 = B1 + R1
-
-	movapd	xmm5, xmm1		;; Save R3
+	xprefetchw [srcreg+srcinc]
+	movapd	xmm0, xmm1		;; Save R3
 	mulpd	xmm1, [rdi+80]		;; A3 = R3 * premul_real/premul_imag
 	subpd	xmm1, xmm3		;; A3 = A3 - I3
 	mulpd	xmm3, [rdi+80]		;; B3 = I3 * premul_real/premul_imag
-	addpd	xmm3, xmm5		;; B3 = B3 + R3
-	mulpd	xmm0, [rdi]		;; A1 = A1 * premul_imag (new R1)
+	addpd	xmm3, xmm0		;; B3 = B3 + R3
 	mulpd	xmm2, [rdi]		;; B1 = B1 * premul_imag (new I1)
 
-	movapd	xmm5, xmm4		;; Save R2
+	xprefetchw [srcreg+srcinc+d1]
+	movapd	xmm0, xmm4		;; Save R2
 	mulpd	xmm4, [rdi+48]		;; A2 = R2 * premul_real/premul_imag
 	subpd	xmm4, xmm6		;; A2 = A2 - I2
 	mulpd	xmm6, [rdi+48]		;; B2 = I2 * premul_real/premul_imag
-	addpd	xmm6, xmm5		;; B2 = B2 + R2
+	addpd	xmm6, xmm0		;; B2 = B2 + R2
 	mulpd	xmm1, [rdi+64]		;; A3 = A3 * premul_imag (new R3)
 	mulpd	xmm3, [rdi+64]		;; B3 = B3 * premul_imag (new I3)
 
-	movapd	xmm5, [srcreg]		;; Reload R4
+	movapd	xmm0, xmm5		;; Save R4
 	mulpd	xmm5, [rdi+112]		;; A4 = R4 * premul_real/premul_imag
 	subpd	xmm5, xmm7		;; A4 = A4 - I4
 	mulpd	xmm7, [rdi+112]		;; B4 = I4 * premul_real/premul_imag
-	addpd	xmm7, [srcreg]		;; B4 = B4 + R4
+	addpd	xmm7, xmm0		;; B4 = B4 + R4
 	mulpd	xmm4, [rdi+32]		;; A2 = A2 * premul_imag (new R2)
 	mulpd	xmm6, [rdi+32]		;; B2 = B2 * premul_imag (new I2)
 	mulpd	xmm5, [rdi+96]		;; A4 = A4 * premul_imag (new R4)
 	mulpd	xmm7, [rdi+96]		;; B4 = B4 * premul_imag (new I4)
 
-	subpd	xmm0, xmm1		;; R1 = R1 - R3 (new R3)
-	multwo	xmm1			;; R3 = R3 * 2
+	IFDEF AMD
+	 movapd	xmm0, [srcreg]		;; Reload new R1
+	 subpd	xmm0, xmm1		;; R1 = R1 - R3 (new R3)
+	 subpd	xmm2, xmm3		;; I1 = I1 - I3 (new I3)
 	xprefetch [srcreg+srcinc][rbx]
-	subpd	xmm2, xmm3		;; I1 = I1 - I3 (new I3)
-	multwo	xmm3			;; I3 = I3 * 2
-	subpd	xmm4, xmm5		;; R2 = R2 - R4 (new R4)
-	multwo	xmm5			;; R4 = R4 * 2
-	subpd	xmm6, xmm7		;; I2 = I2 - I4 (new I4)
-	multwo	xmm7			;; I4 = I4 * 2
-	xprefetchw [srcreg+srcinc][rbx]
-	addpd	xmm1, xmm0		;; R3 = R1 + R3 (new R1)
-	addpd	xmm3, xmm2		;; I3 = I1 + I3 (new I1)
-	addpd	xmm5, xmm4		;; R4 = R2 + R4 (new R2)
-	addpd	xmm7, xmm6		;; I4 = I2 + I4 (new I2)
+	 multwo	xmm3			;; I3 = I3 * 2
+	 subpd	xmm4, xmm5		;; R2 = R2 - R4 (new R4)
+	 multwo	xmm5			;; R4 = R4 * 2
 	xprefetch [srcreg+srcinc+d1][rbx]
-
+	 subpd	xmm6, xmm7		;; I2 = I2 - I4 (new I4)
+	 multwo	xmm7			;; I4 = I4 * 2
+	 addpd	xmm1, [srcreg]		;; R3 = R1 + R3 (new R1)
+	 addpd	xmm3, xmm2		;; I3 = I1 + I3 (new I1)
+	 addpd	xmm5, xmm4		;; R4 = R2 + R4 (new R2)
+	 addpd	xmm7, xmm6		;; I4 = I2 + I4 (new I2)
 	subpd	xmm0, xmm6		;; R3 = R3 - I4 (new R3)
+	movapd	[srcreg+d1], xmm0
 	multwo	xmm6			;; I4 = I4 * 2
 	subpd	xmm2, xmm4		;; I3 = I3 - R4 (new I4)
+	movapd	[srcreg+d1+48], xmm2
 	multwo	xmm4			;; R4 = R4 * 2
 	subpd	xmm1, xmm5		;; R1 = R1 - R2 (new R2)
 	multwo	xmm5			;; R2 = R2 * 2
-	xprefetchw [srcreg+srcinc+d1]
 	subpd	xmm3, xmm7		;; I1 = I1 - I2 (new I2)
 	multwo	xmm7			;; I2 = I2 * 2
 	addpd	xmm6, xmm0		;; I4 = R3 + I4 (new R4)
 	addpd	xmm4, xmm2		;; R4 = I3 + R4 (new I3)
 	addpd	xmm5, xmm1		;; R2 = R1 + R2 (new R1)
 	addpd	xmm7, xmm3		;; I2 = I1 + I2 (new I1)
-
-	movapd	[srcreg+d1], xmm0
 	movapd	[srcreg+d1+16], xmm4
 	movapd	[srcreg+d1+32], xmm6
-	movapd	[srcreg+d1+48], xmm2
 	movapd	[srcreg], xmm5
 	movapd	[srcreg+16], xmm7
 	movapd	[srcreg+32], xmm1
 	movapd	[srcreg+48], xmm3
+	ELSE
+	xprefetch [srcreg+srcinc][rbx]
+	 movapd	xmm0, xmm2
+	 subpd	xmm2, xmm3		;; I1 = I1 - I3 (new I3)
+	 addpd	xmm3, xmm0		;; I3 = I1 + I3 (new I1)
+	 movapd	xmm0, xmm4
+	 subpd	xmm4, xmm5		;; R2 = R2 - R4 (new R4)
+	 addpd	xmm5, xmm0		;; R4 = R2 + R4 (new R2)
+	xprefetch [srcreg+srcinc+d1][rbx]
+	 movapd	xmm0, xmm6
+	 subpd	xmm6, xmm7		;; I2 = I2 - I4 (new I4)
+	 addpd	xmm7, xmm0		;; I4 = I2 + I4 (new I2)
+	movapd	xmm0, xmm2
+	subpd	xmm2, xmm4		;; I3 = I3 - R4 (final I4)
+	movapd	[srcreg+d1+48], xmm2
+	addpd	xmm4, xmm0		;; R4 = I3 + R4 (final I3)
+	 movapd	xmm0, [srcreg]		;; Reload new R1
+	 subpd	xmm0, xmm1		;; R1 = R1 - R3 (new R3)
+	 addpd	xmm1, [srcreg]		;; R3 = R1 + R3 (new R1)
+	movapd	xmm2, xmm3
+	subpd	xmm3, xmm7		;; I1 = I1 - I2 (final I2)
+	movapd	[srcreg+48], xmm3
+	addpd	xmm7, xmm2		;; I2 = I1 + I2 (final I1)
+	movapd	xmm2, xmm0
+	subpd	xmm0, xmm6		;; R3 = R3 - I4 (final R3)
+	movapd	xmm3, xmm1
+	subpd	xmm1, xmm5		;; R1 = R1 - R2 (final R2)
+	addpd	xmm6, xmm2		;; I4 = R3 + I4 (final R4)
+	addpd	xmm5, xmm3		;; R2 = R1 + R2 (final R1)
+	movapd	[srcreg+d1], xmm0
+	movapd	[srcreg+d1+16], xmm4
+	movapd	[srcreg+d1+32], xmm6
+	movapd	[srcreg], xmm5
+	movapd	[srcreg+16], xmm7
+	movapd	[srcreg+32], xmm1
+	ENDIF
 	lea	srcreg, [srcreg+srcinc]
 	ENDM
 
