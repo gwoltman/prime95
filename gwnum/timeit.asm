@@ -28,7 +28,7 @@ X87_CASES	EQU	0
 ELSE
 X87_CASES	EQU	13
 ENDIF
-SSE2_CASES	EQU	120
+SSE2_CASES	EQU	134
 
 loopent	MACRO	y,z		; Create a entry in the loop entry table
 	DPTR	&y&z
@@ -186,8 +186,8 @@ ELSE
 lab:	test	_CPU_FLAGS, 40h		;; Is 3dnow! supported?
 	jnz	lab&amd			;; Yes, do amd version of macro
 ENDIF
-	mov	rbx, 262144		;; Offset for some sse2 macros
-	mov	rbp, 524288		;; Offset for mulf sse2 macros
+	mov	rbx, 262144+128		;; Offset for some sse2 macros
+	mov	rbp, 524288+256		;; Offset for mulf sse2 macros
 	mov	eax, outer_iters
 ss0a:	mov	rdi, _SRCARG		;; Sincos data
 	lea	rsi, [rdi+4096]		;; Source & dest ptr
@@ -303,23 +303,38 @@ sse2macros MACRO
 
 	sse2mac sscase104, 192, 4096, x3cl_six_reals_first_fft rsi, 3*64, 64
 	sse2mac sscase105, 192, 100000, x3cl_six_reals_first_fft rsi, 3*64, 64
-	sse2mac sscase106, 192, 4096, x3cl_six_reals_last_unfft rsi, 3*64, 64
-	sse2mac sscase107, 192, 100000, x3cl_six_reals_last_unfft rsi, 3*64, 64
+	sse2mac sscase106, 192, 4096, g3cl_six_reals_first_fft rsi, 3*64, 64, rdx, 3*64, 64
+	sse2mac sscase107, 192, 100000, g3cl_six_reals_first_fft rsi, 3*64, 64, rdx, 3*64, 64
+	sse2mac sscase108, 192, 4096, s3cl_six_reals_first_fft rsi, 3*64, 64
+	sse2mac sscase109, 192, 100000, s3cl_six_reals_first_fft rsi, 3*64, 64
+	sse2mac sscase110, 192, 4096, x3cl_six_reals_last_unfft rsi, 3*64, 64
+	sse2mac sscase111, 192, 100000, x3cl_six_reals_last_unfft rsi, 3*64, 64
 
-	sse2mac sscase108, 192, 4096, x3cl_three_complex_first_fft rsi, 3*64, 64
-	sse2mac sscase109, 192, 100000, x3cl_three_complex_first_fft rsi, 3*64, 64
-	sse2mac sscase110, 192, 4096, x3cl_three_complex_last_unfft rsi, 3*64, 64
-	sse2mac sscase111, 192, 100000, x3cl_three_complex_last_unfft rsi, 3*64, 64
+	sse2mac sscase112, 192, 4096, x3cl_three_complex_first_fft rsi, 3*64, 64
+	sse2mac sscase113, 192, 100000, x3cl_three_complex_first_fft rsi, 3*64, 64
+	sse2mac sscase114, 192, 4096, s3cl_three_complex_first_fft rsi, 3*64, 64
+	sse2mac sscase115, 192, 100000, s3cl_three_complex_first_fft rsi, 3*64, 64
+	sse2mac sscase116, 192, 4096, x3cl_three_complex_last_unfft rsi, 3*64, 64
+	sse2mac sscase117, 192, 100000, x3cl_three_complex_last_unfft rsi, 3*64, 64
 
-	sse2mac sscase112, 320, 4096, x5cl_five_reals_first_fft rsi, 5*64, 64
-	sse2mac sscase113, 320, 100000, x5cl_five_reals_first_fft rsi, 5*64, 64
-	sse2mac sscase114, 320, 4096, x5cl_five_reals_last_unfft rsi, 5*64, 64
-	sse2mac sscase115, 320, 100000, x5cl_five_reals_last_unfft rsi, 5*64, 64
+	sse2mac sscase118, 320, 4096, x5cl_five_reals_first_fft rsi, 5*64, 64
+	sse2mac sscase119, 320, 100000, x5cl_five_reals_first_fft rsi, 5*64, 64
+	sse2mac sscase120, 320, 4096, g5cl_five_reals_first_fft rsi, 5*64, 64, rdx, 5*64, 64
+	sse2mac sscase121, 320, 100000, g5cl_five_reals_first_fft rsi, 5*64, 64, rdx, 5*64, 64
+	sse2mac sscase122, 320, 4096, s5cl_five_reals_first_fft rsi, 5*64, 64
+	sse2mac sscase123, 320, 100000, s5cl_five_reals_first_fft rsi, 5*64, 64
+	sse2mac sscase124, 320, 4096, x5cl_five_reals_last_unfft rsi, 5*64, 64
+	sse2mac sscase125, 320, 100000, x5cl_five_reals_last_unfft rsi, 5*64, 64
 
-	sse2mac sscase116, 448, 4096, x7cl_seven_reals_first_fft rsi, 7*64, 64
-	sse2mac sscase117, 448, 100000, x7cl_seven_reals_first_fft rsi, 7*64, 64
-	sse2mac sscase118, 448, 4096, x7cl_seven_reals_last_unfft rsi, 7*64, 64
-	sse2mac sscase119, 448, 100000, x7cl_seven_reals_last_unfft rsi, 7*64, 64
+	sse2mac sscase126, 448, 4096, x7cl_seven_reals_first_fft rsi, 7*64, 64
+	sse2mac sscase127, 448, 100000, x7cl_seven_reals_first_fft rsi, 7*64, 64
+	sse2mac sscase128, 448, 4096, g7cl_seven_reals_first_fft rsi, 7*64, 64, rdx, 7*64, 64
+	sse2mac sscase129, 448, 100000, g7cl_seven_reals_first_fft rsi, 7*64, 64, rdx, 7*64, 64
+	sse2mac sscase130, 448, 4096, s7cl_seven_reals_first_fft rsi, 7*64, 64
+	sse2mac sscase131, 448, 100000, s7cl_seven_reals_first_fft rsi, 7*64, 64
+	sse2mac sscase132, 448, 4096, x7cl_seven_reals_last_unfft rsi, 7*64, 64
+	sse2mac sscase133, 448, 100000, x7cl_seven_reals_last_unfft rsi, 7*64, 64
+
 	ENDM
 
 _TEXT	SEGMENT
