@@ -186,18 +186,9 @@ best_x4c_unfft_screg MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem7, mem8, dest1, de
 	ENDM
 
 s2cl_four_complex_gpm_fft MACRO srcreg,srcinc,d1
-	movapd	xmm0, [srcreg][rbx]	;; R1,R3
-	movapd	xmm1, [srcreg+32][rbx]	;; R1,R3
-	unpcklpd xmm0, xmm1		;; R1,R1
-	movlpd	xmm1, Q [srcreg+8][rbx]	;; R3,R3
-	movapd	xmm2, [srcreg+16][rbx]	;; R5,R7
-	movapd	xmm3, [srcreg+48][rbx]	;; R5,R7
-	unpcklpd xmm2, xmm3		;; R5,R5
-	movlpd	xmm3, Q [srcreg+24][rbx]	;; R7,R7
-	movapd	xmm4, [srcreg+d1][rbx]	;; R2,R4
-	movapd	xmm5, [srcreg+d1+32][rbx];; R2,R4
-	unpcklpd xmm4, xmm5		;; R2,R2
-	movlpd	xmm5, Q [srcreg+d1+8][rbx];; R4,R4
+	shuffle_load xmm0, xmm1, [srcreg][rbx], [srcreg+32][rbx] ;; R1,R3
+	shuffle_load xmm2, xmm3, [srcreg+16][rbx], [srcreg+48][rbx] ;; R5,R7
+	shuffle_load xmm4, xmm5, [srcreg+d1][rbx], [srcreg+d1+32][rbx] ;; R2,R4
 
 	movapd	xmm6, xmm0		;; Save R1
 	mulpd	xmm0, [rdi+16]		;; A1 = R1 * premul_real/premul_imag
@@ -207,10 +198,7 @@ s2cl_four_complex_gpm_fft MACRO srcreg,srcinc,d1
 	mulpd	xmm0, [rdi]		;; A1 = A1 * premul_imag (new R1)
 	movapd	[srcreg], xmm0		;; Save new R1
 
-	movapd	xmm6, [srcreg+d1+16][rbx];; R6,R8
-	movapd	xmm7, [srcreg+d1+48][rbx];; R6,R8
-	unpcklpd xmm6, xmm7		;; R6,R6
-	movlpd	xmm7, Q [srcreg+d1+24][rbx];; R8,R8
+	shuffle_load xmm6,xmm7,[srcreg+d1+16][rbx],[srcreg+d1+48][rbx] ;; R6,R8
 
 	xprefetchw [srcreg+srcinc]
 	movapd	xmm0, xmm1		;; Save R3
