@@ -61,7 +61,8 @@ unsigned int gen_n ()
 static	unsigned int max_n_bits = 0;
 
 	if (max_n_bits == 0)
-		max_n_bits = (unsigned int) ceil (log(MAX_N-MIN_N) / log(2));
+		max_n_bits = (unsigned int)
+			ceil (log ((double) (MAX_N-MIN_N)) / log (2.0));
 	nbits = (unsigned int) rand () % max_n_bits + 1;
 	n = 1;
 	while (--nbits) n = n * 2 + (rand () & 1);
