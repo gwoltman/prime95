@@ -228,6 +228,9 @@ void getCpuInfo (void)
 	temp = IniGetInt (INI_FILE, "CpuSupportsSSE2", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_SSE2;
 	if (temp == 1) CPU_FLAGS |= CPU_SSE2;
+	temp = IniGetInt (INI_FILE, "CpuSupports3DNow", 99);
+	if (temp == 0) CPU_FLAGS &= ~CPU_3DNOW;
+	if (temp == 1) CPU_FLAGS |= CPU_3DNOW;
 
 /* Now get the CPU speed */
 
@@ -252,8 +255,9 @@ void getCpuDescription (
 	if (CPU_FLAGS) {
 		strcat (buf, "CPU features: ");
 		if (CPU_FLAGS & CPU_RDTSC) strcat (buf, "RDTSC, ");
-		if (CPU_FLAGS & CPU_CMOV) strcat (buf, "CMOV, ");
-		if (CPU_FLAGS & CPU_PREFETCH) strcat (buf, "PREFETCH, ");
+/*		if (CPU_FLAGS & CPU_CMOV) strcat (buf, "CMOV, "); */
+		if (CPU_FLAGS & CPU_PREFETCH) strcat (buf, "Prefetch, ");
+		if (CPU_FLAGS & CPU_3DNOW) strcat (buf, "3DNow!, ");
 		if (CPU_FLAGS & CPU_MMX) strcat (buf, "MMX, ");
 		if (CPU_FLAGS & CPU_SSE) strcat (buf, "SSE, ");
 		if (CPU_FLAGS & CPU_SSE2) strcat (buf, "SSE2, ");
