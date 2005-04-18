@@ -397,7 +397,7 @@ rel_url:
 	timeout = 90000;		/* 90 seconds */
 	res = setsockopt (s, SOL_SOCKET, SO_SNDTIMEO, (char *) &timeout,
 			  sizeof (timeout));
-	if (res != NO_ERROR) {
+	if (res < 0) {
 		if (debug) {
 			sprintf (buf, "Error in send timeout call: %d\n",
 				 getLastSocketError ());
@@ -420,7 +420,7 @@ rel_url:
 	timeout = 90000;		/* 90 seconds */
 	res = setsockopt (s, SOL_SOCKET, SO_RCVTIMEO, (char *) &timeout,
 			  sizeof (timeout));
-	if (res != NO_ERROR) {
+	if (res < 0) {
 		if (debug) {
 			sprintf (buf, "Error in receive timeout call: %d\n",
 				 getLastSocketError ());
