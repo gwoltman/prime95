@@ -311,7 +311,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -330,7 +330,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -562,7 +562,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -581,7 +581,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -824,7 +824,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -843,7 +843,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -1081,7 +1081,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -1100,7 +1100,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -1424,7 +1424,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -1443,7 +1443,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -1779,7 +1779,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -1798,7 +1798,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -2093,7 +2093,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -2112,7 +2112,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -2462,7 +2462,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -2481,7 +2481,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -2816,7 +2816,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -2835,7 +2835,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -3126,7 +3126,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -3145,7 +3145,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -3501,7 +3501,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -3520,7 +3520,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -3880,7 +3880,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -3899,7 +3899,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -4202,7 +4202,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -4221,7 +4221,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -4612,7 +4612,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -4631,7 +4631,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -4990,7 +4990,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -5009,7 +5009,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -5303,7 +5303,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -5322,7 +5322,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -5795,7 +5795,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -5814,7 +5814,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -6291,7 +6291,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -6310,7 +6310,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -6818,7 +6818,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -6837,7 +6837,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -7313,7 +7313,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -7332,7 +7332,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -7815,7 +7815,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -7834,7 +7834,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -8320,7 +8320,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -8339,7 +8339,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -8855,7 +8855,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -8874,7 +8874,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
@@ -9359,7 +9359,7 @@ no_fft:	lea	rsi, [rsi+clm*128]	;; Next source pointer
 	jne	c0b			;; Do inverse-FFT/norm/FFT iteration
 	jmp	b0b			;; Do another FFT-only iteration
 fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
-	sub	ebx, ebx
+	sub	rbx, rbx
 	cmp	rsi, _DESTARG		;; If esi was not restored, then we 
 	jne	short fftdn1		;; just finished skipped postfft data
 	cmp	norm_ptr1, 0		;; What was the loop start point?
@@ -9378,7 +9378,7 @@ fftdn:	lea	rsi, [rsi-512/8*128]	;; Restore source pointer
 	cmp	_POSTFFT, 0		;; Test flag
 	je	short fftdn1		;; Skip FFT code if flag not set
 	mov	rsi, _DESTARG		;; Load FFT data address
-	sub	ebx, ebx
+	sub	rbx, rbx
 	sub	ecx, ecx
 	mov	edx, 4/clm		;; Do 8 previously skipped cache lines
 	mov	norm_ptr1, 0		;; Set flag so only forward FFT is done
