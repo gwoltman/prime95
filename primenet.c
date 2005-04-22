@@ -367,7 +367,7 @@ rel_url:
 	if (*szProxyHost || url_format) {
 		strcat (szURL, "http://");
 		strcat (szURL, szSITE);
-		if (IniGetInt (INIFILENAME, "SendPortNumber", 0)) {
+		if (IniGetInt (INIFILENAME, "SendPortNumber", 1)) {
 			strcat (szURL, ":");
 			sprintf (szBuffer, "%d", nHostPort);
 		}

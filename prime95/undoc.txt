@@ -310,3 +310,9 @@ In primenet.ini enter:
 where n is 0 for use relative URLs, 1 for use full URLs, 2 for try full URL
 and if an error is returned try a relative URL.  The default setting is 2.
 Note that a full URL is always sent when using a proxy server.
+
+When using a proxy server, the program sends the port number in http strings.
+That is the ":80" in "http://mersenne.org:80/cgibin_text".  At least one
+proxy server only works if the ":80" is not present.  In this case, ste:
+	SendPortNumber=0
+in the primenet.ini file.
