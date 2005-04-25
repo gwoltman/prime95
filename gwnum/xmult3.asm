@@ -29,11 +29,23 @@ INCLUDE xfft3.mac
 INCLUDE	xlucas.mac
 INCLUDE xmult.mac
 INCLUDE xnormal.mac
+INCLUDE xpass1.mac
+
+EXTRN	xgw_finish_fft:PROC
+EXTRN	xgw_carries:PROC
+EXTRN	xgw_finish_mult:PROC
 
 EXTRNP	xpass2_11_levels
 EXTRNP	xpass2_11_levels_p
 
 _TEXT SEGMENT
+
+;; For small FFTs, use the v22 distance between two pass 2 data blocks.
+;; Pass 2 does 11 FFT levels 2 sets of data (2 * 2^11 complex values =
+;; 2^13 doubles = 64KB).
+
+PREFETCHING = 1
+blkdst = (65536+4096+128)
 
 ;; All the FFT routines for each FFT length
 
@@ -63,7 +75,9 @@ PROCP	_xmm_gw_ffts3
 	xfft	448K
 	xfft	512K
 	xfft	512Kp
-	EXPANDING = 3
+
+INCLUDE xpass1sc.mac
+
 	xfftclm	640K, 4
 	xfftclm	640K, 2
 	xfftclm	768K, 4
@@ -118,135 +132,6 @@ PROCP	_xmm_gw_ffts3
 	xfftclm	4096Kp, 2
 	xfftclm	4096Kp, 1
 	xfftclm	4096Kp, 0
-
-; Common code to finish the FFT by restoring state and returning.
-
-gw_finish_fft_3:
-	mov	DWORD PTR [rsi-28], 3	; Set has-been-FFTed flags
-	xfft_1_ret
-
-; Common code to finish up multiplies
-
-; Split the accumulated carries into two carries - a high carry and a
-; low carry.  Handle both the with and without two-to-phi array cases.
-; Add these carries back into the FFT data.
-
-gw_carries_3:
-	cmp	_ZERO_PADDED_FFT, 0	; Special case the zero padded FFT case
-	jne	gw_carries_3_zpad
-	mov	rsi, carries		; Addr of the carries
-	mov	ebx, addcount1		; Compute addr after carries
-	shl	rbx, 6
-	add	rbx, rsi
-	xnorm012_2d_part1
-	mov	rbp, _DESTARG		; Addr of the FFT data
-	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
-	mov	rdx, norm_grp_mults	; Addr of the group multipliers
-	sub	rcx, rcx		; Clear big/little flag
-	mov	eax, count3		; Load 3 section counts
-	mov	loopcount1, eax		; Save for later
-ilp0:	mov	eax, loopcount1		; Get list of counts
-	mov	ebx, eax		; Form count for this section
-	and	rbx, 03FFh
-	jz	spldn			; No rows to do.  We're all done!
-	mov	loopcount2, ebx		; Save count of carry rows this section
-	shr	eax, 10			; Move counts list along
-	mov	loopcount1, eax
-	shl	rbx, 6			; Compute addr of the last carries row
-	add	rbx, rsi
-	xnorm012_2d_part2
-	sub	rax, rax		; Clear big/little flag
-ilp1:	mov	rbx, norm_col_mults	; Addr of the column multipliers
-	xnorm012_2d			; Split carries for one cache line
-	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
-	lea	rsi, [rsi+64]		; Next carries pointer
-	add	rbp, pass1blkdst	; Next FFT data pointer
-	cmp	_RATIONAL_FFT, 0	; Don't bump these two pointers
-	jne	short iskip		; for rational FFTs
-	lea	rdx, [rdx+128]		; Next group multiplier
-	lea	rdi, [rdi+rbx*4]	; Next big/little flags pointer
-iskip:	sub	loopcount2, 1		; Test loop counter
-	jnz	ilp1			; Next carry row in section
-	jmp	ilp0			; Next section
-spldn:	mov	zero_fft, 0		; Clear zero-high-words-fft flag
-	ret
-
-gw_carries_3_zpad:
-	mov	rsi, carries		; Addr of the carries
-	mov	ebx, addcount1		; Compute addr after carries
-	shl	rbx, 6
-	add	rbx, rsi
-	mov	rsi, _DESTARG		; Addr of the FFT data
-	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
-	mov	rbp, norm_col_mults	; Addr of the group multipliers
-	cmp	const_fft, 0		; Call correct part1 macro
-	je	c2a			; Jump if not const
-	xnorm012_2d_zpad_part1 exec
-	jmp	c2b
-c2a:	xnorm012_2d_zpad_part1 noexec
-c2b:	mov	rsi, carries		; Addr of the carries
-	mov	rbp, _DESTARG		; Addr of the FFT data
-	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
-	mov	rdx, norm_grp_mults	; Addr of the group multipliers
-	mov	eax, count3		; Load 3 section counts
-	mov	loopcount1, eax		; Save for later
-zlp0:	mov	eax, loopcount1		; Get list of counts
-	mov	ebx, eax		; Form count for this section
-	and	rbx, 03FFh
-	jz	zpldn			; No rows to do.  We're all done!
-	mov	loopcount2, ebx		; Save count of carry rows this section
-	shr	eax, 10			; Move counts list along
-	mov	loopcount1, eax
-	shl	rbx, 6			; Compute addr of the last carries row
-	add	rbx, rsi
-	xnorm012_2d_zpad_part2
-	sub	rax, rax		; Clear big/little flag
-zlp1:	mov	rbx, norm_col_mults	; Addr of the column multipliers
-	cmp	const_fft, 0		; Call correct zpad macro
-	je	c2c			; Jump if not const
-	xnorm012_2d_zpad exec		; Split carries for one cache line
-	jmp	c2d
-c2c:	xnorm012_2d_zpad noexec		; Split carries for one cache line
-c2d:	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
-	lea	rsi, [rsi+64]		; Next carries pointer
-	add	rbp, pass1blkdst	; Next FFT data pointer
-	cmp	_RATIONAL_FFT, 0	; Don't bump these two pointers
-	jne	short zskip		; for rational FFTs
-	lea	rdx, [rdx+128]		; Next group multiplier
-	lea	rdi, [rdi+rbx*4]	; Next big/little flags pointer
-zskip:	sub	loopcount2, 1		; Test loop counter
-	jnz	zlp1			; Next carry row in section
-	jmp	zlp0			; Next section
-zpldn:	mov	const_fft, 0		; Clear mul-by-const-fft flag
-	ret
-
-; Finish the multiply
-
-gw_finish_mult_3:
-
-; Set FFT-started flag
-
-	mov	rsi, _DESTARG		; Addr of FFT data
-	mov	eax, _POSTFFT		; Set FFT started flag
-	mov	DWORD PTR [rsi-28], eax
-
-; Normalize SUMOUT value by multiplying by 1 / (fftlen/2).
-
-	_movsd	xmm7, XMM_SUMOUT	; Add together the two partial sumouts
-	addsd	xmm7, XMM_SUMOUT+8
-	mulsd	xmm7, ttmp_ff_inv
-	_movsd	[rsi-24], xmm7		; Save sum of FFT outputs
-	_movsd	xmm6, XMM_MAXERR	; Compute new maximum error
-	maxsd	xmm6, XMM_MAXERR+8
-	_movsd	_MAXERR, xmm6
-
-; Return
-
-exit:	pop	rsi
-	pop	rdi
-	pop	rbx
-	pop	rbp
-	ret
 
 ENDPP	_xmm_gw_ffts3
 

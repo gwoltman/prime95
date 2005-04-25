@@ -72,7 +72,7 @@ LABELP	xfft&fft_length&clm&suffix
 	IF EXPANDING GE 2
 	mov	ffttype, 2
 LABELP	xfft2a&fft_length&clm
-	IF EXPANDING EQ 2
+	IFB <clm>
 	xfft&fft_length
 	ELSE
 	xfft&fft_length clm

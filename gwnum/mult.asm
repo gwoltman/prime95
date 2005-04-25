@@ -14,7 +14,7 @@ IFNDEF X86_64
 	.MODEL	FLAT
 ENDIF
 
-VERSION_NUMBER = 2411		;; Version 24.11
+VERSION_NUMBER = 2412		;; Version 24.12
 
 INCLUDE	unravel.mac
 
@@ -73,16 +73,6 @@ EXTRN	gwxcopyzero2:PROC
 EXTRN	gwxaddf2:PROC
 EXTRN	gwxsubf2:PROC
 EXTRN	gwxaddsubf2:PROC
-EXTRN	gwxadd3:PROC
-EXTRN	gwxaddq3:PROC
-EXTRN	gwxsub3:PROC
-EXTRN	gwxsubq3:PROC
-EXTRN	gwxaddsub3:PROC
-EXTRN	gwxaddsubq3:PROC
-EXTRN	gwxcopyzero3:PROC
-EXTRN	gwxaddf3:PROC
-EXTRN	gwxsubf3:PROC
-EXTRN	gwxaddsubf3:PROC
 
 ;; List of possible suffixes for the normalization routines
 
@@ -110,8 +100,6 @@ ENDIF
 exnorm 1, x
 exnorm 2, x
 exnorm 2, x, AMD
-exnorm 3, x
-exnorm 3, x, AMD
 
 ;; List of possible suffixes for the FFTs
 
@@ -354,6 +342,8 @@ PUBLIC	sincos7
 PUBLIC	sincos8
 PUBLIC	sincos9
 PUBLIC	sincos10
+PUBLIC	sincos11
+PUBLIC	sincos12
 PUBLIC	norm_grp_mults
 PUBLIC	norm_col_mults
 PUBLIC	norm_biglit_array
@@ -367,6 +357,8 @@ PUBLIC	cache_line_multiplier
 PUBLIC	pass1blkdst
 PUBLIC	normblkdst
 PUBLIC	normblkdst8
+PUBLIC	pass2datasize
+PUBLIC	pass2gapsize
 PUBLIC	loopcount1
 PUBLIC	loopcount2
 PUBLIC	loopcount3
@@ -565,6 +557,8 @@ sincos7		DPTR	0
 sincos8		DPTR	0
 sincos9		DPTR	0
 sincos10	DPTR	0
+sincos11	DPTR	0
+sincos12	DPTR	0
 norm_grp_mults	DPTR	0		; Ptr to array of normalize multipliers
 norm_col_mults	DPTR	0
 norm_biglit_array DPTR	0		; Ptr to byte array of big/lit flags
@@ -580,6 +574,8 @@ norm_ptr2	DPTR	0
 norm_ptr3	DPTR	0
 normval2	DPTR	0
 normval3	DPTR	0
+pass2datasize	DPTR	0		; Amount of data processed in pass 2
+pass2gapsize	DPTR	0		; Wasted bytes between pass2 data blks
 
 addcount1	DD	0		; Loop counters used in adding
 normcount1	DD	0		; Loop counters used in normalizing
@@ -1974,28 +1970,6 @@ xprctab2a DPTR	OFFSET gwxadd2, OFFSET gwxaddq2, OFFSET gwxsub2
 	DPTR	OFFSET xi2zAMD, OFFSET xi2zeAMD, 0, 0
 	DPTR	OFFSET xi2zpAMD, OFFSET xi2zpeAMD
 	DPTR	OFFSET xi2zpcAMD, OFFSET xi2zpecAMD
-xprctab3 DPTR	OFFSET gwxadd3, OFFSET gwxaddq3, OFFSET gwxsub3
-	DPTR	OFFSET gwxsubq3, OFFSET gwxaddsub3, OFFSET gwxaddsubq3
-	DPTR	OFFSET gwxcopyzero3
-	DPTR	OFFSET gwxaddf3, OFFSET gwxsubf3, OFFSET gwxaddsubf3
-	DPTR	OFFSET xr3, OFFSET xr3e, OFFSET xr3c, OFFSET xr3ec
-	DPTR	OFFSET xr3z, OFFSET xr3ze, 0, 0
-	DPTR	OFFSET xr3zp, OFFSET xr3zpe, OFFSET xr3zpc, OFFSET xr3zpec
-	DPTR	OFFSET xi3, OFFSET xi3e, OFFSET xi3c, OFFSET xi3ec
-	DPTR	OFFSET xi3z, OFFSET xi3ze, 0, 0
-	DPTR	OFFSET xi3zp, OFFSET xi3zpe, OFFSET xi3zpc, OFFSET xi3zpec
-xprctab3a DPTR	OFFSET gwxadd3, OFFSET gwxaddq3, OFFSET gwxsub3
-	DPTR	OFFSET gwxsubq3, OFFSET gwxaddsub3, OFFSET gwxaddsubq3
-	DPTR	OFFSET gwxcopyzero3
-	DPTR	OFFSET gwxaddf3, OFFSET gwxsubf3, OFFSET gwxaddsubf3
-	DPTR	OFFSET xr3AMD, OFFSET xr3eAMD, OFFSET xr3cAMD, OFFSET xr3ecAMD
-	DPTR	OFFSET xr3zAMD, OFFSET xr3zeAMD, 0, 0
-	DPTR	OFFSET xr3zpAMD, OFFSET xr3zpeAMD
-	DPTR	OFFSET xr3zpcAMD, OFFSET xr3zpecAMD
-	DPTR	OFFSET xi3AMD, OFFSET xi3eAMD, OFFSET xi3cAMD, OFFSET xi3ecAMD
-	DPTR	OFFSET xi3zAMD, OFFSET xi3zeAMD, 0, 0
-	DPTR	OFFSET xi3zpAMD, OFFSET xi3zpeAMD
-	DPTR	OFFSET xi3zpcAMD, OFFSET xi3zpecAMD
 
 ;; Jump tables for the Pentium 4 SSE2 optimized code
 
@@ -2428,7 +2402,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft40K_1AMD, OFFSET xfft40K_2AMD
 	DPTR			OFFSET xfft40K_3AMD, OFFSET xfft40K_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			5, 1
 	DD			4, 1, 4*1024+1, 1, 1, 0
 	DD	835200,	40960,	0.00248,	244768
@@ -2437,7 +2411,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft40K_1, OFFSET xfft40K_2
 	DPTR			OFFSET xfft40K_3, OFFSET xfft40K_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			5, 1
 	DD			4, 1, 4*1024+1, 1, 1, 0
 	DD	995500, 49152,	0.00303,	265952
@@ -2446,7 +2420,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft48K_1AMD, OFFSET xfft48K_2AMD
 	DPTR			OFFSET xfft48K_3AMD, OFFSET xfft48K_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			6, 1
 	DD			5, 1, 6, 1, 1, 0
 	DD	995500, 49152,	0.00303,	265952
@@ -2455,7 +2429,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft48K_1, OFFSET xfft48K_2
 	DPTR			OFFSET xfft48K_3, OFFSET xfft48K_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			6, 1
 	DD			5, 1, 6, 1, 1, 0
 	DD	1158000, 57344,	0.00363,	287232
@@ -2464,7 +2438,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft56K_1AMD, OFFSET xfft56K_2AMD
 	DPTR			OFFSET xfft56K_3AMD, OFFSET xfft56K_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			7, 1
 	DD			6, 1, (4*1024+2)*1024+1, 1, 1, 0
 	DD	1158000, 57344,	0.00363,	287232
@@ -2473,7 +2447,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft56K_1, OFFSET xfft56K_2
 	DPTR			OFFSET xfft56K_3, OFFSET xfft56K_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			7, 1
 	DD			6, 1, (4*1024+2)*1024+1, 1, 1, 0
 	DD	1325000, 65536,	0.00404,	308416
@@ -2482,7 +2456,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft64K_1AMD, OFFSET xfft64K_2AMD
 	DPTR			OFFSET xfft64K_3AMD, OFFSET xfft64K_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			8, 1
 	DD			7, 1, 8, 1, 1, 0
 	DD	1325000, 65536,	0.00404,	308416
@@ -2491,7 +2465,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft64K_1, OFFSET xfft64K_2
 	DPTR			OFFSET xfft64K_3, OFFSET xfft64K_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			8, 1
 	DD			7, 1, 8, 1, 1, 0
 	DD	1648000, 81920, 0.00533,	351552
@@ -2500,7 +2474,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft80K_1AMD, OFFSET xfft80K_2AMD
 	DPTR			OFFSET xfft80K_3AMD, OFFSET xfft80K_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			10, 1
 	DD			9, 1, 8*1024+2, 1, 1, 0
 	DD	1648000, 81920, 0.00533,	351552
@@ -2509,7 +2483,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft80K_1, OFFSET xfft80K_2
 	DPTR			OFFSET xfft80K_3, OFFSET xfft80K_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			10, 1
 	DD			9, 1, 8*1024+2, 1, 1, 0
 	DD	1966000, 98304, 0.00644,	394112
@@ -2518,7 +2492,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft96K_1AMD, OFFSET xfft96K_2AMD
 	DPTR			OFFSET xfft96K_3AMD, OFFSET xfft96K_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			12, 1
 	DD			11, 1, 12, 1, 1, 0
 	DD	1966000, 98304, 0.00644,	394112
@@ -2527,7 +2501,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft96K_1, OFFSET xfft96K_2
 	DPTR			OFFSET xfft96K_3, OFFSET xfft96K_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			12, 1
 	DD			11, 1, 12, 1, 1, 0
 	DD	2287000, 114688, 0.00771,	436768
@@ -2536,7 +2510,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft112K_1AMD, OFFSET xfft112K_2AMD
 	DPTR			OFFSET xfft112K_3AMD, OFFSET xfft112K_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			14, 1
 	DD			13, 1, (8*1024+4)*1024+2, 1, 1, 0
 	DD	2287000, 114688, 0.00771,	436768
@@ -2545,7 +2519,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft112K_1, OFFSET xfft112K_2
 	DPTR			OFFSET xfft112K_3, OFFSET xfft112K_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			14, 1
 	DD			13, 1, (8*1024+4)*1024+2, 1, 1, 0
 	DD	2614000, 131072, 0.00871,	479040
@@ -2554,7 +2528,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft128K_1AMD, OFFSET xfft128K_2AMD
 	DPTR			OFFSET xfft128K_3AMD, OFFSET xfft128K_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			16, 1
 	DD			15, 1, 16, 1, 1, 0
 	DD	2614000, 131072, 0.00871,	479040
@@ -2563,7 +2537,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft128K_1, OFFSET xfft128K_2
 	DPTR			OFFSET xfft128K_3, OFFSET xfft128K_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			16, 1
 	DD			15, 1, 16, 1, 1, 0
 	DD	3251000, 163840, 0.0111,	563392
@@ -2572,7 +2546,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft160K_1AMD, OFFSET xfft160K_2AMD
 	DPTR			OFFSET xfft160K_3AMD, OFFSET xfft160K_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			20, 1
 	DD			19, 1, 16*1024+4, 1, 1, 0
 	DD	3251000, 163840, 0.0111,	563392
@@ -2581,7 +2555,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft160K_1, OFFSET xfft160K_2
 	DPTR			OFFSET xfft160K_3, OFFSET xfft160K_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			20, 1
 	DD			19, 1, 16*1024+4, 1, 1, 0
 	DD	3875000, 196608, 0.0136,	648320
@@ -2590,7 +2564,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft192K_1AMD, OFFSET xfft192K_2AMD
 	DPTR			OFFSET xfft192K_3AMD, OFFSET xfft192K_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			24, 1
 	DD			23, 1, 24, 1, 1, 0
 	DD	3875000, 196608, 0.0136,	648320
@@ -2599,7 +2573,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft192K_1, OFFSET xfft192K_2
 	DPTR			OFFSET xfft192K_3, OFFSET xfft192K_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			24, 1
 	DD			23, 1, 24, 1, 1, 0
 	DD	4512000, 229376, 0.0160,	733344
@@ -2608,7 +2582,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft224K_1AMD, OFFSET xfft224K_2AMD
 	DPTR			OFFSET xfft224K_3AMD, OFFSET xfft224K_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			28, 1
 	DD			27, 1, (16*1024+8)*1024+4, 1, 1, 0
 	DD	4512000, 229376, 0.0160,	733344
@@ -2617,7 +2591,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft224K_1, OFFSET xfft224K_2
 	DPTR			OFFSET xfft224K_3, OFFSET xfft224K_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			28, 1
 	DD			27, 1, (16*1024+8)*1024+4, 1, 1, 0
 	DD	5158000, 262144, 0.0179,	817984
@@ -2626,7 +2600,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft256K_1AMD, OFFSET xfft256K_2AMD
 	DPTR			OFFSET xfft256K_3AMD, OFFSET xfft256K_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			32, 1
 	DD			31, 1, 32, 1, 1, 0
 	DD	5158000, 262144, 0.0179,	817984
@@ -2635,7 +2609,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft256K_1, OFFSET xfft256K_2
 	DPTR			OFFSET xfft256K_3, OFFSET xfft256K_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			32, 1
 	DD			31, 1, 32, 1, 1, 0
 	DD	6421000, 327680, 0.0239,	988896
@@ -2644,7 +2618,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft320K_1AMD, OFFSET xfft320K_2AMD
 	DPTR			OFFSET xfft320K_3AMD, OFFSET xfft320K_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			40, 1
 	DD			39, 1, 32*1024+8, 1, 1, 0
 	DD	6421000, 327680, 0.0239,	988896
@@ -2653,7 +2627,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft320K_1, OFFSET xfft320K_2
 	DPTR			OFFSET xfft320K_3, OFFSET xfft320K_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			40, 1
 	DD			39, 1, 32*1024+8, 1, 1, 0
 	DD	7651000, 393216, 0.0273,	1158944
@@ -2662,7 +2636,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft384K_1AMD, OFFSET xfft384K_2AMD
 	DPTR			OFFSET xfft384K_3AMD, OFFSET xfft384K_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			48, 1
 	DD			47, 1, 48, 1, 1, 0
 	DD	7651000, 393216, 0.0273,	1158944
@@ -2671,7 +2645,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft384K_1, OFFSET xfft384K_2
 	DPTR			OFFSET xfft384K_3, OFFSET xfft384K_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			48, 1
 	DD			47, 1, 48, 1, 1, 0
 	DD	8908000, 458752, 0.0323,	1329088
@@ -2680,7 +2654,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft448K_1AMD, OFFSET xfft448K_2AMD
 	DPTR			OFFSET xfft448K_3AMD, OFFSET xfft448K_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			56, 1
 	DD			55, 1, (32*1024+16)*1024+8, 1, 1, 0
 	DD	8908000, 458752, 0.0323,	1329088
@@ -2689,7 +2663,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft448K_1, OFFSET xfft448K_2
 	DPTR			OFFSET xfft448K_3, OFFSET xfft448K_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			56, 1
 	DD			55, 1, (32*1024+16)*1024+8, 1, 1, 0
 	DD	10180000, 524288, 0.0368,	1497408
@@ -2698,7 +2672,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft512K_1AMD, OFFSET xfft512K_2AMD
 	DPTR			OFFSET xfft512K_3AMD, OFFSET xfft512K_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			64, 1
 	DD			63, 1, 64, 1, 1, 0
 	DD	10180000, 524288, 0.0368,	1497408
@@ -2707,7 +2681,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft512K_1, OFFSET xfft512K_2
 	DPTR			OFFSET xfft512K_3, OFFSET xfft512K_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			64, 1
 	DD			63, 1, 64, 1, 1, 0
 	DD	12650000, 655360, 0.0464,	1838176+42240
@@ -2716,7 +2690,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft640K4_1AMD, OFFSET xfft640K4_2AMD
 	DPTR			OFFSET xfft640K4_3AMD, OFFSET xfft640K4_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			80, 1
 	DD			79, 1, 64*1024+16, 1, 1, 0
 	DD	12650000, 655360, 0.0464,	1838176+42240
@@ -2725,7 +2699,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft640K4_1, OFFSET xfft640K4_2
 	DPTR			OFFSET xfft640K4_3, OFFSET xfft640K4_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			80, 1
 	DD			79, 1, 64*1024+16, 1, 1, 0
 	DD	12650000, 655360, 0.0464,	1838176+21760
@@ -2734,7 +2708,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft640K2_1AMD, OFFSET xfft640K2_2AMD
 	DPTR			OFFSET xfft640K2_3AMD, OFFSET xfft640K2_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			80, 1
 	DD			79, 1, 64*1024+16, 1, 1, 0
 	DD	12650000, 655360, 0.0464,	1838176+21760
@@ -2743,7 +2717,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft640K2_1, OFFSET xfft640K2_2
 	DPTR			OFFSET xfft640K2_3, OFFSET xfft640K2_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			80, 1
 	DD			79, 1, 64*1024+16, 1, 1, 0
 	DD	15070000, 786432, 0.0566,	2178080+50688
@@ -2752,7 +2726,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft768K4_1AMD, OFFSET xfft768K4_2AMD
 	DPTR			OFFSET xfft768K4_3AMD, OFFSET xfft768K4_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			96, 1
 	DD			95, 1, 96, 1, 1, 0
 	DD	15070000, 786432, 0.0566,	2178080+50688
@@ -2761,7 +2735,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft768K4_1, OFFSET xfft768K4_2
 	DPTR			OFFSET xfft768K4_3, OFFSET xfft768K4_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			96, 1
 	DD			95, 1, 96, 1, 1, 0
 	DD	15070000, 786432, 0.0566,	2178080+26112
@@ -2770,7 +2744,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft768K2_1AMD, OFFSET xfft768K2_2AMD
 	DPTR			OFFSET xfft768K2_3AMD, OFFSET xfft768K2_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			96, 1
 	DD			95, 1, 96, 1, 1, 0
 	DD	15070000, 786432, 0.0566,	2178080+26112
@@ -2779,7 +2753,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft768K2_1, OFFSET xfft768K2_2
 	DPTR			OFFSET xfft768K2_3, OFFSET xfft768K2_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			96, 1
 	DD			95, 1, 96, 1, 1, 0
 	DD	17550000, 917504, 0.0693,	2518080+59136
@@ -2788,7 +2762,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft896K4_1AMD, OFFSET xfft896K4_2AMD
 	DPTR			OFFSET xfft896K4_3AMD, OFFSET xfft896K4_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			112, 1
 	DD			111, 1, (64*1024+32)*1024+16, 1, 1, 0
 	DD	17550000, 917504, 0.0693,	2518080+59136
@@ -2797,7 +2771,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft896K4_1, OFFSET xfft896K4_2
 	DPTR			OFFSET xfft896K4_3, OFFSET xfft896K4_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			112, 1
 	DD			111, 1, (64*1024+32)*1024+16, 1, 1, 0
 	DD	17550000, 917504, 0.0693,	2518080+30464
@@ -2806,7 +2780,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft896K2_1AMD, OFFSET xfft896K2_2AMD
 	DPTR			OFFSET xfft896K2_3AMD, OFFSET xfft896K2_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			112, 1
 	DD			111, 1, (64*1024+32)*1024+16, 1, 1, 0
 	DD	17550000, 917504, 0.0693,	2518080+30464
@@ -2815,7 +2789,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft896K2_1, OFFSET xfft896K2_2
 	DPTR			OFFSET xfft896K2_3, OFFSET xfft896K2_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			112, 1
 	DD			111, 1, (64*1024+32)*1024+16, 1, 1, 0
 	DD	17550000, 917504, 0.0693,	2518080+16128
@@ -2824,7 +2798,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft896K1_1AMD, OFFSET xfft896K1_2AMD
 	DPTR			OFFSET xfft896K1_3AMD, OFFSET xfft896K1_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			112, 1
 	DD			111, 1, (64*1024+32)*1024+16, 1, 1, 0
 	DD	17550000, 917504, 0.0693,	2518080+16128
@@ -2833,7 +2807,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft896K1_1, OFFSET xfft896K1_2
 	DPTR			OFFSET xfft896K1_3, OFFSET xfft896K1_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			112, 1
 	DD			111, 1, (64*1024+32)*1024+16, 1, 1, 0
 	DD	20050000, 1048576, 0.0761,	2856256+67584
@@ -2842,7 +2816,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1024K4_1AMD, OFFSET xfft1024K4_2AMD
 	DPTR			OFFSET xfft1024K4_3AMD, OFFSET xfft1024K4_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			128, 1
 	DD			127, 1, 128, 1, 1, 0
 	DD	20050000, 1048576, 0.0761,	2856256+67584
@@ -2851,7 +2825,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1024K4_1, OFFSET xfft1024K4_2
 	DPTR			OFFSET xfft1024K4_3, OFFSET xfft1024K4_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			128, 1
 	DD			127, 1, 128, 1, 1, 0
 	DD	20050000, 1048576, 0.0761,	2856256+34816
@@ -2860,7 +2834,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1024K2_1AMD, OFFSET xfft1024K2_2AMD
 	DPTR			OFFSET xfft1024K2_3AMD, OFFSET xfft1024K2_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			128, 1
 	DD			127, 1, 128, 1, 1, 0
 	DD	20050000, 1048576, 0.0761,	2856256+34816
@@ -2869,7 +2843,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1024K2_1, OFFSET xfft1024K2_2
 	DPTR			OFFSET xfft1024K2_3, OFFSET xfft1024K2_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			128, 1
 	DD			127, 1, 128, 1, 1, 0
 	DD	20050000, 1048576, 0.0761,	2856256+18432
@@ -2878,7 +2852,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1024K1_1AMD, OFFSET xfft1024K1_2AMD
 	DPTR			OFFSET xfft1024K1_3AMD, OFFSET xfft1024K1_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			128, 1
 	DD			127, 1, 128, 1, 1, 0
 	DD	20050000, 1048576, 0.0761,	2856256+18432
@@ -2887,7 +2861,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1024K1_1, OFFSET xfft1024K1_2
 	DPTR			OFFSET xfft1024K1_3, OFFSET xfft1024K1_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			128, 1
 	DD			127, 1, 128, 1, 1, 0
 	DD	24930000, 1310720, 0.102,	3538560+84480
@@ -2896,7 +2870,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1280K4_1AMD, OFFSET xfft1280K4_2AMD
 	DPTR			OFFSET xfft1280K4_3AMD, OFFSET xfft1280K4_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			160, 1
 	DD			159, 1, 128*1024+32, 1, 1, 0
 	DD	24930000, 1310720, 0.102,	3538560+84480
@@ -2905,7 +2879,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1280K4_1, OFFSET xfft1280K4_2
 	DPTR			OFFSET xfft1280K4_3, OFFSET xfft1280K4_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			160, 1
 	DD			159, 1, 128*1024+32, 1, 1, 0
 	DD	24930000, 1310720, 0.102,	3538560+43520
@@ -2914,7 +2888,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1280K2_1AMD, OFFSET xfft1280K2_2AMD
 	DPTR			OFFSET xfft1280K2_3AMD, OFFSET xfft1280K2_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			160, 1
 	DD			159, 1, 128*1024+32, 1, 1, 0
 	DD	24930000, 1310720, 0.102,	3538560+43520
@@ -2923,7 +2897,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1280K2_1, OFFSET xfft1280K2_2
 	DPTR			OFFSET xfft1280K2_3, OFFSET xfft1280K2_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			160, 1
 	DD			159, 1, 128*1024+32, 1, 1, 0
 	DD	24930000, 1310720, 0.102,	3538560+23040
@@ -2932,7 +2906,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1280K1_1AMD, OFFSET xfft1280K1_2AMD
 	DPTR			OFFSET xfft1280K1_3AMD, OFFSET xfft1280K1_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			160, 1
 	DD			159, 1, 128*1024+32, 1, 1, 0
 	DD	24930000, 1310720, 0.102,	3538560+23040
@@ -2941,7 +2915,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1280K1_1, OFFSET xfft1280K1_2
 	DPTR			OFFSET xfft1280K1_3, OFFSET xfft1280K1_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			160, 1
 	DD			159, 1, 128*1024+32, 1, 1, 0
 	DD	29690000, 1572864, 0.125,	4218560+101376
@@ -2950,7 +2924,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1536K4_1AMD, OFFSET xfft1536K4_2AMD
 	DPTR			OFFSET xfft1536K4_3AMD, OFFSET xfft1536K4_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			192, 1
 	DD			191, 1, 192, 1, 1, 0
 	DD	29690000, 1572864, 0.125,	4218560+101376
@@ -2959,7 +2933,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1536K4_1, OFFSET xfft1536K4_2
 	DPTR			OFFSET xfft1536K4_3, OFFSET xfft1536K4_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			192, 1
 	DD			191, 1, 192, 1, 1, 0
 	DD	29690000, 1572864, 0.125,	4218560+52224
@@ -2968,7 +2942,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1536K2_1AMD, OFFSET xfft1536K2_2AMD
 	DPTR			OFFSET xfft1536K2_3AMD, OFFSET xfft1536K2_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			192, 1
 	DD			191, 1, 192, 1, 1, 0
 	DD	29690000, 1572864, 0.125,	4218560+52224
@@ -2977,7 +2951,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1536K2_1, OFFSET xfft1536K2_2
 	DPTR			OFFSET xfft1536K2_3, OFFSET xfft1536K2_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			192, 1
 	DD			191, 1, 192, 1, 1, 0
 	DD	29690000, 1572864, 0.125,	4218560+27648
@@ -2986,7 +2960,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1536K1_1AMD, OFFSET xfft1536K1_2AMD
 	DPTR			OFFSET xfft1536K1_3AMD, OFFSET xfft1536K1_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			192, 1
 	DD			191, 1, 192, 1, 1, 0
 	DD	29690000, 1572864, 0.125,	4218560+27648
@@ -2995,7 +2969,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1536K1_1, OFFSET xfft1536K1_2
 	DPTR			OFFSET xfft1536K1_3, OFFSET xfft1536K1_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			192, 1
 	DD			191, 1, 192, 1, 1, 0
 	DD	34560000, 1835008, 0.151,	4898656+118272
@@ -3004,7 +2978,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1792K4_1AMD, OFFSET xfft1792K4_2AMD
 	DPTR			OFFSET xfft1792K4_3AMD, OFFSET xfft1792K4_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			224, 1
 	DD			223, 1, (128*1024+64)*1024+32, 1, 1, 0
 	DD	34560000, 1835008, 0.151,	4898656+118272
@@ -3013,7 +2987,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1792K4_1, OFFSET xfft1792K4_2
 	DPTR			OFFSET xfft1792K4_3, OFFSET xfft1792K4_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			224, 1
 	DD			223, 1, (128*1024+64)*1024+32, 1, 1, 0
 	DD	34560000, 1835008, 0.151,	4898656+60928
@@ -3022,16 +2996,27 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1792K2_1AMD, OFFSET xfft1792K2_2AMD
 	DPTR			OFFSET xfft1792K2_3AMD, OFFSET xfft1792K2_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			224, 1
 	DD			223, 1, (128*1024+64)*1024+32, 1, 1, 0
+IFDEF TESTING_12_LEVEL_PASS2
+DD	34560000, 1835008, 0.151,	4898656*2+60928
+DD			512*65536+2*2	;; Flags, min_l2_cache, clm
+DD			60928		;; scratch area size
+DD			12		;; FFT levels done in pass2
+DPTR			OFFSET xfft1792K2_1, OFFSET xfft1792K2_2
+DPTR			OFFSET xfft1792K2_3, OFFSET xfft1792K2_4
+DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
+DD			112, 1
+DD			111, 1, (64*1024+32)*1024+16, 1, 1, 0
+ENDIF
 	DD	34560000, 1835008, 0.151,	4898656+60928
 	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
 	DD			60928		;; scratch area size
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1792K2_1, OFFSET xfft1792K2_2
 	DPTR			OFFSET xfft1792K2_3, OFFSET xfft1792K2_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			224, 1
 	DD			223, 1, (128*1024+64)*1024+32, 1, 1, 0
 	DD	34560000, 1835008, 0.151,	4898656+32256
@@ -3040,7 +3025,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1792K1_1AMD, OFFSET xfft1792K1_2AMD
 	DPTR			OFFSET xfft1792K1_3AMD, OFFSET xfft1792K1_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			224, 1
 	DD			223, 1, (128*1024+64)*1024+32, 1, 1, 0
 	DD	34560000, 1835008, 0.151,	4898656+32256
@@ -3049,7 +3034,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1792K1_1, OFFSET xfft1792K1_2
 	DPTR			OFFSET xfft1792K1_3, OFFSET xfft1792K1_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			224, 1
 	DD			223, 1, (128*1024+64)*1024+32, 1, 1, 0
 	DD	34560000, 1835008, 0.151,	4898656+32256
@@ -3058,7 +3043,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1792K0_1AMD, OFFSET xfft1792K0_2AMD
 	DPTR			OFFSET xfft1792K0_3AMD, OFFSET xfft1792K0_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			224, 1
 	DD			223, 1, (128*1024+64)*1024+32, 1, 1, 0
 	DD	34560000, 1835008, 0.151,	4898656+32256
@@ -3067,7 +3052,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1792K0_1, OFFSET xfft1792K0_2
 	DPTR			OFFSET xfft1792K0_3, OFFSET xfft1792K0_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			224, 1
 	DD			223, 1, (128*1024+64)*1024+32, 1, 1, 0
 	DD	39500000, 2097152, 0.169,	5573952+135168
@@ -3076,7 +3061,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2048K4_1AMD, OFFSET xfft2048K4_2AMD
 	DPTR			OFFSET xfft2048K4_3AMD, OFFSET xfft2048K4_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			255, 1, 256, 1, 1, 0
 	DD	39500000, 2097152, 0.169,	5573952+135168
@@ -3085,7 +3070,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2048K4_1, OFFSET xfft2048K4_2
 	DPTR			OFFSET xfft2048K4_3, OFFSET xfft2048K4_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			255, 1, 256, 1, 1, 0
 	DD	39500000, 2097152, 0.169,	5573952+69632
@@ -3094,7 +3079,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2048K2_1AMD, OFFSET xfft2048K2_2AMD
 	DPTR			OFFSET xfft2048K2_3AMD, OFFSET xfft2048K2_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			255, 1, 256, 1, 1, 0
 	DD	39500000, 2097152, 0.169,	5573952+69632
@@ -3103,7 +3088,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2048K2_1, OFFSET xfft2048K2_2
 	DPTR			OFFSET xfft2048K2_3, OFFSET xfft2048K2_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			255, 1, 256, 1, 1, 0
 	DD	39500000, 2097152, 0.169,	5573952+36864
@@ -3112,7 +3097,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2048K1_1AMD, OFFSET xfft2048K1_2AMD
 	DPTR			OFFSET xfft2048K1_3AMD, OFFSET xfft2048K1_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			255, 1, 256, 1, 1, 0
 	DD	39500000, 2097152, 0.169,	5573952+36864
@@ -3121,7 +3106,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2048K1_1, OFFSET xfft2048K1_2
 	DPTR			OFFSET xfft2048K1_3, OFFSET xfft2048K1_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			255, 1, 256, 1, 1, 0
 	DD	39500000, 2097152, 0.169,	5573952+36864
@@ -3130,7 +3115,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2048K0_1AMD, OFFSET xfft2048K0_2AMD
 	DPTR			OFFSET xfft2048K0_3AMD, OFFSET xfft2048K0_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			255, 1, 256, 1, 1, 0
 	DD	39500000, 2097152, 0.169,	5573952+36864
@@ -3139,7 +3124,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2048K0_1, OFFSET xfft2048K0_2
 	DPTR			OFFSET xfft2048K0_3, OFFSET xfft2048K0_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			255, 1, 256, 1, 1, 0
 	DD	49100000, 2621440, 0.222,	6937600+87040
@@ -3148,7 +3133,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2560K2_1AMD, OFFSET xfft2560K2_2AMD
 	DPTR			OFFSET xfft2560K2_3AMD, OFFSET xfft2560K2_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			320, 1
 	DD			319, 1, 256*1024+64, 1, 1, 0
 	DD	49100000, 2621440, 0.222,	6937600+87040
@@ -3157,7 +3142,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2560K2_1, OFFSET xfft2560K2_2
 	DPTR			OFFSET xfft2560K2_3, OFFSET xfft2560K2_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			320, 1
 	DD			319, 1, 256*1024+64, 1, 1, 0
 	DD	49100000, 2621440, 0.222,	6937600+46080
@@ -3166,7 +3151,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2560K1_1AMD, OFFSET xfft2560K1_2AMD
 	DPTR			OFFSET xfft2560K1_3AMD, OFFSET xfft2560K1_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			320, 1
 	DD			319, 1, 256*1024+64, 1, 1, 0
 	DD	49100000, 2621440, 0.222,	6937600+46080
@@ -3175,7 +3160,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2560K1_1, OFFSET xfft2560K1_2
 	DPTR			OFFSET xfft2560K1_3, OFFSET xfft2560K1_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			320, 1
 	DD			319, 1, 256*1024+64, 1, 1, 0
 	DD	49100000, 2621440, 0.222,	6937600+46080
@@ -3184,7 +3169,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2560K0_1AMD, OFFSET xfft2560K0_2AMD
 	DPTR			OFFSET xfft2560K0_3AMD, OFFSET xfft2560K0_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			320, 1
 	DD			319, 1, 256*1024+64, 1, 1, 0
 	DD	49100000, 2621440, 0.222,	6937600+46080
@@ -3193,7 +3178,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2560K0_1, OFFSET xfft2560K0_2
 	DPTR			OFFSET xfft2560K0_3, OFFSET xfft2560K0_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			320, 1
 	DD			319, 1, 256*1024+64, 1, 1, 0
 	DD	58520000, 3145728, 0.289,	8297408+104448
@@ -3202,7 +3187,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft3072K2_1AMD, OFFSET xfft3072K2_2AMD
 	DPTR			OFFSET xfft3072K2_3AMD, OFFSET xfft3072K2_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			384, 1
 	DD			383, 1, 384, 1, 1, 0
 	DD	58520000, 3145728, 0.289,	8297408+104448
@@ -3211,7 +3196,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft3072K2_1, OFFSET xfft3072K2_2
 	DPTR			OFFSET xfft3072K2_3, OFFSET xfft3072K2_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			384, 1
 	DD			383, 1, 384, 1, 1, 0
 	DD	58520000, 3145728, 0.289,	8297408+55296
@@ -3220,7 +3205,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft3072K1_1AMD, OFFSET xfft3072K1_2AMD
 	DPTR			OFFSET xfft3072K1_3AMD, OFFSET xfft3072K1_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			384, 1
 	DD			383, 1, 384, 1, 1, 0
 	DD	58520000, 3145728, 0.289,	8297408+55296
@@ -3229,7 +3214,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft3072K1_1, OFFSET xfft3072K1_2
 	DPTR			OFFSET xfft3072K1_3, OFFSET xfft3072K1_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			384, 1
 	DD			383, 1, 384, 1, 1, 0
 	DD	58520000, 3145728, 0.289,	8297408+55296
@@ -3238,7 +3223,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft3072K0_1AMD, OFFSET xfft3072K0_2AMD
 	DPTR			OFFSET xfft3072K0_3AMD, OFFSET xfft3072K0_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			384, 1
 	DD			383, 1, 384, 1, 1, 0
 	DD	58520000, 3145728, 0.289,	8297408+55296
@@ -3247,7 +3232,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft3072K0_1, OFFSET xfft3072K0_2
 	DPTR			OFFSET xfft3072K0_3, OFFSET xfft3072K0_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			384, 1
 	DD			383, 1, 384, 1, 1, 0
 	DD	68130000, 3670016, 0.369,	9657312+121856
@@ -3256,7 +3241,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft3584K2_1AMD, OFFSET xfft3584K2_2AMD
 	DPTR			OFFSET xfft3584K2_3AMD, OFFSET xfft3584K2_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			448, 1
 	DD			447, 1, (256*1024+128)*1024+64, 1, 1,0
 	DD	68130000, 3670016, 0.369,	9657312+121856
@@ -3265,7 +3250,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft3584K2_1, OFFSET xfft3584K2_2
 	DPTR			OFFSET xfft3584K2_3, OFFSET xfft3584K2_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			448, 1
 	DD			447, 1, (256*1024+128)*1024+64, 1, 1,0
 	DD	68130000, 3670016, 0.369,	9657312+64512
@@ -3274,7 +3259,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft3584K1_1AMD, OFFSET xfft3584K1_2AMD
 	DPTR			OFFSET xfft3584K1_3AMD, OFFSET xfft3584K1_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			448, 1
 	DD			447, 1, (256*1024+128)*1024+64, 1, 1,0
 	DD	68130000, 3670016, 0.369,	9657312+64512
@@ -3283,7 +3268,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft3584K1_1, OFFSET xfft3584K1_2
 	DPTR			OFFSET xfft3584K1_3, OFFSET xfft3584K1_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			448, 1
 	DD			447, 1, (256*1024+128)*1024+64, 1, 1,0
 	DD	68130000, 3670016, 0.369,	9657312+64512
@@ -3292,7 +3277,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft3584K0_1AMD, OFFSET xfft3584K0_2AMD
 	DPTR			OFFSET xfft3584K0_3AMD, OFFSET xfft3584K0_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			448, 1
 	DD			447, 1, (256*1024+128)*1024+64, 1, 1,0
 	DD	68130000, 3670016, 0.369,	9657312+64512
@@ -3301,7 +3286,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft3584K0_1, OFFSET xfft3584K0_2
 	DPTR			OFFSET xfft3584K0_3, OFFSET xfft3584K0_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			448, 1
 	DD			447, 1, (256*1024+128)*1024+64, 1, 1,0
 	DD	77910000, 4194304, 0.425,	11009344+139264
@@ -3310,7 +3295,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft4096K2_1AMD, OFFSET xfft4096K2_2AMD
 	DPTR			OFFSET xfft4096K2_3AMD, OFFSET xfft4096K2_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			512, 1
 	DD			511, 1, 512, 1, 1, 0
 	DD	77910000, 4194304, 0.425,	11009344+139264
@@ -3319,7 +3304,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft4096K2_1, OFFSET xfft4096K2_2
 	DPTR			OFFSET xfft4096K2_3, OFFSET xfft4096K2_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			512, 1
 	DD			511, 1, 512, 1, 1, 0
 	DD	77910000, 4194304, 0.425,	11009344+73728
@@ -3328,7 +3313,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft4096K1_1AMD, OFFSET xfft4096K1_2AMD
 	DPTR			OFFSET xfft4096K1_3AMD, OFFSET xfft4096K1_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			512, 1
 	DD			511, 1, 512, 1, 1, 0
 	DD	77910000, 4194304, 0.425,	11009344+73728
@@ -3337,7 +3322,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft4096K1_1, OFFSET xfft4096K1_2
 	DPTR			OFFSET xfft4096K1_3, OFFSET xfft4096K1_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			512, 1
 	DD			511, 1, 512, 1, 1, 0
 	DD	77910000, 4194304, 0.425,	11009344+73728
@@ -3346,7 +3331,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft4096K0_1AMD, OFFSET xfft4096K0_2AMD
 	DPTR			OFFSET xfft4096K0_3AMD, OFFSET xfft4096K0_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			512, 1
 	DD			511, 1, 512, 1, 1, 0
 	DD	0
@@ -3356,7 +3341,7 @@ xjmptable DD	743,	32,	0.00000111,	720
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft4096K0_1, OFFSET xfft4096K0_2
 	DPTR			OFFSET xfft4096K0_3, OFFSET xfft4096K0_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			512, 1
 	DD			511, 1, 512, 1, 1, 0
 	DD	0
@@ -3591,7 +3576,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft48Kp_1AMD, OFFSET xfft48Kp_2AMD
 	DPTR			OFFSET xfft48Kp_3AMD, OFFSET xfft48Kp_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			6, 1
 	DD			6, 1, 6, 1, 1, 0
 	DD	992800, 49152,	0.00303,	209696
@@ -3600,7 +3585,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft48Kp_1, OFFSET xfft48Kp_2
 	DPTR			OFFSET xfft48Kp_3, OFFSET xfft48Kp_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			6, 1
 	DD			6, 1, 6, 1, 1, 0
 	DD	1320000, 65536,	0.00404,	252288
@@ -3609,7 +3594,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft64Kp_1AMD, OFFSET xfft64Kp_2AMD
 	DPTR			OFFSET xfft64Kp_3AMD, OFFSET xfft64Kp_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			8, 1
 	DD			8, 1, 8, 1, 1, 0
 	DD	1320000, 65536,	0.00404,	252288
@@ -3618,7 +3603,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft64Kp_1, OFFSET xfft64Kp_2
 	DPTR			OFFSET xfft64Kp_3, OFFSET xfft64Kp_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			8, 1
 	DD			8, 1, 8, 1, 1, 0
 	DD	1962000, 98304, 0.00644,	337760
@@ -3627,7 +3612,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft96Kp_1AMD, OFFSET xfft96Kp_2AMD
 	DPTR			OFFSET xfft96Kp_3AMD, OFFSET xfft96Kp_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			12, 1
 	DD			12, 1, 12, 1, 1, 0
 	DD	1962000, 98304, 0.00644,	337760
@@ -3636,7 +3621,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft96Kp_1, OFFSET xfft96Kp_2
 	DPTR			OFFSET xfft96Kp_3, OFFSET xfft96Kp_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			12, 1
 	DD			12, 1, 12, 1, 1, 0
 	DD	2610000, 131072, 0.00871,	422656
@@ -3645,7 +3630,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft128Kp_1AMD, OFFSET xfft128Kp_2AMD
 	DPTR			OFFSET xfft128Kp_3AMD, OFFSET xfft128Kp_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			16, 1
 	DD			16, 1, 16, 1, 1, 0
 	DD	2610000, 131072, 0.00871,	422656
@@ -3654,7 +3639,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft128Kp_1, OFFSET xfft128Kp_2
 	DPTR			OFFSET xfft128Kp_3, OFFSET xfft128Kp_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			16, 1
 	DD			16, 1, 16, 1, 1, 0
 	DD	3867000, 196608, 0.0136,	593312
@@ -3663,7 +3648,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft192Kp_1AMD, OFFSET xfft192Kp_2AMD
 	DPTR			OFFSET xfft192Kp_3AMD, OFFSET xfft192Kp_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			24, 1
 	DD			24, 1, 24, 1, 1, 0
 	DD	3867000, 196608, 0.0136,	593312
@@ -3672,7 +3657,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft192Kp_1, OFFSET xfft192Kp_2
 	DPTR			OFFSET xfft192Kp_3, OFFSET xfft192Kp_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			24, 1
 	DD			24, 1, 24, 1, 1, 0
 	DD	5146000, 262144, 0.0179,	763392
@@ -3681,7 +3666,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft256Kp_1AMD, OFFSET xfft256Kp_2AMD
 	DPTR			OFFSET xfft256Kp_3AMD, OFFSET xfft256Kp_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			32, 1
 	DD			32, 1, 32, 1, 1, 0
 	DD	5146000, 262144, 0.0179,	763392
@@ -3690,7 +3675,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft256Kp_1, OFFSET xfft256Kp_2
 	DPTR			OFFSET xfft256Kp_3, OFFSET xfft256Kp_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			32, 1
 	DD			32, 1, 32, 1, 1, 0
 	DD	7635000, 393216, 0.0273,	1104992
@@ -3699,7 +3684,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft384Kp_1AMD, OFFSET xfft384Kp_2AMD
 	DPTR			OFFSET xfft384Kp_3AMD, OFFSET xfft384Kp_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			48, 1
 	DD			48, 1, 48, 1, 1, 0
 	DD	7635000, 393216, 0.0273,	1104992
@@ -3708,7 +3693,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft384Kp_1, OFFSET xfft384Kp_2
 	DPTR			OFFSET xfft384Kp_3, OFFSET xfft384Kp_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			48, 1
 	DD			48, 1, 48, 1, 1, 0
 	DD	10150000, 524288, 0.0368,	1444864
@@ -3717,7 +3702,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft512Kp_1AMD, OFFSET xfft512Kp_2AMD
 	DPTR			OFFSET xfft512Kp_3AMD, OFFSET xfft512Kp_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			64, 1
 	DD			64, 1, 64, 1, 1, 0
 	DD	10150000, 524288, 0.0368,	1444864
@@ -3726,7 +3711,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft512Kp_1, OFFSET xfft512Kp_2
 	DPTR			OFFSET xfft512Kp_3, OFFSET xfft512Kp_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			64, 1
 	DD			64, 1, 64, 1, 1, 0
 	DD	15040000, 786432, 0.0566,	2178464
@@ -3735,7 +3720,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft768Kp4_1AMD, OFFSET xfft768Kp4_2AMD
 	DPTR			OFFSET xfft768Kp4_3AMD, OFFSET xfft768Kp4_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			96, 1
 	DD			96, 1, 96, 1, 1, 0
 	DD	15040000, 786432, 0.0566,	2178464
@@ -3744,7 +3729,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft768Kp4_1, OFFSET xfft768Kp4_2
 	DPTR			OFFSET xfft768Kp4_3, OFFSET xfft768Kp4_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			96, 1
 	DD			96, 1, 96, 1, 1, 0
 	DD	15040000, 786432, 0.0566,	2153888
@@ -3753,7 +3738,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft768Kp2_1AMD, OFFSET xfft768Kp2_2AMD
 	DPTR			OFFSET xfft768Kp2_3AMD, OFFSET xfft768Kp2_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			96, 1
 	DD			96, 1, 96, 1, 1, 0
 	DD	15040000, 786432, 0.0566,	2153888
@@ -3762,7 +3747,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft768Kp2_1, OFFSET xfft768Kp2_2
 	DPTR			OFFSET xfft768Kp2_3, OFFSET xfft768Kp2_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			96, 1
 	DD			96, 1, 96, 1, 1, 0
 	DD	20000000, 1048576, 0.0761,	2875392
@@ -3771,7 +3756,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1024Kp4_1AMD,OFFSET xfft1024Kp4_2AMD
 	DPTR			OFFSET xfft1024Kp4_3AMD,OFFSET xfft1024Kp4_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			128, 1
 	DD			128, 1, 128, 1, 1, 0
 	DD	20000000, 1048576, 0.0761,	2875392
@@ -3780,7 +3765,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1024Kp4_1, OFFSET xfft1024Kp4_2
 	DPTR			OFFSET xfft1024Kp4_3, OFFSET xfft1024Kp4_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			128, 1
 	DD			128, 1, 128, 1, 1, 0
 	DD	20000000, 1048576, 0.0761,	2842624
@@ -3789,7 +3774,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1024Kp2_1AMD,OFFSET xfft1024Kp2_2AMD
 	DPTR			OFFSET xfft1024Kp2_3AMD,OFFSET xfft1024Kp2_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			128, 1
 	DD			128, 1, 128, 1, 1, 0
 	DD	20000000, 1048576, 0.0761,	2842624
@@ -3798,7 +3783,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1024Kp2_1, OFFSET xfft1024Kp2_2
 	DPTR			OFFSET xfft1024Kp2_3, OFFSET xfft1024Kp2_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			128, 1
 	DD			128, 1, 128, 1, 1, 0
 	DD	20000000, 1048576, 0.0761,	2826240
@@ -3807,7 +3792,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1024Kp1_1AMD,OFFSET xfft1024Kp1_2AMD
 	DPTR			OFFSET xfft1024Kp1_3AMD,OFFSET xfft1024Kp1_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			128, 1
 	DD			128, 1, 128, 1, 1, 0
 	DD	20000000, 1048576, 0.0761,	2826240
@@ -3816,7 +3801,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1024Kp1_1, OFFSET xfft1024Kp1_2
 	DPTR			OFFSET xfft1024Kp1_3, OFFSET xfft1024Kp1_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			128, 1
 	DD			128, 1, 128, 1, 1, 0
 	DD	29640000, 1572864, 0.125,	4275296
@@ -3825,7 +3810,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1536Kp4_1AMD,OFFSET xfft1536Kp4_2AMD
 	DPTR			OFFSET xfft1536Kp4_3AMD,OFFSET xfft1536Kp4_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			192, 1
 	DD			192, 1, 192, 1, 1, 0
 	DD	29640000, 1572864, 0.125,	4275296
@@ -3834,7 +3819,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1536Kp4_1, OFFSET xfft1536Kp4_2
 	DPTR			OFFSET xfft1536Kp4_3, OFFSET xfft1536Kp4_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			192, 1
 	DD			192, 1, 192, 1, 1, 0
 	DD	29640000, 1572864, 0.125,	4226144
@@ -3843,7 +3828,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1536Kp2_1AMD,OFFSET xfft1536Kp2_2AMD
 	DPTR			OFFSET xfft1536Kp2_3AMD,OFFSET xfft1536Kp2_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			192, 1
 	DD			192, 1, 192, 1, 1, 0
 	DD	29640000, 1572864, 0.125,	4226144
@@ -3852,7 +3837,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1536Kp2_1, OFFSET xfft1536Kp2_2
 	DPTR			OFFSET xfft1536Kp2_3, OFFSET xfft1536Kp2_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			192, 1
 	DD			192, 1, 192, 1, 1, 0
 	DD	29640000, 1572864, 0.125,	4201568
@@ -3861,7 +3846,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1536Kp1_1AMD,OFFSET xfft1536Kp1_2AMD
 	DPTR			OFFSET xfft1536Kp1_3AMD,OFFSET xfft1536Kp1_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			192, 1
 	DD			192, 1, 192, 1, 1, 0
 	DD	29640000, 1572864, 0.125,	4201568
@@ -3870,7 +3855,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1536Kp1_1, OFFSET xfft1536Kp1_2
 	DPTR			OFFSET xfft1536Kp1_3, OFFSET xfft1536Kp1_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			192, 1
 	DD			192, 1, 192, 1, 1, 0
 	DD	39390000, 2097152, 0.169,	5668864
@@ -3879,7 +3864,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2048Kp4_1AMD,OFFSET xfft2048Kp4_2AMD
 	DPTR			OFFSET xfft2048Kp4_3AMD,OFFSET xfft2048Kp4_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			256, 1, 256, 1, 1, 0
 	DD	39390000, 2097152, 0.169,	5668864
@@ -3888,7 +3873,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2048Kp4_1, OFFSET xfft2048Kp4_2
 	DPTR			OFFSET xfft2048Kp4_3, OFFSET xfft2048Kp4_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			256, 1, 256, 1, 1, 0
 	DD	39390000, 2097152, 0.169,	5603328
@@ -3897,7 +3882,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2048Kp2_1AMD,OFFSET xfft2048Kp2_2AMD
 	DPTR			OFFSET xfft2048Kp2_3AMD,OFFSET xfft2048Kp2_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			256, 1, 256, 1, 1, 0
 	DD	39390000, 2097152, 0.169,	5603328
@@ -3906,7 +3891,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2048Kp2_1, OFFSET xfft2048Kp2_2
 	DPTR			OFFSET xfft2048Kp2_3, OFFSET xfft2048Kp2_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			256, 1, 256, 1, 1, 0
 	DD	39390000, 2097152, 0.169,	5570560
@@ -3915,7 +3900,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2048Kp1_1AMD,OFFSET xfft2048Kp1_2AMD
 	DPTR			OFFSET xfft2048Kp1_3AMD,OFFSET xfft2048Kp1_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			256, 1, 256, 1, 1, 0
 	DD	39390000, 2097152, 0.169,	5570560
@@ -3924,7 +3909,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2048Kp1_1, OFFSET xfft2048Kp1_2
 	DPTR			OFFSET xfft2048Kp1_3, OFFSET xfft2048Kp1_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			256, 1, 256, 1, 1, 0
 	DD	39390000, 2097152, 0.169,	5570560
@@ -3933,7 +3918,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2048Kp0_1AMD,OFFSET xfft2048Kp0_2AMD
 	DPTR			OFFSET xfft2048Kp0_3AMD,OFFSET xfft2048Kp0_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			256, 1, 256, 1, 1, 0
 	DD	39390000, 2097152, 0.169,	5570560
@@ -3942,7 +3927,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft2048Kp0_1, OFFSET xfft2048Kp0_2
 	DPTR			OFFSET xfft2048Kp0_3, OFFSET xfft2048Kp0_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			256, 1
 	DD			256, 1, 256, 1, 1, 0
 	DD	58410000, 3145728, 0.289,	8370080
@@ -3951,7 +3936,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft3072Kp2_1AMD,OFFSET xfft3072Kp2_2AMD
 	DPTR			OFFSET xfft3072Kp2_3AMD,OFFSET xfft3072Kp2_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			384, 1
 	DD			384, 1, 384, 1, 1, 0
 	DD	58410000, 3145728, 0.289,	8370080
@@ -3960,7 +3945,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft3072Kp2_1, OFFSET xfft3072Kp2_2
 	DPTR			OFFSET xfft3072Kp2_3, OFFSET xfft3072Kp2_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			384, 1
 	DD			384, 1, 384, 1, 1, 0
 	DD	58410000, 3145728, 0.289,	8320928
@@ -3969,7 +3954,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft3072Kp1_1AMD,OFFSET xfft3072Kp1_2AMD
 	DPTR			OFFSET xfft3072Kp1_3AMD,OFFSET xfft3072Kp1_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			384, 1
 	DD			384, 1, 384, 1, 1, 0
 	DD	58410000, 3145728, 0.289,	8320928
@@ -3978,7 +3963,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft3072Kp1_1, OFFSET xfft3072Kp1_2
 	DPTR			OFFSET xfft3072Kp1_3, OFFSET xfft3072Kp1_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			384, 1
 	DD			384, 1, 384, 1, 1, 0
 	DD	58410000, 3145728, 0.289,	8320928
@@ -3987,7 +3972,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft3072Kp0_1AMD,OFFSET xfft3072Kp0_2AMD
 	DPTR			OFFSET xfft3072Kp0_3AMD,OFFSET xfft3072Kp0_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			384, 1
 	DD			384, 1, 384, 1, 1, 0
 	DD	58410000, 3145728, 0.289,	8320928
@@ -3996,7 +3981,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft3072Kp0_1, OFFSET xfft3072Kp0_2
 	DPTR			OFFSET xfft3072Kp0_3, OFFSET xfft3072Kp0_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			384, 1
 	DD			384, 1, 384, 1, 1, 0
 	DD	77700000, 4194304, 0.425,	11124736
@@ -4005,7 +3990,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft4096Kp2_1AMD,OFFSET xfft4096Kp2_2AMD
 	DPTR			OFFSET xfft4096Kp2_3AMD,OFFSET xfft4096Kp2_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			512, 1
 	DD			512, 1, 512, 1, 1, 0
 	DD	77700000, 4194304, 0.425,	11124736
@@ -4014,7 +3999,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft4096Kp2_1, OFFSET xfft4096Kp2_2
 	DPTR			OFFSET xfft4096Kp2_3, OFFSET xfft4096Kp2_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			512, 1
 	DD			512, 1, 512, 1, 1, 0
 	DD	77700000, 4194304, 0.425,	11059200
@@ -4023,7 +4008,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft4096Kp1_1AMD,OFFSET xfft4096Kp1_2AMD
 	DPTR			OFFSET xfft4096Kp1_3AMD,OFFSET xfft4096Kp1_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			512, 1
 	DD			512, 1, 512, 1, 1, 0
 	DD	77700000, 4194304, 0.425,	11059200
@@ -4032,7 +4017,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft4096Kp1_1, OFFSET xfft4096Kp1_2
 	DPTR			OFFSET xfft4096Kp1_3, OFFSET xfft4096Kp1_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			512, 1
 	DD			512, 1, 512, 1, 1, 0
 	DD	77700000, 4194304, 0.425,	11059200
@@ -4041,7 +4026,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft4096Kp0_1AMD,OFFSET xfft4096Kp0_2AMD
 	DPTR			OFFSET xfft4096Kp0_3AMD,OFFSET xfft4096Kp0_4AMD
-	DPTR			OFFSET xprctab3a ;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
 	DD			512, 1
 	DD			512, 1, 512, 1, 1, 0
 	DD	77700000, 4194304, 0.425,	11059200
@@ -4050,7 +4035,7 @@ xjmptablep DD	739,	32,	0.00000111,	976
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft4096Kp0_1, OFFSET xfft4096Kp0_2
 	DPTR			OFFSET xfft4096Kp0_3, OFFSET xfft4096Kp0_4
-	DPTR			OFFSET xprctab3	;; Table of add/sub/norm procs
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			512, 1
 	DD			512, 1, 512, 1, 1, 0
 	DD	0
@@ -4139,12 +4124,12 @@ _gwsetup2 PROC
 	push	rdi
 	push	rsi
 
-; Copy pointers to 1 premultiplier, 11 sin/cos, 3 normalization tables
+; Copy pointers to 1 premultiplier, 13 sin/cos, 3 normalization tables
 ; 1 carries table, 1 scratch area, and 1 plus1-premultiplier table.
 
 	mov	rsi, OFFSET _GWPROCPTRS	; C code put ptrs here
 	mov	rdi, OFFSET pass2_premults ; Addr to store table pointers
-	mov	ecx, 18			; Copy 18 table ptrs
+	mov	ecx, 20			; Copy 20 table ptrs
 cp3:	mov	rax, [rsi]		; Load routine ptr
 	mov	[rdi], rax		; Store routine ptr
 	lea	rsi, [rsi+SZPTR]
@@ -4308,13 +4293,25 @@ ENDIF
 
 p4init:
 
+	; Calculate size of the data area in pass 2
+	mov	rsi, _INFT		; Reload table pointer
+	mov	ecx, [rsi+24]		; levels done in pass2
+	mov	eax, 32
+	shl	rax, cl			; data size of pass2 block
+	mov	pass2datasize, rax
+
 	; Calculate pass 1 blkdst and normalize blkdst for xmult3 routines.
 	; Small 2-pass FFTs use the in-place v22 blkdst of (65536+4096+128).
 	; Larger FFTs use the scratch area with sporadic 128 byte gaps
 	; in clmblkdst.
-	cmp	_FFTLEN, 524288
-	jg	short lg2p		; Jump if this is a larger FFT
-	mov	rax, 65536+4096+128	; V22 blkdst
+	cmp	DWORD PTR [rsi+20], 0	; Does FFT use a scratch area?
+	jne	short lg2p		; Yes, Jump if this is a larger FFT
+	mov	rax, 128		; Small FFT blkdst gap
+	cmp	ecx, 8			; Is this an 8 level 2nd pass?
+	jle	short lg2pa		; Jump if this is a small FFT
+	mov	rax, 4096+128		; V22 blkdst gap
+lg2pa:	mov	pass2gapsize, rax
+	add	rax, pass2datasize
 	mov	pass1blkdst, rax
 	mov	edx, cache_line_multiplier ; clm
 	shl	rdx, 6			; clm*64
@@ -4324,8 +4321,9 @@ p4init:
 	jmp	short done3
 lg2p:	mov	eax, cache_line_multiplier ; Calc pass1blkdst
 	shl	rax, 7
-	add	rax, 65536
-	mov	pass1blkdst, rax	; 65536 + clm*128
+	mov	pass2gapsize, rax	; gapsize = clm*128
+	add	rax, pass2datasize
+	mov	pass1blkdst, rax
 	mov	normblkdst, 0		; Pad in clmblkdst is zero
 	mov	normblkdst8, 128	; Pad for clmblkdst8 is 128
 done3:

@@ -1804,7 +1804,7 @@ int internal_gwsetup (
 		if (pass2_size > 1) {
 			int	i, carry_table_size;
 			double	xmm_bigval;
-			((double **)GWPROCPTRS)[15] = tables;
+			((double **)GWPROCPTRS)[17] = tables;
 			carry_table_size = FFTLEN / (pass2_size / 2);
 			xmm_bigval = 3.0 * 131072.0 * 131072.0 * 131072.0;
 			for (i = 0; i < carry_table_size; i++)
@@ -1813,14 +1813,14 @@ int internal_gwsetup (
 
 /* Reserve room for the pass 1 scratch area. */
 
-		((double**)GWPROCPTRS)[16] = tables;
+		((double**)GWPROCPTRS)[18] = tables;
 		if (SCRATCH_SIZE)
 			tables = (double *) ((char *) tables + SCRATCH_SIZE);
 
 /* Build the group muliplier normalization table.  Keep this table */
 /* contiguous with other data used in pass 1. */
 
-		((double **)GWPROCPTRS)[12] = tables;
+		((double **)GWPROCPTRS)[14] = tables;
 		tables = build_norm_table (tables, pass2_size, 0);
 
 /* Build sin/cos tables used in pass 1.  If FFTLEN is a power of two, */
@@ -1870,10 +1870,12 @@ int internal_gwsetup (
 				tables = build_sin_cos_table (tables, pass2_size, 1, 1);
 			}
 
-//			if (pass1_size == pow_two_above_or_equal (pass1_size)) {
+//			if (pass2_size == pow_two_above_or_equal (pass2_size)) {
 				GWPROCPTRS[9] = GWPROCPTRS[8];
 				GWPROCPTRS[10] = GWPROCPTRS[8];
 				GWPROCPTRS[11] = GWPROCPTRS[8];
+				GWPROCPTRS[12] = GWPROCPTRS[8];
+				GWPROCPTRS[13] = GWPROCPTRS[8];
 //			} else {
 //				((double **)GWPROCPTRS)[9] = tables;
 //				tables = build_sin_cos_table (tables, pass2_size/4, c < 0 || ZERO_PADDED_FFT, 1);
@@ -1881,6 +1883,10 @@ int internal_gwsetup (
 //				tables = build_sin_cos_table (tables, pass2_size/16, c < 0 || ZERO_PADDED_FFT, 1);
 //				((double **)GWPROCPTRS)[11] = tables;
 //				tables = build_sin_cos_table (tables, pass2_size/64, c < 0 || ZERO_PADDED_FFT, 1);
+//				((double **)GWPROCPTRS)[12] = tables;
+//				tables = build_sin_cos_table (tables, pass2_size/256, c < 0 || ZERO_PADDED_FFT, 1);
+//				((double **)GWPROCPTRS)[13] = tables;
+//				tables = build_sin_cos_table (tables, pass2_size/1024, c < 0 || ZERO_PADDED_FFT, 1);
 //			}
 		}
 
@@ -1889,18 +1895,18 @@ int internal_gwsetup (
 /* zero-padded FFT. */
 
 		if (c > 0 && !ZERO_PADDED_FFT) {
-			((double **)GWPROCPTRS)[17] = tables;
+			((double **)GWPROCPTRS)[19] = tables;
 			tables = build_plus1_table (tables, pass2_size);
 		}
 
 /* Build the column normalization multiplier table. */
 
-		((double **)GWPROCPTRS)[13] = tables;
+		((double **)GWPROCPTRS)[15] = tables;
 		tables = build_norm_table (tables, pass2_size, 1);
 
 /* Build the table of big vs. little flags. */
 
-		((double **)GWPROCPTRS)[14] = tables;
+		((double **)GWPROCPTRS)[16] = tables;
 		tables = build_biglit_table (tables, pass2_size);
 	}
 
@@ -1914,21 +1920,21 @@ int internal_gwsetup (
 
 		if (pass2_size > 1) {
 			int	i, carry_table_size;
-			((double **)GWPROCPTRS)[15] = tables;
+			((double **)GWPROCPTRS)[17] = tables;
 			carry_table_size = FFTLEN / pass2_size;
 			for (i = 0; i < carry_table_size; i++) *tables++ = 0.0;
 		}
 
 /* Reserve room for the pass 1 scratch area. */
 
-		((double**)GWPROCPTRS)[16] = tables;
+		((double**)GWPROCPTRS)[18] = tables;
 		if (SCRATCH_SIZE)
 			tables = (double *) ((char *) tables + SCRATCH_SIZE);
 
 /* Build the group muliplier normalization table.  Keep this table */
 /* contiguous with other data used in pass 1. */
 
-		((double **)GWPROCPTRS)[12] = tables;
+		((double **)GWPROCPTRS)[14] = tables;
 		tables = build_x87_norm_table (tables, pass2_size, 0);
 
 /* Build sin/cos tables used in pass 1.  If FFTLEN is a power of two, */
@@ -1971,6 +1977,8 @@ int internal_gwsetup (
 				GWPROCPTRS[9] = GWPROCPTRS[7];
 				GWPROCPTRS[10] = GWPROCPTRS[7];
 				GWPROCPTRS[11] = GWPROCPTRS[7];
+				GWPROCPTRS[12] = GWPROCPTRS[7];
+				GWPROCPTRS[13] = GWPROCPTRS[7];
 			}
 		}
 
@@ -1979,18 +1987,18 @@ int internal_gwsetup (
 /* zero-padded FFT. */
 
 		if (c > 0 && !ZERO_PADDED_FFT) {
-			((double **)GWPROCPTRS)[17] = tables;
+			((double **)GWPROCPTRS)[19] = tables;
 			tables = build_x87_plus1_table (tables, pass2_size);
 		}
 
 /* Build the column normalization multiplier table. */
 
-		((double **)GWPROCPTRS)[13] = tables;
+		((double **)GWPROCPTRS)[15] = tables;
 		tables = build_x87_norm_table (tables, pass2_size, 1);
 
 /* Build the table of big vs. little flags. */
 
-		((double **)GWPROCPTRS)[14] = tables;
+		((double **)GWPROCPTRS)[16] = tables;
 		tables = build_x87_biglit_table (tables, pass2_size);
 	}
 
@@ -2682,14 +2690,15 @@ unsigned long addr_offset (unsigned long fftlen, unsigned long i)
 /*	2K	...							*/
 /*	...								*/
 
-		else if (PASS2_LEVELS == 8) {
-			sets = fftlen >> 10;
+		else {
+			sets = fftlen >> (PASS2_LEVELS + 2);
 			if (i >= (fftlen >> 1)) {
 				i6 = 1;
 				i -= (fftlen >> 1);
 			} else
 				i6 = 0;
-			i1 = i & 127; i >>= 7;
+			i1 = i & ((1 << (PASS2_LEVELS - 1)) - 1);
+			i >>= (PASS2_LEVELS - 1);
 			i2 = i & 1; i >>= 1;
 			i3 = 0;
 			for (pfa = sets; pfa > 8; pfa >>= 1);
@@ -2714,44 +2723,12 @@ unsigned long addr_offset (unsigned long fftlen, unsigned long i)
 				}
 			}
 			i3 += i % sets; i /= sets;
-			addr = (((((((i3 * 130) + i1) << 1) + i6) << 1) + i) << 1) + i2;
-			addr = addr * sizeof (double);
-		} else {
-			sets = fftlen >> 13;
-			if (i >= (fftlen >> 1)) {
-				i6 = 1;
-				i -= (fftlen >> 1);
-			} else
-				i6 = 0;
-			i1 = i & 1023; i >>= 10;
-			i2 = i & 1; i >>= 1;
-			i3 = 0;
-			for (pfa = sets; pfa > 8; pfa >>= 1);
-			if (pfa == 5) {
-				temp = sets / 5;
-				if (i < temp * 2) {
-					sets = temp;
-				} else {
-					i3 = temp; i -= temp * 2;
-					sets = temp * 4;
-				}
-			} else if (pfa == 7) {
-				temp = sets / 7;
-				if (i < temp * 2) {
-					sets = temp;
-				} else if (i < temp * 6) {
-					i3 = temp; i -= temp * 2;
-					sets = temp * 2;
-				} else {
-					i3 = temp * 3; i -= temp * 6;
-					sets = temp * 4;
-				}
-			}
-			i3 += i % sets; i /= sets;
-			if (SCRATCH_SIZE == 0)
-				addr = i3 * 1090;
+			if (PASS2_LEVELS == 8)
+				addr = i3 * (128 + 2);
+			else if (SCRATCH_SIZE == 0)
+				addr = i3 * ((1 << (PASS2_LEVELS - 1)) + 66);
 			else
-				addr = i3 * (1024 + PASS1_CACHE_LINES*2);
+				addr = i3 * ((1 << (PASS2_LEVELS - 1)) + PASS1_CACHE_LINES*2);
 			addr = ((((((addr + i1) << 1) + i6) << 1) + i) << 1) + i2;
 			addr = addr * sizeof (double);
 		}
@@ -3228,18 +3205,17 @@ void raw_gwsetaddin (
 			row = ADDIN_OFFSET & 31;
 			if (row == 8) ADDIN_OFFSET += 8;
 			if (row == 16) ADDIN_OFFSET -= 8;
-		} else if (PASS2_LEVELS == 8) {
-			row = (word & 127) / PASS1_CACHE_LINES;
-			ADDIN_ROW = 128 / PASS1_CACHE_LINES - row;
-			ADDIN_OFFSET -= row * PASS1_CACHE_LINES * 64;
 		}
 
 /* Factor in the blkdst value in xfft3.mac to compute the two pass */
 /* SSE2 addin_offset. */
 
 		else {
-			row = (word & 1023) / PASS1_CACHE_LINES;
-			ADDIN_ROW = (1024 / PASS1_CACHE_LINES - row) * 256;
+			unsigned long num_rows;
+
+			num_rows = (1 << (PASS2_LEVELS - 1));
+			row = (word & (num_rows - 1)) / PASS1_CACHE_LINES;
+			ADDIN_ROW = (num_rows / PASS1_CACHE_LINES - row) * 256;
 			ADDIN_OFFSET -= row * PASS1_CACHE_LINES * 64;
 
 /* This case is particularly nasty as we have to convert the FFT data offset */
@@ -3248,10 +3224,11 @@ void raw_gwsetaddin (
 /* and clmblkdst8. */
 
 			if (SCRATCH_SIZE) {
-				row = ADDIN_OFFSET /
-					(65536 + PASS1_CACHE_LINES * 128);
-				ADDIN_OFFSET -= row *
-					(65536 + PASS1_CACHE_LINES * 128);
+				unsigned long blkdst;
+
+				blkdst = addr_offset (FFTLEN, 1<<PASS2_LEVELS);
+				row = ADDIN_OFFSET / blkdst;
+				ADDIN_OFFSET -= row * blkdst;
 				ADDIN_OFFSET +=
 					row * (PASS1_CACHE_LINES * 64) +
 					(row >> 3) * 128;

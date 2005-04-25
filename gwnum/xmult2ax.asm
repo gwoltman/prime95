@@ -19,9 +19,6 @@ INCLUDE xnormal.mac
 
 _TEXT SEGMENT
 
-blkdst	EQU	(8192+128)
-blkrows	EQU	128
-
 gwx2procs PROC
 
 ;;
@@ -40,7 +37,7 @@ gwxaddq2:
 	mov	rdx, _SRC2ARG		; Address of second number
 	mov	rsi, _DESTARG		; Address of destination
 	mov	eax, addcount1		; Load loop counter
-uadd1:	mov	edi, blkrows		; Cache lines in a block
+uadd1:	mov	rdi, pass2datasize	; Cache lines in a block
 uaddlp:	movapd	xmm0, [rdx]		; Load second number
 	addpd	xmm0, [rcx]		; Add in first number
 	movapd	xmm1, [rdx+16]		; Load second number
@@ -56,11 +53,11 @@ uaddlp:	movapd	xmm0, [rdx]		; Load second number
 	lea	rcx, [rcx+64]		; Next source
 	lea	rdx, [rdx+64]		; Next source
 	lea	rsi, [rsi+64]		; Next dest
-	sub	edi, 1			; Test inner counter
+	sub	edi, 64			; Test inner counter
 	jnz	short uaddlp		; Loop if necessary
-	lea	rcx, [rcx-blkrows*64+blkdst] ; Next source
-	lea	rdx, [rdx-blkrows*64+blkdst] ; Next source
-	lea	rsi, [rsi-blkrows*64+blkdst] ; Next dest
+	add	rcx, pass2gapsize	; Next source
+	add	rdx, pass2gapsize	; Next source
+	add	rsi, pass2gapsize	; Next dest
 	sub	eax, 1			; Check loop counter
 	jnz	short uadd1		; Loop if necessary
 	pop	rdi			; Restore registers
@@ -102,10 +99,11 @@ asec:	mov	loopcount1, eax		; Save section counts
 ablk:	cmp	_RATIONAL_FFT, 0	; Test for irrational FFTs
 	je	iadd0   		; Yes, use two-to-phi multipliers
 
-	mov	loopcount3, blkrows	; Save inner loop count
+	mov	rax, pass2datasize
+	mov	loopcount3, eax		; Save inner loop count
 	sub	rax, rax		; Clear big/lit flag
 radd1:	xnorm_op_2d addpd, noexec	; Add and normalize 8 values
-	sub	loopcount3, 1		; Decrement inner loop counter
+	sub	loopcount3, 64		; Decrement inner loop counter
 	jnz	radd1 			; Loop til done
 	jmp	ablkdn			; Jump to block done code
 
@@ -124,12 +122,13 @@ iadd2:	xnorm_op_2d addpd, exec		; Add and normalize 8 values
 
 	;; Block done
 
-ablkdn:	lea	rsi, [rsi-blkrows*64]	; Restore start of block ptr
+ablkdn:	sub	rsi, pass2datasize	; Restore start of block ptr
 					; Add 4 carries to start of block
 	xnorm_op_2d_blk rsi, rbp, XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4
-	lea	rcx, [rcx-blkrows*64+blkdst]
-	lea	rdx, [rdx-blkrows*64+blkdst]
-	lea	rsi, [rsi+blkdst]
+	add	rsi, pass2datasize
+	add	rcx, pass2gapsize	; Next source
+	add	rdx, pass2gapsize	; Next source
+	add	rsi, pass2gapsize	; Next dest
 	lea	rbp, [rbp+128]		; Next set of group multipliers
 	add	rdi, normval3		; Adjust little/big flags ptr
 	sub	loopcount2, 1		; Decrement outer loop counter
@@ -178,7 +177,7 @@ gwxsubq2:
 	mov	rdx, _SRC2ARG		; Address of second number
 	mov	rsi, _DESTARG		; Address of destination
 	mov	eax, addcount1		; Load loop counter
-usub1:	mov	edi, blkrows		; Cache lines in a block
+usub1:	mov	rdi, pass2datasize	; Cache lines in a block
 usublp:	movapd	xmm0, [rdx]		; Load second number
 	subpd	xmm0, [rcx]		; Subtract first number
 	movapd	xmm1, [rdx+16]		; Load second number
@@ -194,11 +193,11 @@ usublp:	movapd	xmm0, [rdx]		; Load second number
 	lea	rcx, [rcx+64]		; Next source
 	lea	rdx, [rdx+64]		; Next source
 	lea	rsi, [rsi+64]		; Next dest
-	sub	edi, 1			; Test inner counter
+	sub	edi, 64			; Test inner counter
 	jnz	short usublp		; Loop if necessary
-	lea	rcx, [rcx-blkrows*64+blkdst] ; Next source
-	lea	rdx, [rdx-blkrows*64+blkdst] ; Next source
-	lea	rsi, [rsi-blkrows*64+blkdst] ; Next dest
+	add	rcx, pass2gapsize	; Next source
+	add	rdx, pass2gapsize	; Next source
+	add	rsi, pass2gapsize	; Next dest
 	sub	eax, 1			; Check loop counter
 	jnz	short usub1		; Loop if necessary
 	pop	rdi			; Restore registers
@@ -240,10 +239,11 @@ ssec:	mov	loopcount1, eax		; Save section counts
 sblk:	cmp	_RATIONAL_FFT, 0	; Test for irrational FFTs
 	je	isub0   		; Yes, use two-to-phi multipliers
 
-	mov	loopcount3, blkrows	; Save inner loop count
+	mov	rax, pass2datasize
+	mov	loopcount3, eax		; Save inner loop count
 	sub	rax, rax		; Clear big/lit flag
 rsub1:	xnorm_op_2d subpd, noexec	; Subtract and normalize 8 values
-	sub	loopcount3, 1		; Decrement inner loop counter
+	sub	loopcount3, 64		; Decrement inner loop counter
 	jnz	rsub1 			; Loop til done
 	jmp	sblkdn			; Jump to block done code
 
@@ -262,12 +262,13 @@ isub2:	xnorm_op_2d subpd, exec		; Subtract and normalize 8 values
 
 	;; Block done
 
-sblkdn:	lea	rsi, [rsi-blkrows*64]	; Restore start of block ptr
+sblkdn:	sub	rsi, pass2datasize	; Restore start of block ptr
 					; Add 4 carries to start of block
 	xnorm_op_2d_blk rsi, rbp, XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4
-	lea	rcx, [rcx-blkrows*64+blkdst]
-	lea	rdx, [rdx-blkrows*64+blkdst]
-	lea	rsi, [rsi+blkdst]
+	add	rsi, pass2datasize
+	add	rcx, pass2gapsize	; Next source
+	add	rdx, pass2gapsize	; Next source
+	add	rsi, pass2gapsize	; Next dest
 	lea	rbp, [rbp+128]		; Next set of group multipliers
 	add	rdi, normval3		; Adjust little/big flags ptr
 	sub	loopcount2, 1		; Decrement outer loop counter
@@ -315,7 +316,7 @@ gwxaddsubq2:
 	mov	rsi, _DESTARG		; Address of destination #1
 	mov	rbp, _DEST2ARG  	; Address of destination #2
 	mov	eax, addcount1		; Load loop counter
-uaddsub1:mov	edi, blkrows		; Cache lines in a block
+uaddsub1:mov	rdi, pass2datasize	; Cache lines in a block
 uaddsublp:
 	movapd	xmm0, [rcx]		; Load first number
 	movapd	xmm1, xmm0		; Dup first number
@@ -345,12 +346,12 @@ uaddsublp:
 	lea	rdx, [rdx+64]		; Next source
 	lea	rsi, [rsi+64]		; Next dest
 	lea	rbp, [rbp+64]		; Next dest
-	sub	edi, 1			; Test inner counter
+	sub	edi, 64			; Test inner counter
 	jnz	uaddsublp		; Loop if necessary
-	lea	rcx, [rcx-blkrows*64+blkdst] ; Next source
-	lea	rdx, [rdx-blkrows*64+blkdst] ; Next source
-	lea	rsi, [rsi-blkrows*64+blkdst] ; Next dest
-	lea	rbp, [rbp-blkrows*64+blkdst] ; Next dest
+	add	rcx, pass2gapsize	; Next source
+	add	rdx, pass2gapsize	; Next source
+	add	rsi, pass2gapsize	; Next dest
+	add	rbp, pass2gapsize	; Next dest
 	sub	eax, 1			; Check loop counter
 	jnz	uaddsub1		; Loop if necessary
 	pop	rbp			; Restore registers
@@ -399,10 +400,11 @@ assec:	mov	loopcount1, eax		; Save section counts
 asblk:	cmp	_RATIONAL_FFT, 0	; Test for irrational FFTs
 	je	ias0	   		; Yes, use two-to-phi multipliers
 
-	mov	loopcount3, blkrows	; Save inner loop count
+	mov	rax, pass2datasize
+	mov	loopcount3, eax		; Save inner loop count
 	sub	rax, rax		; Clear big/lit flag
 ras1:	xnorm_addsub_2d noexec		; Add & subtract and normalize 8 values
-	sub	loopcount3, 1		; Decrement inner loop counter
+	sub	loopcount3, 64		; Decrement inner loop counter
 	jnz	ras1 			; Loop til done
 	jmp	asblkdn			; Jump to block done code
 
@@ -422,17 +424,19 @@ ias2:	xnorm_addsub_2d exec		; Add & subtract and normalize 8 values
 
 	;; Block done
 
-asblkdn:lea	rsi, [rsi-blkrows*64]	; Restore start of block ptr
+asblkdn:sub	rsi, pass2datasize	; Restore start of block ptr
 					; Add 4 carries to start of block
 	xnorm_op_2d_blk rsi, rbx, XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4
-	lea	rbp, [rbp-blkrows*64]	; Restore start of block ptr
+	sub	rbp, pass2datasize	; Restore start of block ptr
 					; Add 4 carries to start of block
 	xnorm_op_2d_blk rbp, rbx, XMM_TMP5, XMM_TMP6, XMM_TMP7, XMM_TMP8
-	lea	rcx, [rcx-blkrows*64+blkdst]
-	lea	rdx, [rdx-blkrows*64+blkdst]
-	lea	rsi, [rsi+blkdst]	; Next destination ptr
-	lea	rbp, [rbp+blkdst]	; Next destination ptr
-	lea	rbx, [ebx+128]		; Next set of group multipliers
+	add	rsi, pass2datasize
+	add	rbp, pass2datasize
+	add	rcx, pass2gapsize	; Next source
+	add	rdx, pass2gapsize	; Next source
+	add	rsi, pass2gapsize	; Next dest
+	add	rbp, pass2gapsize	; Next dest
+	lea	rbx, [rbx+128]		; Next set of group multipliers
 	add	rdi, normval3		; Adjust little/big flags ptr
 	sub	loopcount2, 1		; Decrement outer loop counter
 	jnz	asblk 			; Loop til done
@@ -487,16 +491,16 @@ gwxcopyzero2 PROC
 	mov	rdi, _DESTARG		; Address of destination
 	sub	ecx, ecx		; Offset to compare to COPYZERO
 	mov	eax, addcount1		; Get number of blocks
-cz1:	mov	edx, blkrows		; Number of cache lines in one block
+cz1:	mov	rdx, pass2datasize	; Number of cache lines in one block
 cz2:	xcopyzero
 	lea	rsi, [rsi+64]		; Next source
-	lea	rdi, [edi+64]		; Next dest
+	lea	rdi, [rdi+64]		; Next dest
 	lea	rcx, [rcx+64]		; Next compare offset
-	sub	edx, 1			; Test loop counter
+	sub	rdx, 64			; Test loop counter
 	jnz	cz2			; Loop if necessary
-	lea	rsi, [rsi-blkrows*64+blkdst]
-	lea	rdi, [edi-blkrows*64+blkdst]
-	lea	rcx, [rcx-blkrows*64+blkdst]
+	add	rsi, pass2gapsize
+	add	rdi, pass2gapsize
+	add	rcx, pass2gapsize
 	sub	eax, 1			; Test loop counter
 	jnz	cz1			; Loop if necessary
 	pop	rdi			; Restore registers

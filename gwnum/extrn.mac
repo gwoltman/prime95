@@ -126,6 +126,8 @@ EXTRN	sincos7:EXTPTR
 EXTRN	sincos8:EXTPTR
 EXTRN	sincos9:EXTPTR
 EXTRN	sincos10:EXTPTR
+EXTRN	sincos11:EXTPTR
+EXTRN	sincos12:EXTPTR
 EXTRN	norm_grp_mults:EXTPTR
 EXTRN	norm_col_mults:EXTPTR
 EXTRN	norm_biglit_array:EXTPTR
@@ -140,6 +142,8 @@ EXTRN	cache_line_multiplier:DWORD
 EXTRN	pass1blkdst:EXTPTR
 EXTRN	normblkdst:EXTPTR
 EXTRN	normblkdst8:EXTPTR
+EXTRN	pass2datasize:EXTPTR
+EXTRN	pass2gapsize:EXTPTR
 EXTRN	loopcount1:DWORD
 EXTRN	loopcount2:DWORD
 EXTRN	loopcount3:DWORD

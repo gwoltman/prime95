@@ -29,6 +29,17 @@ INCLUDE xfft2.mac
 INCLUDE	xlucas.mac
 INCLUDE xmult.mac
 INCLUDE xnormal.mac
+INCLUDE xpass1.mac
+
+IFNDEF AMD
+PUBLIC	xgw_finish_fft
+PUBLIC	xgw_carries
+PUBLIC	xgw_finish_mult
+ELSE
+EXTRN	xgw_finish_fft:PROC
+EXTRN	xgw_carries:PROC
+EXTRN	xgw_finish_mult:PROC
+ENDIF
 
 EXTRNP	xpass2_8_levels
 EXTRNP	xpass2_8_levels_p
@@ -38,7 +49,8 @@ _TEXT SEGMENT
 ;; Distance between two pass 2 data blocks.  Pass 2 does 8 FFT levels
 ;; 2 sets of data (2 * 2^8 complex values = 2^10 doubles = 8KB).
 
-blkdst	EQU	(8192+128)
+PREFETCHING = 1
+blkdst = (8192+128)
 
 ;; All the FFT routines for each FFT length
 
@@ -69,9 +81,11 @@ PROCP	_xmm_gw_ffts2
 ;	xfft	112K
 ;	xfft	128K
 
+IFNDEF AMD
+
 ; Common code to finish the FFT by restoring state and returning.
 
-gw_finish_fft_2:
+xgw_finish_fft:
 	mov	DWORD PTR [rsi-28], 3	; Set has-been-FFTed flags
 	xfft_1_ret
 
@@ -81,11 +95,11 @@ gw_finish_fft_2:
 ; low carry.  Handle both the with and without two-to-phi array cases.
 ; Add these carries back into the FFT data.
 
-gw_carries_2:
+xgw_carries:
 	cmp	_ZERO_PADDED_FFT, 0	; Special case the zero padded FFT case
-	jne	gw_carries_2_zpad
+	jne	xgw_carries_zpad
 	mov	rsi, carries		; Addr of the carries
-	mov	ebx, addcount1		; Compute end of carries addr
+	mov	ebx, addcount1		; Compute addr after carries
 	shl	rbx, 6
 	add	rbx, rsi
 	xnorm012_2d_part1
@@ -110,7 +124,7 @@ ilp1:	mov	rbx, norm_col_mults	; Addr of the column multipliers
 	xnorm012_2d			; Split carries for one cache line
 	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
 	lea	rsi, [rsi+64]		; Next carries pointer
-	lea	rbp, [rbp+blkdst]	; Next FFT data pointer
+	add	rbp, pass1blkdst	; Next FFT data pointer
 	cmp	_RATIONAL_FFT, 0	; Don't bump these two pointers
 	jne	short iskip		; for rational FFTs
 	lea	rdx, [rdx+128]		; Next group multiplier
@@ -121,9 +135,9 @@ iskip:	sub	loopcount2, 1		; Test loop counter
 spldn:	mov	zero_fft, 0		; Clear zero-high-words-fft flag
 	ret
 
-gw_carries_2_zpad:
+xgw_carries_zpad:
 	mov	rsi, carries		; Addr of the carries
-	mov	ebx, addcount1		; Compute end of carries addr
+	mov	ebx, addcount1		; Compute addr after carries
 	shl	rbx, 6
 	add	rbx, rsi
 	mov	rsi, _DESTARG		; Addr of the FFT data
@@ -159,7 +173,7 @@ zlp1:	mov	rbx, norm_col_mults	; Addr of the column multipliers
 c2c:	xnorm012_2d_zpad noexec		; Split carries for one cache line
 c2d:	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
 	lea	rsi, [rsi+64]		; Next carries pointer
-	lea	rbp, [rbp+blkdst]	; Next FFT data pointer
+	add	rbp, pass1blkdst	; Next FFT data pointer
 	cmp	_RATIONAL_FFT, 0	; Don't bump these two pointers
 	jne	short zskip		; for rational FFTs
 	lea	rdx, [rdx+128]		; Next group multiplier
@@ -172,11 +186,11 @@ zpldn:	mov	const_fft, 0		; Clear mul-by-const-fft flag
 
 ; Finish the multiply
 
-gw_finish_mult_2:
+xgw_finish_mult:
 
 ; Set FFT-started flag
 
-cmnend:	mov	rsi, _DESTARG		; Addr of FFT data
+	mov	rsi, _DESTARG		; Addr of FFT data
 	mov	eax, _POSTFFT		; Set FFT started flag
 	mov	DWORD PTR [rsi-28], eax
 
@@ -197,6 +211,7 @@ exit:	pop	rsi
 	pop	rbx
 	pop	rbp
 	ret
+ENDIF
 
 ENDPP	_xmm_gw_ffts2
 

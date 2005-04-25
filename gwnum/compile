@@ -21,11 +21,11 @@ all:	gwnum.lib gwnumd.lib
 
 # Make libraries out of the object files
 
-gwnum.lib: release\cpuid.obj release\gwnum.obj release\gwutil.obj release\gwdbldbl.obj release\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2ap.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2p.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3p.obj xmult3a.obj xmult3ap.obj xmult3ax.obj timeit.obj timeitp.obj
+gwnum.lib: release\cpuid.obj release\gwnum.obj release\gwutil.obj release\gwdbldbl.obj release\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2ap.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2p.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3p.obj xmult3a.obj xmult3ap.obj xmult4.obj xmult4p.obj timeit.obj timeitp.obj
     del gwnum.lib
     lib /OUT:gwnum.lib release\*.obj *.obj
 
-gwnumd.lib: debug\cpuid.obj debug\gwnum.obj debug\gwutil.obj debug\gwdbldbl.obj debug\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2ap.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2p.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3p.obj xmult3a.obj xmult3ap.obj xmult3ax.obj timeit.obj timeitp.obj
+gwnumd.lib: debug\cpuid.obj debug\gwnum.obj debug\gwutil.obj debug\gwdbldbl.obj debug\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2ap.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2p.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3p.obj xmult3a.obj xmult3ap.obj xmult4.obj xmult4p.obj timeit.obj timeitp.obj
     del gwnumd.lib
     lib /OUT:gwnumd.lib debug\*.obj *.obj
 
@@ -146,8 +146,11 @@ xmult3a.obj: xmult3a.asm xmult.mac xpass2.mac xlucas.mac
 xmult3ap.obj: xmult3a.asm xmult.mac xpass2.mac xlucas.mac
     $(masm) /DAMD /Foxmult3ap.obj xmult3a.asm
 
-xmult3ax.obj: xmult3ax.asm xmult.mac xnormal.mac
-    $(masm) xmult3ax.asm
+xmult4.obj: xmult4.asm xmult.mac xlucas.mac xfft4.mac xnormal.mac
+    $(masm) xmult4.asm
+
+xmult4p.obj: xmult4.asm xmult.mac xlucas.mac xfft4.mac xnormal.mac
+    $(masm) /DAMD /Foxmult4p.obj xmult4.asm
 
 timeit.obj: timeit.asm mult.mac lucas.mac xmult.mac xlucas.mac
     $(masm) timeit.asm
