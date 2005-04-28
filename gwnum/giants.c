@@ -1508,6 +1508,8 @@ int egcdhlp_wrapper (
 	u->sign = v->sign;
 	while (u->sign > 0 && u->n[u->sign-1] == 0) u->sign--;
 	while (v->sign > 0 && v->n[v->sign-1] == 0) v->sign--;
+	ASSERTG (u->sign > v->sign ||
+		 (u->sign == v->sign && u->n[u->sign-1] >= v->n[v->sign-1]));
 	return (TRUE);
 }
 

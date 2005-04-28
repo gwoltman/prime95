@@ -512,6 +512,48 @@ dloop:	mov	rax, r14		; U
 	xchg	r14, r15		; newU = V, newV = U-Q*V
 
 	xor	r12, 1			; Flip ODD
+
+;	Compute (U-A)/(V+C), the smaller quotient
+;	Compute (U+B)/(V-D), the larger quotient, break if not equal
+;	Set newB = D, newD = B+Q*D, break if newD won't fit in 32 bits
+;	Set newA = C, newC = A+Q*C
+;	Set newU = V, newV = U-Q*V
+
+	mov	rax, r14		; U
+	sub	rax, r8			; U-A
+	mov	rcx, r15		; V
+	add	rcx, r10		; V+C
+	xor	rdx, rdx
+	idiv	rcx			; Q = (U-A)/(V+C)
+
+	mov	rcx, r15		; V
+	sub	rcx, r11		; V-D
+	mov	rbp, rax		; Copy Q
+	imul	rbp, rcx		; Q*(V-D)
+	add	rbp, rcx		; (Q+1)*(V-D)
+	lea	rbx, [r14+r9]		; U+B
+	cmp	rbx, rbp		; Compare U+B to (Q+1)*(V-D)
+	jae	lpdone			; Break if above or equal
+
+	mov	rbx, r11		; D
+	imul	rbx, rax		; Q*D
+	add	rbx, r9			; B+Q*D (newD)
+	cmp	rbx, rsi		; Will new D be too large?
+	jae	lpdone			; Break if newD is 32-bits or more
+	mov	r9, r11			; newB = D
+	mov	r11, rbx		; newD = B+Q*D
+
+	mov	rcx, r10		; C
+	imul	rcx, rax		; Q*C
+	add	rcx, r8			; A+Q*C (newC)
+	mov	r8, r10			; newA = C
+	mov	r10, rcx		; newC = A+Q*C
+
+	imul	rax, r15		; Q*V
+	sub	r14, rax		; U-Q*V (newV)
+	xchg	r14, r15		; newU = V, newV = U-Q*V
+
+	xor	r12, 1			; Flip ODD
 	jmp	dloop
 
 ; The single precision case:
