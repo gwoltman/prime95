@@ -8,6 +8,46 @@
 
 ; *************** macros to expand 4 types of fft macros ******************
 
+xsave_registers MACRO
+	push	rbp
+	push	rbx
+	push	rdi
+	push	rsi
+	IFDEF X86_64
+	sub	rsp, 80
+	_movsd	[rsp+72], xmm6
+	_movsd	[rsp+64], xmm7
+	_movsd	[rsp+56], xmm8
+	_movsd	[rsp+48], xmm9
+	_movsd	[rsp+40], xmm10
+	_movsd	[rsp+32], xmm11
+	_movsd	[rsp+24], xmm12
+	_movsd	[rsp+16], xmm13
+	_movsd	[rsp+8], xmm14
+	_movsd	[rsp], xmm15
+	ENDIF
+	ENDM
+
+xrestore_registers MACRO
+	IFDEF X86_64
+	_movsd	xmm15, [rsp]
+	_movsd	xmm14, [rsp+8]
+	_movsd	xmm13, [rsp+16]
+	_movsd	xmm12, [rsp+24]
+	_movsd	xmm11, [rsp+32]
+	_movsd	xmm10, [rsp+40]
+	_movsd	xmm9, [rsp+48]
+	_movsd	xmm8, [rsp+56]
+	_movsd	xmm7, [rsp+64]
+	_movsd	xmm6, [rsp+72]
+	add	rsp, 80
+	ENDIF
+	pop	rsi			;; Pop values and return
+	pop	rdi
+	pop	rbx
+	pop	rbp
+	ENDM
+
 ;;
 ;; Generate the 4 types of FFTs for the given run length.
 ;; The 4 types are:
@@ -40,10 +80,7 @@ xfftclm	MACRO fft_length, clm
 type1	MACRO fft_length, suffix, clm
 PUBLICP	xfft&fft_length&clm&suffix
 LABELP	xfft&fft_length&clm&suffix
-	push	rbp
-	push	rbx
-	push	rdi
-	push	rsi
+	xsave_registers
 	mov	rsi, _DESTARG
 	mov	rbx, _SRCARG
 	sub	rbx, rsi
@@ -63,10 +100,7 @@ LABELP	xfft&fft_length&clm&suffix
 type2	MACRO fft_length, suffix, clm
 PUBLICP	xfft&fft_length&clm&suffix
 LABELP	xfft&fft_length&clm&suffix
-	push	rbp
-	push	rbx
-	push	rdi
-	push	rsi
+	xsave_registers
 	mov	rsi, _DESTARG
 	sub	rbx, rbx
 	IF EXPANDING GE 2
@@ -91,10 +125,7 @@ LABELP	xfft2a&fft_length&clm
 type3	MACRO fft_length, suffix, clm
 PUBLICP	xfft&fft_length&clm&suffix
 LABELP	xfft&fft_length&clm&suffix
-	push	rbp
-	push	rbx
-	push	rdi
-	push	rsi
+	xsave_registers
 	mov	rsi, _DESTARG
 	sub	rbx, rbx
 	IF EXPANDING GE 2
@@ -114,10 +145,7 @@ LABELP	xfft&fft_length&clm&suffix
 type4	MACRO fft_length, suffix, clm
 PUBLICP	xfft&fft_length&clm&suffix
 LABELP	xfft&fft_length&clm&suffix
-	push	rbp
-	push	rbx
-	push	rdi
-	push	rsi
+	xsave_registers
 	mov	rsi, _DESTARG
 	mov	rbx, _SRC2ARG
 	sub	rbx, rsi
@@ -132,10 +160,7 @@ LABELP	xfft&fft_length&clm&suffix
 ; Return from a type 1 FFT - return to caller
 
 xfft_1_ret MACRO
-	pop	rsi			;; Pop values and return
-	pop	rdi
-	pop	rbx
-	pop	rbp
+	xrestore_registers
 	ret
 	ENDM
 

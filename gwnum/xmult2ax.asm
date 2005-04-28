@@ -74,6 +74,11 @@ gwxadd2:
 	push	rdi			; Save registers
 	push	rbp			; Save registers
 	push	rbx			; Save registers
+	IFDEF X86_64
+	sub	rsp, 16
+	_movsd	[rsp+8], xmm6
+	_movsd	[rsp], xmm7
+	ENDIF
 	mov	rcx, _SRCARG		; Address of first number
 	mov	rdx, _SRC2ARG		; Address of second number
 	mov	rsi, _DESTARG		; Address of destination
@@ -153,6 +158,11 @@ ablkdn:	sub	rsi, pass2datasize	; Restore start of block ptr
 	movapd	xmm6, XMM_TMP1		; Load non-wraparound carry
 	xnorm_op_2d_fft			; Add 2 carries to start of fft
 
+	IFDEF X86_64
+	_movsd	xmm7, [rsp]
+	_movsd	xmm6, [rsp+8]
+	add	rsp, 16
+	ENDIF
 	pop	rbx			; Restore registers
 	pop	rbp			; Restore registers
 	pop	rdi			; Restore registers
@@ -214,6 +224,11 @@ gwxsub2:
 	push	rdi			; Save registers
 	push	rbp			; Save registers
 	push	rbx			; Save registers
+	IFDEF X86_64
+	sub	rsp, 16
+	_movsd	[rsp+8], xmm6
+	_movsd	[rsp], xmm7
+	ENDIF
 	mov	rcx, _SRCARG		; Address of first number
 	mov	rdx, _SRC2ARG		; Address of second number
 	mov	rsi, _DESTARG		; Address of destination
@@ -293,6 +308,11 @@ sblkdn:	sub	rsi, pass2datasize	; Restore start of block ptr
 	movapd	xmm6, XMM_TMP1		; Load non-wraparound carry
 	xnorm_op_2d_fft			; Add 2 carries to start of fft
 
+	IFDEF X86_64
+	_movsd	xmm7, [rsp]
+	_movsd	xmm6, [rsp+8]
+	add	rsp, 16
+	ENDIF
 	pop	rbx			; Restore registers
 	pop	rbp			; Restore registers
 	pop	rdi			; Restore registers
@@ -311,6 +331,11 @@ gwxaddsubq2:
 	push	rsi			; Save registers
 	push	rdi			; Save registers
 	push	rbp			; Save registers
+	IFDEF X86_64
+	sub	rsp, 16
+	_movsd	[rsp+8], xmm6
+	_movsd	[rsp], xmm7
+	ENDIF
 	mov	rcx, _SRCARG		; Address of first number
 	mov	rdx, _SRC2ARG		; Address of second number
 	mov	rsi, _DESTARG		; Address of destination #1
@@ -354,6 +379,11 @@ uaddsublp:
 	add	rbp, pass2gapsize	; Next dest
 	sub	eax, 1			; Check loop counter
 	jnz	uaddsub1		; Loop if necessary
+	IFDEF X86_64
+	_movsd	xmm7, [rsp]
+	_movsd	xmm6, [rsp+8]
+	add	rsp, 16
+	ENDIF
 	pop	rbp			; Restore registers
 	pop	rdi			; Restore registers
 	pop	rsi			; Restore registers
@@ -369,6 +399,11 @@ gwxaddsub2:
 	push	rdi			; Save registers
 	push	rbp			; Save registers
 	push	rbx			; Save registers
+	IFDEF X86_64
+	sub	rsp, 16
+	_movsd	[rsp+8], xmm6
+	_movsd	[rsp], xmm7
+	ENDIF
 	mov	rcx, _SRCARG		; Address of first number
 	mov	rdx, _SRC2ARG		; Address of second number
 	mov	rsi, _DESTARG		; Address of destination
@@ -471,6 +506,11 @@ asblkdn:sub	rsi, pass2datasize	; Restore start of block ptr
 	movapd	xmm6, XMM_TMP5		; Load non-wraparound carry
 	xnorm_op_2d_fft			; Add 2 carries to start of fft
 
+	IFDEF X86_64
+	_movsd	xmm7, [rsp]
+	_movsd	xmm6, [rsp+8]
+	add	rsp, 16
+	ENDIF
 	pop	rbx			; Restore registers
 	pop	rbp			; Restore registers
 	pop	rdi			; Restore registers

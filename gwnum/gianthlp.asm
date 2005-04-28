@@ -408,6 +408,8 @@ egdone1:fstcw	FPCNTRL
 ELSE
 	push	rbp
 	push	rbx
+	push	rdi
+	push	rsi
 	push	r12
 	push	r14
 	push	r15
@@ -612,6 +614,8 @@ egdone:	mov	rax, 1
 egdone1:pop	r15
 	pop	r14
 	pop	r12
+	pop	rsi
+	pop	rdi
 	pop	rbx
 	pop	rbp
 ENDIF

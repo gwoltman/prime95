@@ -66,6 +66,11 @@ gwxadd1:
 	push	rdi			; Save registers
 	push	rbp			; Save registers
 	push	rbx			; Save registers
+	IFDEF X86_64
+	sub	rsp, 16
+	_movsd	[rsp+8], xmm6
+	_movsd	[rsp], xmm7
+	ENDIF
 	mov	rcx, _SRCARG		; Address of first number
 	mov	rdx, _SRC2ARG		; Address of second number
 	mov	rsi, _DESTARG		; Address of destination
@@ -99,6 +104,11 @@ nadddn:	pop	rbx			; Restore multipliers pointer
 	mov	rsi, _DESTARG		; Address of result
 	mov	rbx, norm_col_mults	; Address of the multipliers
 	xnorm_op_1d_cleanup
+	IFDEF X86_64
+	_movsd	xmm7, [rsp]
+	_movsd	xmm6, [rsp+8]
+	add	rsp, 16
+	ENDIF
 	pop	rbx			; Restore registers
 	pop	rbp			; Restore registers
 	pop	rdi			; Restore registers
@@ -150,6 +160,11 @@ gwxsub1:
 	push	rdi			; Save registers
 	push	rbp			; Save registers
 	push	rbx			; Save registers
+	IFDEF X86_64
+	sub	rsp, 16
+	_movsd	[rsp+8], xmm6
+	_movsd	[rsp], xmm7
+	ENDIF
 	mov	rcx, _SRCARG		; Address of first number
 	mov	rdx, _SRC2ARG		; Address of second number
 	mov	rsi, _DESTARG		; Address of destination
@@ -183,6 +198,11 @@ nsubdn:	pop	rbx			; Restore multipliers pointer
 	mov	rsi, _DESTARG		; Address of result
 	mov	rbx, norm_col_mults	; Address of the multipliers
 	xnorm_op_1d_cleanup
+	IFDEF X86_64
+	_movsd	xmm7, [rsp]
+	_movsd	xmm6, [rsp+8]
+	add	rsp, 16
+	ENDIF
 	pop	rbx
 	pop	rbp
 	pop	rdi
@@ -200,6 +220,11 @@ gwxaddsubf1:
 gwxaddsubq1:
 	push	rsi			; Save registers
 	push	rbp			; Save registers
+	IFDEF X86_64
+	sub	rsp, 16
+	_movsd	[rsp+8], xmm6
+	_movsd	[rsp], xmm7
+	ENDIF
 	mov	rcx, _SRCARG		; Address of first number
 	mov	rdx, _SRC2ARG		; Address of second number
 	mov	rsi, _DESTARG		; Address of destination #1
@@ -236,6 +261,11 @@ uaddsublp:
 	lea	rbp, [rbp+64]		; Next dest
 	sub	eax, 1			; Check loop counter
 	jnz	uaddsublp		; Loop if necessary
+	IFDEF X86_64
+	_movsd	xmm7, [rsp]
+	_movsd	xmm6, [rsp+8]
+	add	rsp, 16
+	ENDIF
 	pop	rbp			; Restore registers
 	pop	rsi			; Restore registers
 	ret
@@ -251,6 +281,11 @@ gwxaddsub1:
 	push	rdi			; Save registers
 	push	rbp			; Save registers
 	push	rbx			; Save registers
+	IFDEF X86_64
+	sub	rsp, 16
+	_movsd	[rsp+8], xmm6
+	_movsd	[rsp], xmm7
+	ENDIF
 	mov	rcx, _SRCARG		; Address of first number
 	mov	rdx, _SRC2ARG		; Address of second number
 	mov	rsi, _DESTARG		; Address of destination
@@ -293,6 +328,11 @@ naddsubdn:
 	mov	rbp, _DEST2ARG		; Address of result #2
 	mov	rbx, norm_col_mults	; Address of the multipliers
 	xnorm_addsub_1d_cleanup
+	IFDEF X86_64
+	_movsd	xmm7, [rsp]
+	_movsd	xmm6, [rsp+8]
+	add	rsp, 16
+	ENDIF
 	pop	rbx			; Restore registers
 	pop	rbp			; Restore registers
 	pop	rdi			; Restore registers
@@ -475,10 +515,7 @@ cmnend:	movapd	XMM_TMP1, xmm7		; Add together the two partial sumouts
 
 ; Return
 
-exit:	pop	rsi
-	pop	rdi
-	pop	rbx
-	pop	rbp
+exit:	xrestore_registers
 	ret
 _xsimpnorm ENDP
 

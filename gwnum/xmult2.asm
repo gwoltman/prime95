@@ -206,10 +206,7 @@ xgw_finish_mult:
 
 ; Return
 
-exit:	pop	rsi
-	pop	rdi
-	pop	rbx
-	pop	rbp
+exit:	xrestore_registers
 	ret
 ENDIF
 
