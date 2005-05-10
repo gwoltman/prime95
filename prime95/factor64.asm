@@ -928,6 +928,8 @@ _TEXT	SEGMENT
 
 	PUBLIC	_setupf
 _setupf	PROC
+	push	rdi
+	push	rsi
 	push	rbp
 	push	rbx
 
@@ -1055,6 +1057,8 @@ ilp6:	sub	rdx, rcx		; Compute bit# mod smallp
 
 	pop	rbx
 	pop	rbp
+	pop	rsi
+	pop	rdi
 	ret
 _setupf	ENDP
 
@@ -1143,6 +1147,8 @@ win32:	mov	rax, 1
 
 	PUBLIC	_factor64
 _factor64 PROC
+	push	rdi
+	push	rsi
 	push	rbp
 	push	rbx
 	push	r12
@@ -3876,6 +3882,8 @@ done:	pop	r15
 	pop	r12
 	pop	rbx
 	pop	rbp
+	pop	rsi
+	pop	rdi
 	ret
 
 _factor64 ENDP
