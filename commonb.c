@@ -3565,8 +3565,13 @@ void primeBench (void)
 
 	getCpuDescription (buf, 1);
 	writeResults (buf);
-	sprintf (buf, "Prime95 version %s, RdtscTiming=%d\n",
+#ifdef X86_64
+	sprintf (buf, "Prime95 64-bit version %s, RdtscTiming=%d\n",
 		 VERSION, RDTSC_TIMING);
+#else
+	sprintf (buf, "Prime95 32-bit version %s, RdtscTiming=%d\n",
+		 VERSION, RDTSC_TIMING);
+#endif
 	writeResults (buf);
 
 /* Loop over all FFT lengths */
