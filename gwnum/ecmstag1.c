@@ -28,7 +28,7 @@
  *
  *	ecm.c
  *
- *	ECM and P-1 factoring program
+ *	ECM stage 1 factoring program
  *
  *	Original author:  Richard Crandall - www.perfsci.com
  *	Adapted to Mersenne numbers and optimized by George Woltman
@@ -713,46 +713,6 @@ int testFactor (
 {
 	modg (f, N);
 	return (isZero (N));
-}
-
-/* Do a GCD of the input value and N to see if a factor was found. */
-/* The GCD is returned in FAC iff a factor is found. */
-/* Returns TRUE if GCD completed, FALSE if it was interrupted */
-
-int gcd (
-	gwnum	gg)
-{
-	giant	v, save;
-	int	retval;
-
-/* Convert input number to binary */
-
-	v = popg ((PARG >> 5) + 10);
-	save = popg ((PARG >> 5) + 10);
-	gwtogiant (gg, v);
-	gtog (v, save);
-
-/* Do the GCD and let the gcdg code use gwnum gg's memory. */
-
-	gwfree_temporarily (gg);
-	retval = gcdgi (N, v);
-	gwrealloc_temporarily (gg);
-
-/* Restore the input argument */
-
-	gianttogw (save, gg);
-
-/* If a factor was found, save it in FAC */
-
-	if (retval && ! isone (v) && gcompg (N, v)) {
-		FAC = newgiant ((bitlen (v) >> 4) + 1);
-		gtog (v, FAC);
-	}
-
-/* Cleanup and return */
-
-	pushg (2);
-	return (retval);
 }
 
 /* Computes the modular inverse of a number */
