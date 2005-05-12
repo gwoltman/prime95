@@ -41,9 +41,9 @@ unsigned long CPUID_EDX = 0;
 
 /* Internal routines to see if CPU-specific instructions (RDTSC, CMOV */
 /* SSE, SSE2) are supported.  CPUID could report them as supported yet */
-/* the OS might not support them. */
+/* the OS might not support them.   Use signals in non-MSVC compiles. */
 
-#if defined (__linux__) || defined (__FreeBSD__) || defined (__EMX__)
+#ifndef _MSC_VER
 
 #include <setjmp.h>
 #include <signal.h>
