@@ -146,7 +146,7 @@ xfft32 MACRO type
 	IF	type EQ 1
 x32_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 b1b:	s2cl_eight_reals_first_fft rsi, 64, 2*64
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -239,7 +239,7 @@ xfft32p MACRO type
 
 	IF	type EQ 1
 x32p_fft:
-	sub	eax, eax
+	sub	rax, rax
 	mov	rdi, plus1_premults	;; Address of premultiplier table
 b1b:	s2cl_four_complex_first_fft rsi, 64, 2*64
 	lea	rdi, [rdi+128]		;; Next premultiplier pointer
@@ -338,7 +338,7 @@ xfft48 MACRO type
 	IF	type EQ 1
 x48_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xsix_reals_fft_preload
 b1b:	s3cl_six_reals_first_fft rsi, 64, 2*64
 	add	al, 256/2		;; Test loop counter
@@ -494,7 +494,7 @@ xfft48p MACRO type
 ;;	do 2 macros each processing 24 data values
 
 	IF	type EQ 1
-x48p_fft:sub	eax, eax
+x48p_fft:sub	rax, rax
 	mov	rdi, plus1_premults	;; Address of premultiplier table
 b1b:	s3cl_three_complex_first_fft rsi, 64, 2*64
 	lea	rdi, [rdi+192]		;; Next premultiplier pointer
@@ -643,7 +643,7 @@ xfft64 MACRO type
 	IF	type EQ 1
 x64_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 b1b:	s2cl_eight_reals_first_fft rsi, 64, 4*64
 	add	al, 256/4		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -808,7 +808,7 @@ xfft64p MACRO type
 
 	IF	type EQ 1
 x64p_fft:
-	sub	eax, eax
+	sub	rax, rax
 	mov	rdi, plus1_premults	;; Address of premultiplier table
 b1b:	s2cl_four_complex_first_fft rsi, 64, 4*64
 	lea	rdi, [rdi+128]		;; Next premultiplier pointer
@@ -971,7 +971,7 @@ xfft80 MACRO type
 	IF	type EQ 1
 x80_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	s5cl_five_reals_first_fft rsi, 64, 2*64
 	add	al, 256/2		;; Test loop counter
@@ -1106,7 +1106,7 @@ xfft96 MACRO type
 	IF	type EQ 1
 x96_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xsix_reals_fft_preload
 b1b:	s3cl_six_reals_first_fft rsi, 64, 4*64
 	add	al, 256/4		;; Test loop counter
@@ -1257,7 +1257,7 @@ xfft96p MACRO type
 ;;	do 4 macros each processing 24 data values
 
 	IF	type EQ 1
-x96p_fft:sub	eax, eax
+x96p_fft:sub	rax, rax
 	mov	rdi, plus1_premults	;; Address of premultiplier table
 b1b:	s3cl_three_complex_first_fft rsi, 64, 4*64
 	lea	rdi, [rdi+192]		;; Next premultiplier pointer
@@ -1407,7 +1407,7 @@ xfft112 MACRO type
 	IF	type EQ 1
 x112_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xseven_reals_fft_preload
 b1b:	s7cl_seven_reals_first_fft rsi, 64, 2*64
 	add	al, 256/2		;; Test loop counter
@@ -1547,7 +1547,7 @@ xfft128 MACRO type
 	IF	type EQ 1
 x128_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 b1b:	s2cl_eight_reals_first_fft rsi, 64, 8*64
 	add	al, 256/8		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -1730,7 +1730,7 @@ xfft128p MACRO type
 
 	IF	type EQ 1
 x128p_fft:
-	sub	eax, eax
+	sub	rax, rax
 	mov	rdi, plus1_premults	;; Address of premultiplier table
 b1b:	s2cl_four_complex_first_fft rsi, 64, 8*64
 	lea	rdi, [rdi+128]		;; Next premultiplier pointer
@@ -1895,7 +1895,7 @@ xfft160 MACRO type
 	IF	type EQ 1
 x160_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	s5cl_five_reals_first_fft rsi, 64, 4*64
 	add	al, 256/4		;; Test loop counter
@@ -2022,7 +2022,7 @@ xfft192 MACRO type
 	IF	type EQ 1
 x192_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xsix_reals_fft_preload
 b1b:	s3cl_six_reals_first_fft rsi, 64, 8*64
 	add	al, 256/8		;; Test loop counter
@@ -2180,7 +2180,7 @@ xfft192p MACRO type
 	IF	type EQ 1
 x192p_fft:
 	mov	rdi, plus1_premults	;; Address of premultiplier table
-	sub	eax, eax
+	sub	rax, rax
 b1b:	s3cl_three_complex_first_fft rsi, 64, 8*64
 	lea	rdi, [rdi+192]		;; Next premultiplier pointer
 	add	al, 256/8		;; Test loop counter
@@ -2336,7 +2336,7 @@ xfft224 MACRO type
 	IF	type EQ 1
 x224_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xseven_reals_fft_preload
 b1b:	s7cl_seven_reals_first_fft rsi, 64, 4*64
 	add	al, 256/4		;; Test loop counter
@@ -2483,7 +2483,7 @@ xfft256 MACRO type
 	IF	type EQ 1
 x256_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 b1b:	s2cl_eight_reals_first_fft rsi, 64, 16*64
 	add	al, 256/16		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -2751,7 +2751,7 @@ xfft256p MACRO type
 
 	IF	type EQ 1
 x256p_fft:
-	sub	eax, eax
+	sub	rax, rax
 	mov	rdi, plus1_premults	;; Address of premultiplier table
 b1b:	s2cl_four_complex_first_fft rsi, 64, 16*64
 	lea	rdi, [rdi+128]		;; Next premultiplier pointer
@@ -2962,7 +2962,7 @@ xfft320 MACRO type
 	IF	type EQ 1
 x320_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	s5cl_five_reals_first_fft rsi, 64, 8*64
 	add	al, 256/8		;; Test loop counter
@@ -3089,7 +3089,7 @@ xfft384 MACRO type
 	IF	type EQ 1
 x384_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xsix_reals_fft_preload
 b1b:	s3cl_six_reals_first_fft rsi, 64, 16*64
 	add	al, 256/16		;; Test loop counter
@@ -3247,7 +3247,7 @@ xfft384p MACRO type
 	IF	type EQ 1
 x384p_fft:
 	mov	rdi, plus1_premults	;; Address of premultiplier table
-	sub	eax, eax
+	sub	rax, rax
 b1b:	s3cl_three_complex_first_fft rsi, 64, 16*64
 	lea	rdi, [rdi+192]		;; Next premultiplier pointer
 	add	al, 256/16		;; Test loop counter
@@ -3402,7 +3402,7 @@ xfft448 MACRO type
 	IF	type EQ 1
 x448_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xseven_reals_fft_preload
 b1b:	s7cl_seven_reals_first_fft rsi, 64, 8*64
 	add	al, 256/8		;; Test loop counter
@@ -3550,7 +3550,7 @@ xfft512 MACRO type
 	IF	type EQ 1
 x512_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 b1b:	s2cl_eight_reals_first_fft rsi, 64, 32*64
 	add	al, 256/32		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -3780,7 +3780,7 @@ xfft512p MACRO type
 
 	IF	type EQ 1
 x512p_fft:
-	sub	eax, eax
+	sub	rax, rax
 	mov	rdi, plus1_premults	;; Address of premultiplier table
 b1b:	s2cl_four_complex_first_fft rsi, 64, 32*64
 	lea	rdi, [rdi+128]		;; Next premultiplier pointer
@@ -3980,7 +3980,7 @@ xfft640 MACRO type
 	IF	type EQ 1
 x640_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	s5cl_five_reals_first_fft rsi, 64, 16*64
 	add	al, 256/16		;; Test loop counter
@@ -4107,7 +4107,7 @@ xfft768 MACRO type
 	IF	type EQ 1
 x768_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xsix_reals_fft_preload
 b1b:	s3cl_six_reals_first_fft rsi, 64, 32*64
 	add	al, 256/32		;; Test loop counter
@@ -4265,7 +4265,7 @@ xfft768p MACRO type
 	IF	type EQ 1
 x768p_fft:
 	mov	rdi, plus1_premults	;; Address of premultiplier table
-	sub	eax, eax
+	sub	rax, rax
 b1b:	s3cl_three_complex_first_fft rsi, 64, 32*64
 	lea	rdi, [rdi+192]		;; Next premultiplier pointer
 	add	al, 256/32		;; Test loop counter
@@ -4419,7 +4419,7 @@ xfft896 MACRO type
 	IF	type EQ 1
 x896_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xseven_reals_fft_preload
 b1b:	s7cl_seven_reals_first_fft rsi, 64, 16*64
 	add	al, 256/16		;; Test loop counter
@@ -4567,7 +4567,7 @@ xfft1024 MACRO type
 	IF	type EQ 1
 x1024_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 b1b:	s2cl_eight_reals_first_fft rsi, 64, 64*64
 	add	al, 256/64		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -4886,7 +4886,7 @@ xfft1024p MACRO type
 
 	IF	type EQ 1
 x1024p_fft:
-	sub	eax, eax
+	sub	rax, rax
 	mov	rdi, plus1_premults	;; Address of premultiplier table
 b1b:	s2cl_four_complex_first_fft rsi, 64, 64*64
 	lea	rdi, [rdi+128]		;; Next premultiplier pointer
@@ -5130,7 +5130,7 @@ xfft1280 MACRO type
 	IF	type EQ 1
 x1280_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	s5cl_five_reals_first_fft rsi, 64, 32*64
 	add	al, 256/32		;; Test loop counter
@@ -5257,7 +5257,7 @@ xfft1536 MACRO type
 	IF	type EQ 1
 x1536_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xsix_reals_fft_preload
 b1b:	s3cl_six_reals_first_fft rsi, 64, 64*64
 	add	al, 256/64		;; Test loop counter
@@ -5415,7 +5415,7 @@ xfft1536p MACRO type
 	IF	type EQ 1
 x1536p_fft:
 	mov	rdi, plus1_premults	;; Address of premultiplier table
-	sub	eax, eax
+	sub	rax, rax
 b1b:	s3cl_three_complex_first_fft rsi, 64, 64*64
 	lea	rdi, [rdi+192]		;; Next premultiplier pointer
 	add	al, 256/64		;; Test loop counter
@@ -5570,7 +5570,7 @@ xfft1792 MACRO type
 	IF	type EQ 1
 x1792_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xseven_reals_fft_preload
 b1b:	s7cl_seven_reals_first_fft rsi, 64, 32*64
 	add	al, 256/32		;; Test loop counter
@@ -5718,7 +5718,7 @@ xfft2048 MACRO type
 	IF	type EQ 1
 x2048_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 b1b:	s2cl_eight_reals_first_fft rsi, 64, 128*64
 	add	al, 256/128		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
@@ -5993,7 +5993,7 @@ xfft2048p MACRO type
 
 	IF	type EQ 1
 x2048p_fft:
-	sub	eax, eax
+	sub	rax, rax
 	mov	rdi, plus1_premults	;; Address of premultiplier table
 b1b:	s2cl_four_complex_first_fft rsi, 64, 128*64
 	lea	rdi, [rdi+128]		;; Next premultiplier pointer
@@ -6229,7 +6229,7 @@ xfft2560 MACRO type
 	IF	type EQ 1
 x2560_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	s5cl_five_reals_first_fft rsi, 64, 64*64
 	add	al, 256/64		;; Test loop counter
@@ -6356,7 +6356,7 @@ xfft3072 MACRO type
 	IF	type EQ 1
 x3072_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xsix_reals_fft_preload
 b1b:	s3cl_six_reals_first_fft rsi, 64, 128*64
 	add	al, 256/128		;; Test loop counter
@@ -6515,7 +6515,7 @@ xfft3072p MACRO type
 	IF	type EQ 1
 x3072p_fft:
 	mov	rdi, plus1_premults	;; Address of premultiplier table
-	sub	eax, eax
+	sub	rax, rax
 b1b:	s3cl_three_complex_first_fft rsi, 64, 128*64
 	lea	rdi, [rdi+192]		;; Next premultiplier pointer
 	add	al, 256/128		;; Test loop counter
@@ -6669,7 +6669,7 @@ xfft3584 MACRO type
 	IF	type EQ 1
 x3584_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xseven_reals_fft_preload
 b1b:	s7cl_seven_reals_first_fft rsi, 64, 64*64
 	add	al, 256/64		;; Test loop counter
@@ -7180,7 +7180,7 @@ xfft4096p MACRO type
 
 	IF	type EQ 1
 x4096p_fft:
-	sub	eax, eax
+	sub	rax, rax
 	mov	rdi, plus1_premults	;; Address of premultiplier table
 b1b:	s2cl_four_complex_first_fft rsi, 64, 256*64
 	lea	rdi, [rdi+128]		;; Next premultiplier pointer
@@ -7460,7 +7460,7 @@ xfft5120 MACRO type
 	IF	type EQ 1
 x5120_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	s5cl_five_reals_first_fft rsi, 64, 128*64
 	add	al, 256/128		;; Test loop counter
@@ -7586,7 +7586,7 @@ xfft6144 MACRO type
 	IF	type EQ 1
 x6144_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xsix_reals_fft_preload
 b1b:	s3cl_six_reals_first_fft rsi, 64, 256*64
 	add	al, 256/256		;; Test loop counter
@@ -7743,7 +7743,7 @@ xfft6144p MACRO type
 	IF	type EQ 1
 x6144p_fft:
 	mov	rdi, plus1_premults	;; Address of premultiplier table
-	sub	eax, eax
+	sub	rax, rax
 b1b:	s3cl_three_complex_first_fft rsi, 64, 256*64
 	lea	rdi, [rdi+192]		;; Next premultiplier pointer
 	add	al, 256/256		;; Test loop counter
@@ -7896,7 +7896,7 @@ xfft7168 MACRO type
 	IF	type EQ 1
 x7168_fft:
 	xcopy_7_words
-	sub	eax, eax
+	sub	rax, rax
 	xseven_reals_fft_preload
 b1b:	s7cl_seven_reals_first_fft rsi, 64, 128*64
 	add	al, 256/128		;; Test loop counter
