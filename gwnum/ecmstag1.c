@@ -834,7 +834,8 @@ options are defined above
 
 On success:
 
-   x_array is set to normalized point
+   if z_array is NULL, then x_array is set to normalized point
+   else x_array, z_array is set to the unnormalized point
 
 On factor found:
 
@@ -942,7 +943,9 @@ int gwnum_ecmStage1 (
 /* A * 4 and FFT that value. */
 
 	binarytogw (A_array, A_array_len, Ad4);
-	dbltogw (4.0, x);	/* For extra speed, precompute A * 4 */
+	gwaddsmall (Ad4, 2);	/* Compute A+2 */
+	modinv (Ad4);
+	dbltogw (4.0, x);	/* For extra speed, precompute 4 / (A+2) */
 	gwmul (x, Ad4);
 	gwfft (Ad4, Ad4);	/* Even more speed, save FFT of Ad4 */
 
@@ -1029,10 +1032,20 @@ int gwnum_ecmStage1 (
 
 /* Normalize the x value */
 
-	StopCheckRoutine = NULL;
-	normalize (x, z, &x_array_as_giant);
-	if (FAC != NULL) goto bingo;
-	*x_array_len = x_array_as_giant.sign;
+	if (z_array == NULL) {
+		StopCheckRoutine = NULL;
+		normalize (x, z, &x_array_as_giant);
+		if (FAC != NULL) goto bingo;
+		*x_array_len = x_array_as_giant.sign;
+	} else {
+		reslong = gwtobinary (x, x_array, (bits >> 5) + 1);
+		if (reslong < 0) goto error;
+		*x_array_len = reslong;
+
+		reslong = gwtobinary (z, z_array, (bits >> 5) + 1);
+		if (reslong < 0) goto error;
+		*z_array_len = reslong;
+	}
 
 /* Free memory and return */
 
