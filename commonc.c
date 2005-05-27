@@ -1784,15 +1784,17 @@ short default_work_type (void)
 
 /* Get estimated iteration time for a 512K length FFT */
 
-	speed = gwmap_to_timing (1.0, 2, 524288, -1, CPU_TYPE) *
+	speed = gwmap_to_timing (1.0, 2, 9500000, -1, CPU_TYPE) *
 			24.0 / CPU_HOURS * 1000.0 / ROLLING_AVERAGE;
 
-/* PIII-900 and faster get first-time LL tests */
-/* P-233 and faster get double-checking work */
+/* P4-1400 and faster with decent sized L2 caches get first-time LL tests */
+/* P-400 and faster get double-checking work */
 /* All slower machines get factoring work */
 
-	if (speed < 0.115) return (PRIMENET_ASSIGN_TEST);
-	if (speed < 0.555) return (PRIMENET_ASSIGN_DBLCHK);
+	if (speed < 0.034 &&
+	    (CPU_L2_CACHE_SIZE < 0 || CPU_L2_CACHE_SIZE > 128))
+		return (PRIMENET_ASSIGN_TEST);
+	if (speed < 0.325) return (PRIMENET_ASSIGN_DBLCHK);
 	return (PRIMENET_ASSIGN_FACTOR);
 }
 
