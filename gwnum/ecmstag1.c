@@ -792,66 +792,8 @@ int normalize (
  *
  **************************************************************/
 
-/* Return codes */
-
-#define ES1_SUCCESS		0	/* Success, but no factor */
-#define ES1_FACTOR_FOUND	1	/* Success, factor found */
-#define ES1_CANNOT_DO_IT	2	/* This k,b,n,c cannot be handled */
-#define ES1_MEMORY		3	/* Out of memory */
-#define ES1_INTERRUPT		4	/* Execution interrupted */
-#define ES1_CANNOT_DO_QUICKLY	5	/* Requires 3-multiply reduction */
-#define ES1_HARDWARE_ERROR	6	/* An error was detected, most */
-					/* likely a hardware error. */
-
-/* Option codes */
-
-#define ES1_DO_SLOW_CASE	0x1	/* Set this if ecmStage1 should do */
-					/* slow 3-multiply reduction cases. */
-
-/* INPUTS:
-
-Input number (3 possibilities):
-
-1) k,b,n,c set and num_being_factored_array = NULL.  k*b^n+c is factored.
-2) k,b,n,c zero and num_being_factored_array set.  num_being_factored is
-   worked on using generic 3-multiply reduction
-3) k,b,n,c set and num_being_factored_array set.  num_being_factored is
-   worked on - it must be a factor of k*b^n+c.
-
-A_array, B1 are required
-
-B1_done is optional.  Use it to resume a stage 1 calculation.
-
-x_array, z_array is the starting point.  If z_array is not given, then
-z is assumed to be one.
-
-stop_check_proc is optional
-
-options are defined above
-
-
-   OUTPUTS:
-
-On success:
-
-   if z_array is NULL, then x_array is set to normalized point
-   else x_array, z_array is set to the unnormalized point
-
-On factor found:
-
-   x_array is set to the factor found
-
-On interrupt:
-
-   B1_done is set to the last prime below B1 that was processed.
-   If z_array != NULL (preferred) then x_array and z_array are set to the
-current point.  The (x,z) point is not normalized because it will
-be slow for large numbers.  This is unacceptable during system shutdown.
-Caller must allocate x and z arrays large enough to hold any k*b^n+c value.
-   If z_array == NULL, then a normalized x is returned. Caller must allocate
-x array large enough to hold any value less than num_being_factored.
-
-*/
+/* Do ECM stage 1 for GMP-ECM using gwnum library.  See gwnum.h for */
+/* a detailed explanation of inputs and outputs. */
 
 int gwnum_ecmStage1 (
 	double	k,			/* K in K*B^N+C */
