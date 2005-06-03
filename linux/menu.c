@@ -406,7 +406,8 @@ void advanced_test (void)
 #define NOTPRIMEERR "This number is not prime, there is no need to test it.\n"
 
 loop:	m_p = 0;
-	askNumNoDflt ("Exponent to test", &m_p, MIN_PRIME, MAX_PRIME);
+	askNumNoDflt ("Exponent to test", &m_p, MIN_PRIME,
+		      CPU_FLAGS & CPU_SSE2 ? MAX_PRIME_SSE2 : MAX_PRIME);
 
 	if (askOkCancel ()) {
 		if (! isPrime (m_p)) {
@@ -429,7 +430,8 @@ void advanced_time (void)
 	m_p = 10000000;
 	m_iter = 10;
 
-	askNum ("Exponent to time", &m_p, MIN_PRIME, MAX_PRIME);
+	askNum ("Exponent to time", &m_p, MIN_PRIME,
+	        CPU_FLAGS & CPU_SSE2 ? MAX_PRIME_SSE2 : MAX_PRIME);
 	askNum ("Number of Iterations", &m_iter, 1, 1000);
 	if (askOkCancel ()) {
 		primeTime (m_p, m_iter);
@@ -588,7 +590,8 @@ void advanced_unreserve (void)
 	m_p = 0;
 
 	outputLongLine ("\nUse this only if you are sure you will not be finishing this exponent.  The exponent will be assigned to someone else.  It is not fair to them if you test an exponent assigned to someone else.\n");
-	askNumNoDflt ("Exponent to unreserve", &m_p, MIN_PRIME, MAX_PRIME);
+	askNumNoDflt ("Exponent to unreserve", &m_p, MIN_PRIME,
+		      MAX_PRIME_SSE2 > MAX_PRIME ? MAX_PRIME_SSE2 : MAX_PRIME);
 	if (askOkCancel ()) {
 		unreserve (m_p);
 		communicateWithServer ();
