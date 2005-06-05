@@ -2380,7 +2380,7 @@ gwnum gwalloc (void)
 /* Initialize the header */
 
 	* (unsigned long *) (q - 8) = size;	/* Size in bytes */
-	* (unsigned long *) (q - 4) = 0;	/* Unnormalized adds count */
+	* (unsigned long *) (q - 4) = 1;	/* Unnormalized adds count */
 	* (unsigned long *) (q - 28) = 0;	/* Has-been-pre-ffted flag */
 	* (long *) (q - 32) = freeable;		/* Mem should be freed flag */
 	* (double *) (q - 16) = 0.0;
