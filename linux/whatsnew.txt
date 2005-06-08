@@ -9,6 +9,10 @@ New features in Version 24.12 of mprime
     testing of exponents up to 596 million.  Not recommended.
 3)  The factoring breakeven points have been recalculated using my 2 GHz P4.
     This version of prime95 will do less trial factoring.
+4)  Since server database crashes cause spurious error 3 messages, mprime
+    will now ignore error 3 messages from the server for 72 hours.  This should
+    workaround the problem whereby a result is reported but no CPU credit is
+    given and the reservation is not cleared.
 
 New features in Version 24.11 of mprime
 ---------------------------------------

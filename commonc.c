@@ -1454,6 +1454,7 @@ int sendMessage (
 	short	msgType,
 	void	*msg)
 {
+static	int	error_3_countdown = 72;  // 3 day countdown to ignore error 3
 	struct primenetResultMessage *pkt;
 	struct primenetResultMessage local_pkt;
 	short	structSize;
@@ -1590,6 +1591,8 @@ int sendMessage (
 
 	switch (return_code) {
 	case PRIMENET_ERROR_OK:
+		if (msgType == PRIMENET_ASSIGNMENT_RESULT)
+			error_3_countdown = 72;
 		break;
 	case 12029:
 		sprintf (buf, "ERROR %d: Cannot find server.  See http://www.mersenne.org/ips/faq.html\n", return_code);
@@ -1639,8 +1642,15 @@ int sendMessage (
 		if (msgType == PRIMENET_ASSIGNMENT_RESULT) return_code = 0;
 		break;
 	case PRIMENET_ERROR_UNASSIGNED:
+		sprintf (buf, "ERROR %d: Server database crashed or exponent not assigned to this computer.\n", return_code);
+		LogMsg (buf);
+		if (msgType == PRIMENET_ASSIGNMENT_RESULT) {
+			if (error_3_countdown == 0) return_code = 0;
+			else error_3_countdown--;
+		}
+		break;
 	case PRIMENET_ERROR_NOT_PERMITTED:
-		sprintf (buf, "ERROR %d: Exponent not assigned to this computer.\n", return_code);
+		sprintf (buf, "ERROR %d: Operation not permitted on this exponent.\n", return_code);
 		LogMsg (buf);
 		if (msgType == PRIMENET_ASSIGNMENT_RESULT) return_code = 0;
 		break;
