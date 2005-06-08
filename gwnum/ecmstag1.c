@@ -971,6 +971,7 @@ int gwnum_ecmStage1 (
 			return (ES1_INTERRUPT);
 		}
 	}
+	*B1_done = B1;
 
 /* Normalize the x value */
 
