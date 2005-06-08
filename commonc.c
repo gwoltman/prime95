@@ -1561,7 +1561,7 @@ int sendMessage (
 		else
 			end_time += 3600 *
 				(return_code - PRIMENET_ERROR_SLEEP_CLIENT_1 + 1);
-		IniWriteInt (LOCALINI_FILE, "BlackoutEnd", end_time);
+		IniWriteInt (LOCALINI_FILE, "BlackoutEnd", (long) end_time);
 		IniWriteString (LOCALINI_FILE, "BlackoutVersion", VERSION);
 		sprintf (buf, "ERROR %d: PrimeNet Blackout!!\n", return_code);
 		LogMsg (buf);
@@ -2136,7 +2136,7 @@ unsigned long secondsUntilVacationEnds (void)
 		IniWriteInt (LOCALINI_FILE, "VacationEnd", 0);
 		return (0);
 	}
-	return (VACATION_END - current_time);
+	return ((unsigned long) (VACATION_END - current_time));
 }
 
 /* Return a double estimating current exponent's percentage complete. */
@@ -2956,7 +2956,7 @@ loop:	time (&this_time);
 	if (header_byte & 0x8) {
 		time_t current_time;
 		time (&current_time);
-		IniWriteInt (LOCALINI_FILE, "LastEndDatesSent", current_time);
+		IniWriteInt (LOCALINI_FILE, "LastEndDatesSent", (long) current_time);
 	}
 
 /* Before we get work from the server, make absolutely sure that we */

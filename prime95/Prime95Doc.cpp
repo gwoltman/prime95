@@ -376,7 +376,7 @@ void CPrime95Doc::OnVacation()
 		} else
 			VACATION_END = 0;
 		ON_DURING_VACATION = dlg.m_computer_on;
-                IniWriteInt (LOCALINI_FILE, "VacationEnd", VACATION_END);
+                IniWriteInt (LOCALINI_FILE, "VacationEnd", (long) VACATION_END);
                 IniWriteInt (LOCALINI_FILE, "VacationOn", ON_DURING_VACATION);
 		if (VACATION_END && !ON_DURING_VACATION)
 			IniWriteInt (LOCALINI_FILE, "RollingStartTime", 0);

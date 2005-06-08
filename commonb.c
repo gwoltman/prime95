@@ -605,7 +605,7 @@ void startRollingAverage (void)
 	time_t	current_time;
 	time (&current_time);
 	if (VACATION_END && !ON_DURING_VACATION) current_time = 0;
-	IniWriteInt (LOCALINI_FILE, "RollingStartTime", current_time);
+	IniWriteInt (LOCALINI_FILE, "RollingStartTime", (long) current_time);
 }
 
 /* We've completed 65536 Lucas-Lehmer iterations or a factoring. */
@@ -1229,7 +1229,7 @@ again:	if (SLEEP_TIME) {
 	}
 	if ((w.work_type == WORK_TEST || w.work_type == WORK_DBLCHK) &&
 	    (w.n < MIN_PRIME ||
-	     w.n > (CPU_FLAGS & CPU_SSE2 ? MAX_PRIME_SSE2 : MAX_PRIME))) {
+	     w.n > (unsigned long) (CPU_FLAGS & CPU_SSE2 ? MAX_PRIME_SSE2 : MAX_PRIME))) {
 		char	buf[80];
 		sprintf (buf, "Error: Work-to-do file contained bad LL exponent: %ld\n", w.n);
 		LogMsg (buf);
@@ -2741,7 +2741,7 @@ int selfTest (
 					char	buf[100];
 					int	hours, minutes;
 					time (&current_time);
-					minutes = (current_time - start_time) / 60;
+					minutes = (int) (current_time - start_time) / 60;
 					hours = minutes / 60;
 					minutes = minutes % 60;
 					OutputStr ("Torture Test ran ");
