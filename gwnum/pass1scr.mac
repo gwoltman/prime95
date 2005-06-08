@@ -127,10 +127,8 @@ c3b:	cp_disp four_complex_unfft, 8, blkdst, 2*blkdst, 8, clmblkdst, 2*clmblkdst
 	start_timer 18
 c4b:	disp eight_reals_unfft_1, clmblkdst, 2*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c4b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c4b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 
 ;; Do 4 four_complex_unfft_1 macros
@@ -140,10 +138,8 @@ c4b:	disp eight_reals_unfft_1, clmblkdst, 2*clmblkdst, 8
 	mov	eax, 2			;; 2 iterations of 2
 c5b:	disp four_complex_unfft_1, 2*clmblkdst, 8, 4*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/2		;; Test middle loop counter
 	jnc	c5b			;; Iterate if necessary
@@ -174,10 +170,8 @@ c5b:	disp four_complex_unfft_1, 2*clmblkdst, 8, 4*clmblkdst
 	mov	al, 4			;; Load loop counter
 c1b:	two_five_reals_last_unfft 8, 4*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test loop counter
+	add	al, 256/2/clm		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c1b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
@@ -265,10 +259,8 @@ b1b:	two_five_reals_fft 4*clmblkdst, 8
 	start_timer 22
 b4b:	disp eight_reals_fft_1, clmblkdst, 2*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b4b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b4b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 
 ;; Do 4 four_complex_fft_1 macros
@@ -278,10 +270,8 @@ b4b:	disp eight_reals_fft_1, clmblkdst, 2*clmblkdst, 8
 	mov	eax, 2			;; 2 iterations of 2
 b5b:	disp four_complex_fft_1, 2*clmblkdst, 4*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/2		;; Test middle loop counter
 	jnc	b5b			;; Iterate if necessary
@@ -313,10 +303,8 @@ b5b:	disp four_complex_fft_1, 2*clmblkdst, 4*clmblkdst, 8
 b2b:	cp_disp four_real_four_semireal_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b2b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 
@@ -328,10 +316,8 @@ b2b:	cp_disp four_real_four_semireal_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*b
 b3b:	cp_disp four_complex_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b3b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 	lea	edi, [edi+SCD]		;; Next sine/cosine pointer
@@ -496,10 +482,8 @@ c3b:	cp_disp four_complex_unfft, 8, blkdst, 2*blkdst, 8, clmblkdst, 2*clmblkdst
 	mov	al, 2			;; Load loop counter
 c4b:	disp four_real_four_semireal_unfft_1, 2*clmblkdst, 8, 4*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c4b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c4b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al
 	jnz	c4b
@@ -512,10 +496,8 @@ c4b:	disp four_real_four_semireal_unfft_1, 2*clmblkdst, 8, 4*clmblkdst
 	mov	eax, 2			;; 2 iterations of 2
 c5b:	disp four_complex_unfft_1, 2*clmblkdst, 8, 4*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/2		;; Test middle loop counter
 	jnc	c5b			;; Iterate if necessary
@@ -546,10 +528,8 @@ c5b:	disp four_complex_unfft_1, 2*clmblkdst, 8, 4*clmblkdst
 	mov	al, 8			;; Load loop counter
 c1b:	disp six_reals_last_unfft, 8, 8*clmblkdst, 16*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test loop counter
+	add	al, 256/2/clm		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c1b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
@@ -638,10 +618,8 @@ b1b:	disp six_reals_fft, 8*clmblkdst, 16*clmblkdst, 8
 	mov	al, 2			;; Load loop counter
 b4b:	disp four_real_four_semireal_fft_1, 2*clmblkdst, 4*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b4b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b4b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al
 	jnz	b4b
@@ -654,10 +632,8 @@ b4b:	disp four_real_four_semireal_fft_1, 2*clmblkdst, 4*clmblkdst, 8
 	mov	eax, 2			;; 2 iterations of 2
 b5b:	disp four_complex_fft_1, 2*clmblkdst, 4*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/2		;; Test middle loop counter
 	jnc	b5b			;; Iterate if necessary
@@ -689,10 +665,8 @@ b5b:	disp four_complex_fft_1, 2*clmblkdst, 4*clmblkdst, 8
 b2b:	cp_disp four_real_four_semireal_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b2b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 
@@ -704,10 +678,8 @@ b2b:	cp_disp four_real_four_semireal_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*b
 b3b:	cp_disp four_complex_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b3b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 	lea	edi, [edi+SCD]		;; Next sine/cosine pointer
@@ -862,10 +834,8 @@ c3b:	cp_disp four_complex_unfft, 8, blkdst, 2*blkdst, 8, clmblkdst, 2*clmblkdst
 	mov	eax, 3			;; 3 iterations of 2
 c5b:	disp four_complex_unfft_1, 2*clmblkdst, 8, 4*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/2		;; Test middle loop counter
 	jnc	c5b			;; Iterate if necessary
@@ -897,10 +867,8 @@ c5b:	disp four_complex_unfft_1, 2*clmblkdst, 8, 4*clmblkdst
 	mov	al, 8			;; Load loop counter
 c1b:	three_complex_last_unfft 8, 8*clmblkdst, 16*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test loop counter
+	add	al, 256/2/clm		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c1b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	lea	edi, [edi+48]		;; Next premultiplier pointer
 	dec	al			;; Test loop counter
@@ -993,10 +961,8 @@ b1b:	three_complex_fft_premult 8*clmblkdst, 16*clmblkdst, 8
 	mov	eax, 3			;; 3 iterations of 2
 b5b:	disp four_complex_fft_1, 2*clmblkdst, 4*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/2		;; Test middle loop counter
 	jnc	b5b			;; Iterate if necessary
@@ -1030,10 +996,8 @@ b5b:	disp four_complex_fft_1, 2*clmblkdst, 4*clmblkdst, 8
 b3b:	cp_disp four_complex_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b3b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 	lea	edi, [edi+SCD]		;; Next sine/cosine pointer
@@ -1197,10 +1161,8 @@ c3b:	cp_disp four_complex_unfft, 8, blkdst, 2*blkdst, 8, clmblkdst, 2*clmblkdst
 	start_timer 18
 c4b:	disp eight_reals_unfft_1, clmblkdst, 2*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c4b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c4b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 
 ;; Do 6 four_complex_unfft_1 macros
@@ -1210,10 +1172,8 @@ c4b:	disp eight_reals_unfft_1, clmblkdst, 2*clmblkdst, 8
 	mov	eax, 3			;; 3 iterations of 2
 c5b:	disp four_complex_unfft_1, 2*clmblkdst, 8, 4*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/2		;; Test middle loop counter
 	jnc	c5b			;; Iterate if necessary
@@ -1244,10 +1204,8 @@ c5b:	disp four_complex_unfft_1, 2*clmblkdst, 8, 4*clmblkdst
 	mov	al, 4			;; Load loop counter
 c1b:	two_seven_reals_last_unfft 8, 4*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test loop counter
+	add	al, 256/2/clm		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c1b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
@@ -1335,10 +1293,8 @@ b1b:	two_seven_reals_fft 4*clmblkdst, 8
 	start_timer 22
 b4b:	disp eight_reals_fft_1, clmblkdst, 2*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b4b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b4b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 
 ;; Do 6 four_complex_fft_1 macros
@@ -1348,10 +1304,8 @@ b4b:	disp eight_reals_fft_1, clmblkdst, 2*clmblkdst, 8
 	mov	eax, 3			;; 3 iterations of 2
 b5b:	disp four_complex_fft_1, 2*clmblkdst, 4*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/2		;; Test middle loop counter
 	jnc	b5b			;; Iterate if necessary
@@ -1383,10 +1337,8 @@ b5b:	disp four_complex_fft_1, 2*clmblkdst, 4*clmblkdst, 8
 b2b:	cp_disp four_real_four_semireal_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b2b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 
@@ -1398,10 +1350,8 @@ b2b:	cp_disp four_real_four_semireal_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*b
 b3b:	cp_disp four_complex_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b3b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 	lea	edi, [edi+SCD]		;; Next sine/cosine pointer
@@ -1566,10 +1516,8 @@ c3b:	cp_disp four_complex_unfft, 8, blkdst, 2*blkdst, 8, clmblkdst, 2*clmblkdst
 	mov	al, 2			;; Load loop counter
 c4b:	disp four_real_four_semireal_unfft_1, 2*clmblkdst, 8, 4*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c4b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c4b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al
 	jnz	c4b
@@ -1582,10 +1530,8 @@ c4b:	disp four_real_four_semireal_unfft_1, 2*clmblkdst, 8, 4*clmblkdst
 	mov	eax, 3			;; 3 iterations of 2
 c5b:	disp four_complex_unfft_1, 2*clmblkdst, 8, 4*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/2		;; Test middle loop counter
 	jnc	c5b			;; Iterate if necessary
@@ -1616,10 +1562,8 @@ c5b:	disp four_complex_unfft_1, 2*clmblkdst, 8, 4*clmblkdst
 	mov	al, 8			;; Load loop counter
 c1b:	disp eight_reals_last_unfft, 8, 8*clmblkdst, 16*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test loop counter
+	add	al, 256/2/clm		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c1b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
@@ -1708,10 +1652,8 @@ b1b:	disp eight_reals_fft, 8*clmblkdst, 16*clmblkdst, 8
 	mov	al, 2			;; Load loop counter
 b4b:	disp four_real_four_semireal_fft_1, 2*clmblkdst, 4*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b4b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b4b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al
 	jnz	b4b
@@ -1724,10 +1666,8 @@ b4b:	disp four_real_four_semireal_fft_1, 2*clmblkdst, 4*clmblkdst, 8
 	mov	eax, 3			;; 3 iterations of 2
 b5b:	disp four_complex_fft_1, 2*clmblkdst, 4*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/2		;; Test middle loop counter
 	jnc	b5b			;; Iterate if necessary
@@ -1759,10 +1699,8 @@ b5b:	disp four_complex_fft_1, 2*clmblkdst, 4*clmblkdst, 8
 b2b:	cp_disp four_real_four_semireal_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b2b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 
@@ -1774,10 +1712,8 @@ b2b:	cp_disp four_real_four_semireal_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*b
 b3b:	cp_disp four_complex_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b3b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 	lea	edi, [edi+SCD]		;; Next sine/cosine pointer
@@ -1932,10 +1868,8 @@ c3b:	cp_disp four_complex_unfft, 8, blkdst, 2*blkdst, 8, clmblkdst, 2*clmblkdst
 	mov	eax, 4			;; 4 iterations of 2
 c5b:	disp four_complex_unfft_1, 2*clmblkdst, 8, 4*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/2		;; Test middle loop counter
 	jnc	c5b			;; Iterate if necessary
@@ -1967,10 +1901,8 @@ c5b:	disp four_complex_unfft_1, 2*clmblkdst, 8, 4*clmblkdst
 	mov	al, 8			;; Load loop counter
 c1b:	disp four_complex_last_unfft, 8, 8*clmblkdst, 16*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test loop counter
+	add	al, 256/2/clm		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c1b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	lea	edi, [edi+64]		;; Next premultiplier pointer
 	dec	al			;; Test loop counter
@@ -2063,10 +1995,8 @@ b1b:	disp four_complex_fft_premult, 8*clmblkdst, 16*clmblkdst, 8
 	mov	eax, 4			;; 4 iterations of 2
 b5b:	disp four_complex_fft_1, 2*clmblkdst, 4*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/2		;; Test middle loop counter
 	jnc	b5b			;; Iterate if necessary
@@ -2100,10 +2030,8 @@ b5b:	disp four_complex_fft_1, 2*clmblkdst, 4*clmblkdst, 8
 b3b:	cp_disp four_complex_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b3b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 	lea	edi, [edi+SCD]		;; Next sine/cosine pointer
@@ -2268,10 +2196,8 @@ c3b:	cp_disp four_complex_unfft, 8, blkdst, 2*blkdst, 8, clmblkdst, 2*clmblkdst
 	mov	al, 2			;; Load loop counter
 c4b:	disp eight_reals_unfft_2, 2*clmblkdst, 8, 4*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c4b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c4b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al
 	jnz	c4b
@@ -2284,10 +2210,8 @@ c4b:	disp eight_reals_unfft_2, 2*clmblkdst, 8, 4*clmblkdst
 	mov	eax, 2			;; 2 iterations of 4
 c5b:	disp four_complex_unfft, 8, 4*clmblkdst, 8*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/4		;; Test middle loop counter
 	jnc	c5b			;; Iterate if necessary
@@ -2318,10 +2242,8 @@ c5b:	disp four_complex_unfft, 8, 4*clmblkdst, 8*clmblkdst
 	mov	al, 8			;; Load loop counter
 c1b:	two_five_reals_last_unfft 8, 8*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test loop counter
+	add	al, 256/2/clm		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c1b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
@@ -2410,10 +2332,8 @@ b1b:	two_five_reals_fft 8*clmblkdst, 8
 	mov	al, 2			;; Load loop counter
 b4b:	disp eight_reals_fft_2, 2*clmblkdst, 4*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b4b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b4b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al
 	jnz	b4b
@@ -2426,10 +2346,8 @@ b4b:	disp eight_reals_fft_2, 2*clmblkdst, 4*clmblkdst, 8
 	mov	eax, 2			;; 2 iterations of 4
 b5b:	disp four_complex_fft, 4*clmblkdst, 8*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/4		;; Test middle loop counter
 	jnc	b5b			;; Iterate if necessary
@@ -2461,10 +2379,8 @@ b5b:	disp four_complex_fft, 4*clmblkdst, 8*clmblkdst, 8
 b2b:	cp_disp four_real_four_semireal_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b2b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 
@@ -2476,10 +2392,8 @@ b2b:	cp_disp four_real_four_semireal_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*b
 b3b:	cp_disp four_complex_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b3b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 	lea	edi, [edi+SCD]		;; Next sine/cosine pointer
@@ -2644,10 +2558,8 @@ c3b:	cp_disp four_complex_unfft, 8, blkdst, 2*blkdst, 8, clmblkdst, 2*clmblkdst
 	mov	al, 4			;; Load loop counter
 c4b:	disp four_real_four_semireal_unfft, 8, 4*clmblkdst, 8*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c4b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c4b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al
 	jnz	c4b
@@ -2660,10 +2572,8 @@ c4b:	disp four_real_four_semireal_unfft, 8, 4*clmblkdst, 8*clmblkdst
 	mov	eax, 2			;; 2 iterations of 4
 c5b:	disp four_complex_unfft, 8, 4*clmblkdst, 8*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/4		;; Test middle loop counter
 	jnc	c5b			;; Iterate if necessary
@@ -2694,10 +2604,8 @@ c5b:	disp four_complex_unfft, 8, 4*clmblkdst, 8*clmblkdst
 	mov	al, 16			;; Load loop counter
 c1b:	disp six_reals_last_unfft, 8, 16*clmblkdst, 32*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test loop counter
+	add	al, 256/2/clm		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c1b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
@@ -2786,10 +2694,8 @@ b1b:	disp six_reals_fft, 16*clmblkdst, 32*clmblkdst, 8
 	mov	al, 4			;; Load loop counter
 b4b:	disp four_real_four_semireal_fft, 4*clmblkdst, 8*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b4b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b4b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al
 	jnz	b4b
@@ -2802,10 +2708,8 @@ b4b:	disp four_real_four_semireal_fft, 4*clmblkdst, 8*clmblkdst, 8
 	mov	eax, 2			;; 2 iterations of 4
 b5b:	disp four_complex_fft, 4*clmblkdst, 8*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/4		;; Test middle loop counter
 	jnc	b5b			;; Iterate if necessary
@@ -2837,10 +2741,8 @@ b5b:	disp four_complex_fft, 4*clmblkdst, 8*clmblkdst, 8
 b2b:	cp_disp four_real_four_semireal_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b2b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 
@@ -2852,10 +2754,8 @@ b2b:	cp_disp four_real_four_semireal_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*b
 b3b:	cp_disp four_complex_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b3b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 	lea	edi, [edi+SCD]		;; Next sine/cosine pointer
@@ -3010,10 +2910,8 @@ c3b:	cp_disp four_complex_unfft, 8, blkdst, 2*blkdst, 8, clmblkdst, 2*clmblkdst
 	mov	eax, 3			;; 3 iterations of 4
 c5b:	disp four_complex_unfft, 8, 4*clmblkdst, 8*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/4		;; Test middle loop counter
 	jnc	c5b			;; Iterate if necessary
@@ -3045,10 +2943,8 @@ c5b:	disp four_complex_unfft, 8, 4*clmblkdst, 8*clmblkdst
 	mov	al, 16			;; Load loop counter
 c1b:	three_complex_last_unfft 8, 16*clmblkdst, 32*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test loop counter
+	add	al, 256/2/clm		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c1b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	lea	edi, [edi+48]		;; Next premultiplier pointer
 	dec	al			;; Test loop counter
@@ -3141,10 +3037,8 @@ b1b:	three_complex_fft_premult 16*clmblkdst, 32*clmblkdst, 8
 	mov	eax, 3			;; 3 iterations of 4
 b5b:	disp four_complex_fft, 4*clmblkdst, 8*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/4		;; Test middle loop counter
 	jnc	b5b			;; Iterate if necessary
@@ -3178,10 +3072,8 @@ b5b:	disp four_complex_fft, 4*clmblkdst, 8*clmblkdst, 8
 b3b:	cp_disp four_complex_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b3b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 	lea	edi, [edi+SCD]		;; Next sine/cosine pointer
@@ -3346,10 +3238,8 @@ c3b:	cp_disp four_complex_unfft, 8, blkdst, 2*blkdst, 8, clmblkdst, 2*clmblkdst
 	mov	al, 2			;; Load loop counter
 c4b:	disp eight_reals_unfft_2, 2*clmblkdst, 8, 4*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c4b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c4b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al
 	jnz	c4b
@@ -3362,10 +3252,8 @@ c4b:	disp eight_reals_unfft_2, 2*clmblkdst, 8, 4*clmblkdst
 	mov	eax, 3			;; 3 iterations of 4
 c5b:	disp four_complex_unfft, 8, 4*clmblkdst, 8*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/4		;; Test middle loop counter
 	jnc	c5b			;; Iterate if necessary
@@ -3396,10 +3284,8 @@ c5b:	disp four_complex_unfft, 8, 4*clmblkdst, 8*clmblkdst
 	mov	al, 8			;; Load loop counter
 c1b:	two_seven_reals_last_unfft 8, 8*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test loop counter
+	add	al, 256/2/clm		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c1b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
@@ -3488,10 +3374,8 @@ b1b:	two_seven_reals_fft 8*clmblkdst, 8
 	mov	al, 2			;; Load loop counter
 b4b:	disp eight_reals_fft_2, 2*clmblkdst, 4*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b4b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b4b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al
 	jnz	b4b
@@ -3504,10 +3388,8 @@ b4b:	disp eight_reals_fft_2, 2*clmblkdst, 4*clmblkdst, 8
 	mov	eax, 3			;; 3 iterations of 4
 b5b:	disp four_complex_fft, 4*clmblkdst, 8*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/4		;; Test middle loop counter
 	jnc	b5b			;; Iterate if necessary
@@ -3539,10 +3421,8 @@ b5b:	disp four_complex_fft, 4*clmblkdst, 8*clmblkdst, 8
 b2b:	cp_disp four_real_four_semireal_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b2b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 
@@ -3554,10 +3434,8 @@ b2b:	cp_disp four_real_four_semireal_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*b
 b3b:	cp_disp four_complex_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b3b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 	lea	edi, [edi+SCD]		;; Next sine/cosine pointer
@@ -3722,10 +3600,8 @@ c3b:	cp_disp four_complex_unfft, 8, blkdst, 2*blkdst, 8, clmblkdst, 2*clmblkdst
 	mov	al, 4			;; Load loop counter
 c4b:	disp four_real_four_semireal_unfft, 8, 4*clmblkdst, 8*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c4b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c4b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al
 	jnz	c4b
@@ -3738,10 +3614,8 @@ c4b:	disp four_real_four_semireal_unfft, 8, 4*clmblkdst, 8*clmblkdst
 	mov	eax, 3			;; 3 iterations of 4
 c5b:	disp four_complex_unfft, 8, 4*clmblkdst, 8*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/4		;; Test middle loop counter
 	jnc	c5b			;; Iterate if necessary
@@ -3772,10 +3646,8 @@ c5b:	disp four_complex_unfft, 8, 4*clmblkdst, 8*clmblkdst
 	mov	al, 16			;; Load loop counter
 c1b:	disp eight_reals_last_unfft, 8, 16*clmblkdst, 32*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test loop counter
+	add	al, 256/2/clm		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c1b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
@@ -3864,10 +3736,8 @@ b1b:	disp eight_reals_fft, 16*clmblkdst, 32*clmblkdst, 8
 	mov	al, 4			;; Load loop counter
 b4b:	disp four_real_four_semireal_fft, 4*clmblkdst, 8*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b4b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b4b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	dec	al
 	jnz	b4b
@@ -3880,10 +3750,8 @@ b4b:	disp four_real_four_semireal_fft, 4*clmblkdst, 8*clmblkdst, 8
 	mov	eax, 3			;; 3 iterations of 4
 b5b:	disp four_complex_fft, 4*clmblkdst, 8*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/4		;; Test middle loop counter
 	jnc	b5b			;; Iterate if necessary
@@ -3915,10 +3783,8 @@ b5b:	disp four_complex_fft, 4*clmblkdst, 8*clmblkdst, 8
 b2b:	cp_disp four_real_four_semireal_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b2b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 
@@ -3930,10 +3796,8 @@ b2b:	cp_disp four_real_four_semireal_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*b
 b3b:	cp_disp four_complex_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b3b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 	lea	edi, [edi+SCD]		;; Next sine/cosine pointer
@@ -4088,10 +3952,8 @@ c3b:	cp_disp four_complex_unfft, 8, blkdst, 2*blkdst, 8, clmblkdst, 2*clmblkdst
 	mov	eax, 4			;; 4 iterations of 4
 c5b:	disp four_complex_unfft, 8, 4*clmblkdst, 8*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/4		;; Test middle loop counter
 	jnc	c5b			;; Iterate if necessary
@@ -4123,10 +3985,8 @@ c5b:	disp four_complex_unfft, 8, 4*clmblkdst, 8*clmblkdst
 	mov	al, 16			;; Load loop counter
 c1b:	disp four_complex_last_unfft, 8, 16*clmblkdst, 32*clmblkdst
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test loop counter
+	add	al, 256/2/clm		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	c1b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	lea	edi, [edi+64]		;; Next premultiplier pointer
 	dec	al			;; Test loop counter
@@ -4219,10 +4079,8 @@ b1b:	disp four_complex_fft_premult, 16*clmblkdst, 32*clmblkdst, 8
 	mov	eax, 4			;; 4 iterations of 4
 b5b:	disp four_complex_fft, 4*clmblkdst, 8*clmblkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b5b
 	lea	esi, [esi-clm*2*dist1+clmblkdst];; Next source pointer
 	add	ah, 256/4		;; Test middle loop counter
 	jnc	b5b			;; Iterate if necessary
@@ -4256,10 +4114,8 @@ b5b:	disp four_complex_fft, 4*clmblkdst, 8*clmblkdst, 8
 b3b:	cp_disp four_complex_fft, clmblkdst, 2*clmblkdst, 8, blkdst, 2*blkdst, 8
 	lea	esi, [esi+dist1]	;; Next source pointer
 	lea	ecx, [ecx+dist1]	;; Next dest pointer
-	add	al, 256/2		;; Test inner loop counter
+	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-	add	dl, 256/clm
-	jnc	b3b
 	lea	esi, [esi-clm*2*dist1+4*clmblkdst];; Next source pointer
 	lea	ecx, [ecx-clm*2*dist1+4*blkdst];; Next dest pointer
 	lea	edi, [edi+SCD]		;; Next sine/cosine pointer
