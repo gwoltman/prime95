@@ -3468,6 +3468,43 @@ x4gpm_unfft MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem7,mem8,dest1,dest2,off,pre1,pre2
 	x4c_unfft4_cmn r1,r2,r3,r4,r5,r6,r7,r8,mem7,mem8,dest1,dest2,off,off+32,off+64,off+96,pre1,pre2
 	ENDM
 
+;; New cpm code that uses more premultipliers but saves lots of xsincos_complex
+;; data.
+x4cl_four_complex_cpm_fft MACRO srcreg,srcinc,d1,d2,off
+	movapd	xmm0, [srcreg]		;; R1
+	movapd	xmm4, [srcreg+16]	;; R5
+	movapd	xmm1, [srcreg+d1]	;; R2
+	movapd	xmm5, [srcreg+d1+16]	;; R6
+	movapd	xmm2, [srcreg+d2]	;; R3
+	movapd	xmm6, [srcreg+d2+16]	;; R7
+
+	x4c_fft4_cmn xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7,[srcreg+d2+d1],[srcreg+d2+d1+16],[srcreg+d1],0,32,64,96,srcreg+srcinc,d1
+
+	movapd	[srcreg], xmm1		;; Save R1
+	movapd	[srcreg+16], xmm5	;; Save I1
+	movapd	xmm1, [srcreg+32]	;; R1
+	movapd	xmm5, [srcreg+48]	;; R5
+	movapd	[srcreg+32], xmm0	;; Save R2
+	movapd	[srcreg+48], xmm4	;; Save I2
+	movapd	xmm0, [srcreg+d1+32]	;; R2
+	movapd	xmm4, [srcreg+d1+48]	;; R6
+	movapd	[srcreg+d1+16], xmm2	;; Save I3
+	movapd	[srcreg+d1+32], xmm6	;; Save R4
+	movapd	[srcreg+d1+48], xmm7	;; Save I4
+	movapd	xmm2, [srcreg+d2+32]	;; R3
+	movapd	xmm3, [srcreg+d2+48]	;; R7
+
+	x4c_fft4_cmn xmm1,xmm0,xmm2,xmm6,xmm5,xmm4,xmm3,xmm7,[srcreg+d2+d1+32],[srcreg+d2+d1+48],[srcreg+d2+d1],off,off+32,off+64,off+96,srcreg+srcinc+d2,d1
+
+	movapd	[srcreg+d2], xmm0	;; Save R1
+	movapd	[srcreg+d2+16], xmm4	;; Save I1
+	movapd	[srcreg+d2+32], xmm1	;; Save R2
+	movapd	[srcreg+d2+48], xmm5	;; Save I2
+	movapd	[srcreg+d2+d1+16], xmm2	;; Save I3
+	movapd	[srcreg+d2+d1+32], xmm3	;; Save R4
+	movapd	[srcreg+d2+d1+48], xmm7	;; Save I4
+	lea	srcreg, [srcreg+srcinc]
+	ENDM
 
 ;; 114.05 clocks
 x4cl_four_complex_cpm01_fft MACRO srcreg,srcinc,d1,d2
@@ -3743,13 +3780,11 @@ x4c_cpm_fft_3 MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem4,mem8,destr2,desti2,pre1,pre2
 	addpd	r2, r4			;; R4 = I3 + R4 (final I3)
 	ENDM
 
-x16cl_four_complex_cpm_unfft MACRO srcreg,srcinc,d1,d2,d3,d4
-	x4cl_cpm_unfft_0 srcreg,srcinc,d1,d2
-	x4cl_cpm_unfft_1 srcreg+d3,srcinc,d1,d2
-	x4cl_cpm_unfft_2 srcreg+d4,srcinc,d1,d2
-	x4cl_cpm_unfft_3 srcreg+d4+d3,srcinc,d1,d2
+x4cl_four_complex_cpm_unfft MACRO srcreg,srcinc,d1,d2
+	x4cl_cpm_unfft_2 srcreg,srcinc,d1,d2
 	lea	srcreg, [srcreg+srcinc]
 	ENDM
+
 ;; 112.45 clocks
 x4cl_four_complex_cpm0_unfft MACRO srcreg,srcinc,d1,d2
 	x4cl_cpm_unfft_0 srcreg,srcinc,d1,d2
