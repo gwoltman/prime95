@@ -1052,9 +1052,13 @@ void lucasSetup (
 {
 	int	res;
 
-/* Init the FFT code for squaring modulo 1.0*2^p-1 */
+/* Init the FFT code for squaring modulo 1.0*2^p-1.  NOTE: As a kludge for */
+/* the benchmarking code, an odd FFTlen sets up the 1.0*2p+1 FFT code. */
 
-	res = gwsetup (1.0, 2, p, -1, fftlen);
+	if (fftlen & 1)
+		res = gwsetup (1.0, 2, p, 1, fftlen-1);
+	else
+		res = gwsetup (1.0, 2, p, -1, fftlen);
 	if (res) {
 		LLDATA = NULL;
 		return;
@@ -1224,7 +1228,8 @@ again:	if (SLEEP_TIME) {
 		goto did_some_work;
 	}
 	if ((w.work_type == WORK_TEST || w.work_type == WORK_DBLCHK) &&
-	    (w.n < MIN_PRIME || w.n > MAX_PRIME)) {
+	    (w.n < MIN_PRIME ||
+	     w.n > (CPU_FLAGS & CPU_SSE2 ? MAX_PRIME_SSE2 : MAX_PRIME))) {
 		char	buf[80];
 		sprintf (buf, "Error: Work-to-do file contained bad LL exponent: %ld\n", w.n);
 		LogMsg (buf);
@@ -1690,6 +1695,12 @@ void careful_iteration (
 	gwaddquick (hi, x);
 	gwadd (lo, x);
 
+/* Since our error recovery code cannot cope with an error during a careful */
+/* iteration, make sure the error variable is cleared.  This shouldn't */
+/* ever happen, but two users inexplicably ran into this problem. */
+
+	GWERROR = 0;
+
 /* Free memory and return */
 
 	gwfree (hi);
@@ -2116,7 +2127,7 @@ _close (fd);
 		if (interimResidues && counter % interimResidues <= 2) {
 			generateResidue64 (units_bit, &high32, &low32);
 			sprintf (buf, 
-				 "M%ld interim Wb%d residue %08lX%08lX at iteration %ld\n",
+				 "M%ld interim Wc%d residue %08lX%08lX at iteration %ld\n",
 				 p, PORT, high32, low32, counter);
 			OutputBoth (buf);
 		}
@@ -2149,12 +2160,12 @@ _close (fd);
 /* Format the output message */
 
 	if (isPrime) {
-		sprintf (buf, "M%ld is prime! Wb%d: %08lX,%08lX\n",
+		sprintf (buf, "M%ld is prime! Wc%d: %08lX,%08lX\n",
 			 p, PORT, SEC1 (p), error_count);
 	} else {
 		generateResidue64 (units_bit, &high32, &low32);
 		sprintf (buf,
-			 "M%ld is not prime. Res64: %08lX%08lX. Wb%d: %08lX,%ld,%08lX\n",
+			 "M%ld is not prime. Res64: %08lX%08lX. Wc%d: %08lX,%ld,%08lX\n",
 			 p, high32, low32, PORT,
 			 SEC2 (p, high32, low32, units_bit, error_count),
 			 units_bit, error_count);
@@ -2268,8 +2279,11 @@ struct self_test_info {
 	unsigned long reshi;
 };
 
-#define MAX_SELF_TEST_ITERS	399
+#define MAX_SELF_TEST_ITERS	405
 struct self_test_info SELF_TEST_DATA[MAX_SELF_TEST_ITERS] = {
+{560000001, 100, 0x7F853A0A}, {420000001, 150, 0x89665E7E},
+{280000001, 200, 0xC32CAD46}, {210000001, 300, 0x89823329},
+{140000001, 400, 0x15EF4F24}, {110000001, 500, 0x893C9000},
 {78643201, 400, 0x2D9C8904}, {78643199, 400, 0x7D469182},
 {75497473, 400, 0x052C7FD8}, {75497471, 400, 0xCCE7495D},
 {71303169, 400, 0x467A9338}, {71303167, 400, 0xBBF8B37D},
@@ -2472,8 +2486,11 @@ struct self_test_info SELF_TEST_DATA[MAX_SELF_TEST_ITERS] = {
 {104447, 1000, 0xF9F3CDFD}
 };
 
-#define MAX_SELF_TEST_ITERS2	370
+#define MAX_SELF_TEST_ITERS2	376
 struct self_test_info SELF_TEST_DATA2[MAX_SELF_TEST_ITERS2] = {
+{560000001, 100, 0x7F853A0A}, {420000001, 150, 0x89665E7E},
+{280000001, 200, 0xC32CAD46}, {210000001, 300, 0x89823329},
+{140000001, 400, 0x15EF4F24}, {110000001, 500, 0x893C9000},
 {77497473, 900, 0xF0B43F54}, {76497471, 900, 0xF30AFA95},
 {75497473, 900, 0x32D8D3A7}, {75497471, 900, 0x9E689331},
 {74497473, 900, 0xD43166A4}, {73497471, 900, 0x639E4F0C},
@@ -2685,8 +2702,8 @@ int selfTest (
 /* Check for the torture-test case (pArg = 1) */
 
 	if (pArg <= 1) {
-#define SELF_FFT_LENGTHS	37
-		int	lengths[SELF_FFT_LENGTHS] = {1024,8,10,896,768,12,14,640,512,16,20,448,384,24,28,320,256,32,40,224,192,48,56,160,128,64,80,112,96,1280,1536,1792,2048,2560,3072,3584,4096};
+#define SELF_FFT_LENGTHS	49
+		int	lengths[SELF_FFT_LENGTHS] = {1024,8,10,896,768,12,14,640,512,16,20,448,384,24,28,320,256,32,40,224,192,48,56,160,128,64,80,112,96,1280,1536,1792,2048,2560,3072,3584,4096,5120,6144,7168,8192,10240,12288,14336,16384,20480,24576,28672,32768};
 		int	min_fft, max_fft, test_time;
 		time_t	start_time, current_time;
 		unsigned int memory;	/* Memory to use during torture test */
@@ -3546,10 +3563,11 @@ void factorBench (void)
 
 void primeBench (void)
 {
-	unsigned long num_lengths, i, j, iterations;
+	unsigned long num_lengths, i, ii, j, iterations;
 	double	best_time;
 	char	buf[512];
-	int	fft_lengths[] = {4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 28, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 448, 512, 640, 768, 896, 1024, 1280, 1536, 1792, 2048, 2560, 3072, 3584, 4096};
+	int	fft_lengths[] = {4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 28, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 448, 512, 640, 768, 896, 1024, 1280, 1536, 1792, 2048, 2560, 3072, 3584, 4096, 5120, 6144, 7168, 8192, 10240, 12288, 14336, 16384, 20480, 24576, 28672, 32768};
+	int	all_bench, plus1;
 
 /* Set the process/thread priority */
 
@@ -3576,28 +3594,35 @@ void primeBench (void)
 
 /* Loop over all FFT lengths */
 
-	
+	all_bench = IniGetInt (INI_FILE, "AllBench", 0);
 	if (IniGetInt (INI_FILE, "FullBench", 0)) {
 		i = 0;
 		num_lengths = sizeof (fft_lengths) / sizeof (int);
 	} else {
 		i = 28;
-		num_lengths = sizeof (fft_lengths) / sizeof (int) - 4;
+		num_lengths = sizeof (fft_lengths) / sizeof (int) - 12;
 	}
 	for ( ; i < num_lengths; i++) {
+	  for (plus1 = 0; plus1 <= 1; plus1++) {
+	    for (ii = 1; ; ii++) {
 
 /* Initialize for this FFT length.  Compute the number of iterations to */
 /* time.  This is based on the fact that it doesn't take too long for */
 /* my 1400 MHz P4 to run 10 iterations of a 1792K FFT. */
 
-		lucasSetup (fft_lengths[i] * 1024 * 17 + 1, fft_lengths[i] * 1024);
+		if (all_bench) bench_pick_nth_fft = ii;
+		lucasSetup (fft_lengths[i] * 1024 * 17 + 1, fft_lengths[i] * 1024 + plus1);
+		if (all_bench) bench_pick_nth_fft = 0;
+		if (LLDATA == NULL) break;
 		iterations = (unsigned long) (10 * 1792 * CPU_SPEED / 1400 / fft_lengths[i]);
 		if (iterations < 10) iterations = 10;
 		if (iterations > 100) iterations = 100;
 
 /* Output start message for this FFT length */
 
-		sprintf (buf, "Timing %d iterations at %dK FFT length.  ", iterations, fft_lengths[i]);
+		sprintf (buf, "Timing %d iterations at %dK%s FFT length.  ",
+			 iterations, fft_lengths[i],
+			 plus1 ? " all-complex" : "");
 		OutputStr (buf);
 
 /* Fill data space with random values. */
@@ -3632,11 +3657,33 @@ void primeBench (void)
 /* Print the best time for this FFT length */
 
 		OutputStr ("Best time: ");
-		sprintf (buf, "Best time for %dK FFT length: ", fft_lengths[i]);
+		if (all_bench)
+			sprintf (buf,
+				 "Time FFTlen=%dK%s, Levels2=%d, clm=%d: ",
+				 fft_lengths[i], plus1 ? " all-complex" : "",
+				 PASS2_LEVELS, PASS1_CACHE_LINES / 2);
+		else
+			sprintf (buf, "Best time for %dK%s FFT length: ",
+				 fft_lengths[i], plus1 ? " all-complex" : "");
 		writeResults (buf);
 		timers[0] = best_time;
 		print_timer (0, TIMER_NL | TIMER_MS | TIMER_OUT_BOTH);
+
+/* Do next FFT implementation (if all_bench set) or next FFT size (if */
+/* all_bench is not set) */
+
+		if (!all_bench) break;
+	    }
+
+/* Do all-complex implementation (if all_bench set) or next FFT size (if */
+/* all_bench is not set) */
+
+	    if (!all_bench) break;
+	  }
 	}
+
+/* Now benchmark the trial factoring code */
+
 	factorBench ();
 	OutputStr ("Benchmark complete.\n");
 }
@@ -4096,7 +4143,7 @@ done:	if (*result)
 		pkt.resultInfo.how_far_factored = bits;
 		spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
 
-		sprintf (buf, "M%ld no factor to 2^%d, Wb%d: %08lX\n",
+		sprintf (buf, "M%ld no factor to 2^%d, Wc%d: %08lX\n",
 			 p, bits, PORT, SEC3 (p));
 		OutputBoth (buf);
 		spoolMessage (PRIMENET_RESULT_MESSAGE, buf);
@@ -4132,7 +4179,7 @@ readerr:_close (fd);
 
 /* Factor a range of primes using factors of the specified size */
 
-char NOFAC[] = "M%ld no factor from 2^%d to 2^%d, Wb%d: %08lX\n";
+char NOFAC[] = "M%ld no factor from 2^%d to 2^%d, Wc%d: %08lX\n";
 
 int primeSieve (
 	unsigned long startp,

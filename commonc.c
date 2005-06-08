@@ -2377,7 +2377,15 @@ unsigned int factorLimit (
 {
 	unsigned int test, override;
 
-	if (p > FAC72) test = 72;	/* Test all 72 bit factors */
+	if (p > FAC80) test = 80;	/* Test all 80 bit factors */
+	else if (p > FAC79) test = 79;	/* Test all 79 bit factors */
+	else if (p > FAC78) test = 78;	/* Test all 78 bit factors */
+	else if (p > FAC77) test = 77;	/* Test all 77 bit factors */
+	else if (p > FAC76) test = 76;	/* Test all 76 bit factors */
+	else if (p > FAC75) test = 75;	/* Test all 75 bit factors */
+	else if (p > FAC74) test = 74;	/* Test all 74 bit factors */
+	else if (p > FAC73) test = 73;	/* Test all 73 bit factors */
+	else if (p > FAC72) test = 72;	/* Test all 72 bit factors */
 	else if (p > FAC71) test = 71;	/* Test all 71 bit factors */
 	else if (p > FAC70) test = 70;	/* Test all 70 bit factors */
 	else if (p > FAC69) test = 69;	/* Test all 69 bit factors */

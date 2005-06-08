@@ -142,12 +142,12 @@ EXTRN	cache_line_multiplier:DWORD
 EXTRN	pass1blkdst:EXTPTR
 EXTRN	normblkdst:EXTPTR
 EXTRN	normblkdst8:EXTPTR
-EXTRN	pass2datasize:EXTPTR
 EXTRN	pass2gapsize:EXTPTR
 EXTRN	loopcount1:DWORD
 EXTRN	loopcount2:DWORD
 EXTRN	loopcount3:DWORD
 EXTRN	loopcount4:DWORD
+EXTRN	loopcount5:DWORD
 EXTRN	norm_ptr1:EXTPTR
 EXTRN	norm_ptr2:EXTPTR
 EXTRN	norm_ptr3:EXTPTR

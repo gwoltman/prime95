@@ -30,6 +30,7 @@ INCLUDE	xlucas.mac
 INCLUDE xmult.mac
 INCLUDE xnormal.mac
 INCLUDE xpass1.mac
+INCLUDE xpass1sc.mac
 
 IFNDEF AMD
 PUBLIC	xgw_finish_fft
@@ -50,7 +51,8 @@ _TEXT SEGMENT
 ;; 2 sets of data (2 * 2^8 complex values = 2^10 doubles = 8KB).
 
 PREFETCHING = 1
-blkdst = (8192+128)
+blkdst = (8192+128+GAP2_8_4)
+xpass2_levels = 8
 
 ;; All the FFT routines for each FFT length
 
@@ -74,12 +76,35 @@ PROCP	_xmm_gw_ffts2
 	xfft	32Kp
 ;	xfft	40K
 ;	xfft	48K
+;	xfft	48Kp
 ;	xfft	56K
 ;	xfft	64K
-;	xfft	80K
-;	xfft	96K
-;	xfft	112K
-;	xfft	128K
+;	xfft	64Kp
+
+;	xfftclm	80K, 4
+;	xfftclm	96K, 4
+;	xfftclm	96Kp, 4
+;	xfftclm	112K, 4
+;	xfftclm	128K, 4
+;	xfftclm	128Kp, 4
+;	xfftclm	160K, 4
+;	xfftclm	192K, 4
+;	xfftclm	192Kp, 4
+;	xfftclm	224K, 4
+;	xfftclm	256K, 4
+;	xfftclm	256Kp, 4
+;	xfftclm	320K, 4
+;	xfftclm	384K, 4
+;	xfftclm	384Kp, 4
+;	xfftclm	448K, 4
+;	xfftclm	512K, 4
+;	xfftclm	512Kp, 4
+allfft	xfftclm	640K, 1
+allfft	xfftclm	768K, 1
+allfft	xfftclm	768Kp, 1
+allfft	xfftclm	896K, 1
+allfft	xfftclm	1024K, 1
+allfft	xfftclm	1024Kp, 1
 
 IFNDEF AMD
 
@@ -111,10 +136,10 @@ xgw_carries:
 	mov	loopcount1, eax		; Save for later
 ilp0:	mov	eax, loopcount1		; Get list of counts
 	mov	ebx, eax		; Form count for this section
-	and	rbx, 03FFh
+	and	rbx, 07FFh
 	jz	spldn			; No rows to do.  We're all done!
 	mov	loopcount2, ebx		; Save count of carry rows this section
-	shr	eax, 10			; Move counts list along
+	shr	eax, 11			; Move counts list along
 	mov	loopcount1, eax
 	shl	rbx, 6			; Compute addr of the last carries row
 	add	rbx, rsi
@@ -156,10 +181,10 @@ c2b:	mov	rsi, carries		; Addr of the carries
 	mov	loopcount1, eax		; Save for later
 zlp0:	mov	eax, loopcount1		; Get list of counts
 	mov	ebx, eax		; Form count for this section
-	and	rbx, 03FFh
+	and	rbx, 07FFh
 	jz	zpldn			; No rows to do.  We're all done!
 	mov	loopcount2, ebx		; Save count of carry rows this section
-	shr	eax, 10			; Move counts list along
+	shr	eax, 11			; Move counts list along
 	mov	loopcount1, eax
 	shl	rbx, 6			; Compute addr of the last carries row
 	add	rbx, rsi

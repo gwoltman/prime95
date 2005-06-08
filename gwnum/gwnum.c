@@ -122,9 +122,10 @@ double	fft_count = 0;		/* Count of forward and inverse FFTs */
 double	*gwnum_memory;		/* Allocated memory */
 unsigned long GW_ALIGNMENT = 0;	/* How to align allocated gwnums */
 unsigned long GW_ALIGNMENT_MOD = 0; /* How to align allocated gwnums */
-unsigned long PASS1_CACHE_LINES = 0; /* Cache lines grouped together in */
+unsigned long PASS1_CACHE_LINES = 8; /* Cache lines grouped together in */
 				/* first pass of an FFT. */
 unsigned long PASS2_LEVELS = 0; /* FFT levels done in pass 2. */
+unsigned long PASS2GAPSIZE = 0;	/* Gap between blocks in pass 2 */
 unsigned long SCRATCH_SIZE = 0;	/* Size of the pass 1 scratch area */
 double	bit_length;		/* Bit length of k*b^n */
 int	ZERO_PADDED_FFT=0;	/* True if doing a zero pad FFT */
@@ -163,6 +164,13 @@ unsigned int gwnum_free_count = 0; /* Count of available gwnums */
 
 void (*OutputBothRoutine)(char *) = NULL;
 #define OutputBoth(x)	(*OutputBothRoutine)(x)
+
+/* This global forces the FFT selection code to pick the n-th possible */
+/* implementation.  The prime95 benchmarking code uses this to time */
+/* every FFT implementation so that we can find the best one for */
+/* each CPU architecture */
+
+int	bench_pick_nth_fft = 0;
 
 /* Assembly helper routines */
 
@@ -345,7 +353,7 @@ double *build_premult_table (
 	double	*table,		/* Pointer to the table to fill in */
 	unsigned long pass2_size)
 {
-	unsigned long i, N, incr, type;
+	unsigned long i, N, incr, type, m_fudge;
 
 /* Build a premultiplier table for the second pass incrementing by */
 /* the pre-calculated pass2_size. */
@@ -360,11 +368,19 @@ double *build_premult_table (
  	if (CARG > 0 && !ZERO_PADDED_FFT) i = 0;
 	else i = incr * 4;
 
+/* To add in the flipped_m component, we want the sin/cos of flipped_m */
+/* over pass2_size.  This fudge factor will convert flipped_m into something */
+/* that can be divided by N. */
+
+	m_fudge = N / pass2_size;
+
 /* Loop to build table. */
 
 	type = 0;
 	for ( ; i < N; i += incr) {
-		unsigned long shifted_i, shifted_N, flipped_i, k, l;
+		unsigned long shifted_i, shifted_N, flipped_i, k, l, m;
+		unsigned long grouping_size;
+		double	*table_start;
 		double	sincos[2];
 
 /* Flip the bits in i.  Our prime-factor-FFT makes this a little complex. */
@@ -395,18 +411,28 @@ double *build_premult_table (
 			}
 		}
 
-/* Generate the group multipliers */
+/* Generate the group multipliers.  We used to always create groups of 4, */
+/* but to save memory we now group by different amounts based on pass 2 size */
 
-		for (k = 0; k < incr / 4; k += 4) {
+		grouping_size = 4;
+		if (pass2_size == 1024) grouping_size = 8;
+		if (pass2_size == 2048) grouping_size = 8;
+		if (pass2_size == 4096) grouping_size = 16;
+		if (pass2_size == 8192) grouping_size = 16;
+		table_start = table;
+		for (k = 0; k < incr / 4; k += grouping_size) {
 
 /* There are 4 multipliers in a XMM_PMD set */
 
 			for (l = 0; l < 4; l++) {
+				unsigned long real_k, pm;
 
 /* Compute the sin/cos value (root of unity) */
 
+				real_k = l * incr/4 + k;
+				pm = real_k * flipped_i;
 				if (CARG < 0 || ZERO_PADDED_FFT) {
-					NUMARG = (long) (((l * incr/4 + k) * flipped_i) % N);
+					NUMARG = (long) (pm % N);
 					NUM2ARG = (long) N;
 					DESTARG = (void *) &sincos;
 					gwsincos (NUMARG, NUM2ARG, (double *) &sincos);
@@ -416,7 +442,8 @@ double *build_premult_table (
 /* by changing the value we are taking the sin/cos of */
 
 				else {
-					NUMARG = (long) (((l * incr/4 + k) * flipped_i * 4 + l*incr/4+k) % (N*4));
+					pm = pm * 4 + real_k;
+					NUMARG = (long) (pm % (N*4));
 					NUM2ARG = (long) (N*4);
 					DESTARG = (void *) &sincos;
 					gwsincos (NUMARG, NUM2ARG, (double *) &sincos);
@@ -430,15 +457,25 @@ double *build_premult_table (
 			table += 16;
 		}
 	
-/* Generate the 4 column multipliers * 4 sin/cos values */
+/* Generate the 16 column multipliers * first 4 sin/cos values. */
+/* Also multiply by the LAST 4 sin/cos values so that the xsincos_complex */
+/* table can be 1/4 of it's usual size.  The extra room in the cache more */
+/* than compensates for the 12 extra column multipliers. */
 
-		for (k = 0; k < 4; k++) {
+		for (m = 0; m < 4; m++) {
+		    unsigned long flipped_m;
+		    flipped_m = ((m & 1) << 1) + ((m & 2) >> 1);
+		    for (k = 0; k < grouping_size; k++) {
 			for (l = 0; l < 4; l++) {
+				unsigned long pm;
 
 /* Compute the sin/cos value (root of unity) */
 
+				pm = k * flipped_i +
+				     l * flipped_m * N/16 +
+				     (k & 3) * flipped_m * m_fudge;
 				if (CARG < 0 || ZERO_PADDED_FFT) {
-					NUMARG = (long) ((k * flipped_i + l * N/16) % N);
+					NUMARG = (long) (pm % N);
 					NUM2ARG = (long) N;
 					DESTARG = (void *) &sincos;
 					gwsincos (NUMARG, NUM2ARG, (double *) &sincos);
@@ -448,7 +485,8 @@ double *build_premult_table (
 /* by changing the value we are taking the sin/cos of */
 
 				else {
-					NUMARG = (long) (((k * flipped_i * 2 + l * N/8) *2 + k) % (N*4));
+					pm = pm * 4 + k;
+					NUMARG = (long) (pm % (N*4));
 					NUM2ARG = (long) (N*4);
 					DESTARG = (void *) &sincos;
 					gwsincos (NUMARG, NUM2ARG, (double *) &sincos);
@@ -460,9 +498,10 @@ double *build_premult_table (
 				table[l*4+2+type] = sincos[1];
 			}
 			table += 16;
+		    }
 		}
 
-		if (type == 0) table -= (incr / 4 + 16) * 4;
+		if (type == 0) table = table_start;
 		type = 1 - type;
  	}
 
@@ -1310,8 +1349,7 @@ next1:			for (zpad_jmptab += 18; *zpad_jmptab; zpad_jmptab++);
 		}
 	}
 
-/* Now see what FFT length we would use a DWT does the k*b^n+c modulo. */
-/* with a zero padded FFT. */
+/* Now see what FFT length we would use if a DWT does the k*b^n+c modulo. */
 
 /* Use the proper 2^N+1 or 2^N-1 jmptable */
 
@@ -1328,11 +1366,6 @@ next1:			for (zpad_jmptab += 18; *zpad_jmptab; zpad_jmptab++);
 
 	while ((max_exp = jmptab[0]) != 0) {
 
-/* Check L2 cache size constraints */
-
-		if (l2_cache_size < ((jmptab[4] >> 16) & 0x3FFF))
-			goto next2;
-
 /* Check FFT requires prefetch capability */
 
 		if (jmptab[4] & 0x80000000 && ! (CPU_FLAGS & CPU_PREFETCH))
@@ -1341,6 +1374,22 @@ next1:			for (zpad_jmptab += 18; *zpad_jmptab; zpad_jmptab++);
 /* Check FFT requires prefetchw (3DNow!) capability */
 
 		if (jmptab[4] & 0x40000000 && ! (CPU_FLAGS & CPU_3DNOW))
+			goto next2;
+
+/* Handle benchmarking case that selects the nth FFT implementation */
+/* regardless of cache size considerations. */
+
+		if (bench_pick_nth_fft) {
+			l2_cache_size = 9999999;
+			if (fftlen != jmptab[1]) goto next2;
+			if (CPU_FLAGS & CPU_3DNOW &&
+			    ! (jmptab[4] & 0x40000000)) goto next2;
+			if (--bench_pick_nth_fft) goto next2;
+		}
+
+/* Check L2 cache size constraints */
+
+		if (l2_cache_size < ((jmptab[4] >> 16) & 0x3FFF))
 			goto next2;
 
 /* Check if this table entry matches the specified FFT length. */
@@ -1705,7 +1754,7 @@ int internal_gwsetup (
 
 	fpu_init ();
 	info = INFT[0];
-	mem_needed = info[3];
+	mem_needed = info[3] + info[5];
 	gwnum_memory = tables = (double *) aligned_malloc (mem_needed, 4096);
 	if (tables == NULL) return (GWERROR_MALLOC);
 
@@ -1769,13 +1818,6 @@ int internal_gwsetup (
 	EXTRA_BITS = (unsigned long)
 		pow (2.0, (fft_max_bits_per_word - virtual_bits_per_word ()) / 2.0);
 
-/* This debug code will make sure the memory allocated is appropriate */
-/* for the tables we are about to init. */
-
-#ifdef GDEBUG
-	{double *t1=tables;
-#endif
-
 /* See how many cache lines are grouped in pass 1.  This will affect how */
 /* we build the normalization tables.  Note that cache line sizes are */
 /* different in the x87 (16 bytes) and SSE2 code (64 bytes). */
@@ -1793,39 +1835,115 @@ int internal_gwsetup (
 
 	SCRATCH_SIZE = info[5];
 
+/* Remember the gap between 2 blocks in pass 2.  This is used in addr_offset */
+/* for two pass SSE2 FFTs. */
+
+#ifndef X86_64
+	PASS2GAPSIZE = info[13] & ~1;
+#else
+	PASS2GAPSIZE = info[18] & ~1;
+#endif
+
 /* Initialize tables for the SSE2 assembly code. */
 
 	if (CPU_FLAGS & CPU_SSE2) {
 
+/* Build sin/cos and premultiplier tables used in pass 2 of two pass FFTs */
+/* Remember that pass2_size is the number of complex values in a pass 2 */
+/* section, but build_sin_cos_table wants the number of reals in a section. */
+/* However, we build a 1/4-sized table by mixing some of the sin/cos */
+/* data into the premultiplier table.  So, divide pass2_size by 2 instead of */
+/* multiplying pass2_size by 2. */
+
+/* For best prefetching, make sure tables remain on 128-byte boundaries */
+
+		if (pass2_size > 1) {
+			ASSERTG (((tables - gwnum_memory) & 15) == 0);
+			((double **)GWPROCPTRS)[0] = tables;
+			tables = build_premult_table (tables, pass2_size);
+
+			ASSERTG (((tables - gwnum_memory) & 15) == 0);
+			((double **)GWPROCPTRS)[1] = tables;
+			tables = build_sin_cos_table (tables, pass2_size/2, 0, 1);
+
+			if (c < 0 || ZERO_PADDED_FFT) {
+				ASSERTG (((tables - gwnum_memory) & 15) == 0);
+				((double **)GWPROCPTRS)[7] = tables;
+				tables = build_sin_cos_table (tables, pass2_size * 4, 1, 2);
+				((double **)GWPROCPTRS)[8] = tables;
+				tables = build_sin_cos_table (tables, pass2_size, 1, 1);
+				tables += (16 - (tables - gwnum_memory)) & 15;
+			}
+
+//			if (pass2_size == pow_two_above_or_equal (pass2_size)) {
+				GWPROCPTRS[9] = GWPROCPTRS[8];
+				GWPROCPTRS[10] = GWPROCPTRS[8];
+				GWPROCPTRS[11] = GWPROCPTRS[8];
+				GWPROCPTRS[12] = GWPROCPTRS[8];
+				GWPROCPTRS[13] = GWPROCPTRS[8];
+//			} else {
+//				((double **)GWPROCPTRS)[9] = tables;
+//				tables = build_sin_cos_table (tables, pass2_size/4, c < 0 || ZERO_PADDED_FFT, 1);
+//				((double **)GWPROCPTRS)[10] = tables;
+//				tables = build_sin_cos_table (tables, pass2_size/16, c < 0 || ZERO_PADDED_FFT, 1);
+//				((double **)GWPROCPTRS)[11] = tables;
+//				tables = build_sin_cos_table (tables, pass2_size/64, c < 0 || ZERO_PADDED_FFT, 1);
+//				((double **)GWPROCPTRS)[12] = tables;
+//				tables = build_sin_cos_table (tables, pass2_size/256, c < 0 || ZERO_PADDED_FFT, 1);
+//				((double **)GWPROCPTRS)[13] = tables;
+//				tables = build_sin_cos_table (tables, pass2_size/1024, c < 0 || ZERO_PADDED_FFT, 1);
+//				tables += (16 - (tables - gwnum_memory)) & 15;
+//			}
+		}
+
 /* Allocate a table for carries.  Init with XMM_BIGVAL.  For best */
 /* distribution of data in the L2 cache, make this table contiguous */
-/* with the scratch area which is also used in the first pass. */
+/* with all other data used in the first pass (scratch area, normalization */
+/* tables, etc.)  Note that we put the tables that are only partly loaded */
+/* (column multipliers and big/lit table after the tables that are */
+/* loaded throughtout the first pass. */
 
 		if (pass2_size > 1) {
 			int	i, carry_table_size;
 			double	xmm_bigval;
+			ASSERTG (((tables - gwnum_memory) & 15) == 0);
 			((double **)GWPROCPTRS)[17] = tables;
 			carry_table_size = FFTLEN / (pass2_size / 2);
 			xmm_bigval = 3.0 * 131072.0 * 131072.0 * 131072.0;
 			for (i = 0; i < carry_table_size; i++)
 				*tables++ = xmm_bigval;
+			tables += (16 - (tables - gwnum_memory)) & 15;
 		}
-
-/* Reserve room for the pass 1 scratch area. */
-
-		((double**)GWPROCPTRS)[18] = tables;
-		if (SCRATCH_SIZE)
-			tables = (double *) ((char *) tables + SCRATCH_SIZE);
 
 /* Build the group muliplier normalization table.  Keep this table */
 /* contiguous with other data used in pass 1. */
 
+		ASSERTG (((tables - gwnum_memory) & 15) == 0);
 		((double **)GWPROCPTRS)[14] = tables;
 		tables = build_norm_table (tables, pass2_size, 0);
+
+/* Build the plus1-pre-multiplier table (complex weights applied when c > 0 */
+/* and we are doing a all-complex FFT rather than emulating it with a */
+/* zero-padded FFT. */
+
+		if (c > 0 && !ZERO_PADDED_FFT) {
+			ASSERTG (((tables - gwnum_memory) & 15) == 0);
+			((double **)GWPROCPTRS)[19] = tables;
+			tables = build_plus1_table (tables, pass2_size);
+		}
+
+/* Reserve room for the pass 1 scratch area. */
+
+		if (SCRATCH_SIZE) {
+			ASSERTG (((tables - gwnum_memory) & 15) == 0);
+			((double**)GWPROCPTRS)[18] = tables;
+			tables = (double *) ((char *) tables + SCRATCH_SIZE);
+		}
 
 /* Build sin/cos tables used in pass 1.  If FFTLEN is a power of two, */
 /* many of the sin/cos tables can be shared. */
 
+		ASSERTG (((tables - gwnum_memory) & 15) == 0);
 		((double **)GWPROCPTRS)[2] = tables;
 		tables = build_sin_cos_table (tables, pass1_size, c < 0 || ZERO_PADDED_FFT, pass2_size == 1 ? 2 : 1);
 
@@ -1848,64 +1966,17 @@ int internal_gwsetup (
 			((double **)GWPROCPTRS)[6] = tables;
 			tables = build_sin_cos_table (tables, pass1_size/256, c < 0 || ZERO_PADDED_FFT, 1);
 		}
-
-/* Build sin/cos and premultiplier tables used in pass 2 of two pass FFTs */
-/* Remember that pass2_size is the number of complex values in a pass 2 */
-/* section, but build_sin_cos_table wants the number of reals in a section. */
-/* Also, in SSE2 the first complex section is handled in the real code */
-/* by handling a double-sized section (when compared to the x87 code's */
-/* pass 2 real section.  For example, the pass2 8 levels real section */
-/* handles 512 doubles in x87, but handles 1024 doubles in SSE2. */
-
-		if (pass2_size > 1) {
-			((double **)GWPROCPTRS)[0] = tables;
-			tables = build_premult_table (tables, pass2_size);
-			((double **)GWPROCPTRS)[1] = tables;
-			tables = build_sin_cos_table (tables, pass2_size*2, 0, 1);
-
-			if (c < 0 || ZERO_PADDED_FFT) {
-				((double **)GWPROCPTRS)[7] = tables;
-				tables = build_sin_cos_table (tables, pass2_size * 4, 1, 2);
-				((double **)GWPROCPTRS)[8] = tables;
-				tables = build_sin_cos_table (tables, pass2_size, 1, 1);
-			}
-
-//			if (pass2_size == pow_two_above_or_equal (pass2_size)) {
-				GWPROCPTRS[9] = GWPROCPTRS[8];
-				GWPROCPTRS[10] = GWPROCPTRS[8];
-				GWPROCPTRS[11] = GWPROCPTRS[8];
-				GWPROCPTRS[12] = GWPROCPTRS[8];
-				GWPROCPTRS[13] = GWPROCPTRS[8];
-//			} else {
-//				((double **)GWPROCPTRS)[9] = tables;
-//				tables = build_sin_cos_table (tables, pass2_size/4, c < 0 || ZERO_PADDED_FFT, 1);
-//				((double **)GWPROCPTRS)[10] = tables;
-//				tables = build_sin_cos_table (tables, pass2_size/16, c < 0 || ZERO_PADDED_FFT, 1);
-//				((double **)GWPROCPTRS)[11] = tables;
-//				tables = build_sin_cos_table (tables, pass2_size/64, c < 0 || ZERO_PADDED_FFT, 1);
-//				((double **)GWPROCPTRS)[12] = tables;
-//				tables = build_sin_cos_table (tables, pass2_size/256, c < 0 || ZERO_PADDED_FFT, 1);
-//				((double **)GWPROCPTRS)[13] = tables;
-//				tables = build_sin_cos_table (tables, pass2_size/1024, c < 0 || ZERO_PADDED_FFT, 1);
-//			}
-		}
-
-/* Build the plus1-pre-multiplier table (complex weights applied when c > 0 */
-/* and we are doing a all-complex FFT rather than emulating it with a */
-/* zero-padded FFT. */
-
-		if (c > 0 && !ZERO_PADDED_FFT) {
-			((double **)GWPROCPTRS)[19] = tables;
-			tables = build_plus1_table (tables, pass2_size);
-		}
+		tables += (16 - (tables - gwnum_memory)) & 15;
 
 /* Build the column normalization multiplier table. */
 
+		ASSERTG (((tables - gwnum_memory) & 15) == 0);
 		((double **)GWPROCPTRS)[15] = tables;
 		tables = build_norm_table (tables, pass2_size, 1);
 
 /* Build the table of big vs. little flags. */
 
+		ASSERTG (((tables - gwnum_memory) & 15) == 0);
 		((double **)GWPROCPTRS)[16] = tables;
 		tables = build_biglit_table (tables, pass2_size);
 	}
@@ -2006,10 +2077,11 @@ int internal_gwsetup (
 
 #ifdef GDEBUG
 	{char buf[80];
-	long mem = (int) tables - (int) t1;
+	long mem = (int) tables - (int) gwnum_memory;
 	if (mem != mem_needed) {
-		sprintf (buf, "%d, mem: %d\n", FFTLEN, mem);
-		OutputBoth(buf);}}}
+		sprintf (buf, "FFTlen: %d, mem needed should be: %d\n",
+			 FFTLEN, mem - info[5]);
+		OutputBoth(buf);}}
 #endif
 
 /* Now compute a number of constants the assembly code needs.  These will */
@@ -2265,8 +2337,8 @@ int internal_gwsetup (
 			GW_ALIGNMENT = 4096;	/* Page alignment */
 			GW_ALIGNMENT_MOD = 0;
 		} else {			/* Large two passes */
-			GW_ALIGNMENT = 512;	/* Clmblkdst + 1 cache line */
-			GW_ALIGNMENT_MOD = 128;
+			GW_ALIGNMENT = 1024;	/* Clmblkdst (up to 8) */
+			GW_ALIGNMENT_MOD = 128; /* + 1 cache line */
 		}
 	} else {
 		if (PASS2_LEVELS == 0)		/* One pass */
@@ -2361,7 +2433,8 @@ gwnum gwalloc (void)
 	} else {
 		p = (char *) aligned_offset_malloc (
 				size + GW_HEADER_SIZE, GW_ALIGNMENT,
-				GW_HEADER_SIZE + GW_ALIGNMENT_MOD);
+				(GW_HEADER_SIZE - GW_ALIGNMENT_MOD) &
+					(GW_ALIGNMENT - 1));
 		if (p == NULL) return (NULL);
 		freeable = 1;
 	}
@@ -2456,179 +2529,9 @@ void gwcopy (			/* Copy a gwnum */
 }
 
 /* To optimize use of the L1 cache we scramble the FFT data. */
-/* Note:  The Intel L1 data cache is 8KB two-way set associative with */
-/* 32 byte cache lines.  Later CPUs have more cache, but we are prepared */
-/* for the worst case.  This tiny cache will require us to perform */
-/* three "passes" to perform a large FFT. Each pass must minimize */
-/* L1 cache line conflicts - that is have no data at the same address */
-/* modulo 4096 */
-
-/* 1) We'd like to do as much work as possible in the final pass (called */
-/*    pass 2 in a lot of the code).  Since some cache space is required */
-/*    for sine/cosine data, we only use half of the L1 cache for FFT data. */
-/*    4KB = 512 values = 256 complex values.  Thus, the final pass will */
-/*    perform 8 FFT levels.  Also note that it will be advantageous to */
-/*    have the real and imaginary values in the same cache line.  Thus, */
-/*    the first cache line contains the 0th, 128th, 256th, and 384th FFT */
-/*    data values.  Where the 0th and 128th values comprise a single */
-/*    complex number as does the 256th and 384th. */
-
-/* 2) To eliminate cache line conflicts in the middle pass (called pass 1 */
-/*    in a lot of this code), 32 bytes is wasted after 4KB of FFT data */
-/*    If we did not do this every pass 1 value would try to occupy the */
-/*    same L1 cache line! */
-
-/* Putting it all together, for FFTLEN=2^16 you get this memory layout:	*/
-/*	0	128	256	384		(32 bytes)		*/
-/*	1	129	257	385		(32 bytes)		*/
-/*		   etc.							*/
-/*	127	255	383	511		(32 bytes)		*/
-/*		(32 wasted bytes)					*/
-/*	512	640	768	896		(32 bytes)		*/
-/*	513	641	769	897		(32 bytes)		*/
-/*		   etc.							*/
-/*	639	767	895	1023		(32 bytes)		*/
-/*		(32 wasted bytes)					*/
-/*	1024	1152	1280	1408		(32 bytes)		*/
-/*		   etc.							*/
-
-/* Well.... I implemented the above only to discover I had dreadful */
-/* performance in pass 1.  How can that be?  The problem is that each  */
-/* cache line in pass 1 comes from a different 4KB page.  Therefore, */
-/* pass 1 accessed 128 different pages.  This is a problem because the */
-/* Pentium chip has only 64 TLBs (translation lookaside buffers) to map */
-/* logical page addresses into physical addresses.  So we need to shuffle */
-/* the data further so that pass 1 data is on fewer pages while */
-/* pass 2 data is spread over more pages. */
-
-/* 1st 4KB page		2nd page	...	18th page	*/
-/* 0 128 256 384	waste			waste		*/
-/* 512 640 768 896	8 136 264 392		waste		*/
-/* ...								*/
-/* 7680 ...					waste		*/
-/* 1 129 257 385				8192 8320 ...	*/
-/* 513 ...            	9 137 265 393		8704 ...	*/
-/*               ...						*/
-/* 7 ...							*/
-/* 519 ...							*/
-/*	         ...						*/
-/* 7687 ...							*/
-
-/* That is, waste 32 bytes after each 512 FFT data values (4KB). */
-/* Except after 8192 FFT data values go to the next 4KB page and waste */
-/* the first 16*32 bytes.  If you look carefully at the above, you'll see */
-/* that in pass 2 the FFT data (values 0 through 511) comes from the first */
-/* 16 4KB pages (actually the waste bytes make this 17 4KB pages).  Similarly,
-/* the pass 1 data (values 0 up to 65536 stepping by 256) comes from 16 */
-/* different 4KB pages  ---  and there are no L1 cache line conflicts!!! */
-/* Furthermore, when accessing pages, the pages are an odd number apart */
-/* (1 page apart in pass 2, 17 pages apart in pass 1).  This is good in */
-/* distributing the pages uniformly among the 4-way set-associative */
-/* TLB cache. */
-
-/* How does the above scheme work for the three pass case?  As you might */
-/* imagine, more adjustments are necessary.  When doing a 1M FFT we will */
-/* work in three passes.  Pass 2 looks at 0 up to 512 step 1, pass 1 */
-/* looks at 0 up to 65536 step 256, and pass 0 looks at 0 up to 1048576 */
-/* step 32768.  This corresponds to 5 levels in pass 0, 7 in pass 1, 8 in */
-/* pass 2.  Notice above that both pass 1 and pass 2 look at the values */
-/* 0 and 128 thus they should be on the same 4KB page.  Likewise, values */
-/* 0 and 32768 are both used in pass 0 and pass 1 and should be on the */
-/* same 4KB page.  After analyzing the various FFT sizes and TLB hit */
-/* patterns, I settled on this memory layout: */
-
-/* 1st 4KB page		*/
-/* 0 128 256 384	*/
-/* 512 640 768 896	*/
-/* 16K 16K+128 ...	*/
-/* 16K+512...		*/
-/* ...			*/
-/* 7*16K+512 ...	*/
-/* 1 129 257 385	*/
-/* 513 ...            	*/
-/* ...			*/
-/* 7*16K+512+7 ...	*/
-
-/* This is much like the previous layout except that instead of 16 cache */
-/* lines that are 512 apart, there are only 2 cache lines that are 512 apart */
-/* and 8 that are 16K apart. */
-
-/* To eliminate the cache line conflicts in pass 2, 32 bytes are wasted */
-/* every 4KB.  To eliminate cache line conflicts in pass 1 and to keep */
-/* the TLB hits uniform, after 16 pages we waste the rest of the 17th */
-/* page and the first 8 cache lines of the 18th page.  To eliminate cache */
-/* line conflicts in pass 0 and keep the TLB hits uniform, after 16 sets of */
-/* 17 pages we move to the next 4KB page and waste the first 16 cache lines */
-/* then after wasting 8 sets of 16, we waste another 32 bytes. */
-
-/* It is now getting hard to visualize the FFT, so this program will print */
-/* out the cache lines and TLB distributions for FFTS above 64K. */
-
-#ifdef INCLUDED_PROGRAM
-#include <stdio.h> 
-unsigned long FFTLEN = 0;
-/* Copy the addr function here */
-void xmain (int incr, int endpt) { 
-long	i, x, tlbs[16], lines[128]; 
-for (i = 0; i <= 15; i++) tlbs[i] = 0; 
-for (i = 0; i <= 127; i++) lines[i] = 0; 
-printf ("\n\nTest fftlen: %d, incr: %d, endpt: %d\n", FFTLEN, incr, endpt);
-for (i = 0; i < endpt; i += incr) { 
-	x = (long) addr((long*)(32*19), i); 
-	printf ("i: %d, addr: %d, page: %d, tlb line: %d, cache line: %d\n", 
-		i, x, x >> 12, (x >> 12) & 15, (x >> 5) & 127); 
-	tlbs[(x >> 12) & 15]++; lines[(x >> 5) & 127]++; 
-} 
-printf ("\n\nTLBS:"); for (i=0; i<=15; i++) printf (" %d", tlbs[i]); 
-printf ("\n\nCache Lines:"); 
-for (i = 0; i <= 127; i++) printf (" %d", lines[i]); 
-printf ("\n"); 
-} 
-int main (int argc, char **argv) { 
-FFTLEN = 65536 * 2;  xmain (1, 512); xmain (256, 32768); xmain (16384, FFTLEN);
-FFTLEN = 65536 * 4;  xmain (1, 512); xmain (256, 65536); xmain (32768, FFTLEN);
-FFTLEN = 65536 * 8;  xmain (1, 512); xmain (256, 32768); xmain (16384, FFTLEN);
-FFTLEN = 65536 * 16; xmain (1, 512); xmain (256, 65536); xmain (32768, FFTLEN);
-FFTLEN = 65536 * 32; xmain (1, 512); xmain (256, 32768); xmain (16384, FFTLEN);
-FFTLEN = 65536 * 64; xmain (1, 512); xmain (256, 65536); xmain (32768, FFTLEN);
-}
-#endif
-
-/* Below is a table of FFT sizes, FFT levels done in each of the three */
-/* passes, L1 cache lines used, logical pages touched, and actual pages */
-/* touched.  The logical and actual pages touched can be different because */
-/* the waste bytes cause "spillage" of data from one 4KB page onto the next. */
-
-/* FFT    FFT levels	L1 cache    Logical pages  Actual pages	*/
-/* size   in each pass	lines used  accessed	   accessed	*/
-/* ----   ------------	----------  -------------  ------------	*/
-/* 4096K  7/7/8		128/128/128 32/16/16	   33/17/18	*/
-/* 2048K  7/6/8		128/64/128  16/16/16	   17/17/18	*/
-/* 1024K  5/7/8		32/128/128  8/16/16	   9/17/18	*/
-/* 512K	  5/6/8		32/64/128   4/16/16	   5/17/18	*/
-/* 256K	  3/7/8		8/128/128   2/16/16	   3/17/18	*/
-/* 128K	  3/6/8		8/64/128    1/16/16	   2/17/18	*/
-/* 64K	  8/8		128/128	    8/16	   9/18		*/
-/* 32K	  7/8		64/128	    4/16	   5/18		*/
-/* 16K	  6/8		32/128	    2/16	   3/18		*/
-/* 8K	  7/6		128/32	    16/1 (flat memory model)	*/
-/* 4K	  6/6		64/32	    8/1 (flat memory model)	*/
-/* 2K	  5/6		32/32	    4/1 (flat memory model)	*/
-/* 1K	  10		256	    2 (flat memory model)	*/
-/* 512	  9		128	    1 (flat memory model)	*/
-/* 256	  8		64	    1 (flat memory model)	*/
-
-/* NOTE: I once had the brilliant idea of interleaving the sin/cos data */
-/* with the FFT data.  That is, the data occupies the even cache */
-/* lines and the sin/cos data is in the odd cache lines.  At first */
-/* this seems counter productive, as only 4K of FFT data will now fit */
-/* in the 8K L1 cache.  However, if you look at how an FFT operates */
-/* you'll see loading FFT data, multiply by sin/cos data, store FFT data, */
-/* load next block of FFT data, multiply by sin/cos data, store FFT data, */
-/* etc.  By storing the sin/cos data in the odd cache lines, loading the */
-/* next block of FFT data will toss out the previous block of FFT data */
-/* rather than the reusable sin/cos data. */
-/* For some reason, however, interleaving resulted in slower performance. */
+/* Consult the assembly language code for better descriptions of this */
+/* shuffling process.  This C code must accurately reflect the shuffling */
+/* the assembly language code is expecting. */
 
 unsigned long addr_offset (unsigned long fftlen, unsigned long i)
 {
@@ -2723,14 +2626,12 @@ unsigned long addr_offset (unsigned long fftlen, unsigned long i)
 				}
 			}
 			i3 += i % sets; i /= sets;
-			if (PASS2_LEVELS == 8)
-				addr = i3 * (128 + 2);
-			else if (SCRATCH_SIZE == 0)
-				addr = i3 * ((1 << (PASS2_LEVELS - 1)) + 66);
-			else
-				addr = i3 * ((1 << (PASS2_LEVELS - 1)) + PASS1_CACHE_LINES*2);
+			addr = i3 * (1 << (PASS2_LEVELS - 1));
 			addr = ((((((addr + i1) << 1) + i6) << 1) + i) << 1) + i2;
 			addr = addr * sizeof (double);
+			/* Now add 128 bytes every 8KB and one pass2gapsize */
+			/* for every pass 2 block. */
+			addr = addr + (addr >> 13) * 128 + i3 * PASS2GAPSIZE;
 		}
 	}
 
@@ -2873,8 +2774,9 @@ void gwfft_description (
 	sprintf (buf, "%sFFT length %lu%s",
 		 ZERO_PADDED_FFT ? "zero-padded " :
 		 GENERAL_MOD ? "generic reduction " : "",
+		 FFTLEN > 4194304 ? FFTLEN / 1048576 :
 		 FFTLEN >= 4096 ? FFTLEN / 1024 : FFTLEN,
-		 FFTLEN >= 4096 ? "K" : "");
+		 FFTLEN > 4194304 ? "M" : FFTLEN >= 4096 ? "K" : "");
 }
 
 /* Return a string representation of a k/b/n/c combination */
@@ -2932,7 +2834,8 @@ double virtual_bits_per_word ()
 	}
 }
 
-/* Given k,b,n,c determine the fft length */
+/* Given k,b,n,c determine the fft length.  If k,b,n,c is not supported */
+/* then kludgily return the maximum FFT length. */
 
 unsigned long gwmap_to_fftlen (
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
@@ -2942,18 +2845,17 @@ unsigned long gwmap_to_fftlen (
 {
 	unsigned long *info;
 
-/* Handle exponents larger than SSE2 FFTs can handle */
-
-	if (n > MAX_PRIME_SSE2) return (MAX_FFTLEN);
-
 /* Get pointer to fft info and return the FFT length */
 
-	gwinfo (k, b, n, c, 0);
+	if (gwinfo (k, b, n, c, 0))
+		return (CPU_FLAGS & CPU_SSE2 ? MAX_FFTLEN_SSE2 : MAX_FFTLEN);
 	info = INFT[0];
 	return (info[1]);
 }
 
-/* Given an fft length, determine the maximum allowable exponent */
+/* Given an fft length, determine the maximum allowable exponent.  If fftlen */
+/* is not supported then kludgily return the maximum exponent of the largest */
+/* supported FFT length. */
 
 unsigned long map_fftlen_to_max_exponent (
 	unsigned long fftlen)
@@ -2962,13 +2864,15 @@ unsigned long map_fftlen_to_max_exponent (
 
 /* Get pointer to fft info and return the FFT length */
 
-	gwinfo (1.0, 2, 0, -1, fftlen);
+	if (gwinfo (1.0, 2, 0, -1, fftlen))
+		return (CPU_FLAGS & CPU_SSE2 ? MAX_PRIME_SSE2 : MAX_PRIME);
 	info = INFT[0];
 	return (info[0]);
 }
 
-/* Given an fft length, determine how much memory is used for */
-/* normalization and sin/cos tables */
+/* Given an fft length, determine how much memory is used for normalization */
+/* and sin/cos tables.  If k,b,n,c is not supported, then kludgily return */
+/* 100 million bytes used. */
 
 unsigned long gwmap_to_memused (
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
@@ -2980,12 +2884,13 @@ unsigned long gwmap_to_memused (
 
 /* Get pointer to fft info and return the memory used */
 
-	gwinfo (k, b, n, c, 0);
+	if (gwinfo (k, b, n, c, 0)) return (100000000L);
 	info = INFT[0];
-	return (info[3]);
+	return (info[3] + info[5]);
 }
 
-/* Make a guess as to how long a squaring will take. */
+/* Make a guess as to how long a squaring will take.  If the number cannot */
+/* be handled, then kludgily return 100.0. */
 
 double gwmap_to_timing (
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
@@ -2999,7 +2904,7 @@ double gwmap_to_timing (
 
 /* Get pointer to fft info */
 
-	gwinfo (k, b, n, c, 0);
+	if (gwinfo (k, b, n, c, 0)) return (100.0);
 	info = INFT[0];
 
 /* Use my PII-400 or P4-1400 timings as a guide. */
@@ -3214,9 +3119,13 @@ void raw_gwsetaddin (
 			unsigned long num_rows;
 
 			num_rows = (1 << (PASS2_LEVELS - 1));
-			row = (word & (num_rows - 1)) / PASS1_CACHE_LINES;
-			ADDIN_ROW = (num_rows / PASS1_CACHE_LINES - row) * 256;
-			ADDIN_OFFSET -= row * PASS1_CACHE_LINES * 64;
+			row = (word & (num_rows - 1));
+			ADDIN_ROW = ((num_rows >> 7) - (row >> 7)) * 65536 +
+				    (128 / PASS1_CACHE_LINES -
+				     (row & 127) / PASS1_CACHE_LINES) * 256;
+			ADDIN_OFFSET -= (row >> 7) * 128 +
+					(row / PASS1_CACHE_LINES) *
+					PASS1_CACHE_LINES * 64;
 
 /* This case is particularly nasty as we have to convert the FFT data offset */
 /* into a scratch area offset.  In assembly language terms, this means */
@@ -3667,6 +3576,9 @@ void raw_gwfftmul (
 	unsigned long norm_count1, norm_count2;
 	double	sumdiff;
 
+	ASSERTG (((unsigned long *) s)[-1] >= 1);
+	ASSERTG (((unsigned long *) d)[-1] >= 1);
+
 /* Get the unnormalized add count for later use */
 
 	norm_count1 = ((unsigned long *) s)[-1];
@@ -3752,6 +3664,8 @@ void gwfft (			/* Forward FFT */
 	gwnum	d)		/* Destination (can overlap source) */
 {
 
+	ASSERTG (((unsigned long *) s)[-1] >= 1);
+
 /* Copy the unnormalized add count */
 
 	((unsigned long *) d)[-1] = ((unsigned long *) s)[-1];
@@ -3769,6 +3683,8 @@ void gwsquare (			/* Square a number */
 {
 	unsigned long norm_count;
 	double	sumdiff;
+
+	ASSERTG (((unsigned long *) s)[-1] >= 1);
 
 /* Get the unnormalized add count for later use */
 
@@ -3813,6 +3729,9 @@ void gwfftmul (			/* Multiply already FFTed source with dest */
 	gwnum	d)		/* Non-FFTed source. Also destination */
 {
 
+	ASSERTG (((unsigned long *) s)[-1] >= 1);
+	ASSERTG (((unsigned long *) d)[-1] >= 1);
+
 /* Call the assembly code */
 
 	NORMRTN = GWPROCPTRS[norm_routines + NORMNUM];
@@ -3830,6 +3749,9 @@ void gwfftfftmul (		/* Multiply two already FFTed sources */
 {
 	unsigned long norm_count1, norm_count2;
 	double	sumdiff;
+
+	ASSERTG (((unsigned long *) s)[-1] >= 1);
+	ASSERTG (((unsigned long *) s2)[-1] >= 1);
 
 /* Get the unnormalized add count for later use */
 
@@ -3967,6 +3889,8 @@ void gwadd3quick (		/* Add two numbers without normalizing */
 	gwnum	s2,		/* Source #2 */
 	gwnum	d)		/* Destination */
 {
+	ASSERTG (((unsigned long *) s1)[-1] >= 1);
+	ASSERTG (((unsigned long *) s2)[-1] >= 1);
 
 /* We could support partially FFTed inputs if we updated the 7 zero pad */
 /* values.  Until then, assert inputs are not partially FFTed. */
@@ -3996,6 +3920,8 @@ void gwsub3quick (		/* Compute s1 - s2 without normalizing */
 	gwnum	s2,		/* Source #2 */
 	gwnum	d)		/* Destination */
 {
+	ASSERTG (((unsigned long *) s1)[-1] >= 1);
+	ASSERTG (((unsigned long *) s2)[-1] >= 1);
 
 /* We could support partially FFTed inputs if we updated the 7 zero pad */
 /* values.  Until then, assert inputs are not partially FFTed. */
@@ -4026,6 +3952,8 @@ void gwaddsub4quick (		/* Add & sub two numbers without normalizing */
 	gwnum	d1,		/* Destination #1 */
 	gwnum	d2)		/* Destination #2 */
 {
+	ASSERTG (((unsigned long *) s1)[-1] >= 1);
+	ASSERTG (((unsigned long *) s2)[-1] >= 1);
 
 /* We could support partially FFTed inputs if we updated the 7 zero pad */
 /* values.  Until then, assert inputs are not partially FFTed. */
@@ -4061,6 +3989,8 @@ void gwadd3 (			/* Add two numbers normalizing if needed */
 {
 	unsigned long normcnt1, normcnt2;
 
+	ASSERTG (((unsigned long *) s1)[-1] >= 1);
+	ASSERTG (((unsigned long *) s2)[-1] >= 1);
 	ASSERTG (((unsigned long *) s1)[-7] == 0);
 	ASSERTG (((unsigned long *) s2)[-7] == 0);
 
@@ -4094,6 +4024,8 @@ void gwsub3 (			/* Compute s1 - s2 normalizing if needed */
 {
 	unsigned long normcnt1, normcnt2;
 
+	ASSERTG (((unsigned long *) s1)[-1] >= 1);
+	ASSERTG (((unsigned long *) s2)[-1] >= 1);
 	ASSERTG (((unsigned long *) s1)[-7] == 0);
 	ASSERTG (((unsigned long *) s2)[-7] == 0);
 
@@ -4128,6 +4060,8 @@ void gwaddsub4 (		/* Add & sub two nums normalizing if needed */
 {
 	unsigned long normcnt1, normcnt2;
 
+	ASSERTG (((unsigned long *) s1)[-1] >= 1);
+	ASSERTG (((unsigned long *) s2)[-1] >= 1);
 	ASSERTG (((unsigned long *) s1)[-7] == 0);
 	ASSERTG (((unsigned long *) s2)[-7] == 0);
 
@@ -4163,7 +4097,8 @@ void gwfftadd3 (		/* Add two FFTed numbers */
 	gwnum	s2,		/* Source #2 */
 	gwnum	d)		/* Destination */
 {
-
+	ASSERTG (((unsigned long *) s1)[-1] >= 1);
+	ASSERTG (((unsigned long *) s2)[-1] >= 1);
 	ASSERTG (((unsigned long *) s1)[-7] == ((unsigned long *) s2)[-7]);
 
 /* Update the count of unnormalized adds and subtracts */
@@ -4201,7 +4136,8 @@ void gwfftsub3 (		/* Compute FFTed s1 - FFTed s2 */
 	gwnum	s2,		/* Source #2 */
 	gwnum	d)		/* Destination */
 {
-
+	ASSERTG (((unsigned long *) s1)[-1] >= 1);
+	ASSERTG (((unsigned long *) s2)[-1] >= 1);
 	ASSERTG (((unsigned long *) s1)[-7] == ((unsigned long *) s2)[-7]);
 
 /* Update the count of unnormalized adds and subtracts */
@@ -4240,7 +4176,8 @@ void gwfftaddsub4 (		/* Add & sub two FFTed numbers */
 	gwnum	d1,		/* Destination #1 */
 	gwnum	d2)		/* Destination #2 */
 {
-
+	ASSERTG (((unsigned long *) s1)[-1] >= 1);
+	ASSERTG (((unsigned long *) s2)[-1] >= 1);
 	ASSERTG (((unsigned long *) s1)[-7] == ((unsigned long *) s2)[-7]);
 
 /* Update the counts of unnormalized adds and subtracts */

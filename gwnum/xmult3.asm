@@ -30,6 +30,7 @@ INCLUDE	xlucas.mac
 INCLUDE xmult.mac
 INCLUDE xnormal.mac
 INCLUDE xpass1.mac
+INCLUDE xpass1sc.mac
 
 EXTRN	xgw_finish_fft:PROC
 EXTRN	xgw_carries:PROC
@@ -37,20 +38,23 @@ EXTRN	xgw_finish_mult:PROC
 
 EXTRNP	xpass2_11_levels
 EXTRNP	xpass2_11_levels_p
+EXTRNP	xpass2_11_levels_np
+EXTRNP	xpass2_11_levels_p_np
 
 _TEXT SEGMENT
 
-;; For small FFTs, use the v22 distance between two pass 2 data blocks.
 ;; Pass 2 does 11 FFT levels 2 sets of data (2 * 2^11 complex values =
 ;; 2^13 doubles = 64KB).
 
 PREFETCHING = 1
-blkdst = (65536+4096+128)
+blkdst = (8*(8192+128)+GAP2_11_4)
+xpass2_levels = 11
 
 ;; All the FFT routines for each FFT length
 
 PROCP	_xmm_gw_ffts3
 	EXPANDING = 2
+IFNDEF trying_ten_levels_pass2
 	xfft	40K
 	xfft	48K
 	xfft	48Kp
@@ -63,75 +67,221 @@ PROCP	_xmm_gw_ffts3
 	xfft	112K
 	xfft	128K
 	xfft	128Kp
-	xfft	160K
-	xfft	192K
+ENDIF
+allfft	xfft	160K
+allfft	xfft	192K
 	xfft	192Kp
-	xfft	224K
-	xfft	256K
+allfft	xfft	224K
+allfft	xfft	256K
 	xfft	256Kp
-	xfft	320K
-	xfft	384K
+allfft	xfft	320K
+allfft	xfft	384K
 	xfft	384Kp
-	xfft	448K
-	xfft	512K
+allfft	xfft	448K
+allfft	xfft	512K
 	xfft	512Kp
 
-INCLUDE xpass1sc.mac
-
+IFDEF AMD
+allfft	xfftclm	320K, 4
+allfft	xfftclm	384K, 4
+allfft	xfftclm	384Kp, 4
+allfft	xfftclm	448K, 4
+allfft	xfftclm	512K, 4
+allfft	xfftclm	512K, 2
+allfft	xfftclm	512K, 1
+allfft	xfftclm	512Kp, 4
+allfft	xfftclm	640K, 8
+allfft	xfftclm	640K, 4
+allfft	xfftclm	640K, 2
+allfft	xfftclm	640K, 1
+allfft	xfftclm	768K, 4
+allfft	xfftclm	768K, 2
+allfft	xfftclm	768K, 1
+allfft	xfftclm	768K, 0
+allfft	xfftclm	768Kp, 4
+allfft	xfftclm	768Kp, 2
+allfft	xfftclm	896K, 4
+allfft	xfftclm	896K, 2
+allfft	xfftclm	896K, 1
+allfft	xfftclm	896K, 0
+allfft	xfftclm	1024K, 4
+allfft	xfftclm	1024K, 2
+allfft	xfftclm	1024K, 1
+allfft	xfftclm	1024K, 0
+allfft	xfftclm	1024Kp, 4
+allfft	xfftclm	1024Kp, 2
+allfft	xfftclm	1280K, 4
+allfft	xfftclm	1280K, 2
+allfft	xfftclm	1280K, 1
+allfft	xfftclm	1280K, 91			; No prefetching in pass 2
+allfft	xfftclm	1280K, 0
+allfft	xfftclm	1280K, 90			; No prefetching in pass 2
+allfft	xfftclm	1536K, 4
+allfft	xfftclm	1536K, 2
+allfft	xfftclm	1536K, 1
+allfft	xfftclm	1536K, 91			; No prefetching in pass 2
+allfft	xfftclm	1536K, 0
+allfft	xfftclm	1536K, 90			; No prefetching in pass 2
+allfft	xfftclm	1536Kp, 4
+allfft	xfftclm	1536Kp, 2
+allfft	xfftclm	1536Kp, 1
+allfft	xfftclm	1792K, 4
+allfft	xfftclm	1792K, 2
+allfft	xfftclm	1792K, 1
+allfft	xfftclm	1792K, 91			; No prefetching in pass 2
+allfft	xfftclm	1792K, 0
+allfft	xfftclm	1792K, 90			; No prefetching in pass 2
+allfft	xfftclm	2048K, 4
+allfft	xfftclm	2048K, 2
+allfft	xfftclm	2048K, 1
+allfft	xfftclm	2048K, 91			; No prefetching in pass 2
+allfft	xfftclm	2048K, 0
+allfft	xfftclm	2048K, 90			; No prefetching in pass 2
+allfft	xfftclm	2048Kp, 4
+allfft	xfftclm	2048Kp, 2
+allfft	xfftclm	2048Kp, 1
+allfft	xfftclm	2048Kp, 0
+allfft	xfftclm	2560K, 2
+allfft	xfftclm	2560K, 1
+allfft	xfftclm	2560K, 0
+allfft	xfftclm	3072K, 2
+allfft	xfftclm	3072K, 1
+allfft	xfftclm	3072K, 0
+allfft	xfftclm	3072Kp, 2
+allfft	xfftclm	3072Kp, 1
+allfft	xfftclm	3072Kp, 0
+allfft	xfftclm	3584K, 2
+allfft	xfftclm	3584K, 1
+allfft	xfftclm	3584K, 0
+allfft	xfftclm	4096K, 2
+allfft	xfftclm	4096K, 1
+allfft	xfftclm	4096K, 0
+allfft	xfftclm	4096Kp, 2
+allfft	xfftclm	4096Kp, 1
+allfft	xfftclm	4096Kp, 0
+allfft	xfftclm	5M, 1
+allfft	xfftclm	5M, 0
+allfft	xfftclm	6M, 1
+allfft	xfftclm	6M, 0
+allfft	xfftclm	6Mp, 1
+allfft	xfftclm	6Mp, 0
+allfft	xfftclm	7M, 1
+allfft	xfftclm	7M, 0
+allfft	xfftclm	8M, 1
+allfft	xfftclm	8M, 0
+allfft	xfftclm	8Mp, 1
+allfft	xfftclm	8Mp, 0
+ELSE
+allfft	xfftclm	320K, 4
+allfft	xfftclm	384K, 4
+allfft	xfftclm	384Kp, 4
+allfft	xfftclm	448K, 4
+allfft	xfftclm	512K, 4
+allfft	xfftclm	512K, 2
+allfft	xfftclm	512K, 1
+allfft	xfftclm	512Kp, 4
+allfft	xfftclm	640K, 8
 	xfftclm	640K, 4
-	xfftclm	640K, 2
+allfft	xfftclm	640K, 2
+allfft	xfftclm	640K, 1
+allfft	xfftclm	640K, 91			; No prefetching in pass 2
 	xfftclm	768K, 4
 	xfftclm	768K, 2
+allfft	xfftclm	768K, 1
+	xfftclm	768K, 91			; No prefetching in pass 2
+allfft	xfftclm	768K, 0
+allfft	xfftclm	768K, 90			; No prefetching in pass 2
 	xfftclm	768Kp, 4
 	xfftclm	768Kp, 2
+allfft	xfftclm	768Kp, 1
+	xfftclm	768Kp, 91			; No prefetching in pass 2
+allfft	xfftclm	768Kp, 0
+allfft	xfftclm	768Kp, 90			; No prefetching in pass 2
 	xfftclm	896K, 4
 	xfftclm	896K, 2
-	xfftclm	896K, 1
+allfft	xfftclm	896K, 1
+	xfftclm	896K, 91			; No prefetching in pass 2
+allfft	xfftclm	896K, 0
+allfft	xfftclm	896K, 90			; No prefetching in pass 2
 	xfftclm	1024K, 4
 	xfftclm	1024K, 2
-	xfftclm	1024K, 1
+allfft	xfftclm	1024K, 1
+	xfftclm	1024K, 91			; No prefetching in pass 2
+allfft	xfftclm	1024K, 0
+allfft	xfftclm	1024K, 90			; No prefetching in pass 2
 	xfftclm	1024Kp, 4
 	xfftclm	1024Kp, 2
-	xfftclm	1024Kp, 1
-	xfftclm	1280K, 4
+allfft	xfftclm	1024Kp, 1
+	xfftclm	1024Kp, 91			; No prefetching in pass 2
+allfft	xfftclm	1024Kp, 0
+allfft	xfftclm	1024Kp, 90			; No prefetching in pass 2
+allfft	xfftclm	1280K, 4
 	xfftclm	1280K, 2
-	xfftclm	1280K, 1
-	xfftclm	1536K, 4
-	xfftclm	1536K, 2
+allfft	xfftclm	1280K, 1
+allfft	xfftclm	1280K, 91			; No prefetching in pass 2
+allfft	xfftclm	1280K, 0
+	xfftclm	1280K, 90			; No prefetching in pass 2
+allfft	xfftclm	1536K, 4
+allfft	xfftclm	1536K, 2
 	xfftclm	1536K, 1
-	xfftclm	1536Kp, 4
-	xfftclm	1536Kp, 2
+allfft	xfftclm	1536K, 91			; No prefetching in pass 2
+	xfftclm	1536K, 0
+allfft	xfftclm	1536K, 90			; No prefetching in pass 2
+allfft	xfftclm	1536Kp, 4
+allfft	xfftclm	1536Kp, 2
 	xfftclm	1536Kp, 1
-	xfftclm	1792K, 4
-	xfftclm	1792K, 2
+allfft	xfftclm	1536Kp, 91			; No prefetching in pass 2
+	xfftclm	1536Kp, 0
+allfft	xfftclm	1536Kp, 90			; No prefetching in pass 2
+allfft	xfftclm	1792K, 4
+allfft	xfftclm	1792K, 2
 	xfftclm	1792K, 1
+allfft	xfftclm	1792K, 91			; No prefetching in pass 2
 	xfftclm	1792K, 0
-	xfftclm	2048K, 4
-	xfftclm	2048K, 2
-	xfftclm	2048K, 1
-	xfftclm	2048K, 0
-	xfftclm	2048Kp, 4
-	xfftclm	2048Kp, 2
-	xfftclm	2048Kp, 1
+allfft	xfftclm	1792K, 90			; No prefetching in pass 2
+allfft	xfftclm	2048K, 4
+allfft	xfftclm	2048K, 2
+allfft	xfftclm	2048K, 1
+allfft	xfftclm	2048K, 91			; No prefetching in pass 2
+allfft	xfftclm	2048K, 0
+allfft	xfftclm	2048K, 90			; No prefetching in pass 2
+allfft	xfftclm	2048Kp, 4
+allfft	xfftclm	2048Kp, 2
+allfft	xfftclm	2048Kp, 1
+allfft	xfftclm	2048Kp, 91			; No prefetching in pass 2
 	xfftclm	2048Kp, 0
-	xfftclm	2560K, 2
-	xfftclm	2560K, 1
+allfft	xfftclm	2048Kp, 90			; No prefetching in pass 2
+allfft	xfftclm	2560K, 2
+allfft	xfftclm	2560K, 1
 	xfftclm	2560K, 0
-	xfftclm	3072K, 2
-	xfftclm	3072K, 1
+allfft	xfftclm	3072K, 2
+allfft	xfftclm	3072K, 1
 	xfftclm	3072K, 0
-	xfftclm	3072Kp, 2
-	xfftclm	3072Kp, 1
+allfft	xfftclm	3072Kp, 2
+allfft	xfftclm	3072Kp, 1
 	xfftclm	3072Kp, 0
-	xfftclm	3584K, 2
-	xfftclm	3584K, 1
+allfft	xfftclm	3584K, 2
+allfft	xfftclm	3584K, 1
 	xfftclm	3584K, 0
-	xfftclm	4096K, 2
-	xfftclm	4096K, 1
+allfft	xfftclm	4096K, 2
+allfft	xfftclm	4096K, 1
 	xfftclm	4096K, 0
-	xfftclm	4096Kp, 2
-	xfftclm	4096Kp, 1
+allfft	xfftclm	4096Kp, 2
+allfft	xfftclm	4096Kp, 1
 	xfftclm	4096Kp, 0
+allfft	xfftclm	5M, 1
+allfft	xfftclm	5M, 0
+allfft	xfftclm	6M, 1
+allfft	xfftclm	6M, 0
+allfft	xfftclm	6Mp, 1
+allfft	xfftclm	6Mp, 0
+allfft	xfftclm	7M, 1
+allfft	xfftclm	7M, 0
+allfft	xfftclm	8M, 1
+allfft	xfftclm	8M, 0
+allfft	xfftclm	8Mp, 1
+allfft	xfftclm	8Mp, 0
+ENDIF
 
 ENDPP	_xmm_gw_ffts3
 

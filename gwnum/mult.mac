@@ -12,12 +12,6 @@ pf MACRO stmt:vararg
 	ENDIF
 	ENDM
 
-pfing MACRO stmt:vararg
-	IF PREFETCHING NE 0
-	&stmt
-	ENDIF
-	ENDM
-
 prefetch64 MACRO x
 	IFDEF PFETCH
 	prefetcht1 x

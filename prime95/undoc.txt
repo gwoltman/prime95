@@ -316,3 +316,9 @@ That is the ":80" in "http://mersenne.org:80/cgibin_text".  At least one
 proxy server only works if the ":80" is not present.  In this case, ste:
 	SendPortNumber=0
 in the primenet.ini file.
+
+The benchmarking code by default only times a subset of the large FFT sizes.
+Use "FullBench=1" to have the benchmarking code time all of the large FFT
+sizes.  "AllBench=1" can be used to time FFT implementations optimized for
+different L2 cache sizes.
+

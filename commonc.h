@@ -1,6 +1,6 @@
 /* Constants */
 
-#define VERSION		"24.11"
+#define VERSION		"24.12"
 #define VERSION_BIT	14      	/* Bit number in broadcast map */
 /* The list of assigned version bits follows: */
 /* Version 24.0    uses bit #14 */
@@ -25,14 +25,64 @@
 
 /* Factoring limits based on complex formulas given the speed of the */
 /* factoring code vs. the speed of the Lucas-Lehmer code */
+/* As an example, examine factoring to 2^68 (finding all 68-bit factors). */
+/* First benchmark a machine to get LL iteration times and trial factoring */
+/* times for a (16KB sieve of p=35000011). */
+/*	We want to find when time spend eliminating an exponent with */
+/* trial factoring equals time saved running 2 LL tests. */
 
-#define FAC72	71000000L
-#define FAC71	57020000L
-#define FAC70	44150000L
-#define FAC69	35200000L
-#define FAC68	28130000L
-#define FAC67	21590000L
-#define FAC66	17890000L
+/*	runs to find a factor (68) *
+	#16KB sections (2^68-2^67)/p/(120/16)/(16*1024*8) *
+	factoring_benchmark = 2.0 * LL test time (p * ll_benchmark)
+
+	simplifying:
+
+	68 * (2^68-2^67)/p/(120/16)/(16*1024*8) * facbench = 2 * p * llbench
+	68 * 2^67 / p / (120/16) / 2^17 * facbench = 2 * p * lltime
+	68 * 2^49 / p / (120/16) * facbench = p * lltime
+	68 * 2^49 / (120/16) * facbench = p^2 * lltime
+	68 * 2^53 / 120 * facbench = p^2 * lltime
+	68 * 2^53 / 120 * facbench / lltime = p^2
+	sqrt (68 * 2^53 / 120 * facbench / lltime) = p
+*/
+
+/* Now lets assume 30% of these factors would have been found by P-1.  So
+   we only save a relatively quick P-1 test instead 2 LL tests.  Thus:
+	sqrt (68 / 0.7 * 2^53 / 120 * facbench / lltime) = p
+*/
+
+/* Now factor in that 35000000 does 19 squarings, but 70000000 requires 20.
+   Thus, if maxp is the maximum exponent that can be handled by an FFT size:
+	sqrt (68 / 0.7 * 2^53 / 120 *
+	      facbench * (1 + LOG2 (maxp/35000000) / 19) / lltime) = p
+*/
+
+/* Now factor in that errors sometimes force us to run more than 2 LL tests.
+   Assume, 2.04 on average:
+	sqrt (68 / 0.7 * 2^53 / 120 *
+	      facbench * (1 + LOG2 (maxp/35000000) / 19) / lltime / 1.02) = p
+*/
+
+/* These breakeven points we're calculated on a 2.0 GHz P4 Northwood: */
+
+#define FAC80	516000000L
+#define FAC79	420400000L
+#define FAC78	337400000L
+#define FAC77	264600000L
+#define FAC76	227300000L
+#define FAC75	186400000L
+#define FAC74	147500000L
+#define FAC73	115300000L
+#define FAC72	71000000L		// s.b. 96830000
+#define FAC71	57020000L		// s.b. 75670000
+#define FAC70	44150000L		// s.b. 58520000
+#define FAC69	35200000L		// s.b. 47450000
+#define FAC68	28130000L		// s.b. 37800000
+#define FAC67	21590000L		// s.b. 29690000
+#define FAC66	17890000L		// s.b. 23390000
+
+/* These breakevens we're calculated a long time ago on unknown hardware: */
+
 #define FAC65	13380000L
 #define FAC64	8250000L
 #define FAC63	6515000L

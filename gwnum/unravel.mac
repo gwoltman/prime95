@@ -59,6 +59,25 @@ nonoexec MACRO ops:vararg
 	&ops
 	ENDM
 
+; Macro to execute a statement only if we are including every possible
+; FFT implementation.  We do this when benchmarking all FFTs on a new machine
+; architecture to find the fastest FFT implementation.
+
+;;ENABLE_ALLFFT EQU  1
+allfft	MACRO ops:vararg
+	IFDEF ENABLE_ALLFFT
+	&ops
+	ENDIF
+	ENDM
+
+; Handy macro to only include statement if we are prefetching
+
+pfing MACRO stmt:vararg
+	IF PREFETCHING NE 0
+	&stmt
+	ENDIF
+	ENDM
+
 ;; A handy shortcut:
 
 Q	EQU	<QWORD PTR>

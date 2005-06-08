@@ -24,31 +24,27 @@ INCLUDE	xlucas.mac
 INCLUDE xpass2.mac
 INCLUDE xnormal.mac
 
+_TEXT SEGMENT
+
+PREFETCHING = 1
+
 ;; Routines to do the last 8 levels in a two-pass FFT
 
 PUBLICP	xpass2_8_levels
 PUBLICP	xpass2_8_levels_p
 
-_TEXT SEGMENT
-
-PREFETCHING = 1
-
-;; Distance between two pass 2 data blocks.  Pass 2 does 8 FFT levels
-;; 2 sets of data (2 * 2^8 complex values = 2^10 doubles = 8KB).
-
-blkdst	EQU	(8192+128)
-
-
-;; Do the last 8 levels of a two pass FFT
-
 PROCP	xpass2_8_levels
-	xpass2_8_levels_real blkdst
+	start_timer 2
+	xpass2_8_levels_real 0
+	add	rsi, pass1blkdst
+	end_timer 2
 LABELP	xpass2_8_levels_p
 	mov	ecx, count1		; Number of complex iterations
 	mov	rdx, pass2_premults	; Address of the group multipliers
-p2lp:	xpass2_8_levels_complex blkdst
+p8lp:	xpass2_8_levels_complex 0
+	add	rsi, pass1blkdst
 	sub	ecx, 1
-	jnz	p2lp
+	jnz	p8lp
 	mov	rsi, _DESTARG		; Restore source pointer
 	ret
 ENDPP	xpass2_8_levels
@@ -144,7 +140,7 @@ ttp	mov	norm_ptr2, rbx		;; Save column multipliers ptr
 	pop	rsi
 	pop	rdx
 	sub	rbx, rbx
-	cmp	edx, 256		;; Check for last iteration
+	cmp	edx, 65536+256		;; Check for last iteration
 	je	xtop_carry_adjust	;; Top carry may require adjusting
 	ret
 	ENDM

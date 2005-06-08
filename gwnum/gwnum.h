@@ -345,6 +345,9 @@ int gwnear_fft_limit (double pct);
 |                    GWNUM MISC. INFORMATION ROUTINES                  |
 +---------------------------------------------------------------------*/
 
+/* Return TRUE if this is a GPL'ed version of the GWNUM library. */
+#define gwnum_is_gpl()		(0)
+
 /* Generate a human-readable description of the FFT size chosen */
 void gwfft_description (char *buf);
 
@@ -509,9 +512,13 @@ int gwnum_ecmStage1 (
 /* } *gwnum; */
 #define GW_HEADER_SIZE	96	/* Number of data bytes before a gwnum ptr */
 
-#define MAX_PRIME	79300000L	/* Maximum number of bits */
-#define MAX_PRIME_SSE2	77910000L	/* SSE2 bit limit */
-#define MAX_FFTLEN	4194304		/* 4096K FFT */
+/* Some mis-named #defines that describe the maximum Mersenne number */
+/* exponent that the gwnum routines can process. */
+
+#define MAX_PRIME	79300000L	/* Maximum number of x87 bits */
+#define MAX_PRIME_SSE2	596000000L	/* SSE2 bit limit */
+#define MAX_FFTLEN	4194304L	/* 4M FFT max for x87 */
+#define MAX_FFTLEN_SSE2	33554432L	/* 32M FFT max for SSE2 */
 
 /* global variables */
 
@@ -554,6 +561,9 @@ extern char GWSTRING_REP[40];	/* The gwsetup modulo number as a string. */
 extern unsigned long ASM_TIMERS[32];/* Assembly language timers */
 extern unsigned long POSTFFT;	/* True if assembly code can start the */
 				/* FFT process on the result of a multiply */
+extern unsigned long PASS1_CACHE_LINES; /* Cache lines grouped together in */
+				/* first pass of an FFT. */
+extern unsigned long PASS2_LEVELS;	/* FFT levels done in pass 2. */
 
 double *addr (gwnum, unsigned long);
 unsigned long gwnum_size (unsigned long);
@@ -599,6 +609,13 @@ extern void (*OutputBothRoutine)(char *);
 /* when optimizing these building blocks. */
 
 int timeit (void);
+
+/* This global forces the FFT selection code to pick the n-th possible */
+/* implementation instead of the best one.  The prime95 benchmarking code */
+/* uses this to time every FFT implementation so that we can find the best */
+/* one for a new CPU architecture.  DO NOT set this variable. */
+
+extern	int bench_pick_nth_fft;
 
 #ifdef __cplusplus
 }

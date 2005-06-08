@@ -1,11 +1,14 @@
+#define ALL_BENCH		1//0
+#define UNIQUE			6*8//0
+#define UNIQUE_SMALL_FIRST	1//0
 #define CHECK_OFTEN		0
 #define MIN_K_BITS		1
-#define MAX_K_BITS		49
+#define MAX_K_BITS		5//49
 #define MAX_C_BITS_FOR_SMALL_K	4
-#define MAX_C_BITS_FOR_LARGE_K	20
+#define MAX_C_BITS_FOR_LARGE_K	3//20
 #define MAX_B			2
-#define MIN_N			300
-#define MAX_N			12000000
+#define MIN_N			300000//300
+#define MAX_N			500000000//12000000
 
 /* Some gwnum.c internal definitions */
 
@@ -13,6 +16,33 @@ extern "C" double bit_length;		/* Bit length of k*b^n */
 extern "C" double fft_max_bits_per_word;/* Maximum bits per data word that */
 					/* this FFT size can support */
 extern "C" double virtual_bits_per_word ();
+extern "C" int gwinfo (double, unsigned long, unsigned long, signed long,
+		       unsigned long);
+extern "C" unsigned long* INFT[4];
+
+/* Unique FFT size code.  Return TRUE if FFT has been done before. */
+
+static	char	unique_minus[400] = {0};
+static	char	unique_plus[400] = {0};
+static	int	unique_count = UNIQUE;
+
+int unique_tested (unsigned long fftlen, signed long c)
+{
+	int	i, count;
+	char	*arr;
+
+	if (UNIQUE == 0) return (FALSE);
+
+	if (UNIQUE_SMALL_FIRST &&
+	    fftlen > 4000000 && unique_count > UNIQUE / 2) return (TRUE);
+
+	for (count = 0; (fftlen & 1) == 0; count++) fftlen >>= 1;
+
+	arr = (c > 0) ? (char *) unique_plus : (char *) unique_minus;
+	if (arr[count * 8 + fftlen]) return (TRUE);
+	arr[count * 8 + fftlen] = 1;  unique_count--;
+	return (FALSE);
+}
 
 /* Generate a random k of the given size */
 
@@ -58,16 +88,22 @@ int gen_c (int bits)
 unsigned int gen_n ()
 {
 	unsigned int n, nbits;
+static	unsigned int min_n_bits = 0;
 static	unsigned int max_n_bits = 0;
+static	unsigned int range_n_bits = 0;
 
-	if (max_n_bits == 0)
+	if (max_n_bits == 0) {
+		min_n_bits = (unsigned int)
+			floor (log ((double) MIN_N) / log (2.0));
 		max_n_bits = (unsigned int)
-			ceil (log ((double) (MAX_N-MIN_N)) / log (2.0));
-	nbits = (unsigned int) rand () % max_n_bits + 1;
-	n = 1;
-	while (--nbits) n = n * 2 + (rand () & 1);
-	n += MIN_N;
-	if (n > MAX_N) n = MAX_N;
+			ceil (log ((double) MAX_N) / log (2.0));
+		range_n_bits = max_n_bits - min_n_bits + 1;
+	}
+	do {
+		nbits = (unsigned int) rand () % range_n_bits + min_n_bits;
+		n = 1;
+		while (--nbits) n = n * 2 + (rand () & 1);
+	} while (n < MIN_N || n > MAX_N);
 	return (n);
 }
 
@@ -116,6 +152,208 @@ void compare (gwnum x, giant g)
 		OutputBoth ("Test failed.\n");
 	pushg (1);
 }
+
+/* Thoroughly test the current setup.  This is just like test_it except */
+/* that rather than using giants code to test the results, we compare */
+/* the final result to every possible FFT implementation for this FFT */
+/* length.  This is useful in that more FFT code is tested, the tests are */
+/* faster -- especially in the really large FFT cases where giants is not */
+/* practical. */
+
+void test_it_all (double k, unsigned long b, unsigned long n, signed long c)
+{
+	unsigned long *info, fftlen;
+	gwnum	x, x2, x3, x4;
+	giant	g, g2, g3;
+	int	i, ii, res;
+	double	diff, maxdiff;
+	char	buf[200];
+
+	if (k == (double) abs (c)) return;	// really should do a gcd test.
+	g = g2 = g3 = NULL;
+
+/* Find out what fftlen we would normally use */
+
+	res = gwinfo (k, b, n, c, 0);
+	if (res == 1) return;		// Don't do zero pad FFTs
+	if (res) {
+		sprintf (buf,
+			 "Cannot QA k=%.0f, b=%ld, n=%ld, c=%ld: res=%d\n",
+			 k, b, n, c, res);
+		OutputBoth (buf);
+		return;
+	}
+	info = INFT[0];
+	fftlen = info[1];
+
+	if (fftlen < 160000) return;	// Only large FFTs have multiple impls.
+
+	if (unique_tested (fftlen, c)) return;	// Only test new fft lengths
+	
+	sprintf (buf, "QA of k=%.0f, b=%ld, n=%ld, c=%ld with FFTlen=%ldK\n",
+		 k, b, n, c, fftlen >> 10);
+	OutputBoth (buf);
+
+/* Loop over all possible FFT implementations */
+
+	for (ii = 1; ; ii++) {
+
+		bench_pick_nth_fft = ii;
+		res = gwsetup (k, b, n, c, fftlen);
+		bench_pick_nth_fft = 0;
+		if (res) break;
+		if (GENERAL_MOD) {
+			gwdone ();	// BUG - we ought to undo unique bit
+			return;		// Don't do generic mod FFTs
+		}
+
+/* Alloc and init numbers */
+
+		x = gwalloc ();
+		if (x == NULL) goto nomem;
+		x2 = gwalloc ();
+		if (x2 == NULL) goto nomem;
+		x3 = gwalloc ();
+		if (x3 == NULL) goto nomem;
+		x4 = gwalloc ();
+		if (x4 == NULL) goto nomem;
+
+		if (ii == 1) {
+			g = newgiant (((unsigned long) bit_length >> 4) + 20);
+			if (g == NULL) goto nomem;
+			g2 = newgiant (((unsigned long) bit_length >> 4) + 20);
+			if (g2 == NULL) goto nomem;
+			g3 = newgiant (((unsigned long) bit_length >> 4) + 20);
+			if (g3 == NULL) goto nomem;
+			gen_data (x, g);
+		} else
+			gianttogw (g, x);
+
+/* Test 50 squarings */	
+
+		gwcopy (x, x2);
+		maxdiff = 0.0;
+		gwsetnormroutine (0, 1, 0);	/* Enable error checking */
+		for (i = 0; i < 50; i++) {
+			gwstartnextfft ((i & 3) == 2);
+						/* Test POSTFFT sometimes */
+						/* Test gwsetaddin without */
+						/* and with POSTFFT set */
+			if ((i == 45 || i == 46) && abs (CARG) == 1)
+				gwsetaddin (-31);
+			gwsquare (x);
+			diff = fabs (gwsuminp (x) - gwsumout (x));
+			if (diff > maxdiff) maxdiff = diff;
+			if ((i == 45 || i == 46) && abs (CARG) == 1)
+				gwsetaddin (0);
+		}
+		if (MAXDIFF < 1e50)
+			sprintf (buf, "Squares complete. MaxErr=%.8g, SumoutDiff=%.8g/%.8g(%d to 1)\n", MAXERR, maxdiff, MAXDIFF, (int) (MAXDIFF / maxdiff));
+		else
+			sprintf (buf, "Squares complete. MaxErr=%.10g\n", MAXERR);
+		OutputBoth (buf);
+
+/* Test mul by const */
+
+		gwsetmulbyconst (3);
+		gwsetnormroutine (0, 1, 1);
+		gwsquare (x);
+		gwsetnormroutine (0, 1, 0);
+		diff = fabs (gwsuminp (x) - gwsumout (x));
+		if (diff > maxdiff) maxdiff = diff;
+
+/* Test square carefully */
+
+		if (abs (CARG) == 1) gwsetaddin (-42);
+		gwsquare_carefully (x);
+		diff = fabs (gwsuminp (x) - gwsumout (x));
+		if (diff > maxdiff) maxdiff = diff;
+		if (abs (CARG) == 1) gwsetaddin (0);
+
+/* Test gwaddquick, gwsubquick */
+
+		gwadd3quick (x, x2, x3);
+		gwsub3quick (x, x2, x4);
+
+/* Test gwadd and gwsub */
+
+		gwadd (x, x); gwadd (x, x); gwadd (x, x);
+		gwsub (x3, x);
+		gwadd (x4, x);
+		gwadd3 (x3, x4, x2);
+		gwsub3 (x3, x, x4);
+		gwadd (x2, x);
+		gwadd (x4, x);
+
+/* Test gwaddsub */
+
+		gwaddsub (x, x2);	// compute x+x2 and x-x2
+		gwaddsub4 (x, x2, x3, x4);	// compute x+x2 and x-x2
+		gwadd (x2, x);
+		gwadd (x3, x);
+		gwadd (x4, x);
+
+/* Test gwaddsmall */
+
+		gwaddsmall (x, 111);
+
+/* Do some multiplies to make sure that the adds and subtracts above */
+/* normalized properly. */
+
+		gwfft (x, x);
+		gwfftfftmul (x, x, x);
+		diff = fabs (gwsuminp (x) - gwsumout (x));
+		if (diff > maxdiff) maxdiff = diff;
+
+		gwfft (x, x2); gwcopy (x2, x); gwfftadd3 (x, x2, x4);
+		gwfftmul (x4, x3);
+		diff = fabs (gwsuminp (x3) - gwsumout (x3));
+		if (diff > maxdiff) maxdiff = diff;
+		gwfft (x3, x4);
+		gwfftfftmul (x4, x2, x);
+		diff = fabs (gwsuminp (x) - gwsumout (x));
+		if (diff > maxdiff) maxdiff = diff;
+
+/* Print final stats */
+
+		if (GWERROR) OutputBoth ("GWERROR set during calculations.\n");
+		if (maxdiff > MAXDIFF) OutputBoth ("Sumout failed during test.\n");
+		if (MAXDIFF < 1e50)
+			sprintf (buf, "Test complete. MaxErr=%.8g, SumoutDiff=%.8g/%.8g(%d to 1)\n", MAXERR, maxdiff, MAXDIFF, (int) (MAXDIFF / maxdiff));
+		else
+			sprintf (buf, "Test complete. MaxErr=%.10g\n", MAXERR);
+		OutputBoth (buf);
+
+/* Do the final compare */
+
+		if (ii == 1) {
+			gwtogiant (x, g2);
+		} else {
+			gwtogiant (x, g3);
+			if (gcompg (g2, g3)) {
+				strcpy (buf, "Mismatched result.\n");
+				OutputBoth (buf);
+			} else {
+				strcpy (buf, "Results match!\n");
+				OutputBoth (buf);
+			}
+		}
+		OutputBoth ("\n");
+
+/* Do next FFT implementation */
+
+		gwdone ();
+	}
+bye:	free (g);
+	free (g2);
+	free (g3);
+	return;
+
+nomem:	OutputBoth ("Out of memory\n");
+	gwdone ();
+	goto bye;
+}
+
 
 /* Thoroughly test the current setup */
 
@@ -332,28 +570,40 @@ void test_randomly (void)
 		k = gen_k (kbits);
 		c = gen_c (cbits);
 		n = gen_n ();
-		switch (rand () % 5) {
-		case 0:	CPU_L2_CACHE_SIZE = 128; break;
-		case 1:	CPU_L2_CACHE_SIZE = 256; break;
-		case 2:	CPU_L2_CACHE_SIZE = 512; break;
-		case 3:	CPU_L2_CACHE_SIZE = 1024; break;
-		case 4:	CPU_L2_CACHE_SIZE = -1; break;
+
+		if (ALL_BENCH) {
+			test_it_all (k, b, n, c);
 		}
-		gwsetup (k, b, n, c, 0);
-		sprintf (buf, "Starting QA run on %s, kbits=%ld, cbits=%ld\n",
-			 gwmodulo_as_string (), kbits, cbits);
-		OutputBoth (buf);
-		gwfft_description (fft_desc);
-		if (FFTLEN < 600000)
-			sprintf (buf, "Using %s, bits_per_word=%.5g/%.5g\n",
-				 fft_desc, virtual_bits_per_word (),
-				 fft_max_bits_per_word);
-		else
-			sprintf (buf, "Using %s, bits_per_word=%.5g/%.5g, L2_cache_size=%d\n",
-				 fft_desc, virtual_bits_per_word (),
-				 fft_max_bits_per_word, CPU_L2_CACHE_SIZE);
-		OutputBoth (buf);
-		test_it (0);
-		gwdone ();
+
+		else {
+			switch (rand () % 5) {
+			case 0:	CPU_L2_CACHE_SIZE = 128; break;
+			case 1:	CPU_L2_CACHE_SIZE = 256; break;
+			case 2:	CPU_L2_CACHE_SIZE = 512; break;
+			case 3:	CPU_L2_CACHE_SIZE = 1024; break;
+			case 4:	CPU_L2_CACHE_SIZE = -1; break;
+			}
+			gwsetup (k, b, n, c, 0);
+			sprintf (buf, "Starting QA run on %s, kbits=%ld, cbits=%ld\n",
+				 gwmodulo_as_string (), kbits, cbits);
+			OutputBoth (buf);
+			gwfft_description (fft_desc);
+			if (FFTLEN < 140000)
+				sprintf (buf,
+					 "Using %s, bits_per_word=%.5g/%.5g\n",
+					 fft_desc, virtual_bits_per_word (),
+					 fft_max_bits_per_word);
+			else
+				sprintf (buf, "Using %s, bits_per_word=%.5g/%.5g, L2_cache_size=%d\n",
+					 fft_desc, virtual_bits_per_word (),
+					 fft_max_bits_per_word, CPU_L2_CACHE_SIZE);
+			OutputBoth (buf);
+			test_it (0);
+			gwdone ();
+		}
+
+		if (UNIQUE) {
+			if (unique_count == 0) return;
+		}
 	}
 }

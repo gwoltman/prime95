@@ -1,3 +1,15 @@
+New features in Version 24.12 of mprime
+---------------------------------------
+
+1)  For SSE2 machines the larger FFTs have been changed to more effectively
+    use a wide variety of L2 cache sizes.  The previous version was optimized
+    for a 256KB L2 cache only.  Depending on your CPU and FFT size, you could
+    see an improvement of several percent.
+2)  As a side "benefit" even larger FFT sizes are now supported.  This allows
+    testing of exponents up to 596 million.  Not recommended.
+3)  The factoring breakeven points have been recalculated using my 2 GHz P4.
+    This version of prime95 will do less trial factoring.
+
 New features in Version 24.11 of mprime
 ---------------------------------------
 

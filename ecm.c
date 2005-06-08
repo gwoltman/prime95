@@ -4796,7 +4796,7 @@ msg_and_exit:
 		else
 			sprintf (buf+strlen(buf), ", B2=%lu, E=%lu", C, E);
 	}
-	sprintf (buf+strlen(buf), ", Wa%d: %08lX\n", PORT, SEC5 (n, B, C));
+	sprintf (buf+strlen(buf), ", Wc%d: %08lX\n", PORT, SEC5 (n, B, C));
 	writeResults (buf);
 	if (ll_testing) spoolMessage (PRIMENET_RESULT_MESSAGE, buf);
 

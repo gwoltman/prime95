@@ -305,3 +305,9 @@ In primenet.ini enter:
 where n is 0 for use relative URLs, 1 for use full URLs, 2 for try full URL
 and if an error is returned try a relative URL.  The default setting is 2.
 Note that a full URL is always sent when using a proxy server.
+
+The benchmarking code by default only times a subset of the large FFT sizes.
+Use "FullBench=1" to have the benchmarking code time all of the large FFT
+sizes.  "AllBench=1" can be used to time FFT implementations optimized for
+different L2 cache sizes.
+

@@ -11,7 +11,6 @@
 ; ********************************************************
 ; ********************************************************
 
-
 ;; Perform a 40K-element FFT.  This is done in two passes.  Pass 1
 ;; does 5 levels, pass 2 uses common code to perform the last 11 levels.
 
@@ -180,128 +179,213 @@ xfft512Kp MACRO
 	xpass1levels8complex4 xpass2_11_levels_p, 512, 4
 	ENDM
 
+
+;; Perform a 320K-element FFT.  This is done in two passes.  Pass 1
+;; does 8 levels, pass 2 uses common code to perform the last 11 levels.
+
+xscfft320K MACRO clmarg
+	handle_np xpass1sclevels8pfa5, xpass2_11_levels, 512, clmarg
+	ENDM
+
+;; Perform a 384K-element FFT.  This is done in two passes.  Pass 1
+;; does 8 levels, pass 2 uses common code to perform the last 11 levels.
+
+xscfft384K MACRO clmarg
+	handle_np xpass1sclevels8pfa6, xpass2_11_levels, 512, clmarg
+	ENDM
+
+;; Perform a 384K-element all-complex FFT.  This is done in two passes.  Pass 1
+;; does 8 levels, pass 2 uses common code to perform the last 11 levels.
+
+xscfft384Kp MACRO clmarg
+	handle_np xpass1sclevels8complex3, xpass2_11_levels_p, 512, clmarg
+	ENDM
+
+;; Perform a 448K-element FFT.  This is done in two passes.  Pass 1
+;; does 8 levels, pass 2 uses common code to perform the last 11 levels.
+
+xscfft448K MACRO clmarg
+	handle_np xpass1sclevels8pfa7, xpass2_11_levels, 512, clmarg
+	ENDM
+
+;; Perform a 512K-element FFT.  This is done in two passes.  Pass 1
+;; does 8 levels, pass 2 uses common code to perform the last 11 levels.
+
+xscfft512K MACRO clmarg
+	handle_np xpass1sclevels8pfa8, xpass2_11_levels, 512, clmarg
+	ENDM
+
+;; Perform a 512K-element all-complex FFT.  This is done in two passes.  Pass 1
+;; does 8 levels, pass 2 uses common code to perform the last 11 levels.
+
+xscfft512Kp MACRO clmarg
+	handle_np xpass1sclevels8complex4, xpass2_11_levels_p, 512, clmarg
+	ENDM
+
 ;; Perform a 640K-element FFT.  This is done in two passes.  Pass 1
 ;; does 9 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft640K MACRO clmarg
-	xpass1levels9pfa5 xpass2_11_levels, 512, clmarg
+xscfft640K MACRO clmarg
+	handle_np xpass1sclevels9pfa5, xpass2_11_levels, 512, clmarg
 	ENDM
 
 ;; Perform a 768K-element FFT.  This is done in two passes.  Pass 1
 ;; does 9 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft768K MACRO clmarg
-	xpass1levels9pfa6 xpass2_11_levels, 512, clmarg
+xscfft768K MACRO clmarg
+	handle_np xpass1sclevels9pfa6, xpass2_11_levels, 512, clmarg
 	ENDM
 
 ;; Perform a 768K-element all-complex FFT.  This is done in two passes.  Pass 1
 ;; does 9 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft768Kp MACRO clmarg
-	xpass1levels9complex3 xpass2_11_levels_p, 512, clmarg
+xscfft768Kp MACRO clmarg
+	handle_np xpass1sclevels9complex3, xpass2_11_levels_p, 512, clmarg
 	ENDM
 
 ;; Perform a 896K-element FFT.  This is done in two passes.  Pass 1
 ;; does 9 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft896K MACRO clmarg
-	xpass1levels9pfa7 xpass2_11_levels, 512, clmarg
+xscfft896K MACRO clmarg
+	handle_np xpass1sclevels9pfa7, xpass2_11_levels, 512, clmarg
 	ENDM
 
 ;; Perform a 1M-element FFT.  This is done in two passes.  Pass 1
 ;; does 9 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft1024K MACRO clmarg
-	xpass1levels9pfa8 xpass2_11_levels, 512, clmarg
+xscfft1024K MACRO clmarg
+	handle_np xpass1sclevels9pfa8, xpass2_11_levels, 512, clmarg
 	ENDM
 
 ;; Perform a 1M-element all-complex FFT.  This is done in two passes.  Pass 1
 ;; does 9 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft1024Kp MACRO clmarg
-	xpass1levels9complex4 xpass2_11_levels_p, 512, clmarg
+xscfft1024Kp MACRO clmarg
+	handle_np xpass1sclevels9complex4, xpass2_11_levels_p, 512, clmarg
 	ENDM
 
 ;; Perform a 1280K-element FFT.  This is done in two passes.  Pass 1
 ;; does 10 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft1280K MACRO clmarg
-	xpass1levels10pfa5 xpass2_11_levels, 512, clmarg
+xscfft1280K MACRO clmarg
+	handle_np xpass1sclevels10pfa5, xpass2_11_levels, 512, clmarg
 	ENDM
 
 ;; Perform a 1536K-element FFT.  This is done in two passes.  Pass 1
 ;; does 10 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft1536K MACRO clmarg
-	xpass1levels10pfa6 xpass2_11_levels, 512, clmarg
+xscfft1536K MACRO clmarg
+	handle_np xpass1sclevels10pfa6, xpass2_11_levels, 512, clmarg
 	ENDM
 
 ;; Perform a 1536K-element all-complex FFT.  This is done in two passes.  Pass
 ;; 1 does 10 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft1536Kp MACRO clmarg
-	xpass1levels10complex3 xpass2_11_levels_p, 512, clmarg
+xscfft1536Kp MACRO clmarg
+	handle_np xpass1sclevels10complex3, xpass2_11_levels_p, 512, clmarg
 	ENDM
 
 ;; Perform a 1792K-element FFT.  This is done in two passes.  Pass 1
 ;; does 10 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft1792K MACRO clmarg
-	xpass1levels10pfa7 xpass2_11_levels, 512, clmarg
+xscfft1792K MACRO clmarg
+	handle_np xpass1sclevels10pfa7, xpass2_11_levels, 512, clmarg
 	ENDM
 
 ;; Perform a 2M-element FFT.  This is done in two passes.  Pass 1
 ;; does 10 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft2048K MACRO clmarg
-	xpass1levels10pfa8 xpass2_11_levels, 512, clmarg
+xscfft2048K MACRO clmarg
+	handle_np xpass1sclevels10pfa8, xpass2_11_levels, 512, clmarg
 	ENDM
 
 ;; Perform a 2M-element all-complex FFT.  This is done in two passes.  Pass 1
 ;; does 10 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft2048Kp MACRO clmarg
-	xpass1levels10complex4 xpass2_11_levels_p, 512, clmarg
+xscfft2048Kp MACRO clmarg
+	handle_np xpass1sclevels10complex4, xpass2_11_levels_p, 512, clmarg
 	ENDM
 
 ;; Perform a 2560K-element FFT.  This is done in two passes.  Pass 1
 ;; does 11 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft2560K MACRO clmarg
-	xpass1levels11pfa5 xpass2_11_levels, 512, clmarg
+xscfft2560K MACRO clmarg
+	handle_np xpass1sclevels11pfa5, xpass2_11_levels, 512, clmarg
 	ENDM
 
 ;; Perform a 3M-element FFT.  This is done in two passes.  Pass 1
 ;; does 11 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft3072K MACRO clmarg
-	xpass1levels11pfa6 xpass2_11_levels, 512, clmarg
+xscfft3072K MACRO clmarg
+	handle_np xpass1sclevels11pfa6, xpass2_11_levels, 512, clmarg
 	ENDM
 
 ;; Perform a 3M-element all-complex FFT.  This is done in two passes.  Pass 1
 ;; does 11 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft3072Kp MACRO clmarg
-	xpass1levels11complex3 xpass2_11_levels_p, 512, clmarg
+xscfft3072Kp MACRO clmarg
+	handle_np xpass1sclevels11complex3, xpass2_11_levels_p, 512, clmarg
 	ENDM
 
 ;; Perform a 3584K-element FFT.  This is done in two passes.  Pass 1
 ;; does 11 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft3584K MACRO clmarg
-	xpass1levels11pfa7 xpass2_11_levels, 512, clmarg
+xscfft3584K MACRO clmarg
+	handle_np xpass1sclevels11pfa7, xpass2_11_levels, 512, clmarg
 	ENDM
 
 ;; Perform a 4M-element FFT.  This is done in two passes.  Pass 1
 ;; does 11 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft4096K MACRO clmarg
-	xpass1levels11pfa8 xpass2_11_levels, 512, clmarg
+xscfft4096K MACRO clmarg
+	handle_np xpass1sclevels11pfa8, xpass2_11_levels, 512, clmarg
 	ENDM
 
 ;; Perform a 4M-element all-complex FFT.  This is done in two passes.  Pass 1
 ;; does 11 levels, pass 2 uses common code to perform the last 11 levels.
 
-xfft4096Kp MACRO clmarg
-	xpass1levels11complex4 xpass2_11_levels_p, 512, clmarg
+xscfft4096Kp MACRO clmarg
+	handle_np xpass1sclevels11complex4, xpass2_11_levels_p, 512, clmarg
+	ENDM
+
+;; Perform a 5M-element FFT.  This is done in two passes.  Pass 1
+;; does 12 levels, pass 2 uses common code to perform the last 11 levels.
+
+xscfft5M MACRO clmarg
+	handle_np xpass1sclevels12pfa5, xpass2_11_levels, 512, clmarg
+	ENDM
+
+;; Perform a 6M-element FFT.  This is done in two passes.  Pass 1
+;; does 12 levels, pass 2 uses common code to perform the last 11 levels.
+
+xscfft6M MACRO clmarg
+	handle_np xpass1sclevels12pfa6, xpass2_11_levels, 512, clmarg
+	ENDM
+
+;; Perform a 6M-element all-complex FFT.  This is done in two passes.  Pass 1
+;; does 12 levels, pass 2 uses common code to perform the last 11 levels.
+
+xscfft6Mp MACRO clmarg
+	handle_np xpass1sclevels12complex3, xpass2_11_levels_p, 512, clmarg
+	ENDM
+
+;; Perform a 7M-element FFT.  This is done in two passes.  Pass 1
+;; does 12 levels, pass 2 uses common code to perform the last 11 levels.
+
+xscfft7M MACRO clmarg
+	handle_np xpass1sclevels12pfa7, xpass2_11_levels, 512, clmarg
+	ENDM
+
+;; Perform a 8M-element FFT.  This is done in two passes.  Pass 1
+;; does 12 levels, pass 2 uses common code to perform the last 11 levels.
+
+xscfft8M MACRO clmarg
+	handle_np xpass1sclevels12pfa8, xpass2_11_levels, 512, clmarg
+	ENDM
+
+;; Perform a 8M-element all-complex FFT.  This is done in two passes.  Pass 1
+;; does 12 levels, pass 2 uses common code to perform the last 11 levels.
+
+xscfft8Mp MACRO clmarg
+	handle_np xpass1sclevels12complex4, xpass2_11_levels_p, 512, clmarg
 	ENDM
