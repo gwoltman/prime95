@@ -2621,8 +2621,17 @@ static	int	work_queue_counter = 0;
 		return (TRUE);
 	}
 
-/* If a computer ID has not been given, then generate one here */
+/* If a computer ID has not been given, then generate one here. */
+/* There have been reports of computers spontaneously renaming themselves. */
+/* I can only see this happening if COMPID gets clobbered.  To combat this */
+/* possibility, reread the computer name from the INI file. */
 
+	if (COMPID[0] == 0) {
+		IniGetString (LOCALINI_FILE, "ComputerID", COMPID,
+			      sizeof (COMPID), NULL);
+		COMPID[PRIMENET_COMPUTER_ID_LENGTH] = 0;
+		sanitizeString (COMPID);
+	}
 	if (COMPID[0] == 0) {
 		unsigned long id, hi, lo;
 		srand ((unsigned) time (NULL));
