@@ -309,6 +309,7 @@ static	int gw__c_is_one;
 static	dd_real gw__log2_abs_c_div_fftlen;
 static	dd_real gw__fftlen_inverse;
 static	dd_real gw__over_fftlen;
+static	double gwdbl__bits_per_word;
 
 extern "C"
 void gwfft_weight_setup (
@@ -336,6 +337,7 @@ void gwfft_weight_setup (
 			gw__fftlen_inverse;
 		gw__over_fftlen = dd_real (k * 2.0) * gw__fftlen_inverse;
 	}
+	gwdbl__bits_per_word = (double) gw__bits_per_word;
 	END_x86_FIX
 }
 
@@ -463,7 +465,17 @@ extern "C"
 double gwfft_weight_exponent (
 	unsigned long j)
 {
+	double	tempdbl, twopowdbl;
 	dd_real temp, twopow;
+
+// For speed, try this with plain old doubles first
+	
+	if (j == 0) return (0);
+	tempdbl = (double) j * gwdbl__bits_per_word;
+	twopowdbl = ceil (tempdbl) - tempdbl;
+	if (twopowdbl > 0.001 && twopowdbl < 0.999) return (twopowdbl);
+
+// If at all uncertain of the result, use doubledoubles to do the calculation
 
 	x86_FIX
 	temp = dd_real ((double) j) * gw__bits_per_word;
@@ -488,8 +500,20 @@ extern "C"
 unsigned long gwfft_base (
 	unsigned long j)
 {
+	double	tempdbl, ceildbl, diffdbl;
 	dd_real temp;
 	unsigned long twopow;
+
+// For speed, try this with plain old doubles first
+
+	if (j == 0) return (0);
+	tempdbl = (double) j * gwdbl__bits_per_word;
+	ceildbl = ceil (tempdbl);
+	diffdbl = ceildbl - tempdbl;
+	if (diffdbl > 0.001 && diffdbl < 0.999)
+		return ((unsigned long) ceildbl);
+
+// If at all uncertain of the result, use doubledoubles to do the calculation
 
 	x86_FIX
 	temp = dd_real ((double) j) * gw__bits_per_word;
