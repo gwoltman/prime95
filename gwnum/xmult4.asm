@@ -27,7 +27,6 @@ INCLUDE extrn.mac
 INCLUDE xfft4.mac
 INCLUDE	xlucas.mac
 INCLUDE xmult.mac
-INCLUDE xnormal.mac
 INCLUDE xpass1.mac
 INCLUDE xpass1sc.mac
 

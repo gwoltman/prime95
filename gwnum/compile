@@ -134,10 +134,10 @@ xmult2ap.obj: xmult2a.asm xmult.mac xpass2.mac xlucas.mac
 xmult2ax.obj: xmult2ax.asm xmult.mac xnormal.mac
     $(masm) xmult2ax.asm
 
-xmult3.obj: xmult3.asm xmult.mac xlucas.mac xfft3.mac xnormal.mac
+xmult3.obj: xmult3.asm xmult.mac xlucas.mac xfft3.mac
     $(masm) xmult3.asm
 
-xmult3p.obj: xmult3.asm xmult.mac xlucas.mac xfft3.mac xnormal.mac
+xmult3p.obj: xmult3.asm xmult.mac xlucas.mac xfft3.mac
     $(masm) /DAMD /Foxmult3p.obj xmult3.asm
 
 xmult3a.obj: xmult3a.asm xmult.mac xpass2.mac xlucas.mac
@@ -146,22 +146,22 @@ xmult3a.obj: xmult3a.asm xmult.mac xpass2.mac xlucas.mac
 xmult3ap.obj: xmult3a.asm xmult.mac xpass2.mac xlucas.mac
     $(masm) /DAMD /Foxmult3ap.obj xmult3a.asm
 
-xmult4.obj: xmult4.asm xmult.mac xlucas.mac xfft4.mac xnormal.mac
+xmult4.obj: xmult4.asm xmult.mac xlucas.mac xfft4.mac
     $(masm) xmult4.asm
 
-xmult4p.obj: xmult4.asm xmult.mac xlucas.mac xfft4.mac xnormal.mac
+xmult4p.obj: xmult4.asm xmult.mac xlucas.mac xfft4.mac
     $(masm) /DAMD /Foxmult4p.obj xmult4.asm
 
-xmult5.obj: xmult5.asm xmult.mac xlucas.mac xfft5.mac xnormal.mac
+xmult5.obj: xmult5.asm xmult.mac xlucas.mac xfft5.mac
     $(masm) xmult5.asm
 
-xmult5p.obj: xmult5.asm xmult.mac xlucas.mac xfft5.mac xnormal.mac
+xmult5p.obj: xmult5.asm xmult.mac xlucas.mac xfft5.mac
     $(masm) /DAMD /Foxmult5p.obj xmult5.asm
 
-xmult6.obj: xmult6.asm xmult.mac xlucas.mac xfft6.mac xnormal.mac
+xmult6.obj: xmult6.asm xmult.mac xlucas.mac xfft6.mac
     $(masm) xmult6.asm
 
-xmult6p.obj: xmult6.asm xmult.mac xlucas.mac xfft6.mac xnormal.mac
+xmult6p.obj: xmult6.asm xmult.mac xlucas.mac xfft6.mac
     $(masm) /DAMD /Foxmult6p.obj xmult6.asm
 
 timeit.obj: timeit.asm mult.mac lucas.mac xmult.mac xlucas.mac
