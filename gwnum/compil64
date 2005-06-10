@@ -68,10 +68,10 @@ amd64\xmult2.obj: xmult2.asm xmult.mac xlucas.mac xfft2.mac xnormal.mac
 amd64\xmult2p.obj: xmult2.asm xmult.mac xlucas.mac xfft2.mac xnormal.mac
     $(masm64) /DAMD /Foamd64\xmult2p.obj xmult2.asm
 
-amd64\xmult2a.obj: xmult2a.asm xmult.mac xpass2.mac xlucas.mac
+amd64\xmult2a.obj: xmult2a.asm xmult.mac xpass2.mac xlucas.mac xnormal.mac
     $(masm64) /Foamd64\xmult2a.obj xmult2a.asm
 
-amd64\xmult2ap.obj: xmult2a.asm xmult.mac xpass2.mac xlucas.mac
+amd64\xmult2ap.obj: xmult2a.asm xmult.mac xpass2.mac xlucas.mac xnormal.mac
     $(masm64) /DAMD /Foamd64\xmult2ap.obj xmult2a.asm
 
 amd64\xmult2ax.obj: xmult2ax.asm xmult.mac xnormal.mac

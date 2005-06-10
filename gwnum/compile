@@ -125,10 +125,10 @@ xmult2.obj: xmult2.asm xmult.mac xlucas.mac xfft2.mac xnormal.mac
 xmult2p.obj: xmult2.asm xmult.mac xlucas.mac xfft2.mac xnormal.mac
     $(masm) /DAMD /Foxmult2p.obj xmult2.asm
 
-xmult2a.obj: xmult2a.asm xmult.mac xpass2.mac xlucas.mac
+xmult2a.obj: xmult2a.asm xmult.mac xpass2.mac xlucas.mac xnormal.mac
     $(masm) xmult2a.asm
 
-xmult2ap.obj: xmult2a.asm xmult.mac xpass2.mac xlucas.mac
+xmult2ap.obj: xmult2a.asm xmult.mac xpass2.mac xlucas.mac xnormal.mac
     $(masm) /DAMD /Foxmult2ap.obj xmult2a.asm
 
 xmult2ax.obj: xmult2ax.asm xmult.mac xnormal.mac
