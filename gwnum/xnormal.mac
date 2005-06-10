@@ -1367,8 +1367,6 @@ funny2done:
 ;
 
 xnorm_2d MACRO ttp, zero, echk, const
-ttp	mov	al, [rdi+0]		;; Load big vs. little flags
-ttp	mov	cl, [rdi+1]		;; Load big vs. little flags
 	movapd	xmm0, [rsi+0*16]	;; Load values1
 	addpd	xmm7, xmm0		;; sumout += values1
 	movapd	xmm2, [rbx]		;; col two-to-minus-phi
@@ -1406,18 +1404,18 @@ no const mulpd	xmm5, xmm3		;; next carry = shifted y2
 ttp	movapd	xmm2, [rbx+16]		;; col two-to-phi
 ttp	mulpd	xmm2, XMM_TTP_FUDGE[rax];; mul by fudge two-to-phi
 ttp	mulpd	xmm0, [rdx+0*32+16]	;; new value1 = val * grp two-to-phi
+ttp	mov	al, [rdi+2]		;; Load next big vs. little flags
 ttp	mulpd	xmm0, xmm2		;; new value1 *= fudged col two-to-phi
 	movapd	[rsi+0*16], xmm0	;; Save new value1
 	movapd	[rbp+0*16], xmm4	;; Save carry
 ttp	movapd	xmm3, [rbx+16]		;; col two-to-phi
 ttp	mulpd	xmm3, XMM_TTP_FUDGE[rcx];; mul by fudge two-to-phi
 ttp	mulpd	xmm1, [rdx+1*32+16]	;; new value2 = val * grp two-to-phi
+ttp	mov	cl, [rdi+3]		;; Load next big vs. little flags
 ttp	mulpd	xmm1, xmm3		;; new value2 *= fudged col two-to-phi
 	movapd	[rsi+1*16], xmm1	;; Save new value2
 	movapd	[rbp+1*16], xmm5	;; Save carry
 
-ttp	mov	al, [rdi+2]		;; Load big vs. little flags
-ttp	mov	cl, [rdi+3]		;; Load big vs. little flags
 	movapd	xmm0, [rsi+2*16]	;; Load values1
 	addpd	xmm7, xmm0		;; sumout += values1
 	movapd	xmm2, [rbx]		;; col two-to-minus-phi
@@ -1455,6 +1453,7 @@ no const mulpd	xmm5, xmm3		;; next carry = shifted y2
 ttp	movapd	xmm2, [rbx+16]		;; col two-to-phi
 ttp	mulpd	xmm2, XMM_TTP_FUDGE[rax];; mul by fudge two-to-phi
 ttp	mulpd	xmm0, [rdx+2*32+16]	;; new value1 = val * grp two-to-phi
+ttp	mov	al, [rdi+4]		;; Load next big vs. little flags
 ttp	mulpd	xmm0, xmm2		;; new value1 *= fudged col two-to-phi
 zero	xorpd	xmm0, xmm0
 	movapd	[rsi+2*16], xmm0	;; Save new value1
@@ -1462,6 +1461,7 @@ zero	xorpd	xmm0, xmm0
 ttp	movapd	xmm3, [rbx+16]		;; col two-to-phi
 ttp	mulpd	xmm3, XMM_TTP_FUDGE[rcx];; mul by fudge two-to-phi
 ttp	mulpd	xmm1, [rdx+3*32+16]	;; new value2 = val * grp two-to-phi
+ttp	mov	cl, [rdi+5]		;; Load next big vs. little flags
 ttp	mulpd	xmm1, xmm3		;; new value2 *= fudged col two-to-phi
 zero	xorpd	xmm1, xmm1
 	movapd	[rsi+3*16], xmm1	;; Save new value2
@@ -1472,7 +1472,6 @@ zero	xorpd	xmm1, xmm1
 ;; but there is too much code that expects this (like add and subtract).
 
 xnorm_2d_zpad MACRO ttp, echk, const
-ttp	mov	al, [rdi]		;; Load big vs. little flags
 	movapd	xmm0, [rsi]		;; Load values1
 	addpd	xmm7, xmm0		;; sumout += values1
 	movapd	xmm2, [rbx]		;; col two-to-minus-phi
@@ -1548,12 +1547,12 @@ const	mulpd	xmm5, XMM_MINUS_CARG_TIMES_MULCONST
 	subpd	xmm0, xmm2		;; rounded value = x1 - z1
 ttp	movapd	xmm5, [rbx+16]		;; col two-to-phi
 ttp	mulpd	xmm5, XMM_TTP_FUDGE[rax];; mul by fudge two-to-phi
+ttp	mov	al, [rdi+1]		;; Load next big vs. little flags
 ttp	mulpd	xmm0, [rdx+0*32+16]	;; new value1 = val * grp two-to-phi
 ttp	mulpd	xmm0, xmm5		;; new value1 *= fudged col two-to-phi
 	movapd	[rbp+0*16], xmm4	;; Save carry
 	movapd	[rsi], xmm0		;; Save new value1
 
-ttp	mov	al, [rdi+1]		;; Load big vs. little flags
 	movapd	xmm5, [rsi+16]		;; Load values1
 	addpd	xmm7, xmm5		;; sumout += values1
 	movapd	xmm3, [rbx]		;; col two-to-minus-phi
@@ -1629,6 +1628,7 @@ const	mulpd	xmm5, XMM_MINUS_CARG_TIMES_MULCONST
 	subpd	xmm0, xmm4		;; rounded value = x2 - z2
 ttp	movapd	xmm3, [rbx+16]		;; col two-to-phi
 ttp	mulpd	xmm3, XMM_TTP_FUDGE[rax];; mul by fudge two-to-phi
+ttp	mov	al, [rdi+4]		;; Load next big vs. little flags
 ttp	mulpd	xmm0, [rdx+1*32+16]	;; new value2 = val * grp two-to-phi
 ttp	mulpd	xmm0, xmm3		;; new value2 *= fudged col two-to-phi
 	movapd	[rbp+1*16], xmm2	;; Save carry

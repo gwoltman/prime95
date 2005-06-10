@@ -1968,17 +1968,18 @@ int internal_gwsetup (
 		}
 		tables += (16 - (tables - gwnum_memory)) & 15;
 
+/* Build the table of big vs. little flags.  This cannot be last table */
+/* built as xnorm_2d macro reads 2 bytes past the end of the array. */
+
+		ASSERTG (((tables - gwnum_memory) & 15) == 0);
+		((double **)GWPROCPTRS)[16] = tables;
+		tables = build_biglit_table (tables, pass2_size);
+
 /* Build the column normalization multiplier table. */
 
 		ASSERTG (((tables - gwnum_memory) & 15) == 0);
 		((double **)GWPROCPTRS)[15] = tables;
 		tables = build_norm_table (tables, pass2_size, 1);
-
-/* Build the table of big vs. little flags. */
-
-		ASSERTG (((tables - gwnum_memory) & 15) == 0);
-		((double **)GWPROCPTRS)[16] = tables;
-		tables = build_biglit_table (tables, pass2_size);
 	}
 
 /* Initialze table for the x87 assembly code. */

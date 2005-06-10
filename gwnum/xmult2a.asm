@@ -114,6 +114,8 @@ noadd:	push	rdx
 	mov	loopcount3, 0		;; Clear outermost loop counter
 	sub	rax, rax		;; Clear big/lit flags
 	sub	rcx, rcx
+ttp	mov	al, [rdi+0]		;; Load big vs. little flags
+ttp	mov	cl, [rdi+1]		;; Load big vs. little flags
 ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	mov	loopcount1, ebx		;; Save loop counter
 	mov	rbx, norm_ptr2		;; Load column multipliers ptr
@@ -162,6 +164,7 @@ const	mov	const_fft, 1		;; Set flag saying mul-by-const
 	mov	loopcount2, eax		;; Save loop counter
 	mov	loopcount3, 0		;; Clear outermost loop counter
 	sub	rax, rax		;; Clear big/lit flags
+ttp	mov	al, [rdi+0]		;; Load big vs. little flags
 ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	mov	loopcount1, ebx		;; Save loop counter
 	mov	rbx, norm_ptr2		;; Load column multipliers ptr
