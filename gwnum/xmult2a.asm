@@ -91,7 +91,7 @@ nozpad:
 ; routine.
 
 inorm	MACRO	lab, ttp, zero, echk, const
-	LOCAL	noadd, ilp0, ilp1, ilexit
+	LOCAL	noadd, setlp, ilp0, ilp1, ilexit
 	PUBLICP	lab
 	LABELP	lab
 zero	mov	zero_fft, 1		;; Set flag saying zero upper half
@@ -106,6 +106,17 @@ no zero	_movsd	[rsi][rdi], xmm0	;; Save the new value
 no zero	subsd	xmm7, _ADDIN_VALUE	;; Do not include addin in sumout
 noadd:	push	rdx
 	push	rsi
+
+	mov	rbx, norm_ptr2		;; Load column multipliers ptr
+ttp	mov	eax, cache_line_multiplier ;; Load inner loop counter
+	mov	rdi, OFFSET XMM_COL_MULTS ;; Load col mult scratch area
+setlp:	xnorm_2d_setup ttp
+ttp	lea	rdi, [rdi+512]		;; Next scratch area section
+ttp	lea	rbx, [rbx+32]		;; Next column multiplier
+ttp	sub	al, 1			;; Each cache line has its own col mult
+ttp	jnz	setlp
+ttp	mov	norm_ptr2, rbx		;; Save column multipliers ptr
+
 	mov	rdx, norm_grp_mults	;; Addr of the group multipliers
 	mov	rbp, carries		;; Addr of the carries
 	mov	rdi, norm_ptr1		;; Load big/little flags array ptr
@@ -118,11 +129,12 @@ ttp	mov	al, [rdi+0]		;; Load big vs. little flags
 ttp	mov	cl, [rdi+1]		;; Load big vs. little flags
 ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	mov	loopcount1, ebx		;; Save loop counter
-	mov	rbx, norm_ptr2		;; Load column multipliers ptr
+	mov	rbx, OFFSET XMM_COL_MULTS ;; Load col mult scratch area
+	xprefetcht1 [rdx+128]		;; Prefetch group multiplier
 ilp1:	xprefetchw [rsi+64]
 	xnorm_2d ttp, zero, echk, const	;; Normalize 8 values
 	lea	rsi, [rsi+64]		;; Next cache line
-ttp	lea	rbx, [rbx+32]		;; Next column multipliers
+ttp	lea	rbx, [rbx+512]		;; Next column multipliers
 ttp	lea	rdi, [rdi+4]		;; Next big/little flags
 	sub	loopcount1, 1		;; Test loop counter
 	jnz	ilp1			;; Loop til done
@@ -138,7 +150,6 @@ ttp	lea	rdx, [rdx+128]		;; Next set of 8 group multipliers
 ilexit:	movapd	XMM_SUMOUT, xmm7	;; Save SUMOUT
 	movapd	XMM_MAXERR, xmm6	;; Save maximum error
 ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr
-ttp	mov	norm_ptr2, rbx		;; Save column multipliers ptr
 	pop	rsi
 	pop	rdx
 	sub	rbx, rbx
@@ -148,7 +159,7 @@ ttp	mov	norm_ptr2, rbx		;; Save column multipliers ptr
 	ENDM
 
 zpnorm	MACRO	lab, ttp, echk, const
-	LOCAL	ilp0, ilp1, ilexit
+	LOCAL	setlp, ilp0, ilp1, ilexit
 	PUBLICP	lab
 	LABELP	lab
 const	mov	const_fft, 1		;; Set flag saying mul-by-const
@@ -157,6 +168,17 @@ const	mov	const_fft, 1		;; Set flag saying mul-by-const
 	xsub_7_words
 	push	rdx
 	push	rsi
+
+	mov	rbx, norm_ptr2		;; Load column multipliers ptr
+ttp	mov	eax, cache_line_multiplier ;; Load inner loop counter
+	mov	rdi, OFFSET XMM_COL_MULTS ;; Load col mult scratch area
+setlp:	xnorm_2d_setup ttp
+ttp	lea	rdi, [rdi+512]		;; Next scratch area section
+ttp	lea	rbx, [rbx+32]		;; Next column multiplier
+ttp	sub	al, 1			;; Each cache line has its own col mult
+ttp	jnz	setlp
+ttp	mov	norm_ptr2, rbx		;; Save column multipliers ptr
+
 	mov	rdx, norm_grp_mults	;; Addr of the group multipliers
 	mov	rbp, carries		;; Addr of the carries
 	mov	rdi, norm_ptr1		;; Load big/little flags array ptr
@@ -167,11 +189,12 @@ const	mov	const_fft, 1		;; Set flag saying mul-by-const
 ttp	mov	al, [rdi+0]		;; Load big vs. little flags
 ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	mov	loopcount1, ebx		;; Save loop counter
-	mov	rbx, norm_ptr2		;; Load column multipliers ptr
+	mov	rbx, OFFSET XMM_COL_MULTS ;; Load col mult scratch area
+	xprefetcht1 [rdx+128]		;; Prefetch group multiplier
 ilp1:	xprefetchw [rsi+64]
 	xnorm_2d_zpad ttp, echk, const	;; Normalize 8 values
 	lea	rsi, [rsi+64]		;; Next cache line
-ttp	lea	rbx, [rbx+32]		;; Next column multipliers
+ttp	lea	rbx, [rbx+512]		;; Next column multipliers
 ttp	lea	rdi, [rdi+4]		;; Next big/little flags
 	sub	loopcount1, 1		;; Test loop counter
 	jnz	ilp1			;; Loop til done
@@ -187,7 +210,6 @@ ttp	lea	rdx, [rdx+128]		;; Next set of 8 group multipliers
 ilexit:	movapd	XMM_SUMOUT, xmm7	;; Save SUMOUT
 	movapd	XMM_MAXERR, xmm6	;; Save maximum error
 ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr
-ttp	mov	norm_ptr2, rbx		;; Save column multipliers ptr
 	pop	rsi
 	pop	rdx
 	sub	rbx, rbx
