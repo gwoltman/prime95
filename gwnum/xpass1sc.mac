@@ -12841,14 +12841,14 @@ yes_fft:start_timer 22
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, plus1_premults	;; Address of premultiplier table
 pfing	lea	rsi, [rsi+256*blkdst]	;; Create prefetching pointer
-	mov	eax, 32			;; 32 iters of 2 iters of 4*2*clm
+	mov	eax, 32*256		;; 32 iters of 2 iters of 4*2*clm
 b1a:	xtouch	[rsi+(clm-1)*128]	;; Preload TLB
 b1b:	x2cl_four_complex_first_fft_scratch rcx, 64, 32*clmblkdst8
 	xloop4edi b1b, clmblkdst, 128 ;; 4 * 2*clm iterations
 	add	eax, 80000000h		;; 2 iterations
 	jnc	b1a
 	lea	rcx, [rcx-2*4*clmblkdst+clmblkdst8]
-	sub	al, 1			;; Test loop counter
+	sub	eax, 256		;; Test loop counter
 	jnz	b1a			;; Iterate if necessary
 	lea	rcx, [rcx-32*clmblkdst8];; Restore source pointer
 	end_timer 22
