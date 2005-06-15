@@ -310,6 +310,7 @@ static	dd_real gw__log2_abs_c_div_fftlen;
 static	dd_real gw__fftlen_inverse;
 static	dd_real gw__over_fftlen;
 static	double gwdbl__bits_per_word;
+static	double gwdbl__log2_abs_c_div_fftlen;
 
 extern "C"
 void gwfft_weight_setup (
@@ -338,6 +339,7 @@ void gwfft_weight_setup (
 		gw__over_fftlen = dd_real (k * 2.0) * gw__fftlen_inverse;
 	}
 	gwdbl__bits_per_word = (double) gw__bits_per_word;
+	gwdbl__log2_abs_c_div_fftlen = (double) gw__log2_abs_c_div_fftlen;
 	END_x86_FIX
 }
 
@@ -398,15 +400,22 @@ extern "C"
 double gwfft_weight_inverse_sloppy (
 	unsigned long j)
 {
-	dd_real temp, twopow, result;
+	double	tempdbl, twopowdbl;
 
-	x86_FIX
-	temp = dd_real ((double) j) * gw__bits_per_word;
-	twopow = ceil (temp) - temp;
+	tempdbl = (double) j * gwdbl__bits_per_word;
+	twopowdbl = ceil (tempdbl) - tempdbl;
+	if (twopowdbl < 0.001 || twopowdbl > 0.999) {
+		dd_real temp;
+
+		x86_FIX
+		temp = dd_real ((double) j) * gw__bits_per_word;
+		twopowdbl = (double) (ceil (temp) - temp);
+		END_x86_FIX
+	}
+
 	if (! gw__c_is_one)
-		twopow += gw__log2_abs_c_div_fftlen * dd_real ((double) j);
-	END_x86_FIX
-	return (pow (2.0, - double (twopow)));
+		twopowdbl += gwdbl__log2_abs_c_div_fftlen * (double) j;
+	return (pow (2.0, - double (twopowdbl)));
 }
 
 // This computes the inverse FFT weight multiplied by the appropriate constant
@@ -469,7 +478,7 @@ double gwfft_weight_exponent (
 	dd_real temp, twopow;
 
 // For speed, try this with plain old doubles first
-	
+
 	if (j == 0) return (0);
 	tempdbl = (double) j * gwdbl__bits_per_word;
 	twopowdbl = ceil (tempdbl) - tempdbl;
