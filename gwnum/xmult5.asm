@@ -122,6 +122,7 @@ allfft	xfftclm	16M, 1
 allfft	xfftclm	16Mp, 4
 	xfftclm	16Mp, 2
 allfft	xfftclm	16Mp, 1
+allfft	xfftclm	20M, 4
 	xfftclm	20M, 2
 	xfftclm	20M, 1
 allfft	xfftclm	20M, 0
@@ -198,6 +199,7 @@ allfft	xfftclm	16M, 1
 	xfftclm	16Mp, 4
 	xfftclm	16Mp, 2
 allfft	xfftclm	16Mp, 1
+allfft	xfftclm	16Mp, 0
 	xfftclm	20M, 2
 	xfftclm	20M, 1
 allfft	xfftclm	20M, 0
