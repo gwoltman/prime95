@@ -15718,9 +15718,9 @@ b5d:	x4cl_four_complex_fft rcx, 64, 2*clmblkdst8, 4*clmblkdst8
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, 4			;; 4 iterations of 2*clm
 b6b:	x4cl_eight_reals_fft_2 rcx, 64, 4*clmblkdst, clmblkdst8
-	add	al, 256/2		;; Test loop counter
+	add	al, 256/2/clm		;; Test loop counter
 	jnc	b6b
-	lea	rcx, [rcx-2*64+clmblkdst];; Next source pointer
+	lea	rcx, [rcx-2*clm*64+clmblkdst];; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b6b			;; Iterate if necessary
 
