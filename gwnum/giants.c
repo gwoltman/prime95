@@ -751,8 +751,9 @@ void divg (		/* n becomes n/d. n is arbitrary, but the
 	ASSERTG (d->n[d->sign-1] != 0);
 	ASSERTG (n->sign == 0 || n->n[abs(n->sign)-1] != 0);
 
-/* Handle simple case */
+/* Handle simple cases */
 
+	if (isone (d)) return;
 	nsign = n->sign;
 	nsize = abs (nsign);
 	dsize = d->sign;
