@@ -12276,14 +12276,14 @@ b0b:	copy_fft_data_to_scratch 512
 yes_fft:start_timer 22
 	mov	rcx, scratch_area	;; Get address of scratch area
 pfing	lea	rsi, [rsi+256*blkdst]	;; Create prefetching pointer
-	mov	eax, 32			;; 32 iterations of 2 iters of 4*2*clm
+	mov	eax, 32*256		;; 32 iterations of 2 iters of 4*2*clm
 b1a:	xtouch	[rsi+(clm-1)*128]	;; Preload TLB
 b1b:	x2cl_eight_reals_fft rcx, 64, 32*clmblkdst8
 	xloop4	b1b, clmblkdst
 	add	eax, 80000000h
 	jnc	b1a
 	lea	rcx, [rcx-8*clmblkdst+clmblkdst8]
-	sub	al, 1			;; Test loop counter
+	sub	eax, 256		;; Test loop counter
 	jnz	b1a			;; Iterate if necessary
 	lea	rcx, [rcx-32*clmblkdst8];; Restore source pointer
 	end_timer 22
@@ -15212,9 +15212,9 @@ c9b:	g2cl_four_complex_unfft rsi, 64, blkdst, rcx, 64, clmblkdst
 	start_timer 17
  	mov	al, 2			;; 2 iterations of 2*clm
 c6b:	x4cl_eight_reals_unfft_2 rcx, 64, 2*clmblkdst, 4*clmblkdst
-	add	al, 256/2		;; Test loop counter
+	add	al, 256/2/clm		;; Test loop counter
 	jnc	c6b
-	lea	rcx, [rcx-2*64+clmblkdst];; Next source pointer
+	lea	rcx, [rcx-clm*2*64+clmblkdst];; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c6b			;; Iterate if necessary
 
@@ -15259,9 +15259,9 @@ c7b:	x4cl_four_complex_unfft rcx, 64, 2*clmblkdst, 4*clmblkdst
 	start_timer 18
 	mov	al, 8			;; 8 iterations of 2*clm
 c4d:	x4cl_eight_reals_unfft_2 rcx, 64, clmblkdst8, 2*clmblkdst8
-	add	al, 256/2		;; Test loop counter
+	add	al, 256/2/clm		;; Test loop counter
 	jnc	c4d
-	lea	rcx, [rcx-2*64+clmblkdst];; Next source pointer
+	lea	rcx, [rcx-clm*2*64+clmblkdst];; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c4d			;; Iterate if necessary
 
