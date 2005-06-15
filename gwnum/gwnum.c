@@ -1974,6 +1974,7 @@ int internal_gwsetup (
 		ASSERTG (((tables - gwnum_memory) & 15) == 0);
 		((double **)GWPROCPTRS)[16] = tables;
 		tables = build_biglit_table (tables, pass2_size);
+		tables += (16 - (tables - gwnum_memory)) & 15;
 
 /* Build the column normalization multiplier table. */
 
@@ -3517,33 +3518,42 @@ void specialmodg (
 /* This will get us close to the right answer. */
 
 	    if (gcompg (g, n) > 0) {
-		giant	tmp1, tmp2, tmp3;
+		giant	tmp1;
 
-/* Allocate temporaries */
+/* Allocate temporary */
 
 		tmp1 = popg (((unsigned long) bit_length >> 5) + 5);
-		tmp2 = popg ((((unsigned long) bit_length >> 5) + 5) * 2);
-		tmp3 = popg (((unsigned long) bit_length >> 5) + 5);
 
 /* Calculate the modulo by dividing the upper bits of k, multiplying by */
 /* c and subtracting that from the bottom bits. */
-		
+
 		gtogshiftright (PARG, g, tmp1);	// Upper bits
 		gmaskbits (PARG, g);		// Lower bits
 
-		gtog (tmp1, tmp2);
-		dbltog (KARG, tmp3);
-		divg (tmp3, tmp1);		// Upper bits over K
-		mulg (tmp1, tmp3);
-		subg (tmp3, tmp2);		// Upper bits mod K
+		if (KARG == 1.0) {
+			imulg (CARG, tmp1);	// Upper bits times C
+			subg (tmp1, g);
+		} else {
+			giant	tmp2, tmp3;
 
-		gshiftleft (PARG, tmp2);
-		addg (tmp2, g);			// Upper bits mod K+lower bits
+			tmp2 = popg ((((unsigned long) bit_length >> 5) + 5) * 2);
+			tmp3 = popg (((unsigned long) bit_length >> 5) + 5);
 
-		imulg (CARG, tmp1);		// Upper bits over K times C
-		subg (tmp1, g);
+			gtog (tmp1, tmp2);
+			dbltog (KARG, tmp3);
+			divg (tmp3, tmp1);	// Upper bits over K
+			mulg (tmp1, tmp3);
+			subg (tmp3, tmp2);	// Upper bits mod K
 
-		pushg (3);
+			gshiftleft (PARG, tmp2);
+			addg (tmp2, g);		// Upper bits mod K+lower bits
+
+			imulg (CARG, tmp1);	// Upper bits over K times C
+			subg (tmp1, g);
+			pushg (2);
+		}
+
+		pushg (1);
 	    }
 	}
 
