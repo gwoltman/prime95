@@ -169,7 +169,8 @@ void test_it_all (double k, unsigned long b, unsigned long n, signed long c)
 	double	diff, maxdiff;
 	char	buf[200];
 
-	if (k == (double) abs (c)) return;	// really should do a gcd test.
+	k = 1.0;
+	c = (c < 0) ? -1 : 1;
 	g = g2 = g3 = NULL;
 
 /* Find out what fftlen we would normally use */
@@ -197,12 +198,11 @@ void test_it_all (double k, unsigned long b, unsigned long n, signed long c)
 /* Loop over all possible FFT implementations */
 
 	for (ii = 1; ; ii++) {
-
 		bench_pick_nth_fft = ii;
 		res = gwsetup (k, b, n, c, fftlen);
 		bench_pick_nth_fft = 0;
 		if (res) break;
-		if (GENERAL_MOD) {
+		if (GENERAL_MOD) {	// Can't happen
 			gwdone ();	// BUG - we ought to undo unique bit
 			return;		// Don't do generic mod FFTs
 		}
