@@ -73,13 +73,13 @@
 #define FAC75	186400000L
 #define FAC74	147500000L
 #define FAC73	115300000L
-#define FAC72	71000000L		// s.b. 96830000
-#define FAC71	57020000L		// s.b. 75670000
-#define FAC70	44150000L		// s.b. 58520000
-#define FAC69	35200000L		// s.b. 47450000
-#define FAC68	28130000L		// s.b. 37800000
-#define FAC67	21590000L		// s.b. 29690000
-#define FAC66	17890000L		// s.b. 23390000
+#define FAC72	96830000L
+#define FAC71	75670000L
+#define FAC70	58520000L
+#define FAC69	47450000L
+#define FAC68	37800000L
+#define FAC67	29690000L
+#define FAC66	23390000L
 
 /* These breakevens we're calculated a long time ago on unknown hardware: */
 
