@@ -72,20 +72,20 @@ allfft	xfftclm	2560K, 4
 allfft	xfftclm	2560K, 2
 	xfftclm	2560K, 1
 allfft	xfftclm	3072K, 4
-	xfftclm	3072K, 2
-allfft	xfftclm	3072K, 1
+allfft	xfftclm	3072K, 2
+	xfftclm	3072K, 1
 allfft	xfftclm	3072Kp, 4
-	xfftclm	3072Kp, 2
-allfft	xfftclm	3072Kp, 1
+allfft	xfftclm	3072Kp, 2
+	xfftclm	3072Kp, 1
 allfft	xfftclm	3584K, 4
-	xfftclm	3584K, 2
-allfft	xfftclm	3584K, 1
+allfft	xfftclm	3584K, 2
+	xfftclm	3584K, 1
 allfft	xfftclm	4096K, 4
-	xfftclm	4096K, 2
-allfft	xfftclm	4096K, 1
+allfft	xfftclm	4096K, 2
+	xfftclm	4096K, 1
 allfft	xfftclm	4096Kp, 4
-	xfftclm	4096Kp, 2
-allfft	xfftclm	4096Kp, 1
+allfft	xfftclm	4096Kp, 2
+	xfftclm	4096Kp, 1
 allfft	xfftclm	5M, 4
 allfft	xfftclm	5M, 2
 allfft	xfftclm	5M, 1
@@ -105,27 +105,27 @@ allfft	xfftclm	8Mp, 4
 allfft	xfftclm	8Mp, 2
 allfft	xfftclm	8Mp, 1
 	xfftclm	10M, 4
-	xfftclm	10M, 2
-allfft	xfftclm	10M, 1
+allfft	xfftclm	10M, 2
+	xfftclm	10M, 1
 	xfftclm	12M, 4
-	xfftclm	12M, 2
-allfft	xfftclm	12M, 1
+allfft	xfftclm	12M, 2
+	xfftclm	12M, 1
 	xfftclm	12Mp, 4
-	xfftclm	12Mp, 2
-allfft	xfftclm	12Mp, 1
+allfft	xfftclm	12Mp, 2
+	xfftclm	12Mp, 1
 	xfftclm	14M, 4
-	xfftclm	14M, 2
-allfft	xfftclm	14M, 1
-allfft	xfftclm	16M, 4
-	xfftclm	16M, 2
-allfft	xfftclm	16M, 1
-allfft	xfftclm	16Mp, 4
-	xfftclm	16Mp, 2
-allfft	xfftclm	16Mp, 1
+allfft	xfftclm	14M, 2
+	xfftclm	14M, 1
+	xfftclm	16M, 4
+allfft	xfftclm	16M, 2
+	xfftclm	16M, 1
+	xfftclm	16Mp, 4
+allfft	xfftclm	16Mp, 2
+	xfftclm	16Mp, 1
 allfft	xfftclm	20M, 4
 	xfftclm	20M, 2
-	xfftclm	20M, 1
-allfft	xfftclm	20M, 0
+allfft	xfftclm	20M, 1
+	xfftclm	20M, 0
 	xfftclm	24M, 2
 allfft	xfftclm	24M, 1
 	xfftclm	24M, 0
@@ -136,10 +136,10 @@ allfft	xfftclm	24Mp, 1
 allfft	xfftclm	28M, 1
 	xfftclm	28M, 0
 allfft	xfftclm	32M, 2
-allfft	xfftclm	32M, 1
+	xfftclm	32M, 1
 	xfftclm	32M, 0
 allfft	xfftclm	32Mp, 2
-allfft	xfftclm	32Mp, 1
+	xfftclm	32Mp, 1
 	xfftclm	32Mp, 0
 ELSE
 allfft	xfftclm	1280K, 4
@@ -148,13 +148,13 @@ allfft	xfftclm	1536Kp, 4
 allfft	xfftclm	1792K, 4
 allfft	xfftclm	2048K, 4
 allfft	xfftclm	2048Kp, 4
-	xfftclm	2560K, 4
+allfft	xfftclm	2560K, 4
 allfft	xfftclm	2560K, 2
 allfft	xfftclm	2560K, 1
-	xfftclm	3072K, 4
+allfft	xfftclm	3072K, 4
 allfft	xfftclm	3072K, 2
 allfft	xfftclm	3072K, 1
-	xfftclm	3072Kp, 4
+allfft	xfftclm	3072Kp, 4
 allfft	xfftclm	3584K, 4
 allfft	xfftclm	3584K, 2
 allfft	xfftclm	3584K, 1
@@ -182,23 +182,23 @@ allfft	xfftclm	8Mp, 4
 allfft	xfftclm	8Mp, 2
 allfft	xfftclm	8Mp, 1
 	xfftclm	10M, 4
-	xfftclm	10M, 2
-allfft	xfftclm	10M, 1
+allfft	xfftclm	10M, 2
+	xfftclm	10M, 1
 	xfftclm	12M, 4
 	xfftclm	12M, 2
-allfft	xfftclm	12M, 1
-	xfftclm	12Mp, 4
+	xfftclm	12M, 1
+allfft	xfftclm	12Mp, 4
 	xfftclm	12Mp, 2
-allfft	xfftclm	12Mp, 1
+	xfftclm	12Mp, 1
 	xfftclm	14M, 4
 	xfftclm	14M, 2
-allfft	xfftclm	14M, 1
+	xfftclm	14M, 1
 	xfftclm	16M, 4
 	xfftclm	16M, 2
-allfft	xfftclm	16M, 1
-	xfftclm	16Mp, 4
+	xfftclm	16M, 1
+allfft	xfftclm	16Mp, 4
 	xfftclm	16Mp, 2
-allfft	xfftclm	16Mp, 1
+	xfftclm	16Mp, 1
 allfft	xfftclm	16Mp, 0
 	xfftclm	20M, 2
 	xfftclm	20M, 1

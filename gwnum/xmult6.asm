@@ -89,11 +89,11 @@ allfft	xfftclm	192Kp, 4
 	xfftclm	192Kp, 2
 allfft	xfftclm	192Kp, 1
 allfft	xfftclm	224K, 4
-allfft	xfftclm	224K, 2
-	xfftclm	224K, 1
+	xfftclm	224K, 2
+allfft	xfftclm	224K, 1
 allfft	xfftclm	256K, 4
-allfft	xfftclm	256K, 2
-	xfftclm	256K, 1
+	xfftclm	256K, 2
+allfft	xfftclm	256K, 1
 allfft	xfftclm	256Kp, 4
 allfft	xfftclm	256Kp, 2
 	xfftclm	256Kp, 1
@@ -157,51 +157,51 @@ allfft	xfftclm	4096K, 0
 allfft	xfftclm	4096Kp, 0
 ELSE
 allfft	xfftclm	160K, 4
-allfft	xfftclm	160K, 2
-	xfftclm	160K, 1
-allfft	xfftclm	192K, 4
+	xfftclm	160K, 2
+allfft	xfftclm	160K, 1
+	xfftclm	192K, 4
 allfft	xfftclm	192K, 2
 	xfftclm	192K, 1
 allfft	xfftclm	192Kp, 4
 allfft	xfftclm	192Kp, 2
 	xfftclm	192Kp, 1
-allfft	xfftclm	224K, 4
-allfft	xfftclm	224K, 2
-	xfftclm	224K, 1
-allfft	xfftclm	256K, 4
+	xfftclm	224K, 4
+	xfftclm	224K, 2
+allfft	xfftclm	224K, 1
+	xfftclm	256K, 4
 	xfftclm	256K, 2
-	xfftclm	256K, 1
-allfft	xfftclm	256Kp, 4
+allfft	xfftclm	256K, 1
+	xfftclm	256Kp, 4
 	xfftclm	256Kp, 2
-	xfftclm	256Kp, 1
+allfft	xfftclm	256Kp, 1
 	xfftclm	320K, 4
 allfft	xfftclm	320K, 2
 	xfftclm	320K, 1
 	xfftclm	384K, 4
 	xfftclm	384K, 2
-	xfftclm	384K, 1
+allfft	xfftclm	384K, 1
 	xfftclm	384Kp, 4
 	xfftclm	384Kp, 2
-	xfftclm	384Kp, 1
+allfft	xfftclm	384Kp, 1
 	xfftclm	448K, 4
 	xfftclm	448K, 2
-	xfftclm	448K, 1
+allfft	xfftclm	448K, 1
 	xfftclm	512K, 4
 	xfftclm	512K, 2
-	xfftclm	512K, 1
+allfft	xfftclm	512K, 1
 allfft	xfftclm	512K, 0
 	xfftclm	512Kp, 4
 	xfftclm	512Kp, 2
-	xfftclm	512Kp, 1
+allfft	xfftclm	512Kp, 1
 allfft	xfftclm	512Kp, 0
 allfft	xfftclm	640K, 4
 allfft	xfftclm	640K, 2
-	xfftclm	640K, 1
+allfft	xfftclm	640K, 1
 allfft	xfftclm	640K, 0
 allfft	xfftclm	768K, 4
 allfft	xfftclm	768K, 2
 allfft	xfftclm	768K, 1
-allfft	xfftclm	768K, 0
+	xfftclm	768K, 0
 allfft	xfftclm	768Kp, 4
 allfft	xfftclm	768Kp, 2
 allfft	xfftclm	768Kp, 1
@@ -229,7 +229,7 @@ allfft	xfftclm	1792K, 2
 allfft	xfftclm	1792K, 1
 allfft	xfftclm	1792K, 0
 allfft	xfftclm	2048K, 1
-	xfftclm	2048K, 0
+allfft	xfftclm	2048K, 0
 allfft	xfftclm	2048Kp, 1
 allfft	xfftclm	2048Kp, 0
 allfft	xfftclm	2560K, 0
