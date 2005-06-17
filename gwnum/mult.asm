@@ -8617,7 +8617,7 @@ allfft	DD			384, 1, 384, 1, 1, 0
 	DPTR			OFFSET xfft8Mp412_1AMD, OFFSET xfft8Mp412_2AMD
 	DPTR			OFFSET xfft8Mp412_3AMD, OFFSET xfft8Mp412_4AMD
 	DPTR			OFFSET xprctab2a ;; Table of add/sub/norm procs
-	DD			512, GAP2_12_2+1
+	DD			512, GAP2_12_4+1
 	DD			512, 1, 512, 1, 1, 0
 allfft	DD	153100000, 8388608, 1.042,	12828672
 allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
