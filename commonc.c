@@ -2429,14 +2429,15 @@ void tempFileName (
 	unsigned long p)
 {
 	char	c;
-	if (p == 0) {
+	if (p == 0)
 		IniGetString (INI_FILE, "AdvFacFileName", buf, 10, "p0000000");
-		return;
-	}
-	sprintf (buf, "p%07li", p % 10000000);
-	if (p >= 10000000) buf[1] = (char) ('A' + (p / 1000000) - 10);
-	if (p >= 35000000) c=buf[1], buf[1]=buf[2], buf[2]=(char)(c - 25);
-	if (p >= 70000000) c=buf[2], buf[2]=buf[3], buf[3]=(char)(c - 25);
+	else if (p < 80000000) {
+		sprintf (buf, "p%07li", p % 10000000);
+		if (p >= 10000000) buf[1] = (char) ('A' + (p / 1000000) - 10);
+		if (p >= 35000000) c=buf[1], buf[1]=buf[2], buf[2]=(char)(c - 25);
+		if (p >= 70000000) c=buf[2], buf[2]=buf[3], buf[3]=(char)(c - 25);
+	} else
+		sprintf (buf, "p%ld", p);
 }
 
 /* See if the given file exists */
