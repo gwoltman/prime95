@@ -63,21 +63,24 @@ int	QA_SAVE_FILES = 0;
 /* Perform setup functions.  This includes decding how big an FFT to */
 /* use, allocating memory, calling the FFT setup code, etc. */
 
-void ecm_setup1 (
+int ecm_setup1 (
 	double	k,
 	unsigned long b,
 	unsigned long n,
 	signed long c)
 {
+	int	res;
 
 /* Setup the assembly code */
 
-	gwsetup (k, b, n, c, 0);
+	res = gwsetup (k, b, n, c, 0);
+	if (res) return (res);
 	pool_count = 0;
 
 /* A kludge so that the error checking code is not as strict. */
 
 	MAXDIFF *= IniGetInt (INI_FILE, "MaxDiffMultiplier", 1);
+	return (0);
 }
 
 /* Perform setup functions, part 2. */
@@ -1909,7 +1912,7 @@ int ecm (
 	double	sigma, last_output;
 	unsigned long i, j, m, curve, prime;
 	char	filename[16], buf[100], fft_desc[100];
-	int	retval, stage, escaped;
+	int	res, retval, stage, escaped;
 	long	write_time = DISK_WRITE_TIME * 60;
 	time_t	start_time, current_time;
 	gwnum	x, z, t1, t2, gg;
@@ -2140,7 +2143,12 @@ return 0;
 
 /* Perform setup functions */
 
-	ecm_setup1 (k, b, n, c);
+	res = ecm_setup1 (k, b, n, c);
+	if (res) {
+		sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
+		OutputBoth (buf);
+		return (FALSE);
+	}
 	gwsetnormroutine (0, ERRCHK, 0);
 	last_output = fft_count = modinv_count = 0;
 
@@ -3047,19 +3055,21 @@ print out each test case (all relevant data)*/
 /* Perform setup functions.  This includes decding how big an FFT to */
 /* use, allocating memory, calling the FFT setup code, etc. */
 
-void pm1_setup1 (
+int pm1_setup1 (
 	double	k,
 	unsigned long b,
 	unsigned long n,
 	signed long c)
 {
 	unsigned long fftlen;
+	int	res;
 
 /* Setup the assembly code */
 
-	fftlen = (c == -1) ?
+	fftlen = (k == 1.0 && b == 2 && c == -1) ?
 		advanced_map_exponent_to_fftlen (n) : 0;
-	gwsetup (k, b, n, c, fftlen);
+	res = gwsetup (k, b, n, c, fftlen);
+	if (res) return (res);
 	modinv_count = 0;
 	N = NULL;
 	nQx = NULL;
@@ -3068,6 +3078,7 @@ void pm1_setup1 (
 /* A kludge so that the error checking code is not as strict. */
 
 	MAXDIFF *= IniGetInt (INI_FILE, "MaxDiffMultiplier", 1);
+	return (0);
 }
 
 /* Perform cleanup functions. */
@@ -3879,7 +3890,7 @@ int pminus1 (
 	unsigned long error_recovery_mode = 0;
 	gwnum	x, gg, t3;
 	char	filename[16], buf[100];
-	int	retval, stage, escaped, saving, near_fft_limit, echk;
+	int	res, retval, stage, escaped, saving, near_fft_limit, echk;
 	long	write_time = DISK_WRITE_TIME * 60;
 	time_t	start_time, current_time;
 	double	pct, last_output, last_contact, last_output_r;
@@ -3917,7 +3928,12 @@ restart:
 /* Perform setup functions */
 
 	memset (&state, 0, sizeof (state));
-	pm1_setup1 (k, b, n, c);
+	res = pm1_setup1 (k, b, n, c);
+	if (res) {
+		sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
+		OutputBoth (buf);
+		return (FALSE);
+	}
 	last_contact = last_output = last_output_r = fft_count = 0;
 	EXP_BEING_WORKED_ON = n;
 	EXP_BEING_FACTORED = 1;
