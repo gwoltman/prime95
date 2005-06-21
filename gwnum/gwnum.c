@@ -2837,7 +2837,7 @@ double virtual_bits_per_word ()
 }
 
 /* Given k,b,n,c determine the fft length.  If k,b,n,c is not supported */
-/* then kludgily return the maximum FFT length. */
+/* then return zero. */
 
 unsigned long gwmap_to_fftlen (
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
@@ -2849,15 +2849,13 @@ unsigned long gwmap_to_fftlen (
 
 /* Get pointer to fft info and return the FFT length */
 
-	if (gwinfo (k, b, n, c, 0))
-		return (CPU_FLAGS & CPU_SSE2 ? MAX_FFTLEN_SSE2 : MAX_FFTLEN);
+	if (gwinfo (k, b, n, c, 0)) return (0);
 	info = INFT[0];
 	return (info[1]);
 }
 
 /* Given an fft length, determine the maximum allowable exponent.  If fftlen */
-/* is not supported then kludgily return the maximum exponent of the largest */
-/* supported FFT length. */
+/* is not supported then return zero. */
 
 unsigned long map_fftlen_to_max_exponent (
 	unsigned long fftlen)
@@ -2866,8 +2864,7 @@ unsigned long map_fftlen_to_max_exponent (
 
 /* Get pointer to fft info and return the FFT length */
 
-	if (gwinfo (1.0, 2, 0, -1, fftlen))
-		return (CPU_FLAGS & CPU_SSE2 ? MAX_PRIME_SSE2 : MAX_PRIME);
+	if (gwinfo (1.0, 2, 0, -1, fftlen)) return (0);
 	info = INFT[0];
 	return (info[0]);
 }
