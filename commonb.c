@@ -1046,7 +1046,7 @@ void factorDone (void)
 
 /* Prepare for running a Lucas-Lehmer test */
 
-void lucasSetup (
+int lucasSetup (
 	unsigned long p,	/* Exponent to test */
 	unsigned long fftlen)	/* Specific FFT length to use, or zero */
 {
@@ -1061,12 +1061,13 @@ void lucasSetup (
 		res = gwsetup (1.0, 2, p, -1, fftlen);
 	if (res) {
 		LLDATA = NULL;
-		return;
+		return (res);
 	}
 		
 /* Allocate memory for the Lucas-Lehmer data (the number to square) */
 
 	LLDATA = gwalloc ();
+	return (0);
 }
 
 /* Clean up after running a Lucas-Lehmer test */
@@ -1352,11 +1353,18 @@ readerr:		sprintf (buf, READFILEERR, filename);
 	    (((pass == 2 && (w.pminus1ed || counter >= w.n / 2)) || pass == 3) &&
 	     (w.work_type == WORK_TEST || w.work_type == WORK_DBLCHK))) {
 		unsigned long units_bit, err_cnt;
+		int	res;
 
 /* Setup */
 
 		if (! pick_fft_size (w.k, w.b, w.n, w.c)) goto check_stop_code;
-		lucasSetup (w.n, fftlen ? fftlen : advanced_map_exponent_to_fftlen (w.n));
+		res = lucasSetup (w.n, fftlen ? fftlen : advanced_map_exponent_to_fftlen (w.n));
+		if (res) {
+			char	buf[80];
+			sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
+			OutputBoth (buf);
+			goto done;
+		}
 
 /* Read the initial data from the file, on failure try the backup */
 /* intermediate file. */
@@ -1376,7 +1384,14 @@ readerr:		sprintf (buf, READFILEERR, filename);
 				g = newgiant ((w.n + 32) / sizeof (short));
 				gwtogiant (LLDATA, g);
 				lucasDone ();
-				lucasSetup (w.n, advanced_map_exponent_to_fftlen (w.n));
+				res = lucasSetup (w.n, advanced_map_exponent_to_fftlen (w.n));
+				if (res) {
+					char	buf[80];
+					sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
+					OutputBoth (buf);
+					free (g);
+					goto done;
+				}
 				gianttogw (g, LLDATA);
 				free (g);
 			}
@@ -1545,7 +1560,7 @@ int pick_fft_size (
 	char	buf[120];
 	double	softpct, total_error, avg_error, max_avg_error;
 	unsigned long small_fftlen, large_fftlen, fftlen;
-	int	i;
+	int	i, res;
 
 /* We only do this for Mersenne numbers */
 
@@ -1556,7 +1571,6 @@ int pick_fft_size (
 /* Also, for really large exponents there is no larger FFT size to use! */
 
 	if (p <= 5000000) return (TRUE);
-	if (p >= 75000000) return (TRUE);
 
 /* Get the info on how what percentage of exponents on either side of */
 /* an FFT crossover we will do this 1000 iteration test. */
@@ -1570,7 +1584,7 @@ int pick_fft_size (
 			(unsigned long) ((1.0 - softpct) * p), -1);
 	large_fftlen = gwmap_to_fftlen (1.0, 2,
 			(unsigned long) ((1.0 + softpct) * p), -1);
-	if (small_fftlen == large_fftlen) return (TRUE);
+	if (small_fftlen == large_fftlen || large_fftlen == 0) return (TRUE);
 
 /* If we've already picked an FFT length, then return */
 
@@ -1599,7 +1613,13 @@ int pick_fft_size (
 
 /* Init the FFT code using the smaller FFT size */
 
-	lucasSetup (p, small_fftlen);
+	res = lucasSetup (p, small_fftlen);
+	if (res) {
+		char	buf[80];
+		sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
+		OutputBoth (buf);
+		return (FALSE);
+	}
 
 /* Fill data space with random values then do one squaring to make */
 /* the data truly random. */
@@ -2817,6 +2837,7 @@ int selfTestInternal (
 static	int	data_index[SELF_FFT_LENGTHS] = {0};
 	struct self_test_info *test_data;
 	unsigned int test_data_count;
+	int	res;
 
 /* Set the title */
 
@@ -2899,13 +2920,13 @@ static	int	data_index[SELF_FFT_LENGTHS] = {0};
 
 		GW_BIGBUF = (char *) bigbuf;
 		GW_BIGBUF_SIZE = (bigbuf != NULL) ? memory * 1000000 : 0;
-		lucasSetup (p, fftlen);
-		MAXDIFF *= 2.0;
-		if (LLDATA == NULL) {		/* Shouldn't ever happen... */
-			OutputStr ("Out of memory\n");
-			lucasDone ();
+		res = lucasSetup (p, fftlen);
+		if (res) {
+			sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
+			OutputBoth (buf);
 			return (FALSE);
 		}
+		MAXDIFF *= 2.0;
 
 /* Determine how many gwnums we can allocate in the memory we are given */
 
@@ -3117,6 +3138,7 @@ int lucas_QA (
 		unsigned long ge_300, ge_325, ge_350, ge_375, ge_400;
 		gwnum	t1, t2;
 		unsigned int iters_unchecked;
+		int	rcode;
 
 /* Read a line from the file */
 
@@ -3134,7 +3156,12 @@ int lucas_QA (
 
 /* Now run Lucas setup */
 
-		lucasSetup (p, fftlen);
+		rcode = lucasSetup (p, fftlen);
+		if (rcode) {
+			sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", rcode);
+			OutputBoth (buf);
+			return (FALSE);
+		}
 		maxsumdiff = 0.0;
 		ge_300 = ge_325 = ge_350 = ge_375 = ge_400 = 0;
 		maxerr = 0.0; maxerrcnt = 0; toterr = 0.0;
@@ -3372,7 +3399,7 @@ void primeTime (
 	unsigned long i, j, saved, save_limit;
 	char	buf[80], fft_desc[100];
 	double	time, saved_times[SAVED_LIMIT];
-	int	days, hours, minutes;
+	int	res, days, hours, minutes;
 	unsigned long best_asm_timers[32]= {0};
 
 /* Set the process/thread priority */
@@ -3400,7 +3427,12 @@ void primeTime (
 
 /* Init the FFT code */
 
-	lucasSetup (p, 0);
+	res = lucasSetup (p, 0);
+	if (res) {
+		sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
+		OutputBoth (buf);
+		return;
+	}
 
 /* Output a message about the FFT length */
 
@@ -3567,7 +3599,7 @@ void primeBench (void)
 	double	best_time;
 	char	buf[512];
 	int	fft_lengths[] = {4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 28, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 448, 512, 640, 768, 896, 1024, 1280, 1536, 1792, 2048, 2560, 3072, 3584, 4096, 5120, 6144, 7168, 8192, 10240, 12288, 14336, 16384, 20480, 24576, 28672, 32768};
-	int	all_bench, plus1;
+	int	res, all_bench, plus1;
 
 /* Set the process/thread priority */
 
@@ -3611,9 +3643,13 @@ void primeBench (void)
 /* my 1400 MHz P4 to run 10 iterations of a 1792K FFT. */
 
 		if (all_bench) bench_pick_nth_fft = ii;
-		lucasSetup (fft_lengths[i] * 1024 * 17 + 1, fft_lengths[i] * 1024 + plus1);
+		res = lucasSetup (fft_lengths[i] * 1024 * 17 + 1, fft_lengths[i] * 1024 + plus1);
 		if (all_bench) bench_pick_nth_fft = 0;
-		if (LLDATA == NULL) break;
+		if (res) {
+			sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
+			OutputBoth (buf);
+			break;
+		}
 		iterations = (unsigned long) (10 * 1792 * CPU_SPEED / 1400 / fft_lengths[i]);
 		if (iterations < 10) iterations = 10;
 		if (iterations > 100) iterations = 100;
