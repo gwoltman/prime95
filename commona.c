@@ -52,7 +52,7 @@ void rangeStatusMessage (
 		struct work_unit w;
 		unsigned long iteration;
 		double	pct, work;
-		char	timebuf[30];
+		char	timebuf[80];
 		char	*work_type;
 		unsigned int len;
 
