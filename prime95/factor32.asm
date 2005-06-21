@@ -1558,7 +1558,9 @@ smok:
 	sub	prev, prev		; Set up: set bigrem = testp,
 	mov	cur, 1			; litrem = facdist mod testp
 	mov	bigrem, testp
-	mov	edx, facdists+12
+	mov	eax, facdists+12
+	sub	edx, edx
+	div	bigrem
 	mov	eax, facdists+8
 	div	bigrem
 	mov	litrem, edx
