@@ -1,44 +1,60 @@
-<html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-	<head>
-		<title>OptionsMenuWin95</title>
-		<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
-		<meta name="ProgId" content="Word.Document">
-		<meta name="Generator" content="Microsoft Word 9">
-		<meta name="Originator" content="Microsoft Word 9">
-		<link rel="File-List" href="./OptionsMenuWin95_files/filelist.xml">
-			<style> <!-- /* Font Definitions */ @font-face {font-family:"MS Mincho"; panose-1:2 2 6 9 4 2 5 8 3 4; mso-font-alt:"\FF2D\FF33 \660E\671D"; mso-font-charset:128; mso-generic-font-family:modern; mso-font-pitch:fixed; mso-font-signature:647 134676480 16 0 131231 0;}
-	@font-face {font-family:"\@MS Mincho"; mso-font-charset:128; mso-generic-font-family:modern; mso-font-pitch:fixed; mso-font-signature:-1610612033 1757936891 16 0 131231 0;}
-	/* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {mso-style-parent:""; margin:0in; margin-bottom:.0001pt; mso-pagination:widow-orphan; font-size:12.0pt; font-family:"Times New Roman"; mso-fareast-font-family:"Times New Roman";}
-	h1 {mso-style-next:Normal; margin-top:0in; margin-right:25.0pt; margin-bottom:0in; margin-left:0in; margin-bottom:.0001pt; mso-pagination:widow-orphan; page-break-after:avoid; mso-outline-level:1; font-size:10.0pt; font-family:"Times New Roman"; color:white; mso-font-kerning:0pt; font-style:italic;}
-	a:link, span.MsoHyperlink {color:blue; text-decoration:underline; text-underline:single;}
-	a:visited, span.MsoHyperlinkFollowed {color:purple; text-decoration:underline; text-underline:single;}
-	p.MsoPlainText, li.MsoPlainText, div.MsoPlainText {margin:0in; margin-bottom:.0001pt; mso-pagination:widow-orphan; font-size:10.0pt; font-family:"Courier New"; mso-fareast-font-family:"Times New Roman";}
-	@page Section1 {size:8.5in 11.0in; margin:1.0in 29.25pt 1.0in 65.95pt; mso-header-margin:.5in; mso-footer-margin:.5in; mso-paper-source:0;}
-	div.Section1 {page:Section1;}
-	--></style>
-		<!--[if gte mso 9]><xml>
- <o:shapedefaults v:ext="edit" spidmax="1027">
-  <o:colormru v:ext="edit" colors="#fc9"/>
-  <o:colormenu v:ext="edit" fillcolor="none"/>
- </o:shapedefaults></xml><![endif]-->  <!--[if gte mso 9]><xml>
- <o:shapelayout v:ext="edit">
-  <o:idmap v:ext="edit" data="1"/>
- </o:shapelayout></xml><![endif]-->
-	</head>
-	<body lang="EN-US" link="blue" vlink="purple" style='tab-interval:.5in'>
-		<div class="Section1">
-			<p class="MsoPlainText"><span style="COLOR:black; FONT-FAMILY:'Times New Roman'; mso-fareast-font-family:'MS Mincho'"><![if !supportEmptyParas]><![endif]><o:p></o:p></span></p>
-			<p class="MsoPlainText"><span style="COLOR:black; FONT-FAMILY:'Times New Roman'; mso-fareast-font-family:'MS Mincho'">Checking the <b>Start 
-						at Bootup</b> menu choice will
-run prime95 at boot up for (Windows 95/98/Me) and at logon time (Windows
-NT/2000/XP).<o:p></o:p></span></p>
-			<p class="MsoPlainText"><span style="COLOR:black; FONT-FAMILY:'Times New Roman'; mso-fareast-font-family:'MS Mincho'">You will not need to place a shortcut to prime95 in
-the startup folder.<span style="mso-spacerun: yes">&nbsp; </span>The Prime95 value
-in following registry keys may be written to:
-HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunServices
-HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run
-HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run<o:p></o:p></span></p>
-			<p class="MsoPlainText"><span style="COLOR:black; FONT-FAMILY:'Times New Roman'; mso-fareast-font-family:'MS Mincho'"><![if !supportEmptyParas]><![endif]>&nbsp;<o:p></o:p></span></p>
-		</div>
-	</body>
-</html>
+<html>
+
+<head>
+<title>Options Menu - Start at Bootup</title>
+<link rel="stylesheet" type="text/css" href="backsdk4.css">
+</head>
+
+<body TOPMARGIN="0">
+
+<table CLASS="buttonbarshade" CELLSPACING="0">
+  <tr>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<table CLASS="buttonbartable" CELLSPACING="0">
+  <tr ID="hdr">
+    <td CLASS="runninghead" NOWRAP>How to Use Prime95: Options Menu - Start at 
+    Bootup</td>
+  </tr>
+</table>
+<p>&nbsp;</p>
+<h1>OPTIONS MENU - Start at Bootup</h1>
+<h2><a name="Start at Bootup">Start at Bootup</a></h2>
+<p>Checking the <b>Start at Bootup</b> menu choice will run prime95 as a service that 
+is started when your computer boots up. Windows NT/2000/XP users need administrator 
+privileges to use this feature. This method of starting prime95 is better than creating 
+a shortcut to prime95 in the startup folder. That is because services run even when 
+no one is logged on. These are the details you should be aware of:<br>
+<br>
+In Windows 95/98/Me:<br>
+<br>
+The HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunServices registry 
+entry is created. You will not be able to tell any difference between prime95 running 
+as a service and prime95 running as an ordinary process.<br>
+<br>
+In Windows NT/2000/XP (without administrator privileges):<br>
+<br>
+In this case the menu text is changed to &quot;Start at Logon&quot;. The HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run 
+is created. Prime95 will run only when you are logged in.<br>
+<br>
+In Windows NT/2000/XP (with administrator privileges):<br>
+<br>
+There are a few minor quirks when running as a service. You shouldn&#39;t run into these 
+quirks in normal operation. You can only change this option once and it will take 
+effect when the service is started or stopped. You will need to exit prime95 running 
+as a normal process before starting the prime95 service. Finally, the prime95 window 
+will only appear on one users desktop. Only one prime95.exe program can be run as 
+a service. If you have a dual processor system you&#39;ll want to run two instances 
+of prime95. Instead of running a second prime95 from another directory, run the 
+second prime95 from the same directory with the -A1 switch (go to a DOS window and 
+type “prime95 –A1”). Finally, if you are worried about giving users access to a 
+GUI service running in the Local System account, you can turn off the &quot;Allow service 
+to interact with desktop&quot; option in the services control panel applet or run the 
+GUI-less NT service version available at
+<a href="http://www.mersenne.org/freesoft.htm">http://www.mersenne.org/freesoft.htm</a>. 
+These options are more secure than using the No Icon menu choice<br>
+<br>
+&nbsp;</p>
+
+</body></html>

@@ -313,12 +313,16 @@ Note that a full URL is always sent when using a proxy server.
 
 When using a proxy server, the program sends the port number in http strings.
 That is the ":80" in "http://mersenne.org:80/cgibin_text".  At least one
-proxy server only works if the ":80" is not present.  In this case, ste:
+proxy server only works if the ":80" is not present.  In this case, set:
 	SendPortNumber=0
 in the primenet.ini file.
 
 The benchmarking code by default only times a subset of the large FFT sizes.
-Use "FullBench=1" to have the benchmarking code time all of the large FFT
-sizes.  "AllBench=1" can be used to time FFT implementations optimized for
-different L2 cache sizes.
+In prime.ini, set
+	FullBench=1
+to have the benchmarking code time all of the large FFT sizes.
+
+"AllBench=1" in prime.ini is used to time FFT implementations optimized for
+other L2 cache sizes.  This is only useful during the development cycle to
+find the optimal FFT implementations for each CPU type. 
 
