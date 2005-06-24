@@ -125,8 +125,8 @@ returns5a	DD	OFFSET vx1, OFFSET vx2, OFFSET vx3, OFFSET vx4
 cmpvalmask	DD	0	; The bits to test in sqexit
 cmpval		DD	0	; The value to match in sqexit
 ONE		DD	1.0	; The floating point constant 1.0
-REMMULTS	DD	24 DUP (0.0)
-FACMULTS	DD	24 DUP (0.0)
+REMMULTS	DD	32 DUP (0.0)
+FACMULTS	DD	32 DUP (0.0)
 shifter		DD	0
 sqloop_counter	DD	0	; Number of iterations in 60-bit sqloop
 initstart	DD	0	; First dword in initsieve to copy
