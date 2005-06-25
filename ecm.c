@@ -3847,10 +3847,18 @@ void calc_exp (
 		return;
 	}
 
-/* Find all the primes in the range and use as many powers as possible */
+/* For Mersenne numbers, 2^n-1, make sure we include 2n in the calculated */
+/* exponent (since factors are of the form 2kn+1).  For Fermat numbers, */
+/* 2^n+1 (n is a power of 2), make sure the exponent is included in the */
+/* calculated exponent as factors are of the form kn+1.  Otherwise, do */
+/* nothing special -- start  with one. */
 
 	if (lower == 0 && k == 1.0 && b == 2 && c == -1) itog (2*n, g);
+	else if (lower == 0 && k == 1.0 && b == 2 && c == 1) itog (n, g);
 	else setone (g);
+
+/* Find all the primes in the range and use as many powers as possible */
+
 	for ( ; *p <= B1 && (unsigned long) g->sign < len; *p = sieve ()) {
 		unsigned long val, max;
 		val = *p;
