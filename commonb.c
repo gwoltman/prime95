@@ -3646,8 +3646,10 @@ void primeBench (void)
 		res = lucasSetup (fft_lengths[i] * 1024 * 17 + 1, fft_lengths[i] * 1024 + plus1);
 		if (all_bench) bench_pick_nth_fft = 0;
 		if (res) {
-			sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
-			OutputBoth (buf);
+			if (! all_bench) {
+				sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
+				OutputBoth (buf);
+			}
 			break;
 		}
 		iterations = (unsigned long) (10 * 1792 * CPU_SPEED / 1400 / fft_lengths[i]);
