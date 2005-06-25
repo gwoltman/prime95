@@ -989,7 +989,7 @@ void factorSetup (unsigned long p)
 	XMM_INIT120BS		DD	0,0
 	XMM_INITBS		DD	0,0
 	XMM_BS			DD	0,0
-	XMM_SHIFTER		DD	48 DUP (0)
+	XMM_SHIFTER		DD	64 DUP (0)
 	TWO_TO_FACSIZE_PLUS_62	DQ	0.0
 	SSE2_LOOP_COUNTER	DD	0 */
 /* The address to XMM_BITS30 was returned in SRCARG. */
@@ -1022,8 +1022,8 @@ void factorSetup (unsigned long p)
 		xmm_data[6] = p >= 90 ? 0 : (1 << (p - 60));
 		xmm_data[44] = 62 - (120 - bits_in_factor);/* XMM_INIT120BS */
 		xmm_data[46] = 62 - (p - bits_in_factor);/* XMM_INITBS */
-		xmm_data[100] = i;		/* SSE2_LOOP_COUNTER */
-		*(double *)(&xmm_data[98]) = pow ((double) 2.0, (int) (bits_in_factor + 62));
+		xmm_data[116] = i;		/* SSE2_LOOP_COUNTER */
+		*(double *)(&xmm_data[114]) = pow ((double) 2.0, (int) (bits_in_factor + 62));
 						/* TWO_TO_FACSIZE_PLUS_62 */
 
 /* Set XMM_BS to 60 - (120 - fac_size + 1) as defined in factor64.mac */
@@ -4414,16 +4414,6 @@ int primeSieve (
 				}
 				start_time = current_time;
 			}
-		}
-
-/* Next pass */
-
-		if (FACMSW != 0xFFFFFFFF) {
-			endpthi = FACHSW;
-			endptlo = FACMSW+1;
-		} else {
-			endpthi = FACHSW+1;
-			endptlo = 0;
 		}
 		}
 		}
