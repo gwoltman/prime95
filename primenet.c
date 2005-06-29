@@ -44,7 +44,7 @@
 #include <stdio.h>
 
 #ifdef _WINDOWS_
-#include <winsock.h>
+#include <winsock2.h>
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -409,6 +409,11 @@ rel_url:
 			LogMsg (buf);
 		}
 		closesocket (s);
+		if (url_format == 2 && *szProxyHost == 0) {
+			if (debug) LogMsg ("Trying relative URL\n");
+			url_format = 0;
+			goto rel_url;
+		}
 		return (PRIMENET_ERROR_SEND_FAILED);
 	}
 
@@ -434,6 +439,11 @@ rel_url:
 				LogMsg (buf);
 			}
 			closesocket (s);
+			if (url_format == 2 && *szProxyHost == 0) {
+				if (debug) LogMsg ("Trying relative URL\n");
+				url_format = 0;
+				goto rel_url;
+			}
 			return (PRIMENET_ERROR_RECV_FAILED);
 		}
 		if (res == 0) break;
