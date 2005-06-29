@@ -2837,7 +2837,7 @@ int selfTestInternal (
 static	int	data_index[SELF_FFT_LENGTHS] = {0};
 	struct self_test_info *test_data;
 	unsigned int test_data_count;
-	int	res;
+	int	res, cpu_supports_3dnow;
 
 /* Set the title */
 
@@ -2915,12 +2915,25 @@ static	int	data_index[SELF_FFT_LENGTHS] = {0};
 		sprintf (buf, SELF1, iter, ll_iters, p, fftlen / 1024);
 		OutputStr (buf);
 
+/* Anecdotal evidence suggests that some AMD chips struggle with FFTs */
+/* that do not use the prefetchw instruction (they would fail a version */
+/* 23.8 torture test, but pass a version 24.11 torture test).  Thus, I've */
+/* made the torture test use both the prefetchw and non-prefetchw FFTs. */
+
+		cpu_supports_3dnow = (CPU_FLAGS & CPU_3DNOW) ? TRUE : FALSE;
+
 /* Now run Lucas setup, for extra safety double the maximum allowable */
 /* sum(inputs) vs. sum(outputs) difference. */
 
 		GW_BIGBUF = (char *) bigbuf;
 		GW_BIGBUF_SIZE = (bigbuf != NULL) ? memory * 1000000 : 0;
+		if (cpu_supports_3dnow && p > 5000000 && torture_count >= 0 &&
+		    (test_data[i].reshi & 1) &&
+		    IniGetInt (INI_FILE, "Special3DNowTorture", 1))
+			CPU_FLAGS &= ~CPU_3DNOW;
 		res = lucasSetup (p, fftlen);
+		if (cpu_supports_3dnow)
+			CPU_FLAGS |= CPU_3DNOW;
 		if (res) {
 			sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
 			OutputBoth (buf);
