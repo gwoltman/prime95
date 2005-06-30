@@ -1751,7 +1751,7 @@ static	time_t	last_time = 0;
 
 /* Output to the log file only if it hasn't grown too big */
 
-	if (filelen < (unsigned long) IniGetInt (INI_FILE, "MaxLogFileSize", 250000)) {
+	if (filelen < (unsigned long) IniGetInt (INI_FILE, "MaxLogFileSize", 2000000)) {
 
 /* If it has been at least 5 minutes since the last time stamp */
 /* was output, then output a new timestamp */
