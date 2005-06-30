@@ -1339,7 +1339,7 @@ readerr:		sprintf (buf, READFILEERR, filename);
 	      ! w.pminus1ed &&
 	      ((pass == 1 && !sequential) || pass == 2) &&
 	      (fd == 0 || fftlen == 0 || counter < w.n / 2)))) {
-		if (fd) _close (fd);
+		if (fd) _close (fd), fd = 0;
 		if (! pick_fft_size (w.k, w.b, w.n, w.c)) goto check_stop_code;
 		if (! pfactor (&w)) {
 			if (STOP_REASON != STOP_NOT_ENOUGH_MEM) goto check_stop_code;
