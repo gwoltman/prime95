@@ -56,7 +56,7 @@ typedef double *gwnum;
 /* gwsetup verifies that the version numbers match.  This prevents bugs */
 /* from accidentally linking in the wrong gwnum object files. */
 
-#define GWNUM_VERSION	"24.12"
+#define GWNUM_VERSION	"24.13"
 
 /* Prior to calling one of the gwsetup routines, you can have the library */
 /* "play it safe" by reducing the maximum allowable bits per FFT data word. */
