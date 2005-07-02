@@ -1,3 +1,13 @@
+New features in Version 24.13 of mprime
+---------------------------------------
+
+1)  Celeron D (256K L2 cache) and Willamette (also 256K L2 cache) now have
+    different implementations for several FFT sizes.  This results in an
+    improvement of several percent for the Celeron D.
+2)  A bug that caused some machines to generate "Error 2252" when communicating
+    with the server was fixed.
+3)  SSE2 trial factoring code had a bug when factoring very large exponents.
+
 New features in Version 24.12 of mprime
 ---------------------------------------
 
