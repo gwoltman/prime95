@@ -44,7 +44,7 @@
 #include <stdio.h>
 
 #ifdef _WINDOWS_
-#include <winsock2.h>
+#include <winsock.h>
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
