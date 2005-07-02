@@ -343,7 +343,7 @@ allfft	exfft	1536K9, SFX_P4_CLM10, 11
 allfft	exfft	1536K, SFX_P4_CLM421 + SFX_AMD64_CLM421, 12
 allfft	exfft	1536K, SFX_P4_CLM4 + SFX_AMD64_CLM4, 13
 	exfft	1536K, SFX_P4_CLM10, 11
-	exfft	1536K, SFX_P4_CLM4 + SFX_AMD64_CLM1, 12
+	exfft	1536K, SFX_P4_CLM41 + SFX_AMD64_CLM1, 12
 	exfft	1792K, SFX_PPRO + SFX_P3
 allfft	exfft	1792K, SFX_P4_CLM10 + SFX_AMD64_CLM10, 10
 allfft	exfft	1792K, SFX_P4_CLM4210 + SFX_AMD64_CLM4210, 11
@@ -485,7 +485,7 @@ allfft	exfft	1024Kp, SFX_P4_CLM4210 + SFX_AMD64_CLM42, 11
 allfft	exfft	1024Kp9, SFX_P4_CLM10, 11
 allfft	exfft	1024Kp, SFX_P4_CLM421 + SFX_AMD64_CLM421, 12
 	exfft	1024Kp, SFX_P4_CLM420, 11
-	exfft	1024Kp, SFX_P4_CLM4 + SFX_AMD64_CLM1, 12
+	exfft	1024Kp, SFX_P4_CLM41 + SFX_AMD64_CLM1, 12
 	exfft	1536Kp, SFX_PPRO + SFX_P3
 allfft	exfft	1536Kp, SFX_P4_CLM10 + SFX_AMD64_CLM10, 10
 allfft	exfft	1536Kp, SFX_P4_CLM4210 + SFX_AMD64_CLM421, 11
@@ -493,7 +493,7 @@ allfft	exfft	1536Kp9, SFX_P4_CLM10, 11
 allfft	exfft	1536Kp, SFX_P4_CLM421 + SFX_AMD64_CLM421, 12
 allfft	exfft	1536Kp, SFX_P4_CLM4 + SFX_AMD64_CLM4, 13
 	exfft	1536Kp, SFX_P4_CLM10, 11
-	exfft	1536Kp, SFX_P4_CLM4 + SFX_AMD64_CLM1, 12
+	exfft	1536Kp, SFX_P4_CLM41 + SFX_AMD64_CLM1, 12
 	exfft	2048Kp, SFX_PPRO + SFX_P3
 allfft	exfft	2048Kp, SFX_P4_CLM10 + SFX_AMD64_CLM10, 10
 allfft	exfft	2048Kp, SFX_P4_CLM4210 + SFX_AMD64_CLM4210, 11
@@ -4610,7 +4610,7 @@ allfft	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 allfft	DD			48, GAP2_13_4+1
 allfft	DD			47, 1, 48, 1, 1, 0
 	DD	29690000, 1572864, 0.113,	2604672
-	DD			CELE_D*65536+2*4 ;; Flags, min_l2_cache, clm
+	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
 	DD			49152+11*128	;; scratch area size
 	DD			12		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1536K412_1, OFFSET xfft1536K412_2
@@ -4627,15 +4627,15 @@ allfft	DPTR			OFFSET xfft1536K212_3, OFFSET xfft1536K212_4
 allfft	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 allfft	DD			96, GAP2_12_2+1
 allfft	DD			95, 1, 96, 1, 1, 0
-allfft	DD	29690000, 1572864, 0.113,	2604672
-allfft	DD			512*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			12288+11*128	;; scratch area size
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DPTR			OFFSET xfft1536K112_1, OFFSET xfft1536K112_2
-allfft	DPTR			OFFSET xfft1536K112_3, OFFSET xfft1536K112_4
-allfft	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
-allfft	DD			96, GAP2_12_1+1
-allfft	DD			95, 1, 96, 1, 1, 0
+	DD	29690000, 1572864, 0.113,	2604672
+	DD			CELE_D*65536+2*1 ;; Flags, min_l2_cache, clm
+	DD			12288+11*128	;; scratch area size
+	DD			12		;; FFT levels done in pass2
+	DPTR			OFFSET xfft1536K112_1, OFFSET xfft1536K112_2
+	DPTR			OFFSET xfft1536K112_3, OFFSET xfft1536K112_4
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
+	DD			96, GAP2_12_1+1
+	DD			95, 1, 96, 1, 1, 0
 allfft	DD	29690000, 1572864, 0.113,	3301760
 allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
 allfft	DD			98304+23*128	;; scratch area size
@@ -7928,15 +7928,6 @@ allfft	DPTR			OFFSET xfft1024Kp212_3, OFFSET xfft1024Kp212_4
 allfft	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 allfft	DD			64, GAP2_12_2+1
 allfft	DD			64, 1, 64, 1, 1, 0
-allfft	DD	20000000, 1048576, 0.0761,	1682432
-allfft	DD			1024*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			8192+7*128	;; scratch area size
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DPTR			OFFSET xfft1024Kp112_1, OFFSET xfft1024Kp112_2
-allfft	DPTR			OFFSET xfft1024Kp112_3, OFFSET xfft1024Kp112_4
-allfft	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
-allfft	DD			64, GAP2_12_1+1
-allfft	DD			64, 1, 64, 1, 1, 0
 	DD	20000000, 1048576, 0.0761,	2181120
 	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
 	DD			65536+15*128	;; scratch area size
@@ -7946,8 +7937,17 @@ allfft	DD			64, 1, 64, 1, 1, 0
 	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 	DD			128, GAP2_11_4+1
 	DD			128, 1, 128, 1, 1, 0
+	DD	20000000, 1048576, 0.0761,	1682432
+	DD			CELE_D*65536+2*1 ;; Flags, min_l2_cache, clm
+	DD			8192+7*128	;; scratch area size
+	DD			12		;; FFT levels done in pass2
+	DPTR			OFFSET xfft1024Kp112_1, OFFSET xfft1024Kp112_2
+	DPTR			OFFSET xfft1024Kp112_3, OFFSET xfft1024Kp112_4
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
+	DD			64, GAP2_12_1+1
+	DD			64, 1, 64, 1, 1, 0
 	DD	20000000, 1048576, 0.0761,	2181120
-	DD			256*65536+2*2	;; Flags, min_l2_cache, clm
+	DD			WILLI*65536+2*2	;; Flags, min_l2_cache, clm
 	DD			32768+15*128	;; scratch area size
 	DD			11		;; FFT levels done in pass2
 	DPTR			OFFSET xfft1024Kp211_1, OFFSET xfft1024Kp211_2
@@ -8088,15 +8088,15 @@ allfft	DPTR			OFFSET xfft1536Kp212_3, OFFSET xfft1536Kp212_4
 allfft	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
 allfft	DD			96, GAP2_12_2+1
 allfft	DD			96, 1, 96, 1, 1, 0
-allfft	DD	29640000, 1572864, 0.125,	2480128
-allfft	DD			512*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			12288+23*128	;; scratch area size
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DPTR			OFFSET xfft1536Kp112_1, OFFSET xfft1536Kp112_2
-allfft	DPTR			OFFSET xfft1536Kp112_3, OFFSET xfft1536Kp112_4
-allfft	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
-allfft	DD			96, GAP2_12_1+1
-allfft	DD			96, 1, 96, 1, 1, 0
+	DD	29640000, 1572864, 0.125,	2480128
+	DD			CELE_D*65536+2*1 ;; Flags, min_l2_cache, clm
+	DD			12288+23*128	;; scratch area size
+	DD			12		;; FFT levels done in pass2
+	DPTR			OFFSET xfft1536Kp112_1, OFFSET xfft1536Kp112_2
+	DPTR			OFFSET xfft1536Kp112_3, OFFSET xfft1536Kp112_4
+	DPTR			OFFSET xprctab2	;; Table of add/sub/norm procs
+	DD			96, GAP2_12_1+1
+	DD			96, 1, 96, 1, 1, 0
 allfft	DD	29640000, 1572864, 0.125,	3252352
 allfft	DD			256*65536+2*2	;; Flags, min_l2_cache, clm
 allfft	DD			49152+23*128	;; scratch area size

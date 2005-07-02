@@ -182,16 +182,16 @@ allfft	xfftclm	1024K, 2
 	xfftclm	1024K, 1
 	xfftclm	1024Kp, 4
 allfft	xfftclm	1024Kp, 2
-allfft	xfftclm	1024Kp, 1
+	xfftclm	1024Kp, 1
 	xfftclm	1280K, 4
 allfft	xfftclm	1280K, 2
 allfft	xfftclm	1280K, 1
 	xfftclm	1536K, 4
 allfft	xfftclm	1536K, 2
-allfft	xfftclm	1536K, 1
+	xfftclm	1536K, 1
 	xfftclm	1536Kp, 4
 allfft	xfftclm	1536Kp, 2
-allfft	xfftclm	1536Kp, 1
+	xfftclm	1536Kp, 1
 	xfftclm	1792K, 4
 allfft	xfftclm	1792K, 2
 	xfftclm	1792K, 1
