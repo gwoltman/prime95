@@ -1273,12 +1273,23 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 	unsigned long l2_cache_size, max_exp;
 	char	buf[20];
 
-/* If L2 cache size is unknown, assume it is 128KB */
+/* If L2 cache size is unknown, assume it is 512KB.  We do this because */
+/* it is probably a new processor, and most new processors will have this */
+/* much cache. */
 
 	if (CPU_L2_CACHE_SIZE >= 0)
 		l2_cache_size = CPU_L2_CACHE_SIZE;
 	else
-		l2_cache_size = 128;
+		l2_cache_size = 512;
+
+/* The Celeron D (256K L2 cache) and Willamette P4 (256K L2 cache) have */
+/* different optimal FFT implementations.  Adjust the cache size for the */
+/* Celeron D so that we can distinguish between the two processors in our */
+/* table lookup.  The Celeron D has a 4-way set associative cache, while */
+/* the Willamette has an 8-way set-associative cache. */
+
+	if (l2_cache_size == 256 && CPU_L2_SET_ASSOCIATIVE == 4)
+		l2_cache_size = 257;
 
 /* Get pointer to 4 assembly jmptables and the version number */
 

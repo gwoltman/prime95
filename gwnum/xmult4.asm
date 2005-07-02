@@ -194,19 +194,19 @@ allfft	xfftclm	1536Kp, 2
 allfft	xfftclm	1536Kp, 1
 	xfftclm	1792K, 4
 allfft	xfftclm	1792K, 2
-allfft	xfftclm	1792K, 1
+	xfftclm	1792K, 1
 allfft	xfftclm	1792K, 91
 allfft	xfftclm	1792K, 0
 allfft	xfftclm	1792K, 90
 	xfftclm	2048K, 4
 	xfftclm	2048K, 2
-allfft	xfftclm	2048K, 1
+	xfftclm	2048K, 1
 allfft	xfftclm	2048K, 91
 allfft	xfftclm	2048K, 0
 allfft	xfftclm	2048K, 90
 	xfftclm	2048Kp, 4
-	xfftclm	2048Kp, 2
-allfft	xfftclm	2048Kp, 1
+allfft	xfftclm	2048Kp, 2
+	xfftclm	2048Kp, 1
 allfft	xfftclm	2048Kp, 91
 allfft	xfftclm	2048Kp, 0
 allfft	xfftclm	2048Kp, 90
