@@ -189,6 +189,8 @@ void getCpuInfo (void)
 		IniGetInt (LOCALINI_FILE, "CpuL2CacheSize", CPU_L2_CACHE_SIZE);
 	CPU_L2_CACHE_LINE_SIZE =
 		IniGetInt (LOCALINI_FILE, "CpuL2CacheLineSize", CPU_L2_CACHE_LINE_SIZE);
+	CPU_L2_SET_ASSOCIATIVE =
+		IniGetInt (LOCALINI_FILE, "CpuL2SetAssociative", CPU_L2_SET_ASSOCIATIVE);
 
 /* If CPU has changed greatly since the last time prime95 ran, then */
 /* tell the server, recalculate new completion dates, and reset the */
