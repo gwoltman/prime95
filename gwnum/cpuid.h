@@ -69,6 +69,8 @@ extern int CPU_L1_CACHE_LINE_SIZE;
 extern int CPU_L2_CACHE_LINE_SIZE;
 extern int CPU_L1_DATA_TLBS;
 extern int CPU_L2_DATA_TLBS;
+extern int CPU_L1_SET_ASSOCIATIVE;
+extern int CPU_L2_SET_ASSOCIATIVE;
 
 /* Internal global variables */
 

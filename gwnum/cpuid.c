@@ -31,6 +31,8 @@ int	CPU_L1_CACHE_LINE_SIZE = -1;
 int	CPU_L2_CACHE_LINE_SIZE = -1;
 int	CPU_L1_DATA_TLBS = -1;
 int	CPU_L2_DATA_TLBS = -1;
+int	CPU_L1_SET_ASSOCIATIVE = -1;
+int	CPU_L2_SET_ASSOCIATIVE = -1;
 
 /* Internal global variables */
 
@@ -334,19 +336,35 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 					case 0x03:
 						CPU_L2_DATA_TLBS = 64;
 						break;
-					case 0x06:
 					case 0x0A:
 						CPU_L1_CACHE_SIZE = 8;
 						CPU_L1_CACHE_LINE_SIZE = 32;
+						CPU_L1_SET_ASSOCIATIVE = 2;
 						break;
-					case 0x08:
 					case 0x0C:
 						CPU_L1_CACHE_SIZE = 16;
 						CPU_L1_CACHE_LINE_SIZE = 32;
+						CPU_L1_SET_ASSOCIATIVE = 4;
 						break;
 					case 0x2C:
 						CPU_L1_CACHE_SIZE = 32;
 						CPU_L1_CACHE_LINE_SIZE = 64;
+						CPU_L1_SET_ASSOCIATIVE = 8;
+						break;
+					case 0x39:
+						CPU_L2_CACHE_SIZE = 128;
+						CPU_L2_CACHE_LINE_SIZE = 128;
+						CPU_L2_SET_ASSOCIATIVE = 4;
+						break;
+					case 0x3B:
+						CPU_L2_CACHE_SIZE = 128;
+						CPU_L2_CACHE_LINE_SIZE = 128;
+						CPU_L2_SET_ASSOCIATIVE = 2;
+						break;
+					case 0x3C:
+						CPU_L2_CACHE_SIZE = 256;
+						CPU_L2_CACHE_LINE_SIZE = 128;
+						CPU_L2_SET_ASSOCIATIVE = 4;
 						break;
 					case 0x40:
 						if (family_code == 15) {
@@ -358,22 +376,27 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 					case 0x41:
 						CPU_L2_CACHE_SIZE = 128;
 						CPU_L2_CACHE_LINE_SIZE = 32;
+						CPU_L2_SET_ASSOCIATIVE = 4;
 						break;
 					case 0x42:
 						CPU_L2_CACHE_SIZE = 256;
 						CPU_L2_CACHE_LINE_SIZE = 32;
+						CPU_L2_SET_ASSOCIATIVE = 4;
 						break;
 					case 0x43:
 						CPU_L2_CACHE_SIZE = 512;
 						CPU_L2_CACHE_LINE_SIZE = 32;
+						CPU_L2_SET_ASSOCIATIVE = 4;
 						break;
 					case 0x44:
 						CPU_L2_CACHE_SIZE = 1024;
 						CPU_L2_CACHE_LINE_SIZE = 32;
+						CPU_L2_SET_ASSOCIATIVE = 4;
 						break;
 					case 0x45:
 						CPU_L2_CACHE_SIZE = 2048;
 						CPU_L2_CACHE_LINE_SIZE = 32;
+						CPU_L2_SET_ASSOCIATIVE = 4;
 						break;
 					case 0x5B:
 						CPU_L2_DATA_TLBS = 64;
@@ -385,67 +408,90 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 					case 0x5D:
 						CPU_L2_DATA_TLBS = 256;
 						break;
+					case 0x60:
+						CPU_L1_CACHE_SIZE = 16;
+						CPU_L1_CACHE_LINE_SIZE = 64;
+						CPU_L1_SET_ASSOCIATIVE = 8;
+						break;
 					case 0x66:
 						CPU_L1_CACHE_SIZE = 8;
 						CPU_L1_CACHE_LINE_SIZE = 64;
+						CPU_L1_SET_ASSOCIATIVE = 4;
 						break;
-					case 0x60:
 					case 0x67:
 						CPU_L1_CACHE_SIZE = 16;
 						CPU_L1_CACHE_LINE_SIZE = 64;
+						CPU_L1_SET_ASSOCIATIVE = 4;
 						break;
 					case 0x68:
 						CPU_L1_CACHE_SIZE = 32;
 						CPU_L1_CACHE_LINE_SIZE = 64;
+						CPU_L1_SET_ASSOCIATIVE = 4;
 						break;
-					case 0x39:
-					case 0x3B:
+					case 0x78:
+						CPU_L2_CACHE_SIZE = 1024;
+						CPU_L2_CACHE_LINE_SIZE = 64;
+						CPU_L2_SET_ASSOCIATIVE = 4;
+						break;
 					case 0x79:
 						CPU_L2_CACHE_SIZE = 128;
 						CPU_L2_CACHE_LINE_SIZE = 128;
+						CPU_L2_SET_ASSOCIATIVE = 8;
 						break;
-					case 0x3C:
 					case 0x7A:
 						CPU_L2_CACHE_SIZE = 256;
 						CPU_L2_CACHE_LINE_SIZE = 128;
+						CPU_L2_SET_ASSOCIATIVE = 8;
 						break;
 					case 0x7B:
 						CPU_L2_CACHE_SIZE = 512;
 						CPU_L2_CACHE_LINE_SIZE = 128;
+						CPU_L2_SET_ASSOCIATIVE = 8;
 						break;
 					case 0x7C:
 						CPU_L2_CACHE_SIZE = 1024;
 						CPU_L2_CACHE_LINE_SIZE = 128;
+						CPU_L2_SET_ASSOCIATIVE = 8;
 						break;
 					case 0x7D:
 						CPU_L2_CACHE_SIZE = 2048;
 						CPU_L2_CACHE_LINE_SIZE = 64;
+						CPU_L2_SET_ASSOCIATIVE = 8;
+						break;
+					case 0x7F:
+						CPU_L2_CACHE_SIZE = 512;
+						CPU_L2_CACHE_LINE_SIZE = 64;
+						CPU_L2_SET_ASSOCIATIVE = 2;
 						break;
 					case 0x82:
 						CPU_L2_CACHE_SIZE = 256;
 						CPU_L2_CACHE_LINE_SIZE = 32;
+						CPU_L2_SET_ASSOCIATIVE = 8;
 						break;
 					case 0x83:
 						CPU_L2_CACHE_SIZE = 512;
 						CPU_L2_CACHE_LINE_SIZE = 32;
+						CPU_L2_SET_ASSOCIATIVE = 8;
 						break;
 					case 0x84:
 						CPU_L2_CACHE_SIZE = 1024;
 						CPU_L2_CACHE_LINE_SIZE = 32;
+						CPU_L2_SET_ASSOCIATIVE = 8;
 						break;
 					case 0x85:
 						CPU_L2_CACHE_SIZE = 2048;
 						CPU_L2_CACHE_LINE_SIZE = 32;
+						CPU_L2_SET_ASSOCIATIVE = 8;
 						break;
-					case 0x7F:
 					case 0x86:
 						CPU_L2_CACHE_SIZE = 512;
 						CPU_L2_CACHE_LINE_SIZE = 64;
+						CPU_L2_SET_ASSOCIATIVE = 4;
 						break;
-					case 0x78:
 					case 0x87:
 						CPU_L2_CACHE_SIZE = 1024;
 						CPU_L2_CACHE_LINE_SIZE = 64;
+						CPU_L2_SET_ASSOCIATIVE = 8;
 						break;
 					}
 				}
