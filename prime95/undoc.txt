@@ -86,6 +86,7 @@ size although this shouldn't be necessary since the program uses the CPUID
 instruction to determine the L2 cache size.  In local.ini enter:
 	CpuL2CacheSize=128 or 256 or 512
 	CpuL2CacheLineSize=32 or 64 or 128
+	CpuL2SetAssociative=4 or 8
 
 The program automatically computes the CPU type and speed.  The CPU type
 is used to tell the server what kind of CPU you have (to display in the
@@ -316,6 +317,11 @@ That is the ":80" in "http://mersenne.org:80/cgibin_text".  At least one
 proxy server only works if the ":80" is not present.  In this case, set:
 	SendPortNumber=0
 in the primenet.ini file.
+
+You can add additional information to the HTTP request sent to the server.
+This might be useful in some tough firewall setups.  In primenet.ini enter:
+	OtherGetInfo=string
+where string is any text up to 256 bytes.
 
 The benchmarking code by default only times a subset of the large FFT sizes.
 In prime.ini, set

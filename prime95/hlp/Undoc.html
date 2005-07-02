@@ -169,7 +169,8 @@ These features may change or be discontinued at any time. Their use is totally u
   to determine the L2 cache size. In local.ini enter:
   <blockquote>
     <b>CpuL2CacheSize=128 or 256 or 512<br>
-    CpuL2CacheLineSize=32 or 64 or 128</b>
+    CpuL2CacheLineSize=32 or 64 or 128<br>
+    CpuL2SetAssociative=4 or 8</b>
   </blockquote>
   </li>
 </ul>
@@ -589,6 +590,15 @@ These features may change or be discontinued at any time. Their use is totally u
     <b>SendPortNumber=0</b>
   </blockquote>
   in the primenet.ini file. </LI></UL>
+<P>&nbsp;</P>
+<UL>
+  <LI>You can add additional information to the HTTP request sent to the
+  server. This might be useful in some tough firewall setups.
+  In primenet.ini enter:
+  <blockquote>
+    <b>OtherGetInfo=string</b>
+  </blockquote>
+  where string is any text up to 256 bytes. </LI></UL>
 <P>&nbsp;</P>
 <UL>
   <LI>The benchmarking code by default only times a subset of the large FFT 

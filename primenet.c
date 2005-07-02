@@ -217,6 +217,7 @@ int pnHttpServer (char *pbuf, unsigned cbuf, char* postargs)
 	char	*alist[1];
 	unsigned int count;
 	char	szProxyHost[120], szUser[50], szPass[50], *con_host;
+	char	szOtherGetInfo[256];
 	unsigned short nProxyPort, con_port;
 
 /* Get debug logging and URL format flags */
@@ -374,6 +375,15 @@ rel_url:
 	strcat (szURL, "?");
 	strcat (szURL, postargs);
 	strcat (szURL, " HTTP/1.0\r\n");
+
+/* Append other GET info */
+
+	IniGetString (INIFILENAME, "OtherGetInfo", szOtherGetInfo,
+		sizeof (szOtherGetInfo), NULL);
+	if (*szOtherGetInfo) {
+		strcat (szURL, szOtherGetInfo);
+		strcat (szURL, "\r\n");
+	}
 
 /* Append proxy authorization here */
 
