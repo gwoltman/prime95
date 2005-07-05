@@ -2860,7 +2860,7 @@ unsigned long gwmap_to_fftlen (
 
 /* Get pointer to fft info and return the FFT length */
 
-	if (gwinfo (k, b, n, c, 0)) return (0);
+	if (gwinfo (k, b, n, c, 0) > 1) return (0);
 	info = INFT[0];
 	return (info[1]);
 }
@@ -2894,7 +2894,7 @@ unsigned long gwmap_to_memused (
 
 /* Get pointer to fft info and return the memory used */
 
-	if (gwinfo (k, b, n, c, 0)) return (100000000L);
+	if (gwinfo (k, b, n, c, 0) > 1) return (100000000L);
 	info = INFT[0];
 	return (info[3] + info[5]);
 }
@@ -2914,7 +2914,7 @@ double gwmap_to_timing (
 
 /* Get pointer to fft info */
 
-	if (gwinfo (k, b, n, c, 0)) return (100.0);
+	if (gwinfo (k, b, n, c, 0) > 1) return (100.0);
 	info = INFT[0];
 
 /* Use my PII-400 or P4-1400 timings as a guide. */
