@@ -45,7 +45,7 @@ unsigned long CPUID_EDX = 0;
 /* SSE, SSE2) are supported.  CPUID could report them as supported yet */
 /* the OS might not support them.   Use signals in non-MSVC compiles. */
 
-#ifndef _MSC_VER
+#if !defined(_MSC_VER) && !defined(__WATCOMC__)
 
 #include <setjmp.h>
 #include <signal.h>
@@ -902,6 +902,11 @@ void guessCpuSpeed (void)
 
 #ifdef _WIN32
 #include <windows.h>
+#endif
+
+#ifdef __OS2__
+#define INCL_DOSPROFILE
+#include <os2.h>
 #endif
 
 int isHighResTimerAvailable (void)
