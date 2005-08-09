@@ -534,7 +534,10 @@ void updateWorkToDo (
 
 		if (changed) {
 			char	buf[20];
-			sprintf (buf, "%ld,%d,%d", w.n, w.bits, w.pminus1ed);
+			if (w.work_type == WORK_PFACTOR)
+				sprintf (buf, "%ld,%f,%d", w.n, w.sieve_depth, w.pminus1ed);
+			else
+				sprintf (buf, "%ld,%d,%d", w.n, w.bits, w.pminus1ed);
 			IniReplaceLineAsString (
 				WORKTODO_FILE, i,
 				(w.work_type == WORK_DBLCHK) ? "DoubleCheck" :
