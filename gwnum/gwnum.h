@@ -51,12 +51,14 @@ typedef double *gwnum;
 
 /* This is the version number for the gwnum libraries. It changes whenever */
 /* there is a change to the gwnum code and will match the corresponding */
-/* prime95 version.  Thus, you may see some strange jumps in the version */
-/* number.  This version number is also embedded in the assembly code and */
+/* prime95 version.  Thus, you may see some strange jumps in version */
+/* numbers.  This version number is also embedded in the assembly code and */
 /* gwsetup verifies that the version numbers match.  This prevents bugs */
-/* from accidentally linking in the wrong gwnum object files. */
+/* from accidentally linking in the wrong gwnum library. */
 
-#define GWNUM_VERSION	"24.13"
+#define GWNUM_VERSION		"24.14"
+#define GWNUM_MAJOR_VERSION	24
+#define GWNUM_MINOR_VERSION	14
 
 /* Prior to calling one of the gwsetup routines, you can have the library */
 /* "play it safe" by reducing the maximum allowable bits per FFT data word. */

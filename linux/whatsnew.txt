@@ -1,3 +1,9 @@
+New features in Version 24.14 of mprime
+---------------------------------------
+
+1)  A bug that caused the torture test to hang on 256K FFTs on SSE2 machines
+    with 128K of L2 cache was fixed.
+
 New features in Version 24.13 of mprime
 ---------------------------------------
 
