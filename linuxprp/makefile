@@ -11,14 +11,19 @@ CPP = g++
 CPPFLAGS = -I.. -I../gwnum -O2 -march=i486 -malign-double
 
 LFLAGS = -Wl,-M
-LIBS   = ../gwnum/gwnum.lib -lm -lstdc++
-LIBS2  = ../gwnum/gwnum.lib -lm -lstdc++ -static
+LIBS   = ../gwnum/gwnum.lib ../gwnum/gwnum.ld -lm -lstdc++
+LIBS2  = ../gwnum/gwnum.lib ../gwnum/gwnum.ld -lm -lstdc++ -static
 
 LINUXOBJS = prime.o menu.o
 EXE      = prp
 EXE2	 = sprp
-DUMMY1   = ../linux/dummy24.o
-DUMMY2   = ../linux/dummy24.o
+
+# Insert proper dummy file to get _GWDATA data segment aligned
+# on a 32 byte boundary.  Use proper dummyNN.o to do the alignment
+# This is no longer necessary thanks to Alex Kruppa's gwnum.ld trick!
+
+DUMMY1   =
+DUMMY2   =
 
 #########################################################################
 
