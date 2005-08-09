@@ -14,7 +14,7 @@ IFNDEF X86_64
 	.MODEL	FLAT
 ENDIF
 
-VERSION_NUMBER = 2413		;; Version 24.13
+VERSION_NUMBER = 2414		;; Version 24.14
 
 INCLUDE	unravel.mac
 INCLUDE xmult.mac
@@ -3230,7 +3230,7 @@ allfft	DD			31, 1, 32, 1, 1, 0
 	DD			64, GAP2_10_4+1
 	DD			63, 1, 64, 1, 1, 0
 	DD	5158000, 262144, 0.0150,	721920
-	DD			256*65536+2*2	;; Flags, min_l2_cache, clm
+	DD			2*2		;; Flags, min_l2_cache, clm
 	DD			16384+7*128	;; scratch area size
 	DD			10		;; FFT levels done in pass2
 	DPTR			OFFSET xfft256K210_1, OFFSET xfft256K210_2
