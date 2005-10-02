@@ -63,6 +63,8 @@ extern double CPU_SPEED;		/* Actual CPU Speed in MHz */
 #define CPU_MMX		0x0020
 #define CPU_3DNOW	0x0040
 extern unsigned int CPU_FLAGS;		/* Cpu capabilities */
+extern int CPU_HYPERTHREADS;		/* Number of virtual processors */
+					/* that each CPU core supports */
 extern int CPU_L1_CACHE_SIZE;
 extern int CPU_L2_CACHE_SIZE;
 extern int CPU_L1_CACHE_LINE_SIZE;

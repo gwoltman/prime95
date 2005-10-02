@@ -25,6 +25,8 @@
 char	CPU_BRAND[49] = "";
 double	CPU_SPEED = 100.0;
 unsigned int CPU_FLAGS = 0;
+int	CPU_HYPERTHREADS = 1;		/* Number of virtual processors */
+					/* that each CPU core supports */
 int	CPU_L1_CACHE_SIZE = -1;
 int	CPU_L2_CACHE_SIZE = -1;
 int	CPU_L1_CACHE_LINE_SIZE = -1;
@@ -210,6 +212,7 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 	CPU_BRAND[0] = 0;
 	CPU_SPEED = 100.0;
 	CPU_FLAGS = 0;
+	CPU_HYPERTHREADS = 1;
 	CPU_L1_CACHE_SIZE = -1;
 	CPU_L2_CACHE_SIZE = -1;
 	CPU_L1_CACHE_LINE_SIZE = -1;
@@ -261,6 +264,8 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			CPU_FLAGS |= CPU_SSE;
 		if ((CPUID_EDX >> 26) & 0x1 && canExecInstruction (CPU_SSE2))
 			CPU_FLAGS |= CPU_SSE2;
+		if ((CPUID_EDX >> 28) & 0x1 && ((CPUID_EBX >> 16) & 0xFF) > 1)
+			CPU_HYPERTHREADS = (CPUID_EBX >> 16) & 0xFF;
 	}
 
 /* Call CPUID with 0x80000000 argument.  It tells us how many extended CPU */
