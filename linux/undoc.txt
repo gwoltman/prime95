@@ -290,6 +290,14 @@ program down to reduce heat, then you can add this line to prime.ini:
 	Throttle=n
 where n is the number of milliseconds to sleep after each iteration.
 
+To limit prime95's impact on computer responsiveness on a hyperthreaded machine
+the program pauses for 30 seconds if two successive iterations take 40% longer
+than a typical iteration.  You can turn this feature off or change how long
+the program pauses by adding this line to prime.ini:
+	HyperthreadingBackoff=n
+where n is zero to turn the feature off or n is the number of seconds to pause
+after two successive slow iterations.
+
 Since P-1 stage 2 runs faster with more memory available you can have the
 program only run stage 2 at night when more memory is available.  In
 prime.ini set:

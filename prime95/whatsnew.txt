@@ -1,3 +1,11 @@
+New features in Version 24.15 of prime95.exe
+--------------------------------------------
+
+1)  To limit prime95's impact on computer responsiveness on a hyperthreaded
+    machine the program now pauses for 30 seconds if two successive iterations 
+    take 40% longer than a typical iteration.  You can adjust this feature using
+    the HyperthreadingBackoff setting described in undoc.txt.
+
 New features in Version 24.14 of prime95.exe
 --------------------------------------------
 

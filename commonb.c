@@ -1751,6 +1751,8 @@ int prime (
 	char	buf[160];
 	time_t	start_time, current_time;
 	unsigned long interimFiles, interimResidues, throttle;
+	int	hyperthreading_backoff, slow_iteration_count;
+	double	best_iteration_time;
 static	unsigned long last_counter = 0;		/* Iteration of last error */
 static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 
@@ -1766,6 +1768,15 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 /* temperatures down and thus reduce the chance of a hardware error.  */
 
 	throttle = IniGetInt (INI_FILE, "Throttle", 0);
+
+/* Option to pause the program when iterations take longer than usual.  This */
+/* is useful on hyperthreaded machines so that prime95 doesn't steal cycles */
+/* from a foreground task, thus hurting the computers responsiveness. */
+
+	hyperthreading_backoff =
+		IniGetInt (INI_FILE, "HyperthreadingBackoff", 0);
+	best_iteration_time = 1.0e50;
+	slow_iteration_count = 0;
 
 /* Clear all timers */
 
@@ -1912,7 +1923,8 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 
 /* Do a Lucas-Lehmer iteration */
 
-		start_timer (0);
+		timers[1] = 0.0;
+		start_timer (1);
 
 /* If we are recovering from a big roundoff error, then run one */
 /* iteration using three multiplies where half the data is zeroed. */
@@ -1949,7 +1961,8 @@ static	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 
 /* End iteration timing and increase count of iteration completed */
 
-		end_timer (0);
+		end_timer (1);
+		timers[0] += timers[1];
 		iters++;
 
 /* If the sum of the output values is an error (such as infinity) */
@@ -2163,6 +2176,27 @@ _close (fd);
 				 filename, counter / interimFiles);
 			writeToFile (interimfile, counter,
 				     units_bit, error_count);
+		}
+
+/* If two iterations take 40% longer than a typical iteration, then */
+/* assume a foreground process is running and sleep for a short time */
+/* to give the foreground process more CPU time.  Even though a foreground */
+/* process runs at higher priority, hyperthreading will cause this */
+/* program to run at an equal priority, hurting responsiveness. */
+
+		if (hyperthreading_backoff && p > 10000000) {
+			if (timers[1] < best_iteration_time)
+				best_iteration_time = timers[1];
+			if (timers[1] > 1.40 * best_iteration_time) {
+				if (slow_iteration_count == 1) {
+					sprintf (buf, "Pausing %d seconds.\n",
+						 hyperthreading_backoff);
+					OutputStr (buf);
+					Sleep (hyperthreading_backoff * 1000);
+				}
+				slow_iteration_count = 1;
+			} else
+				slow_iteration_count = 0;
 		}
 	}
 
