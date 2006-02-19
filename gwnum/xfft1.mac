@@ -16,26 +16,26 @@ xcopy_7_words MACRO
 	LOCAL	nozpad
 	cmp	_ZERO_PADDED_FFT, 0	;; Is this a zero-padded FFT?
 	je	short nozpad		;; No, skip 7 word copy
-	_movsd	xmm0, [rsi+rbx+32]	;; Copy 1st word above half-way point
-	_movsd	[rsi-40], xmm0
-	_movsd	xmm1, [rsi+rbx+48]	;; Copy 2nd word
-	_movsd	[rsi-48], xmm1
-	_movsd	xmm2, [rsi+rbx+96]	;; Copy 3rd word
-	_movsd	[rsi-56], xmm2
-	_movsd	xmm3, [rsi+rbx+112]	;; Copy 4th word
-	_movsd	[rsi-64], xmm3
+	movsd	xmm0, Q [rsi+rbx+32]	;; Copy 1st word above half-way point
+	movsd	Q [rsi-40], xmm0
+	movsd	xmm1, Q [rsi+rbx+48]	;; Copy 2nd word
+	movsd	Q [rsi-48], xmm1
+	movsd	xmm2, Q [rsi+rbx+96]	;; Copy 3rd word
+	movsd	Q [rsi-56], xmm2
+	movsd	xmm3, Q [rsi+rbx+112]	;; Copy 4th word
+	movsd	Q [rsi-64], xmm3
 	mov	eax, _HIGH_WORD1_OFFSET	;; Copy 1st word below half-way
 	add	rax, rsi
-	_movsd	xmm0, [rax+rbx]
-	_movsd	[rsi-72], xmm0
+	movsd	xmm0, Q [rax+rbx]
+	movsd	Q [rsi-72], xmm0
 	mov	eax, _HIGH_WORD2_OFFSET	;; Copy 2nd word below
 	add	rax, rsi
-	_movsd	xmm1, [rax+rbx]
-	_movsd	[rsi-80], xmm1
+	movsd	xmm1, Q [rax+rbx]
+	movsd	Q [rsi-80], xmm1
 	mov	eax, _HIGH_WORD3_OFFSET	;; Copy 3rd word below
 	add	rax, rsi
-	_movsd	xmm2, [rax+rbx]
-	_movsd	[rsi-88], xmm2
+	movsd	xmm2, Q [rax+rbx]
+	movsd	Q [rsi-88], xmm2
 nozpad:
 	ENDM
 
@@ -68,12 +68,12 @@ xsub_7_words MACRO dist4
 	subpd	xmm0, xmm1
 	addpd	xmm7, xmm1		;; Adjust sumout
 	movapd	[rsi+dist4], xmm0
-	_movsd	xmm0, [rsi+dist4+64]	;; Subtract 7th word
-	_movsd	xmm1, XMM_ZPAD6		;; Load ZPAD data
+	movsd	xmm0, Q [rsi+dist4+64]	;; Subtract 7th word
+	movsd	xmm1, XMM_ZPAD6		;; Load ZPAD data
 	mulsd	xmm1, XMM_NORM012_FF	;; Scale by FFTLEN/2
 	subsd	xmm0, xmm1
 	addsd	xmm7, xmm1		;; Adjust sumout
-	_movsd	[rsi+dist4+64], xmm0
+	movsd	Q [rsi+dist4+64], xmm0
 nozpad:
 	ENDM
 

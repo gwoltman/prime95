@@ -19,26 +19,26 @@ xcopy_7_words MACRO
 	LOCAL	nozpad
 	cmp	_ZERO_PADDED_FFT, 0	;; Is this a zero-padded FFT?
 	je	short nozpad		;; No, skip 7 word copy
-	_movsd	xmm0, [rsi+rbx+32]	;; Copy 1st word above half-way point
-	_movsd	[rsi-40], xmm0
-	_movsd	xmm1, [rsi+rbx+96]	;; Copy 2nd word
-	_movsd	[rsi-48], xmm1
-	_movsd	xmm2, [rsi+rbx+160]	;; Copy 3rd word
-	_movsd	[rsi-56], xmm2
-	_movsd	xmm3, [rsi+rbx+224]	;; Copy 4th word
-	_movsd	[rsi-64], xmm3
+	movsd	xmm0, Q [rsi+rbx+32]	;; Copy 1st word above half-way point
+	movsd	Q [rsi-40], xmm0
+	movsd	xmm1, Q [rsi+rbx+96]	;; Copy 2nd word
+	movsd	Q [rsi-48], xmm1
+	movsd	xmm2, Q [rsi+rbx+160]	;; Copy 3rd word
+	movsd	Q [rsi-56], xmm2
+	movsd	xmm3, Q [rsi+rbx+224]	;; Copy 4th word
+	movsd	Q [rsi-64], xmm3
 	mov	eax, _HIGH_WORD1_OFFSET	;; Copy 1st word below half-way
 	add	rax, rsi
-	_movsd	xmm0, [rax+rbx]
-	_movsd	[rsi-72], xmm0
+	movsd	xmm0, Q [rax+rbx]
+	movsd	Q [rsi-72], xmm0
 	mov	eax, _HIGH_WORD2_OFFSET	;; Copy 2nd word below
 	add	rax, rsi
-	_movsd	xmm1, [rax+rbx]
-	_movsd	[rsi-80], xmm1
+	movsd	xmm1, Q [rax+rbx]
+	movsd	Q [rsi-80], xmm1
 	mov	eax, _HIGH_WORD3_OFFSET	;; Copy 3rd word below
 	add	rax, rsi
-	_movsd	xmm2, [rax+rbx]
-	_movsd	[rsi-88], xmm2
+	movsd	xmm2, Q [rax+rbx]
+	movsd	Q [rsi-88], xmm2
 nozpad:
 	ENDM
 
@@ -51,14 +51,14 @@ xcopy_4_words MACRO
 	LOCAL	nozpad
 	cmp	_ZERO_PADDED_FFT, 0	;; Is this a zero-padded FFT?
 	je	short nozpad		;; No, skip 4 word copy
-	_movsd	xmm0, [rsi+32]		;; Copy 1st word above half-way point
-	_movsd	[rsi-40], xmm0
-	_movsd	xmm1, [rsi+96]		;; Copy 2nd word
-	_movsd	[rsi-48], xmm1
-	_movsd	xmm2, [rsi+160]		;; Copy 3rd word
-	_movsd	[rsi-56], xmm2
-	_movsd	xmm3, [rsi+224]		;; Copy 4th word
-	_movsd	[rsi-64], xmm3
+	movsd	xmm0, Q [rsi+32]	;; Copy 1st word above half-way point
+	movsd	Q [rsi-40], xmm0
+	movsd	xmm1, Q [rsi+96]	;; Copy 2nd word
+	movsd	Q [rsi-48], xmm1
+	movsd	xmm2, Q [rsi+160]	;; Copy 3rd word
+	movsd	Q [rsi-56], xmm2
+	movsd	xmm3, Q [rsi+224]	;; Copy 4th word
+	movsd	Q [rsi-64], xmm3
 nozpad:
 	ENDM
 
@@ -73,26 +73,26 @@ xcopy_3_words MACRO clm, scratch
 	mov	rdi, _DESTARG		;; Load destination pointer
 	IF scratch EQ 0
 	mov	eax, _HIGH_WORD1_OFFSET	;; Copy 1st word below half-way
-	_movsd	xmm0, [rdi+rax]
-	_movsd	[rdi-72], xmm0
+	movsd	xmm0, Q [rdi+rax]
+	movsd	Q [rdi-72], xmm0
 	mov	eax, _HIGH_WORD2_OFFSET	;; Copy 2nd word below
-	_movsd	xmm1, [rdi+rax]
-	_movsd	[rdi-80], xmm1
+	movsd	xmm1, Q [rdi+rax]
+	movsd	Q [rdi-80], xmm1
 	mov	eax, _HIGH_WORD3_OFFSET	;; Copy 3rd word below
-	_movsd	xmm2, [rdi+rax]
-	_movsd	[rdi-88], xmm2
+	movsd	xmm2, Q [rdi+rax]
+	movsd	Q [rdi-88], xmm2
 	ENDIF
 	IF scratch EQ 1
 	mov	rcx, scratch_area
 	mov	eax, _HIGH_SCRATCH1_OFFSET;; Copy 1st word below half-way
-	_movsd	xmm0, [rcx+rax]
-	_movsd	[rdi-72], xmm0
+	movsd	xmm0, Q [rcx+rax]
+	movsd	Q [rdi-72], xmm0
 	mov	eax, _HIGH_SCRATCH2_OFFSET;; Copy 2nd word
-	_movsd	xmm1, [rcx+rax]
-	_movsd	[rdi-80], xmm1
+	movsd	xmm1, Q [rcx+rax]
+	movsd	Q [rdi-80], xmm1
 	mov	eax, _HIGH_SCRATCH3_OFFSET;; Copy 3rd word
-	_movsd	xmm2, [rcx+rax]
-	_movsd	[rdi-88], xmm2
+	movsd	xmm2, Q [rcx+rax]
+	movsd	Q [rdi-88], xmm2
 	ENDIF
 	ENDIF
 
@@ -106,28 +106,28 @@ xcopy_3_words MACRO clm, scratch
 	je	short iter2		;; Jump if doing second to last iter
 	IF scratch EQ 0
 	mov	eax, _HIGH_WORD1_OFFSET	;; Copy 1st word below half-way
-	_movsd	xmm0, [rdi+rax]
-	_movsd	[rdi-72], xmm0
+	movsd	xmm0, Q [rdi+rax]
+	movsd	Q [rdi-72], xmm0
 	mov	eax, _HIGH_WORD2_OFFSET	;; Copy 2nd word
-	_movsd	xmm1, [rdi+rax]
-	_movsd	[rdi-80], xmm1
+	movsd	xmm1, Q [rdi+rax]
+	movsd	Q [rdi-80], xmm1
 	jmp	short nozpad
 iter2:	mov	eax, _HIGH_WORD3_OFFSET	;; Copy 3rd word
-	_movsd	xmm2, [rdi+rax]
-	_movsd	[rdi-88], xmm2
+	movsd	xmm2, Q [rdi+rax]
+	movsd	Q [rdi-88], xmm2
 	ENDIF
 	IF scratch EQ 1
 	mov	rcx, scratch_area
 	mov	eax, _HIGH_SCRATCH1_OFFSET;; Copy 1st word below half-way
-	_movsd	xmm0, [rcx+rax]
-	_movsd	[rdi-72], xmm0
+	movsd	xmm0, Q [rcx+rax]
+	movsd	Q [rdi-72], xmm0
 	mov	eax, _HIGH_SCRATCH2_OFFSET;; Copy 2nd word
-	_movsd	xmm1, [rcx+rax]
-	_movsd	[rdi-80], xmm1
+	movsd	xmm1, Q [rcx+rax]
+	movsd	Q [rdi-80], xmm1
 	jmp	short nozpad
 iter2:	mov	eax, _HIGH_SCRATCH3_OFFSET;; Copy 3rd word
-	_movsd	xmm2, [rcx+rax]
-	_movsd	[rdi-88], xmm2
+	movsd	xmm2, Q [rcx+rax]
+	movsd	Q [rdi-88], xmm2
 	ENDIF
 	ENDIF
 nozpad:

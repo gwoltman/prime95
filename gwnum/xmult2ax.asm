@@ -83,8 +83,8 @@ gwxadd2:
 	push	rbx			; Save registers
 	IFDEF X86_64
 	sub	rsp, 16
-	_movsd	[rsp+8], xmm6
-	_movsd	[rsp], xmm7
+	movsd	Q [rsp+8], xmm6
+	movsd	Q [rsp], xmm7
 	ENDIF
 	mov	rcx, _SRCARG		; Address of first number
 	mov	rdx, _SRC2ARG		; Address of second number
@@ -175,8 +175,8 @@ ablkdn:	sub	rsi, pass1blkdst	; Restore start of block ptr
 	xnorm_op_2d_fft			; Add 2 carries to start of fft
 
 	IFDEF X86_64
-	_movsd	xmm7, [rsp]
-	_movsd	xmm6, [rsp+8]
+	movsd	xmm7, Q [rsp]
+	movsd	xmm6, Q [rsp+8]
 	add	rsp, 16
 	ENDIF
 	pop	rbx			; Restore registers
@@ -249,8 +249,8 @@ gwxsub2:
 	push	rbx			; Save registers
 	IFDEF X86_64
 	sub	rsp, 16
-	_movsd	[rsp+8], xmm6
-	_movsd	[rsp], xmm7
+	movsd	Q [rsp+8], xmm6
+	movsd	Q [rsp], xmm7
 	ENDIF
 	mov	rcx, _SRCARG		; Address of first number
 	mov	rdx, _SRC2ARG		; Address of second number
@@ -341,8 +341,8 @@ sblkdn:	sub	rsi, pass1blkdst	; Restore start of block ptr
 	xnorm_op_2d_fft			; Add 2 carries to start of fft
 
 	IFDEF X86_64
-	_movsd	xmm7, [rsp]
-	_movsd	xmm6, [rsp+8]
+	movsd	xmm7, Q [rsp]
+	movsd	xmm6, Q [rsp+8]
 	add	rsp, 16
 	ENDIF
 	pop	rbx			; Restore registers
@@ -366,8 +366,8 @@ gwxaddsubq2:
 	push	rbx
 	IFDEF X86_64
 	sub	rsp, 16
-	_movsd	[rsp+8], xmm6
-	_movsd	[rsp], xmm7
+	movsd	Q [rsp+8], xmm6
+	movsd	Q [rsp], xmm7
 	ENDIF
 	mov	rcx, _SRCARG		; Address of first number
 	mov	rdx, _SRC2ARG		; Address of second number
@@ -419,8 +419,8 @@ uaddsublp:
 	dec	rbx			; Check loop counter
 	jnz	uaddsub0		; Loop if necessary
 	IFDEF X86_64
-	_movsd	xmm7, [rsp]
-	_movsd	xmm6, [rsp+8]
+	movsd	xmm7, Q [rsp]
+	movsd	xmm6, Q [rsp+8]
 	add	rsp, 16
 	ENDIF
 	pop	rbx
@@ -441,8 +441,8 @@ gwxaddsub2:
 	push	rbx			; Save registers
 	IFDEF X86_64
 	sub	rsp, 16
-	_movsd	[rsp+8], xmm6
-	_movsd	[rsp], xmm7
+	movsd	Q [rsp+8], xmm6
+	movsd	Q [rsp], xmm7
 	ENDIF
 	mov	rcx, _SRCARG		; Address of first number
 	mov	rdx, _SRC2ARG		; Address of second number
@@ -559,8 +559,8 @@ asblkdn:sub	rsi, pass1blkdst	; Restore start of block ptr
 	xnorm_op_2d_fft			; Add 2 carries to start of fft
 
 	IFDEF X86_64
-	_movsd	xmm7, [rsp]
-	_movsd	xmm6, [rsp+8]
+	movsd	xmm7, Q [rsp]
+	movsd	xmm6, Q [rsp+8]
 	add	rsp, 16
 	ENDIF
 	pop	rbx			; Restore registers

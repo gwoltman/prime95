@@ -15,31 +15,31 @@ xsave_registers MACRO
 	push	rsi
 	IFDEF X86_64
 	sub	rsp, 80
-	_movsd	[rsp+72], xmm6
-	_movsd	[rsp+64], xmm7
-	_movsd	[rsp+56], xmm8
-	_movsd	[rsp+48], xmm9
-	_movsd	[rsp+40], xmm10
-	_movsd	[rsp+32], xmm11
-	_movsd	[rsp+24], xmm12
-	_movsd	[rsp+16], xmm13
-	_movsd	[rsp+8], xmm14
-	_movsd	[rsp], xmm15
+	movsd	Q [rsp+72], xmm6
+	movsd	Q [rsp+64], xmm7
+	movsd	Q [rsp+56], xmm8
+	movsd	Q [rsp+48], xmm9
+	movsd	Q [rsp+40], xmm10
+	movsd	Q [rsp+32], xmm11
+	movsd	Q [rsp+24], xmm12
+	movsd	Q [rsp+16], xmm13
+	movsd	Q [rsp+8], xmm14
+	movsd	Q [rsp], xmm15
 	ENDIF
 	ENDM
 
 xrestore_registers MACRO
 	IFDEF X86_64
-	_movsd	xmm15, [rsp]
-	_movsd	xmm14, [rsp+8]
-	_movsd	xmm13, [rsp+16]
-	_movsd	xmm12, [rsp+24]
-	_movsd	xmm11, [rsp+32]
-	_movsd	xmm10, [rsp+40]
-	_movsd	xmm9, [rsp+48]
-	_movsd	xmm8, [rsp+56]
-	_movsd	xmm7, [rsp+64]
-	_movsd	xmm6, [rsp+72]
+	movsd	xmm15, Q [rsp]
+	movsd	xmm14, Q [rsp+8]
+	movsd	xmm13, Q [rsp+16]
+	movsd	xmm12, Q [rsp+24]
+	movsd	xmm11, Q [rsp+32]
+	movsd	xmm10, Q [rsp+40]
+	movsd	xmm9, Q [rsp+48]
+	movsd	xmm8, Q [rsp+56]
+	movsd	xmm7, Q [rsp+64]
+	movsd	xmm6, Q [rsp+72]
 	add	rsp, 80
 	ENDIF
 	pop	rsi			;; Pop values and return

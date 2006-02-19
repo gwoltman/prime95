@@ -72,12 +72,12 @@ xsub_7_words MACRO
 	mov	eax, cache_line_multiplier ;; Load loop counter
 	push	rsi
 	mov	rdi, zpad_addr		;; Addr of next zpad element to process
-zlp:	_movsd	xmm0, [rsi]		;; Load FFT word
-	_movsd	xmm1, [rdi]		;; Load ZPAD data
+zlp:	movsd	xmm0, Q [rsi]		;; Load FFT word
+	movsd	xmm1, Q [rdi]		;; Load ZPAD data
 	mulsd	xmm1, XMM_NORM012_FF	;; Scale by FFTLEN/2
 	subsd	xmm0, xmm1
 	addsd	xmm7, xmm1		;; Adjust sumout
-	_movsd	[rsi], xmm0
+	movsd	Q [rsi], xmm0
 	lea	rsi, [rsi+64]		;; Bump pointers
 	lea	rdi, [rdi+8]
 	dec	eax			;; Iterate 2*clm (up to 8) times
@@ -100,9 +100,9 @@ zero	mov	zero_fft, 1		;; Set flag saying zero upper half
 no zero	cmp	edx, _ADDIN_ROW		;; Is this the time to do our addin?
 no zero	jne	short noadd		;; Jump if addin does not occur now
 no zero	mov	edi, _ADDIN_OFFSET	;; Get address to add value into
-no zero	_movsd	xmm0, [rsi][rdi]	;; Get the value
+no zero	movsd	xmm0, Q [rsi][rdi]	;; Get the value
 no zero	addsd	xmm0, _ADDIN_VALUE	;; Add in the requested value
-no zero	_movsd	[rsi][rdi], xmm0	;; Save the new value
+no zero	movsd	Q [rsi][rdi], xmm0	;; Save the new value
 no zero	subsd	xmm7, _ADDIN_VALUE	;; Do not include addin in sumout
 noadd:	push	rdx
 	push	rsi

@@ -31,17 +31,6 @@ DPTR	EQU	DQ
 SZPTR	EQU	8
 ENDIF
 
-; The SSE2 movsd instruction as opposed to the string mov instruction
-; Thanks to a sandpile.org discussion group contributor for this macro
-
-_movsd	MACRO ops:vararg
-	LOCAL	x, y
-x:	movss &ops
-y:	org x
-	DB	0F2h
-	org y
-	ENDM
-
 ; Cool macro to execute a statement and a cool macro to not execute
 ; a statement.  Some macros expect one of these as an argument to
 ; optionally execute assembly statements.

@@ -68,8 +68,8 @@ gwxadd1:
 	push	rbx			; Save registers
 	IFDEF X86_64
 	sub	rsp, 16
-	_movsd	[rsp+8], xmm6
-	_movsd	[rsp], xmm7
+	movsd	Q [rsp+8], xmm6
+	movsd	Q [rsp], xmm7
 	ENDIF
 	mov	rcx, _SRCARG		; Address of first number
 	mov	rdx, _SRC2ARG		; Address of second number
@@ -105,8 +105,8 @@ nadddn:	pop	rbx			; Restore multipliers pointer
 	mov	rbx, norm_col_mults	; Address of the multipliers
 	xnorm_op_1d_cleanup
 	IFDEF X86_64
-	_movsd	xmm7, [rsp]
-	_movsd	xmm6, [rsp+8]
+	movsd	xmm7, Q [rsp]
+	movsd	xmm6, Q [rsp+8]
 	add	rsp, 16
 	ENDIF
 	pop	rbx			; Restore registers
@@ -162,8 +162,8 @@ gwxsub1:
 	push	rbx			; Save registers
 	IFDEF X86_64
 	sub	rsp, 16
-	_movsd	[rsp+8], xmm6
-	_movsd	[rsp], xmm7
+	movsd	Q [rsp+8], xmm6
+	movsd	Q [rsp], xmm7
 	ENDIF
 	mov	rcx, _SRCARG		; Address of first number
 	mov	rdx, _SRC2ARG		; Address of second number
@@ -199,8 +199,8 @@ nsubdn:	pop	rbx			; Restore multipliers pointer
 	mov	rbx, norm_col_mults	; Address of the multipliers
 	xnorm_op_1d_cleanup
 	IFDEF X86_64
-	_movsd	xmm7, [rsp]
-	_movsd	xmm6, [rsp+8]
+	movsd	xmm7, Q [rsp]
+	movsd	xmm6, Q [rsp+8]
 	add	rsp, 16
 	ENDIF
 	pop	rbx
@@ -222,8 +222,8 @@ gwxaddsubq1:
 	push	rbp			; Save registers
 	IFDEF X86_64
 	sub	rsp, 16
-	_movsd	[rsp+8], xmm6
-	_movsd	[rsp], xmm7
+	movsd	Q [rsp+8], xmm6
+	movsd	Q [rsp], xmm7
 	ENDIF
 	mov	rcx, _SRCARG		; Address of first number
 	mov	rdx, _SRC2ARG		; Address of second number
@@ -262,8 +262,8 @@ uaddsublp:
 	sub	eax, 1			; Check loop counter
 	jnz	uaddsublp		; Loop if necessary
 	IFDEF X86_64
-	_movsd	xmm7, [rsp]
-	_movsd	xmm6, [rsp+8]
+	movsd	xmm7, Q [rsp]
+	movsd	xmm6, Q [rsp+8]
 	add	rsp, 16
 	ENDIF
 	pop	rbp			; Restore registers
@@ -283,8 +283,8 @@ gwxaddsub1:
 	push	rbx			; Save registers
 	IFDEF X86_64
 	sub	rsp, 16
-	_movsd	[rsp+8], xmm6
-	_movsd	[rsp], xmm7
+	movsd	Q [rsp+8], xmm6
+	movsd	Q [rsp], xmm7
 	ENDIF
 	mov	rcx, _SRCARG		; Address of first number
 	mov	rdx, _SRC2ARG		; Address of second number
@@ -329,8 +329,8 @@ naddsubdn:
 	mov	rbx, norm_col_mults	; Address of the multipliers
 	xnorm_addsub_1d_cleanup
 	IFDEF X86_64
-	_movsd	xmm7, [rsp]
-	_movsd	xmm6, [rsp+8]
+	movsd	xmm7, Q [rsp]
+	movsd	xmm6, Q [rsp+8]
 	add	rsp, 16
 	ENDIF
 	pop	rbx			; Restore registers
@@ -377,9 +377,9 @@ inorm	MACRO	lab, ttp, zero, echk, const
 	PUBLIC	lab
 lab:	mov	rsi, _DESTARG		;; Addr of multiplied number
 no zero	mov	edi, _ADDIN_OFFSET	;; Get address to add value into
-no zero	_movsd	xmm0, [rsi][rdi]	;; Get the value
+no zero	movsd	xmm0, Q [rsi][rdi]	;; Get the value
 no zero	addsd	xmm0, _ADDIN_VALUE	;; Add in the requested value
-no zero	_movsd	[rsi][rdi], xmm0	;; Save the new value
+no zero	movsd	Q [rsi][rdi], xmm0	;; Save the new value
 no zero	subsd	xmm7, _ADDIN_VALUE	;; Do not include addin in sumout
 	movapd	xmm2, XMM_BIGVAL	;; Start process with no carry
 	movapd	xmm3, xmm2
@@ -508,10 +508,10 @@ idn:	mov	rsi, _DESTARG		; Address of squared number
 cmnend:	movapd	XMM_TMP1, xmm7		; Add together the two partial sumouts
 	addsd	xmm7, XMM_TMP1+8
 	mulsd	xmm7, ttmp_ff_inv
-	_movsd	[rsi-24], xmm7		; Save sum of FFT outputs
+	movsd	Q [rsi-24], xmm7	; Save sum of FFT outputs
 	movapd	XMM_TMP1, xmm6		; Compute new maximum error
 	maxsd	xmm6, XMM_TMP1+8
-	_movsd	_MAXERR, xmm6
+	movsd	_MAXERR, xmm6
 
 ; Return
 

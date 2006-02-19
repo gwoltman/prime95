@@ -221,13 +221,13 @@ xgw_finish_mult:
 
 ; Normalize SUMOUT value by multiplying by 1 / (fftlen/2).
 
-	_movsd	xmm7, XMM_SUMOUT	; Add together the two partial sumouts
+	movsd	xmm7, XMM_SUMOUT	; Add together the two partial sumouts
 	addsd	xmm7, XMM_SUMOUT+8
 	mulsd	xmm7, ttmp_ff_inv
-	_movsd	[rsi-24], xmm7		; Save sum of FFT outputs
-	_movsd	xmm6, XMM_MAXERR	; Compute new maximum error
+	movsd	Q [rsi-24], xmm7	; Save sum of FFT outputs
+	movsd	xmm6, XMM_MAXERR	; Compute new maximum error
 	maxsd	xmm6, XMM_MAXERR+8
-	_movsd	_MAXERR, xmm6
+	movsd	_MAXERR, xmm6
 
 ; Return
 
