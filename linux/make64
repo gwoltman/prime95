@@ -1,0 +1,45 @@
+# Makefile for Linux x86-64 mprime
+#
+# NOTE: To convert the included object files to ELF, your binutils 
+# installation must be able to read the coff-x86-64 object format.
+# You can add COFF support by configuring binutils with the
+# switch '--enable-targets=all' and rebuilding.
+
+CC = gcc
+CFLAGS = -I.. -I../gwnum -DX86_64 -O2 -g
+
+CPP = g++
+CPPFLAGS = -I.. -I../gwnum -DX86_64 -O2
+
+LFLAGS = -Wl,-M
+LIBS   = ../gwnum/gwnum.lib ../gwnum/gwnum.ld -lm -lpthread -lcurl -lstdc++
+LIBS2  = ../gwnum/gwnum.lib ../gwnum/gwnum.ld -lm -lpthread -lcurl -lstdc++ -static
+
+FACTOROBJ = factor64.o
+LINUXOBJS = prime.o menu.o
+EXE      = mprime
+EXE2	 = sprime
+
+#########################################################################
+
+$(EXE): security $(LINUXOBJS) $(FACTOROBJ)
+	$(CC) $(LFLAGS) -o $(EXE) $(LINUXOBJS) $(FACTOROBJ) $(LIBS)
+
+$(EXE2): security $(LINUXOBJS) $(FACTOROBJ)
+	$(CC) $(LFLAGS) -o $(EXE2) $(LINUXOBJS) $(FACTOROBJ) $(LIBS2)
+
+security:
+	[ ! -e ../security.h ] && touch ../security.h || true
+	[ ! -e ../security.c ] && touch ../security.c || true
+
+clean:
+	rm -f $(EXE) $(EXE2) $(LINUXOBJS) $(FACTOROBJ)
+
+$(FACTOROBJ): %.o : %.obj
+	/root/binutils-070315/binutils/objcopy -Oelf64-x86-64 -Icoff-x86-64 $< $@
+
+.c.o:
+	$(CC) $(CFLAGS) -c $<
+
+.cpp.o:
+	$(CPP) $(CPPFLAGS) -c $<

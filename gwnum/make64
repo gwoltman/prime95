@@ -1,0 +1,35 @@
+# Makefile for Linux x86-64 gwnum library
+#
+# NOTE: To convert the included object files to ELF, your binutils 
+# installation must be able to read the coff-x86-64 object format.  
+# You can add COFF support by configuring binutils with the
+# switch '--enable-targets=all' and rebuilding.
+
+CC = gcc
+CFLAGS = -I.. -DX86_64 -O2 -g -DGDEBUG
+
+CPP = g++
+CPPFLAGS = -I.. -I../qd -DX86_64 -O2
+
+COFFOBJS = linux64/mult.o linux64/multutil.o linux64/xmult1.o linux64/xmult1ax.o linux64/xmult2.o linux64/xmult2a.o linux64/xmult2ax.o linux64/xmult3.o linux64/xmult3a.o linux64/xmult4.o linux64/xmult5.o linux64/xmult6.o linux64/xmult2p.o linux64/xmult2ap.o linux64/xmult3p.o linux64/xmult3ap.o linux64/xmult4p.o linux64/xmult5p.o linux64/xmult6p.o linux64/gianthlp.o linux64/cpuidhlp.o linux64/timeit.o linux64/timeitp.o
+LINUXOBJS = cpuid.o gwnum.o gwthread.o gwutil.o gwdbldbl.o giants.o ecmstag1.o
+
+LIB = gwnum.lib
+
+#########################################################################
+
+$(LIB): $(LINUXOBJS) $(COFFOBJS)
+	rm -f gwnum.lib
+	ar -qs gwnum.lib $(LINUXOBJS) $(COFFOBJS)
+
+clean:
+	rm -f $(LIB) $(LINUXOBJS) $(COFFOBJS)
+
+$(COFFOBJS): %.o : %.obj
+	/root/binutils-070315/binutils/objcopy -Oelf64-x86-64 -Icoff-x86-64 $< $@
+
+.c.o:
+	$(CC) $(CFLAGS) -c $<
+
+.cpp.o:
+	$(CPP) $(CPPFLAGS) -c $<
