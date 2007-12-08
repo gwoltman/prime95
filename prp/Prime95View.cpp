@@ -69,7 +69,7 @@ void CPrime95View::OnDraw(CDC* pDC)
 	     ypos > 0 && i < NumLines;
 	     i++) {
 		ypos -= charHeight;
-		pDC->TextOut (0, ypos, lines[i], strlen (lines[i]));
+		pDC->TextOut (0, ypos, lines[i], (int) strlen (lines[i]));
 	}
 }
 

@@ -574,6 +574,12 @@ UINT threadDispatch (
 /* Return TRUE if we should stop calculating */
 /* Perform other misceallanous tasks */
 
+int NewEscapeCheck (
+	int	thread_num)
+{
+	return (escapeCheck ());
+}
+
 int escapeCheck ()
 {
 	// If we couldn't add the icon to the task bar, then keep

@@ -33,7 +33,7 @@ BOOL CALLBACK MyEnumProc (
 
 // Return true to continue enumerating Windows
 
-	if (GetWindowLong (hwnd, GWL_USERDATA) != g_MutexNum)
+	if (GetWindowLong (hwnd, GWLP_USERDATA) != g_MutexNum)
 		return (TRUE);
 
 // We've found the instance, return the window handle
@@ -122,8 +122,8 @@ BOOL CPrime95App::InitInstance()
 /* gwnum library have a nice clean interface for users that do not need */
 /* additional functionality that only prime95 uses. */
 
-	StopCheckRoutine = escapeCheck;
-	OutputBothRoutine = OutputBoth;
+	StopCheckRoutine = NewEscapeCheck;
+	OutputBothRoutine = NewOutputBoth;
 
 /* NT services are not passed command line arguments.  In this case we */
 /* encode the -An information in the NT service name. */
@@ -295,7 +295,7 @@ simple_mutex:	 	g_hMutexInst = CreateMutex (
 // Set the window user data so we can be identified by
 // another instance of this program.
 
-		SetWindowLong (m_pMainWnd->m_hWnd, GWL_USERDATA, g_MutexNum);
+		SetWindowLong (m_pMainWnd->m_hWnd, GWLP_USERDATA, g_MutexNum);
 	}
 
 /* Read the INI files. */
@@ -348,7 +348,7 @@ simple_mutex:	 	g_hMutexInst = CreateMutex (
 void CALLBACK EXPORT TimerCallback (
 	HWND	hWnd,		//handle of CWnd that called SetTimer
 	UINT	nMsg,		//WM_TIMER
-	UINT	nIDEvent,	//timer identification
+	UINT_PTR nIDEvent,	//timer identification
 	DWORD	dwTime)		//system time
 {
 	BlinkIcon (-2);

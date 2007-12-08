@@ -76,7 +76,7 @@ void CMainFrame::Dump(CDumpContext& dc) const
 
 /////////////////////////////////////////////////////////////////////////////
 // CMainFrame message handlers
-LONG CMainFrame::OnPower(UINT uID, LONG uMouseMsg)
+LRESULT CMainFrame::OnPower(WPARAM uID, LPARAM uMouseMsg)
 {
 	if (uID == PBT_APMPOWERSTATUSCHANGE) {
 		CHECK_BATTERY = 1;
@@ -88,7 +88,7 @@ LONG CMainFrame::OnPower(UINT uID, LONG uMouseMsg)
 	return 0;
 }
 
-LONG CMainFrame::OnTrayMessage(UINT uID, LONG uMouseMsg)
+LRESULT CMainFrame::OnTrayMessage(WPARAM uID, LPARAM uMouseMsg)
 {
 	if (uID == 352 && uMouseMsg == WM_LBUTTONDBLCLK)
 		if (IsWindowVisible())
@@ -112,7 +112,7 @@ LONG CMainFrame::OnTrayMessage(UINT uID, LONG uMouseMsg)
 			m.fMask = MIIM_STRING;
 			m.fType = MFT_STRING;
 			m.dwTypeData = "Minimize Window";
-			m.cch = strlen (m.dwTypeData);
+			m.cch = (UINT) strlen (m.dwTypeData);
 			SetMenuItemInfo (hSubMenu, IDM_TRAY_OPEN, FALSE, &m);
 		}
 		SetMenuDefaultItem (hSubMenu, IDM_TRAY_OPEN, FALSE);
@@ -135,7 +135,7 @@ void CMainFrame::OnTrayOpenWindow()
 		PostMessage (WM_SYSCOMMAND, SC_MINIMIZE, 0L);
 }
 
-LRESULT CMainFrame::OnServiceStop (WPARAM wParam, LONG lParam)
+LRESULT CMainFrame::OnServiceStop (WPARAM wParam, LPARAM lParam)
 {
 	if (TRAY_ICON) ((CPrime95App *)AfxGetApp())->TrayMessage (NIM_DELETE, NULL, 0);
 	ShowWindow (FALSE);
@@ -160,7 +160,7 @@ void CMainFrame::OnSize(UINT nType, int cx, int cy)
 
 LRESULT CMainFrame::WindowProc(UINT message, WPARAM wParam, LPARAM lParam) 
 {
-	WM_ENDSESSION_LPARAM = lParam;
+	WM_ENDSESSION_LPARAM = (LONG) lParam;
 	return CFrameWnd::WindowProc(message, wParam, lParam);
 }
 
@@ -172,7 +172,7 @@ BOOL CALLBACK EnumProc (HWND hWnd, LPARAM lParam)
 	//check for property and unsubclass if necessary
 	WNDPROC oldWndProc = (WNDPROC)::GetProp (hWnd, szAfxOldWndProc);
 	if (oldWndProc!=NULL) {
-		SetWindowLong (hWnd, GWL_WNDPROC, (DWORD) oldWndProc);
+		SetWindowLong (hWnd, GWLP_WNDPROC, (DWORD) oldWndProc);
 		RemoveProp (hWnd, szAfxOldWndProc);
 	}
 	return TRUE;
@@ -376,7 +376,7 @@ void Service95 ()
 
 		if (WINDOWS95_SERVICE) {
 			rc = RegSetValueEx (hkey, regkey, 0, REG_SZ,
-				(BYTE *) pathname, strlen (pathname) + 1);
+				(BYTE *) pathname, (DWORD) strlen (pathname) + 1);
 			if (rc != ERROR_SUCCESS) {
 				OutputStr ("Can't write registry value.\n");
 				goto done;
