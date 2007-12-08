@@ -33,11 +33,6 @@ argument).
 You can change the program's behavior at various times of the day.  See
 the Time= option described in the readme.txt file.
 
-You can limit how far the program tries to factor a number.  This feature
-should not be used with the Primenet server.  To prevent the factoring code
-from factoring higher than 2^n, enter this in prime.ini:
-	FactorOverride=n
-
 You can force the Options/CPU dialog to display times using AM/PM or
 a 24-hour clock format.  Otherwise, the program will make its best guess
 as to the proper format.  Add this line to prime.ini:
@@ -66,8 +61,11 @@ Where n=1 for seconds with 3 digits of precision, n=2 for milliseconds
 with 1 digit of precision, n=3 for milliseconds with 2 digits of precision,
 n=4 for milliseconds with 3 digit of precision.
 
-You can turn off the outputting of date and time to the screen.  In prime.ini:
-	TimeStamp=0
+You can change the formatting of date and time to the screen.  In prime.ini:
+	TimeStamp=n
+where n=0 turns output off, n=1 is the default date/time without seconds,
+n=2 is date/time with seconds, n=3 is time only without seconds, n=4 is
+time-only with seconds.
 
 You can have the timings that are output to the screen be cumulative
 (from program restart or start of a new exponent) rather than resetting
@@ -120,17 +118,13 @@ The program will restrict how many exponents can be added to worktodo.ini.
 To override this, change prime.ini:
 	MaxExponents=n
 
-By default, ECM will stop when a new factor is found for exponents above 5825.
+By default, ECM will stop when a new factor is found.
 You can have ECM always stop or always continue searching for factors by
 using a value of zero or one in prime.ini:
 	ContinueECM=n
 
 You can skip the GCD in stage 1 of P-1 factoring with this prime.ini setting:
 	Stage1GCD=0
-
-You can prevent users from accessing the Test/User Information dialog box.
-In prime.ini enter:
-	LockUserInfo=1
 
 You can have the program generate save files every n iterations.  The files
 will have a .XXX extension where XXX equals the current iteration divided
@@ -172,18 +166,7 @@ but exercises the general purpose add/sub/mul routines too.  9996 does
 operations typical during ECM - the final residue won't match but the
 convolution error data can be useful.  9994 and 9995 probably blow up.
 
-You can factor a range of exponents for certain factors between b1
-and b2 bits inclusive.  This feature is likely to be deleted in a future
-release.  Add this to your worktodo.ini file:
-	AdvancedFactor=start_exponent,end_exponent,b1,b2
-
-AdvancedFactor uses the file p0000000 as the name of the continuation file.
-This causes problems if you try to run two prime95s doing Advanced/Factoring
-on a dual-CPU machine from the same directory.  Add this line to prime.ini
-to use a different Advanced/Factor continuation file name:
-	AdvFacFileName=filename
-
-In AdvancedFactor, a start exponent of 8888 forces reading of a file called
+Advanced/Time of exponent 9990 forces reading of a file called
 factors.  The program then tries to refind each factor using the
 factoring code.  This is not an efficient way to verify factors as it
 goes through the entire sieving process and trial factoring many
@@ -288,7 +271,8 @@ the work to be unreserved.
 If you are running on a laptop or in a hot room and you want to slow the
 program down to reduce heat, then you can add this line to prime.ini:
 	Throttle=n
-where n is the number of milliseconds to sleep after each iteration.
+where n is the percentage of time the program should run.  For example,
+Throttle=40 means the program will run 40% and be idle 60% of the time.
 
 To limit prime95's impact on computer responsiveness on a hyperthreaded machine
 the program pauses for 30 seconds if two successive iterations take 40% longer
@@ -319,3 +303,12 @@ Use "FullBench=1" to have the benchmarking code time all of the large FFT
 sizes.  "AllBench=1" can be used to time FFT implementations optimized for
 different L2 cache sizes.
 
+If you want to run the program on several machines this is typically done
+by carrying the program and files around on portable media such as a floppy
+or USB memory stick.  In this case, you need to defeat the program's
+automatic detection of hardware changes.  To do this, in prime.ini set
+	FixedHardwareUID=1
+
+You can set DelayStage2ThreadCount=n in prime.txt.  This tells the program how
+wany worker threads are allowed to do stage 2 of P-1 or ECM at the same time.
+The default value is number-of-worker-threads / 2.

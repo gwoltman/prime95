@@ -30,7 +30,7 @@ call nocr makebsd
 cd ..
 tar cvf srcx *.h *.c *.cpp linux\*.c linux\*.h linux\*.txt linux\make* linux\*.o linux\rel*
 tar rvf srcx linuxprp\*.c linuxprp\*.h linuxprp\*.txt linuxprp\make* linuxprp\rel*
-tar rvf srcx gwnum\*.h gwnum\*.c gwnum\*.cpp gwnum\make* gwnum\*.ld gwnum\*.o qd\*.*
+tar rvf srcx gwnum\*.h gwnum\*.c gwnum\*.cpp gwnum\make* gwnum\*.ld gwnum\*.o qd\*.* gwnum\linux64\*.o
 cd linux
 copy foo\release
 copy foo\makebsd

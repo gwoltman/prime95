@@ -1,4 +1,4 @@
-/* Copyright 1995-2005 Just For Fun Software, Inc. */
+/* Copyright 1995-2007 Just For Fun Software, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -66,6 +66,54 @@ loop:	get_line (buf);
 	if (min || max) {
 		if (newval < min || newval > max) {
 			printf ("Please enter a value between %ld and %ld. ",
+				min, max);
+			goto loop;
+		}
+	}
+	*val = newval;
+}
+
+/* Ask a number question */
+
+void askInt (
+	char	*str,
+	long	*val,
+	long	min,
+	long	max)
+{
+	char	buf[80];
+	long	newval;
+	printf ("%s (%ld): ", str, *val);
+loop:	get_line (buf);
+	if (buf[0] == 0) return;
+	newval = atol (buf);
+	if (min || max) {
+		if (newval < min || newval > max) {
+			printf ("Please enter a value between %ld and %ld. ",
+				min, max);
+			goto loop;
+		}
+	}
+	*val = newval;
+}
+
+/* Ask a number question */
+
+void askDbl (
+	char	*str,
+	double	*val,
+	double	min,
+	double	max)
+{
+	char	buf[80];
+	double	newval;
+	printf ("%s (%g): ", str, *val);
+loop:	get_line (buf);
+	if (buf[0] == 0) return;
+	newval = atof (buf);
+	if (min != 0.0 || max != 0.0) {
+		if (newval < min || newval > max) {
+			printf ("Please enter a value between %g and %g. ",
 				min, max);
 			goto loop;
 		}
@@ -192,204 +240,311 @@ void outputLongLine (
 
 /* Test/Primenet dialog */
 
-#define MSG_BIGONES1 "\nA 500 MHz Pentium-III computer will take a full year to test just\n"
-#define MSG_BIGONES2 "one 10,000,000 digit number.  Your chance of finding a new prime\n"
-#define MSG_BIGONES3 "is roughly 1 in 250,000.  Before proceeding, read the prize rules\n"
-#define MSG_BIGONES4 "at http://www.mersenne.org/prize.htm.  Do you accept these rules\n"
-#define MSG_BIGONES5 "and still want to search for 10,000,000 digit primes"
+void getProxyInfo (char *, unsigned short *, char *, char *);
 
 void test_primenet (void)
 {
-	int	m_primenet, m_dialup, m_work_dflt;
-	int	m_bigones, m_lucas, m_factor, m_dblchk;
-	unsigned long m_work;
-	short	work_pref;
+	int	m_primenet, m_dialup;
+	unsigned long m_proxy_port, m_debug;
+	char	m_userid[21], m_compid[21], m_proxy_host[121];
+	char	m_proxy_user[51], m_proxy_pwd[51], orig_proxy_pwd[51];
+	unsigned short proxy_port;
+	int	update_computer_info, primenet_debug;
+	char	m_username[81], m_userpwd[14];
+
+	update_computer_info = FALSE;
+	primenet_debug = IniSectionGetInt (INI_FILE, "PrimeNet", "Debug", 0);
 
 	m_primenet = USE_PRIMENET;
+	if (strcmp (USERID, "ANONYMOUS") == 0)
+		m_userid[0] = 0;
+	else
+		strcpy (m_userid, USERID);
+	strcpy (m_compid, COMPID);
 	m_dialup = DIAL_UP;
-	m_work = DAYS_OF_WORK;
-	if (WORK_PREFERENCE == 0) {
-		m_work_dflt = 1;
-		work_pref = default_work_type ();
-	} else {
-		m_work_dflt = 0;
-		work_pref = WORK_PREFERENCE;
-	}
-	m_bigones = !! (work_pref & PRIMENET_ASSIGN_BIGONES);
-	m_lucas = !! (work_pref & PRIMENET_ASSIGN_TEST);
-	m_factor = !! (work_pref & PRIMENET_ASSIGN_FACTOR);
-	m_dblchk = !! (work_pref & PRIMENET_ASSIGN_DBLCHK);
+	getProxyInfo (m_proxy_host, &proxy_port, m_proxy_user, m_proxy_pwd);
+	m_proxy_port = proxy_port;
+	strcpy (orig_proxy_pwd, m_proxy_pwd);
+	m_debug = primenet_debug;
 
 	askYN ("Use PrimeNet to get work and report results", &m_primenet);
 	if (!m_primenet) goto done;
-	askYN ("Use a dial-up connection to the Internet", &m_dialup);
-	askNum ("Always have at least this many days of work queued up",
-		&m_work, 1, 90);
-	askYN ("Request whatever type of work makes the most sense",
-		&m_work_dflt);
-	if (!m_work_dflt) {
-		askYN ("Request 10,000,000 digit numbers to test", &m_bigones);
-		askYN ("Request Mersenne numbers to run primality tests",
-			&m_lucas);
-		askYN ("Request Mersenne numbers to double-check", &m_dblchk);
-		askYN ("Request Mersenne numbers to factor", &m_factor);
+
+	if (USE_V4) {
+	strcpy (m_userid, V4_USERID);
+	strcpy (m_userpwd, V4_USERPWD);
+	strcpy (m_username, V4_USERNAME);
+	askStr ("User ID", m_userid, 14);
+	askStr ("Password", m_userpwd, 8);
+	askStr ("Optional computer name", m_compid, 20);
+	askStr ("Optional user name", m_username, 79);
+	} else {
+	outputLongLine ("\nYou must first create your user ID at mersenne.org or leave user ID blank to run anonymously.  See the readme.txt file for details.\n");
+	askStr ("Optional user ID", m_userid, 20);
+	askStr ("Optional computer name", m_compid, 20);
 	}
+
+	askYN ("Computer uses a dial-up connection to the Internet", &m_dialup);
+
+	askStr ("Optional proxy host name", m_proxy_host, 120);
+	if (!m_proxy_host[0]) goto done;
+
+	askNum ("Proxy port number", &m_proxy_port, 1, 65535);
+	askStr ("Optional proxy user name", m_proxy_user, 50);
+	askStr ("Optional proxy password", m_proxy_pwd, 50);
+	askNum ("Output debug info to prime.log (0=none, 1=some, 2=lots)", &m_debug, 0, 2);
 
 done:	if (askOkCancel ()) {
-		if (!USE_PRIMENET && m_primenet) {
-			USE_PRIMENET = 1;
-			spoolMessage (PRIMENET_MAINTAIN_USER_INFO, NULL);
-			spoolMessage (PRIMENET_SET_COMPUTER_INFO, NULL);
-			spoolExistingResultsFile ();
-		}
-		USE_PRIMENET = m_primenet;
 		DIAL_UP = m_dialup;
-		DAYS_OF_WORK = m_work;
-		if (m_work_dflt)
-			WORK_PREFERENCE = 0;
-		else {
-			work_pref =
-				(m_bigones ? PRIMENET_ASSIGN_BIGONES : 0) +
-				(m_lucas ? PRIMENET_ASSIGN_TEST : 0) +
-				(m_factor ? PRIMENET_ASSIGN_FACTOR : 0) +
-				(m_dblchk ? PRIMENET_ASSIGN_DBLCHK : 0);
-			if (! (WORK_PREFERENCE & PRIMENET_ASSIGN_BIGONES) &&
-			    work_pref & PRIMENET_ASSIGN_BIGONES) {
-				int	m_ask;
-				m_ask = 0;
-				printf (MSG_BIGONES1);
-				printf (MSG_BIGONES2);
-				printf (MSG_BIGONES3);
-				printf (MSG_BIGONES4);
-				askYN (MSG_BIGONES5, &m_ask);
-				if (m_ask) WORK_PREFERENCE = work_pref;
-			} else
-				WORK_PREFERENCE = work_pref;
-		}
-
-		IniWriteInt (INI_FILE, "UsePrimenet", USE_PRIMENET);
 		IniWriteInt (INI_FILE, "DialUp", DIAL_UP);
-		IniWriteInt (INI_FILE, "DaysOfWork", DAYS_OF_WORK);
-		IniWriteInt (INI_FILE, "WorkPreference", WORK_PREFERENCE);
-		CHECK_WORK_QUEUE = 1;
-		if (STARTUP_IN_PROGRESS) {
-			STARTUP_IN_PROGRESS = 0;
-			if (USE_PRIMENET) linuxContinue (NULL);
+
+		if (m_proxy_host[0] && m_proxy_port != 8080)
+			sprintf (m_proxy_host + strlen (m_proxy_host), ":%d",
+				 m_proxy_port);
+		IniSectionWriteString (INI_FILE, "PrimeNet",
+				       "ProxyHost", m_proxy_host);
+		if (m_proxy_host[0]) {
+			IniSectionWriteString (INI_FILE, "PrimeNet",
+				       "ProxyUser", m_proxy_user);
+			if (strcmp (m_proxy_pwd, orig_proxy_pwd)) {
+				IniSectionWriteString (INI_FILE, "PrimeNet",
+					"ProxyPass", m_proxy_pwd);
+				IniSectionWriteInt (INI_FILE, "PrimeNet",
+					"ProxyMask", 0);
+			}
 		}
-	} else
-		STARTUP_IN_PROGRESS = 0;
-}
+		if (m_debug != primenet_debug) {
+			IniSectionWriteInt (INI_FILE, "PrimeNet", "Debug",
+					    m_debug);
+		}
 
-/* Test/User Information dialog */
-
-void test_user (void)
-{
-	char	m_name[80], m_email[80], m_userid[20];
-	char	m_password[20], m_compid[20];
-	int	m_sendemail, m_team;
-
-	if (IniGetInt (INI_FILE, "LockUserInfo", 0)) {
-		OutputStr ("The user information cannot be changed.\n");
-		askOK ();
-		return;
-	}
-
-	strcpy (m_name, USER_NAME);
-	strcpy (m_email, USER_ADDR);
-	strcpy (m_userid, USERID);
-	strcpy (m_password, USER_PWD);
-	strcpy (m_compid, COMPID);
-	m_sendemail = NEWSLETTERS;
-	m_team = 0;
-
-	askStr ("Your name", m_name, 76);
-	askStr ("Your email address", m_email, 76);
-	askYN ("Receive occasional newsletters by email from the PrimeNet server", &m_sendemail);
-	outputLongLine ("\nYou can either pick your own user ID, password, and computer ID or let the PrimeNet server assign one to you.  See the readme.txt file for details.\n");
-	askStr ("Your user ID", m_userid, 14);
-	askStr ("Your password", m_password, 8);
-	askStr ("Your computer ID", m_compid, 12);
-	if (!STARTUP_IN_PROGRESS) {
-		printf ("Create a team using the information above.  Team accounts are protected by\n");
-		askYN ("the PrimeNet server against unintentional or unauthorized changes", &m_team);
-	}
-
-	if (askOkCancel ()) {
+		if (USE_V4) {
 		if (strcmp (COMPID, m_compid) != 0) {
 			strcpy (COMPID, m_compid);
 			sanitizeString (COMPID);
 			IniWriteString (LOCALINI_FILE, "ComputerID", COMPID);
-			spoolMessage (PRIMENET_SET_COMPUTER_INFO, NULL);
+			update_computer_info = TRUE;
 		}
-		if (OLD_USERID[0] == 0 &&
-		    strcmp (USERID, m_userid) != 0) {
-			strcpy (OLD_USERID, USERID);
-			strcpy (OLD_USER_PWD, USER_PWD);
-			IniWriteString (INI_FILE, "OldUserID", OLD_USERID);
-			IniWriteString (INI_FILE, "OldUserPWD", OLD_USER_PWD);
+		if (strcmp (V4_USERID, m_userid) != 0) {
+			strcpy (V4_USERID, m_userid);
+			sanitizeString (V4_USERID);
+			IniWriteString (INI_FILE, "UserID", V4_USERID);
+			update_computer_info = TRUE;
 		}
-		strcpy (USER_PWD, m_password);
-		sanitizeString (USER_PWD);
-		IniWriteString (INI_FILE, "UserPWD", USER_PWD);
-		if (strcmp (USER_NAME, m_name) != 0 ||
-		    strcmp (USER_ADDR, m_email) != 0 ||
-		    NEWSLETTERS != m_sendemail ||
-		    m_team ||
-		    strcmp (USERID, m_userid) != 0) {
-			strcpy (USER_NAME, m_name);
-			strcpy (USER_ADDR, m_email);
+		if (strcmp (V4_USERPWD, m_userpwd) != 0) {
+			strcpy (V4_USERPWD, m_userpwd);
+			sanitizeString (V4_USERPWD);
+			IniWriteString (INI_FILE, "UserPwd", V4_USERPWD);
+			update_computer_info = TRUE;
+		}
+		if (strcmp (V4_USERNAME, m_username) != 0) {
+			strcpy (V4_USERNAME, m_username);
+			IniWriteString (INI_FILE, "UserName", V4_USERNAME);
+			update_computer_info = TRUE;
+		}
+		}
+
+		else {
+		if (m_userid[0] == 0)
+			strcpy (m_userid, "ANONYMOUS");
+
+		if (strcmp (USERID, m_userid) != 0) {
 			strcpy (USERID, m_userid);
 			sanitizeString (USERID);
-			NEWSLETTERS = m_sendemail;
-			IniWriteString (INI_FILE, "UserName", USER_NAME);
-			IniWriteString (INI_FILE, "UserEmailAddr", USER_ADDR);
-			IniWriteInt (INI_FILE, "Newsletters", NEWSLETTERS);
-			IniWriteString (INI_FILE, "UserID", USERID);
-			spoolMessage (m_team ?
-				PRIMENET_MAINTAIN_USER_INFO + 0x80 :
-				PRIMENET_MAINTAIN_USER_INFO, NULL);
+			IniWriteString (INI_FILE, "V5UserID", USERID);
+			update_computer_info = TRUE;
 		}
-		if (STARTUP_IN_PROGRESS) options_cpu ();
+		if (strcmp (COMPID, m_compid) != 0) {
+			strcpy (COMPID, m_compid);
+			sanitizeString (COMPID);
+			IniWriteString (LOCALINI_FILE, "ComputerID", COMPID);
+			update_computer_info = TRUE;
+		}
+		}
+
+		if (!USE_PRIMENET && m_primenet) {
+			USE_PRIMENET = 1;
+			create_window (COMM_THREAD_NUM);
+			base_title (COMM_THREAD_NUM, "Communication thread");
+			if (!STARTUP_IN_PROGRESS) set_comm_timers ();
+			spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
+			spoolExistingResultsFile ();
+		} else if (USE_PRIMENET && !m_primenet) {
+			USE_PRIMENET = 0;
+			if (!STARTUP_IN_PROGRESS) set_comm_timers ();
+		} else if (update_computer_info)
+			spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
+
+		IniWriteInt (INI_FILE, "UsePrimenet", USE_PRIMENET);
+		spoolMessage (PRIMENET_PROGRAM_OPTIONS, NULL);
 	} else
 		STARTUP_IN_PROGRESS = 0;
 }
 
-/* Test/Vacation or Holiday dialog */
+/* Test/Worker threads dialog */
 
-void test_vacation (void)
+int AreAllTheSame (
+	unsigned long *array,
+	int	arraylen)
 {
-	unsigned long m_vacation_days;
-	int	m_computer_on;
+	int	i;
 
-	m_vacation_days = (secondsUntilVacationEnds () + 43200) / 86400;
-	m_computer_on = ON_DURING_VACATION;
+	for (i = 1; i < arraylen; i++)
+		if (array[i-1] != array[i]) return (FALSE);
+	return (TRUE);
+}
 
-	outputLongLine ("If you are going on vacation and your computer will not be running or your computer will not be connected to the Internet, then the PrimeNet server must be informed of new expected completion dates.\n");
-	outputLongLine ("\nPlease make sure you are connected to the Internet long enough to send the new completion dates.\n");
-	askNum ("Days of vacation", &m_vacation_days, 0, 120);
-	askYN ("Computer will be on during your absence", &m_computer_on);
+void test_worker_threads (void)
+{
+	unsigned long m_num_thread, m_priority;
+	unsigned long m_work_pref[MAX_NUM_WORKER_THREADS];
+	unsigned long m_affinity[MAX_NUM_WORKER_THREADS];
+	unsigned long m_numcpus[MAX_NUM_WORKER_THREADS];
+	int	i;
+
+	m_num_thread = NUM_WORKER_THREADS;
+	m_priority = PRIORITY;
+	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
+		m_work_pref[i] = WORK_PREFERENCE[i];
+		m_affinity[i] = CPU_AFFINITY[i];
+		m_numcpus[i] = THREADS_PER_TEST[i];
+	}
+
+again:	if (NUM_CPUS * CPU_HYPERTHREADS > 1)
+		askNum ("Number of worker threads to run", &m_num_thread,
+			1, NUM_CPUS * CPU_HYPERTHREADS);
+
+	outputLongLine ("\nPick a priority between 1 and 10 where 1 is the lowest priority and 10 is the highest.  It is strongly recommended that you use the default priority of 1.  Your throughput will probably not improve by using a higher priority.  The only time you should raise the priority is when another process, such as a screen saver, is stealing CPU cycles from this program.\n");
+	askNum ("Priority", &m_priority, 1, 10);
+
+	if (USE_PRIMENET) {
+		if (USE_V4) outputLongLine ("\nUse the following values to select a work type:\n  0 - Whatever makes the most sense\n  2 - Trial factoring\n 100 - First time primality tests\n  101 - Double-checking\n  103 - Ten million digit primality tests\n");
+		else outputLongLine ("\nUse the following values to select a work type:\n  0 - Whatever makes the most sense\n  2 - Trial factoring\n 100 - First time primality tests\n  101 - Double-checking\n  102 - World record primality tests\n  103 - Ten million digit primality tests\n  1 - Trial factoring to low limits\n  5 - ECM on small Mersenne numbers\n  6 - ECM on Fermat numbers\n");
+	}
+
+	if (USE_PRIMENET || NUM_CPUS * CPU_HYPERTHREADS > m_num_thread) {
+	    for (i = 0; i < m_num_thread; i++) {
+		if (m_num_thread > 1)
+			printf ("\nOptions for worker number #%d\n\n", i+1);
+		else
+			printf ("\n");
+
+		if (USE_PRIMENET)
+			askNum ("Type of work to get", &m_work_pref[i], 0, 150);
+
+		if (NUM_CPUS * CPU_HYPERTHREADS > m_num_thread)
+			askNum ("Number of CPUs to use in LL test",
+				&m_numcpus[i], 1,
+				NUM_CPUS * CPU_HYPERTHREADS - m_num_thread + 1);
+		else
+				m_numcpus[i] = 1;
+	    }
+	}
+
+//	outputLongLine ("On multi-CPU systems, performance will be enhanced if you assign each instance of the program to run on a specific CPU.\n");
+//	outputLongLine ("For example, if you have a dual-CPU machine, run one instance of mprime on CPU 0, run another instance on CPU 1.\n");
+//	askYN ("Let program run on any CPU", &m_all_cpus);
+//	if (!m_all_cpus)
+//		askNum ("Specific CPU to run on", &m_cpu, 0, 31);
 
 	if (askOkCancel ()) {
-		if (m_vacation_days) {
-			time (&VACATION_END);
-			VACATION_END += m_vacation_days * 86400;
-		} else
-			VACATION_END = 0;
-		ON_DURING_VACATION = m_computer_on;
-                IniWriteInt (LOCALINI_FILE, "VacationEnd", VACATION_END);
-                IniWriteInt (LOCALINI_FILE, "VacationOn", ON_DURING_VACATION);
-		if (VACATION_END && !ON_DURING_VACATION)
-			IniWriteInt (LOCALINI_FILE, "RollingStartTime", 0);
-		UpdateEndDates ();
-		MANUAL_COMM |= 0x2;
-		CHECK_WORK_QUEUE = 1;
-		communicateWithServer ();
-	}
+		int	restart = FALSE;
+		int	new_options = FALSE;
+		unsigned long i, total_num_threads;
+
+/* If the user has allocated more threads than there are CPUs, raise a */
+/* severe warning. */
+
+		total_num_threads = 0;
+		for (i = 0; i < m_num_thread; i++)
+			total_num_threads += m_numcpus[i];
+		if (total_num_threads > NUM_CPUS * CPU_HYPERTHREADS) {
+			outputLongLine (MSG_THREADS);
+			if (askYesNo ('Y')) goto again;
+		}
+
+/* If user is changing the number of worker threads, then make the */
+/* necessary changes.  Restart worker threads so that we are running */
+/* the correct number of worker threads. */
+
+		if (m_num_thread != NUM_WORKER_THREADS) {
+//bug= do something with orphaned work units?
+//bug- tell server of the change?
+			NUM_WORKER_THREADS = m_num_thread;
+			IniWriteInt (LOCALINI_FILE, "WorkerThreads", NUM_WORKER_THREADS);
+			restart = TRUE;
+		}
+
+/* If user is changing the priority of worker threads, then change */
+/* the INI file.  Restart worker threads so that they are running at */
+/* the new priority. */
+
+		if (PRIORITY != m_priority) {
+			PRIORITY = m_priority;
+			IniWriteInt (INI_FILE, "Priority", PRIORITY);
+			new_options = TRUE;
+			restart = TRUE;
+		}
+
+/* If the user changes any of the work preferences record it in the INI file */
+/* and tell the server */
+
+		if (AreAllTheSame (m_work_pref, m_num_thread)) {
+			if (! PTOIsGlobalOption (WORK_PREFERENCE) ||
+			    WORK_PREFERENCE[0] != m_work_pref[0]) {
+				PTOSetAll (INI_FILE, "WorkPreference", NULL,
+					   WORK_PREFERENCE, m_work_pref[0]);
+				new_options = TRUE;
+			}
+		} else {
+			for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+				if (WORK_PREFERENCE[i] == m_work_pref[i])
+					continue;
+				PTOSetOne (INI_FILE, "WorkPreference", NULL,
+					   WORK_PREFERENCE, i,
+					   m_work_pref[i]);
+				new_options = TRUE;
+			}
+		}
+
+/* If the user changes any of the affinities record it in the INI file. */
+
+		if (AreAllTheSame (m_affinity, m_num_thread)) {
+			PTOSetAll (LOCALINI_FILE, "Affinity", NULL,
+				   CPU_AFFINITY, m_affinity[0]);
+		} else {
+			for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+				PTOSetOne (LOCALINI_FILE, "Affinity", NULL,
+					   CPU_AFFINITY, i, m_affinity[i]);
+			}
+		}
+
+/* If the user changes any of the threads_per_test record it in the INI file */
+
+		if (AreAllTheSame (m_numcpus, m_num_thread)) {
+			PTOSetAll (LOCALINI_FILE, "ThreadsPerTest", NULL,
+				   THREADS_PER_TEST, m_numcpus[0]);
+		} else {
+			for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+				PTOSetOne (LOCALINI_FILE, "ThreadsPerTest", NULL,
+					   THREADS_PER_TEST, i, m_numcpus[i]);
+			}
+		}
+
+/* Send new settings to the server */
+
+		if (new_options) spoolMessage (PRIMENET_PROGRAM_OPTIONS, NULL);
+
+/* Restart worker threads with new options */
+
+		if (restart) stop_workers_for_restart ();
+	} else
+		STARTUP_IN_PROGRESS = 0;
 }
 
 /* Output a status report for the range */
 
-void rangeStatus (void)
+void test_status (void)
 {
 	char	buf[2000];
 
@@ -402,22 +557,35 @@ void rangeStatus (void)
 
 void advanced_test (void)
 {
-	unsigned long m_p;
+	unsigned long m_thread, m_p;
 #define NOTPRIMEERR "This number is not prime, there is no need to test it.\n"
 
 loop:	m_p = 0;
+
+	m_thread = 1;
+	if (NUM_WORKER_THREADS > 1)
+		askNum ("Worker number", &m_thread, 1, NUM_WORKER_THREADS);
+
 	askNumNoDflt ("Exponent to test", &m_p, MIN_PRIME,
 		      CPU_FLAGS & CPU_SSE2 ? MAX_PRIME_SSE2 : MAX_PRIME);
 
 	if (askOkCancel ()) {
+		struct work_unit w;
 		if (! isPrime (m_p)) {
 			printf (NOTPRIMEERR);
 			goto loop;
 		}
-		IniFileOpen (WORKTODO_FILE, 1);
-		IniInsertLineAsInt (WORKTODO_FILE, 1, "AdvancedTest", m_p);
-		linuxContinue ("\nWork added to worktodo.ini file.  Another mprime is running.\n");
-		askOK ();
+		memset (&w, 0, sizeof (w));
+		w.work_type = WORK_ADVANCEDTEST;
+		w.k = 1.0;
+		w.b = 2;
+		w.n = m_p;
+		w.c = -1;
+		addWorkToDoLine (m_thread - 1, &w);
+		if (WORKER_THREADS_ACTIVE)
+			stop_worker_for_advanced_test (m_thread - 1);
+		else
+			linuxContinue ("\nWork added to worktodo.ini file.  Another mprime is running.\n", FALSE);
 	}
 }
 
@@ -434,8 +602,7 @@ void advanced_time (void)
 	        CPU_FLAGS & CPU_SSE2 ? MAX_PRIME_SSE2 : MAX_PRIME);
 	askNum ("Number of Iterations", &m_iter, 1, 1000);
 	if (askOkCancel ()) {
-		primeTime (m_p, m_iter);
-		askOK ();
+		LaunchAdvancedTime (m_p, m_iter);
 	}
 }
 
@@ -443,31 +610,42 @@ void advanced_time (void)
 
 void advanced_pminus1 (void)
 {
-	unsigned long m_p, m_bound1, m_bound2;
-	int	m_plus1;
+	unsigned long m_thread, m_b, m_n, m_num_curves;
+	long	m_c;
+	double	m_k, m_bound1, m_bound2;
 
-	m_p = 0;
-	m_bound1 = 1000000;
-	m_bound2 = 0;
-	m_plus1 = 0;
+	m_k = 1.0;
+	m_b = 2;
+	m_n = 0;
+	m_c = -1;
+	m_bound1 = 50000.0;
+	m_bound2 = 0.0;
 
-	askNumNoDflt ("Exponent", &m_p, 100, 20500000);
-	askNum ("Bound #1", &m_bound1, 100, 1000000000);
-	askNum ("Bound #2", &m_bound2, 0, 4000000000UL);
-	askYN ("Factor 2^N+1", &m_plus1);
+	m_thread = 1;
+	if (NUM_WORKER_THREADS > 1)
+		askNum ("Worker number", &m_thread, 1, NUM_WORKER_THREADS);
+
+	askDbl ("k in k*b^n+c", &m_k, 1.0, 1.0e15);
+	askNum ("b in k*b^n+c", &m_b, 2, 1000000000);
+	askNumNoDflt ("n in k*b^n+c", &m_n, 100, 600000000);
+	askInt ("c in k*b^n+c", &m_c, -2000000000, 2000000000);
+	askDbl ("Bound #1", &m_bound1, 100.0, 1.0e15);
+	askDbl ("Bound #2", &m_bound2, 0.0, 1.0e15);
 
 	if (askOkCancel ()) {
 		struct work_unit w;
+		memset (&w, 0, sizeof (w));
 		w.work_type = WORK_PMINUS1;
-		w.k = 1.0;
-		w.b = 2;
-		w.n = m_p;
-		w.c = m_plus1 ? 1 : -1;
+		w.k = m_k;
+		w.b = m_b;
+		w.n = m_n;
+		w.c = m_c;
 		w.B1 = m_bound1;
 		w.B2_start = 0;
-		w.B2_end = m_bound2;
-		addWorkToDoLine (&w);
-		linuxContinue ("\nWork added to worktodo.ini file.  Another mprime is running.\n");
+		w.B2 = m_bound2;
+		addWorkToDoLine (m_thread - 1, &w);
+		if (!WORKER_THREADS_ACTIVE)
+			linuxContinue ("\nWork added to worktodo.ini file.  Another mprime is running.\n", FALSE);
 		askOK ();
 	}
 }
@@ -476,80 +654,47 @@ void advanced_pminus1 (void)
 
 void advanced_ecm (void)
 {
-	unsigned long m_p, m_bound1, m_bound2, m_num_curves;
-	int	m_plus1;
-	double	m_curve;
+	unsigned long m_thread, m_b, m_n, m_num_curves;
+	long	m_c;
+	double	m_k, m_bound1, m_bound2;
 
-	m_p = 0;
-	m_bound1 = 1000000;
-	m_bound2 = 0;
-	m_curve = 0.0;
+	m_k = 1.0;
+	m_b = 2;
+	m_n = 0;
+	m_c = -1;
+	m_bound1 = 50000.0;
+	m_bound2 = 0.0;
 	m_num_curves = 100;
-	m_plus1 = 0;
 
-	askNumNoDflt ("Exponent", &m_p, 100, 20500000);
-	askNum ("Bound #1", &m_bound1, 100, 1000000000);
-	askNum ("Bound #2", &m_bound2, 0, 4000000000UL);
+	m_thread = 1;
+	if (NUM_WORKER_THREADS > 1)
+		askNum ("Worker number", &m_thread, 1, NUM_WORKER_THREADS);
+
+	askDbl ("k in k*b^n+c", &m_k, 1.0, 1.0e15);
+	askNum ("b in k*b^n+c", &m_b, 2, 1000000000);
+	askNumNoDflt ("n in k*b^n+c", &m_n, 100, 600000000);
+	askInt ("c in k*b^n+c", &m_c, -2000000000, 2000000000);
+	askDbl ("Bound #1", &m_bound1, 100.0, 1.0e15);
+	askDbl ("Bound #2", &m_bound2, 0.0, 1.0e15);
 	askNum ("Curves to test", &m_num_curves, 1, 100000);
-	askYN ("Factor 2^N+1", &m_plus1);
 
 	if (askOkCancel ()) {
 		struct work_unit w;
+		memset (&w, 0, sizeof (w));
 		w.work_type = WORK_ECM;
-		w.k = 1.0;
-		w.b = 2;
-		w.n = m_p;
-		w.c = m_plus1 ? 1 : -1;
+		w.k = m_k;
+		w.b = m_b;
+		w.n = m_n;
+		w.c = m_c;
 		w.B1 = m_bound1;
 		w.B2_start = 0;
-		w.B2_end = m_bound2;
+		w.B2 = m_bound2;
 		w.curves_to_do = m_num_curves;
-		w.curve = m_curve;
-		addWorkToDoLine (&w);
-		linuxContinue ("\nWork added to worktodo.ini file.  Another mprime is running.\n");
+		w.curve = 0.0;
+		addWorkToDoLine (m_thread - 1, &w);
+		if (!WORKER_THREADS_ACTIVE)
+			linuxContinue ("\nWork added to worktodo.ini file.  Another mprime is running.\n", FALSE);
 		askOK ();
-	}
-}
-
-/* Advanced/Priority dialog */
-
-void advanced_priority (void)
-{
-	unsigned long m_priority;
-
-	m_priority = PRIORITY;
-
-	outputLongLine ("Pick a priority between 1 and 10 where 1 is the lowest priority and 10 is the highest.\n");
-	outputLongLine ("It is strongly recommended that you use the default priority of 1.  Your throughput will probably not improve by using a higher priority.  The only time you should raise the priority is when another process, such as a screen saver, is stealing CPU cycles from this program.\n");
-	askNum ("Priority", &m_priority, 1, 10);
-
-	if (askOkCancel ()) {
-		PRIORITY = m_priority;
-		IniWriteInt (INI_FILE, "Priority", PRIORITY);
-	}
-}
-
-/* Advanced/Affinity dialog */
-
-void advanced_affinity (void)
-{
-	int	m_all_cpus;
-	unsigned long m_cpu;
-
-	m_all_cpus = (CPU_AFFINITY == 99);
-	m_cpu = (CPU_AFFINITY == 99) ? 0 : CPU_AFFINITY;
-
-	outputLongLine ("On multi-CPU systems, performance will be enhanced if you assign each instance of the program to run on a specific CPU.\n");
-	outputLongLine ("For example, if you have a dual-CPU machine, run one instance of mprime on CPU 0, run another instance on CPU 1.\n");
-
-	askYN ("Let program run on any CPU", &m_all_cpus);
-	if (!m_all_cpus)
-		askNum ("Specific CPU to run on", &m_cpu, 0, 31);
-
-	if (askOkCancel ()) {
-		if (m_all_cpus) CPU_AFFINITY = 99;
-		else CPU_AFFINITY = m_cpu;
-		IniWriteInt (LOCALINI_FILE, "Affinity", CPU_AFFINITY);
 	}
 }
 
@@ -559,7 +704,7 @@ void advanced_manualcomm (void)
 {
 	int	m_manual_comm, m_comm_now, m_new_dates;
 
-	m_manual_comm = MANUAL_COMM & 0x1;
+	m_manual_comm = MANUAL_COMM;
 	m_comm_now = 1;
 	m_new_dates = 0;
 
@@ -570,14 +715,14 @@ void advanced_manualcomm (void)
 	askYN ("Send new expected completion dates to server", &m_new_dates);
 
 	if (askOkCancel ()) {
-		MANUAL_COMM = m_manual_comm;
-		IniWriteInt (INI_FILE, "ManualComm", MANUAL_COMM);
-		if (m_new_dates) UpdateEndDates ();
-		if (m_comm_now) {
-			MANUAL_COMM |= 0x2;
-			CHECK_WORK_QUEUE = 1;
-			communicateWithServer ();
+		if ((MANUAL_COMM && !m_manual_comm) ||
+		    (!MANUAL_COMM && m_manual_comm)) {
+			MANUAL_COMM = m_manual_comm;
+			IniWriteInt (INI_FILE, "ManualComm", MANUAL_COMM);
+			set_comm_timers ();
 		}
+		if (m_new_dates) UpdateEndDates ();
+		if (m_comm_now) do_manual_comm_now ();
 	}
 }
 
@@ -590,12 +735,8 @@ void advanced_unreserve (void)
 	m_p = 0;
 
 	outputLongLine ("\nUse this only if you are sure you will not be finishing this exponent.  The exponent will be assigned to someone else.  It is not fair to them if you test an exponent assigned to someone else.\n");
-	askNumNoDflt ("Exponent to unreserve", &m_p, MIN_PRIME,
-		      MAX_PRIME_SSE2 > MAX_PRIME ? MAX_PRIME_SSE2 : MAX_PRIME);
-	if (askOkCancel ()) {
-		unreserve (m_p);
-		communicateWithServer ();
-	}
+	askNumNoDflt ("Exponent to unreserve", &m_p, 1000, 1000000000);
+	if (askOkCancel ()) unreserve (m_p);
 }
 
 /* Advanced/Quit Gimps dialog */
@@ -607,23 +748,22 @@ void advanced_quit (void)
 		outputLongLine (MANUAL_QUIT);
 		if (askYesNo ('N')) {
 			writeResults ("Quitting GIMPS.\n");
-			IniDeleteAllLines (WORKTODO_FILE);
+//bug - either delete file, or delete all work_units and write the file.
+//bug			IniDeleteAllLines (WORKTODO_FILE);
+			stop_workers_for_escape ();
 		}
 	} else {
 		int	res;
 		outputLongLine (PRIMENET_QUIT);
 		res = askYesNoCancel ('C');
 		if (res == 0) {
-			OutputBoth ("Quitting GIMPS after current work completes.\n");
+			OutputBoth (MAIN_THREAD_NUM, "Quitting GIMPS after current work completes.\n");
 			IniWriteInt (INI_FILE, "NoMoreWork", 1);
 			askOK ();
 		}
 		if (res == 1) {
-			OutputBoth ("Quitting GIMPS immediately.\n");
-			spoolMessage (999, NULL);
-			MANUAL_COMM |= 0x2;
-			CHECK_WORK_QUEUE = 1;
-			communicateWithServer ();
+			OutputBoth (MAIN_THREAD_NUM, "Quitting GIMPS immediately.\n");
+			spoolMessage (MSG_QUIT_GIMPS, NULL);
 			askOK ();
 		}
 	}
@@ -663,10 +803,13 @@ again:	m_hours = CPU_HOURS;
 		unsigned int new_day_start_time, new_day_end_time;
 
 		if (CPU_HOURS != m_hours) {
+			CPU_HOURS = m_hours;
+			IniWriteInt (LOCALINI_FILE, "CPUHours", CPU_HOURS);
 			ROLLING_AVERAGE = 1000;
 			IniWriteInt (LOCALINI_FILE, "RollingAverage", 1000);
 			IniWriteInt (LOCALINI_FILE, "RollingStartTime", 0);
-			spoolMessage (PRIMENET_SET_COMPUTER_INFO, NULL);
+			spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
+			delete_timed_event (TE_COMM_SERVER);
 			UpdateEndDates ();
 		}
 		new_day_start_time = strToMinutes ((char *) &m_start_time);
@@ -674,18 +817,18 @@ again:	m_hours = CPU_HOURS;
 		if (DAY_MEMORY != m_day_memory ||
 		    NIGHT_MEMORY != m_night_memory ||
 		    DAY_START_TIME != new_day_start_time ||
-		    DAY_END_TIME != new_day_end_time)
-			memSettingsChanged ();
-		CPU_HOURS = m_hours;
-		DAY_MEMORY = m_day_memory;
-		NIGHT_MEMORY = m_night_memory;
-		DAY_START_TIME = new_day_start_time;
-		DAY_END_TIME = new_day_end_time;
-		IniWriteInt (LOCALINI_FILE, "CPUHours", CPU_HOURS);
-		IniWriteInt (LOCALINI_FILE, "DayMemory", DAY_MEMORY);
-		IniWriteInt (LOCALINI_FILE, "NightMemory", NIGHT_MEMORY);
-		IniWriteInt (LOCALINI_FILE, "DayStartTime", DAY_START_TIME);
-		IniWriteInt (LOCALINI_FILE, "DayEndTime", DAY_END_TIME);
+		    DAY_END_TIME != new_day_end_time) {
+			DAY_MEMORY = m_day_memory;
+			NIGHT_MEMORY = m_night_memory;
+			DAY_START_TIME = new_day_start_time;
+			DAY_END_TIME = new_day_end_time;
+			IniWriteInt (LOCALINI_FILE, "DayMemory", DAY_MEMORY);
+			IniWriteInt (LOCALINI_FILE, "NightMemory", NIGHT_MEMORY);
+			IniWriteInt (LOCALINI_FILE, "DayStartTime", DAY_START_TIME);
+			IniWriteInt (LOCALINI_FILE, "DayEndTime", DAY_END_TIME);
+			mem_settings_have_changed ();
+		}
+		spoolMessage (PRIMENET_PROGRAM_OPTIONS, NULL);
 
 		if (!IniGetInt (INI_FILE, "AskedAboutMemory", 0)) {
 			IniWriteInt (INI_FILE, "AskedAboutMemory", 1);
@@ -694,8 +837,6 @@ again:	m_hours = CPU_HOURS;
 				if (askYesNo ('Y')) goto again;
 			}
 		}
-		 	
-		if (STARTUP_IN_PROGRESS) test_primenet ();
 	} else
 		STARTUP_IN_PROGRESS = 0;
 }
@@ -705,7 +846,7 @@ again:	m_hours = CPU_HOURS;
 void options_preferences (void)
 {
 	unsigned long m_iter, m_r_iter, m_disk_write_time;
-	unsigned long m_modem, m_retry, m_end_dates;
+	unsigned long m_modem, m_retry, m_work, m_end_dates;
 	int	m_backup, m_noise;
 
 	m_iter = ITER_OUTPUT;
@@ -713,6 +854,7 @@ void options_preferences (void)
 	m_disk_write_time = DISK_WRITE_TIME;
 	m_modem = MODEM_RETRY_TIME;
 	m_retry = NETWORK_RETRY_TIME;
+	m_work = DAYS_OF_WORK;
 	m_end_dates = DAYS_BETWEEN_CHECKINS;
 	m_backup = TWO_BACKUP_FILES;
 	m_noise = !SILENT_VICTORY;
@@ -721,10 +863,12 @@ void options_preferences (void)
 	askNum ("Iterations between results file outputs",
 		&m_r_iter, 10000, 999999999);
 	askNum ("Minutes between disk writes", &m_disk_write_time, 10, 999999);
-	if (USE_PRIMENET)
+	if (USE_PRIMENET && DIAL_UP)
 		askNum ("Minutes between modem retries", &m_modem, 1, 300);
 	if (USE_PRIMENET)
 		askNum ("Minutes between network retries", &m_retry, 1, 300);
+	if (USE_PRIMENET)
+		askNum ("Days of work to queue up", &m_work, 1, 90);
 	if (USE_PRIMENET)
 		askNum ("Days between sending end dates", &m_end_dates, 1, 60);
 	askYN ("Create Two Backup Files", &m_backup);
@@ -736,6 +880,7 @@ void options_preferences (void)
 		DISK_WRITE_TIME = m_disk_write_time;
 		MODEM_RETRY_TIME = m_modem;
 		NETWORK_RETRY_TIME = m_retry;
+		DAYS_OF_WORK = m_work;
 		DAYS_BETWEEN_CHECKINS = m_end_dates;
 		TWO_BACKUP_FILES = m_backup;
 		SILENT_VICTORY = !m_noise;
@@ -744,9 +889,79 @@ void options_preferences (void)
 		IniWriteInt (INI_FILE, "DiskWriteTime", DISK_WRITE_TIME);
 		IniWriteInt (INI_FILE, "NetworkRetryTime", MODEM_RETRY_TIME);
 		IniWriteInt (INI_FILE, "NetworkRetryTime2", NETWORK_RETRY_TIME);
+		IniWriteInt (INI_FILE, "DaysOfWork", DAYS_OF_WORK);
 		IniWriteInt (INI_FILE, "DaysBetweenCheckins", DAYS_BETWEEN_CHECKINS);
 		IniWriteInt (INI_FILE, "TwoBackupFiles", TWO_BACKUP_FILES);
 		IniWriteInt (INI_FILE, "SilentVictory", SILENT_VICTORY);
+		spoolMessage (PRIMENET_PROGRAM_OPTIONS, NULL);
+	}
+}
+
+/* Options/Torture test dialog */
+
+void torture (void)
+{
+	unsigned long m_thread, m_type, m_minfft, m_maxfft;
+	unsigned long m_memory, m_timefft;
+	unsigned long mem, blendmemory;
+
+	m_thread = NUM_CPUS * CPU_HYPERTHREADS;
+	mem = physical_memory ();
+	if (mem >= 2000) {
+		blendmemory = GetSuggestedMemory (1750);
+	} else if (mem >= 500) {
+		blendmemory = GetSuggestedMemory (mem - 256);
+	} else if (mem >= 200) {
+		blendmemory = GetSuggestedMemory (mem / 2);
+	} else {
+		blendmemory = 8;
+	}
+	m_timefft = 15;
+
+	if (NUM_CPUS * CPU_HYPERTHREADS > 1)
+		askNum ("Number of torture test threads to run", &m_thread,
+			1, NUM_CPUS * CPU_HYPERTHREADS);
+
+	outputLongLine ("Choose a type of torture test to run.\n  1 = Small FFTs (maximum FPU stress, data fits in L2 cache, RAM not tested much).\n  2 = In-place large FFTs (maximum heat and power consumption, some RAM tested).\n  3 = Blend (tests some of everything, lots of RAM tested).\n  11,12,13 = Allows you to fine tune the above three selections.\nBlend is the default.  NOTE: if you fail the blend test, but can pass the small FFT test then your problem is likely bad memory or a bad memory controller.\n");
+	m_type = 3;
+	askNum ("Type of torture test to run", &m_type, 1, 13);
+
+	if (m_type == 1 || m_type == 11) {
+		m_minfft = 8;
+		m_maxfft = 64;
+		m_memory = 0;
+	}
+	else if (m_type == 2 || m_type == 12) {
+		m_minfft = 128;
+		m_maxfft = 1024;
+		m_memory = 0;
+	} else {
+		m_minfft = 8;
+		m_maxfft = 4096;
+		m_memory = blendmemory;
+	}
+
+	if (m_type >= 11) {
+		askNum ("Min FFT size (in K)", &m_minfft, 8,
+			(CPU_FLAGS & CPU_SSE2 ? MAX_FFTLEN_SSE2 : MAX_FFTLEN) / 1024);
+		askNum ("Max FFT size (in K)", &m_maxfft, 8,
+			(CPU_FLAGS & CPU_SSE2 ? MAX_FFTLEN_SSE2 : MAX_FFTLEN) / 1024);
+		if (blendmemory > 8)
+			askNum ("Memory to use (in MB, 0 = in-place FFTs)",
+				&m_memory, 0, blendmemory);
+		askNum ("Time to run each FFT size (in minutes)", &m_timefft,
+			1, 60);
+	}
+
+	if (askOkCancel ()) {
+		IniWriteInt (INI_FILE, "MinTortureFFT", m_minfft);
+		IniWriteInt (INI_FILE, "MaxTortureFFT", m_maxfft);
+		mem = m_memory;
+		if (mem > blendmemory) mem = blendmemory;
+		mem = mem / m_thread;
+		IniWriteInt (INI_FILE, "TortureMem", mem);
+		IniWriteInt (INI_FILE, "TortureTime", m_timefft);
+		LaunchTortureTest (m_thread, TRUE);
 	}
 }
 
@@ -754,8 +969,13 @@ void options_preferences (void)
 
 void help_about (void)
 {
-	printf ("Mersenne Prime Finder - Version %s.%d\n", VERSION, PORT);
-	printf ("Copyright 1996-2005 Just For Fun Software, Inc.\n");
+	char	app_string[120];
+
+	generate_application_string (app_string);
+	printf ("GIMPS: Mersenne Prime Search\n");
+	printf ("Web site: http://mersenne.org\n");
+	printf ("%s\n", app_string);
+	printf ("Copyright 1996-2007 Just For Fun Software, Inc.\n");
 	printf ("Author: George Woltman\n");
 	printf ("Email:  woltman@alum.mit.edu\n");
 	askOK ();
@@ -765,18 +985,11 @@ void help_about (void)
 
 void help_about_server (void)
 {
-	struct primenetPingServerInfo pkt;
+	char	*buildId;
+	char	*serverName;
+	char	*adminEmailAddr;
 
-	memset (&pkt, 0, sizeof (pkt));
-	pkt.u.serverInfo.versionNumber = PRIMENET_VERSION;
-	if (sendMessage (PRIMENET_PING_SERVER_INFO, &pkt)) {
-		printf (PING_ERROR);
-	} else {
-		printf ("Version: %s\n", pkt.u.serverInfo.buildID);
-		printf ("Server Name: %s\n", pkt.u.serverInfo.primenetServerName);
-		printf ("Email Addr: %s\n", pkt.u.serverInfo.adminEmailAddr);
-	}
-	askOK ();
+	pingServer ();
 }
 
 /* Welcome Information dialog */
@@ -785,30 +998,39 @@ void test_welcome (void)
 {
 	int	m_join = 1;
 
+/* Set global flag indicating startup is in progress.  This will delay */
+/* starting any communication with the server until the user has confirmed */
+/* he wants to use primenet and he has selected his work preferences. */
+	
+	STARTUP_IN_PROGRESS = 1;
+
 	outputLongLine ("\nWelcome to GIMPS, the hunt for huge prime numbers.  You will be asked a few simple questions and then the program will contact the primenet server to get some work for your computer.  Good luck!\n");
 	outputLongLine ("\nAttention OVERCLOCKERS!!  Mprime has gained a reputation as a useful stress testing tool for people that enjoy pushing their hardware to the limit.  You are more than welcome to use this software for that purpose.  Please select the stress testing choice below to avoid interfering with the PrimeNet server.  Use the Options/Torture Test menu choice for your stress tests.  Also, read the stress.txt file.\n");
 	outputLongLine ("\nIf you want to both join GIMPS and run stress tests, then Join GIMPS and answer the questions.  After the server gets some work for you, stop mprime, then run mprime -m and choose Options/Torture Test.\n\n");
-	askYN ("Join Gimps? (Y=Yes, N=Just stress testing", &m_join);
+	askYN ("Join Gimps? (Y=Yes, N=Just stress testing)", &m_join);
 	if (m_join) {
-		test_user ();
+		STRESS_TESTER = 0;
+		IniWriteInt (INI_FILE, "StressTester", 0);
+		USE_PRIMENET = 1;
+		IniWriteInt (INI_FILE, "UsePrimenet", 1);
+		test_primenet ();
+		if (USE_PRIMENET && STARTUP_IN_PROGRESS) options_cpu ();
+		if (USE_PRIMENET && STARTUP_IN_PROGRESS) test_worker_threads ();
+		if (USE_PRIMENET && STARTUP_IN_PROGRESS) {
+			STARTUP_IN_PROGRESS = 0;
+			set_comm_timers ();
+			linuxContinue (NULL, FALSE);
+		} else
+			STARTUP_IN_PROGRESS = 0;
 	} else {
-		unsigned int mem;
+		STRESS_TESTER = 1;
 		IniWriteInt (INI_FILE, "StressTester", 1);
+		USE_PRIMENET = 0;
 		IniWriteInt (INI_FILE, "UsePrimenet", USE_PRIMENET = 0);
-		mem = physical_memory ();
-		DAY_MEMORY = NIGHT_MEMORY = (mem < 200) ? 8 :
-					    (mem < 500) ? mem / 2 : mem - 256;
-		IniWriteInt (LOCALINI_FILE, "DayMemory", DAY_MEMORY);
-		IniWriteInt (LOCALINI_FILE, "NightMemory", NIGHT_MEMORY);
-		if (mem > 8) {
-			char	buf[160];
-			sprintf (buf, "\nThe torture test will use up to %dMB of memory.  You can change this using Options/CPU menu choice.\n\n", DAY_MEMORY);
-			outputLongLine (buf);
-			askOK ();
-		}
 		STARTUP_IN_PROGRESS = 0;
-		main_menu ();
+		torture ();
 	}
+	main_menu ();
 }
 
 /* Display the main menu */
@@ -821,29 +1043,29 @@ mloop:	if (THREAD_KILL) return;
 	printf ("\t     Main Menu\n");
 loop:	printf ("\n");
 	printf ("\t 1.  Test/Primenet\n");
-	printf ("\t 2.  Test/User Information\n");
-	printf ("\t 3.  Test/Vacation or Holiday\n");
-	printf ("\t 4.  Test/Status\n");
-	printf ("\t 5.  Test/Continue\n");
-	printf ("\t 6.  Test/Exit\n");
-	printf ("\t 7.  Advanced/Test\n");
-	printf ("\t 8.  Advanced/Time\n");
-	printf ("\t 9.  Advanced/P-1\n");
-	printf ("\t10.  Advanced/ECM\n");
-	printf ("\t11.  Advanced/Priority\n");
-	printf ("\t12.  Advanced/Affinity\n");
-	printf ("\t13.  Advanced/Manual Communication\n");
-	printf ("\t14.  Advanced/Unreserve Exponent\n");
-	printf ("\t15.  Advanced/Quit Gimps\n");
-	printf ("\t16.  Options/CPU\n");
-	printf ("\t17.  Options/Preferences\n");
-	printf ("\t18.  Options/Torture Test\n");
-	printf ("\t19.  Options/Benchmark\n");
-	printf ("\t20.  Help/About\n");
-	printf ("\t21.  Help/About PrimeNet Server\n");
+	printf ("\t 2.  Test/Worker threads\n");
+	printf ("\t 3.  Test/Status\n");
+	if (!WORKER_THREADS_ACTIVE || WORKER_THREADS_STOPPING)
+		printf ("\t 4.  Test/Continue\n");
+	else
+		printf ("\t 4.  Test/Stop\n");
+	printf ("\t 5.  Test/Exit\n");
+	printf ("\t 6.  Advanced/Test\n");
+	printf ("\t 7.  Advanced/Time\n");
+	printf ("\t 8.  Advanced/P-1\n");
+	printf ("\t 9.  Advanced/ECM\n");
+	printf ("\t10.  Advanced/Manual Communication\n");
+	printf ("\t11.  Advanced/Unreserve Exponent\n");
+	printf ("\t12.  Advanced/Quit Gimps\n");
+	printf ("\t13.  Options/CPU\n");
+	printf ("\t14.  Options/Preferences\n");
+	printf ("\t15.  Options/Torture Test\n");
+	printf ("\t16.  Options/Benchmark\n");
+	printf ("\t17.  Help/About\n");
+	printf ("\t18.  Help/About PrimeNet Server\n");
 	printf ("Your choice: ");
 	choice = get_number (0);
-	if (choice <= 0 || choice >= 22) {
+	if (choice <= 0 || choice >= 19) {
 		printf ("\t     Invalid choice\n");
 		goto loop;
 	}
@@ -862,123 +1084,109 @@ loop:	printf ("\n");
 /* Test/User Information dialog */
 
 	case 2:
-		test_user ();
-		break;
-
-/* Test/Vacation or Holiday dialog */
-
-	case 3:
-		test_vacation ();
+		test_worker_threads ();
 		break;
 
 /* Test/Status message */
 
-	case 4:
-		rangeStatus ();
+	case 3:
+		test_status ();
 		askOK ();
 		break;
 
-/* Test/Continue */
+/* Test/Continue or Test/Stop */
 
-	case 5:
-		linuxContinue ("Another mprime is running.\n");
-		askOK ();
+	case 4:
+		if (!WORKER_THREADS_ACTIVE || WORKER_THREADS_STOPPING) {
+			while (WORKER_THREADS_STOPPING) sleep (50);
+			linuxContinue ("Another mprime is running.\n", FALSE);
+		} else {
+			stop_workers_for_escape ();
+		}
 		break;
 
 /* Test/Exit */
 
-	case 6:
+	case 5:
 		return;
 
 /* Advanced/Test dialog */
 
-	case 7:
+	case 6:
 		advanced_test ();
 		break;
 
 /* Advanced/Time dialog */
 
-	case 8:
+	case 7:
 		advanced_time ();
 		break;
 
 /* Advanced/P-1 dialog */
 
-	case 9:
+	case 8:
 		advanced_pminus1 ();
 		break;
 
 /* Advanced/ECM dialog */
 
-	case 10:
+	case 9:
 		advanced_ecm ();
-		break;
-
-/* Advanced/Priority dialog */
-
-	case 11:
-		advanced_priority ();
-		break;
-
-/* Advanced/Affinity dialog */
-
-	case 12:
-		advanced_affinity ();
 		break;
 
 /* Advanced/Manual Communication dialog */
 
-	case 13:
+	case 10:
 		advanced_manualcomm ();
 		break;
 
 /* Advanced/Unreserve exponent dialog */
 
-	case 14:
+	case 11:
 		advanced_unreserve ();
 		break;
 
 /* Advanced/Quit Gimps dialog */
 
-	case 15:
+	case 12:
 		advanced_quit ();
 		break;
 
 /* Options/CPU dialog */
 
-	case 16:
+	case 13:
 		options_cpu ();
 		break;
 
 /* Options/Preferences dialog */
 
-	case 17:
+	case 14:
 		options_preferences ();
 		break;
 
 /* Options/Torture Test */
 
-	case 18:
-		selfTest (1);
+	case 15:
+		torture ();
 		askOK ();
 		break;
 
 /* Options/Benchmark Test */
 
-	case 19:
-		primeBench ();
+	case 16:
+		LaunchBench ();
 		askOK ();
 		break;
 
 /* Help/About */
 
-	case 20:
+	case 17:
 		help_about ();
 		break;
 
 /* Help/About PrimeNet Server */
 
-	case 21:
+	case 18:
 		help_about_server ();
 		break;
 	}

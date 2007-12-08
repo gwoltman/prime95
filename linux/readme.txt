@@ -18,11 +18,11 @@ mprime		The program to factor and run Lucas-Lehmer tests on
 whatsnew.txt	A list of new features in mprime.
 stress.txt	A discussion of issues relating to stress testing a computer.
 undoc.txt	A list of formerly undocumented and unsupported features.
-prime.ini	A file containing your preferences.  The menu choices
+prime.txt	A file containing your preferences.  The menu choices
 		and dialog boxes are used to change your preferences.
-local.ini	Like prime.ini, this file contains more preferences.
+local.txt	Like prime.txt, this file contains more preferences.
 		The reason there are two files is discussed later.
-worktodo.ini	A list of exponents the program will be factoring
+worktodo.txt	A list of exponents the program will be factoring
 		and/or Lucas-Lehmer testing.
 results.txt	Mprime writes its results to this file.
 prime.log	A text file listing all messages that have been sent
@@ -31,6 +31,8 @@ prime.spl	A binary file of messages that have not yet been sent to
 		the PrimeNet server.
 pNNNNNNN &	Intermediate files produced by mprime to resume
 qNNNNNNN	computation where it left off.
+eNNNNNNN	Intermediate files produced during ECM factoring.
+fNNNNNNN	Intermediate files produced during trial factoring.
 mNNNNNNN	Intermediate files produced during P-1 factoring.
 
 
@@ -129,7 +131,7 @@ MANUAL METHOD INSTRUCTIONS
     a userid for yourself and to get a set of exponents to work on.
     Alternatively, you can get some work from
     http://www.mersenne.org/range2.htm.  Copy these exponents to a
-    file called worktodo.ini
+    file called worktodo.txt
 2)  Run mprime.  You will be see 3 sets of questions:
 2a) The first set gathers information about you.  Enter your name and email
     address.
@@ -193,10 +195,10 @@ completes.
 
 You can configure this program to have different properties at different
 times of the day and/or to not run during certain times of the day.
-Unfortunately, you must manual edit the prime.ini file.  Let's say you
+Unfortunately, you must manual edit the prime.txt file.  Let's say you
 want to install the program on a friend's machine and he runs a screen
 saver at night.  He also runs a disk defragmenter at midnight on weekdays.
-This prime.ini file will run the program at a higher priority than his
+This prime.txt file will run the program at a higher priority than his
 screen saver at night and on weekends.  It also sleeps for an hour when
 his defragmenter starts running.  Finally, at night fewer save files are
 generated to allow his disk to stay powered down longer.
@@ -212,20 +214,17 @@ time portion refers to the hours of the day based on a 24-hour clock.
 You do not need to specify days of the week (e.g. Time=1-7/0:00-8:00
 is the same as Time=0:00-8:00).  Unpredictable results will occur if
 there are overlapping time intervals.  Also note that any options that
-appear in the Time= sections should not appear earlier in the prime.ini
+appear in the Time= sections should not appear earlier in the prime.txt
 file and you can no longer edit these options from theuser interface.
 
 
 SETTING UP A PROXY SERVER
 -------------------------
 
+Fill in the proxy information in the Test/Primenet menu choice..
+
 For the latest information on this and other networking issues visit
 the FAQ at http://mersenne.org/ips/faq.html
-
-Create a file called "primenet.ini" in the same directory as mprime.
-Add the line "ProxyHost=foo.com:1234" where foo.com is the proxy and
-1234 is the port (which defaults to 8080 if not specified). This line must
-be in the .ini file ONLY if connection via a proxy is actually required.
 
 
 SETTING AVAILABLE MEMORY
@@ -261,20 +260,17 @@ desirable memory amounts for some sample exponents.
 
 	Exponent	Minimum		Reasonable	Desirable
 	--------	-------		----------	---------
-	 6000000	 12MB		   23MB		  33MB
-	10000000	 19MB		   36MB		  53MB
+	20000000	 40MB		   80MB		 120MB
 	33000000	 65MB		  125MB		 185MB
+	50000000	 85MB		  170MB		 250MB
 
-For example, my machine is a dual-processor with 128MB of memory.
-Each CPU runs an LL test on an exponent near 10 million.  On the off
-chance that both CPUs wind up doing P-1 factoring at the same time,
-I don't want to set the available memory to more than half of the
-128MB.  I guess Windows NT can survive on 24MB of memory.  Thus, I set
-the available memory to (128 - 24) / 2 or 52MB.  This is my nighttime setting.
-During the day, I set the available memory to 24MB.  I can always stop
-prime95 if it is doing P-1 factoring and I detect memory thrashing.  More
+For example, my machine is a dual-processor with 512MB of memory.
+I guess Linux can survive on 100MB of memory.  Thus, I set the available
+memory to (512 - 100) or ~400MB.  This is my nighttime setting.
+During the day, I set the available memory to 80MB.  I can always stop
+mprime if it is doing P-1 factoring and I detect memory thrashing.  More
 casual users will probably want to set the daytime memory to 8MB so they
-don't have to worry about it.
+don't have to worry about mprime impacting system performance.
 
 If at all in doubt, leave the settings at 8MB.  The worst that will
 happen is you end up running a Lucas-Lehmer primality test when stage 2
@@ -327,8 +323,8 @@ RUNNING MPRIME ON SEVERAL COMPUTERS
 -----------------------------------
 
 The easiest way to do this is to first set up mprime on one computer.
-Next copy all the files to the second computer.  Delete the local.ini
-file and worktodo.ini files.  These files contain information that
+Next copy all the files to the second computer.  Delete the local.txt
+file and worktodo.txt files.  These files contain information that
 is specific to the first computer.  Start mprime on the second
 computer and optionally use Test/User Information to
 give the second computer a unique computer ID.  Repeat this process
@@ -357,27 +353,11 @@ once in the given time period, mprime will have an uninterrupted stream
 of work.  However, the program will not checkout more than 20 exponents
 no matter what this value is set at.
 
-The User Information menu choice lets you change your name and email
-address.  Your name will be used in credits and "top producers"
-web pages.  Your email address may be used to send you a
-newsletter once every few months.  Select the "Receive occasional
-newsletters..." option to enable these emails.  The userid you
-use will appear in the status pages on the PrimeNet server.  You can
-also set the ComputerID field if you have several computers and want
-to keep track of which computers produced which results.  You can create
-a team by choosing the "Create a team..." option.  The user name you
-entered becomes the team name and a message is sent to the server which
-prevents the team name from changing.  Thus, you can handout the userid
-and password for others to join your team and these team members are not
-able to accidentally or maliciously change the team name that appears
-on the statistics page.
-
-The Vacation/Holiday menu choice lets mprime update the expected completion
-dates on the PrimeNet server.  This will prevent one of your exponents
-from being reassigned while you're gone.  Also, if you are taking a
-long vacation, mprime will get extra exponents to test.  For example,
-if you are leaving immediately for a 6 week vacation, connect to the
-Internet and choose 42 days.
+The Worker Threads menu choice is used to choose the type of work
+you'd like to execute as well as adjust priority and affinity.
+You should not need to change the priority.  You might raise the priority
+if you just cannot live without a screen saver, or if you are running some
+ill-behaved program that is using CPU cycles for no good reason.
 
 The Status menu choice will tell you what exponents you are working on.
 It will also estimate how long that will take and your chances of finding
@@ -396,7 +376,7 @@ provided only for those who are curious to play with.
 
 The Test choice can be used to run a Lucas-Lehmer test on one Mersenne
 number.  Enter the Mersenne number's exponent - this must be a prime
-number between 5 and 79300000.
+number between 5 and 560000000.
 
 The Time choice can be used to see how long each iteration of a Lucas-Lehmer
 test will take on your computer and how long it will take to test a
@@ -407,35 +387,25 @@ and compute the results.  486 owners will need to time how long the operation
 takes by hand, divide that time by 100 and multiply by 876543 to compute how
 long a full Lucas-Lehmer test will take.
 
-The ECM choice lets you factor small Mersenne exponents using the
-Elliptic Curve Method of factoring.  Select a few exponents and bounds
-to factor from the http://www.mersenne.org/ecm.htm web page.
+The ECM choice lets you factor numbers of the form k*b^n+c using the
+Elliptic Curve Method of factoring.  Select a few Mersenne exponents and
+bounds to factor from the http://www.mersenne.org/ecm.htm web pages.
 Note:  You do not reserve exponents to work on, several people can
-do ECM factoring on the same exponent.  The program uses a random
+do ECM factoring on the same number.  The program uses a random
 number generator to select elliptic curves to test.  You must email
 results to me at woltman@alum.mit.edu - primenet does not support ECM
-factoring.  Thus, ECM factoring of F20 which uses a 64K FFT will use
+factoring.  WARNING:  ECM does not adhere to the memory limits specified
+in the Options / CPU dialog box.  ECM requires a minimum of 192 times
+the FFT size.  Thus, ECM factoring of F20 which uses a 64K FFT will use
 a minimum of 192 * 64K or 12MB of memory.  You can also edit the
-worktodo.ini file directly.  For example:
-	ECM=751,3000000,0,100,0,0,0,0
-The first value is the exponent.  The second value is bound #1.  The
-third value is bound #2 - leave it as zero.  The fourth value is the
-number of curves to test.  The fifth value is no longer used. 
-The sixth value is the specific curve to test - it is only used in
-debugging.  The seventh value is 0 for 2^N-1 factoring, 1 for 2^N+1
-factoring.  The eighth value is no longer used.
+worktodo.txt file directly.  For example:
+	ECM2=k,b,n,c,B1,B2,curves_to_run
 
-The P-1 choice lets you factor Mersenne numbers using the P-1
-method of factoring.  The web pages at http://www.mersenne.org/ecm.htm
-will have more information about coordinating the P-1 factoring effort.
-When P-1 completes it produces a save file that others can use to do further
-P-1 factoring.  You must email results to me at woltman@alum.mit.edu -
-primenet does not support P-1 factoring.  You can also edit the worktodo.ini
-file directly.  For example:
-	Pminus1=751,3000000,0,0,0
-The first value is the exponent.  The second value is bound #1.  The
-third value is bound #2 or zero for default.  The fourth value is 0 for
-2^N-1 factoring, 1 for 2^N+1 factoring.  The fifth value is no longer used.
+The P-1 choice lets you factor numbers of the form k*b^n+c using
+the P-1 method of factoring.  There is presently no web site which tells
+you how much P-1 factoring has already been done on these numbers.  You can
+also edit the worktodo.txt file directly.  For example:
+	Pminus1=k,b,n,c,B1,B2
 
 The Priority menu is used to adjust the priority mprime runs at.
 You should not need to change this.  You might raise the priority
@@ -458,15 +428,9 @@ your results.txt file and a note saying you are quitting.
 OPTIONS MENU
 ------------
 
-The CPU menu choice lets you tell the program what kind of CPU you
-have and how much memory the program can use (see the earlier section
-on "Setting available memory".  The program will normally figure out
-the CPU type for you.  This information is used to give accurate time
-estimates in the Test/Status menu choice.  It is also used, to choose
-between integer based factoring (Cyrix and 486) and floating point based
-factoring (Pentium and Pentium Pro).  There are also some optimizations
-specific to the Pentium Pro and later CPUs in the Lucas-Lehmer primality test.
-If you have an AMD K5 or Cyrix M2 chip, choose Cyrix 6x86.
+The CPU menu choice tells you what CPU the program has detected and
+lets you set how much memory the program can use (see the earlier section
+on "Setting available memory".
 
 The Preferences menu choice lets you control how often a line is
 written to the main window and how often a line is written to

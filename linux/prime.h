@@ -5,13 +5,20 @@
 /* Port number used in version numbers and result reporting. */
 
 #ifdef __linux__
+#ifdef X86_64
+#define PORT	8
+#else
 #define PORT	2
+#endif
 #endif
 #ifdef __FreeBSD__
 #define PORT	6
 #endif
 #if defined (__EMX__) || defined (__IBMC__) || defined (__OS2__)
 #define PORT	7
+#endif
+#ifdef __APPLE__
+#define PORT	9
 #endif
 
 /* This controls whether we want to pause computation if the load average */
@@ -20,13 +27,6 @@
 #if defined (__linux__) || defined (__FreeBSD__)
 #define MPRIME_LOADAVG
 #endif
-
-/* Handle the difference between the naming conventions in */
-/* C compilers.  We need to do this for global variables that are */
-/* referenced by the assembly routines.  Most non-Windows systems */
-/* should #define ADD_UNDERSCORES before including files. */
-
-#define ADD_UNDERSCORES
 
 /* Handle differences between Windows and Linux runtime libraries */
 
@@ -41,9 +41,9 @@
 #define _chdir		chdir
 #define closesocket	close
 #define IsCharAlphaNumeric(c) isalnum(c)
+#define _stricmp	strcasecmp
 
 #ifndef __WATCOMC__
-#define stricmp(x,y)	strcasecmp(x,y)
 #define _timeb		timeb
 #define _ftime		ftime
 #define _O_APPEND	O_APPEND
@@ -72,7 +72,6 @@ extern int NO_GUI;
 #include "common.h"
 #include "cpuid.h"
 #include "gwnum.h"
-#include "giants.h"
 #include "commona.h"
 #include "commonc.h"
 #include "commonb.h"
@@ -80,22 +79,16 @@ extern int NO_GUI;
 
 /* Global variables */
 
-extern int volatile THREAD_STOP;	/* TRUE if thread should stop */
 extern int volatile THREAD_KILL;	/* TRUE if program should terminate */
 extern int MENUING;			/* TRUE when main menu active */
 
 /* Internal routines */
 
 void main_menu (void);
-void linuxContinue (char *);
+void linuxContinue (char *, int);
 void Sleep (long);
 void test_user(void);
 void test_welcome(void);
-
-/* Assembly routines */
-
-void setupf (void);
-int factor64 (void);
 
 /* Routine definitions */
 

@@ -5,8 +5,6 @@ cp license.txt ../release
 cp readme.txt ../release
 cp whatsnew.txt ../release
 cp stress.txt ../release
-strip mprime
-strip sprime
 cp mprime ../release
 cd ../release
 tar -czvf ../mprime.tgz *
@@ -15,12 +13,3 @@ cp ../linux/sprime ./mprime
 tar -czvf ../sprime.tgz *
 rm *
 cd ..
-rm -f objs
-rm -f gwnum/cpuid.o
-rm -f gwnum/giants.o
-rm -f gwnum/gwdbldbl.o
-rm -f gwnum/gwnum.o
-rm -f gwnum/gwutil.o
-rm -f linux/prime.o
-rm -f linux/menu.o
-tar cvf objs gwnum/*.o linux/*.o

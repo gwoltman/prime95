@@ -19,11 +19,11 @@ prime95.chm	The help file in HTML help format.
 whatsnew.txt	A list of new features in prime95.exe.
 stress.txt	A discussion of issues relating to stress testing a computer.
 undoc.txt	A list of formerly undocumented and unsupported features.
-prime.ini	A file containing your preferences.  The menu choices
+prime.txt	A file containing your preferences.  The menu choices
 		and dialog boxes are used to change your preferences.
-local.ini	Like prime.ini, this file contains more preferences.
+local.txt	Like prime.txt, this file contains more preferences.
 		The reason there are two files is discussed later.
-worktodo.ini	A list of exponents the program will be factoring
+worktodo.txt	A list of exponents the program will be factoring
 		and/or Lucas-Lehmer testing.
 results.txt	Prime95.exe writes its results to this file.
 prime.log	A text file listing all messages that have been sent
@@ -32,6 +32,8 @@ prime.spl	A binary file of messages that have not yet been sent to
 		the PrimeNet server.
 pNNNNNNN &	Intermediate files produced by prime95.exe to resume
 qNNNNNNN	computation where it left off.
+eNNNNNNN	Intermediate files produced during ECM factoring.
+fNNNNNNN	Intermediate files produced during trial factoring.
 mNNNNNNN	Intermediate files produced during P-1 factoring.
 
 
@@ -109,7 +111,7 @@ MANUAL METHOD INSTRUCTIONS
     a userid for yourself and to get a set of exponents to work on.
     Alternatively, you can get some work from
     http://www.mersenne.org/range2.htm.  Copy these exponents to a
-    file called worktodo.ini
+    file called worktodo.txt
 2)  Run prime95.exe.  You will see 4 dialog boxes:
 2a) In the welcome dialog box, choose "Join GIMPS!".
 2b) In the second dialog box, enter your name and email address.  Click OK.
@@ -178,15 +180,15 @@ running a Lucas-Lehmer test.
 
 You can configure this program to have different properties at different
 times of the day and/or to not run during certain times of the day.
-Unfortunately, you must manual edit the prime.ini file.  Let's say you
+Unfortunately, you must manual edit the prime.txt file.  Let's say you
 want to install the program on a friend's machine and he runs a screen
 saver at night.  He also runs a disk defragmenter at midnight on weekdays.
-This prime.ini file will run the program at a higher priority than his
+This prime.txt file will run the program at a higher priority than his
 screen saver at night and on weekends.  It also sleeps for an hour when
 his defragmenter starts running.  Finally, at night fewer save files are
 generated to allow his disk to stay powered down longer.
 	UserID=foo
-	Other prime.ini entries
+	Other prime.txt entries
 	Time=1-5/8:30-17:30
 	Priority=1
 	DiskWriteTime=30
@@ -198,7 +200,7 @@ time portion refers to the hours of the day based on a 24-hour clock.
 You do not need to specify days of the week (e.g. Time=1-7/0:00-8:00
 is the same as Time=0:00-8:00).  Unpredictable results will occur if
 there are overlapping time intervals.  Also note that any options that
-appear in the Time= sections should not appear earlier in the prime.ini
+appear in the Time= sections should not appear earlier in the prime.txt
 file and you can no longer edit these options from the user interface.
 
 
@@ -208,22 +210,8 @@ SETTING UP A PROXY SERVER
 For the latest information on this and other networking issues visit
 the FAQ at http://mersenne.org/ips/faq.html
 
-Create a file in the same local folder as Prime95.exe, called "primenet.ini".
-Add these text lines, substituting the appropriate proxy server URL and port:
-
-[PrimeNet Proxy]
-ProxyHost=http://proxy.megacorp.com:8080
-
-If the proxy is secured by a userid/password, add the following two text
-lines, substituting the appropriate values:
-
-ProxyUser=whatever_the_userid_is
-ProxyPass=whatever_the_password_is
-
-After the first time PrimeNet is contacted through a secure proxy, the proxy 
-password is encoded and a new parameter 'ProxyMask=1' set.  To change the 
-password, simply change the ProxyPass= value, and either delete the ProxyMask 
-text line or set ProxyMask=0.
+Choose the "Connection..." button in the Test/Primenet dialog box.  Fill in
+the proxy information.
 
 
 SETTING AVAILABLE MEMORY
@@ -259,20 +247,17 @@ desirable memory amounts for some sample exponents.
 
 	Exponent	Minimum		Reasonable	Desirable
 	--------	-------		----------	---------
-	 6000000	 12MB		   23MB		  33MB
-	10000000	 19MB		   36MB		  53MB
+	20000000	 40MB		   80MB		 120MB
 	33000000	 65MB		  125MB		 185MB
+	50000000	 85MB		  170MB		 250MB
 
-For example, my machine is a dual-processor with 128MB of memory.
-Each CPU runs an LL test on an exponent near 10 million.  On the off
-chance that both CPUs wind up doing P-1 factoring at the same time,
-I don't want to set the available memory to more than half of the
-128MB.  I guess Windows NT can survive on 24MB of memory.  Thus, I set
-the available memory to (128 - 24) / 2 or 52MB.  This is my nighttime setting.
-During the day, I set the available memory to 24MB.  I can always stop
+For example, my machine is a dual-processor with 512MB of memory.
+I guess Windows XP can survive on 100MB of memory.  Thus, I set
+the available memory to (512 - 100) or ~400MB.  This is my nighttime setting.
+During the day, I set the available memory to 80MB.  I can always stop
 prime95 if it is doing P-1 factoring and I detect memory thrashing.  More
 casual users will probably want to set the daytime memory to 8MB so they
-don't have to worry about it.
+don't have to worry about prime95 impacting system performance.
 
 If at all in doubt, leave the settings at 8MB.  The worst that will
 happen is you end up running a Lucas-Lehmer primality test when stage 2
@@ -325,8 +310,8 @@ RUNNING PRIME95 ON SEVERAL COMPUTERS
 ------------------------------------
 
 The easiest way to do this is to first set up prime95 on one computer.
-Next copy all the files to the second computer.  Delete the local.ini
-file and worktodo.ini files.  These files contain information that
+Next copy all the files to the second computer.  Delete the local.txt
+file and worktodo.txt files.  These files contain information that
 is specific to the first computer.  Start prime95 on the second
 computer and optionally use Test/User Information to
 give the second computer a unique computer ID.  Repeat this process
@@ -355,27 +340,11 @@ once in the given time period, prime95 will have an uninterrupted stream
 of work.  However, the program will not checkout more than 20 exponents
 no matter what this value is set at.
 
-The User Information menu choice lets you change your name and email
-address.  Your name will be used in credits and "top producers"
-web pages.  Your email address may be used to send you a
-newsletter once every few months.  Select the "Receive occasional
-newsletters..." checkbox to enable these emails.  The userid you
-use will appear in the status pages on the PrimeNet server.  You can
-also set the ComputerID field if you have several computers and want
-to keep track of which computers produced which results.  You can create
-a team by choosing the "Create a team..." checkbox.  The user name you
-entered becomes the team name and a message is sent to the server which
-prevents the team name from changing.  Thus, you can handout the userid
-and password for others to join your team and these team members are not
-able to accidentally or maliciously change the team name that appears
-on the statistics page.
-
-The Vacation/Holiday menu choice lets prime95 update the expected completion
-dates on the PrimeNet server.  This will prevent one of your exponents
-from being reassigned while you're gone.  Also, if you are taking a
-long vacation, prime95 will get extra exponents to test.  For example,
-if you are leaving for a 6 week vacation, connect to the Internet and
-choose 42 days.
+The Worker Threads menu choice is used to choose the type of work
+you'd like to execute as well as adjust priority and affinity.
+You should not need to change the priority.  You might raise the priority
+if you just cannot live without a screen saver, or if you are running some
+ill-behaved program that is using CPU cycles for no good reason.
 
 The Status menu choice will tell you what exponents you are working on.
 It will also estimate how long that will take and your chances of finding
@@ -392,17 +361,13 @@ ADVANCED MENU
 -------------
 
 You should not need to use the Advanced menu.  This menu choice is
-provided only for those who are curious.  To avoid confusion for
-novice users, most of the choices in the Advanced menu have been grayed.
-Please read this section if you want to know what the Advanced menu choices
-do.  To turn on the Advanced menu, use the Advanced Password dialog box
-and enter a value of 9876.  Also note that many of the menu choices are
-grayed while testing is in progress.  Choose Test/Stop to activate
+provided only for those who are curious.  Note that many of the menu choices
+are grayed while testing is in progress.  Choose Test/Stop to activate
 these menu choices.
 
 The Test choice can be used to run a Lucas-Lehmer test on one Mersenne
 number.  Enter the Mersenne number's exponent - this must be a prime
-number between 5 and 79300000.
+number between 5 and 560000000.
 
 The Time choice can be used to see how long each iteration of a Lucas-Lehmer
 test will take on your computer and how long it will take to test a
@@ -410,45 +375,30 @@ given exponent.  For example, if you want to know how long a Lucas-Lehmer
 test will take to test the exponent 876543, choose Advanced/Time and
 enter 876543 for 100 iterations.
 
-The ECM choice lets you factor Mersenne numbers using the
-Elliptic Curve Method of factoring.  Select a few exponents and bounds
-to factor from the http://www.mersenne.org/ecm.htm web pages.
+The ECM choice lets you factor numbers of the form k*b^n+c using the
+Elliptic Curve Method of factoring.  Select a few Mersenne exponents and
+bounds to factor from the http://www.mersenne.org/ecm.htm web pages.
 Note:  You do not reserve exponents to work on, several people can
-do ECM factoring on the same exponent.  The program uses a random
+do ECM factoring on the same number.  The program uses a random
 number generator to select elliptic curves to test.  You must email
 results to me at woltman@alum.mit.edu - primenet does not support ECM
 factoring.  WARNING:  ECM does not adhere to the memory limits specified
 in the Options / CPU dialog box.  ECM requires a minimum of 192 times
 the FFT size.  Thus, ECM factoring of F20 which uses a 64K FFT will use
 a minimum of 192 * 64K or 12MB of memory.  You can also edit the
-worktodo.ini file directly.  For example:
-	ECM=751,3000000,0,100,0,0,0,0
-The first value is the exponent.  The second value is bound #1.  The
-third value is bound #2 - leave it as zero.  The fourth value is the
-number of curves to test.  The fifth value is no longer used. 
-The sixth value is the specific curve to test - it is only used in
-debugging.  The seventh value is 0 for 2^N-1 factoring, 1 for 2^N+1
-factoring.  The eighth value is no longer used.
+worktodo.txt file directly.  For example:
+	ECM2=k,b,n,c,B1,B2,curves_to_run
 
-The P-1 choice lets you factor Mersenne numbers using the P-1 method of
-factoring.  There is presently no web site which tells you how much
-P-1 factoring has already been done on exponents.  You can also edit
-the worktodo.ini file directly.  For example:
-	Pminus1=751001,1000000,0,0,0
-The first value is the exponent.  The second value is bound #1.  The
-third value is bound #2.  The fourth value is 0 for 2^N-1 factoring,
-1 for 2^N+1 factoring.  The fifth value is no longer used.
+The P-1 choice lets you factor numbers of the form k*b^n+c using
+the P-1 method of factoring.  There is presently no web site which tells
+you how much P-1 factoring has already been done on these numbers.  You can
+also edit the worktodo.txt file directly.  For example:
+	Pminus1=k,b,n,c,B1,B2
 
 Round off checking.  This option will slow the program down by about 15%.
 This option displays the smallest and largest "convolution error".  The
 convolution error must be less than 0.49 or the results will be incorrect.
 There really is no good reason to turn this option on.
-
-The Priority menu is used to adjust the priority prime95 runs at.
-You should not need to change this.  You might raise the priority
-if you (or your coworker) just cannot live without a screen
-saver (bad idea), or if you are running some ill-behaved program
-that is using CPU cycles for no good reason.
 
 The Manual Communication menu choice should only be used if the
 automatic detection of an Internet connection is not working for you.
@@ -472,15 +422,9 @@ your results.txt file and a note saying you are quitting.
 OPTIONS MENU
 ------------
 
-The CPU menu choice lets you tell the program what kind of CPU you
-have and how much memory the program can use (see the earlier section
-on "Setting available memory".  The program will normally figure out
-the CPU type for you.  This information is used to give accurate time
-estimates in the Test/Status menu choice.  It is also used, to choose
-between integer based factoring (Cyrix and 486) and floating point based
-factoring (Pentium and Pentium Pro).  There are also some optimizations
-specific to the Pentium Pro and later CPUs in the Lucas-Lehmer primality test.
-If you have an AMD K5 or Cyrix M2 chip, choose Cyrix 6x86.
+The CPU menu choice tells you what CPU the program has detected and
+lets you set how much memory the program can use (see the earlier section
+on "Setting available memory".
 
 The Preferences menu choice lets you control how often a line is
 written to the main window and how often a line is written to
@@ -515,7 +459,7 @@ with the password.  Using this menu choice means there will be no
 prime95 icon on the taskbar once you minimize the program - making it very
 hard to reactivate!  You can reactivate the program by trying to execute
 prime95 a second time.  Alternatively, you can turn this feature off by
-editing prime.ini and change the line "HideIcon=1" to "HideIcon=0",
+editing prime.txt and change the line "HideIcon=1" to "HideIcon=0",
 then reboot.
 
 Checking the Start at Bootup menu choice will run prime95 as a service
@@ -528,11 +472,12 @@ you should be aware of:
 The HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunServices
 registry entry is created.  You will not be able to tell any difference between
 prime95 running as a service and prime95 running as an ordinary process.
-	In Windows NT/2000/XP (without administrator privileges):
+	In Windows Vista and Windows NT/2000/XP without administrator
+	privileges:
 In this case the menu text is changed to "Start at Logon".  The
 HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run registry entry
 is created.  Prime95 will run only when you are logged in.
-	In Windows NT/2000/XP (with administrator privileges):
+	In Windows NT/2000/XP with administrator privileges:
 There are a few minor quirks when running as a service.  You shouldn't run
 into these quirks in normal operation.  You can only change this option once
 and it will take effect when the service is started or stopped.  You will

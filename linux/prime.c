@@ -1,19 +1,10 @@
-/* Copyright 1995-2005 Just For Fun Software, Inc. */
+/* Copyright 1995-2007 Just For Fun Software, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
-/* Include files */
-
+/* Include files needed by all ports */
 #include "prime.h"
-#ifdef __FreeBSD__
-/* FreeBSD needs to process sys/types.h before it can understand either
-/* sys/time.h or sys/resource.h */
-#include <sys/types.h>
-#endif
 #include <ctype.h>
-#ifndef __IBMC__
-#include <dirent.h>
-#endif
 #include <fcntl.h>
 #include <math.h>
 #include <memory.h>
@@ -22,16 +13,44 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#ifndef __IBMC__
+
+/* Required Linux files */
+#ifdef __linux__
+#include <dirent.h>
 #include <unistd.h>
-#endif
-#if defined (__linux__) || defined (__FreeBSD__) || defined(__WATCOMC__)
+#include <linux/unistd.h>
+#include <asm/unistd.h>
+#include <sys/resource.h>
+#include <sys/sysinfo.h>
 #include <sys/time.h>
 #include <sys/timeb.h>
 #endif
-#ifndef __IBMC__
+
+/* Required Mac OS X files */
+#ifdef __APPLE__
+#include <dirent.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <sys/types.h>
 #include <sys/resource.h>
+#include <sys/sysctl.h>
+#include <sys/time.h>
+#include <sys/timeb.h>
+#define PTHREAD_MIN_PRIORITY 0		/* Missing #defines from pthreads.h */
+#define PTHREAD_MAX_PRIORITY 31		/* Missing #defines from pthreads.h */
 #endif
+
+/* Required FreeBSD files */
+#ifdef __FreeBSD__
+#include <dirent.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <sys/resource.h>
+#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/timeb.h>
+#endif
+
 /* Required OS/2 header files */
 #ifdef __IBMC__
 #define INCL_DOS
@@ -43,6 +62,15 @@
 #include <sys/timeb.h>
 typedef int pid_t;
 #include "dosqss.h"
+#endif
+
+/* Required Watcom C (is this defunct DOS port???) header files */
+#ifdef __WATCOMC__
+#include <dirent.h>
+#include <unistd.h>
+#include <sys/resource.h>
+#include <sys/time.h>
+#include <sys/timeb.h>
 #endif
 
 /* Globals */
@@ -59,7 +87,6 @@ double HI_LOAD = 0.0;
 double LO_LOAD = 0.0;
 #endif
 
-int volatile THREAD_STOP = 0;
 int volatile THREAD_KILL = 0;
 int NO_GUI = 1;
 int VERBOSE = 0;
@@ -73,12 +100,13 @@ int MENUING = 0;
 #include "commonc.c"
 #include "ecm.c"
 #include "primenet.c"
+#include "gwtest.c"
 
 /* Signal handlers */
 
 void sigterm_handler(int signo)
 {
-	THREAD_STOP = TRUE;
+	stop_workers_for_escape ();
 	if (signo != SIGINT) THREAD_KILL = TRUE;
 	(void)signal(signo, sigterm_handler);
 }
@@ -102,7 +130,7 @@ double get_load_average (void)
 	if (count < 1) return (-1.0);
 	return (load_avg);
 #endif
-#ifdef __FreeBSD__
+#if defined (__FreeBSD__) || defined (__APPLE__)
 	double load[3];
 
 	if (getloadavg (load, sizeof(load)/sizeof(load[0])) < 0) return (-1.0);
@@ -155,13 +183,13 @@ void init_load_check (void)
 }
 
 /* test_sleep: tests if SLEEP_STOP is set and sleeps until load is normal
-   again or THREAD_STOP is set
+   again or WORKER_THREADS_STOPPING is set
 */
 void test_sleep (void) 
 {
 	sigset_t newmask;
 
-	while (SLEEP_STOP && !THREAD_STOP) {
+	while (SLEEP_STOP && !WORKER_THREADS_STOPPING) {
 		sigemptyset (&newmask);
 		sigsuspend (&newmask);
 	}
@@ -176,7 +204,6 @@ int main (
 {
 	char	buf[256];
 	int	named_ini_files = -1;
-	int	background = 0;
 	int	contact_server = 0;
 	int	torture_test = 0;
 	int	i;
@@ -191,7 +218,9 @@ int main (
 
 	setvbuf (stdout, NULL, _IONBF, 0);
 
-/* Change to the executable's directory*/
+/* Change to the executable's directory */
+/* NOTE:  This only change's the working directory if the user typed */
+/* in a full path to the executable (as opposed to finding it on the PATH) */
 
 	strcpy (buf, argv[0]);
 	p = strrchr (buf, '/');
@@ -226,21 +255,6 @@ int main (
 				named_ini_files = named_ini_files * 10 + (*p - '0');
 				p++;
 			}
-			break;
-
-/* -B - put in the background.  Accepts an optional CPU count. */
-
-		case 'B':
-		case 'b':
-			while (isspace (*p)) p++;
-			if (isdigit (*p)) {
-				background = 0;
-				while (isdigit (*p)) {
-					background = background * 10 + (*p - '0');
-					p++;
-				}
-			} else
-				background = 1;
 			break;
 
 /* -C - contact the server now, then exit */
@@ -313,47 +327,9 @@ int main (
 		}
 	}
 
-/* Ignore background request on OS/2 */
+/* Determine the names of the INI files, read them, do other initialization. */
 
-#ifndef __IBMC__
-
-/* Run in background if requested.  Code courtesy of Francois Gouget. */
-
-	if (background) {
-		int	i;
-
-/* To enter daemon mode, close all the filedescs and detach from the tty */
-
-		for (i = 0; i < background; i++) {
-			int	fd;
-			fd = fork ();
-			if (fd == -1) {
-				perror ("Could not fork to the background");
-				exit (1);
-			}
-			if (fd != 0) {
-				if (i == background - 1) exit (0);
-				else continue;
-			}
-			for (fd = 0; fd < OPEN_MAX; fd++) {
-				close (fd);
-			}
-			open ("/dev/null", O_APPEND);
-			dup2 (0,1);
-			dup2 (0,2);
-			setsid ();
-
-			if (i) named_ini_files = i;
-			break;
-		}
-	}
-#endif
-
-/* Determine the names of the INI files */
-/* Read the INI files */
-
-	nameIniFiles (named_ini_files);
-	readIniFiles ();
+	nameAndReadIniFiles (named_ini_files);
 
 /* Read load averaging settings from INI files */
 
@@ -371,43 +347,34 @@ int main (
 		init_load_check ();
 #endif
 
-/* If a broadcast message from the server has been received but */
-/* never viewed by the user, then try to display it now. */
-
-	BroadcastMessage (NULL);
-
-/* If this is a stress tester, then turn on menuing.  A stress tester */
-/* ceases to be a stress tester if he ever turns on primenet or has work */
-/* in his worktodo.ini file */
-
-	if (IniGetInt (INI_FILE, "StressTester", 0)) {
-		if (USE_PRIMENET || IniGetNumLines (WORKTODO_FILE)) {
-			IniWriteInt (INI_FILE, "StressTester", 0);
-		} else {
-			MENUING = 1;
-			VERBOSE = TRUE;
-			NO_GUI = FALSE;
-		}
-	}
-
 /* If running the torture test, do so now. */
 
 	if (torture_test) {
+		int	num_threads;
+
 		VERBOSE = TRUE;
 		NO_GUI = FALSE;
-		selfTest (1);
+		num_threads = IniGetInt (INI_FILE, "TortureThreads",
+					 NUM_CPUS * CPU_HYPERTHREADS);
+		LaunchTortureTest (num_threads, TRUE);
 	}
 
-/* On first run, get user name and email address before contacting server */
+/* If this is a stress tester, then turn on menuing. */
+
+	else if (IniGetInt (INI_FILE, "StressTester", 99) == 1) {
+		MENUING = 1;
+		VERBOSE = TRUE;
+		NO_GUI = FALSE;
+		main_menu ();
+	}
+
+/* On first run, get user id before contacting server */
 /* for a work assignment.  To make first time user more comfortable, we will */
 /* display data to the screen, rather than running silently. */
 
-	else if (USE_PRIMENET &&
-		 USERID[0] == 0 &&
-		 !IniGetInt (INI_FILE, "StressTester", 0)) {
+	else if (IniGetInt (INI_FILE, "StressTester", 99) == 99) {
 		VERBOSE = TRUE;
 		NO_GUI = FALSE;
-		STARTUP_IN_PROGRESS = 1;
 		test_welcome ();
 	}
 
@@ -416,9 +383,7 @@ int main (
 /* or when the ISP is contacted, etc. */
 
 	else if (contact_server) {
-		MANUAL_COMM = 3;
-		CHECK_WORK_QUEUE = 1;
-		communicateWithServer ();
+		do_manual_comm_now ();
 	}
 
 /* Bring up the main menu */
@@ -426,12 +391,13 @@ int main (
 	else if (MENUING == 1)
 		main_menu ();
 	else if (MENUING == 2)
-		rangeStatus();
-	
-/* Continue testing */
+		test_status();
 
-	else
-		linuxContinue ("Another mprime is already running!\n");
+/* Continue testing, return when worker threads exit. */
+
+	else {
+		linuxContinue ("Another mprime is already running!\n", TRUE);
+	}
 
 /* All done */
 
@@ -439,7 +405,7 @@ int main (
 
 /* Invalid args message */
 
-usage:	printf ("Usage: mprime [-cdhmstv] [-aN] [-b[N]] [-wDIR]\n");
+usage:	printf ("Usage: mprime [-cdhmstv] [-aN] [-wDIR]\n");
 	printf ("-c\tContact the PrimeNet server, then exit.\n");
 	printf ("-d\tPrint detailed information to stdout.\n");
 	printf ("-h\tPrint this.\n");
@@ -448,13 +414,30 @@ usage:	printf ("Usage: mprime [-cdhmstv] [-aN] [-b[N]] [-wDIR]\n");
 	printf ("-t\tRun the torture test.\n");
 	printf ("-v\tPrint the version number.\n");
 	printf ("-aN\tUse an alternate set of INI and output files.\n");
-	printf ("-bN\tRun in the background.  N is number of CPUs.\n");
 	printf ("-wDIR\tRun from a different working directory.\n");
 	printf ("\n");
 	return (1);
 }
 
-void title (char *msg)
+/* Create an MDI output window for the thread -- unless we created */
+/* one earlier and the user has not closed it */
+
+void create_window (
+	int	thread_num)
+{
+}
+
+/* Set the title prefix for this MDI window - only called once */
+
+void base_title (
+	int	thread_num,
+	char	*str)
+{
+}
+
+/* Put a title on the MDI window */
+
+void title (int thread_num, char *msg)
 {
 }
 
@@ -463,45 +446,117 @@ void flashWindowAndBeep (void)
 	printf ("\007");
 }
 
-/* Return TRUE if we should stop calculating */
+/* Do some work prior to launching worker threads */
+/* Windows uses this to implement boot delay. */
 
-int escapeCheck (void)
+void PreLaunchCallback (
+	int	launch_type)
 {
-	if (THREAD_STOP) {
-		THREAD_STOP = 0;
-		return (TRUE);
-	}
-	return (FALSE);
 }
 
-void doMiscTasks (void)
+/* Do some work after worker threads have terminated */
+
+void PostLaunchCallback (
+	int	launch_type)
+{
+}
+
+/* OSes that must poll for whether the ESC key was hit do it here. */
+/* We use this opportunity to perform other miscellaneous tasks that */
+/* can't be done any other way. */
+
+void stopCheckCallback (
+	int	thread_num)
 {
 #ifdef MPRIME_LOADAVG
 	test_sleep ();
 #endif
 }
 
-void OutputStr (char *buf)
+void RealOutputStr (int thread_num, char *buf)
 {
-	if (VERBOSE || MENUING) printf ("%s", buf);
+static	int	last_char_out_was_newline = TRUE;
+	if (VERBOSE || MENUING) {
+		if (last_char_out_was_newline && !(MERGE_WINDOWS & MERGE_NO_PREFIX)) {
+			if (thread_num == MAIN_THREAD_NUM)
+				printf ("[Main thread");
+			else if (thread_num == COMM_THREAD_NUM)
+				printf ("[Comm thread");
+			else if (NUM_WORKER_THREADS == 1)
+				printf ("[Work thread");
+			else
+				printf ("[Worker #%d", thread_num+1);
+			if (buf[0] == '[')
+				printf (" %s", buf+1);
+			else
+				printf ("] %s", buf);
+		} else
+			printf ("%s", buf);
+		last_char_out_was_newline = (buf[strlen(buf)-1] == '\n');
+	}
 }
+
+/* Return TRUE if we are on battery power. */
+
+int OnBattery (void)
+{
+}
+
+/* The current implementation comes courtesy of Dennis Gregorovic */
 
 unsigned long physical_memory (void)
 {
-	FILE	*fd;
-	char	mem[80];
+#ifdef __APPLE__
+	int	mib[2];
+	int	mem;
+	size_t	len;
 
-	fd = fopen ("/proc/meminfo", "r");
-	if (fd == NULL) return (1024);
-	for ( ; ; ) {
-		if (fscanf (fd, "%s", mem) == EOF) {
-			fclose (fd);
-			return (1024);
+	mib[0] = CTL_HW;
+	mib[1] = HW_PHYSMEM;
+	len = sizeof (mem);
+	sysctl (mib, 2, &mem, &len, NULL, 0);
+	return (mem >> 20);
+#else
+        struct sysinfo sys_info;
+
+        if (sysinfo(&sys_info) != 0) return (1024);  /* Guess 1GB */
+
+	return ((unsigned long)
+		((double) sys_info.totalram *
+		 (double) sys_info.mem_unit / 1048576.0));
+#endif
+}
+
+unsigned long num_cpus (void)
+{
+#ifdef __APPLE__
+	int	mib[2];
+	int	ncpus;
+	size_t	len;
+
+	mib[0] = CTL_HW;
+	mib[1] = HW_NCPU;
+	len = sizeof (ncpus);
+	sysctl (mib, 2, &ncpus, &len, NULL, 0);
+	return (ncpus);
+#else
+	FILE	*fd;
+	char	buf[80];
+	int	count;
+
+	count = 0;
+	fd = fopen ("/proc/cpuinfo", "r");
+	if (fd != NULL) {
+		for ( ; ; ) {
+			if (fscanf (fd, "%s", buf) == EOF) break;
+			buf[9] = 0;
+			if (strcmp (buf, "processor") == 0) count++;
 		}
-		if (isdigit (mem[0])) break;
+		fclose (fd);
 	}
-	fclose (fd);
-	return (atoi (mem) >> 20);
+	if (count == 0) count = 1;
+	return (count);
+#endif
 }
 
 /* Return a better guess for amount of memory to use in a torture test. */
@@ -530,70 +585,105 @@ void Sleep (
 #endif
 }
 
+/* Clear the array of active thread handles */
+
+void clearThreadHandleArray (void)
+{
+}
+
+/* Register a thread termination.  We remove the thread handle from the */
+/* list of active worker threads. */
+
+void registerThreadTermination (void)
+{
+}
+
+/* When stopping or exiting we raise the priority of all worker threads */
+/* so that they can terminate in a timely fashion even if there are other */
+/* CPU bound tasks running. */
+
+void raiseAllWorkerThreadPriority (void)
+{
+}
+
+
 /* Set priority.  Map one (prime95's lowest priority) to 20 */
 /* (linux's lowest priority).  Map eight (prime95's normal priority) to */
 /* 0 (linux's normal priority). */
 
-void SetPriority (void)
+void setThreadPriorityAndAffinity (
+	int	priority,		/* Priority, 1=low, 9=high */
+	int	mask)			/* Affinity mask */
 {
 #ifdef __IBMC__
 	DosSetPriority(PRTYS_PROCESS,
-		(PRIORITY < 6) ? PRTYC_IDLETIME : PRTYC_REGULAR,
-		(PRIORITY == 1 || PRIORITY == 6) ? PRTYD_MINIMUM :
-		(PRIORITY == 2 || PRIORITY == 7) ? -10 :
-		(PRIORITY == 3 || PRIORITY == 8) ? 0 :
-		(PRIORITY == 4 || PRIORITY == 9) ? 10 :
+		(priority < 6) ? PRTYC_IDLETIME : PRTYC_REGULAR,
+		(priority == 1 || priority == 6) ? PRTYD_MINIMUM :
+		(priority == 2 || priority == 7) ? -10 :
+		(priority == 3 || priority == 8) ? 0 :
+		(priority == 4 || priority == 9) ? 10 :
 		PRTYD_MAXIMUM,
 		0);
-#else
-	int	p;
-	p = (8 - (int) PRIORITY) * 20 / 7;
-	setpriority (PRIO_PROCESS, getpid (), p);
+#endif
+#ifdef __linux__
+	int	linux_priority, errcode;
+	pid_t	thread_id;
+
+/* I couldn't get the standard syscall0 declaration of gettid to */
+/* work in my Linux distro.  Use the direct system call instead. */
+	thread_id = (pid_t) syscall (__NR_gettid);
+
+/* Set priority.  Map one (prime95's lowest priority) to 19 */
+/* (linux's lowest priority).  Map eight (prime95's normal priority) to */
+/* 0 (linux's normal priority). */
+
+	linux_priority = (8 - (int) priority) * 19 / 7;
+	errcode = setpriority (PRIO_PROCESS, thread_id, linux_priority);
+
+/* Set affinity for this thread.  We assume the processor mask is the same */
+/* as in Windows with physical CPUs representing the least significant bits */
+/* and hyperthreaded logical CPUs as the next set of more significant bits */
+
+	errcode = sched_setaffinity (thread_id, sizeof (mask), &mask);
+#endif
+
+#if defined (__APPLE__) || defined (__FreeBSD__)
+static	int	default_priority = 0;
+static	int	default_policy = 0;
+	struct sched_param sp;
+
+/* Get the default thread priority when a thread is first launched */
+	if (default_priority == 0) {
+		memset (&sp, 0, sizeof(struct sched_param));
+	        if (pthread_getschedparam (pthread_self(),
+					   &default_policy, &sp) >= 0) {
+			default_priority = sp.sched_priority;
+		} else {
+			default_policy = SCHED_RR;
+			default_priority = PTHREAD_MIN_PRIORITY +
+					   (PTHREAD_MAX_PRIORITY -
+					    PTHREAD_MIN_PRIORITY) / 2;
+		}
+	}
+
+/* Map one (prime95's lowest priority) to PTHREAD_MIN_PRIORITY */
+/* (pthread's lowest priority).  Map eight (prime95's normal priority) to */
+/* pthread's default priority. */
+
+	memset (&sp, 0, sizeof(struct sched_param));
+	sp.sched_priority = PTHREAD_MIN_PRIORITY +
+			    (priority - 1) *
+				(default_priority - PTHREAD_MIN_PRIORITY) / 7;
+	pthread_setschedparam (pthread_self(), default_policy, &sp);
 #endif
 }
 
-void BlinkIcon (int x)
+void BlinkIcon (int thread_num, int x)
 {
 }
 
-void ChangeIcon (int x)
+void ChangeIcon (int thread_num, int x)
 {
-}
-
-void BroadcastMessage (
-	char	*message)
-{
-	char	filename[33];
-	int	fd, len;
-
-/* Generate broadcast message file name */
-
-        strcpy (filename, "bcastmsg");
-        strcat (filename, EXTENSION);
-
-/* If this is a call to check if a broadcast message exists, then do so */
-
-	if (message == NULL) {
-		if (! fileExists (filename)) return;
-		fd = _open (filename, _O_TEXT | _O_RDONLY, 0);
-		if (fd < 0) return;
-		message = (char *) malloc (1024);
-		len = _read (fd, message, 1024);
-		_close (fd);
-		if (len < 0) return;
-		message[len] = 0;
-		printf ("Important Message from PrimeNet Server:\n");
-		printf ("%s", message);
-		free (message);
-		return;
-	}
-
-/* Otherwise, this is a new message - write it to the file */
-
-	fd = _open (filename, _O_TEXT | _O_RDWR | _O_CREAT | _O_APPEND, 0666);
-	if (fd < 0) return;
-	_write (fd, message, strlen (message));
-	_close (fd);
 }
 
 
@@ -601,7 +691,8 @@ void BroadcastMessage (
 /* already running.  In that case, it outputs an optional error message. */
 
 void linuxContinue (
-	char	*error_message)
+	char	*error_message,
+	int	wait_flag)
 {
 #ifdef __linux__
 #define PROCNAME	"/proc/%d/exe"
@@ -622,6 +713,9 @@ void linuxContinue (
 	running_pid = IniGetInt (LOCALINI_FILE, "Pid", 0);
 	if (running_pid == 0 || my_pid == running_pid) goto ok;
 
+#ifdef __APPLE__
+	goto ok;
+#else
 #ifdef __OS2__
 
         {
@@ -656,27 +750,18 @@ void linuxContinue (
 	_close (fd);
 	if (inode1 != inode2) goto ok;
 #endif
+#endif
 
 /* The two pids are running the same executable, raise an error and return */
 
 	if (error_message != NULL) printf ("%s", error_message);
 	return;
 
-/* All is OK, set affinity before running mprime. */
+/* All is OK, save our pid, run, then delete our pid */
 
 ok:
-#ifdef __linux__
-	{
-		int	affinity_mask;
-		affinity_mask = (CPU_AFFINITY == 99) ? -1 : (1 << CPU_AFFINITY);
-		sched_setaffinity (0, sizeof (affinity_mask), &affinity_mask);
-	}
-#endif
-
-/* Save our pid, run, then delete our pid */
-
 	IniWriteInt (LOCALINI_FILE, "Pid", my_pid);
-	primeContinue ();
+	LaunchWorkerThreads (wait_flag);
 	IniWriteInt (LOCALINI_FILE, "Pid", 0);
 }
 
@@ -696,8 +781,9 @@ int LoadPrimeNet (void)
 	char command[128];
 	char szProxyHost[120], *con_host;
 	char *colon;
-	
-	IniGetString(INIFILENAME, "ProxyHost", szProxyHost, 120, NULL);
+
+	IniSectionGetString (INI_FILE, "PrimeNet", "ProxyHost",
+			     szProxyHost, 120, NULL);
 	if (*szProxyHost) {
 		if ((colon = strchr(szProxyHost, ':'))) {
 			*colon = 0;
@@ -734,7 +820,7 @@ int LoadPrimeNet (void)
 	/*	then assume you are connected (we probably do not have read */
 	/*	permission or this is a funny Linux setup). */
 	{
-	  int RtReq = IniGetInt (INIFILENAME, "RouteRequired", 99);
+	  int RtReq = IniSectionGetInt (INI_FILE, "PrimeNet", "RouteRequired", 99);
 	  if (RtReq == 0) return (TRUE);
 	  fd = fopen("/proc/net/route","r");
 	  if (fd == NULL) return (RtReq == 99);
@@ -766,7 +852,7 @@ int LoadPrimeNet (void)
 	  fclose(fd);
 	}
 #endif
-#if defined(__FreeBSD__) || defined(__WATCOMC__)
+#if defined (__FreeBSD__) || defined (__APPLE__) || defined (__WATCOMC__)
 	/* The /proc/net/route test is not really meaningful under FreeBSD */
 	/* There doesn't seem to be any meaningful test to see whether the */
 	/* computer is connected to the Internet at the time using a non- */
@@ -776,7 +862,7 @@ int LoadPrimeNet (void)
 #endif                /* __FreeBSD__ */
 #endif
 #endif
-	OutputStr ("You are not connected to the Internet.\n");
+	OutputStr (COMM_THREAD_NUM, "You are not connected to the Internet.\n");
 	return FALSE;
 }
 
@@ -788,13 +874,13 @@ void UnloadPrimeNet (void)
 
 /* Check if a program is currently running - not implemented for OS/2 */
 
-int checkPauseList ()
+int checkPauseListCallback (void)
 {
 #ifndef __OS2__
 	FILE	*fd;
 	char	buf[80];
 
-	fd = popen ("ps -eo comm", "r");
+	fd = popen ("ps -A -o ucomm", "r");
 	if (fd != NULL) {
 		while (fgets (buf, sizeof (buf), fd) != NULL) {
 			int	len = strlen (buf);
