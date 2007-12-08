@@ -1,4 +1,4 @@
-; Copyright 2001-2005 - Just For Fun Software, Inc., all rights reserved
+; Copyright 2001-2006 - Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -4384,7 +4384,7 @@ x3c_postmult MACRO r1, r2, r3, r4, r5, r6, t1, t2, off
 
 xmult7	MACRO	src1, src2
 	LOCAL	nozpad
-	cmp	_ZERO_PADDED_FFT, 0	;; Is this a zero-padded FFT?
+	cmp	ZERO_PADDED_FFT, 0	;; Is this a zero-padded FFT?
 	je	nozpad			;; No, skip 7 word multiply
 	movsd	xmm0, Q [src1-40]	;; Result0 = word0 * word0
 	mulsd	xmm0, Q [src2-40]
@@ -4406,7 +4406,7 @@ xmult7	MACRO	src1, src2
 	movsd	xmm3, Q [src1-88]	;;	   + word-3 * word3
 	mulsd	xmm3, Q [src2-64]
 	addsd	xmm0, xmm3
-	movsd	XMM_ZPAD0, xmm0
+	movsd	ZPAD0, xmm0
 
 	movsd	xmm0, Q [src1-40]	;; Result1 = word0 * word1
 	mulsd	xmm0, Q [src2-48]
@@ -4425,7 +4425,7 @@ xmult7	MACRO	src1, src2
 	movsd	xmm3, Q [src1-80]	;;	   + word-2 * word3
 	mulsd	xmm3, Q [src2-64]
 	addsd	xmm0, xmm3
-	movsd	XMM_ZPAD1, xmm0
+	movsd	ZPAD1, xmm0
 
 	movsd	xmm0, Q [src1-40]	;; Result2 = word0 * word2
 	mulsd	xmm0, Q [src2-56]
@@ -4441,7 +4441,7 @@ xmult7	MACRO	src1, src2
 	movsd	xmm3, Q [src1-72]	;;	   + word-1 * word3
 	mulsd	xmm3, Q [src2-64]
 	addsd	xmm0, xmm3
-	movsd	XMM_ZPAD2, xmm0
+	movsd	ZPAD2, xmm0
 
 	movsd	xmm0, Q [src1-40]	;; Result3 = word0 * word3
 	mulsd	xmm0, Q [src2-64]
@@ -4454,7 +4454,7 @@ xmult7	MACRO	src1, src2
 	movsd	xmm3, Q [src1-64]	;;	   + word3 * word0
 	mulsd	xmm3, Q [src2-40]
 	addsd	xmm0, xmm3
-	movsd	XMM_ZPAD3, xmm0
+	movsd	ZPAD3, xmm0
 
 	movsd	xmm0, Q [src1-48]	;; Result4 = word1 * word3
 	mulsd	xmm0, Q [src2-64]
@@ -4464,25 +4464,18 @@ xmult7	MACRO	src1, src2
 	movsd	xmm2, Q [src1-64]	;;	   + word3 * word1
 	mulsd	xmm2, Q [src2-48]
 	addsd	xmm0, xmm2
-	movsd	XMM_ZPAD4, xmm0
+	movsd	ZPAD4, xmm0
 
 	movsd	xmm0, Q [src1-56]	;; Result5 = word2 * word3
 	mulsd	xmm0, Q [src2-64]
 	movsd	xmm1, Q [src1-64]	;;	   + word3 * word2
 	mulsd	xmm1, Q [src2-56]
 	addsd	xmm0, xmm1
-	movsd	XMM_ZPAD5, xmm0
+	movsd	ZPAD5, xmm0
 
 	movsd	xmm0, Q [src1-64]	;; Result6 = word3 * word3
 	mulsd	xmm0, Q [src2-64]
-	movsd	XMM_ZPAD6, xmm0
-
-	IFDEF X86_64
-	mov	r8, OFFSET XMM_ZPAD0
-	mov	zpad_addr, r8
-	ELSE
-	mov	zpad_addr, OFFSET XMM_ZPAD0
-	ENDIF
+	movsd	ZPAD6, xmm0
 
 nozpad:
 	ENDM
