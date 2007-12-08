@@ -7,7 +7,7 @@
 
 #include "gwnum.h"
 
-char JUNK[]="Copyright 1996-2005 Just For Fun Software, All rights reserved";
+char JUNK[]="Copyright 1996-2006 Just For Fun Software, All rights reserved";
 char	INI_FILE[80] = {0};
 char	RESFILE[80] = {0};
 char	LOGFILE[80] = {0};
@@ -15,6 +15,7 @@ char	EXTENSION[8] = {0};
 
 int volatile ERRCHK = 0;
 unsigned int PRIORITY = 1;
+unsigned int THREADS_PER_TEST = 1;
 unsigned int CPU_AFFINITY = 99;
 unsigned long volatile ITER_OUTPUT = 0;
 unsigned long volatile ITER_OUTPUT_RES = 99999999;
@@ -32,7 +33,7 @@ char	*PRP_CMDLINE = __argv[1];
 char	*PRP_CMDLINE = NULL;
 #endif
 
-//#define GWQA
+#define GWQA
 #ifdef GWQA
 #include "gwtest.c"
 #endif
@@ -44,19 +45,18 @@ int slowIsPRP (char *, int *);
 giant	N = NULL;		/* Number being PRPed */
 unsigned long Nlen;		/* Bit length of number being PRPed */
 
+/* Callback routines */
+
+void SetAuxThreadPriority (int thread_num, void *data)
+{
+	SetPriority (thread_num);
+}
+
 /* Utility output routines */
 
 void LineFeed ()
 {
 	OutputStr ("\n");
-}
-
-void OutputNum (
-	unsigned long num)
-{
-	char	buf[20];
-	sprintf (buf, "%lu", num);
-	OutputStr (buf);
 }
 
 /* Sleep five minutes before restarting */
@@ -189,10 +189,8 @@ void getCpuSpeed (void)
 
 /* Now let the user override the cpu speed from the local.ini file */
 
-	if (IniGetInt (INI_FILE, "CpuOverride", 0)) {
-		temp = IniGetInt (INI_FILE, "CpuSpeed", 99);
-		if (temp != 99) CPU_SPEED = temp;
-	}
+	temp = IniGetInt (INI_FILE, "CpuSpeed", 99);
+	if (temp != 99) CPU_SPEED = temp;
 
 /* Make sure the cpu speed is reasonable */
 
@@ -322,7 +320,7 @@ void nameIniFiles (
 	IniGetString (INI_FILE, "prime.ini", INI_FILE, 80, INI_FILE);
 	if (buf[0]) {
 		_chdir (buf);
-		IniFileOpen (INI_FILE, 0);
+		IniFileReread (INI_FILE);
 	}
 }
 
@@ -352,6 +350,8 @@ void readIniFiles ()
 	CPU_AFFINITY = (unsigned int) IniGetInt (INI_FILE, "Affinity", 99);
 	HIDE_ICON = (int) IniGetInt (INI_FILE, "HideIcon", 0);
 	TRAY_ICON = (int) IniGetInt (INI_FILE, "TrayIcon", 1);
+
+	THREADS_PER_TEST = (int) IniGetInt (INI_FILE, "ThreadsPerTest", 1);
 
 /* Guess the CPU type if it isn't known.  Otherwise, validate it. */
 
@@ -507,7 +507,7 @@ void writeIniFile (
 		strcat (buf, "=");
 		strcat (buf, p->lines[j]->value);
 		strcat (buf, "\n");
-		_write (fd, buf, strlen (buf));
+		_write (fd, buf, (int) strlen (buf));
 	}
 	p->dirty = 0;
 	_close (fd);
@@ -552,7 +552,7 @@ void IniGetString (
 			return;
 		}
 		if (p->lines[i]->active &&
-		    stricmp (keyword, p->lines[i]->keyword) == 0) break;
+		    _stricmp (keyword, p->lines[i]->keyword) == 0) break;
 	}
 
 /* Copy info from the line structure to the user buffers */
@@ -587,7 +587,7 @@ void IniWriteString (
 
 	for (i = 0; ; i++) {
 		if (i == p->num_lines ||
-		    stricmp (p->lines[i]->keyword, "Time") == 0) {
+		    _stricmp (p->lines[i]->keyword, "Time") == 0) {
 
 /* Ignore request if we are deleting line */
 
@@ -612,7 +612,7 @@ void IniWriteString (
 			break;
 		}
 		if (p->lines[i]->active &&
-		    stricmp (keyword, p->lines[i]->keyword) == 0) {
+		    _stricmp (keyword, p->lines[i]->keyword) == 0) {
 			if (val != NULL && strcmp (val, p->lines[i]->value) == 0) return;
 			break;
 		}
@@ -621,15 +621,26 @@ void IniWriteString (
 /* Delete the line if requested */
 
 	if (val == NULL) {
-		IniDeleteLine (filename, i+1);
-		return;
+
+/* Free the data associated with the given line */
+
+		free (p->lines[i-1]->keyword);
+		free (p->lines[i-1]->value);
+		free (p->lines[i-1]);
+
+/* Delete the line from the lines array */
+
+		for ( ; i < p->num_lines; i++) p->lines[i-1] = p->lines[i];
+		p->num_lines--;
 	}
 
 /* Replace the value associated with the keyword */
 
-	free (p->lines[i]->value);
-	p->lines[i]->value = (char *) malloc (strlen (val) + 1);
-	strcpy (p->lines[i]->value, val);
+	else {
+		free (p->lines[i]->value);
+		p->lines[i]->value = (char *) malloc (strlen (val) + 1);
+		strcpy (p->lines[i]->value, val);
+	}
 
 /* Write the INI file back to disk */
 
@@ -646,244 +657,11 @@ void IniWriteInt (
 	IniWriteString (filename, keyword, buf);
 }
 
-void IniFileOpen (
-	char	*filename,
-	int	immediate_writes)
+void IniFileReread (
+	char	*filename)
 {
 	struct IniCache *p;
 	p = openIniFile (filename, 1);
-	p->immediate_writes = immediate_writes;
-}
-
-void IniFileClose (
-	char	*filename)
-{
-	struct IniCache *p;
-	p = openIniFile (filename, 0);
-	if (p->dirty) {
-		p->immediate_writes = 1;
-		writeIniFile (p);
-		p->immediate_writes = 0;
-	}
-}
-
-int IniFileWritable (
-	char	*filename)
-{
-	struct IniCache *p;
-	int	fd;
-	unsigned int j;
-	char	buf[100];
-
-/* Create and write out the INI file */
-
-	p = openIniFile (filename, 0);
-	fd = _open (p->filename, _O_CREAT | _O_TRUNC | _O_WRONLY | _O_TEXT, CREATE_FILE_ACCESS);
-	if (fd < 0) return (FALSE);
-	for (j = 0; j < p->num_lines; j++) {
-		strcpy (buf, p->lines[j]->keyword);
-		strcat (buf, "=");
-		strcat (buf, p->lines[j]->value);
-		strcat (buf, "\n");
-		if (_write (fd, buf, strlen (buf)) != (int) strlen (buf)) {
-			_close (fd);
-			return (FALSE);
-		}
-	}
-	if (p->num_lines == 0) {
-		if (_write (fd, "DummyLine=XXX\n", 14) != 14) {
-			_close (fd);
-			return (FALSE);
-		}
-		p->dirty = 1;
-	}
-	_close (fd);
-	return (TRUE);
-}
-
-unsigned int IniGetNumLines (
-	char	*filename)
-{
-	struct IniCache *p;
-	p = openIniFile (filename, 0);
-	return (p->num_lines);
-}
-
-void IniGetLineAsString (
-	char	*filename,
-	unsigned int line,
-	char	*keyword,
-	unsigned int keyword_bufsize,
-	char	*val,
-	unsigned int val_bufsize)
-{
-	struct IniCache *p;
-
-/* Open ini file */
-
-	p = openIniFile (filename, 0);
-
-/* Copy info from the line structure to the user buffers */
-
-	truncated_strcpy (keyword, keyword_bufsize, p->lines[line-1]->keyword);
-	truncated_strcpy (val, val_bufsize, p->lines[line-1]->value);
-}
-
-void IniGetLineAsInt (
-	char	*filename,
-	unsigned int line,
-	char	*keyword,
-	unsigned int keyword_bufsize,
-	long	*val)
-{
-	char	buf[20];
-	IniGetLineAsString (filename, line, keyword, keyword_bufsize, buf, 20);
-	*val = atol (buf);
-}
-
-void IniReplaceLineAsString (
-	char	*filename,
-	unsigned int line,
-	char	*keyword,
-	char	*val)
-{
-	IniDeleteLine (filename, line);
-	IniInsertLineAsString (filename, line, keyword, val);
-}
-
-void IniReplaceLineAsInt (
-	char	*filename,
-	unsigned int line,
-	char	*keyword,
-	long	val)
-{
-	char	buf[20];
-	sprintf (buf, "%ld", val);
-	IniReplaceLineAsString (filename, line, keyword, buf);
-}
-
-void IniInsertLineAsString (
-	char	*filename,
-	unsigned int line,
-	char	*keyword,
-	char	*val)
-{
-	struct IniCache *p;
-	unsigned int i;
-
-/* Open ini file, do not reread it as that could change the line numbers! */
-
-	p = openIniFile (filename, 0);
-
-/* Adjust line number if it doesn't make sense */
-
-	if (line == 0) line = 1;
-	if (line > p->num_lines+1) line = p->num_lines+1;
-
-/* Make sure the line array has room for the new line */
-
-	growIniLineArray (p);
-
-/* Shuffle lines down in the array to make room for the new line */
-
-	for (i = p->num_lines; i >= line; i--) p->lines[i] = p->lines[i-1];
-	p->num_lines++;
-
-/* Allocate and fill in a new line structure */
-
-	p->lines[line-1] = (struct IniLine *) malloc (sizeof (struct IniLine));
-	p->lines[line-1]->keyword = (char *) malloc (strlen (keyword) + 1);
-	p->lines[line-1]->value = (char *) malloc (strlen (val) + 1);
-	p->lines[line-1]->active = TRUE;
-	strcpy (p->lines[line-1]->keyword, keyword);
-	strcpy (p->lines[line-1]->value, val);
-
-/* Write the INI file back to disk */
-
-	writeIniFile (p);
-}
-
-void IniInsertLineAsInt (
-	char	*filename,
-	unsigned int line,
-	char	*keyword,
-	long	val)
-{
-	char	buf[20];
-	sprintf (buf, "%ld", val);
-	IniInsertLineAsString (filename, line, keyword, buf);
-}
-
-void IniAppendLineAsString (
-	char	*filename,
-	char	*keyword,
-	char	*val)
-{
-	struct IniCache *p;
-	p = openIniFile (filename, 0);
-	IniInsertLineAsString (filename, p->num_lines+1, keyword, val);
-}
-
-void IniAppendLineAsInt (
-	char	*filename,
-	char	*keyword,
-	long	val)
-{
-	char	buf[20];
-	sprintf (buf, "%ld", val);
-	IniAppendLineAsString (filename, keyword, buf);
-}
-
-void IniDeleteLine (
-	char	*filename,
-	unsigned int line)
-{
-	struct IniCache *p;
-	unsigned int i;
-
-/* Open ini file, do not reread it as that could change the line numbers! */
-
-	p = openIniFile (filename, 0);
-	if (line == 0 || line > p->num_lines) return;
-
-/* Free the data associated with the given line */
-
-	free (p->lines[line-1]->keyword);
-	free (p->lines[line-1]->value);
-	free (p->lines[line-1]);
-
-/* Delete the line from the lines array */
-
-	for (i = line; i < p->num_lines; i++) p->lines[i-1] = p->lines[i];
-	p->num_lines--;
-
-/* Write the INI file back to disk */
-
-	writeIniFile (p);
-}
-
-void IniDeleteAllLines (
-	char	*filename)
-{
-	struct IniCache *p;
-	unsigned int i;
-
-/* Open ini file! */
-
-	p = openIniFile (filename, 0);
-
-/* Free the data associated with the given line */
-
-	for (i = 0; i < p->num_lines; i++) {
-		free (p->lines[i]->keyword);
-		free (p->lines[i]->value);
-		free (p->lines[i]);
-	}
-	p->num_lines = 0;
-
-/* Write the INI file back to disk */
-
-	writeIniFile (p);
 }
 
 /* Output string to screen or results file */
@@ -896,6 +674,14 @@ void OutputSomewhere (
 }
 
 /* Output string to both the screen and results file */
+
+void NewOutputBoth (
+	int	thread_num,
+	char	*buf)
+{
+	OutputStr (buf);
+	writeResults (buf);
+}
 
 void OutputBoth (
 	char	*buf)
@@ -941,12 +727,12 @@ static	time_t	last_time = 0;
 			buf[0] = '[';
 			strcpy (buf+1, ctime (&this_time));
 			sprintf (buf+25, " - ver %s]\n", VERSION);
-			_write (fd, buf, strlen (buf));
+			_write (fd, buf, (int) strlen (buf));
 		}
 
 /* Output the message */
 
-		_write (fd, str, strlen (str));
+		_write (fd, str, (int) strlen (str));
 	}
 
 /* Display message about full log file */
@@ -955,7 +741,7 @@ static	time_t	last_time = 0;
 		char	*fullmsg = "Prime.log file full.  Please delete it.\n";
 		OutputStr (fullmsg);
 		if (filelen < 251000)
-			_write (fd, fullmsg, strlen (fullmsg));
+			_write (fd, fullmsg, (int) strlen (fullmsg));
 	}
 	_close (fd);
 }
@@ -964,17 +750,18 @@ static	time_t	last_time = 0;
 /* Generate temporary file name */
 
 void tempFileName (
+	gwhandle *gwdata,
 	char	*buf)
 {
 	giant	tmp, tmp2;
 
-	tmp = popg ((Nlen >> 5) + 10);
-	tmp2 = popg (2);
+	tmp = popg (&gwdata->gdata, (Nlen >> 5) + 10);
+	tmp2 = popg (&gwdata->gdata, 2);
 	gtog (N, tmp);
 	itog (19999981, tmp2);
 	modg (tmp2, tmp);
 	sprintf (buf, "z%07li", tmp->n[0] % 10000000);
-	pushg (2);
+	pushg (&gwdata->gdata, 2);
 }
 
 /* See if the given file exists */
@@ -1022,7 +809,7 @@ static	time_t	last_time = 0;
 
 /* Output the message */
 
-	if (_write (fd, msg, strlen (msg)) < 0) goto fail;
+	if (_write (fd, msg, (int) strlen (msg)) < 0) goto fail;
 	_close (fd);
 	return (TRUE);
 
@@ -1035,6 +822,7 @@ fail:	_close (fd);
 /* Read and write intermediate results to a file */
 
 int read_gwnum (
+	gwhandle *gwdata,
 	int	fd,
 	gwnum	g,
 	long	*sum)
@@ -1042,19 +830,20 @@ int read_gwnum (
 	giant	tmp;
 	long	i, len, bytes;
 
-	tmp = popg ((Nlen >> 5) + 10);
+	tmp = popg (&gwdata->gdata, (Nlen >> 5) + 10);
 	if (_read (fd, &len, sizeof (long)) != sizeof (long)) return (FALSE);
 	bytes = len * sizeof (long);
 	if (_read (fd, tmp->n, bytes) != bytes) return (FALSE);
 	tmp->sign = len;
 	*sum += len;
 	for (i = 0; i < len; i++) *sum += tmp->n[i];
-	gianttogw (tmp, g);
-	pushg (1);
+	gianttogw (gwdata, tmp, g);
+	pushg (&gwdata->gdata, 1);
 	return (TRUE);
 }
 
 int write_gwnum (
+	gwhandle *gwdata,
 	int	fd,
 	gwnum	g,
 	long	*sum)
@@ -1062,15 +851,15 @@ int write_gwnum (
 	giant	tmp;
 	long	i, len, bytes;
 
-	tmp = popg ((Nlen >> 5) + 10);
-	gwtogiant (g, tmp);
+	tmp = popg (&gwdata->gdata, (Nlen >> 5) + 10);
+	gwtogiant (gwdata, g, tmp);
 	len = tmp->sign;
 	if (_write (fd, &len, sizeof (long)) != sizeof (long)) return (FALSE);
 	bytes = len * sizeof (long);
 	if (_write (fd, tmp->n, bytes) != bytes) return (FALSE);
 	*sum += len;
 	for (i = 0; i < len; i++) *sum += tmp->n[i];
-	pushg (1);
+	pushg (&gwdata->gdata, 1);
 	return (TRUE);
 }
 
@@ -1095,6 +884,7 @@ int write_long (
 }
 
 int writeToFile (
+	gwhandle *gwdata,
 	char	*filename,
 	unsigned long j,
 	gwnum	x)
@@ -1130,7 +920,7 @@ int writeToFile (
 
 /* Write the data values */
 
-	if (! write_gwnum (fd, x, &sum)) goto writeerr;
+	if (! write_gwnum (gwdata, fd, x, &sum)) goto writeerr;
 
 /* Write the checksum */
 
@@ -1155,6 +945,7 @@ writeerr:
 }
 
 int readFromFile (
+	gwhandle *gwdata,
 	char	*filename,
 	unsigned long *j,
 	gwnum	x)
@@ -1183,7 +974,7 @@ int readFromFile (
 
 /* Read the values */
 
-	if (! read_gwnum (fd, x, &sum)) goto readerr;
+	if (! read_gwnum (gwdata, fd, x, &sum)) goto readerr;
 
 /* Read and compare the checksum */
 
@@ -1207,13 +998,14 @@ error:
 /* Test for a probable prime -- gwsetup has already been called. */
 
 int commonPRP (
+	gwhandle *gwdata,
 	unsigned long a,
 	int	*res)
 {
 	unsigned long bit, iters;
 	gwnum	x;
 	giant	tmp;
-	char	filename[20], buf[200], fft_desc[100], res64[17], oldres64[17];
+	char	filename[32], buf[200], fft_desc[100], res64[17], oldres64[17];
 	long	write_time = DISK_WRITE_TIME * 60;
 	int	echk, saving, stopping;
 	time_t	start_time, current_time;
@@ -1228,7 +1020,7 @@ int commonPRP (
 
 /* Init filename */
 
-	tempFileName (filename);
+	tempFileName (gwdata, filename);
 
 /* Get the current time */
 
@@ -1239,41 +1031,41 @@ int commonPRP (
 
 /* Allocate memory */
 
-	x = gwalloc ();
+	x = gwalloc (gwdata);
 
 /* Optionally resume from save file and output a message */
 /* indicating we are resuming a test */
 
-	if (fileExists (filename) && readFromFile (filename, &bit, x)) {
+	if (fileExists (filename) && readFromFile (gwdata, filename, &bit, x)) {
 		char	fmt_mask[80];
 		double	pct;
 		pct = trunc_percent (bit * 100.0 / Nlen);
 		sprintf (fmt_mask,
 			 "Resuming probable prime test of %%s at bit %%ld [%%.%df%%%%]\n",
 			 PRECISION);
-		sprintf (buf, fmt_mask, gwmodulo_as_string (), bit, pct);
+		sprintf (buf, fmt_mask, gwmodulo_as_string (gwdata), bit, pct);
 		OutputStr (buf);
 	}
 
 /* Otherwise, output a message indicating we are starting test */
 
 	else {
-		sprintf (buf, "Starting probable prime test of %s\n", gwmodulo_as_string ());
+		sprintf (buf, "Starting probable prime test of %s\n", gwmodulo_as_string (gwdata));
 		OutputStr (buf);
 		bit = 1;
-		dbltogw ((double) a, x);
+		dbltogw (gwdata, (double) a, x);
 	}
 
 /* Output a message about the FFT length */
 
-	gwfft_description (fft_desc);
+	gwfft_description (gwdata, fft_desc);
 	sprintf (buf, "Using %s\n\n", fft_desc);
 	OutputStr (buf);
 	ReplaceableLine (1);	/* Remember where replaceable line is */
 
 /* Init the title */
 
-	title (gwmodulo_as_string ());
+	title (gwmodulo_as_string (gwdata));
 
 /* Do the PRP test */
 
@@ -1283,11 +1075,11 @@ int commonPRP (
 //#define CHECK_ITER
 #ifdef CHECK_ITER
 {giant t1, t2;
-t1 = popg ((Nlen >> 4) + 3);
-t2 = popg ((Nlen >> 4) + 3);
-gwtogiant (x, t1);
+t1 = popg (&gwdata->gdata, (Nlen >> 4) + 3);
+t2 = popg (&gwdata->gdata, (Nlen >> 4) + 3);
+gwtogiant (gwdata, x, t1);
 #endif
-	gwsetmulbyconst (a);
+	gwsetmulbyconst (gwdata, a);
 	iters = 0;
 	while (bit < Nlen) {
 
@@ -1307,25 +1099,26 @@ gwtogiant (x, t1);
 /* Process this bit.  Use square carefully the first and last 30 iterations. */
 /* This should avoid any pathological non-random bit pattterns. */
 
-		gwstartnextfft (!stopping && !saving &&
+		gwstartnextfft (gwdata,
+				!stopping && !saving &&
 				bit >= 30 && bit < Nlen-31);
 #ifdef CHECK_ITER
 squareg (t1);
 if (bitval (N, Nlen-bit-1)) imulg (a, t1);
-specialmodg (t1);
-gwstartnextfft (0);
+specialmodg (gwdata, t1);
+gwstartnextfft (gwdata, 0);
 echk=1;
 #endif
 		if (bitval (N, Nlen-bit-1)) {
-			gwsetnormroutine (0, echk, 1);
+			gwsetnormroutine (gwdata, 0, echk, 1);
 		} else {
-			gwsetnormroutine (0, echk, 0);
+			gwsetnormroutine (gwdata, 0, echk, 0);
 		}
-		if (bit > 30 && bit < Nlen-30) gwsquare (x);
-		else gwsquare_carefully (x);
+		if (bit > 30 && bit < Nlen-30) gwsquare (gwdata, x);
+		else gwsquare_carefully (gwdata, x);
 
 #ifdef CHECK_ITER
-gwtogiant (x, t2);
+gwtogiant (gwdata, x, t2);
 if (gcompg (t1, t2) != 0)
 OutputStr ("Iteration failed.\n");
 if (bit == 100) bit = Nlen;
@@ -1334,7 +1127,7 @@ if (bit == 100) bit = Nlen;
 /* If the sum of the output values is an error (such as infinity) */
 /* then raise an error. */
 
-		if (gw_test_illegal_sumout ()) {
+		if (gw_test_illegal_sumout (gwdata)) {
 			sprintf (buf, ERRMSG0, bit, Nlen, ERRMSG1A);
 			OutputBoth (buf);
 			goto error;
@@ -1344,13 +1137,13 @@ if (bit == 100) bit = Nlen;
 /* equal to the sum of unfft results.  Since this check may not */
 /* be perfect, check for identical results after a restart. */
 
-		if (gw_test_mismatched_sums ()) {
+		if (gw_test_mismatched_sums (gwdata)) {
 			static unsigned long last_bit = 0;
 			static double last_suminp = 0.0;
 			static double last_sumout = 0.0;
 			double suminp, sumout;
-			suminp = gwsuminp (x);
-			sumout = gwsumout (x);
+			suminp = gwsuminp (gwdata, x);
+			sumout = gwsumout (gwdata, x);
 			if (bit == last_bit &&
 			    suminp == last_suminp &&
 			    sumout == last_sumout) {
@@ -1370,20 +1163,20 @@ if (bit == 100) bit = Nlen;
 
 /* Check for excessive roundoff error  */
 
-		if (echk && MAXERR > 0.40) {
+		if (echk && gw_get_maxerr (gwdata) > 0.40) {
 			static unsigned long last_bit = 0;
 			static double last_maxerr = 0.0;
 			if (bit == last_bit &&
-			    MAXERR == last_maxerr) {
+			    gw_get_maxerr (gwdata) == last_maxerr) {
 				writeResults (ERROK);
 				saving = 1;
 			} else {
 				char	msg[80];
-				sprintf (msg, ERRMSG1C, MAXERR);
+				sprintf (msg, ERRMSG1C, gw_get_maxerr (gwdata));
 				sprintf (buf, ERRMSG0, bit, Nlen, msg);
 				OutputBoth (buf);
 				last_bit = bit;
-				last_maxerr = MAXERR;
+				last_maxerr = gw_get_maxerr (gwdata);
 				goto error;
 			}
 		}
@@ -1391,10 +1184,10 @@ if (bit == 100) bit = Nlen;
 /* Keep track of maximum and minimum round off error */
 
 		if (ERRCHK) {
-			if (MAXERR < reallyminerr && bit > 30)
-				reallyminerr = MAXERR;
-			if (MAXERR > reallymaxerr)
-				reallymaxerr = MAXERR;
+			if (gw_get_maxerr (gwdata) < reallyminerr && bit > 30)
+				reallyminerr = gw_get_maxerr (gwdata);
+			if (gw_get_maxerr (gwdata) > reallymaxerr)
+				reallymaxerr = gw_get_maxerr (gwdata);
 		}
 
 /* That iteration succeeded, bump counters */
@@ -1409,13 +1202,13 @@ if (bit == 100) bit = Nlen;
 			double	pct;
 			pct = trunc_percent (bit * 100.0 / Nlen);
 			sprintf (fmt_mask, "%%.%df%%%% of %%s", PRECISION);
-			sprintf (buf, fmt_mask, pct, gwmodulo_as_string ());
+			sprintf (buf, fmt_mask, pct, gwmodulo_as_string (gwdata));
 			title (buf);
 			ReplaceableLine (2);	/* Replace line */
 			sprintf (fmt_mask,
 				 "%%s, bit: %%ld / %%ld [%%.%df%%%%]",
 				 PRECISION);
-			sprintf (buf, fmt_mask, gwmodulo_as_string (), bit, Nlen, pct);
+			sprintf (buf, fmt_mask, gwmodulo_as_string (gwdata), bit, Nlen, pct);
 			OutputStr (buf);
 			if (ERRCHK && bit > 30) {
 				OutputStr (".  Round off: ");
@@ -1449,7 +1242,7 @@ if (bit == 100) bit = Nlen;
 
 		if (saving || stopping) {
 			write_time = DISK_WRITE_TIME * 60;
-			if (! writeToFile (filename, bit, x)) {
+			if (! writeToFile (gwdata, filename, bit, x)) {
 				sprintf (buf, WRITEFILEERR, filename);
 				OutputBoth (buf);
 				if (write_time > 600) write_time = 600;
@@ -1459,13 +1252,13 @@ if (bit == 100) bit = Nlen;
 /* If an escape key was hit, write out the results and return */
 
 			if (stopping) {
-				gwdone ();
+				gwdone (gwdata);
 				return (FALSE);
 			}
 		}
 	}
 #ifdef CHECK_ITER
-pushg(2);}
+pushg(&gwdata->gdata, 2);}
 #endif
 
 /* See if we've found a probable prime.  If not, format a 64-bit residue. */
@@ -1475,26 +1268,26 @@ pushg(2);}
 /* residue too.  Note that some really old versions printed out the */
 /* 32-bit chunks of the non-standard residue in reverse order. */
 
-	tmp = popg ((Nlen >> 5) + 3);
-	gwtogiant (x, tmp);
+	tmp = popg (&gwdata->gdata, (Nlen >> 5) + 3);
+	gwtogiant (gwdata, x, tmp);
 	if (!isone (tmp)) {
 		*res = FALSE;	/* Not a prime */
 		sprintf (res64, "%08lX%08lX", tmp->n[1], tmp->n[0]);
-		imulg (3, tmp); specialmodg (tmp); ulsubg (3, tmp);
+		imulg (3, tmp); specialmodg (gwdata, tmp); ulsubg (3, tmp);
 		sprintf (oldres64, "%08lX%08lX", tmp->n[1], tmp->n[0]);
 	}
-	pushg (1);
-	gwfree (x);
+	pushg (&gwdata->gdata, 1);
+	gwfree (gwdata, x);
 
 /* Print results.  Do not change the format of this line as Jim Fougeron of */
 /* PFGW fame automates his QA scripts by parsing this line. */
 
 	if (*res)
-		sprintf (buf, "%s is a probable prime.\n", gwmodulo_as_string ());
+		sprintf (buf, "%s is a probable prime.\n", gwmodulo_as_string (gwdata));
 	else if (IniGetInt (INI_FILE, "OldRes64", 1))
-		sprintf (buf, "%s is not prime.  RES64: %s.  OLD64: %s\n", gwmodulo_as_string (), res64, oldres64);
+		sprintf (buf, "%s is not prime.  RES64: %s.  OLD64: %s\n", gwmodulo_as_string (gwdata), res64, oldres64);
 	else
-		sprintf (buf, "%s is not prime.  RES64: %s\n", gwmodulo_as_string (), res64);
+		sprintf (buf, "%s is not prime.  RES64: %s\n", gwmodulo_as_string (gwdata ), res64);
 
 /* Update the output file */
 
@@ -1512,13 +1305,13 @@ pushg(2);}
 
 /* Cleanup and return */
 
-	gwdone ();
+	gwdone (gwdata);
 	_unlink (filename);
 	return (TRUE);
 
 /* An error occured, sleep, then try restarting at last save point. */
 
-error:	gwdone ();
+error:	gwdone (gwdata);
 
 /* Output a message saying we are restarting */
 
@@ -1543,10 +1336,11 @@ int fastIsPRP (
 	signed long c,			/* C in k*b^n+c */
 	int	*res)
 {
+	gwhandle gwdata;
 	int	retval;
 	double	bits;
 
-//k=63487503855107.0;n=111125;c=1;
+k=180361.0;n=2393949;c=13;//bug
 
 /* Compute the number we are testing */
 
@@ -1560,11 +1354,14 @@ int fastIsPRP (
 /* Setup the assembly code. */
 
 	do {
-		gwsetup (k, b, n, c, 0);
+		gwinit (&gwdata);
+		gwset_num_threads (&gwdata, THREADS_PER_TEST);
+		gwset_thread_callback (&gwdata, SetAuxThreadPriority);
+		gwsetup (&gwdata, k, b, n, c);
 
 /* Do the PRP test */
 
-		retval = commonPRP (3, res);
+		retval = commonPRP (&gwdata, 3, res);
 	} while (retval == -1);
 
 /* Clean up and return */
@@ -1580,17 +1377,21 @@ int slowIsPRP (
 	char	*str,		/* string representation of N */
 	int	*res)
 {
+	gwhandle gwdata;
 	int	retval;
 
 /* Setup the gwnum code */
 
 	do {
-		gwsetup_general_mod_giant (N, 0);
-		strcpy (GWSTRING_REP, str);
+		gwinit (&gwdata);
+		gwset_num_threads (&gwdata, THREADS_PER_TEST);
+		gwset_thread_callback (&gwdata, SetAuxThreadPriority);
+		gwsetup_general_mod_giant (&gwdata, N);
+		strcpy (gwdata.GWSTRING_REP, str);
 
 /* Do the PRP test */
 
-		retval = commonPRP (3, res);
+		retval = commonPRP (&gwdata, 3, res);
 	} while (retval == -1);
 	return (retval);
 }
@@ -1659,7 +1460,7 @@ void primeContinue ()
 
 /* Set appropriate priority */
 
-	SetPriority ();
+	SetPriority (0);
 
 /* Case off the work type */
 
@@ -1701,7 +1502,7 @@ void primeContinue ()
 					sprintf (buf, "%lu:%c:%lu:%lu\n", i, c, chainlen, base);
 				else
 					sprintf (buf, "%lu:%c:%lu:%lu:%lu\n", i, c, chainlen, base, mask);
-				_write (outfd, buf, strlen (buf));
+				_write (outfd, buf, (int) strlen (buf));
 				_close (outfd);
 			}
 		}
@@ -1813,7 +1614,7 @@ void primeContinue ()
 				if (outfd) {
 					char	buf[100];
 					sprintf (buf, "%lu %lu\n", k, n);
-					_write (outfd, buf, strlen (buf));
+					_write (outfd, buf, (int) strlen (buf));
 					_close (outfd);
 				}
 			}
@@ -1979,7 +1780,7 @@ void primeContinue ()
 				if (outfd) {
 					char	buf[100];
 					sprintf (buf, "%.0f %lu\n", k, n);
-					_write (outfd, buf, strlen (buf));
+					_write (outfd, buf, (int) strlen (buf));
 					_close (outfd);
 				}
 			}

@@ -41,23 +41,9 @@ void IniGetString (char *, char *, char *, unsigned int, char *);
 long IniGetInt (char *, char *, long);
 void IniWriteString (char *, char *, char *);
 void IniWriteInt (char *, char *, long);
+void IniFileReread (char *);
 
-void IniFileOpen (char *, int);
-void processTimedIniFile (char *);
-void IniFileClose (char *);
-unsigned int IniGetNumLines (char *);
-void IniGetLineAsString (char *, unsigned int, char *, unsigned int,
-			 char *, unsigned int);
-void IniGetLineAsInt (char *, unsigned int, char *, unsigned int, long *);
-void IniReplaceLineAsString (char *, unsigned int, char *, char *);
-void IniReplaceLineAsInt (char *, unsigned int, char *, long);
-void IniInsertLineAsString (char *, unsigned int, char *, char *);
-void IniInsertLineAsInt (char *, unsigned int, char *, long);
-void IniAppendLineAsString (char *, char *, char *);
-void IniAppendLineAsInt (char *, char *, long);
-void IniDeleteLine (char *, unsigned int);
-void IniDeleteAllLines (char *);
-
+void NewOutputBoth (int, char *);
 void OutputBoth (char *);
 void OutputSomewhere (char *);
 void LogMsg (char *);
@@ -65,12 +51,10 @@ void ReplaceableLine (int);
 
 unsigned long pick_fft_length (unsigned long);
 
-void tempFileName (char	*);
+void tempFileName (gwhandle *, char *);
 int fileExists (char *);
 int readFileHeader (char *, int *, short *, unsigned long *);
 int writeResults (char	*);
-
-int communicateWithServer ();
 
 /* Routines called by common routines */
 
@@ -78,7 +62,7 @@ void OutputStr (char *);
 void guessCpuType (void);
 void getCpuDescription (char *, int);
 unsigned long num_cpus (void);
-void doMiscTasks (void);
+int NewEscapeCheck (int);
 int escapeCheck (void);
 #define	WORKING_ICON	0
 #define	IDLE_ICON	1
@@ -97,4 +81,5 @@ extern double __timers[10];		/* 10 timers are available */
 
 void title (char *);
 void flashWindowAndBeep ();
-void SetPriority ();
+void SetPriority (int);
+void SetAuxThreadPriority (int, void *);

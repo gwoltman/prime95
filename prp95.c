@@ -37,12 +37,15 @@ int isWindows2000 ()
 
 /* Set the thread priority correctly */
 
-void SetPriority (void)
+void SetPriority (int thread)
 {
+	HANDLE	threadid;
+
 	SetPriorityClass (GetCurrentProcess (),
 		(PRIORITY > 6) ? NORMAL_PRIORITY_CLASS : IDLE_PRIORITY_CLASS);
-	WORKER_THREAD = GetCurrentThread ();
-	SetThreadPriority (WORKER_THREAD,
+	threadid = GetCurrentThread ();
+	if (thread == 0) WORKER_THREAD = threadid;
+	SetThreadPriority (threadid,
 		(PRIORITY == 1) ? THREAD_PRIORITY_IDLE :
 		(PRIORITY == 2 || PRIORITY == 7) ? THREAD_PRIORITY_LOWEST :
 		(PRIORITY == 3 || PRIORITY == 8) ? THREAD_PRIORITY_BELOW_NORMAL :
@@ -50,7 +53,7 @@ void SetPriority (void)
 		(PRIORITY == 5 || PRIORITY == 10) ? THREAD_PRIORITY_ABOVE_NORMAL :
 		THREAD_PRIORITY_HIGHEST);
 	if (CPU_AFFINITY != 99 && !isWindows95 ())
-		SetThreadAffinityMask (WORKER_THREAD, 1 << CPU_AFFINITY);
+		SetThreadAffinityMask (threadid, 1 << (CPU_AFFINITY + thread));
 }
 
 /* Return the number of CPUs in the system */
