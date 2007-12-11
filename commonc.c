@@ -5241,6 +5241,16 @@ retry:
 			goto error_exit;
 		talked_to_server = TRUE;
 
+/* Handle errors that show the server processed the message properly. */
+/* These errors can happen with unwanted results (retesting known primes, */
+/* PRP results, ECM or P-1 on non-Mersennes, etc.) */ 
+
+		if (rc == ERROR_INVALID_ASSIGNMENT_KEY ||
+		    rc == ERROR_INVALID_RESULT_TYPE ||
+		    rc == ERROR_NO_ASSIGNMENT ||
+		    rc == ERROR_WORK_NO_LONGER_NEEDED)
+			rc = 0;
+
 /* Just in case the error was casued by some kind of unexpected */
 /* and unrepeatable server problem, retry sending the message 5 times */
 /* before giving up and moving on to the next one. */
