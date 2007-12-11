@@ -1516,6 +1516,9 @@ int PRIMENET (short operation, void *pkt)
 
 
 #include "security.c"
+#ifndef IPSHASH
+#define v4_hash_packet()
+#endif
 
 /*
 // Primenet: main interface to Prime95.exe, accepts
