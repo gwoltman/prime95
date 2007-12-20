@@ -5245,10 +5245,10 @@ retry:
 /* These errors can happen with unwanted results (retesting known primes, */
 /* PRP results, ECM or P-1 on non-Mersennes, etc.) */ 
 
-		if (rc == ERROR_INVALID_ASSIGNMENT_KEY ||
-		    rc == ERROR_INVALID_RESULT_TYPE ||
-		    rc == ERROR_NO_ASSIGNMENT ||
-		    rc == ERROR_WORK_NO_LONGER_NEEDED)
+		if (rc == PRIMENET_ERROR_INVALID_ASSIGNMENT_KEY ||
+		    rc == PRIMENET_ERROR_INVALID_RESULT_TYPE ||
+		    rc == PRIMENET_ERROR_NO_ASSIGNMENT ||
+		    rc == PRIMENET_ERROR_WORK_NO_LONGER_NEEDED)
 			rc = 0;
 
 /* Just in case the error was casued by some kind of unexpected */
