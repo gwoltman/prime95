@@ -247,7 +247,7 @@ extra memory in stage 2 of P-1 factoring (about 12 hours a month).
 
 2)  Start with how much memory is installed in your machine.  Allow a
 reasonable amount of memory for the OS and whatever background tasks
-you run (say 16 or 24MB).  This represents the maximum value you should use.
+you run (say 100 or 200MB).  This represents the maximum value you should use.
 The program won't let you enter more than 90% of installed memory.
 
 3)  Assuming you run your machine 24 hours a day, what hours of the
