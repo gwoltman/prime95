@@ -3631,6 +3631,8 @@ int read_gwnum (
 	if (!read_long (fd, &len, sum)) return (FALSE);
 	if (len == 0) return (FALSE);
 	tmp = popg (&gwdata->gdata, (gwdata->n >> 5) + 10);
+	if (tmp == NULL) return (FALSE);	// BUG - we should return some other error code
+						// otherwise caller will likely delete save file.
 	bytes = len * sizeof (uint32_t);
 	if (_read (fd, tmp->n, bytes) != bytes) return (FALSE);
 	if (len && tmp->n[len-1] == 0) return (FALSE);
@@ -3652,6 +3654,7 @@ int write_gwnum (
 	unsigned long i, len, bytes;
 
 	tmp = popg (&gwdata->gdata, (gwdata->n >> 5) + 10);
+	if (tmp == NULL) return (FALSE);
 	gwtogiant (gwdata, g, tmp);
 	len = tmp->sign;
 	if (len == 0) return (FALSE);
