@@ -3054,8 +3054,7 @@ restart3:
 		if (stop_reason) {
 			// In case stop_reason is out-of-memory, free some up
 			// before calling ecm_save.
-			gwfree (&ecmdata.gwdata, ecmdata.Qmx);
-			gwfree (&ecmdata.gwdata, ecmdata.Qmz);
+			mQ_term (&ecmdata);
 			dbltogw (&ecmdata.gwdata, 1.0, Q2x);
 			gwfft (&ecmdata.gwdata, Q2x, Q2x);
 			gwfftfftmul (&ecmdata.gwdata, Q2x, ecmdata.nQx[0], ecmdata.nQx[0]);
