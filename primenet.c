@@ -1020,8 +1020,7 @@ int format_args (char* args, short operation, void* pkt)
 			p = armor (p + strlen (p), z->error_count);
 		}
 		if (z->result_type == PRIMENET_AR_TF_FACTOR) {
-			sprintf (p, "&n=%d&sf=%g&ef=%g",
-				 z->n, z->start_bits, z->end_bits);
+			sprintf (p, "&n=%d&sf=%g", z->n, z->start_bits);
 			p += strlen (p);
 			strcpy (p, "&f=");
 			p = armor (p + strlen (p), z->factor);
