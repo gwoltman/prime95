@@ -626,9 +626,12 @@ void set_affected_by_mem_change (
 	MEM_FLAGS[thread_num] |= MEM_NOT_ENOUGH_TO_RUN;
 }
 
-/* Set flag that says this thread will be affected by a change in memory */
-/* usage.  This happens when a thread goes from using a lot of memory to */
-/* using a normal amount (as in finishing stage 2 of P-1 or ECM). */
+/* Set flag that says this thread will be affected by other threads */
+/* reducing their memory usage.  Workers that have proceeded postponed */
+/* stage 2 of P-1 and started their LL test or moved onto the next work */
+/* unit would set this flag.   A reduction in memory usage occurs when */
+/* another thread goes from using a lot of memory to using a normal */
+/* amount (as in finishing stage 2 of P-1 or ECM). */
 
 void set_affected_by_mem_usage (
 	int	thread_num)
@@ -704,7 +707,7 @@ int set_memory_usage (
 	for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
 		if (MEM_FLAGS[i] & MEM_USAGE_NOT_SET) count_usage_not_set++;
 
-/* If the all threads now now how much memory they intend to use, signal */
+/* If all threads now know how much memory they intend to use, signal */
 /* the MEM_EVENT to wake up any variable usage workers that were waiting */
 /* for other workers to compute their memory usage.  Otherwise, reset the */
 /* event so that we can wait for all workers to compute their memory usage. */
@@ -792,7 +795,7 @@ int set_memory_usage (
 /* memory overcommitment without restarting any workers already in progress. */
 /* Do not allocate our memory until we've resolved our memory */
 /* overcommitment.  We'll wait up to 20 seconds (a safety valve against */
-/* bugs in memory allocation bugs). */
+/* bugs in memory allocation). */
 
 	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
 		if (! fixed_threads[i] && MEM_FLAGS[i] & MEM_WAITING) {
@@ -2668,7 +2671,8 @@ int primeFactor (
 			pkt.result_type = PRIMENET_AR_TF_FACTOR;
 			pkt.n = p;
 			strcpy (pkt.factor, str);
-			pkt.start_bits = bits;
+			pkt.start_bits = (bits < report_bits) ?
+				     (unsigned int) w->sieve_depth : bits;
 			pkt.done = !find_smaller_factor;
 			spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
 		}
