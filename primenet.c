@@ -731,6 +731,10 @@ int pnHttpServerCURL (char *pbuf, unsigned cbuf, char* postargs)
 
 /* Send the URL request */
 
+	curl_easy_setopt (curl, CURLOPT_FOLLOWLOCATION, 1);
+	curl_easy_setopt (curl, CURLOPT_NOSIGNAL, 1);
+	curl_easy_setopt (curl, CURLOPT_CONNECTTIMEOUT, 180);
+	curl_easy_setopt (curl, CURLOPT_TIMEOUT, 180);
 	curl_easy_setopt (curl, CURLOPT_ERRORBUFFER, errbuf);
 	res = curl_easy_perform (curl);
 	if (res != CURLE_OK) {
