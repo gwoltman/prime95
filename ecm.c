@@ -1816,11 +1816,11 @@ replan:	memory = avail_mem (thread_num);
 		return (STOP_NOT_ENOUGH_MEM);
 	}
 
-/* Check if we'd rather wait for more memory to become available.  If this */
-/* is primeContinue's 2nd pass and several worker threads are using a lot */
-/* of memory then wait for more memory. */
+/* Check if we must wait for more memory to become available.  This */
+/* happens when we reach the maximum allowable number of threads using a lot */
+/* of memory. */
 
-	if (pass == 2 && are_threads_using_lots_of_memory (thread_num)) {
+	if (are_threads_using_lots_of_memory (thread_num)) {
 		OutputStr (thread_num, "Other worker threads are using lots of memory now.\n");
 		OutputStr (thread_num, "Looking for work that uses less memory.\n");
 		return (STOP_NOT_DESIRED_MEM);
@@ -4171,7 +4171,6 @@ void choose_pminus1_plan (
 void choose_pminus1_implementation (
 	pm1handle *pm1data,
 	struct work_unit *w,
-	int	pass,			/* Pass 2 or 3 from pm1data */
 	int	*do_later,		/* 0 = do now, 1 = not enough memory */
 					/* 2 = prefer to wait for more mem */
 	int	*using_t3_result)	/* Should we use a temporary for t3 */
@@ -4201,11 +4200,11 @@ void choose_pminus1_implementation (
 	    !is_max_mem_available_now ())
 		return;
 
-/* Check if we'd rather wait for more memory to become available.  If this */
-/* is primeContinue's 2nd pass and several worker threads are using a lot */
-/* of memory then wait for more memory. */
+/* Check if we must wait for more memory to become available.  This */
+/* happens when we reach the maximum allowable number of threads using a lot */
+/* of memory. */
 
-	if (pass == 2 && are_threads_using_lots_of_memory (pm1data->thread_num)) {
+	if (are_threads_using_lots_of_memory (pm1data->thread_num)) {
 		*do_later = 2;
 		return;
 	}
@@ -5123,7 +5122,7 @@ restart3b:
 /* This implementation could be anything from "wait until we have more */
 /* memory" to deciding whether using_t3 should be set. */
 
-replan:	choose_pminus1_implementation (&pm1data, w, pass, &do_later, &using_t3);
+replan:	choose_pminus1_implementation (&pm1data, w, &do_later, &using_t3);
 	if (do_later) {
 		pm1_save (&pm1data, filename, w, 0, x, gg);
 		if (do_later == 1) {

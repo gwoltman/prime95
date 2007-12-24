@@ -666,7 +666,7 @@ int set_memory_usage (
 /* Obtain lock before accessing memory global variables */
 
 	gwmutex_lock (&MEM_MUTEX);
-	
+
 /* If we are going from variable usage to fixed usage, then start up any */
 /* threads that are waiting for more memory to become available, as well */
 /* as any that are currently using a lot of memory but might want to use */
@@ -3458,7 +3458,9 @@ int prime (
 	    ! w->pminus1ed) {
 		stop_reason = pfactor (thread_num, sp_info, w, pass);
 		if (stop_reason) {
-			if (stop_reason == STOP_NOT_ENOUGH_MEM && pass == 3) {
+			if (pass == 3 &&
+			    (stop_reason == STOP_NOT_ENOUGH_MEM ||
+			     stop_reason == STOP_NOT_DESIRED_MEM)) {
 				stop_reason = 0;
 				set_affected_by_mem_usage (thread_num);
 			} else
@@ -5797,7 +5799,9 @@ int prp (
 	if (! w->pminus1ed) {
 		stop_reason = pfactor (thread_num, sp_info, w, pass);
 		if (stop_reason) {
-			if (stop_reason == STOP_NOT_ENOUGH_MEM && pass == 3) {
+			if (pass == 3 &&
+			    (stop_reason == STOP_NOT_ENOUGH_MEM ||
+			     stop_reason == STOP_NOT_DESIRED_MEM)) {
 				stop_reason = 0;
 				set_affected_by_mem_usage (thread_num);
 			} else
