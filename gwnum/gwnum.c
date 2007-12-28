@@ -5302,7 +5302,7 @@ int gwtogiant (
 /* FFT, then only convert a little more than half of the FFT data words. */
 /* For a DWT, convert all the FFT data. */
 
-	if (gwdata->GENERAL_MOD) limit = gwdata->GW_ZEROWORDSLOW + 3;
+	if (gwdata->GENERAL_MOD) limit = gwdata->GW_ZEROWORDSLOW + 4;
 	else if (gwdata->ZERO_PADDED_FFT) limit = gwdata->FFTLEN / 2 + 4;
 	else limit = gwdata->FFTLEN;
 
