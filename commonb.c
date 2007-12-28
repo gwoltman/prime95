@@ -2833,7 +2833,7 @@ int lucasSetup (
 /* message. */
 
 	if (res) {
-		if (!bench_pick_nth_fft) {
+		if (!lldata->gwdata.bench_pick_nth_fft) {
 			char	buf[80];
 			sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
 			OutputBoth (thread_num, buf);
@@ -5549,9 +5549,8 @@ int primeBench (
 		gwset_num_threads (&lldata.gwdata, threads);
 		gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 		gwset_thread_callback_data (&lldata.gwdata, &sp_info);
-		if (all_bench) bench_pick_nth_fft = ii;
+		if (all_bench) lldata.gwdata.bench_pick_nth_fft = ii;
 		stop_reason = lucasSetup (thread_num, fft_lengths[i] * 1024 * 17 + 1, fft_lengths[i] * 1024 + plus1, &lldata);
-		if (all_bench) bench_pick_nth_fft = 0;
 		if (stop_reason) break;
 		iterations = (unsigned long) (10 * 1792 * CPU_SPEED / 1400 / fft_lengths[i]);
 		if (iterations < 10) iterations = 10;

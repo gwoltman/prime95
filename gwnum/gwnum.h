@@ -751,6 +751,20 @@ struct gwhandle_struct {
 				/* Array of auxillary thread ids */
 	uint32_t ASM_TIMERS[32];/* Internal timers used by me to */
 				/* optimize code */
+	int	bench_pick_nth_fft; /* DO NOT set this variable.  Internal */
+				/* hack to force the FFT selection code to */
+				/* pick the n-th possible implementation */
+				/* instead of the best one.  The prime95 */
+				/* benchmarking code uses this to time */
+				/* every FFT implementation so that we can */
+				/* find the best for a new CPU architecture */
+	int	qa_pick_nth_fft; /* DO NOT set this variable.  Internal */
+				/* hack to force the FFT selection code to */
+				/* pick the n-th possible implementation */
+				/* instead of the best one.  The prime95 QA */
+				/* code uses this to compare results from one */
+				/* FFT implementation to the (should be identical) */
+				/* results of another FFT implementation. */
 };
 
 /* A psuedo declaration for our big numbers.  The actual pointers to */
@@ -838,20 +852,6 @@ extern void (*OutputBothRoutine)(int,char *);
 int gwtimeit (void *);
 int gwtimeitAMD (void *);
 #define get_asm_timers(g) ((uint32_t *) &(g)->ASM_TIMERS)
-
-/* This global forces the FFT selection code to pick the n-th possible */
-/* implementation instead of the best one.  The prime95 benchmarking code */
-/* uses this to time every FFT implementation so that we can find the best */
-/* one for a new CPU architecture.  DO NOT set this variable. */
-
-extern	int bench_pick_nth_fft;
-
-/* This global forces the FFT selection code to pick the n-th possible */
-/* implementation instead of the best one.  The prime95 QA code uses this to */
-/* compare results from one FFT implementation to the (should be identical) */
-/* results of another FFT implementation.  DO NOT set this variable. */
-
-extern	int qa_pick_nth_fft;
 
 #ifdef __cplusplus
 }

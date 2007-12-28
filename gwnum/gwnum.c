@@ -31,20 +31,6 @@
 void (*OutputBothRoutine)(int, char *) = NULL;
 #define OutputBoth(t,x)	(*OutputBothRoutine)(t,x)
 
-/* This global forces the FFT selection code to pick the n-th possible */
-/* implementation.  The prime95 benchmarking code uses this to time */
-/* every FFT implementation so that we can find the best one for */
-/* each CPU architecture. */
-
-int	bench_pick_nth_fft = 0;
-
-/* This global forces the FFT selection code to pick the n-th possible */
-/* implementation instead of the best one.  The prime95 QA code uses this to */
-/* compare results from one FFT implementation to the (should be identical) */
-/* results of another FFT implementation. */
-
-int	qa_pick_nth_fft = 0;
-
 /* Assembly helper routines */
 
 struct gwinfo1_data {
@@ -1470,15 +1456,15 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 /* tested and the ones that are a different FFT length than the ones already */
 /* tested. */
 
-			if (qa_pick_nth_fft) {
+			if (gwdata->qa_pick_nth_fft) {
 				qa_nth_fft++;
-				if (qa_nth_fft < qa_pick_nth_fft)
+				if (qa_nth_fft < gwdata->qa_pick_nth_fft)
 					goto next1;
-				if (qa_nth_fft == qa_pick_nth_fft) {
+				if (qa_nth_fft == gwdata->qa_pick_nth_fft) {
 					qa_fftlen = zpad_jmptab->fftlen;
 					goto next1;
 				}
-				if (qa_pick_nth_fft != 1 &&
+				if (gwdata->qa_pick_nth_fft != 1 &&
 				    qa_fftlen != zpad_jmptab->fftlen)
 					goto next1;
 				l2_cache_size = 9999999;
@@ -1509,7 +1495,7 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 			max_bits_per_word -= gwdata->safety_margin;
 			bits_per_word = (double) (n + n) / zpad_jmptab->fftlen;
 			if (bits_per_word < max_bits_per_word + 0.3) {
-				if (qa_pick_nth_fft) goto use_zpad;
+				if (gwdata->qa_pick_nth_fft) goto use_zpad;
 				break;
 			}
 
@@ -1546,15 +1532,15 @@ next1:			for (longp = &zpad_jmptab->counts[4]; *longp; longp++);
 /* already tested and the ones that are a different FFT length than the */
 /* ones already tested. */
 
-		if (qa_pick_nth_fft) {
+		if (gwdata->qa_pick_nth_fft) {
 			qa_nth_fft++;
-			if (qa_nth_fft < qa_pick_nth_fft)
+			if (qa_nth_fft < gwdata->qa_pick_nth_fft)
 				goto next2;
-			if (qa_nth_fft == qa_pick_nth_fft) {
+			if (qa_nth_fft == gwdata->qa_pick_nth_fft) {
 				qa_fftlen = jmptab->fftlen;
 				goto next2;
 			}
-			if (qa_pick_nth_fft >= 50000 &&
+			if (gwdata->qa_pick_nth_fft >= 50000 &&
 			    qa_fftlen != jmptab->fftlen)
 				goto next2;
 			l2_cache_size = 9999999;
@@ -1575,14 +1561,14 @@ next1:			for (longp = &zpad_jmptab->counts[4]; *longp; longp++);
 /* Handle benchmarking case that selects the nth FFT implementation */
 /* regardless of cache size considerations. */
 
-		if (bench_pick_nth_fft) {
+		if (gwdata->bench_pick_nth_fft) {
 			l2_cache_size = 9999999;
 			if (gwdata->specific_fftlen != jmptab->fftlen)
 				goto next2;
 			if (gwdata->cpu_flags & CPU_3DNOW &&
 			    ! (jmptab->flags_min_l2_cache_clm & 0x40000000))
 				goto next2;
-			if (--bench_pick_nth_fft) goto next2;
+			if (--gwdata->bench_pick_nth_fft) goto next2;
 		}
 
 /* Check L2 cache size constraints */
@@ -1706,10 +1692,10 @@ use_zpad:	gwdata->ZERO_PADDED_FFT = TRUE;
 	gwdata->PASS2_LEVELS = jmptab->pass2_levels; /* FFT levels in pass2 */
 	gwdata->PASS2GAPSIZE = jmptab->counts[1] & ~1;
 
-/* Remember the FFT returned so that QA code can return a different FFT */
-/* next time. */
+/* Remember the FFT returned so that we can return a different FFT to */
+/* the QA code next time. */
 
-	if (qa_pick_nth_fft) qa_pick_nth_fft = qa_nth_fft;
+	if (gwdata->qa_pick_nth_fft) gwdata->qa_pick_nth_fft = qa_nth_fft;
 
 /* Set pointer to assembler "jump" table */
 
@@ -1849,6 +1835,7 @@ int gwsetup_general_mod_giant (
 {
 #define EB	10		/* Extra bits of precision to compute quot. */
 	unsigned long len;	/* Bit length of modulus */
+	int	error_code;
 	giant	tmp;
 
 /* Setup the FFT code, use an integral number of bits per word if possible. */
@@ -1857,7 +1844,8 @@ int gwsetup_general_mod_giant (
 
 	len = bitlen (n);
 	gwdata->bit_length = len;
-	gwsetup_without_mod (gwdata, len + len + 2*EB + 64);
+	error_code = gwsetup_without_mod (gwdata, len + len + 2*EB + 64);
+	if (error_code) return (error_code);
 
 /* Copy the modulus */
 

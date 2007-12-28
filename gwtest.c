@@ -178,14 +178,13 @@ void test_it_all (
 	    nth_fft = 1;
 	    for ( ; ; ) {
 		if (ii == 1) CPU_FLAGS &= ~CPU_SSE2;
-		qa_pick_nth_fft = nth_fft;
 		gwinit (&gwdata);
 		gwset_num_threads (&gwdata, threads);
 		gwset_thread_callback (&gwdata, SetAuxThreadPriority);
 		gwset_thread_callback_data (&gwdata, sp_info);
+		gwdata.qa_pick_nth_fft = nth_fft;
 		res = gwsetup (&gwdata, k, b, n, c);
-		nth_fft = qa_pick_nth_fft;
-		qa_pick_nth_fft = 0;
+		nth_fft = gwdata.qa_pick_nth_fft;
 		if (ii == 1) CPU_FLAGS |= CPU_SSE2;
 		if (res) break;
 
