@@ -672,7 +672,7 @@ struct gwhandle_struct {
 				/* the number operations are modulo. */
 	gwnum	GW_MODULUS_FFT;	/* In the general purpose mod case, this is */
 				/* the FFT of GW_MODULUS. */
-	gwnum	GW_RECIP;	/* Shifted reciprocal of GW_MODULUS */
+	gwnum	GW_RECIP_FFT;	/* FFT of shifted reciprocal of GW_MODULUS */
 	unsigned long GW_ZEROWORDSLOW; /* Count of words to zero during */
 				/* copy step of a general purpose mod. */
 	double	fft_bits_per_word; /* Num bits in each fft word */

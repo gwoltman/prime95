@@ -1836,13 +1836,13 @@ int gwsetup_general_mod_giant (
 #define EB	10		/* Extra bits of precision to compute quot. */
 	unsigned long len;	/* Bit length of modulus */
 	int	error_code;
-	giant	tmp;
+	giant	modified_modulus, tmp;
 
 /* Setup the FFT code, use an integral number of bits per word if possible. */
 /* We reserve some extra bits for extra precision and to make sure we can */
 /* zero an integral number of words during copy. */
 
-	len = bitlen (n);
+	len = bitlen (n) + 64;
 	gwdata->bit_length = len;
 	error_code = gwsetup_without_mod (gwdata, len + len + 2*EB + 64);
 	if (error_code) return (error_code);
@@ -1856,37 +1856,57 @@ int gwsetup_general_mod_giant (
 	}
 	gtog (n, gwdata->GW_MODULUS);
 
-/* Remember the modulus.  FFT it for faster use. */
+/* Some reciprocals have regular bit patterns.  This violates a */
+/* fundamental assumption we make in our selection of FFT crossover */
+/* points namely that FFT data is essentially random.  This */
+/* non-randomness triggers roundoff errors.  We try to eliminate */
+/* these regular bit patterns by multiplying the modulus by a */
+/* random 64-bit prime. */
 
-	gwdata->GW_MODULUS_FFT = gwalloc (gwdata);
-	if (gwdata->GW_MODULUS_FFT == NULL) {
+	modified_modulus = newgiant ((len >> 4) + 1);
+	if (modified_modulus == NULL) {
 		gwdone (gwdata);
 		return (GWERROR_MALLOC);
 	}
-	gianttogw (gwdata, n, gwdata->GW_MODULUS_FFT);
+	modified_modulus->sign = 2;
+	modified_modulus->n[0] = 0x12348765;
+	modified_modulus->n[1] = 0x957F3624;
+	mulg (n, modified_modulus);
+
+/* Allocate memory for an FFTed copy of the modified modulus. */
+
+	gwdata->GW_MODULUS_FFT = gwalloc (gwdata);
+	if (gwdata->GW_MODULUS_FFT == NULL) {
+		free (modified_modulus);
+		gwdone (gwdata);
+		return (GWERROR_MALLOC);
+	}
+	gianttogw (gwdata, modified_modulus, gwdata->GW_MODULUS_FFT);
 	gwfft (gwdata, gwdata->GW_MODULUS_FFT, gwdata->GW_MODULUS_FFT);
 
-/* Precompute the reciprocal */
+/* Precompute the reciprocal of the modified modulus */
 
 	tmp = newgiant ((gwdata->n >> 4) + 1);
 	if (tmp == NULL) {
+		free (modified_modulus);
 		gwdone (gwdata);
 		return (GWERROR_MALLOC);
 	}
 	itog (1, tmp);
 	gshiftleft (len + len + EB, tmp);
-	divg (n, tmp);		/* computes len+EB+1 bits of reciprocal */
+	divg (modified_modulus, tmp);		/* computes len+EB+1 bits of reciprocal */
+	free (modified_modulus);
 	gshiftleft (gwdata->n - len - len - EB, tmp);
 				/* shift so gwmul routines wrap */
 				/* quotient to lower end of fft */
-	gwdata->GW_RECIP = gwalloc (gwdata);
-	if (gwdata->GW_RECIP == NULL) {
+	gwdata->GW_RECIP_FFT = gwalloc (gwdata);
+	if (gwdata->GW_RECIP_FFT == NULL) {
 		free (tmp);
 		gwdone (gwdata);
 		return (GWERROR_MALLOC);
 	}
-	gianttogw (gwdata, tmp, gwdata->GW_RECIP);
-	gwfft (gwdata, gwdata->GW_RECIP, gwdata->GW_RECIP);
+	gianttogw (gwdata, tmp, gwdata->GW_RECIP_FFT);
+	gwfft (gwdata, gwdata->GW_RECIP_FFT, gwdata->GW_RECIP_FFT);
 	free (tmp);
 
 /* Calculate number of words to zero during copy */
@@ -1902,7 +1922,7 @@ int gwsetup_general_mod_giant (
 /* Create dummy string representation. Calling gtoc to get the first */
 /* several digits would be better, but it is too slow. */
 
-	sprintf (gwdata->GWSTRING_REP, "A %ld-bit number", len);
+	sprintf (gwdata->GWSTRING_REP, "A %ld-bit number", len-64);
 
 /* Return success */
 
@@ -4207,16 +4227,22 @@ void gwrealloc_temporarily (
 	gwdata->gwnum_free_count = j;
 }
 
-/* Free all of our special numbers */
+/* Free all user allocated numbers */
 
 void gwfreeall (
 	gwhandle *gwdata)	/* Handle initialized by gwsetup */
 {
 	unsigned int i;
-	if (gwdata->gwnum_alloc == NULL) return;
-	for (i = 0; i < gwdata->gwnum_alloc_count; i++)
-		gwdata->gwnum_free[i] = gwdata->gwnum_alloc[i];
-	gwdata->gwnum_free_count = gwdata->gwnum_alloc_count;
+
+/* Put any user allocated gwnums on the free list */
+
+	gwdata->gwnum_free_count = 0;
+	for (i = 0; i < gwdata->gwnum_alloc_count; i++) {
+		if (gwdata->gwnum_alloc[i] == gwdata->GW_MODULUS_FFT) continue;
+		if (gwdata->gwnum_alloc[i] == gwdata->GW_RECIP_FFT) continue;
+		if (gwdata->gwnum_alloc[i] == gwdata->GW_RANDOM) continue;
+		gwdata->gwnum_free[gwdata->gwnum_free_count++] = gwdata->gwnum_alloc[i];
+	}
 }
 
 /* Copy one gwnum to another gwnum */
@@ -5302,7 +5328,7 @@ int gwtogiant (
 /* FFT, then only convert a little more than half of the FFT data words. */
 /* For a DWT, convert all the FFT data. */
 
-	if (gwdata->GENERAL_MOD) limit = gwdata->GW_ZEROWORDSLOW + 4;
+	if (gwdata->GENERAL_MOD) limit = gwdata->GW_ZEROWORDSLOW + 3;
 	else if (gwdata->ZERO_PADDED_FFT) limit = gwdata->FFTLEN / 2 + 4;
 	else limit = gwdata->FFTLEN;
 
@@ -5583,7 +5609,7 @@ void emulate_mod (
 /* and we are left with just the quotient! */
 
 	asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + 4 + (gwdata->NORMNUM & 1)];
-	raw_gwfftmul (gwdata, gwdata->GW_RECIP, tmp);
+	raw_gwfftmul (gwdata, gwdata->GW_RECIP_FFT, tmp);
 
 /* Muliply quotient and modulus.  Select normalization routine that does */
 /* not zero the high FFT words. */
