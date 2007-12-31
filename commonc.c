@@ -9,7 +9,7 @@
 | Commonc contains information used during setup and execution
 +---------------------------------------------------------------------*/
 
-char JUNK[]="Copyright 1996-2007 Just For Fun Software, All rights reserved";
+char JUNK[]="Copyright 1996-2008 Just For Fun Software, All rights reserved";
 
 int	USE_V4 = 1;
 char	V4_USERID[15] = {0};
