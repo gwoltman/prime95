@@ -371,10 +371,10 @@ noshft:	fld1				; A
 	faddp	st(3), st		; ulo, uhi, v
 	faddp	st(1), st		; u, v
 
-; Turn on truncating mode
+; Turn on truncating mode, 64-bit precision
 
 	fstcw	WORD PTR [esp]
-	or	WORD PTR [esp], 0C00h
+	or	WORD PTR [esp], 0F00h
 	fldcw	WORD PTR [esp]
 
 ; Load structure pointer to return data
