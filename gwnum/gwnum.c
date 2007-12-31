@@ -1385,9 +1385,10 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 
 /* Copy the CPU_FLAGS just in case the caller changes the CPU_FLAGS value. */
 /* This would be especially deadly is the CPU_SSE2 was turned off after */
-/* calling gwsetup. */
+/* calling gwsetup.  Only do this if the caller did not set the cpu_flags. */
 
-	gwdata->cpu_flags = CPU_FLAGS;
+	if (gwdata->cpu_flags == 0)
+		gwdata->cpu_flags = CPU_FLAGS;
 
 /* If L2 cache size is unknown, assume it is 512KB.  We do this because */
 /* it is probably a new processor, and most new processors will have this */
@@ -1950,8 +1951,6 @@ int gwsetup_without_mod (
 	error_code = gwinfo (gwdata, 1.0, 2, n, -1);
 	gwdata->safety_margin += 0.3;
 	info = gwdata->jmptab;
-
-	ASSERTG (error_code != 1);
 	if (error_code) return (error_code);
 
 	max_exponent = info->max_exp;
@@ -1972,7 +1971,7 @@ int gwsetup_without_mod (
 /* Now setup the assembly code */
 
 	error_code = gwsetup (gwdata, 1.0, 2, n, -1);
-	ASSERTG (error_code == 0);
+	if (error_code) return (error_code);
 
 /* Set flag indicating general-purpose modulo operations are not in force */
 
@@ -2016,6 +2015,10 @@ int internal_gwsetup (
 	gwdata->n = n;
 	gwdata->c = c;
 
+/* Init the FPU to assure we are in 64-bit precision mode */
+
+	fpu_init ();
+
 /* Select the proper FFT size for this k,n,c combination */
 
 	error_code = gwinfo (gwdata, k, b, n, c);
@@ -2024,7 +2027,6 @@ int internal_gwsetup (
 
 /* Get pointer to fft info and allocate needed memory */
 
-	fpu_init ();
 	mem_needed = info->mem_needed + info->scratch_size;
 	gwdata->gwnum_memory = tables = (double *) aligned_malloc (mem_needed, 4096);
 	if (tables == NULL) return (GWERROR_MALLOC);
