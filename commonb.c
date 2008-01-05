@@ -1553,10 +1553,9 @@ int LaunchAdvancedTime (
 
 	ld = (struct LaunchData *) malloc (sizeof (struct LaunchData));
 	if (ld == NULL) return (OutOfMemory (MAIN_THREAD_NUM));
-	if (p >= 9900 && p <= 9915)
-		ld->num_threads = p - 9900 + 1;
-	else
-		ld->num_threads = 1;
+	if (p >= 9900 && p <= 9919) ld->num_threads = p - 9900 + 1;
+	else if (p >= 9920 && p <= 9939) ld->num_threads = p - 9920 + 1;
+	else ld->num_threads = 1;
 	ld->p = p;
 	ld->iters = iters;
 	LAUNCH_TYPE = LD_TIME;
@@ -5252,7 +5251,7 @@ int primeTime (
 			return (ecm_QA (thread_num, &sp_info));
 		if (p == 9990)
 			return (primeSieveTest (thread_num));
-		if (p == 9900)
+		if (p >= 9900 && p <= 9919)
 			return (test_randomly (thread_num, &sp_info));
 		return (test_all_impl (thread_num, &sp_info));
 	}
