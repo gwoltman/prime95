@@ -2739,8 +2739,7 @@ int writeWorkToDoFile (
 /* Output the optional file name extension (primarily for ECM) */
 
 		if (w->extension[0]) {
-			strcat (idbuf, "EXT=");
-			strcat (idbuf, w->extension);
+			sprintf (idbuf+strlen(idbuf), "EXT=%s,", w->extension);
 		}
 
 /* Write out comment lines just as we read them in */
@@ -2948,11 +2947,6 @@ int addWorkToDoLine (
 	struct work_unit *malloc_w;
 	int	rc;
 
-/* Grab the lock so that comm thread and/or worker threads do not */
-/* access structure while the other is adding/deleting lines. */
-
-	gwmutex_lock (&WORKTODO_MUTEX);
-
 /* Do more initialization of the work_unit structure */
 
 	auxillaryWorkUnitInit (w);
@@ -2960,11 +2954,56 @@ int addWorkToDoLine (
 /* Copy work unit from stack to malloc'ed area */
 
 	malloc_w = (struct work_unit *) malloc (sizeof (struct work_unit));
-	if (malloc_w == NULL) goto nomem;
+	if (malloc_w == NULL) return (OutOfMemory (MAIN_THREAD_NUM));
 	memcpy (malloc_w, w, sizeof (struct work_unit));
 
+/* If this is an ECM assignment, check to see if any other work unit is */
+/* ECMing the same number.  If so, generate a unique file extension so */
+/* that there are no save file conflicts. */
+
+	if (malloc_w->work_type == WORK_ECM) {
+		unsigned int tnum, ext;
+
+		ext = 0;
+		for (tnum = 0; tnum < NUM_WORKER_THREADS; tnum++) {
+			w = NULL;
+			for ( ; ; ) {
+				w = getNextWorkToDoLine (tnum, w, SHORT_TERM_USE);
+				if (w == NULL) break;
+				if (w->work_type == WORK_NONE) continue;
+
+/* Skip the line if this is not an ECM of the same number */
+
+				if (w->work_type != WORK_ECM ||
+				    w->k != malloc_w->k ||
+				    w->b != malloc_w->b ||
+				    w->n != malloc_w->n ||
+				    w->c != malloc_w->c) continue;
+
+/* Make sure we generate a file extension larger than this other work unit's */
+/* This will insure that a unique file extension is generated */
+
+				if (w->extension[0] == 0)
+					ext = 1;
+				else if (w->extension[0] == 'x' &&
+					 (unsigned int) atoi (w->extension+1) >= ext)
+					ext = atoi (w->extension+1) + 1;
+			}
+		}
+
+/* Now generate a file extension if we ran into 2 or more ECM assignments */
+/* of this number */
+
+		if (ext) sprintf (malloc_w->extension, "x%d", ext % 10000000);
+	}
+
+/* Grab the lock so that comm thread and/or worker threads do not */
+/* access structure while the other is adding/deleting lines. */
+
+	gwmutex_lock (&WORKTODO_MUTEX);
+
 /* Add the work unit to the end of the array.  Well, actually before the */
-/* last blank line. */
+/* last set of blank lines. */
 
 	rc = addToWorkUnitArray (tnum, malloc_w, FALSE);
 	if (rc) goto retrc;
@@ -2982,11 +3021,6 @@ int addWorkToDoLine (
 
 retrc:	gwmutex_unlock (&WORKTODO_MUTEX);
 	return (rc);
-
-/* Unlock and return out of memory */
-
-nomem:	gwmutex_unlock (&WORKTODO_MUTEX);
-	return (OutOfMemory (MAIN_THREAD_NUM));
 }
 
 /* Caller has updated a work unit structure such that the work-to-do */
