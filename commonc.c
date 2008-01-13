@@ -4374,10 +4374,11 @@ int unreserve (
 	unsigned long p)
 {
 	unsigned int tnum;
-	int	rc;
+	int	rc, found_one;
 
 /* Find exponent in worktodo.ini and delete it if present */
 
+	found_one = FALSE;
 	for (tnum = 0; tnum < NUM_WORKER_THREADS; tnum++) {
 	    struct work_unit *w;
 
@@ -4393,6 +4394,7 @@ int unreserve (
 /* Skip the line if exponent is not a match */
 
 		if (w->n != p) continue;
+		found_one = TRUE;
 
 /* Build a packet and spool message */
 
@@ -4411,6 +4413,14 @@ int unreserve (
 		rc = deleteWorkToDoLine (tnum, w, TRUE);
 		if (rc) return (rc);
 	    }
+	}
+
+/* If we didn't find a match then output a message to the main window */
+
+	if (!found_one) {
+		char	buf[90];
+		sprintf (buf, "Error unreserving exponent: %d not found in worktodo.txt\n", p);
+		OutputStr (MAIN_THREAD_NUM, buf);
 	}
 
 /* Return successfully */
