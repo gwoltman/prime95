@@ -40,9 +40,9 @@ void rangeStatusMessage (
 	char	*orig_buf;
 
 /* Just in case the user hand added work to the worktodo file, reread it */
-/* now if the worker threads are not active. */
+/* now if the worker threads and communication threads are not active. */
 
-	if (! WORKER_THREADS_ACTIVE) readIniFiles ();
+	if (! WORKER_THREADS_ACTIVE && !COMMUNICATION_THREAD) readIniFiles ();
 
 /* Init */
 
