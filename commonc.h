@@ -1,7 +1,7 @@
 /* Constants */
 
 #define VERSION		"25.6"
-#define BUILD_NUM	"3"
+#define BUILD_NUM	"6"
 /* The list of assigned OS ports follows: */
 /* Win9x (prime95) #1 */
 /* Linux (mprime)  #2 */
@@ -196,6 +196,9 @@ extern unsigned int WORKTODO_COUNT;	/* Count of valid work lines */
 
 extern int GIMPS_QUIT;			/* TRUE if we just successfully */
 					/* quit the GIMPS project */
+
+extern gwthread COMMUNICATION_THREAD;	/* Handle for comm thread.  Set when */
+					/* comm thread is active. */
 
 /* Common routines */
 
