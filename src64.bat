@@ -23,7 +23,7 @@ copy linux\releas64 foobar\linux\release
 copy linux\make64 foobar\linux\makefile
 xcopy linux\*.txt foobar\linux
 
-tar cvf src64 *.h *.c qd\*.*
+tar cvf src64 *.h *.c qd/*.*
 
 cd foobar\linux
 call nocr release
