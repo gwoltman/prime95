@@ -5483,15 +5483,14 @@ retry:
 		if (rc) goto error_exit;
 		talked_to_server = TRUE;
 
-/* Sanity check that the server hasn't sent us bogus exponents to test */
+/* Sanity check that the server hasn't sent us bogus (too small) exponents to test */
 
-		if (pkt1.n < 10000 && //BUG-s.b.--- pkt1.n < 10000000 && 
+		if (pkt1.n < 10000000 &&
 		    (pkt1.work_type == PRIMENET_WORK_TYPE_FACTOR ||
 		     pkt1.work_type == PRIMENET_WORK_TYPE_PFACTOR ||
 		     pkt1.work_type == PRIMENET_WORK_TYPE_FIRST_LL ||
 		     pkt1.work_type == PRIMENET_WORK_TYPE_DBLCHK)) {
-			sprintf (buf, "Server sent bad exponent: %ld.\n",
-				 pkt1.n);
+			sprintf (buf, "Server sent bad exponent: %ld.\n", pkt1.n);
 			LogMsg (buf);
 			goto error_exit;
 		}
