@@ -23,7 +23,7 @@ copy linux\release foobar\macosx\release
 copy linux\makemac foobar\macosx\makefile
 xcopy linux\*.txt foobar\macosx
 
-tar cvf srcmac *.h *.c qd\*.*
+tar cvf srcmac *.h *.c qd/*.*
 
 cd foobar\macosx
 call nocr release
