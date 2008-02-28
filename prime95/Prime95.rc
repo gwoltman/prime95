@@ -411,7 +411,7 @@ BEGIN
     LTEXT           "*",-1,96,26,8,8
     EDITTEXT        IDC_P1,102,23,12,12,ES_CENTER
     EDITTEXT        IDC_P5,116,14,45,12,ES_CENTER
-    LTEXT           "+",-1,158,27,8,10
+    LTEXT           "+",-1,158,26,8,8
     EDITTEXT        IDC_P6,167,23,27,12
     LTEXT           "Bound #&1:",-1,7,41,34,8
     EDITTEXT        IDC_P2,52,39,47,12
@@ -435,7 +435,7 @@ BEGIN
     LTEXT           "*",-1,96,30,8,8
     EDITTEXT        IDC_P1,102,27,12,12,ES_CENTER
     EDITTEXT        IDC_P5,116,18,45,12,ES_CENTER
-    LTEXT           "+",-1,158,31,8,10
+    LTEXT           "+",-1,158,30,8,8
     EDITTEXT        IDC_P6,167,27,24,12
     LTEXT           "Bound #&1:",-1,7,46,34,8
     EDITTEXT        IDC_P2,49,44,45,12
