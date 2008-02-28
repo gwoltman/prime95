@@ -1605,7 +1605,7 @@ next1:			for (longp = &zpad_jmptab->counts[4]; *longp; longp++);
 /* safety. */
 
 			bits_per_word = (log2k + n) / jmptab->fftlen;
-			if (2.0 * bits_per_word + log2k + 1.7 * log2c <
+			if (2.0 * bits_per_word + log2k + 1.7 * log2c <=
 					2.0 * max_bits_per_word) {
 				double total_bits, loglen;
 
