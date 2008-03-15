@@ -82,6 +82,7 @@ int	STARTUP_IN_PROGRESS = 0;/* True if displaying startup dialog boxes */
 unsigned long NUM_CPUS = 1;	/* Number of CPUs/Cores in the computer */
 
 gwmutex	INI_MUTEX;		/* Lock for accessing INI files */
+gwmutex	INI_ADD_MUTEX;		/* Lock for accessing INI add-in files */
 gwmutex	OUTPUT_MUTEX;		/* Lock for screen and results file access */
 gwmutex	LOG_MUTEX;		/* Lock for prime.log access */
 gwmutex	WORKTODO_MUTEX;		/* Lock for accessing worktodo structure */
@@ -422,6 +423,7 @@ void nameAndReadIniFiles (
 /* Initialize mutexes */
 
 	gwmutex_init (&INI_MUTEX);
+	gwmutex_init (&INI_ADD_MUTEX);
 	gwmutex_init (&OUTPUT_MUTEX);
 	gwmutex_init (&LOG_MUTEX);
 	gwmutex_init (&WORKTODO_MUTEX);
@@ -1478,9 +1480,13 @@ void iniAddFileMerge (
 	char	*section;
 	unsigned int j;
 
+/* Obtain a lock so that only one thread adds to the INI file.  We will release */
+/* lock once we've deleted the add file. */
+	
+	gwmutex_lock (&INI_ADD_MUTEX);
+
 /* Open ini files */
 
-	gwmutex_lock (&INI_MUTEX);
 	p = openIniFile (ini_filename, 0);
 	q = openIniFile (add_filename, 1);
 
@@ -1514,7 +1520,7 @@ void iniAddFileMerge (
 
 /* Unlock and return */
 
-	gwmutex_unlock (&INI_MUTEX);
+	gwmutex_unlock (&INI_ADD_MUTEX);
 }
 
 /* Merge all INI ".add files" into their corresponding base files */
