@@ -6,6 +6,7 @@
 masm64=ml64 /c /DX86_64 /DWINDOWS64
 #masm64=ml64 /c /DX86_64 /DWINDOWS64 /Fl /Sf /Sa
 masm64lx=ml64 /c /DX86_64 /DLINUX64
+objconv=c:\objconv\objconv
 
 # Use the 64-bit C compiler
 
@@ -30,7 +31,7 @@ linux64\gwnum.a: linux64\xmult1.obj linux64\xmult1ax.obj linux64\xmult2.obj linu
     attrib -r linux64\gwnum.a
     del linux64\gwnum.a
     lib /OUT:linux64\gwnum.lib linux64\*.obj
-    /objconv/objconv -felf64 linux64\gwnum.lib linux64\gwnum.a
+    $(objconv) -felf64 linux64\gwnum.lib linux64\gwnum.a
     attrib -r linux64\gwnum.a
     del linux64\gwnum.lib
 
