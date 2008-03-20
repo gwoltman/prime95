@@ -124,6 +124,31 @@ void generate_application_string (
 		 VERSION, BUILD_NUM);
 }
 
+/* Clear cached program options.  This is done when the server requests */
+/* all program options to be resent.  This is a fail-safe that lets the */
+/* client and server resync if the server detects an inconsistency (like */
+/* getting an assignment for worker #2 with num_workers = 1 */
+
+void clearCachedProgramOptions (void)
+{
+	int	tnum;
+	char	section_name[32];
+
+	IniWriteString (LOCALINI_FILE, "SrvrPO1", NULL);
+	for (tnum = 0; tnum < MAX_NUM_WORKER_THREADS; tnum++) {
+		sprintf (section_name, "Worker #%d", tnum+1);
+		IniSectionWriteString (LOCALINI_FILE, section_name, "SrvrPO1", NULL);
+	}
+	IniWriteString (LOCALINI_FILE, "SrvrPO2", NULL);
+	IniWriteString (LOCALINI_FILE, "SrvrPO3", NULL);
+	IniWriteString (LOCALINI_FILE, "SrvrPO4", NULL);
+	IniWriteString (LOCALINI_FILE, "SrvrPO5", NULL);
+	IniWriteString (LOCALINI_FILE, "SrvrPO6", NULL);
+	IniWriteString (LOCALINI_FILE, "SrvrPO7", NULL);
+	IniWriteString (LOCALINI_FILE, "SrvrPO8", NULL);
+	IniWriteString (LOCALINI_FILE, "SrvrPO9", NULL);
+}
+
 /* Generate a globally unique ID for this computer.  All Primenet */
 /* communications are based on this value. */
 
@@ -137,6 +162,13 @@ void generate_computer_guid (void)
 		 CPU_BRAND, CPU_SIGNATURE, CPU_SPEED, (int) current_time);
 	md5 (COMPUTER_GUID, buf);
 	IniWriteString (LOCALINI_FILE, "ComputerGUID", COMPUTER_GUID);
+
+/* Clear out local copies of what we think the server knows about this computer */
+/* The server now knows nothing about this computer because of the newly generated computer ID */
+
+	IniWriteString (LOCALINI_FILE, "SrvrUID", NULL);
+	IniWriteString (LOCALINI_FILE, "SrvrComputerName", NULL);
+	clearCachedProgramOptions ();
 }
 
 /* Calculate the 32-byte hex string for the hardware GUID.  We use the */
@@ -274,6 +306,9 @@ void getCpuInfo (void)
 #else
 	CPU_FLAGS |= CPU_SSE2;
 #endif
+	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsSSE4", 99);
+	if (temp == 0) CPU_FLAGS &= ~CPU_SSE41;
+	if (temp == 1) CPU_FLAGS |= CPU_SSE41;
 	temp = IniGetInt (LOCALINI_FILE, "CpuSupports3DNow", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_3DNOW;
 	if (temp == 1) CPU_FLAGS |= CPU_3DNOW;
@@ -330,6 +365,7 @@ void getCpuDescription (
 		if (CPU_FLAGS & CPU_MMX) strcat (buf, "MMX, ");
 		if (CPU_FLAGS & CPU_SSE) strcat (buf, "SSE, ");
 		if (CPU_FLAGS & CPU_SSE2) strcat (buf, "SSE2, ");
+		if (CPU_FLAGS & CPU_SSE41) strcat (buf, "SSE4, ");
 		strcpy (buf + strlen (buf) - 2, "\n");
 	}
 	strcat (buf, "L1 cache size: ");
@@ -4981,8 +5017,6 @@ int sendProgramOptions (
 /* so we can detect future changes to the program options (even if user */
 /* hand edits prime.ini!) */
 
-//bug - should we clear the SrvrPOn INI settings when cpuid detects changes?
-
 		if (work_pref_changed)
 			if (tnum == -1)
 				PTOSetAll (INI_FILE, "WorkPreference", "SrvrPO1", WORK_PREFERENCE, WORK_PREFERENCE[0]);
@@ -5009,7 +5043,7 @@ int sendProgramOptions (
 /* change that caused the counter to become 26.  We blend the packet od */
 /* value with the INI file value for maximum robustness (provides some */
 /* protection from the INI file value somehow getting larger than the */
-/* returned od value (causing us to miss future web page updates). */
+/* returned od value - causing us to miss future web page updates). */
 
 		local_od = IniGetInt (LOCALINI_FILE, "SrvrP00", -1) + 1;
 		if (local_od > pkt.options_counter)
@@ -5017,32 +5051,6 @@ int sendProgramOptions (
 		IniWriteInt (LOCALINI_FILE, "SrvrP00", local_od);
 	}
 	return (0);
-}
-
-
-/* Clear cached program options.  This is done when the server requests */
-/* all program options to be resent.  This is a fail-safe that lets the */
-/* client and server resync if the server detects an inconsistency (like */
-/* getting an assignment for worker #2 with num_workers = 1 */
-
-void clearCachedProgramOptions (void)
-{
-	int	tnum;
-	char	section_name[32];
-
-	IniWriteString (LOCALINI_FILE, "SrvrPO1", NULL);
-	for (tnum = 0; tnum < MAX_NUM_WORKER_THREADS; tnum++) {
-		sprintf (section_name, "Worker #%d", tnum+1);
-		IniSectionWriteString (LOCALINI_FILE, section_name, "SrvrPO1", NULL);
-	}
-	IniWriteString (LOCALINI_FILE, "SrvrPO2", NULL);
-	IniWriteString (LOCALINI_FILE, "SrvrPO3", NULL);
-	IniWriteString (LOCALINI_FILE, "SrvrPO4", NULL);
-	IniWriteString (LOCALINI_FILE, "SrvrPO5", NULL);
-	IniWriteString (LOCALINI_FILE, "SrvrPO6", NULL);
-	IniWriteString (LOCALINI_FILE, "SrvrPO7", NULL);
-	IniWriteString (LOCALINI_FILE, "SrvrPO8", NULL);
-	IniWriteString (LOCALINI_FILE, "SrvrPO9", NULL);
 }
 
 
@@ -5179,13 +5187,14 @@ retry:
 		generate_application_string (pkt.application);
 		strcpy (pkt.cpu_model, CPU_BRAND);
 		pkt.cpu_features[0] = 0;
-		if (CPU_FLAGS & CPU_RDTSC) strcat (pkt.cpu_features, "RDTSC,");
-		if (CPU_FLAGS & CPU_CMOV) strcat (pkt.cpu_features, "CMOV,");
+//		if (CPU_FLAGS & CPU_RDTSC) strcat (pkt.cpu_features, "RDTSC,");
+//		if (CPU_FLAGS & CPU_CMOV) strcat (pkt.cpu_features, "CMOV,");
 		if (CPU_FLAGS & CPU_PREFETCH) strcat (pkt.cpu_features, "Prefetch,");
 		if (CPU_FLAGS & CPU_3DNOW) strcat (pkt.cpu_features, "3DNow!,");
-		if (CPU_FLAGS & CPU_MMX) strcat (pkt.cpu_features, "MMX,");
+//		if (CPU_FLAGS & CPU_MMX) strcat (pkt.cpu_features, "MMX,");
 		if (CPU_FLAGS & CPU_SSE) strcat (pkt.cpu_features, "SSE,");
 		if (CPU_FLAGS & CPU_SSE2) strcat (pkt.cpu_features, "SSE2,");
+		if (CPU_FLAGS & CPU_SSE41) strcat (pkt.cpu_features, "SSE4,");
 		if (pkt.cpu_features[0])
 			pkt.cpu_features[strlen (pkt.cpu_features) - 1] = 0;
 		pkt.L1_cache_size = CPU_L1_CACHE_SIZE;
@@ -5281,10 +5290,18 @@ retry:
 /* same corrupt message over and over again. */
 
 		if (msgType == 0) break;
-		LOCKED_WORK_UNIT = NULL;
-		rc = sendMessage (msgType, &msg);
-//bug - carefully examine all possible error codes.  Both server generated
-// and internally generated by primenet.c
+		for ( ; ; ) {
+			LOCKED_WORK_UNIT = NULL;
+			rc = sendMessage (msgType, &msg);
+			/* If the computer ID is bad and not ours (a damaged */
+			/* spool file?) then try again using our computer ID */
+			if (rc == PRIMENET_ERROR_UNREGISTERED_CPU &&
+			    strcmp (msg.ar.computer_guid, COMPUTER_GUID)) {
+				strcpy (msg.ar.computer_guid, COMPUTER_GUID);
+				continue;
+			}
+			break;
+		}
 		if (rc >= PRIMENET_FIRST_INTERNAL_ERROR ||
 		    rc == PRIMENET_ERROR_SERVER_BUSY ||
 		    rc == PRIMENET_ERROR_OBSOLETE_CLIENT ||
@@ -5690,6 +5707,7 @@ error_exit:
 /* generate a new computer uid and do an update computer info command again. */
 
 	if (rc == PRIMENET_ERROR_CPU_IDENTITY_MISMATCH) {
+		generate_computer_guid ();
 //bug - ask user before changing uid?  Delete worktodo? Manipulate computer
 // name?
 //bug - log a useful message describing error and our remedial action?
@@ -5702,18 +5720,18 @@ error_exit:
 /* then loop to send that message. */
 
 	if (rc == PRIMENET_ERROR_STALE_CPU_INFO) {
-//bug - log a useful message describing error and our remedial action?
 		spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
 		goto retry;
 	}
 
-/* If the error is UNREGISTERED_CPU, then the server is COMPUTER_GUID */
+/* If the error is UNREGISTERED_CPU, then the COMPUTER_GUID */
 /* value is corrupt.  Reget it from the INI file just in case the value */
-/* became corrupt in memory.  Otherwise, do something....bug */
+/* became corrupt in memory.  Otherwise, generate and register a new computer uid */
 
 	if (rc == PRIMENET_ERROR_UNREGISTERED_CPU) {
 		// bug
 //bug - log a useful message describing error and our remedial action?
+		generate_computer_guid ();
 		spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
 		goto retry;
 	}
