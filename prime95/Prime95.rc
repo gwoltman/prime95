@@ -131,7 +131,7 @@ BEGIN
     BEGIN
         MENUITEM "&Help Topics",                ID_HELP_FINDER
         MENUITEM "Get help at Mersenne&Forum.org", IDM_HELP_FORUM
-        MENUITEM "Visit Mesenne &Wiki",         IDM_HELP_WIKI
+        MENUITEM "Visit Mersenne &Wiki",        IDM_HELP_WIKI
         MENUITEM SEPARATOR
         MENUITEM "&About Prime95...",           ID_APP_ABOUT
         MENUITEM "About PrimeNet &Server",      IDM_SERVER
@@ -195,7 +195,7 @@ BEGIN
     BEGIN
         MENUITEM "&Help Topics",                ID_HELP_FINDER
         MENUITEM "Get help at Mersenne&Forum.org", IDM_HELP_FORUM
-        MENUITEM "Visit Mesenne &Wiki",         IDM_HELP_WIKI
+        MENUITEM "Visit Mersenne &Wiki",        IDM_HELP_WIKI
         MENUITEM SEPARATOR
         MENUITEM "&About Prime95...",           ID_APP_ABOUT
         MENUITEM "About PrimeNet &Server",      IDM_SERVER
