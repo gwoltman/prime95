@@ -394,6 +394,17 @@ int AreAllTheSame (
 	return (TRUE);
 }
 
+// In theory, the maximum number of workers should be number of logical cpus.
+// However, local.ini could specify more worker threads than logical cpus (for
+// example, when local.ini is copied from a dual-core to a single-core machine).
+// We must let the user manipulate the options on these worker threads that
+// don't have a CPU to run on.
+
+unsigned int max_num_workers (void)
+{
+	return (max (NUM_WORKER_THREADS, NUM_CPUS * CPU_HYPERTHREADS));
+}
+
 void test_worker_threads (void)
 {
 	unsigned long m_num_thread, m_priority;
@@ -410,9 +421,9 @@ void test_worker_threads (void)
 		m_numcpus[i] = THREADS_PER_TEST[i];
 	}
 
-again:	if (NUM_CPUS * CPU_HYPERTHREADS > 1)
+again:	if (max_num_workers () > 1)
 		askNum ("Number of worker threads to run", &m_num_thread,
-			1, NUM_CPUS * CPU_HYPERTHREADS);
+			1, max_num_workers ());
 
 	outputLongLine ("\nPick a priority between 1 and 10 where 1 is the lowest priority and 10 is the highest.  It is strongly recommended that you use the default priority of 1.  Your throughput will probably not improve by using a higher priority.  The only time you should raise the priority is when another process, such as a screen saver, is stealing CPU cycles from this program.\n");
 	askNum ("Priority", &m_priority, 1, 10);

@@ -11,6 +11,17 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
+// In theory, the maximum number of workers should be number of logical cpus.
+// However, local.ini could specify more worker threads than logical cpus (for
+// example, when local.ini is copied from a dual-core to a single-core machine).
+// We must let the user manipulate the options on these worker threads that
+// don't have a CPU to run on.
+
+unsigned int max_num_workers (void)
+{
+	return (max (NUM_WORKER_THREADS, NUM_CPUS * CPU_HYPERTHREADS));
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // CWorkerDlg dialog
 
@@ -33,7 +44,7 @@ void CWorkerDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_THREAD_TEXT, c_num_thread_text);
 	DDX_Control(pDX, IDC_THREAD, c_num_thread);
 	DDX_Text(pDX, IDC_THREAD, m_num_thread);
-	DDV_MinMaxUInt(pDX, m_num_thread, 1, NUM_CPUS * CPU_HYPERTHREADS);
+	DDV_MinMaxUInt(pDX, m_num_thread, 1, max_num_workers ());
 	DDX_Text(pDX, IDC_PRIORITY, m_priority);
 	DDV_MinMaxUInt(pDX, m_priority, 1, 10);
 	DDX_Control(pDX, IDC_WORKGROUP, c_workgroup);
@@ -55,8 +66,8 @@ void CWorkerDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_WARN3, c_warn3_text);
 
 	//}}AFX_DATA_MAP
-	c_num_thread_text.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > 1);
-	c_num_thread.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > 1);
+	c_num_thread_text.EnableWindow (max_num_workers () > 1);
+	c_num_thread.EnableWindow (max_num_workers () > 1);
 	c_workgroup.EnableWindow (USE_PRIMENET || NUM_CPUS * CPU_HYPERTHREADS > 1);
 	c_threadnum_text.EnableWindow (m_num_thread > 1);
 	c_threadnum.EnableWindow (m_num_thread > 1);
@@ -271,8 +282,8 @@ void CWorkerDlg::OnEnKillfocusNumThread()
 	c_num_thread.GetWindowText (buf, sizeof (buf));
 	num_thread = atoi (buf);
 	if (num_thread < 1) num_thread = 1;
-	if (num_thread > NUM_CPUS * CPU_HYPERTHREADS)
-		num_thread = NUM_CPUS * CPU_HYPERTHREADS;
+	if (num_thread > max_num_workers ())
+		num_thread = max_num_workers ();
 	sprintf (buf, "%d", num_thread);
 	c_num_thread.SetWindowText (buf);
 	if (num_thread != m_num_thread) {
