@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2007 Just For Fun Software, Inc., all rights reserved
+| Copyright 1995-2008 Just For Fun Software, Inc., all rights reserved
 | Author:  George Woltman
 | Email: woltman@alum.mit.edu
 |
@@ -45,7 +45,7 @@ extern double CPU_SPEED;		/* Actual CPU Speed in MHz */
 #define CPU_MMX		0x0020
 #define CPU_3DNOW	0x0040
 #define CPU_SSE3	0x0080
-#define CPU_SSSE3	0x0100
+#define CPU_SSSE3	0x0100		/* Supplemental SSE3 */
 #define CPU_SSE41	0x0200
 #define CPU_SSE42	0x0400
 extern unsigned int CPU_FLAGS;		/* Cpu capabilities */
