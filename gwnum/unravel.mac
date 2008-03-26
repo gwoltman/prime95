@@ -1,4 +1,4 @@
-; Copyright 1995-2007 - Just For Fun Software, Inc., all rights reserved
+; Copyright 1995-2008 - Just For Fun Software, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -1365,11 +1365,14 @@ c_call MACRO routine
 	;; the offset of ASM_DATA.  We don't need to do this in Windows,
 	;; but at present we do not compile the Linux/Mac objects separately
 	;; from the Window's objects.  The prolog code should have aligned the
-	;; stack properly.
+	;; stack to 0 mod 16.
 	IFNDEF X86_64
 	IF (push_amt MOD 16) NE 0
 		bad_op_code		;; Assert properly aligned stack
 	ENDIF
+	bump	esp, -12		;; Align stack so that it is 0 mod 16
+					;; after argument is pushed
+	push_amt=push_amt+12
 	lea	eax, ASM_DATA		;; Load offset of asm_data
 	pusher	eax			;; Push argument
 	ENDIF
@@ -1396,8 +1399,8 @@ c_call MACRO routine
 	;; Pop the asm data pointer argument to the C callback routine.
 
 	IFNDEF X86_64
-	bump	esp, 4
-	push_amt=push_amt-4
+	bump	esp, 16
+	push_amt=push_amt-16
 	ELSE
 	mov	r11, rbx		;; Restore asm_data pointer
 	ENDIF
