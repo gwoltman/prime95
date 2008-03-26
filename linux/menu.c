@@ -1,4 +1,4 @@
-/* Copyright 1995-2007 Just For Fun Software, Inc. */
+/* Copyright 1995-2008 Just For Fun Software, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -402,7 +402,10 @@ int AreAllTheSame (
 
 unsigned int max_num_workers (void)
 {
-	return (max (NUM_WORKER_THREADS, NUM_CPUS * CPU_HYPERTHREADS));
+	if (NUM_WORKER_THREADS >= NUM_CPUS * CPU_HYPERTHREADS)
+		return (NUM_WORKER_THREADS);
+	else
+		return (NUM_CPUS * CPU_HYPERTHREADS);
 }
 
 void test_worker_threads (void)
