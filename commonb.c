@@ -7,7 +7,7 @@
 | Commonb contains information used only during execution
 | Commonc contains information used during setup and execution
 +---------------------------------------------------------------------*/
-
+ 
 /* Global variables */
 
 char ERRMSG0[] = "Iteration: %ld/%ld, %s";
@@ -5231,10 +5231,6 @@ int primeTime (
 	uint32_t best_asm_timers[32] = {0};
 	double	timers[2];
 
-/* Clear all timers */
-
-	clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
-
 /* Look for special values to run QA suites */
 
 	if (p >= 9900 && p <= 9999) {
@@ -5268,6 +5264,10 @@ int primeTime (
 	for (num_threads = 1;
 	     num_threads <= NUM_CPUS * CPU_HYPERTHREADS;
 	     num_threads++) {
+
+/* Clear all timers */
+
+	clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
 
 /* Init the FFT code */
 
