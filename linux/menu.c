@@ -1122,6 +1122,15 @@ loop:	printf ("\n");
 /* Test/Exit */
 
 	case 5:
+		{
+		int counter = 0;
+		if (WORKER_THREADS_ACTIVE && !WORKER_THREADS_STOPPING)
+			stop_workers_for_escape ();
+		while (WORKER_THREADS_STOPPING) {
+			if (counter++ % 100 == 0) printf ("Waiting for worker threads to stop.\n");
+			sleep (50);
+		}
+		}
 		return;
 
 /* Advanced/Test dialog */
