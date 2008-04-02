@@ -1520,7 +1520,7 @@ int PRIMENET (short operation, void *pkt)
 
 #include "security.c"
 #ifndef IPSHASH
-#define v4_hash_packet()
+#define v4_hash_packet(a,b)
 #endif
 
 /*
