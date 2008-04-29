@@ -90,19 +90,6 @@ void rangeStatusMessage (
 		if (w == NULL) break;
 		if (w->work_type == WORK_NONE) continue;
 
-/* Stop adding worktodo lines if buffer is full.  We must still loop */
-/* through the worktodo lines to decrement the in-use counters. */
-
-		if (buf - orig_buf >= 1800 ||
-		    lines_output >= lines_per_worker-1) {
-			if (! truncated_status_msg) {
-				strcpy (buf, "More...\n");
-				buf += strlen (buf);
-				truncated_status_msg = TRUE;
-			}
-			continue;
-		}
-
 /* If testing then adjust our probabilities */
 /* This assumes our error rate is roughly 1.8% */
 
@@ -126,6 +113,19 @@ void rangeStatusMessage (
 /* Adjust our time estimate */
 
 		est += work_estimate (tnum, w);
+
+/* Stop adding worktodo lines if buffer is full.  We must still loop */
+/* through the worktodo lines to decrement the in-use counters. */
+
+		if (buf - orig_buf >= 1800 ||
+		    lines_output >= lines_per_worker-1) {
+			if (! truncated_status_msg) {
+				strcpy (buf, "More...\n");
+				buf += strlen (buf);
+				truncated_status_msg = TRUE;
+			}
+			continue;
+		}
 
 /* Add the exponent to the output message */
 
