@@ -1026,25 +1026,37 @@ int setN (
 
 		for (p = w->known_factors; ; ) {
 
-/* Get the factor */
+/* Get the factor - raise error is it is less than or equal to one */
 
 			ctog (p, f);
-
-/* Divide N by factor - but first verify the factor */
-
-			gtog (*N, tmp);
-			divg (f, tmp);
-			mulg (tmp, f);
-			if (gcompg (f, *N)) {
+			if (gsign (f) < 1 || isone (f)) {
+				char	msg[100];
 				strcpy (buf, p);
-				comma = strchr (buf, ',');
-				if (comma != NULL) *comma = 0;
-				sprintf (buf+strlen(buf),
-					 " does not divide %s\n",
-					 gwmodulo_as_string (gwdata));
-				OutputBoth (thread_num, buf);
-			} else
-				gtog (tmp, *N);
+				buf[10] = 0;
+				sprintf (msg, "Error parsing comma separated known factor list near: %s\n", buf);
+				OutputStr (thread_num, msg);
+			}
+
+/* Divide N by factor - then verify the factor */
+
+			else {
+				gtog (*N, tmp);
+				divg (f, tmp);
+				mulg (tmp, f);
+				if (gcompg (f, *N)) {
+					strcpy (buf, p);
+					comma = strchr (buf, ',');
+					if (comma != NULL) *comma = 0;
+					sprintf (buf+strlen(buf),
+						 " does not divide %s\n",
+						 gwmodulo_as_string (gwdata));
+					OutputBoth (thread_num, buf);
+				} else
+					gtog (tmp, *N);
+			}
+
+/* Skip to next factor in list */
+			
 			comma = strchr (p, ',');
 			if (comma == NULL) break;
 			p = comma + 1;
@@ -4567,7 +4579,7 @@ restart:
 	pm1data.gwdata.MAXDIFF *= IniGetInt (INI_FILE, "MaxDiffMultiplier", 1);
 
 /* More miscellaneous initializations */
-	
+
 	last_output = last_output_r = 0;
 	gw_clear_fft_count (&pm1data.gwdata);
 	first_iter_msg = TRUE;
