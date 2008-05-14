@@ -5508,7 +5508,7 @@ retry:
 
 /* Sanity check that the server hasn't sent us bogus (too small) exponents to test */
 
-		if (pkt1.n < 10000000 &&
+		if (pkt1.n < 15000000 &&
 		    (pkt1.work_type == PRIMENET_WORK_TYPE_FACTOR ||
 		     pkt1.work_type == PRIMENET_WORK_TYPE_PFACTOR ||
 		     pkt1.work_type == PRIMENET_WORK_TYPE_FIRST_LL ||
