@@ -859,7 +859,7 @@ int are_threads_using_lots_of_memory (
 /* An eight-cpu user doing LL tests might set the count to 1.  An */
 /* eight-cpu user doing ECM might set the value to 3 or 4. */
 
-	delay_stage2_count = IniGetInt (INI_FILE, "DelayStage2ThreadCount",
+	delay_stage2_count = IniGetInt (LOCALINI_FILE, "DelayStage2ThreadCount",
 					NUM_WORKER_THREADS / 2);
 	if (delay_stage2_count < 1) delay_stage2_count = 1;
 
