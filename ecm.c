@@ -3234,7 +3234,7 @@ more_curves:
 /* Send ECM completed message to the server.  Although don't do it for */
 /* puny B1 values. */
 
-	if (w->B1 >= 10000 || IniGetInt (INI_FILE, "SendAllFactorData", 0)) {
+	if (B >= 10000 || IniGetInt (INI_FILE, "SendAllFactorData", 0)) {
 		struct primenetAssignmentResult pkt;
 		memset (&pkt, 0, sizeof (pkt));
 		strcpy (pkt.computer_guid, COMPUTER_GUID);
@@ -3245,8 +3245,8 @@ more_curves:
 		pkt.b = w->b;
 		pkt.n = w->n;
 		pkt.c = w->c;
-		pkt.B1 = w->B1;
-		pkt.B2 = w->B2;
+		pkt.B1 = B;
+		pkt.B2 = C;
 		pkt.curves = w->curves_to_do;
 		pkt.fftlen = gwfftlen (&ecmdata.gwdata);
 		pkt.done = TRUE;
