@@ -3393,21 +3393,19 @@ unsigned int factorLimit (
 //bug - someway to avoid local.ini updates (to disk) if well_behaved_work
 // is set!!
 
-/* Build the hash value as we go */
+/* Convert a string to a hash value */
 
-unsigned long build_rolling_hash (
-	struct work_unit *w)		/* Work unit to add in to hash */
+unsigned long string_to_hash (
+	char	*str)		/* String to hash */
 {
-	char	buf[80];
 	char	md5val[33];
 	int	i, j;
 	char	*p;
 	unsigned long hash, val;
 
-/* Use md5 on a character rep of the number */
+/* Use md5 to generate a number to hash */
 
-	gw_as_string (buf, w->k, w->b, w->n, w->c);
-	md5 (md5val, buf);
+	md5 (md5val, str);
 	for (i = 0, p = md5val, hash = 0; i < 4; i++) {
 		for (j = 0, val = 0; j < 8; j++, p++) {
 			val = (val << 4) +
@@ -3416,6 +3414,19 @@ unsigned long build_rolling_hash (
 		hash += val;
 	}
 	return (hash);
+}
+
+/* Build the hash value as we go */
+
+unsigned long build_rolling_hash (
+	struct work_unit *w)		/* Work unit to add in to hash */
+{
+	char	buf[80];
+
+/* Use md5 on a character rep of the number */
+
+	gw_as_string (buf, w->k, w->b, w->n, w->c);
+	return (string_to_hash (buf));
 }
 
 /* Adjust rolling average computation variables when a work unit completes */
@@ -5177,8 +5188,7 @@ retry:
 	server_options_counter = -1;
 	if (header_words[1] & HEADER_FLAG_UC) {
 		struct primenetUpdateComputerInfo pkt;
-		char	server_uid[21];
-		char	server_computer_name[21];
+		unsigned long server_uid, server_computer_name;
 
 		memset (&pkt, 0, sizeof (pkt));
 		strcpy (pkt.computer_guid, COMPUTER_GUID);
@@ -5205,16 +5215,16 @@ retry:
 		pkt.cpu_speed = (int) CPU_SPEED;
 		pkt.hours_per_day = CPU_HOURS;
 		pkt.rolling_average = ROLLING_AVERAGE;
-		/* The spec says only send the UserID if it has changed */
-		IniGetString (LOCALINI_FILE, "SrvrUID",
-			      server_uid, sizeof (server_uid), NULL);
-		if (USE_V4 || _stricmp (USERID, server_uid))
+		/* The spec says only send the UserID if it has changed. */
+		/* Rather than store the UID that we last sent to the server */
+		/* we store a hash value so the user is not tempted to hand edit it. */
+		server_uid = IniGetInt (LOCALINI_FILE, "SrvrUID", 0);
+		if (USE_V4 || string_to_hash (USERID) != server_uid)
 			strcpy (pkt.user_id, USERID);
 		/* The spec says only send the computer name if it changed */
-		IniGetString (LOCALINI_FILE, "SrvrComputerName",
-			      server_computer_name,
-			      sizeof (server_computer_name), NULL);
-		if (USE_V4 || _stricmp (COMPID, server_computer_name))
+		/* Again store a hash value so the user won't hand edit the value */
+		server_computer_name = IniGetInt (LOCALINI_FILE, "SrvrComputerName", 0);
+		if (USE_V4 || string_to_hash (COMPID) != server_computer_name)
 			strcpy (pkt.computer_name, COMPID);
 		LOCKED_WORK_UNIT = NULL;
 		rc = sendMessage (PRIMENET_UPDATE_COMPUTER_INFO, &pkt);
@@ -5225,10 +5235,10 @@ retry:
 		strcpy (USERID, pkt.user_id);
 		if (!USE_V4) {
 			IniWriteString (INI_FILE, "V5UserID", USERID);
-			IniWriteString (LOCALINI_FILE, "SrvrUID", USERID);
+			IniWriteInt (LOCALINI_FILE, "SrvrUID", string_to_hash (USERID));
 			strcpy (COMPID, pkt.computer_name);
 			IniWriteString (LOCALINI_FILE, "ComputerID", COMPID);
-			IniWriteString (LOCALINI_FILE, "SrvrComputerName", COMPID);
+			IniWriteInt (LOCALINI_FILE, "SrvrComputerName", string_to_hash (COMPID));
 		}
 		server_options_counter = pkt.options_counter;
 	}
