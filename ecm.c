@@ -3245,8 +3245,8 @@ more_curves:
 		pkt.b = w->b;
 		pkt.n = w->n;
 		pkt.c = w->c;
-		pkt.B1 = B;
-		pkt.B2 = C;
+		pkt.B1 = (double) B;
+		pkt.B2 = (double) C;
 		pkt.curves = w->curves_to_do;
 		pkt.fftlen = gwfftlen (&ecmdata.gwdata);
 		pkt.done = TRUE;
