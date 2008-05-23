@@ -5516,6 +5516,7 @@ int primeBench (
 	  if (threads > CPU_HYPERTHREADS && threads % CPU_HYPERTHREADS != 0)
 	    continue;
 	  if (threads > 1) {
+	    if (! (CPU_FLAGS & CPU_SSE2)) continue;  // Only SSE2 code supports multi-threaded FFTs
 	    if (CPU_HYPERTHREADS == 1) {
 	      sprintf (buf, "Timing FFTs using %d threads.\n", threads);
 	      OutputBoth (thread_num, buf);
