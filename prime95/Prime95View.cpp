@@ -20,6 +20,7 @@ static char THIS_FILE[] = __FILE__;
 				/* and 32 worker threads. */
 
 CPrime95View *Views[MAX_VIEWS] = {0};
+char	ThreadTitles[MAX_VIEWS][80] = {0};
 gwmutex	VIEW_MUTEX;		/* Lock for accessing Views Array */
 gwmutex	VIEW_LINES_MUTEX;	/* Lock for accessing Lines array */
 int	ViewNum = 2;		/* Create worker window first */
@@ -290,8 +291,17 @@ static	int	was_iconic = TRUE;
 	    (! WORKER_THREADS_ACTIVE ||
 	     (this != Views[0] && this != Views[1]))) {
 		sprintf (buf, "Prime95 - %s", Title);
-		if (TRAY_ICON)
-			pApp->TrayMessage (NIM_MODIFY, buf, 0);
+		if (TRAY_ICON) {
+			int	i;
+			char	buf[1600];
+			buf[0] = 0;
+			for (i = 2; i < MAX_VIEWS; i++) {
+				if (buf[0] && ThreadTitles[i][0])
+					strcat (buf, "\n");
+				strcat (buf, ThreadTitles[i]);
+			}
+			pApp->TrayMessage (NIM_MODIFY, buf[0] ? buf : "Not running", 0);
+		}
 		if (pApp->m_pMainWnd->IsIconic ()) {
 			pApp->m_pMainWnd->SetWindowText (buf);
 			was_iconic = TRUE;
@@ -358,7 +368,6 @@ void title (
 	char	*str)
 {
 	CPrime95View *view;
-static	char	ThreadTitles[MAX_VIEWS][80];
 	char	merged_title[160];
 
 	if (EXIT_IN_PROGRESS) return;
