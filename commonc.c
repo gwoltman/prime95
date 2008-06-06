@@ -511,7 +511,7 @@ void nameAndReadIniFiles (
 
 /* Create and name the main window */
 
-	MERGE_WINDOWS = (int) IniGetInt (INI_FILE, "MergeWindows", 0);
+	MERGE_WINDOWS = (int) IniGetInt (INI_FILE, "MergeWindows", MERGE_MAINCOMM_WINDOWS);
 	create_window (MAIN_THREAD_NUM);
 	base_title (MAIN_THREAD_NUM, "Main thread");
 
@@ -699,7 +699,7 @@ int readIniFiles (void)
 	MANUAL_COMM = (int) IniGetInt (INI_FILE, "ManualComm", 0);
 	HIDE_ICON = (int) IniGetInt (INI_FILE, "HideIcon", 0);
 	TRAY_ICON = (int) IniGetInt (INI_FILE, "TrayIcon", 1);
-	MERGE_WINDOWS = (int) IniGetInt (INI_FILE, "MergeWindows", 0);
+	MERGE_WINDOWS = (int) IniGetInt (INI_FILE, "MergeWindows", MERGE_MAINCOMM_WINDOWS);
 
 /* Get the option controlling which timer to use.  If the high resolution */
 /* performance counter is not available on this machine, then add 10 to */

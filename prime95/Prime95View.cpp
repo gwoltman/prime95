@@ -202,8 +202,10 @@ int map_thread_num_to_view_num (
 
 /* Merge main window into first worker window if so requested */
 
-	if (thread_num == MAIN_THREAD_NUM && MERGE_WINDOWS & MERGE_MAIN_WINDOW)
-		return (2);
+	if (thread_num == MAIN_THREAD_NUM) {
+		if (MERGE_WINDOWS & MERGE_MAINCOMM_WINDOWS) return (1);
+		if (MERGE_WINDOWS & MERGE_MAIN_WINDOW) return (2);
+	}
 
 /* Merge comm window into first worker window if so requested */
 
@@ -375,10 +377,11 @@ void title (
 /* When merging windows, apply some arbitrary rules to decide which */
 /* what the title should be. */
 
+	if (thread_num == COMM_THREAD_NUM && MERGE_WINDOWS & MERGE_COMM_WINDOW)
+		return;
+
 	strcpy (ThreadTitles[thread_num+2], str);
 	if (thread_num == MAIN_THREAD_NUM && MERGE_WINDOWS & MERGE_MAIN_WINDOW)
-		thread_num = 0;
-	if (thread_num == COMM_THREAD_NUM && MERGE_WINDOWS & MERGE_COMM_WINDOW)
 		thread_num = 0;
 	if (thread_num >= 0 && MERGE_WINDOWS & MERGE_WORKER_WINDOWS) {
 		int	i;
@@ -418,6 +421,12 @@ void ChangeIcon (
 	int	icon_id)
 {
 	if (EXIT_IN_PROGRESS) return;
+
+/* When merging windows, apply some arbitrary rules to decide */
+/* what the icon should be. */
+
+	if (thread_num == COMM_THREAD_NUM && MERGE_WINDOWS & MERGE_COMM_WINDOW)
+		return;
 
 /* Pass the request along to the view object */
 
@@ -767,8 +776,12 @@ static	int	partial_line_output[MAX_VIEWS] = {FALSE};
 		 !partial_line_output[thread_num+2] &&
 		 ((thread_num == MAIN_THREAD_NUM &&
 		   MERGE_WINDOWS & MERGE_MAIN_WINDOW) ||
+		  (thread_num == MAIN_THREAD_NUM &&
+		   MERGE_WINDOWS & MERGE_MAINCOMM_WINDOWS) ||
 		  (thread_num == COMM_THREAD_NUM &&
 		   MERGE_WINDOWS & MERGE_COMM_WINDOW) ||
+		  (thread_num == COMM_THREAD_NUM &&
+		   MERGE_WINDOWS & MERGE_MAINCOMM_WINDOWS) ||
 		  (thread_num == 0 &&
 		   MERGE_WINDOWS & (MERGE_MAIN_WINDOW | MERGE_COMM_WINDOW)) ||
 		  (thread_num == 0 &&

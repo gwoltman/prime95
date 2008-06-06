@@ -119,9 +119,9 @@ BEGIN
     END
     POPUP "&Window"
     BEGIN
-        MENUITEM "Merge &Main && Worker",       IDM_MERGE_MAIN
-        MENUITEM "Merge C&omm && Worker",       IDM_MERGE_COMM
-        MENUITEM "Merge A&ll Workers",          IDM_MERGE_ALL
+        MENUITEM "Merge &Main && Comm",         IDM_MERGE_MAIN
+        MENUITEM "Merge Main && Comm && &Worker", IDM_MERGE_COMM
+        MENUITEM "Merge &All Workers",          IDM_MERGE_ALL
         MENUITEM "&Status Bar",                 ID_VIEW_STATUS_BAR
         MENUITEM SEPARATOR
         MENUITEM "&Cascade",                    ID_WINDOW_CASCADE
@@ -183,9 +183,9 @@ BEGIN
     END
     POPUP "&Window"
     BEGIN
-        MENUITEM "Merge &Main && 1st Worker",   IDM_MERGE_MAIN
-        MENUITEM "Merge C&omm && 1st Worker",   IDM_MERGE_COMM
-        MENUITEM "Merge A&ll Workers",          IDM_MERGE_ALL
+	MENUITEM "Merge &Main && Comm",         IDM_MERGE_MAIN
+	MENUITEM "Merge Main && Comm && &Worker", IDM_MERGE_COMM
+	MENUITEM "Merge &All Workers",          IDM_MERGE_ALL
         MENUITEM "&Status Bar",                 ID_VIEW_STATUS_BAR
         MENUITEM SEPARATOR
         MENUITEM "&Cascade",                    ID_WINDOW_CASCADE
@@ -229,6 +229,16 @@ BEGIN
     VK_F1,          ID_CONTEXT_HELP,        VIRTKEY, SHIFT, NOINVERT
 END
 
+IDR_MDITYPE ACCELERATORS 
+BEGIN
+    "C",            ID_EDIT_COPY,           VIRTKEY, CONTROL
+    VK_INSERT,      ID_EDIT_COPY,           VIRTKEY, CONTROL
+    VK_ESCAPE,      IDM_STOP,               VIRTKEY, NOINVERT
+    VK_F6,          ID_NEXT_PANE,           VIRTKEY 
+    VK_F6,          ID_PREV_PANE,           VIRTKEY, SHIFT
+    VK_F1,          ID_HELP,                VIRTKEY, NOINVERT
+    VK_F1,          ID_CONTEXT_HELP,        VIRTKEY, SHIFT, NOINVERT
+END
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -637,12 +647,8 @@ BEGIN
     IDM_PMINUS1             "Run P-1 factoring on a number"
     IDM_UNRESERVE           "Manually release a work unit"
     IDM_BENCHMARK           "Run a benchmark"
-    IDM_MERGE_MAIN          "Merge or separate main window and first worker window"
-END
-
-STRINGTABLE 
-BEGIN
-    IDM_MERGE_COMM          "Merge or separate communication window and first worker window"
+    IDM_MERGE_MAIN          "Merge or separate main and communication windows"
+    IDM_MERGE_COMM          "Merge or separate main, communication, and first worker windows"
     IDM_MERGE_ALL           "Merge or separate all worker windows"
 END
 

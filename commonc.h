@@ -155,6 +155,7 @@ extern int MERGE_WINDOWS;		/* Flags indicating which MDI */
 #define MERGE_MAIN_WINDOW	0x1	/* Merge main into first worker */
 #define MERGE_COMM_WINDOW	0x2	/* Merge comm into first worker */
 #define MERGE_WORKER_WINDOWS	0x4	/* Merge all workers into one window */
+#define MERGE_MAINCOMM_WINDOWS	0x8	/* Merge main and comm windows */
 #define MERGE_NO_PREFIX		0x20	/* Output thread prefix on each line flag */
 
 extern unsigned int ROLLING_AVERAGE;	/* Ratio of this computer's speed */

@@ -901,53 +901,82 @@ void CPrime95Doc::OnService()
 
 // Window menu
 
+// This menu choice combines and uncombines the main and comm windows.
+
 void CPrime95Doc::OnUpdateMergeMain(CCmdUI* pCmdUI)
 {
-	pCmdUI->SetText (NUM_WORKER_THREADS > 1 ?
-				"Merge &Main && 1st Worker" :
-				"Merge &Main && Worker");
 	pCmdUI->Enable (1);
-	pCmdUI->SetCheck (MERGE_WINDOWS & MERGE_MAIN_WINDOW);
+	pCmdUI->SetCheck (MERGE_WINDOWS & MERGE_MAINCOMM_WINDOWS);
 }
 
 void CPrime95Doc::OnMergeMain() 
 {
-	if (! (MERGE_WINDOWS & MERGE_MAIN_WINDOW))
-		destroy_window (MAIN_THREAD_NUM);
-	MERGE_WINDOWS ^= MERGE_MAIN_WINDOW;
-	IniWriteInt (INI_FILE, "MergeWindows", MERGE_WINDOWS);
-	if (! (MERGE_WINDOWS & MERGE_MAIN_WINDOW)) {
+	// If going from checked to unchecked state, create the main window
+	if (MERGE_WINDOWS & MERGE_MAINCOMM_WINDOWS) {
+		MERGE_WINDOWS &= ~MERGE_MAINCOMM_WINDOWS;
+		MERGE_WINDOWS &= ~MERGE_MAIN_WINDOW;
+		MERGE_WINDOWS &= ~MERGE_COMM_WINDOW;
 		create_window (MAIN_THREAD_NUM);
 		base_title (MAIN_THREAD_NUM, "Main thread");
 	}
+	// If going from unchecked to checked state, destroy the main window
+	else {
+		int	destroy;
+		destroy = ! (MERGE_WINDOWS & MERGE_MAIN_WINDOW);
+		if (destroy) destroy_window (MAIN_THREAD_NUM);
+		MERGE_WINDOWS |= MERGE_MAINCOMM_WINDOWS;
+		MERGE_WINDOWS &= ~MERGE_MAIN_WINDOW;
+		MERGE_WINDOWS &= ~MERGE_COMM_WINDOW;
+	}
+	// In both checked and unchecked states we need to make sure the comm window exists
+	create_window (COMM_THREAD_NUM);
+	base_title (COMM_THREAD_NUM, "Communication thread");
+	IniWriteInt (INI_FILE, "MergeWindows", MERGE_WINDOWS);
 	PositionViews (TRUE);
 }
 
+// This menu choice, in checked state, combines the main and comm and 1st worker windows.
+// In going to unchecked state we leave the main and comm windows combined.
+
 void CPrime95Doc::OnUpdateMergeComm(CCmdUI* pCmdUI)
 {
-	pCmdUI->SetText (NUM_WORKER_THREADS > 1 ?
-				"Merge C&omm && 1st Worker" :
-				"Merge C&omm && Worker");
+	pCmdUI->SetText (NUM_WORKER_THREADS == 1 ?
+				"Merge Main && Comm && &Worker" :
+			 MERGE_WINDOWS & MERGE_WORKER_WINDOWS ?
+				"Merge Main && Comm && &Workers" :
+				"Merge Main && Comm && 1st &Worker");
 	pCmdUI->Enable (1);
-	pCmdUI->SetCheck (MERGE_WINDOWS & MERGE_COMM_WINDOW);
+	pCmdUI->SetCheck (MERGE_WINDOWS & MERGE_MAIN_WINDOW && MERGE_WINDOWS & MERGE_COMM_WINDOW);
 }
 
 void CPrime95Doc::OnMergeComm() 
 {
-	if (! (MERGE_WINDOWS & MERGE_COMM_WINDOW))
-		destroy_window (COMM_THREAD_NUM);
-	MERGE_WINDOWS ^= MERGE_COMM_WINDOW;
-	IniWriteInt (INI_FILE, "MergeWindows", MERGE_WINDOWS);
-	if (! (MERGE_WINDOWS & MERGE_COMM_WINDOW)) {
+	// If going from checked to unchecked state, create the comm window
+	if (MERGE_WINDOWS & MERGE_MAIN_WINDOW && MERGE_WINDOWS & MERGE_COMM_WINDOW) {
+		MERGE_WINDOWS |= MERGE_MAINCOMM_WINDOWS;
+		MERGE_WINDOWS &= ~MERGE_MAIN_WINDOW;
+		MERGE_WINDOWS &= ~MERGE_COMM_WINDOW;
 		create_window (COMM_THREAD_NUM);
 		base_title (COMM_THREAD_NUM, "Communication thread");
 	}
+	// If going from unchecked to checked state, destroy the main and comm windows
+	else {
+		int	destroy_main, destroy_comm;
+		destroy_main = ! (MERGE_WINDOWS & MERGE_MAIN_WINDOW) && ! (MERGE_WINDOWS & MERGE_MAINCOMM_WINDOWS);
+		destroy_comm = ! (MERGE_WINDOWS & MERGE_COMM_WINDOW);
+		if (destroy_main) destroy_window (MAIN_THREAD_NUM);
+		if (destroy_comm) destroy_window (COMM_THREAD_NUM);
+		MERGE_WINDOWS &= ~MERGE_MAINCOMM_WINDOWS;
+		MERGE_WINDOWS |= MERGE_MAIN_WINDOW;
+		MERGE_WINDOWS |= MERGE_COMM_WINDOW;
+	}
+	IniWriteInt (INI_FILE, "MergeWindows", MERGE_WINDOWS);
 	PositionViews (TRUE);
 }
 
 void CPrime95Doc::OnUpdateMergeAll(CCmdUI* pCmdUI)
 {
-	pCmdUI->Enable (NUM_CPUS * CPU_HYPERTHREADS > 1);
+	pCmdUI->Enable (NUM_WORKER_THREADS > 1);
 	pCmdUI->SetCheck (MERGE_WINDOWS & MERGE_WORKER_WINDOWS);
 }
 
