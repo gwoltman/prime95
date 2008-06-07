@@ -3413,7 +3413,7 @@ unsigned long string_to_hash (
 		}
 		hash += val;
 	}
-	return (hash);
+	return (hash & 0x7FFFFFFF);
 }
 
 /* Build the hash value as we go */
