@@ -1078,7 +1078,7 @@ void check_for_priority_work (void)
 	int	tnum;
 	struct work_unit *w;
 
-	for (tnum = 1; tnum < (int) NUM_WORKER_THREADS; tnum++) {
+	for (tnum = 0; tnum < (int) NUM_WORKER_THREADS; tnum++) {
 		w = NULL;
 		for ( ; ; ) {
 			w = getNextWorkToDoLine (tnum, w, SHORT_TERM_USE);
