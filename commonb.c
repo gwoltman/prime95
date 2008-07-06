@@ -2736,7 +2736,6 @@ nextpass:	;
 /* messages - that work has already been done. */
 
 		if (end_bits >= 50 ||
-		    p > 79300000 ||	/* LMH of new area - remove someday! */
 		    IniGetInt (INI_FILE, "SendAllFactorData", 0)) {
 			struct primenetAssignmentResult pkt;
 			memset (&pkt, 0, sizeof (pkt));
@@ -3650,6 +3649,8 @@ readloop:
 			gwstartnextfft (&lldata.gwdata,
 					!saving && !maxerr_recovery_mode &&
 					counter+1 != p &&
+					(INTERIM_FILES == 0 ||
+					 (counter+1) % INTERIM_FILES > 0) &&
 					(INTERIM_RESIDUES == 0 ||
 					 (counter+1) % INTERIM_RESIDUES > 2));
 			lucas_fixup (&lldata, p);
@@ -5997,6 +5998,8 @@ gwtogiant (&gwdata, x, t1);
 		gwstartnextfft (&gwdata,
 				!saving && !maxerr_recovery_mode &&
 				counter > 35 && counter < Nlen-35 &&
+				(INTERIM_FILES == 0 ||
+				 (counter+1) % INTERIM_FILES > 0) &&
 				(INTERIM_RESIDUES == 0 ||
 				 (counter+1) % INTERIM_RESIDUES > 0));
 #ifdef CHECK_ITER
