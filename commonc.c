@@ -587,7 +587,7 @@ int readIniFiles (void)
 /* Get the V4 or V5 primenet server flag.  If using V4, also get the */
 /* options that only V4 needs. */
 
-	USE_V4 = IniGetInt (INI_FILE, "UseV4", 1);
+	USE_V4 = IniGetInt (INI_FILE, "UseV4", 0);
 	if (USE_V4) {
 		IniGetString (INI_FILE, "UserID", V4_USERID,
 			      sizeof (V4_USERID), NULL);
