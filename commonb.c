@@ -2293,7 +2293,8 @@ loop:	*res = factorChunk (facdata);
 
 /* Trial factor a Mersenne number prior to running a Lucas-Lehmer test */
 
-char FACMSG[] = "Trial factoring of M%%ld to 2^%%d is %%.%df%%%% complete.";
+char FACMSG[] = "Trial factoring M%%ld to 2^%%d is %%.%df%%%% complete.";
+char SHORT_FACMSG[] = "Trial factoring M%ld to 2^%d.";
 
 #define FACTOR_MAGICNUM		0x1567234D
 #define FACTOR_VERSION		1
@@ -2496,7 +2497,7 @@ int primeFactor (
 
 	    iters_r = 0;
 	    iters = 0;
-	    first_iter_msg = TRUE;
+	    first_iter_msg = (continuation ? 1 : 2);
 	    if (! continuation) pass = 0;
 	    for ( ; pass < 16; pass++) {
 
@@ -2566,19 +2567,29 @@ int primeFactor (
 				(pass + (currentpt - startpt) /
 					(endpt - startpt)) / 16.0;
 
-/* Output informative message */
+/* Output informative message.  Usually this includes a percent complete, however, */
+/* when just beginning a bit level (first_iter_msg == 2) we don't as the percentage */
+/* is close to zero. */
 
 			if (++iters >= ITER_OUTPUT || first_iter_msg) {
 				char	fmt_mask[80];
 				double	pct;
 				pct = trunc_percent (w->pct_complete);
-				sprintf (fmt_mask,
-					 "%%.%df%%%% of M%%ld to 2^%%d",
-					 PRECISION);
-				sprintf (buf, fmt_mask, pct, p, end_bits);
+				if (first_iter_msg == 2) {
+					sprintf (buf, "M%ld to 2^%d", p, end_bits);
+				} else {
+					sprintf (fmt_mask,
+						 "%%.%df%%%% of M%%ld to 2^%%d",
+						 PRECISION);
+					sprintf (buf, fmt_mask, pct, p, end_bits);
+				}
 				title (thread_num, buf);
-				sprintf (fmt_mask, FACMSG, PRECISION);
-				sprintf (buf, fmt_mask, p, end_bits, pct);
+				if (first_iter_msg == 2) {
+					sprintf (buf, SHORT_FACMSG, p, end_bits);
+				} else {
+					sprintf (fmt_mask, FACMSG, PRECISION);
+					sprintf (buf, fmt_mask, p, end_bits, pct);
+				}
 				if (first_iter_msg) {
 					strcat (buf, "\n");
 					clear_timer (timers, 0);
