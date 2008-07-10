@@ -183,9 +183,9 @@ BEGIN
     END
     POPUP "&Window"
     BEGIN
-	MENUITEM "Merge &Main && Comm",         IDM_MERGE_MAIN
-	MENUITEM "Merge Main && Comm && &Worker", IDM_MERGE_COMM
-	MENUITEM "Merge &All Workers",          IDM_MERGE_ALL
+        MENUITEM "Merge &Main && Comm",         IDM_MERGE_MAIN
+        MENUITEM "Merge Main && Comm && &Worker", IDM_MERGE_COMM
+        MENUITEM "Merge &All Workers",          IDM_MERGE_ALL
         MENUITEM "&Status Bar",                 ID_VIEW_STATUS_BAR
         MENUITEM SEPARATOR
         MENUITEM "&Cascade",                    ID_WINDOW_CASCADE
@@ -239,6 +239,7 @@ BEGIN
     VK_F1,          ID_HELP,                VIRTKEY, NOINVERT
     VK_F1,          ID_CONTEXT_HELP,        VIRTKEY, SHIFT, NOINVERT
 END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -562,7 +563,7 @@ BEGIN
             VALUE "LegalCopyright", "Copyright © 1996-2008"
             VALUE "OriginalFilename", "PRIME95.EXE"
             VALUE "ProductName", "PRIME95 Application"
-            VALUE "ProductVersion", "25, 7, 0, 0"
+            VALUE "ProductVersion", "25, 7, 1, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -648,6 +649,10 @@ BEGIN
     IDM_UNRESERVE           "Manually release a work unit"
     IDM_BENCHMARK           "Run a benchmark"
     IDM_MERGE_MAIN          "Merge or separate main and communication windows"
+END
+
+STRINGTABLE 
+BEGIN
     IDM_MERGE_COMM          "Merge or separate main, communication, and first worker windows"
     IDM_MERGE_ALL           "Merge or separate all worker windows"
 END
