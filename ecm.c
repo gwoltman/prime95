@@ -5926,6 +5926,11 @@ void guess_pminus1_bounds (
 		double	pass2_squarings;
 	} best[2];
 
+/* Guard against wild tests_saved values.  Huge values will cause this routine */
+/* to run for a very long time. */
+
+	if (tests_saved > 10) tests_saved = 10;
+
 /* Balance P-1 against 1 or 2 LL tests (actually more since we get a */
 /* corrupt result reported some of the time). */
 
@@ -5964,7 +5969,7 @@ void guess_pminus1_bounds (
 
 /* Try a lot of B2 values */
 
-	for (B2 = B1; ; B2 += B1 >> 2) {
+	for (B2 = B1; B2 <= B1 * 100; B2 += B1 >> 2) {
 
 /* Compute how many squarings will be required in pass 2.  In the */
 /* low-memory cases, assume choose_pminus1_plan will pick D = 210, E = 1 */
