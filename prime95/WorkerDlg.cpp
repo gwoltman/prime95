@@ -112,23 +112,23 @@ int map_work_pref_to_sel (
 	switch (work_pref) {
 	case PRIMENET_WP_WHATEVER:
 		return (0);
-	case PRIMENET_WP_LL_10M:
-		return (1);
 	case PRIMENET_WP_WORLD_RECORD:
-		return (2);
+		return (1);
 	case PRIMENET_WP_LL_FIRST:
-		return (USE_V4?2: 3);
+		return (USE_V4?1: 2);
 	case PRIMENET_WP_LL_DBLCHK:
-		return (USE_V4?3: 4);
+		return (USE_V4?2: 3);
 	case PRIMENET_WP_FACTOR:
-		return (USE_V4?4: 5);
+		return (USE_V4?3: 4);
 	case PRIMENET_WP_PFACTOR:
-		return (6);
+		return (5);
 	case PRIMENET_WP_FACTOR_LMH:
-		return (7);
+		return (6);
 	case PRIMENET_WP_ECM_SMALL:
-		return (8);
+		return (7);
 	case PRIMENET_WP_ECM_FERMAT:
+		return (8);
+	case PRIMENET_WP_LL_100M:
 		return (9);
 	default:
 		return (10);
@@ -142,23 +142,23 @@ int map_sel_to_work_pref (
 	case 0:
 		return (PRIMENET_WP_WHATEVER);
 	case 1:
-		return (PRIMENET_WP_LL_10M);
-	case 2:
 		return (USE_V4?PRIMENET_WP_LL_FIRST: PRIMENET_WP_WORLD_RECORD);
-	case 3:
+	case 2:
 		return (USE_V4?PRIMENET_WP_LL_DBLCHK: PRIMENET_WP_LL_FIRST);
-	case 4:
+	case 3:
 		return (USE_V4?PRIMENET_WP_FACTOR: PRIMENET_WP_LL_DBLCHK);
-	case 5:
+	case 4:
 		return (PRIMENET_WP_FACTOR);
-	case 6:
+	case 5:
 		return (PRIMENET_WP_PFACTOR);
-	case 7:
+	case 6:
 		return (PRIMENET_WP_FACTOR_LMH);
-	case 8:
+	case 7:
 		return (PRIMENET_WP_ECM_SMALL);
-	case 9:
+	case 8:
 		return (PRIMENET_WP_ECM_FERMAT);
+	case 9:
+		return (PRIMENET_WP_LL_100M);
 	}
 	return (-1);
 }
@@ -199,7 +199,6 @@ void CWorkerDlg::InitComboBoxText (void)
 		sel = 0;
 	}
 	c_work_pref.AddString ("Whatever makes the most sense");
-	c_work_pref.AddString ("10,000,000 digit numbers to test");
 	if (!USE_V4)
 	c_work_pref.AddString ("World record sized numbers to test");
 	c_work_pref.AddString ("First time tests");
@@ -213,6 +212,8 @@ void CWorkerDlg::InitComboBoxText (void)
 	c_work_pref.AddString ("ECM on small Mersenne numbers");
 	if (!USE_V4)
 	c_work_pref.AddString ("ECM on Fermat numbers");
+	if (!USE_V4)
+	c_work_pref.AddString ("100,000,000 digit numbers to test");
 	if (!USE_V4)
 	if (sel == 10) c_work_pref.AddString ("Other");
 	c_work_pref.SetCurSel (sel);
