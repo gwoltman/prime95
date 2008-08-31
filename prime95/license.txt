@@ -13,21 +13,7 @@ Finally, as with all freeware, the program is provided "as is".  However, please
 Cash Awards for New Mersenne Primes
 -----------------------------------
 
-At the time of this software release, the Electronic Frontier Foundation is offering a $100,000 award to the first person or group to discover a ten million digit prime number.  If you find such a prime with the software provided, GIMPS will claim the award and distribute the award according to the following rules.
-
-1. No money will be awarded unless and until GIMPS discovers a 10,000,000 digit prime, it is independently verified, and EFF validates our claim according to their rules.  Verification is likely to take upto a year and publication in a suitable academic refereed journal as required by EFF rules will likely take another six months.  For tax reasons, no money will be awarded until GIMPS is incorporated as a non-profit organization. You are responsible for all applicable taxes. 
-
-2. Up to $20,000 total will be awarded to the discoverers of new Mersenne primes found after September 1, 1999 and prior to the discovery of the 10,000,000 digit prime.  Each new Mersenne prime will receive a maximum of $5,000.
-
-3. Up to $20,000 will be awarded to GIMPS, Inc. to cover expenses or fund future awards.
-
-4. For organizing GIMPS and providing the free software, $25,000 will be awarded to the charity of George Woltman's choice.
-
-5. The remainder goes to the discoverer of the 10,000,000 digit prime. If a group or team wishes to make a claim of one of the above awards, they must appoint a single individual to make the claim and disburse the award. 
-
-6. These rules may be changed at any time prior to the discovery of a 10,000,000 digit prime.  The decisions of the GIMPS board of directors in applying the rules above and granting awards is final.  Prior to GIMPS' incorporation the decision of George Woltman is final.  See http://www.mersenne.org/prize.htm for updates.
-
-7. If you were to find a 10,000,000 digit prime today the above rules imply that $3,333 would go to Michael Cameron, discoverer of the 39th known Mersenne prime, $3,333 would go to Michael Shafer, discoverer of the 40th known Mersenne prime, $3,333 would go to Josh Findley, discoverer of the 41st known Mersenne prime, $3,333 would go to Dr. Martin Nowak, discoverer of the 42nd known Mersenne prime, $6,667 would go to Curtis Cooper and Steven Boone the discoverers of the 43rd and 44th known Mersenne prime, $5,000 would go to GIMPS, $25,000 would go to charity, and $50,000 would go to you.  Now the bad news.  Testing a single 10,000,000 digit number takes a month on a 2 GHz Pentium 4 computer.  Your chance of success is roughly 1 in 250,000.  Someone may find a 10,000,000 digit prime before GIMPS does.
+At the time of this software release, the Electronic Frontier Foundation is offering a $150,000 award to the first person or group to discover a hundred million digit prime number.  If you find such a prime with the software provided, GIMPS will claim the award and distribute the award according to the rules published at http://mersenne.org/prize.htm
 
 
 Third Party Software Redistribution License
