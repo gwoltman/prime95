@@ -2029,6 +2029,11 @@ void auxillaryWorkUnitInit (
 
 	if (w->work_type == WORK_TEST) w->tests_saved = 2.0;
 	if (w->work_type == WORK_DBLCHK) w->tests_saved = 1.0;
+
+/* Guard against wild tests_saved values.  Huge values will cause guess_pminus1_bounds */
+/* to run for a very long time. */
+
+	if (w->tests_saved > 10) w->tests_saved = 10;
 }
 
 /* Fill in a work unit's stage and percentage complete based on any */
