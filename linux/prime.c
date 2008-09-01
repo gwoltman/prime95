@@ -1,4 +1,4 @@
-/* Copyright 1995-2007 Just For Fun Software, Inc. */
+/* Copyright 1995-2008 GIMPS, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
