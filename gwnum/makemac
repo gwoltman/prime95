@@ -1,6 +1,8 @@
 # Makefile for Mac OS X gwnum library
 #
 
+ENVP= MACOSX_DEPLOYMENT_TARGET=10.3
+
 CC = gcc
 CFLAGS = -I.. -O2 -march=i686 -malign-double
 
@@ -20,7 +22,7 @@ clean:
 	rm -f $(LINUXOBJS)
 
 .c.o:
-	$(CC) $(CFLAGS) -c $<
+	$(ENVP) $(CC) $(CFLAGS) -c $<
 
 .cpp.o:
-	$(CPP) $(CPPFLAGS) -c $<
+	$(ENVP) $(CPP) $(CPPFLAGS) -c $<

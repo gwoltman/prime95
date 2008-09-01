@@ -1,28 +1,25 @@
 # Makefile for Mac OS X mprime
 #
 
+ENVP= MACOSX_DEPLOYMENT_TARGET=10.3
+
 CC = gcc
-CFLAGS = -I.. -I../gwnum -O2 -march=i686 -malign-double
+CFLAGS = -I.. -I../gwnum -I../linux -O2 -g -march=i686 -malign-double
 
 CPP = g++
-CPPFLAGS = -I.. -I../gwnum -O2 -march=i686 -malign-double
+CPPFLAGS = -I.. -I../gwnum -I../linux -O2 -march=i686 -malign-double
 
 LFLAGS = -Wl,-M
 LIBS   = ../gwnum/gwnum.a -lm -lpthread -lcurl -lstdc++
-LIBS2  = ../gwnum/gwnum.a -lm -lpthread -lcurl -lstdc++ -static
 
 FACTOROBJ = factor32.o
 LINUXOBJS = prime.o menu.o
 EXE      = mprime
-EXE2	 = sprime
 
 #########################################################################
 
 $(EXE): security $(LINUXOBJS) $(FACTOROBJ)
-	$(CC) $(LFLAGS) -o $(EXE) $(LINUXOBJS) $(FACTOROBJ) $(LIBS)
-
-$(EXE2): security $(LINUXOBJS) $(FACTOROBJ)
-	$(CC) $(LFLAGS) -o $(EXE2) $(LINUXOBJS) $(FACTOROBJ) $(LIBS2)
+	$(ENVP) $(CC) $(LFLAGS) -o $(EXE) $(LINUXOBJS) $(FACTOROBJ) $(LIBS)
 
 security:
 	[ ! -e ../security.h ] && touch ../security.h || true
@@ -33,7 +30,7 @@ clean:
 	rm -f $(EXE) $(EXE2) $(LINUXOBJS)
 
 .c.o:
-	$(CC) $(CFLAGS) -c $<
+	$(ENVP) $(CC) $(CFLAGS) -c $<
 
 .cpp.o:
-	$(CPP) $(CPPFLAGS) -c $<
+	$(ENVP) $(CPP) $(CPPFLAGS) -c $<
