@@ -76,7 +76,9 @@ typedef int pid_t;
 /* Globals */
 
 #ifndef __WATCOMC__
+#ifndef __APPLE__
 #define OPEN_MAX 20
+#endif
 #endif
 
 #ifdef MPRIME_LOADAVG
