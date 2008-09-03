@@ -1,6 +1,6 @@
 /* GWNUM -- IBDWT FFT package for large numbers.
 
-  Copyright 1996-2007 George Woltman.
+  Copyright 1996-2007 Mersenne Research, Inc.
 
   This program is free software; you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by the

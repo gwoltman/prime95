@@ -4,8 +4,7 @@
 | This file contains the C routines and global variables that are used
 | to implement multi-threading, mutexes, and locking.
 | 
-|  Copyright 2006-2007 Just For Fun Software, Inc.
-|  All Rights Reserved.
+|  Copyright 2006-2007 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */

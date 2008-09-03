@@ -4,8 +4,7 @@
 | This file contains the headers for the gwnum helper routines that use
 | extended-precision floats.
 | 
-|  Copyright 2005-2007 Just For Fun Software, Inc.
-|  All Rights Reserved.
+|  Copyright 2005-2007 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 #ifndef _GWDBLDBL_H

@@ -16,8 +16,7 @@
 | threads IF AND ONLY IF each uses a different gwhandle structure
 | initialized by gwinit.
 | 
-|  Copyright 2002-2007 Just For Fun Software, Inc.
-|  All Rights Reserved.
+|  Copyright 2002-2008 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 #ifndef _GWNUM_H

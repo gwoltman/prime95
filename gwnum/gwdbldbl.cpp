@@ -9,8 +9,7 @@
  *  This is the only C++ routine in the gwnum library.  Since gwnum is
  *  a C based library, we declare all routines here as extern "C".
  * 
- *  Copyright 2005-2006 Just For Fun Software, Inc.
- *  All Rights Reserved.
+ *  Copyright 2005-2006 Mersenne Research, Inc.  All rights reserved.
  *
  **************************************************************/
 

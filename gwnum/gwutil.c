@@ -4,8 +4,7 @@
 | This file contains various utility routines that may be used by gwnum
 | routines, prime95, or PRP.
 | 
-|  Copyright 2004-2007 Just For Fun Software, Inc.
-|  All Rights Reserved.
+|  Copyright 2004-2007 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */

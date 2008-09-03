@@ -5,8 +5,7 @@
 | in the multi-precision arithmetic routines.  That is, all routines
 | that deal with the gwnum data type.
 | 
-|  Copyright 2002-2007 Just For Fun Software, Inc.
-|  All Rights Reserved.
+|  Copyright 2002-2008 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
