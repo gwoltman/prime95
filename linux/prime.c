@@ -1,4 +1,4 @@
-/* Copyright 1995-2008 GIMPS, Inc. */
+/* Copyright 1995-2008 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 

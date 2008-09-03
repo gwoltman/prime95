@@ -2671,7 +2671,6 @@ int primeFactor (
 /* sure the factor is more than 50 bits or so. */
 
 		if (strlen (str) >= 15 ||
-		    p > 79300000 ||	/* LMH of new area - remove someday! */
 		    IniGetInt (INI_FILE, "SendAllFactorData", 0)) {
 			struct primenetAssignmentResult pkt;
 			memset (&pkt, 0, sizeof (pkt));

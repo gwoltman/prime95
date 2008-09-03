@@ -3,7 +3,7 @@
 |
 | This file contains handy #defines that I use in all my projects
 | 
-|  Copyright 2005 Just For Fun Software, Inc.
+|  Copyright 2005 Mersenne Research, Inc.
 |  All Rights Reserved.
 +---------------------------------------------------------------------*/
 

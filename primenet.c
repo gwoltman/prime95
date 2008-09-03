@@ -9,10 +9,7 @@
 // THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
 // PARTICULAR PURPOSE.
 //
-// Copyright (c) 1997-2007 Just for Fun Software, Entropia Inc. and
-//		 Peter Hunter.
-// Used by Premission Only for Great Internet Mersenne Prime Search.
-// All Rights Reserved.
+// Copyright (c) 1997-2008 Mersenne Research, Inc. All Rights Reserved.
 //
 //  MODULE:   primenet.c
 //

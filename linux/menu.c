@@ -1,4 +1,4 @@
-/* Copyright 1995-2008 GIMPS, Inc. */
+/* Copyright 1995-2008 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -989,7 +989,7 @@ void help_about (void)
 	printf ("GIMPS: Mersenne Prime Search\n");
 	printf ("Web site: http://mersenne.org\n");
 	printf ("%s\n", app_string);
-	printf ("Copyright 1996-2008 GIMPS, Inc.\n");
+	printf ("Copyright 1996-2008 Mersenne Research, Inc.\n");
 	printf ("Author: George Woltman\n");
 	printf ("Email:  woltman@alum.mit.edu\n");
 	askOK ();
