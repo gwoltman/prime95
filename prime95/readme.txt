@@ -217,12 +217,12 @@ the proxy information.
 SETTING AVAILABLE MEMORY
 ------------------------
 
-The P-1 factoring step prior to running a Lucas-Lehmer test is more
-effective if it is given more memory to work with.  However, if you let
-the program use too much memory then the performance of ALL programs will
-suffer.  The good news is that 98% of the time the program uses less
-than 8MB.  In fact, the program will work just fine if you instruct the
-program to use only 8MB or less.
+Steage 2 of P-1 factoring step prior to running a Lucas-Lehmer test is 
+slightly more effective if it is given more memory to work with.  However,
+if you let the program use too much memory then the performance of ALL programs
+will suffer.  The good news is that 98% of the time the program uses a minimal
+amount of memory.  In fact, the program will work just fine if never
+let it use more than the minimum.
 
 So how do you intelligently choose the available memory settings?  Below
 are some steps you might take to figure this out:
@@ -243,7 +243,9 @@ let the program use a lot of memory during these hours.  But reduce this
 value if you also run batch jobs at night.
 
 4)  Factor in the information below about minimum, reasonable, and
-desirable memory amounts for some sample exponents.
+desirable memory amounts for some sample exponents.  If you choose a
+value below the minimum, that is OK.  The program will simply skip
+stage 2 of P-1 factoring.
 
 	Exponent	Minimum		Reasonable	Desirable
 	--------	-------		----------	---------
