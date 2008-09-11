@@ -133,6 +133,32 @@ void SetPriority (
 	else
 		mask = -1;
 
+/* Output an informative message */
+
+	if (NUM_CPUS > 1 || CPU_HYPERTHREADS > 1) {
+		char	buf[120];
+
+		if (info->aux_thread_num == 0)
+			strcpy (buf, "Setting affinity to run worker thread on ");
+		else
+			sprintf (buf, "Setting affinity to run helper thread %d on ", info->aux_thread_num);
+		if (mask == -1) {
+			strcat (buf, "any logical CPU.\n");
+		} else {
+			int	i, count;
+			char	cpu_list[80];
+			for (i = count = 0; i < 32; i++) {
+				if (! (mask & (1 << i))) continue;
+				count++;
+				if (count == 1) sprintf (cpu_list, "%d", i);
+				else sprintf (cpu_list + strlen(cpu_list), ",%d", i);
+			}
+			sprintf (buf + strlen(buf), "logical CPU%s%s\n",
+				 (count == 1) ? " #" : "s ", cpu_list);
+		}
+		OutputStr (info->thread_num, buf);
+	}
+
 /* Call OS-specific routine to set the priority and affinity */
 
 	setThreadPriorityAndAffinity (PRIORITY, mask);
@@ -167,7 +193,7 @@ void SetAuxThreadPriority (int aux_thread_num, int action, void *data)
 
 /* Note that we have one flag byte for each worker thread.  We could */
 /* use one bit per worker thread, but then we need to have locks around */
-/* updates so that 2 worker threads don't interleave a read-modigy-write */
+/* updates so that 2 worker threads don't interleave a read-modify-write */
 /* operation. */
 
 int	STOP_FOR_RESTART = FALSE;/* Flag indicating we should stop and */
@@ -194,18 +220,27 @@ char	STOP_FOR_ABORT[MAX_NUM_WORKER_THREADS] = {0};
 				/* Abort work unit due to unreserve, factor */
 				/* found in a different thread, server */
 				/* request, or any other reason. */
+char	ACTIVE_WORKERS[MAX_NUM_WORKER_THREADS] = {0};
+				/* Flags indicating which worker threads */
+				/* are active. */
 char	WRITE_SAVE_FILES[MAX_NUM_WORKER_THREADS] = {0};
 				/* Flags indicating it is time to write */
 				/* a save file. */
 
-gwevent WORK_AVAILABLE_OR_STOP = 0;
+char	WORK_AVAILABLE_OR_STOP_INITIALIZED[MAX_NUM_WORKER_THREADS] = {0};
+gwevent WORK_AVAILABLE_OR_STOP[MAX_NUM_WORKER_THREADS] = {0};
 				/* Signal for telling primeContinue that */
-				/* work is now available or a thread stop */
-				/* needs to occur */
+				/* work is now available or all threads */
+				/* are stopping */
 gwevent SLEEP_TIME_OR_STOP = 0;
 				/* Signal for telling primeContinue that */
-				/* the sleep time has expired or a thread */
-				/* stop needs to occur */
+				/* the sleep time has expired or all */
+				/* threads are stopping */
+char	USER_START_OR_STOP_INITIALIZED[MAX_NUM_WORKER_THREADS] = {0};
+gwevent	USER_START_OR_STOP[MAX_NUM_WORKER_THREADS] = {0};
+				/* Signal for telling implement_stop_one_worker */
+				/* that the user wants this worker to start or */
+				/* all threads are stopping */
 
 /* This routine checks if the worker thread needs to be stopped for any */
 /* reason whatsoever.  If the worker thread should stop, a stop reason */
@@ -223,11 +258,12 @@ EXTERNC int stopCheck (
 	stopCheckCallback (thread_num);
 
 /* If the ESC key was hit, stop processing.  This takes precedence over */
-/* all other stop reasons. */
+/* all other stop reasons.  This also happens when the program is exiting. */
 
 	if (WORKER_THREADS_STOPPING) return (STOP_ESCAPE);
 
-/* If an important option changed in the GUI, restart all threads */
+/* If an important option changed in the GUI, restart all threads. */
+/* For example, the user changes the priority of all worker threads. */	
 
 	if (STOP_FOR_RESTART) return (STOP_RESTART);
 
@@ -257,7 +293,20 @@ EXTERNC int stopCheck (
 		return (STOP_PRIORITY_WORK);
 	}
 
-/* Check if thread should be stopped because another process is running */
+/* If the thread needs to abort the current work unit, then return */
+/* that stop code. */
+
+	if (STOP_FOR_ABORT[thread_num]) {
+		STOP_FOR_ABORT[thread_num] = 0;
+		return (STOP_ABORT);
+	}
+
+/* If the thread needs to stop because the user has explicitly stopped (or never */
+/* started) this worker, then return the proper stop code. */
+
+	if (!ACTIVE_WORKERS[thread_num]) return (STOP_WORKER);
+
+/* Check if thread should pause because another process is running. */
 /* When pause completes, check stop codes again.  We may have been paused */
 /* a long time during which other stop timers may have fired. */
 
@@ -266,20 +315,12 @@ EXTERNC int stopCheck (
 		return (stopCheck (thread_num));
 	}
 
-/* If the thread needs to go do some higher priority work, then stop */
-/* processing this work_unit and reprocess the worktodo file. */
+/* If the thread needs to pause because of the throttle option, then */
+/* do so now. */
 
 	if (STOP_FOR_THROTTLE[thread_num]) {
 		STOP_FOR_THROTTLE[thread_num] = 0;
 		implementThrottle (thread_num);
-	}
-
-/* If the thread needs to go do some higher priority work, then stop */
-/* processing this work_unit and reprocess the worktodo file. */
-
-	if (STOP_FOR_ABORT[thread_num]) {
-		STOP_FOR_ABORT[thread_num] = 0;
-		return (STOP_ABORT);
 	}
 
 /* No need to stop */
@@ -305,22 +346,39 @@ void init_stop_code (void)
 
 	if (!stop_events_initialized) {
 		stop_events_initialized = TRUE;
-		gwevent_init (&WORK_AVAILABLE_OR_STOP);
 		gwevent_init (&SLEEP_TIME_OR_STOP);
 	}
-	gwevent_reset (&WORK_AVAILABLE_OR_STOP);
 	gwevent_reset (&SLEEP_TIME_OR_STOP);
 }
 
 /* Signal threads waiting for work to do */
 
-void restart_waiting_workers (void)
+void restart_waiting_workers (
+	int	restart_flags)
 {
+	int	thread_num;
+
 	if (stop_events_initialized) {
-		gwevent_signal (&WORK_AVAILABLE_OR_STOP);/* Start them */
-		gwevent_reset (&WORK_AVAILABLE_OR_STOP);/* Reset event */
 		gwevent_signal (&SLEEP_TIME_OR_STOP);	/* Start them */
 		gwevent_reset (&SLEEP_TIME_OR_STOP);	/* Reset event */
+	}
+	for (thread_num = 0; thread_num < MAX_NUM_WORKER_THREADS; thread_num++)
+		restart_one_waiting_worker (thread_num, restart_flags);
+}
+
+void restart_one_waiting_worker (
+	int	thread_num,
+	int	restart_flags)
+{
+	if (restart_flags & RESTART_USER_START &&
+	    USER_START_OR_STOP_INITIALIZED[thread_num]) {
+		gwevent_signal (&USER_START_OR_STOP[thread_num]);
+		gwevent_reset (&USER_START_OR_STOP[thread_num]);
+	}
+	if (restart_flags & RESTART_WORK_AVAILABLE &&
+	    WORK_AVAILABLE_OR_STOP_INITIALIZED[thread_num]) {
+		gwevent_signal (&WORK_AVAILABLE_OR_STOP[thread_num]);
+		gwevent_reset (&WORK_AVAILABLE_OR_STOP[thread_num]);
 	}
 }
 
@@ -331,7 +389,7 @@ void stop_workers_for_escape (void)
 	if (WORKER_THREADS_ACTIVE) {
 		OutputStr (MAIN_THREAD_NUM, "Stopping all worker threads.\n");
 		WORKER_THREADS_STOPPING = TRUE;
-		restart_waiting_workers ();
+		restart_waiting_workers (RESTART_ALL);
 		raiseAllWorkerThreadPriority ();
 	}
 }
@@ -348,7 +406,7 @@ void stop_workers_for_restart (void)
 	    ! STOP_FOR_RESTART) {
 		OutputStr (MAIN_THREAD_NUM, "Restarting all worker threads.\n");
 		STOP_FOR_RESTART = TRUE;
-		restart_waiting_workers ();
+		restart_waiting_workers (RESTART_ALL);
 		if (NUM_WORKER_THREADS > WORKER_THREADS_ACTIVE)
 			create_worker_windows (NUM_WORKER_THREADS);
 	}
@@ -362,7 +420,7 @@ void stop_workers_for_add_files (void)
 	if (WORKER_THREADS_ACTIVE && ! STOP_FOR_RESTART) {
 		OutputStr (MAIN_THREAD_NUM, "Restarting all worker threads to process .add file.\n");
 		STOP_FOR_RESTART = TRUE;
-		restart_waiting_workers ();
+		restart_waiting_workers (RESTART_ALL);
 	}
 }
 
@@ -375,7 +433,7 @@ void stop_workers_for_timeout (void)
 	if (WORKER_THREADS_ACTIVE && ! STOP_FOR_TIMEOUT) {
 		OutputStr (MAIN_THREAD_NUM, "Restarting all worker threads with new timed INI settings.\n");
 		STOP_FOR_TIMEOUT = TRUE;
-		restart_waiting_workers ();
+		restart_waiting_workers (RESTART_ALL);
 	}
 }
 
@@ -388,7 +446,7 @@ void stop_worker_for_mem_changed (
 	if (WORKER_THREADS_ACTIVE && ! STOP_FOR_MEM_CHANGED[thread_num]) {
 		OutputStr (thread_num, "Restarting thread with new memory settings.\n");
 		STOP_FOR_MEM_CHANGED[thread_num] = 1;
-		restart_waiting_workers ();
+		restart_one_waiting_worker (thread_num, RESTART_WORK_AVAILABLE);
 	}
 }
 
@@ -400,8 +458,7 @@ void stop_workers_for_battery (void)
 		OutputStr (MAIN_THREAD_NUM, "Pausing all worker threads while on battery power.\n");
 		STOP_FOR_BATTERY = TRUE;
 		/* Restart waiting workers (so that they can stop!) */
-		gwevent_signal (&WORK_AVAILABLE_OR_STOP);
-		gwevent_reset (&WORK_AVAILABLE_OR_STOP);
+		restart_waiting_workers (RESTART_ALL);
 	}
 }
 
@@ -1090,6 +1147,98 @@ void check_for_priority_work (void)
 }
 
 /**************************************************************/
+/*     Routines dealing with stopping specific workers        */
+/**************************************************************/
+
+void mark_workers_active (
+	int	thread_num)	/* Number of workers to mark active */
+				/* or (<= 0) the only worker to mark */
+{
+	int	i;
+
+	memset (ACTIVE_WORKERS, 0, sizeof (ACTIVE_WORKERS));
+	for (i = 0; i < thread_num; i++) ACTIVE_WORKERS[i] = 1;
+	if (thread_num <= 0) ACTIVE_WORKERS[-thread_num] = 1;
+}
+
+void start_one_worker (
+	int	thread_num)
+{
+	if (thread_num < 0 || thread_num > (int) NUM_WORKER_THREADS) {
+		OutputStr (MAIN_THREAD_NUM, "Worker thread number out of range.\n");
+		return;
+	}
+	if (ACTIVE_WORKERS[thread_num]) {
+		OutputStr (MAIN_THREAD_NUM, "Worker thread is already running.\n");
+		return;
+	}
+	ACTIVE_WORKERS[thread_num] = 1;
+
+	// Signal the gwevent to start the worker
+	gwevent_signal (&USER_START_OR_STOP[thread_num]);
+	gwevent_reset (&USER_START_OR_STOP[thread_num]);
+}
+
+void stop_one_worker (
+	int	thread_num)
+{
+	if (thread_num < 0 || thread_num > (int) NUM_WORKER_THREADS) {
+		OutputStr (MAIN_THREAD_NUM, "Worker thread number out of range.\n");
+		return;
+	}
+	if (!ACTIVE_WORKERS[thread_num]) {
+		OutputStr (MAIN_THREAD_NUM, "Worker thread is already stopped.\n");
+		return;
+	}
+	ACTIVE_WORKERS[thread_num] = 0;
+}
+
+void implement_stop_one_worker (
+	int	thread_num)
+{
+	int	rc;
+
+/* If some race condition has caused the worker active flag */
+/* to be set, then do not wait for an event. */
+
+	if (ACTIVE_WORKERS[thread_num]) return;
+
+/* Output a worker stopping message and change the icon */
+
+	// bug - output msg , init gwevent and wait
+	//// bug - this message will be output even if worker never started
+	OutputStr (thread_num, "Stopping worker at user request.\n");
+	ChangeIcon (thread_num, IDLE_ICON);	/* Idle icon while stopped */
+
+/* Initialize and then wait for the event */
+
+	USER_START_OR_STOP_INITIALIZED[thread_num] = 1;
+	gwevent_init (&USER_START_OR_STOP[thread_num]);
+	gwevent_reset (&USER_START_OR_STOP[thread_num]);
+	rc = gwevent_wait (&USER_START_OR_STOP[thread_num], 0);
+
+/* Destroy the event */
+
+	USER_START_OR_STOP_INITIALIZED[thread_num] = 0;
+	gwevent_destroy (&USER_START_OR_STOP[thread_num]);
+
+/* Output a worker starting message and change the icon */
+
+	////bug - why output a restart message if we are only resuming to exit?
+	OutputStr (thread_num, "Resuming worker at user request.\n");
+	ChangeIcon (thread_num, WORKING_ICON);
+}
+
+unsigned int active_workers_count (void)
+{
+	unsigned int i, count;
+
+	for (i = count = 0; i < WORKER_THREADS_ACTIVE; i++)
+		if (ACTIVE_WORKERS[i]) count++;
+	return (count);
+}
+
+/**************************************************************/
 /*        Routines dealing with "pause while running"         */
 /**************************************************************/
 
@@ -1237,7 +1386,7 @@ int isKnownMersennePrime (
 		p == 859433 || p == 1257787 || p == 1398269 || p == 2976221 ||
 		p == 3021377 || p == 6972593 || p == 13466917 ||
 		p == 20996011 || p == 24036583 || p == 25964951 ||
-		p == 30402457 || p == 32582657 || p == 43112609);
+		p == 30402457 || p == 32582657 || p == 37156667 || p == 43112609);
 }
 
 /* Make a string out of a 96-bit value (a found factor) */
@@ -1484,17 +1633,35 @@ void create_worker_windows (
 /* Launch the worker threads to process work units */
 
 int LaunchWorkerThreads (
+	int	thread_num,		/* Specific worker to launch or */
+					/* special value ALL_WORKERS */
 	int	wait_flag)		/* TRUE if we wait for workers to */
 					/* end before returning. */
 {
 	struct LaunchData *ld;
 	gwthread thread_handle;
 
+/* If workers are already active, then call routine that restarts */
+/* individual workers. */
+
+	if (WORKER_THREADS_ACTIVE && LAUNCH_TYPE == LD_CONTINUE) {
+		if (thread_num == ALL_WORKERS) {
+			for (thread_num = 0; thread_num < (int) NUM_WORKER_THREADS; thread_num++)
+				if (! ACTIVE_WORKERS[thread_num])
+					start_one_worker (thread_num);
+		} else
+			start_one_worker (thread_num);
+		return (0);
+	}
+
+/* Create the launcher data structure, create the windows, then launch */
+
 	ld = (struct LaunchData *) malloc (sizeof (struct LaunchData));
 	if (ld == NULL) return (OutOfMemory (MAIN_THREAD_NUM));
 	ld->num_threads = NUM_WORKER_THREADS;
 	LAUNCH_TYPE = LD_CONTINUE;
 	create_worker_windows (NUM_WORKER_THREADS);
+	mark_workers_active (thread_num == ALL_WORKERS ? NUM_WORKER_THREADS : -thread_num);
 	if (wait_flag) {
 		gwthread_create_waitable (&thread_handle, &Launcher, ld);
 		gwthread_wait_for_exit (&thread_handle);
@@ -1518,6 +1685,7 @@ int LaunchTortureTest (
 	ld->num_threads = num_threads;
 	LAUNCH_TYPE = LD_TORTURE;
 	create_worker_windows (num_threads);
+	mark_workers_active (num_threads);
 	if (wait_flag) {
 		gwthread_create_waitable (&thread_handle, &Launcher, ld);
 		gwthread_wait_for_exit (&thread_handle);
@@ -1538,6 +1706,7 @@ int LaunchBench (void)
 	ld->num_threads = 1;
 	LAUNCH_TYPE = LD_BENCH;
 	create_worker_windows (1);
+	mark_workers_active (1);
 	gwthread_create (&thread_handle, &Launcher, ld);
 	return (0);
 }
@@ -1560,6 +1729,7 @@ int LaunchAdvancedTime (
 	ld->iters = iters;
 	LAUNCH_TYPE = LD_TIME;
 	create_worker_windows (ld->num_threads);
+	mark_workers_active (ld->num_threads);
 	gwthread_create (&thread_handle, &Launcher, ld);
 	return (0);
 }
@@ -1579,7 +1749,7 @@ void Launcher (void *arg)
 
 	ld = (struct LaunchData *) arg;
 
-/* If worker threads are already active, then stop them all.  This can */
+/* If worker threads are active then stop them all.  This can */
 /* happen when we choose Torture Test, Benchmark, or Advanced/Time from */
 /* the menus while the worker threads are running */
 
@@ -2004,10 +2174,14 @@ int primeContinue (
 
 	}
 
+/* Check for all the possible stop codes we must handle here.  Those */
+/* that terminate the worker thread are not handled here. */
+
+check_stop_code:
+
 /* If we are aborted a work unit (probably because it is being deleted) */
 /* then start again. */
 
-check_stop_code:
 	if (stop_reason == STOP_ABORT) continue;
 
 /* If we need to do priority work then reprocess the entire worktodo.ini. */
@@ -2017,6 +2191,14 @@ check_stop_code:
 /* If we need to restart with the new memory settings, do so. */
 
 	if (stop_reason == STOP_MEM_CHANGED) continue;
+
+/* If the user is specifically stopping this worker, then stop until */
+/* the user restarts the worker. */
+
+	if (stop_reason == STOP_WORKER) {
+		implement_stop_one_worker (thread_num);
+		continue;
+	}
 
 /* The stop reason was not caught above.  It must be a fatal error or a */
 /* stop code that causes the worker thread to terminate. */
@@ -2049,7 +2231,12 @@ check_stop_code:
 /* OR user entering new work via the dialog boxes OR the discovery of a .add */
 /* file OR wait for a thread stop event (like ESC or shutdown). */
 
-	rc = gwevent_wait (&WORK_AVAILABLE_OR_STOP, 3600);
+	WORK_AVAILABLE_OR_STOP_INITIALIZED[thread_num] = 1;
+	gwevent_init (&WORK_AVAILABLE_OR_STOP[thread_num]);
+	gwevent_reset (&WORK_AVAILABLE_OR_STOP[thread_num]);
+	rc = gwevent_wait (&WORK_AVAILABLE_OR_STOP[thread_num], 3600);
+	gwevent_destroy (&WORK_AVAILABLE_OR_STOP[thread_num]);
+	WORK_AVAILABLE_OR_STOP_INITIALIZED[thread_num] = 0;
 	OutputStr (thread_num, "Resuming.\n");
 	ChangeIcon (thread_num, WORKING_ICON);
 
@@ -3403,9 +3590,8 @@ void good_news (void *arg)
 	char	buf[80];
 
 	title (MAIN_THREAD_NUM, "New Prime!!!");
-	sprintf (buf, "M%d is prime!\n", (int) (intptr_t) arg);
+	sprintf (buf, "New Mersenne Prime!!!!  M%d is prime!\n", (int) (intptr_t) arg);
 	while (WORKER_THREADS_ACTIVE && ! WORKER_THREADS_STOPPING) {
-		OutputStr (MAIN_THREAD_NUM, "New Mersenne Prime!!!!  ");
 		OutputStr (MAIN_THREAD_NUM, buf);
 		flashWindowAndBeep ();
 		Sleep (50);
