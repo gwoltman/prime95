@@ -763,7 +763,7 @@ void linuxContinue (
 
 ok:
 	IniWriteInt (LOCALINI_FILE, "Pid", my_pid);
-	LaunchWorkerThreads (wait_flag);
+	LaunchWorkerThreads (ALL_WORKERS, wait_flag);
 	IniWriteInt (LOCALINI_FILE, "Pid", 0);
 }
 

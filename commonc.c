@@ -2153,7 +2153,7 @@ int addToWorkUnitArray (
 
 	if (w->work_type != WORK_NONE) {
 		WORKTODO_COUNT++;
-		restart_waiting_workers ();
+		restart_one_waiting_worker (tnum, RESTART_WORK_AVAILABLE);
 	}
 
 /* Return success */

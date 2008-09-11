@@ -15,7 +15,8 @@
 
 /* Common routines */
 
-int LaunchWorkerThreads (int);
+#define ALL_WORKERS 8888	// Special value for first arg of LaunchWorkerThreads
+int LaunchWorkerThreads (int, int);
 int LaunchTortureTest (unsigned long, int);
 int LaunchBench (void);
 int LaunchAdvancedTime (unsigned long, unsigned long);
@@ -74,11 +75,14 @@ void makestr (unsigned long, unsigned long, unsigned long, char *);
 /* Stop routines */
 
 /* Reasons returned for why we stopped processing a work unit */
-#define STOP_ESCAPE		1	/* User hit escape key */
+#define STOP_ESCAPE		1	/* User hit escape key. */
+					/* Stopping all worker threads. */
 #define STOP_OUT_OF_MEM		2	/* Fatal out-of-memory error */
 #define STOP_FILE_IO_ERROR	3	/* Fatal file I/O error */
 #define STOP_FATAL_ERROR	4	/* Other fatal error */
 #define STOP_ABORT		5	/* Abort current work unit */
+#define STOP_WORKER		6	/* This worker thread was stopped */
+					/* or was never started */
 #define STOP_WORK_UNIT_COMPLETE	50	/* Work unit is done! */
 #define STOP_PRIORITY_WORK	51	/* Priority work, restart thread */
 #define STOP_BATTERY		52	/* On battery - pause */
@@ -92,7 +96,12 @@ EXTERNC int stopCheck (int);
 void stop_workers_for_escape (void);
 void stop_workers_for_restart (void);
 void stop_workers_for_add_files (void);
-void restart_waiting_workers (void);
+#define RESTART_ALL			0xFFFF
+#define RESTART_WORK_AVAILABLE		0x1
+#define RESTART_SLEEP_TIME		0x2
+#define RESTART_USER_START		0x4
+void restart_waiting_workers (int);
+void restart_one_waiting_worker (int, int);
 void stop_worker_for_abort (int);
 
 /* Routines dealing with day/night memory settings */
@@ -112,6 +121,12 @@ void test_battery (void);
 
 void check_for_priority_work (void);
 void stop_worker_for_advanced_test (int);
+
+/* starting/stopping individual worker threads routines */
+
+void start_one_worker (int);
+void stop_one_worker (int);
+unsigned int active_workers_count (void);
 
 /* "pause while running" routines */
 

@@ -40,12 +40,14 @@ protected:
 	afx_msg void OnPrimenet();
 	afx_msg void OnUpdateWorkerThreads(CCmdUI* pCmdUI);
 	afx_msg void OnWorkerThreads();
+	afx_msg void OnUpdateContinueSwitcher(CCmdUI* pCmdUI);
+	afx_msg void OnContinueSwitcher();
 	afx_msg void OnContinue();
-	afx_msg void OnUpdateContinue(CCmdUI* pCmdUI);
+	afx_msg void OnUpdateStopSwitcher(CCmdUI* pCmdUI);
+	afx_msg void OnStopSwitcher();
 	afx_msg void OnStop();
-	afx_msg void OnUpdateStop(CCmdUI* pCmdUI);
-	afx_msg void OnErrchk();
 	afx_msg void OnUpdateErrchk(CCmdUI* pCmdUI);
+	afx_msg void OnErrchk();
 	afx_msg void OnCpu();
 	afx_msg void OnPreferences();
 	afx_msg void OnUpdateTest(CCmdUI* pCmdUI);

@@ -618,6 +618,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\StartDlg.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\StdAfx.cpp"
 				>
 				<FileConfiguration
@@ -652,6 +656,10 @@
 						UsePrecompiledHeader="1"
 					/>
 				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\StopDlg.cpp"
+				>
 			</File>
 			<File
 				RelativePath=".\TestDlg.cpp"

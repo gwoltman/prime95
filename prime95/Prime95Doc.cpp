@@ -16,6 +16,8 @@
 #include "Pminus1Dlg.h"
 #include "PreferencesDlg.h"
 #include "PrimeNetDlg.h"
+#include "StartDlg.h"
+#include "StopDlg.h"
 #include "TestDlg.h"
 #include "TimeDlg.h"
 #include "TortureDlg.h"
@@ -40,12 +42,14 @@ BEGIN_MESSAGE_MAP(CPrime95Doc, CDocument)
 	ON_COMMAND(IDM_PRIMENET, OnPrimenet)
 	ON_UPDATE_COMMAND_UI(IDM_WORKER_THREADS, OnUpdateWorkerThreads)
 	ON_COMMAND(IDM_WORKER_THREADS, OnWorkerThreads)
+	ON_UPDATE_COMMAND_UI(IDM_CONTINUE_SWITCHER, OnUpdateContinueSwitcher)
+	ON_COMMAND(IDM_CONTINUE_SWITCHER, OnContinueSwitcher)
 	ON_COMMAND(IDM_CONTINUE, OnContinue)
-	ON_UPDATE_COMMAND_UI(IDM_CONTINUE, OnUpdateContinue)
+	ON_UPDATE_COMMAND_UI(IDM_STOP_SWITCHER, OnUpdateStopSwitcher)
+	ON_COMMAND(IDM_STOP_SWITCHER, OnStopSwitcher)
 	ON_COMMAND(IDM_STOP, OnStop)
-	ON_UPDATE_COMMAND_UI(IDM_STOP, OnUpdateStop)
-	ON_COMMAND(IDM_ERRCHK, OnErrchk)
 	ON_UPDATE_COMMAND_UI(IDM_ERRCHK, OnUpdateErrchk)
+	ON_COMMAND(IDM_ERRCHK, OnErrchk)
 	ON_COMMAND(IDM_CPU, OnCpu)
 	ON_COMMAND(IDM_PREFERENCES, OnPreferences)
 	ON_UPDATE_COMMAND_UI(IDM_TEST, OnUpdateTest)
@@ -501,21 +505,62 @@ void CPrime95Doc::OnRangeStatus()
 	rangeStatus ();
 }
 
-void CPrime95Doc::OnUpdateContinue(CCmdUI* pCmdUI) 
+void CPrime95Doc::OnUpdateContinueSwitcher(CCmdUI* pCmdUI) 
 {
-	pCmdUI->Enable (! WORKER_THREADS_ACTIVE &&
+	pCmdUI->SetText (NUM_WORKER_THREADS > 1 &&
+			 active_workers_count () != WORKER_THREADS_ACTIVE - 1 ?
+				 "&Continue..." : "&Continue");
+	pCmdUI->Enable (active_workers_count () != WORKER_THREADS_ACTIVE &&
 			(USE_PRIMENET || WORKTODO_COUNT));
+}
+
+void CPrime95Doc::OnContinueSwitcher() 
+{
+	if (NUM_WORKER_THREADS > 1 &&
+	    active_workers_count () != WORKER_THREADS_ACTIVE - 1) {
+		// Start the dialog box
+		CStartDlg dlg;
+
+		if (dlg.DoModal () == IDOK) {
+			if (dlg.m_all_threads)
+				OnContinue ();
+			else
+				LaunchWorkerThreads (dlg.m_thread-1, FALSE);
+		}
+	} else {
+		// Start the thread
+		OnContinue ();
+	}
 }
 
 void CPrime95Doc::OnContinue() 
 {
 	// Start the threads
-	if (! WORKER_THREADS_ACTIVE) LaunchWorkerThreads (FALSE);
+	LaunchWorkerThreads (ALL_WORKERS, FALSE);
 }
 
-void CPrime95Doc::OnUpdateStop(CCmdUI* pCmdUI) 
+void CPrime95Doc::OnUpdateStopSwitcher(CCmdUI* pCmdUI) 
 {
+	pCmdUI->SetText (NUM_WORKER_THREADS > 1 && active_workers_count () != 1 ? "St&op..." : "St&op");
 	pCmdUI->Enable (WORKER_THREADS_ACTIVE && !WORKER_THREADS_STOPPING);
+}
+
+void CPrime95Doc::OnStopSwitcher() 
+{
+	if (NUM_WORKER_THREADS > 1 && active_workers_count () != 1) {
+		// Start the dialog box
+		CStopDlg dlg;
+
+		if (dlg.DoModal () == IDOK) {
+			if (dlg.m_all_threads)
+				OnStop ();
+			else
+				stop_one_worker (dlg.m_thread-1);
+		}
+	} else {
+		// Stop the thread
+		OnStop ();
+	}
 }
 
 void CPrime95Doc::OnStop() 

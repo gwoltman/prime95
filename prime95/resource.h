@@ -53,6 +53,8 @@
 #define IDD_WORKER_THREADS              160
 #define IDD_PRIMENET_CONNECTION         161
 #define IDD_PRIMENET_V4                 162
+#define IDD_WORKER_START                163
+#define IDD_WORKER_STOP                 164
 #define IDC_LL                          1000
 #define IDC_NOISE                       1000
 #define IDC_EDIT1                       1001
@@ -114,7 +116,7 @@
 #define IDC_IN_PLACE                    1060
 #define IDC_CUSTOM                      1061
 #define IDC_LINK                        1067
-#define IDC_APP_STRING			1068
+#define IDC_APP_STRING                  1068
 #define IDC_WARN1                       1070
 #define IDC_WARN2                       1071
 #define IDC_WARN3                       1072
@@ -132,9 +134,12 @@
 #define IDC_PROXYPASSWORD_TEXT          1084
 #define IDC_PROXYPASSWORD               1085
 #define IDC_DEBUG                       1086
+#define IDC_RADIO1                      1087
+#define IDM_CONTINUE_SWITCHER           32770
 #define IDM_CONTINUE                    32771
-#define IDM_STOP                        32772
-#define IDM_ERRCHK                      32773
+#define IDM_STOP_SWITCHER               32772
+#define IDM_STOP                        32773
+#define IDM_ERRCHK                      32774
 #define IDM_TEST                        32777
 #define IDM_TIME                        32778
 #define IDM_PREFERENCES                 32781
@@ -172,9 +177,9 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_3D_CONTROLS                     1
-#define _APS_NEXT_RESOURCE_VALUE        161
+#define _APS_NEXT_RESOURCE_VALUE        165
 #define _APS_NEXT_COMMAND_VALUE         32820
-#define _APS_NEXT_CONTROL_VALUE         1087
+#define _APS_NEXT_CONTROL_VALUE         1088
 #define _APS_NEXT_SYMED_VALUE           104
 #endif
 #endif
