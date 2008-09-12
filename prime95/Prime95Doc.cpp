@@ -857,7 +857,7 @@ void CPrime95Doc::OnTorture()
 	dlg.m_thread = NUM_CPUS * CPU_HYPERTHREADS;
 	mem = physical_memory ();
 	if (mem >= 2000) {
-		dlg.m_blendmemory = GetSuggestedMemory (1750);
+		dlg.m_blendmemory = GetSuggestedMemory (1600);
 		dlg.m_in_place_fft = FALSE;
 	} else if (mem >= 500) {
 		dlg.m_blendmemory = GetSuggestedMemory (mem - 256);

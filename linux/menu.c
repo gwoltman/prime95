@@ -922,7 +922,7 @@ void torture (void)
 	m_thread = NUM_CPUS * CPU_HYPERTHREADS;
 	mem = physical_memory ();
 	if (mem >= 2000) {
-		blendmemory = GetSuggestedMemory (1750);
+		blendmemory = GetSuggestedMemory (1600);
 	} else if (mem >= 500) {
 		blendmemory = GetSuggestedMemory (mem - 256);
 	} else if (mem >= 200) {
