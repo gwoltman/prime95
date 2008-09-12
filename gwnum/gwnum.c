@@ -1398,6 +1398,12 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 	else
 		l2_cache_size = 512;
 
+/* Nehalem has a small L2 cache and a large L3 cache.  We are better off */
+/* choosing FFTs designed for larger L2 caches. */
+
+	if (CPU_L3_CACHE_SIZE > 0)
+		l2_cache_size += CPU_L3_CACHE_SIZE;
+
 /* Since hyperthreaded CPUs have a shared L2 cache, we pretend we have */
 /* half as much L2 cache when we are running two threads. */
 

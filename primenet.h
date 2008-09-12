@@ -47,6 +47,7 @@ struct primenetUpdateComputerInfo {
 	char	cpu_features[65];	/* Ex. RDTSC, MMX, SSE, SSE2 */
 	int32_t	L1_cache_size;		/* Cache size in KB */
 	int32_t	L2_cache_size;		/* Cache size in KB */
+	int32_t	L3_cache_size;		/* Cache size in KB */
 	uint32_t num_cpus;		/* Number of cpus/cores in machine */
 	uint32_t num_hyperthread;	/* Number virtual cpus per CPU core */
 	uint32_t mem_installed;		/* Physical memory in MB */

@@ -831,6 +831,10 @@ int format_args (char* args, short operation, void* pkt)
 			 z->num_hyperthread, z->mem_installed, z->cpu_speed,
 			 z->hours_per_day, z->rolling_average);
 		p += strlen (p);
+		if (z->L3_cache_size > 0) {
+			sprintf (p, "&L3=%d", z->L3_cache_size);
+			p += strlen (p);
+		}
 		if (z->user_id[0]) {
 			strcpy (p, "&u=");
 			p = armor (p + strlen (p), z->user_id);

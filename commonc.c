@@ -322,6 +322,15 @@ void getCpuInfo (void)
 	CPU_L2_SET_ASSOCIATIVE =
 		IniGetInt (LOCALINI_FILE, "CpuL2SetAssociative", CPU_L2_SET_ASSOCIATIVE);
 
+/* Let the user override the L3 cache size in local.ini file */
+
+	CPU_L3_CACHE_SIZE =
+			   IniGetInt (LOCALINI_FILE, "CpuL3CacheSize", CPU_L3_CACHE_SIZE);
+	CPU_L3_CACHE_LINE_SIZE =
+				IniGetInt (LOCALINI_FILE, "CpuL3CacheLineSize", CPU_L3_CACHE_LINE_SIZE);
+	CPU_L3_SET_ASSOCIATIVE =
+				IniGetInt (LOCALINI_FILE, "CpuL3SetAssociative", CPU_L3_SET_ASSOCIATIVE);
+
 /* Let user override the number of hyperthreads */
 
 	CPU_HYPERTHREADS =
@@ -373,7 +382,18 @@ void getCpuDescription (
 	else sprintf (buf + strlen (buf), "%d KB\n", CPU_L1_CACHE_SIZE);
 	strcat (buf, "L2 cache size: ");
 	if (CPU_L2_CACHE_SIZE < 0) strcat (buf, "unknown\n");
-	else sprintf (buf + strlen (buf), "%d KB\n", CPU_L2_CACHE_SIZE);
+	else {
+		if (CPU_L2_CACHE_SIZE & 0x3FF)
+			sprintf (buf + strlen (buf), "%d KB\n", CPU_L2_CACHE_SIZE);
+		else
+			sprintf (buf + strlen (buf), "%d MB\n", CPU_L2_CACHE_SIZE >> 10);
+	}
+	if (CPU_L3_CACHE_SIZE > 0) {
+		if (CPU_L3_CACHE_SIZE & 0x3FF)
+			sprintf (buf + strlen (buf) - 1, ", L3 cache size: %d KB\n", CPU_L3_CACHE_SIZE);
+		else
+			sprintf (buf + strlen (buf) - 1, ", L3 cache size: %d MB\n", CPU_L3_CACHE_SIZE >> 10);
+	}
 	if (! long_desc) return;
 	strcat (buf, "L1 cache line size: ");
 	if (CPU_L1_CACHE_LINE_SIZE < 0) strcat (buf, "unknown\n");
@@ -5214,6 +5234,7 @@ retry:
 			pkt.cpu_features[strlen (pkt.cpu_features) - 1] = 0;
 		pkt.L1_cache_size = CPU_L1_CACHE_SIZE;
 		pkt.L2_cache_size = CPU_L2_CACHE_SIZE;
+		pkt.L3_cache_size = CPU_L3_CACHE_SIZE;
 		pkt.num_cpus = NUM_CPUS;
 		pkt.num_hyperthread = CPU_HYPERTHREADS;
 		pkt.mem_installed = physical_memory ();

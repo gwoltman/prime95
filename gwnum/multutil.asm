@@ -1,4 +1,4 @@
-; Copyright 2001-2007 Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2008 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -19,7 +19,7 @@ INCLUDE	unravel.mac
 INCLUDE extrn.mac
 INCLUDE xmult.mac
 
-VERSION_NUMBER = 2506		;; Version 25.6
+VERSION_NUMBER = 2507		;; Version 25.7
 
 ;; Make prctabs public.  Linux x86-64 objcopy handles loading offsets of
 ;; variables only if they are public variables in one file and defined

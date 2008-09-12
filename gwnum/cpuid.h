@@ -51,14 +51,18 @@ extern double CPU_SPEED;		/* Actual CPU Speed in MHz */
 extern unsigned int CPU_FLAGS;		/* Cpu capabilities */
 extern unsigned int CPU_HYPERTHREADS;	/* Number of virtual processors */
 					/* that each CPU core supports */
-extern int CPU_L1_CACHE_SIZE;
-extern int CPU_L2_CACHE_SIZE;
+extern int CPU_L1_CACHE_SIZE;		/* In KB */
+extern int CPU_L2_CACHE_SIZE;		/* In KB */
+extern int CPU_L3_CACHE_SIZE;		/* In KB */
 extern int CPU_L1_CACHE_LINE_SIZE;
 extern int CPU_L2_CACHE_LINE_SIZE;
+extern int CPU_L3_CACHE_LINE_SIZE;
 extern int CPU_L1_DATA_TLBS;
 extern int CPU_L2_DATA_TLBS;
+extern int CPU_L3_DATA_TLBS;
 extern int CPU_L1_SET_ASSOCIATIVE;
 extern int CPU_L2_SET_ASSOCIATIVE;
+extern int CPU_L3_SET_ASSOCIATIVE;
 
 extern unsigned int CPU_SIGNATURE;	/* Vendor-specific family number, */
 					/* model number, stepping ID, etc. */
