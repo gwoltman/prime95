@@ -5093,6 +5093,8 @@ int sendProgramOptions (
 /* Send any queued up messages to the server.  See if we have enough */
 /* work queued up.  If we have too much work, give some back */
 
+#define RETRY_EXCEEDED "Retry count exceeded.\n"
+
 void communicateWithServer (void *arg)
 {
 static	int	obsolete_client = FALSE;
@@ -5108,7 +5110,7 @@ static	int	send_message_retry_count = 0;
 	double	est, work_to_get, unreserve_threshold;
 	int	rc, stop_reason;
 	int	talked_to_server = FALSE;
-	int	server_options_counter;
+	int	server_options_counter, retry_count;
 	char	buf[1000];
 
 /* If we got an obsolete client error code earlier, then do not attempt */
@@ -5136,6 +5138,7 @@ static	int	send_message_retry_count = 0;
 /* done and find that someone wrote to the spool file while this thread was */
 /* running. */
 
+	retry_count = 0;
 retry:
 
 /* Ping the server if so requested. */
@@ -5730,7 +5733,8 @@ error_exit:
 		IniGetString (LOCALINI_FILE, "SrvrUID",
 			      USERID, sizeof (USERID), NULL);
 		spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
-		goto retry;
+		if (retry_count++ < 10) goto retry;
+		OutputStr (COMM_THREAD_NUM, RETRY_EXCEEDED);
 	}
 
 /* If an UPDATE_COMPUTER_INFO command gets an cpu identity mismatch error */
@@ -5748,7 +5752,8 @@ error_exit:
 // name?
 //bug - log a useful message describing error and our remedial action?
 		spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
-		goto retry;
+		if (retry_count++ < 10) goto retry;
+		OutputStr (COMM_THREAD_NUM, RETRY_EXCEEDED);
 	}
 
 /* If the error is STALE_CPU_INFO, then the server is simply */
@@ -5757,7 +5762,8 @@ error_exit:
 
 	if (rc == PRIMENET_ERROR_STALE_CPU_INFO) {
 		spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
-		goto retry;
+		if (retry_count++ < 10) goto retry;
+		OutputStr (COMM_THREAD_NUM, RETRY_EXCEEDED);
 	}
 
 /* If the error is UNREGISTERED_CPU, then the COMPUTER_GUID */
@@ -5769,7 +5775,8 @@ error_exit:
 //bug - log a useful message describing error and our remedial action?
 		generate_computer_guid ();
 		spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
-		goto retry;
+		if (retry_count++ < 10) goto retry;
+		OutputStr (COMM_THREAD_NUM, RETRY_EXCEEDED);
 	}
 
 /* If the error is CPU_CONFIGURATION_MISMATCH, then the server has */
@@ -5778,7 +5785,8 @@ error_exit:
 	if (rc == PRIMENET_ERROR_CPU_CONFIGURATION_MISMATCH) {
 		clearCachedProgramOptions ();
 		spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
-		goto retry;
+		if (retry_count++ < 10) goto retry;
+		OutputStr (COMM_THREAD_NUM, RETRY_EXCEEDED);
 	}
 
 /* If the error indicates this client is too old, then turn off the */
@@ -5808,7 +5816,8 @@ error_exit:
 //bug			WORK_PREFERENCE = 0;
 //bug		IniWriteInt (INI_FILE, "WorkPreference", WORK_PREFERENCE);
 		spoolMessage (PRIMENET_PROGRAM_OPTIONS, NULL);
-		goto retry;
+		if (retry_count++ < 10) goto retry;
+		OutputStr (COMM_THREAD_NUM, RETRY_EXCEEDED);
 	}
 
 /* Otherwise, print out message saying where more help may be found. */
@@ -5867,6 +5876,7 @@ void salvageCorruptSpoolFile (void)
 	strcpy (filename, SPOOL_FILE);
 	filename[strlen(filename)-1]++;
 	gwmutex_lock (&SPOOL_FILE_MUTEX);
+	_unlink (filename);
 	rename (SPOOL_FILE, filename);
 	gwmutex_unlock (&SPOOL_FILE_MUTEX);
 
@@ -5874,7 +5884,7 @@ void salvageCorruptSpoolFile (void)
 /* in primenetAssignmentResult packets.  Process up to 100000 bytes of */
 /* the spool file or 100 lines of output. */
 
-	fd = _open (filename, _O_RDWR | _O_BINARY);
+	fd = _open (filename, _O_RDONLY | _O_BINARY);
 	if (fd >= 0) {
 		memset (&pkt, 0, sizeof (pkt));
 		strcpy (pkt.computer_guid, COMPUTER_GUID);
