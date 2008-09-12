@@ -510,7 +510,8 @@ void CPrime95Doc::OnUpdateContinueSwitcher(CCmdUI* pCmdUI)
 	pCmdUI->SetText (NUM_WORKER_THREADS > 1 &&
 			 active_workers_count () != WORKER_THREADS_ACTIVE - 1 ?
 				 "&Continue..." : "&Continue");
-	pCmdUI->Enable (active_workers_count () != WORKER_THREADS_ACTIVE &&
+	pCmdUI->Enable ((!WORKER_THREADS_ACTIVE ||
+			 active_workers_count () != WORKER_THREADS_ACTIVE) &&
 			(USE_PRIMENET || WORKTODO_COUNT));
 }
 

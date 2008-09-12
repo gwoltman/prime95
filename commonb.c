@@ -1644,7 +1644,7 @@ int LaunchWorkerThreads (
 /* If workers are already active, then call routine that restarts */
 /* individual workers. */
 
-	if (WORKER_THREADS_ACTIVE && LAUNCH_TYPE == LD_CONTINUE) {
+	if (WORKER_THREADS_ACTIVE && (LAUNCH_TYPE == LD_CONTINUE || LAUNCH_TYPE == LD_TORTURE)) {
 		if (thread_num == ALL_WORKERS) {
 			for (thread_num = 0; thread_num < (int) NUM_WORKER_THREADS; thread_num++)
 				if (! ACTIVE_WORKERS[thread_num])
@@ -4678,7 +4678,7 @@ int tortureTest (
 /* the run_indefiitely argument to an argument and change the output */
 /* message below. */
 
-	run_indefinitely = TRUE;
+loop:	run_indefinitely = TRUE;
 
 /* Make sure the user really wants to spend many hours doing this now */
 
@@ -4736,9 +4736,20 @@ int tortureTest (
 	    if (! run_indefinitely) break;
 	}
 
-/* Self test completed!  Free memory and return. */
+/* Self test completed!  Free memory. */
 
 	aligned_free (bigbuf);
+
+/* If this was a user requested stop, then wait for a restart */
+	
+	while (stop_reason == STOP_WORKER) {
+		implement_stop_one_worker (thread_num);
+		stop_reason = stopCheck (thread_num);
+		if (stop_reason == 0) goto loop;
+	}
+
+/* All done */
+
 	return (stop_reason);
 }
 
