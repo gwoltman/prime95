@@ -504,20 +504,27 @@ int OnBattery (void)
 {
 }
 
-/* The current implementation comes courtesy of Dennis Gregorovic */
+/* The current implementation comes courtesy of Tim Wood and Dennis Gregorovic */
 
 unsigned long physical_memory (void)
 {
 #ifdef __APPLE__
 	int	mib[2];
-	int	mem;
+	union {
+		uint32_t ui32;
+		uint64_t ui64;
+	} value;
 	size_t	len;
 
 	mib[0] = CTL_HW;
-	mib[1] = HW_PHYSMEM;
-	len = sizeof (mem);
-	sysctl (mib, 2, &mem, &len, NULL, 0);
-	return (mem >> 20);
+	mib[1] = HW_MEMSIZE;
+	len = sizeof (value);
+	if (sysctl (mib, 2, &value, &len, NULL, 0) < 0)
+		return (1024);		/* On error, guess 1GB */
+	if (len == sizeof (uint32_t))
+		return (value.ui32 >> 20);
+	else
+		return ((unsigned long) (value.ui64 >> 20));
 #else
         struct sysinfo sys_info;
 
