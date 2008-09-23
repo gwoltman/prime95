@@ -2182,7 +2182,7 @@ again:	clearThreadHandleArray ();
 	}
 
 	if (stop_reason == STOP_REREAD_INI) {
-		OutputStr (MAIN_THREAD_NUM, "Restarting all worker threads using new timed prime.ini settings.\n");
+		OutputStr (MAIN_THREAD_NUM, "Restarting all worker threads using new timed prime.txt settings.\n");
 		goto again;
 	}
 
@@ -2195,7 +2195,7 @@ again:	clearThreadHandleArray ();
 
 /* Clear flags so that GUI knows worker threads are not active */
 
-leave:	WORKER_THREADS_ACTIVE = 0;
+	WORKER_THREADS_ACTIVE = 0;
 	WORKER_THREADS_STOPPING = FALSE;
 
 /* Free the ld structure and exit the first worker thread */
