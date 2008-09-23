@@ -425,7 +425,7 @@ void test_worker_threads (void)
 	}
 
 again:	if (max_num_workers () > 1)
-		askNum ("Number of worker threads to run", &m_num_thread,
+		askNum ("Number of workers to run", &m_num_thread,
 			1, max_num_workers ());
 
 	outputLongLine ("\nPick a priority between 1 and 10 where 1 is the lowest priority and 10 is the highest.  It is strongly recommended that you use the default priority of 1.  Your throughput will probably not improve by using a higher priority.  The only time you should raise the priority is when another process, such as a screen saver, is stealing CPU cycles from this program.\n");
@@ -439,7 +439,7 @@ again:	if (max_num_workers () > 1)
 	if (USE_PRIMENET || NUM_CPUS * CPU_HYPERTHREADS > m_num_thread) {
 	    for (i = 0; i < m_num_thread; i++) {
 		if (m_num_thread > 1)
-			printf ("\nOptions for worker number #%d\n\n", i+1);
+			printf ("\nOptions for worker #%d\n\n", i+1);
 		else
 			printf ("\n");
 
@@ -447,7 +447,7 @@ again:	if (max_num_workers () > 1)
 			askNum ("Type of work to get", &m_work_pref[i], 0, 150);
 
 		if (NUM_CPUS * CPU_HYPERTHREADS > m_num_thread)
-			askNum ("Number of CPUs to use in LL test",
+			askNum ("Multithreading (Number of CPUs to use in LL test)",
 				&m_numcpus[i], 1,
 				NUM_CPUS * CPU_HYPERTHREADS - m_num_thread + 1);
 		else
@@ -787,11 +787,16 @@ void advanced_quit (void)
 
 void options_cpu (void)
 {
+	unsigned int day_memory, night_memory, day_start_time, day_end_time;
 	unsigned long m_hours, m_day_memory, m_night_memory, max_mem;
+	int	m_memory_editable;
 	char m_start_time[13];
 	char m_end_time[13];
 	char buf[512];
 
+	m_memory_editable =
+		read_memory_settings (&m_day_memory, &m_night_memory,
+				      &day_start_time, &day_end_time);
 again:	m_hours = CPU_HOURS;
 	m_day_memory = DAY_MEMORY;
 	m_night_memory = NIGHT_MEMORY;
@@ -803,12 +808,14 @@ again:	m_hours = CPU_HOURS;
 	printf ("\nPlease see the readme.txt file for very important\n");
 	printf ("information on the available memory settings.\n\n");
 
-	max_mem = physical_memory () - 8;
-	if (max_mem < 8) max_mem = 8;
-	askNum ("Daytime available memory in MB", &m_day_memory, 8, max_mem);
-	askNum ("Nighttime available memory in MB", &m_night_memory, 8, max_mem);
-	askStr ("Daytime begins at", (char *) &m_start_time, 12);
-	askStr ("Daytime ends at", (char *) &m_end_time, 12);
+	if (m_memory_editable) {
+		max_mem = physical_memory () - 8;
+		if (max_mem < 8) max_mem = 8;
+		askNum ("Daytime available memory in MB", &m_day_memory, 8, max_mem);
+		askNum ("Nighttime available memory in MB", &m_night_memory, 8, max_mem);
+		askStr ("Daytime begins at", (char *) &m_start_time, 12);
+		askStr ("Daytime ends at", (char *) &m_end_time, 12);
+	}
 
 	getCpuDescription (buf, 0);
 	printf ("\nCPU Information:\n%s\n", buf);
@@ -828,25 +835,20 @@ again:	m_hours = CPU_HOURS;
 		}
 		new_day_start_time = strToMinutes ((char *) &m_start_time);
 		new_day_end_time = strToMinutes ((char *) &m_end_time);
-		if (DAY_MEMORY != m_day_memory ||
-		    NIGHT_MEMORY != m_night_memory ||
-		    DAY_START_TIME != new_day_start_time ||
-		    DAY_END_TIME != new_day_end_time) {
-			DAY_MEMORY = m_day_memory;
-			NIGHT_MEMORY = m_night_memory;
-			DAY_START_TIME = new_day_start_time;
-			DAY_END_TIME = new_day_end_time;
-			IniWriteInt (LOCALINI_FILE, "DayMemory", DAY_MEMORY);
-			IniWriteInt (LOCALINI_FILE, "NightMemory", NIGHT_MEMORY);
-			IniWriteInt (LOCALINI_FILE, "DayStartTime", DAY_START_TIME);
-			IniWriteInt (LOCALINI_FILE, "DayEndTime", DAY_END_TIME);
+		if (m_memory_editable &&
+		    (day_memory != m_day_memory ||
+		     night_memory != m_night_memory ||
+		     day_start_time != new_day_start_time ||
+		     day_end_time != new_day_end_time)) {
+			write_memory_settings (m_day_memory, m_night_memory,
+					       new_day_start_time, new_day_end_time);
 			mem_settings_have_changed ();
 		}
 		spoolMessage (PRIMENET_PROGRAM_OPTIONS, NULL);
 
 		if (!IniGetInt (INI_FILE, "AskedAboutMemory", 0)) {
 			IniWriteInt (INI_FILE, "AskedAboutMemory", 1);
-			if (DAY_MEMORY == 8 && NIGHT_MEMORY == 8) {
+			if (day_memory == 8 && night_memory == 8) {
 				outputLongLine (MSG_MEMORY);
 				if (askYesNo ('Y')) goto again;
 			}

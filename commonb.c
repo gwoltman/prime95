@@ -201,8 +201,9 @@ int	STOP_FOR_RESTART = FALSE;/* Flag indicating we should stop and */
 				/* important option changed in the GUI. */
 				/* One example is changing the priority */
 				/* for worker threads. */
-int	STOP_FOR_TIMEOUT = FALSE;/* Flag indicating it is time to stop all */
-				/* workers due Time= prime.ini option. */
+int	STOP_FOR_REREAD_INI = FALSE;/* Flag indicating all workers must */
+				/* stop because a during/else time period */
+				/* has ended and INI file must be reread. */
 char	STOP_FOR_MEM_CHANGED[MAX_NUM_WORKER_THREADS] = {0};
 				/* Flags indicating it is time to stop */
 				/* workers due to day/night memory change. */
@@ -211,7 +212,8 @@ int	STOP_FOR_BATTERY = FALSE;/* Flag indicating it is time to stop */
 char	STOP_FOR_PRIORITY_WORK[MAX_NUM_WORKER_THREADS] = {0};
 				/* Flags indicating it is time to switch */
 				/* a worker to high priority work. */
-int	PAUSED = FALSE;		/* Flag saying all worker threads should */
+void *	STOP_FOR_PAUSE[MAX_NUM_WORKER_THREADS] = {0};
+				/* Flags saying worker thread should */
 				/* pause while another program runs */
 char	STOP_FOR_THROTTLE[MAX_NUM_WORKER_THREADS] = {0};
 				/* Flags indicating it is time to pause */
@@ -232,14 +234,20 @@ gwevent WORK_AVAILABLE_OR_STOP[MAX_NUM_WORKER_THREADS] = {0};
 				/* Signal for telling primeContinue that */
 				/* work is now available or all threads */
 				/* are stopping */
-gwevent SLEEP_TIME_OR_STOP = 0;
-				/* Signal for telling primeContinue that */
-				/* the sleep time has expired or all */
-				/* threads are stopping */
 char	USER_START_OR_STOP_INITIALIZED[MAX_NUM_WORKER_THREADS] = {0};
 gwevent	USER_START_OR_STOP[MAX_NUM_WORKER_THREADS] = {0};
 				/* Signal for telling implement_stop_one_worker */
 				/* that the user wants this worker to start or */
+				/* all threads are stopping */
+char	END_PAUSE_OR_STOP_INITIALIZED[MAX_NUM_WORKER_THREADS] = {0};
+gwevent END_PAUSE_OR_STOP[MAX_NUM_WORKER_THREADS] = {0};
+				/* Signal for telling implement_pause */
+				/* that the pause has ended or */
+				/* all threads are stopping */
+char	OFF_BATTERY_OR_STOP_INITIALIZED[MAX_NUM_WORKER_THREADS] = {0};
+gwevent OFF_BATTERY_OR_STOP[MAX_NUM_WORKER_THREADS] = {0};
+				/* Signal for telling implement_stop_battery */
+				/* that AC power has been restored or */
 				/* all threads are stopping */
 
 /* This routine checks if the worker thread needs to be stopped for any */
@@ -270,7 +278,7 @@ EXTERNC int stopCheck (
 /* If the time= end time has been reached, stop processing all worker */
 /* threads so prime.ini can be reprocessed. */
 
-	if (STOP_FOR_TIMEOUT) return (STOP_TIMEOUT);
+	if (STOP_FOR_REREAD_INI) return (STOP_REREAD_INI);
 
 /* If the time= end time has been reached, stop processing all worker */
 /* threads so prime.ini can be reprocessed. */
@@ -310,9 +318,11 @@ EXTERNC int stopCheck (
 /* When pause completes, check stop codes again.  We may have been paused */
 /* a long time during which other stop timers may have fired. */
 
-	if (PAUSED) {
-		implementPause (thread_num);
-		return (stopCheck (thread_num));
+	if (STOP_FOR_PAUSE[thread_num] != NULL) {
+		return (STOP_PAUSE);
+// Do we want to offer INI option to do an immediate pause (next 2 lines) instead???
+//		implement_pause (thread_num);
+//		return (stopCheck (thread_num));
 	}
 
 /* If the thread needs to pause because of the throttle option, then */
@@ -335,20 +345,14 @@ int stop_events_initialized = FALSE;
 void init_stop_code (void)
 {
 	STOP_FOR_RESTART = FALSE;
-	STOP_FOR_TIMEOUT = FALSE;
-	memset (STOP_FOR_MEM_CHANGED, 0, sizeof (STOP_FOR_MEM_CHANGED));
+	STOP_FOR_REREAD_INI = FALSE;
 	STOP_FOR_BATTERY = FALSE;
+	memset (STOP_FOR_MEM_CHANGED, 0, sizeof (STOP_FOR_MEM_CHANGED));
 	memset (STOP_FOR_PRIORITY_WORK, 0, sizeof (STOP_FOR_PRIORITY_WORK));
-	PAUSED = FALSE;
+	memset (STOP_FOR_PAUSE, 0, sizeof (STOP_FOR_PAUSE));
 	memset (STOP_FOR_THROTTLE, 0, sizeof (STOP_FOR_THROTTLE));
 	memset (STOP_FOR_ABORT, 0, sizeof (STOP_FOR_ABORT));
 	memset (WRITE_SAVE_FILES, 0, sizeof (WRITE_SAVE_FILES));
-
-	if (!stop_events_initialized) {
-		stop_events_initialized = TRUE;
-		gwevent_init (&SLEEP_TIME_OR_STOP);
-	}
-	gwevent_reset (&SLEEP_TIME_OR_STOP);
 }
 
 /* Signal threads waiting for work to do */
@@ -357,11 +361,6 @@ void restart_waiting_workers (
 	int	restart_flags)
 {
 	int	thread_num;
-
-	if (stop_events_initialized) {
-		gwevent_signal (&SLEEP_TIME_OR_STOP);	/* Start them */
-		gwevent_reset (&SLEEP_TIME_OR_STOP);	/* Reset event */
-	}
 	for (thread_num = 0; thread_num < MAX_NUM_WORKER_THREADS; thread_num++)
 		restart_one_waiting_worker (thread_num, restart_flags);
 }
@@ -373,12 +372,18 @@ void restart_one_waiting_worker (
 	if (restart_flags & RESTART_USER_START &&
 	    USER_START_OR_STOP_INITIALIZED[thread_num]) {
 		gwevent_signal (&USER_START_OR_STOP[thread_num]);
-		gwevent_reset (&USER_START_OR_STOP[thread_num]);
 	}
 	if (restart_flags & RESTART_WORK_AVAILABLE &&
 	    WORK_AVAILABLE_OR_STOP_INITIALIZED[thread_num]) {
 		gwevent_signal (&WORK_AVAILABLE_OR_STOP[thread_num]);
-		gwevent_reset (&WORK_AVAILABLE_OR_STOP[thread_num]);
+	}
+	if (restart_flags & RESTART_END_PAUSE &&
+	    END_PAUSE_OR_STOP_INITIALIZED[thread_num]) {
+		gwevent_signal (&END_PAUSE_OR_STOP[thread_num]);
+	}
+	if (restart_flags & RESTART_BATTERY &&
+	    OFF_BATTERY_OR_STOP_INITIALIZED[thread_num]) {
+		gwevent_signal (&OFF_BATTERY_OR_STOP[thread_num]);
 	}
 }
 
@@ -428,11 +433,11 @@ void stop_workers_for_add_files (void)
 /* reached.  We need to stop all worker threads, reprocess prime.ini, and */
 /* restart the worker threads. */
 
-void stop_workers_for_timeout (void)
+void stop_workers_for_reread_ini (void)
 {
-	if (WORKER_THREADS_ACTIVE && ! STOP_FOR_TIMEOUT) {
+	if (WORKER_THREADS_ACTIVE && ! STOP_FOR_REREAD_INI) {
 		OutputStr (MAIN_THREAD_NUM, "Restarting all worker threads with new timed INI settings.\n");
-		STOP_FOR_TIMEOUT = TRUE;
+		STOP_FOR_REREAD_INI = TRUE;
 		restart_waiting_workers (RESTART_ALL);
 	}
 }
@@ -447,18 +452,6 @@ void stop_worker_for_mem_changed (
 		OutputStr (thread_num, "Restarting thread with new memory settings.\n");
 		STOP_FOR_MEM_CHANGED[thread_num] = 1;
 		restart_one_waiting_worker (thread_num, RESTART_WORK_AVAILABLE);
-	}
-}
-
-/* Set flags so that worker threads will stop due to running on battery. */
-
-void stop_workers_for_battery (void)
-{
-	if (WORKER_THREADS_ACTIVE && ! STOP_FOR_BATTERY) {
-		OutputStr (MAIN_THREAD_NUM, "Pausing all worker threads while on battery power.\n");
-		STOP_FOR_BATTERY = TRUE;
-		/* Restart waiting workers (so that they can stop!) */
-		restart_waiting_workers (RESTART_ALL);
 	}
 }
 
@@ -606,54 +599,22 @@ void init_mem_state (void)
 
 void start_mem_changed_timer (void)
 {
-	time_t	t;
-	struct tm *x;
-	unsigned int curtime, time_until_mem_changes;
+	unsigned int time_until_mem_changes;
 
 /* If the memory changed timer is active, kill the timer */
 
 	delete_timed_event (TE_MEM_CHANGE);
 
-/* If the same memory is available both day and night, then there */
+/* Get the memory settings.  If not found, assume 8MB. */
+
+	AVAIL_MEM = IniGetTimedInt (LOCALINI_FILE, "Memory", 8, &time_until_mem_changes);
+
+/* If the memory setting never changes, then there */
 /* is no need to activate the memory changed timer. */
 
-	if (DAY_MEMORY == NIGHT_MEMORY) {
-		AVAIL_MEM = DAY_MEMORY;
-		return;
-	}
+	if (time_until_mem_changes == 0) return;
 
-/* Determine whether it is daytime or nighttime. */
-/* Return corresponding available memory. */
-/* Set timer for when daytime or nighttime ends. */
-
-	time (&t);
-        x = localtime (&t);
-	curtime = x->tm_hour * 60 + x->tm_min;
-	if (DAY_START_TIME < DAY_END_TIME) {
-		if (curtime < DAY_START_TIME) {
-			time_until_mem_changes = (DAY_START_TIME - curtime) * 60;
-			AVAIL_MEM = NIGHT_MEMORY;
-		} else if (curtime < DAY_END_TIME) {
-			time_until_mem_changes = (DAY_END_TIME - curtime) * 60;
-			AVAIL_MEM = DAY_MEMORY;
-		} else {
-			time_until_mem_changes = (DAY_START_TIME + 1440 - curtime) * 60;
-			AVAIL_MEM = NIGHT_MEMORY;
-		}
-	} else {
-		if (curtime < DAY_END_TIME) {
-			time_until_mem_changes = (DAY_END_TIME - curtime) * 60;
-			AVAIL_MEM = DAY_MEMORY;
-		} else if (curtime < DAY_START_TIME) {
-			time_until_mem_changes = (DAY_START_TIME - curtime) * 60;
-			AVAIL_MEM = NIGHT_MEMORY;
-		} else {
-			time_until_mem_changes = (DAY_END_TIME + 1440 - curtime) * 60;
-			AVAIL_MEM = DAY_MEMORY;
-		}
-	}
-
-/* Add the event that fires when the memory settings are to change. */
+/* Add the event that fires when the memory settings expire. */
 
 	add_timed_event (TE_MEM_CHANGE, time_until_mem_changes);
 }
@@ -663,7 +624,7 @@ void start_mem_changed_timer (void)
 void stop_mem_changed_timer (void)
 {
 	delete_timed_event (TE_MEM_CHANGE);
-}	
+}
 
 /* Clear flag that says this thread will be affected by a change */
 /* in memory settings. */
@@ -993,8 +954,25 @@ void mem_settings_have_changed (void)
 
 unsigned int max_mem (void)
 {
-	if (DAY_MEMORY > NIGHT_MEMORY) MAX_MEM = DAY_MEMORY;
-	MAX_MEM = NIGHT_MEMORY;
+	const char *p;
+
+/* Get the memory settings.  If not found, assume 8MB. */
+
+	p = IniSectionGetStringRaw (LOCALINI_FILE, NULL, "Memory");
+	if (p == NULL) {
+		MAX_MEM = 8;
+		return (MAX_MEM);
+	}
+
+/* Get the biggest memory setting */
+
+	for (MAX_MEM = 0; ; ) {
+		unsigned long mem = atol (p);
+		if (mem > MAX_MEM) MAX_MEM = mem;
+		p = strstr (p, " else ");
+		if (p == NULL) break;
+		p = p + 6;
+	}
 	return (MAX_MEM);
 }
 
@@ -1093,7 +1071,41 @@ void run_on_battery_changed (void)
 
 void test_battery (void)
 {
-	if (OnBattery ()) stop_workers_for_battery ();
+	if (OnBattery ()) STOP_FOR_BATTERY = TRUE;
+	else if (STOP_FOR_BATTERY) {
+		STOP_FOR_BATTERY = FALSE;
+		restart_waiting_workers (RESTART_BATTERY);
+	}
+}
+
+/* Stopping while on battery power, restart thread only when AC power */
+/* is restored. */
+
+void implement_stop_battery (
+	int	thread_num)
+{
+	int	rc;
+
+/* Output message, change title and icon */
+
+	title (thread_num, "Battery Pause");
+	OutputStr (thread_num, "Worker stopped while on battery power.\n");
+	ChangeIcon (thread_num, IDLE_ICON);
+
+/* Wait for AC power */
+
+	OFF_BATTERY_OR_STOP_INITIALIZED[thread_num] = 1;
+	gwevent_init (&OFF_BATTERY_OR_STOP[thread_num]);
+	gwevent_reset (&OFF_BATTERY_OR_STOP[thread_num]);
+	rc = gwevent_wait (&OFF_BATTERY_OR_STOP[thread_num], 0);
+	gwevent_destroy (&OFF_BATTERY_OR_STOP[thread_num]);
+	OFF_BATTERY_OR_STOP_INITIALIZED[thread_num] = 0;
+
+/* Output message, change title and icon */
+
+	title (thread_num, "Working");
+	OutputStr (thread_num, "AC power restored, restarting worker.\n");
+	ChangeIcon (thread_num, WORKING_ICON);
 }
 
 /**************************************************************/
@@ -1174,9 +1186,8 @@ void start_one_worker (
 	}
 	ACTIVE_WORKERS[thread_num] = 1;
 
-	// Signal the gwevent to start the worker
-	gwevent_signal (&USER_START_OR_STOP[thread_num]);
-	gwevent_reset (&USER_START_OR_STOP[thread_num]);
+	// Restart the worker
+	restart_one_waiting_worker (thread_num, RESTART_USER_START);
 }
 
 void stop_one_worker (
@@ -1205,7 +1216,6 @@ void implement_stop_one_worker (
 
 /* Output a worker stopping message and change the icon */
 
-	// bug - output msg , init gwevent and wait
 	//// bug - this message will be output even if worker never started
 	OutputStr (thread_num, "Stopping worker at user request.\n");
 	ChangeIcon (thread_num, IDLE_ICON);	/* Idle icon while stopped */
@@ -1242,11 +1252,144 @@ unsigned int active_workers_count (void)
 /*        Routines dealing with "pause while running"         */
 /**************************************************************/
 
-char	PAUSE_PROGRAM[33] = {0};
+struct pause_info {
+	int	thread_num;		/* Worker thread to pause */
+	int	high_mem;		/* Flag set for PauseHighMemWhileRunning entries */
+	int	workers_affected;	/* Number of workers affected */
+	char	*program_name;		/* Pause if running this program */
+	char	matching_program[80];	/* Running program that matched this entry */
+	struct pause_info *next;	/* Next in linked list of program names */
+};
+
+int	PAUSE_MUTEX_INITIALIZED = 0;
+gwmutex	PAUSE_MUTEX;		/* Lock for accessing pause globals */
+struct pause_info *PAUSE_DATA = NULL;
+int	PAUSE_WHILE_RUNNING_FREQ = 10;
+
+/* Internal routine to parse a PauseWhileRunning or PauseHighMemWhileRunning entry */
+
+void parse_pause_info (
+       char	*buf,		/* Comma separated list of program names */
+       int	thread_num,	/* Worker thread to pause */
+       int	high_mem)	/* Flag for PauseHighMemWhileRunning */
+{
+	struct pause_info *data;
+	char	*p, *bracket, *comma;
+
+	if (*buf == 0) return;
+
+	for (p = buf; ; p = comma + 1) {
+		comma = strchr (p, ',');
+		if (comma != NULL) *comma = 0;
+
+		data = (struct pause_info *) malloc (sizeof (struct pause_info));
+		if (data == NULL) return;
+		data->next = PAUSE_DATA;
+		PAUSE_DATA = data;
+
+		data->thread_num = thread_num;
+		data->high_mem = high_mem;
+		bracket = strchr (p, '[');
+		if (bracket != NULL) {
+			*bracket = 0;
+			data->workers_affected = atoi (bracket+1);
+		} else
+			data->workers_affected = MAX_NUM_WORKER_THREADS;
+
+		if (*p == '*')
+			data->program_name = NULL;
+		else {
+			data->program_name = (char *) malloc (strlen (p) + 1);
+			if (data->program_name == NULL) return;
+			strupper (p);
+			strcpy (data->program_name, p);
+		}
+
+		if (comma == NULL) break;
+	}
+}
+
+/* Read the PauseWhileRunning and PauseHighMemWhileRunning settings */
+
+void read_pause_info (void)
+{
+	int	tnum;
+	char	buf[250];
+	unsigned int seconds, seconds_until_reread;
+
+/* Initalize the mutex */
+
+	if (!PAUSE_MUTEX_INITIALIZED) {
+		PAUSE_MUTEX_INITIALIZED = 1;
+		gwmutex_init (&PAUSE_MUTEX);
+	}
+
+/* Lock just in case implement_pause is accessing this data */
+
+	gwmutex_lock (&PAUSE_MUTEX);
+
+/* Kill the timer that triggers rereading the pause info */
+
+	delete_timed_event (TE_READ_PAUSE_DATA);
+
+/* Free the previous pause data */
+
+	while (PAUSE_DATA != NULL) {
+		struct pause_info *p;
+		p = PAUSE_DATA;
+		PAUSE_DATA = p->next;
+		if (p->program_name != NULL) free (p->program_name);
+		free (p);
+	}
+
+/* Read and parse the pause data from the ini file */
+
+	seconds_until_reread = 0;
+	IniGetTimedString (INI_FILE, "PauseWhileRunning", buf, sizeof (buf), NULL, &seconds);
+	if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
+		seconds_until_reread = seconds;
+	parse_pause_info (buf, ALL_WORKERS, FALSE);
+	IniGetTimedString (INI_FILE, "PauseHighMemWhileRunning", buf, sizeof (buf), NULL, &seconds);
+	if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
+		seconds_until_reread = seconds;
+	parse_pause_info (buf, ALL_WORKERS, TRUE);
+	for (tnum = 0; tnum < (int) NUM_WORKER_THREADS; tnum++) {
+		char	section_name[32];
+		sprintf (section_name, "Worker #%d", tnum+1);
+		IniSectionGetTimedString (INI_FILE, section_name, "PauseWhileRunning", buf, sizeof (buf), NULL, &seconds);
+		if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
+			seconds_until_reread = seconds;
+		parse_pause_info (buf, tnum, FALSE);
+		IniSectionGetTimedString (INI_FILE, section_name, "PauseHighMemWhileRunning", buf, sizeof (buf), NULL, &seconds);
+		if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
+			seconds_until_reread = seconds;
+		parse_pause_info (buf, tnum, TRUE);
+	}
+	PAUSE_WHILE_RUNNING_FREQ = IniGetTimedInt (INI_FILE, "PauseCheckInterval", 10, &seconds);
+	if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
+		seconds_until_reread = seconds;
+
+/* Add the event that fires when the memory settings expire. */
+
+	if (seconds_until_reread)
+		add_timed_event (TE_READ_PAUSE_DATA, seconds_until_reread);
+
+/* If the pause timer is active, then call checkPauseWhileRunning so that */
+/* we can decide which workers need to be paused based on this new pause info. */
+
+	if (is_timed_event_active (TE_PAUSE_WHILE)) {
+		delete_timed_event (TE_PAUSE_WHILE);
+		checkPauseWhileRunning ();
+	}
+
+/* Unlock */
+
+	gwmutex_unlock (&PAUSE_MUTEX);
+}
 
 void start_pause_while_running_timer (void)
 {
-	if (PAUSE_WHILE_RUNNING == NULL) return;
+	if (PAUSE_DATA == NULL) return;
 	add_timed_event (TE_PAUSE_WHILE, PAUSE_WHILE_RUNNING_FREQ);
 }
 
@@ -1255,16 +1398,105 @@ void stop_pause_while_running_timer (void)
 	delete_timed_event (TE_PAUSE_WHILE);
 }
 
+/* Internal routine to pick the "best" worker to pause */
+
+int best_pause_candidate (
+	struct pause_info **workers_to_pause)
+{
+	int	i;
+
+/* Loop through all the workers.  Give preference to any worker that */
+/* is already paused waiting for work, is in low mem state but would */
+/* rather be doing high mem work, or is already paused. */
+
+	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+		if (workers_to_pause[i] != NULL) continue;
+		if (WORK_AVAILABLE_OR_STOP_INITIALIZED[i]) return (i);
+	}
+	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+		if (workers_to_pause[i] != NULL) continue;
+		if (STOP_FOR_PAUSE[i] != NULL) return (i);
+	}
+	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+		if (workers_to_pause[i] != NULL) continue;
+		if (MEM_FLAGS[i] & MEM_NOT_ENOUGH_TO_RUN) return (i);
+	}
+	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+		if (workers_to_pause[i] != NULL) continue;
+		return (i);
+	}
+	return (0);
+}
+
 /* Every time the pause-while-running timer fires, this routine is called */
 
 void checkPauseWhileRunning (void)
 {
+	struct pause_info *p;
+	struct pause_info *workers_to_pause[MAX_NUM_WORKER_THREADS];
+	int	i, named_program_entries;
+
+/* Clear flag indicating a running program matched a pause_info entry */
+
+	named_program_entries = FALSE;
+	for (p = PAUSE_DATA; p != NULL; p = p->next) {
+		p->matching_program[0] = 0;
+		if (p->program_name != NULL) named_program_entries = TRUE;
+	}
 
 /* Call OS-specific routine to see if a process is running such that */
 /* we should pause.  This OS-specific routine must get the list of active */
 /* processes and call isInPauseList for each one. */
 
-	PAUSED = checkPauseListCallback ();
+	checkPauseListCallback ();
+
+/* Examine pause info entries to see which ones matched.  In this pass */
+/* we are looking for pause_info entries that pause a specific worker. */
+
+	memset (workers_to_pause, 0, sizeof (workers_to_pause));
+	for (p = PAUSE_DATA; p != NULL; p = p->next) {
+		if (p->thread_num == ALL_WORKERS) continue;
+		if (p->program_name == NULL || p->matching_program[0])
+			workers_to_pause[p->thread_num] = p;
+	}
+
+/* Examine pause info entries to see which ones matched.  In this pass */
+/* we are looking for pause_info entries that let us choose which worker */
+/* we want to pause.  Choose the "best" worker to pause. */
+
+	for (p = PAUSE_DATA; p != NULL; p = p->next) {
+		if (p->program_name == NULL || p->matching_program[0]) {
+			int	count;
+			count = p->workers_affected;
+			if (p->thread_num != ALL_WORKERS) count--;
+			for (i = 0; i < count; i++)
+				workers_to_pause[best_pause_candidate (workers_to_pause)] = p;
+		}
+	}
+
+/* We have now determined which workers we want to pause.  Compare that */
+/* to the workers that are currently paused.  Pause more workers or */
+/* resume workers as appropriate. */
+
+	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+		if (STOP_FOR_PAUSE[i] != NULL) {
+			if (workers_to_pause[i] == NULL) {
+				STOP_FOR_PAUSE[i] = NULL;
+				restart_one_waiting_worker (i, RESTART_END_PAUSE);
+			}
+		} else {
+			if (workers_to_pause[i] != NULL)
+				STOP_FOR_PAUSE[i] = workers_to_pause[i];
+		}
+	}
+
+/* If there are any pause-for-specific program entries, then we must reset */
+/* the timer to check the pause list in a few seconds.  If there are only */
+/* star (match any program) entries, then we don't need to check the pause */
+/* list until new PauseWhileRunning info is read from the INI file.  However, */
+/* do not delete the timer as read_pause_info checks for the timer being active! */	
+
+	add_timed_event (TE_PAUSE_WHILE, named_program_entries ? PAUSE_WHILE_RUNNING_FREQ : 1000000);
 }
 
 /* This routine is called by the OS-specific routine that gets the process */
@@ -1274,15 +1506,16 @@ void checkPauseWhileRunning (void)
 int isInPauseList (
 	char	*program_name)
 {
+	struct pause_info *p;
 	char	buf[512];
-	char	**p;
 
 	strcpy (buf, program_name);
 	strupper (buf);
-	for (p = PAUSE_WHILE_RUNNING; *p; p++) {
-		if (strstr (buf, *p) != NULL) {
-			buf[sizeof(PAUSE_PROGRAM)-1] = 0;
-			strcpy (PAUSE_PROGRAM, buf);
+	for (p = PAUSE_DATA; p != NULL; p = p->next) {
+		if (p->program_name != NULL &&
+		    strstr (buf, p->program_name) != NULL) {
+			buf[sizeof(p->matching_program)-1] = 0;
+			strcpy (p->matching_program, buf);
 			return (TRUE);
 		}
 	}
@@ -1291,27 +1524,67 @@ int isInPauseList (
 
 /* This routine implements a pause for one worker thread */
 
-void implementPause (
+void implement_pause (
 	int	thread_num)
 {
-	char	buf[100];
+	struct pause_info *p;
+	char	buf[140];
+	int	rc;
 
-/* Output an informative message */
+/* Lock so that read_pause_info cannot free our structure while we are accessing it */
 
-	sprintf (buf, "Pausing because %s is running.\n", PAUSE_PROGRAM);
-	OutputStr (thread_num, buf);
+	gwmutex_lock (&PAUSE_MUTEX);
 
-/* Every 0.5 seconds see if we should resume processing.  We check */
-/* frequently so that we can be responsive to an ESC or terminate command. */
+/* Get the pause_info struct that is causing us to pause. */
+/* Return quickly if the pause has already been cancelled. */	
 
-	while (PAUSED) {
-		if (WORKER_THREADS_STOPPING) return;
-		Sleep (500);
+	p = (struct pause_info *) STOP_FOR_PAUSE[thread_num];
+	if (p == NULL) {
+		gwmutex_unlock (&PAUSE_MUTEX);
+		return;
 	}
+
+/* Output an informative message.  If we are in a sleep time period */
+/* (a "*" PauseWhileRunning entry) then output a different message than */
+/* if we are pausing because a specific program is running. */
+
+	if (p->program_name == NULL) {
+		time_t	sleep_time;
+		char	*time_as_string;
+
+		sleep_time = timed_event_fire_time (TE_READ_PAUSE_DATA);
+		time_as_string = sleep_time ? ctime (&sleep_time) : "forever";
+		if (NUM_WORKER_THREADS == 1)
+			sprintf (buf, "Sleeping until %s\n", time_as_string);
+		else if (p->workers_affected == 1)
+			sprintf (buf, "Sleeping one worker until %s\n", time_as_string);
+		else
+			sprintf (buf, "Sleeping %d workers until %s\n", p->workers_affected, time_as_string);
+		OutputStr (thread_num, buf);
+		title (thread_num, "Sleeping");
+	} else {
+		sprintf (buf, "Pausing because %s is running.\n", p->matching_program);
+		OutputStr (thread_num, buf);
+		title (thread_num, "Paused");
+	}
+
+/* Unlock */
+
+	gwmutex_unlock (&PAUSE_MUTEX);
+
+/* Wait for the end of the pause */
+
+	END_PAUSE_OR_STOP_INITIALIZED[thread_num] = 1;
+	gwevent_init (&END_PAUSE_OR_STOP[thread_num]);
+	gwevent_reset (&END_PAUSE_OR_STOP[thread_num]);
+	rc = gwevent_wait (&END_PAUSE_OR_STOP[thread_num], 0);
+	gwevent_destroy (&END_PAUSE_OR_STOP[thread_num]);
+	END_PAUSE_OR_STOP_INITIALIZED[thread_num] = 0;
 
 /* Output another informative message */
 
 	OutputStr (thread_num, "Resuming processing.\n");
+	title (thread_num, "Resuming");
 }
 
 /**************************************************************/
@@ -1802,26 +2075,6 @@ again:	clearThreadHandleArray ();
 
 	init_stop_code ();
 
-/* See if we are in a sleep time period */
-/* Sleep in two second intervals so we can detect a thread stop */
-/* or program exit command. */
-
-	if (SLEEP_TIME && LAUNCH_TYPE == LD_CONTINUE) {
-		time_t	current_time;
-		char	buf[80];
-
-		time (&current_time);
-		if (current_time < SLEEP_TIME) {
-			sprintf (buf, "Sleeping until %s\n", ctime (&SLEEP_TIME));
-			OutputStr (MAIN_THREAD_NUM, buf);
-			title (MAIN_THREAD_NUM, "Sleeping");
-			gwevent_wait (&SLEEP_TIME_OR_STOP,
-				      (int) (SLEEP_TIME - current_time));
-			if (WORKER_THREADS_STOPPING) goto leave;
-			goto again;
-		}
-	}
-
 /* Init the code that keeps track of the memory used by each worker thread */
 
 	init_mem_state ();
@@ -1928,23 +2181,9 @@ again:	clearThreadHandleArray ();
 		goto again;
 	}
 
-	if (stop_reason == STOP_TIMEOUT) {
+	if (stop_reason == STOP_REREAD_INI) {
 		OutputStr (MAIN_THREAD_NUM, "Restarting all worker threads using new timed prime.ini settings.\n");
 		goto again;
-	}
-
-/* For STOP_BATTERY stop reason, restart all threads only when AC power */
-/* is restored. */
-
-	if (stop_reason == STOP_BATTERY) {
-// bug - should we use an event here instead???
-		for ( ; ; ) {
-			Sleep (500);
-			if (WORKER_THREADS_STOPPING) break;
-			if (OnBattery ()) continue;
-			OutputStr (MAIN_THREAD_NUM, "AC power restored, restarting all worker threads.\n");
-			goto again;
-		}
 	}
 
 /* Output informative message */
@@ -2197,6 +2436,22 @@ check_stop_code:
 
 	if (stop_reason == STOP_WORKER) {
 		implement_stop_one_worker (thread_num);
+		continue;
+	}
+
+/* If the worker is pausing because another program is running */
+/* then implement that now. */
+
+	if (stop_reason == STOP_PAUSE) {
+		implement_pause (thread_num);
+		continue;
+	}
+
+/* If the worker is pausing because we are now on battery power, then */
+/* implement that now. */
+
+	if (stop_reason == STOP_BATTERY) {
+		implement_stop_battery (thread_num);
 		continue;
 	}
 

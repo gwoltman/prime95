@@ -67,10 +67,8 @@
 #define IDC_NETWORK                     1007
 #define IDC_MINFFT                      1008
 #define IDC_R_ITER                      1008
-#define IDC_START_TIME                  1008
 #define IDC_P1                          1009
 #define IDC_END_DATES                   1009
-#define IDC_END_TIME                    1009
 #define IDC_P3                          1010
 #define IDC_MODEM                       1010
 #define IDC_MEMORY                      1010
@@ -108,8 +106,14 @@
 #define IDC_AFFINITY_TEXT               1038
 #define IDC_THREADNUM_TEXT              1040
 #define IDC_NUMCPUS_TEXT                1041
+#define IDC_DAY_MEMORY_TEXT             1042
 #define IDC_DAY_MEMORY                  1044
+#define IDC_NIGHT_MEMORY_TEXT           1048
 #define IDC_NIGHT_MEMORY                1049
+#define IDC_START_TIME_TEXT             1050
+#define IDC_START_TIME                  1051
+#define IDC_END_TIME_TEXT               1052
+#define IDC_END_TIME                    1053
 #define IDC_CPU_INFO                    1056
 #define IDC_L2_CACHE                    1058
 #define IDC_BLEND                       1059

@@ -129,6 +129,7 @@ MANUAL METHOD INSTRUCTIONS
     The "Start at Bootup" menu choice (on by default) will run prime95
     every time you boot your computer.
 
+
 NOTES
 -----
 
@@ -178,37 +179,9 @@ Depending on the exponent being tested, the program may decide that it
 would be wise to invest some time checking for small factors before
 running a Lucas-Lehmer test.
 
-You can configure this program to have different properties at different
-times of the day and/or to not run during certain times of the day.
-Unfortunately, you must manual edit the prime.txt file.  Let's say you
-want to install the program on a friend's machine and he runs a screen
-saver at night.  He also runs a disk defragmenter at midnight on weekdays.
-This prime.txt file will run the program at a higher priority than his
-screen saver at night and on weekends.  It also sleeps for an hour when
-his defragmenter starts running.  Finally, at night fewer save files are
-generated to allow his disk to stay powered down longer.
-	UserID=foo
-	Other prime.txt entries
-	Time=1-5/8:30-17:30
-	Priority=1
-	DiskWriteTime=30
-	Time=1-5/1:00-8:30,1-5/17:30-24:00,6-7/0:00-24:00
-	Priority=5
-	DiskWriteTime=240
-The 1-5 refers to days of the week, with Monday=1 and Sunday=7.  The 
-time portion refers to the hours of the day based on a 24-hour clock.
-You do not need to specify days of the week (e.g. Time=1-7/0:00-8:00
-is the same as Time=0:00-8:00).  Unpredictable results will occur if
-there are overlapping time intervals.  Also note that any options that
-appear in the Time= sections should not appear earlier in the prime.txt
-file and you can no longer edit these options from the user interface.
-
 
 SETTING UP A PROXY SERVER
 -------------------------
-
-For the latest information on this and other networking issues visit
-the FAQ at http://mersenne.org/ips/faq.html
 
 Choose the "Connection..." button in the Test/Primenet dialog box.  Fill in
 the proxy information.
@@ -217,7 +190,7 @@ the proxy information.
 SETTING AVAILABLE MEMORY
 ------------------------
 
-Steage 2 of P-1 factoring step prior to running a Lucas-Lehmer test is 
+Stage 2 of P-1 factoring step prior to running a Lucas-Lehmer test is
 slightly more effective if it is given more memory to work with.  However,
 if you let the program use too much memory then the performance of ALL programs
 will suffer.  The good news is that 98% of the time the program uses a minimal

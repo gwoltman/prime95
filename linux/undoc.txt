@@ -1,5 +1,5 @@
 
-This file lists the previously undocumented features available in the program.
+This file lists the undocumented features available in the program.
 These features may change or be discontinued at any time.  Their use is
 totally unsupported.
 
@@ -30,8 +30,22 @@ argument).
 	results.txt=your_filename
 	WorkingDir=your_directory_name
 
-You can change the program's behavior at various times of the day.  See
-the Time= option described in the readme.txt file.
+Some options in prime.txt can be configured to have different values
+at different times of the day using this syntax:
+	Option=setting
+where setting is defined as
+	value OR value during list-of-times else setting
+At present, only Memory, PauseWhileRunning, PauseHighMemWhileRunning and
+PauseCheckInterval support this during/else syntax.  Also note you can no
+longer edit these options from the user interface.  To use this feature,
+you must manual edit the prime.txt file.  An example:
+	Memory=500 during 1-5/17:30-24:00,1-5/0:00-8:30,6-7/0:00-24:00 else 200
+The 1-5 and 6-7 refer to days of the week, with Monday=1 and Sunday=7.  The
+time portion refers to the hours of the day based on a 24-hour clock.
+You do not need to specify days of the week (e.g. 1-7/0:00-8:00
+is the same as 0:00-8:00).  The above example lets mprime use 500MB
+during the week from 5:30PM to 8:30AM and all day on weekends.  Otherwise
+(weekdays from 8:30AM to 5:30PM), mprime can use only 200MB.
 
 You can force the Options/CPU dialog to display times using AM/PM or
 a 24-hour clock format.  Otherwise, the program will make its best guess
@@ -45,13 +59,13 @@ in lines output to the screen.  In prime.ini enter a value between 0 and 6:
 
 You can choose whether the program uses the high resolution system clock, the
 standard system clock, or the read timestamp counter instruction (RDTSC) to
-time events.  By default prime95 uses the high resolution system clock if
+time events.  By default mprime uses the high resolution system clock if
 available.  Choose one of these values for n (default is 1):
 	0 - use the system clock.
 	1 - use RDTSC but do not output clock counts.
 	2 - use RDTSC and output clock counts.
 The above values will only have an affect if a high resolution system clock
-is not available.  You can force prime95 to bypass the high resolution clock
+is not available.  You can force mprime to bypass the high resolution clock
 by adding 10 to one of the values above.  In prime.ini, enter
 	RdtscTiming=n
 
@@ -135,7 +149,7 @@ You can have the program output residues every n iterations.  The default
 value is the InterimFiles value.  In prime.ini enter:
 	InterimResidues=n
 
-You can force prime95 to skip the trial factoring step prior to
+You can force mprime to skip the trial factoring step prior to
 running a Lucas-Lehmer test.  In prime.ini add this line:
 	SkipTrialFactoring=1
 
@@ -148,7 +162,7 @@ setting in prime.ini:
 	WellBehavedWork=1
 This only works for worktodo.ini files that contain only Factor= lines.
 Only turn this on if you have BIG worktodo.ini files and each Factor=
-operation does not take much time.  You must stop prime95 before manually
+operation does not take much time.  You must stop mprime before manually
 editing the worktodo.ini file.
 
 In Advanced/Time, you can enter a value between 9994 and 9999 for the
@@ -171,10 +185,6 @@ factors.  The program then tries to refind each factor using the
 factoring code.  This is not an efficient way to verify factors as it
 goes through the entire sieving process and trial factoring many
 potential factors. 
-
-In local.ini, both the DayMemory and NightMemory values can be negative
-numbers meaning use all but this many megabytes.  Thus on a 128MB system
-a value of -32 means the program can use 96MB of memory.
 
 Mprime supports 4 different ways of checking if your computer is connected
 to the internet.  Set RouteRequired=n in primenet.ini.  The following
@@ -249,14 +259,25 @@ will contain data that can be fed to GMP-ECM for stage 2.
 In rare cases, users have reported the program can interfere with the
 performance of some programs such as disk defragmenters and some games.
 You can pause mprime automatically when these programs are running by
-adding this line to prime.ini:
-	PauseWhileRunning=prog1,prog2,prog3,etc
-Note that mprime will pause if the program name matches any part of the
-running program's name as returned by "ps -eo comm".  That is, "foobar"
-will match "foobar" and "myfoobarprog".    By default, mprime will check
-the list of running programs every 64 iterations, but not more
-frequently than every 10 seconds.  You can adjust the time period with this
-prime.ini setting:
+adding this line to prime.txt:
+	PauseWhileRunning=prog1[n1],prog2[n2],etc
+The [n1], [n2] values are optional and indicate the number of worker threads
+to pause when prog1 and prog2 are running.  The default value for n1 and n2
+is to pause all worker threads.  Note that mprime will pause if the program
+name matches any part of the running program's file name.  That is "foobar"
+will match "c:\foobar.exe", "C:\FOOBAR\name.exe", and even "C:\myfoobarprog.exe".
+Also, if prog1 is "*" mprime will pause no matter what.  Examples:
+	PauseWhileRunning=*[1] during 6-7/2:00-3:00
+	PauseWhileRunning=* during 23:00-24:00 else decomp[1],mygame[2]
+The first example pauses one worker thread on Saturday and Sunday between
+2AM and 3AM.  The second example pauses all workers between 11PM and 12AM and
+pauses 1 worker if decomp is running and 2 if mygame is running.
+
+PauseHighMemWhileRunning is similar to PauseWhileRunning.  This option pauses
+workers that are using a lot of memory.
+
+By default, mprime will check the PauseWhileRunning list every 10 seconds.
+You can adjust the time period with this prime.txt setting:
 	PauseCheckInterval=n
 where n is the number of seconds between checking which programs are running.
 
@@ -274,7 +295,7 @@ program down to reduce heat, then you can add this line to prime.ini:
 where n is the percentage of time the program should run.  For example,
 Throttle=40 means the program will run 40% and be idle 60% of the time.
 
-To limit prime95's impact on computer responsiveness on a hyperthreaded machine
+To limit mprime's impact on computer responsiveness on a hyperthreaded machine
 the program pauses for 30 seconds if two successive iterations take 40% longer
 than a typical iteration.  You can turn this feature off or change how long
 the program pauses by adding this line to prime.ini:

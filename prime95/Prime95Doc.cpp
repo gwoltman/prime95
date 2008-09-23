@@ -736,13 +736,17 @@ void CPrime95Doc::OnCpu()
 {
 	CCpuDlg dlg;
 	char	buf[512];
+	unsigned int day_memory, night_memory, day_start_time, day_end_time;
 
 	dlg.m_hours = CPU_HOURS;
-	dlg.m_day_memory = DAY_MEMORY;
-	dlg.m_night_memory = NIGHT_MEMORY;
-	minutesToStr (DAY_START_TIME, buf);
+	dlg.m_memory_editable =
+		read_memory_settings (&day_memory, &night_memory,
+				      &day_start_time, &day_end_time);
+	dlg.m_day_memory = day_memory;
+	dlg.m_night_memory = night_memory;
+	minutesToStr (day_start_time, buf);
 	dlg.m_start_time = buf;
-	minutesToStr (DAY_END_TIME, buf);
+	minutesToStr (day_end_time, buf);
 	dlg.m_end_time = buf;
 	getCpuDescription (buf, 0);
 	dlg.m_cpu_info = buf;
@@ -764,25 +768,19 @@ again:	if (dlg.DoModal () == IDOK) {
 
 		new_day_start_time = strToMinutes ((char *)(LPCTSTR) dlg.m_start_time);
 		new_day_end_time = strToMinutes ((char *)(LPCTSTR) dlg.m_end_time);
-		if (DAY_MEMORY != dlg.m_day_memory ||
-		    NIGHT_MEMORY != dlg.m_night_memory ||
-		    DAY_START_TIME != new_day_start_time ||
-		    DAY_END_TIME != new_day_end_time) {
-			DAY_MEMORY = dlg.m_day_memory;
-			NIGHT_MEMORY = dlg.m_night_memory;
-			DAY_START_TIME = new_day_start_time;
-			DAY_END_TIME = new_day_end_time;
-			IniWriteInt (LOCALINI_FILE, "DayMemory", DAY_MEMORY);
-			IniWriteInt (LOCALINI_FILE, "NightMemory", NIGHT_MEMORY);
-			IniWriteInt (LOCALINI_FILE, "DayStartTime", DAY_START_TIME);
-			IniWriteInt (LOCALINI_FILE, "DayEndTime", DAY_END_TIME);
+		if (day_memory != dlg.m_day_memory ||
+		    night_memory != dlg.m_night_memory ||
+		    day_start_time != new_day_start_time ||
+		    day_end_time != new_day_end_time) {
+			write_memory_settings (dlg.m_day_memory, dlg.m_night_memory,
+					       new_day_start_time, new_day_end_time);
 			mem_settings_have_changed ();
 		}
 		spoolMessage (PRIMENET_PROGRAM_OPTIONS, NULL);
 
 		if (!IniGetInt (INI_FILE, "AskedAboutMemory", 0)) {
 			IniWriteInt (INI_FILE, "AskedAboutMemory", 1);
-			if (DAY_MEMORY == 8 && NIGHT_MEMORY == 8 &&
+			if (day_memory == 8 && night_memory == 8 &&
 			    AfxMessageBox (MSG_MEMORY, MB_YESNO | MB_ICONQUESTION) == IDYES)
 				goto again;
 		}

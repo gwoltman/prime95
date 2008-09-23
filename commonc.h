@@ -127,10 +127,6 @@ extern unsigned int PRIORITY;		/* Desired priority level */
 extern int MANUAL_COMM;			/* Set on if user explicitly starts */
 					/* all communication with the server */
 extern unsigned int volatile CPU_HOURS;	/* Hours per day program will run */
-extern unsigned int volatile DAY_MEMORY;/* Mem available in megabytes */
-extern unsigned int volatile NIGHT_MEMORY;/* Mem available in megabytes */
-extern unsigned int volatile DAY_START_TIME;/* When mem is first avail */
-extern unsigned int volatile DAY_END_TIME;/* When mem is no longer avail */
 extern unsigned long volatile ITER_OUTPUT;/* Iterations between outputs */
 extern unsigned long volatile ITER_OUTPUT_RES;/* Iterations between results */
 					/* file outputs */
@@ -163,10 +159,6 @@ extern unsigned int ROLLING_AVERAGE;	/* Ratio of this computer's speed */
 					/* for this CPU */
 extern unsigned int PRECISION;		/* Number of decimal places to output*/
 					/* in percent complete lines */
-extern time_t END_TIME;			/* Time at which we should reread */
-					/* the INI files for new settings */
-extern time_t SLEEP_TIME;		/* Time at which we should wake up */
-					/* from sleep and read INI files */
 extern int RDTSC_TIMING;		/* True if RDTSC is used to time */
 extern int TIMESTAMPING;		/* True is timestamps to be output */
 extern int CUMULATIVE_TIMING;		/* True if outputting cumulative time*/
@@ -175,10 +167,6 @@ extern int WELL_BEHAVED_WORK;		/* TRUE if undocumented feature */
 					/* is on.  This reduces the number */
 					/* of times worktodo.ini is read */
 					/* and written. */
-extern char **PAUSE_WHILE_RUNNING;	/* An array of program names that, */
-					/* if running, prime95 should pause. */
-extern int PAUSE_WHILE_RUNNING_FREQ;	/* How often prime95 should check */
-					/* the pause-while-running list */
 extern unsigned long INTERIM_FILES;	/* Create save file every N iters */  
 extern unsigned long INTERIM_RESIDUES;	/* Print residue every N iterations */
 extern unsigned long HYPERTHREADING_BACKOFF; /* Pause prime95 if iterations */
@@ -210,20 +198,29 @@ void getCpuDescription (char *, int);
 int isPrime (unsigned long p);
 unsigned int strToMinutes (char	*);
 void minutesToStr (unsigned int, char *);
+void write_memory_settings (unsigned int, unsigned int, unsigned int, unsigned int);
+int read_memory_settings (unsigned int *, unsigned int *, unsigned int *, unsigned int *);
 
 void nameAndReadIniFiles (int named_ini_files);
 int readIniFiles (void);
 
 void IniSectionGetString (const char *, const char *, const char *, char *, unsigned int, const char *);
+void IniSectionGetTimedString (const char *, const char *, const char *, char *, unsigned int, const char *, unsigned int *);
 long IniSectionGetInt (const char *, const char *, const char *, long);
+long IniSectionGetTimedInt (const char *, const char *, const char *, long, unsigned int *);
 void IniSectionWriteString (const char *, const char *, const char *, const char *);
 void IniSectionWriteInt (const char *, const char *, const char *, long);
 void IniGetString (const char *, const char *, char *, unsigned int, const char *);
+void IniGetTimedString (const char *, const char *, char *, unsigned int, const char *, unsigned int *);
 long IniGetInt (const char *, const char *, long);
+long IniGetTimedInt (const char *, const char *, long, unsigned int *);
 void IniWriteString (const char *, const char *, const char *);
 void IniWriteInt (const char *, const char *, long);
 void IniFileReread (const char *);
 void processTimedIniFile (const char *);
+
+void parse_timed_ini_value (const char *, unsigned int *, unsigned int *, unsigned int *);
+const char *IniSectionGetStringRaw (const char *, const char *, const char *);
 
 int addFileExists (void);
 void incorporateIniAddFiles (void);
@@ -408,12 +405,14 @@ int PRIMENET (short, void *);
 #define TE_PRIORITY_WORK	5	/* Check for priority work event */
 #define TE_COMPLETION_DATES	6	/* Send expected completion dates event */
 #define TE_THROTTLE		7	/* Sleep due to Throttle=n event */
-#define TE_TIMED_INI_FILE	8	/* Timed INI file change event */
-#define TE_SAVE_FILES		9	/* Trigger the writing of save files */
-#define TE_BATTERY_CHECK	10	/* Check battery status frequently */
-#define TE_ROLLING_AVERAGE	11	/* Adjust rolling average */
+#define TE_SAVE_FILES		8	/* Trigger the writing of save files */
+#define TE_BATTERY_CHECK	9	/* Check battery status frequently */
+#define TE_ROLLING_AVERAGE	10	/* Adjust rolling average */
+#define TE_READ_PAUSE_DATA	11	/* Reread PauseWhileRunning info */
+#define TE_READ_INI_FILE	12	/* Reread prime.txt settings because */
+					/* a during/else time period has ended */
 
-#define MAX_TIMED_EVENTS	12	/* Maximum number of timed events */
+#define MAX_TIMED_EVENTS	13	/* Maximum number of timed events */
 
 void init_timed_event_handler (void);
 
@@ -426,6 +425,9 @@ void delete_timed_event (
 
 int is_timed_event_active (
 	int	event_number);		/* Which event to test */
+
+time_t timed_event_fire_time (
+	int	event_number);		/* Which event to get fire time of */
 
 #define TE_WORK_QUEUE_CHECK_FREQ 6*60*60 /* Check work queue every 6 hrs. */
 #define TE_PRIORITY_WORK_FREQ	 6*60*60 /* Check priority work every 6 hrs. */

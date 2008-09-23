@@ -83,10 +83,14 @@ void makestr (unsigned long, unsigned long, unsigned long, char *);
 #define STOP_ABORT		5	/* Abort current work unit */
 #define STOP_WORKER		6	/* This worker thread was stopped */
 					/* or was never started */
+#define STOP_PAUSE		7	/* This worker must pause because */
+					/* a program in the PauseWhileRunning */
+					/* is running. */
 #define STOP_WORK_UNIT_COMPLETE	50	/* Work unit is done! */
 #define STOP_PRIORITY_WORK	51	/* Priority work, restart thread */
 #define STOP_BATTERY		52	/* On battery - pause */
-#define STOP_TIMEOUT		100	/* Time= prime.ini change */
+#define STOP_REREAD_INI		100	/* Reread prime.ini because a */
+					/* during/else time period has changed */
 #define STOP_RESTART		101	/* Important INI option changed */
 #define STOP_MEM_CHANGED	102	/* Day/night memory change */
 #define STOP_NOT_ENOUGH_MEM	103	/* Not enough memory for P-1 stage 2 */
@@ -96,10 +100,13 @@ EXTERNC int stopCheck (int);
 void stop_workers_for_escape (void);
 void stop_workers_for_restart (void);
 void stop_workers_for_add_files (void);
+void stop_workers_for_reread_ini (void);
 #define RESTART_ALL			0xFFFF
-#define RESTART_WORK_AVAILABLE		0x1
-#define RESTART_SLEEP_TIME		0x2
-#define RESTART_USER_START		0x4
+#define RESTART_WORK_AVAILABLE		0x0001
+#define RESTART_SLEEP_TIME		0x0002
+#define RESTART_USER_START		0x0004
+#define RESTART_END_PAUSE		0x0008
+#define RESTART_BATTERY			0x0010
 void restart_waiting_workers (int);
 void restart_one_waiting_worker (int, int);
 void stop_worker_for_abort (int);
@@ -130,8 +137,13 @@ unsigned int active_workers_count (void);
 
 /* "pause while running" routines */
 
+extern char **PAUSE_WHILE_RUNNING;	/* An array of program names that, */
+					/* if running, prime95 should pause. */
+extern int PAUSE_WHILE_RUNNING_FREQ;	/* How often prime95 should check */
+					/* the pause-while-running list */
+void read_pause_info (void);
 void checkPauseWhileRunning (void);
-void implementPause (int thread_num);
+void implement_pause (int thread_num);
 
 /* throttle routines */
 

@@ -30,7 +30,7 @@
  *	Other important ideas courtesy of Peter Montgomery.
  *
  *	c. 1997 Perfectly Scientific, Inc.
- *	c. 1998-2007 Just For Fun Software, Inc.
+ *	c. 1998-2008 Mersenne Research, Inc.
  *	All Rights Reserved.
  *
  *************************************************************/
@@ -3546,6 +3546,8 @@ typedef struct {
 	unsigned long pairs_set;/* Number of pairs originally set in */
 				/* bitarray */
 	unsigned long pairs_done;/* Number of pairs completed */
+	double	pct_mem_to_use;	/* If we get memory allocation errors, we *
+				/* progressively try using less and less. */
 } pm1handle;
 
 /* Perform cleanup functions. */
@@ -3985,7 +3987,8 @@ unsigned long choose_pminus1_numvals (
 
 /* Default is to use up to 24MB of memory with a minimum of 8MB */
 
-	memory = use_max_mem ? max_mem () : avail_mem (pm1data->thread_num);
+	memory = use_max_mem ? max_mem () :
+		 (unsigned long) (pm1data->pct_mem_to_use * (double) avail_mem (pm1data->thread_num));
 	if (memory == 0) memory = 24;
 	if (memory < 8) memory = 8;
 
@@ -4487,6 +4490,10 @@ int pminus1 (
 	int	msglen;
 	char	*str, *msg;
 	double	timers[2];
+
+/* Unless we get memory errors, use as much memory as we can */
+
+	pm1data.pct_mem_to_use = 1.0;
 
 /* Clear pointers to allocated memory (so common error exit code knows */
 /* what to free) */
@@ -5568,13 +5575,8 @@ lowmem:	fd_term (&pm1data);
 	pm1_cleanup (&pm1data);
 	free (N);
 	N = NULL;
-	i = (unsigned int) (0.80 * max_mem ());
-	if (DAY_MEMORY >= i) DAY_MEMORY = i;
-	if (NIGHT_MEMORY >= i) NIGHT_MEMORY = i;
-	sprintf (buf, "Memory allocation error.  Day and night memory settings changed to %dMB and %dMB.\n",
-		 DAY_MEMORY, NIGHT_MEMORY);
-	OutputBoth (thread_num, buf);
-	mem_settings_have_changed ();
+	OutputBoth (thread_num, "Memory allocation error.  Trying again using less memory.\n");
+	pm1data.pct_mem_to_use *= 0.8;
 	goto restart;
 
 /* We've run out of memory.  Print error message and exit. */

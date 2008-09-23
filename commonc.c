@@ -44,10 +44,6 @@ unsigned int THREADS_PER_TEST[MAX_NUM_WORKER_THREADS] = {1};
 				/* computations. */
 int	MANUAL_COMM = 0;
 unsigned int volatile CPU_HOURS = 0;
-unsigned int volatile DAY_MEMORY = 0;
-unsigned int volatile NIGHT_MEMORY = 0;
-unsigned int volatile DAY_START_TIME = 0;
-unsigned int volatile DAY_END_TIME = 0;
 unsigned long volatile ITER_OUTPUT = 0;
 unsigned long volatile ITER_OUTPUT_RES = 999999999;
 unsigned long volatile DISK_WRITE_TIME = 30;
@@ -64,14 +60,10 @@ int	MERGE_WINDOWS = 0;		/* Flags indicating which MDI */
 					/* windows to merge together */
 unsigned int ROLLING_AVERAGE = 0;
 unsigned int PRECISION = 2;
-time_t	END_TIME = 0;
-time_t	SLEEP_TIME = 0;
 int	RDTSC_TIMING = 1;
 int	TIMESTAMPING = 1;
 int	CUMULATIVE_TIMING = 0;
 int	WELL_BEHAVED_WORK = 0;
-char	**PAUSE_WHILE_RUNNING = NULL;
-int	PAUSE_WHILE_RUNNING_FREQ = 10;
 unsigned long INTERIM_FILES = 0;
 unsigned long INTERIM_RESIDUES = 0;
 unsigned long HYPERTHREADING_BACKOFF = 0;
@@ -468,6 +460,92 @@ void minutesToStr (
 	}
 }
 
+/* Convert the old DAY_MEMORY, NIGHT_MEMORY settings into the simpler */
+/* and more powerful MEMORY setting. */
+
+void write_memory_settings (
+	unsigned int day_memory,
+	unsigned int night_memory,
+	unsigned int day_start_time,
+	unsigned int day_end_time)
+{
+	unsigned int temp;
+	char	buf[100];
+
+	if (day_start_time > day_end_time) {
+		temp = day_memory; day_memory = night_memory; night_memory = temp;
+		temp = day_start_time; day_start_time = day_end_time; day_end_time = temp;
+	}
+	if (day_memory == night_memory) 
+		IniWriteInt (LOCALINI_FILE, "Memory", day_memory);
+	else {
+		sprintf (buf, "%d during %d:%d-%d:%d else %d",
+			 day_memory, day_start_time / 60, day_start_time % 60,
+			 day_end_time / 60, day_end_time % 60, night_memory);
+		IniWriteString (LOCALINI_FILE, "Memory", buf);
+	}
+	IniWriteString (LOCALINI_FILE, "DayMemory", NULL);
+	IniWriteString (LOCALINI_FILE, "NightMemory", NULL);
+	IniWriteString (LOCALINI_FILE, "DayStartTime", NULL);
+	IniWriteString (LOCALINI_FILE, "DayEndTime", NULL);
+}
+
+/* Convert the new MEMORY setting into the old DAY_MEMORY, NIGHT_MEMORY settings. */
+/* Returns FALSE if the MEMORY setting cannot be converted. */
+
+int read_memory_settings (
+	unsigned int *day_memory,
+	unsigned int *night_memory,
+	unsigned int *day_start_time,
+	unsigned int *day_end_time)
+{
+	const char *p, *during_clause, *else_clause;
+
+/* Set up some default values */
+
+	*day_memory = 8;
+	*night_memory = 8;
+	*day_start_time = 450;
+	*day_end_time = 1410;
+
+/* Get the memory settings.  If not found, return some defaults */
+
+	p = IniSectionGetStringRaw (LOCALINI_FILE, NULL, "Memory");
+	if (p == NULL) return (TRUE);
+
+/* Find the time specifiers.  If none found, return the same value for */
+/* day and night memory. */
+
+	*day_memory = atol (p);
+	during_clause = strstr (p, " during ");
+	if (during_clause == NULL) {
+		*night_memory = *day_memory;
+		return (TRUE);
+	}
+
+/* Parse the time value to get the day start time and day end time */
+/* It must be the exact same syntax as written by write_memory_settings */
+
+	p = during_clause + 8;
+	*day_start_time = atol (p) * 60;
+	while (isdigit (*p)) p++;
+	if (*p++ != ':') return (FALSE);
+	*day_start_time += atol (p);
+	while (isdigit (*p)) p++;
+	if (*p++ != '-') return (FALSE);
+	*day_end_time = atol (p) * 60;
+	while (isdigit (*p)) p++;
+	if (*p++ != ':') return (FALSE);
+	*day_end_time += atol (p);
+	while (isdigit (*p)) p++;
+
+	else_clause = strstr (p, " else ");
+	if (p != else_clause) return (FALSE);
+	*night_memory = atol (p + 6);
+	
+	return (strstr (p, " during ") == NULL);
+}
+
 /* Determine the names of the INI files, then read them.  This is also the */
 /* perfect time to initialize mutexes and do other initializations. */
 
@@ -591,7 +669,8 @@ void nameAndReadIniFiles (
 int readIniFiles (void)
 {
 	int	rc, temp;
-	char	buf[512];
+	int	day_memory;
+	int	night_memory;
 
 /* Force the INI files to be reread, just in case they were hand edited. */
 /* Incorporate any additions from .add files */
@@ -648,7 +727,6 @@ int readIniFiles (void)
 
 /* Put commonly used options in global variables */
 
-	processTimedIniFile (INI_FILE);
 	IniGetString (LOCALINI_FILE, "ComputerGUID", COMPUTER_GUID, sizeof (COMPUTER_GUID), NULL);
 	FIXED_GUIDS = IniGetInt (INI_FILE, "FixedHardwareUID", 0);
 
@@ -663,18 +741,6 @@ int readIniFiles (void)
 	CPU_HOURS = (unsigned int) IniGetInt (LOCALINI_FILE, "CPUHours", 24);
 	if (CPU_HOURS < 1) CPU_HOURS = 1;
 	if (CPU_HOURS > 24) CPU_HOURS = 24;
-	temp = IniGetInt (LOCALINI_FILE, "DayMemory", 8);
-	DAY_MEMORY = (temp < 0) ? physical_memory () + temp : temp;
-	if (DAY_MEMORY < 8) DAY_MEMORY = 8;
-	if (DAY_MEMORY > physical_memory () - 8)
-		DAY_MEMORY = physical_memory () - 8;
-	temp = IniGetInt (LOCALINI_FILE, "NightMemory", 8);
-	NIGHT_MEMORY = (temp < 0) ? physical_memory () + temp : temp;
-	if (NIGHT_MEMORY < 8) NIGHT_MEMORY = 8;
-	if (NIGHT_MEMORY > physical_memory () - 8)
-		NIGHT_MEMORY = physical_memory () - 8;
-	DAY_START_TIME = IniGetInt (LOCALINI_FILE, "DayStartTime", 450);
-	DAY_END_TIME = IniGetInt (LOCALINI_FILE, "DayEndTime", 1410);
 
 	ROLLING_AVERAGE = (unsigned int) IniGetInt (LOCALINI_FILE, "RollingAverage", 1000);
 	if (ROLLING_AVERAGE < 10) ROLLING_AVERAGE = 10;
@@ -721,6 +787,24 @@ int readIniFiles (void)
 	TRAY_ICON = (int) IniGetInt (INI_FILE, "TrayIcon", 1);
 	MERGE_WINDOWS = (int) IniGetInt (INI_FILE, "MergeWindows", MERGE_MAINCOMM_WINDOWS);
 
+/* Convert the old DAY_MEMORY, NIGHT_MEMORY settings into the simpler, all-inclusive */
+/* and more powerful MEMORY setting. */
+
+	day_memory = IniGetInt (LOCALINI_FILE, "DayMemory", 0);
+	night_memory = IniGetInt (LOCALINI_FILE, "NightMemory", 0);
+	if (day_memory || night_memory) {
+		int	day_start_time, day_end_time;
+		day_memory = (day_memory < 0) ? physical_memory () + day_memory : day_memory;
+		if (day_memory < 8) day_memory = 8;
+		if ((unsigned long) day_memory > physical_memory () - 8) day_memory = physical_memory () - 8;
+		night_memory = (night_memory < 0) ? physical_memory () + night_memory : night_memory;
+		if (night_memory < 8) night_memory = 8;
+		if ((unsigned long) night_memory > physical_memory () - 8) night_memory = physical_memory () - 8;
+		day_start_time = IniGetInt (LOCALINI_FILE, "DayStartTime", 450);
+		day_end_time = IniGetInt (LOCALINI_FILE, "DayEndTime", 1410);
+		write_memory_settings (day_memory, night_memory, day_start_time, day_end_time);
+	}
+
 /* Get the option controlling which timer to use.  If the high resolution */
 /* performance counter is not available on this machine, then add 10 to */
 /* the RDTSC_TIMING value. */
@@ -734,24 +818,8 @@ int readIniFiles (void)
 	TIMESTAMPING = IniGetInt (INI_FILE, "TimeStamp", 1);
 	CUMULATIVE_TIMING = IniGetInt (INI_FILE, "CumulativeTiming", 0);
 	WELL_BEHAVED_WORK = IniGetInt (INI_FILE, "WellBehavedWork", 0);
-	IniGetString (INI_FILE, "PauseWhileRunning", buf, sizeof (buf), NULL);
-	if (buf[0]) {
-		char	*p;
-		int	i, cnt;
-		for (cnt = 1, p = buf; p = strchr (p, ','); cnt++) *p++ = 0;
-		PAUSE_WHILE_RUNNING = (char **)
-			malloc ((cnt + 1) * sizeof (char *));
-		for (i = 0, p = buf; i < cnt; i++) {
-			PAUSE_WHILE_RUNNING[i] = (char *)
-				malloc (strlen (p) + 1);
-			strupper (p);
-			strcpy (PAUSE_WHILE_RUNNING[i], p);
-			p += strlen (p) + 1;
-		}
-		PAUSE_WHILE_RUNNING[i] = NULL;
-	} else
-		PAUSE_WHILE_RUNNING = NULL;
-	PAUSE_WHILE_RUNNING_FREQ = IniGetInt (INI_FILE, "PauseCheckInterval", 10);
+
+	read_pause_info ();
 
 	INTERIM_FILES = IniGetInt (INI_FILE, "InterimFiles", 0);
 	INTERIM_RESIDUES = IniGetInt (INI_FILE, "InterimResidues", INTERIM_FILES);
@@ -788,7 +856,6 @@ int readIniFiles (void)
 +---------------------------------------------------------------------*/
 
 #define INI_LINE_NORMAL		0	/* A normal keyword=value INI line */
-#define INI_LINE_INACTIVE	1	/* An inactive line due to Time= */
 #define INI_LINE_COMMENT	2	/* A comment line */
 #define INI_LINE_HEADER		3	/* A section header line */
 
@@ -1005,16 +1072,16 @@ void writeIniFile (
 	if (mangled) _unlink (p->filename);
 }
 
-/* Routines to help analyze a Time= line in an INI file */
+/* Routines to help analyze a timed line in an INI file */
 
 void parseTimeLine (
-	char	**line,
+	const char **line,
 	int	*start_day,
 	int	*end_day,
 	int	*start_time,
 	int	*end_time)
 {
-	char	*p;
+	const char *p;
 
 /* Get the days of the week, e.g. 1-5 */
 
@@ -1050,18 +1117,20 @@ void parseTimeLine (
 
 /* Return ptr to next time interval on the line */
 
-	if (*p == ',') p++;
-	*line = p;
+	if (*p++ == ',') *line = p;
+	else *line = NULL;
 }
 
 int analyzeTimeLine (
-	char	*line,
-	time_t	current_t)
+	const char *line,
+	time_t	current_t,
+	unsigned int *wakeup_time)
 {
-	char	*p;
 	struct tm *x;
 	int	current_time;
+	const char *p;
 	int	day, start_day, end_day, start_time, end_time;
+	int	wakeup_t, min_wakeup_t;
 
 /* Break current time into a more easily maniupulated form */
 
@@ -1072,14 +1141,14 @@ int analyzeTimeLine (
 /* Process each interval on the line */
 
 	p = line;
-	while (*p) {
+	min_wakeup_t = 0;
+	while (p != NULL) {
 		parseTimeLine (&p, &start_day, &end_day, &start_time, &end_time);
 
 /* Treat each day in the range as a separate time interval to process */
 
 		for (day = start_day; day <= end_day; day++) {
 			int	temp;
-			time_t	wakeup_t;
 
 /* Is the current time in this interval? */
 
@@ -1091,21 +1160,22 @@ int analyzeTimeLine (
 
 			temp = day * 24 * 60 + start_time;
 			if (temp >= current_time)
-				wakeup_t = current_t + (temp - current_time) * 60;
+				wakeup_t = (temp - current_time) * 60;
 			else
-				wakeup_t = current_t + (temp + 7 * 24 * 60 - current_time) * 60;
-			if (SLEEP_TIME == 0 || SLEEP_TIME > wakeup_t)
-				SLEEP_TIME = wakeup_t;
+				wakeup_t = (temp + 7 * 24 * 60 - current_time) * 60;
+			if (min_wakeup_t == 0 || min_wakeup_t > wakeup_t)
+				min_wakeup_t = wakeup_t;
 		}
 	}
 
 /* Current time was not in any of the intervals */
 
-	return (INI_LINE_INACTIVE);
+	*wakeup_time = min_wakeup_t;
+	return (FALSE);
 
-/* Current time is in this interval, then set the END_TIME. */
+/* Current time is in this interval, compute set the wakeup time. */
 
-winner:	END_TIME = current_t + (day * 24 * 60 + end_time - current_time) * 60;
+winner:	wakeup_t = (day * 24 * 60 + end_time - current_time) * 60;
 
 /* Also, look for a start time that matches the end time and replace */
 /* the end time.  For example, if current time is 18:00 and the */
@@ -1113,25 +1183,25 @@ winner:	END_TIME = current_t + (day * 24 * 60 + end_time - current_time) * 60;
 /* end time of 24:00 should be replaced with 8:00 of the next day. */
 
 	p = line;
-	while (*p) {
+	while (p != NULL) {
 		parseTimeLine (&p, &start_day, &end_day, &start_time, &end_time);
 
 /* Treat each day in the range as a separate time interval to process */
 
 		for (day = start_day; day <= end_day; day++) {
 			int	temp;
-			time_t	start_t;
+			int	start_t;
 
-/* If this start time is the same as the END_TIME, then set the new */
-/* END_TIME to be the end of this interval */
+/* If this start time is the same as the wakeup time, then set the new */
+/* wakup time to be the end of this interval */
 
 			temp = day * 24 * 60 + start_time;
 			if (temp >= current_time)
-				start_t = current_t + (temp - current_time) * 60;
+				start_t = (temp - current_time) * 60;
 			else
-				start_t = current_t + (temp + 7 * 24 * 60 - current_time) * 60;
-			if (END_TIME == start_t) {
-				END_TIME += (end_time - start_time) * 60;
+				start_t = (temp + 7 * 24 * 60 - current_time) * 60;
+			if (wakeup_t == start_t) {
+				wakeup_t += (end_time - start_time) * 60;
 				p = line;
 				break;
 			}
@@ -1140,64 +1210,84 @@ winner:	END_TIME = current_t + (day * 24 * 60 + end_time - current_time) * 60;
 
 /* Return indicator that current time was covered by one of the intervals */
 
-	return (INI_LINE_NORMAL);
+	*wakeup_time = wakeup_t + 1;
+	return (TRUE);
 }
 
-/* INI files can contain conditional sections bracketed with Time= lines */
-/* that tell when that section should be active.  For example, this INI */
-/* file has different properties during the work week, and sleeps for an */
-/* hour each workday. */
-/*	UserID=foo						*/
-/*	Time=1-5/8:30-17:30					*/
-/*	Priority=1						*/
-/*	Time=1-5/0:00-8:30,1-5/17:30-23:00,6-7/0:00-24:00	*/
-/*	Priority=5						*/
+/* INI file values can contain be conditional based on the day of the */
+/* week and the time of day.  For example, this INI file value is */
+/* file has different properties during the work week and weekend. */
+/*	Priority=1 during 1-5/8:30-17:30 else 5			*/
 
-void processTimedIniFile (
-	const char *filename)
+void parse_timed_ini_value (
+	const char *line,		/* INI value line to analyze */
+	unsigned int *start_offset,	/* Returned start offset */
+	unsigned int *len,		/* Returned length */
+	unsigned int *seconds_valid)	/* Returned length of time */
+					/* value is good for */
 {
-	struct IniCache *p;
 	time_t	current_time;
-	unsigned int i;
-	int	active;
+	const char *rest_of_line, *during_clause, *else_clause;
+	unsigned int min_wakeup_time, wakeup_time;
 
-/* Open ini file */
-
-	gwmutex_lock (&INI_MUTEX);
-	p = openIniFile (filename, 0);
-
-/* Get the current time - to compare to any Time= lines */
+/* Get the current time - so that we compare each timed section */
+/* with the same current_time value */
 
 	time (&current_time);
 
-/* Assume this will be an untimed run */
+/* Loop processing each timed section in the line */
 
-	END_TIME = 0;
-	SLEEP_TIME = 0;
+	rest_of_line = line;
+	min_wakeup_time = 0;
+	for ( ; ; ) {
 
-/* Process lines until we run into next Time= line. */
-/* Mark any lines prior to the first Time= line active. */
+/* If we don't see a "during" clause, then either there are no timed sections */
+/* or we've reached the final else clause.  Return the else clause value. */
 
-	active = INI_LINE_NORMAL;
-	for (i = 0; i < p->num_lines; i++) {
-		if (p->lines[i]->line_type == INI_LINE_COMMENT ||
-		    p->lines[i]->line_type == INI_LINE_HEADER) continue;
-		p->lines[i]->line_type = active;
+		during_clause = strstr (rest_of_line, " during ");
+		if (during_clause == NULL) {
+			*start_offset = (rest_of_line - line);
+			*len = strlen (rest_of_line);
+			*seconds_valid = min_wakeup_time;
+			break;
+		}
 
-/* If this is a Time= line, see if the current time is part of the */
-/* interval described in the Time= line.  If the current time is part */
-/* of the interval then set following lines active, otherwise set the */
-/* following lines inactive. */
+/* We've got a timed section, see if the current time is */
+/* within this timed section. */
 
-		if (_stricmp (p->lines[i]->keyword, "Time")) continue;
-		active = analyzeTimeLine (p->lines[i]->value, current_time);
+		if (analyzeTimeLine (during_clause+8, current_time, &wakeup_time)) {
+			*start_offset = (rest_of_line - line);
+			*len = (during_clause - rest_of_line);
+			*seconds_valid = wakeup_time;
+			break;
+		}
+
+/* We're not in this timed section, remember which timed section */
+/* will come into effect first.  This will be the end time of the "else" */
+/* section. */
+
+		if (min_wakeup_time == 0 || wakeup_time < min_wakeup_time)
+			min_wakeup_time = wakeup_time;
+
+/* Move on to the next timed section. */
+
+		else_clause = strstr (during_clause, " else ");
+		if (else_clause != NULL) rest_of_line = else_clause + 6;
+		else rest_of_line += strlen (rest_of_line);
 	}
+}
 
-/* If there were Time= lines where the current time was included in a */
-/* time interval, then we won't be sleeping. */
+/* Utility routines used in copying an INI setting value */
 
-	if (END_TIME) SLEEP_TIME = 0;
-	gwmutex_unlock (&INI_MUTEX);
+void truncated_strcpy_with_len (
+	char	*buf,
+	unsigned int bufsize,
+	const char *val,
+	unsigned int valsize)
+{
+	if (valsize >= bufsize) valsize = bufsize - 1;
+	memcpy (buf, val, valsize);
+	buf[valsize] = 0;
 }
 
 void truncated_strcpy (
@@ -1205,24 +1295,20 @@ void truncated_strcpy (
 	unsigned int bufsize,
 	const char *val)
 {
-	if (strlen (val) >= bufsize) {
-		memcpy (buf, val, bufsize-1);
-		buf[bufsize-1] = 0;
-	} else {
-		strcpy (buf, val);
-	}
+	truncated_strcpy_with_len (buf, bufsize, val, strlen (val));
 }
 
-void IniSectionGetString (
+/* Get a keyword's value from a specific section of the INI file. */
+/* Do not process any timed sections. */
+
+const char *IniSectionGetStringRaw (
 	const char *filename,
 	const char *section,
-	const char *keyword,
-	char	*val,
-	unsigned int val_bufsize,
-	const char *default_val)
+	const char *keyword)
 {
 	struct IniCache *p;
 	unsigned int i;
+	const char *retval;
 
 /* Open ini file */
 
@@ -1247,24 +1333,86 @@ void IniSectionGetString (
 	for ( ; ; i++) {
 		if (i == p->num_lines ||
 		    p->lines[i]->line_type == INI_LINE_HEADER) {
-			if (default_val == NULL) {
-				val[0] = 0;
-			} else {
-				truncated_strcpy (val, val_bufsize, default_val);
-			}
-			goto done;
+			retval = NULL;
+			break;
 		}
 		if (p->lines[i]->line_type == INI_LINE_NORMAL &&
-		    _stricmp (keyword, p->lines[i]->keyword) == 0) break;
+		    _stricmp (keyword, p->lines[i]->keyword) == 0) {
+			retval = p->lines[i]->value;
+			break;
+		}
 	}
-
-/* Copy info from the line structure to the caller's buffer */
-
-	truncated_strcpy (val, val_bufsize, p->lines[i]->value);
 
 /* Unlock and return */
 
-done:	gwmutex_unlock (&INI_MUTEX);
+	gwmutex_unlock (&INI_MUTEX);
+	return (retval);
+}
+
+/* Get a keyword's value from a specific section of the INI file. */
+/* Return length of time this timed INI setting is good for. */
+
+void IniSectionGetTimedString (
+	const char *filename,
+	const char *section,
+	const char *keyword,
+	char	*val,
+	unsigned int val_bufsize,
+	const char *default_val,
+	unsigned int *seconds)
+{
+	const char *p;
+	unsigned int start, len;
+
+/* Lookup the keyword */
+
+	p = IniSectionGetStringRaw (filename, section, keyword);
+
+/* If we found the keyword in the INI file, then */
+/* support different return values based on the time of day. */
+
+	if (p != NULL) {
+		parse_timed_ini_value (p, &start, &len, seconds);
+		if (len) {
+			truncated_strcpy_with_len (val, val_bufsize, p+start, len);
+			return;
+		}
+	}
+
+/* Copy the default value to the caller's buffer */
+
+	if (default_val)
+		truncated_strcpy (val, val_bufsize, default_val);
+	else
+		val[0] = 0;
+	*seconds = 0;
+}
+
+/* Get a keyword's value from a specific section of the INI file. */
+
+void IniSectionGetString (
+	const char *filename,
+	const char *section,
+	const char *keyword,
+	char	*val,
+	unsigned int val_bufsize,
+	const char *default_val)
+{
+	unsigned int seconds;
+	IniSectionGetTimedString (filename, section, keyword, val, val_bufsize, default_val, &seconds);
+}
+
+long IniSectionGetTimedInt (
+	const char *filename,
+	const char *section,
+	const char *keyword,
+	long	default_val,
+	unsigned int *seconds)
+{
+	char	buf[20], defval[20];
+	sprintf (defval, "%ld", default_val);
+	IniSectionGetTimedString (filename, section, keyword, buf, 20, defval, seconds);
+	return (atol (buf));
 }
 
 long IniSectionGetInt (
@@ -1273,10 +1421,8 @@ long IniSectionGetInt (
 	const char *keyword,
 	long	default_val)
 {
-	char	buf[20], defval[20];
-	sprintf (defval, "%ld", default_val);
-	IniSectionGetString (filename, section, keyword, buf, 20, defval);
-	return (atol (buf));
+	unsigned int seconds;
+	return (IniSectionGetTimedInt (filename, section, keyword, default_val, &seconds));
 }
 
 void IniSectionWriteString (
@@ -1431,6 +1577,17 @@ void IniSectionWriteInt (
 
 /* Shorthand routines for reading and writing from the global section */
 
+void IniGetTimedString (
+	const char *filename,
+	const char *keyword,
+	char	*val,
+	unsigned int val_bufsize,
+	const char *default_val,
+	unsigned int *seconds)
+{
+	IniSectionGetTimedString (filename, NULL, keyword, val, val_bufsize, default_val, seconds);
+}
+
 void IniGetString (
 	const char *filename,
 	const char *keyword,
@@ -1439,6 +1596,15 @@ void IniGetString (
 	const char *default_val)
 {
 	IniSectionGetString (filename, NULL, keyword, val, val_bufsize, default_val);
+}
+
+long IniGetTimedInt (
+	const char *filename,
+	const char *keyword,
+	long	default_val,
+	unsigned int *seconds)	     
+{
+	return (IniSectionGetTimedInt (filename, NULL, keyword, default_val, seconds));
 }
 
 long IniGetInt (
@@ -3128,7 +3294,7 @@ int deleteWorkToDoLine (
 
 	gwmutex_lock (&WORKTODO_MUTEX);
 
-// If we are deleting a work unit that is currently being worked on */
+/* If we are deleting a work unit that is currently being worked on */
 /* then set a flag so that the worker thread will abort the work unit */
 /* at its first opportunity.  There is a race condition whereby the worker */
 /* thread may move on to a different work unit before testing the */
@@ -4819,7 +4985,13 @@ int sendMessage (
 int getProgramOptions (void)
 {
 	struct primenetProgramOptions pkt;
-	int	rc, tnum, mem_changed, restart, original_rob;
+	int	rc, tnum, mem_changed, restart, original_rob, mem_readable;
+	unsigned int day_memory, night_memory, day_start_time, day_end_time;
+
+/* Get the old-style memory settings */
+
+	mem_readable = read_memory_settings (&day_memory, &night_memory,
+					     &day_start_time, &day_end_time);
 
 /* Loop once for global options (tnum = -1) and once for each worker */
 /* thread (to get from the server the thread-specific options). */
@@ -4881,39 +5053,35 @@ int getProgramOptions (void)
 		}
 
 		if (pkt.dayMemory != -1) {
-			if (DAY_MEMORY != pkt.dayMemory) {
-				DAY_MEMORY = pkt.dayMemory;
-				IniWriteInt (INI_FILE, "DayMemory", DAY_MEMORY);
+			if (day_memory != pkt.dayMemory) {
+				day_memory = pkt.dayMemory;
 				mem_changed = TRUE;
 			}
-			IniWriteInt (LOCALINI_FILE, "SrvrPO4", DAY_MEMORY);
+			IniWriteInt (LOCALINI_FILE, "SrvrPO4", day_memory);
 		}
 
 		if (pkt.nightMemory != -1) {
-			if (NIGHT_MEMORY != pkt.nightMemory) {
-				NIGHT_MEMORY = pkt.nightMemory;
-				IniWriteInt (INI_FILE, "NightMemory", NIGHT_MEMORY);
+			if (night_memory != pkt.nightMemory) {
+				night_memory = pkt.nightMemory;
 				mem_changed = TRUE;
 			}
-			IniWriteInt (LOCALINI_FILE, "SrvrPO5", NIGHT_MEMORY);
+			IniWriteInt (LOCALINI_FILE, "SrvrPO5", night_memory);
 		}
 
 		if (pkt.dayStartTime != -1) {
-			if (DAY_START_TIME != pkt.dayStartTime) {
-				DAY_START_TIME = pkt.dayStartTime;
-				IniWriteInt (INI_FILE, "DayStartTime", DAY_START_TIME);
+			if (day_start_time != pkt.dayStartTime) {
+				day_start_time = pkt.dayStartTime;
 				mem_changed = TRUE;
 			}
-			IniWriteInt (LOCALINI_FILE, "SrvrPO6", DAY_START_TIME);
+			IniWriteInt (LOCALINI_FILE, "SrvrPO6", day_start_time);
 		}
 
 		if (pkt.nightStartTime != -1) {
-			if (DAY_END_TIME != pkt.nightStartTime) {
-				DAY_END_TIME = pkt.nightStartTime;
-				IniWriteInt (INI_FILE, "DayEndTime", DAY_END_TIME);
+			if (day_end_time != pkt.nightStartTime) {
+				day_end_time = pkt.nightStartTime;
 				mem_changed = TRUE;
 			}
-			IniWriteInt (LOCALINI_FILE, "SrvrPO7", DAY_END_TIME);
+			IniWriteInt (LOCALINI_FILE, "SrvrPO7", day_end_time);
 		}
 
 		if (pkt.runOnBattery != -1) {
@@ -4930,6 +5098,8 @@ int getProgramOptions (void)
 			IniWriteInt (LOCALINI_FILE, "SrvrPO9", NUM_WORKER_THREADS);
 			restart = TRUE;
 		}
+		if (mem_readable && mem_changed)
+			write_memory_settings (day_memory, night_memory, day_start_time, day_end_time);
 	}
 
 /* When we have finished getting the options for every CPU, then update */
@@ -4944,7 +5114,7 @@ int getProgramOptions (void)
 /* If memory settings, priority, num_workers, or run-on-battery changed, */
 /* then restart threads that may be affected by the change. */
 
-	if (mem_changed) mem_settings_have_changed ();
+	if (mem_readable && mem_changed) mem_settings_have_changed ();
 	if (restart) stop_workers_for_restart ();
 	if (original_rob != RUN_ON_BATTERY) run_on_battery_changed ();
 	return (0);
@@ -4957,8 +5127,14 @@ int sendProgramOptions (
 	int	*talked_to_server)
 {
 	struct primenetProgramOptions pkt;
-	int	rc, tnum, options_changed, work_pref_changed;
+	int	rc, tnum, options_changed, work_pref_changed, mem_readable;
 	unsigned int local_od;
+	unsigned int day_memory, night_memory, day_start_time, day_end_time;
+
+/* Get the old-style memory settings */
+
+	mem_readable = read_memory_settings (&day_memory, &night_memory,
+					     &day_start_time, &day_end_time);
 
 /* Loop once for global options (tnum = -1) and once for each thread */
 /* to send thread-specific options. */
@@ -4997,30 +5173,30 @@ int sendProgramOptions (
 		}
 
 		pkt.dayMemory = -1;
-		if (tnum == -1 &&
-		    DAY_MEMORY != IniGetInt (LOCALINI_FILE, "SrvrPO4", -1)) {
-			pkt.dayMemory = DAY_MEMORY;
+		if (tnum == -1 && mem_readable &&
+		    day_memory != IniGetInt (LOCALINI_FILE, "SrvrPO4", -1)) {
+			pkt.dayMemory = day_memory;
 			options_changed = TRUE;
 		}
 
 		pkt.nightMemory = -1;
-		if (tnum == -1 &&
-		    NIGHT_MEMORY != IniGetInt (LOCALINI_FILE, "SrvrPO5", -1)) {
-			pkt.nightMemory = NIGHT_MEMORY;
+		if (tnum == -1 && mem_readable &&
+		    night_memory != IniGetInt (LOCALINI_FILE, "SrvrPO5", -1)) {
+			pkt.nightMemory = night_memory;
 			options_changed = TRUE;
 		}
 
 		pkt.dayStartTime = -1;
-		if (tnum == -1 &&
-		    DAY_START_TIME != IniGetInt (LOCALINI_FILE, "SrvrPO6", -1)) {
-			pkt.dayStartTime = DAY_START_TIME;
+		if (tnum == -1 && mem_readable &&
+		    day_start_time != IniGetInt (LOCALINI_FILE, "SrvrPO6", -1)) {
+			pkt.dayStartTime = day_start_time;
 			options_changed = TRUE;
 		}
 
 		pkt.nightStartTime = -1;
-		if (tnum == -1 &&
-		    DAY_END_TIME != IniGetInt (LOCALINI_FILE, "SrvrPO7", -1)) {
-			pkt.nightStartTime = DAY_END_TIME;
+		if (tnum == -1 && mem_readable &&
+		    day_end_time != IniGetInt (LOCALINI_FILE, "SrvrPO7", -1)) {
+			pkt.nightStartTime = day_end_time;
 			options_changed = TRUE;
 		}
 
@@ -5061,10 +5237,12 @@ int sendProgramOptions (
 		if (tnum == -1) {
 			IniWriteInt (LOCALINI_FILE, "SrvrPO2", PRIORITY);
 			IniWriteInt (LOCALINI_FILE, "SrvrPO3", DAYS_OF_WORK);
-			IniWriteInt (LOCALINI_FILE, "SrvrPO4", DAY_MEMORY);
-			IniWriteInt (LOCALINI_FILE, "SrvrPO5", NIGHT_MEMORY);
-			IniWriteInt (LOCALINI_FILE, "SrvrPO6", DAY_START_TIME);
-			IniWriteInt (LOCALINI_FILE, "SrvrPO7", DAY_END_TIME);
+			if (mem_readable) {
+				IniWriteInt (LOCALINI_FILE, "SrvrPO4", day_memory);
+				IniWriteInt (LOCALINI_FILE, "SrvrPO5", night_memory);
+				IniWriteInt (LOCALINI_FILE, "SrvrPO6", day_start_time);
+				IniWriteInt (LOCALINI_FILE, "SrvrPO7", day_end_time);
+			}
 			IniWriteInt (LOCALINI_FILE, "SrvrPO8", RUN_ON_BATTERY);
 			IniWriteInt (LOCALINI_FILE, "SrvrPO9", NUM_WORKER_THREADS);
 		}
@@ -5986,6 +6164,12 @@ int is_timed_event_active (
 	return (timed_events[event_number].active);
 }
 
+time_t timed_event_fire_time (
+	int	event_number)		/* Which event to get fire time of */
+{
+	return (timed_events[event_number].time_to_fire);
+}
+
 void timed_events_scheduler (void *arg)
 {
 	time_t	this_time;
@@ -6008,6 +6192,7 @@ void timed_events_scheduler (void *arg)
 				wake_up_time = timed_events[i].time_to_fire;
 			there_are_active_events = TRUE;
 		}
+		gwevent_reset (&TIMED_EVENTS_CHANGED);
 		gwmutex_unlock (&TIMED_EVENTS_MUTEX);
 
 /* Sleep until we have work to do.  If there are no active events, then */
@@ -6019,7 +6204,6 @@ void timed_events_scheduler (void *arg)
 			int	rc;
 			rc = gwevent_wait (&TIMED_EVENTS_CHANGED,
 					   (int) (wake_up_time - this_time));
-			gwevent_reset (&TIMED_EVENTS_CHANGED);
 			if (rc != GWEVENT_TIMED_OUT) continue;
 		}
 
@@ -6037,7 +6221,7 @@ void timed_events_scheduler (void *arg)
 				mem_settings_have_changed ();
 				break;
 			case TE_PAUSE_WHILE:	/* Check pause_while_running event */
-				timed_events[i].time_to_fire = this_time + PAUSE_WHILE_RUNNING_FREQ;
+				timed_events[i].active = FALSE;
 				checkPauseWhileRunning ();
 				break;
 			case TE_WORK_QUEUE_CHECK:	/* Check work queue event */
@@ -6067,8 +6251,6 @@ void timed_events_scheduler (void *arg)
 				timed_events[i].time_to_fire =
 					this_time + handleThrottleTimerEvent ();
 				break;
-			case TE_TIMED_INI_FILE:	/* Timed INI file change event */
-				break;
 			case TE_SAVE_FILES:	/* Timer to trigger writing save files */
 						/* Also check for add files */
 				timed_events[i].active = FALSE;
@@ -6080,9 +6262,16 @@ void timed_events_scheduler (void *arg)
 				test_battery ();
 				break;
 			case TE_ROLLING_AVERAGE: /* Adjust rolling average event */
-				timed_events[i].time_to_fire =
-					this_time + TE_ROLLING_AVERAGE_FREQ;
+				timed_events[i].time_to_fire = this_time + TE_ROLLING_AVERAGE_FREQ;
 				adjust_rolling_average ();
+				break;
+			case TE_READ_PAUSE_DATA: /* Reread PauseWhileRunning info */
+				timed_events[i].active = FALSE;
+				read_pause_info ();
+				break;
+			case TE_READ_INI_FILE: /* Reread Ini files */
+				timed_events[i].active = FALSE;
+				stop_workers_for_reread_ini ();
 				break;
 			}
 		}
