@@ -75,8 +75,8 @@ void CWorkerDlg::DoDataExchange(CDataExchange* pDX)
 	c_work_pref.EnableWindow (USE_PRIMENET);
 	c_affinity_text.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > 1);
 	c_affinity.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > 1);
-	c_numcpus_text.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > 1);
-	c_numcpus.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > 1);
+	c_numcpus_text.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > m_num_thread);
+	c_numcpus.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > m_num_thread);
 }
 
 
@@ -175,13 +175,13 @@ void CWorkerDlg::InitComboBoxText (void)
 	c_threadnum.ResetContent ();
 	if (m_num_thread == 1) {
 		thread_num = 1;
-		c_threadnum.AddString ("Worker thread #1");
+		c_threadnum.AddString ("Worker #1");
 		c_threadnum.SetCurSel (0);
 	} else {
 		if (thread_num > (int) m_num_thread) thread_num = 0;
-		c_threadnum.AddString ("All worker threads");
+		c_threadnum.AddString ("All workers");
 		for (i = 1; i <= (int) m_num_thread; i++) {
-			sprintf (buf, "Worker thread #%d", i);
+			sprintf (buf, "Worker #%d", i);
 			c_threadnum.AddString (buf);
 		}
 		c_threadnum.SetCurSel (thread_num);
@@ -256,6 +256,8 @@ void CWorkerDlg::InitComboBoxText (void)
 	} else {
 		c_numcpus.SetWindowText ("Mixed");
 	}
+	c_numcpus_text.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > m_num_thread);
+	c_numcpus.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > m_num_thread);
 }
 
 
