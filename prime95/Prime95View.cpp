@@ -343,9 +343,9 @@ void base_title (
 		  MERGE_WINDOWS & MERGE_WORKER_WINDOWS)) {
 		if (MERGE_WINDOWS & MERGE_WORKER_WINDOWS &&
 		    NUM_WORKER_THREADS > 1)
-			str = "Worker threads";
+			str = "Workers";
 		else
-			str = "Worker thread";
+			str = "Worker";
 	}
 
 /* Pass the base title on to the view */
