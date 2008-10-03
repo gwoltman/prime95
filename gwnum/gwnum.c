@@ -4160,7 +4160,7 @@ gwnum gwalloc (
 		freeable = 1;
 	}
 
-/* Do a seemingly pointless memset!  This actual is very important. */
+/* Do a seemingly pointless memset!  This actually is very important. */
 /* The memset will walk through the allocated memory sequentially, which */
 /* increases the likelihood that contiguous virtual memory will map to */
 /* contiguous physical memory.  The FFTs, especially the larger ones, */
@@ -4240,15 +4240,26 @@ void gwfreeall (
 	gwhandle *gwdata)	/* Handle initialized by gwsetup */
 {
 	unsigned int i;
+	char	*p;
+	long	freeable;
 
-/* Put any user allocated gwnums on the free list */
+/* Go through the allocated list and free any user allocated gwnums that */
+/* are freaable.  In other words, unless the user is using the BIGBUF */
+/* kludge, free all possible memory. */
 
 	gwdata->gwnum_free_count = 0;
 	for (i = 0; i < gwdata->gwnum_alloc_count; i++) {
 		if (gwdata->gwnum_alloc[i] == gwdata->GW_MODULUS_FFT) continue;
 		if (gwdata->gwnum_alloc[i] == gwdata->GW_RECIP_FFT) continue;
 		if (gwdata->gwnum_alloc[i] == gwdata->GW_RANDOM) continue;
-		gwdata->gwnum_free[gwdata->gwnum_free_count++] = gwdata->gwnum_alloc[i];
+		p = (char *) gwdata->gwnum_alloc[i];
+		freeable = * (int32_t *) (p - 32);
+		if (freeable) {
+			aligned_free ((char *) p - GW_HEADER_SIZE);
+			gwdata->gwnum_alloc[i--] = gwdata->gwnum_alloc[--gwdata->gwnum_alloc_count];
+		}
+		else
+			gwdata->gwnum_free[gwdata->gwnum_free_count++] = gwdata->gwnum_alloc[i];
 	}
 }
 

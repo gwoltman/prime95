@@ -278,6 +278,20 @@ void ecm_cleanup (
 	memset (ecmdata, 0, sizeof (ecmhandle));
 }
 
+/* Free some, but not all, memory in the ecmdata structure.  Keep */
+/* memory that can be reused in next ECM curve. */
+
+void ecm_partial_cleanup (
+	ecmhandle *ecmdata)
+{
+	free (ecmdata->nQx); ecmdata->nQx = NULL;
+	free (ecmdata->pool_values); ecmdata->pool_values = NULL;
+	free (ecmdata->poolz_values); ecmdata->poolz_values = NULL;
+	free (ecmdata->mQx); ecmdata->mQx = NULL;
+	free (ecmdata->pairings); ecmdata->pairings = NULL;
+	gwfreeall (&ecmdata->gwdata);
+}
+
 /**************************************************************
  *
  *	Functions
@@ -3207,7 +3221,7 @@ restart4:
 /* Do not loop if we are testing a specific curve */
 
 more_curves:
-	gwfreeall (&ecmdata.gwdata);
+	ecm_partial_cleanup (&ecmdata);
 	if (w->curve < 5.0 && ++curve <= w->curves_to_do)
 		goto restart0;
 
@@ -3352,12 +3366,9 @@ bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n",
 /* Free memory */
 
 bad_factor_recovery:
-	free (str);
-	str = NULL;
-	free (msg);
-	msg = NULL;
-	free (factor);
-	factor = NULL;
+	free (str); str = NULL;
+	free (msg); msg = NULL;
+	free (factor); factor = NULL;
 
 	clear_timer (timers, 0);
 
@@ -3383,8 +3394,7 @@ error:	OutputBoth (thread_num, "SUMOUT error occurred.\n");
 /* Sleep five minutes before restarting */
 
 	ecm_cleanup (&ecmdata);
-	free (N);
-	N = NULL;
+	free (N); N = NULL;
 	stop_reason = SleepFive (thread_num);
 	if (stop_reason) return (stop_reason);
 
