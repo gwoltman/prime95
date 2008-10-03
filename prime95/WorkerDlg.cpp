@@ -75,8 +75,8 @@ void CWorkerDlg::DoDataExchange(CDataExchange* pDX)
 	c_work_pref.EnableWindow (USE_PRIMENET);
 	c_affinity_text.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > 1);
 	c_affinity.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > 1);
-	c_numcpus_text.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > m_num_thread);
-	c_numcpus.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > m_num_thread);
+	c_numcpus_text.EnableWindow (m_num_thread < NUM_CPUS * CPU_HYPERTHREADS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
+	c_numcpus.EnableWindow (m_num_thread < NUM_CPUS * CPU_HYPERTHREADS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
 }
 
 
@@ -256,8 +256,8 @@ void CWorkerDlg::InitComboBoxText (void)
 	} else {
 		c_numcpus.SetWindowText ("Mixed");
 	}
-	c_numcpus_text.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > m_num_thread);
-	c_numcpus.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > m_num_thread);
+	c_numcpus_text.EnableWindow (m_num_thread < NUM_CPUS * CPU_HYPERTHREADS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
+	c_numcpus.EnableWindow (m_num_thread < NUM_CPUS * CPU_HYPERTHREADS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
 }
 
 
@@ -381,5 +381,7 @@ void CWorkerDlg::OnEnKillfocusNumCpus()
 			for (i = 0; i < MAX_NUM_WORKER_THREADS; i++)
 				m_numcpus[i] = num_cpus;
 	}
+	c_numcpus_text.EnableWindow (m_num_thread < NUM_CPUS * CPU_HYPERTHREADS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
+	c_numcpus.EnableWindow (m_num_thread < NUM_CPUS * CPU_HYPERTHREADS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
 }
 
