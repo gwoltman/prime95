@@ -22,7 +22,7 @@ at different times of the day using this syntax:
 	Option=setting
 where setting is defined as
 	value OR value during list-of-times else setting
-At present, only Memory, PauseWhileRunning, PauseHighMemWhileRunning,
+At present, only Memory, MaxHighMemWorkers, PauseWhileRunning, LowMemWhileRunning,
 and PauseCheckInterval support this during/else syntax.  Also note you can
 no longer edit these options from the user interface.  To use this feature,
 you must manual edit the prime.txt file.  An example:
@@ -269,8 +269,10 @@ The first example pauses one worker thread on Saturday and Sunday between
 2AM and 3AM.  The second example pauses all workers between 11PM and 12AM and
 pauses 1 worker if decomp is running and 2 if mygame is running.
 
-PauseHighMemWhileRunning is similar to PauseWhileRunning.  This option pauses
-workers that are using a lot of memory.
+LowMemWhileRunning is similar to PauseWhileRunning.  This option does not
+allow workers use a lot of memory.  This example, will make sure prime95
+is using the minimum amount of memory possible while photoshop is running:
+	LowMemWhileRunning=Photoshop
 
 By default, prime95 will check the PauseWhileRunning list every 10 seconds.
 You can adjust the time period with this prime.txt setting:
@@ -354,28 +356,10 @@ automatic detection of hardware changes.  To do this, in prime.txt set
 Adding 32 to the MergeWindows value in prime.txt suppresses screen output
 of the "Comm thread", "Main thread", "Work thread" prefix.
 
-You can set DelayStage2ThreadCount=n in prime.txt.  This tells the program how
-wany worker threads are allowed to do stage 2 of P-1 or ECM at the same time.
-The default value is number-of-worker-threads / 2.
+The Memory=n setting in local.txt refers to the total amount of memory the program can use.
+You can also put this in the [Worker #n] section to place a maximum amount
+of memory that particular worker can use.
 
-
-You can configure this program to have different properties at different
-times of the day and/or to not run during certain times of the day.
-Unfortunately, you must manual edit the prime.txt file.  Let's say you
-want to install the program on a friend's machine and he runs a screen
-saver at night.  He also runs a disk defragmenter at midnight on weekdays.
-This prime.txt file will run the program at a higher priority than his
-screen saver at night and on weekends.  It also sleeps for an hour when
-his defragmenter starts running.  Finally, at night fewer save files are
-generated to allow his disk to stay powered down longer.
-	Priority=1 during 1-5/8:30-17:30 else 5
-or equivalently:
-	Priority=5 during 1-5/0:00-8:30,1-5/17:30-24:00,6-7/0:00-24:00 else 1
-The 1-5 refers to days of the week, with Monday=1 and Sunday=7.  The 
-time portion refers to the hours of the day based on a 24-hour clock.
-You do not need to write 1-7 to specify all days of the week (e.g. 1-7/0:00-8:00
-is the same as 0:00-8:00).  Unpredictable results will occur if
-there are overlapping time intervals.  You should not edit these options
-from the user interface.  You can only use this feature on the following
-entries in prime.txt:
-	Priority
+You can set MaxHighMemWorkers=n in local.txt.  This tells the program how
+wany workers are allowed to use lots of memory.  This occurs doing stage 2
+of P-1 or ECM on medium-to-large numbers.  Default is available memory / 200MB.

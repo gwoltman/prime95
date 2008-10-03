@@ -883,7 +883,7 @@ void UnloadPrimeNet (void)
 
 /* Check if a program is currently running - not implemented for OS/2 */
 
-int checkPauseListCallback (void)
+void checkPauseListCallback (void)
 {
 #ifndef __OS2__
 	FILE	*fd;
@@ -894,13 +894,9 @@ int checkPauseListCallback (void)
 		while (fgets (buf, sizeof (buf), fd) != NULL) {
 			int	len = strlen (buf);
 			while (len && isspace (buf[len-1])) buf[--len] = 0;
-			if (isInPauseList (buf)) {
-				fclose (fd);
-				return (TRUE);
-			}
+			isInPauseList (buf);
 		}
 		fclose (fd);
 	}
 #endif
-	return (FALSE);
 }

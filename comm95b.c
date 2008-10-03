@@ -167,9 +167,8 @@ typedef struct {
 BOOL WINAPI Enum16( DWORD dwThreadId, WORD hMod16, WORD hTask16,
       PSZ pszModName, PSZ pszFileName, LPARAM lpUserDefined ) ;
 
-int checkPauseListCallback (void)
+void checkPauseListCallback (void)
 {
-	int		retval = FALSE;
 	OSVERSIONINFO	osver;
 	HINSTANCE	hInstLib = NULL;
 	HINSTANCE	hInstLib2 = NULL;
@@ -197,7 +196,7 @@ int checkPauseListCallback (void)
 // Check to see if were running under Windows95 or Windows NT.
 
 	osver.dwOSVersionInfoSize = sizeof( osver );
-	if ( !GetVersionEx( &osver ) ) return FALSE;
+	if ( !GetVersionEx( &osver ) ) return;
 
 // If Windows NT:
 
@@ -302,10 +301,7 @@ int checkPauseListCallback (void)
 // Regardless of OpenProcess success or failure, we
 // still call the enum func with the ProcID.
 
-			if (isInPauseList (szFileName)) {
-				retval = TRUE;
-				goto ntdone;
-			}
+			isInPauseList (szFileName);
 
 // Did we just bump into an NTVDM?
 
@@ -313,28 +309,17 @@ int checkPauseListCallback (void)
 				"NTVDM.EXE")==0) {
 				EnumInfoStruct	sInfo;
 
-// Fill in some info for the 16-bit enum proc.
-
-				sInfo.match = FALSE;
-
 // Enum the 16-bit stuff.
 
 				lpfVDMEnumTaskWOWEx (lpdwPIDs[dwIndex],
 					(TASKENUMPROCEX) Enum16,
 					(LPARAM) &sInfo);
-
-// Did our main enum func say quit?
-
-				if (sInfo.match) {
-					retval = TRUE;
-					goto ntdone;
-				}
 			}
 		}
 ntdone:		if (lpdwPIDs) HeapFree (GetProcessHeap(), 0, lpdwPIDs);
 		if (hInstLib) FreeLibrary (hInstLib);
 		if (hInstLib2) FreeLibrary (hInstLib2);
-		return (retval);
+		return;
 	}
 
 // If Windows 95:
@@ -387,10 +372,8 @@ ntdone:		if (lpdwPIDs) HeapFree (GetProcessHeap(), 0, lpdwPIDs);
 
 // Call the enum func with the filename and ProcID.
 
-			if (isInPauseList (procentry.szExeFile)) {
-				retval = TRUE;
-				goto done95;
-			}
+			isInPauseList (procentry.szExeFile);
+
 			procentry.dwSize = sizeof(PROCESSENTRY32);
 			bFlag = lpfProcess32Next (hSnapShot, &procentry);
 		}
@@ -399,12 +382,12 @@ ntdone:		if (lpdwPIDs) HeapFree (GetProcessHeap(), 0, lpdwPIDs);
 
 done95:		if (hInstLib) FreeLibrary (hInstLib);
 		if (hSnapShot) CloseHandle (hSnapShot);
-		return (retval);
+		return;
 	}
 
 // Unknown OS type
 
-	return (FALSE);
+	return;
 }
 
 
@@ -412,10 +395,7 @@ BOOL WINAPI Enum16 (DWORD dwThreadId, WORD hMod16, WORD hTask16,
       PSZ pszModName, PSZ pszFileName, LPARAM lpUserDefined)
 {
 	EnumInfoStruct *psInfo = (EnumInfoStruct *) lpUserDefined;
-	if (isInPauseList (pszFileName)) {
-		psInfo->match = TRUE;
-		return (TRUE);
-	}
+	isInPauseList (pszFileName);
 	return (FALSE);
 }
 
@@ -425,9 +405,8 @@ BOOL WINAPI Enum16 (DWORD dwThreadId, WORD hMod16, WORD hTask16,
 
 #include <psapi.h>
 
-int checkPauseListCallback (void)
+void checkPauseListCallback (void)
 {
-	int		retval = FALSE;
 	LPDWORD		lpdwPIDs = NULL;
 	DWORD		dwSize, dwSize2, dwIndex;
 	char		szFileName[ MAX_PATH ];
@@ -489,14 +468,9 @@ int checkPauseListCallback (void)
 
 // Does this process force us to pause?
 
-		if (isInPauseList (szFileName)) {
-			retval = TRUE;
-			goto ntdone;
-		}
-
+		isInPauseList (szFileName);
 	}
 ntdone:	if (lpdwPIDs) HeapFree (GetProcessHeap(), 0, lpdwPIDs);
-	return (retval);
 }
 
 #endif

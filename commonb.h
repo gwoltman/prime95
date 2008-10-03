@@ -30,7 +30,7 @@ int LaunchAdvancedTime (unsigned long, unsigned long);
 void PreLaunchCallback (int launch_type);	/* Implemented for each OS */
 void PostLaunchCallback (int launch_type);	/* Implemented for each OS */
 void stopCheckCallback (int thread_num);
-int checkPauseListCallback (void);
+void checkPauseListCallback (void);
 
 /* Routines and structures to set thread priority.  Since we may have */
 /* different rules doing normal work vs. benchmarking vs. torture testing, */
@@ -94,7 +94,6 @@ void makestr (unsigned long, unsigned long, unsigned long, char *);
 #define STOP_RESTART		101	/* Important INI option changed */
 #define STOP_MEM_CHANGED	102	/* Day/night memory change */
 #define STOP_NOT_ENOUGH_MEM	103	/* Not enough memory for P-1 stage 2 */
-#define STOP_NOT_DESIRED_MEM	104	/* Rather not share mem P-1 stage 2 */
 
 EXTERNC int stopCheck (int);
 void stop_workers_for_escape (void);
@@ -103,9 +102,9 @@ void stop_workers_for_add_files (void);
 void stop_workers_for_reread_ini (void);
 #define RESTART_ALL			0xFFFF
 #define RESTART_WORK_AVAILABLE		0x0001
-#define RESTART_SLEEP_TIME		0x0002
-#define RESTART_USER_START		0x0004
-#define RESTART_END_PAUSE		0x0008
+#define RESTART_USER_START		0x0002
+#define RESTART_END_PAUSE		0x0004
+#define RESTART_MEM_WAIT		0x0008
 #define RESTART_BATTERY			0x0010
 void restart_waiting_workers (int);
 void restart_one_waiting_worker (int, int);
@@ -113,10 +112,10 @@ void stop_worker_for_abort (int);
 
 /* Routines dealing with day/night memory settings */
 
-void start_mem_changed_timer (void);
 void mem_settings_have_changed (void);
 unsigned int max_mem (void);
-unsigned int avail_mem (int thread_num);
+int avail_mem (int, unsigned long, unsigned long, unsigned int *);
+int set_memory_usage (int, int, unsigned long);
 
 /* battery routines */
 
@@ -144,6 +143,7 @@ extern int PAUSE_WHILE_RUNNING_FREQ;	/* How often prime95 should check */
 void read_pause_info (void);
 void checkPauseWhileRunning (void);
 void implement_pause (int thread_num);
+int is_LowMemWhileRunning_active (int thread_num);
 
 /* throttle routines */
 

@@ -804,6 +804,7 @@ int readIniFiles (void)
 		day_end_time = IniGetInt (LOCALINI_FILE, "DayEndTime", 1410);
 		write_memory_settings (day_memory, night_memory, day_start_time, day_end_time);
 	}
+	read_mem_info ();
 
 /* Get the option controlling which timer to use.  If the high resolution */
 /* performance counter is not available on this machine, then add 10 to */
@@ -6218,6 +6219,7 @@ void timed_events_scheduler (void *arg)
 			if (!fire) continue;
 			switch (i) {
 			case TE_MEM_CHANGE:	/* Night/day memory change event */
+				timed_events[i].active = FALSE;
 				mem_settings_have_changed ();
 				break;
 			case TE_PAUSE_WHILE:	/* Check pause_while_running event */

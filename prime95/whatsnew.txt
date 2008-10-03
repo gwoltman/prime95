@@ -1,3 +1,21 @@
+New features in Version 25.7 of prime95.exe
+-------------------------------------------
+
+1)  Time= in ini files no longer supported.  A during/else syntax can be
+    unsed instead for some ini file options.
+2)  PauseWhileRunning enhanced to pause any number of workers.
+3)  LowMemWhileRunning added.
+4)  Ability to stop and start individual workers added.
+5)  DayMemory and NightMemory in local.txt replaced with a single Memory
+    setting.
+6)  Memory can be set for each worker thread.
+7)  Scheme to distribute available memory among workers needing a lot of
+    memory has been completely revamped.
+8)  MaxHighMemWorkers replaces delayStage2Workers option.
+9)  The executable now defaults to talking to the PrimeNet v5 server.  To
+    use the executable with the old v4 server, add "UseV4=1" to the top
+    of prime.txt.
+
 New features in Version 25.5 of prime95.exe
 -------------------------------------------
 

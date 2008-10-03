@@ -35,7 +35,7 @@ at different times of the day using this syntax:
 	Option=setting
 where setting is defined as
 	value OR value during list-of-times else setting
-At present, only Memory, PauseWhileRunning, PauseHighMemWhileRunning and
+At present, only Memory, MaxHighMemWorkers, PauseWhileRunning, LowMemWhileRunning and
 PauseCheckInterval support this during/else syntax.  Also note you can no
 longer edit these options from the user interface.  To use this feature,
 you must manual edit the prime.txt file.  An example:
@@ -273,8 +273,10 @@ The first example pauses one worker thread on Saturday and Sunday between
 2AM and 3AM.  The second example pauses all workers between 11PM and 12AM and
 pauses 1 worker if decomp is running and 2 if mygame is running.
 
-PauseHighMemWhileRunning is similar to PauseWhileRunning.  This option pauses
-workers that are using a lot of memory.
+LowMemWhileRunning is similar to PauseWhileRunning.  This option does not
+allow workers use a lot of memory.  This example, will make sure mprime
+is using the minimum amount of memory possible while photoshop is running:
+	LowMemWhileRunning=Photoshop
 
 By default, mprime will check the PauseWhileRunning list every 10 seconds.
 You can adjust the time period with this prime.txt setting:
@@ -330,6 +332,10 @@ or USB memory stick.  In this case, you need to defeat the program's
 automatic detection of hardware changes.  To do this, in prime.ini set
 	FixedHardwareUID=1
 
-You can set DelayStage2ThreadCount=n in prime.txt.  This tells the program how
-wany worker threads are allowed to do stage 2 of P-1 or ECM at the same time.
-The default value is number-of-worker-threads / 2.
+The Memory=n setting in local.txt refers to the total amount of memory the program can use.
+You can also put this in the [Worker #n] section to place a maximum amount
+of memory that particular worker can use.
+
+You can set MaxHighMemWorkers=n in local.txt.  This tells the program how
+wany workers are allowed to use lots of memory.  This occurs doing stage 2
+of P-1 or ECM on medium-to-large numbers.  Default is available memory / 200MB.

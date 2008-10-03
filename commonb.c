@@ -8,7 +8,7 @@
 | Commonc contains information used during setup and execution
 +---------------------------------------------------------------------*/
  
-/* Global variables */
+/* Globals for error messages */
 
 char ERRMSG0[] = "Iteration: %ld/%ld, %s";
 char ERRMSG1A[] = "ERROR: ILLEGAL SUMOUT\n";
@@ -25,6 +25,151 @@ char ERROK[] = "Disregard last error.  Result is reproducible and thus not a har
 char READFILEERR[] = "Error reading intermediate file: %s\n";
 char WRITEFILEERR[] = "Error writing intermediate file: %s\n";
 char RENAME_MSG[] = "Renaming intermediate file %s to %s.\n";
+
+/* PauseWhileRunning globals */
+
+struct pause_info {
+	int	thread_num;		/* Worker thread to pause */
+	int	low_mem;		/* Flag set for LowMemWhileRunning entries */
+	int	workers_affected;	/* Number of workers affected */
+	char	*program_name;		/* Pause if running this program */
+	char	matching_program[80];	/* Running program that matched this entry */
+	struct pause_info *next;	/* Next in linked list of program names */
+};
+
+int	PAUSE_MUTEX_INITIALIZED = 0;
+gwmutex	PAUSE_MUTEX;		/* Lock for accessing pause globals */
+struct pause_info *PAUSE_DATA = NULL;
+int	PAUSE_WHILE_RUNNING_FREQ = 10;
+
+/* Globals for stopping and starting worker threads */
+
+/* Note that we have one flag byte for each worker thread.  We could */
+/* use one bit per worker thread, but then we need to have locks around */
+/* updates so that 2 worker threads don't interleave a read-modify-write */
+/* operation. */
+
+int	STOP_FOR_RESTART = FALSE;/* Flag indicating we should stop and */
+				/* restart all worker threads because an */
+				/* important option changed in the GUI. */
+				/* One example is changing the priority */
+				/* for worker threads. */
+int	STOP_FOR_REREAD_INI = FALSE;/* Flag indicating all workers must */
+				/* stop because a during/else time period */
+				/* has ended and INI file must be reread. */
+char	STOP_FOR_MEM_CHANGED[MAX_NUM_WORKER_THREADS] = {0};
+				/* Flags indicating it is time to stop */
+				/* workers due to day/night memory change. */
+int	STOP_FOR_BATTERY = FALSE;/* Flag indicating it is time to stop */
+				/* workers due to running on battery. */
+char	STOP_FOR_PRIORITY_WORK[MAX_NUM_WORKER_THREADS] = {0};
+				/* Flags indicating it is time to switch */
+				/* a worker to high priority work. */
+struct pause_info *STOP_FOR_PAUSE[MAX_NUM_WORKER_THREADS] = {NULL};
+				/* Flags saying worker thread should */
+				/* pause while another program runs */
+struct pause_info *STOP_FOR_LOW_MEMORY = NULL; /* Set when LowMemWhileRunning active */
+				/* Workers using lots of memory will be stopped */
+char	STOP_FOR_THROTTLE[MAX_NUM_WORKER_THREADS] = {0};
+				/* Flags indicating it is time to pause */
+				/* a worker for throttling. */
+char	STOP_FOR_ABORT[MAX_NUM_WORKER_THREADS] = {0};
+				/* Abort work unit due to unreserve, factor */
+				/* found in a different thread, server */
+				/* request, or any other reason. */
+char	ACTIVE_WORKERS[MAX_NUM_WORKER_THREADS] = {0};
+				/* Flags indicating which worker threads */
+				/* are active. */
+char	WRITE_SAVE_FILES[MAX_NUM_WORKER_THREADS] = {0};
+				/* Flags indicating it is time to write */
+				/* a save file. */
+
+char	WORK_AVAILABLE_OR_STOP_INITIALIZED[MAX_NUM_WORKER_THREADS] = {0};
+gwevent WORK_AVAILABLE_OR_STOP[MAX_NUM_WORKER_THREADS] = {0};
+				/* Signal for telling primeContinue that */
+				/* work is now available or all threads */
+				/* are stopping */
+char	USER_START_OR_STOP_INITIALIZED[MAX_NUM_WORKER_THREADS] = {0};
+gwevent	USER_START_OR_STOP[MAX_NUM_WORKER_THREADS] = {0};
+				/* Signal for telling implement_stop_one_worker */
+				/* that the user wants this worker to start or */
+				/* all threads are stopping */
+char	END_PAUSE_OR_STOP_INITIALIZED[MAX_NUM_WORKER_THREADS] = {0};
+gwevent END_PAUSE_OR_STOP[MAX_NUM_WORKER_THREADS] = {0};
+				/* Signal for telling implement_pause */
+				/* that the pause has ended or */
+				/* all threads are stopping */
+char	OFF_BATTERY_OR_STOP_INITIALIZED[MAX_NUM_WORKER_THREADS] = {0};
+gwevent OFF_BATTERY_OR_STOP[MAX_NUM_WORKER_THREADS] = {0};
+				/* Signal for telling implement_stop_battery */
+				/* that AC power has been restored or */
+				/* all threads are stopping */
+char	MEM_WAIT_OR_STOP_INITIALIZED[MAX_NUM_WORKER_THREADS] = {0};
+gwevent MEM_WAIT_OR_STOP[MAX_NUM_WORKER_THREADS] = {0};
+				/* Signal for telling avail_mem that */
+				/* it can now determine the available memory */
+
+/* Globals for memory manager */
+
+#define DEFAULT_MEM_USAGE 24	/* 24MB default */
+unsigned long AVAIL_MEM = 0;	/* Memory available now */
+unsigned long MAX_MEM = 0;	/* Max memory available */
+unsigned long AVAIL_MEM_PER_WORKER[MAX_NUM_WORKER_THREADS] = {0};
+				/* Maximum memory each worker can use */
+unsigned long MAX_HIGH_MEM_WORKERS =  0; /* Maximum number of workers */
+				/* allowed to use lots of memory */
+#define MEM_USAGE_NOT_SET 0x1	/* The mem_in_use value is just a guess */
+				/* as the work unit for the thread has not */
+				/* started yet or is restarting. */
+#define MEM_RESTARTING	0x2	/* The mem_in_use value will be changing */
+				/* soon as the thread is being restarted */
+				/* because it was using too much memory. */
+#define MEM_WILL_BE_VARIABLE_USAGE 0x4
+				/* The current work unit will be a */
+				/* variable memory user.  We just don't */
+				/* know how much it will use yet. */
+#define	MEM_VARIABLE_USAGE 0x8	/* The current work unit is using a */
+				/* lot of memory now and if needed could */
+				/* use less if restarted. */
+#define MEM_WAITING	0x10	/* Set if thread is waiting for another thread */
+				/* to stop before returning from set_memory_usage */
+char	MEM_FLAGS[MAX_NUM_WORKER_THREADS] = {0};
+				/* Flags indicating which threads will be */
+				/* affected by a change in memory settings. */
+unsigned int MEM_IN_USE[MAX_NUM_WORKER_THREADS] = {0};
+				/* Array containing memory in use by each */
+				/* worker thread */
+
+#define MEM_RESTART_LOWMEM_ENDS 0x1
+				/* Worker needs to restart when */
+				/* the LowMemWhileRunning program ends. */
+#define MEM_RESTART_MAX_MEM_AVAILABLE 0x2
+				/* Worker needs to restart when available memory */
+				/* equals maximum memory.  This happens when */
+				/* stage 2 is delayed until max memory is available. */
+#define MEM_RESTART_MAX_MEM_CHANGE 0x4
+				/* Current work unit needs to restart if */
+				/* max mem changes.  P-1 may choose different */
+				/* bounds because of the change */
+#define MEM_RESTART_TOO_MANY_HIGHMEM 0x8
+				/* Worker needs to restart because */
+				/* MAX_HIGH_MEM_WORKERS exceeded. */
+#define MEM_RESTART_MORE_AVAIL 0x10 /* One of the worker's work units did not */
+				/* have enough memory to run.  If memory */
+				/* becomes available restart the worker. */
+#define MEM_RESTART_IF_MORE 0x20 /* The current work unit could use more memory */
+				/* and should be restarted if more becomes */
+				/* available. */
+
+char	MEM_RESTART_FLAGS[MAX_NUM_WORKER_THREADS] = {0};
+unsigned int MEM_RESTART_MIN_AMOUNT[MAX_NUM_WORKER_THREADS] = {0};
+unsigned int MEM_RESTART_DESIRED_AMOUNT[MAX_NUM_WORKER_THREADS] = {0};
+				/* Only restart if this amount of memory  */
+				/* is available */
+unsigned int MEM_RESTART_IF_MORE_AMOUNT[MAX_NUM_WORKER_THREADS] = {0};
+
+int	MEM_MUTEX_INITIALIZED = FALSE;
+gwmutex	MEM_MUTEX;		/* Lock for accessing mem globals */
 
 /**************************************************************/
 /*    Routines dealing with thread priority and affinity      */
@@ -139,7 +284,7 @@ void SetPriority (
 		char	buf[120];
 
 		if (info->aux_thread_num == 0)
-			strcpy (buf, "Setting affinity to run worker thread on ");
+			strcpy (buf, "Setting affinity to run worker on ");
 		else
 			sprintf (buf, "Setting affinity to run helper thread %d on ", info->aux_thread_num);
 		if (mask == -1) {
@@ -191,65 +336,6 @@ void SetAuxThreadPriority (int aux_thread_num, int action, void *data)
 /*             and the write save files timer                 */
 /**************************************************************/
 
-/* Note that we have one flag byte for each worker thread.  We could */
-/* use one bit per worker thread, but then we need to have locks around */
-/* updates so that 2 worker threads don't interleave a read-modify-write */
-/* operation. */
-
-int	STOP_FOR_RESTART = FALSE;/* Flag indicating we should stop and */
-				/* restart all worker threads because an */
-				/* important option changed in the GUI. */
-				/* One example is changing the priority */
-				/* for worker threads. */
-int	STOP_FOR_REREAD_INI = FALSE;/* Flag indicating all workers must */
-				/* stop because a during/else time period */
-				/* has ended and INI file must be reread. */
-char	STOP_FOR_MEM_CHANGED[MAX_NUM_WORKER_THREADS] = {0};
-				/* Flags indicating it is time to stop */
-				/* workers due to day/night memory change. */
-int	STOP_FOR_BATTERY = FALSE;/* Flag indicating it is time to stop */
-				/* workers due to running on battery. */
-char	STOP_FOR_PRIORITY_WORK[MAX_NUM_WORKER_THREADS] = {0};
-				/* Flags indicating it is time to switch */
-				/* a worker to high priority work. */
-void *	STOP_FOR_PAUSE[MAX_NUM_WORKER_THREADS] = {0};
-				/* Flags saying worker thread should */
-				/* pause while another program runs */
-char	STOP_FOR_THROTTLE[MAX_NUM_WORKER_THREADS] = {0};
-				/* Flags indicating it is time to pause */
-				/* a worker for throttling. */
-char	STOP_FOR_ABORT[MAX_NUM_WORKER_THREADS] = {0};
-				/* Abort work unit due to unreserve, factor */
-				/* found in a different thread, server */
-				/* request, or any other reason. */
-char	ACTIVE_WORKERS[MAX_NUM_WORKER_THREADS] = {0};
-				/* Flags indicating which worker threads */
-				/* are active. */
-char	WRITE_SAVE_FILES[MAX_NUM_WORKER_THREADS] = {0};
-				/* Flags indicating it is time to write */
-				/* a save file. */
-
-char	WORK_AVAILABLE_OR_STOP_INITIALIZED[MAX_NUM_WORKER_THREADS] = {0};
-gwevent WORK_AVAILABLE_OR_STOP[MAX_NUM_WORKER_THREADS] = {0};
-				/* Signal for telling primeContinue that */
-				/* work is now available or all threads */
-				/* are stopping */
-char	USER_START_OR_STOP_INITIALIZED[MAX_NUM_WORKER_THREADS] = {0};
-gwevent	USER_START_OR_STOP[MAX_NUM_WORKER_THREADS] = {0};
-				/* Signal for telling implement_stop_one_worker */
-				/* that the user wants this worker to start or */
-				/* all threads are stopping */
-char	END_PAUSE_OR_STOP_INITIALIZED[MAX_NUM_WORKER_THREADS] = {0};
-gwevent END_PAUSE_OR_STOP[MAX_NUM_WORKER_THREADS] = {0};
-				/* Signal for telling implement_pause */
-				/* that the pause has ended or */
-				/* all threads are stopping */
-char	OFF_BATTERY_OR_STOP_INITIALIZED[MAX_NUM_WORKER_THREADS] = {0};
-gwevent OFF_BATTERY_OR_STOP[MAX_NUM_WORKER_THREADS] = {0};
-				/* Signal for telling implement_stop_battery */
-				/* that AC power has been restored or */
-				/* all threads are stopping */
-
 /* This routine checks if the worker thread needs to be stopped for any */
 /* reason whatsoever.  If the worker thread should stop, a stop reason */
 /* is returned.  The routine is declared EXTERNC becasue it can be called */
@@ -275,13 +361,13 @@ EXTERNC int stopCheck (
 
 	if (STOP_FOR_RESTART) return (STOP_RESTART);
 
-/* If the time= end time has been reached, stop processing all worker */
-/* threads so prime.ini can be reprocessed. */
+/* If the during/else time period has ended, stop processing all worker */
+/* threads so prime.txt and local.txt can be reprocessed. */
 
 	if (STOP_FOR_REREAD_INI) return (STOP_REREAD_INI);
 
-/* If the time= end time has been reached, stop processing all worker */
-/* threads so prime.ini can be reprocessed. */
+/* If the memory settings have changed, stop processing affected worker */
+/* threads so they can allocate more or less memory. */
 
 	if (STOP_FOR_MEM_CHANGED[thread_num]) {
 		STOP_FOR_MEM_CHANGED[thread_num] = 0;
@@ -381,6 +467,10 @@ void restart_one_waiting_worker (
 	    END_PAUSE_OR_STOP_INITIALIZED[thread_num]) {
 		gwevent_signal (&END_PAUSE_OR_STOP[thread_num]);
 	}
+	if (restart_flags & RESTART_MEM_WAIT &&
+	    MEM_WAIT_OR_STOP_INITIALIZED[thread_num]) {
+		gwevent_signal (&MEM_WAIT_OR_STOP[thread_num]);
+	}
 	if (restart_flags & RESTART_BATTERY &&
 	    OFF_BATTERY_OR_STOP_INITIALIZED[thread_num]) {
 		gwevent_signal (&OFF_BATTERY_OR_STOP[thread_num]);
@@ -449,9 +539,10 @@ void stop_worker_for_mem_changed (
 	int	thread_num)
 {
 	if (WORKER_THREADS_ACTIVE && ! STOP_FOR_MEM_CHANGED[thread_num]) {
-		OutputStr (thread_num, "Restarting thread with new memory settings.\n");
+		OutputStr (thread_num, "Restarting worker with new memory settings.\n");
+		MEM_FLAGS[thread_num] |= MEM_RESTARTING;
 		STOP_FOR_MEM_CHANGED[thread_num] = 1;
-		restart_one_waiting_worker (thread_num, RESTART_WORK_AVAILABLE);
+		restart_one_waiting_worker (thread_num, RESTART_ALL);
 	}
 }
 
@@ -461,7 +552,7 @@ void stop_worker_for_advanced_test (
 	int	thread_num)
 {
 	if (WORKER_THREADS_ACTIVE && ! STOP_FOR_PRIORITY_WORK[thread_num]) {
-		OutputStr (thread_num, "Restarting thread to do LL test.\n");
+		OutputStr (thread_num, "Restarting worker to do LL test.\n");
 		STOP_FOR_PRIORITY_WORK[thread_num] = 1;
 	}
 }
@@ -472,7 +563,7 @@ void stop_worker_for_priority_work (
 	int	thread_num)
 {
 	if (WORKER_THREADS_ACTIVE && ! STOP_FOR_PRIORITY_WORK[thread_num]) {
-		OutputStr (thread_num, "Restarting thread to do trial factoring prior to an LL test.\n");
+		OutputStr (thread_num, "Restarting worker to do factoring prior to an LL test.\n");
 		STOP_FOR_PRIORITY_WORK[thread_num] = 1;
 	}
 }
@@ -535,40 +626,71 @@ int testSaveFilesFlag (
 /*      Routines dealing with Day/Night memory settings       */
 /**************************************************************/
 
-#define DEFAULT_MEM_USAGE 20	/* 20MB default */
-unsigned long AVAIL_MEM = 0;	/* Memory available now */
-unsigned long MAX_MEM = 0;	/* Max memory available */
-#define MEM_NOT_ENOUGH_TO_RUN 0x1 /* A thread's work unit did not have */
-				/* enough memory to run.  If memory */
-				/* settings change restart the thread */
-				/* containing this work unit. */
-#define	MEM_VARIABLE_USAGE 0x2	/* The current work unit is using a */
-				/* lot of memory now and if needed could */
-				/* use less if restarted. */
-#define MEM_MAX_AVAIL_RESTART 0x4 /* Current work unit needs a restart if */
-				/* max avail mem changes.  For example, P-1 */
-				/* may choose different bounds even though */
-				/* stage 1 uses a fixed amount of mem. */
-#define MEM_RESTART_IF_MORE 0x8	/* Work unit could use more memory and */
-				/* should be restarted if more becomes */
-				/* available. */
-#define MEM_USAGE_NOT_SET 0x10	/* The mem_in_use value is just a guess */
-				/* as the work unit for the thread has not */
-				/* started yet or is restarting. */
-#define MEM_WAITING	0x20	/* Set if thread is waiting before returning */
-				/* from set_memory_usage */
-char	MEM_FLAGS[MAX_NUM_WORKER_THREADS] = {0};
-				/* Flags indicating which threads will be */
-				/* affected by a change in memory settings. */
-unsigned int MEM_IN_USE[MAX_NUM_WORKER_THREADS] = {0};
-				/* Array containing memory in use by each */
-				/* worker thread */
-gwmutex	MEM_MUTEX;		/* Lock for accessing mem globals */
-gwevent MEM_EVENT;		/* Signal set when all worker threads have */
-				/* decided how much memory they will use */
-gwevent MEM_OK;			/* Signal set when all worker threads are */
-				/* collectively using less than maximum */
-				/* available memory */
+/* Read the Memory settings from INI file */
+
+void read_mem_info (void)
+{
+	const char *p;
+	int	tnum;
+	unsigned int seconds, seconds_until_reread;
+
+/* Initalize the memory mutex and other memory related events */
+
+	if (!MEM_MUTEX_INITIALIZED) {
+		MEM_MUTEX_INITIALIZED = 1;
+		gwmutex_init (&MEM_MUTEX);
+	}
+
+/* Lock just in case memory routines are accessing this data */
+
+	gwmutex_lock (&MEM_MUTEX);
+
+/* Kill the timer that triggers rereading the memory info */
+
+	delete_timed_event (TE_MEM_CHANGE);
+
+/* Read and parse the Memory data from the INI file */
+
+	seconds_until_reread = 0;
+	AVAIL_MEM = IniGetTimedInt (LOCALINI_FILE, "Memory", 8, &seconds);
+	if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
+		seconds_until_reread = seconds;
+	for (tnum = 0; tnum < (int) MAX_NUM_WORKER_THREADS; tnum++) {
+		AVAIL_MEM_PER_WORKER[tnum] = IniGetTimedInt (LOCALINI_FILE, "Memory", AVAIL_MEM, &seconds);
+		if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
+			seconds_until_reread = seconds;
+	}
+
+/* Compute the maximum memory setting.  If not found, assume 8MB. */
+
+	MAX_MEM = 8;
+	p = IniSectionGetStringRaw (LOCALINI_FILE, NULL, "Memory");
+	if (p != NULL) for ( ; ; ) {
+		unsigned long mem = atol (p);
+		if (mem > MAX_MEM) MAX_MEM = mem;
+		p = strstr (p, " else ");
+		if (p == NULL) break;
+		p = p + 6;
+	}
+
+/* Get the maximum number of workers that can use lots of memory */
+/* Default is AVAIL_MEM / 200MB rounded off. */
+	
+	MAX_HIGH_MEM_WORKERS = IniGetTimedInt (LOCALINI_FILE, "MaxHighMemWorkers",
+					       (AVAIL_MEM + 100) / 200, &seconds);
+	if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
+		seconds_until_reread = seconds;
+	if (MAX_HIGH_MEM_WORKERS < 1) MAX_HIGH_MEM_WORKERS = 1;
+
+/* Add the event that fires when the memory settings expire. */
+
+	if (seconds_until_reread)
+		add_timed_event (TE_MEM_CHANGE, seconds_until_reread);
+
+/* Unlock */
+
+	gwmutex_unlock (&MEM_MUTEX);
+}
 
 /* This routine initializes mem_changed globals.  It must be called prior */
 /* to launching the worker threads. */
@@ -583,128 +705,153 @@ void init_mem_state (void)
 	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
 		MEM_FLAGS[i] = MEM_USAGE_NOT_SET;
 		MEM_IN_USE[i] = DEFAULT_MEM_USAGE;
+		MEM_RESTART_FLAGS[i] = 0;
 	}
-
-/* Init the mutex and event */
-
-	gwmutex_init (&MEM_MUTEX);
-	gwevent_init (&MEM_EVENT);
-	gwevent_reset (&MEM_EVENT);
-	gwevent_init (&MEM_OK);
-	gwevent_reset (&MEM_OK);
 }
 
-/* Start or restart the day/night memory timers. */
-/* This timer is only active while worker threads are running. */
+/* Clear flags that keep track if the thread needs restarting */
+/* on available memory changes. */
 
-void start_mem_changed_timer (void)
-{
-	unsigned int time_until_mem_changes;
-
-/* If the memory changed timer is active, kill the timer */
-
-	delete_timed_event (TE_MEM_CHANGE);
-
-/* Get the memory settings.  If not found, assume 8MB. */
-
-	AVAIL_MEM = IniGetTimedInt (LOCALINI_FILE, "Memory", 8, &time_until_mem_changes);
-
-/* If the memory setting never changes, then there */
-/* is no need to activate the memory changed timer. */
-
-	if (time_until_mem_changes == 0) return;
-
-/* Add the event that fires when the memory settings expire. */
-
-	add_timed_event (TE_MEM_CHANGE, time_until_mem_changes);
-}
-
-/* Stop the memory change timer */
-
-void stop_mem_changed_timer (void)
-{
-	delete_timed_event (TE_MEM_CHANGE);
-}
-
-/* Clear flag that says this thread will be affected by a change */
-/* in memory settings. */
-
-void clear_affected_by_mem_flags (
+void clear_memory_restart_flags (
 	int	thread_num)
 {
-	MEM_FLAGS[thread_num] = 0;
+	MEM_RESTART_FLAGS[thread_num] = 0;
 }
 
-/* Set flag that says this thread will be affected by a change */
-/* in memory settings. */
+/* Set thread to default memory usage.  For now, this is 24MB -- roughly */
+/* the amount of memory used by LL test using a 2.5M FFT. */
 
-void set_affected_by_mem_change (
+void set_default_memory_usage (
 	int	thread_num)
 {
-	MEM_FLAGS[thread_num] |= MEM_NOT_ENOUGH_TO_RUN;
+	MEM_FLAGS[thread_num] = MEM_USAGE_NOT_SET;
+	MEM_IN_USE[thread_num] = DEFAULT_MEM_USAGE;
+
+/* Clear restart flags that only apply to current work unit as opposed to */
+/* most flags which are not reset until primeContinue reprocesses the worker's */
+/* complete list of work. */
+
+	MEM_RESTART_FLAGS[thread_num] &= ~MEM_RESTART_MAX_MEM_CHANGE;
+	MEM_RESTART_FLAGS[thread_num] &= ~MEM_RESTART_IF_MORE;
 }
 
-/* Set flag that says this thread will be affected by other threads */
-/* reducing their memory usage.  Workers that have proceeded postponed */
-/* stage 2 of P-1 and started their LL test or moved onto the next work */
-/* unit would set this flag.   A reduction in memory usage occurs when */
-/* another thread goes from using a lot of memory to using a normal */
-/* amount (as in finishing stage 2 of P-1 or ECM). */
+/* Set flag that restarts worker if max mem changes. */
+/* Needed for Pfactor so that we can compute new bounds */
+/* should max mem change. */
 
-void set_affected_by_mem_usage (
+void set_restart_if_max_memory_change (
 	int	thread_num)
 {
-	MEM_FLAGS[thread_num] |= MEM_RESTART_IF_MORE;
+	MEM_RESTART_FLAGS[thread_num] |= MEM_RESTART_MAX_MEM_CHANGE;
 }
 
-/* Worker thread tells us how much memory it will be using.  This may cause */
-/* other worker threads to restart if they are using more than their fair */
-/* share. NOTE: This is the only mem routine to take its argument in bytes */
+/* Set flag that restarts worker if max mem changes. */
+/* Needed for Pfactor so that we can compute new bounds */
+/* should max mem change. */
+
+void clear_restart_if_max_memory_change (
+	int	thread_num)
+{
+	MEM_RESTART_FLAGS[thread_num] &= ~MEM_RESTART_MAX_MEM_CHANGE;
+}
+
+/* Set flag that restarts current work unit if more memory */
+/* becmes available.  Used when stage 2 got far less memory than */
+/* it wanted and significantly more memory whould speed up stage 2. */
+
+void set_restart_if_more_memory_available (
+	int	thread_num,
+	unsigned int memory)		/* Memory needed for a restart in MB */
+{
+	MEM_RESTART_FLAGS[thread_num] |= MEM_RESTART_IF_MORE;
+	MEM_RESTART_IF_MORE_AMOUNT[thread_num] = memory;
+}
+
+/* If the caller of avail_mem wasn't happy with the amount of memory */
+/* returned, he can call this routine to set flags so that worker will be */
+/* restarted when more memory becomes available. */
+
+int avail_mem_not_sufficient (
+	int	thread_num,
+	unsigned long min_memory,	/* Minumum memory in MB */
+	unsigned long desired_memory)	/* Desired memory in MB */
+{
+	OutputStr (thread_num, "Other workers are using lots of memory now.\n");
+	if (MEM_RESTART_FLAGS[thread_num] & MEM_RESTART_MORE_AVAIL) {
+		if (min_memory < MEM_RESTART_MIN_AMOUNT[thread_num])
+			MEM_RESTART_MIN_AMOUNT[thread_num] = min_memory;
+		if (desired_memory < MEM_RESTART_DESIRED_AMOUNT[thread_num])
+			MEM_RESTART_DESIRED_AMOUNT[thread_num] = desired_memory;
+	} else {
+		MEM_RESTART_FLAGS[thread_num] |= MEM_RESTART_MORE_AVAIL;
+		MEM_RESTART_MIN_AMOUNT[thread_num] = min_memory;
+		MEM_RESTART_DESIRED_AMOUNT[thread_num] = desired_memory;
+	}
+	return (STOP_NOT_ENOUGH_MEM);
+}
+
+/* Internal routine that returns TRUE if other threads are using lots of */
+/* the available memory.  We use this to delay ECM and P-1 stage 2 while other */
+/* stage 2's are running. */
+
+int are_threads_using_lots_of_memory (
+	int	thread_num)
+{
+	int	max_high_mem, i;
+
+/* Get the user configurable count of workers that are allowed to use */
+/* lots of memory.  If this equals the number of workers (default) then */
+/* there is no need to scan the workers */
+
+	max_high_mem = MAX_HIGH_MEM_WORKERS;
+	if (max_high_mem >= (int) NUM_WORKER_THREADS) return (FALSE);
+
+/* If there are enough threads with variable memory usage, then return TRUE. */
+/* To guard against an ECM stage 2 that really isn't using a whole lot of */
+/* memory, also require the thread to be using 50MB. */
+
+	for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
+		if (i != thread_num &&
+		    (MEM_FLAGS[i] & MEM_VARIABLE_USAGE ||
+		     MEM_FLAGS[i] & MEM_WILL_BE_VARIABLE_USAGE) &&
+		    MEM_IN_USE[i] >= 50) {
+			max_high_mem--;
+			if (max_high_mem == 0) return (TRUE);
+		}
+	return (FALSE);
+}
+
+/* Each worker thread tells us how much memory it will be using.  This may */
+/* cause other worker threads to restart if they are using more than their */
+/* fair share. NOTE: This mem routine takes its argument in bytes */
 /* rather than megabytes. */
 /* Variable usage callers must examine the return code!  During startup */
 /* all threads may not have determined their memory needs.  This routine */
-/* waits a reasonable time for this to happen and returns TRUE if caller */
-/* should recalculate the amount of memory available for use because we */
-/* previously overestimated the amount of memory available to the thread. */
-/* This is cleaner than the previous implementation which returned */
-/* immediately but restarted the biggest memory user when memory became */
-/* overcommitted.  This resulted in many stop/restart messages on screen */
-/* until a suitable memory allocation scheme was found. */
+/* returns TRUE if caller should recalculate the amount of memory available */
+/* for use because we previously overestimated the amount of memory available */
+/* to the thread. */
 
 int set_memory_usage (
 	int	thread_num,
 	int	flags,		/* Valid values are MEM_VARIABLE_USAGE */
-				/* MEM_USAGE_NOT_SET */
+				/* and MEM_USAGE_NOT_SET */
 	unsigned long memory)	/* Memory in use (in bytes!!) */
 {
-	int	i, fixed_threads[MAX_NUM_WORKER_THREADS], worst_thread;
-	int	count_usage_not_set, num_variable_threads, made_a_change;
-	unsigned long fixed_usage, avail;
+	int	i, best_thread, worst_thread, all_threads_set;
+	unsigned long mem_usage;
 
 /* Obtain lock before accessing memory global variables */
 
 	gwmutex_lock (&MEM_MUTEX);
 
-/* If we are going from variable usage to fixed usage, then start up any */
-/* threads that are waiting for more memory to become available, as well */
-/* as any that are currently using a lot of memory but might want to use */
-/* more. */
-
-	if (MEM_FLAGS[thread_num] & MEM_VARIABLE_USAGE &&
-	    !(flags & MEM_VARIABLE_USAGE)) {
-		for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
-			if (MEM_FLAGS[i] & MEM_RESTART_IF_MORE)
-				stop_worker_for_mem_changed (i);
-		}
-	}
-
-/* Set flag indicating thread is executing code that can choose a */
+/* Set or clear flag indicating thread is executing code that can choose a */
 /* different amount of memory to use. */
 
 	if (flags & MEM_VARIABLE_USAGE)
 		MEM_FLAGS[thread_num] |= MEM_VARIABLE_USAGE;
 	else
 		MEM_FLAGS[thread_num] &= ~MEM_VARIABLE_USAGE;
+	MEM_FLAGS[thread_num] &= ~MEM_WILL_BE_VARIABLE_USAGE;
 
 /* Set flag indicating we are guessing how much memory this thread */
 /* will use because the thread has not started its work unit. */
@@ -713,53 +860,255 @@ int set_memory_usage (
 		MEM_FLAGS[thread_num] |= MEM_USAGE_NOT_SET;
 	else
 		MEM_FLAGS[thread_num] &= ~MEM_USAGE_NOT_SET;
+	MEM_FLAGS[thread_num] &= ~MEM_RESTARTING;
 
 /* Record the amount of memory being used */
 
 	MEM_IN_USE[thread_num] = (memory >> 20) + 1;
 
-/* Count the number of worker threads that have not computed their memory */
-/* usage yet. */
+/* Sum up the amount of memory used by all threads.  In case we've allocated */
+/* too much memory, select a variable thread to restart.  We do this to make */
+/* the thread reduce its memory usage so that the other threads will be OK. */
+/* We'll restart the variable thread using the most memory. */
 
-	count_usage_not_set = 0;
-	for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
-		if (MEM_FLAGS[i] & MEM_USAGE_NOT_SET) count_usage_not_set++;
-
-/* If all threads now know how much memory they intend to use, signal */
-/* the MEM_EVENT to wake up any variable usage workers that were waiting */
-/* for other workers to compute their memory usage.  Otherwise, reset the */
-/* event so that we can wait for all workers to compute their memory usage. */
-
-	if (count_usage_not_set == 0)
-		gwevent_signal (&MEM_EVENT);
-	else
-		gwevent_reset (&MEM_EVENT);
-
-/* If this thread wants to use a variable amount of memory and other */
-/* worker threads have not yet computed their memory usage then wait a */
-/* few seconds for these other worker threads to initialize.  Once they */
-/* initialize we can see if this thread is using too much memory. */
-
-	if (flags & MEM_VARIABLE_USAGE && count_usage_not_set) {
-		MEM_FLAGS[thread_num] |= MEM_WAITING;
-		gwmutex_unlock (&MEM_MUTEX);
-		gwevent_wait (&MEM_EVENT, 20);
-		gwmutex_lock (&MEM_MUTEX);
-		MEM_FLAGS[thread_num] &= ~MEM_WAITING;
+	mem_usage = 0;
+	worst_thread = -1;
+	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+		mem_usage += MEM_IN_USE[i];
+		if ((MEM_FLAGS[i] & MEM_VARIABLE_USAGE ||
+		     MEM_FLAGS[i] & MEM_WILL_BE_VARIABLE_USAGE) &&
+		    (worst_thread == -1 ||
+		     MEM_IN_USE[i] > MEM_IN_USE[worst_thread]))
+			worst_thread = i;
 	}
 
-/* Check to see if any variable usage threads need to be restarted because */
-/* they are now using too much memory.  Duplicate much of the code in */
-/* avail_mem. */
+/* If we have allocated more than the maximum allowable, then stop a */
+/* thread to free up some memory.  We also make sure we are using significantly */
+/* more memory than we should be so that minor fluctuations in memory */
+/* usage by the fixed threads do not cause needless restarts.  The 32MB */
+/* threshold is arbitrary. */
+
+	if (mem_usage > AVAIL_MEM + 32) {
+
+/* If the current thread is the worst thread (should only happen if there has */
+/* been a wild change in other thread's memory usage between the call to */
+/* avail_mem and the call to set_memory_usage), then return to caller and */
+/* tell it to try again.  WARNING:  this could cause an infinite */
+/* loop if caller misbehaves and tries to use the same amount of memory. */
+
+		if (worst_thread == thread_num) {
+			set_default_memory_usage (thread_num);
+			gwmutex_unlock (&MEM_MUTEX);
+			return (TRUE);
+		}
+
+/* If we found a worst thread and that thread has actually allocated */
+/* memory (MEM_VARIABLE_USAGE), as opposed to being in the process of */
+/* figuring out its memory needs (MEM_WILL_BE_VARIABLE_USAGE), then */
+/* stop the offending thread. */
+
+		if (worst_thread >= 0 && MEM_FLAGS[worst_thread] & MEM_VARIABLE_USAGE) {
+			stop_worker_for_mem_changed (worst_thread);
+
+/* Wait for the stop to take effect so that we don't briefly over-allocate memory. */
+
+			MEM_FLAGS[thread_num] |= MEM_WAITING;
+			gwmutex_unlock (&MEM_MUTEX);
+			MEM_WAIT_OR_STOP_INITIALIZED[thread_num] = 1;
+			gwevent_init (&MEM_WAIT_OR_STOP[thread_num]);
+			gwevent_reset (&MEM_WAIT_OR_STOP[thread_num]);
+			gwevent_wait (&MEM_WAIT_OR_STOP[thread_num], 20);
+			gwevent_destroy (&MEM_WAIT_OR_STOP[thread_num]);
+			MEM_WAIT_OR_STOP_INITIALIZED[thread_num] = 0;
+			gwmutex_lock (&MEM_MUTEX);
+			MEM_FLAGS[thread_num] &= ~MEM_WAITING;
+		}
+	}
+
+/* See if all fixed usage threads have set their memory usage */
+
+	all_threads_set = TRUE;
+	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+		if (MEM_FLAGS[i] & MEM_WILL_BE_VARIABLE_USAGE) continue;
+		if (MEM_FLAGS[i] & MEM_USAGE_NOT_SET ||
+		    MEM_FLAGS[i] & MEM_RESTARTING) {
+			all_threads_set = FALSE;
+			break;
+		}
+	}
+
+/* If all fixed usage threads have called this routine setting their memory */
+/* usage, then signal an event to wake up one of variable usage workers */
+/* that is waiting for all fixed usage workers to compute their memory usage. */
+
+	if (all_threads_set) {
+		best_thread = -1;
+		for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+			if (MEM_FLAGS[i] & MEM_WAITING) {
+				best_thread = i;
+				break;
+			}
+			if (MEM_FLAGS[i] & MEM_WILL_BE_VARIABLE_USAGE &&
+			    (best_thread == -1 ||
+			     MEM_IN_USE[i] < MEM_IN_USE[best_thread]))
+				best_thread = i;
+		}
+		if (best_thread >= 0) {
+			restart_one_waiting_worker (best_thread, RESTART_MEM_WAIT);
+			all_threads_set = FALSE;
+		}
+	}
+
+/* If a worker is waiting for a reduction in the number of workers */
+/* using lots of memory, then check to see if it can run now. */
+
+	if (all_threads_set && mem_usage < AVAIL_MEM - 32) {
+		for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+			if (! (MEM_RESTART_FLAGS[i] & MEM_RESTART_TOO_MANY_HIGHMEM)) continue;
+			if (are_threads_using_lots_of_memory (i)) continue;
+			stop_worker_for_mem_changed (i);
+			all_threads_set = FALSE;
+			break;
+		}
+	}
+
+/* If all fixed and variable usage threads have set their memory usage, */
+/* then if we have enough free memory restart a work unit that could use */
+/* more memory. */
+
+	if (all_threads_set && mem_usage < AVAIL_MEM - 32) {
+		best_thread = -1;
+		for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+			if (MEM_RESTART_FLAGS[i] & MEM_RESTART_IF_MORE &&
+			    MEM_RESTART_IF_MORE_AMOUNT[i] < AVAIL_MEM - mem_usage)
+				best_thread = i;
+		}
+		if (best_thread >= 0) {
+			stop_worker_for_mem_changed (best_thread);
+			all_threads_set = FALSE;
+		}
+	}
+		
+/* If all fixed and variable usage threads have set their memory usage, */
+/* then if we have enough free memory restart a thread that couldn't */
+/* run a work unit due to lack of available memory. */
+
+	if (all_threads_set && mem_usage < AVAIL_MEM - 32) {
+		best_thread = -1;
+		for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+			if (MEM_RESTART_FLAGS[i] & MEM_RESTART_MORE_AVAIL &&
+			    MEM_RESTART_MIN_AMOUNT[i] < AVAIL_MEM - mem_usage)
+				best_thread = i;
+		}
+		if (best_thread >= 0) {
+			stop_worker_for_mem_changed (best_thread);
+			all_threads_set = FALSE;
+		}
+	}
+
+/* All done */
+
+	gwmutex_unlock (&MEM_MUTEX);
+	return (FALSE);
+}
+
+/* Return maximum memory (in MB) that will ever be available for a variable usage thread. */
+
+unsigned int max_mem (void)
+{
+	return (MAX_MEM);
+}
+
+/* Return memory (in MB) now available for a variable usage thread. */
+/* This routine takes into account the memory used by other worker threads. */
+/* NOTE: caller is expected to have called are_threads_using_lots_of_memory */
+/* to make sure too many workers don't become high memory users. */
+
+int avail_mem (
+	int	thread_num,
+	unsigned long minimum_memory,	/* If this much memory (in bytes!) */
+					/* can be returned without restarting other */
+					/* workers, then do so */
+	unsigned long desired_memory,	/* If this much memory (in bytes!) */
+					/* can be returned without restarting other */
+					/* workers, then do so */
+	unsigned int *memory)		/* Returned available memory, in MB */
+{
+	int	i, fixed_threads[MAX_NUM_WORKER_THREADS];
+	unsigned long fixed_usage, variable_usage, num_variable_threads, avail, diff;
+
+/* Check if we are in a period of forced low memory usage */
+
+	if (is_LowMemWhileRunning_active (thread_num)) {
+		MEM_RESTART_FLAGS[thread_num] |= MEM_RESTART_LOWMEM_ENDS;
+		return (STOP_NOT_ENOUGH_MEM);
+	}
+
+/* Check if we are only supposed to run high memory workers when the maximum */
+/* amount memory is available. */
+
+	if (IniGetInt (INI_FILE, "OnlyRunStage2WithMaxMemory", 0) &&
+	    AVAIL_MEM != MAX_MEM) {
+		OutputStr (thread_num, "Waiting for maximum available memory to run stage 2.\n");
+		MEM_RESTART_FLAGS[thread_num] |= MEM_RESTART_MAX_MEM_AVAILABLE;
+		return (STOP_NOT_ENOUGH_MEM);
+	}
+
+/* Check if we must wait for more memory to become available.  This */
+/* happens when we reach the maximum allowable number of threads using a lot */
+/* of memory. */
+
+	if (are_threads_using_lots_of_memory (thread_num)) {
+		OutputStr (thread_num, "Exceeded limit on number of workers that can use lots of memory.\n");
+		MEM_RESTART_FLAGS[thread_num] |= MEM_RESTART_TOO_MANY_HIGHMEM;
+		return (STOP_NOT_ENOUGH_MEM);
+	}
+
+/* Obtain lock before accessing memory global variables */
+
+	gwmutex_lock (&MEM_MUTEX);
+
+/* Set flag saying this will be a variable usage thread.  Remember the */
+/* "good enough" value as it will be helpful in determining the best */
+/* value this routine should return (for this thread and other threads) */
+
+	MEM_FLAGS[thread_num] |= MEM_WILL_BE_VARIABLE_USAGE;
+	desired_memory = (desired_memory >> 20) + 1;
+	MEM_IN_USE[thread_num] = desired_memory;
+
+/* If any workers have not yet set their memory usage, then wait for them */
+/* to do so.  This allows us to accurately guage how much fixed memory */
+/* is consumed and how many variable usage workers there are. */
+/* Just in case we wake up from the timeout (should rarely happen), we try*/
+/* to stagger the timeouts by adding the thread number. */
+
+	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+		if (i == thread_num) continue;
+		if (MEM_FLAGS[i] & MEM_USAGE_NOT_SET ||
+		    MEM_FLAGS[i] & MEM_RESTARTING) {
+			gwmutex_unlock (&MEM_MUTEX);
+			MEM_WAIT_OR_STOP_INITIALIZED[thread_num] = 1;
+			gwevent_init (&MEM_WAIT_OR_STOP[thread_num]);
+			gwevent_reset (&MEM_WAIT_OR_STOP[thread_num]);
+			gwevent_wait (&MEM_WAIT_OR_STOP[thread_num], 20 + thread_num);
+			gwevent_destroy (&MEM_WAIT_OR_STOP[thread_num]);
+			MEM_WAIT_OR_STOP_INITIALIZED[thread_num] = 0;
+			gwmutex_lock (&MEM_MUTEX);
+		}
+	}
 
 /* Sum up the amount of memory used by threads that cannot adjust their */
-/* memory usage.  Also count how many threads can adjust their memory usage. */
+/* memory usage.  Also count how many threads (including this one) can */
+/* adjust their memory usage. */
 
 	fixed_usage = 0;
+	variable_usage = 0;
 	num_variable_threads = 0;
 	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
-		if (MEM_FLAGS[i] & MEM_VARIABLE_USAGE) {
+		if (MEM_FLAGS[i] & MEM_VARIABLE_USAGE ||
+		    MEM_FLAGS[i] & MEM_WILL_BE_VARIABLE_USAGE) {
 			num_variable_threads++;
+			variable_usage += MEM_IN_USE[i];
 			fixed_threads[i] = FALSE;
 		} else {
 			fixed_usage += MEM_IN_USE[i];
@@ -768,149 +1117,86 @@ int set_memory_usage (
 	}
 
 /* We can now calculate how much memory is available for the threads */
-/* that are using a variable amount of memory.  If any variable threads */
-/* are using less memory than they are allowed to use, then make that */
-/* memory available to the other variable usage threads.  For no */
-/* particularly scientific reason we treat any thread within 5MB of the */
-/* maximum as OK (might save an occasional thread restart). */
+/* that are using a variable amount of memory.  */
 
-	do {
-		if (num_variable_threads == 0) {
-			gwevent_signal (&MEM_OK);
-			gwmutex_unlock (&MEM_MUTEX);
-			return (FALSE);
-		}
-		made_a_change = FALSE;
-		avail = (AVAIL_MEM > fixed_usage) ? AVAIL_MEM - fixed_usage : 0;
-		for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
-			if (fixed_threads[i]) continue;
-			if (MEM_IN_USE[i] <= avail / num_variable_threads + 5){
-				fixed_usage += MEM_IN_USE[i];
-				fixed_threads[i] = TRUE;
-				num_variable_threads--;
-				made_a_change = TRUE;
-				break;
-			}
-		}
-	} while (made_a_change);
-
-/* We are using too much memory, reset the all-is-OK event */
-
-	gwevent_reset (&MEM_OK);
-
-/* If this thread is using too much memory, then tell caller to change */
-/* this thread's memory usage.  WARNING:  this could cause an infinite */
-/* loop if caller misbehaves and tries to use the same amount of memory. */
-
-	if (!fixed_threads[thread_num]) {
-		gwmutex_unlock (&MEM_MUTEX);
-		return (TRUE);
-	}
-
-/* If any of the worker threads that are using too much memory is waiting */
-/* for MEM_EVENT, then let that thread resume and tell its caller to */
-/* recalculate its memory requirements.  Maybe that will resolve our */
-/* memory overcommitment without restarting any workers already in progress. */
-/* Do not allocate our memory until we've resolved our memory */
-/* overcommitment.  We'll wait up to 20 seconds (a safety valve against */
-/* bugs in memory allocation). */
-
+	avail = (AVAIL_MEM > fixed_usage) ? AVAIL_MEM - fixed_usage : 0;
 	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
-		if (! fixed_threads[i] && MEM_FLAGS[i] & MEM_WAITING) {
-			gwmutex_unlock (&MEM_MUTEX);
-			gwevent_wait (&MEM_OK, 20);
-			return (FALSE);
-		}
-	}
-
-/* Restart one of the variable threads that is using more memory than it */
-/* should be.  We do this because the thread may reduce its memory usage */
-/* so much that the other offending threads will be OK.  This saves a */
-/* needless thread restart.  We'll restart the variable thread using the */
-/* most memory.  We also make sure the thread is using significantly */
-/* more memory than it should be so that minor fluctuations in memory */
-/* usage by the fixed threads do not cause needless restarts.  The 32MB */
-/* threshold is arbitrary. */
-
-	worst_thread = -1;
-	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+		unsigned long avail_per_worker;
+		if (i == thread_num) continue;
 		if (fixed_threads[i]) continue;
-		if (worst_thread == -1 ||
-		    MEM_IN_USE[i] > MEM_IN_USE[worst_thread])
-			worst_thread = i;
+		avail_per_worker = avail / num_variable_threads;
+
+/* If any variable threads are either using less memory than they are */
+/* allowed to use or all variable threads can fit in available memory, */
+/* then treat this worker like a fixed memory user. */
+
+		if (MEM_FLAGS[i] & MEM_VARIABLE_USAGE &&
+		    (MEM_IN_USE[i] < avail_per_worker ||
+		     fixed_usage + variable_usage <= AVAIL_MEM)) {
+			avail -= MEM_IN_USE[i];
+			fixed_threads[i] = TRUE;
+			num_variable_threads--;
+			i = -1;	    /* Restart loop */
+			continue;
+		}
+
+/* If any variable thread is prohibited from using its full share */
+/* of the remaining available pool, then distribute the excess among */
+/* the other variable usage threads. */
+
+		if (MEM_FLAGS[i] & MEM_WILL_BE_VARIABLE_USAGE &&
+		    AVAIL_MEM_PER_WORKER[i] < avail_per_worker) {
+			avail -= AVAIL_MEM_PER_WORKER[i];
+			fixed_threads[i] = TRUE;
+			num_variable_threads--;
+			i = -1;	    /* Restart loop */
+			continue;
+		}
 	}
-	if (MEM_IN_USE[worst_thread] > avail / num_variable_threads + 32) {
-		stop_worker_for_mem_changed (worst_thread);
-		gwmutex_unlock (&MEM_MUTEX);
-		gwevent_wait (&MEM_OK, 20);
-		return (FALSE);
-	}
+	avail = avail / num_variable_threads;
 
 /* Free lock after accessing memory global variables */
 
 	gwmutex_unlock (&MEM_MUTEX);
-	return (FALSE);
-}
 
-/* Set thread to default memory usage.  For now, this is 20MB -- roughly */
-/* the amount of memory used by LL test using a 2M FFT. */
+/* If there weren't enough memory available, try again later */
 
-void set_default_memory_usage (
-	int	thread_num)
-{
-	set_memory_usage (thread_num,
-			  MEM_USAGE_NOT_SET,
-			  DEFAULT_MEM_USAGE << 20);
-}
+	minimum_memory = (minimum_memory >> 20) + 1;
+	if (avail < minimum_memory)
+		return (avail_mem_not_sufficient (thread_num, minimum_memory, desired_memory));
 
-/* Return TRUE if other threads are using lots of the available memory. */
-/* We use this to delay ECM and P-1 stage 2 while other stage 2's */
-/* are running. */
+/* Return the amount of memory this thread can use.  If all variable */
+/* threads can obtain their desired memory, then distribute the excess */
+/* among all the variable threads.  Otherwise, return my pro-rata share */
+/* of variable memory, any overcommitted workers will be restarted once this */
+/* thread calls set_memory_usage letting us know how much of the available */
+/* memory it actually used. */
 
-int are_threads_using_lots_of_memory (
-	int	thread_num)
-{
-	int	delay_stage2_count, i;
+	if (fixed_usage + variable_usage <= AVAIL_MEM)
+		*memory = desired_memory +
+			  (AVAIL_MEM - (fixed_usage + variable_usage)) / num_variable_threads;
+	else
+		*memory = avail;
 
-/* Get a user configurable count.  This count tells us how many worker */
-/* threads must be using lots of memory before we delay a stage 2. */
-/* An eight-cpu user doing LL tests might set the count to 1.  An */
-/* eight-cpu user doing ECM might set the value to 3 or 4. */
+/* If memory exceeds this worker's maximum, then only return */
+/* this worker's maximum. */
 
-	delay_stage2_count = IniGetInt (LOCALINI_FILE, "DelayStage2ThreadCount",
-					NUM_WORKER_THREADS / 2);
-	if (delay_stage2_count < 1) delay_stage2_count = 1;
+	if (*memory > AVAIL_MEM_PER_WORKER[thread_num])
+		*memory = AVAIL_MEM_PER_WORKER[thread_num];
 
-/* If there are enough threads with variable memory usage, then return TRUE. */
-/* To guard against an ECM stage 2 that really isn't using a whole lot of */
-/* memory, also require the thread to be using 50MB. */
+/* As a first approximation, mark the work unit as available for restart */
+/* if more memory is available whenever we are near minimum_memory.  The caller */
+/* can override our guess if he so desires */	
 
-	for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
-		if (i != thread_num &&
-		    MEM_FLAGS[i] & MEM_VARIABLE_USAGE &&
-		    MEM_IN_USE[i] >= 50) {
-			delay_stage2_count--;
-			if (delay_stage2_count == 0) return (TRUE);
-		}
-	return (FALSE);
-}
+	diff = desired_memory - minimum_memory;
+	if (*memory <= minimum_memory + diff / 4)
+		set_restart_if_more_memory_available (thread_num, diff / 4);
+	else if (*memory <= minimum_memory + diff / 2)
+		set_restart_if_more_memory_available (thread_num, diff / 2);
 
-/* Clear flag that says this thread's work unit needs restarting if the */
-/* maximum amount of available memory changes. */
+/* Return clean stop code */
 
-void clear_max_memory_usage (
-	int	thread_num)
-{
-	MEM_FLAGS[thread_num] &= ~MEM_MAX_AVAIL_RESTART;
-}
-
-/* Set flag that says this thread's work unit needs restarting if the */
-/* maximum amount of available memory changes. */
-
-void set_max_memory_usage (
-	int	thread_num)
-{
-	MEM_FLAGS[thread_num] |= MEM_MAX_AVAIL_RESTART;
+	return (0);
 }
 
 /* Routine to notify all worker threads the day/night memory settings */
@@ -919,127 +1205,128 @@ void set_max_memory_usage (
 
 void mem_settings_have_changed (void)
 {
-	unsigned int old_avail_mem, current_avail_mem;
-	unsigned int old_max_mem, current_max_mem;
+	unsigned int old_avail_mem, old_max_mem;
 	int	tnum;
 
-/* If the worker threads are not active then no work needs to be done */
-
-	if (! WORKER_THREADS_ACTIVE) return;
-
-/* Restart the memory changed timer and recompute the available memory */
+/* Recompute the available memory and restart the memory changed timer */
 
 	old_avail_mem = AVAIL_MEM;
 	old_max_mem = MAX_MEM;
-	start_mem_changed_timer ();
-	current_avail_mem = AVAIL_MEM;
-	current_max_mem = max_mem ();
+	read_mem_info ();
 
-/* If available memory has changed see which threads need restarting. */
+/* If the worker threads are not active then no workers need restarting */
+
+	if (! WORKER_THREADS_ACTIVE) return;
+
+/* If maximum memory has changed see which threads need restarting. */
+/* Those threads that are in stage 1 of pfactor work will want to compute */
+/* new bounds. */
+
+	if (MAX_MEM != old_max_mem)
+		for (tnum = 0; tnum < (int) NUM_WORKER_THREADS; tnum++)
+			if (MEM_RESTART_FLAGS[tnum] & MEM_RESTART_MAX_MEM_CHANGE)
+				stop_worker_for_mem_changed (tnum);
+
+/* If available memory is now equal to maximum memory see which threads */
+/* need restarting. Those threads that postponed work because they only */
+/* run during memory need restarting. */
+
+	if (AVAIL_MEM == MAX_MEM)
+		for (tnum = 0; tnum < (int) NUM_WORKER_THREADS; tnum++)
+			if (MEM_RESTART_FLAGS[tnum] & MEM_RESTART_MAX_MEM_AVAILABLE)
+				stop_worker_for_mem_changed (tnum);
+
+/* If available memory has increased we may pick a thread to restart. */
 /* Those threads that postponed work because there wasn't enough memory */
-/* and those that are currently using a lot of memory need restarting. */
+/* need restarting. */
 
-	for (tnum = 0; tnum < (int) NUM_WORKER_THREADS; tnum++) {
-		if ((current_avail_mem > old_avail_mem &&
-		     MEM_FLAGS[tnum] & MEM_NOT_ENOUGH_TO_RUN) ||
-		    (old_avail_mem != current_avail_mem &&
-		     (MEM_FLAGS[tnum] & MEM_VARIABLE_USAGE)) ||
-		    (old_max_mem != current_max_mem &&
-		     (MEM_FLAGS[tnum] & MEM_MAX_AVAIL_RESTART)))
+	if (AVAIL_MEM > old_avail_mem)
+		for (tnum = 0; tnum < (int) NUM_WORKER_THREADS; tnum++)
+			if (MEM_RESTART_FLAGS[tnum] & MEM_RESTART_MORE_AVAIL)
+				stop_worker_for_mem_changed (tnum);
+
+/* If any worker now exceeds (by 10MB) the per-worker maximum, then restart. */
+
+	for (tnum = 0; tnum < (int) NUM_WORKER_THREADS; tnum++)
+		if (MEM_FLAGS[tnum] & MEM_VARIABLE_USAGE &&
+		    MEM_IN_USE[tnum] > AVAIL_MEM_PER_WORKER[tnum] + 10)
 			stop_worker_for_mem_changed (tnum);
+
+/* If available memory has decreased we may pick a thread to restart. */
+/* If total memory in use is greater than the new available, then pick */
+/* one of the variable threads to restart.  Note that if any threads */
+/* haven't yet set their memory usage, then when they do set their memory */
+/* usage this overcommitment will be sorted out then. */
+
+	if (AVAIL_MEM < old_avail_mem) {
+		unsigned long mem_usage;
+		int	worst_thread;
+
+		mem_usage = 0;
+		worst_thread = -1;
+		for (tnum = 0; tnum < (int) NUM_WORKER_THREADS; tnum++) {
+			mem_usage += MEM_IN_USE[tnum];
+			if (MEM_FLAGS[tnum] & MEM_USAGE_NOT_SET ||
+			    MEM_FLAGS[tnum] & MEM_RESTARTING ||
+			    MEM_FLAGS[tnum] & MEM_WILL_BE_VARIABLE_USAGE) {
+				worst_thread = -1;
+				break;
+			}
+			if (MEM_FLAGS[tnum] & MEM_VARIABLE_USAGE &&
+			    (worst_thread == -1 ||
+			     MEM_IN_USE[tnum] > MEM_IN_USE[worst_thread]))
+				worst_thread = tnum;
+		}
+		if (mem_usage > AVAIL_MEM + 32 && worst_thread != -1)
+			stop_worker_for_mem_changed (worst_thread);
 	}
 }
 
-/* Return maximum available memory (in MB) */
+/* Routine to force any workers that are using lots of memory to stop */
+/* and restart.  This happens when LowMemWhileRunnning is activated. */
 
-unsigned int max_mem (void)
+void stop_high_memory_workers (void)
 {
-	const char *p;
+	int	i;
 
-/* Get the memory settings.  If not found, assume 8MB. */
+/* If the worker threads are not active then no workers need restarting */
 
-	p = IniSectionGetStringRaw (LOCALINI_FILE, NULL, "Memory");
-	if (p == NULL) {
-		MAX_MEM = 8;
-		return (MAX_MEM);
-	}
-
-/* Get the biggest memory setting */
-
-	for (MAX_MEM = 0; ; ) {
-		unsigned long mem = atol (p);
-		if (mem > MAX_MEM) MAX_MEM = mem;
-		p = strstr (p, " else ");
-		if (p == NULL) break;
-		p = p + 6;
-	}
-	return (MAX_MEM);
-}
-
-/* Return TRUE if maximum memory is available now */
-
-int is_max_mem_available_now (void)
-{
-	return (AVAIL_MEM == max_mem ());
-}
-
-/* Return memory (in MB) now available for a variable usage thread. */
-/* This routine takes into account the memory used by other worker threads. */
-
-unsigned int avail_mem (
-	int	thread_num)
-{
-	int	i, fixed_threads[MAX_NUM_WORKER_THREADS];
-	unsigned long fixed_usage, num_variable_threads, avail;
+	if (! WORKER_THREADS_ACTIVE) return;
 
 /* Obtain lock before accessing memory global variables */
 
 	gwmutex_lock (&MEM_MUTEX);
 
-/* Sum up the amount of memory used by threads that cannot adjust their */
-/* memory usage.  Also count how many threads (including this one) can */
-/* adjust their memory usage. */
+/* Look for workers marked with variable usage */
 
-	fixed_usage = 0;
-	num_variable_threads = 1;
 	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
-		if (i == thread_num) continue;
-		if (MEM_FLAGS[i] & MEM_VARIABLE_USAGE) {
-			num_variable_threads++;
-			fixed_threads[i] = FALSE;
-		} else {
-			fixed_usage += MEM_IN_USE[i];
-			fixed_threads[i] = TRUE;
-		}
+		if (MEM_FLAGS[i] & MEM_VARIABLE_USAGE ||
+		    MEM_FLAGS[i] & MEM_WILL_BE_VARIABLE_USAGE)
+			stop_worker_for_mem_changed (i);
 	}
 
-/* We can now calculate how much memory is available for the threads */
-/* that are using a variable amount of memory.  If any variable threads */
-/* are using less memory than they are allowed to use, then make that */
-/* memory available to the other variable usage threads. */
-
-	avail = (AVAIL_MEM > fixed_usage) ? AVAIL_MEM - fixed_usage : 0;
-	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
-		if (i == thread_num) continue;
-		if (fixed_threads[i]) continue;
-		if (MEM_IN_USE[i] < avail / num_variable_threads) {
-			avail -= MEM_IN_USE[i];
-			fixed_threads[i] = TRUE;
-			num_variable_threads--;
-			i = -1;	    /* Restart loop */
-		}
-	}
-
-/* Free lock after accessing memory global variables */
+/* All done */
 
 	gwmutex_unlock (&MEM_MUTEX);
+}
 
-/* Return the amount of memory this thread can use.  If other variable */
-/* threads are using too much, they will be restarted once this thread */
-/* call set_memory_usage letting us know how much of the available memory */
-/* it actually used. */
+/* Routine to restart workers that were stopped due to LowMemWhileRunning */
 
-	return (avail / num_variable_threads);
+void restart_high_memory_workers (void)
+{
+	int	tnum;
+
+/* If the worker threads are not active then no workers need restarting */
+
+	if (! WORKER_THREADS_ACTIVE) return;
+
+/* Restart the workers affected by LowMemWhileRunning */
+
+	for (tnum = 0; tnum < (int) NUM_WORKER_THREADS; tnum++)
+		if (MEM_RESTART_FLAGS[tnum] & MEM_RESTART_LOWMEM_ENDS) {
+			MEM_RESTART_FLAGS[tnum] &= ~MEM_RESTART_LOWMEM_ENDS;
+			stop_worker_for_mem_changed (tnum);
+		}
 }
 
 
@@ -1084,7 +1371,6 @@ void test_battery (void)
 void implement_stop_battery (
 	int	thread_num)
 {
-	int	rc;
 
 /* Output message, change title and icon */
 
@@ -1097,7 +1383,7 @@ void implement_stop_battery (
 	OFF_BATTERY_OR_STOP_INITIALIZED[thread_num] = 1;
 	gwevent_init (&OFF_BATTERY_OR_STOP[thread_num]);
 	gwevent_reset (&OFF_BATTERY_OR_STOP[thread_num]);
-	rc = gwevent_wait (&OFF_BATTERY_OR_STOP[thread_num], 0);
+	gwevent_wait (&OFF_BATTERY_OR_STOP[thread_num], 0);
 	gwevent_destroy (&OFF_BATTERY_OR_STOP[thread_num]);
 	OFF_BATTERY_OR_STOP_INITIALIZED[thread_num] = 0;
 
@@ -1207,7 +1493,6 @@ void stop_one_worker (
 void implement_stop_one_worker (
 	int	thread_num)
 {
-	int	rc;
 
 /* If some race condition has caused the worker active flag */
 /* to be set, then do not wait for an event. */
@@ -1216,16 +1501,20 @@ void implement_stop_one_worker (
 
 /* Output a worker stopping message and change the icon */
 
-	//// bug - this message will be output even if worker never started
+//// bug - this message will be output even if worker never started
 	OutputStr (thread_num, "Stopping worker at user request.\n");
 	ChangeIcon (thread_num, IDLE_ICON);	/* Idle icon while stopped */
+
+/* Set memory usage to zero */
+
+	set_memory_usage (thread_num, 0, 0);
 
 /* Initialize and then wait for the event */
 
 	USER_START_OR_STOP_INITIALIZED[thread_num] = 1;
 	gwevent_init (&USER_START_OR_STOP[thread_num]);
 	gwevent_reset (&USER_START_OR_STOP[thread_num]);
-	rc = gwevent_wait (&USER_START_OR_STOP[thread_num], 0);
+	gwevent_wait (&USER_START_OR_STOP[thread_num], 0);
 
 /* Destroy the event */
 
@@ -1234,7 +1523,7 @@ void implement_stop_one_worker (
 
 /* Output a worker starting message and change the icon */
 
-	////bug - why output a restart message if we are only resuming to exit?
+////bug - why output a restart message if we are only resuming to exit?
 	OutputStr (thread_num, "Resuming worker at user request.\n");
 	ChangeIcon (thread_num, WORKING_ICON);
 }
@@ -1252,26 +1541,12 @@ unsigned int active_workers_count (void)
 /*        Routines dealing with "pause while running"         */
 /**************************************************************/
 
-struct pause_info {
-	int	thread_num;		/* Worker thread to pause */
-	int	high_mem;		/* Flag set for PauseHighMemWhileRunning entries */
-	int	workers_affected;	/* Number of workers affected */
-	char	*program_name;		/* Pause if running this program */
-	char	matching_program[80];	/* Running program that matched this entry */
-	struct pause_info *next;	/* Next in linked list of program names */
-};
-
-int	PAUSE_MUTEX_INITIALIZED = 0;
-gwmutex	PAUSE_MUTEX;		/* Lock for accessing pause globals */
-struct pause_info *PAUSE_DATA = NULL;
-int	PAUSE_WHILE_RUNNING_FREQ = 10;
-
-/* Internal routine to parse a PauseWhileRunning or PauseHighMemWhileRunning entry */
+/* Internal routine to parse a PauseWhileRunning or LowMemWhileRunning entry */
 
 void parse_pause_info (
        char	*buf,		/* Comma separated list of program names */
        int	thread_num,	/* Worker thread to pause */
-       int	high_mem)	/* Flag for PauseHighMemWhileRunning */
+       int	low_mem)	/* Flag for LowMemWhileRunning */
 {
 	struct pause_info *data;
 	char	*p, *bracket, *comma;
@@ -1288,7 +1563,7 @@ void parse_pause_info (
 		PAUSE_DATA = data;
 
 		data->thread_num = thread_num;
-		data->high_mem = high_mem;
+		data->low_mem = low_mem;
 		bracket = strchr (p, '[');
 		if (bracket != NULL) {
 			*bracket = 0;
@@ -1296,7 +1571,7 @@ void parse_pause_info (
 		} else
 			data->workers_affected = MAX_NUM_WORKER_THREADS;
 
-		if (*p == '*')
+		if (!low_mem && *p == '*')
 			data->program_name = NULL;
 		else {
 			data->program_name = (char *) malloc (strlen (p) + 1);
@@ -1309,7 +1584,7 @@ void parse_pause_info (
 	}
 }
 
-/* Read the PauseWhileRunning and PauseHighMemWhileRunning settings */
+/* Read the PauseWhileRunning and LowMemWhileRunning settings */
 
 void read_pause_info (void)
 {
@@ -1342,17 +1617,13 @@ void read_pause_info (void)
 		free (p);
 	}
 
-/* Read and parse the pause data from the ini file */
+/* Read and parse the PauseWhileRunning data from the ini file */
 
 	seconds_until_reread = 0;
 	IniGetTimedString (INI_FILE, "PauseWhileRunning", buf, sizeof (buf), NULL, &seconds);
 	if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
 		seconds_until_reread = seconds;
 	parse_pause_info (buf, ALL_WORKERS, FALSE);
-	IniGetTimedString (INI_FILE, "PauseHighMemWhileRunning", buf, sizeof (buf), NULL, &seconds);
-	if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
-		seconds_until_reread = seconds;
-	parse_pause_info (buf, ALL_WORKERS, TRUE);
 	for (tnum = 0; tnum < (int) NUM_WORKER_THREADS; tnum++) {
 		char	section_name[32];
 		sprintf (section_name, "Worker #%d", tnum+1);
@@ -1360,14 +1631,17 @@ void read_pause_info (void)
 		if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
 			seconds_until_reread = seconds;
 		parse_pause_info (buf, tnum, FALSE);
-		IniSectionGetTimedString (INI_FILE, section_name, "PauseHighMemWhileRunning", buf, sizeof (buf), NULL, &seconds);
-		if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
-			seconds_until_reread = seconds;
-		parse_pause_info (buf, tnum, TRUE);
 	}
 	PAUSE_WHILE_RUNNING_FREQ = IniGetTimedInt (INI_FILE, "PauseCheckInterval", 10, &seconds);
 	if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
 		seconds_until_reread = seconds;
+
+/* Also read in the LowMemWhileRunning program list */
+
+	IniGetTimedString (INI_FILE, "LowMemWhileRunning", buf, sizeof (buf), NULL, &seconds);
+	if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
+		seconds_until_reread = seconds;
+	parse_pause_info (buf, ALL_WORKERS, TRUE);
 
 /* Add the event that fires when the memory settings expire. */
 
@@ -1406,25 +1680,39 @@ int best_pause_candidate (
 	int	i;
 
 /* Loop through all the workers.  Give preference to any worker that */
-/* is already paused waiting for work, is in low mem state but would */
-/* rather be doing high mem work, or is already paused. */
+/* is paused waiting for work or is already paused. */
 
 	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+		if (!ACTIVE_WORKERS[i]) continue;
 		if (workers_to_pause[i] != NULL) continue;
 		if (WORK_AVAILABLE_OR_STOP_INITIALIZED[i]) return (i);
-	}
-	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
-		if (workers_to_pause[i] != NULL) continue;
 		if (STOP_FOR_PAUSE[i] != NULL) return (i);
 	}
+
+/* Loop through all the workers.  Give preference to any worker that */
+/* hasn't gotten started yet or is in low mem state but would rather */
+/* be doing high mem work.  Note the MEM_RESTART_MAX_MEM_CHANGE flag */
+/* is not checked because that is the flag that recomputes pfactor */
+/* bounds on change in max mem. */
+
 	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+		if (!ACTIVE_WORKERS[i]) continue;
 		if (workers_to_pause[i] != NULL) continue;
-		if (MEM_FLAGS[i] & MEM_NOT_ENOUGH_TO_RUN) return (i);
+		if (MEM_FLAGS[i] & MEM_USAGE_NOT_SET) return (i);
+		if (MEM_FLAGS[i] & MEM_RESTARTING) return (i);
+		if (MEM_RESTART_FLAGS[i] & ~MEM_RESTART_MAX_MEM_CHANGE) return (i);
 	}
+
+/* Loop through all the workers.  Return first one we find. */
+
 	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+		if (!ACTIVE_WORKERS[i]) continue;
 		if (workers_to_pause[i] != NULL) continue;
 		return (i);
 	}
+
+/* Return 0 if we've paused all the workers */
+
 	return (0);
 }
 
@@ -1432,7 +1720,7 @@ int best_pause_candidate (
 
 void checkPauseWhileRunning (void)
 {
-	struct pause_info *p;
+	struct pause_info *p, *lowmem;
 	struct pause_info *workers_to_pause[MAX_NUM_WORKER_THREADS];
 	int	i, named_program_entries;
 
@@ -1450,12 +1738,34 @@ void checkPauseWhileRunning (void)
 
 	checkPauseListCallback ();
 
+/* Examine pause info entries to see if a period of forced low memory usage */
+/* should be in effect. */
+
+	lowmem = NULL;
+	for (p = PAUSE_DATA; p != NULL; p = p->next) {
+		if (!p->low_mem) continue;
+		if (p->matching_program[0]) lowmem = p;
+	}
+	p = STOP_FOR_LOW_MEMORY;
+	STOP_FOR_LOW_MEMORY = lowmem;
+	if (p == NULL && STOP_FOR_LOW_MEMORY != NULL) {
+		char	buf[150];
+		sprintf (buf, "Entering a period of low memory usage because %s is running.\n",
+			 lowmem->matching_program);
+		OutputStr (MAIN_THREAD_NUM, buf);
+		stop_high_memory_workers ();
+	}
+	if (p != NULL && STOP_FOR_LOW_MEMORY == NULL) {
+		restart_high_memory_workers ();
+	}
+
 /* Examine pause info entries to see which ones matched.  In this pass */
 /* we are looking for pause_info entries that pause a specific worker. */
 
 	memset (workers_to_pause, 0, sizeof (workers_to_pause));
 	for (p = PAUSE_DATA; p != NULL; p = p->next) {
 		if (p->thread_num == ALL_WORKERS) continue;
+		if (p->low_mem) continue;
 		if (p->program_name == NULL || p->matching_program[0])
 			workers_to_pause[p->thread_num] = p;
 	}
@@ -1465,6 +1775,7 @@ void checkPauseWhileRunning (void)
 /* we want to pause.  Choose the "best" worker to pause. */
 
 	for (p = PAUSE_DATA; p != NULL; p = p->next) {
+		if (p->low_mem) continue;
 		if (p->program_name == NULL || p->matching_program[0]) {
 			int	count;
 			count = p->workers_affected;
@@ -1479,15 +1790,10 @@ void checkPauseWhileRunning (void)
 /* resume workers as appropriate. */
 
 	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
-		if (STOP_FOR_PAUSE[i] != NULL) {
-			if (workers_to_pause[i] == NULL) {
-				STOP_FOR_PAUSE[i] = NULL;
-				restart_one_waiting_worker (i, RESTART_END_PAUSE);
-			}
-		} else {
-			if (workers_to_pause[i] != NULL)
-				STOP_FOR_PAUSE[i] = workers_to_pause[i];
-		}
+		p = STOP_FOR_PAUSE[i];
+		STOP_FOR_PAUSE[i] = workers_to_pause[i];
+		if (p != NULL && STOP_FOR_PAUSE[i] == NULL)
+			restart_one_waiting_worker (i, RESTART_END_PAUSE);
 	}
 
 /* If there are any pause-for-specific program entries, then we must reset */
@@ -1503,7 +1809,7 @@ void checkPauseWhileRunning (void)
 /* list.  It returns TRUE if an active process is in the pause-while-running */
 /* list. */
 
-int isInPauseList (
+void isInPauseList (
 	char	*program_name)
 {
 	struct pause_info *p;
@@ -1516,10 +1822,8 @@ int isInPauseList (
 		    strstr (buf, p->program_name) != NULL) {
 			buf[sizeof(p->matching_program)-1] = 0;
 			strcpy (p->matching_program, buf);
-			return (TRUE);
 		}
 	}
-	return (FALSE);
 }
 
 /* This routine implements a pause for one worker thread */
@@ -1529,7 +1833,6 @@ void implement_pause (
 {
 	struct pause_info *p;
 	char	buf[140];
-	int	rc;
 
 /* Lock so that read_pause_info cannot free our structure while we are accessing it */
 
@@ -1538,7 +1841,7 @@ void implement_pause (
 /* Get the pause_info struct that is causing us to pause. */
 /* Return quickly if the pause has already been cancelled. */	
 
-	p = (struct pause_info *) STOP_FOR_PAUSE[thread_num];
+	p = STOP_FOR_PAUSE[thread_num];
 	if (p == NULL) {
 		gwmutex_unlock (&PAUSE_MUTEX);
 		return;
@@ -1577,7 +1880,7 @@ void implement_pause (
 	END_PAUSE_OR_STOP_INITIALIZED[thread_num] = 1;
 	gwevent_init (&END_PAUSE_OR_STOP[thread_num]);
 	gwevent_reset (&END_PAUSE_OR_STOP[thread_num]);
-	rc = gwevent_wait (&END_PAUSE_OR_STOP[thread_num], 0);
+	gwevent_wait (&END_PAUSE_OR_STOP[thread_num], 0);
 	gwevent_destroy (&END_PAUSE_OR_STOP[thread_num]);
 	END_PAUSE_OR_STOP_INITIALIZED[thread_num] = 0;
 
@@ -1585,6 +1888,40 @@ void implement_pause (
 
 	OutputStr (thread_num, "Resuming processing.\n");
 	title (thread_num, "Resuming");
+}
+
+/* This routine checks for a forced low memory situation */
+
+int is_LowMemWhileRunning_active (
+	int	thread_num)
+{
+	struct pause_info *p;
+	char	buf[140];
+
+/* Lock so that read_pause_info cannot free our structure while we are accessing it */
+
+	gwmutex_lock (&PAUSE_MUTEX);
+
+/* Get the pause_info struct that is causing the low memory situation. */
+/* Return quickly if not in a low memory situation. */
+
+	p = STOP_FOR_LOW_MEMORY;
+	if (p == NULL) {
+		gwmutex_unlock (&PAUSE_MUTEX);
+		return (FALSE);
+	}
+
+/* Output an informative message.  If we are in a sleep time period */
+/* (a "*" PauseWhileRunning entry) then output a different message than */
+/* if we are pausing because a specific program is running. */
+
+	sprintf (buf, "Cannot use lots of memory because %s is running.\n", p->matching_program);
+	OutputStr (thread_num, buf);
+
+/* Unlock */
+
+	gwmutex_unlock (&PAUSE_MUTEX);
+	return (TRUE);
 }
 
 /**************************************************************/
@@ -1896,9 +2233,9 @@ void create_worker_windows (
 	for (tnum = 0; tnum < num_threads; tnum++) {
 		create_window (tnum);
 		if (NUM_CPUS * CPU_HYPERTHREADS > 1)
-			sprintf (buf, "Worker thread #%d", tnum+1);
+			sprintf (buf, "Worker #%d", tnum+1);
 		else
-			strcpy (buf, "Worker thread");
+			strcpy (buf, "Worker");
 		base_title (tnum, buf);
 	}
 }
@@ -2039,9 +2376,9 @@ void Launcher (void *arg)
 /* Output a starting worker threads message */
 
 	if (ld->num_threads > 1)
-		OutputStr (MAIN_THREAD_NUM, "Starting worker threads.\n");
+		OutputStr (MAIN_THREAD_NUM, "Starting workers.\n");
 	else
-		OutputStr (MAIN_THREAD_NUM, "Starting worker thread.\n");
+		OutputStr (MAIN_THREAD_NUM, "Starting worker.\n");
 
 /* Every time the user chooses Test/Continue, clear any timers that */
 /* prevents communication for a period of time.  This allows the user */
@@ -2094,10 +2431,6 @@ again:	clearThreadHandleArray ();
 /* Start timer that tells us to write save files every so often */
 
 		start_save_files_timer ();
-
-/* Start the timer that fires when memory settings change from day to night */
-
-		start_mem_changed_timer ();
 
 /* Start the timer that checks battery status */
 
@@ -2157,7 +2490,6 @@ again:	clearThreadHandleArray ();
 /* Clear timers we started earlier */
 
 		stop_save_files_timer ();
-		stop_mem_changed_timer ();
 		stop_battery_timer ();
 		stop_priority_work_timer ();
 		stop_pause_while_running_timer ();
@@ -2180,6 +2512,10 @@ again:	clearThreadHandleArray ();
 		OutputStr (MAIN_THREAD_NUM, "Restarting all worker threads using new settings.\n");
 		goto again;
 	}
+
+/* Restart all worker threads if the stop reason tells us to reread the */
+/* INI file.  Make sure we set num_threads in case the reason for the restart */
+/* is a change to NUM_WORKER_THREADS. */
 
 	if (stop_reason == STOP_REREAD_INI) {
 		OutputStr (MAIN_THREAD_NUM, "Restarting all worker threads using new timed prime.txt settings.\n");
@@ -2216,7 +2552,7 @@ void LauncherDispatch (void *arg)
 /* Change the title bar */
 
 	title (ld->thread_num, "Starting");
-	OutputStr (ld->thread_num, "Work thread starting\n");
+	OutputStr (ld->thread_num, "Worker starting\n");
 	ChangeIcon (ld->thread_num, WORKING_ICON);
 
 /* Dispatch to the correct code */
@@ -2239,7 +2575,7 @@ void LauncherDispatch (void *arg)
 /* Change the title bar and output a line to the window */
 
 	title (ld->thread_num, "Not running");
-	OutputStr (ld->thread_num, "Work thread stopped.\n");
+	OutputStr (ld->thread_num, "Worker stopped.\n");
 	ChangeIcon (ld->thread_num, IDLE_ICON);
 
 /* Set the return code and exit this worker thread */
@@ -2259,7 +2595,7 @@ int primeContinue (
 	struct PriorityInfo sp_info;
 	struct work_unit *w;
 	unsigned int pass, sequential;
-	int	stop_reason, rc;
+	int	stop_reason;
 
 /* Set the process/thread priority */
 
@@ -2284,7 +2620,7 @@ int primeContinue (
 /* change.  If a work_unit cannot be processed because of a lack of */
 /* available memory, then we will set these flags. */
 
-	clear_affected_by_mem_flags (thread_num);
+	clear_memory_restart_flags (thread_num);
 
 /* Make three passes over the worktodo.ini file looking for the ideal */
 /* piece of work to do.  In pass 1, we look for high-priority work.  This */
@@ -2315,7 +2651,6 @@ int primeContinue (
 
 /* Clear flags indicating this work_unit is using a lot of memory */
 
-		clear_max_memory_usage (thread_num);
 		set_default_memory_usage (thread_num);
 
 /* Handle a factoring assignment */
@@ -2356,9 +2691,8 @@ int primeContinue (
 			stop_reason = prp (thread_num, &sp_info, w, pass);
 		}
 
-/* Clear flags indicating this work_unit is using a lot of memory */
+/* Set us back to default memory usage */
 
-		clear_max_memory_usage (thread_num);
 		set_default_memory_usage (thread_num);
 
 /* If the work unit completed remove it from the worktodo.ini file and */
@@ -2369,24 +2703,11 @@ int primeContinue (
 			stop_reason = deleteWorkToDoLine (thread_num, w, FALSE);
 		}
 
-/* If a work unit could not be processed because there isn't enough memory,*/
-/* then set a flag so that when the memory settings change this thread will */
-/* restart from the beginning of the worktodo.ini file and hopefully process */
-/* this work unit with more available memory.  In the meantime, move on to */
-/* the next worktodo entry. */
+/* If a work unit could not be processed because there isn't enough memory, */
+/* then move on to the next worktodo entry while we wait for more memory. */
 
 		if (stop_reason == STOP_NOT_ENOUGH_MEM) {
-			set_affected_by_mem_change (thread_num);
-			stop_reason = 0;
-		}
-
-/* If a work unit would rather wait for more memory (another thread is using */
-/* a lot right now), then set a flag so that when the other thread finishes */
-/* using a lot of memory, this thread will be restarted.  In the meantime, */
-/* move on to the next worktodo entry. */
-
-		if (stop_reason == STOP_NOT_DESIRED_MEM) {
-			set_affected_by_mem_usage (thread_num);
+			OutputStr (thread_num, "Looking for work that uses less memory.\n");
 			stop_reason = 0;
 		}
 
@@ -2489,7 +2810,7 @@ check_stop_code:
 	WORK_AVAILABLE_OR_STOP_INITIALIZED[thread_num] = 1;
 	gwevent_init (&WORK_AVAILABLE_OR_STOP[thread_num]);
 	gwevent_reset (&WORK_AVAILABLE_OR_STOP[thread_num]);
-	rc = gwevent_wait (&WORK_AVAILABLE_OR_STOP[thread_num], 3600);
+	gwevent_wait (&WORK_AVAILABLE_OR_STOP[thread_num], 3600);
 	gwevent_destroy (&WORK_AVAILABLE_OR_STOP[thread_num]);
 	WORK_AVAILABLE_OR_STOP_INITIALIZED[thread_num] = 0;
 	OutputStr (thread_num, "Resuming.\n");
@@ -3907,12 +4228,9 @@ int prime (
 	    ! w->pminus1ed) {
 		stop_reason = pfactor (thread_num, sp_info, w, pass);
 		if (stop_reason) {
-			if (pass == 3 &&
-			    (stop_reason == STOP_NOT_ENOUGH_MEM ||
-			     stop_reason == STOP_NOT_DESIRED_MEM)) {
+			if (pass == 3 && stop_reason == STOP_NOT_ENOUGH_MEM)
 				stop_reason = 0;
-				set_affected_by_mem_usage (thread_num);
-			} else
+			else
 				return (stop_reason);
 		}
 	}
@@ -3963,8 +4281,7 @@ readloop:
 /* Record the amount of memory being used by this thread. */
 
 	set_memory_usage (thread_num, 0,
-			  gwmemused (&lldata.gwdata) +
-				gwnum_size (&lldata.gwdata));
+			  gwmemused (&lldata.gwdata) + gwnum_size (&lldata.gwdata));
 
 /* Read an LL save file.  On error try the backup intermediate file. */
 
@@ -6261,12 +6578,9 @@ int prp (
 	if (! w->pminus1ed) {
 		stop_reason = pfactor (thread_num, sp_info, w, pass);
 		if (stop_reason) {
-			if (pass == 3 &&
-			    (stop_reason == STOP_NOT_ENOUGH_MEM ||
-			     stop_reason == STOP_NOT_DESIRED_MEM)) {
+			if (pass == 3 && stop_reason == STOP_NOT_ENOUGH_MEM)
 				stop_reason = 0;
-				set_affected_by_mem_usage (thread_num);
-			} else
+			else
 				return (stop_reason);
 		}
 	}

@@ -1775,6 +1775,17 @@ void mQ_term (
 	gwfree (&ecmdata->gwdata, ecmdata->Q2Dxminus1);
 }
 
+/* Record the amount of memory being used by this thread.  Until we get to */
+/* stage 2, ECM uses 13 gwnums (see comments in the code). */
+
+void ecm_stage1_memory_usage (
+	int	thread_num,
+	ecmhandle *ecmdata)
+{
+	set_memory_usage (thread_num, 0,
+			  gwmemused (&ecmdata->gwdata) + 13 * gwnum_size (&ecmdata->gwdata));
+}
+
 /* Choose 4 FFT stage 2 of the 2 FFT stage 2.  Also choose a good */
 /* value for D and a good algorithm for normalize_pool. */
 /* We try to choose the above such that the number of multiplications */
@@ -1787,16 +1798,22 @@ int choose_stage2_plan (
 	uint64_t B,			/* Stage 1 bound */
 	uint64_t C)			/* Stage 2 bound */
 {
-	int	memory;			/* MB of memory we can use */
+	unsigned int memory;		/* MB of memory we can use */
 	unsigned long numvals, d, e;
 	unsigned long relprime, beste, bestnumvals;
 	double	numprimes, numpairings, numsections, numgcdsections;
 	double	cost, bestcost, density, gcd_cost;
 	char	buf[120];
+	int	stop_reason;
 
-/* Get available memory */
+/* Get available memory.  We assume 120 gwnums will allow us to do a */
+/* reasonable efficient stage 2 implementation. */
 
-replan:	memory = avail_mem (thread_num);
+replan:	stop_reason = avail_mem (thread_num, 
+				 gwmemused (&ecmdata->gwdata) + 1500000 + 20 * gwnum_size (&ecmdata->gwdata),
+				 gwmemused (&ecmdata->gwdata) + 1500000 + 120 * gwnum_size (&ecmdata->gwdata),
+				 &memory);
+	if (stop_reason) return (stop_reason);
 	if (memory < 8) memory = 8;
 
 /* Define constants for the number of transforms for various operations */
@@ -1815,28 +1832,7 @@ replan:	memory = avail_mem (thread_num);
 			(((double) ((memory-1) << 20) -
 			  (double) gwmemused (&ecmdata->gwdata)) /
 			 (double) gwnum_size (&ecmdata->gwdata));
-
-/* Check if we have enough memory available now (at least 20 temporary */
-/* variables are needed).  Also check if we are only supposed to run */
-/* stage 2 when the maximum amount memory is available. */
-
-	if (!is_max_mem_available_now () &&
-	    (numvals < 20 ||
-	     IniGetInt (INI_FILE, "OnlyRunStage2WithMaxMemory", 0))) {
-		OutputStr (thread_num, "Not enough memory available to run stage 2 now.\n");
-		OutputStr (thread_num, "Will try again at a later time.\n");
-		return (STOP_NOT_ENOUGH_MEM);
-	}
-
-/* Check if we must wait for more memory to become available.  This */
-/* happens when we reach the maximum allowable number of threads using a lot */
-/* of memory. */
-
-	if (are_threads_using_lots_of_memory (thread_num)) {
-		OutputStr (thread_num, "Other worker threads are using lots of memory now.\n");
-		OutputStr (thread_num, "Looking for work that uses less memory.\n");
-		return (STOP_NOT_DESIRED_MEM);
-	}
+	ASSERTG (numvals >= 20);
 
 /* If memory is really tight, then the 4 FFT - O(n^2) pooling is the */
 /* most memory efficient ECM implementation.  Note: D=30 (8 nQx values) */
@@ -1995,10 +1991,8 @@ replan:	memory = avail_mem (thread_num);
 /* memory settings change. */
 
 	memory = gwmemused (&ecmdata->gwdata) +
-			bestnumvals * gwnum_size (&ecmdata->gwdata);
-	if (set_memory_usage (thread_num,
-			      bestnumvals > 20 ? MEM_VARIABLE_USAGE : 0,
-			      memory))
+		 bestnumvals * gwnum_size (&ecmdata->gwdata);
+	if (set_memory_usage (thread_num, MEM_VARIABLE_USAGE, memory))
 		goto replan;
 
 /* Output a useful message regarding memory usage */
@@ -2475,13 +2469,6 @@ return 0;
 	gw_clear_fft_count (&ecmdata.gwdata);
 	first_iter_msg = TRUE;
 
-/* Record the amount of memory being used by this thread.  Until we get to */
-/* stage 2, ECM uses 13 gwnums (see comments in the code). */
-
-	set_memory_usage (thread_num, 0,
-			  gwmemused (&ecmdata.gwdata) +
-				13 * gwnum_size (&ecmdata.gwdata));
-
 /* Compute the number we are factoring */
 
 	stop_reason = setN (&ecmdata.gwdata, thread_num, w, &N);
@@ -2634,6 +2621,7 @@ OutputStr (thread_num, buf);
 /* Loop processing the requested number of ECM curves */
 
 restart0:
+	ecm_stage1_memory_usage (thread_num, &ecmdata);
 	last_output = ecmdata.modinv_count = 0;
 	gw_clear_fft_count (&ecmdata.gwdata);
 
@@ -2666,6 +2654,7 @@ restart0:
 /* The stage 1 restart point */
 
 restart1:
+	ecm_stage1_memory_usage (thread_num, &ecmdata);
 	stage = 1;
 	one_over_B = 1.0 / (double) B;
 	sprintf (w->stage, "C%ldS1", curve);
@@ -3199,6 +3188,7 @@ restart3:
 /* See if we got lucky! */
 
 restart4:
+	ecm_stage1_memory_usage (thread_num, &ecmdata);
 	sprintf (w->stage, "C%ldS2", curve);
 	w->pct_complete = 1.0;
 	start_timer (timers, 0);
@@ -3973,23 +3963,48 @@ error:
 /* the value using either the maximum available memory or the currently */
 /* available memory. */
 
-unsigned long choose_pminus1_numvals (
+int choose_pminus1_numvals (
 	pm1handle *pm1data,
-	int	use_max_mem)		/* True if calculation should use */
+	int	use_max_mem,		/* True if calculation should use */
 					/* maximum available memory */
+	unsigned long *numvals)		/* Returned number of values we */
+					/* can allocate. */
 {
-	unsigned long memory;		/* Available memory in MB */
+	unsigned int memory;		/* Available memory in MB */
 	double	temp, size;
+	int	stop_reason;
 
 /* Override numvals when QAing */
 
-	if (QA_TYPE) return (QA_TYPE);
+	if (QA_TYPE) {
+		*numvals = QA_TYPE;
+		return (0);
+	}
 
-/* Default is to use up to 24MB of memory with a minimum of 8MB */
+/* We assume that 13 temporaries will provide us with a reasonable */
+/* execution speed.  We must have a minimum of 5 temporaries. */
 
-	memory = use_max_mem ? max_mem () :
-		 (unsigned long) (pm1data->pct_mem_to_use * (double) avail_mem (pm1data->thread_num));
-	if (memory == 0) memory = 24;
+	if (use_max_mem)
+		memory =  max_mem ();
+	else {
+		unsigned int min_memory, desired_memory;
+
+		min_memory = desired_memory = gwmemused (&pm1data->gwdata) + 1500000;
+		min_memory += 5 * gwnum_size (&pm1data->gwdata);
+		desired_memory += 13 * gwnum_size (&pm1data->gwdata);
+		stop_reason = avail_mem (pm1data->thread_num, min_memory,
+					 desired_memory, &memory);
+		if (stop_reason) return (stop_reason);
+
+/* Factor in the multiplier that we set to less than 1.0 when we get unexpected */
+/* memory allocation errors.  Make sure we can still allocate 5 temporaries. */
+
+		memory = (unsigned int) (pm1data->pct_mem_to_use * (double) memory);
+		min_memory = (min_memory >> 20) + 1;	/* Switch to MB */
+		if (memory < min_memory)
+			return (avail_mem_not_sufficient (pm1data->thread_num, min_memory,
+							  (desired_memory >> 20) + 1));
+	}
 	if (memory < 8) memory = 8;
 
 /* Output a message telling us how much memory is available */
@@ -4003,11 +4018,11 @@ unsigned long choose_pminus1_numvals (
 /* Compute the number of gwnum temporaries available.  Allow 1MB for code */
 /* and data structures. */
 
-	temp = (double) ((memory-1) << 20) -
-		(double) gwmemused (&pm1data->gwdata);
+	temp = (double) ((memory-1) << 20) - (double) gwmemused (&pm1data->gwdata);
 	size = (double) gwnum_size (&pm1data->gwdata);
 	if (temp <= size) return (1);
-	return ((unsigned long) (temp / size));
+	*numvals = (unsigned long) (temp / size);
+	return (0);
 }
 
 /* Calculate the number of values relatively prime to D.  D is a multiple */
@@ -4104,29 +4119,32 @@ double cost_pminus1_plan (
 /* Choose the best values for D and E.  One that reduces the number of */
 /* multiplications, yet doesn't use too much memory. */
 
-void choose_pminus1_plan (
+int choose_pminus1_plan (
 	pm1handle *pm1data,
 	struct work_unit *w)
 {
 	uint64_t B, C;
 	unsigned long numvals, d, e, i;
 	double	cost, best_cost;
+	int	stop_reason;
+
+/* Clear D and E in case we don't find any acceptable plan */
+
+	pm1data->D = 0;
+	pm1data->E = 0;
 
 /* Handle case where there is no stage 2 */
 
 	B = pm1data->C_start;		/* Stage 2 starting point */
 	C = pm1data->C;			/* Stage 2 ending point */
-	if (C <= B) {
-		pm1data->D = 0;
-		pm1data->E = 0;
-		return;
-	}
+	if (C <= B) return (0);
 
 /* Calculate the number of temporaries we can use for nQx and eQx and t3. */
 /* Base our decision on the maximum amount of memory available.  Also, */
 /* the main loop uses one temp for gg, so subtract one from numvals. */
 
-	numvals = choose_pminus1_numvals (pm1data, 1);
+	stop_reason = choose_pminus1_numvals (pm1data, 1, &numvals);
+	if (stop_reason) return (stop_reason);
 	numvals--;
 
 /* Try various values of D until we find the best one */
@@ -4177,23 +4195,26 @@ void choose_pminus1_plan (
 		else if (d > 210) d = d - 210;
 		else d = d - 30;
 	}
+
+/* Return no error code */
+
+	return (0);
 }
 
 /* Choose the best implementation of the pminus1 plan given the current */
 /* memory settings.  We may decide to wait for more memory to be available. */
 /* We may choose to use the t3 temporary variable. */
 
-void choose_pminus1_implementation (
+int choose_pminus1_implementation (
 	pm1handle *pm1data,
 	struct work_unit *w,
-	int	*do_later,		/* 0 = do now, 1 = not enough memory */
-					/* 2 = prefer to wait for more mem */
 	int	*using_t3_result)	/* Should we use a temporary for t3 */
 {
 	uint64_t B, C;
 	unsigned long numvals;
 	int	using_t3;
 	double	cost, best_cost;
+	int	stop_reason, do_later;
 
 /* Copy some pm1data variables for easier access */
 
@@ -4204,31 +4225,13 @@ void choose_pminus1_implementation (
 
 	pm1data->numrels = calc_numrels (pm1data->D);
 
-/* Assume we won't be able to do this pass now */
-
-	*do_later = 1;
-
-/* Check if we are only supposed to run stage 2 when the maximum amount */
-/* memory is available */
-
-	if (IniGetInt (INI_FILE, "OnlyRunStage2WithMaxMemory", 0) &&
-	    !is_max_mem_available_now ())
-		return;
-
-/* Check if we must wait for more memory to become available.  This */
-/* happens when we reach the maximum allowable number of threads using a lot */
-/* of memory. */
-
-	if (are_threads_using_lots_of_memory (pm1data->thread_num)) {
-		*do_later = 2;
-		return;
-	}
-
 /* Calculate the number of temporaries we can use for nQx and eQx and t3. */
 /* Base our decision on the maximum amount of memory available.  Also, */
 /* the main loop uses one temp for gg, so subtract one from numvals. */
 
-	numvals = choose_pminus1_numvals (pm1data, 0);
+	stop_reason = choose_pminus1_numvals (pm1data, 0, &numvals);
+	if (stop_reason) return (stop_reason);
+	ASSERTG (numvals >= 5);
 	numvals--;
 
 /* If not much memory is available right now, try shrinking E so that */
@@ -4255,7 +4258,7 @@ void choose_pminus1_implementation (
 
 		if (cost < best_cost) {
 			best_cost = cost;
-			*do_later = 0;
+			do_later = 0;
 			*using_t3_result = using_t3;
 			pm1data->rels_this_pass =
 				numvals - (pm1data->E+1) - using_t3;
@@ -4266,6 +4269,7 @@ void choose_pminus1_implementation (
 
 	if (pm1data->rels_this_pass > pm1data->numrels - pm1data->rels_done)
 		pm1data->rels_this_pass = pm1data->numrels - pm1data->rels_done;
+	return (0);
 }
 
 /* Formula to convert a prime into its corresponding bit in the bitarray */
@@ -4469,6 +4473,7 @@ int pminus1 (
 	uint64_t B;		/* Stage 1 bound */
 	uint64_t C_start;	/* Stage 2 starting point (usually B) */
 	uint64_t C;		/* Stage 2 ending point */
+	uint64_t processed;	/* Data read from save file */
 	giant	N;		/* Number being factored */
 	giant	factor;		/* Factor found, if any */
 	giant	exp;
@@ -4479,21 +4484,21 @@ int pminus1 (
 	unsigned long error_recovery_mode = 0;
 	gwnum	x, gg, t3;
 	char	filename[32], buf[255], testnum[100];
+	int	have_save_file;
 	int	res, stop_reason, stage, saving, near_fft_limit, echk;
 	double	one_over_len, one_over_B, one_pair_pct;
 	double	base_pct_complete, last_output, last_output_r;
 	int	first_iter_msg;
 	int	using_t3;	/* Indicates we are using the gwnum t3 */
 				/* to avoid a gwfftadd3 in stage 2 */
-	int	do_later;	/* Set if low available memory suggests */
-				/* we'd be better off waiting for nighttime */
 	int	msglen;
 	char	*str, *msg;
 	double	timers[2];
+	double	pct_mem_to_use;
 
 /* Unless we get memory errors, use as much memory as we can */
 
-	pm1data.pct_mem_to_use = 1.0;
+	pct_mem_to_use = 1.0;
 
 /* Clear pointers to allocated memory (so common error exit code knows */
 /* what to free) */
@@ -4566,6 +4571,7 @@ restart:
 
 	memset (&pm1data, 0, sizeof (pm1handle));
 	pm1data.thread_num = thread_num;
+	pm1data.pct_mem_to_use = pct_mem_to_use;
 
 /* Setup the assembly code */
 
@@ -4611,23 +4617,23 @@ restart:
 	stop_reason = setN (&pm1data.gwdata, thread_num, w, &N);
 	if (stop_reason) goto exit;
 
+/* Check for a save file and read the save file.  If there is an error */
+/* reading the file then restart the P-1 factoring job from scratch. */
+
+	have_save_file = (fileExists (filename) &&
+			  pm1_restore (&pm1data, filename, w, &processed, &x, &gg));
+
 /* Record the amount of memory being used by this thread.  Until we get to */
 /* stage 2, P-1 uses as much memory as an LL test. */
 
-	set_memory_usage (thread_num, 0,
-			  gwmemused (&pm1data.gwdata) +
-				gwnum_size (&pm1data.gwdata));
+	if (!have_save_file || pm1data.stage != PM1_STAGE2 || C <= pm1data.C_done)
+		set_memory_usage (thread_num, 0,
+				  gwmemused (&pm1data.gwdata) +
+					gwnum_size (&pm1data.gwdata));
 
-/* Check for a continuation file */
+/* Jump to the proper continuation point if processing a save file */
 
-	if (fileExists (filename)) {
-		uint64_t processed;
-
-/* Read in the save file.  If there was an error reading the file then */
-/* restart the P-1 factoring job from scratch. */
-
-		if (! pm1_restore (&pm1data, filename, w, &processed, &x, &gg))
-			goto from_scratch;
+	if (have_save_file) {
 
 /* Handle stage 0 save files.  If the B values do not match, then use */
 /* the bound given in the save file -- this may well result in an */
@@ -4669,6 +4675,11 @@ restart:
 /* Handle stage 2 save files */
 
 		if (pm1data.stage == PM1_STAGE2) {
+
+/* Clear flag indicating we need to restart if the maximum amount of */
+/* memory changes.  We cannot change P-1 bounds after we've picked our plan */
+
+			clear_restart_if_max_memory_change (thread_num);
 
 /* If B is larger than the one in the save file, then go back and */
 /* do some more stage 1 processing.  Since this is very upsetting to */
@@ -4734,7 +4745,6 @@ restart:
 
 /* Start this P-1 run from scratch starting with x = 3 */
 
-from_scratch:
 	bit_number = 0;
 	x = gwalloc (&pm1data.gwdata);
 	if (x == NULL) goto oom;
@@ -5110,7 +5120,11 @@ restart3a:
 
 more_C:	pm1data.C_start = (C_start > pm1data.C_done) ? C_start : pm1data.C_done;
 	pm1data.C = C;
-	choose_pminus1_plan (&pm1data, w);
+	stop_reason = choose_pminus1_plan (&pm1data, w);
+	if (stop_reason) {
+		pm1_save (&pm1data, filename, w, 0, x, gg);
+		goto exit;
+	}
 	if (pm1data.D == 0) { /* We'll never have enough memory for stage 2 */
 		OutputStr (thread_num, "Insufficient memory to ever run stage 2.\n");
 		C = pm1data.B_done;
@@ -5122,6 +5136,11 @@ more_C:	pm1data.C_start = (C_start > pm1data.C_done) ? C_start : pm1data.C_done;
 		goto exit;
 	}
 	pm1data.rels_done = 0;
+
+/* Clear flag indicating we need to restart if the maximum amount of */
+/* memory changes.  We cannot change P-1 bounds after we've picked our plan */
+
+	clear_restart_if_max_memory_change (thread_num);
 
 /* Restart here when in the middle of pass stage 2 or */
 /* Move to the next pass of a multi-pass stage 2 run */
@@ -5141,18 +5160,9 @@ restart3b:
 /* This implementation could be anything from "wait until we have more */
 /* memory" to deciding whether using_t3 should be set. */
 
-replan:	choose_pminus1_implementation (&pm1data, w, &do_later, &using_t3);
-	if (do_later) {
+replan:	stop_reason = choose_pminus1_implementation (&pm1data, w, &using_t3);
+	if (stop_reason) {
 		pm1_save (&pm1data, filename, w, 0, x, gg);
-		if (do_later == 1) {
-			OutputStr (thread_num, "Not enough memory available to run stage 2 now.\n");
-			OutputStr (thread_num, "Will try again at a later time.\n");
-			stop_reason = STOP_NOT_ENOUGH_MEM;
-		} else {
-			OutputStr (thread_num, "Other worker threads are using lots of memory now.\n");
-			OutputStr (thread_num, "Looking for work that uses less memory.\n");
-			stop_reason = STOP_NOT_DESIRED_MEM;
-		}
 		goto exit;
 	}
 
@@ -5576,7 +5586,7 @@ lowmem:	fd_term (&pm1data);
 	free (N);
 	N = NULL;
 	OutputBoth (thread_num, "Memory allocation error.  Trying again using less memory.\n");
-	pm1data.pct_mem_to_use *= 0.8;
+	pct_mem_to_use *= 0.8;
 	goto restart;
 
 /* We've run out of memory.  Print error message and exit. */
@@ -6148,6 +6158,12 @@ int pfactor (
 	}
 #endif
 
+/* Set flag indicating we need to restart if the maximum amount of */
+/* memory changes (as opposed to the currently available memory!) */
+/* If maximum memory changes we want to recompute the P-1 bounds. */
+
+	set_restart_if_max_memory_change (thread_num);
+
 /* Output a message that P-1 factoring is about to begin */
 
 	gw_as_string (testnum, w->k, w->b, w->n, w->c);
@@ -6187,12 +6203,6 @@ int pfactor (
 	sprintf (buf, "Chance of finding a factor is an estimated %.3g%%\n",
 		 prob * 100.0);
 	OutputStr (thread_num, buf);
-
-/* Set flag indicating we need to restart if the maximum amount of */
-/* memory changes (as opposed to the currently available memory!) */
-/* If maximum memory changes we want to recompute the P-1 bounds. */
-
-	set_max_memory_usage (thread_num);
 
 /* Call the P-1 factoring code */
 
