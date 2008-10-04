@@ -5580,6 +5580,7 @@ retry:
 	    num_work_units = 0;
 	    est = 0.0;
 	    for (w = NULL; ; ) {
+		int	registered_assignment;
 
 /* Read the line of the work file */
 
@@ -5619,6 +5620,7 @@ retry:
 
 /* Register assignments that were not issued by the server */
 
+		registered_assignment = FALSE;
 		if (!w->assignment_uid[0] && !w->ra_failed) {
 			struct primenetRegisterAssignment pkt;
 			memset (&pkt, 0, sizeof (pkt));
@@ -5659,18 +5661,20 @@ retry:
 				goto error_exit;
 			}
 			talked_to_server = TRUE;
-			if (rc == 0)
-				strcpy (w->assignment_uid, pkt.assignment_uid);
-			else
+			if (rc)
 				w->ra_failed = TRUE;
+			else {
+				strcpy (w->assignment_uid, pkt.assignment_uid);
+				registered_assignment = TRUE;
+			}
 			updateWorkToDoLine (tnum, w);
 		}
 
 /* Update the server on the work unit's projected completion date */
 /* If we get an invalid assignment key, then the user probably unreserved */
-/* the exponent using the web forms - delete it our work to do file. */
+/* the exponent using the web forms - delete it from our work to do file. */
 
-		if (header_words[1] & HEADER_FLAG_END_DATES &&
+		if ((header_words[1] & HEADER_FLAG_END_DATES || registered_assignment) &&
 		    w->assignment_uid[0]) {
 			struct primenetAssignmentProgress pkt2;
 			memset (&pkt2, 0, sizeof (pkt2));
