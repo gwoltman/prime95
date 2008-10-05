@@ -795,13 +795,13 @@ void options_cpu (void)
 	char buf[512];
 
 	m_memory_editable =
-		read_memory_settings (&m_day_memory, &m_night_memory,
+		read_memory_settings (&day_memory, &night_memory,
 				      &day_start_time, &day_end_time);
 again:	m_hours = CPU_HOURS;
-	m_day_memory = DAY_MEMORY;
-	m_night_memory = NIGHT_MEMORY;
-	minutesToStr (DAY_START_TIME, m_start_time);
-	minutesToStr (DAY_END_TIME, m_end_time);
+	m_day_memory = day_memory;
+	m_night_memory = night_memory;
+	minutesToStr (day_start_time, m_start_time);
+	minutesToStr (day_end_time, m_end_time);
 
 	askNum ("Hours per day this program will run", &m_hours, 1, 24);
 

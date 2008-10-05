@@ -19,7 +19,8 @@ EXE      = mprime
 #########################################################################
 
 $(EXE): security $(LINUXOBJS) $(FACTOROBJ)
-	$(ENVP) $(CC) $(LFLAGS) -o $(EXE) $(LINUXOBJS) $(FACTOROBJ) $(LIBS)
+	ar -x ../gwnum/gwnum.a multutil.o
+	$(ENVP) $(CC) $(LFLAGS) -o $(EXE) $(LINUXOBJS) $(FACTOROBJ) multutil.o $(LIBS)
 
 security:
 	[ ! -e ../security.h ] && touch ../security.h || true
