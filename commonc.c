@@ -1247,8 +1247,8 @@ void parse_timed_ini_value (
 
 		during_clause = strstr (rest_of_line, " during ");
 		if (during_clause == NULL) {
-			*start_offset = (rest_of_line - line);
-			*len = strlen (rest_of_line);
+			*start_offset = (unsigned int) (rest_of_line - line);
+			*len = (unsigned int) strlen (rest_of_line);
 			*seconds_valid = min_wakeup_time;
 			break;
 		}
@@ -1257,8 +1257,8 @@ void parse_timed_ini_value (
 /* within this timed section. */
 
 		if (analyzeTimeLine (during_clause+8, current_time, &wakeup_time)) {
-			*start_offset = (rest_of_line - line);
-			*len = (during_clause - rest_of_line);
+			*start_offset = (unsigned int) (rest_of_line - line);
+			*len = (unsigned int) (during_clause - rest_of_line);
 			*seconds_valid = wakeup_time;
 			break;
 		}
@@ -1296,7 +1296,7 @@ void truncated_strcpy (
 	unsigned int bufsize,
 	const char *val)
 {
-	truncated_strcpy_with_len (buf, bufsize, val, strlen (val));
+	truncated_strcpy_with_len (buf, bufsize, val, (unsigned int) strlen (val));
 }
 
 /* Get a keyword's value from a specific section of the INI file. */
