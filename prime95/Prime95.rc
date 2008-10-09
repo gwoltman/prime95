@@ -90,7 +90,7 @@ BEGIN
     END
     POPUP "&Edit"
     BEGIN
-        MENUITEM "&Copy...",                    ID_EDIT_COPY
+        MENUITEM "&Copy Window",                ID_EDIT_COPY
     END
     POPUP "&Advanced"
     BEGIN
@@ -154,7 +154,7 @@ BEGIN
     END
     POPUP "&Edit"
     BEGIN
-        MENUITEM "&Copy...",                    ID_EDIT_COPY
+        MENUITEM "&Copy Window",                ID_EDIT_COPY
     END
     POPUP "&Advanced"
     BEGIN
