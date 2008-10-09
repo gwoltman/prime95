@@ -848,7 +848,7 @@ again:	m_hours = CPU_HOURS;
 
 		if (!IniGetInt (INI_FILE, "AskedAboutMemory", 0)) {
 			IniWriteInt (INI_FILE, "AskedAboutMemory", 1);
-			if (day_memory == 8 && night_memory == 8) {
+			if (m_day_memory == 8 && m_night_memory == 8) {
 				outputLongLine (MSG_MEMORY);
 				if (askYesNo ('Y')) goto again;
 			}

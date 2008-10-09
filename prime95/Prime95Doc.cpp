@@ -780,7 +780,7 @@ again:	if (dlg.DoModal () == IDOK) {
 
 		if (!IniGetInt (INI_FILE, "AskedAboutMemory", 0)) {
 			IniWriteInt (INI_FILE, "AskedAboutMemory", 1);
-			if (day_memory == 8 && night_memory == 8 &&
+			if (dlg.m_day_memory == 8 && dlg.m_night_memory == 8 &&
 			    AfxMessageBox (MSG_MEMORY, MB_YESNO | MB_ICONQUESTION) == IDYES)
 				goto again;
 		}
