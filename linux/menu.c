@@ -863,7 +863,7 @@ void options_preferences (void)
 {
 	unsigned long m_iter, m_r_iter, m_disk_write_time;
 	unsigned long m_modem, m_retry, m_work, m_end_dates;
-	int	m_backup, m_noise;
+	int	m_backup, m_noise, m_battery;
 
 	m_iter = ITER_OUTPUT;
 	m_r_iter = ITER_OUTPUT_RES;
@@ -874,6 +874,7 @@ void options_preferences (void)
 	m_end_dates = DAYS_BETWEEN_CHECKINS;
 	m_backup = TWO_BACKUP_FILES;
 	m_noise = !SILENT_VICTORY;
+	m_battery = RUN_ON_BATTERY;
 
 	askNum ("Iterations between screen outputs", &m_iter, 1, 999999999);
 	askNum ("Iterations between results file outputs",
@@ -889,6 +890,7 @@ void options_preferences (void)
 		askNum ("Days between sending end dates", &m_end_dates, 1, 60);
 	askYN ("Create Two Backup Files", &m_backup);
 	askYN ("Make noise if new Mersenne prime is found", &m_noise);
+	askYN ("Run program even when using laptop battery power", &m_battery);
 
 	if (askOkCancel ()) {
 		ITER_OUTPUT = m_iter;
@@ -900,6 +902,11 @@ void options_preferences (void)
 		DAYS_BETWEEN_CHECKINS = m_end_dates;
 		TWO_BACKUP_FILES = m_backup;
 		SILENT_VICTORY = !m_noise;
+		if (RUN_ON_BATTERY != m_battery) {
+			RUN_ON_BATTERY = m_battery;
+			IniWriteInt (LOCALINI_FILE, "RunOnBattery", RUN_ON_BATTERY);
+			run_on_battery_changed ();
+		}
 		IniWriteInt (INI_FILE, "OutputIterations", ITER_OUTPUT);
 		IniWriteInt (INI_FILE, "ResultsFileIterations", ITER_OUTPUT_RES);
 		IniWriteInt (INI_FILE, "DiskWriteTime", DISK_WRITE_TIME);
