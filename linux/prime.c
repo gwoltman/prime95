@@ -573,6 +573,24 @@ int OnBattery (void)
 
 	return(!acstat);
 #endif
+#ifdef __linux__
+	FILE	*fd;
+	char	buf[180];
+	int	ac_state;
+
+	ac_state = -1;
+	fd = fopen ("/proc/acpi/battery/BAT0/state", "r");
+	if (fd != NULL) {
+		for ( ; ; ) {
+			if (fscanf (fd, "%s", buf) == EOF) break;
+			if (strstr (buf, "charged") == 0) ac_state = 1;
+			if (strstr (buf, "charging") == 0) ac_state = 1;
+			if (strstr (buf, "discharging") == 0) ac_state = 0;
+		}
+		fclose (fd);
+	}
+	return (ac_state == 0);
+#endif
 }
 
 /* The current implementation comes courtesy of Tim Wood and Dennis Gregorovic */
