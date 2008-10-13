@@ -32,8 +32,8 @@ void * aligned_offset_malloc (
 	q = (char *) (((uint64_t) p + sizeof (void *) + mod + alignment - 1) & ~(alignment - 1)) - mod;
 	* (void **) ((char *) q - sizeof (void *)) = p;
 	return (q);
-// The Microsoft routine below seems to be broken.  When we allocate massive
-// amounts of memory this routine returns NULL prematurely.
+// For compatibility with 32-bit versions of the program, I've elected to use
+// my own implementation rather than the Microsoft routine below.
 //	return (_aligned_offset_malloc (size, alignment, mod));
 #else
 	char	*p, *q;
@@ -51,8 +51,8 @@ void * aligned_malloc (
 {
 #ifdef _WIN64
 	return (aligned_offset_malloc (size, alignment, 0));
-// The Microsoft routine below seems to be broken.  When we allocate massive
-// amounts of memory this routine returns NULL prematurely.
+// For compatibility with 32-bit versions of the program, I've elected to use
+// my own implementation rather than the Microsoft routine below.
 //	return (_aligned_malloc (size, alignment));
 #else
 	return (aligned_offset_malloc (size, alignment, 0));
@@ -65,8 +65,8 @@ void aligned_free (
 #ifdef _WIN64
 	if (ptr == NULL) return;
 	free (* (void **) ((char *) ptr - sizeof (void *)));
-// The Microsoft routine below seems to be broken.  When we allocate massive
-// amounts of memory this routine returns NULL prematurely.
+// For compatibility with 32-bit versions of the program, I've elected to use
+// my own implementation rather than the Microsoft routine below.
 //	_aligned_free (ptr);
 #else
 	if (ptr == NULL) return;
