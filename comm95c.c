@@ -1,7 +1,6 @@
 /*
  * Common routines and variables used by Prime95 and NTPrime
  *
- * Comm95a contains information used only during setup
  * Comm95b contains information used only during execution
  * Comm95c contains information used during setup and execution
  */ 
@@ -440,5 +439,25 @@ int getDefaultTimeFormat (void)
 	GetLocaleInfo (
 		LOCALE_USER_DEFAULT, LOCALE_ITIME, (LPTSTR) buf, sizeof (buf));
 	return (buf[0] == '0' ? 1 : 2);
+}
+
+/* Return TRUE if we are on battery power. */
+
+int OnBattery (void)
+{
+	SYSTEM_POWER_STATUS power;
+
+// We might be able to optimize this by caching the system power status
+// and only regetting it after a PBT_APMPOWERSTATUSCHANGE message.
+
+	if (GetSystemPowerStatus (&power) &&
+	    (power.ACLineStatus != 1 ||
+	     (power.ACLineStatus == 1 &&
+	      power.BatteryLifePercent < BATTERY_PERCENT)))
+		return (TRUE);
+
+// Return FALSE, were on AC power */
+
+	return (FALSE);
 }
 
