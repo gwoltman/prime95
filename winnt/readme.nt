@@ -5,11 +5,11 @@ must first GET PERMISSION from your network administrator or boss.
 Some companies are reluctant to run any software they are not familiar with.
 Failing to get permission is often grounds for dismissal.
 
-This NT Service version is only for advanced Windows NT/2000/XP users.
-The normal client, prime95.exe, can run as a GUI NT service simply by
-selecting the Options/Start at Bootup option.   This service version
-is provided for those administrators wary of allowing a GUI based service
-run in the Local System account.
+This NT Service version is only for advanced Windows NT/2000/XP/Vista users.
+The normal client, prime95.exe, can run as a GUI NT service on
+pre-Vista clients simply by selecting the Options/Start at Bootup option.
+This service version is provided for those administrators wary of allowing a
+GUI based service run in the Local System account.
 
 INSTRUCTIONS
 ------------
@@ -78,9 +78,6 @@ directory and follow all the instructions above, except that before
 running "ntprime -install" you first add the lines
 "ServiceName=NTPrimeService2" and
 "DisplayName=Prime Service 2" to the prime.ini file.
-
-You can have ntprime contact the PrimeNet server in a batch file.  Execute
-"ntprime -c" to have ntprime contact the server and then exit.
 
 A line is written to the results file every time the service is stopped
 so that you can monitor the program's progress.
