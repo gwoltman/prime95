@@ -59,7 +59,7 @@ New features in Version 25.5 of mprime
 13) The torture test dialog box lets you choose how many CPUs or cores you
     want to torture test.
 14) The benchmark times both single-threaded and multi-threaded FFTs.
-
+15) The -B command line argument is no longer supported.
 
 New features in Version 24.15 of mprime
 ---------------------------------------
