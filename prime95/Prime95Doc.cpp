@@ -1185,26 +1185,6 @@ void PostLaunchCallback (
 {
 }
 
-/* Return TRUE if we are on battery power. */
-
-int OnBattery (void)
-{
-	SYSTEM_POWER_STATUS power;
-
-// We might be able to optimize this by caching the system power status
-// and only regetting it after a PBT_APMPOWERSTATUSCHANGE message.
-
-	if (GetSystemPowerStatus (&power) &&
-	    (power.ACLineStatus != 1 ||
-	     (power.ACLineStatus == 1 &&
-	      power.BatteryLifePercent < BATTERY_PERCENT)))
-		return (TRUE);
-
-// Return FALSE, were on AC power */
-
-	return (FALSE);
-}
-
 /* OSes that must poll for whether the ESC key was hit do it here. */
 /* We use this opportunity to perform other miscellaneous tasks that */
 /* can't be done any other way. */
