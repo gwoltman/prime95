@@ -94,6 +94,7 @@
 				GenerateMapFile="true"
 				MapFileName=".\Release/prime95.map"
 				SubSystem="2"
+				LargeAddressAware="2"
 				EntryPointSymbol="MyWinMainCRTStartup"
 				TargetMachine="1"
 			/>
@@ -195,7 +196,7 @@
 				GenerateMapFile="true"
 				MapFileName=".\x64\Release/prime95.map"
 				SubSystem="2"
-				LargeAddressAware="1"
+				LargeAddressAware="2"
 				EntryPointSymbol="MyWinMainCRTStartup"
 				TargetMachine="17"
 			/>
@@ -297,6 +298,7 @@
 				GenerateMapFile="false"
 				MapFileName=".\debug\prime95.map"
 				SubSystem="2"
+				LargeAddressAware="2"
 				EntryPointSymbol="MyWinMainCRTStartup"
 				TargetMachine="1"
 			/>
@@ -399,7 +401,7 @@
 				GenerateMapFile="true"
 				MapFileName=".\x64\debug\prime95.map"
 				SubSystem="2"
-				LargeAddressAware="1"
+				LargeAddressAware="2"
 				EntryPointSymbol="MyWinMainCRTStartup"
 				TargetMachine="17"
 			/>
