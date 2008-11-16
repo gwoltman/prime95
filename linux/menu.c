@@ -65,7 +65,7 @@ loop:	get_line (buf);
 	newval = atol (buf);
 	if (min || max) {
 		if (newval < min || newval > max) {
-			printf ("Please enter a value between %ld and %ld. ",
+			printf ("Please enter a value between %ld and %ld: ",
 				min, max);
 			goto loop;
 		}
@@ -805,7 +805,7 @@ again:	m_hours = CPU_HOURS;
 
 	askNum ("Hours per day this program will run", &m_hours, 1, 24);
 
-	printf ("\nPlease see the readme.txt file for very important\n");
+	printf ("\nPlease see the readme.txt file for important\n");
 	printf ("information on the available memory settings.\n\n");
 
 	if (m_memory_editable) {
@@ -813,8 +813,10 @@ again:	m_hours = CPU_HOURS;
 		if (max_mem < 8) max_mem = 8;
 		askNum ("Daytime available memory in MB", &m_day_memory, 8, max_mem);
 		askNum ("Nighttime available memory in MB", &m_night_memory, 8, max_mem);
-		askStr ("Daytime begins at", (char *) &m_start_time, 12);
-		askStr ("Daytime ends at", (char *) &m_end_time, 12);
+		if (m_day_memory != m_night_memory) {
+			askStr ("Daytime begins at", (char *) &m_start_time, 12);
+			askStr ("Daytime ends at", (char *) &m_end_time, 12);
+		}
 	}
 
 	getCpuDescription (buf, 0);
