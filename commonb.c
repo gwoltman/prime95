@@ -244,7 +244,7 @@ void SetPriority (
 /* A CPU_AFFINITY setting of 100 means "smart affinity assignments". */
 /* We've now reached that case. */
 
-/* If all worker threadts are not set to smart affinity, then it is */
+/* If all worker threads are not set to smart affinity, then it is */
 /* just too hard to figure out what is best.  Just let the OS run the */
 /* threads on any CPU. */
 
@@ -263,12 +263,12 @@ void SetPriority (
 
 /* If number of worker threads equals number of physical cpus then run each */
 /* worker thread on its own physical CPU.  Run auxillary threads on the same */
-/* physical CPU.  This should be advantageous on hyperthreaded CPUs.  The */
+/* physical CPU.  This should be advantageous on hyperthreaded CPUs.  We */
 /* should be careful to not run more auxillary threads than available */
 /* logical CPUs created by hyperthreading. */ 
 
 	else if (NUM_WORKER_THREADS == NUM_CPUS) {
-		mask = 1 << (info->thread_num / CPU_HYPERTHREADS);
+		mask = 1 << info->thread_num;
 		for (i = 1; i < CPU_HYPERTHREADS; i++)
 			mask |= (mask << NUM_CPUS);
 	}
