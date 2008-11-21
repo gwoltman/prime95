@@ -904,23 +904,23 @@ int format_args (char* args, short operation, void* pkt)
 		sprintf (p, "&c=%d&w=%d", z->cpu_num, z->work_type);
 		p = p + strlen (p);
 		if (z->work_type == PRIMENET_WORK_TYPE_FACTOR) {
-			sprintf (p, "&n=%d&sf=%g",
+			sprintf (p, "&n=%d&sf=%f",
 				 z->n, z->how_far_factored);
 			p = p + strlen (p);
 			if (z->factor_to != 0.0) {
-				sprintf (p, "&ef=%g", z->factor_to);
+				sprintf (p, "&ef=%f", z->factor_to);
 				p = p + strlen (p);
 			}
 		}
 		if (z->work_type == PRIMENET_WORK_TYPE_PFACTOR) {
-			sprintf (p, "&A=%.0f&b=%d&n=%d&C=%d&sf=%g&saved=%g",
+			sprintf (p, "&A=%.0f&b=%d&n=%d&C=%d&sf=%f&saved=%f",
 				 z->k, z->b, z->n, z->c, z->how_far_factored,
 				 z->tests_saved);
 			p = p + strlen (p);
 		}
 		if (z->work_type == PRIMENET_WORK_TYPE_FIRST_LL ||
 		    z->work_type == PRIMENET_WORK_TYPE_DBLCHK) {
-			sprintf (p, "&n=%d&sf=%g&p1=%d",
+			sprintf (p, "&n=%d&sf=%f&p1=%d",
 				 z->n, z->how_far_factored,
 				 z->has_been_pminus1ed);
 			p = p + strlen (p);
@@ -946,7 +946,7 @@ int format_args (char* args, short operation, void* pkt)
 			p = p + strlen (p);
 		}
 		if (z->work_type == PRIMENET_WORK_TYPE_PRP) {
-			sprintf (p, "&A=%.0f&b=%d&n=%d&C=%d&sf=%g&saved=%g",
+			sprintf (p, "&A=%.0f&b=%d&n=%d&C=%d&sf=%f&saved=%f",
 				 z->k, z->b, z->n, z->c, z->how_far_factored,
 				 z->tests_saved);
 			p = p + strlen (p);
@@ -1025,7 +1025,7 @@ int format_args (char* args, short operation, void* pkt)
 			p = armor (p + strlen (p), z->error_count);
 		}
 		if (z->result_type == PRIMENET_AR_TF_FACTOR) {
-			sprintf (p, "&n=%d&sf=%g", z->n, z->start_bits);
+			sprintf (p, "&n=%d&sf=%f", z->n, z->start_bits);
 			p += strlen (p);
 			strcpy (p, "&f=");
 			p = armor (p + strlen (p), z->factor);
@@ -1054,7 +1054,7 @@ int format_args (char* args, short operation, void* pkt)
 		}
 
 		if (z->result_type == PRIMENET_AR_TF_NOFACTOR) {
-			sprintf (p, "&n=%d&sf=%g&ef=%g",
+			sprintf (p, "&n=%d&sf=%f&ef=%f",
 				 z->n, z->start_bits, z->end_bits);
 			p += strlen (p);
 		}
@@ -1126,7 +1126,7 @@ int format_args (char* args, short operation, void* pkt)
 		for (i = 0; i < z->num_data_points; i++) {
 			*p++ = '&';
 			p = armor (p, z->data_points[i].bench);
-			sprintf (p, "=%g", z->data_points[i].timing);
+			sprintf (p, "=%f", z->data_points[i].timing);
 			p += strlen (p);
 		}
 		break;
