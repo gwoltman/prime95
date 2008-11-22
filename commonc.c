@@ -1378,6 +1378,8 @@ void IniSectionGetTimedString (
 			truncated_strcpy_with_len (val, val_bufsize, p+start, len);
 			return;
 		}
+	} else {
+		*seconds = 0;
 	}
 
 /* Copy the default value to the caller's buffer */
@@ -1386,7 +1388,6 @@ void IniSectionGetTimedString (
 		truncated_strcpy (val, val_bufsize, default_val);
 	else
 		val[0] = 0;
-	*seconds = 0;
 }
 
 /* Get a keyword's value from a specific section of the INI file. */
