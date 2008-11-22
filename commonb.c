@@ -187,6 +187,7 @@ gwmutex	MEM_MUTEX;		/* Lock for accessing mem globals */
 void SetPriority (
 	struct PriorityInfo *info)
 {
+static	char	AFFINITY_SCRAMBLE[33] = {0};
 	unsigned int i;
 	int	mask;
 
@@ -272,6 +273,40 @@ void SetPriority (
 
 	else
 		mask = -1;
+
+/* Get the optional string used to scramble the affiniity mask bits to */
+/* new or odd optimizations we had not considered. */
+
+	if (!AFFINITY_SCRAMBLE[0]) {
+		IniGetString (LOCALINI_FILE, "AffinityScramble", AFFINITY_SCRAMBLE, sizeof (AFFINITY_SCRAMBLE), "x");
+		if (AFFINITY_SCRAMBLE[0] != 'x') {
+			for (i = 0; i < 32; i++) {
+				if (AFFINITY_SCRAMBLE[i] >= '0' && AFFINITY_SCRAMBLE[i] <= '9')
+					AFFINITY_SCRAMBLE[i] -= '0';
+				else if (AFFINITY_SCRAMBLE[i] >= 'A' && AFFINITY_SCRAMBLE[i] <= 'Z')
+					AFFINITY_SCRAMBLE[i] = AFFINITY_SCRAMBLE[i] - 'A' + 10;
+				else
+					AFFINITY_SCRAMBLE[i] = -1;
+			}
+		}
+	}
+
+/* Apply the optional affinity mask scrambling */
+
+	if (AFFINITY_SCRAMBLE[0] != 'x' && mask != -1) {
+		int	new_mask;
+		new_mask = 0;
+		for (i = 0; i < 32; i++) {
+			if (mask & (1L << i)) {
+				if (AFFINITY_SCRAMBLE[i] < 0 ||
+				    AFFINITY_SCRAMBLE[i] >= NUM_CPUS * CPU_HYPERTHREADS)
+					new_mask = -1;
+				else
+					new_mask |= (1L << AFFINITY_SCRAMBLE[i]);
+			}
+		}
+		mask = new_mask;
+	}
 
 /* Output an informative message */
 
