@@ -1,12 +1,12 @@
 
 Welcome to the Great Internet Mersenne Prime Search!
 
-To use this program you must agree to the prize rules at
-http://www.mersenne.org/prize.htm
+To use this program you must agree to the terms and conditions,
+prize rules, etc. at http://mersenne.org/legal/
 
-In case you ever forget, the URL is http://www.mersenne.org/prime.htm.
+In case you ever forget, the GIMPS web site is at http://mersenne.org
 My email address is woltman@alum.mit.edu.  For networking questions,
-contact Scott Kurowski's technical support team at primenet@mersenne.org.
+contact Scott Kurowski at primenet@mersenne.org.
 
 
 FILE LIST
@@ -54,17 +54,13 @@ run only at certain times of the day or at a different priority.  Note
 that raising the program's priority will not make it run any faster
 on an idle machine.
 
--An		This is used to run two or more copies of mprime
+-An		Obsolete. 
+		This is used to run two or more copies of mprime
 		from the same directory.  Using this command line argument
 		causes mprime to use a different set of filenames for the
 		INI files, the results file, the log file, and the spool file.
 		Just use a different value of n for each extra copy of
 		mprime you start.
--Bn		Run in background.  This is the same as adding an "&" at
-		the end of the mprime command line.  The optional value n
-		is the number of CPUs on your machine.  One mprime will
-		be run in background for each CPU.  "mprime -B2" is equivalent
-		to "mprime -B" followed by "mprime -B -A1".
 -c		Contact the PrimeNet server then exit.  Useful, for
 		scheduling server communication as a cron job or
 		as part of a script that dials an ISP.
@@ -102,15 +98,13 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
 
 1)  Download and decompress mprime.tgz.  You've probably done this already
     since you are reading this file.
-2)  Connect to the Internet.
+2)  Connect to the Internet.  Create an account at http://mersenne.org
 3)  Run mprime.  You will be see 3 sets of questions:
-3a) The first set gathers information about you.  Enter your name and email
-    address.  Optionally enter a user ID, password, and computer ID.  If you
-    are using several computers, use the same user ID and password but a
-    unique computer ID on each machine.  An easy-to-remember user ID will be
+3a) The first set gathers information about you.  Enter your user ID and
+    optionally and computer name.  If you are using several computers,
+    use the same user ID but a unique computer name on each machine.  An easy-to-remember user ID will be
     helpful if you plan to visit the PrimeNet server's web page to view
-    reports on your progress.  If you do not enter a user ID or if you pick a
-    user ID that is already in use, then the server will assign a user ID.
+    reports on your progress.
 3b) The second set of questions gathers information about your machine.
     Fill in roughly how many hours a day you leave your computer running.
 3c) The third set of questions gathers information about using the
@@ -127,59 +121,36 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
 MANUAL METHOD INSTRUCTIONS
 --------------------------
 
-1)  Use the Web (http://mersenne.org/ips/manualtests.html) to create
-    a userid for yourself and to get a set of exponents to work on.
-    Alternatively, you can get some work from
-    http://www.mersenne.org/range2.htm.  Copy these exponents to a
-    file called worktodo.txt
-2)  Run mprime.  You will be see 3 sets of questions:
-2a) The first set gathers information about you.  Enter your name and email
-    address.
-2b) The second set of questions gathers information about your machine.
+1)  Visit http://mersenne.org/update/ to create a userid for yourself and
+    http://mersenne.org/manual_assignment/ to get an exponent or two to
+    work on.  Copy these exponents to a file called worktodo.txt.
+2)  Run mprime.  You will be see 2 sets of questions:
+2a) The first set of questions gathers information about your machine.
     Fill in roughly how many hours a day you leave your computer running.
-2c) The third set of questions gathers information about using the
+2b) The second set of questions gathers information about using the
     Primenet server.  Answer "No" to the first question.
 3)  Configure your startup scripts so that mprime runs every time you
     boot your computer.
-4)  Once a month or when done with your exponents, use the web pages
-    again to send the file "results.txt" to the PrimeNet server.
-    It is important to do this so the exponents you are testing are
-    not reassigned to someone else.
+4)  When done with your exponents, use the web pages again to send the
+    file "results.txt" to the PrimeNet server and get more work.
 
 
 NOTES
 -----
 
-Let mprime run at all times.  It runs at low priority, making use of all
-your idle CPU cycles.  It should not interfere with your normal work.
-Let the program run overnight and on weekends.  Never turn
-your computer off.  Turn off your monitor to conserve energy.  NOTE:
-Running your computer non-stop could increase your electric bill by $30
-per year or more.
+Running mprime may significantly increase your electric bill.  The amount
+depends on your computer and your local electric rates.
 
 It can take many CPU days to test a large Mersenne number.  This program
 can be safely interrupted by using ^C or kill or shutdown to write
 intermediate results to disk.  This program also saves intermediate
 results to disk every 30 minutes in case there is a power failure.
 
-To fully utilize a dual-CPU machine, you must run two copies of
-mprime.  Run one copy of mprime as described above.  Run the second
-copy of mprime with the -A1 switch.  Make sure your startup scripts
-start both executables.
-
 You can compare your computer's speed with other users by checking the
-site http://www2.tripnet.se/~nlg/mersenne/benchmk.htm.
+web page http://mersenne.org/report_benchmarks/.
 
-You can get a report of your PrimeNet server account status on the web
-(http://mersenne.org/primenet/status.shtml).  Type your UserID and
-password into the web form, and click "Get Account Report".  You can
-get your UserID and password from the Test/User Information
-dialog box.
-
-Before testing an exponent, the program may perform an hour long
-self-test to make sure the Lucas-Lehmer code is running properly
-on your system.  If this hour long test is interrupted it will restart
-from the beginning when the program resumes testing.
+You can get several reports of your PrimeNet activity at any time
+by logging in at http://mersenne.org/.
 
 If you have overclocked your machine, I recommend running the torture
 test for a couple of days.  The longer you run the torture test
@@ -193,38 +164,14 @@ exponents before a previous Lucas-Lehmer test completes.  This is normal!
 The program will resume the Lucas-Lehmer test when the factoring
 completes.
 
-You can configure this program to have different properties at different
-times of the day and/or to not run during certain times of the day.
-Unfortunately, you must manual edit the prime.txt file.  Let's say you
-want to install the program on a friend's machine and he runs a screen
-saver at night.  He also runs a disk defragmenter at midnight on weekdays.
-This prime.txt file will run the program at a higher priority than his
-screen saver at night and on weekends.  It also sleeps for an hour when
-his defragmenter starts running.  Finally, at night fewer save files are
-generated to allow his disk to stay powered down longer.
-	UserID=foo
-	Time=1-5/8:30-17:30
-	Priority=1
-	DiskWriteTime=30
-	Time=1-5/1:00-8:30,1-5/17:30-24:00,6-7/0:00-24:00
-	Priority=5
-	DiskWriteTime=240
-The 1-5 refers to days of the week, with Monday=1 and Sunday=7.  The 
-time portion refers to the hours of the day based on a 24-hour clock.
-You do not need to specify days of the week (e.g. Time=1-7/0:00-8:00
-is the same as Time=0:00-8:00).  Unpredictable results will occur if
-there are overlapping time intervals.  Also note that any options that
-appear in the Time= sections should not appear earlier in the prime.txt
-file and you can no longer edit these options from theuser interface.
-
 
 SETTING UP A PROXY SERVER
 -------------------------
 
-Fill in the proxy information in the Test/Primenet menu choice..
+Fill in the proxy information in the Test/Primenet menu choice.
 
-For the latest information on this and other networking issues visit
-the FAQ at http://mersenne.org/ips/faq.html
+For help, visit http://mersenneforum.org.  Several knowledgeable members
+will be glad to help if they can.
 
 
 SETTING AVAILABLE MEMORY
@@ -326,44 +273,42 @@ The easiest way to do this is to first set up mprime on one computer.
 Next copy all the files to the second computer.  Delete the local.txt
 file and worktodo.txt files.  These files contain information that
 is specific to the first computer.  Start mprime on the second
-computer and optionally use Test/User Information to
-give the second computer a unique computer ID.  Repeat this process
-for all the computers you wish to run mprime on.
+computer and optionally use Test/Primenet to give the second computer
+a unique computer name.  Repeat this process for all the computers you
+wish to run mprime on.
 
 If you do not follow the instruction above, be sure you use 
-Test/User Information to give each computer the same
-userid and password.  Failure to do this will result in all 
-your work being "credited" to different user IDs.
+Test/Primenet to give each computer the same user id and different
+computer name.
 
 
 TEST MENU
 ---------
 
-The PrimeNet menu choice lets you configure the type of work you get
-from the server.  The "Use PrimeNet..." option can be turned on to
-switch from the manual method to the automatic method.
-The "Request whatever..." box should be left checked.  However, if you
-are running a slow computer and don't mind waiting several months for
-a single Lucas-Lehmer test to complete OR you are running a faster
-computer and would rather do factoring, then uncheck this box and
-choose a different type of work to do.  The "Always have at least
-this many days of work queued up" value should be changed based on
-how often you connect to the Internet.  As long as you connect at least
-once in the given time period, mprime will have an uninterrupted stream
-of work.  However, the program will not checkout more than 20 exponents
-no matter what this value is set at.
+The PrimeNet menu choice identifies your computer to the server.
+The "Use PrimeNet..." option can be turned on to switch from the
+manual method to the automatic method.
 
 The Worker Threads menu choice is used to choose the type of work
 you'd like to execute as well as adjust priority and affinity.
 You should not need to change the priority.  You might raise the priority
 if you just cannot live without a screen saver, or if you are running some
 ill-behaved program that is using CPU cycles for no good reason.
+The work type should usually be left set to "Whatever makes the most sense".
+However, if you are running a slow computer and don't mind waiting several
+months for a single Lucas-Lehmer test to complete OR you are running a faster
+computer and get better thoughput if one core does an easier type of work,
+then choose a different type of work to do.
 
 The Status menu choice will tell you what exponents you are working on.
 It will also estimate how long that will take and your chances of finding
 a new Mersenne prime.
 
-The Continue menu choice lets you resume mprime after you have stopped it.
+The Continue menu choice lets you resume prime95 after you have stopped it.
+
+The Stop menu choice lets you stop the program.  When you continue,
+you will pick up right where you left off.  This is the same as hitting
+the ESC key.
 
 The Exit menu choice lets you exit the program.
 
@@ -382,47 +327,42 @@ The Time choice can be used to see how long each iteration of a Lucas-Lehmer
 test will take on your computer and how long it will take to test a
 given exponent.  For example, if you want to know how long a Lucas-Lehmer
 test will take to test the exponent 876543, choose Advanced/Time and
-enter 876543 for 100 iterations.  A Pentium will automatically time
-and compute the results.  486 owners will need to time how long the operation
-takes by hand, divide that time by 100 and multiply by 876543 to compute how
-long a full Lucas-Lehmer test will take.
+enter 876543 for 100 iterations.
 
 The ECM choice lets you factor numbers of the form k*b^n+c using the
-Elliptic Curve Method of factoring.  Select a few Mersenne exponents and
-bounds to factor from the http://www.mersenne.org/ecm.htm web pages.
-Note:  You do not reserve exponents to work on, several people can
-do ECM factoring on the same number.  The program uses a random
-number generator to select elliptic curves to test.  You must email
-results to me at woltman@alum.mit.edu - primenet does not support ECM
-factoring.  WARNING:  ECM does not adhere to the memory limits specified
-in the Options / CPU dialog box.  ECM requires a minimum of 192 times
+Elliptic Curve Method of factoring.  ECM requires a minimum of 192 times
 the FFT size.  Thus, ECM factoring of F20 which uses a 64K FFT will use
 a minimum of 192 * 64K or 12MB of memory.  You can also edit the
 worktodo.txt file directly.  For example:
 	ECM2=k,b,n,c,B1,B2,curves_to_run
 
 The P-1 choice lets you factor numbers of the form k*b^n+c using
-the P-1 method of factoring.  There is presently no web site which tells
-you how much P-1 factoring has already been done on these numbers.  You can
-also edit the worktodo.txt file directly.  For example:
+the P-1 method of factoring.  You can also edit the worktodo.txt file
+directly.  For example:
 	Pminus1=k,b,n,c,B1,B2
 
-The Priority menu is used to adjust the priority mprime runs at.
-You should not need to change this.  You might raise the priority
-if you (or your coworker) just cannot live without your screen
-saver (bad idea), or if you are running some ill-behaved program
-that is using CPU cycles for no good reason.
+Round off checking.  This option will slow the program down by several percent.
+This option displays the smallest and largest "convolution error".  The
+convolution error must be less than 0.49 or the results will be incorrect.
+There really is no good reason to turn this option on.
 
 The Manual Communication menu choice should only be used if the
 automatic detection of an Internet connection is not working for you.
 Using this option means you have to remember to communicate with the
 server every week or two (by using this same menu choice).
 
+The Unreserve Exponent choice lets you tell the server to unreserve
+an exponent you have been assigned.  You might do this if a second computer
+you had been running GIMPS on died or if you had been assigned an exponent
+of one work type (such as a first-time-test) and now you have switched to
+another work type (such as 10,000,000 digit numbers).  Any work you have
+done on the unreserved exponent will be lost.
+
 The Quit GIMPS menu choice is used when you no longer want this computer
 to work on the GIMPS project.  You may rejoin at a later date.
 If you are a PrimeNet user your unfinished work will be returned to the
 server.  If you are a manual user, you need to send me email containing
-your results.txt file and a note saying you are quitting.
+your results.txt file.
 
 
 OPTIONS MENU
@@ -451,7 +391,7 @@ for a more in-depth discussion of stress testing and hardware problems.
 
 The Benchmark choice times the program on several FFT lengths.  You can
 then compare your computer's speed to others list at
-http://www.mersenne.org/bench.htm
+http://mersenne.org/report_benchmarks/
 
 
 POSSIBLE HARDWARE FAILURE
@@ -485,9 +425,8 @@ Running the program on a computer with hardware problems may produce
 incorrect results.  This won't hurt the GIMPS project since all results
 will be double-checked.  However, you could be wasting your CPU time.
 If you are getting several errors during each primality test, then I
-recommend using your machine to factor Mersenne numbers or run less
-strenuous distributed computing projects at
-http://www.mersenne.org/projects.htm.
+recommend using your machine to factor Mersenne numbers or run one of
+the many less strenuous distributed computing projects available.
 
 
 LUCAS-LEHMER DETAILS
