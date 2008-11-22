@@ -1,12 +1,12 @@
 
 Welcome to the Great Internet Mersenne Prime Search!
 
-To use this program you must agree to the prize rules at
-http://www.mersenne.org/prize.htm
+To use this program you must agree to the terms and conditions,
+prize rules, etc. at http://mersenne.org/legal/
 
-In case you ever forget, the URL is http://www.mersenne.org/prime.htm.
+In case you ever forget, the GIMPS web site is at http://mersenne.org
 My email address is woltman@alum.mit.edu.  For networking questions,
-contact Scott Kurowski's technical support team at primenet@mersenne.org.
+contact Scott Kurowski at primenet@mersenne.org.
 
 
 FILE LIST
@@ -107,11 +107,9 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
 MANUAL METHOD INSTRUCTIONS
 --------------------------
 
-1)  Use the Web (http://mersenne.org/ips/manualtests.html) to create
-    a userid for yourself and to get a set of exponents to work on.
-    Alternatively, you can get some work from
-    http://www.mersenne.org/range2.htm.  Copy these exponents to a
-    file called worktodo.txt
+1)  Visit http://mersenne.org/update/ to create a userid for yourself and
+    http://mersenne.org/manual_assignment/ to get an exponent or two to
+    work on.  Copy these exponents to a file called worktodo.txt.
 2)  Run prime95.exe.  You will see 4 dialog boxes:
 2a) In the welcome dialog box, choose "Join GIMPS!".
 2b) In the second dialog box, enter your name and email address.  Click OK.
@@ -150,25 +148,13 @@ Dual processor machines can also improve performance by setting
 processor affinity.  Use the Advanced/Affinity dialog box to do this.
 
 You can compare your computer's speed with other users by checking the
-site http://www.mersenne.org/bench.htm.  If you are much slower than
+web page http://mersenne.org/report_benchmarks/.  If you are much slower than
 comparable machines, there are several utilities available (such as
 TaskInfo2002, http://www.iarsn.com/) that can find programs that are
 stealing prime95's CPU cycles.
 
-You can get a report of your PrimeNet server account status on the web
-(http://mersenne.org/primenet/status.shtml).  Type your UserID and
-password into the web form, and click "Get Account Report".  You can
-get your UserID and password from the Test/User Information
-dialog box.
-
-Information about running a local PrimeNet server is also available.
-See http://mersenne.org/primenet.  If you have any questions about the
-PrimeNet server, you can send e-mail to primenet@mersenne.org.
-
-Before testing an exponent, the program may perform an hour long
-self-test to make sure the Lucas-Lehmer code is running properly
-on your system.  If this hour long test is interrupted it will restart
-from the beginning when prime95 resumes testing.
+You can get several reports of your PrimeNet activity at any time
+by logging in at http://mersenne.org/.
 
 If you have overclocked your machine, I recommend running the torture
 test for a couple of days.  The longer you run the torture test
@@ -351,26 +337,18 @@ test will take to test the exponent 876543, choose Advanced/Time and
 enter 876543 for 100 iterations.
 
 The ECM choice lets you factor numbers of the form k*b^n+c using the
-Elliptic Curve Method of factoring.  Select a few Mersenne exponents and
-bounds to factor from the http://www.mersenne.org/ecm.htm web pages.
-Note:  You do not reserve exponents to work on, several people can
-do ECM factoring on the same number.  The program uses a random
-number generator to select elliptic curves to test.  You must email
-results to me at woltman@alum.mit.edu - primenet does not support ECM
-factoring.  WARNING:  ECM does not adhere to the memory limits specified
-in the Options / CPU dialog box.  ECM requires a minimum of 192 times
+Elliptic Curve Method of factoring.  ECM requires a minimum of 192 times
 the FFT size.  Thus, ECM factoring of F20 which uses a 64K FFT will use
 a minimum of 192 * 64K or 12MB of memory.  You can also edit the
 worktodo.txt file directly.  For example:
 	ECM2=k,b,n,c,B1,B2,curves_to_run
 
 The P-1 choice lets you factor numbers of the form k*b^n+c using
-the P-1 method of factoring.  There is presently no web site which tells
-you how much P-1 factoring has already been done on these numbers.  You can
-also edit the worktodo.txt file directly.  For example:
+the P-1 method of factoring.  You can also edit the worktodo.txt file
+directly.  For example:
 	Pminus1=k,b,n,c,B1,B2
 
-Round off checking.  This option will slow the program down by about 15%.
+Round off checking.  This option will slow the program down by several percent.
 This option displays the smallest and largest "convolution error".  The
 convolution error must be less than 0.49 or the results will be incorrect.
 There really is no good reason to turn this option on.
@@ -391,7 +369,7 @@ The Quit GIMPS menu choice is used when you no longer want this computer
 to work on the GIMPS project.  You may rejoin at a later date.
 If you are a PrimeNet user your unfinished work will be returned to the
 server.  If you are a manual user, you need to send me email containing
-your results.txt file and a note saying you are quitting.
+your results.txt file.
 
 
 OPTIONS MENU
@@ -414,7 +392,7 @@ the one intermediate file, you may have to restart an exponent from
 scratch.  You can also tell the program to be quiet, rather than 
 beeping like crazy, if a new Mersenne prime is found.  You can also
 make prime95 go idle whenever your laptop is running on battery power
-(does not work under Windows NT/2000/XP).
+(may not work under Windows NT/2000/XP).
 
 The Torture Test choice will run a continuous self test.  This is great
 for testing machines for hardware problems.  See the file stress.txt
@@ -422,7 +400,7 @@ for a more in-depth discussion of stress testing and hardware problems.
 
 The Benchmark choice times the program on several FFT lengths.  You can
 then compare your computer's speed to others list at
-http://www.mersenne.org/bench.htm
+http://mersenne.org/report_benchmarks/
 
 The Tray Icon choice will cause prime95 to have a small icon on the taskbar
 when it is minimized.  You can activate or hide the program by double-clicking
@@ -437,43 +415,37 @@ prime95 a second time.  Alternatively, you can turn this feature off by
 editing prime.txt and change the line "HideIcon=1" to "HideIcon=0",
 then reboot.
 
-Checking the Start at Bootup menu choice will run prime95 as a service
-that is started when your computer boots up.  Windows NT/2000/XP users need
-administrator privileges to use this feature.  This method of starting prime95
-is better than creating a shortcut to prime95 in the startup folder.  That
-is because services run even when no one is logged on.  These are the details
-you should be aware of:
+Checking the "Start at Bootup" menu choice will run prime95 as a service
+that starts when your computer boots up.  Windows NT/2000/XP users need
+administrator privileges to use this feature.  Vista has eliminated support
+for running prime95 as a service.  Running prime95 is better than creating
+a shortcut to prime95 in the startup folder because services run even when
+no one is logged on.  These are the details you should be aware of:
 	In Windows 95/98/Me:
 The HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunServices
 registry entry is created.  You will not be able to tell any difference between
 prime95 running as a service and prime95 running as an ordinary process.
-	In Windows Vista and Windows NT/2000/XP without administrator
-	privileges:
+	Windows Vista and Windows NT/2000/XP without admin privileges:
 In this case the menu text is changed to "Start at Logon".  The
 HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run registry entry
 is created.  Prime95 will run only when you are logged in.
 	In Windows NT/2000/XP with administrator privileges:
 There are a few minor quirks when running as a service.  You shouldn't run
 into these quirks in normal operation.  You can only change this option once
-and it will take effect when the service is started or stopped.  You will
-need to exit prime95 running as a normal process before starting the prime95
-service.  The prime95 window will only appear on one users desktop.  Only
-one prime95.exe program can be run as a service.  If you have a dual processor
-system you'll want to run two instances of prime95.  Instead of running a
-second prime95 from another directory, run the second prime95 from the same
-directory with the -A1 switch (type "prime95 -A1" in a DOS window).
-Finally, if you are worried about giving users access to a GUI service
-running in the Local System account, you can turn off the "Allow service to
-interact with desktop" option in the services control panel applet or run
-the GUI-less NT service version available at
-http://www.mersenne.org/freesoft.htm.  These options are more secure than
+and it will take effect when you exit the program.  The prime95 window will
+only appear on one user's desktop.  Finally, if you are worried about giving
+users access to a GUI service running in the Local System account, you can
+turn off the "Allow service to interact with desktop" option in the services
+control panel applet or run the GUI-less NT service version available at
+http://mersenne.org/freesoft/  These options are more secure than
 using the No Icon menu choice.
 
 
 COMMAND LINE ARGUMENTS
 ----------------------
 
--An		This is used to run two or more copies of prime95
+-An		Obsolete.
+		This is used to run two or more copies of prime95
 		from the same directory.  Using this command line argument
 		causes prime95 to use a different set of filenames for the
 		INI files, the results file, the log file, and the spool file.
@@ -495,7 +467,7 @@ testing from the last save file.
 Could it be a software problem?  If the error is ILLEGAL SUMOUT and you are
 running Windows 95/98/Me, then there is some chance that this is a software
 problem.  A device driver or VxD may not be saving and restoring FPU state
-correctly.  Windows NT/2000/XP protects prime95 from bad device drivers.
+correctly.  Windows NT/2000/XP/Vista protects prime95 from bad device drivers.
 In that case ILLEGAL SUMOUT is very likely a true hardware error. The good news
 is that prime95 recovers very well from ILLEGAL SUMOUT errors.  Try seeing
 if the problem occurs only when a specific device is active or a specific
@@ -518,9 +490,8 @@ Running the program on a computer with hardware problems may produce
 incorrect results.  This won't hurt the GIMPS project since all results
 will be double-checked.  However, you could be wasting your CPU time.
 If you are getting several errors during each primality test, then I
-recommend using your machine to factor Mersenne numbers or run less
-strenuous distributed computing projects at
-http://www.mersenne.org/projects.htm.
+recommend using your machine to factor Mersenne numbers or run one of
+the many less strenuous distributed computing projects available.
 
 
 LUCAS-LEHMER DETAILS
