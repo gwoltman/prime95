@@ -378,10 +378,24 @@ automatic detection of hardware changes.  To do this, in prime.txt set
 Adding 32 to the MergeWindows value in prime.txt suppresses screen output
 of the "Comm thread", "Main thread", "Work thread" prefix.
 
-The Memory=n setting in local.txt refers to the total amount of memory the program can use.
-You can also put this in the [Worker #n] section to place a maximum amount
-of memory that particular worker can use.
+The Memory=n setting in local.txt refers to the total amount of memory the
+program can use.  You can also put this in the [Worker #n] section to place
+a maximum amount of memory that one particular worker can use.
 
 You can set MaxHighMemWorkers=n in local.txt.  This tells the program how
 wany workers are allowed to use lots of memory.  This occurs doing stage 2
 of P-1 or ECM on medium-to-large numbers.  Default is available memory / 200MB.
+
+You can arbitrarily change how the program assigns affinity to CPUs.
+The program makes its best guess at assigning workers and helper threads
+to CPUs for optimal speed.  However, new architectures or situations we
+haven't considered may make different affinity setting desirable.  In
+local.txt set
+	AffinityScramble=string
+Where the string "0123456789ABCDEFGHIJKLMNOPQRSTUV" is the "make no
+changes" string.  For example, let's say you have a system with 8 logical
+cores with 4 workers each using a helper thread.  The program would
+ordinarily assign the worker and helper threads to [0,1], [2,3], [4,5], [6,7].
+However, if you think [0,2], [1,3], [4,6], [5,7] would give better performance,
+you would set AffinityScramble=02134657 to test out your theory.
+
