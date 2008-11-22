@@ -73,16 +73,14 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
 
 1)  Run the setup program, p95setup.exe or download and unzip prime95.zip.
     You've probably done this already since you are reading this file.
-2)  Connect to the Internet.
+2)  Connect to the Internet.  Create an account at http://mersenne.org
 3)  Run prime95.exe.  You will see 4 dialog boxes:
 3a) In the welcome dialog box, choose "Join GIMPS!".
-3b) In the second dialog box, enter your name and email address.
-    Optionally enter a user ID, password, and computer ID.  If you are using
-    several computers, use the same user ID and password but a unique computer
-    ID on each machine.  An easy-to-remember user ID will be helpful if you
+3b) In the second dialog box, enter your user id and optional computer name.
+    If you are using several computers, use the same user ID but a unique computer
+    name on each machine.  An easy-to-remember user ID will be helpful if you
     plan to visit the PrimeNet server's web page to view reports on your
-    progress.  If you do not enter a user ID or if you pick a user ID that
-    is already in use, then the server will assign a user ID.
+    progress.
 3c) In the third dialog box, fill in roughly how many hours a day you leave
     your computer running.  Click OK.
 3d) In the fourth dialog box, leave the "Use Primenet..." checkbox
@@ -93,7 +91,7 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
     for a time when you are already connected to contact the server.
     Click OK.  Prime95 will now contact the PrimeNet server to get some
     work for your computer to do.
-4a)  If a proxy server is the causing connection troubles, see the
+4a) If a proxy server is the causing connection troubles, see the
     later section on "SETTING UP A PROXY SERVER".
 4b) If the program will not connect to the server, then
     you will have to use the manual method described below.
@@ -110,19 +108,16 @@ MANUAL METHOD INSTRUCTIONS
 1)  Visit http://mersenne.org/update/ to create a userid for yourself and
     http://mersenne.org/manual_assignment/ to get an exponent or two to
     work on.  Copy these exponents to a file called worktodo.txt.
-2)  Run prime95.exe.  You will see 4 dialog boxes:
+2)  Run prime95.exe.  You will see 3 dialog boxes:
 2a) In the welcome dialog box, choose "Join GIMPS!".
-2b) In the second dialog box, enter your name and email address.  Click OK.
-2c) In the third dialog box, fill in roughly how many hours a day you leave
+2b) In the second dialog box, fill in roughly how many hours a day you leave
     your computer running.  Click OK.
-2d) In the fourth dialog box, uncheck "Use PrimeNet to get work and report
+2c) In the third dialog box, uncheck "Use PrimeNet to get work and report
     results", click OK.
 3)  Disable screen savers or use the "blank screen" screen saver.  If this
     is not practical, consider raising prime95's priority to 4 or 5.
-4)  Once a month or when done with your exponents, use the web pages
-    again to send the file "results.txt" to the PrimeNet server.
-    It is important to do this so the exponents you are testing are
-    not reassigned to someone else.
+4)  When done with your exponents, use the web pages again to send the
+    file "results.txt" to the PrimeNet server and get more work.
 
     The "Start at Bootup" menu choice (on by default) will run prime95
     every time you boot your computer.
@@ -138,14 +133,6 @@ It can take many CPU weeks to test a large Mersenne number.  This program
 can be safely interrupted by using the ESC key to write intermediate results
 to disk.  This program also saves intermediate results to disk every 30 minutes
 in case there is a power failure.
-
-To fully utilize a dual processor machine, you must run two copies of
-prime95.exe.  Run one copy of prime95 as described above.  Run the second
-copy of prime95.exe with the -A1 command line argument.  Make sure the
-second copy also has the "Start at Bootup" option set.
-
-Dual processor machines can also improve performance by setting
-processor affinity.  Use the Advanced/Affinity dialog box to do this.
 
 You can compare your computer's speed with other users by checking the
 web page http://mersenne.org/report_benchmarks/.  If you are much slower than
@@ -274,38 +261,32 @@ The easiest way to do this is to first set up prime95 on one computer.
 Next copy all the files to the second computer.  Delete the local.txt
 file and worktodo.txt files.  These files contain information that
 is specific to the first computer.  Start prime95 on the second
-computer and optionally use Test/User Information to
-give the second computer a unique computer ID.  Repeat this process
-for all the computers you wish to run prime95 on.
+computer and use Test/Primenet to give the second computer a unique
+computer name.  Repeat this process for all the computers you wish to
+run prime95 on.
 
 If you do not follow the instruction above, be sure you use 
-Test/User Information to give each computer the same
-userid and password.  Failure to do this will result in all 
-your work being credited to different user IDs.
+Test/Primenet to give each computer the same
+user id and different computer name.
 
 
 TEST MENU
 ---------
 
-The PrimeNet menu choice lets you configure the type of work you get
-from the server.  The "Use PrimeNet..." option can be turned on to
-switch from the manual method to the automatic method.
-The "Request whatever..." box should be left checked.  However, if you
-are running a slow computer and don't mind waiting several months for
-a single Lucas-Lehmer test to complete OR you are running a faster
-computer and would rather do factoring, then uncheck this box and
-choose a different type of work to do.  The "Always have at least
-this many days of work queued up" value should be changed based on
-how often you connect to the Internet.  As long as you connect at least
-once in the given time period, prime95 will have an uninterrupted stream
-of work.  However, the program will not checkout more than 20 exponents
-no matter what this value is set at.
+The PrimeNet menu choice identifies your computer to the server.
+The "Use PrimeNet..." option can be turned on to switch from the
+manual method to the automatic method.
 
 The Worker Threads menu choice is used to choose the type of work
 you'd like to execute as well as adjust priority and affinity.
 You should not need to change the priority.  You might raise the priority
 if you just cannot live without a screen saver, or if you are running some
 ill-behaved program that is using CPU cycles for no good reason.
+The work type should usually be left set to "Whatever makes the most sense".
+However, if you are running a slow computer and don't mind waiting several
+months for a single Lucas-Lehmer test to complete OR you are running a faster
+computer and get better thoughput if one core does an easier type of work,
+then choose a different type of work to do.
 
 The Status menu choice will tell you what exponents you are working on.
 It will also estimate how long that will take and your chances of finding
@@ -316,6 +297,8 @@ The Continue menu choice lets you resume prime95 after you have stopped it.
 The Stop menu choice lets you stop the program.  When you continue,
 you will pick up right where you left off.  This is the same as hitting
 the ESC key.
+
+The Exit menu choice lets you exit the program.
 
 
 ADVANCED MENU
