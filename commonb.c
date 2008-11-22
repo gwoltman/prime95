@@ -4564,14 +4564,16 @@ readloop:
 			if (first_iter_msg) {
 				strcat (buf, ".\n");
 				clear_timer (timers, 0);
+			} else if (CUMULATIVE_TIMING) {
+				strcat (buf, ".  Total time: ");
+				print_timer (timers, 0, buf, TIMER_NL);
 			} else {
 				strcat (buf, ".  Per iteration time: ");
 				divide_timer (timers, 0, iters);
-				print_timer (timers, 0, buf,
-					     TIMER_NL | TIMER_OPT_CLR);
+				print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+				iters = 0;
 			}
 			OutputStr (thread_num, buf);
-			if (!CUMULATIVE_TIMING) iters = 0;
 			first_iter_msg = FALSE;
 		}
 
@@ -6913,14 +6915,16 @@ OutputStr (thread_num, "Iteration failed.\n");
 			if (first_iter_msg) {
 				strcat (buf, ".\n");
 				clear_timer (timers, 0);
+			} if (CUMULATIVE_TIMING) {
+				strcat (buf, ".  Total time: ");
+				print_timer (timers, 0, buf, TIMER_NL);
 			} else {
 				strcat (buf, ".  Per iteration time: ");
 				divide_timer (timers, 0, iters);
-				print_timer (timers, 0, buf,
-					     TIMER_NL | TIMER_OPT_CLR);
+				print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+				iters = 0;
 			}
 			OutputStr (thread_num, buf);
-			if (!CUMULATIVE_TIMING) iters = 0;
 			first_iter_msg = FALSE;
 		}
 
