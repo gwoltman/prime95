@@ -1,12 +1,8 @@
-
 This file lists the undocumented features available in the program.
 These features may change or be discontinued at any time.  Their use is
 totally unsupported.
 
-
 In prime.txt you can force the program to use different filenames for 6 files.
-This is in response to a user that is running security software that prevents
-writing to any file with a .ini extension.  There may well be other uses.
 You can also change the working directory (identical to the -W command line
 argument).
 	prime.ini=your_filename
@@ -30,9 +26,9 @@ you must manual edit the prime.txt file.  An example:
 The 1-5 and 6-7 refer to days of the week, with Monday=1 and Sunday=7.  The
 time portion refers to the hours of the day based on a 24-hour clock.
 You do not need to specify days of the week (e.g. 1-7/0:00-8:00
-is the same as 0:00-8:00).  The above example lets prime95 use 500MB
+is the same as 0:00-8:00).  The above example lets the program use 500MB
 during the week from 5:30PM to 8:30AM and all day on weekends.  Otherwise
-(weekdays from 8:30AM to 5:30PM), prime95 can use only 200MB.
+(weekdays from 8:30AM to 5:30PM), the program can use only 200MB.
 
 You can force the Options/CPU dialog to display times using AM/PM or
 a 24-hour clock format.  Otherwise, the program will make its best guess
@@ -46,13 +42,13 @@ in lines output to the screen.  In prime.txt enter a value between 0 and 6:
 
 You can choose whether the program uses the high resolution system clock, the
 standard system clock, or the read timestamp counter instruction (RDTSC) to
-time events.  By default prime95 uses the high resolution system clock if
+time events.  By default the program uses the high resolution system clock if
 available.  Choose one of these values for n (default is 1):
 	0 - use the system clock.
 	1 - use RDTSC but do not output clock counts.
 	2 - use RDTSC and output clock counts.
 The above values will only have an affect if a high resolution system clock
-is not available.  You can force prime95 to bypass the high resolution clock
+is not available.  You can force the program to bypass the high resolution clock
 by adding 10 to one of the values above.  In prime.txt, enter
 	RdtscTiming=n
 
@@ -144,20 +140,20 @@ You can have the program output residues every n iterations.  The default
 value is the InterimFiles value.  In prime.txt enter:
 	InterimResidues=n
 
-You can force prime95 to skip the trial factoring step prior to
+You can force the program to skip the trial factoring step prior to
 running a Lucas-Lehmer test.  In prime.txt add this line:
 	SkipTrialFactoring=1
 
-You can do P-1 factoring by adding lines to worktodo.txt:
-	Pfactor=exponent,how_far_factored,has_been_LL_tested_once
-For example, Pfactor=10000157,64,0
+You can do "optimal" P-1 factoring of k*b^n+c by adding lines to worktodo.txt:
+	Pfactor=k,b,n,c,how_far_factored,num_primality_tests_saved
+For example, Pfactor=1,2,10000157,-1,64,2.0
 
 You can reduce the number of times worktodo.txt is read and written by
 setting in prime.txt:
 	WellBehavedWork=1
 This only works for worktodo.txt files that contain only Factor= lines.
 Only turn this on if you have BIG worktodo.txt files and each Factor=
-operation does not take much time.  You must stop prime95 before manually
+operation does not take much time.  You must stop the program before manually
 editing the worktodo.txt file.
 
 In Advanced/Time, you can enter a value between 9994 and 9999 for the
@@ -211,13 +207,13 @@ maximum exponent that can be tested using the current FFT length, then the
 extra error checking is performed).  A value of 0.0 will turn off this extra
 error checking.
 
-When Tray Icon or No Icon is selected the "X" at the right of the title bar
-will minimize rather than exit.  You can make prime95 exit if you prefer.
-In prime.txt set:
+WINDOWS ONLY:  When Tray Icon or No Icon is selected the "X" at the right of
+the title bar will minimize rather than exit.  You can make the program exit
+if you prefer.  In prime.txt set:
 	ExitOnX=1
 
-You can change the Windows NT/2000/XP service name and service display name.
-The default for both is "Prime95 Service".  In local.txt, set:
+WINDOWS  ONLY: You can change the Windows NT/2000/XP service name and service
+display name.  The default for both is "Prime95 Service".  In local.txt, set:
 	ServiceName=your service name
 	DisplayName=your service display name
 You may need to turn off the "Start at Bootup" and exit, change the local.txt
@@ -254,15 +250,15 @@ will contain data that can be fed to GMP-ECM for stage 2.
 
 In rare cases, users have reported the program can interfere with the
 performance of some programs such as disk defragmenters and some games.
-You can pause prime95 automatically when these programs are running by
+You can pause the program automatically when these programs are running by
 adding this line to prime.txt:
 	PauseWhileRunning=prog1[n1],prog2[n2],etc
 The [n1], [n2] values are optional and indicate the number of worker threads
 to pause when prog1 and prog2 are running.  The default value for n1 and n2
-is to pause all worker threads.  Note that prime95 will pause if the program
+is to pause all worker threads.  Note that the program will pause if the program
 name matches any part of the running program's file name.  That is "foobar"
 will match "c:\foobar.exe", "C:\FOOBAR\name.exe", and even "C:\myfoobarprog.exe".
-Also, if prog1 is "*" prime95 will pause no matter what.  Examples:
+Also, if prog1 is "*" the program will pause no matter what.  Examples:
 	PauseWhileRunning=*[1] during 6-7/2:00-3:00
 	PauseWhileRunning=* during 23:00-24:00 else decomp[1],mygame[2]
 The first example pauses one worker thread on Saturday and Sunday between
@@ -270,14 +266,27 @@ The first example pauses one worker thread on Saturday and Sunday between
 pauses 1 worker if decomp is running and 2 if mygame is running.
 
 LowMemWhileRunning is similar to PauseWhileRunning.  This option does not
-allow workers use a lot of memory.  This example, will make sure prime95
+allow workers use a lot of memory.  This example, will make sure the program
 is using the minimum amount of memory possible while photoshop is running:
 	LowMemWhileRunning=Photoshop
 
-By default, prime95 will check the PauseWhileRunning list every 10 seconds.
+By default, the program will check the PauseWhileRunning list every 10 seconds.
 You can adjust the time period with this prime.txt setting:
 	PauseCheckInterval=n
 where n is the number of seconds between checking which programs are running.
+
+LINUX ONLY: In prime.txt you can have mprime suspend execution when the system
+load gets above a threshold.  This can improve system responsiveness
+by freeing up memory that mprime is currently using.  Mprime bases
+its decisions using the first value in /proc/loadavg.  In prime.txt, set
+	MaxLoad=a
+	MinLoad=b
+	PauseTime=c
+For example, if MaxLoad is set to 4.5, mprime will suspend whenever the
+load average gets above 4.5.  If MinLoad is set to 3.1, then mprime will
+resume operation when the load average goes below this value.  Set PauseTime
+to how often you want the program to check the load average.  This value
+is in seconds.
 
 Normally, the program will unreserve an exponent if it is scheduled to start
 thirty days after the Test/Primenet Days of work to get value.  You can adjust
@@ -287,11 +296,23 @@ where n is the number of days.  You should increase this value if you are
 loading up worktodo.txt with a large amount of work and do not want any of
 the work to be unreserved.
 
-By default, Prime95 uses RAS routines to determine if your modem is connected
-to the Internet.  Microsoft now prefers the InternetGetConnectedState call
-in WININET.DLL.  To use this method instead of the RAS routines, add this
+WINDOWS ONLY:  By default, Prime95 uses RAS routines to determine if your modem
+is connected to the Internet.  Microsoft now prefers the InternetGetConnectedState
+call in WININET.DLL.  To use this method instead of the RAS routines, add this
 line to prime.txt:
 	AlternateModemDetection=1
+
+LINUX ONLY: Mprime supports 4 different ways of checking if your computer
+is connected to the internet.  Set RouteRequired=n in [PrimeNet] section
+of prime.txt.  The following values of n are supported.  The last entry is
+what happens if RouteRequired is not given.
+	0:	Assume computer is always connected
+	1:	Assume connected if there is an entry in /proc/net/route
+		other than for the loopback device.
+	2:	Assume connected if there is an entry in /proc/net/route
+		with a netmask of 00000000.
+	none:	Same as 2 except that if /proc/net/route is unreadable
+		mprime assumes computer is connected.
 
 If you are running on a laptop or in a hot room and you want to slow the
 program down to reduce heat, then you can add this line to prime.txt:
@@ -299,10 +320,10 @@ program down to reduce heat, then you can add this line to prime.txt:
 where n is the percentage of time the program should run.  For example,
 Throttle=40 means the program will run 40% and be idle 60% of the time.
 
-To limit prime95's impact on computer responsiveness on a hyperthreaded machine
-the program pauses for 30 seconds if two successive iterations take 40% longer
-than a typical iteration.  You can turn this feature off or change how long
-the program pauses by adding this line to prime.txt:
+NOT IMPLEMENTED:  To limit the program's impact on computer responsiveness on a
+hyperthreaded machine the program pauses for 30 seconds if two successive iterations
+take 40% longer than a typical iteration.  You can turn this feature off or change
+how long the program pauses by adding this line to prime.txt:
 	HyperthreadingBackoff=n
 where n is zero to turn the feature off or n is the number of seconds to pause
 after two successive slow iterations.
@@ -320,21 +341,22 @@ You can use the old sockets communication code instead of the robust CURL librar
 Add this line to the [PrimeNet] section of prime.txt:
 	UseCURL=0
 
-You can control what type of URLs are used to contact the PrimeNet server.
-In primenet.txt enter:
+When not using CURL , you can control what type of URLs are used to contact the
+PrimeNet server.  In the [Primenet] section of prime.txt enter:
 	UseFullURL=n
 where n is 0 for use relative URLs, 1 for use full URLs, 2 for try full URL
 and if an error is returned try a relative URL.  The default setting is 2.
 Note that a full URL is always sent when using a proxy server.
 
-When using a proxy server, the program sends the port number in http strings.
-That is the ":80" in "http://mersenne.org:80/cgibin_text".  At least one
-proxy server only works if the ":80" is not present.  In this case, set:
+When not using CURL and using a proxy server, the program sends the port number
+in http strings.  That is the ":80" in "http://mersenne.org:80/cgibin_text".
+At least one proxy server only works if the ":80" is not present.  In this case, set
 	SendPortNumber=0
-in the primenet.txt file.
+in the [Primenet] section of prime.txt file.
 
-You can add additional information to the HTTP request sent to the server.
-This might be useful in some tough firewall setups.  In primenet.txt enter:
+When not using CURL, you can add additional information to the HTTP request
+sent to the server.  This might be useful in some tough firewall setups.
+In the [Primenet] section of prime.txt enter:
 	OtherGetInfo=string
 where string is any text up to 256 bytes.
 
