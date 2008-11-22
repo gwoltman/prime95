@@ -182,7 +182,7 @@ gwmutex	MEM_MUTEX;		/* Lock for accessing mem globals */
 
 /* This routine is also responsible for setting the thread's CPU affinity. */
 /* If there are N cpus with hyperthreading, then physical cpu 0 is logical */
-/* cpu 0 and N, physical cpu 1 is logical cpu 1 and N+1, etc. */
+/* cpu 0 and 1, physical cpu 1 is logical cpu 2 and 3, etc. */
 
 void SetPriority (
 	struct PriorityInfo *info)
@@ -194,9 +194,7 @@ void SetPriority (
 /* threads onto the logical CPUs before moving onto the next physical CPU. */  
 
 	if (info->type == SET_PRIORITY_BENCHMARKING) {
-		mask = 1 << (info->aux_thread_num / CPU_HYPERTHREADS);
-		for (i = 1; i < CPU_HYPERTHREADS; i++)
-			mask |= (mask << NUM_CPUS);
+		mask = 1 << (info->aux_thread_num);
 	}
 
 /* Torture test affinity.  If we're running the same number of torture */
@@ -207,9 +205,8 @@ void SetPriority (
 		if (info->num_threads == NUM_CPUS * CPU_HYPERTHREADS) {
 			mask = 1 << info->thread_num;
 		} else if (info->num_threads == NUM_CPUS) {
-			mask = 1 << (info->thread_num / CPU_HYPERTHREADS);
-			for (i = 1; i < CPU_HYPERTHREADS; i++)
-				mask |= (mask << NUM_CPUS);
+			mask = 1 << (info->thread_num * CPU_HYPERTHREADS);
+			for (i = 1; i < CPU_HYPERTHREADS; i++) mask |= (mask << 1);
 		} else
 			mask = -1;
 	}
@@ -231,14 +228,10 @@ void SetPriority (
 
 /* A small CPU_AFFINITY setting means run only on that CPU.  Since there is */
 /* no way to explicitly tell us which CPU to run an auxillary thread on, */
-/* we put the first auxillary thread on any hyperthreaded logical CPUs. */
-/* The next auxillary thread goes on the next physical CPU. */
+/* we put the auxillary threads on the subsequent logical CPUs. */
 
 	else if (CPU_AFFINITY[info->thread_num] < 100) {
-		mask = 1 << CPU_AFFINITY[info->thread_num];
-		mask <<= ((info->aux_thread_num % CPU_HYPERTHREADS) *
-							CPU_HYPERTHREADS);
-		mask <<= (info->aux_thread_num / CPU_HYPERTHREADS);
+		mask = 1 << (CPU_AFFINITY[info->thread_num] + info->aux_thread_num);
 	}
 
 /* A CPU_AFFINITY setting of 100 means "smart affinity assignments". */
@@ -268,9 +261,8 @@ void SetPriority (
 /* logical CPUs created by hyperthreading. */ 
 
 	else if (NUM_WORKER_THREADS == NUM_CPUS) {
-		mask = 1 << info->thread_num;
-		for (i = 1; i < CPU_HYPERTHREADS; i++)
-			mask |= (mask << NUM_CPUS);
+		mask = 1 << (info->thread_num * CPU_HYPERTHREADS);
+		for (i = 1; i < CPU_HYPERTHREADS; i++) mask |= (mask << 1);
 	}
 
 /* Otherwise, just run on any CPU. */
