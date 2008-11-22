@@ -6176,11 +6176,11 @@ int factorBench (
 
 		stop_reason = factorSetup (thread_num, 35000011, &facdata);
 		if (stop_reason) return (stop_reason);
-		if (bit_lengths[i] < 64) {
+		if (bit_lengths[i] <= 64) {
 			facdata.asm_data->FACHSW = 0;
-			facdata.asm_data->FACMSW = 1L << (bit_lengths[i]-32);
+			facdata.asm_data->FACMSW = 1L << (bit_lengths[i]-33);
 		} else {
-			facdata.asm_data->FACHSW = 1L << (bit_lengths[i]-64);
+			facdata.asm_data->FACHSW = 1L << (bit_lengths[i]-65);
 			facdata.asm_data->FACMSW = 0;
 		}
 		stop_reason = factorPassSetup (thread_num, 0, &facdata);
