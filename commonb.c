@@ -231,7 +231,10 @@ void SetPriority (
 /* we put the auxillary threads on the subsequent logical CPUs. */
 
 	else if (CPU_AFFINITY[info->thread_num] < 100) {
-		mask = 1 << (CPU_AFFINITY[info->thread_num] + info->aux_thread_num);
+		if (CPU_AFFINITY[info->thread_num] + info->aux_thread_num >= NUM_CPUS * CPU_HYPERTHREADS)
+			mask = -1;
+		else
+			mask = 1 << (CPU_AFFINITY[info->thread_num] + info->aux_thread_num);
 	}
 
 /* A CPU_AFFINITY setting of 100 means "smart affinity assignments". */
@@ -249,7 +252,7 @@ void SetPriority (
 /* auxillary threads, then the user has made a really bad decision and a */
 /* performance hit will occur. */
 
-	else if (NUM_WORKER_THREADS == NUM_CPUS * CPU_HYPERTHREADS) { 
+	else if (NUM_WORKER_THREADS == NUM_CPUS * CPU_HYPERTHREADS) {
 		mask = 1 << info->thread_num;
 		if (info->aux_thread_num) mask = -1;
 	}
