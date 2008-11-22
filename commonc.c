@@ -1675,17 +1675,23 @@ int addFileExists (void)
 	if (dot != NULL) {
 		strcpy (dot, ".add");
 		if (fileExists (filename)) return (TRUE);
+		strcpy (dot, ".add.txt");
+		if (fileExists (filename)) return (TRUE);
 	}
 	strcpy (filename, LOCALINI_FILE);
 	dot = strrchr (filename, '.');
 	if (dot != NULL) {
 		strcpy (dot, ".add");
 		if (fileExists (filename)) return (TRUE);
+		strcpy (dot, ".add.txt");
+		if (fileExists (filename)) return (TRUE);
 	}
 	strcpy (filename, WORKTODO_FILE);
 	dot = strrchr (filename, '.');
 	if (dot != NULL) {
 		strcpy (dot, ".add");
+		if (fileExists (filename)) return (TRUE);
+		strcpy (dot, ".add.txt");
 		if (fileExists (filename)) return (TRUE);
 	}
 	return (FALSE);
@@ -1762,6 +1768,9 @@ void incorporateIniAddFiles (void)
 		strcpy (dot, ".add");
 		if (fileExists (filename))
 			iniAddFileMerge (INI_FILE, filename, NULL);
+		strcpy (dot, ".add.txt");
+		if (fileExists (filename))
+			iniAddFileMerge (INI_FILE, filename, NULL);
 	}
 
 /* Merge additions to local.ini */
@@ -1770,6 +1779,9 @@ void incorporateIniAddFiles (void)
 	dot = strrchr (filename, '.');
 	if (dot != NULL) {
 		strcpy (dot, ".add");
+		if (fileExists (filename))
+			iniAddFileMerge (LOCALINI_FILE, filename, NULL);
+		strcpy (dot, ".add.txt");
 		if (fileExists (filename))
 			iniAddFileMerge (LOCALINI_FILE, filename, NULL);
 	}
@@ -1796,13 +1808,16 @@ static	int	worktodo_add_disabled = FALSE;
 	strcpy (filename, WORKTODO_FILE);
 	dot = strrchr (filename, '.');
 	if (dot == NULL) return (0);
-	strcpy (dot, ".add");
 
 /* Open the worktodo.add file, it is OK if this file does not exist. */
-/* does not exist. */
 
+	strcpy (dot, ".add");
 	fd = fopen (filename, "r");
-	if (fd == NULL) return (0);
+	if (fd == NULL) {
+		strcpy (dot, ".add.txt");
+		fd = fopen (filename, "r");
+		if (fd == NULL) return (0);
+	}
 
 /* As an ugly kludge, we append lines from worktodo.add as comments in the */
 /* in-memory version of worktodo.ini.  Later we will write worktodo.ini to */
