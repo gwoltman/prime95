@@ -6158,7 +6158,7 @@ int primeTime (
 }
 
 #define BENCH1 "Your timings will be written to the results.txt file.\n"
-#define BENCH2 "Compare your results to other computers at http://www.mersenne.org/bench.htm\n"
+#define BENCH2 "Compare your results to other computers at http://www.mersenne.org/report_benchmarks\n"
 
 int factorBench (
 	int	thread_num,
