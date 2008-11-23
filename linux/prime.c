@@ -582,10 +582,13 @@ int OnBattery (void)
 	fd = fopen ("/proc/acpi/battery/BAT0/state", "r");
 	if (fd != NULL) {
 		for ( ; ; ) {
+			char	*p;
 			if (fscanf (fd, "%s", buf) == EOF) break;
-			if (strstr (buf, "charged") == 0) ac_state = 1;
-			if (strstr (buf, "charging") == 0) ac_state = 1;
-			if (strstr (buf, "discharging") == 0) ac_state = 0;
+			p = strstr (buf, "charging state:");
+			if (p == NULL) continue;
+			if (strstr (p+14, "discharging") != NULL) ac_state = 0;
+			else if (strstr (p+14, "charging") != NULL) ac_state = 1;
+			else if (strstr (p+14, "charged") != NULL) ac_state = 1;
 		}
 		fclose (fd);
 	}
