@@ -469,21 +469,12 @@ void write_memory_settings (
 	unsigned int day_start_time,
 	unsigned int day_end_time)
 {
-	unsigned int temp;
 	char	buf[100];
 
-	if (day_start_time > day_end_time) {
-		temp = day_memory; day_memory = night_memory; night_memory = temp;
-		temp = day_start_time; day_start_time = day_end_time; day_end_time = temp;
-	}
-	if (day_memory == night_memory) 
-		IniWriteInt (LOCALINI_FILE, "Memory", day_memory);
-	else {
-		sprintf (buf, "%d during %d:%d-%d:%d else %d",
-			 day_memory, day_start_time / 60, day_start_time % 60,
-			 day_end_time / 60, day_end_time % 60, night_memory);
-		IniWriteString (LOCALINI_FILE, "Memory", buf);
-	}
+	sprintf (buf, "%d during %d:%02d-%d:%02d else %d",
+		 day_memory, day_start_time / 60, day_start_time % 60,
+		 day_end_time / 60, day_end_time % 60, night_memory);
+	IniWriteString (LOCALINI_FILE, "Memory", buf);
 	IniWriteString (LOCALINI_FILE, "DayMemory", NULL);
 	IniWriteString (LOCALINI_FILE, "NightMemory", NULL);
 	IniWriteString (LOCALINI_FILE, "DayStartTime", NULL);
@@ -1131,6 +1122,7 @@ int analyzeTimeLine (
 	int	current_time;
 	const char *p;
 	int	day, start_day, end_day, start_time, end_time;
+	int	full_start_time, full_end_time;
 	int	wakeup_t, min_wakeup_t;
 
 /* Break current time into a more easily maniupulated form */
@@ -1149,21 +1141,33 @@ int analyzeTimeLine (
 /* Treat each day in the range as a separate time interval to process */
 
 		for (day = start_day; day <= end_day; day++) {
-			int	temp;
+
+/* We allow end_time to be less than start_time.  We treat this as */
+/* the next day.  Thus 15:00-01:00 means 3PM to 1AM the next day. */
+
+			full_start_time = day * 24 * 60 + start_time;
+			full_end_time = day * 24 * 60 + end_time;
+			if (end_time < start_time) full_end_time += 24 * 60;
 
 /* Is the current time in this interval? */
 
-			if (current_time >= day * 24 * 60 + start_time &&
-			    current_time < day  * 24 * 60 + end_time)
+			if (current_time >= full_start_time &&
+			    current_time < full_end_time)
+				goto winner;
+
+/* Now check for the really sick case, where end_time was less than */
+/* start_time and we've wrapped from day 7 back to day 1 */
+
+			if (end_time < start_time && day == 7 &&
+			    current_time < full_end_time - 7 * 24 * 60)
 				goto winner;
 
 /* No, see if this start time should be our new wakeup time. */
 
-			temp = day * 24 * 60 + start_time;
-			if (temp >= current_time)
-				wakeup_t = (temp - current_time) * 60;
+			if (full_start_time >= current_time)
+				wakeup_t = (full_start_time - current_time) * 60;
 			else
-				wakeup_t = (temp + 7 * 24 * 60 - current_time) * 60;
+				wakeup_t = (full_start_time + 7 * 24 * 60 - current_time) * 60;
 			if (min_wakeup_t == 0 || min_wakeup_t > wakeup_t)
 				min_wakeup_t = wakeup_t;
 		}
@@ -1174,38 +1178,39 @@ int analyzeTimeLine (
 	*wakeup_time = min_wakeup_t;
 	return (FALSE);
 
-/* Current time is in this interval, compute set the wakeup time. */
+/* Current time is in this interval, compute the wakeup time */
 
-winner:	wakeup_t = (day * 24 * 60 + end_time - current_time) * 60;
+winner:	wakeup_t = (full_end_time - current_time) * 60;
 
 /* Also, look for a start time that matches the end time and replace */
 /* the end time.  For example, if current time is 18:00 and the */
 /* Time= entry is 0:00-8:00,17:00-24:00, then the */
 /* end time of 24:00 should be replaced with 8:00 of the next day. */
+/* Be sure not to infinite loop in this time entry: 0:00-8:00,8:00-24:00 */
 
 	p = line;
-	while (p != NULL) {
+	while (p != NULL && wakeup_t < 10 * 24 * 60) {
 		parseTimeLine (&p, &start_day, &end_day, &start_time, &end_time);
 
 /* Treat each day in the range as a separate time interval to process */
 
 		for (day = start_day; day <= end_day; day++) {
-			int	temp;
-			int	start_t;
+			int	this_full_start_time, this_full_end_time;
 
-/* If this start time is the same as the wakeup time, then set the new */
-/* wakup time to be the end of this interval */
+/* If this start time is the same as the winning end time, then set the new */
+/* wakeup time to be the end of this interval.  Be sure to handle the tricky */
+/* wrap around that occurs when end_time < start_time. */
 
-			temp = day * 24 * 60 + start_time;
-			if (temp >= current_time)
-				start_t = (temp - current_time) * 60;
-			else
-				start_t = (temp + 7 * 24 * 60 - current_time) * 60;
-			if (wakeup_t == start_t) {
-				wakeup_t += (end_time - start_time) * 60;
-				p = line;
-				break;
-			}
+			this_full_start_time = day * 24 * 60 + start_time;
+			if (this_full_start_time != full_end_time &&
+			    this_full_start_time != full_end_time - 7 * 24 * 60) continue;
+
+			this_full_end_time = day * 24 * 60 + end_time;
+			if (end_time < start_time) this_full_end_time += 24 * 60;
+			wakeup_t += (this_full_end_time - this_full_start_time) * 60;
+			full_end_time = this_full_end_time;
+			p = line;
+			break;
 		}
 	}
 
