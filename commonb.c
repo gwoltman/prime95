@@ -299,7 +299,7 @@ static	char	AFFINITY_SCRAMBLE[33] = {0};
 		for (i = 0; i < 32; i++) {
 			if (mask & (1L << i)) {
 				if (AFFINITY_SCRAMBLE[i] < 0 ||
-				    AFFINITY_SCRAMBLE[i] >= NUM_CPUS * CPU_HYPERTHREADS)
+				    AFFINITY_SCRAMBLE[i] >= (char) (NUM_CPUS * CPU_HYPERTHREADS))
 					new_mask = -1;
 				else
 					new_mask |= (1L << AFFINITY_SCRAMBLE[i]);
