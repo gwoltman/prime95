@@ -3451,16 +3451,14 @@ double work_estimate (
 
 /* If factoring, guess how long that will take.  Timings are based on */
 /* the factoring benchmark for my 2 GHz P4. */
-/*	Best time for 58 bit trial factors: 15.065 ms. */
-/*	Best time for 59 bit trial factors: 15.123 ms. */
-/*	Best time for 60 bit trial factors: 15.021 ms. */
-/*	Best time for 61 bit trial factors: 15.080 ms. */
-/*	Best time for 62 bit trial factors: 16.127 ms. */
-/*	Best time for 63 bit trial factors: 16.143 ms. */
-/*	Best time for 64 bit trial factors: 20.230 ms. */
-/*	Best time for 65 bit trial factors: 20.212 ms. */
-/*	Best time for 66 bit trial factors: 20.244 ms. */
-/*	Best time for 67 bit trial factors: 20.205 ms. */
+/*	Best time for 60 bit trial factors: 15.123 ms. */
+/*	Best time for 61 bit trial factors: 15.021 ms. */
+/*	Best time for 62 bit trial factors: 15.080 ms. */
+/*	Best time for 63 bit trial factors: 16.127 ms. */
+/*	Best time for 64 bit trial factors: 16.143 ms. */
+/*	Best time for 65 bit trial factors: 20.230 ms. */
+/*	Best time for 66 bit trial factors: 20.212 ms. */
+/*	Best time for 67 bit trial factors: 20.244 ms. */
 /* Factoring M35000011 from 2^60 to 2^61 takes 513 seconds.  Solve for */
 /* constant C in this formula:  15.1 ms * 2^61 * C = 513 seconds */
 /*	C = 513 sec / 2^61 / 15.1 ms */
