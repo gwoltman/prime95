@@ -6028,12 +6028,6 @@ void guess_pminus1_bounds (
 
 	pass2_squarings *= 1.2;
 
-/* No matter what the user has entered in the worktodo file, assume he has */
-/* had the common sense to at least trial factor to 2^32.  We don't want to */
-/* wildly over-estimate our chance of success. */
-
-	if (how_far_factored < 32.0) how_far_factored = 32.0;
-
 /* What is the "average" value that must be smooth for P-1 to succeed? */
 /* Ordinarily this is 1.5 * 2^how_far_factored.  However, for Mersenne */
 /* numbers the factor must be of the form 2kp+1.  Consequently, the */
@@ -6055,23 +6049,31 @@ void guess_pminus1_bounds (
 	for (h = how_far_factored; ; ) {
 		double	prob1, prob2;
 
+/* If temp < 1.0, then there are no factor to find in this bit level */
+
+		if (logtemp > 0.0) {
+
 /* See how many smooth k's we should find using B1 */
 /* Using Dickman's function (see Knuth pg 382-383) we want k^a <= B1 */
 
-		prob1 = F (logB1 / logkk);
+			prob1 = F (logB1 / logkk);
 
 /* See how many smooth k's we should find using B2 */
 /* Adjust this slightly to eliminate k's that have two primes > B1 and < B2 */
 /* Do this by assuming the largest factor is the average of B1 and B2 */
 /* and the remaining cofactor is B1 smooth */
 
-		prob2 = prob1 + (F (logB2 / logkk) - prob1) *
-				(F (logB1 / logtemp) / F (logB2 / logtemp));
-		if (prob2 < 0.0001) break;
+			prob2 = prob1 + (F (logB2 / logkk) - prob1) *
+				        (F (logB1 / logtemp) / F (logB2 / logtemp));
+			if (prob2 < 0.0001) break;
 
 /* Add this data in to the total chance of finding a factor */
 
-		prob += prob2 / (h + 0.5);
+			prob += prob2 / (h + 0.5);
+		}
+
+/* Move to next bit level */
+
 		h += 1.0;
 		logkk += log2;
 		logtemp += log2;
