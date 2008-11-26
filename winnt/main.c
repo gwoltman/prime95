@@ -69,7 +69,7 @@ VOID ServiceStart (DWORD dwArgc, LPTSTR *lpszArgv)
     //
 
     // Start the threads
-    LaunchWorkerThreads (ALL_WORKERS, FALSE);
+    LaunchWorkerThreads (ALL_WORKERS, TRUE);
 
 }
 
