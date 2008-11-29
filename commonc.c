@@ -5531,9 +5531,13 @@ retry:
 			LOCKED_WORK_UNIT = NULL;
 			rc = sendMessage (msgType, &msg);
 			/* If the computer ID is bad and not ours (a damaged */
-			/* spool file?) then try again using our computer ID */
-			if (rc == PRIMENET_ERROR_UNREGISTERED_CPU &&
+			/* spool file or we were forced to generate a new */
+			/* computer GUID?) then try again using our computer ID */
+			if ((rc == PRIMENET_ERROR_UNREGISTERED_CPU ||
+			     rc == PRIMENET_ERROR_CPU_CONFIGURATION_MISMATCH ||
+			     rc == PRIMENET_ERROR_STALE_CPU_INFO) &&
 			    strcmp (msg.ar.computer_guid, COMPUTER_GUID)) {
+				OutputStr (COMM_THREAD_NUM, "Retrying message with this computer's GUID.\n");
 				strcpy (msg.ar.computer_guid, COMPUTER_GUID);
 				continue;
 			}
