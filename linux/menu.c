@@ -889,7 +889,7 @@ void options_preferences (void)
 	if (USE_PRIMENET)
 		askNum ("Days of work to queue up", &m_work, 1, 90);
 	if (USE_PRIMENET)
-		askNum ("Days between sending end dates", &m_end_dates, 1, 60);
+		askNum ("Days between sending end dates", &m_end_dates, 1, 7);
 	askYN ("Create Two Backup Files", &m_backup);
 	askYN ("Make noise if new Mersenne prime is found", &m_noise);
 	askYN ("Run program even when using laptop battery power", &m_battery);
