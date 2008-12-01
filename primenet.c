@@ -981,7 +981,7 @@ int format_args (char* args, short operation, void* pkt)
 		/* Just in case caller passes that value in, convert it */
 		sprintf (p, "&c=%lu&p=%.4f&d=%lu&e=%lu",
 			 z->cpu_num,
-			 z->pct_complete < 100.0 ? z->pct_complete : 99.9999,
+			 z->pct_complete < 99.9999 ? z->pct_complete : 99.9999,
 			 z->next_update, z->end_date);
 		p += strlen (p);
 		if (z->fftlen) {
