@@ -735,7 +735,7 @@ int pnHttpServerCURL (char *pbuf, unsigned cbuf, char* postargs)
 	curl_easy_setopt (curl, CURLOPT_ERRORBUFFER, errbuf);
 	res = curl_easy_perform (curl);
 	if (res != CURLE_OK) {
-		sprintf (buf, "Unexpected CURL library error: %s\n", errbuf);
+		sprintf (buf, "CURL library error: %s\n", errbuf);
 		LogMsg (buf);
 		OutputStr (COMM_THREAD_NUM, buf);
 		curl_easy_cleanup (curl);
