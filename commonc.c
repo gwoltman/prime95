@@ -211,11 +211,16 @@ void calc_windows_guid (void)
 /* we need to defeat the code that automatically detects hardware changes. */
 /* The FixedHardwareUID INI option tells us to get the Windows and */
 /* hardware hashes from the INI file rather than calculating them. */
+/* NOTE: we cannot write an empty string under Linux.  This is because */
+/* if we then run under Windows, IniGetString will return the default */
+/* value - not the empty string - causing a IDENTITY_MISMATCH error. */
 
 	if (FIXED_GUIDS) {
+		if (WINDOWS_GUID[0] == 0) strcpy (WINDOWS_GUID, "NULL");
 		IniGetString (INI_FILE, "WindowsGUID", WINDOWS_GUID,
 			      sizeof (WINDOWS_GUID), WINDOWS_GUID);
 		IniWriteString (INI_FILE, "WindowsGUID", WINDOWS_GUID);
+		if (_stricmp (WINDOWS_GUID, "NULL") == 0) WINDOWS_GUID[0] = 0;
 	}
 }
 
