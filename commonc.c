@@ -440,7 +440,7 @@ unsigned int strToMinutes (
 	if (hours == 12) hours -= 12;
 	if (pm) hours += 12;
 	minutes = hours * 60 + minutes;
-	if (minutes > 1440) minutes = 1440;
+	minutes %= 1440;  // In case user entered 24:00 or 11:60 PM
 	return (minutes);
 }
 
@@ -535,10 +535,18 @@ int read_memory_settings (
 	*day_end_time += atol (p);
 	while (isdigit (*p)) p++;
 
+/* If user hand-edited the prime.txt file and entered an illegal time */
+/* value, then arbitrarily set the value within the proper range */
+
+	*day_start_time %= 1440;
+	*day_end_time %= 1440;
+
+/* Handle the else clause */
+
 	else_clause = strstr (p, " else ");
 	if (p != else_clause) return (FALSE);
 	*night_memory = atol (p + 6);
-	
+
 	return (strstr (p, " during ") == NULL);
 }
 
