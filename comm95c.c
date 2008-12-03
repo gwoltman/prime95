@@ -9,6 +9,7 @@
 #include <winsock.h>
 #include <wininet.h>
 #include <process.h>
+#include <sddl.h>
 
 int	SOCKETS_INITIALIZED = 0;
 
@@ -153,6 +154,44 @@ void getWindowsSerialNumber (
 			&disposition) == ERROR_SUCCESS &&
 	    RegQueryValueEx (hkey, "ProductId", NULL, &type,
 			(BYTE *) buf, &bufsize) == ERROR_SUCCESS &&
+	    type == REG_SZ)
+		strcpy (output, buf);
+	if (hkey) RegCloseKey (hkey);
+}
+
+/* Get Windows Serial Number - our second attempt.  This is more robust */
+/* as it works under Vista too. */
+
+void getWindowsSerialNumber_2 (
+	char	*output)
+{
+	HKEY	hkey;
+	char	buf[256];
+	DWORD	type;
+	DWORD	bufsize;
+
+	*output = 0;
+
+	hkey = 0;
+	bufsize = sizeof (buf);
+	if (RegOpenKeyEx (HKEY_LOCAL_MACHINE,
+			  "Software\\Microsoft\\Windows\\CurrentVersion", 0,
+			  KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS &&
+	    RegQueryValueEx (hkey, "ProductId", NULL, &type,
+			     (BYTE *) buf, &bufsize) == ERROR_SUCCESS &&
+	    type == REG_SZ)
+		strcpy (output, buf);
+	if (hkey) RegCloseKey (hkey);
+
+	if (*output) return;
+
+	hkey = 0;
+	bufsize = sizeof (buf);
+	if (RegOpenKeyEx (HKEY_LOCAL_MACHINE,
+			  "Software\\Microsoft\\Windows NT\\CurrentVersion", 0,
+			  KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS &&
+	    RegQueryValueEx (hkey, "ProductId", NULL, &type,
+			     (BYTE *) buf, &bufsize) == ERROR_SUCCESS &&
 	    type == REG_SZ)
 		strcpy (output, buf);
 	if (hkey) RegCloseKey (hkey);
@@ -372,6 +411,56 @@ void getWindowsSID (
 	free (vData);
 }
 
+/* Version 2.  My simpler attempt at getting the Windows SID. */
+/* Version 1 failed on RegOpenKey when I switch users on Vista. */
+
+void getWindowsSID_2 (
+	char	*output)
+{
+	char	computer_name[256];
+	SID	*sid;
+	SID_NAME_USE snu;
+	char	*domain;
+	char	*stringsid;
+	unsigned long size, domainsize;
+
+	*output = 0;
+
+/* Get the computer name */
+
+	size = sizeof (computer_name);
+	if (! GetComputerName ((LPSTR) computer_name, &size)) return;
+
+/* First find the size of buffers required for the SID and domain name */
+
+	sid = 0;
+	domain = 0;
+	size = domainsize = 0;
+	LookupAccountName(0, (LPCSTR) computer_name, sid, &size, domain, &domainsize, &snu);
+
+/* Should have failed with ERROR_INSUFFICIENT_BUFFER */
+
+	if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) return;
+
+/* Allocate memory */
+
+	sid = (SID *) malloc (size);
+	domain = (char *) malloc (domainsize);
+
+/* Get the SID */
+
+	if (sid != NULL && domain != NULL &&
+	    LookupAccountName (0, (LPCSTR) computer_name, sid, &size, domain, &domainsize, &snu) &&
+	    ConvertSidToStringSid(sid, &stringsid)) {
+		strcpy (output, stringsid);
+		LocalFree (stringsid);
+	}
+
+/* Cleanup */
+
+	free (sid);
+	free (domain);
+}
 
 
 /* Return the number of MB of physical memory.  Windows doesn't return the full amount */

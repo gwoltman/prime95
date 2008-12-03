@@ -367,8 +367,6 @@ int writeResults (char	*);
 unsigned long physical_memory (void);
 unsigned long GetSuggestedMemory (unsigned long nDesiredMemory);
 unsigned long num_cpus (void);
-void getWindowsSerialNumber (char *);
-void getWindowsSID (char *);
 int getDefaultTimeFormat (void);
 
 /******************************************************************************
