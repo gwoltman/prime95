@@ -463,15 +463,15 @@ void getWindowsSID_2 (
 }
 
 
-/* Return the number of MB of physical memory.  Windows doesn't return the full amount */
-/* of physical memory - probably shadow ram or some such.  Compensate by rounding up. */
+/* Return the number of MB of physical memory. */
 
 unsigned long physical_memory (void)
 {
-	MEMORYSTATUS mem;
+	MEMORYSTATUSEX mem;
 
-	GlobalMemoryStatus (&mem);
-	return ((unsigned long) ((mem.dwTotalPhys + 1000000) >> 20));
+	mem.dwLength = sizeof (mem);
+	GlobalMemoryStatusEx (&mem);
+	return ((unsigned long) ((mem.ullTotalPhys + 1000000) >> 20));
 }
 
 /* Return a better guess for amount of memory to use in a torture test. */
@@ -482,15 +482,16 @@ unsigned long physical_memory (void)
 
 unsigned long GetSuggestedMemory (unsigned long nDesiredMemory)
 {
-	MEMORYSTATUS ms = {0};
+	MEMORYSTATUSEX ms = {0};
+	DWORDLONG ullUsedMem;
+	DWORDLONG ullDesiredMem = nDesiredMemory << 20;	// Desired memory in bytes
+	DWORDLONG ullDesiredMemNew = ullDesiredMem;
+
+	ms.dwLength = sizeof (ms);
+	GlobalMemoryStatusEx (&ms);
 
 	// In-use Physical RAM in bytes
-	SIZE_T dwUsedMem	= ms.dwTotalPhys - ms.dwAvailPhys;
-	// Desired memory in bytes
-	SIZE_T dwDesiredMem	= nDesiredMemory << 20;
-	SIZE_T dwDesiredMemNew	= dwDesiredMem;
-
-	GlobalMemoryStatus (&ms);
+	ullUsedMem = ms.ullTotalPhys - ms.ullAvailPhys;
 
 	// if very small/no page-file (pagefile <= total RAM) and
 	// in-use memory + desired memory > total RAM, then
@@ -499,13 +500,12 @@ unsigned long GetSuggestedMemory (unsigned long nDesiredMemory)
 	// reclaim enough free memory since
 	// there's not enough space in the pagefile
 	// to store the paged-out apps
-	if ((ms.dwTotalPageFile <= ms.dwTotalPhys) &&
-		  ((dwUsedMem + dwDesiredMem) >= ms.dwTotalPhys))
-	{
-		dwDesiredMemNew = ms.dwAvailPhys;
+	if ((ms.ullTotalPageFile <= ms.ullTotalPhys) &&
+	    (ullUsedMem + ullDesiredMem >= ms.ullTotalPhys)) {
+		ullDesiredMemNew = ms.ullAvailPhys;
 	}
 
-	return ((unsigned long) (dwDesiredMemNew >> 20));
+	return ((unsigned long) (ullDesiredMemNew >> 20));
 }
 
 /* Return the number of CPUs in the system */
