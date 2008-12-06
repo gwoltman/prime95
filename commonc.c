@@ -11,11 +11,6 @@
 
 char JUNK[]="Copyright 1996-2008 Mersenne Research, Inc. All rights reserved";
 
-int	USE_V4 = 1;
-char	V4_USERID[15] = {0};
-char	V4_USERPWD[9] = {0};
-char	V4_USERNAME[80] = {0};
-
 char	INI_FILE[80] = {0};
 char	LOCALINI_FILE[80] = {0};
 char	WORKTODO_FILE[80] = {0};
@@ -703,21 +698,6 @@ int readIniFiles (void)
 /* Get the CPU type, speed, and capabilities. */
 
 	getCpuInfo ();
-
-/* Get the V4 or V5 primenet server flag.  If using V4, also get the */
-/* options that only V4 needs. */
-
-	USE_V4 = IniGetInt (INI_FILE, "UseV4", 0);
-	if (USE_V4) {
-		IniGetString (INI_FILE, "UserID", V4_USERID,
-			      sizeof (V4_USERID), NULL);
-		V4_USERID[14] = 0;
-		IniGetString (INI_FILE, "UserPWD", V4_USERPWD,
-			      sizeof (V4_USERPWD), NULL);
-		V4_USERPWD[8] = 0;
-		IniGetString (INI_FILE, "UserName", V4_USERNAME,
-			      sizeof (V4_USERNAME), NULL);
-	}
 
 /* Convert V4 work preferences to v5 work preferences */
 
@@ -4242,20 +4222,6 @@ void formatMsgForResultsFile (
 {
 	char	newbuf[2000];
 
-/* Output the V4 user id and computer id */
-
-if (USE_V4) {
-	if (!V4_USERID[0])
-		strcpy (newbuf, buf);
-	else if (!COMPID[0])
-		sprintf (newbuf, "UID: %s, %s", V4_USERID, buf);
-	else
-		sprintf (newbuf, "UID: %s/%s, %s", V4_USERID, COMPID, buf);
-	newbuf[200] = 0;
-	strcpy (buf, newbuf);
-	return;
-}
-
 /* Output a USERID/COMPID prefix for result messages */
 
 	if (!USERID[0])
@@ -5476,12 +5442,12 @@ retry:
 		/* Rather than store the UID that we last sent to the server */
 		/* we store a hash value so the user is not tempted to hand edit it. */
 		server_uid = IniGetInt (LOCALINI_FILE, "SrvrUID", 0);
-		if (USE_V4 || string_to_hash (USERID) != server_uid)
+		if (string_to_hash (USERID) != server_uid)
 			strcpy (pkt.user_id, USERID);
 		/* The spec says only send the computer name if it changed */
 		/* Again store a hash value so the user won't hand edit the value */
 		server_computer_name = IniGetInt (LOCALINI_FILE, "SrvrComputerName", 0);
-		if (USE_V4 || string_to_hash (COMPID) != server_computer_name)
+		if (string_to_hash (COMPID) != server_computer_name)
 			strcpy (pkt.computer_name, COMPID);
 		LOCKED_WORK_UNIT = NULL;
 		rc = sendMessage (PRIMENET_UPDATE_COMPUTER_INFO, &pkt);
@@ -5490,13 +5456,11 @@ retry:
 //bug - Whenever we generate a new computer ID, clear all the SrvrPxx values from Ini file!
 //this is needed so that we send all the client's po options for this new computer.
 		strcpy (USERID, pkt.user_id);
-		if (!USE_V4) {
-			IniWriteString (INI_FILE, "V5UserID", USERID);
-			IniWriteInt (LOCALINI_FILE, "SrvrUID", string_to_hash (USERID));
-			strcpy (COMPID, pkt.computer_name);
-			IniWriteString (LOCALINI_FILE, "ComputerID", COMPID);
-			IniWriteInt (LOCALINI_FILE, "SrvrComputerName", string_to_hash (COMPID));
-		}
+		IniWriteString (INI_FILE, "V5UserID", USERID);
+		IniWriteInt (LOCALINI_FILE, "SrvrUID", string_to_hash (USERID));
+		strcpy (COMPID, pkt.computer_name);
+		IniWriteString (LOCALINI_FILE, "ComputerID", COMPID);
+		IniWriteInt (LOCALINI_FILE, "SrvrComputerName", string_to_hash (COMPID));
 		server_options_counter = pkt.options_counter;
 	}
 

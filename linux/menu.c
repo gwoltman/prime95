@@ -270,19 +270,9 @@ void test_primenet (void)
 	askYN ("Use PrimeNet to get work and report results", &m_primenet);
 	if (!m_primenet) goto done;
 
-	if (USE_V4) {
-	strcpy (m_userid, V4_USERID);
-	strcpy (m_userpwd, V4_USERPWD);
-	strcpy (m_username, V4_USERNAME);
-	askStr ("User ID", m_userid, 14);
-	askStr ("Password", m_userpwd, 8);
-	askStr ("Optional computer name", m_compid, 20);
-	askStr ("Optional user name", m_username, 79);
-	} else {
 	outputLongLine ("\nYou must first create your user ID at mersenne.org or leave user ID blank to run anonymously.  See the readme.txt file for details.\n");
 	askStr ("Optional user ID", m_userid, 20);
 	askStr ("Optional computer name", m_compid, 20);
-	}
 
 	askYN ("Computer uses a dial-up connection to the Internet", &m_dialup);
 
@@ -318,33 +308,6 @@ done:	if (askOkCancel ()) {
 					    m_debug);
 		}
 
-		if (USE_V4) {
-		if (strcmp (COMPID, m_compid) != 0) {
-			strcpy (COMPID, m_compid);
-			sanitizeString (COMPID);
-			IniWriteString (LOCALINI_FILE, "ComputerID", COMPID);
-			update_computer_info = TRUE;
-		}
-		if (strcmp (V4_USERID, m_userid) != 0) {
-			strcpy (V4_USERID, m_userid);
-			sanitizeString (V4_USERID);
-			IniWriteString (INI_FILE, "UserID", V4_USERID);
-			update_computer_info = TRUE;
-		}
-		if (strcmp (V4_USERPWD, m_userpwd) != 0) {
-			strcpy (V4_USERPWD, m_userpwd);
-			sanitizeString (V4_USERPWD);
-			IniWriteString (INI_FILE, "UserPwd", V4_USERPWD);
-			update_computer_info = TRUE;
-		}
-		if (strcmp (V4_USERNAME, m_username) != 0) {
-			strcpy (V4_USERNAME, m_username);
-			IniWriteString (INI_FILE, "UserName", V4_USERNAME);
-			update_computer_info = TRUE;
-		}
-		}
-
-		else {
 		if (m_userid[0] == 0)
 			strcpy (m_userid, "ANONYMOUS");
 
@@ -359,7 +322,6 @@ done:	if (askOkCancel ()) {
 			sanitizeString (COMPID);
 			IniWriteString (LOCALINI_FILE, "ComputerID", COMPID);
 			update_computer_info = TRUE;
-		}
 		}
 
 		if (!USE_PRIMENET && m_primenet) {
@@ -432,8 +394,7 @@ again:	if (max_num_workers () > 1)
 	askNum ("Priority", &m_priority, 1, 10);
 
 	if (USE_PRIMENET) {
-		if (USE_V4) outputLongLine ("\nUse the following values to select a work type:\n  0 - Whatever makes the most sense\n  2 - Trial factoring\n 100 - First time primality tests\n  101 - Double-checking\n");
-		else outputLongLine ("\nUse the following values to select a work type:\n  0 - Whatever makes the most sense\n  2 - Trial factoring\n 100 - First time primality tests\n  101 - Double-checking\n  102 - World record primality tests\n  4 - P-1 factoring\n  104 - 100 million digit primality tests\n  1 - Trial factoring to low limits\n  5 - ECM on small Mersenne numbers\n  6 - ECM on Fermat numbers\n");
+		outputLongLine ("\nUse the following values to select a work type:\n  0 - Whatever makes the most sense\n  2 - Trial factoring\n 100 - First time primality tests\n  101 - Double-checking\n  102 - World record primality tests\n  4 - P-1 factoring\n  104 - 100 million digit primality tests\n  1 - Trial factoring to low limits\n  5 - ECM on small Mersenne numbers\n  6 - ECM on Fermat numbers\n");
 	}
 
 	if (USE_PRIMENET || NUM_CPUS * CPU_HYPERTHREADS > m_num_thread) {
