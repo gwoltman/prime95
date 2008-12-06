@@ -467,11 +467,37 @@ void getWindowsSID_2 (
 
 unsigned long physical_memory (void)
 {
+#ifdef X86_64
 	MEMORYSTATUSEX mem;
-
 	mem.dwLength = sizeof (mem);
 	GlobalMemoryStatusEx (&mem);
 	return ((unsigned long) ((mem.ullTotalPhys + 1000000) >> 20));
+#else
+	HMODULE	hlib;
+	MEMORYSTATUS mem;
+
+/* Try using GlobalMemoryStatusEx - not available in Win98 and earlier */
+
+	hlib = LoadLibrary ("KERNEL32.DLL");
+	if (hlib) {
+		DWORD (__stdcall *proc)(MEMORYSTATUSEX *);
+		proc = (DWORD (__stdcall *)(MEMORYSTATUSEX *))
+		       GetProcAddress (hlib, "GlobalMemoryStatusEx");
+		if (proc != NULL) {
+			MEMORYSTATUSEX mem;
+			mem.dwLength = sizeof (mem);
+			GlobalMemoryStatusEx (&mem);
+			FreeLibrary (hlib);
+			return ((unsigned long) ((mem.ullTotalPhys + 1000000) >> 20));
+		}
+		FreeLibrary (hlib);
+	}
+
+/* Fall back to using GlobalMemoryStatus - it can't cope with machines having more than 2GB memory */
+
+	GlobalMemoryStatus (&mem);
+	return (mem.dwTotalPhys >> 20);
+#endif
 }
 
 /* Return a better guess for amount of memory to use in a torture test. */
@@ -482,15 +508,14 @@ unsigned long physical_memory (void)
 
 unsigned long GetSuggestedMemory (unsigned long nDesiredMemory)
 {
+#ifdef X86_64
 	MEMORYSTATUSEX ms = {0};
-	DWORDLONG ullUsedMem;
-	DWORDLONG ullDesiredMem = nDesiredMemory << 20;	// Desired memory in bytes
+	DWORDLONG ullUsedMem;	// In-use Physical RAM in bytes
+	DWORDLONG ullDesiredMem = (DWORDLONG) nDesiredMemory << 20;	// Desired memory in bytes
 	DWORDLONG ullDesiredMemNew = ullDesiredMem;
 
 	ms.dwLength = sizeof (ms);
 	GlobalMemoryStatusEx (&ms);
-
-	// In-use Physical RAM in bytes
 	ullUsedMem = ms.ullTotalPhys - ms.ullAvailPhys;
 
 	// if very small/no page-file (pagefile <= total RAM) and
@@ -506,6 +531,71 @@ unsigned long GetSuggestedMemory (unsigned long nDesiredMemory)
 	}
 
 	return ((unsigned long) (ullDesiredMemNew >> 20));
+#else
+	HMODULE	hlib;
+	MEMORYSTATUS ms = {0};
+	DWORD dwUsedMem;	// In-use Physical RAM in bytes
+	DWORD dwDesiredMem; 	// Desired memory in bytes
+	DWORD dwDesiredMemNew;
+
+/* Try using GlobalMemoryStatusEx - not available in Win98 and earlier */
+
+	hlib = LoadLibrary ("KERNEL32.DLL");
+	if (hlib) {
+		DWORD (__stdcall *proc)(MEMORYSTATUSEX *);
+		proc = (DWORD (__stdcall *)(MEMORYSTATUSEX *))
+		       GetProcAddress (hlib, "GlobalMemoryStatusEx");
+		if (proc != NULL) {
+			MEMORYSTATUSEX ms = {0};
+			DWORDLONG ullUsedMem;	// In-use Physical RAM in bytes
+			DWORDLONG ullDesiredMem = (DWORDLONG) nDesiredMemory << 20;	// Desired memory in bytes
+			DWORDLONG ullDesiredMemNew = ullDesiredMem;
+
+			ms.dwLength = sizeof (ms);
+			GlobalMemoryStatusEx (&ms);
+			ullUsedMem = ms.ullTotalPhys - ms.ullAvailPhys;
+
+			// if very small/no page-file (pagefile <= total RAM) and
+			// in-use memory + desired memory > total RAM, then
+			// we have to set desired memory to free RAM,
+			// because the OS can't page out other apps to
+			// reclaim enough free memory since
+			// there's not enough space in the pagefile
+			// to store the paged-out apps
+			if ((ms.ullTotalPageFile <= ms.ullTotalPhys) &&
+			    (ullUsedMem + ullDesiredMem >= ms.ullTotalPhys)) {
+				ullDesiredMemNew = ms.ullAvailPhys;
+			}
+
+			FreeLibrary (hlib);
+			return ((unsigned long) (ullDesiredMemNew >> 20));
+		}
+		FreeLibrary (hlib);
+	}
+
+/* Fall back to using GlobalMemoryStatus - it can't cope with machines having more than 2GB memory */
+
+	dwDesiredMem = nDesiredMemory << 20;
+	dwDesiredMemNew	= dwDesiredMem;
+
+	GlobalMemoryStatus (&ms);
+	dwUsedMem = ms.dwTotalPhys - ms.dwAvailPhys;
+
+	// if very small/no page-file (pagefile <= total RAM) and
+	// in-use memory + desired memory > total RAM, then
+	// we have to set desired memory to free RAM,
+	// because the OS can't page out other apps to
+	// reclaim enough free memory since
+	// there's not enough space in the pagefile
+	// to store the paged-out apps
+	if ((ms.dwTotalPageFile <= ms.dwTotalPhys) &&
+	    ((dwUsedMem + dwDesiredMem) >= ms.dwTotalPhys))
+	{
+		dwDesiredMemNew = ms.dwAvailPhys;
+	}
+
+	return (dwDesiredMemNew >> 20);
+#endif
 }
 
 /* Return the number of CPUs in the system */
