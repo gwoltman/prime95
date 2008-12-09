@@ -162,6 +162,8 @@ extern unsigned int PRECISION;		/* Number of decimal places to output*/
 extern int RDTSC_TIMING;		/* True if RDTSC is used to time */
 extern int TIMESTAMPING;		/* True is timestamps to be output */
 extern int CUMULATIVE_TIMING;		/* True if outputting cumulative time*/
+extern int SEQUENTIAL_WORK;		/* TRUE (the  default) if undocumented */
+					/* SequentialWorkToDo is set */
 extern int WELL_BEHAVED_WORK;		/* TRUE if undocumented feature */
 					/* "well behaved worktodo file" */
 					/* is on.  This reduces the number */
