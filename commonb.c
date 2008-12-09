@@ -1434,7 +1434,7 @@ void implement_stop_battery (
 
 void start_priority_work_timer (void)
 {
-	if (IniGetInt (INI_FILE, "SequentialWorkToDo", 1)) return;
+	if (SEQUENTIAL_WORK) return;
 	add_timed_event (TE_PRIORITY_WORK, TE_PRIORITY_WORK_FREQ);
 }
 
@@ -2628,7 +2628,7 @@ int primeContinue (
 {
 	struct PriorityInfo sp_info;
 	struct work_unit *w;
-	unsigned int pass, sequential;
+	unsigned int pass;
 	int	stop_reason;
 
 /* Set the process/thread priority */
@@ -2641,7 +2641,6 @@ int primeContinue (
 /* Loop until the ESC key is hit or the entire work-to-do INI file */
 /* is processed and we are not connected to the server. */
 
-	sequential = IniGetInt (INI_FILE, "SequentialWorkToDo", 1);
 	for ( ; ; ) {
 
 /* Check for a stop code.  We do this here in case the work-to-do file */
@@ -2668,7 +2667,7 @@ int primeContinue (
 /* factoring is stalled because of low memory. */
 /* Skip first pass on large well-behaved work files. */
 
-	for (pass = (WELL_BEHAVED_WORK || sequential) ? 2 : 1;
+	for (pass = (WELL_BEHAVED_WORK || SEQUENTIAL_WORK) ? 2 : 1;
 	     pass <= 3;
 	     pass++) {
 
@@ -2696,7 +2695,7 @@ int primeContinue (
 /* Do special P-1 factoring work. */
 
 		if (w->work_type == WORK_PFACTOR && pass == 2) {
-			stop_reason = pfactor (thread_num, &sp_info, w, pass);
+			stop_reason = pfactor (thread_num, &sp_info, w);
 		}
 
 /* Run the LL test */
@@ -2710,13 +2709,13 @@ int primeContinue (
 /* See if this is an ECM factoring line */
 
 		if (w->work_type == WORK_ECM && pass == 2) {
-			stop_reason = ecm (thread_num, &sp_info, w, pass);
+			stop_reason = ecm (thread_num, &sp_info, w);
 		}
 
 /* See if this is an P-1 factoring line */
 
 		if (w->work_type == WORK_PMINUS1 && pass == 2) {
-			stop_reason = pminus1 (thread_num, &sp_info, w, pass);
+			stop_reason = pminus1 (thread_num, &sp_info, w);
 		}
 
 /* Run a PRP test */
@@ -4256,17 +4255,22 @@ int prime (
 	}
 
 /* See if this exponent needs P-1 factoring.  We treat P-1 factoring */
-/* that is part of an LL test as priority work (done in pass 1). */
-
+/* that is part of an LL test as priority work done in pass 1 or as */
+/* regular work done in pass 2 if WellBehavedWork or SequentialWorkTodo */
+/* is set.  The only way we can get to pass 3 and P-1 still needs to be */
+/* done is if pfactor returned STOP_NOT_ENOUGH_MEM on an earlier pass. */
+/* In that case, skip onto doing the LL test until more memory becomes */
+/* available. */
+	
 	if ((w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK) &&
-	    ! w->pminus1ed) {
-		stop_reason = pfactor (thread_num, sp_info, w, pass);
-		if (stop_reason) {
-			if (pass == 3 && stop_reason == STOP_NOT_ENOUGH_MEM)
-				stop_reason = 0;
-			else
-				return (stop_reason);
-		}
+	    ! w->pminus1ed && pass != 3) {
+		int	pass_to_pfactor;
+
+		pass_to_pfactor = (WELL_BEHAVED_WORK || SEQUENTIAL_WORK) ? 2 : 1;
+		if (pass != pass_to_pfactor) return (0);
+
+		stop_reason = pfactor (thread_num, sp_info, w);
+		if (stop_reason) return (stop_reason);
 	}
 
 /* Do the rest of the trial factoring. */
@@ -6608,17 +6612,23 @@ int prp (
 	char	string_rep[80];
 	int	string_rep_truncated;
 
-/* See if this exponent needs P-1 factoring.  We treat P-1 factoring */
-/* that is part of a PRP test as priority work (done in pass 1). */
+/* See if this number needs P-1 factoring.  We treat P-1 factoring */
+/* that is part of a PRP test as priority work done in pass 1 or as */
+/* regular work done in pass 2 if WellBehavedWork or SequentialWorkTodo */
+/* is set.  The only way we can get to pass 3 and P-1 still needs to be */
+/* done is if pfactor returned STOP_NOT_ENOUGH_MEM on an earlier pass. */
+/* In that case, skip onto doing the LL test until more memory becomes */
+/* available. */
 
-	if (! w->pminus1ed) {
-		stop_reason = pfactor (thread_num, sp_info, w, pass);
-		if (stop_reason) {
-			if (pass == 3 && stop_reason == STOP_NOT_ENOUGH_MEM)
-				stop_reason = 0;
-			else
-				return (stop_reason);
-		}
+	if ((w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK) &&
+	    ! w->pminus1ed && pass != 3) {
+		int	pass_to_pfactor;
+
+		pass_to_pfactor = (WELL_BEHAVED_WORK || SEQUENTIAL_WORK) ? 2 : 1;
+		if (pass != pass_to_pfactor) return (0);
+
+		stop_reason = pfactor (thread_num, sp_info, w);
+		if (stop_reason) return (stop_reason);
 	}
 
 /* Done with pass 1 priority work.  Return to do more priority work. */
