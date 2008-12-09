@@ -58,6 +58,7 @@ unsigned int PRECISION = 2;
 int	RDTSC_TIMING = 1;
 int	TIMESTAMPING = 1;
 int	CUMULATIVE_TIMING = 0;
+int	SEQUENTIAL_WORK = 1;
 int	WELL_BEHAVED_WORK = 0;
 unsigned long INTERIM_FILES = 0;
 unsigned long INTERIM_RESIDUES = 0;
@@ -819,6 +820,7 @@ int readIniFiles (void)
 
 	TIMESTAMPING = IniGetInt (INI_FILE, "TimeStamp", 1);
 	CUMULATIVE_TIMING = IniGetInt (INI_FILE, "CumulativeTiming", 0);
+	SEQUENTIAL_WORK = IniGetInt (INI_FILE, "SequentialWorkToDo", 1);
 	WELL_BEHAVED_WORK = IniGetInt (INI_FILE, "WellBehavedWork", 0);
 
 	read_pause_info ();
