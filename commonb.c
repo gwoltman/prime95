@@ -705,7 +705,7 @@ void read_mem_info (void)
 
 /* Get the maximum number of workers that can use lots of memory */
 /* Default is AVAIL_MEM / 200MB rounded off. */
-	
+
 	MAX_HIGH_MEM_WORKERS = IniGetTimedInt (LOCALINI_FILE, "MaxHighMemWorkers",
 					       (AVAIL_MEM + 100) / 200, &seconds);
 	if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
@@ -991,8 +991,12 @@ int set_memory_usage (
 
 /* If a worker is waiting for a reduction in the number of workers */
 /* using lots of memory, then check to see if it can run now. */
+/* The 32 is an arbitrary figure that makes sure a significant amount */
+/* of new memory is available before restarting worker threads. */
+/* Be careful subtracting from AVAIL_MEM.  Since it is an unsigned long */
+/* if it goes negative it will become a large positive value instead */	
 
-	if (all_threads_set && mem_usage < AVAIL_MEM - 32) {
+	if (all_threads_set && AVAIL_MEM > mem_usage + 32 ) {
 		for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
 			if (! (MEM_RESTART_FLAGS[i] & MEM_RESTART_TOO_MANY_HIGHMEM)) continue;
 			if (are_threads_using_lots_of_memory (i)) continue;
@@ -1006,7 +1010,7 @@ int set_memory_usage (
 /* then if we have enough free memory restart a work unit that could use */
 /* more memory. */
 
-	if (all_threads_set && mem_usage < AVAIL_MEM - 32) {
+	if (all_threads_set && AVAIL_MEM > mem_usage + 32) {
 		best_thread = -1;
 		for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
 			if (MEM_RESTART_FLAGS[i] & MEM_RESTART_IF_MORE &&
@@ -1023,7 +1027,7 @@ int set_memory_usage (
 /* then if we have enough free memory restart a thread that couldn't */
 /* run a work unit due to lack of available memory. */
 
-	if (all_threads_set && mem_usage < AVAIL_MEM - 32) {
+	if (all_threads_set && AVAIL_MEM > mem_usage + 32) {
 		best_thread = -1;
 		for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
 			if (MEM_RESTART_FLAGS[i] & MEM_RESTART_MORE_AVAIL &&
