@@ -335,11 +335,16 @@ void getCpuInfo (void)
 /* Let the user override the L3 cache size in local.ini file */
 
 	CPU_L3_CACHE_SIZE =
-			   IniGetInt (LOCALINI_FILE, "CpuL3CacheSize", CPU_L3_CACHE_SIZE);
+		IniGetInt (LOCALINI_FILE, "CpuL3CacheSize", CPU_L3_CACHE_SIZE);
 	CPU_L3_CACHE_LINE_SIZE =
-				IniGetInt (LOCALINI_FILE, "CpuL3CacheLineSize", CPU_L3_CACHE_LINE_SIZE);
+		IniGetInt (LOCALINI_FILE, "CpuL3CacheLineSize", CPU_L3_CACHE_LINE_SIZE);
 	CPU_L3_SET_ASSOCIATIVE =
-				IniGetInt (LOCALINI_FILE, "CpuL3SetAssociative", CPU_L3_SET_ASSOCIATIVE);
+		IniGetInt (LOCALINI_FILE, "CpuL3SetAssociative", CPU_L3_SET_ASSOCIATIVE);
+
+/* Let the user override the CPUID brand string.  It should never be necessary. */
+/* However, one Athlon owner's brand string became corrupted with illegal characters. */
+	
+	IniGetString (LOCALINI_FILE, "CpuBrand", CPU_BRAND, sizeof(CPU_BRAND), CPU_BRAND);
 
 /* Let user override the number of hyperthreads */
 
