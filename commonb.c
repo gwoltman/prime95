@@ -5597,10 +5597,19 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 			}
 		}
 
-/* Compare final 32 bits with the pre-computed array of correct residues */
+/* Copy the final result back to lldata.  If more than one gwnum was used */
+/* then free the extra gwnums so that generateResidue64 has some memory */
+/* to work with. */
 
 		if (g != lldata.lldata)
 			gwcopy (&lldata.gwdata, g, lldata.lldata);
+		for (k = 1; k < num_gwnums; k++) {
+			if (gwarray[k] != lldata.lldata)
+				gwfree (&lldata.gwdata, gwarray[k]);
+		}
+
+/* Compare final 32 bits with the pre-computed array of correct residues */
+
 		generateResidue64 (&lldata, &reshi, &reslo);
 		lucasDone (&lldata);
 		free (gwarray);
