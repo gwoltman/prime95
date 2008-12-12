@@ -4743,6 +4743,7 @@ unsigned long gwmap_to_estimated_size (
 
 #define REL_AMD64_SPEED	1.1	/* AMD64 is slightly slower than a P4 */
 #define REL_PM_SPEED	1.4	/* Pentium M, Core are much slower than a P4 */
+#define REL_ATOM_SPEED	5.0	/* Atoms are much, much slower than a P4 */
 #define REL_CORE2_SPEED	0.625	/* Core 2 is much faster than a P4 */
 #define REL_I7_SPEED	0.59	/* Core i7 is even faster than a Core 2 */
 #define REL_PHENOM_SPEED 0.67	/* AMD Phenom is faster that a P4 */
@@ -4782,6 +4783,7 @@ double gwmap_to_timing (
 		timing = 0.10 * timing + 0.90 * timing * 1400.0 / CPU_SPEED;
 		if (strstr (CPU_BRAND, "Phenom")) timing *= REL_PHENOM_SPEED;
 		else if (strstr (CPU_BRAND, "AMD")) timing *= REL_AMD64_SPEED;
+		else if (strstr (CPU_BRAND, "Atom")) timing *= REL_ATOM_SPEED;
 		else if (strstr (CPU_BRAND, "Core 2")) timing *= REL_CORE2_SPEED;
 		else if (strstr (CPU_BRAND, "Core(TM)2")) timing *= REL_CORE2_SPEED;
 		else if (strstr (CPU_BRAND, "Core(TM) i7")) timing *= REL_I7_SPEED;
