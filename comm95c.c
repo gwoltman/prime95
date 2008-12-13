@@ -486,7 +486,7 @@ unsigned long physical_memory (void)
 		if (proc != NULL) {
 			MEMORYSTATUSEX mem;
 			mem.dwLength = sizeof (mem);
-			GlobalMemoryStatusEx (&mem);
+			(*proc) (&mem);
 			FreeLibrary (hlib);
 			return ((unsigned long) ((mem.ullTotalPhys + 1000000) >> 20));
 		}
@@ -552,7 +552,7 @@ unsigned long GetSuggestedMemory (unsigned long nDesiredMemory)
 			DWORDLONG ullDesiredMemNew = ullDesiredMem;
 
 			ms.dwLength = sizeof (ms);
-			GlobalMemoryStatusEx (&ms);
+			(*proc) (&ms);
 			ullUsedMem = ms.ullTotalPhys - ms.ullAvailPhys;
 
 			// if very small/no page-file (pagefile <= total RAM) and
