@@ -1,3 +1,21 @@
+New features in Version 25.8 of prime95.exe
+-------------------------------------------
+
+1)  Bug fixed in smart affinity on hyperthreaded CPUs.
+2)  Bug fixed in setting a thread priority other than 1.
+3)  Off-by-one-bit bug fixed in the benchmarking of trial factoring.
+4)  In rare case an infinite loop could occur when the computer ID
+    in the spool file did not match the current computer ID.
+5)  The "days between checkin" value now has a range of 1 to 7 days.
+    In version 24, the range was 1 to 60 days with a default of 28 days.
+6)  Fixed bug where switching users on a Windows machine caused computer
+    GUIDs to be erroneously regenerated.  You may need to suffer through
+    one more regenerated GUID before the fix takes effect. 
+7)  A bug where some low memory situations on a multi-core machine resulted
+    in one or more worker threads sat idle has been fixed.
+8)  A crash buf doing 61 and 62 bit trial factoring on Pentium CPUs that
+    do not support the CMOV instruction was fixed. 
+
 New features in Version 25.7 of prime95.exe
 -------------------------------------------
 
