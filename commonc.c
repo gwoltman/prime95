@@ -5460,8 +5460,6 @@ retry:
 		rc = sendMessage (PRIMENET_UPDATE_COMPUTER_INFO, &pkt);
 		if (rc) goto error_exit;
 		talked_to_server = TRUE;
-//bug - Whenever we generate a new computer ID, clear all the SrvrPxx values from Ini file!
-//this is needed so that we send all the client's po options for this new computer.
 		strcpy (USERID, pkt.user_id);
 		IniWriteString (INI_FILE, "V5UserID", USERID);
 		IniWriteInt (LOCALINI_FILE, "SrvrUID", string_to_hash (USERID));
