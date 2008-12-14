@@ -73,12 +73,6 @@ correctly.
 OTHER NOTES
 -----------
 
-To start 2 services on a dual-processor machine, create a second
-directory and follow all the instructions above, except that before
-running "ntprime -install" you first add the lines
-"ServiceName=NTPrimeService2" and
-"DisplayName=Prime Service 2" to the prime.ini file.
-
 A line is written to the results file every time the service is stopped
 so that you can monitor the program's progress.
 
