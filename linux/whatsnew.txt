@@ -10,8 +10,9 @@ New features in Version 25.8 of mprime
     In version 24, the range was 1 to 60 days with a default of 28 days.
 6)  A bug where some low memory situations on a multi-core machine resulted
     in one or more worker threads sat idle has been fixed.
-7)  A crash buf doing 61 and 62 bit trial factoring on Pentium CPUs that
-    do not support the CMOV instruction was fixed. 
+7)  A crash bug doing 61 and 62 bit trial factoring on Pentium CPUs that
+    do not support the CMOV instruction was fixed.  On these same CPUs
+    a bug was fixed when factors smaller than 2^60 was found.
 
 New features in Version 25.7 of mprime
 --------------------------------------
