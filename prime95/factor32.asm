@@ -1,4 +1,4 @@
-; Copyright 1995-2007 Just For Fun Software, Inc., all rights reserved
+; Copyright 1995-2008 Mersenne Research, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -2472,7 +2472,6 @@ smaybe:	fadd	st, st			; dbl rem, trash, trash, trash
 	pop	ecx			; Restore sieve testing register
 	pop	eax			; Restore sieve testing register
 	retn				; UV - Test next factor from sieve
-	push_amt = 0
 
 winner:	mov	eax, savefac1		; Load MSW
 	mov	FACMSW, eax
@@ -2491,6 +2490,7 @@ winner:	mov	eax, savefac1		; Load MSW
 ; Check all the bits in the sieve looking for a factor to test
 ;
 
+	push_amt = 0
 tlp62:	mov	esi, sieve
 	mov	ebx, savefac1
 	mov	ebp, savefac2
