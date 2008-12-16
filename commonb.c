@@ -3030,16 +3030,16 @@ int factorAndVerify (
 	fachandle *facdata,
 	int	*res)
 {
-	unsigned long hsw, msw;
+	uint32_t hsw, msw, pass;
 	int	stop_reason;
 
 /* Remember starting point in case of an error */
 
+	pass = facdata->asm_data->FACPASS;
 	hsw = facdata->asm_data->FACHSW;
 	msw = facdata->asm_data->FACMSW;
 
 /* Call assembly code */
-
 
 loop:	*res = factorChunk (facdata);
 
@@ -3072,7 +3072,12 @@ loop:	*res = factorChunk (facdata);
 		if (*res) return (0);
 	}
 
-/* If factor is no good, print an error message, sleep, and */
+/* Set *res to the factor-not-found code in case the user hits ESC */
+/* while doing the SleepFive */
+
+	*res = 2;
+
+/* If factor is no good, print an error message, sleep, re-initialize and */
 /* restart the factoring code. */
 
 	OutputBoth (thread_num, "ERROR: Incorrect factor found.\n");
@@ -3080,9 +3085,10 @@ loop:	*res = factorChunk (facdata);
 	facdata->asm_data->FACMSW = msw;
 	stop_reason = SleepFive (thread_num);
 	if (stop_reason) return (stop_reason);
+	factorDone (facdata);
 	stop_reason = factorSetup (thread_num, p, facdata);
 	if (stop_reason) return (stop_reason);
-	stop_reason = factorPassSetup (thread_num, p, facdata);
+	stop_reason = factorPassSetup (thread_num, pass, facdata);
 	if (stop_reason) return (stop_reason);
 	goto loop;
 }
