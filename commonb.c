@@ -853,8 +853,7 @@ int are_threads_using_lots_of_memory (
 
 /* Each worker thread tells us how much memory it will be using.  This may */
 /* cause other worker threads to restart if they are using more than their */
-/* fair share. NOTE: This mem routine takes its argument in bytes */
-/* rather than megabytes. */
+/* fair share. */
 /* Variable usage callers must examine the return code!  During startup */
 /* all threads may not have determined their memory needs.  This routine */
 /* returns TRUE if caller should recalculate the amount of memory available */
@@ -865,7 +864,7 @@ int set_memory_usage (
 	int	thread_num,
 	int	flags,		/* Valid values are MEM_VARIABLE_USAGE */
 				/* and MEM_USAGE_NOT_SET */
-	unsigned long memory)	/* Memory in use (in bytes!!) */
+	unsigned long memory)	/* Memory in use (in MB) */
 {
 	int	i, best_thread, worst_thread, all_threads_set;
 	unsigned long mem_usage;
@@ -894,7 +893,7 @@ int set_memory_usage (
 
 /* Record the amount of memory being used */
 
-	MEM_IN_USE[thread_num] = (memory >> 20) + 1;
+	MEM_IN_USE[thread_num] = memory;
 
 /* Sum up the amount of memory used by all threads.  In case we've allocated */
 /* too much memory, select a variable thread to restart.  We do this to make */
@@ -1060,10 +1059,10 @@ unsigned int max_mem (void)
 
 int avail_mem (
 	int	thread_num,
-	unsigned long minimum_memory,	/* If this much memory (in bytes!) */
+	unsigned long minimum_memory,	/* If this much memory (in MB) */
 					/* can be returned without restarting other */
 					/* workers, then do so */
-	unsigned long desired_memory,	/* If this much memory (in bytes!) */
+	unsigned long desired_memory,	/* If this much memory (in MB) */
 					/* can be returned without restarting other */
 					/* workers, then do so */
 	unsigned int *memory)		/* Returned available memory, in MB */
@@ -1107,7 +1106,6 @@ int avail_mem (
 /* value this routine should return (for this thread and other threads) */
 
 	MEM_FLAGS[thread_num] |= MEM_WILL_BE_VARIABLE_USAGE;
-	desired_memory = (desired_memory >> 20) + 1;
 	MEM_IN_USE[thread_num] = desired_memory;
 
 /* If any workers have not yet set their memory usage, then wait for them */
@@ -1195,7 +1193,6 @@ int avail_mem (
 
 /* If there weren't enough memory available, try again later */
 
-	minimum_memory = (minimum_memory >> 20) + 1;
 	if (avail < minimum_memory)
 		return (avail_mem_not_sufficient (thread_num, minimum_memory, desired_memory));
 
@@ -3161,7 +3158,7 @@ int primeFactor (
 
 /* Record the amount of memory being used by this thread (1MB). */
 
-	set_memory_usage (thread_num, 0, 1 << 20);
+	set_memory_usage (thread_num, 0, 1);
 
 /* Check for a v24 continuation file.  These were named pXXXXXXX.  The */
 /* first 16 bits contained a 2 to distinguish it from a LL save file. */
@@ -4324,8 +4321,7 @@ readloop:
 
 /* Record the amount of memory being used by this thread. */
 
-	set_memory_usage (thread_num, 0,
-			  gwmemused (&lldata.gwdata) + gwnum_size (&lldata.gwdata));
+	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&lldata.gwdata, 1));
 
 /* Read an LL save file.  On error try the backup intermediate file. */
 
@@ -5313,7 +5309,7 @@ loop:	run_indefinitely = TRUE;
 	max_fft = IniGetInt (INI_FILE, "MaxTortureFFT", 4096);
 	memory = IniGetInt (INI_FILE, "TortureMem", 8);
 	while (memory > 8 && bigbuf == NULL) {
-		bigbuf = aligned_malloc (memory * 1000000, 128);
+		bigbuf = aligned_malloc ((size_t) memory * (size_t) 1048576, 128);
 		if (bigbuf == NULL) memory--;
 	}
 
@@ -5476,7 +5472,7 @@ int selfTestInternal (
 		gwinit (&lldata.gwdata);
 		gwset_num_threads (&lldata.gwdata, num_threads);
 		lldata.gwdata.GW_BIGBUF = (char *) bigbuf;
-		lldata.gwdata.GW_BIGBUF_SIZE = (bigbuf != NULL) ? memory * 1000000 : 0;
+		lldata.gwdata.GW_BIGBUF_SIZE = (bigbuf != NULL) ? (size_t) memory * (size_t) 1048576 : 0;
 		if (cpu_supports_3dnow && p > 5000000 &&
 		    torture_index != NULL &&
 		    (test_data[i].reshi & 1) &&
@@ -5500,10 +5496,7 @@ int selfTestInternal (
 		if (memory <= 8 || (iter & 1) == 0)
 			num_gwnums = 1;
 		else {
-			num_gwnums = (unsigned int)
-				(((double) memory * 1000000.0 -
-				  (double) gwmemused (&lldata.gwdata)) /
-				 (double) (gwnum_size (&lldata.gwdata)));
+			num_gwnums = cvt_mem_to_gwnums (&lldata.gwdata, memory);
 			if (num_gwnums < 1) num_gwnums = 1;
 			if (num_gwnums > ll_iters) num_gwnums = ll_iters;
 		}
@@ -6685,8 +6678,7 @@ begin:	gwinit (&gwdata);
 
 /* Record the amount of memory being used by this thread. */
 
-	set_memory_usage (thread_num, 0,
-			  gwmemused (&gwdata) + gwnum_size (&gwdata));
+	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&gwdata, 1));
 
 /* Allocate memory for the PRP test */
 
