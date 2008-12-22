@@ -179,6 +179,7 @@ void guessCpuType (void)
 	unsigned long max_extended_cpuid_value;
 	unsigned long extended_family, extended_model, type, family_code;
 	unsigned long model_number, stepping_id, brand_index;
+	unsigned long family, model, retry_count;
 	char	vendor_id[13];
 static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			"",	/* brand_index = 0 */
@@ -286,28 +287,45 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 	Cpuid (0x80000000, &reg);
 	max_extended_cpuid_value = reg.EAX;
 
+/* Two users on the Mersenne forums have reported their Core 2 machines */
+/* are not getting the brand string right after a reboot.  How strange. */
+/* The only way I can see this happening is if CPUID returns the wrong */
+/* max_extended_cpuid_value or an empty brand string.  In any attempt to */
+/* "fix" this, I'll retry getting the brand string several times. */
+/* Lookup Intel errata AZ64 in Core 45 nm specification. */
+
+	for (retry_count = 0; retry_count < 100; retry_count++) {
+
 /* Although not guaranteed, all vendors have standardized on putting the */
 /* brand string (if supported) at cpuid calls 0x8000002, 0x80000003, and */
 /* 0x80000004.  We'll assume future vendors will do the same. */
 
-	if (max_extended_cpuid_value >= 0x80000004) {
-		Cpuid (0x80000002, &reg);
-		memcpy (CPU_BRAND, &reg.EAX, 4);
-		memcpy (CPU_BRAND+4, &reg.EBX, 4);
-		memcpy (CPU_BRAND+8, &reg.ECX, 4);
-		memcpy (CPU_BRAND+12, &reg.EDX, 4);
-		Cpuid (0x80000003, &reg);
-		memcpy (CPU_BRAND+16, &reg.EAX, 4);
-		memcpy (CPU_BRAND+20, &reg.EBX, 4);
-		memcpy (CPU_BRAND+24, &reg.ECX, 4);
-		memcpy (CPU_BRAND+28, &reg.EDX, 4);
-		Cpuid (0x80000004, &reg);
-		memcpy (CPU_BRAND+32, &reg.EAX, 4);
-		memcpy (CPU_BRAND+36, &reg.EBX, 4);
-		memcpy (CPU_BRAND+40, &reg.ECX, 4);
-		memcpy (CPU_BRAND+44, &reg.EDX, 4);
-		CPU_BRAND[48] = 0;
-		while (CPU_BRAND[0] == ' ') strcpy (CPU_BRAND, CPU_BRAND+1);
+		if (max_extended_cpuid_value >= 0x80000004) {
+			Cpuid (0x80000002, &reg);
+			memcpy (CPU_BRAND, &reg.EAX, 4);
+			memcpy (CPU_BRAND+4, &reg.EBX, 4);
+			memcpy (CPU_BRAND+8, &reg.ECX, 4);
+			memcpy (CPU_BRAND+12, &reg.EDX, 4);
+			Cpuid (0x80000003, &reg);
+			memcpy (CPU_BRAND+16, &reg.EAX, 4);
+			memcpy (CPU_BRAND+20, &reg.EBX, 4);
+			memcpy (CPU_BRAND+24, &reg.ECX, 4);
+			memcpy (CPU_BRAND+28, &reg.EDX, 4);
+			Cpuid (0x80000004, &reg);
+			memcpy (CPU_BRAND+32, &reg.EAX, 4);
+			memcpy (CPU_BRAND+36, &reg.EBX, 4);
+			memcpy (CPU_BRAND+40, &reg.ECX, 4);
+			memcpy (CPU_BRAND+44, &reg.EDX, 4);
+			CPU_BRAND[48] = 0;
+			while (CPU_BRAND[0] == ' ') strcpy (CPU_BRAND, CPU_BRAND+1);
+		}
+
+/* If we got the brand string, or this is a very old CPU that perhaps */
+/* doesn't support the brand string, then break the retry loop. */
+
+		if (CPU_BRAND[0] || ! (CPU_FLAGS & CPU_SSE2)) break;
+		if (max_extended_cpuid_value < 0x80000004)
+			max_extended_cpuid_value = 0x80000004;
 	}
 
 /*-------------------------------------------------------------------+
@@ -315,6 +333,20 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 +-------------------------------------------------------------------*/
 
 	if (strcmp ((const char *) vendor_id, "GenuineIntel") == 0) {
+
+/* Intel wants us to start paying attention to extended family */
+/* and extended model numbers.  The AP-485 document isn't clear whether */
+/* this should always be done (the documentation) or just done for */
+/* families 6 and 15 (the sample code). */
+
+		if (family_code == 15)
+			family = extended_family + family_code;
+		else
+			family = family_code;
+		if (family_code == 15 || family_code == 6)
+			model = (extended_model << 4) + model_number;
+		else
+			model = model_number;
 
 /* Try to determine if hyperthreading is supported.  I think this code */
 /* only tells us if the hardware supports hyperthreading.  If the feature */
@@ -436,7 +468,7 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 						CPU_L2_SET_ASSOCIATIVE = 6;
 						break;
 					case 0x40:
-						if (family_code == 15) {
+						if (family == 15) {
 							/* no L3 cache */
 						} else {
 							CPU_L2_CACHE_SIZE = 0;
@@ -478,7 +510,7 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 						CPU_L3_SET_ASSOCIATIVE = 8;
 						break;
 					case 0x49:
-						if (family_code == 0x0F && model_number == 0x06) {
+						if (family == 0x0F && model == 0x06) {
 							CPU_L3_CACHE_SIZE = 4096;
 							CPU_L3_CACHE_LINE_SIZE = 64;
 							CPU_L3_SET_ASSOCIATIVE = 16;
@@ -675,33 +707,33 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 
 		if (CPU_BRAND[0] == 0) {
 
-			if (family_code == 4)
+			if (family == 4)
 				strcpy (CPU_BRAND, "Intel 486 processor");
 
-			else if (family_code == 5) {
-				if (type == 0 && model_number <= 2)
+			else if (family == 5) {
+				if (type == 0 && model <= 2)
 					strcpy (CPU_BRAND, "Intel Pentium processor");
-				else if (type == 1 && model_number <= 3)
+				else if (type == 1 && model <= 3)
 					strcpy (CPU_BRAND, "Intel Pentium OverDrive processor");
-				else if (type == 0 && model_number >= 4)
+				else if (type == 0 && model >= 4)
 					strcpy (CPU_BRAND, "Intel Pentium MMX processor");
-				else if (type == 1 && model_number >= 4)
+				else if (type == 1 && model >= 4)
 					strcpy (CPU_BRAND, "Intel Pentium MMX OverDrive processor");
 				else
 					strcpy (CPU_BRAND, "Intel Pentium processor");
 			}
 
-			else if (family_code == 6 && model_number == 1)
+			else if (family == 6 && model == 1)
 				strcpy (CPU_BRAND, "Intel Pentium Pro processor");
 
-			else if (family_code == 6 && model_number == 3) {
+			else if (family == 6 && model == 3) {
 				if (type == 0)
 					strcpy (CPU_BRAND, "Intel Pentium II processor");
 				else
 					strcpy (CPU_BRAND, "Intel Pentium II OverDrive processor");
 			}
 
-			else if (family_code == 6 && model_number == 5) {
+			else if (family == 6 && model == 5) {
 				if (CPU_L2_CACHE_SIZE == 0)
 					strcpy (CPU_BRAND, "Intel Celeron processor");
 				else if (CPU_L2_CACHE_SIZE >= 1024)
@@ -710,25 +742,25 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 					strcpy (CPU_BRAND, "Intel Pentium II or Pentium II Xeon processor");
 			}
 
-			else if (family_code == 6 && model_number == 6)
+			else if (family == 6 && model == 6)
 				strcpy (CPU_BRAND, "Intel Celeron processor");
 
-			else if (family_code == 6 && model_number == 7) {
+			else if (family == 6 && model == 7) {
 				if (CPU_L2_CACHE_SIZE >= 1024)
 					strcpy (CPU_BRAND, "Intel Pentium III Xeon processor");
 				else
 					strcpy (CPU_BRAND, "Intel Pentium III or Pentium III Xeon processor");
 			}
 
-			else if (family_code == 6 && model_number == 0xB &&
+			else if (family == 6 && model == 0xB &&
 				 stepping_id == 1 && brand_index == 0x3)
 				strcpy (CPU_BRAND, "Intel(R) Celeron(R) processor");
 
-			else if (family_code == 15 && model_number == 1 &&
+			else if (family == 15 && model == 1 &&
 				 stepping_id == 3 && brand_index == 0xB)
 				strcpy (CPU_BRAND, "Intel(R) Xeon(TM) processor MP");
 
-			else if (family_code == 15 && model_number == 1 &&
+			else if (family == 15 && model == 1 &&
 				 stepping_id == 3 && brand_index == 0xE)
 				strcpy (CPU_BRAND, "Intel(R) Xeon(TM) processor");
 
