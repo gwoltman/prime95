@@ -685,10 +685,12 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 				cache_level = (reg.EAX >> 5) & 0x7;
 				associativity = (reg.EBX >> 22) + 1;
 				partitions = ((reg.EBX >> 12) & 0x3FF) + 1;
-				line_size = (reg.EBX & 0xFFF);
+				line_size = (reg.EBX & 0xFFF) + 1;
 				sets = reg.ECX + 1;
 				prefetch_stride = (reg.EDX & 0x3FF);
 				if (prefetch_stride == 0) prefetch_stride = 64;
+				/* Not documeted, but 45nm core 2 returns prefetch_stride of 1 */
+				if (prefetch_stride == 1) prefetch_stride = 64;
 				if (CPU_L2_CACHE_SIZE == -1 && cache_level == 2) {
 					CPU_L2_CACHE_SIZE = (associativity * partitions * line_size * sets) >> 10;
 					CPU_L2_SET_ASSOCIATIVE = associativity;
