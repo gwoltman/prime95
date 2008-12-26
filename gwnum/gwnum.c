@@ -1377,7 +1377,7 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 	double	log2k, log2c, log2maxmulbyconst;
 	double	max_bits_per_word, bits_per_word;
 	unsigned long l2_cache_size, max_exp;
-	uint32_t *longp;
+	int32_t *longp;
 	char	buf[20];
 	int	qa_nth_fft;
 	unsigned long qa_fftlen;
@@ -1696,7 +1696,7 @@ use_zpad:	gwdata->ZERO_PADDED_FFT = TRUE;
 
 	gwdata->FFTLEN = jmptab->fftlen;
 	gwdata->PASS2_LEVELS = jmptab->pass2_levels; /* FFT levels in pass2 */
-	gwdata->PASS2GAPSIZE = jmptab->counts[1] & ~1;
+	gwdata->PASS2GAPSIZE = jmptab->counts[1] - 1;
 
 /* Remember the FFT returned so that we can return a different FFT to */
 /* the QA code next time. */
