@@ -3381,8 +3381,7 @@ double work_estimate (
 	int	thread_num,		/* Thread number doing the work */
 	struct work_unit *w)
 {
-	double	timing;
-	double	est;
+	double	timing, est, pct_complete;
 	int	can_use_multiple_threads;
 	unsigned int i, total_threads;
 
@@ -3390,6 +3389,13 @@ double work_estimate (
 /* get here.  Return an estimate of 0.0. */
 
 	est = 0.0;
+
+/* Make sure the pct_complete is between 0.0 and 1.0.  There is presently */
+/* a bug in P-1 code that is setting this value to more than 1.0 */
+
+	pct_complete = w->pct_complete;
+	if (pct_complete < 0.0) pct_complete = 0.0;
+	if (pct_complete > 1.0) pct_complete = 1.0;
 
 /* Only large SSE2 FFTs can use multiple threads. */
 
@@ -3418,9 +3424,9 @@ double work_estimate (
 
 		est = (double) full_curves_to_do * (stage1_time + stage2_time);
 		if (stage == 1)
-			est += stage1_time * (1.0 - w->pct_complete) + stage2_time;
+			est += stage1_time * (1.0 - pct_complete) + stage2_time;
 		if (stage == 2)
-			est += stage2_time * (1.0 - w->pct_complete);
+			est += stage2_time * (1.0 - pct_complete);
 	}
 
 /* For P-1, estimate about 1.5 * B1 squarings in stage 1 and 0.05 * B2 */
@@ -3461,9 +3467,9 @@ double work_estimate (
 		if (stage == 0)
 			est = stage1_time + stage2_time;
 		if (stage == 1)
-			est = stage1_time * (1.0 - w->pct_complete) + stage2_time;
+			est = stage1_time * (1.0 - pct_complete) + stage2_time;
 		if (stage == 2)
-			est = stage2_time * (1.0 - w->pct_complete);
+			est = stage2_time * (1.0 - pct_complete);
 	}
 
 /* If factoring, guess how long that will take.  Timings are based on */
@@ -3499,7 +3505,7 @@ double work_estimate (
 			timing = (i > 64) ? 20.2 : (i > 62) ? 16.1 : 15.1;
 			timing *= 145000.0 * (1L << (i - 48)) / w->n;
 			if (i == tf_level)
-				est += timing * (1.0 - w->pct_complete);
+				est += timing * (1.0 - pct_complete);
 			else
 				est += timing;
 		}
@@ -3512,14 +3518,14 @@ double work_estimate (
 	    w->work_type == WORK_ADVANCEDTEST ||
 	    w->work_type == WORK_DBLCHK) {
 		est = w->n * gwmap_to_timing (w->k, w->b, w->n, w->c);
-		if (w->stage[0] == 'L') est *= (1.0 - w->pct_complete);
+		if (w->stage[0] == 'L') est *= (1.0 - pct_complete);
 	}
 
 /* If PRPing add in the PRP testing time */
 
 	if (w->work_type == WORK_PRP) {
 		est = w->n * gwmap_to_timing (w->k, w->b, w->n, w->c);
-		if (w->stage[0] == 'P') est *= (1.0 - w->pct_complete);
+		if (w->stage[0] == 'P') est *= (1.0 - pct_complete);
 	}
 
 /* Factor in the hours per day the computer is running and the */
