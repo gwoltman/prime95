@@ -3146,54 +3146,52 @@ x4cl_four_complex_with_mulf MACRO srcreg,srcinc,d1,d2
 ;; 84 clocks
 s2cl_four_complex_gpm_fft MACRO srcreg,srcinc,d1
 	shuffle_load xmm0, xmm1, [srcreg][rbx], [srcreg+32][rbx] ;; R1,R3
-	shuffle_load xmm2, xmm3, [srcreg+16][rbx], [srcreg+48][rbx] ;; R5,R7
-	shuffle_load xmm4, xmm5, [srcreg+d1][rbx], [srcreg+d1+32][rbx] ;; R2,R4
-
 	movapd	xmm6, xmm0		;; Save R1
 	mulpd	xmm0, [rdi+16]		;; A1 = R1 * premul_real/premul_imag
+	movapd	xmm7, xmm1		;; Save R3
+	mulpd	xmm1, [rdi+80]		;; A3 = R3 * premul_real/premul_imag
+
+	shuffle_load xmm2, xmm3, [srcreg+16][rbx], [srcreg+48][rbx] ;; R5,R7
+	xprefetch [srcreg+srcinc][rbx]
 	subpd	xmm0, xmm2		;; A1 = A1 - I1
 	mulpd	xmm2, [rdi+16]		;; B1 = I1 * premul_real/premul_imag
-	addpd	xmm2, xmm6		;; B1 = B1 + R1
-	mulpd	xmm0, [rdi]		;; A1 = A1 * premul_imag (new R1)
-	movapd	[srcreg], xmm0		;; Save new R1
-
-	shuffle_load xmm6,xmm7,[srcreg+d1+16][rbx],[srcreg+d1+48][rbx] ;; R6,R8
-
-	xprefetchw [srcreg+srcinc]
-	movapd	xmm0, xmm1		;; Save R3
-	mulpd	xmm1, [rdi+80]		;; A3 = R3 * premul_real/premul_imag
 	subpd	xmm1, xmm3		;; A3 = A3 - I3
 	mulpd	xmm3, [rdi+80]		;; B3 = I3 * premul_real/premul_imag
-	addpd	xmm3, xmm0		;; B3 = B3 + R3
+	addpd	xmm2, xmm6		;; B1 = B1 + R1
+	mulpd	xmm0, [rdi]		;; A1 = A1 * premul_imag (new R1)
+	addpd	xmm3, xmm7		;; B3 = B3 + R3
 	mulpd	xmm2, [rdi]		;; B1 = B1 * premul_imag (new I1)
 
-	xprefetchw [srcreg+srcinc+d1]
+	shuffle_load xmm4, xmm5, [srcreg+d1][rbx], [srcreg+d1+32][rbx] ;; R2,R4
+	xprefetch [srcreg+srcinc+d1][rbx]
+	movapd	[srcreg], xmm0		;; Save new R1
 	movapd	xmm0, xmm4		;; Save R2
 	mulpd	xmm4, [rdi+48]		;; A2 = R2 * premul_real/premul_imag
-	subpd	xmm4, xmm6		;; A2 = A2 - I2
-	mulpd	xmm6, [rdi+48]		;; B2 = I2 * premul_real/premul_imag
-	addpd	xmm6, xmm0		;; B2 = B2 + R2
 	mulpd	xmm1, [rdi+64]		;; A3 = A3 * premul_imag (new R3)
 	mulpd	xmm3, [rdi+64]		;; B3 = B3 * premul_imag (new I3)
 
+	shuffle_load xmm6,xmm7,[srcreg+d1+16][rbx],[srcreg+d1+48][rbx] ;; R6,R8
+	xprefetchw [srcreg+srcinc]
+	subpd	xmm4, xmm6		;; A2 = A2 - I2
+	mulpd	xmm6, [rdi+48]		;; B2 = I2 * premul_real/premul_imag
+	addpd	xmm6, xmm0		;; B2 = B2 + R2
 	movapd	xmm0, xmm5		;; Save R4
 	mulpd	xmm5, [rdi+112]		;; A4 = R4 * premul_real/premul_imag
 	subpd	xmm5, xmm7		;; A4 = A4 - I4
 	mulpd	xmm7, [rdi+112]		;; B4 = I4 * premul_real/premul_imag
-	addpd	xmm7, xmm0		;; B4 = B4 + R4
 	mulpd	xmm4, [rdi+32]		;; A2 = A2 * premul_imag (new R2)
+	addpd	xmm7, xmm0		;; B4 = B4 + R4
 	mulpd	xmm6, [rdi+32]		;; B2 = B2 * premul_imag (new I2)
 	mulpd	xmm5, [rdi+96]		;; A4 = A4 * premul_imag (new R4)
 	mulpd	xmm7, [rdi+96]		;; B4 = B4 * premul_imag (new I4)
 
-	xprefetch [srcreg+srcinc][rbx]
+	xprefetchw [srcreg+srcinc+d1]
 	 movapd	xmm0, xmm2
 	 subpd	xmm2, xmm3		;; I1 = I1 - I3 (new I3)
 	 addpd	xmm3, xmm0		;; I3 = I1 + I3 (new I1)
 	 movapd	xmm0, xmm4
 	 subpd	xmm4, xmm5		;; R2 = R2 - R4 (new R4)
 	 addpd	xmm5, xmm0		;; R4 = R2 + R4 (new R2)
-	xprefetch [srcreg+srcinc+d1][rbx]
 	 movapd	xmm0, xmm6
 	 subpd	xmm6, xmm7		;; I2 = I2 - I4 (new I4)
 	 addpd	xmm7, xmm0		;; I4 = I2 + I4 (new I2)
