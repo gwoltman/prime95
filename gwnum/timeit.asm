@@ -179,7 +179,27 @@ sse2mac MACRO	lab, memused, memarea, ops:vararg
 	LOCAL	ss0a, ss0b
 	inner_iters = memarea / memused
 	outer_iters = 10000 / inner_iters
-lab:	mov	rbx, 262144+128		;; Offset for some sse2 macros
+lab:	mov	rbx, 0			;; Offset for some sse2 macros (s.b. non-zero for with_mult macros)
+	mov	rbp, 524288+256		;; Offset for mulf sse2 macros
+	mov	eax, outer_iters
+	mov	SRCARG, rdi		;; Save work buf addr
+ss0a:	mov	rdi, SRCARG		;; Reload work buf addr (sincos data)
+	lea	rsi, [rdi+4096]		;; Source & dest ptr
+	lea	rdx, [rsi+524288+256]	;; Destination for "g" macros
+	mov	ecx, inner_iters
+ss0b:	&ops
+	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	dec	ecx
+	jnz	ss0b
+	dec	eax
+	jnz	ss0a
+	jmp	exit
+	ENDM
+sse2macbx MACRO	lab, memused, memarea, ops:vararg
+	LOCAL	ss0a, ss0b
+	inner_iters = memarea / memused
+	outer_iters = 10000 / inner_iters
+lab:	mov	rbx, 262144+128		;; Offset for some sse2 macros (s.b. non-zero for with_mult macros)
 	mov	rbp, 524288+256		;; Offset for mulf sse2 macros
 	mov	eax, outer_iters
 	mov	SRCARG, rdi		;; Save work buf addr
@@ -401,10 +421,10 @@ sscase11:
 	sse2mac sscase27, 128, 100000, s2cl_eight_reals_fft_2_final rsi, 2*64, 64
 	sse2mac sscase28, 128, 4096, s2cl_eight_reals_with_square_2 rsi, 2*64, 64
 	sse2mac sscase29, 128, 100000, s2cl_eight_reals_with_square_2 rsi, 2*64, 64
-	sse2mac sscase30, 128, 4096, s2cl_eight_reals_with_mult_2 rsi, 2*64, 64
-	sse2mac sscase31, 128, 100000, s2cl_eight_reals_with_mult_2 rsi, 2*64, 64
-	sse2mac sscase32, 128, 4096, s2cl_eight_reals_with_mulf_2 rsi, 2*64, 64
-	sse2mac sscase33, 128, 100000, s2cl_eight_reals_with_mulf_2 rsi, 2*64, 64
+	sse2macbx sscase30, 128, 4096, s2cl_eight_reals_with_mult_2 rsi, 2*64, 64
+	sse2macbx sscase31, 128, 100000, s2cl_eight_reals_with_mult_2 rsi, 2*64, 64
+	sse2macbx sscase32, 128, 4096, s2cl_eight_reals_with_mulf_2 rsi, 2*64, 64
+	sse2macbx sscase33, 128, 100000, s2cl_eight_reals_with_mulf_2 rsi, 2*64, 64
 	sse2mac sscase34, 256, 4096, x4cl_eight_reals_fft_2 rsi, 4*64, 64, 2*64
 	sse2mac sscase35, 256, 100000, x4cl_eight_reals_fft_2 rsi, 4*64, 64, 2*64
 	sse2mac sscase36, 256, 4096, g4cl_eight_reals_fft_2 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
@@ -443,10 +463,10 @@ sscase11:
 	sse2mac sscase65, 128, 100000, s2cl_four_complex_fft_final rsi, 2*64, 64
 	sse2mac sscase66, 128, 4096, s2cl_four_complex_with_square rsi, 2*64, 64
 	sse2mac sscase67, 128, 100000, s2cl_four_complex_with_square rsi, 2*64, 64
-	sse2mac sscase68, 128, 4096, s2cl_four_complex_with_mult rsi, 2*64, 64
-	sse2mac sscase69, 128, 100000, s2cl_four_complex_with_mult rsi, 2*64, 64
-	sse2mac sscase70, 128, 4096, s2cl_four_complex_with_mulf rsi, 2*64, 64
-	sse2mac sscase71, 128, 100000, s2cl_four_complex_with_mulf rsi, 2*64, 64
+	sse2macbx sscase68, 128, 4096, s2cl_four_complex_with_mult rsi, 2*64, 64
+	sse2macbx sscase69, 128, 100000, s2cl_four_complex_with_mult rsi, 2*64, 64
+	sse2macbx sscase70, 128, 4096, s2cl_four_complex_with_mulf rsi, 2*64, 64
+	sse2macbx sscase71, 128, 100000, s2cl_four_complex_with_mulf rsi, 2*64, 64
 	sse2mac sscase72, 256, 4096, x4cl_four_complex_fft rsi, 4*64, 64, 2*64
 	sse2mac sscase73, 256, 100000, x4cl_four_complex_fft rsi, 4*64, 64, 2*64
 	sse2mac sscase74, 256, 4096, x4cl_four_complex_cpm01_fft rsi, 4*64, 64, 2*64
@@ -457,10 +477,10 @@ sscase11:
 	sse2mac sscase79, 256, 100000, g4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
 	sse2mac sscase80, 256, 4096, x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 	sse2mac sscase81, 256, 100000, x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
-	sse2mac sscase82, 256, 4096, x4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
-	sse2mac sscase83, 256, 100000, x4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
-	sse2mac sscase84, 256, 4096, x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
-	sse2mac sscase85, 256, 100000, x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	sse2macbx sscase82, 256, 4096, x4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
+	sse2macbx sscase83, 256, 100000, x4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
+	sse2macbx sscase84, 256, 4096, x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	sse2macbx sscase85, 256, 100000, x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 
 	sse2mac sscase86, 128, 4096, x2cl_four_complex_unfft rsi, 2*64, 64
 	sse2mac sscase87, 128, 100000, x2cl_four_complex_unfft rsi, 2*64, 64
