@@ -9,7 +9,7 @@
 | Commonc contains information used during setup and execution
 +---------------------------------------------------------------------*/
 
-char JUNK[]="Copyright 1996-2008 Mersenne Research, Inc. All rights reserved";
+char JUNK[]="Copyright 1996-2009 Mersenne Research, Inc. All rights reserved";
 
 char	INI_FILE[80] = {0};
 char	LOCALINI_FILE[80] = {0};
