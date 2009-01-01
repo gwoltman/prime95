@@ -3915,9 +3915,9 @@ x4c_cpm_unfft_cmn MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem7,mem8,dest1,dest2,off2,off3,
 x4c_cpm_unfft_1 MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem7,mem8,dest1,dest2,pre1,pre2
 	movapd	r7, r2
 	subpd	r2, r4			;; new I2 = I1 - I2
-	addpd	r4, r7			;; new I1 = I1 + I2
 	movapd	r8, mem8
 	addpd	r8, r6			;; new I3 = I3 + I4
+	addpd	r4, r7			;; new I1 = I1 + I2
 	movapd	r7, r1
 	subpd	r1, r3			;; new R2 = R1 - R2
 	addpd	r3, r7			;; new R1 = R1 + R2
@@ -3986,10 +3986,10 @@ x4c_cpm_unfft_2 MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem7,mem8,dest1,dest2,pre1,pre2
 x4c_cpm_unfft_3 MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem7,mem8,dest1,dest2,pre1,pre2
 	movapd	r7, r2
 	subpd	r2, r4			;; new I2 = I1 - I2
-	addpd	r4, r7			;; new I1 = I1 + I2
 	movapd	r8, mem8
 	addpd	r8, r6			;; new I3 = I3 + I4
 	subpd	r6, mem8		;; new R4 = I3 - I4
+	addpd	r4, r7			;; new I1 = I1 + I2
 	movapd	r7, r1
 	subpd	r1, r3			;; new R2 = R1 - R2
 	addpd	r3, r7			;; new R1 = R1 + R2
@@ -4051,14 +4051,14 @@ x4c_cpm_unfft_3 MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem7,mem8,dest1,dest2,pre1,pre2
 	ENDM
 
 x4c_unfft4_cmn MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem7,mem8,dest1,dest2,off1,off2,off3,off4,pre1,pre2
+	movapd	r7, r2
 	subpd	r2, r4			;; new I2 = I1 - I2
-	multwo	r4
-	addpd	r4, r2			;; new I1 = I1 + I2
 	movapd	r8, mem8
 	addpd	r8, r6			;; new I3 = I3 + I4
+	addpd	r4, r7			;; new I1 = I1 + I2
+	movapd	r7, r1
 	subpd	r1, r3			;; new R2 = R1 - R2
-	multwo	r3
-	addpd	r3, r1			;; new R1 = R1 + R2
+	addpd	r3, r7			;; new R1 = R1 + R2
 	movapd	r7, mem7
 	subpd	r7, r5			;; new I4 = R4 - R3
 	addpd	r5, mem7		;; new R3 = R4 + R3
