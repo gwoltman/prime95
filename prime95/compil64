@@ -11,7 +11,7 @@ masm64lx=ml64 /c /DX86_64 /DLINUX64 /I..\gwnum
 
 cl64=cl /GF /W3 /MT /DX86_64 /D_CRT_SECURE_NO_DEPRECATE /c
 cl64d=cl /GF /W3 /MT /DX86_64 /D_CRT_SECURE_NO_DEPRECATE /DGDEBUG /Zi /c
-objconv=c:/objconv/objconv
+objconv=c:\objconv\objconv
 
 # List of all buildables in this makefile
 
