@@ -1,4 +1,4 @@
-; Copyright 1995-2007 Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2009 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -275,9 +275,11 @@ ENDIF
 ; Jump to desired test case
 
 	sub	rdx, 1000
-	mov	rax, sse2table[rdx*SZPTR]; Get address of test to execute
+	mov	rax, OFFSET sse2table
+	mov	rax, [rax+rdx*SZPTR]; Get address of test to execute
 	jmp	rax
-x87:	mov	rax, x87table[rdx*SZPTR]; Get address of test to execute
+x87:	mov	rax, OFFSET x87table
+	mov	rax, [rax+rdx*SZPTR]; Get address of test to execute
 	jmp	rax
 
 ; Time the "do-nothing" case.
