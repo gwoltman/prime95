@@ -1382,6 +1382,16 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 	int	qa_nth_fft;
 	unsigned long qa_fftlen;
 
+/* On 64-bit Mac OS X, the very first call to log in the  shared library */
+/* returns NaN.  Very scary!  What else might fail?  As a work-around */
+/* put in a spurious log call here. */
+
+#ifdef __APPLE__
+#ifdef X86_64
+	asm_info.version = (int) log (k);
+#endif
+#endif
+
 /* Copy the CPU_FLAGS just in case the caller changes the CPU_FLAGS value. */
 /* This would be especially deadly is the CPU_SSE2 was turned off after */
 /* calling gwsetup.  Only do this if the caller did not set the cpu_flags. */
