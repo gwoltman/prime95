@@ -1412,15 +1412,17 @@ ttp	movapd	[rdi+256+192+48], xmm1	;; Save ttp * 0.5,0.5
 xnorm_2d MACRO ttp, zero, echk, const
 	movapd	xmm0, [rsi+0*16]	;; Load values1
 	addpd	xmm7, xmm0		;; sumout += values1
-	movapd	xmm2, [rdx+0*32]	;; grp two-to-minus-phi
+ttp	movapd	xmm2, [rdx+0*32]	;; grp two-to-minus-phi
 ttp	mulpd	xmm2, [rbx][rax]	;; Mul by col two-to-minus-phi
+no ttp	movapd	xmm2, [rbx][rax]	;; two-to-minus-phi
 	mulpd	xmm0, xmm2		;; Mul by fudged col two-to-minus-phi
 echk	brute_force_error_check xmm0, xmm4, xmm6
 const	brute_force_mul_by_const xmm0, xmm4
 	movapd	xmm1, [rsi+1*16]	;; Load values2
 	addpd	xmm7, xmm1		;; sumout += values2
-	movapd	xmm3, [rdx+1*32]	;; grp two-to-minus-phi
+ttp	movapd	xmm3, [rdx+1*32]	;; grp two-to-minus-phi
 ttp	mulpd	xmm3, [rbx][rcx]	;; Mul by col two-to-minus-phi
+no ttp	movapd	xmm3, [rbx][rcx]	;; two-to-minus-phi
 	mulpd	xmm1, xmm3		;; Mul by fudged col two-to-minus-phi
 echk	brute_force_error_check xmm1, xmm5, xmm6
 const	brute_force_mul_by_const xmm1, xmm5
@@ -1457,15 +1459,17 @@ ttp	mulpd	xmm1, xmm5		;; value2 = rounded value * two-to-phi
 
 	movapd	xmm0, [rsi+2*16]	;; Load values1
 	addpd	xmm7, xmm0		;; sumout += values1
-	movapd	xmm2, [rdx+2*32]	;; grp two-to-minus-phi
+ttp	movapd	xmm2, [rdx+2*32]	;; grp two-to-minus-phi
 ttp	mulpd	xmm2, [rbx][rax]	;; Mul by col two-to-minus-phi
+no ttp	movapd	xmm2, [rbx][rax]	;; two-to-minus-phi
 	mulpd	xmm0, xmm2		;; Mul by fudged col two-to-minus-phi
 echk	brute_force_error_check xmm0, xmm4, xmm6
 const	brute_force_mul_by_const xmm0, xmm4
 	movapd	xmm1, [rsi+3*16]	;; Load values2
 	addpd	xmm7, xmm1		;; sumout += values2
-	movapd	xmm3, [rdx+3*32]	;; grp two-to-minus-phi
+ttp	movapd	xmm3, [rdx+3*32]	;; grp two-to-minus-phi
 ttp	mulpd	xmm3, [rbx][rcx]	;; Mul by col two-to-minus-phi
+no ttp	movapd	xmm3, [rbx][rcx]	;; two-to-minus-phi
 	mulpd	xmm1, xmm3		;; Mul by fudged col two-to-minus-phi
 echk	brute_force_error_check xmm1, xmm5, xmm6
 const	brute_force_mul_by_const xmm1, xmm5
