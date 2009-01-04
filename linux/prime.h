@@ -18,7 +18,11 @@
 #define PORT	7
 #endif
 #ifdef __APPLE__
+#ifdef X86_64
+#define PORT	10
+#else
 #define PORT	9
+#endif
 #endif
 
 /* This controls whether we want to pause computation if the load average */
