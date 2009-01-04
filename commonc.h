@@ -12,6 +12,7 @@
 /* OS/2		   #7 */
 /* Linux x86-64	   #8 */
 /* Mac OS X	   #9 */
+/* Mac OS X 64-bit #10 */
 
 #define MIN_PRIME	5L		/* Smallest testable prime */
 #define MAX_FACTOR	2000000000	/* Largest factorable Mersenne number*/
