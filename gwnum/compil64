@@ -39,7 +39,7 @@ macosx64\gwnum.a: linux64\xmult1.obj linux64\xmult1ax.obj linux64\xmult2.obj lin
     attrib -r macosx64\gwnum.a
     del macosx64\gwnum.a
     lib /OUT:macosx64\gwnum.lib linux64\*.obj
-    $(objconv) -fmacho64 -wd1050 macosx64\gwnum.lib macosx64\gwnum.a
+    $(objconv) -fmacho64 -wd1050 -nu+ macosx64\gwnum.lib macosx64\gwnum.a
     attrib -r macosx64\gwnum.a
     del macosx64\gwnum.lib
 
