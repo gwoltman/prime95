@@ -726,11 +726,9 @@ x4c_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8
 slower_on_a_P4_s4cl_four_complex_gpm_unfft MACRO srcreg,srcinc,d1,d2,off
 	movapd	xmm0, [srcreg]		;; R1
 	movapd	xmm1, [srcreg+32]	;; R2
-	movapd	xmm2, [srcreg+d1]	;; R3
-	movapd	xmm3, [srcreg+d1+32]	;; R4
 	movapd	xmm4, [srcreg+d2]	;; R5
 	movapd	xmm5, [srcreg+d2+32]	;; R6
-	x4gpm_unfft xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, [srcreg+d2+d1], [srcreg+d2+d1+32], [srcreg], [srcreg+32], 0, srcreg+srcinc, d1
+	x4gpm_unfft xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, [srcreg+d1], [srcreg+d1+32], [srcreg+d2+d1], [srcreg+d2+d1+32], [srcreg], [srcreg+32], 0, srcreg+srcinc, d1
 	movapd	xmm8, xmm5
 	movapd	xmm9, xmm6
 	movapd	xmm10, xmm0
@@ -755,9 +753,7 @@ slower_on_a_P4_s4cl_four_complex_gpm_unfft MACRO srcreg,srcinc,d1,d2,off
 	movapd	xmm2, [srcreg+d2+48]	;; R6
 	movapd	[srcreg+d2+16], xmm1	;; Save R6
 	movapd	[srcreg+d2+48], xmm3	;; Save R8
-	movapd	xmm6, [srcreg+d1+16]	;; R3
-	movapd	xmm7, [srcreg+d1+48]	;; R4
-	x4gpm_unfft xmm5, xmm4, xmm6, xmm7, xmm0, xmm2, xmm1, xmm3, [srcreg+d2+d1+16], [srcreg+d2+d1+48], [srcreg+d1], [srcreg+d1+32], off, srcreg+srcinc+d2, d1
+	x4gpm_unfft xmm5, xmm4, xmm6, xmm7, xmm0, xmm2, xmm1, xmm3, [srcreg+d1+16], [srcreg+d1+48], [srcreg+d2+d1+16], [srcreg+d2+d1+48], [srcreg+d1], [srcreg+d1+32], off, srcreg+srcinc+d2, d1
 	movapd	xmm8, xmm2
 	movapd	xmm9, xmm1
 	movapd	xmm10, xmm5
@@ -1373,15 +1369,15 @@ x4c_cpm_fft_3 MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem4,mem8,destr2,desti2,pre1,pre2
 	movapd	desti2, r1
 	ENDM
 
-x4c_cpm_unfft_1 MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem7,mem8,dest1,dest2,pre1,pre2
-	movapd	xmm8, r2
-	subpd	r2, r4			;; new I2 = I1 - I2
-	addpd	r4, xmm8		;; new I1 = I1 + I2
+x4c_cpm_unfft_1 MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem3,mem4,mem7,mem8,dest1,dest2,dest3,dest4,pre1,pre2
+	movapd	r4, mem4
+	addpd	r4, r2			;; new I1 = I1 + I2
+	subpd	r2, mem4		;; new I2 = I1 - I2
 	movapd	r8, mem8
 	addpd	r8, r6			;; new I3 = I3 + I4
-	movapd	xmm9, r1
-	subpd	r1, r3			;; new R2 = R1 - R2
-	addpd	r3, xmm9		;; new R1 = R1 + R2
+	movapd	r3, mem3
+	addpd	r3, r1			;; new R1 = R1 + R2
+	subpd	r1, mem3		;; new R2 = R1 - R2
 	movapd	r7, mem7
 	subpd	r7, r5			;; new I4 = R4 - R3
 	addpd	r5, mem7		;; new R3 = R3 + R4
@@ -1438,20 +1434,22 @@ x4c_cpm_unfft_1 MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem7,mem8,dest1,dest2,pre1,pre2
 	mulpd	r6, xmm10		;; B2 = B2 * pre_imag (final I2)
 	mulpd	r1, xmm11		;; A1 = A1 * pre_imag (final R1)
 	mulpd	r7, xmm11		;; B1 = B1 * pre_imag (final I1)
+	movapd	dest1, r2		;; Save R2
+	movapd	dest2, r6		;; Save I2
 	movapd	dest1, r1		;; Save R1
 	movapd	dest2, r7		;; Save I1
 	ENDM
 
-x4c_cpm_unfft_3 MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem7,mem8,dest1,dest2,pre1,pre2
-	movapd	xmm8, r2
-	subpd	r2, r4			;; new I2 = I1 - I2
-	addpd	r4, xmm8		;; new I1 = I1 + I2
+x4c_cpm_unfft_3 MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem3,mem4,mem7,mem8,dest1,dest2,dest3,dest4,pre1,pre2
+	movapd	r4, mem4
+	addpd	r4, r2			;; new I1 = I1 + I2
+	subpd	r2, mem4		;; new I2 = I1 - I2
 	movapd	r8, mem8
 	addpd	r8, r6			;; new I3 = I3 + I4
 	subpd	r6, mem8		;; new R4 = I3 - I4
-	movapd	xmm9, r1
-	subpd	r1, r3			;; new R2 = R1 - R2
-	addpd	r3, xmm9		;; new R1 = R1 + R2
+	movapd	r3, mem3
+	addpd	r3, r1			;; new R1 = R1 + R2
+	subpd	r1, mem3		;; new R2 = R1 - R2
 	movapd	r7, mem7
 	subpd	r7, r5			;; new I4 = R4 - R3
 	addpd	r5, mem7		;; new R3 = R3 + R4
@@ -1507,17 +1505,19 @@ x4c_cpm_unfft_3 MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem7,mem8,dest1,dest2,pre1,pre2
 	mulpd	r5, [rdi]		;; B1 = B1 * pre_imag (final I1)
 	movapd	dest1, r4		;; Save R1
 	movapd	dest2, r5		;; Save I1
+	movapd	dest3, r7		;; Save R2
+	movapd	dest4, r6		;; Save I2
 	ENDM
 
-x4c_unfft4_cmn MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem7,mem8,dest1,dest2,off1,off2,off3,off4,pre1,pre2
-	movapd	xmm8, r2
-	subpd	r2, r4			;; new I2 = I1 - I2
-	addpd	r4, xmm8		;; new I1 = I1 + I2
+x4c_unfft4_cmn MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem3,mem4,mem7,mem8,dest1,dest2,off1,off2,off3,off4,pre1,pre2
+	movapd	r4, mem4
+	addpd	r4, r2			;; new I1 = I1 + I2
+	subpd	r2, mem4		;; new I2 = I1 - I2
 	movapd	r8, mem8
 	addpd	r8, r6			;; new I3 = I3 + I4
-	movapd	xmm9, r1
-	subpd	r1, r3			;; new R2 = R1 - R2
-	addpd	r3, xmm9		;; new R1 = R1 + R2
+	movapd	r3, mem3
+	addpd	r3, r1			;; new R1 = R1 + R2
+	subpd	r1, mem3		;; new R2 = R1 - R2
 	movapd	r7, mem7
 	subpd	r7, r5			;; new I4 = R4 - R3
 	addpd	r5, mem7		;; new R3 = R4 + R3
