@@ -108,7 +108,8 @@ void generate_application_string (
 		 PORT == 6 ? "FreeBSD" :
 		 PORT == 7 ? "OS/2" :
 		 PORT == 8 ? "Linux64" :
-		 PORT == 9 ? "Mac OS X" : "Unknown",
+		 PORT == 9 ? "Mac OS X" :
+		 PORT == 10 ? "Mac OS X 64-bit" : "Unknown",
 		 VERSION, BUILD_NUM);
 }
 
