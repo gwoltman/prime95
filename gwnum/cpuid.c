@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2008 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2009 Mersenne Research, Inc.  All rights reserved
 | Author:  George Woltman
 | Email: woltman@alum.mit.edu
 |
@@ -43,6 +43,19 @@ int	CPU_L3_SET_ASSOCIATIVE = -1;
 unsigned int CPU_SIGNATURE = 0;		/* Vendor-specific family number, */
 					/* model number, stepping ID, etc. */
 
+/* The MS 64-bit compiler does not allow inline assembly.  Fortunately, any */
+/* CPU capable of running x86-64 bit code can execute these instructions. */
+
+#ifdef X86_64
+
+int canExecInstruction (
+			unsigned long cpu_flag)
+{
+	return (TRUE);
+}
+
+#else
+
 /* Internal routines to see if CPU-specific instructions (RDTSC, CMOV */
 /* SSE, SSE2) are supported.  CPUID could report them as supported yet */
 /* the OS might not support them.   Use signals in non-MSVC compiles. */
@@ -71,6 +84,8 @@ int canExecInstruction (
 		case CPU_CMOV:		/* CMOV */
 			__asm__ __volatile__ (".byte 0x0F\n .byte 0x42\n .byte 0xC0\n");
 			break;
+/* WARNING: On Mac OS X 64-bit executable, executing this PADDB instruction will cause */
+/* the next call to log in math.h to return NaN.  Submitted bug to Apple: Bug ID# 6478193. */
 		case CPU_MMX:		/* PADDB */
 			__asm__ __volatile__ (".byte 0x0F\n .byte 0xFC\n .byte 0xC0\n");
 			break;
@@ -91,19 +106,6 @@ int canExecInstruction (
 	(void) signal (SIGILL, SIG_DFL);
 	fpu_init ();
 	return (!boom);
-}
-
-#else
-
-/* The MS 64-bit compiler does not allow inline assembly.  Fortunately, any */
-/* CPU capable of running x86-64 bit code can execute these instructions. */
-
-#ifdef X86_64
-
-int canExecInstruction (
-	unsigned long cpu_flag)
-{
-	return (TRUE);
 }
 
 #else
