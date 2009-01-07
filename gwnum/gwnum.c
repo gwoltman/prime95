@@ -5,7 +5,7 @@
 | in the multi-precision arithmetic routines.  That is, all routines
 | that deal with the gwnum data type.
 | 
-|  Copyright 2002-2008 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2009 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -1381,16 +1381,6 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 	char	buf[20];
 	int	qa_nth_fft;
 	unsigned long qa_fftlen;
-
-/* On 64-bit Mac OS X, the very first call to log in the  shared library */
-/* returns NaN.  Very scary!  What else might fail?  As a work-around */
-/* put in a spurious log call here. */
-
-#ifdef __APPLE__
-#ifdef X86_64
-	asm_info.version = (int) log (k);
-#endif
-#endif
 
 /* Copy the CPU_FLAGS just in case the caller changes the CPU_FLAGS value. */
 /* This would be especially deadly is the CPU_SSE2 was turned off after */
@@ -5862,9 +5852,9 @@ void gw_random_number (
 	len = (((unsigned long) gwdata->bit_length) >> 5) + 1;
 	g = popg (&gwdata->gdata, len);
 	for (i = 0; i < len; i++) {
-		g->n[i] = ((unsigned long) rand() << 20) +
-			  ((unsigned long) rand() << 10) +
-			  (unsigned long) rand();
+		g->n[i] = ((uint32_t) rand() << 20) +
+			  ((uint32_t) rand() << 10) +
+			  (uint32_t) rand();
 	}
 	g->sign = len;
 	specialmodg (gwdata, g);
