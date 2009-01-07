@@ -5676,20 +5676,20 @@ bingo:	if (stage == 1)
 /* Output an error message saying we are restarting. */
 /* Sleep five minutes before restarting from last save file. */
 
-error:	pm1_cleanup (&pm1data);
-	free (N);
-	N = NULL;
-	free (exp);
-	exp = NULL;
-	if (near_fft_limit && gw_get_maxerr (&pm1data.gwdata) >= 0.40625) {
+error:	if (near_fft_limit && gw_get_maxerr (&pm1data.gwdata) >= 0.40625) {
 		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file.\n", gw_get_maxerr (&pm1data.gwdata));
 		OutputStr (thread_num, buf);
 	} else {
 		OutputBoth (thread_num, "SUMOUT error occurred.\n");
 		stop_reason = SleepFive (thread_num);
-		if (stop_reason) return (stop_reason);
+		if (stop_reason) goto exit;
 	}
 	error_recovery_mode = bit_number ? bit_number : 1;
+	pm1_cleanup (&pm1data);
+	free (N);
+	N = NULL;
+	free (exp);
+	exp = NULL;
 	goto restart;
 }
 
