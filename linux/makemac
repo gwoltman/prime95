@@ -4,12 +4,12 @@
 ENVP= MACOSX_DEPLOYMENT_TARGET=10.3
 
 CC = gcc
-CFLAGS = -I.. -I../gwnum -I../linux -O2 -g -march=i686 -malign-double
+CFLAGS = -I.. -I../gwnum -I../linux -O2 -march=i686 -malign-double
 
 CPP = g++
 CPPFLAGS = -I.. -I../gwnum -I../linux -O2 -march=i686 -malign-double
 
-LFLAGS = -Wl,-M
+LFLAGS = 
 LIBS   = ../gwnum/gwnum.a -lm -lpthread -lcurl -lIOKit -framework CoreFoundation -lstdc++
 
 FACTOROBJ = factor32.o
