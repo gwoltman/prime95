@@ -23,16 +23,22 @@ mulhalfs MACRO	r
 
 ; No noticeable difference between these two identical unpack instructions.
 ; The P4 optimization manual lists a 2 clock latency difference
+;;
+;;SHUFPD uses Core 2 port 0 (competes with mulpd)
+;;SHUFPS uses Core 2 port 5 (but adds one clock latency to transfer data to integer unit)
+;;UNPCKHPD uses Core 2 port 0 (competes with mulpd)
+;;PUNPCKHQDQ uses Core 2 port 5 (but adds one clock latency to transfer data to integer unit)
+;; This implementation chooses the port 5 option as it underutilized
 unpckhi MACRO dest, src
-	unpckhpd dest, src
-;;	punpckhqdq dest, src
+;;	unpckhpd dest, src
+	punpckhqdq dest, src
 	ENDM
 
 ; No noticeable difference between these two identical unpack instructions.
 ; The P4 optimization manual lists a different execution unit
 unpcklo MACRO dest, src
-	unpcklpd dest, src
-;;	punpcklqdq dest, src
+;;	unpcklpd dest, src
+	punpcklqdq dest, src
 	ENDM
 
 ;; Macros that load or store register(s) shuffling the data
