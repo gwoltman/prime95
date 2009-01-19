@@ -140,12 +140,12 @@ struct gwasm_data {
 	double	XMM_P951[2];
 	double	XMM_P588[2];
 	double	XMM_M162[2];
-	double	XMM_P577[2];
+	double	XMM_UNUSED1[2];
 	double	XMM_P866[2];
-	double	XMM_P75[2];
-	double	XMM_P25[2];
-	double	XMM_P3[2];
-	double	XMM_P433[2];
+	double	XMM_UNUSED2[2];
+	double	XMM_UNUSED3[2];
+	double	XMM_UNUSED4[2];
+	double	XMM_UNUSED5[2];
 	double	XMM_P623[2];
 	double	XMM_M358[2];
 	double	XMM_P404[2];
@@ -2408,11 +2408,8 @@ int internal_gwsetup (
 	asm_data->SQRTHALF =
 	asm_data->XMM_SQRTHALF[0] = asm_data->XMM_SQRTHALF[1] = sqrt (0.5);
 	asm_data->P25 = 0.25;
-	asm_data->XMM_P25[0] = asm_data->XMM_P25[1] = 0.25;
 	asm_data->P75 = 0.75;
-	asm_data->XMM_P75[0] = asm_data->XMM_P75[1] = 0.75;
 	asm_data->P3 = 3.0;
-	asm_data->XMM_P3[0] = asm_data->XMM_P3[1] = 3.0;
 	asm_data->XMM_ABSVAL[0] = asm_data->XMM_ABSVAL[2] = 0x7FFFFFFF;
 	asm_data->XMM_ABSVAL[1] = asm_data->XMM_ABSVAL[3] = 0xFFFFFFFF;
 
@@ -2579,10 +2576,8 @@ int internal_gwsetup (
 	asm_data->XMM_M382[0] = asm_data->XMM_M382[1] = asm_values[7];
 	asm_data->P866 =
 	asm_data->XMM_P866[0] = asm_data->XMM_P866[1] = asm_values[8];
-	asm_data->P433 =
-	asm_data->XMM_P433[0] = asm_data->XMM_P433[1] = asm_values[9];
-	asm_data->P577 =
-	asm_data->XMM_P577[0] = asm_data->XMM_P577[1] = asm_values[10];
+	asm_data->P433 = asm_values[9];
+	asm_data->P577 = asm_values[10];
 	asm_data->P975 =
 	asm_data->XMM_P975[0] = asm_data->XMM_P975[1] = asm_values[11];
 	asm_data->P445 =
