@@ -933,18 +933,14 @@ void torture (void)
 		askNum ("Max FFT size (in K)", &m_maxfft, 8,
 			(CPU_FLAGS & CPU_SSE2 ? MAX_FFTLEN_SSE2 : MAX_FFTLEN) / 1024);
 		if (blendmemory > 8)
-			askNum ("Memory to use (in MB, 0 = in-place FFTs)",
-				&m_memory, 0, blendmemory);
-		askNum ("Time to run each FFT size (in minutes)", &m_timefft,
-			1, 60);
+			askNum ("Memory to use (in MB, 0 = in-place FFTs)", &m_memory, 0, mem);
+		askNum ("Time to run each FFT size (in minutes)", &m_timefft, 1, 60);
 	}
 
 	if (askOkCancel ()) {
 		IniWriteInt (INI_FILE, "MinTortureFFT", m_minfft);
 		IniWriteInt (INI_FILE, "MaxTortureFFT", m_maxfft);
-		mem = m_memory;
-		if (mem > blendmemory) mem = blendmemory;
-		mem = mem / m_thread;
+		mem = m_memory / m_thread;
 		IniWriteInt (INI_FILE, "TortureMem", mem);
 		IniWriteInt (INI_FILE, "TortureTime", m_timefft);
 		LaunchTortureTest (m_thread, TRUE);
