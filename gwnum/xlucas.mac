@@ -641,7 +641,7 @@ s3cl_six_reals_first_fft MACRO srcreg,srcinc,d1
 	movapd	[srcreg+48], xmm5		;; Save R2
 	movapd	[srcreg+2*d1], xmm7		;; Save R3
 	movapd	[srcreg+2*d1+16], xmm6		;; Save R4
-	movapd	[srcreg+2*d1+32], xmm7		;; Save R5
+	movapd	[srcreg+2*d1+32], xmm1		;; Save R5
 	movapd	[srcreg+2*d1+48], xmm0		;; Save R6
 	lea	srcreg, [srcreg+srcinc]
 	ENDM
@@ -3788,30 +3788,32 @@ s3cl_three_complex_first_fft MACRO srcreg,srcinc,d1
 	ENDM
 
 x3c_premult MACRO r1, r2, r3, r4, r5, r6, t1, t2, off
-	movapd	t1, r1			;; Copy R1
-	mulpd	r1, [rdi+off+16]	;; A1 = R1 * premul_real/premul_imag
-	subpd	r1, r4			;; A1 = A1 - I1
-	mulpd	r4, [rdi+off+16]	;; B1 = I1 * premul_real/premul_imag
-	addpd	r4, t1			;; B1 = B1 + R1
-
 	movapd	t1, r3			;; Copy R3
 	mulpd	r3, [rdi+off+80]	;; A3 = R3 * premul_real/premul_imag
 	subpd	r3, r6			;; A3 = A3 - I3
 	mulpd	r6, [rdi+off+80]	;; B3 = I3 * premul_real/premul_imag
 	addpd	r6, t1			;; B3 = B3 + R3
-	mulpd	r1, [rdi+off]		;; A1 = A1 * premul_imag (new R1)
-	mulpd	r4, [rdi+off]		;; B1 = B1 * premul_imag (new I1)
 
 	movapd	t1, r2			;; Copy R2
 	mulpd	r2, [rdi+off+48]	;; A2 = R2 * premul_real/premul_imag
 	subpd	r2, r5			;; A2 = A2 - I2
 	mulpd	r5, [rdi+off+48]	;; B2 = I2 * premul_real/premul_imag
 	addpd	r5, t1			;; B2 = B2 + R2
+
 	mulpd	r3, [rdi+off+64]	;; A3 = A3 * premul_imag (new R3)
 	mulpd	r6, [rdi+off+64]	;; B3 = B3 * premul_imag (new I3)
 
+	movapd	t1, r1			;; Copy R1
+	mulpd	r1, [rdi+off+16]	;; A1 = R1 * premul_real/premul_imag
+	subpd	r1, r4			;; A1 = A1 - I1
+	mulpd	r4, [rdi+off+16]	;; B1 = I1 * premul_real/premul_imag
+	addpd	r4, t1			;; B1 = B1 + R1
+
 	mulpd	r2, [rdi+off+32]	;; A2 = A2 * premul_imag (new R2)
 	mulpd	r5, [rdi+off+32]	;; B2 = B2 * premul_imag (new I2)
+
+	mulpd	r1, [rdi+off]		;; A1 = A1 * premul_imag (new R1)
+	mulpd	r4, [rdi+off]		;; B1 = B1 * premul_imag (new I1)
 	ENDM
 
 ;; Do a 3-complex FFT.  The input values are R1+R4i, R2+R5i, R3+R6i
