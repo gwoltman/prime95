@@ -6,6 +6,41 @@
 ; in xlucas.mac.
 ;
 
+;; On AMD64 (K8 architecture, not the Phenom K10 architecture), punpckhqdq is grossly slow.
+unpckhi MACRO dest, src
+	unpckhpd dest, src
+	ENDM
+
+unpcklo MACRO dest, src
+	unpcklpd dest, src
+	ENDM
+
+;; Macros that load or store register(s) shuffling the data
+
+low_load MACRO reg, mem1, mem2
+	movhpd	reg, Q mem2
+	movlpd	reg, Q mem1
+	ENDM
+
+high_load MACRO reg, mem1, mem2
+	movhpd	reg, Q mem2[8]
+	movlpd	reg, Q mem1[8]
+	ENDM
+
+shuffle_load MACRO reglo, reghi, mem1, mem2
+	movhpd	reglo, Q mem2
+	movlpd	reglo, Q mem1
+	movhpd	reghi, Q mem2[8]
+	movlpd	reghi, Q mem1[8]
+	ENDM
+
+shuffle_store MACRO mem1, mem2, reglo, reghi
+	movsd	Q mem1, reglo
+	movsd	Q mem1[8], reghi
+	unpckhi reglo, reghi
+	movapd	mem2, reglo
+	ENDM
+
 x4c_fft_screg MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, off, screg, pre1, pre2, dst1, dst2
 	movapd	r8, [screg+off+32+16]	;; cosine/sine
 	mulpd	r8, r3			;; A3 = R3 * cosine/sine	;1-6
