@@ -2250,3 +2250,14 @@ s2cl_four_complex_with_mult MACRO srcreg,srcinc,d1
 
 	lea	srcreg, [srcreg+srcinc]
 	ENDM
+
+
+;
+; On AMD64 machines, replace some of the macros above with identical macros
+; that use slightly different instruction sequences for a little more speed.
+;
+
+IFDEF AMD
+INCLUDE	xlucas64a.mac
+ENDIF
+
