@@ -30,51 +30,32 @@ mulhalfs MACRO	r
 ;;PUNPCKHQDQ uses Core 2 port 5 (but adds one clock latency to transfer data to integer unit)
 ;; This implementation chooses the port 5 option as it underutilized
 unpckhi MACRO dest, src
-;;	unpckhpd dest, src
 	punpckhqdq dest, src
 	ENDM
 
 ; No noticeable difference between these two identical unpack instructions.
 ; The P4 optimization manual lists a different execution unit
 unpcklo MACRO dest, src
-;;	unpcklpd dest, src
 	punpcklqdq dest, src
 	ENDM
 
 ;; Macros that load or store register(s) shuffling the data
 
 low_load MACRO reg, mem1, mem2
-	IFDEF AMD
-	movhpd	reg, Q mem2
-	movlpd	reg, Q mem1
-	ELSE
 	movapd	reg, mem1
 	unpcklo reg, Q mem2
-	ENDIF
 	ENDM
 
 high_load MACRO reg, mem1, mem2
-	IFDEF AMD
-	movhpd	reg, Q mem2[8]
-	movlpd	reg, Q mem1[8]
-	ELSE
 	movapd	reg, mem2
 	movlpd	reg, Q mem1[8]
-	ENDIF
 	ENDM
 
 shuffle_load MACRO reglo, reghi, mem1, mem2
-	IFDEF AMD
-	movhpd	reglo, Q mem2
-	movlpd	reglo, Q mem1
-	movhpd	reghi, Q mem2[8]
-	movlpd	reghi, Q mem1[8]
-	ELSE
 	movapd	reglo, mem1
 	movapd	reghi, mem2
 	unpcklo	reglo, reghi
 	movlpd	reghi, Q mem1[8]
-	ENDIF
 	ENDM
 
 shuffle_store MACRO mem1, mem2, reglo, reghi
