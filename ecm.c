@@ -5994,7 +5994,7 @@ void guess_pminus1_bounds (
 /* These include: better L2 cache usage and no calls to the faster */
 /* gwsquare routine. */
 
-	pass2_squarings *= 1.2;
+	pass2_squarings *= 1.285;
 
 /* What is the "average" value that must be smooth for P-1 to succeed? */
 /* Ordinarily this is 1.5 * 2^how_far_factored.  However, for Mersenne */
