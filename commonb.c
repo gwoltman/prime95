@@ -6625,11 +6625,10 @@ int prp (
 /* regular work done in pass 2 if WellBehavedWork or SequentialWorkTodo */
 /* is set.  The only way we can get to pass 3 and P-1 still needs to be */
 /* done is if pfactor returned STOP_NOT_ENOUGH_MEM on an earlier pass. */
-/* In that case, skip onto doing the LL test until more memory becomes */
+/* In that case, skip onto doing the PRP test until more memory becomes */
 /* available. */
 
-	if ((w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK) &&
-	    ! w->pminus1ed && pass != 3) {
+	if (w->work_type == WORK_PRP && ! w->pminus1ed && pass != 3) {
 		int	pass_to_pfactor;
 
 		pass_to_pfactor = (WELL_BEHAVED_WORK || SEQUENTIAL_WORK) ? 2 : 1;
