@@ -5227,7 +5227,7 @@ int selfTest (
 {
 	unsigned long fftlen;
 	char	iniName[32];
-	int	self_test_errors, self_test_warnings;
+	int	tests_completed, self_test_errors, self_test_warnings;
 
 /* What fft length are we running? */
 
@@ -5257,10 +5257,11 @@ int selfTest (
 
 /* Do the self test */
 
+	tests_completed = 0;
 	self_test_errors = 0;
 	self_test_warnings = 0;
 	return (selfTestInternal (thread_num, sp_info, fftlen, 60, NULL, 0, NULL,
-				  &self_test_errors, &self_test_warnings));
+				  &tests_completed, &self_test_errors, &self_test_warnings));
 }
 #endif
 
@@ -5273,7 +5274,7 @@ int tortureTest (
 	int	lengths[SELF_FFT_LENGTHS] = {1024,8,10,896,768,12,14,640,512,16,20,448,384,24,28,320,256,32,40,224,192,48,56,160,128,64,80,112,96,1280,1536,1792,2048,2560,3072,3584,4096,5120,6144,7168,8192,10240,12288,14336,16384,20480,24576,28672,32768};
 	int	data_index[SELF_FFT_LENGTHS] = {0};
 	int	min_fft, max_fft, test_time;
-	int	self_test_errors, self_test_warnings;
+	int	tests_completed, self_test_errors, self_test_warnings;
 	int	i, run_indefinitely, stop_reason;
 	time_t	start_time, current_time;
 	unsigned int memory;	/* Memory to use during torture test */
@@ -5287,9 +5288,15 @@ int tortureTest (
 	sp_info.num_threads = num_threads;
 	SetPriority (&sp_info);
 
+/* Init counters */
+
+	tests_completed = 0;
+	self_test_errors = 0;
+	self_test_warnings = 0;
+
 /* We used to support a menu option to run the self-test for an hour on */
 /* each FFT length.  If we ever decide to resupport this option, change */
-/* the run_indefiitely argument to an argument and change the output */
+/* the run_indefiitely variable to an argument and change the output */
 /* message below. */
 
 loop:	run_indefinitely = TRUE;
@@ -5316,8 +5323,6 @@ loop:	run_indefinitely = TRUE;
 /* Now self-test each fft length */
 
 	stop_reason = 0;
-	self_test_errors = 0;
-	self_test_warnings = 0;
 	time (&start_time);
 	for ( ; ; ) {
 	    for (i = 0; i < SELF_FFT_LENGTHS; i++) {
@@ -5326,9 +5331,8 @@ loop:	run_indefinitely = TRUE;
 		stop_reason =
 			selfTestInternal (thread_num, &sp_info, lengths[i]*1024,
 					  test_time, &data_index[i],
-					  memory, bigbuf,
-					  &self_test_errors,
-					  &self_test_warnings);
+					  memory, bigbuf, &tests_completed,
+					  &self_test_errors, &self_test_warnings);
 		if (stop_reason) {
 			char	buf[120];
 			int	hours, minutes;
@@ -5336,7 +5340,7 @@ loop:	run_indefinitely = TRUE;
 			minutes = (int) (current_time - start_time) / 60;
 			hours = minutes / 60;
 			minutes = minutes % 60;
-			strcpy (buf, "Torture Test ran ");
+			sprintf (buf, "Torture Test completed %d tests in ", tests_completed);
 			if (hours)
 				sprintf (buf+strlen(buf), "%d hours, ", hours);
 			sprintf (buf+strlen(buf),
@@ -5375,6 +5379,7 @@ int selfTestInternal (
 	int	*torture_index,	/* Index into self test data array */
 	unsigned int memory,	/* MB of memory the torture test can use */
 	void	*bigbuf,	/* Memory block for the torture test */
+	int	*completed,	/* Returned count of tests completed */
 	int	*errors,	/* Returned count of self test errors */
 	int	*warnings)	/* Returned count of self test warnings */
 {
@@ -5612,6 +5617,7 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 		generateResidue64 (&lldata, &reshi, &reslo);
 		lucasDone (&lldata);
 		free (gwarray);
+		(*completed)++;
 		if (reshi != test_data[i].reshi) {
 			sprintf (buf, SELFFAIL, reshi, test_data[i].reshi);
 			OutputBoth (thread_num, buf);
