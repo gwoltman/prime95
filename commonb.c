@@ -1409,14 +1409,18 @@ void implement_stop_battery (
 	OutputStr (thread_num, "Worker stopped while on battery power.\n");
 	ChangeIcon (thread_num, IDLE_ICON);
 
-/* Wait for AC power */
+/* Wait for AC power.  In case AC power was restored before we got here */
+/* (LL save files can take some time to generate), do not wait.  The timer */
+/* that would trigger the wait event has already fired.  */
 
-	OFF_BATTERY_OR_STOP_INITIALIZED[thread_num] = 1;
-	gwevent_init (&OFF_BATTERY_OR_STOP[thread_num]);
-	gwevent_reset (&OFF_BATTERY_OR_STOP[thread_num]);
-	gwevent_wait (&OFF_BATTERY_OR_STOP[thread_num], 0);
-	gwevent_destroy (&OFF_BATTERY_OR_STOP[thread_num]);
-	OFF_BATTERY_OR_STOP_INITIALIZED[thread_num] = 0;
+	if (OnBattery ()) {
+		OFF_BATTERY_OR_STOP_INITIALIZED[thread_num] = 1;
+		gwevent_init (&OFF_BATTERY_OR_STOP[thread_num]);
+		gwevent_reset (&OFF_BATTERY_OR_STOP[thread_num]);
+		gwevent_wait (&OFF_BATTERY_OR_STOP[thread_num], 0);
+		gwevent_destroy (&OFF_BATTERY_OR_STOP[thread_num]);
+		OFF_BATTERY_OR_STOP_INITIALIZED[thread_num] = 0;
+	}
 
 /* Output message, change title and icon */
 
