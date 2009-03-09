@@ -89,7 +89,7 @@ extern int MENUING;			/* TRUE when main menu active */
 /* Internal routines */
 
 void main_menu (void);
-void linuxContinue (char *, int);
+void linuxContinue (char *, int, int);
 void Sleep (long);
 void test_user(void);
 void test_welcome(void);

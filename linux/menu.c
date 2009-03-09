@@ -528,6 +528,41 @@ void test_status (void)
 	outputLongLine (buf);
 }
 
+/* Start one or all workers */
+
+void test_continue (void)
+{
+	unsigned long worker;
+	int	thread_num;
+
+	worker = 0;
+	askNum ("Worker to start, 0=all", &worker, 0, NUM_WORKER_THREADS);
+	if (worker == 0) thread_num = ALL_WORKERS;
+	else thread_num = worker - 1;
+	linuxContinue ("Another mprime is running.\n", thread_num, FALSE);
+}
+
+/* Stop one or all workers */
+
+void test_stop (void)
+{
+	unsigned long worker;
+
+	worker = 0;
+	askNum ("Worker to stop, 0=all", &worker, 0, NUM_WORKER_THREADS);
+	if (worker == 0) stop_workers_for_escape ();
+	else stop_one_worker (worker - 1);
+}
+
+/* Start or stop one or all workers */
+
+void test_continue_or_stop (void)
+{
+	outputLongLine ("Do you want to start some workers? ");
+	if (askYesNo ('Y')) test_continue ();
+	else test_stop ();
+}
+
 /* Advanced/Test dialog */
 
 void advanced_test (void)
@@ -560,7 +595,7 @@ loop:	m_p = 0;
 		if (WORKER_THREADS_ACTIVE)
 			stop_worker_for_advanced_test (m_thread - 1);
 		else
-			linuxContinue ("\nWork added to worktodo.ini file.  Another mprime is running.\n", FALSE);
+			linuxContinue ("\nWork added to worktodo.ini file.  Another mprime is running.\n", ALL_WORKERS, FALSE);
 	}
 }
 
@@ -620,7 +655,7 @@ void advanced_pminus1 (void)
 		w.B2 = m_bound2;
 		addWorkToDoLine (m_thread - 1, &w);
 		if (!WORKER_THREADS_ACTIVE)
-			linuxContinue ("\nWork added to worktodo.ini file.  Another mprime is running.\n", FALSE);
+			linuxContinue ("\nWork added to worktodo.ini file.  Another mprime is running.\n", ALL_WORKERS, FALSE);
 		askOK ();
 	}
 }
@@ -668,7 +703,7 @@ void advanced_ecm (void)
 		w.curve = 0.0;
 		addWorkToDoLine (m_thread - 1, &w);
 		if (!WORKER_THREADS_ACTIVE)
-			linuxContinue ("\nWork added to worktodo.ini file.  Another mprime is running.\n", FALSE);
+			linuxContinue ("\nWork added to worktodo.ini file.  Another mprime is running.\n", ALL_WORKERS, FALSE);
 		askOK ();
 	}
 }
@@ -1001,7 +1036,7 @@ void test_welcome (void)
 		if (USE_PRIMENET && STARTUP_IN_PROGRESS) {
 			STARTUP_IN_PROGRESS = 0;
 			set_comm_timers ();
-			linuxContinue (NULL, FALSE);
+			linuxContinue (NULL, ALL_WORKERS, FALSE);
 		} else
 			STARTUP_IN_PROGRESS = 0;
 	} else {
@@ -1027,7 +1062,9 @@ loop:	printf ("\n");
 	printf ("\t 1.  Test/Primenet\n");
 	printf ("\t 2.  Test/Worker threads\n");
 	printf ("\t 3.  Test/Status\n");
-	if (!WORKER_THREADS_ACTIVE || WORKER_THREADS_STOPPING)
+	if (WORKER_THREADS_ACTIVE && active_workers_count () < WORKER_THREADS_ACTIVE)
+		printf ("\t 4.  Test/Continue or Stop\n");
+	else if (!WORKER_THREADS_ACTIVE || WORKER_THREADS_STOPPING)
 		printf ("\t 4.  Test/Continue\n");
 	else
 		printf ("\t 4.  Test/Stop\n");
@@ -1076,15 +1113,20 @@ loop:	printf ("\n");
 		askOK ();
 		break;
 
-/* Test/Continue or Test/Stop */
+/* Test/Continue or Stop or Test/Continue or Test/Stop */
 
 	case 4:
-		if (!WORKER_THREADS_ACTIVE || WORKER_THREADS_STOPPING) {
+		if (WORKER_THREADS_ACTIVE && active_workers_count () < WORKER_THREADS_ACTIVE)
+			test_continue_or_stop ();
+		else if (NUM_WORKER_THREADS > 1 && active_workers_count () < WORKER_THREADS_ACTIVE - 1)
+			test_continue ();
+		else if (!WORKER_THREADS_ACTIVE || WORKER_THREADS_STOPPING) {
 			while (WORKER_THREADS_STOPPING) sleep (50);
-			linuxContinue ("Another mprime is running.\n", FALSE);
-		} else {
+			linuxContinue ("Another mprime is running.\n", ALL_WORKERS, FALSE);
+		} else if (active_workers_count () > 1)
+			test_stop ();
+		else
 			stop_workers_for_escape ();
-		}
 		break;
 
 /* Test/Exit */
