@@ -3822,6 +3822,7 @@ err:	_close (fd);
 int writeLLSaveFile (
 	llhandle *lldata,
 	char	*filename,
+	int	two_backup_files,	     
 	struct work_unit *w,
 	unsigned long counter,
 	unsigned long error_count)
@@ -3832,7 +3833,7 @@ int writeLLSaveFile (
 /* If we are allowed to create multiple intermediate files, then */
 /* write to a file called rXXXXXXX. */
 
-	if (TWO_BACKUP_FILES && strlen (filename) == 8)
+	if (two_backup_files)
 		filename[0] = 'r';
 
 /* Now save to the intermediate file */
@@ -3854,8 +3855,8 @@ int writeLLSaveFile (
 
 /* Now rename the intermediate files */
 
-	if (TWO_BACKUP_FILES && strlen (filename) == 8) {
-		char	backupname[16];
+	if (two_backup_files) {
+		char	backupname[32];
 		strcpy (backupname, filename);
 		backupname[0] = 'q'; filename[0] = 'p';
 		_unlink (backupname);
@@ -4561,7 +4562,7 @@ readloop:
 #ifndef SERVER_TESTING
 		if (*addr1 == 0.0 && p > 1000 &&
 		    counter > 50 && counter < p-2 && counter != last_counter) {
-			unsigned long i;		
+			unsigned long i;
 			for (i = 2; ; i++) {
 				if (*addr (&lldata.gwdata, lldata.lldata, i) != 0.0) break;
 				if (i == 50) {
@@ -4633,8 +4634,8 @@ readloop:
 /* disk-full situation) */
 
 		if (saving) {
-			if (! writeLLSaveFile (&lldata, filename, w, counter,
-					       error_count)) {
+			if (! writeLLSaveFile (&lldata, filename, TWO_BACKUP_FILES,
+					       w, counter, error_count)) {
 				sprintf (buf, WRITEFILEERR, filename);
 				OutputBoth (thread_num, buf);
 			}
@@ -4669,11 +4670,11 @@ readloop:
 /* Write a save file every INTERIM_FILES iterations. */
 
 		if (INTERIM_FILES && counter % INTERIM_FILES == 0) {
-			char	interimfile[20];
-			sprintf (interimfile, "%.8s.%03d",
+			char	interimfile[32];
+			sprintf (interimfile, "%s.%03ld",
 				 filename, counter / INTERIM_FILES);
-			writeLLSaveFile (&lldata, interimfile, w, counter,
-				         error_count);
+			writeLLSaveFile (&lldata, interimfile, FALSE, w,
+					 counter, error_count);
 		}
 
 /* If ten iterations take 40% longer than a typical iteration, then */
@@ -6517,6 +6518,7 @@ int writePRPSaveFile (
 	gwhandle *gwdata,
 	gwnum	x,
 	char	*filename,
+	int	two_backup_files,
 	struct work_unit *w,
 	unsigned long counter,
 	unsigned long error_count)
@@ -6527,7 +6529,7 @@ int writePRPSaveFile (
 /* If we are allowed to create multiple intermediate files, then */
 /* write to a file called rXXXXXXX. */
 
-	if (TWO_BACKUP_FILES && strlen (filename) == 8)
+	if (two_backup_files)
 		filename[0] = 'r';
 
 /* Now save to the intermediate file */
@@ -6548,8 +6550,8 @@ int writePRPSaveFile (
 
 /* Now rename the intermediate files */
 
-	if (TWO_BACKUP_FILES && strlen (filename) == 8) {
-		char	backupname[16];
+	if (two_backup_files) {
+		char	backupname[32];
 		strcpy (backupname, filename);
 		backupname[0] = 'q'; filename[0] = 'p';
 		_unlink (backupname);
@@ -7000,8 +7002,8 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* disk-full situation) */
 
 		if (saving) {
-			if (! writePRPSaveFile (&gwdata, x, filename, w,
-						counter, error_count)) {
+			if (! writePRPSaveFile (&gwdata, x, filename, TWO_BACKUP_FILES,
+						w, counter, error_count)) {
 				sprintf (buf, WRITEFILEERR, filename);
 				OutputBoth (thread_num, buf);
 			}
@@ -7038,11 +7040,11 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* Write a save file every INTERIM_FILES iterations. */
 
 		if (INTERIM_FILES && counter % INTERIM_FILES == 0) {
-			char	interimfile[20];
-			sprintf (interimfile, "%.8s.%03d",
+			char	interimfile[32];
+			sprintf (interimfile, "%s.%03ld",
 				 filename, counter / INTERIM_FILES);
-			writePRPSaveFile (&gwdata, x, interimfile, w, counter,
-					  error_count);
+			writePRPSaveFile (&gwdata, x, interimfile, FALSE, w,
+					  counter, error_count);
 		}
 
 /* If ten iterations take 40% longer than a typical iteration, then */
