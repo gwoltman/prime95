@@ -903,7 +903,7 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			CPU_L1_CACHE_LINE_SIZE = reg.ECX & 0xFF;
 		}
 
-/* Get the L2 cache size */
+/* Get the L2 and L3 cache sizes */
 
 		if (max_extended_cpuid_value >= 0x80000006) {
 			Cpuid (0x80000006, &reg);
@@ -912,6 +912,48 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			if (CPU_L2_CACHE_SIZE == 1) /* Workaround Duron bug */
 				CPU_L2_CACHE_SIZE = 64;
 			CPU_L2_CACHE_LINE_SIZE = reg.ECX & 0xFF;
+			CPU_L2_SET_ASSOCIATIVE = (reg.ECX & 0xF);
+			if (CPU_L2_SET_ASSOCIATIVE == 0x2)
+				CPU_L2_SET_ASSOCIATIVE = 2;
+			else if (CPU_L2_SET_ASSOCIATIVE == 0x4)
+				CPU_L2_SET_ASSOCIATIVE = 4;
+			else if (CPU_L2_SET_ASSOCIATIVE == 0x6)
+				CPU_L2_SET_ASSOCIATIVE = 8;
+			else if (CPU_L2_SET_ASSOCIATIVE == 0x8)
+				CPU_L2_SET_ASSOCIATIVE = 16;
+			else if (CPU_L2_SET_ASSOCIATIVE == 0xA)
+				CPU_L2_SET_ASSOCIATIVE = 32;
+			else if (CPU_L2_SET_ASSOCIATIVE == 0xB)
+				CPU_L2_SET_ASSOCIATIVE = 48;
+			else if (CPU_L2_SET_ASSOCIATIVE == 0xC)
+				CPU_L2_SET_ASSOCIATIVE = 64;
+			else if (CPU_L2_SET_ASSOCIATIVE == 0xD)
+				CPU_L2_SET_ASSOCIATIVE = 96;
+			else if (CPU_L2_SET_ASSOCIATIVE == 0xE)
+				CPU_L2_SET_ASSOCIATIVE = 128;
+
+			CPU_L3_DATA_TLBS = -1;
+			CPU_L3_CACHE_SIZE = (reg.EDX >> 18) * 512;
+			CPU_L3_CACHE_LINE_SIZE = reg.EDX & 0xFF;
+			CPU_L3_SET_ASSOCIATIVE = (reg.EDX & 0xF);
+			if (CPU_L3_SET_ASSOCIATIVE == 0x2)
+				CPU_L3_SET_ASSOCIATIVE = 2;
+			else if (CPU_L3_SET_ASSOCIATIVE == 0x4)
+				CPU_L3_SET_ASSOCIATIVE = 4;
+			else if (CPU_L3_SET_ASSOCIATIVE == 0x6)
+				CPU_L3_SET_ASSOCIATIVE = 8;
+			else if (CPU_L3_SET_ASSOCIATIVE == 0x8)
+				CPU_L3_SET_ASSOCIATIVE = 16;
+			else if (CPU_L3_SET_ASSOCIATIVE == 0xA)
+				CPU_L3_SET_ASSOCIATIVE = 32;
+			else if (CPU_L3_SET_ASSOCIATIVE == 0xB)
+				CPU_L3_SET_ASSOCIATIVE = 48;
+			else if (CPU_L3_SET_ASSOCIATIVE == 0xC)
+				CPU_L3_SET_ASSOCIATIVE = 64;
+			else if (CPU_L3_SET_ASSOCIATIVE == 0xD)
+				CPU_L3_SET_ASSOCIATIVE = 96;
+			else if (CPU_L3_SET_ASSOCIATIVE == 0xE)
+				CPU_L3_SET_ASSOCIATIVE = 128;
 		}
 
 /* If we haven't figured out the brand string, create a default one */
