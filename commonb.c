@@ -3251,11 +3251,11 @@ int primeFactor (
 /* If we did, the client would spend more CPU time sending messages to the */
 /* server than actually factoring numbers.  Here we calculate the threshold */
 /* where we'll start reporting results one bit at time.  We've arbitrarily */
-/* chosen the difficulty in trial factoring M80000000 to 2^60 as the */
+/* chosen the difficulty in trial factoring M100000000 to 2^62 as the */
 /* point where it is worthwhile to report results one bit at a time. */
 
 	report_bits = (unsigned long)
-		(60.0 + log ((double) p / 80000000.0) / log (2.0));
+		(62.0 + log ((double) p / 100000000.0) / log (2.0));
 	if (report_bits >= test_bits) report_bits = test_bits;
 
 /* Loop testing larger and larger factors until we've tested to the */
