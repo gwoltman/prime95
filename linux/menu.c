@@ -1121,7 +1121,7 @@ loop:	printf ("\n");
 		else if (NUM_WORKER_THREADS > 1 && active_workers_count () < WORKER_THREADS_ACTIVE - 1)
 			test_continue ();
 		else if (!WORKER_THREADS_ACTIVE || WORKER_THREADS_STOPPING) {
-			while (WORKER_THREADS_STOPPING) sleep (50);
+			while (WORKER_THREADS_STOPPING) Sleep (50);
 			linuxContinue ("Another mprime is running.\n", ALL_WORKERS, FALSE);
 		} else if (active_workers_count () > 1)
 			test_stop ();
@@ -1138,7 +1138,7 @@ loop:	printf ("\n");
 			stop_workers_for_escape ();
 		while (WORKER_THREADS_STOPPING) {
 			if (counter++ % 100 == 0) printf ("Waiting for worker threads to stop.\n");
-			sleep (50);
+			Sleep (50);
 		}
 		}
 		return;
