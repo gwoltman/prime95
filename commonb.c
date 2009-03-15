@@ -2856,6 +2856,268 @@ check_stop_code:
 	}
 }
 
+/*************************/
+/* Common save file code */
+/*************************/
+
+/* Internal routine to atomicly test for a unique file name.  If it is */
+/* unique it is added to the list of save file names in use. */
+
+int testUniqueFileName (
+	int	thread_num,
+	char	*filename)
+{
+static	int	SAVEFILE_MUTEX_INITIALIZED = FALSE;
+static	gwmutex	SAVEFILE_MUTEX;
+static	char	USED_FILENAMES[MAX_NUM_WORKER_THREADS][32];
+	int	i;
+
+/* Initialize the lock and used file array */
+
+	if (!SAVEFILE_MUTEX_INITIALIZED) {
+		SAVEFILE_MUTEX_INITIALIZED = 1;
+		gwmutex_init (&SAVEFILE_MUTEX);
+		for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) USED_FILENAMES[i][0] = 0;
+	}
+
+/* Scan array to see if the save file names is in use by another thread. */
+
+	gwmutex_lock (&SAVEFILE_MUTEX);
+	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
+		if (i != thread_num &&
+		    strcmp (filename, USED_FILENAMES[i]) == 0) {
+			gwmutex_unlock (&SAVEFILE_MUTEX);
+			return (FALSE);
+		}
+	}
+
+/* File name not in use, add the name to the array. */
+
+	strcpy (USED_FILENAMES[thread_num], filename);
+	gwmutex_unlock (&SAVEFILE_MUTEX);
+	return (TRUE);
+}
+
+/* Multiple workers can do ECM on the same number.  This causes problems */
+/* because the two threads try to use the same save file.  We work around */
+/* the problem here, by making sure each worker has a unique save file name. */
+
+void uniquifySaveFile (
+	int	thread_num,
+	char	*filename)
+{
+	char	original_filename[32];
+	int	i;
+
+/* Our first preference is to use the save file name without any extensions */
+
+	if (testUniqueFileName (thread_num, filename)) return;
+
+/* Nuts, it is in use.  We must generate a filename with an extension */
+
+	strcpy (original_filename, filename);
+
+/* Our second preference is to use an existing save file with an extension */
+/* consisting of this thread number */
+
+	sprintf (filename, "%s_%d", original_filename, thread_num+1);
+	if (fileExists (filename) && testUniqueFileName (thread_num, filename)) return;
+
+/* Our third preference is to use any existing save file */
+
+	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
+		sprintf (filename, "%s_%d", original_filename, i+1);
+		if (fileExists (filename) && testUniqueFileName (thread_num, filename)) return;
+	}
+
+/* Our fourth preference is to use an extension consisting of this thread number */
+
+	sprintf (filename, "%s_%d", original_filename, thread_num+1);
+	if (testUniqueFileName (thread_num, filename)) return;
+
+/* Our final preference is to use any thread number as an extension */
+
+	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
+		sprintf (filename, "%s_%d", original_filename, i+1);
+		if (testUniqueFileName (thread_num, filename)) return;
+	}
+}
+
+/* Prepare for reading save files.  Return TRUE if the save file or one */
+/* of its backups exists.  If using one of the backups, rename it properly. */
+
+int saveFileExists (
+	int	thread_num,
+	char	*filename)
+{
+	char	backupname[32];
+	char	buf[120];
+
+/* If the save file exists, use it */
+
+	if (fileExists (filename)) return (TRUE);
+
+/* If the second save file exists, use it */
+
+	sprintf (backupname, "%s.bu", filename);
+	if (fileExists (backupname)) goto winner;
+
+/* If the third save file exists, use it */
+
+	sprintf (backupname, "%s.bu2", filename);
+	if (fileExists (backupname)) goto winner;
+
+/* If the save file created during writing and before renaming exists, use it */
+
+	sprintf (backupname, "%s.write", filename);
+	if (fileExists (backupname)) goto winner;
+
+/* In v24 we changed the first letter of the save file name.  We no longer do */
+/* this but we'll use them if we find them. */
+
+	if (filename[0] == 'p') {
+		sprintf (backupname, "q%s", filename+1);
+		if (fileExists (backupname)) goto winner;
+		sprintf (backupname, "r%s", filename+1);
+		if (fileExists (backupname)) goto winner;
+	}
+
+/* No useable save file found */
+
+	return (FALSE);
+
+/* We found a useable backup file.  Rename it and output a message. */
+
+winner:	sprintf (buf, RENAME_MSG, backupname, filename);
+	OutputBoth (thread_num, buf);
+	rename (backupname, filename);
+	return (TRUE);
+}
+
+/* Open the save file for writing.  Either overwrite or generate a temporary */
+/* file name to write to, where we will rename the file after the file is */
+/* successully written. */
+
+int openWriteSaveFile (
+	char	*filename,
+	int	num_backup_files)	     /* Between 1 and 3, 99 = overwrite */
+{
+	char	output_filename[32];
+	int	fd;
+
+/* If we are allowed to create multiple intermediate files, then use a .write extension */
+/* The value 99, not accessible via the GUI, is a special value meaning overwrite the */
+/* existing save file -- a very dangerous choice.  You might use this for a floppy or */
+/* small USB stick installation where there is no room for two save files. */
+/* NOTE: This behavior is different than v24 where when the user selected one save */
+/* file, then he got the dangerous overwrite option. */
+	
+	if (num_backup_files == 99)
+		strcpy (output_filename, filename);
+	else
+		sprintf (output_filename, "%s.write", filename);
+
+/* Now save to the intermediate file */
+
+	fd = _open (output_filename, _O_BINARY | _O_WRONLY | _O_TRUNC | _O_CREAT, CREATE_FILE_ACCESS);
+	return (fd);
+}
+
+/* Close the save file we finished writing.  If necessary, delete old */
+/* save file, and rename just written save file. */
+
+void closeWriteSaveFile (
+	char	*filename,
+	int	fd,
+	int	num_backup_files)	     /* Between 1 and 3, 99 = overwrite */
+{
+	char	output_filename[32];
+
+/* Flush data to disk and close the save file. */
+
+	_commit (fd);
+	_close (fd);
+
+/* If no renaming is needed, we're done */
+
+	if (num_backup_files == 99) return;
+
+/* Handle the one save file case (delete the existing save file) */
+
+	if (num_backup_files == 1)
+		_unlink (filename);
+
+/* Handle the two save files case (delete the second save file and */
+/* rename the first save file so that it is now the second save file) */
+
+	else if (num_backup_files == 2) {
+		char	second_filename[32];
+		sprintf (second_filename, "%s.bu", filename);
+		_unlink (second_filename);
+		rename (filename, second_filename);
+	}
+
+/* Handle the three save files case (delete the third save file and */
+/* rename the second save file so that it is now the third save file */
+/* and rename the first save file so that it is now the second save file) */
+
+	else {
+		char	second_filename[32], third_filename[32];
+		sprintf (second_filename, "%s.bu", filename);
+		sprintf (third_filename, "%s.bu2", filename);
+		_unlink (third_filename);
+		rename (second_filename, third_filename);
+		rename (filename, second_filename);
+	}
+
+/* Recreate the output filename and rename it as the first save file */
+
+	sprintf (output_filename, "%s.write", filename);
+	rename (output_filename, filename);
+}
+
+/* Close and delete the save file we were writing.  This is done */
+/* when an error occurs while writing the save file. */
+
+void deleteWriteSaveFile (
+	char	*filename,
+	int	fd,
+	int	num_backup_files)	     /* Between 1 and 3, 99 = overwrite */
+{
+	char	output_filename[32];
+
+/* Close and delete the save file */
+
+	_close (fd);
+	if (num_backup_files == 99)
+		strcpy (output_filename, filename);
+	else
+		sprintf (output_filename, "%s.write", filename);
+	_unlink (output_filename);
+}
+
+/* Delete save files when work unit completes. */
+
+void unlinkSaveFiles (
+	char	*filename)
+{
+	char	unlink_filename[32];
+
+	sprintf (unlink_filename, "%s.write", filename);
+	_unlink (unlink_filename);
+	sprintf (unlink_filename, "%s.bu2", filename);
+	_unlink (unlink_filename);
+	sprintf (unlink_filename, "%s.bu", filename);
+	_unlink (unlink_filename);
+	if (filename[0] == 'p') {
+		sprintf (unlink_filename, "q%s", filename+1);
+		_unlink (unlink_filename);
+		sprintf (unlink_filename, "r%s", filename+1);
+		_unlink (unlink_filename);
+	}
+	_unlink (filename);
+}
+
 /************************/
 /* Trial Factoring code */
 /************************/
@@ -3208,11 +3470,12 @@ int primeFactor (
 /* Read v25+ continuation file */
 
 	filename[0] = 'f';
-	if (!continuation &&
-	    (fd = _open (filename, _O_BINARY | _O_RDONLY)) > 0) {
+	while (!continuation && saveFileExists (thread_num, filename)) {
 		unsigned long version, sum, fachsw, facmsw;
 
-		if (read_magicnum (fd, FACTOR_MAGICNUM) &&
+		fd = _open (filename, _O_BINARY | _O_RDONLY);
+		if (fd > 0 &&
+		    read_magicnum (fd, FACTOR_MAGICNUM) &&
 		    read_header (fd, &version, w, &sum) &&
 		    version == FACTOR_VERSION &&
 		    read_long (fd, (unsigned long *) &factor_found, NULL) &&
@@ -3423,17 +3686,22 @@ int primeFactor (
 /* If an escape key was hit, write out the results and return */
 
 			if (stop_reason || testSaveFilesFlag (thread_num)) {
-				fd = _open (filename, _O_BINARY | _O_WRONLY | _O_CREAT, CREATE_FILE_ACCESS);
-				write_header (fd, FACTOR_MAGICNUM, FACTOR_VERSION, w);
-				write_long (fd, factor_found, NULL);
-				write_long (fd, bits, NULL);
-				write_long (fd, pass, NULL);
-				write_long (fd, facdata.asm_data->FACHSW, NULL);
-				write_long (fd, facdata.asm_data->FACMSW, NULL);
-				write_long (fd, endpthi, NULL);
-				write_long (fd, endptlo, NULL);
-				_commit (fd);
-				_close (fd);
+				fd = openWriteSaveFile (filename, NUM_BACKUP_FILES);
+				if (fd > 0 &&
+				    write_header (fd, FACTOR_MAGICNUM, FACTOR_VERSION, w) &&
+				    write_long (fd, factor_found, NULL) &&
+				    write_long (fd, bits, NULL) &&
+				    write_long (fd, pass, NULL) &&
+				    write_long (fd, facdata.asm_data->FACHSW, NULL) &&
+				    write_long (fd, facdata.asm_data->FACMSW, NULL) &&
+				    write_long (fd, endpthi, NULL) &&
+				    write_long (fd, endptlo, NULL))
+					closeWriteSaveFile (filename, fd, NUM_BACKUP_FILES);
+				else {
+					sprintf (buf, WRITEFILEERR, filename);
+					OutputBoth (thread_num, buf);
+					if (fd > 0) deleteWriteSaveFile (filename, fd, NUM_BACKUP_FILES);
+				}
 				if (stop_reason) {
 					factorDone (&facdata);
 					return (stop_reason);
@@ -3574,9 +3842,9 @@ nextpass:	;
 
 	factorDone (&facdata);
 
-/* Delete the continuation file */
+/* Delete the continuation file(s) */
 
-	_unlink (filename);
+	unlinkSaveFiles (filename);
 
 /* If we found a factor, then we likely performed much less work than */
 /* we estimated.  Make sure we do not update the rolling average with */
@@ -3701,35 +3969,6 @@ int generateResidue64 (
 	return (1);
 }
 
-/* Return TRUE if a continuation file exists.  If one does exist, */
-/* make sure it is named pXXXXXXX. */
-
-int continuationFileExists (
-	int	thread_num,
-	char	*filename)
-{
-	char	backupname[32];
-	char	buf[80];
-
-	if (fileExists (filename)) return (TRUE);
-	strcpy (backupname, filename);
-	backupname[0] = 'q';
-	if (fileExists (backupname)) {
-		sprintf (buf, RENAME_MSG, backupname, filename);
-		OutputBoth (thread_num, buf);
-		rename (backupname, filename);
-		return (TRUE);
-	}
-	backupname[0] = 'r';
-	if (fileExists (backupname)) {
-		sprintf (buf, RENAME_MSG, backupname, filename);
-		OutputBoth (thread_num, buf);
-		rename (backupname, filename);
-		return (TRUE);
-	}
-	return (FALSE);
-}
-
 /* Read the data portion of an intermediate Lucas-Lehmer results file */
 
 int convertOldStyleLLSaveFile (
@@ -3822,7 +4061,7 @@ err:	_close (fd);
 int writeLLSaveFile (
 	llhandle *lldata,
 	char	*filename,
-	int	two_backup_files,	     
+	int	num_backup_files,	     /* Between 1 and 3, 99 = overwrite */
 	struct work_unit *w,
 	unsigned long counter,
 	unsigned long error_count)
@@ -3830,15 +4069,9 @@ int writeLLSaveFile (
 	int	fd;
 	unsigned long sum = 0;
 
-/* If we are allowed to create multiple intermediate files, then */
-/* write to a file called rXXXXXXX. */
+/* Open the save file */
 
-	if (two_backup_files)
-		filename[0] = 'r';
-
-/* Now save to the intermediate file */
-
-	fd = _open (filename, _O_BINARY | _O_WRONLY | _O_TRUNC | _O_CREAT, CREATE_FILE_ACCESS);
+	fd = openWriteSaveFile (filename, num_backup_files);
 	if (fd < 0) return (FALSE);
 
 	if (!write_header (fd, LL_MAGICNUM, LL_VERSION, w)) goto err;
@@ -3850,27 +4083,12 @@ int writeLLSaveFile (
 
 	if (!write_checksum (fd, sum)) goto err;
 
-	_commit (fd);
-	_close (fd);
-
-/* Now rename the intermediate files */
-
-	if (two_backup_files) {
-		char	backupname[32];
-		strcpy (backupname, filename);
-		backupname[0] = 'q'; filename[0] = 'p';
-		_unlink (backupname);
-		 rename (filename, backupname);
-		backupname[0] = 'r';
-		rename (backupname, filename);
-	}
-
+	closeWriteSaveFile (filename, fd, num_backup_files);
 	return (TRUE);
 
 /* An error occured.  Delete the current file. */
 
-err:	_close (fd);
-	_unlink (filename);
+err:	deleteWriteSaveFile (filename, fd, num_backup_files);
 	return (FALSE);
 }
 
@@ -4310,14 +4528,9 @@ int prime (
 	}
 #endif
 
-/* Loop reading from save files (and backup save files) */
-
-readloop:
-	tempFileName (w, filename);
-
 /* Setup the LL test */
 
-	gwinit (&lldata.gwdata);
+begin:	gwinit (&lldata.gwdata);
 	gwset_num_threads (&lldata.gwdata, THREADS_PER_TEST[thread_num]);
 	gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&lldata.gwdata, sp_info);
@@ -4328,24 +4541,33 @@ readloop:
 
 	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&lldata.gwdata, 1));
 
-/* Read an LL save file.  On error try the backup intermediate file. */
+/* Loop reading from save files (and backup save files) */
 
-	if (continuationFileExists (thread_num, filename)) {
-		if (! readLLSaveFile (&lldata, filename, w, &counter, &error_count) ||
-		    counter > w->n) {
-			lucasDone (&lldata);
-			sprintf (buf, READFILEERR, filename);
-			OutputBoth (thread_num, buf);
-			_unlink (filename);
-			goto readloop;
+	tempFileName (w, filename);
+	for ( ; ; ) {
+
+/* If there are no more save files, start off with the 1st Lucas number. */
+
+		if (! saveFileExists (thread_num, filename)) {
+			counter = 2;
+			error_count = 0;
+			first_iter_msg = FALSE;
+			break;
 		}
-	}
 
-/* Start off with the 1st Lucas number */
+/* Read an LL save file.  If successful, break out of loop. */
 
-	else {
-		counter = 2;
-		error_count = 0;
+		if (readLLSaveFile (&lldata, filename, w, &counter, &error_count) &&
+		    counter <= w->n) {
+			first_iter_msg = TRUE;
+			break;
+		}
+
+/* On read error, output message and loop to try the next backup save file. */
+
+		sprintf (buf, READFILEERR, filename);
+		OutputBoth (thread_num, buf);
+		_unlink (filename);
 	}
 
 /* Hyperthreading backoff is an option to pause the program when iterations */
@@ -4389,9 +4611,7 @@ readloop:
 		for (i = 0; i < gwfftlen (&lldata.gwdata); i++) {
 			set_fft_value (&lldata.gwdata, lldata.lldata, i, (i == word) ? (1L << bit_in_word) : 0);
 		}
-		first_iter_msg = FALSE;
-	} else
-		first_iter_msg = TRUE;
+	}
 
 /* Output a message indicating we are starting/resuming an LL test. */
 /* Also tell user the FFT length. */
@@ -4634,7 +4854,7 @@ readloop:
 /* disk-full situation) */
 
 		if (saving) {
-			if (! writeLLSaveFile (&lldata, filename, TWO_BACKUP_FILES,
+			if (! writeLLSaveFile (&lldata, filename, NUM_BACKUP_FILES,
 					       w, counter, error_count)) {
 				sprintf (buf, WRITEFILEERR, filename);
 				OutputBoth (thread_num, buf);
@@ -4673,7 +4893,7 @@ readloop:
 			char	interimfile[32];
 			sprintf (interimfile, "%s.%03ld",
 				 filename, counter / INTERIM_FILES);
-			writeLLSaveFile (&lldata, interimfile, FALSE, w,
+			writeLLSaveFile (&lldata, interimfile, 99, w,
 					 counter, error_count);
 		}
 
@@ -4751,9 +4971,7 @@ readloop:
 /* was successful. */
 
 	if (!isPrime || isKnownMersennePrime (p)) {
-		if (rc) _unlink (filename);
-		filename[0] = 'q';
-		_unlink (filename);
+		if (rc) unlinkSaveFiles (filename);
 	}
 
 /* Clean up */
@@ -4791,7 +5009,7 @@ restart:if (sleep5) OutputBoth (thread_num, ERRMSG2);
 /* Return so that last continuation file is read in */
 
 	lucasDone (&lldata);
-	goto readloop;
+	goto begin;
 }
 
 /*********************/
@@ -6518,7 +6736,7 @@ int writePRPSaveFile (
 	gwhandle *gwdata,
 	gwnum	x,
 	char	*filename,
-	int	two_backup_files,
+	int	num_backup_files,	     /* Between 1 and 3, 99 = overwrite */
 	struct work_unit *w,
 	unsigned long counter,
 	unsigned long error_count)
@@ -6526,15 +6744,9 @@ int writePRPSaveFile (
 	int	fd;
 	unsigned long sum = 0;
 
-/* If we are allowed to create multiple intermediate files, then */
-/* write to a file called rXXXXXXX. */
-
-	if (two_backup_files)
-		filename[0] = 'r';
-
 /* Now save to the intermediate file */
 
-	fd = _open (filename, _O_BINARY | _O_WRONLY | _O_TRUNC | _O_CREAT, CREATE_FILE_ACCESS);
+	fd = openWriteSaveFile (filename, num_backup_files);
 	if (fd < 0) return (FALSE);
 
 	if (!write_header (fd, PRP_MAGICNUM, PRP_VERSION, w)) goto err;
@@ -6545,27 +6757,12 @@ int writePRPSaveFile (
 
 	if (!write_checksum (fd, sum)) goto err;
 
-	_commit (fd);
-	_close (fd);
-
-/* Now rename the intermediate files */
-
-	if (two_backup_files) {
-		char	backupname[32];
-		strcpy (backupname, filename);
-		backupname[0] = 'q'; filename[0] = 'p';
-		_unlink (backupname);
-		 rename (filename, backupname);
-		backupname[0] = 'r';
-		rename (backupname, filename);
-	}
-
+	closeWriteSaveFile (filename, fd, num_backup_files);
 	return (TRUE);
 
 /* An error occured.  Delete the current file. */
 
-err:	_close (fd);
-	_unlink (filename);
+err:	deleteWriteSaveFile (filename, fd, num_backup_files);
 	return (FALSE);
 }
 
@@ -6723,28 +6920,31 @@ begin:	gwinit (&gwdata);
 
 /* Loop reading from save files (and backup save files) */
 
-readloop:
 	tempFileName (w, filename);
+	for ( ; ; ) {
 
-/* Read a PRP save file.  On error try the backup save file. */
+/* If there are no more save files, start off with the 1st PRP squaring. */
 
-	if (continuationFileExists (thread_num, filename)) {
-		if (! readPRPSaveFile (&gwdata, x, filename, w, &counter, &error_count)) {
-			sprintf (buf, READFILEERR, filename);
-			OutputBoth (thread_num, buf);
-			_unlink (filename);
-			goto readloop;
+		if (! saveFileExists (thread_num, filename)) {
+			dbltogw (&gwdata, 3.0, x);
+			counter = 0;
+			error_count = 0;
+			first_iter_msg = FALSE;
+			break;
 		}
-		first_iter_msg = TRUE;
-	}
 
-/* Start off with the 1st PRP squaring */
+/* Read a PRP save file.  If successful, break out of loop. */
 
-	else {
-		dbltogw (&gwdata, 3.0, x);
-		counter = 0;
-		error_count = 0;
-		first_iter_msg = FALSE;
+		if (readPRPSaveFile (&gwdata, x, filename, w, &counter, &error_count)) {
+			first_iter_msg = TRUE;
+			break;
+		}
+
+/* On read error, output message and loop to try the next backup save file. */
+
+		sprintf (buf, READFILEERR, filename);
+		OutputBoth (thread_num, buf);
+		_unlink (filename);
 	}
 
 /* Output a message saying we are starting/resuming the PRP test. */
@@ -7002,7 +7202,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* disk-full situation) */
 
 		if (saving) {
-			if (! writePRPSaveFile (&gwdata, x, filename, TWO_BACKUP_FILES,
+			if (! writePRPSaveFile (&gwdata, x, filename, NUM_BACKUP_FILES,
 						w, counter, error_count)) {
 				sprintf (buf, WRITEFILEERR, filename);
 				OutputBoth (thread_num, buf);
@@ -7043,7 +7243,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			char	interimfile[32];
 			sprintf (interimfile, "%s.%03ld",
 				 filename, counter / INTERIM_FILES);
-			writePRPSaveFile (&gwdata, x, interimfile, FALSE, w,
+			writePRPSaveFile (&gwdata, x, interimfile, 99, w,
 					  counter, error_count);
 		}
 
@@ -7143,9 +7343,7 @@ pushg(&gwdata.gdata, 2);}
 
 /* Delete the continuation files. */
 
-	_unlink (filename);
-	filename[0] = 'q';
-	_unlink (filename);
+	unlinkSaveFiles (filename);
 
 /* Return work unit completed stop reason */
 
