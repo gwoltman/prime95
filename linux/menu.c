@@ -860,8 +860,8 @@ again:	m_hours = CPU_HOURS;
 void options_preferences (void)
 {
 	unsigned long m_iter, m_r_iter, m_disk_write_time;
-	unsigned long m_modem, m_retry, m_work, m_end_dates;
-	int	m_backup, m_noise, m_battery;
+	unsigned long m_modem, m_retry, m_work, m_end_dates, m_backup;
+	int	m_noise, m_battery;
 
 	m_iter = ITER_OUTPUT;
 	m_r_iter = ITER_OUTPUT_RES;
@@ -870,7 +870,7 @@ void options_preferences (void)
 	m_retry = NETWORK_RETRY_TIME;
 	m_work = DAYS_OF_WORK;
 	m_end_dates = DAYS_BETWEEN_CHECKINS;
-	m_backup = TWO_BACKUP_FILES;
+	m_backup = NUM_BACKUP_FILES;
 	m_noise = !SILENT_VICTORY;
 	m_battery = RUN_ON_BATTERY;
 
@@ -886,7 +886,7 @@ void options_preferences (void)
 		askNum ("Days of work to queue up", &m_work, 1, 90);
 	if (USE_PRIMENET)
 		askNum ("Days between sending end dates", &m_end_dates, 1, 7);
-	askYN ("Create Two Backup Files", &m_backup);
+	askNum ("Number of Backup Files", &m_backup, 1, 3);
 	askYN ("Make noise if new Mersenne prime is found", &m_noise);
 	askYN ("Run program even when using laptop battery power", &m_battery);
 
@@ -898,7 +898,7 @@ void options_preferences (void)
 		NETWORK_RETRY_TIME = m_retry;
 		DAYS_OF_WORK = m_work;
 		DAYS_BETWEEN_CHECKINS = m_end_dates;
-		TWO_BACKUP_FILES = m_backup;
+		NUM_BACKUP_FILES = m_backup;
 		SILENT_VICTORY = !m_noise;
 		if (RUN_ON_BATTERY != m_battery) {
 			RUN_ON_BATTERY = m_battery;
@@ -912,7 +912,7 @@ void options_preferences (void)
 		IniWriteInt (INI_FILE, "NetworkRetryTime2", NETWORK_RETRY_TIME);
 		IniWriteInt (INI_FILE, "DaysOfWork", DAYS_OF_WORK);
 		IniWriteInt (INI_FILE, "DaysBetweenCheckins", DAYS_BETWEEN_CHECKINS);
-		IniWriteInt (INI_FILE, "TwoBackupFiles", TWO_BACKUP_FILES);
+		IniWriteInt (INI_FILE, "NumBackupFiles", NUM_BACKUP_FILES);
 		IniWriteInt (INI_FILE, "SilentVictory", SILENT_VICTORY);
 		spoolMessage (PRIMENET_PROGRAM_OPTIONS, NULL);
 	}
