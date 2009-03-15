@@ -401,7 +401,7 @@
 				GenerateMapFile="true"
 				MapFileName=".\x64\debug\prime95.map"
 				SubSystem="2"
-				LargeAddressAware="2"
+				LargeAddressAware="1"
 				EntryPointSymbol="MyWinMainCRTStartup"
 				TargetMachine="17"
 			/>

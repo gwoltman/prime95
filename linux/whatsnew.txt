@@ -1,3 +1,33 @@
+New features in Version 25.9 of mprime
+--------------------------------------
+
+1)  Performance increases for the 64-bit version by taking advantage of the
+    eight extra SSE2 registers.  The 32-bit version may also be a bit faster
+    by taking advantage of the Core 2 architecture.  The FFT code was 
+    originally optimized for the Pentium 4 where instructions like
+    "movapd reg,reg" take 6 clocks and should be avoided, whereas on Core 2
+    the same instruction uses just 1 clock cycle and improves scheduling.
+    The 32-bit version may be slightly faster or slower on the Pentium 4, but
+    not enough to worry about.  Preliminary benchmarks indicate:
+	32-bit Pentium 4:	between 2% slower and 1% faster
+	32-bit Core 2:		between 2% and 6% faster
+	64-bit Pentium 4:	between 2% and 4% faster
+	64-bit Core 2:		between 10% and 13% faster
+	64-bit Core i7:		between 7% and 12% faster
+	64-bit Phenom:		between 10% and 13% faster
+	AMD64:			between 1% slower and 1% faster
+2)  Intermediate save files were overhauled.  Trial factoring, P-1, and
+    ECM now support multiple save files.  The backup save file uses a .bu
+    extension.  While a new save file is being written a .write extension
+    is used and renamed when successfully written (thus, briefly there are
+    3 save files). NOTE #1: LL save files no longer use an initial letter
+    of q and r.  The program will automatically use these obsolete files if
+    necessary and delete them when no longer needed.  NOTE #2: ECM and P-1
+    save files on k*2^n+1 no longer use file names beginning with d and l.
+    The -An command line argument no longer appends an extension to save
+    file names.  NOTE #3: The client now supports keeping three save files.
+3)  Miscellaneous minor bug fixes.
+
 New features in Version 25.8 of mprime
 --------------------------------------
 
