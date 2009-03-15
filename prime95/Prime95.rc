@@ -328,7 +328,8 @@ BEGIN
     EDITTEXT        IDC_WORK,135,71,42,12
     LTEXT           "Days between sending new &end dates:",IDC_END_DATES_TEXT,7,86,126,10
     EDITTEXT        IDC_END_DATES,135,84,42,12
-    CONTROL         "&Create Two Backup Files",IDC_BACKUP,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,97,107,10
+    LTEXT           "Number of backup &files:",IDC_STATIC,7,99,126,10
+    EDITTEXT        IDC_BACKUP,135,97,42,12
     CONTROL         "Make noise if new Mersenne &prime is found",IDC_NOISE,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,109,152,10
     CONTROL         "Run program even when using laptop &battery power",IDC_BATTERY,
