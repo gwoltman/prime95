@@ -2027,19 +2027,12 @@ void ecm_save (
 	gwnum	x,
 	gwnum	gg)
 {
-	char	newfilename[16];
 	int	fd;
 	unsigned long sum = 0;
 
-/* If we are allowed to create multiple intermediate files, then */
-/* write to a file called yNNNNNNN. */
-
-	strcpy (newfilename, filename);
-	if (TWO_BACKUP_FILES) newfilename[0] = 'y';
-
 /* Create the intermediate file */
 
-	fd = _open (newfilename, _O_BINARY|_O_WRONLY|_O_TRUNC|_O_CREAT, CREATE_FILE_ACCESS);
+	fd = openWriteSaveFile (filename, NUM_BACKUP_FILES);
 	if (fd < 0) return;
 
 /* Write the file header. */
@@ -2060,25 +2053,17 @@ void ecm_save (
 	if (! write_gwnum (fd, &ecmdata->gwdata, x, &sum)) goto writeerr;
 	if (! write_gwnum (fd, &ecmdata->gwdata, gg, &sum)) goto writeerr;
 
-/* Write the checksum */
+/* Write the checksum, we're done */
 
 	if (! write_checksum (fd, sum)) goto writeerr;
-	_commit (fd);
-	_close (fd);
 
-/* Now rename the intermediate files */
-
-	if (TWO_BACKUP_FILES) {
-		_unlink (filename);
-		rename (newfilename, filename);
-	}
+	closeWriteSaveFile (filename, fd, NUM_BACKUP_FILES);
 	return;
 
 /* An error occured.  Close and delete the current file. */
 
 writeerr:
-	_close (fd);
-	_unlink (newfilename);
+	deleteWriteSaveFile (filename, fd, NUM_BACKUP_FILES);
 }
 
 /* Read a save file */
@@ -2419,6 +2404,7 @@ return 0;
 /* Init filename */
 
 	tempFileName (w, filename);
+	uniquifySaveFile (thread_num, filename);
 
 /* Init the random number generator */
 
@@ -2552,7 +2538,7 @@ OutputStr (thread_num, buf);
 
 /* Check for a continuation file */
 
-	if (fileExists (filename)) {
+	while (saveFileExists (thread_num, filename)) {
 		uint64_t save_B, save_B_processed, save_C_processed;
 
 /* Allocate memory */
@@ -2576,7 +2562,7 @@ OutputStr (thread_num, buf);
 		    B > save_B) {
 			gwfree (&ecmdata.gwdata, x);
 			gwfree (&ecmdata.gwdata, z);
-			goto restart0;
+			continue;
 		}
 
 /* Compute Ad4 from sigma */
@@ -3247,7 +3233,7 @@ more_curves:
 
 /* Delete the save file */
 
-	_unlink (filename);
+	unlinkSaveFiles (filename);
 
 /* Free memory and return */
 
@@ -3341,7 +3327,7 @@ bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n",
 /* for this number from the worktodo file. */
 
 		if (continueECM) {
-			_unlink (filename);
+			unlinkSaveFiles (filename);
 			w->curves_to_do -= curve;
 			stop_reason = updateWorkToDoLine (thread_num, w);
 			if (stop_reason) return (stop_reason);
@@ -3365,7 +3351,7 @@ bad_factor_recovery:
 /* this inaccurate data. */
 
 	if (!continueECM) {
-		_unlink (filename);
+		unlinkSaveFiles (filename);
 		stop_reason = STOP_WORK_UNIT_COMPLETE;
 		invalidateNextRollingAverageUpdate ();
 		goto exit;
@@ -3722,19 +3708,12 @@ void pm1_save (
 	gwnum	x,
 	gwnum	gg)
 {
-	char	newfilename[16];
 	int	fd;
 	unsigned long sum = 0;
 
-/* If we are allowed to create multiple intermediate files, then */
-/* write to a file called xNNNNNNN. */
-
-	strcpy (newfilename, filename);
-	if (TWO_BACKUP_FILES) newfilename[0] = 'x';
-
 /* Create the intermediate file */
 
-	fd = _open (newfilename, _O_BINARY|_O_WRONLY|_O_TRUNC|_O_CREAT, CREATE_FILE_ACCESS);
+	fd = openWriteSaveFile (filename, NUM_BACKUP_FILES);
 	if (fd < 0) return;
 
 /* Write the file header */
@@ -3775,25 +3754,17 @@ void pm1_save (
 			goto writeerr;
 	}
 
-/* Write the checksum */
+/* Write the checksum, we're done */
 
 	if (! write_checksum (fd, sum)) goto writeerr;
-	_commit (fd);
-	_close (fd);
 
-/* Now rename the intermediate files */
-
-	if (TWO_BACKUP_FILES) {
-		_unlink (filename);
-		rename (newfilename, filename);
-	}
+	closeWriteSaveFile (filename, fd, NUM_BACKUP_FILES);
 	return;
 
 /* An error occured.  Close and delete the current file. */
 
 writeerr:
-	_close (fd);
-	_unlink (newfilename);
+	deleteWriteSaveFile (filename, fd, NUM_BACKUP_FILES);
 }
 
 /* Read a save file */
@@ -4606,8 +4577,11 @@ restart:
 /* Check for a save file and read the save file.  If there is an error */
 /* reading the file then restart the P-1 factoring job from scratch. */
 
-	have_save_file = (fileExists (filename) &&
-			  pm1_restore (&pm1data, filename, w, &processed, &x, &gg));
+	have_save_file = FALSE;
+	while (saveFileExists (thread_num, filename)) {
+		have_save_file = pm1_restore (&pm1data, filename, w, &processed, &x, &gg);
+		if (have_save_file) break;
+	}
 
 /* Record the amount of memory being used by this thread.  Until we get to */
 /* stage 2, P-1 uses as much memory as an LL test. */
@@ -5537,7 +5511,7 @@ msg_and_exit:
 	if (w->work_type == WORK_PMINUS1)
 		pm1_save (&pm1data, filename, w, 0, x, NULL);
 	else
-		_unlink (filename);
+		unlinkSaveFiles (filename);
 
 /* Return stop code indicating success or work unit complete */ 
 
@@ -5608,7 +5582,7 @@ bingo:	if (stage == 1)
 		sprintf (msg, "ERROR: Bad factor for %s found: %s\n",
 			 gwmodulo_as_string (&pm1data.gwdata), str);
 		OutputBoth (thread_num, msg);
-		_unlink (filename);
+		unlinkSaveFiles (filename);
 		OutputStr (thread_num, "Restarting P-1 from scratch.\n");
 		stop_reason = 0;	       // Bug - is this how we restart?
 		goto msg_and_exit;
@@ -5649,11 +5623,9 @@ bingo:	if (stage == 1)
 /* If LL testing, free all save files -- including possible LL save files */
 
 	if (w->work_type != WORK_PMINUS1) {
-		_unlink (filename);
+		unlinkSaveFiles (filename);
 		filename[0] = 'p';
-		_unlink (filename);
-		filename[0] = 'q';
-		_unlink (filename);
+		unlinkSaveFiles (filename);
 	}
 
 /* Otherwise create save file so that we can expand bound 1 or bound 2 */
