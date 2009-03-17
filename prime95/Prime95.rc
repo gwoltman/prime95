@@ -79,7 +79,7 @@ BEGIN
     POPUP "&Test"
     BEGIN
         MENUITEM "&PrimeNet...",                IDM_PRIMENET
-        MENUITEM "&Worker windows...",          IDM_WORKER_THREADS
+        MENUITEM "&Worker Windows...",          IDM_WORKER_THREADS
         MENUITEM SEPARATOR
         MENUITEM "&Status...",                  IDM_STATUS
         MENUITEM SEPARATOR
@@ -143,7 +143,7 @@ BEGIN
     POPUP "&Test"
     BEGIN
         MENUITEM "&PrimeNet...",                IDM_PRIMENET
-        MENUITEM "&Worker windows...",          IDM_WORKER_THREADS
+        MENUITEM "&Worker Windows...",          IDM_WORKER_THREADS
         MENUITEM SEPARATOR
         MENUITEM "&Status...",                  IDM_STATUS
         MENUITEM SEPARATOR
