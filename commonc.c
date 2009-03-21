@@ -2805,7 +2805,6 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 			w->sieve_depth = 0.0;
 			w->tests_saved = 0.0;
 		}
-		w->pminus1ed = (w->tests_saved <= 0.0);
 		if (q != NULL && q[1] == '"') {
 			w->known_factors = (char *) malloc (strlen (q));
 			if (w->known_factors == NULL) goto nomem;
@@ -3083,7 +3082,7 @@ int writeWorkToDoFile (
 			break;
 
 		case WORK_PRP:
-			if (w->pminus1ed)
+			if (w->tests_saved > 0.0)
 				sprintf (buf,
 					 "PRP=%s%.0f,%lu,%lu,%ld",
 					 idbuf, w->k, w->b, w->n, w->c);

@@ -1454,7 +1454,7 @@ int isPriorityWork (
 	if ((w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK) &&
 	    (w->sieve_depth < w->factor_to || !w->pminus1ed))
 		return (TRUE);
-	if (w->work_type == WORK_PRP && !w->pminus1ed)
+	if (w->work_type == WORK_PRP && w->tests_saved > 0.0)
 		return (TRUE);
 	return (FALSE);
 }
@@ -6837,7 +6837,7 @@ int prp (
 /* In that case, skip onto doing the PRP test until more memory becomes */
 /* available. */
 
-	if (w->work_type == WORK_PRP && ! w->pminus1ed && pass != 3) {
+	if (w->work_type == WORK_PRP && w->tests_saved > 0.0 && pass != 3) {
 		int	pass_to_pfactor;
 
 		pass_to_pfactor = (WELL_BEHAVED_WORK || SEQUENTIAL_WORK) ? 2 : 1;
