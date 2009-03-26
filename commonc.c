@@ -3833,7 +3833,17 @@ void tempFileName (
 
 	if (w->work_type == WORK_FACTOR) buf[0] = 'f';
 	if (w->work_type == WORK_ECM) buf[0] = 'e';
-	if (w->work_type == WORK_PMINUS1) buf[0] = 'm';
+	if (w->work_type == WORK_PMINUS1 || w->work_type == WORK_PFACTOR) buf[0] = 'm';
+
+/* Prior to version 25.9 build 5, the pfactor work type used p as the */
+/* first letter, we now use m.  To reduce upgrading problems, old save */
+/* file names are renamed. */
+
+	if (w->work_type == WORK_PFACTOR) {
+		char	v258_filename[32];
+		sprintf (v258_filename, "p%s", buf+1);
+		rename (v258_filename, buf);
+	}
 
 /* Prior to version 25.9 build 4, if c was 1 then P-1 and ECM used */
 /* a different first letter in the filename.  From now on, we will no */

@@ -4508,10 +4508,7 @@ restart:
 /* waiting for more memory. */
 
 	tempFileName (w, filename);
-	if (w->work_type == WORK_TEST ||
-	    w->work_type == WORK_DBLCHK ||
-	    w->work_type == WORK_PRP)
-		filename[0] = 'm';
+	filename[0] = 'm';
 
 /* Override silly bounds */
 
