@@ -3948,22 +3948,32 @@ int read_gwnum (
 	unsigned long *sum)
 {
 	giant	tmp;
-	unsigned long i, len, bytes;
+	unsigned long i, len, giantlen, bytes;
 
 	if (!read_long (fd, &len, sum)) return (FALSE);
 	if (len == 0) return (FALSE);
-	tmp = popg (&gwdata->gdata, (gwdata->n >> 5) + 10);
+
+	giantlen = (gwdata->n >> 5) + 10;
+	if (len > giantlen) return (FALSE);
+	tmp = popg (&gwdata->gdata, giantlen);
 	if (tmp == NULL) return (FALSE);	// BUG - we should return some other error code
 						// otherwise caller will likely delete save file.
+
 	bytes = len * sizeof (uint32_t);
-	if (_read (fd, tmp->n, bytes) != bytes) return (FALSE);
-	if (len && tmp->n[len-1] == 0) return (FALSE);
+	if (_read (fd, tmp->n, bytes) != bytes) goto errexit;
+	if (len && tmp->n[len-1] == 0) goto errexit;
 	tmp->sign = len;
 	*sum = (uint32_t) (*sum + len);
 	for (i = 0; i < len; i++) *sum = (uint32_t) (*sum + tmp->n[i]);
 	gianttogw (gwdata, tmp, g);
 	pushg (&gwdata->gdata, 1);
 	return (TRUE);
+
+// Free memory and return failure
+
+errexit:
+	pushg (&gwdata->gdata, 1);
+	return (FALSE);
 }
 
 int write_gwnum (
