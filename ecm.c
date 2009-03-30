@@ -2204,7 +2204,7 @@ int ecm (
 	uint64_t sieve_start, prime, m;
 	unsigned long SQRT_B;
 	double	sigma, last_output, one_over_B, one_over_C_minus_B;
-	unsigned long i, j, curve;
+	unsigned long i, j, curve, min_memory;
 	char	filename[32], buf[255], fft_desc[100];
 	int	res, stop_reason, stage, first_iter_msg;
 	gwnum	x, z, t1, t2, gg;
@@ -2748,7 +2748,7 @@ restart1:
 /* If we are doing a stage 2, then the stage 2 init will do this GCD for us. */
 
 	if (C <= B) {
-		start_timer (timers, 0);
+skip_stage_2:	start_timer (timers, 0);
 		stop_reason = gcd (&ecmdata.gwdata, thread_num, z, N, &factor);
 		if (stop_reason) {
 			ecm_save (&ecmdata, filename, w, ECM_STAGE1, curve, sigma,
@@ -2825,11 +2825,22 @@ restart1:
    x, z: coordinates of Q at the beginning of stage 2
 */
 
+/* Make sure we will have enough memory to run stage 2 at some time */
+/* We need at least 20 gwnums. */
+
+restart3:
+	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 20);
+	if (max_mem () < min_memory) {
+		sprintf (buf, "Skipping stage 2 due to insufficient memory -- %ldMB needed.\n", min_memory);
+		OutputStr (thread_num, buf);
+		C = B;
+		goto skip_stage_2;
+	}
+
 /* Initialize variables for second stage */
 /* Our goal is to fill up the nQx array with Q^1, Q^3, Q^5, ... */
 /* normalized with only one modular inverse call. */
 
-restart3:
 	start_timer (timers, 0);
 	sprintf (w->stage, "C%ldS2", curve);
 	one_over_C_minus_B = 1.0 / (double) (C - B);
