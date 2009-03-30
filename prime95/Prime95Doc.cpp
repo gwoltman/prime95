@@ -718,7 +718,7 @@ void CPrime95Doc::OnPreferences()
 	dlg.m_modem = MODEM_RETRY_TIME;
 	dlg.m_retry = NETWORK_RETRY_TIME;
 	dlg.m_work = DAYS_OF_WORK;
-	dlg.m_end_dates = DAYS_BETWEEN_CHECKINS;
+	dlg.m_end_dates = (int) DAYS_BETWEEN_CHECKINS;
 	dlg.m_backup = NUM_BACKUP_FILES;
 	dlg.m_noise = !SILENT_VICTORY;
 	dlg.m_battery = RUN_ON_BATTERY;
@@ -743,7 +743,7 @@ void CPrime95Doc::OnPreferences()
 		IniWriteInt (INI_FILE, "NetworkRetryTime", MODEM_RETRY_TIME);
 		IniWriteInt (INI_FILE, "NetworkRetryTime2", NETWORK_RETRY_TIME);
 		IniWriteInt (INI_FILE, "DaysOfWork", DAYS_OF_WORK);
-		IniWriteInt (INI_FILE, "DaysBetweenCheckins", DAYS_BETWEEN_CHECKINS);
+		IniWriteInt (INI_FILE, "DaysBetweenCheckins", (int) DAYS_BETWEEN_CHECKINS);
 		IniWriteInt (INI_FILE, "NumBackupFiles", NUM_BACKUP_FILES);
 		IniWriteInt (INI_FILE, "SilentVictory", SILENT_VICTORY);
 		spoolMessage (PRIMENET_PROGRAM_OPTIONS, NULL);

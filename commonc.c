@@ -43,7 +43,7 @@ unsigned long volatile ITER_OUTPUT_RES = 999999999;
 unsigned long volatile DISK_WRITE_TIME = 30;
 unsigned int MODEM_RETRY_TIME = 2;
 unsigned int NETWORK_RETRY_TIME = 70;
-unsigned int DAYS_BETWEEN_CHECKINS = 1;
+double	DAYS_BETWEEN_CHECKINS = 1.0;
 int	NUM_BACKUP_FILES = 3;
 int	SILENT_VICTORY = 0;
 int	RUN_ON_BATTERY = 1;
@@ -691,6 +691,7 @@ int readIniFiles (void)
 	int	rc, temp;
 	int	day_memory;
 	int	night_memory;
+	char	buf[80];
 
 /* Force the INI files to be reread, just in case they were hand edited. */
 /* Incorporate any additions from .add files */
@@ -769,9 +770,11 @@ int readIniFiles (void)
 			   MODEM_RETRY_TIME > 70 ? MODEM_RETRY_TIME : 70);
 	if (NETWORK_RETRY_TIME < 1) NETWORK_RETRY_TIME = 1;
 	if (NETWORK_RETRY_TIME > 300) NETWORK_RETRY_TIME = 300;
-	DAYS_BETWEEN_CHECKINS = (unsigned int) IniGetInt (INI_FILE, "DaysBetweenCheckins", 1);
-	if (DAYS_BETWEEN_CHECKINS > 7) DAYS_BETWEEN_CHECKINS = 7;
-	if (DAYS_BETWEEN_CHECKINS < 1) DAYS_BETWEEN_CHECKINS = 1;
+	
+	IniGetString (INI_FILE, "DaysBetweenCheckins", buf, sizeof (buf), "1");
+	DAYS_BETWEEN_CHECKINS = atof (buf);
+	if (DAYS_BETWEEN_CHECKINS > 7.0) DAYS_BETWEEN_CHECKINS = 7.0;
+	if (DAYS_BETWEEN_CHECKINS < 0.04) DAYS_BETWEEN_CHECKINS = 0.04;
 	SILENT_VICTORY = (int) IniGetInt (INI_FILE, "SilentVictory", 0);
 	RUN_ON_BATTERY = (int) IniGetInt (LOCALINI_FILE, "RunOnBattery", 1);
 	BATTERY_PERCENT = (int) IniGetInt (INI_FILE, "BatteryPercent", 0);
@@ -4401,12 +4404,12 @@ void set_comm_timers (void)
 /* If it's been the correct number of days, then update the end dates */
 
 	if (current_time < last_time ||
-	    current_time > (time_t)(last_time + DAYS_BETWEEN_CHECKINS * 86400))
+	    current_time > (time_t)(last_time + DAYS_BETWEEN_CHECKINS * 86400.0))
 		UpdateEndDates ();
 	else
 		add_timed_event (TE_COMPLETION_DATES,
 				 (int) (last_time +
-					DAYS_BETWEEN_CHECKINS * 86400 -
+					DAYS_BETWEEN_CHECKINS * 86400.0 -
 					current_time));
 
 /* Add the event that checks if the work queue has enough work every 6 */
@@ -5723,7 +5726,7 @@ retry:
 			strcpy (pkt2.stage, w->stage);
 			pkt2.pct_complete = w->pct_complete * 100.0;
 			pkt2.end_date = (unsigned long) est;
-			pkt2.next_update = DAYS_BETWEEN_CHECKINS * 86400;
+			pkt2.next_update = (uint32_t) (DAYS_BETWEEN_CHECKINS * 86400.0);
 			pkt2.fftlen = w->fftlen;
 			LOCKED_WORK_UNIT = w;
 			rc = sendMessage (PRIMENET_ASSIGNMENT_PROGRESS, &pkt2);
@@ -5875,7 +5878,7 @@ retry:
 		strcpy (pkt2.assignment_uid, pkt1.assignment_uid);
 		pkt2.pct_complete = 0.0;
 		pkt2.end_date = (unsigned long) est;
-		pkt2.next_update = DAYS_BETWEEN_CHECKINS * 86400;
+		pkt2.next_update = (uint32_t) (DAYS_BETWEEN_CHECKINS * 86400.0);
 		LOCKED_WORK_UNIT = NULL;
 		rc = sendMessage (PRIMENET_ASSIGNMENT_PROGRESS, &pkt2);
 		if (rc == PRIMENET_ERROR_INVALID_ASSIGNMENT_KEY) {
@@ -5908,7 +5911,7 @@ retry:
 		IniWriteInt (LOCALINI_FILE, "LastEndDatesSent", (long) current_time);
 		if (!MANUAL_COMM)
 			add_timed_event (TE_COMPLETION_DATES,
-					 DAYS_BETWEEN_CHECKINS * 86400);
+					 (int) (DAYS_BETWEEN_CHECKINS * 86400.0));
 	}
 
 /* Delete the spool file. However, we don't delete the file if any writes */

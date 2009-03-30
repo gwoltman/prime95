@@ -137,7 +137,7 @@ extern unsigned int MODEM_RETRY_TIME;	/* How often to try sending msgs */
 					/* to primenet server whem modem off */
 extern unsigned int NETWORK_RETRY_TIME;	/* How often to try sending msgs */
 					/* to primenet server */
-extern unsigned int DAYS_BETWEEN_CHECKINS; /* Days between sending updated */
+extern double DAYS_BETWEEN_CHECKINS;	/* Days between sending updated */
 					/* completion dates to the server */
 extern int NUM_BACKUP_FILES;		/* Between 1 and 3 backup files (or 99 */
 					/* for overwrite) */
