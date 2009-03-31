@@ -5578,7 +5578,8 @@ retry:
 		if (rc == PRIMENET_ERROR_INVALID_ASSIGNMENT_KEY ||
 		    rc == PRIMENET_ERROR_INVALID_RESULT_TYPE ||
 		    rc == PRIMENET_ERROR_NO_ASSIGNMENT ||
-		    rc == PRIMENET_ERROR_WORK_NO_LONGER_NEEDED)
+		    rc == PRIMENET_ERROR_WORK_NO_LONGER_NEEDED ||
+		    rc == PRIMENET_ERROR_INVALID_PARAMETER)
 			rc = 0;
 
 /* Just in case the error was casued by some kind of unexpected */
@@ -5698,7 +5699,8 @@ retry:
 			rc = sendMessage (PRIMENET_REGISTER_ASSIGNMENT, &pkt);
 			if (rc &&
 			    rc != PRIMENET_ERROR_NO_ASSIGNMENT &&
-			    rc != PRIMENET_ERROR_INVALID_ASSIGNMENT_TYPE) {
+			    rc != PRIMENET_ERROR_INVALID_ASSIGNMENT_TYPE &&
+			    rc != PRIMENET_ERROR_INVALID_PARAMETER) {
 				decrementWorkUnitUseCount (w, SHORT_TERM_USE);
 				goto error_exit;
 			}
