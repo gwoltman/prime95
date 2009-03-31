@@ -7177,7 +7177,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			if (first_iter_msg) {
 				strcat (buf, ".\n");
 				clear_timer (timers, 0);
-			} if (CUMULATIVE_TIMING) {
+			} else if (CUMULATIVE_TIMING) {
 				strcat (buf, ".  Total time: ");
 				print_timer (timers, 0, buf, TIMER_NL);
 			} else {
