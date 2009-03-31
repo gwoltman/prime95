@@ -9,7 +9,7 @@
  *  This is the only C++ routine in the gwnum library.  Since gwnum is
  *  a C based library, we declare all routines here as extern "C".
  * 
- *  Copyright 2005-2006 Mersenne Research, Inc.  All rights reserved.
+ *  Copyright 2005-2009 Mersenne Research, Inc.  All rights reserved.
  *
  **************************************************************/
 
@@ -58,6 +58,14 @@ struct gwdbldbl_constants {
 	dd_real gw__over_fftlen;
 	double	gwdbl__bits_per_word;
 	double	gwdbl__log2_abs_c_div_fftlen;
+#ifdef VERY_SLOPPY
+	unsigned long last_sloppy_j;
+	double	last_sloppy_result;
+	double	fast_sloppy_multiplier;
+#endif
+	unsigned long last_inv_sloppy_j;
+	double	last_inv_sloppy_result;
+	double	fast_inv_sloppy_multiplier;
 };
 
 /* Macro routines below use to type the cast untyped data pointer */
@@ -254,6 +262,14 @@ void gwfft_weight_setup (
 	}
 	dd_data->gwdbl__bits_per_word = (double) dd_data->gw__bits_per_word;
 	dd_data->gwdbl__log2_abs_c_div_fftlen = (double) dd_data->gw__log2_abs_c_div_fftlen;
+#ifdef VERY_SLOPPY
+	dd_data->last_sloppy_j = 0;
+	dd_data->last_sloppy_result = 1.0;
+	dd_data->fast_sloppy_multiplier = gwfft_weight (dd_data, 1);
+#endif
+	dd_data->last_inv_sloppy_j = 0;
+	dd_data->last_inv_sloppy_result = 1.0;
+	dd_data->fast_inv_sloppy_multiplier = gwfft_weight_inverse (dd_data, 1);
 	END_x86_FIX
 }
 
@@ -290,6 +306,53 @@ double gwfft_weight_sloppy (
 		twopow += dd_data->gw__log2_abs_c_div_fftlen * dd_real ((double) j);
 	END_x86_FIX
 	return (pow (2.0, double (twopow)));
+
+// We cannot be very sloppy as these weights are used to set FFT data values
+// when reading save files.  If we are too sloppy we get roundoff errors > 0.5.
+
+#ifdef VERY_SLOPPY
+	double	temp, twopow, result;
+
+// Our sequential sloppy optimizations won't work if abs(c) is not one.
+// This is because the result is not in the range 1.0 to 2.0.
+
+	if (! dd_data->gw__c_is_one) {
+		temp = (double) j * dd_data->gwdbl__bits_per_word;
+		twopow = ceil (temp) - temp;
+		if (twopow < 0.001 || twopow > 0.999)
+			return (gwfft_weight (dd_data_arg, j));
+		twopow += dd_data->gwdbl__log2_abs_c_div_fftlen * (double) j;
+		return (pow (2.0, twopow));
+	}
+
+// Compute weight from previous weight, but don't do too many of
+// these in a row as floating point roundoff errors will accumulate
+
+	if (j == dd_data->last_sloppy_j + 1 && (j & 0x7F)) {
+		result = dd_data->last_sloppy_result * dd_data->fast_sloppy_multiplier;
+		if (result >= 2.0) result = result * 0.5;
+	}
+
+// Use a slower sloppy technique
+
+	else {
+		temp = (double) j * dd_data->gwdbl__bits_per_word;
+		twopow = ceil (temp) - temp;
+		result = pow (2.0, double (twopow));
+	}
+
+// Just to be safe, if result is at all close to the boundaries return
+// the carefully computed weight.
+
+	if (result < 1.00001 || result > 1.99999)
+		result = gwfft_weight (dd_data_arg, j);
+			 
+// Save the result for faster sequential sloppy calls
+
+	dd_data->last_sloppy_j  = j;
+	dd_data->last_sloppy_result = result;
+	return (result);
+#endif
 }
 
 // Compute the inverse of the fft weight
@@ -312,28 +375,55 @@ double gwfft_weight_inverse (
 }
 
 // Like the above, but faster and does not guarantee quite as much accuracy.
+// We can be very sloppy as these weights are used to read FFT data values
+// when writing save files.
 
 extern "C"
 double gwfft_weight_inverse_sloppy (
 	void	*dd_data_arg,
 	unsigned long j)
 {
-	double	tempdbl, twopowdbl;
+	double	temp, twopow, result;
 
-	tempdbl = (double) j * dd_data->gwdbl__bits_per_word;
-	twopowdbl = ceil (tempdbl) - tempdbl;
-	if (twopowdbl < 0.001 || twopowdbl > 0.999) {
-		dd_real temp;
+// Our sequential sloppy optimizations won't work if abs(c) is not one.
+// This is because the result is not in the range 0.5 to 1.0.
 
-		x86_FIX
-		temp = dd_real ((double) j) * dd_data->gw__bits_per_word;
-		twopowdbl = (double) (ceil (temp) - temp);
-		END_x86_FIX
+	if (! dd_data->gw__c_is_one) {
+		temp = (double) j * dd_data->gwdbl__bits_per_word;
+		twopow = ceil (temp) - temp;
+		if (twopow < 0.001 || twopow > 0.999)
+			return (gwfft_weight_inverse (dd_data_arg, j));
+		twopow += dd_data->gwdbl__log2_abs_c_div_fftlen * (double) j;
+		return (pow (2.0, - twopow));
 	}
 
-	if (! dd_data->gw__c_is_one)
-		twopowdbl += dd_data->gwdbl__log2_abs_c_div_fftlen * (double) j;
-	return (pow (2.0, - double (twopowdbl)));
+// Compute weight from previous weight, but don't do too many of
+// these in a row as floating point roundoff errors will accumulate
+
+	if (j == dd_data->last_inv_sloppy_j + 1 && (j & 0x7F)) {
+		result = dd_data->last_inv_sloppy_result * dd_data->fast_inv_sloppy_multiplier;
+		if (result <= 0.5) result = result * 2.0;
+	}
+
+// Use a slower sloppy technique
+
+	else {
+		temp = (double) j * dd_data->gwdbl__bits_per_word;
+		twopow = ceil (temp) - temp;
+		result = pow (2.0, - twopow);
+	}
+
+// Just to be safe, if result is at all close to the boundaries return
+// the carefully computed weight.
+
+	if (result < 0.50001 || result > 0.99999)
+		result = gwfft_weight_inverse (dd_data_arg, j);
+
+// Save the result for faster sequential sloppy calls
+
+	dd_data->last_inv_sloppy_j  = j;
+	dd_data->last_inv_sloppy_result = result;
+	return (result);
 }
 
 // This computes the inverse FFT weight multiplied by the appropriate constant
