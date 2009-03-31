@@ -7,7 +7,7 @@
  *  Massive rewrite by G. Woltman for 32-bit support
  *
  *  c. 1997,1998 Perfectly Scientific, Inc.
- *  c. 1998-2007 Just For Fun Software, Inc.
+ *  c. 1998-2009 Mersenne Research, Inc.
  *  All Rights Reserved.
  *
  **************************************************************/
@@ -854,6 +854,10 @@ void divgi (		/* n becomes n/d. n is arbitrary, but the
 
 		chunks = nsize / dsize - 1;
 
+/* This code only works on positive n values */
+		
+		if (nsign < 0) negg (n);
+
 /* Shift n right and do the first chunk */
 
 		n->sign -= chunks * dsize;
@@ -897,6 +901,10 @@ void divgi (		/* n becomes n/d. n is arbitrary, but the
 			mulgi (gdata, d, tmp);
 			subg (tmp, r);
 		}
+
+/* Negate n if it was originally negative */
+
+		if (nsign < 0) negg (n);
 
 		pushg (gdata, 2);
 	}
