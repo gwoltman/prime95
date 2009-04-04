@@ -4531,6 +4531,8 @@ int prime (
 /* Setup the LL test */
 
 begin:	gwinit (&lldata.gwdata);
+	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
+		gwset_use_large_pages (&lldata.gwdata);
 	gwset_num_threads (&lldata.gwdata, THREADS_PER_TEST[thread_num]);
 	gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&lldata.gwdata, sp_info);
@@ -6329,6 +6331,8 @@ int primeTime (
 /* Init the FFT code */
 
 	gwinit (&lldata.gwdata);
+	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
+		gwset_use_large_pages (&lldata.gwdata);
 	gwset_num_threads (&lldata.gwdata, num_threads);
 	gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&lldata.gwdata, &sp_info);
@@ -6603,6 +6607,8 @@ int primeBench (
 /* my 1400 MHz P4 to run 10 iterations of a 1792K FFT. */
 
 		gwinit (&lldata.gwdata);
+		if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
+			gwset_use_large_pages (&lldata.gwdata);
 		gwset_num_threads (&lldata.gwdata, threads);
 		gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 		gwset_thread_callback_data (&lldata.gwdata, &sp_info);
@@ -6615,9 +6621,10 @@ int primeBench (
 
 /* Output start message for this FFT length */
 
-		sprintf (buf, "Timing %d iterations at %dK%s FFT length.  ",
+		sprintf (buf, "Timing %d iterations at %dK%s FFT length%s.  ",
 			 iterations, fft_lengths[i],
-			 plus1 ? " all-complex" : "");
+			 plus1 ? " all-complex" : "",
+			 gw_using_large_pages (&lldata.gwdata) ? " using large pages" : "");
 		OutputStr (thread_num, buf);
 
 /* Fill data space with random values. */
@@ -6869,6 +6876,8 @@ int prp (
 /* Init the FFT code for squaring modulo k*b^n+c. */
 
 begin:	gwinit (&gwdata);
+	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
+		gwset_use_large_pages (&gwdata);
 	gwset_num_threads (&gwdata, THREADS_PER_TEST[thread_num]);
 	gwset_thread_callback (&gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&gwdata, sp_info);

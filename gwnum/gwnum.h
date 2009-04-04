@@ -16,7 +16,7 @@
 | threads IF AND ONLY IF each uses a different gwhandle structure
 | initialized by gwinit.
 | 
-|  Copyright 2002-2008 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2009 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 #ifndef _GWNUM_H
@@ -116,6 +116,17 @@ void gwdone (
 /*---------------------------------------------------------------------+
 |                    GWNUM OBSCURE GWSETUP OPTIONS                     |
 +---------------------------------------------------------------------*/
+
+/* Prior to calling one of the gwsetup routines, you can have the library */
+/* attempt to use large pages (2MB on Intel architecture) rather than the */
+/* standard 4KB pages.  This may improve performance by reducing TLB misses. */
+/* It may have system-wide costs, as the OS may not page these to disk */
+/* when not in use. */
+
+#define gwset_use_large_pages(h)	((h)->use_large_pages = 1)
+#define gwclear_use_large_pages(h)	((h)->use_large_pages = 0)
+#define gwget_use_large_pages(h)	((h)->use_large_pages)
+#define gw_using_large_pages(h)		((h)->large_pages_ptr != NULL)
 
 /* Prior to calling one of the gwsetup routines, you can have the library */
 /* "play it safe" by reducing the maximum allowable bits per FFT data word. */
@@ -764,6 +775,10 @@ struct gwhandle_struct {
 				/* code uses this to compare results from one */
 				/* FFT implementation to the (should be identical) */
 				/* results of another FFT implementation. */
+	int	use_large_pages; /* Try to use 2MB pages */
+	void	*large_pages_ptr; /* Pointer to the lage pages memory block */
+				/* we allocated. */
+	void	*large_pages_gwnum; /* Pointer to the one large pages gwnum */
 };
 
 /* A psuedo declaration for our big numbers.  The actual pointers to */

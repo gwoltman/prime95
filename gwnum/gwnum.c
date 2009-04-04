@@ -1697,6 +1697,9 @@ use_zpad:	gwdata->ZERO_PADDED_FFT = TRUE;
 	gwdata->FFTLEN = jmptab->fftlen;
 	gwdata->PASS2_LEVELS = jmptab->pass2_levels; /* FFT levels in pass2 */
 	gwdata->PASS2GAPSIZE = jmptab->counts[1] - 1;
+	gwdata->GW_ALIGNMENT = 4096;	/* Guess an alignment so gwsize can */
+					/* return a reasonable value for */
+					/* large page support in gwsetup */
 
 /* Remember the FFT returned so that we can return a different FFT to */
 /* the QA code next time. */
@@ -1719,6 +1722,7 @@ void gwinit (
 /* Initialize gwhandle structure with the default values */
 
 	memset (gwdata, 0, sizeof (gwhandle));
+	gwdata->use_large_pages = 0;
 	gwdata->safety_margin = 0.0;
 	gwdata->maxmulbyconst = 3;
 	gwdata->specific_fftlen = 0;
@@ -2030,15 +2034,36 @@ int internal_gwsetup (
 	if (error_code) return (error_code);
 	info = gwdata->jmptab;
 
-/* Get pointer to fft info and allocate needed memory */
+/* Get pointer to fft info and allocate needed memory.  If we are */
+/* trying to allocate large pages, then also allocate space for the */
+/* one gwnum value that will be stored in large pages.  We allocate */
+/* a little extra space to align the gwnum on a cache line boundary */
+/* and because gwnum_size may not produce an accurate value prior */
+/* to gwsetup completing. */
 
+	tables = NULL;
+	gwdata->large_pages_ptr = NULL;
+	gwdata->large_pages_gwnum = NULL;
 	mem_needed = info->mem_needed + info->scratch_size;
-	gwdata->gwnum_memory = tables = (double *) aligned_malloc (mem_needed, 4096);
-	if (tables == NULL) return (GWERROR_MALLOC);
+	if (gwdata->use_large_pages) {
+		tables = (double *) large_pages_malloc (mem_needed + gwnum_size (gwdata) + 4096);
+		if (tables != NULL) {
+			/* Save large pages pointer for later freeing */
+			gwdata->large_pages_ptr = tables;
+			/* Save pointer to the gwnum we also allocated, so */
+			/* that first gwalloc call can return it. */
+			gwdata->large_pages_gwnum = align_ptr ((char *) tables + mem_needed, 128);
+		}
+	}
+	if (tables == NULL) {
+		tables = (double *) aligned_malloc (mem_needed, 4096);
+		if (tables == NULL) return (GWERROR_MALLOC);
+	}
+	gwdata->gwnum_memory = tables;
 
 /* Do a seemingly pointless memset! */
 /* The memset will walk through the allocated memory sequentially, which */
-/* increases the liklihood that contiguous virtual memory will map to */
+/* increases the likelihood that contiguous virtual memory will map to */
 /* contiguous physical memory. */
 
 	memset (tables, 0, mem_needed);
@@ -4071,8 +4096,6 @@ void gwdone (
 	multithread_term (gwdata);
 
 	term_ghandle (&gwdata->gdata);
-	aligned_free (gwdata->gwnum_memory);
-	gwdata->gwnum_memory = NULL;
 	if (gwdata->asm_data != NULL) {
 		aligned_free ((char *) gwdata->asm_data - NEW_STACK_SIZE);
 		gwdata->asm_data = NULL;
@@ -4094,6 +4117,12 @@ void gwdone (
 	}
 	free (gwdata->GW_MODULUS);
 	gwdata->GW_MODULUS = NULL;
+	if (gwdata->large_pages_ptr != NULL) {
+		large_pages_free (gwdata->large_pages_ptr);
+		gwdata->large_pages_ptr = NULL;
+	} else
+		aligned_free (gwdata->gwnum_memory);
+	gwdata->gwnum_memory = NULL;
 }
 
 /* Routine to allocate aligned memory for our big numbers */
@@ -4141,10 +4170,16 @@ gwnum gwalloc (
 
 	size = gwnum_datasize (gwdata);
 	aligned_size = (size + GW_HEADER_SIZE + 127) & ~127;
-	if (gwdata->GW_BIGBUF_SIZE >= size + aligned_size) {
+	if (gwdata->large_pages_gwnum != NULL) {
+		p = (char *) gwdata->large_pages_gwnum;
+		gwdata->large_pages_gwnum = NULL;
+		p += -GW_HEADER_SIZE & 127;
+		freeable = 0;
+	} else if (gwdata->GW_BIGBUF_SIZE >= size + aligned_size) {
 		p = gwdata->GW_BIGBUF;
 		gwdata->GW_BIGBUF += aligned_size;
 		gwdata->GW_BIGBUF_SIZE -= aligned_size;
+		p += -GW_HEADER_SIZE & 127;
 		freeable = 0;
 	} else {
 		p = (char *) aligned_offset_malloc (
