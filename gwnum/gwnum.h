@@ -118,10 +118,11 @@ void gwdone (
 +---------------------------------------------------------------------*/
 
 /* Prior to calling one of the gwsetup routines, you can have the library */
-/* attempt to use large pages (2MB on Intel architecture) rather than the */
+/* attempt to use large pages (2MB or 4MB on Intel architecture) rather than the */
 /* standard 4KB pages.  This may improve performance by reducing TLB misses. */
 /* It may have system-wide costs, as the OS may not page these to disk */
-/* when not in use. */
+/* when not in use.  NOTE: Only the first gwalloc will return memory */
+/* allocated using large pages. */
 
 #define gwset_use_large_pages(h)	((h)->use_large_pages = 1)
 #define gwclear_use_large_pages(h)	((h)->use_large_pages = 0)

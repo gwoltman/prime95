@@ -402,3 +402,10 @@ you would set AffinityScramble=02134657 to test out your theory.
 In the prime.txt file, the DaysBetweenCheckin value can be set to any value
 between 0.04 and 7.0.  Some SeventeenOrBust users want to send updates hourly.
 
+In local.txt, add the line
+	UseLargePages=1
+to attempt using 2MB pages under Windows Vista.  Warning: these pages will
+never be swapped out.  Thus, using this option could negatively impact
+the performance of other applications.  Also, you'll need to have
+the "Lock Pages in Memory" privilege to use this option.
+
