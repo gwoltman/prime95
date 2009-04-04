@@ -4611,6 +4611,9 @@ void gwfft_description (
 	if (gwdata->num_threads > 1)
 		sprintf (buf + strlen (buf), ", %d threads",
 			 gwdata->num_threads);
+
+	if (gw_using_large_pages (gwdata))
+		strcat (buf, " using large pages");
 }
 
 /* Return a string representation of a k/b/n/c combination */

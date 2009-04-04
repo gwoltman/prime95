@@ -107,7 +107,6 @@ void * large_pages_malloc (
 				       sizeof (TOKEN_PRIVILEGES),
 				       (PTOKEN_PRIVILEGES) NULL,
 				       (PDWORD) NULL);
-GetLastError ();
 
 		// Dynamic link to get large page size
 		// Call succeeds only on Windows Server 2003 SP1 or later
@@ -124,7 +123,6 @@ GetLastError ();
 	// Now allocate the memory
 	p = VirtualAlloc (NULL, (size + large_page_size - 1) & ~(large_page_size - 1),
 			  MEM_RESERVE | MEM_COMMIT | MEM_LARGE_PAGES, PAGE_READWRITE);
-GetLastError ();
 	return (p);
 #else
 	return (NULL);
