@@ -21,6 +21,10 @@
 #ifdef __linux__
 #include <stdio.h>
 #endif
+#ifdef __OS2__
+#define INCL_DOSPROFILE
+#include <os2.h>
+#endif
 #if defined (__linux__) || defined (__FreeBSD__) || defined (__APPLE__)
 #include <sys/time.h>
 #define _timeb	timeb
@@ -1224,15 +1228,6 @@ void guessCpuSpeed (void)
 /*--------------------------------------------------------------------------
 | And now, the routines that access the high resolution performance counter.
 +-------------------------------------------------------------------------*/
-
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
-#ifdef __OS2__
-#define INCL_DOSPROFILE
-#include <os2.h>
-#endif
 
 int isHighResTimerAvailable (void)
 {
