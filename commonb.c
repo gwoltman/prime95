@@ -1,4 +1,6 @@
 /*----------------------------------------------------------------------
+| Copyright 1995-2009 Mersenne Research, Inc.  All rights reserved
+|
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
 | in one of the source code files of each port.
