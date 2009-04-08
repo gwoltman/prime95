@@ -56,13 +56,3 @@ void SetPriority (int thread)
 		SetThreadAffinityMask (threadid, 1 << (CPU_AFFINITY + thread));
 }
 
-/* Return the number of CPUs in the system */
-
-unsigned long num_cpus (void)
-{
-	SYSTEM_INFO sys;
-
-	GetSystemInfo (&sys);
-	return (sys.dwNumberOfProcessors);
-}
-

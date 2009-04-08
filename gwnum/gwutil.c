@@ -132,5 +132,7 @@ void * large_pages_malloc (
 void large_pages_free (
 	void	*ptr)
 {
+#ifdef _WIN32
 	VirtualFree (ptr, 0, MEM_RELEASE);
+#endif
 }

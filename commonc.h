@@ -1,3 +1,5 @@
+/* Copyright 1995-2009 Mersenne Research, Inc.  All rights reserved */
+
 /* Constants */
 
 #define VERSION		"25.10"
@@ -369,7 +371,6 @@ int writeResults (char	*);
 
 unsigned long physical_memory (void);
 unsigned long GetSuggestedMemory (unsigned long nDesiredMemory);
-unsigned long num_cpus (void);
 int getDefaultTimeFormat (void);
 
 /******************************************************************************

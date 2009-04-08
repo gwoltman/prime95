@@ -1,4 +1,6 @@
 /*----------------------------------------------------------------------
+| Copyright 1995-2009 Mersenne Research, Inc.  All rights reserved
+|
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
 | in one of the source code files of each port.  See common.h for the
@@ -284,9 +286,16 @@ void getCpuInfo (void)
 {
 	int	temp;
 
-/* Get the CPU info using CPUID instruction */
+/* Get the CPU info using CPUID instruction */	
 
 	guessCpuType ();
+	NUM_CPUS = CPU_CORES;
+
+/* Allow overriding the number of physical processors.  For historical */
+/* reasons, this code uses a variable called NUM_CPUS rather */
+/* than the CPU_CORES value set by guessCpuType. */
+
+	NUM_CPUS = IniGetInt (LOCALINI_FILE, "NumCPUs", CPU_CORES);
 
 /* Calculate hardware GUID (global unique identifier) using the CPUID info. */
 /* Well, it isn't unique but it is about as good as we can do and still have */
@@ -724,12 +733,6 @@ int readIniFiles (void)
 		IniSectionWriteInt (INI_FILE, "PrimeNet", "Debug", 1);
 		IniWriteInt (INI_FILE, "SendAllFactorData", 1);
 	}
-
-/* Get the number of physical processors */
-
-	NUM_CPUS = num_cpus ();		/* Physical and logical processors */
-	if (NUM_CPUS >= CPU_HYPERTHREADS) NUM_CPUS /= CPU_HYPERTHREADS;
-	NUM_CPUS = IniGetInt (LOCALINI_FILE, "NumCPUs", NUM_CPUS);
 
 /* Put commonly used options in global variables */
 

@@ -1,4 +1,4 @@
-/* Copyright 1995-2008 Mersenne Research, Inc. */
+/* Copyright 1995-2009 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -33,7 +33,6 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/resource.h>
-#include <sys/sysctl.h>
 #include <sys/time.h>
 #include <sys/timeb.h>
 #define PTHREAD_MIN_PRIORITY 0		/* Missing #defines from pthreads.h */
@@ -624,37 +623,6 @@ unsigned long physical_memory (void)
 	return ((unsigned long)
 		((double) sys_info.totalram *
 		 (double) sys_info.mem_unit / 1048576.0));
-#endif
-}
-
-unsigned long num_cpus (void)
-{
-#ifdef __APPLE__
-	int	mib[2];
-	int	ncpus;
-	size_t	len;
-
-	mib[0] = CTL_HW;
-	mib[1] = HW_NCPU;
-	len = sizeof (ncpus);
-	sysctl (mib, 2, &ncpus, &len, NULL, 0);
-	return (ncpus);
-#else
-	FILE	*fd;
-	char	buf[200];
-	int	count;
-
-	count = 0;
-	fd = fopen ("/proc/cpuinfo", "r");
-	if (fd != NULL) {
-		while (fgets (buf, sizeof (buf), fd) != NULL) {
-			buf[9] = 0;
-			if (strcmp (buf, "processor") == 0) count++;
-		}
-		fclose (fd);
-	}
-	if (count == 0) count = 1;
-	return (count);
 #endif
 }
 

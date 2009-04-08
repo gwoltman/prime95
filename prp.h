@@ -61,7 +61,6 @@ int writeResults (char	*);
 void OutputStr (char *);
 void guessCpuType (void);
 void getCpuDescription (char *, int);
-unsigned long num_cpus (void);
 int NewEscapeCheck (int);
 int escapeCheck (void);
 #define	WORKING_ICON	0

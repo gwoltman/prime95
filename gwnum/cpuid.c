@@ -12,7 +12,16 @@
 #include <math.h>
 #include <memory.h>
 #include <string.h>
-#if defined (__linux__) || defined (__FreeBSD__) || defined (__EMX__) || defined (__APPLE__)
+#ifdef _WIN32
+#include "windows.h"
+#endif
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#endif
+#ifdef __linux__
+#include <stdio.h>
+#endif
+#if defined (__linux__) || defined (__FreeBSD__) || defined (__APPLE__)
 #include <sys/time.h>
 #define _timeb	timeb
 #define _ftime	ftime
@@ -25,8 +34,11 @@
 char	CPU_BRAND[49] = "";
 double	CPU_SPEED = 0.0;
 unsigned int CPU_FLAGS = 0;
+unsigned int CPU_CORES = 1;		/* Number CPU cores */
 unsigned int CPU_HYPERTHREADS = 1;	/* Number of virtual processors */
-					/* that each CPU core supports */
+					/* that each CPU core supports. */
+					/* Total number logical processors */
+					/* is CPU_CORES * CPU_HYPERTHREADS */
 int	CPU_L1_CACHE_SIZE = -1;
 int	CPU_L2_CACHE_SIZE = -1;
 int	CPU_L3_CACHE_SIZE = -1;
@@ -42,6 +54,50 @@ int	CPU_L3_SET_ASSOCIATIVE = -1;
 
 unsigned int CPU_SIGNATURE = 0;		/* Vendor-specific family number, */
 					/* model number, stepping ID, etc. */
+
+/* Return the number of CPUs in the system */
+
+unsigned int num_cpus (void)
+{
+#ifdef _WIN32
+	SYSTEM_INFO sys;
+
+	GetSystemInfo (&sys);
+	return (sys.dwNumberOfProcessors);
+#else
+#ifdef __APPLE__
+	int	mib[2];
+	int	ncpus;
+	size_t	len;
+
+	mib[0] = CTL_HW;
+	mib[1] = HW_NCPU;
+	len = sizeof (ncpus);
+	sysctl (mib, 2, &ncpus, &len, NULL, 0);
+	return (ncpus);
+#else
+#ifdef __linux__
+	FILE	*fd;
+	char	buf[200];
+	int	count;
+
+	count = 0;
+	fd = fopen ("/proc/cpuinfo", "r");
+	if (fd != NULL) {
+		while (fgets (buf, sizeof (buf), fd) != NULL) {
+			buf[9] = 0;
+			if (strcmp (buf, "processor") == 0) count++;
+		}
+		fclose (fd);
+	}
+	if (count == 0) count = 1;
+	return (count);
+#else
+	return (1);
+#endif
+#endif
+#endif
+}
 
 /* The MS 64-bit compiler does not allow inline assembly.  Fortunately, any */
 /* CPU capable of running x86-64 bit code can execute these instructions. */
@@ -177,6 +233,7 @@ int canExecInstruction (
 void guessCpuType (void)
 {
 	struct cpuid_data reg;
+	unsigned int num_logical_processors;
 	unsigned long max_cpuid_value;
 	unsigned long max_extended_cpuid_value;
 	unsigned long extended_family, extended_model, type, family_code;
@@ -211,11 +268,16 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 	};
 #define NUM_BRAND_NAMES	(sizeof (BRAND_NAMES) / sizeof (char *))
 
+/* Get the number of logical processors */
+
+	num_logical_processors = num_cpus ();
+
 /* Set up default values for features we cannot determine with CPUID */
 
 	CPU_BRAND[0] = 0;
 	CPU_SPEED = 100.0;
 	CPU_FLAGS = 0;
+	CPU_CORES = 1;
 	CPU_HYPERTHREADS = 1;
 	CPU_L1_CACHE_SIZE = -1;
 	CPU_L2_CACHE_SIZE = -1;
@@ -352,18 +414,25 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 
 /* Try to determine if hyperthreading is supported.  I think this code */
 /* only tells us if the hardware supports hyperthreading.  If the feature */
-/* is turned off in the BIOS, we don't detect this. */
+/* is turned off in the BIOS, we don't detect this.  UPDATE: Detect some */
+/* of these situations, by comparing number of cores to number of logical */
+/* processors.  This test fails if the machine has multiple physical CPUs. */
 
 		if (max_cpuid_value >= 1) {
 			Cpuid (1, &reg);
 			if ((reg.EDX >> 28) & 0x1) {
 				CPU_HYPERTHREADS = (reg.EBX >> 16) & 0xFF;
-				if (max_cpuid_value >= 4) {
+				if (CPU_HYPERTHREADS <= 1) CPU_HYPERTHREADS = 1;
+				else if (max_cpuid_value >= 4) {
+					unsigned int cores;
 					reg.ECX = 0;
 					Cpuid (4, &reg);
-					CPU_HYPERTHREADS /= (reg.EAX >> 26) + 1;
+					cores = (reg.EAX >> 26) + 1;
+					CPU_HYPERTHREADS /= cores;
+					if (CPU_HYPERTHREADS < 2) CPU_HYPERTHREADS = 2;
+					if (num_logical_processors <= cores) CPU_HYPERTHREADS = 1;
 				}
-				if (CPU_HYPERTHREADS < 1) CPU_HYPERTHREADS = 1;
+				else CPU_HYPERTHREADS = 2;
 			}
 		}
 
@@ -1001,6 +1070,12 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			strcat (CPU_BRAND, vendor_id);
 		}
 	}
+
+/* Now calculate the CPU_CORES value -- the number of physical */
+/* processors/cores. */
+
+	CPU_CORES = num_logical_processors / CPU_HYPERTHREADS;
+	if (CPU_CORES < 1) CPU_CORES = 1;
 }
 
 void guessCpuSpeed (void)
