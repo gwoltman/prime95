@@ -853,6 +853,7 @@ void gwrealloc_temporarily (gwhandle *, gwnum);
 
 void *gwgiantalloc (void *);
 void gwgiantfree (void *, void *);
+void gwgiantdealloc (void *);
 
 /* When debugging gwnum and giants, I sometimes write code that "cheats" */
 /* by calling a routine that is part of prime95 rather than the gwnum and */

@@ -30,7 +30,7 @@
  *	Other important ideas courtesy of Peter Montgomery.
  *
  *	c. 1997 Perfectly Scientific, Inc.
- *	c. 1998-2008 Mersenne Research, Inc.
+ *	c. 1998-2009 Mersenne Research, Inc.
  *	All Rights Reserved.
  *
  *************************************************************/
@@ -1168,6 +1168,8 @@ int gcd (
 
 	gwfree_temporarily (gwdata, gg);
 	stop_reason = gcdgi (&gwdata->gdata, thread_num, N, v);
+	if (stop_reason == GIANT_OUT_OF_MEMORY)
+		stop_reason = OutOfMemory (thread_num);
 	gwrealloc_temporarily (gwdata, gg);
 
 /* Restore the input argument */
@@ -1219,6 +1221,8 @@ int modinv (
 
 	gwfree_temporarily (&ecmdata->gwdata, b);
 	stop_reason = invgi (&ecmdata->gwdata.gdata, ecmdata->thread_num, N, v);
+	if (stop_reason == GIANT_OUT_OF_MEMORY)
+		stop_reason = OutOfMemory (ecmdata->thread_num);
 	gwrealloc_temporarily (&ecmdata->gwdata, b);
 	if (stop_reason) {
 		pushg (&ecmdata->gwdata.gdata, 1);
@@ -1818,11 +1822,12 @@ int choose_stage2_plan (
 	char	buf[120];
 	int	stop_reason;
 
-/* Get available memory.  We assume 120 gwnums will allow us to do a */
-/* reasonable efficient stage 2 implementation. */
+/* Get available memory.  We need 21 gwnums to do the smallest stage 2, plus */
+/* another 0.5 gwnums of overhead in invgi (and gcd).  We assume 120 gwnums */
+/* will allow us to do a reasonable efficient stage 2 implementation. */
 
 replan:	stop_reason = avail_mem (thread_num,
-				 cvt_gwnums_to_mem (&ecmdata->gwdata, 20),
+				 cvt_gwnums_to_mem (&ecmdata->gwdata, 21.5),
 				 cvt_gwnums_to_mem (&ecmdata->gwdata, 120),
 				 &memory);
 	if (stop_reason) return (stop_reason);
@@ -1837,21 +1842,28 @@ replan:	stop_reason = avail_mem (thread_num,
 	gcd_cost = 861.0 * log ((double) ecmdata->gwdata.n) - 7775.0;
 	if (gcd_cost < 100.0) gcd_cost = 100.0;
 
+/* Reserve space for overhead needed by invgi and gcdg (about 1.5 gwnums) */
+/* However, not all stage 2 implementations use gcds.  So only reserve space */
+/* for the giant sin/cos data that is never freed once allocated (about 0.5 gwnums) */	
+
+	memory = memory - (unsigned int) (gwnum_size (&ecmdata->gwdata) * 0.5 / 1048576.0);
+
 /* Figure out how many gwnum values fit in our memory limit. */
 
 	numvals = cvt_mem_to_gwnums (&ecmdata->gwdata, memory);
-	ASSERTG (numvals >= 20);
+	ASSERTG (numvals >= 21);
 
 /* If memory is really tight, then the 4 FFT - O(n^2) pooling is the */
-/* most memory efficient ECM implementation.  Note: D=30 (8 nQx values) */
-/* requires 20 gwnums.  The next D value (60) requires 28 gwnums. */
+/* most memory efficient ECM implementation.  This will be our default */
+/* plan.  Note: D=30 (8 nQx values) requires 21 gwnums.  The next D */
+/* value (60) requires 28 gwnums. */
 
 	if (numvals < 28) {
 		ecmdata->D = 30;
 		ecmdata->E = 0;
 		ecmdata->TWO_FFT_STAGE2 = FALSE;
 		ecmdata->pool_type = POOL_N_SQUARED;
-		bestnumvals = 20;
+		bestnumvals = 21;
 	}
 
 /* Numprimes below C approximately equals C / (ln(C)-1) */
@@ -2915,7 +2927,7 @@ restart3:
 
 /* Compute the rest of the nQx values (Q^i for i >= 3) */
 /* MEMUSED: 8 + nQx gwnums (AD4, 6 for computing nQx, nQx vals, modinv_val) */
-/* MEMPEAK: 8 + nQx-1 + 2 for edd_add temporaries */
+/* MEMPEAK: 8 + nQx-1 + 2 for ell_add temporaries */
 
 	for (i = 3; i < ecmdata.D; i = i + 2) {
 		ell_add_special (&ecmdata, Qiminus2x, Qiminus2z, Q2x, Q2z,
@@ -2951,7 +2963,7 @@ restart3:
 /* get Q^(D+1).  Then add Q^(D-1) and Q^(D+1) to get Q^2D.  Store Q^2D */
 /* in Q2x and Q2z.  Normalize them so we can free Q2z later on. */
 /* MEMUSED: 8 + nQx gwnums (AD4, 6 for computing nQx, nQx vals, modinv_val) */
-/* MEMPEAK: 8 + nQx + 2 for edd_add temporaries */
+/* MEMPEAK: 8 + nQx + 2 for ell_add temporaries */
 
 	ell_add_special (&ecmdata, Qiminus2x, Qiminus2z, Q2x, Q2z,
 			 Qdiffx, Qdiffz, Qdiffx, Qdiffz);

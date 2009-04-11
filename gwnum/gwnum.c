@@ -336,6 +336,10 @@ struct gwasm_data {
 
 #define GWERROR_BAD_FFT_DATA	-1
 
+/* Special flag value set in the gwnum freeable field */
+
+#define GWFREED_TEMPORARILY	0x80000000
+
 /* Forward declarations */
 
 int internal_gwsetup (
@@ -1734,6 +1738,7 @@ void gwinit (
 	init_ghandle (&gwdata->gdata);
 	gwdata->gdata.allocate = &gwgiantalloc;
 	gwdata->gdata.free = &gwgiantfree;
+	gwdata->gdata.deallocate = &gwgiantdealloc;
 	gwdata->gdata.handle = (void *) gwdata;
 
 /* If CPU type and speed have not been initialized by the caller, do so now. */
@@ -4107,9 +4112,9 @@ void gwdone (
 	if (gwdata->gwnum_alloc != NULL) {
 		for (i = 0; i < gwdata->gwnum_alloc_count; i++) {
 			char	*p;
-			long	freeable;
+			int32_t	freeable;
 			p = (char *) gwdata->gwnum_alloc[i];
-			freeable = * (int32_t *) (p - 32);
+			freeable = * (int32_t *) (p - 32) & ~GWFREED_TEMPORARILY;
 			if (freeable) aligned_free ((char *) p - GW_HEADER_SIZE);
 		}
 		free (gwdata->gwnum_alloc);
@@ -4134,7 +4139,7 @@ gwnum gwalloc (
 {
 	unsigned long size, aligned_size;
 	char	*p, *q;
-	long	freeable;
+	int32_t	freeable;
 
 /* Return cached gwnum if possible */
 
@@ -4243,6 +4248,36 @@ void gwgiantfree (
 	gwfree ((gwhandle *) gwdata, (gwnum) q);
 }
 
+/* Specialized routine that allows giants code to deallocate one */
+/* cached gwnum to free up space for allocating FFT giant's sincos data. */
+
+void gwgiantdealloc (
+	void	*gwdata_arg)
+{
+	gwhandle *gwdata;
+	gwnum	p;
+	int32_t	freeable;
+	unsigned long i, j;
+
+	gwdata = (gwhandle *) gwdata_arg;
+	for (i = 0; i < gwdata->gwnum_free_count; i++) {
+		p = gwdata->gwnum_free[i];
+		freeable = * (int32_t *) ((char *) p - 32);
+		if (freeable & GWFREED_TEMPORARILY) continue;
+		if (!freeable) continue;
+
+		for (j = 0; j < gwdata->gwnum_alloc_count; j++) {
+			if (gwdata->gwnum_alloc[j] != p) continue;
+
+			aligned_free ((char *) p - GW_HEADER_SIZE);
+			gwdata->gwnum_free[i] = gwdata->gwnum_free[--gwdata->gwnum_free_count];
+			gwdata->gwnum_alloc[j] = gwdata->gwnum_alloc[--gwdata->gwnum_alloc_count];
+			return;
+		}
+	}
+}
+
+
 /* Specialized routines that let the giants code share the free */
 /* memory pool used by gwnums. */
 
@@ -4250,6 +4285,7 @@ void gwfree_temporarily (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	q)
 {
+	* (int32_t *) ((char *) q - 32) |= GWFREED_TEMPORARILY;
 	gwfree (gwdata, q);
 }
 void gwrealloc_temporarily (
@@ -4257,6 +4293,10 @@ void gwrealloc_temporarily (
 	gwnum	q)
 {
 	unsigned long i, j;
+
+	ASSERTG (* (int32_t *) ((char *) q - 32) & GWFREED_TEMPORARILY);
+
+	* (int32_t *) ((char *) q - 32) &= ~GWFREED_TEMPORARILY;
 
 	for (i = j = 0; i < gwdata->gwnum_free_count; i++)
 		if (gwdata->gwnum_free[i] != q)
@@ -4271,10 +4311,10 @@ void gwfreeall (
 {
 	unsigned int i;
 	char	*p;
-	long	freeable;
+	int32_t	freeable;
 
 /* Go through the allocated list and free any user allocated gwnums that */
-/* are freaable.  In other words, unless the user is using the BIGBUF */
+/* are freeable.  In other words, unless the user is using the BIGBUF */
 /* kludge, free all possible memory. */
 
 	gwdata->gwnum_free_count = 0;
@@ -4283,7 +4323,7 @@ void gwfreeall (
 		if (gwdata->gwnum_alloc[i] == gwdata->GW_RECIP_FFT) continue;
 		if (gwdata->gwnum_alloc[i] == gwdata->GW_RANDOM) continue;
 		p = (char *) gwdata->gwnum_alloc[i];
-		freeable = * (int32_t *) (p - 32);
+		freeable = * (int32_t *) (p - 32) & ~GWFREED_TEMPORARILY;
 		if (freeable) {
 			aligned_free ((char *) p - GW_HEADER_SIZE);
 			gwdata->gwnum_alloc[i--] = gwdata->gwnum_alloc[--gwdata->gwnum_alloc_count];

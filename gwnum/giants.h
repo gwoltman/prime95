@@ -10,7 +10,7 @@
  *	    20 Apr 97  RDW
  *
  *	c. 1997 Perfectly Scientific, Inc.
- *	c. 1998-2007 Just For Fun Software, Inc.
+ *	c. 1998-2009 Mersenne Research, Inc.
  *	All Rights Reserved.
  *
  **************************************************************/
@@ -28,6 +28,14 @@ extern "C" {
 /* Include common definitions */
 
 #include "gwcommon.h"
+
+/**************************************************************
+ *
+ * Error codes
+ *
+ **************************************************************/
+
+#define GIANT_OUT_OF_MEMORY	749156
 
 /**************************************************************
  *
@@ -148,10 +156,10 @@ void 	ulsubg (uint32_t i, giant g);
 void 	subg(giant a, giant b);
 
 /* g *= g. */
-void	squareg(giant g);
+int	squareg(giant g);
 
 /* b *= a. */
-void	mulg(giant a, giant b);
+int	mulg(giant a, giant b);
 
 /* g *= i, where i is an unsigned long */
 void 	ulmulg (uint32_t i, giant g);
@@ -182,10 +190,10 @@ void 	gtogshiftright (int bits, giant src, giant dest);
 
 /* If 1/x exists (mod n), then x := 1/x.  If
  * inverse does not exist, then x := - GCD(n, x). */
-void 	invg(giant n, giant x);
+int 	invg(giant n, giant x);
 
 /* General GCD, x:= GCD(n, x). */
-void 	gcdg(giant n, giant x);
+int 	gcdg(giant n, giant x);
 
 /* x becomes x^n, NO mod performed. */
 void power (giant x, int n);
@@ -213,6 +221,7 @@ typedef struct {
 	 unsigned long blksize;		/* Gwnum size */
 	 void*	(*allocate)(void *);	/* Gwnum allocator */
 	 void	(*free)(void *,void *);	/* Gwnum free routine */
+	 void	(*deallocate)(void *);	/* Gwnum special deallocate routine */
 	 void*	handle;			/* Gwdata handle */
 	 int	num_popgs;		/* Number of popg allocations */
 	 gstacknode stack;		/* Linked list of popg allocations */
@@ -233,8 +242,8 @@ giant	popg(ghandle *,int);	/* Number of longs in data area */
 void	pushg(ghandle *,int);/* Number of items to return to stack */
 
 /* Interruptable and alternate memory allocator versions of some routines */
-void	squaregi(ghandle *, giant g);
-void	mulgi(ghandle *, giant a, giant b);
+int	squaregi(ghandle *, giant g);
+int	mulgi(ghandle *, giant a, giant b);
 void 	modgi(ghandle *, giant den, giant num);
 void 	divgi(ghandle *, giant den, giant num);
 int 	invgi(ghandle *, int, giant n, giant x);
