@@ -33,6 +33,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/resource.h>
+#include <sys/sysctl.h>
 #include <sys/time.h>
 #include <sys/timeb.h>
 #define PTHREAD_MIN_PRIORITY 0		/* Missing #defines from pthreads.h */
@@ -83,14 +84,6 @@ typedef int pid_t;
 #endif
 #endif
 
-#ifdef MPRIME_LOADAVG
-#define LINUX_LDAV_FILE "/proc/loadavg"
-int volatile SLEEP_STOP = 0;
-long LOAD_CHECK_TIME = 0;
-double HI_LOAD = 0.0;
-double LO_LOAD = 0.0;
-#endif
-
 int volatile THREAD_KILL = 0;
 int NO_GUI = 1;
 int VERBOSE = 0;
@@ -115,9 +108,8 @@ void sigterm_handler(int signo)
 	(void)signal(signo, sigterm_handler);
 }
 
-#ifdef MPRIME_LOADAVG
-
 /* Routine to get the current load average */
+
 double get_load_average (void)
 {
 #ifdef __linux__
@@ -125,7 +117,7 @@ double get_load_average (void)
 	double	load_avg;
 	int	fd, count;
 
-	fd = open (LINUX_LDAV_FILE, O_RDONLY);
+	fd = open ("/proc/loadavg", O_RDONLY);
 	if (fd == -1) return (-1.0);
 	count = read (fd, ldavgbuf, 40);
 	(void) close (fd);
@@ -133,72 +125,17 @@ double get_load_average (void)
 	count = sscanf (ldavgbuf, "%lf", &load_avg);
 	if (count < 1) return (-1.0);
 	return (load_avg);
-#endif
+#else
 #if defined (__FreeBSD__) || defined (__APPLE__)
 	double load[3];
 
 	if (getloadavg (load, sizeof(load)/sizeof(load[0])) < 0) return (-1.0);
 	return (load[0]);
+#else
+	return (-1.0);
+#endif
 #endif
 }
-
-/* load_handler: call by signal routine,
-   sets SLEEP_STOP to TRUE if load is too high */
-void load_handler (
-	int	sig)
-{
-	double  load_avg;
-
-	load_avg = get_load_average ();
-	if (load_avg < 0.0) return;
-  
-	if (SLEEP_STOP) {
-		if (load_avg < LO_LOAD)
-			SLEEP_STOP = FALSE;
-	} else {
-		if (load_avg > HI_LOAD)
-			SLEEP_STOP = TRUE;
-	}
-}
-
-/* init_load_check: initialises timer that calls load_handler
-   every LOAD_CHECK_TIME seconds */
-void init_load_check (void)
-{
-	struct itimerval timer, otimer;
-	struct sigaction sigact;
-	int	ret;
-
-	timer.it_interval.tv_sec  =  LOAD_CHECK_TIME;
-	timer.it_interval.tv_usec =  0;
-	timer.it_value.tv_sec     =  LOAD_CHECK_TIME;
-	timer.it_value.tv_usec    =  0;
-
-	ret = setitimer (ITIMER_REAL, &timer, &otimer);
-	if (ret < 0) return;
-  
-	sigact.sa_handler = &load_handler;
-	sigemptyset(&sigact.sa_mask);
-	sigact.sa_flags =  SA_RESTART;
-	ret = sigaction(SIGALRM, &sigact, NULL);
-	if (ret < 0) { /* clean up after ourselves */
-		setitimer (ITIMER_REAL, &otimer, NULL);
-	}
-}
-
-/* test_sleep: tests if SLEEP_STOP is set and sleeps until load is normal
-   again or WORKER_THREADS_STOPPING is set
-*/
-void test_sleep (void) 
-{
-	sigset_t newmask;
-
-	while (SLEEP_STOP && !WORKER_THREADS_STOPPING) {
-		sigemptyset (&newmask);
-		sigsuspend (&newmask);
-	}
-}
-#endif
 
 /* Main entry point! */
 
@@ -335,22 +272,6 @@ int main (
 
 	nameAndReadIniFiles (named_ini_files);
 
-/* Read load averaging settings from INI files */
-
-#ifdef MPRIME_LOADAVG
-	IniGetString (INI_FILE, "MaxLoad", buf, sizeof (buf), "0");
-	HI_LOAD = atof (buf);
-	IniGetString (INI_FILE, "MinLoad", buf, sizeof (buf), "0");
-	LO_LOAD = atof (buf);
-	IniGetString (INI_FILE, "PauseTime", buf, sizeof (buf), "0");
-	LOAD_CHECK_TIME = atol (buf);
-
-/* Initialise load checking */
-
-	if (HI_LOAD > 0.0 && LOAD_CHECK_TIME > 0)
-		init_load_check ();
-#endif
-
 /* If running the torture test, do so now. */
 
 	if (torture_test) {
@@ -472,9 +393,6 @@ void PostLaunchCallback (
 void stopCheckCallback (
 	int	thread_num)
 {
-#ifdef MPRIME_LOADAVG
-	test_sleep ();
-#endif
 }
 
 void RealOutputStr (int thread_num, char *buf)

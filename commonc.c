@@ -838,6 +838,7 @@ int readIniFiles (void)
 	WELL_BEHAVED_WORK = IniGetInt (INI_FILE, "WellBehavedWork", 0);
 
 	read_pause_info ();
+	read_load_average_info ();
 
 	INTERIM_FILES = IniGetInt (INI_FILE, "InterimFiles", 0);
 	INTERIM_RESIDUES = IniGetInt (INI_FILE, "InterimResidues", INTERIM_FILES);
@@ -6325,6 +6326,10 @@ void timed_events_scheduler (void *arg)
 			case TE_READ_INI_FILE: /* Reread Ini files */
 				timed_events[i].active = FALSE;
 				stop_workers_for_reread_ini ();
+				break;
+			case TE_LOAD_AVERAGE:	/* Check load average event */
+				timed_events[i].active = FALSE;
+				checkLoadAverage ();
 				break;
 			}
 		}

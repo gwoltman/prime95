@@ -413,8 +413,9 @@ int PRIMENET (short, void *);
 #define TE_READ_PAUSE_DATA	11	/* Reread PauseWhileRunning info */
 #define TE_READ_INI_FILE	12	/* Reread prime.txt settings because */
 					/* a during/else time period has ended */
+#define TE_LOAD_AVERAGE		13	/* Linux/FreeBSD/Apple load average check */
 
-#define MAX_TIMED_EVENTS	13	/* Maximum number of timed events */
+#define MAX_TIMED_EVENTS	14	/* Maximum number of timed events */
 
 void init_timed_event_handler (void);
 
