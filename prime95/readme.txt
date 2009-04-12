@@ -160,20 +160,20 @@ Choose the "Connection..." button in the Test/Primenet dialog box.  Fill in
 the proxy information.
 
 
-SETTING AVAILABLE MEMORY
-------------------------
+SETTING P-1/ECM STAGE 2 MEMORY
+------------------------------
 
 Stage 2 of P-1 factoring step prior to running a Lucas-Lehmer test is
 slightly more effective if it is given more memory to work with.  However,
 if you let the program use too much memory then the performance of ALL programs
 will suffer.  The good news is that 98% of the time the program uses a minimal
-amount of memory.  In fact, the program will work just fine if never
+amount of memory.  In fact, the program will work just fine if you never
 let it use more than the minimum.
 
-So how do you intelligently choose the available memory settings?  Below
+So how do you intelligently choose the memory settings?  Below
 are some steps you might take to figure this out:
 
-1)  Be conservative.  It is better to set the available memory too low
+1)  Be conservative.  It is better to set the memory too low
 than too high.  Setting the value too high can cause thrashing which
 slows down all programs.  Remember, the program will only use the
 extra memory in stage 2 of P-1 factoring (about 12 hours a month).
@@ -201,8 +201,8 @@ stage 2 of P-1 factoring.
 
 For example, my machine is a dual-processor with 512MB of memory.
 I guess Windows XP can survive on 100MB of memory.  Thus, I set
-the available memory to (512 - 100) or ~400MB.  This is my nighttime setting.
-During the day, I set the available memory to 80MB.  I can always stop
+memory to (512 - 100) or ~400MB.  This is my nighttime setting.
+During the day, I set memory to 80MB.  I can always stop
 prime95 if it is doing P-1 factoring and I detect memory thrashing.  More
 casual users will probably want to set the daytime memory to 8MB so they
 don't have to worry about prime95 impacting system performance.
