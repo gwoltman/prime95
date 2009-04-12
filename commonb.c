@@ -4472,13 +4472,13 @@ int prime (
 
 /* Do some of the trial factoring.  We treat factoring that is part of a */
 /* LL test as priority work (done in pass 1).  We don't do all the trial */
-/* factoring as the last 2 bit levels take a lot of time and are unlikely */
+/* factoring as the last bit level takes a lot of time and is unlikely */
 /* to find a factor.  The P-1 test will probably be needed anyway and */
-/* may find a factor thus saving us from doing the last 2 bit levels. */
+/* may find a factor thus saving us from doing the last bit level. */
 
 	if ((w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK) &&
 	    ! IniGetInt (INI_FILE, "SkipTrialFactoring", 0)) {
-		stop_reason = primeFactor (thread_num, sp_info, w, 2);
+		stop_reason = primeFactor (thread_num, sp_info, w, 1);
 		if (stop_reason) return (stop_reason);
 	}
 
