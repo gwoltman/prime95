@@ -108,35 +108,6 @@ void sigterm_handler(int signo)
 	(void)signal(signo, sigterm_handler);
 }
 
-/* Routine to get the current load average */
-
-double get_load_average (void)
-{
-#ifdef __linux__
-	char	ldavgbuf[40];
-	double	load_avg;
-	int	fd, count;
-
-	fd = open ("/proc/loadavg", O_RDONLY);
-	if (fd == -1) return (-1.0);
-	count = read (fd, ldavgbuf, 40);
-	(void) close (fd);
-	if (count <= 0) return (-1.0);
-	count = sscanf (ldavgbuf, "%lf", &load_avg);
-	if (count < 1) return (-1.0);
-	return (load_avg);
-#else
-#if defined (__FreeBSD__) || defined (__APPLE__)
-	double load[3];
-
-	if (getloadavg (load, sizeof(load)/sizeof(load[0])) < 0) return (-1.0);
-	return (load[0]);
-#else
-	return (-1.0);
-#endif
-#endif
-}
-
 /* Main entry point! */
 
 int main (
@@ -309,6 +280,7 @@ int main (
 
 	else if (contact_server) {
 		do_manual_comm_now ();
+		while (COMMUNICATION_THREAD) Sleep (50);
 	}
 
 /* Bring up the main menu */
@@ -338,7 +310,7 @@ usage:	printf ("Usage: mprime [-cdhmstv] [-aN] [-wDIR]\n");
 	printf ("-s\tDisplay status.\n");
 	printf ("-t\tRun the torture test.\n");
 	printf ("-v\tPrint the version number.\n");
-	printf ("-aN\tUse an alternate set of INI and output files.\n");
+	printf ("-aN\tUse an alternate set of INI and output files (obsolete).\n");
 	printf ("-wDIR\tRun from a different working directory.\n");
 	printf ("\n");
 	return (1);
@@ -416,6 +388,35 @@ static	int	last_char_out_was_newline = TRUE;
 			printf ("%s", buf);
 		last_char_out_was_newline = (buf[strlen(buf)-1] == '\n');
 	}
+}
+
+/* Routine to get the current load average */
+
+double get_load_average (void)
+{
+#ifdef __linux__
+	char	ldavgbuf[40];
+	double	load_avg;
+	int	fd, count;
+
+	fd = open ("/proc/loadavg", O_RDONLY);
+	if (fd == -1) return (-1.0);
+	count = read (fd, ldavgbuf, 40);
+	(void) close (fd);
+	if (count <= 0) return (-1.0);
+	count = sscanf (ldavgbuf, "%lf", &load_avg);
+	if (count < 1) return (-1.0);
+	return (load_avg);
+#else
+#if defined (__FreeBSD__) || defined (__APPLE__)
+	double load[3];
+
+	if (getloadavg (load, sizeof(load)/sizeof(load[0])) < 0) return (-1.0);
+	return (load[0]);
+#else
+	return (-1.0);
+#endif
+#endif
 }
 
 /* Return TRUE if we are on battery power. */
