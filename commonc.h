@@ -207,6 +207,7 @@ void write_memory_settings (unsigned int, unsigned int, unsigned int, unsigned i
 int read_memory_settings (unsigned int *, unsigned int *, unsigned int *, unsigned int *);
 
 void nameAndReadIniFiles (int named_ini_files);
+void initCommCode (void);
 int readIniFiles (void);
 
 void IniSectionGetString (const char *, const char *, const char *, char *, unsigned int, const char *);

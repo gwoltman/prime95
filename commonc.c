@@ -668,6 +668,17 @@ void nameAndReadIniFiles (
 		IniWriteInt (INI_FILE, "StressTester", 0);
 	}
 
+/* Start some initial timers */
+
+	add_timed_event (TE_ROLLING_AVERAGE, 6*60*60);
+}
+
+/* Init the communications code.  We used to do this at the end of */
+/* nameAndReadIniFiles, but running mprime with the -s or -t argument */
+/* caused spurious creation of a prime.spl file. */
+
+void initCommCode (void) {
+
 /* Start or stop the communication timers.  This needs to be called */
 /* every time the INI file is read in case there have been changes to */
 /* the USE_PRIMENET or MANUAL_COMM variables. */
@@ -687,10 +698,6 @@ void nameAndReadIniFiles (
 
 	if (USE_PRIMENET && USERID[0] == 0)
 		spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
-
-/* Start some initial timers */
-
-	add_timed_event (TE_ROLLING_AVERAGE, 6*60*60);
 }
 
 /* Read or re-read the INI files & and do other initialization */

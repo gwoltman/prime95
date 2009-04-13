@@ -240,8 +240,11 @@ int main (
 	}
 
 /* Determine the names of the INI files, read them, do other initialization. */
+/* Skip the comm code initialization if we are just displaying the status */
+/* or running a torture test */
 
 	nameAndReadIniFiles (named_ini_files);
+	if (MENUING != 2 && !torture_test) initCommCode ();
 
 /* If running the torture test, do so now. */
 
