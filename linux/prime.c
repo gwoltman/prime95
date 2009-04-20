@@ -654,7 +654,7 @@ void setThreadPriorityAndAffinity (
 	errcode = sched_setaffinity (thread_id, sizeof (mask), &mask);
 #endif
 
-#if defined (__APPLE__) || defined (__FreeBSD__)
+#if defined (__APPLE__) || defined (__FreeBSD__) || defined (__HAIKU__)
 static	int	default_priority = 0;
 static	int	default_policy = 0;
 	struct sched_param sp;
