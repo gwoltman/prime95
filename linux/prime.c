@@ -76,6 +76,17 @@ typedef int pid_t;
 #include <sys/timeb.h>
 #endif
 
+/* Required Haiku files */
+#ifdef __HAIKU__
+#include <dirent.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <sys/resource.h>
+#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/timeb.h>
+#endif
+
 /* Globals */
 
 #ifndef __WATCOMC__
@@ -397,7 +408,7 @@ static	int	last_char_out_was_newline = TRUE;
 
 double get_load_average (void)
 {
-#ifdef __linux__
+#if defined (__linux__)
 	char	ldavgbuf[40];
 	double	load_avg;
 	int	fd, count;
@@ -410,8 +421,7 @@ double get_load_average (void)
 	count = sscanf (ldavgbuf, "%lf", &load_avg);
 	if (count < 1) return (-1.0);
 	return (load_avg);
-#else
-#if defined (__FreeBSD__) || defined (__APPLE__)
+#elif defined (__FreeBSD__) || defined (__APPLE__)
 	double load[3];
 
 	if (getloadavg (load, sizeof(load)/sizeof(load[0])) < 0) return (-1.0);
@@ -419,14 +429,13 @@ double get_load_average (void)
 #else
 	return (-1.0);
 #endif
-#endif
 }
 
 /* Return TRUE if we are on battery power. */
 
 int OnBattery (void)
 {
-#ifdef __APPLE__
+#if defined (__APPLE__)
 /* The following copyright applies to the battery detection code below.  I did modify */
 /* substantially as it did far more than I needed. */
 
@@ -493,8 +502,7 @@ int OnBattery (void)
 	CFRelease(sources);
 
 	return(!acstat);
-#endif
-#ifdef __linux__
+#elif defined (__linux__)
 	FILE	*fd;
 	char	buf[180];
 	int	ac_state;
@@ -513,6 +521,8 @@ int OnBattery (void)
 		fclose (fd);
 	}
 	return (ac_state == 0);
+#else
+	return (FALSE);		/* Assume we're on AC power */
 #endif
 }
 
@@ -520,7 +530,7 @@ int OnBattery (void)
 
 unsigned long physical_memory (void)
 {
-#ifdef __APPLE__
+#if defined (__APPLE__)
 	int	mib[2];
 	union {
 		uint32_t ui32;
@@ -537,6 +547,14 @@ unsigned long physical_memory (void)
 		return (value.ui32 >> 20);
 	else
 		return ((unsigned long) (value.ui64 >> 20));
+#elif defined (__HAIKU__)
+	long phys_pages;
+	long page_size;
+
+	phys_pages = sysconf(_SC_PHYS_PAGES);
+	page_size = sysconf(_SC_PAGE_SIZE);
+
+	return ((unsigned long)((double)phys_pages * (double)page_size / 1048576.0));
 #else
         struct sysinfo sys_info;
 
@@ -704,10 +722,9 @@ void linuxContinue (
 	running_pid = IniGetInt (LOCALINI_FILE, "Pid", 0);
 	if (running_pid == 0 || my_pid == running_pid) goto ok;
 
-#ifdef __APPLE__
+#if defined (__APPLE__) || defined (__HAIKU__)
 	goto ok;
-#else
-#ifdef __OS2__
+#elif defined (__OS2__)
 
         {
             USHORT handle1 = 0, handle2 = 0;
@@ -741,7 +758,6 @@ void linuxContinue (
 	_close (fd);
 	if (inode1 != inode2) goto ok;
 #endif
-#endif
 
 /* The two pids are running the same executable, raise an error and return */
 
@@ -755,52 +771,13 @@ ok:	IniWriteInt (LOCALINI_FILE, "Pid", my_pid);
 	if (wait_flag) IniWriteInt (LOCALINI_FILE, "Pid", 0);
 }
 
-/* Load the PrimeNet DLL, make sure an internet connection is active */
+/* Init PrimeNet communication code, make sure an internet connection is active */
+/* Return false if not connected to internet */
 
 int LoadPrimeNet (void)
 {
-	/* Init stuff */
-	/* Set PRIMENET procedure pointer */
-	/* return false if not connected to internet */
 
-	int lines = 0;
-#ifndef AOUT
-	FILE* fd;
-	char buffer[4096];
-#ifdef __EMX__
-	char command[128];
-	char szProxyHost[120], *con_host;
-	char *colon;
-
-	IniSectionGetString (INI_FILE, "PrimeNet", "ProxyHost",
-			     szProxyHost, 120, NULL);
-	if (*szProxyHost) {
-		if ((colon = strchr(szProxyHost, ':'))) {
-			*colon = 0;
-		}
-		con_host = szProxyHost;
-	} else {
-		con_host = szSITE;
-	}
-
-	sprintf(command,"host %s",con_host);
-#ifdef __DEBUG
-	fprintf(stderr,"Command = %s\n",command);
-#endif
-	fd = popen(command,"r");
-	if (fd != NULL) {
-	  fgets(buffer, 199, fd);
-#ifdef __DEBUG
-	  fprintf(stderr,"Response = %s\n",buffer);
-#endif
-	  if (strncmp(buffer,"host:",5) != 0) {
-	    fclose(fd);
-	    return TRUE;
-	  }
-	  fclose(fd);
-	}
-#else
-#ifdef __linux__
+#if defined (__linux__)
 	/* Open file that will hopefully tell us if we are connected to */
 	/* the Internet.  There are four possible settings for RouteRequired */
 	/* 0:	Always return TRUE */
@@ -809,54 +786,52 @@ int LoadPrimeNet (void)
 	/* 99:	Default.  Use case 2 above but if cannot open /proc/net/route*/
 	/*	then assume you are connected (we probably do not have read */
 	/*	permission or this is a funny Linux setup). */
-	{
-	  int RtReq = IniSectionGetInt (INI_FILE, "PrimeNet", "RouteRequired", 99);
-	  if (RtReq == 0) return (TRUE);
-	  fd = fopen("/proc/net/route","r");
-	  if (fd == NULL) return (RtReq == 99);
+	int	lines = 0;
+	FILE	*fd;
+	char	buffer[4096];
+	int	RtReq = IniSectionGetInt (INI_FILE, "PrimeNet", "RouteRequired", 99);
+	if (RtReq == 0) return (TRUE);
+	fd = fopen("/proc/net/route","r");
+	if (fd == NULL) return (RtReq == 99);
 	/* We have a readable /proc/net/route file.  Use the new check */
 	/* for an Internet connection written by Matthew Ashton. However, */
 	/* we still support the old style check (just in case) by setting */
 	/* RouteRequired to 1. */
-	  if (RtReq >= 2) {
-	    while (fgets(buffer, sizeof(buffer), fd)) {
-	      int dest;
-	      if(sscanf(buffer, "%*s %x", &dest) == 1 && dest == 0) {
-		fclose (fd);
-		return (TRUE);
-	      }
-	    }
-	  }
-	/* The old code for testing an Internet connection is below */
-	  else {
-	    fgets(buffer, 199, fd);
-	    fgets(buffer, 199, fd);
-	    while (!feof(fd)) {
-	      if (strncmp(buffer, "lo", 2)) {
-	        fclose(fd);
-	        return TRUE;
-	      }
-	      fgets(buffer, 199, fd);
-	    }
-	  }
-	  fclose(fd);
+	if (RtReq >= 2) {
+		while (fgets(buffer, sizeof(buffer), fd)) {
+			int dest;
+			if(sscanf(buffer, "%*s %x", &dest) == 1 && dest == 0) {
+				fclose (fd);
+				return (TRUE);
+			}
+		}
 	}
-#endif
-#if defined (__FreeBSD__) || defined (__APPLE__) || defined (__WATCOMC__)
-	/* The /proc/net/route test is not really meaningful under FreeBSD */
-	/* There doesn't seem to be any meaningful test to see whether the */
+	/* The old code for testing an Internet connection is below */
+	else {
+		fgets(buffer, 199, fd);
+		fgets(buffer, 199, fd);
+		while (!feof(fd)) {
+			if (strncmp(buffer, "lo", 2)) {
+				fclose(fd);
+				return TRUE;
+			}
+			fgets(buffer, 199, fd);
+		}
+	}
+	fclose(fd);
+#elif defined (__FreeBSD__) || defined (__APPLE__) || defined (__WATCOMC__) || defined (__HAIKU__)
+	/* The /proc/net/route test is only really meaningfulunder linux. */
+	/* For other OSes, there doesn't seem to be any meaningful test to see whether the */
 	/* computer is connected to the Internet at the time using a non- */
 	/* invasive test (which wouldn't, say, activate diald or ppp or */
 	/* something else */
 	return TRUE;
-#endif                /* __FreeBSD__ */
-#endif
 #endif
 	OutputStr (COMM_THREAD_NUM, "You are not connected to the Internet.\n");
 	return FALSE;
 }
 
-/* Unload the PrimeNet DLL */
+/* Unload the PrimeNet communication code */
 
 void UnloadPrimeNet (void)
 {

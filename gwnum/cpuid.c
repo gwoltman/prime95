@@ -25,7 +25,7 @@
 #define INCL_DOSPROFILE
 #include <os2.h>
 #endif
-#if defined (__linux__) || defined (__FreeBSD__) || defined (__APPLE__)
+#if defined (__linux__) || defined (__FreeBSD__) || defined (__APPLE__) || defined (__HAIKU__)
 #include <sys/time.h>
 #define _timeb	timeb
 #define _ftime	ftime
@@ -63,13 +63,12 @@ unsigned int CPU_SIGNATURE = 0;		/* Vendor-specific family number, */
 
 unsigned int num_cpus (void)
 {
-#ifdef _WIN32
+#if defined (_WIN32)
 	SYSTEM_INFO sys;
 
 	GetSystemInfo (&sys);
 	return (sys.dwNumberOfProcessors);
-#else
-#ifdef __APPLE__
+#elif defined (__APPLE__)
 	int	mib[2];
 	int	ncpus;
 	size_t	len;
@@ -79,8 +78,7 @@ unsigned int num_cpus (void)
 	len = sizeof (ncpus);
 	sysctl (mib, 2, &ncpus, &len, NULL, 0);
 	return (ncpus);
-#else
-#ifdef __linux__
+#elif defined (__linux__)
 	FILE	*fd;
 	char	buf[200];
 	int	count;
@@ -96,10 +94,13 @@ unsigned int num_cpus (void)
 	}
 	if (count == 0) count = 1;
 	return (count);
+#elif defined (__HAIKU__)
+	int	ncpus;
+
+	ncpus = sysconf(_SC_NPROCESSORS_CONF);
+	return (ncpus);
 #else
 	return (1);
-#endif
-#endif
 #endif
 }
 
@@ -1243,7 +1244,7 @@ int isHighResTimerAvailable (void)
 /* to the microsecond. */
         return (TRUE);
 #endif
-#if defined (__linux__) || defined (__FreeBSD__) || defined (__APPLE__)
+#if defined (__linux__) || defined (__FreeBSD__) || defined (__APPLE__) || defined (__HAIKU__)
 	struct timeval start, end;
 	struct timezone tz;
 	int	i;
@@ -1279,7 +1280,7 @@ double getHighResTimer (void)
         DosTmrQueryTime((PQWORD)&qwTmrTime);
         return (qwTmrTime);
 #endif
-#if defined (__linux__) || defined (__FreeBSD__) || defined (__APPLE__)
+#if defined (__linux__) || defined (__FreeBSD__) || defined (__APPLE__) || defined (__HAIKU__)
 	struct timeval x;
 	struct timezone tz;
 
@@ -1302,7 +1303,7 @@ double getHighResTimerFrequency (void)
 	DosTmrQueryFreq(&ulTmrFreq);
 	return (ulTmrFreq);
 #endif
-#if defined (__linux__) || defined (__FreeBSD__) || defined (__APPLE__)
+#if defined (__linux__) || defined (__FreeBSD__) || defined (__APPLE__) || defined (__HAIKU__)
 	return (1000000.0);
 #endif
 }
