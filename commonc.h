@@ -245,7 +245,8 @@ int PTOHasOptionChanged (char *shadow_keyword, unsigned int *array, int tnum);
 
 #define MAIN_THREAD_NUM		-2
 #define COMM_THREAD_NUM		-1
-void create_window (int);
+void create_window (int thread_num);
+void destroy_window (int thread_num);
 void TileViews (void);
 void base_title (int, char *);
 void title (int, char *);
