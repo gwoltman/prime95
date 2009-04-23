@@ -2884,13 +2884,31 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 	    auxillaryWorkUnitInit (w);
 
 /* Set stage and pct_complete for work units that have already begun */
-/* based on data in the save files. */
+/* based on data in the save files.  Only do this for the first appearance */
+/* of a number for a worker.  For example, if a worker has several entries */
+/* ECMing the same number, only the first entry will have the pct_complete set. */
 
 	    if (WELL_BEHAVED_WORK && !first_real_work_line) {
-		    w->stage[0] = 0;
-		    w->pct_complete = 0.0;
-	    } else
-		    pct_complete_from_savefile (w);
+		w->stage[0] = 0;
+		w->pct_complete = 0.0;
+	    } else {
+		struct work_unit *earlier_w;
+		for (earlier_w = WORK_UNITS[tnum].first; ; earlier_w = earlier_w->next) {
+			if (earlier_w == NULL) {
+				pct_complete_from_savefile (w);
+				break;
+			}
+			if (earlier_w->work_type == w->work_type &&
+			    earlier_w->k == w->k &&
+			    earlier_w->b == w->b &&
+			    earlier_w->n == w->n &&
+			    earlier_w->c == w->c) {
+				w->stage[0] = 0;
+				w->pct_complete = 0.0;
+				break;
+			}
+		}
+	    }
 	    first_real_work_line = FALSE;
 
 /* Grow the work_unit array if necessary and add this entry */
