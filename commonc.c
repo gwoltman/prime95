@@ -3084,7 +3084,7 @@ int writeWorkToDoFile (
 
 		case WORK_ECM:
 			sprintf (buf,
-				 "ECM2=%s%.0f,%lu,%lu,%ld,%.0f,%.0f,%lu",
+				 "ECM2=%s%.0f,%lu,%lu,%ld,%.0f,%.0f,%u",
 				 idbuf, w->k, w->b, w->n, w->c, w->B1, w->B2,
 				 w->curves_to_do);
 			if (w->B2_start > w->B1)
