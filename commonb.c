@@ -5085,9 +5085,9 @@ begin:	gwinit (&lldata.gwdata);
 	formatMsgForResultsFile (buf, w);
 	rc = writeResults (buf);
 
-/* Output results to the screen, results file, and server */
+/* Send results to the server if they might possibly be of interest */
 
-	{
+	if (p > 1000000 && (!isPrime || !isKnownMersennePrime (p))) {
 		struct primenetAssignmentResult pkt;
 		memset (&pkt, 0, sizeof (pkt));
 		strcpy (pkt.computer_guid, COMPUTER_GUID);
