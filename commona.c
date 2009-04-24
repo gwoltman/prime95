@@ -146,7 +146,7 @@ void rangeStatusMessage (
 		else if (w->work_type == WORK_PMINUS1)
 			sprintf (buf, "P-1 B1=%.0f", w->B1);
 		else if (w->work_type == WORK_FACTOR)
-			sprintf (buf, "factor from 2^%lu to 2^%lu",
+			sprintf (buf, "factor from 2^%d to 2^%d",
 				 (int) w->sieve_depth, (int) w->factor_to);
 		else
 			strcpy (buf, w->work_type == WORK_PFACTOR ?
