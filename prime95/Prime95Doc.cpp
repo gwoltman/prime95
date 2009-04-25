@@ -1,5 +1,7 @@
 // Prime95Doc.cpp : implementation of the CPrime95Doc class
 //
+// Copyright 1995-2009 Mersenne Research, Inc.  All rights reserved
+//
 
 #include "stdafx.h"
 #include "MainFrm.h"
@@ -1124,7 +1126,7 @@ void CPrime95Doc::rangeStatus ()
 {
 	char	buf[2000];
 
-	rangeStatusMessage (buf);
+	rangeStatusMessage (buf, sizeof (buf));
 
 	AfxMessageBox (buf, MB_ICONINFORMATION);
 }
