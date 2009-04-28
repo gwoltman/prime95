@@ -456,7 +456,7 @@ void strupper (
 /* Convert a string (e.g "11:30 AM") to minutes since midnight */
 
 unsigned int strToMinutes (
-	char	*buf)
+	const char *buf)
 {
 	unsigned int hours, minutes, pm;
 
@@ -797,6 +797,8 @@ int readIniFiles (void)
 	if (NUM_WORKER_THREADS > MAX_NUM_WORKER_THREADS)
 		NUM_WORKER_THREADS = MAX_NUM_WORKER_THREADS;
 	PRIORITY = (unsigned int) IniGetInt (INI_FILE, "Priority", 1);
+	if (PRIORITY < 1) PRIORITY = 1;
+	if (PRIORITY > 10) PRIORITY = 10;
 	PTOGetAll (INI_FILE, "WorkPreference", WORK_PREFERENCE, 0);
 	PTOGetAll (LOCALINI_FILE, "Affinity", CPU_AFFINITY, 100);
 	PTOGetAll (LOCALINI_FILE, "ThreadsPerTest", THREADS_PER_TEST, CPU_HYPERTHREADS);

@@ -201,7 +201,7 @@ void getCpuInfo (void);
 void getCpuDescription (char *, int);
 
 int isPrime (unsigned long p);
-unsigned int strToMinutes (char	*);
+unsigned int strToMinutes (const char	*);
 void minutesToStr (unsigned int, char *);
 void write_memory_settings (unsigned int, unsigned int, unsigned int, unsigned int);
 int read_memory_settings (unsigned int *, unsigned int *, unsigned int *, unsigned int *);
