@@ -408,7 +408,7 @@ again:	if (max_num_workers () > 1)
 			askNum ("Type of work to get", &m_work_pref[i], 0, 150);
 
 		if (NUM_CPUS * CPU_HYPERTHREADS > m_num_thread)
-			askNum ("Multithreading (Number of CPUs to use in LL test)",
+			askNum ("CPUs to use in LL test (multithreading)",
 				&m_numcpus[i], 1,
 				NUM_CPUS * CPU_HYPERTHREADS - m_num_thread + 1);
 		else
