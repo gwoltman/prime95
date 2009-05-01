@@ -725,21 +725,15 @@ int readIniFiles (void)
 
 	if (!IniGetInt (INI_FILE, "V24OptionsConverted", 0)) {
 		IniWriteInt (INI_FILE, "V24OptionsConverted", 1);
-		if (IniGetInt (INI_FILE, "WorkPreference", 0) == 16)
-			IniWriteInt (INI_FILE, "WorkPreference",
-				     PRIMENET_WP_LL_10M);
+		if (IniGetInt (INI_FILE, "WorkPreference", 0) == 16) // Ten million digit
+			IniWriteInt (INI_FILE, "WorkPreference", PRIMENET_WP_WORLD_RECORD);
 		else if (IniGetInt (INI_FILE, "WorkPreference", 0) == 2)
-			IniWriteInt (INI_FILE, "WorkPreference",
-				     PRIMENET_WP_LL_FIRST);
+			IniWriteInt (INI_FILE, "WorkPreference", PRIMENET_WP_LL_FIRST);
 		else if (IniGetInt (INI_FILE, "WorkPreference", 0) == 4)
-			IniWriteInt (INI_FILE, "WorkPreference",
-				     PRIMENET_WP_LL_DBLCHK);
+			IniWriteInt (INI_FILE, "WorkPreference", PRIMENET_WP_LL_DBLCHK);
 		else if (IniGetInt (INI_FILE, "WorkPreference", 0) == 1)
-			IniWriteInt (INI_FILE, "WorkPreference",
-				     PRIMENET_WP_FACTOR);
-/* Default is debug on while we are beta testing */
-		IniSectionWriteInt (INI_FILE, "PrimeNet", "Debug", 1);
-		IniWriteInt (INI_FILE, "SendAllFactorData", 1);
+			IniWriteInt (INI_FILE, "WorkPreference", PRIMENET_WP_FACTOR);
+		IniSectionWriteInt (INI_FILE, "PrimeNet", "Debug", 0);
 	}
 
 /* Put commonly used options in global variables */
