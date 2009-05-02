@@ -1,0 +1,49 @@
+# Makefile for Mac OS X gwnum library
+#
+
+ENVP= MACOSX_DEPLOYMENT_TARGET=10.3
+
+CC = gcc
+CFLAGS = -I.. -g -DGDEBUG -march=i686 -malign-double
+
+CPP = g++
+CPPFLAGS = -I.. -I../qd -g -DGDEBUG -march=i686 -malign-double
+
+OBJS = debug/cpuid.o debug/gwnum.o debug/gwthread.o debug/gwutil.o debug/gwdbldbl.o debug/giants.o debug/ecmstag1.o
+
+LIB = debug/gwnum.a
+
+#########################################################################
+
+$(LIB): $(OBJS)
+	ar -rs $(LIB) $(OBJS)
+
+clean:
+	rm -f $(OBJS)
+
+debug/cpuid.o:
+	$(ENVP) $(CC) $(CFLAGS) -c -o debug/cpuid.o cpuid.c
+
+debug/gwnum.o:
+	$(ENVP) $(CC) $(CFLAGS) -c -o debug/gwnum.o gwnum.c
+
+debug/gwthread.o:
+	$(ENVP) $(CC) $(CFLAGS) -c -o debug/gwthread.o gwthread.c
+
+debug/gwutil.o:
+	$(ENVP) $(CC) $(CFLAGS) -c -o debug/gwutil.o gwutil.c
+
+debug/gwdbldbl.o:
+	$(ENVP) $(CPP) $(CPPFLAGS) -c -o debug/gwdbldbl.o gwdbldbl.cpp
+
+debug/giants.o:
+	$(ENVP) $(CC) $(CFLAGS) -c -o debug/giants.o giants.c
+
+debug/ecmstag1.o:
+	$(ENVP) $(CC) $(CFLAGS) -c -o debug/ecmstag1.o ecmstag1.c
+
+.c.o:
+	$(ENVP) $(CC) $(CFLAGS) -c $<
+
+.cpp.o:
+	$(ENVP) $(CPP) $(CPPFLAGS) -c $<
