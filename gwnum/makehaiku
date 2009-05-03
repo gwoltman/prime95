@@ -14,6 +14,7 @@ LIB = gwnum.a
 #########################################################################
 
 $(LIB): $(HAIKUOBJS)
+	cp linux/gwnum.a .
 	ar -rs $(LIB) $(HAIKUOBJS)
 
 clean:
