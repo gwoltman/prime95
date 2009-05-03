@@ -3,7 +3,7 @@
 /* Constants */
 
 #define VERSION		"25.10"
-#define BUILD_NUM	"1"
+#define BUILD_NUM	"2"
 /* The list of assigned OS ports follows: */
 /* Win9x (prime95) #1 */
 /* Linux (mprime)  #2 */
@@ -15,6 +15,8 @@
 /* Linux x86-64	   #8 */
 /* Mac OS X	   #9 */
 /* Mac OS X 64-bit #10 */
+/* Haiku	   #11 */
+/* FreeBSD 64-bit  #12 */
 
 #define MIN_PRIME	5L		/* Smallest testable prime */
 #define MAX_FACTOR	2000000000	/* Largest factorable Mersenne number*/
