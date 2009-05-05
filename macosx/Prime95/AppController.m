@@ -98,6 +98,20 @@ AppController *myAppController;			// Global variable to allow access to this obj
 	}
 }
 
+// Intercept shutdown messages and save our state
+
+- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)app {
+
+// Stop background threads before exiting
+
+	if (WORKER_THREADS_ACTIVE) {
+		stop_workers_for_escape ();
+		while (WORKER_THREADS_STOPPING) Sleep (50);
+	}
+
+	return NSTerminateNow;
+}
+
 - (BOOL)validateMenuItem:(NSMenuItem *)item
 {
 	SEL theAction = [item action];
