@@ -111,7 +111,8 @@ void generate_application_string (
 		 PORT == 8 ? "Linux64" :
 		 PORT == 9 ? "Mac OS X" :
 		 PORT == 10 ? "Mac OS X 64-bit" :
-		 PORT == 11 ? "Haiku" : "Unknown",
+		 PORT == 11 ? "Haiku" :
+		 PORT == 12 ? "FreeBSD 64-bit" : "Unknown",
 		 VERSION, BUILD_NUM);
 }
 

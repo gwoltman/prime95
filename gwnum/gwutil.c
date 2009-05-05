@@ -13,7 +13,7 @@
 #include "windows.h"
 #endif
 #include <stdlib.h>
-#ifndef __APPLE__
+#if defined (__linux__) || defined (__HAIKU__)
 #include <malloc.h>
 #endif
 #include "gwcommon.h"

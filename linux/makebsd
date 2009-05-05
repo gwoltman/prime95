@@ -14,17 +14,17 @@ LIBS   = ../gwnum/gwnum.lib ../gwnum/gwnum.ld -lm -lpthread -lcurl -lcompat -lst
 LIBS2  = ../gwnum/gwnum.lib ../gwnum/gwnum.ld -lm -lpthread -lcurl -lcompat -lstdc++ -static
 
 FACTOROBJ = factor32.o
-LINUXOBJS = prime.o menu.o
+OBJS = prime.o menu.o
 EXE      = mprime
 EXE2	 = sprime
 
 #########################################################################
 
-$(EXE): security $(LINUXOBJS) $(FACTOROBJ)
-	$(CC) $(LFLAGS) -o $(EXE) $(LINUXOBJS) $(FACTOROBJ) $(LIBS)
+$(EXE): security $(OBJS) $(FACTOROBJ)
+	$(CC) $(LFLAGS) -o $(EXE) $(OBJS) $(FACTOROBJ) $(LIBS)
 
-$(EXE2): security $(LINUXOBJS) $(FACTOROBJ)
-	$(CC) $(LFLAGS) -o $(EXE2) $(LINUXOBJS) $(FACTOROBJ) $(LIBS2)
+$(EXE2): security $(OBJS) $(FACTOROBJ)
+	$(CC) $(LFLAGS) -o $(EXE2) $(OBJS) $(FACTOROBJ) $(LIBS2)
 
 security:
 	[ ! -e ../security.h ] && touch ../security.h || true
@@ -32,7 +32,7 @@ security:
 	[ ! -e ../secure5.c ] && touch ../secure5.c || true
 
 clean:
-	rm -f $(EXE) $(EXE2) $(LINUXOBJS)
+	rm -f $(EXE) $(EXE2) $(OBJS)
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<
