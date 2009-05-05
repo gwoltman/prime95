@@ -174,6 +174,23 @@ unsigned long physical_memory (void)
 		return (value.ui32 >> 20);
 	else
 		return ((unsigned long) (value.ui64 >> 20));
+#elif defined (__FreeBSD__)
+	int	mib[2];
+	union {
+		uint32_t ui32;
+		uint64_t ui64;
+	} value;
+	size_t	len;
+
+	mib[0] = CTL_HW;
+	mib[1] = HW_PHYSMEM;
+	len = sizeof (value);
+	if (sysctl (mib, 2, &value, &len, NULL, 0) < 0)
+		return (1024);		/* On error, guess 1GB */
+	if (len == sizeof (uint32_t))
+		return (value.ui32 >> 20);
+	else
+		return ((unsigned long) (value.ui64 >> 20));
 #elif defined (__HAIKU__)
 	long phys_pages;
 	long page_size;

@@ -49,9 +49,12 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <sys/resource.h>
+#include <sys/sysctl.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/timeb.h>
+#define PTHREAD_MIN_PRIORITY 0		/* Missing #defines from pthreads.h */
+#define PTHREAD_MAX_PRIORITY 31		/* Missing #defines from pthreads.h */
 #endif
 
 /* Required OS/2 header files */

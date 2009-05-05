@@ -4,14 +4,14 @@
 #
 
 CC = gcc
-CFLAGS = -I.. -I../gwnum -O2 -march=i486 -malign-double
+CFLAGS = -I.. -I../gwnum -I/usr/local/include -O2 -march=i486 -malign-double
 
 CPP = g++
-CPPFLAGS = -I.. -I../gwnum -O2 -march=i486 -malign-double
+CPPFLAGS = -I.. -I../gwnum -I/usr/local/include -O2 -march=i486 -malign-double
 
 LFLAGS = -Wl,-M
-LIBS   = ../gwnum/gwnum.lib ../gwnum/gwnum.ld -lm -lpthread -lcurl -lcompat -lstdc++
-LIBS2  = ../gwnum/gwnum.lib ../gwnum/gwnum.ld -lm -lpthread -lcurl -lcompat -lstdc++ -static
+LIBS   = ../gwnum/gwnum.a ../gwnum/gwnum.ld -lm -lpthread /usr/local/lib/libcurl.a -lssl -lz -lcompat -lstdc++
+LIBS2  = ../gwnum/gwnum.a ../gwnum/gwnum.ld -lm -lpthread /usr/local/lib/libcurl.a -lssl -lz -lcompat -lstdc++ -static
 
 FACTOROBJ = factor32.o
 OBJS = prime.o menu.o
