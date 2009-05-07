@@ -1628,15 +1628,15 @@ ENDIF
 
 CALLP	MACRO x
 IFDEF AMD
-	CALL_Y	&x&AMD
+	call	&x&AMD
 ELSE
 IFDEF PFETCH
-	CALL_Y	&x&P3
+	call	&x&P3
 ELSE
 IFDEF PPRO
-	CALL_Y	&x&PPRO
+	call	&x&PPRO
 ELSE
-	CALL_Y	&x
+	call	&x
 ENDIF
 ENDIF
 ENDIF
@@ -1644,53 +1644,18 @@ ENDIF
 
 JMPP	MACRO x
 IFDEF AMD
-	JMP_Y	&x&AMD
+	jmp	&x&AMD
 ELSE
 IFDEF PFETCH
-	JMP_Y	&x&P3
+	jmp	&x&P3
 ELSE
 IFDEF PPRO
-	JMP_Y	&x&PPRO
+	jmp	&x&PPRO
 ELSE
-	JMP_Y	&x
+	jmp	&x
 ENDIF
 ENDIF
 ENDIF
-	ENDM
-
-;
-; Call and Jump instructions to make Linux objcopy happy (it has an off
-; by 4 bug jumping to labels defined outside the current file).
-; Use these for calling or jumping to labels defined outside the current file
-;
-; Now that we are using Agner Fog's objconv, we don't need these tricks
-;
-
-CALL_Y	MACRO	DEST
-	call	DEST
-	ENDM
-
-JL_Y	MACRO	DEST
-	jl	DEST
-	ENDM
-
-JE_Y	MACRO	DEST
-	je	DEST
-	ENDM
-
-JMP_Y	MACRO	DEST
-	jmp	DEST
-	ENDM
-
-;; Linux x86-64 objcopy has trouble relocating offsets of labels or data
-;; declared in the same file.  We trick MASM into generating RIP-relative
-;; addressing instead.
-;;
-;; Now that we are using Agner Fog's objconv, we don't need these tricks
-;;
-
-MOVOFFSET MACRO reg, addr
-	mov	reg, OFFSET addr
 	ENDM
 
 ;
