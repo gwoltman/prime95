@@ -82,7 +82,6 @@ void gwinit (
 /* gwnum's primary use - support for fast operations modulo K*B^N+C. */
 /* Smaller K and C values result in smaller FFT sizes and faster operations. */
 /* Right now, if B<>2 defaults to the slower gwsetup_general_mod case. */
-/* Only choose a specific FFT size if you know what you are doing!! */
 
 int gwsetup (
 	gwhandle *gwdata,	/* Placeholder for gwnum global data */
@@ -93,16 +92,21 @@ int gwsetup (
 
 /* This setup routine is for operations modulo an arbitrary binary number. */
 /* This is three times slower than the special forms above. */
-/* Only choose a specific FFT size if you know what you are doing!! */
+/* The code will try to convert suitable k*2^n+c values into the faster */
+/* gwsetup (gwdata,b,b,n,c) call above.  The caller would be better off */
+/* not relying on this detection if at all possible. */
 
 int gwsetup_general_mod (
 	gwhandle *gwdata,	/* Placeholder for gwnum global data */
-	uint32_t *array,	/* The modulus as an array of 32-bit values */
+	const uint32_t *array,	/* The modulus as an array of 32-bit values */
 	uint32_t arraylen);	/* Number of values in the array */
+int gwsetup_general_mod_64 (
+	gwhandle *gwdata,	/* Placeholder for gwnum global data */
+	const uint64_t *array,	/* The modulus as an array of 64-bit values */
+	uint64_t arraylen);	/* Number of values in the array */
 
 /* This setup routine is for operations without a modulo. In essence, */
 /* you are using gwnums as a general-purpose FFT multiply library. */
-/* Only choose a specific FFT size if you know what you are doing!! */
 
 int gwsetup_without_mod (
 	gwhandle *gwdata,	/* Placeholder for gwnum global data */
@@ -116,18 +120,6 @@ void gwdone (
 /*---------------------------------------------------------------------+
 |                    GWNUM OBSCURE GWSETUP OPTIONS                     |
 +---------------------------------------------------------------------*/
-
-/* Prior to calling one of the gwsetup routines, you can have the library */
-/* attempt to use large pages (2MB or 4MB on Intel architecture) rather than the */
-/* standard 4KB pages.  This may improve performance by reducing TLB misses. */
-/* It may have system-wide costs, as the OS may not page these to disk */
-/* when not in use.  NOTE: Only the first gwalloc will return memory */
-/* allocated using large pages. */
-
-#define gwset_use_large_pages(h)	((h)->use_large_pages = 1)
-#define gwclear_use_large_pages(h)	((h)->use_large_pages = 0)
-#define gwget_use_large_pages(h)	((h)->use_large_pages)
-#define gw_using_large_pages(h)		((h)->large_pages_ptr != NULL)
 
 /* Prior to calling one of the gwsetup routines, you can have the library */
 /* "play it safe" by reducing the maximum allowable bits per FFT data word. */
@@ -152,6 +144,7 @@ void gwdone (
 /* to use a specific fft length.  This should rarely (if ever) be used. */
 /* I use it occasionally for benchmarking and/or checking round off errors */
 /* at the FFT crossover points. */
+/* Only choose a specific FFT size if you know what you are doing!! */
 
 #define gwset_specific_fftlen(h,n)	((h)->specific_fftlen = n)
 
@@ -173,6 +166,18 @@ void gwdone (
 
 #define gwset_thread_callback(h,n)		((h)->thread_callback = n)
 #define gwset_thread_callback_data(h,d)		((h)->thread_callback_data = d)
+
+/* Prior to calling one of the gwsetup routines, you can have the library */
+/* attempt to use large pages (2MB or 4MB on Intel architecture) rather than the */
+/* standard 4KB pages.  This may improve performance by reducing TLB misses. */
+/* It may have system-wide costs, as the OS may not page these to disk */
+/* when not in use.  NOTE: Only the first gwalloc will return memory */
+/* allocated using large pages. */
+
+#define gwset_use_large_pages(h)	((h)->use_large_pages = 1)
+#define gwclear_use_large_pages(h)	((h)->use_large_pages = 0)
+#define gwget_use_large_pages(h)	((h)->use_large_pages)
+#define gw_using_large_pages(h)		((h)->large_pages_ptr != NULL)
 
 /*---------------------------------------------------------------------+
 |                     GWNUM MEMORY ALLOCATION ROUTINES                 |
@@ -201,8 +206,15 @@ void dbltogw (gwhandle *, double, gwnum);
 /* Convert a binary value (array of 32-bit values) to a gwnum */
 void binarytogw (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	uint32_t *array,	/* Array containing the binary value */
+	const uint32_t *array,	/* Array containing the binary value */
 	uint32_t arraylen,	/* Length of the array */
+	gwnum	n);		/* Destination gwnum */
+
+/* Convert a binary value (array of 64-bit values) to a gwnum */
+void binary64togw (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	const uint64_t *array,	/* Array containing the binary value */
+	uint64_t arraylen,	/* Length of the array */
 	gwnum	n);		/* Destination gwnum */
 
 /* Convert a binary value (array of 32-bit or 64-bit values) to a gwnum. */
@@ -210,7 +222,7 @@ void binarytogw (
 
 void binarylongstogw (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	unsigned long *array,	/* Array containing the binary value */
+	const unsigned long *array, /* Array containing the binary value */
 	unsigned long arraylen,	/* Length of the array */
 	gwnum	n);		/* Destination gwnum */
 
@@ -224,6 +236,17 @@ long gwtobinary (
 	gwnum	n,		/* Source gwnum */
 	uint32_t *array,	/* Array to contain the binary value */
 	uint32_t arraylen);	/* Maximum size of the array */
+
+/* Convert a gwnum to a binary value (array of 64-bit values).  Returns */
+/* the number of 64-bit values written to the array.  The array is NOT */
+/* zero-padded.  Returns a negative number if an error occurs during the */
+/* conversion.  An error can happen if the FFT data contains a NaN or */
+/* infinity value. */
+long gwtobinary64 (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	n,		/* Source gwnum */
+	uint64_t *array,	/* Array to contain the binary value */
+	uint64_t arraylen);	/* Maximum size of the array */
 
 /* Convert a gwnum to a binary value (array of 32-bit or 64-bit values). */
 /* Check your C compiler specs to see if a long is 32 or 64 bits. */
@@ -302,6 +325,7 @@ long gwtobinarylongs (
 /* multiplied by.  Use this macro in conjunction with the c argument of */
 /* gwsetnormroutine. */
 
+#define GWMULBYCONST_MAX	255		/* I think this is right */
 void gwsetmulbyconst (gwhandle *gwdata, long s);
 
 /* The multiplication code has two options that you can set using this */
@@ -426,7 +450,14 @@ void gwsetaddinatbit (gwhandle *, long, unsigned long);
 /* This routine adds a small value to a gwnum.  This lets us apply some */
 /* optimizations that cannot be performed by gwadd */
 
-void gwaddsmall (gwhandle *gwdata, gwnum g, int addin);
+#define GWADDSMALL_MAX		2251799813685247.0	/* May be lowered at later date */
+void gwaddsmall (gwhandle *gwdata, gwnum g, double addin);
+
+/* This routine multiplies a gwnum by a small positive value.  This lets us apply some */
+/* optimizations that cannot be performed by a full FFT multiplication. */
+
+#define GWMULSMALL_MAX		67108864.0		/* May allow more at a later date */
+void gwmulsmall (gwhandle *gwdata, gwnum g, double mult);
 
 /*---------------------------------------------------------------------+
 |                      GWNUM ERROR-CHECKING ROUTINES                   |
@@ -776,6 +807,8 @@ struct gwhandle_struct {
 				/* code uses this to compare results from one */
 				/* FFT implementation to the (should be identical) */
 				/* results of another FFT implementation. */
+	int	force_general_mod; /* Forces gwsetup_general_mod to not check */
+				/* for a k*2^n+c reduction */
 	int	use_large_pages; /* Try to use 2MB pages */
 	void	*large_pages_ptr; /* Pointer to the lage pages memory block */
 				/* we allocated. */

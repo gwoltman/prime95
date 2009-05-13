@@ -342,6 +342,11 @@ struct gwasm_data {
 
 /* Forward declarations */
 
+int convert_giant_to_kbnc (
+	giant	g,		/* Giant to examine */
+	double	*k,		/* K in K*2^N+C. */
+	unsigned long *n,	/* N in K*2^N+C. */
+	signed long *c);	/* C in K*2^N+C. */
 int internal_gwsetup (
 	gwhandle *gwdata,	/* Placeholder for gwnum global data */
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
@@ -1726,11 +1731,12 @@ void gwinit (
 /* Initialize gwhandle structure with the default values */
 
 	memset (gwdata, 0, sizeof (gwhandle));
-	gwdata->use_large_pages = 0;
 	gwdata->safety_margin = 0.0;
 	gwdata->maxmulbyconst = 3;
 	gwdata->specific_fftlen = 0;
 	gwdata->num_threads = 1;
+	gwdata->force_general_mod = 0;
+	gwdata->use_large_pages = 0;
 
 /* Init structure that allows giants and gwnum code to share */
 /* allocated memory */
@@ -1815,6 +1821,7 @@ int gwsetup (
 		power (g, n);
 		dblmulg (k, g);
 		iaddg (c, g);
+		gwdata->force_general_mod = (gcd != 1);
 		error_code = gwsetup_general_mod_giant (gwdata, g);
 		free (g);
 		if (error_code) return (error_code);
@@ -1829,47 +1836,74 @@ int gwsetup (
 	return (0);
 }
 
-/* This setup routine is for operations modulo an arbitrary binary number. */
+/* These setup routines are for operations modulo an arbitrary binary number. */
 /* This is three times slower than the special forms above. */
 
 int gwsetup_general_mod (
 	gwhandle *gwdata,	/* Placeholder for gwnum global data */
-	uint32_t *array,	/* The modulus as an array of 32-bit values */
+	const uint32_t *array,	/* The modulus as an array of 32-bit values */
 	uint32_t arraylen)	/* Number of values in the array */
 {
 	giantstruct tmp;
 	tmp.sign = arraylen;
-	tmp.n = array;
+	tmp.n = (uint32_t *) array;
 	while (tmp.sign && tmp.n[tmp.sign-1] == 0) tmp.sign--;
 	return (gwsetup_general_mod_giant (gwdata, &tmp));
 }
 
+int gwsetup_general_mod_64 (
+	gwhandle *gwdata,	/* Placeholder for gwnum global data */
+	const uint64_t *array,	/* The modulus as an array of 64-bit values */
+	uint64_t arraylen)	/* Number of values in the array */
+{
+	giantstruct tmp;
+	tmp.sign = (int) arraylen * 2;
+	tmp.n = (uint32_t *) array;
+	while (tmp.sign && tmp.n[tmp.sign-1] == 0) tmp.sign--;
+	return (gwsetup_general_mod_giant (gwdata, &tmp));
+}
+
+/* Setup the FFT code for generic reduction */
+
 int gwsetup_general_mod_giant (
 	gwhandle *gwdata,	/* Placeholder for gwnum global data */
-	giant	n)		/* The modulus */
+	giant	g)		/* The modulus */
 {
 #define EB	10		/* Extra bits of precision to compute quot. */
-	unsigned long len;	/* Bit length of modulus */
+	unsigned long bits;	/* Bit length of modulus */
+	double	k;
+	unsigned long n;
+	signed long c;
+	unsigned long len;
 	int	error_code;
 	giant	modified_modulus, tmp;
+
+/* Init */
+
+	bits = bitlen (g);
+
+/* Examine the giant to see if it a k*2^n+c value that we can optimize */
+
+	if (!gwdata->force_general_mod && bits > 300 && convert_giant_to_kbnc (g, &k, &n, &c))
+		return (gwsetup (gwdata, k, 2, n, c));
 
 /* Setup the FFT code, use an integral number of bits per word if possible. */
 /* We reserve some extra bits for extra precision and to make sure we can */
 /* zero an integral number of words during copy. */
 
-	len = bitlen (n) + 64;
+	len = bits + 64; /* Modified modulus size in bits */
 	gwdata->bit_length = len;
 	error_code = gwsetup_without_mod (gwdata, len + len + 2*EB + 64);
 	if (error_code) return (error_code);
 
 /* Copy the modulus */
 
-	gwdata->GW_MODULUS = newgiant ((len >> 4) + 1);
+	gwdata->GW_MODULUS = newgiant ((bits >> 4) + 1);
 	if (gwdata->GW_MODULUS == NULL) {
 		gwdone (gwdata);
 		return (GWERROR_MALLOC);
 	}
-	gtog (n, gwdata->GW_MODULUS);
+	gtog (g, gwdata->GW_MODULUS);
 
 /* Some reciprocals have regular bit patterns.  This violates a */
 /* fundamental assumption we make in our selection of FFT crossover */
@@ -1886,7 +1920,7 @@ int gwsetup_general_mod_giant (
 	modified_modulus->sign = 2;
 	modified_modulus->n[0] = 0x12348765;
 	modified_modulus->n[1] = 0x957F3624;
-	mulg (n, modified_modulus);
+	mulg (g, modified_modulus);
 
 /* Allocate memory for an FFTed copy of the modified modulus. */
 
@@ -2000,6 +2034,55 @@ int gwsetup_without_mod (
 	return (0);
 }
 
+
+/* Examine a giant to see if it a k*2^n+c value */
+/* Returns TRUE if conversion was successful */
+
+int convert_giant_to_kbnc (
+	giant	g,		/* Giant to examine */
+	double	*k,		/* K in K*B^N+C. */
+	unsigned long *n,	/* N in K*B^N+C. */
+	signed long *c)		/* C in K*B^N+C. */
+{
+	int	i;
+	giantstruct tmp;
+	uint32_t tmparray[3];
+
+/* See if low order 2 words are viable for a k*2^n+c candidate */
+
+	*c = (int32_t) g->n[0];
+
+	if (g->n[1] == 0 && g->n[0] <= MAX_ZEROPAD_C);
+	else if (g->n[1] == 0xFFFFFFFF && *c < 0 && *c >= -MAX_ZEROPAD_C);
+	else return (FALSE);
+
+/* Examine the middle words */
+	
+	for (i = 2; i < g->sign - 1; i++) if (g->n[i] != g->n[1]) break;
+
+/* Now see if the high bits can fit in a 51-bit k */
+
+	tmp.n = (uint32_t *) &tmparray;
+	setmaxsize ((giant) &tmp, 3);
+	tmparray[0] = g->n[i]; tmp.sign = 1;
+	if (g->sign - i >= 2) { tmparray[1] = g->n[i+1]; tmp.sign = 2; }
+	if (g->sign - i >= 3) { tmparray[2] = g->n[i+2]; tmp.sign = 3; }
+	if (g->sign - i >= 4) return (FALSE);
+	if (g->n[1] == 0xFFFFFFFF) iaddg (1, (giant) &tmp);
+
+	*n = i * 32;
+	while ((tmparray[0] & 0x1) == 0) {
+		gshiftright(1, (giant) &tmp);
+		(*n)++;
+	}
+	if (bitlen ((giant) &tmp) > 51) return (FALSE);
+
+/* Set k and return success */
+
+	*k = tmparray[0];
+	if (tmp.sign == 2) *k += (double) tmparray[1] * 4294967296.0;
+	return (TRUE);
+}
 
 /* Common setup routine for the three different user-visible setup routines */
 /* Allocate memory and initialize assembly code for arithmetic */
@@ -5173,27 +5256,45 @@ void raw_gwsetaddin (
 }
 
 
-/* Routine to add a small number (-255 to 255) to a gwnum.  Some day, */
+/* Routine to add a small number to a gwnum.  Some day, */
 /* I might optimize this routine for the cases where just one or two */
 /* doubles need to be modified in the gwnum */
 
 void gwaddsmall (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	g,		/* Gwnum to add a value into */
-	int	addin)		/* Small value to add to g */
+	double	addin)		/* Small value to add to g */
 {
 	gwnum	tmp;
 
 /* A simple brute-force implementation */
 
 	tmp = gwalloc (gwdata);
-	if (addin >= 0) {
-		dbltogw (gwdata, (double) addin, tmp);
+	if (addin >= 0.0) {
+		dbltogw (gwdata, addin, tmp);
 		gwaddquick (gwdata, tmp, g);
 	} else {
-		dbltogw (gwdata, (double) -addin, tmp);
+		dbltogw (gwdata, -addin, tmp);
 		gwsubquick (gwdata, tmp, g);
 	}
+	gwfree (gwdata, tmp);
+}
+
+/* This routine multiplies a gwnum by a small positive value.  This lets us apply some */
+/* optimizations that cannot be performed by a full FFT multiplication. */
+
+void gwmulsmall (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	g,		/* Gwnum to multiply */
+	double	mult)		/* Small value to multiply g by */
+{
+	gwnum	tmp;
+
+/* A simple brute-force implementation */
+
+	tmp = gwalloc (gwdata);
+	dbltogw (gwdata, mult, tmp);
+	gwmul (gwdata, tmp, g);
 	gwfree (gwdata, tmp);
 }
 
@@ -5221,13 +5322,28 @@ void dbltogw (
 
 void binarytogw (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	uint32_t *array,	/* Array containing the binary value */
+	const uint32_t *array,	/* Array containing the binary value */
 	uint32_t arraylen,	/* Length of the array */
 	gwnum	n)		/* Destination gwnum */
 {
 	giantstruct tmp;
 	tmp.sign = arraylen;
-	tmp.n = array;
+	tmp.n = (uint32_t *) array;
+	while (tmp.sign && tmp.n[tmp.sign-1] == 0) tmp.sign--;
+	gianttogw (gwdata, &tmp, n);
+}
+
+/* Convert a binary value to a gwnum */
+
+void binary64togw (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	const uint64_t *array,	/* Array containing the binary value */
+	uint64_t arraylen,	/* Length of the array */
+	gwnum	n)		/* Destination gwnum */
+{
+	giantstruct tmp;
+	tmp.sign = (int) arraylen * sizeof (uint64_t) / sizeof (uint32_t);
+	tmp.n = (uint32_t *) array;
 	while (tmp.sign && tmp.n[tmp.sign-1] == 0) tmp.sign--;
 	gianttogw (gwdata, &tmp, n);
 }
@@ -5236,7 +5352,7 @@ void binarytogw (
 
 void binarylongstogw (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	unsigned long *array,	/* Array containing the binary value */
+	const unsigned long *array, /* Array containing the binary value */
 	unsigned long arraylen,	/* Length of the array */
 	gwnum	n)		/* Destination gwnum */
 {
@@ -5372,6 +5488,31 @@ long gwtobinary (
 	if (err_code < 0) return (err_code);
 	ASSERTG ((unsigned long) tmp->sign <= arraylen);
 	memcpy (array, tmp->n, tmp->sign * sizeof (uint32_t));
+	pushg (&gwdata->gdata, 1);
+	return (tmp->sign);
+}
+
+/* Convert a gwnum to a binary value.  Returns the number of 64-bit values */
+/* written to the array.  The array is NOT zero-padded.  Returns a */
+/* negative number if an error occurs during the conversion.  An error */
+/* can happen if the FFT data contains a NaN or infinity value. */
+
+long gwtobinary64 (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	n,		/* Source gwnum */
+	uint64_t *array,	/* Array to contain the binary value */
+	uint64_t arraylen)	/* Maximum size of the array */
+{
+	giant	tmp;
+	int	err_code;
+
+	tmp = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 5);
+	err_code = gwtogiant (gwdata, n, tmp);
+	if (err_code < 0) return (err_code);
+	tmp->n[tmp->sign] = 0;
+	tmp->sign = (tmp->sign + 1) / 2;
+	ASSERTG ((unsigned long) tmp->sign <= arraylen);
+	memcpy (array, tmp->n, tmp->sign * sizeof (unsigned long));
 	pushg (&gwdata->gdata, 1);
 	return (tmp->sign);
 }
