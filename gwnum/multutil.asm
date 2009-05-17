@@ -40,6 +40,7 @@ EXTRN	gwsubq1:PROC
 EXTRN	gwaddsub1:PROC
 EXTRN	gwaddsubq1:PROC
 EXTRN	gwcopyzero1:PROC
+EXTRN	gwmuls1:PROC
 EXTRN	gwadd2:PROC
 EXTRN	gwaddq2:PROC
 EXTRN	gwsub2:PROC
@@ -47,6 +48,7 @@ EXTRN	gwsubq2:PROC
 EXTRN	gwaddsub2:PROC
 EXTRN	gwaddsubq2:PROC
 EXTRN	gwcopyzero2:PROC
+EXTRN	gwmuls2:PROC
 ENDIF
 
 EXTRN	gwxadd1:PROC
@@ -56,6 +58,8 @@ EXTRN	gwxsubq1:PROC
 EXTRN	gwxaddsub1:PROC
 EXTRN	gwxaddsubq1:PROC
 EXTRN	gwxcopyzero1:PROC
+EXTRN	gwxadds1:PROC
+EXTRN	gwxmuls1:PROC
 EXTRN	gwxadd2:PROC
 EXTRN	gwxaddq2:PROC
 EXTRN	gwxsub2:PROC
@@ -63,6 +67,8 @@ EXTRN	gwxsubq2:PROC
 EXTRN	gwxaddsub2:PROC
 EXTRN	gwxaddsubq2:PROC
 EXTRN	gwxcopyzero2:PROC
+EXTRN	gwxadds2:PROC
+EXTRN	gwxmuls2:PROC
 
 ;; List of possible suffixes for the normalization routines
 
@@ -114,6 +120,7 @@ IFNDEF X86_64
 prctab1	DD	OFFSET gwadd1, OFFSET gwaddq1, OFFSET gwsub1, OFFSET gwsubq1
 	DD	OFFSET gwaddsub1, OFFSET gwaddsubq1, OFFSET gwcopyzero1
 	DD	OFFSET gwaddq1, OFFSET gwsubq1, OFFSET gwaddsubq1
+	DP	0, OFFSET gwmuls1 ;; Buggy, won't propogate carry over multiple words. pad on zeropads
 	DD	OFFSET r1, OFFSET r1e, OFFSET r1c, OFFSET r1ec
 	DD	OFFSET r1z, OFFSET r1ze, 0, 0
 	DD	OFFSET r1zp, OFFSET r1zpe, OFFSET r1zpc, OFFSET r1zpec
@@ -123,6 +130,7 @@ prctab1	DD	OFFSET gwadd1, OFFSET gwaddq1, OFFSET gwsub1, OFFSET gwsubq1
 prctab2	DD	OFFSET gwadd2, OFFSET gwaddq2, OFFSET gwsub2, OFFSET gwsubq2
 	DD	OFFSET gwaddsub2, OFFSET gwaddsubq2, OFFSET gwcopyzero2
 	DD	OFFSET gwaddq2, OFFSET gwsubq2, OFFSET gwaddsubq2
+	DP	0, OFFSET gwmuls2 ;; Buggy, won't propogate carry over multiple words. pad on zeropads
 	DD	OFFSET r2, OFFSET r2e, OFFSET r2c, OFFSET r2ec
 	DD	OFFSET r2z, OFFSET r2ze, 0, 0
 	DD	OFFSET r2zp, OFFSET r2zpe, OFFSET r2zpc, OFFSET r2zpec
@@ -135,6 +143,7 @@ xprctab1 DP	OFFSET gwxadd1, OFFSET gwxaddq1, OFFSET gwxsub1
 	DP	OFFSET gwxsubq1, OFFSET gwxaddsub1, OFFSET gwxaddsubq1
 	DP	OFFSET gwxcopyzero1
 	DP	OFFSET gwxaddq1, OFFSET gwxsubq1, OFFSET gwxaddsubq1
+	DP	OFFSET gwxadds1, OFFSET gwxmuls1
 	DP	OFFSET xr1, OFFSET xr1e, OFFSET xr1c, OFFSET xr1ec
 	DP	OFFSET xr1z, OFFSET xr1ze, 0, 0
 	DP	OFFSET xr1zp, OFFSET xr1zpe, OFFSET xr1zpc, OFFSET xr1zpec
@@ -145,6 +154,7 @@ xprctab2 DP	OFFSET gwxadd2, OFFSET gwxaddq2, OFFSET gwxsub2
 	DP	OFFSET gwxsubq2, OFFSET gwxaddsub2, OFFSET gwxaddsubq2
 	DP	OFFSET gwxcopyzero2
 	DP	OFFSET gwxaddq2, OFFSET gwxsubq2, OFFSET gwxaddsubq2
+	DP	OFFSET gwxadds2, OFFSET gwxmuls2
 	DP	OFFSET xr2, OFFSET xr2e, OFFSET xr2c, OFFSET xr2ec
 	DP	OFFSET xr2z, OFFSET xr2ze, 0, 0
 	DP	OFFSET xr2zp, OFFSET xr2zpe, OFFSET xr2zpc, OFFSET xr2zpec
@@ -155,6 +165,7 @@ xprctab2a DP	OFFSET gwxadd2, OFFSET gwxaddq2, OFFSET gwxsub2
 	DP	OFFSET gwxsubq2, OFFSET gwxaddsub2, OFFSET gwxaddsubq2
 	DP	OFFSET gwxcopyzero2
 	DP	OFFSET gwxaddq2, OFFSET gwxsubq2, OFFSET gwxaddsubq2
+	DP	OFFSET gwxadds2, OFFSET gwxmuls2
 	DP	OFFSET xr2AMD, OFFSET xr2eAMD, OFFSET xr2cAMD, OFFSET xr2ecAMD
 	DP	OFFSET xr2zAMD, OFFSET xr2zeAMD, 0, 0
 	DP	OFFSET xr2zpAMD, OFFSET xr2zpeAMD

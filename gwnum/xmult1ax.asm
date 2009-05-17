@@ -300,6 +300,80 @@ cz1:	xcopyzero			; Copy/zero 8 values
 gwxcopyzero1 ENDP
 
 ;;
+;; Add in a small number with carry propogation
+;;
+
+PROCF	gwxadds1
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	mov	rsi, DESTARG		; Address of destination
+	movsd	xmm7, DBLARG		; Small addin value
+
+	mov	rbp, norm_col_mults	; Address of the multipliers
+	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
+	sub	rax, rax		; Clear big/lit flag
+	xnorm_smalladd_1d
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+gwxadds1 ENDP
+
+;;
+;; Multiply a number by a small value
+;;
+
+saved_dest_ptr	EQU	PPTR [rsp+first_local+0*SZPTR]
+saved_col_ptr	EQU	PPTR [rsp+first_local+1*SZPTR]
+saved_biglit_ptr EQU	PPTR [rsp+first_local+2*SZPTR]
+
+PROCF	gwxmuls1
+	ad_prolog 3*SZPTR,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	mov	rsi, DESTARG		; Address of destination
+	movlpd	xmm7, DBLARG		; Small multiplier value
+	movhpd	xmm7, DBLARG		; Small multiplier value
+	cmp	RATIONAL_FFT, 0		; Test for irrational FFTs
+	jne	skip			; No, skip mul by two-to-phi fudge factor
+	mulpd	xmm7, XMM_NORM012_FF	; Mul by FFTLEN/2
+skip:	movapd	xmm2, XMM_BIGVAL	; Start process with no carry
+	movapd	xmm3, xmm2
+	mov	edx, normcount1		; Load loop counter
+	mov	rbp, norm_col_mults	; Address of the multipliers
+	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
+	mov	saved_dest_ptr, rsi	; remember rsi for xnorm_smallmul_1d_mid
+	mov	saved_col_ptr, rbp	; remember rbp for xnorm_smallmul_1d_mid
+	mov	saved_biglit_ptr, rdi	; remember rdi for xnorm_smallmul_1d_mid
+	sub	rax, rax		; Clear big/lit flags
+	sub	rcx, rcx
+
+nmul0:	mov	ebx, edx		; Save loop counter
+	and	ebx, 07FFh		; Grab 11 bits of the counter
+
+	cmp	RATIONAL_FFT, 0		; Test for irrational FFTs
+	je	nmullp			; Yes, use two-to-phi multipliers
+rmullp:	xnorm_smallmul_1d noexec	; Mul and normalize 8 values
+	sub	ebx, 1			; Decrement loop counter
+	jnz	rmullp			; Loop til done
+	jmp	nmuldn			; Rejoin common code
+
+nmullp:	xnorm_smallmul_1d exec		; Mul and normalize 8 values
+	sub	ebx, 1			; Decrement loop counter
+	jnz	nmullp			; Loop til done
+
+nmuldn:	xchg	rsi, saved_dest_ptr	; Restore dest pointer
+	xchg	rdi, saved_biglit_ptr	; Restore biglit pointer
+	xchg	rbp, saved_col_ptr	; Restore multipliers pointer
+	xnorm_smallmul_1d_mid_cleanup	; Rotate carries and add in carries
+	mov	rsi, saved_dest_ptr	; Restore dest pointer
+	mov	rdi, saved_biglit_ptr	; Restore biglit pointer
+	mov	rbp, saved_col_ptr	; Restore multipliers pointer
+	shr	edx, 11			; Get next loop amount
+	jnz	nmul0
+
+	mov	rsi, DESTARG		; Address of result
+	mov	rbp, norm_col_mults	; Address of the multipliers
+	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
+	xnorm_smallmul_1d_cleanup
+	ad_epilog 3*SZPTR,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+gwxmuls1 ENDP
+
+;;
 ;; Routines to do the normalization after a multiply
 ;;
 
@@ -328,24 +402,29 @@ no zero	subsd	xmm7, ADDIN_VALUE	;; Do not include addin in sumout
 	mov	rdi, norm_biglit_array	;; Addr of the big/little flags array
 	sub	rax, rax		;; Clear big/lit flags
 	sub	rcx, rcx
-	mov	ebx, normcount1		;; Load loop counter
-ilp0:	mov	saved_reg1, rbx		;; Save loop counter
-	and	ebx, 07FFh		;; Grab 11 bits of the counter
-	mov	saved_reg2, rdi		;; remember edi for xnorm012_1d_mid
+	mov	edx, normcount1		;; Load loop counter
 	mov	saved_reg3, rsi		;; remember esi for xnorm012_1d_mid
-	mov	rdx, rbp		;; remember ebp for xnorm012_1d_mid
+ttp	mov	saved_reg2, rdi		;; remember edi for xnorm012_1d_mid
+ttp	mov	saved_reg1, rbp		;; remember ebp for xnorm012_1d_mid
+
+ilp0:	mov	ebx, edx		;; Load loop counter
+	and	ebx, 07FFh		;; Grab 11 bits of the counter
 ilp1:	xnorm_1d ttp, zero, echk, const ;; Normalize 8 values
 	lea	rsi, [rsi+64]		;; Next cache line
 ttp	lea	rbp, [rbp+128]		;; Next set of 8 multipliers
 ttp	lea	rdi, [rdi+4]		;; Next big/little flags
 	sub	ebx, 1			;; Test loop counter
 	jnz	ilp1			;; Loop til done
-	mov	rbx, saved_reg3		;; Restore FFT data addr
-	xchg	rdi, saved_reg2		;; Restore big/lit pointer
-	xnorm012_1d_mid zero		;; Rotate carries and add in carries
-	mov	rdi, saved_reg2		;; Restore big/lit pointer
-	mov	rbx, saved_reg1		;; Restore loop counter
-	shr	ebx, 11			;; Get next loop amount
+
+	xchg	rsi, saved_reg3		;; Restore FFT data addr
+ttp	xchg	rdi, saved_reg2		;; Restore big/lit pointer
+ttp	xchg	rbp, saved_reg1		;; Restore ttp pointer
+	xnorm012_1d_mid ttp, zero	;; Rotate carries and add in carries
+	mov	rsi, saved_reg3		;; Restore FFT data addr
+ttp	mov	rdi, saved_reg2		;; Restore big/lit pointer
+ttp	mov	rbp, saved_reg1		;; Restore ttp pointer
+
+	shr	edx, 11			;; Get next loop amount
 	jnz	ilp0
 zero	jmp	zdn			;; Go to zero upper half end code
 no zero	jmp	idn			;; Go to normal end code

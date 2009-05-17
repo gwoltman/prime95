@@ -312,20 +312,20 @@ ttp	mulpd	xmm0, [rbp+48]		;; new value1 = val * two-to-phi
 ; This macro finishes the normalize process by adding the final
 ; carry from the first pass back into the lower two data values.
 ; xmm2,xmm3 = carries
-; rbx = pointer to the FFT data values
-; rdx = pointer two-to-power multipliers
+; rsi = pointer to the FFT data values
+; rbp = pointer two-to-power multipliers
 ; rdi = big vs. litle array pointer
 ; NOTE: If RATIONAL_FFT we could eliminate 8 multiplies.
 
-xnorm012_1d_mid MACRO zero
-	mov	al, [rdi]		;; Load big vs. little flags
-	mov	cl, [rdi+2]
-	movsd	xmm0, Q [rbx+8]		;; Load values1
-	mulsd	xmm0, Q [rdx+8]		;; Mul values1 by two-to-minus-phi
-	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
-	movsd	xmm1, Q [rbx+40]	;; Load values2
-	mulsd	xmm1, Q [rdx+72]	;; Mul values2 by two-to-minus-phi
-	mulsd	xmm1, XMM_NORM012_FF	;; Mul by FFTLEN/2
+xnorm012_1d_mid MACRO ttp, zero
+ttp	mov	al, [rdi]		;; Load big vs. little flags
+ttp	mov	cl, [rdi+2]
+	movsd	xmm0, Q [rsi+8]		;; Load values1
+ttp	mulsd	xmm0, Q [rbp+8]		;; Mul values1 by two-to-minus-phi
+ttp	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	movsd	xmm1, Q [rsi+40]	;; Load values2
+ttp	mulsd	xmm1, Q [rbp+72]	;; Mul values2 by two-to-minus-phi
+ttp	mulsd	xmm1, XMM_NORM012_FF	;; Mul by FFTLEN/2
 	addsd	xmm0, xmm2		;; x1 = values + carry
 	addsd	xmm1, xmm3		;; x2 = values + carry
 	movlpd	xmm2, XMM_LIMIT_BIGMAX[rax+8];; Load maximum * BIGVAL - BIGVAL
@@ -340,20 +340,20 @@ xnorm012_1d_mid MACRO zero
 	mulsd	xmm2, XMM_LIMIT_INVERSE[rax+8];; next carry = shifted y1
 	subsd	xmm1, xmm5		;; rounded value = x2 - z2
 	mulsd	xmm3, XMM_LIMIT_INVERSE[rcx+8];; next carry = shifted y2
-	mulsd	xmm0, Q [rdx+24]	;; new value1 = val * two-to-phi
-	mulsd	xmm1, Q [rdx+88]	;; new value2 = val * two-to-phi
-	movsd	Q [rbx+8], xmm0		;; Save new value1
+ttp	mulsd	xmm0, Q [rbp+24]	;; new value1 = val * two-to-phi
+ttp	mulsd	xmm1, Q [rbp+88]	;; new value2 = val * two-to-phi
+	movsd	Q [rsi+8], xmm0		;; Save new value1
 zero	subsd	xmm1, xmm1
-	movsd	Q [rbx+40], xmm1	;; Save new value2
+	movsd	Q [rsi+40], xmm1	;; Save new value2
 
-	mov	al, [rdi+1]		;; Load big vs. little flags
-	mov	cl, [rdi+3]
-	movsd	xmm0, Q [rbx+24]	;; Load values1
-	mulsd	xmm0, Q [rdx+40]	;; Mul values1 by two-to-minus-phi
-	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
-	movsd	xmm1, Q [rbx+56]	;; Load values2
-	mulsd	xmm1, Q [rdx+104]	;; Mul values2 by two-to-minus-phi
-	mulsd	xmm1, XMM_NORM012_FF	;; Mul by FFTLEN/2
+ttp	mov	al, [rdi+1]		;; Load big vs. little flags
+ttp	mov	cl, [rdi+3]
+	movsd	xmm0, Q [rsi+24]	;; Load values1
+ttp	mulsd	xmm0, Q [rbp+40]	;; Mul values1 by two-to-minus-phi
+ttp	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	movsd	xmm1, Q [rsi+56]	;; Load values2
+ttp	mulsd	xmm1, Q [rbp+104]	;; Mul values2 by two-to-minus-phi
+ttp	mulsd	xmm1, XMM_NORM012_FF	;; Mul by FFTLEN/2
 	addsd	xmm0, xmm2		;; x1 = values + carry
 	addsd	xmm1, xmm3		;; x2 = values + carry
 	movlpd	xmm2, XMM_LIMIT_BIGMAX[rax+8];; Load maximum * BIGVAL - BIGVAL
@@ -368,20 +368,20 @@ zero	subsd	xmm1, xmm1
 	mulsd	xmm2, XMM_LIMIT_INVERSE[rax+8];; next carry = shifted y1
 	subsd	xmm1, xmm5		;; rounded value = x2 - z2
 	mulsd	xmm3, XMM_LIMIT_INVERSE[rcx+8];; next carry = shifted y2
-	mulsd	xmm0, Q [rdx+56]	;; new value1 = val * two-to-phi
-	mulsd	xmm1, Q [rdx+120]	;; new value2 = val * two-to-phi
-	movsd	Q [rbx+24], xmm0	;; Save new value1
+ttp	mulsd	xmm0, Q [rbp+56]	;; new value1 = val * two-to-phi
+ttp	mulsd	xmm1, Q [rbp+120]	;; new value2 = val * two-to-phi
+	movsd	Q [rsi+24], xmm0	;; Save new value1
 zero	subsd	xmm1, xmm1
-	movsd	Q [rbx+56], xmm1	;; Save new value2
+	movsd	Q [rsi+56], xmm1	;; Save new value2
 
-	mov	al, [rdi+4]		;; Load big vs. little flags
-	mov	cl, [rdi+6]
-	movsd	xmm0, Q [rbx+64+8]	;; Load values1
-	mulsd	xmm0, Q [rdx+128+8]	;; Mul values1 by two-to-minus-phi
-	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
-	movsd	xmm1, Q [rbx+64+40]	;; Load values2
-	mulsd	xmm1, Q [rdx+128+72]	;; Mul values2 by two-to-minus-phi
-	mulsd	xmm1, XMM_NORM012_FF	;; Mul by FFTLEN/2
+ttp	mov	al, [rdi+4]		;; Load big vs. little flags
+ttp	mov	cl, [rdi+6]
+	movsd	xmm0, Q [rsi+64+8]	;; Load values1
+ttp	mulsd	xmm0, Q [rbp+128+8]	;; Mul values1 by two-to-minus-phi
+ttp	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	movsd	xmm1, Q [rsi+64+40]	;; Load values2
+ttp	mulsd	xmm1, Q [rbp+128+72]	;; Mul values2 by two-to-minus-phi
+ttp	mulsd	xmm1, XMM_NORM012_FF	;; Mul by FFTLEN/2
 	addsd	xmm0, xmm2		;; x1 = values + carry
 	addsd	xmm1, xmm3		;; x2 = values + carry
 	movlpd	xmm2, XMM_LIMIT_BIGMAX[rax+8];; Load maximum * BIGVAL - BIGVAL
@@ -396,23 +396,21 @@ zero	subsd	xmm1, xmm1
 	mulsd	xmm2, XMM_LIMIT_INVERSE[rax+8];; next carry = shifted y1
 	subsd	xmm1, xmm5		;; rounded value = x2 - z2
 	mulsd	xmm3, XMM_LIMIT_INVERSE[rcx+8];; next carry = shifted y2
-	mulsd	xmm0, Q [rdx+128+24]	;; new value1 = val * two-to-phi
-	mulsd	xmm1, Q [rdx+128+88]	;; new value2 = val * two-to-phi
-	movsd	Q [rbx+64+8], xmm0	;; Save new value1
+ttp	mulsd	xmm0, Q [rbp+128+24]	;; new value1 = val * two-to-phi
+ttp	mulsd	xmm1, Q [rbp+128+88]	;; new value2 = val * two-to-phi
+	movsd	Q [rsi+64+8], xmm0	;; Save new value1
 zero	subsd	xmm1, xmm1
-	movsd	Q [rbx+64+40], xmm1	;; Save new value2
+	movsd	Q [rsi+64+40], xmm1	;; Save new value2
 
-	movsd	xmm0, Q [rbx+64+24]	;; Load values1
-	movsd	xmm1, Q [rbx+64+56]	;; Load values2
 	subsd	xmm2, XMM_BIGVAL	;; Remove integer rounding constant
 	subsd	xmm3, XMM_BIGVAL	;; Remove integer rounding constant
-	mulsd	xmm2, Q [rdx+128+56]	;; carry *= two-to-phi
-	mulsd	xmm3, Q [rdx+128+120]	;; carry *= two-to-phi
-	addsd	xmm0, xmm2		;; value1 = values + carry
-	addsd	xmm1, xmm3		;; value2 = values + carry
-	movsd	Q [rbx+64+24], xmm0	;; Save new value1
-zero	subsd	xmm1, xmm1
-	movsd	Q [rbx+64+56], xmm1	;; Save new value2
+ttp	mulsd	xmm2, Q [rbp+128+56]	;; carry *= two-to-phi
+ttp	mulsd	xmm3, Q [rbp+128+120]	;; carry *= two-to-phi
+	addsd	xmm2, Q [rsi+64+24]	;; value1 = values + carry
+	addsd	xmm3, Q [rsi+64+56]	;; value2 = values + carry
+	movsd	Q [rsi+64+24], xmm2	;; Save new value1
+zero	subsd	xmm3, xmm3
+	movsd	Q [rsi+64+56], xmm3	;; Save new value2
 
 	shufpd	xmm2, xmm2, 1		;; Rotate carry
 	movhpd	xmm2, XMM_BIGVAL
@@ -483,11 +481,10 @@ const	mulsd	xmm3, XMM_K_TIMES_MULCONST_HI_2
 	mulsd	xmm0, Q [rdx+128+24]	;; new value1 = val * two-to-phi
 	movsd	Q [rbx+64+8], xmm0	;; Save new value1
 
-	movsd	xmm0, Q [rbx+64+24]	;; Load values1
 	subsd	xmm2, XMM_BIGVAL	;; Remove integer rounding constant
 	mulsd	xmm2, Q [rdx+128+56]	;; carry *= two-to-phi
-	addsd	xmm0, xmm2		;; value1 = values + carry
-	movsd	Q [rbx+64+24], xmm0	;; Save new value1
+	addsd	xmm2, Q [rbx+64+24]	;; value1 = values + carry
+	movsd	Q [rbx+64+24], xmm2	;; Save new value1
 
 	shufpd	xmm2, xmm2, 1		;; Rotate carry
 	movhpd	xmm2, XMM_BIGVAL
@@ -593,17 +590,15 @@ zero	subsd	xmm1, xmm1
 zero	subsd	xmm1, xmm1
 	movsd	Q [rsi+64+32], xmm1	;; Save previous value2
 
-	movsd	xmm0, Q [rsi+64+16]	;; Load values1
-	movsd	xmm1, Q [rsi+64+48]	;; Load values2
 	subsd	xmm2, XMM_BIGVAL	;; Remove integer rounding constant
 	subsd	xmm3, XMM_BIGVAL	;; Remove integer rounding constant
 	mulsd	xmm2, Q [rbp+128+48]	;; carry *= two-to-phi
 	mulsd	xmm3, Q [rbp+128+112]	;; carry *= two-to-phi
-	addsd	xmm0, xmm2		;; value1 = values + carry
-	addsd	xmm1, xmm3		;; value2 = values + carry
-	movsd	Q [rsi+64+16], xmm0	;; Save new value1
+	addsd	xmm2, Q [rsi+64+16]	;; value1 = values + carry
+	addsd	xmm3, Q [rsi+64+48]	;; value2 = values + carry
+	movsd	Q [rsi+64+16], xmm2	;; Save new value1
 zero	subsd	xmm1, xmm1
-	movsd	Q [rsi+64+48], xmm1	;; Save new value2
+	movsd	Q [rsi+64+48], xmm3	;; Save new value2
 	ENDM
 
 ; This macro is similar to the above, but is for the zero padding case.
@@ -3411,6 +3406,724 @@ xnorm_addsub_1d_cleanup MACRO
 	movsd	Q [rbp+32], xmm1	;; Save new value2
 	ENDM
 
+; *************** 1D normalized smalladd macro ******************
+; This macro adds by a small constant, then propogates the carry
+; xmm7 = addin value
+; rsi = pointer to destination
+; rbp = pointer two-to-phi multipliers
+; rdi = pointer to array of big vs. little flags
+; rax = big vs. little word flag #1
+
+xnorm_smalladd_1d MACRO
+	mov	al, [rdi]		;; First biglit flag
+	movsd	xmm0, Q [rsi]		;; Load value1
+	addsd	xmm0, xmm7		;; Add in carry
+	addsd	xmm0, XMM_BIGVAL
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y1 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x1 - z1
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y2
+	movsd	Q [rsi], xmm0		;; Save value1
+
+	mov	al, [rdi+1]		;; Load big vs. little flags
+	movsd	xmm0, Q [rsi+16]	;; Load FFT data
+	mulsd	xmm0, Q [rbp+32]	;; Mul values2 by two-to-minus-phi
+	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, xmm2		;; x2 = value + carry
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y2 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z2 = y2-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x2 - z2
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y2
+	mulsd	xmm0, Q [rbp+48]	;; new value2 = val * two-to-phi
+	movsd	Q [rsi+16], xmm0	;; Save value2
+
+	mov	al, [rdi+4]		;; Load big vs. little flags
+	movsd	xmm0, Q [rsi+64]	;; Load FFT data
+	mulsd	xmm0, Q [rbp+128]	;; Mul values3 by two-to-minus-phi
+	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, xmm2		;; x3 = value + carry
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y3 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z3 = y3-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x3 - z3
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y3
+	mulsd	xmm0, Q [rbp+128+16]	;; new value3 = val * two-to-phi
+	movsd	Q [rsi+64], xmm0	;; Save value3
+
+	subsd	xmm2, XMM_BIGVAL
+	mulsd	xmm2, Q [rbp+128+48]	;; carry *= two-to-phi
+	addsd	xmm2, Q [rsi+64+16]	;; Add in FFT data
+	movsd	Q [rsi+64+16], xmm2	;; Save value4
+	ENDM
+
+; *************** 1D normalized smallmul macro ******************
+; This macro multiplies by a small constant, then "normalizes" eight FFT
+; data values.
+; xmm7 = small multiplier value
+; xmm3 = carry #2
+; xmm2 = carry #1
+; rsi = pointer to destination
+; rbp = pointer two-to-phi multipliers
+; rdi = pointer to array of big vs. little flags
+; rax = big vs. little word flag #1
+; rcx = big vs. little word flag #2
+
+xnorm_smallmul_1d MACRO ttp
+ttp	mov	al, [rdi]		;; Load big vs. little flags
+ttp	mov	cl, [rdi+2]
+	movapd	xmm0, [rsi]		;; Load values1
+	mulpd	xmm0, xmm7		;; Mul by small value * FFTLEN/2
+ttp	mulpd	xmm0, [rbp]		;; Mul values1 by two-to-minus-phi
+	movapd	xmm1, [rsi+32]		;; Load values2
+	mulpd	xmm1, xmm7		;; Mul by small value * FFTLEN/2
+ttp	mulpd	xmm1, [rbp+64]		;; Mul values2 by two-to-minus-phi
+	addpd	xmm0, xmm2		;; x1 = values + carry
+	addpd	xmm1, xmm3		;; x2 = values + carry
+	movapd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addpd	xmm2, xmm0		;; y1 = top bits of x
+	movapd	xmm3, XMM_LIMIT_BIGMAX[rcx];; Load maximum * BIGVAL - BIGVAL
+	addpd	xmm3, xmm1		;; y2 = top bits of x
+	movapd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addpd	xmm4, xmm2		;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	movapd	xmm5, XMM_LIMIT_BIGMAX_NEG[rcx];; Load -(maximum*BIGVAL-BIGVAL)
+	addpd	xmm5, xmm3		;; z2 = y2-(maximum * BIGVAL - BIGVAL)
+	subpd	xmm0, xmm4		;; rounded value = x1 - z1
+	mulpd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y1
+	subpd	xmm1, xmm5		;; rounded value = x2 - z2
+	mulpd	xmm3, XMM_LIMIT_INVERSE[rcx];; next carry = shifted y2
+ttp	mulpd	xmm0, [rbp+16]		;; new value1 = val * two-to-phi
+ttp	mulpd	xmm1, [rbp+80]		;; new value2 = val * two-to-phi
+	movapd	[rsi], xmm0		;; Save value1
+	movapd	[rsi+32], xmm1		;; Save value2
+ttp	mov	al, [rdi+1]		;; Load big vs. little flags
+ttp	mov	cl, [rdi+3]
+	movapd	xmm0, [rsi+16]		;; Load values1
+	mulpd	xmm0, xmm7		;; Mul by small value * FFTLEN/2
+ttp	mulpd	xmm0, [rbp+32]		;; Mul values1 by two-to-minus-phi
+	movapd	xmm1, [rsi+48]		;; Load values2
+	mulpd	xmm1, xmm7		;; Mul by small value * FFTLEN/2
+ttp	mulpd	xmm1, [rbp+96]		;; Mul values2 by two-to-minus-phi
+	addpd	xmm0, xmm2		;; x1 = values + carry
+	addpd	xmm1, xmm3		;; x2 = values + carry
+	movapd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addpd	xmm2, xmm0		;; y1 = top bits of x
+	movapd	xmm3, XMM_LIMIT_BIGMAX[rcx];; Load maximum * BIGVAL - BIGVAL
+	addpd	xmm3, xmm1		;; y2 = top bits of x
+	movapd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addpd	xmm4, xmm2		;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	movapd	xmm5, XMM_LIMIT_BIGMAX_NEG[rcx];; Load -(maximum*BIGVAL-BIGVAL)
+	addpd	xmm5, xmm3		;; z2 = y2-(maximum * BIGVAL - BIGVAL)
+	subpd	xmm0, xmm4		;; rounded value = x1 - z1
+	mulpd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y1
+	subpd	xmm1, xmm5		;; rounded value = x2 - z2
+	mulpd	xmm3, XMM_LIMIT_INVERSE[rcx];; next carry = shifted y2
+ttp	mulpd	xmm0, [rbp+48]		;; new value1 = val * two-to-phi
+ttp	mulpd	xmm1, [rbp+112]		;; new value2 = val * two-to-phi
+	movapd	[rsi+16], xmm0		;; Save new value1
+	movapd	[rsi+48], xmm1		;; Save new value2
+ttp	lea	rdi, [rdi+4]		;; Next flags ptr
+ttp	lea	rbp, [rbp+128]		;; Next two-to-phi ptr
+	lea	rsi, [rsi+64]		;; Next dest ptr
+	ENDM
+
+; This macro finishes the smallmul normalize process by adding the final
+; carry from the first pass back into the lower two data values.
+; xmm2,xmm3 = carries
+; rsi = pointer to the FFT data values
+; rbp = pointer two-to-power multipliers
+; rdi = pointer to biglit array
+
+xnorm_smallmul_1d_mid_cleanup MACRO
+	xnorm012_1d_mid exec, noexec
+	ENDM
+
+xnorm_smallmul_1d_cleanup MACRO
+	LOCAL	zpad, done
+
+	cmp	ZERO_PADDED_FFT, 0	;; Zero-padded FFT?
+	jne	zpad			;; Yes, do special zpad carry
+	xnorm_top_carry_1d		;; No, do a very standard carry
+	sub	rax, rax
+	xnorm012_1d noexec
+	jmp	done
+zpad:	xnorm_smallmul_1d_zpad		;; Do the special zpad carry
+done:
+	ENDM
+
+; This macro is similar to xnorm012_1d_zpad for handling zpad carries
+; rsi = pointer to the FFT data values
+; rbp = pointer two-to-power multipliers
+; rdi = big vs. litle array pointer
+
+xnorm_smallmul_1d_zpad MACRO
+	LOCAL	smallk, mediumk, div_k_done, funnyaddr2, funny2done
+
+	;; Copy and integerize data from 7 words above halfway point to ZPAD0-ZPAD6
+	;; Clear words 5,6,7
+	;; Then we can make an exact copy of most of the xnorm012_1d_zpad code
+
+	mov	al, [rdi]		;; Load big vs. little flags
+	addsd	xmm2, Q [rsi+32]	;; Value1 + carry from lower half of FFT
+	subsd	xmm2, XMM_BIGVAL	;; Round to integer
+	movsd	xmm4, XMM_BIGBIGVAL	;; Big word rounding constant
+	addsd	xmm4, xmm2		;; Round to multiple of big word
+	subsd	xmm4, XMM_BIGBIGVAL
+	subsd	xmm2, xmm4		;; xmm2 now contains low bigword bits
+	mulsd	xmm4, XMM_LIMIT_INVERSE[rax];; New carry
+	movsd	ZPAD0, xmm2
+
+	mov	al, [rdi+1]		;; Load big vs. little flags
+	movsd	xmm0, Q [rsi+48]	;; Value2
+	mulsd	xmm0, Q [rbp+32]	;; Mul values2 by two-to-minus-phi
+	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, XMM_BIGVAL	;; Round to an integer
+	subsd	xmm0, XMM_BIGVAL
+	addsd	xmm0, xmm4		;; Value2 + carry
+	movsd	xmm4, XMM_BIGBIGVAL	;; Big word rounding constant
+	addsd	xmm4, xmm0		;; Round to multiple of big word
+	subsd	xmm4, XMM_BIGBIGVAL
+	subsd	xmm0, xmm4		;; xmm0 now contains low bigword bits
+	mulsd	xmm4, XMM_LIMIT_INVERSE[rax];; Shift high ZPAD data
+	movsd	ZPAD1, xmm0
+
+	mov	al, [rdi+4]		;; Load big vs. little flags
+	movsd	xmm0, Q [rsi+64+32]	;; Value3
+	mulsd	xmm0, Q [rbp+128]	;; Mul values3 by two-to-minus-phi
+	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, XMM_BIGVAL	;; Round to an integer
+	subsd	xmm0, XMM_BIGVAL
+	addsd	xmm0, xmm4		;; Value3 + carry
+	movsd	xmm4, XMM_BIGBIGVAL	;; Big word rounding constant
+	addsd	xmm4, xmm0		;; Round to multiple of big word
+	subsd	xmm4, XMM_BIGBIGVAL
+	subsd	xmm0, xmm4		;; xmm0 now contains low bigword bits
+	mulsd	xmm4, XMM_LIMIT_INVERSE[rax];; Shift high ZPAD data
+	movsd	ZPAD2, xmm0
+
+	movsd	xmm0, Q [rsi+64+48]	;; Value4
+	mulsd	xmm0, Q [rbp+128+32]	;; Mul values4 by two-to-minus-phi
+	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, XMM_BIGVAL	;; Round to an integer
+	subsd	xmm0, XMM_BIGVAL
+	addsd	xmm0, xmm4		;; Value4 + carry
+	movsd	ZPAD3, xmm0
+
+	add	rsi, ZPAD_WORD5_OFFSET
+	add	rbp, ZPAD_WORD5_RBP_OFFSET
+	movsd	xmm0, Q [rsi+32]	;; Value5
+	mulsd	xmm0, Q [rbp]		;; Mul values5 by two-to-minus-phi
+	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, XMM_BIGVAL	;; Round to an integer
+	subsd	xmm0, XMM_BIGVAL
+	movsd	ZPAD4, xmm0
+	movsd	xmm0, Q [rsi+48]	;; Value6
+	mulsd	xmm0, Q [rbp+32]	;; Mul values6 by two-to-minus-phi
+	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, XMM_BIGVAL	;; Round to an integer
+	subsd	xmm0, XMM_BIGVAL
+	movsd	ZPAD5, xmm0
+	movsd	xmm0, Q [rsi+64+32]	;; Value7
+	mulsd	xmm0, Q [rbp+128]	;; Mul values7 by two-to-minus-phi
+	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, XMM_BIGVAL	;; Round to an integer
+	subsd	xmm0, XMM_BIGVAL
+	movsd	ZPAD6, xmm0
+	subsd	xmm0, xmm0		;; Clear highest words
+	movsd	Q [rsi+32], xmm0
+	movsd	Q [rsi+48], xmm0
+	movsd	Q [rsi+64+32], xmm0
+	sub	rsi, ZPAD_WORD5_OFFSET
+	sub	rbp, ZPAD_WORD5_RBP_OFFSET
+
+	;; Divide the zpad data by k.  Store the integer part in XMM_TMP
+	;; and the remainder in ZPAD0.  Later we will wrap the integer part
+	;; down to the bottom of the FFT data area (and multiply by -c).
+	;; And we will store the remainder in the upper half of the FFT
+	;; data area.
+
+	;; Note there are three cases to handle.  K is smaller than a big word.
+	;; K is between one and 2 big words in size.  And K is more than
+	;; 2 big words in size.
+
+	cmp	ZPAD_TYPE, 2		;; Are we dealing with case 1,2,or 3
+	jl	smallk			;; One word case
+	je	mediumk			;; Two word case
+
+	;; This case does the divide by k where k is three words
+
+	movsd	xmm0, ZPAD6		;; Load zpad word (high bits)
+	movsd	xmm1, ZPAD5		;; Load zpad word (middle bits)
+	movsd	xmm2, ZPAD4		;; Load zpad word (low bits)
+	movsd	xmm4, ZPAD_INVERSE_K6	;; Load shifted 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer	
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K6_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K6_MID	;; Load middle bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate middle bits of remainder
+	movsd	xmm5, ZPAD_K6_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm2, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP5, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm0, ZPAD_SHIFT6	;; Shift previous zpad word
+	addsd	xmm1, xmm0		;; Add to create new high zpad bits
+	movsd	xmm0, ZPAD3		;; Load zpad word (new low bits)
+	movsd	xmm5, ZPAD_SHIFT5	;; Combine high and medium bits
+	mulsd	xmm5, xmm1
+	addsd	xmm5, xmm2
+	movsd	xmm4, ZPAD_INVERSE_K5	;; Load shifted 1/k
+	mulsd	xmm4, xmm5		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K5_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K5_MID	;; Load middle bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm2, xmm5		;; Calculate middle bits of remainder
+	movsd	xmm5, ZPAD_K5_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP4, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm1, ZPAD_SHIFT5	;; Shift previous zpad word
+	addsd	xmm2, xmm1		;; Add to create new high zpad bits
+	movsd	xmm1, ZPAD2		;; Load zpad word (new low bits)
+	movsd	xmm5, ZPAD_SHIFT4	;; Combine high and medium bits
+	mulsd	xmm5, xmm2
+	addsd	xmm5, xmm0
+	movsd	xmm4, ZPAD_INVERSE_K4	;; Load shifted 1/k
+	mulsd	xmm4, xmm5		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K4_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm2, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K4_MID	;; Load middle bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate middle bits of remainder
+	movsd	xmm5, ZPAD_K4_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP3, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm2, ZPAD_SHIFT4	;; Shift previous zpad word
+	addsd	xmm0, xmm2		;; Add to create new high zpad bits
+	movsd	xmm2, ZPAD1		;; Load zpad word (new low bits)
+	movsd	xmm5, ZPAD_SHIFT3	;; Combine high and medium bits
+	mulsd	xmm5, xmm0
+	addsd	xmm5, xmm1
+	movsd	xmm4, ZPAD_INVERSE_K3	;; Load shifted 1/k
+	mulsd	xmm4, xmm5		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K3_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K3_MID	;; Load middle bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate middle bits of remainder
+	movsd	xmm5, ZPAD_K3_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm2, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP2, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm0, ZPAD_SHIFT3	;; Shift previous zpad word
+	addsd	xmm1, xmm0		;; Add to create new high zpad bits
+	movsd	xmm0, ZPAD0		;; Load zpad word (new low bits)
+	movsd	xmm5, ZPAD_SHIFT2	;; Combine high and medium bits
+	mulsd	xmm5, xmm1
+	addsd	xmm5, xmm2
+	movsd	xmm4, ZPAD_INVERSE_K2	;; Load shifted 1/k
+	mulsd	xmm4, xmm5		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K2_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K2_MID	;; Load middle bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm2, xmm5		;; Calculate middle bits of remainder
+	movsd	xmm5, ZPAD_K2_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP1, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm1, ZPAD_SHIFT2	;; Shift previous zpad word
+	addsd	xmm2, xmm1		;; Add to create new high zpad bits
+	mulsd	xmm2, ZPAD_SHIFT1	;; Shift previous zpad word
+	addsd	xmm0, xmm2		;; Add to create new high zpad bits
+	movsd	ZPAD0, xmm0		;; Save remainder of zpad / k
+
+	subsd	xmm1, xmm1		;; Zero words that other cases set
+	movsd	XMM_TMP6, xmm1
+	
+	jmp	div_k_done
+
+	;; This case does the divide by k where k is two words
+mediumk:
+	movsd	xmm0, ZPAD6		;; Load zpad word (high bits)
+	movsd	xmm1, ZPAD5		;; Load zpad word (low bits)
+	movsd	xmm4, ZPAD_INVERSE_K6	;; Load shifted 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer	
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K6_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K6_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP6, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm0, ZPAD_SHIFT6	;; Shift previous zpad word
+	addsd	xmm0, xmm1		;; Add to create new high zpad bits
+	movsd	xmm1, ZPAD4		;; Load zpad word (new low bits)
+	movsd	xmm4, ZPAD_INVERSE_K5	;; Load shifted 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K5_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K5_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP5, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm0, ZPAD_SHIFT5	;; Shift previous zpad word
+	addsd	xmm0, xmm1		;; Add to create new high zpad bits
+	movsd	xmm1, ZPAD3		;; Load zpad word (new low bits)
+	movsd	xmm4, ZPAD_INVERSE_K4	;; Load shifted 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K4_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K4_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP4, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm0, ZPAD_SHIFT4	;; Shift previous zpad word
+	addsd	xmm0, xmm1		;; Add to create new high zpad bits
+	movsd	xmm1, ZPAD2		;; Load zpad word (new low bits)
+	movsd	xmm4, ZPAD_INVERSE_K3	;; Load shifted 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K3_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K3_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP3, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm0, ZPAD_SHIFT3	;; Shift previous zpad word
+	addsd	xmm0, xmm1		;; Add to create new high zpad bits
+	movsd	xmm1, ZPAD1		;; Load zpad word (new low bits)
+	movsd	xmm4, ZPAD_INVERSE_K2	;; Load shifted 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K2_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K2_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP2, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm0, ZPAD_SHIFT2	;; Shift previous zpad word
+	addsd	xmm0, xmm1		;; Add to create new high zpad bits
+	movsd	xmm1, ZPAD0		;; Load zpad word (new low bits)
+	movsd	xmm4, ZPAD_INVERSE_K1	;; Load shifted 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K1_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K1_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP1, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm0, ZPAD_SHIFT1	;; Shift previous zpad word
+	addsd	xmm0, xmm1		;; Add to create new high zpad bits
+	movsd	ZPAD0, xmm0		;; Save remainder of zpad / k
+
+	jmp	div_k_done
+
+	;; This case does the divide by k where k is one word
+	;; Assume ZPAD5 and ZPAD6 are zero.
+smallk:	movsd	xmm0, ZPAD4		;; Load zpad data
+	movsd	xmm4, ZPAD_INVERSE_K1	;; Load by 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD data by 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer	
+	subsd	xmm4, XMM_BIGVAL
+	movsd	XMM_TMP5, xmm4		;; Save integer part
+	mulsd	xmm4, ZPAD_K1_LO	;; Compute remainder
+	subsd	xmm0, xmm4
+
+	mulsd	xmm0, ZPAD_SHIFT4	;; Shift previous zpad word
+	addsd	xmm0, ZPAD3		;; Add in zpad data
+	movsd	xmm4, ZPAD_INVERSE_K1	;; Load by 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD data by 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer	
+	subsd	xmm4, XMM_BIGVAL
+	movsd	XMM_TMP4, xmm4		;; Save integer part
+	mulsd	xmm4, ZPAD_K1_LO	;; Compute remainder
+	subsd	xmm0, xmm4
+
+	mulsd	xmm0, ZPAD_SHIFT3	;; Shift previous zpad word
+	addsd	xmm0, ZPAD2		;; Add in zpad data
+	movsd	xmm4, ZPAD_INVERSE_K1	;; Load by 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD data by 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer	
+	subsd	xmm4, XMM_BIGVAL
+	movsd	XMM_TMP3, xmm4		;; Save integer part
+	mulsd	xmm4, ZPAD_K1_LO	;; Compute remainder
+	subsd	xmm0, xmm4
+
+	mulsd	xmm0, ZPAD_SHIFT2	;; Shift previous zpad word
+	addsd	xmm0, ZPAD1		;; Add in zpad data
+	movsd	xmm4, ZPAD_INVERSE_K1	;; Load by 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD data by 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer	
+	subsd	xmm4, XMM_BIGVAL
+	movsd	XMM_TMP2, xmm4		;; Save integer part
+	mulsd	xmm4, ZPAD_K1_LO	;; Compute remainder
+	subsd	xmm0, xmm4
+
+	mulsd	xmm0, ZPAD_SHIFT1	;; Shift previous zpad word
+	addsd	xmm0, ZPAD0		;; Add in zpad data
+	movsd	xmm4, ZPAD_INVERSE_K1	;; Load by 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD data by 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer	
+	subsd	xmm4, XMM_BIGVAL
+	movsd	XMM_TMP1, xmm4		;; Save integer part
+	mulsd	xmm4, ZPAD_K1_LO	;; Compute remainder
+	subsd	xmm0, xmm4
+	movsd	ZPAD0, xmm0		;; Save remainder
+
+	subsd	xmm1, xmm1		;; Zero words that other cases set
+	movsd	XMM_TMP6, xmm1
+	
+div_k_done:
+
+	;; Now normalize the data above the halfway point.  Remember that the
+	;; column two-to-phi multiplier for the first value will be 1.0.
+
+	mov	al, [rdi]		;; First word 
+	movsd	xmm0, ZPAD0		;; Load remainder of divide by k
+	addsd	xmm0, XMM_BIGVAL
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y1 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x1 - z1
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y2
+	movsd	Q [rsi+32], xmm0	;; Save value1
+
+	mov	al, [rdi+1]		;; Load big vs. little flags
+	movsd	xmm0, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm0, xmm2		;; y2 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm0		;; z2 = y2-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm2, xmm4		;; rounded value = x2 - z2
+	mulsd	xmm0, XMM_LIMIT_INVERSE[rax];; next carry = shifted y2
+	mulsd	xmm2, Q [rbp+48]	;; new value2 = val * two-to-phi
+	movsd	Q [rsi+48], xmm2	;; Save value2
+
+	mov	al, [rdi+4]		;; Load big vs. little flags
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y3 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z3 = y3-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x3 - z3
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y3
+	mulsd	xmm0, Q [rbp+128+16]	;; new value3 = val * two-to-phi
+	movsd	Q [rsi+64+32], xmm0	;; Save value3
+
+	subsd	xmm2, XMM_BIGVAL	;; Remove integer rounding constant
+	mulsd	xmm2, Q [rbp+128+48]	;; value4 = carry * two-to-phi
+	movsd	Q [rsi+64+48], xmm2	;; Save new value4
+
+	;; Mul the integer part of (ZPAD data divided by k) by -c in
+	;; preparation for adding it into the lower FFT data area.
+	;; Also add in the shifted high FFT carry at this time.
+
+	;; Now add in and normalize the bottom FFT data.  Remember that the
+	;; column two-to-phi multiplier for the first value will be 1.0.  We 
+	;; must go 6 words deep in case k is 48-50 bits and c is 32 bits.
+
+	mov	al, [rdi]		;; First word 
+	movsd	xmm0, XMM_TMP1		;; Load remainder of divide by k
+	mulsd	xmm0, XMM_MINUS_C	;; Mul by -c
+	addsd	xmm0, XMM_BIGVAL
+	addsd	xmm0, Q [rsi]		;; Add in the FFT data
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y1 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x1 - z1
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y2
+	movsd	Q [rsi], xmm0		;; Save value1
+
+	mov	al, [rdi+1]		;; Load big vs. little flags
+	movsd	xmm0, XMM_TMP2		;; Load remainder of divide by k
+	mulsd	xmm0, XMM_MINUS_C	;; Mul by -c
+	movsd	xmm1, Q [rsi+16]	;; Load FFT data
+	mulsd	xmm1, Q [rbp+32]	;; Mul values2 by two-to-minus-phi
+	mulsd	xmm1, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, xmm1		;; Add in the FFT data
+	addsd	xmm0, xmm2		;; x2 = value + carry
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y2 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z2 = y2-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x2 - z2
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y2
+	mulsd	xmm0, Q [rbp+48]	;; new value2 = val * two-to-phi
+	movsd	Q [rsi+16], xmm0	;; Save value2
+
+	mov	al, [rdi+4]		;; Load big vs. little flags
+	movsd	xmm0, XMM_TMP3		;; Load remainder of divide by k
+	mulsd	xmm0, XMM_MINUS_C	;; Mul by -c
+	movsd	xmm1, Q [rsi+64]	;; Load FFT data
+	mulsd	xmm1, Q [rbp+128]	;; Mul values3 by two-to-minus-phi
+	mulsd	xmm1, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, xmm1		;; Add in the FFT data
+	addsd	xmm0, xmm2		;; x3 = value + carry
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y3 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z3 = y3-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x3 - z3
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y3
+	mulsd	xmm0, Q [rbp+128+16]	;; new value3 = val * two-to-phi
+	movsd	Q [rsi+64], xmm0	;; Save value3
+
+	mov	al, [rdi+5]		;; Load big vs. little flags
+	movsd	xmm0, XMM_TMP4		;; Load remainder of divide by k
+	mulsd	xmm0, XMM_MINUS_C	;; Mul by -c
+	movsd	xmm1, Q [rsi+64+16]	;; Load FFT data
+	mulsd	xmm1, Q [rbp+128+32]	;; Mul values4 by two-to-minus-phi
+	mulsd	xmm1, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, xmm1		;; Add in the FFT data
+	addsd	xmm0, xmm2		;; x4 = value + carry
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y4 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z4 = y4-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x4 - z4
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y4
+	mulsd	xmm0, Q [rbp+128+48]	;; new value4 = val * two-to-phi
+	movsd	Q [rsi+64+16], xmm0	;; Save value4
+
+	cmp	FFTLEN, 80		;; Length 80 and 112 have different
+	je	funnyaddr2		;; memory addresses for the fourth
+	cmp	FFTLEN, 112		;; and higher data elements
+	je	funnyaddr2
+
+	mov	al, [rdi+8]		;; Load big vs. little flags
+	movsd	xmm0, XMM_TMP5		;; Load remainder of divide by k
+	mulsd	xmm0, XMM_MINUS_C	;; Mul by -c
+	movsd	xmm1, Q [rsi+128]	;; Load FFT data
+	mulsd	xmm1, Q [rbp+256]	;; Mul values4 by two-to-minus-phi
+	mulsd	xmm1, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, xmm1		;; Add in the FFT data
+	addsd	xmm0, xmm2		;; x5 = value + carry
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y5 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z5 = y5-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x5 - z5
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y5
+	mulsd	xmm0, Q [rbp+256+16]	;; new value5 = val * two-to-phi
+	movsd	Q [rsi+128], xmm0	;; Save value5
+
+	mov	al, [rdi+9]		;; Load big vs. little flags
+	movsd	xmm0, XMM_TMP6		;; Load remainder of divide by k
+	mulsd	xmm0, XMM_MINUS_C	;; Mul by -c
+	movsd	xmm1, Q [rsi+128+16]	;; Load FFT data
+	mulsd	xmm1, Q [rbp+256+32]	;; Mul values6 by two-to-minus-phi
+	mulsd	xmm1, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, xmm1		;; Add in the FFT data
+	addsd	xmm0, xmm2		;; x6 = value + carry
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y6 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z6 = y6-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x6 - z6
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y6
+	mulsd	xmm0, Q [rbp+256+48]	;; new value6 = val * two-to-phi
+	movsd	Q [rsi+128+16], xmm0	;; Save value6
+
+	subsd	xmm2, XMM_BIGVAL	;; Remove rounding constant
+	mulsd	xmm2, Q [rbp+384+16]	;; new value7 = val * two-to-phi
+	addsd	xmm2, Q [rsi+192]	;; Add in FFT data
+	movsd	Q [rsi+192], xmm2	;; Save value7
+	jmp	funny2done
+
+	;; Same as the above but with different addresses required by
+	;; the length 80 and 112 FFT lengths
+
+funnyaddr2:
+	mov	al, [rdi]		;; Load big vs. little flags
+	movsd	xmm0, XMM_TMP5		;; Load remainder of divide by k
+	mulsd	xmm0, XMM_MINUS_C	;; Mul by -c
+	movsd	xmm1, Q [rsi+8]		;; Load FFT data
+	mulsd	xmm1, Q [rbp+8]		;; Mul values5 by two-to-minus-phi
+	mulsd	xmm1, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, xmm1		;; Add in the FFT data
+	addsd	xmm0, xmm2		;; x5 = value + carry
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax+8];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y5 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax+8];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z5 = y5-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x5 - z5
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax+8];; next carry = shifted y5
+	mulsd	xmm0, Q [rbp+16+8]	;; new value5 = val * two-to-phi
+	movsd	Q [rsi+8], xmm0		;; Save value5
+
+	mov	al, [rdi+1]		;; Load big vs. little flags
+	movsd	xmm0, XMM_TMP6		;; Load remainder of divide by k
+	mulsd	xmm0, XMM_MINUS_C	;; Mul by -c
+	movsd	xmm1, Q [rsi+16+8]	;; Load FFT data
+	mulsd	xmm1, Q [rbp+32+8]	;; Mul values6 by two-to-minus-phi
+	mulsd	xmm1, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, xmm1		;; Add in the FFT data
+	addsd	xmm0, xmm2		;; x6 = value + carry
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax+8];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y6 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax+8];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z6 = y6-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x6 - z6
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax+8];; next carry = shifted y6
+	mulsd	xmm0, Q [rbp+48+8]	;; new value6 = val * two-to-phi
+	movsd	Q [rsi+16+8], xmm0	;; Save value6
+
+	subsd	xmm2, XMM_BIGVAL	;; Remove rounding constant
+	mulsd	xmm2, Q [rbp+128+16+8]	;; new value7 = val * two-to-phi
+	addsd	xmm2, Q [rsi+64+8]	;; Add in FFT data
+	movsd	Q [rsi+64+8], xmm2	;; Save value7
+funny2done:
+
+	ENDM
+
 
 
 ; *************** 2D normalized add/sub macro ******************
@@ -3832,6 +4545,927 @@ ttp	lea	rax, [rax+32]		;; Next column two-to-phi ptr
 	lea	rsi, [rsi+64]		;; Next dest ptr
 	lea	rbp, [rbp+64]		;; Next dest ptr
 	ENDM
+
+; *************** 2D normalized small add macro ******************
+; This macro finishes the smallmul normalize process by adding the final
+; two carries back into the appropriate FFT values at the start of the fft.
+; rsi = pointer to FFT data
+; rbp = pointer two-to-power group multipliers
+; rbx = pointer two-to-power col multipliers
+; rdi = pointer to big/little flags
+; xmm7 = add in value
+
+xnorm_smalladd_2d MACRO
+	addsd	xmm7, XMM_BIGVAL
+	xnorm_smallmul_2d_prop4 rsi+0*16, 0, rbp+0*32, rbx, rdi+0*1, xmm7, xmm2, xmm3
+	ENDM
+
+; *************** 2D normalized small mul macro ******************
+; This macro multiplies by a small value, then "normalizes" eight FFT
+; data values. 
+; rsi = pointer to destination
+; rdi = pointer to array of big vs. little flags
+; rbx = pointer to two-to-phi column multipliers
+; rbp = pointer two-to-phi group multipliers
+; XMM_TMP1,XMM_TMP2,XMM_TMP3,XMM_TMP4 = carries
+; XMM_TMP5 = small value * optional FFTLEN/2
+; A pipelined version of this code:
+;	movapd	xmm0, [rsi]		;; Load second number
+;	mulpd	xmm0, XMM_TMP5		;; Mul by small value
+;	mov	cl, [rdi]		;; Load big vs. little flags
+;	movapd	xmm2, [rbx]		;; col two-to-minus-phi
+;	mulpd	xmm2, XMM_TTMP_FUDGE[rcx];; Mul by fudge two-to-minus-phi
+;	mulpd	xmm0, [rax]		;; Mul by grp two-to-minus-phi
+;	mulpd	xmm0, xmm2		;; Mul by fudged col two-to-minus-phi
+;	addpd	xmm0, [rbp+0*16]	;; x1 = values + carry
+;	movapd	xmm2, XMM_LIMIT_BIGMAX[rcx];; Load maximum * BIGVAL - BIGVAL
+;	addpd	xmm2, xmm0		;; y1 = top bits of x
+;	movapd	xmm6, XMM_LIMIT_BIGMAX_NEG[rcx];; Load -(maximum*BIGVAL-BIGVAL)
+;	addpd	xmm6, xmm2		;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+;	subpd	xmm0, xmm6		;; rounded value = x1 - z1
+;	mulpd	xmm2, XMM_LIMIT_INVERSE[rcx];; next carry = shifted y1
+;	movapd	xmm4, [rbx]		;; col two-to-phi
+;	mulpd	xmm4, XMM_TTP_FUDGE[rcx];; mul by fudge two-to-phi
+;	mulpd	xmm0, [rax+0*32+16]	;; new value1 = val * grp two-to-phi
+;	mulpd	xmm0, xmm4		;; new value1 *= fudged col two-to-phi
+;	movapd	[rsi], xmm0		;; Save new value1
+;	movapd	[rbp+0*16], xmm2	;; Save carry
+
+xnorm_smallmul_2d MACRO ttp
+	movapd	xmm2, XMM_TMP5		;; Load small value * FFTLEN/2
+ttp	mulpd	xmm2, [rbx]		;; Mul by col two-to-minus-phi
+	movapd	xmm0, [rsi]		;; Load values1
+	mulpd	xmm0, xmm2		;; Mul values1 by small value * col two-to-minus-phi
+	movapd	xmm1, [rsi+16]		;; Load values2
+	mulpd	xmm1, xmm2		;; Mul values2 by small value * col two-to-minus-phi
+	movapd	xmm6, [rsi+32]		;; Load values3
+	mulpd	xmm6, xmm2		;; Mul values3 by small value * col two-to-minus-phi
+	movapd	xmm7, [rsi+48]		;; Load values4
+	mulpd	xmm7, xmm2		;; Mul values4 by small value * col two-to-minus-phi
+ttp	mov	al, [rdi]		;; Load big vs. little flags
+ttp	mov	cl, [rdi+1]
+ttp	mulpd	xmm0, [rbp+0*32]	;; Mul by grp two-to-minus-phi
+ttp	mulpd	xmm0, XMM_TTMP_FUDGE[rax];; Mul by fudge two-to-minus-phi
+	addpd	xmm0, XMM_TMP1		;; x1 = values + carry
+ttp	mulpd	xmm1, [rbp+1*32]	;; Mul by grp two-to-minus-phi
+ttp	mulpd	xmm1, XMM_TTMP_FUDGE[rcx];; Mul by fudge two-to-minus-phi
+	addpd	xmm1, XMM_TMP2		;; x1 = values + carry
+	movapd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addpd	xmm2, xmm0		;; y1 = top bits of x
+	movapd	xmm3, XMM_LIMIT_BIGMAX[rcx];; Load maximum * BIGVAL - BIGVAL
+	addpd	xmm3, xmm1		;; y1 = top bits of x
+	movapd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addpd	xmm4, xmm2		;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	movapd	xmm5, XMM_LIMIT_BIGMAX_NEG[rcx];; Load -(maximum*BIGVAL-BIGVAL)
+	addpd	xmm5, xmm3		;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	subpd	xmm0, xmm4		;; rounded value = x1 - z1
+	mulpd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y1
+	movapd	XMM_TMP1, xmm2		;; Save carry
+	subpd	xmm1, xmm5		;; rounded value = x1 - z1
+	mulpd	xmm3, XMM_LIMIT_INVERSE[rcx];; next carry = shifted y1
+	movapd	XMM_TMP2, xmm3		;; Save carry
+ttp	movapd	xmm2, [rbx+16]		;; col two-to-phi
+ttp	mulpd	xmm2, XMM_TTP_FUDGE[rax];; mul by fudge two-to-phi
+ttp	mulpd	xmm0, [rbp+0*32+16]	;; new value1 = val * grp two-to-phi
+ttp	mulpd	xmm0, xmm2		;; new value1 *= fudged col two-to-phi
+	movapd	[rsi+0*16], xmm0	;; Save new value1
+ttp	movapd	xmm3, [rbx+16]		;; col two-to-phi
+ttp	mulpd	xmm3, XMM_TTP_FUDGE[rcx];; mul by fudge two-to-phi
+ttp	mulpd	xmm1, [rbp+1*32+16]	;; new value1 = val * grp two-to-phi
+ttp	mulpd	xmm1, xmm3		;; new value1 *= fudged col two-to-phi
+	movapd	[rsi+1*16], xmm1	;; Save new value1
+
+ttp	mov	al, [rdi+2]		;; Load big vs. little flags
+ttp	mov	cl, [rdi+3]
+ttp	mulpd	xmm6, [rbp+2*32]	;; Mul by grp two-to-minus-phi
+ttp	mulpd	xmm6, XMM_TTMP_FUDGE[rax];; Mul by fudge two-to-minus-phi
+	addpd	xmm6, XMM_TMP3		;; x1 = values + carry
+ttp	mulpd	xmm7, [rbp+3*32]	;; Mul by grp two-to-minus-phi
+ttp	mulpd	xmm7, XMM_TTMP_FUDGE[rcx];; Mul by fudge two-to-minus-phi
+	addpd	xmm7, XMM_TMP4		;; x1 = values + carry
+	movapd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addpd	xmm2, xmm6		;; y1 = top bits of x
+	movapd	xmm3, XMM_LIMIT_BIGMAX[rcx];; Load maximum * BIGVAL - BIGVAL
+	addpd	xmm3, xmm7		;; y1 = top bits of x
+	movapd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addpd	xmm4, xmm2		;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	movapd	xmm5, XMM_LIMIT_BIGMAX_NEG[rcx];; Load -(maximum*BIGVAL-BIGVAL)
+	addpd	xmm5, xmm3		;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	subpd	xmm6, xmm4		;; rounded value = x1 - z1
+	mulpd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y1
+	movapd	XMM_TMP3, xmm2		;; Save carry
+	subpd	xmm7, xmm5		;; rounded value = x1 - z1
+	mulpd	xmm3, XMM_LIMIT_INVERSE[rcx];; next carry = shifted y1
+	movapd	XMM_TMP4, xmm3		;; Save carry
+ttp	movapd	xmm2, [rbx+16]		;; col two-to-phi
+ttp	mulpd	xmm2, XMM_TTP_FUDGE[rax];; mul by fudge two-to-phi
+ttp	mulpd	xmm6, [rbp+2*32+16]	;; new value1 = val * grp two-to-phi
+ttp	mulpd	xmm6, xmm2		;; new value1 *= fudged col two-to-phi
+	movapd	[rsi+2*16], xmm6	;; Save new value1
+ttp	movapd	xmm3, [rbx+16]		;; col two-to-phi
+ttp	mulpd	xmm3, XMM_TTP_FUDGE[rcx];; mul by fudge two-to-phi
+ttp	mulpd	xmm7, [rbp+3*32+16]	;; new value1 = val * grp two-to-phi
+ttp	mulpd	xmm7, xmm3		;; new value1 *= fudged col two-to-phi
+	movapd	[rsi+3*16], xmm7	;; Save new value1
+ttp	lea	rdi, [rdi+4]		;; Next flags ptr
+ttp	lea	rbx, [rbx+32]		;; Next column two-to-phi ptr
+	lea	rsi, [rsi+64]		;; Next dest ptr
+	ENDM
+
+; This macro finishes the smallmul normalize process by adding four carries
+; from the end of a block back to the start of the block.  The remaining
+; four carries are rotated for starting the next block.
+; rsi = Source ptr to start of block
+; rbp = Group ptr of two-to-phi
+; rbx = Col ptr of two-to-phi
+; rdi = biglit array ptr
+; rcx is destroyed
+
+xnorm_smallmul_2d_blk MACRO
+	movsd	xmm5, XMM_BIGVAL
+
+	movsd	xmm1, XMM_TMP1		;; Load carry
+	xnorm_smallmul_2d_prop4 rsi+0*16, 8, rbp+0*32, rbx, rdi+0*1, xmm1, xmm2, xmm3
+	movapd	xmm1, XMM_TMP1		;; Load carries (prop4 will zero high word of xmm1)
+	shufpd	xmm1, xmm5, 1
+	movapd	XMM_TMP1, xmm1		;; Save carries for start of next blk
+
+	movsd	xmm1, XMM_TMP2		;; Load carry
+	xnorm_smallmul_2d_prop4 rsi+1*16, 8, rbp+1*32, rbx, rdi+1*1, xmm1, xmm2, xmm3
+	movapd	xmm1, XMM_TMP2		;; Load carries
+	shufpd	xmm1, xmm5, 1
+	movapd	XMM_TMP2, xmm1		;; Save carries for start of next blk
+
+	movsd	xmm1, XMM_TMP3		;; Load carry
+	xnorm_smallmul_2d_prop4 rsi+2*16, 8, rbp+2*32, rbx, rdi+2*1, xmm1, xmm2, xmm3
+	movapd	xmm1, XMM_TMP3		;; Load carries
+	shufpd	xmm1, xmm5, 1
+	movapd	XMM_TMP3, xmm1		;; Save carries for start of next blk
+
+	movsd	xmm1, XMM_TMP4		;; Load carry
+	xnorm_smallmul_2d_prop4 rsi+3*16, 8, rbp+3*32, rbx, rdi+3*1, xmm1, xmm2, xmm3
+	movapd	xmm1, XMM_TMP4		;; Load carries
+	shufpd	xmm1, xmm5, 1
+	movapd	XMM_TMP4, xmm1		;; Save carries for start of next blk
+	ENDM
+
+; This macro finishes the smallmul normalize process by adding two carries
+; from the end of a section back to the start of the section.  The remaining
+; two carries are rotated for starting the next section.
+; rsi = Source ptr to start of block
+; rbp = Group ptr of two-to-phi
+; rbx = Col ptr of two-to-phi
+; rdi = biglit array ptr
+; rcx is destroyed
+
+xnorm_smallmul_2d_sec MACRO
+	movapd	xmm5, XMM_BIGVAL
+
+	movsd	xmm1, XMM_TMP1		;; Load carry
+	xnorm_smallmul_2d_prop4 rsi+1*16, 0, rbp+1*32, rbx, rdi+1*1, xmm1, xmm2, xmm3
+	movapd	xmm1, XMM_TMP2
+	movapd	XMM_TMP1, xmm1
+	movapd	XMM_TMP2, xmm5		;; Save carries for start of next sec
+
+	movsd	xmm1, XMM_TMP3		;; Load carry
+	xnorm_smallmul_2d_prop4 rsi+3*16, 0, rbp+3*32, rbx, rdi+3*1, xmm1, xmm2, xmm3
+	movapd	xmm1, XMM_TMP4
+	movapd	XMM_TMP3, xmm1
+	movapd	XMM_TMP4, xmm5		;; Save carries for start of next sec
+	ENDM
+
+
+; This macro finishes the smallmul normalize process by adding the final
+; two carries back into the appropriate FFT values at the start of the fft.
+; rsi = pointer to FFT data
+; rbp = pointer two-to-power group multipliers
+; rdi = pointer to big/little flags
+; xmm6 = non-wraparound carry
+; xmm7 = wraparound carry
+
+xnorm_smallmul_2d_fft MACRO
+	subsd	xmm7, XMM_BIGVAL
+	mulsd	xmm7, XMM_MINUS_C	;; Negate the carry
+	addsd	xmm7, XMM_BIGVAL
+	xnorm_smallmul_2d_prop6 rsi+0*16, 0, rbp+0*32, rbx, rdi+0*1, xmm7, xmm2, xmm3
+	xnorm_smallmul_2d_prop4 rsi+2*16, 0, rbp+2*32, rbx, rdi+2*1, xmm6, xmm2, xmm3
+	ENDM
+
+;; Propogate a single gwsmallmul carry across 4 words.
+
+xnorm_smallmul_2d_prop4 MACRO srcptr, off8, grpptr, colptr, biglit, xcarry, xtmp, xaux
+	mov	al, [biglit]			;; First word
+	movsd	xmm0, Q [srcptr+0*64+off8]	;; Load FFT data
+	mulsd	xmm0, Q [colptr+0*32+off8]	;; Mul by col two-to-minus-phi
+	movsd	xaux, Q [grpptr+off8]		;; Mul by grp two-to-minus-phi
+	mulsd	xaux, XMM_NORM012_FF		;; Mul by FFTLEN/2
+	mulsd	xmm0, XMM_TTMP_FUDGE[rax+off8]	;; Mul by fudge two-to-minus-phi
+	mulsd	xmm0, xaux
+	addsd	xmm0, xcarry			;; Add in the carry
+	movsd	xcarry, XMM_LIMIT_BIGMAX[rax+off8];; Load maximum * BIGVAL - BIGVAL
+	addsd	xcarry, xmm0			;; y1 = top bits of x
+	movsd	xtmp, XMM_LIMIT_BIGMAX_NEG[rax+off8];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xtmp, xcarry			;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xtmp			;; rounded value = x1 - z1
+	mulsd	xcarry, XMM_LIMIT_INVERSE[rax+off8];; next carry = shifted y2
+	movsd	xtmp, Q [colptr+0*32+16+off8]	;; col two-to-phi
+	mulsd	xtmp, XMM_TTP_FUDGE[rax+off8]	;; mul by fudge two-to-phi
+	mulsd	xmm0, Q [grpptr+16+off8]	;; new value = val * grp two-to-phi
+	mulsd	xmm0, xtmp			;; new value *= fudged col two-to-phi
+	movsd	Q [srcptr+0*64+off8], xmm0	;; Save value1
+
+	mov	al, [biglit+4]			;; Second word
+	movsd	xmm0, Q [srcptr+1*64+off8]	;; Load FFT data
+	mulsd	xmm0, Q [colptr+1*32+off8]	;; Mul by col two-to-minus-phi
+	movsd	xtmp, XMM_TTMP_FUDGE[rax+off8]	;; Mul by fudge two-to-minus-phi
+	mulsd	xtmp, xaux			;; Mul by grp * FFTLEN/2
+	mulsd	xmm0, xtmp
+	addsd	xmm0, xcarry			;; Add in the carry
+	movsd	xcarry, XMM_LIMIT_BIGMAX[rax+off8];; Load maximum * BIGVAL - BIGVAL
+	addsd	xcarry, xmm0			;; y1 = top bits of x
+	movsd	xtmp, XMM_LIMIT_BIGMAX_NEG[rax+off8];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xtmp, xcarry			;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xtmp			;; rounded value = x1 - z1
+	mulsd	xcarry, XMM_LIMIT_INVERSE[rax+off8];; next carry = shifted y2
+	movsd	xtmp, Q [colptr+1*32+16+off8]	;; col two-to-phi
+	mulsd	xtmp, XMM_TTP_FUDGE[rax+off8]	;; mul by fudge two-to-phi
+	mulsd	xmm0, Q [grpptr+16+off8]	;; new value = val * grp two-to-phi
+	mulsd	xmm0, xtmp			;; new value *= fudged col two-to-phi
+	movsd	Q [srcptr+1*64+off8], xmm0	;; Save value2
+
+	mov	ecx, BIGLIT_INCR2		;; Different clm values step through
+						;; big/lit array differently
+	mov	al, [biglit][rcx]		;; Third word
+	movsd	xmm0, Q [srcptr+2*64+off8]	;; Load FFT data
+	mulsd	xmm0, Q [colptr+2*32+off8]	;; Mul by col two-to-minus-phi
+	movsd	xtmp, XMM_TTMP_FUDGE[rax+off8]	;; Mul by fudge two-to-minus-phi
+	mulsd	xtmp, xaux			;; Mul by grp * FFTLEN/2
+	mulsd	xmm0, xtmp
+	addsd	xmm0, xcarry			;; Add in the carry
+	movsd	xcarry, XMM_LIMIT_BIGMAX[rax+off8];; Load maximum * BIGVAL - BIGVAL
+	addsd	xcarry, xmm0			;; y1 = top bits of x
+	movsd	xtmp, XMM_LIMIT_BIGMAX_NEG[rax+off8];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xtmp, xcarry			;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xtmp			;; rounded value = x1 - z1
+	mulsd	xcarry, XMM_LIMIT_INVERSE[rax+off8];; next carry = shifted y2
+	movsd	xtmp, Q [colptr+2*32+16+off8]	;; col two-to-phi
+	mulsd	xtmp, XMM_TTP_FUDGE[rax+off8]	;; mul by fudge two-to-phi
+	mulsd	xmm0, Q [grpptr+16+off8]	;; new value = val * grp two-to-phi
+	mulsd	xmm0, xtmp			;; new value *= fudged col two-to-phi
+	movsd	Q [srcptr+2*64+off8], xmm0	;; Save value3
+
+	mov	al, [biglit][rcx+4]		;; Fourth word
+	subsd	xcarry, XMM_BIGVAL		;; Make carry an integer
+	movsd	xtmp, Q [colptr+3*32+16+off8]	;; col two-to-phi
+	mulsd	xtmp, XMM_TTP_FUDGE[rax+off8]	;; mul by fudge two-to-phi
+	mulsd	xcarry, Q [grpptr+16+off8]	;; carry *= grp two-to-phi
+	mulsd	xcarry, xtmp			;; carry *= fudged col two-to-phi
+	addsd	xcarry, Q [srcptr+3*64+off8]	;; Add FFT data
+	movsd	Q [srcptr+3*64+off8], xcarry	;; Save value4
+ENDM
+
+;; Propogate a single gwsmallmul carry across 6 words.
+
+xnorm_smallmul_2d_prop6 MACRO srcptr, off8, grpptr, colptr, biglit, xcarry, xtmp, xaux
+	mov	al, [biglit]			;; First word
+	movsd	xmm0, Q [srcptr+0*64+off8]	;; Load FFT data
+	mulsd	xmm0, Q [colptr+0*32+off8]	;; Mul by col two-to-minus-phi
+	movsd	xaux, Q [grpptr+off8]		;; Mul by grp two-to-minus-phi
+	mulsd	xaux, XMM_NORM012_FF		;; Mul by FFTLEN/2
+	mulsd	xmm0, XMM_TTMP_FUDGE[rax+off8]	;; Mul by fudge two-to-minus-phi
+	mulsd	xmm0, xaux
+	addsd	xmm0, xcarry			;; Add in the carry
+	movsd	xcarry, XMM_LIMIT_BIGMAX[rax+off8];; Load maximum * BIGVAL - BIGVAL
+	addsd	xcarry, xmm0			;; y1 = top bits of x
+	movsd	xtmp, XMM_LIMIT_BIGMAX_NEG[rax+off8];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xtmp, xcarry			;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xtmp			;; rounded value = x1 - z1
+	mulsd	xcarry, XMM_LIMIT_INVERSE[rax+off8];; next carry = shifted y2
+	movsd	xtmp, Q [colptr+0*32+16+off8]	;; col two-to-phi
+	mulsd	xtmp, XMM_TTP_FUDGE[rax+off8]	;; mul by fudge two-to-phi
+	mulsd	xmm0, Q [grpptr+16+off8]	;; new value = val * grp two-to-phi
+	mulsd	xmm0, xtmp			;; new value *= fudged col two-to-phi
+	movsd	Q [srcptr+0*64+off8], xmm0	;; Save value1
+
+	mov	al, [biglit+4]			;; Second word
+	movsd	xmm0, Q [srcptr+1*64+off8]	;; Load FFT data
+	mulsd	xmm0, Q [colptr+1*32+off8]	;; Mul by col two-to-minus-phi
+	movsd	xtmp, XMM_TTMP_FUDGE[rax+off8]	;; Mul by fudge two-to-minus-phi
+	mulsd	xtmp, xaux			;; Mul by grp * FFTLEN/2
+	mulsd	xmm0, xtmp
+	addsd	xmm0, xcarry			;; Add in the carry
+	movsd	xcarry, XMM_LIMIT_BIGMAX[rax+off8];; Load maximum * BIGVAL - BIGVAL
+	addsd	xcarry, xmm0			;; y1 = top bits of x
+	movsd	xtmp, XMM_LIMIT_BIGMAX_NEG[rax+off8];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xtmp, xcarry			;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xtmp			;; rounded value = x1 - z1
+	mulsd	xcarry, XMM_LIMIT_INVERSE[rax+off8];; next carry = shifted y2
+	movsd	xtmp, Q [colptr+1*32+16+off8]	;; col two-to-phi
+	mulsd	xtmp, XMM_TTP_FUDGE[rax+off8]	;; mul by fudge two-to-phi
+	mulsd	xmm0, Q [grpptr+16+off8]	;; new value = val * grp two-to-phi
+	mulsd	xmm0, xtmp			;; new value *= fudged col two-to-phi
+	movsd	Q [srcptr+1*64+off8], xmm0	;; Save value2
+
+	mov	ecx, BIGLIT_INCR2		;; Different clm values step through
+						;; big/lit array differently
+	mov	al, [biglit][rcx]		;; Third word
+	movsd	xmm0, Q [srcptr+2*64+off8]	;; Load FFT data
+	mulsd	xmm0, Q [colptr+2*32+off8]	;; Mul by col two-to-minus-phi
+	movsd	xtmp, XMM_TTMP_FUDGE[rax+off8]	;; Mul by fudge two-to-minus-phi
+	mulsd	xtmp, xaux			;; Mul by grp * FFTLEN/2
+	mulsd	xmm0, xtmp
+	addsd	xmm0, xcarry			;; Add in the carry
+	movsd	xcarry, XMM_LIMIT_BIGMAX[rax+off8];; Load maximum * BIGVAL - BIGVAL
+	addsd	xcarry, xmm0			;; y1 = top bits of x
+	movsd	xtmp, XMM_LIMIT_BIGMAX_NEG[rax+off8];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xtmp, xcarry			;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xtmp			;; rounded value = x1 - z1
+	mulsd	xcarry, XMM_LIMIT_INVERSE[rax+off8];; next carry = shifted y2
+	movsd	xtmp, Q [colptr+2*32+16+off8]	;; col two-to-phi
+	mulsd	xtmp, XMM_TTP_FUDGE[rax+off8]	;; mul by fudge two-to-phi
+	mulsd	xmm0, Q [grpptr+16+off8]	;; new value = val * grp two-to-phi
+	mulsd	xmm0, xtmp			;; new value *= fudged col two-to-phi
+	movsd	Q [srcptr+2*64+off8], xmm0	;; Save value3
+
+	mov	al, [biglit][rcx+4]		;; Fourth word
+	movsd	xmm0, Q [srcptr+3*64+off8]	;; Load FFT data
+	mulsd	xmm0, Q [colptr+3*32+off8]	;; Mul by col two-to-minus-phi
+	movsd	xtmp, XMM_TTMP_FUDGE[rax+off8]	;; Mul by fudge two-to-minus-phi
+	mulsd	xtmp, xaux			;; Mul by grp * FFTLEN/2
+	mulsd	xmm0, xtmp
+	addsd	xmm0, xcarry			;; Add in the carry
+	movsd	xcarry, XMM_LIMIT_BIGMAX[rax+off8];; Load maximum * BIGVAL - BIGVAL
+	addsd	xcarry, xmm0			;; y1 = top bits of x
+	movsd	xtmp, XMM_LIMIT_BIGMAX_NEG[rax+off8];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xtmp, xcarry			;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xtmp			;; rounded value = x1 - z1
+	mulsd	xcarry, XMM_LIMIT_INVERSE[rax+off8];; next carry = shifted y2
+	movsd	xtmp, Q [colptr+3*32+16+off8]	;; col two-to-phi
+	mulsd	xtmp, XMM_TTP_FUDGE[rax+off8]	;; mul by fudge two-to-phi
+	mulsd	xmm0, Q [grpptr+16+off8]	;; new value = val * grp two-to-phi
+	mulsd	xmm0, xtmp			;; new value *= fudged col two-to-phi
+	movsd	Q [srcptr+3*64+off8], xmm0	;; Save value4
+
+	mov	ecx, BIGLIT_INCR4		;; Different clm values step through
+						;; big/lit array differently
+	mov	al, [biglit][rcx]		;; Fifth word
+	movsd	xmm0, Q [srcptr+4*64+off8]	;; Load FFT data
+	mulsd	xmm0, Q [colptr+4*32+off8]	;; Mul by col two-to-minus-phi
+	movsd	xtmp, XMM_TTMP_FUDGE[rax+off8]	;; Mul by fudge two-to-minus-phi
+	mulsd	xtmp, xaux			;; Mul by grp * FFTLEN/2
+	mulsd	xmm0, xtmp
+	addsd	xmm0, xcarry			;; Add in the carry
+	movsd	xcarry, XMM_LIMIT_BIGMAX[rax+off8];; Load maximum * BIGVAL - BIGVAL
+	addsd	xcarry, xmm0			;; y1 = top bits of x
+	movsd	xtmp, XMM_LIMIT_BIGMAX_NEG[rax+off8];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xtmp, xcarry			;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xtmp			;; rounded value = x1 - z1
+	mulsd	xcarry, XMM_LIMIT_INVERSE[rax+off8];; next carry = shifted y2
+	movsd	xtmp, Q [colptr+4*32+16+off8]	;; col two-to-phi
+	mulsd	xtmp, XMM_TTP_FUDGE[rax+off8]	;; mul by fudge two-to-phi
+	mulsd	xmm0, Q [grpptr+16+off8]	;; new value = val * grp two-to-phi
+	mulsd	xmm0, xtmp			;; new value *= fudged col two-to-phi
+	movsd	Q [srcptr+4*64+off8], xmm0	;; Save value5
+
+	mov	al, [biglit][rcx+4]		;; Sixth word
+	subsd	xcarry, XMM_BIGVAL		;; Make carry an integer
+	movsd	xtmp, Q [colptr+5*32+16+off8]	;; col two-to-phi
+	mulsd	xtmp, XMM_TTP_FUDGE[rax+off8]	;; mul by fudge two-to-phi
+	mulsd	xcarry, Q [grpptr+16+off8]	;; carry *= grp two-to-phi
+	mulsd	xcarry, xtmp			;; carry *= fudged col two-to-phi
+	addsd	xcarry, Q [srcptr+5*64+off8]	;; Add FFT data
+	movsd	Q [srcptr+5*64+off8], xcarry	;; Save value6
+ENDM
+
+; This macro finishes the smallmul normalize process by adding the final
+; two carries back into the appropriate FFT values at the start of the fft.
+; rsi = pointer to FFT data
+; rbp = pointer two-to-power group multipliers
+; rbx = pointer two-to-power col multipliers
+; rdi = pointer to big/little flags
+; xmm6 = non-wraparound carry
+; xmm7 = wraparound carry (this will be zero for smallmul of zero-padded number)
+
+xnorm_smallmul_2d_fft_zpad MACRO
+	LOCAL	smallk, mediumk, div_k_done
+
+	;; Copy and integerize data from 7 words above halfway point to ZPAD0-ZPAD6
+	;; Clear words 5,6,7
+	;; Then we can make an exact copy of most of the xnorm012_2d_zpad code
+
+	mov	al, [rdi]		;; Load big vs. little flags
+	addsd	xmm6, Q [rsi+0*64+32]	;; Value1 + carry from lower half of FFT
+	subsd	xmm6, XMM_BIGVAL	;; Round to integer
+	movsd	xmm4, XMM_BIGBIGVAL	;; Big word rounding constant
+	addsd	xmm4, xmm6		;; Round to multiple of big word
+	subsd	xmm4, XMM_BIGBIGVAL
+	subsd	xmm6, xmm4		;; xmm2 now contains low bigword bits
+	mulsd	xmm4, XMM_LIMIT_INVERSE[rax];; New carry
+	movsd	ZPAD0, xmm6
+
+	mov	al, [rdi+4]		;; Load big vs. little flags
+	movsd	xmm0, Q [rsi+1*64+32]	;; Value2
+	mulsd	xmm0, Q [rbx+1*32]	;; Mul values2 by col two-to-minus-phi
+	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, XMM_BIGVAL	;; Round to an integer
+	subsd	xmm0, XMM_BIGVAL
+	addsd	xmm0, xmm4		;; Value2 + carry
+	movsd	xmm4, XMM_BIGBIGVAL	;; Big word rounding constant
+	addsd	xmm4, xmm0		;; Round to multiple of big word
+	subsd	xmm4, XMM_BIGBIGVAL
+	subsd	xmm0, xmm4		;; xmm0 now contains low bigword bits
+	mulsd	xmm4, XMM_LIMIT_INVERSE[rax];; Shift high ZPAD data
+	movsd	ZPAD1, xmm0
+
+	mov	ecx, BIGLIT_INCR2	;; Different clm values step through
+					;; big/lit array differently
+	mov	al, [rdi+rcx]		;; Load big vs. little flags
+	movsd	xmm0, Q [rsi+2*64+32]	;; Value3
+	mulsd	xmm0, Q [rbx+2*32]	;; Mul values3 by col two-to-minus-phi
+	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, XMM_BIGVAL	;; Round to an integer
+	subsd	xmm0, XMM_BIGVAL
+	addsd	xmm0, xmm4		;; Value3 + carry
+	movsd	xmm4, XMM_BIGBIGVAL	;; Big word rounding constant
+	addsd	xmm4, xmm0		;; Round to multiple of big word
+	subsd	xmm4, XMM_BIGBIGVAL
+	subsd	xmm0, xmm4		;; xmm0 now contains low bigword bits
+	mulsd	xmm4, XMM_LIMIT_INVERSE[rax];; Shift high ZPAD data
+	movsd	ZPAD2, xmm0
+
+	movsd	xmm0, Q [rsi+3*64+32]	;; Value4
+	mulsd	xmm0, Q [rbx+3*32]	;; Mul values4 by col two-to-minus-phi
+	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, XMM_BIGVAL	;; Round to an integer
+	subsd	xmm0, XMM_BIGVAL
+	addsd	xmm0, xmm4		;; Value4 + carry
+	movsd	ZPAD3, xmm0
+
+	movsd	xmm0, Q [rsi+4*64+32]	;; Value5
+	mulsd	xmm0, Q [rbx+4*32]	;; Mul values5 by col two-to-minus-phi
+	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, XMM_BIGVAL	;; Round to an integer
+	subsd	xmm0, XMM_BIGVAL
+	movsd	ZPAD4, xmm0
+
+	movsd	xmm0, Q [rsi+5*64+32]	;; Value6
+	mulsd	xmm0, Q [rbx+5*32]	;; Mul values6 by col two-to-minus-phi
+	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, XMM_BIGVAL	;; Round to an integer
+	subsd	xmm0, XMM_BIGVAL
+	movsd	ZPAD5, xmm0
+
+	movsd	xmm0, Q [rsi+6*64+32]	;; Value7
+	mulsd	xmm0, Q [rbx+6*32]	;; Mul values7 by col two-to-minus-phi
+	mulsd	xmm0, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, XMM_BIGVAL	;; Round to an integer
+	subsd	xmm0, XMM_BIGVAL
+	movsd	ZPAD6, xmm0
+
+	subsd	xmm0, xmm0		;; Clear highest words
+	movsd	Q [rsi+4*64+32], xmm0
+	movsd	Q [rsi+5*64+32], xmm0
+	movsd	Q [rsi+6*64+32], xmm0
+
+	;; Divide the zpad data by k.  Store the integer part in XMM_TMP
+	;; and the remainder in ZPAD0.  Later we will wrap the integer part
+	;; down to the bottom of the FFT data area (and multiply by -c).
+	;; And we will store the remainder in the upper half of the FFT
+	;; data area.
+
+	;; Note there are three cases to handle.  K is smaller than a big word.
+	;; K is between one and 2 big words in size.  And K is more than
+	;; 2 big words in size.
+
+	cmp	ZPAD_TYPE, 2		;; Are we dealing with case 1,2,or 3
+	jl	smallk			;; One word case
+	je	mediumk			;; Two word case
+
+	;; This case does the divide by k where k is three words
+
+	movsd	xmm0, ZPAD6		;; Load zpad word (high bits)
+	movsd	xmm1, ZPAD5		;; Load zpad word (middle bits)
+	movsd	xmm2, ZPAD4		;; Load zpad word (low bits)
+	movsd	xmm4, ZPAD_INVERSE_K6	;; Load shifted 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer	
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K6_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K6_MID	;; Load middle bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate middle bits of remainder
+	movsd	xmm5, ZPAD_K6_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm2, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP5, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm0, ZPAD_SHIFT6	;; Shift previous zpad word
+	addsd	xmm1, xmm0		;; Add to create new high zpad bits
+	movsd	xmm0, ZPAD3		;; Load zpad word (new low bits)
+	movsd	xmm5, ZPAD_SHIFT5	;; Combine high and medium bits
+	mulsd	xmm5, xmm1
+	addsd	xmm5, xmm2
+	movsd	xmm4, ZPAD_INVERSE_K5	;; Load shifted 1/k
+	mulsd	xmm4, xmm5		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K5_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K5_MID	;; Load middle bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm2, xmm5		;; Calculate middle bits of remainder
+	movsd	xmm5, ZPAD_K5_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP4, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm1, ZPAD_SHIFT5	;; Shift previous zpad word
+	addsd	xmm2, xmm1		;; Add to create new high zpad bits
+	movsd	xmm1, ZPAD2		;; Load zpad word (new low bits)
+	movsd	xmm5, ZPAD_SHIFT4	;; Combine high and medium bits
+	mulsd	xmm5, xmm2
+	addsd	xmm5, xmm0
+	movsd	xmm4, ZPAD_INVERSE_K4	;; Load shifted 1/k
+	mulsd	xmm4, xmm5		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K4_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm2, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K4_MID	;; Load middle bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate middle bits of remainder
+	movsd	xmm5, ZPAD_K4_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP3, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm2, ZPAD_SHIFT4	;; Shift previous zpad word
+	addsd	xmm0, xmm2		;; Add to create new high zpad bits
+	movsd	xmm2, ZPAD1		;; Load zpad word (new low bits)
+	movsd	xmm5, ZPAD_SHIFT3	;; Combine high and medium bits
+	mulsd	xmm5, xmm0
+	addsd	xmm5, xmm1
+	movsd	xmm4, ZPAD_INVERSE_K3	;; Load shifted 1/k
+	mulsd	xmm4, xmm5		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K3_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K3_MID	;; Load middle bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate middle bits of remainder
+	movsd	xmm5, ZPAD_K3_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm2, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP2, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm0, ZPAD_SHIFT3	;; Shift previous zpad word
+	addsd	xmm1, xmm0		;; Add to create new high zpad bits
+	movsd	xmm0, ZPAD0		;; Load zpad word (new low bits)
+	movsd	xmm5, ZPAD_SHIFT2	;; Combine high and medium bits
+	mulsd	xmm5, xmm1
+	addsd	xmm5, xmm2
+	movsd	xmm4, ZPAD_INVERSE_K2	;; Load shifted 1/k
+	mulsd	xmm4, xmm5		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K2_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K2_MID	;; Load middle bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm2, xmm5		;; Calculate middle bits of remainder
+	movsd	xmm5, ZPAD_K2_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP1, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm1, ZPAD_SHIFT2	;; Shift previous zpad word
+	addsd	xmm2, xmm1		;; Add to create new high zpad bits
+	mulsd	xmm2, ZPAD_SHIFT1	;; Shift previous zpad word
+	addsd	xmm0, xmm2		;; Add to create new high zpad bits
+	movsd	ZPAD0, xmm0		;; Save remainder of zpad / k
+
+	subsd	xmm1, xmm1		;; Zero words that other cases set
+	movsd	XMM_TMP6, xmm1
+	
+	jmp	div_k_done
+
+	;; This case does the divide by k where k is two words
+mediumk:
+	movsd	xmm0, ZPAD6		;; Load zpad word (high bits)
+	movsd	xmm1, ZPAD5		;; Load zpad word (low bits)
+	movsd	xmm4, ZPAD_INVERSE_K6	;; Load shifted 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer	
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K6_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K6_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP6, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm0, ZPAD_SHIFT6	;; Shift previous zpad word
+	addsd	xmm0, xmm1		;; Add to create new high zpad bits
+	movsd	xmm1, ZPAD4		;; Load zpad word (new low bits)
+	movsd	xmm4, ZPAD_INVERSE_K5	;; Load shifted 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K5_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K5_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP5, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm0, ZPAD_SHIFT5	;; Shift previous zpad word
+	addsd	xmm0, xmm1		;; Add to create new high zpad bits
+	movsd	xmm1, ZPAD3		;; Load zpad word (new low bits)
+	movsd	xmm4, ZPAD_INVERSE_K4	;; Load shifted 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K4_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K4_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP4, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm0, ZPAD_SHIFT4	;; Shift previous zpad word
+	addsd	xmm0, xmm1		;; Add to create new high zpad bits
+	movsd	xmm1, ZPAD2		;; Load zpad word (new low bits)
+	movsd	xmm4, ZPAD_INVERSE_K3	;; Load shifted 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K3_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K3_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP3, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm0, ZPAD_SHIFT3	;; Shift previous zpad word
+	addsd	xmm0, xmm1		;; Add to create new high zpad bits
+	movsd	xmm1, ZPAD1		;; Load zpad word (new low bits)
+	movsd	xmm4, ZPAD_INVERSE_K2	;; Load shifted 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K2_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K2_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP2, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm0, ZPAD_SHIFT2	;; Shift previous zpad word
+	addsd	xmm0, xmm1		;; Add to create new high zpad bits
+	movsd	xmm1, ZPAD0		;; Load zpad word (new low bits)
+	movsd	xmm4, ZPAD_INVERSE_K1	;; Load shifted 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD by shifted 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer
+	subsd	xmm4, XMM_BIGVAL
+	movsd	xmm5, ZPAD_K1_HI	;; Load high bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm0, xmm5		;; Calculate high bits of remainder
+	movsd	xmm5, ZPAD_K1_LO	;; Load low bits of k
+	mulsd	xmm5, xmm4
+	subsd	xmm1, xmm5		;; Calculate low bits of remainder
+	movsd	XMM_TMP1, xmm4		;; Save word of zpad / k
+
+	mulsd	xmm0, ZPAD_SHIFT1	;; Shift previous zpad word
+	addsd	xmm0, xmm1		;; Add to create new high zpad bits
+	movsd	ZPAD0, xmm0		;; Save remainder of zpad / k
+
+	jmp	div_k_done
+
+	;; This case does the divide by k where k is one word
+	;; Assume ZPAD5 and ZPAD6 are zero.
+smallk:	movsd	xmm0, ZPAD4		;; Load zpad data
+	movsd	xmm4, ZPAD_INVERSE_K1	;; Load by 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD data by 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer	
+	subsd	xmm4, XMM_BIGVAL
+	movsd	XMM_TMP5, xmm4		;; Save integer part
+	mulsd	xmm4, ZPAD_K1_LO	;; Compute remainder
+	subsd	xmm0, xmm4
+
+	mulsd	xmm0, ZPAD_SHIFT4	;; Shift previous zpad word
+	addsd	xmm0, ZPAD3		;; Add in zpad data
+	movsd	xmm4, ZPAD_INVERSE_K1	;; Load by 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD data by 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer	
+	subsd	xmm4, XMM_BIGVAL
+	movsd	XMM_TMP4, xmm4		;; Save integer part
+	mulsd	xmm4, ZPAD_K1_LO	;; Compute remainder
+	subsd	xmm0, xmm4
+
+	mulsd	xmm0, ZPAD_SHIFT3	;; Shift previous zpad word
+	addsd	xmm0, ZPAD2		;; Add in zpad data
+	movsd	xmm4, ZPAD_INVERSE_K1	;; Load by 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD data by 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer	
+	subsd	xmm4, XMM_BIGVAL
+	movsd	XMM_TMP3, xmm4		;; Save integer part
+	mulsd	xmm4, ZPAD_K1_LO	;; Compute remainder
+	subsd	xmm0, xmm4
+
+	mulsd	xmm0, ZPAD_SHIFT2	;; Shift previous zpad word
+	addsd	xmm0, ZPAD1		;; Add in zpad data
+	movsd	xmm4, ZPAD_INVERSE_K1	;; Load by 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD data by 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer	
+	subsd	xmm4, XMM_BIGVAL
+	movsd	XMM_TMP2, xmm4		;; Save integer part
+	mulsd	xmm4, ZPAD_K1_LO	;; Compute remainder
+	subsd	xmm0, xmm4
+
+	mulsd	xmm0, ZPAD_SHIFT1	;; Shift previous zpad word
+	addsd	xmm0, ZPAD0		;; Add in zpad data
+	movsd	xmm4, ZPAD_INVERSE_K1	;; Load by 1/k
+	mulsd	xmm4, xmm0		;; Mul ZPAD data by 1/k
+	addsd	xmm4, XMM_BIGVAL	;; Round to integer	
+	subsd	xmm4, XMM_BIGVAL
+	movsd	XMM_TMP1, xmm4		;; Save integer part
+	mulsd	xmm4, ZPAD_K1_LO	;; Compute remainder
+	subsd	xmm0, xmm4
+	movsd	ZPAD0, xmm0		;; Save remainder
+
+	subsd	xmm1, xmm1		;; Zero words that other cases set
+	movsd	XMM_TMP6, xmm1
+	
+div_k_done:
+
+	;; Now normalize the data above the halfway point.  Remember that the
+	;; column two-to-phi multiplier for the first value will be 1.0.
+
+	mov	al, [rdi]		;; First biglit flag 
+	movsd	xmm0, ZPAD0		;; Load remainder of divide by k
+	addsd	xmm0, XMM_BIGVAL
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y1 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x1 - z1
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y2
+	movsd	Q [rsi+0*64+32], xmm0	;; Save value1
+
+	mov	al, [rdi+4]		;; Load big vs. little flags
+	movsd	xmm0, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm0, xmm2		;; y2 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm0		;; z2 = y2-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm2, xmm4		;; rounded value = x2 - z2
+	mulsd	xmm0, XMM_LIMIT_INVERSE[rax];; next carry = shifted y2
+	mulsd	xmm2, Q [rbx+1*32+16]	;; new value2 = val * col two-to-phi
+	movsd	Q [rsi+1*64+32], xmm2	;; Save value2
+
+	mov	ecx, BIGLIT_INCR2	;; Different clm values step through
+					;; big/lit array differently
+	mov	al, [rdi+rcx]		;; Load big vs. little flags
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y3 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z3 = y3-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x3 - z3
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y3
+	mulsd	xmm0, Q [rbx+2*32+16]	;; new value3 = val * col two-to-phi
+	movsd	Q [rsi+2*64+32], xmm0	;; Save value3
+
+	subsd	xmm2, XMM_BIGVAL	;; Remove integer rounding constant
+	mulsd	xmm2, Q [rbx+3*32+16]	;; value4 = carry * col two-to-phi
+	movsd	Q [rsi+3*64+32], xmm2	;; Save new value4
+
+	;; Mul the integer part of (ZPAD data divided by k) by -c in
+	;; preparation for adding it into the lower FFT data area.
+	;; Also add in the shifted high FFT carry at this time.
+
+	;; Now add in and normalize the bottom FFT data.  Remember that the
+	;; column two-to-phi multiplier for the first value will be 1.0.  We 
+	;; must go 6 words deep in case k is 48-50 bits and c is 32 bits.
+
+	mov	al, [rdi]		;; First word 
+	movsd	xmm0, XMM_TMP1		;; Load remainder of divide by k
+	mulsd	xmm0, XMM_MINUS_C	;; Mul by -c
+	addsd	xmm0, XMM_BIGVAL
+	addsd	xmm0, Q [rsi+0*64]	;; Add in the FFT data
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y1 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z1 = y1-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x1 - z1
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y2
+	movsd	Q [rsi+0*64], xmm0	;; Save value1
+
+	mov	al, [rdi+4]		;; Load big vs. little flags
+	movsd	xmm0, XMM_TMP2		;; Load remainder of divide by k
+	mulsd	xmm0, XMM_MINUS_C	;; Mul by -c
+	movsd	xmm1, Q [rsi+1*64]	;; Load FFT data
+	mulsd	xmm1, Q [rbx+1*32]	;; Mul values2 by col two-to-minus-phi
+	mulsd	xmm1, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, xmm1		;; Add in the FFT data
+	addsd	xmm0, xmm2		;; x2 = value + carry
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y2 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z2 = y2-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x2 - z2
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y2
+	mulsd	xmm0, Q [rbx+1*32+16]	;; new value2 = val * col two-to-phi
+	movsd	Q [rsi+1*64], xmm0	;; Save value2
+
+	mov	ecx, BIGLIT_INCR2	;; Different clm values step through
+					;; big/lit array differently
+	mov	al, [rdi+rcx]		;; Load big vs. little flags
+	movsd	xmm0, XMM_TMP3		;; Load remainder of divide by k
+	mulsd	xmm0, XMM_MINUS_C	;; Mul by -c
+	movsd	xmm1, Q [rsi+2*64]	;; Load FFT data
+	mulsd	xmm1, Q [rbx+2*32]	;; Mul values3 by col two-to-minus-phi
+	mulsd	xmm1, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, xmm1		;; Add in the FFT data
+	addsd	xmm0, xmm2		;; x3 = value + carry
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y3 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z3 = y3-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x3 - z3
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y3
+	mulsd	xmm0, Q [rbx+2*32+16]	;; new value3 = val * col two-to-phi
+	movsd	Q [rsi+2*64], xmm0	;; Save value3
+
+	mov	al, [rdi+rcx+4]		;; Load big vs. little flags
+	movsd	xmm0, XMM_TMP4		;; Load remainder of divide by k
+	mulsd	xmm0, XMM_MINUS_C	;; Mul by -c
+	movsd	xmm1, Q [rsi+3*64]	;; Load FFT data
+	mulsd	xmm1, Q [rbx+3*32]	;; Mul values4 by col two-to-minus-phi
+	mulsd	xmm1, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, xmm1		;; Add in the FFT data
+	addsd	xmm0, xmm2		;; x4 = value + carry
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y4 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z4 = y4-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x4 - z4
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y4
+	mulsd	xmm0, Q [rbx+3*32+16]	;; new value4 = val * col two-to-phi
+	movsd	Q [rsi+3*64], xmm0	;; Save value4
+
+	mov	ecx, BIGLIT_INCR4	;; Different clm values step through
+					;; big/lit array differently
+	mov	al, [rdi+rcx]		;; Load big vs. little flags
+	movsd	xmm0, XMM_TMP5		;; Load remainder of divide by k
+	mulsd	xmm0, XMM_MINUS_C	;; Mul by -c
+	movsd	xmm1, Q [rsi+4*64]	;; Load FFT data
+	mulsd	xmm1, Q [rbx+4*32]	;; Mul values4 by col two-to-minus-phi
+	mulsd	xmm1, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, xmm1		;; Add in the FFT data
+	addsd	xmm0, xmm2		;; x4 = value + carry
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y4 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z4 = y4-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x4 - z4
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y4
+	mulsd	xmm0, Q [rbx+4*32+16]	;; new value4 = val * col two-to-phi
+	movsd	Q [rsi+4*64], xmm0	;; Save value4
+
+	mov	al, [rdi+rcx+4]		;; Load big vs. little flags
+	movsd	xmm0, XMM_TMP6		;; Load remainder of divide by k
+	mulsd	xmm0, XMM_MINUS_C	;; Mul by -c
+	movsd	xmm1, Q [rsi+5*64]	;; Load FFT data
+	mulsd	xmm1, Q [rbx+5*32]	;; Mul values5 by col two-to-minus-phi
+	mulsd	xmm1, XMM_NORM012_FF	;; Mul by FFTLEN/2
+	addsd	xmm0, xmm1		;; Add in the FFT data
+	addsd	xmm0, xmm2		;; x5 = value + carry
+	movsd	xmm2, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
+	addsd	xmm2, xmm0		;; y5 = top bits of x
+	movsd	xmm4, XMM_LIMIT_BIGMAX_NEG[rax];; Load -(maximum*BIGVAL-BIGVAL)
+	addsd	xmm4, xmm2		;; z5 = y5-(maximum * BIGVAL - BIGVAL)
+	subsd	xmm0, xmm4		;; rounded value = x5 - z5
+	mulsd	xmm2, XMM_LIMIT_INVERSE[rax];; next carry = shifted y5
+	mulsd	xmm0, Q [rbx+5*32+16]	;; new value5 = val * col two-to-phi
+	movsd	Q [rsi+5*64], xmm0	;; Save value5
+
+	subsd	xmm2, XMM_BIGVAL	;; Remove rounding constant
+	mulsd	xmm2, Q [rbx+6*32+16]	;; new value6 = val * col two-to-phi
+	addsd	xmm2, Q [rsi+6*64]	;; Add in FFT data
+	movsd	Q [rsi+6*64], xmm2	;; Save value6
+	ENDM
+
 
 ;;
 ;; Macro to copy and possibly zero 4 or 8 doubles

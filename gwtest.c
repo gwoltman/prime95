@@ -296,9 +296,10 @@ void test_it_all (
 		gwadd (&gwdata, x3, x);
 		gwadd (&gwdata, x4, x);
 
-/* Test gwaddsmall */
+/* Test gwsmalladd and gwsmallmul */
 
-		gwaddsmall (&gwdata, x, 111);
+		gwsmalladd (&gwdata, GWSMALLADD_MAX, x);
+		gwsmallmul (&gwdata, GWSMALLMUL_MAX-1.0, x);
 
 /* Do some multiplies to make sure that the adds and subtracts above */
 /* normalized properly. */
@@ -524,12 +525,20 @@ void test_it (
 	}
 	gwadd (gwdata, x2, x); addg (g2, g);
 	gwadd (gwdata, x3, x); addg (g3, g);
-	gwadd (gwdata, x4, x); addg (g4, g);
+	gwadd (gwdata, x4, x); addg (g4, g); specialmodg (gwdata, g);
+	if (CHECK_OFTEN) compare (thread_num, gwdata, x, g);
 
-/* Test gwaddsmall */
+/* Test gwsmalladd and gwsmallmul */
 
-	gwaddsmall (gwdata, x, 111);
-	iaddg (111, g); specialmodg (gwdata, g);
+	gwsmalladd (gwdata, GWSMALLADD_MAX, x);
+	dbltog (GWSMALLADD_MAX, g4); addg (g4, g); specialmodg (gwdata, g);
+	if (CHECK_OFTEN) compare (thread_num, gwdata, x, g);
+	i = rand() % 10 + 2;
+	gwsmallmul (gwdata, i, x);
+	ulmulg (i, g); specialmodg (gwdata, g);
+	if (CHECK_OFTEN) compare (thread_num, gwdata, x, g);
+	gwsmallmul (gwdata, GWSMALLMUL_MAX-1.0, x);
+	ulmulg ((unsigned long) (GWSMALLMUL_MAX-1.0), g); specialmodg (gwdata, g);
 	if (CHECK_OFTEN) compare (thread_num, gwdata, x, g);
 
 /* Do some multiplies to make sure that the adds and subtracts above */

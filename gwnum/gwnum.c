@@ -140,7 +140,8 @@ struct gwasm_data {
 	double	XMM_P951[2];
 	double	XMM_P588[2];
 	double	XMM_M162[2];
-	double	XMM_UNUSED1[2];
+	double	DBLARG;
+	double	DBL_UNUSED1[1];
 	double	XMM_P866[2];
 	double	XMM_UNUSED2[2];
 	double	XMM_UNUSED3[2];
@@ -238,7 +239,8 @@ struct gwasm_data {
 
 	intptr_t normval2;	/* Add / sub temporaries */
 	intptr_t normval3;
-	void	*pad3[2];
+	intptr_t ZPAD_WORD5_OFFSET; /* Offset of the 5th word */
+	intptr_t ZPAD_WORD5_RBP_OFFSET; /* Offset to 5th word's ttp data */
 
 	int32_t	normcount1;
 	int32_t	count2;
@@ -320,7 +322,9 @@ struct gwasm_data {
 #define gw_addf(h,a)	(*(h)->GWPROCPTRS[11])(a)
 #define gw_subf(h,a)	(*(h)->GWPROCPTRS[12])(a)
 #define gw_addsubf(h,a)	(*(h)->GWPROCPTRS[13])(a)
-#define norm_routines	14
+#define gw_adds(h,a)	(*(h)->GWPROCPTRS[14])(a)
+#define gw_muls(h,a)	(*(h)->GWPROCPTRS[15])(a)
+#define norm_routines	16
 
 /* Helper macros */
 
@@ -1821,7 +1825,7 @@ int gwsetup (
 		power (g, n);
 		dblmulg (k, g);
 		iaddg (c, g);
-		gwdata->force_general_mod = (gcd != 1);
+		gwdata->force_general_mod = TRUE;
 		error_code = gwsetup_general_mod_giant (gwdata, g);
 		free (g);
 		if (error_code) return (error_code);
@@ -1869,12 +1873,11 @@ int gwsetup_general_mod_giant (
 	gwhandle *gwdata,	/* Placeholder for gwnum global data */
 	giant	g)		/* The modulus */
 {
-#define EB	10		/* Extra bits of precision to compute quot. */
 	unsigned long bits;	/* Bit length of modulus */
 	double	k;
 	unsigned long n;
 	signed long c;
-	unsigned long len;
+	unsigned long len, safety_bits;
 	int	error_code;
 	giant	modified_modulus, tmp;
 
@@ -1887,13 +1890,20 @@ int gwsetup_general_mod_giant (
 	if (!gwdata->force_general_mod && bits > 300 && convert_giant_to_kbnc (g, &k, &n, &c))
 		return (gwsetup (gwdata, k, 2, n, c));
 
+/* Set flag so that gwsetup_without_mod will try to put more bits in each */
+/* word.  This will give us more spare bits for gwsmallmul to use to avoid */
+/* emulate_mod calls. */
+	
+	gwdata->force_general_mod = TRUE;
+
 /* Setup the FFT code, use an integral number of bits per word if possible. */
 /* We reserve some extra bits for extra precision and to make sure we can */
-/* zero an integral number of words during copy. */
+/* zero an integral number of words during copy and so that gwsmallmul will */
+/* rarely have to call emulate_mod. */
 
 	len = bits + 64; /* Modified modulus size in bits */
 	gwdata->bit_length = len;
-	error_code = gwsetup_without_mod (gwdata, len + len + 2*EB + 64);
+	error_code = gwsetup_without_mod (gwdata, len + len + 128);
 	if (error_code) return (error_code);
 
 /* Copy the modulus */
@@ -1933,7 +1943,33 @@ int gwsetup_general_mod_giant (
 	gianttogw (gwdata, modified_modulus, gwdata->GW_MODULUS_FFT);
 	gwfft (gwdata, gwdata->GW_MODULUS_FFT, gwdata->GW_MODULUS_FFT);
 
-/* Precompute the reciprocal of the modified modulus */
+/* Calculate number of words to zero during the copy prior to calculating */
+/* the quotient. */
+
+	gwdata->GW_ZEROWORDSLOW = (unsigned long)
+				  floor ((double) len / gwdata->fft_bits_per_word);
+
+/* A quick emulate_mod refresher: */
+/* 1) The maximum size of a quotient is gwdata->n/2 bits due to the */
+/*    zeroing of high words in the normalization routine.  Obviously the */
+/*    reciprocal needs to be accurate to at least gwdata->n/2 bits. */
+/* 2) So that the quotient doesn't overflow, the maximum size of a value */
+/*    entering emulate_mod is gwdata->n/2+len bits */
+/* 3) So that gwsquare and gwmul don't send emulate_mod a value that is */
+/*    too large, the maximum input to these routines should be (allowing */
+/*    for an 8 bit mulbyconstant) is (gwdata->n/2+len-8)/2 bits.  This is */
+/*    used by gwsmallmul to know when an emulate_mod is required */
+/* 4) We cannot quite push to the limits calculated above because we have to */
+/*    make sure the quotient calculation does not produce more than gwdata->n */
+/*    bits of result -- otherwise the *high* order bits of the quotient will be */
+/*    corrupted.  We allow ourselves a small safety margin by decreasing the */
+/*    number of reciprocal bits calculated.  The safety margin must be larger */
+/*    than the number of unzeroed bits caused by using the floor function in */
+/*    calculating GW_ZEROWORDSLOW. */
+
+	safety_bits = len - (unsigned long) ((double) gwdata->GW_ZEROWORDSLOW * gwdata->fft_bits_per_word) + 3;
+
+/* Precompute the reciprocal of the modified modulus. */
 
 	tmp = newgiant ((gwdata->n >> 4) + 1);
 	if (tmp == NULL) {
@@ -1942,10 +1978,10 @@ int gwsetup_general_mod_giant (
 		return (GWERROR_MALLOC);
 	}
 	itog (1, tmp);
-	gshiftleft (len + len + EB, tmp);
-	divg (modified_modulus, tmp);		/* computes len+EB+1 bits of reciprocal */
+	gshiftleft (len + gwdata->n/2 - safety_bits, tmp);
+	divg (modified_modulus, tmp);	/* computes gwdata->n/2-safety_margin+1 bits of reciprocal */
 	free (modified_modulus);
-	gshiftleft (gwdata->n - len - len - EB, tmp);
+	gshiftleft (gwdata->n - (len + gwdata->n/2 - safety_bits), tmp);
 				/* shift so gwmul routines wrap */
 				/* quotient to lower end of fft */
 	gwdata->GW_RECIP_FFT = gwalloc (gwdata);
@@ -1958,11 +1994,13 @@ int gwsetup_general_mod_giant (
 	gwfft (gwdata, gwdata->GW_RECIP_FFT, gwdata->GW_RECIP_FFT);
 	free (tmp);
 
-/* Calculate number of words to zero during copy */
+/* Calculate the maximum allowable size of a number used as input */
+/* to gwmul.  We will make sure gwsmallmul does not generate any */
+/* results bigger than this. */
 
-	if (len < EB) gwdata->GW_ZEROWORDSLOW = 0;
-	else gwdata->GW_ZEROWORDSLOW = (unsigned long)
-		((double) (len - EB) / gwdata->fft_bits_per_word);
+	gwdata->GW_GEN_MOD_MAX = (unsigned long)
+		 floor ((double)((gwdata->n/2-safety_bits+len-8)/2) / gwdata->fft_bits_per_word);
+	gwdata->GW_GEN_MOD_MAX_OFFSET = addr_offset (gwdata, gwdata->GW_GEN_MOD_MAX-1);
 
 /* Set flag indicating general-purpose modulo operations are in force */
 
@@ -1971,7 +2009,7 @@ int gwsetup_general_mod_giant (
 /* Create dummy string representation. Calling gtoc to get the first */
 /* several digits would be better, but it is too slow. */
 
-	sprintf (gwdata->GWSTRING_REP, "A %ld-bit number", len-64);
+	sprintf (gwdata->GWSTRING_REP, "A %ld-bit number", bits);
 
 /* Return success */
 
@@ -2010,6 +2048,12 @@ int gwsetup_without_mod (
 	desired_n = ((n + fftlen - 1) / fftlen) * fftlen;
 	if (desired_n < max_exponent) n = desired_n;
 
+/* If requested and possible, increase n to the next multiple of FFT length. */
+/* Right now, the extra bits allow gwsmallmul to avoid emulate_mod calls more often. */
+
+	if (gwdata->force_general_mod && n + fftlen < max_exponent)
+		n = n + fftlen;
+
 /* Our FFTs don't handle cases where there are few bits per word because */
 /* carries must be propagated over too many words.  Arbitrarily insist */
 /* that n is at least 12 * fftlen.  */
@@ -2018,7 +2062,9 @@ int gwsetup_without_mod (
 
 /* Now setup the assembly code */
 
-	error_code = gwsetup (gwdata, 1.0, 2, n, -1);
+	gwdata->safety_margin -= 0.3;
+	error_code = internal_gwsetup (gwdata, 1.0, 2, n, -1);
+	gwdata->safety_margin += 0.3;
 	if (error_code) return (error_code);
 
 /* Set flag indicating general-purpose modulo operations are not in force */
@@ -2504,9 +2550,9 @@ int internal_gwsetup (
 /* Get the procedure pointers from the asm structures */
 
 	memcpy (gwdata->GWPROCPTRS, info->proc_ptrs, 4 * sizeof (void *));
-	memcpy (gwdata->GWPROCPTRS+4, info->add_sub_norm_procs, 10 * sizeof (void *));
-	memcpy (gwdata->GWPROCPTRS+14,
-		info->add_sub_norm_procs + 10 +
+	memcpy (gwdata->GWPROCPTRS+4, info->add_sub_norm_procs, 12 * sizeof (void *));
+	memcpy (gwdata->GWPROCPTRS+16,
+		info->add_sub_norm_procs + 12 +
 			(gwdata->RATIONAL_FFT ? 0 : 12) +
 			(gwdata->ZERO_PADDED_FFT ? 8 : 0),
 		8 * sizeof (void *));
@@ -2883,6 +2929,13 @@ int internal_gwsetup (
 	if (gwdata->ZERO_PADDED_FFT) {
 		unsigned long kbits, bits0, bits1, bits2, bits3, bits4, bits5;
 		double	pow2, bigpow2;
+
+		asm_data->ZPAD_WORD5_OFFSET = addr_offset (gwdata, 4);
+		if (asm_data->ZPAD_WORD5_OFFSET == 8) {  /* FFTLEN = 80 and 112 */
+			asm_data->ZPAD_WORD5_RBP_OFFSET = 8;
+		} else {
+			asm_data->ZPAD_WORD5_RBP_OFFSET = 256;
+		}
 
 		asm_data->HIGH_WORD1_OFFSET = addr_offset (gwdata, gwdata->FFTLEN/2-1);
 		asm_data->HIGH_WORD2_OFFSET = addr_offset (gwdata, gwdata->FFTLEN/2-2);
@@ -5256,48 +5309,6 @@ void raw_gwsetaddin (
 }
 
 
-/* Routine to add a small number to a gwnum.  Some day, */
-/* I might optimize this routine for the cases where just one or two */
-/* doubles need to be modified in the gwnum */
-
-void gwaddsmall (
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	g,		/* Gwnum to add a value into */
-	double	addin)		/* Small value to add to g */
-{
-	gwnum	tmp;
-
-/* A simple brute-force implementation */
-
-	tmp = gwalloc (gwdata);
-	if (addin >= 0.0) {
-		dbltogw (gwdata, addin, tmp);
-		gwaddquick (gwdata, tmp, g);
-	} else {
-		dbltogw (gwdata, -addin, tmp);
-		gwsubquick (gwdata, tmp, g);
-	}
-	gwfree (gwdata, tmp);
-}
-
-/* This routine multiplies a gwnum by a small positive value.  This lets us apply some */
-/* optimizations that cannot be performed by a full FFT multiplication. */
-
-void gwmulsmall (
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	g,		/* Gwnum to multiply */
-	double	mult)		/* Small value to multiply g by */
-{
-	gwnum	tmp;
-
-/* A simple brute-force implementation */
-
-	tmp = gwalloc (gwdata);
-	dbltogw (gwdata, mult, tmp);
-	gwmul (gwdata, tmp, g);
-	gwfree (gwdata, tmp);
-}
-
 /********************************************************/
 /* Routines to convert between gwnums and other formats */
 /********************************************************/
@@ -5376,6 +5387,8 @@ void gianttogw (
 	unsigned long binval, carry;
 	uint32_t *e1;
 
+	ASSERTG (a->sign >= 0);		/* We only handle positive numbers */
+
 /* To make the mod k*b^n+c step faster, gwnum's are pre-multiplied by 1/k */
 /* If k is greater than 1, then we calculate the inverse of k, multiply */
 /* the giant by the inverse of k, and do a mod k*b^n+c. */
@@ -5419,7 +5432,6 @@ void gianttogw (
 
 /* Now convert the giant to FFT format */
 
-	ASSERTG (a->sign >= 0);
 	e1len = a->sign;
 	e1 = a->n;
 
@@ -5566,7 +5578,7 @@ int gwtogiant (
 /* FFT, then only convert a little more than half of the FFT data words. */
 /* For a DWT, convert all the FFT data. */
 
-	if (gwdata->GENERAL_MOD) limit = gwdata->GW_ZEROWORDSLOW + 3;
+	if (gwdata->GENERAL_MOD) limit = gwdata->GW_GEN_MOD_MAX;
 	else if (gwdata->ZERO_PADDED_FFT) limit = gwdata->FFTLEN / 2 + 4;
 	else limit = gwdata->FFTLEN;
 
@@ -5769,7 +5781,8 @@ void specialmodg (
 /* Wrapper routines for the multiplication assembly code routines */
 /******************************************************************/
 
-/* Internal wrapper routine to call fftmul assembly code */
+/* Internal wrapper routine to call fftmul assembly code. */
+/* Caller must set NORMRTN prior to calling this routine.*/
 
 void raw_gwfftmul (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -6537,4 +6550,133 @@ void gwfftaddsub4 (		/* Add & sub two FFTed numbers */
 	asm_data->DESTARG = d1;
 	asm_data->DEST2ARG = d2;
 	gw_addsubf (gwdata, asm_data);
+}
+
+/* Routine to add a small number to a gwnum.  Some day, */
+/* I might optimize this routine for the cases where just one or two */
+/* doubles need to be modified in the gwnum */
+
+void gwsmalladd (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	double	addin,		/* Small value to add to g */
+	gwnum	g)		/* Gwnum to add a value into */
+{
+
+/* Assert unnormalized add count valid, input not partially FFTed. */
+
+	ASSERTG (((uint32_t *) g)[-1] >= 1);
+	ASSERTG (((uint32_t *) g)[-7] == 0);
+
+/* A simple brute-force implementation.  We put k > 1 numbers through */
+/* here because multiplying the addin value by 1/k complicates matters. */
+/* If this routine is ever used much, we can try to optimize this. */
+
+	if (gwdata->GWPROCPTRS[14] == NULL || gwdata->k > 1.0) {
+		gwnum	tmp;
+		tmp = gwalloc (gwdata);
+		if (addin >= 0.0) {
+			dbltogw (gwdata, addin, tmp);
+			gwaddquick (gwdata, tmp, g);
+		} else {
+			dbltogw (gwdata, -addin, tmp);
+			gwsubquick (gwdata, tmp, g);
+		}
+		gwfree (gwdata, tmp);
+	}
+
+/* The assembler optimized version */
+
+	else {
+		struct gwasm_data *asm_data;
+
+		asm_data = (struct gwasm_data *) gwdata->asm_data;
+		asm_data->DESTARG = g;
+		asm_data->DBLARG = addin;
+		gw_adds (gwdata, asm_data);
+	}
+
+}
+
+/* This routine multiplies a gwnum by a small positive value.  This lets us apply some */
+/* optimizations that cannot be performed by a full FFT multiplication. */
+
+void gwsmallmul (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	double	mult,		/* Small value to multiply g by */
+	gwnum	g)		/* Gwnum to multiply */
+{
+	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
+
+/* Assert unnormalized add count valid, input not partially FFTed. */
+
+	ASSERTG (((uint32_t *) g)[-1] >= 1);
+	ASSERTG (((uint32_t *) g)[-7] == 0);
+
+/* The x87 assembly version won't spread carries over multiple words. */
+/* Also, the x87 assembly version won't guard against carries out of the */
+/* critical top words in a zero-padded number. */
+/* A simple brute-force implementation.  Note we cannot call gwmul as this */
+/* will use the caller's last gwsetnormroutine value which could incorrectly */
+/* multiply by a constant. */
+	
+	if (! (gwdata->cpu_flags & CPU_SSE2) &&
+	    (mult > 1024.0 || gwdata->ZERO_PADDED_FFT)) {
+		gwnum	tmp;
+		tmp = gwalloc (gwdata);
+		if (mult == 1.0);
+		else if (mult == 2.0) {
+			gwadd (gwdata, g, g);
+		}
+		else if (mult == 3.0) {
+			gwadd3quick (gwdata, g, g, tmp);
+			gwadd (gwdata, tmp, g);
+		}
+		else if (mult == 4.0) {
+			gwaddquick (gwdata, g, g);
+			gwadd (gwdata, g, g);
+		}
+		else if (mult == 5.0) {
+			gwadd3quick (gwdata, g, g, tmp);
+			gwaddquick (gwdata, tmp, tmp);
+			gwadd (gwdata, tmp, g);
+		}
+		else if (mult == 6.0) {
+			gwadd3quick (gwdata, g, g, tmp);
+			gwaddquick (gwdata, tmp, g);
+			gwadd (gwdata, g, g);
+		}
+		else if (mult == 8.0) {
+			gwaddquick (gwdata, g, g);
+			gwaddquick (gwdata, g, g);
+			gwadd (gwdata, g, g);
+		}
+		else if (mult == 9.0) {
+			gwadd3quick (gwdata, g, g, tmp);
+			gwaddquick (gwdata, tmp, tmp);
+			gwaddquick (gwdata, tmp, tmp);
+			gwadd (gwdata, tmp, g);
+		}
+		else {
+			dbltogw (gwdata, mult, tmp);
+			gwfft (gwdata, tmp, tmp);
+			asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM & 1)];
+			raw_gwfftmul (gwdata, tmp, g);
+		}
+		gwfree (gwdata, tmp);
+	}
+
+/* The assembler optimized version */
+
+	else {
+		asm_data->DESTARG = g;
+		asm_data->DBLARG = mult;
+		gw_muls (gwdata, asm_data);
+		((uint32_t *) g)[-1] = 1;
+
+/* If the number has gotten too large, emulate general mod with 2 multiplies */
+
+		if (gwdata->GENERAL_MOD &&
+		    * (double *) ((char *) g + gwdata->GW_GEN_MOD_MAX_OFFSET) != 0.0)
+		emulate_mod (gwdata, g);
+	}
 }

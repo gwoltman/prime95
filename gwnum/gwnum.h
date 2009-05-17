@@ -448,16 +448,22 @@ void gwsetaddin (gwhandle *, long);
 void gwsetaddinatbit (gwhandle *, long, unsigned long);
 
 /* This routine adds a small value to a gwnum.  This lets us apply some */
-/* optimizations that cannot be performed by gwadd */
+/* optimizations that cannot be performed by general purpose gwadd */
 
-#define GWADDSMALL_MAX		2251799813685247.0	/* May be lowered at later date */
-void gwaddsmall (gwhandle *gwdata, gwnum g, double addin);
+#define GWSMALLADD_MAX		2251799000000000.0	/* Almost 2^51 */
+void gwsmalladd (gwhandle *gwdata, double addin, gwnum g);
 
 /* This routine multiplies a gwnum by a small positive value.  This lets us apply some */
 /* optimizations that cannot be performed by a full FFT multiplication. */
 
-#define GWMULSMALL_MAX		67108864.0		/* May allow more at a later date */
-void gwmulsmall (gwhandle *gwdata, gwnum g, double mult);
+#define GWSMALLMUL_MAX		67108864.0		/* May allow more at a later date */
+void gwsmallmul (gwhandle *gwdata, double mult, gwnum g);
+
+
+/* DEPRECATED!!! These routines were deprecated because unlike all other gwnum routines */
+/* the destination argument appeared before the source argument. */
+#define gwaddsmall(h,g,a) gwsmalladd(h,a,g)	
+#define gwmulsmall(h,g,m) gwsmallmul(h,m,g)
 
 /*---------------------------------------------------------------------+
 |                      GWNUM ERROR-CHECKING ROUTINES                   |
@@ -717,6 +723,9 @@ struct gwhandle_struct {
 	gwnum	GW_RECIP_FFT;	/* FFT of shifted reciprocal of GW_MODULUS */
 	unsigned long GW_ZEROWORDSLOW; /* Count of words to zero during */
 				/* copy step of a general purpose mod. */
+	unsigned long GW_GEN_MOD_MAX; /* Maximum number of words we can safely */
+				/* allow in a GENERAL_MOD number. */
+	unsigned long GW_GEN_MOD_MAX_OFFSET; /* Offset to the GW_GEN_MOD_MAX word */
 	double	fft_bits_per_word; /* Num bits in each fft word */
 	double	bit_length;	/* Bit length of k*b^n */
 	double	fft_max_bits_per_word;	/* Maximum bits per data word that */
