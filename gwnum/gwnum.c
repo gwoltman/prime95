@@ -1902,10 +1902,14 @@ int gwsetup_general_mod_giant (
 /* rarely have to call emulate_mod. */
 
 	len = bits + 64; /* Modified modulus size in bits */
-	gwdata->bit_length = len;
 	error_code = gwsetup_without_mod (gwdata, len + len + 128);
 	if (error_code) return (error_code);
-
+// BUG - setting the bit_length to the modulus size will break gwtogiant.
+// we need a better/more-consistent way of dealing with the various 
+// needed bit_lengths.  Also, PPFGW should not be reading the bit_length
+// value in integer.cpp.
+//	gwdata->bit_length = bits;
+	
 /* Copy the modulus */
 
 	gwdata->GW_MODULUS = newgiant ((bits >> 4) + 1);
@@ -5843,6 +5847,8 @@ void emulate_mod (
 	gwnum	tmp;
 	double	saved_addin_value;
 
+	ASSERTG (* addr (gwdata, s, gwdata->FFTLEN-1) > -2.0 && * addr (gwdata, s, gwdata->FFTLEN-1) <= 0.0);
+
 /* Save and clear the addin value */
 
 	asm_data = (struct gwasm_data *) gwdata->asm_data;
@@ -5861,6 +5867,7 @@ void emulate_mod (
 
 	asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + 4 + (gwdata->NORMNUM & 1)];
 	raw_gwfftmul (gwdata, gwdata->GW_RECIP_FFT, tmp);
+	ASSERTG (* addr (gwdata, tmp, gwdata->FFTLEN/2-1) > -2.0 && * addr (gwdata, tmp, gwdata->FFTLEN/2-1) <= 0.0);
 
 /* Muliply quotient and modulus.  Select normalization routine that does */
 /* not zero the high FFT words. */
@@ -5871,6 +5878,8 @@ void emulate_mod (
 /* Subtract from the original number to get the remainder */
 
 	gwsub (gwdata, tmp, s);
+	ASSERTG (* addr (gwdata, s, gwdata->FFTLEN-1) > -2.0 && * addr (gwdata, s, gwdata->FFTLEN-1) <= 0.0);
+	ASSERTG (* addr (gwdata, s, gwdata->FFTLEN/2-1) > -2.0 && * addr (gwdata, s, gwdata->FFTLEN/2-1) <= 0.0);
 	gwfree (gwdata, tmp);
 
 /* Restore the addin value */
@@ -6673,10 +6682,12 @@ void gwsmallmul (
 		gw_muls (gwdata, asm_data);
 		((uint32_t *) g)[-1] = 1;
 
-/* If the number has gotten too large, emulate general mod with 2 multiplies */
+/* If the number has gotten too large (high words should all be */
+/* weighted -1 or 0) then emulate general mod with 2 multiplies */
 
 		if (gwdata->GENERAL_MOD &&
-		    * (double *) ((char *) g + gwdata->GW_GEN_MOD_MAX_OFFSET) != 0.0)
+		    (* (double *) ((char *) g + gwdata->GW_GEN_MOD_MAX_OFFSET) <= 2.0 ||
+		     * (double *) ((char *) g + gwdata->GW_GEN_MOD_MAX_OFFSET) > 0.0))
 		emulate_mod (gwdata, g);
 	}
 }
