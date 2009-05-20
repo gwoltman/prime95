@@ -12,6 +12,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <math.h>
 #include <memory.h>
 #include <string.h>
@@ -346,11 +347,12 @@ struct gwasm_data {
 
 /* Forward declarations */
 
-int convert_giant_to_kbnc (
+int convert_giant_to_k2ncd (
 	giant	g,		/* Giant to examine */
-	double	*k,		/* K in K*2^N+C. */
-	unsigned long *n,	/* N in K*2^N+C. */
-	signed long *c);	/* C in K*2^N+C. */
+	double	*k,		/* K in (K*2^N+C)/D. */
+	unsigned long *n,	/* N in (K*2^N+C)/D. */
+	signed long *c,		/* C in (K*2^N+C)/D. */
+	unsigned long *d);	/* D in (K*2^N+C)/D. */
 int internal_gwsetup (
 	gwhandle *gwdata,	/* Placeholder for gwnum global data */
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
@@ -1874,21 +1876,51 @@ int gwsetup_general_mod_giant (
 	giant	g)		/* The modulus */
 {
 	unsigned long bits;	/* Bit length of modulus */
+	int	convertible;	/* Value can be converted to (k*2^n+c)/d */
 	double	k;
 	unsigned long n;
 	signed long c;
-	unsigned long len, safety_bits;
+	unsigned long d;
+	unsigned long safety_bits;
 	int	error_code;
-	giant	modified_modulus, tmp;
+	giant	tmp;
 
 /* Init */
 
 	bits = bitlen (g);
 
-/* Examine the giant to see if it a k*2^n+c value that we can optimize */
+/* Examine the giant to see if it a (k*2^n+c)/d value that we can better optimize */
 
-	if (!gwdata->force_general_mod && bits > 300 && convert_giant_to_kbnc (g, &k, &n, &c))
-		return (gwsetup (gwdata, k, 2, n, c));
+	convertible = (!gwdata->force_general_mod &&
+		       bits > 300 &&
+		       convert_giant_to_k2ncd (g, &k, &n, &c, &d));
+
+/* Copy the modulus except for k*2^n+c values */
+
+	if (!convertible || d != 1) {
+		gwdata->GW_MODULUS = newgiant ((bits >> 4) + 1);
+		if (gwdata->GW_MODULUS == NULL) {
+			gwdone (gwdata);
+			return (GWERROR_MALLOC);
+		}
+		gtog (g, gwdata->GW_MODULUS);
+	}
+
+/* Setup for values we are converting to use faster k*2^n+c FFTs. */
+
+	if (convertible) {
+		error_code = gwsetup (gwdata, k, 2, n, c);
+		if (error_code) return (error_code);
+		if (d != 1) {
+			char	buf[60];
+			strcpy (buf, gwdata->GWSTRING_REP);
+			if (isdigit (buf[0]))
+				sprintf (gwdata->GWSTRING_REP, "(%s)/%lu", buf, d);
+			else
+				sprintf (gwdata->GWSTRING_REP, "%s/%lu", buf, d);
+		}
+		return (0);
+	}
 
 /* Set flag so that gwsetup_without_mod will try to put more bits in each */
 /* word.  This will give us more spare bits for gwsmallmul to use to avoid */
@@ -1901,8 +1933,7 @@ int gwsetup_general_mod_giant (
 /* zero an integral number of words during copy and so that gwsmallmul will */
 /* rarely have to call emulate_mod. */
 
-	len = bits + 64; /* Modified modulus size in bits */
-	error_code = gwsetup_without_mod (gwdata, len + len + 128);
+	error_code = gwsetup_without_mod (gwdata, bits + bits + 128);
 	if (error_code) return (error_code);
 // BUG - setting the bit_length to the modulus size will break gwtogiant.
 // we need a better/more-consistent way of dealing with the various 
@@ -1910,58 +1941,31 @@ int gwsetup_general_mod_giant (
 // value in integer.cpp.
 //	gwdata->bit_length = bits;
 	
-/* Copy the modulus */
-
-	gwdata->GW_MODULUS = newgiant ((bits >> 4) + 1);
-	if (gwdata->GW_MODULUS == NULL) {
-		gwdone (gwdata);
-		return (GWERROR_MALLOC);
-	}
-	gtog (g, gwdata->GW_MODULUS);
-
-/* Some reciprocals have regular bit patterns.  This violates a */
-/* fundamental assumption we make in our selection of FFT crossover */
-/* points namely that FFT data is essentially random.  This */
-/* non-randomness triggers roundoff errors.  We try to eliminate */
-/* these regular bit patterns by multiplying the modulus by a */
-/* random 64-bit prime. */
-
-	modified_modulus = newgiant ((len >> 4) + 1);
-	if (modified_modulus == NULL) {
-		gwdone (gwdata);
-		return (GWERROR_MALLOC);
-	}
-	modified_modulus->sign = 2;
-	modified_modulus->n[0] = 0x12348765;
-	modified_modulus->n[1] = 0x957F3624;
-	mulg (g, modified_modulus);
-
-/* Allocate memory for an FFTed copy of the modified modulus. */
+/* Allocate memory for an FFTed copy of the modulus. */
 
 	gwdata->GW_MODULUS_FFT = gwalloc (gwdata);
 	if (gwdata->GW_MODULUS_FFT == NULL) {
-		free (modified_modulus);
 		gwdone (gwdata);
 		return (GWERROR_MALLOC);
 	}
-	gianttogw (gwdata, modified_modulus, gwdata->GW_MODULUS_FFT);
+	gianttogw (gwdata, gwdata->GW_MODULUS, gwdata->GW_MODULUS_FFT);
 	gwfft (gwdata, gwdata->GW_MODULUS_FFT, gwdata->GW_MODULUS_FFT);
 
 /* Calculate number of words to zero during the copy prior to calculating */
 /* the quotient. */
 
 	gwdata->GW_ZEROWORDSLOW = (unsigned long)
-				  floor ((double) len / gwdata->fft_bits_per_word);
+			floor ((double) bits / gwdata->fft_bits_per_word);
 
 /* A quick emulate_mod refresher: */
 /* 1) The maximum size of a quotient is gwdata->n/2 bits due to the */
 /*    zeroing of high words in the normalization routine.  Obviously the */
 /*    reciprocal needs to be accurate to at least gwdata->n/2 bits. */
 /* 2) So that the quotient doesn't overflow, the maximum size of a value */
-/*    entering emulate_mod is gwdata->n/2+len bits */
+/*    entering emulate_mod is gwdata->n/2+bits bits */
 /* 3) So that gwsquare and gwmul don't send emulate_mod a value that is */
 /*    too large, the maximum input to these routines should be (allowing */
-/*    for an 8 bit mulbyconstant) is (gwdata->n/2+len-8)/2 bits.  This is */
+/*    for an 8 bit mulbyconstant) is (gwdata->n/2+bits-8)/2 bits.  This is */
 /*    used by gwsmallmul to know when an emulate_mod is required */
 /* 4) We cannot quite push to the limits calculated above because we have to */
 /*    make sure the quotient calculation does not produce more than gwdata->n */
@@ -1971,29 +1975,26 @@ int gwsetup_general_mod_giant (
 /*    than the number of unzeroed bits caused by using the floor function in */
 /*    calculating GW_ZEROWORDSLOW. */
 
-	safety_bits = len - (unsigned long) ((double) gwdata->GW_ZEROWORDSLOW * gwdata->fft_bits_per_word) + 3;
+	safety_bits = bits - (unsigned long) ((double) gwdata->GW_ZEROWORDSLOW * gwdata->fft_bits_per_word) + 3;
 
 /* Precompute the reciprocal of the modified modulus. */
 
+	gwdata->GW_RECIP_FFT = gwalloc (gwdata);
+	if (gwdata->GW_RECIP_FFT == NULL) {
+		gwdone (gwdata);
+		return (GWERROR_MALLOC);
+	}
 	tmp = newgiant ((gwdata->n >> 4) + 1);
 	if (tmp == NULL) {
-		free (modified_modulus);
 		gwdone (gwdata);
 		return (GWERROR_MALLOC);
 	}
 	itog (1, tmp);
-	gshiftleft (len + gwdata->n/2 - safety_bits, tmp);
-	divg (modified_modulus, tmp);	/* computes gwdata->n/2-safety_margin+1 bits of reciprocal */
-	free (modified_modulus);
-	gshiftleft (gwdata->n - (len + gwdata->n/2 - safety_bits), tmp);
+	gshiftleft (bits + gwdata->n/2 - safety_bits, tmp);
+	divg (gwdata->GW_MODULUS, tmp);	/* computes gwdata->n/2-safety_margin+1 bits of reciprocal */
+	gshiftleft (gwdata->n - (bits + gwdata->n/2 - safety_bits), tmp);
 				/* shift so gwmul routines wrap */
 				/* quotient to lower end of fft */
-	gwdata->GW_RECIP_FFT = gwalloc (gwdata);
-	if (gwdata->GW_RECIP_FFT == NULL) {
-		free (tmp);
-		gwdone (gwdata);
-		return (GWERROR_MALLOC);
-	}
 	gianttogw (gwdata, tmp, gwdata->GW_RECIP_FFT);
 	gwfft (gwdata, gwdata->GW_RECIP_FFT, gwdata->GW_RECIP_FFT);
 	free (tmp);
@@ -2003,7 +2004,7 @@ int gwsetup_general_mod_giant (
 /* results bigger than this. */
 
 	gwdata->GW_GEN_MOD_MAX = (unsigned long)
-		 floor ((double)((gwdata->n/2-safety_bits+len-8)/2) / gwdata->fft_bits_per_word);
+		 floor ((double)((gwdata->n/2-safety_bits+bits-8)/2) / gwdata->fft_bits_per_word);
 	gwdata->GW_GEN_MOD_MAX_OFFSET = addr_offset (gwdata, gwdata->GW_GEN_MOD_MAX-1);
 
 /* Set flag indicating general-purpose modulo operations are in force */
@@ -2085,53 +2086,91 @@ int gwsetup_without_mod (
 }
 
 
-/* Examine a giant to see if it a k*2^n+c value */
-/* Returns TRUE if conversion was successful */
+/* Examine a giant to see if it a (k*2^n+c)/d value. */
+/* Returns TRUE if conversion was successful. */
 
-int convert_giant_to_kbnc (
+int convert_giant_to_k2ncd (
 	giant	g,		/* Giant to examine */
-	double	*k,		/* K in K*B^N+C. */
-	unsigned long *n,	/* N in K*B^N+C. */
-	signed long *c)		/* C in K*B^N+C. */
+	double	*k,		/* K in (K*2^N+C)/D. */
+	unsigned long *n,	/* N in (K*2^N+C)/D. */
+	signed long *c,		/* C in (K*2^N+C)/D. */
+	unsigned long *d)	/* D in (K*2^N+C)/D. */
 {
 	int	i;
+	uint32_t quick_test;
+	giant	test_g, alloc_g;
 	giantstruct tmp;
 	uint32_t tmparray[3];
 
+/* Loop through a lot of small d values in hopes of finding a multiplier that */
+/* will convert the input value into a k*2^n+c value.  We do this because */
+/* small d values are the ones that generate repeating bit patterns in */
+/* the modulus and unexpectedly large round off errors during operations */
+
+	alloc_g = NULL;
+	for (*d = 1; *d <= 999; *d += 2) {
+
+/* Do a quick test to see if this is a viable candidate */
+
+		quick_test = (g->n[1] * *d) & 0xFFFFFC00;
+		if (quick_test != 0 && quick_test != 0xFFFFFC00) continue;
+
+/* Compute g * d to see if it has the proper k*2^n+c bit pattern */
+
+		if (*d == 1) {
+			test_g = g;
+		} else {
+			if (alloc_g == NULL) {
+				alloc_g = newgiant (((bitlen (g) + 10) >> 4) + 1);
+				if (alloc_g == NULL) return (FALSE);
+			}
+			ultog (*d, alloc_g);
+			mulg (g, alloc_g);
+			test_g = alloc_g;
+		}
+
 /* See if low order 2 words are viable for a k*2^n+c candidate */
 
-	*c = (int32_t) g->n[0];
+		*c = (int32_t) test_g->n[0];
 
-	if (g->n[1] == 0 && g->n[0] <= MAX_ZEROPAD_C);
-	else if (g->n[1] == 0xFFFFFFFF && *c < 0 && *c >= -MAX_ZEROPAD_C);
-	else return (FALSE);
+		if (test_g->n[1] == 0 && test_g->n[0] <= MAX_ZEROPAD_C);
+		else if (test_g->n[1] == 0xFFFFFFFF && *c < 0 && *c >= -MAX_ZEROPAD_C);
+		else continue;
 
 /* Examine the middle words */
 	
-	for (i = 2; i < g->sign - 1; i++) if (g->n[i] != g->n[1]) break;
+		for (i = 2; i < test_g->sign - 1; i++)
+			if (test_g->n[i] != test_g->n[1]) break;
 
 /* Now see if the high bits can fit in a 51-bit k */
 
-	tmp.n = (uint32_t *) &tmparray;
-	setmaxsize ((giant) &tmp, 3);
-	tmparray[0] = g->n[i]; tmp.sign = 1;
-	if (g->sign - i >= 2) { tmparray[1] = g->n[i+1]; tmp.sign = 2; }
-	if (g->sign - i >= 3) { tmparray[2] = g->n[i+2]; tmp.sign = 3; }
-	if (g->sign - i >= 4) return (FALSE);
-	if (g->n[1] == 0xFFFFFFFF) iaddg (1, (giant) &tmp);
+		tmp.n = (uint32_t *) &tmparray;
+		setmaxsize ((giant) &tmp, 3);
+		tmparray[0] = test_g->n[i]; tmp.sign = 1;
+		if (test_g->sign - i >= 2) { tmparray[1] = test_g->n[i+1]; tmp.sign = 2; }
+		if (test_g->sign - i >= 3) { tmparray[2] = test_g->n[i+2]; tmp.sign = 3; }
+		if (test_g->sign - i >= 4) continue;
+		if (test_g->n[1] == 0xFFFFFFFF) iaddg (1, (giant) &tmp);
 
-	*n = i * 32;
-	while ((tmparray[0] & 0x1) == 0) {
-		gshiftright(1, (giant) &tmp);
-		(*n)++;
-	}
-	if (bitlen ((giant) &tmp) > 51) return (FALSE);
+		*n = i * 32;
+		while ((tmparray[0] & 0x1) == 0) {
+			gshiftright(1, (giant) &tmp);
+			(*n)++;
+		}
+		if (bitlen ((giant) &tmp) > 51) continue;
 
 /* Set k and return success */
 
-	*k = tmparray[0];
-	if (tmp.sign == 2) *k += (double) tmparray[1] * 4294967296.0;
-	return (TRUE);
+		*k = tmparray[0];
+		if (tmp.sign == 2) *k += (double) tmparray[1] * 4294967296.0;
+		free (alloc_g);
+		return (TRUE);
+	}
+
+/* No luck in finding a (k*2^n+c)/d equivalent for the input value */
+
+	free (alloc_g);
+	return (FALSE);
 }
 
 /* Common setup routine for the three different user-visible setup routines */
@@ -5652,23 +5691,22 @@ int gwtogiant (
 		v->sign = -v->sign;
 	}
 
-/* The gwnum is not guaranteed to be smaller than k*b^n+c.  Handle this */
-/* possibility.  This also converts negative values to positive. */
-
-	specialmodg (gwdata, v);
-
 /* Since all gwnums are premultiplied by the inverse of k, we must now */
 /* multiply by k to get the true result. */
 
 	if (gwdata->k > 1.0) {
-		giant	newg;
-		newg = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 3);
-		dbltog (gwdata->k, newg);
-		mulgi (&gwdata->gdata, v, newg);
-		specialmodg (gwdata, newg);
-		gtog (newg, v);
-		pushg (&gwdata->gdata, 1);
+		giantstruct k;
+		uint32_t tmparray[2];
+		k.n = (uint32_t *) &tmparray;
+		setmaxsize (&k, 2);
+		dbltog (gwdata->k, &k);
+		mulgi (&gwdata->gdata, &k, v);
 	}
+
+/* The gwnum is not guaranteed to be smaller than k*b^n+c.  Handle this */
+/* possibility.  This also converts negative values to positive. */
+
+	specialmodg (gwdata, v);
 
 /* Return success */
 
@@ -5687,9 +5725,9 @@ void specialmodg (
 	giant	n;
 
 /* If the modulus is a general-purpose number, then let the giants code */
-/* do the work. */
+/* do the work.  This is done for both GENERAL_MOD and (k*b^n+c)/d cases. */
 
-	if (gwdata->GENERAL_MOD) {
+	if (gwdata->GW_MODULUS != NULL) {
 		modgi (&gwdata->gdata, gwdata->GW_MODULUS, g);
 		return;
 	}

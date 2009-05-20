@@ -741,7 +741,7 @@ struct gwhandle_struct {
 	unsigned long saved_copyz_n;/* Used to reduce COPYZERO calculations */
 	gwnum	GW_RANDOM;	/* A random number used in */
 				/* gwsquare_carefully. */
-	char	GWSTRING_REP[40]; /* The gwsetup modulo number as a string. */
+	char	GWSTRING_REP[60]; /* The gwsetup modulo number as a string. */
 	unsigned int NORMNUM;	/* The post-multiply normalize routine index */
 	int	GWERROR;	/* Set if an error is detected */
 	double	MAXDIFF;	/* Maximum allowable difference between */
