@@ -68,7 +68,7 @@ unsigned int num_cpus (void)
 
 	GetSystemInfo (&sys);
 	return (sys.dwNumberOfProcessors);
-#elif defined (__APPLE__)
+#elif defined (__APPLE__) || defined (__FreeBSD__)
 	int	mib[2];
 	int	ncpus;
 	size_t	len;
