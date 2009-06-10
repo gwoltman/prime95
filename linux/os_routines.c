@@ -299,32 +299,33 @@ void setThreadPriorityAndAffinity (
 #endif
 
 #if defined (__APPLE__) || defined (__FreeBSD__)
-	static	int	default_priority = 0;
 	static	int	default_policy = 0;
+	static	int	default_priority = 999;
+	static	int	min_priority = 0;
+	static	int	max_priority = 0;
 	struct sched_param sp;
 
 /* Get the default thread priority when a thread is first launched */
-	if (default_priority == 0) {
+	
+	if (default_priority == 999) {
 		memset (&sp, 0, sizeof(struct sched_param));
-		if (pthread_getschedparam (pthread_self(),
-					   &default_policy, &sp) >= 0) {
+		if (pthread_getschedparam (pthread_self(), &default_policy, &sp) >= 0) {
+			min_priority = sched_get_priority_min (default_policy);
+			max_priority = sched_get_priority_max (default_policy);
 			default_priority = sp.sched_priority;
 		} else {
 			default_policy = SCHED_RR;
-			default_priority = PTHREAD_MIN_PRIORITY +
-					   (PTHREAD_MAX_PRIORITY -
-					    PTHREAD_MIN_PRIORITY) / 2;
+			min_priority = sched_get_priority_min (default_policy);
+			max_priority = sched_get_priority_max (default_policy);
+			default_priority = min_priority + (max_priority - min_priority) / 2;
 		}
 	}
 
-/* Map one (prime95's lowest priority) to PTHREAD_MIN_PRIORITY */
-/* (pthread's lowest priority).  Map eight (prime95's normal priority) to */
-/* pthread's default priority. */
+/* Map one (prime95's lowest priority) to min_priority (pthread's lowest priority). */
+/* Map eight (prime95's normal priority) to pthread's default priority. */
 
 	memset (&sp, 0, sizeof(struct sched_param));
-	sp.sched_priority = PTHREAD_MIN_PRIORITY +
-			    (priority - 1) *
-			    (default_priority - PTHREAD_MIN_PRIORITY) / 7;
+	sp.sched_priority = min_priority + (priority - 1) * (default_priority - min_priority) / 7;
 	pthread_setschedparam (pthread_self(), default_policy, &sp);
 #endif
 }
