@@ -2161,7 +2161,8 @@ int isKnownMersennePrime (
 		p == 859433 || p == 1257787 || p == 1398269 || p == 2976221 ||
 		p == 3021377 || p == 6972593 || p == 13466917 ||
 		p == 20996011 || p == 24036583 || p == 25964951 ||
-		p == 30402457 || p == 32582657 || p == 37156667 || p == 43112609);
+		p == 30402457 || p == 32582657 || p == 37156667 ||
+		p == 42643801 || p == 43112609);
 }
 
 /* Make a string out of a 96-bit value (a found factor) */
@@ -3452,14 +3453,14 @@ loop:	*res = factorChunk (facdata);
 	    facdata->asm_data->FACLSW > 1) {
 		giant	f, x;
 
-		f = newgiant (100);
+		f = allocgiant (100);
 		itog ((int) facdata->asm_data->FACHSW, f);
 		gshiftleft (32, f);
 		uladdg (facdata->asm_data->FACMSW, f);
 		gshiftleft (32, f);
 		uladdg (facdata->asm_data->FACLSW, f);
 
-		x = newgiant (100);
+		x = allocgiant (100);
 		itog (2, x);
 		powermod (x, p, f);
 		*res = isone (x);
@@ -3511,6 +3512,7 @@ int primeFactor (
 	unsigned long test_bits;	/* How far to factor to */
 	long	factor_found;		/* Returns true if factor found */
 	int	fd;			/* Continuation file handle or zero */
+	int	max_read_attempts;
 	int	first_iter_msg, continuation, stop_reason, find_smaller_factor;
 	unsigned long endpthi, endptlo;
 	double	endpt, startpt;		/* For computing percent complete */
@@ -3602,10 +3604,12 @@ int primeFactor (
 		}
 	}
 	
-/* Read v25+ continuation file */
+/* Read v25+ continuation file.  Limit number of backup files we try */
+/* to read in case there is an error deleting bad save files. */
 
 	filename[0] = 'f';
-	while (!continuation && saveFileExists (thread_num, filename)) {
+	max_read_attempts = 99;
+	while (!continuation && saveFileExists (thread_num, filename) && max_read_attempts--) {
 		unsigned long version, sum, fachsw, facmsw;
 
 		fd = _open (filename, _O_BINARY | _O_RDONLY);
@@ -4093,7 +4097,7 @@ int generateResidue64 (
 	int	err_code;
 
 	*reshi = *reslo = 0;
-	tmp = popg (&lldata->gwdata.gdata, (lldata->gwdata.n >> 5) + 5);
+	tmp = popg (&lldata->gwdata.gdata, ((int) lldata->gwdata.bit_length >> 5) + 5);
 	err_code = gwtogiant (&lldata->gwdata, lldata->lldata, tmp);
 	if (err_code < 0) return (err_code);
 	if (tmp->sign == 0) return (0);
@@ -4146,7 +4150,7 @@ int convertOldStyleLLSaveFile (
 
 /* Read the fft data */
 
-	bits = (int) lldata->gwdata.BITS_PER_WORD + 1;
+	bits = (int) lldata->gwdata.NUM_B_PER_SMALL_WORD + 1;
 	sum = 0;
 	zero = TRUE;
 	for (i = 0; i < gwfftlen (&lldata->gwdata); i++) {
@@ -4333,7 +4337,7 @@ void lucas_fixup (
 
 /* Tell gwnum code the value to subtract 2 from the squared result. */
 
-	gwsetaddinatbit (&lldata->gwdata, -2, lldata->units_bit);
+	gwsetaddinatpowerofb (&lldata->gwdata, -2, lldata->units_bit);
 }
 
 /* Generate random FFT data for timing the Lucas-Lehmer code */
@@ -4587,6 +4591,7 @@ int prime (
 	double	reallyminerr = 1.0;
 	double	reallymaxerr = 0.0;
 	double	*addr1;
+	int	max_read_attempts;
 	int	first_iter_msg, saving, near_fft_limit, sleep5;
 	unsigned long high32, low32;
 	int	rc, isPrime, stop_reason;
@@ -4678,10 +4683,12 @@ begin:	gwinit (&lldata.gwdata);
 
 	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&lldata.gwdata, 1));
 
-/* Loop reading from save files (and backup save files) */
+/* Loop reading from save files (and backup save files).  Limit number of backup */
+/* files we try to read in case there is an error deleting bad save files. */
 
 	tempFileName (w, filename);
-	for ( ; ; ) {
+	max_read_attempts = 99;
+	while (max_read_attempts--) {
 
 /* If there are no more save files, start off with the 1st Lucas number. */
 
@@ -6952,7 +6959,7 @@ int prp (
 	gwhandle gwdata;
 	gwnum	x;
 	giant	N, tmp;
-	int	first_iter_msg, res, stop_reason;
+	int	max_read_attempts, first_iter_msg, res, stop_reason;
 	int	echk, saving, near_fft_limit, sleep5, isProbablePrime;
 	unsigned long Nlen, counter, iters, error_count;
 	int	slow_iteration_count;
@@ -7062,10 +7069,12 @@ begin:	gwinit (&gwdata);
 	sprintf (buf, "PRP %s", string_rep);
 	title (thread_num, buf);
 
-/* Loop reading from save files (and backup save files) */
+/* Loop reading from save files (and backup save files).  Limit number of backup */
+/* files we try to read in case there is an error deleting bad save files. */
 
 	tempFileName (w, filename);
-	for ( ; ; ) {
+	max_read_attempts = 99;
+	while (max_read_attempts--) {
 
 /* If there are no more save files, start off with the 1st PRP squaring. */
 
