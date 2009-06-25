@@ -19,7 +19,7 @@ INCLUDE	unravel.mac
 INCLUDE extrn.mac
 INCLUDE xmult.mac
 
-VERSION_NUMBER = 2510		;; Version 25.10
+VERSION_NUMBER = 2511		;; Version 25.11
 
 ;; Make prctabs public.  Linux x86-64 objcopy handles loading offsets of
 ;; variables only if they are public variables in one file and defined
@@ -73,16 +73,27 @@ EXTRN	gwxmuls2:PROC
 ;; List of possible suffixes for the normalization routines
 
 exnorm	MACRO num, prefix, suffix
+	exnorm1	&prefix, &num&z&suffix
+	exnorm1	&prefix, &num&ze&suffix
+
 	exnorm1	&prefix, &num&suffix
 	exnorm1	&prefix, &num&e&suffix
 	exnorm1	&prefix, &num&c&suffix
 	exnorm1	&prefix, &num&ec&suffix
-	exnorm1	&prefix, &num&z&suffix
-	exnorm1	&prefix, &num&ze&suffix
 	exnorm1	&prefix, &num&zp&suffix
 	exnorm1	&prefix, &num&zpe&suffix
 	exnorm1	&prefix, &num&zpc&suffix
 	exnorm1	&prefix, &num&zpec&suffix
+IFNB <prefix> 
+	exnorm1	&prefix, &num&b&suffix
+	exnorm1	&prefix, &num&eb&suffix
+	exnorm1	&prefix, &num&cb&suffix
+	exnorm1	&prefix, &num&ecb&suffix
+	exnorm1	&prefix, &num&zpb&suffix
+	exnorm1	&prefix, &num&zpeb&suffix
+	exnorm1	&prefix, &num&zpcb&suffix
+	exnorm1	&prefix, &num&zpecb&suffix
+ENDIF
 	ENDM
 exnorm1	MACRO prefix, suffix
 	EXTRN	&prefix&r&suffix:PROC
@@ -120,22 +131,20 @@ IFNDEF X86_64
 prctab1	DD	OFFSET gwadd1, OFFSET gwaddq1, OFFSET gwsub1, OFFSET gwsubq1
 	DD	OFFSET gwaddsub1, OFFSET gwaddsubq1, OFFSET gwcopyzero1
 	DD	OFFSET gwaddq1, OFFSET gwsubq1, OFFSET gwaddsubq1
-	DP	0, OFFSET gwmuls1 ;; Buggy, won't propogate carry over multiple words. pad on zeropads
+	DD	0, OFFSET gwmuls1 ;; Buggy, won't propogate carry over multiple words. pad on zeropads
+	DD	OFFSET r1z, OFFSET r1ze, OFFSET i1z, OFFSET i1ze
 	DD	OFFSET r1, OFFSET r1e, OFFSET r1c, OFFSET r1ec
-	DD	OFFSET r1z, OFFSET r1ze, 0, 0
 	DD	OFFSET r1zp, OFFSET r1zpe, OFFSET r1zpc, OFFSET r1zpec
 	DD	OFFSET i1, OFFSET i1e, OFFSET i1c, OFFSET i1ec
-	DD	OFFSET i1z, OFFSET i1ze, 0, 0
 	DD	OFFSET i1zp, OFFSET i1zpe, OFFSET i1zpc, OFFSET i1zpec
 prctab2	DD	OFFSET gwadd2, OFFSET gwaddq2, OFFSET gwsub2, OFFSET gwsubq2
 	DD	OFFSET gwaddsub2, OFFSET gwaddsubq2, OFFSET gwcopyzero2
 	DD	OFFSET gwaddq2, OFFSET gwsubq2, OFFSET gwaddsubq2
-	DP	0, OFFSET gwmuls2 ;; Buggy, won't propogate carry over multiple words. pad on zeropads
+	DD	0, OFFSET gwmuls2 ;; Buggy, won't propogate carry over multiple words. pad on zeropads
+	DD	OFFSET r2z, OFFSET r2ze, OFFSET i2z, OFFSET i2ze
 	DD	OFFSET r2, OFFSET r2e, OFFSET r2c, OFFSET r2ec
-	DD	OFFSET r2z, OFFSET r2ze, 0, 0
 	DD	OFFSET r2zp, OFFSET r2zpe, OFFSET r2zpc, OFFSET r2zpec
 	DD	OFFSET i2, OFFSET i2e, OFFSET i2c, OFFSET i2ec
-	DD	OFFSET i2z, OFFSET i2ze, 0, 0
 	DD	OFFSET i2zp, OFFSET i2zpe, OFFSET i2zpc, OFFSET i2zpec
 ENDIF
 
@@ -144,36 +153,43 @@ xprctab1 DP	OFFSET gwxadd1, OFFSET gwxaddq1, OFFSET gwxsub1
 	DP	OFFSET gwxcopyzero1
 	DP	OFFSET gwxaddq1, OFFSET gwxsubq1, OFFSET gwxaddsubq1
 	DP	OFFSET gwxadds1, OFFSET gwxmuls1
+	DP	OFFSET xr1z, OFFSET xr1ze, OFFSET xi1z, OFFSET xi1ze
 	DP	OFFSET xr1, OFFSET xr1e, OFFSET xr1c, OFFSET xr1ec
-	DP	OFFSET xr1z, OFFSET xr1ze, 0, 0
 	DP	OFFSET xr1zp, OFFSET xr1zpe, OFFSET xr1zpc, OFFSET xr1zpec
 	DP	OFFSET xi1, OFFSET xi1e, OFFSET xi1c, OFFSET xi1ec
-	DP	OFFSET xi1z, OFFSET xi1ze, 0, 0
 	DP	OFFSET xi1zp, OFFSET xi1zpe, OFFSET xi1zpc, OFFSET xi1zpec
+	DP	OFFSET xr1b, OFFSET xr1eb, OFFSET xr1cb, OFFSET xr1ecb
+	DP	OFFSET xr1zpb, OFFSET xr1zpeb, OFFSET xr1zpcb, OFFSET xr1zpecb
+	DP	OFFSET xi1b, OFFSET xi1eb, OFFSET xi1cb, OFFSET xi1ecb
+	DP	OFFSET xi1zpb, OFFSET xi1zpeb, OFFSET xi1zpcb, OFFSET xi1zpecb
 xprctab2 DP	OFFSET gwxadd2, OFFSET gwxaddq2, OFFSET gwxsub2
 	DP	OFFSET gwxsubq2, OFFSET gwxaddsub2, OFFSET gwxaddsubq2
 	DP	OFFSET gwxcopyzero2
 	DP	OFFSET gwxaddq2, OFFSET gwxsubq2, OFFSET gwxaddsubq2
 	DP	OFFSET gwxadds2, OFFSET gwxmuls2
+	DP	OFFSET xr2z, OFFSET xr2ze, OFFSET xi2z, OFFSET xi2ze
 	DP	OFFSET xr2, OFFSET xr2e, OFFSET xr2c, OFFSET xr2ec
-	DP	OFFSET xr2z, OFFSET xr2ze, 0, 0
 	DP	OFFSET xr2zp, OFFSET xr2zpe, OFFSET xr2zpc, OFFSET xr2zpec
 	DP	OFFSET xi2, OFFSET xi2e, OFFSET xi2c, OFFSET xi2ec
-	DP	OFFSET xi2z, OFFSET xi2ze, 0, 0
 	DP	OFFSET xi2zp, OFFSET xi2zpe, OFFSET xi2zpc, OFFSET xi2zpec
+	DP	OFFSET xr2b, OFFSET xr2eb, OFFSET xr2cb, OFFSET xr2ecb
+	DP	OFFSET xr2zpb, OFFSET xr2zpeb, OFFSET xr2zpcb, OFFSET xr2zpecb
+	DP	OFFSET xi2b, OFFSET xi2eb, OFFSET xi2cb, OFFSET xi2ecb
+	DP	OFFSET xi2zpb, OFFSET xi2zpeb, OFFSET xi2zpcb, OFFSET xi2zpecb
 xprctab2a DP	OFFSET gwxadd2, OFFSET gwxaddq2, OFFSET gwxsub2
 	DP	OFFSET gwxsubq2, OFFSET gwxaddsub2, OFFSET gwxaddsubq2
 	DP	OFFSET gwxcopyzero2
 	DP	OFFSET gwxaddq2, OFFSET gwxsubq2, OFFSET gwxaddsubq2
 	DP	OFFSET gwxadds2, OFFSET gwxmuls2
+	DP	OFFSET xr2zAMD, OFFSET xr2zeAMD, OFFSET xi2zAMD, OFFSET xi2zeAMD
 	DP	OFFSET xr2AMD, OFFSET xr2eAMD, OFFSET xr2cAMD, OFFSET xr2ecAMD
-	DP	OFFSET xr2zAMD, OFFSET xr2zeAMD, 0, 0
-	DP	OFFSET xr2zpAMD, OFFSET xr2zpeAMD
-	DP	OFFSET xr2zpcAMD, OFFSET xr2zpecAMD
+	DP	OFFSET xr2zpAMD, OFFSET xr2zpeAMD, OFFSET xr2zpcAMD, OFFSET xr2zpecAMD
 	DP	OFFSET xi2AMD, OFFSET xi2eAMD, OFFSET xi2cAMD, OFFSET xi2ecAMD
-	DP	OFFSET xi2zAMD, OFFSET xi2zeAMD, 0, 0
-	DP	OFFSET xi2zpAMD, OFFSET xi2zpeAMD
-	DP	OFFSET xi2zpcAMD, OFFSET xi2zpecAMD
+	DP	OFFSET xi2zpAMD, OFFSET xi2zpeAMD, OFFSET xi2zpcAMD, OFFSET xi2zpecAMD
+	DP	OFFSET xr2bAMD, OFFSET xr2ebAMD, OFFSET xr2cbAMD, OFFSET xr2ecbAMD
+	DP	OFFSET xr2zpbAMD, OFFSET xr2zpebAMD, OFFSET xr2zpcbAMD, OFFSET xr2zpecbAMD
+	DP	OFFSET xi2bAMD, OFFSET xi2ebAMD, OFFSET xi2cbAMD, OFFSET xi2ecbAMD
+	DP	OFFSET xi2zpbAMD, OFFSET xi2zpebAMD, OFFSET xi2zpcbAMD, OFFSET xi2zpecbAMD
 
 	;; Align so that other GWDATA areas are also aligned on a cache line
 	align 128

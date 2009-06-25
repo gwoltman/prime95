@@ -1,4 +1,4 @@
-; Copyright 2001-2008 Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2009 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -62,7 +62,7 @@ loopcount1	EQU	DPTR [rsp+first_local+SZPTR]
 loopcount2	EQU	DPTR [rsp+first_local+SZPTR+4]
 loopcount3	EQU	DPTR [rsp+first_local+SZPTR+8]
 
-inorm	MACRO	lab, ttp, zero, echk, const
+inorm	MACRO	lab, ttp, zero, echk, const, base2
 	LOCAL	noadd, setlp, ilp0, ilp1, ilexit, done
 	PROCFP	lab
 	int_prolog SZPTR+12,0,0
@@ -109,7 +109,7 @@ ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	lea	rbx, XMM_COL_MULTS	;; Load col mult scratch area
 	xprefetcht1 [rdx+128]		;; Prefetch group multiplier
 ilp1:	xprefetchw [rsi+64]
-	xnorm_2d ttp, zero, echk, const	;; Normalize 8 values
+	xnorm_2d ttp, zero, echk, const, base2	;; Normalize 8 values
 	lea	rsi, [rsi+64]		;; Next cache line
 ttp	lea	rbx, [rbx+512]		;; Next column multipliers
 ttp	lea	rdi, [rdi+4]		;; Next big/little flags
@@ -144,7 +144,7 @@ loopcount1z	EQU	DPTR [rsp+first_local]
 loopcount2z	EQU	DPTR [rsp+first_local+4]
 loopcount3z	EQU	DPTR [rsp+first_local+8]
 
-zpnorm	MACRO	lab, ttp, echk, const
+zpnorm	MACRO	lab, ttp, echk, const, base2
 	LOCAL	setlp, ilp0, ilp1, ilexit
 	PROCFP	lab
 	int_prolog 12,0,0
@@ -176,7 +176,7 @@ ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	lea	rbx, XMM_COL_MULTS	;; Load col mult scratch area
 	xprefetcht1 [rdx+128]		;; Prefetch group multiplier
 ilp1:	xprefetchw [rsi+64]
-	xnorm_2d_zpad ttp, echk, const	;; Normalize 8 values
+	xnorm_2d_zpad ttp, echk, const, base2 ;; Normalize 8 values
 	lea	rsi, [rsi+64]		;; Next cache line
 ttp	lea	rbx, [rbx+512]		;; Next column multipliers
 ttp	lea	rdi, [rdi+4]		;; Next big/little flags
@@ -204,27 +204,43 @@ ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr
 
 PREFETCHING = 1
 
-	inorm	xr2, noexec, noexec, noexec, noexec
-	inorm	xr2e, noexec, noexec, exec, noexec
-	inorm	xr2c, noexec, noexec, noexec, exec
-	inorm	xr2ec, noexec, noexec, exec, exec
-	inorm	xr2z, noexec, exec, noexec, noexec
-	inorm	xr2ze, noexec, exec, exec, noexec
-	inorm	xi2, exec, noexec, noexec, noexec
-	inorm	xi2e, exec, noexec, exec, noexec
-	inorm	xi2c, exec, noexec, noexec, exec
-	inorm	xi2ec, exec, noexec, exec, exec
-	inorm	xi2z, exec, exec, noexec, noexec
-	inorm	xi2ze, exec, exec, exec, noexec
+	inorm	xr2, noexec, noexec, noexec, noexec, exec
+	inorm	xr2e, noexec, noexec, exec, noexec, exec
+	inorm	xr2c, noexec, noexec, noexec, exec, exec
+	inorm	xr2ec, noexec, noexec, exec, exec, exec
+	inorm	xr2z, noexec, exec, noexec, noexec, exec
+	inorm	xr2ze, noexec, exec, exec, noexec, exec
+	inorm	xi2, exec, noexec, noexec, noexec, exec
+	inorm	xi2e, exec, noexec, exec, noexec, exec
+	inorm	xi2c, exec, noexec, noexec, exec, exec
+	inorm	xi2ec, exec, noexec, exec, exec, exec
+	inorm	xi2z, exec, exec, noexec, noexec, exec
+	inorm	xi2ze, exec, exec, exec, noexec, exec
+	zpnorm	xr2zp, noexec, noexec, noexec, exec
+	zpnorm	xr2zpe, noexec, exec, noexec, exec
+	zpnorm	xr2zpc, noexec, noexec, exec, exec
+	zpnorm	xr2zpec, noexec, exec, exec, exec
+	zpnorm	xi2zp, exec, noexec, noexec, exec
+	zpnorm	xi2zpe, exec, exec, noexec, exec
+	zpnorm	xi2zpc, exec, noexec, exec, exec
+	zpnorm	xi2zpec, exec, exec, exec, exec
 
-	zpnorm	xr2zp, noexec, noexec, noexec
-	zpnorm	xr2zpe, noexec, exec, noexec
-	zpnorm	xr2zpc, noexec, noexec, exec
-	zpnorm	xr2zpec, noexec, exec, exec
-	zpnorm	xi2zp, exec, noexec, noexec
-	zpnorm	xi2zpe, exec, exec, noexec
-	zpnorm	xi2zpc, exec, noexec, exec
-	zpnorm	xi2zpec, exec, exec, exec
+	inorm	xr2b, noexec, noexec, noexec, noexec, noexec
+	inorm	xr2eb, noexec, noexec, exec, noexec, noexec
+	inorm	xr2cb, noexec, noexec, noexec, exec, noexec
+	inorm	xr2ecb, noexec, noexec, exec, exec, noexec
+	inorm	xi2b, exec, noexec, noexec, noexec, noexec
+	inorm	xi2eb, exec, noexec, exec, noexec, noexec
+	inorm	xi2cb, exec, noexec, noexec, exec, noexec
+	inorm	xi2ecb, exec, noexec, exec, exec, noexec
+	zpnorm	xr2zpb, noexec, noexec, noexec, noexec
+	zpnorm	xr2zpeb, noexec, exec, noexec, noexec
+	zpnorm	xr2zpcb, noexec, noexec, exec, noexec
+	zpnorm	xr2zpecb, noexec, exec, exec, noexec
+	zpnorm	xi2zpb, exec, noexec, noexec, noexec
+	zpnorm	xi2zpeb, exec, exec, noexec, noexec
+	zpnorm	xi2zpcb, exec, noexec, exec, noexec
+	zpnorm	xi2zpecb, exec, exec, exec, noexec
 
 _TEXT	ENDS
 END

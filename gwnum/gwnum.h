@@ -59,9 +59,9 @@ typedef double *gwnum;
 /* gwsetup verifies that the version numbers match.  This prevents bugs */
 /* from accidentally linking in the wrong gwnum library. */
 
-#define GWNUM_VERSION		"25.10"
+#define GWNUM_VERSION		"25.11"
 #define GWNUM_MAJOR_VERSION	25
-#define GWNUM_MINOR_VERSION	10
+#define GWNUM_MINOR_VERSION	11
 
 /* Error codes returned by the three gwsetup routines */
 
@@ -86,7 +86,7 @@ void gwinit (
 int gwsetup (
 	gwhandle *gwdata,	/* Placeholder for gwnum global data */
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
-	unsigned long b,	/* B in K*B^N+C. Must be two. */
+	unsigned long b,	/* B in K*B^N+C. */
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
 	signed long c);		/* C in K*B^N+C. Must be rel. prime to K. */
 
@@ -438,14 +438,13 @@ void gwmul_carefully (
 
 
 /* These routines can be used to add a constant to the result of a */
-/* multiplication.  Using these routines lets prime95 do the -2 operation */
-/* in a Lucas-Lehmer test and use the gwstartnextfft macro for a small */
-/* speedup.  NOTE:  There are some number formats that cannot use this */
-/* routine.  If abs(c) in k*b^n+c is 1, then gwsetaddin can be used. */
-/* To use gwsetaddinatbit, k must also be 1. */
+/* multiplication at virtually no cost.  Prime95 uses these routines to */
+/* do the -2 operation in a Lucas-Lehmer test.  NOTE:  There are some */
+/* number formats that cannot use these routines.  If abs(c) in k*b^n+c is 1, */
+/* then gwsetaddin can be used.  To use gwsetaddinatpowerofb, k must also be 1. */
 
 void gwsetaddin (gwhandle *, long);
-void gwsetaddinatbit (gwhandle *, long, unsigned long);
+void gwsetaddinatpowerofb (gwhandle *, long, unsigned long);
 
 /* This routine adds a small value to a gwnum.  This lets us apply some */
 /* optimizations that cannot be performed by general purpose gwadd */
@@ -464,6 +463,8 @@ void gwsmallmul (gwhandle *gwdata, double mult, gwnum g);
 /* the destination argument appeared before the source argument. */
 #define gwaddsmall(h,g,a) gwsmalladd(h,a,g)	
 #define gwmulsmall(h,g,m) gwsmallmul(h,m,g)
+/* Replaced by better named gwsetaddinatpowerofb */
+#define gwsetaddinatbit(h,v,b)	gwsetaddinatpowerofb(h,v,b)
 
 /*---------------------------------------------------------------------+
 |                      GWNUM ERROR-CHECKING ROUTINES                   |
@@ -726,11 +727,13 @@ struct gwhandle_struct {
 	unsigned long GW_GEN_MOD_MAX; /* Maximum number of words we can safely */
 				/* allow in a GENERAL_MOD number. */
 	unsigned long GW_GEN_MOD_MAX_OFFSET; /* Offset to the GW_GEN_MOD_MAX word */
-	double	fft_bits_per_word; /* Num bits in each fft word */
+	double	avg_num_b_per_word; /* Number of base b's in each fft word */
 	double	bit_length;	/* Bit length of k*b^n */
 	double	fft_max_bits_per_word;	/* Maximum bits per data word that */
 				/* this FFT size can support */
-	unsigned long BITS_PER_WORD; /* Bits in a little word */
+	unsigned long NUM_B_PER_SMALL_WORD; /* Number of b's in a little word. */
+				/* For the common case, b=2, this is the */
+				/* number of bits in a little word. */
 	unsigned long PASS2_LEVELS; /* FFT levels done in pass 2. */
 	long	PASS2GAPSIZE;	/* Gap between blocks in pass 2 */
 	unsigned long PASS1_CACHE_LINES; /* Cache lines grouped together in */
@@ -816,6 +819,7 @@ struct gwhandle_struct {
 				/* code uses this to compare results from one */
 				/* FFT implementation to the (should be identical) */
 				/* results of another FFT implementation. */
+	int	qa_picked_nth_fft; /* Internal hack returning which FFT was picked */
 	int	force_general_mod; /* Forces gwsetup_general_mod to not check */
 				/* for a k*2^n+c reduction */
 	int	use_large_pages; /* Try to use 2MB pages */

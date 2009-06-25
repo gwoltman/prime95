@@ -133,21 +133,19 @@ int (*StopCheckRoutine)(int) = NULL;
  *
  **************************************************************/
 
-giant newgiant (		/* Create a new giant */
-	int 	numshorts)
+giant allocgiant (		/* Create a new giant */
+	int 	count)
 {
-	int 	numlongs, size;
+	int 	size;
 	giant 	thegiant;
 
-	ASSERTG (numshorts > 0);
+	ASSERTG (count > 0);
 
-	numlongs = (numshorts + 1) / 2;
-	size = sizeof (giantstruct) + numlongs * sizeof (uint32_t);
+	size = sizeof (giantstruct) + count * sizeof (uint32_t);
 	thegiant = (giant) malloc (size);
 	thegiant->sign = 0;
-	thegiant->n = (uint32_t *)
-		((char *) thegiant + sizeof (giantstruct));
-	setmaxsize (thegiant, numlongs);
+	thegiant->n = (uint32_t *) ((char *) thegiant + sizeof (giantstruct));
+	setmaxsize (thegiant, count);
 	return (thegiant);
 }
 
@@ -720,13 +718,10 @@ void dblmulg (			/* Giant g becomes g * i. */
 	double	i,
 	giant	g)
 {
-	giantstruct tmp;
-	uint32_t tmparray[2];
+	stackgiant(tmp,2);
 
-	tmp.n = (uint32_t *) &tmparray;
-	setmaxsize (&tmp, 2);
-	dbltog (i, &tmp);
-	mulg (&tmp, g);
+	dbltog (i, tmp);
+	mulg (tmp, g);
 }
 
 void modg (		/* n becomes n%d. n is arbitrary, but the
@@ -773,13 +768,10 @@ void dbldivg (			/* Giant g becomes g / i. */
 	double	i,
 	giant	g)
 {
-	giantstruct tmp;
-	uint32_t tmparray[2];
+	stackgiant(tmp,2);
 
-	tmp.n = (uint32_t *) &tmparray;
-	setmaxsize (&tmp, 2);
-	dbltog (i, &tmp);
-	divg (&tmp, g);
+	dbltog (i, tmp);
+	divg (tmp, g);
 }
 
 void divg (		/* n becomes n/d. n is arbitrary, but the
@@ -932,8 +924,8 @@ void divgi (		/* n becomes n/d. n is arbitrary, but the
 		if (gdata->cur_recip == NULL || gcompg (d, gdata->cur_den)) {
 			free (gdata->cur_recip);
 			free (gdata->cur_den);
-			gdata->cur_recip = newgiant ((d->sign << 1) + 1);
-			gdata->cur_den = newgiant (d->sign << 1);
+			gdata->cur_recip = allocgiant (d->sign + 1);
+			gdata->cur_den = allocgiant (d->sign);
 			gtog (d, gdata->cur_den);
 			make_recip (gdata, d, gdata->cur_recip);
 		}
@@ -1211,7 +1203,7 @@ void karatsquareg (		/* x becomes x^2. */
 	giant	x)
 {
 	int	s = x->sign, w;
-	giantstruct a, b;
+ 	giantstruct a, b;
 	giant	c;
 
 	ASSERTG (x->sign >= 0);

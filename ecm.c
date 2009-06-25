@@ -223,7 +223,7 @@ int isProbablePrime (
 			if (bitval (N, len-j)) gwfftmul (gwdata, t2, t1);
 		}
 		gwfree (gwdata, t2);
-		x = popg (&gwdata->gdata, (gwdata->n >> 5) + 10);
+		x = popg (&gwdata->gdata, ((int) gwdata->bit_length >> 5) + 10);
 		gwtogiant (gwdata, t1, x);
 		modgi (&gwdata->gdata, N, x);
 		iaddg (-i, x);
@@ -1015,10 +1015,10 @@ int setN (
 	char	buf[2500];
 
 /* Create the binary representation of the number we are factoring */
-/* Allocate 10 extra words to handle any possible k value. */
+/* Allocate 5 extra words to handle any possible k value. */
 
 	bits = (unsigned long) (w->n * log ((double) w->b) / log ((double) 2.0));
-	*N = newgiant ((bits >> 4) + 10);
+	*N = allocgiant ((bits >> 5) + 5);
 	if (*N == NULL) return (OutOfMemory (thread_num));
 	ultog (w->b, *N);
 	power (*N, w->n);
@@ -1031,9 +1031,9 @@ int setN (
 		char	*comma, *p;
 		giant	tmp, f;
 
-		tmp = newgiant ((bits >> 4) + 10);
+		tmp = allocgiant ((bits >> 5) + 5);
 		if (tmp == NULL) return (OutOfMemory (thread_num));
-		f = newgiant ((bits >> 4) + 10);
+		f = allocgiant ((bits >> 5) + 5);
 		if (f == NULL) return (OutOfMemory (thread_num));
 
 /* Process each factor */
@@ -1106,9 +1106,9 @@ int setN (
 
 /* Allocate space for factor verification */
 
-		tmp = newgiant ((bits >> 4) + 10);
+		tmp = allocgiant ((bits >> 5) + 5);
 		if (tmp == NULL) return (OutOfMemory (thread_num));
-		f = newgiant ((bits >> 4) + 10);
+		f = allocgiant ((bits >> 5) + 5);
 		if (f == NULL) return (OutOfMemory (thread_num));
 
 /* Get the factor */
@@ -1157,9 +1157,9 @@ int gcd (
 
 /* Convert input number to binary */
 
-	v = popg (&gwdata->gdata, (gwdata->n >> 5) + 10);
+	v = popg (&gwdata->gdata, ((int) gwdata->bit_length >> 5) + 10);
 	if (v == NULL) goto oom;
-	save = popg (&gwdata->gdata, (gwdata->n >> 5) + 10);
+	save = popg (&gwdata->gdata, ((int) gwdata->bit_length >> 5) + 10);
 	if (save == NULL) goto oom;
 	gwtogiant (gwdata, gg, v);
 	gtog (v, save);
@@ -1179,7 +1179,7 @@ int gcd (
 /* If a factor was found, save it in FAC */
 
 	if (stop_reason == 0 && ! isone (v) && gcompg (N, v)) {
-		*factor = newgiant ((bitlen (v) >> 4) + 1);
+		*factor = allocgiant (v->sign);
 		if (*factor == NULL) goto oom;
 		gtog (v, *factor);
 	}
@@ -1212,7 +1212,7 @@ int modinv (
 
 /* Convert input number to binary */
 
-	v = popg (&ecmdata->gwdata.gdata, (ecmdata->gwdata.n >> 5) + 10);
+	v = popg (&ecmdata->gwdata.gdata, ((int) ecmdata->gwdata.bit_length >> 5) + 10);
 	if (v == NULL) goto oom;
 	gwtogiant (&ecmdata->gwdata, b, v);
 
@@ -1233,7 +1233,7 @@ int modinv (
 
 	if (v->sign < 0) {
 		negg (v);
-		*factor = newgiant ((bitlen (v) >> 4) + 1);
+		*factor = allocgiant (v->sign);
 		if (*factor == NULL) goto oom;
 		gtog (v, *factor);
 	}
@@ -2218,7 +2218,7 @@ int ecm (
 	double	sigma, last_output, one_over_B, one_over_C_minus_B;
 	unsigned long i, j, curve, min_memory;
 	char	filename[32], buf[255], fft_desc[100];
-	int	res, stop_reason, stage, first_iter_msg;
+	int	res, stop_reason, stage, first_iter_msg, max_read_attempts;
 	gwnum	x, z, t1, t2, gg;
 	gwnum	Q2x, Q2z, Qiminus2x, Qiminus2z, Qdiffx, Qdiffz;
 	giant	N;		/* Number being factored */
@@ -2241,10 +2241,6 @@ int ecm (
 	str = NULL;
 	msg = NULL;
 
-/* Unless a save file indicates otherwise, we are testing our first curve */
-
-	curve = 1;
-
 /* Clear all timers */
 
 restart:
@@ -2261,9 +2257,9 @@ int i, j;
 giant	x, y, z, a, m;
 #define TESTSIZE	200
 RDTSC_TIMING = 12;
-x = newgiant(2*TESTSIZE); y = newgiant (4*TESTSIZE);
-z = newgiant (4*TESTSIZE), a = newgiant (4*TESTSIZE);
-m = newgiant (2*TESTSIZE);
+x = allocgiant(TESTSIZE); y = allocgiant (2*TESTSIZE);
+z = allocgiant (2*TESTSIZE), a = allocgiant (2*TESTSIZE);
+m = allocgiant (TESTSIZE);
 srand ((unsigned) time (NULL));
 for (i = 0; i < TESTSIZE; i++) {
 	x->n[i] = (rand () << 17) + rand ();
@@ -2327,9 +2323,9 @@ int i, j;
 giant	x, a, m;
 #define TESTSIZE2	260000
 RDTSC_TIMING = 12;
-x = newgiant(2*TESTSIZE2);
-a = newgiant (4*TESTSIZE2);
-m = newgiant (2*TESTSIZE2);
+x = allocgiant(TESTSIZE2);
+a = allocgiant (2*TESTSIZE2);
+m = allocgiant (TESTSIZE2);
 srand ((unsigned) time (NULL));
 for (i = 0; i < TESTSIZE2; i++) {
 	x->n[i] = (rand () << 17) + rand ();
@@ -2548,9 +2544,11 @@ OutputStr (thread_num, buf);
 	sprintf (buf, "Using %s\n", fft_desc);
 	OutputStr (thread_num, buf);
 
-/* Check for a continuation file */
+/* Check for a continuation file.  Limit number of backup files we try */
+/* to read in case there is an error deleting bad save files. */
 
-	while (saveFileExists (thread_num, filename)) {
+	max_read_attempts = 99;
+	while (saveFileExists (thread_num, filename) && max_read_attempts--) {
 		uint64_t save_B, save_B_processed, save_C_processed;
 
 /* Allocate memory */
@@ -2561,20 +2559,25 @@ OutputStr (thread_num, buf);
 		if (z == NULL) goto oom;
 		gg = NULL;
 
-/* Read in the save file */
+/* Read in the save file.  If the save file is no good ecm_restore will have */
+/* deleted it.  Loop trying to read a backup save file. */
 
 		if (! ecm_restore (&ecmdata, thread_num, filename, w, &stage,
 				   &curve, &sigma, &save_B, &save_B_processed,
-				   &save_C_processed, x, z) ||
-
-/* Handle the case where the save file is no good or we have a save file */
-/* with a smaller bound #1 than the bound #1 we are presently working on. */
-/* In either case restart the curve (and curve count) from scratch. */
-
-		    B > save_B) {
+				   &save_C_processed, x, z)) {
 			gwfree (&ecmdata.gwdata, x);
 			gwfree (&ecmdata.gwdata, z);
 			continue;
+		}
+
+/* Handle the case where we have a save file */
+/* with a smaller bound #1 than the bound #1 we are presently working on. */
+/* Restart the curve (and curve count) from scratch. */
+
+		if (B > save_B) {
+			gwfree (&ecmdata.gwdata, x);
+			gwfree (&ecmdata.gwdata, z);
+			break;
 		}
 
 /* Compute Ad4 from sigma */
@@ -2617,6 +2620,10 @@ OutputStr (thread_num, buf);
 
 		goto restart4;
 	}
+
+/* Unless a save file indicates otherwise, we are testing our first curve */
+
+	curve = 1;
 
 /* Loop processing the requested number of ECM curves */
 
@@ -2786,7 +2793,7 @@ skip_stage_2:	start_timer (timers, 0);
 			stop_reason = normalize (&ecmdata, x, z, N, &factor);
 			if (stop_reason) goto exit;
 
-			gx = popg (&ecmdata.gwdata.gdata, (ecmdata.gwdata.n >> 5) + 10);
+			gx = popg (&ecmdata.gwdata.gdata, ((int) ecmdata.gwdata.bit_length >> 5) + 10);
 			if (gx == NULL) goto oom;
 			gwtogiant (&ecmdata.gwdata, x, gx);
 			modgi (&ecmdata.gwdata.gdata, N, gx);
@@ -3454,7 +3461,7 @@ int ecm_QA (
 
 /* Convert the factor we expect to find into a "giant" type */
 
-		QA_FACTOR = newgiant ((int) strlen (fac_str));
+		QA_FACTOR = allocgiant ((int) strlen (fac_str));
 		ctog (fac_str, QA_FACTOR);
 
 /*test various num_tmps
@@ -3622,7 +3629,7 @@ int fd_init (
 
 	for (i = 0; i <= pm1data->E; i++) {
 		uint64_t val;
-		p = newgiant (pm1data->E * 4);
+		p = allocgiant (pm1data->E * 2);
 		if (p == NULL) goto oom;
 		val = start + i * incr;
 		ulltog (val, p);
@@ -4414,7 +4421,7 @@ void calc_exp (
 	if (len >= 50) {
 		giant	x;
 		calc_exp (pm1data, k, b, n, c, g, B1, p, lower, lower + (len >> 1));
-		x = newgiant (len + len);
+		x = allocgiant (len);
 		calc_exp (pm1data, k, b, n, c, x, B1, p, lower + (len >> 1), upper);
 		mulg (x, g);
 		free (x);
@@ -4464,7 +4471,7 @@ int pminus1 (
 	unsigned long error_recovery_mode = 0;
 	gwnum	x, gg, t3;
 	char	filename[32], buf[255], testnum[100];
-	int	have_save_file;
+	int	have_save_file, max_read_attempts;
 	int	res, stop_reason, stage, saving, near_fft_limit, echk;
 	double	one_over_len, one_over_B, one_pair_pct;
 	double	base_pct_complete, last_output, last_output_r;
@@ -4598,9 +4605,12 @@ restart:
 
 /* Check for a save file and read the save file.  If there is an error */
 /* reading the file then restart the P-1 factoring job from scratch. */
+/* Limit number of backup files we try */
+/* to read in case there is an error deleting bad save files. */
 
 	have_save_file = FALSE;
-	while (saveFileExists (thread_num, filename)) {
+	max_read_attempts = 99;
+	while (saveFileExists (thread_num, filename) && max_read_attempts--) {
 		have_save_file = pm1_restore (&pm1data, filename, w, &processed, &x, &gg);
 		if (have_save_file) break;
 	}
@@ -4749,7 +4759,7 @@ restart0:
 	prime = sieve (&pm1data.si);
 	stage_0_limit = (pm1data.B > 1000000) ? 1000000 : pm1data.B;
 	i = ((unsigned long) (stage_0_limit * 1.5) >> 5) + 4;
-	exp = newgiant (i << 1);
+	exp = allocgiant (i);
 	calc_exp (&pm1data, w->k, w->b, w->n, w->c, exp, pm1data.B, &prime, 0, i);
 
 /* Find number of bits, ignoring the most significant bit */
@@ -5739,7 +5749,7 @@ int pminus1_QA (
 
 /* Convert the factor we expect to find into a "giant" type */
 
-		QA_FACTOR = newgiant ((int) strlen (fac_str));
+		QA_FACTOR = allocgiant ((int) strlen (fac_str));
 		ctog (fac_str, QA_FACTOR);
 
 /*test various num_tmps

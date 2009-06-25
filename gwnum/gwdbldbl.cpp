@@ -51,13 +51,17 @@
 /* to several gwdbldbl routines */
 	
 struct gwdbldbl_constants {
-	dd_real	gw__bits_per_word;
+	dd_real	gw__b;
+	dd_real	gw__logb;
+	dd_real	gw__num_b_per_word;
 	int	gw__c_is_one;
-	dd_real gw__log2_abs_c_div_fftlen;
+	dd_real gw__logb_abs_c_div_fftlen;
 	dd_real gw__fftlen_inverse;
 	dd_real gw__over_fftlen;
-	double	gwdbl__bits_per_word;
-	double	gwdbl__log2_abs_c_div_fftlen;
+	double	gwdbl__b;
+	double	gwdbl__b_inverse;
+	double	gwdbl__num_b_per_word;
+	double	gwdbl__logb_abs_c_div_fftlen;
 #ifdef VERY_SLOPPY
 	unsigned long last_sloppy_j;
 	double	last_sloppy_result;
@@ -221,8 +225,8 @@ void gwsincos3 (
 //
 // Utility routines to compute fft weights
 //
-// The FFT weight for the j-th FFT word doing a 2^q+c weighted transform is
-//	2 ^ (ceil (j*q/FFTLEN) - j*q/FFTLEN)   *    abs(c) ^ j/FFTLEN
+// The FFT weight for the j-th FFT word doing a b^n+c weighted transform is
+//	b ^ (ceil (j*n/FFTLEN) - j*n/FFTLEN)   *    abs(c) ^ j/FFTLEN
 //
 
 extern "C"
@@ -236,32 +240,36 @@ void gwfft_weight_setup (
 	void	*dd_data_arg,
 	int	zero_pad,
 	double	k,
+	unsigned long b,
 	unsigned long n,
 	signed long c,
 	unsigned long fftlen)
 {
 	x86_FIX
+	dd_data->gw__b = dd_real ((double) b);
+	dd_data->gw__logb = log (dd_real ((double) b));
 	dd_data->gw__fftlen_inverse = dd_real (1.0) / dd_real ((double) fftlen);
 	if (zero_pad) {
-		dd_data->gw__bits_per_word =
-			dd_real ((double) (n+n)) * dd_data->gw__fftlen_inverse;
+		dd_data->gw__num_b_per_word =
+			dd_real ((double) (n + n)) * dd_data->gw__fftlen_inverse;
 		dd_data->gw__c_is_one = TRUE;
 		dd_data->gw__over_fftlen =
 			dd_real (2.0) * dd_data->gw__fftlen_inverse;
 	} else {
-		dd_data->gw__bits_per_word =
-			(dd_real ((double) n) +
-			 log (dd_real (k)) / dd_real::_log2) *
+		dd_data->gw__num_b_per_word =
+			(dd_real ((double) n) + log (dd_real (k)) / dd_data->gw__logb) *
 			dd_data->gw__fftlen_inverse;
 		dd_data->gw__c_is_one = (abs ((int) c) == 1);
-		dd_data->gw__log2_abs_c_div_fftlen =
-			log (dd_real (abs ((int) c))) / dd_real::_log2 *
+		dd_data->gw__logb_abs_c_div_fftlen =
+			log (dd_real (abs ((int) c))) / dd_data->gw__logb *
 			dd_data->gw__fftlen_inverse;
 		dd_data->gw__over_fftlen =
 			dd_real (k * 2.0) * dd_data->gw__fftlen_inverse;
 	}
-	dd_data->gwdbl__bits_per_word = (double) dd_data->gw__bits_per_word;
-	dd_data->gwdbl__log2_abs_c_div_fftlen = (double) dd_data->gw__log2_abs_c_div_fftlen;
+	dd_data->gwdbl__b = (double) b;
+	dd_data->gwdbl__b_inverse = 1.0 / (double) b;
+	dd_data->gwdbl__num_b_per_word = (double) dd_data->gw__num_b_per_word;
+	dd_data->gwdbl__logb_abs_c_div_fftlen = (double) dd_data->gw__logb_abs_c_div_fftlen;
 #ifdef VERY_SLOPPY
 	dd_data->last_sloppy_j = 0;
 	dd_data->last_sloppy_result = 1.0;
@@ -278,14 +286,14 @@ double gwfft_weight (
 	void	*dd_data_arg,
 	unsigned long j)
 {
-	dd_real temp, twopow, result;
+	dd_real temp, bpower, result;
 
 	x86_FIX
-	temp = dd_real ((double) j) * dd_data->gw__bits_per_word;
-	twopow = ceil (temp) - temp;
+	temp = dd_real ((double) j) * dd_data->gw__num_b_per_word;
+	bpower = ceil (temp) - temp;
 	if (! dd_data->gw__c_is_one)
-		twopow += dd_data->gw__log2_abs_c_div_fftlen * dd_real ((double) j);
-	result = exp (dd_real::_log2 * twopow);
+		bpower += dd_data->gw__logb_abs_c_div_fftlen * dd_real ((double) j);
+	result = exp (dd_data->gw__logb * bpower);
 	END_x86_FIX
 	return (double (result));
 }
@@ -297,32 +305,32 @@ double gwfft_weight_sloppy (
 	void	*dd_data_arg,
 	unsigned long j)
 {
-	dd_real temp, twopow;
+	dd_real temp, bpower;
 
 	x86_FIX
-	temp = dd_real ((double) j) * dd_data->gw__bits_per_word;
-	twopow = ceil (temp) - temp;
+	temp = dd_real ((double) j) * dd_data->gw__num_b_per_word;
+	bpower = ceil (temp) - temp;
 	if (! dd_data->gw__c_is_one)
-		twopow += dd_data->gw__log2_abs_c_div_fftlen * dd_real ((double) j);
+		bpower += dd_data->gw__logb_abs_c_div_fftlen * dd_real ((double) j);
 	END_x86_FIX
-	return (pow (2.0, double (twopow)));
+	return (pow (dd_data->gwdbl__b, double (bpower)));
 
 // We cannot be very sloppy as these weights are used to set FFT data values
 // when reading save files.  If we are too sloppy we get roundoff errors > 0.5.
 
 #ifdef VERY_SLOPPY
-	double	temp, twopow, result;
+	double	temp, bpower, result;
 
 // Our sequential sloppy optimizations won't work if abs(c) is not one.
 // This is because the result is not in the range 1.0 to 2.0.
 
 	if (! dd_data->gw__c_is_one) {
-		temp = (double) j * dd_data->gwdbl__bits_per_word;
-		twopow = ceil (temp) - temp;
-		if (twopow < 0.001 || twopow > 0.999)
+		temp = (double) j * dd_data->gwdbl__num_b_per_word;
+		bpower = ceil (temp) - temp;
+		if (bpower < 0.001 || bpower > 0.999)
 			return (gwfft_weight (dd_data_arg, j));
-		twopow += dd_data->gwdbl__log2_abs_c_div_fftlen * (double) j;
-		return (pow (2.0, twopow));
+		bpower += dd_data->gwdbl__logb_abs_c_div_fftlen * (double) j;
+		return (pow (dd_data->gwdbl__b, bpower));
 	}
 
 // Compute weight from previous weight, but don't do too many of
@@ -330,21 +338,21 @@ double gwfft_weight_sloppy (
 
 	if (j == dd_data->last_sloppy_j + 1 && (j & 0x7F)) {
 		result = dd_data->last_sloppy_result * dd_data->fast_sloppy_multiplier;
-		if (result >= 2.0) result = result * 0.5;
+		if (result >= dd_data->gwdbl__b) result = result * dd_data->gwdbl__b_inverse;
 	}
 
 // Use a slower sloppy technique
 
 	else {
-		temp = (double) j * dd_data->gwdbl__bits_per_word;
-		twopow = ceil (temp) - temp;
-		result = pow (2.0, double (twopow));
+		temp = (double) j * dd_data->gwdbl__num_b_per_word;
+		bpower = ceil (temp) - temp;
+		result = pow (dd_data->gwdbl__b, double (bpower));
 	}
 
 // Just to be safe, if result is at all close to the boundaries return
 // the carefully computed weight.
 
-	if (result < 1.00001 || result > 1.99999)
+	if (result < 1.00001 || result > dd_data->gwdbl__b - 0.00001)
 		result = gwfft_weight (dd_data_arg, j);
 			 
 // Save the result for faster sequential sloppy calls
@@ -362,14 +370,14 @@ double gwfft_weight_inverse (
 	void	*dd_data_arg,
 	unsigned long j)
 {
-	dd_real temp, twopow, result;
+	dd_real temp, bpower, result;
 
 	x86_FIX
-	temp = dd_real ((double) j) * dd_data->gw__bits_per_word;
-	twopow = ceil (temp) - temp;
+	temp = dd_real ((double) j) * dd_data->gw__num_b_per_word;
+	bpower = ceil (temp) - temp;
 	if (! dd_data->gw__c_is_one)
-		twopow += dd_data->gw__log2_abs_c_div_fftlen * dd_real ((double) j);
-	result = exp (dd_real::_log2 * -twopow);
+		bpower += dd_data->gw__logb_abs_c_div_fftlen * dd_real ((double) j);
+	result = exp (dd_data->gw__logb * -bpower);
 	END_x86_FIX
 	return (double (result));
 }
@@ -383,18 +391,18 @@ double gwfft_weight_inverse_sloppy (
 	void	*dd_data_arg,
 	unsigned long j)
 {
-	double	temp, twopow, result;
+	double	temp, bpower, result;
 
 // Our sequential sloppy optimizations won't work if abs(c) is not one.
 // This is because the result is not in the range 0.5 to 1.0.
 
 	if (! dd_data->gw__c_is_one) {
-		temp = (double) j * dd_data->gwdbl__bits_per_word;
-		twopow = ceil (temp) - temp;
-		if (twopow < 0.001 || twopow > 0.999)
+		temp = (double) j * dd_data->gwdbl__num_b_per_word;
+		bpower = ceil (temp) - temp;
+		if (bpower < 0.001 || bpower > 0.999)
 			return (gwfft_weight_inverse (dd_data_arg, j));
-		twopow += dd_data->gwdbl__log2_abs_c_div_fftlen * (double) j;
-		return (pow (2.0, - twopow));
+		bpower += dd_data->gwdbl__logb_abs_c_div_fftlen * (double) j;
+		return (pow (dd_data->gwdbl__b, - bpower));
 	}
 
 // Compute weight from previous weight, but don't do too many of
@@ -402,21 +410,21 @@ double gwfft_weight_inverse_sloppy (
 
 	if (j == dd_data->last_inv_sloppy_j + 1 && (j & 0x7F)) {
 		result = dd_data->last_inv_sloppy_result * dd_data->fast_inv_sloppy_multiplier;
-		if (result <= 0.5) result = result * 2.0;
+		if (result <= dd_data->gwdbl__b_inverse) result = result * dd_data->gwdbl__b;
 	}
 
 // Use a slower sloppy technique
 
 	else {
-		temp = (double) j * dd_data->gwdbl__bits_per_word;
-		twopow = ceil (temp) - temp;
-		result = pow (2.0, - twopow);
+		temp = (double) j * dd_data->gwdbl__num_b_per_word;
+		bpower = ceil (temp) - temp;
+		result = pow (dd_data->gwdbl__b, - bpower);
 	}
 
 // Just to be safe, if result is at all close to the boundaries return
 // the carefully computed weight.
 
-	if (result < 0.50001 || result > 0.99999)
+	if (result < dd_data->gwdbl__b_inverse + 0.00001 || result > 0.99999)
 		result = gwfft_weight_inverse (dd_data_arg, j);
 
 // Save the result for faster sequential sloppy calls
@@ -436,14 +444,14 @@ double gwfft_weight_inverse_over_fftlen (
 	void	*dd_data_arg,
 	unsigned long j)
 {
-	dd_real temp, twopow, result;
+	dd_real temp, bpower, result;
 
 	x86_FIX
-	temp = dd_real ((double) j) * dd_data->gw__bits_per_word;
-	twopow = ceil (temp) - temp;
+	temp = dd_real ((double) j) * dd_data->gw__num_b_per_word;
+	bpower = ceil (temp) - temp;
 	if (! dd_data->gw__c_is_one)
-		twopow += dd_data->gw__log2_abs_c_div_fftlen * dd_real ((double) j);
-	result = exp (dd_real::_log2 * -twopow) * dd_data->gw__over_fftlen;
+		bpower += dd_data->gw__logb_abs_c_div_fftlen * dd_real ((double) j);
+	result = exp (dd_data->gw__logb * -bpower) * dd_data->gw__over_fftlen;
 	END_x86_FIX
 	return (double (result));
 }
@@ -459,14 +467,14 @@ void gwfft_weights3 (
 	double	*fft_weight_inverse,
 	double	*fft_weight_inverse_over_fftlen)
 {
-	dd_real temp, twopow, weight;
+	dd_real temp, bpower, weight;
 
 	x86_FIX
-	temp = dd_real ((double) j) * dd_data->gw__bits_per_word;
-	twopow = ceil (temp) - temp;
+	temp = dd_real ((double) j) * dd_data->gw__num_b_per_word;
+	bpower = ceil (temp) - temp;
 	if (! dd_data->gw__c_is_one)
-		twopow += dd_data->gw__log2_abs_c_div_fftlen * dd_real ((double) j);
-	weight = exp (dd_real::_log2 * twopow);
+		bpower += dd_data->gw__logb_abs_c_div_fftlen * dd_real ((double) j);
+	weight = exp (dd_data->gw__logb * bpower);
 	*fft_weight = double (weight);
 	weight = dd_real (1.0) / weight;
 	if (fft_weight_inverse != NULL)
@@ -476,7 +484,7 @@ void gwfft_weights3 (
 	END_x86_FIX
 }
 
-// Returns log2(fft_weight).  This is used in determining the FFT weight
+// Returns logb(fft_weight).  This is used in determining the FFT weight
 // fudge factor in two-pass FFTs.  This is much faster than computing the
 // fft_weight because it eliminates a call to the double-double exp routine.
 
@@ -485,34 +493,34 @@ double gwfft_weight_exponent (
 	void	*dd_data_arg,
 	unsigned long j)
 {
-	double	tempdbl, twopowdbl;
-	dd_real temp, twopow;
+	double	tempdbl, bpowerdbl;
+	dd_real temp, bpower;
 
 // For speed, try this with plain old doubles first
 
 	if (j == 0) return (0);
-	tempdbl = (double) j * dd_data->gwdbl__bits_per_word;
-	twopowdbl = ceil (tempdbl) - tempdbl;
-	if (twopowdbl > 0.001 && twopowdbl < 0.999) return (twopowdbl);
+	tempdbl = (double) j * dd_data->gwdbl__num_b_per_word;
+	bpowerdbl = ceil (tempdbl) - tempdbl;
+	if (bpowerdbl > 0.001 && bpowerdbl < 0.999) return (bpowerdbl);
 
 // If at all uncertain of the result, use doubledoubles to do the calculation
 
 	x86_FIX
-	temp = dd_real ((double) j) * dd_data->gw__bits_per_word;
-	twopow = ceil (temp) - temp;
+	temp = dd_real ((double) j) * dd_data->gw__num_b_per_word;
+	bpower = ceil (temp) - temp;
 	END_x86_FIX
-	return (double (twopow));
+	return (double (bpower));
 }
 
 //
 // Utility routine to compute fft base for j-th fft word
 //
-// The FFT base for the j-th FFT word doing a 2^q+c weighted transform is
-//	ceil (j*q/FFTLEN)
-// This routine returns ceil (j*q/FFTLEN) taking great care to return a
-// value accurate to 53 bits.  This is important when j*q is really close to
+// The FFT base for the j-th FFT word doing a b^n+c weighted transform is
+//	ceil (j*n/FFTLEN)
+// This routine returns ceil (j*n/FFTLEN) taking great care to return a
+// value accurate to 53 bits.  This is important when j*n is really close to
 // a multiple of FFTLEN (admittedly quite rare).  It would be really bad if
-// rounding differences caused this routine to compute ceil (j*q/FFTLEN)
+// rounding differences caused this routine to compute ceil (j*n/FFTLEN)
 // differently than the weighting functions.
 //
 
@@ -523,12 +531,12 @@ unsigned long gwfft_base (
 {
 	double	tempdbl, ceildbl, diffdbl;
 	dd_real temp;
-	unsigned long twopow;
+	unsigned long bpower;
 
 // For speed, try this with plain old doubles first
 
 	if (j == 0) return (0);
-	tempdbl = (double) j * dd_data->gwdbl__bits_per_word;
+	tempdbl = (double) j * dd_data->gwdbl__num_b_per_word;
 	ceildbl = ceil (tempdbl);
 	diffdbl = ceildbl - tempdbl;
 	if (diffdbl > 0.001 && diffdbl < 0.999)
@@ -537,8 +545,8 @@ unsigned long gwfft_base (
 // If at all uncertain of the result, use doubledoubles to do the calculation
 
 	x86_FIX
-	temp = dd_real ((double) j) * dd_data->gw__bits_per_word;
-	twopow = (int) ceil (temp);
+	temp = dd_real ((double) j) * dd_data->gw__num_b_per_word;
+	bpower = (int) ceil (temp);
 	END_x86_FIX
-	return (twopow);
+	return (bpower);
 }

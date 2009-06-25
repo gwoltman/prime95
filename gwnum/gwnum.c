@@ -21,6 +21,11 @@
 #include "gwutil.h"
 #include "gwdbldbl.h"
 
+/* Handy macros to improve readability */
+
+#define log2(n)		(log((double)(n)) / log (2.0))
+#define logb(n)		(log((double)(n)) / log ((double)(b)))
+
 /* global variables */
 
 /* When debugging gwnum and giants, I sometimes write code that "cheats" */
@@ -142,10 +147,11 @@ struct gwasm_data {
 	double	XMM_P588[2];
 	double	XMM_M162[2];
 	double	DBLARG;
-	double	DBL_UNUSED1[1];
+	double	CARRY_ADJUST7;
 	double	XMM_P866[2];
-	double	XMM_UNUSED2[2];
-	double	XMM_UNUSED3[2];
+	double	XMM_BIGVAL_NEG[2];
+	double	CARRY_ADJUST1_HI;
+	double	CARRY_ADJUST1_LO;
 	double	XMM_UNUSED4[2];
 	double	XMM_UNUSED5[2];
 	double	XMM_P623[2];
@@ -157,7 +163,7 @@ struct gwasm_data {
 
 	uint32_t COPYZERO[8];	/* Offsets to help in gwcopyzero */
 
-	int32_t	pad1[1];
+	uint32_t B_IS_2;
 	uint32_t NUMARG;	/* Gwcopyzero assembly arg */
 	double	ZPAD_INVERSE_K6;
 
@@ -326,6 +332,7 @@ struct gwasm_data {
 #define gw_adds(h,a)	(*(h)->GWPROCPTRS[14])(a)
 #define gw_muls(h,a)	(*(h)->GWPROCPTRS[15])(a)
 #define norm_routines	16
+#define copyzero_routines 20
 
 /* Helper macros */
 
@@ -356,10 +363,17 @@ int convert_giant_to_k2ncd (
 int internal_gwsetup (
 	gwhandle *gwdata,	/* Placeholder for gwnum global data */
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
-	unsigned long b,	/* B in K*B^N+C. Must be two. */
+	unsigned long b,	/* B in K*B^N+C. */
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
 	signed long c);		/* C in K*B^N+C. Must be rel. prime to K. */
-void raw_gwsetaddin (gwhandle *gwdata, unsigned long word, long val);
+long nonbase2_gianttogw (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	giant	a,
+	gwnum	g,
+	unsigned long limit,	/* How many FFT words to set */
+	unsigned long offset,	/* Offset into FFT array of words to set */
+	long	carry);		/* Carry to add into this section */
+void raw_gwsetaddin (gwhandle *gwdata, unsigned long word, double val);
 int multithread_init (gwhandle *gwdata);
 void multithread_term (gwhandle *gwdata);
 void pass1_aux_entry_point (void*);
@@ -1383,26 +1397,23 @@ double *build_x87_biglit_table (
 int gwinfo (			/* Return zero-padded fft flag or error code */
 	gwhandle *gwdata,	/* Gwnum global data */
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
-	unsigned long b,	/* N in K*B^N+C. Base must be two. */
+	unsigned long b,	/* N in K*B^N+C. */
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
 	signed long c)		/* C in K*B^N+C. Must be rel. prime to K. */
 {
 	struct gwinfo1_data asm_info;
-	struct gwasm_jmptab *jmptab, *zpad_jmptab;
-	double	log2k, log2c, log2maxmulbyconst;
-	double	max_bits_per_word, bits_per_word;
+	struct gwasm_jmptab *jmptab, *zpad_jmptab, *generic_jmptab;
+	double	log2k, logbk, log2b, log2c, log2maxmulbyconst;
+	double	max_bits_per_input_word, max_bits_per_output_word;
+	double	max_weighted_bits_per_output_word;
+	int	num_b_in_big_word, num_small_words, num_big_words;
+	double	b_per_input_word, bits_per_output_word;
+	double	weighted_bits_per_output_word;
 	unsigned long l2_cache_size, max_exp;
 	int32_t *longp;
 	char	buf[20];
 	int	qa_nth_fft;
 	unsigned long qa_fftlen;
-
-/* Copy the CPU_FLAGS just in case the caller changes the CPU_FLAGS value. */
-/* This would be especially deadly is the CPU_SSE2 was turned off after */
-/* calling gwsetup.  Only do this if the caller did not set the cpu_flags. */
-
-	if (gwdata->cpu_flags == 0)
-		gwdata->cpu_flags = CPU_FLAGS;
 
 /* If L2 cache size is unknown, assume it is 512KB.  We do this because */
 /* it is probably a new processor, and most new processors will have this */
@@ -1447,15 +1458,18 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 
 /* Precalculate some needed values */
 
-	log2k = log (k) / log ((double) 2.0);
-	log2c = log ((double) abs (c)) / log ((double) 2.0);
-	log2maxmulbyconst = log ((double) gwdata->maxmulbyconst) / log ((double) 2.0);
+	log2k = log2 (k);
+	logbk = logb (k);
+	log2b = log2 (b);
+	log2c = log2 (abs (c));
+	log2maxmulbyconst = log2 (gwdata->maxmulbyconst);
 
 /* First, see what FFT length we would get if we emulate the k*b^n+c modulo */
 /* with a zero padded FFT.  If k is 1 and abs (c) is 1 then we can skip this */
 /* loop as we're sure to find an IBDWT that will do the job. */
 
 	zpad_jmptab = NULL;
+	generic_jmptab = NULL;
 	if (gwdata->specific_fftlen == 0 && (k > 1.0 || n < 500 || abs (c) > 1)) {
 
 /* Use the proper 2^N-1 jmptable */
@@ -1477,8 +1491,8 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 /* tested and the ones that are a different FFT length than the ones already */
 /* tested. */
 
+			qa_nth_fft++;
 			if (gwdata->qa_pick_nth_fft) {
-				qa_nth_fft++;
 				if (qa_nth_fft < gwdata->qa_pick_nth_fft)
 					goto next1;
 				if (qa_nth_fft == gwdata->qa_pick_nth_fft) {
@@ -1508,14 +1522,95 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 			    ! (gwdata->cpu_flags & CPU_3DNOW))
 				goto next1;
 
+/* Don't bother looking at this FFT length if the generic reduction would be faster */
+
+			if (generic_jmptab != NULL &&
+			    zpad_jmptab->timing > 3.0 * generic_jmptab->timing)
+				goto next1;
+
+/* See if this is the FFT length that would be used for a generic modulo reduction */
+
+			if (generic_jmptab == NULL &&
+			    2.0 * (log2k + n * log2b) + 128.0 < max_exp + 0.3 * zpad_jmptab->fftlen)
+				generic_jmptab = zpad_jmptab;
+
 /* Compare the maximum number of bits allowed in the FFT input word */
 /* with the number of bits we would use.  Break when we find an acceptable */
 /* FFT length. */
+//  This is the old code which only supported b == 2
+//			max_bits_per_word = (double) max_exp / zpad_jmptab->fftlen;
+//			max_bits_per_word -= gwdata->safety_margin;
+//			bits_per_word = (double) (n + n) * log2b / zpad_jmptab->fftlen;
+//			if (bits_per_word < max_bits_per_word + 0.3) {
+//				if (gwdata->qa_pick_nth_fft) goto use_zpad;
+//				break;
+//			}
 
-			max_bits_per_word = (double) max_exp / zpad_jmptab->fftlen;
-			max_bits_per_word -= gwdata->safety_margin;
-			bits_per_word = (double) (n + n) / zpad_jmptab->fftlen;
-			if (bits_per_word < max_bits_per_word + 0.3) {
+/* In version 25.11, we need to handle b != 2.  See comments later on in this routine */
+/* for a description of the concepts involved. */
+
+/* Compute the maximum number of bits allowed in the FFT input word */
+
+			max_bits_per_input_word = (double) max_exp / zpad_jmptab->fftlen;
+			max_bits_per_input_word -= gwdata->safety_margin;
+
+/* Apply our new formula (described later) to the maximum Mersenne exponent for this FFT length. */
+
+			num_b_in_big_word = (int) ceil (max_bits_per_input_word);
+			num_small_words = (int) ((num_b_in_big_word - max_bits_per_input_word) * zpad_jmptab->fftlen);
+			num_big_words = zpad_jmptab->fftlen - num_small_words;
+			max_bits_per_output_word =
+				2 * (num_b_in_big_word - 1) +
+				0.6 * log2 (num_big_words + num_small_words / 3.174802103936252);
+
+/* Apply our new formula (described later) to the number we are planning to test.  */
+/* This is different for the zero-pad case because only 4 words in the upper half */
+/* of the FFT contain any data.  We can't use the FFT length if the k value will */
+/* not fit in 4 words. */
+
+			b_per_input_word = (double) (n + n) / zpad_jmptab->fftlen;
+			if (logbk > 4.0 * b_per_input_word) goto next1;
+			num_b_in_big_word = (int) ceil (b_per_input_word);
+			num_small_words = (int) ((num_b_in_big_word - b_per_input_word) * (zpad_jmptab->fftlen / 2 + 4));
+			num_big_words = (zpad_jmptab->fftlen / 2 + 4) - num_small_words;
+			bits_per_output_word =
+				2.0 * (num_b_in_big_word * log2b - 1.0) +
+				0.6 * log2 (num_big_words + num_small_words / pow (2.0, log2b / 0.6));
+
+/* And compute the weighted values as per the formulas described later */
+
+			max_weighted_bits_per_output_word =
+				2.0 * max_bits_per_input_word + 0.6 * log2 (zpad_jmptab->fftlen / 2 + 4);
+			if ((n + n) % zpad_jmptab->fftlen == 0)
+				weighted_bits_per_output_word = bits_per_output_word;
+			else
+				weighted_bits_per_output_word =
+					2.0 * ((b_per_input_word + 1.0) * log2b - 1.0) +
+					0.6 * log2 (zpad_jmptab->fftlen / 2 + 4) -
+						((log2b <= 3.0) ? (log2b - 1.0) / 2.0 :
+						 (log2b <= 6.0) ? 1.0 + (log2b - 3.0) / 3.0 :
+								  2.0 + (log2b - 6.0) / 6.0);;
+
+/* See if this FFT length might work */
+
+			if (weighted_bits_per_output_word <= max_weighted_bits_per_output_word &&
+
+/* Result words are multiplied by k and the mul-by-const and any carry spread over 6 words. */
+/* Thus, the multiplied FFT result word cannot be more than 7 times bits-per-input-word */
+/* (bits-per-input-word are stored in the current word and the 6 words we propogate carries to). */
+
+			    bits_per_output_word + log2k + log2maxmulbyconst <=
+						    floor (7.0 * b_per_input_word) * log2b &&
+
+/* The high part of upper result words are multiplied by c and the mul-by-const.  This must */
+/* not exceed 51 bits. */
+
+			    bits_per_output_word - floor (b_per_input_word) * log2b +
+						    log2c + log2maxmulbyconst <= 51.0) {
+
+/* We can use this FFT.  Use it if specifically requested, or */
+/* look for a non-zero-padded FFT that might be even faster. */
+
 				if (gwdata->qa_pick_nth_fft) goto use_zpad;
 				break;
 			}
@@ -1553,8 +1648,8 @@ next1:			for (longp = &zpad_jmptab->counts[4]; *longp; longp++);
 /* already tested and the ones that are a different FFT length than the */
 /* ones already tested. */
 
+		qa_nth_fft++;
 		if (gwdata->qa_pick_nth_fft) {
-			qa_nth_fft++;
 			if (qa_nth_fft < gwdata->qa_pick_nth_fft)
 				goto next2;
 			if (qa_nth_fft == gwdata->qa_pick_nth_fft) {
@@ -1606,14 +1701,15 @@ next1:			for (longp = &zpad_jmptab->counts[4]; *longp; longp++);
 /* Or check that this FFT length will work with this k,n,c combo */
 
 		else {
-			double max_bits_per_word;
-			double bits_per_word;
-
+//  This is the old code which only supported b == 2
+//			double max_bits_per_word;
+//			double bits_per_word;
+//
 /* Compute the maximum number of bits allowed in the FFT input word */
-
-			max_bits_per_word = (double) max_exp / jmptab->fftlen;
-			max_bits_per_word -= gwdata->safety_margin;
-
+//
+//			max_bits_per_word = (double) max_exp / jmptab->fftlen;
+//			max_bits_per_word -= gwdata->safety_margin;
+//
 /* For historical reasons, the jmptable computes maximum exponent based on */
 /* a Mersenne-mod FFT (i.e k=1.0, c=-1).  Handle more complex cases here. */
 /* A Mersenne-mod FFT produces 2 * bits_per_word in each FFT result word. */
@@ -1623,12 +1719,10 @@ next1:			for (longp = &zpad_jmptab->counts[4]; *longp; longp++);
 /* However, when I used 1.585 in the formula it was not hard to find cases */
 /* where the roundoff error was too high, so we use 1.7 here for extra */
 /* safety. */
-
-			bits_per_word = (log2k + n) / jmptab->fftlen;
-			if (2.0 * bits_per_word + log2k + 1.7 * log2c <=
-					2.0 * max_bits_per_word) {
-				double total_bits, loglen;
-
+//
+//			bits_per_word = (log2k + n * log2b) / jmptab->fftlen;
+//			if (2.0 * bits_per_word + log2k + 1.7 * log2c <=
+//					2.0 * max_bits_per_word) {
 /* Because carries are spread over 4 words, there is a minimum limit on */
 /* the bits per word.  An FFT result word cannot be more than 5 times */
 /* bits-per-word (bits-per-word are stored in the current word and the */
@@ -1639,15 +1733,96 @@ next1:			for (longp = &zpad_jmptab->counts[4]; *longp; longp++);
 /* words adds some bits proportional to the size of the FFT.  Experience */
 /* has shown this to be 0.6 * log (FFTLEN).  This entire result is */
 /* multiplied by k in the normalization code, so add another log2(k) bits. */
-/* Finally, the mulbyconst adds to the size of the carry. */
+/* Finally, the mulbyconst does not affect our chance of getting a round off */
+/* error, but does add to the size of the carry. */
+//
+//			loglen = log2 (jmptab->fftlen);
+//			total_bits = (bits_per_word - 1.0) * 2.0 +
+//				     1.7 * log2c + loglen * 0.6 +
+//				     log2k + log2maxmulbyconst;
+//			if (total_bits > 5.0 * bits_per_word) {
 
-				loglen = log ((double) jmptab->fftlen) / log (2.0);
-				total_bits = (bits_per_word - 1.0) * 2.0 +
-					     1.7 * log2c + loglen * 0.6 +
-					     log2k + log2maxmulbyconst;
-				if (total_bits > 5.0 * bits_per_word) {
+/* In version 25.11, we now need to handle b != 2.  Consider the case */
+/* where b is ~4000.  If small words contain one b (~12 bits) and large words */
+/* contain two b (~24 bits), then the number of bits in a result word is */
+/* dominated by big words * big word products (~48 bits).  The old code above */
+/* tested average bits per word (~18 bits) and underestimates a result word as */
+/* containing ~36 bits.  So here's our upgraded model.  We calculate the number */
+/* of big and little words.  A result word adds up many big word times big word */
+/* products and big word times small word products.  Let base = b ^ num_b_in_big_word. */
+/* Because of balanced representation, a big word times big word */
+/* product is 2 * (log2(base) - 1) bits.  Summing them up adds about */
+/* 0.6 * log2 (num_big_words) more bits.  Now for the big words times */
+/* small words products that are also added in, the more bits in a small word the more */
+/* it impacts the result word.  A big word times small word product has log2(b) fewer */
+/* bits in it.  If we add two big word times small word products, the sum is */
+/* about 0.6 bits bigger, add four products to get 1.2 bits bigger, etc. -- do this until you */
+/* overcome the log2(b) bit difference.  That is, 2^(log2(b)/0.6) small */
+/* products equals one big product.  Putting it all together, a result word contains */
+/* 2 * (log2(base) - 1) + 0.6 * log2 (num_big_words + num_small_words / 2^(log2(b)/0.6)) */
+/* bits plus the k and c adjustments noted above. */
+
+/* Compute the maximum number of bits allowed in the FFT input word */
+
+			max_bits_per_input_word = (double) max_exp / jmptab->fftlen;
+			max_bits_per_input_word -= gwdata->safety_margin;
+
+/* Apply our new formula above to the maximum Mersenne exponent for this FFT length. */
+
+			num_b_in_big_word = (int) ceil (max_bits_per_input_word);
+			num_small_words = (int) ((num_b_in_big_word - max_bits_per_input_word) * jmptab->fftlen);
+			num_big_words = jmptab->fftlen - num_small_words;
+			max_bits_per_output_word =
+				2 * (num_b_in_big_word - 1) +
+				0.6 * log2 (num_big_words + num_small_words / 3.174802103936252);
+
+/* Apply our new formula to the number we are planning to test */
+
+			b_per_input_word = (logbk + n) / jmptab->fftlen;
+			num_b_in_big_word = (int) ceil (b_per_input_word);
+			num_small_words = (int) ((num_b_in_big_word - b_per_input_word) * jmptab->fftlen);
+			num_big_words = jmptab->fftlen - num_small_words;
+			bits_per_output_word = 
+				2.0 * (num_b_in_big_word * log2b - 1.0) +
+				0.6 * log2 (num_big_words + num_small_words / pow (2.0, log2b / 0.6)) +
+				log2k + 1.7 * log2c;
+
+/* Unfortunately, the story does not end there.  The weights applied to each FFT word */
+/* range from 1 to b.  These extra bits impact the round off error.  Thus, we calculate */
+/* the weighted_bits_per_output_word for irrational FFTs as using another log2b bits. */
+/* Furthermore, testing shows us that larger b values don't quite need the full log2b */
+/* bits added, probably because there are fewer extra bits generated by adding products */
+/* because the smallest weighted words have fewer bits.  The correction is if log2b is 3 */
+/* you can get 1 more output bit than expected, if log2b is 6 you get about 2 extra */
+/* bits, if log2b is 12 you can get 3 extra bits. */
+
+			max_weighted_bits_per_output_word = 2.0 * max_bits_per_input_word + 0.6 * log2 (jmptab->fftlen);
+			if (k == 1.0 && n % jmptab->fftlen == 0)
+				weighted_bits_per_output_word = bits_per_output_word;
+			else
+				weighted_bits_per_output_word =
+					2.0 * ((b_per_input_word + 1.0) * log2b - 1.0) +
+					0.6 * log2 (jmptab->fftlen) -
+						((log2b <= 3.0) ? (log2b - 1.0) / 2.0 :
+						 (log2b <= 6.0) ? 1.0 + (log2b - 3.0) / 3.0 :
+								  2.0 + (log2b - 6.0) / 6.0) +
+					log2k + 1.7 * log2c;
+
+/* If the bits in an output word is less than the maximum allowed, we can */
+/* probably use this FFT length -- though we need to do a few more tests. */
+
+			if (weighted_bits_per_output_word <= max_weighted_bits_per_output_word) {
+
+/* Because carries are spread over 4 words, there is a minimum limit on */
+/* the bits per word.  An FFT result word cannot be more than 5 times */
+/* bits-per-input-word (bits-per-input-word are stored in the current */
+/* word and the 4 words we propogate carries to).  The mul-by-const that */
+/* during the normalization process adds to the size of the carry. */
+
+				if (bits_per_output_word + log2maxmulbyconst >
+							    floor (5.0 * b_per_input_word) * log2b) {
 // This assert was designed to find any cases where using 5 or more carry words
-// would use short FFT than using a zero-padded FFT.  We did find a case:
+// would use a shorter FFT than using a zero-padded FFT.  We did find a case:
 // 15539*2^15095288+7 would use 1.5M FFT length if I implemented 5 carry words
 // and requires a 1.75M FFT length for a zero-padded FFT.
 //					ASSERTG (zpad_jmptab == NULL ||
@@ -1658,17 +1833,19 @@ next1:			for (longp = &zpad_jmptab->counts[4]; *longp; longp++);
 /* Because of limitations in the top_carry_adjust code, there is a limit */
 /* on the size of k that can be handled.  This isn't a big deal since the */
 /* zero-padded implementation will use the same FFT length.  Check to see */
-/* if this is this k can be handled.  K must fit in the top three words */
-/* for one-pass FFTs and within the top two words of two-pass FFTs. */
+/* if this k can be handled.  K must fit in the top three words for */
+/* one-pass FFTs and within the top two words of two-pass FFTs.  Since we */
+/* know the first FFT word is a big word we can use the ceil function in */
+/* deciding how many b's we will be spreading the top carry into. */
 
 				if (jmptab->pass2_levels == 0 &&
-				    log2k > floor (3.0 * bits_per_word)) {
+				    log2k > ceil (3.0 * b_per_input_word) * log2b) {
 					ASSERTG (zpad_jmptab == NULL ||
 						 jmptab->fftlen >= zpad_jmptab->fftlen);
 					goto next2;
 				}
 				if (jmptab->pass2_levels != 0 &&
-				    log2k > floor (2.0 * bits_per_word)) {
+				    log2k > ceil (2.0 * b_per_input_word) * log2b) {
 					ASSERTG (zpad_jmptab == NULL ||
 						 jmptab->fftlen >= zpad_jmptab->fftlen);
 					goto next2;
@@ -1719,7 +1896,7 @@ use_zpad:	gwdata->ZERO_PADDED_FFT = TRUE;
 /* Remember the FFT returned so that we can return a different FFT to */
 /* the QA code next time. */
 
-	if (gwdata->qa_pick_nth_fft) gwdata->qa_pick_nth_fft = qa_nth_fft;
+	gwdata->qa_picked_nth_fft = qa_nth_fft;
 
 /* Set pointer to assembler "jump" table */
 
@@ -1759,6 +1936,7 @@ void gwinit (
 		guessCpuType ();
 		guessCpuSpeed ();
 	}
+	gwdata->cpu_flags = CPU_FLAGS;
 }
 
 /* Allocate memory and initialize assembly code for arithmetic */
@@ -1771,12 +1949,16 @@ int gwsetup (
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
 	signed long c)		/* C in K*B^N+C. */
 {
-	int	gcd, error_code;
+	int	gcd, error_code, setup_completed;
 
 /* Sanity check the k value */
 
 	if (k < 1.0) return (GWERROR_K_TOO_SMALL);
 	if (k > 18014398509481983.0) return (GWERROR_K_TOO_LARGE);
+
+/* Init */
+
+	setup_completed = FALSE;
 
 /* Our code fast code fails if k and c are not relatively prime.  This */
 /* is because we cannot calculate 1/k.  Although the user shouldn't call */
@@ -1788,40 +1970,42 @@ int gwsetup (
 	else if (k == 1.0 || abs (c) == 1)
 		gcd = 1;
 	else {
-		giant	kg, cg;
-		kg = newgiant (4);
-		cg = newgiant (4);
+		stackgiant(kg,2);
+		stackgiant(cg,2);
 		dbltog (k, kg);
 		itog (abs (c), cg);
 		gcdg (kg, cg);
 		gcd = cg->n[0];
-		free (kg);
-		free (cg);
 	}
 
-/* Call the internal setup routine when we can.  B must be 2, the */
-/* gcd (k, c) must be 1, n must big enough so that their aren't too few */
-/* bits per FFT word, also k * mulbyconst and c * mulbyconst cannot be too */
-/* large.  Turn off flag indicating general-purpose modulos are being */
-/* performed. */
+/* Call the internal setup routine when we can.  Gcd (k, c) must be 1, */
+/* k * mulbyconst and c * mulbyconst cannot be too large.  Also, the FFT */
+/* code has bugs when there are too few bits per FFT.  Rather than make */
+/* difficult fixes we simply force these small numbers to use the generic */
+/* reduction.  In truth, the caller should use a different math package for */
+/* these small numbers. */
 
-	if (b == 2 && gcd == 1 && n >= 350 &&
+	if (gcd == 1 &&
 	    k * gwdata->maxmulbyconst <= MAX_ZEROPAD_K &&
-	    abs (c) * gwdata->maxmulbyconst <= MAX_ZEROPAD_C) {
+	    abs (c) * gwdata->maxmulbyconst <= MAX_ZEROPAD_C &&
+	    log2(b) * (double) n >= 350.0 &&
+	    (b == 2 || (gwdata->cpu_flags & CPU_SSE2)) &&
+	    !gwdata->force_general_mod) {
 		error_code = internal_gwsetup (gwdata, k, b, n, c);
-		if (error_code) return (error_code);
+		if (error_code == 0) setup_completed = TRUE;
+		else if (b == 2) return (error_code);
 		gwdata->GENERAL_MOD = FALSE;
 	}
 
 /* Emulate b != 2, k not relatively prime to c, small n values, and */
 /* large k or c values with a call to the general purpose modulo setup code. */
 
-	else {
+	if (!setup_completed) {
 		double	bits;
 		giant	g;
 
-		bits = log ((double) b) / log (2.0) * (double) n;
-		g = newgiant (((unsigned long) bits >> 4) + 8);
+		bits = (double) n * log2 (b);
+		g = allocgiant (((unsigned long) bits >> 5) + 4);
 		if (g == NULL) return (GWERROR_MALLOC);
 		ultog (b, g);
 		power (g, n);
@@ -1898,7 +2082,7 @@ int gwsetup_general_mod_giant (
 /* Copy the modulus except for k*2^n+c values */
 
 	if (!convertible || d != 1) {
-		gwdata->GW_MODULUS = newgiant ((bits >> 4) + 1);
+		gwdata->GW_MODULUS = allocgiant ((bits >> 5) + 1);
 		if (gwdata->GW_MODULUS == NULL) {
 			gwdone (gwdata);
 			return (GWERROR_MALLOC);
@@ -1937,7 +2121,7 @@ int gwsetup_general_mod_giant (
 	if (error_code) return (error_code);
 // BUG - setting the bit_length to the modulus size will break gwtogiant.
 // we need a better/more-consistent way of dealing with the various 
-// needed bit_lengths.  Also, PPFGW should not be reading the bit_length
+// needed bit_lengths.  Also, PFGW should not be reading the bit_length
 // value in integer.cpp.
 //	gwdata->bit_length = bits;
 	
@@ -1955,7 +2139,7 @@ int gwsetup_general_mod_giant (
 /* the quotient. */
 
 	gwdata->GW_ZEROWORDSLOW = (unsigned long)
-			floor ((double) bits / gwdata->fft_bits_per_word);
+			floor ((double) bits / gwdata->avg_num_b_per_word);
 
 /* A quick emulate_mod refresher: */
 /* 1) The maximum size of a quotient is gwdata->n/2 bits due to the */
@@ -1975,7 +2159,7 @@ int gwsetup_general_mod_giant (
 /*    than the number of unzeroed bits caused by using the floor function in */
 /*    calculating GW_ZEROWORDSLOW. */
 
-	safety_bits = bits - (unsigned long) ((double) gwdata->GW_ZEROWORDSLOW * gwdata->fft_bits_per_word) + 3;
+	safety_bits = bits - (unsigned long) ((double) gwdata->GW_ZEROWORDSLOW * gwdata->avg_num_b_per_word) + 3;
 
 /* Precompute the reciprocal of the modified modulus. */
 
@@ -1984,15 +2168,15 @@ int gwsetup_general_mod_giant (
 		gwdone (gwdata);
 		return (GWERROR_MALLOC);
 	}
-	tmp = newgiant ((gwdata->n >> 4) + 1);
+	tmp = allocgiant ((gwdata->n >> 5) + 1);
 	if (tmp == NULL) {
 		gwdone (gwdata);
 		return (GWERROR_MALLOC);
 	}
 	itog (1, tmp);
-	gshiftleft (bits + gwdata->n/2 - safety_bits, tmp);
+	gshiftleft (bits + gwdata->n / 2 - safety_bits, tmp);
 	divg (gwdata->GW_MODULUS, tmp);	/* computes gwdata->n/2-safety_margin+1 bits of reciprocal */
-	gshiftleft (gwdata->n - (bits + gwdata->n/2 - safety_bits), tmp);
+	gshiftleft (gwdata->n - (bits + gwdata->n / 2 - safety_bits), tmp);
 				/* shift so gwmul routines wrap */
 				/* quotient to lower end of fft */
 	gianttogw (gwdata, tmp, gwdata->GW_RECIP_FFT);
@@ -2004,7 +2188,7 @@ int gwsetup_general_mod_giant (
 /* results bigger than this. */
 
 	gwdata->GW_GEN_MOD_MAX = (unsigned long)
-		 floor ((double)((gwdata->n/2-safety_bits+bits-8)/2) / gwdata->fft_bits_per_word);
+		 floor ((double)((gwdata->n/2-safety_bits+bits-8)/2) / gwdata->avg_num_b_per_word);
 	gwdata->GW_GEN_MOD_MAX_OFFSET = addr_offset (gwdata, gwdata->GW_GEN_MOD_MAX-1);
 
 /* Set flag indicating general-purpose modulo operations are in force */
@@ -2099,8 +2283,7 @@ int convert_giant_to_k2ncd (
 	int	i;
 	uint32_t quick_test;
 	giant	test_g, alloc_g;
-	giantstruct tmp;
-	uint32_t tmparray[3];
+	stackgiant(tmp,3);
 
 /* Loop through a lot of small d values in hopes of finding a multiplier that */
 /* will convert the input value into a k*2^n+c value.  We do this because */
@@ -2121,7 +2304,7 @@ int convert_giant_to_k2ncd (
 			test_g = g;
 		} else {
 			if (alloc_g == NULL) {
-				alloc_g = newgiant (((bitlen (g) + 10) >> 4) + 1);
+				alloc_g = allocgiant (((bitlen (g) + 10) >> 5) + 1);
 				if (alloc_g == NULL) return (FALSE);
 			}
 			ultog (*d, alloc_g);
@@ -2144,25 +2327,23 @@ int convert_giant_to_k2ncd (
 
 /* Now see if the high bits can fit in a 51-bit k */
 
-		tmp.n = (uint32_t *) &tmparray;
-		setmaxsize ((giant) &tmp, 3);
-		tmparray[0] = test_g->n[i]; tmp.sign = 1;
-		if (test_g->sign - i >= 2) { tmparray[1] = test_g->n[i+1]; tmp.sign = 2; }
-		if (test_g->sign - i >= 3) { tmparray[2] = test_g->n[i+2]; tmp.sign = 3; }
+		tmp->n[0] = test_g->n[i]; tmp->sign = 1;
+		if (test_g->sign - i >= 2) { tmp->n[1] = test_g->n[i+1]; tmp->sign = 2; }
+		if (test_g->sign - i >= 3) { tmp->n[2] = test_g->n[i+2]; tmp->sign = 3; }
 		if (test_g->sign - i >= 4) continue;
-		if (test_g->n[1] == 0xFFFFFFFF) iaddg (1, (giant) &tmp);
+		if (test_g->n[1] == 0xFFFFFFFF) iaddg (1, tmp);
 
 		*n = i * 32;
-		while ((tmparray[0] & 0x1) == 0) {
-			gshiftright(1, (giant) &tmp);
+		while ((tmp->n[0] & 0x1) == 0) {
+			gshiftright(1, tmp);
 			(*n)++;
 		}
-		if (bitlen ((giant) &tmp) > 51) continue;
+		if (bitlen (tmp) > 51) continue;
 
 /* Set k and return success */
 
-		*k = tmparray[0];
-		if (tmp.sign == 2) *k += (double) tmparray[1] * 4294967296.0;
+		*k = tmp->n[0];
+		if (tmp->sign == 2) *k += (double) tmp->n[1] * 4294967296.0;
 		free (alloc_g);
 		return (TRUE);
 	}
@@ -2180,7 +2361,7 @@ int convert_giant_to_k2ncd (
 int internal_gwsetup (
 	gwhandle *gwdata,	/* Placeholder for gwnum global data */
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
-	unsigned long b,	/* B in K*B^N+C. Must be two. */
+	unsigned long b,	/* B in K*B^N+C. */
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
 	signed long c)		/* C in K*B^N+C. Must be rel. prime to K. */
 {
@@ -2189,7 +2370,6 @@ int internal_gwsetup (
 	struct gwasm_data *asm_data;
 	int	error_code;
 	unsigned long mem_needed;
-	double	fft_bit_length;		/* Bit length of the FFT */
 	double	*tables;		/* Pointer tables we are building */
 	unsigned long pass1_size, pass2_size;
 	double	small_word, big_word, temp, asm_values[40];
@@ -2205,7 +2385,7 @@ int internal_gwsetup (
 
 	fpu_init ();
 
-/* Select the proper FFT size for this k,n,c combination */
+/* Select the proper FFT size for this k,b,n,c combination */
 
 	error_code = gwinfo (gwdata, k, b, n, c);
 	if (error_code) return (error_code);
@@ -2262,6 +2442,7 @@ int internal_gwsetup (
 	asm_data->FFTLEN = gwdata->FFTLEN;
 	asm_data->ZERO_PADDED_FFT = gwdata->ZERO_PADDED_FFT;
 	asm_data->ALL_COMPLEX_FFT = gwdata->ALL_COMPLEX_FFT;
+	asm_data->B_IS_2 = (b == 2);
 
 /* Initialize the extended precision code that computes the FFT weights */
 
@@ -2271,34 +2452,32 @@ int internal_gwsetup (
 		return (GWERROR_MALLOC);
 	}
 	gwfft_weight_setup (gwdata->dd_data, gwdata->ZERO_PADDED_FFT,
-			    k, n, c, gwdata->FFTLEN);
+			    k, b, n, c, gwdata->FFTLEN);
 
-/* Calculate the number of bits in k*2^n.  This will be helpful in */
-/* determining how much meory to allocate for giants. */
+/* Calculate the number of bits in k*b^n.  This will be helpful in */
+/* determining how much memory to allocate for giants. */
 
-	gwdata->bit_length = log (k) / log ((double) 2.0) + n;
+	gwdata->bit_length = log2 (k) + n * log2 (b);
 
-/* Calculate the number of bits the underlying FFT computes.  That is, */
-/* the point at which data wraps around to the low FFT word.  For a zero */
-/* pad FFT, this is simply 2*n.  Otherwise, it is log2(k) + n. */
+/* Calculate the average number of base b's stored in each FFT word.  The total */
+/* number of base b's the underlying FFT works with (i.e. the point at which data */
+/* wraps around to the low FFT word) is 2*n for a zero pad FFT and logb(k) + n */
+/* otherwise. */	
 
-	fft_bit_length = gwdata->ZERO_PADDED_FFT ? n * 2.0 : gwdata->bit_length;
+	gwdata->avg_num_b_per_word =
+		(gwdata->ZERO_PADDED_FFT ? n * 2.0 : (logb (k) + n)) / gwdata->FFTLEN;
 
-/* Calculate the average number of bits in each FFT word. */
+/* Calculate the number of base b's stored in each small FFT word. */
 
-	gwdata->fft_bits_per_word = fft_bit_length / gwdata->FFTLEN;
-
-/* Calculate the number of bits in each small FFT word. */
-
-	gwdata->BITS_PER_WORD = (unsigned long) gwdata->fft_bits_per_word;
+	gwdata->NUM_B_PER_SMALL_WORD = (unsigned long) gwdata->avg_num_b_per_word;
 
 /* Set a flag if this is a rational FFT.  That is, an FFT where all the */
-/* weighting factors are 1.0.  This happens when c is -1 and the */
-/* fft_bit_length is a multiple of FFTLEN.  The assembly code can make some */
+/* weighting factors are 1.0.  This happens when c is -1 and the every */
+/* FFT word is has the same number of b's.  The assembly code can make some */
 /* obvious optimizations when all the FFT weights are one. */
 
 	gwdata->RATIONAL_FFT = asm_data->RATIONAL_FFT =
-		((double) gwdata->BITS_PER_WORD == gwdata->fft_bits_per_word) && (c == -1);
+		((double) gwdata->NUM_B_PER_SMALL_WORD == gwdata->avg_num_b_per_word) && (c == -1);
 
 /* Remember the maximum number of bits per word that this FFT length */
 /* supports.  We this in gwnear_fft_limit.  Note that zero padded FFTs */
@@ -2594,11 +2773,16 @@ int internal_gwsetup (
 
 	memcpy (gwdata->GWPROCPTRS, info->proc_ptrs, 4 * sizeof (void *));
 	memcpy (gwdata->GWPROCPTRS+4, info->add_sub_norm_procs, 12 * sizeof (void *));
-	memcpy (gwdata->GWPROCPTRS+16,
+	memcpy (gwdata->GWPROCPTRS+norm_routines,
+		info->add_sub_norm_procs + 16 +
+			(b == 2 ? 0 : 16) +
+			(gwdata->RATIONAL_FFT ? 0 : 8) +
+			(gwdata->ZERO_PADDED_FFT ? 4 : 0),
+		4 * sizeof (void *));
+	memcpy (gwdata->GWPROCPTRS+copyzero_routines,
 		info->add_sub_norm_procs + 12 +
-			(gwdata->RATIONAL_FFT ? 0 : 12) +
-			(gwdata->ZERO_PADDED_FFT ? 8 : 0),
-		8 * sizeof (void *));
+			(gwdata->RATIONAL_FFT ? 0 : 2),
+		2 * sizeof (void *));
 
 /* Init constants.  I could have used true global variables but I did not */
 /* so that these constants could be close to other variables used at the */
@@ -2612,8 +2796,8 @@ int internal_gwsetup (
 	asm_data->P25 = 0.25;
 	asm_data->P75 = 0.75;
 	asm_data->P3 = 3.0;
-	asm_data->XMM_ABSVAL[0] = asm_data->XMM_ABSVAL[2] = 0x7FFFFFFF;
-	asm_data->XMM_ABSVAL[1] = asm_data->XMM_ABSVAL[3] = 0xFFFFFFFF;
+	asm_data->XMM_ABSVAL[0] = asm_data->XMM_ABSVAL[2] = 0xFFFFFFFF;
+	asm_data->XMM_ABSVAL[1] = asm_data->XMM_ABSVAL[3] = 0x7FFFFFFF;
 
 	asm_data->XMM_TTP_FUDGE[0] = asm_data->XMM_TTP_FUDGE[1] =
 	asm_data->XMM_TTP_FUDGE[2] = asm_data->XMM_TTP_FUDGE[3] =
@@ -2630,7 +2814,7 @@ int internal_gwsetup (
 	asm_data->XMM_TTP_FUDGE[24] = asm_data->XMM_TTP_FUDGE[25] =
 	asm_data->XMM_TTP_FUDGE[26] = asm_data->XMM_TTP_FUDGE[27] =
 	asm_data->XMM_TTP_FUDGE[28] = asm_data->XMM_TTP_FUDGE[29] =
-	asm_data->XMM_TTP_FUDGE[30] = asm_data->XMM_TTP_FUDGE[31] = 0.5;
+	asm_data->XMM_TTP_FUDGE[30] = asm_data->XMM_TTP_FUDGE[31] = 1.0 / (double) b;
 
 	asm_data->XMM_TTMP_FUDGE[0] = asm_data->XMM_TTMP_FUDGE[1] =
 	asm_data->XMM_TTMP_FUDGE[2] = asm_data->XMM_TTMP_FUDGE[3] =
@@ -2647,12 +2831,12 @@ int internal_gwsetup (
 	asm_data->XMM_TTMP_FUDGE[24] = asm_data->XMM_TTMP_FUDGE[25] =
 	asm_data->XMM_TTMP_FUDGE[26] = asm_data->XMM_TTMP_FUDGE[27] =
 	asm_data->XMM_TTMP_FUDGE[28] = asm_data->XMM_TTMP_FUDGE[29] =
-	asm_data->XMM_TTMP_FUDGE[30] = asm_data->XMM_TTMP_FUDGE[31] = 2.0;
+	asm_data->XMM_TTMP_FUDGE[30] = asm_data->XMM_TTMP_FUDGE[31] = (double) b;
 
 /* Compute the x87 (64-bit) rounding constants */
 
-	small_word = (double) (1 << gwdata->BITS_PER_WORD);
-	big_word = (double) (1 << (gwdata->BITS_PER_WORD + 1));
+	small_word = pow ((double) b, gwdata->NUM_B_PER_SMALL_WORD);
+	big_word = (double) b * small_word;
 	asm_data->BIGVAL = (float) (3.0 * pow (2.0, 62.0));
 	asm_data->BIGBIGVAL = (float) (big_word * asm_data->BIGVAL);
 
@@ -2660,6 +2844,8 @@ int internal_gwsetup (
 
 	asm_data->XMM_BIGVAL[0] =
 	asm_data->XMM_BIGVAL[1] = 3.0 * pow (2.0, 51.0);
+	asm_data->XMM_BIGVAL_NEG[0] =
+	asm_data->XMM_BIGVAL_NEG[1] = -asm_data->XMM_BIGVAL[0];
 	asm_data->XMM_BIGBIGVAL[0] =
 	asm_data->XMM_BIGBIGVAL[1] = big_word * asm_data->XMM_BIGVAL[0];
 
@@ -2684,7 +2870,7 @@ int internal_gwsetup (
 			(double) (gwdata->FFTLEN / 2) :
 			(double) (gwdata->FFTLEN / 2) / k;
 
-/* Split k for zero-padded FFTs emulating modulo k*2^n+c */
+/* Split k for zero-padded FFTs emulating modulo k*b^n+c */
 
 	asm_data->XMM_K_HI[0] =
 	asm_data->XMM_K_HI[1] = floor (k / big_word) * big_word;
@@ -2693,7 +2879,7 @@ int internal_gwsetup (
 	asm_data->XMM_K_HI_2[0] =
 	asm_data->XMM_K_HI_2[1] = floor (k / big_word / big_word) * big_word * big_word;
 	asm_data->XMM_K_HI_1[0] =
-	asm_data->XMM_K_HI_1[1] = asm_data->XMM_K_HI[0] - asm_data->XMM_K_HI_2[0];
+	asm_data->XMM_K_HI_1 [1] = asm_data->XMM_K_HI[0] - asm_data->XMM_K_HI_2[0];
 
 /* Compute the normalization constants indexed by biglit array entries */
 
@@ -2704,7 +2890,9 @@ int internal_gwsetup (
 	asm_data->XMM_LIMIT_INVERSE[4] = temp;
 
 					/* Compute lower limit bigmax */
-	if (gwdata->cpu_flags & CPU_SSE2)
+	if (b > 2)
+		temp = small_word;
+	else if (gwdata->cpu_flags & CPU_SSE2)
 		temp = small_word * asm_data->XMM_BIGVAL[0] - asm_data->XMM_BIGVAL[0];
 	else
 		temp = small_word * asm_data->BIGVAL - asm_data->BIGVAL;
@@ -2726,7 +2914,9 @@ int internal_gwsetup (
 	asm_data->XMM_LIMIT_INVERSE[7] = temp;
 
 					/* Compute upper limit bigmax */
-	if (gwdata->cpu_flags & CPU_SSE2)
+	if (b > 2)
+		temp = big_word;
+	else if (gwdata->cpu_flags & CPU_SSE2)
 		temp = big_word * asm_data->XMM_BIGVAL[0] - asm_data->XMM_BIGVAL[0];
 	else
 		temp = big_word * asm_data->BIGVAL - asm_data->BIGVAL;
@@ -2889,11 +3079,16 @@ int internal_gwsetup (
 	}
 
 /* If the carry must be spread over more than 2 words, then set global */
-/* so that assembly code knows this.  In theory, we could study what */
-/* values of k and c can also use the 2 word carry propagation.  This */
-/* isn't a major performance gain. */
+/* so that assembly code knows this.  We check to see if three small FFT words */
+/* can absorb the expected number of bits in a result word.  We are not */
+/* aggressive in pushing this limit (we assume no big words will absorb */
+/* any of the carry) as it is not a major performance penalty to do 4 word */
+/* carries.  In fact, we might should do 4 words all the time. */
 
-	if (gwdata->ZERO_PADDED_FFT || (k == 1.0 && abs (c) == 1))
+	if (gwdata->ZERO_PADDED_FFT ||
+	    3.0 * gwdata->NUM_B_PER_SMALL_WORD * log2 (b) >
+			2.0 * ((gwdata->NUM_B_PER_SMALL_WORD + 1) * log2 (b) - 1) +
+			0.6 * log2 (gwdata->FFTLEN) + log2 (k) + 1.7 * log2 (c))
 		asm_data->SPREAD_CARRY_OVER_4_WORDS = FALSE;
 	else
 		asm_data->SPREAD_CARRY_OVER_4_WORDS = TRUE;
@@ -2904,30 +3099,45 @@ int internal_gwsetup (
 
 	asm_data->TOP_CARRY_NEEDS_ADJUSTING = (k > 1.0 && !gwdata->ZERO_PADDED_FFT);
 	if (asm_data->TOP_CARRY_NEEDS_ADJUSTING) {
-		unsigned long kbits, kbits_lo;
-		unsigned long topwordbits, secondwordbits, thirdwordbits;
+		unsigned long num_b_in_k, kbits, kbits_lo;
+		unsigned long num_b_in_top_word, num_b_in_second_top_word, num_b_in_third_top_word;
 
 /* Invert k and split k for computing top carry adjustment without */
 /* precision problems. */
 
 		asm_data->INVERSE_K = 1.0 / k;
-		kbits = (unsigned long) ceil (gwdata->bit_length) - n;
+		kbits = (unsigned long) ceil (log2 (k));
 		kbits_lo = kbits / 2;
 		asm_data->K_HI = ((unsigned long) k) & ~((1 << kbits_lo) - 1);
 		asm_data->K_LO = ((unsigned long) k) &  ((1 << kbits_lo) - 1);
 
 /* Calculate top carry adjusting constants */
 
-		topwordbits = gwdata->BITS_PER_WORD;
-		if (is_big_word (gwdata, gwdata->FFTLEN-1)) topwordbits++;
-		secondwordbits = gwdata->BITS_PER_WORD;
-		if (is_big_word (gwdata, gwdata->FFTLEN-2)) secondwordbits++;
-		thirdwordbits = gwdata->BITS_PER_WORD;
-		if (is_big_word (gwdata, gwdata->FFTLEN-3)) thirdwordbits++;
+		num_b_in_top_word = gwdata->NUM_B_PER_SMALL_WORD;
+		if (is_big_word (gwdata, gwdata->FFTLEN-1)) num_b_in_top_word++;
+		num_b_in_second_top_word = gwdata->NUM_B_PER_SMALL_WORD;
+		if (is_big_word (gwdata, gwdata->FFTLEN-2)) num_b_in_second_top_word++;
+		num_b_in_third_top_word = gwdata->NUM_B_PER_SMALL_WORD;
+		if (is_big_word (gwdata, gwdata->FFTLEN-3)) num_b_in_third_top_word++;
 
-		asm_data->CARRY_ADJUST1 = (double) (1 << kbits);
-		asm_data->CARRY_ADJUST2 = (double) (1 << topwordbits) / (double) (1 << kbits);
+		num_b_in_k = (unsigned long) ceil (logb (k));
+		asm_data->CARRY_ADJUST1 = pow ((double) b, num_b_in_k);
+		asm_data->CARRY_ADJUST1_HI = ((unsigned long) asm_data->CARRY_ADJUST1) & ~((1 << kbits_lo) - 1);
+		asm_data->CARRY_ADJUST1_LO = ((unsigned long) asm_data->CARRY_ADJUST1) &  ((1 << kbits_lo) - 1);
+		asm_data->CARRY_ADJUST2 = pow ((double) b, num_b_in_top_word) / asm_data->CARRY_ADJUST1;
 		asm_data->CARRY_ADJUST3 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-1);
+		asm_data->CARRY_ADJUST4 = pow ((double) b, num_b_in_second_top_word);
+		asm_data->CARRY_ADJUST5 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-2);
+		asm_data->CARRY_ADJUST6 = pow ((double) b, num_b_in_third_top_word);
+		asm_data->CARRY_ADJUST7 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-3);
+
+/* In two-pass FFTs, we only support tweaking the top two words. In one-pass FFTs, */
+/* we adjust the top three words.  Make sure this works. */
+
+		ASSERTG ((gwdata->PASS2_LEVELS &&
+			  num_b_in_k <= num_b_in_top_word + num_b_in_second_top_word) ||
+			 (!gwdata->PASS2_LEVELS &&
+			  num_b_in_k <= num_b_in_top_word + num_b_in_second_top_word + num_b_in_third_top_word));
 
 /* Get the addr of the top three words.  This is funky because in two-pass */
 /* FFTs we want the scratch area offset when normalizing after a multiply, */
@@ -2938,40 +3148,20 @@ int internal_gwsetup (
 		asm_data->HIGH_WORD2_OFFSET = addr_offset (gwdata, gwdata->FFTLEN-2);
 		asm_data->HIGH_WORD3_OFFSET = addr_offset (gwdata, gwdata->FFTLEN-3);
 
-		raw_gwsetaddin (gwdata, gwdata->FFTLEN-1, 0);
+		raw_gwsetaddin (gwdata, gwdata->FFTLEN-1, 0.0);
 		asm_data->HIGH_SCRATCH1_OFFSET = asm_data->ADDIN_OFFSET;
-		raw_gwsetaddin (gwdata, gwdata->FFTLEN-2, 0);
+		raw_gwsetaddin (gwdata, gwdata->FFTLEN-2, 0.0);
 		asm_data->HIGH_SCRATCH2_OFFSET = asm_data->ADDIN_OFFSET;
-		raw_gwsetaddin (gwdata, gwdata->FFTLEN-3, 0);
+		raw_gwsetaddin (gwdata, gwdata->FFTLEN-3, 0.0);
 		asm_data->HIGH_SCRATCH3_OFFSET = asm_data->ADDIN_OFFSET;
-
-/* In two-pass FFTs, we only support tweaking the top two words.  Compute */
-/* the necessary constants. */
-
-		if (gwdata->PASS2_LEVELS) {
-			ASSERTG (kbits <= topwordbits + secondwordbits);
-			asm_data->CARRY_ADJUST4 = (double) (1 << secondwordbits) *
-				gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-2);
-		}
-
-/* In one-pass FFTs, we adjust the top three words.  More adjustment */
-/* variables are needed. */
-
-		else {
-			ASSERTG (kbits <= topwordbits + secondwordbits + thirdwordbits);
-			asm_data->CARRY_ADJUST4 = (double) (1 << secondwordbits);
-			asm_data->CARRY_ADJUST5 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-2);
-			asm_data->CARRY_ADJUST6 = (double) (1 << thirdwordbits) *
-					gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-3);
-		}
 	}
 
 /* Set some global variables that make life easier in the assembly code */
 /* that handles zero padded FFTs. */
 
 	if (gwdata->ZERO_PADDED_FFT) {
-		unsigned long kbits, bits0, bits1, bits2, bits3, bits4, bits5;
-		double	pow2, bigpow2;
+		unsigned long num_b_in_k, num_b_in_word_0, num_b_in_word_1;
+		unsigned long num_b_in_word_2, num_b_in_word_3, num_b_in_word_4, num_b_in_word_5;
 
 		asm_data->ZPAD_WORD5_OFFSET = addr_offset (gwdata, 4);
 		if (asm_data->ZPAD_WORD5_OFFSET == 8) {  /* FFTLEN = 80 and 112 */
@@ -2984,30 +3174,30 @@ int internal_gwsetup (
 		asm_data->HIGH_WORD2_OFFSET = addr_offset (gwdata, gwdata->FFTLEN/2-2);
 		asm_data->HIGH_WORD3_OFFSET = addr_offset (gwdata, gwdata->FFTLEN/2-3);
 
-		raw_gwsetaddin (gwdata, gwdata->FFTLEN/2-1, 0);
+		raw_gwsetaddin (gwdata, gwdata->FFTLEN/2-1, 0.0);
 		asm_data->HIGH_SCRATCH1_OFFSET = asm_data->ADDIN_OFFSET;
-		raw_gwsetaddin (gwdata, gwdata->FFTLEN/2-2, 0);
+		raw_gwsetaddin (gwdata, gwdata->FFTLEN/2-2, 0.0);
 		asm_data->HIGH_SCRATCH2_OFFSET = asm_data->ADDIN_OFFSET;
-		raw_gwsetaddin (gwdata, gwdata->FFTLEN/2-3, 0);
+		raw_gwsetaddin (gwdata, gwdata->FFTLEN/2-3, 0.0);
 		asm_data->HIGH_SCRATCH3_OFFSET = asm_data->ADDIN_OFFSET;
 
-		kbits = (unsigned long) ceil (gwdata->bit_length) - n;
-		bits0 = gwdata->BITS_PER_WORD; if (is_big_word (gwdata, 0)) bits0++;
-		bits1 = gwdata->BITS_PER_WORD; if (is_big_word (gwdata, 1)) bits1++;
-		bits2 = gwdata->BITS_PER_WORD; if (is_big_word (gwdata, 2)) bits2++;
-		bits3 = gwdata->BITS_PER_WORD; if (is_big_word (gwdata, 3)) bits3++;
-		bits4 = gwdata->BITS_PER_WORD; if (is_big_word (gwdata, 4)) bits4++;
-		bits5 = gwdata->BITS_PER_WORD; if (is_big_word (gwdata, 5)) bits5++;
+		num_b_in_k = (unsigned long) ceil (logb (k));
+		num_b_in_word_0 = gwdata->NUM_B_PER_SMALL_WORD; if (is_big_word (gwdata, 0)) num_b_in_word_0++;
+		num_b_in_word_1 = gwdata->NUM_B_PER_SMALL_WORD; if (is_big_word (gwdata, 1)) num_b_in_word_1++;
+		num_b_in_word_2 = gwdata->NUM_B_PER_SMALL_WORD; if (is_big_word (gwdata, 2)) num_b_in_word_2++;
+		num_b_in_word_3 = gwdata->NUM_B_PER_SMALL_WORD; if (is_big_word (gwdata, 3)) num_b_in_word_3++;
+		num_b_in_word_4 = gwdata->NUM_B_PER_SMALL_WORD; if (is_big_word (gwdata, 4)) num_b_in_word_4++;
+		num_b_in_word_5 = gwdata->NUM_B_PER_SMALL_WORD; if (is_big_word (gwdata, 5)) num_b_in_word_5++;
 
-		asm_data->ZPAD_SHIFT1 = pow ((double) 2.0, (int) bits0);
-		asm_data->ZPAD_SHIFT2 = pow ((double) 2.0, (int) bits1);
-		asm_data->ZPAD_SHIFT3 = pow ((double) 2.0, (int) bits2);
-		asm_data->ZPAD_SHIFT4 = pow ((double) 2.0, (int) bits3);
-		asm_data->ZPAD_SHIFT5 = pow ((double) 2.0, (int) bits4);
-		asm_data->ZPAD_SHIFT6 = pow ((double) 2.0, (int) bits5);
+		asm_data->ZPAD_SHIFT1 = pow ((double) b, (int) num_b_in_word_0);
+		asm_data->ZPAD_SHIFT2 = pow ((double) b, (int) num_b_in_word_1);
+		asm_data->ZPAD_SHIFT3 = pow ((double) b, (int) num_b_in_word_2);
+		asm_data->ZPAD_SHIFT4 = pow ((double) b, (int) num_b_in_word_3);
+		asm_data->ZPAD_SHIFT5 = pow ((double) b, (int) num_b_in_word_4);
+		asm_data->ZPAD_SHIFT6 = pow ((double) b, (int) num_b_in_word_5);
 
-		if (kbits <= gwdata->BITS_PER_WORD + 3) asm_data->ZPAD_TYPE = 1;
-		else if (kbits <= 2 * gwdata->BITS_PER_WORD + 3) asm_data->ZPAD_TYPE = 2;
+		if (num_b_in_k <= num_b_in_word_0) asm_data->ZPAD_TYPE = 1;
+		else if (num_b_in_k <= num_b_in_word_0 + num_b_in_word_1) asm_data->ZPAD_TYPE = 2;
 		else asm_data->ZPAD_TYPE = 3;
 
 		if (asm_data->ZPAD_TYPE == 1) {
@@ -3037,36 +3227,37 @@ int internal_gwsetup (
 		}
 
 		if (asm_data->ZPAD_TYPE == 3) {
-			pow2 = pow ((double) 2.0, (int) bits0);
-			bigpow2 = pow ((double) 2.0, (int) (bits0 + bits1));
-			asm_data->ZPAD_K2_HI = floor (k / bigpow2);
-			asm_data->ZPAD_K2_MID = floor ((k - asm_data->ZPAD_K2_HI*bigpow2) / pow2);
-			asm_data->ZPAD_K2_LO = k - asm_data->ZPAD_K2_HI*bigpow2 - asm_data->ZPAD_K2_MID*pow2;
-			asm_data->ZPAD_INVERSE_K2 = pow2 / k;
-			pow2 = pow ((double) 2.0, (int) bits1);
-			bigpow2 = pow ((double) 2.0, (int) (bits1 + bits2));
-			asm_data->ZPAD_K3_HI = floor (k / bigpow2);
-			asm_data->ZPAD_K3_MID = floor ((k - asm_data->ZPAD_K3_HI*bigpow2) / pow2);
-			asm_data->ZPAD_K3_LO = k - asm_data->ZPAD_K3_HI*bigpow2 - asm_data->ZPAD_K3_MID*pow2;
-			asm_data->ZPAD_INVERSE_K3 = pow2 / k;
-			pow2 = pow ((double) 2.0, (int) bits2);
-			bigpow2 = pow ((double) 2.0, (int) (bits2 + bits3));
-			asm_data->ZPAD_K4_HI = floor (k / bigpow2);
-			asm_data->ZPAD_K4_MID = floor ((k - asm_data->ZPAD_K4_HI*bigpow2) / pow2);
-			asm_data->ZPAD_K4_LO = k - asm_data->ZPAD_K4_HI*bigpow2 - asm_data->ZPAD_K4_MID*pow2;
-			asm_data->ZPAD_INVERSE_K4 = pow2 / k;
-			pow2 = pow ((double) 2.0, (int) bits3);
-			bigpow2 = pow ((double) 2.0, (int) (bits3 + bits4));
-			asm_data->ZPAD_K5_HI = floor (k / bigpow2);
-			asm_data->ZPAD_K5_MID = floor ((k - asm_data->ZPAD_K5_HI*bigpow2) / pow2);
-			asm_data->ZPAD_K5_LO = k - asm_data->ZPAD_K5_HI*bigpow2 - asm_data->ZPAD_K5_MID*pow2;
-			asm_data->ZPAD_INVERSE_K5 = pow2 / k;
-			pow2 = pow ((double) 2.0, (int) bits4);
-			bigpow2 = pow ((double) 2.0, (int) (bits4 + bits5));
-			asm_data->ZPAD_K6_HI = floor (k / bigpow2);
-			asm_data->ZPAD_K6_MID = floor ((k - asm_data->ZPAD_K6_HI*bigpow2) / pow2);
-			asm_data->ZPAD_K6_LO = k - asm_data->ZPAD_K6_HI*bigpow2 - asm_data->ZPAD_K6_MID*pow2;
-			asm_data->ZPAD_INVERSE_K6 = bigpow2 / k;
+			double	powb, bigpowb;
+			powb = pow ((double) b, (int) num_b_in_word_0);
+			bigpowb = pow ((double) b, (int) (num_b_in_word_0 + num_b_in_word_1));
+			asm_data->ZPAD_K2_HI = floor (k / bigpowb);
+			asm_data->ZPAD_K2_MID = floor ((k - asm_data->ZPAD_K2_HI*bigpowb) / powb);
+			asm_data->ZPAD_K2_LO = k - asm_data->ZPAD_K2_HI*bigpowb - asm_data->ZPAD_K2_MID*powb;
+			asm_data->ZPAD_INVERSE_K2 = powb / k;
+			powb = pow ((double) b, (int) num_b_in_word_1);
+			bigpowb = pow ((double) b, (int) (num_b_in_word_1 + num_b_in_word_2));
+			asm_data->ZPAD_K3_HI = floor (k / bigpowb);
+			asm_data->ZPAD_K3_MID = floor ((k - asm_data->ZPAD_K3_HI*bigpowb) / powb);
+			asm_data->ZPAD_K3_LO = k - asm_data->ZPAD_K3_HI*bigpowb - asm_data->ZPAD_K3_MID*powb;
+			asm_data->ZPAD_INVERSE_K3 = powb / k;
+			powb = pow ((double) b, (int) num_b_in_word_2);
+			bigpowb = pow ((double) b, (int) (num_b_in_word_2 + num_b_in_word_3));
+			asm_data->ZPAD_K4_HI = floor (k / bigpowb);
+			asm_data->ZPAD_K4_MID = floor ((k - asm_data->ZPAD_K4_HI*bigpowb) / powb);
+			asm_data->ZPAD_K4_LO = k - asm_data->ZPAD_K4_HI*bigpowb - asm_data->ZPAD_K4_MID*powb;
+			asm_data->ZPAD_INVERSE_K4 = powb / k;
+			powb = pow ((double) b, (int) num_b_in_word_3);
+			bigpowb = pow ((double) b, (int) (num_b_in_word_3 + num_b_in_word_4));
+			asm_data->ZPAD_K5_HI = floor (k / bigpowb);
+			asm_data->ZPAD_K5_MID = floor ((k - asm_data->ZPAD_K5_HI*bigpowb) / powb);
+			asm_data->ZPAD_K5_LO = k - asm_data->ZPAD_K5_HI*bigpowb - asm_data->ZPAD_K5_MID*powb;
+			asm_data->ZPAD_INVERSE_K5 = powb / k;
+			powb = pow ((double) b, (int) num_b_in_word_4);
+			bigpowb = pow ((double) b, (int) (num_b_in_word_4 + num_b_in_word_5));
+			asm_data->ZPAD_K6_HI = floor (k / bigpowb);
+			asm_data->ZPAD_K6_MID = floor ((k - asm_data->ZPAD_K6_HI*bigpowb) / powb);
+			asm_data->ZPAD_K6_LO = k - asm_data->ZPAD_K6_HI*bigpowb - asm_data->ZPAD_K6_MID*powb;
+			asm_data->ZPAD_INVERSE_K6 = bigpowb / k;
 		}
 	}
 
@@ -3074,7 +3265,7 @@ int internal_gwsetup (
 
 	gwsetnormroutine (gwdata, 0, 0, 0);
 	gwstartnextfft (gwdata, 0);
-	raw_gwsetaddin (gwdata, 0, 0);
+	raw_gwsetaddin (gwdata, 0, 0.0);
 
 /* Clear globals */
 
@@ -3084,7 +3275,7 @@ int internal_gwsetup (
 	gwdata->GW_RANDOM = NULL;
 
 /* Compute maximum allowable difference for error checking */
-/* This error check is disabled for mod 2^N+1 arithmetic */
+/* This error check is disabled for mod B^N+1 arithmetic */
 
 	if (gwdata->ALL_COMPLEX_FFT)
 		gwdata->MAXDIFF = 1.0E80;
@@ -3092,33 +3283,23 @@ int internal_gwsetup (
 /* We have observed that the difference seems to vary based on the size */
 /* the FFT result word.  This is two times the number of bits per double. */
 /* Subtract 1 from bits per double because one bit is the sign bit. */
+/* Add log2(b) for the FFT weight that range from 1 to b. */
 /* Add in a percentage of the log(FFTLEN) to account for carries. */
 /* We use a different threshold for SSE2 which uses 64-bit instead of */
 /* 80-bit doubles during the FFT */
-/* NOTE: In testing 271701370441215*2^382+1 with a mulbyconst of 7, */
-/* a length 48 zero-padded FFT was chosen.  MAXDIFF errors were generated */
-/* because k * mulbyconst did not fit in 3 FFT words.  This led to larger */
-/* FFT words than expected.  So, this code now adjusts for this case. */
 
 	else {
 		double bits_per_double, total_bits, loglen;
-		bits_per_double = gwdata->fft_bits_per_word - 1.0;
+		bits_per_double = gwdata->avg_num_b_per_word * log2 (b) - 1.0;
+		if (!gwdata->RATIONAL_FFT)
+			bits_per_double += log2 (b);
 		if (!gwdata->ZERO_PADDED_FFT)
-			bits_per_double += log ((double) -c) / log ((double) 2.0);
-		else {
-			double	alternate_bpd;
-			alternate_bpd = (log (k) +
-					 log ((double) gwdata->maxmulbyconst)) /
-						log ((double) 2.0) -
-					 2 * (gwdata->BITS_PER_WORD + 1);
-			if (alternate_bpd > bits_per_double)
-				bits_per_double = alternate_bpd;
-		}
-		loglen = log ((double) gwdata->FFTLEN) / log ((double) 2.0);
+			bits_per_double += log2 (-c);
+		loglen = log2 (gwdata->FFTLEN);
 		loglen *= 0.69;
 		total_bits = bits_per_double * 2.0 + loglen * 2.0;
 		gwdata->MAXDIFF = pow ((double) 2.0, total_bits -
-				((gwdata->cpu_flags & CPU_SSE2) ? 47.08 : 47.65));
+				((gwdata->cpu_flags & CPU_SSE2) ? 49.08 : 49.65));
 	}
 
 /* Clear counters, init internal timers */
@@ -4242,9 +4423,10 @@ void multithread_term (
 {
 	unsigned long i;
 
-/* Return if we aren't multithreading */
+/* Return if we aren't multithreading or multithreading was not initialized */
 
 	if (gwdata->num_threads <= 1) return;
+	if (gwdata->thread_lock == NULL) return;
 
 /* Set termination variable and fire up auxillary threads */
 
@@ -4268,6 +4450,7 @@ void multithread_term (
 	gwevent_destroy (&gwdata->gwcarries_complete);
 	for (i = 0; i < gwdata->num_threads; i++)
 		gwevent_destroy (&gwdata->pass1_norm_events[i]);
+	gwdata->thread_lock = NULL;
 }
 
 /* Cleanup any memory allocated for multi-precision math */
@@ -4783,15 +4966,16 @@ int is_big_word (
 {
 	unsigned long base, next_base;
 
-/* Compute the number of bits in this word.  It is a big word if */
-/* the number of bits is more than BITS_PER_WORD. */
+/* Compute the number of b in this word.  It is a big word if */
+/* the number of b is more than NUM_B_PER_SMALL_WORD. */
 
 	base = gwfft_base (gwdata->dd_data, i);
 	next_base = gwfft_base (gwdata->dd_data, i+1);
-	return ((next_base - base) > gwdata->BITS_PER_WORD);
+	return ((next_base - base) > gwdata->NUM_B_PER_SMALL_WORD);
 }
 
-/* Routine map a bit number into an FFT word and bit within that word */
+/* Routine map a "bit" number into an FFT word and "bit" within that word */
+/* If b != 2, this routine locates the nth b amongst the FFT words. */
 
 void bitaddr (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -4802,7 +4986,7 @@ void bitaddr (
 
 /* What word is the bit in? */
 
-	*word = (unsigned long) ((double) bit / gwdata->fft_bits_per_word);
+	*word = (unsigned long) ((double) bit / gwdata->avg_num_b_per_word);
 	if (*word >= gwdata->FFTLEN) *word = gwdata->FFTLEN - 1;
 
 /* Compute the bit within the word. */
@@ -4895,23 +5079,68 @@ int gwnear_fft_limit (
 }
 
 /* Compute the virtual bits per word.  That is, the mersenne-mod-equivalent */
-/* bits that this k,c combination uses.  For a non-zero-padded FFT */
-/* log2(k) / 2 and log2(c) extra bits of precision are required.  This */
-/* virtual value can tell us how close we are to this FFT length's limit. */
+/* bits that this k,b,c combination uses.  This code must carefully invert */
+/* the calculations gwinfo uses in determining whether a k,b,n,c combination */
+/* will work for a given FFT size. */
 
 double virtual_bits_per_word (
 	gwhandle *gwdata)	/* Handle initialized by gwsetup */
 {
-	double	logk, logc;
+	double	log2b, b_per_input_word, weighted_bits_per_output_word;
+	double	max_weighted_bits_per_output_word;
+	int	num_b_in_big_word, num_small_words, num_big_words;
 
-	if (gwdata->ZERO_PADDED_FFT)
-		return ((double) (gwdata->n * 2) / (double) gwdata->FFTLEN);
-	else {
-		logk = log (gwdata->k) / log ((double) 2.0);
-		logc = log ((double) abs (gwdata->c)) / log ((double) 2.0);
-		return ((double) (logk + gwdata->n) / (double) gwdata->FFTLEN +
-			0.5 * logk + 0.85 * logc);
+	log2b = log2 (gwdata->b);
+
+/* Compute our bits per output word exactly like gwinfo does for a zero padded FFT. */
+
+	if (gwdata->ZERO_PADDED_FFT) {
+		b_per_input_word = (double) (gwdata->n + gwdata->n) / gwdata->FFTLEN;
+		num_b_in_big_word = (int) ceil (b_per_input_word);
+		num_small_words = (int) ((num_b_in_big_word - b_per_input_word) * (gwdata->FFTLEN / 2 + 4));
+		num_big_words = (gwdata->FFTLEN / 2 + 4) - num_small_words;
+		if (gwdata->RATIONAL_FFT)
+			weighted_bits_per_output_word =
+				2.0 * (num_b_in_big_word * log2b - 1.0) +
+				0.6 * log2 (num_big_words + num_small_words / pow (2.0, log2b / 0.6));
+		else
+			weighted_bits_per_output_word =
+				2.0 * ((b_per_input_word + 1.0) * log2b - 1.0) +
+				0.6 * log2 (gwdata->FFTLEN / 2 + 4) -
+					((log2b <= 3.0) ? (log2b - 1.0) / 2.0 :
+					 (log2b <= 6.0) ? 1.0 + (log2b - 3.0) / 3.0 :
+							  2.0 + (log2b - 6.0) / 6.0);
+		max_weighted_bits_per_output_word =
+			2.0 * gwdata->fft_max_bits_per_word + 0.6 * log2 (gwdata->FFTLEN / 2 + 4);
 	}
+
+/* Compute our bits per output word exactly like gwinfo does for a non-zero-padded FFT. */
+
+	else {
+		b_per_input_word = gwdata->avg_num_b_per_word;
+		num_b_in_big_word = (int) ceil (b_per_input_word);
+		num_small_words = (int) ((num_b_in_big_word - b_per_input_word) * gwdata->FFTLEN);
+		num_big_words = gwdata->FFTLEN - num_small_words;
+		if (gwdata->RATIONAL_FFT)
+			weighted_bits_per_output_word =
+				2.0 * (num_b_in_big_word * log2b - 1.0) +
+				0.6 * log2 (num_big_words + num_small_words / pow (2.0, log2b / 0.6)) +
+				log2 (gwdata->k) + 1.7 * log2 (abs (gwdata->c));
+		else
+			weighted_bits_per_output_word =
+				2.0 * ((b_per_input_word + 1.0) * log2b - 1.0) +
+				0.6 * log2 (gwdata->FFTLEN) -
+					((log2b <= 3.0) ? (log2b - 1.0) / 2.0 :
+					 (log2b <= 6.0) ? 1.0 + (log2b - 3.0) / 3.0 :
+							  2.0 + (log2b - 6.0) / 6.0) +
+				log2 (gwdata->k) + 1.7 * log2 (abs (gwdata->c));
+		max_weighted_bits_per_output_word =
+			2.0 * gwdata->fft_max_bits_per_word + 0.6 * log2 (gwdata->FFTLEN);
+	}
+
+/* Now generate a value that can compared to gwdata->fft_max_bits_per_word */
+
+	return (weighted_bits_per_output_word / max_weighted_bits_per_output_word * gwdata->fft_max_bits_per_word);
 }
 
 /* Given k,b,n,c determine the fft length.  If k,b,n,c is not supported */
@@ -4919,7 +5148,7 @@ double virtual_bits_per_word (
 
 unsigned long gwmap_to_fftlen (
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
-	unsigned long b,	/* B in K*B^N+C. Must be two. */
+	unsigned long b,	/* B in K*B^N+C. */
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
 	signed long c)		/* C in K*B^N+C. Must be rel. prime to K. */
 {
@@ -4954,7 +5183,7 @@ unsigned long gwmap_fftlen_to_max_exponent (
 
 unsigned long gwmap_to_memused (
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
-	unsigned long b,	/* B in K*B^N+C. Must be two. */
+	unsigned long b,	/* B in K*B^N+C. */
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
 	signed long c)		/* C in K*B^N+C. Must be rel. prime to K. */
 {
@@ -4971,7 +5200,7 @@ unsigned long gwmap_to_memused (
 
 unsigned long gwmap_to_estimated_size (
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
-	unsigned long b,	/* B in K*B^N+C. Must be two. */
+	unsigned long b,	/* B in K*B^N+C. */
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
 	signed long c)		/* C in K*B^N+C. Must be rel. prime to K. */
 {
@@ -5005,7 +5234,7 @@ unsigned long gwmap_to_estimated_size (
 
 double gwmap_to_timing (
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
-	unsigned long b,	/* B in K*B^N+C. Must be two. */
+	unsigned long b,	/* B in K*B^N+C. */
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
 	signed long c)		/* C in K*B^N+C. Must be rel. prime to K. */
 {
@@ -5063,7 +5292,7 @@ double gwmap_to_timing (
 int gwmap_to_fft_info (
 	gwhandle *gwdata,	/* Uninitialized gwnum global data */
 	double	k,		/* K in K*B^N+C. Must be a positive integer. */
-	unsigned long b,	/* B in K*B^N+C. Must be two. */
+	unsigned long b,	/* B in K*B^N+C. */
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
 	signed long c)		/* C in K*B^N+C. Must be rel. prime to K. */
 {
@@ -5155,7 +5384,7 @@ void gwsetmulbyconst (
 /* Split k*mulconst for zero-padded FFTs emulating modulo k*2^n+c */
 
 	ktimesval = gwdata->k * (double) val;
-	big_word = (double) (1 << (gwdata->BITS_PER_WORD + 1));
+	big_word = pow ((double) gwdata->b, gwdata->NUM_B_PER_SMALL_WORD + 1);
 	asm_data->XMM_K_TIMES_MULCONST_HI[0] =
 	asm_data->XMM_K_TIMES_MULCONST_HI[1] = floor (ktimesval / big_word) * big_word;
 	asm_data->XMM_K_TIMES_MULCONST_LO[0] =
@@ -5187,34 +5416,35 @@ void gwstartnextfft (
 	}
 }
 
-/* Add a small constant at the specified bit position after the */
-/* next multiplication.  This only works if k=1. */
+/* Add a small constant at the specified power of b after the */
+/* next multiplication.  That is, value*b^power_of_b is added to */
+/* the next multiplication result.  This only works if k=1. */
 
-void gwsetaddinatbit (
+void gwsetaddinatpowerofb (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	long	value,
-	unsigned long bit)
+	unsigned long power_of_b)
 {
-	unsigned long word, bit_in_word;
+	unsigned long word, b_in_word;
 
 	ASSERTG (gwdata->k == 1.0);
 
 /* Tell assembly code to add the shifted value to the multiplication result. */
 
-	bitaddr (gwdata, bit, &word, &bit_in_word);
-	raw_gwsetaddin (gwdata, word, value << bit_in_word);
+	bitaddr (gwdata, power_of_b, &word, &b_in_word);
+	raw_gwsetaddin (gwdata, word, value * pow ((double) gwdata->b, b_in_word));
 }
 
 /* Routine that tells the assembly code to add a small value to the */
-/* results of each multiply */
+/* results of each multiply. */
 
 void gwsetaddin (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	long	value)
 {
-	unsigned long word, bit_in_word;
+	unsigned long word, b_in_word;
 
-	ASSERTG (gwdata->k == 1.0 || (gwdata->b == 2 && abs (gwdata->c) == 1));
+	ASSERTG (gwdata->k == 1.0 || abs (gwdata->c) == 1);
 
 /* In a zero-padded FFT, the value is added into ZPAD0 */
 
@@ -5223,30 +5453,34 @@ void gwsetaddin (
 		return;
 	}
 
-/* If value is even, shift it right and increment bit number.  This */
-/* will ensure that we modify the proper FFT word. */
-
-	for (bit_in_word = 0; value && (value & 1) == 0; value >>= 1)
-		bit_in_word++;
-
-/* Convert the input value to 1/k format.  Case 1 (2^n+/-1: Inverse of k */
-/* is 1.  Case 2 (k*2^n-1): Inverse of k is 2^n.  Case 3 (k*2^n+1): Inverse */
-/* of k is -2^n.  No other cases can be handled. */
+/* If k is 1, add the value into the first FFT word */
 
 	if (gwdata->k == 1.0) {
-		bitaddr (gwdata, bit_in_word, &word, &bit_in_word);
+		raw_gwsetaddin (gwdata, 0, value);
+		return;
 	}
-	else if (gwdata->b == 2 && gwdata->c == -1) {
-		bitaddr (gwdata, gwdata->n + bit_in_word, &word, &bit_in_word);
+
+/* If value is a multiple of b, "shift" it right and increment b count.  This */
+/* will ensure that we modify the proper FFT word. */
+
+	for (b_in_word = 0; value && value % (long) gwdata->b == 0; value = value / (long) gwdata->b)
+		b_in_word++;
+
+/* Convert the input value to 1/k format.  Case 1 (k*b^n-1): Inverse of k */
+/* is b^n.  Case 3 (k*b^n+1): Inverse of k is -b^n.  No other cases can */
+/* be handled. */
+
+	if (gwdata->c == -1) {
+		bitaddr (gwdata, gwdata->n + b_in_word, &word, &b_in_word);
 	}
-	else if (gwdata->b == 2 && gwdata->c == 1) {
-		bitaddr (gwdata, gwdata->n + bit_in_word, &word, &bit_in_word);
+	else if (gwdata->c == 1) {
+		bitaddr (gwdata, gwdata->n + b_in_word, &word, &b_in_word);
 		value = -value;
 	}
 
 /* Tell assembly code to add the shifted value to the multiplication result. */
 
-	raw_gwsetaddin (gwdata, word, value << bit_in_word);
+	raw_gwsetaddin (gwdata, word, value * pow ((double) gwdata->b, b_in_word));
 }
 
 /* Routine that tells the assembly code to add a small value to the */
@@ -5255,7 +5489,7 @@ void gwsetaddin (
 void raw_gwsetaddin (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	unsigned long word,
-	long	val)
+	double	val)
 {
 	struct gwasm_data *asm_data;
 	unsigned long row;
@@ -5346,7 +5580,7 @@ void raw_gwsetaddin (
 
 /* Set the addin value - multiply it by two-to-phi and FFTLEN/2/k. */
 
-	asm_data->ADDIN_VALUE = (double) val *
+	asm_data->ADDIN_VALUE = val *
 			gwfft_weight_sloppy (gwdata->dd_data, word) *
 			gwdata->FFTLEN * 0.5 / gwdata->k;
 }
@@ -5363,13 +5597,10 @@ void dbltogw (
 	double	d,		/* Input number */
 	gwnum	g)		/* Gwnum value to set */
 {
-	giantstruct tmp;
-	uint32_t tmparray[2];
+	stackgiant(tmp, 2);
 
-	tmp.n = (uint32_t *) &tmparray;
-	setmaxsize (&tmp, 2);
-	dbltog (d, &tmp);
-	gianttogw (gwdata, &tmp, g);
+	dbltog (d, tmp);
+	gianttogw (gwdata, tmp, g);
 }
 
 /* Convert a binary value to a gwnum */
@@ -5424,11 +5655,8 @@ void gianttogw (
 	giant	a,
 	gwnum	g)
 {
-	giant	newg;
-	unsigned long i, mask1, mask2, e1len;
-	int	bits1, bits2, bits_in_next_binval;
-	unsigned long binval, carry;
-	uint32_t *e1;
+	giant	newg = NULL;
+	unsigned long i, limit, carry;
 
 	ASSERTG (a->sign >= 0);		/* We only handle positive numbers */
 
@@ -5439,19 +5667,32 @@ void gianttogw (
 	if (gwdata->k > 1.0) {
 		newg = popg (&gwdata->gdata, (((unsigned long) gwdata->bit_length >> 5) + 1) * 2);
 
-		/* Easy case 1 (k*2^n-1): Inverse of k is 2^n */
+		/* Easy case 1 (k*b^n-1): Inverse of k is b^n */
 
-		if (gwdata->b == 2 && gwdata->c == -1) {
-			gtog (a, newg);
-			gshiftleft (gwdata->n, newg);
+		if (gwdata->c == -1) {
+			if (gwdata->b == 2) {
+				gtog (a, newg);
+				gshiftleft (gwdata->n, newg);
+			} else {
+				itog (gwdata->b, newg);
+				power (newg, gwdata->n);
+				mulgi (&gwdata->gdata, a, newg);
+			}
 		}
 
-		/* Easy case 2 (k*2^n+1): Inverse of k is -2^n */
+		/* Easy case 2 (k*b^n+1): Inverse of k is -b^n */
 
-		else if (gwdata->b == 2 && gwdata->c == 1) {
-			gtog (a, newg);
-			negg (newg);
-			gshiftleft (gwdata->n, newg);
+		else if (gwdata->c == 1) {
+			if (gwdata->b == 2) {
+				gtog (a, newg);
+				gshiftleft (gwdata->n, newg);
+				negg (newg);
+			} else {
+				itog (gwdata->b, newg);
+				power (newg, gwdata->n);
+				negg (newg);
+				mulgi (&gwdata->gdata, a, newg);
+			}
 		}
 
 		else {				/* General inverse case */
@@ -5473,56 +5714,167 @@ void gianttogw (
 		a = newg;
 	}
 
-/* Now convert the giant to FFT format */
+/* Figure out how many FFT words we will need to set */
 
-	e1len = a->sign;
-	e1 = a->n;
+	limit = (unsigned long) ceil ((double) bitlen (a) / (gwdata->avg_num_b_per_word * log2 (gwdata->b)));
+	if (limit > gwdata->FFTLEN) limit = gwdata->FFTLEN;
 
-	bits1 = gwdata->BITS_PER_WORD;
-	bits2 = bits1 + 1;
-	mask1 = (1L << bits1) - 1;
-	mask2 = (1L << bits2) - 1;
-	if (e1len) {binval = *e1++; e1len--; bits_in_next_binval = 32;}
-	else binval = 0;
-	carry = 0;
-	for (i = 0; i < gwdata->FFTLEN; i++) {
-		int	big_word, bits;
-		long	value, mask;
-		big_word = is_big_word (gwdata, i);
-		bits = big_word ? bits2 : bits1;
-		mask = big_word ? mask2 : mask1;
-		if (i == gwdata->FFTLEN - 1) value = binval;
-		else value = binval & mask;
-		value = value + carry;
-		if (value > (mask >> 1) && bits > 1 && i != gwdata->FFTLEN - 1) {
-			value = value - (mask + 1);
-			carry = 1;
-		} else {
-			carry = 0;
-		}
-		set_fft_value (gwdata, g, i, value);
+/* Now convert the giant to FFT format.  For base 2 we simply copy bits.  */
 
-		binval >>= bits;
-		if (e1len == 0) continue;
-		if (bits_in_next_binval < bits) {
-			if (bits_in_next_binval)
-				binval |= (*e1 >> (32 - bits_in_next_binval)) << (32 - bits);
-			bits -= bits_in_next_binval;
-			e1++; e1len--; bits_in_next_binval = 32;
+	if (gwdata->b == 2) {
+		unsigned long mask1, mask2, e1len;
+		int	bits1, bits2, bits_in_next_binval;
+		unsigned long binval;
+		uint32_t *e1;
+
+		e1len = a->sign;
+		e1 = a->n;
+
+		bits1 = gwdata->NUM_B_PER_SMALL_WORD;
+		bits2 = bits1 + 1;
+		mask1 = (1L << bits1) - 1;
+		mask2 = (1L << bits2) - 1;
+		if (e1len) {binval = *e1++; e1len--; bits_in_next_binval = 32;}
+		else binval = 0;
+		carry = 0;
+		for (i = 0; i < limit; i++) {
+			int	big_word, bits;
+			long	value, mask;
+			big_word = is_big_word (gwdata, i);
+			bits = big_word ? bits2 : bits1;
+			mask = big_word ? mask2 : mask1;
+			if (i == limit - 1) value = binval;
+			else value = binval & mask;
+			value = value + carry;
+			if (value > (mask >> 1) && bits > 1 && i != gwdata->FFTLEN - 1) {
+				value = value - (mask + 1);
+				carry = 1;
+			} else {
+				carry = 0;
+			}
+			set_fft_value (gwdata, g, i, value);
+
+			binval >>= bits;
 			if (e1len == 0) continue;
-		}
-		if (bits) {
-			binval |= (*e1 >> (32 - bits_in_next_binval)) << (32 - bits);
-			bits_in_next_binval -= bits;
+			if (bits_in_next_binval < bits) {
+				if (bits_in_next_binval)
+					binval |= (*e1 >> (32 - bits_in_next_binval)) << (32 - bits);
+				bits -= bits_in_next_binval;
+				e1++; e1len--; bits_in_next_binval = 32;
+				if (e1len == 0) continue;
+			}
+			if (bits) {
+				binval |= (*e1 >> (32 - bits_in_next_binval)) << (32 - bits);
+				bits_in_next_binval -= bits;
+			}
 		}
 	}
+
+/* Otherwise (non-base 2), we do a recursive divide and conquer radix conversion. */
+/* The resursive routine writes on a, so make a copy before calling */
+
+	else {
+		if (a != newg) {
+			newg = popg (&gwdata->gdata, a->sign * 2);
+			gtog (a, newg);
+			a = newg;
+		}
+		carry = nonbase2_gianttogw (gwdata, a, g, limit, 0, 0);
+	}
+
+/* Write carry, if any, to FFT data */
+
+	if (carry) set_fft_value (gwdata, g, limit++, carry);
+
+/* Clear the upper words */
+
+	for (i = limit; i < gwdata->FFTLEN; i++)
+		set_fft_value (gwdata, g, i, 0);
+
+/* Clear various flags */
+
 	((int32_t *) g)[-1] = 1; /* Set unnormalized add counter */
 	((int32_t *) g)[-7] = 0; /* Clear has been partially FFTed flag */
 
 /* Free allocated memory */
 
-	if (gwdata->k > 1.0) pushg (&gwdata->gdata, 1);
+	if (a == newg) pushg (&gwdata->gdata, 1);
 }
+
+/* Internal recursive routine to convert a giant to gwnum FFT format. */
+
+long nonbase2_gianttogw (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	giant	a,
+	gwnum	g,
+	unsigned long limit,	/* How many FFT words to set */
+	unsigned long offset,	/* Offset into FFT array of words to set */
+	long	carry)		/* Carry to add into this section */		 
+{
+	ASSERTG (a->sign >= 0);		/* We only handle positive numbers */
+
+/* If we are converting a lot of words, divide and conquer. */
+
+	if (limit >= 50) {
+		giant	upper, tmp;
+		int	num_b;
+		unsigned long half_limit = limit >> 1;
+
+		tmp = popg (&gwdata->gdata, limit * 2);
+		upper = popg (&gwdata->gdata, a->sign * 2);
+		num_b = gwfft_base (gwdata->dd_data, offset + half_limit) - gwfft_base (gwdata->dd_data, offset);
+		itog (gwdata->b, tmp);
+		power (tmp, num_b);
+		gtog (a, upper);
+		divg (tmp, upper);
+		mulgi (&gwdata->gdata, upper, tmp);
+		subg (tmp, a);
+		carry = nonbase2_gianttogw (gwdata, a, g, half_limit, offset, carry);
+		carry = nonbase2_gianttogw (gwdata, upper, g, limit - half_limit, offset + half_limit, carry);
+		pushg (&gwdata->gdata, 2);
+	}
+
+/* Convert the giant to FFT format */
+
+	else {
+		giant	newg, tmp;
+		unsigned long i, mask1, mask2;
+		long	value;
+
+		newg = popg (&gwdata->gdata, a->sign * 2);
+		tmp = popg (&gwdata->gdata, a->sign * 2);
+
+		mask1 = (unsigned long) pow ((double) gwdata->b, gwdata->NUM_B_PER_SMALL_WORD);
+		mask2 = gwdata->b * mask1;
+		for (i = offset; i < offset + limit; i++) {
+			unsigned long mask;
+
+			mask = is_big_word (gwdata, i) ? mask2 : mask1;
+
+			gtog (a, newg);
+			ultog (mask, tmp);
+			divg (tmp, a);
+			mulgi (&gwdata->gdata, a, tmp);
+			subg (tmp, newg);
+			value = (newg->sign) ? newg->n[0] : 0;
+			value += carry;
+
+			if (value > (long) (mask >> 1) && i != gwdata->FFTLEN - 1) {
+				value = value - mask;
+				carry = 1;
+			} else {
+				carry = 0;
+			}
+			set_fft_value (gwdata, g, i, value);
+		}
+		pushg (&gwdata->gdata, 2);
+	}
+
+/* Return carry for next section */
+
+	return (carry);
+}
+
 
 /* Convert a gwnum to a binary value.  Returns the number of 32-bit values */
 /* written to the array.  The array is NOT zero-padded.  Returns a */
@@ -5609,10 +5961,8 @@ int gwtogiant (
 	gwnum	gg,
 	giant	v)
 {
-	long	val;
-	int	j, bits, bitsout, carry, err_code;
-	unsigned long i, limit;
-	uint32_t *outptr;
+	int	err_code;
+	unsigned long limit;
 
 	ASSERTG (((uint32_t *) gg)[-7] == 0);	// Number not partially FFTed?
 
@@ -5621,86 +5971,174 @@ int gwtogiant (
 /* FFT, then only convert a little more than half of the FFT data words. */
 /* For a DWT, convert all the FFT data. */
 
-	if (gwdata->GENERAL_MOD) limit = gwdata->GW_GEN_MOD_MAX;
+	if (gwdata->GENERAL_MOD) limit = gwdata->GW_GEN_MOD_MAX + 1;
 	else if (gwdata->ZERO_PADDED_FFT) limit = gwdata->FFTLEN / 2 + 4;
 	else limit = gwdata->FFTLEN;
-
-/* Collect bits until we have all of them */
-
-	carry = 0;
-	bitsout = 0;
-	outptr = v->n;
-	*outptr = 0;
-	for (i = 0; i < limit; i++) {
-		err_code = get_fft_value (gwdata, gg, i, &val);
-		if (err_code) return (err_code);
-		bits = gwdata->BITS_PER_WORD;
-		if (is_big_word (gwdata, i)) bits++;
-		val += carry;
-		for (j = 0; j < bits; j++) {
-			*outptr >>= 1;
-			if (val & 1) *outptr += 0x80000000;
-			val >>= 1;
-			bitsout++;
-			if (bitsout == 32) {
-				outptr++;
-				bitsout = 0;
-			}
-		}
-		carry = val;
-	}
 
 /* GENERAL_MOD has some strange cases we must handle.  In particular the */
 /* last fft word translated can be 2^bits and the next word could be -1, */
 /* this must be translated into zero, zero. */
 
 	if (gwdata->GENERAL_MOD) {
-		err_code = get_fft_value (gwdata, gg, i, &val);
+		long	val, prev_val;
+		err_code = get_fft_value (gwdata, gg, limit, &val);
 		if (err_code) return (err_code);
-		ASSERTG ((char) val + carry == 0 ||
-			 (char) val + carry == -1);
-		if (val == -carry) carry = 0;
-		else if (carry == 0 && val == -1) carry = -1;
-		else if (carry == -2 && val == 1) carry = -1;
-	}
-
-/* Finish outputting the last word and any carry data */
-
-	while (bitsout || (carry != -1 && carry != 0)) {
-		*outptr >>= 1;
-		if (carry & 1) *outptr += 0x80000000;
-		carry >>= 1;
-		bitsout++;
-		if (bitsout == 32) {
-			outptr++;
-			bitsout = 0;
+		ASSERTG (val >= -1 && val <= 1);
+		err_code = get_fft_value (gwdata, gg, limit-1, &prev_val);
+		if (err_code) return (err_code);
+		if (val > 0 || val < -1 || (val == -1 && prev_val >= 0)) {
+			int	num_b;
+			num_b = gwdata->NUM_B_PER_SMALL_WORD;
+			if (is_big_word (gwdata, limit-1)) num_b++;
+			prev_val += val * (long) pow ((double) gwdata->b, num_b);
+			set_fft_value (gwdata, gg, limit, (prev_val < 0) ? -1 : 0);
+			set_fft_value (gwdata, gg, limit-1, prev_val);
 		}
 	}
 
+/* If base is 2 we can simply copy the bits out of each FFT word */
+
+	if (gwdata->b == 2) {
+		long	val;
+		int	j, bits, bitsout, carry;
+		unsigned long i;
+		uint32_t *outptr;
+
+/* Collect bits until we have all of them */
+
+		carry = 0;
+		bitsout = 0;
+		outptr = v->n;
+		*outptr = 0;
+		for (i = 0; i < limit; i++) {
+			err_code = get_fft_value (gwdata, gg, i, &val);
+			if (err_code) return (err_code);
+			bits = gwdata->NUM_B_PER_SMALL_WORD;
+			if (is_big_word (gwdata, i)) bits++;
+			val += carry;
+			for (j = 0; j < bits; j++) {
+				*outptr >>= 1;
+				if (val & 1) *outptr += 0x80000000;
+				val >>= 1;
+				bitsout++;
+				if (bitsout == 32) {
+					outptr++;
+					bitsout = 0;
+				}
+			}
+			carry = val;
+		}
+
+/* Finish outputting the last word and any carry data */
+
+		while (bitsout || (carry != -1 && carry != 0)) {
+			*outptr >>= 1;
+			if (carry & 1) *outptr += 0x80000000;
+			carry >>= 1;
+			bitsout++;
+			if (bitsout == 32) {
+				outptr++;
+				bitsout = 0;
+			}
+		}
+
 /* Set the length */
 
-	v->sign = (long) (outptr - v->n);
-	while (v->sign && v->n[v->sign-1] == 0) v->sign--;
+		v->sign = (long) (outptr - v->n);
+		while (v->sign && v->n[v->sign-1] == 0) v->sign--;
 
 /* If carry is -1, the gwnum is negative.  Ugh.  Flip the bits and sign. */
 
-	if (carry == -1) {
-		for (j = 0; j < v->sign; j++) v->n[j] = ~v->n[j];
-		while (v->sign && v->n[v->sign-1] == 0) v->sign--;
-		iaddg (1, v);
-		v->sign = -v->sign;
+		if (carry == -1) {
+			for (j = 0; j < v->sign; j++) v->n[j] = ~v->n[j];
+			while (v->sign && v->n[v->sign-1] == 0) v->sign--;
+			iaddg (1, v);
+			v->sign = -v->sign;
+		}
+	}
+
+/* Otherwise (base is not 2) we must do a radix conversion */
+
+	else {
+		giantstruct *array = NULL;
+		uint32_t *buf = NULL;
+		giant	small_base = NULL;
+		giant	large_base = NULL;
+		unsigned long i, gap, small_size, last_small_size;
+
+		array = (giantstruct *) malloc (limit * sizeof (giantstruct));
+		if (array == NULL) { memerr: err_code =  GWERROR_MALLOC; goto err; }
+		buf = (uint32_t *) malloc (limit * sizeof (uint32_t));
+		if (buf == NULL) goto memerr;
+		small_base = allocgiant (limit);
+		if (small_base == NULL) goto memerr;
+		large_base = allocgiant (limit);
+		if (large_base == NULL) goto memerr;
+		for (i = 0; i < limit; i++) {
+			long	val;
+			err_code = get_fft_value (gwdata, gg, i, &val);
+			if (err_code) {
+err:				free (array);
+				free (buf);
+				free (small_base);
+				free (large_base);
+				return (err_code);
+			}
+			array[i].n = &buf[i];
+			setmaxsize(&array[i], limit);
+			itog (val, &array[i]);
+		}
+
+/* Loop combining pairs into ever larger and larger numbers.  Do all but last combining pass. */
+
+		gap = 1;
+		while (gap + gap < limit) {
+			small_size = gwfft_base (gwdata->dd_data, gap) - 1;
+			if (gap == 1)
+				dbltog (pow ((double) gwdata->b, small_size), small_base);
+			else if (small_size == last_small_size * 2)
+				squaregi (&gwdata->gdata, small_base);
+			else
+				mulgi (&gwdata->gdata, large_base, small_base);
+			itog (gwdata->b, large_base);
+			mulgi (&gwdata->gdata, small_base, large_base);
+			for (i = 0; i + gap < limit; i += gap + gap) {
+				gtog (&array[i+gap], v);
+				if (gwfft_base (gwdata->dd_data, i+gap) - gwfft_base (gwdata->dd_data, i) == small_size)
+					mulgi (&gwdata->gdata, small_base, v);
+				else
+					mulgi (&gwdata->gdata, large_base, v);
+				addg (v, &array[i]);
+			}
+			gap = gap << 1;
+			last_small_size = small_size;
+		}
+
+/* Do the last combining pass, outputting result directly to v. */
+
+		if (gwfft_base (gwdata->dd_data, gap) == small_size * 2 + 1)
+			mulgi (&gwdata->gdata, small_base, large_base);
+		else
+			squaregi (&gwdata->gdata, large_base);
+		gtog (&array[gap], v);
+		mulgi (&gwdata->gdata, large_base, v);
+		addg (&array[0], v);
+
+/* Clean up */
+
+		free (array);
+		free (buf);
+		free (small_base);
+		free (large_base);
 	}
 
 /* Since all gwnums are premultiplied by the inverse of k, we must now */
 /* multiply by k to get the true result. */
 
 	if (gwdata->k > 1.0) {
-		giantstruct k;
-		uint32_t tmparray[2];
-		k.n = (uint32_t *) &tmparray;
-		setmaxsize (&k, 2);
-		dbltog (gwdata->k, &k);
-		mulgi (&gwdata->gdata, &k, v);
+		stackgiant(k,2);
+		dbltog (gwdata->k, k);
+		mulgi (&gwdata->gdata, k, v);
 	}
 
 /* The gwnum is not guaranteed to be smaller than k*b^n+c.  Handle this */
@@ -5903,7 +6341,7 @@ void emulate_mod (
 /* normalization routine so that the FFT code zeroes the high FFT words */
 /* and we are left with just the quotient! */
 
-	asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + 4 + (gwdata->NORMNUM & 1)];
+	asm_data->NORMRTN = gwdata->GWPROCPTRS[copyzero_routines + (gwdata->NORMNUM & 1)];
 	raw_gwfftmul (gwdata, gwdata->GW_RECIP_FFT, tmp);
 	ASSERTG (* addr (gwdata, tmp, gwdata->FFTLEN/2-1) > -2.0 && * addr (gwdata, tmp, gwdata->FFTLEN/2-1) <= 0.0);
 
@@ -6617,8 +7055,11 @@ void gwsmalladd (
 /* A simple brute-force implementation.  We put k > 1 numbers through */
 /* here because multiplying the addin value by 1/k complicates matters. */
 /* If this routine is ever used much, we can try to optimize this. */
+/* We also make sure there is at least one b value per FFT work, so */
+/* that any carry can successfully spread over 3 FFT words. */
 
-	if (gwdata->GWPROCPTRS[14] == NULL || gwdata->k > 1.0) {
+	if (gwdata->GWPROCPTRS[14] == NULL || gwdata->k > 1.0 ||
+	    gwdata->NUM_B_PER_SMALL_WORD < 1) {
 		gwnum	tmp;
 		tmp = gwalloc (gwdata);
 		if (addin >= 0.0) {
@@ -6719,13 +7160,13 @@ void gwsmallmul (
 		asm_data->DBLARG = mult;
 		gw_muls (gwdata, asm_data);
 		((uint32_t *) g)[-1] = 1;
+	}
 
 /* If the number has gotten too large (high words should all be */
 /* weighted -1 or 0) then emulate general mod with 2 multiplies */
 
-		if (gwdata->GENERAL_MOD &&
-		    (* (double *) ((char *) g + gwdata->GW_GEN_MOD_MAX_OFFSET) <= 2.0 ||
-		     * (double *) ((char *) g + gwdata->GW_GEN_MOD_MAX_OFFSET) > 0.0))
+	if (gwdata->GENERAL_MOD &&
+	    (* (double *) ((char *) g + gwdata->GW_GEN_MOD_MAX_OFFSET) <= 2.0 ||
+	     * (double *) ((char *) g + gwdata->GW_GEN_MOD_MAX_OFFSET) > 0.0))
 		emulate_mod (gwdata, g);
-	}
 }

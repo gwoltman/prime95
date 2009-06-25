@@ -3983,7 +3983,7 @@ int read_gwnum (
 	if (!read_long (fd, &len, sum)) return (FALSE);
 	if (len == 0) return (FALSE);
 
-	giantlen = (gwdata->n >> 5) + 10;
+	giantlen = ((int) gwdata->bit_length >> 5) + 10;
 	if (len > giantlen) return (FALSE);
 	tmp = popg (&gwdata->gdata, giantlen);
 	if (tmp == NULL) return (FALSE);	// BUG - we should return some other error code
@@ -4015,7 +4015,7 @@ int write_gwnum (
 	giant	tmp;
 	unsigned long i, len, bytes;
 
-	tmp = popg (&gwdata->gdata, (gwdata->n >> 5) + 10);
+	tmp = popg (&gwdata->gdata, ((int) gwdata->bit_length >> 5) + 10);
 	if (tmp == NULL) return (FALSE);
 	gwtogiant (gwdata, g, tmp);
 	len = tmp->sign;

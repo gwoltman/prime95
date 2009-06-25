@@ -77,8 +77,15 @@ typedef giantstruct *giant;
  *
  **************************************************************/
 
-/* Creates a new giant */
-giant 	newgiant(int numshorts);
+/* Create a new giant variable on the stack */
+#ifdef GDEBUG
+#define stackgiant(name,count) uint32_t name##_data[count]; giantstruct name##_struct = {0, (uint32_t *) &name##_data, count}; const giant name = &name##_struct
+#else
+#define stackgiant(name,count) uint32_t name##_data[count]; giantstruct name##_struct = {0, (uint32_t *) &name##_data}; const giant name = &name##_struct
+#endif
+
+/* Creates a new giant allocating an array of uint32_t */
+giant 	allocgiant(int count);
 
 /* Returns the bit-length n; e.g. n=7 returns 3. */
 int 	bitlen(giant n);
@@ -265,6 +272,10 @@ extern void mulsubhlp (uint32_t *res, uint32_t *carryl,
 /* External routine pointers. */
 
 extern int (*StopCheckRoutine)(int);
+
+/* Deprecated.  Use allocgiant which uses number of uint32_t as an argument */
+
+#define newgiant(numshorts)	allocgiant(((numshorts)+1)/2)
 
 #ifdef __cplusplus
 }
