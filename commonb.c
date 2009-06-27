@@ -6678,7 +6678,7 @@ int primeBench (
 	char	buf[512];
 	unsigned int threads;
 	int	fft_lengths[] = {4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 28, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 448, 512, 640, 768, 896, 1024, 1280, 1536, 1792, 2048, 2560, 3072, 3584, 4096, 5120, 6144, 7168, 8192, 10240, 12288, 14336, 16384, 20480, 24576, 28672, 32768};
-	int	all_bench, plus1, stop_reason;
+	int	all_bench, full_bench, plus1, stop_reason;
 	double	timers[2];
 	struct primenetBenchmarkData pkt;
 
@@ -6732,7 +6732,8 @@ int primeBench (
 /* Loop over all FFT lengths */
 
 	  all_bench = IniGetInt (INI_FILE, "AllBench", 0);
-	  if (IniGetInt (INI_FILE, "FullBench", 0)) {
+	  full_bench = IniGetInt (INI_FILE, "FullBench", 0);
+	  if (full_bench) {
 	    i = 0;
 	    num_lengths = sizeof (fft_lengths) / sizeof (int);
 	  } else {
@@ -6818,9 +6819,15 @@ int primeBench (
 		print_timer (timers, 0, buf, TIMER_NL | TIMER_MS);
 		writeResults (buf);
 
-/* Accumulate best times to send to the server */
+/* Accumulate best times to send to the server.  Limit the number sent since */
+/* we can only send fifty. */
 
 		if (!all_bench &&
+		    ((full_bench &&
+		      threads == 1) ||
+		     (!full_bench &&
+		      fft_lengths[i] > 768 &&
+		      (threads == 1 || threads == 2 || threads == 4))) &&
 		    pkt.num_data_points < PRIMENET_BENCH_MAX_DATAPOINTS) {
 			if (threads == 1)
 				sprintf (pkt.data_points[pkt.num_data_points].bench,
