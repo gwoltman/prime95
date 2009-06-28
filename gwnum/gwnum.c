@@ -3130,6 +3130,14 @@ int internal_gwsetup (
 		asm_data->CARRY_ADJUST5 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-2);
 		asm_data->CARRY_ADJUST6 = pow ((double) b, num_b_in_third_top_word);
 		asm_data->CARRY_ADJUST7 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-3);
+		// It's too hard to upgrade the old x87 code to match the SSE2 code
+		// So, for x87 generate the same constants used prior to version 25.11
+		if (! (gwdata->cpu_flags & CPU_SSE2)) {
+			if (gwdata->PASS2_LEVELS)
+				asm_data->CARRY_ADJUST4 *= asm_data->CARRY_ADJUST5;
+			else
+				asm_data->CARRY_ADJUST6 *= asm_data->CARRY_ADJUST7;
+		}
 
 /* In two-pass FFTs, we only support tweaking the top two words. In one-pass FFTs, */
 /* we adjust the top three words.  Make sure this works. */
