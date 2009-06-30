@@ -3724,6 +3724,24 @@ void pass1_wake_up_threads (
 	asm_data->XMM_MAXERR[0] = asm_data->MAXERR;
 	asm_data->XMM_MAXERR[1] = asm_data->MAXERR;
 
+/* In the zero-padded FFT case prior to normalizing, the upper half of the */
+/* carries are set to zero instead of XMM_BIGVAL.  This saves us a couple */
+/* of clocks per FFT data element in xnorm_2d_zpad.  We zero the upper half */
+/* of each cache line. */
+
+	if (gwdata->pass1_state == 1 && gwdata->ZERO_PADDED_FFT) {
+		int	i, carry_table_size;
+		double	*table;
+		carry_table_size = ((gwdata->FFTLEN >> gwdata->PASS2_LEVELS) << 1);
+		table = (double *) asm_data->carries;
+		for (i = 0; i < carry_table_size; i += 8, table += 8) {
+			table[4] = 0.0;
+			table[5] = 0.0;
+			table[6] = 0.0;
+			table[7] = 0.0;
+		}
+	}
+
 /* Set up the this_block and next_block values for the main thread */
 
 	asm_data->this_block = 0;
@@ -3771,6 +3789,24 @@ void pass1_wake_up_threads_mt (
 	asm_data->XMM_SUMOUT[1] = 0.0;
 	asm_data->XMM_MAXERR[0] = asm_data->MAXERR;
 	asm_data->XMM_MAXERR[1] = asm_data->MAXERR;
+
+/* In the zero-padded FFT case prior to normalizing, the upper half of the */
+/* carries are set to zero instead of XMM_BIGVAL.  This saves us a couple */
+/* of clocks per FFT data element in xnorm_2d_zpad.  We zero the upper half */
+/* of each cache line. */
+
+	if (gwdata->pass1_state == 1 && gwdata->ZERO_PADDED_FFT) {
+		int	i, carry_table_size;
+		double	*table;
+		carry_table_size = ((gwdata->FFTLEN >> gwdata->PASS2_LEVELS) << 1);
+		table = (double *) asm_data->carries;
+		for (i = 0; i < carry_table_size; i += 8, table += 8) {
+			table[4] = 0.0;
+			table[5] = 0.0;
+			table[6] = 0.0;
+			table[7] = 0.0;
+		}
+	}
 
 /* Set up the this_block and next_block values for the main thread */
 

@@ -1866,9 +1866,7 @@ ttp	mulpd	xmm2, [rdx+0*32]	;; Mul by grp two-to-minus-phi
 	mulpd	xmm0, xmm2		;; Mul by fudged col two-to-minus-phi
 
 	movapd	xmm3, [rbp+2*16]	;; Add in previous high FFT data
-	subpd	xmm3, XMM_BIGVAL	;; Yuk.
 	split_lower_zpad_word echk, base2, xmm0, xmm3, xmm4, rax
-	addpd	xmm3, XMM_BIGVAL	;; Yuk.
 	movapd	[rbp+2*16], xmm3
 no const movapd	xmm0, XMM_K_LO
 const	movapd	xmm0, XMM_K_TIMES_MULCONST_LO
@@ -1911,9 +1909,7 @@ ttp	mulpd	xmm3, [rdx+1*32]	;; Mul by grp two-to-minus-phi
 	mulpd	xmm5, xmm3		;; Mul by fudged col two-to-minus-phi
 
 	movapd	xmm3, [rbp+3*16]	;; Add in previous high FFT data
-	subpd	xmm3, XMM_BIGVAL	;; Yuk.
 	split_lower_zpad_word echk, base2, xmm5, xmm3, xmm2, rax
-	addpd	xmm3, XMM_BIGVAL	;; Yuk.
 	movapd	[rbp+3*16], xmm3
 no const movapd	xmm0, XMM_K_LO
 const	movapd	xmm0, XMM_K_TIMES_MULCONST_LO
@@ -2383,9 +2379,7 @@ xnorm012_2d_zpad_part1_cmn MACRO const, base2
 
 	;; Rather than calculate high FFT carry times k and then later dividing
 	;; by k, we multiply FFT high carry by const and we'll add it
-	;; to the lower FFT data later (after multiplying by -c).  First
-	;; strip off the XMM_BIGVAL.
-	subsd	xmm3, XMM_BIGVAL
+	;; to the lower FFT data later (after multiplying by -c).
 const	mulsd	xmm3, XMM_MULCONST
 
 	;; Multiply ZPAD0 through ZPAD6 by const * -C.  This, in essense,
@@ -2877,7 +2871,7 @@ div_k_done:
 	addsd	xmm2, Q [rsi+7*64]	;; Add in FFT data
 	movsd	Q [rsi+7*64], xmm2	;; Save value7
 
-	movsd	xmm6, XMM_BIGVAL	;; Clear 2 carries from last row
+	subsd	xmm6, xmm6		;; Clear 2 carries from last row
 	movsd	xmm7, XMM_BIGVAL
 	ENDM
 xnorm012_2d_zpad_part2 MACRO
@@ -2910,7 +2904,6 @@ xnorm012_2d_zpad_cmn MACRO const, base2
 	mov	al, [rdi+0]		;; Load big vs. little flag
 	movhpd	xmm0, Q [rsi+0*16]	;; Load high word of carry XMM reg
 	movhpd	xmm2, Q [rsi+2*16]	;; Load high word of FFT hi data carry
-	subpd	xmm2, XMM_BIGVAL	;; Yuk
 	movapd	xmm4, [rbp+0*64]	;; Load FFT data
 	mulpd	xmm4, [rdx+0*32]	;; mul by grp two-to-minus-phi
 	addpd	xmm0, xmm4		;; x1 = values1 + carry
@@ -3046,7 +3039,6 @@ const	movapd	xmm4, XMM_K_TIMES_MULCONST_HI
 	mov	al, [rdi+1]		;; Load big vs. little flag
 	movhpd	xmm1, Q [rsi+1*16]	;; Load high word of carry XMM reg
 	movhpd	xmm3, Q [rsi+3*16]	;; Load high word of FFT hi data carry
-	subpd	xmm3, XMM_BIGVAL	;; Yuk
 	movapd	xmm4, [rbp+0*64+16]	;; Load FFT data
 	mulpd	xmm4, [rdx+1*32]	;; mul by grp two-to-minus-phi
 	addpd	xmm1, xmm4		;; x1 = values1 + carry
