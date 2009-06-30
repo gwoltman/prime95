@@ -1859,11 +1859,14 @@ ENDIF
 ;; but there is too much code that expects this (like add and subtract).
 
 xnorm_2d_zpad MACRO ttp, echk, const, base2
-	movapd	xmm0, [rsi]		;; Load values1
-	addpd	xmm7, xmm0		;; sumout += values1
 	movapd	xmm2, [rbx][rax]	;; col two-to-minus-phi
 ttp	mulpd	xmm2, [rdx+0*32]	;; Mul by grp two-to-minus-phi
+	movapd	xmm0, [rsi]		;; Load values1
+	addpd	xmm7, xmm0		;; sumout += values1
+	movapd	xmm1, [rsi+2*16]	;; Load values2
+	addpd	xmm7, xmm1		;; sumout += values2
 	mulpd	xmm0, xmm2		;; Mul by fudged col two-to-minus-phi
+	mulpd	xmm1, xmm2		;; Mul by fudged col two-to-minus-phi
 
 	movapd	xmm3, [rbp+2*16]	;; Add in previous high FFT data
 	split_lower_zpad_word echk, base2, xmm0, xmm3, xmm4, rax
@@ -1877,12 +1880,6 @@ no base2 mulpd	xmm5, XMM_LIMIT_INVERSE[rax] ; Non-base2 rounding needs shifted c
 	mulpd	xmm4, xmm5
 
 	addpd	xmm0, [rbp+0*16]	;; x1 = values + carry
-
-	movapd	xmm1, [rsi+2*16]	;; Load values2
-	addpd	xmm7, xmm1		;; sumout += values2
-	movapd	xmm2, [rbx][rax]	;; col two-to-minus-phi
-ttp	mulpd	xmm2, [rdx+2*32]	;; Mul by grp two-to-minus-phi
-	mulpd	xmm1, xmm2		;; Mul by fudged col two-to-minus-phi
 
 	split_upper_zpad_word echk, base2, xmm1, xmm5, xmm2, rax
 no const mulpd	xmm2, XMM_MINUS_C
@@ -1902,11 +1899,14 @@ ttp	mulpd	xmm0, xmm5		;; new value1 *= fudged col two-to-phi
 	movapd	[rbp+0*16], xmm4	;; Save carry
 	movapd	[rsi], xmm0		;; Save new value1
 
-	movapd	xmm5, [rsi+16]		;; Load values1
-	addpd	xmm7, xmm5		;; sumout += values1
 	movapd	xmm3, [rbx][rax]	;; col two-to-minus-phi
 ttp	mulpd	xmm3, [rdx+1*32]	;; Mul by grp two-to-minus-phi
+	movapd	xmm5, [rsi+16]		;; Load high values1
+	addpd	xmm7, xmm5		;; sumout += values1
+	movapd	xmm1, [rsi+3*16]	;; Load high values2
+	addpd	xmm7, xmm1		;; sumout += values2
 	mulpd	xmm5, xmm3		;; Mul by fudged col two-to-minus-phi
+	mulpd	xmm1, xmm3		;; Mul by fudged col two-to-minus-phi
 
 	movapd	xmm3, [rbp+3*16]	;; Add in previous high FFT data
 	split_lower_zpad_word echk, base2, xmm5, xmm3, xmm2, rax
@@ -1920,12 +1920,6 @@ no base2 mulpd	xmm5, XMM_LIMIT_INVERSE[rax] ; Non-base2 rounding needs shifted c
 	mulpd	xmm2, xmm5
 
 	addpd	xmm0, [rbp+1*16]	;; x2 = values + carry
-
-	movapd	xmm1, [rsi+3*16]	;; Load high values2
-	addpd	xmm7, xmm1		;; sumout += values2
-	movapd	xmm5, [rbx][rax]	;; col two-to-minus-phi
-ttp	mulpd	xmm5, [rdx+3*32]	;; Mul by grp two-to-minus-phi
-	mulpd	xmm1, xmm5		;; Mul by fudged col two-to-minus-phi
 
 	split_upper_zpad_word echk, base2, xmm1, xmm5, xmm4, rax
 no const mulpd	xmm4, XMM_MINUS_C
