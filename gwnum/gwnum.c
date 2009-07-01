@@ -3108,7 +3108,7 @@ int internal_gwsetup (
 		asm_data->INVERSE_K = 1.0 / k;
 		kbits = (unsigned long) ceil (log2 (k));
 		kbits_lo = kbits / 2;
-		asm_data->K_HI = ((unsigned long) k) & ~((1 << kbits_lo) - 1);
+ 		asm_data->K_HI = ((unsigned long) k) & ~((1 << kbits_lo) - 1);
 		asm_data->K_LO = ((unsigned long) k) &  ((1 << kbits_lo) - 1);
 
 /* Calculate top carry adjusting constants */
@@ -3274,6 +3274,7 @@ int internal_gwsetup (
 	gwsetnormroutine (gwdata, 0, 0, 0);
 	gwstartnextfft (gwdata, 0);
 	raw_gwsetaddin (gwdata, 0, 0.0);
+	if (gwdata->square_carefully_count == -1) gwset_square_carefully_count (gwdata, -1);
 
 /* Clear globals */
 
@@ -6457,6 +6458,20 @@ void gwsquare (			/* Square a number */
 
 	ASSERTG (((uint32_t *) s)[-1] >= 1);
 
+/* If we are converting gwsquare calls into gwsquare_carefully calls */
+/* do so now.  Turn off option to do a partial forward FFT on the result. */
+/* NOTE: We must clear count since gwsquare_carefully calls back to this */
+/* gwsquare routine. */
+
+	if (gwdata->square_carefully_count) {
+		int	n = gwdata->square_carefully_count;
+		if (n > 1) gwstartnextfft (gwdata, 0);
+		gwdata->square_carefully_count = 0;
+		gwsquare_carefully (gwdata, s);
+		gwdata->square_carefully_count = n - 1;
+		return;
+	}
+
 /* Get the unnormalized add count for later use */
 
 	norm_count = ((uint32_t *) s)[-1];
@@ -6616,6 +6631,36 @@ void gw_random_number (
 	specialmodg (gwdata, g);
 	gianttogw (gwdata, g, x);
 	pushg (&gwdata->gdata, 1);
+}
+
+/* The FFT selection code assumes FFT data will essentially be random data */
+/* yielding pretty well understood maximum round off errors.  When working */
+/* with some numbers, especially at the start of a PRP exponentiation, the */
+/* FFT data is decidedly not random, leading to much larger than expected */
+/* roundoff errors.  In my own PRP code, I call gwsquare_carefully for the */
+/* first 30 iterations.  To make this easier (and code more readable) you */
+/* can call this routine and the next n gwsquare calls will be replaced by */
+/* gwsquare_carefully calls.  If you pass an n of -1, the gwnum code will */
+/* use a default value for n that should be suitable for getting a PRP */
+/* exponentiation into a "random data state".  This routine can be called */
+/* before gwsetup is called. */
+
+void gwset_square_carefully_count (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	int	n)		/* Number of gwsquare calls to do carefully. */
+				/* If n is -1, a default value is used */
+{
+
+/* Set the default count to enough iterations for a PRP exponentiation to */
+/* generate a number larger than the modulus.  Then do an extra dozen */
+/* iterations to hopefully scramble the data into a nice random looking */
+/* pattern. */
+
+	if (n == -1 && gwdata->FFTLEN) n = (int) ceil (log2 (gwdata->bit_length)) + 12;
+
+/* Now remember the count */
+
+	gwdata->square_carefully_count = n;
 }
 
 /* Square a number using a slower method that will have reduced */

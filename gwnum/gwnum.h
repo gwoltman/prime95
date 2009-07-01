@@ -423,6 +423,23 @@ void gwfftaddsub4 (		/* Add & sub two FFTed numbers */
 	gwnum	d1,		/* Destination #1 */
 	gwnum	d2);		/* Destination #2 */
 
+/* The FFT selection code assumes FFT data will essentially be random data */
+/* yielding pretty well understood maximum round off errors.  When working */
+/* with some numbers, especially at the start of a PRP exponentiation, the */
+/* FFT data is decidedly not random, leading to much larger than expected */
+/* roundoff errors.  In my own PRP code, I call gwsquare_carefully for the */
+/* first 30 iterations.  To make this easier (and code more readable) you */
+/* can call this routine and the next n gwsquare calls will be replaced by */
+/* gwsquare_carefully calls.  If you pass an n of -1, the gwnum code will */
+/* use a default value for n that should be suitable for getting a PRP */
+/* exponentiation into a "random data state".  This routine can be called */
+/* before gwsetup is called. */
+
+void gwset_square_carefully_count (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	int	n);		/* Number of gwsquare calls to do carefully. */
+				/* If n is -1, a default value is used */
+
 /* Square or multiply numbers using a slower method that will have reduced */
 /* round-off error on non-random input data.  Caller must make sure the */
 /* input number has not been partially (via gwstartnextfft) or fully FFTed. */
@@ -822,6 +839,8 @@ struct gwhandle_struct {
 	int	qa_picked_nth_fft; /* Internal hack returning which FFT was picked */
 	int	force_general_mod; /* Forces gwsetup_general_mod to not check */
 				/* for a k*2^n+c reduction */
+	int	square_carefully_count; /* Count of gwsquare calls to convert into */
+				/* gwsquare_carefully calls */
 	int	use_large_pages; /* Try to use 2MB pages */
 	void	*large_pages_ptr; /* Pointer to the lage pages memory block */
 				/* we allocated. */
