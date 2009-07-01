@@ -65,18 +65,34 @@ typedef double *gwnum;
 
 /* Error codes returned by the three gwsetup routines */
 
-#define GWERROR_VERSION		1001	/* GWNUM.H and FFT code version */
-					/* numbers do not match. */
+#define GWERROR_VERSION		1001	/* GWNUM.H and FFT assembly code */
+					/* version numbers do not match. */
 #define GWERROR_TOO_LARGE	1002	/* Number too large for the FFTs. */
 #define GWERROR_K_TOO_SMALL	1003	/* k < 1 is not supported */
 #define GWERROR_K_TOO_LARGE	1004	/* k > 53 bits is not supported */
 #define GWERROR_MALLOC		1005	/* Insufficient memory available */
+#define GWERROR_VERSION_MISMATCH 1006	/* GWNUM_VERSION from gwinit call */
+					/* doesn't match GWNUM_VERSION when */
+					/* gwnum.c was compiled. */
+#define GWERROR_STRUCT_SIZE_MISMATCH 1007 /* Gwhandle structure size from */
+					/* gwinit call doesn't match size */
+					/* when gwnum.c was compiled.  Check */
+					/* compiler alignment switches. */
 
 /* Prior to calling gwsetup, you MUST CALL gwinit. This initializes the */
 /* gwhandle structure. It gives us a place to set rarely used gwsetup */
 /* options prior to calling gwsetup. */
-void gwinit (
-	gwhandle *gwdata);	/* Placeholder for gwnum global data */
+#define gwinit(h)		gwinit2 (h, sizeof (gwhandle), GWNUM_VERSION)
+/* The gwinit function has been superceeded by gwinit2.  By passing in the */
+/* version number we can verify the caller used the same gwnum.h file as the */
+/* one he eventually links with.  The sizeof (gwhandle) structure is used */
+/* to verify he compiles with the same structure alignment options that */
+/* were used when compiling gwnum.c.  For compatibility with existing code */
+/* we delay reporting any compatibility problems until gwsetup is called. */
+void gwinit2 (
+	gwhandle *gwdata,	/* Placeholder for gwnum global data */
+	int	struct_size,	/* Size of the gwdata structure */
+	char	*version_string);
 
 /* There are three different setup routines.  The first, gwsetup, is for */
 /* gwnum's primary use - support for fast operations modulo K*B^N+C. */

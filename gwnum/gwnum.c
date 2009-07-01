@@ -1906,10 +1906,32 @@ use_zpad:	gwdata->ZERO_PADDED_FFT = TRUE;
 
 
 /* Initialize gwhandle for a future gwsetup call. */
+/* The gwinit function has been superceeded by gwinit2.  By passing in the */
+/* version number we can verify the caller used the same gwnum.h file as the */
+/* one he eventually links with.  The sizeof (gwhandle) structure is used */
+/* to verify he compiles with the same structure alignment options that */
+/* were used when compiling gwnum.c.  For compatibility with existing code */
+/* we delay reporting any compatibility problems until gwsetup is called. */
 
-void gwinit (
-	gwhandle *gwdata)	/* Placeholder for gwnum global data */
+void gwinit2 (
+	gwhandle *gwdata,	/* Placeholder for gwnum global data */
+	int	struct_size,	/* Size of the gwdata structure */
+	char	*version_string)
 {
+
+/* See if caller is using the same gwnum.h file that was used when */
+/* this file was compiled.  Checking structure size also verifies he */
+/* used the same compiler switches - especially regarding alignment. */
+/* As a hack, we use GWERROR to record delayed error messages. */
+
+	if (strcmp (version_string, GWNUM_VERSION)) {
+		gwdata->GWERROR = GWERROR_VERSION_MISMATCH;
+		return;
+	}
+	if (struct_size != sizeof (gwhandle)) {
+		gwdata->GWERROR = GWERROR_STRUCT_SIZE_MISMATCH;
+		return;
+	}
 
 /* Initialize gwhandle structure with the default values */
 
@@ -1950,6 +1972,10 @@ int gwsetup (
 	signed long c)		/* C in K*B^N+C. */
 {
 	int	gcd, error_code, setup_completed;
+
+/* Return delayed errors from gwinit2 */
+
+	if (gwdata->GWERROR) return (gwdata->GWERROR);
 
 /* Sanity check the k value */
 
@@ -2068,6 +2094,10 @@ int gwsetup_general_mod_giant (
 	unsigned long safety_bits;
 	int	error_code;
 	giant	tmp;
+
+/* Return delayed errors from gwinit2 */
+
+	if (gwdata->GWERROR) return (gwdata->GWERROR);
 
 /* Init */
 
@@ -2216,6 +2246,10 @@ int gwsetup_without_mod (
 	struct gwasm_jmptab *info;
 	unsigned long fftlen, max_exponent, desired_n;
 	int	error_code;
+
+/* Return delayed errors from gwinit2 */
+
+	if (gwdata->GWERROR) return (gwdata->GWERROR);
 
 /* Call gwinfo and have it figure out the FFT length we will use. */
 /* Since the user must zero the upper half of FFT input data, the FFT */
