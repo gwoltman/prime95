@@ -130,7 +130,7 @@ int main (
 	int	named_ini_files = -1;
 	int	contact_server = 0;
 	int	torture_test = 0;
-	int	i;
+	int	i, nice_level;
 	char	*p;
 
 /* catch termination signals */
@@ -257,6 +257,24 @@ int main (
 
 	nameAndReadIniFiles (named_ini_files);
 	if (MENUING != 2 && !torture_test) initCommCode ();
+
+/* If not running a torture test, set the program to nice priority. */
+/* Technically, this is not necessary since worker threads are set to */
+/* the lowest possible priority.  However, sysadmins might be alarmed */
+/* to see a CPU intensive program not running at nice priority when */
+/* executing a ps command. */
+
+	nice_level = IniGetInt (INI_FILE, "Nice", 10);
+	if (!torture_test && nice_level) {
+/* Linux ranges from -20 to +19, lower values give more favorable scheduling */
+#if defined (__linux__) || defined (__HAIKU__)
+		setpriority (PRIO_PROCESS, 0, nice_level);
+#endif
+/* FreeBSD ranges from -20 to +20, lower values give more favorable scheduling */
+#if defined (__APPLE__) || defined (__FreeBSD__)
+		setpriority (PRIO_PROCESS, 0, nice_level);
+#endif
+	}
 
 /* If running the torture test, do so now. */
 

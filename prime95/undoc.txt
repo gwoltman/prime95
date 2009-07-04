@@ -409,3 +409,16 @@ never be swapped out.  Thus, using this option could negatively impact
 the performance of other applications.  Also, you'll need to have
 the "Lock Pages in Memory" privilege to use this option.
 
+LINUX/FREEBSD/APPLE ONLY: In prime.txt you can have set the nice level.  By
+default, on startup mprime automatically sets the program to nice priority.
+This isn't really necessary since worker threads are usually set to at a much
+lower priority.  However, sysadmins might be alarmed to see a CPU intensive
+program not running at nice priority when they execute a ps command (it takes
+a more complicated ps command to see that the CPU intensive threads are running
+at a lower priority). You can change the nice level in prime.txt with the line:
+	Nice=n
+where n is the nice level. The default nice level is 10.  In linux you can select
+a value from -20 to +19.  In FreeBSD and Mac OS X you can select a value
+between -20 and 20.  Higher numbers represent a "nicer" program (lower priority).
+In all OSes, a zero nice level means run at the normal priority.
+

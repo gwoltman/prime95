@@ -4,6 +4,11 @@ New features in Version 25.11 of mprime
 1)  PRP of k*b^n+c where b > 2 will be faster in many cases.
 2)  Zero-padded FFTs are about 3-4% faster.  These FFTs are used in projects
     like SeventeenOrBust.
+3)  Mprime automatically sets the program to nice priority.  Technically, this
+    is not necessary since worker threads are set to the lowest possible priority.
+    However, sysadmins might be alarmed to see a CPU intensive program not running
+    at nice priority when executing a ps command (it takes a more complicated ps
+    command to see that the CPU intensive threads are running at a lower priority).
 
 New features in Version 25.10 of mprime
 ---------------------------------------
