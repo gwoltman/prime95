@@ -49,27 +49,38 @@ error_check_interleaved MACRO xmmreg1, tmpreg1, xmmreg2, tmpreg2, errreg
 ; For the b = 2 case, we can split hi and lo using any power of 2 larger
 ; than the FFT base, this allows for some simpler code in this case.
 
-base2_mul_by_const MACRO xmmreg, xmmreghi
+
+; These routines split an FFT value and then multiplies it by the small
+; constant.  If we are error-checking the input FFT value has already
+; been rounded.
+
+mul_by_const_interleaved MACRO base2, echk, xmmreg, xmmreghi, xmmtmp, basereg, xmmreg2, xmmreg2hi, xmmtmp2, basereg2
+base2	 base2_mul_by_const_interleaved echk, xmmreg, xmmreghi, xmmreg2, xmmreg2hi
+no base2 nobase2_mul_by_const_interleaved echk, xmmreg, xmmreghi, xmmtmp, basereg, xmmreg2, xmmreg2hi, xmmtmp2, basereg2
+	ENDM
+
+base2_mul_by_const MACRO echk, xmmreg, xmmreghi
 	movapd	xmmreghi, XMM_BIGBIGVAL
 	addpd	xmmreghi, xmmreg	;; Round to nearest multiple of 2^25
-	addpd	xmmreg, XMM_BIGVAL	;; Round to an integer
+no echk	addpd	xmmreg, XMM_BIGVAL	;; Round to an integer
 	subpd	xmmreghi, XMM_BIGBIGVAL
-	subpd	xmmreg, XMM_BIGVAL
+no echk	subpd	xmmreg, XMM_BIGVAL
 	subpd	xmmreg, xmmreghi	;; xmmreg now contains low 25 bits
 	mulpd	xmmreghi, XMM_MULCONST	;; Multiply by the small constant
 	mulpd	xmmreg, XMM_MULCONST
 	ENDM
-base2_mul_by_const_interleaved MACRO xmmreg, xmmreghi, xmmreg2, xmmreg2hi
+
+base2_mul_by_const_interleaved MACRO echk, xmmreg, xmmreghi, xmmreg2, xmmreg2hi
 	movapd	xmmreghi, XMM_BIGBIGVAL
 	addpd	xmmreghi, xmmreg	;; Round to nearest multiple of 2^25
 	movapd	xmmreg2hi, XMM_BIGBIGVAL
 	addpd	xmmreg2hi, xmmreg2	;; Round to nearest multiple of 2^25
-	addpd	xmmreg, XMM_BIGVAL	;; Round to an integer
-	addpd	xmmreg2, XMM_BIGVAL	;; Round to an integer
+no echk	addpd	xmmreg, XMM_BIGVAL	;; Round to an integer
+no echk	addpd	xmmreg2, XMM_BIGVAL	;; Round to an integer
 	subpd	xmmreghi, XMM_BIGBIGVAL
 	subpd	xmmreg2hi, XMM_BIGBIGVAL
-	subpd	xmmreg, XMM_BIGVAL
-	subpd	xmmreg2, XMM_BIGVAL
+no echk	subpd	xmmreg, XMM_BIGVAL
+no echk	subpd	xmmreg2, XMM_BIGVAL
 	subpd	xmmreg, xmmreghi	;; xmmreg now contains low 25 bits
 	subpd	xmmreg2, xmmreg2hi	;; xmmreg now contains low 25 bits
 	mulpd	xmmreghi, XMM_MULCONST	;; Multiply by the small constant
@@ -77,13 +88,14 @@ base2_mul_by_const_interleaved MACRO xmmreg, xmmreghi, xmmreg2, xmmreg2hi
 	mulpd	xmmreg, XMM_MULCONST
 	mulpd	xmmreg2, XMM_MULCONST
 	ENDM
-nobase2_mul_by_const MACRO xmmreg, xmmreghi, xmmtmp, basereg
+
+nobase2_mul_by_const MACRO echk, xmmreg, xmmreghi, xmmtmp, basereg
 	movapd	xmmreghi, XMM_LIMIT_INVERSE[basereg]
 	mulpd	xmmreghi, xmmreg	;; Compute FFTvalue / base
 	movapd	xmmtmp, XMM_BIGVAL
-	addpd	xmmreg, xmmtmp		;; Begin round to an integer
+no echk	addpd	xmmreg, xmmtmp		;; Begin round to an integer
 	addpd	xmmreghi, xmmtmp	;; Begin round to an integer
-	subpd	xmmreg, xmmtmp		;; End round to an integer
+no echk	subpd	xmmreg, xmmtmp		;; End round to an integer
 	subpd	xmmreghi, xmmtmp	;; End round to an integer
 	movapd	xmmtmp, XMM_LIMIT_BIGMAX[basereg]
 	mulpd	xmmtmp, xmmreghi
@@ -91,18 +103,19 @@ nobase2_mul_by_const MACRO xmmreg, xmmreghi, xmmtmp, basereg
 	mulpd	xmmreghi, XMM_MULCONST	;; Multiply by the small constant
 	mulpd	xmmreg, XMM_MULCONST
 	ENDM
-nobase2_mul_by_const_interleaved MACRO xmmreg, xmmreghi, xmmtmp, basereg, xmmreg2, xmmreg2hi, xmmtmp2, basereg2
+
+nobase2_mul_by_const_interleaved MACRO echk, xmmreg, xmmreghi, xmmtmp, basereg, xmmreg2, xmmreg2hi, xmmtmp2, basereg2
 	movapd	xmmreghi, XMM_LIMIT_INVERSE[basereg]
 	mulpd	xmmreghi, xmmreg	;; Compute FFTvalue / base
 	movapd	xmmreg2hi, XMM_LIMIT_INVERSE[basereg2]
 	mulpd	xmmreg2hi, xmmreg2	;; Compute FFTvalue / base
 	movapd	xmmtmp, XMM_BIGVAL
-	addpd	xmmreg, xmmtmp		;; Begin round to an integer
-	addpd	xmmreg2, xmmtmp		;; Begin round to an integer
+no echk	addpd	xmmreg, xmmtmp		;; Begin round to an integer
+no echk	addpd	xmmreg2, xmmtmp		;; Begin round to an integer
 	addpd	xmmreghi, xmmtmp	;; Begin round to an integer
 	addpd	xmmreg2hi, xmmtmp	;; Begin round to an integer
-	subpd	xmmreg, xmmtmp		;; End round to an integer
-	subpd	xmmreg2, xmmtmp		;; End round to an integer
+no echk	subpd	xmmreg, xmmtmp		;; End round to an integer
+no echk	subpd	xmmreg2, xmmtmp		;; End round to an integer
 	subpd	xmmreghi, xmmtmp	;; End round to an integer
 	subpd	xmmreg2hi, xmmtmp	;; End round to an integer
 	movapd	xmmtmp, XMM_LIMIT_BIGMAX[basereg]
@@ -133,15 +146,6 @@ base2 no const		base2_noconst_rounding xmmval, xmmcarry, xmmtmp, basereg
 no base2 no const	nobase2_noconst_rounding xmmval, xmmcarry, xmmtmp, basereg
 	ENDM
 
-base2_const_rounding MACRO xmmval, xmmcarry, xmmtmp, basereg
-	movapd	xmmtmp, XMM_LIMIT_BIGMAX[basereg]	;; Load maximum * BIGVAL - BIGVAL
-	addpd	xmmtmp, xmmval				;; y1 = top bits of x
-	addpd	xmmcarry, xmmtmp			;; Add in upper mul-by-const bits
-	mulpd	xmmcarry, XMM_LIMIT_INVERSE[basereg]	;; next carry = shifted y1
-	subpd	xmmtmp, XMM_LIMIT_BIGMAX[basereg]	;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
-	subpd	xmmval, xmmtmp				;; rounded value = x1 - z1
-	ENDM
-
 base2_noconst_rounding MACRO xmmval, xmmcarry, xmmtmp, basereg
 	movapd	xmmcarry, XMM_LIMIT_BIGMAX[basereg]	;; Load maximum * BIGVAL - BIGVAL
 	addpd	xmmcarry, xmmval			;; y1 = top bits of val
@@ -151,15 +155,13 @@ base2_noconst_rounding MACRO xmmval, xmmcarry, xmmtmp, basereg
 	mulpd	xmmcarry, XMM_LIMIT_INVERSE[basereg]	;; carry = shifted y1
 	ENDM
 
-nobase2_const_rounding MACRO xmmval, xmmcarry, xmmtmp, basereg
-	subpd	xmmval, XMM_BIGVAL			;; Remove rounding constant from val
-	movapd	xmmtmp, XMM_LIMIT_INVERSE[basereg]	;; Load maximum inverse
-	mulpd	xmmtmp, xmmval				;; val / base
-	addpd	xmmtmp, XMM_BIGVAL			;; next carry = BIGVAL + val / base
-	addpd	xmmcarry, xmmtmp			;; next carry = BIGVAL + round (fftval * mulbyconst / base) + val / base
-	subpd	xmmtmp, XMM_BIGVAL
-	mulpd	xmmtmp, XMM_LIMIT_BIGMAX[basereg]	;; z = top bits of val
-	subpd	xmmval, xmmtmp				;; new value = val - z
+base2_const_rounding MACRO xmmval, xmmcarry, xmmtmp, basereg
+	movapd	xmmtmp, XMM_LIMIT_BIGMAX[basereg]	;; Load maximum * BIGVAL - BIGVAL
+	addpd	xmmtmp, xmmval				;; y1 = top bits of x
+	addpd	xmmcarry, xmmtmp			;; Add in upper mul-by-const bits
+	mulpd	xmmcarry, XMM_LIMIT_INVERSE[basereg]	;; next carry = shifted y1
+	subpd	xmmtmp, XMM_LIMIT_BIGMAX[basereg]	;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
+	subpd	xmmval, xmmtmp				;; rounded value = x1 - z1
 	ENDM
 
 nobase2_noconst_rounding MACRO xmmval, xmmcarry, xmmtmp, basereg
@@ -173,6 +175,17 @@ nobase2_noconst_rounding MACRO xmmval, xmmcarry, xmmtmp, basereg
 	subpd	xmmval, xmmtmp				;; new value = val - z
 	ENDM
 
+nobase2_const_rounding MACRO xmmval, xmmcarry, xmmtmp, basereg
+	subpd	xmmval, XMM_BIGVAL			;; Remove rounding constant from val
+	movapd	xmmtmp, XMM_LIMIT_INVERSE[basereg]	;; Load maximum inverse
+	mulpd	xmmtmp, xmmval				;; val / base
+	addpd	xmmtmp, XMM_BIGVAL			;; next carry = BIGVAL + val / base
+	addpd	xmmcarry, xmmtmp			;; next carry = BIGVAL + round (fftval * mulbyconst / base) + val / base
+	subpd	xmmtmp, XMM_BIGVAL
+	mulpd	xmmtmp, XMM_LIMIT_BIGMAX[basereg]	;; z = top bits of val
+	subpd	xmmval, xmmtmp				;; new value = val - z
+	ENDM
+
 ; Same as above except interleaved for better scheduling
 
 rounding_interleaved MACRO base2, const, xmmval, xmmcarry, xmmtmp, basereg, xmmval2, xmmcarry2, xmmtmp2, basereg2
@@ -180,21 +193,6 @@ base2 const		base2_const_rounding_interleaved xmmval, xmmcarry, xmmtmp, basereg,
 no base2 const		nobase2_const_rounding_interleaved xmmval, xmmcarry, xmmtmp, basereg, xmmval2, xmmcarry2, xmmtmp2, basereg2
 base2 no const		base2_noconst_rounding_interleaved xmmval, xmmcarry, xmmtmp, basereg, xmmval2, xmmcarry2, xmmtmp2, basereg2
 no base2 no const	nobase2_noconst_rounding_interleaved xmmval, xmmcarry, xmmtmp, basereg, xmmval2, xmmcarry2, xmmtmp2, basereg2
-	ENDM
-
-base2_const_rounding_interleaved MACRO xmmval, xmmcarry, xmmtmp, basereg, xmmval2, xmmcarry2, xmmtmp2, basereg2
-	movapd	xmmtmp, XMM_LIMIT_BIGMAX[basereg]	;; Load maximum * BIGVAL - BIGVAL
-	addpd	xmmtmp, xmmval				;; y1 = top bits of x
-	movapd	xmmtmp2, XMM_LIMIT_BIGMAX[basereg2]	;; Load maximum * BIGVAL - BIGVAL
-	addpd	xmmtmp2, xmmval2			;; y1 = top bits of x
-	addpd	xmmcarry, xmmtmp			;; Add in upper mul-by-const bits
-	addpd	xmmcarry2, xmmtmp2			;; Add in upper mul-by-const bits
-	mulpd	xmmcarry, XMM_LIMIT_INVERSE[basereg]	;; next carry = shifted y1
-	mulpd	xmmcarry2, XMM_LIMIT_INVERSE[basereg2]	;; next carry = shifted y1
-	subpd	xmmtmp, XMM_LIMIT_BIGMAX[basereg]	;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
-	subpd	xmmtmp2, XMM_LIMIT_BIGMAX[basereg2]	;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
-	subpd	xmmval, xmmtmp				;; rounded value = x1 - z1
-	subpd	xmmval2, xmmtmp2			;; rounded value = x1 - z1
 	ENDM
 
 base2_noconst_rounding_interleaved MACRO xmmval, xmmcarry, xmmtmp, basereg, xmmval2, xmmcarry2, xmmtmp2, basereg2
@@ -212,23 +210,19 @@ base2_noconst_rounding_interleaved MACRO xmmval, xmmcarry, xmmtmp, basereg, xmmv
 	mulpd	xmmcarry2, XMM_LIMIT_INVERSE[basereg2]	;; carry = shifted y1
 	ENDM
 
-nobase2_const_rounding_interleaved MACRO xmmval, xmmcarry, xmmtmp, basereg, xmmval2, xmmcarry2, xmmtmp2, basereg2
-	subpd	xmmval, XMM_BIGVAL			;; Remove rounding constant from val
-	subpd	xmmval2, XMM_BIGVAL			;; Remove rounding constant from val
-	movapd	xmmtmp, XMM_LIMIT_INVERSE[basereg]	;; Load maximum inverse
-	mulpd	xmmtmp, xmmval				;; val / base
-	movapd	xmmtmp2, XMM_LIMIT_INVERSE[basereg2]	;; Load maximum inverse
-	mulpd	xmmtmp2, xmmval2			;; val / base
-	addpd	xmmtmp, XMM_BIGVAL			;; next carry = BIGVAL + val / base
-	addpd	xmmtmp2, XMM_BIGVAL			;; next carry = BIGVAL + val / base
-	addpd	xmmcarry, xmmtmp			;; next carry = BIGVAL + round (fftval * mulbyconst / base) + val / base
-	addpd	xmmcarry2, xmmtmp2			;; next carry = BIGVAL + round (fftval * mulbyconst / base) + val / base
-	subpd	xmmtmp, XMM_BIGVAL
-	subpd	xmmtmp2, XMM_BIGVAL
-	mulpd	xmmtmp, XMM_LIMIT_BIGMAX[basereg]	;; z = top bits of val
-	mulpd	xmmtmp2, XMM_LIMIT_BIGMAX[basereg2]	;; z = top bits of val
-	subpd	xmmval, xmmtmp				;; new value = val - z
-	subpd	xmmval2, xmmtmp2			;; new value = val - z
+base2_const_rounding_interleaved MACRO xmmval, xmmcarry, xmmtmp, basereg, xmmval2, xmmcarry2, xmmtmp2, basereg2
+	movapd	xmmtmp, XMM_LIMIT_BIGMAX[basereg]	;; Load maximum * BIGVAL - BIGVAL
+	addpd	xmmtmp, xmmval				;; y1 = top bits of x
+	movapd	xmmtmp2, XMM_LIMIT_BIGMAX[basereg2]	;; Load maximum * BIGVAL - BIGVAL
+	addpd	xmmtmp2, xmmval2			;; y1 = top bits of x
+	addpd	xmmcarry, xmmtmp			;; Add in upper mul-by-const bits
+	addpd	xmmcarry2, xmmtmp2			;; Add in upper mul-by-const bits
+	mulpd	xmmcarry, XMM_LIMIT_INVERSE[basereg]	;; next carry = shifted y1
+	mulpd	xmmcarry2, XMM_LIMIT_INVERSE[basereg2]	;; next carry = shifted y1
+	subpd	xmmtmp, XMM_LIMIT_BIGMAX[basereg]	;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
+	subpd	xmmtmp2, XMM_LIMIT_BIGMAX[basereg2]	;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
+	subpd	xmmval, xmmtmp				;; rounded value = x1 - z1
+	subpd	xmmval2, xmmtmp2			;; rounded value = x1 - z1
 	ENDM
 
 nobase2_noconst_rounding_interleaved MACRO xmmval, xmmcarry, xmmtmp, basereg, xmmval2, xmmcarry2, xmmtmp2, basereg2
@@ -246,6 +240,25 @@ nobase2_noconst_rounding_interleaved MACRO xmmval, xmmcarry, xmmtmp, basereg, xm
 	addpd	xmmtmp2, xmmcarry2			;; round (val / base)
 	mulpd	xmmtmp, XMM_LIMIT_BIGMAX[basereg]	;; z = round (val / base) * base
 	mulpd	xmmtmp2, XMM_LIMIT_BIGMAX[basereg2]	;; z = round (val / base) * base
+	subpd	xmmval, xmmtmp				;; new value = val - z
+	subpd	xmmval2, xmmtmp2			;; new value = val - z
+	ENDM
+
+nobase2_const_rounding_interleaved MACRO xmmval, xmmcarry, xmmtmp, basereg, xmmval2, xmmcarry2, xmmtmp2, basereg2
+	subpd	xmmval, XMM_BIGVAL			;; Remove rounding constant from val
+	subpd	xmmval2, XMM_BIGVAL			;; Remove rounding constant from val
+	movapd	xmmtmp, XMM_LIMIT_INVERSE[basereg]	;; Load maximum inverse
+	mulpd	xmmtmp, xmmval				;; val / base
+	movapd	xmmtmp2, XMM_LIMIT_INVERSE[basereg2]	;; Load maximum inverse
+	mulpd	xmmtmp2, xmmval2			;; val / base
+	addpd	xmmtmp, XMM_BIGVAL			;; next carry = BIGVAL + val / base
+	addpd	xmmtmp2, XMM_BIGVAL			;; next carry = BIGVAL + val / base
+	addpd	xmmcarry, xmmtmp			;; next carry = BIGVAL + round (fftval * mulbyconst / base) + val / base
+	addpd	xmmcarry2, xmmtmp2			;; next carry = BIGVAL + round (fftval * mulbyconst / base) + val / base
+	subpd	xmmtmp, XMM_BIGVAL
+	subpd	xmmtmp2, XMM_BIGVAL
+	mulpd	xmmtmp, XMM_LIMIT_BIGMAX[basereg]	;; z = top bits of val
+	mulpd	xmmtmp2, XMM_LIMIT_BIGMAX[basereg2]	;; z = top bits of val
 	subpd	xmmval, xmmtmp				;; new value = val - z
 	subpd	xmmval2, xmmtmp2			;; new value = val - z
 	ENDM
@@ -280,7 +293,6 @@ nobase2_single_rounding MACRO xmmval, xmmcarry, xmmtmp, basereg
 	mulsd	xmmtmp, XMM_LIMIT_BIGMAX[basereg]	;; z = round (val / base) * base
 	subsd	xmmval, xmmtmp				;; new value = val - z
 	ENDM
-
 
 
 single_rounding_interleaved MACRO base2, xmmval, xmmcarry, xmmtmp, basereg, xmmval2, xmmcarry2, xmmtmp2, basereg2
@@ -559,10 +571,10 @@ ttp	mov	cl, [rdi+2]
 	addpd	xmm7, xmm1		;; sumout += values2
 	mulpd	xmm1, [rbp+64]		;; Mul values2 by two-to-minus-phi
 echk	error_check_interleaved xmm0, xmm4, xmm1, xmm5, xmm6
-const base2 base2_mul_by_const_interleaved xmm0, xmm4, xmm1, xmm5
-const no base2 nobase2_mul_by_const xmm0, xmm4, xmm5, rax
+const base2 base2_mul_by_const_interleaved echk, xmm0, xmm4, xmm1, xmm5
+const no base2 nobase2_mul_by_const echk, xmm0, xmm4, xmm5, rax
 	addpd	xmm2, xmm0		;; x1 = values + carry
-const no base2 nobase2_mul_by_const xmm1, xmm5, xmm0, rcx
+const no base2 nobase2_mul_by_const echk, xmm1, xmm5, xmm0, rcx
 	addpd	xmm3, xmm1		;; x2 = values + carry
 	rounding_interleaved base2, const, xmm2, xmm4, xmm0, rax, xmm3, xmm5, xmm1, rcx
 ttp	mulpd	xmm2, [rbp+16]		;; new value1 = val * two-to-phi
@@ -581,10 +593,10 @@ ttp	mov	cl, [rdi+3]
 zero	xorpd	xmm3, xmm3
 	movapd	[rsi+32], xmm3		;; Save previous value2
 echk	error_check_interleaved xmm0, xmm2, xmm1, xmm3, xmm6
-const base2 base2_mul_by_const_interleaved xmm0, xmm2, xmm1, xmm3
-const no base2 nobase2_mul_by_const xmm0, xmm2, xmm3, rax
+const base2 base2_mul_by_const_interleaved echk, xmm0, xmm2, xmm1, xmm3
+const no base2 nobase2_mul_by_const echk, xmm0, xmm2, xmm3, rax
 	addpd	xmm0, xmm4		;; x1 = values + carry
-const no base2 nobase2_mul_by_const xmm1, xmm3, xmm4, rcx
+const no base2 nobase2_mul_by_const echk, xmm1, xmm3, xmm4, rcx
 	addpd	xmm1, xmm5		;; x2 = values + carry
 	rounding_interleaved base2, const, xmm0, xmm2, xmm4, rax, xmm1, xmm3, xmm5, rcx
 ttp	mulpd	xmm0, [rbp+48]		;; new value1 = val * two-to-phi
@@ -1664,8 +1676,7 @@ ttp	mulpd	xmm3, [rbx][rcx]	;; Mul by col two-to-minus-phi
 no ttp	movapd	xmm3, [rbx][rcx]	;; two-to-minus-phi
 	mulpd	xmm1, xmm3		;; Mul by fudged col two-to-minus-phi
 echk	error_check_interleaved xmm0, xmm4, xmm1, xmm5, xmm6
-const base2 base2_mul_by_const_interleaved xmm0, xmm4, xmm1, xmm5
-const no base2 nobase2_mul_by_const_interleaved xmm0, xmm4, xmm2, rax, xmm1, xmm5, xmm3, rcx
+const	mul_by_const_interleaved base2, echk, xmm0, xmm4, xmm2, rax, xmm1, xmm5, xmm3, rcx
 	addpd	xmm0, [rbp+0*16]	;; x1 = values + carry
 	addpd	xmm1, [rbp+1*16]	;; x2 = values + carry
 
@@ -1713,8 +1724,7 @@ ttp	mulpd	xmm3, [rbx][rcx]	;; Mul by col two-to-minus-phi
 no ttp	movapd	xmm3, [rbx][rcx]	;; two-to-minus-phi
 	mulpd	xmm1, xmm3		;; Mul by fudged col two-to-minus-phi
 echk	error_check_interleaved xmm0, xmm4, xmm1, xmm5, xmm6
-const base2 base2_mul_by_const_interleaved xmm0, xmm4, xmm1, xmm5
-const no base2 nobase2_mul_by_const_interleaved xmm0, xmm4, xmm2, rax, xmm1, xmm5, xmm3, rcx
+const	mul_by_const_interleaved base2, echk, xmm0, xmm4, xmm2, rax, xmm1, xmm5, xmm3, rcx
 	addpd	xmm0, [rbp+2*16]	;; x1 = values + carry
 	addpd	xmm1, [rbp+3*16]	;; x2 = values + carry
 
@@ -1775,15 +1785,13 @@ no ttp	movapd	xmm3, [rbx][r9]		;; two-to-minus-phi
 	addpd	xmm7, xmm1		;; sumout += values4			;10-13	;7-9
 	mulpd	xmm9, xmm11		;; Mul by fudged col two-to-minus-phi	;11-16	;7-11
 echk	error_check_interleaved xmm8, xmm12, xmm9, xmm13, xmm6
-const base2 base2_mul_by_const_interleaved xmm8, xmm12, xmm9, xmm13
-const no base2 nobase2_mul_by_const_interleaved xmm8, xmm12, xmm10, rax, xmm9, xmm13, xmm11, rcx
+const	mul_by_const_interleaved base2, echk, xmm8, xmm12, xmm10, rax, xmm9, xmm13, xmm11, rcx
 	movapd	xmm0, [rsi+2*16]	;; Load values3
 	mulpd	xmm0, xmm2		;; Mul by fudged col two-to-minus-phi	;13-18	;8-12
 	addpd	xmm7, [rsi+2*16]	;; sumout += values3			;14-17	;10-12
 	mulpd	xmm1, xmm3		;; Mul by fudged col two-to-minus-phi	;15-20	;9-13
 echk	error_check_interleaved xmm0, xmm4, xmm1, xmm5, xmm6
-const base2 base2_mul_by_const_interleaved xmm0, xmm4, xmm1, xmm5
-const no base2 nobase2_mul_by_const_interleaved xmm0, xmm4, xmm2, r8, xmm1, xmm5, xmm3, r9
+const	mul_by_const_interleaved base2, echk, xmm0, xmm4, xmm2, r8, xmm1, xmm5, xmm3, r9
 	addpd	xmm8, [rbp+0*16]	;; x1 = values + carry			;16-19	;11-13
 	addpd	xmm9, [rbp+1*16]	;; x2 = values + carry			;18-21	;12-14
 
