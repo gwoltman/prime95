@@ -275,16 +275,16 @@ You can adjust the time period with this prime.txt setting:
 	PauseCheckInterval=n
 where n is the number of seconds between checking which programs are running.
 
-LINUX ONLY: In prime.txt you can have mprime suspend execution when the system
-load gets above a threshold.  This can improve system responsiveness
+LINUX/FREEBSD/APPLE ONLY: In prime.txt you can have mprime suspend one worker
+when the system load gets above a threshold.  This can improve system responsiveness
 by freeing up memory that mprime is currently using.  Mprime bases
-its decisions using the first value in /proc/loadavg.  In prime.txt, set
+its decisions using the first average displayed by uptime.  In prime.txt, set
 	MaxLoad=a
 	MinLoad=b
 	PauseTime=c
-For example, if MaxLoad is set to 4.5, mprime will suspend whenever the
+For example, if MaxLoad is set to 4.5, mprime will suspend a worker whenever the
 load average gets above 4.5.  If MinLoad is set to 3.1, then mprime will
-resume operation when the load average goes below this value.  Set PauseTime
+resume one worker when the load average goes below this value.  Set PauseTime
 to how often you want the program to check the load average.  This value
 is in seconds.
 
