@@ -1,3 +1,22 @@
+New features in Version 25.11 of mprime
+---------------------------------------
+
+1)  PRP of k*b^n+c where b > 2 will be faster in many cases.
+2)  Zero-padded FFTs are about 3-4% faster.  These FFTs are used in projects
+    like SeventeenOrBust.
+
+New features in Version 25.10 of mprime
+---------------------------------------
+
+1)  A bug that caused pfactor save file names to begin with the letter p
+    was fixed.  It now uses m like all other P-1 efforts.  Old save file
+    names are automatically upgraded.
+2)  Mprime now recovers gracefully from more out-of-memory conditions
+    when doing ECM or P-1.
+3)  We now do P-1 factoring one bit level before the trial factoring limit.
+    The previous version started P-1 two bit levels before the trial
+    factoring limit.
+
 New features in Version 25.9 of mprime
 --------------------------------------
 
