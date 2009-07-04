@@ -2809,6 +2809,7 @@ int internal_gwsetup (
 	memcpy (gwdata->GWPROCPTRS+4, info->add_sub_norm_procs, 12 * sizeof (void *));
 	memcpy (gwdata->GWPROCPTRS+norm_routines,
 		info->add_sub_norm_procs + 16 +
+			((gwdata->cpu_flags & CPU_SSE41) ? 32 : 0) +
 			(b == 2 ? 0 : 16) +
 			(gwdata->RATIONAL_FFT ? 0 : 8) +
 			(gwdata->ZERO_PADDED_FFT ? 4 : 0),

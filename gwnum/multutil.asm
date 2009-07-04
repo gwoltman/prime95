@@ -93,6 +93,24 @@ IFNB <prefix>
 	exnorm1	&prefix, &num&zpeb&suffix
 	exnorm1	&prefix, &num&zpcb&suffix
 	exnorm1	&prefix, &num&zpecb&suffix
+
+	exnorm1	&prefix, &num&s4&suffix
+	exnorm1	&prefix, &num&es4&suffix
+	exnorm1	&prefix, &num&cs4&suffix
+	exnorm1	&prefix, &num&ecs4&suffix
+	exnorm1	&prefix, &num&zps4&suffix
+	exnorm1	&prefix, &num&zpes4&suffix
+	exnorm1	&prefix, &num&zpcs4&suffix
+	exnorm1	&prefix, &num&zpecs4&suffix
+
+	exnorm1	&prefix, &num&bs4&suffix
+	exnorm1	&prefix, &num&ebs4&suffix
+	exnorm1	&prefix, &num&cbs4&suffix
+	exnorm1	&prefix, &num&ecbs4&suffix
+	exnorm1	&prefix, &num&zpbs4&suffix
+	exnorm1	&prefix, &num&zpebs4&suffix
+	exnorm1	&prefix, &num&zpcbs4&suffix
+	exnorm1	&prefix, &num&zpecbs4&suffix
 ENDIF
 	ENDM
 exnorm1	MACRO prefix, suffix
@@ -162,6 +180,14 @@ xprctab1 DP	OFFSET gwxadd1, OFFSET gwxaddq1, OFFSET gwxsub1
 	DP	OFFSET xr1zpb, OFFSET xr1zpeb, OFFSET xr1zpcb, OFFSET xr1zpecb
 	DP	OFFSET xi1b, OFFSET xi1eb, OFFSET xi1cb, OFFSET xi1ecb
 	DP	OFFSET xi1zpb, OFFSET xi1zpeb, OFFSET xi1zpcb, OFFSET xi1zpecb
+	DP	OFFSET xr1s4, OFFSET xr1es4, OFFSET xr1cs4, OFFSET xr1ecs4
+	DP	OFFSET xr1zps4, OFFSET xr1zpes4, OFFSET xr1zpcs4, OFFSET xr1zpecs4
+	DP	OFFSET xi1s4, OFFSET xi1es4, OFFSET xi1cs4, OFFSET xi1ecs4
+	DP	OFFSET xi1zps4, OFFSET xi1zpes4, OFFSET xi1zpcs4, OFFSET xi1zpecs4
+	DP	OFFSET xr1bs4, OFFSET xr1ebs4, OFFSET xr1cbs4, OFFSET xr1ecbs4
+	DP	OFFSET xr1zpbs4, OFFSET xr1zpebs4, OFFSET xr1zpcbs4, OFFSET xr1zpecbs4
+	DP	OFFSET xi1bs4, OFFSET xi1ebs4, OFFSET xi1cbs4, OFFSET xi1ecbs4
+	DP	OFFSET xi1zpbs4, OFFSET xi1zpebs4, OFFSET xi1zpcbs4, OFFSET xi1zpecbs4
 xprctab2 DP	OFFSET gwxadd2, OFFSET gwxaddq2, OFFSET gwxsub2
 	DP	OFFSET gwxsubq2, OFFSET gwxaddsub2, OFFSET gwxaddsubq2
 	DP	OFFSET gwxcopyzero2
@@ -176,6 +202,14 @@ xprctab2 DP	OFFSET gwxadd2, OFFSET gwxaddq2, OFFSET gwxsub2
 	DP	OFFSET xr2zpb, OFFSET xr2zpeb, OFFSET xr2zpcb, OFFSET xr2zpecb
 	DP	OFFSET xi2b, OFFSET xi2eb, OFFSET xi2cb, OFFSET xi2ecb
 	DP	OFFSET xi2zpb, OFFSET xi2zpeb, OFFSET xi2zpcb, OFFSET xi2zpecb
+	DP	OFFSET xr2s4, OFFSET xr2es4, OFFSET xr2cs4, OFFSET xr2ecs4
+	DP	OFFSET xr2zps4, OFFSET xr2zpes4, OFFSET xr2zpcs4, OFFSET xr2zpecs4
+	DP	OFFSET xi2s4, OFFSET xi2es4, OFFSET xi2cs4, OFFSET xi2ecs4
+	DP	OFFSET xi2zps4, OFFSET xi2zpes4, OFFSET xi2zpcs4, OFFSET xi2zpecs4
+	DP	OFFSET xr2bs4, OFFSET xr2ebs4, OFFSET xr2cbs4, OFFSET xr2ecbs4
+	DP	OFFSET xr2zpbs4, OFFSET xr2zpebs4, OFFSET xr2zpcbs4, OFFSET xr2zpecbs4
+	DP	OFFSET xi2bs4, OFFSET xi2ebs4, OFFSET xi2cbs4, OFFSET xi2ecbs4
+	DP	OFFSET xi2zpbs4, OFFSET xi2zpebs4, OFFSET xi2zpcbs4, OFFSET xi2zpecbs4
 xprctab2a DP	OFFSET gwxadd2, OFFSET gwxaddq2, OFFSET gwxsub2
 	DP	OFFSET gwxsubq2, OFFSET gwxaddsub2, OFFSET gwxaddsubq2
 	DP	OFFSET gwxcopyzero2
@@ -190,6 +224,14 @@ xprctab2a DP	OFFSET gwxadd2, OFFSET gwxaddq2, OFFSET gwxsub2
 	DP	OFFSET xr2zpbAMD, OFFSET xr2zpebAMD, OFFSET xr2zpcbAMD, OFFSET xr2zpecbAMD
 	DP	OFFSET xi2bAMD, OFFSET xi2ebAMD, OFFSET xi2cbAMD, OFFSET xi2ecbAMD
 	DP	OFFSET xi2zpbAMD, OFFSET xi2zpebAMD, OFFSET xi2zpcbAMD, OFFSET xi2zpecbAMD
+	DP	OFFSET xr2s4AMD, OFFSET xr2es4AMD, OFFSET xr2cs4AMD, OFFSET xr2ecs4AMD
+	DP	OFFSET xr2zps4AMD, OFFSET xr2zpes4AMD, OFFSET xr2zpcs4AMD, OFFSET xr2zpecs4AMD
+	DP	OFFSET xi2s4AMD, OFFSET xi2es4AMD, OFFSET xi2cs4AMD, OFFSET xi2ecs4AMD
+	DP	OFFSET xi2zps4AMD, OFFSET xi2zpes4AMD, OFFSET xi2zpcs4AMD, OFFSET xi2zpecs4AMD
+	DP	OFFSET xr2bs4AMD, OFFSET xr2ebs4AMD, OFFSET xr2cbs4AMD, OFFSET xr2ecbs4AMD
+	DP	OFFSET xr2zpbs4AMD, OFFSET xr2zpebs4AMD, OFFSET xr2zpcbs4AMD, OFFSET xr2zpecbs4AMD
+	DP	OFFSET xi2bs4AMD, OFFSET xi2ebs4AMD, OFFSET xi2cbs4AMD, OFFSET xi2ecbs4AMD
+	DP	OFFSET xi2zpbs4AMD, OFFSET xi2zpebs4AMD, OFFSET xi2zpcbs4AMD, OFFSET xi2zpecbs4AMD
 
 	;; Align so that other GWDATA areas are also aligned on a cache line
 	align 128
