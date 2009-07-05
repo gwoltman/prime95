@@ -2408,7 +2408,7 @@ int readWorkToDoFile (void)
 {
 	FILE	*fd;
 	unsigned int tnum, i, linenum;
-	int	rc, mangled, first_real_work_line;
+	int	rc, mangled;
 	char	line[2048], newFileName[80];
 
 /* Grab the lock so that comm thread cannot try to add work units while */
@@ -2461,7 +2461,6 @@ int readWorkToDoFile (void)
 
 	tnum = 0;
 	linenum = 0;
-	first_real_work_line = TRUE;
 	while (fgets (line, sizeof (line), fd)) {
 	    struct work_unit *w;
 	    char keyword[20];
@@ -2484,7 +2483,6 @@ int readWorkToDoFile (void)
 
 	    if (line[0] == '[' && linenum > 1) {
 		tnum++;
-		first_real_work_line = TRUE;
 		if (tnum == NUM_WORKER_THREADS) {
 		    char	buf[100];
 		    sprintf (buf,
@@ -2880,38 +2878,81 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 
 	    auxillaryWorkUnitInit (w);
 
-/* Set stage and pct_complete for work units that have already begun */
-/* based on data in the save files.  Only do this for the first appearance */
-/* of a number for a worker.  For example, if a worker has several entries */
-/* ECMing the same number, only the first entry will have the pct_complete set. */
-
-	    if (WELL_BEHAVED_WORK && !first_real_work_line) {
-		w->stage[0] = 0;
-		w->pct_complete = 0.0;
-	    } else {
-		struct work_unit *earlier_w;
-		for (earlier_w = WORK_UNITS[tnum].first; ; earlier_w = earlier_w->next) {
-			if (earlier_w == NULL) {
-				pct_complete_from_savefile (w);
-				break;
-			}
-			if (earlier_w->work_type == w->work_type &&
-			    earlier_w->k == w->k &&
-			    earlier_w->b == w->b &&
-			    earlier_w->n == w->n &&
-			    earlier_w->c == w->c) {
-				w->stage[0] = 0;
-				w->pct_complete = 0.0;
-				break;
-			}
-		}
-	    }
-	    first_real_work_line = FALSE;
-
 /* Grow the work_unit array if necessary and add this entry */
 
 wdone:	    rc = addToWorkUnitArray (tnum, w, TRUE);
 	    if (rc) goto retrc;
+	}
+
+/* Now that we've finished reading the worktodo file, set stage */
+/* and pct_complete based on existing save files. */
+
+	for (tnum = 0; tnum < MAX_NUM_WORKER_THREADS; tnum++) {
+	    struct work_unit *w;
+	    int first_real_work_line;
+
+	    first_real_work_line = TRUE;
+	    for (w = WORK_UNITS[tnum].first; w != NULL; w = w->next) {
+
+/* Init assuming we won't find a save file. */
+
+		w->stage[0] = 0;
+		w->pct_complete = 0.0;
+
+/* Skip comment lines */
+
+		if (w->work_type == WORK_NONE) continue;
+
+/* If well behaved work is set, only first work lines can have a save file */
+
+		if (WELL_BEHAVED_WORK && !first_real_work_line) goto next_wu;
+
+/* Set stage and pct_complete for work units that have already begun */
+/* based on data in the save files.  Only do this for the first appearance */
+/* of a number for a worker.  For example, if a worker has several entries */
+/* ECMing the same number, only the first entry will have the pct_complete set. */
+/* We also assume an existing save file is used for the first worker of a thread */
+/* rather than a non-first work unit in an earlier thread. */
+
+		if (!first_real_work_line) {
+			int	tnum2;
+			struct work_unit *w2;
+
+/* See if any other worker's first work unit is testing the same number. */
+/* If so, assume any existing save files are for that worker */
+			
+			for (tnum2 = 0; tnum2 < MAX_NUM_WORKER_THREADS; tnum2++) {
+				for (w2 = WORK_UNITS[tnum2].first; w2 != NULL; w2 = w2->next) {
+					if (w2->work_type == WORK_NONE) continue;
+					if (w2->work_type == w->work_type &&
+					    w2->k == w->k &&
+					    w2->b == w->b &&
+					    w2->n == w->n &&
+					    w2->c == w->c) goto next_wu;
+					break;
+				}
+			}
+
+/* See if any earlier work units in this worker are testing the same number. */
+/* If so, assume any existing save files are for that work unit. */
+
+			for (w2 = WORK_UNITS[tnum].first; w2 != w; w2 = w2->next) {
+				if (w2->work_type == w->work_type &&
+				    w2->k == w->k &&
+				    w2->b == w->b &&
+				    w2->n == w->n &&
+				    w2->c == w->c) goto next_wu;
+			}
+		}
+
+/* Now see if an existing save file can be used to set stage and pct_complete */
+
+		pct_complete_from_savefile (w);
+
+/* Progress to the next work unit */
+
+next_wu:	first_real_work_line = FALSE;
+	    }
 	}
 
 /* Close the file, free the lock and return success */
