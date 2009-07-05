@@ -3003,26 +3003,26 @@ int testUniqueFileName (
 	int	thread_num,
 	char	*filename)
 {
-static	int	SAVEFILE_MUTEX_INITIALIZED = FALSE;
-static	gwmutex	SAVEFILE_MUTEX;
+static	int	USED_FILENAMES_MUTEX_INITIALIZED = FALSE;
+static	gwmutex	USED_FILENAMES_MUTEX;
 static	char	USED_FILENAMES[MAX_NUM_WORKER_THREADS][32];
 	int	i;
 
 /* Initialize the lock and used file array */
 
-	if (!SAVEFILE_MUTEX_INITIALIZED) {
-		SAVEFILE_MUTEX_INITIALIZED = 1;
-		gwmutex_init (&SAVEFILE_MUTEX);
+	if (!USED_FILENAMES_MUTEX_INITIALIZED) {
+		USED_FILENAMES_MUTEX_INITIALIZED = 1;
+		gwmutex_init (&USED_FILENAMES_MUTEX);
 		for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) USED_FILENAMES[i][0] = 0;
 	}
 
-/* Scan array to see if the save file names is in use by another thread. */
+/* Scan array to see if the save file name is in use by another thread. */
 
-	gwmutex_lock (&SAVEFILE_MUTEX);
+	gwmutex_lock (&USED_FILENAMES_MUTEX);
 	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
 		if (i != thread_num &&
 		    strcmp (filename, USED_FILENAMES[i]) == 0) {
-			gwmutex_unlock (&SAVEFILE_MUTEX);
+			gwmutex_unlock (&USED_FILENAMES_MUTEX);
 			return (FALSE);
 		}
 	}
@@ -3030,7 +3030,7 @@ static	char	USED_FILENAMES[MAX_NUM_WORKER_THREADS][32];
 /* File name not in use, add the name to the array. */
 
 	strcpy (USED_FILENAMES[thread_num], filename);
-	gwmutex_unlock (&SAVEFILE_MUTEX);
+	gwmutex_unlock (&USED_FILENAMES_MUTEX);
 	return (TRUE);
 }
 
@@ -3045,18 +3045,19 @@ void uniquifySaveFile (
 	char	original_filename[32];
 	int	i;
 
-/* Our first preference is to use the save file name without any extensions */
-
-	if (testUniqueFileName (thread_num, filename)) return;
-
-/* Nuts, it is in use.  We must generate a filename with an extension */
+/* Remember the orignal save file name */
 
 	strcpy (original_filename, filename);
 
-/* Our second preference is to use an existing save file with an extension */
+/* Our first preference is to use an existing save file with an extension */
 /* consisting of this thread number */
 
 	sprintf (filename, "%s_%d", original_filename, thread_num+1);
+	if (fileExists (filename) && testUniqueFileName (thread_num, filename)) return;
+
+/* Our second preference is to use an existing save file without any extensions */
+
+	strcpy (filename, original_filename);
 	if (fileExists (filename) && testUniqueFileName (thread_num, filename)) return;
 
 /* Our third preference is to use any existing save file */
@@ -3066,7 +3067,12 @@ void uniquifySaveFile (
 		if (fileExists (filename) && testUniqueFileName (thread_num, filename)) return;
 	}
 
-/* Our fourth preference is to use an extension consisting of this thread number */
+/* Our fourth preference is to use the save file name without any extensions */
+
+	strcpy (filename, original_filename);
+	if (testUniqueFileName (thread_num, filename)) return;
+
+/* Our fifth preference is to use an extension consisting of this thread number */
 
 	sprintf (filename, "%s_%d", original_filename, thread_num+1);
 	if (testUniqueFileName (thread_num, filename)) return;
