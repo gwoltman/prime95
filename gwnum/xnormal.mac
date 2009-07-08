@@ -60,91 +60,123 @@ no sse4	subpd	tmpreg2, XMM_BIGVAL
 ; constant.  If we are error-checking the input FFT value has already
 ; been rounded.
 
-mul_by_const_interleaved MACRO base2, echk, sse4, xmmreg, xmmreghi, xmmtmp, basereg, xmmreg2, xmmreg2hi, xmmtmp2, basereg2
-base2	 base2_mul_by_const_interleaved echk, sse4, xmmreg, xmmreghi, xmmreg2, xmmreg2hi
-no base2 nobase2_mul_by_const_interleaved echk, sse4, xmmreg, xmmreghi, xmmtmp, basereg, xmmreg2, xmmreg2hi, xmmtmp2, basereg2
+mul_by_const MACRO base2, echk, sse4, xmmreg, xmmreghi, xmmtmp, basereg, errreg
+base2	 base2_mul_by_const echk, sse4, xmmreg, xmmreghi, xmmtmp, errreg
+no base2 nobase2_mul_by_const echk, sse4, xmmreg, xmmreghi, xmmtmp, basereg, errreg
 	ENDM
 
-base2_mul_by_const MACRO echk, sse4, xmmreg, xmmreghi
-		movapd	xmmreghi, XMM_BIGBIGVAL
-		addpd	xmmreghi, xmmreg	;; Round to nearest multiple of 2^25
-sse4 no echk	roundpd xmmreg, xmmreg, 0	;; Round to an integer
-no sse4 no echk	addpd	xmmreg, XMM_BIGVAL	;; Round to an integer
-		subpd	xmmreghi, XMM_BIGBIGVAL
-no sse4 no echk	subpd	xmmreg, XMM_BIGVAL
-		subpd	xmmreg, xmmreghi	;; xmmreg now contains low 25 bits
-		mulpd	xmmreghi, XMM_MULCONST	;; Multiply by the small constant
-		mulpd	xmmreg, XMM_MULCONST
-		ENDM
+base2_mul_by_const MACRO echk, sse4, xmmreg, xmmreghi, xmmtmp, errreg
+	movapd	xmmreghi, XMM_BIGBIGVAL
+	addpd	xmmreghi, xmmreg	;; Round to nearest multiple of 2^25
+sse4	roundpd xmmtmp, xmmreg, 0	;; Round to an integer
+no sse4	movapd	xmmtmp, XMM_BIGVAL
+no sse4	addpd	xmmtmp, xmmreg		;; Round to an integer
+	subpd	xmmreghi, XMM_BIGBIGVAL
+no sse4	subpd	xmmtmp, XMM_BIGVAL
+	subpd	xmmtmp, xmmreghi	;; xmmreg now contains low 25 bits
+echk	subpd	xmmreg, xmmtmp		;; This is the convolution error
+echk	andpd	xmmreg, XMM_ABSVAL	;; Compute absolute value
+echk	maxpd	errreg, xmmreg		;; Compute maximum error
+	movapd	xmmreg, XMM_MULCONST
+	mulpd	xmmreghi, xmmreg	;; Multiply by the small constant
+	mulpd	xmmreg, xmmtmp
+	ENDM
 
-base2_mul_by_const_interleaved MACRO echk, sse4, xmmreg, xmmreghi, xmmreg2, xmmreg2hi
-		movapd	xmmreghi, XMM_BIGBIGVAL
-		addpd	xmmreghi, xmmreg	;; Round to nearest multiple of 2^25
-		movapd	xmmreg2hi, XMM_BIGBIGVAL
-		addpd	xmmreg2hi, xmmreg2	;; Round to nearest multiple of 2^25
-sse4 no echk	roundpd xmmreg, xmmreg, 0	;; Round to an integer
-sse4 no echk	roundpd xmmreg2, xmmreg2, 0	;; Round to an integer
-no sse4 no echk	addpd	xmmreg, XMM_BIGVAL	;; Round to an integer
-no sse4 no echk	addpd	xmmreg2, XMM_BIGVAL	;; Round to an integer
-		subpd	xmmreghi, XMM_BIGBIGVAL
-		subpd	xmmreg2hi, XMM_BIGBIGVAL
-no sse4 no echk	subpd	xmmreg, XMM_BIGVAL
-no sse4 no echk	subpd	xmmreg2, XMM_BIGVAL
-		subpd	xmmreg, xmmreghi	;; xmmreg now contains low 25 bits
-		subpd	xmmreg2, xmmreg2hi	;; xmmreg now contains low 25 bits
-		mulpd	xmmreghi, XMM_MULCONST	;; Multiply by the small constant
-		mulpd	xmmreg2hi, XMM_MULCONST	;; Multiply by the small constant
-		mulpd	xmmreg, XMM_MULCONST
-		mulpd	xmmreg2, XMM_MULCONST
-		ENDM
+nobase2_mul_by_const MACRO echk, sse4, xmmreg, xmmreghi, xmmtmp, basereg, errreg
+	movapd	xmmreghi, XMM_LIMIT_INVERSE[basereg]
+	mulpd	xmmreghi, xmmreg	;; Compute FFTvalue / base
+sse4	roundpd	xmmtmp, xmmreg, 0	;; Round to an integer
+sse4	roundpd	xmmreghi, xmmreghi, 0	;; Round to an integer
+no sse4	movapd	xmmtmp, XMM_BIGVAL
+no sse4	addpd	xmmreghi, xmmtmp	;; Begin round to an integer
+no sse4	subpd	xmmreghi, xmmtmp	;; End round to an integer
+no sse4	addpd	xmmtmp, xmmreg		;; Begin round to an integer
+no sse4	subpd	xmmtmp, XMM_BIGVAL	;; End round to an integer
+echk	subpd	xmmreg, xmmtmp		;; This is the convolution error
+echk	andpd	xmmreg, XMM_ABSVAL	;; Compute absolute value
+echk	maxpd	errreg, xmmreg		;; Compute maximum error
+	movapd	xmmreg, XMM_LIMIT_BIGMAX[basereg]
+	mulpd	xmmreg, xmmreghi
+	subpd	xmmtmp, xmmreg		;; This is FFTvalue % base
+	movapd	xmmreg, XMM_MULCONST
+	mulpd	xmmreghi, xmmreg	;; Multiply by the small constant
+	mulpd	xmmreg, xmmtmp
+	ENDM
 
-nobase2_mul_by_const MACRO echk, sse4, xmmreg, xmmreghi, xmmtmp, basereg
-		movapd	xmmreghi, XMM_LIMIT_INVERSE[basereg]
-		mulpd	xmmreghi, xmmreg	;; Compute FFTvalue / base
-sse4 no echk	roundpd	xmmreg, xmmreg, 0	;; Round to an integer
-sse4		roundpd	xmmreghi, xmmreghi, 0	;; Round to an integer
-no sse4		movapd	xmmtmp, XMM_BIGVAL
-no sse4 no echk	addpd	xmmreg, xmmtmp		;; Begin round to an integer
-no sse4		addpd	xmmreghi, xmmtmp	;; Begin round to an integer
-no sse4 no echk	subpd	xmmreg, xmmtmp		;; End round to an integer
-no sse4		subpd	xmmreghi, xmmtmp	;; End round to an integer
-		movapd	xmmtmp, XMM_LIMIT_BIGMAX[basereg]
-		mulpd	xmmtmp, xmmreghi
-		subpd	xmmreg, xmmtmp
-		mulpd	xmmreghi, XMM_MULCONST	;; Multiply by the small constant
-		mulpd	xmmreg, XMM_MULCONST
-		ENDM
+mul_by_const_interleaved MACRO base2, echk, sse4, xmmreg, xmmreghi, xmmtmp, basereg, xmmreg2, xmmreg2hi, xmmtmp2, basereg2, errreg
+base2	 base2_mul_by_const_interleaved echk, sse4, xmmreg, xmmreghi, xmmtmp, xmmreg2, xmmreg2hi, xmmtmp2, errreg
+no base2 nobase2_mul_by_const_interleaved echk, sse4, xmmreg, xmmreghi, xmmtmp, basereg, xmmreg2, xmmreg2hi, xmmtmp2, basereg2, errreg
+	ENDM
 
-nobase2_mul_by_const_interleaved MACRO echk, sse4, xmmreg, xmmreghi, xmmtmp, basereg, xmmreg2, xmmreg2hi, xmmtmp2, basereg2
-		movapd	xmmreghi, XMM_LIMIT_INVERSE[basereg]
-		mulpd	xmmreghi, xmmreg	;; Compute FFTvalue / base
-		movapd	xmmreg2hi, XMM_LIMIT_INVERSE[basereg2]
-		mulpd	xmmreg2hi, xmmreg2	;; Compute FFTvalue / base
-sse4 no echk	roundpd	xmmreg, xmmreg, 0	;; Round to an integer
-sse4 no echk	roundpd	xmmreg2, xmmreg2, 0	;; Round to an integer
-sse4		roundpd	xmmreghi, xmmreghi, 0	;; Round to an integer
-sse4		roundpd	xmmreg2hi, xmmreg2hi, 0	;; Round to an integer
-no sse4		movapd	xmmtmp, XMM_BIGVAL
-no sse4 no echk	addpd	xmmreg, xmmtmp		;; Begin round to an integer
-no sse4 no echk	addpd	xmmreg2, xmmtmp		;; Begin round to an integer
-no sse4		addpd	xmmreghi, xmmtmp	;; Begin round to an integer
-no sse4		addpd	xmmreg2hi, xmmtmp	;; Begin round to an integer
-no sse4 no echk	subpd	xmmreg, xmmtmp		;; End round to an integer
-no sse4 no echk	subpd	xmmreg2, xmmtmp		;; End round to an integer
-no sse4		subpd	xmmreghi, xmmtmp	;; End round to an integer
-no sse4		subpd	xmmreg2hi, xmmtmp	;; End round to an integer
-		movapd	xmmtmp, XMM_LIMIT_BIGMAX[basereg]
-		mulpd	xmmtmp, xmmreghi
-		movapd	xmmtmp2, XMM_LIMIT_BIGMAX[basereg2]
-		mulpd	xmmtmp2, xmmreg2hi
-		subpd	xmmreg, xmmtmp
-		subpd	xmmreg2, xmmtmp2
-		movapd	xmmtmp, XMM_MULCONST
-		mulpd	xmmreghi, xmmtmp	;; Multiply by the small constant
-		mulpd	xmmreg2hi, xmmtmp	;; Multiply by the small constant
-		mulpd	xmmreg, xmmtmp
-		mulpd	xmmreg2, xmmtmp
-		ENDM
+base2_mul_by_const_interleaved MACRO echk, sse4, xmmreg, xmmreghi, xmmtmp, xmmreg2, xmmreg2hi, xmmtmp2, errreg
+	movapd	xmmreghi, XMM_BIGBIGVAL
+	addpd	xmmreghi, xmmreg	;; Round to nearest multiple of 2^25
+	movapd	xmmreg2hi, XMM_BIGBIGVAL
+	addpd	xmmreg2hi, xmmreg2	;; Round to nearest multiple of 2^25
+sse4	roundpd xmmtmp, xmmreg, 0	;; Round to an integer
+sse4	roundpd xmmtmp2, xmmreg2, 0	;; Round to an integer
+no sse4	movapd	xmmtmp, XMM_BIGVAL
+no sse4	addpd	xmmtmp, xmmreg		;; Round to an integer
+no sse4	movapd	xmmtmp2, XMM_BIGVAL
+no sse4	addpd	xmmtmp2, xmmreg2	;; Round to an integer
+	subpd	xmmreghi, XMM_BIGBIGVAL
+	subpd	xmmreg2hi, XMM_BIGBIGVAL
+no sse4	subpd	xmmtmp, XMM_BIGVAL
+no sse4	subpd	xmmtmp2, XMM_BIGVAL
+	subpd	xmmtmp, xmmreghi	;; xmmreg now contains low 25 bits
+	subpd	xmmtmp2, xmmreg2hi	;; xmmreg now contains low 25 bits
+echk	subpd	xmmreg, xmmtmp		;; This is the convolution error
+echk	subpd	xmmreg2, xmmtmp2		;; This is the convolution error
+echk	andpd	xmmreg, XMM_ABSVAL	;; Compute absolute value
+echk	andpd	xmmreg2, XMM_ABSVAL	;; Compute absolute value
+echk	maxpd	errreg, xmmreg		;; Compute maximum error
+echk	maxpd	errreg, xmmreg2		;; Compute maximum error
+	movapd	xmmreg, XMM_MULCONST
+	movapd	xmmreg2, XMM_MULCONST
+	mulpd	xmmreghi, xmmreg	;; Multiply by the small constant
+	mulpd	xmmreg2hi, xmmreg2	;; Multiply by the small constant
+	mulpd	xmmreg, xmmtmp
+	mulpd	xmmreg2, xmmtmp2
+	ENDM
+
+nobase2_mul_by_const_interleaved MACRO echk, sse4, xmmreg, xmmreghi, xmmtmp, basereg, xmmreg2, xmmreg2hi, xmmtmp2, basereg2, errreg
+	movapd	xmmreghi, XMM_LIMIT_INVERSE[basereg]
+	mulpd	xmmreghi, xmmreg	;; Compute FFTvalue / base
+	movapd	xmmreg2hi, XMM_LIMIT_INVERSE[basereg2]
+	mulpd	xmmreg2hi, xmmreg2	;; Compute FFTvalue / base
+sse4	roundpd	xmmtmp, xmmreg, 0	;; Round to an integer
+sse4	roundpd	xmmtmp2, xmmreg2, 0	;; Round to an integer
+sse4	roundpd	xmmreghi, xmmreghi, 0	;; Round to an integer
+sse4	roundpd	xmmreg2hi, xmmreg2hi, 0	;; Round to an integer
+no sse4	movapd	xmmtmp, XMM_BIGVAL
+no sse4	addpd	xmmreghi, xmmtmp	;; Begin round to an integer
+no sse4	movapd	xmmtmp2, XMM_BIGVAL
+no sse4	addpd	xmmreg2hi, xmmtmp2	;; Begin round to an integer
+no sse4	subpd	xmmreghi, xmmtmp	;; End round to an integer
+no sse4	subpd	xmmreg2hi, xmmtmp2	;; End round to an integer
+no sse4	addpd	xmmtmp, xmmreg		;; Begin round to an integer
+no sse4	addpd	xmmtmp2, xmmreg2	;; Begin round to an integer
+no sse4	subpd	xmmtmp, XMM_BIGVAL	;; End round to an integer
+no sse4	subpd	xmmtmp2, XMM_BIGVAL	;; End round to an integer
+echk	subpd	xmmreg, xmmtmp		;; This is the convolution error
+echk	subpd	xmmreg2, xmmtmp2	;; This is the convolution error
+echk	andpd	xmmreg, XMM_ABSVAL	;; Compute absolute value
+echk	andpd	xmmreg2, XMM_ABSVAL	;; Compute absolute value
+echk	maxpd	errreg, xmmreg		;; Compute maximum error
+echk	maxpd	errreg, xmmreg2		;; Compute maximum error
+	movapd	xmmreg, XMM_LIMIT_BIGMAX[basereg]
+	mulpd	xmmreg, xmmreghi
+	movapd	xmmreg2, XMM_LIMIT_BIGMAX[basereg2]
+	mulpd	xmmreg2, xmmreg2hi
+	subpd	xmmtmp, xmmreg		;; This is FFTvalue % base
+	subpd	xmmtmp2, xmmreg2	;; This is FFTvalue % base
+	movapd	xmmreg, XMM_MULCONST
+	mulpd	xmmreghi, xmmreg	;; Multiply by the small constant
+	movapd	xmmreg2, XMM_MULCONST
+	mulpd	xmmreg2hi, xmmreg2	;; Multiply by the small constant
+	mulpd	xmmreg, xmmtmp
+	mulpd	xmmreg2, xmmtmp2
+	ENDM
 
 ;
 ; These macros do the base2 and nobase2 roundings
@@ -591,11 +623,10 @@ ttp	mov	cl, [rdi+2]
 	unpcklpd xmm1, [rsi+48]
 	addpd	xmm7, xmm1		;; sumout += values2
 	mulpd	xmm1, [rbp+64]		;; Mul values2 by two-to-minus-phi
-echk	error_check_interleaved sse4, xmm0, xmm4, xmm1, xmm5, xmm6
-const base2 base2_mul_by_const_interleaved echk, sse4, xmm0, xmm4, xmm1, xmm5
-const no base2 nobase2_mul_by_const echk, sse4, xmm0, xmm4, xmm5, rax
+no const echk error_check_interleaved sse4, xmm0, xmm4, xmm1, xmm5, xmm6
+const	mul_by_const base2, echk, sse4, xmm0, xmm4, xmm5, rax, xmm6
 	addpd	xmm2, xmm0		;; x1 = values + carry
-const no base2 nobase2_mul_by_const echk, sse4, xmm1, xmm5, xmm0, rcx
+const	mul_by_const base2, echk, sse4, xmm1, xmm5, xmm0, rcx, xmm6
 	addpd	xmm3, xmm1		;; x2 = values + carry
 	rounding_interleaved base2, const, sse4, xmm2, xmm4, xmm0, rax, xmm3, xmm5, xmm1, rcx
 ttp	mulpd	xmm2, [rbp+16]		;; new value1 = val * two-to-phi
@@ -613,11 +644,10 @@ ttp	mov	cl, [rdi+3]
 	mulpd	xmm1, [rbp+96]		;; Mul values2 by two-to-minus-phi
 zero	xorpd	xmm3, xmm3
 	movapd	[rsi+32], xmm3		;; Save previous value2
-echk	error_check_interleaved sse4, xmm0, xmm2, xmm1, xmm3, xmm6
-const base2 base2_mul_by_const_interleaved echk, sse4, xmm0, xmm2, xmm1, xmm3
-const no base2 nobase2_mul_by_const echk, sse4, xmm0, xmm2, xmm3, rax
+no const echk error_check_interleaved sse4, xmm0, xmm2, xmm1, xmm3, xmm6
+const	mul_by_const base2, echk, sse4, xmm0, xmm2, xmm3, rax, xmm6
 	addpd	xmm0, xmm4		;; x1 = values + carry
-const no base2 nobase2_mul_by_const echk, sse4, xmm1, xmm3, xmm4, rcx
+const	mul_by_const base2, echk, sse4, xmm1, xmm3, xmm4, rcx, xmm6
 	addpd	xmm1, xmm5		;; x2 = values + carry
 	rounding_interleaved base2, const, sse4, xmm0, xmm2, xmm4, rax, xmm1, xmm3, xmm5, rcx
 ttp	mulpd	xmm0, [rbp+48]		;; new value1 = val * two-to-phi
@@ -1696,8 +1726,8 @@ ttp	movapd	xmm3, [rdx+1*32]	;; grp two-to-minus-phi
 ttp	mulpd	xmm3, [rbx][rcx]	;; Mul by col two-to-minus-phi
 no ttp	movapd	xmm3, [rbx][rcx]	;; two-to-minus-phi
 	mulpd	xmm1, xmm3		;; Mul by fudged col two-to-minus-phi
-echk	error_check_interleaved sse4, xmm0, xmm4, xmm1, xmm5, xmm6
-const	mul_by_const_interleaved base2, echk, sse4, xmm0, xmm4, xmm2, rax, xmm1, xmm5, xmm3, rcx
+no const echk error_check_interleaved sse4, xmm0, xmm4, xmm1, xmm5, xmm6
+const	mul_by_const_interleaved base2, echk, sse4, xmm0, xmm4, xmm2, rax, xmm1, xmm5, xmm3, rcx, xmm6
 	addpd	xmm0, [rbp+0*16]	;; x1 = values + carry
 	addpd	xmm1, [rbp+1*16]	;; x2 = values + carry
 
@@ -1744,8 +1774,8 @@ ttp	movapd	xmm3, [rdx+3*32]	;; grp two-to-minus-phi
 ttp	mulpd	xmm3, [rbx][rcx]	;; Mul by col two-to-minus-phi
 no ttp	movapd	xmm3, [rbx][rcx]	;; two-to-minus-phi
 	mulpd	xmm1, xmm3		;; Mul by fudged col two-to-minus-phi
-echk	error_check_interleaved sse4, xmm0, xmm4, xmm1, xmm5, xmm6
-const	mul_by_const_interleaved base2, echk, sse4, xmm0, xmm4, xmm2, rax, xmm1, xmm5, xmm3, rcx
+no const echk error_check_interleaved sse4, xmm0, xmm4, xmm1, xmm5, xmm6
+const	mul_by_const_interleaved base2, echk, sse4, xmm0, xmm4, xmm2, rax, xmm1, xmm5, xmm3, rcx, xmm6
 	addpd	xmm0, [rbp+2*16]	;; x1 = values + carry
 	addpd	xmm1, [rbp+3*16]	;; x2 = values + carry
 
@@ -1805,14 +1835,14 @@ no ttp	movapd	xmm3, [rbx][r9]		;; two-to-minus-phi
 	movapd	xmm1, [rsi+3*16]	;; Load values4
 	addpd	xmm7, xmm1		;; sumout += values4			;10-13	;7-9
 	mulpd	xmm9, xmm11		;; Mul by fudged col two-to-minus-phi	;11-16	;7-11
-echk	error_check_interleaved sse4, xmm8, xmm12, xmm9, xmm13, xmm6
-const	mul_by_const_interleaved base2, echk, sse4, xmm8, xmm12, xmm10, rax, xmm9, xmm13, xmm11, rcx
+no const echk error_check_interleaved sse4, xmm8, xmm12, xmm9, xmm13, xmm6
+const	mul_by_const_interleaved base2, echk, sse4, xmm8, xmm12, xmm10, rax, xmm9, xmm13, xmm11, rcx, xmm6
 	movapd	xmm0, [rsi+2*16]	;; Load values3
 	mulpd	xmm0, xmm2		;; Mul by fudged col two-to-minus-phi	;13-18	;8-12
 	addpd	xmm7, [rsi+2*16]	;; sumout += values3			;14-17	;10-12
 	mulpd	xmm1, xmm3		;; Mul by fudged col two-to-minus-phi	;15-20	;9-13
-echk	error_check_interleaved sse4, xmm0, xmm4, xmm1, xmm5, xmm6
-const	mul_by_const_interleaved base2, echk, sse4, xmm0, xmm4, xmm2, r8, xmm1, xmm5, xmm3, r9
+no const echk error_check_interleaved sse4, xmm0, xmm4, xmm1, xmm5, xmm6
+const	mul_by_const_interleaved base2, echk, sse4, xmm0, xmm4, xmm2, r8, xmm1, xmm5, xmm3, r9, xmm6
 	addpd	xmm8, [rbp+0*16]	;; x1 = values + carry			;16-19	;11-13
 	addpd	xmm9, [rbp+1*16]	;; x2 = values + carry			;18-21	;12-14
 
