@@ -80,7 +80,7 @@ no zero	subsd	xmm7, ADDIN_VALUE	;; Do not include addin in sumout
 noadd:	mov	saved_rsi, rsi		;; Save for xtop_carry_adjust
 	mov	rbx, norm_ptr2		;; Load column multipliers ptr
 ttp	mov	eax, cache_line_multiplier ;; Load inner loop counter
-	lea	rdi, XMM_COL_MULTS	;; Load col mult scratch area
+	lea	rdi, XMM_COL_MULTS[128]	;; Load col mult scratch area
 setlp:	xnorm_2d_setup ttp
 ttp	lea	rdi, [rdi+512]		;; Next scratch area section
 ttp	lea	rbx, [rbx+32]		;; Next column multiplier
@@ -155,7 +155,7 @@ const	mov	const_fft, 1		;; Set flag saying mul-by-const
 
 	mov	rbx, norm_ptr2		;; Load column multipliers ptr
 ttp	mov	eax, cache_line_multiplier ;; Load inner loop counter
-	lea	rdi, XMM_COL_MULTS	;; Load col mult scratch area
+	lea	rdi, XMM_COL_MULTS[128]	;; Load col mult scratch area
 setlp:	xnorm_2d_setup ttp
 ttp	lea	rdi, [rdi+512]		;; Next scratch area section
 ttp	lea	rbx, [rbx+32]		;; Next column multiplier

@@ -73,10 +73,10 @@ no sse4	movapd	xmmtmp, XMM_BIGVAL
 no sse4	addpd	xmmtmp, xmmreg		;; Round to an integer
 	subpd	xmmreghi, XMM_BIGBIGVAL
 no sse4	subpd	xmmtmp, XMM_BIGVAL
-	subpd	xmmtmp, xmmreghi	;; xmmreg now contains low 25 bits
 echk	subpd	xmmreg, xmmtmp		;; This is the convolution error
 echk	andpd	xmmreg, XMM_ABSVAL	;; Compute absolute value
 echk	maxpd	errreg, xmmreg		;; Compute maximum error
+	subpd	xmmtmp, xmmreghi	;; xmmtmp now contains low 25 bits
 	movapd	xmmreg, XMM_MULCONST
 	mulpd	xmmreghi, xmmreg	;; Multiply by the small constant
 	mulpd	xmmreg, xmmtmp
@@ -123,14 +123,14 @@ no sse4	addpd	xmmtmp2, xmmreg2	;; Round to an integer
 	subpd	xmmreg2hi, XMM_BIGBIGVAL
 no sse4	subpd	xmmtmp, XMM_BIGVAL
 no sse4	subpd	xmmtmp2, XMM_BIGVAL
-	subpd	xmmtmp, xmmreghi	;; xmmreg now contains low 25 bits
-	subpd	xmmtmp2, xmmreg2hi	;; xmmreg now contains low 25 bits
 echk	subpd	xmmreg, xmmtmp		;; This is the convolution error
-echk	subpd	xmmreg2, xmmtmp2		;; This is the convolution error
+echk	subpd	xmmreg2, xmmtmp2	;; This is the convolution error
 echk	andpd	xmmreg, XMM_ABSVAL	;; Compute absolute value
 echk	andpd	xmmreg2, XMM_ABSVAL	;; Compute absolute value
 echk	maxpd	errreg, xmmreg		;; Compute maximum error
 echk	maxpd	errreg, xmmreg2		;; Compute maximum error
+	subpd	xmmtmp, xmmreghi	;; xmmreg now contains low 25 bits
+	subpd	xmmtmp2, xmmreg2hi	;; xmmreg now contains low 25 bits
 	movapd	xmmreg, XMM_MULCONST
 	movapd	xmmreg2, XMM_MULCONST
 	mulpd	xmmreghi, xmmreg	;; Multiply by the small constant
@@ -1671,46 +1671,48 @@ funny2done:
 ;
 
 xnorm_2d_setup MACRO ttp		;; Precompute FUDGE * col multipliers
+ttp	lea	rbp, [rdi+256]		;; Create pointer for more one-byte offsets below
 	movapd	xmm0, [rbx]		;; Load col two-to-minus-phi
-	movapd	[rdi], xmm0		;; Save ttmp * 1.0,1.0
-ttp	movapd	[rdi+16], xmm0		;; Save ttmp * 1.0,1.0
-ttp	movapd	[rdi+32], xmm0		;; Save ttmp * 1.0,1.0
-ttp	movapd	[rdi+48], xmm0		;; Save ttmp * 1.0,1.0
+	movapd	[rdi-128], xmm0		;; Save ttmp * 1.0,1.0
+ttp	movapd	[rdi-128+16], xmm0	;; Save ttmp * 1.0,1.0
+ttp	movapd	[rdi-128+32], xmm0	;; Save ttmp * 1.0,1.0
+ttp	movapd	[rdi-128+48], xmm0	;; Save ttmp * 1.0,1.0
 ttp	mulsd	xmm0, XMM_TTMP_FUDGE[64];; Compute ttmp * 1.0,B
 	movapd	xmm1, [rbx+16]		;; Load col two-to-phi
-	movapd	[rdi+256], xmm1		;; Save ttp * 1.0,1.0
-ttp	movapd	[rdi+256+16], xmm1	;; Save ttp * 1.0,1.0
-ttp	movapd	[rdi+256+32], xmm1	;; Save ttp * 1.0,1.0
-ttp	movapd	[rdi+256+48], xmm1	;; Save ttp * 1.0,1.0
+no ttp	movapd	[rdi+256-128], xmm1	;; Save ttp * 1.0,1.0
+ttp	movapd	[rbp-128], xmm1		;; Save ttp * 1.0,1.0
+ttp	movapd	[rbp-128+16], xmm1	;; Save ttp * 1.0,1.0
+ttp	movapd	[rbp-128+32], xmm1	;; Save ttp * 1.0,1.0
+ttp	movapd	[rbp-128+48], xmm1	;; Save ttp * 1.0,1.0
 ttp	mulsd	xmm1, XMM_TTP_FUDGE[64]	;; Compute ttp * 1.0,1/B
-ttp	movapd	[rdi+64], xmm0		;; Save ttmp * 1.0,B
-ttp	movapd	[rdi+64+16], xmm0	;; Save ttmp * 1.0,B
-ttp	movapd	[rdi+64+32], xmm0	;; Save ttmp * 1.0,B
-ttp	movapd	[rdi+64+48], xmm0	;; Save ttmp * 1.0,B
+ttp	movapd	[rdi-128+64], xmm0	;; Save ttmp * 1.0,B
+ttp	movapd	[rdi-128+64+16], xmm0	;; Save ttmp * 1.0,B
+ttp	movapd	[rdi-128+64+32], xmm0	;; Save ttmp * 1.0,B
+ttp	movapd	[rdi-128+64+48], xmm0	;; Save ttmp * 1.0,B
 ttp	shufpd	xmm0, xmm0, 1		;; swizzle
-ttp	movapd	[rdi+256+64], xmm1	;; Save ttp * 1.0,1/B
-ttp	movapd	[rdi+256+64+16], xmm1	;; Save ttp * 1.0,1/B
-ttp	movapd	[rdi+256+64+32], xmm1	;; Save ttp * 1.0,1/B
-ttp	movapd	[rdi+256+64+48], xmm1	;; Save ttp * 1.0,1/B
+ttp	movapd	[rbp-128+64], xmm1	;; Save ttp * 1.0,1/B
+ttp	movapd	[rbp-128+64+16], xmm1	;; Save ttp * 1.0,1/B
+ttp	movapd	[rbp-128+64+32], xmm1	;; Save ttp * 1.0,1/B
+ttp	movapd	[rbp-128+64+48], xmm1	;; Save ttp * 1.0,1/B
 ttp	shufpd	xmm1, xmm1, 1		;; swizzle
-ttp	movapd	[rdi+128], xmm0		;; Save ttmp * B,1.0
-ttp	movapd	[rdi+128+16], xmm0	;; Save ttmp * B,1.0
-ttp	movapd	[rdi+128+32], xmm0	;; Save ttmp * B,1.0
-ttp	movapd	[rdi+128+48], xmm0	;; Save ttmp * B,1.0
+ttp	movapd	[rdi-128+128], xmm0	;; Save ttmp * B,1.0
+ttp	movapd	[rdi-128+128+16], xmm0	;; Save ttmp * B,1.0
+ttp	movapd	[rdi-128+128+32], xmm0	;; Save ttmp * B,1.0
+ttp	movapd	[rdi-128+128+48], xmm0	;; Save ttmp * B,1.0
 ttp	mulsd	xmm0, XMM_TTMP_FUDGE[64]
-ttp	movapd	[rdi+256+128], xmm1	;; Save ttp * 1/B,1.0
-ttp	movapd	[rdi+256+128+16], xmm1	;; Save ttp * 1/B,1.0
-ttp	movapd	[rdi+256+128+32], xmm1	;; Save ttp * 1/B,1.0
-ttp	movapd	[rdi+256+128+48], xmm1	;; Save ttp * 1/B,1.0
+ttp	movapd	[rbp-128+128], xmm1	;; Save ttp * 1/B,1.0
+ttp	movapd	[rbp-128+128+16], xmm1	;; Save ttp * 1/B,1.0
+ttp	movapd	[rbp-128+128+32], xmm1	;; Save ttp * 1/B,1.0
+ttp	movapd	[rbp-128+128+48], xmm1	;; Save ttp * 1/B,1.0
 ttp	mulsd	xmm1, XMM_TTP_FUDGE[64]
-ttp	movapd	[rdi+192], xmm0		;; Save ttmp * B,B
-ttp	movapd	[rdi+192+16], xmm0	;; Save ttmp * B,B
-ttp	movapd	[rdi+192+32], xmm0	;; Save ttmp * B,B
-ttp	movapd	[rdi+192+48], xmm0	;; Save ttmp * B,B
-ttp	movapd	[rdi+256+192], xmm1	;; Save ttp * 1/B,1/B
-ttp	movapd	[rdi+256+192+16], xmm1	;; Save ttp * 1/B,1/B
-ttp	movapd	[rdi+256+192+32], xmm1	;; Save ttp * 1/B,1/B
-ttp	movapd	[rdi+256+192+48], xmm1	;; Save ttp * 1/B,1/B
+ttp	movapd	[rdi-128+192], xmm0	;; Save ttmp * B,B
+ttp	movapd	[rdi-128+192+16], xmm0	;; Save ttmp * B,B
+ttp	movapd	[rdi-128+192+32], xmm0	;; Save ttmp * B,B
+ttp	movapd	[rdi-128+192+48], xmm0	;; Save ttmp * B,B
+ttp	movapd	[rbp-128+192], xmm1	;; Save ttp * 1/B,1/B
+ttp	movapd	[rbp-128+192+16], xmm1	;; Save ttp * 1/B,1/B
+ttp	movapd	[rbp-128+192+32], xmm1	;; Save ttp * 1/B,1/B
+ttp	movapd	[rbp-128+192+48], xmm1	;; Save ttp * 1/B,1/B
 	ENDM
 
 xnorm_2d MACRO ttp, zero, echk, const, base2, sse4
@@ -1937,7 +1939,7 @@ no const movapd	xmm5, XMM_K_HI
 const	movapd	xmm5, XMM_K_TIMES_MULCONST_HI
 no base2 mulpd	xmm5, XMM_LIMIT_INVERSE[rax] ; Non-base2 rounding needs shifted carry
 	mulpd	xmm4, xmm5
-
+ 
 	addpd	xmm0, [rbp+0*16]	;; x1 = values + carry
 
 	split_upper_zpad_word echk, base2, sse4, xmm1, xmm5, xmm2, rax
