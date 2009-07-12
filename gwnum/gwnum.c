@@ -334,6 +334,118 @@ struct gwasm_data {
 #define norm_routines	16
 #define copyzero_routines 20
 
+/* Declare the hundreds of assembly normalization routines.  Naming of these */
+/* routines is as follows: */
+/* x or blank		(SSE2 or x87) */
+/* r or i		(rational or irrational) */
+/* 1 or 2		(1 or 2 pass FFTs) */
+/* zp or blank		(zero padded FFT or not) */
+/* e or blank		(roundoff error checking or not) */
+/* c or blank		(mul by a small constant or not) */
+/* b or blank		(b > 2 or not) */
+/* s4 or blank		(SSE4 or not) */
+/* k or blank		(XMM_K_HI is zero or not (zp only)) */
+/* c1 or cm1 or blank	(c=1, c=-1, or abs(c)!=1 (zp only, not c only)) */
+/* AMD or blank		(AMD prefetching or not (x only, 2 only)) */
+#define extrn_explode()		extrn_explode1(r)	extrn_explode1(i)
+#define extrn_explode1(name)	extrn_explode2(name)	extrn_explode2(x##name)
+#define extrn_explode2(name)	extrn_explode3(name##1)	extrn_explode3(name##2)
+#define extrn_explode3(name)	extrn_explode4(name)	extrn_explode4(name##zp) 
+#define extrn_explode4(name)	extrn_explode5(name)	extrn_explode5(name##e)
+#define extrn_explode5(name)	extrn_explode6(name)	extrn_explode6(name##c)
+#define extrn_explode6(name)	extrn_explode7(name)	extrn_explode7(name##b)
+#define extrn_explode7(name)	extrn_explode8(name)	extrn_explode8(name##s4)
+#define extrn_explode8(name)	extrn_explode9(name)	extrn_explode9(name##k)
+#define extrn_explode9(name)	extrn_explode10(name)	extrn_explode10(name##c1)	extrn_explode10(name##cm1)
+#define extrn_explode10(name)	extrn_explode11(name)	extrn_explode11(name##AMD)
+#define extrn_explode11(name)	extern void (*name)(void);
+extrn_explode()
+
+/* Now we put the normalization routines in an array so we can easily pick */
+/* the normalization routines to use.  There is one table for SSE2 and one */
+/* for x87.  The SSE2 table has these 480 combinations: */
+/*	r or i */
+/*	1 or 2 or 2AMD */
+/*	e or blank */
+/*	b or blank */
+/*	s4 or blank */
+/*	zpck or zpk or zpkc1 or zpkcm1 or zpc or zp or zpc1 or zpcm1 or c or blank */
+/* We also define a macro that will pick the correct entry from the array. */
+
+#define sse2_explode()			sse2_explode1(xr)		sse2_explode1(xi) NULL
+#define sse2_explode1(name)		sse2_explode2(name##1,)		sse2_explode2(name##2,)		sse2_explode2(name##2,AMD)
+#define sse2_explode2(name,suff)	sse2_explode3(name,suff,)	sse2_explode3(name##zp,suff,zp)
+#define sse2_explode3(name,suff,zp)	sse2_explode4(name,suff,zp)	sse2_explode4(name##e,suff,zp)
+#define sse2_explode4(name,suff,zp)	sse2_explode5(name,suff,zp,notc) sse2_explode5(name##c,suff,zp,)
+#define sse2_explode5(name,suff,zp,notc) sse2_explode6(name,suff,zp,notc) sse2_explode6(name##b,suff,zp,notc)
+#define sse2_explode6(name,suff,zp,notc) sse2_explode7##zp(name,suff,notc) sse2_explode7##zp(name##s4,suff,notc)
+#define sse2_explode7(name,suff,notc)	sse2_explode8(name,suff)
+#define sse2_explode7zp(name,suff,notc)	sse2_explode8##notc(name,suff)	sse2_explode8##notc(name##k,suff)
+#define sse2_explode8(name,suff)	sse2_explode9(name,suff)
+#define sse2_explode8notc(name,suff)	sse2_explode9(name,suff)	sse2_explode9(name##c1,suff)	sse2_explode9(name##cm1,suff)
+#define sse2_explode9(name,suff)	&name##suff,
+
+void *sse2_prctab[] = { sse2_explode() };
+
+int sse2_prctab_index (gwhandle *gwdata, int e, int c)
+{
+	int	index = 0;
+
+	if (! gwdata->RATIONAL_FFT) index += 240;
+	if (gwdata->PASS2_LEVELS) {
+		if (gwdata->cpu_flags & CPU_3DNOW) index += 160;
+		else index += 80;
+	}
+	if (! gwdata->ZERO_PADDED_FFT) {
+		if (e) index += 8;
+		if (c) index += 4;
+		if (gwdata->b > 2) index += 2;
+		if (gwdata->cpu_flags & CPU_SSE41) index += 1;
+	} else {
+		struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
+		index += 16;
+		if (e) index += 32;
+		if (!c) {
+			if (gwdata->b > 2) index += 12;
+			if (gwdata->cpu_flags & CPU_SSE41) index += 6;
+			if (asm_data->XMM_K_HI[0] == 0.0) index += 3;
+			if (gwdata->c == 1) index += 1;  if (gwdata->c == -1) index += 2;
+		} else {
+			index += 24;
+			if (gwdata->b > 2) index += 4;
+			if (gwdata->cpu_flags & CPU_SSE41) index += 2;
+			if (asm_data->XMM_K_TIMES_MULCONST_HI[0] == 0.0) index += 1;
+		}
+	}
+	 return (index);
+}				    
+
+/* The x87 normalization routines array has 32 combinations: */
+/*	r or i */
+/*	1 or 2 */
+/*	zp or blank */
+/*	e or blank */
+/*	c or blank */
+/* We also define a macro that will pick the correct entry from the array. */
+
+#ifndef X86_64
+#define x87_explode()			x87_explode1(r)		x87_explode1(i) NULL
+#define x87_explode1(name)		x87_explode2(name##1)	x87_explode2(name##2)
+#define x87_explode2(name)		x87_explode3(name)	x87_explode3(name##zp)
+#define x87_explode3(name)		x87_explode4(name)	x87_explode4(name##e)
+#define x87_explode4(name)		x87_explode5(name)	x87_explode5(name##c)
+#define x87_explode5(name)		&name,
+
+void *x87_prctab[] = { x87_explode() };
+
+#define	x87_prctab_index(gwdata, e, c)  \
+	    ((gwdata)->RATIONAL_FFT ? 0 : 16) + \
+	    ((gwdata)->PASS2_LEVELS ? 8 : 0) + \
+	    ((gwdata)->ZERO_PADDED_FFT ? 4 : 0) + \
+	    (e ? 2 : 0) + \
+	    (c ? 1 : 0)
+#endif
+
 /* Helper macros */
 
 #ifndef isinf
@@ -2803,22 +2915,6 @@ int internal_gwsetup (
 	asm_data->ZPAD0_7[7] = 0.0;
 	asm_data->zpad_addr = &asm_data->ZPAD0_7[0];
 
-/* Get the procedure pointers from the asm structures */
-
-	memcpy (gwdata->GWPROCPTRS, info->proc_ptrs, 4 * sizeof (void *));
-	memcpy (gwdata->GWPROCPTRS+4, info->add_sub_norm_procs, 12 * sizeof (void *));
-	memcpy (gwdata->GWPROCPTRS+norm_routines,
-		info->add_sub_norm_procs + 16 +
-			(gwdata->cpu_flags & CPU_SSE2 && gwdata->cpu_flags & CPU_SSE41 ? 32 : 0) +
-			(gwdata->cpu_flags & CPU_SSE2 && b != 2 ? 16 : 0) +
-			(gwdata->RATIONAL_FFT ? 0 : 8) +
-			(gwdata->ZERO_PADDED_FFT ? 4 : 0),
-		4 * sizeof (void *));
-	memcpy (gwdata->GWPROCPTRS+copyzero_routines,
-		info->add_sub_norm_procs + 12 +
-			(gwdata->RATIONAL_FFT ? 0 : 2),
-		2 * sizeof (void *));
-
 /* Init constants.  I could have used true global variables but I did not */
 /* so that these constants could be close to other variables used at the */
 /* same time.  This might free up a cache line or two. */
@@ -2905,16 +3001,24 @@ int internal_gwsetup (
 			(double) (gwdata->FFTLEN / 2) :
 			(double) (gwdata->FFTLEN / 2) / k;
 
-/* Split k for zero-padded FFTs emulating modulo k*b^n+c */
+/* Split k for zero-padded FFTs emulating modulo k*b^n+c.  Note we only need */
+/* to split k if k * big_word exceeds what a floating point register can hold. */
+/* 2^49 should give us enough room to handle a carry and still round properly. */	
 
-	asm_data->XMM_K_HI[0] =
-	asm_data->XMM_K_HI[1] = floor (k / big_word) * big_word;
-	asm_data->XMM_K_LO[0] =
-	asm_data->XMM_K_LO[1] = k - asm_data->XMM_K_HI[0];
+	if (gwdata->cpu_flags & CPU_SSE2 && k * big_word < 562949953421312.0) {
+		asm_data->XMM_K_HI[0] = asm_data->XMM_K_HI[1] = 0.0;
+		asm_data->XMM_K_LO[0] = asm_data->XMM_K_LO[1] = k;
+	} else {
+		asm_data->XMM_K_HI[0] =
+		asm_data->XMM_K_HI[1] = floor (k / big_word) * big_word;
+		asm_data->XMM_K_LO[0] =
+		asm_data->XMM_K_LO[1] = k - asm_data->XMM_K_HI[0];
+	}
 	asm_data->XMM_K_HI_2[0] =
 	asm_data->XMM_K_HI_2[1] = floor (k / big_word / big_word) * big_word * big_word;
 	asm_data->XMM_K_HI_1[0] =
-	asm_data->XMM_K_HI_1 [1] = asm_data->XMM_K_HI[0] - asm_data->XMM_K_HI_2[0];
+	asm_data->XMM_K_HI_1[1] = asm_data->XMM_K_HI[0] - asm_data->XMM_K_HI_2[0];
+	gwsetmulbyconst (gwdata, gwdata->maxmulbyconst);
 
 /* Compute the normalization constants indexed by biglit array entries */
 
@@ -3303,6 +3407,30 @@ int internal_gwsetup (
 			asm_data->ZPAD_INVERSE_K6 = bigpowb / k;
 		}
 	}
+
+/* Set the procedure pointers from the asm structures and proc tabes */
+
+	memcpy (gwdata->GWPROCPTRS, info->proc_ptrs, 4 * sizeof (void *));
+	memcpy (gwdata->GWPROCPTRS+4, info->add_sub_norm_procs, 12 * sizeof (void *));
+#ifndef X86_64
+	if (! (gwdata->cpu_flags & CPU_SSE2)) {
+		gwdata->GWPROCPTRS[norm_routines] = x87_prctab[x87_prctab_index (gwdata, 0, 0)];  // No error, no mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+1] = x87_prctab[x87_prctab_index (gwdata, 1, 0)];  // Error, no mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+2] = x87_prctab[x87_prctab_index (gwdata, 0, 1)];  // No error, mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+3] = x87_prctab[x87_prctab_index (gwdata, 1, 1)];  // Error, mulbyconst
+	} else
+#endif
+	{
+		gwdata->GWPROCPTRS[norm_routines] = sse2_prctab[sse2_prctab_index (gwdata, 0, 0)];  // No error, no mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+1] = sse2_prctab[sse2_prctab_index (gwdata, 1, 0)];  // Error, no mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+2] = sse2_prctab[sse2_prctab_index (gwdata, 0, 1)];  // No error, mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+3] = sse2_prctab[sse2_prctab_index (gwdata, 1, 1)];  // Error, mulbyconst
+
+	}
+	memcpy (gwdata->GWPROCPTRS+copyzero_routines,
+		  info->add_sub_norm_procs + 12 +
+		  (gwdata->RATIONAL_FFT ? 0 : 2),
+		  2 * sizeof (void *));
 
 /* Default normalization routines and behaviors */
 
@@ -5461,15 +5589,21 @@ void gwsetmulbyconst (
 	asm_data->XMM_MINUS_C_TIMES_MULCONST[0] =
 	asm_data->XMM_MINUS_C_TIMES_MULCONST[1] = (double) -gwdata->c * (double) val;
 
-/* Split k*mulconst for zero-padded FFTs emulating modulo k*2^n+c */
+/* Split k*mulconst for zero-padded FFTs emulating modulo k*b^n+c.  Note we only need */
+/* to split k*mulconst if k*mulconst * big_word exceeds what a floating point register can hold. */
+/* 2^49 should give us enough room to handle a carry and still round properly. */	
 
 	ktimesval = gwdata->k * (double) val;
 	big_word = pow ((double) gwdata->b, gwdata->NUM_B_PER_SMALL_WORD + 1);
-	asm_data->XMM_K_TIMES_MULCONST_HI[0] =
-	asm_data->XMM_K_TIMES_MULCONST_HI[1] = floor (ktimesval / big_word) * big_word;
-	asm_data->XMM_K_TIMES_MULCONST_LO[0] =
-	asm_data->XMM_K_TIMES_MULCONST_LO[1] = ktimesval - asm_data->XMM_K_TIMES_MULCONST_HI[0];
-
+	if (gwdata->cpu_flags & CPU_SSE2 && ktimesval * big_word < 562949953421312.0) {
+		asm_data->XMM_K_TIMES_MULCONST_HI[0] = asm_data->XMM_K_TIMES_MULCONST_HI[1] = 0.0;
+		asm_data->XMM_K_TIMES_MULCONST_LO[0] = asm_data->XMM_K_TIMES_MULCONST_LO[1] = ktimesval;
+	} else {
+		asm_data->XMM_K_TIMES_MULCONST_HI[0] =
+		asm_data->XMM_K_TIMES_MULCONST_HI[1] = floor (ktimesval / big_word) * big_word;
+		asm_data->XMM_K_TIMES_MULCONST_LO[0] =
+		asm_data->XMM_K_TIMES_MULCONST_LO[1] = ktimesval - asm_data->XMM_K_TIMES_MULCONST_HI[0];
+	}
 	big_word = big_word * big_word;
 	asm_data->XMM_K_TIMES_MULCONST_HI_2[0] =
 	asm_data->XMM_K_TIMES_MULCONST_HI_2[1] =

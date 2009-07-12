@@ -64,7 +64,7 @@ loopcount3	EQU	DPTR [rsp+first_local+SZPTR+8]
 
 inorm	MACRO	lab, ttp, zero, echk, const, base2, sse4
 	LOCAL	noadd, setlp, ilp0, ilp1, ilexit, done
-	PROCFP	lab
+	PROCFLP	lab
 	int_prolog SZPTR+12,0,0
 zero	mov	zero_fft, 1		;; Set flag saying zero upper half
 	movapd	xmm7, XMM_SUMOUT	;; Load SUMOUT
@@ -144,9 +144,9 @@ loopcount1z	EQU	DPTR [rsp+first_local]
 loopcount2z	EQU	DPTR [rsp+first_local+4]
 loopcount3z	EQU	DPTR [rsp+first_local+8]
 
-zpnorm	MACRO	lab, ttp, echk, const, base2, sse4
+zpnorm	MACRO	lab, ttp, echk, const, base2, sse4, khi, c1, cm1
 	LOCAL	setlp, ilp0, ilp1, ilexit
-	PROCFP	lab
+	PROCFLP	lab
 	int_prolog 12,0,0
 const	mov	const_fft, 1		;; Set flag saying mul-by-const
 	movapd	xmm7, XMM_SUMOUT	;; Load SUMOUT
@@ -176,7 +176,7 @@ ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	lea	rbx, XMM_COL_MULTS	;; Load col mult scratch area
 	xprefetcht1 [rdx+128]		;; Prefetch group multiplier
 ilp1:	xprefetchw [rsi+64]
-	xnorm_2d_zpad ttp, echk, const, base2, sse4 ;; Normalize 8 values
+	xnorm_2d_zpad ttp, echk, const, base2, sse4, khi, c1, cm1 ;; Normalize 8 values
 	lea	rsi, [rsi+64]		;; Next cache line
 ttp	lea	rbx, [rbx+512]		;; Next column multipliers
 ttp	lea	rdi, [rdi+4]		;; Next big/little flags
@@ -216,14 +216,38 @@ PREFETCHING = 1
 	inorm	xi2ec, exec, noexec, exec, exec, exec, noexec
 	inorm	xi2z, exec, exec, noexec, noexec, exec, noexec
 	inorm	xi2ze, exec, exec, exec, noexec, exec, noexec
-	zpnorm	xr2zp, noexec, noexec, noexec, exec, noexec
-	zpnorm	xr2zpe, noexec, exec, noexec, exec, noexec
-	zpnorm	xr2zpc, noexec, noexec, exec, exec, noexec
-	zpnorm	xr2zpec, noexec, exec, exec, exec, noexec
-	zpnorm	xi2zp, exec, noexec, noexec, exec, noexec
-	zpnorm	xi2zpe, exec, exec, noexec, exec, noexec
-	zpnorm	xi2zpc, exec, noexec, exec, exec, noexec
-	zpnorm	xi2zpec, exec, exec, exec, exec, noexec
+	zpnorm	xr2zp, noexec, noexec, noexec, exec, noexec, exec, noexec, noexec
+	zpnorm	xr2zpc1, noexec, noexec, noexec, exec, noexec, exec, exec, noexec
+	zpnorm	xr2zpcm1, noexec, noexec, noexec, exec, noexec, exec, noexec, exec
+	zpnorm	xr2zpe, noexec, exec, noexec, exec, noexec, exec, noexec, noexec
+	zpnorm	xr2zpec1, noexec, exec, noexec, exec, noexec, exec, exec, noexec
+	zpnorm	xr2zpecm1, noexec, exec, noexec, exec, noexec, exec, noexec, exec
+	zpnorm	xr2zpc, noexec, noexec, exec, exec, noexec, exec, noexec, noexec
+	zpnorm	xr2zpec, noexec, exec, exec, exec, noexec, exec, noexec, noexec
+	zpnorm	xi2zp, exec, noexec, noexec, exec, noexec, exec, noexec, noexec
+	zpnorm	xi2zpc1, exec, noexec, noexec, exec, noexec, exec, exec, noexec
+	zpnorm	xi2zpcm1, exec, noexec, noexec, exec, noexec, exec, noexec, exec
+	zpnorm	xi2zpe, exec, exec, noexec, exec, noexec, exec, noexec, noexec
+	zpnorm	xi2zpec1, exec, exec, noexec, exec, noexec, exec, exec, noexec
+	zpnorm	xi2zpecm1, exec, exec, noexec, exec, noexec, exec, noexec, exec
+	zpnorm	xi2zpc, exec, noexec, exec, exec, noexec, exec, noexec, noexec
+	zpnorm	xi2zpec, exec, exec, exec, exec, noexec, exec, noexec, noexec
+	zpnorm	xr2zpk, noexec, noexec, noexec, exec, noexec, noexec, noexec, noexec
+	zpnorm	xr2zpkc1, noexec, noexec, noexec, exec, noexec, noexec, exec, noexec
+	zpnorm	xr2zpkcm1, noexec, noexec, noexec, exec, noexec, noexec, noexec, exec
+	zpnorm	xr2zpek, noexec, exec, noexec, exec, noexec, noexec, noexec, noexec
+	zpnorm	xr2zpekc1, noexec, exec, noexec, exec, noexec, noexec, exec, noexec
+	zpnorm	xr2zpekcm1, noexec, exec, noexec, exec, noexec, noexec, noexec, exec
+	zpnorm	xr2zpck, noexec, noexec, exec, exec, noexec, noexec, noexec, noexec
+	zpnorm	xr2zpeck, noexec, exec, exec, exec, noexec, noexec, noexec, noexec
+	zpnorm	xi2zpk, exec, noexec, noexec, exec, noexec, noexec, noexec, noexec
+	zpnorm	xi2zpkc1, exec, noexec, noexec, exec, noexec, noexec, exec, noexec
+	zpnorm	xi2zpkcm1, exec, noexec, noexec, exec, noexec, noexec, noexec, exec
+	zpnorm	xi2zpek, exec, exec, noexec, exec, noexec, noexec, noexec, noexec
+	zpnorm	xi2zpekc1, exec, exec, noexec, exec, noexec, noexec, exec, noexec
+	zpnorm	xi2zpekcm1, exec, exec, noexec, exec, noexec, noexec, noexec, exec
+	zpnorm	xi2zpck, exec, noexec, exec, exec, noexec, noexec, noexec, noexec
+	zpnorm	xi2zpeck, exec, exec, exec, exec, noexec, noexec, noexec, noexec
 
 	inorm	xr2b, noexec, noexec, noexec, noexec, noexec, noexec
 	inorm	xr2eb, noexec, noexec, exec, noexec, noexec, noexec
@@ -233,14 +257,38 @@ PREFETCHING = 1
 	inorm	xi2eb, exec, noexec, exec, noexec, noexec, noexec
 	inorm	xi2cb, exec, noexec, noexec, exec, noexec, noexec
 	inorm	xi2ecb, exec, noexec, exec, exec, noexec, noexec
-	zpnorm	xr2zpb, noexec, noexec, noexec, noexec, noexec
-	zpnorm	xr2zpeb, noexec, exec, noexec, noexec, noexec
-	zpnorm	xr2zpcb, noexec, noexec, exec, noexec, noexec
-	zpnorm	xr2zpecb, noexec, exec, exec, noexec, noexec
-	zpnorm	xi2zpb, exec, noexec, noexec, noexec, noexec
-	zpnorm	xi2zpeb, exec, exec, noexec, noexec, noexec
-	zpnorm	xi2zpcb, exec, noexec, exec, noexec, noexec
-	zpnorm	xi2zpecb, exec, exec, exec, noexec, noexec
+	zpnorm	xr2zpb, noexec, noexec, noexec, noexec, noexec, exec, noexec, noexec
+	zpnorm	xr2zpbc1, noexec, noexec, noexec, noexec, noexec, exec, exec, noexec
+	zpnorm	xr2zpbcm1, noexec, noexec, noexec, noexec, noexec, exec, noexec, exec
+	zpnorm	xr2zpeb, noexec, exec, noexec, noexec, noexec, exec, noexec, noexec
+	zpnorm	xr2zpebc1, noexec, exec, noexec, noexec, noexec, exec, exec, noexec
+	zpnorm	xr2zpebcm1, noexec, exec, noexec, noexec, noexec, exec, noexec, exec
+	zpnorm	xr2zpcb, noexec, noexec, exec, noexec, noexec, exec, noexec, noexec
+	zpnorm	xr2zpecb, noexec, exec, exec, noexec, noexec, exec, noexec, noexec
+	zpnorm	xi2zpb, exec, noexec, noexec, noexec, noexec, exec, noexec, noexec
+	zpnorm	xi2zpbc1, exec, noexec, noexec, noexec, noexec, exec, exec, noexec
+	zpnorm	xi2zpbcm1, exec, noexec, noexec, noexec, noexec, exec, noexec, exec
+	zpnorm	xi2zpeb, exec, exec, noexec, noexec, noexec, exec, noexec, noexec
+	zpnorm	xi2zpebc1, exec, exec, noexec, noexec, noexec, exec, exec, noexec
+	zpnorm	xi2zpebcm1, exec, exec, noexec, noexec, noexec, exec, noexec, exec
+	zpnorm	xi2zpcb, exec, noexec, exec, noexec, noexec, exec, noexec, noexec
+	zpnorm	xi2zpecb, exec, exec, exec, noexec, noexec, exec, noexec, noexec
+	zpnorm	xr2zpbk, noexec, noexec, noexec, noexec, noexec, noexec, noexec, noexec
+	zpnorm	xr2zpbkc1, noexec, noexec, noexec, noexec, noexec, noexec, exec, noexec
+	zpnorm	xr2zpbkcm1, noexec, noexec, noexec, noexec, noexec, noexec, noexec, exec
+	zpnorm	xr2zpebk, noexec, exec, noexec, noexec, noexec, noexec, noexec, noexec
+	zpnorm	xr2zpebkc1, noexec, exec, noexec, noexec, noexec, noexec, exec, noexec
+	zpnorm	xr2zpebkcm1, noexec, exec, noexec, noexec, noexec, noexec, noexec, exec
+	zpnorm	xr2zpcbk, noexec, noexec, exec, noexec, noexec, noexec, noexec, noexec
+	zpnorm	xr2zpecbk, noexec, exec, exec, noexec, noexec, noexec, noexec, noexec
+	zpnorm	xi2zpbk, exec, noexec, noexec, noexec, noexec, noexec, noexec, noexec
+	zpnorm	xi2zpbkc1, exec, noexec, noexec, noexec, noexec, noexec, exec, noexec
+	zpnorm	xi2zpbkcm1, exec, noexec, noexec, noexec, noexec, noexec, noexec, exec
+	zpnorm	xi2zpebk, exec, exec, noexec, noexec, noexec, noexec, noexec, noexec
+	zpnorm	xi2zpebkc1, exec, exec, noexec, noexec, noexec, noexec, exec, noexec
+	zpnorm	xi2zpebkcm1, exec, exec, noexec, noexec, noexec, noexec, noexec, exec
+	zpnorm	xi2zpcbk, exec, noexec, exec, noexec, noexec, noexec, noexec, noexec
+	zpnorm	xi2zpecbk, exec, exec, exec, noexec, noexec, noexec, noexec, noexec
 
 	inorm	xr2s4, noexec, noexec, noexec, noexec, exec, exec
 	inorm	xr2es4, noexec, noexec, exec, noexec, exec, exec
@@ -250,14 +298,38 @@ PREFETCHING = 1
 	inorm	xi2es4, exec, noexec, exec, noexec, exec, exec
 	inorm	xi2cs4, exec, noexec, noexec, exec, exec, exec
 	inorm	xi2ecs4, exec, noexec, exec, exec, exec, exec
-	zpnorm	xr2zps4, noexec, noexec, noexec, exec, exec
-	zpnorm	xr2zpes4, noexec, exec, noexec, exec, exec
-	zpnorm	xr2zpcs4, noexec, noexec, exec, exec, exec
-	zpnorm	xr2zpecs4, noexec, exec, exec, exec, exec
-	zpnorm	xi2zps4, exec, noexec, noexec, exec, exec
-	zpnorm	xi2zpes4, exec, exec, noexec, exec, exec
-	zpnorm	xi2zpcs4, exec, noexec, exec, exec, exec
-	zpnorm	xi2zpecs4, exec, exec, exec, exec, exec
+	zpnorm	xr2zps4, noexec, noexec, noexec, exec, exec, exec, noexec, noexec
+	zpnorm	xr2zps4c1, noexec, noexec, noexec, exec, exec, exec, exec, noexec
+	zpnorm	xr2zps4cm1, noexec, noexec, noexec, exec, exec, exec, noexec, exec
+	zpnorm	xr2zpes4, noexec, exec, noexec, exec, exec, exec, noexec, noexec
+	zpnorm	xr2zpes4c1, noexec, exec, noexec, exec, exec, exec, exec, noexec
+	zpnorm	xr2zpes4cm1, noexec, exec, noexec, exec, exec, exec, noexec, exec
+	zpnorm	xr2zpcs4, noexec, noexec, exec, exec, exec, exec, noexec, noexec
+	zpnorm	xr2zpecs4, noexec, exec, exec, exec, exec, exec, noexec, noexec
+	zpnorm	xi2zps4, exec, noexec, noexec, exec, exec, exec, noexec, noexec
+	zpnorm	xi2zps4c1, exec, noexec, noexec, exec, exec, exec, exec, noexec
+	zpnorm	xi2zps4cm1, exec, noexec, noexec, exec, exec, exec, noexec, exec
+	zpnorm	xi2zpes4, exec, exec, noexec, exec, exec, exec, noexec, noexec
+	zpnorm	xi2zpes4c1, exec, exec, noexec, exec, exec, exec, exec, noexec
+	zpnorm	xi2zpes4cm1, exec, exec, noexec, exec, exec, exec, noexec, exec
+	zpnorm	xi2zpcs4, exec, noexec, exec, exec, exec, exec, noexec, noexec
+	zpnorm	xi2zpecs4, exec, exec, exec, exec, exec, exec, noexec, noexec
+	zpnorm	xr2zps4k, noexec, noexec, noexec, exec, exec, noexec, noexec, noexec
+	zpnorm	xr2zps4kc1, noexec, noexec, noexec, exec, exec, noexec, exec, noexec
+	zpnorm	xr2zps4kcm1, noexec, noexec, noexec, exec, exec, noexec, noexec, exec
+	zpnorm	xr2zpes4k, noexec, exec, noexec, exec, exec, noexec, noexec, noexec
+	zpnorm	xr2zpes4kc1, noexec, exec, noexec, exec, exec, noexec, exec, noexec
+	zpnorm	xr2zpes4kcm1, noexec, exec, noexec, exec, exec, noexec, noexec, exec
+	zpnorm	xr2zpcs4k, noexec, noexec, exec, exec, exec, noexec, noexec, noexec
+	zpnorm	xr2zpecs4k, noexec, exec, exec, exec, exec, noexec, noexec, noexec
+	zpnorm	xi2zps4k, exec, noexec, noexec, exec, exec, noexec, noexec, noexec
+	zpnorm	xi2zps4kc1, exec, noexec, noexec, exec, exec, noexec, exec, noexec
+	zpnorm	xi2zps4kcm1, exec, noexec, noexec, exec, exec, noexec, noexec, exec
+	zpnorm	xi2zpes4k, exec, exec, noexec, exec, exec, noexec, noexec, noexec
+	zpnorm	xi2zpes4kc1, exec, exec, noexec, exec, exec, noexec, exec, noexec
+	zpnorm	xi2zpes4kcm1, exec, exec, noexec, exec, exec, noexec, noexec, exec
+	zpnorm	xi2zpcs4k, exec, noexec, exec, exec, exec, noexec, noexec, noexec
+	zpnorm	xi2zpecs4k, exec, exec, exec, exec, exec, noexec, noexec, noexec
 
 	inorm	xr2bs4, noexec, noexec, noexec, noexec, noexec, exec
 	inorm	xr2ebs4, noexec, noexec, exec, noexec, noexec, exec
@@ -267,14 +339,38 @@ PREFETCHING = 1
 	inorm	xi2ebs4, exec, noexec, exec, noexec, noexec, exec
 	inorm	xi2cbs4, exec, noexec, noexec, exec, noexec, exec
 	inorm	xi2ecbs4, exec, noexec, exec, exec, noexec, exec
-	zpnorm	xr2zpbs4, noexec, noexec, noexec, noexec, exec
-	zpnorm	xr2zpebs4, noexec, exec, noexec, noexec, exec
-	zpnorm	xr2zpcbs4, noexec, noexec, exec, noexec, exec
-	zpnorm	xr2zpecbs4, noexec, exec, exec, noexec, exec
-	zpnorm	xi2zpbs4, exec, noexec, noexec, noexec, exec
-	zpnorm	xi2zpebs4, exec, exec, noexec, noexec, exec
-	zpnorm	xi2zpcbs4, exec, noexec, exec, noexec, exec
-	zpnorm	xi2zpecbs4, exec, exec, exec, noexec, exec
+	zpnorm	xr2zpbs4, noexec, noexec, noexec, noexec, exec, exec, noexec, noexec
+	zpnorm	xr2zpbs4c1, noexec, noexec, noexec, noexec, exec, exec, exec, noexec
+	zpnorm	xr2zpbs4cm1, noexec, noexec, noexec, noexec, exec, exec, noexec, exec
+	zpnorm	xr2zpebs4, noexec, exec, noexec, noexec, exec, exec, noexec, noexec
+	zpnorm	xr2zpebs4c1, noexec, exec, noexec, noexec, exec, exec, exec, noexec
+	zpnorm	xr2zpebs4cm1, noexec, exec, noexec, noexec, exec, exec, noexec, exec
+	zpnorm	xr2zpcbs4, noexec, noexec, exec, noexec, exec, exec, noexec, noexec
+	zpnorm	xr2zpecbs4, noexec, exec, exec, noexec, exec, exec, noexec, noexec
+	zpnorm	xi2zpbs4, exec, noexec, noexec, noexec, exec, exec, noexec, noexec
+	zpnorm	xi2zpbs4c1, exec, noexec, noexec, noexec, exec, exec, exec, noexec
+	zpnorm	xi2zpbs4cm1, exec, noexec, noexec, noexec, exec, exec, noexec, exec
+	zpnorm	xi2zpebs4, exec, exec, noexec, noexec, exec, exec, noexec, noexec
+	zpnorm	xi2zpebs4c1, exec, exec, noexec, noexec, exec, exec, exec, noexec
+	zpnorm	xi2zpebs4cm1, exec, exec, noexec, noexec, exec, exec, noexec, exec
+	zpnorm	xi2zpcbs4, exec, noexec, exec, noexec, exec, exec, noexec, noexec
+	zpnorm	xi2zpecbs4, exec, exec, exec, noexec, exec, exec, noexec, noexec
+	zpnorm	xr2zpbs4k, noexec, noexec, noexec, noexec, exec, noexec, noexec, noexec
+	zpnorm	xr2zpbs4kc1, noexec, noexec, noexec, noexec, exec, noexec, exec, noexec
+	zpnorm	xr2zpbs4kcm1, noexec, noexec, noexec, noexec, exec, noexec, noexec, exec
+	zpnorm	xr2zpebs4k, noexec, exec, noexec, noexec, exec, noexec, noexec, noexec
+	zpnorm	xr2zpebs4kc1, noexec, exec, noexec, noexec, exec, noexec, exec, noexec
+	zpnorm	xr2zpebs4kcm1, noexec, exec, noexec, noexec, exec, noexec, noexec, exec
+	zpnorm	xr2zpcbs4k, noexec, noexec, exec, noexec, exec, noexec, noexec, noexec
+	zpnorm	xr2zpecbs4k, noexec, exec, exec, noexec, exec, noexec, noexec, noexec
+	zpnorm	xi2zpbs4k, exec, noexec, noexec, noexec, exec, noexec, noexec, noexec
+	zpnorm	xi2zpbs4kc1, exec, noexec, noexec, noexec, exec, noexec, exec, noexec
+	zpnorm	xi2zpbs4kcm1, exec, noexec, noexec, noexec, exec, noexec, noexec, exec
+	zpnorm	xi2zpebs4k, exec, exec, noexec, noexec, exec, noexec, noexec, noexec
+	zpnorm	xi2zpebs4kc1, exec, exec, noexec, noexec, exec, noexec, exec, noexec
+	zpnorm	xi2zpebs4kcm1, exec, exec, noexec, noexec, exec, noexec, noexec, exec
+	zpnorm	xi2zpcbs4k, exec, noexec, exec, noexec, exec, noexec, noexec, noexec
+	zpnorm	xi2zpecbs4k, exec, exec, exec, noexec, exec, noexec, noexec, noexec
 
 _TEXT	ENDS
 END

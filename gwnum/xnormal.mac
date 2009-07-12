@@ -672,7 +672,7 @@ zero	xorpd	xmm1, xmm1
 ; rdi = pointer to array of big vs. little flags
 ; eax = big vs. little word flag #1
 
-xnorm_1d_zpad MACRO ttp, echk, const, base2, sse4
+xnorm_1d_zpad MACRO ttp, echk, const, base2, sse4, khi, c1, cm1
 ttp	mov	al, [rdi]		;; Load big vs. little flags
 	movapd	xmm0, [rsi]		;; Load values1
 	unpcklpd xmm0, [rsi+16]
@@ -684,24 +684,33 @@ ttp	mov	al, [rdi]		;; Load big vs. little flags
 	mulpd	xmm1, [rbp]		;; Mul values2 by two-to-minus-phi
 
 	split_lower_zpad_word echk, base2, sse4, xmm0, xmm3, xmm4, rax
-no const movapd	xmm0, XMM_K_LO
-const	movapd	xmm0, XMM_K_TIMES_MULCONST_LO
-	mulpd	xmm0, xmm4
-no const movapd	xmm5, XMM_K_HI
-const	movapd	xmm5, XMM_K_TIMES_MULCONST_HI
-no base2 mulpd	xmm5, XMM_LIMIT_INVERSE[rax] ; Non-base2 rounding needs shifted carry
-	mulpd	xmm4, xmm5
 
-	addpd	xmm0, xmm2		;; x1 = values + carry
+no const	movapd	xmm0, XMM_K_LO
+const		movapd	xmm0, XMM_K_TIMES_MULCONST_LO
+		mulpd	xmm0, xmm4
+khi no const	movapd	xmm5, XMM_K_HI
+khi const	movapd	xmm5, XMM_K_TIMES_MULCONST_HI
+khi no base2	mulpd	xmm5, XMM_LIMIT_INVERSE[rax] ;; Non-base2 rounding needs shifted carry
+khi		mulpd	xmm4, xmm5
 
-	split_upper_zpad_word echk, base2, sse4, xmm1, xmm5, xmm2, rax
-no const mulpd	xmm2, XMM_MINUS_C
-const	mulpd	xmm2, XMM_MINUS_C_TIMES_MULCONST
-no const mulpd	xmm5, XMM_MINUS_C
-const	mulpd	xmm5, XMM_MINUS_C_TIMES_MULCONST
+		addpd	xmm0, xmm2		;; x1 = values + carry
+
+c1		mulpd   xmm1, XMM_MINUS_C	;; Do one mul before split rather than two after split
+
+khi	split_upper_zpad_word echk, base2, sse4, xmm1, xmm5, xmm2, rax
+no khi	split_upper_zpad_word echk, base2, sse4, xmm1, xmm4, xmm2, rax
+
+khi no const no c1 no cm1	mulpd	xmm2, XMM_MINUS_C
+khi no const no c1 no cm1	mulpd	xmm5, XMM_MINUS_C
+khi const			mulpd	xmm2, XMM_MINUS_C_TIMES_MULCONST
+khi const			mulpd	xmm5, XMM_MINUS_C_TIMES_MULCONST
+no khi no const no c1 no cm1	mulpd	xmm2, XMM_MINUS_C
+no khi no const no c1 no cm1	mulpd	xmm4, XMM_MINUS_C
+no khi const			mulpd	xmm2, XMM_MINUS_C_TIMES_MULCONST
+no khi const			mulpd	xmm4, XMM_MINUS_C_TIMES_MULCONST
 
 	addpd	xmm0, xmm2		;; Add upper FFT word to lower FFT word
-	addpd	xmm4, xmm5		;; Add upper FFT word to lower FFT word
+khi	addpd	xmm4, xmm5		;; Add upper FFT word to lower FFT word
 
  	rounding base2, exec, sse4, xmm0, xmm4, xmm2, rax
 
@@ -719,24 +728,33 @@ ttp	mov	al, [rdi+1]		;; Load big vs. little flags
 	mulpd	xmm1, [rbp+32]		;; Mul values2 by two-to-minus-phi
 
 	split_lower_zpad_word echk, base2, sse4, xmm5, xmm3, xmm2, rax
-no const movapd	xmm0, XMM_K_LO
-const	movapd	xmm0, XMM_K_TIMES_MULCONST_LO
-	mulpd	xmm0, xmm2
-no const movapd	xmm5, XMM_K_HI
-const	movapd	xmm5, XMM_K_TIMES_MULCONST_HI
-no base2 mulpd	xmm5, XMM_LIMIT_INVERSE[rax] ; Non-base2 rounding needs shifted carry
-	mulpd	xmm2, xmm5
 
-	addpd	xmm0, xmm4		;; x1 = values + carry
+no const	movapd	xmm0, XMM_K_LO
+const		movapd	xmm0, XMM_K_TIMES_MULCONST_LO
+		mulpd	xmm0, xmm2
+khi no const	movapd	xmm5, XMM_K_HI
+khi const	movapd	xmm5, XMM_K_TIMES_MULCONST_HI
+khi no base2	mulpd	xmm5, XMM_LIMIT_INVERSE[rax] ; Non-base2 rounding needs shifted carry
+khi		mulpd	xmm2, xmm5
 
-	split_upper_zpad_word echk, base2, sse4, xmm1, xmm5, xmm4, rax
-no const mulpd	xmm4, XMM_MINUS_C
-const	mulpd	xmm4, XMM_MINUS_C_TIMES_MULCONST
-no const mulpd	xmm5, XMM_MINUS_C
-const	mulpd	xmm5, XMM_MINUS_C_TIMES_MULCONST
+		addpd	xmm0, xmm4		;; x1 = values + carry
+
+c1		mulpd   xmm1, XMM_MINUS_C	;; Do one mul before split rather than two after split
+
+khi	split_upper_zpad_word echk, base2, sse4, xmm1, xmm5, xmm4, rax
+no khi	split_upper_zpad_word echk, base2, sse4, xmm1, xmm2, xmm4, rax
+
+khi no const no c1 no cm1	mulpd	xmm4, XMM_MINUS_C
+khi no const no c1 no cm1	mulpd	xmm5, XMM_MINUS_C
+khi const			mulpd	xmm4, XMM_MINUS_C_TIMES_MULCONST
+khi const			mulpd	xmm5, XMM_MINUS_C_TIMES_MULCONST
+no khi no const no c1 no cm1	mulpd	xmm4, XMM_MINUS_C
+no khi no const no c1 no cm1	mulpd	xmm2, XMM_MINUS_C
+no khi const			mulpd	xmm4, XMM_MINUS_C_TIMES_MULCONST
+no khi const			mulpd	xmm2, XMM_MINUS_C_TIMES_MULCONST
 
 	addpd	xmm0, xmm4		;; Add upper FFT word to lower FFT word
-	addpd	xmm2, xmm5		;; Add upper FFT word to lower FFT word
+khi	addpd	xmm2, xmm5		;; Add upper FFT word to lower FFT word
 
 	rounding base2, exec, sse4, xmm0, xmm2, xmm4, rax
 
@@ -1919,7 +1937,7 @@ ENDIF
 ;; NOTE: We'd rather store the high FFT carry without the XMM_BIGVAL added in,
 ;; but there is too much code that expects this (like add and subtract).
 
-xnorm_2d_zpad MACRO ttp, echk, const, base2, sse4
+xnorm_2d_zpad MACRO ttp, echk, const, base2, sse4, khi, c1, cm1
 	movapd	xmm2, [rbx][rax]	;; col two-to-minus-phi
 ttp	mulpd	xmm2, [rdx+0*32]	;; Mul by grp two-to-minus-phi
 	movapd	xmm0, [rsi]		;; Load values1
@@ -1932,24 +1950,33 @@ ttp	mulpd	xmm2, [rdx+0*32]	;; Mul by grp two-to-minus-phi
 	movapd	xmm3, [rbp+2*16]	;; Add in previous high FFT data
 	split_lower_zpad_word echk, base2, sse4, xmm0, xmm3, xmm4, rax
 	movapd	[rbp+2*16], xmm3
-no const movapd	xmm0, XMM_K_LO
-const	movapd	xmm0, XMM_K_TIMES_MULCONST_LO
-	mulpd	xmm0, xmm4
-no const movapd	xmm5, XMM_K_HI
-const	movapd	xmm5, XMM_K_TIMES_MULCONST_HI
-no base2 mulpd	xmm5, XMM_LIMIT_INVERSE[rax] ; Non-base2 rounding needs shifted carry
-	mulpd	xmm4, xmm5
- 
-	addpd	xmm0, [rbp+0*16]	;; x1 = values + carry
 
-	split_upper_zpad_word echk, base2, sse4, xmm1, xmm5, xmm2, rax
-no const mulpd	xmm2, XMM_MINUS_C
-const	mulpd	xmm2, XMM_MINUS_C_TIMES_MULCONST
-no const mulpd	xmm5, XMM_MINUS_C
-const	mulpd	xmm5, XMM_MINUS_C_TIMES_MULCONST
+no const	movapd	xmm0, XMM_K_LO
+const		movapd	xmm0, XMM_K_TIMES_MULCONST_LO
+		mulpd	xmm0, xmm4
+khi no const	movapd	xmm5, XMM_K_HI
+khi const	movapd	xmm5, XMM_K_TIMES_MULCONST_HI
+khi no base2	mulpd	xmm5, XMM_LIMIT_INVERSE[rax] ;; Non-base2 rounding needs shifted carry
+khi		mulpd	xmm4, xmm5
+ 
+		addpd	xmm0, [rbp+0*16]	;; x1 = values + carry
+
+c1		mulpd   xmm1, XMM_MINUS_C	;; Do one mul before split rather than two after split
+
+khi	split_upper_zpad_word echk, base2, sse4, xmm1, xmm5, xmm2, rax
+no khi	split_upper_zpad_word echk, base2, sse4, xmm1, xmm4, xmm2, rax
+
+khi no const no c1 no cm1	mulpd	xmm2, XMM_MINUS_C
+khi no const no c1 no cm1	mulpd	xmm5, XMM_MINUS_C
+khi const			mulpd	xmm2, XMM_MINUS_C_TIMES_MULCONST
+khi const			mulpd	xmm5, XMM_MINUS_C_TIMES_MULCONST
+no khi no const no c1 no cm1	mulpd	xmm2, XMM_MINUS_C
+no khi no const no c1 no cm1	mulpd	xmm4, XMM_MINUS_C
+no khi const			mulpd	xmm2, XMM_MINUS_C_TIMES_MULCONST
+no khi const			mulpd	xmm4, XMM_MINUS_C_TIMES_MULCONST
 
 	addpd	xmm0, xmm2		;; Add upper FFT word to lower FFT word
-	addpd	xmm4, xmm5		;; Add upper FFT word to lower FFT word
+khi	addpd	xmm4, xmm5		;; Add upper FFT word to lower FFT word
 
 	rounding base2, exec, sse4, xmm0, xmm4, xmm2, rax
 
@@ -1972,24 +1999,33 @@ ttp	mulpd	xmm3, [rdx+1*32]	;; Mul by grp two-to-minus-phi
 	movapd	xmm3, [rbp+3*16]	;; Add in previous high FFT data
 	split_lower_zpad_word echk, base2, sse4, xmm5, xmm3, xmm2, rax
 	movapd	[rbp+3*16], xmm3
-no const movapd	xmm0, XMM_K_LO
-const	movapd	xmm0, XMM_K_TIMES_MULCONST_LO
-	mulpd	xmm0, xmm2
-no const movapd	xmm5, XMM_K_HI
-const	movapd	xmm5, XMM_K_TIMES_MULCONST_HI
-no base2 mulpd	xmm5, XMM_LIMIT_INVERSE[rax] ; Non-base2 rounding needs shifted carry
-	mulpd	xmm2, xmm5
 
-	addpd	xmm0, [rbp+1*16]	;; x2 = values + carry
+no const	movapd	xmm0, XMM_K_LO
+const		movapd	xmm0, XMM_K_TIMES_MULCONST_LO
+		mulpd	xmm0, xmm2
+khi no const	movapd	xmm5, XMM_K_HI
+khi const	movapd	xmm5, XMM_K_TIMES_MULCONST_HI
+khi no base2	mulpd	xmm5, XMM_LIMIT_INVERSE[rax] ;; Non-base2 rounding needs shifted carry
+khi		mulpd	xmm2, xmm5
 
-	split_upper_zpad_word echk, base2, sse4, xmm1, xmm5, xmm4, rax
-no const mulpd	xmm4, XMM_MINUS_C
-const	mulpd	xmm4, XMM_MINUS_C_TIMES_MULCONST
-no const mulpd	xmm5, XMM_MINUS_C
-const	mulpd	xmm5, XMM_MINUS_C_TIMES_MULCONST
+		addpd	xmm0, [rbp+1*16]	;; x2 = values + carry
+
+c1		mulpd   xmm1, XMM_MINUS_C	;; Do one mul before split rather than two after split
+
+khi	split_upper_zpad_word echk, base2, sse4, xmm1, xmm5, xmm4, rax
+no khi	split_upper_zpad_word echk, base2, sse4, xmm1, xmm2, xmm4, rax
+
+khi no const no c1 no cm1	mulpd	xmm4, XMM_MINUS_C
+khi no const no c1 no cm1	mulpd	xmm5, XMM_MINUS_C
+khi const			mulpd	xmm4, XMM_MINUS_C_TIMES_MULCONST
+khi const			mulpd	xmm5, XMM_MINUS_C_TIMES_MULCONST
+no khi no const no c1 no cm1	mulpd	xmm4, XMM_MINUS_C
+no khi no const no c1 no cm1	mulpd	xmm2, XMM_MINUS_C
+no khi const			mulpd	xmm4, XMM_MINUS_C_TIMES_MULCONST
+no khi const			mulpd	xmm2, XMM_MINUS_C_TIMES_MULCONST
 
 	addpd	xmm0, xmm4		;; Add upper FFT word to lower FFT word
-	addpd	xmm2, xmm5		;; Add upper FFT word to lower FFT word
+khi	addpd	xmm2, xmm5		;; Add upper FFT word to lower FFT word
 
 	rounding base2, exec, sse4, xmm0, xmm2, xmm4, rax
 

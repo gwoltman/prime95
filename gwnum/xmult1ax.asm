@@ -470,7 +470,7 @@ saved_reg3	EQU	PPTR [rsp+first_local+2*SZPTR]
 
 inorm	MACRO	lab, ttp, zero, echk, const, base2, sse4
 	LOCAL	ilp0, ilp1
-	PROCF	lab
+	PROCFL	lab
 	int_prolog 3*SZPTR,0,0
 	mov	rsi, DESTARG		;; Addr of multiplied number
 no zero	mov	edi, ADDIN_OFFSET	;; Get address to add value into
@@ -516,9 +516,9 @@ base2 no zero jmp idn			;; Go to normal end code
 &lab	ENDP
 	ENDM
 
-zpnorm	MACRO	lab, ttp, echk, const, base2, sse4
+zpnorm	MACRO	lab, ttp, echk, const, base2, sse4, khi, c1, cm1
 	LOCAL	ilp0, ilp1
-	PROCF	lab
+	PROCFL	lab
 	int_prolog 3*SZPTR,0,0
 	mov	rsi, DESTARG		;; Addr of multiplied number
 	movapd	xmm2, XMM_BIGVAL	;; Start process with no carry
@@ -534,7 +534,7 @@ ilp0:	mov	saved_reg1, rbx		;; Save loop counter
 	mov	saved_reg2, rdi		;; remember edi for xnorm012_1d_mid
 	mov	saved_reg3, rsi		;; remember esi for xnorm012_1d_mid
 	mov	rdx, rbp		;; remember ebp for xnorm012_1d_mid
-ilp1:	xnorm_1d_zpad ttp, echk, const, base2, sse4 ;; Normalize 8 values
+ilp1:	xnorm_1d_zpad ttp, echk, const, base2, sse4, khi, c1, cm1 ;; Normalize 8 values
 	lea	rsi, [rsi+64]		;; Next cache line
 ttp	lea	rbp, [rbp+128]		;; Next set of 8 multipliers
 ttp	lea	rdi, [rdi+4]		;; Next big/little flags
@@ -570,14 +570,38 @@ base2 no const jmp zpdn			;; Go to zero padded FFT end code
 	inorm	xi1ec, exec, noexec, exec, exec, exec, noexec
 	inorm	xi1z, exec, exec, noexec, noexec, exec, noexec
 	inorm	xi1ze, exec, exec, exec, noexec, exec, noexec
-	zpnorm	xr1zp, noexec, noexec, noexec, exec, noexec
-	zpnorm	xr1zpe, noexec, exec, noexec, exec, noexec
-	zpnorm	xr1zpc, noexec, noexec, exec, exec, noexec
-	zpnorm	xr1zpec, noexec, exec, exec, exec, noexec
-	zpnorm	xi1zp, exec, noexec, noexec, exec, noexec
-	zpnorm	xi1zpe, exec, exec, noexec, exec, noexec
-	zpnorm	xi1zpc, exec, noexec, exec, exec, noexec
-	zpnorm	xi1zpec, exec, exec, exec, exec, noexec
+	zpnorm	xr1zp, noexec, noexec, noexec, exec, noexec, exec, noexec, noexec
+	zpnorm	xr1zpc1, noexec, noexec, noexec, exec, noexec, exec, exec, noexec
+	zpnorm	xr1zpcm1, noexec, noexec, noexec, exec, noexec, exec, noexec, exec
+	zpnorm	xr1zpe, noexec, exec, noexec, exec, noexec, exec, noexec, noexec
+	zpnorm	xr1zpec1, noexec, exec, noexec, exec, noexec, exec, exec, noexec
+	zpnorm	xr1zpecm1, noexec, exec, noexec, exec, noexec, exec, noexec, exec
+	zpnorm	xr1zpc, noexec, noexec, exec, exec, noexec, exec, noexec, noexec
+	zpnorm	xr1zpec, noexec, exec, exec, exec, noexec, exec, noexec, noexec
+	zpnorm	xi1zp, exec, noexec, noexec, exec, noexec, exec, noexec, noexec
+	zpnorm	xi1zpc1, exec, noexec, noexec, exec, noexec, exec, exec, noexec
+	zpnorm	xi1zpcm1, exec, noexec, noexec, exec, noexec, exec, noexec, exec
+	zpnorm	xi1zpe, exec, exec, noexec, exec, noexec, exec, noexec, noexec
+	zpnorm	xi1zpec1, exec, exec, noexec, exec, noexec, exec, exec, noexec
+	zpnorm	xi1zpecm1, exec, exec, noexec, exec, noexec, exec, noexec, exec
+	zpnorm	xi1zpc, exec, noexec, exec, exec, noexec, exec, noexec, noexec
+	zpnorm	xi1zpec, exec, exec, exec, exec, noexec, exec, noexec, noexec
+	zpnorm	xr1zpk, noexec, noexec, noexec, exec, noexec, noexec, noexec, noexec
+	zpnorm	xr1zpkc1, noexec, noexec, noexec, exec, noexec, noexec, exec, noexec
+	zpnorm	xr1zpkcm1, noexec, noexec, noexec, exec, noexec, noexec, noexec, exec
+	zpnorm	xr1zpek, noexec, exec, noexec, exec, noexec, noexec, noexec, noexec
+	zpnorm	xr1zpekc1, noexec, exec, noexec, exec, noexec, noexec, exec, noexec
+	zpnorm	xr1zpekcm1, noexec, exec, noexec, exec, noexec, noexec, noexec, exec
+	zpnorm	xr1zpck, noexec, noexec, exec, exec, noexec, noexec, noexec, noexec
+	zpnorm	xr1zpeck, noexec, exec, exec, exec, noexec, noexec, noexec, noexec
+	zpnorm	xi1zpk, exec, noexec, noexec, exec, noexec, noexec, noexec, noexec
+	zpnorm	xi1zpkc1, exec, noexec, noexec, exec, noexec, noexec, exec, noexec
+	zpnorm	xi1zpkcm1, exec, noexec, noexec, exec, noexec, noexec, noexec, exec
+	zpnorm	xi1zpek, exec, exec, noexec, exec, noexec, noexec, noexec, noexec
+	zpnorm	xi1zpekc1, exec, exec, noexec, exec, noexec, noexec, exec, noexec
+	zpnorm	xi1zpekcm1, exec, exec, noexec, exec, noexec, noexec, noexec, exec
+	zpnorm	xi1zpck, exec, noexec, exec, exec, noexec, noexec, noexec, noexec
+	zpnorm	xi1zpeck, exec, exec, exec, exec, noexec, noexec, noexec, noexec
 
 	inorm	xr1b, noexec, noexec, noexec, noexec, noexec, noexec
 	inorm	xr1eb, noexec, noexec, exec, noexec, noexec, noexec
@@ -587,14 +611,38 @@ base2 no const jmp zpdn			;; Go to zero padded FFT end code
 	inorm	xi1eb, exec, noexec, exec, noexec, noexec, noexec
 	inorm	xi1cb, exec, noexec, noexec, exec, noexec, noexec
 	inorm	xi1ecb, exec, noexec, exec, exec, noexec, noexec
-	zpnorm	xr1zpb, noexec, noexec, noexec, noexec, noexec
-	zpnorm	xr1zpeb, noexec, exec, noexec, noexec, noexec
-	zpnorm	xr1zpcb, noexec, noexec, exec, noexec, noexec
-	zpnorm	xr1zpecb, noexec, exec, exec, noexec, noexec
-	zpnorm	xi1zpb, exec, noexec, noexec, noexec, noexec
-	zpnorm	xi1zpeb, exec, exec, noexec, noexec, noexec
-	zpnorm	xi1zpcb, exec, noexec, exec, noexec, noexec
-	zpnorm	xi1zpecb, exec, exec, exec, noexec, noexec
+	zpnorm	xr1zpb, noexec, noexec, noexec, noexec, noexec, exec, noexec, noexec
+	zpnorm	xr1zpbc1, noexec, noexec, noexec, noexec, noexec, exec, exec, noexec
+	zpnorm	xr1zpbcm1, noexec, noexec, noexec, noexec, noexec, exec, noexec, exec
+	zpnorm	xr1zpeb, noexec, exec, noexec, noexec, noexec, exec, noexec, noexec
+	zpnorm	xr1zpebc1, noexec, exec, noexec, noexec, noexec, exec, exec, noexec
+	zpnorm	xr1zpebcm1, noexec, exec, noexec, noexec, noexec, exec, noexec, exec
+	zpnorm	xr1zpcb, noexec, noexec, exec, noexec, noexec, exec, noexec, noexec
+	zpnorm	xr1zpecb, noexec, exec, exec, noexec, noexec, exec, noexec, noexec
+	zpnorm	xi1zpb, exec, noexec, noexec, noexec, noexec, exec, noexec, noexec
+	zpnorm	xi1zpbc1, exec, noexec, noexec, noexec, noexec, exec, exec, noexec
+	zpnorm	xi1zpbcm1, exec, noexec, noexec, noexec, noexec, exec, noexec, exec
+	zpnorm	xi1zpeb, exec, exec, noexec, noexec, noexec, exec, noexec, noexec
+	zpnorm	xi1zpebc1, exec, exec, noexec, noexec, noexec, exec, exec, noexec
+	zpnorm	xi1zpebcm1, exec, exec, noexec, noexec, noexec, exec, noexec, exec
+	zpnorm	xi1zpcb, exec, noexec, exec, noexec, noexec, exec, noexec, noexec
+	zpnorm	xi1zpecb, exec, exec, exec, noexec, noexec, exec, noexec, noexec
+	zpnorm	xr1zpbk, noexec, noexec, noexec, noexec, noexec, noexec, noexec, noexec
+	zpnorm	xr1zpbkc1, noexec, noexec, noexec, noexec, noexec, noexec, exec, noexec
+	zpnorm	xr1zpbkcm1, noexec, noexec, noexec, noexec, noexec, noexec, noexec, exec
+	zpnorm	xr1zpebk, noexec, exec, noexec, noexec, noexec, noexec, noexec, noexec
+	zpnorm	xr1zpebkc1, noexec, exec, noexec, noexec, noexec, noexec, exec, noexec
+	zpnorm	xr1zpebkcm1, noexec, exec, noexec, noexec, noexec, noexec, noexec, exec
+	zpnorm	xr1zpcbk, noexec, noexec, exec, noexec, noexec, noexec, noexec, noexec
+	zpnorm	xr1zpecbk, noexec, exec, exec, noexec, noexec, noexec, noexec, noexec
+	zpnorm	xi1zpbk, exec, noexec, noexec, noexec, noexec, noexec, noexec, noexec
+	zpnorm	xi1zpbkc1, exec, noexec, noexec, noexec, noexec, noexec, exec, noexec
+	zpnorm	xi1zpbkcm1, exec, noexec, noexec, noexec, noexec, noexec, noexec, exec
+	zpnorm	xi1zpebk, exec, exec, noexec, noexec, noexec, noexec, noexec, noexec
+	zpnorm	xi1zpebkc1, exec, exec, noexec, noexec, noexec, noexec, exec, noexec
+	zpnorm	xi1zpebkcm1, exec, exec, noexec, noexec, noexec, noexec, noexec, exec
+	zpnorm	xi1zpcbk, exec, noexec, exec, noexec, noexec, noexec, noexec, noexec
+	zpnorm	xi1zpecbk, exec, exec, exec, noexec, noexec, noexec, noexec, noexec
 
 	inorm	xr1s4, noexec, noexec, noexec, noexec, exec, exec
 	inorm	xr1es4, noexec, noexec, exec, noexec, exec, exec
@@ -604,14 +652,38 @@ base2 no const jmp zpdn			;; Go to zero padded FFT end code
 	inorm	xi1es4, exec, noexec, exec, noexec, exec, exec
 	inorm	xi1cs4, exec, noexec, noexec, exec, exec, exec
 	inorm	xi1ecs4, exec, noexec, exec, exec, exec, exec
-	zpnorm	xr1zps4, noexec, noexec, noexec, exec, exec
-	zpnorm	xr1zpes4, noexec, exec, noexec, exec, exec
-	zpnorm	xr1zpcs4, noexec, noexec, exec, exec, exec
-	zpnorm	xr1zpecs4, noexec, exec, exec, exec, exec
-	zpnorm	xi1zps4, exec, noexec, noexec, exec, exec
-	zpnorm	xi1zpes4, exec, exec, noexec, exec, exec
-	zpnorm	xi1zpcs4, exec, noexec, exec, exec, exec
-	zpnorm	xi1zpecs4, exec, exec, exec, exec, exec
+	zpnorm	xr1zps4, noexec, noexec, noexec, exec, exec, exec, noexec, noexec
+	zpnorm	xr1zps4c1, noexec, noexec, noexec, exec, exec, exec, exec, noexec
+	zpnorm	xr1zps4cm1, noexec, noexec, noexec, exec, exec, exec, noexec, exec
+	zpnorm	xr1zpes4, noexec, exec, noexec, exec, exec, exec, noexec, noexec
+	zpnorm	xr1zpes4c1, noexec, exec, noexec, exec, exec, exec, exec, noexec
+	zpnorm	xr1zpes4cm1, noexec, exec, noexec, exec, exec, exec, noexec, exec
+	zpnorm	xr1zpcs4, noexec, noexec, exec, exec, exec, exec, noexec, noexec
+	zpnorm	xr1zpecs4, noexec, exec, exec, exec, exec, exec, noexec, noexec
+	zpnorm	xi1zps4, exec, noexec, noexec, exec, exec, exec, noexec, noexec
+	zpnorm	xi1zps4c1, exec, noexec, noexec, exec, exec, exec, exec, noexec
+	zpnorm	xi1zps4cm1, exec, noexec, noexec, exec, exec, exec, noexec, exec
+	zpnorm	xi1zpes4, exec, exec, noexec, exec, exec, exec, noexec, noexec
+	zpnorm	xi1zpes4c1, exec, exec, noexec, exec, exec, exec, exec, noexec
+	zpnorm	xi1zpes4cm1, exec, exec, noexec, exec, exec, exec, noexec, exec
+	zpnorm	xi1zpcs4, exec, noexec, exec, exec, exec, exec, noexec, noexec
+	zpnorm	xi1zpecs4, exec, exec, exec, exec, exec, exec, noexec, noexec
+	zpnorm	xr1zps4k, noexec, noexec, noexec, exec, exec, noexec, noexec, noexec
+	zpnorm	xr1zps4kc1, noexec, noexec, noexec, exec, exec, noexec, exec, noexec
+	zpnorm	xr1zps4kcm1, noexec, noexec, noexec, exec, exec, noexec, noexec, exec
+	zpnorm	xr1zpes4k, noexec, exec, noexec, exec, exec, noexec, noexec, noexec
+	zpnorm	xr1zpes4kc1, noexec, exec, noexec, exec, exec, noexec, exec, noexec
+	zpnorm	xr1zpes4kcm1, noexec, exec, noexec, exec, exec, noexec, noexec, exec
+	zpnorm	xr1zpcs4k, noexec, noexec, exec, exec, exec, noexec, noexec, noexec
+	zpnorm	xr1zpecs4k, noexec, exec, exec, exec, exec, noexec, noexec, noexec
+	zpnorm	xi1zps4k, exec, noexec, noexec, exec, exec, noexec, noexec, noexec
+	zpnorm	xi1zps4kc1, exec, noexec, noexec, exec, exec, noexec, exec, noexec
+	zpnorm	xi1zps4kcm1, exec, noexec, noexec, exec, exec, noexec, noexec, exec
+	zpnorm	xi1zpes4k, exec, exec, noexec, exec, exec, noexec, noexec, noexec
+	zpnorm	xi1zpes4kc1, exec, exec, noexec, exec, exec, noexec, exec, noexec
+	zpnorm	xi1zpes4kcm1, exec, exec, noexec, exec, exec, noexec, noexec, exec
+	zpnorm	xi1zpcs4k, exec, noexec, exec, exec, exec, noexec, noexec, noexec
+	zpnorm	xi1zpecs4k, exec, exec, exec, exec, exec, noexec, noexec, noexec
 
 	inorm	xr1bs4, noexec, noexec, noexec, noexec, noexec, exec
 	inorm	xr1ebs4, noexec, noexec, exec, noexec, noexec, exec
@@ -621,14 +693,38 @@ base2 no const jmp zpdn			;; Go to zero padded FFT end code
 	inorm	xi1ebs4, exec, noexec, exec, noexec, noexec, exec
 	inorm	xi1cbs4, exec, noexec, noexec, exec, noexec, exec
 	inorm	xi1ecbs4, exec, noexec, exec, exec, noexec, exec
-	zpnorm	xr1zpbs4, noexec, noexec, noexec, noexec, exec
-	zpnorm	xr1zpebs4, noexec, exec, noexec, noexec, exec
-	zpnorm	xr1zpcbs4, noexec, noexec, exec, noexec, exec
-	zpnorm	xr1zpecbs4, noexec, exec, exec, noexec, exec
-	zpnorm	xi1zpbs4, exec, noexec, noexec, noexec, exec
-	zpnorm	xi1zpebs4, exec, exec, noexec, noexec, exec
-	zpnorm	xi1zpcbs4, exec, noexec, exec, noexec, exec
-	zpnorm	xi1zpecbs4, exec, exec, exec, noexec, exec
+	zpnorm	xr1zpbs4, noexec, noexec, noexec, noexec, exec, exec, noexec, noexec
+	zpnorm	xr1zpbs4c1, noexec, noexec, noexec, noexec, exec, exec, exec, noexec
+	zpnorm	xr1zpbs4cm1, noexec, noexec, noexec, noexec, exec, exec, noexec, exec
+	zpnorm	xr1zpebs4, noexec, exec, noexec, noexec, exec, exec, noexec, noexec
+	zpnorm	xr1zpebs4c1, noexec, exec, noexec, noexec, exec, exec, exec, noexec
+	zpnorm	xr1zpebs4cm1, noexec, exec, noexec, noexec, exec, exec, noexec, exec
+	zpnorm	xr1zpcbs4, noexec, noexec, exec, noexec, exec, exec, noexec, noexec
+	zpnorm	xr1zpecbs4, noexec, exec, exec, noexec, exec, exec, noexec, noexec
+	zpnorm	xi1zpbs4, exec, noexec, noexec, noexec, exec, exec, noexec, noexec
+	zpnorm	xi1zpbs4c1, exec, noexec, noexec, noexec, exec, exec, exec, noexec
+	zpnorm	xi1zpbs4cm1, exec, noexec, noexec, noexec, exec, exec, noexec, exec
+	zpnorm	xi1zpebs4, exec, exec, noexec, noexec, exec, exec, noexec, noexec
+	zpnorm	xi1zpebs4c1, exec, exec, noexec, noexec, exec, exec, exec, noexec
+	zpnorm	xi1zpebs4cm1, exec, exec, noexec, noexec, exec, exec, noexec, exec
+	zpnorm	xi1zpcbs4, exec, noexec, exec, noexec, exec, exec, noexec, noexec
+	zpnorm	xi1zpecbs4, exec, exec, exec, noexec, exec, exec, noexec, noexec
+	zpnorm	xr1zpbs4k, noexec, noexec, noexec, noexec, exec, noexec, noexec, noexec
+	zpnorm	xr1zpbs4kc1, noexec, noexec, noexec, noexec, exec, noexec, exec, noexec
+	zpnorm	xr1zpbs4kcm1, noexec, noexec, noexec, noexec, exec, noexec, noexec, exec
+	zpnorm	xr1zpebs4k, noexec, exec, noexec, noexec, exec, noexec, noexec, noexec
+	zpnorm	xr1zpebs4kc1, noexec, exec, noexec, noexec, exec, noexec, exec, noexec
+	zpnorm	xr1zpebs4kcm1, noexec, exec, noexec, noexec, exec, noexec, noexec, exec
+	zpnorm	xr1zpcbs4k, noexec, noexec, exec, noexec, exec, noexec, noexec, noexec
+	zpnorm	xr1zpecbs4k, noexec, exec, exec, noexec, exec, noexec, noexec, noexec
+	zpnorm	xi1zpbs4k, exec, noexec, noexec, noexec, exec, noexec, noexec, noexec
+	zpnorm	xi1zpbs4kc1, exec, noexec, noexec, noexec, exec, noexec, exec, noexec
+	zpnorm	xi1zpbs4kcm1, exec, noexec, noexec, noexec, exec, noexec, noexec, exec
+	zpnorm	xi1zpebs4k, exec, exec, noexec, noexec, exec, noexec, noexec, noexec
+	zpnorm	xi1zpebs4kc1, exec, exec, noexec, noexec, exec, noexec, exec, noexec
+	zpnorm	xi1zpebs4kcm1, exec, exec, noexec, noexec, exec, noexec, noexec, exec
+	zpnorm	xi1zpcbs4k, exec, noexec, exec, noexec, exec, noexec, noexec, noexec
+	zpnorm	xi1zpecbs4k, exec, exec, exec, noexec, exec, noexec, noexec, noexec
 
 ; Common code to finish off the one-pass FFTs normalization.  The
 ; Windows 64-bit ABI frowns on us jumping from one procedure into another.

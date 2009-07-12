@@ -329,7 +329,7 @@ sub_7_words MACRO
 
 inorm	MACRO	lab, ttp, zero, echk, const
 	LOCAL	ilp
-	PROCF	lab
+	PROCFL	lab
 	int_prolog 0,0,0
 	mov	esi, DESTARG		;; Address of multiplied number
 	fld	MAXERR			;; Load MAXERR
@@ -360,7 +360,7 @@ no zero	jmp	idn			;; Go to normal end code
 
 zpnorm	MACRO	lab, ttp, echk, const
 	LOCAL	ilp
-	PROCF	lab
+	PROCFL	lab
 	int_prolog 0,0,0
 	mov	esi, DESTARG		;; Address of multiplied number
 	fld	MAXERR			;; Load MAXERR
