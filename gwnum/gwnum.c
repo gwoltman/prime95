@@ -6185,7 +6185,7 @@ int gwtogiant (
 /* FFT, then only convert a little more than half of the FFT data words. */
 /* For a DWT, convert all the FFT data. */
 
-	if (gwdata->GENERAL_MOD) limit = gwdata->GW_GEN_MOD_MAX + 1;
+	if (gwdata->GENERAL_MOD) limit = gwdata->GW_GEN_MOD_MAX + 4;
 	else if (gwdata->ZERO_PADDED_FFT) limit = gwdata->FFTLEN / 2 + 4;
 	else limit = gwdata->FFTLEN;
 
@@ -6197,9 +6197,13 @@ int gwtogiant (
 		long	val, prev_val;
 		err_code = get_fft_value (gwdata, gg, limit, &val);
 		if (err_code) return (err_code);
-		ASSERTG (val >= -1 && val <= 1);
-		err_code = get_fft_value (gwdata, gg, limit-1, &prev_val);
-		if (err_code) return (err_code);
+		ASSERTG (val >= -1 && val <= 0);
+		while (limit > 1) {		/* Find top word */
+			err_code = get_fft_value (gwdata, gg, limit-1, &prev_val);
+			if (err_code) return (err_code);
+			if (val != prev_val || val < -1 || val > 0) break;
+			limit--;
+		}
 		if (val > 0 || val < -1 || (val == -1 && prev_val >= 0)) {
 			int	num_b;
 			num_b = gwdata->NUM_B_PER_SMALL_WORD;
