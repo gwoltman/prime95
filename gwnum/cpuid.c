@@ -15,7 +15,8 @@
 #ifdef _WIN32
 #include "windows.h"
 #endif
-#ifdef __APPLE__
+#if defined (__FreeBSD__) || defined (__APPLE__)
+#include <sys/param.h>
 #include <sys/sysctl.h>
 #endif
 #ifdef __linux__
