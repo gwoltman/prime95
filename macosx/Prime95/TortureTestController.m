@@ -32,6 +32,7 @@
 	[self setNumberOfThreadsMax:NUM_CPUS * CPU_HYPERTHREADS];
 	[self setNumberOfThreadsEnabled:(NUM_CPUS * CPU_HYPERTHREADS > 1)];
 	[self setCustomSettingsEnabled:NO];
+	[self setCustomMemoryEnabled:NO];
 	[self setMinFFTSize:8];
 	[self setMaxFFTSize:4096];
 
@@ -64,6 +65,7 @@
 	if (_value == 0) {			// Small FFTs (in L2 cache)
 		int	maxfft;
 		[self setCustomSettingsEnabled:NO];
+		[self setCustomMemoryEnabled:NO];
 		[self setMinFFTSize:8];
 		if (CPU_L2_CACHE_SIZE <= 128) maxfft = 8;
 		else if (CPU_L2_CACHE_SIZE <= 256) maxfft = 16;
@@ -75,6 +77,7 @@
 		[self setTimeToRunEachFFT:15];
 	} else if (_value == 1) {		// Large in-place FFTs
 		[self setCustomSettingsEnabled:NO];
+		[self setCustomMemoryEnabled:NO];
 		[self setMinFFTSize:8];
 		[self setMaxFFTSize:1024];
 		[self setRunFFTsInPlace:YES];
@@ -82,24 +85,39 @@
 		[self setTimeToRunEachFFT:15];
 	} else if (_value == 2) {		// Blend
 		[self setCustomSettingsEnabled:NO];
+		[self setCustomMemoryEnabled:NO];
 		[self setMinFFTSize:8];
 		[self setMaxFFTSize:4096];
 		[self setRunFFTsInPlace:NO];
 		[self setMemoryToUse:blendMemory];
 		[self setTimeToRunEachFFT:15];
-	} else					// Custom
+	} else {				// Custom
 		[self setCustomSettingsEnabled:YES];
+		[self setCustomMemoryEnabled:!runFFTsInPlace];
+	}
 
 	tortureType = _value;
+}
+
+- (int)runFFTsInPlace
+{
+	return runFFTsInPlace;
+}
+
+- (void)setRunFFTsInPlace:(int) _value
+{
+	[self setCustomMemoryEnabled:(customMemoryEnabled && !_value)];
+
+	runFFTsInPlace = _value;
 }
 
 @synthesize numberOfThreads;
 @synthesize numberOfThreadsMax;
 @synthesize numberOfThreadsEnabled;
 @synthesize customSettingsEnabled;
+@synthesize customMemoryEnabled;
 @synthesize minFFTSize;
 @synthesize maxFFTSize;
-@synthesize runFFTsInPlace;
 @synthesize memoryToUse;
 @synthesize timeToRunEachFFT;
 

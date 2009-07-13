@@ -14,6 +14,7 @@
 	int	numberOfThreadsMax;
 	int	numberOfThreadsEnabled;
 	int	customSettingsEnabled;
+	int	customMemoryEnabled;
 	int	minFFTSize;
 	int	maxFFTSize;
 	int	runFFTsInPlace;
@@ -27,6 +28,7 @@
 @property(readwrite, assign) int numberOfThreadsMax;
 @property(readwrite, assign) int numberOfThreadsEnabled;
 @property(readwrite, assign) int customSettingsEnabled;
+@property(readwrite, assign) int customMemoryEnabled;
 @property(readwrite, assign) int minFFTSize;
 @property(readwrite, assign) int maxFFTSize;
 @property(readwrite, assign) int runFFTsInPlace;
