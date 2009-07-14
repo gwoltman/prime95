@@ -1,11 +1,11 @@
 # Makefile for Linux 32-bit mprime
 #
 # NOTES: libcurl built by downloading latest sources and:
-#	./configure --without-ssl --without-libssh2
+#	./configure --without-ssl --without-libssh2 --without-libidn --disable-ldap --disable-ldaps --without-gssapi --enable-ipv6 --without-krb4
 #	make
 #	make install
-# Libraries to include were calculated using:
-#	curl-config --static-libs
+# After linking, check to see if too many dynamic libraries are required by doing:
+#	ldd mprime
 
 CC = gcc
 CFLAGS = -I.. -I../gwnum -O2 -march=i486 -malign-double
@@ -14,7 +14,7 @@ CPP = g++
 CPPFLAGS = -I.. -I../gwnum -O2 -march=i486 -malign-double
 
 LFLAGS = -Wl,-M
-LIBS = ../gwnum/gwnum.a ../gwnum/gwnum.ld -lm -lpthread -Wl,-Bstatic -lcurl -lstdc++ -Wl,-Bdynamic -ldl -lidn -lldap -lrt -lz
+LIBS = ../gwnum/gwnum.a ../gwnum/gwnum.ld -lm -lpthread -Wl,-Bstatic  $(shell pkg-config --static --libs libcurl) -lstdc++ -Wl,-Bdynamic -ldl
 
 FACTOROBJ = factor32.o
 LINUXOBJS = prime.o menu.o
