@@ -1617,6 +1617,10 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 				l2_cache_size = 9999999;
 			}
 
+/* Do a quick check on the suitability of this FFT */
+
+			if ((double) n * log2b > 26.0) goto next1;
+
 /* Check L2 cache size constraints */
 		
 			if (l2_cache_size < ((zpad_jmptab->flags_min_l2_cache_clm >> 16) & 0x3FFF))
@@ -1773,6 +1777,10 @@ next1:			for (longp = &zpad_jmptab->counts[4]; *longp; longp++);
 				goto next2;
 			l2_cache_size = 9999999;
 		}
+
+/* Do a quick check on the suitability of this FFT */
+
+		if ((double) n * log2b > 26.0) goto next2;
 
 /* Check if FFT requires prefetch capability */
 
@@ -2251,7 +2259,7 @@ int gwsetup_general_mod_giant (
 /* Set flag so that gwsetup_without_mod will try to put more bits in each */
 /* word.  This will give us more spare bits for gwsmallmul to use to avoid */
 /* emulate_mod calls. */
-	
+
 	gwdata->force_general_mod = TRUE;
 
 /* Setup the FFT code, use an integral number of bits per word if possible. */
