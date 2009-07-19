@@ -156,6 +156,17 @@ void gwdone (
 
 #define gwsetmaxmulbyconst(h,c)		((h)->maxmulbyconst = c)
 
+/* When doing a gwsetup_general_mod, the library prefers to use an */
+/* integral number of bits per word (a rational FFT) because they are */
+/* a little faster than irrational FFTs.  However, some moduli create */
+/* non-random data when using rational FFTs.  For example, if we test */
+/* (10^828809-1)/9 and put exactly 18 bits into each FFT word, then */
+/* every FFT word in GW_MODULUS_FFT will contains the same value! */
+/* Not exactly, the random data the FFTs require for small roundoff errors. */
+/* This routine takes a boolean to force use of the safer irrational FFTs. */
+
+#define gwset_irrational_general_mod(h,b)  ((h)->use_irrational_general_mod = b)
+
 /* Prior to calling one of the gwsetup routines, you can force the library */
 /* to use a larger fft length than normal.  The input argument specifies */
 /* how many FFT sizes larger than normal you would like.  You might use this */
@@ -872,6 +883,10 @@ struct gwhandle_struct {
 	int	qa_picked_nth_fft; /* Internal hack returning which FFT was picked */
 	int	force_general_mod; /* Forces gwsetup_general_mod to not check */
 				/* for a k*2^n+c reduction */
+	int	use_irrational_general_mod; /* Force using an irrational FFT when */
+				/* doing a general mod.  This is slower, but more */
+				/* immune to round off errors from pathological */
+				/* bit patterns in the modulus. */
 	int	square_carefully_count; /* Count of gwsquare calls to convert into */
 				/* gwsquare_carefully calls */
 	int	use_large_pages; /* Try to use 2MB pages */

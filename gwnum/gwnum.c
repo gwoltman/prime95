@@ -2076,6 +2076,7 @@ void gwinit2 (
 	gwdata->larger_fftlen_count = 0;
 	gwdata->num_threads = 1;
 	gwdata->force_general_mod = 0;
+	gwdata->use_irrational_general_mod = 0;
 	gwdata->use_large_pages = 0;
 
 /* Init structure that allows giants and gwnum code to share */
@@ -2227,7 +2228,9 @@ int gwsetup_general_mod_giant (
 	signed long c;
 	unsigned long d;
 	unsigned long safety_bits;
+	struct gwasm_jmptab *info;
 	int	error_code;
+	unsigned long fftlen, max_exponent, desired_n;
 	giant	tmp;
 
 /* Return delayed errors from gwinit2 */
@@ -2271,19 +2274,89 @@ int gwsetup_general_mod_giant (
 		return (0);
 	}
 
-/* Set flag so that gwsetup_without_mod will try to put more bits in each */
-/* word.  This will give us more spare bits for gwsmallmul to use to avoid */
-/* emulate_mod calls. */
+/* We will need twice the number of input bits plus some padding */
 
-	gwdata->force_general_mod = TRUE;
+	n = bits + bits + 128;
 
-/* Setup the FFT code, use an integral number of bits per word if possible. */
-/* We reserve some extra bits for extra precision and to make sure we can */
-/* zero an integral number of words during copy and so that gwsmallmul will */
-/* rarely have to call emulate_mod. */
+/* Setup the FFT code in much the same way that gwsetup_without_mod does. */
+/* Unless the user insists, we try for an integral number of bits per word. */
+/* There are pathological bit patterns that generate huge roundoff errors. */
+/* For example, if we test (10^828809-1)/9 and put exactly 18 bits into */
+/* each FFT word, then every FFT word in GW_MODULUS_FFT will contains the */
+/* same value!  Not exactly, the random data our FFTs require for small */
+/* roundoff errors.  Thus, the caller may need to insist we use an */
+/* irrational FFT on occasion. */
 
-	error_code = gwsetup_without_mod (gwdata, bits + bits + 128);
+/* Call gwinfo and have it figure out the FFT length we will use. */
+/* Since we zero the upper half of FFT input data, the FFT */
+/* outputs will be smaller.  This lets us get about another 0.3 bits */
+/* per input word. */
+
+	gwdata->safety_margin -= 0.3;
+	error_code = gwinfo (gwdata, 1.0, 2, n, -1);
+	gwdata->safety_margin += 0.3;
 	if (error_code) return (error_code);
+	info = gwdata->jmptab;
+	fftlen = info->fftlen;
+	max_exponent = info->max_exp;
+
+/* Our FFTs don't handle cases where there are few bits per word because */
+/* carries must be propagated over too many words.  Arbitrarily insist */
+/* that n is at least 12 * fftlen.  */
+
+	if (n < 12 * fftlen) n = 12 * fftlen;
+
+/* Let the user request rational FFTs as they are a few percent faster */
+
+	if (!gwdata->use_irrational_general_mod) {
+
+/* If possible, increase n to the next multiple of FFT length.  This is */
+/* because rational FFTs are faster than irrational FFTs (no FFT weights). */
+
+		desired_n = ((n + fftlen - 1) / fftlen) * fftlen;
+		if (desired_n < max_exponent) n = desired_n;
+	}
+
+/* If the user requested irrational FFTs, then make sure the bits */
+/* per FFT word will distribute the big and little words of the modulus */
+/* semi-randomly.  For example, in the (10^828809-1)/9 case above, if */
+/* bits-per-word is 18.5 or 18.25 you will still get non-random patterns */
+/* in the FFT words. */
+
+	else {
+		double	prime_number, bits_per_word;
+
+/* Round bits_per_word up to the next half-multiple of 1/prime_number */
+
+		prime_number = 53.0;
+		bits_per_word = (double) n / (double) fftlen;
+		bits_per_word = (ceil (bits_per_word * prime_number) + 0.5)/ prime_number;
+
+/* If possible, use the n associated with the just-computed bits-per-word */
+
+		desired_n = (unsigned long) ceil (bits_per_word * (double) fftlen);
+		if (desired_n < max_exponent) n = desired_n;
+	}
+
+/* If possible, increase n to the next multiple of FFT length. */
+/* The extra bits allow gwsmallmul to avoid emulate_mod calls more often. */
+/* Don't get too close to the FFT limit as many users of this library */
+/* turn on error checking (slower) when near the FFT limit. */
+/* If that doesn't work, try adding a half FFT length instead. */
+
+	if (n + fftlen < (unsigned long) (0.98 * (double) max_exponent))
+		n = n + fftlen;
+	else if (gwdata->use_irrational_general_mod &&
+		 n + fftlen/2 < (unsigned long) (0.98 * (double) max_exponent))
+		n = n + fftlen/2;
+
+/* Now setup the assembly code */
+
+	gwdata->safety_margin -= 0.3;
+	error_code = internal_gwsetup (gwdata, 1.0, 2, n, -1);
+	gwdata->safety_margin += 0.3;
+	if (error_code) return (error_code);
+
 // BUG - setting the bit_length to the modulus size will break gwtogiant.
 // we need a better/more-consistent way of dealing with the various 
 // needed bit_lengths.  Also, PFGW should not be reading the bit_length
@@ -2372,7 +2445,6 @@ int gwsetup_general_mod_giant (
 
 /* This setup routine is for operations without a modulo. In essence, */
 /* you are using gwnums as a general-purpose FFT multiply library. */
-/* Only choose a specific FFT size if you know what you are doing!! */
 
 int gwsetup_without_mod (
 	gwhandle *gwdata,	/* Placeholder for gwnum global data */
@@ -2405,12 +2477,6 @@ int gwsetup_without_mod (
 
 	desired_n = ((n + fftlen - 1) / fftlen) * fftlen;
 	if (desired_n < max_exponent) n = desired_n;
-
-/* If requested and possible, increase n to the next multiple of FFT length. */
-/* Right now, the extra bits allow gwsmallmul to avoid emulate_mod calls more often. */
-
-	if (gwdata->force_general_mod && n + fftlen < max_exponent)
-		n = n + fftlen;
 
 /* Our FFTs don't handle cases where there are few bits per word because */
 /* carries must be propagated over too many words.  Arbitrarily insist */
