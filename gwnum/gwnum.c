@@ -1580,7 +1580,7 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 /* with a zero padded FFT.  If k is 1 and abs (c) is 1 then we can skip this */
 /* loop as we're sure to find an IBDWT that will do the job. */
 
-	zpad_jmptab = NULL;
+again:	zpad_jmptab = NULL;
 	generic_jmptab = NULL;
 	if (gwdata->specific_fftlen == 0 && (k > 1.0 || n < 500 || abs (c) > 1)) {
 
@@ -1619,10 +1619,11 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 
 /* Do a quick check on the suitability of this FFT */
 
-			if ((double) n * log2b > 26.0) goto next1;
+			if ((double) n * log2b / (double) zpad_jmptab->fftlen > 26.0) goto next1;
+			if (zpad_jmptab->fftlen < gwdata->minimum_fftlen) goto next1;
 
 /* Check L2 cache size constraints */
-		
+
 			if (l2_cache_size < ((zpad_jmptab->flags_min_l2_cache_clm >> 16) & 0x3FFF))
 				goto next1;
 
@@ -1780,7 +1781,8 @@ next1:			for (longp = &zpad_jmptab->counts[4]; *longp; longp++);
 
 /* Do a quick check on the suitability of this FFT */
 
-		if ((double) n * log2b > 26.0) goto next2;
+		if ((double) n * log2b / (double) jmptab->fftlen > 26.0) goto next2;
+		if (jmptab->fftlen < gwdata->minimum_fftlen) goto next2;
 
 /* Check if FFT requires prefetch capability */
 
@@ -1970,6 +1972,9 @@ next1:			for (longp = &zpad_jmptab->counts[4]; *longp; longp++);
 						 jmptab->fftlen >= zpad_jmptab->fftlen);
 					goto next2;
 				}
+
+/* We've found an FFT length to use */
+
 				break;
 			}
 		}
@@ -2001,6 +2006,14 @@ use_zpad:	gwdata->ZERO_PADDED_FFT = TRUE;
 
 	else
 		return (GWERROR_TOO_LARGE);
+
+/* See if the user requested a larger than normal FFT size */
+
+	if (gwdata->larger_fftlen_count) {
+		gwdata->larger_fftlen_count--;
+		gwdata->minimum_fftlen = jmptab->fftlen + 1;
+		goto again;
+	}
 
 /* Remember the FFT length and number of pass 2 levels and the gap */
 /* between 2 blocks.  This is used by addr_offset called from */
@@ -2059,6 +2072,8 @@ void gwinit2 (
 	gwdata->safety_margin = 0.0;
 	gwdata->maxmulbyconst = 3;
 	gwdata->specific_fftlen = 0;
+	gwdata->minimum_fftlen = 0;
+	gwdata->larger_fftlen_count = 0;
 	gwdata->num_threads = 1;
 	gwdata->force_general_mod = 0;
 	gwdata->use_large_pages = 0;

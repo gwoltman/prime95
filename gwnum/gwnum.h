@@ -157,6 +157,19 @@ void gwdone (
 #define gwsetmaxmulbyconst(h,c)		((h)->maxmulbyconst = c)
 
 /* Prior to calling one of the gwsetup routines, you can force the library */
+/* to use a larger fft length than normal.  The input argument specifies */
+/* how many FFT sizes larger than normal you would like.  You might use this */
+/* routine if you are having roundoff errors using the normal FFT length. */
+
+#define gwset_larger_fftlen_count(h,n)	((h)->larger_fftlen_count = n)
+
+/* Prior to calling one of the gwsetup routines, you can force the library */
+/* to use a minimum fft length.  You might use this routine if you are */
+/* having roundoff errors using the normal FFT length. */
+
+#define gwset_minimum_fftlen(h,n)	((h)->minimum_fftlen = n)
+
+/* Prior to calling one of the gwsetup routines, you can force the library */
 /* to use a specific fft length.  This should rarely (if ever) be used. */
 /* I use it occasionally for benchmarking and/or checking round off errors */
 /* at the FFT crossover points. */
@@ -728,6 +741,10 @@ struct gwhandle_struct {
 				/* in a base-3 Fermat PRP test. */
 	unsigned long specific_fftlen;
 				/* Specific fft length for gwsetup to use. */
+	unsigned long minimum_fftlen;
+				/* Minimum fft length for gwsetup to use. */
+	int	larger_fftlen_count;
+				/* Force using larger FFT sizes. */
 	double	k;		/* K in K*B^N+C */
 	unsigned long b;	/* B in K*B^N+C */
 	unsigned long n;	/* N in K*B^N+C */
