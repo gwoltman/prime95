@@ -1500,6 +1500,93 @@ double *build_x87_biglit_table (
 	return ((double *) p);
 }
 
+/* Return true if half of the words would have the same pattern of big */
+/* and little words.  */
+
+int match_pathological_pattern (
+	unsigned long num_big_words,
+	unsigned long total_length,
+	double	pathological_fraction)
+{
+	double	half_length;
+	unsigned long pathological_base, actual_base;
+
+/* Compute the gwfft_base you would get of the word half way into the FFT if */
+/* you had the pathological fraction of big and little words */
+
+	half_length = (double) total_length * 0.5;
+	pathological_base = (unsigned long) ceil (half_length * pathological_fraction);
+
+/* Compute the base you would get given the actual fraction of big words */
+
+	actual_base = (unsigned long) ceil (half_length * (double) num_big_words / (double) total_length);
+
+/* Return pathological (true) if the actual_base is close to the pathological_base */
+
+	return (actual_base >= pathological_base && actual_base <= pathological_base + 1);
+}
+
+/* Here is a particularly nasty routine.  It tries to detect whether the distribution */
+/* of big and little words is "pathological".  We want the distribution to be random. */
+/* If, for example, there are an equal number of big words and little words then the */
+/* every other FFT word consists of big word * big word products, while the other half */
+/* contains big word * small word products.  This greatly increases the round off error */
+/* especially when b is large (big words are much larger than small words).  This */
+/* ugliness was added to handle these cases that where the wrong FFT length was selected: */
+/* 211*210^2047-1, 211*210^2687-1, 211*210^7679-1.  There are undoubtedly many others. */
+
+int is_pathological_distribution (
+	unsigned long num_big_words,
+	unsigned long num_small_words)
+{
+	unsigned long total_length;
+
+/* Handle cases that we really should never see (rational FFTs) */
+
+	if (num_big_words == 0 || num_small_words == 0) return (FALSE);
+
+/* While the remaining number of big words and small words is even, this */
+/* represents a case of a big repeating pattern (the pattern in the upper half *
+/* of the remaining words is the same as the pattern in the lower half). */
+
+	total_length = num_big_words + num_small_words;
+	while ((num_big_words & 1) == 0 && (total_length & 1) == 0) {
+		num_big_words >>= 1;
+		total_length >>= 1;
+	}
+
+/* The bad patterns occur when the number of big words divided by the FFT length */
+/* is close to a small rational number like 1/2, 2/5, 3/4, etc.	 We'll define a */
+/* pathological bit pattern as one where more than half of the FFT repeats the */
+/* same cycle of big words and small words.  This definition may require some */
+/* tweaking over time. */
+
+	if (match_pathological_pattern (num_big_words, total_length, 1.0 / 2.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 1.0 / 3.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 2.0 / 3.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 1.0 / 4.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 3.0 / 4.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 1.0 / 5.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 2.0 / 5.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 3.0 / 5.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 4.0 / 5.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 1.0 / 6.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 5.0 / 6.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 1.0 / 7.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 2.0 / 7.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 3.0 / 7.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 4.0 / 7.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 5.0 / 7.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 6.0 / 7.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 1.0 / 8.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 3.0 / 8.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 5.0 / 8.0)) return (TRUE);
+	if (match_pathological_pattern (num_big_words, total_length, 7.0 / 8.0)) return (TRUE);
+
+/* That's all the cases we test for now */
+
+	return (FALSE);
+}
 
 /* This routine used to be in assembly language.  It scans the assembly */
 /* code arrays looking for the best FFT size to implement our k*b^n+c FFT. */
@@ -1700,13 +1787,16 @@ again:	zpad_jmptab = NULL;
 				2.0 * max_bits_per_input_word + 0.6 * log2 (zpad_jmptab->fftlen / 2 + 4);
 			if ((n + n) % zpad_jmptab->fftlen == 0)
 				weighted_bits_per_output_word = bits_per_output_word;
-			else
+			else {
 				weighted_bits_per_output_word =
 					2.0 * ((b_per_input_word + 1.0) * log2b - 1.0) +
-					0.6 * log2 (zpad_jmptab->fftlen / 2 + 4) -
+					0.6 * log2 (zpad_jmptab->fftlen / 2 + 4);
+				if (! is_pathological_distribution (num_big_words, num_small_words))
+					weighted_bits_per_output_word -=
 						((log2b <= 3.0) ? (log2b - 1.0) / 2.0 :
 						 (log2b <= 6.0) ? 1.0 + (log2b - 3.0) / 3.0 :
-								  2.0 + (log2b - 6.0) / 6.0);;
+								  2.0 + (log2b - 6.0) / 6.0);
+			}
 
 /* See if this FFT length might work */
 
@@ -1913,22 +2003,25 @@ next1:			for (longp = &zpad_jmptab->counts[4]; *longp; longp++);
 /* range from 1 to b.  These extra bits impact the round off error.  Thus, we calculate */
 /* the weighted_bits_per_output_word for irrational FFTs as using another log2b bits. */
 /* Furthermore, testing shows us that larger b values don't quite need the full log2b */
-/* bits added, probably because there are fewer extra bits generated by adding products */
-/* because the smallest weighted words have fewer bits.  The correction is if log2b is 3 */
-/* you can get 1 more output bit than expected, if log2b is 6 you get about 2 extra */
-/* bits, if log2b is 12 you can get 3 extra bits. */
+/* bits added (except for some pathological cases), probably because there are fewer */
+/* extra bits generated by adding products because the smallest weighted words have */
+/* fewer bits.  The correction is if log2b is 3 you can get 1 more output bit than */
+/* expected, if log2b is 6 you get about 2 extra bits, if log2b is 12 you can get */
+/* 3 extra bits. */
 
 			max_weighted_bits_per_output_word = 2.0 * max_bits_per_input_word + 0.6 * log2 (jmptab->fftlen);
 			if (k == 1.0 && n % jmptab->fftlen == 0)
 				weighted_bits_per_output_word = bits_per_output_word;
-			else
+			else {
 				weighted_bits_per_output_word =
 					2.0 * ((b_per_input_word + 1.0) * log2b - 1.0) +
-					0.6 * log2 (jmptab->fftlen) -
+					0.6 * log2 (jmptab->fftlen) + log2k + 1.7 * log2c;
+				if (! is_pathological_distribution (num_big_words, num_small_words))
+					weighted_bits_per_output_word -=
 						((log2b <= 3.0) ? (log2b - 1.0) / 2.0 :
 						 (log2b <= 6.0) ? 1.0 + (log2b - 3.0) / 3.0 :
-								  2.0 + (log2b - 6.0) / 6.0) +
-					log2k + 1.7 * log2c;
+								  2.0 + (log2b - 6.0) / 6.0);
+			}
 
 /* If the bits in an output word is less than the maximum allowed, we can */
 /* probably use this FFT length -- though we need to do a few more tests. */
