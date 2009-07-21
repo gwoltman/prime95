@@ -2433,15 +2433,15 @@ int gwsetup_general_mod_giant (
 
 /* If possible, increase n to the next multiple of FFT length. */
 /* The extra bits allow gwsmallmul to avoid emulate_mod calls more often. */
-/* Don't get too close to the FFT limit as many users of this library */
-/* turn on error checking (slower) when near the FFT limit. */
+/* We hope the 0.3 safety_limit increase above will avoid getting too */
+/* close to the FFT limit as many users of this library turn on error */
+/* checking (slower) when near the FFT limit. */
 /* If that doesn't work, try adding a half FFT length instead. */
 
-	if (n + fftlen < (unsigned long) (0.98 * (double) max_exponent))
+	if (n + fftlen < max_exponent)
 		n = n + fftlen;
-	else if (gwdata->use_irrational_general_mod &&
-		 n + fftlen/2 < (unsigned long) (0.98 * (double) max_exponent))
-		n = n + fftlen/2;
+	else if (gwdata->use_irrational_general_mod && n + fftlen / 2 < max_exponent)
+		n = n + fftlen / 2;
 
 /* Now setup the assembly code */
 
