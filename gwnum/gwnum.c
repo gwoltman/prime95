@@ -2044,22 +2044,20 @@ next1:			for (longp = &zpad_jmptab->counts[4]; *longp; longp++);
 
 /* Because of limitations in the top_carry_adjust code, there is a limit */
 /* on the size of k that can be handled.  This isn't a big deal since the */
-/* zero-padded implementation will use the same FFT length.  Check to see */
+/* zero-padded implementation should use the same FFT length.  Check to see */
 /* if this k can be handled.  K must fit in the top three words for */
-/* one-pass FFTs and within the top two words of two-pass FFTs.  Since we */
-/* know the first FFT word is a big word we can use the ceil function in */
-/* deciding how many b's we will be spreading the top carry into. */
+/* one-pass FFTs and within the top two words of two-pass FFTs. */
 
-				if (jmptab->pass2_levels == 0 &&
-				    log2k > ceil (3.0 * b_per_input_word) * log2b) {
-					ASSERTG (zpad_jmptab == NULL ||
-						 jmptab->fftlen >= zpad_jmptab->fftlen);
+				if (jmptab->pass2_levels == 0 && logbk > floor (3.0 * b_per_input_word)) {
+// This assert is designed to find any cases where using 3 or more carray adjust words
+// would use a shorter FFT than using a zero-padded FFT.
+					ASSERTG (zpad_jmptab != NULL && jmptab->fftlen >= zpad_jmptab->fftlen);
 					goto next2;
 				}
-				if (jmptab->pass2_levels != 0 &&
-				    log2k > ceil (2.0 * b_per_input_word) * log2b) {
-					ASSERTG (zpad_jmptab == NULL ||
-						 jmptab->fftlen >= zpad_jmptab->fftlen);
+				if (jmptab->pass2_levels != 0 && logbk > floor (2.0 * b_per_input_word)) {
+// This assert is designed to find any cases where using 3 or more carray adjust words
+// would use a shorter FFT than using a zero-padded FFT.
+					ASSERTG (zpad_jmptab != NULL && jmptab->fftlen >= zpad_jmptab->fftlen);
 					goto next2;
 				}
 
@@ -3473,7 +3471,8 @@ int internal_gwsetup (
 		}
 
 /* In two-pass FFTs, we only support tweaking the top two words. In one-pass FFTs, */
-/* we adjust the top three words.  Make sure this works. */
+/* we adjust the top three words.  Make sure this works.  A test case that fails: */
+/* 489539*3^72778+1.  We should consider supporting tweaking the top 3 words. */
 
 		ASSERTG ((gwdata->PASS2_LEVELS &&
 			  num_b_in_k <= num_b_in_top_word + num_b_in_second_top_word) ||
