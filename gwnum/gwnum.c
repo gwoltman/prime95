@@ -2198,6 +2198,8 @@ int gwsetup (
 	signed long c)		/* C in K*B^N+C. */
 {
 	int	gcd, error_code, setup_completed;
+	double	orig_k;
+	unsigned long orig_n;
 
 /* Return delayed errors from gwinit2 */
 
@@ -2211,6 +2213,19 @@ int gwsetup (
 /* Init */
 
 	setup_completed = FALSE;
+	orig_k = k;
+	orig_n = n;
+
+/* Our code fails if k is a power of b.  For example, 3481*59^805-1 which */
+/* equals 59^807-1.  I think this is because gwfft_base(FFTLEN) is off by one */
+/* because even quad-precision floats won't calculate FFTLEN * num_b_per_word */
+/* correctly.  There is an easy fix, if k is divisible by b we divide k by b */
+/* and add one to n. */
+
+	while (k > 1.0 && b > 1 && fmod (k, (double) b) == 0.0) {
+		k = k / (double) b;
+		n = n + 1;
+	}
 
 /* Our code fast code fails if k and c are not relatively prime.  This */
 /* is because we cannot calculate 1/k.  Although the user shouldn't call */
@@ -2249,7 +2264,7 @@ int gwsetup (
 		gwdata->GENERAL_MOD = FALSE;
 	}
 
-/* Emulate b != 2, k not relatively prime to c, small n values, and */
+/* Emulate k not relatively prime to c, small n values, and */
 /* large k or c values with a call to the general purpose modulo setup code. */
 
 	if (!setup_completed) {
@@ -2271,7 +2286,7 @@ int gwsetup (
 
 /* For future messages, format the input number as a string */
 
-	gw_as_string (gwdata->GWSTRING_REP, k, b, n, c);
+	gw_as_string (gwdata->GWSTRING_REP, orig_k, b, orig_n, c);
 
 /* Return success */
 
