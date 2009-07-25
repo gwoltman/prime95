@@ -710,7 +710,9 @@ void read_mem_info (void)
 	if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
 		seconds_until_reread = seconds;
 	for (tnum = 0; tnum < (int) MAX_NUM_WORKER_THREADS; tnum++) {
-		AVAIL_MEM_PER_WORKER[tnum] = IniGetTimedInt (LOCALINI_FILE, "Memory", AVAIL_MEM, &seconds);
+		char	section_name[32];
+		sprintf (section_name, "Worker #%d", tnum+1);
+		AVAIL_MEM_PER_WORKER[tnum] = IniSectionGetTimedInt (LOCALINI_FILE, section_name, "Memory", AVAIL_MEM, &seconds);
 		if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
 			seconds_until_reread = seconds;
 	}
