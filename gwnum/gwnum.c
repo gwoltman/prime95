@@ -7037,6 +7037,7 @@ void gwsquare_carefully (
 	struct gwasm_data *asm_data;
 	gwnum	tmp1, tmp2;
 	double	saved_addin_value;
+	unsigned long saved_extra_bits;
 
 /* Generate a random number, if we have't already done so */
 
@@ -7051,8 +7052,17 @@ void gwsquare_carefully (
 	saved_addin_value = asm_data->ADDIN_VALUE;
 	asm_data->ADDIN_VALUE = 0.0;
 
-/* Now do the squaring using three multiplies and adds */
+/* Make sure we do not do addquick when computing s+random. */
+/* If we do not do this, then the non-randomness of s can swamp */
+/* the randomness of tmp1.  An example is the first PRP iterations */
+/* of 2*3^599983-1 -- s is all positive values and gwadd3 thinks */
+/* there are enough extra bits to do an add quick.  This generates */
+/* a tmp1 with nearly all positive values -- very bad. */
 
+	saved_extra_bits = gwdata->EXTRA_BITS;
+	gwdata->EXTRA_BITS = 0;
+
+/* Now do the squaring using three multiplies and adds */
 	tmp1 = gwalloc (gwdata);
 	tmp2 = gwalloc (gwdata);
 	gwstartnextfft (gwdata, 0);		/* Disable POSTFFT */
@@ -7066,8 +7076,9 @@ void gwsquare_carefully (
 	gwaddquick (gwdata, s, s);
 	gwsub3 (gwdata, tmp1, s, s);
 
-/* Free memory and return */
+/* Restore state, free memory and return */
 
+	gwdata->EXTRA_BITS = saved_extra_bits;
 	gwfree (gwdata, tmp1);
 	gwfree (gwdata, tmp2);
 }
