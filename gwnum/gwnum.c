@@ -7063,12 +7063,21 @@ void gwsquare_carefully (
 	gwdata->EXTRA_BITS = 0;
 
 /* Now do the squaring using three multiplies and adds */
+/* Note that during the calculation of s*random we must relax the */
+/* SUMINP != SUMOUT limit.  This is because s may be non-random. */
+/* For example, in the first iterations of 2*3^500327-1, s is mostly */
+/* large positive values.  This means we lose some of the lower bits */
+/* of precision when we calculate SUMINP.  To combate this problem we */
+/* increase MAXDIFF during the s*random calculation. */
+
 	tmp1 = gwalloc (gwdata);
 	tmp2 = gwalloc (gwdata);
 	gwstartnextfft (gwdata, 0);		/* Disable POSTFFT */
 	gwadd3 (gwdata, s, gwdata->GW_RANDOM, tmp1); /* Compute s+random */
 	gwfft (gwdata, gwdata->GW_RANDOM, tmp2);
+	gwdata->MAXDIFF *= 1024.0;
 	gwfftmul (gwdata, tmp2, s);		/* Compute s*random */
+	gwdata->MAXDIFF /= 1024.0;
 	gwfftfftmul (gwdata, tmp2, tmp2, tmp2);	/* Compute random^2 */
 	asm_data->ADDIN_VALUE = saved_addin_value;/* Restore the addin value */
 	gwsquare (gwdata, tmp1);		/* Compute (s+random)^2 */
