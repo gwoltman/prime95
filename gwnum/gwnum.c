@@ -7133,6 +7133,7 @@ void gwmul_carefully (
 	struct gwasm_data *asm_data;
 	gwnum	tmp1, tmp2, tmp3, tmp4;
 	double	saved_addin_value;
+	unsigned long saved_extra_bits;
 
 /* Generate a random number, if we have't already done so */
 
@@ -7147,6 +7148,11 @@ void gwmul_carefully (
 	saved_addin_value = asm_data->ADDIN_VALUE;
 	asm_data->ADDIN_VALUE = 0.0;
 
+/* Make sure we do not do addquick when computing s+random. */
+
+	saved_extra_bits = gwdata->EXTRA_BITS;
+	gwdata->EXTRA_BITS = 0;
+
 /* Now do the multiply using four multiplies and adds */
 
 	tmp1 = gwalloc (gwdata);
@@ -7158,8 +7164,10 @@ void gwmul_carefully (
 	gwadd3 (gwdata, s, gwdata->GW_RANDOM, tmp1); /* Compute s+random */
 	gwadd3 (gwdata, t, gwdata->GW_RANDOM, tmp3); /* Compute t+random */
 	gwfft (gwdata, gwdata->GW_RANDOM, tmp2);
+	gwdata->MAXDIFF *= 1024.0;
 	gwfftmul (gwdata, tmp2, tmp4);		/* Compute s*random */
 	gwfftmul (gwdata, tmp2, t);		/* Compute t*random */
+	gwdata->MAXDIFF /= 1024.0;
 	gwfftfftmul (gwdata, tmp2, tmp2, tmp2);	/* Compute random^2 */
 	asm_data->ADDIN_VALUE = saved_addin_value; /* Restore addin value */
 	gwmul (gwdata, tmp1, tmp3);	/* Compute (s+random)*(t+random) */
@@ -7167,8 +7175,9 @@ void gwmul_carefully (
 	gwsub (gwdata, t, tmp3);
 	gwsub3 (gwdata, tmp3, tmp4, t);
 
-/* Free memory and return */
+/* Restore state, free memory and return */
 
+	gwdata->EXTRA_BITS = saved_extra_bits;
 	gwfree (gwdata, tmp1);
 	gwfree (gwdata, tmp2);
 	gwfree (gwdata, tmp3);
