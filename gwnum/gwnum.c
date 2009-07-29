@@ -21,6 +21,12 @@
 #include "gwutil.h"
 #include "gwdbldbl.h"
 
+/* Include a random number generator.  For reasons we'll discuss later */
+/* we do not want to use the C runtime library's random number generator */
+/* to initialize GW_RANDOM */
+
+#include "mt19937ar.c"
+
 /* Handy macros to improve readability */
 
 #define log2(n)		(log((double)(n)) / log (2.0))
@@ -6972,23 +6978,31 @@ void gwsafemul (		/* Multiply source with dest */
 	gwfree (gwdata, qqq);
 }
 
-/* Generate random FFT data */
+/* Generate random FFT data.  We used to use the C runtime library. */
+/* However, when a caller discovered a bug in gwsquare_carefully it */
+/* very difficult to track down because the bug was no reproducible. */
+/* We could make bugs reproducible by calling srand with a fixed value, */
+/* but it is bad form for a library to do this.  Thus, we found a */
+/* public domain random number generator to use. */
 
 void gw_random_number (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	x)
 {
+	struct mt_state rand_info;
 	giant	g;
 	unsigned long i, len;
+
+/* Init the random generator to a reproducible state */
+
+	init_genrand (&rand_info, 5489);
 
 /* Generate the random number */
 
 	len = (((unsigned long) gwdata->bit_length) >> 5) + 1;
 	g = popg (&gwdata->gdata, len);
 	for (i = 0; i < len; i++) {
-		g->n[i] = ((uint32_t) rand() << 20) +
-			  ((uint32_t) rand() << 10) +
-			  (uint32_t) rand();
+		g->n[i] = genrand_int32 (&rand_info);
 	}
 	g->sign = len;
 	specialmodg (gwdata, g);
