@@ -2225,7 +2225,7 @@ int gwsetup (
 /* Sanity check the k value */
 
 	if (k < 1.0) return (GWERROR_K_TOO_SMALL);
-	if (k > 18014398509481983.0) return (GWERROR_K_TOO_LARGE);
+	if (k > 9007199254740991.0) return (GWERROR_K_TOO_LARGE);
 
 /* Init */
 
