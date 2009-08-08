@@ -333,7 +333,7 @@ program only run stage 2 at night when more memory is available.  In
 prime.txt set:
 	OnlyRunStage2WithMaxMemory=1
 
-You can control the maximum prime.log file size.  The default is 250K.  Add
+You can control the maximum prime.log file size.  The default is 2MB.  Add
 this line to prime.txt to change the default:
 	MaxLogFileSize=n
 
