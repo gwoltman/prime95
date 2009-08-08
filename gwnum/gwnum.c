@@ -378,18 +378,19 @@ extrn_explode()
 /*	zpck or zpk or zpkc1 or zpkcm1 or zpc or zp or zpc1 or zpcm1 or c or blank */
 /* We also define a macro that will pick the correct entry from the array. */
 
-#define sse2_explode()			sse2_explode1(xr)		sse2_explode1(xi) NULL
-#define sse2_explode1(name)		sse2_explode2(name##1,)		sse2_explode2(name##2,)		sse2_explode2(name##2,AMD)
-#define sse2_explode2(name,suff)	sse2_explode3(name,suff,)	sse2_explode3(name##zp,suff,zp)
+#define sse2_explode()			sse2_explode1(xr)		sse2_explode1(xi)		NULL
+#define sse2_explode1(name)		sse2_explode2(name##1,notAMD)	sse2_explode2(name##2,notAMD)	sse2_explode2(name##2,AMD)
+#define sse2_explode2(name,suff)	sse2_explode3(name,suff,notzp)	sse2_explode3(name##zp,suff,zp)
 #define sse2_explode3(name,suff,zp)	sse2_explode4(name,suff,zp)	sse2_explode4(name##e,suff,zp)
-#define sse2_explode4(name,suff,zp)	sse2_explode5(name,suff,zp,notc) sse2_explode5(name##c,suff,zp,)
-#define sse2_explode5(name,suff,zp,notc) sse2_explode6(name,suff,zp,notc) sse2_explode6(name##b,suff,zp,notc)
-#define sse2_explode6(name,suff,zp,notc) sse2_explode7##zp(name,suff,notc) sse2_explode7##zp(name##s4,suff,notc)
-#define sse2_explode7(name,suff,notc)	sse2_explode8(name,suff)
-#define sse2_explode7zp(name,suff,notc)	sse2_explode8##notc(name,suff)	sse2_explode8##notc(name##k,suff)
-#define sse2_explode8(name,suff)	sse2_explode9(name,suff)
-#define sse2_explode8notc(name,suff)	sse2_explode9(name,suff)	sse2_explode9(name##c1,suff)	sse2_explode9(name##cm1,suff)
-#define sse2_explode9(name,suff)	&name##suff,
+#define sse2_explode4(name,suff,zp)	sse2_explode5(name,suff,zp,notc) sse2_explode5(name##c,suff,zp,c)
+#define sse2_explode5(name,suff,zp,c)	sse2_explode6(name,suff,zp,c)	sse2_explode6(name##b,suff,zp,c)
+#define sse2_explode6(name,suff,zp,c)	sse2_explode7##zp(name,suff,c)	sse2_explode7##zp(name##s4,suff,c)
+#define sse2_explode7notzp(name,suff,c)	sse2_explode9##suff(name)
+#define sse2_explode7zp(name,suff,c)	sse2_explode8##c(name,suff)	sse2_explode8##c(name##k,suff)
+#define sse2_explode8c(name,suff)	sse2_explode9##suff(name)
+#define sse2_explode8notc(name,suff)	sse2_explode9##suff(name)	sse2_explode9##suff(name##c1)	sse2_explode9##suff(name##cm1)
+#define sse2_explode9notAMD(name)	&name,
+#define sse2_explode9AMD(name)		&name##AMD,
 
 void *sse2_prctab[] = { sse2_explode() };
 
