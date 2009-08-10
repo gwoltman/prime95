@@ -109,6 +109,13 @@ AppController *myAppController;			// Global variable to allow access to this obj
 		while (WORKER_THREADS_STOPPING) Sleep (50);
 	}
 
+/* Write the worktodo file in case the WELL_BEHAVED_WORK flag caused us */
+/* to delay writing the file. */
+
+	writeWorkToDoFile (TRUE);
+
+// Finish exiting
+
 	return NSTerminateNow;
 }
 

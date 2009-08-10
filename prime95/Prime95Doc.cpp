@@ -184,6 +184,11 @@ void CPrime95Doc::OnCloseDocument()
 	UnloadPrimeNet ();
 	SaveViews();
 
+/* Write the worktodo file in case the WELL_BEHAVED_WORK flag caused us */
+/* to delay writing the file. */
+
+	writeWorkToDoFile (TRUE);
+
 // Finish closing
 
 	CDocument::OnCloseDocument();
