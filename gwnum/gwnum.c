@@ -32,6 +32,12 @@
 #define log2(n)		(log((double)(n)) / log (2.0))
 #define logb(n)		(log((double)(n)) / log ((double)(b)))
 
+/* MSVC6 has trouble with the pow function using integer arguments. */
+/* For example, "(unsigned long) pow (5.0, 7.0)" returns 78124 instead */
+/* of the correct 78125.  This macro, works around this trouble. */
+
+#define intpow(b,n)	((long) floor (pow ((double)(b), (double)(n)) + 0.1))
+
 /* global variables */
 
 /* When debugging gwnum and giants, I sometimes write code that "cheats" */
@@ -6270,7 +6276,7 @@ long nonbase2_gianttogw (
 		newg = popg (&gwdata->gdata, a->sign * 2);
 		tmp = popg (&gwdata->gdata, a->sign * 2);
 
-		mask1 = (unsigned long) pow ((double) gwdata->b, gwdata->NUM_B_PER_SMALL_WORD);
+		mask1 = intpow (gwdata->b, gwdata->NUM_B_PER_SMALL_WORD);
 		mask2 = gwdata->b * mask1;
 		for (i = offset; i < offset + limit; i++) {
 			unsigned long mask;
@@ -6420,7 +6426,7 @@ int gwtogiant (
 			int	num_b;
 			num_b = gwdata->NUM_B_PER_SMALL_WORD;
 			if (is_big_word (gwdata, limit-1)) num_b++;
-			prev_val += val * (long) pow ((double) gwdata->b, num_b);
+			prev_val += val * intpow (gwdata->b, num_b);
 			set_fft_value (gwdata, gg, limit, (prev_val < 0) ? -1 : 0);
 			set_fft_value (gwdata, gg, limit-1, prev_val);
 		}
@@ -6525,7 +6531,7 @@ err:				free (array);
 		while (gap + gap < limit) {
 			small_size = gwfft_base (gwdata->dd_data, gap) - 1;
 			if (gap == 1)
-				dbltog (pow ((double) gwdata->b, small_size), small_base);
+				itog (intpow (gwdata->b, small_size), small_base);
 			else if (small_size == last_small_size * 2)
 				squaregi (&gwdata->gdata, small_base);
 			else
