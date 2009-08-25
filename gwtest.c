@@ -438,8 +438,6 @@ void test_it (
 	gen_data (gwdata, x, g);
 	if (CHECK_OFTEN) compare (thread_num, gwdata, x, g);
 	gwcopy (gwdata, x, x2); gtog (g, g2);
-	gwfree (gwdata, x3);  /* Free memory for specialmod and invgi to use */
-	gwfree (gwdata, x4);  /* We will re-allocate it later */
 
 /* Test 50 squarings */	
 
@@ -525,8 +523,6 @@ void test_it (
 			}
 		}
 	}
-	x3 = gwalloc (gwdata);
-	x4 = gwalloc (gwdata);
 
 /* Test mul by const */
 
