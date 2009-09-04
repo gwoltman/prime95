@@ -296,7 +296,7 @@ s2cl_four_complex_gpm_fft MACRO srcreg,srcinc,d1
 	movapd	[srcreg+16], xmm7
 	movapd	[srcreg+32], xmm1
 	movapd	[srcreg+48], xmm3
-	lea	srcreg, [srcreg+srcinc]
+	bump	srcreg, srcinc
 	ENDM
 
 x4c_fft4_cmn MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem4,mem8,dest3,off1,off2,off3,off4,pre1,pre2
