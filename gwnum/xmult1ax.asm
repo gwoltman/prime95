@@ -43,9 +43,9 @@ uaddlp:	movapd	xmm0, [rdx]		; Load second number
 	movapd	[rsi+16], xmm1		; Save result
 	movapd	[rsi+32], xmm2		; Save result
 	movapd	[rsi+48], xmm3		; Save result
-	lea	rcx, [rcx+64]		; Next source
-	lea	rdx, [rdx+64]		; Next source
-	lea	rsi, [rsi+64]		; Next dest
+	bump	rcx, 64			; Next source
+	bump	rdx, 64			; Next source
+	bump	rsi, 64			; Next dest
 	sub	eax, 1			; Check loop counter
 	jnz	short uaddlp		; Loop if necessary
 	ad_epilog 0,0,rsi
@@ -138,9 +138,9 @@ usublp:	movapd	xmm0, [rdx]		; Load second number
 	movapd	[rsi+16], xmm1		; Save result
 	movapd	[rsi+32], xmm2		; Save result
 	movapd	[rsi+48], xmm3		; Save result
-	lea	rcx, [rcx+64]		; Next source
-	lea	rdx, [rdx+64]		; Next source
-	lea	rsi, [rsi+64]		; Next dest
+	bump	rcx, 64			; Next source
+	bump	rdx, 64			; Next source
+	bump	rsi, 64			; Next dest
 	sub	eax, 1			; Check loop counter
 	jnz	short usublp		; Loop if necessary
 	ad_epilog 0,0,rsi
@@ -245,10 +245,10 @@ uaddsublp:
 	movapd	[rbp+32], xmm5		; Save result
 	movapd	[rsi+48], xmm6		; Save result
 	movapd	[rbp+48], xmm7		; Save result
-	lea	rcx, [rcx+64]		; Next source
-	lea	rdx, [rdx+64]		; Next source
-	lea	rsi, [rsi+64]		; Next dest
-	lea	rbp, [rbp+64]		; Next dest
+	bump	rcx, 64			; Next source
+	bump	rdx, 64			; Next source
+	bump	rsi, 64			; Next dest
+	bump	rbp, 64			; Next dest
 	sub	eax, 1			; Check loop counter
 	jnz	uaddsublp		; Loop if necessary
 	ad_epilog 0,0,rbp,rsi,xmm6,xmm7
@@ -340,9 +340,9 @@ PROCF	gwxcopyzero1
 	sub	ecx, ecx		; Offset to compare to COPYZERO
 	mov	eax, addcount1		; Load loop counter
 cz1:	xcopyzero			; Copy/zero 8 values
-	lea	rsi, [rsi+64]		; Next source
-	lea	rdi, [rdi+64]		; Next dest
-	lea	rcx, [rcx+64]		; Next compare offset
+	bump	rsi, 64			; Next source
+	bump	rdi, 64			; Next dest
+	bump	rcx, 64			; Next compare offset
 	sub	eax, 1			; Test loop counter
 	jnz	cz1			; Loop if necessary
 	ad_epilog 0,0,rsi,rdi
@@ -494,9 +494,9 @@ ttp	mov	saved_reg1, rbp		;; remember ebp for xnorm012_1d_mid
 ilp0:	mov	ebx, edx		;; Load loop counter
 	and	ebx, 07FFh		;; Grab 11 bits of the counter
 ilp1:	xnorm_1d ttp, zero, echk, const, base2, sse4 ;; Normalize 8 values
-	lea	rsi, [rsi+64]		;; Next cache line
-ttp	lea	rbp, [rbp+128]		;; Next set of 8 multipliers
-ttp	lea	rdi, [rdi+4]		;; Next big/little flags
+	bump	rsi, 64			;; Next cache line
+ttp	bump	rbp, 128		;; Next set of 8 multipliers
+ttp	bump	rdi, 4			;; Next big/little flags
 	sub	ebx, 1			;; Test loop counter
 	jnz	ilp1			;; Loop til done
 
@@ -535,9 +535,9 @@ ilp0:	mov	saved_reg1, rbx		;; Save loop counter
 	mov	saved_reg3, rsi		;; remember esi for xnorm012_1d_mid
 	mov	rdx, rbp		;; remember ebp for xnorm012_1d_mid
 ilp1:	xnorm_1d_zpad ttp, echk, const, base2, sse4, khi, c1, cm1 ;; Normalize 8 values
-	lea	rsi, [rsi+64]		;; Next cache line
-ttp	lea	rbp, [rbp+128]		;; Next set of 8 multipliers
-ttp	lea	rdi, [rdi+4]		;; Next big/little flags
+	bump	rsi, 64			;; Next cache line
+ttp	bump	rbp, 128		;; Next set of 8 multipliers
+ttp	bump	rdi, 4			;; Next big/little flags
 	sub	ebx, 1			;; Test loop counter
 	jnz	ilp1			;; Loop til done
 	mov	rbx, saved_reg3		;; Restore FFT data addr
