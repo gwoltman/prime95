@@ -644,7 +644,7 @@ x7r_unfft MACRO r1, r2, r3, r4, r5, r6, r7, t1, memr1
 
 x4cl_four_complex_fft_screg MACRO srcreg,srcinc,d1,d2,screg
 	x4cl_fft_cmn srcreg,srcinc,d1,d2,screg,0,32,64,XMM_SCD,XMM_SCD+32,XMM_SCD+64
-	lea	srcreg, [srcreg+srcinc]
+	bump	srcreg, srcinc
 	ENDM
 
 x4cl_fft_cmn MACRO srcreg,srcinc,d1,d2,screg,off2,off3,off4,off6,off7,off8
@@ -790,8 +790,8 @@ x4cl_fft_cmn MACRO srcreg,srcinc,d1,d2,screg,off2,off3,off4,off6,off7,off8
 
 g4cl_four_complex_fft MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2
 	g4cl_fft_cmn srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,rdi,0,32,64,XMM_SCD,XMM_SCD+32,XMM_SCD+64
-	lea	srcreg, [srcreg+srcinc]
-	lea	dstreg, [dstreg+dstinc]
+	bump	srcreg, srcinc
+	bump	dstreg, dstinc
 	ENDM
 
 g4cl_fft_cmn MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg,off2,off3,off4,off6,off7,off8
@@ -990,7 +990,7 @@ g4cl_fft_cmn MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg,off2,off3,off4,
 
 x4cl_four_complex_unfft_screg MACRO srcreg,srcinc,d1,d2,screg
 	x4cl_unfft_cmn srcreg,srcinc,d1,d2,screg,0,32,64,0,32,64
-	lea	srcreg, [srcreg+srcinc]
+	bump	srcreg, srcinc
 	ENDM
 
 ;; Core 2 actually comes in at 54 clocks
@@ -1516,7 +1516,7 @@ s2cl_four_complex_gpm_fft MACRO srcreg,srcinc,d1
 	movapd	[srcreg], xmm5
 	movapd	[srcreg+16], xmm7
 	movapd	[srcreg+32], xmm1
-	lea	srcreg, [srcreg+srcinc]
+	bump	srcreg, srcinc
 	ENDM
 
 s2cl_four_complex_first_fft MACRO srcreg,srcinc,d1
@@ -1592,7 +1592,7 @@ s2cl_four_complex_first_fft MACRO srcreg,srcinc,d1
 	movapd	[srcreg+16], xmm7
 	movapd	[srcreg+32], xmm1
 	movapd	[srcreg+48], xmm3
-	lea	srcreg, [srcreg+srcinc]
+	bump	srcreg, srcinc
 	ENDM
 
 x2cl_four_complex_first_fft_cmn MACRO srcreg,srcinc,d1,off
@@ -1673,7 +1673,7 @@ x2cl_four_complex_first_fft_cmn MACRO srcreg,srcinc,d1,off
 	movapd	[srcreg+16], xmm7
 	movapd	[srcreg+32], xmm1
 	movapd	[srcreg+48], xmm3
-	lea	srcreg, [srcreg+srcinc]
+	bump	srcreg, srcinc
 	ENDM
 
 x4c_fft4_cmn MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem4,mem8,dest3,off1,off2,off3,off4,pre1,pre2
@@ -1906,7 +1906,7 @@ x4cl_four_complex_last_unfft MACRO srcreg,srcinc,d1,d2,off
 
 x4cl_four_complex_cpm_unfft MACRO srcreg,srcinc,d1,d2
 	x4cl_unfft4_cmn srcreg,srcinc,d1,d2,0,32,64,96,0,32,64,96
-	lea	srcreg, [srcreg+srcinc]
+	bump	srcreg, srcinc
 ENDM
 
 x4cl_unfft4_cmn MACRO srcreg,srcinc,d1,d2,off1,off2,off3,off4,off5,off6,off7,off8
@@ -2104,7 +2104,7 @@ nice_try_x4cl_four_complex_with_square MACRO srcreg,srcinc,d1,d2
 	movapd	[srcreg+d2+d1+16], xmm4	;; Save R4
 	movapd	[srcreg+d2+d1+32], xmm0	;; Save R6
 	movapd	[srcreg+d2+d1+48], xmm7	;; Save R8
-	lea	srcreg, [srcreg+srcinc]
+	bump	srcreg, srcinc
 	ENDM
 
 ; Do an eight_reals_with_square_2 on 8 doubles and
@@ -2164,7 +2164,7 @@ s2cl_eight_reals_with_square_2 MACRO srcreg,srcinc,d1
 	movsd	Q [srcreg+d1+40], xmm3	;; Save R6
 	movsd	Q [srcreg+d1+48], xmm6	;; Save R7
 	movsd	Q [srcreg+d1+56], xmm1	;; Save R8
-	lea	srcreg, [srcreg+srcinc]
+	bump	srcreg, srcinc
 	ENDM
 
 xs8r_mulf MACRO r1, r2, r3, r4, r5, r6, r7, r8, m1, m2, m3, m4, m5, m6, m7, m8
@@ -2205,7 +2205,7 @@ s2cl_four_complex_fft_final MACRO srcreg,srcinc,d1
 	movapd	[srcreg+d1+16], xmm2	;; Save R6
 	movapd	[srcreg+d1+32], xmm5	;; Save R7
 ;	movapd	[srcreg+d1+48], xmm4	;; Save R8
-	lea	srcreg, [srcreg+srcinc]
+	bump	srcreg, srcinc
 	ENDM
 
 s2cl_four_complex_with_square MACRO srcreg,srcinc,d1
@@ -2228,7 +2228,7 @@ s2cl_four_complex_with_square MACRO srcreg,srcinc,d1
 	shuffle_store [srcreg+32], [srcreg+d1+32], xmm4, xmm5 ;; Save R5, R6
 	shuffle_store [srcreg+48], [srcreg+d1+48], xmm6, xmm1 ;; Save R7, R8
 
-	lea	srcreg, [srcreg+srcinc]
+	bump	srcreg, srcinc
 	ENDM
 
 s2cl_four_complex_with_mult MACRO srcreg,srcinc,d1
@@ -2248,7 +2248,7 @@ s2cl_four_complex_with_mult MACRO srcreg,srcinc,d1
 	shuffle_store [srcreg+32], [srcreg+d1+32], xmm4, xmm5 ;; Save R5 and R6
 	shuffle_store [srcreg+48], [srcreg+d1+48], xmm6, xmm1 ;; Save R7 and R8
 
-	lea	srcreg, [srcreg+srcinc]
+	bump	srcreg, srcinc
 	ENDM
 
 
