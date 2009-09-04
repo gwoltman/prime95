@@ -47,7 +47,7 @@ zlp:	movsd	xmm0, Q [rcx]		;; Load FFT word
 	subsd	xmm0, xmm1
 	addsd	xmm7, xmm1		;; Adjust sumout
 	movsd	Q [rcx], xmm0		;; Store FFT word
-	lea	rcx, [rcx+64]		;; Bump pointers
+	bump	rcx, 64			;; Bump pointers
 	inc	rdx
 	dec	eax			;; Iterate 2*clm (up to 8) times
 	jnz	short zlp		;; Loop if necessary
@@ -82,8 +82,8 @@ noadd:	mov	saved_rsi, rsi		;; Save for xtop_carry_adjust
 ttp	mov	eax, cache_line_multiplier ;; Load inner loop counter
 	lea	rdi, XMM_COL_MULTS[128]	;; Load col mult scratch area
 setlp:	xnorm_2d_setup ttp
-ttp	lea	rdi, [rdi+512]		;; Next scratch area section
-ttp	lea	rbx, [rbx+32]		;; Next column multiplier
+ttp	bump	rdi, 512		;; Next scratch area section
+ttp	bump	rbx, 32			;; Next column multiplier
 ttp	sub	al, 1			;; Each cache line has its own col mult
 ttp	jnz	setlp
 ttp	mov	norm_ptr2, rbx		;; Save column multipliers ptr
@@ -110,9 +110,9 @@ ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	xprefetcht1 [rdx+128]		;; Prefetch group multiplier
 ilp1:	xprefetchw [rsi+64]
 	xnorm_2d ttp, zero, echk, const, base2, sse4 ;; Normalize 8 values
-	lea	rsi, [rsi+64]		;; Next cache line
-ttp	lea	rbx, [rbx+512]		;; Next column multipliers
-ttp	lea	rdi, [rdi+4]		;; Next big/little flags
+	bump	rsi, 64			;; Next cache line
+ttp	bump	rbx, 512		;; Next column multipliers
+ttp	bump	rdi, 4			;; Next big/little flags
 	sub	loopcount1, 1		;; Test loop counter
 	jnz	ilp1			;; Loop til done
 	add	rsi, normblkdst		;; Skip gap in blkdst or clmblkdst
@@ -157,8 +157,8 @@ const	mov	const_fft, 1		;; Set flag saying mul-by-const
 ttp	mov	eax, cache_line_multiplier ;; Load inner loop counter
 	lea	rdi, XMM_COL_MULTS[128]	;; Load col mult scratch area
 setlp:	xnorm_2d_setup ttp
-ttp	lea	rdi, [rdi+512]		;; Next scratch area section
-ttp	lea	rbx, [rbx+32]		;; Next column multiplier
+ttp	bump	rdi, 512		;; Next scratch area section
+ttp	bump	rbx, 32			;; Next column multiplier
 ttp	sub	al, 1			;; Each cache line has its own col mult
 ttp	jnz	setlp
 ttp	mov	norm_ptr2, rbx		;; Save column multipliers ptr
@@ -177,14 +177,14 @@ ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	xprefetcht1 [rdx+128]		;; Prefetch group multiplier
 ilp1:	xprefetchw [rsi+64]
 	xnorm_2d_zpad ttp, echk, const, base2, sse4, khi, c1, cm1 ;; Normalize 8 values
-	lea	rsi, [rsi+64]		;; Next cache line
-ttp	lea	rbx, [rbx+512]		;; Next column multipliers
-ttp	lea	rdi, [rdi+4]		;; Next big/little flags
+	bump	rsi, 64			;; Next cache line
+ttp	bump	rbx, 512		;; Next column multipliers
+ttp	bump	rdi, 4			;; Next big/little flags
 	sub	loopcount1z, 1		;; Test loop counter
 	jnz	ilp1			;; Loop til done
 	add	rsi, normblkdst		;; Skip gap in blkdst or clmblkdst
-	lea	rbp, [rbp+64]		;; Next set of carries
-ttp	lea	rdx, [rdx+128]		;; Next set of 8 group multipliers
+	bump	rbp, 64			;; Next set of carries
+ttp	bump	rdx, 128		;; Next set of 8 group multipliers
 	sub	loopcount2z, 1		;; Test loop counter
 	jz	ilexit			;; Jump when loop complete
 	add	loopcount3z, 80000000h/4 ;; 8 iterations
