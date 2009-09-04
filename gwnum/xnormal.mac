@@ -3336,11 +3336,11 @@ ttp	mulpd	xmm0, [rbp+48]		;; new value1 = val * two-to-phi
 ttp	mulpd	xmm1, [rbp+112]		;; new value2 = val * two-to-phi
 	movapd	[rsi+16], xmm0		;; Save new value1
 	movapd	[rsi+48], xmm1		;; Save new value2
-ttp	lea	rdi, [rdi+4]		;; Next flags ptr
-	lea	rcx, [rcx+64]		;; Next src ptr
-	lea	rdx, [rdx+64]		;; Next src ptr
-ttp	lea	rbp, [rbp+128]		;; Next two-to-phi ptr
-	lea	rsi, [rsi+64]		;; Next dest ptr
+ttp	bump	rdi, 4			;; Next flags ptr
+	bump	rcx, 64			;; Next src ptr
+	bump	rdx, 64			;; Next src ptr
+ttp	bump	rbp, 128		;; Next two-to-phi ptr
+	bump	rsi, 64			;; Next dest ptr
 	ENDM
 
 
@@ -3471,12 +3471,12 @@ ttp	mulpd	xmm1, [rbx+112]		;; new value2 = val * two-to-phi
 	movapd	[rsi+48], xmm0		;; Save value1
 	movapd	[rbp+48], xmm1		;; Save value2
 
-ttp	lea	rdi, [rdi+4]		;; Next flags ptr
-	lea	rcx, [rcx+64]		;; Next src ptr
-	lea	rdx, [rdx+64]		;; Next src ptr
-ttp	lea	rbx, [rbx+128]		;; Next two-to-phi ptr
-	lea	rsi, [rsi+64]		;; Next dest ptr
-	lea	rbp, [rbp+64]		;; Next dest ptr
+ttp	bump	rdi, 4			;; Next flags ptr
+	bump	rcx, 64			;; Next src ptr
+	bump	rdx, 64			;; Next src ptr
+ttp	bump	rbx, 128		;; Next two-to-phi ptr
+	bump	rsi, 64			;; Next dest ptr
+	bump	rbp, 64			;; Next dest ptr
 	ENDM
 
 ; This macro finishes the normalize process by adding the final
@@ -3636,9 +3636,9 @@ ttp	mulpd	xmm0, [rbp+48]		;; new value1 = val * two-to-phi
 ttp	mulpd	xmm1, [rbp+112]		;; new value2 = val * two-to-phi
 	movapd	[rsi+16], xmm0		;; Save new value1
 	movapd	[rsi+48], xmm1		;; Save new value2
-ttp	lea	rdi, [rdi+4]		;; Next flags ptr
-ttp	lea	rbp, [rbp+128]		;; Next two-to-phi ptr
-	lea	rsi, [rsi+64]		;; Next dest ptr
+ttp	bump	rdi, 4			;; Next flags ptr
+ttp	bump	rbp, 128		;; Next two-to-phi ptr
+	bump	rsi, 64			;; Next dest ptr
 	ENDM
 
 ; This macro finishes the smallmul normalize process by adding the final
@@ -4263,11 +4263,11 @@ ttp	mulpd	xmm7, [rbp+3*32+16]	;; new value1 = val * grp two-to-phi
 ttp	mulpd	xmm7, xmm3		;; new value1 *= fudged col two-to-phi
 	movapd	[rsi+3*16], xmm7	;; Save new value1
 	mov	rdx, mem_loc		;; Restore second src ptr
-ttp	lea	rdi, [rdi+4]		;; Next flags ptr
-ttp	lea	rbx, [rbx+32]		;; Next column two-to-phi ptr
-	lea	rsi, [rsi+64]		;; Next dest ptr
-	lea	rdx, [rdx+64]		;; Next src ptr
-	lea	rcx, [rcx+64]		;; Next src ptr
+ttp	bump	rdi, 4			;; Next flags ptr
+ttp	bump	rbx, 32			;; Next column two-to-phi ptr
+	bump	rsi, 64			;; Next dest ptr
+	bump	rdx, 64			;; Next src ptr
+	bump	rcx, 64			;; Next src ptr
 	ENDM
 
 ; *************** 2D followup macros ******************
@@ -4509,12 +4509,12 @@ ttp	mulpd	xmm7, xmm3		;; new value1 *= fudged col two-to-phi
 
 	mov	rcx, mem_loc		;; Restore first src ptr
 
-	lea	rdx, [rdx+64]		;; Next src ptr
-	lea	rcx, [rcx+64]		;; Next src ptr
-ttp	lea	rdi, [rdi+4]		;; Next flags ptr
-ttp	lea	rax, [rax+32]		;; Next column two-to-phi ptr
-	lea	rsi, [rsi+64]		;; Next dest ptr
-	lea	rbp, [rbp+64]		;; Next dest ptr
+	bump	rdx, 64			;; Next src ptr
+	bump	rcx, 64			;; Next src ptr
+ttp	bump	rdi, 4			;; Next flags ptr
+ttp	bump	rax, 32			;; Next column two-to-phi ptr
+	bump	rsi, 64			;; Next dest ptr
+	bump	rbp, 64			;; Next dest ptr
 	ENDM
 
 ; *************** 2D normalized small add macro ******************
@@ -4616,9 +4616,9 @@ ttp	mulpd	xmm3, XMM_TTP_FUDGE[rcx];; mul by fudge two-to-phi
 ttp	mulpd	xmm7, [rbp+3*32+16]	;; new value1 = val * grp two-to-phi
 ttp	mulpd	xmm7, xmm3		;; new value1 *= fudged col two-to-phi
 	movapd	[rsi+3*16], xmm7	;; Save new value1
-ttp	lea	rdi, [rdi+4]		;; Next flags ptr
-ttp	lea	rbx, [rbx+32]		;; Next column two-to-phi ptr
-	lea	rsi, [rsi+64]		;; Next dest ptr
+ttp	bump	rdi, 4			;; Next flags ptr
+ttp	bump	rbx, 32			;; Next column two-to-phi ptr
+	bump	rsi, 64			;; Next dest ptr
 	ENDM
 
 ; This macro finishes the smallmul normalize process by adding four carries
