@@ -44,14 +44,14 @@ uaddlp:	movapd	xmm0, [rdx]		; Load second number
 	movapd	[rsi+16], xmm1		; Save result
 	movapd	[rsi+32], xmm2		; Save result
 	movapd	[rsi+48], xmm3		; Save result
-	lea	rcx, [rcx+64]		; Next source
-	lea	rdx, [rdx+64]		; Next source
-	lea	rsi, [rsi+64]		; Next dest
+	bump	rcx, 64			; Next source
+	bump	rdx, 64			; Next source
+	bump	rsi, 64			; Next dest
 	add	eax, 80000000h/64	; 128 cache lines in a 8KB chunk
 	jnc	short uaddlp		; Loop if necessary
-	lea	rcx, [rcx+128]		; Skip 128 bytes every 8KB
-	lea	rdx, [rdx+128]		; Skip 128 bytes every 8KB
-	lea	rsi, [rsi+128]		; Skip 128 bytes every 8KB
+	bump	rcx, 128		; Skip 128 bytes every 8KB
+	bump	rdx, 128		; Skip 128 bytes every 8KB
+	bump	rsi, 128		; Skip 128 bytes every 8KB
 	dec	rax			; Check middle loop counter
 	jnz	short uaddlp		; Loop if necessary
 	add	rcx, pass2gapsize	; Next source
@@ -146,9 +146,9 @@ iadd2:	xnorm_op_2d addpd, exec, exec, saved_reg ; Add and normalize 8 values
 
 	;; Chunk done
 
-achunkdn:lea	rcx, [rcx+128]		; Skip 128 bytes every 8KB
-	lea	rdx, [rdx+128]		; Skip 128 bytes every 8KB
-	lea	rsi, [rsi+128]		; Skip 128 bytes every 8KB
+achunkdn:bump	rcx, 128		; Skip 128 bytes every 8KB
+	bump	rdx, 128		; Skip 128 bytes every 8KB
+	bump	rsi, 128		; Skip 128 bytes every 8KB
 	dec	loopcount3		; Test loop counter
 	jnz	add0
 	add	rcx, pass2gapsize	; Next source
@@ -163,7 +163,7 @@ ablkdn:	sub	rsi, pass1blkdst	; Restore start of block ptr
 	add	rsi, pass1blkdst
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
 	jne	askip2			; Yes, skip bumping ttp/biglit ptrs
-	lea	rbp, [rbp+128]		; Next set of group multipliers
+	bump	rbp, 128		; Next set of group multipliers
 	add	rdi, normval3		; Adjust little/big flags ptr
 askip2:	dec	loopcount2		; Decrement outer loop counter
 	jnz	ablk 			; Loop til done
@@ -215,14 +215,14 @@ usublp:	movapd	xmm0, [rdx]		; Load second number
 	movapd	[rsi+16], xmm1		; Save result
 	movapd	[rsi+32], xmm2		; Save result
 	movapd	[rsi+48], xmm3		; Save result
-	lea	rcx, [rcx+64]		; Next source
-	lea	rdx, [rdx+64]		; Next source
-	lea	rsi, [rsi+64]		; Next dest
+	bump	rcx, 64			; Next source
+	bump	rdx, 64			; Next source
+	bump	rsi, 64			; Next dest
 	add	eax, 80000000h/64	; 128 cache lines in a 8KB chunk
 	jnc	short usublp		; Loop if necessary
-	lea	rcx, [rcx+128]		; Skip 128 bytes every 8KB
-	lea	rdx, [rdx+128]		; Skip 128 bytes every 8KB
-	lea	rsi, [rsi+128]		; Skip 128 bytes every 8KB
+	bump	rcx, 128		; Skip 128 bytes every 8KB
+	bump	rdx, 128		; Skip 128 bytes every 8KB
+	bump	rsi, 128		; Skip 128 bytes every 8KB
 	dec	rax			; Check middle loop counter
 	jnz	short usublp		; Loop if necessary
 	add	rcx, pass2gapsize	; Next source
@@ -317,9 +317,9 @@ isub2:	xnorm_op_2d subpd, exec, exec, saved_reg ; Subtract and normalize 8 value
 
 	;; Chunk done
 
-schunkdn:lea	rcx, [rcx+128]		; Skip 128 bytes every 8KB
-	lea	rdx, [rdx+128]		; Skip 128 bytes every 8KB
-	lea	rsi, [rsi+128]		; Skip 128 bytes every 8KB
+schunkdn:bump	rcx, 128		; Skip 128 bytes every 8KB
+	bump	rdx, 128		; Skip 128 bytes every 8KB
+	bump	rsi, 128		; Skip 128 bytes every 8KB
 	dec	loopcount3		; Test loop counter
 	jnz	sub0
 	add	rcx, pass2gapsize	; Next source
@@ -334,7 +334,7 @@ sblkdn:	sub	rsi, pass1blkdst	; Restore start of block ptr
 	add	rsi, pass1blkdst
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
 	jne	sskip2			; Yes, skip bumping ttp/biglit ptrs
-	lea	rbp, [rbp+128]		; Next set of group multipliers
+	bump	rbp, 128		; Next set of group multipliers
 	add	rdi, normval3		; Adjust little/big flags ptr
 sskip2:	dec	loopcount2		; Decrement outer loop counter
 	jnz	sblk 			; Loop til done
@@ -398,16 +398,16 @@ uaddsublp:
 	movapd	[rbp+32], xmm5		; Save result
 	movapd	[rsi+48], xmm6		; Save result
 	movapd	[rbp+48], xmm7		; Save result
-	lea	rcx, [rcx+64]		; Next source
-	lea	rdx, [rdx+64]		; Next source
-	lea	rsi, [rsi+64]		; Next dest
-	lea	rbp, [rbp+64]		; Next dest
+	bump	rcx, 64			; Next source
+	bump	rdx, 64			; Next source
+	bump	rsi, 64			; Next dest
+	bump	rbp, 64			; Next dest
 	add	eax, 80000000h/64	; 128 cache lines in a 8KB chunk
 	jnc	uaddsublp		; Loop if necessary
-	lea	rcx, [rcx+128]		; Skip 128 bytes every 8KB
-	lea	rdx, [rdx+128]		; Skip 128 bytes every 8KB
-	lea	rsi, [rsi+128]		; Skip 128 bytes every 8KB
-	lea	rbp, [rbp+128]		; Skip 128 bytes every 8KB
+	bump	rcx, 128		; Skip 128 bytes every 8KB
+	bump	rdx, 128		; Skip 128 bytes every 8KB
+	bump	rsi, 128		; Skip 128 bytes every 8KB
+	bump	rbp, 128		; Skip 128 bytes every 8KB
 	dec	rax			; Check middle loop counter
 	jnz	uaddsublp		; Loop if necessary
 	add	rcx, pass2gapsize	; Next source
@@ -517,10 +517,10 @@ ias2:	xnorm_addsub_2d exec, exec, saved_reg ; Add & subtract and normalize 8 val
 
 	;; Chunk done
 
-aschunkdn:lea	rcx, [rcx+128]		; Skip 128 bytes every 8KB
-	lea	rdx, [rdx+128]		; Skip 128 bytes every 8KB
-	lea	rsi, [rsi+128]		; Skip 128 bytes every 8KB
-	lea	rbp, [rbp+128]		; Skip 128 bytes every 8KB
+aschunkdn:bump	rcx, 128		; Skip 128 bytes every 8KB
+	bump	rdx, 128		; Skip 128 bytes every 8KB
+	bump	rsi, 128		; Skip 128 bytes every 8KB
+	bump	rbp, 128		; Skip 128 bytes every 8KB
 	dec	loopcount3		; Test loop counter
 	jnz	as0
 	add	rcx, pass2gapsize	; Next source
@@ -540,7 +540,7 @@ asblkdn:sub	rsi, pass1blkdst	; Restore start of block ptr
 	add	rbp, pass1blkdst
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
 	jne	asskip2			; Yes, skip bumping ttp/biglit ptrs
-	lea	rbx, [rbx+128]		; Next set of group multipliers
+	bump	rbx, 128		; Next set of group multipliers
 	add	rdi, normval3		; Adjust little/big flags ptr
 asskip2:dec	loopcount2		; Decrement outer loop counter
 	jnz	asblk 			; Loop til done
@@ -589,14 +589,14 @@ PROCF	gwxcopyzero2
 	mov	ebx, addcount1		; Get number of blocks
 cz1:	mov	eax, normval4		; Load count of 8KB chunks in a block
 cz2:	xcopyzero
-	lea	rsi, [rsi+64]		; Next source
-	lea	rdi, [rdi+64]		; Next dest
-	lea	rcx, [rcx+64]		; Next compare offset
+	bump	rsi, 64			; Next source
+	bump	rdi, 64			; Next dest
+	bump	rcx, 64			; Next compare offset
 	add	eax, 80000000h/64	; 128 cache lines in a 8KB chunk
 	jnc	short cz2		; Loop if necessary
-	lea	rsi, [rsi+128]		; Skip 128 bytes every 8KB
-	lea	rdi, [rdi+128]		; Skip 128 bytes every 8KB
-	lea	rcx, [rcx+128]		; Skip 128 bytes every 8KB
+	bump	rsi, 128		; Skip 128 bytes every 8KB
+	bump	rdi, 128		; Skip 128 bytes every 8KB
+	bump	rcx, 128		; Skip 128 bytes every 8KB
 	dec	rax			; Test loop counter
 	jnz	cz2			; Loop if necessary
 	add	rsi, pass2gapsize
@@ -726,7 +726,7 @@ imul2:	xnorm_smallmul_2d exec, exec	; Mul and normalize 8 values
 
 	;; Chunk done
 
-mchunkdn:lea	rsi, [rsi+128]		; Skip 128 bytes every 8KB
+mchunkdn:bump	rsi, 128		; Skip 128 bytes every 8KB
 	dec	loopcount3		; Test loop counter
 	jnz	mul0
 
@@ -746,7 +746,7 @@ mblkdn:	mov	rsi, saved_blk_start	; Restore start ptr
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
 	jne	mskip2			; Yes, skip bumping ttp/biglit ptrs
 	add	rdi, normval3		; Adjust little/big flags ptr
-	lea	rbp, [rbp+128]		; Next set of group multipliers
+	bump	rbp, 128		; Next set of group multipliers
 mskip2:	dec	loopcount2		; Decrement outer loop counter
 	jnz	mblk 			; Loop til section done
 
