@@ -166,11 +166,11 @@ ilp0:	mov	eax, loopcount1		; Get list of counts
 nb2ilp1:mov	rbx, norm_col_mults	; Addr of the column multipliers
 	xnorm012_2d noexec		; Split carries for one cache line
 	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
-	lea	rsi, [rsi+64]		; Next carries pointer
+	bump	rsi, 64			; Next carries pointer
 	add	rbp, pass1blkdst	; Next FFT data pointer
 	cmp	RATIONAL_FFT, 0		; Don't bump these two pointers
 	jne	short nb2iskip		; for rational FFTs
-	lea	rdx, [rdx+128]		; Next group multiplier
+	bump	rdx, 128		; Next group multiplier
 	lea	rdi, [rdi+rbx*4]	; Next big/little flags pointer
 nb2iskip:sub	loopcount2, 1		; Test loop counter
 	jnz	nb2ilp1			; Next carry row in section
@@ -178,11 +178,11 @@ nb2iskip:sub	loopcount2, 1		; Test loop counter
 ilp1:	mov	rbx, norm_col_mults	; Addr of the column multipliers
 	xnorm012_2d exec		; Split carries for one cache line
 	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
-	lea	rsi, [rsi+64]		; Next carries pointer
+	bump	rsi, 64			; Next carries pointer
 	add	rbp, pass1blkdst	; Next FFT data pointer
 	cmp	RATIONAL_FFT, 0		; Don't bump these two pointers
 	jne	short iskip		; for rational FFTs
-	lea	rdx, [rdx+128]		; Next group multiplier
+	bump	rdx, 128		; Next group multiplier
 	lea	rdi, [rdi+rbx*4]	; Next big/little flags pointer
 iskip:	sub	loopcount2, 1		; Test loop counter
 	jnz	ilp1			; Next carry row in section
@@ -220,11 +220,11 @@ zlp0:	mov	eax, loopcount1		; Get list of counts
 zlp1:	mov	rbx, norm_col_mults	; Addr of the column multipliers
 	xnorm012_2d_zpad		; Split carries for one cache line
 c2d:	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
-	lea	rsi, [rsi+64]		; Next carries pointer
+	bump	rsi, 64			; Next carries pointer
 	add	rbp, pass1blkdst	; Next FFT data pointer
 	cmp	RATIONAL_FFT, 0		; Don't bump these two pointers
 	jne	short zskip		; for rational FFTs
-	lea	rdx, [rdx+128]		; Next group multiplier
+	bump	rdx, 128		; Next group multiplier
 	lea	rdi, [rdi+rbx*4]	; Next big/little flags pointer
 zskip:	sub	loopcount2, 1		; Test loop counter
 	jnz	zlp1			; Next carry row in section
