@@ -1,4 +1,4 @@
-; Copyright 1995-2008 Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2009 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -452,6 +452,9 @@ allfft	exfft	4096Kp, SFX_P4_CLM421 + SFX_AMD64_CLM421, 12
 allfft	exfft	4096Kp, SFX_P4_CLM42 + SFX_AMD64_CLM421, 13
 	exfft	4096Kp, SFX_P4_CLM421 + SFX_AMD64_CLM1, 12
 	exfft	4096Kp, SFX_AMD64_CLM1, 13
+
+	exfft	v26_4096Kp, SFX_P4_CLM421 + SFX_AMD64_CLM1, 12
+
 allfft	exfft	6Mp, SFX_P4_CLM10 + SFX_AMD64_CLM10, 11
 allfft	exfft	6Mp, SFX_P4_CLM4210 + SFX_AMD64_CLM421, 12
 allfft	exfft	6Mp, SFX_P4_CLM421 + SFX_AMD64_CLM421, 13
@@ -485,6 +488,7 @@ ENDIF
 
 RPF	EQU	80000000h	; FFT requires prefetch capability
 RPFW	EQU	40000000h	; FFT requires prefetchw (3DNow!) capability
+V26	EQU	20000000h	; FFT is experimental
 
 IFNDEF	X86_64
 jmptable DD	755,	32,	0.0000036,	672
@@ -2798,7 +2802,7 @@ allfft	DD			10		;; FFT levels done in pass2
 allfft	DD			64, GAP2_10_1+1
 allfft	DD			63, 1, 64, 1, 1, 0
 allfft	DD	5158000, 262144, 0.0150,	638464
-allfft	DD			4096*65536+2*4	;; Flags, min_l2_cache, clm
+allfft	DD			2048*65536+2*4	;; Flags, min_l2_cache, clm
 allfft	DD			0		;; scratch area size
 allfft	DP			OFFSET xfft256K_1, OFFSET xfft256K_2
 allfft	DP			OFFSET xfft256K_3, OFFSET xfft256K_4
@@ -8076,6 +8080,19 @@ allfft	DD			256, 1, 256, 1, 1, 0
 	DD			12		;; FFT levels done in pass2
 	DD			256, GAP2_12_1+1
 	DD			256, 1, 256, 1, 1, 0
+
+	DD	77700000, 4194304, 0.425,	16459392
+	DD			RPFW+V26+2*1	;; Flags, min_l2_cache, clm
+	DD			32768+31*128	;; scratch area size
+	DP			OFFSET xfftv26_4096Kp112_1AMD
+	DP			OFFSET xfftv26_4096Kp112_2AMD
+	DP			OFFSET xfftv26_4096Kp112_3AMD
+	DP			OFFSET xfftv26_4096Kp112_4AMD
+	DP			OFFSET xprctab2a ;; Table of add/sub/norm procs
+	DD			12		;; FFT levels done in pass2
+	DD			256, GAP2_12_1+1
+	DD			256, 1, 256, 1, 1, 0
+
 allfft	DD	77700000, 4194304, 0.425,	8589312
 allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
 allfft	DD			131072+63*128	;; scratch area size
@@ -8109,6 +8126,35 @@ allfft	DP			OFFSET xprctab2a ;; Table of add/sub/norm procs
 allfft	DD			11		;; FFT levels done in pass2
 allfft	DD			512, GAP2_11_0+1
 allfft	DD			512, 1, 512, 1, 1, 0
+
+	DD	77700000, 4194304, 0.425,	66459392
+	DD			V26+1024*65536+2*4	;; Flags, min_l2_cache, clm
+	DD			131072+31*128	;; scratch area size
+	DP			OFFSET xfftv26_4096Kp412_1, OFFSET xfftv26_4096Kp412_2
+	DP			OFFSET xfftv26_4096Kp412_3, OFFSET xfftv26_4096Kp412_4
+	DP			OFFSET xprctab2	;; Table of add/sub/norm procs
+	DD			12		;; FFT levels done in pass2
+	DD			256, GAP2_12_4+1
+	DD			256, 1, 256, 1, 1, 0
+	DD	77700000, 4194304, 0.425,	66459392
+	DD			V26+512*65536+2*2	;; Flags, min_l2_cache, clm
+	DD			65536+31*128	;; scratch area size
+	DP			OFFSET xfftv26_4096Kp212_1, OFFSET xfftv26_4096Kp212_2
+	DP			OFFSET xfftv26_4096Kp212_3, OFFSET xfftv26_4096Kp212_4
+	DP			OFFSET xprctab2	;; Table of add/sub/norm procs
+	DD			12		;; FFT levels done in pass2
+	DD			256, GAP2_12_2+1
+	DD			256, 1, 256, 1, 1, 0
+	DD	77700000, 4194304, 0.425,	66459392
+	DD			V26+2*1		;; Flags, min_l2_cache, clm
+	DD			32768+31*128	;; scratch area size
+	DP			OFFSET xfftv26_4096Kp112_1, OFFSET xfftv26_4096Kp112_2
+	DP			OFFSET xfftv26_4096Kp112_3, OFFSET xfftv26_4096Kp112_4
+	DP			OFFSET xprctab2	;; Table of add/sub/norm procs
+	DD			12		;; FFT levels done in pass2
+	DD			256, GAP2_12_1+1
+	DD			256, 1, 256, 1, 1, 0
+
 	DD	77700000, 4194304, 0.425,	6459392
 	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
 	DD			131072+31*128	;; scratch area size
@@ -8136,6 +8182,7 @@ allfft	DD			512, 1, 512, 1, 1, 0
 	DD			12		;; FFT levels done in pass2
 	DD			256, GAP2_12_1+1
 	DD			256, 1, 256, 1, 1, 0
+
 allfft	DD	77700000, 4194304, 0.425,	8589312
 allfft	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
 allfft	DD			131072+63*128	;; scratch area size
