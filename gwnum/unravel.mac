@@ -1573,12 +1573,133 @@ pfing MACRO stmt:vararg
 
 Q	EQU	<QWORD PTR>
 
+;; The movaps instruction does the same thing as a movapd instruction
+;; but is one less byte.  The shorter instruction might improve decode
+;; bandwidth in some cases.  We use a macro, so that we can switch
+;; back to using movapd if a future chip imposes a penalty for loading
+;; packed doubles with the movaps instruction.
+
+xload	MACRO	reg, mem
+	movaps	reg, DWORD PTR mem
+	ENDM
+
+xstore	MACRO	mem, reg
+	movaps	DWORD PTR mem, reg
+	ENDM
+
+xcopy	MACRO	reg1, reg2
+	movaps	reg1, reg2
+	ENDM
+
 ;; Bump a pointer by an amount - generates no code if amount is zero
+;; On Core 2 architecture, use add or sub as that can be dispatched to
+;; ports 0, 1, or 5 whereas lea can only be dispatched to port 0.  Both
+;; instructions use the same number of bytes.  Also, handle distance 128
+;; as a subtraction so that a one byte displacement can be used.
+;; Caller must be aware that condition codes may be changed.
 
 bump	MACRO	reg, amt
 	IF amt NE 0
-	lea	reg, [reg+amt]
+	IF amt EQ 128
+	sub	reg, -(amt)
+	ELSE
+	add	reg, amt
 	ENDIF
+	ENDIF
+	ENDM
+
+; 
+; Macros used in FFT looping
+;
+; The FFT code generally loops through a build block by powers-of-two.
+; For example, loop twice, inc a ptr, loop 4 times, prefetch, loop 8 times, etc.
+; These macros use the eax register to implement the loops.  We choose the
+; best/shortest instructions for each architecture.  For example, we use
+; test/jnz which generates a fused-op internally.
+;
+
+loops_init MACRO count, first_completed, first_iters
+	IFB <first_completed>
+	  sub	eax, eax
+	ELSE
+	IF first_completed EQ 0
+	  sub	eax, eax
+	ELSE
+	IF (count LE 256 AND first_iters EQ count)
+	  mov	al, first_completed * 256/(first_iters)
+	ELSE
+	IF (count LE 128 AND (first_iters) * count LE 256)
+	  mov	al, first_completed * (80h/(first_iters)*2+1)
+	ELSE
+	  mov	eax, first_completed * (80000000h/(first_iters)*2+1)
+	ENDIF
+	ENDIF
+	ENDIF
+	ENDIF
+	loops_count = count
+	loops_completed = 1
+	ENDM
+
+loops	MACRO iters, dest, incr
+	IF iters GT 1
+	  IF loops_completed EQ 1
+	    IF (loops_count LE 256 AND iters EQ loops_count)
+	      add al, 256/(iters)
+	    ELSE
+	    IFB <incr>
+	      IF (loops_count LE 128 AND (iters) * loops_count LE 256)
+	        add al, 80h/(iters)*2+1
+	      ELSE
+	        add eax, 80000000h/(iters)*2+1
+	      ENDIF
+	    ELSE
+	      IF (loops_count LE 128 AND (iters) * loops_count * (incr) LE 256)
+	        add al, 80h/(iters)*2+(incr)
+	      ELSE
+	        add eax, 80000000h/(iters)*2+(incr)
+	      ENDIF
+	      loops_completed = incr
+	    ENDIF
+	    ENDIF
+	    jnc	dest
+	  ELSE
+	    IF loops_count LE 128
+	      IF (iters)*loops_completed LE 128
+	        test al, (iters)*loops_completed-1
+	        jnz dest
+	      ELSE
+	        error_looped_more_than_loop_count
+	      ENDIF
+	    ELSE
+	      IF (iters)*loops_completed LE 128
+	        test al, (iters)*loops_completed-1
+	        jnz dest
+	      ENDIF
+	      IF (iters)*loops_completed EQ 256
+	        test al, al
+	        jnz dest
+	      ENDIF
+	      IF (iters)*loops_completed GT 256
+	        test eax, (iters)*loops_completed-1
+	        jnz dest
+	      ENDIF
+	    ENDIF
+	  ENDIF
+	  loops_completed = (iters) * loops_completed
+	ENDIF
+	ENDM
+
+loops_undo MACRO iters
+	loops_completed = loops_completed / (iters)
+	IF loops_count LE 128
+	  sub	al, (iters) * loops_completed
+	ELSE
+	  sub	eax, (iters) * loops_completed
+	ENDIF
+	ENDM
+
+loops_reset MACRO
+	loops_completed = 1
 	ENDM
 
 ; Macro to flush the P4 trace cache
