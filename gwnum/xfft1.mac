@@ -1,4 +1,4 @@
-; Copyright 2001-2007 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2009 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -378,7 +378,7 @@ b1b:	s3cl_six_reals_first_fft rsi, 64, 2*64
 ;;	do 2 macros each processing 16 data values
 
 	mov	rdi, sincos2		;; Sine/cosine pointer
-b3b:	x2cl_two_complex_fft rsi, 64, 2*64
+b3b:	x2cl_two_complex_fft rsi, 64, 2*64, rdi
 	add	al, 256/2		;; Test loop counter
 	jnc	b3b			;; Iterate if necessary
 	lea	rsi, [rsi-2*64-2*64]	;; Restore source pointer
@@ -530,9 +530,9 @@ b1b:	s3cl_three_complex_first_fft rsi, 64, 2*64
 ;;	do 3 macros each processing 16 data values
 
 	mov	rdi, sincos2		;; Sine/cosine pointer
-	x2cl_two_complex_fft_in_place rsi, 2*64, 64
+	x2cl_two_complex_fft_in_place rsi, 2*64, 64, rdi
 	lea	rdi, [rdi+XMM_SCD]	;; Next sin/cos pointer
-b3b:	x2cl_two_complex_fft rsi, 64, 2*64
+b3b:	x2cl_two_complex_fft rsi, 64, 2*64, rdi
 	add	al, 256/2		;; Test loop counter
 	jnc	b3b			;; Iterate if necessary
 	lea	rsi, [rsi-2*64-2*64]	;; Restore source pointer
@@ -692,7 +692,7 @@ b2b:	x2cl_eight_reals_fft_1 rsi, 64, 2*64
 
 	lea	rsi, [rsi-2*64+4*64]	;; Next source pointer
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
-b3b:	x2cl_two_complex_fft rsi, 64, 2*64
+b3b:	x2cl_two_complex_fft rsi, 64, 2*64, rdi
 	add	al, 256/2		;; Test loop counter
 	jnc	b3b			;; Iterate if necessary
 	lea	rsi, [rsi-2*64-4*64]	;; Restore source pointer
@@ -849,7 +849,7 @@ b1b:	s2cl_four_complex_first_fft rsi, 64, 4*64
 
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, 2			;; 2 iterations of 2
-b3b:	x2cl_two_complex_fft rsi, 64, 2*64
+b3b:	x2cl_two_complex_fft rsi, 64, 2*64, rdi
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	lea	rsi, [rsi-2*64+4*64]	;; Restore source pointer
@@ -1164,7 +1164,7 @@ b2b:	x2cl_eight_reals_fft_2 rsi, 64, 2*64
 ;;	do 2 macros each processing 32 data values
 
 cmn96_1:mov	rdi, sincos2
-b3b:	x4cl_four_complex_fft rsi, 64, 2*64, 4*64
+b3b:	x4cl_four_complex_fft rsi, 64, 2*64, 4*64, rdi
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	mov	rsi, DESTARG		;; Restore source pointer
@@ -1312,7 +1312,7 @@ b2b:	x2cl_four_complex_fft rsi, 64, 2*64
 	jnc	b2b			;; Iterate if necessary
 	lea	rsi, [rsi-2*64+4*64]	;; Next source pointer
 	lea	rdi, [rdi+XMM_SCD]	;; Next sin/cos pointer
-b3b:	x4cl_four_complex_fft rsi, 64, 2*64, 4*64
+b3b:	x4cl_four_complex_fft rsi, 64, 2*64, 4*64, rdi
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	lea	rsi, [rsi-2*64-4*64]	;; Restore source pointer
@@ -1600,7 +1600,7 @@ b1b:	s2cl_eight_reals_first_fft rsi, 64, 8*64
 ;;	do 2 macros each processing 32 data values
 
 	mov	rdi, sincos2		;; Load sin/cos pointer
-b2b:	x4cl_eight_reals_fft_2 rsi, 64, 2*64, 4*64
+b2b:	x4cl_eight_reals_fft_2 rsi, 64, 2*64, 4*64, rdi
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
 	lea	rsi, [rsi-2*64+8*64]	;; Next source pointer
@@ -1611,7 +1611,7 @@ b2b:	x4cl_eight_reals_fft_2 rsi, 64, 2*64, 4*64
 
 cmn128_1:
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
-b3b:	x4cl_four_complex_fft rsi, 64, 2*64, 4*64
+b3b:	x4cl_four_complex_fft rsi, 64, 2*64, 4*64, rdi
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	mov	rsi, DESTARG		;; Restore source pointer
@@ -1647,7 +1647,7 @@ b3b:	x4cl_four_complex_fft rsi, 64, 2*64, 4*64
 cmn128:	add	rsi, rcx		;; Next source pointer
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, BYTE PTR count2	;; 2/3 iterations
-c3b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
+c3b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
@@ -1813,7 +1813,7 @@ b1b:	s2cl_four_complex_first_fft rsi, 64, 8*64
 	push_amt = SZPTR
 cmn128p:mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, BYTE PTR count2	;; 3/4 iterations
-c3b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
+c3b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c3b			;; Iterate if necessary
@@ -2098,7 +2098,7 @@ b2b:	x2cl_eight_reals_fft_2 rsi, 64, 4*64
 
 cmn192_1:
 	mov	rdi, sincos3		;; Load sin/cos pointer
-b3b:	x4cl_four_complex_fft rsi, 64, 4*64, 8*64
+b3b:	x4cl_four_complex_fft rsi, 64, 4*64, 8*64, rdi
 	add	al, 256/4		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 
@@ -2244,12 +2244,12 @@ b1b:	s3cl_three_complex_first_fft rsi, 64, 8*64
 ;;	do 12 macros each processing 16 data values
 
 	mov	rdi, sincos3		;; Load sin/cos pointer
-b2b:	x2cl_two_complex_fft_in_place rsi, 64, 4*64
+b2b:	x2cl_two_complex_fft_in_place rsi, 64, 4*64, rdi
 	add	al, 256/4		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
 	lea	rsi, [rsi-4*64+8*64]	;; Next source pointer
 	lea	rdi, [rdi+XMM_SCD]	;; Next sin/cos pointer
-b3b:	x2cl_two_complex_fft rsi, 64, 8*64
+b3b:	x2cl_two_complex_fft rsi, 64, 8*64, rdi
 	add	al, 256/8		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	lea	rsi, [rsi-8*64-8*64]	;; Restore source pointer
@@ -2552,7 +2552,7 @@ b1b:	s2cl_eight_reals_first_fft rsi, 64, 16*64
 ;;	do 4 macros each processing 32 data values
 
 	mov	rdi, sincos3		;; Load sin/cos pointer
-b2b:	x4cl_eight_reals_fft_2 rsi, 64, 4*64, 8*64
+b2b:	x4cl_eight_reals_fft_2 rsi, 64, 4*64, 8*64, rdi
 	add	al, 256/4		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
 	lea	rsi, [rsi-4*64+16*64]	;; Next source pointer
@@ -2566,7 +2566,7 @@ cmn256_1:
 ;;	do 4 macros each processing 32 data values
 
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
-b3b:	x4cl_four_complex_fft rsi, 64, 4*64, 8*64
+b3b:	x4cl_four_complex_fft rsi, 64, 4*64, 8*64, rdi
 	add	al, 256/4		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 
@@ -2609,7 +2609,7 @@ b6b:	x2cl_eight_reals_fft_1 rsi, 64, 2*64
 	lea	rsi, [rsi-2*64+4*64]	;; Load source pointer
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	mov	al, BYTE PTR count5	;; 4/5/6/7 iterations of 2
-b7b:	x2cl_two_complex_fft rsi, 64, 2*64
+b7b:	x2cl_two_complex_fft rsi, 64, 2*64, rdi
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
 	lea	rsi, [rsi-2*64+4*64]	;; Next source pointer
@@ -2676,7 +2676,7 @@ c5b:	x2cl_two_complex_unfft rsi, 2*64, 64
 	add	rsi, rcx		;; Next source pointer
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	al, BYTE PTR count3	;; 2/3 iterations of 2
-c3b:	x4cl_four_complex_unfft rsi, 64, 2*64, 4*64
+c3b:	x4cl_four_complex_unfft rsi, 64, 2*64, 4*64, rdi
 	add	al, 256/2		;; Test inner loop counter
 	jnc	c3b			;; Iterate if necessary
 	lea	rsi, [rsi-2*64+8*64]	;; Next source pointer
@@ -2822,7 +2822,7 @@ b1b:	s2cl_four_complex_first_fft rsi, 64, 16*64
 
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	al, 2			;; 2 iterations of 8
-b3b:	x2cl_two_complex_fft rsi, 64, 8*64
+b3b:	x2cl_two_complex_fft rsi, 64, 8*64, rdi
 	add	al, 256/8		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	lea	rsi, [rsi-8*64+16*64]	;; Restore source pointer
@@ -2863,7 +2863,7 @@ b3b:	x2cl_two_complex_fft rsi, 64, 8*64
 	push_amt = SZPTR
 cmn256p:mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, BYTE PTR count2	;; 6/8 iterations
-c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
+c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c8b			;; Iterate if necessary
@@ -3179,7 +3179,7 @@ b2b:	x2cl_eight_reals_fft_2 rsi, 64, 8*64
 
 cmn384_1:
 	mov	rdi, sincos3		;; Load sin/cos pointer
-b3b:	x4cl_four_complex_fft rsi, 64, 8*64, 16*64
+b3b:	x4cl_four_complex_fft rsi, 64, 8*64, 16*64, rdi
 	add	al, 256/8		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 
@@ -3331,7 +3331,7 @@ b2b:	x2cl_four_complex_fft rsi, 64, 8*64
 	jnc	b2b			;; Iterate if necessary
 	lea	rsi, [rsi-8*64+16*64]	;; Next source pointer
 	lea	rdi, [rdi+XMM_SCD]	;; Next sin/cos pointer
-b3b:	x4cl_four_complex_fft rsi, 64, 8*64, 16*64
+b3b:	x4cl_four_complex_fft rsi, 64, 8*64, 16*64, rdi
 	add	al, 256/8		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	lea	rsi, [rsi-8*64-16*64]	;; Restore source pointer
@@ -3633,7 +3633,7 @@ b1b:	s2cl_eight_reals_first_fft rsi, 64, 32*64
 ;;	do 8 macros each processing 32 data values
 
 	mov	rdi, sincos3		;; Load sin/cos pointer
-b2b:	x4cl_eight_reals_fft_2 rsi, 64, 8*64, 16*64
+b2b:	x4cl_eight_reals_fft_2 rsi, 64, 8*64, 16*64, rdi
 	add	al, 256/8		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
 	lea	rsi, [rsi-8*64+32*64]	;; Next source pointer
@@ -3647,7 +3647,7 @@ cmn512_1:
 ;;	do 8 macros each processing 32 data values
 
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
-b3b:	x4cl_four_complex_fft rsi, 64, 8*64, 16*64
+b3b:	x4cl_four_complex_fft rsi, 64, 8*64, 16*64, rdi
 	add	al, 256/8		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 
@@ -3690,7 +3690,7 @@ cmn512:	x4cl_eight_reals_unfft_2 rsi, 4*64, 64, 2*64
 
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, BYTE PTR count2	;; 1/3 then 8/12 iterations
-c7b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
+c7b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c7b			;; Iterate if necessary
@@ -3719,7 +3719,7 @@ c7b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	add	rsi, rcx		;; Load source pointer
 	mov	al, BYTE PTR count3	;; 2/3 iterations of 4
-c5b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64
+c5b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64, rdi
 	add	al, 256/4		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
 	lea	rsi, [rsi-4*64+16*64]	;; Next source pointer
@@ -3895,7 +3895,7 @@ b1b:	s2cl_four_complex_first_fft rsi, 64, 32*64
 	push_amt = SZPTR
 cmn512p:mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, BYTE PTR count2	;; 12/16 iterations
-c7b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
+c7b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c7b			;; Iterate if necessary
@@ -3923,7 +3923,7 @@ c7b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
 
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	al, BYTE PTR count3	;; 3/4 iterations of 4
-c5b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64
+c5b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64, rdi
 	add	al, 256/4		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
 	lea	rsi, [rsi-4*64+16*64]	;; Next source pointer
@@ -4211,7 +4211,7 @@ b2b:	x2cl_eight_reals_fft_2 rsi, 64, 16*64
 
 cmn768_1:
 	mov	rdi, sincos4		;; Load sin/cos pointer
-b3b:	x4cl_four_complex_fft rsi, 64, 16*64, 32*64
+ b3b:	x4cl_four_complex_fft rsi, 64, 16*64, 32*64, rdi
 	add	al, 256/16		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 
@@ -4357,12 +4357,12 @@ b1b:	s3cl_three_complex_first_fft rsi, 64, 32*64
 ;;	do 48 macros each processing 16 data values
 
 	mov	rdi, sincos4		;; Load sin/cos pointer
-b2b:	x2cl_two_complex_fft_in_place rsi, 64, 16*64
+b2b:	x2cl_two_complex_fft_in_place rsi, 64, 16*64, rdi
 	add	al, 256/16		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
 	lea	rsi, [rsi-16*64+32*64]	;; Next source pointer
 	lea	rdi, [rdi+XMM_SCD]	;; Next sin/cos pointer
-b3b:	x2cl_two_complex_fft rsi, 64, 32*64
+b3b:	x2cl_two_complex_fft rsi, 64, 32*64, rdi
 	add	al, 256/32		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	lea	rsi, [rsi-32*64-32*64]	;; Restore source pointer
@@ -4664,7 +4664,7 @@ b1b:	s2cl_eight_reals_first_fft rsi, 64, 64*64
 ;;	do 16 macros each processing 32 data values
 
 	mov	rdi, sincos4		;; Load sin/cos pointer
-b2b:	x4cl_eight_reals_fft_2 rsi, 64, 16*64, 32*64
+b2b:	x4cl_eight_reals_fft_2 rsi, 64, 16*64, 32*64, rdi
 	add	al, 256/16		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
 	lea	rsi, [rsi-16*64+64*64]	;; Next source pointer
@@ -4678,7 +4678,7 @@ cmn1024_1:
 ;;	do 16 macros each processing 32 data values
 
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
-b3b:	x4cl_four_complex_fft rsi, 64, 16*64, 32*64
+b3b:	x4cl_four_complex_fft rsi, 64, 16*64, 32*64, rdi
 	add	al, 256/16		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 
@@ -4723,7 +4723,7 @@ b6b:	x2cl_eight_reals_fft_1 rsi, 64, 8*64
 	lea	rsi, [rsi-8*64+16*64]	;; Load source pointer
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	mov	al, BYTE PTR count5+1	;; 4/5/6/7 iterations of 8
-b7b:	x2cl_two_complex_fft rsi, 64, 8*64
+b7b:	x2cl_two_complex_fft rsi, 64, 8*64, rdi
 	add	al, 256/8		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
 	lea	rsi, [rsi-8*64+16*64]	;; Next source pointer
@@ -4770,7 +4770,7 @@ cmn1024:x4cl_eight_reals_unfft_2 rsi, 4*64, 64, 2*64
 
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, BYTE PTR count2	;; 3/7 then 16/24 iterations
-c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
+c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c8b			;; Iterate if necessary
@@ -4839,7 +4839,7 @@ c5b:	x2cl_two_complex_unfft rsi, 64, 4*64
 	add	rsi, rcx		;; Next source pointer
 	mov	rdi, sincos4		;; Load sin/cos pointer
 	mov	al, BYTE PTR count5	;; 2/3 iterations of 8
-c3b:	x4cl_four_complex_unfft rsi, 64, 8*64, 16*64
+c3b:	x4cl_four_complex_unfft rsi, 64, 8*64, 16*64, rdi
 	add	al, 256/8		;; Test inner loop counter
 	jnc	c3b			;; Iterate if necessary
 	lea	rsi, [rsi-8*64+32*64]	;; Next source pointer
@@ -4985,7 +4985,7 @@ b1b:	s2cl_four_complex_first_fft rsi, 64, 64*64
 
 	mov	rdi, sincos4		;; Load sin/cos pointer
 	mov	al, 2			;; 2 iterations of 32
-b3b:	x2cl_two_complex_fft rsi, 64, 32*64
+b3b:	x2cl_two_complex_fft rsi, 64, 32*64, rdi
 	add	al, 256/32		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	lea	rsi, [rsi-32*64+64*64]	;; Restore source pointer
@@ -5028,7 +5028,7 @@ b3b:	x2cl_two_complex_fft rsi, 64, 32*64
 cmn1024p:
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, BYTE PTR count2	;; 24/32 iterations
-c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
+c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c8b			;; Iterate if necessary
@@ -5056,7 +5056,7 @@ c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
 
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	al, BYTE PTR count3	;; 6/8 iterations of 4
-c7b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64
+c7b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64, rdi
 	add	al, 256/4		;; Test inner loop counter
 	jnc	c7b			;; Iterate if necessary
 	lea	rsi, [rsi-4*64+16*64]	;; Next source pointer
@@ -5375,7 +5375,7 @@ b2b:	x2cl_eight_reals_fft_2 rsi, 64, 32*64
 
 cmn1536_1:
 	mov	rdi, sincos4		;; Load sin/cos pointer
-b3b:	x4cl_four_complex_fft rsi, 64, 32*64, 64*64
+b3b:	x4cl_four_complex_fft rsi, 64, 32*64, 64*64, rdi
 	add	al, 256/32		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 
@@ -5527,7 +5527,7 @@ b2b:	x2cl_four_complex_fft rsi, 64, 32*64
 	jnc	b2b			;; Iterate if necessary
 	lea	rsi, [rsi-32*64+64*64]	;; Next source pointer
 	lea	rdi, [rdi+XMM_SCD]	;; Next sin/cos pointer
-b3b:	x4cl_four_complex_fft rsi, 64, 32*64, 64*64
+b3b:	x4cl_four_complex_fft rsi, 64, 32*64, 64*64, rdi
 	add	al, 256/32		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	lea	rsi, [rsi-32*64-64*64]	;; Restore source pointer
@@ -5829,7 +5829,7 @@ b1b:	s2cl_eight_reals_first_fft rsi, 64, 128*64
 ;;	do 32 macros each processing 32 data values
 
 	mov	rdi, sincos4		;; Load sin/cos pointer
-b2b:	x4cl_eight_reals_fft_2 rsi, 64, 32*64, 64*64
+b2b:	x4cl_eight_reals_fft_2 rsi, 64, 32*64, 64*64, rdi
 	add	al, 256/32		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
 	lea	rsi, [rsi-32*64+128*64]	;; Next source pointer
@@ -5843,7 +5843,7 @@ cmn2048_1:
 ;;	do 32 macros each processing 32 data values
 
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
-b3b:	x4cl_four_complex_fft rsi, 64, 32*64, 64*64
+b3b:	x4cl_four_complex_fft rsi, 64, 32*64, 64*64, rdi
 	add	al, 256/32		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 
@@ -5890,7 +5890,7 @@ cmn2048:x4cl_eight_reals_unfft_2 rsi, 4*64, 64, 2*64
 
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, BYTE PTR count2	;; 7/15 then 32/48 iterations
-c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
+c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c8b			;; Iterate if necessary
@@ -5928,7 +5928,7 @@ c4b:	x4cl_eight_reals_unfft_2 rsi, 64, 4*64, 8*64
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	lea	rsi, [rsi-4*64+16*64]	;; Load source pointer
 	mov	al, BYTE PTR count3	;; 1/3 then 8/12 iterations of 4
-c5b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64
+c5b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64, rdi
 	add	al, 256/4		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
 	lea	rsi, [rsi-4*64+16*64]	;; Next source pointer
@@ -5960,7 +5960,7 @@ c5b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64
 	add	rsi, rcx		;; Next source pointer
 	mov	rdi, sincos4		;; Load sin/cos pointer
 	mov	al, BYTE PTR count5	;; 2/3 iterations of 16
-c3b:	x4cl_four_complex_unfft rsi, 64, 16*64, 32*64
+c3b:	x4cl_four_complex_unfft rsi, 64, 16*64, 32*64, rdi
 	add	al, 256/16		;; Test inner loop counter
 	jnc	c3b			;; Iterate if necessary
 	lea	rsi, [rsi-16*64+64*64]	;; Next source pointer
@@ -6141,7 +6141,7 @@ b1b:	s2cl_four_complex_first_fft rsi, 64, 128*64
 cmn2048p:
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, BYTE PTR count2	;; 48/64 iterations
-c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
+c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c8b			;; Iterate if necessary
@@ -6169,7 +6169,7 @@ c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
 
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	al, BYTE PTR count3	;; 12/16 iterations of 4
-c5b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64
+c5b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64, rdi
 	add	al, 256/4		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
 	lea	rsi, [rsi-4*64+16*64]	;; Next source pointer
@@ -6200,7 +6200,7 @@ c5b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64
 
 	mov	rdi, sincos4		;; Load sin/cos pointer
 	mov	al, BYTE PTR count5	;; 3/4 iterations of 16
-c3b:	x4cl_four_complex_unfft rsi, 64, 16*64, 32*64
+c3b:	x4cl_four_complex_unfft rsi, 64, 16*64, 32*64, rdi
 	add	al, 256/16		;; Test inner loop counter
 	jnc	c3b			;; Iterate if necessary
 	lea	rsi, [rsi-16*64+64*64]	;; Next source pointer
@@ -6488,7 +6488,7 @@ b2b:	x2cl_eight_reals_fft_2 rsi, 64, 64*64
 
 cmn3072_1:
 	mov	rdi, sincos5		;; Load sin/cos pointer
-b3b:	x4cl_four_complex_fft rsi, 64, 64*64, 128*64
+b3b:	x4cl_four_complex_fft rsi, 64, 64*64, 128*64, rdi
 	add	al, 256/64		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	mov	rsi, DESTARG		;; Restore source pointer
@@ -6635,12 +6635,12 @@ b1b:	s3cl_three_complex_first_fft rsi, 64, 128*64
 ;;	do 192 macros each processing 16 data values
 
 	mov	rdi, sincos5		;; Load sin/cos pointer
-b2b:	x2cl_two_complex_fft_in_place rsi, 64, 64*64
+b2b:	x2cl_two_complex_fft_in_place rsi, 64, 64*64, rdi
 	add	al, 256/64		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
 	lea	rsi, [rsi-64*64+128*64]	;; Next source pointer
 	lea	rdi, [rdi+XMM_SCD]	;; Next sin/cos pointer
-b3b:	x2cl_two_complex_fft rsi, 64, 128*64
+b3b:	x2cl_two_complex_fft rsi, 64, 128*64, rdi
 	add	al, 256/128		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	lea	rsi, [rsi-128*64-128*64];; Restore source pointer
@@ -6942,7 +6942,7 @@ b1b:	s2cl_eight_reals_first_fft rsi, 64, 256*64
 ;;	do 64 macros each processing 32 data values
 
 	mov	rdi, sincos5		;; Load sin/cos pointer
-b2b:	x4cl_eight_reals_fft_2 rsi, 64, 64*64, 128*64
+b2b:	x4cl_eight_reals_fft_2 rsi, 64, 64*64, 128*64, rdi
 	add	al, 256/64		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
 	lea	rsi, [rsi-64*64+256*64]	;; Next source pointer
@@ -6956,7 +6956,7 @@ cmn4096_1:
 ;;	do 64 macros each processing 32 data values
 
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
-b3b:	x4cl_four_complex_fft rsi, 64, 64*64, 128*64
+b3b:	x4cl_four_complex_fft rsi, 64, 64*64, 128*64, rdi
 	add	al, 256/64		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	mov	rsi, DESTARG		;; Restore source pointer
@@ -7001,7 +7001,7 @@ b4b:	x2cl_eight_reals_fft_1 rsi, 64, 32*64
 	lea	rsi, [rsi-32*64+64*64]	;; Load source pointer
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	mov	al, BYTE PTR count5+1	;; 4/5/6/7 iterations of 32
-b5b:	x2cl_two_complex_fft rsi, 64, 32*64
+b5b:	x2cl_two_complex_fft rsi, 64, 32*64, rdi
 	add	al, 256/32		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
 	lea	rsi, [rsi-32*64+64*64]	;; Next source pointer
@@ -7051,7 +7051,7 @@ cmn4096:x4cl_eight_reals_unfft_2 rsi, 4*64, 64, 2*64
 
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, BYTE PTR count2	;; 15/31 then 64/96 iterations
-c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
+c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c8b			;; Iterate if necessary
@@ -7089,7 +7089,7 @@ c6b:	x4cl_eight_reals_unfft_2 rsi, 64, 4*64, 8*64
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	lea	rsi, [rsi-4*64+16*64]	;; Load source pointer
 	mov	al, BYTE PTR count3	;; 3/7 then 16/24 iterations of 4
-c7b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64
+c7b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64, rdi
 	add	al, 256/4		;; Test inner loop counter
 	jnc	c7b			;; Iterate if necessary
 	lea	rsi, [rsi-4*64+16*64]	;; Next source pointer
@@ -7161,7 +7161,7 @@ c5b:	x2cl_two_complex_unfft rsi, 64, 16*64
 	add	rsi, rcx		;; Next source pointer
 	mov	rdi, sincos5		;; Load sin/cos pointer
 	mov	al, BYTE PTR count5	;; 2/3 iterations of 32
-c3b:	x4cl_four_complex_unfft rsi, 64, 32*64, 64*64
+c3b:	x4cl_four_complex_unfft rsi, 64, 32*64, 64*64, rdi
 	add	al, 256/32		;; Test inner loop counter
 	jnc	c3b			;; Iterate if necessary
 	lea	rsi, [rsi-32*64+128*64]	;; Next source pointer
@@ -7307,7 +7307,7 @@ b1b:	s2cl_four_complex_first_fft rsi, 64, 256*64
 
 	mov	rdi, sincos5		;; Load sin/cos pointer
 	mov	eax, 2*256		;; 2 iterations of 128
-b3b:	x2cl_two_complex_fft rsi, 64, 128*64
+b3b:	x2cl_two_complex_fft rsi, 64, 128*64, rdi
 	add	al, 256/128		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	lea	rsi, [rsi-128*64+256*64];; Restore source pointer
@@ -7355,7 +7355,7 @@ b3b:	x2cl_two_complex_fft rsi, 64, 128*64
 cmn4096p:
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, BYTE PTR count2	;; 96/128 iterations
-c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
+c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c8b			;; Iterate if necessary
@@ -7383,7 +7383,7 @@ c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
 
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	cl, BYTE PTR count3	;; 24/32 iterations of 4
-c7b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64
+c7b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64, rdi
 	add	al, 256/4		;; Test inner loop counter
 	jnc	c7b			;; Iterate if necessary
 	lea	rsi, [rsi-4*64+16*64]	;; Next source pointer
@@ -7414,7 +7414,7 @@ c7b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64
 
 	mov	rdi, sincos4		;; Load sin/cos pointer
 	mov	cl, BYTE PTR count3+1	;; 6/8 iterations of 16
-c5b:	x4cl_four_complex_unfft rsi, 64, 16*64, 32*64
+c5b:	x4cl_four_complex_unfft rsi, 64, 16*64, 32*64, rdi
 	add	al, 256/16		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
 	lea	rsi, [rsi-16*64+64*64]	;; Next source pointer
@@ -7731,7 +7731,7 @@ b2b:	x2cl_eight_reals_fft_2 rsi, 64, 128*64
 
 cmn6144_1:
 	mov	rdi, sincos5		;; Load sin/cos pointer
-b3b:	x4cl_four_complex_fft rsi, 64, 128*64, 256*64
+b3b:	x4cl_four_complex_fft rsi, 64, 128*64, 256*64, rdi
 	add	al, 256/128		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	mov	rsi, DESTARG		;; Restore source pointer
@@ -7881,7 +7881,7 @@ b2b:	x2cl_four_complex_fft rsi, 64, 128*64
 	jnc	b2b			;; Iterate if necessary
 	lea	rsi, [rsi-128*64+256*64];; Next source pointer
 	lea	rdi, [rdi+XMM_SCD]	;; Next sin/cos pointer
-b3b:	x4cl_four_complex_fft rsi, 64, 128*64, 256*64
+b3b:	x4cl_four_complex_fft rsi, 64, 128*64, 256*64, rdi
 	add	al, 256/128		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	lea	rsi, [rsi-128*64-256*64];; Restore source pointer
@@ -8183,7 +8183,7 @@ b1b:	s2cl_eight_reals_first_fft rsi, 64, 512*64
 ;;	do 128 macros each processing 32 data values
 
 	mov	rdi, sincos5		;; Load sin/cos pointer
-b2b:	x4cl_eight_reals_fft_2 rsi, 64, 128*64, 256*64
+b2b:	x4cl_eight_reals_fft_2 rsi, 64, 128*64, 256*64, rdi
 	add	al, 256/128		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
 	lea	rsi, [rsi-128*64+512*64];; Next source pointer
@@ -8197,7 +8197,7 @@ cmn8192_1:
 ;;	do 128 macros each processing 32 data values
 
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
-b3b:	x4cl_four_complex_fft rsi, 64, 128*64, 256*64
+b3b:	x4cl_four_complex_fft rsi, 64, 128*64, 256*64, rdi
 	add	al, 256/128		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	mov	rsi, DESTARG		;; Restore source pointer
@@ -8232,7 +8232,7 @@ cmn8192_2:
 ;;	do 32 macros each processing 32 data values
 
 	mov	rdi, sincos4		;; Load sin/cos pointer
-b4b:	x4cl_eight_reals_fft_2 rsi, 64, 32*64, 64*64
+b4b:	x4cl_eight_reals_fft_2 rsi, 64, 32*64, 64*64, rdi
 	add	al, 256/32		;; Test inner loop counter
 	jnc	b4b			;; Iterate if necessary
 
@@ -8243,7 +8243,7 @@ b4b:	x4cl_eight_reals_fft_2 rsi, 64, 32*64, 64*64
 	lea	rsi, [rsi-32*64+128*64]	;; Load source pointer
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	mov	al, BYTE PTR count5+1	;; 4/5/6/7 iterations of 32
-b5b:	x4cl_four_complex_fft rsi, 64, 32*64, 64*64
+b5b:	x4cl_four_complex_fft rsi, 64, 32*64, 64*64, rdi
 	add	al, 256/32		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
 	lea	rsi, [rsi-32*64+128*64]	;; Next source pointer
@@ -8279,7 +8279,7 @@ b5b:	x4cl_four_complex_fft rsi, 64, 32*64, 64*64
 xlast_four_fft_levels:
 	mov	rsi, DESTARG		;; Next source pointer
 	mov	rdi, sincos3		;; Load sin/cos pointer
-b6b:	x4cl_eight_reals_fft_2 rsi, 64, 8*64, 16*64
+b6b:	x4cl_eight_reals_fft_2 rsi, 64, 8*64, 16*64, rdi
 	add	al, 256/8		;; Test inner loop counter
 	jnc	b6b			;; Iterate if necessary
 
@@ -8290,7 +8290,7 @@ b6b:	x4cl_eight_reals_fft_2 rsi, 64, 8*64, 16*64
 	lea	rsi, [rsi-8*64+32*64]	;; Load source pointer
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	mov	al, BYTE PTR count4+1	;; 19/23/27/31 iterations of 8
-b7b:	x4cl_four_complex_fft rsi, 64, 8*64, 16*64
+b7b:	x4cl_four_complex_fft rsi, 64, 8*64, 16*64, rdi
 	add	al, 256/8		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
 	lea	rsi, [rsi-8*64+32*64]	;; Next source pointer
@@ -8326,7 +8326,7 @@ b7b:	x4cl_four_complex_fft rsi, 64, 8*64, 16*64
 xlast_two_fft_levels:
 	mov	rsi, DESTARG		;; Restore source pointer
 	mov	rdi, sincos2		;; Load sin/cos pointer
-b8b:	x4cl_eight_reals_fft_2 rsi, 64, 2*64, 4*64
+b8b:	x4cl_eight_reals_fft_2 rsi, 64, 2*64, 4*64, rdi
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b8b			;; Iterate if necessary
 
@@ -8337,7 +8337,7 @@ b8b:	x4cl_eight_reals_fft_2 rsi, 64, 2*64, 4*64
 	lea	rsi, [rsi-2*64+8*64]	;; Load source pointer
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	mov	al, BYTE PTR count4	;; 79/95/111/127 iterations of 2
-b9b:	x4cl_four_complex_fft rsi, 64, 2*64, 4*64
+b9b:	x4cl_four_complex_fft rsi, 64, 2*64, 4*64, rdi
 	add	al, 256/2		;; Test loop counter
 	jnc	b9b			;; Loop if necessary
 	lea	rsi, [rsi-2*64+8*64]	;; Next source pointer
@@ -8452,7 +8452,7 @@ cmn8192:x4cl_eight_reals_unfft_2 rsi, 4*64, 64, 2*64
 
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, BYTE PTR count2	;; 31/63 then 128/192 iterations
-c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
+c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c8b			;; Iterate if necessary
@@ -8490,7 +8490,7 @@ c6b:	x4cl_eight_reals_unfft_2 rsi, 64, 4*64, 8*64
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	lea	rsi, [rsi-4*64+16*64]	;; Load source pointer
 	mov	al, BYTE PTR count3	;; 7/15 then 32/48 iterations of 4
-c7b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64
+c7b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64, rdi
 	add	al, 256/4		;; Test inner loop counter
 	jnc	c7b			;; Iterate if necessary
 	lea	rsi, [rsi-4*64+16*64]	;; Next source pointer
@@ -8531,7 +8531,7 @@ c4b:	x4cl_eight_reals_unfft_2 rsi, 64, 16*64, 32*64
 	mov	rdi, sincos4		;; Load sin/cos pointer
 	lea	rsi, [rsi-16*64+64*64]	;; Load source pointer
 	mov	al, BYTE PTR count3+1	;; 1/3 then 8/12 iterations of 16
-c5b:	x4cl_four_complex_unfft rsi, 64, 16*64, 32*64
+c5b:	x4cl_four_complex_unfft rsi, 64, 16*64, 32*64, rdi
 	add	al, 256/16		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
 	lea	rsi, [rsi-16*64+64*64]	;; Next source pointer
@@ -8563,7 +8563,7 @@ c5b:	x4cl_four_complex_unfft rsi, 64, 16*64, 32*64
 	add	rsi, rcx		;; Next source pointer
 	mov	rdi, sincos5		;; Load sin/cos pointer
 	mov	al, BYTE PTR count5	;; 2/3 iterations of 64
-c3b:	x4cl_four_complex_unfft rsi, 64, 64*64, 128*64
+c3b:	x4cl_four_complex_unfft rsi, 64, 64*64, 128*64, rdi
 	add	al, 256/64		;; Test inner loop counter
 	jnc	c3b			;; Iterate if necessary
 	lea	rsi, [rsi-64*64+256*64]	;; Next source pointer
@@ -8709,7 +8709,7 @@ b1b:	s2cl_four_complex_first_fft rsi, 64, 512*64
 
 	mov	rdi, sincos5		;; Load sine/cosine pointer
 	mov	eax, 2*256		;; 2 iterations of 128
-b3b:	x4cl_four_complex_fft rsi, 64, 128*64, 256*64
+b3b:	x4cl_four_complex_fft rsi, 64, 128*64, 256*64, rdi
 	add	al, 256/128		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	lea	rsi, [rsi-128*64+512*64];; Next source pointer
@@ -8742,7 +8742,7 @@ b3b:	x4cl_four_complex_fft rsi, 64, 128*64, 256*64
 xlast_six_fft_levels_p:
 	mov	rdi, sincos4		;; Load sin/cos pointer
 	mov	cl, BYTE PTR count5+1	;; 8 iterations of 32
-b5b:	x4cl_four_complex_fft rsi, 64, 32*64, 64*64
+b5b:	x4cl_four_complex_fft rsi, 64, 32*64, 64*64, rdi
 	add	al, 256/32		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
 	lea	rsi, [rsi-32*64+128*64]	;; Next source pointer
@@ -8775,7 +8775,7 @@ b5b:	x4cl_four_complex_fft rsi, 64, 32*64, 64*64
 xlast_four_fft_levels_p:
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	cl, BYTE PTR count4+1	;; 32 iterations of 8
-b7b:	x4cl_four_complex_fft rsi, 64, 8*64, 16*64
+b7b:	x4cl_four_complex_fft rsi, 64, 8*64, 16*64, rdi
 	add	al, 256/8		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
 	lea	rsi, [rsi-8*64+32*64]	;; Next source pointer
@@ -8808,7 +8808,7 @@ b7b:	x4cl_four_complex_fft rsi, 64, 8*64, 16*64
 xlast_two_fft_levels_p:
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	cl, BYTE PTR count4	;; 128 iterations of 2
-b9b:	x4cl_four_complex_fft rsi, 64, 2*64, 4*64
+b9b:	x4cl_four_complex_fft rsi, 64, 2*64, 4*64, rdi
 	add	al, 256/2		;; Test loop counter
 	jnc	b9b			;; Loop if necessary
 	lea	rsi, [rsi-2*64+8*64]	;; Next source pointer
@@ -8901,7 +8901,7 @@ bab:	s2cl_four_complex_with_mulf rsi, 2*64, 64
 cmn8192p:
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	eax, count2		;; 256 iterations
-c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
+c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi
 	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
 	sub	eax, 1			;; Test loop counter
 	jnz	c8b			;; Iterate if necessary
@@ -8929,7 +8929,7 @@ c8b:	x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
 
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	cl, BYTE PTR count3	;; 64 iterations of 4
-c7b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64
+c7b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64, rdi
 	add	al, 256/4		;; Test inner loop counter
 	jnc	c7b			;; Iterate if necessary
 	lea	rsi, [rsi-4*64+16*64]	;; Next source pointer
@@ -8960,7 +8960,7 @@ c7b:	x4cl_four_complex_unfft rsi, 64, 4*64, 8*64
 
 	mov	rdi, sincos4		;; Load sin/cos pointer
 	mov	cl, BYTE PTR count3+1	;; 16 iterations of 16
-c5b:	x4cl_four_complex_unfft rsi, 64, 16*64, 32*64
+c5b:	x4cl_four_complex_unfft rsi, 64, 16*64, 32*64, rdi
 	add	al, 256/16		;; Test inner loop counter
 	jnc	c5b			;; Iterate if necessary
 	lea	rsi, [rsi-16*64+64*64]	;; Next source pointer
@@ -8991,7 +8991,7 @@ c5b:	x4cl_four_complex_unfft rsi, 64, 16*64, 32*64
 
 	mov	rdi, sincos5		;; Load sin/cos pointer
 	mov	cl, BYTE PTR count5	;; 4 iterations of 64
-c3b:	x4cl_four_complex_unfft rsi, 64, 64*64, 128*64
+c3b:	x4cl_four_complex_unfft rsi, 64, 64*64, 128*64, rdi
 	add	al, 256/64		;; Test inner loop counter
 	jnc	c3b			;; Iterate if necessary
 	lea	rsi, [rsi-64*64+256*64]	;; Next source pointer
