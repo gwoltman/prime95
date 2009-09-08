@@ -47,6 +47,10 @@
 #define	_log2 Log2
 #endif
 
+/* Epsilon value, 2^-300, should have an exact representation as a double */
+
+#define epsilon 4.90909346529772655309577E-91
+
 /* Structure for "global" data that gwfft_weight_setup and passes */
 /* to several gwdbldbl routines */
 	
@@ -108,6 +112,8 @@ void gwasm_constants (
 #define M223			asm_values[17]
 #define M901			asm_values[18]
 #define M691			asm_values[19]
+#define P924			asm_values[20]
+#define P383			asm_values[21]
 
 /* Do some initial setup */
 	
@@ -167,6 +173,13 @@ void gwasm_constants (
 	M901 = double (cosine3);
 	M691 = double (cosine1 / M901);		// 0.623 / -0.901
 
+/* Initialize the roots of -1 used by v26_four_complex_first_fft. */
+
+	arg = dd_real::_2pi / 16.0;		// 2*PI / 16
+	sincos (arg, sine1, cosine1);		// cosine (0.924), sine (0.383)
+	P924 = double (cosine1);
+	P383 = double (sine1);
+
 	END_x86_FIX
 }
 
@@ -188,8 +201,8 @@ void gwsincos (
 	x86_FIX
 	arg = dd_real::_2pi * (double) x / (double) N;
 	sincos (arg, sine, cosine);
-	sine += 1E-200;			/* Protect against divide by zero */
 	results[0] = sine;
+	results[0] += epsilon;		/* Protect against divide by zero */
 	results[1] = cosine / results[0];
 	END_x86_FIX
 }
@@ -200,24 +213,28 @@ void gwsincos3 (
 	unsigned long N,
 	double	*results)
 {
-	dd_real arg1, arg2, arg3, sine, cosine;
+	dd_real arg1, arg2, arg3, sine, cosine, sine2, cosine2, sine3, cosine3;
 
 	x86_FIX
 	arg1 = dd_real::_2pi * (double) x / (double) N;
 	sincos (arg1, sine, cosine);
-	sine += 1E-200;			/* Protect against divide by zero */
 	results[0] = sine;
+	results[0] += epsilon;		/* Protect against divide by zero */
 	results[1] = cosine / results[0];
-	arg2 = arg1 + arg1;
-	sincos (arg2, sine, cosine);
-	sine += 1E-200;			/* Protect against divide by zero */
-	results[2] = sine;
-	results[3] = cosine / results[2];
-	arg3 = arg2 + arg1;
-	sincos (arg3, sine, cosine);
-	sine += 1E-200;			/* Protect against divide by zero */
-	results[4] = sine;
-	results[5] = cosine / results[4];
+//	arg2 = arg1 + arg1;
+//	sincos (arg2, sine2, cosine2);
+		sine2 = sine * cosine * 2.0;
+		cosine2 = cosine * cosine - sine * sine;
+	results[2] = sine2;
+	results[2] += epsilon;		/* Protect against divide by zero */
+	results[3] = cosine2 / results[2];
+//	arg3 = arg2 + arg1;
+//	sincos (arg3, sine3, cosine3);
+		sine3 = sine * cosine2 + sine2 * cosine;
+		cosine3 = cosine * cosine2 - sine * sine2;
+	results[4] = sine3;
+	results[4] += epsilon;		/* Protect against divide by zero */
+	results[5] = cosine3 / results[4];
 	END_x86_FIX
 }
 
