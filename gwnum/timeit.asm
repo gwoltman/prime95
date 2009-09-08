@@ -26,7 +26,7 @@ X87_CASES	EQU	0
 ELSE
 X87_CASES	EQU	13
 ENDIF
-SSE2_CASES	EQU	126
+SSE2_CASES	EQU	168
 
 loopent	MACRO	y,z		; Create a entry in the loop entry table
 	DP	&y&z
@@ -337,7 +337,7 @@ ENDIF
 
 ; This code reads a contiguous block of memory.
 ; Timings are done on 3 memory size.  4KB will read from the L1 cache
-; only, 96KB will read from the L2 cache only, and 2MB will test reading
+; only, 96KB will read from the L2 cache only, and 32MB will test reading
 ; from main memory.
 
 sscase0:
@@ -349,29 +349,29 @@ sscase1:
 	jmp	exit
 
 sscase2:
-	read2	2048*1024, 2	; Read 2MB
+	read2	32768*1024, 2	; Read 32MB
 	jmp	exit
 
 ; This code writes a contiguous block of memory.
 ; Timings are done on 3 memory size.  4KB will write to the L1 cache
-; only, 96KB will write to L2 cache only, and 2MB will test writing
+; only, 96KB will write to L2 cache only, and 32MB will test writing
 ; to main memory.
 
 sscase3:
-	write1	4096, 1000	; Read 4KB
+	write1	4096, 1000	; Write 4KB
 	jmp	exit
 
 sscase4:
-	write1	96*1024, 100	; Read 96KB
+	write1	96*1024, 100	; Write 96KB
 	jmp	exit
 
 sscase5:
-	write1	2048*1024, 2	; Read 2MB
+	write1	32768*1024, 2	; Write 32MB
 	jmp	exit
 
 ; This code writes a block of memory non-contiguously.
 ; Timings are done on 3 memory size.  4KB will write to the L1 cache
-; only, 96KB will write to L2 cache only, and 2MB will test writing
+; only, 96KB will write to L2 cache only, and 32MB will test writing
 ; to main memory.
 
 sscase6:
@@ -383,12 +383,12 @@ sscase7:
 	jmp	exit
 
 sscase8:
-	write2	2048*1024, 2	; Read 2MB
+	write2	32768*1024, 2	; Read 32MB
 	jmp	exit
 
 ; This code reads & writes a block of memory.
 ; Timings are done on 3 memory size.  4KB will write to the L1 cache
-; only, 96KB will write to L2 cache only, and 2MB will test writing
+; only, 96KB will write to L2 cache only, and 32MB will test writing
 ; to main memory.
 
 sscase9:
@@ -400,7 +400,7 @@ sscase10:
 	jmp	exit
 
 sscase11:
-	readwrite1	2048*1024, 2	; Read 2MB
+	readwrite1	32768*1024, 2	; Read 32MB
 	jmp	exit
 
 ; Time ~10000 iterations of the SSE2 macros in L1 and L2 caches
@@ -427,8 +427,8 @@ sscase11:
 	sse2macbx sscase31, 128, 100000, s2cl_eight_reals_with_mult_2 rsi, 2*64, 64
 	sse2macbx sscase32, 128, 4096, s2cl_eight_reals_with_mulf_2 rsi, 2*64, 64
 	sse2macbx sscase33, 128, 100000, s2cl_eight_reals_with_mulf_2 rsi, 2*64, 64
-	sse2mac sscase34, 256, 4096, x4cl_eight_reals_fft_2 rsi, 4*64, 64, 2*64
-	sse2mac sscase35, 256, 100000, x4cl_eight_reals_fft_2 rsi, 4*64, 64, 2*64
+	sse2mac sscase34, 256, 4096, x4cl_eight_reals_fft_2 rsi, 4*64, 64, 2*64, rdi
+	sse2mac sscase35, 256, 100000, x4cl_eight_reals_fft_2 rsi, 4*64, 64, 2*64, rdi
 	sse2mac sscase36, 256, 4096, g4cl_eight_reals_fft_2 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
 	sse2mac sscase37, 256, 100000, g4cl_eight_reals_fft_2 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
 
@@ -445,10 +445,10 @@ sscase11:
 	sse2mac sscase48, 256, 4096, s4cl_eight_reals_unfft_1 rsi, 4*64, 64, 2*64
 	sse2mac sscase49, 256, 100000, s4cl_eight_reals_unfft_1 rsi, 4*64, 64, 2*64
 
-	sse2mac sscase50, 128, 4096, x2cl_two_complex_fft rsi, 2*64, 64
-	sse2mac sscase51, 128, 100000, x2cl_two_complex_fft rsi, 2*64, 64
-	sse2mac sscase52, 128, 4096, x2cl_two_complex_fft_in_place rsi, 2*64, 64
-	sse2mac sscase53, 128, 100000, x2cl_two_complex_fft_in_place rsi, 2*64, 64
+	sse2mac sscase50, 128, 4096, x2cl_two_complex_fft rsi, 2*64, 64, rdi
+	sse2mac sscase51, 128, 100000, x2cl_two_complex_fft rsi, 2*64, 64, rdi
+	sse2mac sscase52, 128, 4096, x2cl_two_complex_fft_in_place rsi, 2*64, 64, rdi
+	sse2mac sscase53, 128, 100000, x2cl_two_complex_fft_in_place rsi, 2*64, 64, rdi
 
 	sse2mac sscase54, 128, 4096, x2cl_two_complex_unfft rsi, 2*64, 64
 	sse2mac sscase55, 128, 100000, x2cl_two_complex_unfft rsi, 2*64, 64
@@ -469,8 +469,8 @@ sscase11:
 	sse2macbx sscase69, 128, 100000, s2cl_four_complex_with_mult rsi, 2*64, 64
 	sse2macbx sscase70, 128, 4096, s2cl_four_complex_with_mulf rsi, 2*64, 64
 	sse2macbx sscase71, 128, 100000, s2cl_four_complex_with_mulf rsi, 2*64, 64
-	sse2mac sscase72, 256, 4096, x4cl_four_complex_fft rsi, 4*64, 64, 2*64
-	sse2mac sscase73, 256, 100000, x4cl_four_complex_fft rsi, 4*64, 64, 2*64
+	sse2mac sscase72, 256, 4096, x4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdi
+	sse2mac sscase73, 256, 100000, x4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdi
 	sse2mac sscase74, 256, 4096, x4cl_four_complex_cpm_fft rsi, 4*64, 64, 2*64, 0
 	sse2mac sscase75, 256, 100000, x4cl_four_complex_cpm_fft rsi, 4*64, 64, 2*64, 0
 	sse2mac sscase76, 256, 4096, g4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
@@ -486,8 +486,8 @@ sscase11:
 	sse2mac sscase85, 128, 100000, x2cl_four_complex_unfft rsi, 2*64, 64
 	sse2mac sscase86, 128, 4096, g2cl_four_complex_unfft rsi, 2*64, 64, rdx, 2*64, 64
 	sse2mac sscase87, 128, 100000, g2cl_four_complex_unfft rsi, 2*64, 64, rdx, 2*64, 64
-	sse2mac sscase88, 256, 4096, x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
-	sse2mac sscase89, 256, 100000, x4cl_four_complex_unfft rsi, 4*64, 64, 2*64
+	sse2mac sscase88, 256, 4096, x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi
+	sse2mac sscase89, 256, 100000, x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi
 	sse2mac sscase90, 256, 4096, x4cl_four_complex_last_unfft rsi, 4*64, 64, 2*64, 0
 	sse2mac sscase91, 256, 100000, x4cl_four_complex_last_unfft rsi, 4*64, 64, 2*64, 0
 	sse2mac sscase92, 256, 4096, s4cl_four_complex_gpm_unfft rsi, 4*64, 64, 2*64, 0
@@ -528,6 +528,50 @@ sscase11:
 	sse2mac sscase123, 448, 100000, s7cl_seven_reals_first_fft rsi, 7*64, 64
 	sse2mac sscase124, 448, 4096, x7cl_seven_reals_last_unfft rsi, 7*64, 64
 	sse2mac sscase125, 448, 100000, x7cl_seven_reals_last_unfft rsi, 7*64, 64
+
+	sse2mac sscase126, 256, 4096, v26_x4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdi
+	sse2mac sscase127, 256, 100000, v26_x4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdi
+	sse2mac sscase128, 256, 4096, v26_g4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
+	sse2mac sscase129, 256, 100000, v26_g4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
+	sse2macbx sscase130, 128, 4096, v26_s2cl_four_complex_fft rsi, 2*64, 64
+	sse2macbx sscase131, 128, 100000, v26_s2cl_four_complex_fft rsi, 2*64, 64
+	sse2mac sscase132, 128, 4096, v26_x2cl_four_complex_first_fft_scratch rsi, 2*64, 64
+	sse2mac sscase133, 128, 100000, v26_x2cl_four_complex_first_fft_scratch rsi, 2*64, 64
+	sse2macbx sscase134, 128, 4096, v26_x2cl_four_complex_first_fft rsi, 2*64, 64
+	sse2macbx sscase135, 128, 100000, v26_x2cl_four_complex_first_fft rsi, 2*64, 64
+	sse2mac sscase136, 256, 4096, v26_x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi, 0
+	sse2mac sscase137, 256, 100000, v26_x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi, 0
+	sse2mac sscase138, 128, 4096, v26_g2cl_four_complex_unfft rsi, 2*64, 64, rdx, 2*64, 64
+	sse2mac sscase139, 128, 100000, v26_g2cl_four_complex_unfft rsi, 2*64, 64, rdx, 2*64, 64
+	sse2mac sscase140, 256, 4096, v26_s4cl_four_complex_unfft rsi, 4*64, 64, 2*64, 0
+	sse2mac sscase141, 256, 100000, v26_s4cl_four_complex_unfft rsi, 4*64, 64, 2*64, 0
+	sse2mac sscase142, 256, 4096, v26_x4cl_four_complex_last_unfft rsi, 4*64, 64, 2*64, rdi, 0
+	sse2mac sscase143, 256, 100000, v26_x4cl_four_complex_last_unfft rsi, 4*64, 64, 2*64, rdi, 0
+	sse2mac sscase144, 256, 4096, v26_x4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
+	sse2mac sscase145, 256, 100000, v26_x4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
+	sse2mac sscase146, 256, 4096, v26_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	sse2mac sscase147, 256, 100000, v26_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	sse2macbx sscase148, 256, 4096, v26_x4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
+	sse2macbx sscase149, 256, 100000, v26_x4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
+	sse2macbx sscase150, 256, 4096, v26_x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	sse2macbx sscase151, 256, 100000, v26_x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	sse2mac sscase152, 128, 4096, v26_x2cl_two_complex_fft rsi, 2*64, 64, rdi, 0
+	sse2mac sscase153, 128, 100000, v26_x2cl_two_complex_fft rsi, 2*64, 64, rdi, 0
+	sse2mac sscase154, 128, 4096, v26_x2cl_two_complex_unfft rsi, 2*64, 64, 0
+	sse2mac sscase155, 128, 100000, v26_x2cl_two_complex_unfft rsi, 2*64, 64, 0
+
+	sse2mac sscase156, 256, 4096, v26_x4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
+	sse2mac sscase157, 256, 100000, v26_x4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
+	sse2mac sscase158, 256, 4096, v26_g4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2mac sscase159, 256, 100000, v26_g4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2macbx sscase160, 128, 4096, v26_s2cl_four_complex_djbfft rsi, 2*64, 64, rdi
+	sse2macbx sscase161, 128, 100000, v26_s2cl_four_complex_djbfft rsi, 2*64, 64, rdi
+	sse2mac sscase162, 256, 4096, v26_x4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
+	sse2mac sscase163, 256, 100000, v26_x4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
+	sse2mac sscase164, 128, 4096, v26_g2cl_four_complex_djbunfft rsi, 2*64, 64, rdx, 2*64, 64, rdi
+	sse2mac sscase165, 128, 100000, v26_g2cl_four_complex_djbunfft rsi, 2*64, 64, rdx, 2*64, 64, rdi
+	sse2mac sscase166, 256, 4096, v26_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
+	sse2mac sscase167, 256, 100000, v26_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
 
 ; Exit the timing code
 
