@@ -1,4 +1,4 @@
-; Copyright 2001-2007 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2009 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -147,6 +147,8 @@ xfft_3_ret MACRO
 ;; Common definitions in SSE2 FFTs
 ;;
 
+XMM_SCD1 = 32			;; Sizeof an SSE2 small sin/cos table entry
+XMM_SCD2 = 64			;; Sizeof an SSE2 DJB sin/cos table entry
 XMM_SCD	= 96			;; Sizeof an SSE2 sin/cos table entry
 XMM_PMD = 128			;; Sizeof an entry in premultiplier table
 
@@ -270,6 +272,20 @@ xprefetch MACRO addr
 xprefetchw MACRO addr
 	IFDEF AMD
 	prefetchw addr
+	ENDIF
+	ENDM
+
+; Macro to prefetch a 64-byte line into the L2 cache
+; Modern CPUs except the P4 fetch 64-byte cache lines.
+; The P4 prefetches 128 bytes at a time.
+
+v26_xprefetcht1 MACRO addr
+	IF PREFETCHING NE 0
+	IFDEF AMD
+	prefetchw addr
+	ELSE
+	prefetcht1 addr
+	ENDIF
 	ENDIF
 	ENDM
 
