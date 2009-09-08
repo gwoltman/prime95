@@ -3231,7 +3231,7 @@ more_curves:
 
 /* Output line to results file indicating the number of curves run */
 
-	sprintf (buf, "%s completed %ld ECM %s, B1=%.0f, B2=%.0f, Wd%d: %08lX\n",
+	sprintf (buf, "%s completed %ld ECM %s, B1=%.0f, B2=%.0f, We%d: %08lX\n",
 		 gwmodulo_as_string (&ecmdata.gwdata), w->curves_to_do,
 		 w->curves_to_do == 1 ? "curve" : "curves",
 		 (double) B, (double) C, PORT, SEC5 (w->n, B, C));
@@ -5509,7 +5509,7 @@ msg_and_exit:
 			sprintf (buf+strlen(buf), ", B2=%.0f, E=%lu",
 				 (double) C, pm1data.E);
 	}
-	sprintf (buf+strlen(buf), ", Wd%d: %08lX\n", PORT, SEC5 (w->n, B, C));
+	sprintf (buf+strlen(buf), ", We%d: %08lX\n", PORT, SEC5 (w->n, B, C));
 	OutputStr (thread_num, buf);
 	formatMsgForResultsFile (buf, w);
 	writeResults (buf);
