@@ -1,4 +1,4 @@
-; Copyright 2005-2007 Mersenne Research, Inc.  All rights reserved
+; Copyright 2005-2009 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -37,6 +37,7 @@ EXTRN	xgw_finish_mult:PROC
 
 EXTRNP	xpass2_12_levels
 EXTRNP	xpass2_12_levels_np
+EXTRNP	v26_xpass2_12_levels
 
 _TEXT SEGMENT
 
@@ -122,6 +123,9 @@ allfft	xfftclm	4096K, 0
 allfft	xfftclm	4096Kp, 4
 allfft	xfftclm	4096Kp, 2
 	xfftclm	4096Kp, 1
+
+	xfftclm	v26_4096Kp, 1
+
 	xfftclm	5M, 4
 allfft	xfftclm	5M, 2
 	xfftclm	5M, 1
@@ -228,6 +232,11 @@ allfft	xfftclm	4096K, 0
 	xfftclm	4096Kp, 2
 	xfftclm	4096Kp, 1
 allfft	xfftclm	4096Kp, 0
+
+	xfftclm	v26_4096Kp, 4
+	xfftclm	v26_4096Kp, 2
+	xfftclm	v26_4096Kp, 1
+
 	xfftclm	5M, 4
 allfft	xfftclm	5M, 2
 	xfftclm	5M, 1

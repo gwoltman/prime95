@@ -154,6 +154,19 @@ ENDPP	xpass2_12_levels
 
 
 ;;*****************************************************
+;; Routine to do the last 12 levels in a two-pass FFT
+;;*****************************************************
+
+PROCFP	v26_xpass2_12_levels
+	xpass2_entry q12lp, q12get	; Set up block counts and pointers
+	xpass2_12_levels_real		; Do the real data block
+	jmp	q12get			; Go process complex blocks
+q12lp:	v26_xpass2_12_levels_complex
+q12get:	xpass2_loop q12lp
+ENDPP	v26_xpass2_12_levels
+
+
+;;*****************************************************
 ;; Routine to do the last 13 levels in a two-pass FFT
 ;;*****************************************************
 
