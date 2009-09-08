@@ -1,4 +1,4 @@
-; Copyright 2005-2007 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2005-2009 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -390,3 +390,22 @@ xscfft16M MACRO clmarg
 xscfft16Mp MACRO clmarg
 	handle_np xpass1sclevels12complex4, xpass2_12_levels, 1024, clmarg
 	ENDM
+
+
+
+
+
+;; Perform a 4M-element FFT.  This is done in two passes.  Pass 1
+;; does 10 levels, pass 2 uses common code to perform the last 12 levels.
+
+xscfftv26_4096K MACRO clmarg
+	handle_np v26_xpass1sclevels10pfa8, v26_xpass2_12_levels, 1024, clmarg
+	ENDM
+
+;; Perform a 4M-element all-complex FFT.  This is done in two passes.  Pass 1
+;; does 10 levels, pass 2 uses common code to perform the last 12 levels.
+
+xscfftv26_4096Kp MACRO clmarg
+	handle_np v26_xpass1sclevels10complex4, v26_xpass2_12_levels, 1024, clmarg
+	ENDM
+
