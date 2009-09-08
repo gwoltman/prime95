@@ -166,17 +166,17 @@ c2b:	x1cl_half_eight_reals_unfft_2 rsi, 64
 ;;	distance between fft data elements is 2K
 ;;	do 2 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	al, 2			;; 2 iterations of 2*clm
 c3b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*2*blkdst-blkdst];; Restore source pointer
+	bump	rsi, -2*2*blkdst-blkdst	;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -199,10 +199,10 @@ c3b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	xfive_reals_unfft_preload	;; Preload consts for five real macros
 c1b:	x5cl_five_reals_last_unfft rsi, 64, blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+blkdst]
+pfing	bump	rbp, -64+blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-2*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -2*blkdst+2*64	 ;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
 	end_timer 19
@@ -240,13 +240,13 @@ pfing	sub	rbp, rsi
 	xfive_reals_fft_preload		;; Preload consts for five real macros
 b1b:	x5cl_five_reals_first_fft rsi, 64, blkdst
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+blkdst]
+pfing	bump	rbp, -64+blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-2*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -2*blkdst+2*64	 ;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64]	;; Restore source pointer
+	bump	rsi, -2*clm*64		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -280,15 +280,15 @@ b2b:	x1cl_half_eight_reals_fft_2 rsi, 64
 ;;	distance between fft data elements is 2K
 ;;	do 1 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
-b3b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+b3b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	 ;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
 	end_timer 22
@@ -360,17 +360,17 @@ c2b:	x2cl_eight_reals_unfft_2 rsi, 64, blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 2 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	al, 2			;; 2 iterations of 2*clm
 c3b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-3*2*blkdst]	;; Restore source pointer
+	bump	rsi, -3*2*blkdst	;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -393,14 +393,14 @@ c3b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	xsix_reals_unfft_preload
 c1b:	x3cl_six_reals_last_unfft rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 	xprefetcht1 [rsi][rbp]
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	 ;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst] ;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -435,17 +435,17 @@ pfing	sub	rbp, rsi
 	xsix_reals_fft_preload
 b1b:	x3cl_six_reals_first_fft rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
 	xprefetcht1 [rsi][rbp]
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst]	;; Restore source pointer
+	bump	rsi, -2*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -472,10 +472,10 @@ pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
 	start_timer 22
 b2b:	x2cl_eight_reals_fft_2 rsi, 64, blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+blkdst]
+pfing	bump	rbp, -64+blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-2*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -2*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b2b
 
@@ -483,15 +483,15 @@ pfing	lea	rbp, [rbp-2*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 2K
 ;;	do 1 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
-b3b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+b3b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
 	end_timer 22
@@ -558,11 +558,11 @@ pfing	sub	rbp, rsi
 c3b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-3*2*blkdst]	;; Restore source pointer
+	bump	rsi, -3*2*blkdst	;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -585,15 +585,15 @@ c3b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	mov	al, 2			;; 2 iterations of 2*clm
 c1b:	x3cl_three_complex_last_unfft rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 	xprefetcht1 [rsi][rbp]
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+192]		;; Next premultiplier pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, 192		;; Next premultiplier pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -628,18 +628,18 @@ pfing	sub	rbp, rsi
 	sub	rdx, rdx
 b1b:	x3cl_three_complex_first_fft rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
 	xprefetcht1 [rsi][rbp]
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+192]		;; Next premultiplier pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, 192		;; Next premultiplier pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst]	;; Restore source pointer
+	bump	rsi, -2*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -665,21 +665,21 @@ pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
 	mov	rdi, sincos1		;; Load sin/cos pointer
 b2b:	x2cl_four_complex_fft rsi, 64, blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+blkdst]
+pfing	bump	rbp, -64+blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-2*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -2*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b2b
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sin/cos pointer
-b3b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sin/cos pointer
+b3b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
 	end_timer 22
@@ -751,17 +751,17 @@ c2b:	x1cl_half_eight_reals_unfft_2 rsi, 64
 ;;	distance between fft data elements is 2K
 ;;	do 3 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	al, 3			;; 3 iterations of 2*clm
 c3b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-3*2*blkdst-blkdst];; Restore source pointer
+	bump	rsi, -3*2*blkdst-blkdst	;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -789,10 +789,10 @@ c3b:	x2cl_four_complex_unfft rsi, 64, blkdst
 c1b:	x7cl_seven_reals_last_unfft rsi, 64, blkdst
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
 	end_timer 19
@@ -835,13 +835,13 @@ pfing	sub	rbp, rsi
 b1b:	x7cl_seven_reals_first_fft rsi, 64, blkdst
 	xprefetcht1 [rsi-64+3*blkdst][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64]	;; Restore source pointer
+	bump	rsi, -2*clm*64		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -877,14 +877,14 @@ b2b:	x1cl_half_eight_reals_fft_2 rsi, 64
 ;;	distance between fft data elements is 2K
 ;;	do 1 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 b3a:	x2cl_four_complex_fft rsi, 64, blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+blkdst]
+pfing	bump	rbp, -64+blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3a			;; Iterate if necessary
-pfing	lea	rbp, [rbp-2*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -2*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3a
 
@@ -892,15 +892,15 @@ pfing	lea	rbp, [rbp-2*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 2K
 ;;	do 1 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
-b3b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
+b3b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
 	end_timer 22
@@ -972,17 +972,17 @@ c2b:	x2cl_eight_reals_unfft_2 rsi, 64, blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 3 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	al, 3			;; 3 iterations of 2*clm
 c3b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*2*blkdst]	;; Restore source pointer
+	bump	rsi, -4*2*blkdst	;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -1006,13 +1006,13 @@ c3b:	x2cl_four_complex_unfft rsi, 64, blkdst
 c1b:	x4cl_eight_reals_last_unfft rsi, 64, 2*blkdst, 4*blkdst
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -1049,16 +1049,16 @@ pfing	sub	rbp, rsi
 	sub	rdx, rdx
 b1b:	x2cl_eight_reals_first_fft rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst]	;; Restore source pointer
+	bump	rsi, -4*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -1085,13 +1085,13 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 
 	start_timer 22
 	mov	rdi, sincos1		;; Load sin/cos pointer
-b2b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst
+b2b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b2b
 
@@ -1099,15 +1099,15 @@ pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 2K
 ;;	do 1 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
-b3b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
+b3b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
 	end_timer 22
@@ -1174,11 +1174,11 @@ pfing	sub	rbp, rsi
 c3b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*2*blkdst]	;; Restore source pointer
+	bump	rsi, -4*2*blkdst	;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -1203,14 +1203,14 @@ c3b:	x2cl_four_complex_unfft rsi, 64, blkdst
 c1b:	x4cl_four_complex_last_unfft rsi, 64, 2*blkdst, 4*blkdst, 2*128
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+128]		;; Next premultiplier pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, 128		;; Next premultiplier pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -1248,17 +1248,17 @@ pfing	sub	rbp, rsi
 	sub	rdx, rdx
 b1b:	x2cl_four_complex_first_fft rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+128]		;; Next premultiplier pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, 128		;; Next premultiplier pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst]	;; Restore source pointer
+	bump	rsi, -4*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -1282,17 +1282,17 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 	start_timer 22
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	al, 2			;; 2 iterations of 2*clm
-b3b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+b3b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1
 	jnz	b3b
 	end_timer 22
@@ -1358,17 +1358,17 @@ c4b:	x1cl_eight_reals_unfft_1 rsi, 64
 ;;	distance between fft data elements is 2K
 ;;	do 9 macros each processing 8 data values
 
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 9			;; 9 iterations of 2*clm
 c5b:	x1cl_two_complex_unfft rsi, 64
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-10*blkdst]	;; Restore source pointer
+	bump	rsi, -10*blkdst		;; Restore source pointer
 	end_timer 16
 
 ;; Do inverse FFT levels 4,5
@@ -1389,10 +1389,10 @@ c5b:	x1cl_two_complex_unfft rsi, 64
 	start_timer 18
 c2b:	x2cl_half_eight_reals_unfft_2 rsi, 64, blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+blkdst]
+pfing	bump	rbp, -64+blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-2*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -2*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c2b
 
@@ -1400,23 +1400,23 @@ pfing	lea	rbp, [rbp-2*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 4K
 ;;	do 2 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, 2			;; 2 iterations of 2*clm
-c3b:	x4cl_four_complex_unfft rsi, 64, blkdst, 2*blkdst
+c3b:	x4cl_four_complex_unfft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c3b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*4*blkdst-2*blkdst];; Restore source pointer
+	bump	rsi, -2*4*blkdst-2*blkdst;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -1443,13 +1443,13 @@ pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
 c1b:	x5cl_five_reals_last_unfft rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -1490,16 +1490,16 @@ pfing	sub	rbp, rsi
 b1b:	x5cl_five_reals_first_fft rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst]	;; Restore source pointer
+	bump	rsi, -2*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -1531,7 +1531,7 @@ b2b:	x1cl_half_eight_reals_fft_2 rsi, 64
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	b2b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b2b			;; Iterate if necessary
 
@@ -1541,19 +1541,19 @@ b2b:	x1cl_half_eight_reals_fft_2 rsi, 64
 
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, 2			;; 2 iterations of 2*clm
-b3b:	x4cl_four_complex_fft rsi, 64, 2*blkdst, 4*blkdst
+b3b:	x4cl_four_complex_fft rsi, 64, 2*blkdst, 4*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst-2*blkdst];; Restore source pointer
+	bump	rsi, -2*blkdst-2*blkdst	;; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 6
@@ -1586,19 +1586,19 @@ b4b:	x2cl_eight_reals_fft_1 rsi, 64, blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 4 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	al, 4			;; 4 iterations of 2*clm
-b5b:	x2cl_two_complex_fft rsi, 64, blkdst
+b5b:	x2cl_two_complex_fft rsi, 64, blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+blkdst]
+pfing	bump	rbp, -64+blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-2*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -2*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b5b
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b5b			;; Iterate if necessary
 	end_timer 24
@@ -1664,17 +1664,17 @@ c4b:	x1cl_eight_reals_unfft_1 rsi, 64
 ;;	distance between fft data elements is 2K
 ;;	do 11 macros each processing 8 data values
 
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 11			;; 11 iterations of 2*clm
 c5b:	x1cl_two_complex_unfft rsi, 64
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-12*blkdst]	;; Restore source pointer
+	bump	rsi, -12*blkdst		;; Restore source pointer
 	end_timer 16
 
 ;; Do inverse FFT levels 4,5
@@ -1699,10 +1699,10 @@ c5b:	x1cl_two_complex_unfft rsi, 64
 c2b:	x4cl_eight_reals_unfft_2 rsi, 64, blkdst, 2*blkdst
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c2b
 
@@ -1710,23 +1710,23 @@ pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 4K
 ;;	do 2 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, 2			;; 2 iterations of 2*clm
-c3b:	x4cl_four_complex_unfft rsi, 64, blkdst, 2*blkdst
+c3b:	x4cl_four_complex_unfft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c3b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-3*4*blkdst]	;; Restore source pointer
+	bump	rsi, -3*4*blkdst	;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -1751,14 +1751,14 @@ pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
 	xsix_reals_unfft_preload
 c1b:	x3cl_six_reals_last_unfft rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 	xprefetcht1 [rsi][rbp]
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -1797,17 +1797,17 @@ pfing	sub	rbp, rsi
 	xsix_reals_fft_preload
 b1b:	x3cl_six_reals_first_fft rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
 	xprefetcht1 [rsi][rbp]
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst] ;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst]	;; Restore source pointer
+	bump	rsi, -4*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -1838,13 +1838,13 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 	mov	al, 2			;; 2 iterations of 2*clm
 b2b:	x2cl_eight_reals_fft_2 rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b2b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b2b			;; Iterate if necessary
 
@@ -1852,22 +1852,22 @@ pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 4K
 ;;	do 2 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*blkdst+4*blkdst];; Next source pointer
+	bump	rsi, -2*blkdst+4*blkdst	;; Next source pointer
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, 2			;; 2 iterations of 2*clm
-b3b:	x4cl_four_complex_fft rsi, 64, 2*blkdst, 4*blkdst
+b3b:	x4cl_four_complex_fft rsi, 64, 2*blkdst, 4*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+blkdst] ;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst-4*blkdst];; Restore source pointer
+	bump	rsi, -2*blkdst-4*blkdst	;; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 6
@@ -1900,19 +1900,19 @@ b4b:	x2cl_eight_reals_fft_1 rsi, 64, blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 5 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	al, 5			;; 5 iterations of 2*clm
-b5b:	x2cl_two_complex_fft rsi, 64, blkdst
+b5b:	x2cl_two_complex_fft rsi, 64, blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+blkdst]
+pfing	bump	rbp, -64+blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-2*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -2*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b5b
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b5b			;; Iterate if necessary
 	end_timer 24
@@ -1979,11 +1979,11 @@ pfing	sub	rbp, rsi
 c5b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-6*2*blkdst]	;; Restore source pointer
+	bump	rsi, -6*2*blkdst	;; Restore source pointer
 	end_timer 16
 
 ;; Do inverse FFT levels 4
@@ -2009,21 +2009,21 @@ c5b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	mov	eax, 3*256+2		;; 3 iters of 2 iters of 2*clm
 c3b:	x2cl_two_complex_unfft rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*blkdst+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 2
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-3*4*blkdst]	;; Restore source pointer
+	bump	rsi, -3*4*blkdst	;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -2048,15 +2048,15 @@ pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
 	mov	al, 4			;; 4 iterations of 2*clm
 c1b:	x3cl_three_complex_last_unfft rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 	xprefetcht1 [rsi][rbp]
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+192]		;; Next premultiplier pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, 192		;; Next premultiplier pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -2095,18 +2095,18 @@ pfing	sub	rbp, rsi
 	sub	rdx, rdx
 b1b:	x3cl_three_complex_first_fft rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
 	xprefetcht1 [rsi][rbp]
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+192]		;; Next premultiplier pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, 192		;; Next premultiplier pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst]	;; Restore source pointer
+	bump	rsi, -4*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4
@@ -2135,32 +2135,32 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 	start_timer 22
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, 2			;; 2 iterations of 2*clm
-b2b:	x2cl_two_complex_fft_in_place rsi, 64, 2*blkdst
+b2b:	x2cl_two_complex_fft_in_place rsi, 64, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b2b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b2b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sin/cos pointer
+	bump	rsi, -2*blkdst+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sin/cos pointer
 	mov	al, 4			;; 4 iterations of 2*clm
-b3b:	x2cl_two_complex_fft rsi, 64, 4*blkdst
+b3b:	x2cl_two_complex_fft rsi, 64, 4*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst-4*blkdst];; Restore source pointer
+	bump	rsi, -4*blkdst-4*blkdst	;; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 5,6
@@ -2184,17 +2184,17 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 	start_timer 24
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	al, 3			;; 3 iterations of 2*clm
-b5b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+b5b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b5b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b5b			;; Iterate if necessary
 	end_timer 24
@@ -2260,17 +2260,17 @@ c4b:	x1cl_eight_reals_unfft_1 rsi, 64
 ;;	distance between fft data elements is 2K
 ;;	do 13 macros each processing 8 data values
 
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 13			;; 13 iterations of 2*clm
 c5b:	x1cl_two_complex_unfft rsi, 64
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-14*blkdst]	;; Restore source pointer
+	bump	rsi, -14*blkdst		;; Restore source pointer
 	end_timer 16
 
 ;; Do inverse FFT levels 4,5
@@ -2291,10 +2291,10 @@ c5b:	x1cl_two_complex_unfft rsi, 64
 	start_timer 18
 c2b:	x2cl_half_eight_reals_unfft_2 rsi, 64, blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+blkdst]
+pfing	bump	rbp, -64+blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-2*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -2*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c2b
 
@@ -2302,23 +2302,23 @@ pfing	lea	rbp, [rbp-2*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 4K
 ;;	do 3 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, 3			;; 3 iterations of 2*clm
-c3b:	x4cl_four_complex_unfft rsi, 64, blkdst, 2*blkdst
+c3b:	x4cl_four_complex_unfft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c3b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-3*4*blkdst-2*blkdst];; Restore source pointer
+	bump	rsi, -3*4*blkdst-2*blkdst;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -2349,13 +2349,13 @@ pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
 c1b:	x7cl_seven_reals_last_unfft rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -2404,16 +2404,16 @@ pfing	sub	rbp, rsi
 b1b:	x7cl_seven_reals_first_fft rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-64+6*blkdst][rbp]
 	xprefetcht1 [rsi-64+8*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst]	;; Restore source pointer
+	bump	rsi, -2*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -2449,7 +2449,7 @@ b2b:	x1cl_half_eight_reals_fft_2 rsi, 64
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	b2b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b2b			;; Iterate if necessary
 
@@ -2461,13 +2461,13 @@ b2b:	x1cl_half_eight_reals_fft_2 rsi, 64
 	mov	al, 2			;; 2 iterations of 2*clm
 b3a:	x2cl_four_complex_fft rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3a			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3a
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3a			;; Iterate if necessary
 
@@ -2475,22 +2475,22 @@ pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 4K
 ;;	do 2 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*blkdst+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*blkdst+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	al, 2			;; 2 iterations of 2*clm
-b3b:	x4cl_four_complex_fft rsi, 64, 2*blkdst, 4*blkdst
+b3b:	x4cl_four_complex_fft rsi, 64, 2*blkdst, 4*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst-6*blkdst];; Restore source pointer
+	bump	rsi, -2*blkdst-6*blkdst	;; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 6
@@ -2523,19 +2523,19 @@ b4b:	x2cl_eight_reals_fft_1 rsi, 64, blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 6 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	al, 6			;; 6 iterations of 2*clm
-b5b:	x2cl_two_complex_fft rsi, 64, blkdst
+b5b:	x2cl_two_complex_fft rsi, 64, blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+blkdst]
+pfing	bump	rbp, -64+blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-2*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -2*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b5b
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b5b			;; Iterate if necessary
 	end_timer 24
@@ -2601,17 +2601,17 @@ c4b:	x1cl_eight_reals_unfft_1 rsi, 64
 ;;	distance between fft data elements is 2K
 ;;	do 15 macros each processing 8 data values
 
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 15			;; 15 iterations of 2*clm
 c5b:	x1cl_two_complex_unfft rsi, 64
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-16*blkdst]	;; Restore source pointer
+	bump	rsi, -16*blkdst		;; Restore source pointer
 	end_timer 16
 
 ;; Do inverse FFT levels 4,5
@@ -2636,10 +2636,10 @@ c5b:	x1cl_two_complex_unfft rsi, 64
 c2b:	x4cl_eight_reals_unfft_2 rsi, 64, blkdst, 2*blkdst
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c2b
 
@@ -2647,23 +2647,23 @@ pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 4K
 ;;	do 3 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, 3			;; 3 iterations of 2*clm
-c3b:	x4cl_four_complex_unfft rsi, 64, blkdst, 2*blkdst
+c3b:	x4cl_four_complex_unfft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c3b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*4*blkdst]	;; Restore source pointer
+	bump	rsi, -4*4*blkdst	;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -2689,13 +2689,13 @@ pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
 c1b:	x4cl_eight_reals_last_unfft rsi, 64, 4*blkdst, 8*blkdst
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -2732,16 +2732,16 @@ pfing	sub	rbp, rsi
 	sub	rdx, rdx
 b1b:	x2cl_eight_reals_first_fft rsi, 64, 8*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-8*blkdst]	;; Restore source pointer
+	bump	rsi, -8*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -2770,16 +2770,16 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 	start_timer 22
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, 2			;; 2 iterations of 2*clm
-b2b:	x4cl_eight_reals_fft_2 rsi, 64, 2*blkdst, 4*blkdst
+b2b:	x4cl_eight_reals_fft_2 rsi, 64, 2*blkdst, 4*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b2b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b2b			;; Iterate if necessary
 
@@ -2787,22 +2787,22 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 4K
 ;;	do 2 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	al, 2			;; 2 iterations of 2*clm
-b3b:	x4cl_four_complex_fft rsi, 64, 2*blkdst, 4*blkdst
+b3b:	x4cl_four_complex_fft rsi, 64, 2*blkdst, 4*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst-8*blkdst];; Restore source pointer
+	bump	rsi, -2*blkdst-8*blkdst	;; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 6
@@ -2833,19 +2833,19 @@ b4b:	x2cl_eight_reals_fft_1 rsi, 64, blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 7 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	al, 7			;; 7 iterations of 2*clm
-b5b:	x2cl_two_complex_fft rsi, 64, blkdst
+b5b:	x2cl_two_complex_fft rsi, 64, blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+blkdst]
+pfing	bump	rbp, -64+blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-2*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -2*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b5b
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b5b			;; Iterate if necessary
 	end_timer 24
@@ -2912,11 +2912,11 @@ pfing	sub	rbp, rsi
 c5b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-8*2*blkdst]	;; Restore source pointer
+	bump	rsi, -8*2*blkdst	;; Restore source pointer
 	end_timer 16
 
 ;; Do inverse FFT levels 4
@@ -2942,21 +2942,21 @@ c5b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	mov	eax, 4*256+2		;; 4 iters of 2 iters of 2*clm
 c3b:	x2cl_two_complex_unfft rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*blkdst+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 2
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*4*blkdst]	;; Restore source pointer
+	bump	rsi, -4*4*blkdst	;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -2983,14 +2983,14 @@ pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
 c1b:	x4cl_four_complex_last_unfft rsi, 64, 4*blkdst, 8*blkdst, 4*128
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+128]		;; Next premultiplier pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, 128		;; Next premultiplier pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -3028,17 +3028,17 @@ pfing	sub	rbp, rsi
 	sub	rdx, rdx
 b1b:	x2cl_four_complex_first_fft rsi, 64, 8*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+128]		;; Next premultiplier pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, 128		;; Next premultiplier pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-8*blkdst]	;; Restore source pointer
+	bump	rsi, -8*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4
@@ -3065,23 +3065,23 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 	start_timer 22
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	eax, 2*256+4		;; 2 iters of 4 iters of 2*clm
-b3b:	x2cl_two_complex_fft rsi, 64, 4*blkdst
+b3b:	x2cl_two_complex_fft rsi, 64, 4*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sin/cos pointer
+	bump	rsi, -4*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sin/cos pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 4
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*8*blkdst]	;; Restore source pointer
+	bump	rsi, -2*8*blkdst	;; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 5,6
@@ -3105,17 +3105,17 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 	start_timer 24
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	al, 4			;; 4 iterations of 2*clm
-b5b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+b5b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b5b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b5b			;; Iterate if necessary
 	end_timer 24
@@ -3187,17 +3187,17 @@ c4b:	x2cl_eight_reals_unfft_2 rsi, 64, blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 9 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 9			;; 9 iterations of 2*clm
 c5b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-10*2*blkdst]	;; Restore source pointer
+	bump	rsi, -10*2*blkdst	;; Restore source pointer
 	end_timer 16
 
 ;; Do inverse FFT levels 4,5
@@ -3222,13 +3222,13 @@ c5b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	mov	al, 2			;; 2 iterations of 2*clm
 c2b:	x2cl_half_eight_reals_unfft_2 rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c2b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c2b			;; Iterate if necessary
 
@@ -3236,27 +3236,27 @@ pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 8K
 ;;	do 4 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*blkdst+4*blkdst];; Next source pointer
+	bump	rsi, -2*blkdst+4*blkdst	;; Next source pointer
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	eax, 2*256+2		;; 2 iterations of 2 iters of 2*clm
-c3b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst
+c3b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c3b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 2			;; Reload middle counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*8*blkdst-4*blkdst];; Restore source pointer
+	bump	rsi, -2*8*blkdst-4*blkdst;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -3287,13 +3287,13 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 c1b:	x5cl_five_reals_last_unfft rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -3338,16 +3338,16 @@ pfing	sub	rbp, rsi
 b1b:	x5cl_five_reals_first_fft rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
 	xprefetcht1 [rsi-64+8*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst]	;; Restore source pointer
+	bump	rsi, -4*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -3382,7 +3382,7 @@ b2b:	x1cl_half_eight_reals_fft_2 rsi, 64
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	b2b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b2b			;; Iterate if necessary
 
@@ -3392,19 +3392,19 @@ b2b:	x1cl_half_eight_reals_fft_2 rsi, 64
 
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, 4			;; 4 iterations of 2*clm
-b3b:	x4cl_four_complex_fft rsi, 64, 4*blkdst, 8*blkdst
+b3b:	x4cl_four_complex_fft rsi, 64, 4*blkdst, 8*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst-4*blkdst];; Restore source pointer
+	bump	rsi, -4*blkdst-4*blkdst	;; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 6,7
@@ -3431,7 +3431,7 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 
 	start_timer 24
 	mov	rdi, sincos1		;; Load sin/cos pointer
-b4b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst
+b4b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst, rdi
 	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b4b			;; Iterate if necessary
 
@@ -3439,20 +3439,20 @@ b4b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 4 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	al, 4			;; 4 iterations of 2*clm
-b5b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+b5b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b5b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b5b			;; Iterate if necessary
 	end_timer 24
@@ -3524,17 +3524,17 @@ c4b:	x2cl_eight_reals_unfft_2 rsi, 64, blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 11 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 11			;; 11 iterations of 2*clm
 c5b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-12*2*blkdst]	;; Restore source pointer
+	bump	rsi, -12*2*blkdst	;; Restore source pointer
 	end_timer 16
 
 ;; Do inverse FFT levels 4,5
@@ -3561,13 +3561,13 @@ c5b:	x2cl_four_complex_unfft rsi, 64, blkdst
 c2b:	x4cl_eight_reals_unfft_2 rsi, 64, 2*blkdst, 4*blkdst
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c2b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c2b			;; Iterate if necessary
 
@@ -3575,27 +3575,27 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 8K
 ;;	do 4 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*blkdst+8*blkdst];; Next source pointer
+	bump	rsi, -2*blkdst+8*blkdst	;; Next source pointer
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	eax, 2*256+2		;; 2 iterations of 2 iters of 2*clm
-c3b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst
+c3b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c3b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 2			;; Reload middle counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-3*8*blkdst]	;; Restore source pointer
+	bump	rsi, -3*8*blkdst	;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -3620,14 +3620,14 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 	xsix_reals_unfft_preload
 c1b:	x3cl_six_reals_last_unfft rsi, 64, 8*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 	xprefetcht1 [rsi][rbp]
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -3666,17 +3666,17 @@ pfing	sub	rbp, rsi
 	xsix_reals_fft_preload
 b1b:	x3cl_six_reals_first_fft rsi, 64, 8*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
 	xprefetcht1 [rsi][rbp]
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-8*blkdst]	;; Restore source pointer
+	bump	rsi, -8*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -3709,13 +3709,13 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 	mov	al, 4			;; 4 iterations of 2*clm
 b2b:	x2cl_eight_reals_fft_2 rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b2b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b2b			;; Iterate if necessary
 
@@ -3723,22 +3723,22 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 8K
 ;;	do 4 macros each processing 32 data values
 
-	lea	rsi, [rsi-4*blkdst+8*blkdst];; Next source pointer
+	bump	rsi, -4*blkdst+8*blkdst	;; Next source pointer
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, 4			;; 4 iterations of 2*clm
-b3b:	x4cl_four_complex_fft rsi, 64, 4*blkdst, 8*blkdst
+b3b:	x4cl_four_complex_fft rsi, 64, 4*blkdst, 8*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst-8*blkdst];; Restore source pointer
+	bump	rsi, -4*blkdst-8*blkdst	;; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 6,7
@@ -3765,7 +3765,7 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 
 	start_timer 24
 	mov	rdi, sincos1		;; Load sin/cos pointer
-b4b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst
+b4b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst, rdi
 	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b4b			;; Iterate if necessary
 
@@ -3773,20 +3773,20 @@ b4b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 5 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	al, 5			;; 5 iterations of 2*clm
-b5b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+b5b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b5b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b5b			;; Iterate if necessary
 	end_timer 24
@@ -3853,11 +3853,11 @@ pfing	sub	rbp, rsi
 c5b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-12*2*blkdst]	;; Restore source pointer
+	bump	rsi, -12*2*blkdst	;; Restore source pointer
 	end_timer 16
 
 ;; Do inverse FFT levels 4,5
@@ -3881,24 +3881,24 @@ c5b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	start_timer 18
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	eax, 3*256+2		;; 3 iterations of 2 iters of 2*clm
-c3b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst
+c3b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 2			;; Reload middle counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-3*8*blkdst]	;; Restore source pointer
+	bump	rsi, -3*8*blkdst	;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -3923,15 +3923,15 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 	mov	al, 8			;; 8 iterations of 2*clm
 c1b:	x3cl_three_complex_last_unfft rsi, 64, 8*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 	xprefetcht1 [rsi][rbp]
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+192]		;; Next premultiplier pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, 192		;; Next premultiplier pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -3970,18 +3970,18 @@ pfing	sub	rbp, rsi
 	sub	rdx, rdx
 b1b:	x3cl_three_complex_first_fft rsi, 64, 8*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
 	xprefetcht1 [rsi][rbp]
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+192]		;; Next premultiplier pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, 192		;; Next premultiplier pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-8*blkdst]	;; Restore source pointer
+	bump	rsi, -8*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -4013,31 +4013,31 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 	mov	al, 4			;; 4 iterations of 2*clm
 b2b:	x2cl_four_complex_fft rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b2b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b2b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sin/cos pointer
+	bump	rsi, -4*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sin/cos pointer
 	mov	al, 4			;; 4 iterations of 2*clm
-b3b:	x4cl_four_complex_fft rsi, 64, 4*blkdst, 8*blkdst
+b3b:	x4cl_four_complex_fft rsi, 64, 4*blkdst, 8*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst-8*blkdst];; Restore source pointer
+	bump	rsi, -4*blkdst-8*blkdst	;; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 6,7
@@ -4061,17 +4061,17 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 	start_timer 24
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	al, 6			;; 6 iterations of 2*clm
-b5b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+b5b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b5b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b5b			;; Iterate if necessary
 	end_timer 24
@@ -4143,17 +4143,17 @@ c4b:	x2cl_eight_reals_unfft_2 rsi, 64, blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 13 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 13			;; 13 iterations of 2*clm
 c5b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-14*2*blkdst]	;; Restore source pointer
+	bump	rsi, -14*2*blkdst	;; Restore source pointer
 	end_timer 16
 
 ;; Do inverse FFT levels 4,5
@@ -4178,13 +4178,13 @@ c5b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	mov	al, 2			;; 2 iterations of 2*clm
 c2b:	x2cl_half_eight_reals_unfft_2 rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c2b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c2b			;; Iterate if necessary
 
@@ -4192,27 +4192,27 @@ pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 8K
 ;;	do 6 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*blkdst+4*blkdst];; Next source pointer
+	bump	rsi, -2*blkdst+4*blkdst	;; Next source pointer
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	eax, 3*256+2		;; 3 iterations of 2 iters of 2*clm
-c3b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst
+c3b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c3b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 2			;; Reload middle counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-3*8*blkdst-4*blkdst];; Restore source pointer
+	bump	rsi, -3*8*blkdst-4*blkdst;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -4257,13 +4257,13 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 c1b:	x7cl_seven_reals_last_unfft rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -4316,16 +4316,16 @@ pfing	sub	rbp, rsi
 b1b:	x7cl_seven_reals_first_fft rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-64+12*blkdst][rbp]
 	xprefetcht1 [rsi-64+16*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst]	;; Restore source pointer
+	bump	rsi, -4*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -4365,7 +4365,7 @@ b2b:	x1cl_half_eight_reals_fft_2 rsi, 64
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	b2b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b2b			;; Iterate if necessary
 
@@ -4377,13 +4377,13 @@ b2b:	x1cl_half_eight_reals_fft_2 rsi, 64
 	mov	al, 4			;; 4 iterations of 2*clm
 b3a:	x2cl_four_complex_fft rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3a			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3a
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3a			;; Iterate if necessary
 
@@ -4391,22 +4391,22 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 8K
 ;;	do 4 macros each processing 32 data values
 
-	lea	rsi, [rsi-4*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -4*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	al, 4			;; 4 iterations of 2*clm
-b3b:	x4cl_four_complex_fft rsi, 64, 4*blkdst, 8*blkdst
+b3b:	x4cl_four_complex_fft rsi, 64, 4*blkdst, 8*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst-12*blkdst];; Restore source pointer
+	bump	rsi, -4*blkdst-12*blkdst;; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 6,7
@@ -4433,7 +4433,7 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 
 	start_timer 24
 	mov	rdi, sincos1		;; Load sin/cos pointer
-b4b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst
+b4b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst, rdi
 	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b4b			;; Iterate if necessary
 
@@ -4441,20 +4441,20 @@ b4b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 6 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	al, 6			;; 6 iterations of 2*clm
-b5b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+b5b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b5b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b5b			;; Iterate if necessary
 	end_timer 24
@@ -4526,17 +4526,17 @@ c4b:	x2cl_eight_reals_unfft_2 rsi, 64, blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 15 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 15			;; 15 iterations of 2*clm
 c5b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-16*2*blkdst]	;; Restore source pointer
+	bump	rsi, -16*2*blkdst	;; Restore source pointer
 	end_timer 16
 
 ;; Do inverse FFT levels 4,5
@@ -4563,13 +4563,13 @@ c5b:	x2cl_four_complex_unfft rsi, 64, blkdst
 c2b:	x4cl_eight_reals_unfft_2 rsi, 64, 2*blkdst, 4*blkdst
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c2b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c2b			;; Iterate if necessary
 
@@ -4577,27 +4577,27 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 8K
 ;;	do 6 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*blkdst+8*blkdst];; Next source pointer
+	bump	rsi, -2*blkdst+8*blkdst	;; Next source pointer
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	eax, 3*256+2		;; 3 iterations of 2 iters of 2*clm
-c3b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst
+c3b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c3b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 2			;; Reload middle counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*8*blkdst]	;; Restore source pointer
+	bump	rsi, -4*8*blkdst	;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -4623,13 +4623,13 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 c1b:	x4cl_eight_reals_last_unfft rsi, 64, 8*blkdst, 16*blkdst
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+8*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+16*blkdst]
+pfing	bump	rbp, -64+16*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -32*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -4666,16 +4666,16 @@ pfing	sub	rbp, rsi
 	sub	rdx, rdx
 b1b:	x2cl_eight_reals_first_fft rsi, 64, 16*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+16*blkdst]
+pfing	bump	rbp, -64+16*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -32*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-16*blkdst]	;; Restore source pointer
+	bump	rsi, -16*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -4706,16 +4706,16 @@ pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
 	start_timer 22
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	al, 4			;; 4 iterations of 2*clm
-b2b:	x4cl_eight_reals_fft_2 rsi, 64, 4*blkdst, 8*blkdst
+b2b:	x4cl_eight_reals_fft_2 rsi, 64, 4*blkdst, 8*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b2b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b2b			;; Iterate if necessary
 
@@ -4723,22 +4723,22 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 8K
 ;;	do 4 macros each processing 32 data values
 
-	lea	rsi, [rsi-4*blkdst+16*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -4*blkdst+16*blkdst;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	al, 4			;; 4 iterations of 2*clm
-b3b:	x4cl_four_complex_fft rsi, 64, 4*blkdst, 8*blkdst
+b3b:	x4cl_four_complex_fft rsi, 64, 4*blkdst, 8*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+blkdst]	;; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst-16*blkdst];; Restore source pointer
+	bump	rsi, -4*blkdst-16*blkdst;; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 6,7
@@ -4765,7 +4765,7 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 
 	start_timer 24
 	mov	rdi, sincos1		;; Load sin/cos pointer
-b4b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst
+b4b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst, rdi
 	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b4b			;; Iterate if necessary
 
@@ -4773,20 +4773,20 @@ b4b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 7 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	al, 7			;; 7 iterations of 2*clm
-b5b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+b5b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b5b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b5b			;; Iterate if necessary
 	end_timer 24
@@ -4853,11 +4853,11 @@ pfing	sub	rbp, rsi
 c5b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-16*2*blkdst]	;; Restore source pointer
+	bump	rsi, -16*2*blkdst	;; Restore source pointer
 	end_timer 16
 
 ;; Do inverse FFT levels 4,5
@@ -4881,24 +4881,24 @@ c5b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	start_timer 18
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	eax, 4*256+2		;; 4 iterations of 2 iters of 2*clm
-c3b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst
+c3b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 2			;; Reload middle counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*8*blkdst]	;; Restore source pointer
+	bump	rsi, -4*8*blkdst	;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -4925,14 +4925,14 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 c1b:	x4cl_four_complex_last_unfft rsi, 64, 8*blkdst, 16*blkdst, 8*128
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+8*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+16*blkdst]
+pfing	bump	rbp, -64+16*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -32*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+128]		;; Next premultiplier pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, 128		;; Next premultiplier pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -4970,17 +4970,17 @@ pfing	sub	rbp, rsi
 	sub	rdx, rdx
 b1b:	x2cl_four_complex_first_fft rsi, 64, 16*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+16*blkdst]
+pfing	bump	rbp, -64+16*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -32*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+128]		;; Next premultiplier pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, 128		;; Next premultiplier pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-16*blkdst]	;; Restore source pointer
+	bump	rsi, -16*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -5007,24 +5007,24 @@ pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
 	start_timer 22
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	eax, 2*256+4		;; 2 iterations 4 iters of 2*clm
-b3b:	x4cl_four_complex_fft rsi, 64, 4*blkdst, 8*blkdst
+b3b:	x4cl_four_complex_fft rsi, 64, 4*blkdst, 8*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst+16*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -4*blkdst+16*blkdst;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256
 	mov	al, 4
 	jnz	b3b
-	lea	rsi, [rsi-2*16*blkdst]	;; Restore source pointer
+	bump	rsi, -2*16*blkdst	;; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 6,7
@@ -5048,17 +5048,17 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 	start_timer 24
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	al, 8			;; 8 iterations of 2*clm
-b5b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+b5b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b5b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b5b			;; Iterate if necessary
 	end_timer 24
@@ -5131,17 +5131,17 @@ c6b:	x2cl_eight_reals_unfft_2 rsi, 64, blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 19 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 19*256		;; 19 iterations of 2*clm
 c7b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c7b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	jnz	c7b			;; Iterate if necessary
-	lea	rsi, [rsi-20*2*blkdst]	;; Restore source pointer
+	bump	rsi, -20*2*blkdst	;; Restore source pointer
 	end_timer 16
 
 ;; Do inverse FFT levels 6
@@ -5170,7 +5170,7 @@ c4b:	x2cl_eight_reals_unfft_1 rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	c4b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c4b			;; Iterate if necessary
 
@@ -5178,7 +5178,7 @@ c4b:	x2cl_eight_reals_unfft_1 rsi, 64, 2*blkdst
 ;;	distance between fft data elements is 8K
 ;;	do 18 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*blkdst+4*blkdst];; Next source pointer
+	bump	rsi, -2*blkdst+4*blkdst	;; Next source pointer
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	eax, 9*256+2		;; 9 iterations of 2 iters of 2*clm
 c5b:	x2cl_two_complex_unfft rsi, 64, 2*blkdst
@@ -5187,15 +5187,15 @@ c5b:	x2cl_two_complex_unfft rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	c5b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*blkdst+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 2			;; Load middle loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-10*4*blkdst]	;; Restore source pointer
+	bump	rsi, -10*4*blkdst	;; Restore source pointer
 	end_timer 17
 
 ;; Do inverse FFT levels 4,5
@@ -5222,13 +5222,13 @@ c5b:	x2cl_two_complex_unfft rsi, 64, 2*blkdst
 	mov	al, 4			;; 4 iterations of 2*clm
 c2b:	x2cl_half_eight_reals_unfft_2 rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c2b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c2b			;; Iterate if necessary
 
@@ -5236,27 +5236,27 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 16K
 ;;	do 8 macros each processing 32 data values
 
-	lea	rsi, [rsi-4*blkdst+8*blkdst];; Next source pointer
+	bump	rsi, -4*blkdst+8*blkdst	;; Next source pointer
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	eax, 2*256+4		;; 2 iterations of 4 iters of 2*clm
-c3b:	x4cl_four_complex_unfft rsi, 64, 4*blkdst, 8*blkdst
+c3b:	x4cl_four_complex_unfft rsi, 64, 4*blkdst, 8*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst+16*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -4*blkdst+16*blkdst;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 4			;; Reload middle counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*16*blkdst-8*blkdst]	;; Restore source pointer
+	bump	rsi, -2*16*blkdst-8*blkdst;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -5287,13 +5287,13 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 c1b:	x5cl_five_reals_last_unfft rsi, 64, 8*blkdst
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+8*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+16*blkdst]
+pfing	bump	rbp, -64+16*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -32*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -5338,16 +5338,16 @@ pfing	sub	rbp, rsi
 b1b:	x5cl_five_reals_first_fft rsi, 64, 8*blkdst
 	xprefetcht1 [rsi-64+8*blkdst][rbp]
 	xprefetcht1 [rsi-64+16*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+16*blkdst]
+pfing	bump	rbp, -64+16*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -32*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-8*blkdst]	;; Restore source pointer
+	bump	rsi, -8*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -5382,7 +5382,7 @@ b2b:	x1cl_half_eight_reals_fft_2 rsi, 64
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	b2b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b2b			;; Iterate if necessary
 
@@ -5392,19 +5392,19 @@ b2b:	x1cl_half_eight_reals_fft_2 rsi, 64
 
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	al, 8			;; 8 iterations of 2*clm
-b3b:	x4cl_four_complex_fft rsi, 64, 8*blkdst, 16*blkdst
+b3b:	x4cl_four_complex_fft rsi, 64, 8*blkdst, 16*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+8*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+16*blkdst]
+pfing	bump	rbp, -64+16*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -32*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-8*blkdst-8*blkdst];; Restore source pointer
+	bump	rsi, -8*blkdst-8*blkdst	;; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 6
@@ -5440,7 +5440,7 @@ b4b:	x2cl_eight_reals_fft_1 rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	b4b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b4b			;; Iterate if necessary
 
@@ -5448,24 +5448,24 @@ b4b:	x2cl_eight_reals_fft_1 rsi, 64, 4*blkdst
 ;;	distance between fft data elements is 8K
 ;;	do 16 macros each processing 16 data values
 
-	lea	rsi, [rsi-4*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -4*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 4*256+4		;; 4 iterations of 4 iters of 2*clm
-b5b:	x2cl_two_complex_fft rsi, 64, 4*blkdst
+b5b:	x2cl_two_complex_fft rsi, 64, 4*blkdst, rdi
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	b5b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
 	jnz	b5b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -4*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 4			;; Load middle loop counter
 	jnz	b5b			;; Iterate if necessary
-	lea	rsi, [rsi-5*8*blkdst]	;; Restore source pointer
+	bump	rsi, -5*8*blkdst	;; Restore source pointer
 	end_timer 23
 
 ;; Do FFT levels 7,8
@@ -5492,7 +5492,7 @@ b5b:	x2cl_two_complex_fft rsi, 64, 4*blkdst
 
 	start_timer 24
 	mov	rdi, sincos1		;; Load sin/cos pointer
-b6b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst
+b6b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst, rdi
 	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b6b			;; Iterate if necessary
 
@@ -5500,20 +5500,20 @@ b6b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 9 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	al, 9			;; 9 iterations of 2*clm
-b7b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+b7b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b7b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b7b			;; Iterate if necessary
 	end_timer 24
@@ -5586,17 +5586,17 @@ c6b:	x2cl_eight_reals_unfft_2 rsi, 64, blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 23 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 23*256		;; 23 iterations of 2*clm
 c7b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c7b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	jnz	c7b			;; Iterate if necessary
-	lea	rsi, [rsi-24*2*blkdst]	;; Restore source pointer
+	bump	rsi, -24*2*blkdst	;; Restore source pointer
 	end_timer 16
 
 ;; Do inverse FFT levels 6
@@ -5625,7 +5625,7 @@ c4b:	x2cl_eight_reals_unfft_1 rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	c4b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c4b			;; Iterate if necessary
 
@@ -5633,7 +5633,7 @@ c4b:	x2cl_eight_reals_unfft_1 rsi, 64, 2*blkdst
 ;;	distance between fft data elements is 8K
 ;;	do 22 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*blkdst+4*blkdst];; Next source pointer
+	bump	rsi, -2*blkdst+4*blkdst	;; Next source pointer
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	eax, 11*256+2		;; 11 iterations of 2 iters of 2*clm
 c5b:	x2cl_two_complex_unfft rsi, 64, 2*blkdst
@@ -5642,15 +5642,15 @@ c5b:	x2cl_two_complex_unfft rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	c5b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*blkdst+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 2			;; Load middle loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-12*4*blkdst]	;; Restore source pointer
+	bump	rsi, -12*4*blkdst	;; Restore source pointer
 	end_timer 17
 
 ;; Do inverse FFT levels 4,5
@@ -5679,13 +5679,13 @@ c5b:	x2cl_two_complex_unfft rsi, 64, 2*blkdst
 c2b:	x4cl_eight_reals_unfft_2 rsi, 64, 4*blkdst, 8*blkdst
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c2b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c2b			;; Iterate if necessary
 
@@ -5693,27 +5693,27 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 16K
 ;;	do 8 macros each processing 32 data values
 
-	lea	rsi, [rsi-4*blkdst+16*blkdst];; Next source pointer
+	bump	rsi, -4*blkdst+16*blkdst;; Next source pointer
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	eax, 2*256+4		;; 2 iterations of 4 iters of 2*clm
-c3b:	x4cl_four_complex_unfft rsi, 64, 4*blkdst, 8*blkdst
+c3b:	x4cl_four_complex_unfft rsi, 64, 4*blkdst, 8*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst+16*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -4*blkdst+16*blkdst;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 4			;; Reload middle counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-3*16*blkdst]	;; Restore source pointer
+	bump	rsi, -3*16*blkdst	;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -5738,14 +5738,14 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 	xsix_reals_unfft_preload
 c1b:	x3cl_six_reals_last_unfft rsi, 64, 16*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+16*blkdst]
+pfing	bump	rbp, -64+16*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 	xprefetcht1 [rsi][rbp]
-pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -32*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -5784,17 +5784,17 @@ pfing	sub	rbp, rsi
 	xsix_reals_fft_preload
 b1b:	x3cl_six_reals_first_fft rsi, 64, 16*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+16*blkdst]
+pfing	bump	rbp, -64+16*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
 	xprefetcht1 [rsi][rbp]
-pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -32*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-16*blkdst]	;; Restore source pointer
+	bump	rsi, -16*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -5827,13 +5827,13 @@ pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
 	mov	al, 8			;; 8 iterations of 2*clm
 b2b:	x2cl_eight_reals_fft_2 rsi, 64, 8*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b2b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b2b			;; Iterate if necessary
 
@@ -5841,22 +5841,22 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 16K
 ;;	do 8 macros each processing 32 data values
 
-	lea	rsi, [rsi-8*blkdst+16*blkdst];; Next source pointer
+	bump	rsi, -8*blkdst+16*blkdst;; Next source pointer
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	al, 8			;; 8 iterations of 2*clm
-b3b:	x4cl_four_complex_fft rsi, 64, 8*blkdst, 16*blkdst
+b3b:	x4cl_four_complex_fft rsi, 64, 8*blkdst, 16*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+8*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+16*blkdst]
+pfing	bump	rbp, -64+16*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -32*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-8*blkdst-16*blkdst];; Restore source pointer
+	bump	rsi, -8*blkdst-16*blkdst;; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 6
@@ -5892,7 +5892,7 @@ b4b:	x2cl_eight_reals_fft_1 rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	b4b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b4b			;; Iterate if necessary
 
@@ -5900,24 +5900,24 @@ b4b:	x2cl_eight_reals_fft_1 rsi, 64, 4*blkdst
 ;;	distance between fft data elements is 8K
 ;;	do 20 macros each processing 16 data values
 
-	lea	rsi, [rsi-4*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -4*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 5*256+4		;; 5 iterations of 4 iters of 2*clm
-b5b:	x2cl_two_complex_fft rsi, 64, 4*blkdst
+b5b:	x2cl_two_complex_fft rsi, 64, 4*blkdst, rdi
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	b5b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
 	jnz	b5b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -4*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 4			;; Load middle loop counter
 	jnz	b5b			;; Iterate if necessary
-	lea	rsi, [rsi-6*8*blkdst]	;; Restore source pointer
+	bump	rsi, -6*8*blkdst	;; Restore source pointer
 	end_timer 23
 
 ;; Do FFT levels 7,8
@@ -5944,7 +5944,7 @@ b5b:	x2cl_two_complex_fft rsi, 64, 4*blkdst
 
 	start_timer 24
 	mov	rdi, sincos1		;; Load sin/cos pointer
-b6b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst
+b6b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst, rdi
 	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b6b			;; Iterate if necessary
 
@@ -5952,20 +5952,20 @@ b6b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 11 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	al, 11			;; 11 iterations of 2*clm
-b7b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+b7b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b7b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b7b			;; Iterate if necessary
 	end_timer 24
@@ -6032,11 +6032,11 @@ pfing	sub	rbp, rsi
 c7b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c7b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	jnz	c7b			;; Iterate if necessary
-	lea	rsi, [rsi-24*2*blkdst]	;; Restore source pointer
+	bump	rsi, -24*2*blkdst	;; Restore source pointer
 	end_timer 16
 
 ;; Do inverse FFT levels 5,6
@@ -6060,24 +6060,24 @@ c7b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	start_timer 17
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	eax, 6*256+2		;; 6 iterations of 2 iters of 2*clm
-c5b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst
+c5b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c5b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c5b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 2			;; Load middle loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-6*8*blkdst]	;; Restore source pointer
+	bump	rsi, -6*8*blkdst	;; Restore source pointer
 	end_timer 17
 
 ;; Do inverse FFT levels 4
@@ -6109,15 +6109,15 @@ c3b:	x2cl_two_complex_unfft rsi, 64, 8*blkdst
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	c3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-8*blkdst+16*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -8*blkdst+16*blkdst;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 8			;; Reload middle counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-3*16*blkdst]	;; Restore source pointer
+	bump	rsi, -3*16*blkdst	;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -6142,15 +6142,15 @@ c3b:	x2cl_two_complex_unfft rsi, 64, 8*blkdst
 	mov	al, 16			;; 16 iterations of 2*clm
 c1b:	x3cl_three_complex_last_unfft rsi, 64, 16*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+16*blkdst]
+pfing	bump	rbp, -64+16*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 	xprefetcht1 [rsi][rbp]
-pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -32*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+192]		;; Next premultiplier pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, 192		;; Next premultiplier pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -6189,18 +6189,18 @@ pfing	sub	rbp, rsi
 	sub	rdx, rdx
 b1b:	x3cl_three_complex_first_fft rsi, 64, 16*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+16*blkdst]
+pfing	bump	rbp, -64+16*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
 	xprefetcht1 [rsi][rbp]
-pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -32*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+192]		;; Next premultiplier pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, 192		;; Next premultiplier pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-16*blkdst]	;; Restore source pointer
+	bump	rsi, -16*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4
@@ -6229,28 +6229,28 @@ pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
 	start_timer 22
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	al, 8			;; 8 iterations of 2*clm
-b2b:	x2cl_two_complex_fft_in_place rsi, 64, 8*blkdst
+b2b:	x2cl_two_complex_fft_in_place rsi, 64, 8*blkdst, rdi
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	b2b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b2b			;; Iterate if necessary
-	lea	rsi, [rsi-8*blkdst+16*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sin/cos pointer
+	bump	rsi, -8*blkdst+16*blkdst;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sin/cos pointer
 	mov	al, 16			;; 16 iterations of 2*clm
-b3b:	x2cl_two_complex_fft rsi, 64, 16*blkdst
+b3b:	x2cl_two_complex_fft rsi, 64, 16*blkdst, rdi
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-16*blkdst-16*blkdst];; Restore source pointer
+	bump	rsi, -16*blkdst-16*blkdst;; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 5,6
@@ -6277,24 +6277,24 @@ b3b:	x2cl_two_complex_fft rsi, 64, 16*blkdst
 	start_timer 23
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	eax, 3*256+4		;; 3 iterations of 4 iters of 2*clm
-b5b:	x4cl_four_complex_fft rsi, 64, 4*blkdst, 8*blkdst
+b5b:	x4cl_four_complex_fft rsi, 64, 4*blkdst, 8*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b5b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
 	jnz	b5b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst+16*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -4*blkdst+16*blkdst;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 4			;; Load middle loop counter
 	jnz	b5b			;; Iterate if necessary
-	lea	rsi, [rsi-3*16*blkdst]	;; Restore source pointer
+	bump	rsi, -3*16*blkdst	;; Restore source pointer
 	end_timer 23
 
 ;; Do FFT levels 7,8
@@ -6318,17 +6318,17 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 	start_timer 24
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	al, 12			;; 12 iterations of 2*clm
-b7b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+b7b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b7b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b7b			;; Iterate if necessary
 	end_timer 24
@@ -6401,17 +6401,17 @@ c6b:	x2cl_eight_reals_unfft_2 rsi, 64, blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 27 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 27*256		;; 27 iterations of 2*clm
 c7b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c7b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	jnz	c7b			;; Iterate if necessary
-	lea	rsi, [rsi-28*2*blkdst]	;; Restore source pointer
+	bump	rsi, -28*2*blkdst	;; Restore source pointer
 	end_timer 16
 
 ;; Do inverse FFT levels 6
@@ -6440,7 +6440,7 @@ c4b:	x2cl_eight_reals_unfft_1 rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	c4b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c4b			;; Iterate if necessary
 
@@ -6448,7 +6448,7 @@ c4b:	x2cl_eight_reals_unfft_1 rsi, 64, 2*blkdst
 ;;	distance between fft data elements is 8K
 ;;	do 26 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*blkdst+4*blkdst];; Next source pointer
+	bump	rsi, -2*blkdst+4*blkdst	;; Next source pointer
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	eax, 13*256+2		;; 13 iterations of 2 iters of 2*clm
 c5b:	x2cl_two_complex_unfft rsi, 64, 2*blkdst
@@ -6457,15 +6457,15 @@ c5b:	x2cl_two_complex_unfft rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	c5b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*blkdst+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 2			;; Load middle loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-14*4*blkdst]	;; Restore source pointer
+	bump	rsi, -14*4*blkdst	;; Restore source pointer
 	end_timer 17
 
 ;; Do inverse FFT levels 4,5
@@ -6492,13 +6492,13 @@ c5b:	x2cl_two_complex_unfft rsi, 64, 2*blkdst
 	mov	al, 4			;; 4 iterations of 2*clm
 c2b:	x2cl_half_eight_reals_unfft_2 rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c2b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c2b			;; Iterate if necessary
 
@@ -6506,27 +6506,27 @@ pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 16K
 ;;	do 12 macros each processing 32 data values
 
-	lea	rsi, [rsi-4*blkdst+8*blkdst];; Next source pointer
+	bump	rsi, -4*blkdst+8*blkdst	;; Next source pointer
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	eax, 3*256+4		;; 3 iterations of 4 iters of 2*clm
-c3b:	x4cl_four_complex_unfft rsi, 64, 4*blkdst, 8*blkdst
+c3b:	x4cl_four_complex_unfft rsi, 64, 4*blkdst, 8*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst+16*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -4*blkdst+16*blkdst;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 4			;; Reload middle counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-3*16*blkdst-8*blkdst]	;; Restore source pointer
+	bump	rsi, -3*16*blkdst-8*blkdst;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -6561,13 +6561,13 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 c1b:	x7cl_seven_reals_last_unfft rsi, 64, 8*blkdst
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+8*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+16*blkdst]
+pfing	bump	rbp, -64+16*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -32*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -6620,16 +6620,16 @@ pfing	sub	rbp, rsi
 b1b:	x7cl_seven_reals_first_fft rsi, 64, 8*blkdst
 	xprefetcht1 [rsi-64+24*blkdst][rbp]
 	xprefetcht1 [rsi-64+32*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+16*blkdst]
+pfing	bump	rbp, -64+16*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -32*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-8*blkdst]	;; Restore source pointer
+	bump	rsi, -8*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -6668,7 +6668,7 @@ b2b:	x1cl_half_eight_reals_fft_2 rsi, 64
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	b2b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b2b			;; Iterate if necessary
 
@@ -6680,13 +6680,13 @@ b2b:	x1cl_half_eight_reals_fft_2 rsi, 64
 	mov	al, 8			;; 8 iterations of 2*clm
 b3a:	x2cl_four_complex_fft rsi, 64, 8*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3a			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3a
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3a			;; Iterate if necessary
 
@@ -6694,22 +6694,22 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 16K
 ;;	do 8 macros each processing 32 data values
 
-	lea	rsi, [rsi-8*blkdst+16*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -8*blkdst+16*blkdst;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	al, 8			;; 8 iterations of 2*clm
-b3b:	x4cl_four_complex_fft rsi, 64, 8*blkdst, 16*blkdst
+b3b:	x4cl_four_complex_fft rsi, 64, 8*blkdst, 16*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+8*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+16*blkdst]
+pfing	bump	rbp, -64+16*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -32*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-8*blkdst-24*blkdst];; Restore source pointer
+	bump	rsi, -8*blkdst-24*blkdst;; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 6
@@ -6745,7 +6745,7 @@ b4b:	x2cl_eight_reals_fft_1 rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	b4b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b4b			;; Iterate if necessary
 
@@ -6753,24 +6753,24 @@ b4b:	x2cl_eight_reals_fft_1 rsi, 64, 4*blkdst
 ;;	distance between fft data elements is 8K
 ;;	do 24 macros each processing 16 data values
 
-	lea	rsi, [rsi-4*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -4*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 6*256+4		;; 6 iterations of 4 iters of 2*clm
-b5b:	x2cl_two_complex_fft rsi, 64, 4*blkdst
+b5b:	x2cl_two_complex_fft rsi, 64, 4*blkdst, rdi
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	b5b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
 	jnz	b5b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -4*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 4			;; Load middle loop counter
 	jnz	b5b			;; Iterate if necessary
-	lea	rsi, [rsi-7*8*blkdst]	;; Restore source pointer
+	bump	rsi, -7*8*blkdst	;; Restore source pointer
 	end_timer 23
 
 ;; Do FFT levels 7,8
@@ -6797,7 +6797,7 @@ b5b:	x2cl_two_complex_fft rsi, 64, 4*blkdst
 
 	start_timer 24
 	mov	rdi, sincos1		;; Load sin/cos pointer
-b6b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst
+b6b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst, rdi
 	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b6b			;; Iterate if necessary
 
@@ -6805,20 +6805,20 @@ b6b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 13 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	al, 13			;; 13 iterations of 2*clm
-b7b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+b7b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b7b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b7b			;; Iterate if necessary
 	end_timer 24
@@ -6891,17 +6891,17 @@ c6b:	x2cl_eight_reals_unfft_2 rsi, 64, blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 31 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 31*256		;; 31 iterations of 2*clm
 c7b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c7b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	jnz	c7b			;; Iterate if necessary
-	lea	rsi, [rsi-32*2*blkdst]	;; Restore source pointer
+	bump	rsi, -32*2*blkdst	;; Restore source pointer
 	end_timer 16
 
 ;; Do inverse FFT levels 6
@@ -6930,7 +6930,7 @@ c4b:	x2cl_eight_reals_unfft_1 rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	c4b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c4b			;; Iterate if necessary
 
@@ -6938,7 +6938,7 @@ c4b:	x2cl_eight_reals_unfft_1 rsi, 64, 2*blkdst
 ;;	distance between fft data elements is 8K
 ;;	do 30 macros each processing 16 data values
 
-	lea	rsi, [rsi-2*blkdst+4*blkdst];; Next source pointer
+	bump	rsi, -2*blkdst+4*blkdst	;; Next source pointer
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	eax, 15*256+2		;; 15 iterations of 2 iters of 2*clm
 c5b:	x2cl_two_complex_unfft rsi, 64, 2*blkdst
@@ -6947,15 +6947,15 @@ c5b:	x2cl_two_complex_unfft rsi, 64, 2*blkdst
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	c5b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*blkdst+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 2			;; Load middle loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-16*4*blkdst]	;; Restore source pointer
+	bump	rsi, -16*4*blkdst	;; Restore source pointer
 	end_timer 17
 
 ;; Do inverse FFT levels 4,5
@@ -6984,13 +6984,13 @@ c5b:	x2cl_two_complex_unfft rsi, 64, 2*blkdst
 c2b:	x4cl_eight_reals_unfft_2 rsi, 64, 4*blkdst, 8*blkdst
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c2b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c2b			;; Iterate if necessary
 
@@ -6998,27 +6998,27 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 16K
 ;;	do 12 macros each processing 32 data values
 
-	lea	rsi, [rsi-4*blkdst+16*blkdst];; Next source pointer
+	bump	rsi, -4*blkdst+16*blkdst;; Next source pointer
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	eax, 3*256+4		;; 3 iterations of 4 iters of 2*clm
-c3b:	x4cl_four_complex_unfft rsi, 64, 4*blkdst, 8*blkdst
+c3b:	x4cl_four_complex_unfft rsi, 64, 4*blkdst, 8*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst+16*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -4*blkdst+16*blkdst;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 4			;; Reload middle counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*16*blkdst]	;; Restore source pointer
+	bump	rsi, -4*16*blkdst	;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -7044,13 +7044,13 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 c1b:	x4cl_eight_reals_last_unfft rsi, 64, 16*blkdst, 32*blkdst
 ;	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+16*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+32*blkdst]
+pfing	bump	rbp, -64+32*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-64*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -64*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -7087,16 +7087,16 @@ pfing	sub	rbp, rsi
 	sub	rdx, rdx
 b1b:	x2cl_eight_reals_first_fft rsi, 64, 32*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+32*blkdst]
+pfing	bump	rbp, -64+32*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-64*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -64*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-32*blkdst]	;; Restore source pointer
+	bump	rsi, -32*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4,5
@@ -7127,16 +7127,16 @@ pfing	lea	rbp, [rbp-64*blkdst+2*64] ;; Restore prefetching offset
 	start_timer 22
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	al, 8			;; 8 iterations of 2*clm
-b2b:	x4cl_eight_reals_fft_2 rsi, 64, 8*blkdst, 16*blkdst
+b2b:	x4cl_eight_reals_fft_2 rsi, 64, 8*blkdst, 16*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 ;	xprefetcht1 [rsi-64+8*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+16*blkdst]
+pfing	bump	rbp, -64+16*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -32*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b2b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b2b			;; Iterate if necessary
 
@@ -7144,22 +7144,22 @@ pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
 ;;	distance between fft data elements is 16K
 ;;	do 8 macros each processing 32 data values
 
-	lea	rsi, [rsi-8*blkdst+32*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -8*blkdst+32*blkdst;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	al, 8			;; 8 iterations of 2*clm
-b3b:	x4cl_four_complex_fft rsi, 64, 8*blkdst, 16*blkdst
+b3b:	x4cl_four_complex_fft rsi, 64, 8*blkdst, 16*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 ;	xprefetcht1 [rsi-64+8*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+16*blkdst]
+pfing	bump	rbp, -64+16*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-32*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -32*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-8*blkdst-32*blkdst];; Restore source pointer
+	bump	rsi, -8*blkdst-32*blkdst;; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 6
@@ -7195,7 +7195,7 @@ b4b:	x2cl_eight_reals_fft_1 rsi, 64, 4*blkdst
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	b4b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b4b			;; Iterate if necessary
 
@@ -7203,24 +7203,24 @@ b4b:	x2cl_eight_reals_fft_1 rsi, 64, 4*blkdst
 ;;	distance between fft data elements is 8K
 ;;	do 28 macros each processing 16 data values
 
-	lea	rsi, [rsi-4*blkdst+8*blkdst];; Load source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -4*blkdst+8*blkdst	;; Load source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 7*256+4		;; 7 iterations of 4 iters of 2*clm
-b5b:	x2cl_two_complex_fft rsi, 64, 4*blkdst
+b5b:	x2cl_two_complex_fft rsi, 64, 4*blkdst, rdi
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	b5b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
 	jnz	b5b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -4*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 4			;; Load middle loop counter
 	jnz	b5b			;; Iterate if necessary
-	lea	rsi, [rsi-8*8*blkdst]	;; Restore source pointer
+	bump	rsi, -8*8*blkdst	;; Restore source pointer
 	end_timer 23
 
 ;; Do FFT levels 7,8
@@ -7247,7 +7247,7 @@ b5b:	x2cl_two_complex_fft rsi, 64, 4*blkdst
 
 	start_timer 24
 	mov	rdi, sincos1		;; Load sin/cos pointer
-b6b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst
+b6b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst, rdi
 	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	b6b			;; Iterate if necessary
 
@@ -7255,20 +7255,20 @@ b6b:	x4cl_eight_reals_fft_2 rsi, 64, blkdst, 2*blkdst
 ;;	distance between fft data elements is 2K
 ;;	do 15 macros each processing 32 data values
 
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	al, 15			;; 15 iterations of 2*clm
-b7b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+b7b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b7b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b7b			;; Iterate if necessary
 	end_timer 24
@@ -7335,11 +7335,11 @@ pfing	sub	rbp, rsi
 c7b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	add	al, 256/2/clm		;; Test loop counter
 	jnc	c7b			;; Iterate if necessary
-	lea	rsi, [rsi-2*clm*64+2*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	jnz	c7b			;; Iterate if necessary
-	lea	rsi, [rsi-32*2*blkdst]	;; Restore source pointer
+	bump	rsi, -32*2*blkdst	;; Restore source pointer
 	end_timer 16
 
 ;; Do inverse FFT levels 5,6
@@ -7363,24 +7363,24 @@ c7b:	x2cl_four_complex_unfft rsi, 64, blkdst
 	start_timer 17
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	eax, 8*256+2		;; 8 iterations of 2 iters of 2*clm
-c5b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst
+c5b:	x4cl_four_complex_unfft rsi, 64, 2*blkdst, 4*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 ;	xprefetcht1 [rsi-64+2*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+4*blkdst]
+pfing	bump	rbp, -64+4*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c5b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-8*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -8*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c5b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-2*blkdst+8*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*blkdst+8*blkdst	;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 2			;; Load middle loop counter
 	jnz	c5b			;; Iterate if necessary
-	lea	rsi, [rsi-8*8*blkdst]	;; Restore source pointer
+	bump	rsi, -8*8*blkdst	;; Restore source pointer
 	end_timer 17
 
 ;; Do inverse FFT levels 4
@@ -7412,15 +7412,15 @@ c3b:	x2cl_two_complex_unfft rsi, 64, 8*blkdst
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	c3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-8*blkdst+16*blkdst];; Next source pointer
-	lea	rdi, [rdi+XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -8*blkdst+16*blkdst;; Next source pointer
+	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 8			;; Reload middle counter
 	jnz	c3b			;; Iterate if necessary
-	lea	rsi, [rsi-4*16*blkdst]	;; Restore source pointer
+	bump	rsi, -4*16*blkdst	;; Restore source pointer
 	end_timer 18
 
 ;; Do inverse FFT levels 1,2,3
@@ -7447,14 +7447,14 @@ c3b:	x2cl_two_complex_unfft rsi, 64, 8*blkdst
 c1b:	x4cl_four_complex_last_unfft rsi, 64, 16*blkdst, 32*blkdst, 16*128
 ;	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+16*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+32*blkdst]
+pfing	bump	rbp, -64+32*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-64*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -64*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	c1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+128]		;; Next premultiplier pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, 128		;; Next premultiplier pointer
 	sub	al, 1			;; Test loop counter
 	jnz	c1b			;; Iterate if necessary
 	end_timer 19
@@ -7492,17 +7492,17 @@ pfing	sub	rbp, rsi
 	sub	rdx, rdx
 b1b:	x2cl_four_complex_first_fft rsi, 64, 32*blkdst
 	xprefetcht1 [rsi-64][rbp]
-pfing	lea	rbp, [rbp-64+32*blkdst]
+pfing	bump	rbp, -64+32*blkdst
 	add	al, 256/2		;; Test loop counter
 	jnc	b1b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-64*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -64*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b1b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
-	lea	rdi, [rdi+128]		;; Next premultiplier pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rdi, 128		;; Next premultiplier pointer
 	sub	al, 1			;; Test loop counter
 	jnz	b1b			;; Iterate if necessary
-	lea	rsi, [rsi-32*blkdst]	;; Restore source pointer
+	bump	rsi, -32*blkdst		;; Restore source pointer
 	end_timer 21
 
 ;; Do FFT levels 4
@@ -7531,21 +7531,21 @@ pfing	lea	rbp, [rbp-64*blkdst+2*64] ;; Restore prefetching offset
 	start_timer 22
 	mov	rdi, sincos3		;; Load sin/cos pointer
 	mov	eax, 2*256+16		;; 2 iters of 16 iterations of 2*clm
-b3b:	x2cl_two_complex_fft rsi, 64, 16*blkdst
+b3b:	x2cl_two_complex_fft rsi, 64, 16*blkdst, rdi
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
 	xprefetcht1 [rsi-128][rbp]
 	add	dl, 256/clm
 	jnc	b3b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-16*blkdst+32*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sin/cos pointer
+	bump	rsi, -16*blkdst+32*blkdst;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sin/cos pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 16
 	jnz	b3b			;; Iterate if necessary
-	lea	rsi, [rsi-2*32*blkdst]	;; Restore source pointer
+	bump	rsi, -2*32*blkdst	;; Restore source pointer
 	end_timer 22
 
 ;; Do FFT levels 5,6
@@ -7572,24 +7572,24 @@ b3b:	x2cl_two_complex_fft rsi, 64, 16*blkdst
 	start_timer 23
 	mov	rdi, sincos2		;; Load sin/cos pointer
 	mov	eax, 4*256+4		;; 4 iterations of 4 iters of 2*clm
-b5b:	x4cl_four_complex_fft rsi, 64, 4*blkdst, 8*blkdst
+b5b:	x4cl_four_complex_fft rsi, 64, 4*blkdst, 8*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 ;	xprefetcht1 [rsi-64+4*blkdst][rbp]
-pfing	lea	rbp, [rbp-64+8*blkdst]
+pfing	bump	rbp, -64+8*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b5b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -16*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b5b
-	lea	rsi, [rsi-2*clm*64+blkdst];; Next source pointer
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
 	sub	al, 1			;; Test middle loop counter
 	jnz	b5b			;; Iterate if necessary
-	lea	rsi, [rsi-4*blkdst+16*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -4*blkdst+16*blkdst;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 256		;; Test outer loop counter
 	mov	al, 4			;; Load middle loop counter
 	jnz	b5b			;; Iterate if necessary
-	lea	rsi, [rsi-4*16*blkdst]	;; Restore source pointer
+	bump	rsi, -4*16*blkdst	;; Restore source pointer
 	end_timer 23
 
 ;; Do FFT levels 7,8
@@ -7613,17 +7613,17 @@ pfing	lea	rbp, [rbp-16*blkdst+2*64] ;; Restore prefetching offset
 	start_timer 24
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	al, 16			;; 16 iterations of 2*clm
-b7b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst
+b7b:	x4cl_four_complex_fft rsi, 64, blkdst, 2*blkdst, rdi
 	xprefetcht1 [rsi-64][rbp]
 	xprefetcht1 [rsi-64+blkdst][rbp]
-pfing	lea	rbp, [rbp-64+2*blkdst]
+pfing	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
-pfing	lea	rbp, [rbp-4*blkdst+2*64] ;; Restore prefetching offset
+pfing	bump	rbp, -4*blkdst+2*64	;; Restore prefetching offset
 	add	dl, 256/clm
 	jnc	b7b
-	lea	rsi, [rsi-2*clm*64+4*blkdst];; Next source pointer
-	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
+	bump	rdi, 2*XMM_SCD		;; Next sine/cosine pointer
 	sub	al, 1			;; Test outer loop counter
 	jnz	b7b			;; Iterate if necessary
 	end_timer 24
