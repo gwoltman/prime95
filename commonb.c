@@ -3952,11 +3952,11 @@ nextpass:	;
 				(unsigned int) w->sieve_depth : bits;
 		if (start_bits < 32)
 		    sprintf (buf,
-			     "M%ld no factor to 2^%d, Wd%d: %08lX\n",
+			     "M%ld no factor to 2^%d, We%d: %08lX\n",
 			     p, end_bits, PORT, SEC3 (p));
 		else
 		    sprintf (buf,
-			     "M%ld no factor from 2^%d to 2^%d, Wd%d: %08lX\n",
+			     "M%ld no factor from 2^%d to 2^%d, We%d: %08lX\n",
 			     p, start_bits, end_bits, PORT, SEC3 (p));
 		OutputStr (thread_num, buf);
 		formatMsgForResultsFile (buf, w);
@@ -5038,7 +5038,7 @@ begin:	gwinit (&lldata.gwdata);
 		if (INTERIM_RESIDUES && counter % INTERIM_RESIDUES <= 2) {
 			generateResidue64 (&lldata, &high32, &low32);
 			sprintf (buf, 
-				 "M%ld interim Wd%d residue %08lX%08lX at iteration %ld\n",
+				 "M%ld interim We%d residue %08lX%08lX at iteration %ld\n",
 				 p, PORT, high32, low32, counter);
 			OutputBoth (thread_num, buf);
 		}
@@ -5092,11 +5092,11 @@ begin:	gwinit (&lldata.gwdata);
 /* Format the output message */
 
 	if (isPrime)
-		sprintf (buf, "M%ld is prime! Wd%d: %08lX,%08lX\n",
+		sprintf (buf, "M%ld is prime! We%d: %08lX,%08lX\n",
 			 p, PORT, SEC1 (p), error_count);
 	else
 		sprintf (buf,
-			 "M%ld is not prime. Res64: %08lX%08lX. Wd%d: %08lX,%ld,%08lX\n",
+			 "M%ld is not prime. Res64: %08lX%08lX. We%d: %08lX,%ld,%08lX\n",
 			 p, high32, low32, PORT,
 			 SEC2 (p, high32, low32, lldata.units_bit, error_count),
 			 lldata.units_bit, error_count);
@@ -6490,7 +6490,7 @@ int primeTime (
 	gwset_num_threads (&lldata.gwdata, num_threads);
 	gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&lldata.gwdata, &sp_info);
-	stop_reason = lucasSetup (thread_num, p, 0, &lldata);
+	stop_reason = lucasSetup (thread_num, p, IniGetInt (INI_FILE, "TimePlus1", 0), &lldata);
 	if (stop_reason) return (stop_reason);
 	ASM_TIMERS = get_asm_timers (&lldata.gwdata);
 	memset (ASM_TIMERS, 0, 32 * sizeof (uint32_t));
@@ -7403,7 +7403,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			gwtogiant (&gwdata, x, tmp);
 			if (w->known_factors) {	iaddg (1, N); modg (N, tmp); iaddg (-1, N); }
 			sprintf (buf, 
-				 "%s interim Wd%d residue %08lX%08lX at iteration %ld\n",
+				 "%s interim We%d residue %08lX%08lX at iteration %ld\n",
 				 string_rep, PORT, tmp->n[1], tmp->n[0], counter);
 			OutputBoth (thread_num, buf);
 			pushg (&gwdata.gdata, 1);
@@ -7459,10 +7459,10 @@ pushg(&gwdata.gdata, 2);}
 /* Print results. */
 
 	if (isProbablePrime)
-		sprintf (buf, "%s is a probable prime! Wd%d: %08lX,%08lX\n",
+		sprintf (buf, "%s is a probable prime! We%d: %08lX,%08lX\n",
 			 string_rep, PORT, SEC1 (w->n), error_count);
 	else
-		sprintf (buf, "%s is not prime.  RES64: %s. Wd%d: %08lX,%08lX\n",
+		sprintf (buf, "%s is not prime.  RES64: %s. We%d: %08lX,%08lX\n",
 			 string_rep, res64, PORT, SEC1 (w->n), error_count);
 	OutputStr (thread_num, buf);
 	formatMsgForResultsFile (buf, w);
