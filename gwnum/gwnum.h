@@ -59,9 +59,9 @@ typedef double *gwnum;
 /* gwsetup verifies that the version numbers match.  This prevents bugs */
 /* from accidentally linking in the wrong gwnum library. */
 
-#define GWNUM_VERSION		"25.12"
-#define GWNUM_MAJOR_VERSION	25
-#define GWNUM_MINOR_VERSION	12
+#define GWNUM_VERSION		"26.1"
+#define GWNUM_MAJOR_VERSION	26
+#define GWNUM_MINOR_VERSION	1
 
 /* Error codes returned by the three gwsetup routines */
 
@@ -742,6 +742,8 @@ struct gwasm_jmptab {
 /* The gwhandle structure containing all of gwnum's "global" data. */
 
 struct gwhandle_struct {
+
+	/* Variables which affect gwsetup.  These are usually set by macros above. */
 	double	safety_margin;	/* Reduce maximum allowable bits per */
 				/* FFT data word by this amount. */
 	long	maxmulbyconst;	/* Gwsetup needs to know the maximum value */
@@ -753,27 +755,31 @@ struct gwhandle_struct {
 	unsigned long minimum_fftlen;
 				/* Minimum fft length for gwsetup to use. */
 	int	larger_fftlen_count;
-				/* Force using larger FFT sizes. */
+				/* Force using larger FFT sizes.  This is a */
+				/* count of how many FFT sizes to "skip over". */
+	unsigned long num_threads; /* Number of threads to use in multiply */
+				/* routines.  Default is obviously one. */
+	int	force_general_mod; /* Forces gwsetup_general_mod to not check */
+				/* for a k*2^n+c reduction */
+	int	use_irrational_general_mod; /* Force using an irrational FFT when */
+				/* doing a general mod.  This is slower, but more */
+				/* immune to round off errors from pathological */
+				/* bit patterns in the modulus. */
+	int	use_large_pages; /* FUTURE USE: Try to use 2MB pages */
+	/* End of variables affecting gwsetup */
+
 	double	k;		/* K in K*B^N+C */
 	unsigned long b;	/* B in K*B^N+C */
 	unsigned long n;	/* N in K*B^N+C */
 	signed long c;		/* C in K*B^N+C */
-	unsigned long num_threads; /* Number of threads to use in multiply */
-				/* routines.  Default is obviously one. */
-	void	(*thread_callback)(int, int, void *);
-				/* Auxillary thread callback routine letting */
-				/* the gwnum library user set auxillary */
-				/* thread priority and affinity */
-	void	*thread_callback_data;
-				/* User-supplied data to pass to the */
-				/* auxillary thread callback routine */
-	int	cpu_flags;	/* Copy of CPU_FLAGS at time setup was */
-				/* called (just in case CPU_FLAGS changes) */
 	unsigned long FFTLEN;	/* The FFT size we are using */
 	void	(*GWPROCPTRS[24])(void*); /* Ptrs to assembly routines */
+	int	cpu_flags;	/* Copy of CPU_FLAGS at time setup was */
+				/* called (just in case CPU_FLAGS changes) */
 	int	ZERO_PADDED_FFT;/* True if doing a zero pad FFT */
 	int	ALL_COMPLEX_FFT;/* True if using all-complex FFTs */
 	int	RATIONAL_FFT;	/* True if bits per FFT word is integer */
+	int	V26_FFT;	/* True if we are executing the new v26 FFT code */
 	int	GENERAL_MOD;	/* True if doing general-purpose mod */
 				/* as defined in gwsetup_general_mod. */
 	giant	GW_MODULUS;	/* In the general purpose mod case, this is */
@@ -809,7 +815,7 @@ struct gwhandle_struct {
 	double	MAXDIFF;	/* Maximum allowable difference between */
 				/* sum of inputs and outputs */
 	double	fft_count;	/* Count of forward and inverse FFTs */
-	struct gwasm_jmptab *jmptab; /* ASM jmptable popinter */
+	struct gwasm_jmptab *jmptab; /* ASM jmptable pointer */
 	void	*asm_data;	/* Memory allocated for ASM global data */
 	void	*dd_data;	/* Memory allocated for gwdbldbl global data */
 	double	*gwnum_memory;	/* Allocated memory */
@@ -824,6 +830,13 @@ struct gwhandle_struct {
 	unsigned int gwnum_free_count; /* Count of available gwnums */
 	ghandle	gdata;		/* Structure that allows sharing giants and */
 				/* gwnum memory allocations */
+	void	(*thread_callback)(int, int, void *);
+				/* Auxillary thread callback routine letting */
+				/* the gwnum library user set auxillary */
+				/* thread priority and affinity */
+	void	*thread_callback_data;
+				/* User-supplied data to pass to the */
+				/* auxillary thread callback routine */
 	gwmutex	thread_lock;	/* This mutex allows the assembly code to */
 				/* limit one thread at a time in critical */
 				/* sections. */
@@ -841,10 +854,16 @@ struct gwhandle_struct {
 				/* doing in pass 1 of an FFT.  See */
 				/* pass1_get_next_block for details.  Also, */
 				/* 999 means we are in pass 2 of the FFT. */
+	void	*adjusted_pass1_premults;
+				/* pass1_premults pointer adjusted for the */
+				/* fact the first block of real FFTs have */
+				/* no premultipliers */
 	void	*adjusted_pass2_premults;
 				/* pass2_premults pointer adjusted for the */
 				/* fact the first block of real FFTs have */
 				/* no premultipliers */
+	unsigned long pass1_premult_block_size; /* Used to calculate address */
+				/* of pass 1 premultiplier data */
 	unsigned long pass2_premult_block_size; /* Used to calculate address */
 				/* of pass 2 premultiplier data */
 	unsigned long next_block; /* Next block for thread to process */
@@ -879,15 +898,8 @@ struct gwhandle_struct {
 				/* FFT implementation to the (should be identical) */
 				/* results of another FFT implementation. */
 	int	qa_picked_nth_fft; /* Internal hack returning which FFT was picked */
-	int	force_general_mod; /* Forces gwsetup_general_mod to not check */
-				/* for a k*2^n+c reduction */
-	int	use_irrational_general_mod; /* Force using an irrational FFT when */
-				/* doing a general mod.  This is slower, but more */
-				/* immune to round off errors from pathological */
-				/* bit patterns in the modulus. */
 	int	square_carefully_count; /* Count of gwsquare calls to convert into */
 				/* gwsquare_carefully calls */
-	int	use_large_pages; /* Try to use 2MB pages */
 	void	*large_pages_ptr; /* Pointer to the lage pages memory block */
 				/* we allocated. */
 	void	*large_pages_gwnum; /* Pointer to the one large pages gwnum */
