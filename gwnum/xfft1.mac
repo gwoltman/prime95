@@ -7178,7 +7178,8 @@ bab1:	s2cl_four_complex_fft_final rsi, 2*64, 64
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 1			;; Test loop counter
 	jnz	bab1			;; Loop if necessary
-	popper	eax			;; Pop return address
+	pop	rax			;; Pop return address
+	push_amt = 0
 	xfft_1_ret
 
 	push_amt = SZPTR
@@ -7607,7 +7608,8 @@ bab1:	s2cl_four_complex_fft_final rsi, 2*64, 64
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	eax, 1			;; Test loop counter
 	jnz	bab1			;; Loop if necessary
-	popper	rax			;; Pop return address
+	pop	rax			;; Pop return address
+	push_amt = 0
 	xfft_1_ret
 
 	push_amt = SZPTR
