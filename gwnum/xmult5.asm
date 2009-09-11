@@ -1,4 +1,4 @@
-; Copyright 2005-2007 Mersenne Research, Inc.  All rights reserved
+; Copyright 2005-2009 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -49,7 +49,6 @@ xpass2_levels = 13
 
 ;; All the FFT routines for each FFT length
 
-	EXPANDING = 2
 ;	xfft	512K
 ;	xfft	512Kp
 ;	xfft	640K

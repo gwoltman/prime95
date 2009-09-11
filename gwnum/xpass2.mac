@@ -1122,7 +1122,6 @@ xpass2_10_levels_real_1:
 	s2cl_eight_reals_fft_2_final rsi, 4*64, 2*64
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	loops_init 256, 1, 2
-	mov	eax, 256/2+128/2/16	;; 8 iters of 31 or 32 iterations
 bab0:	xtouch	[rcx+4096-128]		;; Preload the TLB
 	xtouch	[rcx+2*4096-128]	;; Preload the TLB
 bab:	s2cl_four_complex_fft_final rsi, 4*64, 2*64

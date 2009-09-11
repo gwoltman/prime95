@@ -50,7 +50,6 @@ xpass2_levels = 12
 
 ;; All the FFT routines for each FFT length
 
-	EXPANDING = 2
 ;	xfft	256K
 ;	xfft	256Kp
 ;	xfft	320K

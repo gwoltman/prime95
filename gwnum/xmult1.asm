@@ -1,4 +1,4 @@
-; Copyright 2001-2007 Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2009 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -32,7 +32,6 @@ INCLUDE xmult.mac
 
 _TEXT SEGMENT
 
-	EXPANDING = 1
 	xfft	32
 	xfft	48
 	xfft	64

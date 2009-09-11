@@ -9,7 +9,7 @@
 ; *************** macros to expand 4 types of fft macros ******************
 
 ;;
-;; Generate the 4 types of FFTs for the given run length.
+;; Generate the FFT for the given run length.
 ;; The 4 types are:
 ;;	1) forward FFT,
 ;;	2) square (forward FFT, multiply, inverse FFT)
@@ -18,114 +18,29 @@
 ;;
 
 xfft	MACRO fft_length
-	LOCAL	common_label
-	type1	common_label, &fft_length, _1
-	type2	common_label, &fft_length, _2
-	type3	common_label, &fft_length, _3
-	type4	common_label, &fft_length, _4
+	xfftgen	&fft_length
 	purge	xfft&fft_length
 	ENDM
 
 xfftclm	MACRO fft_length, clm
-	LOCAL	common_label
-	type1	common_label, &fft_length, _1, clm, %(xpass2_levels)
-	type2	common_label, &fft_length, _2, clm, %(xpass2_levels)
-	type3	common_label, &fft_length, _3, clm, %(xpass2_levels)
-	type4	common_label, &fft_length, _4, clm, %(xpass2_levels)
+	xfftgen	&fft_length, clm, %(xpass2_levels)
 	ENDM
 
 ;;
-;; Perform an FFT in preparation for a later multiply
-;; Do the forward FFT
-;;
-
-type1	MACRO common_label, fft_length, suffix, clm, levels
-	PROCFP	xfft&fft_length&clm&levels&suffix
-	ad_prolog 0,1,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
-	mov	rsi, DESTARG
-	mov	rbx, SRCARG
-	sub	rbx, rsi
-	mov	DIST_TO_FFTSRCARG, rbx
-	IF EXPANDING GE 2
-	mov	ffttype, 1
-	jmp	common_label
-	ELSE
-	xfft&fft_length 1
-	ENDIF
-	ENDPP	xfft&fft_length&clm&levels&suffix
-	ENDM
-;;
-;; Square a number mod 2**p-1
 ;; Do the forward FFT, squaring, and inverse FFT
 ;;
 
-type2	MACRO common_label, fft_length, suffix, clm, levels
-	PROCFP	xfft&fft_length&clm&levels&suffix
+xfftgen	MACRO fft_length, clm, levels
+	PROCFP	x&fft_length&clm&levels
 	ad_prolog 0,1,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
 	mov	rsi, DESTARG
-	sub	rbx, rbx
-	mov	DIST_TO_FFTSRCARG, rbx
-	IF EXPANDING GE 2
-	mov	ffttype, 2
-common_label:
+	mov	rbx, DIST_TO_FFTSRCARG
 	IFB <clm>
 	xfft&fft_length
 	ELSE
 	xscfft&fft_length clm
 	ENDIF
-	ELSE
-	xfft&fft_length 2
-	ENDIF
-	ENDPP	xfft&fft_length&clm&levels&suffix
-	ENDM
-
-;;
-;; Multiply two numbers mod 2**p-1.  One of the input numbers (SRCARG) must
-;; have already been passed through gw_fft.
-;; Do the forward FFT, multiply, and inverse FFT
-;;
-
-type3	MACRO common_label, fft_length, suffix, clm, levels
-	PROCFP	xfft&fft_length&clm&levels&suffix
-	ad_prolog 0,1,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
-	mov	rsi, DESTARG
-	sub	rbx, rbx
-	mov	DIST_TO_FFTSRCARG, rbx
-	mov	rbp, SRCARG
-	sub	rbp, rsi
-	mov	DIST_TO_MULSRCARG, rbp
-	IF EXPANDING GE 2
-	mov	ffttype, 3
-	jmp	common_label
-	ELSE
-	xfft&fft_length 3
-	ENDIF
-	ENDPP	xfft&fft_length&clm&levels&suffix
-	ENDM
-
-;;
-;; Multiply two numbers mod 2**p-1.  Both of the input numbers must
-;; have already been passed through gw_fft.
-;; Do the multiply and inverse FFT
-;;
-
-type4	MACRO common_label, fft_length, suffix, clm, levels
-	PROCFP	xfft&fft_length&clm&levels&suffix
-	ad_prolog 0,1,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
-	mov	rsi, DESTARG
-	mov	rbx, SRC2ARG
-	sub	rbx, rsi
-	mov	DIST_TO_FFTSRCARG, rbx
-	mov	rbp, SRCARG
-	sub	rbp, rsi
-	mov	DIST_TO_MULSRCARG, rbp
-	IF EXPANDING GE 2
-	mov	ffttype, 4
-	jmp	common_label
-	ELSE
-	xfft&fft_length 4
-	ENDIF
-	ENDPP	xfft&fft_length&clm&levels&suffix
+	ENDPP	x&fft_length&clm&levels
 	ENDM
 
 ; Return from a type 1 FFT - return to caller
@@ -134,7 +49,7 @@ xfft_1_ret MACRO
 	ad_epilog 0,1,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
 	ENDM
 
-; Return from a type 2,3, or 4 FFT - jump to the common normalization code
+; Return from a type 2,3, or 4 FFT - call the common normalization code
 ; used in one-pass FFTs only.
 
 xfft_3_ret MACRO
@@ -244,7 +159,7 @@ mulhalf	MACRO	r
 
 xtouch	MACRO	addr
 	IF PREFETCHING NE 0
-	cmp	rsp, addr
+;;;	cmp	rsp, addr
 	ENDIF
 	ENDM
 

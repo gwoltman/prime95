@@ -1,4 +1,4 @@
-; Copyright 2001-2007 Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2009 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -48,8 +48,6 @@ blkdst = (4*(8192+128)+GAP2_10_4)
 xpass2_levels = 10
 
 ;; All the FFT routines for each FFT length
-
-	EXPANDING = 2
 
 allfft	xfft	40K
 allfft	xfft	48K

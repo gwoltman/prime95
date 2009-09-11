@@ -72,9 +72,9 @@ void gwinfo1 (struct gwinfo1_data *);
 #define NEW_STACK_SIZE	(8192+256)
 #endif
 struct gwasm_data {
-	void	*DESTARG;	/* Function argument */
-	void	*DIST_TO_FFTSRCARG;/* SRCARG - DESTARG */
-	void	*DIST_TO_MULSRCARG;/* SRC2ARG - DESTARG */
+	void	*DESTARG;	/* Function destination argument */
+	intptr_t DIST_TO_FFTSRCARG;/* SRCARG - DESTARG */
+	intptr_t DIST_TO_MULSRCARG;/* SRC2ARG - DESTARG */
 	void	*NORMRTN;	/* Post-multiply normalization routine */
 
 	int32_t	ZERO_PADDED_FFT;/* True if doing a zero pad FFT */
@@ -328,23 +328,20 @@ struct gwasm_data {
 /* gwnum assembly routine pointers */
 
 #define gw_fft(h,a)	(*(h)->GWPROCPTRS[0])(a)
-#define gw_square(h,a)	(*(h)->GWPROCPTRS[1])(a)
-#define gw_mul(h,a)	(*(h)->GWPROCPTRS[2])(a)
-#define gw_mulf(h,a)	(*(h)->GWPROCPTRS[3])(a)
-#define gw_add(h,a)	(*(h)->GWPROCPTRS[4])(a)
-#define gw_addq(h,a)	(*(h)->GWPROCPTRS[5])(a)
-#define gw_sub(h,a)	(*(h)->GWPROCPTRS[6])(a)
-#define gw_subq(h,a)	(*(h)->GWPROCPTRS[7])(a)
-#define gw_addsub(h,a)	(*(h)->GWPROCPTRS[8])(a)
-#define gw_addsubq(h,a)	(*(h)->GWPROCPTRS[9])(a)
-#define gw_copyzero(h,a) (*(h)->GWPROCPTRS[10])(a)
-#define gw_addf(h,a)	(*(h)->GWPROCPTRS[11])(a)
-#define gw_subf(h,a)	(*(h)->GWPROCPTRS[12])(a)
-#define gw_addsubf(h,a)	(*(h)->GWPROCPTRS[13])(a)
-#define gw_adds(h,a)	(*(h)->GWPROCPTRS[14])(a)
-#define gw_muls(h,a)	(*(h)->GWPROCPTRS[15])(a)
-#define norm_routines	16
-#define copyzero_routines 20
+#define gw_add(h,a)	(*(h)->GWPROCPTRS[1])(a)
+#define gw_addq(h,a)	(*(h)->GWPROCPTRS[2])(a)
+#define gw_sub(h,a)	(*(h)->GWPROCPTRS[3])(a)
+#define gw_subq(h,a)	(*(h)->GWPROCPTRS[4])(a)
+#define gw_addsub(h,a)	(*(h)->GWPROCPTRS[5])(a)
+#define gw_addsubq(h,a)	(*(h)->GWPROCPTRS[6])(a)
+#define gw_copyzero(h,a) (*(h)->GWPROCPTRS[7])(a)
+#define gw_addf(h,a)	(*(h)->GWPROCPTRS[8])(a)
+#define gw_subf(h,a)	(*(h)->GWPROCPTRS[9])(a)
+#define gw_addsubf(h,a)	(*(h)->GWPROCPTRS[10])(a)
+#define gw_adds(h,a)	(*(h)->GWPROCPTRS[11])(a)
+#define gw_muls(h,a)	(*(h)->GWPROCPTRS[12])(a)
+#define norm_routines	13
+#define copyzero_routines 17
 
 /* Declare the hundreds of assembly normalization routines.  Naming of these */
 /* routines is as follows: */
@@ -3953,8 +3950,8 @@ int internal_gwsetup (
 
 /* Set the procedure pointers from the asm structures and proc tabes */
 
-	memcpy (gwdata->GWPROCPTRS, info->proc_ptrs, 4 * sizeof (void *));
-	memcpy (gwdata->GWPROCPTRS+4, info->add_sub_norm_procs, 12 * sizeof (void *));
+	memcpy (gwdata->GWPROCPTRS, info->proc_ptrs, 1 * sizeof (void *));
+	memcpy (gwdata->GWPROCPTRS+1, info->add_sub_norm_procs, 12 * sizeof (void *));
 #ifndef X86_64
 	if (! (gwdata->cpu_flags & CPU_SSE2)) {
 		gwdata->GWPROCPTRS[norm_routines] = x87_prctab[x87_prctab_index (gwdata, 0, 0)];  // No error, no mulbyconst
@@ -4082,8 +4079,7 @@ void xcopy_7_words (
 	double	*srcarg, *destarg;
 
 	destarg = (double *) asm_data->DESTARG;
-	srcarg = (double *)
-		((char *) destarg + (size_t) asm_data->DIST_TO_FFTSRCARG);
+	srcarg = (double *) ((char *) destarg + asm_data->DIST_TO_FFTSRCARG);
 	destarg[-5] = srcarg[4];	/* Copy 1st word above halfway point */
 	destarg[-6] = srcarg[12];	/* Copy 2nd word */
 	destarg[-7] = srcarg[20];	/* Copy 3rd word */
@@ -7076,9 +7072,11 @@ void raw_gwfftmul (
 /* Call the assembly code */
 
 	asm_data = (struct gwasm_data *) gwdata->asm_data;
-	asm_data->SRCARG = s;
 	asm_data->DESTARG = d;
-	gw_mul (gwdata, asm_data);
+	asm_data->DIST_TO_FFTSRCARG = 0;
+	asm_data->DIST_TO_MULSRCARG = (intptr_t) s - (intptr_t) d;
+	asm_data->ffttype = 3;
+	gw_fft (gwdata, asm_data);
 	if (! is_valid_double (gwsumout (gwdata, d))) gwdata->GWERROR |= 1;
 	gwdata->fft_count += 2.0;
 
@@ -7189,8 +7187,10 @@ void gwfft (			/* Forward FFT */
 
 /* Call the assembly code */
 
-	asm_data->SRCARG = s;
 	asm_data->DESTARG = d;
+	asm_data->DIST_TO_FFTSRCARG = (intptr_t) s - (intptr_t) d;
+	asm_data->DIST_TO_MULSRCARG = 0;
+	asm_data->ffttype = 1;
 	gw_fft (gwdata, asm_data);
 	gwdata->fft_count += 1.0;
 }
@@ -7228,7 +7228,10 @@ void gwsquare (			/* Square a number */
 	asm_data = (struct gwasm_data *) gwdata->asm_data;
 	asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->NORMNUM];
 	asm_data->DESTARG = s;
-	gw_square (gwdata, asm_data);
+	asm_data->DIST_TO_FFTSRCARG = 0;
+	asm_data->DIST_TO_MULSRCARG = 0;
+	asm_data->ffttype = 2;
+	gw_fft (gwdata, asm_data);
 	if (! is_valid_double (gwsumout (gwdata, s))) gwdata->GWERROR |= 1;
 	gwdata->fft_count += 2.0;
 
@@ -7301,10 +7304,11 @@ void gwfftfftmul (		/* Multiply two already FFTed sources */
 
 	asm_data = (struct gwasm_data *) gwdata->asm_data;
 	asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->NORMNUM];
-	asm_data->SRCARG = s;
-	asm_data->SRC2ARG = s2;
 	asm_data->DESTARG = d;
-	gw_mulf (gwdata, asm_data);
+	asm_data->DIST_TO_MULSRCARG = (intptr_t) s - (intptr_t) d;
+	asm_data->DIST_TO_FFTSRCARG = (intptr_t) s2 - (intptr_t) d;
+	asm_data->ffttype = 4;
+	gw_fft (gwdata, asm_data);
 	if (! is_valid_double (gwsumout (gwdata, d))) gwdata->GWERROR |= 1;
 	gwdata->fft_count += 1.0;
 
@@ -7931,7 +7935,7 @@ void gwsmalladd (
 /* We also make sure there is at least one b value per FFT work, so */
 /* that any carry can successfully spread over 3 FFT words. */
 
-	if (gwdata->GWPROCPTRS[14] == NULL || gwdata->k > 1.0 ||
+	if (gwdata->GWPROCPTRS[11] == NULL || gwdata->k > 1.0 ||
 	    gwdata->NUM_B_PER_SMALL_WORD < 1) {
 		gwnum	tmp;
 		tmp = gwalloc (gwdata);
