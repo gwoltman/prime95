@@ -427,14 +427,12 @@
 				OTHER_LDFLAGS = "";
 				"OTHER_LDFLAGS[arch=i386]" = (
 					../../prime95/macosx/factor32.o,
-					../../gwnum/debug/multutil.o,
 					../../gwnum/debug/gwnum.a,
 					"-lcurl",
 					"-lstdc++",
 				);
 				"OTHER_LDFLAGS[arch=x86_64]" = (
 					../../prime95/macosx64/factor64.o,
-					../../gwnum/amd64/debug/multutil.o,
 					../../gwnum/amd64/debug/gwnum.a,
 					"-lcurl",
 					"-lstdc++",
@@ -471,13 +469,11 @@
 				OTHER_LDFLAGS = "";
 				"OTHER_LDFLAGS[arch=i386]" = (
 					../../prime95/macosx/factor32.o,
-					../../gwnum/release/multutil.o,
 					../../gwnum/release/gwnum.a,
 					"-lcurl",
 				);
 				"OTHER_LDFLAGS[arch=x86_64]" = (
 					../../prime95/macosx64/factor64.o,
-					../../gwnum/amd64/release/multutil.o,
 					../../gwnum/amd64/release/gwnum.a,
 					"-lcurl",
 					"-lstdc++",

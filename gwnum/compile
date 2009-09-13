@@ -19,15 +19,15 @@ all:	gwnum.lib gwnumd.lib linux\gwnum.a macosx\gwnum.a release\ecmstag1.obj debu
 
 # Make libraries out of the object files
 
-gwnum.lib: release\cpuid.obj release\gwnum.obj release\gwthread.obj release\gwutil.obj release\gwdbldbl.obj release\giants.obj mult.obj multutil.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2p.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3p.obj xmult3a.obj xmult3ap.obj xmult4.obj xmult4p.obj xmult5.obj xmult5p.obj xmult6.obj xmult6p.obj timeit.obj timeitp.obj
+gwnum.lib: release\cpuid.obj release\gwnum.obj release\gwthread.obj release\gwutil.obj release\gwdbldbl.obj release\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2p.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3p.obj xmult3a.obj xmult3ap.obj xmult4.obj xmult4p.obj xmult5.obj xmult5p.obj xmult6.obj xmult6p.obj timeit.obj timeitp.obj
     del gwnum.lib
     lib /OUT:gwnum.lib release\*.obj *.obj
 
-gwnumd.lib: debug\cpuid.obj debug\gwnum.obj debug\gwthread.obj debug\gwutil.obj debug\gwdbldbl.obj debug\giants.obj mult.obj multutil.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2p.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3p.obj xmult3a.obj xmult3ap.obj xmult4.obj xmult4p.obj xmult5.obj xmult5p.obj xmult6.obj xmult6p.obj timeit.obj timeitp.obj
+gwnumd.lib: debug\cpuid.obj debug\gwnum.obj debug\gwthread.obj debug\gwutil.obj debug\gwdbldbl.obj debug\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2p.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3p.obj xmult3a.obj xmult3ap.obj xmult4.obj xmult4p.obj xmult5.obj xmult5p.obj xmult6.obj xmult6p.obj timeit.obj timeitp.obj
     del gwnumd.lib
     lib /OUT:gwnumd.lib debug\*.obj *.obj
 
-linux\gwnum.a: mult.obj multutil.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2p.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3p.obj xmult3a.obj xmult3ap.obj xmult4.obj xmult4p.obj xmult5.obj xmult5p.obj xmult6.obj xmult6p.obj timeit.obj timeitp.obj
+linux\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2p.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3p.obj xmult3a.obj xmult3ap.obj xmult4.obj xmult4p.obj xmult5.obj xmult5p.obj xmult6.obj xmult6p.obj timeit.obj timeitp.obj
     attrib -r linux\gwnum.a
     del linux\gwnum.a
     del linux\gwnum.lib
@@ -36,7 +36,7 @@ linux\gwnum.a: mult.obj multutil.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj
     attrib -r linux\gwnum.a
     del linux\gwnum.lib
 
-macosx\gwnum.a: mult.obj multutil.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2p.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3p.obj xmult3a.obj xmult3ap.obj xmult4.obj xmult4p.obj xmult5.obj xmult5p.obj xmult6.obj xmult6p.obj timeit.obj timeitp.obj
+macosx\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2p.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3p.obj xmult3a.obj xmult3ap.obj xmult4.obj xmult4p.obj xmult5.obj xmult5p.obj xmult6.obj xmult6p.obj timeit.obj timeitp.obj
     attrib -r macosx\gwnum.a
     del macosx\gwnum.a
     del macosx\gwnum.lib
@@ -93,9 +93,6 @@ debug\ecmstag1.obj: ecmstag1.c gwnum.h
 
 mult.obj: mult.asm
     $(masm) /DPPRO mult.asm
-
-multutil.obj: multutil.asm
-    $(masm) /DPPRO multutil.asm
 
 mult1.obj: mult1.asm mult.mac fft1.mac lucas.mac
     $(masm) /DPPRO mult1.asm

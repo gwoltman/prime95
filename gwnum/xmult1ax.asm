@@ -25,7 +25,7 @@ _TEXT SEGMENT
 ;; before a multiply must use the routine that will normalize data.
 ;;
 
-PROCF	gwxaddq1
+PROCFL	gwxaddq1
 	ad_prolog 0,0,rsi
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
@@ -60,7 +60,7 @@ saved_col_ptr	EQU	PPTR [rsp+first_local+1*SZPTR]
 loopcount1	EQU	DPTR [rsp+first_local+2*SZPTR+0]
 loopcount2	EQU	DPTR [rsp+first_local+2*SZPTR+4]
 
-PROCF	gwxadd1
+PROCFL	gwxadd1
 	ad_prolog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
@@ -120,7 +120,7 @@ gwxadd1 ENDP
 ;; before a multiply must use the routine that will normalize data.
 ;;
 
-PROCF	gwxsubq1
+PROCFL	gwxsubq1
 	ad_prolog 0,0,rsi
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
@@ -155,7 +155,7 @@ saved_col_ptr	EQU	PPTR [rsp+first_local+1*SZPTR]
 loopcount1	EQU	DPTR [rsp+first_local+2*SZPTR+0]
 loopcount2	EQU	DPTR [rsp+first_local+2*SZPTR+4]
 
-PROCF	gwxsub1
+PROCFL	gwxsub1
 	ad_prolog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
@@ -213,7 +213,7 @@ gwxsub1 ENDP
 ;; Add and subtract two numbers without carry propogation.
 ;;
 
-PROCF	gwxaddsubq1
+PROCFL	gwxaddsubq1
 	ad_prolog 0,0,rbp,rsi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
@@ -264,7 +264,7 @@ saved_col_ptr	EQU	PPTR [rsp+first_local+2*SZPTR]
 loopcount1	EQU	DPTR [rsp+first_local+3*SZPTR+0]
 loopcount2	EQU	DPTR [rsp+first_local+3*SZPTR+4]
 
-PROCF	gwxaddsub1
+PROCFL	gwxaddsub1
 	ad_prolog 3*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
@@ -333,7 +333,7 @@ gwxaddsub1 ENDP
 ;; Copy one number and zero some low order words.
 ;;
 
-PROCF	gwxcopyzero1
+PROCFL	gwxcopyzero1
 	ad_prolog 0,0,rsi,rdi
 	mov	rsi, SRCARG		; Address of first number
 	mov	rdi, DESTARG		; Address of destination
@@ -352,7 +352,7 @@ gwxcopyzero1 ENDP
 ;; Add in a small number with carry propogation
 ;;
 
-PROCF	gwxadds1
+PROCFL	gwxadds1
 	ad_prolog 0,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rsi, DESTARG		; Address of destination
 	movsd	xmm7, DBLARG		; Small addin value
@@ -377,7 +377,7 @@ saved_dest_ptr	EQU	PPTR [rsp+first_local+0*SZPTR]
 saved_col_ptr	EQU	PPTR [rsp+first_local+1*SZPTR]
 saved_biglit_ptr EQU	PPTR [rsp+first_local+2*SZPTR]
 
-PROCF	gwxmuls1
+PROCFL	gwxmuls1
 	ad_prolog 3*SZPTR,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rsi, DESTARG		; Address of destination
 	movlpd	xmm7, DBLARG		; Small multiplier value

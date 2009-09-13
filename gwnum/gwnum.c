@@ -330,82 +330,93 @@ struct gwasm_data {
 #define gw_fft(h,a)	(*(h)->GWPROCPTRS[0])(a)
 #define gw_add(h,a)	(*(h)->GWPROCPTRS[1])(a)
 #define gw_addq(h,a)	(*(h)->GWPROCPTRS[2])(a)
+#define gw_addf(h,a)	(*(h)->GWPROCPTRS[2])(a)
 #define gw_sub(h,a)	(*(h)->GWPROCPTRS[3])(a)
 #define gw_subq(h,a)	(*(h)->GWPROCPTRS[4])(a)
+#define gw_subf(h,a)	(*(h)->GWPROCPTRS[4])(a)
 #define gw_addsub(h,a)	(*(h)->GWPROCPTRS[5])(a)
 #define gw_addsubq(h,a)	(*(h)->GWPROCPTRS[6])(a)
+#define gw_addsubf(h,a)	(*(h)->GWPROCPTRS[6])(a)
 #define gw_copyzero(h,a) (*(h)->GWPROCPTRS[7])(a)
-#define gw_addf(h,a)	(*(h)->GWPROCPTRS[8])(a)
-#define gw_subf(h,a)	(*(h)->GWPROCPTRS[9])(a)
-#define gw_addsubf(h,a)	(*(h)->GWPROCPTRS[10])(a)
-#define gw_adds(h,a)	(*(h)->GWPROCPTRS[11])(a)
-#define gw_muls(h,a)	(*(h)->GWPROCPTRS[12])(a)
-#define norm_routines	13
-#define copyzero_routines 17
+#define gw_adds(h,a)	(*(h)->GWPROCPTRS[8])(a)
+#define gw_muls(h,a)	(*(h)->GWPROCPTRS[9])(a)
+#define norm_routines	10
+#define zerohigh_routines 14
 
-/* Declare the hundreds of assembly normalization routines.  Naming of these */
-/* routines is as follows: */
-/* x or blank		(SSE2 or x87) */
-/* r or i		(rational or irrational) */
-/* 1 or 2		(1 or 2 pass FFTs) */
-/* zp or blank		(zero padded FFT or not) */
-/* e or blank		(roundoff error checking or not) */
-/* c or blank		(mul by a small constant or not) */
-/* b or blank		(b > 2 or not) */
-/* s4 or blank		(SSE4 or not) */
-/* k or blank		(XMM_K_HI is zero or not (zp only)) */
-/* c1 or cm1 or blank	(c=1, c=-1, or abs(c)!=1 (zp only, not c only)) */
-/* AMD or blank		(AMD prefetching or not (x only, 2 only)) */
-#define extrn_explode()		extrn_explode1(r)	extrn_explode1(i)
-#define extrn_explode1(name)	extrn_explode2(name)	extrn_explode2(x##name)
-#define extrn_explode2(name)	extrn_explode3(name##1)	extrn_explode3(name##2)
-#define extrn_explode3(name)	extrn_explode4(name)	extrn_explode4(name##zp) 
-#define extrn_explode4(name)	extrn_explode5(name)	extrn_explode5(name##e)
-#define extrn_explode5(name)	extrn_explode6(name)	extrn_explode6(name##c)
-#define extrn_explode6(name)	extrn_explode7(name)	extrn_explode7(name##b)
-#define extrn_explode7(name)	extrn_explode8(name)	extrn_explode8(name##s4)
-#define extrn_explode8(name)	extrn_explode9(name)	extrn_explode9(name##k)
-#define extrn_explode9(name)	extrn_explode10(name)	extrn_explode10(name##c1)	extrn_explode10(name##cm1)
-#define extrn_explode10(name)	extrn_explode11(name)	extrn_explode11(name##AMD)
-#define extrn_explode11(name)	extern void (*name)(void);
-extrn_explode()
+/* Macro to aid in build prctabs (a prctab is an array of pointers to assembly routines) */
+
+#define extern_decl(name)		extern void (*name)(void);
+#define array_entry(name)		&name,
+
+/* Build an array of the assembly auxillary routines (addition, subtraction, etc.) */
+
+#define aux_decl(name)			extern_decl(name##1)	extern_decl(name##2)
+
+#ifndef X86_64
+aux_decl(gwadd)		aux_decl(gwaddq)
+aux_decl(gwsub)		aux_decl(gwsubq)
+aux_decl(gwaddsub)	aux_decl(gwaddsubq)
+aux_decl(gwcopyzero)	aux_decl(gwmuls)
+
+void *x87_aux_prctab[] = {
+	&gwadd1, &gwaddq1, &gwsub1, &gwsubq1, &gwaddsub1, &gwaddsubq1, &gwcopyzero1, NULL, &gwmuls1,
+	&gwadd2, &gwaddq2, &gwsub2, &gwsubq2, &gwaddsub2, &gwaddsubq2, &gwcopyzero2, NULL, &gwmuls2};
+#endif
+
+aux_decl(gwxadd)	aux_decl(gwxaddq)
+aux_decl(gwxsub)	aux_decl(gwxsubq)
+aux_decl(gwxaddsub)	aux_decl(gwxaddsubq)
+aux_decl(gwxcopyzero)	aux_decl(gwxadds)	aux_decl(gwxmuls)
+
+void *sse2_aux_prctab[] = {
+	&gwxadd1, &gwxaddq1, &gwxsub1, &gwxsubq1, &gwxaddsub1, &gwxaddsubq1, &gwxcopyzero1, &gwxadds1, &gwxmuls1,
+	&gwxadd2, &gwxaddq2, &gwxsub2, &gwxsubq2, &gwxaddsub2, &gwxaddsubq2, &gwxcopyzero2, &gwxadds2, &gwxmuls2};
 
 /* Now we put the normalization routines in an array so we can easily pick */
 /* the normalization routines to use.  There is one table for SSE2 and one */
-/* for x87.  The SSE2 table has these 480 combinations: */
-/*	r or i */
-/*	1 or 2 or 2AMD */
-/*	e or blank */
-/*	b or blank */
-/*	s4 or blank */
-/*	zpck or zpk or zpkc1 or zpkcm1 or zpc or zp or zpc1 or zpcm1 or c or blank */
+/* for x87.  The SSE2 table has these 492 combinations: */
+/*	r or i		(rational or irrational) */
+/*	1 or 2 or 2AMD	(1 or 2 pass FFTs or 2 pass with AMD prefetching) */
+/*	z or zp or blank (zero upper half of result or zero-padded FFT or normal FFT */
+/*	e or blank	(roundoff error checking or not) */
+/*	b or blank	(b > 2 or not) */
+/*	s4 or blank	(SSE4 or not) */
+/*	k or blank	(k for XMM_K_HI is zero or not) */
+/*	c1 or cm1 or blank (c=1, c=-1, abs(c)!=1) */
 /* We also define a macro that will pick the correct entry from the array. */
 
-#define sse2_explode()			sse2_explode1(xr)		sse2_explode1(xi)		NULL
-#define sse2_explode1(name)		sse2_explode2(name##1,notAMD)	sse2_explode2(name##2,notAMD)	sse2_explode2(name##2,AMD)
-#define sse2_explode2(name,suff)	sse2_explode3(name,suff,notzp)	sse2_explode3(name##zp,suff,zp)
-#define sse2_explode3(name,suff,zp)	sse2_explode4(name,suff,zp)	sse2_explode4(name##e,suff,zp)
-#define sse2_explode4(name,suff,zp)	sse2_explode5(name,suff,zp,notc) sse2_explode5(name##c,suff,zp,c)
-#define sse2_explode5(name,suff,zp,c)	sse2_explode6(name,suff,zp,c)	sse2_explode6(name##b,suff,zp,c)
-#define sse2_explode6(name,suff,zp,c)	sse2_explode7##zp(name,suff,c)	sse2_explode7##zp(name##s4,suff,c)
-#define sse2_explode7notzp(name,suff,c)	sse2_explode9##suff(name)
-#define sse2_explode7zp(name,suff,c)	sse2_explode8##c(name,suff)	sse2_explode8##c(name##k,suff)
-#define sse2_explode8c(name,suff)	sse2_explode9##suff(name)
-#define sse2_explode8notc(name,suff)	sse2_explode9##suff(name)	sse2_explode9##suff(name##c1)	sse2_explode9##suff(name##cm1)
-#define sse2_explode9notAMD(name)	&name,
-#define sse2_explode9AMD(name)		&name##AMD,
+#define sse2_explode(macro)			sse2_explode1(macro,xr)			sse2_explode1(macro,xi)
+#define sse2_explode1(macro,name)		sse2_explode2(macro,name##1,notAMD)	sse2_explode2(macro,name##2,notAMD)	sse2_explode2(macro,name##2,AMD)
+#define sse2_explode2(macro,name,suff)		sse2_zero_explode(macro,name##z,suff)	sse2_explode3(macro,name,suff,notzp)	sse2_explode3(macro,name##zp,suff,zp)
+#define sse2_zero_explode(macro,name,suff)	sse2_explode9##suff(macro,name)		sse2_explode9##suff(macro,name##e)
+#define sse2_explode3(macro,name,suff,zp)	sse2_explode4(macro,name,suff,zp)	sse2_explode4(macro,name##e,suff,zp)
+#define sse2_explode4(macro,name,suff,zp)	sse2_explode5(macro,name,suff,zp,notc)	sse2_explode5(macro,name##c,suff,zp,c)
+#define sse2_explode5(macro,name,suff,zp,c)	sse2_explode6(macro,name,suff,zp,c)	sse2_explode6(macro,name##b,suff,zp,c)
+#define sse2_explode6(macro,name,suff,zp,c)	sse2_explode7##zp(macro,name,suff,c)	sse2_explode7##zp(macro,name##s4,suff,c)
+#define sse2_explode7notzp(macro,name,suff,c)	sse2_explode9##suff(macro,name)
+#define sse2_explode7zp(macro,name,suff,c)	sse2_explode8##c(macro,name,suff)	sse2_explode8##c(macro,name##k,suff)
+#define sse2_explode8c(macro,name,suff)		sse2_explode9##suff(macro,name)
+#define sse2_explode8notc(macro,name,suff)	sse2_explode9##suff(macro,name)		sse2_explode9##suff(macro,name##c1)	sse2_explode9##suff(macro,name##cm1)
+#define sse2_explode9notAMD(macro,name)		macro(name)
+#define sse2_explode9AMD(macro,name)		macro(name##AMD)
 
-void *sse2_prctab[] = { sse2_explode() };
+sse2_explode(extern_decl)
+void *sse2_prctab[] = { sse2_explode(array_entry) NULL };
 
-int sse2_prctab_index (gwhandle *gwdata, int e, int c)
+int sse2_prctab_index (gwhandle *gwdata, int z, int e, int c)
 {
 	int	index = 0;
 
-	if (! gwdata->RATIONAL_FFT) index += 240;
+	if (! gwdata->RATIONAL_FFT) index += 246;
 	if (gwdata->PASS2_LEVELS) {
-		if (gwdata->cpu_flags & CPU_3DNOW) index += 160;
-		else index += 80;
+		if (gwdata->cpu_flags & CPU_3DNOW) index += 164;
+		else index += 82;
 	}
+	if (z) {
+		if (e) index += 1;
+		return (index);
+	}
+	index += 2;
 	if (! gwdata->ZERO_PADDED_FFT) {
 		if (e) index += 8;
 		if (c) index += 4;
@@ -430,30 +441,32 @@ int sse2_prctab_index (gwhandle *gwdata, int e, int c)
 	 return (index);
 }				    
 
-/* The x87 normalization routines array has 32 combinations: */
-/*	r or i */
-/*	1 or 2 */
-/*	zp or blank */
-/*	e or blank */
-/*	c or blank */
+/* The x87 normalization routines array has 40 combinations: */
+/*	r or i		(rational or irrational) */
+/*	1 or 2		(1 or 2 pass FFTs) */
+/*	z or zp or blank (zero upper half of result or zero-padded FFT or normal FFT */
+/*	e or blank	(roundoff error checking or not) */
+/*	c or blank	(mul by small const or not)  */
 /* We also define a macro that will pick the correct entry from the array. */
 
 #ifndef X86_64
-#define x87_explode()			x87_explode1(r)		x87_explode1(i) NULL
-#define x87_explode1(name)		x87_explode2(name##1)	x87_explode2(name##2)
-#define x87_explode2(name)		x87_explode3(name)	x87_explode3(name##zp)
-#define x87_explode3(name)		x87_explode4(name)	x87_explode4(name##e)
-#define x87_explode4(name)		x87_explode5(name)	x87_explode5(name##c)
-#define x87_explode5(name)		&name,
+#define x87_explode(macro)		x87_explode1(macro,r)		x87_explode1(macro,i)
+#define x87_explode1(macro,name)	x87_explode2(macro,name##1)	x87_explode2(macro,name##2)
+#define x87_explode2(macro,name)	x87_zero_explode(macro,name##z)	x87_explode3(macro,name)	x87_explode3(macro,name##zp)
+#define x87_zero_explode(macro,name)	macro(name)			macro(name##e)
+#define x87_explode3(macro,name)	x87_explode4(macro,name)	x87_explode4(macro,name##e)
+#define x87_explode4(macro,name)	macro(name)			macro(name##c)
 
-void *x87_prctab[] = { x87_explode() };
+x87_explode(extern_decl)
+void *x87_prctab[] = { x87_explode(array_entry) NULL };
 
-#define	x87_prctab_index(gwdata, e, c)  \
-	    ((gwdata)->RATIONAL_FFT ? 0 : 16) + \
-	    ((gwdata)->PASS2_LEVELS ? 8 : 0) + \
-	    ((gwdata)->ZERO_PADDED_FFT ? 4 : 0) + \
-	    (e ? 2 : 0) + \
-	    (c ? 1 : 0)
+#define	x87_prctab_index(gwdata, z, e, c)  \
+	    ((gwdata)->RATIONAL_FFT ? 0 : 20) + \
+	    ((gwdata)->PASS2_LEVELS ? 10 : 0) + \
+	    (z ? (e ? 1 : 0) : 2 + \
+	     ((gwdata)->ZERO_PADDED_FFT ? 4 : 0) + \
+	     (e ? 2 : 0) + \
+	     (c ? 1 : 0))
 #endif
 
 /* Helper macros */
@@ -524,7 +537,6 @@ double *v26_build_pass1_table (
 	unsigned long pass1_size, pass2_size, pass1_increment;
 	unsigned long group, i, j, N, temp, upper_sse2_word;
 	double	sincos[6];
-	int	pfa;
 
 /* Initialize some needed constants */
 
@@ -600,9 +612,6 @@ double *v26_build_pass1_table (
 /* The second and third levels do a standard radix-4 four-complex-FFT */
 /* building block with a post-multiply by a sin/cos root of unity. */
 		
-/* Set flag if this is a 3*2^n FFT */
-/* BUG:		pfa = (gwdata->FFTLEN != pow_two_above_or_equal (gwdata->FFTLEN)); */
-
 			N = N * 4;
 			for (j = 0; j < N / 4;  j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
@@ -2343,7 +2352,7 @@ use_zpad:	gwdata->ZERO_PADDED_FFT = TRUE;
 
 	gwdata->qa_picked_nth_fft = qa_nth_fft;
 
-/* Set pointer to assembler "jump" table */
+/* Set pointer to assembler "jump" table entry */
 
 	gwdata->jmptab = jmptab;
 	return (0);
@@ -3433,7 +3442,7 @@ int internal_gwsetup (
 	intptr_t mem = (intptr_t) tables - (intptr_t) gwdata->gwnum_memory;
 	if (mem != mem_needed) {
 		sprintf (buf, "FFTlen: %d, mem needed should be: %d\n",
-			 gwdata->FFTLEN, (int) (mem - info->scratch_size));
+			 (int) gwdata->FFTLEN, (int) (mem - info->scratch_size));
 		OutputBoth(0,buf);}}
 #endif
 
@@ -3950,27 +3959,27 @@ int internal_gwsetup (
 
 /* Set the procedure pointers from the asm structures and proc tabes */
 
-	memcpy (gwdata->GWPROCPTRS, info->proc_ptrs, 1 * sizeof (void *));
-	memcpy (gwdata->GWPROCPTRS+1, info->add_sub_norm_procs, 12 * sizeof (void *));
+	gwdata->GWPROCPTRS[0] = info->proc_ptr;
 #ifndef X86_64
 	if (! (gwdata->cpu_flags & CPU_SSE2)) {
-		gwdata->GWPROCPTRS[norm_routines] = x87_prctab[x87_prctab_index (gwdata, 0, 0)];  // No error, no mulbyconst
-		gwdata->GWPROCPTRS[norm_routines+1] = x87_prctab[x87_prctab_index (gwdata, 1, 0)];  // Error, no mulbyconst
-		gwdata->GWPROCPTRS[norm_routines+2] = x87_prctab[x87_prctab_index (gwdata, 0, 1)];  // No error, mulbyconst
-		gwdata->GWPROCPTRS[norm_routines+3] = x87_prctab[x87_prctab_index (gwdata, 1, 1)];  // Error, mulbyconst
+		memcpy (gwdata->GWPROCPTRS+1, &x87_aux_prctab[gwdata->PASS2_LEVELS ? 9 : 0], 9 * sizeof (void *));
+		gwdata->GWPROCPTRS[norm_routines] = x87_prctab[x87_prctab_index (gwdata, 0, 0, 0)];  // No error, no mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+1] = x87_prctab[x87_prctab_index (gwdata, 0, 1, 0)];  // Error, no mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+2] = x87_prctab[x87_prctab_index (gwdata, 0, 0, 1)];  // No error, mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+3] = x87_prctab[x87_prctab_index (gwdata, 0, 1, 1)];  // Error, mulbyconst
+		gwdata->GWPROCPTRS[zerohigh_routines] = x87_prctab[x87_prctab_index (gwdata, 1, 0, 0)];  // Zero, no error
+		gwdata->GWPROCPTRS[zerohigh_routines+1] = x87_prctab[x87_prctab_index (gwdata, 1, 1, 0)];  // Zero, error
 	} else
 #endif
 	{
-		gwdata->GWPROCPTRS[norm_routines] = sse2_prctab[sse2_prctab_index (gwdata, 0, 0)];  // No error, no mulbyconst
-		gwdata->GWPROCPTRS[norm_routines+1] = sse2_prctab[sse2_prctab_index (gwdata, 1, 0)];  // Error, no mulbyconst
-		gwdata->GWPROCPTRS[norm_routines+2] = sse2_prctab[sse2_prctab_index (gwdata, 0, 1)];  // No error, mulbyconst
-		gwdata->GWPROCPTRS[norm_routines+3] = sse2_prctab[sse2_prctab_index (gwdata, 1, 1)];  // Error, mulbyconst
-
+		memcpy (gwdata->GWPROCPTRS+1, &sse2_aux_prctab[gwdata->PASS2_LEVELS ? 9 : 0], 9 * sizeof (void *));
+		gwdata->GWPROCPTRS[norm_routines] = sse2_prctab[sse2_prctab_index (gwdata, 0, 0, 0)];  // No error, no mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+1] = sse2_prctab[sse2_prctab_index (gwdata, 0, 1, 0)];  // Error, no mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+2] = sse2_prctab[sse2_prctab_index (gwdata, 0, 0, 1)];  // No error, mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+3] = sse2_prctab[sse2_prctab_index (gwdata, 0, 1, 1)];  // Error, mulbyconst
+		gwdata->GWPROCPTRS[zerohigh_routines] = sse2_prctab[sse2_prctab_index (gwdata, 1, 0, 0)];  // Zero, no error
+		gwdata->GWPROCPTRS[zerohigh_routines+1] = sse2_prctab[sse2_prctab_index (gwdata, 1, 1, 0)];  // Zero, error
 	}
-	memcpy (gwdata->GWPROCPTRS+copyzero_routines,
-		  info->add_sub_norm_procs + 12 +
-		  (gwdata->RATIONAL_FFT ? 0 : 2),
-		  2 * sizeof (void *));
 
 /* Default normalization routines and behaviors */
 
@@ -5791,8 +5800,7 @@ void gwfft_description (
 		 gwdata->FFTLEN >= 4096 ?	"K" :
 						"");
 	if (gwdata->num_threads > 1)
-		sprintf (buf + strlen (buf), ", %d threads",
-			 gwdata->num_threads);
+		sprintf (buf + strlen (buf), ", %d threads", (int) gwdata->num_threads);
 
 	if (gw_using_large_pages (gwdata))
 		strcat (buf, " using large pages");
@@ -5809,7 +5817,7 @@ void gw_as_string (
 {
 	if (k != 1.0)
 		sprintf (buf, "%.0f*%lu^%lu%c%lu", k, b, n,
-			 c < 0 ? '-' : '+', abs (c));
+			 c < 0 ? '-' : '+', (unsigned long) abs (c));
 	else if (b == 2 && c == -1)
 		sprintf (buf, "M%lu", n);
 	else {
@@ -5819,7 +5827,7 @@ void gw_as_string (
 			sprintf (buf, "F%lu", cnt);
 		else
 			sprintf (buf, "%lu^%lu%c%lu", b, n,
-				 c < 0 ? '-' : '+', abs (c));
+				 c < 0 ? '-' : '+', (unsigned long) abs (c));
 	}
 }
 
@@ -7131,7 +7139,7 @@ void emulate_mod (
 /* normalization routine so that the FFT code zeroes the high FFT words */
 /* and we are left with just the quotient! */
 
-	asm_data->NORMRTN = gwdata->GWPROCPTRS[copyzero_routines + (gwdata->NORMNUM & 1)];
+	asm_data->NORMRTN = gwdata->GWPROCPTRS[zerohigh_routines + (gwdata->NORMNUM & 1)];
 	raw_gwfftmul (gwdata, gwdata->GW_RECIP_FFT, tmp);
 	ASSERTG (* addr (gwdata, tmp, gwdata->FFTLEN/2-1) > -2.0 && * addr (gwdata, tmp, gwdata->FFTLEN/2-1) <= 0.0);
 
@@ -7935,7 +7943,7 @@ void gwsmalladd (
 /* We also make sure there is at least one b value per FFT work, so */
 /* that any carry can successfully spread over 3 FFT words. */
 
-	if (gwdata->GWPROCPTRS[11] == NULL || gwdata->k > 1.0 ||
+	if (gwdata->GWPROCPTRS[8] == NULL || gwdata->k > 1.0 ||
 	    gwdata->NUM_B_PER_SMALL_WORD < 1) {
 		gwnum	tmp;
 		tmp = gwalloc (gwdata);

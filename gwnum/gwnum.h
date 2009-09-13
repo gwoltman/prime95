@@ -730,11 +730,10 @@ struct gwasm_jmptab {
 	uint32_t max_exp;	/* Maximum exponent for this FFT len */
 	uint32_t fftlen;	/* FFT length */
 	float	timing;		/* Reference machine's time for a squaring */
-	uint32_t mem_needed; /* Memory needed */
+	uint32_t mem_needed;	/* Memory needed */
 	uint32_t flags_min_l2_cache_clm;
 	uint32_t scratch_size;
-	void	*proc_ptrs[1];
-	void	**add_sub_norm_procs;
+	void	*proc_ptr;	/* Ptr to assembly coded FFT routine */
 	uint32_t pass2_levels;
 	int32_t counts[20];
 };
@@ -773,7 +772,7 @@ struct gwhandle_struct {
 	unsigned long n;	/* N in K*B^N+C */
 	signed long c;		/* C in K*B^N+C */
 	unsigned long FFTLEN;	/* The FFT size we are using */
-	void	(*GWPROCPTRS[21])(void*); /* Ptrs to assembly routines */
+	void	(*GWPROCPTRS[16])(void*); /* Ptrs to assembly routines */
 	int	cpu_flags;	/* Copy of CPU_FLAGS at time setup was */
 				/* called (just in case CPU_FLAGS changes) */
 	int	ZERO_PADDED_FFT;/* True if doing a zero pad FFT */
