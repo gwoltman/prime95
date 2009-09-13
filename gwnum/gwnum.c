@@ -2036,7 +2036,7 @@ again:	zpad_jmptab = NULL;
 
 /* Move to next jmptable entry */
 
-next1:			for (longp = &zpad_jmptab->counts[4]; *longp; longp++);
+next1:			for (longp = &zpad_jmptab->counts[0]; *longp; longp++);
 			zpad_jmptab = (struct gwasm_jmptab *) (longp + 1);
 		}
 	}
@@ -2302,7 +2302,7 @@ next1:			for (longp = &zpad_jmptab->counts[4]; *longp; longp++);
 
 /* Move to next jmptable entry */
 
-next2:		for (longp = &jmptab->counts[4]; *longp; longp++);
+next2:		for (longp = &jmptab->counts[0]; *longp; longp++);
 		jmptab = (struct gwasm_jmptab *) (longp + 1);
 	}
 
@@ -2342,7 +2342,7 @@ use_zpad:	gwdata->ZERO_PADDED_FFT = TRUE;
 
 	gwdata->FFTLEN = jmptab->fftlen;
 	gwdata->PASS2_LEVELS = jmptab->pass2_levels; /* FFT levels in pass2 */
-	gwdata->PASS2GAPSIZE = jmptab->counts[1] - 1;
+	gwdata->PASS2GAPSIZE = jmptab->counts[0] - 1;
 	gwdata->GW_ALIGNMENT = 4096;	/* Guess an alignment so gwsize can */
 					/* return a reasonable value for */
 					/* large page support in gwsetup */
@@ -3456,6 +3456,30 @@ int internal_gwsetup (
 	asm_data->count3 = info->counts[4];
 	asm_data->count4 = info->counts[5];
 	asm_data->count5 = info->counts[6];
+	if (!(gwdata->cpu_flags & CPU_SSE2) && gwdata->PASS2_LEVELS) {
+		/* Count of pass 2 sections */
+		asm_data->addcount1 = gwdata->FFTLEN / pass2_size / 2;
+		/* Count of all-complex pass 2 sections */
+		asm_data->count1 = asm_data->addcount1;
+		if (gwdata->ZERO_PADDED_FFT || c < 0) asm_data->count1--;
+	}
+	if (gwdata->cpu_flags & CPU_SSE2 && gwdata->PASS2_LEVELS) {
+		int	pfa, pfa_shift;
+		/* Count of pass 2 sections */
+		asm_data->addcount1 = gwdata->FFTLEN / pass2_size / 4;
+		/* Count of all-complex pass 2 sections */
+		asm_data->count1 = asm_data->addcount1;
+		if (gwdata->ZERO_PADDED_FFT || c < 0) asm_data->count1--;
+		/* Up to three section counts for gw_carries.  Examples: */
+		/* 320 pass 2 sections: (256 << 11) + 64 */
+		/* 384 pass 2 sections: 384 */
+		/* 448 pass 2 sections: (256 << 22) + (128 << 11) + 64 */
+		/* 512 pass 2 sections: 512 */
+		for (pfa = asm_data->addcount1, pfa_shift = 0; pfa > 8; pfa >>= 1, pfa_shift++);
+		if (pfa == 5) asm_data->count3 = ((4 << 11) + 1) << pfa_shift;
+		else if (pfa == 7) asm_data->count3 = ((4 << 22) + (2 << 11) + 1) << pfa_shift;
+		else asm_data->count3 = asm_data->addcount1;
+	}
 	asm_data->zero_fft = 0;
 	asm_data->const_fft = 0;
 	asm_data->ZPAD0_7[7] = 0.0;
@@ -3697,7 +3721,7 @@ int internal_gwsetup (
 					asm_data->cache_line_multiplier * 32;
 
 				/* Only larger pass1's have padding */
-				if (info->counts[0] >= 128)
+				if (asm_data->addcount1 >= 128)
 					asm_data->normblkdst8 = 64;
 			}
 
@@ -3727,7 +3751,7 @@ int internal_gwsetup (
 		asm_data->normval4 = (32 << info->pass2_levels) >> 13;
 
 		/* Gap between blocks */
-		asm_data->pass2gapsize = info->counts[1] - 1;
+		asm_data->pass2gapsize = gwdata->PASS2GAPSIZE;
 
 		/* Pass 1 block distance includes 128 pad bytes every 8KB */
 		/* plus the gap between blocks */ 
