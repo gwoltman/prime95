@@ -1885,7 +1885,7 @@ ENDIF
 ; Macros to manage 32 timer values (only used when optimizing code)
 ;
 
-TIMERS EQU 3
+;;TIMERS EQU 3
 
 clear_timers MACRO
 IFDEF TIMERS
