@@ -3652,7 +3652,7 @@ int primeFactor (
 
 	sprintf (buf, "Factoring M%ld", p);
 	title (thread_num, buf);
-	sprintf (buf, "%s trial factoring of M%ld to 2^%d\n",
+	sprintf (buf, "%s trial factoring of M%ld to 2^%lu\n",
 		 fd > 0 ? "Resuming" : "Starting", p, test_bits);
 	OutputStr (thread_num, buf);
 
@@ -4448,7 +4448,7 @@ int pick_fft_size (
 /* Print message to let user know what is going on */
 
 	sprintf (buf,
-		 "Trying 1000 iterations for exponent %ld using %dK FFT.\n",
+		 "Trying 1000 iterations for exponent %ld using %luK FFT.\n",
 		 w->n, small_fftlen / 1024);
 	OutputBoth (thread_num, buf);
 	sprintf (buf,
@@ -4502,7 +4502,7 @@ int pick_fft_size (
 /* Output message to user informing him of the outcome. */
 
 	sprintf (buf,
-		 "Final average roundoff error is %.5g, using %dK FFT for exponent %ld.\n",
+		 "Final average roundoff error is %.5g, using %luK FFT for exponent %ld.\n",
 		 avg_error, w->forced_fftlen / 1024, w->n);
 	OutputBoth (thread_num, buf);
 	return (0);
@@ -5064,7 +5064,7 @@ begin:	gwinit (&lldata.gwdata);
 				best_iteration_time = timers[1];
 			if (timers[1] > 1.40 * best_iteration_time) {
 				if (slow_iteration_count == 10) {
-					sprintf (buf, "Pausing %d seconds.\n",
+					sprintf (buf, "Pausing %lu seconds.\n",
 						 HYPERTHREADING_BACKOFF);
 					OutputStr (thread_num, buf);
 					Sleep (HYPERTHREADING_BACKOFF * 1000);
@@ -6082,7 +6082,7 @@ int lucas_QA (
 
 		p = 0;
 		fscanf (fd, "%lu,%lu,%lu,%lu,%s\n",
-			&p, &fftlen, &iters, &units_bit, &res);
+			&p, &fftlen, &iters, &units_bit, res);
 		if (p == 0) break;
 
 /* In a type 4 run, we decrement through exponents to find any with */
@@ -6277,7 +6277,7 @@ int lucas_QA (
 
 /* Compare residue with correct residue from the input file */
 
-		sprintf (buf, "%08X%08X", reshi, reslo);
+		sprintf (buf, "%08lX%08lX", reshi, reslo);
 		if (type <= 2 && _stricmp (res, buf)) {
 			sprintf (buf, "Warning: Residue mismatch. Expected %s\n", res);
 			OutputBoth (thread_num, buf);
@@ -6285,7 +6285,7 @@ int lucas_QA (
 
 /* Output message */
 
-		sprintf (buf, "Exp/iters: %lu/%lu, res: %08X%08X, maxerr: %6.6f/%lu, %lu/%lu/%lu/%lu/%lu, maxdiff: %9.9f/%9.9f\n",
+		sprintf (buf, "Exp/iters: %lu/%lu, res: %08lX%08lX, maxerr: %6.6f/%lu, %lu/%lu/%lu/%lu/%lu, maxdiff: %9.9f/%9.9f\n",
 			 p, iters, reshi, reslo, maxerr, maxerrcnt,
 			 ge_300, ge_325, ge_350, ge_375, ge_400,
 			 maxsumdiff, lldata.gwdata.MAXDIFF);
@@ -6539,7 +6539,7 @@ int primeTime (
 
 		if (saved == save_limit || i == iterations - 1) {
 			for (j = 0; j < saved; j++) {
-				sprintf (buf, "p: %u.  Time: ", p);
+				sprintf (buf, "p: %lu.  Time: ", p);
 				timers[0] = saved_times[j];
 				print_timer (timers, 0, buf, TIMER_MS | TIMER_NL | TIMER_CLR);
 				OutputStr (thread_num, buf);
@@ -6560,7 +6560,7 @@ int primeTime (
 
 /* Print an estimate for how long it would take to test this number */
 
-	sprintf (buf, "Iterations: %d.  Total time: ", iterations);
+	sprintf (buf, "Iterations: %lu.  Total time: ", iterations);
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	time = time * p / iterations;
@@ -6577,7 +6577,7 @@ int primeTime (
 /* assembly code.  Print these timers out. */
 
 	for (i = 0; i < 32; i++) {
-		sprintf (buf, "timer %d: %d\n", i, (int) best_asm_timers[i]);
+		sprintf (buf, "timer %lu: %d\n", i, (int) best_asm_timers[i]);
 		if (best_asm_timers[i]) OutputBoth (thread_num, buf);
 	}
 
@@ -6776,7 +6776,7 @@ int primeBench (
 
 /* Output start message for this FFT length */
 
-		sprintf (buf, "Timing %d iterations at %dK%s FFT length%s.  ",
+		sprintf (buf, "Timing %lu iterations at %dK%s FFT length%s.  ",
 			 iterations, fft_lengths[i],
 			 plus1 ? " all-complex" : "",
 			 gw_using_large_pages (&lldata.gwdata) ? " using large pages" : "");
@@ -6821,7 +6821,7 @@ int primeBench (
 		OutputStrNoTimeStamp (thread_num, buf);
 		if (all_bench)
 			sprintf (buf,
-				 "Time FFTlen=%dK%s, Levels2=%d, clm=%d: ",
+				 "Time FFTlen=%dK%s, Levels2=%lu, clm=%lu: ",
 				 fft_lengths[i], plus1 ? " all-complex" : "",
 				 lldata.gwdata.PASS2_LEVELS,
 				 lldata.gwdata.PASS1_CACHE_LINES / 2);
@@ -7404,7 +7404,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			if (w->known_factors) {	iaddg (1, N); modg (N, tmp); iaddg (-1, N); }
 			sprintf (buf, 
 				 "%s interim We%d residue %08lX%08lX at iteration %ld\n",
-				 string_rep, PORT, tmp->n[1], tmp->n[0], counter);
+				 string_rep, PORT, (unsigned long) tmp->n[1], (unsigned long) tmp->n[0], counter);
 			OutputBoth (thread_num, buf);
 			pushg (&gwdata.gdata, 1);
 		}
@@ -7430,7 +7430,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 				best_iteration_time = timers[1];
 			if (timers[1] > 1.40 * best_iteration_time) {
 				if (slow_iteration_count == 10) {
-					sprintf (buf, "Pausing %d seconds.\n",
+					sprintf (buf, "Pausing %lu seconds.\n",
 						 HYPERTHREADING_BACKOFF);
 					OutputStr (thread_num, buf);
 					Sleep (HYPERTHREADING_BACKOFF * 1000);
@@ -7451,7 +7451,7 @@ pushg(&gwdata.gdata, 2);}
 	if (w->known_factors) {	iaddg (1, N); modg (N, tmp); iaddg (-1, N); }
 	isProbablePrime = isone (tmp);
 	if (!isProbablePrime) {
-		sprintf (res64, "%08lX%08lX", tmp->n[1], tmp->n[0]);
+		sprintf (res64, "%08lX%08lX", (unsigned long) tmp->n[1], (unsigned long) tmp->n[0]);
 	}
 	pushg (&gwdata.gdata, 1);
 	gwfree (&gwdata, x);

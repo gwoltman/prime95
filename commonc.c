@@ -385,9 +385,9 @@ void getCpuDescription (
 	sprintf (buf, "%s\nCPU speed: %.2f MHz", CPU_BRAND, CPU_SPEED);
 	if (NUM_CPUS > 1 && CPU_HYPERTHREADS > 1)
 		sprintf (buf + strlen (buf),
-			 ", %d hyperthreaded cores", NUM_CPUS);
+			 ", %lu hyperthreaded cores", NUM_CPUS);
 	else if (NUM_CPUS > 1)
-		sprintf (buf + strlen (buf), ", %d cores", NUM_CPUS);
+		sprintf (buf + strlen (buf), ", %lu cores", NUM_CPUS);
 	else if (CPU_HYPERTHREADS > 1)
 		sprintf (buf + strlen (buf), ", with hyperthreading");
 	strcat (buf, "\n");
@@ -2606,7 +2606,7 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		float	sieve_depth;
 		w->work_type = WORK_TEST;
 		sieve_depth = 0.0;
-		sscanf (value, "%lu,%f,%ld",
+		sscanf (value, "%lu,%f,%d",
 				&w->n, &sieve_depth, &w->pminus1ed);
 		w->sieve_depth = sieve_depth;
 		w->tests_saved = 2.0;
@@ -2615,7 +2615,7 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		float	sieve_depth;
 		w->work_type = WORK_DBLCHK;
 		sieve_depth = 0.0;
-		sscanf (value, "%lu,%f,%ld",
+		sscanf (value, "%lu,%f,%d",
 				&w->n, &sieve_depth, &w->pminus1ed);
 		w->sieve_depth = sieve_depth;
 		w->tests_saved = 1.0;
@@ -2666,7 +2666,7 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 			w->tests_saved = tests_saved;
 		} else {				/* Old style */
 			int	dblchk;
-			sscanf (value, "%lu,%f,%ld",
+			sscanf (value, "%lu,%f,%d",
 				&w->n, &sieve_depth, &dblchk);
 			w->sieve_depth = sieve_depth;
 			w->tests_saved = dblchk ? 1.0 : 2.0;
@@ -3096,12 +3096,12 @@ int writeWorkToDoFile (
 			break;
 
 		case WORK_TEST:
-			sprintf (buf, "Test=%s%lu,%.0f,%ld",
+			sprintf (buf, "Test=%s%lu,%.0f,%d",
 				 idbuf, w->n, w->sieve_depth, w->pminus1ed);
 			break;
 
 		case WORK_DBLCHK:
-			sprintf (buf, "DoubleCheck=%s%lu,%.0f,%ld",
+			sprintf (buf, "DoubleCheck=%s%lu,%.0f,%d",
 				 idbuf, w->n, w->sieve_depth, w->pminus1ed);
 			break;
 
@@ -3944,7 +3944,7 @@ void tempFileName (
 		buf[1] = 0;
 		if (w->k != 1.0) sprintf (buf+strlen(buf), "%g", fmod (w->k, 1000000.0));
 		sprintf (buf+strlen(buf), "_%ld", p);
-		if (abs(w->c) != 1) sprintf (buf+strlen(buf), "_%ld", abs(w->c) % 1000);
+		if (abs(w->c) != 1) sprintf (buf+strlen(buf), "_%d", abs(w->c) % 1000);
 		rename (v258_filename, buf);
 		if (buf[0] == 'p') {
 			v258_filename[0] = buf[0] = 'q';
@@ -4774,7 +4774,7 @@ int unreserve (
 
 	if (!found_one) {
 		char	buf[90];
-		sprintf (buf, "Error unreserving exponent: %d not found in worktodo.txt\n", p);
+		sprintf (buf, "Error unreserving exponent: %lu not found in worktodo.txt\n", p);
 		OutputStr (MAIN_THREAD_NUM, buf);
 	}
 
@@ -5847,7 +5847,7 @@ retry:
 		     pkt1.work_type == PRIMENET_WORK_TYPE_PFACTOR ||
 		     pkt1.work_type == PRIMENET_WORK_TYPE_FIRST_LL ||
 		     pkt1.work_type == PRIMENET_WORK_TYPE_DBLCHK)) {
-			sprintf (buf, "Server sent bad exponent: %ld.\n", pkt1.n);
+			sprintf (buf, "Server sent bad exponent: %lu.\n", (unsigned long) pkt1.n);
 			LogMsg (buf);
 			goto error_exit;
 		}
@@ -5908,8 +5908,8 @@ retry:
 			w.tests_saved = pkt1.tests_saved;
 			break;
 		default:
-			sprintf (buf, "Received unknown work type: %ld.\n",
-				 pkt1.work_type);
+			sprintf (buf, "Received unknown work type: %lu.\n",
+				 (unsigned long) pkt1.work_type);
 			LogMsg (buf);
 			goto error_exit;
 		}

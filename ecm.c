@@ -3231,7 +3231,7 @@ more_curves:
 
 /* Output line to results file indicating the number of curves run */
 
-	sprintf (buf, "%s completed %ld ECM %s, B1=%.0f, B2=%.0f, We%d: %08lX\n",
+	sprintf (buf, "%s completed %u ECM %s, B1=%.0f, B2=%.0f, We%d: %08lX\n",
 		 gwmodulo_as_string (&ecmdata.gwdata), w->curves_to_do,
 		 w->curves_to_do == 1 ? "curve" : "curves",
 		 (double) B, (double) C, PORT, SEC5 (w->n, B, C));
@@ -3446,9 +3446,9 @@ int ecm_QA (
 /* Read a line from the file */
 
 		n = 0;
-		fscanf (fd, "%f,%lu,%lu,%ld,%lf,%lu,%lu,%lu,%s\n",
+		fscanf (fd, "%lf,%lu,%lu,%ld,%lf,%lu,%lu,%lu,%s\n",
 			&k, &b, &n, &c, &sigma, &B1, &B2_start, &B2_end,
-			&fac_str);
+			fac_str);
 		if (n == 0) break;
 
 /* If b is 1, set QA_TYPE */
@@ -5164,7 +5164,7 @@ replan:	stop_reason = choose_pminus1_implementation (&pm1data, w, &using_t3);
 	if (set_memory_usage (thread_num, MEM_VARIABLE_USAGE, memused))
 		goto replan;
 	sprintf (buf,
-		 "Using %dMB of memory.  Processing %d relative primes (%d of %d already processed).\n",
+		 "Using %luMB of memory.  Processing %lu relative primes (%lu of %lu already processed).\n",
 		 memused, pm1data.rels_this_pass, pm1data.rels_done, pm1data.numrels);
 	OutputStr (thread_num, buf);
 
@@ -5735,8 +5735,8 @@ int pminus1_QA (
 /* Read a line from the file */
 
 		n = 0;
-		fscanf (fd, "%f,%lu,%lu,%ld,%lu,%lu,%lu,%s\n",
-			&k, &b, &n, &c, &B1, &B2_start, &B2_end, &fac_str);
+		fscanf (fd, "%lf,%lu,%lu,%ld,%lu,%lu,%lu,%s\n",
+			&k, &b, &n, &c, &B1, &B2_start, &B2_end, fac_str);
 		if (n == 0) break;
 
 /* If p is 1, set QA_TYPE */

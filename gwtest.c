@@ -760,7 +760,7 @@ int test_randomly (
 //	gwdone (&gwdata);
 //	continue;
 //}
-		sprintf (buf, "Starting QA run on %s, kbits=%ld, cbits=%ld\n",
+		sprintf (buf, "Starting QA run on %s, kbits=%d, cbits=%d\n",
 			 gwmodulo_as_string (&gwdata), kbits, cbits);
 		OutputBoth (thread_num, buf);
 		gwfft_description (&gwdata, fft_desc);
