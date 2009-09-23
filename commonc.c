@@ -363,6 +363,10 @@ void getCpuInfo (void)
 		IniGetInt (LOCALINI_FILE, "CpuNumHyperthreads", CPU_HYPERTHREADS);
 	if (CPU_HYPERTHREADS == 0) CPU_HYPERTHREADS = 1;
 
+/* Let user override the CPU architecture */
+
+	CPU_ARCHITECTURE = IniGetInt (LOCALINI_FILE, "CpuArchitecture", CPU_ARCHITECTURE);
+
 /* Now get the CPU speed */
 
 	getCpuSpeed ();
