@@ -19,15 +19,15 @@ all:	gwnum.lib gwnumd.lib linux\gwnum.a macosx\gwnum.a release\ecmstag1.obj debu
 
 # Make libraries out of the object files
 
-gwnum.lib: release\cpuid.obj release\gwnum.obj release\gwthread.obj release\gwutil.obj release\gwdbldbl.obj release\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2p.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3p.obj xmult3a.obj xmult3ap.obj xmult4.obj xmult4p.obj xmult5.obj xmult5p.obj xmult6.obj xmult6p.obj timeit.obj timeitp.obj
+gwnum.lib: release\cpuid.obj release\gwnum.obj release\gwthread.obj release\gwutil.obj release\gwdbldbl.obj release\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ap.obj xmult2ax.obj hgcore.obj hgp4.obj hgk8.obj r4core.obj r4p4.obj r4k8.obj timeit.obj timeitp.obj
     del gwnum.lib
     lib /OUT:gwnum.lib release\*.obj *.obj
 
-gwnumd.lib: debug\cpuid.obj debug\gwnum.obj debug\gwthread.obj debug\gwutil.obj debug\gwdbldbl.obj debug\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2p.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3p.obj xmult3a.obj xmult3ap.obj xmult4.obj xmult4p.obj xmult5.obj xmult5p.obj xmult6.obj xmult6p.obj timeit.obj timeitp.obj
+gwnumd.lib: debug\cpuid.obj debug\gwnum.obj debug\gwthread.obj debug\gwutil.obj debug\gwdbldbl.obj debug\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ap.obj xmult2ax.obj hgcore.obj hgp4.obj hgk8.obj r4core.obj r4p4.obj r4k8.obj timeit.obj timeitp.obj
     del gwnumd.lib
     lib /OUT:gwnumd.lib debug\*.obj *.obj
 
-linux\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2p.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3p.obj xmult3a.obj xmult3ap.obj xmult4.obj xmult4p.obj xmult5.obj xmult5p.obj xmult6.obj xmult6p.obj timeit.obj timeitp.obj
+linux\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ap.obj xmult2ax.obj hgcore.obj hgp4.obj hgk8.obj r4core.obj r4p4.obj r4k8.obj timeit.obj timeitp.obj
     attrib -r linux\gwnum.a
     del linux\gwnum.a
     del linux\gwnum.lib
@@ -36,7 +36,7 @@ linux\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj m
     attrib -r linux\gwnum.a
     del linux\gwnum.lib
 
-macosx\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1.obj xmult1ax.obj xmult2.obj xmult2p.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3p.obj xmult3a.obj xmult3ap.obj xmult4.obj xmult4p.obj xmult5.obj xmult5p.obj xmult6.obj xmult6p.obj timeit.obj timeitp.obj
+macosx\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ap.obj xmult2ax.obj hgcore.obj hgp4.obj hgk8.obj r4core.obj r4p4.obj r4k8.obj timeit.obj timeitp.obj
     attrib -r macosx\gwnum.a
     del macosx\gwnum.a
     del macosx\gwnum.lib
@@ -136,60 +136,42 @@ gianthlp.obj: gianthlp.asm
 cpuidhlp.obj: cpuidhlp.asm
     $(masm) cpuidhlp.asm
 
-xmult1.obj: xmult1.asm xmult.mac xlucas.mac xfft1.mac
-    $(masm) xmult1.asm
-
 xmult1ax.obj: xmult1ax.asm xmult.mac xnormal.mac
     $(masm) xmult1ax.asm
 
-xmult2.obj: xmult2.asm xmult.mac xlucas.mac xfft2.mac xnormal.mac
+xmult2.obj: xmult2.asm xmult.mac xnormal.mac
     $(masm) xmult2.asm
 
-xmult2p.obj: xmult2.asm xmult.mac xlucas.mac xfft2.mac xnormal.mac
-    $(masm) /DAMD /Foxmult2p.obj xmult2.asm
-
-xmult2a.obj: xmult2a.asm xmult.mac xlucas.mac xnormal.mac
+xmult2a.obj: xmult2a.asm xmult.mac xnormal.mac
     $(masm) xmult2a.asm
 
-xmult2ap.obj: xmult2a.asm xmult.mac xlucas.mac xnormal.mac
+xmult2ap.obj: xmult2a.asm xmult.mac xnormal.mac
     $(masm) /DAMD /Foxmult2ap.obj xmult2a.asm
 
 xmult2ax.obj: xmult2ax.asm xmult.mac xnormal.mac
     $(masm) xmult2ax.asm
 
-xmult3.obj: xmult3.asm xmult.mac xlucas.mac xfft3.mac
-    $(masm) xmult3.asm
+hgcore.obj: hgcore.asm xmult.mac hg.mac hgpass1sc.mac hgpass2.mac
+    $(masm) hgcore.asm
 
-xmult3p.obj: xmult3.asm xmult.mac xlucas.mac xfft3.mac
-    $(masm) /DAMD /Foxmult3p.obj xmult3.asm
+hgp4.obj: hgp4.asm xmult.mac hg.mac hgp4.mac hgpass1sc.mac hgpass2.mac
+    $(masm) hgp4.asm
 
-xmult3a.obj: xmult3a.asm xmult.mac xpass2.mac xlucas.mac
-    $(masm) xmult3a.asm
+hgk8.obj: hgk8.asm xmult.mac hg.mac kgk8.mac hgpass1sc.mac hgpass2.mac
+    $(masm) hgk8.asm
 
-xmult3ap.obj: xmult3a.asm xmult.mac xpass2.mac xlucas.mac
-    $(masm) /DAMD /Foxmult3ap.obj xmult3a.asm
+r4core.obj: r4core.asm xmult.mac r4.mac r4pass1sc.mac r4pass2.mac
+    $(masm) r4core.asm
 
-xmult4.obj: xmult4.asm xmult.mac xlucas.mac xfft4.mac
-    $(masm) xmult4.asm
+r4p4.obj: r4p4.asm xmult.mac r4.mac r4pass1sc.mac r4pass2.mac
+    $(masm) r4p4.asm
 
-xmult4p.obj: xmult4.asm xmult.mac xlucas.mac xfft4.mac
-    $(masm) /DAMD /Foxmult4p.obj xmult4.asm
+r4k8.obj: r4k8.asm xmult.mac r4.mac r4pass1sc.mac r4pass2.mac
+    $(masm) r4k8.asm
 
-xmult5.obj: xmult5.asm xmult.mac xlucas.mac xfft5.mac
-    $(masm) xmult5.asm
-
-xmult5p.obj: xmult5.asm xmult.mac xlucas.mac xfft5.mac
-    $(masm) /DAMD /Foxmult5p.obj xmult5.asm
-
-xmult6.obj: xmult6.asm xmult.mac xlucas.mac xfft6.mac
-    $(masm) xmult6.asm
-
-xmult6p.obj: xmult6.asm xmult.mac xlucas.mac xfft6.mac
-    $(masm) /DAMD /Foxmult6p.obj xmult6.asm
-
-timeit.obj: timeit.asm mult.mac lucas.mac xmult.mac xlucas.mac
+timeit.obj: timeit.asm mult.mac lucas.mac xmult.mac hg.mac r4.mac
     $(masm) timeit.asm
 
-timeitp.obj: timeit.asm xmult.mac xlucas.mac
+timeitp.obj: timeit.asm xmult.mac hg.mac r4.mac
     $(masm) /DAMD /Fotimeitp.obj timeit.asm
 

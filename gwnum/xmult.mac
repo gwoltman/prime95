@@ -6,43 +6,6 @@
 ; larger building blocks.
 ;
 
-; *************** macros to expand 4 types of fft macros ******************
-
-;;
-;; Generate the FFT for the given run length.
-;; The 4 types are:
-;;	1) forward FFT,
-;;	2) square (forward FFT, multiply, inverse FFT)
-;;	3) multiply (forward FFT src1, multiply by src2, inverse FFT)
-;;	4) multiply (multiply src1 by src2, inverse FFT)
-;;
-
-xfft	MACRO fft_length
-	xfftgen	&fft_length
-	purge	xfft&fft_length
-	ENDM
-
-xfftclm	MACRO fft_length, clm
-	xfftgen	&fft_length, clm, %(xpass2_levels)
-	ENDM
-
-;;
-;; Do the forward FFT, squaring, and inverse FFT
-;;
-
-xfftgen	MACRO fft_length, clm, levels
-	PROCFP	x&fft_length&clm&levels
-	ad_prolog 0,1,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
-	mov	rsi, DESTARG
-	mov	rbx, DIST_TO_FFTSRCARG
-	IFB <clm>
-	xfft&fft_length
-	ELSE
-	xscfft&fft_length clm
-	ENDIF
-	ENDPP	x&fft_length&clm&levels
-	ENDM
-
 ; Return from a type 1 FFT - return to caller
 
 xfft_1_ret MACRO
@@ -138,69 +101,548 @@ GAP2_13_2	= 512
 GAP2_13_4	= 1024
 GAP2_13_8	= 1024
 
-;;
-;; Cacheline multiples.  In SSE2 first pass, how many cache lines should
-;; be processed in each loop.  Note that the clm value must be at least 2.
-;;
+; **********************************************************
+; **********************************************************
+; ******************  ONE PASS MACROS  *********************
+; **********************************************************
+; **********************************************************
 
-clm = 4				;; Used for all FFTs <= 512K
+;
+; Generate the code for a small FFT computed in just one pass.
+;
+; FFT routines are named using this scheme:
+;
+;	xfft xfft_type fft_size options xarch
+;
+; where xfft_type is (only the first 2 are implemented):
+;	hg = home-grown (my radix-4 with delayed sin/cos multipliers)
+;	r4 = radix-4 DJB
+;	rolle = rolle patented
+;	exp = experimental
+;	sr = split-radix
+; options are:
+;	_ac for all_complex
+;
+; xarch indicates FFT is optimized for one of these architectures:
+;	P4		Pentium 4
+;	CORE		Core 2 / Core i7, default for unrecognized Intel CPUs
+;	K8		first generation AMD64 chips
+;	K10		second generation AMD64 chips (Phenom), default for unrecognized AMD CPUs
+;
+; Examples:
+;	xfft_hg_512_K8
+;	xfft_r4_4096_ac_CORE
 
-;;
-;; Common utility macros used in one and two pass SSE2 FFTs
-;;
+xonepass MACRO fftname, all_complex
+	LOCAL	xprocname, xmacroname
 
-multwo	MACRO	r
-	mulpd	r, XMM_TWO
-	ENDM
+;; Generate the procedure name
 
-mulhalf	MACRO	r
-	mulpd	r, XMM_HALF
-	ENDM
-
-xtouch	MACRO	addr
-	IF PREFETCHING NE 0
-;;;	cmp	rsp, addr
+	xprocname CATSTR <xfft_>,xfft_type,<_>,<&fftname>
+	IF all_complex EQ 1
+	xprocname CATSTR xprocname,<_ac>
 	ENDIF
+	xprocname CATSTR xprocname,<_>,xarch
+
+;; Generate the pass 2 routine name
+
+	xmacroname CATSTR <xfft>,<&fftname>
+	IF all_complex EQ 1
+	xmacroname CATSTR xmacroname,<p>
+	ENDIF
+
+; Header for the FFT routine
+
+	PROCF	xprocname
+	ad_prolog 0,1,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
+	mov	rsi, DESTARG
+	mov	rbx, DIST_TO_FFTSRCARG
+
+;; Call the macro containing the guts of the FFT
+
+	xmacroname
+
+;; Footer for the routine
+
+	xprocname ENDP	
 	ENDM
 
-; Macro to prefetch a line into the L2 cache
+;; When doing zero-padded FFTs, the 7 words around the halfway point must
+;; be copied for later processing.  This macro does that.
 
-xprefetcht1 MACRO addr
-	IF PREFETCHING NE 0
-	IFDEF AMD
-	prefetchw addr
-	prefetchw addr[64]
+xcopy_7_words MACRO
+	LOCAL	nozpad
+	cmp	ZERO_PADDED_FFT, 0	;; Is this a zero-padded FFT?
+	je	short nozpad		;; No, skip 7 word copy
+	movsd	xmm0, Q [rsi+rbx+32]	;; Copy 1st word above half-way point
+	movsd	Q [rsi-40], xmm0
+	movsd	xmm1, Q [rsi+rbx+48]	;; Copy 2nd word
+	movsd	Q [rsi-48], xmm1
+	movsd	xmm2, Q [rsi+rbx+96]	;; Copy 3rd word
+	movsd	Q [rsi-56], xmm2
+	movsd	xmm3, Q [rsi+rbx+112]	;; Copy 4th word
+	movsd	Q [rsi-64], xmm3
+	mov	eax, HIGH_WORD1_OFFSET	;; Copy 1st word below half-way
+	add	rax, rsi
+	movsd	xmm0, Q [rax+rbx]
+	movsd	Q [rsi-72], xmm0
+	mov	eax, HIGH_WORD2_OFFSET	;; Copy 2nd word below
+	add	rax, rsi
+	movsd	xmm1, Q [rax+rbx]
+	movsd	Q [rsi-80], xmm1
+	mov	eax, HIGH_WORD3_OFFSET	;; Copy 3rd word below
+	add	rax, rsi
+	movsd	xmm2, Q [rax+rbx]
+	movsd	Q [rsi-88], xmm2
+nozpad:
+	ENDM
+
+;; When doing zero-padded FFTs, the multiplied 7 words around the halfway point
+;; must be subtracted from the bottom of the FFT.  This must be done before
+;; normalization multiplies the FFT data by k.  This macro does that and also
+;; initializes the sumout reg.
+
+xsub_7_words MACRO dist4
+	LOCAL	nozpad
+	subpd	xmm7, xmm7		;; Clear sumout
+	cmp	ZERO_PADDED_FFT, 0	;; Is this a zero-padded FFT?
+	je	nozpad			;; No, skip 7 word subtract
+	mov	rsi, DESTARG
+	movapd	xmm0, [rsi]		;; Subtract 1st, 2nd word
+	movapd	xmm1, ZPAD0		;; Load ZPAD data
+	mulpd	xmm1, XMM_NORM012_FF	;; Scale by FFTLEN/2
+	subpd	xmm0, xmm1
+	addpd	xmm7, xmm1		;; Adjust sumout
+	movapd	[rsi], xmm0
+	movapd	xmm0, [rsi+64]		;; Subtract 3rd, 4th word
+	movapd	xmm1, ZPAD2		;; Load ZPAD data
+	mulpd	xmm1, XMM_NORM012_FF	;; Scale by FFTLEN/2
+	subpd	xmm0, xmm1
+	addpd	xmm7, xmm1		;; Adjust sumout
+	movapd	[rsi+64], xmm0
+	movapd	xmm0, [rsi+dist4]	;; Subtract 5th, 6th word
+	movapd	xmm1, ZPAD4		;; Load ZPAD data
+	mulpd	xmm1, XMM_NORM012_FF	;; Scale by FFTLEN/2
+	subpd	xmm0, xmm1
+	addpd	xmm7, xmm1		;; Adjust sumout
+	movapd	[rsi+dist4], xmm0
+	movsd	xmm0, Q [rsi+dist4+64]	;; Subtract 7th word
+	movsd	xmm1, ZPAD6		;; Load ZPAD data
+	mulsd	xmm1, XMM_NORM012_FF	;; Scale by FFTLEN/2
+	subsd	xmm0, xmm1
+	addsd	xmm7, xmm1		;; Adjust sumout
+	movsd	Q [rsi+dist4+64], xmm0
+nozpad:
+	ENDM
+
+; ********************************************************
+; ********************************************************
+; ******************  PASS 1 MACROS  *********************
+; ********************************************************
+; ********************************************************
+
+;
+; Macros used in pass 1 of a two pass FFT.
+;
+
+;
+; Set various constants used in the FFT.  Also generate the proper FFT routine name.
+;
+; FFT routines are named using this scheme:
+;
+;	xfft xfft_type fft_size options xpass2_levels clm xarch
+;
+; where xfft_type is (only the first 2 are implemented):
+;	hg = home-grown (my radix-4 with delayed sin/cos multipliers and Bailey pre-multipliers)
+;	r4 = radix-4 DJB
+;	r4pm = radix-4 DJB with premultipliers 
+;	rolle = rolle patented
+;	exp = experimental
+;	sr = split-radix
+; options are:
+;	_ac for all_complex
+;	_ip for two-pass in-place (no scratch area)
+;	_np for no_prefetch
+;	_tp for tlb_priming
+;
+; xarch indicates FFT is optimized for one of these architectures:
+;	P4		Pentium 4
+;	CORE		Core 2 / Core i7, default for unrecognized Intel CPUs
+;	K8		first generation AMD64 chips
+;	K10		second generation AMD64 chips (Phenom), default for unrecognized AMD CPUs
+;
+; Examples:
+;	xfft_hg_1024K_10_4_K8
+;	xfft_r4_4096K_ac_10_4_CORE
+
+set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
+
+;; Copy some of the args 
+
+	xpass2_levels = p2_levels
+	clm = clmarg
+
+;; Generate the procedure name
+
+	xprocname CATSTR <xfft_>,xfft_type,<_>,<&fftname>
+	IF all_complex EQ 1
+	xprocname CATSTR xprocname,<_ac>
+	ENDIF
+	IF in_place EQ 1
+	xprocname CATSTR xprocname,<_ip>
+	ENDIF
+	IF PREFETCHING EQ 0
+	xprocname CATSTR xprocname,<_np>
+	ELSEIF TLB_PRIMING EQ 1
+	xprocname CATSTR xprocname,<_tp>
+	ENDIF
+	xprocname CATSTR xprocname,<_>,%xpass2_levels,<_>,%clm,<_>,xarch
+
+;; Generate the pass 2 routine name
+
+	xpass2name CATSTR <xpass2_>,xfft_type
+	IF PREFETCHING EQ 0
+	xpass2name CATSTR xpass2name,<_np>
+	ELSEIF TLB_PRIMING EQ 1
+	xpass2name CATSTR xpass2name,<_tp>
+	ENDIF
+	xpass2name CATSTR xpass2name,<_>,%xpass2_levels,<_levels_>,xarch
+
+;; Compute the number of 128-byte cache lines in pass 2
+
+	IF xpass2_levels EQ 8
+	p2cl = 64
+	ENDIF
+	IF xpass2_levels EQ 10
+	p2cl = 256
+	ENDIF
+	IF xpass2_levels EQ 11
+	p2cl = 512
+	ENDIF
+	IF xpass2_levels EQ 12
+	p2cl = 1024
+	ENDIF
+	IF xpass2_levels EQ 13
+	p2cl = 2048
+	ENDIF
+
+;; Compute the gap between two pass2 data blocks
+
+	IF xpass2_levels EQ 8 AND clm EQ 1
+	p2g = GAP2_8_1
+	ENDIF
+	IF xpass2_levels EQ 8 AND clm EQ 4
+	p2g = GAP2_8_4
+	ENDIF
+	IF xpass2_levels EQ 10 AND clm EQ 1 AND PREFETCHING EQ 0
+	p2g = GAP2_10_0
+	ENDIF
+	IF xpass2_levels EQ 10 AND clm EQ 1 AND PREFETCHING NE 0
+	p2g = GAP2_10_1
+	ENDIF
+	IF xpass2_levels EQ 10 AND clm EQ 2
+	p2g = GAP2_10_2
+	ENDIF
+	IF xpass2_levels EQ 10 AND clm EQ 4
+	p2g = GAP2_10_4
+	ENDIF
+	IF xpass2_levels EQ 10 AND clm EQ 8
+	p2g = GAP2_10_8
+	ENDIF
+	IF xpass2_levels EQ 11 AND clm EQ 1 AND PREFETCHING EQ 0
+	p2g = GAP2_11_0
+	ENDIF
+	IF xpass2_levels EQ 11 AND clm EQ 1 AND PREFETCHING NE 0
+	p2g = GAP2_11_1
+	ENDIF
+	IF xpass2_levels EQ 11 AND clm EQ 2
+	p2g = GAP2_11_2
+	ENDIF
+	IF xpass2_levels EQ 11 AND clm EQ 4
+	p2g = GAP2_11_4
+	ENDIF
+	IF xpass2_levels EQ 11 AND clm EQ 8
+	p2g = GAP2_11_8
+	ENDIF
+	IF xpass2_levels EQ 12 AND clm EQ 1 AND PREFETCHING EQ 0
+	p2g = GAP2_12_0
+	ENDIF
+	IF xpass2_levels EQ 12 AND clm EQ 1 AND PREFETCHING NE 0
+	p2g = GAP2_12_1
+	ENDIF
+	IF xpass2_levels EQ 12 AND clm EQ 2
+	p2g = GAP2_12_2
+	ENDIF
+	IF xpass2_levels EQ 12 AND clm EQ 4
+	p2g = GAP2_12_4
+	ENDIF
+	IF xpass2_levels EQ 12 AND clm EQ 8
+	p2g = GAP2_12_8
+	ENDIF
+	IF xpass2_levels EQ 13 AND clm EQ 1 AND PREFETCHING EQ 0
+	p2g = GAP2_13_0
+	ENDIF
+	IF xpass2_levels EQ 13 AND clm EQ 1 AND PREFETCHING NE 0
+	p2g = GAP2_13_1
+	ENDIF
+	IF xpass2_levels EQ 13 AND clm EQ 2
+	p2g = GAP2_13_2
+	ENDIF
+	IF xpass2_levels EQ 13 AND clm EQ 4
+	p2g = GAP2_13_4
+	ENDIF
+	IF xpass2_levels EQ 13 AND clm EQ 8
+	p2g = GAP2_13_8
+	ENDIF
+
+;; Compute the needed distances
+
+	blkdst = (p2cl*128+p2cl/64*128+p2g)
+	clmblkdst = (clm*128)
+	clmblkdst8 = (clmblkdst*8+128)
+	ENDM
+
+; Header and footers for each FFT routine
+
+xfft_header MACRO
+	PROCF	xprocname
+	ad_prolog 0,1,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
+	mov	rsi, DESTARG
+	mov	rbx, DIST_TO_FFTSRCARG
+	ENDM
+
+xfft_footer MACRO
+	xprocname ENDP	
+	ENDM
+
+;; Wake up auxillary threads to help with the forward FFT
+
+pass1_forward_fft_setup MACRO endlp
+	mov	NEXT_BLOCK, 0		;; Flag indicating forward fft setup
+	mov	rax, OFFSET endlp	;; Auxillary thread entry point
+	mov	THREAD_WORK_ROUTINE, rax ;; save addr for C code to call
+	c_call	PASS1_WAKE_UP_THREADS	;; C callback routine
+	ENDM
+
+;; Wake up auxillary threads to help with the inverse FFT
+
+pass1_inverse_fft_setup MACRO endlp
+	start_timer 1
+	mov	NEXT_BLOCK, 1		;; Flag indicating inverse fft setup
+	mov	rax, OFFSET endlp	;; Auxillary thread entry point
+	mov	THREAD_WORK_ROUTINE, rax ;; save addr for C code to call
+	c_call	PASS1_WAKE_UP_THREADS	;; C callback routine
+	ENDM
+
+;; Do a normalization and carry propagation.
+
+pass1_normalize MACRO scratch, jmplabel
+
+	c_call	PASS1_WAIT_FOR_CARRIES	;; Wait until prev block normalized
+
+	start_timer 28
+	IF scratch EQ 1
+	mov	rsi, scratch_area	;; Load source address
 	ELSE
-	prefetcht1 addr
-	prefetcht1 addr[64]		;;; good for Core 2
+	mov	rsi, DATA_ADDR		;; Load source address
 	ENDIF
-	ENDIF
-	ENDM
+	mov	rax, NORMRTN		;; Addr of normalization routine
+	call	rax
+	end_timer 28
 
-; Macro to prefetch a line into the L1 cache (AMD only)
+	c_call	PASS1_DONE_WITH_CARRIES	;; Let next block normalize
 
-xprefetch MACRO addr
-	IFDEF AMD
-	prefetch addr
-	ENDIF
-	ENDM
-xprefetchw MACRO addr
-	IFDEF AMD
-	prefetchw addr
-	ENDIF
-	ENDM
-
-; Macro to prefetch a 64-byte line into the L2 cache
-; Modern CPUs except the P4 fetch 64-byte cache lines.
-; The P4 prefetches 128 bytes at a time.
-
-v26_xprefetcht1 MACRO addr
-	IF PREFETCHING NE 0
-	IFDEF AMD
-	prefetchw addr
+	IF scratch EQ 1
+	and	al, al			;; Test returned flag
+	jne	jmplabel		;; Do forward FFT if flag set
+	;; Fall through to copy data from scratch area back to FFT data area
 	ELSE
-	prefetcht1 addr
+	and	al, al			;; Test returned flag
+	je	jmplabel		;; Skip forward FFT if flag not set
+	;; Fall through to forward FFT code
 	ENDIF
+
+	ENDM
+
+;; Get next block at end of pass 1 loop
+
+xpass1_get_next_block MACRO pass2, c0b, b0b
+	LOCAL	again, done
+
+again:	c_call	PASS1_GET_NEXT_BLOCK	;; C callback routine
+
+	cmp	al, 1			;; Test return code
+	jl	c0b			;; Do another inverse FFT/norm/FFT
+	je	b0b			;; Do another forward FFT
+	cmp	al, 3
+	jl	short done		;; Pass 1 main thread done
+	je	pass1_aux_entry_point_return ;; Pass 1 auxillary thread done
+	cmp	al, 5
+	jl	pass2			;; Start pass 2
+
+;; Split the carries into high and low carries (so they do not exceed the
+;; desired number of bits per FFT word.  Then add the carries back to the
+;; FFT data.
+
+	start_timer 29
+	call	xgw_carries
+	end_timer 29
+	jmp	short again
+
+;; All done, end timer and jump to cleanup code
+
+done:	end_timer 1
+	jmp	xgw_finish_mult
+	ENDM
+
+;;
+;; Macros to copy data to and from scratch area
+;;
+
+copy_scratch_data_to_fft MACRO cachelines
+	LOCAL	a0b
+	mov	rsi, scratch_area	;; Get address of scratch area
+	mov	rcx, DATA_ADDR		;; Load source address
+	mov	eax, cachelines/8*65536	;; Load counter
+a0b:	movapd	xmm0, [rsi]		;; Copy a cache line
+	movapd	xmm1, [rsi+16]
+	movapd	xmm2, [rsi+32]
+	movapd	xmm3, [rsi+48]
+	movapd	[rcx], xmm0
+	movapd	[rcx+16], xmm1
+	movapd	[rcx+32], xmm2
+	movapd	[rcx+48], xmm3
+	bump	rsi, 64			;; Next source pointer
+	bump	rcx, 64			;; Next dest pointer
+	add	al, 256/2/clm		;; Test loop counter
+	jnc	short a0b		;; Iterate if necessary
+	bump	rsi, -2*clm*64+clmblkdst;; Next source pointer
+	bump	rcx, -2*clm*64+blkdst	;; Next dest pointer
+	add	ah, 256/8
+	jnc	short a0b
+	bump	rsi, -8*clmblkdst+clmblkdst8
+	sub	eax, 65536		;; Test loop counter
+	jnz	short a0b		;; Iterate if necessary
+	ENDM
+
+copy_fft_data_to_scratch MACRO cachelines
+	LOCAL	a0b
+	mov	rsi, DATA_ADDR		;; Load source address
+	add	rsi, DIST_TO_FFTSRCARG
+	mov	rcx, scratch_area	;; Get address of scratch area
+	mov	eax, cachelines/8*65536	;; Load counter
+a0b:	movapd	xmm0, [rsi]		;; Copy a cache line
+	movapd	xmm1, [rsi+16]
+	movapd	xmm2, [rsi+32]
+	movapd	xmm3, [rsi+48]
+	movapd	[rcx], xmm0
+	movapd	[rcx+16], xmm1
+	movapd	[rcx+32], xmm2
+	movapd	[rcx+48], xmm3
+	bump	rsi, 64			;; Next source pointer
+	bump	rcx, 64			;; Next dest pointer
+	add	al, 256/2/clm		;; Test loop counter
+	jnc	short a0b		;; Iterate if necessary
+	bump	rsi, -2*clm*64+blkdst	;; Next source pointer
+	bump	rcx, -2*clm*64+clmblkdst;; Next dest pointer
+	add	ah, 256/8
+	jnc	short a0b
+	bump	rcx, -8*clmblkdst+clmblkdst8
+	sub	eax, 65536		;; Test loop counter
+	jnz	short a0b		;; Iterate if necessary
+	ENDM
+
+; ********************************************************
+; ********************************************************
+; ******************  PASS 2 MACROS  *********************
+; ********************************************************
+; ********************************************************
+
+;
+; Macros used in pass 2 of a two pass FFT.
+;
+
+; Pass 2s are named using this scheme:
+;
+;	xpass2 xfft_type options xpass2_levels xarch
+;
+; where xfft_type is (only the first 2 are implemented):
+;	<blank> = historic (my radix-4 with delayed sin/cos multipliers and Bailey pre-multipliers)
+;	r4 = radix-4 DJB
+;	r4pm = radix-4 DJB with premultipliers 
+;	rolle = rolle patented
+;	exp = experimental
+;	sr = split-radix
+; options are:
+;	_np for no_prefetch
+;	_tp for tlb_priming
+;
+; xarch indicates FFT is optimized for one of these architectures:
+;	P4		Pentium 4
+;	CORE		Core 2 / Core i7, default for unrecognized Intel CPUs
+;	K8		first generation AMD64 chips
+;	K10		second generation AMD64 chips (Phenom), default for unrecognized AMD CPUs
+;
+; Examples:
+;	xpass2_r4_12_levels_CORE
+;	xpass2_r4_tp_12_levels_P4
+
+;; Create a for this fft type, pass 2 levels, and architecture combination
+
+xpass2gen MACRO levels
+	LOCAL	complex_loop, get_next, procname, procname
+	LOCAL	realmacro, complexmacro
+
+;; Generate the procedure name
+
+	procname CATSTR <xpass2_>,xfft_type
+	IF PREFETCHING EQ 0
+	procname CATSTR procname,<_np>
+	ELSEIF TLB_PRIMING EQ 1
+	procname CATSTR procname,<_tp>
 	ENDIF
+	procname CATSTR procname,<_>,%levels,<_levels_>,xarch
+
+;; Generate the macro names
+
+	realmacro CATSTR xfft_type,<_>,<pass2_>,%levels,<_levels_real>
+	complexmacro CATSTR xfft_type,<_>,<pass2_>,%levels,<_levels_complex>
+
+;; Define pass 2 constants
+
+	dist128 = (128*64+128)			; Distance between 128 cache lines
+
+;; Generate the procedure
+
+	PROCF	procname
+	int_prolog 0,0,1
+
+;; Entry point for real FFTs: do one real and count1 complex blocks, also
+;; entry point for all-complex FFTs: do count1 complex blocks
+
+	mov	rax, OFFSET get_next	;; Auxillary thread entry point
+	mov	THREAD_WORK_ROUTINE, rax ;; save addr for C code to call
+	c_call	PASS2_WAKE_UP_THREADS	;; C callback routine
+	cmp	ALL_COMPLEX_FFT, 1	;; Test if there is a real-data block
+	je	complex_loop		;; Jump to process all-complex blocks
+
+	realmacro			; Do the real data block
+	jmp	get_next		; Go process complex blocks
+
+complex_loop:
+	complexmacro
+
+;; GET_NEXT_BLOCK returns TRUE if we are done.  Otherwise, it calculates
+;; the next blocks to process and prefetch.
+
+get_next:
+	c_call	PASS2_GET_NEXT_BLOCK	;; C callback routine
+	and	rax, rax		;; Test return code
+	jz	complex_loop		;; If false, process another block
+
+;; All done
+
+	int_epilog 0,0,1
+	procname ENDP	
 	ENDM
 

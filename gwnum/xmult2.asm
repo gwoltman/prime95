@@ -25,87 +25,20 @@ ENDIF
 
 INCLUDE	unravel.mac
 INCLUDE extrn.mac
-INCLUDE xfft2.mac
-INCLUDE	xlucas.mac
+INCLUDE xbasics.mac
 INCLUDE xmult.mac
 INCLUDE xnormal.mac
-INCLUDE xpass1.mac
-INCLUDE xpass1sc.mac
 
-IFNDEF AMD
 PUBLIC	xgw_finish_fft
 PUBLIC	xgw_carries
 PUBLIC	xgw_finish_mult
 PUBLIC	pass1_aux_entry_point_return
-ELSE
-EXTRN	pass1_aux_entry_point_return:PROC
-EXTRN	xgw_finish_fft:PROC
-EXTRN	xgw_carries:PROC
-EXTRN	xgw_finish_mult:PROC
-ENDIF
-
-EXTRNP	xpass2_8_levels
 
 _TEXT SEGMENT
 
-;; Distance between two pass 2 data blocks.  Pass 2 does 8 FFT levels
-;; 2 sets of data (2 * 2^8 complex values = 2^10 doubles = 8KB).
-
-PREFETCHING = 1
-blkdst = (8192+128+GAP2_8_4)
-xpass2_levels = 8
-
-;; All the FFT routines for each FFT length
-
-;	xfft	5K
-;	xfft	6K
-;	xfft	7K
-;	xfft	8K
-	xfft	10K
-	xfft	12K
-	xfft	12Kp
-	xfft	14K
-	xfft	16K
-	xfft	16Kp
-	xfft	20K
-	xfft	24K
-	xfft	24Kp
-	xfft	28K
-	xfft	32K
-	xfft	32Kp
-;	xfft	40K
-;	xfft	48K
-;	xfft	48Kp
-;	xfft	56K
-;	xfft	64K
-;	xfft	64Kp
-
-;	xfftclm	80K, 4
-;	xfftclm	96K, 4
-;	xfftclm	96Kp, 4
-;	xfftclm	112K, 4
-;	xfftclm	128K, 4
-;	xfftclm	128Kp, 4
-;	xfftclm	160K, 4
-;	xfftclm	192K, 4
-;	xfftclm	192Kp, 4
-;	xfftclm	224K, 4
-;	xfftclm	256K, 4
-;	xfftclm	256Kp, 4
-;	xfftclm	320K, 4
-;	xfftclm	384K, 4
-;	xfftclm	384Kp, 4
-;	xfftclm	448K, 4
-;	xfftclm	512K, 4
-;	xfftclm	512Kp, 4
-allfft	xfftclm	640K, 1
-allfft	xfftclm	768K, 1
-allfft	xfftclm	768Kp, 1
-allfft	xfftclm	896K, 1
-allfft	xfftclm	1024K, 1
-allfft	xfftclm	1024Kp, 1
-
-IFNDEF AMD
+;;*************************************************************************
+;; Routine for auxillary threads to call to start processing pass 1 blocks
+;;*************************************************************************
 
 ; pass1_aux_entry_point ()
 ; Entry point for auxillary threads to do process blocks in pass 1
@@ -126,6 +59,49 @@ PROCFL pass1_aux_entry_point
 	jmp	rax			; Go process data blocks
 pass1_aux_entry_point ENDP
 
+;;*************************************************************************
+;; Routine for auxillary threads to call to start processing pass 2 blocks
+;;*************************************************************************
+
+; pass2_aux_entry_point ()
+; Entry point for auxillary threads to process blocks in pass 2
+; Windows 32-bit and Linux 32-bit
+;	Parameter asm_data = [esp+4]
+; Windows 64-bit
+;	Parameter asm_data = rcx
+; Linux 64-bit
+;	Parameter asm_data = rdi
+
+PROCFL	pass2_aux_entry_point
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
+
+;; Call intermediate routine to mimic main thread's prologs.  We must do this
+;; so that common epilog code performs properly.
+
+	call	internal_pass2_aux_entry_point
+
+;; Return to C code
+
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
+pass2_aux_entry_point ENDP
+
+; Intermediate routine to call to set up an identical prolog as the
+; main thread's processing of pass 2 data blocks.
+
+PROCF	internal_pass2_aux_entry_point
+	int_prolog 0,0,1
+
+;; Jump to common code handling pass 2 data blocks.
+
+	mov	rax, THREAD_WORK_ROUTINE ; Pass 2 entry point
+	jmp	rax			; Go process data blocks
+
+internal_pass2_aux_entry_point ENDP
+
+
+;;*****************************************
+;; Routine for finishing off a two-pass FFT
+;;*****************************************
 
 ; Split the accumulated carries into two carries - a high carry and a
 ; low carry.  Handle both the with and without two-to-phi array cases.
@@ -283,8 +259,6 @@ pass1_aux_entry_point_return:
 	ad_epilog 0,1,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
 
 __common_2pass_xfft_exit_code ENDP
-
-ENDIF
 
 _TEXT	ENDS
 END

@@ -730,13 +730,16 @@ struct gwasm_jmptab {
 	uint32_t max_exp;	/* Maximum exponent for this FFT len */
 	uint32_t fftlen;	/* FFT length */
 	float	timing;		/* Reference machine's time for a squaring */
-	uint32_t mem_needed;	/* Memory needed */
-	uint32_t flags_min_l2_cache_clm;
-	uint32_t scratch_size;
+	uint32_t flags;		/* Flags defined in mult.asm */
 	void	*proc_ptr;	/* Ptr to assembly coded FFT routine */
-	uint32_t pass2_levels;
-	int32_t counts[20];
+	uint32_t mem_needed;	/* Memory needed */
+	int32_t counts[8];
 };
+
+/* The FFT types currently implemented in assembly code */
+
+#define FFT_TYPE_HOME_GROWN	0
+#define FFT_TYPE_RADIX_4	1
 
 /* The gwhandle structure containing all of gwnum's "global" data. */
 
@@ -778,7 +781,9 @@ struct gwhandle_struct {
 	int	ZERO_PADDED_FFT;/* True if doing a zero pad FFT */
 	int	ALL_COMPLEX_FFT;/* True if using all-complex FFTs */
 	int	RATIONAL_FFT;	/* True if bits per FFT word is integer */
-	int	V26_FFT;	/* True if we are executing the new v26 FFT code */
+	int	FFT_TYPE;	/* Home-grown, Radix-4, etc. */
+	int	ARCH;		/* Architecture.  Which CPU type the FFT */
+				/* is optimized for. */
 	int	GENERAL_MOD;	/* True if doing general-purpose mod */
 				/* as defined in gwsetup_general_mod. */
 	giant	GW_MODULUS;	/* In the general purpose mod case, this is */
@@ -802,6 +807,7 @@ struct gwhandle_struct {
 	long	PASS2GAPSIZE;	/* Gap between blocks in pass 2 */
 	unsigned long PASS1_CACHE_LINES; /* Cache lines grouped together in */
 				/* first pass of an FFT. */
+	unsigned long mem_needed; /* Memory needed for sin/cos, weights, etc. */
 	unsigned long SCRATCH_SIZE; /* Size of the pass 1 scratch area */
 	unsigned long EXTRA_BITS; /* Number of unnormalized adds that can */
 				/* be safely performed. */

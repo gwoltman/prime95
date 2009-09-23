@@ -1573,24 +1573,6 @@ pfing MACRO stmt:vararg
 
 Q	EQU	<QWORD PTR>
 
-;; The movaps instruction does the same thing as a movapd instruction
-;; but is one less byte.  The shorter instruction might improve decode
-;; bandwidth in some cases.  We use a macro, so that we can switch
-;; back to using movapd if a future chip imposes a penalty for loading
-;; packed doubles with the movaps instruction.
-
-xload	MACRO	reg, mem
-	movaps	reg, DWORD PTR mem
-	ENDM
-
-xstore	MACRO	mem, reg
-	movaps	DWORD PTR mem, reg
-	ENDM
-
-xcopy	MACRO	reg1, reg2
-	movaps	reg1, reg2
-	ENDM
-
 ;; Bump a pointer by an amount - generates no code if amount is zero
 ;; On Core 2 architecture, use add or sub as that can be dispatched to
 ;; ports 0, 1, or 5 whereas lea can only be dispatched to port 0.  Both

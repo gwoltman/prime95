@@ -528,9 +528,9 @@ unsigned long pow_two_above_or_equal (
 
 
 /* This routine builds the sin/cos/premultiplier table used in pass 1 */
-/* a V26 FFT  - called by gwsetup. */
+/* by a traditional radix-4 FFT  - called by gwsetup. */
 
-double *v26_build_pass1_table (
+double *r4_build_pass1_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table)		/* Pointer to the table to fill in */
 {
@@ -555,7 +555,7 @@ double *v26_build_pass1_table (
 			pass1_size = gwdata->FFTLEN / pass2_size; /* Real values in a pass1 section */
 			N = pass2_size;
 
-/* For the v26_four_complex_fft building block levels, output the sin/cos values. */
+/* For the r4_four_complex_fft building block levels, output the sin/cos values. */
 
 			while (pass1_size > 16) {
 				N = N * 4;
@@ -580,7 +580,7 @@ double *v26_build_pass1_table (
 				pass1_size /= 4;
 			}
 
-/* If necessary, output the sin/cos values for the v26_two_complex_fft building block. */
+/* If necessary, output the sin/cos values for the r4_two_complex_fft building block. */
 
 			if (pass1_size > 8) {
 				N = N * 2;
@@ -668,9 +668,9 @@ double *v26_build_pass1_table (
 }
 
 /* This routine builds the sin/cos table used in all-complex pass 2 */
-/* blocks in a V26 FFT  - called by gwsetup. */
+/* blocks in a traditional radix-4 FFT  - called by gwsetup. */
 
-double *v26_build_sincos_complex_table (
+double *r4_build_sincos_complex_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table)		/* Pointer to the table to fill in */
 {
@@ -683,7 +683,7 @@ double *v26_build_sincos_complex_table (
 	pass2_size = 1 << gwdata->PASS2_LEVELS;	/* Complex values in pass2 section */
 	N = pass2_size;
 
-/* For the v26_four_complex_fft building block levels, output the sin/cos values. */
+/* For the r4_four_complex_fft building block levels, output the sin/cos values. */
 
 	for (i = 0; i < N / 4; i++) {
 		gwsincos3 (i, N, (double *) &sincos);
@@ -714,7 +714,7 @@ double *v26_build_sincos_complex_table (
 
 /* This routine builds a sin/cos table - used by gwsetup */
 
-double *build_sin_cos_table (
+double *hg_build_sin_cos_table (
 	double	*table,		/* Pointer to the table to fill in */
 	unsigned long N,	/* Number of DATA values processed by this */
 				/* FFT level.  This explains the divide by 2 */
@@ -820,7 +820,7 @@ double *build_sin_cos_table (
 
 /* This routine builds a pass 2 premultiplier table - used by gwsetup */
 
-double *build_premult_table (
+double *hg_build_premult_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table,		/* Pointer to the table to fill in */
 	unsigned long pass2_size)
@@ -971,7 +971,7 @@ double *build_premult_table (
 /* This routine builds a plus 1 premultiplier table - used by gwsetup */
 /* when c is positive. */
 
-double *build_plus1_table (
+double *hg_build_plus1_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table,		/* Pointer to the table to fill in */
 	unsigned long pass2_size)
@@ -1294,7 +1294,7 @@ double *build_biglit_table (
 
 /* This routine builds an x87 sin/cos table - used by gwsetup */
 
-double *build_x87_sin_cos_table (
+double *x87_build_sin_cos_table (
 	double	*table,		/* Pointer to the table to fill in */
 	unsigned long N,
 	int	hermetian_skip)	/* True if some sin/cos values are skipped */
@@ -1366,7 +1366,7 @@ double *build_x87_sin_cos_table (
 
 /* This routine builds a pass 2 premultiplier table - used by gwsetup */
 
-double *build_x87_premult_table (
+double *x87_build_premult_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table,		/* Pointer to the table to fill in */
 	unsigned long pass2_size)
@@ -1482,7 +1482,7 @@ double *build_x87_premult_table (
 /* This routine builds a plus 1 premultiplier table - used by gwsetup */
 /* when c is positive. */
 
-double *build_x87_plus1_table (
+double *x87_build_plus1_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table,		/* Pointer to the table to fill in */
 	unsigned long pass2_size)
@@ -1533,7 +1533,7 @@ double *build_x87_plus1_table (
 /* This routine builds a normalization table - used by x87 normalizaion */
 /* routines */
 
-double *build_x87_norm_table (
+double *x87_build_norm_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table,		/* Pointer to the table to fill in */
 	unsigned long pass2_size, /* Size of pass2 */
@@ -1622,7 +1622,7 @@ double *build_x87_norm_table (
 /* This routine builds a big/little flags table - used by x87 normalizaion */
 /* routines */
 
-double *build_x87_biglit_table (
+double *x87_build_biglit_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table,		/* Pointer to the table to fill in */
 	unsigned long pass2_size)
@@ -1796,6 +1796,150 @@ int is_pathological_distribution (
 	return (FALSE);
 }
 
+/* This routine scores different FFT implementations for a specific FFT length. */
+/* In theory, the highest score will yield the fastest run time. */
+
+int score_jmptab_entry (
+	gwhandle *gwdata,	/* Gwnum global data */
+			struct gwasm_jmptab *jmptab)
+{
+	int	score;
+	int	arch;		/* (ppro=0,p3=1,p4=2,core=3,k8=4,k10=5) */
+	int	min_L2_cache;	/* (0=0,128KB=1,WILLI=2,CELE_D=3,512KB=4,1024KB=5,2048KB=6) */
+	int	cache_size;	/* Cache size of this CPU */
+	int	fft_type;	/* (home-grown=0, radix-4=1) */
+
+/* We will generate a score for each FFT implementation.  A higher score */
+/* means we think an implementation will run faster.  A score of zero */
+/* means the FFT implementation will not run at all.  For no good reason, */
+/* we'll start with a base score of 100. */
+
+	score = 100;
+
+/* Our K8 and K10 optimized FFTs requires prefetchw (3DNow!) capability. */
+/* If this is an Intel CPU, skip over these implementations. */
+
+	arch = (jmptab->flags >> 12) & 0xF;
+	if ((arch == 4 || arch == 5) && ! (gwdata->cpu_flags & CPU_3DNOW))
+		return (0);
+
+/* Score big points if the FFT implementation was specifically optimized */
+/* for this CPU architecture.  Score minor points if the FFT was designed */
+/* for AMD and this is an AMD chip (and vice versa) */	
+
+	if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_PENTIUM_4) {
+		if (arch == 2) score += 50;
+	}
+	if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_CORE_2 ||
+	    CPU_ARCHITECTURE == CPU_ARCHITECTURE_CORE_I7) {
+		if (arch == 3) score += 50;
+	}
+	if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_INTEL_OTHER) {
+		if (arch == 3) score += 25;
+	}
+	if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_K8) {
+		if (arch == 4) score += 50;
+		if (arch == 5) score += 10;
+	}
+	if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_K10) {
+		if (arch == 4) score += 10;
+		if (arch == 5) score += 50;
+	}
+	if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_OTHER) {
+		if (arch == 4 || arch == 5) score += 10;
+	}
+	if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_OTHER) {
+		if (arch == 3) score += 25;
+	}
+
+/* Lose points if this CPU requires TLB priming and the FFT implementation */
+/* does not do that.  Gain points if the CPU doesn't require TLB priming */
+/* and the FFT implementation also doesn't do TLB priming. */
+	
+	if (gwdata->cpu_flags & CPU_TLB_PRIMING) {
+		if (! ((jmptab->flags >> 24) & 2)) score -= 10;
+	} else {
+		if (! ((jmptab->flags >> 24) & 2)) score += 1;
+	}
+	    
+/* If L2 cache size is unknown, assume it is 512KB.  We do this because */
+/* it is probably a new processor, and most new processors will have this */
+/* much cache. */
+
+	if (CPU_L2_CACHE_SIZE >= 0)
+		cache_size = CPU_L2_CACHE_SIZE;
+	else
+		cache_size = 512;
+
+/* Nehalem has a small L2 cache and a large L3 cache.  We are better off */
+/* choosing FFTs designed for larger L2 caches. */
+
+	if (CPU_L3_CACHE_SIZE > 0)
+		cache_size += CPU_L3_CACHE_SIZE;
+
+/* Since hyperthreaded CPUs have a shared L2 cache, we pretend we have */
+/* half as much L2 cache when we are running two threads. */
+
+	if (CPU_HYPERTHREADS > 1 && gwdata->num_threads > 1)
+		cache_size >>= 1;
+
+/* The Celeron D (256K L2 cache) and Willamette P4 (256K L2 cache) have */
+/* different optimal FFT implementations.  Adjust the cache size for the */
+/* Celeron D so that we can distinguish between the two processors in our */
+/* table lookup.  The Celeron D has a 4-way set associative cache, while */
+/* the Willamette has an 8-way set-associative cache. */
+
+	if (cache_size == 256 && CPU_L2_SET_ASSOCIATIVE == 4)
+		cache_size = 257;
+
+/* Check L2 cache size preference.  Score points for matching or */
+/* exceeding the minimum L2 cache size.  Deduct points for having */
+/* too little cache (thrashing likely to occur). */
+
+	min_L2_cache = (jmptab->flags >> 8) & 0xF;
+	if (cache_size >= 2048)
+		score += min_L2_cache;
+	else if (cache_size >= 1024)
+		if (min_L2_cache >= 6) score -= 10;
+		else score += min_L2_cache;
+	else if (cache_size >= 512)
+		if (min_L2_cache >= 5) score -= 10;
+		else score += min_L2_cache;
+	else if (cache_size >= 257)
+		if (min_L2_cache >= 4) score -= 10;
+		else score += min_L2_cache;
+	else if (cache_size >= 256)
+		if (min_L2_cache >= 3) score -= 10;
+		else score += min_L2_cache;
+	else if (cache_size >= 128)
+		if (min_L2_cache >= 2) score -= 10;
+		else score += min_L2_cache;
+	else
+		if (min_L2_cache >= 1) score -= 10;
+		else score += min_L2_cache;
+
+/* Check desirability of various FFT types.  The home-grown FFT type used */
+/* in version 25 is our base line.  */
+
+	fft_type = (jmptab->flags >> 16) & 0xF;
+
+/* The Radix-4 FFT uses more memory and */
+/* consequently more memory bandwidth.  The Core 2 chips have the available */
+/* bandwidth, but Pentium 4's do not. */
+	
+	if (fft_type == 1) {
+		if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_CORE_2 ||
+		    CPU_ARCHITECTURE == CPU_ARCHITECTURE_CORE_I7)
+			score += 5;
+		else
+			score -= 5;
+	}
+
+/* All done, return the accumulated score */
+
+	return (score);
+}
+
 /* This routine used to be in assembly language.  It scans the assembly */
 /* code arrays looking for the best FFT size to implement our k*b^n+c FFT. */
 /* Returns 0 for IBDWT FFTs, 1 for zero padded FFTs, or a gwsetup error */
@@ -1809,48 +1953,22 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 	signed long c)		/* C in K*B^N+C. Must be rel. prime to K. */
 {
 	struct gwinfo1_data asm_info;
-	struct gwasm_jmptab *jmptab, *zpad_jmptab, *generic_jmptab;
+	struct gwasm_jmptab *jmptab, *zpad_jmptab, *generic_jmptab, *best_jmptab;
 	double	log2k, logbk, log2b, log2c, log2maxmulbyconst;
 	double	max_bits_per_input_word, max_bits_per_output_word;
 	double	max_weighted_bits_per_output_word;
 	int	num_b_in_big_word, num_small_words, num_big_words;
 	double	b_per_input_word, bits_per_output_word;
 	double	weighted_bits_per_output_word;
-	unsigned long l2_cache_size, max_exp;
-	int32_t *longp;
+	unsigned long max_exp;
 	char	buf[20];
-	int	qa_nth_fft;
-	unsigned long qa_fftlen;
+	int	qa_nth_fft, best_score;
+	uint32_t flags, no_prefetch, in_place;
+	struct gwasm_data *asm_data;
 
-/* If L2 cache size is unknown, assume it is 512KB.  We do this because */
-/* it is probably a new processor, and most new processors will have this */
-/* much cache. */
-
-	if (CPU_L2_CACHE_SIZE >= 0)
-		l2_cache_size = CPU_L2_CACHE_SIZE;
-	else
-		l2_cache_size = 512;
-
-/* Nehalem has a small L2 cache and a large L3 cache.  We are better off */
-/* choosing FFTs designed for larger L2 caches. */
-
-	if (CPU_L3_CACHE_SIZE > 0)
-		l2_cache_size += CPU_L3_CACHE_SIZE;
-
-/* Since hyperthreaded CPUs have a shared L2 cache, we pretend we have */
-/* half as much L2 cache when we are running two threads. */
-
-	if (CPU_HYPERTHREADS > 1 && gwdata->num_threads > 1)
-		l2_cache_size >>= 1;
-
-/* The Celeron D (256K L2 cache) and Willamette P4 (256K L2 cache) have */
-/* different optimal FFT implementations.  Adjust the cache size for the */
-/* Celeron D so that we can distinguish between the two processors in our */
-/* table lookup.  The Celeron D has a 4-way set associative cache, while */
-/* the Willamette has an 8-way set-associative cache. */
-
-	if (l2_cache_size == 256 && CPU_L2_SET_ASSOCIATIVE == 4)
-		l2_cache_size = 257;
+/* Ugly little macros to bump jmptable pointer to next procedure entry or to next count */
+#define INC_JMPTAB_1(x)	x = (struct gwasm_jmptab *) ((char *)(x) + sizeof(uint32_t) + sizeof(void*) + sizeof(uint32_t))
+#define INC_JMPTAB_2(x)	x = (struct gwasm_jmptab *) ((char *)(x) + sizeof(int32_t))
 
 /* Get pointer to 4 assembly jmptables and the version number */
 
@@ -1877,7 +1995,9 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 
 again:	zpad_jmptab = NULL;
 	generic_jmptab = NULL;
-	if (gwdata->specific_fftlen == 0 && (k > 1.0 || n < 500 || abs (c) > 1)) {
+	if (gwdata->specific_fftlen == 0 &&
+	    (k > 1.0 || n < 500 || abs (c) > 1) &&
+	    gwdata->qa_pick_nth_fft < 1000) {
 
 /* Use the proper 2^N-1 jmptable */
 
@@ -1891,54 +2011,12 @@ again:	zpad_jmptab = NULL;
 /* non-zero-padded FFT length later.  The zeroes in the upper half of FFT */
 /* input data let us get about another 0.3 bits per input word. */
 
-		qa_nth_fft = 10000;
 		while ((max_exp = zpad_jmptab->max_exp) != 0) {
-
-/* If QA'ing different FFT implementations, then skip the ones we've already */
-/* tested and the ones that are a different FFT length than the ones already */
-/* tested. */
-
-			qa_nth_fft++;
-			if (gwdata->qa_pick_nth_fft) {
-				if (qa_nth_fft < gwdata->qa_pick_nth_fft)
-					goto next1;
-				if (qa_nth_fft == gwdata->qa_pick_nth_fft) {
-					qa_fftlen = zpad_jmptab->fftlen;
-					goto next1;
-				}
-				if (gwdata->qa_pick_nth_fft != 1 &&
-				    qa_fftlen != zpad_jmptab->fftlen)
-					goto next1;
-				l2_cache_size = 9999999;
-			}
 
 /* Do a quick check on the suitability of this FFT */
 
 			if ((double) n * log2b / (double) zpad_jmptab->fftlen > 26.0) goto next1;
 			if (zpad_jmptab->fftlen < gwdata->minimum_fftlen) goto next1;
-
-/* Check L2 cache size constraints */
-
-			if (l2_cache_size < ((zpad_jmptab->flags_min_l2_cache_clm >> 16) & 0x1FFF))
-				goto next1;
-
-/* Check FFT requires prefetch capability */
-
-			if (zpad_jmptab->flags_min_l2_cache_clm & 0x80000000 &&
-			    ! (gwdata->cpu_flags & CPU_PREFETCH))
-				goto next1;
-
-/* Check FFT requires prefetchw (3DNow!) capability */
-
-			if (zpad_jmptab->flags_min_l2_cache_clm & 0x40000000 &&
-			    ! (gwdata->cpu_flags & CPU_3DNOW))
-				goto next1;
-
-/* Check desire to run experimental FFTs */
-
-			if (zpad_jmptab->flags_min_l2_cache_clm & 0x20000000 &&
-			    CPU_L2_CACHE_SIZE != 4000)
-				goto next1;
 
 /* Don't bother looking at this FFT length if the generic reduction would be faster */
 
@@ -1960,7 +2038,6 @@ again:	zpad_jmptab = NULL;
 //			max_bits_per_word -= gwdata->safety_margin;
 //			bits_per_word = (double) (n + n) * log2b / zpad_jmptab->fftlen;
 //			if (bits_per_word < max_bits_per_word + 0.3) {
-//				if (gwdata->qa_pick_nth_fft) goto use_zpad;
 //				break;
 //			}
 
@@ -2027,17 +2104,17 @@ again:	zpad_jmptab = NULL;
 			    bits_per_output_word - floor (b_per_input_word) * log2b +
 						    log2c + log2maxmulbyconst <= 51.0) {
 
-/* We can use this FFT.  Use it if specifically requested, or */
-/* look for a non-zero-padded FFT that might be even faster. */
+/* We can use this FFT. */
+/* Look for a non-zero-padded FFT that might be even faster. */
 
-				if (gwdata->qa_pick_nth_fft) goto use_zpad;
 				break;
 			}
 
-/* Move to next jmptable entry */
+/* Move past procedure entries and counts to next jmptable entry */
 
-next1:			for (longp = &zpad_jmptab->counts[0]; *longp; longp++);
-			zpad_jmptab = (struct gwasm_jmptab *) (longp + 1);
+next1:			while (zpad_jmptab->counts[0] & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
+			while (zpad_jmptab->counts[0]) INC_JMPTAB_2 (zpad_jmptab);
+			zpad_jmptab = (struct gwasm_jmptab *) &zpad_jmptab->counts[1];
 		}
 	}
 
@@ -2060,25 +2137,13 @@ next1:			for (longp = &zpad_jmptab->counts[0]; *longp; longp++);
 /* Find the table entry using either the specified fft length or */
 /* the smallest FFT length that can handle the k,b,n,c being tested. */
 
-	qa_nth_fft = 50000;
 	while ((max_exp = jmptab->max_exp) != 0) {
 
-/* If QA'ing different FFT implementations, then skip the ones we've */
-/* already tested and the ones that are a different FFT length than the */
-/* ones already tested. */
+/* Check if this table entry matches the specified FFT length. */
 
-		qa_nth_fft++;
-		if (gwdata->qa_pick_nth_fft) {
-			if (qa_nth_fft < gwdata->qa_pick_nth_fft)
-				goto next2;
-			if (qa_nth_fft == gwdata->qa_pick_nth_fft) {
-				qa_fftlen = jmptab->fftlen;
-				goto next2;
-			}
-			if (gwdata->qa_pick_nth_fft >= 50000 &&
-			    qa_fftlen != jmptab->fftlen)
-				goto next2;
-			l2_cache_size = 9999999;
+		if (gwdata->specific_fftlen) {
+			if (gwdata->specific_fftlen == jmptab->fftlen) break;
+			goto next2;
 		}
 
 /* Do a quick check on the suitability of this FFT */
@@ -2086,59 +2151,16 @@ next1:			for (longp = &zpad_jmptab->counts[0]; *longp; longp++);
 		if ((double) n * log2b / (double) jmptab->fftlen > 26.0) goto next2;
 		if (jmptab->fftlen < gwdata->minimum_fftlen) goto next2;
 
-/* Check if FFT requires prefetch capability */
+/* Check if this FFT length will work with this k,n,c combo */
 
-		if (jmptab->flags_min_l2_cache_clm & 0x80000000 &&
-		    ! (gwdata->cpu_flags & CPU_PREFETCH))
-			goto next2;
-
-/* Check if FFT requires prefetchw (3DNow!) capability */
-
-		if (jmptab->flags_min_l2_cache_clm & 0x40000000 &&
-		    ! (gwdata->cpu_flags & CPU_3DNOW))
-			goto next2;
-
-/* Check desire to run experimental FFTs */
-
-		if (jmptab->flags_min_l2_cache_clm & 0x20000000 &&
-		    CPU_L2_CACHE_SIZE != 4000)
-			goto next2;
-
-/* Handle benchmarking case that selects the nth FFT implementation */
-/* regardless of cache size considerations. */
-
-		if (gwdata->bench_pick_nth_fft) {
-			l2_cache_size = 9999999;
-			if (gwdata->specific_fftlen != jmptab->fftlen)
-				goto next2;
-			if (gwdata->cpu_flags & CPU_3DNOW &&
-			    ! (jmptab->flags_min_l2_cache_clm & 0x40000000))
-				goto next2;
-			if (--gwdata->bench_pick_nth_fft) goto next2;
-		}
-
-/* Check L2 cache size constraints */
-
-		if (l2_cache_size < ((jmptab->flags_min_l2_cache_clm >> 16) & 0x1FFF))
-			goto next2;
-
-/* Check if this table entry matches the specified FFT length. */
-
-		if (gwdata->specific_fftlen) {
-			if (gwdata->specific_fftlen == jmptab->fftlen) break;
-		}
-
-/* Or check that this FFT length will work with this k,n,c combo */
-
-		else {
 //  This is the old code which only supported b == 2
-//			double max_bits_per_word;
-//			double bits_per_word;
+//		double max_bits_per_word;
+//		double bits_per_word;
 //
 /* Compute the maximum number of bits allowed in the FFT input word */
 //
-//			max_bits_per_word = (double) max_exp / jmptab->fftlen;
-//			max_bits_per_word -= gwdata->safety_margin;
+//		max_bits_per_word = (double) max_exp / jmptab->fftlen;
+//		max_bits_per_word -= gwdata->safety_margin;
 //
 /* For historical reasons, the jmptable computes maximum exponent based on */
 /* a Mersenne-mod FFT (i.e k=1.0, c=-1).  Handle more complex cases here. */
@@ -2150,8 +2172,8 @@ next1:			for (longp = &zpad_jmptab->counts[0]; *longp; longp++);
 /* where the roundoff error was too high, so we use 1.7 here for extra */
 /* safety. */
 //
-//			bits_per_word = (log2k + n * log2b) / jmptab->fftlen;
-//			if (2.0 * bits_per_word + log2k + 1.7 * log2c <=
+//		bits_per_word = (log2k + n * log2b) / jmptab->fftlen;
+//		if (2.0 * bits_per_word + log2k + 1.7 * log2c <=
 //					2.0 * max_bits_per_word) {
 /* Because carries are spread over 4 words, there is a minimum limit on */
 /* the bits per word.  An FFT result word cannot be more than 5 times */
@@ -2166,11 +2188,11 @@ next1:			for (longp = &zpad_jmptab->counts[0]; *longp; longp++);
 /* Finally, the mulbyconst does not affect our chance of getting a round off */
 /* error, but does add to the size of the carry. */
 //
-//			loglen = log2 (jmptab->fftlen);
-//			total_bits = (bits_per_word - 1.0) * 2.0 +
+//		loglen = log2 (jmptab->fftlen);
+//		total_bits = (bits_per_word - 1.0) * 2.0 +
 //				     1.7 * log2c + loglen * 0.6 +
 //				     log2k + log2maxmulbyconst;
-//			if (total_bits > 5.0 * bits_per_word) {
+//		if (total_bits > 5.0 * bits_per_word) {
 
 /* In version 25.11, we now need to handle b != 2.  Consider the case */
 /* where b is ~4000.  If small words contain one b (~12 bits) and large words */
@@ -2194,25 +2216,25 @@ next1:			for (longp = &zpad_jmptab->counts[0]; *longp; longp++);
 
 /* Compute the maximum number of bits allowed in the FFT input word */
 
-			max_bits_per_input_word = (double) max_exp / jmptab->fftlen;
-			max_bits_per_input_word -= gwdata->safety_margin;
+		max_bits_per_input_word = (double) max_exp / jmptab->fftlen;
+		max_bits_per_input_word -= gwdata->safety_margin;
 
 /* Apply our new formula above to the maximum Mersenne exponent for this FFT length. */
 
-			num_b_in_big_word = (int) ceil (max_bits_per_input_word);
-			num_small_words = (int) ((num_b_in_big_word - max_bits_per_input_word) * jmptab->fftlen);
-			num_big_words = jmptab->fftlen - num_small_words;
-			max_bits_per_output_word =
+		num_b_in_big_word = (int) ceil (max_bits_per_input_word);
+		num_small_words = (int) ((num_b_in_big_word - max_bits_per_input_word) * jmptab->fftlen);
+		num_big_words = jmptab->fftlen - num_small_words;
+		max_bits_per_output_word =
 				2 * (num_b_in_big_word - 1) +
 				0.6 * log2 (num_big_words + num_small_words / 3.174802103936252);
 
 /* Apply our new formula to the number we are planning to test */
 
-			b_per_input_word = (logbk + n) / jmptab->fftlen;
-			num_b_in_big_word = (int) ceil (b_per_input_word);
-			num_small_words = (int) ((num_b_in_big_word - b_per_input_word) * jmptab->fftlen);
-			num_big_words = jmptab->fftlen - num_small_words;
-			bits_per_output_word = 
+		b_per_input_word = (logbk + n) / jmptab->fftlen;
+		num_b_in_big_word = (int) ceil (b_per_input_word);
+		num_small_words = (int) ((num_b_in_big_word - b_per_input_word) * jmptab->fftlen);
+		num_big_words = jmptab->fftlen - num_small_words;
+		bits_per_output_word = 
 				2.0 * (num_b_in_big_word * log2b - 1.0) +
 				0.6 * log2 (num_big_words + num_small_words / pow (2.0, log2b / 0.6)) +
 				log2k + 1.7 * log2c;
@@ -2221,24 +2243,24 @@ next1:			for (longp = &zpad_jmptab->counts[0]; *longp; longp++);
 /* range from 1 to b.  These extra bits impact the round off error.  Thus, we calculate */
 /* the weighted_bits_per_output_word for irrational FFTs as using another log2b bits. */
 
-			max_weighted_bits_per_output_word = 2.0 * max_bits_per_input_word + 0.6 * log2 (jmptab->fftlen);
-			weighted_bits_per_output_word =
+		max_weighted_bits_per_output_word = 2.0 * max_bits_per_input_word + 0.6 * log2 (jmptab->fftlen);
+		weighted_bits_per_output_word =
 				2.0 * ((b_per_input_word + 1.0) * log2b - 1.0) +
 				0.6 * log2 (jmptab->fftlen) + log2k + 1.7 * log2c;
 
 /* Also, testing shows that for small b an unweighted FFT saves about */
 /* log2b output bits, and for larger b saves about 1.4 * log2b output bits. */
 
-			if (k == 1.0 && n % jmptab->fftlen == 0)
-				weighted_bits_per_output_word -= ((log2b <= 4.0) ? log2b : 1.4 * log2b);
+		if (k == 1.0 && n % jmptab->fftlen == 0)
+			weighted_bits_per_output_word -= ((log2b <= 4.0) ? log2b : 1.4 * log2b);
 
 /* A pathological case occurs when num_big_words is one and k is greater than one. */
 /* The FFT weights for the small words will not range from 1 to b.  Depending on the */
 /* fractional part of logb(k).  In the worst case scenario, the small word weights */
 /* range from b - epsilon to b.  The example that raised this issue is 28*3^12285-1. */
 
-			else if (num_big_words == 1 && k > 1.0)
-				weighted_bits_per_output_word += log2b;
+		else if (num_big_words == 1 && k > 1.0)
+			weighted_bits_per_output_word += log2b;
 				
 /* Furthermore, testing shows us that larger b values don't quite need the full log2b */
 /* bits added (except for some pathological cases), probably because there are fewer */
@@ -2247,8 +2269,8 @@ next1:			for (longp = &zpad_jmptab->counts[0]; *longp; longp++);
 /* expected, if log2b is 6 you get about 2 extra bits, if log2b is 12 you can get */
 /* 3 extra bits. */
 
-			else if (! is_pathological_distribution (num_big_words, num_small_words))
-				weighted_bits_per_output_word -=
+		else if (! is_pathological_distribution (num_big_words, num_small_words))
+			weighted_bits_per_output_word -=
 					((log2b <= 3.0) ? (log2b - 1.0) / 2.0 :
 					 (log2b <= 6.0) ? 1.0 + (log2b - 3.0) / 3.0 :
 							  2.0 + (log2b - 6.0) / 6.0);
@@ -2256,7 +2278,7 @@ next1:			for (longp = &zpad_jmptab->counts[0]; *longp; longp++);
 /* If the bits in an output word is less than the maximum allowed, we can */
 /* probably use this FFT length -- though we need to do a few more tests. */
 
-			if (weighted_bits_per_output_word <= max_weighted_bits_per_output_word) {
+		if (weighted_bits_per_output_word <= max_weighted_bits_per_output_word) {
 
 /* Because carries are spread over 4 words, there is a minimum limit on */
 /* the bits per word.  An FFT result word cannot be more than 5 times */
@@ -2264,16 +2286,16 @@ next1:			for (longp = &zpad_jmptab->counts[0]; *longp; longp++);
 /* word and the 4 words we propogate carries to).  The mul-by-const that */
 /* during the normalization process adds to the size of the carry. */
 
-				if (bits_per_output_word + log2maxmulbyconst >
+			if (bits_per_output_word + log2maxmulbyconst >
 							    floor (5.0 * b_per_input_word) * log2b) {
 // This assert was designed to find any cases where using 5 or more carry words
 // would use a shorter FFT than using a zero-padded FFT.  We did find a case:
 // 15539*2^15095288+7 would use 1.5M FFT length if I implemented 5 carry words
 // and requires a 1.75M FFT length for a zero-padded FFT.
-//					ASSERTG (zpad_jmptab == NULL ||
-//						 jmptab->fftlen >= zpad_jmptab->fftlen);
-					goto next2;
-				}
+//				ASSERTG (zpad_jmptab == NULL ||
+//					 jmptab->fftlen >= zpad_jmptab->fftlen);
+				goto next2;
+			}
 
 /* Because of limitations in the top_carry_adjust code, there is a limit */
 /* on the size of k that can be handled.  This isn't a big deal since the */
@@ -2281,42 +2303,42 @@ next1:			for (longp = &zpad_jmptab->counts[0]; *longp; longp++);
 /* if this k can be handled.  K must fit in the top three words for */
 /* one-pass FFTs and within the top two words of two-pass FFTs. */
 
-				if (jmptab->pass2_levels == 0 && logbk > floor (3.0 * b_per_input_word)) {
+			if ((jmptab->flags & 0xF) == 0 && logbk > floor (3.0 * b_per_input_word)) {
 // This assert is designed to find any cases where using 3 or more carray adjust words
 // would use a shorter FFT than using a zero-padded FFT.
-					ASSERTG (zpad_jmptab != NULL && jmptab->fftlen >= zpad_jmptab->fftlen);
-					goto next2;
-				}
-				if (jmptab->pass2_levels != 0 && logbk > floor (2.0 * b_per_input_word)) {
+				ASSERTG (zpad_jmptab != NULL && jmptab->fftlen >= zpad_jmptab->fftlen);
+				goto next2;
+			}
+			if ((jmptab->flags & 0xF) != 0 && logbk > floor (2.0 * b_per_input_word)) {
 // This assert is designed to find any cases where using 3 or more carray adjust words
 // would use a shorter FFT than using a zero-padded FFT.
-					ASSERTG (zpad_jmptab != NULL && jmptab->fftlen >= zpad_jmptab->fftlen);
-					goto next2;
-				}
+				ASSERTG (zpad_jmptab != NULL && jmptab->fftlen >= zpad_jmptab->fftlen);
+				goto next2;
+			}
 
 /* We've found an FFT length to use */
 
-				break;
-			}
+			break;
 		}
 
-/* Move to next jmptable entry */
+/* Move past procedure entries and counts to next jmptable entry */
 
-next2:		for (longp = &jmptab->counts[0]; *longp; longp++);
-		jmptab = (struct gwasm_jmptab *) (longp + 1);
+next2:		while (jmptab->counts[0] & 0x80000000) INC_JMPTAB_1 (jmptab);
+		while (jmptab->counts[0]) INC_JMPTAB_2 (jmptab);
+		jmptab = (struct gwasm_jmptab *) &jmptab->counts[1];
 	}
 
-/* If the zero pad FFT length is less than the DWT FFT length, then use */
-/* the zero pad FFT length. */
+/* If the zero pad FFT length is less than the DWT FFT length OR we */
+/* are QA'ing every FFT implementation, then use the zero pad FFT length. */
 
 	if (zpad_jmptab != NULL && zpad_jmptab->max_exp &&
-	    (jmptab->max_exp == 0 || zpad_jmptab->fftlen < jmptab->fftlen)) {
-use_zpad:	gwdata->ZERO_PADDED_FFT = TRUE;
+	    (jmptab->max_exp == 0 || zpad_jmptab->fftlen < jmptab->fftlen || gwdata->qa_pick_nth_fft)) {
+		gwdata->ZERO_PADDED_FFT = TRUE;
 		gwdata->ALL_COMPLEX_FFT = FALSE;
 		jmptab = zpad_jmptab;
 	}
 
-/* If we found a DWT table entry then return the address in fft_info. */
+/* If we found a DWT table entry then use it. */
 
 	else if (jmptab->max_exp) {
 		gwdata->ZERO_PADDED_FFT = FALSE;
@@ -2336,25 +2358,237 @@ use_zpad:	gwdata->ZERO_PADDED_FFT = TRUE;
 		goto again;
 	}
 
-/* Remember the FFT length and number of pass 2 levels and the gap */
-/* between 2 blocks.  This is used by addr_offset called from */
-/* gwmap_to_estimated_size without a call to gwsetup. */
+/* We've found the right "jump" table entry, save the pointer and FFT length */
 
+	gwdata->jmptab = jmptab;
 	gwdata->FFTLEN = jmptab->fftlen;
-	gwdata->PASS2_LEVELS = jmptab->pass2_levels; /* FFT levels in pass2 */
-	gwdata->PASS2GAPSIZE = jmptab->counts[0] - 1;
+
+/************************************************************************/
+/* Decide which implementation of this FFT length is best for this CPU. */
+/************************************************************************/
+
+/* Loop through all the implementations for this FFT length until we find */
+/* the one best suited to this CPU. */
+
+	qa_nth_fft = gwdata->ZERO_PADDED_FFT ? 100 : 1000;
+	best_score = 0;
+	best_jmptab = NULL;
+	for ( ; ; ) {
+		int	score;
+
+/* Score the suitability of this implementation */
+
+		score = score_jmptab_entry (gwdata, jmptab);
+
+/* If this CPU will crash running this FFT (score = 0) then skip this entry */
+
+		if (score == 0) goto next3;
+
+/* Handle benchmarking case that selects the nth FFT implementation */
+/* without regard to any other consideration. */
+
+		if (gwdata->bench_pick_nth_fft) {
+			gwdata->bench_pick_nth_fft--;
+			if (gwdata->bench_pick_nth_fft) goto next3;
+			best_jmptab = jmptab;
+			break;
+		}
+
+/* Handle the QA case that tests every possible FFT implementation */
+/* Remember the FFT returned so that we can return a different FFT to */
+/* the QA code next time. */
+
+		if (gwdata->qa_pick_nth_fft) {
+			qa_nth_fft++;
+			if (qa_nth_fft <= gwdata->qa_pick_nth_fft) goto next3;
+			best_jmptab = jmptab;
+			gwdata->qa_picked_nth_fft = qa_nth_fft;
+			break;
+		}
+
+/* If this is the best choice thusfar, remember the information */
+
+		if (score > best_score) {
+			best_score = score;
+			best_jmptab = jmptab;
+		}
+
+/* Move onto next FFT implementation if there is one */
+
+next3:		if (! (jmptab->counts[0] & 0x80000000)) break;
+		INC_JMPTAB_1 (jmptab);
+	}
+
+/* Handle an FFT implementation not found condition.  Should only */
+/* if we're benchmarking or QA'ing and we've tested every implementation. */
+
+	if (best_jmptab == NULL) {
+
+/* If we are QA'ing every FFT implementation and we did not find another */
+/* zero-padded FFT implementation, then go find a non-zero-padded one. */
+
+		if (gwdata->qa_pick_nth_fft && gwdata->qa_pick_nth_fft < 1000) {
+			gwdata->qa_pick_nth_fft = 1000;
+			goto again;
+		}
+
+/* Else return an error */
+
+		return (GWERROR_TOO_LARGE);
+	}
+
+/* If this is the best choice thusfar, remember the information */
+
+	flags = best_jmptab->flags;
+	gwdata->GWPROCPTRS[0] = best_jmptab->proc_ptr;
+	gwdata->mem_needed = best_jmptab->mem_needed;
+
+/* Break the flags word from the jmptable entry into its constituent parts */
+/* The 32-bit flags word is as follows (copied from mult.asm): */
+/*	80000000h		always on */
+/*	4 SHL 24		(no prefetching) */
+/*	2 SHL 24		(tlb priming) */
+/*	1 SHL 24		(in_place) */
+/*	fft_type SHL 16		(hg=0, r4=1) */
+/*	arch SHL 12		(ppro=0,p3=1,p4=2,core=3,k8=4,k10=5) */
+/*	min_L2_cache SHL 8	(0=0,128KB=1,WILLI=2,CELE_D=3,512KB=4,1024KB=5,2048KB=6) */
+/*	clm SHL 4		(1,2,4,8) */
+/*	pass2levels		(0,8,10,11,12,13) */
+
+	no_prefetch = (flags >> 26) & 0x00000001;
+	in_place = (flags >> 24) & 0x00000001;
+	gwdata->FFT_TYPE = (flags >> 16) & 0x0000000F;
+	gwdata->ARCH = (flags >> 12) & 0x0000000F;
+	gwdata->PASS1_CACHE_LINES = ((flags >> 4) & 0x0000000F) * 2;
+	gwdata->PASS2_LEVELS = flags & 0x0000000F;
+
+/* Set more info so that addr_offset called from */
+/* gwmap_to_estimated_size can work without a call to gwsetup. */
+
 	gwdata->GW_ALIGNMENT = 4096;	/* Guess an alignment so gwsize can */
 					/* return a reasonable value for */
 					/* large page support in gwsetup */
 
-/* Remember the FFT returned so that we can return a different FFT to */
-/* the QA code next time. */
+/* Calculate the scratch area size -- needed by gwmemused without calling gwsetup */
 
-	gwdata->qa_picked_nth_fft = qa_nth_fft;
+	if (gwdata->PASS2_LEVELS && !in_place) {
+		if (! (gwdata->cpu_flags & CPU_SSE2)) {	// x87 scratch area size
+			int	pass1_chunks, gaps;
+			// x87 scratch area size, pads 64 bytes every 32 chunks
+			pass1_chunks = (jmptab->fftlen >> (gwdata->PASS2_LEVELS + 1));
+			gaps = pass1_chunks / 32 - 1;
+			if (gaps < 3) gaps = 0;
+			// x87 pads 64 bytes every 32 chunks
+			gwdata->SCRATCH_SIZE = pass1_chunks * gwdata->PASS1_CACHE_LINES * 32 + gaps * 64;
+		} else {				// SSE2 scratch area size
+			int	pass1_chunks, gaps;
+			// SSE2 pads 128 bytes every 8 chunks
+			pass1_chunks = (jmptab->fftlen >> (gwdata->PASS2_LEVELS + 2));
+			gaps = pass1_chunks / 8 - 1;
+			gwdata->SCRATCH_SIZE = pass1_chunks * gwdata->PASS1_CACHE_LINES * 64 + gaps * 128;
+		}
+	} else
+		gwdata->SCRATCH_SIZE = 0;
 
-/* Set pointer to assembler "jump" table entry */
+/* Remember the FFT length and number of pass 2 levels and the gap */
+/* between 2 blocks.  This is used by addr_offset called from */
+/* gwmap_to_estimated_size without a call to gwsetup. */
 
-	gwdata->jmptab = jmptab;
+	if (gwdata->PASS2_LEVELS == 8 && gwdata->PASS1_CACHE_LINES == 2)
+		gwdata->PASS2GAPSIZE = 128;	// GAP2_8_1
+	if (gwdata->PASS2_LEVELS == 8 && gwdata->PASS1_CACHE_LINES == 8)
+		gwdata->PASS2GAPSIZE = 896;	// GAP2_8_4
+	if (gwdata->PASS2_LEVELS == 10 && gwdata->PASS1_CACHE_LINES == 2)
+		gwdata->PASS2GAPSIZE = no_prefetch ? -128 : 256; // GAP2_10_0 & GAP2_10_1
+	if (gwdata->PASS2_LEVELS == 10 && gwdata->PASS1_CACHE_LINES == 4)
+		gwdata->PASS2GAPSIZE = 0;	// GAP2_10_2
+	if (gwdata->PASS2_LEVELS == 10 && gwdata->PASS1_CACHE_LINES == 8)
+		gwdata->PASS2GAPSIZE = 512;	// GAP2_10_4
+	if (gwdata->PASS2_LEVELS == 10 && gwdata->PASS1_CACHE_LINES == 16)
+		gwdata->PASS2GAPSIZE = 512;	// GAP2_10_8
+	if (gwdata->PASS2_LEVELS == 11 && gwdata->PASS1_CACHE_LINES == 2)
+		gwdata->PASS2GAPSIZE = no_prefetch ? -128 : 256; // GAP2_11_0 & GAP2_11_1
+	if (gwdata->PASS2_LEVELS == 11 && gwdata->PASS1_CACHE_LINES == 4)
+		gwdata->PASS2GAPSIZE = 512;	// GAP2_11_2
+	if (gwdata->PASS2_LEVELS == 11 && gwdata->PASS1_CACHE_LINES == 8)
+		gwdata->PASS2GAPSIZE = 0;	// GAP2_11_4
+	if (gwdata->PASS2_LEVELS == 11 && gwdata->PASS1_CACHE_LINES == 16)
+		gwdata->PASS2GAPSIZE = 0;	// GAP2_11_8
+	if (gwdata->PASS2_LEVELS == 12 && gwdata->PASS1_CACHE_LINES == 2)
+		gwdata->PASS2GAPSIZE = no_prefetch ? -128 : 256; // GAP2_12_0 & GAP2_12_1
+	if (gwdata->PASS2_LEVELS == 12 && gwdata->PASS1_CACHE_LINES == 4)
+		gwdata->PASS2GAPSIZE = 512;	// GAP2_12_2
+	if (gwdata->PASS2_LEVELS == 12 && gwdata->PASS1_CACHE_LINES == 8)
+		gwdata->PASS2GAPSIZE = 1024;	// GAP2_12_4
+	if (gwdata->PASS2_LEVELS == 12 && gwdata->PASS1_CACHE_LINES == 16)
+		gwdata->PASS2GAPSIZE = 1024;	// GAP2_12_8
+	if (gwdata->PASS2_LEVELS == 13 && gwdata->PASS1_CACHE_LINES == 2)
+		gwdata->PASS2GAPSIZE = no_prefetch ? -128 : 256; // GAP2_13_0 & GAP2_13_1
+	if (gwdata->PASS2_LEVELS == 13 && gwdata->PASS1_CACHE_LINES == 4)
+		gwdata->PASS2GAPSIZE = 512;	// GAP2_13_2
+	if (gwdata->PASS2_LEVELS == 13 && gwdata->PASS1_CACHE_LINES == 8)
+		gwdata->PASS2GAPSIZE = 1024;	// GAP2_13_4
+	if (gwdata->PASS2_LEVELS == 13 && gwdata->PASS1_CACHE_LINES == 16)
+		gwdata->PASS2GAPSIZE = 1024;	// GAP2_13_8
+
+/* Copy the counts */
+
+	asm_data = (struct gwasm_data *) gwdata->asm_data;
+	if (asm_data != NULL) {
+		unsigned long pass2_size;
+		pass2_size = 1 << gwdata->PASS2_LEVELS;	/* Complex values in pass2 section */
+		if (! (gwdata->cpu_flags & CPU_SSE2)) {
+			if (gwdata->PASS2_LEVELS == 0) {
+				/* 5 counts for one pass x87 FFTs */
+				asm_data->count1 = jmptab->counts[0];
+				asm_data->count2 = jmptab->counts[1];
+				asm_data->count3 = jmptab->counts[2];
+				asm_data->count4 = jmptab->counts[3];
+				asm_data->count5 = jmptab->counts[4];
+			} else {
+				/* Count of pass 2 sections */
+				asm_data->addcount1 = gwdata->FFTLEN / pass2_size / 2;
+				/* Count of all-complex pass 2 sections */
+				asm_data->count1 = asm_data->addcount1;
+				if (gwdata->ZERO_PADDED_FFT || c < 0) asm_data->count1--;
+			}
+		} else {
+			if (gwdata->PASS2_LEVELS == 0) {
+				/* 7 counts for one pass SSE2 FFTs */
+				asm_data->addcount1 = jmptab->counts[0];
+				asm_data->normcount1 = jmptab->counts[1];
+				asm_data->count1 = jmptab->counts[2];
+				asm_data->count2 = jmptab->counts[3];
+				asm_data->count3 = jmptab->counts[4];
+				asm_data->count4 = jmptab->counts[5];
+				asm_data->count5 = jmptab->counts[6];
+			} else {
+				int	pfa, pfa_shift;
+				/* Count of pass 2 sections */
+				asm_data->addcount1 = gwdata->FFTLEN / pass2_size / 4;
+				/* Count of all-complex pass 2 sections */
+				asm_data->count1 = asm_data->addcount1;
+				if (gwdata->ZERO_PADDED_FFT || c < 0) asm_data->count1--;
+				/* Up to three section counts for gw_carries.  Examples: */
+				/* 320 pass 2 sections: (256 << 11) + 64 */
+				/* 384 pass 2 sections: 384 */
+				/* 448 pass 2 sections: (256 << 22) + (128 << 11) + 64 */
+				/* 512 pass 2 sections: 512 */
+				for (pfa = asm_data->addcount1, pfa_shift = 0;
+				     pfa > 8;
+				     pfa >>= 1, pfa_shift++);
+				if (pfa == 5)
+					asm_data->count3 = ((4 << 11) + 1) << pfa_shift;
+				else if (pfa == 7)
+					asm_data->count3 = ((4 << 22) + (2 << 11) + 1) << pfa_shift;
+				else
+					asm_data->count3 = asm_data->addcount1;
+			}
+		}
+	}
+
+/* All done */
+
 	return (0);
 }
 
@@ -2956,15 +3190,26 @@ int internal_gwsetup (
 
 	fpu_init ();
 
+/* Allocate space for the assembly code global data.  This area is preceded */
+/* by a temporary stack.  This allows the assembly code to access the global */
+/* data using offsets from the stack pointer. */
+
+	asm_data_alloc = aligned_malloc (sizeof (struct gwasm_data) + NEW_STACK_SIZE, 4096);
+	if (asm_data_alloc == NULL) {
+		gwdone (gwdata);
+		return (GWERROR_MALLOC);
+	}
+	gwdata->asm_data = (char *) asm_data_alloc + NEW_STACK_SIZE;
+	asm_data = (struct gwasm_data *) gwdata->asm_data;
+
 /* Select the proper FFT size for this k,b,n,c combination */
 
 	error_code = gwinfo (gwdata, k, b, n, c);
-	if (error_code) return (error_code);
+	if (error_code) {
+		gwdone (gwdata);
+		return (error_code);
+	}
 	info = gwdata->jmptab;
-
-/* Set a flag if we'll be executing new v26 FFT code */
-
-	gwdata->V26_FFT = (info->flags_min_l2_cache_clm & 0x20000000);
 
 /* Get pointer to fft info and allocate needed memory.  If we are */
 /* trying to allocate large pages, then also allocate space for the */
@@ -2976,7 +3221,7 @@ int internal_gwsetup (
 	tables = NULL;
 	gwdata->large_pages_ptr = NULL;
 	gwdata->large_pages_gwnum = NULL;
-	mem_needed = info->mem_needed + info->scratch_size;
+	mem_needed = gwdata->mem_needed + gwdata->SCRATCH_SIZE;
 	if (gwdata->use_large_pages) {
 		tables = (double *) large_pages_malloc (mem_needed + gwnum_size (gwdata) + 4096);
 		if (tables != NULL) {
@@ -2999,18 +3244,6 @@ int internal_gwsetup (
 /* contiguous physical memory. */
 
 	memset (tables, 0, mem_needed);
-
-/* Allocate space for the assembly code global data.  This area is preceded */
-/* by a temporary stack.  This allows the assembly code to access the global */
-/* data using offsets from the stack pointer. */
-
-	asm_data_alloc = aligned_malloc (sizeof (struct gwasm_data) + NEW_STACK_SIZE, 4096);
-	if (asm_data_alloc == NULL) {
-		gwdone (gwdata);
-		return (GWERROR_MALLOC);
-	}
-	gwdata->asm_data = (char *) asm_data_alloc + NEW_STACK_SIZE;
-	asm_data = (struct gwasm_data *) gwdata->asm_data;
 
 /* Copy values for asm code to use */
 
@@ -3069,26 +3302,16 @@ int internal_gwsetup (
 	gwdata->EXTRA_BITS = (unsigned long)
 		pow (2.0, (gwdata->fft_max_bits_per_word - virtual_bits_per_word (gwdata)) / 2.0);
 
-/* Remember the size of the scratch area */
-
-	gwdata->SCRATCH_SIZE = info->scratch_size;
-
-/* See how many cache lines are grouped in pass 1.  This will affect how */
-/* we build the normalization tables.  Note that cache line sizes are */
-/* different in the x87 (16 bytes) and SSE2 code (64 bytes). */
-
-	gwdata->PASS1_CACHE_LINES = (info->flags_min_l2_cache_clm & 0xFFFF);
-
 /* Determine the pass 1 & pass 2 sizes.  This affects how we build */
 /* many of the sin/cos tables. */
 
 	pass2_size = 1 << gwdata->PASS2_LEVELS;	/* Complex values in pass2 section */
 	pass1_size = gwdata->FFTLEN / pass2_size; /* Real values in a pass1 section */
 
-/* Initialize tables for the v26 FFT assembly code.  These are guaranteed to be */
+/* Initialize tables for the radix-4 FFT assembly code.  These are guaranteed to be */
 /* two-pass FFTs as we use the older FFT code for one pass FFTs. */
 
-	if (gwdata->V26_FFT) {
+	if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4) {
 
 /* Build sin/cos and premultiplier tables used in pass 1 of two pass FFTs. */
 /* Remember that pass2_size is the number of complex values in a pass 2 */
@@ -3097,23 +3320,23 @@ int internal_gwsetup (
 /* For best prefetching, make sure tables remain on 128-byte boundaries */
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
-		tables = v26_build_pass1_table (gwdata, tables);
+		tables = r4_build_pass1_table (gwdata, tables);
 		tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 
 /* Build the table used in complex pass 2 blocks */
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->xsincos_complex = tables;
-		tables = v26_build_sincos_complex_table (gwdata, tables);
+		tables = r4_build_sincos_complex_table (gwdata, tables);
 
 /* Build the rest of the tables */
 
 		if (!gwdata->ALL_COMPLEX_FFT) {
 			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 			asm_data->sincos6 = tables;
-			tables = build_sin_cos_table (tables, pass2_size * 4, 1, 2);
+			tables = hg_build_sin_cos_table (tables, pass2_size * 4, 1, 2);
 			asm_data->sincos7 = tables;
-			tables = build_sin_cos_table (tables, pass2_size, 1, 1);
+			tables = hg_build_sin_cos_table (tables, pass2_size, 1, 1);
 			tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 		}
 
@@ -3163,13 +3386,13 @@ int internal_gwsetup (
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		if (!gwdata->ALL_COMPLEX_FFT) {
 			asm_data->sincos1 = tables;
-			tables = build_sin_cos_table (tables, pass1_size, !gwdata->ALL_COMPLEX_FFT, pass2_size == 1 ? 2 : 1);
+			tables = hg_build_sin_cos_table (tables, pass1_size, !gwdata->ALL_COMPLEX_FFT, pass2_size == 1 ? 2 : 1);
 
 			if (pass2_size > 1 && pass1_size == pow_two_above_or_equal (pass1_size))
 				asm_data->sincos2 = asm_data->sincos1;
 			else {
 				asm_data->sincos2 = tables;
-				tables = build_sin_cos_table (tables, pass1_size/4, !gwdata->ALL_COMPLEX_FFT, 1);
+				tables = hg_build_sin_cos_table (tables, pass1_size/4, !gwdata->ALL_COMPLEX_FFT, 1);
 			}
 
 			if (pass1_size == pow_two_above_or_equal (pass1_size)) {
@@ -3178,11 +3401,11 @@ int internal_gwsetup (
 				asm_data->sincos5 = asm_data->sincos2;
 			} else {
 				asm_data->sincos3 = tables;
-				tables = build_sin_cos_table (tables, pass1_size/16, !gwdata->ALL_COMPLEX_FFT, 1);
+				tables = hg_build_sin_cos_table (tables, pass1_size/16, !gwdata->ALL_COMPLEX_FFT, 1);
 				asm_data->sincos4 = tables;
-				tables = build_sin_cos_table (tables, pass1_size/64, !gwdata->ALL_COMPLEX_FFT, 1);
+				tables = hg_build_sin_cos_table (tables, pass1_size/64, !gwdata->ALL_COMPLEX_FFT, 1);
 				asm_data->sincos5 = tables;
-				tables = build_sin_cos_table (tables, pass1_size/256, !gwdata->ALL_COMPLEX_FFT, 1);
+				tables = hg_build_sin_cos_table (tables, pass1_size/256, !gwdata->ALL_COMPLEX_FFT, 1);
 			}
 			tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 		}
@@ -3218,20 +3441,20 @@ int internal_gwsetup (
 		if (pass2_size > 1) {
 			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 			asm_data->pass2_premults = tables;
-			tables = build_premult_table (gwdata, tables, pass2_size);
+			tables = hg_build_premult_table (gwdata, tables, pass2_size);
 
 /* Build the rest of the tables */
 
 			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 			asm_data->xsincos_complex = tables;
-			tables = build_sin_cos_table (tables, pass2_size/2, 0, 1);
+			tables = hg_build_sin_cos_table (tables, pass2_size/2, 0, 1);
 
 			if (!gwdata->ALL_COMPLEX_FFT) {
 				ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 				asm_data->sincos6 = tables;
-				tables = build_sin_cos_table (tables, pass2_size * 4, 1, 2);
+				tables = hg_build_sin_cos_table (tables, pass2_size * 4, 1, 2);
 				asm_data->sincos7 = tables;
-				tables = build_sin_cos_table (tables, pass2_size, 1, 1);
+				tables = hg_build_sin_cos_table (tables, pass2_size, 1, 1);
 				tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 			}
 
@@ -3289,7 +3512,7 @@ int internal_gwsetup (
 		if (gwdata->ALL_COMPLEX_FFT) {
 			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 			asm_data->plus1_premults = tables;
-			tables = build_plus1_table (gwdata, tables, pass2_size);
+			tables = hg_build_plus1_table (gwdata, tables, pass2_size);
 		}
 
 /* Reserve room for the pass 1 scratch area. */
@@ -3305,13 +3528,13 @@ int internal_gwsetup (
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->sincos1 = tables;
-		tables = build_sin_cos_table (tables, pass1_size, !gwdata->ALL_COMPLEX_FFT, pass2_size == 1 ? 2 : 1);
+		tables = hg_build_sin_cos_table (tables, pass1_size, !gwdata->ALL_COMPLEX_FFT, pass2_size == 1 ? 2 : 1);
 
 		if (pass2_size > 1 && pass1_size == pow_two_above_or_equal (pass1_size))
 			asm_data->sincos2 = asm_data->sincos1;
 		else {
 			asm_data->sincos2 = tables;
-			tables = build_sin_cos_table (tables, pass1_size/4, !gwdata->ALL_COMPLEX_FFT, 1);
+			tables = hg_build_sin_cos_table (tables, pass1_size/4, !gwdata->ALL_COMPLEX_FFT, 1);
 		}
 
 		if (pass1_size == pow_two_above_or_equal (pass1_size)) {
@@ -3320,11 +3543,11 @@ int internal_gwsetup (
 			asm_data->sincos5 = asm_data->sincos2;
 		} else {
 			asm_data->sincos3 = tables;
-			tables = build_sin_cos_table (tables, pass1_size/16, !gwdata->ALL_COMPLEX_FFT, 1);
+			tables = hg_build_sin_cos_table (tables, pass1_size/16, !gwdata->ALL_COMPLEX_FFT, 1);
 			asm_data->sincos4 = tables;
-			tables = build_sin_cos_table (tables, pass1_size/64, !gwdata->ALL_COMPLEX_FFT, 1);
+			tables = hg_build_sin_cos_table (tables, pass1_size/64, !gwdata->ALL_COMPLEX_FFT, 1);
 			asm_data->sincos5 = tables;
-			tables = build_sin_cos_table (tables, pass1_size/256, !gwdata->ALL_COMPLEX_FFT, 1);
+			tables = hg_build_sin_cos_table (tables, pass1_size/256, !gwdata->ALL_COMPLEX_FFT, 1);
 		}
 		tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 
@@ -3368,13 +3591,13 @@ int internal_gwsetup (
 /* contiguous with other data used in pass 1. */
 
 		asm_data->norm_grp_mults = tables;
-		tables = build_x87_norm_table (gwdata, tables, pass2_size, 0);
+		tables = x87_build_norm_table (gwdata, tables, pass2_size, 0);
 
 /* Build sin/cos tables used in pass 1.  If FFTLEN is a power of two, */
 /* many of the sin/cos tables can be shared. */
 
 		asm_data->sincos1 = tables;
-		tables = build_x87_sin_cos_table (tables, pass1_size, !gwdata->ALL_COMPLEX_FFT);
+		tables = x87_build_sin_cos_table (tables, pass1_size, !gwdata->ALL_COMPLEX_FFT);
 
 		if (pass1_size == pow_two_above_or_equal (pass1_size)) {
 			asm_data->sincos2 = asm_data->sincos1;
@@ -3383,29 +3606,29 @@ int internal_gwsetup (
 			asm_data->sincos5 = asm_data->sincos1;
 		} else {
 			asm_data->sincos2 = tables;
-			tables = build_x87_sin_cos_table (tables, pass1_size/4, !gwdata->ALL_COMPLEX_FFT);
+			tables = x87_build_sin_cos_table (tables, pass1_size/4, !gwdata->ALL_COMPLEX_FFT);
 			asm_data->sincos3 = tables;
-			tables = build_x87_sin_cos_table (tables, pass1_size/16, !gwdata->ALL_COMPLEX_FFT);
+			tables = x87_build_sin_cos_table (tables, pass1_size/16, !gwdata->ALL_COMPLEX_FFT);
 			asm_data->sincos4 = tables;
-			tables = build_x87_sin_cos_table (tables, pass1_size/64, !gwdata->ALL_COMPLEX_FFT);
+			tables = x87_build_sin_cos_table (tables, pass1_size/64, !gwdata->ALL_COMPLEX_FFT);
 			asm_data->sincos5 = tables;
-			tables = build_x87_sin_cos_table (tables, pass1_size/256, !gwdata->ALL_COMPLEX_FFT);
+			tables = x87_build_sin_cos_table (tables, pass1_size/256, !gwdata->ALL_COMPLEX_FFT);
 		}
 
 /* Build sin/cos and premultiplier tables used in pass 2 of two pass FFTs */
 /* Remember that pass2_size is the number of complex values in a pass 2 */
-/* section, but build_x87_sin_cos_table wants the number of reals in */
+/* section, but x87_build_sin_cos_table wants the number of reals in */
 /* a section. */
 
 		if (pass2_size > 1) {
 			asm_data->pass2_premults = tables;
-			tables = build_x87_premult_table (gwdata, tables, pass2_size);
+			tables = x87_build_premult_table (gwdata, tables, pass2_size);
 			asm_data->xsincos_complex = tables;
-			tables = build_x87_sin_cos_table (tables, pass2_size*2, 0);
+			tables = x87_build_sin_cos_table (tables, pass2_size*2, 0);
 
 			if (!gwdata->ALL_COMPLEX_FFT) {
 				asm_data->sincos6 = tables;
-				tables = build_x87_sin_cos_table (tables, pass2_size*2, 1);
+				tables = x87_build_sin_cos_table (tables, pass2_size*2, 1);
 				asm_data->sincos7 = asm_data->sincos6;
 				asm_data->sincos8 = asm_data->sincos6;
 				asm_data->sincos9 = asm_data->sincos6;
@@ -3421,18 +3644,18 @@ int internal_gwsetup (
 
 		if (gwdata->ALL_COMPLEX_FFT) {
 			asm_data->plus1_premults = tables;
-			tables = build_x87_plus1_table (gwdata, tables, pass2_size);
+			tables = x87_build_plus1_table (gwdata, tables, pass2_size);
 		}
 
 /* Build the column normalization multiplier table. */
 
 		asm_data->norm_col_mults = tables;
-		tables = build_x87_norm_table (gwdata, tables, pass2_size, 1);
+		tables = x87_build_norm_table (gwdata, tables, pass2_size, 1);
 
 /* Build the table of big vs. little flags. */
 
 		asm_data->norm_biglit_array = tables;
-		tables = build_x87_biglit_table (gwdata, tables, pass2_size);
+		tables = x87_build_biglit_table (gwdata, tables, pass2_size);
 	}
 
 /* Finish verifying table size */
@@ -3442,48 +3665,23 @@ int internal_gwsetup (
 	intptr_t mem = (intptr_t) tables - (intptr_t) gwdata->gwnum_memory;
 	if (mem != mem_needed) {
 		sprintf (buf, "FFTlen: %d, mem needed should be: %d\n",
-			 (int) gwdata->FFTLEN, (int) (mem - info->scratch_size));
+			 (int) gwdata->FFTLEN, (int) (mem - gwdata->SCRATCH_SIZE));
 		OutputBoth(0,buf);}}
 #endif
 
 /* Do more assembly initialization */
 
-	asm_data->cache_line_multiplier = info->flags_min_l2_cache_clm & 0xFFFF;
-	asm_data->addcount1 = info->counts[0];
-	asm_data->normcount1 = info->counts[1];
-	asm_data->count1 = info->counts[2];
-	asm_data->count2 = info->counts[3];
-	asm_data->count3 = info->counts[4];
-	asm_data->count4 = info->counts[5];
-	asm_data->count5 = info->counts[6];
-	if (!(gwdata->cpu_flags & CPU_SSE2) && gwdata->PASS2_LEVELS) {
-		/* Count of pass 2 sections */
-		asm_data->addcount1 = gwdata->FFTLEN / pass2_size / 2;
-		/* Count of all-complex pass 2 sections */
-		asm_data->count1 = asm_data->addcount1;
-		if (gwdata->ZERO_PADDED_FFT || c < 0) asm_data->count1--;
-	}
-	if (gwdata->cpu_flags & CPU_SSE2 && gwdata->PASS2_LEVELS) {
-		int	pfa, pfa_shift;
-		/* Count of pass 2 sections */
-		asm_data->addcount1 = gwdata->FFTLEN / pass2_size / 4;
-		/* Count of all-complex pass 2 sections */
-		asm_data->count1 = asm_data->addcount1;
-		if (gwdata->ZERO_PADDED_FFT || c < 0) asm_data->count1--;
-		/* Up to three section counts for gw_carries.  Examples: */
-		/* 320 pass 2 sections: (256 << 11) + 64 */
-		/* 384 pass 2 sections: 384 */
-		/* 448 pass 2 sections: (256 << 22) + (128 << 11) + 64 */
-		/* 512 pass 2 sections: 512 */
-		for (pfa = asm_data->addcount1, pfa_shift = 0; pfa > 8; pfa >>= 1, pfa_shift++);
-		if (pfa == 5) asm_data->count3 = ((4 << 11) + 1) << pfa_shift;
-		else if (pfa == 7) asm_data->count3 = ((4 << 22) + (2 << 11) + 1) << pfa_shift;
-		else asm_data->count3 = asm_data->addcount1;
-	}
 	asm_data->zero_fft = 0;
 	asm_data->const_fft = 0;
 	asm_data->ZPAD0_7[7] = 0.0;
 	asm_data->zpad_addr = &asm_data->ZPAD0_7[0];
+
+/* Copy the count of cache lines grouped in pass 1.  This affects how */
+/* we build the normalization tables.  Note that cache line sizes are */
+/* different in the x87 (16 bytes) and SSE2 code (64 bytes).  In the assembly */
+/* code this is called clm or cache_line_multiplier. */
+	
+	asm_data->cache_line_multiplier = gwdata->PASS1_CACHE_LINES;
 
 /* Init constants.  I could have used true global variables but I did not */
 /* so that these constants could be close to other variables used at the */
@@ -3703,11 +3901,11 @@ int internal_gwsetup (
 /* use a scratch area. */
 
 	if (! (gwdata->cpu_flags & CPU_SSE2)) {
-		if (info->pass2_levels) {
+		if (gwdata->PASS2_LEVELS) {
 			/* Pass 2 data size: 2^pass2_levels complex numbers */
 			/* Compute number of 4KB pages, used in normalized */
 			/* add/sub */
-			asm_data->normval4 = (16 << info->pass2_levels) >> 12;
+			asm_data->normval4 = (16 << gwdata->PASS2_LEVELS) >> 12;
 
 			/* pad 64 bytes every 4KB + 64 bytes between blocks */
 			asm_data->pass1blkdst =
@@ -3715,7 +3913,7 @@ int internal_gwsetup (
 				asm_data->normval4 * (4096+64) + 64;
 			asm_data->normblkdst8 = 0;
 
-			if (info->scratch_size) {
+			if (gwdata->SCRATCH_SIZE) {
 				/* Compute scratch area normblkdst */
 				asm_data->normblkdst =
 					asm_data->cache_line_multiplier * 32;
@@ -3748,7 +3946,7 @@ int internal_gwsetup (
 
 		/* Data size = 2^pass2_levels complex numbers * 2 (for SSE2) */
 		/* Calculate number of 8KB pages */
-		asm_data->normval4 = (32 << info->pass2_levels) >> 13;
+		asm_data->normval4 = (32 << gwdata->PASS2_LEVELS) >> 13;
 
 		/* Gap between blocks */
 		asm_data->pass2gapsize = gwdata->PASS2GAPSIZE;
@@ -3759,7 +3957,7 @@ int internal_gwsetup (
 				asm_data->normval4 * (8192+128) +
 				asm_data->pass2gapsize;
 
-		if (info->scratch_size == 0) {
+		if (gwdata->SCRATCH_SIZE == 0) {
 			/* Normblkdst = pass1blkdst - clm*64 */
 			asm_data->normblkdst =
 				asm_data->pass1blkdst -
@@ -3771,7 +3969,7 @@ int internal_gwsetup (
 			asm_data->normblkdst8 = 128;
 		}
 
-		if (info->pass2_levels) {
+		if (gwdata->PASS2_LEVELS) {
 			/* Calculate "cache lines in a chunk" / clm */
 			asm_data->normval1 = (8192/64) / asm_data->cache_line_multiplier;
 
@@ -3981,9 +4179,8 @@ int internal_gwsetup (
 		}
 	}
 
-/* Set the procedure pointers from the asm structures and proc tabes */
+/* Set the procedure pointers from the proc tables */
 
-	gwdata->GWPROCPTRS[0] = info->proc_ptr;
 #ifndef X86_64
 	if (! (gwdata->cpu_flags & CPU_SSE2)) {
 		memcpy (gwdata->GWPROCPTRS+1, &x87_aux_prctab[gwdata->PASS2_LEVELS ? 9 : 0], 9 * sizeof (void *));
@@ -4211,7 +4408,7 @@ __inline void *pass1_premult_addr (
 	gwhandle *gwdata,
 	unsigned long block)
 {
-	if (!gwdata->V26_FFT) return (NULL);
+	if (gwdata->FFT_TYPE != FFT_TYPE_RADIX_4) return (NULL);
 	return ((char *) gwdata->adjusted_pass1_premults + block * gwdata->pass1_premult_block_size);
 }
 
@@ -5686,7 +5883,7 @@ double *addr (
 unsigned long gwmemused (
 	gwhandle *gwdata)	/* Handle initialized by gwsetup */
 {
-	return (gwdata->jmptab->mem_needed + gwdata->jmptab->scratch_size);
+	return (gwdata->mem_needed + gwdata->SCRATCH_SIZE);
 }
 
 /* Get the amount of memory required for the gwnum's raw FFT data.  This */
@@ -5816,7 +6013,11 @@ void gwfft_description (
 		 gwdata->ALL_COMPLEX_FFT ? "all-complex " :
 		 gwdata->ZERO_PADDED_FFT ? "zero-padded " :
 		 gwdata->GENERAL_MOD ? "generic reduction " : "",
-		 (gwdata->cpu_flags & CPU_SSE2) ? "" : "x87 ",
+		 (! (gwdata->cpu_flags & CPU_SSE2)) ? "x87 " :
+		 (gwdata->ARCH == 2) ? "Pentium4 " :
+		 (gwdata->ARCH == 3) ? "Core2 " :
+		 (gwdata->ARCH == 4) ? "AMD K8 " :
+		 (gwdata->ARCH == 5) ? "AMD K10 " : " ",
 		 gwdata->FFTLEN > 4194304 ?	gwdata->FFTLEN / 1048576 :
 		 gwdata->FFTLEN >= 4096 ?	gwdata->FFTLEN / 1024 :
 						gwdata->FFTLEN,
@@ -6003,7 +6204,7 @@ unsigned long gwmap_to_memused (
 
 	gwinit (&gwdata);
 	if (gwinfo (&gwdata, k, b, n, c)) return (100000000L);
-	return (gwdata.jmptab->mem_needed + gwdata.jmptab->scratch_size);
+	return (gwdata.mem_needed + gwdata.SCRATCH_SIZE);
 }
 
 /* Return the estimated size of a gwnum */

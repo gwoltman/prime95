@@ -19,8 +19,8 @@ ENDIF
 
 INCLUDE	unravel.mac
 INCLUDE extrn.mac
+INCLUDE xbasics.mac
 INCLUDE xmult.mac
-INCLUDE xpass2.mac
 INCLUDE xnormal.mac
 
 _TEXT SEGMENT
@@ -202,7 +202,7 @@ ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr
 ; rational/irrational, zeroing/no zeroing, error check/no error check, and
 ; mul by const/no mul by const.
 
-PREFETCHING = 1
+PREFETCHING = 64
 
 	inorm	xr2, noexec, noexec, noexec, noexec, exec, noexec
 	inorm	xr2e, noexec, noexec, exec, noexec, exec, noexec

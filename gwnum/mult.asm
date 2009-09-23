@@ -19,10 +19,6 @@ INCLUDE xmult.mac
 
 VERSION_NUMBER = 2601		;; Version 26.1
 
-PRCPTR	MACRO name
-	EXTRN	name:PROC
-	DP	OFFSET name
-	ENDM
 ;
 ; Global variables needed by FFT setup code
 ;
@@ -35,931 +31,477 @@ ENDIF
 
 ; Jmptable definitions
 
-RPF	EQU	80000000h	; FFT requires prefetch capability
-RPFW	EQU	40000000h	; FFT requires prefetchw (3DNow!) capability
-V26	EQU	20000000h	; FFT is experimental
+; The flags word of a procedure entry is divided as follows:
+;	80000000h		always on
+;	4 SHL 24		(no prefetching)
+;	2 SHL 24		(tlb priming)
+;	1 SHL 24		(in_place)
+;	fft_type SHL 16		(hg=0, r4=1)
+;	arch SHL 12		(ppro=0,p3=1,p4=2,core=3,k8=4,k10=5)
+;	min_L2_cache SHL 8	(0=0,128KB=1,WILLI=2,CELE_D=3,512KB=4,1024KB=5,2048KB=6)
+;	clm SHL 4		(1,2,4,8)
+;	pass2levels		(0,8,10,11,12,13)
+
+X87PRC MACRO procname, mem_needed, p2larg, clmarg
+	EXTRN	procname:PROC
+	IF (@INSTR (,@CATSTR(procname),PPRO)) NE 0
+		arch = 0
+	ELSEIF (@INSTR (,@CATSTR(procname),P3)) NE 0
+		arch = 1
+	ELSE
+		bad_x87_arch
+	ENDIF
+	IFB <clmarg>
+		clm = 0
+	ELSE
+		clm = clmarg
+	ENDIF
+	IFB <p2larg>
+		pass2_levels = 0
+	ELSE
+		pass2_levels = p2larg
+	ENDIF
+	flags = 0
+	;; Kludge - if mem_needed is below 500000 then pass 2 is in place
+	IF (mem_needed LT 500000 AND pass2_levels NE 0)
+		flags = 1
+	ENDIF
+	DD	80000000h + flags SHL 24 + arch SHL 12 + clm SHL 4 + pass2_levels
+	DP	OFFSET procname
+	DD	mem_needed
+	ENDM
+
+PRCENTRY MACRO procname, mem_needed, L2arg
+	EXTRN	procname:PROC
+	flags = 0
+	IF (@INSTR (,@CATSTR(procname),_np_)) NE 0
+		flags = flags + 4
+	ENDIF
+	IF (@INSTR (,@CATSTR(procname),_tp_)) NE 0
+		flags = flags + 2
+	ENDIF
+	IF (@INSTR (,@CATSTR(procname),_ip_)) NE 0
+		flags = flags + 1
+	ENDIF
+	IF (@INSTR (,@CATSTR(procname),_hg_)) NE 0
+		fft_type = 0
+	ELSEIF (@INSTR (,@CATSTR(procname),_r4_)) NE 0
+		fft_type = 1
+	ELSE
+		bad_sse2_fft_type
+	ENDIF
+	IF (@INSTR (,@CATSTR(procname),_P4)) NE 0
+		arch = 2
+	ELSEIF (@INSTR (,@CATSTR(procname),_CORE)) NE 0
+		arch = 3
+	ELSEIF (@INSTR (,@CATSTR(procname),_K8)) NE 0
+		arch = 4
+	ELSEIF (@INSTR (,@CATSTR(procname),_K10)) NE 0
+		arch = 5
+	ELSE
+		bad_sse2_arch
+	ENDIF
+	IFB <L2arg>
+		min_L2_cache = 0
+	ELSEIF L2arg EQ 128
+		min_L2_cache = 1
+	ELSEIF L2arg EQ WILLI
+		min_L2_cache = 2
+	ELSEIF L2arg EQ CELE_D
+		min_L2_cache = 3
+	ELSEIF L2arg EQ 512
+		min_L2_cache = 4
+	ELSEIF L2arg EQ 1024
+		min_L2_cache = 5
+	ELSEIF L2arg EQ 2048
+		min_L2_cache = 6
+	ELSE
+		bad_L2_cache
+	ENDIF
+	IF (@INSTR (,@CATSTR(procname),_1_)) NE 0
+		clm = 1
+	ELSEIF (@INSTR (,@CATSTR(procname),_2_)) NE 0
+		clm = 2
+	ELSEIF (@INSTR (,@CATSTR(procname),_4_)) NE 0
+		clm = 4
+	ELSEIF (@INSTR (,@CATSTR(procname),_8_)) NE 0
+		clm = 8
+	ELSE
+		clm = 0
+	ENDIF
+	IF (@INSTR (,@CATSTR(procname),_8_)) NE 0
+		pass2_levels = 8
+	ELSEIF (@INSTR (,@CATSTR(procname),_10_)) NE 0
+		pass2_levels = 10
+	ELSEIF (@INSTR (,@CATSTR(procname),_11_)) NE 0
+		pass2_levels = 11
+	ELSEIF (@INSTR (,@CATSTR(procname),_12_)) NE 0
+		pass2_levels = 12
+	ELSEIF (@INSTR (,@CATSTR(procname),_13_)) NE 0
+		pass2_levels = 13
+	ELSE
+		pass2_levels = 0
+	ENDIF
+	DD	80000000h + flags SHL 24 + fft_type SHL 16 + arch SHL 12 + min_L2_cache SHL 8 + clm SHL 4 + pass2_levels
+	DP	OFFSET procname
+	DD	mem_needed
+	ENDM
 
 IFNDEF	X86_64
-jmptable DD	755,	32,	0.0000036,	672
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft32PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+jmptable DD	755,	32,	0.0000036
+ 	X87PRC		fft32PPRO, 672
 	DD			3, 1, 1, 1, 0
-	DD	939,	40,	0.0000057,	948
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft40PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	939,	40,	0.0000057
+	X87PRC		fft40PPRO, 948
 	DD			4, 1, 1, 1, 0
-	DD	1113,	48,	0.0000065,	1128
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft48PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	1113,	48,	0.0000065
+	X87PRC		fft48PPRO, 1128
 	DD			5, 1, 1, 1, 0
-	DD	1303,	56,	0.0000084,	1356
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft56PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	1303,	56,	0.0000084
+	X87PRC		fft56PPRO, 1356
 	DD			6, 1, 1, 1, 0
-	DD	1499,	64,	0.0000083,	1392
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft64PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	1499,	64,	0.0000083
+	X87PRC		fft64PPRO, 1392
 	DD			7, 1, 1, 1, 0
-	DD	1857,	80,	0.0000121,	1848
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft80PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	1857,	80,	0.0000121
+	X87PRC		fft80PPRO, 1848
 	DD			9, 2, 1, 1, 0
-	DD	2211,	96,	0.0000141,	2208
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft96PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	2211,	96,	0.0000141
+	X87PRC		fft96PPRO, 2208
 	DD			11, 2, 1, 1, 0
-	DD	2585,	112,	0.0000179,	2616
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft112PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	2585,	112,	0.0000179
+	X87PRC		fft112PPRO, 2616
 	DD			13, 3, 1, 1, 0
-	DD	2953,	128,	0.0000178,	2832
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft128PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	2953,	128,	0.0000178
+	X87PRC		fft128PPRO, 2832
 	DD			15, 3, 1, 1, 0
-	DD	3663,	160,	0.0000296,	3840
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft160PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	3663,	160,	0.0000296
+	X87PRC		fft160PPRO, 3840
 	DD			19, 4, 2, 1, 0
-	DD	4359,	192,	0.000035,	4608
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft192PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	4359,	192,	0.000035
+	X87PRC		fft192PPRO, 4608
 	DD			23, 5, 2, 1, 0
-	DD	5093,	224,	0.000045,	5424
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft224PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	5093,	224,	0.000045
+	X87PRC		fft224PPRO, 5424
 	DD			27, 6, 3, 1, 0
-	DD	5833,	256,	0.000045,	5712
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft256PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	5833,	256,	0.000045
+	X87PRC		fft256PPRO, 5712
 	DD			31, 7, 3, 1, 0
-	DD	7243,	320,	0.000062,	7680
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft320PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	7243,	320,	0.000062
+	X87PRC		fft320PPRO, 7680
 	DD			39, 9, 2, 1, 0
-	DD	8639,	384,	0.000075,	9216
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft384PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	8639,	384,	0.000075
+	X87PRC		fft384PPRO, 9216
 	DD			47, 11, 2, 1, 0
-	DD	10085,	448,	0.000093,	10800
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft448PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	10085,	448,	0.000093
+	X87PRC		fft448PPRO, 10800
 	DD			55, 13, 3, 1, 0
-	DD	11537,	512,	0.000097,	11472
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft512PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	11537,	512,	0.000097
+	X87PRC		fft512PPRO, 11472
 	DD			63, 15, 3, 1, 0
-	DD	14301,	640,	0.000140,	15552
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft640PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	14301,	640,	0.000140
+	X87PRC		fft640PPRO, 15552
 	DD			79, 19, 4, 2, 0
-	DD	17047,	768,	0.000167,	18672
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft768PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	17047,	768,	0.000167
+	X87PRC		fft768PPRO, 18672
 	DD			95, 23, 5, 2, 0
-	DD	19881,	896,	0.000210,	21840
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft896PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	19881,	896,	0.000210
+	X87PRC		fft896PPRO, 21840
 	DD			111, 27, 6, 3, 0
-	DD	22799,	1024,	0.000218,	22992
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft1024PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	22799,	1024,	0.000218
+	X87PRC		fft1024PPRO, 22992
 	DD			127, 31, 7, 3, 0
-	DD	28295,	1280,	0.000302,	31152
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft1280PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	28295,	1280,	0.000302
+	X87PRC		fft1280PPRO, 31152
 	DD			159, 39, 9, 2, 0
-	DD	33761,	1536,	0.000365,	37392
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft1536PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	33761,	1536,	0.000365
+	X87PRC		fft1536PPRO, 37392
 	DD			191, 47, 11, 2, 0
-	DD	39411,	1792,	0.000456,	43680
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft1792PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	39411,	1792,	0.000456
+	X87PRC		fft1792PPRO, 43680
 	DD			223, 55, 13, 3, 0
-	DD	45061,	2048,	0.000490,	46032
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft2048PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	45061,	2048,	0.000490
+	X87PRC		fft2048PPRO, 46032
 	DD			255, 63, 15, 3, 0
-	DD	55825,	2560,	0.000708,	62544
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft2560PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	55825,	2560,	0.000708
+	X87PRC		fft2560PPRO, 62544
 	DD			319, 79, 19, 4, 2, 0
-	DD	66519,	3072,	0.000851,	75072
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft3072PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	66519,	3072,	0.000851
+	X87PRC		fft3072PPRO, 75072
 	DD			383, 95, 23, 5, 2, 0
-	DD	77599,	3584,	0.00107,	87648
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft3584PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	77599,	3584,	0.00107
+	X87PRC		fft3584PPRO, 87648
 	DD			447, 111, 27, 6, 3, 0
-	DD	89047,	4096,	0.00113,	92112
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft4096PPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	89047,	4096,	0.00113
+	X87PRC		fft4096PPRO, 92112
 	DD			511, 127, 31, 7, 3, 0
-	DD	110400,	5120,	0.00152,	24848
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft5120PPRO
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	131100,	6144,	0.00191,	28016
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft6144PPRO
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	152800,	7168,	0.00226,	31232
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft7168PPRO
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	175300,	8192,	0.00242,	34400
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft8192PPRO
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	217700,	10240,	0.00333,	40880
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft10KPPRO
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	258200,	12288,	0.00397,	47264
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft12KPPRO
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	301400,	14336,	0.00488,	53696
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft14KPPRO
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	346100,	16384,	0.00522,	59936
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft16KPPRO
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	430300,	20480,	0.00692,	72800
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft20KPPRO
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	511600,	24576,	0.00826,	85568
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft24KPPRO
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	596100,	28672,	0.0101,		98384
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft28KPPRO
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	683700,	32768,	0.0109,		111008
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft32KPPRO
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	848800,	40960,	0.0151,		136832
-	DD			RPF+4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft40KP3
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	848800,	40960,	0.0151,		136832
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft40KPPRO
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	1009000, 49152,	0.0184,		162416
-	DD			RPF+4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft48KP3
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	1009000, 49152,	0.0184,		162416
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft48KPPRO
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	1177000, 57344,	0.0227,		188048
-	DD			RPF+4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft56KP3
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	1177000, 57344,	0.0227,		188048
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft56KPPRO
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	1350000, 65536,	0.0252,		213152
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft64KP3
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	1350000, 65536,	0.0252,		213152
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft64KPPRO
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	1678000, 81920, 0.0360,		264752
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft80KP3
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	1678000, 81920, 0.0360,		264752
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft80KPPRO
-	DD			8		;; FFT levels done in pass2
-	DD			0
-	DD	1994000, 98304, 0.0445,		297536
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft96KP3
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	1994000, 98304, 0.0445,		297536
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft96KPPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	2324000, 114688, 0.0548,	341072
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft112KP3
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	2324000, 114688, 0.0548,	341072
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft112KPPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	2664000, 131072, 0.0604,	384416
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft128KP3
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	2664000, 131072, 0.0604,	384416
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft128KPPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	3310000, 163840, 0.0830,	471680
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			5120		;; scratch area size
-	PRCPTR			fft160KP3
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	3310000, 163840, 0.0830,	471680
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			5120		;; scratch area size
-	PRCPTR			fft160KPPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	3933000, 196608, 0.0982,	558704
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			6144		;; scratch area size
-	PRCPTR			fft192KP3
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	3933000, 196608, 0.0982,	558704
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			6144		;; scratch area size
-	PRCPTR			fft192KPPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	4593000, 229376, 0.1193,	645776
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			7168		;; scratch area size
-	PRCPTR			fft224KP3
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	4593000, 229376, 0.1193,	645776
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			7168		;; scratch area size
-	PRCPTR			fft224KPPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	5264000, 262144, 0.1316,	732320
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			8192+3*64	;; scratch area size
-	PRCPTR			fft256KP3
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	5264000, 262144, 0.1316,	732320
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			8192+3*64	;; scratch area size
-	PRCPTR			fft256KPPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	6545000, 327680, 0.1726,	906800
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			10240+4*64	;; scratch area size
-	PRCPTR			fft320KP3
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	6545000, 327680, 0.1726,	906800
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			10240+4*64	;; scratch area size
-	PRCPTR			fft320KPPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	7772000, 393216, 0.2107,	1080848
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			12288+5*64	;; scratch area size
-	PRCPTR			fft384KP3
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	7772000, 393216, 0.2107,	1080848
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			12288+5*64	;; scratch area size
-	PRCPTR			fft384KPPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	9071000, 458752, 0.2520,	1254944
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			14336+6*64	;; scratch area size
-	PRCPTR			fft448KP3
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	9071000, 458752, 0.2520,	1254944
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			14336+6*64	;; scratch area size
-	PRCPTR			fft448KPPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	10380000, 524288, 0.2808,	1428128
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			16384+7*64	;; scratch area size
-	PRCPTR			fft512KP3
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	10380000, 524288, 0.2808,	1428128
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			16384+7*64	;; scratch area size
-	PRCPTR			fft512KPPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	12890000, 655360, 0.372,	1777232
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			20480+9*64	;; scratch area size
-	PRCPTR			fft640KP3
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	12890000, 655360, 0.372,	1777232
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			20480+9*64	;; scratch area size
-	PRCPTR			fft640KPPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	15310000, 786432, 0.453,	2125376
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			24576+11*64	;; scratch area size
-	PRCPTR			fft768KP3
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	15310000, 786432, 0.453,	2125376
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			24576+11*64	;; scratch area size
-	PRCPTR			fft768KPPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	17890000, 917504, 0.536,	2473568
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			28672+13*64	;; scratch area size
-	PRCPTR			fft896KP3
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	17890000, 917504, 0.536,	2473568
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			28672+13*64	;; scratch area size
-	PRCPTR			fft896KPPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	20460000, 1048576, 0.600,	2819744
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			32768+15*64	;; scratch area size
-	PRCPTR			fft1024K2P3
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	20460000, 1048576, 0.600,	2819744
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			32768+15*64	;; scratch area size
-	PRCPTR			fft1024K2PPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	25390000, 1310720, 0.776,	3474992
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			10240+4*64	;; scratch area size
-	PRCPTR			fft1280KP3
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	25390000, 1310720, 0.776,	3474992
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			10240+4*64	;; scratch area size
-	PRCPTR			fft1280KPPRO
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	30190000, 1572864, 0.934,	4140560
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			12288+5*64	;; scratch area size
-	PRCPTR			fft1536KP3
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	30190000, 1572864, 0.934,	4140560
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			12288+5*64	;; scratch area size
-	PRCPTR			fft1536KPPRO
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	35200000, 1835008, 1.113,	4806176
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			14336+6*64	;; scratch area size
-	PRCPTR			fft1792KP3
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	35200000, 1835008, 1.113,	4806176
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			14336+6*64	;; scratch area size
-	PRCPTR			fft1792KPPRO
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	40300000, 2097152, 1.226,	5470880
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			16384+7*64	;; scratch area size
-	PRCPTR			fft2048K2P3
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	40300000, 2097152, 1.226,	5470880
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			16384+7*64	;; scratch area size
-	PRCPTR			fft2048K2PPRO
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	50020000, 2621440, 1.636,	6803024
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			20480+9*64	;; scratch area size
-	PRCPTR			fft2560K2P3
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	50020000, 2621440, 1.636,	6803024
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			20480+9*64	;; scratch area size
-	PRCPTR			fft2560K2PPRO
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	59510000, 3145728, 1.990,	8134208
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			24576+11*64	;; scratch area size
-	PRCPTR			fft3072K2P3
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	59510000, 3145728, 1.990,	8134208
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			24576+11*64	;; scratch area size
-	PRCPTR			fft3072K2PPRO
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	69360000, 3670016, 2.380,	9465440
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			28672+13*64	;; scratch area size
-	PRCPTR			fft3584K2P3
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	69360000, 3670016, 2.380,	9465440
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			28672+13*64	;; scratch area size
-	PRCPTR			fft3584K2PPRO
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	79370000, 4194304, 2.604,	10794656
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			32768+15*64	;; scratch area size
-	PRCPTR			fft4096K2P3
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	79370000, 4194304, 2.604,	10794656
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			32768+15*64	;; scratch area size
-	PRCPTR			fft4096K2PPRO
-	DD			12		;; FFT levels done in pass2
+	DD	110400,	5120,	0.00152
+	X87PRC		fft5120PPRO, 24848, 8, 2
+	DD			0
+	DD	131100,	6144,	0.00191
+	X87PRC		fft6144PPRO, 28016, 8, 2
+	DD			0
+	DD	152800,	7168,	0.00226
+	X87PRC		fft7168PPRO, 31232, 8, 2
+	DD			0
+	DD	175300,	8192,	0.00242
+	X87PRC		fft8192PPRO, 34400, 8, 2
+	DD			0
+	DD	217700,	10240,	0.00333
+	X87PRC		fft10KPPRO, 40880, 8, 2
+	DD			0
+	DD	258200,	12288,	0.00397
+	X87PRC		fft12KPPRO, 47264, 8, 2
+	DD			0
+	DD	301400,	14336,	0.00488
+	X87PRC		fft14KPPRO, 53696, 8, 2
+	DD			0
+	DD	346100,	16384,	0.00522
+	X87PRC		fft16KPPRO, 59936, 8, 2
+	DD			0
+	DD	430300,	20480,	0.00692
+	X87PRC		fft20KPPRO, 72800, 8, 2
+	DD			0
+	DD	511600,	24576,	0.00826
+	X87PRC		fft24KPPRO, 85568, 8, 2
+	DD			0
+	DD	596100,	28672,	0.0101
+	X87PRC		fft28KPPRO, 98384, 8, 2
+	DD			0
+	DD	683700,	32768,	0.0109
+	X87PRC		fft32KPPRO, 111008, 8, 2
+	DD			0
+	DD	848800,	40960,	0.0151
+	X87PRC		fft40KP3, 136832, 8, 2
+	X87PRC		fft40KPPRO, 136832, 8, 2
+	DD			0
+	DD	1009000, 49152,	0.0184
+	X87PRC		fft48KP3, 162416, 8, 2
+	X87PRC		fft48KPPRO, 162416, 8, 2
+	DD			0
+	DD	1177000, 57344,	0.0227
+	X87PRC		fft56KP3, 188048, 8, 2
+	X87PRC		fft56KPPRO, 188048, 8, 2
+	DD			0
+	DD	1350000, 65536,	0.0252
+	X87PRC		fft64KP3, 213152, 8, 1
+	X87PRC		fft64KPPRO, 213152, 8, 1
+	DD			0
+	DD	1678000, 81920, 0.0360
+	X87PRC		fft80KP3, 264752, 8, 1
+	X87PRC		fft80KPPRO, 264752, 8, 1
+	DD			0
+	DD	1994000, 98304, 0.0445
+	X87PRC		fft96KP3, 297536, 10, 1
+	X87PRC		fft96KPPRO, 297536, 10, 1
+	DD			0
+	DD	2324000, 114688, 0.0548
+	X87PRC		fft112KP3, 341072, 10, 1
+	X87PRC		fft112KPPRO, 341072, 10, 1
+	DD			0
+	DD	2664000, 131072, 0.0604
+	X87PRC		fft128KP3, 384416, 10, 1
+	X87PRC		fft128KPPRO, 384416, 10, 1
+	DD			0
+	DD	3310000, 163840, 0.0830
+	X87PRC		fft160KP3, 471680, 10, 1
+	X87PRC		fft160KPPRO, 471680, 10, 1
+	DD			0
+	DD	3933000, 196608, 0.0982
+	X87PRC		fft192KP3, 558704, 10, 1
+	X87PRC		fft192KPPRO, 558704, 10, 1
+	DD			0
+	DD	4593000, 229376, 0.1193
+	X87PRC		fft224KP3, 645776, 10, 1
+	X87PRC		fft224KPPRO, 645776, 10, 1
+	DD			0
+	DD	5264000, 262144, 0.1316
+	X87PRC		fft256KP3, 732320, 10, 1
+	X87PRC		fft256KPPRO, 732320, 10, 1
+	DD			0
+	DD	6545000, 327680, 0.1726
+	X87PRC		fft320KP3, 906800, 10, 1
+	X87PRC		fft320KPPRO, 906800, 10, 1
+	DD			0
+	DD	7772000, 393216, 0.2107
+	X87PRC		fft384KP3, 1080848, 10, 1
+	X87PRC		fft384KPPRO, 1080848, 10, 1
+	DD			0
+	DD	9071000, 458752, 0.2520
+	X87PRC		fft448KP3, 1254944, 10, 1
+	X87PRC		fft448KPPRO, 1254944, 10, 1
+	DD			0
+	DD	10380000, 524288, 0.2808
+	X87PRC		fft512KP3, 1428128, 10, 1
+	X87PRC		fft512KPPRO, 1428128, 10, 1
+	DD			0
+	DD	12890000, 655360, 0.372
+	X87PRC		fft640KP3, 1777232, 10, 1
+	X87PRC		fft640KPPRO, 1777232, 10, 1
+	DD			0
+	DD	15310000, 786432, 0.453
+	X87PRC		fft768KP3, 2125376, 10, 1
+	X87PRC		fft768KPPRO, 2125376, 10, 1
+	DD			0
+	DD	17890000, 917504, 0.536
+	X87PRC		fft896KP3, 2473568, 10, 1
+	X87PRC		fft896KPPRO, 2473568, 10, 1
+	DD			0
+	DD	20460000, 1048576, 0.600
+	X87PRC		fft1024K2P3, 2819744, 10, 1
+	X87PRC		fft1024K2PPRO, 2819744, 10, 1
+	DD			0
+	DD	25390000, 1310720, 0.776
+	X87PRC		fft1280KP3, 3474992, 12, 1
+	X87PRC		fft1280KPPRO, 3474992, 12, 1
+	DD			0
+	DD	30190000, 1572864, 0.934
+	X87PRC		fft1536KP3, 4140560, 12, 1
+	X87PRC		fft1536KPPRO, 4140560, 12, 1
+	DD			0
+	DD	35200000, 1835008, 1.113
+	X87PRC		fft1792KP3, 4806176, 12, 1
+	X87PRC		fft1792KPPRO, 4806176, 12, 1
+	DD			0
+	DD	40300000, 2097152, 1.226
+	X87PRC		fft2048K2P3, 5470880, 12, 1
+	X87PRC		fft2048K2PPRO, 5470880, 12, 1
+	DD			0
+	DD	50020000, 2621440, 1.636
+	X87PRC		fft2560K2P3, 6803024, 12, 1
+	X87PRC		fft2560K2PPRO, 6803024, 12, 1
+	DD			0
+	DD	59510000, 3145728, 1.990
+	X87PRC		fft3072K2P3, 8134208, 12, 1
+	X87PRC		fft3072K2PPRO, 8134208, 12, 1
+	DD			0
+	DD	69360000, 3670016, 2.380
+	X87PRC		fft3584K2P3, 9465440, 12, 1
+	X87PRC		fft3584K2PPRO, 9465440, 12, 1
+	DD			0
+	DD	79370000, 4194304, 2.604
+	X87PRC		fft4096K2P3, 10794656, 12, 1
+	X87PRC		fft4096K2PPRO, 10794656, 12, 1
 	DD			0
 	DD	0
-jmptablep DD	755,	32,	0.000004,	976
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft32pPPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+jmptablep DD	755,	32,	0.000004
+	X87PRC		fft32pPPRO, 976
 	DD			4, 1, 1, 1, 0
-	DD	1111,	48,	0.000007,	1608
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft48pPPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	1111,	48,	0.000007
+	X87PRC		fft48pPPRO, 1608
 	DD			6, 3, 1, 1, 0
-	DD	1485,	64,	0.000010,	1952
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft64pPPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	1485,	64,	0.000010
+	X87PRC		fft64pPPRO, 1952
 	DD			8, 4, 1, 1, 0
-	DD	2199,	96,	0.0000141,	3072
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft96pPPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	2199,	96,	0.0000141
+	X87PRC		fft96pPPRO, 3072
 	DD			12, 3, 1, 1, 0
-	DD	2947,	128,	0.000021,	3904
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft128pPPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	2947,	128,	0.000021
+	X87PRC		fft128pPPRO, 3904
 	DD			16, 4, 1, 1, 1, 0
-	DD	4345,	192,	0.000035,	6288
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft192pPPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	4345,	192,	0.000035
+	X87PRC		fft192pPPRO, 6288
 	DD			24, 6, 3, 1, 0
-	DD	5817,	256,	0.000051,	7808
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft256pPPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	5817,	256,	0.000051
+	X87PRC		fft256pPPRO, 7808
 	DD			32, 8, 4, 1, 1, 0
-	DD	8607,	384,	0.000075,	12432
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft384pPPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	8607,	384,	0.000075
+	X87PRC		fft384pPPRO, 12432
 	DD			48, 12, 3, 1, 0
-	DD	11515,	512,	0.000106,	15616
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft512pPPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	11515,	512,	0.000106
+	X87PRC		fft512pPPRO, 15616
 	DD			64, 16, 4, 1, 1, 0
-	DD	17001,	768,	0.000167,	25008
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft768pPPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	17001,	768,	0.000167
+	X87PRC		fft768pPPRO, 25008
 	DD			96, 24, 6, 3, 1, 0
-	DD	22701,	1024,	0.000249,	31232
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft1024pPPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	22701,	1024,	0.000249
+	X87PRC		fft1024pPPRO, 31232
 	DD			128, 32, 8, 4, 1, 0
-	DD	33569,	1536,	0.000365,	49872
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft1536pPPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	33569,	1536,	0.000365
+	X87PRC		fft1536pPPRO, 49872
 	DD			192, 48, 12, 3, 0
-	DD	44951,	2048,	0.000582,	62464
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft2048pPPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	44951,	2048,	0.000582
+	X87PRC		fft2048pPPRO, 62464
 	DD			256, 64, 16, 4, 1, 0
-	DD	66319,	3072,	0.000851,	99888
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft3072pPPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	66319,	3072,	0.000851
+	X87PRC		fft3072pPPRO, 99888
 	DD			384, 96, 24, 6, 3, 0
-	DD	88747,	4096,	0.00135,	124928
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft4096pPPRO
-	DD			0		;; FFT levels done in pass2
-	DD			1, 1
+	DD	88747,	4096,	0.00135
+	X87PRC		fft4096pPPRO, 124928
 	DD			512, 128, 32, 8, 4, 0
-	DD	130600,	6144,	0.00191,	26512
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft6144pPPRO
-	DD			8		;; FFT levels done in pass2
+	DD	130600,	6144,	0.00191
+	X87PRC		fft6144pPPRO, 26512, 8, 2
 	DD			0
-	DD	174000,	8192,	0.00284,	32960
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft8192pPPRO
-	DD			8		;; FFT levels done in pass2
+	DD	174000,	8192,	0.00284
+	X87PRC		fft8192pPPRO, 32960, 8, 2
 	DD			0
-	DD	257700,	12288,	0.00397,	46000
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft12KpPPRO
-	DD			8		;; FFT levels done in pass2
+	DD	257700,	12288,	0.00397
+	X87PRC		fft12KpPPRO, 46000, 8, 2
 	DD			0
-	DD	344700,	16384,	0.00588,	58752
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft16KpPPRO
-	DD			8		;; FFT levels done in pass2
+	DD	344700,	16384,	0.00588
+	X87PRC		fft16KpPPRO, 58752, 8, 2
 	DD			0
-	DD	508600,	24576,	0.00826,	84688
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft24KpPPRO
-	DD			8		;; FFT levels done in pass2
+	DD	508600,	24576,	0.00826
+	X87PRC		fft24KpPPRO, 84688, 8, 2
 	DD			0
-	DD	679400,	32768,	0.01299,	110336
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft32KpPPRO
-	DD			8		;; FFT levels done in pass2
+	DD	679400,	32768,	0.01299
+	X87PRC		fft32KpPPRO, 110336, 8, 2
 	DD			0
-	DD	1006000, 49152,	0.0184,		162352
-	DD			RPF+4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft48KpP3
-	DD			8		;; FFT levels done in pass2
+	DD	1006000, 49152,	0.0184
+	X87PRC		fft48KpP3, 162352, 8, 2
+	X87PRC		fft48KpPPRO, 162352, 8, 2
 	DD			0
-	DD	1006000, 49152,	0.0184,		162352
-	DD			4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft48KpPPRO
-	DD			8		;; FFT levels done in pass2
+	DD	1345000, 65536,	0.03283
+	X87PRC		fft64KpP3, 213504, 8, 1
+	X87PRC		fft64KpPPRO, 213504, 8, 1
 	DD			0
-	DD	1345000, 65536,	0.03283,	213504
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft64KpP3
-	DD			8		;; FFT levels done in pass2
+	DD	1983000, 98304, 0.0445
+	X87PRC		fft96KpP3, 290512, 10, 1
+	X87PRC		fft96KpPPRO, 290512, 10, 1
 	DD			0
-	DD	1345000, 65536,	0.03283,	213504
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft64KpPPRO
-	DD			8		;; FFT levels done in pass2
+	DD	2652000, 131072, 0.0719
+	X87PRC		fft128KpP3, 377600, 10, 1
+	X87PRC		fft128KpPPRO, 377600, 10, 1
 	DD			0
-	DD	1983000, 98304, 0.0445,		290512
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft96KpP3
-	DD			10		;; FFT levels done in pass2
+	DD	3924000, 196608, 0.0982
+	X87PRC		fft192KpP3, 552496, 10, 1
+	X87PRC		fft192KpPPRO, 552496, 10, 1
 	DD			0
-	DD	1983000, 98304, 0.0445,		290512
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft96KpPPRO
-	DD			10		;; FFT levels done in pass2
+	DD	5242000, 262144, 0.155
+	X87PRC		fft256KpP3, 726528, 10, 1
+	X87PRC		fft256KpPPRO, 726528, 10, 1
 	DD			0
-	DD	2652000, 131072, 0.0719,	377600
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft128KpP3
-	DD			10		;; FFT levels done in pass2
+	DD	7733000, 393216, 0.2107
+	X87PRC		fft384KpP3, 1076176, 10, 1
+	X87PRC		fft384KpPPRO, 1076176, 10, 1
 	DD			0
-	DD	2652000, 131072, 0.0719,	377600
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			fft128KpPPRO
-	DD			10		;; FFT levels done in pass2
+	DD	10320000, 524288, 0.322
+	X87PRC		fft512KpP3, 1424384, 10, 1
+	X87PRC		fft512KpPPRO, 1424384, 10, 1
 	DD			0
-	DD	3924000, 196608, 0.0982,	552496
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			6144		;; scratch area size
-	PRCPTR			fft192KpP3
-	DD			10		;; FFT levels done in pass2
+	DD	15260000, 786432, 0.453
+	X87PRC		fft768KpP3, 2123824, 10, 1
+	X87PRC		fft768KpPPRO, 2123824, 10, 1
 	DD			0
-	DD	3924000, 196608, 0.0982,	552496
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			6144		;; scratch area size
-	PRCPTR			fft192KpPPRO
-	DD			10		;; FFT levels done in pass2
+	DD	20360000, 1048576, 0.681
+	X87PRC		fft1024KpP3, 2820096, 10, 1
+	X87PRC		fft1024KpPPRO, 2820096, 10, 1
 	DD			0
-	DD	5242000, 262144, 0.155,		726528
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			8192+3*64	;; scratch area size
-	PRCPTR			fft256KpP3
-	DD			10		;; FFT levels done in pass2
+	DD	30070000, 1572864, 0.934
+	X87PRC		fft1536KpP3, 4111312, 12, 1
+	X87PRC		fft1536KpPPRO, 4111312, 12, 1
 	DD			0
-	DD	5242000, 262144, 0.155,		726528
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			8192+3*64	;; scratch area size
-	PRCPTR			fft256KpPPRO
-	DD			10		;; FFT levels done in pass2
+	DD	40110000, 2097152, 1.380
+	X87PRC		fft2048KpP3, 5442560, 12, 1
+	X87PRC		fft2048KpPPRO, 5442560, 12, 1
 	DD			0
-	DD	7733000, 393216, 0.2107,	1076176
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			12288+5*64	;; scratch area size
-	PRCPTR			fft384KpP3
-	DD			10		;; FFT levels done in pass2
+	DD	59360000, 3145728, 1.990
+	X87PRC		fft3072Kp2P3, 8108080, 12, 1
+	X87PRC		fft3072Kp2PPRO, 8108080, 12, 1
 	DD			0
-	DD	7733000, 393216, 0.2107,	1076176
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			12288+5*64	;; scratch area size
-	PRCPTR			fft384KpPPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	10320000, 524288, 0.322,	1424384
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			16384+7*64	;; scratch area size
-	PRCPTR			fft512KpP3
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	10320000, 524288, 0.322,	1424384
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			16384+7*64	;; scratch area size
-	PRCPTR			fft512KpPPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	15260000, 786432, 0.453,	2123824
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			24576+11*64	;; scratch area size
-	PRCPTR			fft768KpP3
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	15260000, 786432, 0.453,	2123824
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			24576+11*64	;; scratch area size
-	PRCPTR			fft768KpPPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	20360000, 1048576, 0.681,	2820096
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			32768+15*64	;; scratch area size
-	PRCPTR			fft1024KpP3
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	20360000, 1048576, 0.681,	2820096
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			32768+15*64	;; scratch area size
-	PRCPTR			fft1024KpPPRO
-	DD			10		;; FFT levels done in pass2
-	DD			0
-	DD	30070000, 1572864, 0.934,	4111312
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			24576+5*64	;; scratch area size
-	PRCPTR			fft1536KpP3
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	30070000, 1572864, 0.934,	4111312
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			24576+5*64	;; scratch area size
-	PRCPTR			fft1536KpPPRO
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	40110000, 2097152, 1.380,	5442560
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			32768+7*64	;; scratch area size
-	PRCPTR			fft2048KpP3
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	40110000, 2097152, 1.380,	5442560
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			32768+7*64	;; scratch area size
-	PRCPTR			fft2048KpPPRO
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	59360000, 3145728, 1.990,	8108080
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			24576+11*64	;; scratch area size
-	PRCPTR			fft3072Kp2P3
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	59360000, 3145728, 1.990,	8108080
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			24576+11*64	;; scratch area size
-	PRCPTR			fft3072Kp2PPRO
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	79100000, 4194304, 2.919,	10770432
-	DD			RPF+2		;; Flags, min_l2_cache, clm
-	DD			32768+15*64	;; scratch area size
-	PRCPTR			fft4096Kp2P3
-	DD			12		;; FFT levels done in pass2
-	DD			0
-	DD	79100000, 4194304, 2.919,	10770432
-	DD			2		;; Flags, min_l2_cache, clm
-	DD			32768+15*64	;; scratch area size
-	PRCPTR			fft4096Kp2PPRO
-	DD			12		;; FFT levels done in pass2
+	DD	79100000, 4194304, 2.919
+	X87PRC		fft4096Kp2P3, 10770432, 12, 1
+	X87PRC		fft4096Kp2PPRO, 10770432, 12, 1
 	DD			0
 	DD	0
 ENDIF
@@ -969,4320 +511,632 @@ ENDIF
 CELE_D	EQU	257		;; 256K L2 cache of a Celeron D
 WILLI	EQU	256		;; 256K L2 cache of a Willamette P4
 
-xjmptable DD	743,	32,	0.00000111,	896
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x32
-	DD			0		;; FFT levels done in pass2
+xjmptable DD	743,	32,	0.00000111
+	PRCENTRY		xfft_hg_32_CORE, 896
 	DD			4, 4
 	DD			1, 1, 1, 1, 1, 0
-	DD	1099,	48,	0.00000144,	1408
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x48
-	DD			0		;; FFT levels done in pass2
+	DD	1099,	48,	0.00000144
+	PRCENTRY		xfft_hg_48_CORE, 1408 
 	DD			6, 6
 	DD			2, 1, 1, 1, 1, 0
-	DD	1469,	64,	0.00000178,	1920
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x64
-	DD			0		;; FFT levels done in pass2
+	DD	1469,	64,	0.00000178
+	PRCENTRY		xfft_hg_64_CORE, 1920 
 	DD			8, 8
 	DD			3, 1, 1, 1, 1, 0
-	DD	1827,	80,	0.00000222,	2176
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x80
-	DD			0		;; FFT levels done in pass2
+	DD	1827,	80,	0.00000222
+	PRCENTRY		xfft_hg_80_CORE, 2176 
 	DD			10, 8*2048+2
 	DD			4, 2, 1, 1, 1, 0
-	DD	2179,	96,	0.00000259,	2432
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x96
-	DD			0		;; FFT levels done in pass2
+	DD	2179,	96,	0.00000259
+	PRCENTRY		xfft_hg_96_CORE, 2432 
 	DD			12, 12
 	DD			5, 2, 1, 1, 1, 0
-	DD	2539,	112,	0.00000311,	2944
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x112
-	DD			0		;; FFT levels done in pass2
+	DD	2539,	112,	0.00000311
+	PRCENTRY		xfft_hg_112_CORE, 2944
 	DD			14, (8*2048+4)*2048+2
 	DD			6, 3, 1, 1, 1, 0
-	DD	2905,	128,	0.00000319,	3328
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x128
-	DD			0		;; FFT levels done in pass2
+	DD	2905,	128,	0.00000319
+	PRCENTRY		xfft_hg_128_CORE, 3328
 	DD			16, 16
 	DD			7, 3, 1, 1, 1, 0
-	DD	3613,	160,	0.00000450,	4736
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x160
-	DD			0		;; FFT levels done in pass2
+	DD	3613,	160,	0.00000450
+	PRCENTRY		xfft_hg_160_CORE, 4736
 	DD			20, 16*2048+4
 	DD			9, 9, 2, 1, 4, 0
-	DD	4311,	192,	0.00000542,	5632
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x192
-	DD			0		;; FFT levels done in pass2
+	DD	4311,	192,	0.00000542
+	PRCENTRY		xfft_hg_192_CORE, 5632
 	DD			24, 24
 	DD			11, 11, 2, 1, 5, 0
-	DD	5029,	224,	0.00000663,	6656
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x224
-	DD			0		;; FFT levels done in pass2
+	DD	5029,	224,	0.00000663
+	PRCENTRY		xfft_hg_224_CORE, 6656
 	DD			28, (16*2048+8)*2048+4
 	DD			13, 13, 3, 1, 6, 0
-	DD	5755,	256,	0.00000691,	7296
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x256
-	DD			0		;; FFT levels done in pass2
+	DD	5755,	256,	0.00000691
+	PRCENTRY		xfft_hg_256_CORE, 7296
 	DD			32, 32
 	DD			15, 15, 3, 1, 7, 0
-	DD	7149,	320,	0.00000928,	8448
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x320
-	DD			0		;; FFT levels done in pass2
+	DD	7149,	320,	0.00000928
+	PRCENTRY		xfft_hg_320_CORE, 8448
 	DD			40, 32*2048+8
 	DD			19, 9, 2, 4, 1, 0
-	DD	8527,	384,	0.0000111,	9984
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x384
-	DD			0		;; FFT levels done in pass2
+	DD	8527,	384,	0.0000111
+	PRCENTRY		xfft_hg_384_CORE, 9984
 	DD			48, 48
 	DD			23, 11, 2, 5, 1, 0
-	DD	9933,	448,	0.0000133,	11648
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x448
-	DD			0		;; FFT levels done in pass2
+	DD	9933,	448,	0.0000133
+	PRCENTRY		xfft_hg_448_CORE, 11648
 	DD			56, (32*2048+16)*2048+8
 	DD			27, 13, 3, 6, 1, 0
-	DD	11359,	512,	0.0000143,	13056
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x512
-	DD			0		;; FFT levels done in pass2
+	DD	11359,	512,	0.0000143
+	PRCENTRY		xfft_hg_512_CORE, 13056
 	DD			64, 64
 	DD			31, 15, 3, 7, 1, 0
-	DD	14119,	640,	0.0000215,	17408
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x640
-	DD			0		;; FFT levels done in pass2
+	DD	14119,	640,	0.0000215
+	PRCENTRY		xfft_hg_640_CORE, 17408
 	DD			80, 64*2048+16
 	DD			39, 19, 9, 9, 4*256+2, 0
-	DD	16839,	768,	0.0000260,	20736
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x768
-	DD			0		;; FFT levels done in pass2
+	DD	16839,	768,	0.0000260
+	PRCENTRY		xfft_hg_768_CORE, 20736
 	DD			96, 96
 	DD			47, 23, 11, 11, 5*256+2, 0
-	DD	19639,	896,	0.0000321,	24448
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x896
-	DD			0		;; FFT levels done in pass2
+	DD	19639,	896,	0.0000321
+	PRCENTRY		xfft_hg_896_CORE, 24448
 	DD			112, (64*2048+32)*2048+16
 	DD			55, 27, 13, 13, 6*256+3, 0
-	DD	22477,	1024,	0.0000349,	26112
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x1024
-	DD			0		;; FFT levels done in pass2
+	DD	22477,	1024,	0.0000349
+	PRCENTRY		xfft_hg_1024_CORE, 26112
 	DD			128, 128
 	DD			63, 31, 15, 15, 7*256+3, 0
-	DD	27899,	1280,	0.0000494,	33664
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x1280
-	DD			0		;; FFT levels done in pass2
+	DD	27899,	1280,	0.0000494
+	PRCENTRY		xfft_hg_1280_CORE, 33664
 	DD			160, 128*2048+32
 	DD			79, 39, 9, 4*256+19, 2, 0
-	DD	33289,	1536,	0.0000601,	40320
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x1536
-	DD			0		;; FFT levels done in pass2
+	DD	33289,	1536,	0.0000601
+	PRCENTRY		xfft_hg_1536_CORE, 40320
 	DD			192, 192
 	DD			95, 47, 11, 5*256+23, 2, 0
-	DD	38799,	1792,	0.0000719,	47232
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x1792
-	DD			0		;; FFT levels done in pass2
+	DD	38799,	1792,	0.0000719
+	PRCENTRY		xfft_hg_1792_CORE, 47232
 	DD			224, (128*2048+64)*2048+32
 	DD			111, 55, 13, 6*256+27, 3, 0
-	DD	44339,	2048,	0.0000773,	52224
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x2048
-	DD			0		;; FFT levels done in pass2
+	DD	44339,	2048,	0.0000773
+	PRCENTRY		xfft_hg_2048_CORE, 52224
 	DD			256, 256
 	DD			127, 63, 15, 7*256+31, 3, 0
-	DD	55099,	2560,	0.000111,	68096
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x2560
-	DD			0		;; FFT levels done in pass2
+	DD	55099,	2560,	0.000111
+	PRCENTRY		xfft_hg_2560_CORE, 68096
 	DD			320, 256*2048+64
 	DD			159, 79, 9*256+19, 9*256+39, 4*256+2, 0
-	DD	65729,	3072,	0.000131,	81792
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x3072
-	DD			0		;; FFT levels done in pass2
+	DD	65729,	3072,	0.000131
+	PRCENTRY		xfft_hg_3072_CORE, 81792
 	DD			384, 384
 	DD			191, 95, 11*256+23, 11*256+47, 5*256+2, 0
-	DD	76559,	3584,	0.000165,	95488
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x3584
-	DD			0		;; FFT levels done in pass2
+	DD	76559,	3584,	0.000165
+	PRCENTRY		xfft_hg_3584_CORE, 95488
 	DD			448, (256*2048+128)*2048+64
 	DD			223, 111, 13*256+27, 13*256+55, 6*256+3, 0
-	DD	87549,	4096,	0.000163,	104448
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x4096
-	DD			0		;; FFT levels done in pass2
+	DD	87549,	4096,	0.000163
+	PRCENTRY		xfft_hg_4096_CORE, 104448
 	DD			512, 512
 	DD			255, 127, 15*256+31, 15*256+63, 7*256+3, 0
-	DD	108800,	5120,	0.000215,	135296
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x5120
-	DD			0		;; FFT levels done in pass2
+	DD	108800,	5120,	0.000215
+	PRCENTRY		xfft_hg_5120_CORE, 135296
 	DD			640, 512*2048+128
 	DD			319, 159, 9*256+39, 19*256+79, 4*256+2, 0
-	DD	129900,	6144,	0.000276,	162432
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x6144
-	DD			0		;; FFT levels done in pass2
+	DD	129900,	6144,	0.000276
+	PRCENTRY		xfft_hg_6144_CORE, 162432
 	DD			768, 768
 	DD			383, 191, 11*256+47, 23*256+95, 5*256+2, 0
-	DD	151300,	7168,	0.000374,	189568
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x7168
-	DD			0		;; FFT levels done in pass2
+	DD	151300,	7168,	0.000374
+	PRCENTRY		xfft_hg_7168_CORE, 189568
 	DD			896, (512*2048+256)*2048+128
 	DD			447, 223, 13*256+55, 27*256+111, 6*256+3, 0
-	DD	172700,	8192,	0.000398,	208896
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x8192
-	DD			0		;; FFT levels done in pass2
+	DD	172700,	8192,	0.000398
+	PRCENTRY		xfft_hg_8192_CORE, 208896
 	DD			1024, 1024
 	DD			511, 255, 15*256+63, 31*256+127, 7*256+3, 0
-	DD	214400,	10240,	0.000470,	59904
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x10KAMD
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	214400,	10240,	0.000470,	59904
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x10K
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	255300,	12288,	0.000590,	69632
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x12KAMD
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	255300,	12288,	0.000590,	69632
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x12K
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	297300,	14336,	0.000716,	79488
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x14KAMD
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	297300,	14336,	0.000716,	79488
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x14K
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	340400,	16384,	0.000787,	89088
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x16KAMD
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	340400,	16384,	0.000787,	89088
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x16K
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	423300,	20480,	0.00103,	107904
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x20KAMD
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	423300,	20480,	0.00103,	107904
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x20K
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	504600,	24576,	0.00132,	127232
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x24KAMD
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	504600,	24576,	0.00132,	127232
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x24K
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	587500,	28672,	0.00156,	146688
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x28KAMD
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	587500,	28672,	0.00156,	146688
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x28K
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	671400,	32768,	0.00175,	165888
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x32KAMD
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	671400,	32768,	0.00175,	165888
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x32K
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	835200,	40960,	0.00225,	189696
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x40KAMD
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	835200,	40960,	0.00225,	189696
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x40K
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-allfft	DD	835200,	40960,	0.00225,	156672
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x40KAMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	835200,	40960,	0.00225,	156672
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x40K
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-	DD	995500, 49152,	0.00279,	206208
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x48KAMD
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	995500, 49152,	0.00279,	206208
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x48K
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-allfft	DD	995500, 49152,	0.00279,	177664
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x48KAMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	995500, 49152,	0.00279,	177664
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x48K
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-	DD	1158000, 57344,	0.00327,	222976
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x56KAMD
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	1158000, 57344,	0.00327,	222976
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x56K
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-allfft	DD	1158000, 57344,	0.00327,	198784
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x56KAMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	1158000, 57344,	0.00327,	198784
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x56K
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-	DD	1325000, 65536,	0.00367,	239488
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x64KAMD
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	1325000, 65536,	0.00367,	239488
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x64K
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-allfft	DD	1325000, 65536,	0.00367,	219648
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x64KAMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	1325000, 65536,	0.00367,	219648
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x64K
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-	DD	1648000, 81920, 0.00474,	273408
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x80KAMD
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	1648000, 81920, 0.00474,	273408
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x80K
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-allfft	DD	1648000, 81920, 0.00474,	260992
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x80KAMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	1648000, 81920, 0.00474,	260992
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x80K
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-	DD	1966000, 98304, 0.00584,	306688
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x96KAMD
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	1966000, 98304, 0.00584,	306688
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x96K
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-allfft	DD	1966000, 98304, 0.00584,	302848
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x96KAMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	1966000, 98304, 0.00584,	302848
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x96K
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-	DD	2287000, 114688, 0.00693,	340096
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x112KAMD
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	2287000, 114688, 0.00693,	340096
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x112K
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-allfft	DD	2287000, 114688, 0.00693,	344832
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x112KAMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	2287000, 114688, 0.00693,	344832
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x112K
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-	DD	2614000, 131072, 0.00779,	373248
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x128KAMD
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	2614000, 131072, 0.00779,	373248
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x128K
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-allfft	DD	2614000, 131072, 0.00779,	386560
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x128KAMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	2614000, 131072, 0.00779,	386560
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x128K
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	3251000, 163840, 0.00914,	439168
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x160KAMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	3251000, 163840, 0.00914,	471424
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			20480+4*128	;; scratch area size
-allfft	PRCPTR			x160K410AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-	DD	3251000, 163840, 0.00914,	471424
-	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-	DD			10240+4*128	;; scratch area size
-	PRCPTR			x160K210AMD
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_2+1, 0
-allfft	DD	3251000, 163840, 0.00914,	471424
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			5120+4*128	;; scratch area size
-allfft	PRCPTR			x160K110AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	3251000, 163840, 0.00914,	439168
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x160K
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	3251000, 163840, 0.00914,	471424
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			20480+4*128	;; scratch area size
-allfft	PRCPTR			x160K410
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-	DD	3251000, 163840, 0.00914,	471424
-	DD			2*2		;; Flags, min_l2_cache, clm
-	DD			10240+4*128	;; scratch area size
-	PRCPTR			x160K210
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_2+1, 0
-allfft	DD	3251000, 163840, 0.00914,	471424
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			5120+4*128	;; scratch area size
-allfft	PRCPTR			x160K110
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	3875000, 196608, 0.0114,	505600
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x192KAMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	3875000, 196608, 0.0114,	555392
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			24576+5*128	;; scratch area size
-allfft	PRCPTR			x192K410AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-	DD	3875000, 196608, 0.0114,	555392
-	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-	DD			12288+5*128	;; scratch area size
-	PRCPTR			x192K210AMD
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_2+1, 0
-allfft	DD	3875000, 196608, 0.0114,	555392
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			6144+5*128	;; scratch area size
-allfft	PRCPTR			x192K110AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	3875000, 196608, 0.0114,	505600
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x192K
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-	DD	3875000, 196608, 0.0114,	555392
-	DD			256*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			24576+5*128	;; scratch area size
-	PRCPTR			x192K410
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_4+1, 0
-allfft	DD	3875000, 196608, 0.0114,	555392
-allfft	DD			2*2		;; Flags, min_l2_cache, clm
-allfft	DD			12288+5*128	;; scratch area size
-allfft	PRCPTR			x192K210
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_2+1, 0
-	DD	3875000, 196608, 0.0114,	555392
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			6144+5*128	;; scratch area size
-	PRCPTR			x192K110
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_1+1, 0
-allfft	DD	4512000, 229376, 0.0134,	572160
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x224KAMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	4512000, 229376, 0.0134,	639616
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			28672+6*128	;; scratch area size
-allfft	PRCPTR			x224K410AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-	DD	4512000, 229376, 0.0134,	639616
-	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-	DD			14336+6*128	;; scratch area size
-	PRCPTR			x224K210AMD
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_2+1, 0
-allfft	DD	4512000, 229376, 0.0134,	639616
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			7168+6*128	;; scratch area size
-allfft	PRCPTR			x224K110AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	4512000, 229376, 0.0134,	572160
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x224K
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-	DD	4512000, 229376, 0.0134,	639616
-	DD			256*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			28672+6*128	;; scratch area size
-	PRCPTR			x224K410
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_4+1, 0
-	DD	4512000, 229376, 0.0134,	639616
-	DD			2*2		;; Flags, min_l2_cache, clm
-	DD			14336+6*128	;; scratch area size
-	PRCPTR			x224K210
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_2+1, 0
-allfft	DD	4512000, 229376, 0.0134,	639616
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			7168+6*128	;; scratch area size
-allfft	PRCPTR			x224K110
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	5158000, 262144, 0.0150,	638464
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x256KAMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	5158000, 262144, 0.0150,	721920
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			32768+7*128	;; scratch area size
-allfft	PRCPTR			x256K410AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-	DD	5158000, 262144, 0.0150,	721920
-	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-	DD			16384+7*128	;; scratch area size
-	PRCPTR			x256K210AMD
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_2+1, 0
-allfft	DD	5158000, 262144, 0.0150,	721920
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			8192+7*128	;; scratch area size
-allfft	PRCPTR			x256K110AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	5158000, 262144, 0.0150,	638464
-allfft	DD			2048*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x256K
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-	DD	5158000, 262144, 0.0150,	721920
-	DD			256*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			32768+7*128	;; scratch area size
-	PRCPTR			x256K410
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_4+1, 0
-	DD	5158000, 262144, 0.0150,	721920
-	DD			2*2		;; Flags, min_l2_cache, clm
-	DD			16384+7*128	;; scratch area size
-	PRCPTR			x256K210
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_2+1, 0
-allfft	DD	5158000, 262144, 0.0150,	721920
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			8192+7*128	;; scratch area size
-allfft	PRCPTR			x256K110
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	6421000, 327680, 0.0192,	772480
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			20480+4*128	;; scratch area size
-allfft	PRCPTR			x320K411AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	6421000, 327680, 0.0192,	772480
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x320KAMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	6421000, 327680, 0.0192,	890624
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			40960+9*128	;; scratch area size
-allfft	PRCPTR			x320K410AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	6421000, 327680, 0.0192,	890624
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			20480+9*128	;; scratch area size
-allfft	PRCPTR			x320K210AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_2+1, 0
-	DD	6421000, 327680, 0.0192,	890624
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			10240+9*128	;; scratch area size
-	PRCPTR			x320K110AMD
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_1+1, 0
-allfft	DD	6421000, 327680, 0.0192,	772480
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			20480+4*128	;; scratch area size
-allfft	PRCPTR			x320K411
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	6421000, 327680, 0.0192,	772480
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x320K
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-	DD	6421000, 327680, 0.0192,	890624
-	DD			256*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			40960+9*128	;; scratch area size
-	PRCPTR			x320K410
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_4+1, 0
-allfft	DD	6421000, 327680, 0.0192,	890624
-allfft	DD			2*2		;; Flags, min_l2_cache, clm
-allfft	DD			20480+9*128	;; scratch area size
-allfft	PRCPTR			x320K210
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_2+1, 0
-	DD	6421000, 327680, 0.0192,	890624
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			10240+9*128	;; scratch area size
-	PRCPTR			x320K110
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_1+1, 0
-allfft	DD	7651000, 393216, 0.0238,	905600
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			24576+5*128	;; scratch area size
-allfft	PRCPTR			x384K411AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	7651000, 393216, 0.0238,	905600
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x384KAMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	7651000, 393216, 0.0238,	1058432
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			49152+11*128	;; scratch area size
-allfft	PRCPTR			x384K410AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	7651000, 393216, 0.0238,	1058432
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			24576+11*128	;; scratch area size
-allfft	PRCPTR			x384K210AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_2+1, 0
-	DD	7651000, 393216, 0.0238,	1058432
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			12288+11*128	;; scratch area size
-	PRCPTR			x384K110AMD
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_1+1, 0
-allfft	DD	7651000, 393216, 0.0238,	905600
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			24576+5*128	;; scratch area size
-allfft	PRCPTR			x384K411
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	7651000, 393216, 0.0238,	905600
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x384K
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-	DD	7651000, 393216, 0.0238,	1058432
-	DD			256*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			49152+11*128	;; scratch area size
-	PRCPTR			x384K410
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_4+1, 0
-	DD	7651000, 393216, 0.0238,	1058432
-	DD			2*2		;; Flags, min_l2_cache, clm
-	DD			24576+11*128	;; scratch area size
-	PRCPTR			x384K210
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_2+1, 0
-allfft	DD	7651000, 393216, 0.0238,	1058432
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			12288+11*128	;; scratch area size
-allfft	PRCPTR			x384K110
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	8908000, 458752, 0.0283,	1038976
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			28672+6*128	;; scratch area size
-allfft	PRCPTR			x448K411AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	8908000, 458752, 0.0283,	1038976
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x448KAMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	8908000, 458752, 0.0283,	1226496
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			57344+13*128	;; scratch area size
-allfft	PRCPTR			x448K410AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	8908000, 458752, 0.0283,	1226496
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			28672+13*128	;; scratch area size
-allfft	PRCPTR			x448K210AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_2+1, 0
-	DD	8908000, 458752, 0.0283,	1226496
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			14336+13*128	;; scratch area size
-	PRCPTR			x448K110AMD
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_1+1, 0
-allfft	DD	8908000, 458752, 0.0283,	1038976
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			28672+6*128	;; scratch area size
-allfft	PRCPTR			x448K411
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	8908000, 458752, 0.0283,	1038976
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x448K
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-	DD	8908000, 458752, 0.0283,	1226496
-	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			57344+13*128	;; scratch area size
-	PRCPTR			x448K410
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_4+1, 0
-	DD	8908000, 458752, 0.0283,	1226496
-	DD			2*2		;; Flags, min_l2_cache, clm
-	DD			28672+13*128	;; scratch area size
-	PRCPTR			x448K210
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_2+1, 0
-allfft	DD	8908000, 458752, 0.0283,	1226496
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			14336+13*128	;; scratch area size
-allfft	PRCPTR			x448K110
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	10180000, 524288, 0.0319,	1170432
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			32768+7*128	;; scratch area size
-allfft	PRCPTR			x512K411AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	10180000, 524288, 0.0319,	1170432
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x512KAMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	10180000, 524288, 0.0319,	1392640
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			65536+15*128	;; scratch area size
-allfft	PRCPTR			x512K410AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	10180000, 524288, 0.0319,	1392640
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			32768+15*128	;; scratch area size
-allfft	PRCPTR			x512K210AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_2+1, 0
-	DD	10180000, 524288, 0.0319,	1392640
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			16384+15*128	;; scratch area size
-	PRCPTR			x512K110AMD
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_1+1, 0
-allfft	DD	10180000, 524288, 0.0319,	1170432
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			32768+7*128	;; scratch area size
-allfft	PRCPTR			x512K411
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	10180000, 524288, 0.0319,	1170432
-allfft	DD			2*2		;; Flags, min_l2_cache, clm
-allfft	DD			16384+7*128	;; scratch area size
-allfft	PRCPTR			x512K211
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	10180000, 524288, 0.0319,	1170432
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			8192+7*128	;; scratch area size
-allfft	PRCPTR			x512K111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	10180000, 524288, 0.0319,	1170432
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x512K
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-	DD	10180000, 524288, 0.0319,	1392640
-	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			65536+15*128	;; scratch area size
-	PRCPTR			x512K410
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_4+1, 0
-	DD	10180000, 524288, 0.0319,	1392640
-	DD			2*2		;; Flags, min_l2_cache, clm
-	DD			32768+15*128	;; scratch area size
-	PRCPTR			x512K210
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_2+1, 0
-allfft	DD	10180000, 524288, 0.0319,	1392640
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			16384+15*128	;; scratch area size
-allfft	PRCPTR			x512K110
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	10180000, 524288, 0.0319,	1392640
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			16384+15*128	;; scratch area size
-allfft	PRCPTR			x512K010
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_0+1, 0
-allfft	DD	12650000, 655360, 0.0410,	1214848
-allfft	DD			RPFW+512*65536+2*8;; Flags, min_l2_cache, clm
-allfft	DD			40960+4*128	;; scratch area size
-allfft	PRCPTR			x640K812AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_8+1, 0
-allfft	DD	12650000, 655360, 0.0410,	1214848
-allfft	DD			RPFW+512*65536+2*4;; Flags, min_l2_cache, clm
-allfft	DD			20480+4*128	;; scratch area size
-allfft	PRCPTR			x640K412AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-	DD	12650000, 655360, 0.0410,	1214848
-	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-	DD			10240+4*128	;; scratch area size
-	PRCPTR			x640K212AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-allfft	DD	12650000, 655360, 0.0410,	1214848
-allfft	DD			RPFW+512*65536+2*1;; Flags, min_l2_cache, clm
-allfft	DD			5120+4*128	;; scratch area size
-allfft	PRCPTR			x640K112AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_1+1, 0
-allfft	DD	12650000, 655360, 0.0410,	1437440
-allfft	DD			RPFW+2*8	;; Flags, min_l2_cache, clm
-allfft	DD			81920+9*128	;; scratch area size
-allfft	PRCPTR			x640K811AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_8+1, 0
-allfft	DD	12650000, 655360, 0.0410,	1437440
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			40960+9*128	;; scratch area size
-allfft	PRCPTR			x640K411AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	12650000, 655360, 0.0410,	1214848
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			20480+4*128	;; scratch area size
-allfft	PRCPTR			x640K412
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-	DD	12650000, 655360, 0.0410,	1214848
-	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			10240+4*128	;; scratch area size
-	PRCPTR			x640K212
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-allfft	DD	12650000, 655360, 0.0410,	1437440
-allfft	DD			512*65536+2*8	;; Flags, min_l2_cache, clm
-allfft	DD			81920+9*128	;; scratch area size
-allfft	PRCPTR			x640K811
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_8+1, 0
-	DD	12650000, 655360, 0.0410,	1437440
-	DD			256*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			40960+9*128	;; scratch area size
-	PRCPTR			x640K411
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-allfft	DD	12650000, 655360, 0.0410,	1437440
-allfft	DD			256*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			20480+9*128	;; scratch area size
-allfft	PRCPTR			x640K211
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-	DD	12650000, 655360, 0.0410,	1437440
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			10240+9*128	;; scratch area size
-	PRCPTR			x640K111
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_1+1, 0
-allfft	DD	12650000, 655360, 0.0410,	1437440
-allfft	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			10240+9*128	;; scratch area size
-allfft	PRCPTR			x640K9111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	12650000, 655360, 0.0410,	1730816
-allfft	DD			256*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			81920+19*128	;; scratch area size
-allfft	PRCPTR			x640K410
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	12650000, 655360, 0.0410,	1730816
-allfft	DD			256*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			40960+19*128	;; scratch area size
-allfft	PRCPTR			x640K210
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_2+1, 0
-allfft	DD	12650000, 655360, 0.0410,	1730816
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			20480+19*128	;; scratch area size
-allfft	PRCPTR			x640K110
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	12650000, 655360, 0.0410,	3123840
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			81920+79*128	;; scratch area size
-allfft	PRCPTR			x640K18
-allfft	DD			8		;; FFT levels done in pass2
-allfft	DD			GAP2_8_1+1, 0
-allfft	DD	15070000, 786432, 0.0507,	1413504
-allfft	DD			RPFW+512*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			24576+5*128	;; scratch area size
-allfft	PRCPTR			x768K412AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-	DD	15070000, 786432, 0.0507,	1413504
-	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-	DD			12288+5*128	;; scratch area size
-	PRCPTR			x768K212AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-allfft	DD	15070000, 786432, 0.0507,	1413504
-allfft	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			6144+5*128	;; scratch area size
-allfft	PRCPTR			x768K112AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_1+1, 0
-allfft	DD	15070000, 786432, 0.0507,	1703552
-allfft	DD			RPFW+512*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			49152+11*128	;; scratch area size
-allfft	PRCPTR			x768K411AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	15070000, 786432, 0.0507,	1703552
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			49152+11*128	;; scratch area size
-allfft	PRCPTR			x768K211AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	15070000, 786432, 0.0507,	1413504
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			24576+5*128	;; scratch area size
-allfft	PRCPTR			x768K412
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-	DD	15070000, 786432, 0.0507,	1413504
-	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			12288+5*128	;; scratch area size
-	PRCPTR			x768K212
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-	DD	15070000, 786432, 0.0507,	1703552
-	DD			CELE_D*65536+2*4 ;; Flags, min_l2_cache, clm
-	DD			49152+11*128	;; scratch area size
-	PRCPTR			x768K411
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	15070000, 786432, 0.0507,	1703552
-	DD			WILLI*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			24576+11*128	;; scratch area size
-	PRCPTR			x768K211
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_2+1, 0
-allfft	DD	15070000, 786432, 0.0507,	1703552
-allfft	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			12288+11*128	;; scratch area size
-allfft	PRCPTR			x768K111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	15070000, 786432, 0.0507,	1703552
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			12288+11*128	;; scratch area size
-allfft	PRCPTR			x768K9111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	15070000, 786432, 0.0507,	1703552
-allfft	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			12288+11*128	;; scratch area size
-allfft	PRCPTR			x768K011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	15070000, 786432, 0.0507,	1703552
-allfft	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			12288+11*128	;; scratch area size
-allfft	PRCPTR			x768K9011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	15070000, 786432, 0.0507,	2066816
-allfft	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			98304+23*128	;; scratch area size
-allfft	PRCPTR			x768K410
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	15070000, 786432, 0.0507,	2066816
-allfft	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			49152+23*128	;; scratch area size
-allfft	PRCPTR			x768K210
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_2+1, 0
-allfft	DD	15070000, 786432, 0.0507,	2066816
-allfft	DD			512*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			24576+23*128	;; scratch area size
-allfft	PRCPTR			x768K110
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-	DD	15070000, 786432, 0.0507,	2066816
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			24576+23*128	;; scratch area size
-	PRCPTR			x768K010
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_0+1, 0
-allfft	DD	15070000, 786432, 0.0507,	3746560
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			98304+95*128	;; scratch area size
-allfft	PRCPTR			x768K18
-allfft	DD			8		;; FFT levels done in pass2
-allfft	DD			GAP2_8_1+1, 0
-allfft	DD	17550000, 917504, 0.0607,	1612416
-allfft	DD			RPFW+512*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			28672+6*128	;; scratch area size
-allfft	PRCPTR			x896K412AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-	DD	17550000, 917504, 0.0607,	1612416
-	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-	DD			14336+6*128	;; scratch area size
-	PRCPTR			x896K212AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-	DD	17550000, 917504, 0.0607,	1612416
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			7168+6*128	;; scratch area size
-	PRCPTR			x896K112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	17550000, 917504, 0.0607,	1969920
-allfft	DD			RPFW+512*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			57344+13*128	;; scratch area size
-allfft	PRCPTR			x896K411AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	17550000, 917504, 0.0607,	1969920
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			28672+13*128	;; scratch area size
-allfft	PRCPTR			x896K211AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	17550000, 917504, 0.0607,	1612416
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			28672+6*128	;; scratch area size
-allfft	PRCPTR			x896K412
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-	DD	17550000, 917504, 0.0607,	1612416
-	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			14336+6*128	;; scratch area size
-	PRCPTR			x896K212
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-	DD	17550000, 917504, 0.0607,	1969920
-	DD			CELE_D*65536+2*4 ;; Flags, min_l2_cache, clm
-	DD			57344+13*128	;; scratch area size
-	PRCPTR			x896K411
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	17550000, 917504, 0.0607,	1969920
-	DD			WILLI*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			28672+13*128	;; scratch area size
-	PRCPTR			x896K211
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_2+1, 0
-allfft	DD	17550000, 917504, 0.0607,	1969920
-allfft	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			14336+13*128	;; scratch area size
-allfft	PRCPTR			x896K111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	17550000, 917504, 0.0607,	1969920
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			14336+13*128	;; scratch area size
-allfft	PRCPTR			x896K9111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-	DD	17550000, 917504, 0.0607,	1969920
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			14336+13*128	;; scratch area size
-	PRCPTR			x896K011
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_0+1, 0
-allfft	DD	17550000, 917504, 0.0607,	1969920
-allfft	DD			128*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			14336+13*128	;; scratch area size
-allfft	PRCPTR			x896K9011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	17550000, 917504, 0.0607,	2402816
-allfft	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			57344+27*128	;; scratch area size
-allfft	PRCPTR			x896K210
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_2+1, 0
-allfft	DD	17550000, 917504, 0.0607,	2402816
-allfft	DD			512*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			28672+27*128	;; scratch area size
-allfft	PRCPTR			x896K110
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	17550000, 917504, 0.0607,	2402816
-allfft	DD			512*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			28672+27*128	;; scratch area size
-allfft	PRCPTR			x896K010
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_0+1, 0
-allfft	DD	17550000, 917504, 0.0607,	4369280
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			114688+111*128	;; scratch area size
-allfft	PRCPTR			x896K18
-allfft	DD			8		;; FFT levels done in pass2
-allfft	DD			GAP2_8_1+1, 0
-allfft	DD	20050000, 1048576, 0.0676,	1809408
-allfft	DD			RPFW+512*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			32768+7*128	;; scratch area size
-allfft	PRCPTR			x1024K412AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-	DD	20050000, 1048576, 0.0676,	1809408
-	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-	DD			16384+7*128	;; scratch area size
-	PRCPTR			x1024K212AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-	DD	20050000, 1048576, 0.0676,	1809408
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			8192+7*128	;; scratch area size
-	PRCPTR			x1024K112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	20050000, 1048576, 0.0676,	2234368
-allfft	DD			RPFW+512*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			65536+15*128	;; scratch area size
-allfft	PRCPTR			x1024K411AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	20050000, 1048576, 0.0676,	2234368
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			32768+15*128	;; scratch area size
-allfft	PRCPTR			x1024K211AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	20050000, 1048576, 0.0676,	1809408
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			32768+7*128	;; scratch area size
-allfft	PRCPTR			x1024K412
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-allfft	DD	20050000, 1048576, 0.0676,	1809408
-allfft	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			16384+7*128	;; scratch area size
-allfft	PRCPTR			x1024K212
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	20050000, 1048576, 0.0676,	1809408
-	DD			1024*65536+2*1	;; Flags, min_l2_cache, clm
-	DD			8192+7*128	;; scratch area size
-	PRCPTR			x1024K112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-	DD	20050000, 1048576, 0.0676,	2234368
-	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			65536+15*128	;; scratch area size
-	PRCPTR			x1024K411
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	20050000, 1048576, 0.0676,	2234368
-	DD			256*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			32768+15*128	;; scratch area size
-	PRCPTR			x1024K211
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_2+1, 0
-allfft	DD	20050000, 1048576, 0.0676,	2234368
-allfft	DD			705*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			16384+15*128	;; scratch area size
-allfft	PRCPTR			x1024K111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	20050000, 1048576, 0.0676,	2234368
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			16384+15*128	;; scratch area size
-allfft	PRCPTR			x1024K9111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-	DD	20050000, 1048576, 0.0676,	2234368
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			16384+15*128	;; scratch area size
-	PRCPTR			x1024K011
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_0+1, 0
-allfft	DD	20050000, 1048576, 0.0676,	2234368
-allfft	DD			600*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			16384+15*128	;; scratch area size
-allfft	PRCPTR			x1024K9011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	20050000, 1048576, 0.0676,	2734080
-allfft	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			65536+31*128	;; scratch area size
-allfft	PRCPTR			x1024K210
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_2+1, 0
-allfft	DD	20050000, 1048576, 0.0676,	2734080
-allfft	DD			200*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			32768+31*128	;; scratch area size
-allfft	PRCPTR			x1024K110
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	20050000, 1048576, 0.0676,	2734080
-allfft	DD			128*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			32768+31*128	;; scratch area size
-allfft	PRCPTR			x1024K010
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_0+1, 0
-allfft	DD	20050000, 1048576, 0.0676,	4975104
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			131072+127*128	;; scratch area size
-allfft	PRCPTR			x1024K18
-allfft	DD			8		;; FFT levels done in pass2
-allfft	DD			GAP2_8_1+1, 0
-allfft	DD	24930000, 1310720, 0.0892,	2099584
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			20480+4*128	;; scratch area size
-allfft	PRCPTR			x1280K413AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	24930000, 1310720, 0.0892,	2207488
-allfft	DD			RPFW+512*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			40960+9*128	;; scratch area size
-allfft	PRCPTR			x1280K412AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-allfft	DD	24930000, 1310720, 0.0892,	2207488
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			20480+9*128	;; scratch area size
-allfft	PRCPTR			x1280K212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	24930000, 1310720, 0.0892,	2207488
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			10240+9*128	;; scratch area size
-	PRCPTR			x1280K112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	24930000, 1310720, 0.0892,	2769152
-allfft	DD			RPFW+512*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			81920+19*128	;; scratch area size
-allfft	PRCPTR			x1280K411AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	24930000, 1310720, 0.0892,	2769152
-allfft	DD			RPFW+256*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			40960+19*128	;; scratch area size
-allfft	PRCPTR			x1280K211AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	24930000, 1310720, 0.0892,	2769152
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			20480+19*128	;; scratch area size
-allfft	PRCPTR			x1280K111AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	24930000, 1310720, 0.0892,	2099584
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			20480+4*128	;; scratch area size
-allfft	PRCPTR			x1280K413
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-	DD	24930000, 1310720, 0.0892,	2207488
-	DD			CELE_D*65536+2*4 ;; Flags, min_l2_cache, clm
-	DD			40960+9*128	;; scratch area size
-	PRCPTR			x1280K412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-allfft	DD	24930000, 1310720, 0.0892,	2207488
-allfft	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			20480+9*128	;; scratch area size
-allfft	PRCPTR			x1280K212
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-allfft	DD	24930000, 1310720, 0.0892,	2207488
-allfft	DD			512*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			10240+9*128	;; scratch area size
-allfft	PRCPTR			x1280K112
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_1+1, 0
-allfft	DD	24930000, 1310720, 0.0892,	2769152
-allfft	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			81920+19*128	;; scratch area size
-allfft	PRCPTR			x1280K411
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-	DD	24930000, 1310720, 0.0892,	2769152
-	DD			WILLI*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			40960+19*128	;; scratch area size
-	PRCPTR			x1280K211
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_2+1, 0
-allfft	DD	24930000, 1310720, 0.0892,	2769152
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			20480+19*128	;; scratch area size
-allfft	PRCPTR			x1280K111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	24930000, 1310720, 0.0892,	2769152
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			20480+19*128	;; scratch area size
-allfft	PRCPTR			x1280K9111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-	DD	24930000, 1310720, 0.0892,	2769152
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			20480+19*128	;; scratch area size
-	PRCPTR			x1280K011
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_0+1, 0
-allfft	DD	24930000, 1310720, 0.0892,	2769152
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			20480+19*128	;; scratch area size
-allfft	PRCPTR			x1280K9011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	24930000, 1310720, 0.0892,	3409536
-allfft	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			40960+39*128	;; scratch area size
-allfft	PRCPTR			x1280K110
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	24930000, 1310720, 0.0892,	3409536
-allfft	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			40960+39*128	;; scratch area size
-allfft	PRCPTR			x1280K010
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_0+1, 0
-allfft	DD	29690000, 1572864, 0.113,	2429312
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			24576+5*128	;; scratch area size
-allfft	PRCPTR			x1536K413AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	29690000, 1572864, 0.113,	2604672
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			49152+11*128	;; scratch area size
-allfft	PRCPTR			x1536K412AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-allfft	DD	29690000, 1572864, 0.113,	2604672
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			24576+11*128	;; scratch area size
-allfft	PRCPTR			x1536K212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	29690000, 1572864, 0.113,	2604672
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			12288+11*128	;; scratch area size
-	PRCPTR			x1536K112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	29690000, 1572864, 0.113,	3301760
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			98304+23*128	;; scratch area size
-allfft	PRCPTR			x1536K411AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	29690000, 1572864, 0.113,	3301760
-allfft	DD			RPFW+512*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			49152+23*128	;; scratch area size
-allfft	PRCPTR			x1536K211AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	29690000, 1572864, 0.113,	3301760
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			24576+23*128	;; scratch area size
-allfft	PRCPTR			x1536K111AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	29690000, 1572864, 0.113,	2429312
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			24576+5*128	;; scratch area size
-allfft	PRCPTR			x1536K413
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-	DD	29690000, 1572864, 0.113,	2604672
-	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			49152+11*128	;; scratch area size
-	PRCPTR			x1536K412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-allfft	DD	29690000, 1572864, 0.113,	2604672
-allfft	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			24576+11*128	;; scratch area size
-allfft	PRCPTR			x1536K212
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	29690000, 1572864, 0.113,	2604672
-	DD			CELE_D*65536+2*1 ;; Flags, min_l2_cache, clm
-	DD			12288+11*128	;; scratch area size
-	PRCPTR			x1536K112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	29690000, 1572864, 0.113,	3301760
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			98304+23*128	;; scratch area size
-allfft	PRCPTR			x1536K411
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	29690000, 1572864, 0.113,	3301760
-allfft	DD			256*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			49152+23*128	;; scratch area size
-allfft	PRCPTR			x1536K211
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-	DD	29690000, 1572864, 0.113,	3301760
-	DD			WILLI*65536+2*1	;; Flags, min_l2_cache, clm
-	DD			24576+23*128	;; scratch area size
-	PRCPTR			x1536K111
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_1+1, 0
-allfft	DD	29690000, 1572864, 0.113,	3301760
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			24576+23*128	;; scratch area size
-allfft	PRCPTR			x1536K9111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-	DD	29690000, 1572864, 0.113,	3301760
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			24576+23*128	;; scratch area size
-	PRCPTR			x1536K011
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_0+1, 0
-allfft	DD	29690000, 1572864, 0.113,	3301760
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			24576+23*128	;; scratch area size
-allfft	PRCPTR			x1536K9011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	29690000, 1572864, 0.113,	4081280
-allfft	DD			128*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			49152+47*128	;; scratch area size
-allfft	PRCPTR			x1536K110
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	29690000, 1572864, 0.113,	4081280
-allfft	DD			128*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			49152+47*128	;; scratch area size
-allfft	PRCPTR			x1536K010
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_0+1, 0
-allfft	DD	34560000, 1835008, 0.135,	2759296
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			28672+13*128	;; scratch area size
-allfft	PRCPTR			x1792K413AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	34560000, 1835008, 0.135,	3002112
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			57344+13*128	;; scratch area size
-allfft	PRCPTR			x1792K412AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-allfft	DD	34560000, 1835008, 0.135,	3002112
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			28672+13*128	;; scratch area size
-allfft	PRCPTR			x1792K212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	34560000, 1835008, 0.135,	3002112
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			14336+13*128	;; scratch area size
-	PRCPTR			x1792K112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	34560000, 1835008, 0.135,	3834368
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			114688+27*128	;; scratch area size
-allfft	PRCPTR			x1792K411AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	34560000, 1835008, 0.135,	3834368
-allfft	DD			RPFW+512*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			57344+27*128	;; scratch area size
-allfft	PRCPTR			x1792K211AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	34560000, 1835008, 0.135,	3834368
-allfft	DD			RPFW+256*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			28672+27*128	;; scratch area size
-allfft	PRCPTR			x1792K111AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	34560000, 1835008, 0.135,	3834368
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			28672+27*128	;; scratch area size
-allfft	PRCPTR			x1792K011AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	34560000, 1835008, 0.135,	2759296
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			28672+6*128	;; scratch area size
-allfft	PRCPTR			x1792K413
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-	DD	34560000, 1835008, 0.135,	3002112
-	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			57344+13*128	;; scratch area size
-	PRCPTR			x1792K412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-allfft	DD	34560000, 1835008, 0.135,	3002112
-allfft	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			28672+13*128	;; scratch area size
-allfft	PRCPTR			x1792K212
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	34560000, 1835008, 0.135,	3002112
-	DD			CELE_D*65536+2*1 ;; Flags, min_l2_cache, clm
-	DD			14336+13*128	;; scratch area size
-	PRCPTR			x1792K112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	34560000, 1835008, 0.135,	3002112
-allfft	DD			512*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			14336+13*128	;; scratch area size
-allfft	PRCPTR			x1792K9112
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_1+1, 0
-allfft	DD	34560000, 1835008, 0.135,	3002112
-allfft	DD			512*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			14336+13*128	;; scratch area size
-allfft	PRCPTR			x1792K9012
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_0+1, 0
-allfft	DD	34560000, 1835008, 0.135,	3834368
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			114688+27*128	;; scratch area size
-allfft	PRCPTR			x1792K411
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	34560000, 1835008, 0.135,	3834368
-allfft	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			57344+27*128	;; scratch area size
-allfft	PRCPTR			x1792K211
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-	DD	34560000, 1835008, 0.135,	3834368
-	DD			WILLI*65536+2*1	;; Flags, min_l2_cache, clm
-	DD			28672+27*128	;; scratch area size
-	PRCPTR			x1792K111
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_1+1, 0
-allfft	DD	34560000, 1835008, 0.135,	3834368
-allfft	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			28672+27*128	;; scratch area size
-allfft	PRCPTR			x1792K9111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-	DD	34560000, 1835008, 0.135,	3834368
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			28672+27*128	;; scratch area size
-	PRCPTR			x1792K011
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_0+1, 0
-allfft	DD	34560000, 1835008, 0.135,	3834368
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			28672+27*128	;; scratch area size
-allfft	PRCPTR			x1792K9011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	34560000, 1835008, 0.135,	4753024
-allfft	DD			128*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			57344+55*128	;; scratch area size
-allfft	PRCPTR			x1792K110
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	34560000, 1835008, 0.135,	4753024
-allfft	DD			128*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			57344+55*128	;; scratch area size
-allfft	PRCPTR			x1792K010
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_0+1, 0
-allfft	DD	39500000, 2097152, 0.155,	3087360
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			32768+7*128	;; scratch area size
-allfft	PRCPTR			x2048K413AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	39500000, 2097152, 0.155,	3397632
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			65536+15*128	;; scratch area size
-allfft	PRCPTR			x2048K412AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-allfft	DD	39500000, 2097152, 0.155,	3397632
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			32768+15*128	;; scratch area size
-allfft	PRCPTR			x2048K212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	39500000, 2097152, 0.155,	3397632
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			16384+15*128	;; scratch area size
-	PRCPTR			x2048K112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	39500000, 2097152, 0.155,	4362240
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			131072+31*128	;; scratch area size
-allfft	PRCPTR			x2048K411AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	39500000, 2097152, 0.155,	4362240
-allfft	DD			RPFW+512*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			65536+31*128	;; scratch area size
-allfft	PRCPTR			x2048K211AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	39500000, 2097152, 0.155,	4362240
-allfft	DD			RPFW+256*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			32768+31*128	;; scratch area size
-allfft	PRCPTR			x2048K111AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	39500000, 2097152, 0.155,	4362240
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			32768+31*128	;; scratch area size
-allfft	PRCPTR			x2048K011AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	39500000, 2097152, 0.155,	3087360
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			32768+7*128	;; scratch area size
-allfft	PRCPTR			x2048K413
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-	DD	39500000, 2097152, 0.155,	3397632
-	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			65536+15*128	;; scratch area size
-	PRCPTR			x2048K412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-	DD	39500000, 2097152, 0.155,	3397632
-	DD			CELE_D*65536+2*1 ;; Flags, min_l2_cache, clm
-	DD			16384+15*128	;; scratch area size
-	PRCPTR			x2048K112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-	DD	39500000, 2097152, 0.155,	3397632
-	DD			WILLI*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			32768+15*128	;; scratch area size
-	PRCPTR			x2048K212
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-allfft	DD	39500000, 2097152, 0.155,	3397632
-allfft	DD			1024*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			16384+15*128	;; scratch area size
-allfft	PRCPTR			x2048K9112
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_1+1, 0
-allfft	DD	39500000, 2097152, 0.155,	3397632
-allfft	DD			1024*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			16384+15*128	;; scratch area size
-allfft	PRCPTR			x2048K9012
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_0+1, 0
-allfft	DD	39500000, 2097152, 0.155,	4362240
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			131072+31*128	;; scratch area size
-allfft	PRCPTR			x2048K411
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	39500000, 2097152, 0.155,	4362240
-allfft	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			65536+31*128	;; scratch area size
-allfft	PRCPTR			x2048K211
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	39500000, 2097152, 0.155,	4362240
-allfft	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			32768+31*128	;; scratch area size
-allfft	PRCPTR			x2048K111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	39500000, 2097152, 0.155,	4362240
-allfft	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			32768+31*128	;; scratch area size
-allfft	PRCPTR			x2048K9111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-	DD	39500000, 2097152, 0.155,	4362240
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			32768+31*128	;; scratch area size
-	PRCPTR			x2048K011
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_0+1, 0
-allfft	DD	39500000, 2097152, 0.155,	4362240
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			32768+31*128	;; scratch area size
-allfft	PRCPTR			x2048K9011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	39500000, 2097152, 0.155,	5416960
-allfft	DD			128*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			65536+63*128	;; scratch area size
-allfft	PRCPTR			x2048K110
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	39500000, 2097152, 0.155,	5416960
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			65536+63*128	;; scratch area size
-allfft	PRCPTR			x2048K010
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_0+1, 0
-allfft	DD	49100000, 2621440, 0.204,	3747584
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			40960+9*128	;; scratch area size
-allfft	PRCPTR			x2560K413AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	49100000, 2621440, 0.204,	3747584
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			20480+9*128	;; scratch area size
-allfft	PRCPTR			x2560K213AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-	DD	49100000, 2621440, 0.204,	3747584
-	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-	DD			10240+9*128	;; scratch area size
-	PRCPTR			x2560K113AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-allfft	DD	49100000, 2621440, 0.204,	4194560
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			81920+19*128	;; scratch area size
-allfft	PRCPTR			x2560K412AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-allfft	DD	49100000, 2621440, 0.204,	4194560
-allfft	DD			RPFW+512*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			40960+19*128	;; scratch area size
-allfft	PRCPTR			x2560K212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	49100000, 2621440, 0.204,	4194560
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			20480+19*128	;; scratch area size
-	PRCPTR			x2560K112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	49100000, 2621440, 0.204,	5430912
-allfft	DD			RPFW+512*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			81920+39*128	;; scratch area size
-allfft	PRCPTR			x2560K211AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	49100000, 2621440, 0.204,	5430912
-allfft	DD			RPFW+256*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			40960+39*128	;; scratch area size
-allfft	PRCPTR			x2560K111AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	49100000, 2621440, 0.204,	5430912
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			40960+39*128	;; scratch area size
-allfft	PRCPTR			x2560K011AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	49100000, 2621440, 0.204,	3747584
-allfft	DD			2048*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			40960+9*128	;; scratch area size
-allfft	PRCPTR			x2560K413
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-	DD	49100000, 2621440, 0.204,	4194560
-	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			81920+19*128	;; scratch area size
-	PRCPTR			x2560K412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-allfft	DD	49100000, 2621440, 0.204,	4194560
-allfft	DD			256*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			40960+19*128	;; scratch area size
-allfft	PRCPTR			x2560K212
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	49100000, 2621440, 0.204,	4194560
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			20480+19*128	;; scratch area size
-	PRCPTR			x2560K112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	49100000, 2621440, 0.204,	5430912
-allfft	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			81920+39*128	;; scratch area size
-allfft	PRCPTR			x2560K211
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	49100000, 2621440, 0.204,	5430912
-allfft	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			40960+39*128	;; scratch area size
-allfft	PRCPTR			x2560K111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	49100000, 2621440, 0.204,	5430912
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			40960+39*128	;; scratch area size
-allfft	PRCPTR			x2560K011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	49100000, 2621440, 0.204,	6768768
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			81920+79*128	;; scratch area size
-allfft	PRCPTR			x2560K010
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_0+1, 0
-allfft	DD	58520000, 3145728, 0.259,	4406912
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			49152+11*128	;; scratch area size
-allfft	PRCPTR			x3072K413AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	58520000, 3145728, 0.259,	4406912
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			24576+11*128	;; scratch area size
-allfft	PRCPTR			x3072K213AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-	DD	58520000, 3145728, 0.259,	4406912
-	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-	DD			12288+11*128	;; scratch area size
-	PRCPTR			x3072K113AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-allfft	DD	58520000, 3145728, 0.259,	4989312
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			98304+23*128	;; scratch area size
-allfft	PRCPTR			x3072K412AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-allfft	DD	58520000, 3145728, 0.259,	4989312
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			49152+23*128	;; scratch area size
-allfft	PRCPTR			x3072K212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	58520000, 3145728, 0.259,	4989312
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			24576+23*128	;; scratch area size
-	PRCPTR			x3072K112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	58520000, 3145728, 0.259,	6495872
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			98304+47*128	;; scratch area size
-allfft	PRCPTR			x3072K211AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	58520000, 3145728, 0.259,	6495872
-allfft	DD			RPFW+256*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			49152+47*128	;; scratch area size
-allfft	PRCPTR			x3072K111AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	58520000, 3145728, 0.259,	6495872
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			49152+47*128	;; scratch area size
-allfft	PRCPTR			x3072K011AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	58520000, 3145728, 0.259,	4406912
-allfft	DD			2048*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			49152+11*128	;; scratch area size
-allfft	PRCPTR			x3072K413
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-	DD	58520000, 3145728, 0.259,	4989312
-	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			98304+23*128	;; scratch area size
-	PRCPTR			x3072K412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-allfft	DD	58520000, 3145728, 0.259,	4989312
-allfft	DD			256*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			49152+23*128	;; scratch area size
-allfft	PRCPTR			x3072K212
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	58520000, 3145728, 0.259,	4989312
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			24576+23*128	;; scratch area size
-	PRCPTR			x3072K112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	58520000, 3145728, 0.259,	6495872
-allfft	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			98304+47*128	;; scratch area size
-allfft	PRCPTR			x3072K211
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	58520000, 3145728, 0.259,	6495872
-allfft	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			49152+47*128	;; scratch area size
-allfft	PRCPTR			x3072K111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	58520000, 3145728, 0.259,	6495872
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			49152+47*128	;; scratch area size
-allfft	PRCPTR			x3072K011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	58520000, 3145728, 0.259,	8112384
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			98304+95*128	;; scratch area size
-allfft	PRCPTR			x3072K010
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_0+1, 0
-allfft	DD	68130000, 3670016, 0.323,	5066496
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			57344+13*128	;; scratch area size
-allfft	PRCPTR			x3584K413AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	68130000, 3670016, 0.323,	5066496
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			28672+13*128	;; scratch area size
-allfft	PRCPTR			x3584K213AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-	DD	68130000, 3670016, 0.323,	5066496
-	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-	DD			14336+13*128	;; scratch area size
-	PRCPTR			x3584K113AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-allfft	DD	68130000, 3670016, 0.323,	5784064
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			114688+27*128	;; scratch area size
-allfft	PRCPTR			x3584K412AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-allfft	DD	68130000, 3670016, 0.323,	5784064
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			57344+27*128	;; scratch area size
-allfft	PRCPTR			x3584K212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	68130000, 3670016, 0.323,	5784064
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			28672+27*128	;; scratch area size
-	PRCPTR			x3584K112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	68130000, 3670016, 0.323,	7560832
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			114688+55*128	;; scratch area size
-allfft	PRCPTR			x3584K211AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	68130000, 3670016, 0.323,	7560832
-allfft	DD			RPFW+256*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			57344+55*128	;; scratch area size
-allfft	PRCPTR			x3584K111AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	68130000, 3670016, 0.323,	7560832
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			57344+55*128	;; scratch area size
-allfft	PRCPTR			x3584K011AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	68130000, 3670016, 0.323,	5066496
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			57344+13*128	;; scratch area size
-allfft	PRCPTR			x3584K413
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-	DD	68130000, 3670016, 0.323,	5784064
-	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			114688+27*128	;; scratch area size
-	PRCPTR			x3584K412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-	DD	68130000, 3670016, 0.323,	5784064
-	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			57344+27*128	;; scratch area size
-	PRCPTR			x3584K212
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-	DD	68130000, 3670016, 0.323,	5784064
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			28672+27*128	;; scratch area size
-	PRCPTR			x3584K112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	68130000, 3670016, 0.323,	7560832
-allfft	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			114688+55*128	;; scratch area size
-allfft	PRCPTR			x3584K211
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	68130000, 3670016, 0.323,	7560832
-allfft	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			57344+55*128	;; scratch area size
-allfft	PRCPTR			x3584K111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	68130000, 3670016, 0.323,	7560832
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			57344+55*128	;; scratch area size
-allfft	PRCPTR			x3584K011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	68130000, 3670016, 0.323,	9456000
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			114688+111*128	;; scratch area size
-allfft	PRCPTR			x3584K010
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_0+1, 0
-allfft	DD	77910000, 4194304, 0.382,	5724160
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			65536+15*128	;; scratch area size
-allfft	PRCPTR			x4096K413AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	77910000, 4194304, 0.382,	5724160
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			32768+15*128	;; scratch area size
-allfft	PRCPTR			x4096K213AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-	DD	77910000, 4194304, 0.382,	5724160
-	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-	DD			16384+15*128	;; scratch area size
-	PRCPTR			x4096K113AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-allfft	DD	77910000, 4194304, 0.382,	6574080
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			131072+31*128	;; scratch area size
-allfft	PRCPTR			x4096K412AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-allfft	DD	77910000, 4194304, 0.382,	6574080
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			65536+31*128	;; scratch area size
-allfft	PRCPTR			x4096K212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	77910000, 4194304, 0.382,	6574080
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			32768+31*128	;; scratch area size
-	PRCPTR			x4096K112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	77910000, 4194304, 0.382,	8617984
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			131072+63*128	;; scratch area size
-allfft	PRCPTR			x4096K211AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	77910000, 4194304, 0.382,	8617984
-allfft	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			65536+63*128	;; scratch area size
-allfft	PRCPTR			x4096K111AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	77910000, 4194304, 0.382,	8617984
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			65536+63*128	;; scratch area size
-allfft	PRCPTR			x4096K011AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	77910000, 4194304, 0.382,	5724160
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			65536+15*128	;; scratch area size
-allfft	PRCPTR			x4096K413
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	77910000, 4194304, 0.382,	5724160
-allfft	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			32768+15*128	;; scratch area size
-allfft	PRCPTR			x4096K213
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-	DD	77910000, 4194304, 0.382,	6574080
-	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			131072+31*128	;; scratch area size
-	PRCPTR			x4096K412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-	DD	77910000, 4194304, 0.382,	6574080
-	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			65536+31*128	;; scratch area size
-	PRCPTR			x4096K212
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-	DD	77910000, 4194304, 0.382,	6574080
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			32768+31*128	;; scratch area size
-	PRCPTR			x4096K112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	77910000, 4194304, 0.382,	8617984
-allfft	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			131072+63*128	;; scratch area size
-allfft	PRCPTR			x4096K211
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	77910000, 4194304, 0.382,	8617984
-allfft	DD			512*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			65536+63*128	;; scratch area size
-allfft	PRCPTR			x4096K111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	77910000, 4194304, 0.382,	8617984
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			65536+63*128	;; scratch area size
-allfft	PRCPTR			x4096K011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	77910000, 4194304, 0.382,	10782720
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			131072+127*128	;; scratch area size
-allfft	PRCPTR			x4096K010
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_0+1, 0
-allfft	DD	96830000, 5242880, 0.485,	7045376
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			81920+19*128	;; scratch area size
-allfft	PRCPTR			x5M413AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	96830000, 5242880, 0.485,	7045376
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			40960+19*128	;; scratch area size
-allfft	PRCPTR			x5M213AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-allfft	DD	96830000, 5242880, 0.485,	7045376
-allfft	DD			RPFW+1024*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			20480+19*128	;; scratch area size
-allfft	PRCPTR			x5M113AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_1+1, 0
-	DD	96830000, 5242880, 0.485,	8167040
-	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-	DD			163840+39*128	;; scratch area size
-	PRCPTR			x5M412AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-allfft	DD	96830000, 5242880, 0.485,	8167040
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			81920+39*128	;; scratch area size
-allfft	PRCPTR			x5M212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	96830000, 5242880, 0.485,	8167040
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			40960+39*128	;; scratch area size
-	PRCPTR			x5M112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	96830000, 5242880, 0.485,	10756224
-allfft	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			81920+79*128	;; scratch area size
-allfft	PRCPTR			x5M111AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	96830000, 5242880, 0.485,	10756224
-allfft	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			81920+79*128	;; scratch area size
-allfft	PRCPTR			x5M011AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	96830000, 5242880, 0.485,	7045376
-allfft	DD			1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			81920+19*128	;; scratch area size
-allfft	PRCPTR			x5M413
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	96830000, 5242880, 0.485,	7045376
-allfft	DD			1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			40960+19*128	;; scratch area size
-allfft	PRCPTR			x5M213
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-	DD	96830000, 5242880, 0.485,	8167040
-	DD			1024*65536+2*4 ;; Flags, min_l2_cache, clm
-	DD			163840+39*128	;; scratch area size
-	PRCPTR			x5M412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-allfft	DD	96830000, 5242880, 0.485,	8167040
-allfft	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			81920+39*128	;; scratch area size
-allfft	PRCPTR			x5M212
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	96830000, 5242880, 0.485,	8167040
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			40960+39*128	;; scratch area size
-	PRCPTR			x5M112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	96830000, 5242880, 0.485,	8167040
-allfft	DD			1024*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			40960+39*128	;; scratch area size
-allfft	PRCPTR			x5M012
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_0+1, 0
-allfft	DD	96830000, 5242880, 0.485,	10756224
-allfft	DD			512*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			81920+79*128	;; scratch area size
-allfft	PRCPTR			x5M111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	96830000, 5242880, 0.485,	10756224
-allfft	DD			512*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			81920+79*128	;; scratch area size
-allfft	PRCPTR			x5M011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	115300000, 6291456, 0.668,	8364416
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			98304+23*128	;; scratch area size
-allfft	PRCPTR			x6M413AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	115300000, 6291456, 0.668,	8364416
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			49152+23*128	;; scratch area size
-allfft	PRCPTR			x6M213AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-allfft	DD	115300000, 6291456, 0.668,	8364416
-allfft	DD			RPFW+1024*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			24576+23*128	;; scratch area size
-allfft	PRCPTR			x6M113AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_1+1, 0
-	DD	115300000, 6291456, 0.668,	9756288
-	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-	DD			196608+47*128	;; scratch area size
-	PRCPTR			x6M412AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-allfft	DD	115300000, 6291456, 0.668,	9756288
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			98304+47*128	;; scratch area size
-allfft	PRCPTR			x6M212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	115300000, 6291456, 0.668,	9756288
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			49152+47*128	;; scratch area size
-	PRCPTR			x6M112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	115300000, 6291456, 0.668,	12886272
-allfft	DD			RPFW+256*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			98304+95*128	;; scratch area size
-allfft	PRCPTR			x6M111AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	115300000, 6291456, 0.668,	12886272
-allfft	DD			RPFW+256*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			98304+95*128	;; scratch area size
-allfft	PRCPTR			x6M011AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	115300000, 6291456, 0.668,	8364416
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			98304+23*128	;; scratch area size
-allfft	PRCPTR			x6M413
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	115300000, 6291456, 0.668,	8364416
-allfft	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			49152+23*128	;; scratch area size
-allfft	PRCPTR			x6M213
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-	DD	115300000, 6291456, 0.668,	9756288
-	DD			2048*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			196608+47*128	;; scratch area size
-	PRCPTR			x6M412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-	DD	115300000, 6291456, 0.668,	9756288
-	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			98304+47*128	;; scratch area size
-	PRCPTR			x6M212
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-	DD	115300000, 6291456, 0.668,	9756288
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			49152+47*128	;; scratch area size
-	PRCPTR			x6M112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	115300000, 6291456, 0.668,	12886272
-allfft	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			98304+95*128	;; scratch area size
-allfft	PRCPTR			x6M111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	115300000, 6291456, 0.668,	12886272
-allfft	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			98304+95*128	;; scratch area size
-allfft	PRCPTR			x6M011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	134200000, 7340032, 0.886,	9683456
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			114688+27*128	;; scratch area size
-allfft	PRCPTR			x7M413AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	134200000, 7340032, 0.886,	9683456
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			57344+27*128	;; scratch area size
-allfft	PRCPTR			x7M213AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-allfft	DD	134200000, 7340032, 0.886,	9683456
-allfft	DD			RPFW+1024*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			28672+27*128	;; scratch area size
-allfft	PRCPTR			x7M113AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_1+1, 0
-	DD	134200000, 7340032, 0.886,	11345536
-	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-	DD			229376+55*128	;; scratch area size
-	PRCPTR			x7M412AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-allfft	DD	134200000, 7340032, 0.886,	11345536
-allfft	DD			RPFW+512*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			114688+55*128	;; scratch area size
-allfft	PRCPTR			x7M212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	134200000, 7340032, 0.886,	11345536
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			57344+55*128	;; scratch area size
-	PRCPTR			x7M112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	134200000, 7340032, 0.886,	15016320
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			114688+111*128	;; scratch area size
-allfft	PRCPTR			x7M111AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	134200000, 7340032, 0.886,	15016320
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			114688+111*128	;; scratch area size
-allfft	PRCPTR			x7M011AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	134200000, 7340032, 0.886,	9683456
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			114688+27*128	;; scratch area size
-allfft	PRCPTR			x7M413
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	134200000, 7340032, 0.886,	9683456
-allfft	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			57344+27*128	;; scratch area size
-allfft	PRCPTR			x7M213
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-	DD	134200000, 7340032, 0.886,	11345536
-	DD			2048*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			229376+55*128	;; scratch area size
-	PRCPTR			x7M412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-	DD	134200000, 7340032, 0.886,	11345536
-	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			114688+55*128	;; scratch area size
-	PRCPTR			x7M212
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-	DD	134200000, 7340032, 0.886,	11345536
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			57344+55*128	;; scratch area size
-	PRCPTR			x7M112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	134200000, 7340032, 0.886,	15016320
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			114688+111*128	;; scratch area size
-allfft	PRCPTR			x7M111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	134200000, 7340032, 0.886,	15016320
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			114688+111*128	;; scratch area size
-allfft	PRCPTR			x7M011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	153400000, 8388608, 1.042,	10997760
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			131072+31*128	;; scratch area size
-allfft	PRCPTR			x8M413AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	153400000, 8388608, 1.042,	10997760
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			65536+31*128	;; scratch area size
-allfft	PRCPTR			x8M213AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-allfft	DD	153400000, 8388608, 1.042,	10997760
-allfft	DD			RPFW+1024*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			32768+31*128	;; scratch area size
-allfft	PRCPTR			x8M113AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_1+1, 0
-	DD	153400000, 8388608, 1.042,	12926976
-	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-	DD			262144+63*128	;; scratch area size
-	PRCPTR			x8M412AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-allfft	DD	153400000, 8388608, 1.042,	12926976
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			131072+63*128	;; scratch area size
-allfft	PRCPTR			x8M212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	153400000, 8388608, 1.042,	12926976
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			65536+63*128	;; scratch area size
-	PRCPTR			x8M112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	153400000, 8388608, 1.042,	17129472
-allfft	DD			RPFW+256*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			131072+127*128	;; scratch area size
-allfft	PRCPTR			x8M111AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	153400000, 8388608, 1.042,	17129472
-allfft	DD			RPFW+256*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			131072+127*128	;; scratch area size
-allfft	PRCPTR			x8M011AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	153400000, 8388608, 1.042,	10997760
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			131072+31*128	;; scratch area size
-allfft	PRCPTR			x8M413
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	153400000, 8388608, 1.042,	10997760
-allfft	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			65536+31*128	;; scratch area size
-allfft	PRCPTR			x8M213
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-allfft	DD	153400000, 8388608, 1.042,	10997760
-allfft	DD			1024*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			32768+31*128	;; scratch area size
-allfft	PRCPTR			x8M113
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_1+1, 0
-	DD	153400000, 8388608, 1.042,	12926976
-	DD			2048*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			262144+63*128	;; scratch area size
-	PRCPTR			x8M412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-	DD	153400000, 8388608, 1.042,	12926976
-	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			131072+63*128	;; scratch area size
-	PRCPTR			x8M212
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-	DD	153400000, 8388608, 1.042,	12926976
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			65536+63*128	;; scratch area size
-	PRCPTR			x8M112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	153400000, 8388608, 1.042,	17129472
-allfft	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			131072+127*128	;; scratch area size
-allfft	PRCPTR			x8M111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	153400000, 8388608, 1.042,	17129472
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			131072+127*128	;; scratch area size
-allfft	PRCPTR			x8M011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-	DD	190700000, 10485760, 1.100,	13639296
-	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-	DD			163840+39*128	;; scratch area size
-	PRCPTR			x10M413AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_4+1, 0
-allfft	DD	190700000, 10485760, 1.100,	13639296
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			81920+39*128	;; scratch area size
-allfft	PRCPTR			x10M213AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-	DD	190700000, 10485760, 1.100,	13639296
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			40960+39*128	;; scratch area size
-	PRCPTR			x10M113AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-allfft	DD	190700000, 10485760, 1.100,	16113792
-allfft	DD			RPFW+512*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			163840+79*128	;; scratch area size
-allfft	PRCPTR			x10M212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-allfft	DD	190700000, 10485760, 1.100,	16113792
-allfft	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			81920+79*128	;; scratch area size
-allfft	PRCPTR			x10M112AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_1+1, 0
-allfft	DD	190700000, 10485760, 1.100,	16113792
-allfft	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			81920+79*128	;; scratch area size
-allfft	PRCPTR			x10M012AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_0+1, 0
-	DD	190700000, 10485760, 1.100,	13639296
-	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			163840+39*128	;; scratch area size
-	PRCPTR			x10M413
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_4+1, 0
-allfft	DD	190700000, 10485760, 1.100,	13639296
-allfft	DD			2*2		;; Flags, min_l2_cache, clm
-allfft	DD			81920+39*128	;; scratch area size
-allfft	PRCPTR			x10M213
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-	DD	190700000, 10485760, 1.100,	13639296
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			40960+39*128	;; scratch area size
-	PRCPTR			x10M113
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-allfft	DD	190700000, 10485760, 1.100,	16113792
-allfft	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			163840+79*128	;; scratch area size
-allfft	PRCPTR			x10M212
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-allfft	DD	190700000, 10485760, 1.100,	16113792
-allfft	DD			512*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			81920+79*128	;; scratch area size
-allfft	PRCPTR			x10M112
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_1+1, 0
-allfft	DD	190700000, 10485760, 1.100,	16113792
-allfft	DD			512*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			81920+79*128	;; scratch area size
-allfft	PRCPTR			x10M012
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_0+1, 0
-	DD	227300000, 12582912, 1.400,	16277120
-	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-	DD			196608+47*128	;; scratch area size
-	PRCPTR			x12M413AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_4+1, 0
-allfft	DD	227300000, 12582912, 1.400,	16277120
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			98304+47*128	;; scratch area size
-allfft	PRCPTR			x12M213AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-	DD	227300000, 12582912, 1.400,	16277120
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			49152+47*128	;; scratch area size
-	PRCPTR			x12M113AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-allfft	DD	227300000, 12582912, 1.400,	19292416
-allfft	DD			RPFW+512*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			196608+95*128	;; scratch area size
-allfft	PRCPTR			x12M212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-allfft	DD	227300000, 12582912, 1.400,	19292416
-allfft	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			98304+95*128	;; scratch area size
-allfft	PRCPTR			x12M112AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_1+1, 0
-allfft	DD	227300000, 12582912, 1.400,	19292416
-allfft	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			98304+95*128	;; scratch area size
-allfft	PRCPTR			x12M012AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_0+1, 0
-	DD	227300000, 12582912, 1.400,	16277120
-	DD			2048*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			196608+47*128	;; scratch area size
-	PRCPTR			x12M413
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_4+1, 0
-	DD	227300000, 12582912, 1.400,	16277120
-	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			98304+47*128	;; scratch area size
-	PRCPTR			x12M213
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_2+1, 0
-	DD	227300000, 12582912, 1.400,	16277120
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			49152+47*128	;; scratch area size
-	PRCPTR			x12M113
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-allfft	DD	227300000, 12582912, 1.400,	19292416
-allfft	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			196608+95*128	;; scratch area size
-allfft	PRCPTR			x12M212
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-allfft	DD	227300000, 12582912, 1.400,	19292416
-allfft	DD			1024*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			98304+95*128	;; scratch area size
-allfft	PRCPTR			x12M112
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_1+1, 0
-allfft	DD	227300000, 12582912, 1.400,	19292416
-allfft	DD			1024*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			98304+95*128	;; scratch area size
-allfft	PRCPTR			x12M012
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_0+1, 0
-	DD	264600000, 14680064, 1.700,	18914944
-	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-	DD			229376+55*128	;; scratch area size
-	PRCPTR			x14M413AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_4+1, 0
-allfft	DD	264600000, 14680064, 1.700,	18914944
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			114688+55*128	;; scratch area size
-allfft	PRCPTR			x14M213AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-	DD	264600000, 14680064, 1.700,	18914944
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			57344+55*128	;; scratch area size
-	PRCPTR			x14M113AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-allfft	DD	264600000, 14680064, 1.700,	22471040
-allfft	DD			RPFW+512*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			229376+111*128	;; scratch area size
-allfft	PRCPTR			x14M212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-allfft	DD	264600000, 14680064, 1.700,	22471040
-allfft	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			114688+111*128	;; scratch area size
-allfft	PRCPTR			x14M112AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_1+1, 0
-allfft	DD	264600000, 14680064, 1.700,	22471040
-allfft	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			114688+111*128	;; scratch area size
-allfft	PRCPTR			x14M012AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_0+1, 0
-	DD	264600000, 14680064, 1.700,	18914944
-	DD			2048*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			229376+55*128	;; scratch area size
-	PRCPTR			x14M413
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_4+1, 0
-	DD	264600000, 14680064, 1.700,	18914944
-	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			114688+55*128	;; scratch area size
-	PRCPTR			x14M213
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_2+1, 0
-	DD	264600000, 14680064, 1.700,	18914944
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			57344+55*128	;; scratch area size
-	PRCPTR			x14M113
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-allfft	DD	264600000, 14680064, 1.700,	22471040
-allfft	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			229376+111*128	;; scratch area size
-allfft	PRCPTR			x14M212
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-allfft	DD	264600000, 14680064, 1.700,	22471040
-allfft	DD			512*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			114688+111*128	;; scratch area size
-allfft	PRCPTR			x14M112
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_1+1, 0
-allfft	DD	264600000, 14680064, 1.700,	22471040
-allfft	DD			512*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			114688+111*128	;; scratch area size
-allfft	PRCPTR			x14M012
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_0+1, 0
-	DD	302600000, 16777216, 2.100,	21544960
-	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-	DD			262144+63*128	;; scratch area size
-	PRCPTR			x16M413AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_4+1, 0
-allfft	DD	302600000, 16777216, 2.100,	21544960
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			131072+63*128	;; scratch area size
-allfft	PRCPTR			x16M213AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-	DD	302600000, 16777216, 2.100,	21544960
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			65536+63*128	;; scratch area size
-	PRCPTR			x16M113AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-allfft	DD	302600000, 16777216, 2.100,	25632768
-allfft	DD			RPFW+512*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			262144+127*128	;; scratch area size
-allfft	PRCPTR			x16M212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-allfft	DD	302600000, 16777216, 2.100,	25632768
-allfft	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			131072+127*128	;; scratch area size
-allfft	PRCPTR			x16M112AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_1+1, 0
-allfft	DD	302600000, 16777216, 2.100,	25632768
-allfft	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			131072+127*128	;; scratch area size
-allfft	PRCPTR			x16M012AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_0+1, 0
-	DD	302600000, 16777216, 2.100,	21544960
-	DD			2048*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			262144+63*128	;; scratch area size
-	PRCPTR			x16M413
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_4+1, 0
-	DD	302600000, 16777216, 2.100,	21544960
-	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			131072+63*128	;; scratch area size
-	PRCPTR			x16M213
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_2+1, 0
-	DD	302600000, 16777216, 2.100,	21544960
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			65536+63*128	;; scratch area size
-	PRCPTR			x16M113
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-allfft	DD	302600000, 16777216, 2.100,	25632768
-allfft	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			262144+127*128	;; scratch area size
-allfft	PRCPTR			x16M212
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-allfft	DD	302600000, 16777216, 2.100,	25632768
-allfft	DD			512*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			131072+127*128	;; scratch area size
-allfft	PRCPTR			x16M112
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_1+1, 0
-allfft	DD	302600000, 16777216, 2.100,	25632768
-allfft	DD			512*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			131072+127*128	;; scratch area size
-allfft	PRCPTR			x16M012
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_0+1, 0
-allfft	DD	376100000, 20971520, 2.700,	26828928
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			327680+79*128	;; scratch area size
-allfft	PRCPTR			x20M413AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-	DD	376100000, 20971520, 2.700,	26828928
-	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-	DD			163840+79*128	;; scratch area size
-	PRCPTR			x20M213AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_2+1, 0
-allfft	DD	376100000, 20971520, 2.700,	26828928
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			81920+79*128	;; scratch area size
-allfft	PRCPTR			x20M113AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_1+1, 0
-	DD	376100000, 20971520, 2.700,	26828928
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			81920+79*128	;; scratch area size
-	PRCPTR			x20M013AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_0+1, 0
-	DD	376100000, 20971520, 2.700,	26828928
-	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			163840+79*128	;; scratch area size
-	PRCPTR			x20M213
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_2+1, 0
-	DD	376100000, 20971520, 2.700,	26828928
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			81920+79*128	;; scratch area size
-	PRCPTR			x20M113
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-allfft	DD	376100000, 20971520, 2.700,	26828928
-allfft	DD			1024*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			81920+79*128	;; scratch area size
-allfft	PRCPTR			x20M013
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_0+1, 0
-	DD	448000000, 25165824, 3.300,	32104704
-	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-	DD			196608+95*128	;; scratch area size
-	PRCPTR			x24M213AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_2+1, 0
-allfft	DD	448000000, 25165824, 3.300,	32104704
-allfft	DD			RPFW+1024*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			98304+95*128	;; scratch area size
-allfft	PRCPTR			x24M113AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_1+1, 0
-	DD	448000000, 25165824, 3.300,	32104704
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			98304+95*128	;; scratch area size
-	PRCPTR			x24M013AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_0+1, 0
-	DD	448000000, 25165824, 3.300,	32104704
-	DD			2048*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			196608+95*128	;; scratch area size
-	PRCPTR			x24M213
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_2+1, 0
-	DD	448000000, 25165824, 3.300,	32104704
-	DD			1024*65536+2*1	;; Flags, min_l2_cache, clm
-	DD			98304+95*128	;; scratch area size
-	PRCPTR			x24M113
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-	DD	448000000, 25165824, 3.300,	32104704
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			98304+95*128	;; scratch area size
-	PRCPTR			x24M013
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_0+1, 0
-	DD	521500000, 29360128, 3.900,	37380480
-	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-	DD			229376+111*128	;; scratch area size
-	PRCPTR			x28M213AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_2+1, 0
-allfft	DD	521500000, 29360128, 3.900,	37380480
-allfft	DD			RPFW+1024*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			114688+111*128	;; scratch area size
-allfft	PRCPTR			x28M113AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_1+1, 0
-	DD	521500000, 29360128, 3.900,	37380480
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			114688+111*128	;; scratch area size
-	PRCPTR			x28M013AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_0+1, 0
-	DD	521500000, 29360128, 3.900,	37380480
-	DD			2048*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			229376+111*128	;; scratch area size
-	PRCPTR			x28M213
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_2+1, 0
-	DD	521500000, 29360128, 3.900,	37380480
-	DD			1024*65536+2*1	;; Flags, min_l2_cache, clm
-	DD			114688+111*128	;; scratch area size
-	PRCPTR			x28M113
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-	DD	521500000, 29360128, 3.900,	37380480
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			114688+111*128	;; scratch area size
-	PRCPTR			x28M013
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_0+1, 0
-allfft	DD	596000000, 33554432, 4.500,	42639360
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			262144+127*128	;; scratch area size
-allfft	PRCPTR			x32M213AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-	DD	596000000, 33554432, 4.500,	42639360
-	DD			RPFW+1024*65536+2*1 ;; Flags, min_l2_cache, clm
-	DD			131072+127*128	;; scratch area size
-	PRCPTR			x32M113AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-	DD	596000000, 33554432, 4.500,	42639360
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			131072+127*128	;; scratch area size
-	PRCPTR			x32M013AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_0+1, 0
-	DD	596000000, 33554432, 4.500,	42639360
-	DD			2048*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			262144+127*128	;; scratch area size
-	PRCPTR			x32M213
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_2+1, 0
-	DD	596000000, 33554432, 4.500,	42639360
-	DD			1024*65536+2*1	;; Flags, min_l2_cache, clm
-	DD			131072+127*128	;; scratch area size
-	PRCPTR			x32M113
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-	DD	596000000, 33554432, 4.500,	42639360
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			131072+127*128	;; scratch area size
-	PRCPTR			x32M013
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_0+1, 0
+	DD	214400,	10240,	0.000470
+	PRCENTRY		xfft_hg_10K_ip_8_4_K8, 59904
+	PRCENTRY		xfft_hg_10K_ip_8_4_CORE, 59904
+	PRCENTRY		xfft_hg_10K_ip_tp_8_4_P4, 59904
+	DD			0
+	DD	255300,	12288,	0.000590
+	PRCENTRY		xfft_hg_12K_ip_8_4_K8, 69632
+	PRCENTRY		xfft_hg_12K_ip_8_4_CORE, 69632
+	PRCENTRY		xfft_hg_12K_ip_tp_8_4_P4, 69632
+	DD			0
+	DD	297300,	14336,	0.000716
+	PRCENTRY		xfft_hg_14K_ip_8_4_K8, 79488
+	PRCENTRY		xfft_hg_14K_ip_8_4_CORE, 79488
+	PRCENTRY		xfft_hg_14K_ip_tp_8_4_P4, 79488
+	DD			0
+	DD	340400,	16384,	0.000787
+	PRCENTRY		xfft_hg_16K_ip_8_4_K8, 89088
+	PRCENTRY		xfft_hg_16K_ip_8_4_CORE, 89088
+	PRCENTRY		xfft_hg_16K_ip_tp_8_4_P4, 89088
+	DD			0
+	DD	423300,	20480,	0.00103
+	PRCENTRY		xfft_hg_20K_ip_8_4_K8, 107904
+	PRCENTRY		xfft_hg_20K_ip_8_4_CORE, 107904
+	PRCENTRY		xfft_hg_20K_ip_tp_8_4_P4, 107904
+	DD			0
+	DD	504600,	24576,	0.00132
+	PRCENTRY		xfft_hg_24K_ip_8_4_K8, 127232
+	PRCENTRY		xfft_hg_24K_ip_8_4_CORE, 127232
+	PRCENTRY		xfft_hg_24K_ip_tp_8_4_P4, 127232
+	DD			0
+	DD	587500,	28672,	0.00156
+	PRCENTRY		xfft_hg_28K_ip_8_4_K8, 146688
+	PRCENTRY		xfft_hg_28K_ip_8_4_CORE, 146688
+	PRCENTRY		xfft_hg_28K_ip_tp_8_4_P4, 146688
+	DD			0
+	DD	671400,	32768,	0.00175
+	PRCENTRY		xfft_hg_32K_ip_8_4_K8, 165888
+	PRCENTRY		xfft_hg_32K_ip_8_4_CORE, 165888
+	PRCENTRY		xfft_hg_32K_ip_tp_8_4_P4, 165888
+	DD			0
+	DD	835200,	40960,	0.00225
+	PRCENTRY		xfft_hg_40K_ip_11_4_K8, 189696
+	PRCENTRY		xfft_hg_40K_ip_11_4_CORE, 189696
+	PRCENTRY		xfft_hg_40K_ip_tp_11_4_P4, 189696
+	DD			0
+	DD	995500, 49152,	0.00279
+	PRCENTRY		xfft_hg_48K_ip_11_4_K8, 206208
+	PRCENTRY		xfft_hg_48K_ip_11_4_CORE, 206208
+	PRCENTRY		xfft_hg_48K_ip_tp_11_4_P4, 206208
+	DD			0
+	DD	1158000, 57344,	0.00327
+	PRCENTRY		xfft_hg_56K_ip_11_4_K8, 222976
+	PRCENTRY		xfft_hg_56K_ip_11_4_CORE, 222976
+	PRCENTRY		xfft_hg_56K_ip_tp_11_4_P4, 222976
+	DD			0
+	DD	1325000, 65536,	0.00367
+	PRCENTRY		xfft_hg_64K_ip_11_4_K8, 239488
+	PRCENTRY		xfft_hg_64K_ip_11_4_CORE, 239488
+	PRCENTRY		xfft_hg_64K_ip_tp_11_4_P4, 239488
+	DD			0
+	DD	1648000, 81920, 0.00474
+	PRCENTRY		xfft_hg_80K_ip_11_4_K8, 273408
+	PRCENTRY		xfft_hg_80K_ip_11_4_CORE, 273408
+	PRCENTRY		xfft_hg_80K_ip_tp_11_4_P4, 273408
+	DD			0
+	DD	1966000, 98304, 0.00584
+	PRCENTRY		xfft_hg_96K_ip_11_4_K8, 306688
+	PRCENTRY		xfft_hg_96K_ip_11_4_CORE, 306688
+	PRCENTRY		xfft_hg_96K_ip_tp_11_4_P4, 306688
+	DD			0
+	DD	2287000, 114688, 0.00693
+	PRCENTRY		xfft_hg_112K_ip_11_4_K8, 340096
+	PRCENTRY		xfft_hg_112K_ip_11_4_CORE, 340096
+	PRCENTRY		xfft_hg_112K_ip_tp_11_4_P4, 340096
+	DD			0
+	DD	2614000, 131072, 0.00779
+	PRCENTRY		xfft_hg_128K_ip_11_4_K8, 373248
+	PRCENTRY		xfft_hg_128K_ip_11_4_CORE, 373248
+	PRCENTRY		xfft_hg_128K_ip_tp_11_4_P4, 373248
+	DD			0
+	DD	3251000, 163840, 0.00914
+	PRCENTRY		xfft_hg_160K_10_2_K8, 471424
+	PRCENTRY		xfft_hg_160K_10_4_CORE, 471424
+	PRCENTRY		xfft_hg_160K_tp_10_2_P4, 471424
+	DD			0
+	DD	3875000, 196608, 0.0114
+	PRCENTRY		xfft_hg_192K_10_2_K8, 555392
+	PRCENTRY		xfft_hg_192K_10_4_CORE, 555392, 256
+	PRCENTRY		xfft_hg_192K_tp_10_4_P4, 555392, 256
+	PRCENTRY		xfft_hg_192K_tp_10_1_P4, 555392
+	DD			0
+	DD	4512000, 229376, 0.0134
+	PRCENTRY		xfft_hg_224K_10_2_K8, 639616
+	PRCENTRY		xfft_hg_224K_10_4_CORE, 639616, 256
+	PRCENTRY		xfft_hg_224K_tp_10_4_P4, 639616, 256
+	PRCENTRY		xfft_hg_224K_tp_10_2_P4, 639616
+	DD			0
+	DD	5158000, 262144, 0.0150
+	PRCENTRY		xfft_hg_256K_10_2_K8, 721920
+	PRCENTRY		xfft_hg_256K_10_4_CORE, 721920, 256
+	PRCENTRY		xfft_hg_256K_tp_10_4_P4, 721920, 256
+	PRCENTRY		xfft_hg_256K_tp_10_2_P4, 721920
+	DD			0
+	DD	6421000, 327680, 0.0192
+	PRCENTRY		xfft_hg_320K_10_1_K8, 890624
+	PRCENTRY		xfft_hg_320K_10_4_CORE, 890624, 256
+	PRCENTRY		xfft_hg_320K_tp_10_4_P4, 890624, 256
+	PRCENTRY		xfft_hg_320K_tp_10_1_P4, 890624
+	DD			0
+	DD	7651000, 393216, 0.0238
+	PRCENTRY		xfft_hg_384K_10_1_K8, 1058432
+	PRCENTRY		xfft_hg_384K_10_4_CORE, 1058432, 256
+	PRCENTRY		xfft_hg_384K_tp_10_4_P4, 1058432, 256
+	PRCENTRY		xfft_hg_384K_tp_10_2_P4, 1058432
+	DD			0
+	DD	8908000, 458752, 0.0283
+	PRCENTRY		xfft_hg_448K_10_1_K8, 1226496
+	PRCENTRY		xfft_hg_448K_10_4_CORE, 1226496, 512
+	PRCENTRY		xfft_hg_448K_tp_10_4_P4, 1226496, 512
+	PRCENTRY		xfft_hg_448K_tp_10_2_P4, 1226496
+	DD			0
+	DD	10180000, 524288, 0.0319
+	PRCENTRY		xfft_hg_512K_10_1_K8, 1392640
+	PRCENTRY		xfft_hg_512K_10_4_CORE, 1392640, 512
+	PRCENTRY		xfft_hg_512K_tp_10_4_P4, 1392640, 512
+	PRCENTRY		xfft_hg_512K_tp_10_2_P4, 1392640
+	DD			0
+	DD	12650000, 655360, 0.0410
+	PRCENTRY		xfft_hg_640K_12_2_K8, 1214848
+	PRCENTRY		xfft_hg_640K_tp_12_2_P4, 1214848, 1024
+	PRCENTRY		xfft_hg_640K_11_4_CORE, 1437440, 256
+	PRCENTRY		xfft_hg_640K_tp_11_4_P4, 1437440, 256
+	PRCENTRY		xfft_hg_640K_tp_11_1_P4, 1437440
+	DD			0
+	DD	15070000, 786432, 0.0507
+	PRCENTRY		xfft_hg_768K_12_2_K8, 1413504
+	PRCENTRY		xfft_hg_768K_tp_12_2_P4, 1413504, 1024
+	PRCENTRY		xfft_hg_768K_11_4_CORE, 1703552, CELE_D
+	PRCENTRY		xfft_hg_768K_tp_11_4_P4, 1703552, CELE_D
+	PRCENTRY		xfft_hg_768K_tp_11_2_P4, 1703552, WILLI
+	PRCENTRY		xfft_hg_768K_np_10_1_P4, 2066816
+	DD			0
+	DD	17550000, 917504, 0.0607
+	PRCENTRY		xfft_hg_896K_12_2_K8, 1612416, 1024
+	PRCENTRY		xfft_hg_896K_12_1_K8, 1612416
+	PRCENTRY		xfft_hg_896K_tp_12_2_P4, 1612416, 1024
+	PRCENTRY		xfft_hg_896K_11_4_CORE, 1969920, CELE_D
+	PRCENTRY		xfft_hg_896K_tp_11_4_P4, 1969920, CELE_D
+	PRCENTRY		xfft_hg_896K_tp_11_2_P4, 1969920, WILLI
+	PRCENTRY		xfft_hg_896K_np_11_1_P4, 1969920
+	DD			0
+	DD	20050000, 1048576, 0.0676
+	PRCENTRY		xfft_hg_1024K_12_2_K8, 1809408, 1024
+	PRCENTRY		xfft_hg_1024K_12_1_K8, 1809408
+	PRCENTRY		xfft_hg_1024K_tp_12_1_P4, 1809408, 1024
+	PRCENTRY		xfft_hg_1024K_11_4_CORE, 2234368, 512
+	PRCENTRY		xfft_hg_1024K_tp_11_4_P4, 2234368, 512
+	PRCENTRY		xfft_hg_1024K_tp_11_2_P4, 2234368, 256
+	PRCENTRY		xfft_hg_1024K_np_11_1_P4, 2234368
+	DD			0
+	DD	24930000, 1310720, 0.0892
+	PRCENTRY		xfft_hg_1280K_12_1_K8, 2207488
+	PRCENTRY		xfft_hg_1280K_12_4_CORE, 2207488, CELE_D
+	PRCENTRY		xfft_hg_1280K_tp_12_4_P4, 2207488, CELE_D
+	PRCENTRY		xfft_hg_1280K_tp_11_2_P4, 2769152, WILLI
+	PRCENTRY		xfft_hg_1280K_np_11_1_P4, 2769152
+	DD			0
+	DD	29690000, 1572864, 0.113
+	PRCENTRY		xfft_hg_1536K_12_1_K8, 2604672
+	PRCENTRY		xfft_hg_1536K_12_4_CORE, 2604672, 512
+	PRCENTRY		xfft_hg_1536K_tp_12_4_P4, 2604672, 512
+	PRCENTRY		xfft_hg_1536K_tp_12_1_P4, 2604672, CELE_D
+	PRCENTRY		xfft_hg_1536K_tp_11_1_P4, 3301760, WILLI
+	PRCENTRY		xfft_hg_1536K_np_11_1_P4, 3301760
+	DD			0
+	DD	34560000, 1835008, 0.135
+	PRCENTRY		xfft_hg_1792K_12_1_K8, 3002112
+	PRCENTRY		xfft_hg_1792K_12_4_CORE, 3002112, 512
+	PRCENTRY		xfft_hg_1792K_tp_12_4_P4, 3002112, 512
+	PRCENTRY		xfft_hg_1792K_tp_12_1_P4, 3002112, CELE_D
+	PRCENTRY		xfft_hg_1792K_tp_11_1_P4, 3834368, WILLI
+	PRCENTRY		xfft_hg_1792K_np_11_1_P4, 3834368
+	DD			0
+	DD	39500000, 2097152, 0.155
+	PRCENTRY		xfft_hg_2048K_12_1_K8, 3397632
+	PRCENTRY		xfft_hg_2048K_12_4_CORE, 3397632, 512
+	PRCENTRY		xfft_hg_2048K_tp_12_4_P4, 3397632, 512
+	PRCENTRY		xfft_hg_2048K_tp_12_1_P4, 3397632, CELE_D
+	PRCENTRY		xfft_hg_2048K_tp_12_2_P4, 3397632, WILLI
+	PRCENTRY		xfft_hg_2048K_np_11_1_P4, 4362240
+	DD			0
+	DD	49100000, 2621440, 0.204
+	PRCENTRY		xfft_hg_2560K_13_1_K8, 3747584, 512
+	PRCENTRY		xfft_hg_2560K_12_1_K8, 4194560
+	PRCENTRY		xfft_hg_2560K_12_4_CORE, 4194560, 512
+	PRCENTRY		xfft_hg_2560K_tp_12_4_P4, 4194560, 512
+	PRCENTRY		xfft_hg_2560K_tp_12_1_P4, 4194560
+	DD			0
+	DD	58520000, 3145728, 0.259
+	PRCENTRY		xfft_hg_3072K_13_1_K8, 4406912, 512
+	PRCENTRY		xfft_hg_3072K_12_1_K8, 4989312
+	PRCENTRY		xfft_hg_3072K_12_4_CORE, 4989312, 512
+	PRCENTRY		xfft_hg_3072K_tp_12_4_P4, 4989312, 512
+	PRCENTRY		xfft_hg_3072K_tp_12_1_P4, 4989312
+	DD			0
+	DD	68130000, 3670016, 0.323
+	PRCENTRY		xfft_hg_3584K_13_1_K8, 5066496, 512
+	PRCENTRY		xfft_hg_3584K_12_1_K8, 5784064
+	PRCENTRY		xfft_hg_3584K_12_4_CORE, 5784064, 1024
+	PRCENTRY		xfft_hg_3584K_12_4_P4, 5784064, 1024
+	PRCENTRY		xfft_hg_3584K_tp_12_2_P4, 5784064, 512
+	PRCENTRY		xfft_hg_3584K_tp_12_1_P4, 5784064
+	DD			0
+	DD	77910000, 4194304, 0.382
+	PRCENTRY		xfft_hg_4096K_13_1_K8, 5724160, 512
+	PRCENTRY		xfft_hg_4096K_12_1_K8, 6574080
+	PRCENTRY		xfft_hg_4096K_12_4_CORE, 6574080, 1024
+	PRCENTRY		xfft_hg_4096K_12_4_P4, 6574080, 1024
+	PRCENTRY		xfft_hg_4096K_tp_12_2_P4, 6574080, 512
+	PRCENTRY		xfft_hg_4096K_tp_12_1_P4, 6574080
+	DD			0
+	DD	96830000, 5242880, 0.485
+	PRCENTRY		xfft_hg_5M_12_4_K8, 8167040, 1024
+	PRCENTRY		xfft_hg_5M_12_1_K8, 8167040
+	PRCENTRY		xfft_hg_5M_12_4_CORE, 8167040, 1024
+	PRCENTRY		xfft_hg_5M_12_4_P4, 8167040, 1024
+	PRCENTRY		xfft_hg_5M_tp_12_1_P4, 8167040
+	DD			0
+	DD	115300000, 6291456, 0.668
+	PRCENTRY		xfft_hg_6M_12_4_K8, 9756288, 1024
+	PRCENTRY		xfft_hg_6M_12_1_K8, 9756288
+	PRCENTRY		xfft_hg_6M_12_4_CORE, 9756288, 2048
+	PRCENTRY		xfft_hg_6M_12_4_P4, 9756288, 2048
+	PRCENTRY		xfft_hg_6M_12_2_P4, 9756288, 1024
+	PRCENTRY		xfft_hg_6M_tp_12_1_P4, 9756288
+	DD			0
+	DD	134200000, 7340032, 0.886
+	PRCENTRY		xfft_hg_7M_12_4_K8, 11345536, 1024
+	PRCENTRY		xfft_hg_7M_12_1_K8, 11345536
+	PRCENTRY		xfft_hg_7M_12_4_CORE, 11345536, 2048
+	PRCENTRY		xfft_hg_7M_12_4_P4, 11345536, 2048
+	PRCENTRY		xfft_hg_7M_12_2_P4, 11345536, 1024
+	PRCENTRY		xfft_hg_7M_tp_12_1_P4, 11345536
+	DD			0
+	DD	153400000, 8388608, 1.042
+	PRCENTRY		xfft_hg_8M_12_4_K8, 12926976, 1024
+	PRCENTRY		xfft_hg_8M_12_1_K8, 12926976
+	PRCENTRY		xfft_hg_8M_12_4_CORE, 12926976, 2048
+	PRCENTRY		xfft_hg_8M_12_4_P4, 12926976, 2048
+	PRCENTRY		xfft_hg_8M_12_2_P4, 12926976, 1024
+	PRCENTRY		xfft_hg_8M_tp_12_1_P4, 12926976
+	DD			0
+	DD	190700000, 10485760, 1.100
+	PRCENTRY		xfft_hg_10M_13_4_K8, 13639296
+	PRCENTRY		xfft_hg_10M_13_4_CORE, 13639296
+	DD			0
+	DD	227300000, 12582912, 1.400
+	PRCENTRY		xfft_hg_12M_13_4_K8, 16277120
+	PRCENTRY		xfft_hg_12M_13_4_CORE, 16277120
+	DD			0
+	DD	264600000, 14680064, 1.700
+	PRCENTRY		xfft_hg_14M_13_4_K8, 18914944
+	PRCENTRY		xfft_hg_14M_13_4_CORE, 18914944
+	DD			0
+	DD	302600000, 16777216, 2.100
+	PRCENTRY		xfft_hg_16M_13_4_K8, 21544960
+	PRCENTRY		xfft_hg_16M_13_4_CORE, 21544960
+	DD			0
+	DD	376100000, 20971520, 2.700
+	PRCENTRY		xfft_hg_20M_13_2_K8, 26828928
+	PRCENTRY		xfft_hg_20M_13_2_CORE, 26828928
+	DD			0
+	DD	448000000, 25165824, 3.300
+	PRCENTRY		xfft_hg_24M_13_2_K8, 32104704
+	PRCENTRY		xfft_hg_24M_13_2_CORE, 32104704
+	DD			0
+	DD	521500000, 29360128, 3.900
+	PRCENTRY		xfft_hg_28M_13_2_K8, 37380480
+	PRCENTRY		xfft_hg_28M_13_2_CORE, 37380480
+	DD			0
+	DD	596000000, 33554432, 4.500
+	PRCENTRY		xfft_hg_32M_13_2_K8, 42639360
+	PRCENTRY		xfft_hg_32M_13_2_CORE, 42639360
+	DD			0
 	DD	0
-xjmptablep DD	739,	32,	0.00000111,	1152
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x32p
-	DD			0		;; FFT levels done in pass2
+xjmptablep DD	739,	32,	0.00000111
+	PRCENTRY		xfft_hg_32_ac_CORE, 1152
 	DD			4, 4
 	DD			2, 1, 1, 1, 1, 0
-	DD	1095,	48,	0.00000144,	1920
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x48p
-	DD			0		;; FFT levels done in pass2
+	DD	1095,	48,	0.00000144
+	PRCENTRY		xfft_hg_48_ac_CORE, 1920
 	DD			6, 6
 	DD			3, 1, 1, 1, 1, 0
-	DD	1465,	64,	0.00000178,	2432
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x64p
-	DD			0		;; FFT levels done in pass2
+	DD	1465,	64,	0.00000178
+	PRCENTRY		xfft_hg_64_ac_CORE, 2432
 	DD			8, 8
 	DD			4, 1, 1, 1, 1, 0
-	DD	2173,	96,	0.00000259,	3328
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x96p
-	DD			0		;; FFT levels done in pass2
+	DD	2173,	96,	0.00000259
+	PRCENTRY		xfft_hg_96_ac_CORE, 3328
 	DD			12, 12
 	DD			6, 3, 1, 1, 1, 0
-	DD	2897,	128,	0.00000319,	4352
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x128p
-	DD			0		;; FFT levels done in pass2
+	DD	2897,	128,	0.00000319
+	PRCENTRY		xfft_hg_128_ac_CORE, 4352
 	DD			16, 16
 	DD			8, 4, 1, 2, 1, 0
-	DD	4295,	192,	0.00000542,	6784
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x192p
-	DD			0		;; FFT levels done in pass2
+	DD	4295,	192,	0.00000542
+	PRCENTRY		xfft_hg_192_ac_CORE, 6784
 	DD			24, 24
 	DD			12, 6, 3, 3, 1, 0
-	DD	5729,	256,	0.00000691,	8576
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x256p
-	DD			0		;; FFT levels done in pass2
+	DD	5729,	256,	0.00000691
+	PRCENTRY		xfft_hg_256_ac_CORE, 8576
 	DD			32, 32
 	DD			16, 8, 4, 4, 1, 0
-	DD	8493,	384,	0.0000111,	13312
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x384p
-	DD			0		;; FFT levels done in pass2
+	DD	8493,	384,	0.0000111
+	PRCENTRY		xfft_hg_384_ac_CORE, 13312
 	DD			48, 48
 	DD			24, 12, 3, 6, 1, 0
-	DD	11319,	512,	0.0000143,	17152
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x512p
-	DD			0		;; FFT levels done in pass2
+	DD	11319,	512,	0.0000143
+	PRCENTRY		xfft_hg_512_ac_CORE, 17152
 	DD			64, 64
 	DD			32, 16, 4, 2*256+8, 1, 0
-	DD	16779,	768,	0.0000260,	26624
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x768p
-	DD			0		;; FFT levels done in pass2
+	DD	16779,	768,	0.0000260
+	PRCENTRY		xfft_hg_768_ac_CORE, 26624
 	DD			96, 96
 	DD			48, 24, 3*256+6, 3*256+12, 1, 0
-	DD	22381,	1024,	0.0000349,	34304
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x1024p
-	DD			0		;; FFT levels done in pass2
+	DD	22381,	1024,	0.0000349
+	PRCENTRY		xfft_hg_1024_ac_CORE, 34304
 	DD			128, 128
 	DD			64, 32, 4*256+8, 4*256+16, 1, 0
-	DD	33189,	1536,	0.0000601,	52992
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x1536p
-	DD			0		;; FFT levels done in pass2
+	DD	33189,	1536,	0.0000601
+	PRCENTRY		xfft_hg_1536_ac_CORE, 52992
 	DD			192, 192
 	DD			96, 48, 12, 6*256+24, 3, 0
-	DD	44221,	2048,	0.0000773,	68608
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x2048p
-	DD			0		;; FFT levels done in pass2
+	DD	44221,	2048,	0.0000773
+	PRCENTRY		xfft_hg_2048_ac_CORE, 68608
 	DD			256, 256
 	DD			128, 64, 16, 8*256+32, 2*256+4, 0
-	DD	65519,	3072,	0.000131,	106112
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x3072p
-	DD			0		;; FFT levels done in pass2
+	DD	65519,	3072,	0.000131
+	PRCENTRY		xfft_hg_3072_ac_CORE, 106112
 	DD			384, 384
 	DD			192, 96, 6*256+24, 12*256+48, 3*256+3, 0
-	DD	87271,	4096,	0.000172,	137216
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x4096p
-	DD			0		;; FFT levels done in pass2
+	DD	87271,	4096,	0.000172
+	PRCENTRY		xfft_hg_4096_ac_CORE, 137216
 	DD			512, 512
 	DD			256, 128, 8*256+32, 16*256+64, 4*256+4, 0
-	DD	129600,	6144,	0.000291,	211968
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x6144p
-	DD			0		;; FFT levels done in pass2
+	DD	129600,	6144,	0.000291
+	PRCENTRY		xfft_hg_6144_ac_CORE, 211968
 	DD			768, 768
 	DD			384, 192, 12*256+48, 24*256+96, 6*256+3, 0
-	DD	172400,	8192,	0.000395,	274432
-	DD			0		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x8192p
-	DD			0		;; FFT levels done in pass2
+	DD	172400,	8192,	0.000395
+	PRCENTRY		xfft_hg_8192_ac_CORE, 274432
 	DD			1024, 1024
 	DD			512, 256, 16*256+64, 32*256+128, 8*256+4, 0
-	DD	254800,	12288,	0.000626,	64896
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x12KpAMD
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	254800,	12288,	0.000626,	64896
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x12Kp
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	339100,	16384,	0.000857,	84224
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x16KpAMD
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	339100,	16384,	0.000857,	84224
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x16Kp
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	503400,	24576,	0.00135,	123904
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x24KpAMD
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	503400,	24576,	0.00135,	123904
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x24Kp
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	669600,	32768,	0.00179,	162816
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x32KpAMD
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	669600,	32768,	0.00179,	162816
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x32Kp
-	DD			8		;; FFT levels done in pass2
-	DD			GAP2_8_4+1, 0
-	DD	992800, 49152,	0.00303,	145280
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x48KpAMD
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	992800, 49152,	0.00303,	145280
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x48Kp
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	1320000, 65536,	0.00404,	178560
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x64KpAMD
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	1320000, 65536,	0.00404,	178560
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x64Kp
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	1962000, 98304, 0.00644,	245632
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x96KpAMD
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	1962000, 98304, 0.00644,	245632
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x96Kp
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	2610000, 131072, 0.00871,	312064
-	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x128KpAMD
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	2610000, 131072, 0.00871,	312064
-	DD			2*4		;; Flags, min_l2_cache, clm
-	DD			0		;; scratch area size
-	PRCPTR			x128Kp
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-allfft	DD	3867000, 196608, 0.0136,	445952
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x192KpAMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	3867000, 196608, 0.0136,	529536
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			24576+5*128	;; scratch area size
-allfft	PRCPTR			x192Kp410AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-	DD	3867000, 196608, 0.0136,	529536
-	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-	DD			12288+5*128	;; scratch area size
-	PRCPTR			x192Kp210AMD
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_2+1, 0
-allfft	DD	3867000, 196608, 0.0136,	529536
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			6144+5*128	;; scratch area size
-allfft	PRCPTR			x192Kp110AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	3867000, 196608, 0.0136,	445952
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x192Kp
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	3867000, 196608, 0.0136,	529536
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			24576+5*128	;; scratch area size
-allfft	PRCPTR			x192Kp410
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	3867000, 196608, 0.0136,	529536
-allfft	DD			2*2		;; Flags, min_l2_cache, clm
-allfft	DD			12288+5*128	;; scratch area size
-allfft	PRCPTR			x192Kp210
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_2+1, 0
-	DD	3867000, 196608, 0.0136,	529536
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			6144+5*128	;; scratch area size
-	PRCPTR			x192Kp110
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_1+1, 0
-allfft	DD	5146000, 262144, 0.0179,	579072
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x256KpAMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	5146000, 262144, 0.0179,	697344
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			32768+7*128	;; scratch area size
-allfft	PRCPTR			x256Kp410AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	5146000, 262144, 0.0179,	697344
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			16384+7*128	;; scratch area size
-allfft	PRCPTR			x256Kp210AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_2+1, 0
-	DD	5146000, 262144, 0.0179,	697344
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			8192+7*128	;; scratch area size
-	PRCPTR			x256Kp110AMD
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_1+1, 0
-allfft	DD	5146000, 262144, 0.0179,	579072
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x256Kp
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-	DD	5146000, 262144, 0.0179,	697344
-	DD			256*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			32768+7*128	;; scratch area size
-	PRCPTR			x256Kp410
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_4+1, 0
-	DD	5146000, 262144, 0.0179,	697344
-	DD			2*2		;; Flags, min_l2_cache, clm
-	DD			16384+7*128	;; scratch area size
-	PRCPTR			x256Kp210
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_2+1, 0
-allfft	DD	5146000, 262144, 0.0179,	697344
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			8192+7*128	;; scratch area size
-allfft	PRCPTR			x256Kp110
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	7635000, 393216, 0.0273,	846976
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			24576+5*128	;; scratch area size
-allfft	PRCPTR			x384Kp411AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	7635000, 393216, 0.0273,	846976
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x384KpAMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	7635000, 393216, 0.0273,	1036288
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			49152+11*128	;; scratch area size
-allfft	PRCPTR			x384Kp410AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	7635000, 393216, 0.0273,	1036288
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			24576+11*128	;; scratch area size
-allfft	PRCPTR			x384Kp210AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_2+1, 0
-	DD	7635000, 393216, 0.0273,	1036288
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			12288+11*128	;; scratch area size
-	PRCPTR			x384Kp110AMD
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_1+1, 0
-allfft	DD	7635000, 393216, 0.0273,	846976
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			24576+5*128	;; scratch area size
-allfft	PRCPTR			x384Kp411
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	7635000, 393216, 0.0273,	846976
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x384Kp
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-	DD	7635000, 393216, 0.0273,	1036288
-	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			49152+11*128	;; scratch area size
-	PRCPTR			x384Kp410
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_4+1, 0
-	DD	7635000, 393216, 0.0273,	1036288
-	DD			2*2		;; Flags, min_l2_cache, clm
-	DD			24576+11*128	;; scratch area size
-	PRCPTR			x384Kp210
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_2+1, 0
-allfft	DD	7635000, 393216, 0.0273,	1036288
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			12288+11*128	;; scratch area size
-allfft	PRCPTR			x384Kp110
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	10150000, 524288, 0.0368,	1113088
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			32768+7*128	;; scratch area size
-allfft	PRCPTR			x512Kp411AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	10150000, 524288, 0.0368,	1113088
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x512KpAMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	10150000, 524288, 0.0368,	1372160
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			65536+15*128	;; scratch area size
-allfft	PRCPTR			x512Kp410AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	10150000, 524288, 0.0368,	1372160
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			32768+15*128	;; scratch area size
-allfft	PRCPTR			x512Kp210AMD
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_2+1, 0
-	DD	10150000, 524288, 0.0368,	1372160
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			16384+15*128	;; scratch area size
-	PRCPTR			x512Kp110AMD
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_1+1, 0
-allfft	DD	10150000, 524288, 0.0368,	1113088
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			32768+7*128	;; scratch area size
-allfft	PRCPTR			x512Kp411
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	10150000, 524288, 0.0368,	1113088
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			0		;; scratch area size
-allfft	PRCPTR			x512Kp
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-	DD	10150000, 524288, 0.0368,	1372160
-	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			65536+15*128	;; scratch area size
-	PRCPTR			x512Kp410
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_4+1, 0
-	DD	10150000, 524288, 0.0368,	1372160
-	DD			2*2		;; Flags, min_l2_cache, clm
-	DD			32768+15*128	;; scratch area size
-	PRCPTR			x512Kp210
-	DD			10		;; FFT levels done in pass2
-	DD			GAP2_10_2+1, 0
-allfft	DD	10150000, 524288, 0.0368,	1372160
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			16384+15*128	;; scratch area size
-allfft	PRCPTR			x512Kp110
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	15040000, 786432, 0.0566,	1285248
-allfft	DD			RPFW+512*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			24576+5*128	;; scratch area size
-allfft	PRCPTR			x768Kp412AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-	DD	15040000, 786432, 0.0566,	1285248
-	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-	DD			12288+5*128	;; scratch area size
-	PRCPTR			x768Kp212AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-allfft	DD	15040000, 786432, 0.0566,	1285248
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			6144+5*128	;; scratch area size
-allfft	PRCPTR			x768Kp112AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_1+1, 0
-allfft	DD	15040000, 786432, 0.0566,	1648640
-allfft	DD			RPFW+512*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			49152+11*128	;; scratch area size
-allfft	PRCPTR			x768Kp411AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	15040000, 786432, 0.0566,	1285248
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			24576+5*128	;; scratch area size
-allfft	PRCPTR			x768Kp412
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-	DD	15040000, 786432, 0.0566,	1285248
-	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			12288+5*128	;; scratch area size
-	PRCPTR			x768Kp212
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-	DD	15040000, 786432, 0.0566,	1648640
-	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			49152+11*128	;; scratch area size
-	PRCPTR			x768Kp411
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	15040000, 786432, 0.0566,	1648640
-	DD			256*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			24576+11*128	;; scratch area size
-	PRCPTR			x768Kp211
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_2+1, 0
-allfft	DD	15040000, 786432, 0.0566,	1648640
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			12288+11*128	;; scratch area size
-allfft	PRCPTR			x768Kp111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	15040000, 786432, 0.0566,	1648640
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			12288+11*128	;; scratch area size
-allfft	PRCPTR			x768Kp9111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-	DD	15040000, 786432, 0.0566,	1648640
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			12288+11*128	;; scratch area size
-	PRCPTR			x768Kp011
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_0+1, 0
-allfft	DD	15040000, 786432, 0.0566,	1648640
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			12288+11*128	;; scratch area size
-allfft	PRCPTR			x768Kp9011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	15040000, 786432, 0.0566,	2050176
-allfft	DD			2*4		;; Flags, min_l2_cache, clm
-allfft	DD			98304+23*128	;; scratch area size
-allfft	PRCPTR			x768Kp410
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_4+1, 0
-allfft	DD	15040000, 786432, 0.0566,	2050176
-allfft	DD			2*2		;; Flags, min_l2_cache, clm
-allfft	DD			49152+23*128	;; scratch area size
-allfft	PRCPTR			x768Kp210
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_2+1, 0
-allfft	DD	15040000, 786432, 0.0566,	2050176
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			24576+23*128	;; scratch area size
-allfft	PRCPTR			x768Kp110
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_1+1, 0
-allfft	DD	15040000, 786432, 0.0566,	2050176
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			24576+23*128	;; scratch area size
-allfft	PRCPTR			x768Kp010
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_0+1, 0
-allfft	DD	15040000, 786432, 0.0566,	3790464
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			98304+95*128	;; scratch area size
-allfft	PRCPTR			x768Kp18
-allfft	DD			8		;; FFT levels done in pass2
-allfft	DD			GAP2_8_1+1, 0
-allfft	DD	20000000, 1048576, 0.0761,	1682432
-allfft	DD			RPFW+512*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			32768+7*128	;; scratch area size
-allfft	PRCPTR			x1024Kp412AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-allfft	DD	20000000, 1048576, 0.0761,	1682432
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			16384+7*128	;; scratch area size
-allfft	PRCPTR			x1024Kp212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	20000000, 1048576, 0.0761,	1682432
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			8192+7*128	;; scratch area size
-	PRCPTR			x1024Kp112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	20000000, 1048576, 0.0761,	2181120
-allfft	DD			RPFW+512*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			65536+15*128	;; scratch area size
-allfft	PRCPTR			x1024Kp411AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	20000000, 1048576, 0.0761,	2181120
-allfft	DD			RPFW+256*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			32768+15*128	;; scratch area size
-allfft	PRCPTR			x1024Kp211AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-	DD	20000000, 1048576, 0.0761,	1682432
-	DD			2048*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			32768+7*128	;; scratch area size
-	PRCPTR			x1024Kp412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-allfft	DD	20000000, 1048576, 0.0761,	1682432
-allfft	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			16384+7*128	;; scratch area size
-allfft	PRCPTR			x1024Kp212
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	20000000, 1048576, 0.0761,	2181120
-	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			65536+15*128	;; scratch area size
-	PRCPTR			x1024Kp411
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_4+1, 0
-	DD	20000000, 1048576, 0.0761,	1682432
-	DD			CELE_D*65536+2*1 ;; Flags, min_l2_cache, clm
-	DD			8192+7*128	;; scratch area size
-	PRCPTR			x1024Kp112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-	DD	20000000, 1048576, 0.0761,	2181120
-	DD			WILLI*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			32768+15*128	;; scratch area size
-	PRCPTR			x1024Kp211
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_2+1, 0
-allfft	DD	20000000, 1048576, 0.0761,	2181120
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			16384+15*128	;; scratch area size
-allfft	PRCPTR			x1024Kp111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	20000000, 1048576, 0.0761,	2181120
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			16384+15*128	;; scratch area size
-allfft	PRCPTR			x1024Kp9111_1
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-	DD	20000000, 1048576, 0.0761,	2181120
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			16384+15*128	;; scratch area size
-	PRCPTR			x1024Kp011
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_0+1, 0
-allfft	DD	20000000, 1048576, 0.0761,	2181120
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			16384+15*128	;; scratch area size
-allfft	PRCPTR			x1024Kp9011_1
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	29640000, 1572864, 0.125,	2480128
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			49152+11*128	;; scratch area size
-allfft	PRCPTR			x1536Kp412AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-allfft	DD	29640000, 1572864, 0.125,	2480128
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			24576+11*128	;; scratch area size
-allfft	PRCPTR			x1536Kp212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	29640000, 1572864, 0.125,	2480128
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			12288+11*128	;; scratch area size
-	PRCPTR			x1536Kp112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	29640000, 1572864, 0.125,	3252352
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			98304+23*128	;; scratch area size
-allfft	PRCPTR			x1536Kp411AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	29640000, 1572864, 0.125,	3252352
-allfft	DD			RPFW+512*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			49152+23*128	;; scratch area size
-allfft	PRCPTR			x1536Kp211AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	29640000, 1572864, 0.125,	3252352
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			24576+23*128	;; scratch area size
-allfft	PRCPTR			x1536Kp111AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	29640000, 1572864, 0.125,	3252352
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			98304+23*128	;; scratch area size
-allfft	PRCPTR			x1536Kp411
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-	DD	29640000, 1572864, 0.125,	2480128
-	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			49152+23*128	;; scratch area size
-	PRCPTR			x1536Kp412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-allfft	DD	29640000, 1572864, 0.125,	2480128
-allfft	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			24576+23*128	;; scratch area size
-allfft	PRCPTR			x1536Kp212
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	29640000, 1572864, 0.125,	2480128
-	DD			CELE_D*65536+2*1 ;; Flags, min_l2_cache, clm
-	DD			12288+23*128	;; scratch area size
-	PRCPTR			x1536Kp112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	29640000, 1572864, 0.125,	3252352
-allfft	DD			256*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			49152+23*128	;; scratch area size
-allfft	PRCPTR			x1536Kp211
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-	DD	29640000, 1572864, 0.125,	3252352
-	DD			WILLI*65536+2*1	;; Flags, min_l2_cache, clm
-	DD			24576+23*128	;; scratch area size
-	PRCPTR			x1536Kp111
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_1+1, 0
-	DD	29640000, 1572864, 0.125,	3252352
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			24576+23*128	;; scratch area size
-	PRCPTR			x1536Kp011
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_0+1, 0
-allfft	DD	39390000, 2097152, 0.169,	3274752
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			65536+15*128	;; scratch area size
-allfft	PRCPTR			x2048Kp412AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-allfft	DD	39390000, 2097152, 0.169,	3274752
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			32768+15*128	;; scratch area size
-allfft	PRCPTR			x2048Kp212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	39390000, 2097152, 0.169,	3274752
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			16384+15*128	;; scratch area size
-	PRCPTR			x2048Kp112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	39390000, 2097152, 0.169,	4317184
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			131072+31*128	;; scratch area size
-allfft	PRCPTR			x2048Kp411AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-allfft	DD	39390000, 2097152, 0.169,	4317184
-allfft	DD			RPFW+512*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			65536+31*128	;; scratch area size
-allfft	PRCPTR			x2048Kp211AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	39390000, 2097152, 0.169,	4317184
-allfft	DD			RPFW+256*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			32768+31*128	;; scratch area size
-allfft	PRCPTR			x2048Kp111AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	39390000, 2097152, 0.169,	4317184
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			32768+31*128	;; scratch area size
-allfft	PRCPTR			x2048Kp011AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	39390000, 2097152, 0.169,	4317184
-allfft	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			131072+31*128	;; scratch area size
-allfft	PRCPTR			x2048Kp411
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_4+1, 0
-	DD	39390000, 2097152, 0.169,	3274752
-	DD			512*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			65536+15*128	;; scratch area size
-	PRCPTR			x2048Kp412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-allfft	DD	39390000, 2097152, 0.169,	3274752
-allfft	DD			256*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			32768+15*128	;; scratch area size
-allfft	PRCPTR			x2048Kp212
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	39390000, 2097152, 0.169,	3274752
-	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-	DD			16384+15*128	;; scratch area size
-	PRCPTR			x2048Kp112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	39390000, 2097152, 0.169,	4317184
-allfft	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			65536+31*128	;; scratch area size
-allfft	PRCPTR			x2048Kp211
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	39390000, 2097152, 0.169,	4317184
-allfft	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			32768+31*128	;; scratch area size
-allfft	PRCPTR			x2048Kp111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-	DD	39390000, 2097152, 0.169,	4317184
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			32768+31*128	;; scratch area size
-	PRCPTR			x2048Kp011
-	DD			11		;; FFT levels done in pass2
-	DD			GAP2_11_0+1, 0
-allfft	DD	58410000, 3145728, 0.289,	4143104
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			49152+11*128	;; scratch area size
-allfft	PRCPTR			x3072Kp413AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	58410000, 3145728, 0.289,	4143104
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			24576+11*128	;; scratch area size
-allfft	PRCPTR			x3072Kp213AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-	DD	58410000, 3145728, 0.289,	4143104
-	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-	DD			12288+11*128	;; scratch area size
-	PRCPTR			x3072Kp113AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-allfft	DD	58410000, 3145728, 0.289,	4870272
-allfft	DD			RPFW+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			98304+23*128	;; scratch area size
-allfft	PRCPTR			x3072Kp412AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_4+1, 0
-allfft	DD	58410000, 3145728, 0.289,	4870272
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			49152+23*128	;; scratch area size
-allfft	PRCPTR			x3072Kp212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	58410000, 3145728, 0.289,	4870272
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			24576+23*128	;; scratch area size
-	PRCPTR			x3072Kp112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	58410000, 3145728, 0.289,	6459392
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			98304+47*128	;; scratch area size
-allfft	PRCPTR			x3072Kp211AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	58410000, 3145728, 0.289,	6459392
-allfft	DD			RPFW+256*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			49152+47*128	;; scratch area size
-allfft	PRCPTR			x3072Kp111AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	58410000, 3145728, 0.289,	6459392
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			49152+47*128	;; scratch area size
-allfft	PRCPTR			x3072Kp011AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	58410000, 3145728, 0.289,	4143104
-allfft	DD			2048*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			49152+11*128	;; scratch area size
-allfft	PRCPTR			x3072Kp413
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-	DD	58410000, 3145728, 0.289,	4870272
-	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			98304+23*128	;; scratch area size
-	PRCPTR			x3072Kp412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-	DD	58410000, 3145728, 0.289,	4870272
-	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			49152+23*128	;; scratch area size
-	PRCPTR			x3072Kp212
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-	DD	58410000, 3145728, 0.289,	4870272
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			24576+23*128	;; scratch area size
-	PRCPTR			x3072Kp112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	58410000, 3145728, 0.289,	6459392
-allfft	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			98304+47*128	;; scratch area size
-allfft	PRCPTR			x3072Kp211
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	58410000, 3145728, 0.289,	6459392
-allfft	DD			256*65536+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			49152+47*128	;; scratch area size
-allfft	PRCPTR			x3072Kp111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	58410000, 3145728, 0.289,	6459392
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			49152+47*128	;; scratch area size
-allfft	PRCPTR			x3072Kp011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	58410000, 3145728, 0.289,	8132736
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			98304+95*128	;; scratch area size
-allfft	PRCPTR			x3072Kp010
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_0+1, 0
-allfft	DD	77700000, 4194304, 0.425,	5462016
-allfft	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-allfft	DD			65536+15*128	;; scratch area size
-allfft	PRCPTR			x4096Kp413AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-allfft	DD	77700000, 4194304, 0.425,	5462016
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			32768+15*128	;; scratch area size
-allfft	PRCPTR			x4096Kp213AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-	DD	77700000, 4194304, 0.425,	5462016
-	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-	DD			16384+15*128	;; scratch area size
-	PRCPTR			x4096Kp113AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-allfft	DD	77700000, 4194304, 0.425,	6459392
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			65536+31*128	;; scratch area size
-allfft	PRCPTR			x4096Kp212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	77700000, 4194304, 0.425,	6459392
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			32768+31*128	;; scratch area size
-	PRCPTR			x4096Kp112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-
-	DD	77700000, 4194304, 0.425,	16459392
-	DD			RPFW+V26+2*1	;; Flags, min_l2_cache, clm
-	DD			32768+31*128	;; scratch area size
-	PRCPTR			xv26_4096Kp112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-
-allfft	DD	77700000, 4194304, 0.425,	8589312
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			131072+63*128	;; scratch area size
-allfft	PRCPTR			x4096Kp211AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	77700000, 4194304, 0.425,	8589312
-allfft	DD			RPFW+512*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			65536+63*128	;; scratch area size
-allfft	PRCPTR			x4096Kp111AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	77700000, 4194304, 0.425,	8589312
-allfft	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-allfft	DD			65536+63*128	;; scratch area size
-allfft	PRCPTR			x4096Kp011AMD
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-
-	DD	77700000, 4194304, 0.425,	66459392
-	DD			V26+1024*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			131072+31*128	;; scratch area size
-	PRCPTR			xv26_4096Kp412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-	DD	77700000, 4194304, 0.425,	66459392
-	DD			V26+512*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			65536+31*128	;; scratch area size
-	PRCPTR			xv26_4096Kp212
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-	DD	77700000, 4194304, 0.425,	66459392
-	DD			V26+2*1		;; Flags, min_l2_cache, clm
-	DD			32768+31*128	;; scratch area size
-	PRCPTR			xv26_4096Kp112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-
-	DD	77700000, 4194304, 0.425,	6459392
-	DD			1024*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			131072+31*128	;; scratch area size
-	PRCPTR			x4096Kp412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-	DD	77700000, 4194304, 0.425,	6459392
-	DD			512*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			65536+31*128	;; scratch area size
-	PRCPTR			x4096Kp212
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-	DD	77700000, 4194304, 0.425,	6459392
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			32768+31*128	;; scratch area size
-	PRCPTR			x4096Kp112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-
-allfft	DD	77700000, 4194304, 0.425,	8589312
-allfft	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			131072+63*128	;; scratch area size
-allfft	PRCPTR			x4096Kp211
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_2+1, 0
-allfft	DD	77700000, 4194304, 0.425,	8589312
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			65536+63*128	;; scratch area size
-allfft	PRCPTR			x4096Kp111
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_1+1, 0
-allfft	DD	77700000, 4194304, 0.425,	8589312
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			65536+63*128	;; scratch area size
-allfft	PRCPTR			x4096Kp011
-allfft	DD			11		;; FFT levels done in pass2
-allfft	DD			GAP2_11_0+1, 0
-allfft	DD	77700000, 4194304, 0.425,	4*6459392
-allfft	DD			2*1	;; Flags, min_l2_cache, clm
-allfft	DD			131072+127*128	;; scratch area size
-allfft	PRCPTR			x4096Kp010
-allfft	DD			10		;; FFT levels done in pass2
-allfft	DD			GAP2_10_0+1, 0
-	DD	115000000, 6291456, 0.668,	9650176
-	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-	DD			196608+47*128	;; scratch area size
-	PRCPTR			x6Mp412AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-allfft	DD	115000000, 6291456, 0.668,	9650176
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			98304+47*128	;; scratch area size
-allfft	PRCPTR			x6Mp212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	115000000, 6291456, 0.668,	9650176
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			49152+47*128	;; scratch area size
-	PRCPTR			x6Mp112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-	DD	115000000, 6291456, 0.668,	9650176
-	DD			2048*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			196608+47*128	;; scratch area size
-	PRCPTR			x6Mp412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-	DD	115000000, 6291456, 0.668,	9650176
-	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			98304+47*128	;; scratch area size
-	PRCPTR			x6Mp212
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-	DD	115000000, 6291456, 0.668,	9650176
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			49152+47*128	;; scratch area size
-	PRCPTR			x6Mp112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-	DD	153100000, 8388608, 1.042,	12828672
-	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-	DD			262144+63*128	;; scratch area size
-	PRCPTR			x8Mp412AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-allfft	DD	153100000, 8388608, 1.042,	12828672
-allfft	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-allfft	DD			131072+63*128	;; scratch area size
-allfft	PRCPTR			x8Mp212AMD
-allfft	DD			12		;; FFT levels done in pass2
-allfft	DD			GAP2_12_2+1, 0
-	DD	153100000, 8388608, 1.042,	12828672
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			65536+63*128	;; scratch area size
-	PRCPTR			x8Mp112AMD
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-allfft	DD	153100000, 8388608, 1.042,	3*12828672
-allfft	DD			2048*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			131072+31*128	;; scratch area size
-allfft	PRCPTR			x8Mp413
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-	DD	153100000, 8388608, 1.042,	12828672
-	DD			2048*65536+2*4	;; Flags, min_l2_cache, clm
-	DD			262144+63*128	;; scratch area size
-	PRCPTR			x8Mp412
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_4+1, 0
-	DD	153100000, 8388608, 1.042,	12828672
-	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			131072+63*128	;; scratch area size
-	PRCPTR			x8Mp212
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_2+1, 0
-	DD	153100000, 8388608, 1.042,	12828672
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			65536+63*128	;; scratch area size
-	PRCPTR			x8Mp112
-	DD			12		;; FFT levels done in pass2
-	DD			GAP2_12_1+1, 0
-	DD	226800000, 12582912, 1.400,	16031744
-	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-	DD			196608+47*128	;; scratch area size
-	PRCPTR			x12Mp413AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_4+1, 0
-allfft	DD	226800000, 12582912, 1.400,	16031744
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			98304+47*128	;; scratch area size
-allfft	PRCPTR			x12Mp213AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-	DD	226800000, 12582912, 1.400,	16031744
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			49152+47*128	;; scratch area size
-	PRCPTR			x12Mp113AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-allfft	DD	226800000, 12582912, 1.400,	16031744
-allfft	DD			2048*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			196608+47*128	;; scratch area size
-allfft	PRCPTR			x12Mp413
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-	DD	226800000, 12582912, 1.400,	16031744
-	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			98304+47*128	;; scratch area size
-	PRCPTR			x12Mp213
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_2+1, 0
-	DD	226800000, 12582912, 1.400,	16031744
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			49152+47*128	;; scratch area size
-	PRCPTR			x12Mp113
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-	DD	301900000, 16777216, 2.100,	21307392
-	DD			RPFW+1024*65536+2*4 ;; Flags, min_l2_cache, clm
-	DD			262144+63*128	;; scratch area size
-	PRCPTR			x16Mp413AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_4+1, 0
-allfft	DD	301900000, 16777216, 2.100,	21307392
-allfft	DD			RPFW+2*2	;; Flags, min_l2_cache, clm
-allfft	DD			131072+63*128	;; scratch area size
-allfft	PRCPTR			x16Mp213AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_2+1, 0
-	DD	301900000, 16777216, 2.100,	21307392
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			65536+63*128	;; scratch area size
-	PRCPTR			x16Mp113AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-allfft	DD	301900000, 16777216, 2.100,	21307392
-allfft	DD			2048*65536+2*4	;; Flags, min_l2_cache, clm
-allfft	DD			262144+63*128	;; scratch area size
-allfft	PRCPTR			x16Mp413
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_4+1, 0
-	DD	301900000, 16777216, 2.100,	21307392
-	DD			1024*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			131072+63*128	;; scratch area size
-	PRCPTR			x16Mp213
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_2+1, 0
-	DD	301900000, 16777216, 2.100,	21307392
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			65536+63*128	;; scratch area size
-	PRCPTR			x16Mp113
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-allfft	DD	301900000, 16777216, 2.100,	21307392
-allfft	DD			2*1		;; Flags, min_l2_cache, clm
-allfft	DD			65536+63*128	;; scratch area size
-allfft	PRCPTR			x16Mp013
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_0+1, 0
-	DD	446900000, 25165824, 3.300,	31883392
-	DD			RPFW+1024*65536+2*2 ;; Flags, min_l2_cache, clm
-	DD			196608+95*128	;; scratch area size
-	PRCPTR			x24Mp213AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_2+1, 0
-allfft	DD	446900000, 25165824, 3.300,	31883392
-allfft	DD			RPFW+1024*65536+2*1 ;; Flags, min_l2_cache, clm
-allfft	DD			98304+95*128	;; scratch area size
-allfft	PRCPTR			x24Mp113AMD
-allfft	DD			13		;; FFT levels done in pass2
-allfft	DD			GAP2_13_1+1, 0
-	DD	446900000, 25165824, 3.300,	31883392
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			98304+95*128	;; scratch area size
-	PRCPTR			x24Mp013AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_0+1, 0
-	DD	446900000, 25165824, 3.300,	31883392
-	DD			2048*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			196608+95*128	;; scratch area size
-	PRCPTR			x24Mp213
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_2+1, 0
-	DD	446900000, 25165824, 3.300,	31883392
-	DD			1024*65536+2*1	;; Flags, min_l2_cache, clm
-	DD			98304+95*128	;; scratch area size
-	PRCPTR			x24Mp113
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-	DD	446900000, 25165824, 3.300,	31883392
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			98304+95*128	;; scratch area size
-	PRCPTR			x24Mp013
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_0+1, 0
-	DD	594600000, 33554432, 4.500,	42434560
-	DD			RPFW+1024*65536+2*1 ;; Flags, min_l2_cache, clm
-	DD			131072+127*128	;; scratch area size
-	PRCPTR			x32Mp113AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-	DD	594600000, 33554432, 4.500,	42434560
-	DD			RPFW+2*1	;; Flags, min_l2_cache, clm
-	DD			131072+127*128	;; scratch area size
-	PRCPTR			x32Mp013AMD
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_0+1, 0
-	DD	594600000, 33554432, 4.500,	42434560
-	DD			2048*65536+2*2	;; Flags, min_l2_cache, clm
-	DD			262144+127*128	;; scratch area size
-	PRCPTR			x32Mp213
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_2+1, 0
-	DD	594600000, 33554432, 4.500,	42434560
-	DD			1024*65536+2*1	;; Flags, min_l2_cache, clm
-	DD			131072+127*128	;; scratch area size
-	PRCPTR			x32Mp113
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_1+1, 0
-	DD	594600000, 33554432, 4.500,	42434560
-	DD			2*1		;; Flags, min_l2_cache, clm
-	DD			131072+127*128	;; scratch area size
-	PRCPTR			x32Mp013
-	DD			13		;; FFT levels done in pass2
-	DD			GAP2_13_0+1, 0
+	DD	254800,	12288,	0.000626
+	PRCENTRY		xfft_hg_12K_ac_ip_8_4_K8, 64896
+	PRCENTRY		xfft_hg_12K_ac_ip_8_4_CORE, 64896
+	PRCENTRY		xfft_hg_12K_ac_ip_tp_8_4_P4, 64896
+	DD			0
+	DD	339100,	16384,	0.000857
+	PRCENTRY		xfft_hg_16K_ac_ip_8_4_K8, 84224
+	PRCENTRY		xfft_hg_16K_ac_ip_8_4_CORE, 84224
+	PRCENTRY		xfft_hg_16K_ac_ip_tp_8_4_P4, 84224
+	DD			0
+	DD	503400,	24576,	0.00135
+	PRCENTRY		xfft_hg_24K_ac_ip_8_4_K8, 123904
+	PRCENTRY		xfft_hg_24K_ac_ip_8_4_CORE, 123904
+	PRCENTRY		xfft_hg_24K_ac_ip_tp_8_4_P4, 123904
+	DD			0
+	DD	669600,	32768,	0.00179
+	PRCENTRY		xfft_hg_32K_ac_ip_8_4_K8, 162816
+	PRCENTRY		xfft_hg_32K_ac_ip_8_4_CORE, 162816
+	PRCENTRY		xfft_hg_32K_ac_ip_tp_8_4_P4, 162816
+	DD			0
+	DD	992800, 49152,	0.00303
+	PRCENTRY		xfft_hg_48K_ac_ip_11_4_K8, 145280
+	PRCENTRY		xfft_hg_48K_ac_ip_11_4_CORE, 145280
+	PRCENTRY		xfft_hg_48K_ac_ip_tp_11_4_P4, 145280
+	DD			0
+	DD	1320000, 65536,	0.00404
+	PRCENTRY		xfft_hg_64K_ac_ip_11_4_K8, 178560
+	PRCENTRY		xfft_hg_64K_ac_ip_11_4_CORE, 178560
+	PRCENTRY		xfft_hg_64K_ac_ip_tp_11_4_P4, 178560
+	DD			0
+	DD	1962000, 98304, 0.00644
+	PRCENTRY		xfft_hg_96K_ac_ip_11_4_K8, 245632
+	PRCENTRY		xfft_hg_96K_ac_ip_11_4_CORE, 245632
+	PRCENTRY		xfft_hg_96K_ac_ip_tp_11_4_P4, 245632
+	DD			0
+	DD	2610000, 131072, 0.00871
+	PRCENTRY		xfft_hg_128K_ac_ip_11_4_K8, 312064
+	PRCENTRY		xfft_hg_128K_ac_ip_11_4_CORE, 312064
+	PRCENTRY		xfft_hg_128K_ac_ip_tp_11_4_P4, 312064
+	DD			0
+	DD	3867000, 196608, 0.0136
+	PRCENTRY		xfft_hg_192K_ac_10_2_K8, 529536
+	PRCENTRY		xfft_hg_192K_ac_10_4_CORE, 529536
+	PRCENTRY		xfft_hg_192K_ac_tp_10_4_P4, 529536
+	PRCENTRY		xfft_hg_192K_ac_tp_10_1_P4, 529536
+	DD			0
+	DD	5146000, 262144, 0.0179
+	PRCENTRY		xfft_hg_256K_ac_10_1_K8, 697344
+	PRCENTRY		xfft_hg_256K_ac_10_4_CORE, 697344, 256
+	PRCENTRY		xfft_hg_256K_ac_tp_10_4_P4, 697344, 256
+	PRCENTRY		xfft_hg_256K_ac_tp_10_2_P4, 697344
+	DD			0
+	DD	7635000, 393216, 0.0273
+	PRCENTRY		xfft_hg_384K_ac_10_1_K8, 1036288
+	PRCENTRY		xfft_hg_384K_ac_10_4_CORE, 1036288, 512
+	PRCENTRY		xfft_hg_384K_ac_10_4_CORE, 1036288, 512
+	PRCENTRY		xfft_hg_384K_ac_tp_10_4_P4, 1036288, 512
+	PRCENTRY		xfft_hg_384K_ac_tp_10_2_P4, 1036288
+	DD			0
+	DD	10150000, 524288, 0.0368
+	PRCENTRY		xfft_hg_512K_ac_10_1_K8, 1372160
+	PRCENTRY		xfft_hg_512K_ac_10_4_CORE, 1372160, 512
+	PRCENTRY		xfft_hg_512K_ac_tp_10_4_P4, 1372160, 512
+	PRCENTRY		xfft_hg_512K_ac_tp_10_2_P4, 1372160
+	DD			0
+	DD	15040000, 786432, 0.0566
+	PRCENTRY		xfft_hg_768K_ac_12_2_K8, 1285248
+	PRCENTRY		xfft_hg_768K_ac_tp_12_2_P4, 1285248, 1024
+	PRCENTRY		xfft_hg_768K_ac_11_4_CORE, 1648640, 512
+	PRCENTRY		xfft_hg_768K_ac_tp_11_4_P4, 1648640, 512
+	PRCENTRY		xfft_hg_768K_ac_tp_11_2_P4, 1648640, 256
+	PRCENTRY		xfft_hg_768K_ac_np_11_1_P4, 1648640
+	DD			0
+	DD	20000000, 1048576, 0.0761
+	PRCENTRY		xfft_hg_1024K_ac_12_1_K8, 1682432
+	PRCENTRY		xfft_hg_1024K_ac_tp_12_4_P4, 1682432, 2048
+	PRCENTRY		xfft_hg_1024K_ac_11_4_CORE, 2181120, 512
+	PRCENTRY		xfft_hg_1024K_ac_tp_11_4_P4, 2181120, 512
+	PRCENTRY		xfft_hg_1024K_ac_tp_12_1_P4, 1682432, CELE_D
+	PRCENTRY		xfft_hg_1024K_ac_tp_11_2_P4, 2181120, WILLI
+	PRCENTRY		xfft_hg_1024K_ac_np_11_1_P4, 2181120
+	DD			0
+	DD	29640000, 1572864, 0.125
+	PRCENTRY		xfft_hg_1536K_ac_12_1_K8, 2480128
+	PRCENTRY		xfft_hg_1536K_ac_12_4_CORE, 2480128, 512
+	PRCENTRY		xfft_hg_1536K_ac_tp_12_4_P4, 2480128, 512
+	PRCENTRY		xfft_hg_1536K_ac_tp_12_1_P4, 2480128, CELE_D
+	PRCENTRY		xfft_hg_1536K_ac_tp_11_1_P4, 3252352, WILLI
+	PRCENTRY		xfft_hg_1536K_ac_np_11_1_P4, 3252352
+	DD			0
+	DD	39390000, 2097152, 0.169
+	PRCENTRY		xfft_hg_2048K_ac_12_1_K8, 3274752
+	PRCENTRY		xfft_hg_2048K_ac_12_4_CORE, 3274752, 512
+	PRCENTRY		xfft_hg_2048K_ac_tp_12_4_P4, 3274752, 512
+	PRCENTRY		xfft_hg_2048K_ac_tp_12_1_P4, 3274752, 256
+	PRCENTRY		xfft_hg_2048K_ac_np_11_1_P4, 4317184
+	DD			0
+	DD	58410000, 3145728, 0.289
+	PRCENTRY		xfft_hg_3072K_ac_13_1_K8, 4143104, 512
+	PRCENTRY		xfft_hg_3072K_ac_12_1_K8, 4870272
+	PRCENTRY		xfft_hg_3072K_ac_12_4_CORE, 4870272, 1024
+	PRCENTRY		xfft_hg_3072K_ac_12_4_P4, 4870272, 1024
+	PRCENTRY		xfft_hg_3072K_ac_tp_12_2_P4, 4870272, 512
+	PRCENTRY		xfft_hg_3072K_ac_tp_12_1_P4, 4870272
+	DD			0
+	DD	77700000, 4194304, 0.425
+	PRCENTRY		xfft_hg_4096K_ac_13_1_K8, 5462016, 512
+	PRCENTRY		xfft_hg_4096K_ac_12_1_K8, 6459392
+	PRCENTRY		xfft_r4_4096K_ac_12_1_K8, 16459392
+	PRCENTRY		xfft_r4_4096K_ac_12_4_CORE, 66459392
+	PRCENTRY		xfft_r4_4096K_ac_12_4_P4, 66459392, 1024
+	PRCENTRY		xfft_r4_4096K_ac_tp_12_2_P4, 6459392, 512
+	PRCENTRY		xfft_hg_4096K_ac_12_4_CORE, 6459392, 1024
+	PRCENTRY		xfft_hg_4096K_ac_12_4_P4, 6459392, 1024
+	PRCENTRY		xfft_hg_4096K_ac_tp_12_2_P4, 6459392, 512
+	PRCENTRY		xfft_hg_4096K_ac_tp_12_1_P4, 6459392
+	DD			0
+	DD	115000000, 6291456, 0.668
+	PRCENTRY		xfft_hg_6M_ac_12_4_K8, 9650176, 1024
+	PRCENTRY		xfft_hg_6M_ac_12_1_K8, 9650176
+	PRCENTRY		xfft_hg_6M_ac_12_4_CORE, 9650176, 2048
+	PRCENTRY		xfft_hg_6M_ac_12_4_P4, 9650176, 2048
+	PRCENTRY		xfft_hg_6M_ac_12_2_P4, 9650176, 1024
+	PRCENTRY		xfft_hg_6M_ac_tp_12_1_P4, 9650176
+	DD			0
+	DD	153100000, 8388608, 1.042
+	PRCENTRY		xfft_hg_8M_ac_12_4_K8, 12828672, 1024
+	PRCENTRY		xfft_hg_8M_ac_12_1_K8, 12828672
+	PRCENTRY		xfft_hg_8M_ac_12_4_CORE, 12828672, 2048
+	PRCENTRY		xfft_hg_8M_ac_12_4_P4, 12828672, 2048
+	PRCENTRY		xfft_hg_8M_ac_12_2_P4, 12828672, 1024
+	PRCENTRY		xfft_hg_8M_ac_tp_12_1_P4, 12828672
+	DD			0
+	DD	226800000, 12582912, 1.400
+	PRCENTRY		xfft_hg_12M_ac_13_4_K8, 16031744
+	PRCENTRY		xfft_hg_12M_ac_13_4_CORE, 16031744
+	DD			0
+	DD	301900000, 16777216, 2.100
+	PRCENTRY		xfft_hg_16M_ac_13_4_K8, 21307392
+	PRCENTRY		xfft_hg_16M_ac_13_4_CORE, 21307392
+	DD			0
+	DD	446900000, 25165824, 3.300
+	PRCENTRY		xfft_hg_24M_ac_13_2_K8, 31883392
+	PRCENTRY		xfft_hg_24M_ac_13_2_CORE, 31883392
+	DD			0
+	DD	594600000, 33554432, 4.500
+	PRCENTRY		xfft_hg_32M_ac_13_2_K8, 42434560
+	PRCENTRY		xfft_hg_32M_ac_13_2_CORE, 42434560
+	DD			0
 	DD	0
 
 	;; Align so that other GWDATA areas are also aligned on a cache line
