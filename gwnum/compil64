@@ -96,10 +96,10 @@ amd64\xmult1ax.obj: xmult1ax.asm xmult.mac xnormal.mac
 amd64\xmult2.obj: xmult2.asm xmult.mac xnormal.mac
     $(masm64) /Foamd64\xmult2.obj xmult2.asm
 
-amd64\xmult2a.obj: xmult2a.asm xmult.mac xpass2.mac xlucas.mac xnormal.mac
+amd64\xmult2a.obj: xmult2a.asm xmult.mac xnormal.mac
     $(masm64) /Foamd64\xmult2a.obj xmult2a.asm
 
-amd64\xmult2ap.obj: xmult2a.asm xmult.mac xpass2.mac xlucas.mac xnormal.mac
+amd64\xmult2ap.obj: xmult2a.asm xmult.mac xnormal.mac
     $(masm64) /DAMD /Foamd64\xmult2ap.obj xmult2a.asm
 
 amd64\xmult2ax.obj: xmult2ax.asm xmult.mac xnormal.mac
@@ -132,10 +132,10 @@ amd64\mult.obj: mult.asm
 amd64\gianthlp.obj: gianthlp.asm
     $(masm64) /Foamd64\gianthlp.obj gianthlp.asm
 
-amd64\timeit.obj: timeit.asm xmult.mac xlucas.mac
+amd64\timeit.obj: timeit.asm xmult.mac
     $(masm64) /Foamd64\timeit.obj timeit.asm
 
-amd64\timeitp.obj: timeit.asm xmult.mac xlucas.mac
+amd64\timeitp.obj: timeit.asm xmult.mac
     $(masm64) /DAMD /Foamd64\timeitp.obj timeit.asm
 
 # Create 64-bit linux object files.  Windows and Linux (gcc) use different
@@ -145,13 +145,13 @@ amd64\timeitp.obj: timeit.asm xmult.mac xlucas.mac
 linux64\xmult1ax.obj: xmult1ax.asm xmult.mac xnormal.mac
     $(masm64lx) /Folinux64\xmult1ax.obj xmult1ax.asm
 
-linux64\xmult2.obj: xmult2.asm xmult.mac xlucas.mac xfft2.mac xnormal.mac
+linux64\xmult2.obj: xmult2.asm xmult.mac xnormal.mac
     $(masm64lx) /Folinux64\xmult2.obj xmult2.asm
 
-linux64\xmult2a.obj: xmult2a.asm xmult.mac xpass2.mac xlucas.mac xnormal.mac
+linux64\xmult2a.obj: xmult2a.asm xmult.mac xnormal.mac
     $(masm64lx) /Folinux64\xmult2a.obj xmult2a.asm
 
-linux64\xmult2ap.obj: xmult2a.asm xmult.mac xpass2.mac xlucas.mac xnormal.mac
+linux64\xmult2ap.obj: xmult2a.asm xmult.mac xnormal.mac
     $(masm64lx) /DAMD /Folinux64\xmult2ap.obj xmult2a.asm
 
 linux64\xmult2ax.obj: xmult2ax.asm xmult.mac xnormal.mac
@@ -184,9 +184,9 @@ linux64\mult.obj: mult.asm
 linux64\gianthlp.obj: gianthlp.asm
     $(masm64lx) /Folinux64\gianthlp.obj gianthlp.asm
 
-linux64\timeit.obj: timeit.asm xmult.mac xlucas.mac
+linux64\timeit.obj: timeit.asm xmult.mac
     $(masm64lx) /Folinux64\timeit.obj timeit.asm
 
-linux64\timeitp.obj: timeit.asm xmult.mac xlucas.mac
+linux64\timeitp.obj: timeit.asm xmult.mac
     $(masm64lx) /DAMD /Folinux64\timeitp.obj timeit.asm
 

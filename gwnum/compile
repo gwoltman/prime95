@@ -157,7 +157,7 @@ hgcore.obj: hgcore.asm xmult.mac hg.mac hgpass1sc.mac hgpass2.mac
 hgp4.obj: hgp4.asm xmult.mac hg.mac hgp4.mac hgpass1sc.mac hgpass2.mac
     $(masm) hgp4.asm
 
-hgk8.obj: hgk8.asm xmult.mac hg.mac kgk8.mac hgpass1sc.mac hgpass2.mac
+hgk8.obj: hgk8.asm xmult.mac hg.mac hgk8.mac hgpass1sc.mac hgpass2.mac
     $(masm) hgk8.asm
 
 r4core.obj: r4core.asm xmult.mac r4.mac r4pass1sc.mac r4pass2.mac
