@@ -2,7 +2,7 @@
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
-; These macros do the first pass of standard radix-4 2 pass FFTs using SSE2 instructions.
+; These macros do the second pass of standard radix-4 2 pass FFTs using SSE2 instructions.
 ;
 
 

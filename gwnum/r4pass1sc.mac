@@ -238,7 +238,7 @@ pfing	bump	rbp, 64			;; Next prefetch pointer
 	start_timer 20
 	loops_init 64*2*clm		;; 64 iterations of 2*clm
 	;; Adjust sin/cos/premult prefetch addr so that it ends on the last prefetchable datum
-	;; lea	rbp, [rbp+(1+4+16)*2*clm*XMM_SCD2+64*2*clm*XMM_SCD1+64*2*clm*2*XMM_PMD - 5*128*clm*64 - 64]
+	;; lea	rbp, [rbp+(1+4+16)*2*clm*XMM_SCD2+64*2*clm*XMM_SCD1+128*2*clm*XMM_PMD - 5*128*clm*64 - 64]
 	;; BUG - this is not perfect as the staggered usage due to scdist means we will use data before
 	;; it is prefetched.  So, lets do nothing, which has its own problems of prefetching data
 	;; used in the next section (and may still have some data usage before it is prefetched)
