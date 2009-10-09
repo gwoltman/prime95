@@ -88,8 +88,8 @@ c0b:	start_timer 16
 pfing	lea	rbp, [rdi+2*XMM_PMD]	;; Prefetch the sin/cos/premult data we are about to use
 	xtouch	[rbp]			;; Prefetch TLB
 c9a:	xtouch	[rbp+4096]		;; Prefetch TLB
-c9b:	r4spm_g2cl_four_complex_djbunfft rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
-	bump	rdi, XMM_PMD		;; Next cache line's premult/sin/cos data
+c9b:	r4spm_g2cl_four_complex_ac_djbunfft rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
+	bump	rdi, XMM_PMD		;; Next premult/sin/cos data
 	loops	2, c9b			;; Test loop counter
 	v26_xprefetcht1 [rbp]		;; Prefetch 64 bytes of premult/sin/cos data
 pfing	bump	rbp, 64			;; Next prefetch pointer
@@ -206,18 +206,20 @@ c3a:	;xtouch	[rbp+4096]		;; Preload TLB
 	;xtouch	[rbp+2*4096]		;; Preload TLB
 c3b:	r4_x2cl_two_complex_unfft rsi, 64, 4*clmblkdst8, 32*2*clm*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sine/cosine pointer
-	loops	2, c3b			;; 2 iterations
+	;loops	2, c3b			;; 2 iterations
 	;v26_xprefetcht1 [rbp]		;; Prefetch 64 bytes of sin/cos/premult data
 pfing	;bump	rbp, 64			;; Next prefetch pointer
-	loops	clm, c3b
+	;loops	clm, c3b
+	loops	2*clm, c3b
 	bump	rsi, -2*clm*64+clmblkdst ;; Next source pointer
 	loops	8, c3b			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8 ;; Next source pointer
 	loops	4, c3b			;; 4 iterations
 	bump	rsi, -4*clmblkdst8+8*clmblkdst8 ;; Next source pointer
 	bump	rdi, -32*2*clm*XMM_SCD1	;; Restore sine/cosine pointer
-	loops	128/4/8/clm, c3b	;; Loop until 128 cache lines prefetched
-	loops	clm, c3a		;; Test outer loop counter
+	;loops	128/4/8/clm, c3b	;; Loop until 128 cache lines prefetched
+	;loops	clm, c3a		;; Test outer loop counter
+	loops	4, c3b			;; Test outer loop counter
 	bump	rsi, -32*clmblkdst8	;; Restore source pointer
 	bump	rdi, 64*2*clm*XMM_SCD1	;; Next sin/cos data pointer
 	end_timer 19
@@ -253,8 +255,9 @@ pfing	;bump	rbp, 64			;; Next prefetch pointer
 	bump	rdx, XMM_PMD		;; Next premultiplier ptr
 	loops	8, c1b			;; 8 iterations
 	bump	rsi, -4*2*clmblkdst+clmblkdst8 ;; Next source pointer
-	loops	64/8/(2*clm), c1b	;; Loop until 64 cache lines prefetched
-	loops	2*clm, c1a		;; Test outer loop counter
+	;loops	64/8/(2*clm), c1b	;; Loop until 64 cache lines prefetched
+	;loops	2*clm, c1a		;; Test outer loop counter
+	loops	8, c1b			;; Test outer loop counter
 	end_timer 20
 
 ;; Normalize these values
@@ -297,7 +300,7 @@ yes_fft:start_timer 22
 	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
-	loops_init 128*2*clm		;; 16 iters of 2 iters of 4*2*clm
+	loops_init 128*2*clm		;; 16 iters of 4 iters of 2*2*clm
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b1b:	r4spm_x2cl_four_complex_first_djbfft_scratch rsi, 64, 16*clmblkdst8, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos ptr
@@ -369,13 +372,13 @@ b3b:	r4_x2cl_two_complex_fft rsi, 64, 8*clmblkdst8, rdi, 0
 
 	start_timer 24
 	bump	rdi, -16*2*clm*XMM_SCD2	;; Next sin/cos ptr
-	loops_init 64*2*clm		;; 4 iters of 2 iters of 4 of 2*2*clm
+	loops_init 64*2*clm		;; 4 iters of 2 iters of 8 of 2*clm
 b5a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	newxloop1 b5b, clmblkdst	;; 2*clm iterations
 	loops	8, b5a			;; 8 iterations
-	bump	rsi, -4*2*clmblkdst+clmblkdst8
+	bump	rsi, -8*clmblkdst+clmblkdst8
 	loops	2, b5a			;; Test middle loop counter
 	bump	rsi, -2*clmblkdst8+8*clmblkdst8 ;; Next source pointer
 	bump	rdi, -16*2*clm*XMM_SCD2	;; Restore sin/cos ptr
@@ -406,13 +409,13 @@ b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi
 
 	start_timer 25
 	bump	rdi, -4*2*clm*XMM_SCD2	;; Next sin/cos ptr
-	loops_init 64*2*clm		;; 16 iterations of 2 iters of 2*2*clm
+	loops_init 64*2*clm		;; 16 iterations of 4 iters of 2*clm
 b7a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	newxloop1 b7b, clmblkdst	;; 2*clm iterations
 	loops	4, b7a			;; Test middle loop counter
-	bump	rsi, -2*2*clmblkdst+2*clmblkdst8 ;; Next source pointer
+	bump	rsi, -4*clmblkdst+2*clmblkdst8 ;; Next source pointer
 	bump	rdi, -4*2*clm*XMM_SCD2	;; Restore sin/cos ptr
 	loops	16, b7a			;; Test outer loop counter
 	bump	rsi, -16*2*clmblkdst8	;; Restore source pointer
@@ -442,14 +445,15 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
 ;pfing	sub	rbp, rcx
 	bump	rdi, -1*2*clm*XMM_PMD	;; Next premult/sin/cos ptr
 	loops_init 64*2*clm		;; 32 iters of 2 of 2*clm
-b9b:	r4spm_g4cl_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst, rdi
+b9b:	r4spm_g4cl_four_complex_ac_djbfft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst, rdi
 	bump	rdi, XMM_PMD		;; Next sin/cos ptr
 	;xprefetcht1 [rcx+rbp-64]
 	;xprefetcht1 [rcx+rbp-64+blkdst]
 	;bump	rbp, -64+2*blkdst
-	loops	2, b9b			;; Test inner loop counter
+	;loops	2, b9b			;; Test inner loop counter
 	;bump	rbp, 128-4*blkdst
-	loops	clm, b9b
+	;loops	clm, b9b
+	loops	2*clm, b9b
 	bump	rsi, -2*clm*64+4*clmblkdst ;; Next source pointer
 	bump	rcx, -2*clm*64+4*blkdst	;; Next dest pointer
 	bump	rdi, -2*clm*XMM_PMD	;; Restore sine/cosine pointer

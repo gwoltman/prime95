@@ -579,10 +579,10 @@ sscase11:
 	sse2mac sscase166, 256, 4096, r4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
 	sse2mac sscase167, 256, 100000, r4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
 
-	sse2mac sscase168, 256, 4096, r4spm_g4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
-	sse2mac sscase169, 256, 100000, r4spm_g4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
-	sse2mac sscase170, 256, 4096, r4spm_g2cl_four_complex_djbunfft rsi, 2*64, 64, rdx, 2*64, 64, rdi
-	sse2mac sscase171, 256, 100000, r4spm_g2cl_four_complex_djbunfft rsi, 2*64, 64, rdx, 2*64, 64, rdi
+	sse2mac sscase168, 256, 4096, r4spm_g4cl_four_complex_ac_djbfft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2mac sscase169, 256, 100000, r4spm_g4cl_four_complex_ac_djbfft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2mac sscase170, 256, 4096, r4spm_g2cl_four_complex_ac_djbunfft rsi, 2*64, 64, rdx, 2*64, 64, rdi
+	sse2mac sscase171, 256, 100000, r4spm_g2cl_four_complex_ac_djbunfft rsi, 2*64, 64, rdx, 2*64, 64, rdi
 	sse2mac sscase172, 256, 4096, r4spm_x2cl_four_complex_first_djbfft_scratch rsi, 2*64, 64, rdi, rdi
 	sse2mac sscase173, 256, 100000, r4spm_x2cl_four_complex_first_djbfft_scratch rsi, 2*64, 64, rdi, rdi
 	sse2mac sscase174, 256, 4096, r4spm_x4cl_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, 0
