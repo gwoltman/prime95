@@ -738,8 +738,9 @@ struct gwasm_jmptab {
 
 /* The FFT types currently implemented in assembly code */
 
-#define FFT_TYPE_HOME_GROWN	0
-#define FFT_TYPE_RADIX_4	1
+#define FFT_TYPE_HOME_GROWN		0
+#define FFT_TYPE_RADIX_4		1
+#define FFT_TYPE_RADIX_4_SPLIT_PREMULT	2
 
 /* The gwhandle structure containing all of gwnum's "global" data. */
 

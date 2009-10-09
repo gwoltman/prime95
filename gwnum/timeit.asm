@@ -25,13 +25,14 @@ xarch	TEXTEQU	<CORE>
 INCLUDE xbasics.mac
 INCLUDE hg.mac
 INCLUDE r4.mac
+INCLUDE r4spm.mac
 
 IFDEF X86_64
 X87_CASES	EQU	0
 ELSE
 X87_CASES	EQU	13
 ENDIF
-SSE2_CASES	EQU	168
+SSE2_CASES	EQU	176
 
 loopent	MACRO	y,z		; Create a entry in the loop entry table
 	DP	&y&z
@@ -577,6 +578,15 @@ sscase11:
 	sse2mac sscase165, 128, 100000, r4_g2cl_four_complex_djbunfft rsi, 2*64, 64, rdx, 2*64, 64, rdi
 	sse2mac sscase166, 256, 4096, r4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
 	sse2mac sscase167, 256, 100000, r4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
+
+	sse2mac sscase168, 256, 4096, r4spm_g4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2mac sscase169, 256, 100000, r4spm_g4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2mac sscase170, 256, 4096, r4spm_g2cl_four_complex_djbunfft rsi, 2*64, 64, rdx, 2*64, 64, rdi
+	sse2mac sscase171, 256, 100000, r4spm_g2cl_four_complex_djbunfft rsi, 2*64, 64, rdx, 2*64, 64, rdi
+	sse2mac sscase172, 256, 4096, r4spm_x2cl_four_complex_first_djbfft_scratch rsi, 2*64, 64, rdi, rdi
+	sse2mac sscase173, 256, 100000, r4spm_x2cl_four_complex_first_djbfft_scratch rsi, 2*64, 64, rdi, rdi
+	sse2mac sscase174, 256, 4096, r4spm_x4cl_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, 0
+	sse2mac sscase175, 256, 100000, r4spm_x4cl_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, 0
 
 ; Exit the timing code
 

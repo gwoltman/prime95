@@ -11,8 +11,8 @@ objconv=c:\objconv\objconv
 # Use the 64-bit C compiler
 
 cl64=cl /GF /W3 /MT /DX86_64 /D_CRT_SECURE_NO_DEPRECATE /O2 /c
-cl64d=cl /GF /W3 /MT /DX86_64 /D_CRT_SECURE_NO_DEPRECATE /DGDEBUG /Zi /c
-cl64do=cl /GF /W3 /MT /DX86_64 /D_CRT_SECURE_NO_DEPRECATE /DGDEBUG /Zi /O2 /c
+cl64d=cl /GF /W3 /MT /DX86_64 /D_CRT_SECURE_NO_DEPRECATE /DGDEBUG /Z7 /c
+cl64do=cl /GF /W3 /MT /DX86_64 /D_CRT_SECURE_NO_DEPRECATE /DGDEBUG /Z7 /O2 /c
 
 # List of all buildables in this makefile
 
@@ -20,15 +20,15 @@ all:	gwnum64.lib gwnum64d.lib linux64\gwnum.a macosx64\gwnum.a amd64\release\ecm
 
 # Make libraries out of the object files
 
-gwnum64.lib: amd64\release\cpuid.obj amd64\release\gwnum.obj amd64\release\gwthread.obj amd64\release\gwutil.obj amd64\release\gwdbldbl.obj amd64\release\giants.obj amd64\xmult1ax.obj amd64\xmult2.obj amd64\xmult2a.obj amd64\xmult2ap.obj amd64\xmult2ax.obj amd64\hgcore.obj amd64\hgp4.obj amd64\hgk8.obj amd64\r4core.obj amd64\r4p4.obj amd64\r4k8.obj amd64\cpuidhlp.obj amd64\mult.obj amd64\gianthlp.obj amd64\timeit.obj amd64\timeitp.obj
+gwnum64.lib: amd64\release\cpuid.obj amd64\release\gwnum.obj amd64\release\gwthread.obj amd64\release\gwutil.obj amd64\release\gwdbldbl.obj amd64\release\giants.obj amd64\xmult1ax.obj amd64\xmult2.obj amd64\xmult2a.obj amd64\xmult2ap.obj amd64\xmult2ax.obj amd64\hgcore.obj amd64\hgp4.obj amd64\hgk8.obj amd64\r4core.obj amd64\r4p4.obj amd64\r4k8.obj amd64\r4spmcore.obj amd64\r4spmp4.obj amd64\r4spmk8.obj amd64\cpuidhlp.obj amd64\mult.obj amd64\gianthlp.obj amd64\timeit.obj amd64\timeitp.obj
     del gwnum64.lib
     lib /OUT:gwnum64.lib amd64\release\*.obj amd64\*.obj
 
-gwnum64d.lib: amd64\debug\cpuid.obj amd64\debug\gwnum.obj amd64\debug\gwthread.obj amd64\debug\gwutil.obj amd64\debug\gwdbldbl.obj amd64\debug\giants.obj amd64\xmult1ax.obj amd64\xmult2.obj amd64\xmult2a.obj amd64\xmult2ap.obj amd64\xmult2ax.obj amd64\hgcore.obj amd64\hgp4.obj amd64\hgk8.obj amd64\r4core.obj amd64\r4p4.obj amd64\r4k8.obj amd64\cpuidhlp.obj amd64\mult.obj amd64\gianthlp.obj amd64\timeit.obj amd64\timeitp.obj
+gwnum64d.lib: amd64\debug\cpuid.obj amd64\debug\gwnum.obj amd64\debug\gwthread.obj amd64\debug\gwutil.obj amd64\debug\gwdbldbl.obj amd64\debug\giants.obj amd64\xmult1ax.obj amd64\xmult2.obj amd64\xmult2a.obj amd64\xmult2ap.obj amd64\xmult2ax.obj amd64\hgcore.obj amd64\hgp4.obj amd64\hgk8.obj amd64\r4core.obj amd64\r4p4.obj amd64\r4k8.obj amd64\r4spmcore.obj amd64\r4spmp4.obj amd64\r4spmk8.obj amd64\cpuidhlp.obj amd64\mult.obj amd64\gianthlp.obj amd64\timeit.obj amd64\timeitp.obj
     del gwnum64d.lib
     lib /OUT:gwnum64d.lib amd64\debug\*.obj amd64\*.obj
 
-linux64\gwnum.a: linux64\xmult1ax.obj linux64\xmult2.obj linux64\xmult2a.obj linux64\xmult2ap.obj linux64\xmult2ax.obj linux64\hgcore.obj linux64\hgp4.obj linux64\hgk8.obj linux64\r4core.obj linux64\r4p4.obj linux64\r4k8.obj linux64\cpuidhlp.obj linux64\mult.obj linux64\gianthlp.obj linux64\timeit.obj linux64\timeitp.obj
+linux64\gwnum.a: linux64\xmult1ax.obj linux64\xmult2.obj linux64\xmult2a.obj linux64\xmult2ap.obj linux64\xmult2ax.obj linux64\hgcore.obj linux64\hgp4.obj linux64\hgk8.obj linux64\r4core.obj linux64\r4p4.obj linux64\r4k8.obj linux64\r4spmcore.obj linux64\r4spmp4.obj linux64\r4spmk8.obj linux64\cpuidhlp.obj linux64\mult.obj linux64\gianthlp.obj linux64\timeit.obj linux64\timeitp.obj
     attrib -r linux64\gwnum.a
     del linux64\gwnum.a
     lib /OUT:linux64\gwnum.lib linux64\*.obj
@@ -36,7 +36,7 @@ linux64\gwnum.a: linux64\xmult1ax.obj linux64\xmult2.obj linux64\xmult2a.obj lin
     attrib -r linux64\gwnum.a
     del linux64\gwnum.lib
 
-macosx64\gwnum.a: linux64\xmult1ax.obj linux64\xmult2.obj linux64\xmult2a.obj linux64\xmult2ap.obj linux64\xmult2ax.obj linux64\hgcore.obj linux64\hgp4.obj linux64\hgk8.obj linux64\r4core.obj linux64\r4p4.obj linux64\r4k8.obj linux64\cpuidhlp.obj linux64\mult.obj linux64\gianthlp.obj linux64\timeit.obj linux64\timeitp.obj
+macosx64\gwnum.a: linux64\xmult1ax.obj linux64\xmult2.obj linux64\xmult2a.obj linux64\xmult2ap.obj linux64\xmult2ax.obj linux64\hgcore.obj linux64\hgp4.obj linux64\hgk8.obj linux64\r4core.obj linux64\r4p4.obj linux64\r4k8.obj linux64\r4spmcore.obj linux64\r4spmp4.obj linux64\r4spmk8.obj linux64\cpuidhlp.obj linux64\mult.obj linux64\gianthlp.obj linux64\timeit.obj linux64\timeitp.obj
     attrib -r macosx64\gwnum.a
     del macosx64\gwnum.a
     lib /OUT:macosx64\gwnum.lib linux64\*.obj
@@ -122,6 +122,15 @@ amd64\r4p4.obj: r4p4.asm xmult.mac r4.mac r4pass1sc.mac r4pass2.mac
 
 amd64\r4k8.obj: r4k8.asm xmult.mac r4.mac r4pass1sc.mac r4pass2.mac
     $(masm64) /Foamd64\r4k8.obj r4k8.asm
+
+amd64\r4spmcore.obj: r4spmcore.asm xmult.mac r4spm.mac r4.mac r4spmpass1sc.mac r4spmpass2.mac
+    $(masm64) /Foamd64\r4spmcore.obj r4spmcore.asm
+
+amd64\r4spmp4.obj: r4spmp4.asm xmult.mac r4spm.mac r4.mac r4spmpass1sc.mac r4spmpass2.mac
+    $(masm64) /Foamd64\r4spmp4.obj r4spmp4.asm
+
+amd64\r4spmk8.obj: r4spmk8.asm xmult.mac r4spm.mac r4.mac r4spmpass1sc.mac r4spmpass2.mac
+    $(masm64) /Foamd64\r4spmk8.obj r4spmk8.asm
 
 amd64\cpuidhlp.obj: cpuidhlp.asm
     $(masm64) /Foamd64\cpuidhlp.obj cpuidhlp.asm

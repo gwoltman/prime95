@@ -36,7 +36,7 @@ ENDIF
 ;	4 SHL 24		(no prefetching)
 ;	2 SHL 24		(tlb priming)
 ;	1 SHL 24		(in_place)
-;	fft_type SHL 16		(hg=0, r4=1)
+;	fft_type SHL 16		(hg=0, r4=1, r4spm=2)
 ;	arch SHL 12		(ppro=0,p3=1,p4=2,core=3,k8=4,k10=5)
 ;	min_L2_cache SHL 8	(0=0,128KB=1,WILLI=2,CELE_D=3,512KB=4,1024KB=5,2048KB=6)
 ;	clm SHL 4		(1,2,4,8)
@@ -87,6 +87,8 @@ PRCENTRY MACRO procname, mem_needed, L2arg
 		fft_type = 0
 	ELSEIF (@INSTR (,@CATSTR(procname),_r4_)) NE 0
 		fft_type = 1
+	ELSEIF (@INSTR (,@CATSTR(procname),_r4spm_)) NE 0
+		fft_type = 2
 	ELSE
 		bad_sse2_fft_type
 	ENDIF
@@ -1096,10 +1098,14 @@ xjmptablep DD	739,	32,	0.00000111
 	DD	77700000, 4194304, 0.425
 	PRCENTRY		xfft_hg_4096K_ac_13_1_K8, 5462016, 512
 	PRCENTRY		xfft_hg_4096K_ac_12_1_K8, 6459392
-	PRCENTRY		xfft_r4_4096K_ac_12_1_K8, 16459392
+	PRCENTRY		xfft_r4spm_4096K_ac_12_1_K8, 66459392
+	PRCENTRY		xfft_r4spm_4096K_ac_12_4_CORE, 66459392
+	PRCENTRY		xfft_r4spm_4096K_ac_12_4_P4, 66459392, 1024
+	PRCENTRY		xfft_r4spm_4096K_ac_tp_12_2_P4, 66459392, 512
+	PRCENTRY		xfft_r4_4096K_ac_12_1_K8, 66459392
 	PRCENTRY		xfft_r4_4096K_ac_12_4_CORE, 66459392
 	PRCENTRY		xfft_r4_4096K_ac_12_4_P4, 66459392, 1024
-	PRCENTRY		xfft_r4_4096K_ac_tp_12_2_P4, 6459392, 512
+	PRCENTRY		xfft_r4_4096K_ac_tp_12_2_P4, 66459392, 512
 	PRCENTRY		xfft_hg_4096K_ac_12_4_CORE, 6459392, 1024
 	PRCENTRY		xfft_hg_4096K_ac_12_4_P4, 6459392, 1024
 	PRCENTRY		xfft_hg_4096K_ac_tp_12_2_P4, 6459392, 512
