@@ -6981,7 +6981,7 @@ int prp (
 	int	max_read_attempts, first_iter_msg, res, stop_reason;
 	int	echk, saving, near_fft_limit, sleep5, isProbablePrime;
 	unsigned long Nlen, counter, iters, error_count;
-	int	slow_iteration_count;
+	int	prp_base, slow_iteration_count;
 	double	timers[2];
 	double	inverse_Nlen;
 	double	reallyminerr = 1.0;
@@ -7034,11 +7034,18 @@ int prp (
 	if (stop_reason) return (stop_reason);
 #endif
 
+/* For testing purposes (to mimic LLRs PRP tests) we can support bases other than 3. */
+/* Note that before this becomes an official feature, the PRP base should be written */
+/* to the save file and validated on reading.  The Res64 output line should output the */
+/* non-standard base. */	
+
+	prp_base = IniGetInt (INI_FILE, "PRPBase", 3);
+
 /* Init the FFT code for squaring modulo k*b^n+c. */
 
 begin:	gwinit (&gwdata);
-	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
-		gwset_use_large_pages (&gwdata);
+	gwsetmaxmulbyconst (&gwdata, prp_base);
+	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&gwdata);
 	gwset_num_threads (&gwdata, THREADS_PER_TEST[thread_num]);
 	gwset_thread_callback (&gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&gwdata, sp_info);
@@ -7098,7 +7105,7 @@ begin:	gwinit (&gwdata);
 /* If there are no more save files, start off with the 1st PRP squaring. */
 
 		if (! saveFileExists (thread_num, filename)) {
-			dbltogw (&gwdata, 3.0, x);
+			dbltogw (&gwdata, (double) prp_base, x);
 			counter = 0;
 			error_count = 0;
 			first_iter_msg = FALSE;
@@ -7171,7 +7178,7 @@ t1 = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 4) + 5);
 t2 = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 4) + 5);
 gwtogiant (&gwdata, x, t1);
 #endif
-	gwsetmulbyconst (&gwdata, 3);
+	gwsetmulbyconst (&gwdata, prp_base);
 	iters = 0;
 	while (counter < Nlen - 1) {
 
