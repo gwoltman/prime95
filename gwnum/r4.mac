@@ -663,7 +663,7 @@ r4_x2cl_four_complex_first_fft_cmn MACRO srcreg,off,srcinc,d1,screg
 	xload	xmm1, [srcreg+off+16]		;; R3
 	xload	xmm3, [srcreg+off+48]		;; R7 (I3)
 	subpd	xmm1, xmm3			;; A3 = R3 - I3
-	addpd	xmm3, [srcreg+off+16]		;; B3 = R3 + R3
+	addpd	xmm3, [srcreg+off+16]		;; B3 = R3 + I3
 	mulpd	xmm1, XMM_SQRTHALF		;; A3 = A3 * SQRTHALF (new R3)
 	mulpd	xmm3, XMM_SQRTHALF		;; B3 = B3 * SQRTHALF (new I3)
 
