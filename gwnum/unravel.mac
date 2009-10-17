@@ -1645,29 +1645,23 @@ loops	MACRO iters, dest, incr
 	    ENDIF
 	    jnc	dest
 	  ELSE
-	    IF loops_count LE 128
-	      IF (iters)*loops_completed LE 128
-	        test al, (iters)*loops_completed-1
-	        jnz dest
-	      ELSE
-	        error_looped_more_than_loop_count
-	      ENDIF
-	    ELSE
-	      IF (iters)*loops_completed LE 128
-	        test al, (iters)*loops_completed-1
-	        jnz dest
-	      ENDIF
-	      IF (iters)*loops_completed EQ 256
-	        test al, al
-	        jnz dest
-	      ENDIF
-	      IF (iters)*loops_completed GT 256
-	        test eax, (iters)*loops_completed-1
-	        jnz dest
-	      ENDIF
+	    IF (iters)*loops_completed LE 128
+	      test al, (iters)*loops_completed-1
+	      jnz dest
+	    ENDIF
+	    IF (iters)*loops_completed EQ 256
+	      test al, al
+	      jnz dest
+	    ENDIF
+	    IF (iters)*loops_completed GT 256
+	      test eax, (iters)*loops_completed-1
+	      jnz dest
 	    ENDIF
 	  ENDIF
 	  loops_completed = (iters) * loops_completed
+	  IF loops_completed GT loops_count
+	    error_looped_more_than_loop_count
+	  ENDIF
 	ENDIF
 	ENDM
 
