@@ -2615,7 +2615,7 @@ b2b:	x4cl_four_complex_cpm_fft rsi, 64, dist128, 2*dist128, 8*XMM_PMD
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	mov	rbx, xsincos_complex
 	mov	rbp, xsincos_complex
-	loops_init 256			;; 2 iters of 4 of 4 of 32 cache lines
+	loops_init 512			;; 2 iters of 4 of 4 of 32 cache lines
 
 	xtouch	[rcx]			;; Load first TLB
 	xtouch	[rcx+4096]		;; Load six prefetch TLBs
@@ -2848,7 +2848,7 @@ xpass2_11_levels_complex_unfft:
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	mov	rbx, xsincos_complex
 	mov	rbp, xsincos_complex
-	loops_init 256			;; 128 iterations of 2
+	loops_init 512			;; 128 iterations of 2
 
 	xtouch	[rcx+4096-128]		;; Load six prefetch TLBs
 	xtouch	[rcx+2*4096-128]
@@ -3128,7 +3128,7 @@ b3b:	x4cl_four_complex_fft rsi, 2*64, 4*dist128, 8*dist128, rdi
 ;;	do 128 macros each processing 16 data values
 
 	mov	rdi, sincos10		;; Load sin/cos pointer
-	loops_init 512
+	loops_init 1024
 b3c:	x2cl_eight_reals_fft_1 rsi, 2*64, 2*dist128
 	loops	64, b3c			;; Test inner loop counter
 	bump	rsi, -64*2*64+dist128	;; Next source pointer
