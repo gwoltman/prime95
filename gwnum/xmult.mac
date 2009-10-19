@@ -29,6 +29,8 @@ XMM_SCD1 = 32			;; Sizeof an SSE2 small sin/cos table entry
 XMM_SCD2 = 64			;; Sizeof an SSE2 DJB sin/cos table entry
 XMM_SCD	= 96			;; Sizeof an SSE2 sin/cos table entry
 XMM_PMD = 128			;; Sizeof an entry in premultiplier table
+XMM_SCD5 = 160			;; Sizeof an radix-8 DJB table entry
+XMM_SCD8 = 256			;; Sizeof an radix-8 with premultipliers table entry
 
 ;; 
 ;; Number of pad bytes between two pass 2 data blocks.  For best distribution
@@ -118,6 +120,7 @@ GAP2_13_8	= 1024
 ;	hg = home-grown (my radix-4 with delayed sin/cos multipliers)
 ;	r4 = radix-4 DJB
 ;	r4spm = radix-4 DJB split premultipliers (uses less memory at the cost of a few complex mults)
+;	r4r8 = radix-4/8 DJB split premultipliers (like spm but radix-8 if odd FFT levels)
 ;	rolle = rolle patented
 ;	exp = experimental
 ;	sr = split-radix
@@ -257,6 +260,7 @@ nozpad:
 ;	hg = home-grown (my radix-4 with delayed sin/cos multipliers and Bailey pre-multipliers)
 ;	r4 = radix-4 DJB
 ;	r4spm = radix-4 DJB split premultipliers to use less memory
+;	r4r8 = radix-4/8 DJB split premultipliers
 ;	rolle = rolle patented
 ;	exp = experimental
 ;	sr = split-radix
@@ -571,6 +575,7 @@ a0b:	movapd	xmm0, [rsi]		;; Copy a cache line
 ;	<blank> = historic (my radix-4 with delayed sin/cos multipliers and Bailey pre-multipliers)
 ;	r4 = radix-4 DJB
 ;	r4spm = radix-4 DJB split premultipliers to use less memory 
+;	r4r8 = radix-4/8 DJB split premultipliers
 ;	rolle = rolle patented
 ;	exp = experimental
 ;	sr = split-radix

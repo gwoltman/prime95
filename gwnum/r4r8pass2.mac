@@ -1,0 +1,24 @@
+; Copyright 2009 - Mersenne Research, Inc.  All rights reserved
+; Author:  George Woltman
+; Email: woltman@alum.mit.edu
+;
+; These macros do the second pass of a radix-4 2 pass FFTs using SSE2 instructions.
+; This is like the radix-4 split-premultipliers FFT except that odd FFT levels are
+; done with a radix-8 step.
+;
+
+INCLUDE r4spmpass2.mac
+
+r4r8_pass2_12_levels_real MACRO
+	;; not implemented yet
+	ENDM
+
+; *************** radix4-pass2-12-levels-complex macro ******************
+; This macro takes 2 groups of 4096 complex values and
+; performs the final 12 levels of a standard radix-4 FFT, squares the
+; results, and does the first 12 levels of the inverse FFT.
+
+r4r8_pass2_12_levels_complex MACRO
+	r4spm_pass2_12_levels_complex
+	ENDM
+
