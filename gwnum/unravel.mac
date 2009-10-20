@@ -1581,11 +1581,13 @@ Q	EQU	<QWORD PTR>
 ;; Caller must be aware that condition codes may be changed.
 
 bump	MACRO	reg, amt
+	IFNB <reg>
 	IF amt NE 0
 	IF amt EQ 128
 	sub	reg, -(amt)
 	ELSE
 	add	reg, amt
+	ENDIF
 	ENDIF
 	ENDIF
 	ENDM
