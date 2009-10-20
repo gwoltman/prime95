@@ -58,9 +58,9 @@ r4_pass2_12_levels_complex MACRO
 	loops_init 1024			;; 8 iterations of 128
 b1b:	r4_s2cl_four_complex_djbfft rsi, 64, 8*dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
-;	v26_xprefetcht1 [rsi+4*64]	;; Prefetch a few iterations ahead in
-;	v26_xprefetcht1 [rsi+8*dist128+4*64];; case they are not in the L2 cache
-;	v26_xprefetcht1 [rdi+4*XMM_SCD2]
+;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
+;	xprefetcht1 [rsi+8*dist128+4*64];; case they are not in the L2 cache
+;	xprefetcht1 [rdi+4*XMM_SCD2]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	8, b1b			;; Test outer loop counter
@@ -187,10 +187,7 @@ b3b0:	xtouch	[rcx+4096-128]		;; Load six prefetch TLBs
 
 b3b:	r4_x4cl_four_complex_djbfft rsi, 4*64, 64*64, dist128, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sine/cosine pointer
-	loops	2, b3b			;; Loop twice
-	v26_xprefetcht1 [rcx]
-	bump	rcx, 64
-	loops	8, b3b			;; Loop eight times
+	loops_prefetch 2, rcx, 8, b3b	;; Loop twice, prefetch 64 bytes, loop eight times
 	bump	rsi, -16*4*64		;; Restore source pointer
 	bump	rdi, -16*4*XMM_SCD2	;; Restore sine/cosine pointer
 	bump	rcx, -8*64+8192+128	;; Prefetch from next section
@@ -198,10 +195,7 @@ b3b:	r4_x4cl_four_complex_djbfft rsi, 4*64, 64*64, dist128, rdi
 
 b4b:	r4_x4cl_four_complex_djbfft rsi, 4*64, 16*64, 32*64, rbx
 	bump	rbx, 4*4*XMM_SCD2	;; Next sine/cosine pointer
-	loops	2, b4b			;; Loop twice
-	v26_xprefetcht1 [rcx]
-	bump	rcx, 64
-	loops	2, b4b			;; Loop twice
+	loops_prefetch	2, rcx, 2, b4b	;; Loop twice, prefetch 64 bytes, loop twice
 	bump	rsi, -4*4*64+64*64	;; Next source pointer
 	bump	rbx, -4*4*4*XMM_SCD2	;; Restore sine/cosine pointer
 	loops	2, b4b			;; Loop twice
@@ -212,10 +206,7 @@ b4b:	r4_x4cl_four_complex_djbfft rsi, 4*64, 16*64, 32*64, rbx
 	loops_undo 2*2*2*2		;; Back up loop counter
 
 b5b:	r4_x4cl_four_complex_djbfft rsi, 16*64, 4*64, 8*64, rbp
-	loops	2, b5b			;; Loop twice
-	v26_xprefetcht1 [rcx]
-	bump	rcx, 64
-	loops	4, b5b			;; Loop four times
+	loops_prefetch	2, rcx, 4, b5b	;; Loop twice, prefetch 64 bytes, loop four times
 	bump	rsi, -8*16*64+dist128	;; Next source pointer
 	loops	2, b5b			;; Loop twice
 	bump	rcx, -2*(8192+128)	;; Back to prefetching from 1st section
@@ -266,10 +257,7 @@ xpass2_12_levels_complex_2:
 b6a0:	xtouch	[rcx+4096-128]		;; Load prefetch TLBs
 	xtouch	[rcx+2*4096-128]
 b6a:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
-	loops	2, b6a			;; Loop twice
-	v26_xprefetcht1 [rcx]
-	bump	rcx, 64
-	loops	16, b6a			;; Loop 16 times
+	loops_prefetch 2, rcx, 16, b6a	;; Loop twice, prefetch 64 bytes, loop 16 times
 	bump	rsi, -16*2*4*64+dist128	;; Next source pointer
 	loops	8, b6a			;; Loop 8 times
 	bump	rcx, -64*128+(8192+128)	;; Prefetch next section
@@ -302,10 +290,7 @@ xpass2_12_levels_complex_3:
 b6c0:	xtouch	[rcx+4096-128]		;; Load prefetch TLBs
 	xtouch	[rcx+2*4096-128]
 b6c:	r4_x4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
-	loops	2, b6c			;; Loop twice
-	v26_xprefetcht1 [rcx]
-	bump	rcx, 64
-	loops	16, b6c			;; Loop 16 times
+	loops_prefetch 2, rcx, 16, b6c	;; Loop twice, prefetch 64 bytes, loop 16 times
 	bump	rsi, -16*2*4*64+dist128	;; Next source pointer
 	loops	8, b6c			;; Loop 8 times
 	bump	rcx, -64*128+(8192+128)	;; Prefetch next section
@@ -411,20 +396,14 @@ c5b0:	xtouch	[rcx+4096-128]		;; Load six prefetch TLBs
 	xtouch	[rcx+6*4096-128]
 
 c5b:	r4_x4cl_four_complex_djbunfft rsi, 8*64, 2*64, 4*64, rbp, 2*16*XMM_SCD2
-	loops	2, c5b			;; Loop twice
-	v26_xprefetcht1 [rcx]
-	bump	rcx, 64
-	loops	8, c5b			;; Loop 8 times
+	loops_prefetch 2, rcx, 8, c5b	;; Loop twice, prefetch 64 bytes, loop 8 times
 	bump	rsi, -16*8*64		;; Restore source pointer
 	bump	rcx, -8*64+8192+128	;; Prefetch from next section
 	loops_undo 8*2			;; Restore loop counter
 
 c4b:	r4_x4cl_four_complex_djbunfft rsi, 2*64, 8*64, 16*64, rbx, 8*4*XMM_SCD2
 	bump	rbx, 2*4*XMM_SCD2	;; Next sine/cosine pointer
-	loops	2, c4b			;; Loop twice
-	v26_xprefetcht1 [rcx]
-	bump	rcx, 64
-	loops	2, c4b			;; Loop twice
+	loops_prefetch 2, rcx, 2, c4b	;; Loop twice, prefetch 64 bytes, loop twice
 	bump	rsi, -4*2*64+32*64	;; Next source pointer
 	bump	rbx, -4*2*4*XMM_SCD2	;; Restore sine/cosine pointer
 	loops	4, c4b			;; Loop 4 times
@@ -434,10 +413,7 @@ c4b:	r4_x4cl_four_complex_djbunfft rsi, 2*64, 8*64, 16*64, rbx, 8*4*XMM_SCD2
 
 c3b:	r4_x4cl_four_complex_djbunfft rsi, 2*64, 32*64, 64*64, rdi, 32*1*XMM_SCD2
 	bump	rdi, 2*XMM_SCD2		;; Next sine/cosine pointer
-	loops	2, c3b			;; Loop twice
-	v26_xprefetcht1 [rcx]
-	bump	rcx, 64
-	loops	8, c3b			;; Loop 8 times
+	loops_prefetch 2, rcx, 8, c3b	;; Loop twice, prefetch 64 bytes, loop 8 times
 	bump	rcx, -2*(8192+128)	;; Back to prefetching from 1st section
 	bump	rdi, -16*2*XMM_SCD2	;; Restore sine/cosine pointer
 
@@ -483,10 +459,7 @@ c2a:	xtouch	[rcx+4096-128]		;; Load prefetch TLBs
 	xtouch	[rcx+2*4096-128]
 c2b:	r4_x4cl_four_complex_djbunfft rsi, 64, dist128, 2*dist128, rdi, 128*4*XMM_SCD2
 	bump	rdi, 4*XMM_SCD2		;; Next sine/cosine pointer
-	loops	2, c2b			;; Test inner loop counter
-	v26_xprefetcht1 [rcx]
-	bump	rcx, 64
-	loops	64, c2b			;; Test inner loop counter
+	loops_prefetch 2, rcx, 64, c2b	;; Loop twice, prefetch 64 bytes, loop 64 times
 	bump	rsi, -128*64+4*dist128	;; Next source pointer
 	bump	rdi, -128*4*XMM_SCD2	;; Reset sine/cosine pointer
 	loops	2, c2b			;; Test loop counter

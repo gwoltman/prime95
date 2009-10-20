@@ -136,20 +136,6 @@ xprefetchw MACRO addr
 	ENDIF
 	ENDM
 
-; Macro to prefetch a 64-byte line into the L2 cache
-; Modern CPUs except the P4 fetch 64-byte cache lines.
-; The P4 prefetches 128 bytes at a time.
-
-v26_xprefetcht1 MACRO addr
-	IF PREFETCHING NE 0
-	IFDEF AMD
-	prefetchw addr
-	ELSE
-	prefetcht1 addr
-	ENDIF
-	ENDIF
-	ENDM
-
 ;;
 ;; Macros that do a complex squaring or multiplication
 ;;

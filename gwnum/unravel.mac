@@ -1622,11 +1622,18 @@ loops_init MACRO count, first_completed, first_iters
 	ENDIF
 	loops_count = count
 	loops_completed = 1
+	loops_delayed_prefetch = 0
 	ENDM
 
 loops	MACRO iters, dest, incr
 	IF iters GT 1
-	  IF loops_completed EQ 1
+	  IF loops_delayed_prefetch EQ 1
+	    loops_delayed_prefetch = 0
+	    loops 2, dest, incr
+	    prefetcht1 [loops_delayed_pfreg]
+	    bump loops_delayed_pfreg, 128
+	    loops (iters)/2, dest
+	  ELSEIF loops_completed EQ 1
 	    IF (loops_count LE 256 AND iters EQ loops_count)
 	      add al, 256/(iters)
 	    ELSE
@@ -1679,6 +1686,32 @@ loops_undo MACRO iters
 loops_reset MACRO
 	loops_completed = 1
 	ENDM
+
+;; Prefetch 64 bytes of data and loop.  Handles architectures that
+;; prefetch 64 or 128 bytes at a time.
+
+loops_prefetch MACRO count1, pfreg, count2, dest
+	IF count2 EQ 1 AND PREFETCHING EQ 128
+	loops	count1, dest
+	loops_delayed_prefetch = 1
+	loops_delayed_pfreg EQU pfreg
+	ELSEIF PREFETCHING EQ 0
+	loops	count1*count2, dest
+	ELSEIF PREFETCHING EQ 64
+	loops	count1, dest
+	prefetcht1 [pfreg]
+	bump	pfreg, 64
+	loops	count2, dest
+	ELSEIF PREFETCHING EQ 128
+	loops	(count1)*2, dest
+	prefetcht1 [pfreg]
+	bump	pfreg, 128
+	loops	(count2)/2, dest
+	ELSE
+	unhandled_loops_prefetch
+	ENDIF
+	ENDM
+
 
 ; Macro to flush the P4 trace cache
 

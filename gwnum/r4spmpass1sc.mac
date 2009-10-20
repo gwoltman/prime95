@@ -90,10 +90,7 @@ pfing	lea	rbp, [rdi+2*XMM_PMD]	;; Prefetch the sin/cos/premult data we are about
 c9a:	xtouch	[rbp+4096]		;; Prefetch TLB
 c9b:	r4spm_g2cl_four_complex_ac_djbunfft rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 	bump	rdi, XMM_PMD		;; Next premult/sin/cos data
-	loops	2, c9b			;; Test loop counter
-	v26_xprefetcht1 [rbp]		;; Prefetch 64 bytes of premult/sin/cos data
-pfing	bump	rbp, 64			;; Next prefetch pointer
-	loops	clm, c9b		;; Test loop counter
+	loops_prefetch	2, rbp, clm, c9b ;; Loop twice, prefetch 64 bytes, loop clm times
 	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
 	bump	rcx, -2*clm*64+2*clmblkdst ;; Next dest pointer
 	bump	rdi, -2*clm*XMM_PMD	;; Restore premult/sin/cos data pointer
@@ -128,9 +125,7 @@ pfing	bump	rbp, 64			;; Next prefetch pointer
 c7a:	xtouch	[rbp+4096]		;; Preload TLB
 c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next clm's sin/cos data
-	v26_xprefetcht1 [rbp]		;; Prefetch 64 bytes of sin/cos/premult data
-pfing	bump	rbp, 64			;; Next prefetch pointer
-	loops	2*clm, c7b		;; 2*clm iterations
+	loops_prefetch 1, rbp, 2*clm, c7b ;; Loop once, prefetch 64 bytes, loop 2*clm times
 	bump	rsi, -2*clm*64+clmblkdst ;; Next source pointer
 	loops	2, c7b			;; 2 iterations
 	bump	rsi, -2*clmblkdst+clmblkdst8 ;; Next source pointer
@@ -167,9 +162,7 @@ pfing	lea	rbp, [rbp-2*XMM_PMD-10*2*clm*64];; Adjust pointer so we only prefetch 
 c5a:	xtouch	[rbp+4096]		;; Preload TLB
 c5b:	r4_x4cl_four_complex_djbunfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 8*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next clm's sin/cos data
-	v26_xprefetcht1 [rbp]		;; Prefetch 64 bytes of sin/cos/premult data
-pfing	bump	rbp, 64			;; Next prefetch pointer
-	loops	2*clm, c5b		;; 2*clm iterations
+	loops_prefetch 1, rbp, 2*clm, c5b ;; Loop once, prefetch 64 bytes, loop 2*clm times
 	bump	rsi, -2*clm*64+clmblkdst ;; Next source pointer
 	loops	8, c5b			;; 8 iterations
 	bump	rsi, -8*clmblkdst+4*clmblkdst8 ;; Next source pointer
@@ -202,14 +195,8 @@ pfing	bump	rbp, 64			;; Next prefetch pointer
 
 	start_timer 19
 	loops_init 128*2*clm		;; 128 iterations of 2*clm
-c3a:	;xtouch	[rbp+4096]		;; Preload TLB
-	;xtouch	[rbp+2*4096]		;; Preload TLB
 c3b:	r4_x2cl_two_complex_unfft rsi, 64, 4*clmblkdst8, 32*2*clm*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sine/cosine pointer
-	;loops	2, c3b			;; 2 iterations
-	;v26_xprefetcht1 [rbp]		;; Prefetch 64 bytes of sin/cos/premult data
-pfing	;bump	rbp, 64			;; Next prefetch pointer
-	;loops	clm, c3b
 	loops	2*clm, c3b
 	bump	rsi, -2*clm*64+clmblkdst ;; Next source pointer
 	loops	8, c3b			;; 8 iterations
@@ -217,8 +204,6 @@ pfing	;bump	rbp, 64			;; Next prefetch pointer
 	loops	4, c3b			;; 4 iterations
 	bump	rsi, -4*clmblkdst8+8*clmblkdst8 ;; Next source pointer
 	bump	rdi, -32*2*clm*XMM_SCD1	;; Restore sine/cosine pointer
-	;loops	128/4/8/clm, c3b	;; Loop until 128 cache lines prefetched
-	;loops	clm, c3a		;; Test outer loop counter
 	loops	4, c3b			;; Test outer loop counter
 	bump	rsi, -32*clmblkdst8	;; Restore source pointer
 	bump	rdi, 64*2*clm*XMM_SCD1	;; Next sin/cos data pointer
@@ -245,18 +230,13 @@ pfing	;bump	rbp, 64			;; Next prefetch pointer
 	start_timer 20
 	mov	rdx, sincos1		;; Load fixed all-complex premultipliers
 	loops_init 64*2*clm		;; 64 iterations of 2*clm
-c1a:	;xtouch	[rbp+4096]		;; Preload TLB
 c1b:	r4spm_x4cl_four_complex_last_djbunfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rdi, 64*2*clm*XMM_SCD2, rdx, 64*XMM_PMD
 	bump	rdi, XMM_SCD2		;; Next sin/cos ptr
-	;v26_xprefetcht1 [rbp]		;; Prefetch 64 bytes of sin/cos/premult data
-pfing	;bump	rbp, 64			;; Next prefetch pointer
 	loops	2*clm, c1b		;; 2*clm iterations
 	bump	rsi, -2*clm*64+clmblkdst ;; Next source pointer
 	bump	rdx, XMM_PMD		;; Next premultiplier ptr
 	loops	8, c1b			;; 8 iterations
 	bump	rsi, -4*2*clmblkdst+clmblkdst8 ;; Next source pointer
-	;loops	64/8/(2*clm), c1b	;; Loop until 64 cache lines prefetched
-	;loops	2*clm, c1a		;; Test outer loop counter
 	loops	8, c1b			;; Test outer loop counter
 	end_timer 20
 
@@ -477,129 +457,147 @@ endlp:	xpass1_get_next_block pass2, c0b, b0b ;; Get next block and jump
 ;; every building block macro called.
 
 newxloop1 MACRO	label2, incr_rsi, sc_incr_reg, sc_incr_amt
-	IF clm EQ 1
+	IF PREFETCHING EQ 0
+
 	loops	2*clm, label2		;; Test inner loop counter
 	bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
-	IFNB	<sc_incr_reg>
 	bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
-	ENDIF
-	xprefetcht1 [rcx]
-pfing	bump	rcx, blkdst		;; Next prefetch pointer
+
+	ELSEIF PREFETCHING EQ 64
+
+	prefetcht1 [rcx]
+	bump	rcx, 64			;; Next prefetch pointer
+	loops	2*clm, label2		;; Test inner loop counter
+	bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
+	bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
+	bump	rcx, -2*clm*64+blkdst	;; Next prefetch pointer
+
+	ELSEIF PREFETCHING EQ 128
+
+	loops	2, label2		;; Test inner loop counter
+	prefetcht1 [rcx]
+	IF clm EQ 1
+	  bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
+	  bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
+	  bump	rcx, blkdst		;; Next prefetch pointer
+	ELSE
+	  bump	rcx, 128
+	  loops	clm, label2
+	  bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
+	  bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
+	  bump	rcx, -clm*128+blkdst	;; Next prefetch pointer
 	ENDIF
 
-	IF clm GE 2
-	loops	2, label2		;; Test inner loop counter
-	xprefetcht1 [rcx]
-	bump	rcx, 128
-	loops	clm, label2
-	bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
-	IFNB	<sc_incr_reg>
-	bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
 	ENDIF
-	bump	rcx, -clm*128+blkdst	;; Next prefetch pointer
-	ENDIF
+
 	ENDM
 
 ;; This macro loops 2*2*clm times, prefetching one 64-byte cache line for
 ;; every 2 building block macros called.
 newxloop2 MACRO label2, incr_rsi, sc_incr_reg, sc_incr_amt
-	IF clm EQ 1
+	IF PREFETCHING EQ 0
 
-	IFB	<sc_incr_reg>
-	IF incr_rsi NE 2*clm*64
-	loops	2, label2		;; Test inner loop counter
-	bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
-	loops	2, label2		;; Test middle loop counter
-	ELSE
-	loops	4, label2		;; Test inner loop counter
-	ENDIF
-	ELSEIF incr_rsi NE 2*clm*64 OR sc_incr_amt NE 0
-	loops	2, label2		;; Test inner loop counter
-	bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
-	bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
-	loops	2, label2		;; Test middle loop counter
-	ELSE
-	loops	4, label2		;; Test inner loop counter
-	ENDIF
-	xprefetcht1 [rcx]
-pfing	bump	rcx, blkdst		;; Next prefetch pointer
-	ENDIF
-
-	IF clm EQ 2
 	loops	2*clm, label2		;; Test inner loop counter
-	xprefetcht1 [rcx]
-	bump	rcx, 128
 	bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
-	IFNB	<sc_incr_reg>
 	bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
-	ENDIF
+	loops	2, label2		;; Test outer loop counter
+
+	ELSEIF PREFETCHING EQ 64
+
+	loops	2, label2		;; Test inner loop counter
+	prefetcht1 [rcx]
+	bump	rcx, 64			;; Next prefetch pointer
+	loops	clm, label2		;; Test middle loop counter
+	bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
+	bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
 	loops	2, label2		;; Test middle loop counter
-	bump	rcx, -clm*128+blkdst	;; Next prefetch pointer
+	bump	rcx, -2*clm*64+blkdst	;; Next prefetch pointer
+
+	ELSEIF PREFETCHING EQ 128
+
+	IF clm EQ 1
+	  loops	2*clm, label2		;; Test inner loop counter
+	  bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
+	  bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
+	  loops	2, label2		;; Test outer loop counter
+	  prefetcht1 [rcx]
+	  bump	rcx, blkdst		;; Next prefetch pointer
+	ELSE
+	  loops	4, label2		;; Test inner loop counter
+	  prefetcht1 [rcx]
+	  bump	rcx, 128		;; Next prefetch pointer
+	  loops	2*clm/4, label2		;; Test middle loop counter
+	  bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
+	  bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
+	  loops	2, label2		;; Test outer loop counter
+	  bump	rcx, -2*clm*64+blkdst	;; Next prefetch pointer
 	ENDIF
 
-	IF clm GE 4
-	loops	4, label2		;; Test inner loop counter
-	xprefetcht1 [rcx]
-	bump	rcx, 128
-	loops	clm/2, label2
-	bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
-	IFNB	<sc_incr_reg>
-	bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
 	ENDIF
-	loops	2, label2		;; Test middle loop counter
-	bump	rcx, -clm*128+blkdst	;; Next prefetch pointer
-	ENDIF
+
 	ENDM
 
 ;; This macro loops 4*2*clm times, prefetching one 64-byte cache line for
 ;; every 4 building block macros called.
 newxloop4 MACRO	label2, incr_rsi, sc_incr_reg, sc_incr_amt
+	IF PREFETCHING EQ 0
+
+	loops	2*clm, label2		;; Test inner loop counter
+	bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
+	bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
+	loops	4, label2		;; Test outer loop counter
+
+	ELSEIF PREFETCHING EQ 64
+
 	IF clm EQ 1
-	loops	2*clm, label2		;; Test inner loop counter
-	bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
-	IFNB	<sc_incr_reg>
-	bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
-	ENDIF
-	loops	4, label2		;; Test outer loop counter
-	xprefetcht1 [rcx]
-pfing	bump	rcx, blkdst		;; Next prefetch pointer
-	ENDIF
-
-	IF clm EQ 2
-	loops	2*clm, label2		;; Test inner loop counter
-	bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
-	IFNB	<sc_incr_reg>
-	bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
-	ENDIF
-	loops	2, label2		;; Test middle loop counter
-	xprefetcht1 [rcx]
-	bump	rcx, 128
-	loops	2, label2		;; Test outer loop counter
-	bump	rcx, -clm*128+blkdst	;; Next prefetch pointer
+	  loops	2*clm, label2		;; Test inner loop counter
+	  bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
+	  bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
+	  loops	2, label2		;; Test middle loop counter
+	  prefetcht1 [rcx]
+	  bump	rcx, 64			;; Next prefetch pointer
+	  loops	2, label2		;; Test outer loop counter
+	  bump	rcx, -2*clm*64+blkdst	;; Next prefetch pointer
+	ELSE
+	  loops	4, label2		;; Test inner loop counter
+	  prefetcht1 [rcx]
+	  bump	rcx, 64			;; Next prefetch pointer
+	  loops	2*clm/4, label2		;; Test middle loop counter
+	  bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
+	  bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
+	  loops	4, label2		;; Test outer loop counter
+	  bump	rcx, -2*clm*64+blkdst	;; Next prefetch pointer
 	ENDIF
 
-	IF clm EQ 4
-	loops	2*clm, label2		;; Test inner loop counter
-	bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
-	IFNB	<sc_incr_reg>
-	bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
-	ENDIF
-	xprefetcht1 [rcx]
-	bump	rcx, 128
-	loops	4, label2		;; Test outer loop counter
-	bump	rcx, -clm*128+blkdst	;; Next prefetch pointer
+	ELSEIF PREFETCHING EQ 128
+
+	IF clm EQ 1
+	  loops	2*clm, label2		;; Test inner loop counter
+	  bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
+	  bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
+	  loops	8/(2*clm), label2	;; Test middle loop counter
+	  prefetcht1 [rcx]
+	  bump	rcx, blkdst		;; Next prefetch pointer
+	ELSEIF clm EQ 2
+	  loops	2*clm, label2		;; Test inner loop counter
+	  bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
+	  bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
+	  loops	8/(2*clm), label2	;; Test middle loop counter
+	  prefetcht1 [rcx]
+	  bump	rcx, 128		;; Next prefetch pointer
+	  loops	4*2*clm/8, label2	;; Test outer loop counter
+	  bump	rcx, -clm*128+blkdst	;; Next prefetch pointer
+	ELSE
+	  loops	8, label2		;; Test inner loop counter
+	  prefetcht1 [rcx]
+	  bump	rcx, 128		;; Next prefetch pointer
+	  loops	2*clm/8, label2		;; Test middle loop counter
+	  bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
+	  bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
+	  loops	4, label2		;; Test outer loop counter
+	  bump	rcx, -clm*128+blkdst	;; Next prefetch pointer
 	ENDIF
 
-	IF clm GT 4
-	loops	8, label2		;; Test inner loop counter
-	xprefetcht1 [rcx]
-	bump	rcx, 128
-	loops	clm/4, label2		;; Test loop counter
-	bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
-	IFNB	<sc_incr_reg>
-	bump	sc_incr_reg, sc_incr_amt ;; Next premultiplier pointer
 	ENDIF
-	loops	4, label2		;; Test outer loop counter
-	bump	rcx, -clm*128+blkdst	;; Next prefetch pointer
-	ENDIF
+
 	ENDM
