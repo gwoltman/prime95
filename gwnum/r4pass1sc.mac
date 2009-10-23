@@ -80,13 +80,13 @@ c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load sin/cos pointer
-	loops_init 128*2*clm		;; 128*2*clm iterations
+	loops_init_prefetch 128*2*clm, 64, 2, rbp ;; 128*2*clm iterations
 pfing	mov	rbp, rdi		;; Prefetch the sin/cos/premult data we are about to use
 	xtouch	[rbp]			;; Prefetch TLB
 c9a:	xtouch	[rbp+4096]		;; Prefetch TLB
 c9b:	r4_g2cl_four_complex_djbunfft rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 	bump	rdi, XMM_SCD2		;; Next cache line's sin/cos data
-	loops_prefetch 2, rbp, clm, c9b ;; Loop twice, prefetch 64 bytes, loop clm times
+	loops	2*clm, c9b		;; Loop 2*clm times
 	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
 	bump	rcx, -2*clm*64+2*clmblkdst ;; Next dest pointer
 	bump	rdi, -2*clm*XMM_SCD2	;; Restore sin/cos data pointer
@@ -117,11 +117,11 @@ c9b:	r4_g2cl_four_complex_djbunfft rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 ;;	do 64 macros each processing 32 data values
 
 	start_timer 17
-	loops_init 64*2*clm		;; 64 iterations of 2*clm
+	loops_init_prefetch 64*2*clm, 64, 1, rbp ;; 64 iterations of 2*clm
 c7a:	xtouch	[rbp+4096]		;; Preload TLB
 c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next clm's sin/cos data
-	loops_prefetch 1, rbp, 2*clm, c7b ;; Loop once, prefetch 64 bytes, loop 2*clm times
+	loops	2*clm, c7b		;; Loop 2*clm times
 	bump	rsi, -2*clm*64+clmblkdst ;; Next source pointer
 	loops	2, c7b			;; 2 iterations
 	bump	rsi, -2*clmblkdst+clmblkdst8 ;; Next source pointer
@@ -153,11 +153,11 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*c
 ;;	do 64 macros each processing 32 data values
 
 	start_timer 18
-	loops_init 64*2*clm		;; 64 iterations of 2*clm
+	loops_init_prefetch 64*2*clm, 64, 1, rbp ;; 64 iterations of 2*clm
 c5a:	xtouch	[rbp+4096]		;; Preload TLB
 c5b:	r4_x4cl_four_complex_djbunfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 8*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next clm's sin/cos data
-	loops_prefetch 1, rbp, 2*clm, c5b ;; Loop once, prefetch 64 bytes, loop 2*clm times
+	loops	2*clm, c5b		;; Loop 2*clm times
 	bump	rsi, -2*clm*64+clmblkdst ;; Next source pointer
 	loops	8, c5b			;; 8 iterations
 	bump	rsi, -8*clmblkdst+4*clmblkdst8 ;; Next source pointer
@@ -189,12 +189,12 @@ c5b:	r4_x4cl_four_complex_djbunfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 8*2*c
 ;;	do 128 macros each processing 16 data values
 
 	start_timer 19
-	loops_init 128*2*clm		;; 128 iterations of 2*clm
+	loops_init_prefetch 128*2*clm, 64, 2, rbp ;; 128 iterations of 2*clm
 c3a:	xtouch	[rbp+4096]		;; Preload TLB
 	xtouch	[rbp+2*4096]		;; Preload TLB
 c3b:	r4_x2cl_two_complex_unfft rsi, 64, 4*clmblkdst8, 32*2*clm*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sine/cosine pointer
-	loops_prefetch 2, rbp, clm, c3b ;; Loop twice, prefetch 64 bytes, loop clm times
+	loops	2*clm, c3b		;; Loop 2*clm times
 	bump	rsi, -2*clm*64+clmblkdst ;; Next source pointer
 	loops	8, c3b			;; Loop 8 times
 	bump	rsi, -8*clmblkdst+clmblkdst8 ;; Next source pointer
@@ -226,7 +226,7 @@ c3b:	r4_x2cl_two_complex_unfft rsi, 64, 4*clmblkdst8, 32*2*clm*XMM_SCD1
 ;;	do 64 macros each processing 32 data values
 
 	start_timer 20
-	loops_init 64*2*clm		;; 64 iterations of 2*clm
+	loops_init_prefetch 64*2*clm, 64, 1, rbp ;; 64 iterations of 2*clm
 	;; Adjust sin/cos/premult prefetch addr so that it ends on the last prefetchable datum
 	;; lea	rbp, [rbp+(1+4+16)*2*clm*XMM_SCD2+64*2*clm*XMM_SCD1+128*2*clm*XMM_PMD - 5*128*clm*64 - 64]
 	;; BUG - this is not perfect as the staggered usage due to scdist means we will use data before
@@ -235,7 +235,7 @@ c3b:	r4_x2cl_two_complex_unfft rsi, 64, 4*clmblkdst8, 32*2*clm*XMM_SCD1
 c1a:	xtouch	[rbp+4096]		;; Preload TLB
 c1b:	r4_x4cl_four_complex_last_unfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rdi, 64*2*clm*XMM_PMD
 	bump	rdi, XMM_PMD		;; Next premultiplier/sin/cos ptr
-	loops_prefetch 1, rbp, 2*clm, c1b ;; Loop once, prefetch 64 bytes, loop 2*clm times
+	loops	2*clm, c1b		;; Loop 2*clm times
 	bump	rsi, -2*clm*64+clmblkdst ;; Next source pointer
 	loops	8, c1b			;; 8 iterations
 	bump	rsi, -4*2*clmblkdst+clmblkdst8 ;; Next source pointer

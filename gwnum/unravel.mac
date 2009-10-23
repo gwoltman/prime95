@@ -1599,10 +1599,52 @@ bump	MACRO	reg, amt
 ; For example, loop twice, inc a ptr, loop 4 times, prefetch, loop 8 times, etc.
 ; These macros use the eax register to implement the loops.  We choose the
 ; best/shortest instructions for each architecture.  For example, we use
-; test/jnz which generates a fused-op internally.
+; test/jnz which generates a fused-op internally on Core 2 machines.
 ;
 
 loops_init MACRO count, first_completed, first_iters
+	loops_init_common count, first_completed, first_iters
+	loops_pffreq = 0
+	ENDM
+
+loops_init_prefetch MACRO count, pfamt, pffreq, pfreg, first_completed, first_iters
+	IF PREFETCHING EQ 0
+	  loops_init count, first_completed, first_iters
+	ELSEIF pfamt NE 64 AND pfamt NE 128
+	  bad_pfamt_in_loops_init_prefetch
+        ELSE
+	  IF PREFETCHING EQ 128
+	    IF pfamt EQ 64
+	      loops_pffreq = pffreq * 2
+	      loops_pfamt = 1
+	    ELSE
+	      loops_pffreq = pffreq
+	      loops_pfamt = 1
+	    ENDIF
+	  ELSE
+	    IF pfamt EQ 64
+	      loops_pffreq = pffreq
+	      loops_pfamt = 1
+	    ELSEIF pffreq GT 1
+	      loops_pffreq = pffreq / 2
+	      loops_pfamt = 1
+	    ELSE
+	      loops_pffreq = 1
+	      loops_pfamt = 2
+	    ENDIF
+	  ENDIF
+	  IFB <first_iters>
+	    loops_init_common count, first_completed, first_iters
+	  ELSEIF loops_pffreq NE 1 AND pffreq LT first_iters
+	    loops_init_common count, first_completed, loops_pffreq
+	  ELSE
+	    loops_init_common count, first_completed, first_iters
+	  ENDIF
+	  loops_pfreg EQU pfreg
+	ENDIF
+	ENDM
+
+loops_init_common MACRO count, first_completed, first_iters
 	IFB <first_completed>
 	  sub	eax, eax
 	ELSE
@@ -1622,18 +1664,35 @@ loops_init MACRO count, first_completed, first_iters
 	ENDIF
 	loops_count = count
 	loops_completed = 1
-	loops_delayed_prefetch = 0
 	ENDM
 
 loops	MACRO iters, dest, incr
+	LOCAL	small_count, actual_incr
+	IFB <incr>
+	  actual_incr = 1
+	ELSE
+	  actual_incr = incr
+	ENDIF
+	IF loops_pffreq GE loops_completed AND loops_pffreq LT loops_completed * (iters) * actual_incr
+	  small_count = loops_pffreq / loops_completed / actual_incr
+	  loops_common small_count, dest, incr
+	  IF loops_pfamt EQ 1
+	    prefetcht1 [loops_pfreg]
+	    bump loops_pfreg, PREFETCHING
+	  ELSE
+	    prefetcht1 [loops_pfreg]
+	    prefetcht1 [loops_pfreg+PREFETCHING]
+	    bump loops_pfreg, 2*PREFETCHING
+	  ENDIF
+	  loops_common (iters)/small_count, dest, incr
+	ELSE
+	  loops_common iters, dest, incr
+	ENDIF
+	ENDM
+
+loops_common MACRO iters, dest, incr
 	IF iters GT 1
-	  IF loops_delayed_prefetch EQ 1
-	    loops_delayed_prefetch = 0
-	    loops 2, dest, incr
-	    prefetcht1 [loops_delayed_pfreg]
-	    bump loops_delayed_pfreg, 128
-	    loops (iters)/2, dest
-	  ELSEIF loops_completed EQ 1
+	  IF loops_completed EQ 1
 	    IF (loops_count LE 256 AND iters EQ loops_count)
 	      add al, 256/(iters)
 	    ELSE
@@ -1686,32 +1745,6 @@ loops_undo MACRO iters
 loops_reset MACRO
 	loops_completed = 1
 	ENDM
-
-;; Prefetch 64 bytes of data and loop.  Handles architectures that
-;; prefetch 64 or 128 bytes at a time.
-
-loops_prefetch MACRO count1, pfreg, count2, dest
-	IF count2 EQ 1 AND PREFETCHING EQ 128
-	loops	count1, dest
-	loops_delayed_prefetch = 1
-	loops_delayed_pfreg EQU pfreg
-	ELSEIF PREFETCHING EQ 0
-	loops	count1*count2, dest
-	ELSEIF PREFETCHING EQ 64
-	loops	count1, dest
-	prefetcht1 [pfreg]
-	bump	pfreg, 64
-	loops	count2, dest
-	ELSEIF PREFETCHING EQ 128
-	loops	(count1)*2, dest
-	prefetcht1 [pfreg]
-	bump	pfreg, 128
-	loops	(count2)/2, dest
-	ELSE
-	unhandled_loops_prefetch
-	ENDIF
-	ENDM
-
 
 ; Macro to flush the P4 trace cache
 
