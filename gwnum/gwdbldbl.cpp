@@ -173,7 +173,7 @@ void gwasm_constants (
 	M901 = double (cosine3);
 	M691 = double (cosine1 / M901);		// 0.623 / -0.901
 
-/* Initialize the roots of -1 used by v26_four_complex_first_fft. */
+/* Initialize the roots of -1 used by r4_four_complex_first_fft. */
 
 	arg = dd_real::_2pi / 16.0;		// 2*PI / 16
 	sincos (arg, sine1, cosine1);		// cosine (0.924), sine (0.383)
