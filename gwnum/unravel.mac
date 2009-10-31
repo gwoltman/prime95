@@ -1581,13 +1581,20 @@ Q	EQU	<QWORD PTR>
 ;; Caller must be aware that condition codes may be changed.
 
 bump	MACRO	reg, amt
+	LOCAL	y, z
 	IFNB <reg>
-	IF amt NE 0
 	IF amt EQ 128
-	sub	reg, -(amt)
-	ELSE
+	sub	reg, -99		;; Workaround MASM bug.  It won't
+y:					;; generate one byte immediates
+	org	y-1			;; for -128.
+	DB	80h			;; Replace -99 with -128
+	ELSEIF amt EQ -128
+	add	reg, -99		;; Workaround MASM bug.  It won't
+z:					;; generate one byte immediates
+	org	z-1			;; for -128.
+	DB	80h			;; Replace -99 with -128
+	ELSEIF amt NE 0
 	add	reg, amt
-	ENDIF
 	ENDIF
 	ENDIF
 	ENDM
@@ -1605,6 +1612,13 @@ bump	MACRO	reg, amt
 loops_init MACRO count, first_completed, first_iters
 	loops_init_common count, first_completed, first_iters
 	loops_pffreq = 0
+	loops_touchfreq = 0
+	ENDM
+
+loops_init_prefetch_touch MACRO count, pfamt, pffreq, pfreg, touch_amt, touch_label, first_completed, first_iters
+	loops_init_prefetch count, pfamt, pffreq, pfreg, first_completed, first_iters
+	loops_touchfreq = touch_amt / pfamt * pffreq
+	loops_touchlabel EQU touch_label
 	ENDM
 
 loops_init_prefetch MACRO count, pfamt, pffreq, pfreg, first_completed, first_iters
@@ -1642,39 +1656,56 @@ loops_init_prefetch MACRO count, pfamt, pffreq, pfreg, first_completed, first_it
 	  ENDIF
 	  loops_pfreg EQU pfreg
 	ENDIF
+	loops_touchfreq = 0
 	ENDM
 
 loops_init_common MACRO count, first_completed, first_iters
+	LOCAL	local_first_completed, local_first_iters, x, y
 	IFB <first_completed>
-	  sub	eax, eax
+	  local_first_completed = 0
+	  local_first_iters = 1
 	ELSE
-	IF first_completed EQ 0
-	  sub	eax, eax
-	ELSE
-	IF (count LE 256 AND first_iters EQ count)
-	  mov	al, first_completed * 256/(first_iters)
-	ELSE
-	IF (count LE 128 AND (first_iters) * count LE 256)
-	  mov	al, first_completed * (80h/(first_iters)*2+1)
-	ELSE
-	  mov	eax, first_completed * (80000000h/(first_iters)*2+1)
+	  local_first_completed = first_completed
+	  local_first_iters = first_iters
 	ENDIF
-	ENDIF
-	ENDIF
-	ENDIF
+
 	loops_count = count
 	loops_completed = 1
+
+	;; Handle non-power-of-2 counts
+	IF (loops_count AND (loops_count-1)) NE 0
+	  loops_initial_value = local_first_completed * (80000000h/local_first_iters*2+1)
+	  mov	eax, 9999
+x:	  org	x-4
+y:
+	  DD	loops_initial_value
+	  loops_initial_value_label = OFFSET y
+
+	;; Handle power-of-2 counts
+	ELSEIF local_first_completed EQ 0
+	  sub	eax, eax
+	ELSEIF (count LE 256 AND local_first_iters EQ count)
+	  mov	al, local_first_completed * 256/local_first_iters
+	ELSEIF (count LE 128 AND local_first_iters * count LE 256)
+	  mov	al, local_first_completed * (80h/local_first_iters*2+1)
+	ELSE
+	  mov	eax, local_first_completed * (80000000h/local_first_iters*2+1)
+	ENDIF
+
 	ENDM
 
 loops	MACRO iters, dest, incr
-	LOCAL	small_count, actual_incr
+	LOCAL	small_count, local_incr, local_iters
+	;; Make local copies of params
+	local_iters = iters
 	IFB <incr>
-	  actual_incr = 1
+	  local_incr = 1
 	ELSE
-	  actual_incr = incr
+	  local_incr = incr
 	ENDIF
-	IF loops_pffreq GE loops_completed AND loops_pffreq LT loops_completed * (iters) * actual_incr
-	  small_count = loops_pffreq / loops_completed / actual_incr
+	;; If necessary, split loop issue prefetch instruction(s)
+	IF loops_pffreq GE loops_completed AND loops_pffreq LT loops_completed * local_iters * local_incr
+	  small_count = loops_pffreq / loops_completed / local_incr
 	  loops_common small_count, dest, incr
 	  IF loops_pfamt EQ 1
 	    prefetcht1 [loops_pfreg]
@@ -1684,14 +1715,26 @@ loops	MACRO iters, dest, incr
 	    prefetcht1 [loops_pfreg+PREFETCHING]
 	    bump loops_pfreg, 2*PREFETCHING
 	  ENDIF
-	  loops_common (iters)/small_count, dest, incr
+	  local_iters = local_iters/small_count
+	ENDIF
+	;; If necessary, split loop for jumping to touch label
+	IF loops_touchfreq GT loops_completed AND loops_touchfreq LT loops_completed * local_iters * local_incr
+	  small_count = loops_touchfreq / loops_completed / local_incr
+	  loops_common small_count, dest, incr
+	  local_iters = local_iters/small_count
+	ENDIF
+	;; Jump to passed in dest or to touch label
+	IF loops_touchfreq EQ 0 OR loops_completed LT loops_touchfreq
+	  loops_common local_iters, dest, incr
 	ELSE
-	  loops_common iters, dest, incr
+	  loops_common local_iters, loops_touchlabel, incr
 	ENDIF
 	ENDM
 
 loops_common MACRO iters, dest, incr
+	LOCAL next_power_2, non_power_2_adjustment, x
 	IF iters GT 1
+	  non_power_2_adjustment = 0
 	  IF loops_completed EQ 1
 	    IF (loops_count LE 256 AND iters EQ loops_count)
 	      add al, 256/(iters)
@@ -1713,6 +1756,27 @@ loops_common MACRO iters, dest, incr
 	    ENDIF
 	    jnc	dest
 	  ELSE
+	    ;; Handle non-power-of-2 iteration counts
+	    IF (iters AND (iters-1)) NE 0
+	      IF (loops_count AND (loops_count-1)) NE 0
+	        next_power_2 = iters OR (iters SHR 1)
+	        next_power_2 = next_power_2 OR (next_power_2 SHR 2)
+	        next_power_2 = next_power_2 OR (next_power_2 SHR 4)
+	        next_power_2 = next_power_2 OR (next_power_2 SHR 8)
+	        next_power_2 = (next_power_2 OR (next_power_2 SHR 16)) + 1
+		non_power_2_adjustment = (next_power_2 - iters) * loops_completed
+x:
+		loops_initial_value = loops_initial_value + non_power_2_adjustment
+	        org loops_initial_value_label
+		DD	loops_initial_value
+		org x
+		;; Adjust loops_count and iters so that this looks like a power-of-two
+		loops_count = loops_count / iters * next_power_2
+		iters = next_power_2
+	      ELSE
+	        loops_non_power2_problem
+	      ENDIF
+	    ENDIF
 	    IF (iters)*loops_completed LE 128
 	      test al, (iters)*loops_completed-1
 	      jnz dest
@@ -1729,6 +1793,9 @@ loops_common MACRO iters, dest, incr
 	  loops_completed = (iters) * loops_completed
 	  IF loops_completed GT loops_count
 	    error_looped_more_than_loop_count
+	  ENDIF
+	  IF non_power_2_adjustment NE 0 AND loops_completed LT loops_count
+	    bump eax, non_power_2_adjustment
 	  ENDIF
 	ENDIF
 	ENDM

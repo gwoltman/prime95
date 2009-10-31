@@ -121,6 +121,8 @@ GAP2_13_8	= 1024
 ;	r4 = radix-4 DJB
 ;	r4spm = radix-4 DJB split premultipliers (uses less memory at the cost of a few complex mults)
 ;	r4r8 = radix-4/8 DJB split premultipliers (like spm but radix-8 if odd FFT levels)
+;	r4delay = radix-4/8 DJB with first levels of pass 1 using common sin/cos values and last levels
+;		  of pass 1 fixing the discrepancy.  Less sin/cos memory, a few more complex multiplies.
 ;	rolle = rolle patented
 ;	exp = experimental
 ;	sr = split-radix
@@ -261,6 +263,7 @@ nozpad:
 ;	r4 = radix-4 DJB
 ;	r4spm = radix-4 DJB split premultipliers to use less memory
 ;	r4r8 = radix-4/8 DJB split premultipliers
+;	r4delay = radix-4/8 DJB with delayed application of the first pass 1 levels sin/cos data
 ;	rolle = rolle patented
 ;	exp = experimental
 ;	sr = split-radix
@@ -269,6 +272,9 @@ nozpad:
 ;	_ip for two-pass in-place (no scratch area)
 ;	_np for no_prefetch
 ;	_tp for tlb_priming
+; xpass2_levels is:
+;	number of complex values handled in pass 2 -- if not a power of 2
+;	log2(number of complex values in pass 2) -- if a power of 2
 ;
 ; xarch indicates FFT is optimized for one of these architectures:
 ;	P4		Pentium 4
@@ -330,74 +336,87 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 	IF xpass2_levels EQ 13
 	p2cl = 2048
 	ENDIF
+	IF xpass2_levels GE 256
+	p2cl = xpass2_levels / 4
+	ENDIF
 
 ;; Compute the gap between two pass2 data blocks
 
-	IF xpass2_levels EQ 8 AND clm EQ 1
+	IF xpass2_levels EQ 8 OR (xpass2_levels GT 128 AND xpass2_levels LE 256)
+	IF clm EQ 1
 	p2g = GAP2_8_1
 	ENDIF
-	IF xpass2_levels EQ 8 AND clm EQ 4
+	IF clm EQ 4
 	p2g = GAP2_8_4
 	ENDIF
-	IF xpass2_levels EQ 10 AND clm EQ 1 AND PREFETCHING EQ 0
+	ENDIF
+	IF xpass2_levels EQ 10 OR (xpass2_levels GT 512 AND xpass2_levels LE 1024)
+	IF clm EQ 1 AND PREFETCHING EQ 0
 	p2g = GAP2_10_0
 	ENDIF
-	IF xpass2_levels EQ 10 AND clm EQ 1 AND PREFETCHING NE 0
+	IF clm EQ 1 AND PREFETCHING NE 0
 	p2g = GAP2_10_1
 	ENDIF
-	IF xpass2_levels EQ 10 AND clm EQ 2
+	IF clm EQ 2
 	p2g = GAP2_10_2
 	ENDIF
-	IF xpass2_levels EQ 10 AND clm EQ 4
+	IF clm EQ 4
 	p2g = GAP2_10_4
 	ENDIF
-	IF xpass2_levels EQ 10 AND clm EQ 8
+	IF clm EQ 8
 	p2g = GAP2_10_8
 	ENDIF
-	IF xpass2_levels EQ 11 AND clm EQ 1 AND PREFETCHING EQ 0
+	ENDIF
+	IF xpass2_levels EQ 11 OR (xpass2_levels GT 1024 AND xpass2_levels LE 2048)
+	IF clm EQ 1 AND PREFETCHING EQ 0
 	p2g = GAP2_11_0
 	ENDIF
-	IF xpass2_levels EQ 11 AND clm EQ 1 AND PREFETCHING NE 0
+	IF clm EQ 1 AND PREFETCHING NE 0
 	p2g = GAP2_11_1
 	ENDIF
-	IF xpass2_levels EQ 11 AND clm EQ 2
+	IF clm EQ 2
 	p2g = GAP2_11_2
 	ENDIF
-	IF xpass2_levels EQ 11 AND clm EQ 4
+	IF clm EQ 4
 	p2g = GAP2_11_4
 	ENDIF
-	IF xpass2_levels EQ 11 AND clm EQ 8
+	IF clm EQ 8
 	p2g = GAP2_11_8
 	ENDIF
-	IF xpass2_levels EQ 12 AND clm EQ 1 AND PREFETCHING EQ 0
+	ENDIF
+	IF xpass2_levels EQ 12 OR (xpass2_levels GT 2048 AND xpass2_levels LE 4096)
+	IF clm EQ 1 AND PREFETCHING EQ 0
 	p2g = GAP2_12_0
 	ENDIF
-	IF xpass2_levels EQ 12 AND clm EQ 1 AND PREFETCHING NE 0
+	IF clm EQ 1 AND PREFETCHING NE 0
 	p2g = GAP2_12_1
 	ENDIF
-	IF xpass2_levels EQ 12 AND clm EQ 2
+	IF clm EQ 2
 	p2g = GAP2_12_2
 	ENDIF
-	IF xpass2_levels EQ 12 AND clm EQ 4
+	IF clm EQ 4
 	p2g = GAP2_12_4
 	ENDIF
-	IF xpass2_levels EQ 12 AND clm EQ 8
+	IF clm EQ 8
 	p2g = GAP2_12_8
 	ENDIF
-	IF xpass2_levels EQ 13 AND clm EQ 1 AND PREFETCHING EQ 0
+	ENDIF
+	IF xpass2_levels EQ 13 OR (xpass2_levels GT 4096 AND xpass2_levels LE 8192)
+	IF clm EQ 1 AND PREFETCHING EQ 0
 	p2g = GAP2_13_0
 	ENDIF
-	IF xpass2_levels EQ 13 AND clm EQ 1 AND PREFETCHING NE 0
+	IF clm EQ 1 AND PREFETCHING NE 0
 	p2g = GAP2_13_1
 	ENDIF
-	IF xpass2_levels EQ 13 AND clm EQ 2
+	IF clm EQ 2
 	p2g = GAP2_13_2
 	ENDIF
-	IF xpass2_levels EQ 13 AND clm EQ 4
+	IF clm EQ 4
 	p2g = GAP2_13_4
 	ENDIF
-	IF xpass2_levels EQ 13 AND clm EQ 8
+	IF clm EQ 8
 	p2g = GAP2_13_8
+	ENDIF
 	ENDIF
 
 ;; Compute the needed distances
@@ -576,12 +595,16 @@ a0b:	movapd	xmm0, [rsi]		;; Copy a cache line
 ;	r4 = radix-4 DJB
 ;	r4spm = radix-4 DJB split premultipliers to use less memory 
 ;	r4r8 = radix-4/8 DJB split premultipliers
+;	r4delay = radix-4/8 DJB with delayed application of the first pass 1 levels sin/cos data
 ;	rolle = rolle patented
 ;	exp = experimental
 ;	sr = split-radix
 ; options are:
 ;	_np for no_prefetch
 ;	_tp for tlb_priming
+; xpass2_levels is:
+;	number of complex values handled in pass 2 -- if not a power of 2
+;	log2(number of complex values in pass 2) -- if a power of 2
 ;
 ; xarch indicates FFT is optimized for one of these architectures:
 ;	P4		Pentium 4

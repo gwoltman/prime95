@@ -6823,7 +6823,7 @@ int primeBench (
 			sprintf (buf,
 				 "Time FFTlen=%dK%s, Levels2=%lu, clm=%lu: ",
 				 fft_lengths[i], plus1 ? " all-complex" : "",
-				 lldata.gwdata.PASS2_LEVELS,
+				 lldata.gwdata.PASS2_SIZE,
 				 lldata.gwdata.PASS1_CACHE_LINES / 2);
 		else
 			sprintf (buf, "Best time for %dK%s FFT length: ",

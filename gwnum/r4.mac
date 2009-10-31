@@ -1954,3 +1954,164 @@ r4_x4c_djbunfft MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem7,mem8,dst1,screg,off,pre1,pre2
 
 	ENDIF
 	ENDM
+
+;;
+;; These macros are used when the FFT size is not a power-of-two
+;;
+
+r4_x3cl_three_complex_djbfft MACRO srcreg,srcinc,d1,screg,scoff
+	xload	xmm0, [srcreg]			;; R1
+	xload	xmm3, [srcreg+16]		;; I1
+	xload	xmm1, [srcreg+d1]		;; R2
+	xload	xmm4, [srcreg+d1+16]		;; I2
+	xload	xmm2, [srcreg+2*d1]		;; R3
+	xload	xmm5, [srcreg+2*d1+16]		;; I3
+	r4_x3c_djbfft xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7,screg,0
+	xload	xmm6, [srcreg+32]		;; R1
+	xload	xmm7, [srcreg+48]		;; I1
+	xstore	[srcreg], xmm2			;; Save R1
+	xstore	[srcreg+16], xmm5		;; Save I1
+	xstore	[srcreg+32], xmm0		;; Save R2
+	xstore	[srcreg+48], xmm1		;; Save I2
+	xstore	[srcreg+d1], xmm4		;; Save R3
+	xstore	[srcreg+d1+16], xmm3		;; Save I3
+	xload	xmm1, [srcreg+d1+32]		;; R2
+	xload	xmm4, [srcreg+d1+48]		;; I2
+	xload	xmm2, [srcreg+2*d1+32]		;; R3
+	xload	xmm5, [srcreg+2*d1+48]		;; R6
+	r4_x3c_djbfft xmm6,xmm1,xmm2,xmm7,xmm4,xmm5,xmm0,xmm3,screg,scoff
+	xstore	[srcreg+d1+32], xmm2		;; Save R1
+	xstore	[srcreg+d1+48], xmm5		;; Save I1
+	xstore	[srcreg+2*d1], xmm6		;; Save R2
+	xstore	[srcreg+2*d1+16], xmm1		;; Save I2
+	xstore	[srcreg+2*d1+32], xmm4		;; Save R3
+	xstore	[srcreg+2*d1+48], xmm7		;; Save I3
+	bump	srcreg, srcinc
+	ENDM
+
+;; Do a 3-complex FFT.  The input values are R1+R4i, R2+R5i, R3+R6i
+;; A 3-complex FFT is:
+;; Res1:  (R1+R2+R3) + (I1+I2+I3)i
+;; Res2:  (R1-.5R2-.866I2-.5R3+.866I3) + (I1-.5I2+.866R2-.5I3-.866R3)i
+;; Res3:  (R1-.5R2+.866I2-.5R3-.866I3) + (I1-.5I2-.866R2-.5I3+.866R3)i
+;; Then multiply 2 of the 3 results by twiddle factors.
+r4_x3c_djbfft MACRO r1,r2,r3,r4,r5,r6,t1,t2,screg,scoff
+	xcopy	t1, r2
+	subpd	r2, r3			;; R2 - R3
+	xcopy	t2, r5
+	subpd	r5, r6			;; I2 - I3
+	addpd	r3, t1			;; R2 + R3
+	mulpd	r2, XMM_P866		;; 0.866 * (R2 - R3)
+	addpd	r6, t2			;; I2 + I3
+	mulpd	r5, XMM_P866		;; 0.866 * (I2 - I3)
+	xload	t1, XMM_HALF
+	mulpd	t1, r3			;; 0.5 * (R2 + R3)
+	addpd	r3, r1			;; R1 + R2 + R3 (final R1)
+	subpd	r1, t1			;; (R1-.5R2-.5R3)
+	xload	t1, XMM_HALF
+	mulpd	t1, r6			;; 0.5 * (I2 + I3)
+	addpd	r6, r4			;; I1 + I2 + I3 (final I1)
+	subpd	r4, t1			;; (I1-.5I2-.5I3)
+	xcopy	t1, r1
+	subpd	r1, r5			;; Final R2
+	xcopy	t2, r4
+	subpd	r4, r2			;; Final I3
+	addpd	r5, t1			;; Final R3
+	addpd	r2, t2			;; Final I2
+
+	xcopy	t1, r1			;; Copy R2
+	mulpd	r1, [screg+scoff+16]	;; A2 = R2 * cosine/sine
+	subpd	r1, r2			;; A2 = A2 - I2
+	mulpd	r2, [screg+scoff+16]	;; B2 = I2 * cosine/sine
+	addpd	r2, t1			;; B2 = B2 + R2
+	mulpd	r1, [screg+scoff]	;; A2 = A2 * sine (new R2)
+	mulpd	r2, [screg+scoff]	;; B2 = B2 * sine (new I2)
+
+	xcopy	t2, r5			;; Copy R3
+	mulpd	r5, [screg+scoff+16]	;; A3 = R3 * cosine/sine
+	addpd	r5, r4			;; A3 = A3 + I3
+	mulpd	r4, [screg+scoff+16]	;; B3 = I3 * cosine/sine
+	subpd	r4, t2			;; B3 = B3 - R3
+	mulpd	r5, [screg+scoff]	;; A3 = A3 * sine (new R3)
+	mulpd	r4, [screg+scoff]	;; B3 = B3 * sine (new I3)
+	ENDM
+
+
+r4_x3cl_three_complex_djbunfft MACRO srcreg,srcinc,d1,screg,scoff
+	xload	xmm0, [srcreg]		;; R1
+	xload	xmm1, [srcreg+32]	;; I1
+	xload	xmm2, [srcreg+d1]	;; R2
+	xload	xmm3, [srcreg+d1+32]	;; I2
+	xload	xmm4, [srcreg+2*d1]	;; R3
+	xload	xmm5, [srcreg+2*d1+32]	;; I3
+	r4_x3c_djbunfft xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7,screg,0
+	xstore	[srcreg], xmm4		;; Save R1
+	xstore	[srcreg+32], xmm5	;; Save I1
+	xstore	[srcreg+2*d1], xmm3	;; Save R2
+	xstore	[srcreg+2*d1+32], xmm1	;; Save I2
+	xload	xmm6, [srcreg+d1+16]	;; R2
+	xload	xmm3, [srcreg+d1+48]	;; I2
+	xstore	[srcreg+d1+16], xmm0	;; Save R3
+	xstore	[srcreg+d1+48], xmm2	;; Save I3
+	xload	xmm0, [srcreg+16]	;; R1
+	xload	xmm1, [srcreg+48]	;; I1
+	xload	xmm4, [srcreg+2*d1+16]	;; R3
+	xload	xmm5, [srcreg+2*d1+48]	;; I3
+	r4_x3c_djbunfft xmm0,xmm1,xmm6,xmm3,xmm4,xmm5,xmm2,xmm7,screg,scoff
+	xstore	[srcreg+16], xmm3	;; Save R2
+	xstore	[srcreg+48], xmm1	;; Save I2
+	xstore	[srcreg+d1], xmm4	;; Save R1
+	xstore	[srcreg+d1+32], xmm5	;; Save I1
+	xstore	[srcreg+2*d1+16], xmm0	;; Save R3
+	xstore	[srcreg+2*d1+48], xmm6	;; Save I3
+	bump	srcreg, srcinc
+	ENDM
+
+;; Do a 3-complex inverse FFT.  The input values are R1+R2i, R3+R4i, R5+R6i
+;; First we apply twiddle factors to 2 of the 3 input numbers.
+;; A 3-complex inverse FFT is:
+;; Res1:  (R1+R2+R3) + (I1+I2+I3)i
+;; Res2:  (R1-.5R2+.866I2-.5R3-.866I3) + (I1-.5I2-.866R2-.5I3+.866R3)i
+;; Res3:  (R1-.5R2-.866I2-.5R3+.866I3) + (I1-.5I2+.866R2-.5I3-.866R3)i
+r4_x3c_djbunfft MACRO r1,r2,r3,r4,r5,r6,t1,t2,screg,scoff
+	xcopy	t1, r5			;; Copy R3
+	mulpd	r5, [screg+scoff+16]	;; A3 = R3 * cosine/sine
+	subpd	r5, r6			;; A3 = A3 - I3
+	mulpd	r6, [screg+scoff+16]	;; B3 = I3 * cosine/sine
+	addpd	r6, t1			;; B3 = B3 + R3
+
+	xcopy	t2, r3			;; Copy R2
+	mulpd	r3, [screg+scoff+16]	;; A2 = R2 * cosine/sine
+	addpd	r3, r4			;; A2 = A2 + I2
+	mulpd	r4, [screg+scoff+16]	;; B2 = I2 * cosine/sine
+	subpd	r4, t2			;; B2 = B2 - R2
+
+	mulpd	r5, [screg+scoff]	;; A3 = A3 * sine (final R3)
+	mulpd	r6, [screg+scoff]	;; B3 = B3 * sine (final I3)
+
+	mulpd	r3, [screg+scoff]	;; A2 = A2 * sine (final R2)
+	mulpd	r4, [screg+scoff]	;; B2 = B2 * sine (final I2)
+
+	xcopy	t1, r3
+	subpd	r3, r5			;; R2 - R3
+	addpd	r5, t1			;; R2 + R3
+	mulpd	r3, XMM_P866		;; 0.866 * (R2 - R3)
+	xcopy	t2, r4
+	subpd	r4, r6			;; I2 - I3
+	addpd	r6, t2			;; I2 + I3
+	mulpd	r4, XMM_P866		;; 0.866 * (I2 - I3)
+	xload	t1, XMM_HALF
+	mulpd	t1, r5			;; 0.5 * (R2 + R3)
+	addpd	r5, r1			;; R1 + R2 + R3 (final R1)
+	subpd	r1, t1			;; (R1-.5R2-.5R3)
+	xload	t1, XMM_HALF
+	mulpd	t1, r6			;; 0.5 * (I2 + I3)
+	addpd	r6, r2			;; I1 + I2 + I3 (final I1)
+	subpd	r2, t1			;; (I1-.5I2-.5I3)
+	xcopy	t1, r1
+	subpd	r1, r4			;; Final R3
+	addpd	r4, t1			;; Final R2
+	xcopy	t2, r2
+	subpd	r2, r3			;; Final I2
+	addpd	r3, t2			;; Final I3
+	ENDM

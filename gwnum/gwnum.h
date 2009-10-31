@@ -742,6 +742,7 @@ struct gwasm_jmptab {
 #define FFT_TYPE_RADIX_4		1
 #define FFT_TYPE_RADIX_4_SPLIT_PREMULT	2
 #define FFT_TYPE_RADIX_4_RADIX_8	3
+#define FFT_TYPE_RADIX_4_DELAYED	4
 
 /* The gwhandle structure containing all of gwnum's "global" data. */
 
@@ -805,7 +806,7 @@ struct gwhandle_struct {
 	unsigned long NUM_B_PER_SMALL_WORD; /* Number of b's in a little word. */
 				/* For the common case, b=2, this is the */
 				/* number of bits in a little word. */
-	unsigned long PASS2_LEVELS; /* FFT levels done in pass 2. */
+	unsigned long PASS2_SIZE; /* Number of complex values FFTed in pass 2. */
 	long	PASS2GAPSIZE;	/* Gap between blocks in pass 2 */
 	unsigned long PASS1_CACHE_LINES; /* Cache lines grouped together in */
 				/* first pass of an FFT. */

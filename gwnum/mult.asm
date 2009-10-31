@@ -33,14 +33,14 @@ ENDIF
 
 ; The flags word of a procedure entry is divided as follows:
 ;	80000000h		always on
-;	4 SHL 24		(no prefetching)
-;	2 SHL 24		(tlb priming)
-;	1 SHL 24		(in_place)
-;	fft_type SHL 16		(hg=0, r4=1, r4spm=2, r4r8=3)
-;	arch SHL 12		(ppro=0,p3=1,p4=2,core=3,k8=4,k10=5)
-;	min_L2_cache SHL 8	(0=0,128KB=1,WILLI=2,CELE_D=3,512KB=4,1024KB=5,2048KB=6)
-;	clm SHL 4		(1,2,4,8)
-;	pass2levels		(0,8,10,11,12,13)
+;	4 SHL 26		(no prefetching)
+;	2 SHL 26		(tlb priming)
+;	1 SHL 26		(in_place)
+;	fft_type SHL 18		(hg=0, r4=1, r4spm=2, r4r8=3, r4delay=4)
+;	arch SHL 14		(ppro=0,p3=1,p4=2,core=3,k8=4,k10=5)
+;	min_L2_cache SHL 10	(0=0,128KB=1,WILLI=2,CELE_D=3,512KB=4,1024KB=5,2048KB=6)
+;	clm SHL 6		(1,2,4,8)
+;	pass2size_over_256	(0,1,4,8,16,32)
 
 X87PRC MACRO procname, mem_needed, p2larg, clmarg
 	EXTRN	procname:PROC
@@ -57,16 +57,16 @@ X87PRC MACRO procname, mem_needed, p2larg, clmarg
 		clm = clmarg
 	ENDIF
 	IFB <p2larg>
-		pass2_levels = 0
+		pass2_size_over_256 = 0
 	ELSE
-		pass2_levels = p2larg
+		pass2_size_over_256 = (1 SHL p2larg) SHR 8
 	ENDIF
 	flags = 0
 	;; Kludge - if mem_needed is below 500000 then pass 2 is in place
-	IF (mem_needed LT 500000 AND pass2_levels NE 0)
+	IF (mem_needed LT 500000 AND pass2_size_over_256 NE 0)
 		flags = 1
 	ENDIF
-	DD	80000000h + flags SHL 24 + arch SHL 12 + clm SHL 4 + pass2_levels
+	DD	80000000h + flags SHL 26 + arch SHL 14 + clm SHL 6 + pass2_size_over_256
 	DP	OFFSET procname
 	DD	mem_needed
 	ENDM
@@ -91,6 +91,8 @@ PRCENTRY MACRO procname, mem_needed, L2arg
 		fft_type = 2
 	ELSEIF (@INSTR (,@CATSTR(procname),_r4r8_)) NE 0
 		fft_type = 3
+	ELSEIF (@INSTR (,@CATSTR(procname),_r4delay_)) NE 0
+		fft_type = 4
 	ELSE
 		bad_sse2_fft_type
 	ENDIF
@@ -133,20 +135,22 @@ PRCENTRY MACRO procname, mem_needed, L2arg
 	ELSE
 		clm = 0
 	ENDIF
-	IF (@INSTR (,@CATSTR(procname),_8_)) NE 0
-		pass2_levels = 8
-	ELSEIF (@INSTR (,@CATSTR(procname),_10_)) NE 0
-		pass2_levels = 10
+	IF (@INSTR (,@CATSTR(procname),_10_)) NE 0
+		pass2_size_over_256 = 1024 SHR 8
 	ELSEIF (@INSTR (,@CATSTR(procname),_11_)) NE 0
-		pass2_levels = 11
+		pass2_size_over_256 = 2048 SHR 8
+	ELSEIF (@INSTR (,@CATSTR(procname),_3072_)) NE 0
+		pass2_size_over_256 = 3072 SHR 8
 	ELSEIF (@INSTR (,@CATSTR(procname),_12_)) NE 0
-		pass2_levels = 12
+		pass2_size_over_256 = 4096 SHR 8
 	ELSEIF (@INSTR (,@CATSTR(procname),_13_)) NE 0
-		pass2_levels = 13
+		pass2_size_over_256 = 8192 SHR 8
+	ELSEIF (@INSTR (,@CATSTR(procname),_8_)) NE 0
+		pass2_size_over_256 = 256 SHR 8
 	ELSE
-		pass2_levels = 0
+		pass2_size_over_256 = 0
 	ENDIF
-	DD	80000000h + flags SHL 24 + fft_type SHL 16 + arch SHL 12 + min_L2_cache SHL 8 + clm SHL 4 + pass2_levels
+	DD	80000000h + flags SHL 26 + fft_type SHL 18 + arch SHL 14 + min_L2_cache SHL 10 + clm SHL 6 + pass2_size_over_256
 	DP	OFFSET procname
 	DD	mem_needed
 	ENDM
@@ -1092,6 +1096,7 @@ xjmptablep DD	739,	32,	0.00000111
 	DD	58410000, 3145728, 0.289
 	PRCENTRY		xfft_hg_3072K_ac_13_1_K8, 4143104, 512
 	PRCENTRY		xfft_hg_3072K_ac_12_1_K8, 4870272
+	PRCENTRY		xfft_r4delay_3072K_ac_3072_4_CORE, 44870272, 1024
 	PRCENTRY		xfft_hg_3072K_ac_12_4_CORE, 4870272, 1024
 	PRCENTRY		xfft_hg_3072K_ac_12_4_P4, 4870272, 1024
 	PRCENTRY		xfft_hg_3072K_ac_tp_12_2_P4, 4870272, 512
@@ -1100,6 +1105,10 @@ xjmptablep DD	739,	32,	0.00000111
 	DD	77700000, 4194304, 0.425
 	PRCENTRY		xfft_hg_4096K_ac_13_1_K8, 5462016, 512
 	PRCENTRY		xfft_hg_4096K_ac_12_1_K8, 6459392
+	PRCENTRY		xfft_r4delay_4096K_ac_12_1_K8, 66459392
+	PRCENTRY		xfft_r4delay_4096K_ac_12_4_CORE, 66459392
+	PRCENTRY		xfft_r4delay_4096K_ac_12_4_P4, 66459392, 1024
+	PRCENTRY		xfft_r4delay_4096K_ac_tp_12_2_P4, 66459392, 512
 	PRCENTRY		xfft_r4r8_4096K_ac_12_1_K8, 66459392
 	PRCENTRY		xfft_r4r8_4096K_ac_12_4_CORE, 66459392
 	PRCENTRY		xfft_r4r8_4096K_ac_12_4_P4, 66459392, 1024
