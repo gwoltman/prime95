@@ -1,0 +1,48 @@
+; Copyright 2009 - Mersenne Research, Inc.  All rights reserved
+; Author:  George Woltman
+; Email: woltman@alum.mit.edu
+;
+
+;;
+;; Macros for a radix-4/8 DJB FFT but with the first FFT levels of pass 1
+;; using common sin/cos data.  The "error" this introduces is fixed in the
+;; last levels of pass 1.  This greatly reduces the sin/cos memory requirements
+;; in pass 1 at the cost of very few complex multiplies.
+;;
+
+INCLUDE r4r8.mac
+
+xfft_type TEXTEQU <r4delay>
+
+
+
+
+
+;;
+;; Override some of the above macros with versions optimized
+;; for 64-bit Core 2 / Core i7.
+;;
+
+IFDEF X86_64
+;;INCLUDE	r4delay64.mac
+ENDIF
+
+;;
+;; Override any or all of the above macros with versions
+;; optimized for a different CPU architecture
+;;
+
+IF @INSTR(,@CATSTR(%xarch),<P4>) EQ 1
+;;INCLUDE	r4delayp4.mac
+IFDEF X86_64
+;INCLUDE r4delay64p4.mac
+ENDIF
+ENDIF
+
+IF @INSTR(,@CATSTR(%xarch),<K8>) EQ 1
+;INCLUDE	r4delayk8.mac
+IFDEF X86_64
+;INCLUDE	r4delay64k8.mac
+ENDIF
+ENDIF
+
