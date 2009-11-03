@@ -45,8 +45,9 @@ TLB_PRIMING = 0
 
 ;; Routines for many FFT sizes
 
-	r4delay_pass1sclevels10complex4 3072K, 3072, 4
-	r4delay_pass1sclevels10complex4 4096K, 12, 4
+	r4delay_pass1sc1024ac 3M, 3072, 4
+	r4delay_pass1sc1024ac 4M, 12, 4
+	r4delay_pass1sc1280ac 5M, 12, 4
 
 _TEXT	ENDS
 END

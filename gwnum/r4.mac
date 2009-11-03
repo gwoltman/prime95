@@ -2115,3 +2115,366 @@ r4_x3c_djbunfft MACRO r1,r2,r3,r4,r5,r6,t1,t2,screg,scoff
 	subpd	r2, r3			;; Final I2
 	addpd	r3, t2			;; Final I3
 	ENDM
+
+
+
+;;
+;; These macros are used when the FFT size is not a power-of-two
+;;
+
+r4_x5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg,scoff
+	r4_x5c_djbfft [srcreg],[srcreg+16],[srcreg+d1],[srcreg+d1+16],[srcreg+2*d1],[srcreg+2*d1+16],[srcreg+3*d1],[srcreg+3*d1+16],[srcreg+4*d1],[srcreg+4*d1+16],screg,0,[srcreg],[srcreg+16]
+	xstore	[srcreg+d1], xmm3		;; Save R3
+	xstore	[srcreg+d1+16], xmm4		;; Save I3
+	xstore	[srcreg+2*d1], xmm7		;; Save R5
+	xstore	[srcreg+2*d1+16], xmm6		;; Save I5
+	xload	xmm3, [srcreg+32]		;; R1
+	xload	xmm4, [srcreg+48]		;; I1
+	xload	xmm7, [srcreg+d1+32]		;; R2
+	xload	xmm6, [srcreg+d1+48]		;; I2
+	xstore	[srcreg+32], xmm1		;; Save R2
+	xstore	[srcreg+48], xmm0		;; Save I2
+	xstore	[srcreg+d1+32], xmm5		;; Save R4
+	xstore	[srcreg+d1+48], xmm2		;; Save I4
+	xstore	XMM_TMP5, xmm3
+	xstore	XMM_TMP6, xmm4
+	xstore	XMM_TMP7, xmm7
+	xstore	XMM_TMP8, xmm6
+	r4_x5c_djbfft XMM_TMP5,XMM_TMP6,XMM_TMP7,XMM_TMP8,[srcreg+2*d1+32],[srcreg+2*d1+48],[srcreg+3*d1+32],[srcreg+3*d1+48],[srcreg+4*d1+32],[srcreg+4*d1+48],screg,scoff,[srcreg+2*d1+32],[srcreg+2*d1+48]
+	xstore	[srcreg+3*d1], xmm1		;; Save R2
+	xstore	[srcreg+3*d1+16], xmm0		;; Save I2
+	xstore	[srcreg+3*d1+32], xmm3		;; Save R3
+	xstore	[srcreg+3*d1+48], xmm4		;; Save I3
+	xstore	[srcreg+4*d1], xmm5		;; Save R4
+	xstore	[srcreg+4*d1+16], xmm2		;; Save I4
+	xstore	[srcreg+4*d1+32], xmm7		;; Save R5
+	xstore	[srcreg+4*d1+48], xmm6		;; Save I5
+	bump	srcreg, srcinc
+	ENDM
+
+;; Do a 5-complex FFT.  A 5-complex FFT is:
+;; r25=r2+r5
+;; r34=r3+r4
+;; i25=i2-i5
+;; i34=i3-i4
+;; outr(0) = r1 + r25 + r34
+;; t1=cos2*r25 + cos4*r34 + r1
+;; t2=sin2*i25 + sin4*i34
+;; outr(1)=t1-t2
+;; outr(4)=t1+t2
+;; t3=cos4*r25 + cos2*r34 + r1
+;; t4=sin4*i25 - sin2*i34
+;; outr(2)=t3-t4
+;; outr(3)=t3+t4
+;; r25=r2-r5
+;; r34=r3-r4
+;; i25=i2+i5
+;; i34=i3+i4
+;; outi(0)=i1+i25+i34
+;; t5=cos2*i25 + cos4*i34 + i1
+;; t6=sin2*r25 + sin4*r34
+;; outi(1)=t5+t6
+;; outi(4)=t5-t6
+;; t7=cos4*i25 + cos2*i34 + i1
+;; t8=sin4*r25 - sin2*r34
+;; outi(2)=t7+t8
+;; outi(3)=t7-t8
+;; Where cos2 = cos 2*pi/5 = 0.309, sin2 = 0.951,
+;; cos4 =-0.809, sin4 = 0.588
+;; Finally, multiply 4 of the 5 results by twiddle factors.
+r4_x5c_djbfft MACRO r1,i1,r2,i2,r3,i3,r4,i4,r5,i5,screg,scoff,dstr1,dsti1
+	xload	xmm0, r2
+	addpd	xmm0, r5			;; r25=r2+r5
+	xload	xmm1, r3
+	addpd	xmm1, r4			;; r34=r3+r4
+	xload	xmm2, i2
+	subpd	xmm2, i5			;; i25=i2-i5
+	xload	xmm3, i3
+	subpd	xmm3, i4			;; i34=i3-i4
+	xload	xmm4, XMM_P309
+	mulpd	xmm4, xmm0			;; cos2*r25
+	xload	xmm5, XMM_M809
+	mulpd	xmm5, xmm1			;; cos4*r34
+	xload	xmm6, XMM_P951
+	mulpd	xmm6, xmm2			;; sin2*i25
+	xload	xmm7, XMM_P588
+	mulpd	xmm7, xmm3			;; sin4*i34
+	addpd	xmm4, xmm5			;; cos2*r25 + cos4*r34
+	addpd	xmm6, xmm7			;; t2=sin2*i25 + sin4*i34
+	xload	xmm5, XMM_M809
+	mulpd	xmm5, xmm0			;; cos4*r25
+	addpd	xmm0, xmm1			;; r25 + r34
+	xload	xmm7, r1
+	addpd	xmm4, xmm7			;; t1=cos2*r25 + cos4*r34 + r1
+	addpd	xmm0, xmm7			;; outr(0) = r1 + r25 + r34
+	mulpd	xmm1, XMM_P309			;; cos2*r34
+	mulpd	xmm2, XMM_P588			;; sin4*i25
+	mulpd	xmm3, XMM_P951			;; sin2*i34
+	addpd	xmm5, xmm1			;; cos4*r25+cos2*r34
+	subpd	xmm2, xmm3			;; t4=sin4*i25-sin2*i34
+	addpd	xmm5, xmm7			;; t3=cos4*r25+cos2*r34+r1
+	xcopy	xmm7, xmm4
+	subpd	xmm4, xmm6			;; outr(1)=t1-t2
+	addpd	xmm6, xmm7			;; outr(4)=t1+t2
+	xcopy	xmm7, xmm5
+	subpd	xmm5, xmm2			;; outr(2)=t3-t4
+	addpd	xmm2, xmm7			;; outr(3)=t3+t4
+
+	xstore	XMM_TMP1, xmm4			;; Save new r2
+	xstore	XMM_TMP2, xmm5			;; Save new r3
+	xstore	XMM_TMP3, xmm2			;; Save new r4
+	xstore	XMM_TMP4, xmm6			;; Save new r5
+
+	xload	xmm2, i2
+	addpd	xmm2, i5			;; i25=i2+i5
+	xload	xmm3, i3
+	addpd	xmm3, i4			;; i34=i3+i4
+	xload	xmm4, r2
+	subpd	xmm4, r5			;; r25=r2-r5
+	xload	xmm1, r3
+	subpd	xmm1, r4			;; r34=r3-r4
+
+	xstore	dstr1, xmm0			;; WARNING: dstr1 may be alias to r3
+
+	xcopy	xmm5, xmm2
+	addpd	xmm5, xmm3			;; i25+i34
+	xload	xmm6, XMM_P309
+	mulpd	xmm6, xmm2			;; cos2*i25
+	xload	xmm7, XMM_M809
+	mulpd	xmm2, xmm7			;; cos4*i25
+	mulpd	xmm7, xmm3			;; cos4*i34
+	mulpd	xmm3, XMM_P309			;; cos2*i34
+	xload	xmm0, XMM_P951
+	mulpd	xmm0, xmm4			;; sin2*r25
+	addpd	xmm6, xmm7			;; cos2*i25 + cos4*i34
+	xload	xmm7, XMM_P588
+	mulpd	xmm4, xmm7			;; sin4*r25
+	mulpd	xmm7, xmm1			;; sin4*r34
+	mulpd	xmm1, XMM_P951			;; sin2*r34
+	addpd	xmm2, xmm3			;; cos4*i25 + cos2*i34
+	xload	xmm3, i1
+	addpd	xmm6, xmm3			;; t5=cos2*i25 + cos4*i34 + i1
+	addpd	xmm0, xmm7			;; t6=sin2*r25 + sin4*r34
+	addpd	xmm2, xmm3			;; t7=cos4*i25 + cos2*i34 + i1
+	subpd	xmm4, xmm1			;; t8=sin4*r25 - sin2*r34
+
+	xcopy	xmm7, xmm6
+	subpd	xmm6, xmm0			;; outi(4)=t5-t6
+	addpd	xmm0, xmm7			;; outi(1)=t5+t6
+	xcopy	xmm1, xmm2
+	subpd	xmm2, xmm4			;; outi(3)=t7-t8
+	addpd	xmm4, xmm1			;; outi(2)=t7+t8
+	addpd	xmm5, xmm3			;; outi(0)=i1+i25+i34
+
+	xstore	dsti1, xmm5
+
+	xload	xmm1, XMM_TMP1			;; Load R2
+	mulpd	xmm1, [screg+scoff+48]		;; A2 = R2 * cosine/sine
+	subpd	xmm1, xmm0			;; A2 = A2 - I2
+	mulpd	xmm0, [screg+scoff+48]		;; B2 = I2 * cosine/sine
+	addpd	xmm0, XMM_TMP1			;; B2 = B2 + R2
+	mulpd	xmm1, [screg+scoff+32]		;; A2 = A2 * sine (new R2)
+	mulpd	xmm0, [screg+scoff+32]		;; B2 = B2 * sine (new I2)
+
+	xload	xmm3, XMM_TMP2			;; Load R3
+	mulpd	xmm3, [screg+scoff+16]		;; A3 = R3 * cosine/sine
+	subpd	xmm3, xmm4			;; A3 = A3 - I3
+	mulpd	xmm4, [screg+scoff+16]		;; B3 = I3 * cosine/sine
+	addpd	xmm4, XMM_TMP2			;; B3 = B3 + R3
+	mulpd	xmm3, [screg+scoff]		;; A3 = A3 * sine (new R3)
+	mulpd	xmm4, [screg+scoff]		;; B3 = B3 * sine (new I3)
+
+	xload	xmm5, XMM_TMP3			;; Load R4
+	mulpd	xmm5, [screg+scoff+16]		;; A4 = R4 * cosine/sine
+	addpd	xmm5, xmm2			;; A4 = A4 + I4
+	mulpd	xmm2, [screg+scoff+16]		;; B4 = I4 * cosine/sine
+	subpd	xmm2, XMM_TMP3			;; B4 = B4 - R4
+	mulpd	xmm5, [screg+scoff]		;; A4 = A4 * sine (new R4)
+	mulpd	xmm2, [screg+scoff]		;; B4 = B4 * sine (new I4)
+
+	xload	xmm7, XMM_TMP4			;; Load R5
+	mulpd	xmm7, [screg+scoff+48]		;; A5 = R5 * cosine/sine
+	addpd	xmm7, xmm6			;; A5 = A5 + I5
+	mulpd	xmm6, [screg+scoff+48]		;; B5 = I5 * cosine/sine
+	subpd	xmm6, XMM_TMP4			;; B5 = B5 - R5
+	mulpd	xmm7, [screg+scoff+32]		;; A5 = A5 * sine (new R5)
+	mulpd	xmm6, [screg+scoff+32]		;; B5 = B5 * sine (new I5)
+	ENDM
+
+
+r4_x5cl_five_complex_djbunfft MACRO srcreg,srcinc,d1,screg,scoff
+	d2 = 2*d1
+	d3 = 3*d1
+	d4 = 4*d1
+	xload	xmm0, [srcreg+d1+16]
+	xload	xmm1, [srcreg+d1+48]
+	xload	xmm2, [srcreg+d3+16]
+	xload	xmm3, [srcreg+d3+48]
+	xstore	XMM_TMP5, xmm0
+	xstore	XMM_TMP6, xmm2
+	xstore	XMM_TMP7, xmm1
+	xstore	XMM_TMP8, xmm3
+;;	r4_x5c_djbunfft_mem [srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32],[srcreg+d2],[srcreg+d2+32],[srcreg+d3],[srcreg+d3+32],[srcreg+d4],[srcreg+d4+32],screg,0,[srcreg],[srcreg+d2],[srcreg+d4],[srcreg+d1+16],[srcreg+d3+16]
+	r4_x5c_djbunfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d3],[srcreg+d4],screg,0,[srcreg],[srcreg+d2],[srcreg+d4],[srcreg+d1+16],[srcreg+d3+16]
+;;	xstore	[srcreg], xmm4		;; Save R1
+	xstore	[srcreg+32], xmm5	;; Save I1
+;;	xstore	[srcreg+d2], xmm3	;; Save R2
+	xstore	[srcreg+d2+32], xmm6	;; Save I2
+;;	xstore	[srcreg+d4], xmm3	;; Save R3
+	xstore	[srcreg+d4+32], xmm2	;; Save I3
+;;	xstore	[srcreg+d1+16], xmm1	;; Save R4
+	xstore	[srcreg+d1+48], xmm0	;; Save I4
+;;	xstore	[srcreg+d3+16], xmm1	;; Save R5
+	xstore	[srcreg+d3+48], xmm4	;; Save I5
+;;	r4_x5c_djbunfft_mem [srcreg+16],[srcreg+48],[srcreg+d1+16],[srcreg+d1+48],[srcreg+d2+16],[srcreg+d2+48],[srcreg+d3+16],[srcreg+d3+48],[srcreg+d4+16],[srcreg+d4+48],screg,scoff,[srcreg+d1],[srcreg+d3],[srcreg+16],[srcreg+d2+16],[srcreg+d4+16]
+	r4_x5c_djbunfft_mem [srcreg+16],XMM_TMP5,[srcreg+d2+16],XMM_TMP6,[srcreg+d4+16],screg,scoff,[srcreg+d1],[srcreg+d3],[srcreg+16],[srcreg+d2+16],[srcreg+d4+16]
+;;	xstore	[srcreg+d1], xmm4	;; Save R1
+	xstore	[srcreg+d1+32], xmm5	;; Save I1
+;;	xstore	[srcreg+d3], xmm0	;; Save R2
+	xstore	[srcreg+d3+32], xmm6	;; Save I2
+;;	xstore	[srcreg+16], xmm3	;; Save R3
+	xstore	[srcreg+48], xmm2	;; Save I3
+;;	xstore	[srcreg+d2+16], xmm3	;; Save R4
+	xstore	[srcreg+d2+48], xmm0	;; Save I4
+;;	xstore	[srcreg+d4+16], xmm0	;; Save R5
+	xstore	[srcreg+d4+48], xmm4	;; Save I5
+	bump	srcreg, srcinc
+	ENDM
+
+;; Do a 5-complex inverse FFT.
+;; First we apply twiddle factors to 4 of the 5 input numbers.
+;; A 5-complex inverse FFT is like the forward FFT except all the 
+;; sin values are negated.
+;; Assumes imaginary part of source values is 32 bytes after real part (to workaround MASM line-length limitations)
+;; (was: r4_x5c_djbunfft_mem MACRO r1,i1,r2,i2,r3,i3,r4,i4,r5,i5,screg,scoff,dstr1,dstr2,dstr3,dstr4,dstr5)
+r4_x5c_djbunfft_mem MACRO r1,r2,r3,r4,r5,screg,scoff,dstr1,dstr2,dstr3,dstr4,dstr5
+
+	xload	xmm1, r2			;; Load R2
+	xload	xmm2, [screg+scoff+48]
+	mulpd	xmm1, xmm2			;; A2 = R2 * cosine/sine
+	xload	xmm4, r2[32] ;;i2
+	addpd	xmm1, xmm4			;; A2 = A2 + I2
+	mulpd	xmm4, xmm2			;; B2 = I2 * cosine/sine
+	subpd	xmm4, r2			;; B2 = B2 - R2
+	xload	xmm5, [screg+scoff+32]
+	mulpd	xmm1, xmm5			;; A2 = A2 * sine (new R2)
+	mulpd	xmm4, xmm5			;; B2 = B2 * sine (new I2)
+
+	xload	xmm7, r5			;; Load R5
+	mulpd	xmm7, xmm2			;; A5 = R5 * cosine/sine
+	xload	xmm6, r5[32] ;;i5
+	subpd	xmm7, xmm6			;; A5 = A5 - I5
+	mulpd	xmm6, xmm2			;; B5 = I5 * cosine/sine
+	addpd	xmm6, r5			;; B5 = B5 + R5
+	mulpd	xmm7, xmm5			;; A5 = A5 * sine (new R5)
+	mulpd	xmm6, xmm5			;; B5 = B5 * sine (new I5)
+
+	xcopy	xmm2, xmm1			;; Copy R2
+	subpd	xmm1, xmm7			;; r25s=r2-r5
+	addpd	xmm7, xmm2			;; r25a=r2+r5
+	xcopy	xmm2, xmm4			;; Copy I2
+	subpd	xmm4, xmm6			;; i25s=i2-i5
+	addpd	xmm6, xmm2			;; i25a=i2+i5
+
+	xstore	XMM_TMP1, xmm1			;; Save r2-r5
+	xstore	XMM_TMP2, xmm6			;; Save i2+i5
+
+	xload	xmm3, r3			;; Load R3
+	xload	xmm1, [screg+scoff+16]
+	mulpd	xmm3, xmm1			;; A3 = R3 * cosine/sine
+	xload	xmm0, r3[32] ;;i3
+	addpd	xmm3, xmm0			;; A3 = A3 + I3
+	mulpd	xmm0, xmm1			;; B3 = I3 * cosine/sine
+	subpd	xmm0, r3			;; B3 = B3 - R3
+	xload	xmm6, [screg+scoff]
+	mulpd	xmm3, xmm6			;; A3 = A3 * sine (new R3)
+	mulpd	xmm0, xmm6			;; B3 = B3 * sine (new I3)
+
+	xload	xmm5, r4			;; Load R4
+	mulpd	xmm5, xmm1			;; A4 = R4 * cosine/sine
+	xload	xmm2, r4[32] ;;i4
+	subpd	xmm5, xmm2			;; A4 = A4 - I4
+	mulpd	xmm2, xmm1			;; B4 = I4 * cosine/sine
+	addpd	xmm2, r4			;; B4 = B4 + R4
+	mulpd	xmm5, xmm6			;; A4 = A4 * sine (new R4)
+	mulpd	xmm2, xmm6			;; B4 = B4 * sine (new I4)
+
+	xcopy	xmm1, xmm3			;; Copy R3
+	subpd	xmm3, xmm5			;; r34s=r3-r4
+	addpd	xmm5, xmm1			;; r34a=r3+r4
+	xstore	XMM_TMP3, xmm3
+	xcopy	xmm6, xmm0			;; Copy I3
+	subpd	xmm0, xmm2			;; i34s=i3-i4
+	addpd	xmm2, xmm6			;; i34a=i3+i4
+	xstore	XMM_TMP4, xmm2
+
+	xload	xmm1, XMM_P309
+	mulpd	xmm1, xmm7			;; cos2*r25
+	xload	xmm2, XMM_M809
+	mulpd	xmm2, xmm5			;; cos4*r34
+	xload	xmm3, XMM_P951
+	mulpd	xmm3, xmm4			;; sin2*i25
+	xload	xmm6, XMM_P588
+	mulpd	xmm6, xmm0			;; sin4*i34
+	addpd	xmm1, xmm2			;; cos2*r25 + cos4*r34
+	addpd	xmm3, xmm6			;; t2=sin2*i25 + sin4*i34
+	xload	xmm2, XMM_M809
+	mulpd	xmm2, xmm7			;; cos4*r25
+	addpd	xmm7, xmm5			;; r25 + r34
+	xload	xmm6, r1
+	addpd	xmm1, xmm6			;; t1=cos2*r25 + cos4*r34 + r1
+	addpd	xmm7, xmm6			;; outr(0) = r1 + r25 + r34
+	mulpd	xmm5, XMM_P309			;; cos2*r34
+	mulpd	xmm4, XMM_P588			;; sin4*i25
+	mulpd	xmm0, XMM_P951			;; sin2*i34
+	addpd	xmm2, xmm5			;; cos4*r25+cos2*r34
+	subpd	xmm4, xmm0			;; t4=sin4*i25-sin2*i34
+	addpd	xmm2, xmm6			;; t3=cos4*r25+cos2*r34+r1
+	xcopy	xmm6, xmm1
+	subpd	xmm1, xmm3			;; outr(4)=t1-t2
+	addpd	xmm3, xmm6			;; outr(1)=t1+t2
+	xcopy	xmm5, xmm2
+	subpd	xmm2, xmm4			;; outr(3)=t3-t4
+	addpd	xmm4, xmm5			;; outr(2)=t3+t4
+
+	xstore	dstr1, xmm7
+	xstore	dstr2, xmm3			;; Save new r2
+	xstore	dstr3, xmm4			;; Save new r3
+	xstore	dstr4, xmm2			;; Save new r4
+	xstore	dstr5, xmm1			;; Save new r5
+
+	xload	xmm0, XMM_TMP1			;; r25=r2-r5
+	xload	xmm2, XMM_TMP2			;; i25=i2+i5
+	xload	xmm1, XMM_TMP3			;; r34=r3-r4
+	xload	xmm3, XMM_TMP4			;; i34=i3+i4
+
+	xcopy	xmm5, xmm2
+	addpd	xmm5, xmm3			;; i25+i34
+	xload	xmm6, XMM_P309
+	mulpd	xmm6, xmm2			;; cos2*i25
+	xload	xmm7, XMM_M809
+	mulpd	xmm2, xmm7			;; cos4*i25
+	mulpd	xmm7, xmm3			;; cos4*i34
+	mulpd	xmm3, XMM_P309			;; cos2*i34
+	xload	xmm4, XMM_P951
+	mulpd	xmm4, xmm0			;; sin2*r25
+	addpd	xmm6, xmm7			;; cos2*i25 + cos4*i34
+	xload	xmm7, XMM_P588
+	mulpd	xmm0, xmm7			;; sin4*r25
+	mulpd	xmm7, xmm1			;; sin4*r34
+	mulpd	xmm1, XMM_P951			;; sin2*r34
+	addpd	xmm2, xmm3			;; cos4*i25 + cos2*i34
+	xload	xmm3, r1[32] ;;i1
+	addpd	xmm6, xmm3			;; t5=cos2*i25 + cos4*i34 + i1
+	addpd	xmm4, xmm7			;; t6=sin2*r25 + sin4*r34
+	addpd	xmm2, xmm3			;; t7=cos4*i25 + cos2*i34 + i1
+	subpd	xmm0, xmm1			;; t8=sin4*r25 - sin2*r34
+
+	xcopy	xmm7, xmm6
+	subpd	xmm6, xmm4			;; outi(1)=t5-t6
+	addpd	xmm4, xmm7			;; outi(4)=t5+t6
+	xcopy	xmm1, xmm2
+	subpd	xmm2, xmm0			;; outi(2)=t7-t8
+	addpd	xmm0, xmm1			;; outi(3)=t7+t8
+	addpd	xmm5, xmm3			;; outi(0)=i1+i25+i34
+	ENDM

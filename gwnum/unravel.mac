@@ -1706,6 +1706,9 @@ loops	MACRO iters, dest, incr
 	;; If necessary, split loop issue prefetch instruction(s)
 	IF loops_pffreq GE loops_completed AND loops_pffreq LT loops_completed * local_iters * local_incr
 	  small_count = loops_pffreq / loops_completed / local_incr
+	  IF (local_iters MOD small_count) NE 0
+	    error_with_non_power_of_2_and_prefetching
+	  ENDIF
 	  loops_common small_count, dest, incr
 	  IF loops_pfamt EQ 1
 	    prefetcht1 [loops_pfreg]
@@ -1720,6 +1723,9 @@ loops	MACRO iters, dest, incr
 	;; If necessary, split loop for jumping to touch label
 	IF loops_touchfreq GT loops_completed AND loops_touchfreq LT loops_completed * local_iters * local_incr
 	  small_count = loops_touchfreq / loops_completed / local_incr
+	  IF (local_iters MOD small_count) NE 0
+	    error_with_non_power_of_2_and_prefetch_touching
+	  ENDIF
 	  loops_common small_count, dest, incr
 	  local_iters = local_iters/small_count
 	ENDIF
@@ -1778,15 +1784,20 @@ x:
 	      ENDIF
 	    ENDIF
 	    IF (iters)*loops_completed LE 128
-	      test al, (iters)*loops_completed-1
+	      test al, (iters-1)*loops_completed
 	      jnz dest
 	    ENDIF
 	    IF (iters)*loops_completed EQ 256
-	      test al, al
-	      jnz dest
+	      IF (loops_count AND (loops_count-1)) EQ 0
+	        test al, al	;; Save one byte if loop count is a power of two
+	        jnz dest
+	      ELSE
+		test al, (iters-1)*loops_completed
+		jnz dest
+	      ENDIF
 	    ENDIF
 	    IF (iters)*loops_completed GT 256
-	      test eax, (iters)*loops_completed-1
+	      test eax, (iters-1)*loops_completed
 	      jnz dest
 	    ENDIF
 	  ENDIF

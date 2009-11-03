@@ -1183,6 +1183,7 @@ double *r4delay_build_pass1_table (
 {
 	unsigned long pass1_size, pass1_increment;
 	unsigned long group, i, j, k, N, temp, upper_sse2_word;
+	int	pow2_count;
 	double	sincos[6];
 
 /* Initialize some needed constants */
@@ -1190,12 +1191,13 @@ double *r4delay_build_pass1_table (
 	pass1_increment = gwdata->PASS2_SIZE;
 	upper_sse2_word = pass1_increment / 2;
 
-/* See if pass 1 has an odd number of FFT levels.  If not, there are no radix-8 */
-/* steps and we can use the r4spm setup instead. */
-
+/* See if pass 1 has an odd number of power-of-two FFT levels after the */
+/* initial FFT levels.  If not, there will be no radix-8 steps. */
+/* Note the first FFT 3 levels operate on eight real values, thus we */
+/* start the count at -3. */
+	
 	pass1_size = gwdata->FFTLEN / gwdata->PASS2_SIZE; /* Real values in a pass1 section */
-	while (pass1_size > 16) pass1_size /= 4;
-	if (pass1_size <= 8) return (r4r8_build_pass1_table (gwdata, table));
+	for (pow2_count = -3; (pass1_size & 1) == 0; pass1_size /= 2) pow2_count++;
 
 /* Set pointer to table of multipliers */
 
@@ -1212,7 +1214,8 @@ double *r4delay_build_pass1_table (
 /* Output the sin/cos/premultiplier values for the radix-8 block that does the */
 /* last 3 levels in pass 1. */
 
-		if (gwdata->ALL_COMPLEX_FFT) {
+		if (pow2_count & 1) {
+		   if (gwdata->ALL_COMPLEX_FFT) {
 			N = N * 8;
 			for (j = 0; j < N / 8; j += pass1_increment) {
 			    for (k = 0; k < 4; k++) {
@@ -1222,7 +1225,7 @@ double *r4delay_build_pass1_table (
 					temp = (group + j + i);
 
 /* We must merge the temp*0,4,2,6,1,5,3,7 sin/cos value (roots of N) with the group */
-/* premultiplier (roots of FFTLEN*2) */
+/* all-complex premultiplier roots of minus 1 (same as roots of FFTLEN*2) */
 
 					bigN = gwdata->FFTLEN * 2;
 					fudge = bigN / N;
@@ -1296,11 +1299,15 @@ double *r4delay_build_pass1_table (
 			    }
 			}
 			pass1_size /= 8;
+		   }
 		}
 
+		// bug....
+		//else build fudged table for a radix-4 pass 1 last fft level.
+		
 /* For the r4_four_complex_djbfft building block levels, output the sin/cos values. */
 
-		while (pass1_size > 8) {
+		while ((pass1_size & 0x1F) == 0) {
 			N = N * 4;
 			for (j = 0; j < N / 4; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
@@ -1322,6 +1329,54 @@ double *r4delay_build_pass1_table (
 			}
 			pass1_size /= 4;
 		}
+
+/* For the r4_five_complex_djbfft building block levels, output the sin/cos values. */
+
+		while (pass1_size % 5 == 0) {
+			N = N * 5;
+			for (j = 0; j < N / 5; j += pass1_increment) {
+				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+					temp = (group + j + i);
+					gwsincos3 (temp, N, (double *) &sincos);
+					table[0] = sincos[2];	/* 2 * temp */
+					table[2] = sincos[3];
+					table[4] = sincos[0];	/* temp */
+					table[6] = sincos[1];
+
+					gwsincos3 (temp + upper_sse2_word, N, (double *) &sincos);
+					table[1] = sincos[2];	/* 2 * temp */
+					table[3] = sincos[3];
+					table[5] = sincos[0];	/* temp */
+					table[7] = sincos[1];
+
+					table += 8;
+				}
+			}
+			pass1_size /= 5;
+		}
+
+/* For the r4_three_complex_djbfft building block levels, output the sin/cos values. */
+
+		while (pass1_size % 3 == 0) {
+			N = N * 3;
+			for (j = 0; j < N / 3; j += pass1_increment) {
+				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+					temp = (group + j + i);
+					gwsincos (temp, N, (double *) &sincos);
+					table[0] = sincos[0];	/* temp */
+					table[2] = sincos[1];
+
+					gwsincos (temp + upper_sse2_word, N, (double *) &sincos);
+					table[1] = sincos[0];	/* temp */
+					table[3] = sincos[1];
+
+					table += 4;
+				}
+			}
+			pass1_size /= 3;
+		}
+		// We only support one delay size....8 reals
+		ASSERTG (pass1_size == 8);
 
 /* Calculate the size of each group's sin/cos/premult data for pass1_get_next_block */
 
@@ -1353,7 +1408,6 @@ double *r4delay_build_fixed_pass1_table (
 
 /* Real FFTs output one last set of DJB sin/cos values for a four-complex FFT */
 /* (even though the first macro is eight_reals FFT) */
-/* BUG - is this right?  What about PFA? */
 
 	if (! gwdata->ALL_COMPLEX_FFT) {
 		N = gwdata->FFTLEN / 2;
@@ -1400,6 +1454,210 @@ double *r4delay_build_fixed_pass1_table (
 /* Return address of the end of the table */
 
 	return (table);
+}
+
+/* This routine builds a normalization table - used by radix-4 normalizaion */
+/* routines.  It differs from the home-grown SSE2 routines in that the different */
+/* memory layout for PFA makes this routine much simpler. */
+
+double *r4_build_norm_table (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	double	*table,		/* Pointer to the table to fill in */
+	int	col)		/* TRUE if building column, not group, table */
+{
+	unsigned long i, k, num_cols;
+
+/* Handle one-pass FFTs first, there are no group multipliers */
+
+	if (gwdata->PASS2_SIZE == 0) {
+		if (!col) return (table);
+
+/* Loop to build table */
+
+		for (i = 0; i < gwdata->FFTLEN; i++) {
+			unsigned long j, table_entry;
+			double	ttp, ttmp;
+
+/* Call asm routines to compute the two multipliers */
+
+			gwfft_weights3 (gwdata->dd_data, i, &ttp, NULL, &ttmp);
+
+/* Find where this data appears in the FFT array and in the table we are building. */
+
+			j = addr_offset (gwdata, i) / sizeof (double);
+			table_entry = j >> 1;
+
+/* Now set the entry for the MSW or LSW in an SSE2 pair */
+
+			table[table_entry*4+(j&1)] = ttmp;
+			table[table_entry*4+2+(j&1)] = ttp;
+		}
+		return (table + gwdata->FFTLEN + gwdata->FFTLEN);
+	}
+
+/* Two pass FFTs are handled here */
+
+	num_cols = gwdata->PASS2_SIZE / 2;
+	if (col) {
+
+/* Loop to build table */
+
+		for (i = 0; i < num_cols; i++) {
+			double	ttp, ttmp;
+
+/* Call asm routines to compute the two multipliers */
+
+			gwfft_weights3 (gwdata->dd_data, i, &ttp, NULL, &ttmp);
+
+/* Now set the entry for BOTH the MSW and LSW in an SSE2 pair */
+
+			table[i*4] = ttmp;
+			table[i*4+1] = ttmp;
+			table[i*4+2] = ttp;
+			table[i*4+3] = ttp;
+		}
+		return (table + num_cols * 4);
+	}
+
+/* Build the group multipliers table */
+
+	else {
+		unsigned long h, hlimit, haddin, m, mmult, u, umult;
+
+/* Loop to build table */
+
+		umult = gwdata->FFTLEN / 2;
+		hlimit = gwdata->FFTLEN / 4 / (2*num_cols);
+		for (h = 0; h < hlimit; h++) {
+			haddin = h * 2 * num_cols;
+			mmult = gwdata->FFTLEN / 4;
+			for (u = 0; u < 2; u++) {
+				for (m = 0; m < 2; m++) {
+					for (k = 0; k < 2; k++) {
+						double	ttp, ttmp;
+						long	n;
+
+/* Call asm routines to compute the two multipliers */
+
+						n = haddin + u * umult + m * mmult + k * num_cols;
+						gwfft_weights3 (gwdata->dd_data, n, &ttp, &ttmp, NULL);
+
+/* Now set the entry for BOTH the MSW and LSW in an SSE2 pair */
+
+						table[k] = ttmp;
+						table[2+k] = ttp;
+					}
+					table += 4;
+				}
+			}
+		}
+		return (table);
+	}
+}
+
+/* This routine builds a big/little flags table - used by radix-4 normalizaion */
+/* routines.  It differs from the home-grown SSE2 routines in that the different */
+/* memory layout for PFA makes this routine much simpler. */
+
+double *r4_build_biglit_table (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	double	*table)		/* Pointer to the table to fill in */
+{
+	unsigned char *p;
+	unsigned long h, i, j, k, m, u, gap;
+	unsigned long hlimit, haddin, mmult, umult;
+
+/* Handle one pass FFTs differently */
+
+	if (gwdata->PASS2_SIZE == 0) {
+
+/* Loop to build table */
+
+		p = (unsigned char *) table;
+		for (i = 0; i < gwdata->FFTLEN; i++) {
+			unsigned long table_entry;
+
+/* Find where this data appears in the FFT array and in the table we are building. */
+
+			j = addr_offset (gwdata, i) / sizeof (double);
+			table_entry = j >> 1;
+
+/* Now set the biglit table entry for a LSW in an SSE2 pair */
+
+			if ((j & 1) == 0) {
+				p[table_entry] = is_big_word (gwdata, i) * 16;
+			}
+
+/* Otherwise, set the biglit table entry for a MSW in an SSE2 pair */
+
+			else {
+				if (is_big_word (gwdata, i)) p[table_entry] += 32;
+			}
+		}
+		return ((double *) (p + gwdata->FFTLEN / 2));
+	}
+
+/* Determine the gap between XMM high and low words */
+
+	gap = gwdata->PASS2_SIZE / 2;
+
+/* Loop to build table in exactly the same order that it will be */
+/* used by the assembly code. */
+
+	p = (unsigned char *) table;
+	umult = gwdata->FFTLEN / 2;
+	hlimit = gwdata->FFTLEN / 4 / (2*gap);
+	for (i = 0; i < gap; i += gwdata->PASS1_CACHE_LINES) {
+		for (h = 0; h < hlimit; h++) {
+			haddin = h * 2 * gap;
+			mmult = gwdata->FFTLEN / 4;
+			for (j = 0; j < gwdata->PASS1_CACHE_LINES; j++) {
+				for (u = 0; u < 2; u++) {
+					for (m = 0; m < 2; m++) {
+						for (k = 0; k < 2 * gap; k += gap) {
+							unsigned long word;
+
+/* Now set the big/little flag for a LSW in an SSE2 pair */
+/* Otherwise, set the big/little flag for a MSW in an SSE2 pair */
+
+							word = haddin + i + j + u * umult + m * mmult + k;
+							if (k == 0) *p = is_big_word (gwdata, word) * 16;
+							else if (is_big_word (gwdata, word)) *p += 32;
+
+/* Set the ttp and ttmp fudge flags for two pass FFTs.  The fudge flag is */
+/* set if the col mult * the grp mult is twice the correct fft_weight, */
+/* meaning a mul by 0.5 is required to generate the correct multiplier. */
+/* Since we can't do equality compares on floats, this test is a little bit */
+/* cryptic. */
+
+							if (gwfft_weight_exponent (gwdata->dd_data, word) + 0.5 <
+							    gwfft_weight_exponent (gwdata->dd_data, word % gap) +
+							    gwfft_weight_exponent (gwdata->dd_data, word - word % gap)) {
+								if (k == 0) *p += 64;
+								else *p += 128;
+							}
+
+/* Set some offsets that help the assembly code step through the big/lit */
+/* array in a non-traditional order.  Two pass-FFTs step through the array */
+/* in chunks of PASS1_CACHE_LINES, but the add, sub, and carry propagation */
+/* code need to access the big/lit array linearly.  Set two global variables */
+/* that tell the assembly code the big/lit array distance between words */
+/* 0 and 2, and words 0 and 4. */
+
+							if (word == 2)
+								((struct gwasm_data *) gwdata->asm_data)->BIGLIT_INCR2 =
+									(uint32_t) ((char *) p - (char *) table);
+							if (word == 4)
+								((struct gwasm_data *) gwdata->asm_data)->BIGLIT_INCR4 =
+									(uint32_t) ((char *) p - (char *) table);
+						}
+						p++;
+					}
+				}
+			}
+		}
+	}
+	return ((double *) p);
 }
 
 /* This routine builds a sin/cos table - used by gwsetup */
@@ -1728,7 +1986,7 @@ double *hg_build_plus1_table (
 /* This routine builds a normalization table - used by SSE2 normalizaion */
 /* routines */
 
-double *build_norm_table (
+double *hg_build_norm_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table,		/* Pointer to the table to fill in */
 	int	col)		/* TRUE if building column, not group, table */
@@ -1851,7 +2109,7 @@ double *build_norm_table (
 /* This routine builds a big/little flags table - used by SSE2 normalizaion */
 /* routines */
 
-double *build_biglit_table (
+double *hg_build_biglit_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table)		/* Pointer to the table to fill in */
 {
@@ -1977,6 +2235,9 @@ double *build_biglit_table (
 	return ((double *) p);
 }
 
+/* Ancient x87 setup routines */
+
+#ifndef X86_64
 
 /* This routine builds an x87 sin/cos table - used by gwsetup */
 
@@ -2389,6 +2650,10 @@ double *x87_build_biglit_table (
 	}
 	return ((double *) p);
 }
+
+/* End ancient x87 setup routines */
+
+#endif
 
 /* Return true if half of the words would have the same pattern of big */
 /* and little words.  */
@@ -3259,7 +3524,7 @@ next3:		if (! (jmptab->counts[0] & 0x80000000)) break;
 				asm_data->count3 = jmptab->counts[4];
 				asm_data->count4 = jmptab->counts[5];
 				asm_data->count5 = jmptab->counts[6];
-			} else {
+			} else if (gwdata->FFT_TYPE == FFT_TYPE_HOME_GROWN) {
 				int	pfa, pfa_shift;
 				/* Count of pass 2 sections */
 				asm_data->addcount1 = gwdata->FFTLEN / gwdata->PASS2_SIZE / 4;
@@ -3280,6 +3545,14 @@ next3:		if (! (jmptab->counts[0] & 0x80000000)) break;
 					asm_data->count3 = ((4 << 22) + (2 << 11) + 1) << pfa_shift;
 				else
 					asm_data->count3 = asm_data->addcount1;
+			} else {
+				/* Count of pass 2 sections */
+				asm_data->addcount1 = gwdata->FFTLEN / gwdata->PASS2_SIZE / 4;
+				/* Count of all-complex pass 2 sections */
+				asm_data->count1 = asm_data->addcount1;
+				if (gwdata->ZERO_PADDED_FFT || c < 0) asm_data->count1--;
+				/* Only one section counts for gw_carries */
+				asm_data->count3 = asm_data->addcount1;
 			}
 		}
 	}
@@ -3903,8 +4176,7 @@ int convert_giant_to_k2ncd (
 
 int internal_gwsetup (
 	gwhandle *gwdata,	/* Placeholder for gwnum global data */
-	double	k,		/* K in K*B^N+C. Must be a positive int
-					eger. */
+	double	k,		/* K in K*B^N+C. Must be a positive integer. */
 	unsigned long b,	/* B in K*B^N+C. */
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
 	signed long c)		/* C in K*B^N+C. Must be rel. prime to K. */
@@ -4096,8 +4368,7 @@ int internal_gwsetup (
 			asm_data->carries = tables;
 			carry_table_size = gwdata->FFTLEN / (gwdata->PASS2_SIZE / 2);
 			xmm_bigval = 3.0 * 131072.0 * 131072.0 * 131072.0;
-			for (i = 0; i < carry_table_size; i++)
-				*tables++ = xmm_bigval;
+			for (i = 0; i < carry_table_size; i++) *tables++ = xmm_bigval;
 			tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 		}
 
@@ -4106,7 +4377,7 @@ int internal_gwsetup (
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->norm_grp_mults = tables;
-		tables = build_norm_table (gwdata, tables, 0);
+		tables = r4_build_norm_table (gwdata, tables, 0);
 
 /* Reserve room for the pass 1 scratch area. */
 
@@ -4130,14 +4401,14 @@ int internal_gwsetup (
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->norm_biglit_array = tables;
-		tables = build_biglit_table (gwdata, tables);
+		tables = r4_build_biglit_table (gwdata, tables);
 		tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 
 /* Build the column normalization multiplier table. */
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->norm_col_mults = tables;
-		tables = build_norm_table (gwdata, tables, 1);
+		tables = r4_build_norm_table (gwdata, tables, 1);
 	}
 
 /* Initialize tables for a modified radix-4 FFT assembly code.  In this case, */
@@ -4190,8 +4461,7 @@ int internal_gwsetup (
 			asm_data->carries = tables;
 			carry_table_size = gwdata->FFTLEN / (gwdata->PASS2_SIZE / 2);
 			xmm_bigval = 3.0 * 131072.0 * 131072.0 * 131072.0;
-			for (i = 0; i < carry_table_size; i++)
-				*tables++ = xmm_bigval;
+			for (i = 0; i < carry_table_size; i++) *tables++ = xmm_bigval;
 			tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 		}
 
@@ -4200,7 +4470,7 @@ int internal_gwsetup (
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->norm_grp_mults = tables;
-		tables = build_norm_table (gwdata, tables, 0);
+		tables = r4_build_norm_table (gwdata, tables, 0);
 
 /* Reserve room for the pass 1 scratch area. */
 
@@ -4224,14 +4494,14 @@ int internal_gwsetup (
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->norm_biglit_array = tables;
-		tables = build_biglit_table (gwdata, tables);
+		tables = r4_build_biglit_table (gwdata, tables);
 		tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 
 /* Build the column normalization multiplier table. */
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->norm_col_mults = tables;
-		tables = build_norm_table (gwdata, tables, 1);
+		tables = r4_build_norm_table (gwdata, tables, 1);
 	}
 
 /* Initialize tables for a modified radix-4 FFT.  This particular FFT */
@@ -4284,8 +4554,7 @@ int internal_gwsetup (
 			asm_data->carries = tables;
 			carry_table_size = gwdata->FFTLEN / (gwdata->PASS2_SIZE / 2);
 			xmm_bigval = 3.0 * 131072.0 * 131072.0 * 131072.0;
-			for (i = 0; i < carry_table_size; i++)
-				*tables++ = xmm_bigval;
+			for (i = 0; i < carry_table_size; i++) *tables++ = xmm_bigval;
 			tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 		}
 
@@ -4294,7 +4563,7 @@ int internal_gwsetup (
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->norm_grp_mults = tables;
-		tables = build_norm_table (gwdata, tables, 0);
+		tables = r4_build_norm_table (gwdata, tables, 0);
 
 /* Reserve room for the pass 1 scratch area. */
 
@@ -4318,14 +4587,14 @@ int internal_gwsetup (
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->norm_biglit_array = tables;
-		tables = build_biglit_table (gwdata, tables);
+		tables = r4_build_biglit_table (gwdata, tables);
 		tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 
 /* Build the column normalization multiplier table. */
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->norm_col_mults = tables;
-		tables = build_norm_table (gwdata, tables, 1);
+		tables = r4_build_norm_table (gwdata, tables, 1);
 	}
 
 /* Initialize tables for a modified radix-4 FFT.  This particular FFT */
@@ -4381,8 +4650,7 @@ int internal_gwsetup (
 			asm_data->carries = tables;
 			carry_table_size = gwdata->FFTLEN / (gwdata->PASS2_SIZE / 2);
 			xmm_bigval = 3.0 * 131072.0 * 131072.0 * 131072.0;
-			for (i = 0; i < carry_table_size; i++)
-				*tables++ = xmm_bigval;
+			for (i = 0; i < carry_table_size; i++) *tables++ = xmm_bigval;
 			tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 		}
 
@@ -4391,7 +4659,7 @@ int internal_gwsetup (
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->norm_grp_mults = tables;
-		tables = build_norm_table (gwdata, tables, 0);
+		tables = r4_build_norm_table (gwdata, tables, 0);
 
 /* Reserve room for the pass 1 scratch area. */
 
@@ -4415,14 +4683,14 @@ int internal_gwsetup (
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->norm_biglit_array = tables;
-		tables = build_biglit_table (gwdata, tables);
+		tables = r4_build_biglit_table (gwdata, tables);
 		tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 
 /* Build the column normalization multiplier table. */
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->norm_col_mults = tables;
-		tables = build_norm_table (gwdata, tables, 1);
+		tables = r4_build_norm_table (gwdata, tables, 1);
 	}
 
 /* Initialize tables for the home-grown SSE2 FFT code. */
@@ -4489,7 +4757,7 @@ int internal_gwsetup (
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->norm_grp_mults = tables;
-		tables = build_norm_table (gwdata, tables, 0);
+		tables = hg_build_norm_table (gwdata, tables, 0);
 
 /* Build the plus1-pre-multiplier table (complex weights applied when c > 0 */
 /* and we are doing a all-complex FFT rather than emulating it with a */
@@ -4542,17 +4810,19 @@ int internal_gwsetup (
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->norm_biglit_array = tables;
-		tables = build_biglit_table (gwdata, tables);
+		tables = hg_build_biglit_table (gwdata, tables);
 		tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 
 /* Build the column normalization multiplier table. */
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->norm_col_mults = tables;
-		tables = build_norm_table (gwdata, tables, 1);
+		tables = hg_build_norm_table (gwdata, tables, 1);
 	}
 
 /* Initialze table for the x87 assembly code. */
+
+#ifndef X86_64
 
 	else {
 
@@ -4643,6 +4913,8 @@ int internal_gwsetup (
 		asm_data->norm_biglit_array = tables;
 		tables = x87_build_biglit_table (gwdata, tables);
 	}
+
+#endif
 
 /* Finish verifying table size */
 
@@ -6786,15 +7058,16 @@ unsigned long addr_offset (
 			addr = addr * sizeof (double);
 		}
 
-/* Larger FFTs use two passes.  This the example for a length 64K FFT:	*/
+/* Larger FFTs use two passes.  This the example for a length 64K FFT (pass2_size = 2K): */
 /*	0	1K	16K	17K	32K	33K	48K	49K	*/
 /*	1	...							*/
 /*	...								*/
 /*	1023	...							*/
 /*	2K	...							*/
 /*	...								*/
+/* and PFA layouts are even funkier.					*/		
 
-		else {
+		else if (gwdata->FFT_TYPE == FFT_TYPE_HOME_GROWN) {
 			sets = (fftlen / gwdata->PASS2_SIZE) >> 2;
 			if (i >= (fftlen >> 1)) {
 				i6 = 1;
@@ -6833,6 +7106,21 @@ unsigned long addr_offset (
 			/* Now add 128 bytes every 8KB and one pass2gapsize */
 			/* for every pass 2 block. */
 			addr = addr + (addr >> 13) * 128 + i3 * gwdata->PASS2GAPSIZE;
+		}
+
+/* Newer traditional radix-4 large FFTs use don't have a special layout for PFA. */
+
+		else {
+			unsigned long top2, row;
+			top2 = (i << 2) / fftlen; i -= (top2 * fftlen) >> 2;
+			i1 = i % (gwdata->PASS2_SIZE >> 1); i = i / (gwdata->PASS2_SIZE >> 1);
+			i2 = i & 1; i >>= 1;
+			row = i * (gwdata->PASS2_SIZE >> 1) + i1;
+			addr = (((row << 2) + top2) << 1) + i2;
+			addr = addr * sizeof (double);
+			/* Now add 128 bytes every 8KB and one pass2gapsize */
+			/* for every pass 2 block. */
+			addr = addr + (addr >> 13) * 128 + i * gwdata->PASS2GAPSIZE;
 		}
 	}
 
@@ -7014,12 +7302,12 @@ void gwfft_description (
 		 (gwdata->ARCH == 3) ? "Core2 " :
 		 (gwdata->ARCH == 4) ? "AMD K8 " :
 		 (gwdata->ARCH == 5) ? "AMD K10 " : " ",
-		 gwdata->FFTLEN > 4194304 ?	gwdata->FFTLEN / 1048576 :
-		 gwdata->FFTLEN >= 4096 ?	gwdata->FFTLEN / 1024 :
-						gwdata->FFTLEN,
-		 gwdata->FFTLEN > 4194304 ?	"M" :
-		 gwdata->FFTLEN >= 4096 ?	"K" :
-						"");
+		 gwdata->FFTLEN >= 1048576 && (gwdata->FFTLEN & 0xFFFFF) == 0 ?
+			 gwdata->FFTLEN / 1048576 :
+		 gwdata->FFTLEN >= 1024 && (gwdata->FFTLEN & 0x3FF) == 0 ?
+			 gwdata->FFTLEN / 1024 : gwdata->FFTLEN,
+		 gwdata->FFTLEN >= 1048576 && (gwdata->FFTLEN & 0xFFFFF) == 0 ? "M" :
+		 gwdata->FFTLEN >= 1024 && (gwdata->FFTLEN & 0x3FF) == 0 ? "K" : "");
 	if (gwdata->num_threads > 1)
 		sprintf (buf + strlen (buf), ", %d threads", (int) gwdata->num_threads);
 

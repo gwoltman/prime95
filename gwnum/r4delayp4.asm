@@ -50,7 +50,7 @@ TLB_PRIMING = 0
 
 ;; Routines for many FFT sizes
 
-	r4delay_pass1sclevels10complex4 4096K, 12, 4
+	r4delay_pass1sc1024ac 4M, 12, 4
 
 ;**********************************************************
 ; Early model P4s require TLB priming.  These P4s generally
@@ -65,7 +65,7 @@ TLB_PRIMING = 1
 
 ;; Routines for many FFT sizes
 
-	r4delay_pass1sclevels10complex4 4096K, 12, 2
+	r4delay_pass1sc1024ac 4M, 12, 2
 
 _TEXT	ENDS
 END
