@@ -1207,24 +1207,28 @@ r4_g4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	xprefetch [srcreg+srcinc+d1]
 ;;	xstore	[dstreg], xmm0		;; Save R1
 ;;	xstore	[dstreg+16], xmm5	;; Save R2
+	xload	xmm0, [srcreg+32]	;; R1
+	xload	xmm5, [srcreg+48]	;; R5
 	xstore	[dstreg+32], xmm7	;; Save R3
 	xstore	[dstreg+48], xmm6	;; Save R4
+	xload	xmm7, [srcreg+d1+32]	;; R2
+	xload	xmm6, [srcreg+d1+48]	;; R6
 	xstore	[dstreg+e1], xmm3	;; Save R5
 	xstore	[dstreg+e1+16], xmm1	;; Save R6
 	xstore	[dstreg+e1+32], xmm2	;; Save R7
 	xstore	[dstreg+e1+48], xmm4	;; Save R8
-	xprefetchw [srcreg+srcinc+d2]
-	r4_x4c_djbfft_mem [srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+48],[srcreg+d1+48],[srcreg+d2+48],[srcreg+d2+d1+48],screg,0,dstreg+dstinc+e2,e1,[dstreg+e2],[dstreg+e2+16]
-	xprefetchw [srcreg+srcinc+d2+d1]
+	xprefetch [srcreg+srcinc+d2]
+	r4_x4c_djbfft_partial_mem xmm0,xmm7,xmm3,xmm2,xmm5,xmm6,xmm1,xmm4,[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+d2+48],[srcreg+d2+d1+48],screg,0,dstreg+dstinc+e2,e1,[dstreg+e2],[dstreg+e2+16]
+	xprefetch [srcreg+srcinc+d2+d1]
 	bump	srcreg, srcinc
-;;	xstore	[dstreg+e2], xmm0	;; Save R1
-;;	xstore	[dstreg+e2+16], xmm5	;; Save R2
-	xstore	[dstreg+e2+32], xmm7	;; Save R3
-	xstore	[dstreg+e2+48], xmm6	;; Save R4
-	xstore	[dstreg+e2+e1], xmm3	;; Save R5
-	xstore	[dstreg+e2+e1+16], xmm1	;; Save R6
-	xstore	[dstreg+e2+e1+32], xmm2	;; Save R7
-	xstore	[dstreg+e2+e1+48], xmm4	;; Save R8
+;;	xstore	[dstreg+e2], xmm3	;; Save R1
+;;	xstore	[dstreg+e2+16], xmm6	;; Save R2
+	xstore	[dstreg+e2+32], xmm4	;; Save R3
+	xstore	[dstreg+e2+48], xmm1	;; Save R4
+	xstore	[dstreg+e2+e1], xmm2	;; Save R5
+	xstore	[dstreg+e2+e1+16], xmm7	;; Save R6
+	xstore	[dstreg+e2+e1+32], xmm0	;; Save R7
+	xstore	[dstreg+e2+e1+48], xmm5	;; Save R8
 	bump	dstreg, dstinc
 	ENDM
 
