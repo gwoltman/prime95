@@ -42,7 +42,7 @@ TLB_PRIMING = 0
 
 ;; Routines for many FFT sizes
 
-	r4spm_pass1sclevels10complex4 4096K, 12, 4
+	r4spm_pass1sc1024ac 4M, 12, 4
 
 _TEXT	ENDS
 END

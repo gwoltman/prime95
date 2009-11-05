@@ -33,7 +33,7 @@
 ;; Perform a 10 levels of an all-complex FFT.  
 ;; Memory examples are for a 2M FFT with 11 levels done in pass 2.
 
-r4spm_pass1sclevels10complex4 MACRO fftname, pass2_levels, clmarg
+r4spm_pass1sc1024ac MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b3a, b3b, b5a, b5b, b7a, b7b, b9b
 	LOCAL	c0b, c1a, c1b, c3a, c3b, c5a, c5b, c7a, c7b, c9a, c9b
 	LOCAL	pass2, endlp, yes_fft
