@@ -14,15 +14,19 @@ xfft_type TEXTEQU <r4r8>
 
 
 ;;	We need a radix-8 version for pass 2.  The best place is probably the last 3 levels.
-;;	In which case we'll need the square and  mulf versions too.  ---  and maybe
+;;	In which case we'll need the square and mulf versions too.  ---  and maybe
 ;;	swizzling versions for one-pass FFTs.
 
 ;;
-;; Do a traditional radix-8 forward FFT with 7 sin/cos multipliers.
+;; Do a radix-8 forward FFT on real data with 7 sin/cos multipliers (one delayed to a future level).
+;; These data rows also contains a set of 8 complex values needing a radix-8 step.
 ;;
 
-r4r8_g8cl_eight_complex_djbfft MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4,screg,scoff
-	;; need code here
+r4r8_g8cl_eight_reals_djbfft_3 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4,screg,scoff
+bug - need code here
+	r4r8_x8c_fft8 srcreg+32,d1,d2,d4,dstreg+e4,e1,e2,screg+scoff
+	bump	srcreg, srcinc
+	bump	dstreg, dstinc
 	ENDM
 
 ;;
@@ -167,10 +171,10 @@ r4r8_x8c_fft8 MACRO srcreg,d1,d2,d4,dstreg,e1,e2,screg
 	subpd	xmm2, xmm4			;; R7 = R7 - I8 (new R7)	;38-41
 	addpd	xmm4, [dstreg+e2+e1]		;; I8 = R7 + I8 (new R8)	;46-49
 
-	xload	xmm7, [screg+128+16]		;; cosine/sine
+	xload	xmm7, [screg+32+16]		;; cosine/sine
 	mulpd	xmm7, xmm0			;; A5 = R5 * cosine/sine	;11-16
 	subpd	xmm7, xmm1			;; A5 = A5 - I5			;18-21
-	mulpd	xmm1, [screg+128+16]		;; B5 = I5 * cosine/sine	;7-12
+	mulpd	xmm1, [screg+32+16]		;; B5 = I5 * cosine/sine	;7-12
 	addpd	xmm1, xmm0			;; B5 = B5 + R5			;14-17
 
 	xload	xmm0, [dstreg+e2+e1+16]		;; I7
@@ -180,17 +184,17 @@ r4r8_x8c_fft8 MACRO srcreg,d1,d2,d4,dstreg,e1,e2,screg
 	mulpd	xmm6, [screg+160]		;; A6 = A6 * sine (final R6)	;17-22
 	xstore	[dstreg+e2+32], xmm6		;; Save R6
 
-	xload	xmm6, [screg+192+16]		;; cosine/sine
+	xload	xmm6, [screg+96+16]		;; cosine/sine
 	mulpd	xmm6, xmm2			;; A7 = R7 * cosine/sine	;1-6
 	subpd	xmm6, xmm5			;; A7 = A7 - I7			;8-11
-	mulpd	xmm5, [screg+192+16]		;; B7 = I7 * cosine/sine	;3-8
+	mulpd	xmm5, [screg+96+16]		;; B7 = I7 * cosine/sine	;3-8
 	addpd	xmm5, xmm2			;; B7 = B7 + R7			;10-13
 
 	mulpd	xmm3, [screg+160]		;; B6 = B6 * sine (final I6)	;21-26
 	xstore	[dstreg+e2+48], xmm3		;; Save I6
 
-	mulpd	xmm7, [screg+128]		;; A5 = A5 * sine (final R5)	;19-24
-	mulpd	xmm1, [screg+128]		;; B5 = B5 * sine (final I5)	;23-28
+	mulpd	xmm7, [screg+32]		;; A5 = A5 * sine (final R5)	;19-24
+	mulpd	xmm1, [screg+32]		;; B5 = B5 * sine (final I5)	;23-28
 
 	xstore	[dstreg+e2], xmm7		;; Save R5
 	xstore	[dstreg+e2+16], xmm1		;; Save I5
@@ -201,8 +205,8 @@ r4r8_x8c_fft8 MACRO srcreg,d1,d2,d4,dstreg,e1,e2,screg
 	mulpd	xmm0, [screg+224+16]		;; B8 = I8 * cosine/sine	;7-12
 	addpd	xmm0, xmm4			;; B8 = B8 + R8			;14-17
 
-	mulpd	xmm6, [screg+192]		;; A7 = A7 * sine (new R7)	;13-18
-	mulpd	xmm5, [screg+192]		;; B7 = B7 * sine (new I7)	;15-20
+	mulpd	xmm6, [screg+96]		;; A7 = A7 * sine (new R7)	;13-18
+	mulpd	xmm5, [screg+96]		;; B7 = B7 * sine (new I7)	;15-20
 	mulpd	xmm3, [screg+224]		;; A8 = A8 * sine (new R8)	;19-24
 	mulpd	xmm0, [screg+224]		;; B8 = B8 * sine (new I8)	;23-28
 
@@ -221,10 +225,10 @@ r4r8_x8c_fft8 MACRO srcreg,d1,d2,d4,dstreg,e1,e2,screg
 	subpd	xmm7, xmm0			;; I1 = I1 - I2 (new I2)	;42-45
 	addpd	xmm0, [dstreg+16]		;; I2 = I1 + I2 (new I1)	;50-53
 
-	xload	xmm1, [screg+32+16]		;; cosine/sine
+	xload	xmm1, [screg+128+16]		;; cosine/sine
 	mulpd	xmm1, xmm3			;; A2 = R2 * cosine/sine	;5-10
 	subpd	xmm1, xmm7			;; A2 = A2 - I2			;12-15
-	mulpd	xmm7, [screg+32+16]		;; B2 = I2 * cosine/sine	;9-14
+	mulpd	xmm7, [screg+128+16]		;; B2 = I2 * cosine/sine	;9-14
 	addpd	xmm7, xmm3			;; B2 = B2 + R2			;16-19
 
 	xload	xmm2, [screg+0+16]		;; cosine/sine
@@ -233,8 +237,8 @@ r4r8_x8c_fft8 MACRO srcreg,d1,d2,d4,dstreg,e1,e2,screg
 	mulpd	xmm0, [screg+0+16]		;; B1 = I1 * cosine/sine	;7-12
 	addpd	xmm0, xmm4			;; B1 = B1 + R1			;14-17
 
-	mulpd	xmm1, [screg+32]		;; A2 = A2 * sine (final R2)	;17-22
-	mulpd	xmm7, [screg+32]		;; B2 = B2 * sine (final I2)	;21-26
+	mulpd	xmm1, [screg+128]		;; A2 = A2 * sine (final R2)	;17-22
+	mulpd	xmm7, [screg+128]		;; B2 = B2 * sine (final I2)	;21-26
 	mulpd	xmm2, [screg+0]			;; A1 = A1 * sine (final R1)	;19-24
 	mulpd	xmm0, [screg+0]			;; B1 = B1 * sine (final I1)	;23-28
 
@@ -259,16 +263,16 @@ r4r8_x8c_fft8 MACRO srcreg,d1,d2,d4,dstreg,e1,e2,screg
 	mulpd	xmm4, [screg+64+16]		;; B3 = I3 * cosine/sine	;3-8
 	addpd	xmm4, xmm5			;; B3 = B3 + R3			;10-13
 
-	xload	xmm7, [screg+96+16]		;; cosine/sine
+	xload	xmm7, [screg+192+16]		;; cosine/sine
 	mulpd	xmm7, xmm6			;; A4 = R4 * cosine/sine	;11-16
 	subpd	xmm7, xmm3			;; A4 = A4 - I4			;18-21
-	mulpd	xmm3, [screg+96+16]		;; B4 = I4 * cosine/sine	;7-12
+	mulpd	xmm3, [screg+192+16]		;; B4 = I4 * cosine/sine	;7-12
 	addpd	xmm3, xmm6			;; B4 = B4 + R4			;14-17
 
 	mulpd	xmm1, [screg+64]		;; A3 = A3 * sine (final R3)	;13-18
 	mulpd	xmm4, [screg+64]		;; B3 = B3 * sine (final I3)	;15-20
-	mulpd	xmm7, [screg+96]		;; A4 = A4 * sine (final R4)	;19-24
-	mulpd	xmm3, [screg+96]		;; B4 = B4 * sine (final I4)	;23-28
+	mulpd	xmm7, [screg+192]		;; A4 = A4 * sine (final R4)	;19-24
+	mulpd	xmm3, [screg+192]		;; B4 = B4 * sine (final I4)	;23-28
 
 	xstore	[dstreg+e1], xmm1		;; Save R3
 	xstore	[dstreg+e1+16], xmm4		;; Save I3
@@ -292,11 +296,11 @@ r4r8_g4cl_eight_complex_djbunfft MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,s
 r4r8_g4cl_eight_complex_ac_djbunfft MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg,scoff
 	xload	xmm7, [screg+scoff+0+16]	;; cosine/sine
 	mulpd	xmm7, [srcreg]			;; A1 = R1 * cosine/sine	;5-10
-	xload	xmm3, [screg+scoff+32+16]	;; cosine/sine
+	xload	xmm3, [screg+scoff+128+16]	;; cosine/sine
 	mulpd	xmm3, [srcreg+32]		;; A2 = R2 * cosine/sine	;5-10
 	xload	xmm0, [screg+scoff+64+16]	;; cosine/sine
 	mulpd	xmm0, [srcreg+d1]		;; A3 = R3 * cosine/sine	;1-6
-	xload	xmm1, [screg+scoff+96+16]	;; cosine/sine
+	xload	xmm1, [screg+scoff+192+16]	;; cosine/sine
 	mulpd	xmm1, [srcreg+d1+32]		;; A4 = R4 * cosine/sine	;7-12
 
 	xload	xmm2, [srcreg+16]		;; I1
@@ -304,13 +308,13 @@ r4r8_g4cl_eight_complex_ac_djbunfft MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e
 	mulpd	xmm2, [screg+scoff+0+16]	;; B1 = I1 * cosine/sine	;9-14
 	xload	xmm4, [srcreg+48]		;; I2
 	addpd	xmm3, xmm4			;; A2 = A2 + I2			;12-15
-	mulpd	xmm4, [screg+scoff+32+16]	;; B2 = I2 * cosine/sine	;9-14
+	mulpd	xmm4, [screg+scoff+128+16]	;; B2 = I2 * cosine/sine	;9-14
 	xload	xmm6, [srcreg+d1+16]
 	addpd	xmm0, xmm6			;; A3 = A3 + I3			;8-11
 	mulpd	xmm6, [screg+scoff+64+16]	;; B3 = I3 * cosine/sine	;3-8
 
 	mulpd	xmm7, [screg+scoff+0]		;; A1 = A1 * sine (new R1)	;17-22
-	mulpd	xmm3, [screg+scoff+32]		;; A2 = A2 * sine (new R2)	;17-22
+	mulpd	xmm3, [screg+scoff+128]		;; A2 = A2 * sine (new R2)	;17-22
 
 	xcopy	xmm5, xmm7			;; Copy R1
 	subpd	xmm7, xmm3			;; R1 = R1 - R2 (new R2)	;20-23
@@ -318,21 +322,21 @@ r4r8_g4cl_eight_complex_ac_djbunfft MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e
 
 	xload	xmm5, [srcreg+d1+48]		;; I4
 	addpd	xmm1, xmm5	 		;; A4 = A4 + I4			;14-17
-	mulpd	xmm5, [screg+scoff+96+16]	;; B4 = I4 * cosine/sine	;11-16
+	mulpd	xmm5, [screg+scoff+192+16]	;; B4 = I4 * cosine/sine	;11-16
 
 	subpd	xmm2, [srcreg]			;; B1 = B1 - R1			;16-19
 	subpd	xmm4, [srcreg+32]		;; B2 = B2 - R2			;16-19
 	subpd	xmm6, [srcreg+d1]		;; B3 = B3 - R3			;10-13
 	mulpd	xmm0, [screg+scoff+64]		;; A3 = A3 * sine (new R3)	;13-18
 	subpd	xmm5, [srcreg+d1+32]		;; B4 = B4 - R4			;18-21
-	mulpd	xmm1, [screg+scoff+96]		;; A4 = A4 * sine (new R4)	;19-24
+	mulpd	xmm1, [screg+scoff+192]		;; A4 = A4 * sine (new R4)	;19-24
 
 	xstore	[dstreg+e1], xmm7		;; R2
 
 	mulpd	xmm2, [screg+scoff+0]		;; B1 = B1 * sine (new I1)	;21-26
-	mulpd	xmm4, [screg+scoff+32]		;; B2 = B2 * sine (new I2)	;21-26
+	mulpd	xmm4, [screg+scoff+128]		;; B2 = B2 * sine (new I2)	;21-26
 	mulpd	xmm6, [screg+scoff+64]		;; B3 = B3 * sine (new I3)	;15-20
-	mulpd	xmm5, [screg+scoff+96]		;; B4 = B4 * sine (new I4)	;23-28
+	mulpd	xmm5, [screg+scoff+192]		;; B4 = B4 * sine (new I4)	;23-28
 
 	xcopy	xmm7, xmm1			;; Copy R4
 	subpd	xmm1, xmm0			;; R4 = R4 - R3 (new I4)	;26-29
@@ -346,13 +350,13 @@ r4r8_g4cl_eight_complex_ac_djbunfft MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e
 	subpd	xmm6, xmm5			;; I3 = I3 - I4 (new R4)	;30-33
 	addpd	xmm5, xmm7			;; I4 = I3 + I4 (new I3)	;36-39
 
-	xload	xmm7, [screg+scoff+128+16]	;; cosine/sine
+	xload	xmm7, [screg+scoff+32+16]	;; cosine/sine
 	mulpd	xmm7, [srcreg+d2]		;; A5 = R5 * cosine/sine	;5-10
 	xstore	[dstreg], xmm3			;; R1
 	xload	xmm3, [screg+scoff+160+16]	;; cosine/sine
 	mulpd	xmm3, [srcreg+d2+32]		;; A6 = R6 * cosine/sine	;5-10
 	xstore	[dstreg+e2], xmm0		;; R3
-	xload	xmm0, [screg+scoff+192+16]	;; cosine/sine
+	xload	xmm0, [screg+scoff+96+16]	;; cosine/sine
 	mulpd	xmm0, [srcreg+d2+d1]		;; A7 = R7 * cosine/sine	;1-6
 	xstore	[dstreg+e2+e1+32], xmm1		;; I4
 	xload	xmm1, [screg+scoff+224+16]	;; cosine/sine
@@ -368,7 +372,7 @@ r4r8_g4cl_eight_complex_ac_djbunfft MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e
 	xload	xmm6, [srcreg+d2+d1+16]		;; I7
 	addpd	xmm0, xmm6			;; A7 = A7 + I7			;8-11
 
-	mulpd	xmm7, [screg+scoff+128]		;; A5 = A5 * sine (new R5)	;17-22
+	mulpd	xmm7, [screg+scoff+32]		;; A5 = A5 * sine (new R5)	;17-22
 	mulpd	xmm3, [screg+scoff+160]		;; A6 = A6 * sine (new R6)	;17-22
 
 	xstore	[dstreg+e2+32], xmm5		;; I3
@@ -380,23 +384,23 @@ r4r8_g4cl_eight_complex_ac_djbunfft MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e
 	xload	xmm5, [srcreg+d2+d1+48]		;; I8
 	addpd	xmm1, xmm5	 		;; A8 = A8 + I8			;14-17
 
-	mulpd	xmm2, [screg+scoff+128+16]	;; B5 = I5 * cosine/sine	;9-14
+	mulpd	xmm2, [screg+scoff+32+16]	;; B5 = I5 * cosine/sine	;9-14
 	subpd	xmm2, [srcreg+d2]		;; B5 = B5 - R5			;16-19
 
 	mulpd	xmm4, [screg+scoff+160+16]	;; B6 = I6 * cosine/sine	;9-14
 	subpd	xmm4, [srcreg+d2+32]		;; B6 = B6 - R6			;16-19
 
-	mulpd	xmm6, [screg+scoff+192+16]	;; B7 = I7 * cosine/sine	;3-8
+	mulpd	xmm6, [screg+scoff+96+16]	;; B7 = I7 * cosine/sine	;3-8
 	subpd	xmm6, [srcreg+d2+d1]		;; B7 = B7 - R7			;10-13
 
 	mulpd	xmm5, [screg+scoff+224+16]	;; B8 = I8 * cosine/sine	;11-16
 	subpd	xmm5, [srcreg+d2+d1+32]		;; B8 = B8 - R8			;18-21
 
-	mulpd	xmm2, [screg+scoff+128]		;; B5 = B5 * sine (new I5)	;21-26
+	mulpd	xmm2, [screg+scoff+32]		;; B5 = B5 * sine (new I5)	;21-26
 	mulpd	xmm4, [screg+scoff+160]		;; B6 = B6 * sine (new I6)	;21-26
 
-	mulpd	xmm0, [screg+scoff+192]		;; A7 = A7 * sine (new R7)	;13-18
-	mulpd	xmm6, [screg+scoff+192]		;; B7 = B7 * sine (new I7)	;15-20
+	mulpd	xmm0, [screg+scoff+96]		;; A7 = A7 * sine (new R7)	;13-18
+	mulpd	xmm6, [screg+scoff+96]		;; B7 = B7 * sine (new I7)	;15-20
 
 	mulpd	xmm1, [screg+scoff+224]		;; A8 = A8 * sine (new R8)	;19-24
 	mulpd	xmm5, [screg+scoff+224]		;; B8 = B8 * sine (new I8)	;23-28

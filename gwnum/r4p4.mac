@@ -3,6 +3,8 @@
 ;;; These are the unoptimized versions, they might be easier to optimize!
 
 
+
+
 ;;
 ;; These macros are used when the FFT size is not a power-of-two
 ;;
@@ -154,36 +156,36 @@ r4_x5c_djbfft MACRO r1,i1,r2,i2,r3,i3,r4,i4,r5,i5,screg,scoff,dstr1,dsti1
 	xstore	dsti1, xmm5
 
 	xload	xmm1, XMM_TMP1			;; Load R2
-	mulpd	xmm1, [screg+scoff+48]		;; A2 = R2 * cosine/sine
+	mulpd	xmm1, [screg+scoff+16]		;; A2 = R2 * cosine/sine
 	subpd	xmm1, xmm0			;; A2 = A2 - I2
-	mulpd	xmm0, [screg+scoff+48]		;; B2 = I2 * cosine/sine
+	mulpd	xmm0, [screg+scoff+16]		;; B2 = I2 * cosine/sine
 	addpd	xmm0, XMM_TMP1			;; B2 = B2 + R2
-	mulpd	xmm1, [screg+scoff+32]		;; A2 = A2 * sine (new R2)
-	mulpd	xmm0, [screg+scoff+32]		;; B2 = B2 * sine (new I2)
+	mulpd	xmm1, [screg+scoff+0]		;; A2 = A2 * sine (new R2)
+	mulpd	xmm0, [screg+scoff+0]		;; B2 = B2 * sine (new I2)
 
 	xload	xmm3, XMM_TMP2			;; Load R3
-	mulpd	xmm3, [screg+scoff+16]		;; A3 = R3 * cosine/sine
+	mulpd	xmm3, [screg+scoff+48]		;; A3 = R3 * cosine/sine
 	subpd	xmm3, xmm4			;; A3 = A3 - I3
-	mulpd	xmm4, [screg+scoff+16]		;; B3 = I3 * cosine/sine
+	mulpd	xmm4, [screg+scoff+48]		;; B3 = I3 * cosine/sine
 	addpd	xmm4, XMM_TMP2			;; B3 = B3 + R3
-	mulpd	xmm3, [screg+scoff]		;; A3 = A3 * sine (new R3)
-	mulpd	xmm4, [screg+scoff]		;; B3 = B3 * sine (new I3)
+	mulpd	xmm3, [screg+scoff+32]		;; A3 = A3 * sine (new R3)
+	mulpd	xmm4, [screg+scoff+32]		;; B3 = B3 * sine (new I3)
 
 	xload	xmm5, XMM_TMP3			;; Load R4
-	mulpd	xmm5, [screg+scoff+16]		;; A4 = R4 * cosine/sine
+	mulpd	xmm5, [screg+scoff+48]		;; A4 = R4 * cosine/sine
 	addpd	xmm5, xmm2			;; A4 = A4 + I4
-	mulpd	xmm2, [screg+scoff+16]		;; B4 = I4 * cosine/sine
+	mulpd	xmm2, [screg+scoff+48]		;; B4 = I4 * cosine/sine
 	subpd	xmm2, XMM_TMP3			;; B4 = B4 - R4
-	mulpd	xmm5, [screg+scoff]		;; A4 = A4 * sine (new R4)
-	mulpd	xmm2, [screg+scoff]		;; B4 = B4 * sine (new I4)
+	mulpd	xmm5, [screg+scoff+32]		;; A4 = A4 * sine (new R4)
+	mulpd	xmm2, [screg+scoff+32]		;; B4 = B4 * sine (new I4)
 
 	xload	xmm7, XMM_TMP4			;; Load R5
-	mulpd	xmm7, [screg+scoff+48]		;; A5 = R5 * cosine/sine
+	mulpd	xmm7, [screg+scoff+16]		;; A5 = R5 * cosine/sine
 	addpd	xmm7, xmm6			;; A5 = A5 + I5
-	mulpd	xmm6, [screg+scoff+48]		;; B5 = I5 * cosine/sine
+	mulpd	xmm6, [screg+scoff+16]		;; B5 = I5 * cosine/sine
 	subpd	xmm6, XMM_TMP4			;; B5 = B5 - R5
-	mulpd	xmm7, [screg+scoff+32]		;; A5 = A5 * sine (new R5)
-	mulpd	xmm6, [screg+scoff+32]		;; B5 = B5 * sine (new I5)
+	mulpd	xmm7, [screg+scoff+0]		;; A5 = A5 * sine (new R5)
+	mulpd	xmm6, [screg+scoff+0]		;; B5 = B5 * sine (new I5)
 	ENDM
 
 
@@ -235,13 +237,13 @@ r4_x5cl_five_complex_djbunfft MACRO srcreg,srcinc,d1,screg,scoff
 r4_x5c_djbunfft_mem MACRO r1,r2,r3,r4,r5,screg,scoff,dstr1,dstr2,dstr3,dstr4,dstr5
 
 	xload	xmm1, r2			;; Load R2
-	xload	xmm2, [screg+scoff+48]
+	xload	xmm2, [screg+scoff+16]
 	mulpd	xmm1, xmm2			;; A2 = R2 * cosine/sine
 	xload	xmm4, r2[32] ;;i2
 	addpd	xmm1, xmm4			;; A2 = A2 + I2
 	mulpd	xmm4, xmm2			;; B2 = I2 * cosine/sine
 	subpd	xmm4, r2			;; B2 = B2 - R2
-	xload	xmm5, [screg+scoff+32]
+	xload	xmm5, [screg+scoff+0]
 	mulpd	xmm1, xmm5			;; A2 = A2 * sine (new R2)
 	mulpd	xmm4, xmm5			;; B2 = B2 * sine (new I2)
 
@@ -265,13 +267,13 @@ r4_x5c_djbunfft_mem MACRO r1,r2,r3,r4,r5,screg,scoff,dstr1,dstr2,dstr3,dstr4,dst
 	xstore	XMM_TMP2, xmm6			;; Save i2+i5
 
 	xload	xmm3, r3			;; Load R3
-	xload	xmm1, [screg+scoff+16]
+	xload	xmm1, [screg+scoff+48]
 	mulpd	xmm3, xmm1			;; A3 = R3 * cosine/sine
 	xload	xmm0, r3[32] ;;i3
 	addpd	xmm3, xmm0			;; A3 = A3 + I3
 	mulpd	xmm0, xmm1			;; B3 = I3 * cosine/sine
 	subpd	xmm0, r3			;; B3 = B3 - R3
-	xload	xmm6, [screg+scoff]
+	xload	xmm6, [screg+scoff+32]
 	mulpd	xmm3, xmm6			;; A3 = A3 * sine (new R3)
 	mulpd	xmm0, xmm6			;; B3 = B3 * sine (new I3)
 

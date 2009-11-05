@@ -33,7 +33,7 @@ X87_CASES	EQU	0
 ELSE
 X87_CASES	EQU	13
 ENDIF
-SSE2_CASES	EQU	188
+SSE2_CASES	EQU	190
 
 loopent	MACRO	y,z		; Create a entry in the loop entry table
 	DP	&y&z
@@ -602,6 +602,9 @@ sscase11:
 	sse2mac sscase185, 320, 100000, r4_x5cl_five_complex_djbfft rsi, 5*64, 64, rdi, 0
 	sse2mac sscase186, 320, 4096, r4_x5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, 0
 	sse2mac sscase187, 320, 100000, r4_x5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, 0
+
+	sse2mac sscase188, 128, 4096, r4_x2cl_eight_reals_first_fft_scratch rsi, 2*64, 64, rdi
+	sse2mac sscase189, 128, 100000, r4_x2cl_eight_reals_first_fft_scratch rsi, 2*64, 64, rdi
 
 ; Exit the timing code
 

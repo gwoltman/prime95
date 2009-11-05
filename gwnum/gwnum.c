@@ -564,16 +564,16 @@ double *r4_build_pass1_table (
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
 					gwsincos3 (temp, N, (double *) &sincos);
-					table[0] = sincos[2];	/* 2 * temp */
-					table[2] = sincos[3];
-					table[4] = sincos[0];	/* temp */
-					table[6] = sincos[1];
+					table[0] = sincos[0];	/* temp */
+					table[2] = sincos[1];
+					table[4] = sincos[2];	/* 2 * temp */
+					table[6] = sincos[3];
 
 					gwsincos3 (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[2];	/* 2 * temp */
-					table[3] = sincos[3];
-					table[5] = sincos[0];	/* temp */
-					table[7] = sincos[1];
+					table[1] = sincos[0];	/* temp */
+					table[3] = sincos[1];
+					table[5] = sincos[2];	/* 2 * temp */
+					table[7] = sincos[3];
 
 					table += 8;
 				}
@@ -602,28 +602,30 @@ double *r4_build_pass1_table (
 			pass1_size /= 2;
 		}
 
-/* Real FFTs output one last set of DJB sin/cos values for a four-complex FFT */
-/* (even though the first macro is eight_reals FFT) */
-/* BUG - is this right?  What about PFA? */
-		
+/* Real FFTs output one last set of sin/cos values for the initial eight-reals FFT */
+
 		if (!gwdata->ALL_COMPLEX_FFT) {
 			N = N * 4;
 			for (j = 0; j < N / 4; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
 					gwsincos3 (temp, N, (double *) &sincos);
-					table[0] = sincos[2];	/* 2 * temp */
-					table[2] = sincos[3];
-					table[4] = sincos[0];	/* temp */
-					table[6] = sincos[1];
+					table[0] = sincos[0];	/* temp */
+					table[2] = sincos[1];
+					table[4] = sincos[2];	/* 2 * temp */
+					table[6] = sincos[3];
+					table[8] = sincos[4];	/* 3 * temp */
+					table[10] = sincos[5];
 
 					gwsincos3 (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[2];	/* 2 * temp */
-					table[3] = sincos[3];
-					table[5] = sincos[0];	/* temp */
-					table[7] = sincos[1];
+					table[1] = sincos[0];	/* temp */
+					table[3] = sincos[1];
+					table[5] = sincos[2];	/* 2 * temp */
+					table[7] = sincos[3];
+					table[9] = sincos[4];	/* 3 * temp */
+					table[11] = sincos[5];
 
-					table += 8;
+					table += 12;
 				}
 			}
 		}
@@ -641,23 +643,23 @@ double *r4_build_pass1_table (
 
 		else {
 			N = N * 4;
-			for (j = 0; j < N / 4;  j += pass1_increment) {
+			for (j = 0; j < N / 4; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
 
-/* Here we compute the standard 0,2,1,3 * temp for the radix-4 sin/cos multipliers. */
+/* Here we compute the standard 0,1,2,3 * temp for the radix-4 sin/cos multipliers. */
 /* Then we multiply in the roots-of-minus-one premultiplier.  The root-of-minus-one */
 /* premultiplier was for 2N, and a root-of-minus-one-of-2N is the same as a root */
-/* unity for 4N. */					
-					
+/* unity for 4N. */
+
 					gwsincos (temp, N * 4, (double *) &sincos);
 					table[0] = sincos[0];	/* premult  */
 					table[2] = sincos[1];
-					gwsincos (9 * temp, N * 4, (double *) &sincos);
-					table[4] = sincos[0];	/* 2 * temp + premult */
-					table[6] = sincos[1];
 					gwsincos (5 * temp, N * 4, (double *) &sincos);
-					table[8] = sincos[0];	/* temp + premult */
+					table[4] = sincos[0];	/* temp + premult */
+					table[6] = sincos[1];
+					gwsincos (9 * temp, N * 4, (double *) &sincos);
+					table[8] = sincos[0];	/* 2 * temp + premult */
 					table[10] = sincos[1];
 					gwsincos (13 * temp, N * 4, (double *) &sincos);
 					table[12] = sincos[0];	/* 3 * temp + premult */
@@ -667,11 +669,11 @@ double *r4_build_pass1_table (
 					gwsincos (temp, N * 4, (double *) &sincos);
 					table[1] = sincos[0];	/* premult  */
 					table[3] = sincos[1];
-					gwsincos (9 * temp, N * 4, (double *) &sincos);
-					table[5] = sincos[0];	/* 2 * temp + premult */
-					table[7] = sincos[1];
 					gwsincos (5 * temp, N * 4, (double *) &sincos);
-					table[9] = sincos[0];	/* temp + premult */
+					table[5] = sincos[0];	/* temp + premult */
+					table[7] = sincos[1];
+					gwsincos (9 * temp, N * 4, (double *) &sincos);
+					table[9] = sincos[0];	/* 2 * temp + premult */
 					table[11] = sincos[1];
 					gwsincos (13 * temp, N * 4, (double *) &sincos);
 					table[13] = sincos[0];	/* 3 * temp + premult */
@@ -714,10 +716,10 @@ double *r4_build_sincos_complex_table (
 	limit = (N % 3 == 0) ? N / 3 : N / 4;
 	for (i = 0; i < limit; i++) {
 		gwsincos3 (i, N, (double *) &sincos);
-		table[1] = table[0] = sincos[2];	/* 2 * temp */
-		table[3] = table[2] = sincos[3];
-		table[5] = table[4] = sincos[0];	/* temp */
-		table[7] = table[6] = sincos[1];
+		table[1] = table[0] = sincos[0];	/* temp */
+		table[3] = table[2] = sincos[1];
+		table[5] = table[4] = sincos[2];	/* 2 * temp */
+		table[7] = table[6] = sincos[3];
 		table += 8;
 	}
 
@@ -727,10 +729,10 @@ double *r4_build_sincos_complex_table (
 	N = 256;
 	for (i = 0; i < N / 4; i++) {
 		gwsincos3 (i, N, (double *) &sincos);
-		table[1] = table[0] = sincos[2];	/* 2 * temp */
-		table[3] = table[2] = sincos[3];
-		table[5] = table[4] = sincos[0];	/* temp */
-		table[7] = table[6] = sincos[1];
+		table[1] = table[0] = sincos[0];	/* temp */
+		table[3] = table[2] = sincos[1];
+		table[5] = table[4] = sincos[2];	/* 2 * temp */
+		table[7] = table[6] = sincos[3];
 		table += 8;
 	}
 
@@ -781,7 +783,7 @@ double *r4spm_build_pass1_table (
 
 					temp = (group + j + i);
 
-/* We must merge the temp*0,2,1,3 sin/cos value (roots of N) with the group */
+/* We must merge the temp*0,1,2,3 sin/cos values (roots of N) with the group */
 /* premultiplier (roots of FFTLEN*2) */
 
 					bigN = gwdata->FFTLEN * 2;
@@ -790,11 +792,11 @@ double *r4spm_build_pass1_table (
 					gwsincos (group + i, bigN, (double *) &sincos);
 					table[0] = sincos[0];	/* premult and temp*0 */
 					table[2] = sincos[1];
-					gwsincos (group + i + temp * 2 * fudge, bigN, (double *) &sincos);
-					table[4] = sincos[0];	/* premult and temp*2 */
-					table[6] = sincos[1];
 					gwsincos (group + i + temp * fudge, bigN, (double *) &sincos);
-					table[8] = sincos[0];	/* premult and temp*1 */
+					table[4] = sincos[0];	/* premult and temp*1 */
+					table[6] = sincos[1];
+					gwsincos (group + i + temp * 2 * fudge, bigN, (double *) &sincos);
+					table[8] = sincos[0];	/* premult and temp*2 */
 					table[10] = sincos[1];
 					gwsincos (group + i + temp * 3 * fudge, bigN, (double *) &sincos);
 					table[12] = sincos[0];	/* premult and temp*3 */
@@ -804,11 +806,11 @@ double *r4spm_build_pass1_table (
 					gwsincos (group + i + upper_sse2_word, bigN, (double *) &sincos);
 					table[1] = sincos[0];	/* premult and temp*0 */
 					table[3] = sincos[1];
-					gwsincos (group + i + upper_sse2_word + temp * 2 * fudge, bigN, (double *) &sincos);
-					table[5] = sincos[0];	/* premult and temp*2 */
-					table[7] = sincos[1];
 					gwsincos (group + i + upper_sse2_word + temp * fudge, bigN, (double *) &sincos);
-					table[9] = sincos[0];	/* premult and temp*1 */
+					table[5] = sincos[0];	/* premult and temp*1 */
+					table[7] = sincos[1];
+					gwsincos (group + i + upper_sse2_word + temp * 2 * fudge, bigN, (double *) &sincos);
+					table[9] = sincos[0];	/* premult and temp*2 */
 					table[11] = sincos[1];
 					gwsincos (group + i + upper_sse2_word + temp * 3 * fudge, bigN, (double *) &sincos);
 					table[13] = sincos[0];	/* premult and temp*3 */
@@ -828,16 +830,16 @@ double *r4spm_build_pass1_table (
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
 					gwsincos3 (temp, N, (double *) &sincos);
-					table[0] = sincos[2];	/* 2 * temp */
-					table[2] = sincos[3];
-					table[4] = sincos[0];	/* temp */
-					table[6] = sincos[1];
+					table[0] = sincos[0];	/* temp */
+					table[2] = sincos[1];
+					table[4] = sincos[2];	/* 2 * temp */
+					table[6] = sincos[3];
 
 					gwsincos3 (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[2];	/* 2 * temp */
-					table[3] = sincos[3];
-					table[5] = sincos[0];	/* temp */
-					table[7] = sincos[1];
+					table[1] = sincos[0];	/* temp */
+					table[3] = sincos[1];
+					table[5] = sincos[2];	/* 2 * temp */
+					table[7] = sincos[3];
 
 					table += 8;
 				}
@@ -845,7 +847,7 @@ double *r4spm_build_pass1_table (
 			pass1_size /= 4;
 		}
 
-/* If necessary, output the sin/cos values for the r4_two_complex_fft building block. */
+/* If necessary, output sin/cos values for the r4_two_complex_fft building block. */
 
 		if (pass1_size > 8) {
 			N = N * 2;
@@ -866,9 +868,7 @@ double *r4spm_build_pass1_table (
 			pass1_size /= 2;
 		}
 
-/* Real FFTs output one last set of DJB sin/cos values for a four-complex FFT */
-/* (even though the first macro is eight_reals FFT) */
-/* BUG - is this right?  What about PFA? */
+/* Real FFTs output one last set of sin/cos values for the initial eight-reals FFT. */
 
 		if (!gwdata->ALL_COMPLEX_FFT) {
 			N = N * 4;
@@ -876,18 +876,22 @@ double *r4spm_build_pass1_table (
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
 					gwsincos3 (temp, N, (double *) &sincos);
-					table[0] = sincos[2];	/* 2 * temp */
-					table[2] = sincos[3];
-					table[4] = sincos[0];	/* temp */
-					table[6] = sincos[1];
+					table[0] = sincos[0];	/* temp */
+					table[2] = sincos[1];
+					table[4] = sincos[2];	/* 2 * temp */
+					table[6] = sincos[3];
+					table[8] = sincos[4];	/* 3 * temp */
+					table[10] = sincos[5];
 
 					gwsincos3 (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[2];	/* 2 * temp */
-					table[3] = sincos[3];
-					table[5] = sincos[0];	/* temp */
-					table[7] = sincos[1];
+					table[1] = sincos[0];	/* temp */
+					table[3] = sincos[1];
+					table[5] = sincos[2];	/* 2 * temp */
+					table[7] = sincos[3];
+					table[9] = sincos[4];	/* 3 * temp */
+					table[11] = sincos[5];
 
-					table += 8;
+					table += 12;
 				}
 			}
 		}
@@ -900,16 +904,16 @@ double *r4spm_build_pass1_table (
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
 					gwsincos3 (temp, N, (double *) &sincos);
-					table[0] = sincos[2];	/* 2 * temp */
-					table[2] = sincos[3];
-					table[4] = sincos[0];	/* temp */
-					table[6] = sincos[1];
+					table[0] = sincos[0];	/* temp */
+					table[2] = sincos[1];
+					table[4] = sincos[2];	/* 2 * temp */
+					table[6] = sincos[3];
 
 					gwsincos3 (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[2];	/* 2 * temp */
-					table[3] = sincos[3];
-					table[5] = sincos[0];	/* temp */
-					table[7] = sincos[1];
+					table[1] = sincos[0];	/* temp */
+					table[3] = sincos[1];
+					table[5] = sincos[2];	/* 2 * temp */
+					table[7] = sincos[3];
 
 					table += 8;
 				}
@@ -930,7 +934,7 @@ double *r4spm_build_pass1_table (
 }
 
 /* This routine builds the fixed premultiplier table used in pass 1 of the */
-/* radix-4 split pre-multiplier FFT  - called by gwsetup. */
+/* radix-4 split pre-multiplier FFT - called by gwsetup. */
 
 double *r4spm_build_fixed_pass1_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -961,7 +965,7 @@ double *r4spm_build_fixed_pass1_table (
 			gwsincos (j + N / 4, N * 4, (double *) &sincos);
 			table[4] = table[5] = sincos[0];	/* premult * -1 ^ 1/8 */
 			table[6] = table[7] = sincos[1];
-			gwsincos (j + N / 2, N * 4, (double *) &sincos);
+			gwsincos (j + 2 * N / 4, N * 4, (double *) &sincos);
 			table[8] = table[9] = sincos[0];	/* premult * -1 ^ 2/8 */
 			table[10] = table[11] = sincos[1];
 			gwsincos (j + 3 * N / 4, N * 4, (double *) &sincos);
@@ -1023,7 +1027,7 @@ double *r4r8_build_pass1_table (
 
 					temp = (group + j + i);
 
-/* We must merge the temp*0,4,2,6,1,5,3,7 sin/cos value (roots of N) with the group */
+/* We must merge the temp*0,1,2,3,4,5,6,7 sin/cos values (roots of N) with the group */
 /* premultiplier (roots of FFTLEN*2) */
 
 					bigN = gwdata->FFTLEN * 2;
@@ -1032,23 +1036,23 @@ double *r4r8_build_pass1_table (
 					gwsincos (group + i, bigN, (double *) &sincos);
 					table[0] = sincos[0];	/* premult and temp*0 */
 					table[2] = sincos[1];
-					gwsincos (group + i + temp * 4 * fudge, bigN, (double *) &sincos);
-					table[4] = sincos[0];	/* premult and temp*4 */
+					gwsincos (group + i + temp * fudge, bigN, (double *) &sincos);
+					table[4] = sincos[0];	/* premult and temp*1 */
 					table[6] = sincos[1];
 					gwsincos (group + i + temp * 2 * fudge, bigN, (double *) &sincos);
 					table[8] = sincos[0];	/* premult and temp*2 */
 					table[10] = sincos[1];
-					gwsincos (group + i + temp * 6 * fudge, bigN, (double *) &sincos);
-					table[12] = sincos[0];	/* premult and temp*6 */
+					gwsincos (group + i + temp * 3 * fudge, bigN, (double *) &sincos);
+					table[12] = sincos[0];	/* premult and temp*3 */
 					table[14] = sincos[1];
-					gwsincos (group + i + temp * fudge, bigN, (double *) &sincos);
-					table[16] = sincos[0];	/* premult and temp*1 */
+					gwsincos (group + i + temp * 4 * fudge, bigN, (double *) &sincos);
+					table[16] = sincos[0];	/* premult and temp*4 */
 					table[18] = sincos[1];
 					gwsincos (group + i + temp * 5 * fudge, bigN, (double *) &sincos);
 					table[20] = sincos[0];	/* premult and temp*5 */
 					table[22] = sincos[1];
-					gwsincos (group + i + temp * 3 * fudge, bigN, (double *) &sincos);
-					table[24] = sincos[0];	/* premult and temp*3 */
+					gwsincos (group + i + temp * 6 * fudge, bigN, (double *) &sincos);
+					table[24] = sincos[0];	/* premult and temp*6 */
 					table[26] = sincos[1];
 					gwsincos (group + i + temp * 7 * fudge, bigN, (double *) &sincos);
 					table[28] = sincos[0];	/* premult and temp*7 */
@@ -1058,23 +1062,23 @@ double *r4r8_build_pass1_table (
 					gwsincos (group + i + upper_sse2_word, bigN, (double *) &sincos);
 					table[1] = sincos[0];	/* premult and temp*0 */
 					table[3] = sincos[1];
-					gwsincos (group + i + upper_sse2_word + temp * 4 * fudge, bigN, (double *) &sincos);
-					table[5] = sincos[0];	/* premult and temp*4 */
+					gwsincos (group + i + upper_sse2_word + temp * fudge, bigN, (double *) &sincos);
+					table[5] = sincos[0];	/* premult and temp*1 */
 					table[7] = sincos[1];
 					gwsincos (group + i + upper_sse2_word + temp * 2 * fudge, bigN, (double *) &sincos);
 					table[9] = sincos[0];	/* premult and temp*2 */
 					table[11] = sincos[1];
-					gwsincos (group + i + upper_sse2_word + temp * 6 * fudge, bigN, (double *) &sincos);
-					table[13] = sincos[0];	/* premult and temp*6 */
+					gwsincos (group + i + upper_sse2_word + temp * 3 * fudge, bigN, (double *) &sincos);
+					table[13] = sincos[0];	/* premult and temp*3 */
 					table[15] = sincos[1];
-					gwsincos (group + i + upper_sse2_word + temp * fudge, bigN, (double *) &sincos);
-					table[17] = sincos[0];	/* premult and temp*1 */
+					gwsincos (group + i + upper_sse2_word + temp * 4 * fudge, bigN, (double *) &sincos);
+					table[17] = sincos[0];	/* premult and temp*4 */
 					table[19] = sincos[1];
 					gwsincos (group + i + upper_sse2_word + temp * 5 * fudge, bigN, (double *) &sincos);
 					table[21] = sincos[0];	/* premult and temp*5 */
 					table[23] = sincos[1];
-					gwsincos (group + i + upper_sse2_word + temp *3 * fudge, bigN, (double *) &sincos);
-					table[25] = sincos[0];	/* premult and temp*3 */
+					gwsincos (group + i + upper_sse2_word + temp * 6 * fudge, bigN, (double *) &sincos);
+					table[25] = sincos[0];	/* premult and temp*6 */
 					table[27] = sincos[1];
 					gwsincos (group + i + upper_sse2_word + temp * 7 * fudge, bigN, (double *) &sincos);
 					table[29] = sincos[0];	/* premult and temp*7 */
@@ -1094,16 +1098,16 @@ double *r4r8_build_pass1_table (
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
 					gwsincos3 (temp, N, (double *) &sincos);
-					table[0] = sincos[2];	/* 2 * temp */
-					table[2] = sincos[3];
-					table[4] = sincos[0];	/* temp */
-					table[6] = sincos[1];
+					table[0] = sincos[0];	/* temp */
+					table[2] = sincos[1];
+					table[4] = sincos[2];	/* 2 * temp */
+					table[6] = sincos[3];
 
 					gwsincos3 (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[2];	/* 2 * temp */
-					table[3] = sincos[3];
-					table[5] = sincos[0];	/* temp */
-					table[7] = sincos[1];
+					table[1] = sincos[0];	/* temp */
+					table[3] = sincos[1];
+					table[5] = sincos[2];	/* 2 * temp */
+					table[7] = sincos[3];
 
 					table += 8;
 				}
@@ -1111,9 +1115,7 @@ double *r4r8_build_pass1_table (
 			pass1_size /= 4;
 		}
 
-/* Real FFTs output one last set of DJB sin/cos values for a four-complex FFT */
-/* (even though the first macro is eight_reals FFT) */
-/* BUG - is this right?  What about PFA? */
+/* Real FFTs output one last set of sin/cos values for the initial eight-reals FFT. */
 
 		if (!gwdata->ALL_COMPLEX_FFT) {
 			N = N * 4;
@@ -1121,18 +1123,22 @@ double *r4r8_build_pass1_table (
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
 					gwsincos3 (temp, N, (double *) &sincos);
-					table[0] = sincos[2];	/* 2 * temp */
-					table[2] = sincos[3];
-					table[4] = sincos[0];	/* temp */
-					table[6] = sincos[1];
+					table[0] = sincos[0];	/* temp */
+					table[2] = sincos[1];
+					table[4] = sincos[2];	/* 2 * temp */
+					table[6] = sincos[3];
+					table[8] = sincos[4];	/* 3 * temp */
+					table[10] = sincos[5];
 
 					gwsincos3 (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[2];	/* 2 * temp */
-					table[3] = sincos[3];
-					table[5] = sincos[0];	/* temp */
-					table[7] = sincos[1];
+					table[1] = sincos[0];	/* temp */
+					table[3] = sincos[1];
+					table[5] = sincos[2];	/* 2 * temp */
+					table[7] = sincos[3];
+					table[9] = sincos[4];	/* 3 * temp */
+					table[11] = sincos[5];
 
-					table += 8;
+					table += 12;
 				}
 			}
 		}
@@ -1145,16 +1151,16 @@ double *r4r8_build_pass1_table (
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
 					gwsincos3 (temp, N, (double *) &sincos);
-					table[0] = sincos[2];	/* 2 * temp */
-					table[2] = sincos[3];
-					table[4] = sincos[0];	/* temp */
-					table[6] = sincos[1];
+					table[0] = sincos[0];	/* temp */
+					table[2] = sincos[1];
+					table[4] = sincos[2];	/* 2 * temp */
+					table[6] = sincos[3];
 
 					gwsincos3 (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[2];	/* 2 * temp */
-					table[3] = sincos[3];
-					table[5] = sincos[0];	/* temp */
-					table[7] = sincos[1];
+					table[1] = sincos[0];	/* temp */
+					table[3] = sincos[1];
+					table[5] = sincos[2];	/* 2 * temp */
+					table[7] = sincos[3];
 
 					table += 8;
 				}
@@ -1224,7 +1230,7 @@ double *r4delay_build_pass1_table (
 
 					temp = (group + j + i);
 
-/* We must merge the temp*0,4,2,6,1,5,3,7 sin/cos value (roots of N) with the group */
+/* We must merge the temp*0,1,2,3,4,5,6,7 sin/cos values (roots of N) with the group */
 /* all-complex premultiplier roots of minus 1 (same as roots of FFTLEN*2) */
 
 					bigN = gwdata->FFTLEN * 2;
@@ -1246,23 +1252,23 @@ double *r4delay_build_pass1_table (
 					gwsincos (ktemp + group + i, bigN, (double *) &sincos);
 					table[0] = sincos[0];	/* premult and temp*0 */
 					table[2] = sincos[1];
-					gwsincos (ktemp + group + i + temp * 4 * fudge, bigN, (double *) &sincos);
-					table[4] = sincos[0];	/* premult and temp*4 */
+					gwsincos (ktemp + group + i + temp * fudge, bigN, (double *) &sincos);
+					table[4] = sincos[0];	/* premult and temp*1 */
 					table[6] = sincos[1];
 					gwsincos (ktemp + group + i + temp * 2 * fudge, bigN, (double *) &sincos);
 					table[8] = sincos[0];	/* premult and temp*2 */
 					table[10] = sincos[1];
-					gwsincos (ktemp + group + i + temp * 6 * fudge, bigN, (double *) &sincos);
-					table[12] = sincos[0];	/* premult and temp*6 */
+					gwsincos (ktemp + group + i + temp * 3 * fudge, bigN, (double *) &sincos);
+					table[12] = sincos[0];	/* premult and temp*3 */
 					table[14] = sincos[1];
-					gwsincos (ktemp + group + i + temp * fudge, bigN, (double *) &sincos);
-					table[16] = sincos[0];	/* premult and temp*1 */
+					gwsincos (ktemp + group + i + temp * 4 * fudge, bigN, (double *) &sincos);
+					table[16] = sincos[0];	/* premult and temp*4 */
 					table[18] = sincos[1];
 					gwsincos (ktemp + group + i + temp * 5 * fudge, bigN, (double *) &sincos);
 					table[20] = sincos[0];	/* premult and temp*5 */
 					table[22] = sincos[1];
-					gwsincos (ktemp + group + i + temp * 3 * fudge, bigN, (double *) &sincos);
-					table[24] = sincos[0];	/* premult and temp*3 */
+					gwsincos (ktemp + group + i + temp * 6 * fudge, bigN, (double *) &sincos);
+					table[24] = sincos[0];	/* premult and temp*6 */
 					table[26] = sincos[1];
 					gwsincos (ktemp + group + i + temp * 7 * fudge, bigN, (double *) &sincos);
 					table[28] = sincos[0];	/* premult and temp*7 */
@@ -1272,23 +1278,23 @@ double *r4delay_build_pass1_table (
 					gwsincos (ktemp + group + i + upper_sse2_word, bigN, (double *) &sincos);
 					table[1] = sincos[0];	/* premult and temp*0 */
 					table[3] = sincos[1];
-					gwsincos (ktemp + group + i + upper_sse2_word + temp * 4 * fudge, bigN, (double *) &sincos);
-					table[5] = sincos[0];	/* premult and temp*4 */
+					gwsincos (ktemp + group + i + upper_sse2_word + temp * fudge, bigN, (double *) &sincos);
+					table[5] = sincos[0];	/* premult and temp*1 */
 					table[7] = sincos[1];
 					gwsincos (ktemp + group + i + upper_sse2_word + temp * 2 * fudge, bigN, (double *) &sincos);
 					table[9] = sincos[0];	/* premult and temp*2 */
 					table[11] = sincos[1];
-					gwsincos (ktemp + group + i + upper_sse2_word + temp * 6 * fudge, bigN, (double *) &sincos);
-					table[13] = sincos[0];	/* premult and temp*6 */
+					gwsincos (ktemp + group + i + upper_sse2_word + temp * 3 * fudge, bigN, (double *) &sincos);
+					table[13] = sincos[0];	/* premult and temp*3 */
 					table[15] = sincos[1];
-					gwsincos (ktemp + group + i + upper_sse2_word + temp * fudge, bigN, (double *) &sincos);
-					table[17] = sincos[0];	/* premult and temp*1 */
+					gwsincos (ktemp + group + i + upper_sse2_word + temp * 4 * fudge, bigN, (double *) &sincos);
+					table[17] = sincos[0];	/* premult and temp*4 */
 					table[19] = sincos[1];
 					gwsincos (ktemp + group + i + upper_sse2_word + temp * 5 * fudge, bigN, (double *) &sincos);
 					table[21] = sincos[0];	/* premult and temp*5 */
 					table[23] = sincos[1];
-					gwsincos (ktemp + group + i + upper_sse2_word + temp *3 * fudge, bigN, (double *) &sincos);
-					table[25] = sincos[0];	/* premult and temp*3 */
+					gwsincos (ktemp + group + i + upper_sse2_word + temp * 6 * fudge, bigN, (double *) &sincos);
+					table[25] = sincos[0];	/* premult and temp*6 */
 					table[27] = sincos[1];
 					gwsincos (ktemp + group + i + upper_sse2_word + temp * 7 * fudge, bigN, (double *) &sincos);
 					table[29] = sincos[0];	/* premult and temp*7 */
@@ -1313,16 +1319,16 @@ double *r4delay_build_pass1_table (
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
 					gwsincos3 (temp, N, (double *) &sincos);
-					table[0] = sincos[2];	/* 2 * temp */
-					table[2] = sincos[3];
-					table[4] = sincos[0];	/* temp */
-					table[6] = sincos[1];
+					table[0] = sincos[0];	/* temp */
+					table[2] = sincos[1];
+					table[4] = sincos[2];	/* 2 * temp */
+					table[6] = sincos[3];
 
 					gwsincos3 (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[2];	/* 2 * temp */
-					table[3] = sincos[3];
-					table[5] = sincos[0];	/* temp */
-					table[7] = sincos[1];
+					table[1] = sincos[0];	/* temp */
+					table[3] = sincos[1];
+					table[5] = sincos[2];	/* 2 * temp */
+					table[7] = sincos[3];
 
 					table += 8;
 				}
@@ -1338,16 +1344,16 @@ double *r4delay_build_pass1_table (
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
 					gwsincos3 (temp, N, (double *) &sincos);
-					table[0] = sincos[2];	/* 2 * temp */
-					table[2] = sincos[3];
-					table[4] = sincos[0];	/* temp */
-					table[6] = sincos[1];
+					table[0] = sincos[0];	/* temp */
+					table[2] = sincos[1];
+					table[4] = sincos[2];	/* 2 * temp */
+					table[6] = sincos[3];
 
 					gwsincos3 (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[2];	/* 2 * temp */
-					table[3] = sincos[3];
-					table[5] = sincos[0];	/* temp */
-					table[7] = sincos[1];
+					table[1] = sincos[0];	/* temp */
+					table[3] = sincos[1];
+					table[5] = sincos[2];	/* 2 * temp */
+					table[7] = sincos[3];
 
 					table += 8;
 				}
@@ -1406,46 +1412,49 @@ double *r4delay_build_fixed_pass1_table (
 	pass1_increment = gwdata->PASS2_SIZE;
 	upper_sse2_word = pass1_increment / 2;
 
-/* Real FFTs output one last set of DJB sin/cos values for a four-complex FFT */
-/* (even though the first macro is eight_reals FFT) */
+/* Real FFTs output one shared set of sin/cos values for the first eight-reals FFT. */
 
 	if (! gwdata->ALL_COMPLEX_FFT) {
 		N = gwdata->FFTLEN / 2;
 		for (j = 0; j < N / 4; j += pass1_increment) {
 			gwsincos3 (j, N, (double *) &sincos);
-			table[0] = sincos[2];	/* 2 * temp */
-			table[2] = sincos[3];
-			table[4] = sincos[0];	/* temp */
-			table[6] = sincos[1];
+			table[0] = sincos[0];	/* temp */
+			table[2] = sincos[1];
+			table[4] = sincos[2];	/* 2 * temp */
+			table[6] = sincos[3];
+			table[8] = sincos[4];	/* 3 * temp */
+			table[10] = sincos[5];
 
 			gwsincos3 (j + upper_sse2_word, N, (double *) &sincos);
-			table[1] = sincos[2];	/* 2 * temp */
-			table[3] = sincos[3];
-			table[5] = sincos[0];	/* temp */
-			table[7] = sincos[1];
+			table[1] = sincos[0];	/* temp */
+			table[3] = sincos[1];
+			table[5] = sincos[2];	/* 2 * temp */
+			table[7] = sincos[3];
+			table[9] = sincos[4];	/* 3 * temp */
+			table[11] = sincos[5];
 
-			table += 8;
+			table += 12;
 		}
 	}
 
 /* For all-complex FFTs, also build the fixed roots-of-minus-one table. */
-/* Output these roots in the same order they will be used the first two */
+/* Output these roots in the same order they will be used in the first two */
 /* levels of pass 1. */
 
 	else {
 		N = gwdata->FFTLEN / 2;
 		for (j = 0; j < N / 4; j += pass1_increment) {
 			gwsincos3 (j, N, (double *) &sincos);
-			table[0] = sincos[2];	/* 2 * temp */
-			table[2] = sincos[3];
-			table[4] = sincos[0];	/* temp */
-			table[6] = sincos[1];
+			table[0] = sincos[0];	/* temp */
+			table[2] = sincos[1];
+			table[4] = sincos[2];	/* 2 * temp */
+			table[6] = sincos[3];
 
 			gwsincos3 (j + upper_sse2_word, N, (double *) &sincos);
-			table[1] = sincos[2];	/* 2 * temp */
-			table[3] = sincos[3];
-			table[5] = sincos[0];	/* temp */
-			table[7] = sincos[1];
+			table[1] = sincos[0];	/* temp */
+			table[3] = sincos[1];
+			table[5] = sincos[2];	/* 2 * temp */
+			table[7] = sincos[3];
 
 			table += 8;
 		}
