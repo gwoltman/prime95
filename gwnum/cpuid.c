@@ -452,7 +452,24 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 /* of these situations, by comparing number of cores to number of logical */
 /* processors.  This test fails if the machine has multiple physical CPUs. */
 
-		if (max_cpuid_value >= 1) {
+/* Nfortino has suggested using the new x2apic code below.  It might correct */
+/* some of the rare problems we were seeing on Core i7 machines. */
+
+/* Determine if we should use leaf 11 topology enumeration. */
+/* Otherwise, use leaf 1 + leaf 4 */
+
+		if (max_cpuid_value >= 11) {
+			reg.ECX = 0;
+			Cpuid (11, &reg);
+		}
+		if (max_cpuid_value >= 11 && reg.EBX != 0) {
+			unsigned int cores;
+			CPU_HYPERTHREADS = reg.EBX & 0xFFFF;
+			reg.ECX = 1;
+			Cpuid(11, &reg);
+			cores = reg.EBX & 0xFFFF;
+			if (num_logical_processors <= cores) CPU_HYPERTHREADS = 1;
+		} else if (max_cpuid_value >= 1) {
 			Cpuid (1, &reg);
 			if ((reg.EDX >> 28) & 0x1) {
 				CPU_HYPERTHREADS = (reg.EBX >> 16) & 0xFF;
