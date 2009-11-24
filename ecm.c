@@ -5996,9 +5996,10 @@ void guess_pminus1_bounds (
 /* Pass 2 FFT multiplications seem to be at least 20% slower than */
 /* the squarings in pass 1.  This is probably due to several factors. */
 /* These include: better L2 cache usage and no calls to the faster */
-/* gwsquare routine. */
+/* gwsquare routine.  Nov, 2009:  On my Macbook Pro, with exponents */
+/* around 45M and using 800MB memory, pass2 squarings are 40% slower. */	
 
-	pass2_squarings *= 1.285;
+	pass2_squarings *= 1.35;
 
 /* What is the "average" value that must be smooth for P-1 to succeed? */
 /* Ordinarily this is 1.5 * 2^how_far_factored.  However, for Mersenne */
