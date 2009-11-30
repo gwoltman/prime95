@@ -8,7 +8,7 @@
 INCLUDE r4pass2.mac
 
 r4spm_pass2_12_levels_real MACRO
-	;; not implemented yet
+	r4_pass2_12_levels_real
 	ENDM
 
 ; *************** radix4-pass2-12-levels-complex macro ******************

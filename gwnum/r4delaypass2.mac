@@ -13,7 +13,7 @@ r4delay_pass2_3072_levels_real MACRO
 	ENDM
 
 r4delay_pass2_12_levels_real MACRO
-	;; not implemented yet
+	r4r8_pass2_12_levels_real
 	ENDM
 
 ; *************** radix4-pass2-11.5-levels-complex macro ******************

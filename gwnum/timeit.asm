@@ -33,7 +33,7 @@ X87_CASES	EQU	0
 ELSE
 X87_CASES	EQU	13
 ENDIF
-SSE2_CASES	EQU	190
+SSE2_CASES	EQU	204
 
 loopent	MACRO	y,z		; Create a entry in the loop entry table
 	DP	&y&z
@@ -136,6 +136,80 @@ loop1:  movapd  [rsi+0*dist], xmm1      ; Write 8 cache lines
 	dec	edx
 	jnz	loop2
 	ENDM
+
+x4cl_empty MACRO srcreg,srcinc,d1,d2,screg,scoff
+	xload	xmm0, [srcreg+0]
+	xload	xmm1, [srcreg+32]
+	xload	xmm2, [srcreg+d1+0]
+	xload	xmm3, [srcreg+d1+32]
+	xload	xmm4, [srcreg+d2+0]
+	xload	xmm5, [srcreg+d2+32]
+	xload	xmm6, [srcreg+d2+d1+0]
+	xload	xmm7, [srcreg+d2+d1+32]
+	xstore	[srcreg+0], xmm0
+	xstore	[srcreg+32], xmm1
+	xload	xmm0, [srcreg+0+16]
+	xload	xmm1, [srcreg+32+16]
+	xstore	[srcreg+16], xmm2
+	xstore	[srcreg+48], xmm3
+	xload	xmm2, [srcreg+d1+0+16]
+	xload	xmm3, [srcreg+d1+32+16]
+	xstore	[srcreg+d1], xmm4
+	xstore	[srcreg+d1+16], xmm5
+	xstore	[srcreg+d1+32], xmm6
+	xstore	[srcreg+d1+48], xmm7
+	xload	xmm4, [srcreg+d2+0+16]
+	xload	xmm5, [srcreg+d2+32+16]
+	xload	xmm6, [srcreg+d2+d1+0+16]
+	xload	xmm7, [srcreg+d2+d1+32+16]
+	xstore	[srcreg+d2], xmm0
+	xstore	[srcreg+d2+16], xmm1
+	xstore	[srcreg+d2+32], xmm2
+	xstore	[srcreg+d2+48], xmm3
+	xstore	[srcreg+d2+d1], xmm4
+	xstore	[srcreg+d2+d1+16], xmm5
+	xstore	[srcreg+d2+d1+32], xmm6
+	xstore	[srcreg+d2+d1+48], xmm7
+	bump	srcreg, srcinc
+	ENDM
+
+g4cl_empty MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg,scoff
+	xload	xmm0, [srcreg+0]
+	xload	xmm1, [srcreg+32]
+	xload	xmm2, [srcreg+d1+0]
+	xload	xmm3, [srcreg+d1+32]
+	xload	xmm4, [srcreg+d2+0]
+	xload	xmm5, [srcreg+d2+32]
+	xload	xmm6, [srcreg+d2+d1+0]
+	xload	xmm7, [srcreg+d2+d1+32]
+	xstore	[dstreg+0], xmm0
+	xstore	[dstreg+32], xmm1
+	xload	xmm0, [srcreg+0+16]
+	xload	xmm1, [srcreg+32+16]
+	xstore	[dstreg+16], xmm2
+	xstore	[dstreg+48], xmm3
+	xload	xmm2, [srcreg+d1+0+16]
+	xload	xmm3, [srcreg+d1+32+16]
+	xstore	[dstreg+e1], xmm4
+	xstore	[dstreg+e1+16], xmm5
+	xstore	[dstreg+e1+32], xmm6
+	xstore	[dstreg+e1+48], xmm7
+	xload	xmm4, [srcreg+d2+0+16]
+	xload	xmm5, [srcreg+d2+32+16]
+	xload	xmm6, [srcreg+d2+d1+0+16]
+	xload	xmm7, [srcreg+d2+d1+32+16]
+	bump	srcreg, srcinc
+	xstore	[dstreg+e2], xmm0
+	xstore	[dstreg+e2+16], xmm1
+	xstore	[dstreg+e2+32], xmm2
+	xstore	[dstreg+e2+48], xmm3
+	xstore	[dstreg+e2+e1], xmm4
+	xstore	[dstreg+e2+e1+16], xmm5
+	xstore	[dstreg+e2+e1+32], xmm6
+	xstore	[dstreg+e2+e1+48], xmm7
+	bump	dstreg, dstinc
+	ENDM
+
 
 readwrite1 MACRO mem, c			;; Bytes to write
 	LOCAL loop1, loop2
@@ -580,19 +654,19 @@ sscase11:
 	sse2mac sscase166, 256, 4096, r4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
 	sse2mac sscase167, 256, 100000, r4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
 
-	sse2mac sscase168, 256, 4096, r4spm_g4cl_four_complex_ac_djbfft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
-	sse2mac sscase169, 256, 100000, r4spm_g4cl_four_complex_ac_djbfft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
-	sse2mac sscase170, 128, 4096, r4spm_g2cl_four_complex_ac_djbunfft rsi, 2*64, 64, rdx, 2*64, 64, rdi
-	sse2mac sscase171, 128, 100000, r4spm_g2cl_four_complex_ac_djbunfft rsi, 2*64, 64, rdx, 2*64, 64, rdi
+	sse2mac sscase168, 256, 4096, r4spm_g4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2mac sscase169, 256, 100000, r4spm_g4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2mac sscase170, 128, 4096, r4spm_g2cl_four_complex_unfft4 rsi, 2*64, 64, rdx, 2*64, 64, rdi
+	sse2mac sscase171, 128, 100000, r4spm_g2cl_four_complex_unfft4 rsi, 2*64, 64, rdx, 2*64, 64, rdi
 	sse2mac sscase172, 128, 4096, r4spm_x2cl_four_complex_first_djbfft_scratch rsi, 2*64, 64, rdi, rdi
 	sse2mac sscase173, 128, 100000, r4spm_x2cl_four_complex_first_djbfft_scratch rsi, 2*64, 64, rdi, rdi
 	sse2mac sscase174, 256, 4096, r4spm_x4cl_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, 0
 	sse2mac sscase175, 256, 100000, r4spm_x4cl_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, 0
 
-	sse2mac sscase176, 512, 4096, r4r8_g8cl_eight_complex_ac_djbfft rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, 0
-	sse2mac sscase177, 512, 100000, r4r8_g8cl_eight_complex_ac_djbfft rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, 0
-	sse2mac sscase178, 256, 4096, r4r8_g4cl_eight_complex_ac_djbunfft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, 0
-	sse2mac sscase179, 256, 100000, r4r8_g4cl_eight_complex_ac_djbunfft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, 0
+	sse2mac sscase176, 512, 4096, r4r8_g8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
+	sse2mac sscase177, 512, 100000, r4r8_g8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
+	sse2mac sscase178, 256, 4096, r4r8_g4cl_eight_complex_unfft8 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2mac sscase179, 256, 100000, r4r8_g4cl_eight_complex_unfft8 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
 
 	sse2mac sscase180, 192, 4096, r4_x3cl_three_complex_djbfft rsi, 3*64, 64, rdi, 0
 	sse2mac sscase181, 192, 100000, r4_x3cl_three_complex_djbfft rsi, 3*64, 64, rdi, 0
@@ -603,8 +677,26 @@ sscase11:
 	sse2mac sscase186, 320, 4096, r4_x5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, 0
 	sse2mac sscase187, 320, 100000, r4_x5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, 0
 
-	sse2mac sscase188, 128, 4096, r4_x2cl_eight_reals_first_fft_scratch rsi, 2*64, 64, rdi
-	sse2mac sscase189, 128, 100000, r4_x2cl_eight_reals_first_fft_scratch rsi, 2*64, 64, rdi
+	sse2mac sscase188, 256, 4096, x4cl_empty rsi, 4*64, 64, 2*64, rdi, 0
+	sse2mac sscase189, 256, 100000, x4cl_empty rsi, 4*64, 64, 2*64, rdi, 0
+	sse2mac sscase190, 256, 4096, g4cl_empty rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, 0
+	sse2mac sscase191, 256, 100000, g4cl_empty rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, 0
+
+	sse2mac sscase192, 128, 4096, r4_x2cl_eight_reals_first_fft_scratch rsi, 2*64, 64, rdi
+	sse2mac sscase193, 128, 100000, r4_x2cl_eight_reals_first_fft_scratch rsi, 2*64, 64, rdi
+	sse2mac sscase194, 256, 4096, r4_x4cl_eight_reals_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, rdi
+	sse2mac sscase195, 256, 100000, r4_x4cl_eight_reals_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, rdi
+	sse2mac sscase196, 256, 4096, r4_g4cl_eight_reals_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, rdi
+	sse2mac sscase197, 256, 100000, r4_g4cl_eight_reals_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, rdi
+
+	sse2mac sscase198, 256, 4096, r4_x4cl_eight_reals_last_unfft rsi, 4*64, 64, 2*64, rdi, 0
+	sse2mac sscase199, 256, 100000, r4_x4cl_eight_reals_last_unfft rsi, 4*64, 64, 2*64, rdi, 0
+	sse2mac sscase200, 256, 4096, r4_x4cl_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, 0
+	sse2mac sscase201, 256, 100000, r4_x4cl_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, 0
+	sse2mac sscase202, 128, 4096, r4_g2cl_eight_reals_unfft4 rsi, 2*64, 64, rdx, 2*64, 64, rdi, rdi
+	sse2mac sscase203, 128, 100000, r4_g2cl_eight_reals_unfft4 rsi, 2*64, 64, rdx, 2*64, 64, rdi, rdi
+
+	; need 16 reals cases
 
 ; Exit the timing code
 

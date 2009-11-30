@@ -25,12 +25,17 @@ xfft_3_ret MACRO
 ;; Common definitions in SSE2 FFTs
 ;;
 
-XMM_SCD1 = 32			;; Sizeof an SSE2 small sin/cos table entry
-XMM_SCD2 = 64			;; Sizeof an SSE2 DJB sin/cos table entry
+;; Used in "hg" (home-grown) FFTs
 XMM_SCD	= 96			;; Sizeof an SSE2 sin/cos table entry
 XMM_PMD = 128			;; Sizeof an entry in premultiplier table
-XMM_SCD5 = 160			;; Sizeof an radix-8 DJB table entry
+
+;; Used in r4 (traditional radix-4) FFTs
+XMM_SCD1 = 32			;; Sizeof an SSE2 small sin/cos table entry
+XMM_SCD2 = 64			;; Sizeof an SSE2 DJB sin/cos table entry
+XMM_SCD3 = 96			;; Sizeof an eight_reals sin/cos table entry
+XMM_SCD4 = 128			;; Sizeof an entry in premultiplier table
 XMM_SCD8 = 256			;; Sizeof an radix-8 with premultipliers table entry
+XMM_HSCD2 = 32			;; Sizeof a half sin/cos table entry used in real FFTs in pass 2
 
 ;; 
 ;; Number of pad bytes between two pass 2 data blocks.  For best distribution
