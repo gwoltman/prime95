@@ -5489,7 +5489,7 @@ int internal_gwsetup (
 	if (gwdata->ZERO_PADDED_FFT ||
 	    3.0 * gwdata->NUM_B_PER_SMALL_WORD * log2 (b) >
 			2.0 * ((gwdata->NUM_B_PER_SMALL_WORD + 1) * log2 (b) - 1) +
-			0.6 * log2 (gwdata->FFTLEN) + log2 (k) + 1.7 * log2 (c))
+			0.6 * log2 (gwdata->FFTLEN) + log2 (k) + 1.7 * log2 (abs (c)))
 		asm_data->SPREAD_CARRY_OVER_4_WORDS = FALSE;
 	else
 		asm_data->SPREAD_CARRY_OVER_4_WORDS = TRUE;
