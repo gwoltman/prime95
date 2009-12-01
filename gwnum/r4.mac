@@ -120,20 +120,24 @@ r4_g4cl_eight_reals_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1
 r4_x8r_fft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,scoff1,screg2,scoff2,screg3,scoff3,pre1,pre2,dst1,dst2
 	xload	xmm3, mem4		;; R4
 	xload	xmm7, mem8		;; R8
+	xcopy	xmm0, xmm3
 	subpd	xmm3, xmm7		;; new R8 = R4 - R8
-	addpd	xmm7, mem4		;; new R4 = R4 + R8
+	addpd	xmm7, xmm0		;; new R4 = R4 + R8
+
 	xload	xmm1, mem2		;; R2
 	xload	xmm5, mem6		;; R6
+	xcopy	xmm4, xmm1
 	subpd	xmm1, xmm5		;; new R6 = R2 - R6
-	addpd	xmm5, mem2		;; new R2 = R2 + R6
+	addpd	xmm5, xmm4		;; new R2 = R2 + R6
 
 	mulpd	xmm3, XMM_SQRTHALF	;; R8 = R8 * square root
 	mulpd	xmm1, XMM_SQRTHALF	;; R6 = R6 * square root
 
 	xload	xmm0, mem1		;; R1
 	xload	xmm4, mem5		;; R5
+	xcopy	xmm2, xmm0
 	subpd	xmm0, xmm4		;; new R5 = R1 - R5
-	addpd	xmm4, mem1		;; new R1 = R1 + R5
+	addpd	xmm4, xmm2		;; new R1 = R1 + R5
 
 	xcopy	xmm2, xmm5		;; Copy R2
 	subpd	xmm5, xmm7		;; R2 = R2 - R4 (final I2)
@@ -186,12 +190,15 @@ r4_x8r_fft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,scoff1,screg
 	mulpd	xmm3, [screg1+scoff1+16];; B3 = I3 * cosine/sine
 	addpd	xmm3, xmm1		;; B3 = B3 + R3
 
-	mulpd	xmm7, [screg2+scoff2]	;; A2 = A2 * sine (final R2)
-	mulpd	xmm5, [screg2+scoff2]	;; B2 = B2 * sine (final I2)
-	mulpd	xmm6, [screg3+scoff3]	;; A4 = A4 * sine (final R4)
-	mulpd	xmm2, [screg3+scoff3]	;; B4 = B4 * sine (final I4)
-	mulpd	xmm4, [screg1+scoff1]	;; A3 = A3 * sine (final R3)
-	mulpd	xmm3, [screg1+scoff1]	;; B3 = B3 * sine (final I3)
+	xload	xmm0, [screg2+scoff2]
+	mulpd	xmm7, xmm0		;; A2 = A2 * sine (final R2)
+	mulpd	xmm5, xmm0		;; B2 = B2 * sine (final I2)
+	xload	xmm1, [screg3+scoff3]
+	mulpd	xmm6, xmm1		;; A4 = A4 * sine (final R4)
+	mulpd	xmm2, xmm1		;; B4 = B4 * sine (final I4)
+	xload	xmm0, [screg1+scoff1]
+	mulpd	xmm4, xmm0		;; A3 = A3 * sine (final R3)
+	mulpd	xmm3, xmm0		;; B3 = B3 * sine (final I3)
 	ENDM
 
 ;; Macro to swizzle and do an eight_reals_fft and a four_complex_djbfft in first levels of pass 2.
@@ -908,35 +915,42 @@ r4_g2cl_eight_reals_unfft4 MACRO srcreg,srcinc,d1,dstreg,dstinc,e1,screg1,screg2
 ;; Common macro to do the 2 and 3/4 inverse FFT producing eight reals.
 
 r4_x8r_unfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,scoff1,screg2,scoff2,screg3,scoff3,pre1,pre2,dst4,dst8
-	xload	xmm1, [screg3+scoff3+16];; cosine/sine for w^5n
-	mulpd	xmm1, mem7		;; A4 = R4 * cosine/sine
+	xload	xmm6, [screg3+scoff3+16];; cosine/sine for w^5n
+	xload	xmm1, mem7		;; R4
+	mulpd	xmm1, xmm6		;; A4 = R4 * cosine/sine
 	xload	xmm7, mem8		;; I4
 	addpd	xmm1, xmm7		;; A4 = A4 + I4
-	mulpd	xmm7, [screg3+scoff3+16];; B4 = I4 * cosine/sine
-	subpd	xmm7, mem7		;; B4 = B4 - R4
+	mulpd	xmm7, xmm6		;; B4 = I4 * cosine/sine
 
-	xload	xmm4, [screg1+scoff1+16];; cosine/sine for w^n
-	mulpd	xmm4, mem5		;; A3 = R3 * cosine/sine for w^n
+	xload	xmm2, [screg1+scoff1+16];; cosine/sine for w^n
+	xload	xmm4, mem5		;; R3
+	mulpd	xmm4, xmm2		;; A3 = R3 * cosine/sine for w^n
 	xload	xmm5, mem6		;; I3
 	addpd	xmm4, xmm5		;; A3 = A3 + I3
-	mulpd	xmm5, [screg1+scoff1+16];; B3 = I3 * cosine/sine
-	subpd	xmm5, mem5		;; B3 = B3 - R3
+	mulpd	xmm5, xmm2		;; B3 = I3 * cosine/sine
 
-	xload	xmm0, [screg2+scoff2+16];; cosine/sine for w^2n
-	mulpd	xmm0, mem3		;; A2 = R2 * cosine/sine
+	xload	xmm6, [screg2+scoff2+16];; cosine/sine for w^2n
+	xload	xmm0, mem3		;; R2
+	mulpd	xmm0, xmm6		;; A2 = R2 * cosine/sine
 	xload	xmm3, mem4		;; I2
 	addpd	xmm0, xmm3		;; A2 = A2 + I2
-	mulpd	xmm3, [screg2+scoff2+16];; B2 = I2 * cosine/sine
+	mulpd	xmm3, xmm6		;; B2 = I2 * cosine/sine
+
+	subpd	xmm7, mem7		;; B4 = B4 - R4
+	subpd	xmm5, mem5		;; B3 = B3 - R3
 	subpd	xmm3, mem3		;; B2 = B2 - R2
 
 	xprefetchw [pre1]
 
-	mulpd	xmm1, [screg3+scoff3]	;; new R7 = A4 * sine (final R4)
-	mulpd	xmm7, [screg3+scoff3]	;; new R8 = B4 * sine (final I4)
-	mulpd	xmm4, [screg1+scoff1]	;; new R5 = A3 * sine (final R3)
-	mulpd	xmm5, [screg1+scoff1]	;; new R6 = B3 * sine (final I3)
-	mulpd	xmm0, [screg2+scoff2]	;; new R3 = A2 * sine (final R2)
-	mulpd	xmm3, [screg2+scoff2]	;; new R4 = B2 * sine (final I2)
+	xload	xmm6, [screg3+scoff3]
+	mulpd	xmm1, xmm6		;; new R7 = A4 * sine (final R4)
+	mulpd	xmm7, xmm6		;; new R8 = B4 * sine (final I4)
+	xload	xmm2, [screg1+scoff1]
+	mulpd	xmm4, xmm2		;; new R5 = A3 * sine (final R3)
+	mulpd	xmm5, xmm2		;; new R6 = B3 * sine (final I3)
+	xload	xmm6, [screg2+scoff2]
+	mulpd	xmm0, xmm6		;; new R3 = A2 * sine (final R2)
+	mulpd	xmm3, xmm6		;; new R4 = B2 * sine (final I2)
 
 	xprefetchw [pre1][pre2]
 
@@ -990,11 +1004,12 @@ r4_x8r_unfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem1,mem2,mem5,mem6,screg
 	mulpd	r8, [screg3+scoff3+16]	;; B4 = I4 * cosine/sine
 	subpd	r8, r7			;; B4 = B4 - R4
 
-	xload	r5, [screg1+scoff1+16]	;; cosine/sine for w^n
-	mulpd	r5, mem5		;; A3 = R3 * cosine/sine for w^n
+	xload	r1, [screg1+scoff1+16]	;; cosine/sine for w^n
+	xload	r5, mem5		;; R3
+	mulpd	r5, r1			;; A3 = R3 * cosine/sine for w^n
 	xload	r6, mem6		;; I3
 	addpd	r5, r6			;; A3 = A3 + I3
-	mulpd	r6, [screg1+scoff1+16]	;; B3 = I3 * cosine/sine
+	mulpd	r6, r1			;; B3 = I3 * cosine/sine
 	subpd	r6, mem5		;; B3 = B3 - R3
 
 	xload	r1, [screg2+scoff2+16]	;; cosine/sine for w^2n
@@ -1005,12 +1020,15 @@ r4_x8r_unfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem1,mem2,mem5,mem6,screg
 
 	xprefetchw [pre1]
 
-	mulpd	r2, [screg3+scoff3]	;; new R7 = A4 * sine (final R4)
-	mulpd	r8, [screg3+scoff3]	;; new R8 = B4 * sine (final I4)
-	mulpd	r5, [screg1+scoff1]	;; new R5 = A3 * sine (final R3)
-	mulpd	r6, [screg1+scoff1]	;; new R6 = B3 * sine (final I3)
-	mulpd	r1, [screg2+scoff2]	;; new R3 = A2 * sine (final R2)
-	mulpd	r4, [screg2+scoff2]	;; new R4 = B2 * sine (final I2)
+	xload	r7, [screg3+scoff3]
+	mulpd	r2, r7			;; new R7 = A4 * sine (final R4)
+	mulpd	r8, r7			;; new R8 = B4 * sine (final I4)
+	xload	r3, [screg1+scoff1]
+	mulpd	r5, r3			;; new R5 = A3 * sine (final R3)
+	mulpd	r6, r3			;; new R6 = B3 * sine (final I3)
+	xload	r7, [screg2+scoff2]
+	mulpd	r1, r7			;; new R3 = A2 * sine (final R2)
+	mulpd	r4, r7			;; new R4 = B2 * sine (final I2)
 
 	xprefetchw [pre1][pre2]
 
