@@ -5191,7 +5191,7 @@ char SELFFAIL5[] = "Hardware failure detected, consult stress.txt file.\n";
 char SELFFAIL6[] = "Maximum number of warnings exceeded.\n";
 
 #define SELFPASS "Self-test %iK passed!\n"
-char SelfTestIniMask[] = "SelfTest%iPassed";
+//char SelfTestIniMask[] = "SelfTest%iPassed";
 
 struct self_test_info {
 	unsigned long p;
@@ -5766,7 +5766,7 @@ int selfTestInternal (
 	unsigned long k, limit, num_threads;
 	unsigned int i, iter;
 	char	buf[120];
-	char	iniName[32];
+//	char	iniName[32];
 	time_t	start_time, current_time;
 	struct self_test_info *test_data;
 	unsigned int test_data_count;
@@ -6025,8 +6025,8 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 
 	sprintf (buf, SELFPASS, (int) (fftlen/1024));
 	OutputBoth (thread_num, buf);
-	sprintf (iniName, SelfTestIniMask, (int) (fftlen/1024));
-	IniWriteInt (LOCALINI_FILE, iniName, 1);
+//	sprintf (iniName, SelfTestIniMask, (int) (fftlen/1024));
+//	IniWriteInt (LOCALINI_FILE, iniName, 1);
 	return (0);
 }
 
