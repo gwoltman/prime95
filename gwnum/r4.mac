@@ -1542,20 +1542,23 @@ r4_x4cl_four_complex_with_mulf MACRO srcreg,srcinc,d1,d2
 r4_x4c_simple_fft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,pre1,pre2
 	xload	xmm0, R1		;; R1
 	xload	xmm2, R3		;; R3
+	xcopy	xmm5, xmm0		;; Copy R1
 	subpd	xmm0, xmm2		;; R1 = R1 - R3 (new R3)
-	addpd	xmm2, R1		;; R3 = R1 + R3 (new R1)
+	addpd	xmm2, xmm5		;; R3 = R1 + R3 (new R1)
 
 	xload	xmm4, R5		;; I1
 	xload	xmm6, R7		;; I3
+	xcopy	xmm5, xmm4		;; Copy I1
 	subpd	xmm4, xmm6		;; I1 = I1 - I3 (new I3)
-	addpd	xmm6, R5		;; I3 = I1 + I3 (new I1)
+	addpd	xmm6, xmm5		;; I3 = I1 + I3 (new I1)
 
 	xprefetchw [pre1]
 
 	xload	xmm1, R2		;; R2
 	xload	xmm3, R4		;; R4
+	xcopy	xmm5, xmm1		;; Copy R2
 	subpd	xmm1, xmm3		;; R2 = R2 - R4 (new R4)
-	addpd	xmm3, R2		;; R4 = R2 + R4 (new R2)
+	addpd	xmm3, xmm5		;; R4 = R2 + R4 (new R2)
 
 	xload	xmm5, R6		;; I2
 	xload	xmm7, R8		;; I4
