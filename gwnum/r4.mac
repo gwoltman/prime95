@@ -3,8 +3,6 @@
 ; Email: woltman@alum.mit.edu
 ;
 
-INCLUDE r4spm.mac
-
 ;; Include other macro files needed by our primarily radix-4 traditional FFTs
 
 INCLUDE r2.mac
@@ -1422,8 +1420,8 @@ r4_x4cl_four_complex_with_square MACRO srcreg,srcinc,d1,d2
 	xload	xmm0, [srcreg]
 	xstore	[srcreg], xmm4
 	xp_complex_square xmm0, xmm1, xmm4	;; Square R5, R6
-	r4_x4c_simple_unfft xmm3,xmm7,xmm2,xmm6,xmm0,xmm1,xmm5,xmm4,[srcreg],srcreg+srcinc,d1
-	xstore	[srcreg], xmm0			;; Save R1
+	r4_x4c_simple_unfft xmm3,xmm7,xmm2,xmm6,xmm0,xmm1,xmm5,xmm4,[srcreg],srcreg+srcinc,d1,[srcreg]
+;;	xstore	[srcreg], xmm0			;; Save R1
 	xstore	[srcreg+16], xmm2		;; Save R3
 	xload	xmm0, [srcreg+32]		;; R1
 	xload	xmm2, [srcreg+48]		;; R5
@@ -1443,8 +1441,8 @@ r4_x4cl_four_complex_with_square MACRO srcreg,srcinc,d1,d2
 	xload	xmm0, [srcreg+d2]		;; R5
 	xstore	[srcreg+d2], xmm2		;; R8
 	xp_complex_square xmm0, xmm4, xmm2	;; Square R5, R6
-	r4_x4c_simple_unfft xmm3,xmm7,xmm1,xmm5,xmm0,xmm4,xmm6,xmm2,[srcreg+d2],srcreg+srcinc+d2,d1
-	xstore	[srcreg+d2], xmm0		;; Save R1
+	r4_x4c_simple_unfft xmm3,xmm7,xmm1,xmm5,xmm0,xmm4,xmm6,xmm2,[srcreg+d2],srcreg+srcinc+d2,d1,[srcreg+d2]
+;;	xstore	[srcreg+d2], xmm0		;; Save R1
 	xstore	[srcreg+d2+16], xmm1		;; Save R3
 	xstore	[srcreg+d2+32], xmm2		;; Save R5
 	xstore	[srcreg+d2+48], xmm5		;; Save R7
@@ -1465,8 +1463,8 @@ r4_x4cl_four_complex_with_mult MACRO srcreg,srcinc,d1,d2
 	r4_x4c_simple_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],srcreg+srcinc,d1
 	xp4c_mulf xmm3,xmm7,xmm2,xmm6,xmm0,xmm1,xmm5,xmm4,[srcreg],[srcreg+16],[srcreg+32],[srcreg+48],[srcreg+d1],[srcreg+d1+16],[srcreg+d1+32],[srcreg+d1+48]
 	xstore	[srcreg], xmm4
-	r4_x4c_simple_unfft xmm3,xmm7,xmm2,xmm6,xmm0,xmm1,xmm5,xmm4,[srcreg],srcreg+srcinc,d1
-	xstore	[srcreg], xmm0			;; Save R1
+	r4_x4c_simple_unfft xmm3,xmm7,xmm2,xmm6,xmm0,xmm1,xmm5,xmm4,[srcreg],srcreg+srcinc,d1,[srcreg]
+;;	xstore	[srcreg], xmm0			;; Save R1
 	xstore	[srcreg+16], xmm2		;; Save R3
 	xload	xmm0, [srcreg+32]		;; R1
 	xload	xmm2, [srcreg+48]		;; R5
@@ -1481,8 +1479,8 @@ r4_x4cl_four_complex_with_mult MACRO srcreg,srcinc,d1,d2
 	r4_x4c_simple_fft_partial_mem xmm0,xmm4,xmm1,xmm3,xmm2,xmm6,xmm5,xmm7,[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+d2+48],[srcreg+d2+d1+48],srcreg+srcinc+d2,d1
 	xp4c_mulf xmm3,xmm7,xmm1,xmm5,xmm0,xmm4,xmm6,xmm2,[srcreg+d2],[srcreg+d2+16],[srcreg+d2+32],[srcreg+d2+48],[srcreg+d2+d1],[srcreg+d2+d1+16],[srcreg+d2+d1+32],[srcreg+d2+d1+48]
 	xstore	[srcreg+d2], xmm2
-	r4_x4c_simple_unfft xmm3,xmm7,xmm1,xmm5,xmm0,xmm4,xmm6,xmm2,[srcreg+d2],srcreg+srcinc+d2,d1
-	xstore	[srcreg+d2], xmm0		;; Save R1
+	r4_x4c_simple_unfft xmm3,xmm7,xmm1,xmm5,xmm0,xmm4,xmm6,xmm2,[srcreg+d2],srcreg+srcinc+d2,d1,[srcreg+d2]
+;;	xstore	[srcreg+d2], xmm0		;; Save R1
 	xstore	[srcreg+d2+16], xmm1		;; Save R3
 	xstore	[srcreg+d2+32], xmm2		;; Save R5
 	xstore	[srcreg+d2+48], xmm5		;; Save R7
@@ -1509,8 +1507,8 @@ r4_x4cl_four_complex_with_mulf MACRO srcreg,srcinc,d1,d2
 	xload	xmm4, [srcreg+d1+48][rbx]	;; R8
 	xp4c_mulf xmm3,xmm7,xmm2,xmm6,xmm0,xmm1,xmm5,xmm4,[srcreg],[srcreg+16],[srcreg+32],[srcreg+48],[srcreg+d1],[srcreg+d1+16],[srcreg+d1+32],[srcreg+d1+48]
 	xstore	[srcreg], xmm4
-	r4_x4c_simple_unfft xmm3,xmm7,xmm2,xmm6,xmm0,xmm1,xmm5,xmm4,[srcreg],srcreg+srcinc,d1
-	xstore	[srcreg], xmm0			;; Save R1
+	r4_x4c_simple_unfft xmm3,xmm7,xmm2,xmm6,xmm0,xmm1,xmm5,xmm4,[srcreg],srcreg+srcinc,d1,[srcreg]
+;;	xstore	[srcreg], xmm0			;; Save R1
 	xstore	[srcreg+16], xmm2		;; Save R3
 	xstore	[srcreg+32], xmm4		;; Save R5
 	xstore	[srcreg+48], xmm6		;; Save R7
@@ -1528,8 +1526,8 @@ r4_x4cl_four_complex_with_mulf MACRO srcreg,srcinc,d1,d2
 	xload	xmm2, [srcreg+d2+d1+48][rbx]	;; R8
 	xp4c_mulf xmm3,xmm7,xmm1,xmm5,xmm0,xmm4,xmm6,xmm2,[srcreg+d2],[srcreg+d2+16],[srcreg+d2+32],[srcreg+d2+48],[srcreg+d2+d1],[srcreg+d2+d1+16],[srcreg+d2+d1+32],[srcreg+d2+d1+48]
 	xstore	[srcreg+d2], xmm2
-	r4_x4c_simple_unfft xmm3,xmm7,xmm1,xmm5,xmm0,xmm4,xmm6,xmm2,[srcreg+d2],srcreg+srcinc+d2,d1
-	xstore	[srcreg+d2], xmm0		;; Save R1
+	r4_x4c_simple_unfft xmm3,xmm7,xmm1,xmm5,xmm0,xmm4,xmm6,xmm2,[srcreg+d2],srcreg+srcinc+d2,d1,[srcreg+d2]
+;;	xstore	[srcreg+d2], xmm0		;; Save R1
 	xstore	[srcreg+d2+16], xmm1		;; Save R3
 	xstore	[srcreg+d2+32], xmm2		;; Save R5
 	xstore	[srcreg+d2+48], xmm5		;; Save R7
@@ -1621,18 +1619,22 @@ r4_x4c_simple_fft_partial_mem MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem3, mem4, 
 	addpd	r8, r7			;; I2 = I1 + I2 (final I1)
 	ENDM
 
-r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2
+r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2, dest1
 	xcopy	r8, r1			;; R1
 	subpd	r1, r3			;; R1 = R1 - R2 (new R2)
 	addpd	r3, r8			;; R2 = R1 + R2 (new R1)
+
+	xcopy	r8, r7			;; R4
+	subpd	r7, r5			;; R4 = R4 - R3 (new I4)
+	addpd	r5, r8			;; R3 = R4 + R3 (new R3)
 
 	xcopy	r8, r2			;; I2
 	subpd	r2, r4			;; I1 = I1 - I2 (new I2)
 	addpd	r4, r8			;; I2 = I1 + I2 (new I1)
 
-	xcopy	r8, r7			;; R4
-	subpd	r7, r5			;; R4 = R4 - R3 (new I4)
-	addpd	r5, r8			;; R3 = R4 + R3 (new R3)
+	xcopy	r8, r3
+	subpd	r3, r5			;; R1 = R1 - R3 (final R3)
+	addpd	r5, r8			;; R3 = R1 + R3 (final R1)
 
 	xprefetchw [pre1]
 
@@ -1640,23 +1642,21 @@ r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2
 	addpd	r8, r6			;; I4 = I3 + I4 (new I3)
 	subpd	r6, mem8		;; I3 = I3 - I4 (new R4)
 
-	subpd	r1, r6			;; R2 = R2 - R4 (final R4)
-	multwo	r6			;; R4 = R4 * 2
-	addpd	r6, r1			;; R4 = R2 + R4 (final R2)
+	xstore	dest1, r5
 
+	xcopy	r5, r1			;; Copy R2
+	subpd	r1, r6			;; R2 = R2 - R4 (final R4)
+	addpd	r6, r5			;; R4 = R2 + R4 (final R2)
+
+	xcopy	r5, r2			;; Copy I2
 	subpd	r2, r7			;; I2 = I2 - I4 (final I4)
-	multwo	r7			;; I4 = I4 * 2
-	addpd	r7, r2			;; I4 = I2 + I4 (final I2)
+	addpd	r7, r5			;; I4 = I2 + I4 (final I2)
 
 	xprefetchw [pre1][pre2]
 
-	subpd	r3, r5			;; R1 = R1 - R3 (final R3)
-	multwo	r5			;; R3 = R3 * 2
-	addpd	r5, r3			;; R3 = R1 + R3 (final R1)
-
+	xcopy	r5, r4			;; Copy I1
 	subpd	r4, r8			;; I1 = I1 - I3 (final I3)
-	multwo	r8			;; I3 = I3 * 2
-	addpd	r8, r4			;; I3 = I1 + I3 (final I1)
+	addpd	r8, r5			;; I3 = I1 + I3 (final I1)
 	ENDM
 
 ;;
@@ -2868,8 +2868,8 @@ r4_h4cl_eight_reals_four_complex_with_square MACRO srcreg,srcinc,d1,d2
 	xload	xmm1, [srcreg+d2]		;; R5
 	xstore	[srcreg+d2], xmm7		;; R8
 	xp_complex_square xmm1, xmm0, xmm7	;; Square R5, R6
-	r4_x4c_simple_unfft xmm3,xmm4,xmm2,xmm5,xmm1,xmm0,xmm6,xmm7,[srcreg+d2],srcreg+srcinc+d2,d1
-	xstore	[srcreg+d2], xmm1		;; Save R1
+	r4_x4c_simple_unfft xmm3,xmm4,xmm2,xmm5,xmm1,xmm0,xmm6,xmm7,[srcreg+d2],srcreg+srcinc+d2,d1,[srcreg+d2]
+;;	xstore	[srcreg+d2], xmm1		;; Save R1
 	xstore	[srcreg+d2+16], xmm2		;; Save R3
 	xstore	[srcreg+d2+32], xmm7		;; Save R5
 	xstore	[srcreg+d2+48], xmm5		;; Save R7
@@ -2915,8 +2915,8 @@ r4_h4cl_eight_reals_four_complex_with_mult MACRO srcreg,srcinc,d1,d2
 	r4_x4c_simple_fft_partial_mem xmm1,xmm0,xmm2,xmm3,xmm7,xmm6,xmm5,xmm4,[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+d2+48],[srcreg+d2+d1+48],srcreg+srcinc+d2,d1
 	xp4c_mulf xmm3,xmm4,xmm2,xmm5,xmm1,xmm0,xmm6,xmm7,[srcreg+d2],[srcreg+d2+16],[srcreg+d2+32],[srcreg+d2+48],[srcreg+d2+d1],[srcreg+d2+d1+16],[srcreg+d2+d1+32],[srcreg+d2+d1+48]
 	xstore	[srcreg+d2], xmm7
-	r4_x4c_simple_unfft xmm3,xmm4,xmm2,xmm5,xmm1,xmm0,xmm6,xmm7,[srcreg+d2],srcreg+srcinc+d2,d1
-	xstore	[srcreg+d2], xmm1		;; Save R1
+	r4_x4c_simple_unfft xmm3,xmm4,xmm2,xmm5,xmm1,xmm0,xmm6,xmm7,[srcreg+d2],srcreg+srcinc+d2,d1,[srcreg+d2]
+;;	xstore	[srcreg+d2], xmm1		;; Save R1
 	xstore	[srcreg+d2+16], xmm2		;; Save R3
 	xstore	[srcreg+d2+32], xmm7		;; Save R5
 	xstore	[srcreg+d2+48], xmm5		;; Save R7
@@ -2970,8 +2970,8 @@ r4_h4cl_eight_reals_four_complex_with_mulf MACRO srcreg,srcinc,d1,d2
 	xload	xmm2, [srcreg+d2+d1+48][rbx]	;; R8
 	xp4c_mulf xmm3,xmm7,xmm1,xmm5,xmm0,xmm4,xmm6,xmm2,[srcreg+d2],[srcreg+d2+16],[srcreg+d2+32],[srcreg+d2+48],[srcreg+d2+d1],[srcreg+d2+d1+16],[srcreg+d2+d1+32],[srcreg+d2+d1+48]
 	xstore	[srcreg+d2], xmm2
-	r4_x4c_simple_unfft xmm3,xmm7,xmm1,xmm5,xmm0,xmm4,xmm6,xmm2,[srcreg+d2],srcreg+srcinc+d2,d1
-	xstore	[srcreg+d2], xmm0		;; Save R1
+	r4_x4c_simple_unfft xmm3,xmm7,xmm1,xmm5,xmm0,xmm4,xmm6,xmm2,[srcreg+d2],srcreg+srcinc+d2,d1,[srcreg+d2]
+;;	xstore	[srcreg+d2], xmm0		;; Save R1
 	xstore	[srcreg+d2+16], xmm1		;; Save R3
 	xstore	[srcreg+d2+32], xmm2		;; Save R5
 	xstore	[srcreg+d2+48], xmm5		;; Save R7
