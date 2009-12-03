@@ -185,7 +185,7 @@ c5b:	r4_x4cl_four_complex_djbunfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 8*2*c
 	start_timer 19
 	loops_init_prefetch_touch 128*2*clm, 64, 2, rbp, 4096, c3a ;; 128 iterations of 2*clm
 c3a:	xtouch	[rbp+4096]		;; Preload TLB
-c3b:	r4_x2cl_two_complex_unfft rsi, 64, 4*clmblkdst8, 32*2*clm*XMM_SCD1
+c3b:	r2_x2cl_two_complex_unfft rsi, 64, 4*clmblkdst8, 32*2*clm*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sine/cosine pointer
 	loops	2*clm, c3b		;; Loop 2*clm times
 	bump	rsi, -2*clm*64+clmblkdst ;; Next source pointer
@@ -225,7 +225,7 @@ c3b:	r4_x2cl_two_complex_unfft rsi, 64, 4*clmblkdst8, 32*2*clm*XMM_SCD1
 	;; it is prefetched.  So, lets do nothing, which has its own problems of prefetching data
 	;; used in the next section (and may still have some data usage before it is prefetched)
 c1a:	xtouch	[rbp+4096]		;; Preload TLB
-c1b:	r4_x4cl_four_complex_last_unfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rdi, 64*2*clm*XMM_SCD4
+c1b:	r4_x4cl_four_complex_last_unfft4 rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rdi, 64*2*clm*XMM_SCD4
 	bump	rdi, XMM_SCD4		;; Next premultiplier/sin/cos ptr
 	loops	2*clm, c1b		;; Loop 2*clm times
 	bump	rsi, -2*clm*64+clmblkdst ;; Next source pointer
@@ -262,7 +262,7 @@ b0b:	copy_fft_data_to_scratch 256
 ;;	512K	...
 ;;	...
 
-;; Do 128 four_complex_first_fft macros (FFT levels 1,2,3)
+;; Do 128 four_complex_first_fft4 macros (FFT levels 1,2,3)
 ;;	distance between fft data elements is 128K
 ;;	do 128 iterations each processing 16 data values
 
@@ -275,7 +275,7 @@ pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
 	loops_init 128*2*clm		;; 16 iters of 2 iters of 4*2*clm
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
-b1b:	r4_x2cl_four_complex_first_fft_scratch rsi, 64, 16*clmblkdst8
+b1b:	r4_x2cl_four_complex_first_fft4_scratch rsi, 64, 16*clmblkdst8
 	bump	rdi, XMM_SCD4		;; Next premultiplier/sin/cos ptr
 	newxloop2 b1b, clmblkdst	;; 2*2*clm iters prefetching 2*clm cache lines
 	loops	4, b1a			;; 4 iterations
@@ -310,7 +310,7 @@ b1b:	r4_x2cl_four_complex_first_fft_scratch rsi, 64, 16*clmblkdst8
 	bump	rdi, -64*2*clm*XMM_SCD1	;; Next sin/cos ptr
 	loops_init 128*2*clm		;; 32 iters of 4*2*clm
 b3a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
-b3b:	r4_x2cl_two_complex_fft rsi, 64, 8*clmblkdst8, rdi, 0
+b3b:	r2_x2cl_two_complex_fft rsi, 64, 8*clmblkdst8, rdi, 0
 	bump	rdi, XMM_SCD1		;; Next sin/cos ptr
 	newxloop2 b3b, clmblkdst	;; 2*2*clm iterations
 	loops	4, b3a			;; 4 iterations

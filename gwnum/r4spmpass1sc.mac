@@ -85,7 +85,7 @@ c0b:	start_timer 16
 pfing	lea	rbp, [rdi+2*XMM_SCD4]	;; Prefetch the sin/cos/premult data we are about to use
 	xtouch	[rbp]			;; Prefetch TLB
 c9a:	xtouch	[rbp+4096]		;; Prefetch TLB
-c9b:	r4spm_g2cl_four_complex_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
+c9b:	r4_g2cl_four_complex_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 	bump	rdi, XMM_SCD4		;; Next premult/sin/cos data
 	loops	2*clm, c9b		;; Loop 2*clm times
 	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
@@ -189,7 +189,7 @@ c5b:	r4_x4cl_four_complex_djbunfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 8*2*c
 
 	start_timer 19
 	loops_init 128*2*clm		;; 128 iterations of 2*clm
-c3b:	r4_x2cl_two_complex_unfft rsi, 64, 4*clmblkdst8, 32*2*clm*XMM_SCD1
+c3b:	r2_x2cl_two_complex_unfft rsi, 64, 4*clmblkdst8, 32*2*clm*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sine/cosine pointer
 	loops	2*clm, c3b
 	bump	rsi, -2*clm*64+clmblkdst ;; Next source pointer
@@ -224,7 +224,7 @@ c3b:	r4_x2cl_two_complex_unfft rsi, 64, 4*clmblkdst8, 32*2*clm*XMM_SCD1
 	start_timer 20
 	mov	rdx, sincos1		;; Load fixed all-complex premultipliers
 	loops_init 64*2*clm		;; 64 iterations of 2*clm
-c1b:	r4spm_x4cl_four_complex_last_djbunfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rdi, 64*2*clm*XMM_SCD2, rdx, 64*XMM_SCD4
+c1b:	r4_x4cl_four_complex_last_djbunfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rdi, 64*2*clm*XMM_SCD2, rdx, 64*XMM_SCD4
 	bump	rdi, XMM_SCD2		;; Next sin/cos ptr
 	loops	2*clm, c1b		;; 2*clm iterations
 	bump	rsi, -2*clm*64+clmblkdst ;; Next source pointer
@@ -276,7 +276,7 @@ pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
 	loops_init 128*2*clm		;; 16 iters of 4 iters of 2*2*clm
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
-b1b:	r4spm_x2cl_four_complex_first_djbfft_scratch rsi, 64, 16*clmblkdst8, rdi, rdx
+b1b:	r4_x2cl_four_complex_first_djbfft_scratch rsi, 64, 16*clmblkdst8, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos ptr
 	newxloop2 b1b, clmblkdst, rdx, XMM_SCD4 ;; 2*2*clm iters prefetching 2*clm cache lines
 	loops	4, b1a			;; 4 iterations
@@ -311,7 +311,7 @@ b1b:	r4spm_x2cl_four_complex_first_djbfft_scratch rsi, 64, 16*clmblkdst8, rdi, r
 	bump	rdi, -64*2*clm*XMM_SCD1	;; Next sin/cos ptr
 	loops_init 128*2*clm		;; 32 iters of 4*2*clm
 b3a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
-b3b:	r4_x2cl_two_complex_fft rsi, 64, 8*clmblkdst8, rdi, 0
+b3b:	r2_x2cl_two_complex_fft rsi, 64, 8*clmblkdst8, rdi, 0
 	bump	rdi, XMM_SCD1		;; Next sin/cos ptr
 	newxloop2 b3b, clmblkdst	;; 2*2*clm iterations
 	loops	4, b3a			;; 4 iterations
@@ -419,7 +419,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
 ;pfing	sub	rbp, rcx
 	bump	rdi, -1*2*clm*XMM_SCD4	;; Next premult/sin/cos ptr
 	loops_init 64*2*clm		;; 32 iters of 2 of 2*clm
-b9b:	r4spm_g4cl_four_complex_fft4 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst, rdi
+b9b:	r4_g4cl_four_complex_fft4 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst, rdi
 	bump	rdi, XMM_SCD4		;; Next sin/cos ptr
 	;xprefetcht1 [rcx+rbp-64]
 	;xprefetcht1 [rcx+rbp-64+blkdst]

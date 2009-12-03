@@ -25,8 +25,6 @@ xarch	TEXTEQU	<CORE>
 INCLUDE xbasics.mac
 INCLUDE hg.mac
 INCLUDE r4.mac
-INCLUDE r4spm.mac
-INCLUDE r4r8.mac
 
 IFDEF X86_64
 X87_CASES	EQU	0
@@ -647,24 +645,24 @@ sscase11:
 	sse2mac sscase124, 448, 4096, x7cl_seven_reals_last_unfft rsi, 7*64, 64
 	sse2mac sscase125, 448, 100000, x7cl_seven_reals_last_unfft rsi, 7*64, 64
 
-	sse2mac sscase126, 256, 4096, r4_x4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdi
-	sse2mac sscase127, 256, 100000, r4_x4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdi
-	sse2mac sscase128, 256, 4096, r4_g4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
-	sse2mac sscase129, 256, 100000, r4_g4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
-	sse2macbx sscase130, 128, 4096, r4_s2cl_four_complex_fft rsi, 2*64, 64
-	sse2macbx sscase131, 128, 100000, r4_s2cl_four_complex_fft rsi, 2*64, 64
-	sse2mac sscase132, 128, 4096, r4_x2cl_four_complex_first_fft_scratch rsi, 2*64, 64
-	sse2mac sscase133, 128, 100000, r4_x2cl_four_complex_first_fft_scratch rsi, 2*64, 64
-	sse2macbx sscase134, 128, 4096, r4_x2cl_four_complex_first_fft rsi, 2*64, 64
-	sse2macbx sscase135, 128, 100000, r4_x2cl_four_complex_first_fft rsi, 2*64, 64
-	sse2mac sscase136, 256, 4096, r4_x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi, 0
-	sse2mac sscase137, 256, 100000, r4_x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi, 0
-	sse2mac sscase138, 128, 4096, r4_g2cl_four_complex_unfft rsi, 2*64, 64, rdx, 2*64, 64
-	sse2mac sscase139, 128, 100000, r4_g2cl_four_complex_unfft rsi, 2*64, 64, rdx, 2*64, 64
-	sse2mac sscase140, 256, 4096, r4_s4cl_four_complex_unfft rsi, 4*64, 64, 2*64, 0
-	sse2mac sscase141, 256, 100000, r4_s4cl_four_complex_unfft rsi, 4*64, 64, 2*64, 0
-	sse2mac sscase142, 256, 4096, r4_x4cl_four_complex_last_unfft rsi, 4*64, 64, 2*64, rdi, 0
-	sse2mac sscase143, 256, 100000, r4_x4cl_four_complex_last_unfft rsi, 4*64, 64, 2*64, rdi, 0
+sscase126: jmp exit;;	sse2mac sscase126, 256, 4096, r4_x4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdi
+sscase127: jmp exit;;	sse2mac sscase127, 256, 100000, r4_x4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdi
+sscase128: jmp exit;;	sse2mac sscase128, 256, 4096, r4_g4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
+sscase129: jmp exit;;	sse2mac sscase129, 256, 100000, r4_g4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
+sscase130: jmp exit;;	sse2macbx sscase130, 128, 4096, r4_s2cl_four_complex_fft rsi, 2*64, 64
+sscase131: jmp exit;;	sse2macbx sscase131, 128, 100000, r4_s2cl_four_complex_fft rsi, 2*64, 64
+	sse2mac sscase132, 128, 4096, r4_x2cl_four_complex_first_fft4_scratch rsi, 2*64, 64
+	sse2mac sscase133, 128, 100000, r4_x2cl_four_complex_first_fft4_scratch rsi, 2*64, 64
+sscase134: jmp exit;;	sse2macbx sscase134, 128, 4096, r4_x2cl_four_complex_first_fft4 rsi, 2*64, 64
+sscase135: jmp exit;;	sse2macbx sscase135, 128, 100000, r4_x2cl_four_complex_first_fft4 rsi, 2*64, 64
+sscase136: jmp exit;;	sse2mac sscase136, 256, 4096, r4_x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi, 0
+sscase137: jmp exit;;	sse2mac sscase137, 256, 100000, r4_x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi, 0
+sscase138: jmp exit;;	sse2mac sscase138, 128, 4096, r4_g2cl_four_complex_unfft rsi, 2*64, 64, rdx, 2*64, 64
+sscase139: jmp exit;;	sse2mac sscase139, 128, 100000, r4_g2cl_four_complex_unfft rsi, 2*64, 64, rdx, 2*64, 64
+sscase140: jmp exit;;	sse2mac sscase140, 256, 4096, r4_s4cl_four_complex_unfft rsi, 4*64, 64, 2*64, 0
+sscase141: jmp exit;;	sse2mac sscase141, 256, 100000, r4_s4cl_four_complex_unfft rsi, 4*64, 64, 2*64, 0
+	sse2mac sscase142, 256, 4096, r4_x4cl_four_complex_last_unfft4 rsi, 4*64, 64, 2*64, rdi, 0
+	sse2mac sscase143, 256, 100000, r4_x4cl_four_complex_last_unfft4 rsi, 4*64, 64, 2*64, rdi, 0
 	sse2mac sscase144, 256, 4096, r4_x4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	sse2mac sscase145, 256, 100000, r4_x4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	sse2mac sscase146, 256, 4096, r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
@@ -673,10 +671,10 @@ sscase11:
 	sse2macbx sscase149, 256, 100000, r4_x4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 	sse2macbx sscase150, 256, 4096, r4_x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	sse2macbx sscase151, 256, 100000, r4_x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
-	sse2mac sscase152, 128, 4096, r4_x2cl_two_complex_fft rsi, 2*64, 64, rdi, 0
-	sse2mac sscase153, 128, 100000, r4_x2cl_two_complex_fft rsi, 2*64, 64, rdi, 0
-	sse2mac sscase154, 128, 4096, r4_x2cl_two_complex_unfft rsi, 2*64, 64, 0
-	sse2mac sscase155, 128, 100000, r4_x2cl_two_complex_unfft rsi, 2*64, 64, 0
+	sse2mac sscase152, 128, 4096, r2_x2cl_two_complex_fft rsi, 2*64, 64, rdi, 0
+	sse2mac sscase153, 128, 100000, r2_x2cl_two_complex_fft rsi, 2*64, 64, rdi, 0
+	sse2mac sscase154, 128, 4096, r2_x2cl_two_complex_unfft rsi, 2*64, 64, 0
+	sse2mac sscase155, 128, 100000, r2_x2cl_two_complex_unfft rsi, 2*64, 64, 0
 
 	sse2mac sscase156, 256, 4096, r4_x4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
 	sse2mac sscase157, 256, 100000, r4_x4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
@@ -691,28 +689,28 @@ sscase11:
 	sse2mac sscase166, 256, 4096, r4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
 	sse2mac sscase167, 256, 100000, r4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
 
-	sse2mac sscase168, 256, 4096, r4spm_g4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
-	sse2mac sscase169, 256, 100000, r4spm_g4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
-	sse2mac sscase170, 128, 4096, r4spm_g2cl_four_complex_unfft4 rsi, 2*64, 64, rdx, 2*64, 64, rdi
-	sse2mac sscase171, 128, 100000, r4spm_g2cl_four_complex_unfft4 rsi, 2*64, 64, rdx, 2*64, 64, rdi
-	sse2mac sscase172, 128, 4096, r4spm_x2cl_four_complex_first_djbfft_scratch rsi, 2*64, 64, rdi, rdi
-	sse2mac sscase173, 128, 100000, r4spm_x2cl_four_complex_first_djbfft_scratch rsi, 2*64, 64, rdi, rdi
-	sse2mac sscase174, 256, 4096, r4spm_x4cl_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, 0
-	sse2mac sscase175, 256, 100000, r4spm_x4cl_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, 0
+	sse2mac sscase168, 256, 4096, r4_g4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2mac sscase169, 256, 100000, r4_g4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2mac sscase170, 128, 4096, r4_g2cl_four_complex_unfft4 rsi, 2*64, 64, rdx, 2*64, 64, rdi
+	sse2mac sscase171, 128, 100000, r4_g2cl_four_complex_unfft4 rsi, 2*64, 64, rdx, 2*64, 64, rdi
+	sse2mac sscase172, 128, 4096, r4_x2cl_four_complex_first_djbfft_scratch rsi, 2*64, 64, rdi, rdi
+	sse2mac sscase173, 128, 100000, r4_x2cl_four_complex_first_djbfft_scratch rsi, 2*64, 64, rdi, rdi
+	sse2mac sscase174, 256, 4096, r4_x4cl_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, 0
+	sse2mac sscase175, 256, 100000, r4_x4cl_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, 0
 
-	sse2mac sscase176, 512, 4096, r4r8_g8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
-	sse2mac sscase177, 512, 100000, r4r8_g8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
-	sse2mac sscase178, 256, 4096, r4r8_g4cl_eight_complex_unfft8 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
-	sse2mac sscase179, 256, 100000, r4r8_g4cl_eight_complex_unfft8 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2mac sscase176, 512, 4096, r8_g8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
+	sse2mac sscase177, 512, 100000, r8_g8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
+	sse2mac sscase178, 256, 4096, r8_g4cl_eight_complex_unfft8 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2mac sscase179, 256, 100000, r8_g4cl_eight_complex_unfft8 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
 
-	sse2mac sscase180, 192, 4096, r4_x3cl_three_complex_djbfft rsi, 3*64, 64, rdi, 0
-	sse2mac sscase181, 192, 100000, r4_x3cl_three_complex_djbfft rsi, 3*64, 64, rdi, 0
-	sse2mac sscase182, 192, 4096, r4_x3cl_three_complex_djbunfft rsi, 3*64, 64, rdi, 0
-	sse2mac sscase183, 192, 100000, r4_x3cl_three_complex_djbunfft rsi, 3*64, 64, rdi, 0
-	sse2mac sscase184, 320, 4096, r4_x5cl_five_complex_djbfft rsi, 5*64, 64, rdi, 0
-	sse2mac sscase185, 320, 100000, r4_x5cl_five_complex_djbfft rsi, 5*64, 64, rdi, 0
-	sse2mac sscase186, 320, 4096, r4_x5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, 0
-	sse2mac sscase187, 320, 100000, r4_x5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, 0
+	sse2mac sscase180, 192, 4096, r3_x3cl_three_complex_djbfft rsi, 3*64, 64, rdi, 0
+	sse2mac sscase181, 192, 100000, r3_x3cl_three_complex_djbfft rsi, 3*64, 64, rdi, 0
+	sse2mac sscase182, 192, 4096, r3_x3cl_three_complex_djbunfft rsi, 3*64, 64, rdi, 0
+	sse2mac sscase183, 192, 100000, r3_x3cl_three_complex_djbunfft rsi, 3*64, 64, rdi, 0
+	sse2mac sscase184, 320, 4096, r5_x5cl_five_complex_djbfft rsi, 5*64, 64, rdi, 0
+	sse2mac sscase185, 320, 100000, r5_x5cl_five_complex_djbfft rsi, 5*64, 64, rdi, 0
+	sse2mac sscase186, 320, 4096, r5_x5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, 0
+	sse2mac sscase187, 320, 100000, r5_x5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, 0
 
 	sse2mac sscase188, 256, 4096, x4cl_empty rsi, 4*64, 64, 2*64, rdi, 0
 	sse2mac sscase189, 256, 100000, x4cl_empty rsi, 4*64, 64, 2*64, rdi, 0

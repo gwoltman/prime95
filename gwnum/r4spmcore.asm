@@ -14,13 +14,14 @@ IFNDEF X86_64
 	.MODEL	FLAT
 ENDIF
 
+xfft_type TEXTEQU <r4spm>
 xarch	TEXTEQU	<CORE>
 
 INCLUDE	unravel.mac
 INCLUDE extrn.mac
 INCLUDE xbasics.mac
 INCLUDE xmult.mac
-INCLUDE r4spm.mac
+INCLUDE r4.mac
 INCLUDE r4spmpass1sc.mac
 INCLUDE r4spmpass2.mac
 

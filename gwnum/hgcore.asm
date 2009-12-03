@@ -14,6 +14,7 @@ IFNDEF X86_64
 	.MODEL	FLAT
 ENDIF
 
+xfft_type TEXTEQU <hg>
 xarch	TEXTEQU	<CORE>
 
 INCLUDE	unravel.mac

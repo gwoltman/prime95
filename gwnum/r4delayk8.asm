@@ -16,13 +16,14 @@ IFNDEF X86_64
 	.MODEL	FLAT
 ENDIF
 
+xfft_type TEXTEQU <r4delay>
 xarch	TEXTEQU	<K8>
 
 INCLUDE	unravel.mac
 INCLUDE extrn.mac
 INCLUDE xbasics.mac
 INCLUDE xmult.mac
-INCLUDE r4delay.mac
+INCLUDE r4.mac
 INCLUDE r4delaypass1sc.mac
 INCLUDE r4delaypass2.mac
 

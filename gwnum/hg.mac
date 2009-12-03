@@ -2,8 +2,8 @@
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
-; These macros implement the building blocks for our home grown radix-4 FFT
-; used in prime95 from 1996 to 2009.  It differs from a traditional radix-4 FFT
+; These macros implement the building blocks for our home grown primarily radix-4
+; FFT used in prime95 from 1996 to 2009.  It differs from a traditional FFT
 ; in that the multiplication by sin/cos values are delayed to the last possible
 ; moment.  Two pass FFTs use a modified Bailey's method, where Bailey's premultipliers
 ; in pass 2 are applied during the first four levels of the second pass.  This
@@ -12,7 +12,6 @@
 ; These macros are optimized for the Core 2 / Core i7 architecture and are
 ; similar to the x87 macros found in lucas.mac.
 
-xfft_type TEXTEQU <hg>
 
 ;************************************************************
 ; These macros implement the first 3 FFT and last 3 inverse
