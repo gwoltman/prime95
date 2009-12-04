@@ -162,7 +162,7 @@ void gwdone (
 /* non-random data when using rational FFTs.  For example, if we test */
 /* (10^828809-1)/9 and put exactly 18 bits into each FFT word, then */
 /* every FFT word in GW_MODULUS_FFT will contains the same value! */
-/* Not exactly, the random data the FFTs require for small roundoff errors. */
+/* Not exactly the random data the FFTs require for small roundoff errors. */
 /* This routine takes a boolean to force use of the safer irrational FFTs. */
 
 #define gwset_irrational_general_mod(h,b)  ((h)->use_irrational_general_mod = b)
