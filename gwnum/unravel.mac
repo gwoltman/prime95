@@ -1671,9 +1671,11 @@ loops_init_common MACRO count, first_completed, first_iters
 
 	loops_count = count
 	loops_completed = 1
+	loops_count_is_power_of_two = 1
 
 	;; Handle non-power-of-2 counts
 	IF (loops_count AND (loops_count-1)) NE 0
+	  loops_count_is_power_of_two = 0
 	  loops_initial_value = local_first_completed * (80000000h/local_first_iters*2+1)
 	  mov	eax, 9999
 x:	  org	x-4
@@ -1788,7 +1790,7 @@ x:
 	      jnz dest
 	    ENDIF
 	    IF (iters)*loops_completed EQ 256
-	      IF (loops_count AND (loops_count-1)) EQ 0
+	      IF loops_count_is_power_of_two NE 0
 	        test al, al	;; Save one byte if loop count is a power of two
 	        jnz dest
 	      ELSE
