@@ -1597,6 +1597,28 @@ double *r4delay_build_pass1_table (
 					table += 4;
 				}
 			}
+
+/* The r3_six_reals building blocks require an extra sin/cos */
+/* value.  The six_reals doubles N because the real part of the */
+/* FFT is one level behind the complex part of the FFT. */
+
+			if (!gwdata->ALL_COMPLEX_FFT) {
+				for (j = 0; j < N / 3; j += pass1_increment) {
+					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+						temp = (group + j + i);
+						gwsincos (temp, N*2, (double *) &sincos);
+						table[0] = sincos[0];	/* temp */
+						table[2] = sincos[1];
+
+						temp += upper_sse2_word;
+						gwsincos (temp, N*2, (double *) &sincos);
+						table[1] = sincos[0];	/* temp */
+						table[3] = sincos[1];
+
+						table += 4;
+					}
+				}
+			}
 			pass1_size /= 3;
 		}
 		// We only support one delay size....8 reals

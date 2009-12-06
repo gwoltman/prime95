@@ -13,11 +13,11 @@
 ;;
 ;;
 
-r5_x5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg,scoff
+r5_x5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg
 	d2=2*d1
 	d3=3*d1
 	d4=4*d1
-	r5_x5c_djbfft [srcreg],[srcreg+16],[srcreg+d1],[srcreg+d1+16],[srcreg+d2],[srcreg+d2+16],[srcreg+d3],[srcreg+d3+16],[srcreg+d4],[srcreg+d4+16],screg,0,[srcreg],[srcreg+16],[srcreg+d2]
+	r5_x5c_djbfft [srcreg],[srcreg+16],[srcreg+d1],[srcreg+d1+16],[srcreg+d2],[srcreg+d2+16],[srcreg+d3],[srcreg+d3+16],[srcreg+d4],[srcreg+d4+16],screg,[srcreg],[srcreg+16],[srcreg+d2]
 	xstore	[srcreg+d1], xmm3		;; Save R3
 	xstore	[srcreg+d1+16], xmm4		;; Save I3
 ;;	xstore	[srcreg+d2], xmm7		;; Save R5
@@ -34,7 +34,7 @@ r5_x5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg,scoff
 	xstore	XMM_TMP6, xmm4
 	xstore	XMM_TMP7, xmm7
 	xstore	XMM_TMP8, xmm6
-	r5_x5c_djbfft XMM_TMP5,XMM_TMP6,XMM_TMP7,XMM_TMP8,[srcreg+d2+32],[srcreg+d2+48],[srcreg+d3+32],[srcreg+d3+48],[srcreg+d4+32],[srcreg+d4+48],screg,scoff,[srcreg+d2+32],[srcreg+d2+48],[srcreg+d4+32]
+	r5_x5c_djbfft XMM_TMP5,XMM_TMP6,XMM_TMP7,XMM_TMP8,[srcreg+d2+32],[srcreg+d2+48],[srcreg+d3+32],[srcreg+d3+48],[srcreg+d4+32],[srcreg+d4+48],screg,[srcreg+d2+32],[srcreg+d2+48],[srcreg+d4+32]
 	xstore	[srcreg+d3], xmm1		;; Save R2
 	xstore	[srcreg+d3+16], xmm0		;; Save I2
 	xstore	[srcreg+d3+32], xmm3		;; Save R3
@@ -77,7 +77,7 @@ r5_x5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg,scoff
 ;; cos4 =-0.809, sin4 = 0.588
 ;; Finally, multiply 4 of the 5 results by twiddle factors.
 
-r5_x5c_djbfft MACRO r1,i1,r2,i2,r3,i3,r4,i4,r5,i5,screg,scoff,dstr1,dsti1,dstr5
+r5_x5c_djbfft MACRO r1,i1,r2,i2,r3,i3,r4,i4,r5,i5,screg,dstr1,dsti1,dstr5
 	xload	xmm0, r2
 	addpd	xmm0, r5			;; r25a=r2+r5
 	xload	xmm1, r3
@@ -162,7 +162,7 @@ r5_x5c_djbfft MACRO r1,i1,r2,i2,r3,i3,r4,i4,r5,i5,screg,scoff,dstr1,dsti1,dstr5
 	addpd	xmm5, xmm3			;; outi(0)=i1+i25a+i34a
 
 	xload	xmm7, XMM_TMP4			;; Load R5
-	xload	xmm3, [screg+scoff+16]
+	xload	xmm3, [screg+16]
 	mulpd	xmm7, xmm3			;; A5 = R5 * cosine/sine
 	xload	xmm1, XMM_TMP1			;; Load R2
 	mulpd	xmm1, xmm3			;; A2 = R2 * cosine/sine
@@ -173,7 +173,7 @@ r5_x5c_djbfft MACRO r1,i1,r2,i2,r3,i3,r4,i4,r5,i5,screg,scoff,dstr1,dsti1,dstr5
 	subpd	xmm6, XMM_TMP4			;; B5 = B5 - R5
 	addpd	xmm0, XMM_TMP1			;; B2 = B2 + R2
 	xstore	dsti1, xmm5
-	xload	xmm5, [screg+scoff+0]
+	xload	xmm5, [screg]
 	mulpd	xmm7, xmm5			;; A5 = A5 * sine (new R5)
 	xstore	dstr5, xmm7
 	mulpd	xmm1, xmm5			;; A2 = A2 * sine (new R2)
@@ -181,7 +181,7 @@ r5_x5c_djbfft MACRO r1,i1,r2,i2,r3,i3,r4,i4,r5,i5,screg,scoff,dstr1,dsti1,dstr5
 	mulpd	xmm0, xmm5			;; B2 = B2 * sine (new I2)
 
 	xload	xmm3, XMM_TMP2			;; Load R3
-	xload	xmm7, [screg+scoff+48]
+	xload	xmm7, [screg+48]
 	mulpd	xmm3, xmm7	 		;; A3 = R3 * cosine/sine
 	xload	xmm5, XMM_TMP3			;; Load R4
 	mulpd	xmm5, xmm7			;; A4 = R4 * cosine/sine
@@ -191,7 +191,7 @@ r5_x5c_djbfft MACRO r1,i1,r2,i2,r3,i3,r4,i4,r5,i5,screg,scoff,dstr1,dsti1,dstr5
 	mulpd	xmm2, xmm7			;; B4 = I4 * cosine/sine
 	addpd	xmm4, XMM_TMP2			;; B3 = B3 + R3
 	subpd	xmm2, XMM_TMP3			;; B4 = B4 - R4
-	xload	xmm7, [screg+scoff+32]
+	xload	xmm7, [screg+32]
 	mulpd	xmm3, xmm7			;; A3 = A3 * sine (new R3)
 	mulpd	xmm5, xmm7			;; A4 = A4 * sine (new R4)
 	mulpd	xmm4, xmm7			;; B3 = B3 * sine (new I3)

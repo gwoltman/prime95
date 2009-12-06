@@ -7,8 +7,8 @@
 ;; These macros are used when the FFT size is not a power-of-two
 ;;
 
-r4_x5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg,scoff
-	r4_x5c_djbfft [srcreg],[srcreg+16],[srcreg+d1],[srcreg+d1+16],[srcreg+2*d1],[srcreg+2*d1+16],[srcreg+3*d1],[srcreg+3*d1+16],[srcreg+4*d1],[srcreg+4*d1+16],screg,0,[srcreg],[srcreg+16]
+r4_x5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg
+	r4_x5c_djbfft [srcreg],[srcreg+16],[srcreg+d1],[srcreg+d1+16],[srcreg+2*d1],[srcreg+2*d1+16],[srcreg+3*d1],[srcreg+3*d1+16],[srcreg+4*d1],[srcreg+4*d1+16],screg,[srcreg],[srcreg+16]
 	xstore	[srcreg+d1], xmm3		;; Save R3
 	xstore	[srcreg+d1+16], xmm4		;; Save I3
 	xstore	[srcreg+2*d1], xmm7		;; Save R5
@@ -25,7 +25,7 @@ r4_x5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg,scoff
 	xstore	XMM_TMP6, xmm4
 	xstore	XMM_TMP7, xmm7
 	xstore	XMM_TMP8, xmm6
-	r4_x5c_djbfft XMM_TMP5,XMM_TMP6,XMM_TMP7,XMM_TMP8,[srcreg+2*d1+32],[srcreg+2*d1+48],[srcreg+3*d1+32],[srcreg+3*d1+48],[srcreg+4*d1+32],[srcreg+4*d1+48],screg,scoff,[srcreg+2*d1+32],[srcreg+2*d1+48]
+	r4_x5c_djbfft XMM_TMP5,XMM_TMP6,XMM_TMP7,XMM_TMP8,[srcreg+2*d1+32],[srcreg+2*d1+48],[srcreg+3*d1+32],[srcreg+3*d1+48],[srcreg+4*d1+32],[srcreg+4*d1+48],screg,[srcreg+2*d1+32],[srcreg+2*d1+48]
 	xstore	[srcreg+3*d1], xmm1		;; Save R2
 	xstore	[srcreg+3*d1+16], xmm0		;; Save I2
 	xstore	[srcreg+3*d1+32], xmm3		;; Save R3
@@ -67,7 +67,7 @@ r4_x5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg,scoff
 ;; Where cos2 = cos 2*pi/5 = 0.309, sin2 = 0.951,
 ;; cos4 =-0.809, sin4 = 0.588
 ;; Finally, multiply 4 of the 5 results by twiddle factors.
-r4_x5c_djbfft MACRO r1,i1,r2,i2,r3,i3,r4,i4,r5,i5,screg,scoff,dstr1,dsti1
+r4_x5c_djbfft MACRO r1,i1,r2,i2,r3,i3,r4,i4,r5,i5,screg,dstr1,dsti1
 	xload	xmm0, r2
 	addpd	xmm0, r5			;; r25=r2+r5
 	xload	xmm1, r3
@@ -154,36 +154,36 @@ r4_x5c_djbfft MACRO r1,i1,r2,i2,r3,i3,r4,i4,r5,i5,screg,scoff,dstr1,dsti1
 	xstore	dsti1, xmm5
 
 	xload	xmm1, XMM_TMP1			;; Load R2
-	mulpd	xmm1, [screg+scoff+16]		;; A2 = R2 * cosine/sine
+	mulpd	xmm1, [screg+16]		;; A2 = R2 * cosine/sine
 	subpd	xmm1, xmm0			;; A2 = A2 - I2
-	mulpd	xmm0, [screg+scoff+16]		;; B2 = I2 * cosine/sine
+	mulpd	xmm0, [screg+16]		;; B2 = I2 * cosine/sine
 	addpd	xmm0, XMM_TMP1			;; B2 = B2 + R2
-	mulpd	xmm1, [screg+scoff+0]		;; A2 = A2 * sine (new R2)
-	mulpd	xmm0, [screg+scoff+0]		;; B2 = B2 * sine (new I2)
+	mulpd	xmm1, [screg]			;; A2 = A2 * sine (new R2)
+	mulpd	xmm0, [screg]			;; B2 = B2 * sine (new I2)
 
 	xload	xmm3, XMM_TMP2			;; Load R3
-	mulpd	xmm3, [screg+scoff+48]		;; A3 = R3 * cosine/sine
+	mulpd	xmm3, [screg+48]		;; A3 = R3 * cosine/sine
 	subpd	xmm3, xmm4			;; A3 = A3 - I3
-	mulpd	xmm4, [screg+scoff+48]		;; B3 = I3 * cosine/sine
+	mulpd	xmm4, [screg+48]		;; B3 = I3 * cosine/sine
 	addpd	xmm4, XMM_TMP2			;; B3 = B3 + R3
-	mulpd	xmm3, [screg+scoff+32]		;; A3 = A3 * sine (new R3)
-	mulpd	xmm4, [screg+scoff+32]		;; B3 = B3 * sine (new I3)
+	mulpd	xmm3, [screg+32]		;; A3 = A3 * sine (new R3)
+	mulpd	xmm4, [screg+32]		;; B3 = B3 * sine (new I3)
 
 	xload	xmm5, XMM_TMP3			;; Load R4
-	mulpd	xmm5, [screg+scoff+48]		;; A4 = R4 * cosine/sine
+	mulpd	xmm5, [screg+48]		;; A4 = R4 * cosine/sine
 	addpd	xmm5, xmm2			;; A4 = A4 + I4
-	mulpd	xmm2, [screg+scoff+48]		;; B4 = I4 * cosine/sine
+	mulpd	xmm2, [screg+48]		;; B4 = I4 * cosine/sine
 	subpd	xmm2, XMM_TMP3			;; B4 = B4 - R4
-	mulpd	xmm5, [screg+scoff+32]		;; A4 = A4 * sine (new R4)
-	mulpd	xmm2, [screg+scoff+32]		;; B4 = B4 * sine (new I4)
+	mulpd	xmm5, [screg+32]		;; A4 = A4 * sine (new R4)
+	mulpd	xmm2, [screg+32]		;; B4 = B4 * sine (new I4)
 
 	xload	xmm7, XMM_TMP4			;; Load R5
-	mulpd	xmm7, [screg+scoff+16]		;; A5 = R5 * cosine/sine
+	mulpd	xmm7, [screg+16]		;; A5 = R5 * cosine/sine
 	addpd	xmm7, xmm6			;; A5 = A5 + I5
-	mulpd	xmm6, [screg+scoff+16]		;; B5 = I5 * cosine/sine
+	mulpd	xmm6, [screg+16]		;; B5 = I5 * cosine/sine
 	subpd	xmm6, XMM_TMP4			;; B5 = B5 - R5
-	mulpd	xmm7, [screg+scoff+0]		;; A5 = A5 * sine (new R5)
-	mulpd	xmm6, [screg+scoff+0]		;; B5 = B5 * sine (new I5)
+	mulpd	xmm7, [screg]			;; A5 = A5 * sine (new R5)
+	mulpd	xmm6, [screg]			;; B5 = B5 * sine (new I5)
 	ENDM
 
 

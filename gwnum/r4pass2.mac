@@ -96,7 +96,7 @@ b1b:	r4_s2cl_four_complex_djbfft rsi, 64, 6*dist128, rdi
 ;;bug - prefetch some data???
 	mov	rdi, xsincos_complex	;; Ptr to the sin/cos data
 	loops_init 512			;; 2 iters of 2 iters of 128
-b2b:	r3_x3cl_three_complex_djbfft rsi, 64, 2*dist128, rdi, 0
+b2b:	r3_x3cl_three_complex_djbfft rsi, 64, 2*dist128, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	128, b2b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer

@@ -31,7 +31,7 @@ X87_CASES	EQU	0
 ELSE
 X87_CASES	EQU	13
 ENDIF
-SSE2_CASES	EQU	206
+SSE2_CASES	EQU	210
 
 loopent	MACRO	y,z		; Create a entry in the loop entry table
 	DP	&y&z
@@ -703,12 +703,12 @@ sscase141: jmp exit;;	sse2mac sscase141, 256, 100000, r4_s4cl_four_complex_unfft
 	sse2mac sscase178, 256, 4096, r8_g4cl_eight_complex_unfft8 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
 	sse2mac sscase179, 256, 100000, r8_g4cl_eight_complex_unfft8 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
 
-	sse2mac sscase180, 192, 4096, r3_x3cl_three_complex_djbfft rsi, 3*64, 64, rdi, 0
-	sse2mac sscase181, 192, 100000, r3_x3cl_three_complex_djbfft rsi, 3*64, 64, rdi, 0
+	sse2mac sscase180, 192, 4096, r3_x3cl_three_complex_djbfft rsi, 3*64, 64, rdi
+	sse2mac sscase181, 192, 100000, r3_x3cl_three_complex_djbfft rsi, 3*64, 64, rdi
 	sse2mac sscase182, 192, 4096, r3_x3cl_three_complex_djbunfft rsi, 3*64, 64, rdi, 0
 	sse2mac sscase183, 192, 100000, r3_x3cl_three_complex_djbunfft rsi, 3*64, 64, rdi, 0
-	sse2mac sscase184, 320, 4096, r5_x5cl_five_complex_djbfft rsi, 5*64, 64, rdi, 0
-	sse2mac sscase185, 320, 100000, r5_x5cl_five_complex_djbfft rsi, 5*64, 64, rdi, 0
+	sse2mac sscase184, 320, 4096, r5_x5cl_five_complex_djbfft rsi, 5*64, 64, rdi
+	sse2mac sscase185, 320, 100000, r5_x5cl_five_complex_djbfft rsi, 5*64, 64, rdi
 	sse2mac sscase186, 320, 4096, r5_x5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, 0
 	sse2mac sscase187, 320, 100000, r5_x5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, 0
 
@@ -732,6 +732,11 @@ sscase141: jmp exit;;	sse2mac sscase141, 256, 100000, r4_s4cl_four_complex_unfft
 	sse2mac sscase203, 256, 100000, r4_x4cl_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, 0
 	sse2mac sscase204, 128, 4096, r4_g2cl_eight_reals_unfft4 rsi, 2*64, 64, rdx, 2*64, 64, rdi, rdi
 	sse2mac sscase205, 128, 100000, r4_g2cl_eight_reals_unfft4 rsi, 2*64, 64, rdx, 2*64, 64, rdi, rdi
+
+	sse2mac sscase206, 192, 4096, r3_x3cl_six_reals_three_complex_djbfft rsi, 3*64, 64, rdi, rdi
+	sse2mac sscase207, 192, 100000, r3_x3cl_six_reals_three_complex_djbfft rsi, 3*64, 64, rdi, rdi
+	sse2mac sscase208, 192, 4096, r3_x3cl_six_reals_unfft rsi, 3*64, 64, rdi, 0, rdi, 0
+	sse2mac sscase209, 192, 100000, r3_x3cl_six_reals_unfft rsi, 3*64, 64, rdi, 0, rdi, 0
 
 	; need 16 reals cases
 
