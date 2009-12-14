@@ -62,6 +62,7 @@ r4_x4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
 	bump	srcreg, srcinc
 	ENDM
 
+;; Used in last levels of pass 1 (except in split-premultiplier and delay cases).  No swizzling.
 r4_g4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	xprefetch [srcreg+srcinc]
 	r4_x4c_djbfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg,0,dstreg+dstinc,e1,[dstreg],[dstreg+16]
@@ -93,6 +94,31 @@ r4_g4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	bump	dstreg, dstinc
 	ENDM
 
+;; Used in last levels of pass 1 (except in split-premultiplier and delay cases).  Swizzling.
+r4_sg4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
+	xprefetch [srcreg+srcinc]
+	r4_x4c_djbfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg,0,dstreg+dstinc,e1,[dstreg],[dstreg+32]
+	xprefetch [srcreg+srcinc+d1]
+	shuffle_store_partial [dstreg], [dstreg+16], xmm0, xmm7		;; Save R1,R2
+	shuffle_store_partial [dstreg+32], [dstreg+48], xmm5, xmm6	;; Save I1,I2
+	xload	xmm0, [srcreg+32]	;; R1
+	xload	xmm7, [srcreg+d1+32]	;; R2
+	xload	xmm5, [srcreg+48]	;; R5
+	xload	xmm6, [srcreg+d1+48]	;; R6
+	shuffle_store [dstreg+e1], [dstreg+e1+16], xmm3, xmm2		;; Save R3,R4
+	shuffle_store [dstreg+e1+32], [dstreg+e1+48], xmm1, xmm4	;; Save I3,I4
+	xprefetch [srcreg+srcinc+d2]
+	r4_x4c_djbfft_partial_mem xmm0,xmm7,xmm3,xmm2,xmm5,xmm6,xmm1,xmm4,[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+d2+48],[srcreg+d2+d1+48],screg,0,dstreg+dstinc+e2,e1,[dstreg+e2],[dstreg+e2+32]
+	xprefetch [srcreg+srcinc+d2+d1]
+	bump	srcreg, srcinc
+	shuffle_store_partial [dstreg+e2], [dstreg+e2+16], xmm3, xmm4	;; Save R1,R2
+	shuffle_store_partial [dstreg+e2+32], [dstreg+e2+48], xmm6, xmm1;; Save I1,I2
+	shuffle_store [dstreg+e2+e1], [dstreg+e2+e1+16], xmm2, xmm0	;; Save R3,R4
+	shuffle_store [dstreg+e2+e1+32], [dstreg+e2+e1+48], xmm7, xmm5	;; Save I3,I4
+	bump	dstreg, dstinc
+	ENDM
+
+;; Used in first levels of pass 2 when last levels of pass 1 did not swizzle
 r4_s2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
 	shuffle_load xmm0, xmm2, [srcreg][rbx], [srcreg+32][rbx] ;; R1,R3
 	shuffle_load xmm1, xmm3, [srcreg+d1][rbx], [srcreg+d1+32][rbx] ;; R2,R4
@@ -108,6 +134,20 @@ r4_s2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
 	xstore	[srcreg+d1], xmm3	;; Save R3
 	xstore	[srcreg+d1+16], xmm1	;; Save I3
 	xstore	[srcreg+d1+32], xmm0	;; Save R4
+	xstore	[srcreg+d1+48], xmm4	;; Save I4
+	bump	srcreg, srcinc
+	ENDM
+
+;; Used in first levels of pass 2 when last levels of pass 1 swizzled.
+r4_x2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
+	r4_x4c_djbfft_mem [srcreg][rbx],[srcreg+d1][rbx],[srcreg+16][rbx],[srcreg+d1+16][rbx],[srcreg+32][rbx],[srcreg+d1+32][rbx],[srcreg+48][rbx],[srcreg+d1+48][rbx],screg,0,srcreg+srcinc+rbx,d1,[srcreg],[srcreg+16]
+;;	xstore	[srcreg], xmm0		;; Save R1
+;;	xstore	[srcreg+16], xmm0	;; Save I1
+	xstore	[srcreg+32], xmm7	;; Save R2
+	xstore	[srcreg+48], xmm6	;; Save I2
+	xstore	[srcreg+d1], xmm3	;; Save R3
+	xstore	[srcreg+d1+16], xmm1	;; Save I3
+	xstore	[srcreg+d1+32], xmm2	;; Save R4
 	xstore	[srcreg+d1+48], xmm4	;; Save I4
 	bump	srcreg, srcinc
 	ENDM
@@ -370,6 +410,7 @@ r4_x4cl_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scdist
 	bump	srcreg, srcinc
 	ENDM
 
+;; Used in last levels of pass 1 (except split-premultiplier and delay cases).  No swizzling.
 r4_g2cl_four_complex_djbunfft MACRO srcreg,srcinc,d1,dstreg,dstinc,e1,screg
 	r4_x4c_djbunfft_mem [srcreg],[srcreg+16],[srcreg+32],[srcreg+48],[srcreg+d1],[srcreg+d1+16],[srcreg+d1+32],[srcreg+d1+48],[dstreg+16],screg,0,dstreg+dstinc,e1
 	bump	srcreg, srcinc
@@ -384,6 +425,7 @@ r4_g2cl_four_complex_djbunfft MACRO srcreg,srcinc,d1,dstreg,dstinc,e1,screg
 	bump	dstreg, dstinc
 	ENDM
 
+;; Used in first levels of pass 2.  Swizzling.
 r4_s4cl_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scdist
 	r4_x4c_djbunfft_mem_shuffle [srcreg+16],[srcreg+48],[srcreg+d1+16],[srcreg+d1+48],[srcreg+d2+16],[srcreg+d2+48],[srcreg+d2+d1+16],[srcreg+d2+d1+48],[srcreg+d1+16],[srcreg+d1+48],screg,scdist,srcreg+srcinc+d2,d1
 ;;	shuffle_store [srcreg+d1+16], [srcreg+d1+48], xmm2, xmm6 ;; Save I1, I3
@@ -402,8 +444,93 @@ r4_s4cl_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scdist
 	bump	srcreg, srcinc
 	ENDM
 
-r4_x4c_djbunfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,dst3,screg,off,pre1,pre2
+;; Used in last levels of pass 1 (except split-premultiplier and delay cases).  Swizzling.
+r4_sg2cl_four_complex_djbunfft MACRO srcreg,srcinc,d1,dstreg,dstinc,e1,screg
+	shuffle_load xmm7, xmm2, [srcreg+d1], [srcreg+d1+16]	;; R3,R4
+	xload	xmm1, [screg+16]	;; cosine/sine
+	xcopy	xmm3, xmm7		;; Copy R3
+	mulpd	xmm7, xmm1		;; A3 = R3 * cosine/sine
+	xcopy	xmm0, xmm2		;; Copy R4
+	mulpd	xmm2, xmm1		;; A4 = R4 * cosine/sine
 
+	shuffle_load xmm5, xmm4, [srcreg+d1+32], [srcreg+d1+48]	;; I3,I4
+	addpd	xmm7, xmm5		;; A3 = A3 + I3
+	mulpd	xmm5, xmm1		;; B3 = I3 * cosine/sine
+	subpd	xmm2, xmm4		;; A4 = A4 - I4
+	mulpd	xmm4, xmm1		;; B4 = I4 * cosine/sine
+	subpd	xmm5, xmm3		;; B3 = B3 - R3
+	addpd	xmm4, xmm0		;; B4 = B4 + R4
+
+	shuffle_load xmm0, xmm6, [srcreg], [srcreg+16]		;; R1,R2
+	xcopy	xmm1, xmm6		;; Copy R2
+	mulpd	xmm6, [screg+48]	;; A2 = R2 * cosine/sine
+
+	xload	xmm3, [screg]		;; Sine
+	mulpd	xmm7, xmm3		;; A3 = A3 * sine (new R3)
+	mulpd	xmm5, xmm3		;; B3 = B3 * sine (new I3)
+	mulpd	xmm2, xmm3		;; A4 = A4 * sine (new R4)
+	mulpd	xmm4, xmm3		;; B4 = B4 * sine (new I4)
+
+	xstore	[dstreg], xmm7		;; Temporarily save R3
+
+	shuffle_load xmm7, xmm3, [srcreg+32], [srcreg+48]	;; I1,I2
+	addpd	xmm6, xmm3		;; A2 = A2 + I2
+	mulpd	xmm3, [screg+48]	;; B2 = I2 * cosine/sine
+	subpd	xmm3, xmm1		;; B2 = B2 - R2
+	xload	xmm1, [screg+32]
+	mulpd	xmm6, xmm1		;; A2 = A2 * sine (new R2)
+	mulpd	xmm3, xmm1		;; B2 = B2 * sine (new I2)
+
+	xprefetchw [pre1]
+	bump	srcreg, srcinc
+
+	xcopy	xmm1, xmm0		;; Copy R1
+	subpd	xmm0, xmm6		;; R1 = R1 - R2 (new R2)
+	addpd	xmm6, xmm1		;; R2 = R1 + R2 (new R1)
+
+	xcopy	xmm1, xmm2		;; Copy R4
+	subpd	xmm2, xmm7		;; R4 = R4 - R3 (new I4)
+	addpd	xmm7, xmm1		;; R3 = R4 + R3 (new R3)
+
+	xcopy	xmm1, xmm5		;; Copy I3
+	subpd	xmm5, xmm4		;; I3 = I3 - I4 (new R4)
+	addpd	xmm4, xmm1		;; I4 = I3 + I4 (new I3)
+
+	xcopy	xmm1, xmm7		;; I1
+	subpd	xmm7, xmm3		;; I1 = I1 - I2 (new I2)
+	addpd	xmm3, xmm7		;; I2 = I1 + I2 (new I1)
+
+	xload	xmm1, [dstreg]		;; Reload R3
+	addpd	xmm1, xmm6		;; R3 = R1 + R3 (final R1)
+	subpd	xmm6, [dstreg]		;; R1 = R1 - R3 (final R3)
+
+	xprefetchw [pre1][pre2]
+
+	xstore	[dstreg], xmm1		;; Save R1
+
+	xcopy	xmm1, xmm0		;; Copy R2
+	subpd	xmm0, xmm5		;; R2 = R2 - R4 (final R4)
+	addpd	xmm5, xmm1		;; R4 = R2 + R4 (final R2)
+
+	xcopy	xmm1, xmm7		;; Copy I2
+	subpd	xmm7, xmm2		;; I2 = I2 - I4 (final I4)
+	addpd	xmm2, xmm1		;; I4 = I2 + I4 (final I2)
+
+	xcopy	xmm1, xmm3		;; Copy I1
+	subpd	xmm3, xmm4		;; I1 = I1 - I3 (final I3)
+	addpd	xmm4, xmm1		;; I3 = I1 + I3 (final I1)
+
+	xstore	[dstreg+16], xmm6	;; Save R3
+	xstore	[dstreg+32], xmm4	;; Save I1
+	xstore	[dstreg+48], xmm3	;; Save I3
+	xstore	[dstreg+e1], xmm5	;; Save R2
+	xstore	[dstreg+e1+16], xmm0	;; Save R4
+	xstore	[dstreg+e1+32], xmm2	;; Save I2
+	xstore	[dstreg+e1+48], xmm7	;; Save I4
+	bump	dstreg, dstinc
+	ENDM
+
+r4_x4c_djbunfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,dst3,screg,off,pre1,pre2
 	xload	xmm3, [screg+off+32+16]	;; cosine/sine
 	xload	xmm6, mem3		;; R2
 	mulpd	xmm6, xmm3		;; A2 = R2 * cosine/sine
@@ -495,7 +622,6 @@ r4_x4c_djbunfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,dst3,screg,off
 	ENDM
 
 r4_x4c_djbunfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem1,mem2,mem5,mem6,dst1,screg,off,pre1,pre2
-
 	xload	r1, [screg+off+32+16]	;; cosine/sine
 	xcopy	r2, r3			;; Copy R2
 	mulpd	r3, r1			;; A2 = R2 * cosine/sine
@@ -657,7 +783,6 @@ r4_x4c_djbunfft_mem_shuffle MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,dst5,d
 	ENDM
 
 r4_x4c_djbunfft_partial_mem_shuffle MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem1,mem2,mem5,mem6,dst1,dst3,screg,off,pre1,pre2
-
 	xload	r1, [screg+off+32+16]	;; cosine/sine
 	xcopy	r2, r3			;; Copy R2
 	mulpd	r3, r1			;; A2 = R2 * cosine/sine
@@ -845,7 +970,6 @@ r4_x2cl_four_complex_first_fft4_scratch MACRO srcreg,srcinc,d1
 	r4_x2cl_four_complex_first_fft4_cmn srcreg,0,srcinc,d1,rdi
 	ENDM
 r4_x2cl_four_complex_first_fft4_cmn MACRO srcreg,off,srcinc,d1,screg
-
 	xload	xmm7, XMM_P924
 	xload	xmm1, XMM_P383
 
@@ -1087,7 +1211,6 @@ r4_x2cl_four_complex_first_djbfft_cmn MACRO srcreg,off,srcinc,d1,screg,pmreg
 ;;
 ;; ************************************* four-complex-last-unfft variants ******************************************
 ;;
-
 
 ;; This code applies the sin/cos multipliers before a radix-4 butterfly.
 ;; Then it applies the premultipliers since the all-complex inverse FFT is complete.
@@ -1371,7 +1494,7 @@ r4_x4c_djbunfft_postmult MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem1,mem2,mem5,mem6,dest1
 ;;
 ;; ************************************* four-complex-with_square and variants ******************************************
 ;;
-;; These macros are used in the last levels of two pass FFTs.
+;; These macros are used in the last levels of pass 2 in two pass FFTs.
 ;;
 
 ;;
@@ -1667,7 +1790,7 @@ r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2, dest
 ;;
 ;; These macros are used in the last levels of pass 1.  Four sin/cos multipliers are needed to
 ;; finish off the partial sin/cos multiplies that were done in the first levels of pass 1.
-;; FFTs of type r4spm and r4 delay do this to reduce memory usage at the cost of some extra
+;; FFTs of type r4spm and r4delay do this to reduce memory usage at the cost of some extra
 ;; complex multiplies.
 
 
@@ -1677,34 +1800,55 @@ r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2, dest
 ;; of the usual 3.
 ;;
 
+;; Used in last levels of pass 1 (split premultiplier and delay cases).  No swizzling.
 r4_g4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	xprefetch [srcreg+srcinc]
 	r4_x4c_fft4_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],[dstreg],[dstreg+16],screg,0,dstreg+dstinc,e1
 	xprefetch [srcreg+srcinc+d1]
-;;	xstore	[dstreg], xmm2		;; Save R1
-;;	xstore	[dstreg+16], xmm5	;; Save R2
+	xstore	[dstreg], xmm2		;; Save R1
+	xstore	[dstreg+16], xmm5	;; Save I1
 	xload	xmm2, [srcreg+32]	;; R1
 	xload	xmm5, [srcreg+48]	;; R5
-	xstore	[dstreg+32], xmm7	;; Save R3
-	xstore	[dstreg+48], xmm6	;; Save R4
+	xstore	[dstreg+32], xmm7	;; Save R2
+	xstore	[dstreg+48], xmm6	;; Save I2
 	xload	xmm7, [srcreg+d1+32]	;; R2
 	xload	xmm6, [srcreg+d1+48]	;; R6
-	xstore	[dstreg+e1], xmm3	;; Save R5
-	xstore	[dstreg+e1+16], xmm1	;; Save R6
-	xstore	[dstreg+e1+32], xmm0	;; Save R7
-	xstore	[dstreg+e1+48], xmm4	;; Save R8
+	xstore	[dstreg+e1], xmm3	;; Save R3
+	xstore	[dstreg+e1+16], xmm1	;; Save I3
+	xstore	[dstreg+e1+32], xmm0	;; Save R4
+	xstore	[dstreg+e1+48], xmm4	;; Save I4
 	xprefetch [srcreg+srcinc+d2]
 	r4_x4c_fft4_partial_mem xmm2,xmm7,xmm3,xmm0,xmm5,xmm6,xmm1,xmm4,[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+d2+48],[srcreg+d2+d1+48],[dstreg+e2],[dstreg+e2+16],screg,0,dstreg+dstinc+e2,e1
 	xprefetch [srcreg+srcinc+d2+d1]
 	bump	srcreg, srcinc
-;;	xstore	[dstreg+e2], xmm3	;; Save R1
-;;	xstore	[dstreg+e2+16], xmm6	;; Save R2
-	xstore	[dstreg+e2+32], xmm4	;; Save R3
-	xstore	[dstreg+e2+48], xmm1	;; Save R4
-	xstore	[dstreg+e2+e1], xmm0	;; Save R5
-	xstore	[dstreg+e2+e1+16], xmm7	;; Save R6
-	xstore	[dstreg+e2+e1+32], xmm2	;; Save R7
-	xstore	[dstreg+e2+e1+48], xmm5	;; Save R8
+	xstore	[dstreg+e2], xmm3	;; Save R1
+	xstore	[dstreg+e2+16], xmm6	;; Save I1
+	xstore	[dstreg+e2+32], xmm4	;; Save R2
+	xstore	[dstreg+e2+48], xmm1	;; Save I2
+	xstore	[dstreg+e2+e1], xmm0	;; Save R3
+	xstore	[dstreg+e2+e1+16], xmm7	;; Save I3
+	xstore	[dstreg+e2+e1+32], xmm2	;; Save R4
+	xstore	[dstreg+e2+e1+48], xmm5	;; Save I4
+	bump	dstreg, dstinc
+	ENDM
+
+;; Used in last levels of pass 1 (split premultiplier and delay cases).  Swizzling.
+r4_sg4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
+	xprefetch [srcreg+srcinc]
+	r4_x4c_fft4_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],[dstreg],[dstreg+16],screg,0,dstreg+dstinc,e1
+	xprefetch [srcreg+srcinc+d1]
+	shuffle_store [dstreg], [dstreg+16], xmm2, xmm7					;; Save R1,R2
+	shuffle_store_with_temp [dstreg+32], [dstreg+48], xmm5, xmm6, xmm7		;; Save I1,I2
+	shuffle_store_with_temp [dstreg+e1], [dstreg+e1+16], xmm3, xmm0, xmm7		;; Save R3,R4
+	shuffle_store_with_temp [dstreg+e1+32], [dstreg+e1+48], xmm1, xmm4, xmm7	;; Save I3,I4
+	xprefetch [srcreg+srcinc+d2]
+	r4_x4c_fft4_mem [srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+48],[srcreg+d1+48],[srcreg+d2+48],[srcreg+d2+d1+48],[dstreg+e2],[dstreg+e2+16],screg,0,dstreg+dstinc+e2,e1
+	xprefetch [srcreg+srcinc+d2+d1]
+	bump	srcreg, srcinc
+	shuffle_store [dstreg+e2], [dstreg+e2+16], xmm2, xmm7				;; Save R1,R2
+	shuffle_store_with_temp [dstreg+e2+32], [dstreg+e2+48], xmm5, xmm6, xmm7	;; Save I1,I2
+	shuffle_store_with_temp [dstreg+e2+e1], [dstreg+e2+e1+16], xmm3, xmm0, xmm7	;; Save R3,R4
+	shuffle_store_with_temp [dstreg+e2+e1+32], [dstreg+e2+e1+48], xmm1, xmm4, xmm7	;; Save I3,I4
 	bump	dstreg, dstinc
 	ENDM
 
@@ -1792,9 +1936,6 @@ r4_x4c_fft4_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,dest1,dest2,screg,
 	mulpd	xmm4, [screg+off+96]		;; B4 = B4 * sine (final I4)
 	mulpd	xmm2, [screg+off+0]		;; A1 = A1 * sine (final R1)
 	mulpd	xmm5, [screg+off+0]		;; B1 = B1 * sine (final I1)
-
-	xstore	dest1, xmm2			;; Save R1
-	xstore	dest2, xmm5			;; Save I1
 	ENDM
 
 
@@ -1875,9 +2016,6 @@ r4_x4c_fft4_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem3,mem4,mem7,mem8,dest1,
 	mulpd	r5, [screg+off+96]		;; B4 = B4 * sine (final I4)
 	mulpd	r3, [screg+off+0]		;; A1 = A1 * sine (final R1)
 	mulpd	r6, [screg+off+0]		;; B1 = B1 * sine (final I1)
-
-	xstore	dest1, r3			;; Save R1
-	xstore	dest2, r6			;; Save I1
 	ENDM
 
 
@@ -1885,21 +2023,117 @@ r4_x4c_fft4_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem3,mem4,mem7,mem8,dest1,
 ;; ************************************* four-complex-unfft4 variants ******************************************
 ;;
 
+;; Used in last levels of pass 1 (split premultiplier and delay cases).  No swizzling.
 r4_g2cl_four_complex_unfft4 MACRO srcreg,srcinc,d1,dstreg,dstinc,e1,screg
 	xload	xmm0, [srcreg]		;; R1
-	xload	xmm1, [srcreg+16]	;; R2
-	xload	xmm4, [srcreg+d1]	;; R5
-	xload	xmm5, [srcreg+d1+16]	;; R6
+	xload	xmm1, [srcreg+16]	;; I1
+	xload	xmm4, [srcreg+d1]	;; R3
+	xload	xmm5, [srcreg+d1+16]	;; I3
 	r4_x4c_unfft4_partial_mem xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7,[srcreg+32],[srcreg+48],[srcreg+d1+32],[srcreg+d1+48],[dstreg],[dstreg+32],screg,0,dstreg+dstinc,e1
 	bump	srcreg, srcinc
-;;	xstore	[dstreg], xmm7		;; Save R1
+	xstore	[dstreg], xmm7		;; Save R1
 	xstore	[dstreg+16], xmm2	;; Save R3
-;;	xstore	[dstreg+32], xmm4	;; Save R5
-	xstore	[dstreg+48], xmm3	;; Save R7
+	xstore	[dstreg+32], xmm4	;; Save I1
+	xstore	[dstreg+48], xmm3	;; Save I3
 	xstore	[dstreg+e1], xmm5	;; Save R2
 	xstore	[dstreg+e1+16], xmm6	;; Save R4
-	xstore	[dstreg+e1+32], xmm0	;; Save R6
-	xstore	[dstreg+e1+48], xmm1	;; Save R8
+	xstore	[dstreg+e1+32], xmm0	;; Save I2
+	xstore	[dstreg+e1+48], xmm1	;; Save I4
+	bump	dstreg, dstinc
+	ENDM
+
+;; Used in last levels of pass 1 (split premultiplier and delay cases).  Swizzling.
+r4_sg2cl_four_complex_unfft4 MACRO srcreg,srcinc,d1,dstreg,dstinc,e1,screg
+	shuffle_load xmm6, xmm2, [srcreg], [srcreg+16]		;; R1,R2
+	xcopy	xmm0, xmm6			;; Copy R1
+	mulpd	xmm6, [screg+0+16]		;; A1 = R1 * cosine/sine
+	xcopy	xmm4, xmm2			;; Copy R2
+	mulpd	xmm2, [screg+64+16]		;; A2 = R2 * cosine/sine
+
+	shuffle_load xmm1, xmm3, [srcreg+32], [srcreg+48]	;; I1,I2
+	addpd	xmm6, xmm1			;; A1 = A1 + I1
+	mulpd	xmm1, [screg+0+16]		;; B1 = I1 * cosine/sine
+	addpd	xmm2, xmm3			;; A2 = A2 + I2
+	mulpd	xmm3, [screg+64+16]		;; B2 = I2 * cosine/sine
+	subpd	xmm1, xmm0			;; B1 = B1 - R1
+	subpd	xmm3, xmm4			;; B2 = B2 - R2
+
+	mulpd	xmm6, [screg+0]			;; A1 = A1 * sine (new R1)
+	mulpd	xmm2, [screg+64]		;; A2 = A2 * sine (new R2)
+
+	shuffle_load xmm7, xmm0, [srcreg+d1], [srcreg+d1+16]	;; R3,R4
+	xcopy	xmm4, xmm7			;; Copy R3
+	mulpd	xmm7, [screg+32+16]		;; A3 = R3 * cosine/sine
+	xcopy	xmm5, xmm0			;; Copy R4
+	mulpd	xmm0, [screg+96+16]		;; A4 = R4 * cosine/sine
+
+	xstore	[dstreg], xmm6			;; Save new R1 temporarily
+	xstore	[dstreg+16], xmm2		;; Save new R2 temporarily
+
+	shuffle_load xmm6, xmm2, [srcreg+d1+32], [srcreg+d1+48]	;; I3,I4
+
+	addpd	xmm7, xmm6			;; A3 = A3 + I3
+	mulpd	xmm6, [screg+32+16]		;; B3 = I3 * cosine/sine
+	addpd	xmm0, xmm2			;; A4 = A4 + I4
+	mulpd	xmm2, [screg+96+16]		;; B4 = I4 * cosine/sine
+	subpd	xmm6, xmm4			;; B3 = B3 - R3
+	subpd	xmm2, xmm5			;; B4 = B4 - R4
+
+	mulpd	xmm1, [screg+0]			;; B1 = B1 * sine (new I1)
+	mulpd	xmm3, [screg+64]		;; B2 = B2 * sine (new I2)
+	mulpd	xmm7, [screg+32]		;; A3 = A3 * sine (new R3)
+	mulpd	xmm0, [screg+96]		;; A4 = A4 * sine (new R4)
+	mulpd	xmm6, [screg+32]		;; B3 = B3 * sine (new I3)
+	mulpd	xmm2, [screg+96]		;; B4 = B4 * sine (new I4)
+
+	bump	srcreg, srcinc
+
+	xcopy	xmm4, xmm1			;; Copy I1
+	subpd	xmm1, xmm3			;; I1 = I1 - I2 (new I2)
+	addpd	xmm3, xmm4			;; I2 = I1 + I2 (new I1)
+
+	xprefetchw [dstreg+dstinc]
+
+	xcopy	xmm4, xmm0			;; Copy R4
+	subpd	xmm0, xmm7			;; R4 = R4 - R3 (new I4)
+	addpd	xmm7, xmm4			;; R3 = R4 + R3 (new R3)
+
+	xcopy	xmm4, xmm6			;; Copy I3
+	subpd	xmm6, xmm2			;; I3 = I3 - I4 (new R4)
+	addpd	xmm2, xmm4			;; I4 = I3 + I4 (new I3)
+
+	xcopy	xmm4, xmm1			;; Copy I2
+	subpd	xmm1, xmm0			;; I2 = I2 - I4 (final I4)
+	addpd	xmm0, xmm4			;; I4 = I2 + I4 (final I2)
+
+	xload	xmm4, [dstreg]			;; Reload new R1
+	xload	xmm5, [dstreg+16]		;; Reload new R2
+	subpd	xmm4, xmm5			;; R1 = R1 - R2 (new R2)
+	addpd	xmm5, [dstreg]			;; R2 = R1 + R2 (new R1)
+
+	xstore	[dstreg+e1+48], xmm1		;; Save I4
+	xstore	[dstreg+e1+32], xmm0		;; Save I2
+
+	xcopy	xmm1, xmm3			;; Copy I1
+	subpd	xmm3, xmm2			;; I1 = I1 - I3 (final I3)
+	addpd	xmm2, xmm1			;; I3 = I1 + I3 (final I1)
+
+	xcopy	xmm1, xmm4			;; Copy R2
+	subpd	xmm4, xmm6			;; R2 = R2 - R4 (final R4)
+	addpd	xmm6, xmm1			;; R4 = R2 + R4 (final R2)
+
+	xprefetchw [dstreg+dstinc+e1]
+
+	xcopy	xmm1, xmm5			;; Copy R1
+	subpd	xmm5, xmm7			;; R1 = R1 - R3 (final R3)
+	addpd	xmm7, xmm1			;; R3 = R1 + R3 (final R1)
+
+	xstore	[dstreg+32], xmm2		;; Save I1
+	xstore	[dstreg+48], xmm3		;; Save I3
+	xstore	[dstreg+e1], xmm6		;; Save R2
+	xstore	[dstreg+e1+16], xmm4		;; Save R4
+	xstore	[dstreg], xmm7			;; Save R1
+	xstore	[dstreg+16], xmm5		;; Save R3
 	bump	dstreg, dstinc
 	ENDM
 
@@ -1977,9 +2211,6 @@ r4_x4c_unfft4_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem3,mem4,mem7,mem8,dest
 	subpd	r4, r5				;; I1 = I1 - I3 (final I3)
 	multwo	r5				;; I3 = I3 * 2
 	addpd	r5, r4				;; I3 = I1 + I3 (final I1)
-
-	xstore	dest1, r8			;; Save R1
-	xstore	dest2, r5			;; Save I1
 	ENDM
 
 
@@ -2343,6 +2574,7 @@ r4_x4cl_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,screg2
 ;; first grouping.  However, this will only work if the corresponding unfft does
 ;; a djbunfft.  This macro is very similar to r4_x4cl_eight_reals_four_complex_djbfft.
 
+;; This macro is used in the last levels of pass 1 (no swizzling)
 r4_g4cl_eight_reals_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg1,screg2
 	r4_x8r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg2,0,screg1,32,screg2,32,dstreg+dstinc,e1,[dstreg],[dstreg+16]
 ;;	xstore	[dstreg], xmm0		;; Save real value #1
@@ -2367,6 +2599,24 @@ r4_g4cl_eight_reals_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1
 	xstore	[dstreg+e2+e1+16], xmm7	;; Save I3
 	xstore	[dstreg+e2+e1+32], xmm0	;; Save R4
 	xstore	[dstreg+e2+e1+48], xmm1	;; Save I4
+	bump	dstreg, dstinc
+	ENDM
+
+;; Used in the last levels of pass 1 (swizzling)
+r4_sg4cl_eight_reals_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg1,screg2
+	r4_x8r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg2,0,screg1,32,screg2,32,dstreg+dstinc,e1,[dstreg],[dstreg+32]
+	shuffle_store_partial [dstreg], [dstreg+16], xmm0, xmm7				;; Save real value #1,R2
+	shuffle_store_partial [dstreg+32], [dstreg+48], xmm1, xmm5			;; Save real value #2,I2
+	shuffle_store_with_temp [dstreg+e1], [dstreg+e1+16], xmm4, xmm6, xmm7		;; Save R3,R4
+	shuffle_store_with_temp [dstreg+e1+32], [dstreg+e1+48], xmm3, xmm2, xmm7	;; Save I3,I4
+	xprefetch [srcreg+srcinc+d2]
+	r4_x4c_fft_mem [srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+48],[srcreg+d1+48],[srcreg+d2+48],[srcreg+d2+d1+48],screg1,32,dstreg+dstinc+e2,e1,[dstreg+e2],[dstreg+e2+32]
+	xprefetch [srcreg+srcinc+d2+d1]
+	bump	srcreg, srcinc
+	shuffle_store_partial [dstreg+e2], [dstreg+e2+16], xmm2, xmm7			;; Save R1,R2
+	shuffle_store_partial [dstreg+e2+32], [dstreg+e2+48], xmm5, xmm6		;; Save I1,I2
+	shuffle_store_with_temp [dstreg+e2+e1], [dstreg+e2+e1+16], xmm3, xmm0, xmm7	;; Save R3,R4
+	shuffle_store_with_temp [dstreg+e2+e1+32], [dstreg+e2+e1+48], xmm1, xmm4, xmm7	;; Save I3,I4
 	bump	dstreg, dstinc
 	ENDM
 
@@ -2412,6 +2662,7 @@ r4_x4cl_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scoff1,screg2,scoff2
 ;; and this macro takes an XMM_SCD4 pointer.  We know that the first
 ;; XMM_SCD4 entry is 1, thus we skip over it to get to the w^1 entry we desire.
 
+;; This macro is used in the last levels of pass 1 (no swizzling):
 r4_g2cl_eight_reals_unfft4 MACRO srcreg,srcinc,d1,dstreg,dstinc,e1,screg1,screg2
 	r4_x8r_unfft_mem [srcreg],[srcreg+16],[srcreg+32],[srcreg+48],[srcreg+d1],[srcreg+d1+16],[srcreg+d1+32],[srcreg+d1+48],screg2,0,screg1,32,screg2,32,dstreg+dstinc,e1,[dstreg+e1+16],[dstreg+e1+48]
 	bump	srcreg, srcinc
@@ -2419,6 +2670,98 @@ r4_g2cl_eight_reals_unfft4 MACRO srcreg,srcinc,d1,dstreg,dstinc,e1,screg1,screg2
 ;;	xstore	[dstreg+e1+16], xmm2	;; Save R4
 	xstore	[dstreg+48], xmm6	;; Save R7
 ;;	xstore	[dstreg+e1+48], xmm5	;; Save R8
+	xstore	[dstreg], xmm1		;; Save R1
+	xstore	[dstreg+e1], xmm4	;; Save R2
+	xstore	[dstreg+32], xmm0	;; Save R5
+	xstore	[dstreg+e1+32], xmm3	;; Save R6
+	bump	dstreg, dstinc
+	ENDM
+
+;; Used in the last levels of pass 1 (swizzling):
+r4_sg2cl_eight_reals_unfft4 MACRO srcreg,srcinc,d1,dstreg,dstinc,e1,screg1,screg2
+	shuffle_load xmm4, xmm1, [srcreg+d1], [srcreg+d1+16]	;; R3,R4
+	xload	xmm6, [screg2+48]	;; cosine/sine for w^5n
+	xcopy	xmm3, xmm1		;; Copy R4
+	mulpd	xmm1, xmm6		;; A4 = R4 * cosine/sine
+	xload	xmm2, [screg2+16]	;; cosine/sine for w^n
+	xcopy	xmm0, xmm4		;; Copy R3
+	mulpd	xmm4, xmm2		;; A3 = R3 * cosine/sine for w^n
+	shuffle_load xmm5, xmm7, [srcreg+d1+32], [srcreg+d1+48]	;; I3,I4
+	addpd	xmm1, xmm7		;; A4 = A4 + I4
+	mulpd	xmm7, xmm6		;; B4 = I4 * cosine/sine
+	addpd	xmm4, xmm5		;; A3 = A3 + I3
+	mulpd	xmm5, xmm2		;; B3 = I3 * cosine/sine
+	subpd	xmm7, xmm3		;; B4 = B4 - R4
+	subpd	xmm5, xmm0		;; B3 = B3 - R3
+
+	shuffle_load xmm2, xmm0, [srcreg], [srcreg+16]		;; Real value #1,R2
+	xcopy	xmm6, xmm0		;; Copy R2
+	mulpd	xmm0, [screg1+48]	;; A2 = R2 * cosine/sine for w^2n
+	xstore	[dstreg], xmm2		;; Temporarily save real value #1
+	shuffle_load xmm2, xmm3, [srcreg+32], [srcreg+48]	;; Real value #2,I2
+	addpd	xmm0, xmm3		;; A2 = A2 + I2
+	mulpd	xmm3, [screg1+48]	;; B2 = I2 * cosine/sine
+	subpd	xmm3, xmm6		;; B2 = B2 - R2
+
+	xprefetchw [pre1]
+
+	xload	xmm6, [screg2+32]
+	mulpd	xmm1, xmm6		;; new R7 = A4 * sine (final R4)
+	mulpd	xmm7, xmm6		;; new R8 = B4 * sine (final I4)
+	xload	xmm6, [screg2]
+	mulpd	xmm4, xmm6		;; new R5 = A3 * sine (final R3)
+	mulpd	xmm5, xmm6		;; new R6 = B3 * sine (final I3)
+	xload	xmm6, [screg1+32]
+	mulpd	xmm0, xmm6		;; new R3 = A2 * sine (final R2)
+	mulpd	xmm3, xmm6		;; new R4 = B2 * sine (final I2)
+
+	bump	srcreg, srcinc
+	xprefetchw [pre1][pre2]
+
+	xcopy	xmm6, xmm4		;; Copy R5
+	subpd	xmm4, xmm1		;; new R6 = R5 - R7
+	addpd	xmm1, xmm6		;; new R5 = R5 + R7
+
+	xcopy	xmm6, xmm5		;; Copy R6
+	subpd	xmm5, xmm7		;; new R8 = R6 - R8
+	addpd	xmm7, xmm6		;; new R7 = R6 + R8
+
+	xcopy	xmm6, xmm4		;; Copy R6
+	addpd	xmm4, xmm5		;; R6 = R6 + R8
+	subpd	xmm5, xmm6		;; R8 = R8 - R6
+
+	mulpd	xmm4, XMM_SQRTHALF	;; R6 = R6 * square root of 1/2
+	mulpd	xmm5, XMM_SQRTHALF	;; R8 = R8 * square root of 1/2
+
+	xcopy	xmm6, xmm2		;; Copy R2
+	subpd	xmm2, xmm3		;; R2 = R2 - R4 (new R4)
+	addpd	xmm3, xmm6		;; R4 = R2 + R4 (new R2)
+
+	xcopy	xmm6, xmm2		;; Copy R4
+	subpd	xmm2, xmm5		;; R4 = R4 - R8 (final R8)
+	addpd	xmm5, xmm6		;; R8 = R4 + R8 (final R4)
+
+	xcopy	xmm6, xmm3		;; Copy R2
+	subpd	xmm3, xmm4		;; R2 = R2 - R6 (final R6)
+	addpd	xmm4, xmm6		;; R6 = R2 + R6 (final R2)
+
+	xload	xmm6, [dstreg]		;; R1
+	subpd	xmm6, xmm0		;; R1 = R1 - R3 (new R3)
+	addpd	xmm0, [dstreg]		;; R3 = R1 + R3 (new R1)
+
+	xstore	[dstreg+e1+48], xmm2	;; Save R8
+	xstore	[dstreg+e1+16], xmm5	;; Save R4
+
+	xcopy	xmm2, xmm6		;; Copy R3
+	subpd	xmm6, xmm7		;; R3 = R3 - R7 (final R7)
+	addpd	xmm7, xmm2		;; R7 = R3 + R7 (final R3)
+
+	xcopy	xmm5, xmm0		;; Copy R1
+	subpd	xmm0, xmm1		;; R1 = R1 - R5 (final R5)
+	addpd	xmm1, xmm5		;; R5 = R1 + R5 (final R1)
+
+	xstore	[dstreg+16], xmm7	;; Save R3
+	xstore	[dstreg+48], xmm6	;; Save R7
 	xstore	[dstreg], xmm1		;; Save R1
 	xstore	[dstreg+e1], xmm4	;; Save R2
 	xstore	[dstreg+32], xmm0	;; Save R5
@@ -2437,6 +2780,7 @@ r4_g2cl_eight_reals_unfft4 MACRO srcreg,srcinc,d1,dstreg,dstinc,e1,screg1,screg2
 ;; The eight-reals macro and one of the four-complex only use half the XMM 
 ;; register.  This isn't very efficient, but this macro is called a whole lot.
 
+;; This is used in the first levels of pass 2 if pass 2 does the swizzling
 r4_s2cl_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,screg1,screg2
 	shuffle_load xmm0, xmm2, [srcreg][rbx], [srcreg+32][rbx] ;; R1,R3
 	shuffle_load xmm1, xmm3, [srcreg+d1][rbx], [srcreg+d1+32][rbx] ;; R2,R4
@@ -2451,6 +2795,20 @@ r4_s2cl_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,screg1,screg2
 	xstore	[srcreg+d1+32], xmm6
 	xstore	[srcreg+d1+48], xmm7
 	r4_h8r_h4c_fft_mem [srcreg],[srcreg+16],[srcreg+32],[srcreg+48],[srcreg+d1],[srcreg+d1+16],[srcreg+d1+32],[srcreg+d1+48],screg1,screg2,srcreg+srcinc,d1,[srcreg],[srcreg+16]
+;;	xstore	[srcreg], xmm0		;; Save real value #1
+;;	xstore	[srcreg+16], xmm0	;; Save real value #2
+	xstore	[srcreg+32], xmm7	;; Save R2
+	xstore	[srcreg+48], xmm6	;; Save I2
+	xstore	[srcreg+d1], xmm3	;; Save R3
+	xstore	[srcreg+d1+16], xmm1	;; Save I3
+	xstore	[srcreg+d1+32], xmm0	;; Save R4
+	xstore	[srcreg+d1+48], xmm4	;; Save I4
+	bump	srcreg, srcinc
+	ENDM
+
+;; This is used in the first levels of pass 2 if pass 1 does the swizzling
+r4_h2cl_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,screg1,screg2
+	r4_h8r_h4c_fft_mem [srcreg][rbx],[srcreg+d1][rbx],[srcreg+16][rbx],[srcreg+d1+16][rbx],[srcreg+32][rbx],[srcreg+d1+32][rbx],[srcreg+48][rbx],[srcreg+d1+48][rbx],screg1,screg2,srcreg+srcinc,d1,[srcreg],[srcreg+16]
 ;;	xstore	[srcreg], xmm0		;; Save real value #1
 ;;	xstore	[srcreg+16], xmm0	;; Save real value #2
 	xstore	[srcreg+32], xmm7	;; Save R2
@@ -3352,6 +3710,7 @@ r4_g4cl_four_complex_fft MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2
 	xstore	[dstreg+e2+e1+48], xmm4	;; Save R8
 	bump	dstreg, dstinc
 	ENDM
+ENDIF
 
 r4_x4c_fft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,screg,off,pre1,pre2,dst1,dst2
 	xload	xmm0, R1		;; R1
@@ -3422,7 +3781,6 @@ r4_x4c_fft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,screg,off,pre1,pre2,dst1,dst2
 	mulpd	xmm0, [screg+off+64]	;; A4 = A4 * sine (final R4)
 	mulpd	xmm4, [screg+off+64]	;; B4 = B4 * sine (final I4)
 	ENDM
-ENDIF
 
 r4_x4c_fft_partial_mem MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem3, mem4, mem7, mem8, screg, off, pre1, pre2, dst1, dst2
 	xload	r3, mem3		;; R3

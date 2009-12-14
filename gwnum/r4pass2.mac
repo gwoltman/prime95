@@ -526,8 +526,13 @@ r4_pass2_12_levels_real MACRO
 
 ;; Do FFT level 1,2
 ;;
-;; On input the 64-byte cache lines hold these data values:
+;; On input the 64-byte cache lines hold these data values if pass 2 swizzles:
 ;;	0	+2K	4096	+2K	8192	+2K	12288	+2K
+;;	1	...
+;;	...
+;;	2047	...
+;; On input the 64-byte cache lines hold these data values if pass 1 swizzles:
+;;	0	+8K	2048	+8K	4096	+8K	6144	+8K
 ;;	1	...
 ;;	...
 ;;	2047	...
@@ -547,7 +552,7 @@ r4_pass2_12_levels_real MACRO
 	mov	rdi, xsincos_complex	;; Ptr to the sin/cos data
 	mov	rdx, sincos3		;; Ptr to real sin/cos data
 	loops_init 1024
-b1b:	r4_s2cl_eight_reals_four_complex_djbfft rsi, 64, 8*dist128, rdi, rdx
+b1b:	r4_h2cl_eight_reals_four_complex_djbfft rsi, 64, 8*dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, XMM_HSCD2		;; Next sin/cos data
 	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
@@ -1018,7 +1023,12 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 64, dist128, 2*dist128, rdi, 128*4*XMM_S
 ;;	511	...
 ;;	2048	...
 ;;	...
-;; On output the 64-byte cache lines hold these data values:
+;; On output the 64-byte cache lines hold these data values if pass 1 swizzles:
+;;	0	+8K	2048	+8K	4096	+8K	6144	+8K
+;;	1	...
+;;	...
+;;	2047
+;; On output the 64-byte cache lines hold these data values if pass 2 swizzles:
 ;;	0	+2K	4096	+2K	8192	+2K	12288	+2K
 ;;	1	...
 ;;	...
@@ -1030,7 +1040,7 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 64, dist128, 2*dist128, rdi, 128*4*XMM_S
 ;;	do 128 macro processing 32 data values
 
 	loops_init 512
-c1b:	r4_s4cl_eight_reals_four_complex_djbunfft rsi, 64, 4*dist128, 8*dist128, rdi, 512*XMM_SCD2, rdx, 512*XMM_HSCD2
+c1b:	r4_h4cl_eight_reals_four_complex_djbunfft rsi, 64, 4*dist128, 8*dist128, rdi, 512*XMM_SCD2, rdx, 512*XMM_HSCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, XMM_HSCD2		;; Next sin/cos data
 	loops	128, c1b		;; Test loop counter
@@ -1068,8 +1078,13 @@ r4_pass2_12_levels_complex MACRO
 ;; an xmm register, the other set is in the low word.  This means
 ;; a distance of 8192 data values.
 ;;
-;; On input the 64-byte cache lines hold these data values:
+;; On input the 64-byte cache lines hold these data values if pass 2 swizzles:
 ;;	0	+2K	4096	+2K	8192	+2K	12288	+2K
+;;	1	...
+;;	...
+;;	2047
+;; On input the 64-byte cache lines hold these data values if pass 1 swizzles:
+;;	0	+8K	2048	+8K	4096	+8K	6144	+8K
 ;;	1	...
 ;;	...
 ;;	2047
@@ -1088,7 +1103,7 @@ r4_pass2_12_levels_complex MACRO
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
 	loops_init 1024			;; 8 iterations of 128
-b1b:	r4_s2cl_four_complex_djbfft rsi, 64, 8*dist128, rdi
+b1b:	r4_x2cl_four_complex_djbfft rsi, 64, 8*dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 ;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
 ;	xprefetcht1 [rsi+8*dist128+4*64];; case they are not in the L2 cache
@@ -1617,7 +1632,12 @@ c2b:	r4_x4cl_four_complex_djbunfft rsi, 64, dist128, 2*dist128, rdi, 128*4*XMM_S
 ;;	511	...
 ;;	2048	...
 ;;	...
-;; On output the 64-byte cache lines hold these data values:
+;; On output the 64-byte cache lines hold these data values if pass 1 swizzles:
+;;	0	+8K	2048	+8K	4096	+8K	6144	+8K
+;;	1	...
+;;	...
+;;	2047
+;; On output the 64-byte cache lines hold these data values if pass 2 swizzles:
 ;;	0	+2K	4096	+2K	8192	+2K	12288	+2K
 ;;	1	...
 ;;	...
@@ -1630,7 +1650,7 @@ c2b:	r4_x4cl_four_complex_djbunfft rsi, 64, dist128, 2*dist128, rdi, 128*4*XMM_S
 	start_timer 14
 	mov	rdi, xsincos_complex	;; Load group multiplier pointer
 	loops_init 512			;; 4 iters of 32 iters of 4
-c1b:	r4_s4cl_four_complex_djbunfft rsi, 64, 4*dist128, 8*dist128, rdi, 512*XMM_SCD2
+c1b:	r4_x4cl_four_complex_djbunfft rsi, 64, 4*dist128, 8*dist128, rdi, 512*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next set of sin/cos data
 	loops	128, c1b		;; Test inner loop counter
 	bump	rsi, -8*4*4*64+dist128	;; Next source pointer

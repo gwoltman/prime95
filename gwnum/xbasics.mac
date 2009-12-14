@@ -55,6 +55,7 @@ mulhalfs MACRO	r
 ;;SHUFPS uses Core 2 port 5 (but adds one clock latency to transfer data to integer unit)
 ;;UNPCKHPD uses Core 2 port 0 (competes with mulpd)
 ;;PUNPCKHQDQ uses Core 2 port 5 (but adds one clock latency to transfer data to integer unit)
+;;MOVLHPS and MOVHLPS uses Core 2 port 0 (competes with mulpd and requires SSE4.1)
 ;; This implementation chooses the port 5 option as it underutilized
 unpckhi MACRO dest, src
 	punpckhqdq dest, src
@@ -90,6 +91,23 @@ shuffle_store MACRO mem1, mem2, reglo, reghi
 	movsd	Q mem1[8], reghi
 	unpckhi reglo, reghi
 	xstore	mem2, reglo
+	ENDM
+
+;; Like shuffle_store but mem1 has already been written to memory
+shuffle_store_partial MACRO mem1, mem2, reglo, reghi
+	xload	reglo, mem1
+	movsd	Q mem1[8], reghi
+	unpckhi reglo, reghi
+	xstore	mem2, reglo
+	ENDM
+
+;; Like shuffle_store but a temporary register is available
+shuffle_store_with_temp MACRO mem1, mem2, reglo, reghi, tmp
+	xcopy	tmp, reglo
+	unpcklo reglo, reghi
+	xstore	mem1, reglo
+	unpckhi tmp, reghi
+	xstore	mem2, tmp
 	ENDM
 
 ;;

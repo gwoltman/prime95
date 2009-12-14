@@ -85,7 +85,7 @@ c0b:	start_timer 16
 pfing	lea	rbp, [rdi+2*XMM_SCD4]	;; Prefetch the sin/cos/premult data we are about to use
 	xtouch	[rbp]			;; Prefetch TLB
 c9a:	xtouch	[rbp+4096]		;; Prefetch TLB
-c9b:	r4_g2cl_four_complex_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
+c9b:	r4_sg2cl_four_complex_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 	bump	rdi, XMM_SCD4		;; Next premult/sin/cos data
 	loops	2*clm, c9b		;; Loop 2*clm times
 	bump	rsi, -2*clm*64+2*blkdst	;; Next source pointer
@@ -419,7 +419,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
 ;pfing	sub	rbp, rcx
 	bump	rdi, -1*2*clm*XMM_SCD4	;; Next premult/sin/cos ptr
 	loops_init 64*2*clm		;; 32 iters of 2 of 2*clm
-b9b:	r4_g4cl_four_complex_fft4 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst, rdi
+b9b:	r4_sg4cl_four_complex_fft4 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst, rdi
 	bump	rdi, XMM_SCD4		;; Next sin/cos ptr
 	;xprefetcht1 [rcx+rbp-64]
 	;xprefetcht1 [rcx+rbp-64+blkdst]

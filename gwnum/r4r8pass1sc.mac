@@ -86,7 +86,7 @@ pfing	lea	rbp, [rdi+2*XMM_SCD8]	;; Prefetch the sin/cos/premult data we are abou
 	bump	rdi, 128		;; Generates 1 byte offsets in radix-8 macro
 	xtouch	[rbp]			;; Prefetch TLB
 c9a:	xtouch	[rbp+4096]		;; Prefetch TLB
-c9b:	r8_g4cl_eight_complex_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst, 2*clmblkdst, rdi-128
+c9b:	r8_sg4cl_eight_complex_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst, 2*clmblkdst, rdi-128
 	bump	rdi, XMM_SCD8		;; Next premult/sin/cos data
 	loops	2*clm, c9b		;; Loop 2*clm times
 	bump	rsi, -2*clm*64+4*blkdst	;; Next source pointer
@@ -354,7 +354,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi
 ;pfing	sub	rbp, rcx
 	bump	rdi, -1*2*clm*XMM_SCD8+128 ;; Next premult/sin/cos ptr (gen 1 byte offsets in radix-8 macro)
 	loops_init 32*2*clm		;; 32 iters of 2*clm
-b9b:	r8_g8cl_eight_complex_fft8 rsi, 64, clmblkdst, 2*clmblkdst, 4*clmblkdst, rcx, 64, blkdst, 2*blkdst, 4*blkdst, rdi-128
+b9b:	r8_sg8cl_eight_complex_fft8 rsi, 64, clmblkdst, 2*clmblkdst, 4*clmblkdst, rcx, 64, blkdst, 2*blkdst, 4*blkdst, rdi-128
 	bump	rdi, XMM_SCD8		;; Next premult/sin/cos ptr
 	;xprefetcht1 [rcx+rbp-64]
 	;xprefetcht1 [rcx+rbp-64+blkdst]
