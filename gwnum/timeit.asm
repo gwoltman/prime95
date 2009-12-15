@@ -678,30 +678,30 @@ sscase141: jmp exit;;	sse2mac sscase141, 256, 100000, r4_s4cl_four_complex_unfft
 
 	sse2mac sscase156, 256, 4096, r4_x4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
 	sse2mac sscase157, 256, 100000, r4_x4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
-	sse2mac sscase158, 256, 4096, r4_g4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
-	sse2mac sscase159, 256, 100000, r4_g4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
-	sse2macbx sscase160, 128, 4096, r4_s2cl_four_complex_djbfft rsi, 2*64, 64, rdi
-	sse2macbx sscase161, 128, 100000, r4_s2cl_four_complex_djbfft rsi, 2*64, 64, rdi
+	sse2mac sscase158, 256, 4096, r4_sg4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2mac sscase159, 256, 100000, r4_sg4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2macbx sscase160, 128, 4096, r4_x2cl_four_complex_djbfft rsi, 2*64, 64, rdi
+	sse2macbx sscase161, 128, 100000, r4_x2cl_four_complex_djbfft rsi, 2*64, 64, rdi
 	sse2mac sscase162, 256, 4096, r4_x4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
 	sse2mac sscase163, 256, 100000, r4_x4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
-	sse2mac sscase164, 128, 4096, r4_g2cl_four_complex_djbunfft rsi, 2*64, 64, rdx, 2*64, 64, rdi
-	sse2mac sscase165, 128, 100000, r4_g2cl_four_complex_djbunfft rsi, 2*64, 64, rdx, 2*64, 64, rdi
-	sse2mac sscase166, 256, 4096, r4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
-	sse2mac sscase167, 256, 100000, r4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
+	sse2mac sscase164, 128, 4096, r4_sg2cl_four_complex_djbunfft rsi, 2*64, 64, rdx, 2*64, 64, rdi
+	sse2mac sscase165, 128, 100000, r4_sg2cl_four_complex_djbunfft rsi, 2*64, 64, rdx, 2*64, 64, rdi
+sscase166: jmp exit;;	sse2mac sscase166, 256, 4096, r4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
+sscase167: jmp exit;;	sse2mac sscase167, 256, 100000, r4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
 
-	sse2mac sscase168, 256, 4096, r4_g4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
-	sse2mac sscase169, 256, 100000, r4_g4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
-	sse2mac sscase170, 128, 4096, r4_g2cl_four_complex_unfft4 rsi, 2*64, 64, rdx, 2*64, 64, rdi
-	sse2mac sscase171, 128, 100000, r4_g2cl_four_complex_unfft4 rsi, 2*64, 64, rdx, 2*64, 64, rdi
+	sse2mac sscase168, 256, 4096, r4_sg4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2mac sscase169, 256, 100000, r4_sg4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2mac sscase170, 128, 4096, r4_sg2cl_four_complex_unfft4 rsi, 2*64, 64, rdx, 2*64, 64, rdi
+	sse2mac sscase171, 128, 100000, r4_sg2cl_four_complex_unfft4 rsi, 2*64, 64, rdx, 2*64, 64, rdi
 	sse2mac sscase172, 128, 4096, r4_x2cl_four_complex_first_djbfft_scratch rsi, 2*64, 64, rdi, rdi
 	sse2mac sscase173, 128, 100000, r4_x2cl_four_complex_first_djbfft_scratch rsi, 2*64, 64, rdi, rdi
 	sse2mac sscase174, 256, 4096, r4_x4cl_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, 0
 	sse2mac sscase175, 256, 100000, r4_x4cl_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, 0
 
-	sse2mac sscase176, 512, 4096, r8_g8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
-	sse2mac sscase177, 512, 100000, r8_g8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
-	sse2mac sscase178, 256, 4096, r8_g4cl_eight_complex_unfft8 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
-	sse2mac sscase179, 256, 100000, r8_g4cl_eight_complex_unfft8 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2mac sscase176, 512, 4096, r8_sg8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
+	sse2mac sscase177, 512, 100000, r8_sg8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
+	sse2mac sscase178, 256, 4096, r8_sg4cl_eight_complex_unfft8 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	sse2mac sscase179, 256, 100000, r8_sg4cl_eight_complex_unfft8 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
 
 	sse2mac sscase180, 192, 4096, r3_x3cl_three_complex_djbfft rsi, 3*64, 64, rdi
 	sse2mac sscase181, 192, 100000, r3_x3cl_three_complex_djbfft rsi, 3*64, 64, rdi
@@ -723,15 +723,15 @@ sscase141: jmp exit;;	sse2mac sscase141, 256, 100000, r4_s4cl_four_complex_unfft
 	sse2mac sscase195, 128, 100000, r4_x2cl_eight_reals_first_fft_scratch rsi, 2*64, 64, rdi
 	sse2mac sscase196, 256, 4096, r4_x4cl_eight_reals_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, rdi
 	sse2mac sscase197, 256, 100000, r4_x4cl_eight_reals_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, rdi
-	sse2mac sscase198, 256, 4096, r4_g4cl_eight_reals_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, rdi
-	sse2mac sscase199, 256, 100000, r4_g4cl_eight_reals_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, rdi
+	sse2mac sscase198, 256, 4096, r4_sg4cl_eight_reals_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, rdi
+	sse2mac sscase199, 256, 100000, r4_sg4cl_eight_reals_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, rdi
 
 	sse2mac sscase200, 256, 4096, r4_x4cl_eight_reals_last_unfft rsi, 4*64, 64, 2*64, rdi, 0
 	sse2mac sscase201, 256, 100000, r4_x4cl_eight_reals_last_unfft rsi, 4*64, 64, 2*64, rdi, 0
 	sse2mac sscase202, 256, 4096, r4_x4cl_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, 0
 	sse2mac sscase203, 256, 100000, r4_x4cl_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, 0
-	sse2mac sscase204, 128, 4096, r4_g2cl_eight_reals_unfft4 rsi, 2*64, 64, rdx, 2*64, 64, rdi, rdi
-	sse2mac sscase205, 128, 100000, r4_g2cl_eight_reals_unfft4 rsi, 2*64, 64, rdx, 2*64, 64, rdi, rdi
+	sse2mac sscase204, 128, 4096, r4_sg2cl_eight_reals_unfft4 rsi, 2*64, 64, rdx, 2*64, 64, rdi, rdi
+	sse2mac sscase205, 128, 100000, r4_sg2cl_eight_reals_unfft4 rsi, 2*64, 64, rdx, 2*64, 64, rdi, rdi
 
 	sse2mac sscase206, 192, 4096, r3_x3cl_six_reals_three_complex_djbfft rsi, 3*64, 64, rdi, rdi
 	sse2mac sscase207, 192, 100000, r3_x3cl_six_reals_three_complex_djbfft rsi, 3*64, 64, rdi, rdi
