@@ -707,20 +707,34 @@ double *r4_build_pass2_complex_table (
 	unsigned long i, N, limit;
 	double	sincos[6];
 
-/* For the r4_four_complex_fft building block levels, output the sin/cos values. */
-/* If there is a three_complex_fft building block in pass2, then we need to */
-/* generate a bigger table (even though we only use half of the data in */
-/* the N/4 to N/3 area. */
+/* If the pass 2 size is divisible by 3, then the first level does a */
+/* radix-3 step which only requires one sin/cos value.  Alas, we must */
+/* rather than computing the needed N/3 sin/cos values we compute N/2 */
+/* sin/cos values for use in later r4_four_complex_djbfft levels. */
 
 	N = gwdata->PASS2_SIZE;
-	limit = (N % 3 == 0) ? N / 3 : N / 4;
-	for (i = 0; i < limit; i++) {
-		gwsincos3 (i, N, (double *) &sincos);
-		table[1] = table[0] = sincos[0];	/* temp */
-		table[3] = table[2] = sincos[1];
-		table[5] = table[4] = sincos[2];	/* 2 * temp */
-		table[7] = table[6] = sincos[3];
-		table += 8;
+	if (N % 3 == 0) {
+		limit = N / 2;
+		for (i = 0; i < limit; i++) {
+			gwsincos (i, N, (double *) &sincos);
+			table[1] = table[0] = sincos[0];	/* temp */
+			table[3] = table[2] = sincos[1];
+			table += 4;
+		}
+	}
+
+/* For the r4_four_complex_fft building block levels, output the sin/cos values. */
+
+	else {
+		limit = N / 4;
+		for (i = 0; i < limit; i++) {
+			gwsincos3 (i, N, (double *) &sincos);
+			table[1] = table[0] = sincos[0];	/* temp */
+			table[3] = table[2] = sincos[1];
+			table[5] = table[4] = sincos[2];	/* 2 * temp */
+			table[7] = table[6] = sincos[3];
+			table += 8;
+		}
 	}
 
 /* And a smaller table so the final 6 levels aren't using nasty large */
