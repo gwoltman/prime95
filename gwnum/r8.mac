@@ -17,19 +17,20 @@
 
 ;; This is a standard eight-complex case with 7 sin/cos twiddle factors applied.
 ;; DJB allows us to do this using only 4 sin/cos twiddle factors.
-;; NOTE:  Unlike many "gNcl" macros this one will not work if srcreg and dstreg point to the
-;; same memory location.
 r8_x8cl_eight_complex_djbfft MACRO srcreg,srcinc,d1,d2,d4,screg
 bug	r8_x8c_djbfft srcreg+0,d1,d2,d4,dstreg+0,e1,e2,screg,0
 bug	r8_x8c_djbfft srcreg+32,d1,d2,d4,dstreg+e4,e1,e2,screg,0
 	bump	srcreg, srcinc
 	ENDM
+
+IFDEF UNUSED
 r8_g8cl_eight_complex_djbfft MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4,screg
 untested	r8_x8c_djbfft srcreg+0,d1,d2,d4,dstreg+0,e1,e2,screg,0
 untested	r8_x8c_djbfft srcreg+32,d1,d2,d4,dstreg+e4,e1,e2,screg,0
 	bump	srcreg, srcinc
 	bump	dstreg, dstinc
 	ENDM
+ENDIF
 
 r8_x8c_djbfft MACRO srcreg,d1,d2,d4,dstreg,e1,e2,screg,scoff
 	xload	xmm0, [srcreg]			;; R1
@@ -269,7 +270,6 @@ r8_x8c_djbfft MACRO srcreg,d1,d2,d4,dstreg,e1,e2,screg,scoff
 
 
 
-
 ;; ************************************************************************************************
 
 ;;
@@ -284,7 +284,7 @@ r8_x8c_djbfft MACRO srcreg,d1,d2,d4,dstreg,e1,e2,screg,scoff
 ;; sin/cos multipliers.
 ;;
 
-
+IFDEF UNUSED
 r8_g8cl_sixteen_reals_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4,screg1,screg2
 IFDEF NOT_FINISHED
 
@@ -416,6 +416,7 @@ might can't use djbfft  ---  make sure unfft pass 1 code does an undjbfft
 	bump	dstreg, dstinc
 ENDIF
 	ENDM
+ENDIF
 
 r8_sg8cl_sixteen_reals_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4,screg1,screg2
 IFDEF NOT_FINISHED
@@ -424,13 +425,14 @@ IFDEF NOT_FINISHED
 ENDIF
 	ENDM
 
-
+IFDEF UNUSED
 r8_g4cl_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg1,screg2
 IFDEF NOT_FINISHED
 	bump	srcreg, srcinc
 	bump	dstreg, dstinc
 ENDIF
 	ENDM
+ENDIF
 
 r8_sg4cl_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg1,screg2
 IFDEF NOT_FINISHED
@@ -450,6 +452,7 @@ ENDIF
 ;;
 
 ;; Used in the last levels of pass 1.  No swizzling.
+IFDEF UNUSED
 r8_g8cl_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4,screg
 	r8_x8c_fft8 srcreg+0,d1,d2,d4,dstreg+0,e1,e2,screg,0
 	r8_x8c_fft8 srcreg+32,d1,d2,d4,dstreg+e4,e1,e2,screg,0
@@ -691,6 +694,7 @@ r8_x8c_fft8 MACRO srcreg,d1,d2,d4,dstreg,e1,e2,screg,scoff
 	xstore	[dstreg+e1+32], xmm7		;; Save R4
 	xstore	[dstreg+e1+48], xmm3		;; Save I4
 	ENDM
+ENDIF
 
 ;; Used in the last levels of pass 1.  Swizzles.
 r8_sg8cl_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4,screg
