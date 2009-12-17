@@ -714,7 +714,8 @@ double *r4_build_pass2_complex_table (
 
 	N = gwdata->PASS2_SIZE;
 	if (N % 3 == 0) {
-		limit = N / 2;
+		if (N % 512 == 0) limit = N / 2;
+		else limit = N / 3;
 		for (i = 0; i < limit; i++) {
 			gwsincos (i, N, (double *) &sincos);
 			table[1] = table[0] = sincos[0];	/* temp */

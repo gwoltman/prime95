@@ -20,18 +20,18 @@
 r3_x3cl_three_complex_djbfft MACRO srcreg,srcinc,d1,screg
 	xload	xmm2, [srcreg+2*d1+32]		;; R3
 	xload	xmm5, [srcreg+2*d1+48]		;; I3
-	r3_x3c_djbfft_partial_mem xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7,[srcreg+32],[srcreg+48],[srcreg+d1+32],[srcreg+d1+48],screg,[srcreg+d1+32],[srcreg+d1+48]
+	r3_x3c_djbfft_partial_mem xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7,[srcreg+32],[srcreg+d1+32],[srcreg+48],[srcreg+d1+48],screg
 	xload	xmm6, [srcreg+2*d1]		;; R3
 	xload	xmm7, [srcreg+2*d1+16]		;; I3
-;;	xstore	[srcreg+d1+32], xmm2		;; Save R1
-;;	xstore	[srcreg+d1+48], xmm5		;; Save I1
+	xstore	[srcreg+d1+32], xmm2		;; Save R1
+	xstore	[srcreg+d1+48], xmm5		;; Save I1
 	xstore	[srcreg+2*d1], xmm0		;; Save R2
 	xstore	[srcreg+2*d1+16], xmm1		;; Save I2
 	xstore	[srcreg+2*d1+32], xmm4		;; Save R3
 	xstore	[srcreg+2*d1+48], xmm3		;; Save I3
-	r3_x3c_djbfft_partial_mem xmm0,xmm1,xmm6,xmm3,xmm4,xmm7,xmm2,xmm5,[srcreg],[srcreg+16],[srcreg+d1],[srcreg+d1+16],screg,[srcreg],[srcreg+16]
-;;	xstore	[srcreg], xmm6			;; Save R1
-;;	xstore	[srcreg+16], xmm7		;; Save I1
+	r3_x3c_djbfft_partial_mem xmm0,xmm1,xmm6,xmm3,xmm4,xmm7,xmm2,xmm5,[srcreg],[srcreg+d1],[srcreg+16],[srcreg+d1+16],screg
+	xstore	[srcreg], xmm6			;; Save R1
+	xstore	[srcreg+16], xmm7		;; Save I1
 	xstore	[srcreg+32], xmm0		;; Save R2
 	xstore	[srcreg+48], xmm1		;; Save I2
 	xstore	[srcreg+d1], xmm4		;; Save R3
@@ -43,18 +43,42 @@ r3_x3cl_three_complex_djbfft MACRO srcreg,srcinc,d1,screg
 r3_f3cl_three_complex_djbfft MACRO srcreg,srcinc,d1,screg,scoff
 	xload	xmm2, [srcreg+2*d1+16][rbx]	;; R3
 	xload	xmm5, [srcreg+2*d1+48][rbx]	;; I3
-	r3_x3c_djbfft_partial_mem xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7,[srcreg+d1][rbx],[srcreg+d1+32][rbx],[srcreg+16][rbx],[srcreg+48][rbx],screg+scoff,[srcreg+16],[srcreg+48]
-;;	xstore	[srcreg+16], xmm2		;; Save R1
-;;	xstore	[srcreg+48], xmm5		;; Save I1
+	r3_x3c_djbfft_partial_mem xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7,[srcreg+d1][rbx],[srcreg+16][rbx],[srcreg+d1+32][rbx],[srcreg+48][rbx],screg+scoff
 	xload	xmm6, [srcreg+d1+16][rbx]	;; R3
 	xload	xmm7, [srcreg+d1+48][rbx]	;; I3
+	xstore	[srcreg+16], xmm2		;; Save R1
+	xstore	[srcreg+48], xmm5		;; Save I1
 	xstore	[srcreg+d1+16], xmm0		;; Save R2
 	xstore	[srcreg+d1+48], xmm1		;; Save I2
 	xstore	[srcreg+2*d1+16], xmm4		;; Save R3
 	xstore	[srcreg+2*d1+48], xmm3		;; Save I3
-	r3_x3c_djbfft_partial_mem xmm0,xmm1,xmm6,xmm3,xmm4,xmm7,xmm2,xmm5,[srcreg][rbx],[srcreg+32][rbx],[srcreg+2*d1][rbx],[srcreg+2*d1+32][rbx],screg,[srcreg],[srcreg+32]
-;;	xstore	[srcreg], xmm6			;; Save R1
-;;	xstore	[srcreg+32], xmm7		;; Save I1
+	r3_x3c_djbfft_partial_mem xmm0,xmm1,xmm6,xmm3,xmm4,xmm7,xmm2,xmm5,[srcreg][rbx],[srcreg+2*d1][rbx],[srcreg+32][rbx],[srcreg+2*d1+32][rbx],screg
+	xstore	[srcreg], xmm6			;; Save R1
+	xstore	[srcreg+32], xmm7		;; Save I1
+	xstore	[srcreg+d1], xmm0		;; Save R2
+	xstore	[srcreg+d1+32], xmm1		;; Save I2
+	xstore	[srcreg+2*d1], xmm4		;; Save R3
+	xstore	[srcreg+2*d1+32], xmm3		;; Save I3
+	bump	srcreg, srcinc
+	ENDM
+
+;; Used in pass 2 where the memory layout is different and the two
+;; three-complex-djbffts use different sin/cos data.
+r3_nf3cl_three_complex_djbfft MACRO srcreg,srcinc,d1,screg,scoff
+	xload	xmm2, [srcreg+2*d1+16]		;; R3
+	xload	xmm5, [srcreg+2*d1+48]		;; I3
+	r3_x3c_djbfft_partial_mem xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7,[srcreg+d1],[srcreg+16],[srcreg+d1+32],[srcreg+48],screg+scoff
+	xload	xmm6, [srcreg+d1+16]		;; R3
+	xload	xmm7, [srcreg+d1+48]		;; I3
+	xstore	[srcreg+16], xmm2		;; Save R1
+	xstore	[srcreg+48], xmm5		;; Save I1
+	xstore	[srcreg+d1+16], xmm0		;; Save R2
+	xstore	[srcreg+d1+48], xmm1		;; Save I2
+	xstore	[srcreg+2*d1+16], xmm4		;; Save R3
+	xstore	[srcreg+2*d1+48], xmm3		;; Save I3
+	r3_x3c_djbfft_partial_mem xmm0,xmm1,xmm6,xmm3,xmm4,xmm7,xmm2,xmm5,[srcreg],[srcreg+2*d1],[srcreg+32],[srcreg+2*d1+32],screg
+	xstore	[srcreg], xmm6			;; Save R1
+	xstore	[srcreg+32], xmm7		;; Save I1
 	xstore	[srcreg+d1], xmm0		;; Save R2
 	xstore	[srcreg+d1+32], xmm1		;; Save I2
 	xstore	[srcreg+2*d1], xmm4		;; Save R3
@@ -68,7 +92,7 @@ r3_f3cl_three_complex_djbfft MACRO srcreg,srcinc,d1,screg,scoff
 ;; Res2:  (R1-.5R2-.866I2-.5R3+.866I3) + (I1-.5I2+.866R2-.5I3-.866R3)i
 ;; Res3:  (R1-.5R2+.866I2-.5R3-.866I3) + (I1-.5I2-.866R2-.5I3+.866R3)i
 ;; Then multiply 2 of the 3 results by twiddle factors.
-r3_x3c_djbfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,t1,t2,memr1,memi1,memr2,memi2,screg,dstr1,dsti1
+r3_x3c_djbfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,t1,t2,memr1,memr2,memi1,memi2,screg
 	xload	r2, memr2
 	subpd	r2, r3			;; R2 - R3
 	xload	r5, memi2
@@ -112,9 +136,6 @@ r3_x3c_djbfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,t1,t2,memr1,memi1,memr2,memi2,
 	mulpd	r2, t2			;; B2 = B2 * sine (new I2)
 	mulpd	r5, t2			;; A3 = A3 * sine (new R3)
 	mulpd	r4, t2			;; B3 = B3 * sine (new I3)
-
-	xstore	dstr1, r3
-	xstore	dsti1, r6
 	ENDM
 
 
@@ -125,7 +146,7 @@ r3_x3c_djbfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,t1,t2,memr1,memi1,memr2,memi2,
 r3_x3cl_three_complex_djbunfft MACRO srcreg,srcinc,d1,screg,scoff
 	xload	xmm2, [srcreg+d1]	;; R2
 	xload	xmm3, [srcreg+d1+32]	;; I2
-	r3_x3c_djbunfft xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7,[srcreg],[srcreg+32],[srcreg+2*d1],[srcreg+2*d1+32],screg,0
+	r3_x3c_djbunfft_partial_mem xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7,[srcreg],[srcreg+32],[srcreg+2*d1],[srcreg+2*d1+32],screg,0
 	xload	xmm6, [srcreg+d1+16]	;; R2
 	xload	xmm7, [srcreg+d1+48]	;; I2
 	xstore	[srcreg], xmm4		;; Save R1
@@ -134,7 +155,7 @@ r3_x3cl_three_complex_djbunfft MACRO srcreg,srcinc,d1,screg,scoff
 	xstore	[srcreg+2*d1+32], xmm1	;; Save I2
 	xstore	[srcreg+d1+16], xmm0	;; Save R3
 	xstore	[srcreg+d1+48], xmm2	;; Save I3
-	r3_x3c_djbunfft xmm0,xmm1,xmm6,xmm7,xmm4,xmm5,xmm2,xmm3,[srcreg+16],[srcreg+48],[srcreg+2*d1+16],[srcreg+2*d1+48],screg,scoff
+	r3_x3c_djbunfft_partial_mem xmm0,xmm1,xmm6,xmm7,xmm4,xmm5,xmm2,xmm3,[srcreg+16],[srcreg+48],[srcreg+2*d1+16],[srcreg+2*d1+48],screg,scoff
 	xstore	[srcreg+d1], xmm4	;; Save R1
 	xstore	[srcreg+d1+32], xmm5	;; Save I1
 	xstore	[srcreg+16], xmm7	;; Save R2
@@ -150,7 +171,7 @@ r3_x3cl_three_complex_djbunfft MACRO srcreg,srcinc,d1,screg,scoff
 ;; Res1:  (R1+R2+R3) + (I1+I2+I3)i
 ;; Res2:  (R1-.5R2+.866I2-.5R3-.866I3) + (I1-.5I2-.866R2-.5I3+.866R3)i
 ;; Res3:  (R1-.5R2-.866I2-.5R3+.866I3) + (I1-.5I2+.866R2-.5I3-.866R3)i
-r3_x3c_djbunfft MACRO r1,r2,r3,r4,r5,r6,t1,t2,memr1,memi1,memr3,memi3,screg,scoff
+r3_x3c_djbunfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,t1,t2,memr1,memi1,memr3,memi3,screg,scoff
 	xcopy	t1, r3			;; Copy R2
 	xload	t2, [screg+scoff+16]
 	mulpd	r3, t2			;; A2 = R2 * cosine/sine
@@ -203,22 +224,22 @@ r3_x3c_djbunfft MACRO r1,r2,r3,r4,r5,r6,t1,t2,memr1,memi1,memr3,memi3,screg,scof
 r3_x3cl_six_reals_three_complex_djbfft MACRO srcreg,srcinc,d1,screg1,screg2
 	xload	xmm2, [srcreg+2*d1+32]		;; R3
 	xload	xmm5, [srcreg+2*d1+48]		;; I3
-	r3_x3c_djbfft_partial_mem xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7,[srcreg+32],[srcreg+48],[srcreg+d1+32],[srcreg+d1+48],screg1,[srcreg+d1+32],[srcreg+d1+48]
-	xload	xmm2, [srcreg+2*d1]		;; R3
-	xload	xmm5, [srcreg+2*d1+16]		;; R6
-;;	xstore	[srcreg+d1+32], xmm2		;; Save R1
-;;	xstore	[srcreg+d1+48], xmm5		;; Save I1
+	r3_x3c_djbfft_partial_mem xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7,[srcreg+32],[srcreg+d1+32],[srcreg+48],[srcreg+d1+48],screg1
+	xload	xmm6, [srcreg+2*d1]		;; R3
+	xload	xmm7, [srcreg+2*d1+16]		;; R6
+	xstore	[srcreg+d1+32], xmm2		;; Save R1
+	xstore	[srcreg+d1+48], xmm5		;; Save I1
 	xstore	[srcreg+2*d1], xmm0		;; Save R2
 	xstore	[srcreg+2*d1+16], xmm1		;; Save I2
 	xstore	[srcreg+2*d1+32], xmm4		;; Save R3
 	xstore	[srcreg+2*d1+48], xmm3		;; Save I3
-	r3_x6r_fft_partial_mem xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7,[srcreg],[srcreg+d1],[srcreg+16],[srcreg+d1+16],screg1,screg2
-	xstore	[srcreg], xmm6			;; Save R1 #1
-	xstore	[srcreg+16], xmm5		;; Save R1 #2
+	r3_x6r_fft_partial_mem xmm0,xmm1,xmm6,xmm3,xmm4,xmm7,xmm2,xmm5,[srcreg],[srcreg+d1],[srcreg+16],[srcreg+d1+16],screg1,screg2
+	xstore	[srcreg], xmm2			;; Save R1 #1
+	xstore	[srcreg+16], xmm7		;; Save R1 #2
 	xstore	[srcreg+32], xmm1		;; Save R2
-	xstore	[srcreg+48], xmm2		;; Save I2
+	xstore	[srcreg+48], xmm6		;; Save I2
 	xstore	[srcreg+d1], xmm0		;; Save R3
-	xstore	[srcreg+d1+16], xmm7		;; Save I3
+	xstore	[srcreg+d1+16], xmm5		;; Save I3
 	bump	srcreg, srcinc
 	ENDM
 
@@ -308,27 +329,28 @@ r3_fh3cl_six_reals_three_complex_djbfft MACRO srcreg,srcinc,d1,screg1,scoff1,scr
 	bump	srcreg, srcinc
 	ENDM
 
-;; Macro to do a six_reals_fft and three three_complex_djbfft in pass 2.
-;; The six-reals macro and one of the three-complex share an XMM 
-;; register.  This isn't very efficient, but this macro isn't called a whole lot.
-r3_h3cl_six_reals_three_complex_djbfft MACRO srcreg,srcinc,d1,screg1,screg2
-	code below is not correct
-	xload	xmm2, [srcreg+2*d1+32]		;; R3
-	xload	xmm5, [srcreg+2*d1+48]		;; I3
-	r3_x3c_djbfft_partial_mem xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7,[srcreg+32],[srcreg+48],[srcreg+d1+32],[srcreg+d1+48],screg1,[srcreg+d1+32],[srcreg+d1+48]
-;;	xstore	[srcreg+d1+32], xmm2		;; Save R1
-;;	xstore	[srcreg+d1+48], xmm5		;; Save I1
-	xstore	[srcreg+2*d1], xmm0		;; Save R2
-	xstore	[srcreg+2*d1+16], xmm1		;; Save I2
-	xstore	[srcreg+2*d1+32], xmm4		;; Save R3
+;; This is used in the later radix-3 levels of pass 2
+;; The six-reals macro and the three-complex share an XMM register.
+;; This isn't very efficient, but this macro isn't called a whole lot.
+r3_h3cl_six_reals_three_complex_djbfft MACRO srcreg,srcinc,d1,screg1,scoff1,screg2,scoff2
+	r3_h6r_h3c_djbfft_mem [srcreg+d1],[srcreg+16],[srcreg+2*d1+16],[srcreg+d1+32],[srcreg+48],[srcreg+2*d1+48],screg1+scoff1,screg2+scoff2
+	xload	xmm6, [srcreg+d1+16]		;; R3
+	xload	xmm7, [srcreg+d1+48]		;; R6
+	xstore	[srcreg+16], xmm2		;; Save R1 #1/R1
+	xstore	[srcreg+48], xmm5		;; Save R1 #2/I1
+	xstore	[srcreg+d1+16], xmm0		;; Save R2
+	xstore	[srcreg+d1+48], xmm1		;; Save I2
+	xstore	[srcreg+2*d1+16], xmm4		;; Save R3
 	xstore	[srcreg+2*d1+48], xmm3		;; Save I3
-	r3_h6r_h3c_djbfft_mem [srcreg],[srcreg+2*d1],[srcreg+d1+16],[srcreg+32],[srcreg+2*d1+32],[srcreg+d1+48],screg1,screg2
+	xstore	XMM_TMP1, xmm6
+	xstore	XMM_TMP2, xmm7
+	r3_h6r_h3c_djbfft_mem [srcreg],[srcreg+2*d1],XMM_TMP1,[srcreg+32],[srcreg+2*d1+32],XMM_TMP2,screg1,screg2
 	xstore	[srcreg], xmm2			;; Save R1 #1/R1
-	xstore	[srcreg+16], xmm5		;; Save R1 #2/I1
-	xstore	[srcreg+32], xmm0		;; Save R2
-	xstore	[srcreg+48], xmm1		;; Save I2
-	xstore	[srcreg+d1], xmm4		;; Save R3
-	xstore	[srcreg+d1+16], xmm3		;; Save I3
+	xstore	[srcreg+32], xmm5		;; Save R1 #2/I1
+	xstore	[srcreg+d1], xmm0		;; Save R2
+	xstore	[srcreg+d1+32], xmm1		;; Save I2
+	xstore	[srcreg+2*d1], xmm4		;; Save R3
+	xstore	[srcreg+2*d1+32], xmm3		;; Save I3
 	bump	srcreg, srcinc
 	ENDM
 

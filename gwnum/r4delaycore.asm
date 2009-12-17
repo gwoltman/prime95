@@ -41,16 +41,19 @@ TLB_PRIMING = 0
 
 ;; Generate pass 2 routines optmized for this architecture
 
+	xpass2gen 2304
 	xpass2gen 3072
 	xpass2gen 12
 
 ;; Routines for many FFT sizes
 
+	r4delay_pass1sc384 864K, 2304, 4
 	r4delay_pass1sc384 1152K, 3072, 4
 	r4delay_pass1sc384 1536K, 12, 4
 	r4delay_pass1sc512 2M, 12, 4
 	r4delay_pass1sc1024 4M, 12, 4
 
+	r4delay_pass1sc384ac 864K, 2304, 4
 	r4delay_pass1sc384ac 1152K, 3072, 4
 	r4delay_pass1sc384ac 1536K, 12, 4
 	r4delay_pass1sc512ac 1536K, 3072, 4

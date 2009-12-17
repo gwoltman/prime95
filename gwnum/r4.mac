@@ -143,8 +143,22 @@ r4_s2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
 ENDIF
 
 ;; Used in first levels of pass 2 when last levels of pass 1 swizzled.
-r4_x2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
+r4_f2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
 	r4_x4c_djbfft_mem [srcreg][rbx],[srcreg+d1][rbx],[srcreg+16][rbx],[srcreg+d1+16][rbx],[srcreg+32][rbx],[srcreg+d1+32][rbx],[srcreg+48][rbx],[srcreg+d1+48][rbx],screg,0,srcreg+srcinc+rbx,d1,[srcreg],[srcreg+16]
+;;	xstore	[srcreg], xmm0		;; Save R1
+;;	xstore	[srcreg+16], xmm0	;; Save I1
+	xstore	[srcreg+32], xmm7	;; Save R2
+	xstore	[srcreg+48], xmm6	;; Save I2
+	xstore	[srcreg+d1], xmm3	;; Save R3
+	xstore	[srcreg+d1+16], xmm1	;; Save I3
+	xstore	[srcreg+d1+32], xmm2	;; Save R4
+	xstore	[srcreg+d1+48], xmm4	;; Save I4
+	bump	srcreg, srcinc
+	ENDM
+
+;; Used in later levels of pass 2.
+r4_nf2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
+	r4_x4c_djbfft_mem [srcreg],[srcreg+d1],[srcreg+16],[srcreg+d1+16],[srcreg+32],[srcreg+d1+32],[srcreg+48],[srcreg+d1+48],screg,0,srcreg+srcinc+rbx,d1,[srcreg],[srcreg+16]
 ;;	xstore	[srcreg], xmm0		;; Save R1
 ;;	xstore	[srcreg+16], xmm0	;; Save I1
 	xstore	[srcreg+32], xmm7	;; Save R2
