@@ -118,7 +118,7 @@ c9b:	r4_sg2cl_four_complex_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 	bump	rdi, 2*clm*XMM_SCD2	;; Next sin/cos data pointer
 	end_timer 16
 
-;; Do inverse FFT levels 6,7 (actually 1.5 levels)
+;; Do inverse FFT levels 6,7 (actually 1.585 levels)
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0K	2K	4K	6K
 ;;	1K	...
@@ -167,7 +167,7 @@ c7b:	r3_x3cl_three_complex_djbunfft rsi, 64, 2*clmblkdst, rdi, 2*2*clm*XMM_SCD1
 	bump	rdi, 4*2*clm*XMM_SCD1+4*2*clm*XMM_SCD1 ;; Next sin/cos data pointer
 	end_timer 17
 
-;; Do inverse FFT levels 4,5 (actually 1.5 levels)
+;; Do inverse FFT levels 4,5 (actually 1.585 levels)
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0K	6K	12K	18K
 ;;	1K	...
@@ -291,7 +291,7 @@ b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 36*clmblkdst, rdi
 	bump	rsi, -18*2*clmblkdst	;; Restore source pointer
 	end_timer 22
 
-;; Do FFT levels 4,5 (actually 1.5 levels)
+;; Do FFT levels 4,5 (actually 1.585 levels)
 ;;
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0K	36K	72K	108K
@@ -341,7 +341,7 @@ b5b:	r3_x3cl_three_complex_djbfft rsi, 64, 12*clmblkdst, rdi
 	bump	rdi, -12*2*clm*XMM_SCD1	;; Restore sin/cos ptr
 	end_timer 24
 
-;; Do FFT levels 6,7 (actually 1.5 levels)
+;; Do FFT levels 6,7 (actually 1.585 levels)
 ;;
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0K	12K	24K	36K
@@ -591,7 +591,7 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*c
 	bump	rdi, 4*2*clm*XMM_SCD2+4*2*clm*XMM_SCD2 ;; Next sin/cos data pointer
 	end_timer 17
 
-;; Do inverse FFT levels 4,5 (actually 1.5 levels)
+;; Do inverse FFT levels 4,5 (actually 1.585 levels)
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0K	8K	16K	24K
 ;;	1K	...
@@ -719,7 +719,7 @@ b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 6*clmblkdst8, rdi
 	bump	rsi, -6*clmblkdst8	;; Restore source pointer
 	end_timer 22
 
-;; Do FFT levels 4,5 (actually 1.5 levels)
+;; Do FFT levels 4,5 (actually 1.585 levels)
 ;;
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0K	48K	96K	144K
@@ -940,8 +940,8 @@ pass2:	start_timer 0
 ;;	do 63 macros each processing 16 data values
 
 ;; Prefetch 16*2*clm*XMM_SCD2 + 16*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD2 +
-;;	    2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD4 = 50*2*clm 64-byte cache lines
-;; bug - this over prefetches (48*2*clm*64 instead of 46*2*clm*64)
+;;	    2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD4 = 49*2*clm 64-byte cache lines
+;; bug - this over prefetches (48*2*clm*64 instead of 45*2*clm*64)
 
 c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
@@ -1180,7 +1180,7 @@ b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 8*clmblkdst8, rdi
 	mov	rdi, PREMULT_ADDR	;; Address of premultiplier/sin/cos table
 	bump	rdi, 4*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD2 + 2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD4
 	lea	rdx, [rdi+16*2*clm*XMM_SCD2] ;; Next sin/cos ptr
-	loops_init 32*2*clm		;; 2 iters of 8 of 2*clm
+	loops_init 32*2*clm		;; 4 iters of 8 of 2*clm
 b4a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b4b:	r4_x4cl_eight_reals_four_complex_djbfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
@@ -1371,19 +1371,18 @@ pass2:	start_timer 0
 ;;	distance between fft data elements is 1K
 ;;	do 31 macros each processing 32 data values
 
-;; BUG BUG BUG BUG BUG BUG --- these numbers need correcting
-;; Prefetch 16*2*clm*XMM_SCD2 + 16*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD2 +
-;;	    2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD4 = 50*2*clm 64-byte cache lines
-;; bug - this over prefetches (48*2*clm*64 instead of 46*2*clm*64)
+;; Prefetch 32*2*clm*XMM_SCD2 + 32*2*clm*XMM_SCD2 + 8*2*clm*XMM_SCD2 + 8*2*clm*XMM_SCD2 +
+;;	    2*clm*XMM_SCD4 + 4*2*clm*XMM_SCD8 = 98*2*clm 64-byte cache lines
+;; bug - this over prefetches (48*2*clm*64 instead of 90*2*clm*64)
 ;; bug - this actually under prefetches (64*2*clm*64 instead of ??*2*clm*64)
 
 c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
-	loops_init_prefetch_touch 64*2*clm, 64, 1, rbp, 4096, c9a ;; 64*2*clm iterations
 pfing	lea	rbp, [rdi+2*XMM_SCD8]	;; Prefetch the sin/cos/premult data we are about to use
-	lea	rdx, [rdi+2*clm*XMM_SCD8] ;; Next sin/cos ptr
+	lea	rdx, [rdi+4*2*clm*XMM_SCD8] ;; Next sin/cos ptr
+	loops_init_prefetch_touch 64*2*clm, 64, 1, rbp, 4096, c9a ;; 64*2*clm iterations
 	xtouch	[rbp]			;; Prefetch TLB
 c8b:	r8_sg4cl_sixteen_reals_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst, 2*clmblkdst, rdi, rdx
 	bump	rdi, XMM_SCD8		;; Next premult/sin/cos data
@@ -1621,7 +1620,7 @@ b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 16*clmblkdst8, rdi
 	mov	rdi, PREMULT_ADDR	;; Address of premultiplier/sin/cos table
 	bump	rdi, 8*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD8
 	lea	rdx, [rdi+32*2*clm*XMM_SCD2]
-	loops_init 64*2*clm		;; 4 iters of 8 of 2*clm
+	loops_init 64*2*clm		;; 8 iters of 8 of 2*clm
 b4a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b4b:	r4_x4cl_eight_reals_four_complex_djbfft rsi, 64, 4*clmblkdst8, 8*clmblkdst8, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
@@ -1862,7 +1861,7 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*c
 	bump	rdi, 4*2*clm*XMM_SCD2	;; Next sin/cos data pointer
 	end_timer 17
 
-;; Do inverse FFT levels 4,5 (actually 1.5 levels)
+;; Do inverse FFT levels 4,5 (actually 1.585 levels)
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0K	8K	16K	24K
 ;;	1K	...
@@ -1978,7 +1977,7 @@ b1b:	r4_x2cl_four_complex_first_djbfft_scratch rsi, 64, 6*clmblkdst8, rdi, rdx
 	bump	rsi, -6*clmblkdst8	;; Restore source pointer
 	end_timer 22
 
-;; Do FFT levels 4,5 (actually 1.5 levels)
+;; Do FFT levels 4,5 (actually 1.585 levels)
 ;;
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0K	48K	96K	144K
@@ -2930,7 +2929,7 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*cl
 	bump	rdi, 8*2*clm*XMM_SCD2	;; Next sin/cos data pointer
 	end_timer 17
 
-;; Do inverse FFT levels 4,5 (actually 2.25 levels)
+;; Do inverse FFT levels 4,5 (actually 2.32 levels)
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0K	16K	32K	48K
 ;;	1K	...
@@ -3048,7 +3047,7 @@ b1b:	r4_x2cl_four_complex_first_djbfft_scratch rsi, 64, 20*clmblkdst8, rdi, rdx
 	bump	rsi, -20*clmblkdst8	;; Restore source pointer
 	end_timer 22
 
-;; Do FFT levels 4,5 (actually 2.25 levels)
+;; Do FFT levels 4,5 (actually 2.32 levels)
 ;;
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0K	160K	320K	480K

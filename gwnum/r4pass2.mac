@@ -5,7 +5,7 @@
 ; These macros do the second pass of standard radix-4 2 pass FFTs using SSE2 instructions.
 ;
 
-; *************** radix4-pass2-11.17-levels-real macro ******************
+; *************** radix4-pass2-2304-levels-real macro ******************
 ; This macro takes 4608 real values and performs the final 12.17 levels of
 ; the FFT.  Independently, this macro also takes 2304 complex values and
 ; performs the final 11.17 levels of the FFT.  The results are squared, and
@@ -142,7 +142,7 @@ b3b:	r3_nf3cl_three_complex_djbfft rsi, 64, dist128, rdi, 128*3*XMM_SCD1
 ;;	distance between fft data elements is 64
 ;;	do 64 macros each processing 16 data values
 
-	bump	rdi, 768*XMM_SCD1	;; Load sin/cos pointers
+	bump	rdi, 768*XMM_SCD1	;; Load sin/cos pointer
 	loops_init 576
 b4b:	r4_h2cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
@@ -551,10 +551,10 @@ xpass2_2304_real_done:
 	end_timer 2
 	ENDM
 
-; *************** radix4-pass2-11.25-levels-complex macro ******************
+; *************** radix4-pass2-2304-levels-complex macro ******************
 ; This macro takes 2 groups of 2304 complex values and
-; performs the final 11 1/4 levels of a standard mostly radix-4 FFT, squares the
-; results, and does the first 11 1/4 levels of the inverse FFT.
+; performs the final 11.17 levels of a standard mostly radix-4 FFT, squares the
+; results, and does the first 11.17 levels of the inverse FFT.
 
 r4_pass2_2304_levels_complex MACRO
 	LOCAL	b1b, b2b, b3b0, b3b, b4b, b5b
@@ -1039,7 +1039,7 @@ xpass2_2304_levels_complex_done:
 	ENDM
 
 
-; *************** radix4-pass2-11.585-levels-real macro ******************
+; *************** radix4-pass2-3072-levels-real macro ******************
 ; This macro takes 6144 real values and performs the final 12.585 levels of
 ; the FFT.  Independently, this macro also takes 3072 complex values and
 ; performs the final 11.585 levels of the FFT.  The results are squared, and
@@ -1185,7 +1185,7 @@ b3b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 2*dist128, rdi, rbx
 ;;	distance between fft data elements is 64
 ;;	do 64 macros each processing 32 data values
 
-	bump	rdi, 1536*XMM_SCD1	;; Load sin/cos pointers
+	bump	rdi, 1536*XMM_SCD1	;; Load sin/cos pointer
 	loops_init 384
 b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
@@ -1603,10 +1603,10 @@ xpass2_3072_real_done:
 	end_timer 2
 	ENDM
 
-; *************** radix4-pass2-11.5-levels-complex macro ******************
+; *************** radix4-pass2-3072-levels-complex macro ******************
 ; This macro takes 2 groups of 3072 complex values and
-; performs the final 11 1/2 levels of a standard mostly radix-4 FFT, squares the
-; results, and does the first 11 1/2 levels of the inverse FFT.
+; performs the final 11.585 levels of a standard mostly radix-4 FFT, squares the
+; results, and does the first 11.585 levels of the inverse FFT.
 
 r4_pass2_3072_levels_complex MACRO
 	LOCAL	b1b, b2b, b3b0, b3b, b4b, b5b
@@ -2242,7 +2242,7 @@ b3b:	r4_x4cl_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi
 ;;	distance between fft data elements is 64
 ;;	do 64 macros each processing 32 data values
 
-	bump	rdi, -256*4*XMM_SCD2+1024*XMM_SCD2 ;; Load sin/cos pointers
+	bump	rdi, -256*4*XMM_SCD2+1024*XMM_SCD2 ;; Load sin/cos pointer
 	loops_init 512
 b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
@@ -2753,7 +2753,6 @@ b2b:	r4_x4cl_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi
 	loops	2, b2b			;; Test loop counter
 	bump	rsi, -2*8*dist128	;; Restore source pointer
 	end_timer 5
-	;; don't restore rdi, we'll fix it in next section
 
 ;; Do FFT levels 5,6
 ;;
@@ -2825,7 +2824,7 @@ IFDEF NO_MERGED_3_LOOPS
 
 	start_timer 6
 	mov	rcx, DATA_PREFETCH	;; Prefetch pointer
-	bump	rdi, -256*4*XMM_SCD2+1024*XMM_SCD2 ;; Load sin/cos pointers
+	bump	rdi, 1024*XMM_SCD2	;; Load sin/cos pointer
 	loops_init_prefetch 512, 64, 2, rcx ;; 2*4 iters of 4 of 64 cache lines
 	xtouch	[rcx]			;; Load first TLB
 b3a:	xtouch	[rcx+4096-128]		;; Load six prefetch TLBs
@@ -2879,7 +2878,7 @@ ELSE
 
 	start_timer 6
 	mov	rcx, DATA_PREFETCH	;; Prefetch pointer
-	bump	rdi, -256*4*XMM_SCD2+1024*XMM_SCD2 ;; Load sin/cos pointers
+	bump	rdi, 1024*XMM_SCD2	;; Load sin/cos pointers
 	mov	rbx, rdi
 	mov	rbp, rdi
 	loops_init_prefetch 512, 64, 2, rcx ;; 2*4 iters of 4 of 64 cache lines
