@@ -419,7 +419,7 @@ r4_x4c_djbfft MACRO r1,r2,r3,r4,r5,r6,r7,r8,screg,off,pre1,pre2,dst1,dst2
 	ENDM
 
 ;;
-;; ************************************* four-complex-djbfft variants ******************************************
+;; ************************************* four-complex-djbunfft variants ******************************************
 ;;
 
 r4_x4cl_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scoff

@@ -15,22 +15,25 @@
 ;; BUG:  swizzling versions for one-pass FFTs.
 
 
+;;
+;; ************************************* eight-complex-djbfft variants ******************************************
+;;
+
 ;; This is a standard eight-complex case with 7 sin/cos twiddle factors applied.
 ;; DJB allows us to do this using only 4 sin/cos twiddle factors.
+IFDEF UNUSED
 r8_x8cl_eight_complex_djbfft MACRO srcreg,srcinc,d1,d2,d4,screg
 bug	r8_x8c_djbfft srcreg+0,d1,d2,d4,dstreg+0,e1,e2,screg,0
 bug	r8_x8c_djbfft srcreg+32,d1,d2,d4,dstreg+e4,e1,e2,screg,0
 	bump	srcreg, srcinc
 	ENDM
 
-IFDEF UNUSED
 r8_g8cl_eight_complex_djbfft MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4,screg
 untested	r8_x8c_djbfft srcreg+0,d1,d2,d4,dstreg+0,e1,e2,screg,0
 untested	r8_x8c_djbfft srcreg+32,d1,d2,d4,dstreg+e4,e1,e2,screg,0
 	bump	srcreg, srcinc
 	bump	dstreg, dstinc
 	ENDM
-ENDIF
 
 r8_x8c_djbfft MACRO srcreg,d1,d2,d4,dstreg,e1,e2,screg,scoff
 	xload	xmm0, [srcreg]			;; R1
@@ -265,185 +268,16 @@ r8_x8c_djbfft MACRO srcreg,d1,d2,d4,dstreg,e1,e2,screg,scoff
 	xstore	[dstreg+e1+16], xmm3		;; Save I3
 	xstore	[dstreg+e1+32], xmm2		;; Save R4
 	xstore	[dstreg+e1+48], xmm4		;; Save I4
-
 	ENDM
-
-
-
-;; ************************************************************************************************
+ENDIF
 
 ;;
-;; Do three-and-7/8 levels of the forward FFT on 16 real data values with 7 sin/cos multipliers.
-;; Output is 2 real values needing N+1 more levels and 7 complex values needing N more FFT levels.
-;; Also do a forward FFT on 8 complex values.
-;;
-;; To simplify implementation of the 16 reals case, I first operate on 4 sets of 4 reals doing
-;; one-and-1/2 levels.  Each set outputs two real values and one complex value.  The four complex
-;; values are multiplied by w^1.  Then I do one eight-reals-FFT which can use the sin/cos multipliers
-;; that r8_g8cl_eight_complex_djbfft uses.  Finally, the one four-complex-FFT uses two more
-;; sin/cos multipliers.
+;; ************************************* four-complex-djbunfft variants ******************************************
 ;;
 
-IFDEF UNUSED
-r8_g8cl_sixteen_reals_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4,screg1,screg2
-IFDEF NOT_FINISHED
 
-warning - can't do djbfft --- and it probably does
-
-this comment isn't correct
-
-;; NOTE:  When this macro is called from the r4delay FFT variant, it must offset the screg
-;; by XMM_SCD1 (32 bytes).  This is because the r8_x8c_djbfft macro expects screg to point to 4
-;; twiddle factors, but in r4delay screg points to a block of 8 twiddle factors with the first
-;; twiddle factor being for R1/I1.
 ;;
--- screg1 needs incrementing by 32 to do fft7 instead of fft8
-
-	xload	xmm0, [srcreg]		;; R1
-	xload	xmm2, [srcreg+16]	;; R9
-	subpd	xmm0, xmm2		;; new R9 = R1 - R9
-	addpd	xmm2, [srcreg]		;; new R1 = R1 + R9
-
-	xload	xmm1, [srcreg+d4]	;; R5
-	xload	xmm3, [srcreg+d4+16]	;; R13
-	subpd	xmm1, xmm3		;; new I9 = R5 - R13
-	addpd	xmm3, [srcreg+d4]	;; new R5 = R5 + R13
-
-	xload	xmm7, [screg2+16]	;; cosine/sine
-	mulpd	xmm7, xmm0		;; A9 = R9 * cosine/sine
-	subpd	xmm7, xmm1		;; A9 = A9 - I9
-	mulpd	xmm1, [screg2+16]	;; B9 = I9 * cosine/sine
-	addpd	xmm1, xmm0		;; B9 = B9 + R9
-
-	mulpd	xmm7, [screg2]		;; A9 = A9 * sine (final R9)
-	mulpd	xmm1, [screg2]		;; B9 = B9 * sine (final I9)
-
-	xstore	[dstreg+], xmm2		;; Save R1
-	xstore	[dstreg+], xmm3		;; Save R5
-	xstore	[dstreg+], xmm7		;; Save R9
-	xstore	[dstreg+], xmm1		;; Save I9
-
-	xload	xmm4, [srcreg+d1]	;; R2
-	xload	xmm6, [srcreg+d1+16]	;; R10
-	subpd	xmm4, xmm6		;; new R10 = R2 - R10
-	addpd	xmm6, [srcreg+d1]	;; new R2 = R2 + R10
-
-	xload	xmm5, [srcreg+d4+d1]	;; R6
-	xload	xmm7, [srcreg+d4+d1+16]	;; R14
-	subpd	xmm5, xmm7		;; new I10 = R6 - R14
-	addpd	xmm7, [srcreg+d4+d1]	;; new R6 = R6 + R14
-
-	xload	xmm2, [screg2+scoff2+48];; cosine/sine
-	mulpd	xmm2, xmm4		;; A10 = R10 * cosine/sine
-	subpd	xmm2, xmm5		;; A10 = A10 - I10
-	mulpd	xmm5, [screg2+scoff2+48];; B10 = I10 * cosine/sine
-	addpd	xmm5, xmm4		;; B10 = B10 + R10
-
-	mulpd	xmm2, [screg2+scoff2+32];; A10 = A10 * sine (final R10)
-	mulpd	xmm5, [screg2+scoff2+32];; B10 = B10 * sine (final I10)
-
-	xstore	[dstreg+], xmm6		;; Save R2
-	xstore	[dstreg+], xmm7		;; Save R6
-	xstore	[dstreg+], xmm2		;; Save R10
-	xstore	[dstreg+], xmm5		;; Save I10
-
-	xload	xmm0, [srcreg+d2]	;; R3
-	xload	xmm2, [srcreg+d2+16]	;; R11
-	subpd	xmm0, xmm2		;; new R11 = R3 - R11
-	addpd	xmm2, [srcreg+d2]	;; new R3 = R3 + R11
-
-	xload	xmm1, [srcreg+d4+d2]	;; R7
-	xload	xmm3, [srcreg+d4+d2+16]	;; R15
-	subpd	xmm1, xmm3		;; new I11 = R7 - R15
-	addpd	xmm3, [srcreg+d4+d2]	;; new R7 = R7 + R15
-
-	xload	xmm7, [screg2+scoff2+80];; cosine/sine
-	mulpd	xmm7, xmm0		;; A11 = R11 * cosine/sine
-	subpd	xmm7, xmm1		;; A11 = A11 - I11
-	mulpd	xmm1, [screg2+scoff2+80];; B11 = I11 * cosine/sine
-	addpd	xmm1, xmm0		;; B11 = B11 + R11
-
-	mulpd	xmm7, [screg2+scoff2+64];; A11 = A11 * sine (final R11)
-	mulpd	xmm1, [screg2+scoff2+64];; B11 = B11 * sine (final I11)
-
-	xstore	[dstreg+], xmm2		;; Save R3
-	xstore	[dstreg+], xmm3		;; Save R7
-	xstore	[dstreg+], xmm7		;; Save R11
-	xstore	[dstreg+], xmm1		;; Save I11
-
-	xload	xmm4, [srcreg+d1]	;; R4
-	xload	xmm6, [srcreg+d1+16]	;; R12
-	subpd	xmm4, xmm6		;; new R12 = R4 - R12
-	addpd	xmm6, [srcreg+d1]	;; new R4 = R4 + R12
-
-	xload	xmm5, [srcreg+d4+d1]	;; R8
-	xload	xmm7, [srcreg+d4+d1+16]	;; R16
-	subpd	xmm5, xmm7		;; new I12 = R8 - R16
-	addpd	xmm7, [srcreg+d4+d1]	;; new R8 = R8 + R16
-
-	xload	xmm2, [screg2+scoff2+48];; cosine/sine
-	mulpd	xmm2, xmm4		;; A12 = R12 * cosine/sine
-	subpd	xmm2, xmm5		;; A12 = A12 - I12
-	mulpd	xmm5, [screg2+scoff2+48];; B12 = I12 * cosine/sine
-	addpd	xmm5, xmm4		;; B12 = B12 + R12
-
-	mulpd	xmm2, [screg2+scoff2+32];; A12 = A12 * sine (final R12)
-	mulpd	xmm5, [screg2+scoff2+32];; B12 = B12 * sine (final I12)
-
-	xstore	[dstreg+], xmm6		;; Save R4
-	xstore	[dstreg+], xmm7		;; Save R8
-	xstore	[dstreg+], xmm2		;; Save R12
-	xstore	[dstreg+], xmm5		;; Save I12
-
-	r4_x8r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+d4],[srcreg+d4+d1],[srcreg+d4+d2],[srcreg+d4+d2+d1],screg,0,dstreg+dstinc,e1,[dstreg],[dstreg+16]
-;;	xstore	[dstreg], xmm0		;; Save real value #1
-;;	xstore	[dstreg+16], xmm0	;; Save real value #2
-	xstore	[dstreg+32], xmm7	;; Save R2
-	xstore	[dstreg+48], xmm5	;; Save I2
-	xstore	[dstreg+e1], xmm4	;; Save R3
-	xstore	[dstreg+e1+16], xmm1	;; Save I3
-	xstore	[dstreg+e1+32], xmm6	;; Save R4
-	xstore	[dstreg+e1+48], xmm2	;; Save I4
-
-
-	;; Now do the four-complex part
-some code here....
-
-	;; Now do the eight-complex part
-might can't use djbfft  ---  make sure unfft pass 1 code does an undjbfft
-	r8_x8c_djbfft srcreg+32,d1,d2,d4,dstreg+e4,e1,e2,screg1,scoff1
-	bump	srcreg, srcinc
-	bump	dstreg, dstinc
-ENDIF
-	ENDM
-ENDIF
-
-r8_sg8cl_sixteen_reals_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4,screg1,screg2
-IFDEF NOT_FINISHED
-	bump	srcreg, srcinc
-	bump	dstreg, dstinc
-ENDIF
-	ENDM
-
-IFDEF UNUSED
-r8_g4cl_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg1,screg2
-IFDEF NOT_FINISHED
-	bump	srcreg, srcinc
-	bump	dstreg, dstinc
-ENDIF
-	ENDM
-ENDIF
-
-r8_sg4cl_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg1,screg2
-IFDEF NOT_FINISHED
-	bump	srcreg, srcinc
-	bump	dstreg, dstinc
-ENDIF
-	ENDM
-
-
-;; ************************************************************************************************
-
+;; ************************************* eight-complex-fft8 variants ******************************************
 ;;
 ;; In the all-complex split premultiplier case, we apply part of the roots of -1 at the
 ;; end of the first pass.  Also, in the r4delay case we apply part of the first level
@@ -930,6 +764,10 @@ r8_s8c_fft8 MACRO srcreg,d1,d2,d4,dstreg,e1,e2,screg,scoff
 	shuffle_store_with_temp [dstreg+e1+32], [dstreg+e1+48], xmm4, xmm3, xmm0	;; Save I3,I4
 	ENDM
 
+;;
+;; ************************************* eight-complex-unfft8 variants ******************************************
+;;
+
 ;
 ; Radix-8 inverse FFT building block for all-complex split premultipliers (r4spm) and
 ; delayed twiddle multipliers from the first few levels (r4delay).
@@ -937,6 +775,7 @@ r8_s8c_fft8 MACRO srcreg,d1,d2,d4,dstreg,e1,e2,screg,scoff
 ;
 
 ;; Used in the last levels of pass 1.  No swizzling.
+IFDEF UNUSED
 r8_g4cl_eight_complex_unfft8 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	xload	xmm7, [screg+0+16]		;; cosine/sine
 	mulpd	xmm7, [srcreg]			;; A1 = R1 * cosine/sine
@@ -1180,6 +1019,7 @@ r8_g4cl_eight_complex_unfft8 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	xstore	[dstreg+e2+e1+48], xmm5		;; I8
 	bump	dstreg, dstinc
 	ENDM
+ENDIF
 
 ;; Used in the last levels of pass 1.  Swizzles.
 r8_sg4cl_eight_complex_unfft8 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
@@ -1429,6 +1269,183 @@ r8_sg4cl_eight_complex_unfft8 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,scre
 	xstore	[dstreg+e2+e1+16], xmm6		;; R8
 	xstore	[dstreg+e2+e1+48], xmm5		;; I8
 	bump	dstreg, dstinc
+	ENDM
+
+
+;;
+;; ************************************* sixteen-reals-four-complex-fft8 variants ******************************************
+;;
+;; Because of the way we store FFT data elements in cache lines during the pass 1 of the forward FFT, a cache line
+;; will contain data needing an eight-reals-fft as well as data needing a four-complex-fft.
+
+;;
+;; Do three-and-7/8 levels of the forward FFT on 16 real data values with 7 sin/cos multipliers.
+;; Output is 2 real values needing N+1 more levels and 7 complex values needing N more FFT levels.
+;; Also do a forward FFT on 8 complex values.
+;;
+;; To simplify implementation of the 16 reals case, I first operate on 4 sets of 4 reals doing
+;; one-and-1/2 levels.  Each set outputs two real values and one complex value.  The four complex
+;; values are multiplied by w^1.  Then I do one eight-reals-FFT which can use the sin/cos multipliers
+;; that r8_g8cl_eight_complex_djbfft uses.  Finally, the one four-complex-FFT uses two more
+;; sin/cos multipliers.
+;;
+
+IFDEF UNUSED
+r8_g8cl_sixteen_reals_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4,screg1,screg2
+IFDEF NOT_FINISHED
+
+warning - can't do djbfft --- and it probably does
+
+this comment isn't correct
+
+;; NOTE:  When this macro is called from the r4delay FFT variant, it must offset the screg
+;; by XMM_SCD1 (32 bytes).  This is because the r8_x8c_djbfft macro expects screg to point to 4
+;; twiddle factors, but in r4delay screg points to a block of 8 twiddle factors with the first
+;; twiddle factor being for R1/I1.
+;;
+-- screg1 needs incrementing by 32 to do fft7 instead of fft8
+
+	xload	xmm0, [srcreg]		;; R1
+	xload	xmm2, [srcreg+16]	;; R9
+	subpd	xmm0, xmm2		;; new R9 = R1 - R9
+	addpd	xmm2, [srcreg]		;; new R1 = R1 + R9
+
+	xload	xmm1, [srcreg+d4]	;; R5
+	xload	xmm3, [srcreg+d4+16]	;; R13
+	subpd	xmm1, xmm3		;; new I9 = R5 - R13
+	addpd	xmm3, [srcreg+d4]	;; new R5 = R5 + R13
+
+	xload	xmm7, [screg2+16]	;; cosine/sine
+	mulpd	xmm7, xmm0		;; A9 = R9 * cosine/sine
+	subpd	xmm7, xmm1		;; A9 = A9 - I9
+	mulpd	xmm1, [screg2+16]	;; B9 = I9 * cosine/sine
+	addpd	xmm1, xmm0		;; B9 = B9 + R9
+
+	mulpd	xmm7, [screg2]		;; A9 = A9 * sine (final R9)
+	mulpd	xmm1, [screg2]		;; B9 = B9 * sine (final I9)
+
+	xstore	[dstreg+], xmm2		;; Save R1
+	xstore	[dstreg+], xmm3		;; Save R5
+	xstore	[dstreg+], xmm7		;; Save R9
+	xstore	[dstreg+], xmm1		;; Save I9
+
+	xload	xmm4, [srcreg+d1]	;; R2
+	xload	xmm6, [srcreg+d1+16]	;; R10
+	subpd	xmm4, xmm6		;; new R10 = R2 - R10
+	addpd	xmm6, [srcreg+d1]	;; new R2 = R2 + R10
+
+	xload	xmm5, [srcreg+d4+d1]	;; R6
+	xload	xmm7, [srcreg+d4+d1+16]	;; R14
+	subpd	xmm5, xmm7		;; new I10 = R6 - R14
+	addpd	xmm7, [srcreg+d4+d1]	;; new R6 = R6 + R14
+
+	xload	xmm2, [screg2+scoff2+48];; cosine/sine
+	mulpd	xmm2, xmm4		;; A10 = R10 * cosine/sine
+	subpd	xmm2, xmm5		;; A10 = A10 - I10
+	mulpd	xmm5, [screg2+scoff2+48];; B10 = I10 * cosine/sine
+	addpd	xmm5, xmm4		;; B10 = B10 + R10
+
+	mulpd	xmm2, [screg2+scoff2+32];; A10 = A10 * sine (final R10)
+	mulpd	xmm5, [screg2+scoff2+32];; B10 = B10 * sine (final I10)
+
+	xstore	[dstreg+], xmm6		;; Save R2
+	xstore	[dstreg+], xmm7		;; Save R6
+	xstore	[dstreg+], xmm2		;; Save R10
+	xstore	[dstreg+], xmm5		;; Save I10
+
+	xload	xmm0, [srcreg+d2]	;; R3
+	xload	xmm2, [srcreg+d2+16]	;; R11
+	subpd	xmm0, xmm2		;; new R11 = R3 - R11
+	addpd	xmm2, [srcreg+d2]	;; new R3 = R3 + R11
+
+	xload	xmm1, [srcreg+d4+d2]	;; R7
+	xload	xmm3, [srcreg+d4+d2+16]	;; R15
+	subpd	xmm1, xmm3		;; new I11 = R7 - R15
+	addpd	xmm3, [srcreg+d4+d2]	;; new R7 = R7 + R15
+
+	xload	xmm7, [screg2+scoff2+80];; cosine/sine
+	mulpd	xmm7, xmm0		;; A11 = R11 * cosine/sine
+	subpd	xmm7, xmm1		;; A11 = A11 - I11
+	mulpd	xmm1, [screg2+scoff2+80];; B11 = I11 * cosine/sine
+	addpd	xmm1, xmm0		;; B11 = B11 + R11
+
+	mulpd	xmm7, [screg2+scoff2+64];; A11 = A11 * sine (final R11)
+	mulpd	xmm1, [screg2+scoff2+64];; B11 = B11 * sine (final I11)
+
+	xstore	[dstreg+], xmm2		;; Save R3
+	xstore	[dstreg+], xmm3		;; Save R7
+	xstore	[dstreg+], xmm7		;; Save R11
+	xstore	[dstreg+], xmm1		;; Save I11
+
+	xload	xmm4, [srcreg+d1]	;; R4
+	xload	xmm6, [srcreg+d1+16]	;; R12
+	subpd	xmm4, xmm6		;; new R12 = R4 - R12
+	addpd	xmm6, [srcreg+d1]	;; new R4 = R4 + R12
+
+	xload	xmm5, [srcreg+d4+d1]	;; R8
+	xload	xmm7, [srcreg+d4+d1+16]	;; R16
+	subpd	xmm5, xmm7		;; new I12 = R8 - R16
+	addpd	xmm7, [srcreg+d4+d1]	;; new R8 = R8 + R16
+
+	xload	xmm2, [screg2+scoff2+48];; cosine/sine
+	mulpd	xmm2, xmm4		;; A12 = R12 * cosine/sine
+	subpd	xmm2, xmm5		;; A12 = A12 - I12
+	mulpd	xmm5, [screg2+scoff2+48];; B12 = I12 * cosine/sine
+	addpd	xmm5, xmm4		;; B12 = B12 + R12
+
+	mulpd	xmm2, [screg2+scoff2+32];; A12 = A12 * sine (final R12)
+	mulpd	xmm5, [screg2+scoff2+32];; B12 = B12 * sine (final I12)
+
+	xstore	[dstreg+], xmm6		;; Save R4
+	xstore	[dstreg+], xmm7		;; Save R8
+	xstore	[dstreg+], xmm2		;; Save R12
+	xstore	[dstreg+], xmm5		;; Save I12
+
+	r4_x8r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+d4],[srcreg+d4+d1],[srcreg+d4+d2],[srcreg+d4+d2+d1],screg,0,dstreg+dstinc,e1,[dstreg],[dstreg+16]
+;;	xstore	[dstreg], xmm0		;; Save real value #1
+;;	xstore	[dstreg+16], xmm0	;; Save real value #2
+	xstore	[dstreg+32], xmm7	;; Save R2
+	xstore	[dstreg+48], xmm5	;; Save I2
+	xstore	[dstreg+e1], xmm4	;; Save R3
+	xstore	[dstreg+e1+16], xmm1	;; Save I3
+	xstore	[dstreg+e1+32], xmm6	;; Save R4
+	xstore	[dstreg+e1+48], xmm2	;; Save I4
+
+
+	;; Now do the four-complex part
+some code here....
+
+	;; Now do the eight-complex part
+might can't use djbfft  ---  make sure unfft pass 1 code does an undjbfft
+	r8_x8c_djbfft srcreg+32,d1,d2,d4,dstreg+e4,e1,e2,screg1,scoff1
+	bump	srcreg, srcinc
+	bump	dstreg, dstinc
+ENDIF
+	ENDM
+ENDIF
+
+r8_sg8cl_sixteen_reals_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4,screg1,screg2
+IFDEF NOT_FINISHED
+	bump	srcreg, srcinc
+	bump	dstreg, dstinc
+ENDIF
+	ENDM
+
+;;
+;; ************************************* sixteen-reals-unfft8 variants ******************************************
+;;
+
+IFDEF UNUSED
+r8_g4cl_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg1,screg2
+	not written
+	ENDM
+ENDIF
+
+r8_sg4cl_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg1,screg2
+IFDEF NOT_FINISHED
+	bump	srcreg, srcinc
+	bump	dstreg, dstinc
+ENDIF
 	ENDM
 
 
