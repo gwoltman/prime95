@@ -12,7 +12,6 @@
 
 ;; BUG:  We need a radix-8 version for pass 2.  The best place is probably the last 3 levels.
 ;; BUG:  In which case we'll need the square and mulf versions too.  ---  and maybe
-;; BUG:  swizzling versions for one-pass FFTs.
 
 
 ;;
@@ -272,7 +271,7 @@ r8_x8c_djbfft MACRO srcreg,d1,d2,d4,dstreg,e1,e2,screg,scoff
 ENDIF
 
 ;;
-;; ************************************* four-complex-djbunfft variants ******************************************
+;; ************************************* eight-complex-djbunfft variants ******************************************
 ;;
 
 
@@ -295,6 +294,7 @@ r8_g8cl_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4,s
 	ENDM
 
 r8_x8c_fft8 MACRO srcreg,d1,d2,d4,dstreg,e1,e2,screg,scoff
+	untested - likely buggy
 	xload	xmm0, [srcreg]			;; R1
 	xload	xmm2, [srcreg+d4]		;; R5
 	addpd	xmm2, xmm0			;; R5 = R1 + R5 (new R1)
@@ -1290,20 +1290,19 @@ r8_sg4cl_eight_complex_unfft8 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,scre
 ;; sin/cos multipliers.
 ;;
 
+;; Used in last levels of pass 1 (split premultiplier and delay cases).  No swizzling.
 IFDEF UNUSED
 r8_g8cl_sixteen_reals_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4,screg1,screg2
-IFDEF NOT_FINISHED
+	not written
+	ENDM
+ENDIF
 
-warning - can't do djbfft --- and it probably does
+;; Used in last levels of pass 1 (split premultiplier and delay cases).  Swizzling.
+r8_sg8cl_sixteen_reals_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4,screg1,screg2
+	e3 = e2 + e1
 
-this comment isn't correct
-
-;; NOTE:  When this macro is called from the r4delay FFT variant, it must offset the screg
-;; by XMM_SCD1 (32 bytes).  This is because the r8_x8c_djbfft macro expects screg to point to 4
-;; twiddle factors, but in r4delay screg points to a block of 8 twiddle factors with the first
-;; twiddle factor being for R1/I1.
-;;
--- screg1 needs incrementing by 32 to do fft7 instead of fft8
+;; Do first level on the first 8 reals and 2 levels on the last 8 reals.
+;; The second level on the last eight reals is the multiply by i.
 
 	xload	xmm0, [srcreg]		;; R1
 	xload	xmm2, [srcreg+16]	;; R9
@@ -1324,10 +1323,10 @@ this comment isn't correct
 	mulpd	xmm7, [screg2]		;; A9 = A9 * sine (final R9)
 	mulpd	xmm1, [screg2]		;; B9 = B9 * sine (final I9)
 
-	xstore	[dstreg+], xmm2		;; Save R1
-	xstore	[dstreg+], xmm3		;; Save R5
-	xstore	[dstreg+], xmm7		;; Save R9
-	xstore	[dstreg+], xmm1		;; Save I9
+	xstore	[dstreg], xmm2		;; Save R1
+	xstore	[dstreg+e1], xmm3	;; Save R5
+	xstore	[dstreg+e2], xmm7	;; Save R9
+	xstore	[dstreg+e2+e1], xmm1	;; Save I9
 
 	xload	xmm4, [srcreg+d1]	;; R2
 	xload	xmm6, [srcreg+d1+16]	;; R10
@@ -1339,19 +1338,19 @@ this comment isn't correct
 	subpd	xmm5, xmm7		;; new I10 = R6 - R14
 	addpd	xmm7, [srcreg+d4+d1]	;; new R6 = R6 + R14
 
-	xload	xmm2, [screg2+scoff2+48];; cosine/sine
+	xload	xmm2, [screg2+48]	;; cosine/sine
 	mulpd	xmm2, xmm4		;; A10 = R10 * cosine/sine
 	subpd	xmm2, xmm5		;; A10 = A10 - I10
-	mulpd	xmm5, [screg2+scoff2+48];; B10 = I10 * cosine/sine
+	mulpd	xmm5, [screg2+48]	;; B10 = I10 * cosine/sine
 	addpd	xmm5, xmm4		;; B10 = B10 + R10
 
-	mulpd	xmm2, [screg2+scoff2+32];; A10 = A10 * sine (final R10)
-	mulpd	xmm5, [screg2+scoff2+32];; B10 = B10 * sine (final I10)
+	mulpd	xmm2, [screg2+32]	;; A10 = A10 * sine (final R10)
+	mulpd	xmm5, [screg2+32]	;; B10 = B10 * sine (final I10)
 
-	xstore	[dstreg+], xmm6		;; Save R2
-	xstore	[dstreg+], xmm7		;; Save R6
-	xstore	[dstreg+], xmm2		;; Save R10
-	xstore	[dstreg+], xmm5		;; Save I10
+	xstore	[dstreg+16], xmm6	;; Save R2
+	xstore	[dstreg+e1+16], xmm7	;; Save R6
+	xstore	[dstreg+e2+16], xmm2	;; Save R10
+	xstore	[dstreg+e2+e1+16], xmm5	;; Save I10
 
 	xload	xmm0, [srcreg+d2]	;; R3
 	xload	xmm2, [srcreg+d2+16]	;; R11
@@ -1363,89 +1362,486 @@ this comment isn't correct
 	subpd	xmm1, xmm3		;; new I11 = R7 - R15
 	addpd	xmm3, [srcreg+d4+d2]	;; new R7 = R7 + R15
 
-	xload	xmm7, [screg2+scoff2+80];; cosine/sine
+	xload	xmm7, [screg2+80]	;; cosine/sine
 	mulpd	xmm7, xmm0		;; A11 = R11 * cosine/sine
 	subpd	xmm7, xmm1		;; A11 = A11 - I11
-	mulpd	xmm1, [screg2+scoff2+80];; B11 = I11 * cosine/sine
+	mulpd	xmm1, [screg2+80]	;; B11 = I11 * cosine/sine
 	addpd	xmm1, xmm0		;; B11 = B11 + R11
 
-	mulpd	xmm7, [screg2+scoff2+64];; A11 = A11 * sine (final R11)
-	mulpd	xmm1, [screg2+scoff2+64];; B11 = B11 * sine (final I11)
+	mulpd	xmm7, [screg2+64]	;; A11 = A11 * sine (final R11)
+	mulpd	xmm1, [screg2+64]	;; B11 = B11 * sine (final I11)
 
-	xstore	[dstreg+], xmm2		;; Save R3
-	xstore	[dstreg+], xmm3		;; Save R7
-	xstore	[dstreg+], xmm7		;; Save R11
-	xstore	[dstreg+], xmm1		;; Save I11
+	xstore	[dstreg+32], xmm2	;; Save R3
+	xstore	[dstreg+e1+32], xmm3	;; Save R7
+	xstore	[dstreg+e2+32], xmm7	;; Save R11
+	xstore	[dstreg+e2+e1+32], xmm1	;; Save I11
 
-	xload	xmm4, [srcreg+d1]	;; R4
-	xload	xmm6, [srcreg+d1+16]	;; R12
+	xload	xmm4, [srcreg+d2+d1]	;; R4
+	xload	xmm6, [srcreg+d2+d1+16]	;; R12
 	subpd	xmm4, xmm6		;; new R12 = R4 - R12
-	addpd	xmm6, [srcreg+d1]	;; new R4 = R4 + R12
+	addpd	xmm6, [srcreg+d2+d1]	;; new R4 = R4 + R12
 
-	xload	xmm5, [srcreg+d4+d1]	;; R8
-	xload	xmm7, [srcreg+d4+d1+16]	;; R16
+	xload	xmm5, [srcreg+d4+d2+d1]	;; R8
+	xload	xmm7, [srcreg+d4+d2+d1+16] ;; R16
 	subpd	xmm5, xmm7		;; new I12 = R8 - R16
-	addpd	xmm7, [srcreg+d4+d1]	;; new R8 = R8 + R16
+	addpd	xmm7, [srcreg+d4+d2+d1]	;; new R8 = R8 + R16
 
-	xload	xmm2, [screg2+scoff2+48];; cosine/sine
+	xload	xmm2, [screg2+112]	;; cosine/sine
 	mulpd	xmm2, xmm4		;; A12 = R12 * cosine/sine
 	subpd	xmm2, xmm5		;; A12 = A12 - I12
-	mulpd	xmm5, [screg2+scoff2+48];; B12 = I12 * cosine/sine
+	mulpd	xmm5, [screg2+112]	;; B12 = I12 * cosine/sine
 	addpd	xmm5, xmm4		;; B12 = B12 + R12
 
-	mulpd	xmm2, [screg2+scoff2+32];; A12 = A12 * sine (final R12)
-	mulpd	xmm5, [screg2+scoff2+32];; B12 = B12 * sine (final I12)
+	mulpd	xmm2, [screg2+96]	;; A12 = A12 * sine (final R12)
+	mulpd	xmm5, [screg2+96]	;; B12 = B12 * sine (final I12)
 
-	xstore	[dstreg+], xmm6		;; Save R4
-	xstore	[dstreg+], xmm7		;; Save R8
-	xstore	[dstreg+], xmm2		;; Save R12
-	xstore	[dstreg+], xmm5		;; Save I12
+	xstore	[dstreg+48], xmm6	;; Save R4
+	xstore	[dstreg+e1+48], xmm7	;; Save R8
+	xstore	[dstreg+e2+48], xmm2	;; Save R12
+	xstore	[dstreg+e2+e1+48], xmm5	;; Save I12
 
-	r4_x8r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+d4],[srcreg+d4+d1],[srcreg+d4+d2],[srcreg+d4+d2+d1],screg,0,dstreg+dstinc,e1,[dstreg],[dstreg+16]
-;;	xstore	[dstreg], xmm0		;; Save real value #1
-;;	xstore	[dstreg+16], xmm0	;; Save real value #2
-	xstore	[dstreg+32], xmm7	;; Save R2
-	xstore	[dstreg+48], xmm5	;; Save I2
-	xstore	[dstreg+e1], xmm4	;; Save R3
-	xstore	[dstreg+e1+16], xmm1	;; Save I3
-	xstore	[dstreg+e1+32], xmm6	;; Save R4
-	xstore	[dstreg+e1+48], xmm2	;; Save I4
+;; Do last two and 3/4 levels on the remaining real data
 
+	xprefetch [srcreg+srcinc]
+	r4_x8r_fft_mem [dstreg],[dstreg+16],[dstreg+32],[dstreg+48],[dstreg+e1],[dstreg+e1+16],[dstreg+e1+32],[dstreg+e1+48],screg1+32,screg1+64,screg1+160,dstreg+dstinc,e1,[dstreg],[dstreg+32]
+	xprefetch [srcreg+srcinc+d1]
+	shuffle_store_partial [dstreg], [dstreg+16], xmm0, xmm7				;; Save real value #1,R2
+	shuffle_store_partial [dstreg+32], [dstreg+48], xmm1, xmm5			;; Save real value #2,I2
+	shuffle_store_with_temp [dstreg+e1], [dstreg+e1+16], xmm4, xmm6, xmm7		;; Save R3,R4
+	shuffle_store_with_temp [dstreg+e1+32], [dstreg+e1+48], xmm3, xmm2, xmm7	;; Save I3,I4
 
-	;; Now do the four-complex part
-some code here....
+;; Do last two levels on the remaining complex data.
+;; Use sin/cos values for w^2, w^4, w^6 (we're doing two levels here and the sin/cos data is for three levels)
 
-	;; Now do the eight-complex part
-might can't use djbfft  ---  make sure unfft pass 1 code does an undjbfft
-	r8_x8c_djbfft srcreg+32,d1,d2,d4,dstreg+e4,e1,e2,screg1,scoff1
+	xprefetch [srcreg+srcinc+d2]
+	r4_x4c_fft_mem [dstreg+e2],[dstreg+e2+16],[dstreg+e2+32],[dstreg+e2+48],[dstreg+e3],[dstreg+e3+16],[dstreg+e3+32],[dstreg+e3+48],screg1+64,screg1+128,screg1+192,dstreg+dstinc+e2,e1,[dstreg+e2],[dstreg+e2+32]
+	xprefetch [srcreg+srcinc+d2+d1]
+	shuffle_store_partial [dstreg+e2], [dstreg+e2+16], xmm2, xmm7			;; Save R1,R2
+	shuffle_store_partial [dstreg+e2+32], [dstreg+e2+48], xmm5, xmm6		;; Save I1,I2
+	shuffle_store_with_temp [dstreg+e2+e1], [dstreg+e2+e1+16], xmm3, xmm0, xmm7	;; Save R3,R4
+	shuffle_store_with_temp [dstreg+e2+e1+32], [dstreg+e2+e1+48], xmm1, xmm4, xmm7	;; Save I3,I4
+
+;; Now do the eight-complex part.   The code below is very similar to r8_s8c_fft8
+;; except that we can eliminate the complex multiply of R1/I1 (because we must
+;; be processing the first grouping and the sin/cos multiplier is 1).
+
+	xload	xmm0, [srcreg+32]		;; R1
+	xload	xmm2, [srcreg+d4+32]		;; R5
+	addpd	xmm2, xmm0			;; R5 = R1 + R5 (new R1)
+
+	xload	xmm1, [srcreg+d2+32]		;; R3
+	xload	xmm3, [srcreg+d4+d2+32]		;; R7
+	addpd	xmm3, xmm1			;; R7 = R3 + R7 (new R3)
+
+	xload	xmm4, [srcreg+48]		;; I1
+	xload	xmm6, [srcreg+d4+48]		;; I5
+	addpd	xmm6, xmm4			;; I5 = I1 + I5 (new I1)
+
+	subpd	xmm0, [srcreg+d4+32]		;; R1 = R1 - R5 (new R5)
+	subpd	xmm1, [srcreg+d4+d2+32]		;; R3 = R3 - R7 (new R7)
+
+	xcopy	xmm5, xmm3			;; Copy R3
+	addpd	xmm3, xmm2			;; R3 = R1 + R3 (final R1)
+	subpd	xmm2, xmm5			;; R1 = R1 - R3 (final R3)
+
+	xload	xmm5, [srcreg+d2+48]		;; I3
+	xload	xmm7, [srcreg+d4+d2+48]		;; I7
+	addpd	xmm7, xmm5			;; I7 = I3 + I7 (new I3)
+
+	subpd	xmm4, [srcreg+d4+48]		;; I1 = I1 - I5 (new I5)
+	subpd	xmm5, [srcreg+d4+d2+48]		;; I3 = I3 - I7 (new I7)
+
+	xstore	[dstreg+e4], xmm3		;; Save R1
+
+	xcopy	xmm3, xmm7			;; Copy I3
+	addpd	xmm7, xmm6			;; I3 = I1 + I3 (final I1)
+	subpd	xmm6, xmm3			;; I1 = I1 - I3 (final I3)
+
+	xstore	[dstreg+e4+16], xmm7		;; Save I1
+
+	xcopy	xmm3, xmm1			;; Copy R7
+	addpd	xmm1, xmm4			;; R7 = I5 + R7 (final I5)
+	xcopy	xmm7, xmm0			;; Copy R5
+	subpd	xmm0, xmm5			;; R5 = R5 - I7 (final R5)
+	subpd	xmm4, xmm3			;; I5 = I5 - R7 (final I7)
+	addpd	xmm5, xmm7			;; I7 = R5 + I7 (final R7)
+
+	xstore	[dstreg+e4+e1], xmm2		;; Save R3
+	xstore	[dstreg+e4+e1+16], xmm6		;; Save I3
+	xstore	[dstreg+e4+e2], xmm0		;; Save R5
+	xstore	[dstreg+e4+e2+16], xmm1		;; Save I5
+	xstore	[dstreg+e4+e2+e1], xmm5		;; Save R7
+	xstore	[dstreg+e4+e2+e1+16], xmm4	;; Save I7
+
+	xload	xmm0, [srcreg+d1+32]		;; R2
+	xload	xmm2, [srcreg+d4+d1+32]		;; R6
+	addpd	xmm2, xmm0			;; R6 = R2 + R6 (new R2)
+
+	xload	xmm1, [srcreg+d2+d1+32]		;; R4
+	xload	xmm3, [srcreg+d4+d2+d1+32]	;; R8
+	addpd	xmm3, xmm1			;; R8 = R4 + R8 (new R4)
+
+	xload	xmm4, [srcreg+d1+48]		;; I2
+	xload	xmm6, [srcreg+d4+d1+48]		;; I6
+	addpd	xmm6, xmm4			;; I6 = I2 + I6 (new I2)
+
+	subpd	xmm0, [srcreg+d4+d1+32]		;; R2 = R2 - R6 (new R6)
+	subpd	xmm1, [srcreg+d4+d2+d1+32]	;; R4 = R4 - R8 (new R8)
+
+	xcopy	xmm5, xmm3			;; Copy R4
+	addpd	xmm3, xmm2			;; R4 = R2 + R4 (final R2)
+	subpd	xmm2, xmm5			;; R2 = R2 - R4 (final R4)
+
+	xload	xmm5, [srcreg+d2+d1+48]		;; I4
+	xload	xmm7, [srcreg+d4+d2+d1+48]	;; I8
+	addpd	xmm7, xmm5			;; I8 = I4 + I8 (new I4)
+
+	subpd	xmm4, [srcreg+d4+d1+48]		;; I2 = I2 - I6 (new I6)
+	subpd	xmm5, [srcreg+d4+d2+d1+48]	;; I4 = I4 - I8 (new I8)
+
+	xstore	[dstreg+e4+32], xmm3		;; Save R2
+
+	xcopy	xmm3, xmm7			;; Copy I4
+	addpd	xmm7, xmm6			;; I4 = I2 + I4 (final I2)
+	subpd	xmm6, xmm3			;; I2 = I2 - I4 (final I4)
+
+	xstore	[dstreg+e4+48], xmm7		;; Save I2
+
+	xcopy	xmm3, xmm1			;; Copy I6
+	addpd	xmm1, xmm4			;; R8 = I6 + R8 (new I6)
+	xcopy	xmm7, xmm0			;; Copy R6
+	subpd	xmm0, xmm5			;; R6 = R6 - I8 (new R6)
+	subpd	xmm4, xmm3			;; I6 = I6 - R8 (new I8)
+	addpd	xmm5, xmm7			;; I8 = R6 + I8 (new R8)
+
+	xcopy	xmm3, xmm0			;; Copy R6
+	subpd	xmm0, xmm1			;; R6 = R6 - I6
+	addpd	xmm1, xmm3			;; I6 = R6 + I6
+	xload	xmm3, XMM_SQRTHALF
+	mulpd	xmm0, xmm3			;; R6 = R6 * SQRTHALF (final R6)
+	mulpd	xmm1, xmm3			;; I6 = I6 * SQRTHALF (final I6)
+
+	xcopy	xmm7, xmm5			;; Copy R8
+	subpd	xmm5, xmm4			;; R8 = R8 - I8
+	addpd	xmm4, xmm7			;; I8 = R8 + I8
+	mulpd	xmm5, xmm3			;; R8 = R8 * SQRTHALF (final R8)
+	mulpd	xmm4, xmm3			;; I8 = I8 * SQRTHALF (final I8)
+
+	xstore	[dstreg+e4+e1+32], xmm2		;; Save R4
+	xstore	[dstreg+e4+e1+48], xmm6		;; Save I4
 	bump	srcreg, srcinc
-	bump	dstreg, dstinc
-ENDIF
-	ENDM
-ENDIF
 
-r8_sg8cl_sixteen_reals_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4,screg1,screg2
-IFDEF NOT_FINISHED
-	bump	srcreg, srcinc
+;; the last level
+
+	xload	xmm2, [dstreg+e4+e2]		;; R5
+	subpd	xmm2, xmm0			;; R5 = R5 - R6 (new R6)
+	addpd	xmm0, [dstreg+e4+e2]		;; R6 = R5 + R6 (new R5)
+
+	xload	xmm3, [dstreg+e4+e2+16]		;; I5
+	subpd	xmm3, xmm1			;; I5 = I5 - I6 (new I6)
+	addpd	xmm1, [dstreg+e4+e2+16]		;; I6 = I5 + I6 (new I5)
+
+	xload	xmm6, [screg1+160+16]		;; cosine/sine
+	mulpd	xmm6, xmm2			;; A6 = R6 * cosine/sine
+	subpd	xmm6, xmm3			;; A6 = A6 - I6
+	mulpd	xmm3, [screg1+160+16]		;; B6 = I6 * cosine/sine
+	addpd	xmm3, xmm2			;; B6 = B6 + R6
+
+	xload	xmm2, [dstreg+e4+e2+e1]		;; R7
+	subpd	xmm2, xmm4			;; R7 = R7 - I8 (new R7)
+	addpd	xmm4, [dstreg+e4+e2+e1]		;; I8 = R7 + I8 (new R8)
+
+	xload	xmm7, [screg1+32+16]		;; cosine/sine
+	mulpd	xmm7, xmm0			;; A5 = R5 * cosine/sine
+	subpd	xmm7, xmm1			;; A5 = A5 - I5
+	mulpd	xmm1, [screg1+32+16]		;; B5 = I5 * cosine/sine
+	addpd	xmm1, xmm0			;; B5 = B5 + R5
+
+	xload	xmm0, [dstreg+e4+e2+e1+16]	;; I7
+	subpd	xmm0, xmm5			;; I7 = I7 - R8 (new I8)
+	addpd	xmm5, [dstreg+e4+e2+e1+16]	;; R8 = I7 + R8 (new I7)
+
+	mulpd	xmm6, [screg1+160]		;; A6 = A6 * sine (final R6)
+	mulpd	xmm7, [screg1+32]		;; A5 = A5 * sine (final R5)
+	shuffle_store [dstreg+e4+e2], [dstreg+e4+e2+16], xmm7, xmm6 ;; Save R5,R6
+
+	xload	xmm6, [screg1+96+16]		;; cosine/sine
+	mulpd	xmm6, xmm2			;; A7 = R7 * cosine/sine
+	subpd	xmm6, xmm5			;; A7 = A7 - I7
+	mulpd	xmm5, [screg1+96+16]		;; B7 = I7 * cosine/sine
+	addpd	xmm5, xmm2			;; B7 = B7 + R7
+
+	mulpd	xmm3, [screg1+160]		;; B6 = B6 * sine (final I6)
+	mulpd	xmm1, [screg1+32]		;; B5 = B5 * sine (final I5)
+
+	shuffle_store_with_temp [dstreg+e4+e2+32], [dstreg+e4+e2+48], xmm1, xmm3, xmm7 ;; Save I5,I6
+
+	xload	xmm3, [screg1+224+16]		;; cosine/sine
+	mulpd	xmm3, xmm4			;; A8 = R8 * cosine/sine
+	subpd	xmm3, xmm0			;; A8 = A8 - I8
+	mulpd	xmm0, [screg1+224+16]		;; B8 = I8 * cosine/sine
+	addpd	xmm0, xmm4			;; B8 = B8 + R8
+
+	mulpd	xmm6, [screg1+96]		;; A7 = A7 * sine (new R7)
+	mulpd	xmm5, [screg1+96]		;; B7 = B7 * sine (new I7)
+	mulpd	xmm3, [screg1+224]		;; A8 = A8 * sine (new R8)
+	mulpd	xmm0, [screg1+224]		;; B8 = B8 * sine (new I8)
+
+	shuffle_store_with_temp [dstreg+e4+e2+e1], [dstreg+e4+e2+e1+16], xmm6, xmm3, xmm4 ;; Save R7,R8
+	shuffle_store_with_temp [dstreg+e4+e2+e1+32], [dstreg+e4+e2+e1+48], xmm5, xmm0, xmm4 ;; Save I7,I8
+
+	xload	xmm3, [dstreg+e4]		;; R1
+	xload	xmm4, [dstreg+e4+32]		;; R2
+	subpd	xmm3, xmm4			;; R1 = R1 - R2 (new R2)
+	addpd	xmm4, [dstreg+e4]		;; R2 = R1 + R2 (final R1)
+
+	xload	xmm7, [dstreg+e4+16]		;; I1
+	xload	xmm0, [dstreg+e4+48]		;; I2
+	subpd	xmm7, xmm0			;; I1 = I1 - I2 (new I2)
+	addpd	xmm0, [dstreg+e4+16]		;; I2 = I1 + I2 (final I1)
+
+	xload	xmm1, [screg1+128+16]		;; cosine/sine
+	mulpd	xmm1, xmm3			;; A2 = R2 * cosine/sine
+	subpd	xmm1, xmm7			;; A2 = A2 - I2
+	mulpd	xmm7, [screg1+128+16]		;; B2 = I2 * cosine/sine
+	addpd	xmm7, xmm3			;; B2 = B2 + R2
+
+	mulpd	xmm1, [screg1+128]		;; A2 = A2 * sine (final R2)
+	mulpd	xmm7, [screg1+128]		;; B2 = B2 * sine (final I2)
+
+	xload	xmm5, [dstreg+e4+e1]		;; R3
+	xload	xmm6, [dstreg+e4+e1+48]		;; I4
+	subpd	xmm5, xmm6			;; R3 = R3 - I4 (new R3)
+	addpd	xmm6, [dstreg+e4+e1]		;; I4 = R3 + I4 (new R4)
+
+	shuffle_store_with_temp [dstreg+e4], [dstreg+e4+16], xmm4, xmm1, xmm3 ;; Save R1,R2
+
+	xload	xmm3, [dstreg+e4+e1+16]		;; I3
+	xload	xmm2, [dstreg+e4+e1+32]		;; R4
+	subpd	xmm3, xmm2			;; I3 = I3 - R4 (final I4)
+	addpd	xmm2, [dstreg+e4+e1+16]		;; R4 = I3 + R4 (final I3)
+
+	shuffle_store_with_temp [dstreg+e4+32], [dstreg+e4+48], xmm0, xmm7, xmm1 ;; Save I1,I2
+
+	xload	xmm1, [screg1+64+16]		;; cosine/sine
+	mulpd	xmm1, xmm5			;; A3 = R3 * cosine/sine
+	subpd	xmm1, xmm2			;; A3 = A3 - I3
+	mulpd	xmm2, [screg1+64+16]		;; B3 = I3 * cosine/sine
+	addpd	xmm2, xmm5			;; B3 = B3 + R3
+
+	xload	xmm7, [screg1+192+16]		;; cosine/sine
+	mulpd	xmm7, xmm6			;; A4 = R4 * cosine/sine
+	subpd	xmm7, xmm3			;; A4 = A4 - I4
+	mulpd	xmm3, [screg1+192+16]		;; B4 = I4 * cosine/sine
+	addpd	xmm3, xmm6			;; B4 = B4 + R4
+
+	mulpd	xmm1, [screg1+64]		;; A3 = A3 * sine (final R3)
+	mulpd	xmm2, [screg1+64]		;; B3 = B3 * sine (final I3)
+	mulpd	xmm7, [screg1+192]		;; A4 = A4 * sine (final R4)
+	mulpd	xmm3, [screg1+192]		;; B4 = B4 * sine (final I4)
+
+	shuffle_store_with_temp [dstreg+e4+e1], [dstreg+e4+e1+16], xmm1, xmm7, xmm0 ;; Save R3,R4
+	shuffle_store_with_temp [dstreg+e4+e1+32], [dstreg+e4+e1+48], xmm2, xmm3, xmm0 ;; Save I3,I4
 	bump	dstreg, dstinc
-ENDIF
 	ENDM
 
 ;;
 ;; ************************************* sixteen-reals-unfft8 variants ******************************************
 ;;
 
+;; Used in last levels of pass 1 (split premultiplier and delay cases).  No swizzling.
 IFDEF UNUSED
 r8_g4cl_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg1,screg2
 	not written
 	ENDM
 ENDIF
 
+;; Used in last levels of pass 1 (split premultiplier and delay cases).  Swizzling.
 r8_sg4cl_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg1,screg2
-IFDEF NOT_FINISHED
+
+;; Do 2 3/4 levels of unfft on the first eight values.
+
+	r4_s8r_unfft4 [srcreg],[srcreg+32],[srcreg+16],[srcreg+48],[srcreg+d1],[srcreg+d1+32],[srcreg+d1+16],[srcreg+d1+48],screg1+32,screg1+64,screg1+160,dstreg+dstinc,e1,[dstreg+e2+e1],[dstreg+e2+e1+16]
+	xstore	[dstreg], xmm1		;; Save R1
+	xstore	[dstreg+16], xmm0	;; Save R5
+	xstore	[dstreg+e1], xmm4	;; Save R2
+	xstore	[dstreg+e1+16], xmm3	;; Save R6
+	xstore	[dstreg+e2], xmm7	;; Save R3
+	xstore	[dstreg+e2+16], xmm6	;; Save R7
+;;	xstore	[dstreg+e2+e1+16], xmm2	;; Save R8
+;;	xstore	[dstreg+e2+e1], xmm5	;; Save R4
+
+;; Do 2 levels of unfft on the second eight values.  Similar to r4_sg2cl_four_complex_unfft4
+;; except there are only 3 sin/cos multiplies (by w^2, w^4, w^6).
+
+	shuffle_load xmm6, xmm2, [srcreg+d2], [srcreg+d2+16] ;; R1,R2
+	xcopy	xmm4, xmm2			;; Copy R2
+	mulpd	xmm2, [screg1+128+16]		;; A2 = R2 * cosine/sine
+	shuffle_load xmm1, xmm3, [srcreg+d2+32], [srcreg+d2+48] ;; I1,I2
+	addpd	xmm2, xmm3			;; A2 = A2 + I2
+	mulpd	xmm3, [screg1+128+16]		;; B2 = I2 * cosine/sine
+	subpd	xmm3, xmm4			;; B2 = B2 - R2
+	mulpd	xmm2, [screg1+128]		;; A2 = A2 * sine (new R2)
+
+	shuffle_load xmm7, xmm0, [srcreg+d2+d1], [srcreg+d2+d1+16] ;; R3,R4
+	xcopy	xmm4, xmm7			;; Copy R3
+	mulpd	xmm7, [screg1+64+16]		;; A3 = R3 * cosine/sine
+	xcopy	xmm5, xmm0			;; Copy R4
+	mulpd	xmm0, [screg1+192+16]		;; A4 = R4 * cosine/sine
+
+	xstore	[dstreg+32], xmm6		;; Save new R1 temporarily
+	xstore	[dstreg+48], xmm2		;; Save new R2 temporarily
+
+	shuffle_load xmm6, xmm2, [srcreg+d2+d1+32], [srcreg+d2+d1+48] ;; I3,I4
+
+	addpd	xmm7, xmm6			;; A3 = A3 + I3
+	mulpd	xmm6, [screg1+64+16]		;; B3 = I3 * cosine/sine
+	addpd	xmm0, xmm2			;; A4 = A4 + I4
+	mulpd	xmm2, [screg1+192+16]		;; B4 = I4 * cosine/sine
+	subpd	xmm6, xmm4			;; B3 = B3 - R3
+	subpd	xmm2, xmm5			;; B4 = B4 - R4
+
+	mulpd	xmm3, [screg1+128]		;; B2 = B2 * sine (new I2)
+	mulpd	xmm7, [screg1+64]		;; A3 = A3 * sine (new R3)
+	mulpd	xmm0, [screg1+192]		;; A4 = A4 * sine (new R4)
+	mulpd	xmm6, [screg1+64]		;; B3 = B3 * sine (new I3)
+	mulpd	xmm2, [screg1+192]		;; B4 = B4 * sine (new I4)
+
+	xcopy	xmm4, xmm1			;; Copy I1
+	subpd	xmm1, xmm3			;; I1 = I1 - I2 (new I2)
+	addpd	xmm3, xmm4			;; I2 = I1 + I2 (new I1)
+
+	xprefetchw [dstreg+dstinc+e2]
 	bump	srcreg, srcinc
+
+	xcopy	xmm4, xmm0			;; Copy R4
+	subpd	xmm0, xmm7			;; R4 = R4 - R3 (new I4)
+	addpd	xmm7, xmm4			;; R3 = R4 + R3 (new R3)
+
+	xcopy	xmm4, xmm6			;; Copy I3
+	subpd	xmm6, xmm2			;; I3 = I3 - I4 (new R4)
+	addpd	xmm2, xmm4			;; I4 = I3 + I4 (new I3)
+
+	xcopy	xmm4, xmm1			;; Copy I2
+	subpd	xmm1, xmm0			;; I2 = I2 - I4 (final I4)
+	addpd	xmm0, xmm4			;; I4 = I2 + I4 (final I2)
+
+	xload	xmm4, [dstreg+32]		;; Reload new R1
+	xload	xmm5, [dstreg+48]		;; Reload new R2
+	subpd	xmm4, xmm5			;; R1 = R1 - R2 (new R2)
+	addpd	xmm5, [dstreg+32]		;; R2 = R1 + R2 (new R1)
+
+	xstore	[dstreg+e2+e1+48], xmm1		;; Save I4 (new I12)
+
+	xcopy	xmm1, xmm3			;; Copy I1
+	subpd	xmm3, xmm2			;; I1 = I1 - I3 (final I3)
+	addpd	xmm2, xmm1			;; I3 = I1 + I3 (final I1)
+
+	xcopy	xmm1, xmm4			;; Copy R2
+	subpd	xmm4, xmm6			;; R2 = R2 - R4 (final R4)
+	addpd	xmm6, xmm1			;; R4 = R2 + R4 (final R2)
+
+	xprefetchw [dstreg+dstinc+e2+e1]
+
+	xcopy	xmm1, xmm5			;; Copy R1
+	subpd	xmm5, xmm7			;; R1 = R1 - R3 (final R3)
+	addpd	xmm7, xmm1			;; R3 = R1 + R3 (final R1)
+
+;;	xstore	[dstreg+32], xmm7		;; Save R1 (new R9)
+;;	xstore	[dstreg+48], xmm2		;; Save I1 (new I9)
+;;	xstore	[dstreg+e1+32], xmm6		;; Save R2 (new R10)
+;;	xstore	[dstreg+e1+48], xmm0		;; Save I2 (new I10)
+;;	xstore	[dstreg+e2+32], xmm5		;; Save R3 (new R11)
+;;	xstore	[dstreg+e2+48], xmm3		;; Save I3 (new I11)
+	xstore	[dstreg+e2+e1+32], xmm4		;; Save R4 (new R12)
+
+;; Do first level on the first 8 reals and 2 levels on the last 8 reals.
+;; The second level on the last eight reals is the multiply by i (the nop level).
+
+	xload	xmm1, [screg2+16]	;; cosine/sine
+	xcopy	xmm4, xmm7		;; Copy R9
+	mulpd	xmm7, xmm1		;; A9 = R9 * cosine/sine
+	addpd	xmm7, xmm2		;; A9 = A9 + I9
+	mulpd	xmm2, xmm1		;; B9 = I9 * cosine/sine
+	subpd	xmm2, xmm4		;; B9 = B9 - R9
+	mulpd	xmm7, [screg2]		;; A9 = A9 * sine (new R9)
+	mulpd	xmm2, [screg2]		;; B9 = B9 * sine (new R13)
+
+	xload	xmm1, [dstreg]		;; R1
+	subpd	xmm1, xmm7		;; new R9 = R1 - R9
+	addpd	xmm7, [dstreg]		;; new R1 = R1 + R9
+	xstore	[dstreg], xmm7		;; Save R1
+	xstore	[dstreg+32], xmm1	;; Save R9
+
+	xload	xmm1, [dstreg+16]	;; R5
+	subpd	xmm1, xmm2		;; new R13 = R5 - R13
+	addpd	xmm2, [dstreg+16]	;; new R5 = R5 + R13
+	xstore	[dstreg+16], xmm2	;; Save R5
+	xstore	[dstreg+48], xmm1	;; Save R13
+
+	xload	xmm1, [screg2+32+16]	;; cosine/sine
+	xcopy	xmm4, xmm6		;; Copy R10
+	mulpd	xmm6, xmm1		;; A10 = R10 * cosine/sine
+	addpd	xmm6, xmm0		;; A10 = A10 + I10
+	mulpd	xmm0, xmm1		;; B10 = I10 * cosine/sine
+	subpd	xmm0, xmm4		;; B10 = B10 - R10
+	mulpd	xmm6, [screg2+32]	;; A10 = A10 * sine (new R10)
+	mulpd	xmm0, [screg2+32]	;; B10 = B10 * sine (new R14)
+
+	xload	xmm1, [dstreg+e1]	;; R2
+	subpd	xmm1, xmm6		;; new R10 = R2 - R10
+	addpd	xmm6, [dstreg+e1]	;; new R2 = R2 + R10
+	xstore	[dstreg+e1], xmm6	;; Save R2
+	xstore	[dstreg+e1+32], xmm1	;; Save R10
+
+	xload	xmm1, [dstreg+e1+16]	;; R6
+	subpd	xmm1, xmm0		;; new R14 = R6 - R14
+	addpd	xmm0, [dstreg+e1+16]	;; new R6 = R6 + R14
+	xstore	[dstreg+e1+16], xmm0	;; Save R6
+	xstore	[dstreg+e1+48], xmm1	;; Save R14
+
+	xload	xmm1, [screg2+64+16]	;; cosine/sine
+	xcopy	xmm4, xmm5		;; Copy R11
+	mulpd	xmm5, xmm1		;; A11 = R11 * cosine/sine
+	addpd	xmm5, xmm3		;; A11 = A11 + I11
+	mulpd	xmm3, xmm1		;; B11 = I11 * cosine/sine
+	subpd	xmm3, xmm4		;; B11 = B11 - R11
+	mulpd	xmm5, [screg2+64]	;; A11 = A11 * sine (new R11)
+	mulpd	xmm3, [screg2+64]	;; B11 = B11 * sine (new R15)
+
+	xload	xmm1, [dstreg+e2]	;; R3
+	subpd	xmm1, xmm5		;; new R11 = R3 - R11
+	addpd	xmm5, [dstreg+e2]	;; new R3 = R3 + R11
+	xstore	[dstreg+e2], xmm5	;; Save R3
+	xstore	[dstreg+e2+32], xmm1	;; Save R11
+
+	xload	xmm1, [dstreg+e2+16]	;; R7
+	subpd	xmm1, xmm3		;; new R15 = R7 - R15
+	addpd	xmm3, [dstreg+e2+16]	;; new R7 = R7 + R15
+	xstore	[dstreg+e2+16], xmm3	;; Save R7
+	xstore	[dstreg+e2+48], xmm1	;; Save R15
+
+	xload	xmm1, [screg2+96+16]	;; cosine/sine
+	mulpd	xmm1, [dstreg+e2+e1+32]	;; A12 = R12 * cosine/sine
+	xload	xmm4, [dstreg+e2+e1+48]	;; I12
+	addpd	xmm1, xmm4		;; A12 = A12 + I12
+	mulpd	xmm4, [screg2+96+16]	;; B12 = I12 * cosine/sine
+	subpd	xmm4, [dstreg+e2+e1+32]	;; B12 = B12 - R12
+	mulpd	xmm1, [screg2+96]	;; A12 = A12 * sine (new R12)
+	mulpd	xmm4, [screg2+96]	;; B12 = B12 * sine (new R16)
+
+	xload	xmm0, [dstreg+e2+e1]	;; R4
+	subpd	xmm0, xmm1		;; new R12 = R4 - R12
+	addpd	xmm1, [dstreg+e2+e1]	;; new R4 = R4 + R12
+	xstore	[dstreg+e2+e1], xmm1	;; Save R4
+	xstore	[dstreg+e2+e1+32], xmm0	;; Save R12
+
+	xload	xmm0, [dstreg+e2+e1+16]	;; R8
+	subpd	xmm0, xmm4		;; new R16 = R8 - R16
+	addpd	xmm4, [dstreg+e2+e1+16]	;; new R8 = R8 + R16
+	xstore	[dstreg+e2+e1+16], xmm4	;; Save R8
+	xstore	[dstreg+e2+e1+48], xmm0	;; Save R16
 	bump	dstreg, dstinc
-ENDIF
 	ENDM
 
 

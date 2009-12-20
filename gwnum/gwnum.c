@@ -1378,28 +1378,28 @@ double *r4delay_build_pass1_table (
 					gwsincos (temp, N*2, (double *) &sincos);
 					table[0] = sincos[0];	/* temp for 2*N */
 					table[2] = sincos[1];
-					gwsincos (temp + N*2*1/16, N*2, (double *) &sincos);
-					table[4] = sincos[0];	/* temp+1/16 for 2*N */
+					gwsincos (temp + pass1_increment, N*2, (double *) &sincos);
+					table[4] = sincos[0];	/* temp + pass1_increment for 2*N */
 					table[6] = sincos[1];
-					gwsincos (temp + N*2*2/16, N*2, (double *) &sincos);
-					table[8] = sincos[0];	/* temp+2/16 for 2*N */
+					gwsincos (temp + 2 * pass1_increment, N*2, (double *) &sincos);
+					table[8] = sincos[0];	/* temp + 2 * pass1_increment for 2*N */
 					table[10] = sincos[1];
-					gwsincos (temp + N*2*3/16, N*2, (double *) &sincos);
-					table[12] = sincos[0];	/* temp+3/16 for 2*N */
+					gwsincos (temp + 3 * pass1_increment, N*2, (double *) &sincos);
+					table[12] = sincos[0];	/* temp + 3 * pass1_increment for 2*N */
 					table[14] = sincos[1];
 
 					temp += upper_sse2_word;
 					gwsincos (temp, N*2, (double *) &sincos);
 					table[1] = sincos[0];	/* temp for 2*N */
 					table[3] = sincos[1];
-					gwsincos (temp + N*2*1/16, N*2, (double *) &sincos);
-					table[5] = sincos[0];	/* temp+1/16 for 2*N */
+					gwsincos (temp + pass1_increment, N*2, (double *) &sincos);
+					table[5] = sincos[0];	/* temp + pass1_increment for 2*N */
 					table[7] = sincos[1];
-					gwsincos (temp + N*2*2/16, N*2, (double *) &sincos);
-					table[9] = sincos[0];	/* temp+2/16 for 2*N */
+					gwsincos (temp + 2 * pass1_increment, N*2, (double *) &sincos);
+					table[9] = sincos[0];	/* temp + 2 * pass1_increment for 2*N */
 					table[11] = sincos[1];
-					gwsincos (temp + N*2*3/16, N*2, (double *) &sincos);
-					table[13] = sincos[0];	/* temp+3/16 for 2*N */
+					gwsincos (temp + 3 * pass1_increment, N*2, (double *) &sincos);
+					table[13] = sincos[0];	/* temp + 3 * pass1_increment for 2*N */
 					table[15] = sincos[1];
 
 					table += 16;
