@@ -51,6 +51,9 @@ TLB_PRIMING = 0
 	r4delay_pass1sc384 1152K, 3072, 4
 	r4delay_pass1sc384 1536K, 12, 4
 	r4delay_pass1sc512 2M, 12, 4
+	r4delay_pass1sc768 1728K, 2304, 4
+	r4delay_pass1sc768 2304K, 3072, 4
+	r4delay_pass1sc768 3M, 12, 4
 	r4delay_pass1sc1024 4M, 12, 4
 
 	r4delay_pass1sc384ac 864K, 2304, 4
@@ -58,6 +61,9 @@ TLB_PRIMING = 0
 	r4delay_pass1sc384ac 1536K, 12, 4
 	r4delay_pass1sc512ac 1536K, 3072, 4
 	r4delay_pass1sc512ac 2M, 12, 4
+	r4delay_pass1sc768ac 1728K, 2304, 4
+	r4delay_pass1sc768ac 2304K, 3072, 4
+	r4delay_pass1sc768ac 3M, 12, 4
 	r4delay_pass1sc1024ac 3M, 3072, 4
 	r4delay_pass1sc1024ac 4M, 12, 4
 	r4delay_pass1sc1280ac 5M, 12, 4
