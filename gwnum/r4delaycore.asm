@@ -50,6 +50,7 @@ TLB_PRIMING = 0
 	r4delay_pass1sc384 864K, 2304, 4
 	r4delay_pass1sc384 1152K, 3072, 4
 	r4delay_pass1sc384 1536K, 12, 4
+	r4delay_pass1sc448 1792K, 12, 4
 	r4delay_pass1sc512 2M, 12, 4
 	r4delay_pass1sc768 1728K, 2304, 4
 	r4delay_pass1sc768 2304K, 3072, 4

@@ -1230,7 +1230,7 @@ double *r4delay_build_pass1_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table)		/* Pointer to the table to fill in */
 {
-	unsigned long pass1_size, pass1_increment;
+	unsigned long pass1_size, pass1_increment, delay_count;
 	unsigned long group, i, j, k, N, temp, upper_sse2_word;
 	int	pow2_count;
 	double	sincos[6];
@@ -1240,13 +1240,19 @@ double *r4delay_build_pass1_table (
 	pass1_increment = gwdata->PASS2_SIZE;
 	upper_sse2_word = pass1_increment / 2;
 
+/* Determine number of delay groups */
+
+	pass1_size = gwdata->FFTLEN / gwdata->PASS2_SIZE; /* Real values in a pass1 section */
+	if (pass1_size % 7 == 0)
+		delay_count = 14;
+	else
+		delay_count = 4;
+
 /* See if pass 1 has an odd number of power-of-two FFT levels after the */
 /* initial FFT levels.  If not, there will be no radix-8 steps. */
-/* Note the first FFT 3 levels operate on eight real values, thus we */
-/* start the count at -3. */
+/* Note the first FFT 3 levels operate on seven or eight real values. */
 	
-	pass1_size = gwdata->FFTLEN / gwdata->PASS2_SIZE; /* Real values in a pass1 section */
-	for (pow2_count = -3; (pass1_size & 1) == 0; pass1_size /= 2) pow2_count++;
+	for (pow2_count = 0; (pass1_size & 1) == 0; pass1_size /= 2) pow2_count++;
 
 /* Set pointer to table of multipliers */
 
@@ -1264,25 +1270,28 @@ double *r4delay_build_pass1_table (
 /* last 3 levels in pass 1.  NOTE:  We do not need the "j loop" (it would loop */
 /* from zero to zero) when generating the sin/cos twiddle factors for the last */
 /* levels of pass 1. */
-		
-		if (pow2_count & 1) {
+
+		if ((pass1_size % 7 == 0 && (pow2_count & 1) == 1) ||
+		    (pass1_size % 7 != 0 && ((pow2_count - 3) & 1) == 1)) {
 			N = N * 8;
-			for (k = 0; k < 4; k++) {
+			for (k = 0; k < delay_count; k++) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					unsigned long bigN, ktemp, actemp;
 
 /* If this is an all-complex FFT, the roots of minus 1 (same as roots of FFTLEN*2) are */
 /* split to reduce memory requirements.  We apply the part of the all-complex premultiplier here. */
 
-					bigN = gwdata->FFTLEN * 2;
-					if (gwdata->ALL_COMPLEX_FFT)
+					if (gwdata->ALL_COMPLEX_FFT) {
+						bigN = gwdata->FFTLEN * 2;
 						actemp = group + i;
-					else
+					} else {
+						bigN = gwdata->FFTLEN;
 						actemp = 0;
+					}
 
 /* Factor in the delayed part of the sin/cos multiplies from the first 2 levels.  In the first 2 levels */
 /* we use a fixed sin/cos table based only on j, leaving the group+i part to be applied here by */
-/* creating 4 table entries.  For an all-complex FFT we multiply by 0,2,1,-1*(group+i) with N = FFTLEN/2. */
+/* creating delay_count table entries.  For an all-complex FFT we multiply by 0,2,1,-1*(group+i) with N = FFTLEN/2. */
 /* For an all-real FFT we multiply by 0,2,1,5*(group+i) with N = FFTLEN. */
 
 					if (gwdata->ALL_COMPLEX_FFT) {
@@ -1291,18 +1300,38 @@ double *r4delay_build_pass1_table (
 						else if (k == 1)
 							ktemp = 2 * (group + i) * 4;
 						else if (k == 2)
-							ktemp = (group + i) * 4;
+							ktemp = 1 * (group + i) * 4;
 						else
-							ktemp = bigN - (group + i) * 4;
-					} else {
+							ktemp = bigN - 1 * (group + i) * 4;
+					} else if (delay_count == 4) {
 						if (k == 0)
 							ktemp = 0;
 						else if (k == 1)
-							ktemp = 2 * (group + i) * 2;
+							ktemp = 2 * (group + i);
 						else if (k == 2)
-							ktemp = (group + i) * 2;
+							ktemp = 1 * (group + i);
 						else
-							ktemp = 5 * (group + i) * 2;
+							ktemp = 5 * (group + i);
+					} else {			/* delay_count == 14 */
+						/* Multipliers for the radix-7 step */
+						if (k < 2)
+							ktemp = 0;
+						else if (k < 6)
+							ktemp = 1 * (group + i);
+						else if (k < 10)
+							ktemp = 2 * (group + i);
+						else
+							ktemp = 3 * (group + i);
+						/* Multipliers for the real radix-4 step */
+						if (k == 1)
+							ktemp += 1 * (group + i) * 7;
+						/* Multipliers for the complex radix-4 step */
+						if (k == 3 || k == 7 || k == 11)
+							ktemp += 2 * (group + i) * 7;
+						if (k == 4 || k == 8 || k == 12)
+							ktemp += 1 * (group + i) * 7;
+						if (k == 5 || k == 9 || k == 13)
+							ktemp += bigN - 1 * (group + i) * 7;
 					}
 
 /* We now calculate the standard sin/cos twiddle factors (temp*0,1,2,3,4,5,6,7 roots of N) */
@@ -1413,22 +1442,24 @@ double *r4delay_build_pass1_table (
 
 		else {
 			N = N * 4;
-			for (k = 0; k < 4; k++) {
+			for (k = 0; k < delay_count; k++) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					unsigned long bigN, ktemp, actemp;
 
 /* If this is an all-complex FFT, the roots of minus 1 (same as roots of FFTLEN*2) are */
 /* split to reduce memory requirements.  We apply the part of the all-complex premultiplier here. */
 
-					bigN = gwdata->FFTLEN * 2;
-					if (gwdata->ALL_COMPLEX_FFT)
+					if (gwdata->ALL_COMPLEX_FFT) {
+						bigN = gwdata->FFTLEN * 2;
 						actemp = group + i;
-					else
+					} else {
+						bigN = gwdata->FFTLEN;
 						actemp = 0;
+					}
 
 /* Factor in the delayed part of the sin/cos multiplies from the first 2 levels.  In the first 2 levels */
 /* we use a fixed sin/cos table based only on j, leaving the group+i part to be applied here by */
-/* creating 4 table entries.  For an all-complex FFT we multiply by 0,2,1,-1*(group+i) with N = FFTLEN/2. */
+/* creating delay_count table entries.  For an all-complex FFT we multiply by 0,2,1,-1*(group+i) with N = FFTLEN/2. */
 /* For an all-real FFT we multiply by 0,2,1,5*(group+i) with N = FFTLEN. */
 
 					if (gwdata->ALL_COMPLEX_FFT) {
@@ -1437,18 +1468,38 @@ double *r4delay_build_pass1_table (
 						else if (k == 1)
 							ktemp = 2 * (group + i) * 4;
 						else if (k == 2)
-							ktemp = (group + i) * 4;
+							ktemp = 1 * (group + i) * 4;
 						else
-							ktemp = bigN - (group + i) * 4;
-					} else {
+							ktemp = bigN - 1 * (group + i) * 4;
+					} else if (delay_count == 4) {
 						if (k == 0)
 							ktemp = 0;
 						else if (k == 1)
-							ktemp = 2 * (group + i) * 2;
+							ktemp = 2 * (group + i);
 						else if (k == 2)
-							ktemp = (group + i) * 2;
+							ktemp = 1 * (group + i);
 						else
-							ktemp = 5 * (group + i) * 2;
+							ktemp = 5 * (group + i);
+					} else {				/* delay_count == 14 */
+						/* Multipliers for the radix-7 step */
+						if (k < 2)
+							ktemp = 0;
+						else if (k < 6)
+							ktemp = 1 * (group + i);
+						else if (k < 10)
+							ktemp = 2 * (group + i);
+						else
+							ktemp = 3 * (group + i);
+						/* Multipliers for the real radix-4 step */
+						if (k == 1)
+							ktemp += 1 * (group + i) * 7;
+						/* Multipliers for the complex radix-4 step */
+						if (k == 3 || k == 7 || k == 11)
+							ktemp += 2 * (group + i) * 7;
+						if (k == 4 || k == 8 || k == 12)
+							ktemp += 1 * (group + i) * 7;
+						if (k == 5 || k == 9 || k == 13)
+							ktemp += bigN - 1 * (group + i) * 7;
 					}
 
 /* We now calculate the standard sin/cos twiddle factors (temp*0,1,2,3 roots of N) */
@@ -1518,7 +1569,7 @@ double *r4delay_build_pass1_table (
 
 /* For the r4_four_complex_djbfft building block levels, output the sin/cos values. */
 
-		while ((pass1_size & 0x1F) == 0) {
+		while (pass1_size % 112 == 0 || (pass1_size & 0x1F) == 0) {
 			N = N * 4;
 			for (j = 0; j < N / 4; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
@@ -1636,8 +1687,8 @@ double *r4delay_build_pass1_table (
 			}
 			pass1_size /= 3;
 		}
-		// We only support one delay size....8 reals
-		ASSERTG (pass1_size == 8);
+		// We only support two delay sizes....8 & 28 reals
+		ASSERTG (pass1_size == 8 || pass1_size == 28);
 
 /* Calculate the size of each group's sin/cos/premult data for pass1_get_next_block */
 
@@ -1667,11 +1718,53 @@ double *r4delay_build_fixed_pass1_table (
 	pass1_increment = gwdata->PASS2_SIZE;
 	upper_sse2_word = pass1_increment / 2;
 
-/* Real FFTs output one shared set of sin/cos values for the first eight-reals FFT. */
+/* Real FFTs output one shared set of sin/cos values for the first seven-reals or eight-reals FFT. */
 
 	if (! gwdata->ALL_COMPLEX_FFT) {
 		N = gwdata->FFTLEN;
-		for (j = 0; j < N / 8; j += pass1_increment) {
+		if (N % 7 == 0) {
+		    for (j = 0; j < N / 7; j += pass1_increment) {
+
+			gwsincos3 (j, N, (double *) &sincos);
+			table[0] = sincos[0];	/* temp */
+			table[2] = sincos[1];
+			table[4] = sincos[2];	/* 2 * temp */
+			table[6] = sincos[3];
+			table[8] = sincos[4];	/* 3 * temp */
+			table[10] = sincos[5];
+
+			temp = j + upper_sse2_word;
+			gwsincos3 (temp, N, (double *) &sincos);
+			table[1] = sincos[0];	/* temp */
+			table[3] = sincos[1];
+			table[5] = sincos[2];	/* 2 * temp */
+			table[7] = sincos[3];
+			table[9] = sincos[4];	/* 3 * temp */
+			table[11] = sincos[5];
+
+			table += 12;
+		    }
+		    N = N / 7;
+		    for (j = 0; j < N / 4; j += pass1_increment) {
+
+			    gwsincos3 (j, N, (double *) &sincos);
+			    table[0] = sincos[0];	/* temp */
+			    table[2] = sincos[1];
+			    table[4] = sincos[2];	/* 2 * temp */
+			    table[6] = sincos[3];
+
+			    temp = j + upper_sse2_word;
+			    gwsincos3 (temp, N, (double *) &sincos);
+			    table[1] = sincos[0];	/* temp */
+			    table[3] = sincos[1];
+			    table[5] = sincos[2];	/* 2 * temp */
+			    table[7] = sincos[3];
+
+			    table += 8;
+		    }
+		}
+		else {
+		    for (j = 0; j < N / 8; j += pass1_increment) {
 
 			gwsincos3 (j, N, (double *) &sincos);
 			table[0] = sincos[0];	/* temp */
@@ -1693,6 +1786,7 @@ double *r4delay_build_fixed_pass1_table (
 			table[11] = sincos[1];
 
 			table += 12;
+		    }
 		}
 	}
 

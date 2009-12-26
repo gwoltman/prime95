@@ -8,6 +8,7 @@
 INCLUDE r2.mac
 INCLUDE r3.mac
 INCLUDE r5.mac
+INCLUDE r7.mac
 INCLUDE r8.mac
 
 ;;
