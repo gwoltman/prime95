@@ -1620,7 +1620,7 @@ double *r4delay_build_pass1_table (
 			pass1_size /= 4;
 		}
 
-/* For the r4_five_complex_djbfft building block levels, output the sin/cos values. */
+/* For the r5_five_complex_djbfft building block levels, output the sin/cos values. */
 
 		while (pass1_size % 5 == 0) {
 			N = N * 5;
@@ -1642,10 +1642,36 @@ double *r4delay_build_pass1_table (
 					table += 8;
 				}
 			}
+
+/* The r5_ten_reals building blocks require extra sin/cos */
+/* values.  The ten_reals doubles N because the real part of the */
+/* FFT is one level behind the complex part of the FFT. */
+
+			if (!gwdata->ALL_COMPLEX_FFT) {
+				for (j = 0; j < N / 5; j += pass1_increment) {
+					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+						temp = (group + j + i);
+						gwsincos3 (temp, N*2, (double *) &sincos);
+						table[0] = sincos[0];	/* temp */
+						table[2] = sincos[1];
+						table[4] = sincos[4];	/* 3 * temp */
+						table[6] = sincos[5];
+
+						temp += upper_sse2_word;
+						gwsincos3 (temp, N*2, (double *) &sincos);
+						table[1] = sincos[0];	/* temp */
+						table[3] = sincos[1];
+						table[5] = sincos[4];	/* 3 * temp */
+						table[7] = sincos[5];
+
+						table += 8;
+					}
+				}
+			}
 			pass1_size /= 5;
 		}
 
-/* For the r4_three_complex_djbfft building block levels, output the sin/cos values. */
+/* For the r3_three_complex_djbfft building block levels, output the sin/cos values. */
 
 		while (pass1_size % 3 == 0) {
 			N = N * 3;
