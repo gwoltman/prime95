@@ -587,8 +587,8 @@ r3_x6r_unfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,t1,t2,memr1_1,memr1_2,memr3,mem
 	subpd	r1, r3			;; final R5 = R1#1 - 0.5 * (R2 + R3) - 0.866 * (I2 - I3)
 	ENDM
 
-;; Macro to do an eight_reals_unfft and a four_complex_djbunfft in pass 2.
-;; The eight-reals operation is done in the lower half of the XMM
+;; Macro to do an six_reals_unfft and a three_complex_djbunfft in pass 2.
+;; The six-reals operation is done in the lower half of the XMM
 ;; register.  This isn't very efficient, but this macro isn't called a whole lot.
 
 r3_h3cl_six_reals_three_complex_djbunfft MACRO srcreg,srcinc,d1,screg1,scoff1,screg2,scoff2
