@@ -185,6 +185,20 @@ r4_x2cl_2sc_four_complex_djbfft MACRO srcreg,srcinc,d1,screg1,screg2
 	bump	srcreg, srcinc
 	ENDM
 
+;; Used in pass 2 after radix-5 levels.
+r4_x2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg1
+	r4_x4c_2sc_djbfft_mem [srcreg],[srcreg+d1],[srcreg+16],[srcreg+d1+16],[srcreg+32],[srcreg+d1+32],[srcreg+48],[srcreg+d1+48],screg1,screg1+32,srcreg+srcinc,d1,[srcreg],[srcreg+16]
+;;	xstore	[srcreg], xmm0		;; Save R1
+;;	xstore	[srcreg+16], xmm0	;; Save I1
+	xstore	[srcreg+32], xmm7	;; Save R2
+	xstore	[srcreg+48], xmm6	;; Save I2
+	xstore	[srcreg+d1], xmm3	;; Save R3
+	xstore	[srcreg+d1+16], xmm1	;; Save I3
+	xstore	[srcreg+d1+32], xmm2	;; Save R4
+	xstore	[srcreg+d1+48], xmm4	;; Save I4
+	bump	srcreg, srcinc
+	ENDM
+
 r4_x4c_djbfft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,screg,off,pre1,pre2,dst1,dst2
 	r4_x4c_2sc_djbfft_mem R1,R2,R3,R4,R5,R6,R7,R8,screg+off,screg+off+32,pre1,pre2,dst1,dst2
 	ENDM

@@ -762,23 +762,50 @@ double *r4_build_pass2_real_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table)		/* Pointer to the table to fill in */
 {
-	unsigned long i, N, limit;
+	unsigned long i, N;
 	double	sincos[6];
 
-/* Real FFTs and the eight_reals macros also need w^n and w^5n for 2N. */
+/* All complex FFTs, don't need these tables */
 
-	if (!gwdata->ALL_COMPLEX_FFT) {
-		N = gwdata->PASS2_SIZE;
-		limit = (N % 3 == 0) ? N / 3 : N / 4;
-		for (i = 0; i < limit; i++) {
+	if (gwdata->ALL_COMPLEX_FFT) return (table);
+
+/* Real FFTs with an initial radix-3 step needs w^n for 2N. */
+
+	N = gwdata->PASS2_SIZE;
+	if (N % 3 == 0) {
+		for (i = 0; i < N / 3; i++) {
 			gwsincos (i, N * 2, (double *) &sincos);
 			table[0] = sincos[0];	/* temp for 2*N */
 			table[1] = sincos[1];
-			gwsincos (5*i, N * 2, (double *) &sincos);
-			table[2] = sincos[0];	/* 5 * temp for 2*N */
-			table[3] = sincos[1];
+			table += 2;
+		}
+		while (N % 3 == 0) N = N / 3;
+	}
+
+/* Real FFTs with a radix-5 step needs w^n and w^3n for 2N. */
+
+	if (N % 5 == 0) {
+		for (i = 0; i < N / 5; i++) {
+			gwsincos3 (i, N * 2, (double *) &sincos);
+			table[0] = sincos[0];	/* temp for 2*N */
+			table[1] = sincos[1];
+			table[2] = sincos[4];	/* 3 * temp for 2*N */
+			table[3] = sincos[5];
 			table += 4;
 		}
+		while (N % 5 == 0) N = N / 5;
+	}
+
+/* Real FFTs with eight_reals macros need w^n and w^5n for 2N. */
+
+	for (i = 0; i < N / 4; i++) {
+		gwsincos (i, N * 2, (double *) &sincos);
+		table[0] = sincos[0];	/* temp for 2*N */
+		table[1] = sincos[1];
+		gwsincos (5*i, N * 2, (double *) &sincos);
+		table[2] = sincos[0];	/* 5 * temp for 2*N */
+		table[3] = sincos[1];
+		table += 4;
 	}
 
 /* Return address of the end of the table */
