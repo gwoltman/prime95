@@ -61,3 +61,17 @@ r4delay_pass2_5120_levels_complex MACRO
 	ENDM
 
 
+; *************** radix4-pass2-12.644-levels-complex macro ******************
+; This macro takes 2 groups of 6400 complex values and
+; performs the final 12.644 levels of a standard radix-4 FFT, squares the
+; results, and does the first 12.644 levels of the inverse FFT.
+
+r4delay_pass2_6400_levels_real MACRO
+	r4_pass2_6400_levels_real
+	ENDM
+
+r4delay_pass2_6400_levels_complex MACRO
+	r4_pass2_6400_levels_complex
+	ENDM
+
+

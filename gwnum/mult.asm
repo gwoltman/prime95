@@ -147,6 +147,8 @@ PRCENTRY MACRO procname, mem_needed, L2arg
 		pass2_size_over_256 = 4096 SHR 8
 	ELSEIF (@INSTR (,@CATSTR(procname),_5120_)) NE 0
 		pass2_size_over_256 = 5120 SHR 8
+	ELSEIF (@INSTR (,@CATSTR(procname),_6400_)) NE 0
+		pass2_size_over_256 = 6400 SHR 8
 	ELSEIF (@INSTR (,@CATSTR(procname),_13_)) NE 0
 		pass2_size_over_256 = 8192 SHR 8
 	ELSEIF (@INSTR (,@CATSTR(procname),_8_)) NE 0
@@ -908,6 +910,9 @@ xjmptable DD	743,	32,	0.00000111
 	PRCENTRY		xfft_hg_3584K_tp_12_2_P4, 5784064, 512
 	PRCENTRY		xfft_hg_3584K_tp_12_1_P4, 5784064
 	DD			0
+	DD	76090000, 4096000, 0.371
+	PRCENTRY		xfft_r4delay_4000K_6400_4_CORE, 66574080, 512
+	DD			0
 	DD	77910000, 4194304, 0.382
 	PRCENTRY		xfft_r4delay_4M_12_1_K8, 66574080
 	PRCENTRY		xfft_r4delay_4M_12_4_CORE, 66574080, 1024
@@ -1184,6 +1189,9 @@ xjmptablep DD	739,	32,	0.00000111
 	DD			0
 	DD	60820000, 3276800, 0.306
 	PRCENTRY		xfft_r4delay_3200K_ac_5120_4_CORE, 66574080, 512
+	DD			0
+	DD	75890000, 4096000, 0.412
+	PRCENTRY		xfft_r4delay_4000K_ac_6400_4_CORE, 66574080, 512
 	DD			0
 	DD	77700000, 4194304, 0.425
 	PRCENTRY		xfft_hg_4096K_ac_13_1_K8, 5462016, 512

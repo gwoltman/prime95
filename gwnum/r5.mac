@@ -90,6 +90,47 @@ r5_f5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg,scoff
 	bump	srcreg, srcinc
 	ENDM
 
+;; Used in pass 2 where the memory layout is different and the two
+;; five-complex-djbffts use different sin/cos data.
+r5_nf5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg,scoff
+	d2 = 2*d1
+	d3 = 3*d1
+	d4 = 4*d1
+	n1 = d2+32
+	n2 = d4+32
+	n3 = d1+16
+	n4 = d1+48
+	n5 = d3+16
+	n6 = d3+48
+	r5_x5c_djbfft_mem [srcreg],[srcreg+32],[srcreg+d2],[srcreg+n1],[srcreg+d4],[srcreg+n2],[srcreg+n3],[srcreg+n4],[srcreg+n5],[srcreg+n6],screg,[srcreg],[srcreg+32],[srcreg+d4]
+	xstore	[srcreg+d2], xmm3		;; Save R3
+	xstore	[srcreg+d2+32], xmm4		;; Save I3
+;;	xstore	[srcreg+d4], xmm7		;; Save R5
+	xstore	[srcreg+d4+32], xmm6		;; Save I5
+	xload	xmm3, [srcreg+d1]		;; R1
+	xload	xmm4, [srcreg+d1+32]		;; I1
+	xload	xmm7, [srcreg+d3]		;; R2
+	xload	xmm6, [srcreg+d3+32]		;; I2
+	xstore	[srcreg+d1], xmm1		;; Save R2
+	xstore	[srcreg+d1+32], xmm0		;; Save I2
+	xstore	[srcreg+d3], xmm5		;; Save R4
+	xstore	[srcreg+d3+32], xmm2		;; Save I4
+	xstore	XMM_TMP5, xmm3
+	xstore	XMM_TMP6, xmm4
+	xstore	XMM_TMP7, xmm7
+	xstore	XMM_TMP8, xmm6
+	r5_x5c_djbfft_mem XMM_TMP5,XMM_TMP6,XMM_TMP7,XMM_TMP8,[srcreg+16],[srcreg+48],[srcreg+d2+16],[srcreg+d2+48],[srcreg+d4+16],[srcreg+d4+48],screg+scoff,[srcreg+16],[srcreg+48],[srcreg+d4+16]
+	xstore	[srcreg+d1+16], xmm1		;; Save R2
+	xstore	[srcreg+d1+48], xmm0		;; Save I2
+	xstore	[srcreg+d2+16], xmm3		;; Save R3
+	xstore	[srcreg+d2+48], xmm4		;; Save I3
+	xstore	[srcreg+d3+16], xmm5		;; Save R4
+	xstore	[srcreg+d3+48], xmm2		;; Save I4
+;;	xstore	[srcreg+d4+16], xmm7		;; Save R5
+	xstore	[srcreg+d4+48], xmm6		;; Save I5
+	bump	srcreg, srcinc
+	ENDM
+
 ;; Do a 5-complex FFT.  A 5-complex FFT is:
 ;; r25a=r2+r5
 ;; r34a=r3+r4
@@ -810,6 +851,55 @@ r5_fh5cl_ten_reals_five_complex_djbfft MACRO srcreg,srcinc,d1,screg1,scoff1,scre
 ;;	xstore	[srcreg+4*d1+16], xmm7		;; Save R5
 	xstore	[srcreg+4*d1+48], xmm6		;; Save I5
 	r5_h10r_h5c_djbfft_mem srcreg+rbx,0,d2,d4,XMM_TMP5,XMM_TMP7,32,d2+32,d4+32,XMM_TMP6,XMM_TMP8,screg1,screg2,[srcreg],[srcreg+32],[srcreg+d4]
+;;	xstore	[srcreg], xmm2			;; Save R1 #1/R1
+;;	xstore	[srcreg+32], xmm5		;; Save R1 #2/I1
+	xstore	[srcreg+d1], xmm1		;; Save R2
+	xstore	[srcreg+d1+32], xmm0		;; Save I2
+	xstore	[srcreg+2*d1], xmm3		;; Save R3
+	xstore	[srcreg+2*d1+32], xmm4		;; Save I3
+	xstore	[srcreg+3*d1], xmm5		;; Save R4
+	xstore	[srcreg+3*d1+32], xmm2		;; Save I4
+;;	xstore	[srcreg+4*d1], xmm7		;; Save R5
+	xstore	[srcreg+4*d1+32], xmm6		;; Save I5
+	bump	srcreg, srcinc
+	ENDM
+
+;; This is used in the later radix-5 levels of pass 2.
+;; The ten-reals macro and the five-complex share an XMM register.
+;; This isn't very efficient, but this macro isn't called a whole lot.
+r5_h5cl_ten_reals_five_complex_djbfft MACRO srcreg,srcinc,d1,screg1,scoff1,screg2,scoff2
+	d2 = 2*d1
+	d3 = 3*d1
+	d4 = 4*d1
+	n0 = d1
+	n1 = d2+16
+	n2 = d4+16
+	n3 = d1+32
+	n4 = d3+32
+	n5 = d2+48
+	n6 = d4+48
+	s1 = scoff1
+	s2 = scoff2
+	r5_h10r_h5c_djbfft_mem srcreg,n0,d3,16,[srcreg+n1],[srcreg+n2],n3,n4,48,[srcreg+n5],[srcreg+n6],screg1+s1,screg2+s2,[srcreg+16],[srcreg+48],[srcreg+n2]
+	xload	xmm7, [srcreg+d1+16]		;; R4
+	xstore	XMM_TMP5, xmm7
+	xload	xmm7, [srcreg+d1+48]		;; R9
+	xstore	XMM_TMP6, xmm7
+	xload	xmm7, [srcreg+3*d1+16]		;; R5
+	xstore	XMM_TMP7, xmm7
+	xload	xmm7, [srcreg+3*d1+48]		;; R10
+	xstore	XMM_TMP8, xmm7
+;;	xstore	[srcreg+16], xmm2		;; Save R1 #1/R1
+;;	xstore	[srcreg+48], xmm5		;; Save R1 #2/I1
+	xstore	[srcreg+d1+16], xmm1		;; Save R2
+	xstore	[srcreg+d1+48], xmm0		;; Save I2
+	xstore	[srcreg+2*d1+16], xmm3		;; Save R3
+	xstore	[srcreg+2*d1+48], xmm4		;; Save I3
+	xstore	[srcreg+3*d1+16], xmm5		;; Save R4
+	xstore	[srcreg+3*d1+48], xmm2		;; Save I4
+;;	xstore	[srcreg+4*d1+16], xmm7		;; Save R5
+	xstore	[srcreg+4*d1+48], xmm6		;; Save I5
+	r5_h10r_h5c_djbfft_mem srcreg,0,d2,d4,XMM_TMP5,XMM_TMP7,32,d2+32,d4+32,XMM_TMP6,XMM_TMP8,screg1,screg2,[srcreg],[srcreg+32],[srcreg+d4]
 ;;	xstore	[srcreg], xmm2			;; Save R1 #1/R1
 ;;	xstore	[srcreg+32], xmm5		;; Save R1 #2/I1
 	xstore	[srcreg+d1], xmm1		;; Save R2

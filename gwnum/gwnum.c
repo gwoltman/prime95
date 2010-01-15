@@ -5,7 +5,7 @@
 | in the multi-precision arithmetic routines.  That is, all routines
 | that deal with the gwnum data type.
 | 
-|  Copyright 2002-2009 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2010 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -721,6 +721,20 @@ double *r4_build_pass2_complex_table (
 			table[1] = table[0] = sincos[0];	/* temp */
 			table[3] = table[2] = sincos[1];
 			table += 4;
+		}
+	}
+
+/* If the levels above N=256 are all radix-5, then output a slightly smaller sin/cos table. */
+
+	else if (N % 5 == 0 && N % 512 != 0) {
+		limit = N / 5;
+		for (i = 0; i < limit; i++) {
+			gwsincos3 (i, N, (double *) &sincos);
+			table[1] = table[0] = sincos[0];	/* temp */
+			table[3] = table[2] = sincos[1];
+			table[5] = table[4] = sincos[2];	/* 2 * temp */
+			table[7] = table[6] = sincos[3];
+			table += 8;
 		}
 	}
 
