@@ -708,13 +708,15 @@ double *r4_build_pass2_complex_table (
 	double	sincos[6];
 
 /* If the pass 2 size is divisible by 3, then the first level does a */
-/* radix-3 step which only requires one sin/cos value.  Alas, we must */
-/* rather than computing the needed N/3 sin/cos values we compute N/2 */
-/* sin/cos values for use in later r4_four_complex_djbfft levels. */
+/* radix-3 step which only requires one sin/cos value.  Alas, rather than */
+/* computing the needed N/3 sin/cos values we must compute 1/2 or 2/5 times N */
+/* sin/cos values for use in later r4_x4cl_2sc_four_complex_djbfft or */
+/* r5_x5cl_2sc_five_complex_djbfft levels. */
 
 	N = gwdata->PASS2_SIZE;
 	if (N % 3 == 0) {
-		if (N % 512 == 0) limit = N / 2;
+		if (N % 5 == 0) limit = N * 2 / 5;
+		else if (N % 512 == 0) limit = N / 2;
 		else limit = N / 3;
 		for (i = 0; i < limit; i++) {
 			gwsincos (i, N, (double *) &sincos);

@@ -1,4 +1,4 @@
-; Copyright 1995-2009 Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2010 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -143,6 +143,8 @@ PRCENTRY MACRO procname, mem_needed, L2arg
 		pass2_size_over_256 = 2304 SHR 8
 	ELSEIF (@INSTR (,@CATSTR(procname),_3072_)) NE 0
 		pass2_size_over_256 = 3072 SHR 8
+	ELSEIF (@INSTR (,@CATSTR(procname),_3840_)) NE 0
+		pass2_size_over_256 = 3840 SHR 8
 	ELSEIF (@INSTR (,@CATSTR(procname),_12_)) NE 0
 		pass2_size_over_256 = 4096 SHR 8
 	ELSEIF (@INSTR (,@CATSTR(procname),_5120_)) NE 0
@@ -857,6 +859,7 @@ xjmptable DD	743,	32,	0.00000111
 	PRCENTRY		xfft_hg_1792K_np_11_1_P4, 3834368
 	DD			0
 	DD	37030000, 1966080, 0.145
+	PRCENTRY		xfft_r4delay_1920K_3840_4_CORE, 66574080, 512
 	PRCENTRY		xfft_r4delay_1920K_3072_4_CORE, 66574080, 512
 	DD			0
 	DD	38880000, 2064384, 0.153
@@ -1159,6 +1162,9 @@ xjmptablep DD	739,	32,	0.00000111
 	DD			0
 	DD	33300000, 1769472, 0.142
 	PRCENTRY		xfft_r4delay_1728K_ac_2304_4_CORE, 66574080, 512
+	DD			0
+	DD	36950000, 1966080, 0.158
+	PRCENTRY		xfft_r4delay_1920K_ac_3840_4_CORE, 66574080, 512
 	DD			0
 	DD	39390000, 2097152, 0.169
 	PRCENTRY		xfft_r4delay_2M_ac_12_1_K8, 33274752

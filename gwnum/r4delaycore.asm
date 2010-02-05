@@ -1,4 +1,4 @@
-; Copyright 2009 Mersenne Research, Inc.  All rights reserved
+; Copyright 2009-2010 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -43,6 +43,7 @@ TLB_PRIMING = 0
 
 	xpass2gen 2304
 	xpass2gen 3072
+	xpass2gen 3840
 	xpass2gen 12
 	xpass2gen 5120
 	xpass2gen 6400
@@ -55,6 +56,7 @@ TLB_PRIMING = 0
 	r4delay_pass1sc448 1008K, 2304, 4
 	r4delay_pass1sc448 1344K, 3072, 4
 	r4delay_pass1sc448 1792K, 12, 4
+	r4delay_pass1sc512 1920K, 3840, 4
 	r4delay_pass1sc512 2M, 12, 4
 	r4delay_pass1sc640 1440K, 2304, 4
 	r4delay_pass1sc640 1920K, 3072, 4
@@ -74,6 +76,7 @@ TLB_PRIMING = 0
 	r4delay_pass1sc384ac 1152K, 3072, 4
 	r4delay_pass1sc384ac 1536K, 12, 4
 	r4delay_pass1sc512ac 1536K, 3072, 4
+	r4delay_pass1sc512ac 1920K, 3840, 4
 	r4delay_pass1sc512ac 2M, 12, 4
 	r4delay_pass1sc640ac 2560K, 12, 4
 	r4delay_pass1sc640ac 3200K, 5120, 4
