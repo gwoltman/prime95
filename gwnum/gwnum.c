@@ -4138,20 +4138,29 @@ int gwsetup (
 /* large k or c values with a call to the general purpose modulo setup code. */
 
 	if (!setup_completed) {
-		double	bits;
-		giant	g;
-
-		bits = (double) n * log2 (b);
-		g = allocgiant (((unsigned long) bits >> 5) + 4);
-		if (g == NULL) return (GWERROR_MALLOC);
-		ultog (b, g);
-		power (g, n);
-		dblmulg (k, g);
-		iaddg (c, g);
-		gwdata->force_general_mod = TRUE;
-		error_code = gwsetup_general_mod_giant (gwdata, g);
-		free (g);
-		if (error_code) return (error_code);
+		/* If we've already copied the modulus, use it.  For example, */
+		/* gwsetup_general_mod_giant on (2^313+1)/3 will call this routine */
+		/* to try an IBDWT on 2^313+1.  This number is too small and */
+		/* we need to revert back to a general mod on (2^313+1)/3. */
+		if (gwdata->GW_MODULUS != NULL) {
+			gwdata->force_general_mod = TRUE;
+			error_code = gwsetup_general_mod_giant (gwdata, gwdata->GW_MODULUS);
+			if (error_code) return (error_code);
+		} else {
+			double	bits;
+			giant	g;
+			bits = (double) n * log2 (b);
+			g = allocgiant (((unsigned long) bits >> 5) + 4);
+			if (g == NULL) return (GWERROR_MALLOC);
+			ultog (b, g);
+			power (g, n);
+			dblmulg (k, g);
+			iaddg (c, g);
+			gwdata->force_general_mod = TRUE;
+			error_code = gwsetup_general_mod_giant (gwdata, g);
+			free (g);
+			if (error_code) return (error_code);
+		}
 	}
 
 /* For future messages, format the input number as a string */
@@ -4216,7 +4225,7 @@ int gwsetup_general_mod_giant (
 
 	bits = bitlen (g);
 
-/* Examine the giant to see if it a (k*2^n+c)/d value that we can better optimize */
+/* Examine the giant to see if it a (k*2^n+c)/d value that we can better optimize. */
 /* Also detect nasty bit patterns, like Phi (82730,2), where multiplying by a small d */
 /* results in a less nasty bit pattern for the modulus. */
 
@@ -4228,12 +4237,18 @@ int gwsetup_general_mod_giant (
 /* Copy the modulus except for convertible k*2^n+c values */
 
 	if (!convertible || d != 1) {
-		gwdata->GW_MODULUS = allocgiant ((bits >> 5) + 1);
+		/* Yuk, we may already have saved the modulus.  For example, (2^313+1)/3 */
+		/* will come through here and save the modulus.  But gwsetup of 2^313+1 */
+		/* is too small for IBDWT, so this routine is recursively called. */
+		/* We cannot reallocate because that will cause a memory leak. */
 		if (gwdata->GW_MODULUS == NULL) {
-			gwdone (gwdata);
-			return (GWERROR_MALLOC);
+			gwdata->GW_MODULUS = allocgiant ((bits >> 5) + 1);
+			if (gwdata->GW_MODULUS == NULL) {
+				gwdone (gwdata);
+				return (GWERROR_MALLOC);
+			}
+			gtog (g, gwdata->GW_MODULUS);
 		}
-		gtog (g, gwdata->GW_MODULUS);
 	}
 
 /* Setup for values we are converting to use faster k*2^n+c FFTs. */
