@@ -9,7 +9,7 @@
  *  This is the only C++ routine in the gwnum library.  Since gwnum is
  *  a C based library, we declare all routines here as extern "C".
  * 
- *  Copyright 2005-2009 Mersenne Research, Inc.  All rights reserved.
+ *  Copyright 2005-2010 Mersenne Research, Inc.  All rights reserved.
  *
  **************************************************************/
 
@@ -114,6 +114,8 @@ void gwasm_constants (
 #define M691			asm_values[19]
 #define P924			asm_values[20]
 #define P383			asm_values[21]
+#define P782			asm_values[22]
+#define P434			asm_values[23]
 
 /* Do some initial setup */
 	
@@ -172,6 +174,9 @@ void gwasm_constants (
 	M223 = double (cosine2);
 	M901 = double (cosine3);
 	M691 = double (cosine1 / M901);		// 0.623 / -0.901
+
+	P782 = double (sine1);
+	P434 = double (sine3);
 
 /* Initialize the roots of -1 used by r4_four_complex_first_fft. */
 

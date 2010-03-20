@@ -166,12 +166,16 @@ struct gwasm_data {
 	double	CARRY_ADJUST1_LO;
 	double	XMM_P924[2];
 	double	XMM_P383[2];
-	double	XMM_P623[2];
 	double	XMM_M358[2];
 	double	XMM_P404[2];
-	double	XMM_P975[2];
 	double	XMM_P445[2];
 	double	XMM_P180[2];
+	double	XMM_P975[2];
+	double	XMM_P623[2];
+	double	XMM_P901[2];
+	double	XMM_P782[2];
+	double	XMM_P434[2];
+	double	XMM_P223[2];
 
 	uint32_t COPYZERO[8];	/* Offsets to help in gwcopyzero */
 
@@ -5582,10 +5586,14 @@ int internal_gwsetup (
 	asm_data->P404 =
 	asm_data->XMM_P404[0] = asm_data->XMM_P404[1] = asm_values[16];
 	asm_data->M223 = asm_values[17];
+	asm_data->XMM_P223[0] = asm_data->XMM_P223[1] = -asm_values[17];
 	asm_data->M901 = asm_values[18];
+	asm_data->XMM_P901[0] = asm_data->XMM_P901[1] = -asm_values[18];
 	asm_data->M691 = asm_values[19];
 	asm_data->XMM_P924[0] = asm_data->XMM_P924[1] = asm_values[20];
 	asm_data->XMM_P383[0] = asm_data->XMM_P383[1] = asm_values[21];
+	asm_data->XMM_P782[0] = asm_data->XMM_P782[1] = asm_values[22];
+	asm_data->XMM_P434[0] = asm_data->XMM_P434[1] = asm_values[23];
 
 /* Non-SSE2 initialization. Calculate constants used in two pass FFTs. */
 /* Foremost is the pass 1 blkdst and normalize blkdst for auxillary mult */
