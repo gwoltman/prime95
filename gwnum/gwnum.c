@@ -8826,12 +8826,12 @@ int gwtogiant (
 		unsigned long i, gap, small_size, last_small_size;
 
 		array = (giantstruct *) malloc (limit * sizeof (giantstruct));
-		if (array == NULL) { memerr: err_code =  GWERROR_MALLOC; goto err; }
+		if (array == NULL) { memerr: err_code = GWERROR_MALLOC; goto err; }
 		buf = (uint32_t *) malloc (limit * sizeof (uint32_t));
 		if (buf == NULL) goto memerr;
-		small_base = allocgiant (limit);
+		small_base = popg (&gwdata->gdata, limit);
 		if (small_base == NULL) goto memerr;
-		large_base = allocgiant (limit);
+		large_base = popg (&gwdata->gdata, limit);
 		if (large_base == NULL) goto memerr;
 		for (i = 0; i < limit; i++) {
 			long	val;
@@ -8839,8 +8839,8 @@ int gwtogiant (
 			if (err_code) {
 err:				free (array);
 				free (buf);
-				free (small_base);
-				free (large_base);
+				if (small_base != NULL) pushg (&gwdata->gdata, 1);
+				if (large_base != NULL) pushg (&gwdata->gdata, 1);
 				return (err_code);
 			}
 			array[i].n = &buf[i];
@@ -8887,8 +8887,7 @@ err:				free (array);
 
 		free (array);
 		free (buf);
-		free (small_base);
-		free (large_base);
+		pushg (&gwdata->gdata, 2);
 	}
 
 /* Since all gwnums are premultiplied by the inverse of k, we must now */
