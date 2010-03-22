@@ -8729,7 +8729,7 @@ int gwtogiant (
 /* FFT, then only convert a little more than half of the FFT data words. */
 /* For a DWT, convert all the FFT data. */
 
-	if (gwdata->GENERAL_MOD) limit = gwdata->GW_GEN_MOD_MAX + 4;
+	if (gwdata->GENERAL_MOD) limit = gwdata->GW_GEN_MOD_MAX + 3;
 	else if (gwdata->ZERO_PADDED_FFT) limit = gwdata->FFTLEN / 2 + 4;
 	else limit = gwdata->FFTLEN;
 
@@ -8739,23 +8739,20 @@ int gwtogiant (
 
 	if (gwdata->GENERAL_MOD) {
 		long	val, prev_val;
-		err_code = get_fft_value (gwdata, gg, limit, &val);
-		if (err_code) return (err_code);
-		ASSERTG (val >= -1 && val <= 0);
+		while (limit < gwdata->FFTLEN) {
+			err_code = get_fft_value (gwdata, gg, limit, &val);
+			if (err_code) return (err_code);
+			if (val == -1 || val == 0) break;
+			limit++;
+			ASSERTG (limit <= gwdata->FFTLEN / 2 + 2);
+		}
 		while (limit > 1) {		/* Find top word */
 			err_code = get_fft_value (gwdata, gg, limit-1, &prev_val);
 			if (err_code) return (err_code);
 			if (val != prev_val || val < -1 || val > 0) break;
 			limit--;
 		}
-		if (val > 0 || val < -1 || (val == -1 && prev_val >= 0)) {
-			int	num_b;
-			num_b = gwdata->NUM_B_PER_SMALL_WORD;
-			if (is_big_word (gwdata, limit-1)) num_b++;
-			prev_val += val * intpow (gwdata->b, num_b);
-			set_fft_value (gwdata, gg, limit, (prev_val < 0) ? -1 : 0);
-			set_fft_value (gwdata, gg, limit-1, prev_val);
-		}
+		limit++;
 	}
 
 /* If base is 2 we can simply copy the bits out of each FFT word */
@@ -10016,7 +10013,7 @@ void gwsmallmul (
 /* weighted -1 or 0) then emulate general mod with 2 multiplies */
 
 	if (gwdata->GENERAL_MOD &&
-	    (* (double *) ((char *) g + gwdata->GW_GEN_MOD_MAX_OFFSET) <= 2.0 ||
+	    (* (double *) ((char *) g + gwdata->GW_GEN_MOD_MAX_OFFSET) <= -2.0 ||
 	     * (double *) ((char *) g + gwdata->GW_GEN_MOD_MAX_OFFSET) > 0.0))
 		emulate_mod (gwdata, g);
 }
