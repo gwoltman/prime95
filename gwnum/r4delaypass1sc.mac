@@ -1,4 +1,4 @@
-; Copyright 2009 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2009-2010 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -1039,15 +1039,13 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*c
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
-	lea	rdx, [rdi+64*XMM_SCD3]
-	mov	rbx, DATA_ADDR		;; Use data area as scratch area
 	loops_init 8*2*clm		;; 8 iterations of 2*clm
 pfing	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
-c1b:	r7_x14cl_28_reals_last_unfft rsi, 64, clmblkdst8, rdi, 8*XMM_SCD3, rdx, 8*XMM_SCD2, rbx, blkdst
-	newxloop1quadpre c1b, c1a, clmblkdst, rdi, XMM_SCD3, rdx, XMM_SCD2 ;; 2*clm iterations
+c1b:	r7_x14cl_28_reals_last_unfft rsi, 64, clmblkdst8, rdi, 8*XMM_SCD13
+	newxloop1quadpre c1b, c1a, clmblkdst, rdi, XMM_SCD13 ;; 2*clm iterations
 	loops	8, c1a			;; 8 iterations
 	end_timer 20
 
@@ -1086,16 +1084,14 @@ b0b:	copy_fft_data_to_scratch 112
 yes_fft:start_timer 22
 	mov	rsi, scratch_area	;; Get address of scratch area
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
-	lea	rdx, [rdi+64*XMM_SCD3]
-	mov	rbx, DATA_ADDR		;; Use data area as a scratch area
 pfing	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
 pfing	bump	rcx, 32*blkdst		;; We've already prefetched 32 blocks
 	loops_init 16*2*clm		;; 16 iters of 2*2*clm
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
-b1b:	r7_x7cl_28_reals_first_fft_scratch rsi, 64, 2*clmblkdst8, rdi, 16*XMM_SCD3, rdx, rbx, blkdst
-	newxloop1doublepre b1b, b1a, clmblkdst, rdi, XMM_SCD3, rdx, XMM_SCD2 ;; 2*clm iters prefetching 4*clm cache lines
+b1b:	r7_x7cl_28_reals_first_fft_scratch rsi, 64, 2*clmblkdst8, rdi
+	newxloop1doublepre b1b, b1a, clmblkdst, rdi, XMM_SCD13 ;; 2*clm iters prefetching 4*clm cache lines
 	loops	8, b1a			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8
 	loops	2, b1a			;; Test loop counter
@@ -2671,15 +2667,13 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*cl
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
-	lea	rdx, [rdi+128*XMM_SCD3]
-	mov	rbx, DATA_ADDR		;; Use data area as scratch area
 	loops_init 16*2*clm		;; 16 iterations of 2*clm
 pfing	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
-c1b:	r7_x14cl_28_reals_last_unfft rsi, 64, 2*clmblkdst8, rdi, 16*XMM_SCD3, rdx, 16*XMM_SCD2, rbx, blkdst
-	newxloop1quadpre c1b, c1a, clmblkdst, rdi, XMM_SCD3, rdx, XMM_SCD2 ;; 2*clm iterations
+c1b:	r7_x14cl_28_reals_last_unfft rsi, 64, 2*clmblkdst8, rdi, 16*XMM_SCD13
+	newxloop1quadpre c1b, c1a, clmblkdst, rdi, XMM_SCD13 ;; 2*clm iterations
 	loops	8, c1a			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8 ;; Next source pointer
 	loops	2, c1a			;; 8 iterations
@@ -2720,16 +2714,14 @@ b0b:	copy_fft_data_to_scratch 224
 yes_fft:start_timer 22
 	mov	rsi, scratch_area	;; Get address of scratch area
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
-	lea	rdx, [rdi+128*XMM_SCD3]
-	mov	rbx, DATA_ADDR		;; Use data area as a scratch area
 pfing	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
 pfing	bump	rcx, 64*blkdst		;; We've already prefetched 64 blocks
 	loops_init 32*2*clm		;; 32 iters of 2*clm
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
-b1b:	r7_x7cl_28_reals_first_fft_scratch rsi, 64, 4*clmblkdst8, rdi, 32*XMM_SCD3, rdx, rbx, blkdst
-	newxloop1doublepre b1b, b1a, clmblkdst, rdi, XMM_SCD3, rdx, XMM_SCD2 ;; 2*clm iters prefetching 4*clm cache lines
+b1b:	r7_x7cl_28_reals_first_fft_scratch rsi, 64, 4*clmblkdst8, rdi
+	newxloop1doublepre b1b, b1a, clmblkdst, rdi, XMM_SCD13 ;; 2*clm iters prefetching 4*clm cache lines
 	loops	8, b1a			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8
 	loops	4, b1a			;; Test loop counter

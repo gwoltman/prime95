@@ -1360,25 +1360,8 @@ double *r4delay_build_pass1_table (
 						else
 							ktemp = 5 * (group + i);
 					} else {			/* delay_count == 14 */
-						/* Multipliers for the radix-7 step */
-						if (k < 2)
-							ktemp = 0;
-						else if (k < 6)
-							ktemp = 1 * (group + i);
-						else if (k < 10)
-							ktemp = 2 * (group + i);
-						else
-							ktemp = 3 * (group + i);
-						/* Multipliers for the real radix-4 step */
-						if (k == 1)
-							ktemp += 1 * (group + i) * 7;
-						/* Multipliers for the complex radix-4 step */
-						if (k == 3 || k == 7 || k == 11)
-							ktemp += 2 * (group + i) * 7;
-						if (k == 4 || k == 8 || k == 12)
-							ktemp += 1 * (group + i) * 7;
-						if (k == 5 || k == 9 || k == 13)
-							ktemp += bigN - 1 * (group + i) * 7;
+						/* Multipliers for the radix-28 step */
+						ktemp = k * (group + i);
 					}
 
 /* We now calculate the standard sin/cos twiddle factors (temp*0,1,2,3,4,5,6,7 roots of N) */
@@ -1528,25 +1511,8 @@ double *r4delay_build_pass1_table (
 						else
 							ktemp = 5 * (group + i);
 					} else {				/* delay_count == 14 */
-						/* Multipliers for the radix-7 step */
-						if (k < 2)
-							ktemp = 0;
-						else if (k < 6)
-							ktemp = 1 * (group + i);
-						else if (k < 10)
-							ktemp = 2 * (group + i);
-						else
-							ktemp = 3 * (group + i);
-						/* Multipliers for the real radix-4 step */
-						if (k == 1)
-							ktemp += 1 * (group + i) * 7;
-						/* Multipliers for the complex radix-4 step */
-						if (k == 3 || k == 7 || k == 11)
-							ktemp += 2 * (group + i) * 7;
-						if (k == 4 || k == 8 || k == 12)
-							ktemp += 1 * (group + i) * 7;
-						if (k == 5 || k == 9 || k == 13)
-							ktemp += bigN - 1 * (group + i) * 7;
+						/* Multipliers for the radix-28 step */
+						ktemp = k * (group + i);
 					}
 
 /* We now calculate the standard sin/cos twiddle factors (temp*0,1,2,3 roots of N) */
@@ -1783,7 +1749,7 @@ double *r4delay_build_fixed_pass1_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table)		/* Pointer to the table to fill in */
 {
-	unsigned long pass1_increment, upper_sse2_word, j, temp, N;
+	unsigned long pass1_increment, upper_sse2_word, i, j, temp, N;
 	double	sincos[6];
 
 /* Initialize some needed constants */
@@ -1791,50 +1757,24 @@ double *r4delay_build_fixed_pass1_table (
 	pass1_increment = gwdata->PASS2_SIZE;
 	upper_sse2_word = pass1_increment / 2;
 
-/* Real FFTs output one shared set of sin/cos values for the first seven-reals or eight-reals FFT. */
+/* Real FFTs output one shared set of sin/cos values for the first 28-reals or 8-reals FFT. */
 
 	if (! gwdata->ALL_COMPLEX_FFT) {
 		N = gwdata->FFTLEN;
-		if (N % 7 == 0) {
-		    for (j = 0; j < N / 7; j += pass1_increment) {
+		if (N % 28 == 0) {
+		    for (j = 0; j < N / 28; j += pass1_increment) {
+			for (i = 1; i <= 13; i++) {	/* Create 13 twiddle factors */
+				gwsincos (i * j, N, (double *) &sincos);
+				table[0] = sincos[0];	/* i * j */
+				table[2] = sincos[1];
+				gwsincos (i * (j + upper_sse2_word), N, (double *) &sincos);
+				table[1] = sincos[0];
+				table[3] = sincos[1];
 
-			gwsincos3 (j, N, (double *) &sincos);
-			table[0] = sincos[0];	/* temp */
-			table[2] = sincos[1];
-			table[4] = sincos[2];	/* 2 * temp */
-			table[6] = sincos[3];
-			table[8] = sincos[4];	/* 3 * temp */
-			table[10] = sincos[5];
-
-			temp = j + upper_sse2_word;
-			gwsincos3 (temp, N, (double *) &sincos);
-			table[1] = sincos[0];	/* temp */
-			table[3] = sincos[1];
-			table[5] = sincos[2];	/* 2 * temp */
-			table[7] = sincos[3];
-			table[9] = sincos[4];	/* 3 * temp */
-			table[11] = sincos[5];
-
-			table += 12;
+				table += 4;
+			}
 		    }
-		    N = N / 7;
-		    for (j = 0; j < N / 4; j += pass1_increment) {
-
-			    gwsincos3 (j, N, (double *) &sincos);
-			    table[0] = sincos[0];	/* temp */
-			    table[2] = sincos[1];
-			    table[4] = sincos[2];	/* 2 * temp */
-			    table[6] = sincos[3];
-
-			    temp = j + upper_sse2_word;
-			    gwsincos3 (temp, N, (double *) &sincos);
-			    table[1] = sincos[0];	/* temp */
-			    table[3] = sincos[1];
-			    table[5] = sincos[2];	/* 2 * temp */
-			    table[7] = sincos[3];
-
-			    table += 8;
-		    }
+		    N = N / 28;
 		}
 		else {
 		    for (j = 0; j < N / 8; j += pass1_increment) {

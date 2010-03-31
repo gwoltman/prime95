@@ -1,4 +1,4 @@
-; Copyright 1995-2009 Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2010 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -738,10 +738,10 @@ sscase167: jmp exit;;	sse2mac sscase167, 256, 100000, r4_s4cl_four_complex_djbun
 	sse2mac sscase208, 192, 4096, r3_x3cl_six_reals_unfft rsi, 3*64, 64, rdi, 0, rdi, 0
 	sse2mac sscase209, 192, 100000, r3_x3cl_six_reals_unfft rsi, 3*64, 64, rdi, 0, rdi, 0
 
-	sse2macbx sscase210, 448, 4096, r7_x7cl_28_reals_first_fft_scratch rsi, 7*64, 64, rdi, 16*XMM_SCD3, rdi, rbx, 4096+128
-	sse2macbx sscase211, 448, 100000, r7_x7cl_28_reals_first_fft_scratch rsi, 7*64, 64, rdi, 16*XMM_SCD3, rdi, rbx, 4096+128
-	sse2macbx sscase212, 896, 4096, r7_x14cl_28_reals_last_unfft rsi, 14*64, 64, rdi, 8*XMM_SCD3, rdi, 8*XMM_SCD2, rbx, 4096+128
-	sse2macbx sscase213, 896, 100000, r7_x14cl_28_reals_last_unfft rsi, 14*64, 64, rdi, 8*XMM_SCD3, rdi, 8*XMM_SCD2, rbx, 4096+128
+	sse2mac sscase210, 448, 4096, r7_x7cl_28_reals_first_fft_scratch rsi, 7*64, 64, rdi
+	sse2mac sscase211, 448, 100000, r7_x7cl_28_reals_first_fft_scratch rsi, 7*64, 64, rdi
+	sse2mac sscase212, 896, 4096, r7_x14cl_28_reals_last_unfft rsi, 14*64, 64, rdi, 8*XMM_SCD13
+	sse2mac sscase213, 896, 100000, r7_x14cl_28_reals_last_unfft rsi, 14*64, 64, rdi, 8*XMM_SCD13
 
 	; need 16 reals cases
 

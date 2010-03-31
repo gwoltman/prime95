@@ -1,4 +1,4 @@
-; Copyright 2001-2009 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2010 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -35,6 +35,7 @@ XMM_SCD2 = 64			;; Sizeof an SSE2 DJB sin/cos table entry
 XMM_SCD3 = 96			;; Sizeof an eight_reals sin/cos table entry
 XMM_SCD4 = 128			;; Sizeof an entry in premultiplier table
 XMM_SCD8 = 256			;; Sizeof an radix-8 with premultipliers table entry
+XMM_SCD13 = 416			;; Sizeof a real radix-28 with premultipliers table entry
 XMM_HSCD1 = 16			;; Sizeof a half sin/cos table entry used in real FFTs in pass 2
 XMM_HSCD2 = 32			;; Sizeof a half sin/cos table entry used in real FFTs in pass 2
 
