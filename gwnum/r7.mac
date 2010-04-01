@@ -1101,9 +1101,9 @@ r7_x28r_unfft MACRO srcreg,d1,r1A,r1B,tmpreg
 	addpd	xmm6, xmm4			;; .623(r2+r14)-.901(r4+r12)-.223(r6+r10)+r8
 	subpd	xmm7, xmm4			;; .223(r2+r14)-.623(r4+r12)+.901(r6+r10)-r8
 
-	xstore	tmpreg[6*32], xmm0		;; Save even-real-cols row #1
-	xstore	tmpreg[8*32], xmm5		;; Save even-real-cols row #3
-	xstore	tmpreg[10*32], xmm6		;; Save even-real-cols row #5
+	xstore	tmpreg[6*32], xmm0		;; Save even-real-cols row #1	;; We could save a few loads and stores
+	xstore	tmpreg[8*32], xmm5		;; Save even-real-cols row #3	;; if two of these registers were left
+	xstore	tmpreg[10*32], xmm6		;; Save even-real-cols row #5	;; unchanged through the next section
 	xstore	tmpreg[12*32], xmm7		;; Save even-real-cols row #7
 
 	;; Calculate odd columns derived from real inputs (odd rows)
@@ -1169,144 +1169,7 @@ r7_x28r_unfft MACRO srcreg,d1,r1A,r1B,tmpreg
 	xstore	tmpreg[10*32], xmm6		;; Save real-cols row #7
 	xstore	tmpreg[12*32], xmm7		;; Save real-cols row #9
 
-	;; Calculate odd columns derived from imaginary inputs
-
-	xload	xmm7, tmpreg[32+16]		;; i3-i13
-	xload	xmm5, XMM_P782
-	mulpd	xmm5, xmm7			;; .782(i3-i13)
-	xload	xmm6, XMM_P975
-	mulpd	xmm6, xmm7			;; .975(i3-i13)
-	mulpd	xmm7, XMM_P434			;; .434(i3-i13)
-
-	xload	xmm3, tmpreg[3*32+16]		;; i5-i11
-	xload	xmm2, XMM_P975
-	mulpd	xmm2, xmm3			;; .975(i5-i11)
-	addpd	xmm5, xmm2			;; .782(i3-i13)+.975(i5-i11)
-	xload	xmm2, XMM_P434
-	mulpd	xmm2, xmm3			;; .434(i5-i11)
-	subpd	xmm6, xmm2			;; .975(i3-i13)-.434(i5-i11)
-	mulpd	xmm3, XMM_P782			;; .782(i5-i11)
-	subpd	xmm7, xmm3			;; .434(i3-i13)-.782(i5-i11)
-
-	xload	xmm3, tmpreg[5*32+16]		;; i7-i9
-	xload	xmm4, XMM_P434
-	mulpd	xmm4, xmm3			;; .434(i7-i9)
-	addpd	xmm5, xmm4			;; .782(i3-i13)+.975(i5-i11)+.434(i7-i9)
-	xload	xmm4, XMM_P782
-	mulpd	xmm4, xmm3			;; .782(i7-i9)
-	subpd	xmm6, xmm4			;; .975(i3-i13)-.434(i5-i11)-.782(i7-i9)
-	mulpd	xmm3, XMM_P975			;; .975(i7-i9)
-	addpd	xmm7, xmm3			;; .434(i3-i13)-.782(i5-i11)+.975(i7-i9)
-
-	xstore	tmpreg[32+16], xmm5		;; Save odd-imag-cols row #3
-	xstore	tmpreg[3*32+16], xmm6		;; Save odd-imag-cols row #5
-	xstore	tmpreg[5*32+16], xmm7		;; Save odd-imag-cols row #7
-
-	xload	xmm0, tmpreg[11*32+16]		;; i3+i13
-	xload	xmm5, XMM_P434
-	mulpd	xmm5, xmm0			;; .434(i3+i13)
-	xload	xmm6, XMM_P975
-	mulpd	xmm6, xmm0			;; .975(i3+i13)
-	mulpd	xmm0, XMM_P782			;; .782(i3+i13)
-
-	xload	xmm1, tmpreg[9*32+16]		;; i5+i11
-	xload	xmm4, XMM_P782
-	mulpd	xmm4, xmm1			;; .782(i5+i11)
-	addpd	xmm5, xmm4			;; .434(i3+i13)+.782(i5+i11)
-	xload	xmm4, XMM_P434
-	mulpd	xmm4, xmm1			;; .434(i5+i11)
-	addpd	xmm6, xmm4			;; .975(i3+i13)+.434(i5+i11)
-	mulpd	xmm1, XMM_P975			;; .975(i5+i11)
-	subpd	xmm0, xmm1			;; .782(i3+i13)-.975(i5+i11)
-
-	xload	xmm2, tmpreg[7*32+16]		;; i7+i9
-	xload	xmm4, XMM_P975
-	mulpd	xmm4, xmm2			;; .975(i7+i9)
-	addpd	xmm5, xmm4			;; .434(i3+i13)+.782(i5+i11)+.975(i7+i9)
-	xload	xmm4, XMM_P782
-	mulpd	xmm4, xmm2			;; .782(i7+i9)
-	subpd	xmm6, xmm4			;; .975(i3+i13)+.434(i5+i11)-.782(i7+i9)
-	mulpd	xmm2, XMM_P434			;; .434(i7+i9)
-	addpd	xmm0, xmm2			;; .782(i3+i13)-.975(i5+i11)+.434(i7+i9)
-
-	xstore	tmpreg[7*32+16], xmm5		;; Save odd-imag-cols row #2
-	xstore	tmpreg[9*32+16], xmm6		;; Save odd-imag-cols row #4
-	xstore	tmpreg[11*32+16], xmm0		;; Save odd-imag-cols row #6
-
-	;; Calculate even columns derived from imaginary inputs
-
-	xload	xmm7, tmpreg[16]		;; i2-i14
-	xload	xmm5, XMM_P434
-	mulpd	xmm5, xmm7			;; .434(i2-i14)
-	xload	xmm6, XMM_P782
-	mulpd	xmm6, xmm7			;; .782(i2-i14)
-	mulpd	xmm7, XMM_P975			;; .975(i2-i14)
-
-	xload	xmm4, tmpreg[2*32+16]		;; i4-i12
-	xload	xmm3, XMM_P975
-	mulpd	xmm3, xmm4			;; .975(i4-i12)
-	addpd	xmm5, xmm3			;; .434(i2-i14)+.975(i4-i12)
-	xload	xmm3, XMM_P434
-	mulpd	xmm3, xmm4			;; .434(i4-i12)
-	addpd	xmm6, xmm3			;; .782(i2-i14)+.434(i4-i12)
-	mulpd	xmm4, XMM_P782			;; .782(i4-i12)
-	subpd	xmm7, xmm4			;; .975(i2-i14)-.782(i4-i12)
-
-	xload	xmm4, tmpreg[4*32+16]		;; i6-i10
-	xload	xmm3, XMM_P782
-	mulpd	xmm3, xmm4			;; .782(i6-i10)
-	addpd	xmm5, xmm3			;; .434(i2-i14)+.975(i4-i12)+.782(i6-i10)
-	xload	xmm3, XMM_P975
-	mulpd	xmm3, xmm4			;; .975(i6-i10)
-	subpd	xmm6, xmm3			;; .782(i2-i14)+.434(i4-i12)-.975(i6-i10)
-	mulpd	xmm4, XMM_P434			;; .434(i6-i10)
-	addpd	xmm7, xmm4			;; .975(i2-i14)-.782(i4-i12)+.434(i6-i10)
-
-	;; Combine even and odd columns, then real and imag data
-
-	xload	xmm3, tmpreg[32+16]		;; Load odd-imag-cols row #3
-	addpd	xmm3, xmm5			;; imag-cols row #3
-	subpd	xmm5, tmpreg[32+16]		;; imag-cols row #13
-	xload	xmm4, tmpreg[6*32]		;; Load real-cols row #3
-	subpd	xmm4, xmm3			;; final R27
-	addpd	xmm3, tmpreg[6*32]		;; final R3
-	xstore	[srcreg+10*d1+48], xmm4		;; Save R27
-	xstore	[srcreg+4*d1], xmm3		;; Save R3
-	xload	xmm4, tmpreg[7*32]		;; Load real-cols row #13
-	subpd	xmm4, xmm5			;; final R17
-	addpd	xmm5, tmpreg[7*32]		;; final R13
-	xstore	[srcreg+4*d1+32], xmm4		;; Save R17
-	xstore	[srcreg+10*d1+16], xmm5		;; Save R13
-
-	xload	xmm3, tmpreg[3*32+16]		;; Load odd-imag-cols row #5
-	addpd	xmm3, xmm6			;; imag-cols row #5
-	subpd	xmm6, tmpreg[3*32+16]		;; imag-cols row #11
-	xload	xmm4, tmpreg[8*32]		;; Load real-cols row #5
-	subpd	xmm4, xmm3			;; final R25
-	addpd	xmm3, tmpreg[8*32]		;; final R5
-	xload	xmm5, tmpreg[9*32]		;; Load real-cols row #11
-	subpd	xmm5, xmm6			;; final R19
-	addpd	xmm6, tmpreg[9*32]		;; final R11
-	xstore	[srcreg+6*d1+48], xmm4		;; Save R25
-	xstore	[srcreg+8*d1], xmm3		;; Save R5
-	xstore	[srcreg+8*d1+32], xmm5		;; Save R19
-	xstore	[srcreg+6*d1+16], xmm6		;; Save R11
-
-	xload	xmm3, tmpreg[5*32+16]		;; Load odd-imag-cols row #7
-	addpd	xmm3, xmm7			;; imag-cols row #7
-	subpd	xmm7, tmpreg[5*32+16]		;; imag-cols row #9
-	xload	xmm4, tmpreg[10*32]		;; Load real-cols row #7
-	subpd	xmm4, xmm3			;; final R23
-	addpd	xmm3, tmpreg[10*32]		;; final R7
-	xload	xmm5, tmpreg[12*32]		;; Load real-cols row #9
-	subpd	xmm5, xmm7			;; final R21
-	addpd	xmm7, tmpreg[12*32]		;; final R9
-	xstore	[srcreg+2*d1+48], xmm4		;; Save R23
-	xstore	[srcreg+12*d1], xmm3		;; Save R7
-	xstore	[srcreg+12*d1+32], xmm5		;; Save R21
-	xstore	[srcreg+2*d1+16], xmm7		;; Save R9
-
-	;; Calculate more even columns derived from imaginary inputs
+	;; Calculate even columns derived from imaginary inputs (even rows)
 
 	xload	xmm0, tmpreg[12*32+16]		;; i2+i14
 	xload	xmm5, XMM_P223
@@ -1344,49 +1207,7 @@ r7_x28r_unfft MACRO srcreg,d1,r1A,r1B,tmpreg
 	addpd	xmm7, xmm4			;; .901(i2+i14)-.223(i4+i12)-.623(i6+i10)+i8
 	subpd	xmm0, xmm4			;; (i2+i14)-(i4+i12)+(i6+i10)-i8
 
-	;; Combine even and odd columns, then real and imag data
-
-	xload	xmm3, tmpreg[7*32+16]		;; Load odd-imag-cols row #2
-	addpd	xmm3, xmm5			;; imag-cols row #2
-	subpd	xmm5, tmpreg[7*32+16]		;; imag-cols row #14
-	xload	xmm4, tmpreg[0]			;; Load real-cols row #2
-	subpd	xmm4, xmm3			;; final R28
-	addpd	xmm3, tmpreg[0]			;; final R2
-	xload	xmm1, tmpreg[32]		;; Load real-cols row #14
-	subpd	xmm1, xmm5			;; final R16
-	addpd	xmm5, tmpreg[32]		;; final R14
-	xstore	[srcreg+12*d1+48], xmm4		;; Save R28
-	xstore	[srcreg+2*d1], xmm3		;; Save R2
-	xstore	[srcreg+2*d1+32], xmm1		;; Save R16
-	xstore	[srcreg+12*d1+16], xmm5		;; Save R14
-
-	xload	xmm3, tmpreg[9*32+16]		;; Load odd-imag-cols row #4
-	addpd	xmm3, xmm6			;; imag-cols row #4
-	subpd	xmm6, tmpreg[9*32+16]		;; imag-cols row #12
-	xload	xmm4, tmpreg[2*32]		;; Load real-cols row #4
-	subpd	xmm4, xmm3			;; final R26
-	addpd	xmm3, tmpreg[2*32]		;; final R4
-	xload	xmm1, tmpreg[3*32]		;; Load real-cols row #12
-	subpd	xmm1, xmm6			;; final R18
-	addpd	xmm6, tmpreg[3*32]		;; final R12
-	xstore	[srcreg+8*d1+48], xmm4		;; Save R26
-	xstore	[srcreg+6*d1], xmm3		;; Save R4
-	xstore	[srcreg+6*d1+32], xmm1		;; Save R18
-	xstore	[srcreg+8*d1+16], xmm6		;; Save R12
-
-	xload	xmm3, tmpreg[11*32+16]		;; Load odd-imag-cols row #6
-	addpd	xmm3, xmm7			;; imag-cols row #6
-	subpd	xmm7, tmpreg[11*32+16]		;; imag-cols row #10
-	xload	xmm4, tmpreg[4*32]		;; Load real-cols row #6
-	subpd	xmm4, xmm3			;; final R24
-	addpd	xmm3, tmpreg[4*32]		;; final R6
-	xload	xmm1, tmpreg[5*32]		;; Load real-cols row #10
-	subpd	xmm1, xmm7			;; final R20
-	addpd	xmm7, tmpreg[5*32]		;; final R10
-	xstore	[srcreg+4*d1+48], xmm4		;; Save R24
-	xstore	[srcreg+10*d1], xmm3		;; Save R6
-	xstore	[srcreg+10*d1+32], xmm1		;; Save R20
-	xstore	[srcreg+4*d1+16], xmm7		;; Save R10
+	;; Combine real and imaginary data for row #8
 
 	xload	xmm4, tmpreg[13*32]		;; Load real-cols row #8
 	subpd	xmm4, xmm0			;; final R22
@@ -1394,5 +1215,183 @@ r7_x28r_unfft MACRO srcreg,d1,r1A,r1B,tmpreg
 	xstore	[srcreg+48], xmm4		;; Save R22
 	xstore	[srcreg+16], xmm0		;; Save R8
 
+	;; Calculate odd columns derived from imaginary inputs (even rows)
+	;; From above, even-imag-cols row #2,4,6 are in xmm5, xmm6, xmm7
+
+	xload	xmm4, tmpreg[11*32+16]		;; i3+i13
+	xload	xmm2, XMM_P434
+	mulpd	xmm2, xmm4			;; .434(i3+i13)
+	xload	xmm3, XMM_P975
+	mulpd	xmm3, xmm4			;; .975(i3+i13)
+	mulpd	xmm4, XMM_P782			;; .782(i3+i13)
+
+	xload	xmm0, tmpreg[9*32+16]		;; i5+i11
+	xload	xmm1, XMM_P782
+	mulpd	xmm1, xmm0			;; .782(i5+i11)
+	addpd	xmm2, xmm1			;; .434(i3+i13)+.782(i5+i11)
+	xload	xmm1, XMM_P434
+	mulpd	xmm1, xmm0			;; .434(i5+i11)
+	addpd	xmm3, xmm1			;; .975(i3+i13)+.434(i5+i11)
+	mulpd	xmm0, XMM_P975			;; .975(i5+i11)
+	subpd	xmm4, xmm0			;; .782(i3+i13)-.975(i5+i11)
+
+	xload	xmm0, tmpreg[7*32+16]		;; i7+i9
+	xload	xmm1, XMM_P975
+	mulpd	xmm1, xmm0			;; .975(i7+i9)
+	addpd	xmm2, xmm1			;; .434(i3+i13)+.782(i5+i11)+.975(i7+i9)
+	xload	xmm1, XMM_P782
+	mulpd	xmm1, xmm0			;; .782(i7+i9)
+	subpd	xmm3, xmm1			;; .975(i3+i13)+.434(i5+i11)-.782(i7+i9)
+	mulpd	xmm0, XMM_P434			;; .434(i7+i9)
+	addpd	xmm4, xmm0			;; .782(i3+i13)-.975(i5+i11)+.434(i7+i9)
+
+	;; Combine even and odd columns, then real and imag data (even rows)
+
+	xcopy	xmm0, xmm5			;; Copy even-imag-cols row #2
+	subpd	xmm5, xmm2			;; imag-cols row #14 (even#2 - odd#2)
+	addpd	xmm2, xmm0			;; imag-cols row #2 (even#2 + odd#2)
+	xcopy	xmm1, xmm6			;; Copy even-imag-cols row #4
+	subpd	xmm6, xmm3			;; imag-cols row #12 (even#4 - odd#4)
+	addpd	xmm3, xmm1			;; imag-cols row #4 (even#4 + odd#4)
+	xcopy	xmm0, xmm7			;; Copy even-imag-cols row #6
+	subpd	xmm7, xmm4			;; imag-cols row #10 (even#6 - odd#6)
+	addpd	xmm4, xmm0			;; imag-cols row #6 (even#6 + odd#6)
+
+	xload	xmm0, tmpreg[32]		;; Load real-cols row #14
+	subpd	xmm0, xmm5			;; final R16
+	addpd	xmm5, tmpreg[32]		;; final R14
+	xload	xmm1, tmpreg[0]			;; Load real-cols row #2
+	subpd	xmm1, xmm2			;; final R28
+	addpd	xmm2, tmpreg[0]			;; final R2
+	xstore	[srcreg+2*d1+32], xmm0		;; Save R16
+	xstore	[srcreg+12*d1+16], xmm5		;; Save R14
+	xstore	[srcreg+12*d1+48], xmm1		;; Save R28
+	xstore	[srcreg+2*d1], xmm2		;; Save R2
+
+	xload	xmm0, tmpreg[3*32]		;; Load real-cols row #12
+	subpd	xmm0, xmm6			;; final R18
+	addpd	xmm6, tmpreg[3*32]		;; final R12
+	xload	xmm1, tmpreg[2*32]		;; Load real-cols row #4
+	subpd	xmm1, xmm3			;; final R26
+	addpd	xmm3, tmpreg[2*32]		;; final R4
+	xstore	[srcreg+6*d1+32], xmm0		;; Save R18
+	xstore	[srcreg+8*d1+16], xmm6		;; Save R12
+	xstore	[srcreg+8*d1+48], xmm1		;; Save R26
+	xstore	[srcreg+6*d1], xmm3		;; Save R4
+
+	xload	xmm0, tmpreg[5*32]		;; Load real-cols row #10
+	subpd	xmm0, xmm7			;; final R20
+	addpd	xmm7, tmpreg[5*32]		;; final R10
+	xload	xmm1, tmpreg[4*32]		;; Load real-cols row #6
+	subpd	xmm1, xmm4			;; final R24
+	addpd	xmm4, tmpreg[4*32]		;; final R6
+	xstore	[srcreg+10*d1+32], xmm0		;; Save R20
+	xstore	[srcreg+4*d1+16], xmm7		;; Save R10
+	xstore	[srcreg+4*d1+48], xmm1		;; Save R24
+	xstore	[srcreg+10*d1], xmm4		;; Save R6
+
+	;; Calculate even columns derived from imaginary inputs (odd rows)
+
+	xload	xmm7, tmpreg[16]		;; i2-i14
+	xload	xmm5, XMM_P434
+	mulpd	xmm5, xmm7			;; .434(i2-i14)
+	xload	xmm6, XMM_P782
+	mulpd	xmm6, xmm7			;; .782(i2-i14)
+	mulpd	xmm7, XMM_P975			;; .975(i2-i14)
+
+	xload	xmm4, tmpreg[2*32+16]		;; i4-i12
+	xload	xmm3, XMM_P975
+	mulpd	xmm3, xmm4			;; .975(i4-i12)
+	addpd	xmm5, xmm3			;; .434(i2-i14)+.975(i4-i12)
+	xload	xmm3, XMM_P434
+	mulpd	xmm3, xmm4			;; .434(i4-i12)
+	addpd	xmm6, xmm3			;; .782(i2-i14)+.434(i4-i12)
+	mulpd	xmm4, XMM_P782			;; .782(i4-i12)
+	subpd	xmm7, xmm4			;; .975(i2-i14)-.782(i4-i12)
+
+	xload	xmm4, tmpreg[4*32+16]		;; i6-i10
+	xload	xmm3, XMM_P782
+	mulpd	xmm3, xmm4			;; .782(i6-i10)
+	addpd	xmm5, xmm3			;; .434(i2-i14)+.975(i4-i12)+.782(i6-i10)
+	xload	xmm3, XMM_P975
+	mulpd	xmm3, xmm4			;; .975(i6-i10)
+	subpd	xmm6, xmm3			;; .782(i2-i14)+.434(i4-i12)-.975(i6-i10)
+	mulpd	xmm4, XMM_P434			;; .434(i6-i10)
+	addpd	xmm7, xmm4			;; .975(i2-i14)-.782(i4-i12)+.434(i6-i10)
+
+	;; Calculate odd columns derived from imaginary inputs (odd rows)
+	;; From above, even-imag-cols row #3,5,7 are in xmm5,xmm6,xmm7
+
+	xload	xmm4, tmpreg[32+16]		;; i3-i13
+	xload	xmm2, XMM_P782
+	mulpd	xmm2, xmm4			;; .782(i3-i13)
+	xload	xmm3, XMM_P975
+	mulpd	xmm3, xmm4			;; .975(i3-i13)
+	mulpd	xmm4, XMM_P434			;; .434(i3-i13)
+
+	xload	xmm0, tmpreg[3*32+16]		;; i5-i11
+	xload	xmm1, XMM_P975
+	mulpd	xmm1, xmm0			;; .975(i5-i11)
+	addpd	xmm2, xmm1			;; .782(i3-i13)+.975(i5-i11)
+	xload	xmm1, XMM_P434
+	mulpd	xmm1, xmm0			;; .434(i5-i11)
+	subpd	xmm3, xmm1			;; .975(i3-i13)-.434(i5-i11)
+	mulpd	xmm0, XMM_P782			;; .782(i5-i11)
+	subpd	xmm4, xmm0			;; .434(i3-i13)-.782(i5-i11)
+
+	xload	xmm0, tmpreg[5*32+16]		;; i7-i9
+	xload	xmm1, XMM_P434
+	mulpd	xmm1, xmm0			;; .434(i7-i9)
+	addpd	xmm2, xmm1			;; .782(i3-i13)+.975(i5-i11)+.434(i7-i9)
+	xload	xmm1, XMM_P782
+	mulpd	xmm1, xmm0			;; .782(i7-i9)
+	subpd	xmm3, xmm1			;; .975(i3-i13)-.434(i5-i11)-.782(i7-i9)
+	mulpd	xmm0, XMM_P975			;; .975(i7-i9)
+	addpd	xmm4, xmm0			;; .434(i3-i13)-.782(i5-i11)+.975(i7-i9)
+
+	;; Combine even and odd columns, then real and imag data (odd rows)
+
+	xcopy	xmm0, xmm5			;; Copy even-imag-cols row #3
+	subpd	xmm5, xmm2			;; imag-cols row #13 (even#3 - odd#3)
+	addpd	xmm2, xmm0			;; imag-cols row #3 (even#3 + odd#3)
+	xcopy	xmm1, xmm6			;; Copy even-imag-cols row #5
+	subpd	xmm6, xmm3			;; imag-cols row #11 (even#5 - odd#5)
+	addpd	xmm3, xmm1			;; imag-cols row #5 (even#5 + odd#5)
+	xcopy	xmm0, xmm7			;; Copy even-imag-cols row #7
+	subpd	xmm7, xmm4			;; imag-cols row #9 (even#7 - odd#7)
+	addpd	xmm4, xmm0			;; imag-cols row #7 (even#7 + odd#7)
+
+	xload	xmm0, tmpreg[7*32]		;; Load real-cols row #13
+	subpd	xmm0, xmm5			;; final R17
+	addpd	xmm5, tmpreg[7*32]		;; final R13
+	xload	xmm1, tmpreg[6*32]		;; Load real-cols row #3
+	subpd	xmm1, xmm2			;; final R27
+	addpd	xmm2, tmpreg[6*32]		;; final R3
+	xstore	[srcreg+4*d1+32], xmm0		;; Save R17
+	xstore	[srcreg+10*d1+16], xmm5		;; Save R13
+	xstore	[srcreg+10*d1+48], xmm1		;; Save R27
+	xstore	[srcreg+4*d1], xmm2		;; Save R3
+
+	xload	xmm0, tmpreg[9*32]		;; Load real-cols row #11
+	subpd	xmm0, xmm6			;; final R19
+	addpd	xmm6, tmpreg[9*32]		;; final R11
+	xload	xmm1, tmpreg[8*32]		;; Load real-cols row #5
+	subpd	xmm1, xmm3			;; final R25
+	addpd	xmm3, tmpreg[8*32]		;; final R5
+	xstore	[srcreg+8*d1+32], xmm0		;; Save R19
+	xstore	[srcreg+6*d1+16], xmm6		;; Save R11
+	xstore	[srcreg+6*d1+48], xmm1		;; Save R25
+	xstore	[srcreg+8*d1], xmm3		;; Save R5
+
+	xload	xmm0, tmpreg[12*32]		;; Load real-cols row #9
+	subpd	xmm0, xmm7			;; final R21
+	addpd	xmm7, tmpreg[12*32]		;; final R9
+	xload	xmm1, tmpreg[10*32]		;; Load real-cols row #7
+	subpd	xmm1, xmm4			;; final R23
+	addpd	xmm4, tmpreg[10*32]		;; final R7
+	xstore	[srcreg+12*d1+32], xmm0		;; Save R21
+	xstore	[srcreg+2*d1+16], xmm7		;; Save R9
+	xstore	[srcreg+2*d1+48], xmm1		;; Save R23
+	xstore	[srcreg+12*d1], xmm4		;; Save R7
 	ENDM
 
