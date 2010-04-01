@@ -11,9 +11,8 @@
 ;; ************************************* 28-reals-first-fft variants ******************************************
 ;;
 
-;; These macros operate on four sets of seven reals doing 4.807 levels of the FFT, applying
-;; the sin/cos multipliers after the radix-7 step and after the radix-4 step.  The output is
-;; 2 reals and 13 complex numbers.
+;; These macros operate on 28 reals doing 4.807 levels of the FFT, applying
+;; the sin/cos multipliers afterwards.  The output is 2 reals and 13 complex numbers.
 
 ;;r7_x7cl_28_reals_first_fft MACRO srcreg,srcinc,d1,screg
 ;;	r7_x7cl_28_reals_first_fft_cmn srcreg,rbx,srcinc,d1,screg
@@ -691,8 +690,7 @@ r7_x7cl_28_reals_first_fft_cmn MACRO srcreg,off,srcinc,d1,screg
 ;;
 
 ;; These macros produce 28 reals after doing 4.807 levels of the inverse FFT applying
-;; the sin/cos multipliers before a radix-4 step and before a radix-7 step.
-;; The input is 2 real and 13 complex numbers.
+;; the sin/cos multipliers beforehand.  The input is 2 real and 13 complex numbers.
 
 ;; To calculate a 28-reals inverse FFT, we calculate 28 real values from 28 complex inputs in a brute force way.
 ;; First we note that the 28 complex values are computed from the 13 complex and 2 real inputs using Hermetian symmetry, thusly:
