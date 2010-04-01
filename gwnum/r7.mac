@@ -973,38 +973,97 @@ r7_x13c_twiddle MACRO srcreg,d1,screg,tmpreg
 
 r7_x28r_unfft MACRO srcreg,d1,r1A,r1B,tmpreg
 
-	;; Calculate even columns derived from real inputs
+	;; Calculate odd columns derived from real inputs (even rows)
 
-	xload	xmm7, tmpreg[0]			;; r2-r14
-	xload	xmm5, XMM_P975
-	mulpd	xmm5, xmm7			;; .975(r2-r14)
-	xload	xmm6, XMM_P782
-	mulpd	xmm6, xmm7			;; .782(r2-r14)
-	mulpd	xmm7, XMM_P434			;; .434(r2-r14)
+	xload	xmm0, tmpreg[32]		;; r3-r13
+	xload	xmm4, XMM_P901
+	mulpd	xmm4, xmm0			;; .901(r3-r13)
+	xload	xmm7, r1B			;; r1-r15
+	addpd	xmm4, xmm7			;; r1+.901(r3-r13)-r15
+	xload	xmm5, XMM_P223
+	mulpd	xmm5, xmm0			;; .223(r3-r13)
+	addpd	xmm5, xmm7			;; r1+.223(r3-r13)-r15
+	xload	xmm6, XMM_P623
+	mulpd	xmm6, xmm0			;; .623(r3-r13)
+	subpd	xmm6, xmm7			;; -(r1-.623(r3-r13)-r15)
+	subpd	xmm7, xmm0			;; r1-(r3-r13)-r15
 
-	xload	xmm4, tmpreg[2*32]		;; r4-r12
-	xload	xmm3, XMM_P782
-	mulpd	xmm3, xmm4			;; .782(r4-r12)
-	addpd	xmm5, xmm3			;; .975(r2-r14)+.782(r4-r12)
-	xload	xmm3, XMM_P434
-	mulpd	xmm3, xmm4			;; .434(r4-r12)
-	subpd	xmm6, xmm3			;; .782(r2-r14)-.434(r4-r12)
-	mulpd	xmm4, XMM_P975			;; .975(r4-r12)
-	subpd	xmm7, xmm4			;; .434(r2-r14)-.975(r4-r12)
+	xload	xmm0, tmpreg[3*32]		;; r5-r11
+	addpd	xmm7, xmm0			;; r1-(r3-r13)+(r5-r11)-r15
+	xload	xmm1, XMM_P623
+	mulpd	xmm1, xmm0			;; .623(r5-r11)
+	addpd	xmm4, xmm1			;; r1+.901(r3-r13)+.623(r5-r11)-r15
+	xload	xmm1, XMM_P901
+	mulpd	xmm1, xmm0			;; .901(r5-r11)
+	subpd	xmm5, xmm1			;; r1+.223(r3-r13)-.901(r5-r11)-r15
+	mulpd	xmm0, XMM_P223			;; .223(r5-r11)
+	addpd	xmm6, xmm0			;; -(r1-.623(r3-r13)-.223(r5-r11)-r15)
 
-	xload	xmm4, tmpreg[4*32]		;; r6-r10
-	xload	xmm3, XMM_P434
-	mulpd	xmm3, xmm4			;; .434(r6-r10)
-	addpd	xmm5, xmm3			;; .975(r2-r14)+.782(r4-r12)+.434(r6-r10)
-	xload	xmm3, XMM_P975
-	mulpd	xmm3, xmm4			;; .975(r6-r10)
-	subpd	xmm6, xmm3			;; .782(r2-r14)-.434(r4-r12)-.975(r6-r10)
-	mulpd	xmm4, XMM_P782			;; .782(r6-r10)
-	addpd	xmm7, xmm4			;; .434(r2-r14)-.975(r4-r12)+.782(r6-r10)
+	xload	xmm0, tmpreg[5*32]		;; r7-r9
+	subpd	xmm7, xmm0			;; r1-(r3-r13)+(r5-r11)-(r7-r9)-r15
+	xload	xmm1, XMM_P223
+	mulpd	xmm1, xmm0			;; .223(r7-r9)
+	addpd	xmm4, xmm1			;; r1+.901(r3-r13)+.623(r5-r11)+.223(r7-r9)-r15
+	xload	xmm1, XMM_P623
+	mulpd	xmm1, xmm0			;; .623(r7-r9)
+	subpd	xmm5, xmm1			;; r1+.223(r3-r13)-.901(r5-r11)-.623(r7-r9)-r15
+	mulpd	xmm0, XMM_P901			;; .901(r7-r9)
+	subpd	xmm0, xmm6			;; r1-.623(r3-r13)-.223(r5-r11)+.901(r7-r9)-r15
 
-	xstore	tmpreg[0], xmm5			;; Save even-real-cols row #2
-	xstore	tmpreg[2*32], xmm6		;; Save even-real-cols row #4
-	xstore	tmpreg[4*32], xmm7		;; Save even-real-cols row #6
+	xstore	tmpreg[13*32], xmm7		;; Save odd-real-cols row #8 (also is real-cols row #8)
+
+	;; Calculate even columns derived from real inputs (even rows)
+	;; From above, odd-real-col rols rows #2,4,6 are in xmm4, xmm5, xmm0
+
+	xload	xmm3, tmpreg[0]			;; r2-r14
+	xload	xmm1, XMM_P975
+	mulpd	xmm1, xmm3			;; .975(r2-r14)
+	xload	xmm2, XMM_P782
+	mulpd	xmm2, xmm3			;; .782(r2-r14)
+	mulpd	xmm3, XMM_P434			;; .434(r2-r14)
+
+	xload	xmm6, tmpreg[2*32]		;; r4-r12
+	xload	xmm7, XMM_P782
+	mulpd	xmm7, xmm6			;; .782(r4-r12)
+	addpd	xmm1, xmm7			;; .975(r2-r14)+.782(r4-r12)
+	xload	xmm7, XMM_P434
+	mulpd	xmm7, xmm6			;; .434(r4-r12)
+	subpd	xmm2, xmm7			;; .782(r2-r14)-.434(r4-r12)
+	mulpd	xmm6, XMM_P975			;; .975(r4-r12)
+	subpd	xmm3, xmm6			;; .434(r2-r14)-.975(r4-r12)
+
+	xload	xmm6, tmpreg[4*32]		;; r6-r10
+	xload	xmm7, XMM_P434
+	mulpd	xmm7, xmm6			;; .434(r6-r10)
+	addpd	xmm1, xmm7			;; .975(r2-r14)+.782(r4-r12)+.434(r6-r10)
+	xload	xmm7, XMM_P975
+	mulpd	xmm7, xmm6			;; .975(r6-r10)
+	subpd	xmm2, xmm7			;; .782(r2-r14)-.434(r4-r12)-.975(r6-r10)
+	mulpd	xmm6, XMM_P782			;; .782(r6-r10)
+	addpd	xmm3, xmm6			;; .434(r2-r14)-.975(r4-r12)+.782(r6-r10)
+
+	;; Combine even and odd columns (even rows)
+
+	xcopy	xmm7, xmm4			;; Copy odd-real-cols row #2
+	subpd	xmm4, xmm1			;; real-cols row #14 (odd#2 - even#2)
+	addpd	xmm1, xmm7			;; real-cols row #2 (odd#2 + even#2)
+
+	xcopy	xmm6, xmm5			;; Copy odd-real-cols row #4
+	subpd	xmm5, xmm2			;; real-cols row #12 (odd#4 - even#4)
+	addpd	xmm2, xmm6			;; real-cols row #4 (odd#4 + even#4)
+
+	xcopy	xmm7, xmm0			;; Copy odd-real-cols row #6
+	subpd	xmm0, xmm3			;; real-cols row #10 (odd#6 - even#6)
+	addpd	xmm3, xmm7			;; real-cols row #6 (odd#6 + even#6)
+
+	xstore	tmpreg[32], xmm4		;; Save real-cols row #14
+	xstore	tmpreg[0], xmm1			;; Save real-cols row #2
+	xstore	tmpreg[3*32], xmm5		;; Save real-cols row #12
+	xstore	tmpreg[2*32], xmm2		;; Save real-cols row #4
+	xstore	tmpreg[5*32], xmm0		;; Save real-cols row #10
+	xstore	tmpreg[4*32], xmm3		;; Save real-cols row #6
+
+	;; Calculate even columns derived from real inputs (odd rows)
 
 	xload	xmm0, tmpreg[12*32]		;; r2+r14
 	xload	xmm5, XMM_P901
@@ -1047,63 +1106,7 @@ r7_x28r_unfft MACRO srcreg,d1,r1A,r1B,tmpreg
 	xstore	tmpreg[10*32], xmm6		;; Save even-real-cols row #5
 	xstore	tmpreg[12*32], xmm7		;; Save even-real-cols row #7
 
-	;; Calculate odd columns derived from real inputs
-
-	xload	xmm1, tmpreg[32]		;; r3-r13
-	xload	xmm4, XMM_P901
-	mulpd	xmm4, xmm1			;; .901(r3-r13)
-	xload	xmm7, r1B			;; r1-r15
-	addpd	xmm4, xmm7			;; r1+.901(r3-r13)-r15
-	xload	xmm5, XMM_P223
-	mulpd	xmm5, xmm1			;; .223(r3-r13)
-	addpd	xmm5, xmm7			;; r1+.223(r3-r13)-r15
-	xload	xmm6, XMM_P623
-	mulpd	xmm6, xmm1			;; .623(r3-r13)
-	subpd	xmm6, xmm7			;; -(r1-.623(r3-r13)-r15)
-	subpd	xmm7, xmm1			;; r1-(r3-r13)-r15
-
-	xload	xmm3, tmpreg[3*32]		;; r5-r11
-	addpd	xmm7, xmm3			;; r1-(r3-r13)+(r5-r11)-r15
-	xload	xmm2, XMM_P623
-	mulpd	xmm2, xmm3			;; .623(r5-r11)
-	addpd	xmm4, xmm2			;; r1+.901(r3-r13)+.623(r5-r11)-r15
-	xload	xmm2, XMM_P901
-	mulpd	xmm2, xmm3			;; .901(r5-r11)
-	subpd	xmm5, xmm2			;; r1+.223(r3-r13)-.901(r5-r11)-r15
-	mulpd	xmm3, XMM_P223			;; .223(r5-r11)
-	addpd	xmm6, xmm3			;; -(r1-.623(r3-r13)-.223(r5-r11)-r15)
-
-	xload	xmm3, tmpreg[5*32]		;; r7-r9
-	subpd	xmm7, xmm3			;; r1-(r3-r13)+(r5-r11)-(r7-r9)-r15
-	xstore	tmpreg[13*32], xmm7		;; Save odd-real-cols row #8 (also is real-cols row #8)
-	xload	xmm7, XMM_P223
-	mulpd	xmm7, xmm3			;; .223(r7-r9)
-	addpd	xmm4, xmm7			;; r1+.901(r3-r13)+.623(r5-r11)+.223(r7-r9)-r15
-	xload	xmm7, XMM_P623
-	mulpd	xmm7, xmm3			;; .623(r7-r9)
-	subpd	xmm5, xmm7			;; r1+.223(r3-r13)-.901(r5-r11)-.623(r7-r9)-r15
-	mulpd	xmm3, XMM_P901			;; .901(r7-r9)
-	subpd	xmm3, xmm6			;; r1-.623(r3-r13)-.223(r5-r11)+.901(r7-r9)-r15
-
-	;; Combine even and odd columns (even rows)
-
-	xload	xmm7, tmpreg[0]			;; even-real-cols row #2
-	addpd	xmm7, xmm4			;; real-cols row #2
-	subpd	xmm4, tmpreg[0]			;; real-cols row #14
-	xstore	tmpreg[0], xmm7			;; Save real-cols row #2
-	xstore	tmpreg[32], xmm4		;; Save real-cols row #14
-	xload	xmm6, tmpreg[2*32]		;; even-real-cols row #4
-	addpd	xmm6, xmm5			;; real-cols row #4
-	subpd	xmm5, tmpreg[2*32]		;; real-cols row #12
-	xstore	tmpreg[2*32], xmm6		;; Save real-cols row #4
-	xstore	tmpreg[3*32], xmm5		;; Save real-cols row #12
-	xload	xmm7, tmpreg[4*32]		;; even-real-cols row #6
-	addpd	xmm7, xmm3			;; real-cols row #6
-	subpd	xmm3, tmpreg[4*32]		;; real-cols row #10
-	xstore	tmpreg[4*32], xmm7		;; Save real-cols row #6
-	xstore	tmpreg[5*32], xmm3		;; Save real-cols row #10
-
-	;; Calculate more odd columns derived from real inputs
+	;; Calculate odd columns derived from real inputs (odd rows)
 
 	xload	xmm0, tmpreg[11*32]		;; r3+r13
 	xload	xmm5, XMM_P623
