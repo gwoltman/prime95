@@ -150,27 +150,27 @@ struct gwasm_data {
 	double	XMM_NORM012_FF[2]; /* Used in xnorm012 macros (FFTLEN/2) */
 	double	XMM_LIMIT_BIGMAX_NEG[32];
 	int32_t	XMM_ABSVAL[4];	/* Used to compute absolute values */
-	double	XMM_P618[2];
-	double	XMM_P309[2];
+	double	XMM_P309[2];	/* Used in radix-20 macros */
+	double	XMM_P809[2];
+	double	XMM_P951[2];
+	double	XMM_P588[2];
+
+	double	XMM_P618[2];	/* Used in old v25 home-grown PFA-5 macros */
 	double	XMM_M809[2];
 	double	XMM_M262[2];
 	double	XMM_M382[2];
-	double	XMM_P951[2];
-	double	XMM_P588[2];
 	double	XMM_M162[2];
-	double	DBLARG;
-	double	CARRY_ADJUST7;
-	double	XMM_P866[2];
+	double	XMM_P866[2];	/* Used in PFA-6 */
 	double	XMM_BIGVAL_NEG[2];
 	double	CARRY_ADJUST1_HI;
 	double	CARRY_ADJUST1_LO;
-	double	XMM_P924[2];
+	double	XMM_P924[2];	/* Used in old v25 home-grown PFA-5 macros */
 	double	XMM_P383[2];
 	double	XMM_M358[2];
 	double	XMM_P404[2];
 	double	XMM_P445[2];
 	double	XMM_P180[2];
-	double	XMM_P975[2];
+	double	XMM_P975[2];	/* Used in radix-28 macros */
 	double	XMM_P623[2];
 	double	XMM_P901[2];
 	double	XMM_P782[2];
@@ -327,6 +327,10 @@ struct gwasm_data {
 	uint32_t this_block; /* Block currently being processed */
 	uint32_t next_block; /* Next block to process */
 	uint32_t last_pass1_block; /* Last block to process */
+
+	uint32_t UNUSED_UINT32;
+	double	DBLARG;
+	double	CARRY_ADJUST7;
 };
 
 /* gwnum assembly routine pointers */
@@ -1279,26 +1283,37 @@ double *r4delay_build_pass1_table (
 {
 	unsigned long pass1_size, pass1_increment, delay_count;
 	unsigned long group, i, j, k, N, temp, upper_sse2_word;
-	int	pow2_count;
+	int	first_levels, pow2_count;
 	double	sincos[6];
 
 /* Initialize some needed constants */
 
 	pass1_increment = gwdata->PASS2_SIZE;
 	upper_sse2_word = pass1_increment / 2;
+	pass1_size = gwdata->FFTLEN / gwdata->PASS2_SIZE; /* Real values in a pass1 section */
+
+/* Determine number of reals handled by the first FFT levels */
+
+	if (pass1_size % 7 == 0)
+		first_levels = 28;
+	else if (pass1_size % 5 == 0 && !gwdata->ALL_COMPLEX_FFT)
+		first_levels = 20;
+	else
+		first_levels = 8;
 
 /* Determine number of delay groups */
 
-	pass1_size = gwdata->FFTLEN / gwdata->PASS2_SIZE; /* Real values in a pass1 section */
-	if (pass1_size % 7 == 0)
+i	if (first_levels == 28)
 		delay_count = 14;
+	else if (first_levels == 20)
+		delay_count = 10;
 	else
 		delay_count = 4;
 
-/* See if pass 1 has an odd number of power-of-two FFT levels after the */
-/* initial FFT levels.  If not, there will be no radix-8 steps. */
-/* Note the first FFT 3 levels operate on seven or eight real values. */
+/* Count the power-of-two FFT levels after the initial FFT levels.  If odd, the */
+/* the last levels will be a radix-8, if even the last levels wil be a radix-4. */
 	
+	pass1_size /= first_levels;
 	for (pow2_count = 0; (pass1_size & 1) == 0; pass1_size /= 2) pow2_count++;
 
 /* Set pointer to table of multipliers */
@@ -1311,6 +1326,7 @@ double *r4delay_build_pass1_table (
 	for (group = 0; group < upper_sse2_word; group += gwdata->PASS1_CACHE_LINES) {
 
 		pass1_size = gwdata->FFTLEN / gwdata->PASS2_SIZE; /* Real values in a pass1 section */
+		pass1_size /= (delay_count * 2);	/* Complex values we're generating sin/cos data for */
 		N = gwdata->PASS2_SIZE;
 
 /* Output the sin/cos/premultiplier values for the radix-8 block that does the */
@@ -1318,8 +1334,7 @@ double *r4delay_build_pass1_table (
 /* from zero to zero) when generating the sin/cos twiddle factors for the last */
 /* levels of pass 1. */
 
-		if ((pass1_size % 7 == 0 && (pow2_count & 1) == 1) ||
-		    (pass1_size % 7 != 0 && ((pow2_count - 3) & 1) == 1)) {
+		if (pow2_count & 1) {
 			N = N * 8;
 			for (k = 0; k < delay_count; k++) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
@@ -1359,8 +1374,8 @@ double *r4delay_build_pass1_table (
 							ktemp = 1 * (group + i);
 						else
 							ktemp = 5 * (group + i);
-					} else {			/* delay_count == 14 */
-						/* Multipliers for the radix-28 step */
+					} else {			/* delay_count == 10 or 14 */
+						/* Multipliers for the radix-20 or radix-28 step */
 						ktemp = k * (group + i);
 					}
 
@@ -1510,8 +1525,8 @@ double *r4delay_build_pass1_table (
 							ktemp = 1 * (group + i);
 						else
 							ktemp = 5 * (group + i);
-					} else {				/* delay_count == 14 */
-						/* Multipliers for the radix-28 step */
+					} else {			/* delay_count == 10 or 14 */
+						/* Multipliers for the radix-20 or radix-28 step */
 						ktemp = k * (group + i);
 					}
 
@@ -1582,7 +1597,7 @@ double *r4delay_build_pass1_table (
 
 /* For the r4_four_complex_djbfft building block levels, output the sin/cos values. */
 
-		while (pass1_size % 112 == 0 || (pass1_size & 0x1F) == 0) {
+		while ((pass1_size & 3) == 0) {
 			N = N * 4;
 			for (j = 0; j < N / 4; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
@@ -1726,8 +1741,7 @@ double *r4delay_build_pass1_table (
 			}
 			pass1_size /= 3;
 		}
-		// We only support two delay sizes....8 & 28 reals
-		ASSERTG (pass1_size == 8 || pass1_size == 28);
+		ASSERTG (pass1_size == 1);
 
 /* Calculate the size of each group's sin/cos/premult data for pass1_get_next_block */
 
@@ -1757,49 +1771,61 @@ double *r4delay_build_fixed_pass1_table (
 	pass1_increment = gwdata->PASS2_SIZE;
 	upper_sse2_word = pass1_increment / 2;
 
-/* Real FFTs output one shared set of sin/cos values for the first 28-reals or 8-reals FFT. */
+/* Real FFTs output one shared set of sin/cos values for the first 20-reals, 28-reals, or 8-reals FFT. */
 
 	if (! gwdata->ALL_COMPLEX_FFT) {
 		N = gwdata->FFTLEN;
-		if (N % 28 == 0) {
-		    for (j = 0; j < N / 28; j += pass1_increment) {
-			for (i = 1; i <= 13; i++) {	/* Create 13 twiddle factors */
-				gwsincos (i * j, N, (double *) &sincos);
-				table[0] = sincos[0];	/* i * j */
-				table[2] = sincos[1];
-				gwsincos (i * (j + upper_sse2_word), N, (double *) &sincos);
-				table[1] = sincos[0];
-				table[3] = sincos[1];
-
-				table += 4;
+		if (N % 20 == 0) {
+			for (j = 0; j < N / 20; j += pass1_increment) {
+				for (i = 1; i <= 9; i++) {	/* Create 9 twiddle factors */
+					gwsincos (i * j, N, (double *) &sincos);
+					table[0] = sincos[0];	/* i * j */
+					table[2] = sincos[1];
+					gwsincos (i * (j + upper_sse2_word), N, (double *) &sincos);
+					table[1] = sincos[0];
+					table[3] = sincos[1];
+					table += 4;
+				}
 			}
-		    }
-		    N = N / 28;
+			N = N / 20;
+		}
+		else if (N % 28 == 0) {
+			for (j = 0; j < N / 28; j += pass1_increment) {
+				for (i = 1; i <= 13; i++) {	/* Create 13 twiddle factors */
+					gwsincos (i * j, N, (double *) &sincos);
+					table[0] = sincos[0];	/* i * j */
+					table[2] = sincos[1];
+					gwsincos (i * (j + upper_sse2_word), N, (double *) &sincos);
+					table[1] = sincos[0];
+					table[3] = sincos[1];
+					table += 4;
+				}
+			}
+			N = N / 28;
 		}
 		else {
-		    for (j = 0; j < N / 8; j += pass1_increment) {
+			for (j = 0; j < N / 8; j += pass1_increment) {
+				gwsincos3 (j, N, (double *) &sincos);
+				table[0] = sincos[0];	/* temp */
+				table[2] = sincos[1];
+				table[4] = sincos[2];	/* 2 * temp */
+				table[6] = sincos[3];
+				gwsincos (5*j, N, (double *) &sincos);
+				table[8] = sincos[0];	/* 5 * temp */
+				table[10] = sincos[1];
 
-			gwsincos3 (j, N, (double *) &sincos);
-			table[0] = sincos[0];	/* temp */
-			table[2] = sincos[1];
-			table[4] = sincos[2];	/* 2 * temp */
-			table[6] = sincos[3];
-			gwsincos (5*j, N, (double *) &sincos);
-			table[8] = sincos[0];	/* 5 * temp */
-			table[10] = sincos[1];
+				temp = j + upper_sse2_word;
+				gwsincos3 (temp, N, (double *) &sincos);
+				table[1] = sincos[0];	/* temp */
+				table[3] = sincos[1];
+				table[5] = sincos[2];	/* 2 * temp */
+				table[7] = sincos[3];
+				gwsincos (5*temp, N, (double *) &sincos);
+				table[9] = sincos[0];	/* 5 * temp */
+				table[11] = sincos[1];
 
-			temp = j + upper_sse2_word;
-			gwsincos3 (temp, N, (double *) &sincos);
-			table[1] = sincos[0];	/* temp */
-			table[3] = sincos[1];
-			table[5] = sincos[2];	/* 2 * temp */
-			table[7] = sincos[3];
-			gwsincos (5*temp, N, (double *) &sincos);
-			table[9] = sincos[0];	/* 5 * temp */
-			table[11] = sincos[1];
-
-			table += 12;
-		    }
+				table += 12;
+			}
 		}
 	}
 
@@ -5525,6 +5551,7 @@ int internal_gwsetup (
 	asm_data->XMM_P588[0] = asm_data->XMM_P588[1] = asm_values[4];
 	asm_data->M162 =
 	asm_data->XMM_M162[0] = asm_data->XMM_M162[1] = asm_values[5];
+	asm_data->XMM_P809[0] = asm_data->XMM_P809[1] = -asm_values[6];
 	asm_data->M809 =
 	asm_data->XMM_M809[0] = asm_data->XMM_M809[1] = asm_values[6];
 	asm_data->M382 =

@@ -1931,3 +1931,905 @@ r5_h10r_h5c_djbunfft_mem MACRO src,memr1,memi1,memr2,memi2,memr3,memi3,memr4,mem
 	movsd	Q dstr2, xmm3		;; Save final R2
 	movsd	Q dstr4, xmm7		;; Save final R4
 	ENDM
+
+
+;;
+;; ************************************* 20-reals-first-fft variants ******************************************
+;;
+
+;; This should in theory be faster than an 8-real step 1 followed by a 5-complex (or 10-real) step 2.
+;; To see this, count the adds and muls to process 80 reals as either
+;;    1)  10 * eight-reals, 2 ten-reals and 6 five-complex, or
+;;    2)  4 * twenty-reals, 1/2 * (one eight-reals and 9 four-complex)
+
+;; These macros operate on twenty reals doing 4.32 levels of the FFT.  The output is
+;; 2 reals and 9 complex numbers.
+
+;;r5_x5cl_20_reals_first_fft MACRO srcreg,srcinc,d1,screg
+;;	r5_x5cl_20_reals_first_fft_cmn srcreg,rbx,srcinc,d1,screg
+;;	ENDM
+r5_x5cl_20_reals_first_fft_scratch MACRO srcreg,srcinc,d1,screg
+	r5_x5cl_20_reals_first_fft_cmn srcreg,0,srcinc,d1,screg
+	ENDM
+
+;; To calculate a 20-reals FFT, we calculate 20 complex values in a brute force way (using a shorthand notation):
+;; r1 + r2 + ... + r20	*  w^0000000000...
+;; r1 + r2 + ... + r20	*  w^0123456789A...
+;; r1 + r2 + ... + r20	*  w^02468ACE....
+;;    ...
+;; r1 + r2 + ... + r20	*  w^...A987654321
+;; Note that Hermetian symmetry means we won't need to calculate the last 10 complex values.
+;;
+;; The sin/cos values (w = 20th root of unity) are:
+;; w^1 = .951 + .309i
+;; w^2 = .809 + .588i
+;; w^3 = .588 + .809i
+;; w^4 = .309 + .951i
+;; w^5 = 0 + 1i
+;; w^6 = -.309 + .951i
+;; w^7 = -.588 + .809i
+;; w^8 = -.809 + .588i
+;; w^9 = -.951 + .309i
+;; w^10 = -1
+;;
+;; Applying the sin/cos values above (and noting that combining r2 and r20, r3 and r19, etc. will simplify calculations):
+;; reals:
+;; r1     +(r2+r20)     +(r3+r19)     +(r4+r18)     +(r5+r17) + (r6+r16)     +(r7+r15)     +(r8+r14)     +(r9+r13)     +(r10+r12) + r11
+;; r1 +.951(r2+r20) +.809(r3+r19) +.588(r4+r18) +.309(r5+r17)            -.309(r7+r15) -.588(r8+r14) -.809(r9+r13) -.951(r10+r12) - r11
+;; r1 +.809(r2+r20) +.309(r3+r19) -.309(r4+r18) -.809(r5+r17) - (r6+r16) -.809(r7+r15) -.309(r8+r14) +.309(r9+r13) +.809(r10+r12) + r11
+;; r1 +.588(r2+r20) -.309(r3+r19) -.951(r4+r18) -.809(r5+r17)            +.809(r7+r15) +.951(r8+r14) +.309(r9+r13) -.588(r10+r12) - r11
+;; r1 +.309(r2+r20) -.809(r3+r19) -.809(r4+r18) +.309(r5+r17) + (r6+r16) +.309(r7+r15) -.809(r8+r14) -.809(r9+r13) +.309(r10+r12) + r11
+;; r1                   -(r3+r19)                   +(r5+r17)                -(r7+r15)                   +(r9+r13)                - r11
+;; r1 -.309(r2+r20) -.809(r3+r19) +.809(r4+r18) +.309(r5+r17) - (r6+r16) +.309(r7+r15) +.809(r8+r14) -.809(r9+r13) -.309(r10+r12) + r11
+;; r1 -.588(r2+r20) -.309(r3+r19) +.951(r4+r18) -.809(r5+r17)            +.809(r7+r15) -.951(r8+r14) +.309(r9+r13) +.588(r10+r12) - r11
+;; r1 -.809(r2+r20) +.309(r3+r19) +.309(r4+r18) -.809(r5+r17) + (r6+r16) -.809(r7+r15) +.309(r8+r14) +.309(r9+r13) -.809(r10+r12) + r11
+;; r1 -.951(r2+r20) +.809(r3+r19) -.588(r4+r18) +.309(r5+r17)            -.309(r7+r15) +.588(r8+r14) -.809(r9+r13) +.951(r10+r12) - r11
+;; r1     -(r2+r20)     +(r3+r19)     -(r4+r18)     +(r5+r17) - (r6+r16)     +(r7+r15)     -(r8+r14)     +(r9+r13)     -(r10+r12) + r11
+;;
+;; imaginarys:
+;; 0
+;; +.309(r2-r20) +.588(r3-r19) +.809(r4-r18) +.951(r5-r17) + (r6-r16) +.951(r7-r15) +.809(r8-r14) +.588(r9-r13) +.309(r10-r12)
+;; +.588(r2-r20) +.951(r3-r19) +.951(r4-r18) +.588(r5-r17)            -.588(r7-r15) -.951(r8-r14) -.951(r9-r13) -.588(r10-r12)
+;; +.809(r2-r20) +.951(r3-r19) +.309(r4-r18) -.588(r5-r17) - (r6-r16) -.588(r7-r15) +.309(r8-r14) +.951(r9-r13) +.809(r10-r12)
+;; +.951(r2-r20) +.588(r3-r19) -.588(r4-r18) -.951(r5-r17)            +.951(r7-r15) +.588(r8-r14) -.588(r9-r13) -.951(r10-r12)
+;;      (r2-r20)                   -(r4-r18)               + (r6-r16)                   -(r8-r14)                   +(r10-r12)
+;; +.951(r2-r20) -.588(r3-r19) -.588(r4-r18) +.975(r5-r17)            -.951(r7-r15) +.588(r8-r14) +.588(r9-r13) -.951(r10-r12)
+;; +.809(r2-r20) -.951(r3-r19) +.309(r4-r18) +.588(r5-r17) - (r6-r16) +.588(r7-r15) +.309(r8-r14) -.951(r9-r13) +.809(r10-r12)
+;; +.588(r2-r20) -.951(r3-r19) +.951(r4-r18) -.588(r5-r17)            +.588(r7-r15) -.951(r8-r14) +.951(r9-r13) -.588(r10-r12)
+;; +.309(r2-r20) -.588(r3-r19) +.809(r4-r18) -.951(r5-r17) + (r6-r16) -.951(r7-r15) +.809(r8-r14) -.588(r9-r13) +.309(r10-r12)
+;; 0
+;;
+;; There are many more symmetries we can take advantage of.   For example, the (r2+/-r20) column
+;; always has the same multiplier as the (r10+/-r12) column.  This is true for all the "even" columns.
+;; Also the computations for the 2nd row are very similar to the computations for the 10th row,
+;; the 3rd row are similar to the 9th, etc.  Finally, note that for the odd columns, there are
+;; only two multipliers to apply and can be combined with every fourth column.
+;;
+;; Lastly, output would normally be 9 complex and 2 reals but the users of this routine
+;; expect us to "back up" the 2 reals by one level.  That is:
+;;	real #1A:  r1 + r3+r19 + r5+r17 + ...
+;;	real #1B:  r2+r20 + r4+r18 + ...
+
+;; Store intermediate results in XMM_COL_MULTS (an 8KB buffer used in normalization)
+
+r5_x5cl_20_reals_first_fft_cmn MACRO srcreg,off,srcinc,d1,screg
+
+	;; Do the odd columns for the real results
+
+	xload	xmm0, [srcreg+off+4*d1]		;; r5
+	addpd	xmm0, [srcreg+off+d1+48]	;; r5+r17
+	xload	xmm1, XMM_P309
+	mulpd	xmm1, xmm0			;; .309(r5+r17)
+	xload	xmm4, XMM_P809
+	mulpd	xmm4, xmm0			;; .809(r5+r17)
+	xload	xmm2, [srcreg+off]		;; r1
+	addpd	xmm0, xmm2			;; r1+(r5+r17)
+	addpd	xmm1, xmm2			;; r1+.309(r5+r17)
+	subpd	xmm2, xmm4			;; r1-.809(r5+r17)
+
+	xload	xmm4, [srcreg+off+3*d1+16]	;; r9
+	addpd	xmm4, [srcreg+off+2*d1+32]	;; r9+r13
+	xload	xmm5, XMM_P809
+	mulpd	xmm5, xmm4			;; .809(r9+r13)
+	addpd	xmm0, xmm4			;; r1+(r5+r17)+(r9+r13)
+	mulpd	xmm4, XMM_P309			;; .309(r9+r13)
+	subpd	xmm1, xmm5			;; r1+.309(r5+r17)-.809(r9+r13)
+	addpd	xmm2, xmm4			;; r1-.809(r5+r17)+.309(r9+r13)
+
+	xload	xmm5, [srcreg+off+2*d1]		;; r3
+	addpd	xmm5, [srcreg+off+3*d1+48]	;; r3+r19
+	xload	xmm6, XMM_P809
+	mulpd	xmm6, xmm5			;; .809(r3+r19)
+	xload	xmm7, XMM_P309
+	mulpd	xmm7, xmm5			;; .309(r3+r19)
+	xload	xmm4, [srcreg+off+32]		;; r11
+	addpd	xmm5, xmm4			;; (r3+r19)+r11
+	subpd	xmm6, xmm4			;; .809(r3+r19)-r11
+	addpd	xmm7, xmm4			;; .309(r3+r19)+r11
+
+	xload	xmm4, [srcreg+off+d1+16]	;; r7
+	addpd	xmm4, [srcreg+off+4*d1+32]	;; r7+r15
+	xload	xmm3, XMM_P309
+	mulpd	xmm3, xmm4			;; .309(r7+r15)
+	addpd	xmm5, xmm4			;; (r3+r19)+(r7+r15)+r11
+	mulpd	xmm4, XMM_P809			;; .809(r7+r15)
+	subpd	xmm6, xmm3			;; .809(r3+r19)-.309(r7+r15)-r11
+	subpd	xmm7, xmm4			;; .309(r3+r19)-.809(r7+r15)+r11
+
+	xcopy	xmm4, xmm0			;; Copy 1-mod-4-cols row #1
+	subpd	xmm0, xmm5			;; Real odd-cols row #6 (final real #6)
+	addpd	xmm5, xmm4			;; Real odd-cols row #1 (final real #1A)
+
+	xcopy	xmm3, xmm1			;; Copy 1-mod-4-cols row #2
+	subpd	xmm1, xmm6			;; Real odd-cols row #5
+	addpd	xmm6, xmm3			;; Real odd-cols row #2
+
+	xcopy	xmm4, xmm2			;; Copy 1-mod-4-cols row #3
+	subpd	xmm2, xmm7			;; Real odd-cols row #4
+	addpd	xmm7, xmm4			;; Real odd-cols row #3
+
+	xstore	XMM_COL_MULTS[64],xmm0		;; Real #6
+	xstore	[srcreg], xmm5			;; Final real #1A
+	xstore	XMM_COL_MULTS[48], xmm1		;; Real odd-cols row #5
+	xstore	XMM_COL_MULTS[0], xmm6		;; Real odd-cols row #2
+	xstore	XMM_COL_MULTS[32], xmm2		;; Real odd-cols row #4
+	xstore	XMM_COL_MULTS[16], xmm7		;; Real odd-cols row #3
+
+	;; Do the even columns for the real results
+
+	xload	xmm7, [srcreg+off+d1]		;; r2
+	addpd	xmm7, [srcreg+off+4*d1+48]	;; r2+r20
+	xload	xmm0, [srcreg+off+4*d1+16]	;; r10
+	addpd	xmm0, [srcreg+off+d1+32]	;; r10+r12
+	xcopy	xmm2, xmm7
+	subpd	xmm7, xmm0			;; (r2+r20)-(r10+r12)
+	addpd	xmm0, xmm2			;; (r2+r20)+(r10+r12)
+
+	xload	xmm6, XMM_P951
+	mulpd	xmm6, xmm7			;; .951((r2+r20)-(r10+r12))
+	mulpd	xmm7, XMM_P588			;; .588((r2+r20)-(r10+r12))
+
+	xload	xmm4, [srcreg+off+3*d1]		;; r4
+	addpd	xmm4, [srcreg+off+2*d1+48]	;; r4+r18
+	xload	xmm1, [srcreg+off+2*d1+16]	;; r8
+	addpd	xmm1, [srcreg+off+3*d1+32]	;; r8+r14
+	xcopy	xmm2, xmm4
+	subpd	xmm4, xmm1			;; (r4+r18)-(r8+r14)
+	addpd	xmm1, xmm2			;; (r4+r18)+(r8+r14)
+
+	xload	xmm3, XMM_P588
+	mulpd	xmm3, xmm4			;; .588((r4+r18)-(r8+r14))
+	addpd	xmm6, xmm3			;; .951((r2+r20)-(r10+r12))+.588((r4+r18)-(r8+r14))
+	mulpd	xmm4, XMM_P951			;; .951((r4+r18)-(r8+r14))
+	subpd	xmm7, xmm4			;; .588((r2+r20)-(r10+r12))-.951((r4+r18)-(r8+r14))
+
+	xstore	XMM_COL_MULTS[80], xmm6		;; Save real even-cols row #2
+	xstore	XMM_COL_MULTS[96], xmm7		;; Save real even-cols row #4
+
+	xload	xmm4, XMM_P809
+	mulpd	xmm4, xmm0			;; .809((r2+r20)+(r10+r12))
+	xload	xmm5, XMM_P309
+	mulpd	xmm5, xmm0			;; .309((r2+r20)+(r10+r12))
+
+	addpd	xmm0, xmm1			;; ((r2+r20)+(r10+r12))+((r4+r18)+(r8+r14))
+	xload	xmm3, XMM_P309
+	mulpd	xmm3, xmm1			;; .309((r4+r18)+(r8+r14))
+	subpd	xmm4, xmm3			;; .809((r2+r20)+(r10+r12))-.309((r4+r18)+(r8+r14))
+	mulpd	xmm1, XMM_P809			;; .809((r4+r18)+(r8+r14))
+	subpd	xmm5, xmm1			;; .309((r2+r20)+(r10+r12))-.809((r4+r18)+(r8+r14))
+
+	xload	xmm2, [srcreg+off+16]		;; r6
+	xload	xmm3, [srcreg+off+48]		;; r16
+	subpd	xmm2, xmm3			;; r6-r16
+	addpd	xmm3, [srcreg+off+16]		;; r6+r16
+	addpd	xmm0, xmm3			;; ((r2+r20)+(r10+r12))+((r4+r18)+(r8+r14))+(r6+r16)
+	subpd	xmm4, xmm3			;; .809((r2+r20)+(r10+r12))-.309((r4+r18)+(r8+r14))-(r6+r16)
+	addpd	xmm5, xmm3			;; .309((r2+r20)+(r10+r12))-.809((r4+r18)+(r8+r14))+(r6+r16)
+
+	xstore	[srcreg+16], xmm0		;; Save final real #1B (real even-cols row #1)
+	xstore	XMM_COL_MULTS[112], xmm4	;; Save real even-cols row #3
+	xstore	XMM_COL_MULTS[128], xmm5	;; Save real even-cols row #5
+
+	;; Do the even columns for the imaginary results
+
+	xload	xmm0, [srcreg+off+d1]		;; r2
+	subpd	xmm0, [srcreg+off+4*d1+48]	;; r2-r20
+	xload	xmm4, [srcreg+off+4*d1+16]	;; r10
+	subpd	xmm4, [srcreg+off+d1+32]	;; r10-r12
+	xcopy	xmm3, xmm4
+	addpd	xmm4, xmm0			;; (r2-r20)+(r10-r12)
+	subpd	xmm0, xmm3			;; (r2-r20)-(r10-r12)
+
+	xload	xmm6, XMM_P309
+	mulpd	xmm6, xmm4			;; .309((r2-r20)+(r10-r12))
+	xload	xmm7, XMM_P809
+	mulpd	xmm7, xmm4			;; .809((r2-r20)+(r10-r12))
+
+	addpd	xmm4, xmm2			;; ((r2-r20)+(r10-r12))+(r6-r16)
+	addpd	xmm6, xmm2			;; .309((r2-r20)+(r10-r12))+(r6-r16)
+	subpd	xmm7, xmm2			;; .809((r2-r20)+(r10-r12))-(r6-r16)
+
+	xload	xmm1, [srcreg+off+3*d1]		;; r4
+	subpd	xmm1, [srcreg+off+2*d1+48]	;; r4-r18
+	xload	xmm3, [srcreg+off+2*d1+16]	;; r8
+	subpd	xmm3, [srcreg+off+3*d1+32]	;; r8-r14
+	xcopy	xmm2, xmm3
+	addpd	xmm3, xmm1			;; (r4-r18)+(r8-r14)
+	subpd	xmm1, xmm2			;; (r4-r18)-(r8-r14)
+
+	subpd	xmm4, xmm3			;; ((r2-r20)+(r10-r12))-((r4-r18)+(r8-r14))+(r6-r16)
+	xload	xmm2, XMM_P809
+	mulpd	xmm2, xmm3			;; .809((r4-r18)+(r8-r14))
+	addpd	xmm6, xmm2			;; .309((r2-r20)+(r10-r12))+.809((r4-r18)+(r8-r14))+(r6-r16)
+	mulpd	xmm3, XMM_P309			;; .309((r4-r18)+(r8-r14))
+	addpd	xmm7, xmm3			;; .809((r2-r20)+(r10-r12))+.309((r4-r18)+(r8-r14))-(r6-r16)
+
+	xstore	XMM_COL_MULTS[144], xmm4	;; Save imag row #6
+	xstore	XMM_COL_MULTS[160], xmm6	;; Save imag even-cols row #2
+	xstore	XMM_COL_MULTS[176], xmm7	;; Save imag even-cols row #4
+
+	xload	xmm5, XMM_P588
+	mulpd	xmm5, xmm0			;; .588((r2-r20)-(r10-r12))
+	mulpd	xmm0, XMM_P951			;; .951((r2-r20)-(r10-r12))
+
+	xload	xmm3, XMM_P951
+	mulpd	xmm3, xmm1			;; .951((r4-r18)-(r8-r14))
+	addpd	xmm5, xmm3			;; .588((r2-r20)-(r10-r12))+.951((r4-r18)-(r8-r14))
+	mulpd	xmm1, XMM_P588			;; .588((r4-r18)-(r8-r14))
+	subpd	xmm0, xmm1			;; .951((r2-r20)-(r10-r12))-.588((r4-r18)-(r8-r14))
+
+	xstore	XMM_COL_MULTS[192], xmm5	;; Save imag even-cols row #3
+	xstore	XMM_COL_MULTS[208], xmm0	;; Save imag even-cols row #5
+
+	;; Do the odd columns for the imag results
+
+	xload	xmm1, [srcreg+off+4*d1]		;; r5
+	subpd	xmm1, [srcreg+off+1*d1+48]	;; r5-r17
+	xload	xmm0, XMM_P951
+	mulpd	xmm0, xmm1			;; .951(r5-r17)
+	mulpd	xmm1, XMM_P588			;; .588(r5-r17)
+
+	xload	xmm7, [srcreg+off+3*d1+16]	;; r9
+	subpd	xmm7, [srcreg+off+2*d1+32]	;; r9-r13
+	xload	xmm5, XMM_P588
+	mulpd	xmm5, xmm7			;; .588(r9-r13)
+	mulpd	xmm7, XMM_P951			;; .951(r9-r13)
+	addpd	xmm0, xmm5			;; .951(r5-r17)+.588(r9-r13)
+	subpd	xmm1, xmm7			;; .588(r5-r17)-.951(r9-r13)
+
+	xload	xmm7, [srcreg+off+2*d1]		;; r3
+	subpd	xmm7, [srcreg+off+3*d1+48]	;; r3-r19
+	xload	xmm6, XMM_P588
+	mulpd	xmm6, xmm7			;; .588(r3-r19)
+	mulpd	xmm7, XMM_P951			;; .951(r3-r19)
+
+	xload	xmm2, [srcreg+off+d1+16]	;; r7
+	subpd	xmm2, [srcreg+off+4*d1+32]	;; r7-r15
+	xload	xmm5, XMM_P951
+	mulpd	xmm5, xmm2			;; .951(r7-r15)
+	mulpd	xmm2, XMM_P588			;; .588(r7-r15)
+	addpd	xmm6, xmm5			;; .588(r3-r19)+.951(r7-r15)
+	subpd	xmm7, xmm2			;; .951(r3-r19)-.588(r7-r15)
+
+	xcopy	xmm4, xmm0			;; Copy 1-mod-4 imag odd-cols row #2
+	addpd	xmm0, xmm6			;; Imag odd-cols row #2
+	subpd	xmm6, xmm4			;; Imag odd-cols row #5
+
+	xcopy	xmm5, xmm1			;; Copy 1-mod-4 imag odd-cols row #4
+	addpd	xmm1, xmm7			;; Imag odd-cols row #3
+	subpd	xmm7, xmm5			;; Imag odd-cols row #4
+
+	xstore	XMM_COL_MULTS[224], xmm0	;; Imag odd-cols row #2
+	xstore	XMM_COL_MULTS[272], xmm6	;; Imag odd-cols row #5
+	xstore	XMM_COL_MULTS[240], xmm1	;; Imag odd-cols row #3
+	xstore	XMM_COL_MULTS[256], xmm7	;; Imag odd-cols row #4
+
+	;; Now combine the even and odd columns then do the post-multiply by twiddle factors.
+
+	xload	xmm0, XMM_COL_MULTS[0]		;; Real odd-cols row #2
+	xload	xmm1, XMM_COL_MULTS[80]		;; Real even-cols row #2
+	subpd	xmm0, xmm1			;; Real #10
+	addpd	xmm1, XMM_COL_MULTS[0]		;; Real #2
+	xload	xmm2, XMM_COL_MULTS[160]	;; Imag even-cols row #2
+	xload	xmm3, XMM_COL_MULTS[224]	;; Imag odd-cols row #2
+	subpd	xmm2, xmm3			;; Imag #10
+	addpd	xmm3, XMM_COL_MULTS[160]	;; Imag #2
+
+	xload	xmm5, [screg+8*32+16]		;; cosine/sine
+	xcopy	xmm7, xmm0			;; Copy R10
+	mulpd	xmm0, xmm5			;; A10 = R10 * cosine/sine
+	subpd	xmm0, xmm2			;; A10 = A10 - I10
+	mulpd	xmm2, xmm5			;; B10 = I10 * cosine/sine
+	addpd	xmm2, xmm7			;; B10 = B10 + R10
+	mulpd	xmm0, [screg+8*32]		;; A10 = A10 * sine (final R10)
+	mulpd	xmm2, [screg+8*32]		;; B10 = B10 * sine (final I10)
+	xstore	[srcreg+4*d1+32], xmm0		;; Save final R10
+	xstore	[srcreg+4*d1+48], xmm2		;; Save final I10
+
+	xload	xmm4, [screg+16]		;; cosine/sine
+	xcopy	xmm6, xmm1			;; Copy R2
+	mulpd	xmm1, xmm4			;; A2 = R2 * cosine/sine
+	subpd	xmm1, xmm3			;; A2 = A2 - I2
+	mulpd	xmm3, xmm4			;; B2 = I2 * cosine/sine
+	addpd	xmm3, xmm6			;; B2 = B2 + R2
+	mulpd	xmm1, [screg]			;; A2 = A2 * sine (final R2)
+	mulpd	xmm3, [screg]			;; B2 = B2 * sine (final I2)
+	xstore	[srcreg+32], xmm1		;; Save final R2
+	xstore	[srcreg+48], xmm3		;; Save final I2
+
+	xload	xmm0, XMM_COL_MULTS[16]		;; Real odd-cols row #3
+	xload	xmm1, XMM_COL_MULTS[112]	;; Real even-cols row #3
+	subpd	xmm0, xmm1			;; Real #9
+	addpd	xmm1, XMM_COL_MULTS[16]		;; Real #3
+	xload	xmm2, XMM_COL_MULTS[192]	;; Imag even-cols row #3
+	xload	xmm3, XMM_COL_MULTS[240]	;; Imag odd-cols row #3
+	subpd	xmm2, xmm3			;; Imag #9
+	addpd	xmm3, XMM_COL_MULTS[192]	;; Imag #3
+
+	xload	xmm5, [screg+7*32+16]		;; cosine/sine
+	xcopy	xmm7, xmm0			;; Copy R9
+	mulpd	xmm0, xmm5			;; A9 = R9 * cosine/sine
+	subpd	xmm0, xmm2			;; A9 = A9 - I9
+	mulpd	xmm2, xmm5			;; B9 = I9 * cosine/sine
+	addpd	xmm2, xmm7			;; B9 = B9 + R9
+	mulpd	xmm0, [screg+7*32]		;; A9 = A9 * sine (final R9)
+	mulpd	xmm2, [screg+7*32]		;; B9 = B9 * sine (final I9)
+	xstore	[srcreg+4*d1], xmm0		;; Save final R9
+	xstore	[srcreg+4*d1+16], xmm2		;; Save final I9
+
+	xload	xmm4, [screg+32+16]		;; cosine/sine
+	xcopy	xmm6, xmm1			;; Copy R3
+	mulpd	xmm1, xmm4			;; A3 = R3 * cosine/sine
+	subpd	xmm1, xmm3			;; A3 = A3 - I3
+	mulpd	xmm3, xmm4			;; B3 = I3 * cosine/sine
+	addpd	xmm3, xmm6			;; B3 = B3 + R3
+	mulpd	xmm1, [screg+32]		;; A3 = A3 * sine (final R3)
+	mulpd	xmm3, [screg+32]		;; B3 = B3 * sine (final I3)
+	xstore	[srcreg+d1], xmm1		;; Save final R3
+	xstore	[srcreg+d1+16], xmm3		;; Save final I3
+
+	xload	xmm0, XMM_COL_MULTS[32]		;; Real odd-cols row #4
+	xload	xmm1, XMM_COL_MULTS[96]		;; Real even-cols row #4
+	subpd	xmm0, xmm1			;; Real #8
+	addpd	xmm1, XMM_COL_MULTS[32]		;; Real #4
+	xload	xmm2, XMM_COL_MULTS[176]	;; Imag even-cols row #4
+	xload	xmm3, XMM_COL_MULTS[256]	;; Imag odd-cols row #4
+	subpd	xmm2, xmm3			;; Imag #8
+	addpd	xmm3, XMM_COL_MULTS[176]	;; Imag #4
+
+	xload	xmm5, [screg+6*32+16]		;; cosine/sine
+	xcopy	xmm7, xmm0			;; Copy R8
+	mulpd	xmm0, xmm5			;; A8 = R8 * cosine/sine
+	subpd	xmm0, xmm2			;; A8 = A8 - I8
+	mulpd	xmm2, xmm5			;; B8 = I8 * cosine/sine
+	addpd	xmm2, xmm7			;; B8 = B8 + R8
+	mulpd	xmm0, [screg+6*32]		;; A8 = A8 * sine (final R8)
+	mulpd	xmm2, [screg+6*32]		;; B8 = B8 * sine (final I8)
+	xstore	[srcreg+3*d1+32], xmm0		;; Save final R8
+	xstore	[srcreg+3*d1+48], xmm2		;; Save final I8
+
+	xload	xmm4, [screg+2*32+16]		;; cosine/sine
+	xcopy	xmm6, xmm1			;; Copy R4
+	mulpd	xmm1, xmm4			;; A4 = R4 * cosine/sine
+	subpd	xmm1, xmm3			;; A4 = A4 - I4
+	mulpd	xmm3, xmm4			;; B4 = I4 * cosine/sine
+	addpd	xmm3, xmm6			;; B4 = B4 + R4
+	mulpd	xmm1, [screg+2*32]		;; A4 = A4 * sine (final R4)
+	mulpd	xmm3, [screg+2*32]		;; B4 = B4 * sine (final I4)
+	xstore	[srcreg+d1+32], xmm1		;; Save final R4
+	xstore	[srcreg+d1+48], xmm3		;; Save final I4
+
+	xload	xmm0, XMM_COL_MULTS[48]		;; Real odd-cols row #5
+	xload	xmm1, XMM_COL_MULTS[128]	;; Real even-cols row #5
+	subpd	xmm0, xmm1			;; Real #7
+	addpd	xmm1, XMM_COL_MULTS[48]		;; Real #5
+	xload	xmm2, XMM_COL_MULTS[208]	;; Imag even-cols row #5
+	xload	xmm3, XMM_COL_MULTS[272]	;; Imag odd-cols row #5
+	subpd	xmm2, xmm3			;; Imag #7
+	addpd	xmm3, XMM_COL_MULTS[208]	;; Imag #5
+
+	xload	xmm5, [screg+5*32+16]		;; cosine/sine
+	xcopy	xmm7, xmm0			;; Copy R7
+	mulpd	xmm0, xmm5			;; A7 = R7 * cosine/sine
+	subpd	xmm0, xmm2			;; A7 = A7 - I7
+	mulpd	xmm2, xmm5			;; B7 = I7 * cosine/sine
+	addpd	xmm2, xmm7			;; B7 = B7 + R7
+	mulpd	xmm0, [screg+5*32]		;; A7 = A7 * sine (final R7)
+	mulpd	xmm2, [screg+5*32]		;; B7 = B7 * sine (final I7)
+	xstore	[srcreg+3*d1], xmm0		;; Save final R7
+	xstore	[srcreg+3*d1+16], xmm2		;; Save final I7
+
+	xload	xmm4, [screg+3*32+16]		;; cosine/sine
+	xcopy	xmm6, xmm1			;; Copy R5
+	mulpd	xmm1, xmm4			;; A5 = R5 * cosine/sine
+	subpd	xmm1, xmm3			;; A5 = A5 - I5
+	mulpd	xmm3, xmm4			;; B5 = I5 * cosine/sine
+	addpd	xmm3, xmm6			;; B5 = B5 + R5
+	mulpd	xmm1, [screg+3*32]		;; A5 = A5 * sine (final R5)
+	mulpd	xmm3, [screg+3*32]		;; B5 = B5 * sine (final I5)
+	xstore	[srcreg+2*d1], xmm1		;; Save final R5
+	xstore	[srcreg+2*d1+16], xmm3		;; Save final I5
+
+	xload	xmm0, XMM_COL_MULTS[64]		;; Real #6
+	xload	xmm2, XMM_COL_MULTS[144]	;; Imag #6
+	xload	xmm5, [screg+4*32+16]		;; cosine/sine
+	mulpd	xmm0, xmm5			;; A6 = R6 * cosine/sine
+	subpd	xmm0, xmm2			;; A6 = A6 - I6
+	mulpd	xmm2, xmm5			;; B6 = I6 * cosine/sine
+	addpd	xmm2, XMM_COL_MULTS[64]		;; B6 = B6 + R6
+	mulpd	xmm0, [screg+4*32]		;; A6 = A6 * sine (final R6)
+	mulpd	xmm2, [screg+4*32]		;; B6 = B6 * sine (final I6)
+	xstore	[srcreg+2*d1+32], xmm0		;; Save final R6
+	xstore	[srcreg+2*d1+48], xmm2		;; Save final I6
+
+	bump	srcreg, srcinc
+	ENDM
+
+
+;;
+;; ************************************* 20-reals-last-unfft variants ******************************************
+;;
+
+;; These macros produce 20 reals after doing 4.32 levels of the inverse FFT applying
+;; the sin/cos multipliers beforehand.  The input is 2 real and 9 complex numbers.
+
+;; To calculate a 20-reals inverse FFT, we calculate 20 real values from 20 complex inputs in a brute force way.
+;; First we note that the 20 complex values are computed from the 9 complex and 2 real inputs using Hermetian symmetry, thusly:
+;; c1 = r1A + 0*i
+;; c2 = r2 + i2*i
+;; ...
+;; c10 = r10 + i10*i
+;; c11 = r1B + 0*i
+;; c12 = r10 - i10*i
+;; ...
+;; c20 = r2 - i2*i 
+;;
+;; The brute force calculations are:
+;;
+;; c1 + c2 + ... + c20	*  w^-0000000000...
+;; c1 + c2 + ... + c20	*  w^-0123456789A...
+;; c1 + c2 + ... + c20	*  w^-02468ACE....
+;;    ...
+;; c1 + c2 + ... + c20	*  w^-...A987654321
+;;
+;; The sin/cos values (w = 20th root of unity) are:
+;; w^-1 = .951 - .309i
+;; w^-2 = .809 - .588i
+;; w^-3 = .588 - .809i
+;; w^-4 = .309 - .951i
+;; w^-5 = 0 - 1i
+;; w^-6 = -.309 - .951i
+;; w^-7 = -.588 - .809i
+;; w^-8 = -.809 - .588i
+;; w^-9 = -.951 - .309i
+;; w^-10 = -1
+;;
+;; Applying the sin/cos values above, taking advantage of symmetry, and ignoring a lot of multiplies by 2:
+;; r1     +(r2+r10)     +(r3+r9)     +(r4+r8)     +(r5+r7) + r6 + r11
+;; r1 +.951(r2-r10) +.809(r3-r9) +.588(r4-r8) +.309(r5-r7)      - r11 +.309(i2+i10) +.588*(i3+i9) +.809(i4+i8) +.951(i5+i7) + i6
+;; r1 +.809(r2+r10) +.309(r3+r9) -.309(r4+r8) -.809(r5+r7) - r6 + r11 +.588(i2-i10) +.951*(i3-i9) +.951(i4-i8) +.588(i5-i7)
+;; r1 +.588(r2-r10) -.309(r3-r9) -.951(r4-r8) -.809(r5-r7)      - r11 +.809(i2+i10) +.951*(i3+i9) +.309(i4+i8) -.588(i5+i7) - i6
+;; r1 +.309(r2+r10) -.809(r3+r9) -.809(r4+r8) +.309(r5+r7) + r6 + r11 +.951(i2-i10) +.588*(i3-i9) -.588(i4-i8) -.951(i5-i7)
+;; r1                   -(r3-r9)                  +(r5-r7)      - r11     +(i2+i10)                   -(i4+i8)              + i6
+;; r1 -.309(r2+r10) -.809(r3+r9) +.809(r4+r8) +.309(r5+r7) - r6 + r11 +.951(i2-i10) -.588*(i3-i9) -.588(i4-i8) +.951(i5-i7)
+;; r1 -.588(r2-r10) -.309(r3-r9) +.951(r4-r8) -.809(r5-r7)      - r11 +.809(i2+i10) -.951*(i3+i9) +.309(i4+i8) +.588(i5+i7) - i6
+;; r1 -.809(r2+r10) +.309(r3+r9) +.309(r4+r8) -.809(r5+r7) + r6 + r11 +.588(i2-i10) -.951*(i3-i9) +.951(i4-i8) -.588(i5-i7)
+;; r1 -.951(r2-r10) +.809(r3-r9) -.588(r4-r8) +.309(r5-r7)      - r11 +.309(i2+i10) -.588*(i3+i9) +.809(i4+i8) -.951(i5+i7) + i6
+;; r1     -(r2+r10)     +(r3+r9)     -(r4+r8)     +(r5+r7) - r6 + r11
+;; r1 -.951(r2-r10) +.809(r3-r9) -.588(r4-r8) +.309(r5-r7)      - r11 -.309(i2+i10) +.588*(i3+i9) -.809(i4+i8) +.951(i5+i7)
+;; ... r13 thru r20 are the same as r8 through r1 but with the sign of the imaginary component changed.
+;;
+;; Also remember that due to the funny way we do things reals input r1A = r1+r11 and r1B = r1-11
+
+;; Store intermediate results in XMM_COL_MULTS (an 8KB buffer used in normalization)
+
+r5_x10cl_20_reals_last_unfft MACRO srcreg,srcinc,d1,screg,scoff
+
+	;; Apply the 9 twiddle factors
+
+	r5_x9c_twiddle srcreg,d1,screg,XMM_COL_MULTS
+	r5_x9c_twiddle srcreg+16,d1,screg+scoff,XMM_COL_MULTS[10*32]
+
+	;; Do the 20 reals inverse FFT
+
+	r5_x20r_unfft srcreg+d1,d1,[srcreg+16],[srcreg+48],XMM_COL_MULTS[10*32]
+	r5_x20r_unfft srcreg,d1,[srcreg],[srcreg+32],XMM_COL_MULTS
+
+	bump	srcreg, srcinc
+	ENDM
+
+;; Apply the 9 twiddle factors.  Also do the first +/- on the reals so that
+;; we have a perfect balance of adds and subtracts.
+
+r5_x9c_twiddle MACRO srcreg,d1,screg,tmpreg
+	xload	xmm0, [screg+16]		;; cosine/sine
+	xload	xmm2, [srcreg+d1]		;; R2
+	mulpd	xmm2, xmm0			;; A2 = R2 * cosine/sine
+	xload	xmm4, [screg+8*32+16]		;; cosine/sine
+	xload	xmm6, [srcreg+9*d1]		;; R10
+	mulpd	xmm6, xmm4			;; A10 = R10 * cosine/sine
+	xload	xmm3, [srcreg+d1+32]		;; I2
+	addpd	xmm2, xmm3			;; A2 = A2 + I2
+	mulpd	xmm3, xmm0			;; B2 = I2 * cosine/sine
+	xload	xmm7, [srcreg+9*d1+32]		;; I10
+	addpd	xmm6, xmm7			;; A10 = A10 + I10
+	mulpd	xmm7, xmm4			;; B10 = I10 * cosine/sine
+	subpd	xmm3, [srcreg+d1]		;; B2 = B2 - R2
+	xload	xmm1, [screg]			;; sine
+	mulpd	xmm2, xmm1			;; R2 = A2 * sine
+	subpd	xmm7, [srcreg+9*d1]		;; B10 = B10 - R10
+	xload	xmm5, [screg+8*32]		;; sine
+	mulpd	xmm6, xmm5			;; R10 = A10 * sine
+	mulpd	xmm3, xmm1			;; I2 = B2 * sine
+	mulpd	xmm7, xmm5			;; I10 = B10 * sine
+	xcopy	xmm1, xmm2			;; Copy R2
+	addpd	xmm2, xmm6			;; R2+R10
+	subpd	xmm1, xmm6			;; R2-R10
+	xcopy	xmm5, xmm3			;; Copy I2
+	addpd	xmm3, xmm7			;; I2+I10
+	subpd	xmm5, xmm7			;; I2-I10
+	xstore	tmpreg[8*32], xmm2		;; Save R2+R10
+	xstore	tmpreg[0], xmm1			;; Save R2-R10
+	xstore	tmpreg[8*32+16], xmm3		;; Save I2+I10
+	xstore	tmpreg[16], xmm5		;; Save I2-I10
+
+	xload	xmm0, [screg+32+16]		;; cosine/sine
+	xload	xmm2, [srcreg+2*d1]		;; R3
+	mulpd	xmm2, xmm0			;; A3 = R3 * cosine/sine
+	xload	xmm4, [screg+7*32+16]		;; cosine/sine
+	xload	xmm6, [srcreg+8*d1]		;; R9
+	mulpd	xmm6, xmm4			;; A9 = R9 * cosine/sine
+	xload	xmm3, [srcreg+2*d1+32]		;; I3
+	addpd	xmm2, xmm3			;; A3 = A3 + I3
+	mulpd	xmm3, xmm0			;; B3 = I3 * cosine/sine
+	xload	xmm7, [srcreg+8*d1+32]		;; I9
+	addpd	xmm6, xmm7			;; A9 = A9 + I9
+	mulpd	xmm7, xmm4			;; B9 = I9 * cosine/sine
+	subpd	xmm3, [srcreg+2*d1]		;; B3 = B3 - R3
+	xload	xmm1, [screg+32]		;; sine
+	mulpd	xmm2, xmm1			;; R3 = A3 * sine
+	subpd	xmm7, [srcreg+8*d1]		;; B9 = B9 - R9
+	xload	xmm5, [screg+7*32]		;; sine
+	mulpd	xmm6, xmm5			;; R9 = A9 * sine
+	mulpd	xmm3, xmm1			;; I3 = B3 * sine
+	mulpd	xmm7, xmm5			;; I9 = B9 * sine
+	xcopy	xmm1, xmm2			;; Copy R3
+	addpd	xmm2, xmm6			;; R3+R9
+	subpd	xmm1, xmm6			;; R3-R9
+	xcopy	xmm5, xmm3			;; Copy I3
+	addpd	xmm3, xmm7			;; I3+I9
+	subpd	xmm5, xmm7			;; I3-I9
+	xstore	tmpreg[7*32], xmm2		;; Save R3+R9
+	xstore	tmpreg[32], xmm1		;; Save R3-R9
+	xstore	tmpreg[7*32+16], xmm3		;; Save I3+I9
+	xstore	tmpreg[32+16], xmm5		;; Save I3-I9
+
+	xload	xmm0, [screg+2*32+16]		;; cosine/sine
+	xload	xmm2, [srcreg+3*d1]		;; R4
+	mulpd	xmm2, xmm0			;; A4 = R4 * cosine/sine
+	xload	xmm4, [screg+6*32+16]		;; cosine/sine
+	xload	xmm6, [srcreg+7*d1]		;; R8
+	mulpd	xmm6, xmm4			;; A8 = R8 * cosine/sine
+	xload	xmm3, [srcreg+3*d1+32]		;; I4
+	addpd	xmm2, xmm3			;; A4 = A4 + I4
+	mulpd	xmm3, xmm0			;; B4 = I4 * cosine/sine
+	xload	xmm7, [srcreg+7*d1+32]		;; I12
+	addpd	xmm6, xmm7			;; A8 = A8 + I8
+	mulpd	xmm7, xmm4			;; B8 = I8 * cosine/sine
+	subpd	xmm3, [srcreg+3*d1]		;; B4 = B4 - R4
+	xload	xmm1, [screg+2*32]		;; sine
+	mulpd	xmm2, xmm1			;; R4 = A4 * sine
+	subpd	xmm7, [srcreg+7*d1]		;; B8 = B8 - R8
+	xload	xmm5, [screg+6*32]		;; sine
+	mulpd	xmm6, xmm5			;; R8 = A8 * sine
+	mulpd	xmm3, xmm1			;; I4 = B4 * sine
+	mulpd	xmm7, xmm5			;; I8 = B8 * sine
+	xcopy	xmm1, xmm2			;; Copy R4
+	addpd	xmm2, xmm6			;; R4+R8
+	subpd	xmm1, xmm6			;; R4-R8
+	xcopy	xmm5, xmm3			;; Copy I4
+	addpd	xmm3, xmm7			;; I4+I8
+	subpd	xmm5, xmm7			;; I4-I8
+	xstore	tmpreg[6*32], xmm2		;; Save R4+R8
+	xstore	tmpreg[2*32], xmm1		;; Save R4-R8
+	xstore	tmpreg[6*32+16], xmm3		;; Save I4+I8
+	xstore	tmpreg[2*32+16], xmm5		;; Save I4-I8
+
+	xload	xmm0, [screg+3*32+16]		;; cosine/sine
+	xload	xmm2, [srcreg+4*d1]		;; R5
+	mulpd	xmm2, xmm0			;; A5 = R5 * cosine/sine
+	xload	xmm4, [screg+5*32+16]		;; cosine/sine
+	xload	xmm6, [srcreg+6*d1]		;; R7
+	mulpd	xmm6, xmm4			;; A7 = R7 * cosine/sine
+	xload	xmm3, [srcreg+4*d1+32]		;; I5
+	addpd	xmm2, xmm3			;; A5 = A5 + I5
+	mulpd	xmm3, xmm0			;; B5 = I5 * cosine/sine
+	xload	xmm7, [srcreg+6*d1+32]		;; I7
+	addpd	xmm6, xmm7			;; A7 = A7 + I7
+	mulpd	xmm7, xmm4			;; B7 = I7 * cosine/sine
+	subpd	xmm3, [srcreg+4*d1]		;; B5 = B5 - R5
+	xload	xmm1, [screg+3*32]		;; sine
+	mulpd	xmm2, xmm1			;; R5 = A5 * sine
+	subpd	xmm7, [srcreg+6*d1]		;; B7 = B7 - R7
+	xload	xmm5, [screg+5*32]		;; sine
+	mulpd	xmm6, xmm5			;; R7 = A7 * sine
+	mulpd	xmm3, xmm1			;; I5 = B5 * sine
+	mulpd	xmm7, xmm5			;; I7 = B7 * sine
+	xcopy	xmm1, xmm2			;; Copy R5
+	addpd	xmm2, xmm6			;; R5+R7
+	subpd	xmm1, xmm6			;; R5-R7
+	xcopy	xmm5, xmm3			;; Copy I5
+	addpd	xmm3, xmm7			;; I5+I7
+	subpd	xmm5, xmm7			;; I5-I7
+	xstore	tmpreg[5*32], xmm2		;; Save R5+R7
+	xstore	tmpreg[3*32], xmm1		;; Save R5-R7
+	xstore	tmpreg[5*32+16], xmm3		;; Save I5+I7
+	xstore	tmpreg[3*32+16], xmm5		;; Save I5-I7
+
+	xload	xmm0, [screg+4*32+16]		;; cosine/sine
+	xload	xmm2, [srcreg+5*d1]		;; R6
+	mulpd	xmm2, xmm0			;; A6 = R6 * cosine/sine
+	xload	xmm3, [srcreg+5*d1+32]		;; I6
+	addpd	xmm2, xmm3			;; A6 = A6 + I6
+	mulpd	xmm3, xmm0			;; B6 = I6 * cosine/sine
+	subpd	xmm3, [srcreg+5*d1]		;; B6 = B6 - R6
+	xload	xmm1, [screg+4*32]		;; sine
+	mulpd	xmm2, xmm1			;; R6 = A6 * sine
+	mulpd	xmm3, xmm1			;; I6 = B6 * sine
+	xstore	tmpreg[4*32], xmm2		;; Save R6
+	xstore	tmpreg[4*32+16], xmm3		;; Save I6
+	ENDM
+
+r5_x20r_unfft MACRO srcreg,d1,r1A,r1B,tmpreg
+
+	;; Calculate odd columns derived from real inputs (even rows)
+
+	xload	xmm0, tmpreg[32]		;; r3-r9
+	xload	xmm6, XMM_P809
+	mulpd	xmm6, xmm0			;; .809(r3-r9)
+	xload	xmm7, r1B			;; r1-r11
+	addpd	xmm6, xmm7			;; r1+.809(r3-r13)-r11
+	xload	xmm1, XMM_P309
+	mulpd	xmm1, xmm0			;; .309(r3-r9)
+	subpd	xmm0, xmm7			;; -(r1-(r3-r9)-r11)
+	subpd	xmm7, xmm1			;; r1-.309(r3-r9)-r11
+
+	xload	xmm1, tmpreg[3*32]		;; r5-r7
+	xload	xmm2, XMM_P309
+	mulpd	xmm2, xmm1			;; .309(r5-r7)
+	addpd	xmm6, xmm2			;; r1+.809(r3-r13)+.309(r5-r7)-r11
+	xload	xmm2, XMM_P809
+	mulpd	xmm2, xmm1			;; .809(r5-r7)
+	subpd	xmm7, xmm2			;; r1-.309(r3-r9)-.809(r5-r7)-r11
+	subpd	xmm1, xmm0			;; r1-(r3-r9)+(r5-r7)-r11
+
+	xstore	tmpreg[9*32], xmm1		;; Save odd-real-cols row #6 (also is real-cols row #6)
+
+	;; Calculate even columns derived from real inputs (even rows)
+	;; From above, odd-real-col rols rows #2,4 are in xmm6, xmm7
+
+	xload	xmm2, tmpreg[0]			;; r2-r10
+	xload	xmm1, XMM_P951
+	mulpd	xmm1, xmm2			;; .951(r2-r10)
+	mulpd	xmm2, XMM_P588			;; .588(r2-r10)
+
+	xload	xmm0, tmpreg[2*32]		;; r4-r8
+	xload	xmm4, XMM_P588
+	mulpd	xmm4, xmm0			;; .588(r4-r8)
+	addpd	xmm1, xmm4			;; .951(r2-r10)+.588(r4-r8)
+	mulpd	xmm0, XMM_P951			;; .951(r4-r8)
+	subpd	xmm2, xmm0			;; .588(r2-r10)-.951(r4-r8)
+
+	;; Combine even and odd columns (even rows)
+
+	xcopy	xmm0, xmm6			;; Copy odd-real-cols row #2
+	subpd	xmm6, xmm1			;; real-cols row #10 (odd#2 - even#2)
+	addpd	xmm1, xmm0			;; real-cols row #2 (odd#2 + even#2)
+
+	xcopy	xmm4, xmm7			;; Copy odd-real-cols row #4
+	subpd	xmm7, xmm2			;; real-cols row #8 (odd#4 - even#4)
+	addpd	xmm2, xmm4			;; real-cols row #4 (odd#4 + even#4)
+
+	xstore	tmpreg[32], xmm6		;; Save real-cols row #10
+	xstore	tmpreg[0], xmm1			;; Save real-cols row #2
+	xstore	tmpreg[3*32], xmm7		;; Save real-cols row #8
+	xstore	tmpreg[2*32], xmm2		;; Save real-cols row #4
+
+	;; Calculate even columns derived from real inputs (odd rows)
+
+	xload	xmm0, tmpreg[8*32]		;; r2+r10
+	xload	xmm6, XMM_P809
+	mulpd	xmm6, xmm0			;; .809(r2+r10)
+	xload	xmm7, XMM_P309
+	mulpd	xmm7, xmm0			;; .309(r2+r10)
+
+	xload	xmm1, tmpreg[6*32]		;; r4+r8
+	addpd	xmm0, xmm1			;; (r2+r10)+(r4+r8)
+	xload	xmm4, XMM_P309
+	mulpd	xmm4, xmm1			;; .309(r4+r8)
+	subpd	xmm6, xmm4			;; .809(r2+r10)-.309(r4+r8)
+	mulpd	xmm1, XMM_P809			;; .809(r4+r8)
+	subpd	xmm7, xmm1			;; .309(r2+r10)-.809(r4+r8)
+
+	xload	xmm4, tmpreg[4*32]		;; r6
+	addpd	xmm0, xmm4			;; (r2+r10)+(r4+r8)+r6
+	subpd	xmm6, xmm4			;; .809(r2+r10)-.309(r4+r8)-r6
+	addpd	xmm7, xmm4			;; .309(r2+r10)-.809(r4+r8)+r6
+
+	;; Calculate odd columns derived from real inputs (odd rows)
+	;; From above, even-real-cols row #1,3,5 are in xmm0,xmm6,xmm7
+
+	xload	xmm1, tmpreg[7*32]		;; r3+r9
+	xload	xmm2, XMM_P309
+	mulpd	xmm2, xmm1			;; .309(r3+r9)
+	xload	xmm4, XMM_P809
+	mulpd	xmm4, xmm1			;; .809(r3+r9)
+	xload	xmm3, r1A			;; r1+r11
+	addpd	xmm1, xmm3			;; r1+(r3+r9)+r11
+	addpd	xmm2, xmm3			;; r1+.309(r3+r9)+r11
+	subpd	xmm3, xmm4			;; r1-.809(r3+r9)+r11
+
+	xload	xmm4, tmpreg[5*32]		;; r5+r7
+	addpd	xmm1, xmm4			;; r1+(r3+r9)+(r5+r7)+r11
+	xload	xmm5, XMM_P809
+	mulpd	xmm5, xmm4			;; .809(r5+r7)
+	subpd	xmm2, xmm5			;; r1+.309(r3+r9)-.809(r5+r7)+r11
+	mulpd	xmm4, XMM_P309			;; .309(r5+r7)
+	addpd	xmm3, xmm4			;; r1-.809(r3+r9)+.309(r5+r7)+r11
+
+	;; Combine even and odd columns (odd rows)
+
+	xcopy	xmm4, xmm0			;; Copy even-real-cols row #1
+	addpd	xmm0, xmm1			;; real-cols row #1 (and final R1)
+	subpd	xmm1, xmm4			;; real-cols row #11 (and final R11)
+	xstore	[srcreg], xmm0			;; Save final R1
+	xstore	[srcreg+32], xmm1		;; Save final R11
+
+	xcopy	xmm5, xmm6			;; Copy even-real-cols row #3
+	addpd	xmm6, xmm2			;; real-cols row #3
+	subpd	xmm2, xmm5			;; real-cols row #9
+	xstore	tmpreg[4*32], xmm6		;; Save real-cols row #3
+	xstore	tmpreg[5*32], xmm2		;; Save real-cols row #9
+
+	xcopy	xmm4, xmm7			;; Copy even-real-cols row #5
+	addpd	xmm7, xmm3			;; real-cols row #5
+	subpd	xmm3, xmm4	 		;; real-cols row #7
+	xstore	tmpreg[6*32], xmm7		;; Save real-cols row #5
+	xstore	tmpreg[7*32], xmm3		;; Save real-cols row #7
+
+	;; Calculate even columns derived from imaginary inputs (even rows)
+
+	xload	xmm0, tmpreg[8*32+16]		;; i2+i10
+	xload	xmm6, XMM_P309
+	mulpd	xmm6, xmm0			;; .309(i2+i10)
+	xload	xmm7, XMM_P809
+	mulpd	xmm7, xmm0			;; .809(i2+i10)
+
+	xload	xmm1, tmpreg[6*32+16]		;; i4+i8
+	subpd	xmm0, xmm1			;; (i2+i10)-(i4+i8)
+	xload	xmm4, XMM_P809
+	mulpd	xmm4, xmm1			;; .809(i4+i8)
+	addpd	xmm6, xmm4			;; .309(i2+i10)+.809(i4+i8)
+	mulpd	xmm1, XMM_P309			;; .309(i4+i8)
+	addpd	xmm7, xmm1			;; .809(i2+i10)+.309(i4+i8)
+
+	xload	xmm4, tmpreg[4*32+16]		;; i6
+	addpd	xmm0, xmm4			;; (i2+i10)-(i4+i8)+i6
+	addpd	xmm6, xmm4			;; .309(i2+i10)+.809(i4+i8)+i6
+	subpd	xmm7, xmm4			;; .809(i2+i10)+.309(i4+i8)-i6
+
+	;; Combine real and imaginary data for row #6
+
+	xload	xmm4, tmpreg[9*32]		;; Load real-cols row #6
+	subpd	xmm4, xmm0			;; final R16
+	addpd	xmm0, tmpreg[9*32]		;; final R6
+	xstore	[srcreg+48], xmm4		;; Save R16
+	xstore	[srcreg+16], xmm0		;; Save R6
+
+	;; Calculate odd columns derived from imaginary inputs (even rows)
+	;; From above, even-imag-cols row #2,4 are in xmm6, xmm7
+
+	xload	xmm4, tmpreg[7*32+16]		;; i3+i9
+	xload	xmm3, XMM_P588
+	mulpd	xmm3, xmm4			;; .588(i3+i9)
+	mulpd	xmm4, XMM_P951			;; .951(i3+i9)
+
+	xload	xmm0, tmpreg[5*32+16]		;; i5+i7
+	xload	xmm1, XMM_P951
+	mulpd	xmm1, xmm0			;; .951(i5+i7)
+	addpd	xmm3, xmm1			;; .588(i3+i9)+.951(i5+i7)
+	mulpd	xmm0, XMM_P588			;; .588(i5+i7)
+	subpd	xmm4, xmm0			;; .951(i3+i9)-.588(i5+i7)
+
+	;; Combine even and odd columns, then real and imag data (even rows)
+
+	xcopy	xmm0, xmm6			;; Copy even-imag-cols row #2
+	subpd	xmm6, xmm3			;; imag-cols row #10 (even#2 - odd#2)
+	addpd	xmm3, xmm0			;; imag-cols row #2 (even#2 + odd#2)
+	xcopy	xmm1, xmm7			;; Copy even-imag-cols row #4
+	subpd	xmm7, xmm4			;; imag-cols row #10 (even#4 - odd#4)
+	addpd	xmm4, xmm1			;; imag-cols row #4 (even#4 + odd#4)
+
+	xload	xmm0, tmpreg[32]		;; Load real-cols row #10
+	subpd	xmm0, xmm6			;; final R12
+	addpd	xmm6, tmpreg[32]		;; final R10
+	xload	xmm1, tmpreg[0]			;; Load real-cols row #2
+	subpd	xmm1, xmm3			;; final R20
+	addpd	xmm3, tmpreg[0]			;; final R2
+	xstore	[srcreg+2*d1+32], xmm0		;; Save R12
+	xstore	[srcreg+8*d1+16], xmm6		;; Save R10
+	xstore	[srcreg+8*d1+48], xmm1		;; Save R20
+	xstore	[srcreg+2*d1], xmm3		;; Save R2
+
+	xload	xmm0, tmpreg[3*32]		;; Load real-cols row #8
+	subpd	xmm0, xmm7			;; final R14
+	addpd	xmm7, tmpreg[3*32]		;; final R8
+	xload	xmm1, tmpreg[2*32]		;; Load real-cols row #4
+	subpd	xmm1, xmm4			;; final R18
+	addpd	xmm4, tmpreg[2*32]		;; final R4
+	xstore	[srcreg+6*d1+32], xmm0		;; Save R14
+	xstore	[srcreg+4*d1+16], xmm7		;; Save R8
+	xstore	[srcreg+4*d1+48], xmm1		;; Save R18
+	xstore	[srcreg+6*d1], xmm4		;; Save R4
+
+	;; Calculate even columns derived from imaginary inputs (odd rows)
+
+	xload	xmm7, tmpreg[16]		;; i2-i10
+	xload	xmm6, XMM_P588
+	mulpd	xmm6, xmm7			;; .588(i2-i10)
+	mulpd	xmm7, XMM_P951			;; .951(i2-i10)
+
+	xload	xmm4, tmpreg[2*32+16]		;; i4-i8
+	xload	xmm3, XMM_P951
+	mulpd	xmm3, xmm4			;; .951(i4-i8)
+	addpd	xmm6, xmm3			;; .588(i2-i10)+.951(i4-i8)
+	mulpd	xmm4, XMM_P588			;; .588(i4-i8)
+	subpd	xmm7, xmm4			;; .951(i2-i10)-.588(i4-i8)
+
+	;; Calculate odd columns derived from imaginary inputs (odd rows)
+	;; From above, even-imag-cols row #3,5 are in xmm6,xmm7
+
+	xload	xmm4, tmpreg[32+16]		;; i3-i9
+	xload	xmm3, XMM_P951
+	mulpd	xmm3, xmm4			;; .951(i3-i9)
+	mulpd	xmm4, XMM_P588			;; .588(i3-i9)
+
+	xload	xmm0, tmpreg[3*32+16]		;; i5-i7
+	xload	xmm1, XMM_P588
+	mulpd	xmm1, xmm0			;; .588(i5-i7)
+	addpd	xmm3, xmm1			;; .951(i3-i9)+.588(i5-i7)
+	mulpd	xmm0, XMM_P951			;; .951(i5-i7)
+	subpd	xmm4, xmm0			;; .588(i3-i9)-.951(i5-i7)
+
+	;; Combine even and odd columns, then real and imag data (odd rows)
+
+	xcopy	xmm0, xmm6			;; Copy even-imag-cols row #3
+	subpd	xmm6, xmm3			;; imag-cols row #9 (even#3 - odd#3)
+	addpd	xmm3, xmm0			;; imag-cols row #3 (even#3 + odd#3)
+	xcopy	xmm1, xmm7			;; Copy even-imag-cols row #5
+	subpd	xmm7, xmm4			;; imag-cols row #7 (even#5 - odd#5)
+	addpd	xmm4, xmm1			;; imag-cols row #5 (even#5 + odd#5)
+
+	xload	xmm0, tmpreg[5*32]		;; Load real-cols row #9
+	subpd	xmm0, xmm6			;; final R13
+	addpd	xmm6, tmpreg[5*32]		;; final R9
+	xload	xmm1, tmpreg[4*32]		;; Load real-cols row #3
+	subpd	xmm1, xmm3			;; final R19
+	addpd	xmm3, tmpreg[4*32]		;; final R3
+	xstore	[srcreg+4*d1+32], xmm0		;; Save R13
+	xstore	[srcreg+6*d1+16], xmm6		;; Save R9
+	xstore	[srcreg+6*d1+48], xmm1		;; Save R19
+	xstore	[srcreg+4*d1], xmm3		;; Save R3
+
+	xload	xmm0, tmpreg[7*32]		;; Load real-cols row #7
+	subpd	xmm0, xmm7			;; final R15
+	addpd	xmm7, tmpreg[7*32]		;; final R7
+	xload	xmm1, tmpreg[6*32]		;; Load real-cols row #5
+	subpd	xmm1, xmm4			;; final R17
+	addpd	xmm4, tmpreg[6*32]		;; final R5
+	xstore	[srcreg+8*d1+32], xmm0		;; Save R15
+	xstore	[srcreg+2*d1+16], xmm7		;; Save R7
+	xstore	[srcreg+2*d1+48], xmm1		;; Save R17
+	xstore	[srcreg+8*d1], xmm4		;; Save R5
+	ENDM
+
