@@ -656,7 +656,8 @@ yes_fft:start_timer 22
 pfing	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
-pfing	bump	rcx, 32*blkdst		;; We've already prefetched 32 blocks
+pfing	bump	rcx, (32-4)*blkdst	;; We've already prefetched 32 blocks, but
+					;; code below will fetch 4 blocks too many
 	loops_init 16*2*clm		;; 16 iters of 2*clm
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b1b:	r5_x5cl_20_reals_first_fft_scratch rsi, 64, 2*clmblkdst8, rdi
@@ -1033,7 +1034,8 @@ yes_fft:start_timer 22
 	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
-	bump	rcx, 24*blkdst		;; We've already prefetched 24 blocks
+	bump	rcx, (24-4)*blkdst	;; We've already prefetched 24 blocks, but
+					;; code below prefetches 4 blocks too many
 	loops_init 48*2*clm		;; 6 iters of 4 iters of 2*2*clm
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 6*clmblkdst8, rdi
@@ -1069,7 +1071,6 @@ b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 6*clmblkdst8, rdi
 ;;	distance between fft data elements is 16K
 ;;	do 16 macros each processing 24 data values
 
-;;bug - are we overprefetching the next data blocK?
 	start_timer 24
 	mov	rdi, PREMULT_ADDR	;; Address of premultiplier/sin/cos table
 	bump	rdi, 4*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD2 + 2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD4
@@ -1131,7 +1132,7 @@ b6a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b6b:	r4_x4cl_eight_reals_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
-	newxloop1 b6b, clmblkdst	;; 2*clm iterations
+	newxloop1nopre b6b, clmblkdst	;; 2*clm iterations
 	loops	4, b6a			;; 4 iterations
 	bump	rsi, -4*clmblkdst+2*clmblkdst8
 	bump	rdi, -4*2*clm*XMM_SCD2	;; Restore sin/cos ptr
@@ -1319,8 +1320,8 @@ c9b:	r4_sg2cl_four_complex_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 ;;	do 26 macros each processing 32 data values
 
 	start_timer 17
-	loops_init_prefetch 28*2*clm, 64, 2, rbp ;; 28*2*clm iterations
 	lea	rdx, [rdi+4*2*clm*XMM_SCD2] ;; Next sin/cos ptr
+	loops_init_prefetch 28*2*clm, 64, 2, rbp ;; 28*2*clm iterations
 ;;	xtouchpages rbp, 28*2*clm * 64 / 2 ;; Prefetch TLBs
 
 c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*clm*XMM_SCD2, rdx, 2*2*clm*XMM_SCD2
@@ -1412,7 +1413,8 @@ yes_fft:start_timer 22
 pfing	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
-pfing	bump	rcx, 32*blkdst		;; We've already prefetched 32 blocks
+pfing	bump	rcx, (32-4)*blkdst	;; We've already prefetched 32 blocks, but
+					;; code below will fetch 4 blocks too many
 	loops_init 16*2*clm		;; 16 iters of 2*clm
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b1b:	r7_x7cl_28_reals_first_fft_scratch rsi, 64, 2*clmblkdst8, rdi
@@ -1457,7 +1459,7 @@ b6a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b6b:	r4_x4cl_eight_reals_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
-	newxloop1 b6b, clmblkdst	;; 2*clm iterations
+	newxloop1 b6b, clmblkdst ;; 2*clm iterations
 	loops	4, b6a			;; 4 iterations
 	bump	rsi, -4*clmblkdst+2*clmblkdst8
 	bump	rdi, -4*2*clm*XMM_SCD2	;; Restore sin/cos ptr
@@ -1466,7 +1468,7 @@ b6b:	r4_x4cl_eight_reals_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, r
 b7a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
-	newxloop1 b7b, clmblkdst	;; 2*clm iterations
+	newxloop1doublepre b7b, b7a, clmblkdst ;; 2*clm iterations
 	loops	4, b7a			;; Test middle loop counter
 	bump	rsi, -4*clmblkdst+2*clmblkdst8 ;; Next source pointer
 	bump	rdi, -4*2*clm*XMM_SCD2	;; Restore sin/cos ptr
@@ -2080,8 +2082,9 @@ c9b:	r8_sg4cl_eight_complex_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst
 ;;	do 36 macros each processing 32 data values
 
 	start_timer 17
-	loops_init 40*2*clm		;; 40 iterations of 2*clm
 	lea	rdx, [rdi+8*2*clm*XMM_SCD2] ;; Next sin/cos ptr
+	loops_init_prefetch 40*2*clm, 64, 2, rbp ;; 40 iterations of 2*clm
+;;	xtouchpages rbp, 40*2*clm * 64 / 2 ;; Prefetch TLBs
 c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*clm*XMM_SCD2, rdx, 4*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
@@ -2173,7 +2176,8 @@ yes_fft:start_timer 22
 pfing	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
-pfing	bump	rcx, 64*blkdst		;; We've already prefetched 64 blocks
+pfing	bump	rcx, (64-8)*blkdst	;; We've already prefetched 64 blocks, but
+					;; code below will fetch 8 blocks too many
 	loops_init 32*2*clm		;; 32 iters of 2*clm
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b1b:	r5_x5cl_20_reals_first_fft_scratch rsi, 64, 4*clmblkdst8, rdi
@@ -2559,7 +2563,8 @@ yes_fft:start_timer 22
 	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
-	bump	rcx, 48*blkdst		;; We've already prefetched 48 blocks
+	bump	rcx, (48-8)*blkdst	;; We've already prefetched 48 blocks, but
+					;; code below prefetches 8 blocks too many
 	loops_init 96*2*clm		;; 12 iters of 4 iters of 2*2*clm
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 12*clmblkdst8, rdi
@@ -2656,7 +2661,7 @@ b6a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b6b:	r4_x4cl_eight_reals_four_complex_djbfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
-	newxloop1 b6b, clmblkdst	;; 2*clm iterations
+	newxloop1nopre b6b, clmblkdst	;; 2*clm iterations
 	loops	8, b6a			;; 8 iterations
 	bump	rsi, -8*clmblkdst+4*clmblkdst8
 	bump	rdi, -8*2*clm*XMM_SCD2	;; Restore sin/cos ptr
@@ -2942,7 +2947,8 @@ yes_fft:start_timer 22
 pfing	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
-pfing	bump	rcx, 64*blkdst		;; We've already prefetched 64 blocks
+pfing	bump	rcx, (64-8)*blkdst	;; We've already prefetched 64 blocks, but
+					;; code below will fetch 8 blocks too many
 	loops_init 32*2*clm		;; 32 iters of 2*clm
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b1b:	r7_x7cl_28_reals_first_fft_scratch rsi, 64, 4*clmblkdst8, rdi
@@ -2996,7 +3002,7 @@ b6b:	r4_x4cl_eight_reals_four_complex_djbfft rsi, 64, clmblkdst8, 2*clmblkdst8, 
 b7a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
-	newxloop1 b7b, clmblkdst	;; 2*clm iterations
+	newxloop1doublepre b7b, b7a, clmblkdst ;; 2*clm iterations
 	loops	8, b7a			;; Test middle loop counter
 	bump	rsi, -8*clmblkdst+4*clmblkdst8 ;; Next source pointer
 	bump	rdi, -8*2*clm*XMM_SCD2	;; Restore sin/cos ptr
@@ -3567,7 +3573,7 @@ c0b:	start_timer 16
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
 pfing	lea	rbp, [rdi+2*XMM_SCD4]	;; Prefetch the sin/cos/premult data we are about to use
 	lea	rdx, [rdi+10*2*clm*XMM_SCD4] ;; Next sin/cos ptr
-	loops_init_prefetch 160*2*clm, 64, 2, rbp ;; 160*2*clm iterations
+	loops_init_prefetch 160*2*clm, 64, 4, rbp ;; 160*2*clm iterations
 ;;bug	xtouchpages rbp, 160*2*clm * 64 / 2 ;; Prefetch TLBs
 c8b:	r4_sg2cl_eight_reals_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi, rdx
 	bump	rdi, XMM_SCD4		;; Next premult/sin/cos data
@@ -3615,7 +3621,7 @@ c9b:	r4_sg2cl_four_complex_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 
 	start_timer 17
 	lea	rdx, [rdi+4*2*clm*XMM_SCD2] ;; Next sin/cos ptr
-	loops_init_prefetch 80*2*clm, 64, 2, rbp ;; 80*2*clm iterations
+	loops_init_prefetch 80*2*clm, 64, 4, rbp ;; 80*2*clm iterations
 ;;	xtouchpages rbp, 80*2*clm * 64 / 2 ;; Prefetch TLBs
 
 c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*clm*XMM_SCD2, rdx, 2*2*clm*XMM_SCD2
@@ -3665,8 +3671,7 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*c
 
 	start_timer 18
 	lea	rdx, [rdi+16*2*clm*XMM_SCD2] ;; Next sin/cos ptr
-	loops_init_prefetch 80*2*clm, 64, 2, rbp ;; 80*2*clm iterations
-;;	xtouchpages rbp, 80*2*clm * 64 / 2 ;; Prefetch TLBs
+	loops_init 80*2*clm		;; 80*2*clm iterations
 
 c4b:	r4_x4cl_eight_reals_unfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 8*2*clm*XMM_SCD2, rdx, 8*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
@@ -3715,7 +3720,7 @@ pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r5_x10cl_20_reals_last_unfft rsi, 64, 4*clmblkdst8, rdi, 32*XMM_SCD9
-	newxloop1quadpre c1b, c1a, clmblkdst, rdi, XMM_SCD9 ;; 2*clm iterations
+	newxloop1doublepre c1b, c1a, clmblkdst, rdi, XMM_SCD9 ;; 2*clm iterations
 	loops	8, c1a			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8 ;; Next source pointer
 	loops	4, c1a			;; Test outer loop counter
@@ -3759,7 +3764,8 @@ yes_fft:start_timer 22
 pfing	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
-pfing	bump	rcx, 64*blkdst		;; We've already prefetched 64 blocks
+pfing	bump	rcx, (64-32)*blkdst	;; We've already prefetched 64 blocks, but
+					;; code below will fetch 32 blocks too many
 	loops_init 64*2*clm		;; 64 iters of 2*clm
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b1b:	r5_x5cl_20_reals_first_fft_scratch rsi, 64, 8*clmblkdst8, rdi
@@ -4148,7 +4154,8 @@ yes_fft:start_timer 22
 	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
-	bump	rcx, 24*blkdst		;; We've already prefetched 24 blocks
+	bump	rcx, (24-8)*blkdst	;; We've already prefetched 24 blocks, but
+					;; code below prefetches 8 blocks too many
 	loops_init 48*2*clm		;; 6 iters of 4 iters of 2*2*clm
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b1b:	r4_x2cl_four_complex_first_djbfft_scratch rsi, 64, 6*clmblkdst8, rdi, rdx
@@ -4837,12 +4844,13 @@ yes_fft:start_timer 22
 	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
-	bump	rcx, 40*blkdst		;; We've already prefetched 40 blocks
+	bump	rcx, (40-4)*blkdst	;; We've already prefetched 40 blocks, but
+					;; code below prefetches 4 blocks too many
 	loops_init 80*2*clm		;; 10 iters of 4 iters of 2*2*clm
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b1b:	r4_x2cl_four_complex_first_djbfft_scratch rsi, 64, 10*clmblkdst8, rdi, rdx
-	newxloop2 b1b, clmblkdst, rdx, XMM_SCD4, rdi, XMM_SCD2 ;; 2*2*clm iters prefetching 2*clm cache lines
-	loops	4, b1a			;; 4 iterations
+	newxloop4 b1b, clmblkdst, rdx, XMM_SCD4, rdi, XMM_SCD2 ;; 4*2*clm iters prefetching 2*clm cache lines
+	loops	2, b1a			;; 2 iterations
 	bump	rsi, -4*2*clmblkdst+clmblkdst8
 	loops	10, b1a			;; Test loop counter
 	bump	rsi, -10*clmblkdst8	;; Restore source pointer
@@ -4876,7 +4884,7 @@ b1b:	r4_x2cl_four_complex_first_djbfft_scratch rsi, 64, 10*clmblkdst8, rdi, rdx
 b5a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b5b:	r5_x5cl_five_complex_djbfft rsi, 64, 2*clmblkdst8, rdi
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
-	newxloop1 b5b, clmblkdst	;; 2*clm iterations
+	newxloop1doublepre b5b, b5a, clmblkdst ;; 2*clm iterations
 	loops	8, b5a			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8
 	loops	2, b5a			;; Test middle loop counter
@@ -5189,7 +5197,8 @@ yes_fft:start_timer 22
 	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
-	bump	rcx, 48*blkdst		;; We've already prefetched 48 blocks
+	bump	rcx, (48-16)*blkdst	;; We've already prefetched 48 blocks, but
+					;; code below prefetches 16 blocks too many
 	loops_init 96*2*clm		;; 12 iters of 4 iters of 2*2*clm
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b1b:	r4_x2cl_four_complex_first_djbfft_scratch rsi, 64, 12*clmblkdst8, rdi, rdx
@@ -5898,12 +5907,13 @@ yes_fft:start_timer 22
 	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
-	bump	rcx, 80*blkdst		;; We've already prefetched 80 blocks
+	bump	rcx, (80-8)*blkdst	;; We've already prefetched 80 blocks, but
+					;; code below prefetches 8 blocks too many
 	loops_init 160*2*clm		;; 20 iters of 4 iters of 2*2*clm
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b1b:	r4_x2cl_four_complex_first_djbfft_scratch rsi, 64, 20*clmblkdst8, rdi, rdx
-	newxloop2 b1b, clmblkdst, rdx, XMM_SCD4, rdi, XMM_SCD2 ;; 2*2*clm iters prefetching 2*clm cache lines
-	loops	4, b1a			;; 4 iterations
+	newxloop4 b1b, clmblkdst, rdx, XMM_SCD4, rdi, XMM_SCD2 ;; 4*2*clm iters prefetching 2*clm cache lines
+	loops	2, b1a			;; 4 iterations
 	bump	rsi, -4*2*clmblkdst+clmblkdst8
 	loops	20, b1a			;; Test loop counter
 	bump	rsi, -20*clmblkdst8	;; Restore source pointer
@@ -5939,7 +5949,7 @@ b1b:	r4_x2cl_four_complex_first_djbfft_scratch rsi, 64, 20*clmblkdst8, rdi, rdx
 b5a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b5b:	r5_x5cl_five_complex_djbfft rsi, 64, 4*clmblkdst8, rdi
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
-	newxloop1 b5b, clmblkdst	;; 2*clm iterations
+	newxloop1doublepre b5b, b5a, clmblkdst ;; 2*clm iterations
 	loops	8, b5a			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8
 	loops	4, b5a			;; Test middle loop counter
@@ -6294,3 +6304,14 @@ newxloop4 MACRO	label2, incr_rsi, pm_incr_reg, pm_incr_amt, sc_incr_reg, sc_incr
 	ENDIF
 
 	ENDM
+
+;; This macro loops 2*clm times, with no prefetching of 64-byte cache lines for
+;; every building block macro called.
+
+newxloop1nopre MACRO label2, incr_rsi, pm_incr_reg, pm_incr_amt, sc_incr_reg, sc_incr_amt
+	loops	2*clm, label2		;; Test inner loop counter
+	bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
+	bump	pm_incr_reg, pm_incr_amt ;; Next premultiplier pointer
+	bump	sc_incr_reg, sc_incr_amt ;; Next sin/cos pointer
+	ENDM
+
