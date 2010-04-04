@@ -468,7 +468,7 @@ r7_x7cl_28_reals_first_fft_cmn MACRO srcreg,off,srcinc,d1,screg
 	addpd	xmm7, xmm2			;; Imag odd-cols row #4
 	subpd	xmm2, XMM_COL_MULTS[352]	;; Imag odd-cols row #5
 
-	xstore	XMM_COL_MULTS[320], xmm5	;; Imag odd-cols row #2
+;;	xstore	XMM_COL_MULTS[320], xmm5	;; Imag odd-cols row #2
 	xstore	XMM_COL_MULTS[400], xmm0	;; Imag odd-cols row #7
 	xstore	XMM_COL_MULTS[336], xmm6	;; Imag odd-cols row #3
 	xstore	XMM_COL_MULTS[384], xmm1	;; Imag odd-cols row #6
@@ -482,32 +482,30 @@ r7_x7cl_28_reals_first_fft_cmn MACRO srcreg,off,srcinc,d1,screg
 	subpd	xmm0, xmm1			;; Real #14
 	addpd	xmm1, XMM_COL_MULTS[0]		;; Real #2
 	xload	xmm2, XMM_COL_MULTS[224]	;; Imag even-cols row #2
-	xload	xmm3, XMM_COL_MULTS[320]	;; Imag odd-cols row #2
-	subpd	xmm2, xmm3			;; Imag #14
-	addpd	xmm3, XMM_COL_MULTS[224]	;; Imag #2
+;;	xload	xmm5, XMM_COL_MULTS[320]	;; Imag odd-cols row #2
+	subpd	xmm2, xmm5			;; Imag #14
+	addpd	xmm5, XMM_COL_MULTS[224]	;; Imag #2
 
-	xload	xmm5, [screg+12*32+16]		;; cosine/sine
+	xload	xmm3, [screg+12*32+16]		;; cosine/sine
 	xcopy	xmm7, xmm0			;; Copy R14
-	mulpd	xmm0, xmm5			;; A14 = R14 * cosine/sine
-	subpd	xmm0, xmm2			;; A14 = A14 - I14
-	mulpd	xmm2, xmm5			;; B14 = I14 * cosine/sine
-	addpd	xmm2, xmm7			;; B14 = B14 + R14
-	mulpd	xmm0, [screg+12*32]		;; A14 = A14 * sine (final R14)
-	mulpd	xmm2, [screg+12*32]		;; B14 = B14 * sine (final I14)
-	xstore	[srcreg+6*d1+32], xmm0		;; Save final R14
-	xstore	[srcreg+6*d1+48], xmm2		;; Save final I14
-
+	mulpd	xmm0, xmm3			;; A14 = R14 * cosine/sine
 	xload	xmm4, [screg+16]		;; cosine/sine
 	xcopy	xmm6, xmm1			;; Copy R2
 	mulpd	xmm1, xmm4			;; A2 = R2 * cosine/sine
-	subpd	xmm1, xmm3			;; A2 = A2 - I2
-	mulpd	xmm3, xmm4			;; B2 = I2 * cosine/sine
-	addpd	xmm3, xmm6			;; B2 = B2 + R2
+	subpd	xmm0, xmm2			;; A14 = A14 - I14
+	mulpd	xmm2, xmm3			;; B14 = I14 * cosine/sine
+	subpd	xmm1, xmm5			;; A2 = A2 - I2
+	mulpd	xmm5, xmm4			;; B2 = I2 * cosine/sine
+	addpd	xmm2, xmm7			;; B14 = B14 + R14
+	mulpd	xmm0, [screg+12*32]		;; A14 = A14 * sine (final R14)
+	addpd	xmm5, xmm6			;; B2 = B2 + R2
 	mulpd	xmm1, [screg]			;; A2 = A2 * sine (final R2)
-	mulpd	xmm3, [screg]			;; B2 = B2 * sine (final I2)
+	mulpd	xmm2, [screg+12*32]		;; B14 = B14 * sine (final I14)
+	mulpd	xmm5, [screg]			;; B2 = B2 * sine (final I2)
+	xstore	[srcreg+6*d1+32], xmm0		;; Save final R14
+	xstore	[srcreg+6*d1+48], xmm2		;; Save final I14
 	xstore	[srcreg+32], xmm1		;; Save final R2
-	xstore	[srcreg+48], xmm3		;; Save final I2
-
+	xstore	[srcreg+48], xmm5		;; Save final I2
 
 	xload	xmm0, XMM_COL_MULTS[16]		;; Real odd-cols row #3
 	xload	xmm1, XMM_COL_MULTS[160]	;; Real even-cols row #3
@@ -521,25 +519,23 @@ r7_x7cl_28_reals_first_fft_cmn MACRO srcreg,off,srcinc,d1,screg
 	xload	xmm5, [screg+11*32+16]		;; cosine/sine
 	xcopy	xmm7, xmm0			;; Copy R13
 	mulpd	xmm0, xmm5			;; A13 = R13 * cosine/sine
-	subpd	xmm0, xmm2			;; A13 = A13 - I13
-	mulpd	xmm2, xmm5			;; B13 = I13 * cosine/sine
-	addpd	xmm2, xmm7			;; B13 = B13 + R13
-	mulpd	xmm0, [screg+11*32]		;; A13 = A13 * sine (final R13)
-	mulpd	xmm2, [screg+11*32]		;; B13 = B13 * sine (final I13)
-	xstore	[srcreg+6*d1], xmm0		;; Save final R13
-	xstore	[srcreg+6*d1+16], xmm2		;; Save final I13
-
 	xload	xmm4, [screg+32+16]		;; cosine/sine
 	xcopy	xmm6, xmm1			;; Copy R3
 	mulpd	xmm1, xmm4			;; A3 = R3 * cosine/sine
+	subpd	xmm0, xmm2			;; A13 = A13 - I13
+	mulpd	xmm2, xmm5			;; B13 = I13 * cosine/sine
 	subpd	xmm1, xmm3			;; A3 = A3 - I3
 	mulpd	xmm3, xmm4			;; B3 = I3 * cosine/sine
+	addpd	xmm2, xmm7			;; B13 = B13 + R13
+	mulpd	xmm0, [screg+11*32]		;; A13 = A13 * sine (final R13)
 	addpd	xmm3, xmm6			;; B3 = B3 + R3
 	mulpd	xmm1, [screg+32]		;; A3 = A3 * sine (final R3)
+	mulpd	xmm2, [screg+11*32]		;; B13 = B13 * sine (final I13)
 	mulpd	xmm3, [screg+32]		;; B3 = B3 * sine (final I3)
+	xstore	[srcreg+6*d1], xmm0		;; Save final R13
+	xstore	[srcreg+6*d1+16], xmm2		;; Save final I13
 	xstore	[srcreg+d1], xmm1		;; Save final R3
 	xstore	[srcreg+d1+16], xmm3		;; Save final I3
-
 
 	xload	xmm0, XMM_COL_MULTS[32]		;; Real odd-cols row #4
 	xload	xmm1, XMM_COL_MULTS[128]	;; Real even-cols row #4
@@ -553,25 +549,23 @@ r7_x7cl_28_reals_first_fft_cmn MACRO srcreg,off,srcinc,d1,screg
 	xload	xmm5, [screg+10*32+16]		;; cosine/sine
 	xcopy	xmm7, xmm0			;; Copy R12
 	mulpd	xmm0, xmm5			;; A12 = R12 * cosine/sine
-	subpd	xmm0, xmm2			;; A12 = A12 - I12
-	mulpd	xmm2, xmm5			;; B12 = I12 * cosine/sine
-	addpd	xmm2, xmm7			;; B12 = B12 + R12
-	mulpd	xmm0, [screg+10*32]		;; A12 = A12 * sine (final R12)
-	mulpd	xmm2, [screg+10*32]		;; B12 = B12 * sine (final I12)
-	xstore	[srcreg+5*d1+32], xmm0		;; Save final R12
-	xstore	[srcreg+5*d1+48], xmm2		;; Save final I12
-
 	xload	xmm4, [screg+2*32+16]		;; cosine/sine
 	xcopy	xmm6, xmm1			;; Copy R4
 	mulpd	xmm1, xmm4			;; A4 = R4 * cosine/sine
+	subpd	xmm0, xmm2			;; A12 = A12 - I12
+	mulpd	xmm2, xmm5			;; B12 = I12 * cosine/sine
 	subpd	xmm1, xmm3			;; A4 = A4 - I4
 	mulpd	xmm3, xmm4			;; B4 = I4 * cosine/sine
+	addpd	xmm2, xmm7			;; B12 = B12 + R12
+	mulpd	xmm0, [screg+10*32]		;; A12 = A12 * sine (final R12)
 	addpd	xmm3, xmm6			;; B4 = B4 + R4
 	mulpd	xmm1, [screg+2*32]		;; A4 = A4 * sine (final R4)
+	mulpd	xmm2, [screg+10*32]		;; B12 = B12 * sine (final I12)
 	mulpd	xmm3, [screg+2*32]		;; B4 = B4 * sine (final I4)
+	xstore	[srcreg+5*d1+32], xmm0		;; Save final R12
+	xstore	[srcreg+5*d1+48], xmm2		;; Save final I12
 	xstore	[srcreg+d1+32], xmm1		;; Save final R4
 	xstore	[srcreg+d1+48], xmm3		;; Save final I4
-
 
 	xload	xmm0, XMM_COL_MULTS[48]		;; Real odd-cols row #5
 	xload	xmm1, XMM_COL_MULTS[176]	;; Real even-cols row #5
@@ -585,25 +579,23 @@ r7_x7cl_28_reals_first_fft_cmn MACRO srcreg,off,srcinc,d1,screg
 	xload	xmm5, [screg+9*32+16]		;; cosine/sine
 	xcopy	xmm7, xmm0			;; Copy R11
 	mulpd	xmm0, xmm5			;; A11 = R11 * cosine/sine
-	subpd	xmm0, xmm2			;; A11 = A11 - I11
-	mulpd	xmm2, xmm5			;; B11 = I11 * cosine/sine
-	addpd	xmm2, xmm7			;; B11 = B11 + R11
-	mulpd	xmm0, [screg+9*32]		;; A11 = A11 * sine (final R11)
-	mulpd	xmm2, [screg+9*32]		;; B11 = B11 * sine (final I11)
-	xstore	[srcreg+5*d1], xmm0		;; Save final R11
-	xstore	[srcreg+5*d1+16], xmm2		;; Save final I11
-
 	xload	xmm4, [screg+3*32+16]		;; cosine/sine
 	xcopy	xmm6, xmm1			;; Copy R5
 	mulpd	xmm1, xmm4			;; A5 = R5 * cosine/sine
+	subpd	xmm0, xmm2			;; A11 = A11 - I11
+	mulpd	xmm2, xmm5			;; B11 = I11 * cosine/sine
 	subpd	xmm1, xmm3			;; A5 = A5 - I5
 	mulpd	xmm3, xmm4			;; B5 = I5 * cosine/sine
+	addpd	xmm2, xmm7			;; B11 = B11 + R11
+	mulpd	xmm0, [screg+9*32]		;; A11 = A11 * sine (final R11)
 	addpd	xmm3, xmm6			;; B5 = B5 + R5
 	mulpd	xmm1, [screg+3*32]		;; A5 = A5 * sine (final R5)
+	mulpd	xmm2, [screg+9*32]		;; B11 = B11 * sine (final I11)
 	mulpd	xmm3, [screg+3*32]		;; B5 = B5 * sine (final I5)
+	xstore	[srcreg+5*d1], xmm0		;; Save final R11
+	xstore	[srcreg+5*d1+16], xmm2		;; Save final I11
 	xstore	[srcreg+2*d1], xmm1		;; Save final R5
 	xstore	[srcreg+2*d1+16], xmm3		;; Save final I5
-
 
 	xload	xmm0, XMM_COL_MULTS[64]		;; Real odd-cols row #6
 	xload	xmm1, XMM_COL_MULTS[144]	;; Real even-cols row #6
@@ -617,25 +609,23 @@ r7_x7cl_28_reals_first_fft_cmn MACRO srcreg,off,srcinc,d1,screg
 	xload	xmm5, [screg+8*32+16]		;; cosine/sine
 	xcopy	xmm7, xmm0			;; Copy R10
 	mulpd	xmm0, xmm5			;; A10 = R10 * cosine/sine
-	subpd	xmm0, xmm2			;; A10 = A10 - I10
-	mulpd	xmm2, xmm5			;; B10 = I10 * cosine/sine
-	addpd	xmm2, xmm7			;; B10 = B10 + R10
-	mulpd	xmm0, [screg+8*32]		;; A10 = A10 * sine (final R10)
-	mulpd	xmm2, [screg+8*32]		;; B10 = B10 * sine (final I10)
-	xstore	[srcreg+4*d1+32], xmm0		;; Save final R10
-	xstore	[srcreg+4*d1+48], xmm2		;; Save final I10
-
 	xload	xmm4, [screg+4*32+16]		;; cosine/sine
 	xcopy	xmm6, xmm1			;; Copy R6
 	mulpd	xmm1, xmm4			;; A6 = R6 * cosine/sine
+	subpd	xmm0, xmm2			;; A10 = A10 - I10
+	mulpd	xmm2, xmm5			;; B10 = I10 * cosine/sine
 	subpd	xmm1, xmm3			;; A6 = A6 - I6
 	mulpd	xmm3, xmm4			;; B6 = I6 * cosine/sine
+	addpd	xmm2, xmm7			;; B10 = B10 + R10
+	mulpd	xmm0, [screg+8*32]		;; A10 = A10 * sine (final R10)
 	addpd	xmm3, xmm6			;; B6 = B6 + R6
 	mulpd	xmm1, [screg+4*32]		;; A6 = A6 * sine (final R6)
+	mulpd	xmm2, [screg+8*32]		;; B10 = B10 * sine (final I10)
 	mulpd	xmm3, [screg+4*32]		;; B6 = B6 * sine (final I6)
+	xstore	[srcreg+4*d1+32], xmm0		;; Save final R10
+	xstore	[srcreg+4*d1+48], xmm2		;; Save final I10
 	xstore	[srcreg+2*d1+32], xmm1		;; Save final R6
 	xstore	[srcreg+2*d1+48], xmm3		;; Save final I6
-
 
 	xload	xmm0, XMM_COL_MULTS[80]		;; Real odd-cols row #7
 	xload	xmm1, XMM_COL_MULTS[192]	;; Real even-cols row #7
@@ -649,37 +639,36 @@ r7_x7cl_28_reals_first_fft_cmn MACRO srcreg,off,srcinc,d1,screg
 	xload	xmm5, [screg+7*32+16]		;; cosine/sine
 	xcopy	xmm7, xmm0			;; Copy R9
 	mulpd	xmm0, xmm5			;; A9 = R9 * cosine/sine
-	subpd	xmm0, xmm2			;; A9 = A9 - I9
-	mulpd	xmm2, xmm5			;; B9 = I9 * cosine/sine
-	addpd	xmm2, xmm7			;; B9 = B9 + R9
-	mulpd	xmm0, [screg+7*32]		;; A9 = A9 * sine (final R9)
-	mulpd	xmm2, [screg+7*32]		;; B9 = B9 * sine (final I9)
-	xstore	[srcreg+4*d1], xmm0		;; Save final R9
-	xstore	[srcreg+4*d1+16], xmm2		;; Save final I9
-
 	xload	xmm4, [screg+5*32+16]		;; cosine/sine
 	xcopy	xmm6, xmm1			;; Copy R7
 	mulpd	xmm1, xmm4			;; A7 = R7 * cosine/sine
+	subpd	xmm0, xmm2			;; A9 = A9 - I9
+	mulpd	xmm2, xmm5			;; B9 = I9 * cosine/sine
 	subpd	xmm1, xmm3			;; A7 = A7 - I7
 	mulpd	xmm3, xmm4			;; B7 = I7 * cosine/sine
+	addpd	xmm2, xmm7			;; B9 = B9 + R9
+	mulpd	xmm0, [screg+7*32]		;; A9 = A9 * sine (final R9)
 	addpd	xmm3, xmm6			;; B7 = B7 + R7
 	mulpd	xmm1, [screg+5*32]		;; A7 = A7 * sine (final R7)
+	mulpd	xmm2, [screg+7*32]		;; B9 = B9 * sine (final I9)
 	mulpd	xmm3, [screg+5*32]		;; B7 = B7 * sine (final I7)
+
+	xload	xmm4, XMM_COL_MULTS[96]		;; Real #8
+	xload	xmm6, XMM_COL_MULTS[208]	;; Imag #8
+	xload	xmm5, [screg+6*32+16]		;; cosine/sine
+	mulpd	xmm4, xmm5			;; A8 = R8 * cosine/sine
+	subpd	xmm4, xmm6			;; A8 = A8 - I8
+	mulpd	xmm6, xmm5			;; B8 = I8 * cosine/sine
+	addpd	xmm6, XMM_COL_MULTS[96]		;; B8 = B8 + R8
+	mulpd	xmm4, [screg+6*32]		;; A8 = A8 * sine (final R8)
+	mulpd	xmm6, [screg+6*32]		;; B8 = B8 * sine (final I8)
+
+	xstore	[srcreg+4*d1], xmm0		;; Save final R9
+	xstore	[srcreg+4*d1+16], xmm2		;; Save final I9
 	xstore	[srcreg+3*d1], xmm1		;; Save final R7
 	xstore	[srcreg+3*d1+16], xmm3		;; Save final I7
-
-
-	xload	xmm0, XMM_COL_MULTS[96]		;; Real #8
-	xload	xmm2, XMM_COL_MULTS[208]	;; Imag #8
-	xload	xmm5, [screg+6*32+16]		;; cosine/sine
-	mulpd	xmm0, xmm5			;; A8 = R8 * cosine/sine
-	subpd	xmm0, xmm2			;; A8 = A8 - I8
-	mulpd	xmm2, xmm5			;; B8 = I8 * cosine/sine
-	addpd	xmm2, XMM_COL_MULTS[96]		;; B8 = B8 + R8
-	mulpd	xmm0, [screg+6*32]		;; A8 = A8 * sine (final R8)
-	mulpd	xmm2, [screg+6*32]		;; B8 = B8 * sine (final I8)
-	xstore	[srcreg+3*d1+32], xmm0		;; Save final R8
-	xstore	[srcreg+3*d1+48], xmm2		;; Save final I8
+	xstore	[srcreg+3*d1+32], xmm4		;; Save final R8
+	xstore	[srcreg+3*d1+48], xmm6		;; Save final I8
 
 	bump	srcreg, srcinc
 	ENDM
@@ -701,7 +690,7 @@ r7_x7cl_28_reals_first_fft_cmn MACRO srcreg,off,srcinc,d1,screg
 ;; c15 = r1B + 0*i
 ;; c16 = r14 - i14*i
 ;; ...
-;; c27 = r2 - i2*i 
+;; c28 = r2 - i2*i 
 ;;
 ;; The brute force calculations are:
 ;;
