@@ -1303,7 +1303,7 @@ double *r4delay_build_pass1_table (
 
 /* Determine number of delay groups */
 
-i	if (first_levels == 28)
+	if (first_levels == 28)
 		delay_count = 14;
 	else if (first_levels == 20)
 		delay_count = 10;
@@ -1763,19 +1763,20 @@ double *r4delay_build_fixed_pass1_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table)		/* Pointer to the table to fill in */
 {
-	unsigned long pass1_increment, upper_sse2_word, i, j, temp, N;
+	unsigned long pass1_increment, upper_sse2_word, pass1_size, i, j, temp, N;
 	double	sincos[6];
 
 /* Initialize some needed constants */
 
 	pass1_increment = gwdata->PASS2_SIZE;
 	upper_sse2_word = pass1_increment / 2;
+	pass1_size = gwdata->FFTLEN / gwdata->PASS2_SIZE; /* Real values in a pass1 section */
 
 /* Real FFTs output one shared set of sin/cos values for the first 20-reals, 28-reals, or 8-reals FFT. */
 
 	if (! gwdata->ALL_COMPLEX_FFT) {
 		N = gwdata->FFTLEN;
-		if (N % 20 == 0) {
+		if (pass1_size % 20 == 0) {
 			for (j = 0; j < N / 20; j += pass1_increment) {
 				for (i = 1; i <= 9; i++) {	/* Create 9 twiddle factors */
 					gwsincos (i * j, N, (double *) &sincos);
@@ -1789,7 +1790,7 @@ double *r4delay_build_fixed_pass1_table (
 			}
 			N = N / 20;
 		}
-		else if (N % 28 == 0) {
+		else if (pass1_size % 28 == 0) {
 			for (j = 0; j < N / 28; j += pass1_increment) {
 				for (i = 1; i <= 13; i++) {	/* Create 13 twiddle factors */
 					gwsincos (i * j, N, (double *) &sincos);
