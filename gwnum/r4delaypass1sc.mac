@@ -93,7 +93,7 @@ c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
-pfing	lea	rbp, [rdi+2*XMM_SCD4]	;; Prefetch the sin/cos/premult data we are about to use
+pfing	lea	rbp, [rdi+2*clm*XMM_SCD4] ;; Prefetch the sin/cos/premult data we are about to use
 	lea	rdx, [rdi+4*2*clm*XMM_SCD4] ;; Next sin/cos ptr
 	loops_init_prefetch 36*2*clm, 64, 2, rbp ;; 36*2*clm iterations
 ;;bug	xtouchpages rbp, 36*2*clm * 64 / 2 ;; Prefetch TLBs
@@ -508,14 +508,14 @@ pass2:	start_timer 0
 ;;	do 39 macros each processing 16 data values
 
 ;; Prefetch 4*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD2 + 2*clm*XMM_SCD2 + 10*2*clm*XMM_SCD4 = 29*2*clm 64-byte cache lines
-;; bug - this over prefetches (48*2*clm*64 instead of 29*2*clm*64)
-;; bug - does this prefetch the 10*2*clm*XMM_SCD4 data fast enough??
+;; bug - this over prefetches (30*2*clm*64 instead of 29*2*clm*64)
+;; bug - does this prefetch the 10*2*clm*XMM_SCD4 data fast enough??  the level 6,7 sin/cos fast enough?
 
 c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
-pfing	lea	rbp, [rdi+2*XMM_SCD4]	;; Prefetch the sin/cos/premult data we are about to use
+pfing	lea	rbp, [rdi+2*clm*XMM_SCD4] ;; Prefetch the sin/cos/premult data we are about to use
 	lea	rdx, [rdi+10*2*clm*XMM_SCD4] ;; Next sin/cos ptr
 	loops_init_prefetch 40*2*clm, 64, 2, rbp ;; 40*2*clm iterations
 ;;bug	xtouchpages rbp, 40*2*clm * 64 / 2 ;; Prefetch TLBs
@@ -834,14 +834,14 @@ pass2:	start_timer 0
 ;;	do 47 macros each processing 16 data values
 
 ;; Prefetch 16*2*clm*XMM_SCD1 + 16*2*clm*XMM_SCD1 + 4*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD2 +
-;;	    2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD4 = 34*2*clm 64-byte cache lines
-;; bug - this over prefetches (36*2*clm*64 instead of 30*2*clm*64)
+;;	    2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD4 = 33*2*clm 64-byte cache lines
+;; bug - this over prefetches (36*2*clm*64 instead of 33*2*clm*64)
 
 c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
-pfing	lea	rbp, [rdi+2*XMM_SCD4]	;; Prefetch the sin/cos/premult data we are about to use
+pfing	lea	rbp, [rdi+2*clm*XMM_SCD4] ;; Prefetch the sin/cos/premult data we are about to use
 	lea	rdx, [rdi+4*2*clm*XMM_SCD4] ;; Next sin/cos ptr
 	loops_init_prefetch 48*2*clm, 64, 2, rbp ;; 48*2*clm iterations
 ;;bug	xtouchpages rbp, 48*2*clm * 64 / 2 ;; Prefetch TLBs
@@ -1265,14 +1265,14 @@ pass2:	start_timer 0
 ;;	do 55 macros each processing 16 data values
 
 ;; Prefetch 4*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD2 + 2*clm*XMM_SCD2 + 14*2*clm*XMM_SCD4 = 37*2*clm 64-byte cache lines
-;; bug - this over prefetches (48*2*clm*64 instead of 34*2*clm*64)
+;; bug - this over prefetches (42*2*clm*64 instead of 37*2*clm*64)
 ;; bug - does this prefetch the 14*2*clm*XMM_SCD4 data fast enough??
 
 c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
-pfing	lea	rbp, [rdi+2*XMM_SCD4]	;; Prefetch the sin/cos/premult data we are about to use
+pfing	lea	rbp, [rdi+2*clm*XMM_SCD4] ;; Prefetch the sin/cos/premult data we are about to use
 	lea	rdx, [rdi+14*2*clm*XMM_SCD4] ;; Next sin/cos ptr
 	loops_init_prefetch 56*2*clm, 64, 2, rbp ;; 56*2*clm iterations
 ;;bug	xtouchpages rbp, 56*2*clm * 64 / 2 ;; Prefetch TLBs
@@ -1592,13 +1592,13 @@ pass2:	start_timer 0
 
 ;; Prefetch 16*2*clm*XMM_SCD2 + 16*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD2 +
 ;;	    2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD4 = 49*2*clm 64-byte cache lines
-;; bug - this over prefetches (48*2*clm*64 instead of 45*2*clm*64)
+;; bug - this over overprefetches (48*2*clm*64 instead of 49*2*clm*64)
 
 c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
-pfing	lea	rbp, [rdi+2*XMM_SCD4]	;; Prefetch the sin/cos/premult data we are about to use
+pfing	lea	rbp, [rdi+2*clm*XMM_SCD4] ;; Prefetch the sin/cos/premult data we are about to use
 	lea	rdx, [rdi+4*2*clm*XMM_SCD4] ;; Next sin/cos ptr
 	loops_init_prefetch_touch 64*2*clm, 64, 2, rbp, 4096, c9a ;; 64*2*clm iterations
 	xtouch	[rbp]			;; Prefetch TLB
@@ -2023,14 +2023,13 @@ pass2:	start_timer 0
 ;;	do 39 macros each processing 32 data values
 
 ;; Prefetch 8*2*clm*XMM_SCD2 + 8*2*clm*XMM_SCD2 + 2*clm*XMM_SCD4 + 10*2*clm*XMM_SCD8 = 58*2*clm 64-byte cache lines
-;; bug - this over prefetches (48*2*clm*64 instead of 34*2*clm*64)
-;; bug - does this prefetch the 10*2*clm*XMM_SCD8 data fast enough??
+;; bug - this over prefetches (60*2*clm*64 instead of 58*2*clm*64)
 
 c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
-pfing	lea	rbp, [rdi+2*XMM_SCD8]	;; Prefetch the sin/cos/premult data we are about to use
+pfing	lea	rbp, [rdi+2*clm*XMM_SCD8] ;; Prefetch the sin/cos/premult data we are about to use
 	lea	rdx, [rdi+10*2*clm*XMM_SCD8] ;; Next sin/cos ptr
 	loops_init_prefetch 40*2*clm, 64, 1, rbp ;; 40*2*clm iterations
 ;;bug	xtouchpages rbp, 40*2*clm * 64 / 1 ;; Prefetch TLBs
@@ -2357,14 +2356,13 @@ pass2:	start_timer 0
 
 ;; Prefetch 32*2*clm*XMM_SCD1 + 32*2*clm*XMM_SCD1 + 8*2*clm*XMM_SCD2 + 8*2*clm*XMM_SCD2 +
 ;;	    2*clm*XMM_SCD4 + 4*2*clm*XMM_SCD8 = 66*2*clm 64-byte cache lines
-;; bug - this over prefetches (48*2*clm*64 instead of 90*2*clm*64)
-;; bug - this actually under prefetches (64*2*clm*64 instead of ??*2*clm*64)
+;; bug - this over prefetches (72*2*clm*64 instead of 66*2*clm*64)
 
 c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
-pfing	lea	rbp, [rdi+2*XMM_SCD8]	;; Prefetch the sin/cos/premult data we are about to use
+pfing	lea	rbp, [rdi+2*clm*XMM_SCD8] ;; Prefetch the sin/cos/premult data we are about to use
 	lea	rdx, [rdi+4*2*clm*XMM_SCD8] ;; Next sin/cos ptr
 	loops_init_prefetch 48*2*clm, 64, 1, rbp ;; 48*2*clm iterations
 ;;bug	xtouchpages rbp, 48*2*clm * 64 / 1 ;; Prefetch TLBs
@@ -2416,8 +2414,9 @@ c9b:	r8_sg4cl_eight_complex_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst
 ;;	do 44 macros each processing 32 data values
 
 	start_timer 17
-	loops_init 48*2*clm		;; 48 iterations of 2*clm
 	lea	rdx, [rdi+8*2*clm*XMM_SCD2] ;; Next sin/cos ptr
+	loops_init_prefetch 48*2*clm, 64, 2, rbp ;; 48 iterations of 2*clm
+;;bug	xtouchpages rbp, 48*2*clm * 64 / 2 ;; Prefetch TLBs
 
 c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*clm*XMM_SCD2, rdx, 4*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
@@ -2795,14 +2794,13 @@ pass2:	start_timer 0
 ;;	do 55 macros each processing 32 data values
 
 ;; Prefetch 8*2*clm*XMM_SCD2 + 8*2*clm*XMM_SCD2 + 2*clm*XMM_SCD4 + 14*2*clm*XMM_SCD8 = 74*2*clm 64-byte cache lines
-;; bug - this over prefetches (48*2*clm*64 instead of 34*2*clm*64)
-;; bug - does this prefetch the 14*2*clm*XMM_SCD8 data fast enough??
+;; bug - this over prefetches (84*2*clm*64 instead of 74*2*clm*64)
 
 c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
-pfing	lea	rbp, [rdi+2*XMM_SCD8]	;; Prefetch the sin/cos/premult data we are about to use
+pfing	lea	rbp, [rdi+2*clm*XMM_SCD8] ;; Prefetch the sin/cos/premult data we are about to use
 	lea	rdx, [rdi+14*2*clm*XMM_SCD8] ;; Next sin/cos ptr
 	loops_init_prefetch 56*2*clm, 64, 1, rbp ;; 56*2*clm iterations
 ;;bug	xtouchpages rbp, 56*2*clm * 64 / 1 ;; Prefetch TLBs
@@ -2854,8 +2852,9 @@ c9b:	r8_sg4cl_eight_complex_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst
 ;;	do 52 macros each processing 32 data values
 
 	start_timer 17
-	loops_init 56*2*clm		;; 56 iterations of 2*clm
 	lea	rdx, [rdi+8*2*clm*XMM_SCD2] ;; Next sin/cos ptr
+	loops_init_prefetch 56*2*clm, 64, 2, rbp ;; 56 iterations of 2*clm
+;;bug	xtouchpages rbp, 56*2*clm * 64 / 2 ;; Prefetch TLBs
 c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*clm*XMM_SCD2, rdx, 4*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
@@ -3128,17 +3127,16 @@ pass2:	start_timer 0
 
 ;; Prefetch 32*2*clm*XMM_SCD2 + 32*2*clm*XMM_SCD2 + 8*2*clm*XMM_SCD2 + 8*2*clm*XMM_SCD2 +
 ;;	    2*clm*XMM_SCD4 + 4*2*clm*XMM_SCD8 = 98*2*clm 64-byte cache lines
-;; bug - this over prefetches (48*2*clm*64 instead of 90*2*clm*64)
-;; bug - this actually under prefetches (64*2*clm*64 instead of ??*2*clm*64)
+;; bug - this over prefetches (96*2*clm*64 instead of 98*2*clm*64)
 
 c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
-pfing	lea	rbp, [rdi+2*XMM_SCD8]	;; Prefetch the sin/cos/premult data we are about to use
+pfing	lea	rbp, [rdi+2*clm*XMM_SCD8] ;; Prefetch the sin/cos/premult data we are about to use
 	lea	rdx, [rdi+4*2*clm*XMM_SCD8] ;; Next sin/cos ptr
-	loops_init_prefetch_touch 64*2*clm, 64, 1, rbp, 4096, c9a ;; 64*2*clm iterations
-	xtouch	[rbp]			;; Prefetch TLB
+	loops_init_prefetch 64*2*clm, 64, 1, rbp ;; 64*2*clm iterations
+;;bug	xtouchpages rbp, 64*2*clm * 64 / 1 ;; Prefetch TLBs
 c8b:	r8_sg4cl_sixteen_reals_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst, 2*clmblkdst, rdi, rdx
 	bump	rdi, XMM_SCD8		;; Next premult/sin/cos data
 	bump	rdx, XMM_SCD4		;; Next sine/cosine pointer
@@ -3188,8 +3186,9 @@ c9b:	r8_sg4cl_eight_complex_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst
 ;;	do 60 macros each processing 32 data values
 
 	start_timer 17
-	loops_init 64*2*clm		;; 64 iterations of 2*clm
 	lea	rdx, [rdi+8*2*clm*XMM_SCD2] ;; Next sin/cos ptr
+	loops_init_prefetch 64*2*clm, 64, 2, rbp ;; 64 iterations of 2*clm
+;;bug	xtouchpages rbp, 64*2*clm * 64 / 2 ;; Prefetch TLBs
 c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*clm*XMM_SCD2, rdx, 4*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
@@ -3564,17 +3563,16 @@ pass2:	start_timer 0
 
 ;; Prefetch 16*2*clm*XMM_SCD2 + 16*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD2 + 
 ;;	    2*clm*XMM_SCD2 + 10*2*clm*XMM_SCD4 = 61*clm 64-byte cache lines
-;; bug - this over prefetches (48*2*clm*64 instead of 34*2*clm*64)
-;; bug - does this prefetch the 10*2*clm*XMM_SCD4 data fast enough??
+;; bug - this over prefetches (60*2*clm*64 instead of 61*2*clm*64)
 
 c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
-pfing	lea	rbp, [rdi+2*XMM_SCD4]	;; Prefetch the sin/cos/premult data we are about to use
+pfing	lea	rbp, [rdi+2*clm*XMM_SCD4] ;; Prefetch the sin/cos/premult data we are about to use
 	lea	rdx, [rdi+10*2*clm*XMM_SCD4] ;; Next sin/cos ptr
 	loops_init_prefetch 160*2*clm, 64, 4, rbp ;; 160*2*clm iterations
-;;bug	xtouchpages rbp, 160*2*clm * 64 / 2 ;; Prefetch TLBs
+;;bug	xtouchpages rbp, 160*2*clm * 64 / 4 ;; Prefetch TLBs
 c8b:	r4_sg2cl_eight_reals_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi, rdx
 	bump	rdi, XMM_SCD4		;; Next premult/sin/cos data
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
@@ -4000,7 +3998,7 @@ c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
-pfing	lea	rbp, [rdi+2*XMM_SCD4]	;; Prefetch the sin/cos/premult data we are about to use
+pfing	lea	rbp, [rdi+2*clm*XMM_SCD4] ;; Prefetch the sin/cos/premult data we are about to use
 	loops_init_prefetch 48*2*clm, 64, 2, rbp ;; 48*2*clm iterations
 ;;bug	xtouchpages rbp, 48*2*clm * 64 / 2 ;; Prefetch TLBs
 c9b:	r4_sg2cl_four_complex_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
@@ -4345,10 +4343,9 @@ c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
-	loops_init_prefetch_touch 64*2*clm, 64, 2, rbp, 4096, c9a ;; 64*2*clm iterations
-pfing	lea	rbp, [rdi+2*XMM_SCD4]	;; Prefetch the sin/cos/premult data we are about to use
-	xtouch	[rbp]			;; Prefetch TLB
-c9a:	xtouch	[rbp+4096]		;; Prefetch TLB
+pfing	lea	rbp, [rdi+2*clm*XMM_SCD4] ;; Prefetch the sin/cos/premult data we are about to use
+	loops_init_prefetch 64*2*clm, 64, 2, rbp ;; 64*2*clm iterations
+;;bug	xtouchpages rbp, 64*2*clm * 64 / 2 ;; Prefetch TLBs
 c9b:	r4_sg2cl_four_complex_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 	bump	rdi, XMM_SCD4		;; Next premult/sin/cos data
 	loops	2*clm, c9b		;; Loop 2*clm times
@@ -4684,15 +4681,15 @@ pass2:	start_timer 0
 ;;	do 80 macros each processing 16 data values
 
 ;; Prefetch 16*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD4 = 28*2*clm 64-byte cache lines
-;; bug - this actually over prefetches (28*2*clm*64)
+;; bug - this actually over prefetches (30*2*clm*64)
 
 c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
-pfing	lea	rbp, [rdi+2*XMM_SCD4]	;; Prefetch the sin/cos/premult data we are about to use
-	loops_init_prefetch 80*2*clm, 64, 2, rbp ;; 80*2*clm iterations
-;;bug	xtouchpages rbp, 80*2*clm * 64 / 2 ;; Prefetch TLBs
+pfing	lea	rbp, [rdi+2*clm*XMM_SCD4] ;; Prefetch the sin/cos/premult data we are about to use
+	loops_init_prefetch 80*2*clm, 64, 4, rbp ;; 80*2*clm iterations
+;;bug	xtouchpages rbp, 80*2*clm * 64 / 4 ;; Prefetch TLBs
 c9b:	r4_sg2cl_four_complex_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 	bump	rdi, XMM_SCD4		;; Next premult/sin/cos data
 	loops	2*clm, c9b		;; Loop 2*clm times
@@ -4726,7 +4723,8 @@ c9b:	r4_sg2cl_four_complex_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 ;;	do 40 macros each processing 32 data values
 
 	start_timer 17
-	loops_init 40*2*clm		;; 40*2*clm iterations
+	loops_init_prefetch 40*2*clm, 64, 4, rbp ;; 40*2*clm iterations
+;;bug	xtouchpages rbp, 40*2*clm * 64 / 4 ;; Prefetch TLBs
 c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next clm's sin/cos data
 	loops	2*clm, c7b		;; Loop 2*clm times
@@ -5037,10 +5035,10 @@ c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
+pfing	lea	rbp, [rdi+2*clm*XMM_SCD8] ;; Prefetch the sin/cos/premult data we are about to use
 	loops_init_prefetch 48*2*clm, 64, 1, rbp ;; 48*2*clm iterations
-pfing	lea	rbp, [rdi+2*XMM_SCD8]	;; Prefetch the sin/cos/premult data we are about to use
-	bump	rdi, 128		;; Generates 1 byte offsets in radix-8 macro
 ;;bug	xtouchpages rbp, 48*2*clm * 64 / 1 ;; Prefetch TLBs
+	bump	rdi, 128		;; Generates 1 byte offsets in radix-8 macro
 c9b:	r8_sg4cl_eight_complex_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst, 2*clmblkdst, rdi-128
 	bump	rdi, XMM_SCD8		;; Next premult/sin/cos data
 	loops	2*clm, c9b		;; Loop 2*clm times
@@ -5388,11 +5386,10 @@ c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
-	loops_init_prefetch_touch 64*2*clm, 64, 1, rbp, 4096, c9a ;; 64*2*clm iterations
-pfing	lea	rbp, [rdi+2*XMM_SCD8]	;; Prefetch the sin/cos/premult data we are about to use
+pfing	lea	rbp, [rdi+2*clm*XMM_SCD8] ;; Prefetch the sin/cos/premult data we are about to use
+	loops_init_prefetch 64*2*clm, 64, 1, rbp ;; 64*2*clm iterations
+;;bug	xtouchpages rbp, 64*2*clm * 64 / 1 ;; Prefetch TLBs
 	bump	rdi, 128		;; Generates 1 byte offsets in radix-8 macro
-	xtouch	[rbp]			;; Prefetch TLB
-c9a:	xtouch	[rbp+4096]		;; Prefetch TLB
 c9b:	r8_sg4cl_eight_complex_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst, 2*clmblkdst, rdi-128
 	bump	rdi, XMM_SCD8		;; Next premult/sin/cos data
 	loops	2*clm, c9b		;; Loop 2*clm times
@@ -5734,23 +5731,16 @@ pass2:	start_timer 0
 ;;	do 80 macros each processing 32 data values
 
 ;; Prefetch 32*2*clm*XMM_SCD2 + 8*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD8 = 56*2*clm 64-byte cache lines
-;; bug - this actually over prefetches (80*2*clm*64 instead of 56*2*clm*64)
+;; bug - this actually over prefetches (60*2*clm*64 instead of 56*2*clm*64)
 
 c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
-	loops_init_prefetch_touch 80*2*clm, 64, 1, rbp, 5*4096, c9a ;; 80*2*clm iterations
-pfing	lea	rbp, [rdi+2*XMM_SCD8]	;; Prefetch the sin/cos/premult data we are about to use
+pfing	lea	rbp, [rdi+2*clm*XMM_SCD8] ;; Prefetch the sin/cos/premult data we are about to use
+	loops_init_prefetch 80*2*clm, 64, 2, rbp ;; 80*2*clm iterations
+;;bug	xtouchpages rbp, 80*2*clm * 64 / 2 ;; Prefetch TLBs
 	bump	rdi, 128		;; Generates 1 byte offsets in radix-8 macro
-	xtouch	[rbp]			;; Prefetch TLB
-c9a:	xtouch	[rbp+4096]		;; Prefetch TLB
-	xtouch	[rbp+2*4096]		;; Prefetch TLB
-	xtouch	[rbp+3*4096]		;; Prefetch TLB
-	IF	clm GE 2
-	xtouch	[rbp+4*4096]		;; Prefetch TLB
-	xtouch	[rbp+5*4096]		;; Prefetch TLB
-	ENDIF
 c9b:	r8_sg4cl_eight_complex_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst, 2*clmblkdst, rdi-128
 	bump	rdi, XMM_SCD8		;; Next premult/sin/cos data
 	loops	2*clm, c9b		;; Loop 2*clm times
@@ -5787,7 +5777,8 @@ c9b:	r8_sg4cl_eight_complex_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst
 ;;	do 80 macros each processing 32 data values
 
 	start_timer 17
-	loops_init 80*2*clm		;; 80 iterations of 2*clm
+	loops_init_prefetch 80*2*clm, 64, 4, rbp ;; 80 iterations of 2*clm
+;;bug	xtouchpages rbp, 80*2*clm * 64 / 4 ;; Prefetch TLBs
 c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next clm's sin/cos data
 	loops	2*clm, c7b		;; Loop 2*clm times
