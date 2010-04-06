@@ -304,7 +304,11 @@ ss0a:	mov	rdi, SRCARG		;; Reload work buf addr (sincos data)
 	lea	rdx, [rsi+524288+256]	;; Destination for "g" macros
 	mov	ecx, inner_iters
 ss0b:	&ops
+IF memused NE 192
 	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+ELSE
+	lea	rdi, [rdi+XMM_SCD1]	;; Next sine/cosine pointer
+ENDIF
 	dec	ecx
 	jnz	ss0b
 	dec	eax
@@ -324,7 +328,11 @@ ss0a:	mov	rdi, SRCARG		;; Reload work buf addr (sincos data)
 	lea	rdx, [rsi+524288+256]	;; Destination for "g" macros
 	mov	ecx, inner_iters
 ss0b:	&ops
+IF memused NE 192
 	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
+ELSE
+	lea	rdi, [rdi+XMM_SCD1]	;; Next sine/cosine pointer
+ENDIF
 	dec	ecx
 	jnz	ss0b
 	dec	eax
