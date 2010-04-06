@@ -671,10 +671,10 @@ sscase141: jmp exit;;	sse2mac sscase141, 256, 100000, r4_s4cl_four_complex_unfft
 	sse2macbx sscase149, 256, 100000, r4_x4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 	sse2macbx sscase150, 256, 4096, r4_x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	sse2macbx sscase151, 256, 100000, r4_x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
-	sse2mac sscase152, 128, 4096, r2_x2cl_two_complex_fft rsi, 2*64, 64, rdi, 0
-	sse2mac sscase153, 128, 100000, r2_x2cl_two_complex_fft rsi, 2*64, 64, rdi, 0
-	sse2mac sscase154, 128, 4096, r2_x2cl_two_complex_unfft rsi, 2*64, 64, 0
-	sse2mac sscase155, 128, 100000, r2_x2cl_two_complex_unfft rsi, 2*64, 64, 0
+	sse2mac sscase152, 128, 4096, r2_x2cl_two_complex_fft rsi, 2*64, 64, rdi
+	sse2mac sscase153, 128, 100000, r2_x2cl_two_complex_fft rsi, 2*64, 64, rdi
+	sse2mac sscase154, 128, 4096, r2_x2cl_two_complex_unfft rsi, 2*64, 64, rdi, 0
+	sse2mac sscase155, 128, 100000, r2_x2cl_two_complex_unfft rsi, 2*64, 64, rdi, 0
 
 	sse2mac sscase156, 256, 4096, r4_x4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
 	sse2mac sscase157, 256, 100000, r4_x4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi

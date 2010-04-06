@@ -1,4 +1,4 @@
-; Copyright 2009 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2009-2010 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -17,7 +17,7 @@
 ;; Macro to operate on 2 64-byte cache lines.  It does 2 two_complex_ffts.
 ;; That is, two radix-2 butterflies followed by a complex multiply using sin/cos data.
 
-r2_x2cl_two_complex_fft MACRO srcreg,srcinc,d1,screg,scdist
+r2_x2cl_two_complex_fft MACRO srcreg,srcinc,d1,screg
 	xload	xmm2, [srcreg]		;; R1
 	xload	xmm0, [srcreg+d1]	;; R2
 	xcopy	xmm1, xmm2		;; Copy R1
@@ -55,7 +55,7 @@ r2_x2cl_two_complex_fft MACRO srcreg,srcinc,d1,screg,scdist
 	xstore	[srcreg+d1], xmm4	;; Save R1_2
 	xstore	[srcreg+d1+16], xmm5	;; Save R2_2
 
-	xload	xmm4, [screg+scdist+16]	;; cosine/sine
+	xload	xmm4, [screg+16]	;; cosine/sine
 	xcopy	xmm5, xmm4		;; cosine/sine
 	mulpd	xmm4, xmm6		;; A2_2 = R2_2 * cosine/sine
 	mulpd	xmm5, xmm7		;; B2_2 = I2_2 * cosine/sine
@@ -72,9 +72,8 @@ r2_x2cl_two_complex_fft MACRO srcreg,srcinc,d1,screg,scdist
 	mulpd	xmm0, xmm3		;; A2 = A2 * sine (final R2)
 	mulpd	xmm1, xmm3		;; B2 = B2 * sine (final I2)
 
-	xload	xmm7, [screg+scdist]	;; Load sine
-	mulpd	xmm4, xmm7		;; A2_2 = A2_2 * sine (final R2_2)
-	mulpd	xmm5, xmm7		;; B2_2 = B2_2 * sine (final I2_2)
+	mulpd	xmm4, xmm3		;; A2_2 = A2_2 * sine (final R2_2)
+	mulpd	xmm5, xmm3		;; B2_2 = B2_2 * sine (final I2_2)
 
 	xstore	[srcreg+32], xmm0	;; Save R3
 	xstore	[srcreg+48], xmm1	;; Save R4
@@ -88,17 +87,17 @@ r2_x2cl_two_complex_fft MACRO srcreg,srcinc,d1,screg,scdist
 ;; Macro to operate on 2 64-byte cache lines.  It does 2 two_complex_unffts
 ;; That is, two complex multiplies using sin/cos data followed by radix-2 butterflies.
 
-r2_x2cl_two_complex_unfft MACRO srcreg,srcinc,d1,scdist
+r2_x2cl_two_complex_unfft MACRO srcreg,srcinc,d1,screg,scdist
 	xload	xmm2, [srcreg+d1]		;; R3 (R2)
 	xload	xmm3, [srcreg+d1+32]		;; R4 (I2)
 
-	xload	xmm4, [rdi+16]			;; cosine/sine
+	xload	xmm4, [screg+16]		;; cosine/sine
 	mulpd	xmm4, xmm2			;; A2 = R2 * cosine/sine
 	addpd	xmm4, xmm3			;; A2 = A2 + I2
-	xload	xmm5, [rdi+16]			;; cosine/sine
+	xload	xmm5, [screg+16]		;; cosine/sine
 	mulpd	xmm5, xmm3			;; B2 = I2 * cosine/sine
 	subpd	xmm5, xmm2			;; B2 = B2 - R2
-	xload	xmm3, [rdi]			;; sine
+	xload	xmm3, [screg]			;; sine
 	mulpd	xmm4, xmm3			;; A2 = A2 * sine (new R2)
 	mulpd	xmm5, xmm3			;; B2 = B2 * sine (new I2)
 
@@ -106,13 +105,13 @@ r2_x2cl_two_complex_unfft MACRO srcreg,srcinc,d1,scdist
 
 	xload	xmm6, [srcreg+d1+16]		;; R3 (R2_2)
 	xload	xmm7, [srcreg+d1+48]		;; R4 (I2_2)
-	xload	xmm2, [rdi+scdist+16]		;; cosine/sine
+	xload	xmm2, [screg+scdist+16]		;; cosine/sine
 	mulpd	xmm2, xmm6			;; A2_2 = R2_2 * cosine/sine
 	addpd	xmm2, xmm7			;; A2_2 = A2_2 + I2_2
-	xload	xmm3, [rdi+scdist+16]		;; cosine/sine
+	xload	xmm3, [screg+scdist+16]		;; cosine/sine
 	mulpd	xmm3, xmm7			;; B2_2 = I2_2 * cosine/sine
 	subpd	xmm3, xmm6			;; B2_2 = B2_2 - R2
-	xload	xmm7, [rdi+scdist]		;; sine
+	xload	xmm7, [screg+scdist]		;; sine
 	mulpd	xmm2, xmm7			;; A2_2 = A2_2 * sine (new R2_2)
 	mulpd	xmm3, xmm7			;; B2_2 = B2_2 * sine (new I2_2)
 
