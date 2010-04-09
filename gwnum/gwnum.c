@@ -3850,7 +3850,7 @@ next3:		if (! (jmptab->counts[0] & 0x80000000)) break;
 		if (! (gwdata->cpu_flags & CPU_SSE2)) {	// x87 scratch area size
 			int	pass1_chunks, gaps;
 			// x87 scratch area size, pads 64 bytes every 32 chunks
-			pass1_chunks = (jmptab->fftlen / gwdata->PASS2_SIZE) >> 1;
+			pass1_chunks = (gwdata->FFTLEN / gwdata->PASS2_SIZE) >> 1;
 			gaps = pass1_chunks / 32 - 1;
 			if (gaps < 3) gaps = 0;
 			// x87 pads 64 bytes every 32 chunks
@@ -3858,7 +3858,7 @@ next3:		if (! (jmptab->counts[0] & 0x80000000)) break;
 		} else {				// SSE2 scratch area size
 			int	pass1_chunks, gaps;
 			// SSE2 pads 128 bytes every 8 chunks
-			pass1_chunks = (jmptab->fftlen / gwdata->PASS2_SIZE) >> 2;
+			pass1_chunks = (gwdata->FFTLEN / gwdata->PASS2_SIZE) >> 2;
 			gaps = pass1_chunks / 8 - 1;
 			gwdata->SCRATCH_SIZE = pass1_chunks * gwdata->PASS1_CACHE_LINES * 64 + gaps * 128;
 		}
