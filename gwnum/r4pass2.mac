@@ -109,6 +109,7 @@ b2b:	r3_h3cl_six_reals_three_complex_djbfft rsi, 64, dist128, rdi, 128*3*XMM_SCD
 ;;	do 256 macros each processing 24 data values
 
 	loops_init_prefetch 256, 64, 4, rcx
+	r3_nf3cl_three_complex_djbfft_preload
 b3b:	r3_nf3cl_three_complex_djbfft rsi, 64, dist128, rdi, 128*3*XMM_SCD1
 	bump	rdi, 3*XMM_SCD1		;; Next sin/cos data
 	loops	128, b3b		;; Test inner loop counter
@@ -512,6 +513,7 @@ c2b:	r3_h3cl_six_reals_three_complex_djbunfft rsi, 64, dist128, rdi, 128*3*XMM_S
 ;;	do 256 macros each processing 32 data values
 
 	loops_reset			;; 2 more iters of 128
+	r3_x3cl_three_complex_djbunfft_preload
 c3b:	r3_x3cl_three_complex_djbunfft rsi, 64, dist128, rdi, 128*3*XMM_SCD1
 	bump	rdi, 3*XMM_SCD1		;; Next sin/cos data
 	loops	128, c3b		;; Test inner loop counter
@@ -608,6 +610,7 @@ r4_pass2_2304_levels_complex MACRO
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
 	loops_init 384			;; 3 iterations of 128
+	r3_f3cl_three_complex_djbfft_preload
 b1b:	r3_f3cl_three_complex_djbfft rsi, 64, 3*dist128, rdi, 384*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
 ;	xprefetcht1 [rsi+3*64]		;; Prefetch a few iterations ahead in
@@ -645,6 +648,7 @@ b1b:	r3_f3cl_three_complex_djbfft rsi, 64, 3*dist128, rdi, 384*XMM_SCD1
 					;; 1152 cache lines + 16 pad cache lines)
 	mov	rdi, xsincos_complex	;; Ptr to the sin/cos data
 	loops_init_prefetch 384, 64, 4, rcx ;; 3 iters of 128
+	r3_nf3cl_three_complex_djbfft_preload
 b2b:	r3_nf3cl_three_complex_djbfft rsi, 64, dist128, rdi, 128*3*XMM_SCD1
 	bump	rdi, 3*XMM_SCD1		;; Next sin/cos data
 	loops	128, b2b		;; Test inner loop counter
@@ -980,6 +984,7 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 2*64, 32*64, 64*64, rdi, 32*1*XMM_SCD2
 	mov	rdi, xsincos_complex	;; Load sin/cos pointer
 	loops_init_prefetch 384, 64, 8, rcx;; 3 iters of 128
 	xtouch	[rcx+4096-128]		;; Load prefetch TLBs
+	r3_x3cl_three_complex_djbunfft_preload
 c2b:	r3_x3cl_three_complex_djbunfft rsi, 64, dist128, rdi, 128*3*XMM_SCD1
 	bump	rdi, 3*XMM_SCD1		;; Next sine/cosine pointer
 	loops	128, c2b		;; Loop 128 times
@@ -1016,6 +1021,7 @@ c2b:	r3_x3cl_three_complex_djbunfft rsi, 64, dist128, rdi, 128*3*XMM_SCD1
 	mov	rdi, xsincos_complex	;; Load group multiplier pointer
 	bump	rcx, -8*64		;; Back up prefetch pointer by 8 cache lines
 	loops_init_prefetch 384, 64, 16, rcx;; 3 iters of 128
+	r3_x3cl_three_complex_djbunfft_preload
 c1b:	r3_x3cl_three_complex_djbunfft rsi, 64, 3*dist128, rdi, 384*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next set of sin/cos data
 	loops	128, c1b		;; Test inner loop counter
@@ -1674,6 +1680,7 @@ r4_pass2_3072_levels_complex MACRO
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
 	loops_init 512			;; 4 iterations of 128
+	r3_f3cl_three_complex_djbfft_preload
 b1b:	r3_f3cl_three_complex_djbfft rsi, 64, 4*dist128, rdi, 512*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
 ;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
@@ -2110,6 +2117,7 @@ c2b:	r4_x4cl_2sc_four_complex_djbunfft rsi, 64, dist128, 2*dist128, rdi, 128*3*X
 	bump	rcx, -10*64		;; Back up prefetch pointer by 10 cache lines
 	loops_init_prefetch 512, 64, 4, rcx ;; 4 iters of 128
 	xtouch	[rcx+4096-128]		;; Load prefetch TLBs
+	r3_x3cl_three_complex_djbunfft_preload
 c1b:	r3_x3cl_three_complex_djbunfft rsi, 64, 4*dist128, rdi, 512*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next set of sin/cos data
 	loops	128, c1b		;; Test inner loop counter
@@ -2777,6 +2785,7 @@ r4_pass2_3840_levels_complex MACRO
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
 	loops_init 640			;; 5 iterations of 128
+	r3_f3cl_three_complex_djbfft_preload
 b1b:	r3_f3cl_three_complex_djbfft rsi, 64, 5*dist128, rdi, 640*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
 ;	xprefetcht1 [rsi+3*64]		;; Prefetch a few iterations ahead in
@@ -3219,6 +3228,7 @@ c2b:	r5_x5cl_2sc_five_complex_djbunfft rsi, 64, dist128, rdi, 128*3*XMM_SCD1, rd
 	bump	rcx, -4*64		;; Back up prefetch pointer by 4 cache lines
 	loops_init_prefetch 640, 64, 8, rcx;; 5 iters of 128
 	xtouch	[rcx+4096-128]		;; Load prefetch TLBs
+	r3_x3cl_three_complex_djbunfft_preload
 c1b:	r3_x3cl_three_complex_djbunfft rsi, 64, 5*dist128, rdi, 640*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next set of sin/cos data
 	loops	128, c1b		;; Test inner loop counter

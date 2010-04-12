@@ -155,6 +155,7 @@ c6b:	r3_x3cl_six_reals_unfft rsi, 64, 2*clmblkdst, rdi, 2*2*clm*XMM_SCD1, rdx, 2
 	bump	rdi, -2*2*clm*XMM_SCD1	;; Restore sine/cosine pointer
 
 	loops_reset
+	r3_x3cl_three_complex_djbunfft_preload
 c7b:	r3_x3cl_three_complex_djbunfft rsi, 64, 2*clmblkdst, rdi, 2*2*clm*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next clm's sin/cos data
 	loops	2*clm, c7b		;; Loop 2*clm times
@@ -203,6 +204,7 @@ c4b:	r3_x3cl_six_reals_unfft rsi, 64, 6*clmblkdst, rdi, 6*2*clm*XMM_SCD1, rdx, 6
 	bump	rdi, -6*2*clm*XMM_SCD1	;; Restore sine/cosine pointer
 
 	loops_reset
+	r3_x3cl_three_complex_djbunfft_preload
 c5b:	r3_x3cl_three_complex_djbunfft rsi, 64, 6*clmblkdst, rdi, 6*2*clm*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next clm's sin/cos data
 	loops	2*clm, c5b		;; Loop 2*clm times
@@ -332,6 +334,7 @@ b4b:	r3_x3cl_six_reals_three_complex_djbfft rsi, 64, 12*clmblkdst, rdi, rdx
 	bump	rdi, -12*2*clm*XMM_SCD1	;; Restore sin/cos ptr
 
 	loops_reset
+	r3_x3cl_three_complex_djbfft_preload
 b5a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b5b:	r3_x3cl_three_complex_djbfft rsi, 64, 12*clmblkdst, rdi
 	bump	rdi, XMM_SCD1		;; Next sine/cosine pointer
@@ -380,6 +383,7 @@ b6b:	r3_x3cl_six_reals_three_complex_djbfft rsi, 64, 4*clmblkdst, rdi, rdx
 	bump	rdi, -4*2*clm*XMM_SCD1	;; Restore sin/cos ptr
 
 	loops_reset
+	r3_x3cl_three_complex_djbfft_preload
 b7a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b7b:	r3_x3cl_three_complex_djbfft rsi, 64, 4*clmblkdst, rdi
 	bump	rdi, XMM_SCD1		;; Next sine/cosine pointer
@@ -953,6 +957,7 @@ c4b:	r3_x3cl_six_reals_unfft rsi, 64, clmblkdst8, rdi, 8*2*clm*XMM_SCD1, rdx, 8*
 	bump	rdi, -8*2*clm*XMM_SCD1	;; Restore sine/cosine pointer
 
 	loops_reset
+	r3_x3cl_three_complex_djbunfft_preload
 c5b:	r3_x3cl_three_complex_djbunfft rsi, 64, clmblkdst8, rdi, 8*2*clm*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next clm's sin/cos data
 	loops	2*clm, c5b		;; Loop 2*clm times
@@ -1088,6 +1093,7 @@ b4b:	r3_x3cl_six_reals_three_complex_djbfft rsi, 64, 2*clmblkdst8, rdi, rdx
 	bump	rdi, -16*2*clm*XMM_SCD1	;; Restore sin/cos ptr
 
 	loops_reset
+	r3_x3cl_three_complex_djbfft_preload
 b5a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b5b:	r3_x3cl_three_complex_djbfft rsi, 64, 2*clmblkdst8, rdi
 	bump	rdi, XMM_SCD1		;; Next sine/cosine pointer
@@ -2479,6 +2485,7 @@ c4b:	r3_x3cl_six_reals_unfft rsi, 64, 2*clmblkdst8, rdi, 16*2*clm*XMM_SCD1, rdx,
 	bump	rdi, -2*8*2*clm*XMM_SCD1 ;; Restore sine/cosine pointer
 
 	loops_reset
+	r3_x3cl_three_complex_djbunfft_preload
 c5b:	r3_x3cl_three_complex_djbunfft rsi, 64, 2*clmblkdst8, rdi, 16*2*clm*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next clm's sin/cos data
 	loops	2*clm, c5b		;; Loop 2*clm times
@@ -2616,6 +2623,7 @@ b4b:	r3_x3cl_six_reals_three_complex_djbfft rsi, 64, 4*clmblkdst8, rdi, rdx
 	bump	rdi, -32*2*clm*XMM_SCD1	;; Restore sin/cos ptr
 
 	loops_reset
+	r3_x3cl_three_complex_djbfft_preload
 b5a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b5b:	r3_x3cl_three_complex_djbfft rsi, 64, 4*clmblkdst8, rdi
 	bump	rdi, XMM_SCD1		;; Next sine/cosine pointer
@@ -4069,6 +4077,7 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*c
 
 	start_timer 18
 	loops_init 32*2*clm		;; 32 iterations of 2*clm
+	r3_x3cl_three_complex_djbunfft_preload
 c5b:	r3_x3cl_three_complex_djbunfft rsi, 64, clmblkdst8, rdi, 8*2*clm*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next clm's sin/cos data
 	loops	2*clm, c5b		;; Loop 2*clm times
@@ -4189,6 +4198,7 @@ b1b:	r4_x2cl_four_complex_first_djbfft_scratch rsi, 64, 6*clmblkdst8, rdi, rdx
 	mov	rdi, PREMULT_ADDR	;; Address of premultiplier/sin/cos table
 	bump	rdi, 4*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD4
 	loops_init 32*2*clm		;; 2 iters of 2 iters of 8 of 2*clm
+	r3_x3cl_three_complex_djbfft_preload
 b5a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b5b:	r3_x3cl_three_complex_djbfft rsi, 64, 2*clmblkdst8, rdi
 	bump	rdi, XMM_SCD1		;; Next sine/cosine pointer
@@ -5110,6 +5120,7 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*cl
 
 	start_timer 18
 	loops_init 64*2*clm		;; 64 iterations of 2*clm
+	r3_x3cl_three_complex_djbunfft_preload
 c5b:	r3_x3cl_three_complex_djbunfft rsi, 64, 2*clmblkdst8, rdi, 16*2*clm*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next clm's sin/cos data
 	loops	2*clm, c5b		;; Loop 2*clm times
@@ -5232,6 +5243,7 @@ b1b:	r4_x2cl_four_complex_first_djbfft_scratch rsi, 64, 12*clmblkdst8, rdi, rdx
 	mov	rdi, PREMULT_ADDR	;; Address of premultiplier/sin/cos table
 	bump	rdi, 8*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD8
 	loops_init 64*2*clm		;; 2 iters of 4 iters of 8 of 2*clm
+	r3_x3cl_three_complex_djbfft_preload
 b5a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b5b:	r3_x3cl_three_complex_djbfft rsi, 64, 4*clmblkdst8, rdi
 	bump	rdi, XMM_SCD1		;; Next sine/cosine pointer
