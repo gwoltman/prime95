@@ -2237,6 +2237,7 @@ b2b:	r5_h5cl_2sc_ten_reals_five_complex_djbfft rsi, 64, dist128, rdi, 128*3*XMM_
 
 	loops_init_prefetch 256, 64, 4, rcx
 	xtouch	[rcx+4096-128]		;; Preload the TLBs
+	r5_nf5cl_2sc_five_complex_djbfft_preload
 b3b:	r5_nf5cl_2sc_five_complex_djbfft rsi, 64, dist128, rdi, 128*3*XMM_SCD1, rbx, 128*6*XMM_SCD1
 	bump	rdi, 3*XMM_SCD1		;; Next sin/cos data
 	bump	rbx, 6*XMM_SCD1		;; Next sin/cos data
@@ -2827,6 +2828,7 @@ b1b:	r3_f3cl_three_complex_djbfft rsi, 64, 5*dist128, rdi, 640*XMM_SCD1
 	xtouch	[rcx]			;; Preload first TLB
 	xtouch	[rcx+4096-128]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-128]
+	r5_nf5cl_2sc_five_complex_djbfft_preload
 b2b:	r5_nf5cl_2sc_five_complex_djbfft rsi, 64, dist128, rdi, 128*3*XMM_SCD1, rdx, 128*6*XMM_SCD1
 	bump	rdi, 3*XMM_SCD1		;; Next sin/cos data
 	bump	rdx, 6*XMM_SCD1		;; Next sin/cos data
@@ -5062,6 +5064,7 @@ r4_pass2_5120_levels_complex MACRO
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
 	loops_init 512			;; 4 iterations of 128
+	r5_f5cl_five_complex_djbfft_preload
 b1b:	r5_f5cl_five_complex_djbfft rsi, 64, 4*dist128, rdi, 512*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 ;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
@@ -5624,6 +5627,7 @@ b2b:	r5_h5cl_ten_reals_five_complex_djbfft rsi, 64, dist128, rdi, 128*5*XMM_SCD2
 ;;	do 512 macros each processing 40 data values
 
 	loops_init_prefetch 512, 64, 4, rcx
+	r5_nf5cl_five_complex_djbfft_preload
 b3b:	r5_nf5cl_five_complex_djbfft rsi, 64, dist128, rdi, 128*5*XMM_SCD2
 	bump	rdi, 5*XMM_SCD2		;; Next sin/cos data
 	loops	128, b3b		;; Test inner loop counter
@@ -6188,6 +6192,7 @@ r4_pass2_6400_levels_complex MACRO
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
 	loops_init 640			;; 5 iterations of 128
+	r5_f5cl_five_complex_djbfft_preload
 b1b:	r5_f5cl_five_complex_djbfft rsi, 64, 5*dist128, rdi, 640*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 ;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
@@ -6229,6 +6234,7 @@ b1b:	r5_f5cl_five_complex_djbfft rsi, 64, 5*dist128, rdi, 640*XMM_SCD2
 	xtouch	[rcx+4096-128]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-128]
 	xtouch	[rcx+3*4096-128]
+	r5_nf5cl_five_complex_djbfft_preload
 b2b:	r5_nf5cl_five_complex_djbfft rsi, 64, dist128, rdi, 128*5*XMM_SCD2
 	bump	rdi, 5*XMM_SCD2		;; Next sin/cos data
 	loops	128, b2b		;; Test inner loop counter

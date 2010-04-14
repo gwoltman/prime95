@@ -4889,6 +4889,7 @@ b1b:	r4_x2cl_four_complex_first_djbfft_scratch rsi, 64, 10*clmblkdst8, rdi, rdx
 	mov	rdi, PREMULT_ADDR	;; Address of premultiplier/sin/cos table
 	bump	rdi, 4*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD4
 	loops_init 32*2*clm		;; 2 iters of 2 iters of 8 of 2*clm
+	r5_x5cl_five_complex_djbfft_preload
 b5a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b5b:	r5_x5cl_five_complex_djbfft rsi, 64, 2*clmblkdst8, rdi
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
@@ -5949,6 +5950,7 @@ b1b:	r4_x2cl_four_complex_first_djbfft_scratch rsi, 64, 20*clmblkdst8, rdi, rdx
 	mov	rdi, PREMULT_ADDR	;; Address of premultiplier/sin/cos table
 	bump	rdi, 8*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD8
 	loops_init 64*2*clm		;; 2 iters of 4 iters of 8 of 2*clm
+	r5_x5cl_five_complex_djbfft_preload
 b5a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b5b:	r5_x5cl_five_complex_djbfft rsi, 64, 4*clmblkdst8, rdi
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
