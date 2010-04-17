@@ -2687,6 +2687,7 @@ c2b:	r5_h5cl_2sc_ten_reals_five_complex_djbunfft rsi, 64, dist128, rdi, 128*3*XM
 ;;	do 256 macros each processing 32 data values
 
 	loops_reset			;; 2 more iters of 128
+	r5_x5cl_2sc_five_complex_djbunfft_preload
 c3b:	r5_x5cl_2sc_five_complex_djbunfft rsi, 64, dist128, rdi, 128*3*XMM_SCD1, rbx, 128*6*XMM_SCD1
 	bump	rdi, 3*XMM_SCD1		;; Next sin/cos data
 	bump	rbx, 6*XMM_SCD1		;; Next sin/cos data
@@ -3191,6 +3192,7 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 2*64, 32*64, 64*64, rdi, 32*1*XMM_SCD2
 	loops_init_prefetch 384, 64, 2, rcx;; 3 iters of 128
 	xtouch	[rcx+4096-128]		;; Load prefetch TLBs
 	xtouch	[rcx+2*4096-128]
+	r5_x5cl_2sc_five_complex_djbunfft_preload
 c2b:	r5_x5cl_2sc_five_complex_djbunfft rsi, 64, dist128, rdi, 128*3*XMM_SCD1, rdx, 128*6*XMM_SCD1
 	bump	rdi, 3*XMM_SCD1		;; Next sine/cosine pointer
 	bump	rdx, 6*XMM_SCD1		;; Next sine/cosine pointer
@@ -5511,6 +5513,7 @@ c2b:	r4_x4cl_four_complex_djbunfft rsi, 64, dist128, 2*dist128, rdi, 128*5*XMM_S
 	bump	rcx, -10*64		;; Back up prefetch pointer by 10 cache lines
 	loops_init_prefetch 512, 64, 8, rcx;; 4 iters of 128
 	xtouch	[rcx+4096-128]		;; Load prefetch TLBs
+	r5_x5cl_five_complex_djbunfft_preload
 c1b:	r5_x5cl_five_complex_djbunfft rsi, 64, 4*dist128, rdi, 512*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next set of sin/cos data
 	loops	128, c1b		;; Test inner loop counter
@@ -6095,6 +6098,7 @@ c2b:	r5_h5cl_ten_reals_five_complex_djbunfft rsi, 64, dist128, rdi, 128*5*XMM_SC
 ;;	do 512 macros each processing 40 data values
 
 	loops_reset			;; 4 iters of 128
+	r5_x5cl_five_complex_djbunfft_preload
 c3b:	r5_x5cl_five_complex_djbunfft rsi, 64, dist128, rdi, 128*5*XMM_SCD2
 	bump	rdi, 5*XMM_SCD2		;; Next sin/cos data
 	loops	128, c3b		;; Test inner loop counter
@@ -6588,6 +6592,7 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 2*64, 32*64, 64*64, rdi, 32*1*XMM_SCD2
 	xtouch	[rcx+4096-128]		;; Load prefetch TLBs
 	xtouch	[rcx+2*4096-128]
 	xtouch	[rcx+3*4096-128]
+	r5_x5cl_five_complex_djbunfft_preload
 c2b:	r5_x5cl_five_complex_djbunfft rsi, 64, dist128, rdi, 128*5*XMM_SCD2
 	bump	rdi, 5*XMM_SCD2		;; Next sine/cosine pointer
 	loops	128, c2b		;; Loop 128 times
@@ -6626,6 +6631,7 @@ c2b:	r5_x5cl_five_complex_djbunfft rsi, 64, dist128, rdi, 128*5*XMM_SCD2
 	loops_init_prefetch 640, 64, 4, rcx;; 5 iters of 128
 	xtouch	[rcx+4096-128]		;; Load prefetch TLBs
 	xtouch	[rcx+2*4096-128]
+	r5_x5cl_five_complex_djbunfft_preload
 c1b:	r5_x5cl_five_complex_djbunfft rsi, 64, 5*dist128, rdi, 640*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next set of sin/cos data
 	loops	128, c1b		;; Test inner loop counter

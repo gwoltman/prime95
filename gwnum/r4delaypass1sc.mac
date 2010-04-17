@@ -4769,6 +4769,7 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*c
 
 	start_timer 18
 	loops_init 32*2*clm		;; 32 iterations of 2*clm
+	r5_x5cl_five_complex_djbunfft_preload
 c5b:	r5_x5cl_five_complex_djbunfft rsi, 64, clmblkdst8, rdi, 8*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next clm's sin/cos data
 	loops	2*clm, c5b		;; Loop 2*clm times
@@ -5826,6 +5827,7 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*cl
 
 	start_timer 18
 	loops_init 64*2*clm		;; 64 iterations of 2*clm
+	r5_x5cl_five_complex_djbunfft_preload
 c5b:	r5_x5cl_five_complex_djbunfft rsi, 64, 2*clmblkdst8, rdi, 16*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next clm's sin/cos data
 	loops	2*clm, c5b		;; Loop 2*clm times

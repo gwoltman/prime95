@@ -63,6 +63,31 @@ r5_f5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg,scoff
 	r5_f5cl_five_complex_djbfft_common srcreg,rbx,srcinc,d1,screg,scoff,screg+32,scoff
 	ENDM
 
+;; Used in pass 2 where the memory layout is different and the two
+;; five-complex-djbffts use different sin/cos data.
+
+r5_nf5cl_five_complex_djbfft_preload MACRO
+	r5_f5cl_five_complex_djbfft_common_preload
+	ENDM
+
+r5_nf5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg,scoff
+	r5_f5cl_five_complex_djbfft_common srcreg,0,srcinc,d1,screg,scoff,screg+32,scoff
+	ENDM
+
+;; Used in pass 2 where the memory layout is different and the two
+;; five-complex-djbffts use different sin/cos data.  Uses two sin/cos pointers
+;; because the first levels of pass 2 was radix-3 which only has one sin/cos value.
+
+r5_nf5cl_2sc_five_complex_djbfft_preload MACRO
+	r5_f5cl_five_complex_djbfft_common_preload
+	ENDM
+
+r5_nf5cl_2sc_five_complex_djbfft MACRO srcreg,srcinc,d1,screg1,scoff1,screg2,scoff2
+	r5_f5cl_five_complex_djbfft_common srcreg,0,srcinc,d1,screg1,scoff1,screg2,scoff2
+	ENDM
+
+; The common implementation of five_complex_djbfft
+
 r5_f5cl_five_complex_djbfft_common_preload MACRO
 	ENDM
 
@@ -103,29 +128,6 @@ r5_f5cl_five_complex_djbfft_common MACRO srcreg,srcoff,srcinc,d1,screg1,scoff1,s
 ;;	xstore	[srcreg+d4+16], xmm7		;; Save R5
 	xstore	[srcreg+d4+48], xmm6		;; Save I5
 	bump	srcreg, srcinc
-	ENDM
-
-;; Used in pass 2 where the memory layout is different and the two
-;; five-complex-djbffts use different sin/cos data.
-
-r5_nf5cl_five_complex_djbfft_preload MACRO
-	r5_f5cl_five_complex_djbfft_common_preload
-	ENDM
-
-r5_nf5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg,scoff
-	r5_f5cl_five_complex_djbfft_common srcreg,0,srcinc,d1,screg,scoff,screg+32,scoff
-	ENDM
-
-;; Used in pass 2 where the memory layout is different and the two
-;; five-complex-djbffts use different sin/cos data.  Uses two sin/cos pointers
-;; because the first levels of pass 2 was radix-3 which only has one sin/cos value.
-
-r5_nf5cl_2sc_five_complex_djbfft_preload MACRO
-	r5_f5cl_five_complex_djbfft_common_preload
-	ENDM
-
-r5_nf5cl_2sc_five_complex_djbfft MACRO srcreg,srcinc,d1,screg1,scoff1,screg2,scoff2
-	r5_f5cl_five_complex_djbfft_common srcreg,0,srcinc,d1,screg1,scoff1,screg2,scoff2
 	ENDM
 
 ;; Do a 5-complex FFT.  A 5-complex FFT is:
@@ -937,12 +939,20 @@ ENDIF
 ;; ************************************* five-complex-djbunfft variants ******************************************
 ;;
 
+r5_x5cl_five_complex_djbunfft_preload MACRO
+	r5_x5cl_2sc_five_complex_djbunfft_preload
+	ENDM
+
 r5_x5cl_five_complex_djbunfft MACRO srcreg,srcinc,d1,screg,scoff
 	r5_x5cl_2sc_five_complex_djbunfft srcreg,srcinc,d1,screg,scoff,screg+32,scoff
 	ENDM
 
 ;; Same as above except it uses two sin/cos pointers because the first
 ;; levels of pass 2 was radix-3 which only has one sin/cos value.
+
+r5_x5cl_2sc_five_complex_djbunfft_preload MACRO
+	ENDM
+
 r5_x5cl_2sc_five_complex_djbunfft MACRO srcreg,srcinc,d1,screg1,scoff1,screg2,scoff2
 	d2 = 2*d1
 	d3 = 3*d1
@@ -1245,6 +1255,11 @@ r5_x5c_djbunfft_partial_mem MACRO r1,r2,r3,r4,r5,screg1,screg2,dstr1,dstr2,dstr3
 
 IFDEF X86_64
 
+r5_x5cl_2sc_five_complex_djbunfft_preload MACRO
+	xload	xmm14, XMM_P309
+	xload	xmm15, XMM_M809
+	ENDM
+
 r5_x5cl_2sc_five_complex_djbunfft MACRO srcreg,srcinc,d1,screg1,scoff1,screg2,scoff2
 	xload	xmm0, [srcreg+d1]		;; Load R2
 	xload	xmm1, [screg1+16]		;; cosine/sine
@@ -1294,17 +1309,17 @@ r5_x5cl_2sc_five_complex_djbunfft MACRO srcreg,srcinc,d1,screg1,scoff1,screg2,sc
 	xcopy	xmm7, xmm5			;; Copy R4
 	addpd	xmm5, xmm6			;; r34a=r3+r4				; 17-19
 	subpd	xmm6, xmm7			;; r34s=r3-r4				; 18-20			avail 8,10,1,2,7
-	xload	xmm8, XMM_P309
+	xcopy	xmm8, xmm14
 	mulpd	xmm8, xmm0			;; cos2*r25a				; 18-22			avail 10,1,2,7
 	xcopy	xmm10, xmm4			;; Copy I2
 	addpd	xmm4, xmm11			;; i25a=i2+i5				; 19-21			avail 1,2,7
-	xload	xmm1, XMM_M809
+	xcopy	xmm1, xmm15
 	mulpd	xmm1, xmm0			;; cos4*r25a				; 19-23			avail 2,7
 	subpd	xmm10, xmm11			;; i25s=i2-i5				; 20-22			avail 2,7,11
-	xload	xmm2, XMM_M809
+	xcopy	xmm2, xmm15
 	mulpd	xmm2, xmm5			;; cos4*r34a				; 20-24			avail 7,11
 	addpd	xmm0, xmm5			;; r25a + r34a				; 21-23
-	mulpd	xmm5, XMM_P309			;; cos2*r34a				; 21-25
+	mulpd	xmm5, xmm14			;; cos2*r34a				; 21-25
 	xcopy	xmm7, xmm9			;; Copy I4
 	addpd	xmm9, xmm12			;; i34a=i3+i4				; 22-24			avail 11
 	xload	xmm11, XMM_P951
@@ -1319,17 +1334,17 @@ r5_x5cl_2sc_five_complex_djbunfft MACRO srcreg,srcinc,d1,screg1,scoff1,screg2,sc
 	addpd	xmm8, xmm2			;; cos2*r25a + cos4*r34a		; 25-27			avail 2, storable 0
 	mulpd	xmm6, XMM_P951			;; sin2*r34s				; 25-29
 	addpd	xmm1, xmm5			;; cos4*r25a+cos2*r34a			; 26-28			avail 2,5, storable 0
-	xload	xmm2, XMM_P309
+	xcopy	xmm2, xmm14
 	mulpd	xmm2, xmm4			;; cos2*i25a				; 26-30			avail 5, storable 0
 	xcopy	xmm5, xmm4			;; Copy i25a
 	addpd	xmm4, xmm9			;; i25a+i34a				; 27-29
 	xstore	[srcreg], xmm0			;; Save R1				; 27			avail 0
-	xload	xmm0, XMM_M809
+	xcopy	xmm0, xmm15
 	mulpd	xmm0, xmm9			;; cos4*i34a				; 27-31			avail none
 	addpd	xmm8, xmm13			;; t1=cos2*r25a + cos4*r34a + r1	; 28-30
-	mulpd	xmm5, XMM_M809			;; cos4*i25a				; 28-32
+	mulpd	xmm5, xmm15			;; cos4*i25a				; 28-32
 	addpd	xmm1, xmm13			;; t3=cos4*r25a+cos2*r34a+r1		; 29-31			avail 13
-	mulpd	xmm9, XMM_P309			;; cos2*i34a				; 29-33
+	mulpd	xmm9, xmm14			;; cos2*i34a				; 29-33
 	addpd	xmm11, xmm7			;; t6=sin2*r25s + sin4*r34s		; 30-32
 	xload	xmm7, XMM_P951
 	mulpd	xmm7, xmm10			;; sin2*i25s				; 30-34
@@ -1423,17 +1438,17 @@ r5_x5cl_2sc_five_complex_djbunfft MACRO srcreg,srcinc,d1,screg1,scoff1,screg2,sc
 	xcopy	xmm3, xmm6			;; Copy R4
 	addpd	xmm6, xmm7			;; r34a=r3+r4				; 17-19
 	subpd	xmm7, xmm3			;; r34s=r3-r4				; 18-20
-	xload	xmm5, XMM_P309
+	xcopy	xmm5, xmm14
 	mulpd	xmm5, xmm9			;; cos2*r25a				; 18-22
 	xcopy	xmm4, xmm8			;; Copy I2
 	addpd	xmm8, xmm12			;; i25a=i2+i5				; 19-21
-	xload	xmm0, XMM_M809
+	xcopy	xmm0, xmm15
 	mulpd	xmm0, xmm9			;; cos4*r25a				; 19-23
 	subpd	xmm4, xmm12			;; i25s=i2-i5				; 20-22
-	xload	xmm11, XMM_M809
+	xcopy	xmm11, xmm15
 	mulpd	xmm11, xmm6			;; cos4*r34a				; 20-24
 	addpd	xmm9, xmm6			;; r25a + r34a				; 21-23
-	mulpd	xmm6, XMM_P309			;; cos2*r34a				; 21-25
+	mulpd	xmm6, xmm14			;; cos2*r34a				; 21-25
 	xcopy	xmm3, xmm1			;; Copy I4
 	addpd	xmm1, xmm10			;; i34a=i3+i4				; 22-24
 	xload	xmm12, XMM_P951
@@ -1448,17 +1463,17 @@ r5_x5cl_2sc_five_complex_djbunfft MACRO srcreg,srcinc,d1,screg1,scoff1,screg2,sc
 	addpd	xmm5, xmm11			;; cos2*r25a + cos4*r34a		; 25-27
 	mulpd	xmm7, XMM_P951			;; sin2*r34s				; 25-29
 	addpd	xmm0, xmm6			;; cos4*r25a+cos2*r34a			; 26-28
-	xload	xmm11, XMM_P309
+	xcopy	xmm11, xmm14
 	mulpd	xmm11, xmm8			;; cos2*i25a				; 26-30
 	xcopy	xmm6, xmm8			;; Copy i25a
 	addpd	xmm8, xmm1			;; i25a+i34a				; 27-29
 	xstore	[srcreg+d1], xmm9		;; Save R1				; 27
-	xload	xmm9, XMM_M809
+	xcopy	xmm9, xmm15
 	mulpd	xmm9, xmm1			;; cos4*i34a				; 27-31
 	addpd	xmm5, xmm13			;; t1=cos2*r25a + cos4*r34a + r1	; 28-30
-	mulpd	xmm6, XMM_M809			;; cos4*i25a				; 28-32
+	mulpd	xmm6, xmm15			;; cos4*i25a				; 28-32
 	addpd	xmm0, xmm13			;; t3=cos4*r25a+cos2*r34a+r1		; 29-31
-	mulpd	xmm1, XMM_P309			;; cos2*i34a				; 29-33
+	mulpd	xmm1, xmm14			;; cos2*i34a				; 29-33
 	addpd	xmm12, xmm3			;; t6=sin2*r25s + sin4*r34s		; 30-32
 	xload	xmm3, XMM_P951
 	mulpd	xmm3, xmm4			;; sin2*i25s				; 30-34
