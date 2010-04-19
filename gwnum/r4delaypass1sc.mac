@@ -663,6 +663,7 @@ pfing	sub	rbp, rcx
 pfing	bump	rcx, (32-4)*blkdst	;; We've already prefetched 32 blocks, but
 					;; code below will fetch 4 blocks too many
 	loops_init 16*2*clm		;; 16 iters of 2*clm
+	r5_x5cl_20_reals_first_fft_scratch_preload
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b1b:	r5_x5cl_20_reals_first_fft_scratch rsi, 64, 2*clmblkdst8, rdi
 	newxloop1doublepre b1b, b1a, clmblkdst, rdi, XMM_SCD9 ;; 2*clm iters prefetching 4*clm cache lines
@@ -2184,6 +2185,7 @@ pfing	sub	rbp, rcx
 pfing	bump	rcx, (64-8)*blkdst	;; We've already prefetched 64 blocks, but
 					;; code below will fetch 8 blocks too many
 	loops_init 32*2*clm		;; 32 iters of 2*clm
+	r5_x5cl_20_reals_first_fft_scratch_preload
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b1b:	r5_x5cl_20_reals_first_fft_scratch rsi, 64, 4*clmblkdst8, rdi
 	newxloop1doublepre b1b, b1a, clmblkdst, rdi, XMM_SCD9 ;; 2*clm iters prefetching 4*clm cache lines
@@ -3773,6 +3775,7 @@ pfing	sub	rbp, rcx
 pfing	bump	rcx, (64-32)*blkdst	;; We've already prefetched 64 blocks, but
 					;; code below will fetch 32 blocks too many
 	loops_init 64*2*clm		;; 64 iters of 2*clm
+	r5_x5cl_20_reals_first_fft_scratch_preload
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b1b:	r5_x5cl_20_reals_first_fft_scratch rsi, 64, 8*clmblkdst8, rdi
 	newxloop1doublepre b1b, b1a, clmblkdst, rdi, XMM_SCD9 ;; 2*clm iters prefetching 4*clm cache lines
