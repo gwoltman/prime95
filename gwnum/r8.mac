@@ -1298,6 +1298,10 @@ r8_g8cl_sixteen_reals_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dst
 ENDIF
 
 ;; Used in last levels of pass 1 (split premultiplier and delay cases).  Swizzling.
+
+r8_sg8cl_sixteen_reals_eight_complex_fft8_preload MACRO
+	r4_x8r_fft_mem_preload
+	ENDM
 r8_sg8cl_sixteen_reals_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4,screg1,screg2
 	e3 = e2 + e1
 
