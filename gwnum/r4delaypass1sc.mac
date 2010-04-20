@@ -616,6 +616,7 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*c
 pfing	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
+	r5_x10cl_20_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r5_x10cl_20_reals_last_unfft rsi, 64, clmblkdst8, rdi, 8*XMM_SCD9
 	newxloop1quadpre c1b, c1a, clmblkdst, rdi, XMM_SCD9 ;; 2*clm iterations
@@ -2136,6 +2137,7 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*cl
 pfing	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
+	r5_x10cl_20_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r5_x10cl_20_reals_last_unfft rsi, 64, 2*clmblkdst8, rdi, 16*XMM_SCD9
 	newxloop1quadpre c1b, c1a, clmblkdst, rdi, XMM_SCD9 ;; 2*clm iterations
@@ -3726,6 +3728,7 @@ c5b:	r4_x4cl_four_complex_djbunfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 8*2*c
 pfing	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
+	r5_x10cl_20_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r5_x10cl_20_reals_last_unfft rsi, 64, 4*clmblkdst8, rdi, 32*XMM_SCD9
 	newxloop1doublepre c1b, c1a, clmblkdst, rdi, XMM_SCD9 ;; 2*clm iterations
