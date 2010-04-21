@@ -2758,7 +2758,7 @@ r4_x4c_unfft4_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem3,mem4,mem7,mem8,dest
 
 
 ;;
-;; ************************************* eight-reals-first-fft variants ******************************************
+;; ************************************* eight-reals-fft variants ******************************************
 ;;
 
 ;; These macros operate on eight reals doing 2 and 3/4 levels of the FFT and applying
@@ -2992,7 +2992,7 @@ r4_x8r_fft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,screg
 ENDIF
 
 ;;
-;; ************************************* eight-reals-last-unfft variants ******************************************
+;; ************************************* eight-reals-unfft variants ******************************************
 ;;
 
 ;; These macros produce eight reals after doing 2 and 3/4 levels of the inverse FFT applying
@@ -3000,9 +3000,36 @@ ENDIF
 ;; and 3 complex numbers (3 levels of inverse FFT performed).  These macros take a screg
 ;; that points to twiddles w^n, w^2n, and w^5n.
 
+r4_x4cl_eight_reals_last_unfft_preload MACRO
+	r4_x4cl_eight_reals_unfft_cmn_preload
+	ENDM
+
 r4_x4cl_eight_reals_last_unfft MACRO srcreg,srcinc,d1,d2,screg,scoff
+	r4_x4cl_eight_reals_unfft_cmn srcreg,srcinc,d1,d2,screg,scoff,screg+32,scoff,screg+64,scoff
+	ENDM
+
+;; This macro is similar to r4_x4cl_eight_reals_last_unfft.
+;; The difference is this macro takes two screg pointers.
+;; One points to w^n and w^5n, the other points to w^2n which is
+;; also the screg used by the four-complex-FFT.
+
+r4_x4cl_eight_reals_unfft_preload MACRO
+	r4_x4cl_eight_reals_unfft_cmn_preload
+	ENDM
+
+r4_x4cl_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scoff1,screg2,scoff2
+	r4_x4cl_eight_reals_unfft_cmn srcreg,srcinc,d1,d2,screg2,scoff2,screg1,scoff1,screg2+32,scoff2
+	ENDM
+
+; Common eight reals unfft macro
+
+r4_x4cl_eight_reals_unfft_cmn_preload MACRO
+	ENDM
+
+r4_x4cl_eight_reals_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,scoff1,screg2,scoff2,screg5,scoff5
 	d3 = d2 + d1
-	r4_x8r_unfft_mem [srcreg+16],[srcreg+48],[srcreg+d1+16],[srcreg+d1+48],[srcreg+d2+16],[srcreg+d2+48],[srcreg+d3+16],[srcreg+d3+48],screg,scoff,screg,scoff+32,screg,scoff+64,srcreg+srcinc+d2,d1,[srcreg+d3+16],[srcreg+d3+48]
+	tmp = srcinc+d2
+	r4_x8r_unfft_mem [srcreg+16],[srcreg+48],[srcreg+d1+16],[srcreg+d1+48],[srcreg+d2+16],[srcreg+d2+48],[srcreg+d3+16],[srcreg+d3+48],screg1+scoff1,screg2+scoff2,screg5+scoff5,srcreg+tmp,d1,[srcreg+d3+16],[srcreg+d3+48]
 	xstore	[srcreg+d1+16], xmm7	;; Save R3
 ;;	xstore	[srcreg+d3+16], xmm2	;; Save R4
 	xstore	[srcreg+d1+48], xmm6	;; Save R7
@@ -3015,7 +3042,7 @@ r4_x4cl_eight_reals_last_unfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 	xstore	[srcreg+d3], xmm4	;; Save R2
 	xstore	[srcreg+d1+32], xmm0	;; Save R5
 	xstore	[srcreg+d3+32], xmm3	;; Save R6
-	r4_x8r_unfft_partial_mem xmm0,xmm1,xmm2,xmm5,xmm3,xmm4,xmm6,xmm7,[srcreg],[srcreg+32],[srcreg+d2],[srcreg+d2+32],screg,0,screg,32,screg,64,srcreg+srcinc,d1,[srcreg+d2+16],[srcreg+d2+48]
+	r4_x8r_unfft_partial_mem xmm0,xmm1,xmm2,xmm5,xmm3,xmm4,xmm6,xmm7,[srcreg],[srcreg+32],[srcreg+d2],[srcreg+d2+32],screg1,screg2,screg5,srcreg+srcinc,d1,[srcreg+d2+16],[srcreg+d2+48]
 	xstore	[srcreg], xmm1		;; Save R1
 	xstore	[srcreg+d2], xmm3	;; Save R2
 	xstore	[srcreg+32], xmm0	;; Save R5
@@ -3029,22 +3056,22 @@ r4_x4cl_eight_reals_last_unfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 
 ;; Common macro to do the 2 and 3/4 inverse FFT producing eight reals.
 
-r4_x8r_unfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,scoff1,screg2,scoff2,screg3,scoff3,pre1,pre2,dst4,dst8
-	xload	xmm6, [screg3+scoff3+16];; cosine/sine for w^5n
+r4_x8r_unfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,screg5,pre1,pre2,dst4,dst8
+	xload	xmm6, [screg5+16]	;; cosine/sine for w^5n
 	xload	xmm1, mem7		;; R4
 	mulpd	xmm1, xmm6		;; A4 = R4 * cosine/sine
 	xload	xmm7, mem8		;; I4
 	addpd	xmm1, xmm7		;; A4 = A4 + I4
 	mulpd	xmm7, xmm6		;; B4 = I4 * cosine/sine
 
-	xload	xmm2, [screg1+scoff1+16];; cosine/sine for w^n
+	xload	xmm2, [screg1+16]	;; cosine/sine for w^n
 	xload	xmm4, mem5		;; R3
 	mulpd	xmm4, xmm2		;; A3 = R3 * cosine/sine for w^n
 	xload	xmm5, mem6		;; I3
 	addpd	xmm4, xmm5		;; A3 = A3 + I3
 	mulpd	xmm5, xmm2		;; B3 = I3 * cosine/sine
 
-	xload	xmm6, [screg2+scoff2+16];; cosine/sine for w^2n
+	xload	xmm6, [screg2+16]	;; cosine/sine for w^2n
 	xload	xmm0, mem3		;; R2
 	mulpd	xmm0, xmm6		;; A2 = R2 * cosine/sine
 	xload	xmm3, mem4		;; I2
@@ -3057,13 +3084,13 @@ r4_x8r_unfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,scoff1,scr
 
 	xprefetchw [pre1]
 
-	xload	xmm6, [screg3+scoff3]
+	xload	xmm6, [screg5]
 	mulpd	xmm1, xmm6		;; new R7 = A4 * sine (final R4)
 	mulpd	xmm7, xmm6		;; new R8 = B4 * sine (final I4)
-	xload	xmm2, [screg1+scoff1]
+	xload	xmm2, [screg1]
 	mulpd	xmm4, xmm2		;; new R5 = A3 * sine (final R3)
 	mulpd	xmm5, xmm2		;; new R6 = B3 * sine (final I3)
-	xload	xmm6, [screg2+scoff2]
+	xload	xmm6, [screg2]
 	mulpd	xmm0, xmm6		;; new R3 = A2 * sine (final R2)
 	mulpd	xmm3, xmm6		;; new R4 = B2 * sine (final I2)
 
@@ -3112,14 +3139,14 @@ r4_x8r_unfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,scoff1,scr
 	addpd	xmm1, xmm5		;; R5 = R1 + R5 (final R1)
 	ENDM
 
-r4_x8r_unfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem1,mem2,mem5,mem6,screg1,scoff1,screg2,scoff2,screg3,scoff3,pre1,pre2,dst4,dst8
-	xload	r2, [screg3+scoff3+16]	;; cosine/sine for w^5n
+r4_x8r_unfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem1,mem2,mem5,mem6,screg1,screg2,screg5,pre1,pre2,dst4,dst8
+	xload	r2, [screg5+16]		;; cosine/sine for w^5n
 	mulpd	r2, r7			;; A4 = R4 * cosine/sine
 	addpd	r2, r8			;; A4 = A4 + I4
-	mulpd	r8, [screg3+scoff3+16]	;; B4 = I4 * cosine/sine
+	mulpd	r8, [screg5+16]		;; B4 = I4 * cosine/sine
 	subpd	r8, r7			;; B4 = B4 - R4
 
-	xload	r1, [screg1+scoff1+16]	;; cosine/sine for w^n
+	xload	r1, [screg1+16]		;; cosine/sine for w^n
 	xload	r5, mem5		;; R3
 	mulpd	r5, r1			;; A3 = R3 * cosine/sine for w^n
 	xload	r6, mem6		;; I3
@@ -3127,21 +3154,21 @@ r4_x8r_unfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem1,mem2,mem5,mem6,screg
 	mulpd	r6, r1			;; B3 = I3 * cosine/sine
 	subpd	r6, mem5		;; B3 = B3 - R3
 
-	xload	r1, [screg2+scoff2+16]	;; cosine/sine for w^2n
+	xload	r1, [screg2+16]		;; cosine/sine for w^2n
 	mulpd	r1, r3			;; A2 = R2 * cosine/sine
 	addpd	r1, r4			;; A2 = A2 + I2
-	mulpd	r4, [screg2+scoff2+16]	;; B2 = I2 * cosine/sine
+	mulpd	r4, [screg2+16]		;; B2 = I2 * cosine/sine
 	subpd	r4, r3			;; B2 = B2 - R2
 
 	xprefetchw [pre1]
 
-	xload	r7, [screg3+scoff3]
+	xload	r7, [screg5]
 	mulpd	r2, r7			;; new R7 = A4 * sine (final R4)
 	mulpd	r8, r7			;; new R8 = B4 * sine (final I4)
-	xload	r3, [screg1+scoff1]
+	xload	r3, [screg1]
 	mulpd	r5, r3			;; new R5 = A3 * sine (final R3)
 	mulpd	r6, r3			;; new R6 = B3 * sine (final I3)
-	xload	r7, [screg2+scoff2]
+	xload	r7, [screg2]
 	mulpd	r1, r7			;; new R3 = A2 * sine (final R2)
 	mulpd	r4, r7			;; new R4 = B2 * sine (final I2)
 
@@ -3190,146 +3217,6 @@ r4_x8r_unfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem1,mem2,mem5,mem6,screg
 	addpd	r2, r6			;; R5 = R1 + R5 (final R1)
 	ENDM
 
-
-;;
-;; ************************************* eight-reals-four-complex-djbfft variants ******************************************
-;;
-;; Because of the way we store FFT data elements in cache lines during the pass 1 of the forward FFT, a cache line
-;; will contain data needing an eight-reals-fft as well as data needing a four-complex-fft.
-;;
-
-;; Macro to do an eight_reals_fft and a four_complex_djbfft.
-;; The eight-reals macro is very similar to the eight-reals-first-FFT.
-;; Both do 2 and 3/4 levels of the FFT.  One difference this
-;; macro takes two screg pointers.  One points to w^n and w^5n, the other
-;; points to w^2n which is also the screg used by the four-complex-FFT.
-
-r4_x4cl_eight_reals_four_complex_djbfft_preload MACRO
-	r4_x8r_fft_mem_preload
-	ENDM
-
-r4_x4cl_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,screg2
-	r4_x8r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg2,screg1,screg2+32,srcreg+srcinc,d1,[srcreg],[srcreg+16]
-;;	xstore	[srcreg], xmm0		;; Save real value #1
-;;	xstore	[srcreg+16], xmm0	;; Save real value #2
-	xload	xmm0, [srcreg+32]	;; R1
-	xload	xmm1, [srcreg+48]	;; R5
-	xstore	[srcreg+32], xmm7	;; Save R2
-	xstore	[srcreg+48], xmm5	;; Save I2
-	xload	xmm7, [srcreg+d1+32]	;; R2
-	xload	xmm5, [srcreg+d1+48]	;; R6
-	xstore	[srcreg+d1], xmm4	;; Save R3
-	xstore	[srcreg+d1+16], xmm3	;; Save I3
-	xstore	[srcreg+d1+32], xmm6	;; Save R4
-	xstore	[srcreg+d1+48], xmm2	;; Save I4
-	r4_x4c_djbfft_partial_mem xmm0,xmm7,xmm3,xmm2,xmm1,xmm5,xmm4,xmm6,[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+d2+48],[srcreg+d2+d1+48],screg1,0,srcreg+srcinc+d2,d1,[srcreg+d2],[srcreg+d2+16]
-;;	xstore	[srcreg+d2], xmm0	;; Save real value #1
-;;	xstore	[srcreg+d2+16], xmm0	;; Save real value #2
-	xstore	[srcreg+d2+32], xmm6	;; Save R2
-	xstore	[srcreg+d2+48], xmm4	;; Save I2
-	xstore	[srcreg+d2+d1], xmm2	;; Save R3
-	xstore	[srcreg+d2+d1+16], xmm7	;; Save I3
-	xstore	[srcreg+d2+d1+32], xmm0	;; Save R4
-	xstore	[srcreg+d2+d1+48], xmm1	;; Save I4
-	bump	srcreg, srcinc
-	ENDM
-
-;; Macro to do an eight_reals_fft and a four_complex_fft4 at the end of pass 1.
-;; We could do a four_complex_djbfft since the 4 twiddle factors belong to the
-;; first grouping.  However, this will only work if the corresponding unfft does
-;; a djbunfft.  This macro is very similar to r4_x4cl_eight_reals_four_complex_djbfft.
-
-;; This macro is used in the last levels of pass 1 (no swizzling)
-IFDEF UNUSED
-r4_g4cl_eight_reals_four_complex_fft4_preload MACRO
-	r4_x8r_fft_mem_preload
-	ENDM
-r4_g4cl_eight_reals_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg1,screg2
-	r4_x8r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg2,screg1+32,screg2+32,dstreg+dstinc,e1,[dstreg],[dstreg+16]
-;;	xstore	[dstreg], xmm0		;; Save real value #1
-;;	xstore	[dstreg+16], xmm0	;; Save real value #2
-	xload	xmm0, [srcreg+32]	;; R1
-	xload	xmm1, [srcreg+48]	;; R5
-	xstore	[dstreg+32], xmm7	;; Save R2
-	xstore	[dstreg+48], xmm5	;; Save I2
-	xload	xmm7, [srcreg+d1+32]	;; R2
-	xload	xmm5, [srcreg+d1+48]	;; R6
-	xstore	[dstreg+e1], xmm4	;; Save R3
-	xstore	[dstreg+e1+16], xmm3	;; Save I3
-	xstore	[dstreg+e1+32], xmm6	;; Save R4
-	xstore	[dstreg+e1+48], xmm2	;; Save I4
-	r4_x4c_fft_partial_mem xmm0,xmm7,xmm3,xmm2,xmm1,xmm5,xmm4,xmm6,[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+d2+48],[srcreg+d2+d1+48],screg1,32,dstreg+dstinc+e2,e1,[dstreg+e2],[dstreg+e2+16]
-	bump	srcreg, srcinc
-;;	xstore	[dstreg+e2], xmm0	;; Save R1
-;;	xstore	[dstreg+e2+16], xmm0	;; Save I1
-	xstore	[dstreg+e2+32], xmm6	;; Save R2
-	xstore	[dstreg+e2+48], xmm4	;; Save I2
-	xstore	[dstreg+e2+e1], xmm2	;; Save R3
-	xstore	[dstreg+e2+e1+16], xmm7	;; Save I3
-	xstore	[dstreg+e2+e1+32], xmm0	;; Save R4
-	xstore	[dstreg+e2+e1+48], xmm1	;; Save I4
-	bump	dstreg, dstinc
-	ENDM
-ENDIF
-
-;; Used in the last levels of pass 1 (swizzling)
-r4_sg4cl_eight_reals_four_complex_fft4_preload MACRO
-	r4_x8r_fft_mem_preload
-	ENDM
-r4_sg4cl_eight_reals_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg1,screg2
-	r4_x8r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg2,screg1+32,screg2+32,dstreg+dstinc,e1,[dstreg],[dstreg+32]
-	shuffle_store_partial [dstreg], [dstreg+16], xmm0, xmm7				;; Save real value #1,R2
-	shuffle_store_partial [dstreg+32], [dstreg+48], xmm1, xmm5			;; Save real value #2,I2
-	shuffle_store_with_temp [dstreg+e1], [dstreg+e1+16], xmm4, xmm6, xmm7		;; Save R3,R4
-	shuffle_store_with_temp [dstreg+e1+32], [dstreg+e1+48], xmm3, xmm2, xmm7	;; Save I3,I4
-	xprefetch [srcreg+srcinc+d2]
-	r4_x4c_fft_mem [srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+48],[srcreg+d1+48],[srcreg+d2+48],[srcreg+d2+d1+48],screg1+32,screg1+64,screg1+96,dstreg+dstinc+e2,e1,[dstreg+e2],[dstreg+e2+32]
-	xprefetch [srcreg+srcinc+d2+d1]
-	bump	srcreg, srcinc
-	shuffle_store_partial [dstreg+e2], [dstreg+e2+16], xmm2, xmm7			;; Save R1,R2
-	shuffle_store_partial [dstreg+e2+32], [dstreg+e2+48], xmm5, xmm6		;; Save I1,I2
-	shuffle_store_with_temp [dstreg+e2+e1], [dstreg+e2+e1+16], xmm3, xmm0, xmm7	;; Save R3,R4
-	shuffle_store_with_temp [dstreg+e2+e1+32], [dstreg+e2+e1+48], xmm1, xmm4, xmm7	;; Save I3,I4
-	bump	dstreg, dstinc
-	ENDM
-
-;;
-;; ************************************* eight-reals-unfft variants ******************************************
-;;
-
-;; This macro is similar to r4_x4cl_eight_reals_last_unfft.
-;; The difference is this macro takes two screg pointers.
-;; One points to w^n and w^5n, the other points to w^2n which is
-;; also the screg used by the four-complex-FFT.
-
-r4_x4cl_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scoff1,screg2,scoff2
-	d3 = d2 + d1
-	tmp = srcinc+d2
-	r4_x8r_unfft_mem [srcreg+16],[srcreg+48],[srcreg+d1+16],[srcreg+d1+48],[srcreg+d2+16],[srcreg+d2+48],[srcreg+d3+16],[srcreg+d3+48],screg2,scoff2,screg1,scoff1,screg2,scoff2+32,srcreg+tmp,d1,[srcreg+d3+16],[srcreg+d3+48]
-	xstore	[srcreg+d1+16], xmm7	;; Save R3
-;;	xstore	[srcreg+d3+16], xmm2	;; Save R4
-	xstore	[srcreg+d1+48], xmm6	;; Save R7
-;;	xstore	[srcreg+d3+48], xmm5	;; Save R8
-	xload	xmm6, [srcreg+d3]	;; Load R4
-	xload	xmm7, [srcreg+d3+32]	;; Load I4
-	xload	xmm2, [srcreg+d1]	;; Load R2
-	xload	xmm5, [srcreg+d1+32]	;; Load I2
-	xstore	[srcreg+d1], xmm1	;; Save R1
-	xstore	[srcreg+d3], xmm4	;; Save R2
-	xstore	[srcreg+d1+32], xmm0	;; Save R5
-	xstore	[srcreg+d3+32], xmm3	;; Save R6
-	r4_x8r_unfft_partial_mem xmm0,xmm1,xmm2,xmm5,xmm3,xmm4,xmm6,xmm7,[srcreg],[srcreg+32],[srcreg+d2],[srcreg+d2+32],screg2,0,screg1,0,screg2,32,srcreg+srcinc,d1,[srcreg+d2+16],[srcreg+d2+48]
-	xstore	[srcreg], xmm1		;; Save R1
-	xstore	[srcreg+d2], xmm3	;; Save R2
-	xstore	[srcreg+32], xmm0	;; Save R5
-	xstore	[srcreg+d2+32], xmm5	;; Save R6
-	xstore	[srcreg+16], xmm7	;; Save R3
-;;	xstore	[srcreg+d2+16], xmm2	;; Save R4
-	xstore	[srcreg+48], xmm6	;; Save R7
-;;	xstore	[srcreg+d2+48], xmm4	;; Save R8
-	bump	srcreg, srcinc
-	ENDM
-
 ;; This macro is similar to r4_x4cl_eight_reals_unfft.
 ;; The difference is this macro has different source and destination
 ;; and this macro takes an XMM_SCD4 pointer.  We know that the first
@@ -3338,7 +3225,7 @@ r4_x4cl_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scoff1,screg2,scoff2
 ;; This macro is used in the last levels of pass 1 (no swizzling):
 IFDEF UNUSED
 r4_g2cl_eight_reals_unfft4 MACRO srcreg,srcinc,d1,dstreg,dstinc,e1,screg1,screg2
-	r4_x8r_unfft_mem [srcreg],[srcreg+16],[srcreg+32],[srcreg+48],[srcreg+d1],[srcreg+d1+16],[srcreg+d1+32],[srcreg+d1+48],screg2,0,screg1,32,screg2,32,dstreg+dstinc,e1,[dstreg+e1+16],[dstreg+e1+48]
+	r4_x8r_unfft_mem [srcreg],[srcreg+16],[srcreg+32],[srcreg+48],[srcreg+d1],[srcreg+d1+16],[srcreg+d1+32],[srcreg+d1+48],screg2,screg1+32,screg2+32,dstreg+dstinc,e1,[dstreg+e1+16],[dstreg+e1+48]
 	bump	srcreg, srcinc
 	xstore	[dstreg+16], xmm7	;; Save R3
 ;;	xstore	[dstreg+e1+16], xmm2	;; Save R4
@@ -3448,6 +3335,323 @@ r4_s8r_unfft4 MACRO memr1_1,memr1_2,memr2,memi2,memr3,memi3,memr4,memi4,screg1,s
 	subpd	xmm0, xmm1		;; R1 = R1 - R5 (final R5)
 	addpd	xmm1, xmm5		;; R5 = R1 + R5 (final R1)
 	ENDM
+
+IFDEF X86_64
+
+r4_x4cl_eight_reals_unfft_cmn_preload MACRO
+	xload	xmm15, XMM_SQRTHALF
+	ENDM
+
+r4_x4cl_eight_reals_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,scoff1,screg2,scoff2,screg5,scoff5
+	xload	xmm0, [srcreg+d2+d1+16]	;; R4
+	xload	xmm1, [screg5+scoff5+16];; cosine/sine for w^5n
+	xcopy	xmm2, xmm0		;; Copy R4
+	mulpd	xmm0, xmm1		;; A4 = R4 * cosine/sine		; 1-5
+
+	xload	xmm3, [srcreg+d2+16]	;; R3
+	xload	xmm4, [screg1+scoff1+16];; cosine/sine for w^n
+	xcopy	xmm5, xmm3		;; Copy R3
+	mulpd	xmm3, xmm4		;; A3 = R3 * cosine/sine for w^n	; 2-6
+
+	xload	xmm6, [srcreg+d2+d1+48]	;; I4
+	mulpd	xmm1, xmm6		;; B4 = I4 * cosine/sine		; 3-7
+
+	xload	xmm7, [srcreg+d2+48]	;; I3
+	mulpd	xmm4, xmm7		;; B3 = I3 * cosine/sine		; 4-8
+
+	xload	xmm8, [srcreg+d2+d1]	;;#2 R4
+	xload	xmm9, [screg5+16]	;;#2 cosine/sine for w^5n
+	xcopy	xmm10, xmm8		;;#2 Copy R4
+	mulpd	xmm8, xmm9		;;#2 A4 = R4 * cosine/sine		; 5-9
+
+	addpd	xmm0, xmm6		;; A4 = A4 + I4				; 6-8	avail 6,11+
+	xload	xmm11, [srcreg+d2]	;;#2 R3
+	xload	xmm12, [screg1+16]	;;#2 cosine/sine for w^n
+	xcopy	xmm13, xmm11		;;#2 Copy R3
+	mulpd	xmm11, xmm12		;;#2 A3 = R3 * cosine/sine for w^n	; 6-10	avail 6,14
+
+	addpd	xmm3, xmm7		;; A3 = A3 + I3				; 7-9	avail 6,7,14
+	xload	xmm14, [srcreg+d2+d1+32];;#2 I4
+	mulpd	xmm9, xmm14		;;#2 B4 = I4 * cosine/sine		; 7-11	avail 6,7
+
+	subpd	xmm1, xmm2		;; B4 = B4 - R4				; 8-10	avail 6,7,2
+	xload	xmm6, [srcreg+d2+32]	;;#2 I3
+	mulpd	xmm12, xmm6		;;#2 B3 = I3 * cosine/sine		; 8-12	avail 7,2
+
+	subpd	xmm4, xmm5		;; B3 = B3 - R3				; 9-11	avail 7,2,5
+	xload	xmm7, [screg5+scoff5]	;; sine
+	mulpd	xmm0, xmm7		;; new R7 = A4 * sine (final R4)	; 9-13	avail 2,5
+
+	addpd	xmm8, xmm14		;;#2 A4 = A4 + I4			; 10-12	avail 2,5,14
+	xload	xmm2, [screg1+scoff1]	;; sine
+	mulpd	xmm3, xmm2		;; new R5 = A3 * sine (final R3)	; 10-14	avail 5,14
+
+	addpd	xmm11, xmm6		;;#2 A3 = A3 + I3			; 11-13	avail 5,14,6
+	mulpd	xmm1, xmm7		;; new R8 = B4 * sine (final I4)	; 11-15	avail 5,14,6,7
+
+	subpd	xmm9, xmm10		;;#2 B4 = B4 - R4			; 12-14	avail 5,14,6,7,10
+	mulpd	xmm4, xmm2		;; new R6 = B3 * sine (final I3)	; 12-16	avail 5,14,6,7,10,2
+
+	subpd	xmm12, xmm13		;;#2 B3 = B3 - R3			; 13-15	avail 5,14,6,7,10,2,13
+	xload	xmm5, [srcreg+d1+16]	;; R2
+	xload	xmm14, [screg2+scoff2+16];; cosine/sine for w^2n
+	xcopy	xmm6, xmm5		;; Copy R2
+	mulpd	xmm5, xmm14		;; A2 = R2 * cosine/sine		; 13-17	avail 7,10,2,13
+
+	xload	xmm7, [srcreg+d1+48]	;; I2
+	mulpd	xmm14, xmm7		;; B2 = I2 * cosine/sine		; 14-18	avail 10,2,13
+
+	xprefetchw [srcreg+srcinc]
+
+	xcopy	xmm10, xmm3		;; Copy R5
+	subpd	xmm3, xmm0		;; new R6 = R5 - R7			; 15-17	avail 2,13
+	xload	xmm2, [screg5]		;;#2 sine
+	mulpd	xmm8, xmm2		;;#2 new R7 = A4 * sine (final R4)	; 15-19	avail 13
+
+	addpd	xmm10, xmm0		;; new R5 = R5 + R7			; 16-18	avail 13,0
+	xload	xmm13, [screg1]		;;#2 sine
+	mulpd	xmm11, xmm13		;;#2 new R5 = A3 * sine (final R3)	; 16-20	avail 0
+
+	xcopy	xmm0, xmm4		;; Copy R6
+	subpd	xmm4, xmm1		;; new R8 = R6 - R8			; 17-19
+	mulpd	xmm9, xmm2		;;#2 new R8 = B4 * sine (final I4)	; 17-21 avail 2
+
+	addpd	xmm5, xmm7		;; A2 = A2 + I2				; 18-20	avail 2,7
+	mulpd	xmm12, xmm13		;;#2 new R6 = B3 * sine (final I3)	; 18-22	avail 2,7,13
+
+	addpd	xmm0, xmm1		;; new R7 = R6 + R8			; 19-21	avail 2,7,13,1
+	mulpd	xmm3, xmm15		;; R6 = R6 * square root of 1/2		; 19-23
+
+	subpd	xmm14, xmm6		;; B2 = B2 - R2				; 20-22	avail 2,7,13,1,6
+	mulpd	xmm4, xmm15		;; R8 = R8 * square root of 1/2		; 20-24
+
+	xprefetchw [srcreg+srcinc+d1]
+
+	xcopy	xmm2, xmm11		;;#2 Copy R5
+	subpd	xmm11, xmm8		;;#2 new R6 = R5 - R7			; 21-23	avail 7,13,1,6
+
+	addpd	xmm2, xmm8		;;#2 new R5 = R5 + R7			; 22-24	avail 7,13,1,6,8
+	xload	xmm7, [screg2+scoff2]	;; sine
+	mulpd	xmm5, xmm7		;; new R3 = A2 * sine (final R2)	; 22-26	avail 13,1,6,8
+
+	xcopy	xmm13, xmm12		;;#2 Copy R6
+	subpd	xmm12, xmm9		;;#2 new R8 = R6 - R8			; 23-25	avail 1,6,8
+	mulpd	xmm14, xmm7		;; new R4 = B2 * sine (final I2)	; 23-27	avail 1,6,8,7
+
+	addpd	xmm13, xmm9		;;#2 new R7 = R6 + R8			; 24-26	avail 1,6,8,7,9
+	xload	xmm6, [srcreg+16]	;; R1
+
+	xcopy	xmm1, xmm3		;; Copy R6
+	addpd	xmm3, xmm4		;; R6 = R6 + R8				; 25-27	avail 8,7,9
+	xload	xmm7, [srcreg+48]	;; R2
+
+	subpd	xmm4, xmm1		;; R8 = R8 - R6				; 26-28	avail 8,9,1
+
+	xprefetchw [srcreg+srcinc+d2]	;;#2
+
+	xcopy	xmm8, xmm6		;; Copy R1
+	subpd	xmm6, xmm5		;; R1 = R1 - R3 (new R3)		; 27-29	avail 9,1
+	addpd	xmm8, xmm5		;; R3 = R1 + R3 (new R1)		; 28-30	avail 9,1,5
+
+	xcopy	xmm9, xmm7		;; Copy R2
+	subpd	xmm7, xmm14		;; R2 = R2 - R4 (new R4)		; 29-31	avail 1,5
+
+	addpd	xmm14, xmm9		;; R4 = R2 + R4 (new R2)		; 30-32	avail 1,5,9
+	xload	xmm1, [srcreg+d1]	;;#2 R2
+	xload	xmm5, [screg2+16]	;;#2 cosine/sine for w^2n
+	mulpd	xmm1, xmm5		;;#2 A2 = R2 * cosine/sine		; 30-34	avail 9
+
+	xcopy	xmm9, xmm6		;; Copy R3
+	subpd	xmm6, xmm0		;; R3 = R3 - R7 (final R7)		; 31-33	avail none storable 6
+	xstore	[srcreg+d1+48], xmm6	;; Save R7				; 34	avail 6
+	xload	xmm6, [srcreg+d1+32]	;;#2 I2
+	mulpd	xmm5, xmm6		;;#2 B2 = I2 * cosine/sine		; 31-35	avail none
+
+	addpd	xmm0, xmm9		;; R7 = R3 + R7 (final R3)		; 32-34	avail 9 storable 0
+
+	xcopy	xmm9, xmm8		;; Copy R1
+	subpd	xmm8, xmm10		;; R1 = R1 - R5 (final R5)		; 33-35	avail none storable 0,8
+	addpd	xmm10, xmm9		;; R5 = R1 + R5 (final R1)		; 34-36	avail 9 storable 0,8,10
+
+	addpd	xmm1, xmm6		;;#2 A2 = A2 + I2			; 35-37	avail 9,6 storable 0,8,10
+	mulpd	xmm11, xmm15		;;#2 R6 = R6 * square root of 1/2	; 35-39
+	xstore	[srcreg+d1+16], xmm0	;; Save R3				; 35	avail 9,6,0 storable 8,10
+
+	subpd	xmm5, [srcreg+d1]	;;#2 B2 = B2 - R2			; 36-38
+	mulpd	xmm12, xmm15		;;#2 R8 = R8 * square root of 1/2	; 36-40
+	xstore	[srcreg+d1+32], xmm8	;; Save R5				; 36	avail 9,6,0,8 storable 10
+
+	xcopy	xmm9, xmm7		;; Copy R4
+	subpd	xmm7, xmm4		;; R4 = R4 - R8 (final R8)		; 37-39	avail 6,0,8 storable 10,7
+	xstore	[srcreg+d1], xmm10	;; Save R1				; 37	avail 6,0,8,10 storable 7
+
+	xprefetchw [srcreg+srcinc+d2+d1];;#2
+
+	addpd	xmm4, xmm9		;; R8 = R4 + R8 (final R4)		; 38-40	avail 6,0,8,10,9 storable 7,4
+	xload	xmm6, [screg2]		;;#2 sine
+	mulpd	xmm1, xmm6		;;#2 new R3 = A2 * sine (final R2)	; 38-42	avail 0,8,10,9 storable 7,4
+
+	xcopy	xmm0, xmm14		;; Copy R2
+	subpd	xmm14, xmm3		;; R2 = R2 - R6 (final R6)		; 39-41	avail 8,10,9 storable 7,4,14
+	mulpd	xmm5, xmm6		;;#2 new R4 = B2 * sine (final I2)	; 39-43	avail 8,10,9,6 storable 7,4,14
+
+	addpd	xmm3, xmm0		;; R6 = R2 + R6 (final R2)		; 40-42	avail 8,10,9,6,0 storable 7,4,14,3
+	xload	xmm10, [srcreg]		;;#2 R1
+	xstore	[srcreg+d2+d1+48], xmm7	;; Save R8				; 40	avail 8,9,6,0,7 storable 4,14,3
+
+	xcopy	xmm8, xmm11		;;#2 Copy R6
+	addpd	xmm11, xmm12		;;#2 R6 = R6 + R8			; 41-43	avail 9,6,0,7 storable 4,14,3
+	xstore	[srcreg+d2+d1+16], xmm4	;; Save R4				; 41	avail 9,6,0,7,4 storable 14,3
+
+	subpd	xmm12, xmm8		;;#2 R8 = R8 - R6			; 42-44	avail 9,6,0,7,4,8 storable 14,3
+	xload	xmm6, [srcreg+32]	;;#2 R2
+	xstore	[srcreg+d2+d1+32], xmm14;; Save R6				; 42	avail 9,0,7,4,8,14 storable 3
+
+	xcopy	xmm9, xmm10		;;#2 Copy R1
+	subpd	xmm10, xmm1		;;#2 R1 = R1 - R3 (new R3)		; 43-45	avail 0,7,4,8,14 storable 3
+	xstore	[srcreg+d2+d1], xmm3	;; Save R2				; 43	avail 0,7,4,8,14,3
+
+	addpd	xmm1, xmm9		;;#2 R3 = R1 + R3 (new R1)		; 44-46	avail 0,7,4,8,14,3,9
+
+	xcopy	xmm0, xmm6		;;#2 Copy R2
+	subpd	xmm6, xmm5		;;#2 R2 = R2 - R4 (new R4)		; 45-47	avail 7,4,8,14,3,9
+
+	addpd	xmm5, xmm0		;;#2 R4 = R2 + R4 (new R2)		; 46-48	avail 7,4,8,14,3,9,0
+
+	xcopy	xmm7, xmm10		;;#2 Copy R3
+	subpd	xmm10, xmm13		;;#2 R3 = R3 - R7 (final R7)		; 47-49	avail 4,8,14,3,9,0 storable 10
+	addpd	xmm13, xmm7		;;#2 R7 = R3 + R7 (final R3)		; 48-50	avail 4,8,14,3,9,0,7 storable 10,13
+
+	xcopy	xmm4, xmm1		;;#2 Copy R1
+	subpd	xmm1, xmm2		;;#2 R1 = R1 - R5 (final R5)		; 49-51	avail 8,14,3,9,0,7 storable 10,13,1
+
+	addpd	xmm2, xmm4		;;#2 R5 = R1 + R5 (final R1)		; 50-52	avail 8,14,3,9,0,7,4 storable 10,13,1,2
+	xstore	[srcreg+48], xmm10	;;#2 Save R7				; 50	avail 8,14,3,9,0,7,4,10 storable 13,1,2
+
+	xcopy	xmm8, xmm6		;;#2 Copy R4
+	subpd	xmm6, xmm12		;;#2 R4 = R4 - R8 (final R8)		; 51-53	avail 14,3,9,0,7,4,10 storable 13,1,2,6
+	xstore	[srcreg+16], xmm13	;;#2 Save R3				; 51	avail 14,3,9,0,7,4,10,13 storable 1,2,6
+
+	addpd	xmm12, xmm8		;;#2 R8 = R4 + R8 (final R4)		; 52-54	avail 14,3,9,0,7,4,10,13,8 storable 1,2,6,12
+	xstore	[srcreg+32], xmm1	;;#2 Save R5				; 52	avail 14,3,9,0,7,4,10,13,8,1 storable 2,6,12
+
+	xcopy	xmm8, xmm5		;;#2 Copy R2
+	subpd	xmm5, xmm11		;;#2 R2 = R2 - R6 (final R6)		; 53-55	avail 14,3,9,0,7,4,10,13,1 storable 2,6,12,5
+	xstore	[srcreg], xmm2		;;#2 Save R1				; 53	avail 14,3,9,0,7,4,10,13,1,2 storable 6,12,5
+
+	addpd	xmm11, xmm8		;;#2 R6 = R2 + R6 (final R2)		; 54-56	avail 14,3,9,0,7,4,10,13,1,2,8 storable 6,12,5,11
+	xstore	[srcreg+d2+48], xmm6	;;#2 Save R8				; 54
+	xstore	[srcreg+d2+16], xmm12	;;#2 Save R4				; 55
+	xstore	[srcreg+d2+32], xmm5	;;#2 Save R6				; 56
+	xstore	[srcreg+d2], xmm11	;;#2 Save R2				; 57
+
+	bump	srcreg, srcinc
+	ENDM
+
+ENDIF
+
+;;
+;; ************************************* eight-reals-four-complex-djbfft variants ******************************************
+;;
+;; Because of the way we store FFT data elements in cache lines during the pass 1 of the forward FFT, a cache line
+;; will contain data needing an eight-reals-fft as well as data needing a four-complex-fft.
+;;
+
+;; Macro to do an eight_reals_fft and a four_complex_djbfft.
+;; The eight-reals macro is very similar to the eight-reals-first-FFT.
+;; Both do 2 and 3/4 levels of the FFT.  One difference this
+;; macro takes two screg pointers.  One points to w^n and w^5n, the other
+;; points to w^2n which is also the screg used by the four-complex-FFT.
+
+r4_x4cl_eight_reals_four_complex_djbfft_preload MACRO
+	r4_x8r_fft_mem_preload
+	ENDM
+
+r4_x4cl_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,screg2
+	r4_x8r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg2,screg1,screg2+32,srcreg+srcinc,d1,[srcreg],[srcreg+16]
+;;	xstore	[srcreg], xmm0		;; Save real value #1
+;;	xstore	[srcreg+16], xmm0	;; Save real value #2
+	xload	xmm0, [srcreg+32]	;; R1
+	xload	xmm1, [srcreg+48]	;; R5
+	xstore	[srcreg+32], xmm7	;; Save R2
+	xstore	[srcreg+48], xmm5	;; Save I2
+	xload	xmm7, [srcreg+d1+32]	;; R2
+	xload	xmm5, [srcreg+d1+48]	;; R6
+	xstore	[srcreg+d1], xmm4	;; Save R3
+	xstore	[srcreg+d1+16], xmm3	;; Save I3
+	xstore	[srcreg+d1+32], xmm6	;; Save R4
+	xstore	[srcreg+d1+48], xmm2	;; Save I4
+	r4_x4c_djbfft_partial_mem xmm0,xmm7,xmm3,xmm2,xmm1,xmm5,xmm4,xmm6,[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+d2+48],[srcreg+d2+d1+48],screg1,0,srcreg+srcinc+d2,d1,[srcreg+d2],[srcreg+d2+16]
+;;	xstore	[srcreg+d2], xmm0	;; Save real value #1
+;;	xstore	[srcreg+d2+16], xmm0	;; Save real value #2
+	xstore	[srcreg+d2+32], xmm6	;; Save R2
+	xstore	[srcreg+d2+48], xmm4	;; Save I2
+	xstore	[srcreg+d2+d1], xmm2	;; Save R3
+	xstore	[srcreg+d2+d1+16], xmm7	;; Save I3
+	xstore	[srcreg+d2+d1+32], xmm0	;; Save R4
+	xstore	[srcreg+d2+d1+48], xmm1	;; Save I4
+	bump	srcreg, srcinc
+	ENDM
+
+;; Macro to do an eight_reals_fft and a four_complex_fft4 at the end of pass 1.
+;; We could do a four_complex_djbfft since the 4 twiddle factors belong to the
+;; first grouping.  However, this will only work if the corresponding unfft does
+;; a djbunfft.  This macro is very similar to r4_x4cl_eight_reals_four_complex_djbfft.
+
+;; This macro is used in the last levels of pass 1 (no swizzling)
+IFDEF UNUSED
+r4_g4cl_eight_reals_four_complex_fft4_preload MACRO
+	r4_x8r_fft_mem_preload
+	ENDM
+r4_g4cl_eight_reals_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg1,screg2
+	r4_x8r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg2,screg1+32,screg2+32,dstreg+dstinc,e1,[dstreg],[dstreg+16]
+;;	xstore	[dstreg], xmm0		;; Save real value #1
+;;	xstore	[dstreg+16], xmm0	;; Save real value #2
+	xload	xmm0, [srcreg+32]	;; R1
+	xload	xmm1, [srcreg+48]	;; R5
+	xstore	[dstreg+32], xmm7	;; Save R2
+	xstore	[dstreg+48], xmm5	;; Save I2
+	xload	xmm7, [srcreg+d1+32]	;; R2
+	xload	xmm5, [srcreg+d1+48]	;; R6
+	xstore	[dstreg+e1], xmm4	;; Save R3
+	xstore	[dstreg+e1+16], xmm3	;; Save I3
+	xstore	[dstreg+e1+32], xmm6	;; Save R4
+	xstore	[dstreg+e1+48], xmm2	;; Save I4
+	r4_x4c_fft_partial_mem xmm0,xmm7,xmm3,xmm2,xmm1,xmm5,xmm4,xmm6,[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+d2+48],[srcreg+d2+d1+48],screg1,32,dstreg+dstinc+e2,e1,[dstreg+e2],[dstreg+e2+16]
+	bump	srcreg, srcinc
+;;	xstore	[dstreg+e2], xmm0	;; Save R1
+;;	xstore	[dstreg+e2+16], xmm0	;; Save I1
+	xstore	[dstreg+e2+32], xmm6	;; Save R2
+	xstore	[dstreg+e2+48], xmm4	;; Save I2
+	xstore	[dstreg+e2+e1], xmm2	;; Save R3
+	xstore	[dstreg+e2+e1+16], xmm7	;; Save I3
+	xstore	[dstreg+e2+e1+32], xmm0	;; Save R4
+	xstore	[dstreg+e2+e1+48], xmm1	;; Save I4
+	bump	dstreg, dstinc
+	ENDM
+ENDIF
+
+;; Used in the last levels of pass 1 (swizzling)
+r4_sg4cl_eight_reals_four_complex_fft4_preload MACRO
+	r4_x8r_fft_mem_preload
+	ENDM
+r4_sg4cl_eight_reals_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg1,screg2
+	r4_x8r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg2,screg1+32,screg2+32,dstreg+dstinc,e1,[dstreg],[dstreg+32]
+	shuffle_store_partial [dstreg], [dstreg+16], xmm0, xmm7				;; Save real value #1,R2
+	shuffle_store_partial [dstreg+32], [dstreg+48], xmm1, xmm5			;; Save real value #2,I2
+	shuffle_store_with_temp [dstreg+e1], [dstreg+e1+16], xmm4, xmm6, xmm7		;; Save R3,R4
+	shuffle_store_with_temp [dstreg+e1+32], [dstreg+e1+48], xmm3, xmm2, xmm7	;; Save I3,I4
+	xprefetch [srcreg+srcinc+d2]
+	r4_x4c_fft_mem [srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+48],[srcreg+d1+48],[srcreg+d2+48],[srcreg+d2+d1+48],screg1+32,screg1+64,screg1+96,dstreg+dstinc+e2,e1,[dstreg+e2],[dstreg+e2+32]
+	xprefetch [srcreg+srcinc+d2+d1]
+	bump	srcreg, srcinc
+	shuffle_store_partial [dstreg+e2], [dstreg+e2+16], xmm2, xmm7			;; Save R1,R2
+	shuffle_store_partial [dstreg+e2+32], [dstreg+e2+48], xmm5, xmm6		;; Save I1,I2
+	shuffle_store_with_temp [dstreg+e2+e1], [dstreg+e2+e1+16], xmm3, xmm0, xmm7	;; Save R3,R4
+	shuffle_store_with_temp [dstreg+e2+e1+32], [dstreg+e2+e1+48], xmm1, xmm4, xmm7	;; Save I3,I4
+	bump	dstreg, dstinc
+	ENDM
+
 
 ;;
 ;; ************************************* half-eight-reals-four-complex-djbfft variants ******************************************

@@ -240,6 +240,7 @@ c5b:	r3_x3cl_three_complex_djbunfft rsi, 64, 6*clmblkdst, rdi, 6*2*clm*XMM_SCD1
 	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
+	r4_x4cl_eight_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 18*clmblkdst, 36*clmblkdst, rdi, 18*XMM_SCD3
 	newxloop1 c1b, clmblkdst, rdi, XMM_SCD3 ;; 2*clm iterations
@@ -573,6 +574,7 @@ c9b:	r4_sg2cl_four_complex_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 	loops_init_prefetch 20*2*clm, 64, 2, rbp ;; 20*2*clm iterations
 ;;	xtouchpages rbp, 20*2*clm * 64 / 2 ;; Prefetch TLBs
 
+	r4_x4cl_eight_reals_unfft_preload
 c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*clm*XMM_SCD2, rdx, 2*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
@@ -905,6 +907,7 @@ c9b:	r4_sg2cl_four_complex_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 ;;	xtouchpages rbp, 24*2*clm * 64 / 2 ;; Prefetch TLBs
 	lea	rdx, [rdi+4*2*clm*XMM_SCD2] ;; Next sin/cos ptr
 
+	r4_x4cl_eight_reals_unfft_preload
 c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*clm*XMM_SCD2, rdx, 2*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
@@ -999,6 +1002,7 @@ c5b:	r3_x3cl_three_complex_djbunfft rsi, 64, clmblkdst8, rdi, 8*2*clm*XMM_SCD1
 	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
+	r4_x4cl_eight_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 3*clmblkdst8, 6*clmblkdst8, rdi, 24*XMM_SCD3
 	newxloop1 c1b, clmblkdst, rdi, XMM_SCD3 ;; 2*clm iterations
@@ -1339,6 +1343,7 @@ c9b:	r4_sg2cl_four_complex_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 	loops_init_prefetch 28*2*clm, 64, 2, rbp ;; 28*2*clm iterations
 ;;	xtouchpages rbp, 28*2*clm * 64 / 2 ;; Prefetch TLBs
 
+	r4_x4cl_eight_reals_unfft_preload
 c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*clm*XMM_SCD2, rdx, 2*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
@@ -1668,6 +1673,7 @@ c9b:	r4_sg2cl_four_complex_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 	loops_init_prefetch_touch 32*2*clm, 64, 2, rbp, 4096, c7a ;; 32*2*clm iterations
 	lea	rdx, [rdi+4*2*clm*XMM_SCD2] ;; Next sin/cos ptr
 
+	r4_x4cl_eight_reals_unfft_preload
 c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*clm*XMM_SCD2, rdx, 2*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
@@ -1717,6 +1723,7 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*c
 	start_timer 18
 	loops_init 32*2*clm		;; 32 iterations of 2*clm
 	lea	rdx, [rdi+16*2*clm*XMM_SCD2] ;; Next sin/cos ptr
+	r4_x4cl_eight_reals_unfft_preload
 c4b:	r4_x4cl_eight_reals_unfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 8*2*clm*XMM_SCD2, rdx, 8*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
@@ -1762,6 +1769,7 @@ c5b:	r4_x4cl_four_complex_djbunfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 8*2*c
 	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
+	r4_x4cl_eight_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 4*clmblkdst8, 8*clmblkdst8, rdi, 32*XMM_SCD3
 	newxloop1 c1b, clmblkdst, rdi, XMM_SCD3 ;; 2*clm iterations
@@ -2105,6 +2113,7 @@ c9b:	r8_sg4cl_eight_complex_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst
 	lea	rdx, [rdi+8*2*clm*XMM_SCD2] ;; Next sin/cos ptr
 	loops_init_prefetch 40*2*clm, 64, 2, rbp ;; 40 iterations of 2*clm
 ;;	xtouchpages rbp, 40*2*clm * 64 / 2 ;; Prefetch TLBs
+	r4_x4cl_eight_reals_unfft_preload
 c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*clm*XMM_SCD2, rdx, 4*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
@@ -2443,6 +2452,7 @@ c9b:	r8_sg4cl_eight_complex_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst
 	loops_init_prefetch 48*2*clm, 64, 2, rbp ;; 48 iterations of 2*clm
 ;;bug	xtouchpages rbp, 48*2*clm * 64 / 2 ;; Prefetch TLBs
 
+	r4_x4cl_eight_reals_unfft_preload
 c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*clm*XMM_SCD2, rdx, 4*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
@@ -2542,6 +2552,7 @@ c5b:	r3_x3cl_three_complex_djbunfft rsi, 64, 2*clmblkdst8, rdi, 16*2*clm*XMM_SCD
 	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
+	r4_x4cl_eight_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 6*clmblkdst8, 12*clmblkdst8, rdi, 48*XMM_SCD3
 	newxloop1 c1b, clmblkdst, rdi, XMM_SCD3 ;; 2*clm iterations
@@ -2885,6 +2896,7 @@ c9b:	r8_sg4cl_eight_complex_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst
 	lea	rdx, [rdi+8*2*clm*XMM_SCD2] ;; Next sin/cos ptr
 	loops_init_prefetch 56*2*clm, 64, 2, rbp ;; 56 iterations of 2*clm
 ;;bug	xtouchpages rbp, 56*2*clm * 64 / 2 ;; Prefetch TLBs
+	r4_x4cl_eight_reals_unfft_preload
 c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*clm*XMM_SCD2, rdx, 4*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
@@ -3221,6 +3233,7 @@ c9b:	r8_sg4cl_eight_complex_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst
 	lea	rdx, [rdi+8*2*clm*XMM_SCD2] ;; Next sin/cos ptr
 	loops_init_prefetch 64*2*clm, 64, 2, rbp ;; 64 iterations of 2*clm
 ;;bug	xtouchpages rbp, 64*2*clm * 64 / 2 ;; Prefetch TLBs
+	r4_x4cl_eight_reals_unfft_preload
 c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*clm*XMM_SCD2, rdx, 4*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
@@ -3270,6 +3283,7 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*cl
 	loops_init 64*2*clm		;; 64 iterations of 2*clm
 	lea	rdx, [rdi+32*2*clm*XMM_SCD2] ;; Next sin/cos ptr
 
+	r4_x4cl_eight_reals_unfft_preload
 c4b:	r4_x4cl_eight_reals_unfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, 16*2*clm*XMM_SCD2, rdx, 16*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
@@ -3319,6 +3333,7 @@ c5b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, 16*
 	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
+	r4_x4cl_eight_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rdi, 64*XMM_SCD3
 	newxloop1 c1b, clmblkdst, rdi, XMM_SCD3 ;; 2*clm iterations
@@ -3658,6 +3673,7 @@ c9b:	r4_sg2cl_four_complex_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 	loops_init_prefetch 80*2*clm, 64, 4, rbp ;; 80*2*clm iterations
 ;;	xtouchpages rbp, 80*2*clm * 64 / 2 ;; Prefetch TLBs
 
+	r4_x4cl_eight_reals_unfft_preload
 c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*clm*XMM_SCD2, rdx, 2*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
@@ -3707,6 +3723,7 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*c
 	lea	rdx, [rdi+16*2*clm*XMM_SCD2] ;; Next sin/cos ptr
 	loops_init 80*2*clm		;; 80*2*clm iterations
 
+	r4_x4cl_eight_reals_unfft_preload
 c4b:	r4_x4cl_eight_reals_unfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 8*2*clm*XMM_SCD2, rdx, 8*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
