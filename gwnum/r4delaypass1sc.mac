@@ -1389,6 +1389,7 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*c
 pfing	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
+	r7_x14cl_28_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r7_x14cl_28_reals_last_unfft rsi, 64, clmblkdst8, rdi, 8*XMM_SCD13
 	newxloop1quadpre c1b, c1a, clmblkdst, rdi, XMM_SCD13 ;; 2*clm iterations
@@ -1436,6 +1437,7 @@ pfing	sub	rbp, rcx
 pfing	bump	rcx, (32-4)*blkdst	;; We've already prefetched 32 blocks, but
 					;; code below will fetch 4 blocks too many
 	loops_init 16*2*clm		;; 16 iters of 2*clm
+	r7_x7cl_28_reals_first_fft_scratch_preload
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b1b:	r7_x7cl_28_reals_first_fft_scratch rsi, 64, 2*clmblkdst8, rdi
 	newxloop1doublepre b1b, b1a, clmblkdst, rdi, XMM_SCD13 ;; 2*clm iters prefetching 4*clm cache lines
@@ -2942,6 +2944,7 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*cl
 pfing	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
+	r7_x14cl_28_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r7_x14cl_28_reals_last_unfft rsi, 64, 2*clmblkdst8, rdi, 16*XMM_SCD13
 	newxloop1quadpre c1b, c1a, clmblkdst, rdi, XMM_SCD13 ;; 2*clm iterations
@@ -2991,6 +2994,7 @@ pfing	sub	rbp, rcx
 pfing	bump	rcx, (64-8)*blkdst	;; We've already prefetched 64 blocks, but
 					;; code below will fetch 8 blocks too many
 	loops_init 32*2*clm		;; 32 iters of 2*clm
+	r7_x7cl_28_reals_first_fft_scratch_preload
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b1b:	r7_x7cl_28_reals_first_fft_scratch rsi, 64, 4*clmblkdst8, rdi
 	newxloop1doublepre b1b, b1a, clmblkdst, rdi, XMM_SCD13 ;; 2*clm iters prefetching 4*clm cache lines
