@@ -295,14 +295,20 @@ sse2mac MACRO	lab, memused, memarea, ops:vararg
 	LOCAL	ss0a, ss0b
 	inner_iters = memarea / memused
 	outer_iters = 10000 / inner_iters
+	odd_iters = 10000 - inner_iters * outer_iters
+	IF odd_iters EQ 0
+	odd_iters = inner_iters
+	ELSE
+	outer_iters = outer_iters + 1
+	ENDIF
 lab:	mov	rbx, 0			;; Offset for some sse2 macros (s.b. non-zero for with_mult macros)
 	mov	rbp, 524288+256		;; Offset for mulf sse2 macros
 	mov	eax, outer_iters
+	mov	ecx, odd_iters
 	mov	SRCARG, rdi		;; Save work buf addr
 ss0a:	mov	rdi, SRCARG		;; Reload work buf addr (sincos data)
 	lea	rsi, [rdi+4096]		;; Source & dest ptr
 	lea	rdx, [rsi+524288+256]	;; Destination for "g" macros
-	mov	ecx, inner_iters
 ss0b:	&ops
 IF memused NE 192
 	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
@@ -311,6 +317,7 @@ ELSE
 ENDIF
 	dec	ecx
 	jnz	ss0b
+	mov	ecx, inner_iters
 	dec	eax
 	jnz	ss0a
 	jmp	exit
@@ -319,14 +326,20 @@ sse2macbx MACRO	lab, memused, memarea, ops:vararg
 	LOCAL	ss0a, ss0b
 	inner_iters = memarea / memused
 	outer_iters = 10000 / inner_iters
+	odd_iters = 10000 - inner_iters * outer_iters
+	IF odd_iters EQ 0
+	odd_iters = inner_iters
+	ELSE
+	outer_iters = outer_iters + 1
+	ENDIF
 lab:	mov	rbx, 262144+128		;; Offset for some sse2 macros (s.b. non-zero for with_mult macros)
 	mov	rbp, 524288+256		;; Offset for mulf sse2 macros
 	mov	eax, outer_iters
+	mov	ecx, odd_iters
 	mov	SRCARG, rdi		;; Save work buf addr
 ss0a:	mov	rdi, SRCARG		;; Reload work buf addr (sincos data)
 	lea	rsi, [rdi+4096]		;; Source & dest ptr
 	lea	rdx, [rsi+524288+256]	;; Destination for "g" macros
-	mov	ecx, inner_iters
 ss0b:	&ops
 IF memused NE 192
 	lea	rdi, [rdi+2*XMM_SCD]	;; Next sine/cosine pointer
@@ -335,6 +348,7 @@ ELSE
 ENDIF
 	dec	ecx
 	jnz	ss0b
+	mov	ecx, inner_iters
 	dec	eax
 	jnz	ss0a
 	jmp	exit
