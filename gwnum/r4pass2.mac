@@ -293,6 +293,7 @@ xpass2_2304_levels_real_2:
 	loops_init_prefetch 288, 64, 2, rcx, 1, 32
 	xtouch	[rcx+4096-128]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-128]	;; Preload the TLBs
+	r4_x4cl_four_complex_with_square_preload
 baa:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 	loops	32, baa			;; Test loop counter
 	bump	rsi, -32*4*64+dist128	;; Next source pointer
@@ -799,6 +800,7 @@ xpass2_2304_levels_complex_2:
 	loops_init_prefetch 288, 64, 2, rcx
 	xtouch	[rcx+4096-128]		;; Load prefetch TLBs
 	xtouch	[rcx+2*4096-128]
+	r4_x4cl_four_complex_with_square_preload
 b6a:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 	loops	32, b6a			;; Loop 32 times
 	bump	rsi, -16*2*4*64+dist128	;; Next source pointer
@@ -1339,6 +1341,7 @@ xpass2_3072_levels_real_2:
 	xtouch	[rcx+4096-128]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-128]
 	xtouch	[rcx+3*4096-128]
+	r4_x4cl_four_complex_with_square_preload
 baa:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 	loops	32, baa			;; Test loop counter
 	bump	rsi, -32*4*64+dist128	;; Next source pointer
@@ -1882,6 +1885,7 @@ xpass2_3072_levels_complex_2:
 	xtouch	[rcx+4096-128]		;; Load prefetch TLBs
 	xtouch	[rcx+2*4096-128]
 	xtouch	[rcx+3*4096-128]
+	r4_x4cl_four_complex_with_square_preload
 b6a:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 	loops	32, b6a			;; Loop 32 times
 	bump	rsi, -16*2*4*64+dist128	;; Next source pointer
@@ -2437,6 +2441,7 @@ xpass2_3840_levels_real_2:
 	xtouch	[rcx+2*4096-128]
 	xtouch	[rcx+3*4096-128]
 	xtouch	[rcx+4*4096-128]
+	r4_x4cl_four_complex_with_square_preload
 baa:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 	loops	32, baa			;; Test loop counter
 	bump	rsi, -32*4*64+dist128	;; Next source pointer
@@ -2990,6 +2995,7 @@ xpass2_3840_levels_complex_2:
 	xtouch	[rcx+2*4096-128]
 	xtouch	[rcx+3*4096-128]
 	xtouch	[rcx+4*4096-128]
+	r4_x4cl_four_complex_with_square_preload
 b6a:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 	loops	32, b6a			;; Loop 32 times
 	bump	rsi, -16*2*4*64+dist128	;; Next source pointer
@@ -3533,6 +3539,7 @@ b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
 xpass2_12_levels_real_2:
 	r4_h4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	loops_init_prefetch 512, 64, 1, rcx, 1, 32
+	r4_x4cl_four_complex_with_square_preload
 baa0:	xtouch	[rcx+4096-128]		;; Preload the TLBs
 baa:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 	loops	32, baa			;; Test loop counter
@@ -4102,6 +4109,7 @@ ENDIF
 xpass2_12_levels_complex_2:
 	start_timer 9
 	loops_init_prefetch 512, 64, 2, rcx
+	r4_x4cl_four_complex_with_square_preload
 b6a0:	xtouch	[rcx+4096-128]		;; Load prefetch TLBs
 	xtouch	[rcx+2*4096-128]
 b6a:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
@@ -4716,6 +4724,7 @@ xpass2_5120_levels_real_2:
 	xtouch	[rcx+3*4096-128]
 	xtouch	[rcx+4*4096-128]
 	xtouch	[rcx+5*4096-128]
+	r4_x4cl_four_complex_with_square_preload
 baa:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 	loops	32, baa			;; Test loop counter
 	bump	rsi, -32*4*64+dist128	;; Next source pointer
@@ -5272,6 +5281,7 @@ xpass2_5120_levels_complex_2:
 	xtouch	[rcx+3*4096-128]
 	xtouch	[rcx+4*4096-128]
 	xtouch	[rcx+5*4096-128]
+	r4_x4cl_four_complex_with_square_preload
 b6a:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 	loops	32, b6a			;; Loop 32 times
 	bump	rsi, -16*2*4*64+dist128	;; Next source pointer
@@ -5837,6 +5847,7 @@ xpass2_6400_levels_real_2:
 	xtouch	[rcx+4*4096-128]
 	xtouch	[rcx+5*4096-128]
 	xtouch	[rcx+6*4096-128]
+	r4_x4cl_four_complex_with_square_preload
 baa:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 	loops	32, baa			;; Test loop counter
 	bump	rsi, -32*4*64+dist128	;; Next source pointer
@@ -6389,6 +6400,7 @@ xpass2_6400_levels_complex_2:
 	xtouch	[rcx+4*4096-128]
 	xtouch	[rcx+5*4096-128]
 	xtouch	[rcx+6*4096-128]
+	r4_x4cl_four_complex_with_square_preload
 b6a:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 	loops	32, b6a			;; Loop 32 times
 	bump	rsi, -16*2*4*64+dist128	;; Next source pointer
