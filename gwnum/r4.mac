@@ -3642,6 +3642,226 @@ r4_x4c_fft4_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem3,mem4,mem7,mem8,dest1,
 	mulpd	r6, [screg+off+0]		;; B1 = B1 * sine (final I1)
 	ENDM
 
+IFDEF X86_64
+
+r4_sg4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
+	xprefetch [srcreg+srcinc]
+
+	xload	xmm0, [srcreg]			;; R1
+	xload	xmm1, [srcreg+d2]		;; R3
+	xcopy	xmm2, xmm0			;; Copy R1			; 1-3
+	addpd	xmm0, xmm1			;; R3 = R1 + R3 (new R1)	; 1-3
+	xload	xmm3, [srcreg+d1]		;; R2
+	xload	xmm4, [srcreg+d2+d1]		;; R4
+	xcopy	xmm5, xmm3			;; Copy R2			; 2-4
+	addpd	xmm3, xmm4			;; R4 = R2 + R4 (new R2)	; 2-4
+	xload	xmm6, [srcreg+16]		;; I1
+	xload	xmm7, [srcreg+d2+16]		;; I3
+	xcopy	xmm8, xmm6			;; Copy I1			; 3-5
+	addpd	xmm6, xmm7			;; I3 = I1 + I3 (new I1)	; 3-5
+	xload	xmm9, [srcreg+d1+16]		;; I2
+	xload	xmm10, [srcreg+d2+d1+16]	;; I4
+	xcopy	xmm11, xmm9			;; Copy I2			; 4-6
+	addpd	xmm9, xmm10			;; I4 = I2 + I4 (new I2)	; 4-6	avail 12+
+
+	subpd	xmm2, xmm1			;; R1 = R1 - R3 (new R3)	; 5-7	avail 1,12+
+
+	subpd	xmm5, xmm4			;; R2 = R2 - R4 (new R4)	; 6-8	avail 1,4,12+
+
+	xprefetchw [dstreg+dstinc]
+
+	subpd	xmm8, xmm7			;; I1 = I1 - I3 (new I3)	; 7-9	avail 1,4,7,12+
+	xcopy	xmm1, xmm0			;; Copy R1			; 7-9 (4) avail 4,7,12+
+
+	subpd	xmm11, xmm10			;; I2 = I2 - I4 (new I4)	; 8-10	avail 4,7,10,12+
+	xload	xmm12, [screg+64+16]		;; cosine/sine 2		; 8	avail 4,7,10,13+
+
+	subpd	xmm0, xmm3			;; R1 = R1 - R2 (final R2)	; 9-11
+	xcopy	xmm4, xmm6			;; Copy I1			; 9-11 (6) avail 7,10,13+
+	xload	xmm13, [screg+0+16]		;; cosine/sine 1		; 9
+
+	addpd	xmm3, xmm1			;; R2 = R1 + R2 (final R1)	; 10-12 avail 7,10,1,14+
+	xcopy	xmm7, xmm8			;; Copy I3			; 10-12 avail 10,1,14+
+
+	subpd	xmm6, xmm9			;; I1 = I1 - I2 (final I2)	; 11-13
+	xcopy	xmm1, xmm2			;; Copy R3			; 11-13 (8) avail 10,14+
+
+	addpd	xmm9, xmm4			;; I2 = I1 + I2 (final I1)	; 12-14 avail 10,4,14+
+	xcopy	xmm10, xmm0			;; Copy R2			; 12-14 avail 4,14+
+	mulpd	xmm0, xmm12			;; A2 = R2 * cosine/sine	; 12-16
+
+	subpd	xmm8, xmm5			;; I3 = I3 - R4 (final I4)	; 13-15
+	xcopy	xmm4, xmm3			;; Copy R1			; 13-15 avail 14+
+	mulpd	xmm3, xmm13			;; A1 = R1 * cosine/sine	; 13-17
+
+	addpd	xmm5, xmm7			;; R4 = I3 + R4 (final I3)	; 14-16 avail 7,14+
+	mulpd	xmm12, xmm6			;; B2 = I2 * cosine/sine	; 14-18
+	xload	xmm14, [screg+96+16]		;; cosine/sine 4		; 14	avail 7,15
+
+	subpd	xmm2, xmm11			;; R3 = R3 - I4 (final R3)	; 15-17
+	mulpd	xmm13, xmm9			;; B1 = I1 * cosine/sine	; 15-19
+	xload	xmm15, [screg+32+16]		;; cosine/sine 3		; 15	avail 7
+
+	addpd	xmm11, xmm1			;; I4 = R3 + I4 (final R4)	; 16-18 avail 7,1
+	xcopy	xmm7, xmm8			;; Copy I4			; 16-18 avail 1
+	mulpd	xmm8, xmm14			;; B4 = I4 * cosine/sine	; 16-20
+
+	subpd	xmm0, xmm6			;; A2 = A2 - I2			; 17-19	avail 1,6
+	xcopy	xmm1, xmm5			;; Copy I3			; 17-19	avail 6
+	mulpd	xmm5, xmm15			;; B3 = I3 * cosine/sine	; 17-21
+
+	subpd	xmm3, xmm9			;; A1 = A1 - I1			; 18-20	avail 6,9
+	mulpd	xmm15, xmm2			;; A3 = R3 * cosine/sine	; 18-22
+	xload	xmm6, [screg+64]		;; sine 2			; 18	avail 9
+
+	addpd	xmm12, xmm10			;; B2 = B2 + R2			; 19-21	avail 9,10
+	mulpd	xmm14, xmm11			;; A4 = R4 * cosine/sine	; 19-23
+	xload	xmm9, [screg]			;; sine 1			; 19	avail 10
+
+	xprefetchw [dstreg+dstinc+e1]
+
+	addpd	xmm13, xmm4			;; B1 = B1 + R1			; 20-22	avail 10,4
+	mulpd	xmm0, xmm6			;; A2 = A2 * sine (final R2)	; 20-24
+	xload	xmm4, [screg+96]		;; sine 4			; 20	avail 10,11
+
+	addpd	xmm8, xmm11			;; B4 = B4 + R4			; 21-23	avail 10,11
+	mulpd	xmm3, xmm9			;; A1 = A1 * sine (final R1)	; 21-25
+	xload	xmm11, [screg+32]		;; sine 3			; 21	avail 10
+
+	addpd	xmm5, xmm2			;; B3 = B3 + R3			; 22-24	avail 10,2
+	mulpd	xmm12, xmm6			;; B2 = B2 * sine (final I2)	; 22-26	avail 10,2,6
+	xload	xmm10, [srcreg+32]		;;#2 R1				; 22	avail 2,6
+
+	subpd	xmm15, xmm1			;; A3 = A3 - I3			; 23-25	avail 2,6,1
+	mulpd	xmm13, xmm9			;; B1 = B1 * sine (final I1)	; 23-27	avail 2,6,1,9
+	xcopy	xmm6, xmm10			;;#2 Copy R1			; 1-3	avail 2,1,9
+	xload	xmm2, [srcreg+d2+32]		;;#2 R3				; 23	avail 1,9
+
+	subpd	xmm14, xmm7			;; A4 = A4 - I4			; 24-26	avail 1,9,7
+	mulpd	xmm8, xmm4			;; B4 = B4 * sine (final I4)	; 24-28
+	xload	xmm1, [srcreg+d1+32]		;;#2 R2				; 24	avail 9,7
+	xcopy	xmm9, xmm1			;;#2 Copy R2			; 2-4	avail 7
+
+	addpd	xmm10, xmm2			;;#2 R3 = R1 + R3 (new R1)	; 1-3
+	mulpd	xmm5, xmm11			;; B3 = B3 * sine (final I3)	; 25-29
+	xload	xmm7, [srcreg+d2+d1+32]		;;#2 R4				; 25	avail none
+
+	xprefetch [srcreg+srcinc+d1]
+
+	addpd	xmm1, xmm7			;;#2 R4 = R2 + R4 (new R2)	; 2-4
+	mulpd	xmm15, xmm11			;; A3 = A3 * sine (final R3)	; 26-30	avail 11
+
+	shuffle_store_with_temp [dstreg], [dstreg+16], xmm3, xmm0, xmm11	;; Save R1,R2 in clocks 26-30  avail 3,0,11
+
+	xload	xmm0, [srcreg+48]		;;#2 I1
+	xload	xmm3, [srcreg+d2+48]		;;#2 I3
+	xcopy	xmm11, xmm0			;;#2 Copy I1			; 3-5
+	addpd	xmm0, xmm3			;;#2 I3 = I1 + I3 (new I1)	; 3-5
+	mulpd	xmm14, xmm4			;; A4 = A4 * sine (final R4)	; 27-31	avail 4
+
+	shuffle_store_with_temp [dstreg+32], [dstreg+48], xmm13, xmm12, xmm4	;; Save I1,I2 in clocks 28-32  avail 13,12,4
+
+	xload	xmm4, [srcreg+d1+48]		;;#2 I2
+	xload	xmm12, [srcreg+d2+d1+48]	;;#2 I4
+	xcopy	xmm13, xmm4			;;#2 Copy I2			; 4-6
+	addpd	xmm4, xmm12			;;#2 I4 = I2 + I4 (new I2)	; 4-6	avail none
+
+	subpd	xmm6, xmm2			;;#2 R1 = R1 - R3 (new R3)	; 5-7	avail 2
+
+	xprefetch [srcreg+srcinc+d2]
+
+	subpd	xmm9, xmm7			;;#2 R2 = R2 - R4 (new R4)	; 6-8	avail 2,7
+
+	shuffle_store_with_temp [dstreg+e1+32], [dstreg+e1+48], xmm5, xmm8, xmm2 ;; Save I3,I4 in clocks 30-34
+
+	subpd	xmm11, xmm3			;;#2 I1 = I1 - I3 (new I3)	; 7-9
+	xcopy	xmm2, xmm10			;;#2 Copy R1			; 7-9 (4)
+
+	subpd	xmm13, xmm12			;;#2 I2 = I2 - I4 (new I4)	; 8-10
+	xload	xmm5, [screg+64+16]		;;#2 cosine/sine 2		; 8
+
+	shuffle_store_with_temp [dstreg+e1], [dstreg+e1+16], xmm15, xmm14, xmm3	;; Save R3,R4 in clocks 32-36
+
+	subpd	xmm10, xmm1			;;#2 R1 = R1 - R2 (final R2)	; 9-11
+	xcopy	xmm7, xmm0			;;#2 Copy I1			; 9-11 (6)
+	xload	xmm8, [screg+0+16]		;;#2 cosine/sine 1		; 9
+
+	xprefetchw [dstreg+dstinc+e2]
+
+	addpd	xmm1, xmm2			;;#2 R2 = R1 + R2 (final R1)	; 10-12
+	xcopy	xmm3, xmm11			;;#2 Copy I3			; 10-12
+
+	subpd	xmm0, xmm4			;;#2 I1 = I1 - I2 (final I2)	; 11-13
+	xcopy	xmm2, xmm6			;;#2 Copy R3			; 11-13 (8)
+
+	addpd	xmm4, xmm7			;;#2 I2 = I1 + I2 (final I1)	; 12-14
+	xcopy	xmm12, xmm10			;;#2 Copy R2			; 12-14
+	mulpd	xmm10, xmm5			;;#2 A2 = R2 * cosine/sine	; 12-16
+
+	subpd	xmm11, xmm9			;;#2 I3 = I3 - R4 (final I4)	; 13-15
+	xcopy	xmm7, xmm1			;;#2 Copy R1			; 13-15
+	mulpd	xmm1, xmm8			;;#2 A1 = R1 * cosine/sine	; 13-17
+
+	addpd	xmm9, xmm3			;;#2 R4 = I3 + R4 (final I3)	; 14-16
+	mulpd	xmm5, xmm0			;;#2 B2 = I2 * cosine/sine	; 14-18
+	xload	xmm14, [screg+96+16]		;;#2 cosine/sine 4		; 14
+
+	subpd	xmm6, xmm13			;;#2 R3 = R3 - I4 (final R3)	; 15-17
+	mulpd	xmm8, xmm4			;;#2 B1 = I1 * cosine/sine	; 15-19
+	xload	xmm15, [screg+32+16]		;;#2 cosine/sine 3		; 15
+
+	addpd	xmm13, xmm2			;;#2 I4 = R3 + I4 (final R4)	; 16-18
+	xcopy	xmm3, xmm11			;;#2 Copy I4			; 16-18
+	mulpd	xmm11, xmm14			;;#2 B4 = I4 * cosine/sine	; 16-20
+
+	subpd	xmm10, xmm0			;;#2 A2 = A2 - I2		; 17-19
+	xcopy	xmm2, xmm9			;;#2 Copy I3			; 17-19
+	mulpd	xmm9, xmm15			;;#2 B3 = I3 * cosine/sine	; 17-21
+
+	subpd	xmm1, xmm4			;;#2 A1 = A1 - I1		; 18-20
+	mulpd	xmm15, xmm6			;;#2 A3 = R3 * cosine/sine	; 18-22
+	xload	xmm0, [screg+64]		;;#2 sine 2			; 18
+
+	addpd	xmm5, xmm12			;;#2 B2 = B2 + R2		; 19-21
+	mulpd	xmm14, xmm13			;;#2 A4 = R4 * cosine/sine	; 19-23
+	xload	xmm4, [screg]			;;#2 sine 1			; 19
+
+	xprefetchw [dstreg+dstinc+e2+e1]
+
+	addpd	xmm8, xmm7			;;#2 B1 = B1 + R1		; 20-22
+	mulpd	xmm10, xmm0			;;#2 A2 = A2 * sine (final R2)	; 20-24
+
+	addpd	xmm11, xmm13			;;#2 B4 = B4 + R4		; 21-23
+	mulpd	xmm1, xmm4			;;#2 A1 = A1 * sine (final R1)	; 21-25
+	xload	xmm7, [screg+96]		;;#2 sine 4			; 21
+
+	addpd	xmm9, xmm6			;;#2 B3 = B3 + R3		; 22-24
+	mulpd	xmm5, xmm0			;;#2 B2 = B2 * sine (final I2)	; 22-26
+	xload	xmm6, [screg+32]		;;#2 sine 3			; 22
+
+	xprefetch [srcreg+srcinc+d2+d1]
+	bump	srcreg, srcinc
+
+	subpd	xmm15, xmm2			;;#2 A3 = A3 - I3		; 23-25
+	mulpd	xmm8, xmm4			;;#2 B1 = B1 * sine (final I1)	; 23-27
+
+	subpd	xmm14, xmm3			;;#2 A4 = A4 - I4		; 24-26
+	mulpd	xmm11, xmm7			;;#2 B4 = B4 * sine (final I4)	; 24-28
+
+	mulpd	xmm9, xmm6			;;#2 B3 = B3 * sine (final I3)	; 25-29
+
+	mulpd	xmm15, xmm6			;;#2 A3 = A3 * sine (final R3)	; 26-30
+
+	mulpd	xmm14, xmm7			;;#2 A4 = A4 * sine (final R4)	; 27-31
+
+	shuffle_store_with_temp [dstreg+e2], [dstreg+e2+16], xmm1, xmm10, xmm2		;;#2 Save R1,R2
+	shuffle_store_with_temp [dstreg+e2+32], [dstreg+e2+48], xmm8, xmm5, xmm2	;;#2 Save I1,I2
+	shuffle_store_with_temp [dstreg+e2+e1], [dstreg+e2+e1+16], xmm15, xmm14, xmm2	;;#2 Save R3,R4
+	shuffle_store_with_temp [dstreg+e2+e1+32], [dstreg+e2+e1+48], xmm9, xmm11, xmm2	;;#2 Save I3,I4
+	bump	dstreg, dstinc
+	ENDM
+
+ENDIF
 
 ;;
 ;; ************************************* four-complex-unfft4 variants ******************************************
