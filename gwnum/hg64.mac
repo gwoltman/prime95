@@ -24,14 +24,6 @@ shuffle_load MACRO reglo, reghi, mem1, mem2
 	movlpd	reghi, Q mem1[8]
 	ENDM
 
-shuffle_load_with_temp MACRO reglo, reghi, mem1, mem2
-	xload	reglo, mem1
-	xload	xmm15, mem2
-	xcopy	reghi, reglo
-	punpcklqdq reglo, xmm15
-	punpckhqdq reghi, xmm15
-	ENDM
-
 xfive_reals_fft_preload MACRO
 	xload	xmm8, XMM_P618		;; (.588/.951)
 	xload	xmm9, XMM_P309		;; .309
@@ -1442,27 +1434,27 @@ xs4c_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8
 	ENDM
 
 s2cl_four_complex_gpm_fft MACRO srcreg,srcinc,d1
-	shuffle_load_with_temp xmm0, xmm1, [srcreg][rbx], [srcreg+32][rbx] ;; R1,R3
+	shuffle_load_with_temp xmm0, xmm1, [srcreg][rbx], [srcreg+32][rbx], xmm15 ;; R1,R3
 	xcopy	xmm8, xmm0		;; Save R1
 	mulpd	xmm0, [rdi+16]		;; A1 = R1 * premul_real/premul_imag
 	xcopy	xmm9, xmm1		;; Save R3
 	mulpd	xmm1, [rdi+80]		;; A3 = R3 * premul_real/premul_imag
 
-	shuffle_load_with_temp xmm2, xmm3, [srcreg+16][rbx], [srcreg+48][rbx] ;; R5,R7
+	shuffle_load_with_temp xmm2, xmm3, [srcreg+16][rbx], [srcreg+48][rbx], xmm15 ;; R5,R7
 	xprefetch [srcreg+srcinc][rbx]
 	subpd	xmm0, xmm2		;; A1 = A1 - I1
 	mulpd	xmm2, [rdi+16]		;; B1 = I1 * premul_real/premul_imag
 	subpd	xmm1, xmm3		;; A3 = A3 - I3
 	mulpd	xmm3, [rdi+80]		;; B3 = I3 * premul_real/premul_imag
 
-	shuffle_load_with_temp xmm4, xmm5, [srcreg+d1][rbx], [srcreg+d1+32][rbx] ;; R2,R4
+	shuffle_load_with_temp xmm4, xmm5, [srcreg+d1][rbx], [srcreg+d1+32][rbx], xmm15 ;; R2,R4
 	xprefetch [srcreg+srcinc+d1][rbx]
 	xcopy	xmm10, xmm4		;; Save R2
 	mulpd	xmm4, [rdi+48]		;; A2 = R2 * premul_real/premul_imag
 	xcopy	xmm11, xmm5		;; Save R4
 	mulpd	xmm5, [rdi+112]		;; A4 = R4 * premul_real/premul_imag
 
-	shuffle_load_with_temp xmm6,xmm7,[srcreg+d1+16][rbx],[srcreg+d1+48][rbx] ;; R6,R8
+	shuffle_load_with_temp xmm6,xmm7,[srcreg+d1+16][rbx],[srcreg+d1+48][rbx], xmm15 ;; R6,R8
 	xprefetchw [srcreg+srcinc]
 	subpd	xmm4, xmm6		;; A2 = A2 - I2
 	mulpd	xmm6, [rdi+48]		;; B2 = I2 * premul_real/premul_imag
@@ -1520,8 +1512,8 @@ s2cl_four_complex_gpm_fft MACRO srcreg,srcinc,d1
 	ENDM
 
 s2cl_four_complex_first_fft MACRO srcreg,srcinc,d1
-	shuffle_load_with_temp xmm0,xmm1,[srcreg][rbx],[srcreg+16][rbx] ;; R1,R3
-	shuffle_load_with_temp xmm2,xmm3,[srcreg+32][rbx],[srcreg+48][rbx] ;; R5,R7
+	shuffle_load_with_temp xmm0,xmm1,[srcreg][rbx],[srcreg+16][rbx], xmm15 ;; R1,R3
+	shuffle_load_with_temp xmm2,xmm3,[srcreg+32][rbx],[srcreg+48][rbx], xmm15 ;; R5,R7
 
 	xcopy	xmm8, xmm0		;; Save R1
 	mulpd	xmm0, [rdi+16]		;; A1 = R1 * premul_real/premul_imag
@@ -1537,8 +1529,8 @@ s2cl_four_complex_first_fft MACRO srcreg,srcinc,d1
 	mulpd	xmm0, [rdi]		;; A1 = A1 * premul_imag (new R1)
 	mulpd	xmm2, [rdi]		;; B1 = B1 * premul_imag (new I1)
 
-	shuffle_load_with_temp xmm4,xmm5,[srcreg+d1][rbx],[srcreg+d1+16][rbx] ;; R2,R4
-	shuffle_load_with_temp xmm6,xmm7,[srcreg+d1+32][rbx],[srcreg+d1+48][rbx] ;; R6,R8
+	shuffle_load_with_temp xmm4,xmm5,[srcreg+d1][rbx],[srcreg+d1+16][rbx], xmm15 ;; R2,R4
+	shuffle_load_with_temp xmm6,xmm7,[srcreg+d1+32][rbx],[srcreg+d1+48][rbx], xmm15 ;; R6,R8
 
 	xcopy	xmm10, xmm4		;; Save R2
 	mulpd	xmm4, [rdi+48]		;; A2 = R2 * premul_real/premul_imag
@@ -2191,10 +2183,10 @@ xp4c_mulf MACRO r1,r2,r3,r4,r5,r6,r7,r8,m1,m2,m3,m4,m5,m6,m7,m8
 	ENDM
 
 s2cl_four_complex_fft_final MACRO srcreg,srcinc,d1
-	shuffle_load_with_temp xmm0,xmm1,[srcreg],[srcreg+32] ;; R1,R2
-	shuffle_load_with_temp xmm2,xmm3,[srcreg+d1],[srcreg+d1+32] ;; R3,R4
-	shuffle_load_with_temp xmm4,xmm5,[srcreg+16],[srcreg+48] ;; R5,R6
-	shuffle_load_with_temp xmm6,xmm7,[srcreg+d1+16],[srcreg+d1+48] ;; R7,R8
+	shuffle_load_with_temp xmm0,xmm1,[srcreg],[srcreg+32], xmm15 ;; R1,R2
+	shuffle_load_with_temp xmm2,xmm3,[srcreg+d1],[srcreg+d1+32], xmm15 ;; R3,R4
+	shuffle_load_with_temp xmm4,xmm5,[srcreg+16],[srcreg+48], xmm15 ;; R5,R6
+	shuffle_load_with_temp xmm6,xmm7,[srcreg+d1+16],[srcreg+d1+48], xmm15 ;; R7,R8
 	xstore	XMM_TMP1, xmm7
 	x4c_fft xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, XMM_TMP1, rdi, 0, srcreg+srcinc, d1, [srcreg+d1+48], [srcreg+d1]
 	xstore	[srcreg], xmm3		;; Save R1
@@ -2209,10 +2201,10 @@ s2cl_four_complex_fft_final MACRO srcreg,srcinc,d1
 	ENDM
 
 s2cl_four_complex_with_square MACRO srcreg,srcinc,d1
-	shuffle_load_with_temp xmm0,xmm1,[srcreg],[srcreg+32] ;; R1,R2
-	shuffle_load_with_temp xmm2,xmm3,[srcreg+d1],[srcreg+d1+32] ;; R3,R4
-	shuffle_load_with_temp xmm4,xmm5,[srcreg+16],[srcreg+48] ;; R5,R6
-	shuffle_load_with_temp xmm6,xmm7,[srcreg+d1+16],[srcreg+d1+48] ;; R7,R8
+	shuffle_load_with_temp xmm0,xmm1,[srcreg],[srcreg+32], xmm15 ;; R1,R2
+	shuffle_load_with_temp xmm2,xmm3,[srcreg+d1],[srcreg+d1+32], xmm15 ;; R3,R4
+	shuffle_load_with_temp xmm4,xmm5,[srcreg+16],[srcreg+48], xmm15 ;; R5,R6
+	shuffle_load_with_temp xmm6,xmm7,[srcreg+d1+16],[srcreg+d1+48], xmm15 ;; R7,R8
 	xstore	XMM_TMP1, xmm7
 	x4c_fft xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, XMM_TMP1, rdi, 0, srcreg+srcinc, d1, ,
 
@@ -2232,10 +2224,10 @@ s2cl_four_complex_with_square MACRO srcreg,srcinc,d1
 	ENDM
 
 s2cl_four_complex_with_mult MACRO srcreg,srcinc,d1
-	shuffle_load_with_temp xmm0,xmm1,[srcreg],[srcreg+32] ;; R1,R2
-	shuffle_load_with_temp xmm2,xmm3,[srcreg+d1],[srcreg+d1+32] ;; R3,R4
-	shuffle_load_with_temp xmm4,xmm5,[srcreg+16],[srcreg+48] ;; R5,R6
-	shuffle_load_with_temp xmm6,xmm7,[srcreg+d1+16],[srcreg+d1+48] ;; R7,R8
+	shuffle_load_with_temp xmm0,xmm1,[srcreg],[srcreg+32], xmm15 ;; R1,R2
+	shuffle_load_with_temp xmm2,xmm3,[srcreg+d1],[srcreg+d1+32], xmm15 ;; R3,R4
+	shuffle_load_with_temp xmm4,xmm5,[srcreg+16],[srcreg+48], xmm15 ;; R5,R6
+	shuffle_load_with_temp xmm6,xmm7,[srcreg+d1+16],[srcreg+d1+48], xmm15 ;; R7,R8
 	xstore	XMM_TMP1, xmm7
 	x4c_fft xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, XMM_TMP1, rdi, 0, srcreg+srcinc, d1
 

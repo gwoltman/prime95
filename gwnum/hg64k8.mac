@@ -28,7 +28,7 @@ shuffle_load MACRO reglo, reghi, mem1, mem2
 	movlpd	reghi, Q mem1[8]
 	ENDM
 
-shuffle_load_with_temp MACRO reglo, reghi, mem1, mem2
+shuffle_load_with_temp MACRO reglo, reghi, mem1, mem2, tmp
 	shuffle_load reglo, reghi, mem1, mem2
 	ENDM
 
