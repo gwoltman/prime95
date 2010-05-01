@@ -6745,16 +6745,16 @@ int primeBench (
 
 	  all_bench = IniGetInt (INI_FILE, "AllBench", 0);
 	  full_bench = IniGetInt (INI_FILE, "FullBench", 0);
-	  if (full_bench) {
-	    i = 0;
-	    num_lengths = sizeof (fft_lengths) / sizeof (int);
-	  } else {
-	    i = 30;
-	    num_lengths = sizeof (fft_lengths) / sizeof (int) - 8;
-	    if (! (CPU_FLAGS & CPU_SSE2)) num_lengths -= 4;
-	  }
-	  for ( ; i < num_lengths; i++) {
-	    for (plus1 = 0; plus1 <= 1; plus1++) {
+	  for (plus1 = 0; plus1 <= 1; plus1++) {
+	    if (full_bench) {
+		i = 0;
+		num_lengths = sizeof (fft_lengths) / sizeof (int);
+	    } else {
+		i = 30;
+		num_lengths = sizeof (fft_lengths) / sizeof (int) - 8;
+		if (! (CPU_FLAGS & CPU_SSE2)) num_lengths -= 4;
+	    }
+	    for ( ; i < num_lengths; i++) {
 	      for (ii = 1; ; ii++) {
 
 /* Initialize for this FFT length.  Compute the number of iterations to */
@@ -6851,17 +6851,19 @@ int primeBench (
 			pkt.num_data_points++;
 		}
 
-/* Do next FFT implementation (if all_bench set) or next FFT size (if */
+/* Do next FFT implementation (if all_bench set) or next FFT length (if */
 /* all_bench is not set) */
 
 		if (!all_bench) break;
-	    }
+	      }
 
-/* Do all-complex implementation (if all_bench set) or next FFT size (if */
-/* all_bench is not set) */
+/* Do next FFT length */
+
+	   }
+
+/* Do all-complex FFTs (if all_bench set) or exit (if all_bench is not set) */
 
 	    if (!all_bench) break;
-	  }
 	}
 }
 
