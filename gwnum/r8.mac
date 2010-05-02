@@ -271,9 +271,700 @@ r8_x8c_djbfft MACRO srcreg,d1,d2,d4,dstreg,e1,e2,screg,scoff
 ENDIF
 
 ;;
-;; ************************************* eight-complex-djbunfft variants ******************************************
+;; ************************************* eight-complex-with-square and variants ******************************************
 ;;
 
+;;
+;; These macros are used in the last levels of pass 2 in two pass FFTs.
+;;
+
+;;
+;; The last three levels of the forward FFT are performed.
+;; No sin/cos multipliers are needed.
+;;
+
+r8_x8cl_eight_complex_fft_final_preload MACRO
+	ENDM
+
+r8_x8cl_eight_complex_fft_final MACRO srcreg,srcinc,d1,d2,d4
+	r8_x8c_simple_fft_part1 srcreg+0,d1,d2,d4,XMM_COL_MULTS
+	r8_x8c_simple_fft_part1 srcreg+32,d1,d2,d4,XMM_COL_MULTS[256]
+	r8_x8c_simple_fft_part2 XMM_COL_MULTS,srcreg+0,d1,d2
+	r8_x8c_simple_fft_part2 XMM_COL_MULTS[256],srcreg+d4,d1,d2
+	bump	srcreg, srcinc
+	ENDM
+
+r8_x8c_simple_fft_part1 MACRO srcreg,d1,d2,d4,dst
+	xload	xmm0, [srcreg]			;; R1
+	xload	xmm2, [srcreg+d4]		;; R5
+	xcopy	xmm7, xmm2			;; Copy R5
+	addpd	xmm2, xmm0			;; R5 = R1 + R5 (new R1)
+	subpd	xmm0, xmm7			;; R1 = R1 - R5 (new R5)
+
+	xload	xmm1, [srcreg+d2]		;; R3
+	xload	xmm3, [srcreg+d4+d2]		;; R7
+	xcopy	xmm7, xmm3			;; Copy R7
+	addpd	xmm3, xmm1			;; R7 = R3 + R7 (new R3)
+	subpd	xmm1, xmm7			;; R3 = R3 - R7 (new R7)
+
+	xload	xmm4, [srcreg+16]		;; I1
+	xload	xmm6, [srcreg+d4+16]		;; I5
+	xcopy	xmm7, xmm6			;; Copy I5
+	addpd	xmm6, xmm4			;; I5 = I1 + I5 (new I1)
+	subpd	xmm4, xmm7			;; I1 = I1 - I5 (new I5)
+
+	xcopy	xmm7, xmm3			;; Copy R3
+	addpd	xmm3, xmm2			;; R3 = R1 + R3 (final R1)
+	subpd	xmm2, xmm7			;; R1 = R1 - R3 (final R3)
+
+	xstore	dst[0], xmm3			;; Save R1
+	xstore	dst[d1], xmm2			;; Save R3
+
+	xload	xmm5, [srcreg+d2+16]		;; I3
+	xload	xmm3, [srcreg+d4+d2+16]		;; I7
+	xcopy	xmm7, xmm3			;; Copy I7
+	addpd	xmm3, xmm5			;; I7 = I3 + I7 (new I3)
+	subpd	xmm5, xmm7			;; I3 = I3 - I7 (new I7)
+
+	xcopy	xmm7, xmm3			;; Copy I3
+	addpd	xmm3, xmm6			;; I3 = I1 + I3 (final I1)
+	subpd	xmm6, xmm7			;; I1 = I1 - I3 (final I3)
+
+	xstore	dst[32], xmm3			;; Save I1
+	xstore	dst[d1+32], xmm6		;; Save I3
+
+	xcopy	xmm3, xmm1			;; Copy R7
+	addpd	xmm1, xmm4			;; R7 = I5 + R7 (final I5)
+	xcopy	xmm7, xmm0			;; Copy R5
+	subpd	xmm0, xmm5			;; R5 = R5 - I7 (final R5)
+	subpd	xmm4, xmm3			;; I5 = I5 - R7 (final I7)
+	addpd	xmm5, xmm7			;; I7 = R5 + I7 (final R7)
+
+	xstore	dst[d2+32], xmm1		;; Save I5
+	xstore	dst[d2], xmm0			;; Save R5
+	xstore	dst[d2+d1+32], xmm4		;; Save I7
+	xstore	dst[d2+d1], xmm5		;; Save R7
+
+	xload	xmm0, [srcreg+d1]		;; R2
+	xload	xmm2, [srcreg+d4+d1]		;; R6
+	xcopy	xmm7, xmm2			;; Copy R6
+	addpd	xmm2, xmm0			;; R6 = R2 + R6 (new R2)
+	subpd	xmm0, xmm7			;; R2 = R2 - R6 (new R6)
+
+	xload	xmm1, [srcreg+d2+d1]		;; R4
+	xload	xmm3, [srcreg+d4+d2+d1]		;; R8
+	xcopy	xmm7, xmm3			;; Copy R8
+	addpd	xmm3, xmm1			;; R8 = R4 + R8 (new R4)
+	subpd	xmm1, xmm7			;; R4 = R4 - R8 (new R8)
+
+	xload	xmm4, [srcreg+d1+16]		;; I2
+	xload	xmm6, [srcreg+d4+d1+16]		;; I6
+	xcopy	xmm7, xmm6			;; Copy I6
+	addpd	xmm6, xmm4			;; I6 = I2 + I6 (new I2)
+	subpd	xmm4, xmm7			;; I2 = I2 - I6 (new I6)
+
+	xcopy	xmm7, xmm3			;; Copy R4
+	addpd	xmm3, xmm2			;; R4 = R2 + R4 (final R2)
+	subpd	xmm2, xmm7			;; R2 = R2 - R4 (final R4)
+
+	xstore	dst[16], xmm3			;; Save R2
+	xstore	dst[d1+16], xmm2		;; Save R4
+
+	xload	xmm5, [srcreg+d2+d1+16]		;; I4
+	xload	xmm3, [srcreg+d4+d2+d1+16]	;; I8
+	xcopy	xmm7, xmm3			;; Copy I8
+	addpd	xmm3, xmm5			;; I8 = I4 + I8 (new I4)
+	subpd	xmm5, xmm7			;; I4 = I4 - I8 (new I8)
+
+	xcopy	xmm7, xmm3			;; Copy I4
+	addpd	xmm3, xmm6			;; I4 = I2 + I4 (final I2)
+	subpd	xmm6, xmm7			;; I2 = I2 - I4 (final I4)
+
+	xstore	dst[48], xmm3			;; Save I2
+	xstore	dst[d1+48], xmm6		;; Save I4
+
+	xcopy	xmm3, xmm1			;; Copy R8
+	addpd	xmm1, xmm4			;; R8 = I6 + R8 (new I6)
+	xcopy	xmm7, xmm0			;; Copy R6
+	subpd	xmm0, xmm5			;; R6 = R6 - I8 (new R6)
+	subpd	xmm4, xmm3			;; I6 = I6 - R8 (new I8)
+	addpd	xmm5, xmm7			;; I8 = R6 + I8 (new R8)
+
+	xcopy	xmm7, xmm0			;; Copy R6
+	subpd	xmm0, xmm1			;; R6 = R6 - I6
+	addpd	xmm1, xmm7			;; I6 = R6 + I6
+	xload	xmm3, XMM_SQRTHALF
+	mulpd	xmm0, xmm3			;; R6 = R6 * SQRTHALF (final R6)
+	mulpd	xmm1, xmm3			;; I6 = I6 * SQRTHALF (final I6)
+
+	xcopy	xmm7, xmm5			;; Copy R8
+	subpd	xmm5, xmm4			;; R8 = R8 - I8
+	addpd	xmm4, xmm7			;; I8 = R8 + I8
+	mulpd	xmm5, xmm3			;; R8 = R8 * SQRTHALF (final R8)
+	mulpd	xmm4, xmm3			;; I8 = I8 * SQRTHALF (final I8)
+
+	xstore	dst[d2+16], xmm0		;; Save R6
+	xstore	dst[d2+48], xmm1		;; Save I6
+	xstore	dst[d2+d1+16], xmm5		;; Save R8
+	xstore	dst[d2+d1+48], xmm4		;; Save I8
+	ENDM
+
+r8_x8c_simple_fft_part2 MACRO src,dstreg,d1,d2
+	xload	xmm2, src[d2]			;; R5
+	xload	xmm0, src[d2+16] 		;; R6
+	xcopy	xmm7, xmm2			;; Copy R5
+	subpd	xmm2, xmm0			;; R5 = R5 - R6 (new R6)
+	addpd	xmm0, xmm7			;; R6 = R5 + R6 (new R5)
+
+	xload	xmm3, src[d2+32]		;; I5
+	xload	xmm1, src[d2+48] 		;; I6
+	xcopy	xmm7, xmm3			;; Copy I5
+	subpd	xmm3, xmm1			;; I5 = I5 - I6 (new I6)
+	addpd	xmm1, xmm7			;; I6 = I5 + I6 (new I5)
+
+	xload	xmm4, src[d2+d1]		;; R7
+	xload	xmm5, src[d2+d1+48]		;; I8
+	xcopy	xmm7, xmm4			;; Copy R7
+	subpd	xmm4, xmm5			;; R7 = R7 - I8 (new R7)
+	addpd	xmm5, xmm7			;; I8 = R7 + I8 (new R8)
+
+	xstore	[dstreg+d2+16], xmm2		;; Save R6
+	xstore	[dstreg+d2], xmm0		;; Save R5
+	xstore	[dstreg+d2+48], xmm3		;; Save I6
+	xstore	[dstreg+d2+32], xmm1		;; Save I5
+	xstore	[dstreg+d2+d1], xmm4		;; Save R7
+	xstore	[dstreg+d2+d1+16], xmm5		;; Save R8
+
+	xload	xmm0, src[d2+d1+32]		;; I7
+	xload	xmm1, src[d2+d1+16]		;; R8
+	xcopy	xmm7, xmm0			;; Copy I7
+	subpd	xmm0, xmm1			;; I7 = I7 - R8 (new I8)
+	addpd	xmm1, xmm7			;; R8 = I7 + R8 (new I7)
+
+	xload	xmm3, src[0]			;; R1
+	xload	xmm4, src[16]			;; R2
+	xcopy	xmm7, xmm3			;; Copy R1
+	subpd	xmm3, xmm4			;; R1 = R1 - R2 (new R2)
+	addpd	xmm4, xmm7			;; R2 = R1 + R2 (new R1)
+
+	xload	xmm5, src[32]			;; I1
+	xload	xmm6, src[48]			;; I2
+	xcopy	xmm7, xmm5			;; Copy I1
+	subpd	xmm5, xmm6			;; I1 = I1 - I2 (new I2)
+	addpd	xmm6, xmm7			;; I2 = I1 + I2 (new I1)
+
+	xstore	[dstreg+d2+d1+48], xmm0		;; Save I8
+	xstore	[dstreg+d2+d1+32], xmm1		;; Save I7
+	xstore	[dstreg+16], xmm3		;; Save R2
+	xstore	[dstreg], xmm4			;; Save R1
+	xstore	[dstreg+48], xmm5		;; Save I2
+	xstore	[dstreg+32], xmm6		;; Save I1
+
+	xload	xmm5, src[d1]			;; R3
+	xload	xmm6, src[d1+48]		;; I4
+	xcopy	xmm7, xmm5			;; Copy R3
+	subpd	xmm5, xmm6			;; R3 = R3 - I4 (new R3)
+	addpd	xmm6, xmm7			;; I4 = R3 + I4 (new R4)
+
+	xload	xmm3, src[d1+32]		;; I3
+	xload	xmm4, src[d1+16]		;; R4
+	xcopy	xmm7, xmm3			;; Copy I3
+	subpd	xmm3, xmm4			;; I3 = I3 - R4 (new I4)
+	addpd	xmm4, xmm7			;; R4 = I3 + R4 (new I3)
+
+	xstore	[dstreg+d1], xmm5		;; Save R3
+	xstore	[dstreg+d1+16], xmm6		;; Save R4
+	xstore	[dstreg+d1+48], xmm3		;; Save I4
+	xstore	[dstreg+d1+32], xmm4		;; Save I3
+	ENDM
+
+;;
+;; The last three levels of the forward FFT are performed, point-wise
+;; squaring, and first three levels of the inverse FFT are performed.
+;; No sin/cos multipliers are needed.
+;;
+
+r8_x8cl_eight_complex_with_square_preload MACRO
+	ENDM
+
+r8_x8cl_eight_complex_with_square MACRO srcreg,srcinc,d1,d2,d4
+	r8_x8c_simple_fft_part1 srcreg+0,d1,d2,d4,XMM_COL_MULTS
+	r8_x8c_simple_fft_part1 srcreg+32,d1,d2,d4,XMM_COL_MULTS[256]
+	r8_x8c_simple_fft_with_square XMM_COL_MULTS,d1,d2
+	r8_x8c_simple_fft_with_square XMM_COL_MULTS[256],d1,d2
+	r8_x8c_simple_unfft XMM_COL_MULTS,srcreg+0,d1,d2
+	r8_x8c_simple_unfft XMM_COL_MULTS[256],srcreg+d4,d1,d2
+	bump	srcreg, srcinc
+	ENDM
+
+r8_x8c_simple_fft_with_square MACRO src,d1,d2
+	xload	xmm2, src[d2]			;; R5
+	xload	xmm0, src[d2+16] 		;; R6
+	xcopy	xmm7, xmm2			;; Copy R5
+	subpd	xmm2, xmm0			;; R5 = R5 - R6 (new R6)
+	addpd	xmm0, xmm7			;; R6 = R5 + R6 (new R5)
+
+	xload	xmm3, src[d2+32]		;; I5
+	xload	xmm1, src[d2+48] 		;; I6
+	xcopy	xmm7, xmm3			;; Copy I5
+	subpd	xmm3, xmm1			;; I5 = I5 - I6 (new I6)
+	addpd	xmm1, xmm7			;; I6 = I5 + I6 (new I5)
+
+	xp_complex_square xmm2, xmm3, xmm7	;; Square R6/I6
+	xp_complex_square xmm0, xmm1, xmm7	;; Square R5/I5
+
+	xcopy	xmm7, xmm0			;; Copy R5
+	subpd	xmm0, xmm2			;; R5 = R5 - R6 (new R6)
+	addpd	xmm2, xmm7			;; R6 = R5 + R6 (new R5)
+
+	xcopy	xmm7, xmm1			;; Copy I5
+	subpd	xmm1, xmm3			;; I5 = I5 - I6 (new I6)
+	addpd	xmm3, xmm7			;; I6 = I5 + I6 (new I5)
+
+	xstore	src[d2+16], xmm0		;; Save R6
+	xstore	src[d2], xmm2			;; Save R5
+	xstore	src[d2+48], xmm1		;; Save I6
+	xstore	src[d2+32], xmm3		;; Save I5
+
+	xload	xmm4, src[d2+d1]		;; R7
+	xload	xmm5, src[d2+d1+48]		;; I8
+	xcopy	xmm7, xmm4			;; Copy R7
+	subpd	xmm4, xmm5			;; R7 = R7 - I8 (new R7)
+	addpd	xmm5, xmm7			;; I8 = R7 + I8 (new R8)
+
+	xload	xmm0, src[d2+d1+32]		;; I7
+	xload	xmm1, src[d2+d1+16]		;; R8
+	xcopy	xmm7, xmm0			;; Copy I7
+	subpd	xmm0, xmm1			;; I7 = I7 - R8 (new I8)
+	addpd	xmm1, xmm7			;; R8 = I7 + R8 (new I7)
+
+	xp_complex_square xmm5, xmm0, xmm7	;; Square R8/I8
+	xp_complex_square xmm4, xmm1, xmm7	;; Square R7/I7
+
+	xcopy	xmm7, xmm5			;; Copy R8
+	subpd	xmm5, xmm4			;; R8 = R8 - R7 (new I8)
+	addpd	xmm4, xmm7			;; R7 = R8 + R7 (new R7)
+
+	xcopy	xmm7, xmm1			;; Copy I7
+	subpd	xmm1, xmm0			;; I7 = I7 - I8 (new R8)
+	addpd	xmm0, xmm7			;; I8 = I7 + I8 (new I7)
+
+	xstore	src[d2+d1+48], xmm5		;; Save I8
+	xstore	src[d2+d1], xmm4		;; Save R7
+	xstore	src[d2+d1+16], xmm1		;; Save R8
+	xstore	src[d2+d1+32], xmm0		;; Save I7
+
+	xload	xmm3, src[0]			;; R1
+	xload	xmm4, src[16]			;; R2
+	xcopy	xmm7, xmm3			;; Copy R1
+	subpd	xmm3, xmm4			;; R1 = R1 - R2 (new R2)
+	addpd	xmm4, xmm7			;; R2 = R1 + R2 (new R1)
+
+	xload	xmm5, src[32]			;; I1
+	xload	xmm6, src[48]			;; I2
+	xcopy	xmm7, xmm5			;; Copy I1
+	subpd	xmm5, xmm6			;; I1 = I1 - I2 (new I2)
+	addpd	xmm6, xmm7			;; I2 = I1 + I2 (new I1)
+
+	xp_complex_square xmm3, xmm5, xmm7	;; Square R2/I2
+	xp_complex_square xmm4, xmm6, xmm7	;; Square R1/I1
+
+	xcopy	xmm7, xmm4			;; Copy R1
+	subpd	xmm4, xmm3			;; R1 = R1 - R2 (new R2)
+	addpd	xmm3, xmm7			;; R2 = R1 + R2 (new R1)
+
+	xcopy	xmm7, xmm6			;; Copy I1
+	subpd	xmm6, xmm5			;; I1 = I1 - I2 (new I2)
+	addpd	xmm5, xmm7			;; I2 = I1 + I2 (new I1)
+
+	xstore	src[16], xmm4			;; Save R2
+	xstore	src[0], xmm3			;; Save R1
+	xstore	src[48], xmm6			;; Save I2
+	xstore	src[32], xmm5			;; Save I1
+
+	xload	xmm5, src[d1]			;; R3
+	xload	xmm6, src[d1+48]		;; I4
+	xcopy	xmm7, xmm5			;; Copy R3
+	subpd	xmm5, xmm6			;; R3 = R3 - I4 (new R3)
+	addpd	xmm6, xmm7			;; I4 = R3 + I4 (new R4)
+
+	xload	xmm3, src[d1+32]		;; I3
+	xload	xmm4, src[d1+16]		;; R4
+	xcopy	xmm7, xmm3			;; Copy I3
+	subpd	xmm3, xmm4			;; I3 = I3 - R4 (final I4)
+	addpd	xmm4, xmm7			;; R4 = I3 + R4 (final I3)
+
+	xp_complex_square xmm6, xmm3, xmm7	;; Square R4/I4
+	xp_complex_square xmm5, xmm4, xmm7	;; Square R3/I3
+
+	xcopy	xmm7, xmm6			;; Copy R4
+	subpd	xmm6, xmm5			;; R4 = R4 - R3 (new I4)
+	addpd	xmm5, xmm7			;; R3 = R4 + R3 (new R3)
+
+	xcopy	xmm7, xmm4			;; Copy I3
+	subpd	xmm4, xmm3			;; I3 = I3 - I4 (new R4)
+	addpd	xmm3, xmm7			;; I4 = I3 + I4 (new I3)
+
+	xstore	src[d1+48], xmm6		;; Save I4
+	xstore	src[d1], xmm5			;; Save R3
+	xstore	src[d1+16], xmm4		;; Save R4
+	xstore	src[d1+32], xmm3		;; Save I3
+	ENDM
+
+r8_x8c_simple_unfft MACRO src,dstreg,d1,d2
+	xload	xmm5, src[d2+32]		;; I5
+	xload	xmm1, src[d2+d1+32]		;; I7
+	xcopy	xmm7, xmm5			;; Copy I5
+	subpd	xmm5, xmm1			;; I5 = I5 - I7 (new R7)
+	addpd	xmm1, xmm7			;; I7 = I5 + I7 (new I5)
+
+	xload	xmm4, src[0]			;; R1
+	xload	xmm2, src[d1]			;; R3
+	xcopy	xmm7, xmm4			;; Copy R1
+	subpd	xmm4, xmm2			;; R1 = R1 - R3 (new R3)
+	addpd	xmm2, xmm7			;; R3 = R1 + R3 (new R1)
+
+	xcopy	xmm7, xmm4			;; Copy R3
+	subpd	xmm4, xmm5			;; R3 = R3 - R7 (final R7)
+	addpd	xmm5, xmm7			;; R7 = R3 + R7 (final R3)
+
+	xstore	[dstreg+d2+16], xmm4		;; Save R7
+	xstore	[dstreg+d2], xmm5		;; Save R3
+
+	xload	xmm6, src[d2]			;; R5
+	xload	xmm0, src[d2+d1]		;; R7
+	xcopy	xmm7, xmm6			;; Copy R5
+	addpd	xmm6, xmm0			;; R5 = R7 + R5 (new R5)
+	subpd	xmm0, xmm7			;; R7 = R7 - R5 (new I7)
+
+	xload	xmm3, src[32]			;; I1
+	xload	xmm4, src[d1+32]		;; I3
+	xcopy	xmm7, xmm3			;; Copy I1
+	subpd	xmm3, xmm4			;; I1 = I1 - I3 (new I3)
+	addpd	xmm4, xmm7			;; I3 = I1 + I3 (new I1)
+
+	xcopy	xmm7, xmm3			;; Copy I3
+	subpd	xmm3, xmm0			;; I3 = I3 - I7 (final I7)
+	addpd	xmm0, xmm7			;; I7 = I3 + I7 (final I3)
+
+	xstore	[dstreg+d2+48], xmm3		;; I7
+	xstore	[dstreg+d2+32], xmm0		;; I3
+
+	xcopy	xmm7, xmm2			;; Copy R1
+	subpd	xmm2, xmm6			;; R1 = R1 - R5 (final R5)
+	addpd	xmm6, xmm7			;; R5 = R1 + R5 (final R1)
+
+	xcopy	xmm7, xmm4			;; Copy I1
+	subpd	xmm4, xmm1			;; I1 = I1 - I5 (final I5)
+	addpd	xmm1, xmm7			;; I5 = I1 + I5 (final I1)
+
+	xstore	[dstreg+16], xmm2		;; R5
+	xstore	[dstreg], xmm6			;; R1
+	xstore	[dstreg+48], xmm4		;; I5
+	xstore	[dstreg+32], xmm1		;; I1
+
+
+	;; multiply R6/I6 by SQRTHALF - i*SQRTHALF
+	xload	xmm4, src[d2+16]		;; R6
+	xload	xmm0, src[d2+48]		;; I6
+	xcopy	xmm7, xmm0			;; Copy I6
+	subpd	xmm0, xmm4			;; I6 = I6 - R6
+	addpd	xmm4, xmm7			;; R6 = R6 + I6
+
+	;; multiply R8/I8 by SQRTHALF - i*SQRTHALF
+	xload	xmm2, src[d2+d1+16]		;; R8
+	xload	xmm1, src[d2+d1+48]		;; I8
+	xcopy	xmm7, xmm1			;; Copy I8
+	subpd	xmm1, xmm2			;; I8 = I8 - R8
+	addpd	xmm2, xmm7			;; R8 = R8 + I8
+
+	xload	xmm5, XMM_SQRTHALF
+	mulpd	xmm0, xmm5			;; I6 = I6 * SQRTHALF (new I6)
+	mulpd	xmm4, xmm5			;; R6 = R6 * SQRTHALF (new R6)
+	mulpd	xmm1, xmm5			;; I8 = I8 * SQRTHALF (new I8)
+	mulpd	xmm2, xmm5			;; R8 = R8 * SQRTHALF (new R8)
+
+	xload	xmm6, src[16]			;; R2
+	xload	xmm3, src[d1+16]		;; R4
+	xcopy	xmm7, xmm3			;; Copy R4
+	addpd	xmm3, xmm6			;; R4 = R2 + R4 (new R2)
+	subpd	xmm6, xmm7			;; R2 = R2 - R4 (new R4)
+
+	xcopy	xmm7, xmm2			;; Copy R8
+	subpd	xmm2, xmm4			;; R8 = R8 - R6 (new I8)
+	addpd	xmm4, xmm7			;; R6 = R8 + R6 (new R6)
+
+	xcopy	xmm7, xmm0			;; Copy I6
+	subpd	xmm0, xmm1			;; I6 = I6 - I8 (new R8)
+	addpd	xmm1, xmm7			;; I8 = I6 + I8 (new I6)
+
+	xcopy	xmm7, xmm3			;; Copy R2
+	subpd	xmm3, xmm4			;; R2 = R2 - R6 (final R6)
+	addpd	xmm4, xmm7			;; R6 = R2 + R6 (final R2)
+
+	xstore	[dstreg+d1+16], xmm3		;; R6
+	xstore	[dstreg+d1], xmm4		;; R2
+
+	xload	xmm5, src[48]			;; I2
+	xload	xmm3, src[d1+48]		;; I4
+	xcopy	xmm7, xmm3			;; Copy I4
+	addpd	xmm3, xmm5			;; I4 = I2 + I4 (new I2)
+	subpd	xmm5, xmm7			;; I2 = I2 - I4 (new I4)
+
+	xcopy	xmm7, xmm6			;; Copy R4
+	subpd	xmm6, xmm0			;; R4 = R4 - R8 (final R8)
+	addpd	xmm0, xmm7			;; R8 = R4 + R8 (final R4)
+
+	xcopy	xmm7, xmm3			;; Copy I2
+	subpd	xmm3, xmm1			;; I2 = I2 - I6 (final I6)
+	addpd	xmm1, xmm7			;; I6 = I2 + I6 (final I2)
+
+	xcopy	xmm7, xmm5			;; Copy I4
+	subpd	xmm5, xmm2			;; I4 = I4 - I8 (final I8)
+	addpd	xmm2, xmm7			;; I8 = I4 + I8 (final I4)
+
+	xstore	[dstreg+d2+d1+16], xmm6		;; R8
+	xstore	[dstreg+d2+d1], xmm0		;; R4
+	xstore	[dstreg+d1+48], xmm3		;; I6
+	xstore	[dstreg+d1+32], xmm1		;; I2
+	xstore	[dstreg+d2+d1+48], xmm5		;; I8
+	xstore	[dstreg+d2+d1+32], xmm2		;; I4
+	ENDM
+
+;;
+;; The last three levels of the forward FFT are performed, point-wise
+;; multiplication, and first three levels of the inverse FFT are performed.
+;; No sin/cos multipliers are needed.
+;;
+
+r8_x8cl_eight_complex_with_mult_preload MACRO
+	ENDM
+
+r8_x8cl_eight_complex_with_mult MACRO srcreg,srcinc,d1,d2,d4
+	r8_x8c_simple_fft_part1 srcreg+0,d1,d2,d4,XMM_COL_MULTS
+	r8_x8c_simple_fft_part1 srcreg+32,d1,d2,d4,XMM_COL_MULTS[256]
+	r8_x8c_simple_fft_with_mult XMM_COL_MULTS,srcreg+rbp,d1,d2
+	r8_x8c_simple_fft_with_mult XMM_COL_MULTS[256],srcreg+d4+rbp,d1,d2
+	r8_x8c_simple_unfft XMM_COL_MULTS,srcreg+0,d1,d2
+	r8_x8c_simple_unfft XMM_COL_MULTS[256],srcreg+d4,d1,d2
+	bump	srcreg, srcinc
+	ENDM
+
+r8_x8c_simple_fft_with_mult MACRO src,altsrc,d1,d2
+	xload	xmm2, src[d2]			;; R5
+	xload	xmm0, src[d2+16] 		;; R6
+	xcopy	xmm7, xmm2			;; Copy R5
+	subpd	xmm2, xmm0			;; R5 = R5 - R6 (new R6)
+	addpd	xmm0, xmm7			;; R6 = R5 + R6 (new R5)
+
+	xload	xmm3, src[d2+32]		;; I5
+	xload	xmm1, src[d2+48] 		;; I6
+	xcopy	xmm7, xmm3			;; Copy I5
+	subpd	xmm3, xmm1			;; I5 = I5 - I6 (new I6)
+	addpd	xmm1, xmm7			;; I6 = I5 + I6 (new I5)
+
+	xp_complex_mult xmm2, xmm3, Q [altsrc+d2+16], Q [altsrc+d2+48], xmm6, xmm7 ;; Mult R6/I6
+	xp_complex_mult xmm0, xmm1, Q [altsrc+d2], Q [altsrc+d2+32], xmm6, xmm7 ;; Mult R5/I5
+
+	xcopy	xmm7, xmm0			;; Copy R5
+	subpd	xmm0, xmm2			;; R5 = R5 - R6 (new R6)
+	addpd	xmm2, xmm7			;; R6 = R5 + R6 (new R5)
+
+	xcopy	xmm7, xmm1			;; Copy I5
+	subpd	xmm1, xmm3			;; I5 = I5 - I6 (new I6)
+	addpd	xmm3, xmm7			;; I6 = I5 + I6 (new I5)
+
+	xstore	src[d2+16], xmm0		;; Save R6
+	xstore	src[d2], xmm2			;; Save R5
+	xstore	src[d2+48], xmm1		;; Save I6
+	xstore	src[d2+32], xmm3		;; Save I5
+
+	xload	xmm4, src[d2+d1]		;; R7
+	xload	xmm5, src[d2+d1+48]		;; I8
+	xcopy	xmm7, xmm4			;; Copy R7
+	subpd	xmm4, xmm5			;; R7 = R7 - I8 (new R7)
+	addpd	xmm5, xmm7			;; I8 = R7 + I8 (new R8)
+
+	xload	xmm0, src[d2+d1+32]		;; I7
+	xload	xmm1, src[d2+d1+16]		;; R8
+	xcopy	xmm7, xmm0			;; Copy I7
+	subpd	xmm0, xmm1			;; I7 = I7 - R8 (new I8)
+	addpd	xmm1, xmm7			;; R8 = I7 + R8 (new I7)
+
+	xp_complex_mult xmm5, xmm0, Q [altsrc+d2+d1+16], Q [altsrc+d2+d1+48], xmm6, xmm7 ;; Mult R8/I8
+	xp_complex_mult xmm4, xmm1, Q [altsrc+d2+d1], Q [altsrc+d2+d1+32], xmm6, xmm7 ;; Mult R7/I7
+
+	xcopy	xmm7, xmm5			;; Copy R8
+	subpd	xmm5, xmm4			;; R8 = R8 - R7 (new I8)
+	addpd	xmm4, xmm7			;; R7 = R8 + R7 (new R7)
+
+	xcopy	xmm7, xmm1			;; Copy I7
+	subpd	xmm1, xmm0			;; I7 = I7 - I8 (new R8)
+	addpd	xmm0, xmm7			;; I8 = I7 + I8 (new I7)
+
+	xstore	src[d2+d1+48], xmm5		;; Save I8
+	xstore	src[d2+d1], xmm4		;; Save R7
+	xstore	src[d2+d1+16], xmm1		;; Save R8
+	xstore	src[d2+d1+32], xmm0		;; Save I7
+
+	xload	xmm3, src[0]			;; R1
+	xload	xmm4, src[16]			;; R2
+	xcopy	xmm7, xmm3			;; Copy R1
+	subpd	xmm3, xmm4			;; R1 = R1 - R2 (new R2)
+	addpd	xmm4, xmm7			;; R2 = R1 + R2 (new R1)
+
+	xload	xmm5, src[32]			;; I1
+	xload	xmm6, src[48]			;; I2
+	xcopy	xmm7, xmm5			;; Copy I1
+	subpd	xmm5, xmm6			;; I1 = I1 - I2 (new I2)
+	addpd	xmm6, xmm7			;; I2 = I1 + I2 (new I1)
+
+	xp_complex_mult xmm3, xmm5, Q [altsrc+16], Q [altsrc+48], xmm0, xmm7 ;; Mult R2/I2
+	xp_complex_mult xmm4, xmm6, Q [altsrc], Q [altsrc+32], xmm0, xmm7 ;; Mult R1/I1
+
+	xcopy	xmm7, xmm4			;; Copy R1
+	subpd	xmm4, xmm3			;; R1 = R1 - R2 (new R2)
+	addpd	xmm3, xmm7			;; R2 = R1 + R2 (new R1)
+
+	xcopy	xmm7, xmm6			;; Copy I1
+	subpd	xmm6, xmm5			;; I1 = I1 - I2 (new I2)
+	addpd	xmm5, xmm7			;; I2 = I1 + I2 (new I1)
+
+	xstore	src[16], xmm4			;; Save R2
+	xstore	src[0], xmm3			;; Save R1
+	xstore	src[48], xmm6			;; Save I2
+	xstore	src[32], xmm5			;; Save I1
+
+	xload	xmm5, src[d1]			;; R3
+	xload	xmm6, src[d1+48]		;; I4
+	xcopy	xmm7, xmm5			;; Copy R3
+	subpd	xmm5, xmm6			;; R3 = R3 - I4 (new R3)
+	addpd	xmm6, xmm7			;; I4 = R3 + I4 (new R4)
+
+	xload	xmm3, src[d1+32]		;; I3
+	xload	xmm4, src[d1+16]		;; R4
+	xcopy	xmm7, xmm3			;; Copy I3
+	subpd	xmm3, xmm4			;; I3 = I3 - R4 (final I4)
+	addpd	xmm4, xmm7			;; R4 = I3 + R4 (final I3)
+
+	xp_complex_mult xmm6, xmm3, Q [altsrc+d1+16], Q [altsrc+d1+48], xmm0, xmm7 ;; Mult R4/I4
+	xp_complex_mult xmm5, xmm4, Q [altsrc+d1], Q [altsrc+d1+32], xmm0, xmm7 ;; Mult R3/I3
+
+	xcopy	xmm7, xmm6			;; Copy R4
+	subpd	xmm6, xmm5			;; R4 = R4 - R3 (new I4)
+	addpd	xmm5, xmm7			;; R3 = R4 + R3 (new R3)
+
+	xcopy	xmm7, xmm4			;; Copy I3
+	subpd	xmm4, xmm3			;; I3 = I3 - I4 (new R4)
+	addpd	xmm3, xmm7			;; I4 = I3 + I4 (new I3)
+
+	xstore	src[d1+48], xmm6		;; Save I4
+	xstore	src[d1], xmm5			;; Save R3
+	xstore	src[d1+16], xmm4		;; Save R4
+	xstore	src[d1+32], xmm3		;; Save I3
+	ENDM
+
+;;
+;; Point-wise multiplication and first three levels of the inverse FFT are performed.
+;; No sin/cos multipliers are needed.
+;;
+
+r8_x8cl_eight_complex_with_mulf_preload MACRO
+	ENDM
+
+r8_x8cl_eight_complex_with_mulf MACRO srcreg,srcinc,d1,d2,d4
+	r8_x8c_simple_fft_with_mulf srcreg,d1,d2,XMM_COL_MULTS
+	r8_x8c_simple_fft_with_mulf srcreg+d4,d1,d2,XMM_COL_MULTS[256]
+	r8_x8c_simple_unfft XMM_COL_MULTS,srcreg+0,d1,d2
+	r8_x8c_simple_unfft XMM_COL_MULTS[256],srcreg+d4,d1,d2
+	bump	srcreg, srcinc
+	ENDM
+
+r8_x8c_simple_fft_with_mulf MACRO srcreg,d1,d2,dst
+	xload	xmm2, [srcreg+d2+16][rbx]	;; R6
+	xload	xmm3, [srcreg+d2+48][rbx]	;; I6
+	xload	xmm0, [srcreg+d2][rbx]		;; R5
+	xload	xmm1, [srcreg+d2+32][rbx]	;; I5
+
+	xp_complex_mult xmm2, xmm3, Q [srcreg+d2+16][rbp], Q [srcreg+d2+48][rbp], xmm6, xmm7 ;; Mult R6/I6
+	xp_complex_mult xmm0, xmm1, Q [srcreg+d2][rbp], Q [srcreg+d2+32][rbp], xmm6, xmm7 ;; Mult R5/I5
+
+	xcopy	xmm7, xmm0			;; Copy R5
+	subpd	xmm0, xmm2			;; R5 = R5 - R6 (new R6)
+	addpd	xmm2, xmm7			;; R6 = R5 + R6 (new R5)
+
+	xcopy	xmm7, xmm1			;; Copy I5
+	subpd	xmm1, xmm3			;; I5 = I5 - I6 (new I6)
+	addpd	xmm3, xmm7			;; I6 = I5 + I6 (new I5)
+
+	xstore	dst[d2+16], xmm0		;; Save R6
+	xstore	dst[d2], xmm2			;; Save R5
+	xstore	dst[d2+48], xmm1		;; Save I6
+	xstore	dst[d2+32], xmm3		;; Save I5
+
+	xload	xmm5, [srcreg+d2+d1+16][rbx]	;; R8
+	xload	xmm0, [srcreg+d2+d1+48][rbx]	;; I8
+	xload	xmm4, [srcreg+d2+d1][rbx]	;; R7
+	xload	xmm1, [srcreg+d2+d1+32][rbx]	;; I7
+
+	xp_complex_mult xmm5, xmm0, Q [srcreg+d2+d1+16][rbp], Q [srcreg+d2+d1+48][rbp], xmm6, xmm7 ;; Mult R8/I8
+	xp_complex_mult xmm4, xmm1, Q [srcreg+d2+d1][rbp], Q [srcreg+d2+d1+32][rbp], xmm6, xmm7 ;; Mult R7/I7
+
+	xcopy	xmm7, xmm5			;; Copy R8
+	subpd	xmm5, xmm4			;; R8 = R8 - R7 (new I8)
+	addpd	xmm4, xmm7			;; R7 = R8 + R7 (new R7)
+
+	xcopy	xmm7, xmm1			;; Copy I7
+	subpd	xmm1, xmm0			;; I7 = I7 - I8 (new R8)
+	addpd	xmm0, xmm7			;; I8 = I7 + I8 (new I7)
+
+	xstore	dst[d2+d1+48], xmm5		;; Save I8
+	xstore	dst[d2+d1], xmm4		;; Save R7
+	xstore	dst[d2+d1+16], xmm1		;; Save R8
+	xstore	dst[d2+d1+32], xmm0		;; Save I7
+
+	xload	xmm3, [srcreg+16][rbx]		;; R2
+	xload	xmm5, [srcreg+48][rbx]		;; I2
+	xload	xmm4, [srcreg][rbx]		;; R1
+	xload	xmm6, [srcreg+32][rbx]		;; I1
+
+	xp_complex_mult xmm3, xmm5, Q [srcreg+16][rbp], Q [srcreg+48][rbp], xmm0, xmm7 ;; Mult R2/I2
+	xp_complex_mult xmm4, xmm6, Q [srcreg][rbp], Q [srcreg+32][rbp], xmm0, xmm7 ;; Mult R1/I1
+
+	xcopy	xmm7, xmm4			;; Copy R1
+	subpd	xmm4, xmm3			;; R1 = R1 - R2 (new R2)
+	addpd	xmm3, xmm7			;; R2 = R1 + R2 (new R1)
+
+	xcopy	xmm7, xmm6			;; Copy I1
+	subpd	xmm6, xmm5			;; I1 = I1 - I2 (new I2)
+	addpd	xmm5, xmm7			;; I2 = I1 + I2 (new I1)
+
+	xstore	dst[16], xmm4			;; Save R2
+	xstore	dst[0], xmm3			;; Save R1
+	xstore	dst[48], xmm6			;; Save I2
+	xstore	dst[32], xmm5			;; Save I1
+
+	xload	xmm6, [srcreg+d1+16][rbx]	;; R4
+	xload	xmm3, [srcreg+d1+48][rbx]	;; I4
+	xload	xmm5, [srcreg+d1][rbx]		;; R3
+	xload	xmm4, [srcreg+d1+32][rbx]	;; I3
+
+	xp_complex_mult xmm6, xmm3, Q [srcreg+d1+16][rbp], Q [srcreg+d1+48][rbp], xmm0, xmm7 ;; Mult R4/I4
+	xp_complex_mult xmm5, xmm4, Q [srcreg+d1][rbp], Q [srcreg+d1+32][rbp], xmm0, xmm7 ;; Mult R3/I3
+
+	xcopy	xmm7, xmm6			;; Copy R4
+	subpd	xmm6, xmm5			;; R4 = R4 - R3 (new I4)
+	addpd	xmm5, xmm7			;; R3 = R4 + R3 (new R3)
+
+	xcopy	xmm7, xmm4			;; Copy I3
+	subpd	xmm4, xmm3			;; I3 = I3 - I4 (new R4)
+	addpd	xmm3, xmm7			;; I4 = I3 + I4 (new I3)
+
+	xstore	dst[d1+48], xmm6		;; Save I4
+	xstore	dst[d1], xmm5			;; Save R3
+	xstore	dst[d1+16], xmm4		;; Save R4
+	xstore	dst[d1+32], xmm3		;; Save I3
+	ENDM
 
 ;;
 ;; ************************************* eight-complex-fft8 variants ******************************************
@@ -2418,13 +3109,1426 @@ r8_sg4cl_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,scre
 
 
 ;;
-;; Override some of the above macros with versions optimized
-;; for 64-bit Core 2 / Core i7.
+;; ********************************* half-sixteen-reals-eight-complex-fft-with-square variants ***************************************
 ;;
 
-IFDEF X86_64
-;INCLUDE	r864.mac
-ENDIF
+;; Macro to do a sixteen_reals_fft and three eight_complex_djbfft in the final levels of pass 2.
+;; The sixteen-reals macro and one of the eight-complex only use half the XMM 
+;; register.  This isn't very efficient, but this macro is called only once.
+
+r8_h8cl_sixteen_reals_eight_complex_fft_final MACRO srcreg,srcinc,d1,d2,d4
+	r8_h16r_simple_fft_part1 srcreg+0,d1,d2,d4,XMM_COL_MULTS
+	r8_x8c_simple_fft_part1 srcreg+32,d1,d2,d4,XMM_COL_MULTS[256]
+	r8_h16r_simple_fft_part2 XMM_COL_MULTS,srcreg+0,d1,d2
+	r8_x8c_simple_fft_part2 XMM_COL_MULTS[256],srcreg+d4,d1,d2
+	bump	srcreg, srcinc
+	ENDM
+
+r8_h16r_simple_fft_part1 MACRO srcreg,d1,d2,d4,dst
+
+	;
+	; Do the 16-reals part
+	;
+
+	;; Odd level 1
+
+	movsd	xmm0, Q [srcreg]		;; R1
+	movsd	xmm1, Q [srcreg+16]		;; R9
+	movsd	xmm7, xmm1			;; Copy R9
+	addsd	xmm1, xmm0			;; R9 = R1 + R9 (new R1)
+	subsd	xmm0, xmm7			;; R1 = R1 - R9 (new R9)
+
+	movsd	xmm2, Q [srcreg+d4]		;; R5
+	movsd	xmm3, Q [srcreg+d4+16]		;; R13
+	movsd	xmm7, xmm3			;; Copy R13
+	addsd	xmm3, xmm2			;; R13 = R5 + R13 (new R5)
+	subsd	xmm2, xmm7			;; R5 = R5 - R13 (new R13)
+
+	movsd	xmm4, Q [srcreg+d2]		;; R3
+	movsd	xmm5, Q [srcreg+d2+16]		;; R11
+	movsd	xmm7, xmm5			;; Copy R11
+	addsd	xmm5, xmm4			;; R11 = R3 + R11 (new R3)
+	subsd	xmm4, xmm7			;; R3 = R3 - R11 (new R11)
+
+	movsd	xmm6, Q [srcreg+d4+d2]		;; R7
+	movsd	xmm7, Q [srcreg+d4+d2+16]	;; R15
+	addsd	xmm7, xmm6			;; R15 = R7 + R15 (new R7)
+	subsd	xmm6, Q [srcreg+d4+d2+16]	;; R7 = R7 - R15 (new R15)
+
+	;; Odd level 2
+
+	subsd	xmm1, xmm3			;; R1 = R1 - R5 (newer R5 & final R5)
+	multwos	xmm3
+	addsd	xmm3, xmm1			;; R5 = R1 + R5 (newer R1)
+
+	subsd	xmm5, xmm7			;; R3 = R3 - R7 (newer R7 & final I5)
+	multwos	xmm7
+	addsd	xmm7, xmm5			;; R7 = R3 + R7 (newer R3)
+
+						;; R9/R13 morphs into newer R9/I9
+						;; R11/R15 morphs into newer R11/I11
+
+	;; Premultipliers for odd level 3
+
+						;; mul R11/I11 by SQRTHALF + i*SQRTHALF
+	subsd	xmm4, xmm6			;; R11 = R11 - I11
+	multwos	xmm6
+	addsd	xmm6, xmm4			;; I11 = R11 + I11
+	mulsd	xmm4, XMM_SQRTHALF		;; R11 = R11 * SQRTHALF
+	mulsd	xmm6, XMM_SQRTHALF		;; I11 = I11 * SQRTHALF
+
+	;; Odd level 3
+
+	subsd	xmm3, xmm7			;; R1 = R1 - R3 (final R3)
+	multwos	xmm7
+	addsd	xmm7, xmm3			;; R3 = R1 + R3 (final R1)
+
+						;; R5/R7 morphs into final R5/I5
+
+	subsd	xmm0, xmm4			;; R9 = R9 - R11 (final R11)
+	multwos	xmm4
+	addsd	xmm4, xmm0			;; R9 = R9 + R11 (final R9)
+
+	subsd	xmm2, xmm6			;; I9 = I9 - I11 (final I11)
+	multwos	xmm6
+	addsd	xmm6, xmm2			;; I9 = I9 + I11 (final I9)
+
+	movsd	Q dst[0], xmm7			;; Save R1
+	movsd	Q dst[32], xmm3			;; Save R3
+	movsd	Q dst[d1], xmm1			;; Save R5
+	movsd	Q dst[d1+32], xmm5		;; Save I5
+	movsd	Q dst[d2], xmm4			;; Save R9
+	movsd	Q dst[d2+32], xmm6		;; Save I9
+	movsd	Q dst[d2+d1], xmm0		;; Save R11
+	movsd	Q dst[d2+d1+32], xmm2		;; Save I11
+
+
+	;; Even level 1
+
+	movsd	xmm0, Q [srcreg+d1]		;; R2
+	movsd	xmm1, Q [srcreg+d1+16]		;; R10
+	movsd	xmm7, xmm1			;; Copy R10
+	addsd	xmm1, xmm0			;; R10 = R2 + R10 (new R2)
+	subsd	xmm0, xmm7			;; R2 = R2 - R10 (new R10)
+
+	movsd	xmm2, Q [srcreg+d4+d1]		;; R6
+	movsd	xmm3, Q [srcreg+d4+d1+16]	;; R14
+	movsd	xmm7, xmm3			;; Copy R14
+	addsd	xmm3, xmm2			;; R14 = R6 + R14 (new R6)
+	subsd	xmm2, xmm7			;; R6 = R6 - R14 (new R14)
+
+	movsd	xmm4, Q [srcreg+d2+d1]		;; R4
+	movsd	xmm5, Q [srcreg+d2+d1+16]	;; R12
+	movsd	xmm7, xmm5			;; Copy R12
+	addsd	xmm5, xmm4			;; R12 = R4 + R12 (new R4)
+	subsd	xmm4, xmm7			;; R4 = R4 - R12 (new R12)
+
+	movsd	xmm6, Q [srcreg+d4+d2+d1]	;; R8
+	movsd	xmm7, Q [srcreg+d4+d2+d1+16]	;; R16
+	addsd	xmm7, xmm6			;; R16 = R8 + R16 (new R8)
+	subsd	xmm6, Q [srcreg+d4+d2+d1+16]	;; R8 = R8 - R16 (new R16)
+
+	;; Even level 2
+
+	subsd	xmm1, xmm3			;; R2 = R2 - R6 (newer R6)
+	multwos	xmm3
+	addsd	xmm3, xmm1			;; R6 = R2 + R6 (newer R2)
+
+	subsd	xmm5, xmm7			;; R4 = R4 - R8 (newer R8)
+	multwos	xmm7
+	addsd	xmm7, xmm5			;; R8 = R4 + R8 (newer R4)
+
+						;; R10/R14 morphs into newer R10/I10
+						;; R12/R16 morphs into newer R12/I12
+
+	;; Premultipliers for even level 3
+
+	movsd	Q dst[16], xmm1
+	movsd	Q dst[48], xmm3
+
+						; mul R10/I10 by w^1 = .924 + .383i
+	movsd	xmm1, xmm0			; Copy R10
+	mulsd	xmm0, XMM_P924
+	movsd	xmm3, xmm2			; Copy I10
+	mulsd	xmm3, XMM_P383
+	subsd	xmm0, xmm3			; Twiddled R10
+	mulsd	xmm1, XMM_P383
+	mulsd	xmm2, XMM_P924
+	addsd	xmm2, xmm1			; Twiddled I10
+
+						; mul R12/I12 by w^3 = .383 + .924i
+	movsd	xmm1, xmm4			; Copy R12
+	mulsd	xmm4, XMM_P383
+	movsd	xmm3, xmm6			; Copy I12
+	mulsd	xmm3, XMM_P924
+	subsd	xmm4, xmm3			; Twiddled R12
+	mulsd	xmm1, XMM_P924
+	mulsd	xmm6, XMM_P383
+	addsd	xmm6, xmm1			; Twiddled I12
+
+	movsd	xmm1, Q dst[16]
+	movsd	xmm3, Q dst[48]
+
+	;; Even level 3
+
+	subsd	xmm3, xmm7			;; R2 = R2 - R4 (final R4)
+	multwos	xmm7
+	addsd	xmm7, xmm3			;; R4 = R2 + R4 (final R2)
+
+						;; R6/R8 morph into newer R6/I6
+
+	subsd	xmm0, xmm4			;; R10 = R10 - R12 (final R12)
+	multwos	xmm4
+	addsd	xmm4, xmm0			;; R10 = R10 + R12 (final R10)
+
+	subsd	xmm2, xmm6			;; I10 = I10 - I12 (final I12)
+	multwos	xmm6
+	addsd	xmm6, xmm2			;; I10 = I10 + I12 (final I10)
+
+	;; Premultipliers for even level 4
+
+						; mul R6/I6 by w^2 = .707 + .707i
+	subsd	xmm1, xmm5			;; R6 = R6 - I6
+	multwos	xmm5
+	addsd	xmm5, xmm1			;; I6 = R6 + I6
+	mulsd	xmm1, XMM_SQRTHALF		;; R6 = R6 * SQRTHALF (final R6)
+	mulsd	xmm5, XMM_SQRTHALF		;; I6 = I6 * SQRTHALF (final I6)
+
+	movsd	Q dst[16], xmm7			;; Save R2
+	movsd	Q dst[48], xmm3			;; Save R4
+	movsd	Q dst[d1+16], xmm1		;; Save R6
+	movsd	Q dst[d1+48], xmm5		;; Save I6
+	movsd	Q dst[d2+16], xmm4		;; Save R10
+	movsd	Q dst[d2+48], xmm6		;; Save I10
+	movsd	Q dst[d2+d1+16], xmm0		;; Save R12
+	movsd	Q dst[d2+d1+48], xmm2		;; Save I12
+
+	;
+	; Do the eight-complex part
+	;
+
+	movsd	xmm0, Q [srcreg][8]		;; R1
+	movsd	xmm2, Q [srcreg+d4][8]		;; R5
+	movsd	xmm7, xmm2			;; Copy R5
+	addsd	xmm2, xmm0			;; R5 = R1 + R5 (new R1)
+	subsd	xmm0, xmm7			;; R1 = R1 - R5 (new R5)
+
+	movsd	xmm1, Q [srcreg+d2][8]		;; R3
+	movsd	xmm3, Q [srcreg+d4+d2][8]	;; R7
+	movsd	xmm7, xmm3			;; Copy R7
+	addsd	xmm3, xmm1			;; R7 = R3 + R7 (new R3)
+	subsd	xmm1, xmm7			;; R3 = R3 - R7 (new R7)
+
+	movsd	xmm4, Q [srcreg+16][8]		;; I1
+	movsd	xmm6, Q [srcreg+d4+16][8]	;; I5
+	movsd	xmm7, xmm6			;; Copy I5
+	addsd	xmm6, xmm4			;; I5 = I1 + I5 (new I1)
+	subsd	xmm4, xmm7			;; I1 = I1 - I5 (new I5)
+
+	movsd	xmm7, xmm3			;; Copy R3
+	addsd	xmm3, xmm2			;; R3 = R1 + R3 (final R1)
+	subsd	xmm2, xmm7			;; R1 = R1 - R3 (final R3)
+
+	movsd	Q dst[0][8], xmm3		;; Save R1
+	movsd	Q dst[d1][8], xmm2		;; Save R3
+
+	movsd	xmm5, Q [srcreg+d2+16][8]	;; I3
+	movsd	xmm3, Q [srcreg+d4+d2+16][8]	;; I7
+	movsd	xmm7, xmm3			;; Copy I7
+	addsd	xmm3, xmm5			;; I7 = I3 + I7 (new I3)
+	subsd	xmm5, xmm7			;; I3 = I3 - I7 (new I7)
+
+	movsd	xmm7, xmm3			;; Copy I3
+	addsd	xmm3, xmm6			;; I3 = I1 + I3 (final I1)
+	subsd	xmm6, xmm7			;; I1 = I1 - I3 (final I3)
+
+	movsd	Q dst[32][8], xmm3		;; Save I1
+	movsd	Q dst[d1+32][8], xmm6		;; Save I3
+
+	movsd	xmm3, xmm1			;; Copy R7
+	addsd	xmm1, xmm4			;; R7 = I5 + R7 (final I5)
+	movsd	xmm7, xmm0			;; Copy R5
+	subsd	xmm0, xmm5			;; R5 = R5 - I7 (final R5)
+	subsd	xmm4, xmm3			;; I5 = I5 - R7 (final I7)
+	addsd	xmm5, xmm7			;; I7 = R5 + I7 (final R7)
+
+	movsd	Q dst[d2+32][8], xmm1		;; Save I5
+	movsd	Q dst[d2][8], xmm0		;; Save R5
+	movsd	Q dst[d2+d1+32][8], xmm4	;; Save I7
+	movsd	Q dst[d2+d1][8], xmm5		;; Save R7
+
+	movsd	xmm0, Q [srcreg+d1][8]		;; R2
+	movsd	xmm2, Q [srcreg+d4+d1][8]	;; R6
+	movsd	xmm7, xmm2			;; Copy R6
+	addsd	xmm2, xmm0			;; R6 = R2 + R6 (new R2)
+	subsd	xmm0, xmm7			;; R2 = R2 - R6 (new R6)
+
+	movsd	xmm1, Q [srcreg+d2+d1][8]	;; R4
+	movsd	xmm3, Q [srcreg+d4+d2+d1][8]	;; R8
+	movsd	xmm7, xmm3			;; Copy R8
+	addsd	xmm3, xmm1			;; R8 = R4 + R8 (new R4)
+	subsd	xmm1, xmm7			;; R4 = R4 - R8 (new R8)
+
+	movsd	xmm4, Q [srcreg+d1+16][8]	;; I2
+	movsd	xmm6, Q [srcreg+d4+d1+16][8]	;; I6
+	movsd	xmm7, xmm6			;; Copy I6
+	addsd	xmm6, xmm4			;; I6 = I2 + I6 (new I2)
+	subsd	xmm4, xmm7			;; I2 = I2 - I6 (new I6)
+
+	movsd	xmm7, xmm3			;; Copy R4
+	addsd	xmm3, xmm2			;; R4 = R2 + R4 (final R2)
+	subsd	xmm2, xmm7			;; R2 = R2 - R4 (final R4)
+
+	movsd	Q dst[16][8], xmm3		;; Save R2
+	movsd	Q dst[d1+16][8], xmm2		;; Save R4
+
+	movsd	xmm5, Q [srcreg+d2+d1+16][8]	;; I4
+	movsd	xmm3, Q [srcreg+d4+d2+d1+16][8]	;; I8
+	movsd	xmm7, xmm3			;; Copy I8
+	addsd	xmm3, xmm5			;; I8 = I4 + I8 (new I4)
+	subsd	xmm5, xmm7			;; I4 = I4 - I8 (new I8)
+
+	movsd	xmm7, xmm3			;; Copy I4
+	addsd	xmm3, xmm6			;; I4 = I2 + I4 (final I2)
+	subsd	xmm6, xmm7			;; I2 = I2 - I4 (final I4)
+
+	movsd	Q dst[48][8], xmm3		;; Save I2
+	movsd	Q dst[d1+48][8], xmm6		;; Save I4
+
+	movsd	xmm3, xmm1			;; Copy R8
+	addsd	xmm1, xmm4			;; R8 = I6 + R8 (new I6)
+	movsd	xmm7, xmm0			;; Copy R6
+	subsd	xmm0, xmm5			;; R6 = R6 - I8 (new R6)
+	subsd	xmm4, xmm3			;; I6 = I6 - R8 (new I8)
+	addsd	xmm5, xmm7			;; I8 = R6 + I8 (new R8)
+
+	movsd	xmm7, xmm0			;; Copy R6
+	subsd	xmm0, xmm1			;; R6 = R6 - I6
+	addsd	xmm1, xmm7			;; I6 = R6 + I6
+	movsd	xmm3, XMM_SQRTHALF
+	mulsd	xmm0, xmm3			;; R6 = R6 * SQRTHALF (final R6)
+	mulsd	xmm1, xmm3			;; I6 = I6 * SQRTHALF (final I6)
+
+	movsd	xmm7, xmm5			;; Copy R8
+	subsd	xmm5, xmm4			;; R8 = R8 - I8
+	addsd	xmm4, xmm7			;; I8 = R8 + I8
+	mulsd	xmm5, xmm3			;; R8 = R8 * SQRTHALF (final R8)
+	mulsd	xmm4, xmm3			;; I8 = I8 * SQRTHALF (final I8)
+
+	movsd	Q dst[d2+16][8], xmm0		;; Save R6
+	movsd	Q dst[d2+48][8], xmm1		;; Save I6
+	movsd	Q dst[d2+d1+16][8], xmm5	;; Save R8
+	movsd	Q dst[d2+d1+48][8], xmm4	;; Save I8
+	ENDM
+
+r8_h16r_simple_fft_part2 MACRO src,dstreg,d1,d2
+
+	; Do the 16-reals part
+
+	movsd	xmm1, Q src[0]			;; R1
+	movsd	xmm0, Q src[16] 		;; R2
+	movsd	xmm7, xmm1			;; Copy R2
+	subsd	xmm1, xmm0			;; R1 = R1 - R2 (new R2)
+	addsd	xmm0, xmm7			;; R2 = R1 + R2 (new R1)
+
+	movsd	xmm2, Q src[32]			;; R3/R4 morphs into R3/I3
+	movsd	xmm3, Q src[48]
+
+	movsd	Q [dstreg], xmm0		;; Save R1
+	movsd	Q [dstreg+32], xmm1		;; Save R2
+	movsd	Q [dstreg+16], xmm2		;; Save R3
+	movsd	Q [dstreg+48], xmm3		;; Save I3
+
+	movsd	xmm1, Q src[d1]			;; R5
+	movsd	xmm0, Q src[d1+16] 		;; R6
+	movsd	xmm7, xmm1			;; Copy R6
+	subsd	xmm1, xmm0			;; R5 = R5 - R6 (new R6)
+	addsd	xmm0, xmm7			;; R6 = R5 + R6 (new R5)
+
+	movsd	xmm3, Q src[d1+32]		;; I5
+	movsd	xmm2, Q src[d1+48] 		;; I6
+	movsd	xmm7, xmm3			;; Copy I6
+	subsd	xmm3, xmm2			;; I5 = I5 - I6 (new I6)
+	addsd	xmm2, xmm7			;; I6 = I5 + I6 (new I5)
+
+	movsd	Q [dstreg+d1], xmm0		;; Save R5
+	movsd	Q [dstreg+d1+32], xmm2		;; Save I5
+	movsd	Q [dstreg+d1+16], xmm1		;; Save R6
+	movsd	Q [dstreg+d1+48], xmm3		;; Save I6
+
+	movsd	xmm1, Q src[d2]			;; R9
+	movsd	xmm0, Q src[d2+16] 		;; R10
+	movsd	xmm7, xmm1			;; Copy R10
+	subsd	xmm1, xmm0			;; R9 = R9 - R10 (new R10)
+	addsd	xmm0, xmm7			;; R10 = R9 + R10 (new R9)
+
+	movsd	xmm3, Q src[d2+32]		;; I9
+	movsd	xmm2, Q src[d2+48] 		;; I10
+	movsd	xmm7, xmm3			;; Copy I10
+	subsd	xmm3, xmm2			;; I9 = I9 - I10 (new I10)
+	addsd	xmm2, xmm7			;; I10 = I9 + I10 (new I9)
+
+	movsd	Q [dstreg+d2], xmm0		;; Save R9
+	movsd	Q [dstreg+d2+32], xmm2		;; Save I9
+	movsd	Q [dstreg+d2+16], xmm1		;; Save R10
+	movsd	Q [dstreg+d2+48], xmm3		;; Save I10
+
+	movsd	xmm1, Q src[d2+d1]		;; R11
+	movsd	xmm0, Q src[d2+d1+48] 		;; I12
+	movsd	xmm7, xmm1			;; Copy I12
+	subsd	xmm1, xmm0			;; R11 = R11 - I12 (new R11)
+	addsd	xmm0, xmm7			;; R12 = R11 + I12 (new R12)
+
+	movsd	xmm3, Q src[d2+d1+32]		;; I11
+	movsd	xmm2, Q src[d2+d1+16] 		;; R12
+	movsd	xmm7, xmm3			;; Copy R12
+	subsd	xmm3, xmm2			;; I11 = I11 - R12 (new I12)
+	addsd	xmm2, xmm7			;; I12 = I11 + R12 (new I11)
+
+	movsd	Q [dstreg+d2+d1], xmm1		;; Save R11
+	movsd	Q [dstreg+d2+d1+32], xmm2	;; Save I11
+	movsd	Q [dstreg+d2+d1+16], xmm0	;; Save R12
+	movsd	Q [dstreg+d2+d1+48], xmm3	;; Save I12
+
+	; Do the eight-complex part
+
+	movsd	xmm2, Q src[d2][8]		;; R5
+	movsd	xmm0, Q src[d2+16][8] 		;; R6
+	movsd	xmm7, xmm2			;; Copy R5
+	subsd	xmm2, xmm0			;; R5 = R5 - R6 (new R6)
+	addsd	xmm0, xmm7			;; R6 = R5 + R6 (new R5)
+
+	movsd	xmm3, Q src[d2+32][8]		;; I5
+	movsd	xmm1, Q src[d2+48][8]		;; I6
+	movsd	xmm7, xmm3			;; Copy I5
+	subsd	xmm3, xmm1			;; I5 = I5 - I6 (new I6)
+	addsd	xmm1, xmm7			;; I6 = I5 + I6 (new I5)
+
+	movsd	xmm4, Q src[d2+d1][8]		;; R7
+	movsd	xmm5, Q src[d2+d1+48][8]	;; I8
+	movsd	xmm7, xmm4			;; Copy R7
+	subsd	xmm4, xmm5			;; R7 = R7 - I8 (new R7)
+	addsd	xmm5, xmm7			;; I8 = R7 + I8 (new R8)
+
+	movsd	Q [dstreg+d2+16][8], xmm2	;; Save R6
+	movsd	Q [dstreg+d2][8], xmm0		;; Save R5
+	movsd	Q [dstreg+d2+48][8], xmm3	;; Save I6
+	movsd	Q [dstreg+d2+32][8], xmm1	;; Save I5
+	movsd	Q [dstreg+d2+d1][8], xmm4	;; Save R7
+	movsd	Q [dstreg+d2+d1+16][8], xmm5	;; Save R8
+
+	movsd	xmm0, Q src[d2+d1+32][8]	;; I7
+	movsd	xmm1, Q src[d2+d1+16][8]	;; R8
+	movsd	xmm7, xmm0			;; Copy I7
+	subsd	xmm0, xmm1			;; I7 = I7 - R8 (new I8)
+	addsd	xmm1, xmm7			;; R8 = I7 + R8 (new I7)
+
+	movsd	xmm3, Q src[0][8]		;; R1
+	movsd	xmm4, Q src[16][8]		;; R2
+	movsd	xmm7, xmm3			;; Copy R1
+	subsd	xmm3, xmm4			;; R1 = R1 - R2 (new R2)
+	addsd	xmm4, xmm7			;; R2 = R1 + R2 (new R1)
+
+	movsd	xmm5, Q src[32][8]		;; I1
+	movsd	xmm6, Q src[48][8]		;; I2
+	movsd	xmm7, xmm5			;; Copy I1
+	subsd	xmm5, xmm6			;; I1 = I1 - I2 (new I2)
+	addsd	xmm6, xmm7			;; I2 = I1 + I2 (new I1)
+
+	movsd	Q [dstreg+d2+d1+48][8], xmm0	;; Save I8
+	movsd	Q [dstreg+d2+d1+32][8], xmm1	;; Save I7
+	movsd	Q [dstreg+16][8], xmm3		;; Save R2
+	movsd	Q [dstreg][8], xmm4		;; Save R1
+	movsd	Q [dstreg+48][8], xmm5		;; Save I2
+	movsd	Q [dstreg+32][8], xmm6		;; Save I1
+
+	movsd	xmm5, Q src[d1][8]		;; R3
+	movsd	xmm6, Q src[d1+48][8]		;; I4
+	movsd	xmm7, xmm5			;; Copy R3
+	subsd	xmm5, xmm6			;; R3 = R3 - I4 (new R3)
+	addsd	xmm6, xmm7			;; I4 = R3 + I4 (new R4)
+
+	movsd	xmm3, Q src[d1+32][8]		;; I3
+	movsd	xmm4, Q src[d1+16][8]		;; R4
+	movsd	xmm7, xmm3			;; Copy I3
+	subsd	xmm3, xmm4			;; I3 = I3 - R4 (new I4)
+	addsd	xmm4, xmm7			;; R4 = I3 + R4 (new I3)
+
+	movsd	Q [dstreg+d1][8], xmm5		;; Save R3
+	movsd	Q [dstreg+d1+16][8], xmm6	;; Save R4
+	movsd	Q [dstreg+d1+48][8], xmm3	;; Save I4
+	movsd	Q [dstreg+d1+32][8], xmm4	;; Save I3
+	ENDM
+
+
+r8_h8cl_sixteen_reals_eight_complex_with_square MACRO srcreg,srcinc,d1,d2,d4
+	xmult7	srcreg, srcreg
+	r8_h16r_simple_fft_part1 srcreg+0,d1,d2,d4,XMM_COL_MULTS
+	r8_x8c_simple_fft_part1 srcreg+32,d1,d2,d4,XMM_COL_MULTS[256]
+	r8_h16r_simple_fft_with_square XMM_COL_MULTS,d1,d2,srcreg
+	r8_x8c_simple_fft_with_square XMM_COL_MULTS[256],d1,d2
+	r8_h16r_simple_unfft XMM_COL_MULTS,srcreg+0,d1,d2
+	r8_x8c_simple_unfft XMM_COL_MULTS[256],srcreg+d4,d1,d2
+	bump	srcreg, srcinc
+	ENDM
+
+r8_h16r_simple_fft_with_square MACRO src,d1,d2,origsrc
+
+	; Do the 16-reals part
+
+	movsd	xmm1, Q src[0]			;; R1
+	movsd	xmm0, Q src[16] 		;; R2
+	movsd	xmm7, xmm1			;; Copy R2
+	subsd	xmm1, xmm0			;; R1 = R1 - R2 (new R2)
+	addsd	xmm0, xmm7			;; R2 = R1 + R2 (new R1)
+
+	mulsd	xmm0, xmm0			;; Square R1
+	mulsd	xmm1, xmm1			;; Square R2
+	movsd	Q [origsrc-16], xmm0		;; Save square of sum of FFT values
+
+	subsd	xmm0, xmm1			;; R1 = R1 - R2 (final R2)
+	mulhalfs xmm0				;; Mul R2 by HALF
+	addsd	xmm1, xmm0			;; R2 = R1 + R2 (final R1)
+
+	movsd	xmm2, Q src[32]			;; R3/R4 morphs into R3/I3
+	movsd	xmm3, Q src[48]
+
+	xs_complex_square xmm2, xmm3, xmm7	;; Square R3/I3
+
+						;; R3/I3 morphs into R3/R4
+
+	movsd	Q [src], xmm1			;; Save R1
+	movsd	Q [src+32], xmm2		;; Save R3
+	movsd	Q [src+16], xmm0		;; Save R2
+	movsd	Q [src+48], xmm3		;; Save R4
+
+	movsd	xmm1, Q src[d1]			;; R5
+	movsd	xmm0, Q src[d1+16] 		;; R6
+	movsd	xmm7, xmm1			;; Copy R6
+	subsd	xmm1, xmm0			;; R5 = R5 - R6 (new R6)
+	addsd	xmm0, xmm7			;; R6 = R5 + R6 (new R5)
+
+	movsd	xmm3, Q src[d1+32]		;; I5
+	movsd	xmm2, Q src[d1+48] 		;; I6
+	movsd	xmm7, xmm3			;; Copy I6
+	subsd	xmm3, xmm2			;; I5 = I5 - I6 (new I6)
+	addsd	xmm2, xmm7			;; I6 = I5 + I6 (new I5)
+
+	xs_complex_square xmm0, xmm2, xmm7	;; Square R5/I5
+	xs_complex_square xmm1, xmm3, xmm7	;; Square R6/I6
+
+	subsd	xmm0, xmm1			;; R6 = R5 - R6 (new R6)
+	multwos	xmm1
+	addsd	xmm1, xmm0			;; R5 = R5 + R6 (new R5)
+
+	subsd	xmm2, xmm3			;; I5 = I5 - I6 (new I6)
+	multwos	xmm3
+	addsd	xmm3, xmm2			;; I6 = I5 + I6 (new I5)
+
+	movsd	Q [src+d1], xmm1		;; Save R5
+	movsd	Q [src+d1+32], xmm3		;; Save I5
+	movsd	Q [src+d1+16], xmm0		;; Save R6
+	movsd	Q [src+d1+48], xmm2		;; Save I6
+
+	movsd	xmm1, Q src[d2]			;; R9
+	movsd	xmm0, Q src[d2+16] 		;; R10
+	movsd	xmm7, xmm1			;; Copy R10
+	subsd	xmm1, xmm0			;; R9 = R9 - R10 (new R10)
+	addsd	xmm0, xmm7			;; R10 = R9 + R10 (new R9)
+
+	movsd	xmm3, Q src[d2+32]		;; I9
+	movsd	xmm2, Q src[d2+48] 		;; I10
+	movsd	xmm7, xmm3			;; Copy I10
+	subsd	xmm3, xmm2			;; I9 = I9 - I10 (new I10)
+	addsd	xmm2, xmm7			;; I10 = I9 + I10 (new I9)
+
+	xs_complex_square xmm0, xmm2, xmm7	;; Square R9/I9
+	xs_complex_square xmm1, xmm3, xmm7	;; Square R10/I10
+
+	subsd	xmm0, xmm1			;; R10 = R9 - R10 (new R10)
+	multwos	xmm1
+	addsd	xmm1, xmm0			;; R9 = R9 + R10 (new R9)
+
+	subsd	xmm2, xmm3			;; I9 = I9 - I10 (new I10)
+	multwos	xmm3
+	addsd	xmm3, xmm2			;; I10 = I9 + I10 (new I9)
+
+	movsd	Q [src+d2], xmm1		;; Save R9
+	movsd	Q [src+d2+32], xmm3		;; Save I9
+	movsd	Q [src+d2+16], xmm0		;; Save R10
+	movsd	Q [src+d2+48], xmm2		;; Save I10
+
+	movsd	xmm1, Q src[d2+d1]		;; R11
+	movsd	xmm0, Q src[d2+d1+48] 		;; I12
+	movsd	xmm7, xmm1			;; Copy I12
+	subsd	xmm1, xmm0			;; R11 = R11 - I12 (new R11)
+	addsd	xmm0, xmm7			;; R12 = R11 + I12 (new R12)
+
+	movsd	xmm3, Q src[d2+d1+32]		;; I11
+	movsd	xmm2, Q src[d2+d1+16] 		;; R12
+	movsd	xmm7, xmm3			;; Copy R12
+	subsd	xmm3, xmm2			;; I11 = I11 - R12 (new I12)
+	addsd	xmm2, xmm7			;; I12 = I11 + R12 (new I11)
+
+	xs_complex_square xmm1, xmm2, xmm7	;; Square R11/I11
+	xs_complex_square xmm0, xmm3, xmm7	;; Square R12/I12
+
+	subsd	xmm0, xmm1			;; R12 = R12 - R11 (new I12)
+	multwos	xmm1
+	addsd	xmm1, xmm0			;; R11 = R12 + R11 (new R11)
+
+	subsd	xmm2, xmm3			;; I11 = I11 - I12 (new R12)
+	multwos	xmm3
+	addsd	xmm3, xmm2			;; I12 = I11 + I12 (new I11)
+
+	movsd	Q [src+d2+d1], xmm1		;; Save R11
+	movsd	Q [src+d2+d1+32], xmm3		;; Save I11
+	movsd	Q [src+d2+d1+16], xmm2		;; Save R12
+	movsd	Q [src+d2+d1+48], xmm0		;; Save I12
+
+	; Do the eight-complex part
+
+	movsd	xmm2, Q src[d2][8]		;; R5
+	movsd	xmm0, Q src[d2+16][8] 		;; R6
+	movsd	xmm7, xmm2			;; Copy R5
+	subsd	xmm2, xmm0			;; R5 = R5 - R6 (new R6)
+	addsd	xmm0, xmm7			;; R6 = R5 + R6 (new R5)
+
+	movsd	xmm3, Q src[d2+32][8]		;; I5
+	movsd	xmm1, Q src[d2+48][8] 		;; I6
+	movsd	xmm7, xmm3			;; Copy I5
+	subsd	xmm3, xmm1			;; I5 = I5 - I6 (new I6)
+	addsd	xmm1, xmm7			;; I6 = I5 + I6 (new I5)
+
+	xs_complex_square xmm2, xmm3, xmm7	;; Square R6/I6
+	xs_complex_square xmm0, xmm1, xmm7	;; Square R5/I5
+
+	movsd	xmm7, xmm0			;; Copy R5
+	subsd	xmm0, xmm2			;; R5 = R5 - R6 (new R6)
+	addsd	xmm2, xmm7			;; R6 = R5 + R6 (new R5)
+
+	movsd	xmm7, xmm1			;; Copy I5
+	subsd	xmm1, xmm3			;; I5 = I5 - I6 (new I6)
+	addsd	xmm3, xmm7			;; I6 = I5 + I6 (new I5)
+
+	movsd	Q src[d2+16][8], xmm0		;; Save R6
+	movsd	Q src[d2][8], xmm2		;; Save R5
+	movsd	Q src[d2+48][8], xmm1		;; Save I6
+	movsd	Q src[d2+32][8], xmm3		;; Save I5
+
+	movsd	xmm4, Q src[d2+d1][8]		;; R7
+	movsd	xmm5, Q src[d2+d1+48][8]	;; I8
+	movsd	xmm7, xmm4			;; Copy R7
+	subsd	xmm4, xmm5			;; R7 = R7 - I8 (new R7)
+	addsd	xmm5, xmm7			;; I8 = R7 + I8 (new R8)
+
+	movsd	xmm0, Q src[d2+d1+32][8]	;; I7
+	movsd	xmm1, Q src[d2+d1+16][8]	;; R8
+	movsd	xmm7, xmm0			;; Copy I7
+	subsd	xmm0, xmm1			;; I7 = I7 - R8 (new I8)
+	addsd	xmm1, xmm7			;; R8 = I7 + R8 (new I7)
+
+	xs_complex_square xmm5, xmm0, xmm7	;; Square R8/I8
+	xs_complex_square xmm4, xmm1, xmm7	;; Square R7/I7
+
+	movsd	xmm7, xmm5			;; Copy R8
+	subsd	xmm5, xmm4			;; R8 = R8 - R7 (new I8)
+	addsd	xmm4, xmm7			;; R7 = R8 + R7 (new R7)
+
+	movsd	xmm7, xmm1			;; Copy I7
+	subsd	xmm1, xmm0			;; I7 = I7 - I8 (new R8)
+	addsd	xmm0, xmm7			;; I8 = I7 + I8 (new I7)
+
+	movsd	Q src[d2+d1+48][8], xmm5	;; Save I8
+	movsd	Q src[d2+d1][8], xmm4		;; Save R7
+	movsd	Q src[d2+d1+16][8], xmm1	;; Save R8
+	movsd	Q src[d2+d1+32][8], xmm0	;; Save I7
+
+	movsd	xmm3, Q src[0][8]		;; R1
+	movsd	xmm4, Q src[16][8]		;; R2
+	movsd	xmm7, xmm3			;; Copy R1
+	subsd	xmm3, xmm4			;; R1 = R1 - R2 (new R2)
+	addsd	xmm4, xmm7			;; R2 = R1 + R2 (new R1)
+
+	movsd	xmm5, Q src[32][8]		;; I1
+	movsd	xmm6, Q src[48][8]		;; I2
+	movsd	xmm7, xmm5			;; Copy I1
+	subsd	xmm5, xmm6			;; I1 = I1 - I2 (new I2)
+	addsd	xmm6, xmm7			;; I2 = I1 + I2 (new I1)
+
+	xs_complex_square xmm3, xmm5, xmm7	;; Square R2/I2
+	xs_complex_square xmm4, xmm6, xmm7	;; Square R1/I1
+
+	movsd	xmm7, xmm4			;; Copy R1
+	subsd	xmm4, xmm3			;; R1 = R1 - R2 (new R2)
+	addsd	xmm3, xmm7			;; R2 = R1 + R2 (new R1)
+
+	movsd	xmm7, xmm6			;; Copy I1
+	subsd	xmm6, xmm5			;; I1 = I1 - I2 (new I2)
+	addsd	xmm5, xmm7			;; I2 = I1 + I2 (new I1)
+
+	movsd	Q src[16][8], xmm4		;; Save R2
+	movsd	Q src[0][8], xmm3		;; Save R1
+	movsd	Q src[48][8], xmm6		;; Save I2
+	movsd	Q src[32][8], xmm5		;; Save I1
+
+	movsd	xmm5, Q src[d1][8]		;; R3
+	movsd	xmm6, Q src[d1+48][8]		;; I4
+	movsd	xmm7, xmm5			;; Copy R3
+	subsd	xmm5, xmm6			;; R3 = R3 - I4 (new R3)
+	addsd	xmm6, xmm7			;; I4 = R3 + I4 (new R4)
+
+	movsd	xmm3, Q src[d1+32][8]		;; I3
+	movsd	xmm4, Q src[d1+16][8]		;; R4
+	movsd	xmm7, xmm3			;; Copy I3
+	subsd	xmm3, xmm4			;; I3 = I3 - R4 (final I4)
+	addsd	xmm4, xmm7			;; R4 = I3 + R4 (final I3)
+
+	xs_complex_square xmm6, xmm3, xmm7	;; Square R4/I4
+	xs_complex_square xmm5, xmm4, xmm7	;; Square R3/I3
+
+	movsd	xmm7, xmm6			;; Copy R4
+	subsd	xmm6, xmm5			;; R4 = R4 - R3 (new I4)
+	addsd	xmm5, xmm7			;; R3 = R4 + R3 (new R3)
+
+	movsd	xmm7, xmm4			;; Copy I3
+	subsd	xmm4, xmm3			;; I3 = I3 - I4 (new R4)
+	addsd	xmm3, xmm7			;; I4 = I3 + I4 (new I3)
+
+	movsd	Q src[d1+48][8], xmm6		;; Save I4
+	movsd	Q src[d1][8], xmm5		;; Save R3
+	movsd	Q src[d1+16][8], xmm4		;; Save R4
+	movsd	Q src[d1+32][8], xmm3		;; Save I3
+	ENDM
+
+r8_h16r_simple_unfft MACRO src,dstreg,d1,d2
+
+	; Do the 16-reals part
+
+	;; Premultipliers for even level 4
+
+						; mul R6/I6 by w^2 = .707 - .707i
+	movsd	xmm1, Q src[d1+16] 		;; R6
+	movsd	xmm5, Q src[d1+48] 		;; I6
+	subsd	xmm5, xmm1			;; I6 = I6 - R6
+	multwos	xmm1
+	addsd	xmm1, xmm5			;; R6 = I6 + R6
+	mulsd	xmm5, XMM_SQRTHALF		;; I6 = I6 * SQRTHALF
+	mulsd	xmm1, XMM_SQRTHALF		;; R6 = R6 * SQRTHALF
+
+	;; Even level 3
+
+	movsd	xmm7, Q src[16]			;; R2
+	movsd	xmm3, Q src[48] 		;; R4
+	movsd	xmm4, Q src[d2+16] 		;; R10
+	movsd	xmm6, Q src[d2+48] 		;; I10
+	movsd	xmm0, Q src[d2+d1+16] 		;; R12
+	movsd	xmm2, Q src[d2+d1+48] 		;; I12
+
+	subsd	xmm7, xmm3			;; R2 = R2 - R4 (new R4)
+	multwos	xmm3
+	addsd	xmm3, xmm7			;; R4 = R2 + R4 (new R2)
+
+						;; R6/I6 morph into new R6/R8
+
+	subsd	xmm4, xmm0			;; R10 = R10 - R12 (new R12)
+	multwos	xmm0
+	addsd	xmm0, xmm4			;; R10 = R10 + R12 (new R10)
+
+	subsd	xmm6, xmm2			;; I10 = I10 - I12 (new I12)
+	multwos	xmm2
+	addsd	xmm2, xmm6			;; I10 = I10 + I12 (new I10)
+
+	;; Premultipliers for even level 3
+
+	movsd	Q [dstreg], xmm1
+	movsd	Q [dstreg+16], xmm3
+
+						; mul R10/I10 by w^1 = .924 - .383i
+	movsd	xmm1, xmm0			; Copy R10
+	mulsd	xmm0, XMM_P924
+	movsd	xmm3, xmm2			; Copy I10
+	mulsd	xmm3, XMM_P383
+	addsd	xmm0, xmm3			; Twiddled R10
+	mulsd	xmm1, XMM_P383
+	mulsd	xmm2, XMM_P924
+	subsd	xmm2, xmm1			; Twiddled I10
+
+						; mul R12/I12 by w^3 = .383 - .924i
+	movsd	xmm1, xmm4			; Copy R12
+	mulsd	xmm4, XMM_P383
+	movsd	xmm3, xmm6			; Copy I12
+	mulsd	xmm3, XMM_P924
+	addsd	xmm4, xmm3			; Twiddled R12
+	mulsd	xmm1, XMM_P924
+	mulsd	xmm6, XMM_P383
+	subsd	xmm6, xmm1			; Twiddled I12
+
+	movsd	xmm1, Q [dstreg]
+	movsd	xmm3, Q [dstreg+16]
+
+	;; Even level 2
+
+	subsd	xmm3, xmm1			;; R2 = R2 - R6 (newer R6)
+	multwos	xmm1
+	addsd	xmm1, xmm3			;; R6 = R2 + R6 (newer R2)
+
+	subsd	xmm7, xmm5			;; R4 = R4 - R8 (newer R8)
+	multwos	xmm5
+	addsd	xmm5, xmm7			;; R8 = R4 + R8 (newer R4)
+
+						;; R10/I10 morphs into newer R10/R14
+						;; R12/I12 morphs into newer R12/R16
+
+	;; Even level 1
+
+	subsd	xmm1, xmm0			;; R2 = R2 - R10 (new R10)
+	multwos	xmm0
+	addsd	xmm0, xmm1			;; R10 = R2 + R10 (new R2)
+
+	subsd	xmm3, xmm2			;; R6 = R6 - R14 (new R14)
+	multwos	xmm2
+	addsd	xmm2, xmm3			;; R14 = R6 + R14 (new R6)
+
+	subsd	xmm5, xmm4			;; R4 = R4 - R12 (new R12)
+	multwos	xmm4
+	addsd	xmm4, xmm5			;; R12 = R4 + R12 (new R4)
+
+	subsd	xmm7, xmm6			;; R8 = R8 - R16 (new R16)
+	multwos	xmm6
+	addsd	xmm6, xmm7			;; R16 = R8 + R16 (new R8)
+
+	movsd	Q [dstreg+d1+32], xmm1		;; R10
+	movsd	Q [dstreg+d1], xmm0		;; R2
+	movsd	Q [dstreg+d1+48], xmm3		;; R14
+	movsd	Q [dstreg+d1+16], xmm2		;; R6
+	movsd	Q [dstreg+d2+d1+32], xmm5	;; R12
+	movsd	Q [dstreg+d2+d1], xmm4		;; R4
+	movsd	Q [dstreg+d2+d1+48], xmm7	;; R16
+	movsd	Q [dstreg+d2+d1+16], xmm6	;; R8
+
+	;; Odd level 3
+
+	movsd	xmm7, Q src[0] 			;; R1
+	movsd	xmm3, Q src[32] 		;; R3
+	movsd	xmm1, Q src[d1] 		;; R5
+	movsd	xmm5, Q src[d1+32] 		;; I5
+	movsd	xmm4, Q src[d2]			;; R9
+	movsd	xmm6, Q src[d2+32] 		;; I9
+	movsd	xmm0, Q src[d2+d1] 		;; R11
+	movsd	xmm2, Q src[d2+d1+32] 		;; I11
+
+	subsd	xmm7, xmm3			;; R1 = R1 - R3 (new R3)
+	multwos	xmm3
+	addsd	xmm3, xmm7			;; R3 = R1 + R3 (new R1)
+
+						;; R5/I5 morphs into new R5/R7
+
+	subsd	xmm4, xmm0			;; R9 = R9 - R11 (new R11)
+	multwos	xmm0
+	addsd	xmm0, xmm4			;; R9 = R9 + R11 (new R9)
+
+	subsd	xmm6, xmm2			;; I9 = I9 - I11 (new I11)
+	multwos	xmm2
+	addsd	xmm2, xmm6			;; I9 = I9 + I11 (new I9)
+
+	;; Premultipliers for odd level 3
+
+						;; mul R11/I11 by SQRTHALF - i*SQRTHALF
+	subsd	xmm6, xmm4			;; I11 = I11 - R11
+	multwos	xmm4
+	addsd	xmm4, xmm6			;; R11 = I11 + R11
+	mulsd	xmm6, XMM_SQRTHALF		;; I11 = I11 * SQRTHALF
+	mulsd	xmm4, XMM_SQRTHALF		;; R11 = R11 * SQRTHALF
+
+	;; Odd level 2
+
+	subsd	xmm3, xmm1			;; R1 = R1 - R5 (newer R5)
+	multwos	xmm1
+	addsd	xmm1, xmm3			;; R5 = R1 + R5 (newer R1)
+
+	subsd	xmm7, xmm5			;; R3 = R3 - R7 (newer R7)
+	multwos	xmm5
+	addsd	xmm5, xmm7			;; R7 = R3 + R7 (newer R3)
+
+						;; R9/I9 morphs into newer R9/R13
+						;; R11/I11 morphs into newer R11/R15
+
+	;; Odd level 1
+
+	subsd	xmm1, xmm0			;; R1 = R1 - R9 (new R9)
+	multwos	xmm0
+	addsd	xmm0, xmm1			;; R9 = R1 + R9 (new R1)
+
+	subsd	xmm3, xmm2			;; R5 = R5 - R13 (new R13)
+	multwos	xmm2
+	addsd	xmm2, xmm3			;; R13 = R5 + R13 (new R5)
+
+	subsd	xmm5, xmm4			;; R3 = R3 - R11 (new R11)
+	multwos	xmm4
+	addsd	xmm4, xmm5			;; R11 = R3 + R11 (new R3)
+
+	subsd	xmm7, xmm6			;; R7 = R7 - R15 (new R15)
+	multwos	xmm6
+	addsd	xmm6, xmm7			;; R15 = R7 + R15 (new R7)
+
+	movsd	Q [dstreg+32], xmm1		;; R9
+	movsd	Q [dstreg], xmm0		;; R1
+	movsd	Q [dstreg+48], xmm3		;; R13
+	movsd	Q [dstreg+16], xmm2		;; R5
+	movsd	Q [dstreg+d2+32], xmm5		;; R11
+	movsd	Q [dstreg+d2], xmm4		;; R3
+	movsd	Q [dstreg+d2+48], xmm7		;; R15
+	movsd	Q [dstreg+d2+16], xmm6		;; R7
+
+	; Do the eight-complex part
+
+	movsd	xmm5, Q src[d2+32][8]		;; I5
+	movsd	xmm1, Q src[d2+d1+32][8]	;; I7
+	movsd	xmm7, xmm5			;; Copy I5
+	subsd	xmm5, xmm1			;; I5 = I5 - I7 (new R7)
+	addsd	xmm1, xmm7			;; I7 = I5 + I7 (new I5)
+
+	movsd	xmm4, Q src[0][8]		;; R1
+	movsd	xmm2, Q src[d1][8]		;; R3
+	movsd	xmm7, xmm4			;; Copy R1
+	subsd	xmm4, xmm2			;; R1 = R1 - R3 (new R3)
+	addsd	xmm2, xmm7			;; R3 = R1 + R3 (new R1)
+
+	movsd	xmm7, xmm4			;; Copy R3
+	subsd	xmm4, xmm5			;; R3 = R3 - R7 (final R7)
+	addsd	xmm5, xmm7			;; R7 = R3 + R7 (final R3)
+
+	movsd	Q [dstreg+d2+16][8], xmm4	;; Save R7
+	movsd	Q [dstreg+d2][8], xmm5		;; Save R3
+
+	movsd	xmm6, Q src[d2][8]		;; R5
+	movsd	xmm0, Q src[d2+d1][8]		;; R7
+	movsd	xmm7, xmm6			;; Copy R5
+	addsd	xmm6, xmm0			;; R5 = R7 + R5 (new R5)
+	subsd	xmm0, xmm7			;; R7 = R7 - R5 (new I7)
+
+	movsd	xmm3, Q src[32][8]		;; I1
+	movsd	xmm4, Q src[d1+32][8]		;; I3
+	movsd	xmm7, xmm3			;; Copy I1
+	subsd	xmm3, xmm4			;; I1 = I1 - I3 (new I3)
+	addsd	xmm4, xmm7			;; I3 = I1 + I3 (new I1)
+
+	movsd	xmm7, xmm3			;; Copy I3
+	subsd	xmm3, xmm0			;; I3 = I3 - I7 (final I7)
+	addsd	xmm0, xmm7			;; I7 = I3 + I7 (final I3)
+
+	movsd	Q [dstreg+d2+48][8], xmm3	;; I7
+	movsd	Q [dstreg+d2+32][8], xmm0	;; I3
+
+	movsd	xmm7, xmm2			;; Copy R1
+	subsd	xmm2, xmm6			;; R1 = R1 - R5 (final R5)
+	addsd	xmm6, xmm7			;; R5 = R1 + R5 (final R1)
+
+	movsd	xmm7, xmm4			;; Copy I1
+	subsd	xmm4, xmm1			;; I1 = I1 - I5 (final I5)
+	addsd	xmm1, xmm7			;; I5 = I1 + I5 (final I1)
+
+	movsd	Q [dstreg+16][8], xmm2		;; R5
+	movsd	Q [dstreg][8], xmm6		;; R1
+	movsd	Q [dstreg+48][8], xmm4		;; I5
+	movsd	Q [dstreg+32][8], xmm1		;; I1
+
+
+	;; multiply R6/I6 by SQRTHALF - i*SQRTHALF
+	movsd	xmm4, Q src[d2+16][8]		;; R6
+	movsd	xmm0, Q src[d2+48][8]		;; I6
+	movsd	xmm7, xmm0			;; Copy I6
+	subsd	xmm0, xmm4			;; I6 = I6 - R6
+	addsd	xmm4, xmm7			;; R6 = R6 + I6
+
+	;; multiply R8/I8 by SQRTHALF - i*SQRTHALF
+	movsd	xmm2, Q src[d2+d1+16][8]	;; R8
+	movsd	xmm1, Q src[d2+d1+48][8]	;; I8
+	movsd	xmm7, xmm1			;; Copy I8
+	subsd	xmm1, xmm2			;; I8 = I8 - R8
+	addsd	xmm2, xmm7			;; R8 = R8 + I8
+
+	movsd	xmm5, XMM_SQRTHALF
+	mulsd	xmm0, xmm5			;; I6 = I6 * SQRTHALF (new I6)
+	mulsd	xmm4, xmm5			;; R6 = R6 * SQRTHALF (new R6)
+	mulsd	xmm1, xmm5			;; I8 = I8 * SQRTHALF (new I8)
+	mulsd	xmm2, xmm5			;; R8 = R8 * SQRTHALF (new R8)
+
+	movsd	xmm6, Q src[16][8]		;; R2
+	movsd	xmm3, Q src[d1+16][8]		;; R4
+	movsd	xmm7, xmm3			;; Copy R4
+	addsd	xmm3, xmm6			;; R4 = R2 + R4 (new R2)
+	subsd	xmm6, xmm7			;; R2 = R2 - R4 (new R4)
+
+	movsd	xmm7, xmm2			;; Copy R8
+	subsd	xmm2, xmm4			;; R8 = R8 - R6 (new I8)
+	addsd	xmm4, xmm7			;; R6 = R8 + R6 (new R6)
+
+	movsd	xmm7, xmm0			;; Copy I6
+	subsd	xmm0, xmm1			;; I6 = I6 - I8 (new R8)
+	addsd	xmm1, xmm7			;; I8 = I6 + I8 (new I6)
+
+	movsd	xmm7, xmm3			;; Copy R2
+	subsd	xmm3, xmm4			;; R2 = R2 - R6 (final R6)
+	addsd	xmm4, xmm7			;; R6 = R2 + R6 (final R2)
+
+	movsd	Q [dstreg+d1+16][8], xmm3	;; R6
+	movsd	Q [dstreg+d1][8], xmm4		;; R2
+
+	movsd	xmm5, Q src[48][8]		;; I2
+	movsd	xmm3, Q src[d1+48][8]		;; I4
+	movsd	xmm7, xmm3			;; Copy I4
+	addsd	xmm3, xmm5			;; I4 = I2 + I4 (new I2)
+	subsd	xmm5, xmm7			;; I2 = I2 - I4 (new I4)
+
+	movsd	xmm7, xmm6			;; Copy R4
+	subsd	xmm6, xmm0			;; R4 = R4 - R8 (final R8)
+	addsd	xmm0, xmm7			;; R8 = R4 + R8 (final R4)
+
+	movsd	xmm7, xmm3			;; Copy I2
+	subsd	xmm3, xmm1			;; I2 = I2 - I6 (final I6)
+	addsd	xmm1, xmm7			;; I6 = I2 + I6 (final I2)
+
+	movsd	xmm7, xmm5			;; Copy I4
+	subsd	xmm5, xmm2			;; I4 = I4 - I8 (final I8)
+	addsd	xmm2, xmm7			;; I8 = I4 + I8 (final I4)
+
+	movsd	Q [dstreg+d2+d1+16][8], xmm6	;; R8
+	movsd	Q [dstreg+d2+d1][8], xmm0	;; R4
+	movsd	Q [dstreg+d1+48][8], xmm3	;; I6
+	movsd	Q [dstreg+d1+32][8], xmm1	;; I2
+	movsd	Q [dstreg+d2+d1+48][8], xmm5	;; I8
+	movsd	Q [dstreg+d2+d1+32][8], xmm2	;; I4
+	ENDM
+
+
+r8_h8cl_sixteen_reals_eight_complex_with_mult MACRO srcreg,srcinc,d1,d2,d4
+	xmult7	srcreg, srcreg+rbp
+	r8_h16r_simple_fft_part1 srcreg+0,d1,d2,d4,XMM_COL_MULTS
+	r8_x8c_simple_fft_part1 srcreg+32,d1,d2,d4,XMM_COL_MULTS[256]
+	r8_h16r_simple_fft_with_mult XMM_COL_MULTS,srcreg+rbp,d1,d2,srcreg
+	r8_x8c_simple_fft_with_mult XMM_COL_MULTS[256],srcreg+d4+rbp,d1,d2
+	r8_h16r_simple_unfft XMM_COL_MULTS,srcreg+0,d1,d2
+	r8_x8c_simple_unfft XMM_COL_MULTS[256],srcreg+d4,d1,d2
+	bump	srcreg, srcinc
+	ENDM
+
+r8_h16r_simple_fft_with_mult MACRO src,altsrc,d1,d2,origsrc
+
+	; Do the 16-reals part
+
+	movsd	xmm1, Q src[0]			;; R1
+	movsd	xmm0, Q src[16] 		;; R2
+	movsd	xmm7, xmm1			;; Copy R2
+	subsd	xmm1, xmm0			;; R1 = R1 - R2 (new R2)
+	addsd	xmm0, xmm7			;; R2 = R1 + R2 (new R1)
+
+	mulsd	xmm0, Q [altsrc]		;; R1 * R1-from-mem
+	mulsd	xmm1, Q [altsrc+32]		;; R2 * R2-from-mem
+	movsd	Q [origsrc-16], xmm0		;; Save product of sum of FFT values
+
+	subsd	xmm0, xmm1			;; R1 = R1 - R2 (final R2)
+	mulhalfs xmm0				;; Mul R2 by HALF
+	addsd	xmm1, xmm0			;; R2 = R1 + R2 (final R1)
+
+	movsd	xmm2, Q src[32]			;; R3/R4 morphs into R3/I3
+	movsd	xmm3, Q src[48]
+
+	xs_complex_mult xmm2, xmm3, Q [altsrc+16], Q [altsrc+48], xmm6, xmm7 ;; Mult R3/I3
+
+						;; R3/I3 morphs into R3/R4
+
+	movsd	Q [src], xmm1			;; Save R1
+	movsd	Q [src+32], xmm2		;; Save R3
+	movsd	Q [src+16], xmm0		;; Save R2
+	movsd	Q [src+48], xmm3		;; Save R4
+
+	movsd	xmm1, Q src[d1]			;; R5
+	movsd	xmm0, Q src[d1+16] 		;; R6
+	movsd	xmm7, xmm1			;; Copy R6
+	subsd	xmm1, xmm0			;; R5 = R5 - R6 (new R6)
+	addsd	xmm0, xmm7			;; R6 = R5 + R6 (new R5)
+
+	movsd	xmm3, Q src[d1+32]		;; I5
+	movsd	xmm2, Q src[d1+48] 		;; I6
+	movsd	xmm7, xmm3			;; Copy I6
+	subsd	xmm3, xmm2			;; I5 = I5 - I6 (new I6)
+	addsd	xmm2, xmm7			;; I6 = I5 + I6 (new I5)
+
+	xs_complex_mult xmm0, xmm2, Q [altsrc+d1], Q [altsrc+d1+32], xmm6, xmm7 ;; Mult R5/I5
+	xs_complex_mult xmm1, xmm3, Q [altsrc+d1+16], Q [altsrc+d1+48], xmm6, xmm7 ;; Mult R6/I6
+
+	subsd	xmm0, xmm1			;; R6 = R5 - R6 (new R6)
+	multwos	xmm1
+	addsd	xmm1, xmm0			;; R5 = R5 + R6 (new R5)
+
+	subsd	xmm2, xmm3			;; I5 = I5 - I6 (new I6)
+	multwos	xmm3
+	addsd	xmm3, xmm2			;; I6 = I5 + I6 (new I5)
+
+	movsd	Q [src+d1], xmm1		;; Save R5
+	movsd	Q [src+d1+32], xmm3		;; Save I5
+	movsd	Q [src+d1+16], xmm0		;; Save R6
+	movsd	Q [src+d1+48], xmm2		;; Save I6
+
+	movsd	xmm1, Q src[d2]			;; R9
+	movsd	xmm0, Q src[d2+16] 		;; R10
+	movsd	xmm7, xmm1			;; Copy R10
+	subsd	xmm1, xmm0			;; R9 = R9 - R10 (new R10)
+	addsd	xmm0, xmm7			;; R10 = R9 + R10 (new R9)
+
+	movsd	xmm3, Q src[d2+32]		;; I9
+	movsd	xmm2, Q src[d2+48] 		;; I10
+	movsd	xmm7, xmm3			;; Copy I10
+	subsd	xmm3, xmm2			;; I9 = I9 - I10 (new I10)
+	addsd	xmm2, xmm7			;; I10 = I9 + I10 (new I9)
+
+	xs_complex_mult xmm0, xmm2, Q [altsrc+d2], Q [altsrc+d2+32], xmm6, xmm7 ;; Mult R9/I9
+	xs_complex_mult xmm1, xmm3, Q [altsrc+d2+16], Q [altsrc+d2+48], xmm6, xmm7 ;; Mult R10/I10
+
+	subsd	xmm0, xmm1			;; R10 = R9 - R10 (new R10)
+	multwos	xmm1
+	addsd	xmm1, xmm0			;; R9 = R9 + R10 (new R9)
+
+	subsd	xmm2, xmm3			;; I9 = I9 - I10 (new I10)
+	multwos	xmm3
+	addsd	xmm3, xmm2			;; I10 = I9 + I10 (new I9)
+
+	movsd	Q [src+d2], xmm1		;; Save R9
+	movsd	Q [src+d2+32], xmm3		;; Save I9
+	movsd	Q [src+d2+16], xmm0		;; Save R10
+	movsd	Q [src+d2+48], xmm2		;; Save I10
+
+	movsd	xmm1, Q src[d2+d1]		;; R11
+	movsd	xmm0, Q src[d2+d1+48] 		;; I12
+	movsd	xmm7, xmm1			;; Copy I12
+	subsd	xmm1, xmm0			;; R11 = R11 - I12 (new R11)
+	addsd	xmm0, xmm7			;; R12 = R11 + I12 (new R12)
+
+	movsd	xmm3, Q src[d2+d1+32]		;; I11
+	movsd	xmm2, Q src[d2+d1+16] 		;; R12
+	movsd	xmm7, xmm3			;; Copy R12
+	subsd	xmm3, xmm2			;; I11 = I11 - R12 (new I12)
+	addsd	xmm2, xmm7			;; I12 = I11 + R12 (new I11)
+
+	xs_complex_mult xmm1, xmm2, Q [altsrc+d2+d1], Q [altsrc+d2+d1+32], xmm6, xmm7 ;; Mult R11/I11
+	xs_complex_mult xmm0, xmm3, Q [altsrc+d2+d1+16], Q [altsrc+d2+d1+48], xmm6, xmm7 ;; Mult R12/I12
+
+	subsd	xmm0, xmm1			;; R12 = R12 - R11 (new I12)
+	multwos	xmm1
+	addsd	xmm1, xmm0			;; R11 = R12 + R11 (new R11)
+
+	subsd	xmm2, xmm3			;; I11 = I11 - I12 (new R12)
+	multwos	xmm3
+	addsd	xmm3, xmm2			;; I12 = I11 + I12 (new I11)
+
+	movsd	Q [src+d2+d1], xmm1		;; Save R11
+	movsd	Q [src+d2+d1+32], xmm3		;; Save I11
+	movsd	Q [src+d2+d1+16], xmm2		;; Save R12
+	movsd	Q [src+d2+d1+48], xmm0		;; Save I12
+
+	; Do the eight-complex part
+
+	movsd	xmm2, Q src[d2][8]		;; R5
+	movsd	xmm0, Q src[d2+16][8] 		;; R6
+	movsd	xmm7, xmm2			;; Copy R5
+	subsd	xmm2, xmm0			;; R5 = R5 - R6 (new R6)
+	addsd	xmm0, xmm7			;; R6 = R5 + R6 (new R5)
+
+	movsd	xmm3, Q src[d2+32][8]		;; I5
+	movsd	xmm1, Q src[d2+48][8] 		;; I6
+	movsd	xmm7, xmm3			;; Copy I5
+	subsd	xmm3, xmm1			;; I5 = I5 - I6 (new I6)
+	addsd	xmm1, xmm7			;; I6 = I5 + I6 (new I5)
+
+	xs_complex_mult xmm2, xmm3, Q [altsrc+d2+16][8], Q [altsrc+d2+48][8], xmm6, xmm7 ;; Mult R6/I6
+	xs_complex_mult xmm0, xmm1, Q [altsrc+d2][8], Q [altsrc+d2+32][8], xmm6, xmm7 ;; Mult R5/I5
+
+	movsd	xmm7, xmm0			;; Copy R5
+	subsd	xmm0, xmm2			;; R5 = R5 - R6 (new R6)
+	addsd	xmm2, xmm7			;; R6 = R5 + R6 (new R5)
+
+	movsd	xmm7, xmm1			;; Copy I5
+	subsd	xmm1, xmm3			;; I5 = I5 - I6 (new I6)
+	addsd	xmm3, xmm7			;; I6 = I5 + I6 (new I5)
+
+	movsd	Q src[d2+16][8], xmm0		;; Save R6
+	movsd	Q src[d2][8], xmm2		;; Save R5
+	movsd	Q src[d2+48][8], xmm1		;; Save I6
+	movsd	Q src[d2+32][8], xmm3		;; Save I5
+
+	movsd	xmm4, Q src[d2+d1][8]		;; R7
+	movsd	xmm5, Q src[d2+d1+48][8]	;; I8
+	movsd	xmm7, xmm4			;; Copy R7
+	subsd	xmm4, xmm5			;; R7 = R7 - I8 (new R7)
+	addsd	xmm5, xmm7			;; I8 = R7 + I8 (new R8)
+
+	movsd	xmm0, Q src[d2+d1+32][8]	;; I7
+	movsd	xmm1, Q src[d2+d1+16][8]	;; R8
+	movsd	xmm7, xmm0			;; Copy I7
+	subsd	xmm0, xmm1			;; I7 = I7 - R8 (new I8)
+	addsd	xmm1, xmm7			;; R8 = I7 + R8 (new I7)
+
+	xs_complex_mult xmm5, xmm0, Q [altsrc+d2+d1+16][8], Q [altsrc+d2+d1+48][8], xmm6, xmm7 ;; Mult R8/I8
+	xs_complex_mult xmm4, xmm1, Q [altsrc+d2+d1][8], Q [altsrc+d2+d1+32][8], xmm6, xmm7 ;; Mult R7/I7
+
+	movsd	xmm7, xmm5			;; Copy R8
+	subsd	xmm5, xmm4			;; R8 = R8 - R7 (new I8)
+	addsd	xmm4, xmm7			;; R7 = R8 + R7 (new R7)
+
+	movsd	xmm7, xmm1			;; Copy I7
+	subsd	xmm1, xmm0			;; I7 = I7 - I8 (new R8)
+	addsd	xmm0, xmm7			;; I8 = I7 + I8 (new I7)
+
+	movsd	Q src[d2+d1+48][8], xmm5	;; Save I8
+	movsd	Q src[d2+d1][8], xmm4		;; Save R7
+	movsd	Q src[d2+d1+16][8], xmm1	;; Save R8
+	movsd	Q src[d2+d1+32][8], xmm0	;; Save I7
+
+	movsd	xmm3, Q src[0][8]		;; R1
+	movsd	xmm4, Q src[16][8]		;; R2
+	movsd	xmm7, xmm3			;; Copy R1
+	subsd	xmm3, xmm4			;; R1 = R1 - R2 (new R2)
+	addsd	xmm4, xmm7			;; R2 = R1 + R2 (new R1)
+
+	movsd	xmm5, Q src[32][8]		;; I1
+	movsd	xmm6, Q src[48][8]		;; I2
+	movsd	xmm7, xmm5			;; Copy I1
+	subsd	xmm5, xmm6			;; I1 = I1 - I2 (new I2)
+	addsd	xmm6, xmm7			;; I2 = I1 + I2 (new I1)
+
+	xs_complex_mult xmm3, xmm5, Q [altsrc+16][8], Q [altsrc+48][8], xmm0, xmm7 ;; Mult R2/I2
+	xs_complex_mult xmm4, xmm6, Q [altsrc][8], Q [altsrc+32][8], xmm0, xmm7 ;; Mult R1/I1
+
+	movsd	xmm7, xmm4			;; Copy R1
+	subsd	xmm4, xmm3			;; R1 = R1 - R2 (new R2)
+	addsd	xmm3, xmm7			;; R2 = R1 + R2 (new R1)
+
+	movsd	xmm7, xmm6			;; Copy I1
+	subsd	xmm6, xmm5			;; I1 = I1 - I2 (new I2)
+	addsd	xmm5, xmm7			;; I2 = I1 + I2 (new I1)
+
+	movsd	Q src[16][8], xmm4		;; Save R2
+	movsd	Q src[0][8], xmm3		;; Save R1
+	movsd	Q src[48][8], xmm6		;; Save I2
+	movsd	Q src[32][8], xmm5		;; Save I1
+
+	movsd	xmm5, Q src[d1][8]		;; R3
+	movsd	xmm6, Q src[d1+48][8]		;; I4
+	movsd	xmm7, xmm5			;; Copy R3
+	subsd	xmm5, xmm6			;; R3 = R3 - I4 (new R3)
+	addsd	xmm6, xmm7			;; I4 = R3 + I4 (new R4)
+
+	movsd	xmm3, Q src[d1+32][8]		;; I3
+	movsd	xmm4, Q src[d1+16][8]		;; R4
+	movsd	xmm7, xmm3			;; Copy I3
+	subsd	xmm3, xmm4			;; I3 = I3 - R4 (final I4)
+	addsd	xmm4, xmm7			;; R4 = I3 + R4 (final I3)
+
+	xs_complex_mult xmm6, xmm3, Q [altsrc+d1+16][8], Q [altsrc+d1+48][8], xmm0, xmm7 ;; Mult R4/I4
+	xs_complex_mult xmm5, xmm4, Q [altsrc+d1][8], Q [altsrc+d1+32][8], xmm0, xmm7 ;; Mult R3/I3
+
+	movsd	xmm7, xmm6			;; Copy R4
+	subsd	xmm6, xmm5			;; R4 = R4 - R3 (new I4)
+	addsd	xmm5, xmm7			;; R3 = R4 + R3 (new R3)
+
+	movsd	xmm7, xmm4			;; Copy I3
+	subsd	xmm4, xmm3			;; I3 = I3 - I4 (new R4)
+	addsd	xmm3, xmm7			;; I4 = I3 + I4 (new I3)
+
+	movsd	Q src[d1+48][8], xmm6		;; Save I4
+	movsd	Q src[d1][8], xmm5		;; Save R3
+	movsd	Q src[d1+16][8], xmm4		;; Save R4
+	movsd	Q src[d1+32][8], xmm3		;; Save I3
+	ENDM
+
+
+r8_h8cl_sixteen_reals_eight_complex_with_mulf MACRO srcreg,srcinc,d1,d2,d4
+	xmult7	srcreg+rbx, srcreg+rbp
+	r8_h16r_simple_fft_with_mulf srcreg,d1,d2,XMM_COL_MULTS
+	r8_x8c_simple_fft_with_mulf srcreg+d4,d1,d2,XMM_COL_MULTS[256]
+	r8_h16r_simple_unfft XMM_COL_MULTS,srcreg+0,d1,d2
+	r8_x8c_simple_unfft XMM_COL_MULTS[256],srcreg+d4,d1,d2
+	bump	srcreg, srcinc
+	ENDM
+
+r8_h16r_simple_fft_with_mulf MACRO srcreg,d1,d2,dst
+
+	; Do the 16-reals part
+
+	movsd	xmm0, Q [srcreg][rbx]		;; R1
+	movsd	xmm1, Q [srcreg+32][rbx]	;; R2
+
+	mulsd	xmm0, Q [srcreg][rbp]		;; R1 * R1-from-mem
+	mulsd	xmm1, Q [srcreg+32][rbp]	;; R2 * R2-from-mem
+	movsd	Q [srcreg-16], xmm0		;; Save product of sum of FFT values
+
+	subsd	xmm0, xmm1			;; R1 = R1 - R2 (final R2)
+	mulhalfs xmm0				;; Mul R2 by HALF
+	addsd	xmm1, xmm0			;; R2 = R1 + R2 (final R1)
+
+	movsd	xmm2, Q [srcreg+16][rbx]	;; R3/R4 morphs into R3/I3
+	movsd	xmm3, Q [srcreg+48][rbx]
+
+	xs_complex_mult xmm2, xmm3, Q [srcreg+16][rbp], Q [srcreg+48][rbp], xmm6, xmm7 ;; Mult R3/I3
+
+						;; R3/I3 morphs into R3/R4
+
+	movsd	Q dst[0], xmm1			;; Save R1
+	movsd	Q dst[32], xmm2			;; Save R3
+	movsd	Q dst[16], xmm0			;; Save R2
+	movsd	Q dst[48], xmm3			;; Save R4
+
+	movsd	xmm0, Q [srcreg+d1][rbx]	;; R5
+	movsd	xmm2, Q [srcreg+d1+32][rbx]	;; I5
+	movsd	xmm1, Q [srcreg+d1+16][rbx]	;; R6
+	movsd	xmm3, Q [srcreg+d1+48][rbx]	;; I6
+
+	xs_complex_mult xmm0, xmm2, Q [srcreg+d1][rbp], Q [srcreg+d1+32][rbp], xmm6, xmm7 ;; Mult R5/I5
+	xs_complex_mult xmm1, xmm3, Q [srcreg+d1+16][rbp], Q [srcreg+d1+48][rbp], xmm6, xmm7 ;; Mult R6/I6
+
+	subsd	xmm0, xmm1			;; R6 = R5 - R6 (new R6)
+	multwos	xmm1
+	addsd	xmm1, xmm0			;; R5 = R5 + R6 (new R5)
+
+	subsd	xmm2, xmm3			;; I5 = I5 - I6 (new I6)
+	multwos	xmm3
+	addsd	xmm3, xmm2			;; I6 = I5 + I6 (new I5)
+
+	movsd	Q dst[d1], xmm1			;; Save R5
+	movsd	Q dst[d1+32], xmm3		;; Save I5
+	movsd	Q dst[d1+16], xmm0		;; Save R6
+	movsd	Q dst[d1+48], xmm2		;; Save I6
+
+	movsd	xmm0, Q [srcreg+d2][rbx]	;; R9
+	movsd	xmm2, Q [srcreg+d2+32][rbx]	;; I9
+	movsd	xmm1, Q [srcreg+d2+16][rbx]	;; R10
+	movsd	xmm3, Q [srcreg+d2+48][rbx]	;; I10
+
+	xs_complex_mult xmm0, xmm2, Q [srcreg+d2][rbp], Q [srcreg+d2+32][rbp], xmm6, xmm7 ;; Mult R9/I9
+	xs_complex_mult xmm1, xmm3, Q [srcreg+d2+16][rbp], Q [srcreg+d2+48][rbp], xmm6, xmm7 ;; Mult R10/I10
+
+	subsd	xmm0, xmm1			;; R10 = R9 - R10 (new R10)
+	multwos	xmm1
+	addsd	xmm1, xmm0			;; R9 = R9 + R10 (new R9)
+
+	subsd	xmm2, xmm3			;; I9 = I9 - I10 (new I10)
+	multwos	xmm3
+	addsd	xmm3, xmm2			;; I10 = I9 + I10 (new I9)
+
+	movsd	Q dst[d2], xmm1			;; Save R9
+	movsd	Q dst[d2+32], xmm3		;; Save I9
+	movsd	Q dst[d2+16], xmm0		;; Save R10
+	movsd	Q dst[d2+48], xmm2		;; Save I10
+
+	movsd	xmm1, Q [srcreg+d2+d1][rbx]	;; R11
+	movsd	xmm2, Q [srcreg+d2+d1+32][rbx]	;; I11
+	movsd	xmm0, Q [srcreg+d2+d1+16][rbx] 	;; R12
+	movsd	xmm3, Q [srcreg+d2+d1+48][rbx] 	;; I12
+
+	xs_complex_mult xmm1, xmm2, Q [srcreg+d2+d1][rbp], Q [srcreg+d2+d1+32][rbp], xmm6, xmm7 ;; Mult R11/I11
+	xs_complex_mult xmm0, xmm3, Q [srcreg+d2+d1+16][rbp], Q [srcreg+d2+d1+48][rbp], xmm6, xmm7 ;; Mult R12/I12
+
+	subsd	xmm0, xmm1			;; R12 = R12 - R11 (new I12)
+	multwos	xmm1
+	addsd	xmm1, xmm0			;; R11 = R12 + R11 (new R11)
+
+	subsd	xmm2, xmm3			;; I11 = I11 - I12 (new R12)
+	multwos	xmm3
+	addsd	xmm3, xmm2			;; I12 = I11 + I12 (new I11)
+
+	movsd	Q dst[d2+d1], xmm1		;; Save R11
+	movsd	Q dst[d2+d1+32], xmm3		;; Save I11
+	movsd	Q dst[d2+d1+16], xmm2		;; Save R12
+	movsd	Q dst[d2+d1+48], xmm0		;; Save I12
+
+	; Do the eight-complex part
+
+	movsd	xmm2, Q [srcreg+d2+16][rbx][8]	;; R6
+	movsd	xmm3, Q [srcreg+d2+48][rbx][8]	;; I6
+	movsd	xmm0, Q [srcreg+d2][rbx][8]	;; R5
+	movsd	xmm1, Q [srcreg+d2+32][rbx][8]	;; I5
+
+	xs_complex_mult xmm2, xmm3, Q [srcreg+d2+16][rbp][8], Q [srcreg+d2+48][rbp][8], xmm6, xmm7 ;; Mult R6/I6
+	xs_complex_mult xmm0, xmm1, Q [srcreg+d2][rbp][8], Q [srcreg+d2+32][rbp][8], xmm6, xmm7 ;; Mult R5/I5
+
+	movsd	xmm7, xmm0			;; Copy R5
+	subsd	xmm0, xmm2			;; R5 = R5 - R6 (new R6)
+	addsd	xmm2, xmm7			;; R6 = R5 + R6 (new R5)
+
+	movsd	xmm7, xmm1			;; Copy I5
+	subsd	xmm1, xmm3			;; I5 = I5 - I6 (new I6)
+	addsd	xmm3, xmm7			;; I6 = I5 + I6 (new I5)
+
+	movsd	Q dst[d2+16][8], xmm0		;; Save R6
+	movsd	Q dst[d2][8], xmm2		;; Save R5
+	movsd	Q dst[d2+48][8], xmm1		;; Save I6
+	movsd	Q dst[d2+32][8], xmm3		;; Save I5
+
+	movsd	xmm5, Q [srcreg+d2+d1+16][rbx][8] ;; R8
+	movsd	xmm0, Q [srcreg+d2+d1+48][rbx][8] ;; I8
+	movsd	xmm4, Q [srcreg+d2+d1][rbx][8]	;; R7
+	movsd	xmm1, Q [srcreg+d2+d1+32][rbx][8] ;; I7
+
+	xs_complex_mult xmm5, xmm0, Q [srcreg+d2+d1+16][rbp][8], Q [srcreg+d2+d1+48][rbp][8], xmm6, xmm7 ;; Mult R8/I8
+	xs_complex_mult xmm4, xmm1, Q [srcreg+d2+d1][rbp][8], Q [srcreg+d2+d1+32][rbp][8], xmm6, xmm7 ;; Mult R7/I7
+
+	movsd	xmm7, xmm5			;; Copy R8
+	subsd	xmm5, xmm4			;; R8 = R8 - R7 (new I8)
+	addsd	xmm4, xmm7			;; R7 = R8 + R7 (new R7)
+
+	movsd	xmm7, xmm1			;; Copy I7
+	subsd	xmm1, xmm0			;; I7 = I7 - I8 (new R8)
+	addsd	xmm0, xmm7			;; I8 = I7 + I8 (new I7)
+
+	movsd	Q dst[d2+d1+48][8], xmm5	;; Save I8
+	movsd	Q dst[d2+d1][8], xmm4		;; Save R7
+	movsd	Q dst[d2+d1+16][8], xmm1	;; Save R8
+	movsd	Q dst[d2+d1+32][8], xmm0	;; Save I7
+
+	movsd	xmm3, Q [srcreg+16][rbx][8]	;; R2
+	movsd	xmm5, Q [srcreg+48][rbx][8]	;; I2
+	movsd	xmm4, Q [srcreg][rbx][8]	;; R1
+	movsd	xmm6, Q [srcreg+32][rbx][8]	;; I1
+
+	xs_complex_mult xmm3, xmm5, Q [srcreg+16][rbp][8], Q [srcreg+48][rbp][8], xmm0, xmm7 ;; Mult R2/I2
+	xs_complex_mult xmm4, xmm6, Q [srcreg][rbp][8], Q [srcreg+32][rbp][8], xmm0, xmm7 ;; Mult R1/I1
+
+	movsd	xmm7, xmm4			;; Copy R1
+	subsd	xmm4, xmm3			;; R1 = R1 - R2 (new R2)
+	addsd	xmm3, xmm7			;; R2 = R1 + R2 (new R1)
+
+	movsd	xmm7, xmm6			;; Copy I1
+	subsd	xmm6, xmm5			;; I1 = I1 - I2 (new I2)
+	addsd	xmm5, xmm7			;; I2 = I1 + I2 (new I1)
+
+	movsd	Q dst[16][8], xmm4		;; Save R2
+	movsd	Q dst[0][8], xmm3		;; Save R1
+	movsd	Q dst[48][8], xmm6		;; Save I2
+	movsd	Q dst[32][8], xmm5		;; Save I1
+
+	movsd	xmm6, Q [srcreg+d1+16][rbx][8]	;; R4
+	movsd	xmm3, Q [srcreg+d1+48][rbx][8]	;; I4
+	movsd	xmm5, Q [srcreg+d1][rbx][8]	;; R3
+	movsd	xmm4, Q [srcreg+d1+32][rbx][8]	;; I3
+
+	xs_complex_mult xmm6, xmm3, Q [srcreg+d1+16][rbp][8], Q [srcreg+d1+48][rbp][8], xmm0, xmm7 ;; Mult R4/I4
+	xs_complex_mult xmm5, xmm4, Q [srcreg+d1][rbp][8], Q [srcreg+d1+32][rbp][8], xmm0, xmm7 ;; Mult R3/I3
+
+	movsd	xmm7, xmm6			;; Copy R4
+	subsd	xmm6, xmm5			;; R4 = R4 - R3 (new I4)
+	addsd	xmm5, xmm7			;; R3 = R4 + R3 (new R3)
+
+	movsd	xmm7, xmm4			;; Copy I3
+	subsd	xmm4, xmm3			;; I3 = I3 - I4 (new R4)
+	addsd	xmm3, xmm7			;; I4 = I3 + I4 (new I3)
+
+	movsd	dst[d1+48][8], xmm6		;; Save I4
+	movsd	dst[d1][8], xmm5		;; Save R3
+	movsd	dst[d1+16][8], xmm4		;; Save R4
+	movsd	dst[d1+32][8], xmm3		;; Save I3
+	ENDM
 
 ;;
 ;; Override any or all of the above macros with versions

@@ -48,6 +48,8 @@ TLB_PRIMING = 0
 	xpass2gen 5120
 	xpass2gen 6400
 
+	xpass2gen 13
+
 ;; Routines for many FFT sizes
 
 	r4delay_pass1sc320 960K, 3072, 4
@@ -60,6 +62,7 @@ TLB_PRIMING = 0
 	r4delay_pass1sc448 1792K, 12, 4
 	r4delay_pass1sc512 1920K, 3840, 4
 	r4delay_pass1sc512 2M, 12, 4
+	r4delay_pass1sc512 4M, 13, 4
 	r4delay_pass1sc640 1440K, 2304, 4
 	r4delay_pass1sc640 1920K, 3072, 4
 	r4delay_pass1sc640 2560K, 12, 4
@@ -89,6 +92,8 @@ TLB_PRIMING = 0
 	r4delay_pass1sc1024ac 3M, 3072, 4
 	r4delay_pass1sc1024ac 4M, 12, 4
 	r4delay_pass1sc1280ac 5M, 12, 4
+
+	r4delay_pass1sc512ac 4M, 13, 4
 
 _TEXT	ENDS
 END

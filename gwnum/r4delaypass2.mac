@@ -1,4 +1,4 @@
-; Copyright 2009 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2009-2010 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -87,4 +87,18 @@ r4delay_pass2_6400_levels_complex MACRO
 	r4_pass2_6400_levels_complex
 	ENDM
 
+
+
+; *************** radix4-pass2-13-levels-complex macro ******************
+; This macro takes 2 groups of 8192 complex values and
+; performs the final 13 levels of a standard radix-4 FFT, squares the
+; results, and does the first 13 levels of the inverse FFT.
+
+r4delay_pass2_13_levels_real MACRO
+	r4_pass2_13_levels_real
+	ENDM
+
+r4delay_pass2_13_levels_complex MACRO
+	r4_pass2_13_levels_complex
+	ENDM
 

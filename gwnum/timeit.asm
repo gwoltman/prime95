@@ -31,7 +31,7 @@ X87_CASES	EQU	0
 ELSE
 X87_CASES	EQU	13
 ENDIF
-SSE2_CASES	EQU	218
+SSE2_CASES	EQU	226
 
 loopent	MACRO	y,z		; Create a entry in the loop entry table
 	DP	&y&z
@@ -769,6 +769,15 @@ sscase167: jmp exit;;	sse2mac sscase167, 256, 100000, r4_s4cl_four_complex_djbun
 	sse2mac sscase215, 320, 100000, r5_x5cl_20_reals_first_fft_scratch rsi, 5*64, 64, rdi
 	sse2mac sscase216, 640, 4096, r5_x10cl_20_reals_last_unfft rsi, 10*64, 64, rdi, 8*XMM_SCD9
 	sse2mac sscase217, 640, 100000, r5_x10cl_20_reals_last_unfft rsi, 10*64, 64, rdi, 8*XMM_SCD9
+
+	sse2mac sscase218, 512, 4096, r8_x8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+	sse2mac sscase219, 512, 100000, r8_x8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+	sse2mac sscase220, 512, 4096, r8_x8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+	sse2mac sscase221, 512, 100000, r8_x8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+	sse2macbx sscase222, 512, 4096, r8_x8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+	sse2macbx sscase223, 512, 100000, r8_x8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+	sse2macbx sscase224, 512, 4096, r8_x8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+	sse2macbx sscase225, 512, 100000, r8_x8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 
 	; need 16 reals cases
 

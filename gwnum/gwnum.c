@@ -763,9 +763,12 @@ double *r4_build_pass2_complex_table (
 	}
 
 /* And a smaller table so the final 6 levels aren't using nasty large */
-/* power-of-2 strides to access sin/cos data. */
+/* power-of-2 strides to access sin/cos data.  If the last levels use */
+/* eight_complex macros set N to 512. if they use the four_complex macros */
+/* set N to 256. */
 
-	N = 256;
+	for (i = 0; (N & 1) == 0; N >>= 1) i++;
+	N = (i & 1) ? 512 : 256;
 	for (i = 0; i < N / 4; i++) {
 		gwsincos3 (i, N, (double *) &sincos);
 		table[1] = table[0] = sincos[0];	/* temp */
