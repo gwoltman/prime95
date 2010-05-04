@@ -409,7 +409,7 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 	p2g = GAP2_12_8
 	ENDIF
 	ENDIF
-	IF xpass2_levels EQ 13 OR (xpass2_levels GT 4096 AND xpass2_levels LE 8192)
+	IF xpass2_levels EQ 13 OR (xpass2_levels GT 4096)
 	IF clm EQ 1 AND PREFETCHING EQ 0
 	p2g = GAP2_13_0
 	ENDIF
