@@ -712,8 +712,18 @@ double *r4_build_pass2_complex_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table)		/* Pointer to the table to fill in */
 {
-	unsigned long i, N, limit;
+	unsigned long i, N, limit, aux_table_size;
 	double	sincos[6];
+
+/* We also build a smaller auxillary table so the final several levels aren't using */
+/* cache-unfriendly large strides to access sin/cos data.  If the last levels use */
+/* eight_complex macros set auxillary table size to 512, otherwise the last levels */
+/* use the four_complex macros and we'll build an auxillary table size of 256. */
+
+	for (i = 0, N = gwdata->PASS2_SIZE; (N & 1) == 0; N >>= 1) i++;
+	aux_table_size = (i & 1) ? 512 : 256;
+ASSERTG (i >= 6);	// We'll need to carefully consider the limit code below for smaller aux tables
+			// We'll also need to build smaller aux tables
 
 /* If the pass 2 size is divisible by 3, then the first level does a */
 /* radix-3 step which only requires one sin/cos value.  Alas, rather than */
@@ -724,7 +734,7 @@ double *r4_build_pass2_complex_table (
 	N = gwdata->PASS2_SIZE;
 	if (N % 3 == 0) {
 		if (N % 5 == 0) limit = N * 2 / 5;
-		else if (N % 512 == 0) limit = N / 2;
+		else if (N / aux_table_size % 2 == 0) limit = N / 2;
 		else limit = N / 3;
 		for (i = 0; i < limit; i++) {
 			gwsincos (i, N, (double *) &sincos);
@@ -734,24 +744,13 @@ double *r4_build_pass2_complex_table (
 		}
 	}
 
-/* If the levels above N=256 are all radix-5, then output a slightly smaller sin/cos table. */
-
-	else if (N % 5 == 0 && N % 512 != 0) {
-		limit = N / 5;
-		for (i = 0; i < limit; i++) {
-			gwsincos3 (i, N, (double *) &sincos);
-			table[1] = table[0] = sincos[0];	/* temp */
-			table[3] = table[2] = sincos[1];
-			table[5] = table[4] = sincos[2];	/* 2 * temp */
-			table[7] = table[6] = sincos[3];
-			table += 8;
-		}
-	}
-
-/* For the r4_four_complex_fft building block levels, output the sin/cos values. */
+/* For the radix-4 and radix-5 building blocks, output two sin/cos values. */
+/* If the levels above the aux_table_size are all radix-5, then we can */
+/* output a slightly smaller sin/cos table. */
 
 	else {
-		limit = N / 4;
+		if (N / aux_table_size % 2 == 1) limit = N / 5;
+		else limit = N / 4;
 		for (i = 0; i < limit; i++) {
 			gwsincos3 (i, N, (double *) &sincos);
 			table[1] = table[0] = sincos[0];	/* temp */
@@ -762,13 +761,9 @@ double *r4_build_pass2_complex_table (
 		}
 	}
 
-/* And a smaller table so the final 6 levels aren't using nasty large */
-/* power-of-2 strides to access sin/cos data.  If the last levels use */
-/* eight_complex macros set N to 512. if they use the four_complex macros */
-/* set N to 256. */
+/* Build the smaller auxillary table */
 
-	for (i = 0; (N & 1) == 0; N >>= 1) i++;
-	N = (i & 1) ? 512 : 256;
+	N = aux_table_size;
 	for (i = 0; i < N / 4; i++) {
 		gwsincos3 (i, N, (double *) &sincos);
 		table[1] = table[0] = sincos[0];	/* temp */

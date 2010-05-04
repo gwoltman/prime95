@@ -48,10 +48,12 @@ TLB_PRIMING = 0
 	xpass2gen 5120
 	xpass2gen 6400
 
+	xpass2gen 4608
 	xpass2gen 13
 
 ;; Routines for many FFT sizes
 
+	r4delay_pass1sc256 1M, 12, 4
 	r4delay_pass1sc320 960K, 3072, 4
 	r4delay_pass1sc320 1280K, 12, 4
 	r4delay_pass1sc384 864K, 2304, 4
@@ -62,7 +64,6 @@ TLB_PRIMING = 0
 	r4delay_pass1sc448 1792K, 12, 4
 	r4delay_pass1sc512 1920K, 3840, 4
 	r4delay_pass1sc512 2M, 12, 4
-	r4delay_pass1sc512 4M, 13, 4
 	r4delay_pass1sc640 1440K, 2304, 4
 	r4delay_pass1sc640 1920K, 3072, 4
 	r4delay_pass1sc640 2560K, 12, 4
@@ -76,7 +77,17 @@ TLB_PRIMING = 0
 	r4delay_pass1sc896 3584K, 12, 4
 	r4delay_pass1sc1024 4M, 12, 4
 	r4delay_pass1sc1280 5M, 12, 4
+	r4delay_pass1sc1536 6M, 12, 4
+	r4delay_pass1sc1792 7M, 12, 4
+	r4delay_pass1sc2048 8M, 12, 4
+	r4delay_pass1sc2560 10M, 12, 4
+	r4delay_pass1sc3072 12M, 12, 4
+	r4delay_pass1sc3584 14M, 12, 4
+	r4delay_pass1sc4096 16M, 12, 2
+	r4delay_pass1sc4096 16M, 12, 4
 
+	r4delay_pass1sc256ac 576K, 2304, 4
+	r4delay_pass1sc256ac 1M, 12, 4
 	r4delay_pass1sc384ac 864K, 2304, 4
 	r4delay_pass1sc384ac 1152K, 3072, 4
 	r4delay_pass1sc384ac 1536K, 12, 4
@@ -92,7 +103,19 @@ TLB_PRIMING = 0
 	r4delay_pass1sc1024ac 3M, 3072, 4
 	r4delay_pass1sc1024ac 4M, 12, 4
 	r4delay_pass1sc1280ac 5M, 12, 4
+	r4delay_pass1sc1536ac 6M, 12, 4
+	r4delay_pass1sc2048ac 8M, 12, 4
+	r4delay_pass1sc2560ac 10M, 12, 4
+	r4delay_pass1sc3072ac 12M, 12, 4
+	r4delay_pass1sc4096ac 16M, 12, 4
+	r4delay_pass1sc5120ac 11520K, 2304, 4
+	r4delay_pass1sc5120ac 20M, 12, 4
 
+	r4delay_pass1sc256 1152K, 4608, 4
+	r4delay_pass1sc256 2M, 13, 4
+	r4delay_pass1sc512 4M, 13, 4
+
+	r4delay_pass1sc256ac 1152K, 4608, 4
 	r4delay_pass1sc512ac 4M, 13, 4
 
 _TEXT	ENDS

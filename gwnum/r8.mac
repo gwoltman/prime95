@@ -3597,10 +3597,10 @@ r8_h16r_simple_fft_with_square MACRO src,d1,d2,origsrc
 
 						;; R3/I3 morphs into R3/R4
 
-	movsd	Q [src], xmm1			;; Save R1
-	movsd	Q [src+32], xmm2		;; Save R3
-	movsd	Q [src+16], xmm0		;; Save R2
-	movsd	Q [src+48], xmm3		;; Save R4
+	movsd	Q src[0], xmm1			;; Save R1
+	movsd	Q src[32], xmm2			;; Save R3
+	movsd	Q src[16], xmm0			;; Save R2
+	movsd	Q src[48], xmm3			;; Save R4
 
 	movsd	xmm1, Q src[d1]			;; R5
 	movsd	xmm0, Q src[d1+16] 		;; R6
@@ -3625,10 +3625,10 @@ r8_h16r_simple_fft_with_square MACRO src,d1,d2,origsrc
 	multwos	xmm3
 	addsd	xmm3, xmm2			;; I6 = I5 + I6 (new I5)
 
-	movsd	Q [src+d1], xmm1		;; Save R5
-	movsd	Q [src+d1+32], xmm3		;; Save I5
-	movsd	Q [src+d1+16], xmm0		;; Save R6
-	movsd	Q [src+d1+48], xmm2		;; Save I6
+	movsd	Q src[d1], xmm1			;; Save R5
+	movsd	Q src[d1+32], xmm3		;; Save I5
+	movsd	Q src[d1+16], xmm0		;; Save R6
+	movsd	Q src[d1+48], xmm2		;; Save I6
 
 	movsd	xmm1, Q src[d2]			;; R9
 	movsd	xmm0, Q src[d2+16] 		;; R10
@@ -3653,10 +3653,10 @@ r8_h16r_simple_fft_with_square MACRO src,d1,d2,origsrc
 	multwos	xmm3
 	addsd	xmm3, xmm2			;; I10 = I9 + I10 (new I9)
 
-	movsd	Q [src+d2], xmm1		;; Save R9
-	movsd	Q [src+d2+32], xmm3		;; Save I9
-	movsd	Q [src+d2+16], xmm0		;; Save R10
-	movsd	Q [src+d2+48], xmm2		;; Save I10
+	movsd	Q src[d2], xmm1			;; Save R9
+	movsd	Q src[d2+32], xmm3		;; Save I9
+	movsd	Q src[d2+16], xmm0		;; Save R10
+	movsd	Q src[d2+48], xmm2		;; Save I10
 
 	movsd	xmm1, Q src[d2+d1]		;; R11
 	movsd	xmm0, Q src[d2+d1+48] 		;; I12
@@ -3681,10 +3681,10 @@ r8_h16r_simple_fft_with_square MACRO src,d1,d2,origsrc
 	multwos	xmm3
 	addsd	xmm3, xmm2			;; I12 = I11 + I12 (new I11)
 
-	movsd	Q [src+d2+d1], xmm1		;; Save R11
-	movsd	Q [src+d2+d1+32], xmm3		;; Save I11
-	movsd	Q [src+d2+d1+16], xmm2		;; Save R12
-	movsd	Q [src+d2+d1+48], xmm0		;; Save I12
+	movsd	Q src[d2+d1], xmm1		;; Save R11
+	movsd	Q src[d2+d1+32], xmm3		;; Save I11
+	movsd	Q src[d2+d1+16], xmm2		;; Save R12
+	movsd	Q src[d2+d1+48], xmm0		;; Save I12
 
 	; Do the eight-complex part
 
@@ -4139,10 +4139,10 @@ r8_h16r_simple_fft_with_mult MACRO src,altsrc,d1,d2,origsrc
 
 						;; R3/I3 morphs into R3/R4
 
-	movsd	Q [src], xmm1			;; Save R1
-	movsd	Q [src+32], xmm2		;; Save R3
-	movsd	Q [src+16], xmm0		;; Save R2
-	movsd	Q [src+48], xmm3		;; Save R4
+	movsd	Q src[0], xmm1			;; Save R1
+	movsd	Q src[32], xmm2			;; Save R3
+	movsd	Q src[16], xmm0			;; Save R2
+	movsd	Q src[48], xmm3			;; Save R4
 
 	movsd	xmm1, Q src[d1]			;; R5
 	movsd	xmm0, Q src[d1+16] 		;; R6
@@ -4167,10 +4167,10 @@ r8_h16r_simple_fft_with_mult MACRO src,altsrc,d1,d2,origsrc
 	multwos	xmm3
 	addsd	xmm3, xmm2			;; I6 = I5 + I6 (new I5)
 
-	movsd	Q [src+d1], xmm1		;; Save R5
-	movsd	Q [src+d1+32], xmm3		;; Save I5
-	movsd	Q [src+d1+16], xmm0		;; Save R6
-	movsd	Q [src+d1+48], xmm2		;; Save I6
+	movsd	Q src[d1], xmm1			;; Save R5
+	movsd	Q src[d1+32], xmm3		;; Save I5
+	movsd	Q src[d1+16], xmm0		;; Save R6
+	movsd	Q src[d1+48], xmm2		;; Save I6
 
 	movsd	xmm1, Q src[d2]			;; R9
 	movsd	xmm0, Q src[d2+16] 		;; R10
@@ -4195,10 +4195,10 @@ r8_h16r_simple_fft_with_mult MACRO src,altsrc,d1,d2,origsrc
 	multwos	xmm3
 	addsd	xmm3, xmm2			;; I10 = I9 + I10 (new I9)
 
-	movsd	Q [src+d2], xmm1		;; Save R9
-	movsd	Q [src+d2+32], xmm3		;; Save I9
-	movsd	Q [src+d2+16], xmm0		;; Save R10
-	movsd	Q [src+d2+48], xmm2		;; Save I10
+	movsd	Q src[d2], xmm1			;; Save R9
+	movsd	Q src[d2+32], xmm3		;; Save I9
+	movsd	Q src[d2+16], xmm0		;; Save R10
+	movsd	Q src[d2+48], xmm2		;; Save I10
 
 	movsd	xmm1, Q src[d2+d1]		;; R11
 	movsd	xmm0, Q src[d2+d1+48] 		;; I12
@@ -4223,10 +4223,10 @@ r8_h16r_simple_fft_with_mult MACRO src,altsrc,d1,d2,origsrc
 	multwos	xmm3
 	addsd	xmm3, xmm2			;; I12 = I11 + I12 (new I11)
 
-	movsd	Q [src+d2+d1], xmm1		;; Save R11
-	movsd	Q [src+d2+d1+32], xmm3		;; Save I11
-	movsd	Q [src+d2+d1+16], xmm2		;; Save R12
-	movsd	Q [src+d2+d1+48], xmm0		;; Save I12
+	movsd	Q src[d2+d1], xmm1		;; Save R11
+	movsd	Q src[d2+d1+32], xmm3		;; Save I11
+	movsd	Q src[d2+d1+16], xmm2		;; Save R12
+	movsd	Q src[d2+d1+48], xmm0		;; Save I12
 
 	; Do the eight-complex part
 
