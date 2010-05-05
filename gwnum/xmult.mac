@@ -344,7 +344,7 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 	IF xpass2_levels EQ 13
 	p2cl = 2048
 	ENDIF
-	IF xpass2_levels GE 256
+	IF xpass2_levels GE 64
 	p2cl = xpass2_levels / 4
 	ENDIF
 

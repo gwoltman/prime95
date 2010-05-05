@@ -36,11 +36,11 @@ ENDIF
 ;	4 SHL 26		(no prefetching)
 ;	2 SHL 26		(tlb priming)
 ;	1 SHL 26		(in_place)
-;	fft_type SHL 18		(hg=0, r4=1, r4spm=2, r4r8=3, r4delay=4)
-;	arch SHL 14		(ppro=0,p3=1,p4=2,core=3,k8=4,k10=5)
-;	min_L2_cache SHL 10	(0=0,128KB=1,WILLI=2,CELE_D=3,512KB=4,1024KB=5,2048KB=6)
-;	clm SHL 6		(1,2,4,8)
-;	pass2size_over_256	(0,1,4,8,16,32)
+;	fft_type SHL 21		(hg=0, r4=1, r4spm=2, r4r8=3, r4delay=4)
+;	arch SHL 17		(ppro=0,p3=1,p4=2,core=3,k8=4,k10=5)
+;	min_L2_cache SHL 13	(0=0,128KB=1,WILLI=2,CELE_D=3,512KB=4,1024KB=5,2048KB=6)
+;	clm SHL 9		(1,2,4,8)
+;	pass2size_over_64	(many valid values)
 
 X87PRC MACRO procname, mem_needed, p2larg, clmarg
 	EXTRN	procname:PROC
@@ -57,16 +57,16 @@ X87PRC MACRO procname, mem_needed, p2larg, clmarg
 		clm = clmarg
 	ENDIF
 	IFB <p2larg>
-		pass2_size_over_256 = 0
+		pass2_size_over_64 = 0
 	ELSE
-		pass2_size_over_256 = (1 SHL p2larg) SHR 8
+		pass2_size_over_64 = (1 SHL p2larg) SHR 6
 	ENDIF
 	flags = 0
 	;; Kludge - if mem_needed is below 500000 then pass 2 is in place
-	IF (mem_needed LT 500000 AND pass2_size_over_256 NE 0)
+	IF (mem_needed LT 500000 AND pass2_size_over_64 NE 0)
 		flags = 1
 	ENDIF
-	DD	80000000h + flags SHL 26 + arch SHL 14 + clm SHL 6 + pass2_size_over_256
+	DD	80000000h + flags SHL 26 + arch SHL 17 + clm SHL 9 + pass2_size_over_64
 	DP	OFFSET procname
 	DD	mem_needed
 	ENDM
@@ -135,48 +135,50 @@ PRCENTRY MACRO procname, mem_needed, L2arg
 	ELSE
 		clm = 0
 	ENDIF
-	IF (@INSTR (,@CATSTR(procname),_768_)) NE 0
-		pass2_size_over_256 = 768 SHR 8
+	IF (@INSTR (,@CATSTR(procname),_192_)) NE 0
+		pass2_size_over_64 = 192 SHR 6
+	ELSEIF (@INSTR (,@CATSTR(procname),_768_)) NE 0
+		pass2_size_over_64 = 768 SHR 6
 	ELSEIF (@INSTR (,@CATSTR(procname),_10_)) NE 0
-		pass2_size_over_256 = 1024 SHR 8
+		pass2_size_over_64 = 1024 SHR 6
 	ELSEIF (@INSTR (,@CATSTR(procname),_1280_)) NE 0
-		pass2_size_over_256 = 1280 SHR 8
+		pass2_size_over_64 = 1280 SHR 6
 	ELSEIF (@INSTR (,@CATSTR(procname),_1536_)) NE 0
-		pass2_size_over_256 = 1536 SHR 8
+		pass2_size_over_64 = 1536 SHR 6
 	ELSEIF (@INSTR (,@CATSTR(procname),_11_)) NE 0
-		pass2_size_over_256 = 2048 SHR 8
+		pass2_size_over_64 = 2048 SHR 6
 	ELSEIF (@INSTR (,@CATSTR(procname),_2304_)) NE 0
-		pass2_size_over_256 = 2304 SHR 8
+		pass2_size_over_64 = 2304 SHR 6
 	ELSEIF (@INSTR (,@CATSTR(procname),_2560_)) NE 0
-		pass2_size_over_256 = 2560 SHR 8
+		pass2_size_over_64 = 2560 SHR 6
 	ELSEIF (@INSTR (,@CATSTR(procname),_3072_)) NE 0
-		pass2_size_over_256 = 3072 SHR 8
+		pass2_size_over_64 = 3072 SHR 6
 	ELSEIF (@INSTR (,@CATSTR(procname),_3840_)) NE 0
-		pass2_size_over_256 = 3840 SHR 8
+		pass2_size_over_64 = 3840 SHR 6
 	ELSEIF (@INSTR (,@CATSTR(procname),_12_)) NE 0
-		pass2_size_over_256 = 4096 SHR 8
+		pass2_size_over_64 = 4096 SHR 6
 	ELSEIF (@INSTR (,@CATSTR(procname),_4608_)) NE 0
-		pass2_size_over_256 = 4608 SHR 8
+		pass2_size_over_64 = 4608 SHR 6
 	ELSEIF (@INSTR (,@CATSTR(procname),_5120_)) NE 0
-		pass2_size_over_256 = 5120 SHR 8
+		pass2_size_over_64 = 5120 SHR 6
 	ELSEIF (@INSTR (,@CATSTR(procname),_6144_)) NE 0
-		pass2_size_over_256 = 6144 SHR 8
+		pass2_size_over_64 = 6144 SHR 6
 	ELSEIF (@INSTR (,@CATSTR(procname),_6400_)) NE 0
-		pass2_size_over_256 = 6400 SHR 8
+		pass2_size_over_64 = 6400 SHR 6
 	ELSEIF (@INSTR (,@CATSTR(procname),_7680_)) NE 0
-		pass2_size_over_256 = 7680 SHR 8
+		pass2_size_over_64 = 7680 SHR 6
 	ELSEIF (@INSTR (,@CATSTR(procname),_13_)) NE 0
-		pass2_size_over_256 = 8192 SHR 8
+		pass2_size_over_64 = 8192 SHR 6
 	ELSEIF (@INSTR (,@CATSTR(procname),_10240_)) NE 0
-		pass2_size_over_256 = 10240 SHR 8
+		pass2_size_over_64 = 10240 SHR 6
 	ELSEIF (@INSTR (,@CATSTR(procname),_12800_)) NE 0
-		pass2_size_over_256 = 12800 SHR 8
+		pass2_size_over_64 = 12800 SHR 6
 	ELSEIF (@INSTR (,@CATSTR(procname),_8_)) NE 0
-		pass2_size_over_256 = 256 SHR 8
+		pass2_size_over_64 = 256 SHR 6
 	ELSE
-		pass2_size_over_256 = 0
+		pass2_size_over_64 = 0
 	ENDIF
-	DD	80000000h + flags SHL 26 + fft_type SHL 18 + arch SHL 14 + min_L2_cache SHL 10 + clm SHL 6 + pass2_size_over_256
+	DD	80000000h + flags SHL 26 + fft_type SHL 21 + arch SHL 17 + min_L2_cache SHL 13 + clm SHL 9 + pass2_size_over_64
 	DP	OFFSET procname
 	DD	mem_needed
 	ENDM
@@ -725,6 +727,7 @@ xjmptable DD	743,	32,	0.00000111
 	PRCENTRY		xfft_hg_56K_ip_tp_11_4_P4, 222976
 	DD			0
 	DD	1325000, 65536,	0.00367
+	PRCENTRY		xfft_r4delay_64K_8_4_CORE, 1890624
 	PRCENTRY		xfft_hg_64K_ip_11_4_K8, 239488
 	PRCENTRY		xfft_hg_64K_ip_11_4_CORE, 239488
 	PRCENTRY		xfft_hg_64K_ip_tp_11_4_P4, 239488
@@ -1136,6 +1139,7 @@ xjmptablep DD	739,	32,	0.00000111
 	PRCENTRY		xfft_hg_48K_ac_ip_tp_11_4_P4, 145280
 	DD			0
 	DD	1320000, 65536,	0.00404
+	PRCENTRY		xfft_r4delay_64K_ac_8_4_CORE, 2529536
 	PRCENTRY		xfft_hg_64K_ac_ip_11_4_K8, 178560
 	PRCENTRY		xfft_hg_64K_ac_ip_11_4_CORE, 178560
 	PRCENTRY		xfft_hg_64K_ac_ip_tp_11_4_P4, 178560

@@ -11,6 +11,28 @@ INCLUDE r4pass2.mac
 ;; Wrapper macros for the r4delay 2nd passes
 
 
+IFDEF  WONT_WORK_BECAUSE_NORMALIZE_ADD_SUB_CODE_EXPECTS_PASS2_IS_MULTIPLE_OF_8KB
+
+r4delay_pass2_192_levels_real MACRO
+;	r4_pass2_192_levels_real
+	ENDM
+
+r4delay_pass2_192_levels_complex MACRO
+	r4_pass2_192_levels_complex
+	ENDM
+
+ENDIF
+
+r4delay_pass2_8_levels_real MACRO
+	r4_pass2_8_levels_real
+	ENDM
+
+r4delay_pass2_8_levels_complex MACRO
+	r4_pass2_8_levels_complex
+	ENDM
+
+
+
 r4delay_pass2_768_levels_real MACRO
 	r4_pass2_768_levels_real
 	ENDM
