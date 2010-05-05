@@ -41,6 +41,10 @@ TLB_PRIMING = 0
 
 ;; Generate pass 2 routines optmized for this architecture
 
+	xpass2gen 768
+	xpass2gen 10
+	xpass2gen 1280
+
 	xpass2gen 2304
 	xpass2gen 3072
 	xpass2gen 3840
@@ -56,6 +60,10 @@ TLB_PRIMING = 0
 	xpass2gen 12800
 
 ;; Routines for many FFT sizes
+
+	r4delay_pass1sc256 192K, 768, 4
+	r4delay_pass1sc256 256K, 10, 4
+	r4delay_pass1sc256 320K, 1280, 4
 
 	r4delay_pass1sc256 1M, 12, 4
 	r4delay_pass1sc320 960K, 3072, 4
@@ -90,6 +98,21 @@ TLB_PRIMING = 0
 	r4delay_pass1sc4096 16M, 12, 2
 	r4delay_pass1sc4096 16M, 12, 4
 
+	r4delay_pass1sc256 1152K, 4608, 4
+	r4delay_pass1sc256 1536K, 6144, 4
+	r4delay_pass1sc256 1920K, 7680, 4
+	r4delay_pass1sc256 2M, 13, 4
+	r4delay_pass1sc256 2560K, 10240, 4
+	r4delay_pass1sc256 3200K, 12800, 4
+	r4delay_pass1sc512 4M, 13, 4
+	r4delay_pass1sc2560 20M, 13, 2
+	r4delay_pass1sc4096 18M, 4608, 2
+
+
+	r4delay_pass1sc256ac 192K, 768, 4
+	r4delay_pass1sc256ac 256K, 10, 4
+	r4delay_pass1sc256ac 320K, 1280, 4
+
 	r4delay_pass1sc256ac 576K, 2304, 4
 	r4delay_pass1sc256ac 1M, 12, 4
 	r4delay_pass1sc384ac 864K, 2304, 4
@@ -114,16 +137,6 @@ TLB_PRIMING = 0
 	r4delay_pass1sc4096ac 16M, 12, 4
 	r4delay_pass1sc5120ac 11520K, 2304, 4
 	r4delay_pass1sc5120ac 20M, 12, 4
-
-	r4delay_pass1sc256 1152K, 4608, 4
-	r4delay_pass1sc256 1536K, 6144, 4
-	r4delay_pass1sc256 1920K, 7680, 4
-	r4delay_pass1sc256 2M, 13, 4
-	r4delay_pass1sc256 2560K, 10240, 4
-	r4delay_pass1sc256 3200K, 12800, 4
-	r4delay_pass1sc512 4M, 13, 4
-	r4delay_pass1sc2560 20M, 13, 2
-	r4delay_pass1sc4096 18M, 4608, 2
 
 	r4delay_pass1sc256ac 1152K, 4608, 4
 	r4delay_pass1sc256ac 1536K, 6144, 4
