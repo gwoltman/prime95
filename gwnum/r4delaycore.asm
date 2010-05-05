@@ -45,6 +45,10 @@ TLB_PRIMING = 0
 	xpass2gen 10
 	xpass2gen 1280
 
+	xpass2gen 1536
+	xpass2gen 11
+	xpass2gen 2560
+
 	xpass2gen 2304
 	xpass2gen 3072
 	xpass2gen 3840
@@ -64,6 +68,10 @@ TLB_PRIMING = 0
 	r4delay_pass1sc256 192K, 768, 4
 	r4delay_pass1sc256 256K, 10, 4
 	r4delay_pass1sc256 320K, 1280, 4
+
+	r4delay_pass1sc256 384K, 1536, 4
+	r4delay_pass1sc256 512K, 11, 4
+	r4delay_pass1sc256 640K, 2560, 4
 
 	r4delay_pass1sc256 1M, 12, 4
 	r4delay_pass1sc320 960K, 3072, 4
@@ -112,6 +120,10 @@ TLB_PRIMING = 0
 	r4delay_pass1sc256ac 192K, 768, 4
 	r4delay_pass1sc256ac 256K, 10, 4
 	r4delay_pass1sc256ac 320K, 1280, 4
+
+	r4delay_pass1sc256ac 384K, 1536, 4
+	r4delay_pass1sc256ac 512K, 11, 4
+	r4delay_pass1sc256ac 640K, 2560, 4
 
 	r4delay_pass1sc256ac 576K, 2304, 4
 	r4delay_pass1sc256ac 1M, 12, 4
