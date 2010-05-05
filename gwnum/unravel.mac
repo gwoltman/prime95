@@ -1,4 +1,4 @@
-; Copyright 1995-2009 - Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2010 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -1753,7 +1753,7 @@ loops_common MACRO iters, dest, incr
 	LOCAL next_power_2, non_power_2_adjustment, x
 	IF iters GT 1
 	  non_power_2_adjustment = 0
-	  IF loops_completed EQ 1
+	  IF loops_completed EQ 1 AND (iters AND (iters-1)) EQ 0
 	    IF (loops_count LE 256 AND iters EQ loops_count)
 	      add al, 256/(iters)
 	    ELSE
@@ -1776,6 +1776,13 @@ loops_common MACRO iters, dest, incr
 	  ELSE
 	    ;; Handle non-power-of-2 iteration counts
 	    IF (iters AND (iters-1)) NE 0
+	      IF loops_completed EQ 1
+	        IF loops_count LT 256
+		  add al, 1
+		ELSE
+		  add eax, 1
+		ENDIF
+	      ENDIF	
 	      IF (loops_count AND (loops_count-1)) NE 0
 	        next_power_2 = iters OR (iters SHR 1)
 	        next_power_2 = next_power_2 OR (next_power_2 SHR 2)
