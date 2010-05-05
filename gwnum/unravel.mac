@@ -1649,7 +1649,7 @@ loops_init_prefetch MACRO count, pfamt, pffreq, pfreg, first_completed, first_it
 	  ENDIF
 	  IFB <first_iters>
 	    loops_init_common count, first_completed, first_iters
-	  ELSEIF loops_pffreq NE 1 AND pffreq LT first_iters
+	  ELSEIF loops_pffreq NE 1 AND loops_pffreq LT first_iters
 	    loops_init_common count, first_completed, loops_pffreq
 	  ELSE
 	    loops_init_common count, first_completed, first_iters
@@ -1673,25 +1673,35 @@ loops_init_common MACRO count, first_completed, first_iters
 	loops_completed = 1
 	loops_count_is_power_of_two = 1
 
-	;; Handle non-power-of-2 counts
+	;; Compute the initial value
+
+	IF local_first_completed EQ 0
+	  loops_initial_value = 0
+	ELSEIF (count LE 256 AND local_first_iters EQ count)
+	  loops_initial_value = local_first_completed * 256/local_first_iters
+	ELSEIF (count LE 128 AND local_first_iters * count LE 256)
+	  loops_initial_value = local_first_completed * (256/local_first_iters+1)
+	ELSE
+	  loops_initial_value = local_first_completed * (80000000h/local_first_iters*2+1)
+	ENDIF
+
+	;; Always output non-power-of-2 counts as 4 bytes as the initial value
+	;; will need to be adjusted later.
 	IF (loops_count AND (loops_count-1)) NE 0
 	  loops_count_is_power_of_two = 0
-	  loops_initial_value = local_first_completed * (80000000h/local_first_iters*2+1)
 	  mov	eax, 9999
 x:	  org	x-4
 y:
 	  DD	loops_initial_value
 	  loops_initial_value_label = OFFSET y
 
-	;; Handle power-of-2 counts
-	ELSEIF local_first_completed EQ 0
+	;; Otherwise output the initial value using the shortest instruction possible
+	ELSEIF loops_initial_value EQ 0
 	  sub	eax, eax
-	ELSEIF (count LE 256 AND local_first_iters EQ count)
-	  mov	al, local_first_completed * 256/local_first_iters
-	ELSEIF (count LE 128 AND local_first_iters * count LE 256)
-	  mov	al, local_first_completed * (80h/local_first_iters*2+1)
+	ELSEIF loops_initial_value GT 0 AND loops_initial_value LT 256
+	  mov	al, loops_initial_value
 	ELSE
-	  mov	eax, local_first_completed * (80000000h/local_first_iters*2+1)
+	  mov	eax, loops_initial_value
 	ENDIF
 
 	ENDM
