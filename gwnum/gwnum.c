@@ -722,8 +722,7 @@ double *r4_build_pass2_complex_table (
 
 	for (i = 0, N = gwdata->PASS2_SIZE; (N & 1) == 0; N >>= 1) i++;
 	aux_table_size = (i & 1) ? 512 : 256;
-ASSERTG (i >= 6);	// We'll need to carefully consider the limit code below for smaller aux tables
-			// We'll also need to build smaller aux tables
+	ASSERTG (i >= 8);// We'll need to carefully consider the limit code below for smaller aux tables
 
 /* If the pass 2 size is divisible by 3, then the first level does a */
 /* radix-3 step which only requires one sin/cos value.  Alas, rather than */
