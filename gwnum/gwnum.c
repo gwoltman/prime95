@@ -720,10 +720,16 @@ double *r4_build_pass2_complex_table (
 /* eight_complex macros set auxillary table size to 512, otherwise the last levels */
 /* use the four_complex macros and we'll build an auxillary table size of 256. */
 
-	for (i = 0, N = gwdata->PASS2_SIZE; (N & 1) == 0; N >>= 1) i++;
-	aux_table_size = (i & 1) ? 512 : 256;
-	ASSERTG (i >= 8);// We'll need to carefully consider the limit code below for smaller aux tables
-
+	if (gwdata->PASS2_SIZE <= 640 && gwdata->PASS2_SIZE % 3 != 0)
+		aux_table_size = 0;
+	else {
+		for (i = 0, N = gwdata->PASS2_SIZE; (N & 1) == 0; N >>= 1) i++;
+		if (i < 8)
+			aux_table_size = 1 << i;
+		else
+			aux_table_size = (i & 1) ? 512 : 256;
+	}
+	
 /* If the pass 2 size is divisible by 3, then the first level does a */
 /* radix-3 step which only requires one sin/cos value.  Alas, rather than */
 /* computing the needed N/3 sin/cos values we must compute 1/2 or 2/5 times N */
@@ -733,8 +739,8 @@ double *r4_build_pass2_complex_table (
 	N = gwdata->PASS2_SIZE;
 	if (N % 3 == 0) {
 		if (N % 5 == 0) limit = N * 2 / 5;
-		else if (N / aux_table_size % 2 == 0) limit = N / 2;
-		else limit = N / 3;
+		else if (aux_table_size &&  N / aux_table_size % 2 == 1) limit = N / 3;
+		else limit = N / 2;
 		for (i = 0; i < limit; i++) {
 			gwsincos (i, N, (double *) &sincos);
 			table[1] = table[0] = sincos[0];	/* temp */
@@ -748,7 +754,7 @@ double *r4_build_pass2_complex_table (
 /* output a slightly smaller sin/cos table. */
 
 	else {
-		if (N / aux_table_size % 2 == 1) limit = N / 5;
+		if (aux_table_size &&  N / aux_table_size % 2 == 1) limit = N / 5;
 		else limit = N / 4;
 		for (i = 0; i < limit; i++) {
 			gwsincos3 (i, N, (double *) &sincos);
@@ -762,14 +768,16 @@ double *r4_build_pass2_complex_table (
 
 /* Build the smaller auxillary table */
 
-	N = aux_table_size;
-	for (i = 0; i < N / 4; i++) {
-		gwsincos3 (i, N, (double *) &sincos);
-		table[1] = table[0] = sincos[0];	/* temp */
-		table[3] = table[2] = sincos[1];
-		table[5] = table[4] = sincos[2];	/* 2 * temp */
-		table[7] = table[6] = sincos[3];
-		table += 8;
+	if (aux_table_size) {
+		N = aux_table_size;
+		for (i = 0; i < N / 4; i++) {
+			gwsincos3 (i, N, (double *) &sincos);
+			table[1] = table[0] = sincos[0];	/* temp */
+			table[3] = table[2] = sincos[1];
+			table[5] = table[4] = sincos[2];	/* 2 * temp */
+			table[7] = table[6] = sincos[3];
+			table += 8;
+		}
 	}
 
 /* Return address of the end of the table */
@@ -3165,7 +3173,7 @@ int score_jmptab_entry (
 /* Our K8 and K10 optimized FFTs requires prefetchw (3DNow!) capability. */
 /* If this is an Intel CPU, skip over these implementations. */
 
-	arch = (jmptab->flags >> 14) & 0xF;
+	arch = (jmptab->flags >> 17) & 0xF;
 	if ((arch == 4 || arch == 5) && ! (gwdata->cpu_flags & CPU_3DNOW))
 		return (0);
 
@@ -3242,7 +3250,7 @@ int score_jmptab_entry (
 /* exceeding the minimum L2 cache size.  Deduct points for having */
 /* too little cache (thrashing likely to occur). */
 
-	min_L2_cache = (jmptab->flags >> 10) & 0xF;
+	min_L2_cache = (jmptab->flags >> 13) & 0xF;
 	if (cache_size >= 2048)
 		score += min_L2_cache;
 	else if (cache_size >= 1024)
@@ -3267,7 +3275,7 @@ int score_jmptab_entry (
 /* Check desirability of various FFT types.  The home-grown FFT type used */
 /* in version 25 is our base line.  */
 
-	fft_type = (jmptab->flags >> 18) & 0xF;
+	fft_type = (jmptab->flags >> 21) & 0xF;
 
 /* The Radix-4 FFT uses more memory and */
 /* consequently more memory bandwidth.  The Core 2 chips have the available */
@@ -3821,18 +3829,18 @@ next3:		if (! (jmptab->counts[0] & 0x80000000)) break;
 /*	4 SHL 26		(no prefetching) */
 /*	2 SHL 26		(tlb priming) */
 /*	1 SHL 26		(in_place) */
-/*	fft_type SHL 18		(hg=0, r4=1, r4spm=2, r4r8=3, r4delay=4) */
-/*	arch SHL 14		(ppro=0,p3=1,p4=2,core=3,k8=4,k10=5) */
-/*	min_L2_cache SHL 10	(0=0,128KB=1,WILLI=2,CELE_D=3,512KB=4,1024KB=5,2048KB=6) */
-/*	clm SHL 6		(1,2,4,8) */
-/*	pass2size_over_256	(0,1,4,8,16,32) */
+/*	fft_type SHL 21		(hg=0, r4=1, r4spm=2, r4r8=3, r4delay=4) */
+/*	arch SHL 17		(ppro=0,p3=1,p4=2,core=3,k8=4,k10=5) */
+/*	min_L2_cache SHL 13	(0=0,128KB=1,WILLI=2,CELE_D=3,512KB=4,1024KB=5,2048KB=6) */
+/*	clm SHL 9		(1,2,4,8) */
+/*	pass2size_over_64	(many valid values) */
 
 	no_prefetch = (flags >> 28) & 0x00000001;
 	in_place = (flags >> 26) & 0x00000001;
-	gwdata->FFT_TYPE = (flags >> 18) & 0x0000000F;
-	gwdata->ARCH = (flags >> 14) & 0x0000000F;
-	gwdata->PASS1_CACHE_LINES = ((flags >> 6) & 0x0000000F) * 2;
-	gwdata->PASS2_SIZE = (flags & 0x00000003F) << 8;
+	gwdata->FFT_TYPE = (flags >> 21) & 0x0000000F;
+	gwdata->ARCH = (flags >> 17) & 0x0000000F;
+	gwdata->PASS1_CACHE_LINES = ((flags >> 9) & 0x0000000F) * 2;
+	gwdata->PASS2_SIZE = (flags & 0x0000001FF) << 6;
 
 /* Set more info so that addr_offset called from */
 /* gwmap_to_estimated_size can work without a call to gwsetup. */
@@ -5639,7 +5647,8 @@ int internal_gwsetup (
 		/* Pass 1 block distance includes 128 pad bytes every 8KB */
 		/* plus the gap between blocks */ 
 		asm_data->pass1blkdst =
-				asm_data->normval4 * (8192+128) +
+				gwdata->PASS2_SIZE * 16 * 2 +
+				((gwdata->PASS2_SIZE * 16 * 2) >> 13) * 128 +
 				asm_data->pass2gapsize;
 
 		if (gwdata->SCRATCH_SIZE == 0) {
