@@ -6713,7 +6713,7 @@ int primeBench (
 		time_all_complex = 1;
 	}
 	min_FFT_length = IniGetInt (INI_FILE, "MinBenchFFT", min_FFT_length);
-	max_FFT_length = IniGetInt (INI_FILE, "MinBenchFFT", max_FFT_length);
+	max_FFT_length = IniGetInt (INI_FILE, "MaxBenchFFT", max_FFT_length);
 	only_time_5678 = IniGetInt (INI_FILE, "OnlyBench5678", only_time_5678);
 	time_all_complex = IniGetInt (INI_FILE, "BenchAllComplex", time_all_complex);
 	all_bench = IniGetInt (INI_FILE, "AllBench", 0);	/* Benchmark all implementations of each FFT length */
