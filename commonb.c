@@ -4051,7 +4051,7 @@ int lucasSetup (
 /* Init the FFT code for squaring modulo 1.0*2^p-1.  NOTE: As a kludge for */
 /* the benchmarking code, an odd FFTlen sets up the 1.0*2^p+1 FFT code. */
 
-	gwset_specific_fftlen (&lldata->gwdata, fftlen & ~1);
+	gwset_minimum_fftlen (&lldata->gwdata, fftlen & ~1);
 	if (fftlen & 1)
 		res = gwsetup (&lldata->gwdata, 1.0, 2, p, 1);
 	else
@@ -4394,32 +4394,6 @@ int pick_fft_size (
 /* If we've already calculated the best FFT size, then return */
 
 	if (w->forced_fftlen) return (0);
-
-/* If we have an old-style (v24) entry for this exponent in local.ini, then */
-/* use it.  V25 and later store the fft length in the worktodo.ini file. */
-
-	IniGetString (LOCALINI_FILE, "SoftCrossoverData", buf, sizeof (buf), "0");
-	if (w->n == (unsigned long) atol (buf)) {
-		char	*comma;
-		unsigned long fftlen;
-		comma = strchr (buf, ',');
-		if (comma != NULL) {
-			*comma++ = 0;
-			fftlen = atol (comma);
-			comma = strchr (comma, ',');
-			if (comma != NULL) {
-				unsigned long sse2;
-				*comma++ = 0;
-				sse2 = atol (comma);
-				if ((sse2 && (CPU_FLAGS & CPU_SSE2)) ||
-				    (!sse2 && !(CPU_FLAGS & CPU_SSE2))) {
-					w->forced_fftlen = fftlen;
-					stop_reason = updateWorkToDoLine (thread_num, w);
-					if (stop_reason) return (stop_reason);
-				}
-			}
-		}
-	}
 
 /* Get the info on how what percentage of exponents on either side of */
 /* an FFT crossover we will do this 1000 iteration test. */
@@ -6686,11 +6660,12 @@ int primeBench (
 	struct PriorityInfo sp_info;
 	llhandle lldata;
 	unsigned long num_lengths, i, ii, j, iterations;
-	double	best_time;
+	double	best_time, total_time;
 	char	buf[512];
 	unsigned int threads;
-	int	fft_lengths[] = {4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 28, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 448, 512, 640, 768, 896, 1024, 1280, 1536, 1792, 2048, 2560, 3072, 3584, 4096, 5120, 6144, 7168, 8192, 10240, 12288, 14336, 16384, 20480, 24576, 28672, 32768};
-	int	all_bench, full_bench, plus1, stop_reason;
+	int	all_bench, only_time_5678, time_all_complex, plus1, stop_reason;
+	int	is_a_5678;
+	unsigned long fftlen, min_FFT_length, max_FFT_length;
 	double	timers[2];
 	struct primenetBenchmarkData pkt;
 
@@ -6725,6 +6700,24 @@ int primeBench (
 #endif
 	writeResults (buf);
 
+/* Decide which FFT lengths to time */
+
+	min_FFT_length = 768;			/* Default lengths to test */
+	max_FFT_length = 8192;
+	time_all_complex = 0;
+	only_time_5678 = 1;
+	if (IniGetInt (INI_FILE, "FullBench", 0)) { /* Obsolete: meant benchmark 4K to 32M FFTs, all-complex too */
+		min_FFT_length = 4;
+		max_FFT_length = 32768;
+		only_time_5678 = 0;
+		time_all_complex = 1;
+	}
+	min_FFT_length = IniGetInt (INI_FILE, "MinBenchFFT", min_FFT_length);
+	max_FFT_length = IniGetInt (INI_FILE, "MinBenchFFT", max_FFT_length);
+	only_time_5678 = IniGetInt (INI_FILE, "OnlyBench5678", only_time_5678);
+	time_all_complex = IniGetInt (INI_FILE, "BenchAllComplex", time_all_complex);
+	all_bench = IniGetInt (INI_FILE, "AllBench", 0);	/* Benchmark all implementations of each FFT length */
+
 /* Loop over all all possible multithread possibilities */
 
 	for (threads = 1; threads <= NUM_CPUS * CPU_HYPERTHREADS; threads++) {
@@ -6741,21 +6734,13 @@ int primeBench (
 	    }
 	  }
 
-/* Loop over all FFT lengths */
+/* Loop over a variety of FFT lengths */
 
-	  all_bench = IniGetInt (INI_FILE, "AllBench", 0);
-	  full_bench = IniGetInt (INI_FILE, "FullBench", 0);
 	  for (plus1 = 0; plus1 <= 1; plus1++) {
-	    if (full_bench) {
-		i = 0;
-		num_lengths = sizeof (fft_lengths) / sizeof (int);
-	    } else {
-		i = 30;
-		num_lengths = sizeof (fft_lengths) / sizeof (int) - 8;
-		if (! (CPU_FLAGS & CPU_SSE2)) num_lengths -= 4;
-	    }
-	    for ( ; i < num_lengths; i++) {
+	    if (plus1 && !time_all_complex) break;
+	    for (fftlen = min_FFT_length * 1024; fftlen < max_FFT_length * 1024; fftlen += 10) {
 	      for (ii = 1; ; ii++) {
+		if (ii > 1 && !all_bench) break;
 
 /* Initialize for this FFT length.  Compute the number of iterations to */
 /* time.  This is based on the fact that it doesn't take too long for */
@@ -6768,16 +6753,32 @@ int primeBench (
 		gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 		gwset_thread_callback_data (&lldata.gwdata, &sp_info);
 		if (all_bench) lldata.gwdata.bench_pick_nth_fft = ii;
-		stop_reason = lucasSetup (thread_num, fft_lengths[i] * 1024 * 17 + 1, fft_lengths[i] * 1024 + plus1, &lldata);
+		stop_reason = lucasSetup (thread_num, fftlen * 17 + 1, fftlen + plus1, &lldata);
 		if (stop_reason) break;
-		iterations = (unsigned long) (10 * 1792 * CPU_SPEED / 1400 / fft_lengths[i]);
+		fftlen = gwfftlen (&lldata.gwdata);
+		if (fftlen > max_FFT_length * 1024) break;
+
+/* Only bench FFT lengths that are a multiple of 1K */
+
+		if (fftlen & 0x3FF) break;
+
+/* If requested, only bench PFAs of 5,6,7,8 */
+
+		for (i = fftlen; i >= 9 && (i & 1) == 0; i >>= 1);
+		is_a_5678 = (i <= 8);
+		if (only_time_5678 && !is_a_5678) break;
+
+/* Compute the number of iterations to time.  This is based on the fact that it doesn't */
+/* take too long for my 1400 MHz P4 to run 10 iterations of a 1792K FFT. */
+
+		iterations = (unsigned long) (10 * 1792 * CPU_SPEED / 1400 / (fftlen / 1024));
 		if (iterations < 10) iterations = 10;
 		if (iterations > 100) iterations = 100;
 
 /* Output start message for this FFT length */
 
 		sprintf (buf, "Timing %lu iterations at %dK%s FFT length%s.  ",
-			 iterations, fft_lengths[i],
+			 iterations, fftlen / 1024,
 			 plus1 ? " all-complex" : "",
 			 gw_using_large_pages (&lldata.gwdata) ? " using large pages" : "");
 		OutputStr (thread_num, buf);
@@ -6797,6 +6798,7 @@ int primeBench (
 /* Note that for reasons unknown, we've seen cases where printing out
 /* the times on each iteration greatly impacts P4 timings. */
 
+		total_time = 0.0;
 		for (j = 0; j < iterations; j++) {
 			stop_reason = stopCheck (thread_num);
 			if (stop_reason) {
@@ -6809,6 +6811,7 @@ int primeBench (
 			start_timer (timers, 0);
 			gwsquare (&lldata.gwdata, lldata.lldata);
 			end_timer (timers, 0);
+			total_time += timers[0];
 			if (j == 0 || timers[0] < best_time) best_time = timers[0];
 		}
 		lucasDone (&lldata);
@@ -6817,53 +6820,52 @@ int primeBench (
 
 		timers[0] = best_time;
 		strcpy (buf, "Best time: ");
+		print_timer (timers, 0, buf, TIMER_MS);
+		timers[0] = total_time / iterations;
+		strcat (buf, ", avg time: ");
 		print_timer (timers, 0, buf, TIMER_NL | TIMER_MS);
 		OutputStrNoTimeStamp (thread_num, buf);
-		if (all_bench)
+		if (all_bench) {
 			sprintf (buf,
-				 "Time FFTlen=%dK%s, Levels2=%lu, clm=%lu: ",
-				 fft_lengths[i], plus1 ? " all-complex" : "",
+				 "Time FFTlen=%dK%s, Arch=%lu, Pass2=%lu, clm=%lu: ",
+				 fftlen / 1024, plus1 ? " all-complex" : "",
+				 lldata.gwdata.ARCH,
 				 lldata.gwdata.PASS2_SIZE,
 				 lldata.gwdata.PASS1_CACHE_LINES / 2);
-		else
+			timers[0] = best_time;
+			print_timer (timers, 0, buf, TIMER_MS);
+			timers[0] = total_time / iterations;
+			strcat (buf, ", ");
+			print_timer (timers, 0, buf, TIMER_NL | TIMER_MS);
+		} else {
 			sprintf (buf, "Best time for %dK%s FFT length: ",
-				 fft_lengths[i], plus1 ? " all-complex" : "");
-		print_timer (timers, 0, buf, TIMER_NL | TIMER_MS);
+				 fftlen / 1024, plus1 ? " all-complex" : "");
+			timers[0] = best_time;
+			print_timer (timers, 0, buf, TIMER_NL | TIMER_MS);
+		}
 		writeResults (buf);
 
 /* Accumulate best times to send to the server.  Limit the number sent since */
 /* we can only send fifty. */
 
-		if (!all_bench &&
-		    ((full_bench &&
-		      threads == 1) ||
-		     (!full_bench &&
-		      fft_lengths[i] > 768 &&
-		      (threads == 1 || threads == 2 || threads == 4))) &&
+		if (!all_bench && is_a_5678 && !plus1 &&
+		    (threads == 1 ||
+		     (fftlen / 1024 > 768 && (threads == 2 || threads == 4))) &&
 		    pkt.num_data_points < PRIMENET_BENCH_MAX_DATAPOINTS) {
 			if (threads == 1)
 				sprintf (pkt.data_points[pkt.num_data_points].bench,
-					 "FFT%dK", fft_lengths[i]);
+					 "FFT%dK", fftlen / 1024);
 			else
 				sprintf (pkt.data_points[pkt.num_data_points].bench,
-					 "FFT%dK %dT", fft_lengths[i], threads);
+					 "FFT%dK %dT", fftlen / 1024, threads);
 			pkt.data_points[pkt.num_data_points].timing = timer_value (timers, 0);
 			pkt.num_data_points++;
 		}
 
-/* Do next FFT implementation (if all_bench set) or next FFT length (if */
-/* all_bench is not set) */
+/* Time next FFT */
 
-		if (!all_bench) break;
 	      }
-
-/* Do next FFT length */
-
 	   }
-
-/* Do all-complex FFTs (if all_bench set) or exit (if all_bench is not set) */
-
-	    if (!all_bench) break;
 	}
 }
 
