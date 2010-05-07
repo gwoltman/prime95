@@ -6659,7 +6659,7 @@ int primeBench (
 {
 	struct PriorityInfo sp_info;
 	llhandle lldata;
-	unsigned long num_lengths, i, ii, j, iterations;
+	unsigned long i, ii, j, iterations;
 	double	best_time, total_time;
 	char	buf[512];
 	unsigned int threads;
