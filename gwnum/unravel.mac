@@ -1843,6 +1843,15 @@ loops_reset MACRO
 	loops_completed = 1
 	ENDM
 
+loops_touch MACRO iters1, dest1, iters2, dest2
+	IF OFFSET dest1 NE OFFSET dest2
+	loops	iters1, dest1
+	loops	iters2, dest2
+	ELSE
+	loops	iters1*iters2, dest1
+	ENDIF
+	ENDM
+
 ; Macro to flush the P4 trace cache
 
 trace_cache_flush MACRO
