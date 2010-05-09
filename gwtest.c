@@ -445,20 +445,20 @@ void test_it (
 	for (i = 0; i < num_squarings; i++) {
 
 		/* Test POSTFFT sometimes */
-		gwstartnextfft (gwdata, (i & 3) == 2);
+		gwstartnextfft (gwdata, !CHECK_OFTEN && (i & 3) == 2);
 
 		/* Test gwsetaddin without and with POSTFFT set */
 		if ((i == 45 || i == 46) && abs (gwdata->c) == 1)
 			gwsetaddin (gwdata, -31);
 
 		/* Test several different ways to square a number */
-		if (i >= 4 && i <= 7) {
+		if (i % 50 >= 4 && i % 50 <= 7) {
 			gwfft (gwdata, x, x);
 			gwfftfftmul (gwdata, x, x, x);
-		} else if (i >= 12 && i <= 15) {
+		} else if (i % 50 >= 12 && i % 50 <= 15) {
 			gwfft (gwdata, x, x3);
 			gwfftmul (gwdata, x3, x);
-		} else if (i >= 20 && i <= 23) {
+		} else if (i % 50 >= 20 && i % 50 <= 23) {
 			gwfft (gwdata, x, x3);
 			gwcopy (gwdata, x3, x4);
 			gwfftfftmul (gwdata, x3, x4, x);
@@ -478,7 +478,7 @@ void test_it (
 		specialmodg (gwdata, g);
 
 		/* Compare results */
-		if (CHECK_OFTEN && (i & 3) != 2) compare (thread_num, gwdata, x, g);
+		if (CHECK_OFTEN) compare (thread_num, gwdata, x, g);
 	}
 	if (SQUARE_ONLY) goto done;
 
@@ -669,7 +669,7 @@ int test_randomly (
 	char	buf[140], fft_desc[100], SPECIFIC_K[20], SPECIFIC_C[20];
 	int	MAX_THREADS, MIN_K_BITS, MAX_K_BITS;
 	int	MAX_C_BITS_FOR_SMALL_K, MAX_C_BITS_FOR_LARGE_K;
-	int	SPECIFIC_B, SPECIFIC_N, SPECIFIC_L2_CACHE, SPECIFIC_THREADS;
+	int	SPECIFIC_B, SPECIFIC_N, SPECIFIC_L2_CACHE, SPECIFIC_THREADS, SPECIFIC_FFTLEN;
 	int	FFT_LIMIT_THRESHOLD;
 
 /* Get control variables */
@@ -692,6 +692,7 @@ int test_randomly (
 	SPECIFIC_B = IniSectionGetInt (INI_FILE, "QA", "SPECIFIC_B", 2);
 	SPECIFIC_N = IniSectionGetInt (INI_FILE, "QA", "SPECIFIC_N", 0);
 	IniSectionGetString (INI_FILE, "QA", "SPECIFIC_C", SPECIFIC_C, 20, "-1");
+	SPECIFIC_FFTLEN = IniSectionGetInt (INI_FILE, "QA", "SPECIFIC_FFTLEN", 0);
 	SPECIFIC_L2_CACHE = IniSectionGetInt (INI_FILE, "QA", "SPECIFIC_L2_CACHE", CPU_L2_CACHE_SIZE);
 	SPECIFIC_THREADS = IniSectionGetInt (INI_FILE, "QA", "SPECIFIC_THREADS", 1);
 
@@ -741,6 +742,7 @@ int test_randomly (
 /* Test using the default FFT implementation and comparing it to giants */
 
 		gwinit (&gwdata);
+		gwset_specific_fftlen (&gwdata, SPECIFIC_FFTLEN);
 		gwset_num_threads (&gwdata, threads);
 		gwset_thread_callback (&gwdata, SetAuxThreadPriority);
 		gwset_thread_callback_data (&gwdata, sp_info);
