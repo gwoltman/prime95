@@ -8,12 +8,12 @@
 ;;
 ;; Estimated memory requirements for all-complex pass 1 macros:
 ;;
-;; Pass 2 size:			256	768	1024	1280	1536	2048	2560	2304	3072	3840	4096	5120	6400	4608	6144	7680	8192	10240	12800
+;; Pass 2 size:		256	768	1024	1280	1536	2048	2560	2304	3072	3840	4096	5120	6400	4608	6144	7680	8192	10240	12800
 ;;
-;; FFT data:			8K	24K	32K	40K	48K	64K	80K	72K	96K	120K	128K	160K	200K	144K	192K	240K	256K	320K	400K
-;; Fixed sin/cos data:		4K	12K	20K	20K	20K	36K	36K	28K	52K	52K	68K	84K	84K	52K	100K	100K	132K	164K	164K
+;; FFT data:		8K	24K	32K	40K	48K	64K	80K	72K	96K	120K	128K	160K	200K	144K	192K	240K	256K	320K	400K
+;; Fixed sin/cos data:	4K	12K	20K	20K	20K	36K	36K	28K	52K	52K	68K	84K	84K	52K	100K	100K	132K	164K	164K
 ;;
-;; Min L2 cache size:		20K	60K	84K	100K	116K	164K	196K	172K	244K	292K	324K	404K	484K	340K	484K	580K	644K	804K	964K		
+;; Min L2 cache size:	20K	60K	84K	100K	116K	164K	196K	172K	244K	292K	324K	404K	484K	340K	484K	580K	644K	804K	964K
 ;;
 ;; NOTE:  The total size is a minimum estimated efficient L2 cache size.
 ;; We double the data and variable sin/cos data size as both the current
@@ -13533,7 +13533,7 @@ b6d0:	xtouch	[rcx+4096-64]		;; Load prefetch TLBs
 b6d:	r8_x8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 	loops	16, b6d			;; Loop 16 times
 	bump	rsi, -16*8*64+dist128	;; Next source pointer
-	loops	2, b6d, 9, b6d0		;; Loop 18 times
+	loops_touch 2, b6d, 9, b6d0	;; Loop 18 times
 	bump	rsi, -18*dist128	;; Restore source pointer
 	end_timer 9
 
@@ -14399,7 +14399,7 @@ b2b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 4*dist128, rdi, rdx
 	bump	rdx, 6*XMM_SCD1		;; Next sin/cos data
 	loops	128, b2b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
-	loops_touch 2, b2b, 2 b2a	;; Test loop counter
+	loops_touch 2, b2b, 2, b2a	;; Test loop counter
 	bump	rsi, -4*dist128+8*dist128 ;; Next source pointer
 	bump	rdi, -512*3*XMM_SCD1	;; Restore sin/cos ptr
 	bump	rdx, -512*6*XMM_SCD1	;; Restore sin/cos ptr
@@ -18166,7 +18166,7 @@ b1b:	r5_fh5cl_ten_reals_five_complex_djbfft rsi, 64, 10*dist128, rdi, 1280*XMM_S
 
 	mov	rcx, DATA_PREFETCH	;; Prefetch pointer
 	xtouch	[rcx]			;; Preload first TLB
-	loops_init_prefetch 1260, 64, 2, rcx
+	loops_init_prefetch 1280, 64, 2, rcx
 b2a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b2b:	r5_h5cl_ten_reals_five_complex_djbfft rsi, 64, 2*dist128, rdi, 256*5*XMM_SCD2, rdx, 256*5*XMM_HSCD2
 	bump	rdi, 5*XMM_SCD2		;; Next sin/cos data
@@ -18647,7 +18647,7 @@ c1b:	r5_h5cl_ten_reals_five_complex_djbunfft rsi, 64, 10*dist128, rdi, 1280*XMM_
 	bump	rdx, XMM_HSCD2		;; Next sin/cos data
 	loops	128, c1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
-	loops_counter 2, c1b, 5, c1a	;; Test loop counter
+	loops_touch 2, c1b, 5, c1a	;; Test loop counter
 
 xpass2_12800_real_done:
 	end_timer 2
