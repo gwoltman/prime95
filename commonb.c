@@ -6777,7 +6777,7 @@ int primeBench (
 
 /* Output start message for this FFT length */
 
-		sprintf (buf, "Timing %lu iterations at %dK%s FFT length%s.  ",
+		sprintf (buf, "Timing %lu iterations at %luK%s FFT length%s.  ",
 			 iterations, fftlen / 1024,
 			 plus1 ? " all-complex" : "",
 			 gw_using_large_pages (&lldata.gwdata) ? " using large pages" : "");
@@ -6827,7 +6827,7 @@ int primeBench (
 		OutputStrNoTimeStamp (thread_num, buf);
 		if (all_bench) {
 			sprintf (buf,
-				 "Time FFTlen=%dK%s, Arch=%lu, Pass2=%lu, clm=%lu: ",
+				 "Time FFTlen=%luK%s, Arch=%d, Pass2=%lu, clm=%lu: ",
 				 fftlen / 1024, plus1 ? " all-complex" : "",
 				 lldata.gwdata.ARCH,
 				 lldata.gwdata.PASS2_SIZE,
@@ -6838,7 +6838,7 @@ int primeBench (
 			strcat (buf, ", ");
 			print_timer (timers, 0, buf, TIMER_NL | TIMER_MS);
 		} else {
-			sprintf (buf, "Best time for %dK%s FFT length: ",
+			sprintf (buf, "Best time for %luK%s FFT length: ",
 				 fftlen / 1024, plus1 ? " all-complex" : "");
 			timers[0] = best_time;
 			print_timer (timers, 0, buf, TIMER_NL | TIMER_MS);
@@ -6854,10 +6854,10 @@ int primeBench (
 		    pkt.num_data_points < PRIMENET_BENCH_MAX_DATAPOINTS) {
 			if (threads == 1)
 				sprintf (pkt.data_points[pkt.num_data_points].bench,
-					 "FFT%dK", fftlen / 1024);
+					 "FFT%luK", fftlen / 1024);
 			else
 				sprintf (pkt.data_points[pkt.num_data_points].bench,
-					 "FFT%dK %dT", fftlen / 1024, threads);
+					 "FFT%luK %dT", fftlen / 1024, threads);
 			pkt.data_points[pkt.num_data_points].timing = timer_value (timers, 0);
 			pkt.num_data_points++;
 		}
