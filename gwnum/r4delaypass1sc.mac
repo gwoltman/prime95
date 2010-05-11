@@ -17,7 +17,7 @@
 ; ********************************************************
 
 ;;
-;; Estimated memory requirements for each pass 1 macro:
+;; Estimated memory requirements for each real pass 1 macro:
 ;;
 ;; Pass 1 size:			256	320	384	448	512	640	768	896	1024	1280	1536	1792	2048	2560	3072	3584	4096
 ;;
@@ -30,17 +30,29 @@
 ;;
 ;; Min L2 cache size:		163.5K	172.5K	203.5K	236.5K	275K	341K	403K	469K	546K
 ;;
-;; NOTE:  The total size is a minimum estimated efficient L2 cache size.
-;; We double the data and variable sin/cos data size as both the current
-;; data and next block data must be in the cache at the same time.  Also,
-;; any data prefetched during the inverse FFT process runs the danger of
+;; NOTE:  To calculate the minimum efficient L2 cache size, we double the
+;; data and variable sin/cos data sizes as both the current data
+;; and next block data will be in the cache at the same time.  Any data
+;; prefetched early (during the inverse FFT process) runs the danger of
 ;; pushing out the fixed sin/cos data and normalization data because of the
-;; LRU cache-eviction algorithm.  The full formula is:
+;; LRU cache-eviction algorithm.  The L2 cache size formula is:
 ;;	(FFT data size + Variable sin/cos data) * 2 +
 ;;	(Scratch size + Fixed sin/cos data + Normalization data) +
 ;;	(amount of data prefetched during inverse FFT process)
 ;; ALSO NOTE:  All numbers above are for clm = 4.
 
+;; Estimated memory requirements for each all-complex pass 1 macro:
+;;
+;; Pass 1 size:			256	384	512	640	768	1024	1280	1536	2048	2560	3072	4096	5120
+;;
+;; FFT data:			32K	48K	64K	80K	96K	128K	160K	192K	256K	320K	384K	512K	640K
+;; Scratch size:		32K	48K	64K	80K	96K	128K	160K	192K	256K	320K	384K	512K	640K
+;; Variable sin/cos data:	17K	16.5K	24.5K	29K	33K	49K	30.5K	56.5K	88.5K	61K	113K	177K
+;; Fixed sin/cos data:		1.5K	4.5K	6K	9K	9K	12K	18K	18K	24K	36K	36K	48K
+;; Normalization data:		16K	22K	28K	34K	40K	52K	64K	76K	100K	124K	148K	196K	244K
+;; Data prefetched early:	16K
+;;
+;; Min L2 cache size:		163.5K	203.5K	275K	403K	469K	546K
 
 
 ;;***********************************************************************
