@@ -250,6 +250,18 @@ void gwsincos3 (
 // The FFT weight for the j-th FFT word doing a b^n+c weighted transform is
 //	b ^ (ceil (j*n/FFTLEN) - j*n/FFTLEN)   *    abs(c) ^ j/FFTLEN
 //
+// NOTE:  We need to be very careful in calculating the ceiling.  We don't
+// want to ever call the ceil function on a dd_real.  This is because the
+// the calculation of "dd_real ((double) j) * dd_data->gw__num_b_per_word"
+// may result in an integer +/- some very small roundoff error.  We need to
+// make sure ceil returns the true integer result.  Failure to do this
+// for FFT length of 1474560 caused is_big_word (1474559) to return the
+// wrong result.  The modified ceil function below should do the trick.
+
+dd_real gwceil (dd_real val)
+{
+	return (dd_real (ceil (double (val))));
+}
 
 extern "C"
 void *gwdbldbl_data_alloc (void)
@@ -312,7 +324,7 @@ double gwfft_weight (
 
 	x86_FIX
 	temp = dd_real ((double) j) * dd_data->gw__num_b_per_word;
-	bpower = ceil (temp) - temp;
+	bpower = gwceil (temp) - temp;
 	if (! dd_data->gw__c_is_one)
 		bpower += dd_data->gw__logb_abs_c_div_fftlen * dd_real ((double) j);
 	result = exp (dd_data->gw__logb * bpower);
@@ -331,7 +343,7 @@ double gwfft_weight_sloppy (
 
 	x86_FIX
 	temp = dd_real ((double) j) * dd_data->gw__num_b_per_word;
-	bpower = ceil (temp) - temp;
+	bpower = gwceil (temp) - temp;
 	if (! dd_data->gw__c_is_one)
 		bpower += dd_data->gw__logb_abs_c_div_fftlen * dd_real ((double) j);
 	END_x86_FIX
@@ -396,7 +408,7 @@ double gwfft_weight_inverse (
 
 	x86_FIX
 	temp = dd_real ((double) j) * dd_data->gw__num_b_per_word;
-	bpower = ceil (temp) - temp;
+	bpower = gwceil (temp) - temp;
 	if (! dd_data->gw__c_is_one)
 		bpower += dd_data->gw__logb_abs_c_div_fftlen * dd_real ((double) j);
 	result = exp (dd_data->gw__logb * -bpower);
@@ -470,7 +482,7 @@ double gwfft_weight_inverse_over_fftlen (
 
 	x86_FIX
 	temp = dd_real ((double) j) * dd_data->gw__num_b_per_word;
-	bpower = ceil (temp) - temp;
+	bpower = gwceil (temp) - temp;
 	if (! dd_data->gw__c_is_one)
 		bpower += dd_data->gw__logb_abs_c_div_fftlen * dd_real ((double) j);
 	result = exp (dd_data->gw__logb * -bpower) * dd_data->gw__over_fftlen;
@@ -493,7 +505,7 @@ void gwfft_weights3 (
 
 	x86_FIX
 	temp = dd_real ((double) j) * dd_data->gw__num_b_per_word;
-	bpower = ceil (temp) - temp;
+	bpower = gwceil (temp) - temp;
 	if (! dd_data->gw__c_is_one)
 		bpower += dd_data->gw__logb_abs_c_div_fftlen * dd_real ((double) j);
 	weight = exp (dd_data->gw__logb * bpower);
@@ -529,7 +541,7 @@ double gwfft_weight_exponent (
 
 	x86_FIX
 	temp = dd_real ((double) j) * dd_data->gw__num_b_per_word;
-	bpower = ceil (temp) - temp;
+	bpower = gwceil (temp) - temp;
 	END_x86_FIX
 	return (double (bpower));
 }
@@ -568,7 +580,7 @@ unsigned long gwfft_base (
 
 	x86_FIX
 	temp = dd_real ((double) j) * dd_data->gw__num_b_per_word;
-	bpower = (int) ceil (temp);
+	bpower = (int) gwceil (temp);
 	END_x86_FIX
 	return (bpower);
 }
