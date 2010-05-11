@@ -8254,7 +8254,7 @@ void raw_gwsetaddin (
 			unsigned long num_rows;
 
 			num_rows = gwdata->PASS2_SIZE >> 1;
-			row = (word & (num_rows - 1));
+			row = word % num_rows;
 			asm_data->ADDIN_ROW =
 					row & ~(gwdata->PASS1_CACHE_LINES - 1);
 			asm_data->ADDIN_OFFSET -= (row >> 7) * 128 +
