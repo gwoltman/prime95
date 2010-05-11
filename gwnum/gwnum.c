@@ -4768,19 +4768,6 @@ int internal_gwsetup (
 		asm_data->xsincos_complex = tables;
 		tables = r4_build_pass2_complex_table (gwdata, tables);
 
-/* Build the rest of the tables */
-
-		if (!gwdata->ALL_COMPLEX_FFT) {
-			// Need code here
-			tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
-		}
-
-		asm_data->sincos8 = asm_data->sincos7;
-		asm_data->sincos9 = asm_data->sincos7;
-		asm_data->sincos10 = asm_data->sincos7;
-		asm_data->sincos11 = asm_data->sincos7;
-		asm_data->sincos12 = asm_data->sincos7;
-
 /* Allocate a table for carries.  Init with XMM_BIGVAL.  For best */
 /* distribution of data in the L2 cache, make this table contiguous */
 /* with all other data used in the first pass (scratch area, normalization */
@@ -4812,15 +4799,6 @@ int internal_gwsetup (
 			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 			asm_data->scratch_area = tables;
 			tables = (double *) ((char *) tables + gwdata->SCRATCH_SIZE);
-		}
-
-/* Build sin/cos tables used in pass 1.  If FFTLEN is a power of two, */
-/* many of the sin/cos tables can be shared. */
-
-		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
-		if (!gwdata->ALL_COMPLEX_FFT) {
-			// Need code here
-			tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 		}
 
 /* Build the table of big vs. little flags.  This cannot be last table */
@@ -4860,20 +4838,6 @@ int internal_gwsetup (
 		asm_data->xsincos_complex = tables;
 		tables = r4_build_pass2_complex_table (gwdata, tables);
 
-/* Build the rest of the tables */
-
-		if (!gwdata->ALL_COMPLEX_FFT) {
-			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
-			// Need code here
-			tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
-		}
-
-		asm_data->sincos8 = asm_data->sincos7;
-		asm_data->sincos9 = asm_data->sincos7;
-		asm_data->sincos10 = asm_data->sincos7;
-		asm_data->sincos11 = asm_data->sincos7;
-		asm_data->sincos12 = asm_data->sincos7;
-
 /* Allocate a table for carries.  Init with XMM_BIGVAL.  For best */
 /* distribution of data in the L2 cache, make this table contiguous */
 /* with all other data used in the first pass (scratch area, normalization */
@@ -4905,15 +4869,6 @@ int internal_gwsetup (
 			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 			asm_data->scratch_area = tables;
 			tables = (double *) ((char *) tables + gwdata->SCRATCH_SIZE);
-		}
-
-/* Build sin/cos tables used in pass 1.  If FFTLEN is a power of two, */
-/* many of the sin/cos tables can be shared. */
-
-		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
-		if (!gwdata->ALL_COMPLEX_FFT) {
-			// Need code here
-			tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 		}
 
 /* Build the table of big vs. little flags.  This cannot be last table */
@@ -4953,20 +4908,6 @@ int internal_gwsetup (
 		asm_data->xsincos_complex = tables;
 		tables = r4_build_pass2_complex_table (gwdata, tables);
 
-/* Build the rest of the tables */
-
-		if (!gwdata->ALL_COMPLEX_FFT) {
-			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
-			// Need code here
-			tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
-		}
-
-		asm_data->sincos8 = asm_data->sincos7;
-		asm_data->sincos9 = asm_data->sincos7;
-		asm_data->sincos10 = asm_data->sincos7;
-		asm_data->sincos11 = asm_data->sincos7;
-		asm_data->sincos12 = asm_data->sincos7;
-
 /* Allocate a table for carries.  Init with XMM_BIGVAL.  For best */
 /* distribution of data in the L2 cache, make this table contiguous */
 /* with all other data used in the first pass (scratch area, normalization */
@@ -4998,15 +4939,6 @@ int internal_gwsetup (
 			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 			asm_data->scratch_area = tables;
 			tables = (double *) ((char *) tables + gwdata->SCRATCH_SIZE);
-		}
-
-/* Build sin/cos tables used in pass 1.  If FFTLEN is a power of two, */
-/* many of the sin/cos tables can be shared. */
-
-		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
-		if (!gwdata->ALL_COMPLEX_FFT) {
-			// Need code here
-			tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 		}
 
 /* Build the table of big vs. little flags.  This cannot be last table */
@@ -5041,7 +4973,7 @@ int internal_gwsetup (
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->sincos2 = tables;
 		tables = r4delay_build_fixed_pass1_table (gwdata, tables);
-				
+
 /* Build the sin/cos table used in complex pass 2 blocks */
 /* The pass 2 tables are the same as for a traditional radix-4 FFT */		
 
@@ -5051,20 +4983,6 @@ int internal_gwsetup (
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->sincos3 = tables;
 		tables = r4_build_pass2_real_table (gwdata, tables);
-
-/* Build the rest of the tables */
-
-		if (!gwdata->ALL_COMPLEX_FFT) {
-			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
-			// Need code here
-			tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
-		}
-
-		asm_data->sincos8 = asm_data->sincos7;
-		asm_data->sincos9 = asm_data->sincos7;
-		asm_data->sincos10 = asm_data->sincos7;
-		asm_data->sincos11 = asm_data->sincos7;
-		asm_data->sincos12 = asm_data->sincos7;
 
 /* Allocate a table for carries.  Init with XMM_BIGVAL.  For best */
 /* distribution of data in the L2 cache, make this table contiguous */
@@ -5097,15 +5015,6 @@ int internal_gwsetup (
 			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 			asm_data->scratch_area = tables;
 			tables = (double *) ((char *) tables + gwdata->SCRATCH_SIZE);
-		}
-
-/* Build sin/cos tables used in pass 1.  If FFTLEN is a power of two, */
-/* many of the sin/cos tables can be shared. */
-
-		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
-		if (!gwdata->ALL_COMPLEX_FFT) {
-			// Need code here
-			tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 		}
 
 /* Build the table of big vs. little flags.  This cannot be last table */

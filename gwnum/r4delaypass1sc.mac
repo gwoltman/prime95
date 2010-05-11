@@ -16,6 +16,32 @@
 ; ********************************************************
 ; ********************************************************
 
+;;
+;; Estimated memory requirements for each pass 1 macro:
+;;
+;; Pass 1 size:			256	320	384	448	512	640	768	896	1024	1280	1536	1792	2048	2560	3072	3584	4096
+;;
+;; FFT data:			32K	40K	48K	56K	64K	80K	96K	112K	128K	160K	192K	224K	256K	320K	384K	768K	512K
+;; Scratch size:		32K	40K	48K	56K	64K	80K	96K	112K	128K	160K	192K	224K	256K	320K	384K	768K	512K
+;; Variable sin/cos data:	17K	14.5K	16.5K	18.5K	24.5K	29K	33K	37K	49K	30.5K	56.5K	34.5K	88.5K	61K	113K	69K	177K
+;; Fixed sin/cos data:		1.5K	4.5K	4.5K	6.5K	6K	9K	9K	13K	12K	18K	18K	26K	24K	36K	36K	52K	48K
+;; Normalization data:		16K	19K	22K	25K	28K	34K	40K	46K	52K	64K	76K	88K	100K	124K	148K	172K	196K
+;; Data prefetched early:	16K
+;;
+;; Min L2 cache size:		163.5K	172.5K	203.5K	236.5K	275K	341K	403K	469K	546K
+;;
+;; NOTE:  The total size is a minimum estimated efficient L2 cache size.
+;; We double the data and variable sin/cos data size as both the current
+;; data and next block data must be in the cache at the same time.  Also,
+;; any data prefetched during the inverse FFT process runs the danger of
+;; pushing out the fixed sin/cos data and normalization data because of the
+;; LRU cache-eviction algorithm.  The full formula is:
+;;	(FFT data size + Variable sin/cos data) * 2 +
+;;	(Scratch size + Fixed sin/cos data + Normalization data) +
+;;	(amount of data prefetched during inverse FFT process)
+;; ALSO NOTE:  All numbers above are for clm = 4.
+
+
 
 ;;***********************************************************************
 ;; Pass 1 macros
@@ -89,14 +115,14 @@ pass2:	start_timer 0
 
 ;; Prefetch 8*2*clm*XMM_SCD2 + 8*2*clm*XMM_SCD2 +
 ;;	    2*clm*XMM_SCD4 + 4*2*clm*XMM_SCD8 = 34*2*clm 64-byte cache lines
-;; bug - this over prefetches (32*2*clm*64 instead of 34*2*clm*64)
+;; opt - this prefetches fairly well (32*2*clm*64 instead of 34*2*clm*64)
 
 c0b:	start_timer 16
 	mov	rsi, DATA_ADDR		;; Get source address
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdi, PREMULT_ADDR	;; Load premult/sin/cos pointer
 	lea	rdx, [rdi+4*2*clm*XMM_SCD8] ;; Real data sin/cos ptr
-pfing	lea	rbp, [rdi+2*clm*XMM_SCD8] ;; Prefetch the sin/cos/premult data we are about to use
+pfing	lea	rbp, [rdi+2*2*clm*64]	;; Prefetch the sin/cos/premult data we are about to use
 	loops_init_prefetch 16*2*clm, 128, 1, rbp ;; 16*2*clm iterations
 ;;bug	xtouchpages rbp, 16*2*clm * 128 / 1 ;; Prefetch TLBs
 c8b:	r8_sg4cl_sixteen_reals_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst, 2*clmblkdst, rdi, rdx
@@ -149,13 +175,15 @@ c9b:	r8_sg4cl_eight_complex_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst
 
 	start_timer 17
 	lea	rdx, [rdi+8*2*clm*XMM_SCD2] ;; Real data sin/cos ptr
+	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
+pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
+pfing	sub	rbp, rcx
 	loops_init 16*2*clm		;; 16 iterations of 2*clm
 	r4_x4cl_eight_reals_unfft_preload
 c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*clm*XMM_SCD2, rdx, 4*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
-	loops	2*clm, c6b		;; Loop 2*clm times
-	bump	rsi, -2*clm*64+clmblkdst ;; Next source pointer
+	newxloop1 c6b, clmblkdst	;; 2*clm iterations
 	loops	4, c6b			;; 4 iterations
 	bump	rsi, -4*clmblkdst+2*clmblkdst8 ;; Next source pointer
 	bump	rdi, -4*2*clm*XMM_SCD2	;; Restore sine/cosine pointer
@@ -163,8 +191,7 @@ c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*clm*XM
 	loops_reset
 c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next clm's sin/cos data
-	loops	2*clm, c7b		;; Loop 2*clm times
-	bump	rsi, -2*clm*64+clmblkdst ;; Next source pointer
+	newxloop1 c7b, clmblkdst	;; 2*clm iterations
 	loops	4, c7b			;; 4 iterations
 	bump	rsi, -4*clmblkdst+2*clmblkdst8 ;; Next source pointer
 	bump	rdi, -4*2*clm*XMM_SCD2	;; Restore sine/cosine pointer
@@ -193,9 +220,6 @@ c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*cl
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
 	loops_init 16*2*clm		;; 16 iterations of 2*clm
-	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
-pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
-pfing	sub	rbp, rcx
 	r4_x4cl_eight_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, 16*XMM_SCD3
@@ -243,7 +267,7 @@ yes_fft:start_timer 22
 	mov	rcx, DATA_PREFETCH	;; Load source address for prefetching
 pfing	mov	rbp, DATA_ADDR		;; Set xtouch distance
 pfing	sub	rbp, rcx
-	bump	rcx, 16*blkdst		;; We've already prefetched 16 blocks
+	bump	rcx, 32*blkdst		;; We've already prefetched 32 blocks
 	loops_init 32*2*clm		;; 4 iters of 4 iters of 2*2*clm
 	r4_x2cl_eight_reals_first_fft_scratch_preload
 b1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
