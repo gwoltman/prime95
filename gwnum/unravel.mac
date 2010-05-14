@@ -1672,6 +1672,7 @@ loops_init_common MACRO count, first_completed, first_iters
 	loops_count = count
 	loops_completed = 1
 	loops_count_is_power_of_two = 1
+	loops_original_count = count
 
 	;; Compute the initial value
 
@@ -1782,7 +1783,7 @@ loops_common MACRO iters, dest, incr
 		ELSE
 		  add eax, 1
 		ENDIF
-	      ENDIF	
+	      ENDIF
 	      IF (loops_count AND (loops_count-1)) NE 0
 	        next_power_2 = iters OR (iters SHR 1)
 	        next_power_2 = next_power_2 OR (next_power_2 SHR 2)
@@ -1841,6 +1842,7 @@ loops_undo MACRO iters
 
 loops_reset MACRO
 	loops_completed = 1
+	loops_count = loops_original_count
 	ENDM
 
 loops_touch MACRO iters1, dest1, iters2, dest2
