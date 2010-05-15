@@ -1672,7 +1672,6 @@ loops_init_common MACRO count, first_completed, first_iters
 	loops_count = count
 	loops_completed = 1
 	loops_count_is_power_of_two = 1
-	loops_original_count = count
 
 	;; Compute the initial value
 
@@ -1705,6 +1704,9 @@ y:
 	  mov	eax, loops_initial_value
 	ENDIF
 
+	;; Save values for a loops_reset
+	loops_original_count = loops_count
+	loops_original_initial_value = loops_initial_value
 	ENDM
 
 loops	MACRO iters, dest, incr
@@ -1843,6 +1845,7 @@ loops_undo MACRO iters
 loops_reset MACRO
 	loops_completed = 1
 	loops_count = loops_original_count
+	loops_initial_value = loops_original_initial_value
 	ENDM
 
 loops_touch MACRO iters1, dest1, iters2, dest2
