@@ -4009,12 +4009,19 @@ next3:		if (! (jmptab->counts[0] & 0x80000000)) break;
 		if (gwdata->PASS1_CACHE_LINES == 8) gwdata->PASS2GAPSIZE = 1024; // GAP2_12_4
 		if (gwdata->PASS1_CACHE_LINES == 16) gwdata->PASS2GAPSIZE = 1024; // GAP2_12_8
 	}
-	if (gwdata->PASS2_SIZE > 4096) {
+	if (gwdata->PASS2_SIZE > 4096 && gwdata->PASS2_SIZE <= 8192) {
 		if (gwdata->PASS1_CACHE_LINES == 2)
 			gwdata->PASS2GAPSIZE = no_prefetch ? -128 : 256; // GAP2_13_0 & GAP2_13_1
 		if (gwdata->PASS1_CACHE_LINES == 4) gwdata->PASS2GAPSIZE = 512;	// GAP2_13_2
 		if (gwdata->PASS1_CACHE_LINES == 8) gwdata->PASS2GAPSIZE = 1024; // GAP2_13_4
 		if (gwdata->PASS1_CACHE_LINES == 16) gwdata->PASS2GAPSIZE = 1024; // GAP2_13_8
+	}
+	if (gwdata->PASS2_SIZE > 8192) {
+		if (gwdata->PASS1_CACHE_LINES == 2)
+			gwdata->PASS2GAPSIZE = no_prefetch ? -128 : 256; // GAP2_14_0 & GAP2_14_1
+		if (gwdata->PASS1_CACHE_LINES == 4) gwdata->PASS2GAPSIZE = 512;	// GAP2_14_2
+		if (gwdata->PASS1_CACHE_LINES == 8) gwdata->PASS2GAPSIZE = 1024; // GAP2_14_4
+		if (gwdata->PASS1_CACHE_LINES == 16) gwdata->PASS2GAPSIZE = 1024; // GAP2_14_8
 	}
 
 /* Copy the counts */

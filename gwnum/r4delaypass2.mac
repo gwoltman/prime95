@@ -12,7 +12,6 @@ INCLUDE r4pass2.mac
 
 
 IFDEF  WONT_WORK_BECAUSE_NORMALIZE_ADD_SUB_CODE_EXPECTS_PASS2_IS_MULTIPLE_OF_8KB
-
 r4delay_pass2_192_levels_real MACRO
 ;	r4_pass2_192_levels_real
 	ENDM
@@ -20,7 +19,6 @@ r4delay_pass2_192_levels_real MACRO
 r4delay_pass2_192_levels_complex MACRO
 	r4_pass2_192_levels_complex
 	ENDM
-
 ENDIF
 
 r4delay_pass2_8_levels_real MACRO
@@ -181,5 +179,15 @@ r4delay_pass2_12800_levels_real MACRO
 
 r4delay_pass2_12800_levels_complex MACRO
 	r4_pass2_12800_levels_complex
+	ENDM
+
+
+
+r4delay_pass2_14_levels_real MACRO
+	r4_pass2_14_levels_real
+	ENDM
+
+r4delay_pass2_14_levels_complex MACRO
+	r4_pass2_14_levels_complex
 	ENDM
 

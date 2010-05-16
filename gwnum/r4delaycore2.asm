@@ -39,7 +39,7 @@ _TEXT SEGMENT
 PREFETCHING = 64
 TLB_PRIMING = 0
 
-;; Generate pass 2 routines optmized for this architecture
+;; Generate pass 2 routines optimized for this architecture
 
 	xpass2gen 1536
 	xpass2gen 11

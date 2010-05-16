@@ -110,6 +110,11 @@ GAP2_13_1	= 256
 GAP2_13_2	= 512
 GAP2_13_4	= 1024
 GAP2_13_8	= 1024
+GAP2_14_0	= -128
+GAP2_14_1	= 256
+GAP2_14_2	= 512
+GAP2_14_4	= 1024
+GAP2_14_8	= 1024
 
 ; **********************************************************
 ; **********************************************************
@@ -344,6 +349,9 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 	IF xpass2_levels EQ 13
 	p2cl = 2048
 	ENDIF
+	IF xpass2_levels EQ 14
+	p2cl = 4096
+	ENDIF
 	IF xpass2_levels GE 64
 	p2cl = xpass2_levels / 4
 	ENDIF
@@ -424,6 +432,23 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 	ENDIF
 	IF clm EQ 8
 	p2g = GAP2_13_8
+	ENDIF
+	ENDIF
+	IF xpass2_levels EQ 14 OR (xpass2_levels GT 8192)
+	IF clm EQ 1 AND PREFETCHING EQ 0
+	p2g = GAP2_14_0
+	ENDIF
+	IF clm EQ 1 AND PREFETCHING NE 0
+	p2g = GAP2_14_1
+	ENDIF
+	IF clm EQ 2
+	p2g = GAP2_14_2
+	ENDIF
+	IF clm EQ 4
+	p2g = GAP2_14_4
+	ENDIF
+	IF clm EQ 8
+	p2g = GAP2_14_8
 	ENDIF
 	ENDIF
 
