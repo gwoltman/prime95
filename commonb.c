@@ -6886,7 +6886,8 @@ int primeBench (
 //only do this if guid is registered? Or should we auto-register computer
 //under ANONYMOUS userid for stress-testers.
 
-	spoolMessage (PRIMENET_BENCHMARK_DATA, &pkt);
+	if (!all_bench)
+		spoolMessage (PRIMENET_BENCHMARK_DATA, &pkt);
 	return (0);
 }
 
