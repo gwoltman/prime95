@@ -47,15 +47,19 @@ TLB_PRIMING = 0
 	xpass2gen 10
 	xpass2gen 1280
 
-	xpass2gen 1536
-	xpass2gen 11
-	xpass2gen 2560
-
 ;; Routines for many FFT sizes
 
 	; The 8 levels variants
 
 	r4delay_pass1sc256 64K, 8, 4
+	r4delay_pass1sc320 80K, 8, 4
+	r4delay_pass1sc384 96K, 8, 4
+	r4delay_pass1sc448 112K, 8, 4
+	r4delay_pass1sc512 128K, 8, 4
+	r4delay_pass1sc640 160K, 8, 4
+	r4delay_pass1sc768 192K, 8, 4
+	r4delay_pass1sc896 224K, 8, 4
+	r4delay_pass1sc1024 256K, 8, 4
 
 	; The 10 levels variants (768, 1024, 1280)
 
@@ -114,66 +118,15 @@ TLB_PRIMING = 0
 	r4delay_pass1sc4096 4M, 10, 4
 	r4delay_pass1sc4096 4M, 10, 2
 
-	; The 11 levels variants (1536, 2048, 2560)
-
-	r4delay_pass1sc256 384K, 1536, 4
-	r4delay_pass1sc256 512K, 11, 4
-	r4delay_pass1sc256 640K, 2560, 4
-
-	r4delay_pass1sc320 480K, 1536, 4
-	r4delay_pass1sc320 640K, 11, 4
-	r4delay_pass1sc320 800K, 2560, 4
-
-	r4delay_pass1sc384 576K, 1536, 4
-	r4delay_pass1sc384 768K, 11, 4
-	r4delay_pass1sc384 960K, 2560, 4
-
-	r4delay_pass1sc448 672K, 1536, 4
-	r4delay_pass1sc448 896K, 11, 4
-	r4delay_pass1sc448 1120K, 2560, 4
-
-	r4delay_pass1sc512 768K, 1536, 4
-	r4delay_pass1sc512 1M, 11, 4
-	r4delay_pass1sc512 1280K, 2560, 4
-
-	r4delay_pass1sc640 960K, 1536, 4
-	r4delay_pass1sc640 1280K, 11, 4
-	r4delay_pass1sc640 1600K, 2560, 4
-
-	r4delay_pass1sc768 1152K, 1536, 4
-	r4delay_pass1sc768 1536K, 11, 4
-	r4delay_pass1sc768 1920K, 2560, 4
-
-	r4delay_pass1sc896 1344K, 1536, 4
-	r4delay_pass1sc896 1792K, 11, 4
-	r4delay_pass1sc896 2240K, 2560, 4
-
-	r4delay_pass1sc1024 1536K, 1536, 4
-	r4delay_pass1sc1024 2M, 11, 4
-	r4delay_pass1sc1024 2560K, 2560, 4
-
-	r4delay_pass1sc1280 1920K, 1536, 4
-	r4delay_pass1sc1280 2560K, 11, 4
-	r4delay_pass1sc1280 3200K, 2560, 4
-
-	r4delay_pass1sc1536 3M, 11, 4
-
-	r4delay_pass1sc1792 3584K, 11, 4
-
-	r4delay_pass1sc2048 4M, 11, 4
-
-	r4delay_pass1sc2560 5M, 11, 4
-
-	r4delay_pass1sc3072 6M, 11, 4
-
-	r4delay_pass1sc3584 7M, 11, 4
-
-	r4delay_pass1sc4096 8M, 11, 4
-	r4delay_pass1sc4096 8M, 11, 2
-
 	; The all-complex 8 levels variants
 
 	r4delay_pass1sc256ac 64K, 8, 4
+	r4delay_pass1sc384ac 96K, 8, 4
+	r4delay_pass1sc512ac 128K, 8, 4
+	r4delay_pass1sc640ac 160K, 8, 4
+	r4delay_pass1sc768ac 192K, 8, 4
+	r4delay_pass1sc1024ac 256K, 8, 4
+	r4delay_pass1sc1280ac 320K, 8, 4
 
 	; The all-complex 10 levels variants (768, 1024, 1280)
 
@@ -181,11 +134,29 @@ TLB_PRIMING = 0
 	r4delay_pass1sc256ac 256K, 10, 4
 	r4delay_pass1sc256ac 320K, 1280, 4
 
-	; The all-complex 11 levels variants (1536, 2048, 2560)
+	r4delay_pass1sc384ac 288K, 768, 4
+	r4delay_pass1sc384ac 384K, 10, 4
+	r4delay_pass1sc384ac 480K, 1280, 4
 
-	r4delay_pass1sc256ac 384K, 1536, 4
-	r4delay_pass1sc256ac 512K, 11, 4
-	r4delay_pass1sc256ac 640K, 2560, 4
+	r4delay_pass1sc512ac 384K, 768, 4
+	r4delay_pass1sc512ac 512K, 10, 4
+	r4delay_pass1sc512ac 640K, 1280, 4
+
+	r4delay_pass1sc640ac 480K, 768, 4
+	r4delay_pass1sc640ac 640K, 10, 4
+	r4delay_pass1sc640ac 800K, 1280, 4
+
+	r4delay_pass1sc768ac 576K, 768, 4
+	r4delay_pass1sc768ac 768K, 10, 4
+	r4delay_pass1sc768ac 960K, 1280, 4
+
+	r4delay_pass1sc1024ac 768K, 768, 4
+	r4delay_pass1sc1024ac 1M, 10, 4
+	r4delay_pass1sc1024ac 1280K, 1280, 4
+
+	r4delay_pass1sc1280ac 960K, 768, 4
+	r4delay_pass1sc1280ac 1280K, 10, 4
+	r4delay_pass1sc1280ac 1600K, 1280, 4
 
 _TEXT	ENDS
 END
