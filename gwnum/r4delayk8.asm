@@ -1,4 +1,4 @@
-; Copyright 2009 Mersenne Research, Inc.  All rights reserved
+; Copyright 2009-2010 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -39,7 +39,7 @@ _TEXT SEGMENT
 PREFETCHING = 64
 TLB_PRIMING = 0
 
-;; Generate pass 2 routines optmized for this architecture
+;; Generate pass 2 routines optimized for this architecture
 
 	xpass2gen 12
 
