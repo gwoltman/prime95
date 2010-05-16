@@ -6768,6 +6768,10 @@ int primeBench (
 		is_a_5678 = (i <= 8);
 		if (only_time_5678 && !is_a_5678) break;
 
+/* Output a blank line between different FFT lengths when timing all implementations */
+
+		if (all_bench && ii == 1) writeResults ("\n");
+
 /* Compute the number of iterations to time.  This is based on the fact that it doesn't */
 /* take too long for my 1400 MHz P4 to run 10 iterations of a 1792K FFT. */
 
@@ -6827,9 +6831,10 @@ int primeBench (
 		OutputStrNoTimeStamp (thread_num, buf);
 		if (all_bench) {
 			sprintf (buf,
-				 "Time FFTlen=%luK%s, Arch=%d, Pass2=%lu, clm=%lu: ",
+				 "Time FFTlen=%luK%s, Arch=%d, Pass1=%lu, Pass2=%lu, clm=%lu: ",
 				 fftlen / 1024, plus1 ? " all-complex" : "",
 				 lldata.gwdata.ARCH,
+				 fftlen / lldata.gwdata.PASS2_SIZE,
 				 lldata.gwdata.PASS2_SIZE,
 				 lldata.gwdata.PASS1_CACHE_LINES / 2);
 			timers[0] = best_time;
