@@ -254,6 +254,19 @@ xsub_7_words MACRO dist4
 nozpad:
 	ENDM
 
+
+;
+; Macros used to conditionally eliminate some FFT implementations.
+; Using macros allows us change our minds and include these implementations
+; for a test build.
+;
+
+;; Used for FFT sizes above 32M, these aren't practical to run just yet.
+toobig	MACRO ops:vararg
+	noexec	&ops
+	ENDM
+
+
 ; ********************************************************
 ; ********************************************************
 ; ******************  PASS 1 MACROS  *********************
