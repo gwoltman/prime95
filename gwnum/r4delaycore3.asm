@@ -86,6 +86,34 @@ TLB_PRIMING = 0
 	r4delay_pass1sc1280 3840K, 3072, 4
 	r4delay_pass1sc1280 4800K, 3840, 4
 
+	r4delay_pass1sc1536 3456K, 2304, 4
+	r4delay_pass1sc1536 4608K, 3072, 4
+	r4delay_pass1sc1536 5760K, 3840, 4
+
+	r4delay_pass1sc1792 4032K, 2304, 4
+	r4delay_pass1sc1792 5376K, 3072, 4
+	r4delay_pass1sc1792 6720K, 3840, 4
+
+	r4delay_pass1sc2048 4608K, 2304, 4
+	r4delay_pass1sc2048 6M, 3072, 4
+	r4delay_pass1sc2048 7680K, 3840, 4
+
+	r4delay_pass1sc2560 5760K, 2304, 4
+	r4delay_pass1sc2560 7680K, 3072, 4
+	r4delay_pass1sc2560 9600K, 3840, 4
+
+	r4delay_pass1sc3072 6912K, 2304, 4
+	r4delay_pass1sc3072 9M, 3072, 4
+	r4delay_pass1sc3072 11520K, 3840, 4
+
+	r4delay_pass1sc3584 8064K, 2304, 4
+	r4delay_pass1sc3584 10752K, 3072, 4
+	r4delay_pass1sc3584 13440K, 3840, 4
+
+	r4delay_pass1sc4096 9M, 2304, 4
+	r4delay_pass1sc4096 12M, 3072, 4
+	r4delay_pass1sc4096 15M, 3840, 4
+
 	; The all-complex 12 levels variants (2304, 3072, 3840)
 
 	r4delay_pass1sc256ac 576K, 2304, 4
@@ -116,7 +144,29 @@ TLB_PRIMING = 0
 	r4delay_pass1sc1280ac 3840K, 3072, 4
 	r4delay_pass1sc1280ac 4800K, 3840, 4
 
+	r4delay_pass1sc1536ac 3456K, 2304, 4
+	r4delay_pass1sc1536ac 4608K, 3072, 4
+	r4delay_pass1sc1536ac 5760K, 3840, 4
+
+	r4delay_pass1sc2048ac 4608K, 2304, 4
+	r4delay_pass1sc2048ac 6M, 3072, 4
+	r4delay_pass1sc2048ac 7680K, 3840, 4
+
+	r4delay_pass1sc2560ac 5760K, 2304, 4
+	r4delay_pass1sc2560ac 7680K, 3072, 4
+	r4delay_pass1sc2560ac 9600K, 3840, 4
+
+	r4delay_pass1sc3072ac 6912K, 2304, 4
+	r4delay_pass1sc3072ac 9M, 3072, 4
+	r4delay_pass1sc3072ac 11520K, 3840, 4
+
+	r4delay_pass1sc4096ac 9M, 2304, 4
+	r4delay_pass1sc4096ac 12M, 3072, 4
+	r4delay_pass1sc4096ac 15M, 3840, 4
+
 	r4delay_pass1sc5120ac 11520K, 2304, 4
+	r4delay_pass1sc5120ac 15M, 3072, 4
+	r4delay_pass1sc5120ac 19200K, 3840, 4
 
 _TEXT	ENDS
 END

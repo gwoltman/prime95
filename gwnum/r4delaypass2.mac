@@ -183,6 +183,14 @@ r4delay_pass2_12800_levels_complex MACRO
 
 
 
+r4delay_pass2_9216_levels_real MACRO
+	r4_pass2_9216_levels_real
+	ENDM
+
+r4delay_pass2_9216_levels_complex MACRO
+	r4_pass2_9216_levels_complex
+	ENDM
+
 r4delay_pass2_14_levels_real MACRO
 	r4_pass2_14_levels_real
 	ENDM
