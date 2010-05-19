@@ -191,11 +191,43 @@ r4delay_pass2_9216_levels_complex MACRO
 	r4_pass2_9216_levels_complex
 	ENDM
 
+r4delay_pass2_12288_levels_real MACRO
+	r4_pass2_12288_levels_real
+	ENDM
+
+r4delay_pass2_12288_levels_complex MACRO
+	r4_pass2_12288_levels_complex
+	ENDM
+
+r4delay_pass2_15360_levels_real MACRO
+	r4_pass2_15360_levels_real
+	ENDM
+
+r4delay_pass2_15360_levels_complex MACRO
+	r4_pass2_15360_levels_complex
+	ENDM
+
 r4delay_pass2_14_levels_real MACRO
 	r4_pass2_14_levels_real
 	ENDM
 
 r4delay_pass2_14_levels_complex MACRO
 	r4_pass2_14_levels_complex
+	ENDM
+
+r4delay_pass2_20480_levels_real MACRO
+	r4_pass2_20480_levels_real
+	ENDM
+
+r4delay_pass2_20480_levels_complex MACRO
+	r4_pass2_20480_levels_complex
+	ENDM
+
+r4delay_pass2_25600_levels_real MACRO
+	r4_pass2_25600_levels_real
+	ENDM
+
+r4delay_pass2_25600_levels_complex MACRO
+	r4_pass2_25600_levels_complex
 	ENDM
 

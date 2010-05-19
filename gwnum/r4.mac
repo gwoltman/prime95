@@ -38,7 +38,13 @@ INCLUDE r8.mac
 ;;
 
 r4_x4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
-	r4_x4c_djbfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg,0,srcreg+srcinc,d1,[srcreg],[srcreg+16]
+	r4_x4cl_2sc_four_complex_djbfft srcreg,srcinc,d1,d2,screg,screg+32
+	ENDM
+
+;; Special version used in pass 2 when first levels are radix-3.
+r4_x4cl_2sc_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,screg2
+	d3 = d2 + d1
+	r4_x4c_2sc_djbfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg1,screg2,srcreg+srcinc,d1,[srcreg],[srcreg+16]
 ;;	xstore	[srcreg], xmm0		;; Save R1
 ;;	xstore	[srcreg+16], xmm0	;; Save I1
 	xload	xmm0, [srcreg+32]	;; R1
@@ -51,7 +57,7 @@ r4_x4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
 	xstore	[srcreg+d1+16], xmm1	;; Save I3
 	xstore	[srcreg+d1+32], xmm2	;; Save R4
 	xstore	[srcreg+d1+48], xmm4	;; Save I4
-	r4_x4c_djbfft_partial_mem xmm0,xmm7,xmm3,xmm2,xmm5,xmm6,xmm1,xmm4,[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+d2+48],[srcreg+d2+d1+48],screg,0,srcreg+srcinc+d2,d1,[srcreg+d2],[srcreg+d2+16]
+	r4_x4c_2sc_djbfft_partial_mem xmm0,xmm7,xmm3,xmm2,xmm5,xmm6,xmm1,xmm4,[srcreg+d2+32],[srcreg+d3+32],[srcreg+d2+48],[srcreg+d3+48],screg1,screg2,srcreg+srcinc+d2,d1,[srcreg+d2],[srcreg+d2+16]
 ;;	xstore	[srcreg+d2], xmm0	;; Save R1
 ;;	xstore	[srcreg+d2+16], xmm0	;; Save I1
 	xstore	[srcreg+d2+32], xmm4	;; Save R2
@@ -439,7 +445,7 @@ IFDEF X86_64
 
 ; Theoretical best case is 44 clocks on a Core 2.  Now at 47.2 clocks.
 
-r4_x4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
+r4_x4cl_2sc_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,screg2
 	xload	xmm0, [srcreg]		;; R1
 	xload	xmm2, [srcreg+d2]	;; R3
 	xload	xmm5, [srcreg+d1+16]	;; I2
@@ -460,7 +466,7 @@ r4_x4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
 
 	xcopy	xmm11, xmm4		;; Copy I1				; 4-6
 	subpd	xmm4, xmm6		;; I1 = I1 - I3 (new I3)		; 4-6	avail 12+
-	xload	xmm12, [screg+16]	;; cosine/sine				; 4
+	xload	xmm12, [screg1+16]	;; cosine/sine				; 4
 
 	addpd	xmm2, xmm8		;; R3 = R1 + R3 (new R1)		; 5-7	avail 8,13+
 	xcopy	xmm13, xmm12							; 5-7
@@ -476,7 +482,7 @@ r4_x4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
 
 	 addpd	xmm5, xmm0		;; I4 = R3 + I4 (final R4)		; 9-11	avail 10.9,11
 	 xcopy	xmm9, xmm4		;; Copy I3				; 9-11
-	xload	xmm10, [screg+32+16]	;; cosine/sine				; 9
+	xload	xmm10, [screg2+16]	;; cosine/sine				; 9
 
 	 subpd	xmm0, xmm8		;; R3 = R3 - I4 (final R3)		; 10-12	avail 11,8
 
@@ -498,11 +504,11 @@ r4_x4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
 
 	 addpd	xmm3, xmm8		;; R2 = R1 + R2 (final R1)		; 15-17	avail 8
 	mulpd	xmm15, xmm1		;; B3 = I3 * cosine/sine		; 15-19
-	xload	xmm8, [screg]		;; Sine					; 15
+	xload	xmm8, [screg1]		;; Sine					; 15
 
 	 addpd	xmm7, xmm9		;; I2 = I1 + I2 (final I1)		; 16-18	avail 9
 	mulpd	xmm10, xmm2		;; A2 = R2 * cosine/sine		; 16-20
-	xload	xmm9, [screg+32]						; 16
+	xload	xmm9, [screg2]							; 16
 
 	addpd	xmm12, xmm4		;; A4 = A4 + I4				; 17-19	avail 4
 	mulpd	xmm11, xmm6		;; B2 = I2 * cosine/sine		; 17-21
@@ -551,7 +557,7 @@ r4_x4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
 
 	addpd	xmm1, xmm6		;;#2 R3 = R1 + R3 (new R1)		; 27-29	avail 6
 	xstore	[srcreg+d1+48], xmm14	;; Save I4				; 27	avail 6,14
-	xload	xmm14, [screg+16]	;;#2 cosine/sine			; 27	avail 6
+	xload	xmm14, [screg1+16]	;;#2 cosine/sine			; 27	avail 6
 
 	addpd	xmm0, xmm8		;;#2 R4 = R2 + R4 (new R2)		; 28-30	avail 6,8
 	xstore	[srcreg+d1+16], xmm15	;; Save I3				; 28	avail 6,8,15
@@ -572,7 +578,7 @@ r4_x4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
 	 xcopy	xmm2, xmm9		;;#2 Copy I3				; 31-33	avail 8,13
 
 	 subpd	xmm4, xmm6		;;#2 R3 = R3 - I4 (final R3)		; 32-34	avail 8,13,6
-	xload	xmm8, [screg+32+16]	;;#2 cosine/sine			; 32	avail 13,6
+	xload	xmm8, [screg2+16]	;;#2 cosine/sine			; 32	avail 13,6
 
 	 subpd	xmm9, xmm7		;;#2 I3 = I3 - R4 (final I4)		; 33-35
 	xcopy	xmm13, xmm8							; 33-35	avail 6
@@ -590,11 +596,11 @@ r4_x4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
 
 	 addpd	xmm0, xmm6		;;#2 R2 = R1 + R2 (final R1)		; 37-39	avail 6
 	mulpd	xmm11, xmm7		;;#2 B3 = I3 * cosine/sine		; 37-41
-	xload	xmm6, [screg]		;;#2 Sine				; 37	avail none
+	xload	xmm6, [screg1]		;;#2 Sine				; 37	avail none
 
 	 addpd	xmm5, xmm2		;;#2 I2 = I1 + I2 (final I1)		; 38-40	avail 2
 	mulpd	xmm8, xmm1		;;#2 A2 = R2 * cosine/sine		; 38-42
-	xload	xmm2, [screg+32]	;;#2 Sine				; 38	avail none
+	xload	xmm2, [screg2]		;;#2 Sine				; 38	avail none
 
 	addpd	xmm14, xmm9		;;#2 A4 = A4 + I4			; 39-41	avail 9
 	mulpd	xmm13, xmm12		;;#2 B2 = I2 * cosine/sine		; 39-43

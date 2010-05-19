@@ -738,7 +738,7 @@ double *r4_build_pass2_complex_table (
 
 	N = gwdata->PASS2_SIZE;
 	if (N % 3 == 0) {
-		if (aux_table_size &&  N / aux_table_size % 2 == 0) limit = N / 2;
+		if (!aux_table_size ||  N / aux_table_size % 2 == 0) limit = N / 2;
 		else if (N % 5 == 0) limit = N * 2 / 5;
 		else limit = N / 3;
 		for (i = 0; i < limit; i++) {
@@ -754,7 +754,7 @@ double *r4_build_pass2_complex_table (
 /* output a slightly smaller sin/cos table. */
 
 	else {
-		if (aux_table_size &&  N / aux_table_size % 2 == 0) limit = N / 4;
+		if (!aux_table_size ||  N / aux_table_size % 2 == 0) limit = N / 4;
 		else limit = N / 5;
 		for (i = 0; i < limit; i++) {
 			gwsincos3 (i, N, (double *) &sincos);
