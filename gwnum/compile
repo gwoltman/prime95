@@ -19,15 +19,15 @@ all:	gwnum.lib gwnumd.lib linux\gwnum.a macosx\gwnum.a release\ecmstag1.obj debu
 
 # Make libraries out of the object files
 
-gwnum.lib: release\cpuid.obj release\gwnum.obj release\gwthread.obj release\gwutil.obj release\gwdbldbl.obj release\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ap.obj xmult2ax.obj hgcore.obj hgp4.obj hgk8.obj r4core.obj r4p4.obj r4k8.obj r4spmcore.obj r4spmp4.obj r4spmk8.obj r4r8core.obj r4r8p4.obj r4r8k8.obj r4delaycore.obj r4delaycore2.obj r4delaycore3.obj r4delaycore4.obj r4delaycore5.obj r4delaycore6.obj r4delaycore7.obj r4delayp4.obj r4delayk8.obj timeit.obj timeitp.obj
+gwnum.lib: release\cpuid.obj release\gwnum.obj release\gwthread.obj release\gwutil.obj release\gwdbldbl.obj release\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ap.obj xmult2ax.obj hgcore.obj hgp4.obj hgk8.obj r4core.obj r4p4.obj r4k8.obj r4spmcore.obj r4spmp4.obj r4spmk8.obj r4r8core.obj r4r8p4.obj r4r8k8.obj r4delaycore.obj r4delaycore2.obj r4delaycore3.obj r4delaycore4.obj r4delaycore5.obj r4delaycore6.obj r4delaycore7.obj r4delaycore8.obj r4delayp4.obj r4delayk8.obj timeit.obj timeitp.obj
     del gwnum.lib
     lib /OUT:gwnum.lib release\*.obj *.obj
 
-gwnumd.lib: debug\cpuid.obj debug\gwnum.obj debug\gwthread.obj debug\gwutil.obj debug\gwdbldbl.obj debug\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ap.obj xmult2ax.obj hgcore.obj hgp4.obj hgk8.obj r4core.obj r4p4.obj r4k8.obj r4spmcore.obj r4spmp4.obj r4spmk8.obj r4r8core.obj r4r8p4.obj r4r8k8.obj r4delaycore.obj r4delaycore2.obj r4delaycore3.obj r4delaycore4.obj r4delaycore5.obj r4delaycore6.obj r4delaycore7.obj r4delayp4.obj r4delayk8.obj timeit.obj timeitp.obj
+gwnumd.lib: debug\cpuid.obj debug\gwnum.obj debug\gwthread.obj debug\gwutil.obj debug\gwdbldbl.obj debug\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ap.obj xmult2ax.obj hgcore.obj hgp4.obj hgk8.obj r4core.obj r4p4.obj r4k8.obj r4spmcore.obj r4spmp4.obj r4spmk8.obj r4r8core.obj r4r8p4.obj r4r8k8.obj r4delaycore.obj r4delaycore2.obj r4delaycore3.obj r4delaycore4.obj r4delaycore5.obj r4delaycore6.obj r4delaycore7.obj r4delaycore8.obj r4delayp4.obj r4delayk8.obj timeit.obj timeitp.obj
     del gwnumd.lib
     lib /OUT:gwnumd.lib debug\*.obj *.obj
 
-linux\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ap.obj xmult2ax.obj hgcore.obj hgp4.obj hgk8.obj r4core.obj r4p4.obj r4k8.obj r4spmcore.obj r4spmp4.obj r4spmk8.obj r4r8core.obj r4r8p4.obj r4r8k8.obj r4delaycore.obj r4delaycore2.obj r4delaycore3.obj r4delaycore4.obj r4delaycore5.obj r4delaycore6.obj r4delaycore7.obj r4delayp4.obj r4delayk8.obj timeit.obj timeitp.obj
+linux\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ap.obj xmult2ax.obj hgcore.obj hgp4.obj hgk8.obj r4core.obj r4p4.obj r4k8.obj r4spmcore.obj r4spmp4.obj r4spmk8.obj r4r8core.obj r4r8p4.obj r4r8k8.obj r4delaycore.obj r4delaycore2.obj r4delaycore3.obj r4delaycore4.obj r4delaycore5.obj r4delaycore6.obj r4delaycore7.obj r4delaycore8.obj r4delayp4.obj r4delayk8.obj timeit.obj timeitp.obj
     attrib -r linux\gwnum.a
     del linux\gwnum.a
     del linux\gwnum.lib
@@ -36,7 +36,7 @@ linux\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj m
     attrib -r linux\gwnum.a
     del linux\gwnum.lib
 
-macosx\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ap.obj xmult2ax.obj hgcore.obj hgp4.obj hgk8.obj r4core.obj r4p4.obj r4k8.obj r4spmcore.obj r4spmp4.obj r4spmk8.obj r4r8core.obj r4r8p4.obj r4r8k8.obj r4delaycore.obj r4delaycore2.obj r4delaycore3.obj r4delaycore4.obj r4delaycore5.obj r4delaycore6.obj r4delaycore7.obj r4delayp4.obj r4delayk8.obj timeit.obj timeitp.obj
+macosx\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj xmult1ax.obj xmult2.obj xmult2a.obj xmult2ap.obj xmult2ax.obj hgcore.obj hgp4.obj hgk8.obj r4core.obj r4p4.obj r4k8.obj r4spmcore.obj r4spmp4.obj r4spmk8.obj r4r8core.obj r4r8p4.obj r4r8k8.obj r4delaycore.obj r4delaycore2.obj r4delaycore3.obj r4delaycore4.obj r4delaycore5.obj r4delaycore6.obj r4delaycore7.obj r4delaycore8.obj r4delayp4.obj r4delayk8.obj timeit.obj timeitp.obj
     attrib -r macosx\gwnum.a
     del macosx\gwnum.a
     del macosx\gwnum.lib
@@ -207,6 +207,9 @@ r4delaycore6.obj: r4delaycore6.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac 
 
 r4delaycore7.obj: r4delaycore7.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
     $(masm) r4delaycore7.asm
+
+r4delaycore8.obj: r4delaycore8.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm) r4delaycore8.asm
 
 r4delayp4.obj: r4delayp4.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
     $(masm) r4delayp4.asm
