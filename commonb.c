@@ -6835,7 +6835,7 @@ int primeBench (
 				 "Time FFTlen=%luK%s, Arch=%d, Pass1=%lu, Pass2=%lu, clm=%lu: ",
 				 fftlen / 1024, plus1 ? " all-complex" : "",
 				 lldata.gwdata.ARCH,
-				 fftlen / lldata.gwdata.PASS2_SIZE,
+				 fftlen / (lldata.gwdata.PASS2_SIZE ? lldata.gwdata.PASS2_SIZE : 1),
 				 lldata.gwdata.PASS2_SIZE,
 				 lldata.gwdata.PASS1_CACHE_LINES / 2);
 			timers[0] = best_time;
