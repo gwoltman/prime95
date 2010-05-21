@@ -40,82 +40,6 @@ XMM_SCD13 = 416			;; Sizeof a real radix-28 with premultipliers table entry
 XMM_HSCD1 = 16			;; Sizeof a half sin/cos table entry used in real FFTs in pass 2
 XMM_HSCD2 = 32			;; Sizeof a half sin/cos table entry used in real FFTs in pass 2
 
-;; 
-;; Number of pad bytes between two pass 2 data blocks.  For best distribution
-;; of data in the L2 cache during pass 1, this should be an odd multiple
-;; of the amount of data read in during a pass 1 iteration (clm*128 if not
-;; prefetching, 2*clm*128 if we are prefetching).  This odd multiple must also
-;; take into account the 128 pad bytes already added every 8KB in the block.
-;; We also want to avoid gaps that are a multiple of 2KB as that hurts the
-;; g4cl macros on a P4.
-;;
-;; A summary follows below:
-;;
-;; pass2 levels 8:
-;;		read		skip
-;; clm1:	256		128+128
-;; clm4:	1K		128+896
-;;
-;; pass2 levels 10:
-;;		read		skip
-;; clm0:	128		512+/-128
-;; clm1:	256		512+256
-;; clm2:	512		512+0		0 is perfect!
-;; clm4:	1K		512+512		512 IS perfect!
-;; clm8:	2K		512+512		decent solution
-;;
-;; pass2 levels 11:
-;;		read		skip
-;; clm0:	128		1K+/-128	perfect
-;; clm1:	256		1K+256		perfect
-;; clm2:	512		1k+512		perfect
-;; clm4:	1K		1K+0		0 IS perfect!
-;; clm8:	2K		1k+0		decent solution
-;;
-;; pass2 levels 12:
-;;		read		skip
-;; clm0:	128		2K+/-128	perfect!
-;; clm1:	256		2K+256		perfect!
-;; clm2:	512		2k+512		perfect!
-;; clm4:	1K		2K+1K		perfect!
-;; clm8:	2K		2k+1k		decent solution
-;;
-;; pass2 levels 13:
-;;		read		skip
-;; clm0:	128		4K+/-128	perfect!
-;; clm1:	256		4K+256		PERFECT!
-;; clm2:	512		4k+512		perfect
-;; clm4:	1K		4K+1024		perfect
-;; clm8:	2K		4k+1024		decent solution
-
-GAP2_8_1	= 128
-GAP2_8_4	= 896
-GAP2_10_0	= -128
-GAP2_10_1	= 256
-GAP2_10_2	= 0
-GAP2_10_4	= 512
-GAP2_10_8	= 512
-GAP2_11_0	= -128
-GAP2_11_1	= 256
-GAP2_11_2	= 512
-GAP2_11_4	= 0
-GAP2_11_8	= 0
-GAP2_12_0	= -128
-GAP2_12_1	= 256
-GAP2_12_2	= 512
-GAP2_12_4	= 1024
-GAP2_12_8	= 1024
-GAP2_13_0	= -128
-GAP2_13_1	= 256
-GAP2_13_2	= 512
-GAP2_13_4	= 1024
-GAP2_13_8	= 1024
-GAP2_14_0	= -128
-GAP2_14_1	= 256
-GAP2_14_2	= 512
-GAP2_14_4	= 1024
-GAP2_14_8	= 1024
-
 ; **********************************************************
 ; **********************************************************
 ; ******************  ONE PASS MACROS  *********************
@@ -369,107 +293,18 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 	p2cl = xpass2_levels / 4
 	ENDIF
 
-;; Compute the gap between two pass2 data blocks
-
-	IF xpass2_levels EQ 8 OR (xpass2_levels GT 128 AND xpass2_levels LE 256)
-	IF clm EQ 1
-	p2g = GAP2_8_1
-	ENDIF
-	IF clm EQ 4
-	p2g = GAP2_8_4
-	ENDIF
-	ENDIF
-	IF xpass2_levels EQ 10 OR (xpass2_levels GT 512 AND xpass2_levels LE 1024)
-	IF clm EQ 1 AND PREFETCHING EQ 0
-	p2g = GAP2_10_0
-	ENDIF
-	IF clm EQ 1 AND PREFETCHING NE 0
-	p2g = GAP2_10_1
-	ENDIF
-	IF clm EQ 2
-	p2g = GAP2_10_2
-	ENDIF
-	IF clm EQ 4
-	p2g = GAP2_10_4
-	ENDIF
-	IF clm EQ 8
-	p2g = GAP2_10_8
-	ENDIF
-	ENDIF
-	IF xpass2_levels EQ 11 OR (xpass2_levels GT 1024 AND xpass2_levels LE 2048)
-	IF clm EQ 1 AND PREFETCHING EQ 0
-	p2g = GAP2_11_0
-	ENDIF
-	IF clm EQ 1 AND PREFETCHING NE 0
-	p2g = GAP2_11_1
-	ENDIF
-	IF clm EQ 2
-	p2g = GAP2_11_2
-	ENDIF
-	IF clm EQ 4
-	p2g = GAP2_11_4
-	ENDIF
-	IF clm EQ 8
-	p2g = GAP2_11_8
-	ENDIF
-	ENDIF
-	IF xpass2_levels EQ 12 OR (xpass2_levels GT 2048 AND xpass2_levels LE 4096)
-	IF clm EQ 1 AND PREFETCHING EQ 0
-	p2g = GAP2_12_0
-	ENDIF
-	IF clm EQ 1 AND PREFETCHING NE 0
-	p2g = GAP2_12_1
-	ENDIF
-	IF clm EQ 2
-	p2g = GAP2_12_2
-	ENDIF
-	IF clm EQ 4
-	p2g = GAP2_12_4
-	ENDIF
-	IF clm EQ 8
-	p2g = GAP2_12_8
-	ENDIF
-	ENDIF
-	IF xpass2_levels EQ 13 OR (xpass2_levels GT 4096)
-	IF clm EQ 1 AND PREFETCHING EQ 0
-	p2g = GAP2_13_0
-	ENDIF
-	IF clm EQ 1 AND PREFETCHING NE 0
-	p2g = GAP2_13_1
-	ENDIF
-	IF clm EQ 2
-	p2g = GAP2_13_2
-	ENDIF
-	IF clm EQ 4
-	p2g = GAP2_13_4
-	ENDIF
-	IF clm EQ 8
-	p2g = GAP2_13_8
-	ENDIF
-	ENDIF
-	IF xpass2_levels EQ 14 OR (xpass2_levels GT 8192)
-	IF clm EQ 1 AND PREFETCHING EQ 0
-	p2g = GAP2_14_0
-	ENDIF
-	IF clm EQ 1 AND PREFETCHING NE 0
-	p2g = GAP2_14_1
-	ENDIF
-	IF clm EQ 2
-	p2g = GAP2_14_2
-	ENDIF
-	IF clm EQ 4
-	p2g = GAP2_14_4
-	ENDIF
-	IF clm EQ 8
-	p2g = GAP2_14_8
-	ENDIF
-	ENDIF
-
 ;; Compute the needed distances
 
-	blkdst = (p2cl*128+p2cl/64*128+p2g)
+	blkdst = (p2cl*128+p2cl/64*128)
 	clmblkdst = (clm*128)
 	clmblkdst8 = (clmblkdst*8+128)
+
+;; Make sure the distance between two blocks is an odd multiple of 128.  This
+;; ensures a good scattering of FFT data in the L2 cache during pass 1.
+
+	IF blkdst MOD 128 EQ 0
+	blkdst = blkdst - 128
+	ENDIF
 	ENDM
 
 ; Header and footers for each FFT routine

@@ -3980,49 +3980,13 @@ next3:		if (! (jmptab->counts[0] & 0x80000000)) break;
 	} else
 		gwdata->SCRATCH_SIZE = 0;
 
-/* Remember the FFT length and number of pass 2 levels and the gap */
-/* between 2 blocks.  This is used by addr_offset called from */
+/* Calculate the gap between data blocks.  This is used by addr_offset called from */
 /* gwmap_to_estimated_size without a call to gwsetup. */
 
-	if (gwdata->PASS2_SIZE > 128 && gwdata->PASS2_SIZE <= 256) {
-		if (gwdata->PASS1_CACHE_LINES == 2) gwdata->PASS2GAPSIZE = 128;	// GAP2_8_1
-		if (gwdata->PASS1_CACHE_LINES == 8) gwdata->PASS2GAPSIZE = 896;	// GAP2_8_4
-	}
-	if (gwdata->PASS2_SIZE > 512 && gwdata->PASS2_SIZE <= 1024) {
-		if (gwdata->PASS1_CACHE_LINES == 2)
-			gwdata->PASS2GAPSIZE = no_prefetch ? -128 : 256; // GAP2_10_0 & GAP2_10_1
-		if (gwdata->PASS1_CACHE_LINES == 4) gwdata->PASS2GAPSIZE = 0;	// GAP2_10_2
-		if (gwdata->PASS1_CACHE_LINES == 8) gwdata->PASS2GAPSIZE = 512;	// GAP2_10_4
-		if (gwdata->PASS1_CACHE_LINES == 16) gwdata->PASS2GAPSIZE = 512; // GAP2_10_8
-	}
-	if (gwdata->PASS2_SIZE > 1024 && gwdata->PASS2_SIZE <= 2048) {
-		if (gwdata->PASS1_CACHE_LINES == 2)
-			gwdata->PASS2GAPSIZE = no_prefetch ? -128 : 256; // GAP2_11_0 & GAP2_11_1
-		if (gwdata->PASS1_CACHE_LINES == 4) gwdata->PASS2GAPSIZE = 512;	// GAP2_11_2
-		if (gwdata->PASS1_CACHE_LINES == 8) gwdata->PASS2GAPSIZE = 0;	// GAP2_11_4
-		if (gwdata->PASS1_CACHE_LINES == 16) gwdata->PASS2GAPSIZE = 0;	// GAP2_11_8
-	}
-	if (gwdata->PASS2_SIZE > 2048 && gwdata->PASS2_SIZE <= 4096) {
-		if (gwdata->PASS1_CACHE_LINES == 2)
-			gwdata->PASS2GAPSIZE = no_prefetch ? -128 : 256; // GAP2_12_0 & GAP2_12_1
-		if (gwdata->PASS1_CACHE_LINES == 4) gwdata->PASS2GAPSIZE = 512;	// GAP2_12_2
-		if (gwdata->PASS1_CACHE_LINES == 8) gwdata->PASS2GAPSIZE = 1024; // GAP2_12_4
-		if (gwdata->PASS1_CACHE_LINES == 16) gwdata->PASS2GAPSIZE = 1024; // GAP2_12_8
-	}
-	if (gwdata->PASS2_SIZE > 4096 && gwdata->PASS2_SIZE <= 8192) {
-		if (gwdata->PASS1_CACHE_LINES == 2)
-			gwdata->PASS2GAPSIZE = no_prefetch ? -128 : 256; // GAP2_13_0 & GAP2_13_1
-		if (gwdata->PASS1_CACHE_LINES == 4) gwdata->PASS2GAPSIZE = 512;	// GAP2_13_2
-		if (gwdata->PASS1_CACHE_LINES == 8) gwdata->PASS2GAPSIZE = 1024; // GAP2_13_4
-		if (gwdata->PASS1_CACHE_LINES == 16) gwdata->PASS2GAPSIZE = 1024; // GAP2_13_8
-	}
-	if (gwdata->PASS2_SIZE > 8192) {
-		if (gwdata->PASS1_CACHE_LINES == 2)
-			gwdata->PASS2GAPSIZE = no_prefetch ? -128 : 256; // GAP2_14_0 & GAP2_14_1
-		if (gwdata->PASS1_CACHE_LINES == 4) gwdata->PASS2GAPSIZE = 512;	// GAP2_14_2
-		if (gwdata->PASS1_CACHE_LINES == 8) gwdata->PASS2GAPSIZE = 1024; // GAP2_14_4
-		if (gwdata->PASS1_CACHE_LINES == 16) gwdata->PASS2GAPSIZE = 1024; // GAP2_14_8
-	}
+	if (gwdata->PASS2GAPSIZE * 2 * 2 * 8 / 8192 * 128 % 128 == 0)
+		gwdata->PASS2GAPSIZE = -128;
+	else
+		gwdata->PASS2GAPSIZE = 0;
 
 /* Copy the counts */
 
@@ -5667,16 +5631,13 @@ int internal_gwsetup (
 		/* Calculate number of 8KB pages */
 		asm_data->normval4 = (gwdata->PASS2_SIZE * 16 * 2) >> 13;
 
-		/* Gap between blocks */
-		asm_data->pass2gapsize = gwdata->PASS2GAPSIZE;
-
 		/* Pass 1 block distance includes 128 pad bytes every 8KB */
-		/* plus the gap between blocks */ 
-		asm_data->pass1blkdst =
-				gwdata->PASS2_SIZE * 16 * 2 +
-				((gwdata->PASS2_SIZE * 16 * 2) >> 13) * 128 +
-				asm_data->pass2gapsize;
+		asm_data->pass2gapsize = gwdata->PASS2GAPSIZE;
+		asm_data->pass1blkdst = gwdata->PASS2_SIZE * 16 * 2;
+		asm_data->pass1blkdst += (asm_data->pass1blkdst >> 13) * 128;
+		asm_data->pass1blkdst += asm_data->pass2gapsize;
 
+		/* Calculate normblk distances */
 		if (gwdata->SCRATCH_SIZE == 0) {
 			/* Normblkdst = pass1blkdst - clm*64 */
 			asm_data->normblkdst =
