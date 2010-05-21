@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2009 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2010 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
@@ -6739,7 +6739,7 @@ int primeBench (
 	  for (plus1 = 0; plus1 <= 1; plus1++) {
 	    if (plus1 == 0 && time_all_complex == 2) break;
 	    if (plus1 == 1 && time_all_complex == 0) break;
-	    for (fftlen = min_FFT_length * 1024; fftlen < max_FFT_length * 1024; fftlen += 10) {
+	    for (fftlen = min_FFT_length * 1024; fftlen <= max_FFT_length * 1024; fftlen += 10) {
 	      for (ii = 1; ; ii++) {
 		if (ii > 1 && !all_bench) break;
 
