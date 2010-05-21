@@ -64,6 +64,7 @@ XMM_HSCD2 = 32			;; Sizeof a half sin/cos table entry used in real FFTs in pass 
 ;	exp = experimental
 ;	sr = split-radix
 ; options are:
+;	_op for one-pass FFTs
 ;	_ac for all_complex
 ;
 ; xarch indicates FFT is optimized for one of these architectures:
@@ -73,15 +74,15 @@ XMM_HSCD2 = 32			;; Sizeof a half sin/cos table entry used in real FFTs in pass 
 ;	K10		second generation AMD64 chips (Phenom), default for unrecognized AMD CPUs
 ;
 ; Examples:
-;	xfft_hg_512_K8
-;	xfft_r4_4096_ac_CORE
+;	xfft_hg_512_op_K8
+;	xfft_r4_4096_op_ac_CORE
 
 xonepass MACRO fftname, all_complex
 	LOCAL	xprocname, xmacroname
 
 ;; Generate the procedure name
 
-	xprocname CATSTR <xfft_>,xfft_type,<_>,<&fftname>
+	xprocname CATSTR <xfft_>,xfft_type,<_>,<&fftname>,<_op>
 	IF all_complex EQ 1
 	xprocname CATSTR xprocname,<_ac>
 	ENDIF
