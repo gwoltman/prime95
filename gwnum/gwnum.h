@@ -740,9 +740,7 @@ struct gwasm_jmptab {
 
 #define FFT_TYPE_HOME_GROWN		0
 #define FFT_TYPE_RADIX_4		1
-#define FFT_TYPE_RADIX_4_SPLIT_PREMULT	2
-#define FFT_TYPE_RADIX_4_RADIX_8	3
-#define FFT_TYPE_RADIX_4_DELAYED	4
+#define FFT_TYPE_RADIX_4_DELAYED	2
 
 /* The gwhandle structure containing all of gwnum's "global" data. */
 
