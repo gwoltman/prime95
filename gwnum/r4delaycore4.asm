@@ -52,7 +52,7 @@ TLB_PRIMING = 0
 
 	r4delay_pass1sc320 1280K, 12, 4
 	r4delay_pass1sc320 1600K, 5120, 4
-	r4delay_pass1sc320 2000K, 6400, 4
+toonear	r4delay_pass1sc320 2000K, 6400, 4
 
 	r4delay_pass1sc384 1536K, 12, 4
 	r4delay_pass1sc384 1920K, 5120, 4

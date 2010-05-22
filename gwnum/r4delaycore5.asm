@@ -58,7 +58,7 @@ TLB_PRIMING = 0
 	r4delay_pass1sc384 2304K, 6144, 4
 	r4delay_pass1sc384 2880K, 7680, 4
 
-	r4delay_pass1sc448 2016K, 4608, 4
+toonear	r4delay_pass1sc448 2016K, 4608, 4
 	r4delay_pass1sc448 2688K, 6144, 4
 	r4delay_pass1sc448 3360K, 7680, 4
 
@@ -74,7 +74,7 @@ TLB_PRIMING = 0
 	r4delay_pass1sc768 4608K, 6144, 4
 	r4delay_pass1sc768 5760K, 7680, 4
 
-	r4delay_pass1sc896 4032K, 4608, 4
+toonear	r4delay_pass1sc896 4032K, 4608, 4
 	r4delay_pass1sc896 5376K, 6144, 4
 	r4delay_pass1sc896 6720K, 7680, 4
 
@@ -90,7 +90,7 @@ TLB_PRIMING = 0
 	r4delay_pass1sc1536 9M, 6144, 4
 	r4delay_pass1sc1536 11520K, 7680, 4
 
-	r4delay_pass1sc1792 8064K, 4608, 4
+toonear	r4delay_pass1sc1792 8064K, 4608, 4
 	r4delay_pass1sc1792 10752K, 6144, 4
 	r4delay_pass1sc1792 13440K, 7680, 4
 
@@ -106,7 +106,7 @@ TLB_PRIMING = 0
 	r4delay_pass1sc3072 18M, 6144, 4
 	r4delay_pass1sc3072 23040K, 7680, 4
 
-	r4delay_pass1sc3584 16128K, 4608, 4
+toonear	r4delay_pass1sc3584 16128K, 4608, 4
 	r4delay_pass1sc3584 21M, 6144, 4
 	r4delay_pass1sc3584 26880K, 7680, 4
 

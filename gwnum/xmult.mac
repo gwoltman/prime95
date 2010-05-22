@@ -190,6 +190,11 @@ nozpad:
 toobig	MACRO ops:vararg
 	noexec	&ops
 	ENDM
+;; Used for FFT sizes that are near a power of two (PFA 5*5*5=125 and 3*3*7=63).
+;; Thusfar, the next larger power-of-two FFT has proven to be faster.
+toonear	MACRO ops:vararg
+	noexec	&ops
+	ENDM
 
 
 ; ********************************************************
