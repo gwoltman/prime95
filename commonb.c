@@ -5691,7 +5691,7 @@ loop:	run_indefinitely = TRUE;
 /* Raise error if no FFT lengths to test */
 
 	if (num_lengths == 0) {
-		OutputStr (thread_num, "No FFT lengths available in the range specified\n.");
+		OutputStr (thread_num, "No FFT lengths available in the range specified.\n");
 		return (0);
 	}
 
