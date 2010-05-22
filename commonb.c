@@ -5623,12 +5623,13 @@ int tortureTest (
 	int	num_threads)
 {
 	struct PriorityInfo sp_info;
-#define SELF_FFT_LENGTHS	49
-	int	lengths[SELF_FFT_LENGTHS] = {1024,8,10,896,768,12,14,640,512,16,20,448,384,24,28,320,256,32,40,224,192,48,56,160,128,64,80,112,96,1280,1536,1792,2048,2560,3072,3584,4096,5120,6144,7168,8192,10240,12288,14336,16384,20480,24576,28672,32768};
-	int	data_index[SELF_FFT_LENGTHS] = {0};
+	int	num_lengths;		/* Number of FFT lengths we will torture test */
+	int	lengths[500];		/* The FFT lengths we will torture test */
+	int	data_index[500];	/* Last exponent tested for each FFT length */
 	int	min_fft, max_fft, test_time;
 	int	tests_completed, self_test_errors, self_test_warnings;
 	int	i, run_indefinitely, stop_reason;
+	unsigned long fftlen;
 	time_t	start_time, current_time;
 	unsigned int memory;	/* Memory to use during torture test */
 	void	*bigbuf = NULL;
@@ -5673,12 +5674,45 @@ loop:	run_indefinitely = TRUE;
 		if (bigbuf == NULL) memory--;
 	}
 
+/* Enumerate the FFT lengths we will torture test. */
+
+	num_lengths = 0;
+	fftlen = gwmap_to_fftlen (1.0, 2, 15 * min_fft * 1024, -1);
+	for ( ; ; ) {
+		if (fftlen > max_fft * 1024) break;
+		if (fftlen % 1024 == 0 && fftlen >= min_fft * 1024) {
+			lengths[num_lengths] = fftlen / 1024;
+			data_index[num_lengths++] = 0;
+		}
+		fftlen = gwmap_to_fftlen (1.0, 2, gwmap_fftlen_to_max_exponent (fftlen) + 100, -1);
+		if (fftlen == 0) break;
+	}
+
+/* Raise error if no FFT lengths to test */
+
+	if (num_lengths == 0) {
+		OutputStr (thread_num, "No FFT lengths available in the range specified\n.");
+		return (0);
+	}
+
+/* For historical reasons, we alternate testing big and small FFT lengths */
+/* (the theory being we'll find bad memory or an overheat problem more quickly). */
+
+	for (i = 0; i <= num_lengths / 2 - 2; i += 2) {
+		int	temp;
+		temp = lengths[i];
+		lengths[i] = lengths[i + num_lengths / 2];
+		lengths[i + num_lengths / 2] = lengths[i + num_lengths / 2 + 1];
+		lengths[i + num_lengths / 2 + 1] = lengths[i + 1];
+		lengths[i + 1] = temp;
+	}
+
 /* Now self-test each fft length */
 
 	stop_reason = 0;
 	time (&start_time);
 	for ( ; ; ) {
-	    for (i = 0; i < SELF_FFT_LENGTHS; i++) {
+	    for (i = 0; i < num_lengths; i++) {
 		if (lengths[i] < min_fft || lengths[i] > max_fft)
 			continue;
 		stop_reason =
@@ -5694,8 +5728,8 @@ loop:	run_indefinitely = TRUE;
 			hours = minutes / 60;
 			minutes = minutes % 60;
 			sprintf (buf, "Torture Test completed %d tests in ", tests_completed);
-			if (hours)
-				sprintf (buf+strlen(buf), "%d hours, ", hours);
+			if (hours > 1) sprintf (buf+strlen(buf), "%d hours, ", hours);
+			else if (hours == 1) sprintf (buf+strlen(buf), "1 hour, ");
 			sprintf (buf+strlen(buf),
 				 "%d minutes - %d errors, %d warnings.\n",
 				 minutes, self_test_errors, self_test_warnings);
@@ -6832,9 +6866,9 @@ int primeBench (
 		OutputStrNoTimeStamp (thread_num, buf);
 		if (all_bench) {
 			sprintf (buf,
-				 "Time FFTlen=%luK%s, Arch=%d, Pass1=%lu, Pass2=%lu, clm=%lu: ",
+				 "Time FFTlen=%luK%s, Type=%d, Arch=%d, Pass1=%lu, Pass2=%lu, clm=%lu: ",
 				 fftlen / 1024, plus1 ? " all-complex" : "",
-				 lldata.gwdata.ARCH,
+				 lldata.gwdata.FFT_TYPE, lldata.gwdata.ARCH,
 				 fftlen / (lldata.gwdata.PASS2_SIZE ? lldata.gwdata.PASS2_SIZE : 1),
 				 lldata.gwdata.PASS2_SIZE,
 				 lldata.gwdata.PASS1_CACHE_LINES / 2);
