@@ -7887,7 +7887,7 @@ unsigned long gwmap_fftlen_to_max_exponent (
 {
 	gwhandle gwdata;	/* Temporary gwnum handle */
 
-/* Get pointer to fft info and return the FFT length */
+/* Get pointer to fft info and return the maximum exponent for the FFT length */
 
 	gwinit (&gwdata);
 	gwset_specific_fftlen (&gwdata, fftlen);
