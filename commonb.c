@@ -5679,8 +5679,8 @@ loop:	run_indefinitely = TRUE;
 	num_lengths = 0;
 	fftlen = gwmap_to_fftlen (1.0, 2, 15 * min_fft * 1024, -1);
 	for ( ; ; ) {
-		if (fftlen > max_fft * 1024) break;
-		if (fftlen % 1024 == 0 && fftlen >= min_fft * 1024) {
+		if (fftlen > (unsigned long) (max_fft * 1024)) break;
+		if (fftlen % 1024 == 0 && fftlen >= (unsigned long) (min_fft * 1024)) {
 			lengths[num_lengths] = fftlen / 1024;
 			data_index[num_lengths++] = 0;
 		}
