@@ -34,6 +34,37 @@ EXTRN	xgw_finish_mult:PROC
 
 _TEXT SEGMENT
 
+;; Some small FFTs fit completely in a large L2 cache and thus do
+;; not need to be prefetched.
+
+PREFETCHING = 0
+
+	xpass2gen 8
+	xpass2gen 768
+	xpass2gen 10
+
+	r4delay_pass1sc256 64K, 8, 4
+	r4delay_pass1sc320 80K, 8, 4
+	r4delay_pass1sc384 96K, 8, 4
+	r4delay_pass1sc448 112K, 8, 4
+	r4delay_pass1sc512 128K, 8, 4
+	r4delay_pass1sc640 160K, 8, 4
+	r4delay_pass1sc768 192K, 8, 4
+	r4delay_pass1sc896 224K, 8, 4
+	r4delay_pass1sc1024 256K, 8, 4
+	r4delay_pass1sc256 192K, 768, 4
+	r4delay_pass1sc256 256K, 10, 4
+	r4delay_pass1sc320 240K, 768, 4
+
+	r4delay_pass1sc256ac 64K, 8, 4
+	r4delay_pass1sc384ac 96K, 8, 4
+	r4delay_pass1sc512ac 128K, 8, 4
+	r4delay_pass1sc640ac 160K, 8, 4
+	r4delay_pass1sc768ac 192K, 8, 4
+	r4delay_pass1sc1024ac 256K, 8, 4
+	r4delay_pass1sc256ac 192K, 768, 4
+	r4delay_pass1sc256ac 256K, 10, 4
+
 ;; Define names and features for this architecture and FFT type
 
 PREFETCHING = 64
