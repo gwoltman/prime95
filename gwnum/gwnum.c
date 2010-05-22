@@ -4450,7 +4450,7 @@ int internal_gwsetup (
 /* with all other data used in the first pass (scratch area, normalization */
 /* tables, etc.)  Note that we put the tables that are only partly loaded */
 /* (column multipliers and big/lit table after the tables that are */
-/* loaded throughtout the first pass. */
+/* loaded throughout the first pass. */
 
 		if (gwdata->PASS2_SIZE) {
 			int	i, carry_table_size;
@@ -4526,7 +4526,7 @@ int internal_gwsetup (
 /* with all other data used in the first pass (scratch area, normalization */
 /* tables, etc.)  Note that we put the tables that are only partly loaded */
 /* (column multipliers and big/lit table after the tables that are */
-/* loaded throughtout the first pass. */
+/* loaded throughout the first pass. */
 
 		if (gwdata->PASS2_SIZE) {
 			int	i, carry_table_size;
@@ -4614,7 +4614,7 @@ int internal_gwsetup (
 /* with all other data used in the first pass (scratch area, normalization */
 /* tables, etc.)  Note that we put the tables that are only partly loaded */
 /* (column multipliers and big/lit table after the tables that are */
-/* loaded throughtout the first pass. */
+/* loaded throughout the first pass. */
 
 		if (gwdata->PASS2_SIZE) {
 			int	i, carry_table_size;
