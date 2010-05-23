@@ -42,7 +42,9 @@ PREFETCHING = 0
 	xpass2gen 8
 	xpass2gen 768
 	xpass2gen 10
+	xpass2gen 1280
 
+	r4delay_pass1sc128 32K, 8, 4
 	r4delay_pass1sc256 64K, 8, 4
 	r4delay_pass1sc320 80K, 8, 4
 	r4delay_pass1sc384 96K, 8, 4
@@ -52,18 +54,25 @@ PREFETCHING = 0
 	r4delay_pass1sc768 192K, 8, 4
 	r4delay_pass1sc896 224K, 8, 4
 	r4delay_pass1sc1024 256K, 8, 4
+	r4delay_pass1sc128 96K, 768, 4
 	r4delay_pass1sc256 192K, 768, 4
-	r4delay_pass1sc256 256K, 10, 4
 	r4delay_pass1sc320 240K, 768, 4
+	r4delay_pass1sc128 128K, 10, 4
+	r4delay_pass1sc256 256K, 10, 4
+	r4delay_pass1sc128 160K, 1280, 4
 
+	r4delay_pass1sc128ac 32K, 8, 4
 	r4delay_pass1sc256ac 64K, 8, 4
 	r4delay_pass1sc384ac 96K, 8, 4
 	r4delay_pass1sc512ac 128K, 8, 4
 	r4delay_pass1sc640ac 160K, 8, 4
 	r4delay_pass1sc768ac 192K, 8, 4
 	r4delay_pass1sc1024ac 256K, 8, 4
+	r4delay_pass1sc128ac 96K, 768, 4
 	r4delay_pass1sc256ac 192K, 768, 4
+	r4delay_pass1sc128ac 128K, 10, 4
 	r4delay_pass1sc256ac 256K, 10, 4
+	r4delay_pass1sc128ac 160K, 1280, 4
 
 ;; Define names and features for this architecture and FFT type
 
@@ -82,6 +91,7 @@ TLB_PRIMING = 0
 
 	; The 8 levels variants
 
+	r4delay_pass1sc128 32K, 8, 4
 	r4delay_pass1sc256 64K, 8, 4
 	r4delay_pass1sc320 80K, 8, 4
 	r4delay_pass1sc384 96K, 8, 4
@@ -93,6 +103,10 @@ TLB_PRIMING = 0
 	r4delay_pass1sc1024 256K, 8, 4
 
 	; The 10 levels variants (768, 1024, 1280)
+
+	r4delay_pass1sc128 96K, 768, 4
+	r4delay_pass1sc128 128K, 10, 4
+	r4delay_pass1sc128 160K, 1280, 4
 
 	r4delay_pass1sc256 192K, 768, 4
 	r4delay_pass1sc256 256K, 10, 4
@@ -151,6 +165,7 @@ TLB_PRIMING = 0
 
 	; The all-complex 8 levels variants
 
+	r4delay_pass1sc128ac 32K, 8, 4
 	r4delay_pass1sc256ac 64K, 8, 4
 	r4delay_pass1sc384ac 96K, 8, 4
 	r4delay_pass1sc512ac 128K, 8, 4
@@ -160,6 +175,10 @@ TLB_PRIMING = 0
 	r4delay_pass1sc1280ac 320K, 8, 4
 
 	; The all-complex 10 levels variants (768, 1024, 1280)
+
+	r4delay_pass1sc128ac 96K, 768, 4
+	r4delay_pass1sc128ac 128K, 10, 4
+	r4delay_pass1sc128ac 160K, 1280, 4
 
 	r4delay_pass1sc256ac 192K, 768, 4
 	r4delay_pass1sc256ac 256K, 10, 4
