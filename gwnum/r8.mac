@@ -1739,7 +1739,7 @@ ENDIF
 ;;
 
 ;
-; Radix-8 inverse FFT building block for all-complex split premultipliers (r4spm) and
+; Radix-8 inverse FFT building block for all-complex
 ; delayed twiddle multipliers from the first few levels (r4delay).
 ; Has 8 premult/sin/cos multipliers.
 ;

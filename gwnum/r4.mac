@@ -1591,8 +1591,7 @@ ENDIF
 ;; same premultiplier data and we have 4 sin/cos postmultipliers.  Every sin/cos postmultiplier,
 ;; a very big table anyway, is multiplied by the other part of the split roots-of-minus-1.
 ;; The common premuliplier data is 1, .924+.383i, SQRTHALF+SQRTHALFi, .383+.924i.
-;; This scheme was used in our initial r4 FFT.  It was superceeded by a more
-;; memory-efficient scheme used in r4spm and r4delay FFTs.
+;; This scheme is used by our simple radix-4 DJB "r4" FFTs.
 
 ;r4_x2cl_four_complex_first_fft4 MACRO srcreg,srcinc,d1
 ;	r4_x2cl_four_complex_first_fft4_cmn srcreg,rbx,srcinc,d1,rdi
@@ -1720,7 +1719,7 @@ r4_x2cl_four_complex_first_fft4_cmn MACRO srcreg,off,srcinc,d1,screg
 ;; It also applies the three sin/cos multipliers after the first radix-4 butterfly.
 ;; We save memory by splitting the roots-of-minus-1 premultipliers such that every
 ;; macro uses the same premultiplier data.  The rest of the premultiplier is applied
-;; at the end of pass 1.  This scheme is uses by the r4spm and r4delay FFTs.
+;; at the end of pass 1.  This scheme is used by the r4delay FFTs.
 
 ;r4_x2cl_four_complex_first_djbfft MACRO srcreg,srcinc,d1,screg,pmreg
 ;	r4_x2cl_four_complex_first_djbfft_cmn srcreg,rbx,srcinc,d1,screg,pmreg
@@ -3871,7 +3870,7 @@ ENDIF
 ;;
 ;; These macros are used in the last levels of pass 1.  Four sin/cos multipliers are needed to
 ;; finish off the partial sin/cos multiplies that were done in the first levels of pass 1.
-;; FFTs of type r4spm and r4delay do this to reduce memory usage at the cost of some extra
+;; FFTs of type r4delay do this to reduce memory usage at the cost of some extra
 ;; complex multiplies.
 
 

@@ -56,8 +56,6 @@ XMM_HSCD2 = 32			;; Sizeof a half sin/cos table entry used in real FFTs in pass 
 ; where xfft_type is (only the first 2 are implemented):
 ;	hg = home-grown (my radix-4 with delayed sin/cos multipliers)
 ;	r4 = radix-4 DJB
-;	r4spm = radix-4 DJB split premultipliers (uses less memory at the cost of a few complex mults)
-;	r4r8 = radix-4/8 DJB split premultipliers (like spm but radix-8 if odd FFT levels)
 ;	r4delay = radix-4/8 DJB with first levels of pass 1 using common sin/cos values and last levels
 ;		  of pass 1 fixing the discrepancy.  Less sin/cos memory, a few more complex multiplies.
 ;	rolle = rolle patented
@@ -217,8 +215,6 @@ toonear	MACRO ops:vararg
 ; where xfft_type is (only the first 2 are implemented):
 ;	hg = home-grown (my radix-4 with delayed sin/cos multipliers and Bailey pre-multipliers)
 ;	r4 = radix-4 DJB
-;	r4spm = radix-4 DJB split premultipliers to use less memory
-;	r4r8 = radix-4/8 DJB split premultipliers
 ;	r4delay = radix-4/8 DJB with delayed application of the first pass 1 levels sin/cos data
 ;	rolle = rolle patented
 ;	exp = experimental
@@ -527,8 +523,6 @@ a0b:	movapd	xmm0, [rsi]		;; Copy a cache line
 ; where xfft_type is (only the first 2 are implemented):
 ;	<blank> = historic (my radix-4 with delayed sin/cos multipliers and Bailey pre-multipliers)
 ;	r4 = radix-4 DJB
-;	r4spm = radix-4 DJB split premultipliers to use less memory 
-;	r4r8 = radix-4/8 DJB split premultipliers
 ;	r4delay = radix-4/8 DJB with delayed application of the first pass 1 levels sin/cos data
 ;	rolle = rolle patented
 ;	exp = experimental
