@@ -1,4 +1,4 @@
-; Copyright 2009 Mersenne Research, Inc.  All rights reserved
+; Copyright 2009-2010 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -45,11 +45,11 @@ TLB_PRIMING = 0
 
 ;; Generate pass 2 routines optmized for this architecture
 
-	xpass2gen 12
+;	xpass2gen 8
 
 ;; Routines for many FFT sizes
 
-	r4_pass1sc1024ac 4M, 12, 4
+;	r4_pass1sc32 8K, 8, 4
 
 ;**********************************************************
 ; Early model P4s require TLB priming.  These P4s generally
@@ -60,11 +60,11 @@ TLB_PRIMING = 1
 
 ;; Generate pass 2 routines optmized for this architecture
 
-	xpass2gen 12
+;	xpass2gen 8
 
 ;; Routines for many FFT sizes
 
-	r4_pass1sc1024ac 4M, 12, 2
+;	r4_pass1sc32 8K, 8, 4
 
 _TEXT	ENDS
 END
