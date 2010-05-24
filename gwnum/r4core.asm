@@ -1,4 +1,4 @@
-; Copyright 2009 Mersenne Research, Inc.  All rights reserved
+; Copyright 2009-2010 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -32,6 +32,18 @@ EXTRN	xgw_finish_mult:PROC
 
 _TEXT SEGMENT
 
+;; Some small FFTs fit completely in a large L2 cache and thus do
+;; not need to be prefetched.
+
+PREFETCHING = 0
+
+	xpass2gen 8
+
+	r4_pass1sc128 32K, 8, 4
+	r4_pass1sc256 64K, 8, 4
+	r4_pass1sc128ac 32K, 8, 4
+	r4_pass1sc256ac 64K, 8, 4
+
 ;; Define names and features for this architecture and FFT type
 
 PREFETCHING = 64
@@ -39,10 +51,15 @@ TLB_PRIMING = 0
 
 ;; Generate pass 2 routines optmized for this architecture
 
+	xpass2gen 8
 	xpass2gen 12
 
 ;; Routines for many FFT sizes
 
+	r4_pass1sc128 32K, 8, 4
+	r4_pass1sc256 64K, 8, 4
+	r4_pass1sc128ac 32K, 8, 4
+	r4_pass1sc256ac 64K, 8, 4
 	r4_pass1sc1024ac 4M, 12, 4
 
 _TEXT	ENDS

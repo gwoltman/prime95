@@ -543,14 +543,31 @@ double *r4_build_pass1_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table)		/* Pointer to the table to fill in */
 {
-	unsigned long pass1_size, pass1_increment;
-	unsigned long group, i, j, N, temp, upper_sse2_word;
+	unsigned long pass1_size, pass1_increment, first_levels_size;
+	unsigned long group, i, j, k, N, temp, upper_sse2_word;
+	int	pow2_count;
 	double	sincos[6];
 
 /* Initialize some needed constants */
 
 	pass1_increment = gwdata->PASS2_SIZE;
 	upper_sse2_word = pass1_increment / 2;
+	pass1_size = gwdata->FFTLEN / gwdata->PASS2_SIZE; /* Real values in a pass1 section */
+
+/* Determine size of the first levels. */
+
+	if (pass1_size % 7 == 0)
+		first_levels_size = 28;
+	else if (pass1_size % 5 == 0 && !gwdata->ALL_COMPLEX_FFT)
+		first_levels_size = 20;
+	else
+		first_levels_size = 8;
+
+/* Count the power-of-two FFT levels after the initial FFT levels.  If odd, the */
+/* the last levels will be a radix-8, if even the last levels wil be a radix-4. */
+
+	pass1_size /= first_levels_size;
+	for (pow2_count = 0; (pass1_size & 1) == 0; pass1_size /= 2) pow2_count++;
 
 /* Set pointer to table of multipliers */
 
@@ -562,12 +579,155 @@ double *r4_build_pass1_table (
 	for (group = 0; group < upper_sse2_word; group += gwdata->PASS1_CACHE_LINES) {
 
 		pass1_size = gwdata->FFTLEN / gwdata->PASS2_SIZE; /* Real values in a pass1 section */
+		pass1_size /= first_levels_size; /* Complex values we're generating sin/cos data for */
 		N = gwdata->PASS2_SIZE;
+
+/* Output the sin/cos/premultiplier values for the radix-8 block that does the */
+/* last 3 levels in pass 1.  NOTE:  We do not need the "j loop" (it would loop */
+/* from zero to zero) when generating the sin/cos twiddle factors for the last */
+/* levels of pass 1. */
+
+		if (pow2_count & 1) {
+			N = N * 8;
+
+/* For the r4_g8cl_sixteen_reals_eight_complex_djbfft building block, output the extra */
+/* sin/cos values needed for the sixteen_reals.  The sixteen_reals is done in three parts: */
+/* 4 four_reals_fft, 1 eight_reals_fft, and 1 four-complex_fft.  The four_reals_fft needs */
+/* four sin/cos twiddles using 2*N, the eight_reals_fft and four_complex_fft can use the same */
+/* sin/cos twiddles that will be generated later for the r4r8_g8cl_eight_complex_fft8 macro. */
+
+			if (!gwdata->ALL_COMPLEX_FFT) {
+				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+					temp = (group + i);
+					gwsincos (temp, N*2, (double *) &sincos);
+					table[0] = sincos[0];	/* temp for 2*N */
+					table[2] = sincos[1];
+					gwsincos (temp + pass1_increment, N*2, (double *) &sincos);
+					table[4] = sincos[0];	/* temp + pass1_increment for 2*N */
+					table[6] = sincos[1];
+					gwsincos (temp + 2 * pass1_increment, N*2, (double *) &sincos);
+					table[8] = sincos[0];	/* temp + 2 * pass1_increment for 2*N */
+					table[10] = sincos[1];
+					gwsincos (temp + 3 * pass1_increment, N*2, (double *) &sincos);
+					table[12] = sincos[0];	/* temp + 3 * pass1_increment for 2*N */
+					table[14] = sincos[1];
+
+					temp += upper_sse2_word;
+					gwsincos (temp, N*2, (double *) &sincos);
+					table[1] = sincos[0];	/* temp for 2*N */
+					table[3] = sincos[1];
+					gwsincos (temp + pass1_increment, N*2, (double *) &sincos);
+					table[5] = sincos[0];	/* temp + pass1_increment for 2*N */
+					table[7] = sincos[1];
+					gwsincos (temp + 2 * pass1_increment, N*2, (double *) &sincos);
+					table[9] = sincos[0];	/* temp + 2 * pass1_increment for 2*N */
+					table[11] = sincos[1];
+					gwsincos (temp + 3 * pass1_increment, N*2, (double *) &sincos);
+					table[13] = sincos[0];	/* temp + 3 * pass1_increment for 2*N */
+					table[15] = sincos[1];
+
+					table += 16;
+				}
+			}
+
+/* Output the sin/cos values for the complex group -- specifically the r8_sg8cl_eight_complex_djbfft macro. */
+
+			for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+
+/* We now calculate the standard sin/cos twiddle factors (temp*0,1,2,3,4,5,6,7 roots of N) */
+
+				temp = group + i;
+				gwsincos (0, N, (double *) &sincos);
+				table[0] = sincos[0];	/* temp*0 */
+				table[2] = sincos[1];
+				gwsincos (temp, N, (double *) &sincos);
+				table[4] = sincos[0];	/* temp*1 */
+				table[6] = sincos[1];
+				gwsincos (temp * 2, N, (double *) &sincos);
+				table[8] = sincos[0];	/* temp*2 */
+				table[10] = sincos[1];
+				gwsincos (temp * 3, N, (double *) &sincos);
+				table[12] = sincos[0];	/* temp*3 */
+				table[14] = sincos[1];
+				gwsincos (temp * 4, N, (double *) &sincos);
+				table[16] = sincos[0];	/* temp*4 */
+				table[18] = sincos[1];
+				gwsincos (temp * 5, N, (double *) &sincos);
+				table[20] = sincos[0];	/* temp*5 */
+				table[22] = sincos[1];
+				gwsincos (temp * 6, N, (double *) &sincos);
+				table[24] = sincos[0];	/* temp*6 */
+				table[26] = sincos[1];
+				gwsincos (temp * 7, N, (double *) &sincos);
+				table[28] = sincos[0];	/* temp*7 */
+				table[30] = sincos[1];
+
+				temp = group + i + upper_sse2_word;
+				gwsincos (0, N, (double *) &sincos);
+				table[1] = sincos[0];	/* temp*0 */
+				table[3] = sincos[1];
+				gwsincos (temp, N, (double *) &sincos);
+				table[5] = sincos[0];	/* temp*1 */
+				table[7] = sincos[1];
+				gwsincos (temp * 2, N, (double *) &sincos);
+				table[9] = sincos[0];	/* temp*2 */
+				table[11] = sincos[1];
+				gwsincos (temp * 3, N, (double *) &sincos);
+				table[13] = sincos[0];	/* temp*3 */
+				table[15] = sincos[1];
+				gwsincos (temp * 4, N, (double *) &sincos);
+				table[17] = sincos[0];	/* temp*4 */
+				table[19] = sincos[1];
+				gwsincos (temp * 5, N, (double *) &sincos);
+				table[21] = sincos[0];	/* temp*5 */
+				table[23] = sincos[1];
+				gwsincos (temp * 6, N, (double *) &sincos);
+				table[25] = sincos[0];	/* temp*6 */
+				table[27] = sincos[1];
+				gwsincos (temp * 7, N, (double *) &sincos);
+				table[29] = sincos[0];	/* temp*7 */
+				table[31] = sincos[1];
+
+				table += 32;
+			}
+			pass1_size /= 8;
+		}
 
 /* For the r4_four_complex_djbfft building block levels, output the sin/cos values. */
 
-		while (pass1_size > 16) {
+		while ((pass1_size & 3) == 0) {
 			N = N * 4;
+
+/* For the r4_eight_reals_four_complex_djbfft building block levels, output the extra */
+/* sin/cos values needed for the eight_reals.  The eight_reals doubles N because */
+/* the real part of the FFT is one level behind the complex part of the FFT. */
+
+			if (!gwdata->ALL_COMPLEX_FFT) {
+				for (j = 0; j < N*2 / 8; j += pass1_increment) {
+					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+						temp = (group + j + i);
+						gwsincos (temp, N*2, (double *) &sincos);
+						table[0] = sincos[0];	/* temp */
+						table[2] = sincos[1];
+						gwsincos (5*temp, N*2, (double *) &sincos);
+						table[4] = sincos[0];	/* 5 * temp */
+						table[6] = sincos[1];
+
+						temp += upper_sse2_word;
+						gwsincos (temp, N*2, (double *) &sincos);
+						table[1] = sincos[0];	/* temp */
+						table[3] = sincos[1];
+						gwsincos (5*temp, N*2, (double *) &sincos);
+						table[5] = sincos[0];	/* 5 * temp */
+						table[7] = sincos[1];
+
+						table += 8;
+					}
+				}
+			}
+
+/* Output the sin/cos value for the complex sections, used by the r4_four_complex_djbfft macro */
+
 			for (j = 0; j < N / 4; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
@@ -589,32 +749,40 @@ double *r4_build_pass1_table (
 			pass1_size /= 4;
 		}
 
-/* If necessary, output the sin/cos values for the r4_two_complex_fft building block. */
+/* For the r5_five_complex_djbfft building block levels, output the sin/cos values. */
 
-		if (pass1_size > 8) {
-			N = N * 2;
-			for (j = 0; j < N / 2; j += pass1_increment) {
-				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
-					temp = (group + j + i);
-					gwsincos (temp, N, (double *) &sincos);
-					table[0] = sincos[0];
-					table[2] = sincos[1];
+		while (pass1_size % 5 == 0) {
+			N = N * 5;
 
-					gwsincos (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[0];
-					table[3] = sincos[1];
+/* The r5_ten_reals building blocks require extra sin/cos */
+/* values.  The ten_reals doubles N because the real part of the */
+/* FFT is one level behind the complex part of the FFT. */
 
-					table += 4;
+			if (!gwdata->ALL_COMPLEX_FFT) {
+				for (j = 0; j < N / 5; j += pass1_increment) {
+					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+						temp = (group + j + i);
+						gwsincos3 (temp, N*2, (double *) &sincos);
+						table[0] = sincos[0];	/* temp */
+						table[2] = sincos[1];
+						table[4] = sincos[4];	/* 3 * temp */
+						table[6] = sincos[5];
+
+						temp += upper_sse2_word;
+						gwsincos3 (temp, N*2, (double *) &sincos);
+						table[1] = sincos[0];	/* temp */
+						table[3] = sincos[1];
+						table[5] = sincos[4];	/* 3 * temp */
+						table[7] = sincos[5];
+
+						table += 8;
+					}
 				}
 			}
-			pass1_size /= 2;
-		}
 
-/* Real FFTs output one last set of sin/cos values for the initial eight-reals FFT */
+/* Output the sin/cos data for the complex sections, (the r5_five_complex_djbfft building block). */
 
-		if (!gwdata->ALL_COMPLEX_FFT) {
-			N = N * 4;
-			for (j = 0; j < N / 4; j += pass1_increment) {
+			for (j = 0; j < N / 5; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
 					gwsincos3 (temp, N, (double *) &sincos);
@@ -622,18 +790,127 @@ double *r4_build_pass1_table (
 					table[2] = sincos[1];
 					table[4] = sincos[2];	/* 2 * temp */
 					table[6] = sincos[3];
-					table[8] = sincos[4];	/* 3 * temp */
-					table[10] = sincos[5];
 
 					gwsincos3 (temp + upper_sse2_word, N, (double *) &sincos);
 					table[1] = sincos[0];	/* temp */
 					table[3] = sincos[1];
 					table[5] = sincos[2];	/* 2 * temp */
 					table[7] = sincos[3];
-					table[9] = sincos[4];	/* 3 * temp */
-					table[11] = sincos[5];
 
-					table += 12;
+					table += 8;
+				}
+			}
+			pass1_size /= 5;
+		}
+
+/* For the r3_three_complex_djbfft building block levels, output the sin/cos values. */
+
+		while (pass1_size % 3 == 0) {
+			N = N * 3;
+
+/* The r3_six_reals building blocks require an extra sin/cos */
+/* value.  The six_reals doubles N because the real part of the */
+/* FFT is one level behind the complex part of the FFT. */
+
+			if (!gwdata->ALL_COMPLEX_FFT) {
+				for (j = 0; j < N / 3; j += pass1_increment) {
+					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+						temp = (group + j + i);
+						gwsincos (temp, N*2, (double *) &sincos);
+						table[0] = sincos[0];	/* temp */
+						table[2] = sincos[1];
+
+						temp += upper_sse2_word;
+						gwsincos (temp, N*2, (double *) &sincos);
+						table[1] = sincos[0];	/* temp */
+						table[3] = sincos[1];
+
+						table += 4;
+					}
+				}
+			}
+
+/* Output the sin/cos data for the complex sections (used by the r3_three_complex_djbfft building block). */
+
+			for (j = 0; j < N / 3; j += pass1_increment) {
+				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+					temp = (group + j + i);
+					gwsincos (temp, N, (double *) &sincos);
+					table[0] = sincos[0];	/* temp */
+					table[2] = sincos[1];
+
+					gwsincos (temp + upper_sse2_word, N, (double *) &sincos);
+					table[1] = sincos[0];	/* temp */
+					table[3] = sincos[1];
+
+					table += 4;
+				}
+			}
+			pass1_size /= 3;
+		}
+		ASSERTG (pass1_size == 1);
+
+/* Real FFTs output one last set of sin/cos values for the first 20-reals, 28-reals, or 8-reals FFT. */
+
+		if (! gwdata->ALL_COMPLEX_FFT) {
+			N = gwdata->FFTLEN;
+			if (pass1_size % 20 == 0) {
+				for (j = 0; j < N / 20; j += pass1_increment) {
+					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+						temp = (group + j + i);
+						for (k = 1; k <= 9; k++) {	/* Create 9 twiddle factors */
+							gwsincos (k * temp, N, (double *) &sincos);
+							table[0] = sincos[0];
+							table[2] = sincos[1];
+							gwsincos (k * (temp + upper_sse2_word), N, (double *) &sincos);
+							table[1] = sincos[0];
+							table[3] = sincos[1];
+							table += 4;
+						}
+					}
+				}
+			}
+			else if (pass1_size % 28 == 0) {
+				for (j = 0; j < N / 28; j += pass1_increment) {
+					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+						temp = (group + j + i);
+						for (k = 1; k <= 13; k++) {	/* Create 13 twiddle factors */
+							gwsincos (k * temp, N, (double *) &sincos);
+							table[0] = sincos[0];
+							table[2] = sincos[1];
+							gwsincos (k * (temp + upper_sse2_word), N, (double *) &sincos);
+							table[1] = sincos[0];
+							table[3] = sincos[1];
+							table += 4;
+						}
+					}
+				}
+			}
+			else {
+				for (j = 0; j < N / 8; j += pass1_increment) {
+					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+						temp = (group + j + i);
+						gwsincos3 (temp, N, (double *) &sincos);
+						table[0] = sincos[0];	/* temp */
+						table[2] = sincos[1];
+						table[4] = sincos[2];	/* 2 * temp */
+						table[6] = sincos[3];
+						gwsincos (5*temp, N, (double *) &sincos);
+						table[8] = sincos[0];	/* 5 * temp */
+						table[10] = sincos[1];
+
+						temp += upper_sse2_word;
+						gwsincos3 (temp, N, (double *) &sincos);
+						table[1] = sincos[0];	/* temp */
+						table[3] = sincos[1];
+						table[5] = sincos[2];	/* 2 * temp */
+						table[7] = sincos[3];
+						gwsincos (5*temp, N, (double *) &sincos);
+						table[9] = sincos[0];	/* 5 * temp */
+						table[11] = sincos[1];
+
+						table += 12;
+					}
 				}
 			}
 		}
@@ -650,7 +927,7 @@ double *r4_build_pass1_table (
 /* building block with a post-multiply by a sin/cos root of unity. */
 
 		else {
-			N = N * 4;
+			N = gwdata->FFTLEN / 2;
 			for (j = 0; j < N / 4; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
@@ -4431,9 +4708,6 @@ int internal_gwsetup (
 	if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4) {
 
 /* Build sin/cos and premultiplier tables used in pass 1 of two pass FFTs. */
-/* Remember that pass2_size is the number of complex values in a pass 2 */
-/* section, but build_sin_cos_table wants the number of reals in a section. */
-
 /* For best prefetching, make sure tables remain on 128-byte boundaries */
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
@@ -4444,6 +4718,9 @@ int internal_gwsetup (
 		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 		asm_data->xsincos_complex = tables;
 		tables = r4_build_pass2_complex_table (gwdata, tables);
+		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
+		asm_data->sincos3 = tables;
+		tables = r4_build_pass2_real_table (gwdata, tables);
 
 /* Allocate a table for carries.  Init with XMM_BIGVAL.  For best */
 /* distribution of data in the L2 cache, make this table contiguous */

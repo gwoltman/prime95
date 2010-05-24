@@ -673,8 +673,8 @@ sscase128: jmp exit;;	sse2mac sscase128, 256, 4096, r4_g4cl_four_complex_fft rsi
 sscase129: jmp exit;;	sse2mac sscase129, 256, 100000, r4_g4cl_four_complex_fft rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64
 sscase130: jmp exit;;	sse2macbx sscase130, 128, 4096, r4_s2cl_four_complex_fft rsi, 2*64, 64
 sscase131: jmp exit;;	sse2macbx sscase131, 128, 100000, r4_s2cl_four_complex_fft rsi, 2*64, 64
-	sse2mac sscase132, 128, 4096, r4_x2cl_four_complex_first_fft4_scratch rsi, 2*64, 64
-	sse2mac sscase133, 128, 100000, r4_x2cl_four_complex_first_fft4_scratch rsi, 2*64, 64
+	sse2mac sscase132, 128, 4096, r4_x2cl_four_complex_first_fft4_scratch rsi, 2*64, 64, rdi
+	sse2mac sscase133, 128, 100000, r4_x2cl_four_complex_first_fft4_scratch rsi, 2*64, 64, rdi
 sscase134: jmp exit;;	sse2macbx sscase134, 128, 4096, r4_x2cl_four_complex_first_fft4 rsi, 2*64, 64
 sscase135: jmp exit;;	sse2macbx sscase135, 128, 100000, r4_x2cl_four_complex_first_fft4 rsi, 2*64, 64
 sscase136: jmp exit;;	sse2mac sscase136, 256, 4096, r4_x4cl_four_complex_unfft rsi, 4*64, 64, 2*64, rdi, 0
