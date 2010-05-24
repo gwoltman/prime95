@@ -39,8 +39,10 @@ PREFETCHING = 0
 
 	xpass2gen 8
 
+	r4_pass1sc32 8K, 8, 4
 	r4_pass1sc128 32K, 8, 4
 	r4_pass1sc256 64K, 8, 4
+	r4_pass1sc32ac 8K, 8, 4
 	r4_pass1sc128ac 32K, 8, 4
 	r4_pass1sc256ac 64K, 8, 4
 
@@ -56,8 +58,10 @@ TLB_PRIMING = 0
 
 ;; Routines for many FFT sizes
 
+	r4_pass1sc32 8K, 8, 4
 	r4_pass1sc128 32K, 8, 4
 	r4_pass1sc256 64K, 8, 4
+	r4_pass1sc32ac 8K, 8, 4
 	r4_pass1sc128ac 32K, 8, 4
 	r4_pass1sc256ac 64K, 8, 4
 	r4_pass1sc1024ac 4M, 12, 4
