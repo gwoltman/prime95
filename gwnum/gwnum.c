@@ -1883,7 +1883,7 @@ double *r4_build_norm_table (
 			unsigned long j, table_entry;
 			double	ttp, ttmp;
 
-/* Call asm routines to compute the two multipliers */
+/* Call double-precision routine to compute the two multipliers */
 
 			gwfft_weights3 (gwdata->dd_data, i, &ttp, NULL, &ttmp);
 
@@ -1910,7 +1910,7 @@ double *r4_build_norm_table (
 		for (i = 0; i < num_cols; i++) {
 			double	ttp, ttmp;
 
-/* Call asm routines to compute the two multipliers */
+/* Call double-precision routine to compute the two multipliers */
 
 			gwfft_weights3 (gwdata->dd_data, i, &ttp, NULL, &ttmp);
 
@@ -1942,7 +1942,7 @@ double *r4_build_norm_table (
 						double	ttp, ttmp;
 						long	n;
 
-/* Call asm routines to compute the two multipliers */
+/* Call double-precision routine to compute the two multipliers */
 
 						n = haddin + u * umult + m * mmult + k * num_cols;
 						gwfft_weights3 (gwdata->dd_data, n, &ttp, &ttmp, NULL);
@@ -2409,7 +2409,7 @@ double *hg_build_norm_table (
 			unsigned long j, table_entry;
 			double	ttp, ttmp;
 
-/* Call asm routines to compute the two multipliers */
+/* Call double-precision routine to compute the two multipliers */
 
 			gwfft_weights3 (gwdata->dd_data, i, &ttp, NULL, &ttmp);
 
@@ -2436,7 +2436,7 @@ double *hg_build_norm_table (
 		for (i = 0; i < num_cols; i++) {
 			double	ttp, ttmp;
 
-/* Call asm routines to compute the two multipliers */
+/* Call double-precision routine to compute the two multipliers */
 
 			gwfft_weights3 (gwdata->dd_data, i, &ttp, NULL, &ttmp);
 
@@ -2493,7 +2493,7 @@ double *hg_build_norm_table (
 				double	ttp, ttmp;
 				long	n;
 
-/* Call asm routines to compute the two multipliers */
+/* Call double-precision routine to compute the two multipliers */
 
 				n = haddin + u * umult + m * mmult + k * num_cols;
 				gwfft_weights3 (gwdata->dd_data, n, &ttp, &ttmp, NULL);
@@ -2901,7 +2901,7 @@ double *x87_build_norm_table (
 			unsigned long j;
 			double	ttp, ttmp;
 
-/* Call asm routines to compute the two multipliers */
+/* Call double-precision routine to compute the two multipliers */
 
 			gwfft_weights3 (gwdata->dd_data, i, &ttp, NULL, &ttmp);
 
@@ -2928,7 +2928,7 @@ double *x87_build_norm_table (
 		for (i = 0; i < num_cols; i++) {
 			double	ttp, ttmp;
 
-/* Call asm routines to compute the two multipliers */
+/* Call double-precision routine to compute the two multipliers */
 
 			gwfft_weights3 (gwdata->dd_data, i, &ttp, NULL, &ttmp);
 
@@ -2952,7 +2952,7 @@ double *x87_build_norm_table (
 		for (i = 0; i < num_grps; i++) {
 			double	ttp, ttmp;
 
-/* Call asm routines to compute the two multipliers */
+/* Call double-precision routine to compute the two multipliers */
 
 			gwfft_weights3 (gwdata->dd_data, i * num_cols, &ttp, &ttmp, NULL);
 
