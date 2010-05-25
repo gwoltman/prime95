@@ -1845,8 +1845,8 @@ no ttp	movapd	xmm3, [rbx][r9]		;; two-to-minus-phi
 no const echk error_check_interleaved sse4, xmm8, xmm12, xmm9, xmm13, xmm6
 const	mul_by_const_interleaved base2, echk, sse4, xmm8, xmm12, xmm10, rax, xmm9, xmm13, xmm11, rcx, xmm6
 	movapd	xmm0, [rsi+2*16]	;; Load values3
+	addpd	xmm7, xmm0		;; sumout += values3			;14-17	;10-12
 	mulpd	xmm0, xmm2		;; Mul by fudged col two-to-minus-phi	;13-18	;8-12
-	addpd	xmm7, [rsi+2*16]	;; sumout += values3			;14-17	;10-12
 	mulpd	xmm1, xmm3		;; Mul by fudged col two-to-minus-phi	;15-20	;9-13
 no const echk error_check_interleaved sse4, xmm0, xmm4, xmm1, xmm5, xmm6
 const	mul_by_const_interleaved base2, echk, sse4, xmm0, xmm4, xmm2, r8, xmm1, xmm5, xmm3, r9, xmm6
@@ -1871,7 +1871,7 @@ base2	addpd	xmm11, xmm9		;; y2 = top bits of x			;26-29	;16-18
 base2 const addpd xmm12, xmm10		;; Add in upper mul-by-const bits
 base2 const mulpd xmm12, XMM_LIMIT_INVERSE[rax];; next carry = shifted y1
 base2 no const movapd xmm12, XMM_LIMIT_INVERSE[rax];; next carry = shifted y1
-base2 no const mulpd xmm12, xmm10		;; next carry = shifted y1		;27-32	;17-21
+base2 no const mulpd xmm12, xmm10	;; next carry = shifted y1		;27-32	;17-21
 base2	movapd	xmm2, XMM_LIMIT_BIGMAX[r8];; Load maximum * BIGVAL - BIGVAL
 base2	addpd	xmm2, xmm0		;; y3 = top bits of x			;28-31	;17-19
 base2	movapd	xmm3, XMM_LIMIT_BIGMAX[r9];; Load maximum * BIGVAL - BIGVAL
@@ -1879,7 +1879,7 @@ base2	addpd	xmm3, xmm1		;; y4 = top bits of x			;30-33	;18-20
 base2 const addpd xmm13, xmm11		;; Add in upper mul-by-const bits
 base2 const mulpd xmm13, XMM_LIMIT_INVERSE[rcx];; next carry = shifted y2
 base2 no const movapd xmm13, XMM_LIMIT_INVERSE[rcx];; next carry = shifted y2
-base2 no const mulpd xmm13, xmm11		;; next carry = shifted y2		;31-36	;19-23
+base2 no const mulpd xmm13, xmm11	;; next carry = shifted y2		;31-36	;19-23
 base2	subpd	xmm10, XMM_LIMIT_BIGMAX[rax];; z1 = y1 - (maximum*BIGVAL-BIGVAL) ;32-35	;19-22
 ttp	mov	al, [rdi+4]		;; Load next big vs. little flags
 base2 const addpd xmm4, xmm2		;; Add in upper mul-by-const bits
