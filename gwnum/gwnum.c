@@ -854,6 +854,7 @@ double *r4_build_pass1_table (
 
 		if (! gwdata->ALL_COMPLEX_FFT) {
 			N = gwdata->FFTLEN;
+			pass1_size = gwdata->FFTLEN / gwdata->PASS2_SIZE; /* Real values in a pass1 section */
 			if (pass1_size % 20 == 0) {
 				for (j = 0; j < N / 20; j += pass1_increment) {
 					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
@@ -5377,9 +5378,17 @@ int internal_gwsetup (
 				asm_data->pass1blkdst -
 				asm_data->cache_line_multiplier * 64;
 			asm_data->normblkdst8 = 0;
+		} else if ((gwdata->FFT_TYPE == FFT_TYPE_RADIX_4 ||
+			    gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DELAYED) &&
+			   (gwdata->FFTLEN / gwdata->PASS2_SIZE == 80 ||
+			    gwdata->FFTLEN / gwdata->PASS2_SIZE == 96 ||
+			    gwdata->FFTLEN / gwdata->PASS2_SIZE == 112)) {
+			/* Small pass 1's with PFA have no padding every 8 clmblkdsts */
+   			asm_data->normblkdst = 0;
+			asm_data->normblkdst8 = 0;
 		} else {
 			/* Pad in clmblkdst is zero, clmblkdst8 is 128 */
-   			asm_data->normblkdst = 0;
+			asm_data->normblkdst = 0;
 			asm_data->normblkdst8 = 128;
 		}
 
@@ -7990,9 +7999,8 @@ void raw_gwsetaddin (
 				blkdst = addr_offset (gwdata, gwdata->PASS2_SIZE);
 				row = asm_data->ADDIN_OFFSET / blkdst;
 				asm_data->ADDIN_OFFSET -= row * blkdst;
-				asm_data->ADDIN_OFFSET +=
-					row * (gwdata->PASS1_CACHE_LINES * 64) +
-					(row >> 3) * 128;
+				asm_data->ADDIN_OFFSET += row * (gwdata->PASS1_CACHE_LINES * 64);
+				asm_data->ADDIN_OFFSET += (row >> 3) * asm_data->normblkdst8;
 			}
 		}
 	}
