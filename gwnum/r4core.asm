@@ -49,6 +49,7 @@ PREFETCHING = 0
 	r4_pass1sc96 24K, 8, 4
 	r4_pass1sc112 28K, 8, 4
 	r4_pass1sc128 32K, 8, 4
+	r4_pass1sc224 56K, 8, 4
 	r4_pass1sc256 64K, 8, 4
 	r4_pass1sc32 24K, 768, 4
 	r4_pass1sc64 48K, 768, 4
@@ -106,6 +107,7 @@ TLB_PRIMING = 0
 	r4_pass1sc96 24K, 8, 4
 	r4_pass1sc112 28K, 8, 4
 	r4_pass1sc128 32K, 8, 4
+	r4_pass1sc224 56K, 8, 4
 	r4_pass1sc256 64K, 8, 4
 	r4_pass1sc32 24K, 768, 4
 	r4_pass1sc64 48K, 768, 4

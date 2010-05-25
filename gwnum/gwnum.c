@@ -5382,7 +5382,8 @@ int internal_gwsetup (
 			    gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DELAYED) &&
 			   (gwdata->FFTLEN / gwdata->PASS2_SIZE == 80 ||
 			    gwdata->FFTLEN / gwdata->PASS2_SIZE == 96 ||
-			    gwdata->FFTLEN / gwdata->PASS2_SIZE == 112)) {
+			    gwdata->FFTLEN / gwdata->PASS2_SIZE == 112 ||
+			    gwdata->FFTLEN / gwdata->PASS2_SIZE == 224)) {
 			/* Small pass 1's with PFA have no padding every 8 clmblkdsts */
    			asm_data->normblkdst = 0;
 			asm_data->normblkdst8 = 0;
