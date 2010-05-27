@@ -8001,7 +8001,7 @@ void raw_gwsetaddin (
 				row = asm_data->ADDIN_OFFSET / blkdst;
 				asm_data->ADDIN_OFFSET -= row * blkdst;
 				asm_data->ADDIN_OFFSET += row * (gwdata->PASS1_CACHE_LINES * 64);
-				asm_data->ADDIN_OFFSET += (row >> 3) * asm_data->normblkdst8;
+				asm_data->ADDIN_OFFSET += (row >> 3) * (uint32_t) asm_data->normblkdst8;
 			}
 		}
 	}
