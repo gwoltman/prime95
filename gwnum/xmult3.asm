@@ -1,18 +1,8 @@
-; Copyright 2001-2009 Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2010 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
-; This routine implements a discrete weighted transform to quickly multiply
-; two numbers.
-;
-; This code uses Pentium 4's SSE2 instructions for very fast FFTs.
-; FFT sizes of 40K and above are supported.
-; This code does two passes, 11 levels on the second pass.
-;
-; You will not stand a chance of understanding any of this code without
-; thoroughly familiarizing yourself with fast fourier transforms.  This
-; code was adapted from an algorithm described in Richard Crandall's article
-; on Discrete Weighted Transforms and Large-Integer Arithmetic.
+; These routine implement some common cleanup code for r4dwpn (r4delay with partial normalization) FFTs
 ;
 
 	TITLE   setup
@@ -25,257 +15,165 @@ ENDIF
 
 INCLUDE	unravel.mac
 INCLUDE extrn.mac
-INCLUDE xfft3.mac
-INCLUDE	xlucas.mac
+INCLUDE xbasics.mac
 INCLUDE xmult.mac
-INCLUDE xpass1.mac
-INCLUDE xpass1sc.mac
+INCLUDE xnormal.mac
 
-EXTRN	pass1_aux_entry_point_return:PROC
-EXTRN	xgw_finish_fft:PROC
-EXTRN	xgw_carries:PROC
-EXTRN	xgw_finish_mult:PROC
-
-EXTRNP	xpass2_11_levels
-EXTRNP	xpass2_11_levels_np
+PUBLIC	xgw_carries_wpn
+PUBLIC	xgw_finish_mult_wpn
 
 _TEXT SEGMENT
 
-;; Pass 2 does 11 FFT levels 2 sets of data (2 * 2^11 complex values =
-;; 2^13 doubles = 64KB).
+;;*****************************************
+;; Routine for finishing off a r4dwpn FFT
+;;*****************************************
 
-PREFETCHING = 1
-blkdst = (8*(8192+128)+GAP2_11_4)
-xpass2_levels = 11
+; Split the accumulated carries into two carries - a high carry and a
+; low carry.  Handle both the with and without two-to-phi array cases.
+; Add these carries back into the FFT data.
 
-;; All the FFT routines for each FFT length
+loopcount1	EQU	DPTR [rsp+first_local]
+loopcount2	EQU	DPTR [rsp+first_local+4]
 
-	xfft	40K
-	xfft	48K
-	xfft	48Kp
-	xfft	56K
-	xfft	64K
-	xfft	64Kp
-	xfft	80K
-	xfft	96K
-	xfft	96Kp
-	xfft	112K
-	xfft	128K
-	xfft	128Kp
-allfft	xfft	160K
-allfft	xfft	192K
-	xfft	192Kp
-allfft	xfft	224K
-allfft	xfft	256K
-	xfft	256Kp
-allfft	xfft	320K
-allfft	xfft	384K
-	xfft	384Kp
-allfft	xfft	448K
-allfft	xfft	512K
-	xfft	512Kp
+PROCF	xgw_carries_wpn
+	int_prolog 8,0,0
+	cmp	ZERO_PADDED_FFT, 0	; Special case the zero padded FFT case
+	jne	xgw_carries_zpad
+	mov	rsi, carries		; Addr of the carries
+	mov	ebx, addcount1		; Compute addr after carries
+	shl	rbx, 6
+	add	rbx, rsi
+	xnorm012_wpn_part1
+	mov	rbp, DESTARG		; Addr of the FFT data
+	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
+	mov	rdx, norm_grp_mults	; Addr of the group multipliers
+	sub	rcx, rcx		; Clear big/little flag
+	mov	eax, count3		; Load 3 section counts
+	mov	loopcount1, eax		; Save for later
+ilp0:	mov	eax, loopcount1		; Get list of counts
+	mov	ebx, eax		; Form count for this section
+	and	rbx, 07FFh
+	jz	spldn			; No rows to do.  We're all done!
+	mov	loopcount2, ebx		; Save count of carry rows this section
+	shr	eax, 11			; Move counts list along
+	mov	loopcount1, eax
+	shl	rbx, 6			; Compute addr of the last carries row
+	add	rbx, rsi
+	xnorm012_wpn_part2
+	sub	rax, rax		; Clear big/little flag
+	cmp	B_IS_2, 0		; Is b = 2?
+	jne	ilp1			; Yes, do simpler roundings
+nb2ilp1:mov	rbx, norm_col_mults	; Addr of the column multipliers
+	xnorm012_wpn noexec		; Split carries for one cache line
+	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
+	bump	rsi, 64			; Next carries pointer
+	add	rbp, pass1blkdst	; Next FFT data pointer
+	cmp	RATIONAL_FFT, 0		; Don't bump these two pointers
+	jne	short nb2iskip		; for rational FFTs
+	bump	rdx, 128		; Next group multiplier
+	lea	rdi, [rdi+rbx*4]	; Next big/little flags pointer
+nb2iskip:sub	loopcount2, 1		; Test loop counter
+	jnz	nb2ilp1			; Next carry row in section
+	jmp	ilp0			; Next section
+ilp1:	mov	rbx, norm_col_mults	; Addr of the column multipliers
+	xnorm012_wpn exec		; Split carries for one cache line
+	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
+	bump	rsi, 64			; Next carries pointer
+	add	rbp, pass1blkdst	; Next FFT data pointer
+	cmp	RATIONAL_FFT, 0		; Don't bump these two pointers
+	jne	short iskip		; for rational FFTs
+	bump	rdx, 128		; Next group multiplier
+	lea	rdi, [rdi+rbx*4]	; Next big/little flags pointer
+iskip:	sub	loopcount2, 1		; Test loop counter
+	jnz	ilp1			; Next carry row in section
+	jmp	ilp0			; Next section
+spldn:	mov	zero_fft, 0		; Clear zero-high-words-fft flag
+	jmp	cdn			; Jump to common exit code
 
-IFDEF AMD
-allfft	xfftclm	320K, 4
-allfft	xfftclm	384K, 4
-allfft	xfftclm	384Kp, 4
-allfft	xfftclm	448K, 4
-allfft	xfftclm	512K, 4
-allfft	xfftclm	512K, 2
-allfft	xfftclm	512K, 1
-allfft	xfftclm	512Kp, 4
-allfft	xfftclm	640K, 8
-allfft	xfftclm	640K, 4
-allfft	xfftclm	640K, 2
-allfft	xfftclm	640K, 1
-allfft	xfftclm	768K, 4
-allfft	xfftclm	768K, 2
-allfft	xfftclm	768K, 1
-allfft	xfftclm	768K, 0
-allfft	xfftclm	768Kp, 4
-allfft	xfftclm	768Kp, 2
-allfft	xfftclm	896K, 4
-allfft	xfftclm	896K, 2
-allfft	xfftclm	896K, 1
-allfft	xfftclm	896K, 0
-allfft	xfftclm	1024K, 4
-allfft	xfftclm	1024K, 2
-allfft	xfftclm	1024K, 1
-allfft	xfftclm	1024K, 0
-allfft	xfftclm	1024Kp, 4
-allfft	xfftclm	1024Kp, 2
-allfft	xfftclm	1280K, 4
-allfft	xfftclm	1280K, 2
-allfft	xfftclm	1280K, 1
-allfft	xfftclm	1280K, 91			; No prefetching in pass 2
-allfft	xfftclm	1280K, 0
-allfft	xfftclm	1280K, 90			; No prefetching in pass 2
-allfft	xfftclm	1536K, 4
-allfft	xfftclm	1536K, 2
-allfft	xfftclm	1536K, 1
-allfft	xfftclm	1536K, 91			; No prefetching in pass 2
-allfft	xfftclm	1536K, 0
-allfft	xfftclm	1536K, 90			; No prefetching in pass 2
-allfft	xfftclm	1536Kp, 4
-allfft	xfftclm	1536Kp, 2
-allfft	xfftclm	1536Kp, 1
-allfft	xfftclm	1792K, 4
-allfft	xfftclm	1792K, 2
-allfft	xfftclm	1792K, 1
-allfft	xfftclm	1792K, 91			; No prefetching in pass 2
-allfft	xfftclm	1792K, 0
-allfft	xfftclm	1792K, 90			; No prefetching in pass 2
-allfft	xfftclm	2048K, 4
-allfft	xfftclm	2048K, 2
-allfft	xfftclm	2048K, 1
-allfft	xfftclm	2048K, 91			; No prefetching in pass 2
-allfft	xfftclm	2048K, 0
-allfft	xfftclm	2048K, 90			; No prefetching in pass 2
-allfft	xfftclm	2048Kp, 4
-allfft	xfftclm	2048Kp, 2
-allfft	xfftclm	2048Kp, 1
-allfft	xfftclm	2048Kp, 0
-allfft	xfftclm	2560K, 2
-allfft	xfftclm	2560K, 1
-allfft	xfftclm	2560K, 0
-allfft	xfftclm	3072K, 2
-allfft	xfftclm	3072K, 1
-allfft	xfftclm	3072K, 0
-allfft	xfftclm	3072Kp, 2
-allfft	xfftclm	3072Kp, 1
-allfft	xfftclm	3072Kp, 0
-allfft	xfftclm	3584K, 2
-allfft	xfftclm	3584K, 1
-allfft	xfftclm	3584K, 0
-allfft	xfftclm	4096K, 2
-allfft	xfftclm	4096K, 1
-allfft	xfftclm	4096K, 0
-allfft	xfftclm	4096Kp, 2
-allfft	xfftclm	4096Kp, 1
-allfft	xfftclm	4096Kp, 0
-allfft	xfftclm	5M, 1
-allfft	xfftclm	5M, 0
-allfft	xfftclm	6M, 1
-allfft	xfftclm	6M, 0
-allfft	xfftclm	6Mp, 1
-allfft	xfftclm	6Mp, 0
-allfft	xfftclm	7M, 1
-allfft	xfftclm	7M, 0
-allfft	xfftclm	8M, 1
-allfft	xfftclm	8M, 0
-allfft	xfftclm	8Mp, 1
-allfft	xfftclm	8Mp, 0
-ELSE
-allfft	xfftclm	320K, 4
-allfft	xfftclm	384K, 4
-allfft	xfftclm	384Kp, 4
-allfft	xfftclm	448K, 4
-allfft	xfftclm	512K, 4
-allfft	xfftclm	512K, 2
-allfft	xfftclm	512K, 1
-allfft	xfftclm	512Kp, 4
-allfft	xfftclm	640K, 8
-	xfftclm	640K, 4
-allfft	xfftclm	640K, 2
-	xfftclm	640K, 1
-allfft	xfftclm	640K, 91			; No prefetching in pass 2
-	xfftclm	768K, 4
-	xfftclm	768K, 2
-allfft	xfftclm	768K, 1
-allfft	xfftclm	768K, 91			; No prefetching in pass 2
-allfft	xfftclm	768K, 0
-allfft	xfftclm	768K, 90			; No prefetching in pass 2
-	xfftclm	768Kp, 4
-	xfftclm	768Kp, 2
-allfft	xfftclm	768Kp, 1
-allfft	xfftclm	768Kp, 91			; No prefetching in pass 2
-	xfftclm	768Kp, 0
-allfft	xfftclm	768Kp, 90			; No prefetching in pass 2
-	xfftclm	896K, 4
-	xfftclm	896K, 2
-allfft	xfftclm	896K, 1
-allfft	xfftclm	896K, 91			; No prefetching in pass 2
-	xfftclm	896K, 0
-allfft	xfftclm	896K, 90			; No prefetching in pass 2
-	xfftclm	1024K, 4
-	xfftclm	1024K, 2
-allfft	xfftclm	1024K, 1
-allfft	xfftclm	1024K, 91			; No prefetching in pass 2
-	xfftclm	1024K, 0
-allfft	xfftclm	1024K, 90			; No prefetching in pass 2
-	xfftclm	1024Kp, 4
-	xfftclm	1024Kp, 2
-allfft	xfftclm	1024Kp, 1
-allfft	xfftclm	1024Kp, 91			; No prefetching in pass 2
-	xfftclm	1024Kp, 0
-allfft	xfftclm	1024Kp, 90			; No prefetching in pass 2
-allfft	xfftclm	1280K, 4
-	xfftclm	1280K, 2
-allfft	xfftclm	1280K, 1
-allfft	xfftclm	1280K, 91			; No prefetching in pass 2
-	xfftclm	1280K, 0
-allfft	xfftclm	1280K, 90			; No prefetching in pass 2
-allfft	xfftclm	1536K, 4
-allfft	xfftclm	1536K, 2
-	xfftclm	1536K, 1
-allfft	xfftclm	1536K, 91			; No prefetching in pass 2
-	xfftclm	1536K, 0
-allfft	xfftclm	1536K, 90			; No prefetching in pass 2
-allfft	xfftclm	1536Kp, 4
-allfft	xfftclm	1536Kp, 2
-	xfftclm	1536Kp, 1
-allfft	xfftclm	1536Kp, 91			; No prefetching in pass 2
-	xfftclm	1536Kp, 0
-allfft	xfftclm	1536Kp, 90			; No prefetching in pass 2
-allfft	xfftclm	1792K, 4
-allfft	xfftclm	1792K, 2
-	xfftclm	1792K, 1
-allfft	xfftclm	1792K, 91			; No prefetching in pass 2
-	xfftclm	1792K, 0
-allfft	xfftclm	1792K, 90			; No prefetching in pass 2
-allfft	xfftclm	2048K, 4
-allfft	xfftclm	2048K, 2
-allfft	xfftclm	2048K, 1
-allfft	xfftclm	2048K, 91			; No prefetching in pass 2
-	xfftclm	2048K, 0
-allfft	xfftclm	2048K, 90			; No prefetching in pass 2
-allfft	xfftclm	2048Kp, 4
-allfft	xfftclm	2048Kp, 2
-allfft	xfftclm	2048Kp, 1
-allfft	xfftclm	2048Kp, 91			; No prefetching in pass 2
-	xfftclm	2048Kp, 0
-allfft	xfftclm	2048Kp, 90			; No prefetching in pass 2
-allfft	xfftclm	2560K, 2
-allfft	xfftclm	2560K, 1
-allfft	xfftclm	2560K, 0
-allfft	xfftclm	3072K, 2
-allfft	xfftclm	3072K, 1
-allfft	xfftclm	3072K, 0
-allfft	xfftclm	3072Kp, 2
-allfft	xfftclm	3072Kp, 1
-allfft	xfftclm	3072Kp, 0
-allfft	xfftclm	3584K, 2
-allfft	xfftclm	3584K, 1
-allfft	xfftclm	3584K, 0
-allfft	xfftclm	4096K, 2
-allfft	xfftclm	4096K, 1
-allfft	xfftclm	4096K, 0
-allfft	xfftclm	4096Kp, 2
-allfft	xfftclm	4096Kp, 1
-allfft	xfftclm	4096Kp, 0
-allfft	xfftclm	5M, 1
-allfft	xfftclm	5M, 0
-allfft	xfftclm	6M, 1
-allfft	xfftclm	6M, 0
-allfft	xfftclm	6Mp, 1
-allfft	xfftclm	6Mp, 0
-allfft	xfftclm	7M, 1
-allfft	xfftclm	7M, 0
-allfft	xfftclm	8M, 1
-allfft	xfftclm	8M, 0
-allfft	xfftclm	8Mp, 1
-allfft	xfftclm	8Mp, 0
-ENDIF
+xgw_carries_zpad:
+	mov	rsi, carries		; Addr of the carries
+	mov	ebx, addcount1		; Compute addr after carries
+	shl	rbx, 6
+	add	rbx, rsi
+	mov	rsi, DESTARG		; Addr of the FFT data
+	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
+	mov	rbp, norm_col_mults	; Addr of the group multipliers
+	xnorm012_wpn_zpad_part1
+	mov	rsi, carries		; Addr of the carries
+	mov	rbp, DESTARG		; Addr of the FFT data
+	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
+	mov	rdx, norm_grp_mults	; Addr of the group multipliers
+	mov	eax, count3		; Load 3 section counts
+	mov	loopcount1, eax		; Save for later
+zlp0:	mov	eax, loopcount1		; Get list of counts
+	mov	ebx, eax		; Form count for this section
+	and	rbx, 07FFh
+	jz	zpldn			; No rows to do.  We're all done!
+	mov	loopcount2, ebx		; Save count of carry rows this section
+	shr	eax, 11			; Move counts list along
+	mov	loopcount1, eax
+	shl	rbx, 6			; Compute addr of the last carries row
+	add	rbx, rsi
+	xnorm012_wpn_zpad_part2
+	sub	rax, rax		; Clear big/little flag
+	movapd	XMM_TMP1, xmm6		; xnorm012_wpn_zpad needs to use this register
+zlp1:	mov	rbx, norm_col_mults	; Addr of the column multipliers
+	xnorm012_wpn_zpad		; Split carries for one cache line
+c2d:	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
+	bump	rsi, 64			; Next carries pointer
+	add	rbp, pass1blkdst	; Next FFT data pointer
+	cmp	RATIONAL_FFT, 0		; Don't bump these two pointers
+	jne	short zskip		; for rational FFTs
+	bump	rdx, 128		; Next group multiplier
+	lea	rdi, [rdi+rbx*4]	; Next big/little flags pointer
+zskip:	sub	loopcount2, 1		; Test loop counter
+	jnz	zlp1			; Next carry row in section
+	movapd	xmm6, XMM_TMP1		; Restore saved register
+	jmp	zlp0			; Next section
+zpldn:	mov	const_fft, 0		; Clear mul-by-const-fft flag
+
+cdn:	int_epilog 8,0,0
+xgw_carries_wpn ENDP
+
+
+; Common code to finish off r4dwpn FFTs.  The Windows 64-bit ABI
+; frowns on us jumping from one procedure into another.
+; However, my reading of the spec is that as long as the two procedures have
+; identical prologs then stack unwinding for exception handling will work OK.
+; Of course, this code won't be linked into a 64-bit Windows executable,
+; but we include the dummy prolog to be consistent.
+
+PROCF	__common_wpn_xfft_exit_code
+
+	;; Create a dummy prolog
+	ad_prolog 0,1,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
+
+; Common code to finish up multiplies
+
+; Finish the multiply
+
+xgw_finish_mult_wpn:
+
+; Set FFT-started flag
+
+	mov	rsi, DESTARG		; Addr of FFT data
+	mov	eax, POSTFFT		; Set FFT started flag
+	mov	DWORD PTR [rsi-28], eax
+
+; Calculate SUMOUT and MAXERR values
+
+	movsd	xmm7, XMM_SUMOUT	; Add together the two partial sumouts
+	addsd	xmm7, XMM_SUMOUT+8
+	movsd	Q [rsi-24], xmm7	; Save sum of FFT outputs
+	movsd	xmm6, XMM_MAXERR	; Compute new maximum error
+	maxsd	xmm6, XMM_MAXERR+8
+	movsd	MAXERR, xmm6
+
+; Return
+
+	ad_epilog 0,1,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
+
+__common_wpn_xfft_exit_code ENDP
 
 _TEXT	ENDS
 END
