@@ -16,7 +16,7 @@
 | threads IF AND ONLY IF each uses a different gwhandle structure
 | initialized by gwinit.
 | 
-|  Copyright 2002-2009 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2010 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 #ifndef _GWNUM_H
@@ -741,6 +741,7 @@ struct gwasm_jmptab {
 #define FFT_TYPE_HOME_GROWN		0
 #define FFT_TYPE_RADIX_4		1
 #define FFT_TYPE_RADIX_4_DELAYED	2
+#define FFT_TYPE_RADIX_4_DWPN		3	/* r4delay with partial normalization */
 
 /* The gwhandle structure containing all of gwnum's "global" data. */
 
@@ -909,6 +910,9 @@ struct gwhandle_struct {
 	void	*large_pages_ptr; /* Pointer to the lage pages memory block */
 				/* we allocated. */
 	void	*large_pages_gwnum; /* Pointer to the one large pages gwnum */
+	double	ZPAD_COPY7_ADJUST[7]; /* Adjustments for copying the 7 words */
+				/* around the halfway point of a zero pad FFT. */
+	double	ZPAD_0_7_ADJUST[7]; /* Adjustments for ZPAD0_7 in a r4dwpn FFT */
 };
 
 /* A psuedo declaration for our big numbers.  The actual pointers to */

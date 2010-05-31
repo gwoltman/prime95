@@ -36,7 +36,7 @@ ENDIF
 ;	4 SHL 26		(no prefetching)
 ;	2 SHL 26		(tlb priming)
 ;	1 SHL 26		(in_place)
-;	fft_type SHL 21		(hg=0, r4=1, r4delay=2)
+;	fft_type SHL 21		(hg=0, r4=1, r4delay=2, r4dwpn=3)
 ;	arch SHL 17		(ppro=0,p3=1,p4=2,core=3,k8=4,k10=5)
 ;	min_L2_cache SHL 13	(0=0,128KB=1,WILLI=2,CELE_D=3,512KB=4,1024KB=5,2048KB=6)
 ;	clm SHL 9		(1,2,4,8)
@@ -89,6 +89,8 @@ PRCENTRY MACRO procname, mem_needed, L2arg
 		fft_type = 1
 	ELSEIF (@INSTR (,@CATSTR(procname),_r4delay_)) NE 0
 		fft_type = 2
+	ELSEIF (@INSTR (,@CATSTR(procname),_r4dwpn_)) NE 0
+		fft_type = 3
 	ELSE
 		bad_sse2_fft_type
 	ENDIF
@@ -991,8 +993,9 @@ toonear	DD	19740000, 1032192, 0.0667
 toonear	PRCENTRY		xfft_r4delay_1008K_2304_4_CORE, 3352064, 512
 toonear	DD			0
 	DD	20050000, 1048576, 0.0676
+	PRCENTRY		xfft_r4dwpn_1M_10_4_CORE, 93321856, 1024
 	PRCENTRY		xfft_r4delay_1M_12_4_CORE, 5164032, 512
-	PRCENTRY		xfft_r4delay_1M_11_4_CORE, 3334144, 1024
+	PRCENTRY		xfft_r4delay_1M_11_4_CORE, 3334144, 512
 	PRCENTRY		xfft_r4delay_1M_10_4_CORE, 3321856, 256
 	PRCENTRY		xfft_hg_1024K_12_2_K8, 1809408, 1024
 	PRCENTRY		xfft_hg_1024K_12_1_K8, 1809408

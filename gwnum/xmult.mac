@@ -40,6 +40,11 @@ XMM_SCD13 = 416			;; Sizeof a real radix-28 with premultipliers table entry
 XMM_HSCD1 = 16			;; Sizeof a half sin/cos table entry used in real FFTs in pass 2
 XMM_HSCD2 = 32			;; Sizeof a half sin/cos table entry used in real FFTs in pass 2
 
+;; Used in r4dwpn (radix-4 delay with patial normalization) FFTs
+XMM_ND1 = 32			;; Sizeof a normalization-only table entry
+XMM_SCND1 = 48			;; Sizeof a radix-3 sin/cos/noralization table entry
+XMM_SCND2 = 96			;; Sizeof a radix-4 or radix-5 sin/cos/noralization table entry
+
 ; **********************************************************
 ; **********************************************************
 ; ******************  ONE PASS MACROS  *********************
@@ -58,6 +63,7 @@ XMM_HSCD2 = 32			;; Sizeof a half sin/cos table entry used in real FFTs in pass 
 ;	r4 = radix-4 DJB
 ;	r4delay = radix-4/8 DJB with first levels of pass 1 using common sin/cos values and last levels
 ;		  of pass 1 fixing the discrepancy.  Less sin/cos memory, a few more complex multiplies.
+;	r4dwpn = r4delay with partial normalization.
 ;	rolle = rolle patented
 ;	exp = experimental
 ;	sr = split-radix
@@ -216,6 +222,7 @@ toonear	MACRO ops:vararg
 ;	hg = home-grown (my radix-4 with delayed sin/cos multipliers and Bailey pre-multipliers)
 ;	r4 = radix-4 DJB
 ;	r4delay = radix-4/8 DJB with delayed application of the first pass 1 levels sin/cos data
+;	r4dwpn = r4delay with partial normalization.
 ;	rolle = rolle patented
 ;	exp = experimental
 ;	sr = split-radix
@@ -373,7 +380,7 @@ pass1_normalize MACRO scratch, jmplabel
 
 ;; Get next block at end of pass 1 loop
 
-xpass1_get_next_block MACRO pass2, c0b, b0b
+xpass1_get_next_block MACRO pass2, c0b, b0b, suffix
 	LOCAL	again, done
 
 again:	c_call	PASS1_GET_NEXT_BLOCK	;; C callback routine
@@ -392,14 +399,14 @@ again:	c_call	PASS1_GET_NEXT_BLOCK	;; C callback routine
 ;; FFT data.
 
 	start_timer 29
-	call	xgw_carries
+	call	xgw_carries&suffix
 	end_timer 29
 	jmp	short again
 
 ;; All done, end timer and jump to cleanup code
 
 done:	end_timer 1
-	jmp	xgw_finish_mult
+	jmp	xgw_finish_mult&suffix
 	ENDM
 
 ;;
@@ -810,6 +817,7 @@ newxloop1nopre MACRO label2, incr_rsi, pm_incr_reg, pm_incr_amt, sc_incr_reg, sc
 ;	<blank> = historic (my radix-4 with delayed sin/cos multipliers and Bailey pre-multipliers)
 ;	r4 = radix-4 DJB
 ;	r4delay = radix-4/8 DJB with delayed application of the first pass 1 levels sin/cos data
+;	r4dwpn = r4delay with partial normalization.
 ;	rolle = rolle patented
 ;	exp = experimental
 ;	sr = split-radix

@@ -31,7 +31,7 @@ X87_CASES	EQU	0
 ELSE
 X87_CASES	EQU	13
 ENDIF
-SSE2_CASES	EQU	226
+SSE2_CASES	EQU	228
 
 loopent	MACRO	y,z		; Create a entry in the loop entry table
 	DP	&y&z
@@ -708,8 +708,8 @@ sscase141: jmp exit;;	sse2mac sscase141, 256, 100000, r4_s4cl_four_complex_unfft
 	sse2mac sscase163, 256, 100000, r4_x4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
 	sse2mac sscase164, 128, 4096, r4_sg2cl_four_complex_djbunfft rsi, 2*64, 64, rdx, 2*64, 64, rdi
 	sse2mac sscase165, 128, 100000, r4_sg2cl_four_complex_djbunfft rsi, 2*64, 64, rdx, 2*64, 64, rdi
-sscase166: jmp exit;;	sse2mac sscase166, 256, 4096, r4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
-sscase167: jmp exit;;	sse2mac sscase167, 256, 100000, r4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0
+	sse2mac sscase166, 256, 4096, r4_x4cl_wpn_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, rdi+512
+	sse2mac sscase167, 256, 100000, r4_x4cl_wpn_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, rdi+512
 
 	sse2mac sscase168, 256, 4096, r4_sg4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
 	sse2mac sscase169, 256, 100000, r4_sg4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
@@ -778,6 +778,9 @@ sscase167: jmp exit;;	sse2mac sscase167, 256, 100000, r4_s4cl_four_complex_djbun
 	sse2macbx sscase223, 512, 100000, r8_x8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 	sse2macbx sscase224, 512, 4096, r8_x8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 	sse2macbx sscase225, 512, 100000, r8_x8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+
+	sse2mac sscase226, 256, 4096, r4_x4cl_wpn_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi+512
+	sse2mac sscase227, 256, 100000, r4_x4cl_wpn_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi+512
 
 	; need 16 reals cases
 

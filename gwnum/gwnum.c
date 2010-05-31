@@ -359,6 +359,7 @@ struct gwasm_data {
 /* Build an array of the assembly auxillary routines (addition, subtraction, etc.) */
 
 #define aux_decl(name)			extern_decl(name##1)	extern_decl(name##2)
+#define aux_decl3(name)			extern_decl(name##1)	extern_decl(name##2)	extern_decl(name##3)
 
 #ifndef X86_64
 aux_decl(gwadd)		aux_decl(gwaddq)
@@ -371,20 +372,21 @@ void *x87_aux_prctab[] = {
 	&gwadd2, &gwaddq2, &gwsub2, &gwsubq2, &gwaddsub2, &gwaddsubq2, &gwcopyzero2, NULL, &gwmuls2};
 #endif
 
-aux_decl(gwxadd)	aux_decl(gwxaddq)
-aux_decl(gwxsub)	aux_decl(gwxsubq)
-aux_decl(gwxaddsub)	aux_decl(gwxaddsubq)
-aux_decl(gwxcopyzero)	aux_decl(gwxadds)	aux_decl(gwxmuls)
+aux_decl3(gwxadd)	aux_decl(gwxaddq)
+aux_decl3(gwxsub)	aux_decl(gwxsubq)
+aux_decl3(gwxaddsub)	aux_decl(gwxaddsubq)
+aux_decl(gwxcopyzero)	aux_decl3(gwxadds)	aux_decl3(gwxmuls)
 
 void *sse2_aux_prctab[] = {
 	&gwxadd1, &gwxaddq1, &gwxsub1, &gwxsubq1, &gwxaddsub1, &gwxaddsubq1, &gwxcopyzero1, &gwxadds1, &gwxmuls1,
-	&gwxadd2, &gwxaddq2, &gwxsub2, &gwxsubq2, &gwxaddsub2, &gwxaddsubq2, &gwxcopyzero2, &gwxadds2, &gwxmuls2};
+	&gwxadd2, &gwxaddq2, &gwxsub2, &gwxsubq2, &gwxaddsub2, &gwxaddsubq2, &gwxcopyzero2, &gwxadds2, &gwxmuls2,
+	&gwxadd3, &gwxaddq2, &gwxsub3, &gwxsubq2, &gwxaddsub3, &gwxaddsubq2, &gwxcopyzero2, &gwxadds3, &gwxmuls3};
 
 /* Now we put the normalization routines in an array so we can easily pick */
 /* the normalization routines to use.  There is one table for SSE2 and one */
-/* for x87.  The SSE2 table has these 492 combinations: */
+/* for x87.  The SSE2 table has these 820 combinations: */
 /*	r or i		(rational or irrational) */
-/*	1 or 2 or 2AMD	(1 or 2 pass FFTs or 2 pass with AMD prefetching) */
+/*	1 or 2 or 2AMD or 3 or 3AMD (1 pass or 2 pass or 2 pass with partial normalization - with optional AMD prefetching) */
 /*	z or zp or blank (zero upper half of result or zero-padded FFT or normal FFT */
 /*	e or blank	(roundoff error checking or not) */
 /*	b or blank	(b > 2 or not) */
@@ -394,7 +396,7 @@ void *sse2_aux_prctab[] = {
 /* We also define a macro that will pick the correct entry from the array. */
 
 #define sse2_explode(macro)			sse2_explode1(macro,xr)			sse2_explode1(macro,xi)
-#define sse2_explode1(macro,name)		sse2_explode2(macro,name##1,notAMD)	sse2_explode2(macro,name##2,notAMD)	sse2_explode2(macro,name##2,AMD)
+#define sse2_explode1(macro,name)		sse2_explode2(macro,name##1,notAMD)	sse2_explode2(macro,name##2,notAMD)	sse2_explode2(macro,name##2,AMD)	sse2_explode2(macro,name##3,notAMD)	sse2_explode2(macro,name##3,AMD)
 #define sse2_explode2(macro,name,suff)		sse2_zero_explode(macro,name##z,suff)	sse2_explode3(macro,name,suff,notzp)	sse2_explode3(macro,name##zp,suff,zp)
 #define sse2_zero_explode(macro,name,suff)	sse2_explode9##suff(macro,name)		sse2_explode9##suff(macro,name##e)
 #define sse2_explode3(macro,name,suff,zp)	sse2_explode4(macro,name,suff,zp)	sse2_explode4(macro,name##e,suff,zp)
@@ -415,10 +417,11 @@ int sse2_prctab_index (gwhandle *gwdata, int z, int e, int c)
 {
 	int	index = 0;
 
-	if (! gwdata->RATIONAL_FFT) index += 246;
+	if (! gwdata->RATIONAL_FFT) index += 410;
 	if (gwdata->PASS2_SIZE) {
-		if (gwdata->cpu_flags & CPU_3DNOW) index += 164;
-		else index += 82;
+		index += 82;
+		if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) index += 164;
+		if (gwdata->cpu_flags & CPU_3DNOW) index += 82;
 	}
 	if (z) {
 		if (e) index += 1;
@@ -731,13 +734,13 @@ double *r4_build_pass1_table (
 			for (j = 0; j < N / 4; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
-					gwsincos3 (temp, N, (double *) &sincos);
+					gwsincos2 (temp, N, (double *) &sincos);
 					table[0] = sincos[0];	/* temp */
 					table[2] = sincos[1];
 					table[4] = sincos[2];	/* 2 * temp */
 					table[6] = sincos[3];
 
-					gwsincos3 (temp + upper_sse2_word, N, (double *) &sincos);
+					gwsincos2 (temp + upper_sse2_word, N, (double *) &sincos);
 					table[1] = sincos[0];	/* temp */
 					table[3] = sincos[1];
 					table[5] = sincos[2];	/* 2 * temp */
@@ -785,13 +788,13 @@ double *r4_build_pass1_table (
 			for (j = 0; j < N / 5; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
-					gwsincos3 (temp, N, (double *) &sincos);
+					gwsincos2 (temp, N, (double *) &sincos);
 					table[0] = sincos[0];	/* temp */
 					table[2] = sincos[1];
 					table[4] = sincos[2];	/* 2 * temp */
 					table[6] = sincos[3];
 
-					gwsincos3 (temp + upper_sse2_word, N, (double *) &sincos);
+					gwsincos2 (temp + upper_sse2_word, N, (double *) &sincos);
 					table[1] = sincos[0];	/* temp */
 					table[3] = sincos[1];
 					table[5] = sincos[2];	/* 2 * temp */
@@ -891,7 +894,7 @@ double *r4_build_pass1_table (
 				for (j = 0; j < N / 8; j += pass1_increment) {
 					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
-						gwsincos3 (temp, N, (double *) &sincos);
+						gwsincos2 (temp, N, (double *) &sincos);
 						table[0] = sincos[0];	/* temp */
 						table[2] = sincos[1];
 						table[4] = sincos[2];	/* 2 * temp */
@@ -901,7 +904,7 @@ double *r4_build_pass1_table (
 						table[10] = sincos[1];
 
 						temp += upper_sse2_word;
-						gwsincos3 (temp, N, (double *) &sincos);
+						gwsincos2 (temp, N, (double *) &sincos);
 						table[1] = sincos[0];	/* temp */
 						table[3] = sincos[1];
 						table[5] = sincos[2];	/* 2 * temp */
@@ -1035,7 +1038,7 @@ double *r4_build_pass2_complex_table (
 		if (!aux_table_size ||  N / aux_table_size % 2 == 0) limit = N / 4;
 		else limit = N / 5;
 		for (i = 0; i < limit; i++) {
-			gwsincos3 (i, N, (double *) &sincos);
+			gwsincos2 (i, N, (double *) &sincos);
 			table[1] = table[0] = sincos[0];	/* temp */
 			table[3] = table[2] = sincos[1];
 			table[5] = table[4] = sincos[2];	/* 2 * temp */
@@ -1049,7 +1052,7 @@ double *r4_build_pass2_complex_table (
 	if (aux_table_size) {
 		N = aux_table_size;
 		for (i = 0; i < N / 4; i++) {
-			gwsincos3 (i, N, (double *) &sincos);
+			gwsincos2 (i, N, (double *) &sincos);
 			table[1] = table[0] = sincos[0];	/* temp */
 			table[3] = table[2] = sincos[1];
 			table[5] = table[4] = sincos[2];	/* 2 * temp */
@@ -1560,13 +1563,13 @@ double *r4delay_build_pass1_table (
 			for (j = 0; j < N / 4; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
-					gwsincos3 (temp, N, (double *) &sincos);
+					gwsincos2 (temp, N, (double *) &sincos);
 					table[0] = sincos[0];	/* temp */
 					table[2] = sincos[1];
 					table[4] = sincos[2];	/* 2 * temp */
 					table[6] = sincos[3];
 
-					gwsincos3 (temp + upper_sse2_word, N, (double *) &sincos);
+					gwsincos2 (temp + upper_sse2_word, N, (double *) &sincos);
 					table[1] = sincos[0];	/* temp */
 					table[3] = sincos[1];
 					table[5] = sincos[2];	/* 2 * temp */
@@ -1614,13 +1617,13 @@ double *r4delay_build_pass1_table (
 			for (j = 0; j < N / 5; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
-					gwsincos3 (temp, N, (double *) &sincos);
+					gwsincos2 (temp, N, (double *) &sincos);
 					table[0] = sincos[0];	/* temp */
 					table[2] = sincos[1];
 					table[4] = sincos[2];	/* 2 * temp */
 					table[6] = sincos[3];
 
-					gwsincos3 (temp + upper_sse2_word, N, (double *) &sincos);
+					gwsincos2 (temp + upper_sse2_word, N, (double *) &sincos);
 					table[1] = sincos[0];	/* temp */
 					table[3] = sincos[1];
 					table[5] = sincos[2];	/* 2 * temp */
@@ -1742,7 +1745,7 @@ double *r4delay_build_fixed_pass1_table (
 		}
 		else {
 			for (j = 0; j < N / 8; j += pass1_increment) {
-				gwsincos3 (j, N, (double *) &sincos);
+				gwsincos2 (j, N, (double *) &sincos);
 				table[0] = sincos[0];	/* temp */
 				table[2] = sincos[1];
 				table[4] = sincos[2];	/* 2 * temp */
@@ -1752,7 +1755,7 @@ double *r4delay_build_fixed_pass1_table (
 				table[10] = sincos[1];
 
 				temp = j + upper_sse2_word;
-				gwsincos3 (temp, N, (double *) &sincos);
+				gwsincos2 (temp, N, (double *) &sincos);
 				table[1] = sincos[0];	/* temp */
 				table[3] = sincos[1];
 				table[5] = sincos[2];	/* 2 * temp */
@@ -1789,14 +1792,14 @@ double *r4delay_build_fixed_pass1_table (
 				}
 				/* Output the sin/cos values for the complex data */
 				for (j = 0; j < N / 4; j += pass1_increment) {
-					gwsincos3 (j, N, (double *) &sincos);
+					gwsincos2 (j, N, (double *) &sincos);
 					table[0] = sincos[0];	/* temp */
 					table[2] = sincos[1];
 					table[4] = sincos[2];	/* 2 * temp */
 					table[6] = sincos[3];
 
 					temp = j + upper_sse2_word;
-					gwsincos3 (temp, N, (double *) &sincos);
+					gwsincos2 (temp, N, (double *) &sincos);
 					table[1] = sincos[0];	/* temp */
 					table[3] = sincos[1];
 					table[5] = sincos[2];	/* 2 * temp */
@@ -1816,13 +1819,13 @@ double *r4delay_build_fixed_pass1_table (
 	else {
 		N = gwdata->FFTLEN / 2;
 		for (j = 0; j < N / 4; j += pass1_increment) {
-			gwsincos3 (j, N, (double *) &sincos);
+			gwsincos2 (j, N, (double *) &sincos);
 			table[0] = sincos[0];	/* temp */
 			table[2] = sincos[1];
 			table[4] = sincos[2];	/* 2 * temp */
 			table[6] = sincos[3];
 
-			gwsincos3 (j + upper_sse2_word, N, (double *) &sincos);
+			gwsincos2 (j + upper_sse2_word, N, (double *) &sincos);
 			table[1] = sincos[0];	/* temp */
 			table[3] = sincos[1];
 			table[5] = sincos[2];	/* 2 * temp */
@@ -1837,14 +1840,14 @@ double *r4delay_build_fixed_pass1_table (
 		    pass1_size == 3072 || pass1_size == 4096 || pass1_size == 5120) {
 			/* Output the sin/cos values for the complex data */
 			for (j = 0; j < N / 4; j += pass1_increment) {
-				gwsincos3 (j, N, (double *) &sincos);
+				gwsincos2 (j, N, (double *) &sincos);
 				table[0] = sincos[0];	/* temp */
 				table[2] = sincos[1];
 				table[4] = sincos[2];	/* 2 * temp */
 				table[6] = sincos[3];
 
 				temp = j + upper_sse2_word;
-				gwsincos3 (temp, N, (double *) &sincos);
+				gwsincos2 (temp, N, (double *) &sincos);
 				table[1] = sincos[0];	/* temp */
 				table[3] = sincos[1];
 				table[5] = sincos[2];	/* 2 * temp */
@@ -1854,6 +1857,724 @@ double *r4delay_build_fixed_pass1_table (
 			}
 			N = N / 4;
 		}
+	}
+
+/* Return address of the end of the table */
+
+	return (table);
+}
+
+/* This routine builds the sin/cos table used in pass 1 by the radix-4/8 DJB */
+/* FFT with delayed sin/cos multiplies and with partial normalization. */
+
+double *r4dwpn_build_pass1_table (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	double	*table)		/* Pointer to the table to fill in */
+{
+	unsigned long pass1_size, pass1_increment, delay_count;
+	unsigned long group, i, j, k, N, temp, upper_sse2_word;
+	int	pow2_count;
+	double	sincos[6];
+
+/* Initialize some needed constants */
+
+	pass1_increment = gwdata->PASS2_SIZE;
+	upper_sse2_word = pass1_increment / 2;
+	pass1_size = gwdata->FFTLEN / gwdata->PASS2_SIZE; /* Real values in a pass1 section */
+
+/* Determine number of delay groups.  In a standard radix-4 FFT, there is only one sin/cos */
+/* group in the last pass 1 level.  We reduce our memory usage by using just one fixed sin/cos */
+/* table in the first FFT levels and having multiple groups of sin/cos data in the last pass 1 level. */
+/* I call these groups of sin/cos data in the last pass 1 level "delay groups". */
+
+	if (pass1_size % 7 == 0)
+		delay_count = 14;
+	else if (pass1_size % 5 == 0 && !gwdata->ALL_COMPLEX_FFT)
+		delay_count = 10;
+ 	else if ((pass1_size == 512 && !gwdata->ALL_COMPLEX_FFT) ||
+		 (pass1_size == 1024 && !gwdata->ALL_COMPLEX_FFT) ||
+		 (pass1_size == 2560 && gwdata->ALL_COMPLEX_FFT) ||
+		 (pass1_size == 5120 && gwdata->ALL_COMPLEX_FFT) ||
+		 pass1_size == 1536 || pass1_size == 2048 || pass1_size == 3072 || pass1_size == 4096)
+		delay_count = 16;
+	else
+		delay_count = 4;
+
+/* Count the power-of-two FFT levels after the initial FFT levels.  If odd, the */
+/* the last levels will be a radix-8, if even the last levels wil be a radix-4. */
+
+	pass1_size /= (delay_count * 2);
+	for (pow2_count = 0; (pass1_size & 1) == 0; pass1_size /= 2) pow2_count++;
+
+/* Set pointer to table of multipliers */
+
+	gwdata->adjusted_pass1_premults = table;
+
+/* Loop through all the pass 1 groups in the same order the assembly code will */
+/* process the groups. */
+
+	for (group = 0; group < upper_sse2_word; group += gwdata->PASS1_CACHE_LINES) {
+
+		pass1_size = gwdata->FFTLEN / gwdata->PASS2_SIZE; /* Real values in a pass1 section */
+		pass1_size /= (delay_count * 2);	/* Complex values we're generating sin/cos data for */
+		N = gwdata->PASS2_SIZE;
+
+/* Output the sin/cos/premultiplier values for the radix-8 block that does the */
+/* last 3 levels in pass 1.  NOTE:  We do not need the "j loop" (it would loop */
+/* from zero to zero) when generating the sin/cos twiddle factors for the last */
+/* levels of pass 1. */
+
+		if (pow2_count & 1) {
+			N = N * 8;
+
+/* For the r4_g8cl_sixteen_reals_eight_complex_djbfft building block, output the extra */
+/* sin/cos values needed for the sixteen_reals.  The sixteen_reals is done in three parts: */
+/* 4 four_reals_fft, 1 eight_reals_fft, and 1 four-complex_fft.  The four_reals_fft needs */
+/* four sin/cos twiddles using 2*N, the eight_reals_fft and four_complex_fft can use the same */
+/* sin/cos twiddles that will be generated later for the r4r8_g8cl_eight_complex_fft8 macro. */
+
+			if (!gwdata->ALL_COMPLEX_FFT) {
+				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+					temp = (group + i);
+					gwsincos (temp, N*2, (double *) &sincos);
+					table[0] = sincos[0];	/* temp for 2*N */
+					table[2] = sincos[1];
+					gwsincos (temp + pass1_increment, N*2, (double *) &sincos);
+					table[4] = sincos[0];	/* temp + pass1_increment for 2*N */
+					table[6] = sincos[1];
+					gwsincos (temp + 2 * pass1_increment, N*2, (double *) &sincos);
+					table[8] = sincos[0];	/* temp + 2 * pass1_increment for 2*N */
+					table[10] = sincos[1];
+					gwsincos (temp + 3 * pass1_increment, N*2, (double *) &sincos);
+					table[12] = sincos[0];	/* temp + 3 * pass1_increment for 2*N */
+					table[14] = sincos[1];
+
+					temp += upper_sse2_word;
+					gwsincos (temp, N*2, (double *) &sincos);
+					table[1] = sincos[0];	/* temp for 2*N */
+					table[3] = sincos[1];
+					gwsincos (temp + pass1_increment, N*2, (double *) &sincos);
+					table[5] = sincos[0];	/* temp + pass1_increment for 2*N */
+					table[7] = sincos[1];
+					gwsincos (temp + 2 * pass1_increment, N*2, (double *) &sincos);
+					table[9] = sincos[0];	/* temp + 2 * pass1_increment for 2*N */
+					table[11] = sincos[1];
+					gwsincos (temp + 3 * pass1_increment, N*2, (double *) &sincos);
+					table[13] = sincos[0];	/* temp + 3 * pass1_increment for 2*N */
+					table[15] = sincos[1];
+
+					table += 16;
+				}
+			}
+
+/* Output the sin/cos values for the complex delay groups -- specifically the r8_sg8cl_eight_complex_fft8 macro. */
+
+			for (k = 0; k < delay_count; k++) {
+				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+					unsigned long bigN, ktemp, actemp;
+
+/* If this is an all-complex FFT, the roots of minus 1 (same as roots of FFTLEN*2) are */
+/* split to reduce memory requirements.  We apply the part of the all-complex premultiplier here. */
+
+					if (gwdata->ALL_COMPLEX_FFT) {
+						bigN = gwdata->FFTLEN * 2;
+						actemp = group + i;
+					} else {
+						bigN = gwdata->FFTLEN;
+						actemp = 0;
+					}
+
+/* Factor in the delayed part of the sin/cos multiplies from the first 2 levels.  In the first 2 levels */
+/* we use a fixed sin/cos table based only on j, leaving the group+i part to be applied here by */
+/* creating delay_count table entries.  For an all-complex FFT we multiply by 0,2,1,-1*(group+i) with N = FFTLEN/2. */
+/* For an all-real FFT we multiply by 0,2,1,5*(group+i) with N = FFTLEN. */
+
+					if (gwdata->ALL_COMPLEX_FFT && delay_count == 4) {
+						if (k == 0)
+							ktemp = 0;
+						else if (k == 1)
+							ktemp = 2 * (group + i) * 4;
+						else if (k == 2)
+							ktemp = 1 * (group + i) * 4;
+						else
+							ktemp = bigN - 1 * (group + i) * 4;
+					} else if (gwdata->ALL_COMPLEX_FFT) {
+						/* 0,2,1,-1 combined with 0,2,1,-1 */
+						int	kmap[16] = {0,8,4,-4,2,10,6,-2,1,9,5,-3,-1,7,3,-5};
+						if (kmap[k] >= 0)
+							ktemp = kmap[k] * (group + i) * 4;
+						else
+							ktemp = bigN + kmap[k] * (group + i) * 4;
+					} else if (delay_count == 4) {
+						if (k == 0)
+							ktemp = 0;
+						else if (k == 1)
+							ktemp = 2 * (group + i);
+						else if (k == 2)
+							ktemp = 1 * (group + i);
+						else
+							ktemp = 5 * (group + i);
+					} else if (delay_count == 16) {
+						/* 0,2,1,5 combined with one 0,2,1,5 and three 0,2,1,-1 */
+						int	kmap[16] = {0,8,4,20,2,18,10,-6,1,17,9,-7,5,21,13,-3};
+						if (kmap[k] >= 0)
+							ktemp = kmap[k] * (group + i);
+						else
+							ktemp = bigN + kmap[k] * (group + i);
+					} else {			/* delay_count == 10 or 14 */
+						/* Multipliers for the radix-20 or radix-28 step */
+						ktemp = k * (group + i);
+					}
+
+/* We now calculate the standard sin/cos twiddle factors (temp*0,1,2,3,4,5,6,7 roots of N) */
+/* combined with the group all-complex premultiplier roots of minus 1 (same as roots of FFTLEN*2) */
+/* combined with the delayed group multipliers. */
+
+					temp = (group + i) * (bigN / N);
+					gwsincos (actemp + ktemp, bigN, (double *) &sincos);
+					table[0] = sincos[0];	/* premult,delay and temp*0 */
+					table[2] = sincos[1];
+					gwsincos (actemp + ktemp + temp, bigN, (double *) &sincos);
+					table[4] = sincos[0];	/* premult,delay and temp*1 */
+					table[6] = sincos[1];
+					gwsincos (actemp + ktemp + temp * 2, bigN, (double *) &sincos);
+					table[8] = sincos[0];	/* premult,delay and temp*2 */
+					table[10] = sincos[1];
+					gwsincos (actemp + ktemp + temp * 3, bigN, (double *) &sincos);
+					table[12] = sincos[0];	/* premult,delay and temp*3 */
+					table[14] = sincos[1];
+					gwsincos (actemp + ktemp + temp * 4, bigN, (double *) &sincos);
+					table[16] = sincos[0];	/* premult,delay and temp*4 */
+					table[18] = sincos[1];
+					gwsincos (actemp + ktemp + temp * 5, bigN, (double *) &sincos);
+					table[20] = sincos[0];	/* premult,delay and temp*5 */
+					table[22] = sincos[1];
+					gwsincos (actemp + ktemp + temp * 6, bigN, (double *) &sincos);
+					table[24] = sincos[0];	/* premult,delay and temp*6 */
+					table[26] = sincos[1];
+					gwsincos (actemp + ktemp + temp * 7, bigN, (double *) &sincos);
+					table[28] = sincos[0];	/* premult,delay and temp*7 */
+					table[30] = sincos[1];
+
+					temp = (group + i + upper_sse2_word) * (bigN / N);
+					if (gwdata->ALL_COMPLEX_FFT) actemp += upper_sse2_word;
+					gwsincos (actemp + ktemp, bigN, (double *) &sincos);
+					table[1] = sincos[0];	/* premult,delay and temp*0 */
+					table[3] = sincos[1];
+					gwsincos (actemp + ktemp + temp, bigN, (double *) &sincos);
+					table[5] = sincos[0];	/* premult,delay and temp*1 */
+					table[7] = sincos[1];
+					gwsincos (actemp + ktemp + temp * 2, bigN, (double *) &sincos);
+					table[9] = sincos[0];	/* premult,delay and temp*2 */
+					table[11] = sincos[1];
+					gwsincos (actemp + ktemp + temp * 3, bigN, (double *) &sincos);
+					table[13] = sincos[0];	/* premult,delay and temp*3 */
+					table[15] = sincos[1];
+					gwsincos (actemp + ktemp + temp * 4, bigN, (double *) &sincos);
+					table[17] = sincos[0];	/* premult,delay and temp*4 */
+					table[19] = sincos[1];
+					gwsincos (actemp + ktemp + temp * 5, bigN, (double *) &sincos);
+					table[21] = sincos[0];	/* premult,delay and temp*5 */
+					table[23] = sincos[1];
+					gwsincos (actemp + ktemp + temp * 6, bigN, (double *) &sincos);
+					table[25] = sincos[0];	/* premult,delay and temp*6 */
+					table[27] = sincos[1];
+					gwsincos (actemp + ktemp + temp * 7, bigN, (double *) &sincos);
+					table[29] = sincos[0];	/* premult,delay and temp*7 */
+					table[31] = sincos[1];
+
+					table += 32;
+				}
+			}
+			pass1_size /= 8;
+		}
+
+/* Output the sin/cos/premultiplier values for the radix-4 block that does the */
+/* last 2 levels in pass 1. */
+
+		else {
+			N = N * 4;
+
+/* Output the extra sin/cos values needed for the eight_reals FFT work done */
+/* on the last pass 1 level.  We double N because the real part of the FFT */
+/* is one level behind the complex part of the FFT. */
+
+			if (!gwdata->ALL_COMPLEX_FFT) {
+				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+					temp = (group + i);
+					gwsincos (temp, N*2, (double *) &sincos);
+					table[0] = sincos[0];	/* temp for 2*N */
+					table[2] = sincos[1];
+					gwsincos (temp * 5, N*2, (double *) &sincos);
+					table[4] = sincos[0];	/* temp * 5 for 2*N */
+					table[6] = sincos[1];
+
+					temp += upper_sse2_word;
+					gwsincos (temp, N*2, (double *) &sincos);
+					table[1] = sincos[0];	/* temp for 2*N */
+					table[3] = sincos[1];
+					gwsincos (temp * 5, N*2, (double *) &sincos);
+					table[5] = sincos[0];	/* temp * 5 for 2*N */
+					table[7] = sincos[1];
+
+					table += 8;
+				}
+			}
+
+/* Output the sin/cos values for the complex delay groups -- specifically the r4_sg4cl_eight_reals_four_complex_fft4 macro. */
+
+			for (k = 0; k < delay_count; k++) {
+				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+					unsigned long bigN, ktemp, actemp;
+
+/* If this is an all-complex FFT, the roots of minus 1 (same as roots of FFTLEN*2) are */
+/* split to reduce memory requirements.  We apply the part of the all-complex premultiplier here. */
+
+					if (gwdata->ALL_COMPLEX_FFT) {
+						bigN = gwdata->FFTLEN * 2;
+						actemp = group + i;
+					} else {
+						bigN = gwdata->FFTLEN;
+						actemp = 0;
+					}
+
+/* Factor in the delayed part of the sin/cos multiplies from the first 2 levels.  In the first 2 levels */
+/* we use a fixed sin/cos table based only on j, leaving the group+i part to be applied here by */
+/* creating delay_count table entries.  For an all-complex FFT we multiply by 0,2,1,-1*(group+i) with N = FFTLEN/2. */
+/* For an all-real FFT we multiply by 0,2,1,5*(group+i) with N = FFTLEN. */
+
+					if (gwdata->ALL_COMPLEX_FFT && delay_count == 4) {
+						if (k == 0)
+							ktemp = 0;
+						else if (k == 1)
+							ktemp = 2 * (group + i) * 4;
+						else if (k == 2)
+							ktemp = 1 * (group + i) * 4;
+						else
+							ktemp = bigN - 1 * (group + i) * 4;
+					} else if (gwdata->ALL_COMPLEX_FFT) {
+						/* 0,2,1,-1 combined with 0,2,1,-1 */
+							int	kmap[16] = {0,8,4,-4,2,10,6,-2,1,9,5,-3,-1,7,3,-5};
+							if (kmap[k] >= 0)
+								ktemp = kmap[k] * (group + i) * 4;
+							else
+								ktemp = bigN + kmap[k] * (group + i) * 4;
+					} else if (delay_count == 4) {
+						if (k == 0)
+							ktemp = 0;
+						else if (k == 1)
+							ktemp = 2 * (group + i);
+						else if (k == 2)
+							ktemp = 1 * (group + i);
+						else
+							ktemp = 5 * (group + i);
+					} else if (delay_count == 16) {
+						/* 0,2,1,5 combined with one 0,2,1,5 and three 0,2,1,-1 */
+						int	kmap[16] = {0,8,4,20,2,18,10,-6,1,17,9,-7,5,21,13,-3};
+						if (kmap[k] >= 0)
+							ktemp = kmap[k] * (group + i);
+						else
+							ktemp = bigN + kmap[k] * (group + i);
+					} else {			/* delay_count == 10 or 14 */
+						/* Multipliers for the radix-20 or radix-28 step */
+						ktemp = k * (group + i);
+					}
+
+/* We now calculate the standard sin/cos twiddle factors (temp*0,1,2,3 roots of N) */
+/* combined with the group all-complex premultiplier roots of minus 1 (same as roots of FFTLEN*2) */
+/* combined with the delayed group multipliers. */
+
+					temp = (group + i) * (bigN / N);
+					gwsincos (actemp + ktemp, bigN, (double *) &sincos);
+					table[0] = sincos[0];	/* premult,delay and temp*0 */
+					table[2] = sincos[1];
+					gwsincos (actemp + ktemp + temp, bigN, (double *) &sincos);
+					table[4] = sincos[0];	/* premult,delay and temp*1 */
+					table[6] = sincos[1];
+					gwsincos (actemp + ktemp + temp * 2, bigN, (double *) &sincos);
+					table[8] = sincos[0];	/* premult,delay and temp*2 */
+					table[10] = sincos[1];
+					gwsincos (actemp + ktemp + temp * 3, bigN, (double *) &sincos);
+					table[12] = sincos[0];	/* premult,delay and temp*3 */
+					table[14] = sincos[1];
+
+					temp = (group + i + upper_sse2_word) * (bigN / N);
+					if (gwdata->ALL_COMPLEX_FFT) actemp += upper_sse2_word;
+					gwsincos (actemp + ktemp, bigN, (double *) &sincos);
+					table[1] = sincos[0];	/* premult,delay and temp*0 */
+					table[3] = sincos[1];
+					gwsincos (actemp + ktemp + temp, bigN, (double *) &sincos);
+					table[5] = sincos[0];	/* premult,delay and temp*1 */
+					table[7] = sincos[1];
+					gwsincos (actemp + ktemp + temp * 2, bigN, (double *) &sincos);
+					table[9] = sincos[0];	/* premult,delay and temp*2 */
+					table[11] = sincos[1];
+					gwsincos (actemp + ktemp + temp * 3, bigN, (double *) &sincos);
+					table[13] = sincos[0];	/* premult,delay and temp*3 */
+					table[15] = sincos[1];
+
+					table += 16;
+				}
+			}
+			pass1_size /= 4;
+		}
+
+/* For the r4_four_complex_djbfft building block levels, output the sin/cos values. */
+
+		while (pass1_size > 4 && (pass1_size & 3) == 0) {
+			N = N * 4;
+
+/* For the r4_eight_reals_four_complex_djbfft building block levels, output the extra */
+/* sin/cos values needed for the eight_reals.  The eight_reals doubles N because */
+/* the real part of the FFT is one level behind the complex part of the FFT. */
+
+			if (!gwdata->ALL_COMPLEX_FFT) {
+				for (j = 0; j < N*2 / 8; j += pass1_increment) {
+					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+						temp = (group + j + i);
+						gwsincos (temp, N*2, (double *) &sincos);
+						table[0] = sincos[0];	/* temp */
+						table[2] = sincos[1];
+						gwsincos (5*temp, N*2, (double *) &sincos);
+						table[4] = sincos[0];	/* 5 * temp */
+						table[6] = sincos[1];
+
+						temp += upper_sse2_word;
+						gwsincos (temp, N*2, (double *) &sincos);
+						table[1] = sincos[0];	/* temp */
+						table[3] = sincos[1];
+						gwsincos (5*temp, N*2, (double *) &sincos);
+						table[5] = sincos[0];	/* 5 * temp */
+						table[7] = sincos[1];
+
+						table += 8;
+					}
+				}
+			}
+
+/* Output the sin/cos value for the complex sections, used by the r4_four_complex_djbfft macro */
+
+			for (j = 0; j < N / 4; j += pass1_increment) {
+				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+					temp = (group + j + i);
+					gwsincos2 (temp, N, (double *) &sincos);
+					table[0] = sincos[0];	/* temp */
+					table[2] = sincos[1];
+					table[4] = sincos[2];	/* 2 * temp */
+					table[6] = sincos[3];
+
+					gwsincos2 (temp + upper_sse2_word, N, (double *) &sincos);
+					table[1] = sincos[0];	/* temp */
+					table[3] = sincos[1];
+					table[5] = sincos[2];	/* 2 * temp */
+					table[7] = sincos[3];
+
+					table += 8;
+				}
+			}
+			pass1_size /= 4;
+		}
+
+/* For the r5_five_complex_djbfft building block levels, output the sin/cos values. */
+
+		while (pass1_size > 5 && pass1_size % 5 == 0) {
+			N = N * 5;
+
+/* The r5_ten_reals building blocks require extra sin/cos */
+/* values.  The ten_reals doubles N because the real part of the */
+/* FFT is one level behind the complex part of the FFT. */
+
+			if (!gwdata->ALL_COMPLEX_FFT) {
+				for (j = 0; j < N / 5; j += pass1_increment) {
+					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+						temp = (group + j + i);
+						gwsincos3 (temp, N*2, (double *) &sincos);
+						table[0] = sincos[0];	/* temp */
+						table[2] = sincos[1];
+						table[4] = sincos[4];	/* 3 * temp */
+						table[6] = sincos[5];
+
+						temp += upper_sse2_word;
+						gwsincos3 (temp, N*2, (double *) &sincos);
+						table[1] = sincos[0];	/* temp */
+						table[3] = sincos[1];
+						table[5] = sincos[4];	/* 3 * temp */
+						table[7] = sincos[5];
+
+						table += 8;
+					}
+				}
+			}
+
+/* Output the sin/cos data for the complex sections, (the r5_five_complex_djbfft building block). */
+
+			for (j = 0; j < N / 5; j += pass1_increment) {
+				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+					temp = (group + j + i);
+					gwsincos2 (temp, N, (double *) &sincos);
+					table[0] = sincos[0];	/* temp */
+					table[2] = sincos[1];
+					table[4] = sincos[2];	/* 2 * temp */
+					table[6] = sincos[3];
+
+					gwsincos2 (temp + upper_sse2_word, N, (double *) &sincos);
+					table[1] = sincos[0];	/* temp */
+					table[3] = sincos[1];
+					table[5] = sincos[2];	/* 2 * temp */
+					table[7] = sincos[3];
+
+					table += 8;
+				}
+			}
+			pass1_size /= 5;
+		}
+
+/* For the r3_three_complex_djbfft building block levels, output the sin/cos values. */
+
+		while (pass1_size > 3 && pass1_size % 3 == 0) {
+			N = N * 3;
+
+/* The r3_six_reals building blocks require an extra sin/cos */
+/* value.  The six_reals doubles N because the real part of the */
+/* FFT is one level behind the complex part of the FFT. */
+
+			if (!gwdata->ALL_COMPLEX_FFT) {
+				for (j = 0; j < N / 3; j += pass1_increment) {
+					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+						temp = (group + j + i);
+						gwsincos (temp, N*2, (double *) &sincos);
+						table[0] = sincos[0];	/* temp */
+						table[2] = sincos[1];
+
+						temp += upper_sse2_word;
+						gwsincos (temp, N*2, (double *) &sincos);
+						table[1] = sincos[0];	/* temp */
+						table[3] = sincos[1];
+
+						table += 4;
+					}
+				}
+			}
+
+/* Output the sin/cos data for the complex sections (used by the r3_three_complex_djbfft building block). */
+
+			for (j = 0; j < N / 3; j += pass1_increment) {
+				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+					temp = (group + j + i);
+					gwsincos (temp, N, (double *) &sincos);
+					table[0] = sincos[0];	/* temp */
+					table[2] = sincos[1];
+
+					gwsincos (temp + upper_sse2_word, N, (double *) &sincos);
+					table[1] = sincos[0];	/* temp */
+					table[3] = sincos[1];
+
+					table += 4;
+				}
+			}
+			pass1_size /= 3;
+		}
+
+/* The final set of sin/cos data is where we apply the partial normalization multipliers. */
+/* Here we output just the normalization values (for use when there is no sin/cos value) */
+
+		for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+			double	ttp, ttmp;
+
+/* Call double-precision routine to compute the two multipliers */
+
+			temp = group + i;
+			gwfft_weights3 (gwdata->dd_data, temp, &ttp, NULL, &ttmp);
+			table[0] = ttp;
+			table[2] = ttmp;
+
+//			temp += upper_sse2_word;
+//			gwfft_weights3 (gwdata->dd_data, temp, &ttp, NULL, &ttmp);
+			table[1] = ttp;
+			table[3] = ttmp;
+
+			table += 4;
+		}
+
+/* For the r4_four_complex_djbfft building block levels, output the sin/cos values. */
+
+		if (pass1_size == 4) {
+			N = N * 4;
+
+/* For the r4_eight_reals_four_complex_djbfft building block levels, output the extra */
+/* sin/cos values needed for the eight_reals.  The eight_reals doubles N because */
+/* the real part of the FFT is one level behind the complex part of the FFT. */
+
+			if (!gwdata->ALL_COMPLEX_FFT) {
+				for (j = 0; j < N*2 / 8; j += pass1_increment) {
+					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+						temp = (group + j + i);
+						gwsincos_weighted (gwdata->dd_data, temp, N*2, group + i, (double *) &sincos);
+						table[0] = sincos[0];	/* temp */
+						table[2] = sincos[1];
+						table[4] = sincos[2];
+						gwsincos_weighted (gwdata->dd_data, 5*temp, N*2, group + i, (double *) &sincos);
+						table[6] = sincos[0];	/* 5 * temp */
+						table[8] = sincos[1];
+						table[10] = sincos[2];
+
+						temp += upper_sse2_word;
+						gwsincos_weighted (gwdata->dd_data, temp, N*2, group + i /*+ upper_sse_word*/, (double *) &sincos);
+						table[1] = sincos[0];	/* temp */
+						table[3] = sincos[1];
+						table[5] = sincos[2];
+						gwsincos_weighted (gwdata->dd_data, 5*temp, N*2, group + i /*+ upper_sse_word*/, (double *) &sincos);
+						table[7] = sincos[0];	/* 5 * temp */
+						table[9] = sincos[1];
+						table[11] = sincos[2];
+
+						table += 12;
+					}
+				}
+			}
+
+/* Output the sin/cos value for the complex sections, used by the r4_four_complex_djbfft macro */
+
+			for (j = 0; j < N / 4; j += pass1_increment) {
+				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+					temp = (group + j + i);
+					gwsincos2_weighted (gwdata->dd_data, temp, N, group + i, (double *) &sincos);
+					table[0] = sincos[0];	/* temp */
+					table[2] = sincos[1];
+					table[4] = sincos[2];
+					table[6] = sincos[3];	/* 2 * temp */
+					table[8] = sincos[4];
+					table[10] = sincos[5];
+
+					gwsincos2_weighted (gwdata->dd_data, temp + upper_sse2_word, N, group + i /*+ upper_sse2_word*/, (double *) &sincos);
+					table[1] = sincos[0];	/* temp */
+					table[3] = sincos[1];
+					table[5] = sincos[2];
+					table[7] = sincos[3];	/* 2 * temp */
+					table[9] = sincos[4];
+					table[11] = sincos[5];
+
+					table += 12;
+				}
+			}
+		}
+
+/* For the r5_five_complex_djbfft building block levels, output the sin/cos values. */
+
+		if (pass1_size == 5) {
+			N = N * 5;
+
+/* The r5_ten_reals building blocks require extra sin/cos */
+/* values.  The ten_reals doubles N because the real part of the */
+/* FFT is one level behind the complex part of the FFT. */
+
+			if (!gwdata->ALL_COMPLEX_FFT) {
+				for (j = 0; j < N / 5; j += pass1_increment) {
+					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+						temp = (group + j + i);
+						gwsincos3 (temp, N*2, (double *) &sincos);
+						table[0] = sincos[0];	/* temp */
+						table[2] = sincos[1];
+						table[4] = sincos[0];
+						table[6] = sincos[4];	/* 3 * temp */
+						table[8] = sincos[5];
+						table[10] = sincos[4];
+
+						temp += upper_sse2_word;
+						gwsincos3 (temp, N*2, (double *) &sincos);
+						table[1] = sincos[0];	/* temp */
+						table[3] = sincos[1];
+						table[5] = sincos[0];
+						table[7] = sincos[4];	/* 3 * temp */
+						table[9] = sincos[5];
+						table[11] = sincos[4];
+
+						table += 12;
+					}
+				}
+			}
+
+/* Output the sin/cos data for the complex sections, (the r5_five_complex_djbfft building block). */
+
+			for (j = 0; j < N / 5; j += pass1_increment) {
+				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+					temp = (group + j + i);
+					gwsincos2 (temp, N, (double *) &sincos);
+					table[0] = sincos[0];	/* temp */
+					table[2] = sincos[1];
+					table[4] = sincos[0];
+					table[6] = sincos[2];	/* 2 * temp */
+					table[8] = sincos[3];
+					table[10] = sincos[2];
+
+					gwsincos2 (temp + upper_sse2_word, N, (double *) &sincos);
+					table[1] = sincos[0];	/* temp */
+					table[3] = sincos[1];
+					table[5] = sincos[0];
+					table[7] = sincos[2];	/* 2 * temp */
+					table[9] = sincos[3];
+					table[11] = sincos[2];
+
+					table += 12;
+				}
+			}
+		}
+
+/* For the r3_three_complex_djbfft building block levels, output the sin/cos values. */
+
+		if (pass1_size == 3) {
+			N = N * 3;
+
+/* The r3_six_reals building blocks require an extra sin/cos */
+/* value.  The six_reals doubles N because the real part of the */
+/* FFT is one level behind the complex part of the FFT. */
+
+			if (!gwdata->ALL_COMPLEX_FFT) {
+				for (j = 0; j < N / 3; j += pass1_increment) {
+					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+						temp = (group + j + i);
+						gwsincos (temp, N*2, (double *) &sincos);
+						table[0] = sincos[0];	/* temp */
+						table[2] = sincos[1];
+						table[4] = sincos[0];
+
+						temp += upper_sse2_word;
+						gwsincos (temp, N*2, (double *) &sincos);
+						table[1] = sincos[0];	/* temp */
+						table[3] = sincos[1];
+						table[5] = sincos[0];
+
+						table += 6;
+					}
+				}
+			}
+
+/* Output the sin/cos data for the complex sections (used by the r3_three_complex_djbfft building block). */
+
+			for (j = 0; j < N / 3; j += pass1_increment) {
+				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+					temp = (group + j + i);
+					gwsincos (temp, N, (double *) &sincos);
+					table[0] = sincos[0];	/* temp */
+					table[2] = sincos[1];
+					table[4] = sincos[0];
+
+					gwsincos (temp + upper_sse2_word, N, (double *) &sincos);
+					table[1] = sincos[0];	/* temp */
+					table[3] = sincos[1];
+					table[5] = sincos[0];
+
+					table += 6;
+				}
+			}
+		}
+
+/* Calculate the size of each group's sin/cos/premult data for pass1_get_next_block */
+
+		if (group == 0)
+			gwdata->pass1_premult_block_size = (unsigned long)
+				((char *) table - (char *) gwdata->adjusted_pass1_premults) /
+				gwdata->PASS1_CACHE_LINES;
 	}
 
 /* Return address of the end of the table */
@@ -1960,6 +2681,76 @@ double *r4_build_norm_table (
 	}
 }
 
+/* This routine builds a normalization table - used by radix-4 with partial */
+/* normalization FFTs. */
+
+double *r4dwpn_build_norm_table (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	double	*table,		/* Pointer to the table to fill in */
+	int	col)		/* TRUE if building column, not group, table */
+{
+	unsigned long i, k, num_cols;
+
+/* Two pass FFTs are handled here */
+
+	num_cols = gwdata->PASS2_SIZE / 2;
+	if (col) {
+
+/* Loop to build table */
+
+		for (i = 0; i < num_cols; i++) {
+//			double	ttp, ttmp;
+
+/* Call double-precision routine to compute the two multipliers */
+
+//			gwfft_weights3 (gwdata->dd_data, i, &ttp, NULL, &ttmp);
+
+/* Now set the entry for BOTH the MSW and LSW in an SSE2 pair */
+
+			table[i*4] = 1.0;
+			table[i*4+1] = 1.0;
+			table[i*4+2] = 1.0;
+			table[i*4+3] = 1.0;
+		}
+		return (table + num_cols * 4);
+	}
+
+/* Build the group multipliers table */
+
+	else {
+		unsigned long h, hlimit, haddin, m, mmult, u, umult;
+
+/* Loop to build table */
+
+		umult = gwdata->FFTLEN / 2;
+		hlimit = gwdata->FFTLEN / 4 / (2*num_cols);
+		for (h = 0; h < hlimit; h++) {
+			haddin = h * 2 * num_cols;
+			mmult = gwdata->FFTLEN / 4;
+			for (u = 0; u < 2; u++) {
+				for (m = 0; m < 2; m++) {
+					for (k = 0; k < 2; k++) {
+						double	ttp, ttmp;
+						long	n;
+
+/* Call double-precision routine to compute the two multipliers */
+
+						n = haddin + u * umult + m * mmult + k * num_cols;
+						gwfft_weights3 (gwdata->dd_data, n, &ttp, &ttmp, NULL);
+
+/* Now set the entry for BOTH the MSW and LSW in an SSE2 pair */
+
+						table[k] = ttmp;
+						table[2+k] = ttp;
+					}
+					table += 4;
+				}
+			}
+		}
+		return (table);
+	}
+}
+
 /* This routine builds a big/little flags table - used by radix-4 normalizaion */
 /* routines.  It differs from the home-grown SSE2 routines in that the different */
 /* memory layout for PFA makes this routine much simpler. */
@@ -2001,6 +2792,79 @@ double *r4_build_biglit_table (
 		}
 		return ((double *) (p + gwdata->FFTLEN / 2));
 	}
+
+/* Determine the gap between XMM high and low words */
+
+	gap = gwdata->PASS2_SIZE / 2;
+
+/* Loop to build table in exactly the same order that it will be */
+/* used by the assembly code. */
+
+	p = (unsigned char *) table;
+	umult = gwdata->FFTLEN / 2;
+	hlimit = gwdata->FFTLEN / 4 / (2*gap);
+	for (i = 0; i < gap; i += gwdata->PASS1_CACHE_LINES) {
+		for (h = 0; h < hlimit; h++) {
+			haddin = h * 2 * gap;
+			mmult = gwdata->FFTLEN / 4;
+			for (j = 0; j < gwdata->PASS1_CACHE_LINES; j++) {
+				for (u = 0; u < 2; u++) {
+					for (m = 0; m < 2; m++) {
+						for (k = 0; k < 2 * gap; k += gap) {
+							unsigned long word;
+
+/* Now set the big/little flag for a LSW in an SSE2 pair */
+/* Otherwise, set the big/little flag for a MSW in an SSE2 pair */
+
+							word = haddin + i + j + u * umult + m * mmult + k;
+							if (k == 0) *p = is_big_word (gwdata, word) * 16;
+							else if (is_big_word (gwdata, word)) *p += 32;
+
+/* Set the ttp and ttmp fudge flags for two pass FFTs.  The fudge flag is */
+/* set if the col mult * the grp mult is twice the correct fft_weight, */
+/* meaning a mul by 0.5 is required to generate the correct multiplier. */
+/* Since we can't do equality compares on floats, this test is a little bit */
+/* cryptic. */
+
+							if (gwfft_weight_exponent (gwdata->dd_data, word) + 0.5 <
+							    gwfft_weight_exponent (gwdata->dd_data, word % gap) +
+							    gwfft_weight_exponent (gwdata->dd_data, word - word % gap)) {
+								if (k == 0) *p += 64;
+								else *p += 128;
+							}
+
+/* Set some offsets that help the assembly code step through the big/lit */
+/* array in a non-traditional order.  Two pass-FFTs step through the array */
+/* in chunks of PASS1_CACHE_LINES, but the add, sub, and carry propagation */
+/* code need to access the big/lit array linearly.  Set two global variables */
+/* that tell the assembly code the big/lit array distance between words */
+/* 0 and 2, and words 0 and 4. */
+
+							if (word == 2)
+								((struct gwasm_data *) gwdata->asm_data)->BIGLIT_INCR2 =
+									(uint32_t) ((char *) p - (char *) table);
+							if (word == 4)
+								((struct gwasm_data *) gwdata->asm_data)->BIGLIT_INCR4 =
+									(uint32_t) ((char *) p - (char *) table);
+						}
+						p++;
+					}
+				}
+			}
+		}
+	}
+	return ((double *) p);
+}
+
+/* This routine builds the big/little flags table for a r4dwpn (radix-4 with partial normalization) FFT */
+
+double *r4dwpn_build_biglit_table (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	double	*table)		/* Pointer to the table to fill in */
+{
+	unsigned char *p;
+	unsigned long h, i, j, k, m, u, gap;
+	unsigned long hlimit, haddin, mmult, umult;
 
 /* Determine the gap between XMM high and low words */
 
@@ -3292,6 +4156,13 @@ int score_jmptab_entry (
 
 	if (fft_type == FFT_TYPE_RADIX_4_DELAYED) {
 		score += 35;
+	}
+
+/* The Radix-4/8 DJB FFT with partial normalization saves a few multiplies by doing part */
+/* of the normalization during the forward and inverse FFT. */
+
+	if (fft_type == FFT_TYPE_RADIX_4_DWPN) {
+		score += 55;
 	}
 
 /* All done, return the accumulated score */
@@ -4847,6 +5718,80 @@ int internal_gwsetup (
 		tables = r4_build_norm_table (gwdata, tables, 1);
 	}
 
+/* Initialize tables for an r4delay FFT with partial normalization (r4dwpn). */
+
+	else if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
+
+/* Build sin/cos and premultiplier tables used in pass 1 of two pass FFTs. */
+/* For best prefetching, make sure tables remain on 128-byte boundaries */
+
+		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
+		tables = r4dwpn_build_pass1_table (gwdata, tables);
+		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
+		asm_data->sincos1 = tables;
+		tables = r4delay_build_fixed_premult_table (gwdata, tables);
+		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
+		asm_data->sincos2 = tables;
+		tables = r4delay_build_fixed_pass1_table (gwdata, tables);
+
+/* Build the sin/cos table used in complex pass 2 blocks */
+/* The pass 2 tables are the same as for a traditional radix-4 FFT */		
+
+		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
+		asm_data->xsincos_complex = tables;
+		tables = r4_build_pass2_complex_table (gwdata, tables);
+		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
+		asm_data->sincos3 = tables;
+		tables = r4_build_pass2_real_table (gwdata, tables);
+
+/* Allocate a table for carries.  Init with XMM_BIGVAL.  For best */
+/* distribution of data in the L2 cache, make this table contiguous */
+/* with all other data used in the first pass (scratch area, normalization */
+/* tables, etc.)  Note that we put the tables that are only partly loaded */
+/* (column multipliers and big/lit table after the tables that are */
+/* loaded throughout the first pass. */
+
+		if (gwdata->PASS2_SIZE) {
+			int	i, carry_table_size;
+			double	xmm_bigval;
+			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
+			asm_data->carries = tables;
+			carry_table_size = gwdata->FFTLEN / (gwdata->PASS2_SIZE / 2);
+			xmm_bigval = 3.0 * 131072.0 * 131072.0 * 131072.0;
+			for (i = 0; i < carry_table_size; i++) *tables++ = xmm_bigval;
+			tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
+		}
+
+/* Build the group muliplier normalization table.  Keep this table */
+/* contiguous with other data used in pass 1. */
+
+		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
+		asm_data->norm_grp_mults = tables;
+		tables = r4dwpn_build_norm_table (gwdata, tables, 0);
+
+/* Reserve room for the pass 1 scratch area. */
+
+		if (gwdata->SCRATCH_SIZE) {
+			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
+			asm_data->scratch_area = tables;
+			tables = (double *) ((char *) tables + gwdata->SCRATCH_SIZE);
+		}
+
+/* Build the table of big vs. little flags.  This cannot be last table */
+/* built as xnorm_2d macro reads 2 bytes past the end of the array. */
+
+		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
+		asm_data->norm_biglit_array = tables;
+		tables = r4dwpn_build_biglit_table (gwdata, tables);
+		tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
+
+/* Build the column normalization multiplier table. */
+
+		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
+		asm_data->norm_col_mults = tables;
+		tables = r4dwpn_build_norm_table (gwdata, tables, 1);
+	}
+
 /* Initialize tables for the home-grown SSE2 FFT code. */
 
 	else if (gwdata->cpu_flags & CPU_SSE2) {
@@ -5379,7 +6324,8 @@ int internal_gwsetup (
 				asm_data->cache_line_multiplier * 64;
 			asm_data->normblkdst8 = 0;
 		} else if ((gwdata->FFT_TYPE == FFT_TYPE_RADIX_4 ||
-			    gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DELAYED) &&
+			    gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DELAYED ||
+			    gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) &&
 			   (gwdata->FFTLEN / gwdata->PASS2_SIZE == 80 ||
 			    gwdata->FFTLEN / gwdata->PASS2_SIZE == 96 ||
 			    gwdata->FFTLEN / gwdata->PASS2_SIZE == 112 ||
@@ -5458,11 +6404,22 @@ int internal_gwsetup (
 		asm_data->CARRY_ADJUST1_HI = ((unsigned long) asm_data->CARRY_ADJUST1) & ~((1 << kbits_lo) - 1);
 		asm_data->CARRY_ADJUST1_LO = ((unsigned long) asm_data->CARRY_ADJUST1) &  ((1 << kbits_lo) - 1);
 		asm_data->CARRY_ADJUST2 = pow ((double) b, num_b_in_top_word) / asm_data->CARRY_ADJUST1;
-		asm_data->CARRY_ADJUST3 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-1);
 		asm_data->CARRY_ADJUST4 = pow ((double) b, num_b_in_second_top_word);
-		asm_data->CARRY_ADJUST5 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-2);
 		asm_data->CARRY_ADJUST6 = pow ((double) b, num_b_in_third_top_word);
-		asm_data->CARRY_ADJUST7 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-3);
+		if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
+			unsigned long col;
+			col = (gwdata->FFTLEN-1) % (gwdata->PASS2_SIZE / 2);
+			asm_data->CARRY_ADJUST3 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-1) / gwfft_weight (gwdata->dd_data, col);
+			col = (gwdata->FFTLEN-2) % (gwdata->PASS2_SIZE / 2);
+			asm_data->CARRY_ADJUST5 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-2) / gwfft_weight (gwdata->dd_data, col);
+			col = (gwdata->FFTLEN-3) % (gwdata->PASS2_SIZE / 2);
+			asm_data->CARRY_ADJUST7 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-3) / gwfft_weight (gwdata->dd_data, col);
+		} else {
+			asm_data->CARRY_ADJUST3 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-1);
+			asm_data->CARRY_ADJUST5 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-2);
+			asm_data->CARRY_ADJUST7 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-3);
+		}
+
 		// It's too hard to upgrade the old x87 code to match the SSE2 code
 		// So, for x87 generate the same constants used prior to version 25.11
 		if (! (gwdata->cpu_flags & CPU_SSE2)) {
@@ -5601,6 +6558,28 @@ int internal_gwsetup (
 			asm_data->ZPAD_K6_LO = k - asm_data->ZPAD_K6_HI*bigpowb - asm_data->ZPAD_K6_MID*powb;
 			asm_data->ZPAD_INVERSE_K6 = bigpowb / k;
 		}
+
+/* Pre-compute the adjustments to copying the 7 words around the halfway point */
+/* In a radix-4 delay with partial normalization, we need to apply an adjustment */
+/* so that the copied words are fully normalized. */
+
+		if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
+			int	i;
+			for (i = 0; i < 7; i++) {
+				unsigned long col;
+				col = (gwdata->FFTLEN / 2 - 3 + i) % (gwdata->PASS2_SIZE / 2);
+				gwdata->ZPAD_COPY7_ADJUST[i] = gwfft_weight (gwdata->dd_data, col);
+			}
+			/* Adjustments for ZPAD0 - ZPAD6 */
+			for (i = 0; i < 7; i++) {
+				unsigned long col;
+				col = i % (gwdata->PASS2_SIZE / 2);
+				gwdata->ZPAD_0_7_ADJUST[i] = gwfft_weight_inverse (gwdata->dd_data, col);
+			}
+		} else {
+			int	i;
+			for (i = 0; i < 7; i++) gwdata->ZPAD_COPY7_ADJUST[i] = 1.0;
+		}
 	}
 
 /* Set the procedure pointers from the proc tables */
@@ -5617,7 +6596,7 @@ int internal_gwsetup (
 	} else
 #endif
 	{
-		memcpy (gwdata->GWPROCPTRS+1, &sse2_aux_prctab[gwdata->PASS2_SIZE ? 9 : 0], 9 * sizeof (void *));
+		memcpy (gwdata->GWPROCPTRS+1, &sse2_aux_prctab[gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN ? 18 : gwdata->PASS2_SIZE ? 9 : 0], 9 * sizeof (void *));
 		gwdata->GWPROCPTRS[norm_routines] = sse2_prctab[sse2_prctab_index (gwdata, 0, 0, 0)];  // No error, no mulbyconst
 		gwdata->GWPROCPTRS[norm_routines+1] = sse2_prctab[sse2_prctab_index (gwdata, 0, 1, 0)];  // Error, no mulbyconst
 		gwdata->GWPROCPTRS[norm_routines+2] = sse2_prctab[sse2_prctab_index (gwdata, 0, 0, 1)];  // No error, mulbyconst
@@ -5642,8 +6621,9 @@ int internal_gwsetup (
 
 /* Compute maximum allowable difference for error checking */
 /* This error check is disabled for mod B^N+1 arithmetic */
+/* and for radix-4 delay with partial normalization FFTs. */
 
-	if (gwdata->ALL_COMPLEX_FFT)
+	if (gwdata->ALL_COMPLEX_FFT || gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN)
 		gwdata->MAXDIFF = 1.0E80;
 
 /* We have observed that the difference seems to vary based on the size */
@@ -5730,20 +6710,22 @@ int internal_gwsetup (
 void xcopy_7_words (
 	struct gwasm_data *asm_data)
 {
+	gwhandle *gwdata;
 	double	*srcarg, *destarg;
 
+	gwdata = asm_data->gwdata;
 	destarg = (double *) asm_data->DESTARG;
 	srcarg = (double *) ((char *) destarg + asm_data->DIST_TO_FFTSRCARG);
-	destarg[-5] = srcarg[4];	/* Copy 1st word above halfway point */
-	destarg[-6] = srcarg[12];	/* Copy 2nd word */
-	destarg[-7] = srcarg[20];	/* Copy 3rd word */
-	destarg[-8] = srcarg[28];	/* Copy 4th word */
+	destarg[-5] = srcarg[4] * gwdata->ZPAD_COPY7_ADJUST[3];	/* Copy 1st word above halfway point */
+	destarg[-6] = srcarg[12] * gwdata->ZPAD_COPY7_ADJUST[4]; /* Copy 2nd word */
+	destarg[-7] = srcarg[20] * gwdata->ZPAD_COPY7_ADJUST[5]; /* Copy 3rd word */
+	destarg[-8] = srcarg[28] * gwdata->ZPAD_COPY7_ADJUST[6]; /* Copy 4th word */
 	destarg[-9] = * (double *)	/* Copy 1st word below halfway point */
-		((char *) srcarg + asm_data->HIGH_WORD1_OFFSET);
+		((char *) srcarg + asm_data->HIGH_WORD1_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[2];
 	destarg[-10] = * (double *)	/* Copy 2nd word below */
-		((char *) srcarg + asm_data->HIGH_WORD2_OFFSET);
+		((char *) srcarg + asm_data->HIGH_WORD2_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[1];
 	destarg[-11] = * (double *)	/* Copy 3rd word below */
-		((char *) srcarg + asm_data->HIGH_WORD3_OFFSET);
+		((char *) srcarg + asm_data->HIGH_WORD3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];
 }
 
 /* When POSTFFT is set, we must copy the 7 words at two different spots. */
@@ -5754,13 +6736,15 @@ void xcopy_7_words (
 void xcopy_4_words (
 	struct gwasm_data *asm_data)
 {
+	gwhandle *gwdata;
 	double	*srcarg;
 
+	gwdata = asm_data->gwdata;
 	srcarg = (double *) asm_data->DESTARG;
-	srcarg[-5] = srcarg[4];		/* Copy 1st word above halfway point */
-	srcarg[-6] = srcarg[12];	/* Copy 2nd word */
-	srcarg[-7] = srcarg[20];	/* Copy 3rd word */
-	srcarg[-8] = srcarg[28];	/* Copy 4th word */
+	srcarg[-5] = srcarg[4] * gwdata->ZPAD_COPY7_ADJUST[3]; /* Copy 1st word above halfway point */
+	srcarg[-6] = srcarg[12] * gwdata->ZPAD_COPY7_ADJUST[4]; /* Copy 2nd word */
+	srcarg[-7] = srcarg[20] * gwdata->ZPAD_COPY7_ADJUST[5]; /* Copy 3rd word */
+	srcarg[-8] = srcarg[28] * gwdata->ZPAD_COPY7_ADJUST[6]; /* Copy 4th word */
 }
 
 void xcopy_3_words (
@@ -5780,17 +6764,17 @@ void xcopy_3_words (
 		if (gwdata->SCRATCH_SIZE) {
 			srcarg[-9] = * (double *)
 					((char *) asm_data->scratch_area +
-					 asm_data->HIGH_SCRATCH1_OFFSET);
+					 asm_data->HIGH_SCRATCH1_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[2];
 			srcarg[-10] = * (double *)
 					((char *) asm_data->scratch_area +
-					 asm_data->HIGH_SCRATCH2_OFFSET);
+					 asm_data->HIGH_SCRATCH2_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[1];
 		} else {
 			srcarg[-9] = * (double *)
 					((char *) srcarg +
-					 asm_data->HIGH_WORD1_OFFSET);
+					 asm_data->HIGH_WORD1_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[2];
 			srcarg[-10] = * (double *)
 					((char *) srcarg +
-					 asm_data->HIGH_WORD2_OFFSET);
+					 asm_data->HIGH_WORD2_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[1];
 		}
 	}
 
@@ -5802,11 +6786,11 @@ void xcopy_3_words (
 		if (gwdata->SCRATCH_SIZE) {
 			srcarg[-11] = * (double *)
 					((char *) asm_data->scratch_area +
-					 asm_data->HIGH_SCRATCH3_OFFSET);
+					 asm_data->HIGH_SCRATCH3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];
 		} else {
 			srcarg[-11] = * (double *)
 					((char *) srcarg +
-					 asm_data->HIGH_WORD3_OFFSET);
+					 asm_data->HIGH_WORD3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];
 		}
 	}
 }
@@ -5834,7 +6818,8 @@ __inline void *pass1_premult_addr (
 	unsigned long block)
 {
 	if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4 ||
-	    gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DELAYED)
+	    gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DELAYED ||
+	    gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN)
 		return ((char *) gwdata->adjusted_pass1_premults + block * gwdata->pass1_premult_block_size);
 	return (NULL);
 }
@@ -6158,7 +7143,7 @@ void pass1_wake_up_threads_mt (
 
 /* Initialize the pointers that the normalization / carry propagation code */
 /* use.  These are copied before and after each block is normalized so that */
-/* each thread essentially shares these vallues. */
+/* each thread essentially shares these values. */
 
 	asm_data->norm_ptr1 = asm_data->norm_biglit_array;
 	asm_data->norm_ptr2 = asm_data->norm_col_mults;
@@ -6220,6 +7205,20 @@ void pass1_wake_up_threads_mt (
 void pass1_wait_for_carries (
 	struct gwasm_data *asm_data)
 {
+	gwhandle *gwdata;
+
+/* Get pointer to the gwdata structure */
+
+	gwdata = asm_data->gwdata;
+
+/* In the radix-4 delay with partial normalization zero-padded FFT case prior to */
+/* normalizing the first data block, apply the partial normalization multipliers */
+/* to ZPAD0 - ZPAD6. */
+
+	if (asm_data->this_block == 0 && gwdata->ZERO_PADDED_FFT && gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
+		int	i;
+		for (i = 0; i < 7; i++) asm_data->ZPAD0_7[i] *= gwdata->ZPAD_0_7_ADJUST[i];
+	}
 }
 
 void pass1_wait_for_carries_mt (
@@ -6231,6 +7230,15 @@ void pass1_wait_for_carries_mt (
 /* Get pointer to the gwdata structure */
 
 	gwdata = asm_data->gwdata;
+
+/* In the radix-4 delay with partial normalization zero-padded FFT case prior to */
+/* normalizing the first data block, apply the partial normalization multipliers */
+/* to ZPAD0 - ZPAD6. */
+
+	if (asm_data->this_block == 0 && gwdata->ZERO_PADDED_FFT && gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
+		int	i;
+		for (i = 0; i < 7; i++) asm_data->ZPAD0_7[i] *= gwdata->ZPAD_0_7_ADJUST[i];
+	}
 
 /* Wait until the next normalization block to process is the block */
 /* that this thread is working on. */
@@ -7380,6 +8388,19 @@ int get_fft_value (
 		*retval = (long) val;
 	}
 
+/* Handle r4dwpn FFTs which are only partially normalized */
+
+	else if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
+		unsigned long col;
+		col = i % (gwdata->PASS2_SIZE / 2);
+		val = val * gwfft_weight_inverse_sloppy (gwdata->dd_data, i) /
+		            gwfft_weight_inverse_sloppy (gwdata->dd_data, col);
+		if (val < -0.5)
+			*retval = (long) (val - 0.5);
+		else
+			*retval = (long) (val + 0.5);
+	}
+
 /* Multiply by two-to-minus-phi to generate an integer. */
 
 	else {
@@ -7406,6 +8427,16 @@ void set_fft_value (
 
 	if (gwdata->RATIONAL_FFT || val == 0) {
 		* addr (gwdata, g, i) = val;
+		return;
+	}
+
+/* Handle r4dwpn FFTs which are only partially normalized */
+
+	if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
+		unsigned long col;
+		col = i % (gwdata->PASS2_SIZE / 2);
+		* addr (gwdata, g, i) = val * gwfft_weight_sloppy (gwdata->dd_data, i) / 
+					      gwfft_weight_sloppy (gwdata->dd_data, col);
 		return;
 	}
 
@@ -8042,9 +9073,20 @@ void raw_gwsetaddin (
 		}
 	}
 
+/* Handle r4dwpn FFTs which are only partially normalized */
+
+	if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
+		unsigned long col;
+		col = word % (gwdata->PASS2_SIZE / 2);
+		asm_data->ADDIN_VALUE = val *
+					gwfft_weight_sloppy (gwdata->dd_data, word) /
+					gwfft_weight_sloppy (gwdata->dd_data, col);
+	}
+
 /* Set the addin value - multiply it by two-to-phi and FFTLEN/2/k. */
 
-	asm_data->ADDIN_VALUE = val *
+	else
+		asm_data->ADDIN_VALUE = val *
 			gwfft_weight_sloppy (gwdata->dd_data, word) *
 			gwdata->FFTLEN * 0.5 / gwdata->k;
 }
