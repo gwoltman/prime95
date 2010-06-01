@@ -73,15 +73,6 @@ no zero	addsd	xmm0, ADDIN_VALUE	;; Add in the requested value
 no zero	movsd	Q [rsi][rdi], xmm0	;; Save the new value
 no zero	subsd	xmm7, ADDIN_VALUE	;; Do not include addin in sumout
 noadd:	mov	saved_rsi, rsi		;; Save for xtop_carry_adjust
-	mov	rbx, norm_ptr2		;; Load column multipliers ptr
-ttp	mov	eax, cache_line_multiplier ;; Load inner loop counter
-	lea	rdi, XMM_COL_MULTS[128]	;; Load col mult scratch area
-setlp:	xnorm_wpn_setup ttp
-ttp	bump	rdi, 512		;; Next scratch area section
-ttp	bump	rbx, 32			;; Next column multiplier
-ttp	sub	al, 1			;; Each cache line has its own col mult
-ttp	jnz	setlp
-ttp	mov	norm_ptr2, rbx		;; Save column multipliers ptr
 
 	mov	rdx, norm_grp_mults	;; Addr of the group multipliers
 	mov	rbp, carries		;; Addr of the carries
@@ -101,12 +92,10 @@ ttp	mov	r9b, [rdi+3]		;; Load big vs. little flags
 ENDIF
 ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	mov	loopcount1, ebx		;; Save loop counter
-	lea	rbx, XMM_COL_MULTS	;; Load col mult scratch area
 	xprefetcht1 [rdx+128]		;; Prefetch group multiplier
 ilp1:	xprefetchw [rsi+64]
 	xnorm_wpn ttp, zero, echk, const, base2, sse4 ;; Normalize 8 values
 	bump	rsi, 64			;; Next cache line
-ttp	bump	rbx, 512		;; Next column multipliers
 ttp	bump	rdi, 4			;; Next big/little flags
 	sub	loopcount1, 1		;; Test loop counter
 	jnz	ilp1			;; Loop til done
@@ -148,16 +137,6 @@ const	mov	const_fft, 1		;; Set flag saying mul-by-const
 	movapd	xmm6, XMM_MAXERR	;; Load maximum error
 	xsub_7_words
 
-	mov	rbx, norm_ptr2		;; Load column multipliers ptr
-ttp	mov	eax, cache_line_multiplier ;; Load inner loop counter
-	lea	rdi, XMM_COL_MULTS[128]	;; Load col mult scratch area
-setlp:	xnorm_wpn_setup ttp
-ttp	bump	rdi, 512		;; Next scratch area section
-ttp	bump	rbx, 32			;; Next column multiplier
-ttp	sub	al, 1			;; Each cache line has its own col mult
-ttp	jnz	setlp
-ttp	mov	norm_ptr2, rbx		;; Save column multipliers ptr
-
 	mov	rdx, norm_grp_mults	;; Addr of the group multipliers
 	mov	rbp, carries		;; Addr of the carries
 	mov	rdi, norm_ptr1		;; Load big/little flags array ptr
@@ -168,12 +147,10 @@ ttp	mov	norm_ptr2, rbx		;; Save column multipliers ptr
 ttp	mov	al, [rdi+0]		;; Load big vs. little flags
 ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	mov	loopcount1z, ebx	;; Save loop counter
-	lea	rbx, XMM_COL_MULTS	;; Load col mult scratch area
 	xprefetcht1 [rdx+128]		;; Prefetch group multiplier
 ilp1:	xprefetchw [rsi+64]
 	xnorm_wpn_zpad ttp, echk, const, base2, sse4, khi, c1, cm1 ;; Normalize 8 values
 	bump	rsi, 64			;; Next cache line
-ttp	bump	rbx, 512		;; Next column multipliers
 ttp	bump	rdi, 4			;; Next big/little flags
 	sub	loopcount1z, 1		;; Test loop counter
 	jnz	ilp1			;; Loop til done

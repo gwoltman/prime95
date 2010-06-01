@@ -63,8 +63,7 @@ ilp0:	mov	eax, loopcount1		; Get list of counts
 	sub	rax, rax		; Clear big/little flag
 	cmp	B_IS_2, 0		; Is b = 2?
 	jne	ilp1			; Yes, do simpler roundings
-nb2ilp1:mov	rbx, norm_col_mults	; Addr of the column multipliers
-	xnorm012_wpn noexec		; Split carries for one cache line
+nb2ilp1:xnorm012_wpn noexec		; Split carries for one cache line
 	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
 	bump	rsi, 64			; Next carries pointer
 	add	rbp, pass1blkdst	; Next FFT data pointer
@@ -75,8 +74,7 @@ nb2ilp1:mov	rbx, norm_col_mults	; Addr of the column multipliers
 nb2iskip:sub	loopcount2, 1		; Test loop counter
 	jnz	nb2ilp1			; Next carry row in section
 	jmp	ilp0			; Next section
-ilp1:	mov	rbx, norm_col_mults	; Addr of the column multipliers
-	xnorm012_wpn exec		; Split carries for one cache line
+ilp1:	xnorm012_wpn exec		; Split carries for one cache line
 	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
 	bump	rsi, 64			; Next carries pointer
 	add	rbp, pass1blkdst	; Next FFT data pointer
@@ -97,7 +95,6 @@ xgw_carries_zpad:
 	add	rbx, rsi
 	mov	rsi, DESTARG		; Addr of the FFT data
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
-	mov	rbp, norm_col_mults	; Addr of the group multipliers
 	xnorm012_wpn_zpad_part1
 	mov	rsi, carries		; Addr of the carries
 	mov	rbp, DESTARG		; Addr of the FFT data
@@ -117,8 +114,7 @@ zlp0:	mov	eax, loopcount1		; Get list of counts
 	xnorm012_wpn_zpad_part2
 	sub	rax, rax		; Clear big/little flag
 	movapd	XMM_TMP1, xmm6		; xnorm012_wpn_zpad needs to use this register
-zlp1:	mov	rbx, norm_col_mults	; Addr of the column multipliers
-	xnorm012_wpn_zpad		; Split carries for one cache line
+zlp1:	xnorm012_wpn_zpad		; Split carries for one cache line
 c2d:	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
 	bump	rsi, 64			; Next carries pointer
 	add	rbp, pass1blkdst	; Next FFT data pointer
