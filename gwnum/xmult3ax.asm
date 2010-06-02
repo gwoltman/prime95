@@ -26,15 +26,13 @@ _TEXT SEGMENT
 ;; Add two numbers with carry propogation
 ;;
 
-saved_reg	EQU	PPTR [rsp+first_local]
-loopcount1	EQU	DPTR [rsp+first_local+SZPTR]
-loopcount2	EQU	DPTR [rsp+first_local+SZPTR+4]
-loopcount3	EQU	DPTR [rsp+first_local+SZPTR+8]
-loopcount4	EQU	DPTR [rsp+first_local+SZPTR+12]
-loopcount5	EQU	DPTR [rsp+first_local+SZPTR+16]
+loopcount2	EQU	DPTR [rsp+first_local]
+loopcount3	EQU	DPTR [rsp+first_local+4]
+loopcount4	EQU	DPTR [rsp+first_local+8]
+loopcount5	EQU	DPTR [rsp+first_local+12]
 
 PROCFL	gwxadd3
-	ad_prolog SZPTR+20,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -46,14 +44,7 @@ PROCFL	gwxadd3
 	movapd	XMM_TMP3, xmm7
 	movapd	XMM_TMP4, xmm7
 	mov	eax, count3		; Load 3 section counts
-
-	;; Do a section
-
-asec:	mov	loopcount1, eax		; Save section counts
-	and	eax, 07FFh		; Form block count for this section
-	mov	loopcount2, eax		; Save count of blocks in this section
-	mov	norm_ptr1, rsi		; Save section start address
-	mov	norm_ptr2, rbp		; Save section group ttp address
+	mov	loopcount2, eax		; Save count of blocks
 
 	;; Do a block
 
@@ -65,9 +56,10 @@ add0:	cmp	B_IS_2, 0		; Is this base 2?
 nb2add0:cmp	RATIONAL_FFT, 0		; Test for irrational FFTs
 	je	nb2iadd0   		; Yes, use two-to-phi multipliers
 	mov	loopcount4, 128		; Cache lines in 8KB chunk
-	sub	rax, rax		; Clear big/lit flag
+	sub	rax, rax		; Clear big/lit flags
+	sub	rbx, rbx
 nb2radd1:
-	xnorm_op_wpn addpd, noexec, noexec, saved_reg ; Add and normalize 8 values
+	xnorm_op_wpn addpd, noexec, noexec ; Add and normalize 8 values
 	dec	loopcount4		; Decrement inner loop counter
 	jnz	nb2radd1		; Loop til done
 	jmp	achunkdn		; Jump to chunk done code
@@ -75,8 +67,9 @@ nb2iadd0:mov	eax, normval1		; Load count of clms in 8KB chunk
 	mov	loopcount4, eax
 nb2iadd1:mov	eax, cache_line_multiplier ; Load inner loop count
 	mov	loopcount5, eax	; Save inner loop count
-	sub	rax, rax		; Clear big/lit flag
-nb2iadd2:xnorm_op_wpn addpd, exec, noexec, saved_reg ; Add and normalize 8 values
+	sub	rax, rax		; Clear big/lit flags
+	sub	rbx, rbx
+nb2iadd2:xnorm_op_wpn addpd, exec, noexec ; Add and normalize 8 values
 	dec	loopcount5		; Decrement inner loop counter
 	jnz	nb2iadd2 			; Loop til done
 	add	rdi, normval2		; Adjust ptr to little/big flags
@@ -86,8 +79,9 @@ nb2iadd2:xnorm_op_wpn addpd, exec, noexec, saved_reg ; Add and normalize 8 value
 b2add:	cmp	RATIONAL_FFT, 0		; Test for irrational FFTs
 	je	iadd0   		; Yes, use two-to-phi multipliers
 	mov	loopcount4, 128		; Cache lines in 8KB chunk
-	sub	rax, rax		; Clear big/lit flag
-radd1:	xnorm_op_wpn addpd, noexec, exec, saved_reg ; Add and normalize 8 values
+	sub	rax, rax		; Clear big/lit flags
+	sub	rbx, rbx
+radd1:	xnorm_op_wpn addpd, noexec, exec ; Add and normalize 8 values
 	dec	loopcount4		; Decrement inner loop counter
 	jnz	radd1 			; Loop til done
 	jmp	achunkdn		; Jump to chunk done code
@@ -95,8 +89,9 @@ iadd0:	mov	eax, normval1		; Load count of clms in 8KB chunk
 	mov	loopcount4, eax
 iadd1:	mov	eax, cache_line_multiplier ; Load inner loop count
 	mov	loopcount5, eax	; Save inner loop count
-	sub	rax, rax		; Clear big/lit flag
-iadd2:	xnorm_op_wpn addpd, exec, exec, saved_reg ; Add and normalize 8 values
+	sub	rax, rax		; Clear big/lit flags
+	sub	rbx, rbx
+iadd2:	xnorm_op_wpn addpd, exec, exec ; Add and normalize 8 values
 	dec	loopcount5		; Decrement inner loop counter
 	jnz	iadd2 			; Loop til done
 	add	rdi, normval2		; Adjust ptr to little/big flags
@@ -127,18 +122,12 @@ ablkdn:	sub	rsi, pass1blkdst	; Restore start of block ptr
 askip2:	dec	loopcount2		; Decrement outer loop counter
 	jnz	ablk 			; Loop til done
 
-	;; Section done
+	;; All blocks done
 
-	mov	rax, norm_ptr1		; Reload section start ptr
-	mov	rbx, norm_ptr2		; Reload section group ttp ptr
+	mov	rax, DESTARG		; Address of destination
+	mov	rbx, norm_grp_mults	; Group ttp ptr
 					; Add 2 carries to start of section
 	xnorm_op_wpn_sec XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4
-	mov	eax, loopcount1		; Get list of counts
-	shr	eax, 11			; Move counts list along
-	jnz	asec			; Do next section if necessary
-
-	;; All sections done
-
 	mov	rsi, DESTARG		; Addr of FFT data
 	movapd	xmm7, XMM_TMP3		; Load wraparound carry
 	xnorm_top_carry_cmn rsi, xmm7, 2
@@ -146,22 +135,20 @@ askip2:	dec	loopcount2		; Decrement outer loop counter
 	movapd	xmm6, XMM_TMP1		; Load non-wraparound carry
 	xnorm_op_wpn_fft		; Add 2 carries to start of fft
 
-	ad_epilog SZPTR+20,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwxadd3 ENDP
 
 ;;
 ;; Subtract two numbers with carry propogation
 ;;
 
-saved_reg	EQU	PPTR [rsp+first_local]
-loopcount1	EQU	DPTR [rsp+first_local+SZPTR]
-loopcount2	EQU	DPTR [rsp+first_local+SZPTR+4]
-loopcount3	EQU	DPTR [rsp+first_local+SZPTR+8]
-loopcount4	EQU	DPTR [rsp+first_local+SZPTR+12]
-loopcount5	EQU	DPTR [rsp+first_local+SZPTR+16]
+loopcount2	EQU	DPTR [rsp+first_local]
+loopcount3	EQU	DPTR [rsp+first_local+4]
+loopcount4	EQU	DPTR [rsp+first_local+8]
+loopcount5	EQU	DPTR [rsp+first_local+12]
 
 PROCFL	gwxsub3
-	ad_prolog SZPTR+20,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -173,14 +160,7 @@ PROCFL	gwxsub3
 	movapd	XMM_TMP3, xmm7
 	movapd	XMM_TMP4, xmm7
 	mov	eax, count3		; Load 3 section counts
-
-	;; Do a section
-
-ssec:	mov	loopcount1, eax		; Save section counts
-	and	eax, 07FFh		; Form block count for this section
-	mov	loopcount2, eax		; Save count of blocks in this section
-	mov	norm_ptr1, rsi		; Save section start address
-	mov	norm_ptr2, rbp		; Save section group ttp address
+	mov	loopcount2, eax		; Save count of blocks
 
 	;; Do a block
 
@@ -192,9 +172,10 @@ sub0:	cmp	B_IS_2, 0		; Is this base 2?
 	cmp	RATIONAL_FFT, 0		; Test for irrational FFTs
 	je	nb2isub0   		; Yes, use two-to-phi multipliers
 	mov	loopcount4, 128		; Cache lines in 8KB chunk
-	sub	rax, rax		; Clear big/lit flag
+	sub	rax, rax		; Clear big/lit flags
+	sub	rbx, rbx
 nb2rsub1:
-	xnorm_op_wpn subpd, noexec, noexec, saved_reg ; Subtract and normalize 8 values
+	xnorm_op_wpn subpd, noexec, noexec ; Subtract and normalize 8 values
 	dec	loopcount4		; Decrement inner loop counter
 	jnz	nb2rsub1		; Loop til done
 	jmp	schunkdn		; Jump to chunk done code
@@ -202,8 +183,9 @@ nb2isub0:mov	eax, normval1		; Load count of clms in 8KB chunk
 	mov	loopcount4, eax
 nb2isub1:mov	eax, cache_line_multiplier ; Load inner loop count
 	mov	loopcount5, eax		; Save inner loop count
-	sub	rax, rax		; Clear big/lit flag
-nb2isub2:xnorm_op_wpn subpd, exec, noexec, saved_reg ; Subtract and normalize 8 values
+	sub	rax, rax		; Clear big/lit flags
+	sub	rbx, rbx
+nb2isub2:xnorm_op_wpn subpd, exec, noexec ; Subtract and normalize 8 values
 	dec	loopcount5		; Decrement inner loop counter
 	jnz	nb2isub2		; Loop til done
 	add	rdi, normval2		; Adjust ptr to little/big flags
@@ -213,8 +195,9 @@ nb2isub2:xnorm_op_wpn subpd, exec, noexec, saved_reg ; Subtract and normalize 8 
 b2sub:	cmp	RATIONAL_FFT, 0		; Test for irrational FFTs
 	je	isub0   		; Yes, use two-to-phi multipliers
 	mov	loopcount4, 128		; Cache lines in 8KB chunk
-	sub	rax, rax		; Clear big/lit flag
-rsub1:	xnorm_op_wpn subpd, noexec, exec, saved_reg ; Subtract and normalize 8 values
+	sub	rax, rax		; Clear big/lit flags
+	sub	rbx, rbx
+rsub1:	xnorm_op_wpn subpd, noexec, exec ; Subtract and normalize 8 values
 	dec	loopcount4		; Decrement inner loop counter
 	jnz	rsub1 			; Loop til done
 	jmp	schunkdn		; Jump to chunk done code
@@ -222,8 +205,9 @@ isub0:	mov	eax, normval1		; Load count of clms in 8KB chunk
 	mov	loopcount4, eax
 isub1:	mov	eax, cache_line_multiplier ; Load inner loop count
 	mov	loopcount5, eax		; Save inner loop count
-	sub	rax, rax		; Clear big/lit flag
-isub2:	xnorm_op_wpn subpd, exec, exec, saved_reg ; Subtract and normalize 8 values
+	sub	rax, rax		; Clear big/lit flags
+	sub	rbx, rbx
+isub2:	xnorm_op_wpn subpd, exec, exec	; Subtract and normalize 8 values
 	dec	loopcount5		; Decrement inner loop counter
 	jnz	isub2 			; Loop til done
 	add	rdi, normval2		; Adjust ptr to little/big flags
@@ -254,18 +238,12 @@ sblkdn:	sub	rsi, pass1blkdst	; Restore start of block ptr
 sskip2:	dec	loopcount2		; Decrement outer loop counter
 	jnz	sblk 			; Loop til done
 
-	;; Section done
+	;; All blocks done
 
-	mov	rax, norm_ptr1		; Reload section start ptr
-	mov	rbx, norm_ptr2		; Reload section group ttp ptr
+	mov	rax, DESTARG		; Reload FFT data ptr
+	mov	rbx, norm_grp_mults	; Reload group ttp ptr
 					; Add 2 carries to start of section
 	xnorm_op_wpn_sec XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4
-	mov	eax, loopcount1		; Get list of counts
-	shr	eax, 11			; Move counts list along
-	jnz	ssec			; Do next section if necessary
-
-	;; All sections done
-
 	mov	rsi, DESTARG		; Addr of FFT data
 	movapd	xmm7, XMM_TMP3		; Load wraparound carry
 	xnorm_top_carry_cmn rsi, xmm7, 2
@@ -273,25 +251,20 @@ sskip2:	dec	loopcount2		; Decrement outer loop counter
 	movapd	xmm6, XMM_TMP1		; Load non-wraparound carry
 	xnorm_op_wpn_fft		; Add 2 carries to start of fft
 
-	ad_epilog SZPTR+20,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwxsub3 ENDP
 
 ;;
 ;; Add and subtract two numbers with carry propogation
 ;;
 
-saved_dest1_ptr	EQU	PPTR [rsp+first_local+0*SZPTR]
-saved_dest2_ptr	EQU	PPTR [rsp+first_local+1*SZPTR]
-saved_grp_ptr	EQU	PPTR [rsp+first_local+2*SZPTR]
-saved_reg	EQU	PPTR [rsp+first_local+3*SZPTR]
-loopcount1	EQU	DPTR [rsp+first_local+4*SZPTR]
-loopcount2	EQU	DPTR [rsp+first_local+4*SZPTR+4]
-loopcount3	EQU	DPTR [rsp+first_local+4*SZPTR+8]
-loopcount4	EQU	DPTR [rsp+first_local+4*SZPTR+12]
-loopcount5	EQU	DPTR [rsp+first_local+4*SZPTR+16]
+loopcount2	EQU	DPTR [rsp+first_local]
+loopcount3	EQU	DPTR [rsp+first_local+4]
+loopcount4	EQU	DPTR [rsp+first_local+8]
+loopcount5	EQU	DPTR [rsp+first_local+12]
 
 PROCFL	gwxaddsub3
-	ad_prolog 4*SZPTR+20,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -308,16 +281,8 @@ PROCFL	gwxaddsub3
 	movapd	XMM_TMP7, xmm7
 	movapd	XMM_TMP8, xmm7
 	mov	eax, count3		; Load 3 section counts
-
-	;; Do a section
-
-assec:	mov	loopcount1, eax		; Save section counts
-	and	eax, 07FFh		; Form block count for this section
-	mov	loopcount2, eax		; Save count of blocks in this section
-	mov	saved_dest1_ptr, rsi	; Save section start address
-	mov	saved_dest2_ptr, rbp	; Save section start address
-	mov	saved_grp_ptr, rbx	; Save section group ttp address
-
+	mov	loopcount2, eax		; Save count of blocks
+	
 	;; Do a block
 
 asblk:	mov	eax, normval4		; Load count of 8KB chunks in a blk
@@ -395,22 +360,15 @@ asblkdn:sub	rsi, pass1blkdst	; Restore start of block ptr
 asskip2:dec	loopcount2		; Decrement outer loop counter
 	jnz	asblk 			; Loop til done
 
-	;; Section done
+	;; All blocks done
 
-	mov	saved_reg, rbx
-	mov	rax, saved_dest1_ptr	; Reload section start ptr for dest #1
-	mov	rbx, saved_grp_ptr	; Reload section group ttp ptr
+	mov	rax, DESTARG		; Reload ptr for dest #1
+	mov	rbx, norm_grp_mults	; Reload group ttp ptr
 					; Add 2 carries to start of section
 	xnorm_op_wpn_sec XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4
-	mov	rax, saved_dest2_ptr	; Reload section start ptr for dest #2
+	mov	rax, DEST2ARG		; Reload ptr for dest #2
 					; Add 2 carries to start of section
 	xnorm_op_wpn_sec XMM_TMP5, XMM_TMP6, XMM_TMP7, XMM_TMP8
-	mov	rbx, saved_reg
-	mov	eax, loopcount1		; Get list of counts
-	shr	eax, 11			; Move counts list along
-	jnz	assec			; Do next section if necessary
-
-	;; All sections done
 
 	mov	rsi, DESTARG		; Addr of FFT data
 	movapd	xmm7, XMM_TMP3		; Load wraparound carry
@@ -424,7 +382,7 @@ asskip2:dec	loopcount2		; Decrement outer loop counter
 	xnorm_top_carry_cmn rsi, xmm7, 2
 	movapd	xmm6, XMM_TMP5		; Load non-wraparound carry
 	xnorm_op_wpn_fft		; Add 2 carries to start of fft
-	ad_epilog 4*SZPTR+20,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwxaddsub3 ENDP
 
 ;;
@@ -452,17 +410,15 @@ gwxadds3 ENDP
 ;; Multiply a number by a small value with carry propogation
 ;;
 
-saved_sec_biglit EQU	PPTR [rsp+first_local+0*SZPTR]
-saved_blk_start EQU	PPTR [rsp+first_local+1*SZPTR]
-saved_blk_biglit EQU	PPTR [rsp+first_local+2*SZPTR]
-loopcount1	EQU	DPTR [rsp+first_local+3*SZPTR]
-loopcount2	EQU	DPTR [rsp+first_local+3*SZPTR+4]
-loopcount3	EQU	DPTR [rsp+first_local+3*SZPTR+8]
-loopcount4	EQU	DPTR [rsp+first_local+3*SZPTR+12]
-loopcount5	EQU	DPTR [rsp+first_local+3*SZPTR+16]
+saved_blk_start EQU	PPTR [rsp+first_local+0*SZPTR]
+saved_blk_biglit EQU	PPTR [rsp+first_local+1*SZPTR]
+loopcount2	EQU	DPTR [rsp+first_local+2*SZPTR]
+loopcount3	EQU	DPTR [rsp+first_local+2*SZPTR+4]
+loopcount4	EQU	DPTR [rsp+first_local+2*SZPTR+8]
+loopcount5	EQU	DPTR [rsp+first_local+2*SZPTR+12]
 
 PROCFL	gwxmuls3
-	ad_prolog 3*SZPTR+20,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rsi, DESTARG		; Address of destination
 	mov	rbp, norm_grp_mults	; Addr of the group multipliers
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
@@ -476,16 +432,8 @@ skip:	movapd	XMM_TMP5, xmm0		; Save small value
 	movapd	XMM_TMP2, xmm7
 	movapd	XMM_TMP3, xmm7
 	movapd	XMM_TMP4, xmm7
-	mov	eax, count3		; Load 3 section counts
-
-	;; Do a section
-
-msec:	mov	loopcount1, eax		; Save section counts
-	and	eax, 07FFh		; Form block count for this section
-	mov	loopcount2, eax		; Save count of blocks in this section
-	mov	norm_ptr1, rsi		; Save section start address
-	mov	norm_ptr2, rbp		; Save section group ttp address
-	mov	saved_sec_biglit, rdi	; Save section biglit ptr
+	mov	eax, count3		; Load blocks count
+	mov	loopcount2, eax		; Save count of blocks
 
 	;; Do a block
 
@@ -566,30 +514,20 @@ mblkdn:	mov	rsi, saved_blk_start	; Restore start ptr
 mskip2:	dec	loopcount2		; Decrement outer loop counter
 	jnz	mblk 			; Loop til section done
 
-	;; Section done
+	;; All blocks done
 
-	xchg	rsi, norm_ptr1		; Restore/save section start ptr
-	xchg	rbp, norm_ptr2		; Restore/save section group ttp ptr
-	xchg	rdi, saved_sec_biglit	; Restore/save section biglit ptr
+	mov	rsi, DESTARG		; Restore data ptr
+	mov	rbp, norm_grp_mults	; Restore group ttp ptr
+	mov	rdi, norm_biglit_array	; Restore biglit ptr
 	cmp	B_IS_2, 0		; Is this base 2?
 	jne	b2msec			; yes, do simpler rounding
 	xnorm_smallmul_wpn_sec noexec	; Add 2 carries to start of section
 	jmp	msecdn
 b2msec:	xnorm_smallmul_wpn_sec exec	; Add 2 carries to start of section
-msecdn:	mov	rsi, norm_ptr1		; Restore next section start ptr
-	mov	rbp, norm_ptr2		; Restore next section group ttp ptr
-	mov	rdi, saved_sec_biglit	; Restore/save section biglit ptr
-	mov	eax, loopcount1		; Get list of counts
-	shr	eax, 11			; Move counts list along
-	jnz	msec			; Do next section if necessary
+msecdn:
 
-	;; All sections done
-
-	mov	rsi, DESTARG		; Addr of FFT data
 	movapd	xmm6, XMM_TMP1		; Load non-wraparound carry
 	movapd	xmm7, XMM_TMP3		; Load wraparound carry
-	mov	rbp, norm_grp_mults	; Addr of the group multipliers
-	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
 
 	cmp	ZERO_PADDED_FFT, 0	;; Zero-padded FFT?
 	jne	mulzp			;; Yes, do special zpad carry
@@ -611,7 +549,7 @@ b2mzpfft:
 	xnorm_smallmul_wpn_fft_zpad exec ; Do the special zpad carry base 2
 muldn:
 
-	ad_epilog 3*SZPTR+20,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwxmuls3 ENDP
 
 _TEXT	ENDS

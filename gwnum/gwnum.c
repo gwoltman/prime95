@@ -2689,7 +2689,7 @@ double *r4dwpn_build_norm_table (
 	double	*table,		/* Pointer to the table to fill in */
 	int	col)		/* TRUE if building column, not group, table */
 {
-	unsigned long i, k, num_cols;
+	unsigned long k, num_cols;
 	unsigned long h, hlimit, haddin, m, mmult, u, umult;
 
 /* Build the group multipliers table */
@@ -3992,13 +3992,13 @@ int is_pathological_distribution (
 
 int score_jmptab_entry (
 	gwhandle *gwdata,	/* Gwnum global data */
-			struct gwasm_jmptab *jmptab)
+	struct gwasm_jmptab *jmptab)
 {
 	int	score;
 	int	arch;		/* (ppro=0,p3=1,p4=2,core=3,k8=4,k10=5) */
 	int	min_L2_cache;	/* (0=0,128KB=1,WILLI=2,CELE_D=3,512KB=4,1024KB=5,2048KB=6) */
 	int	cache_size;	/* Cache size of this CPU */
-	int	fft_type;	/* (home-grown=0, radix-4=1, radix-4-split-pm=2) */
+	int	fft_type;	/* (home-grown=0, radix-4=1, r4delay=2, r4dwpn=3) */
 
 /* We will generate a score for each FFT implementation.  A higher score */
 /* means we think an implementation will run faster.  A score of zero */

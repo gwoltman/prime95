@@ -3267,7 +3267,6 @@ const	movapd	xmm4, XMM_K_TIMES_MULCONST_HI
 ; ecx = big vs. little word flag #2
 ; eax = big vs. little word flag #1
 
-
 ; *************** WPN macro ******************
 ; A pipelined version of this code:
 ;	mov	al, [rdi]		;; Load big vs. little flags
@@ -6680,7 +6679,6 @@ div_k_done:
 ; rdx = pointer to the second number
 ; rsi = pointer to destination
 ; rdi = pointer to array of big vs. little flags
-; rbx = pointer to two-to-phi column multipliers
 ; rbp = pointer two-to-phi group multipliers
 ; XMM_TMP1,XMM_TMP2,XMM_TMP3,XMM_TMP4 = carries
 ; A pipelined version of this code:
@@ -6706,7 +6704,7 @@ div_k_done:
 ;	movapd	[rbp+0*16], xmm2	;; Save carry
 ;	mov	ecx, mem_loc
 
-xnorm_op_wpn MACRO fop, ttp, base2, mem_loc
+xnorm_op_wpn MACRO fop, ttp, base2
 	movapd	xmm0, [rdx]		;; Load second number
 	fop	xmm0, [rcx]		;; Add/sub first number
 	movapd	xmm1, [rdx+16]		;; Load second number
@@ -6715,44 +6713,41 @@ xnorm_op_wpn MACRO fop, ttp, base2, mem_loc
 	fop	xmm6, [rcx+32]		;; Add/sub first number
 	movapd	xmm7, [rdx+48]		;; Load second number
 	fop	xmm7, [rcx+48]		;; Add/sub first number
-	mov	mem_loc, rdx		;; Save second src ptr
-	sub	rdx, rdx		;; Clear big/lit flags
 ttp	mov	al, [rdi]		;; Load big vs. little flags
-ttp	mov	dl, [rdi+1]
+ttp	mov	bl, [rdi+1]
 ttp	mulpd	xmm0, [rbp+0*32]	;; Mul by grp two-to-minus-phi
 ttp	mulpd	xmm0, XMM_TTMP_FUDGE[rax];; Mul by fudge two-to-minus-phi
 	addpd	xmm0, XMM_TMP1		;; x1 = values + carry
 ttp	mulpd	xmm1, [rbp+1*32]	;; Mul by grp two-to-minus-phi
-ttp	mulpd	xmm1, XMM_TTMP_FUDGE[rdx];; Mul by fudge two-to-minus-phi
+ttp	mulpd	xmm1, XMM_TTMP_FUDGE[rbx];; Mul by fudge two-to-minus-phi
 	addpd	xmm1, XMM_TMP2		;; x1 = values + carry
-	rounding_interleaved base2, noexec, noexec, xmm0, xmm2, xmm4, rax, xmm1, xmm3, xmm5, rdx
+	rounding_interleaved base2, noexec, noexec, xmm0, xmm2, xmm4, rax, xmm1, xmm3, xmm5, rbx
 	movapd	XMM_TMP1, xmm2		;; Save carry
 	movapd	XMM_TMP2, xmm3		;; Save carry
 ttp	mulpd	xmm0, [rbp+0*32+16]	;; new value1 = val * grp two-to-phi
 ttp	mulpd	xmm0, XMM_TTP_FUDGE[rax];; new value1 *= fudge two-to-phi
 	movapd	[rsi+0*16], xmm0	;; Save new value1
 ttp	mulpd	xmm1, [rbp+1*32+16]	;; new value1 = val * grp two-to-phi
-ttp	mulpd	xmm1, XMM_TTP_FUDGE[rdx];; new value1 *= fudge two-to-phi
+ttp	mulpd	xmm1, XMM_TTP_FUDGE[rbx];; new value1 *= fudge two-to-phi
 	movapd	[rsi+1*16], xmm1	;; Save new value1
 
 ttp	mov	al, [rdi+2]		;; Load big vs. little flags
-ttp	mov	dl, [rdi+3]
+ttp	mov	bl, [rdi+3]
 ttp	mulpd	xmm6, [rbp+2*32]	;; Mul by grp two-to-minus-phi
 ttp	mulpd	xmm6, XMM_TTMP_FUDGE[rax];; Mul by fudge two-to-minus-phi
 	addpd	xmm6, XMM_TMP3		;; x1 = values + carry
 ttp	mulpd	xmm7, [rbp+3*32]	;; Mul by grp two-to-minus-phi
-ttp	mulpd	xmm7, XMM_TTMP_FUDGE[rdx];; Mul by fudge two-to-minus-phi
+ttp	mulpd	xmm7, XMM_TTMP_FUDGE[rbx];; Mul by fudge two-to-minus-phi
 	addpd	xmm7, XMM_TMP4		;; x1 = values + carry
-	rounding_interleaved base2, noexec, noexec, xmm6, xmm2, xmm4, rax, xmm7, xmm3, xmm5, rdx
+	rounding_interleaved base2, noexec, noexec, xmm6, xmm2, xmm4, rax, xmm7, xmm3, xmm5, rbx
 	movapd	XMM_TMP3, xmm2		;; Save carry
 	movapd	XMM_TMP4, xmm3		;; Save carry
 ttp	mulpd	xmm6, [rbp+2*32+16]	;; new value1 = val * grp two-to-phi
 ttp	mulpd	xmm6, XMM_TTP_FUDGE[rax];; new value1 *= fudge two-to-phi
 	movapd	[rsi+2*16], xmm6	;; Save new value1
 ttp	mulpd	xmm7, [rbp+3*32+16]	;; new value1 = val * grp two-to-phi
-ttp	mulpd	xmm7, XMM_TTP_FUDGE[rdx];; new value1 *= fudge two-to-phi
+ttp	mulpd	xmm7, XMM_TTP_FUDGE[rbx];; new value1 *= fudge two-to-phi
 	movapd	[rsi+3*16], xmm7	;; Save new value1
-	mov	rdx, mem_loc		;; Restore second src ptr
 ttp	bump	rdi, 4			;; Next flags ptr
 	bump	rsi, 64			;; Next dest ptr
 	bump	rdx, 64			;; Next src ptr

@@ -40,7 +40,6 @@ xsub_7_words MACRO
 zlp:	movsd	xmm0, Q [rcx]		;; Load FFT word
 	movsd	xmm1, Q [rdi][rdx*8]	;; Load ZPAD data
 	subsd	xmm0, xmm1
-	addsd	xmm7, xmm1		;; Adjust sumout
 	movsd	Q [rcx], xmm0		;; Store FFT word
 	bump	rcx, 64			;; Bump pointers
 	inc	rdx
@@ -62,7 +61,6 @@ inorm	MACRO	lab, ttp, zero, echk, const, base2, sse4
 	PROCFLP	lab
 	int_prolog SZPTR+12,0,0
 zero	mov	zero_fft, 1		;; Set flag saying zero upper half
-	movapd	xmm7, XMM_SUMOUT	;; Load SUMOUT
 	movapd	xmm6, XMM_MAXERR	;; Load maximum error
 no zero	mov	edx, ADDIN_ROW		;; Is this the time to do our addin?
 no zero	cmp	edx, THIS_BLOCK
@@ -108,8 +106,7 @@ ttp	lea	rdx, [rdx+128]		;; Next set of 8 group multipliers
 	jnc	ilp0
 	add	rsi, normblkdst8	;; Add 128 every 8 clmblkdsts
 	jmp	ilp0			;; Iterate
-ilexit:	movapd	XMM_SUMOUT, xmm7	;; Save SUMOUT
-	movapd	XMM_MAXERR, xmm6	;; Save maximum error
+ilexit:	movapd	XMM_MAXERR, xmm6	;; Save maximum error
 ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr
 
 	; Handle adjusting the carry out of the topmost FFT word
@@ -133,7 +130,6 @@ zpnorm	MACRO	lab, ttp, echk, const, base2, sse4, khi, c1, cm1
 	PROCFLP	lab
 	int_prolog 12,0,0
 const	mov	const_fft, 1		;; Set flag saying mul-by-const
-	movapd	xmm7, XMM_SUMOUT	;; Load SUMOUT
 	movapd	xmm6, XMM_MAXERR	;; Load maximum error
 	xsub_7_words
 
@@ -163,8 +159,7 @@ ttp	bump	rdx, 128		;; Next set of 8 group multipliers
 	jnc	ilp0
 	add	rsi, normblkdst8	;; Add 128 every 8 clmblkdsts
 	jmp	ilp0			;; Iterate
-ilexit:	movapd	XMM_SUMOUT, xmm7	;; Save SUMOUT
-	movapd	XMM_MAXERR, xmm6	;; Save maximum error
+ilexit:	movapd	XMM_MAXERR, xmm6	;; Save maximum error
 ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr
 	int_epilog 12,0,0
 	ENDPP	lab
