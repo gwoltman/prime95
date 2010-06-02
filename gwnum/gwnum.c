@@ -2690,65 +2690,40 @@ double *r4dwpn_build_norm_table (
 	int	col)		/* TRUE if building column, not group, table */
 {
 	unsigned long i, k, num_cols;
-
-/* Two pass FFTs are handled here */
-
-	num_cols = gwdata->PASS2_SIZE / 2;
-	if (col) {
-
-/* Loop to build table */
-
-		for (i = 0; i < num_cols; i++) {
-//			double	ttp, ttmp;
-
-/* Call double-precision routine to compute the two multipliers */
-
-//			gwfft_weights3 (gwdata->dd_data, i, &ttp, NULL, &ttmp);
-
-/* Now set the entry for BOTH the MSW and LSW in an SSE2 pair */
-
-			table[i*4] = 1.0;
-			table[i*4+1] = 1.0;
-			table[i*4+2] = 1.0;
-			table[i*4+3] = 1.0;
-		}
-		return (table + num_cols * 4);
-	}
+	unsigned long h, hlimit, haddin, m, mmult, u, umult;
 
 /* Build the group multipliers table */
 
-	else {
-		unsigned long h, hlimit, haddin, m, mmult, u, umult;
+	num_cols = gwdata->PASS2_SIZE / 2;
 
 /* Loop to build table */
 
-		umult = gwdata->FFTLEN / 2;
-		hlimit = gwdata->FFTLEN / 4 / (2*num_cols);
-		for (h = 0; h < hlimit; h++) {
-			haddin = h * 2 * num_cols;
-			mmult = gwdata->FFTLEN / 4;
-			for (u = 0; u < 2; u++) {
-				for (m = 0; m < 2; m++) {
-					for (k = 0; k < 2; k++) {
-						double	ttp, ttmp;
-						long	n;
+	umult = gwdata->FFTLEN / 2;
+	hlimit = gwdata->FFTLEN / 4 / (2*num_cols);
+	for (h = 0; h < hlimit; h++) {
+		haddin = h * 2 * num_cols;
+		mmult = gwdata->FFTLEN / 4;
+		for (u = 0; u < 2; u++) {
+			for (m = 0; m < 2; m++) {
+				for (k = 0; k < 2; k++) {
+					double	ttp, ttmp;
+					long	n;
 
 /* Call double-precision routine to compute the two multipliers */
 
-						n = haddin + u * umult + m * mmult + k * num_cols;
-						gwfft_weights3 (gwdata->dd_data, n, &ttp, &ttmp, NULL);
+					n = haddin + u * umult + m * mmult + k * num_cols;
+					gwfft_weights3 (gwdata->dd_data, n, &ttp, &ttmp, NULL);
 
 /* Now set the entry for BOTH the MSW and LSW in an SSE2 pair */
 
-						table[k] = ttmp;
-						table[2+k] = ttp;
-					}
-					table += 4;
+					table[k] = ttmp;
+					table[2+k] = ttp;
 				}
+				table += 4;
 			}
 		}
-		return (table);
 	}
+	return (table);
 }
 
 /* This routine builds a big/little flags table - used by radix-4 normalizaion */
@@ -5787,9 +5762,7 @@ int internal_gwsetup (
 
 /* Build the column normalization multiplier table. */
 
-		ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
-		asm_data->norm_col_mults = tables;
-		tables = r4dwpn_build_norm_table (gwdata, tables, 1);
+		asm_data->norm_col_mults = NULL;
 	}
 
 /* Initialize tables for the home-grown SSE2 FFT code. */
