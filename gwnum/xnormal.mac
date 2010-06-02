@@ -3384,7 +3384,7 @@ ttp	mulpd	xmm10, XMM_TTMP_FUDGE[rax] ;; Mul by two-to-minus-phi fudge	;1-6	;1-5
 ttp	movapd	xmm11, [rdx+1*32]	;; grp two-to-minus-phi
 ttp	mulpd	xmm11, XMM_TTMP_FUDGE[rcx] ;; Mul by two-to-minus-phi fudge	;3-8	;2-6
 ttp	movapd	xmm2, [rdx+2*32]	;; grp two-to-minus-phi
-ttp	mulpd	xmm2, XMM_TTMP_FUDGE][r8] ;; Mul by two-to-minus-phi fudge	;5-10	;3-7
+ttp	mulpd	xmm2, XMM_TTMP_FUDGE[r8] ;; Mul by two-to-minus-phi fudge	;5-10	;3-7
 	movapd	xmm9, [rsi+1*16]	;; Load values2
 ttp	movapd	xmm3, [rdx+3*32]	;; grp two-to-minus-phi
 ttp	mulpd	xmm3, XMM_TTMP_FUDGE[r9] ;; Mul by two-to-minus-phi fudge	;7-12	;4-8
@@ -3442,7 +3442,7 @@ base2 no const movapd xmm5, XMM_LIMIT_INVERSE[r9];; next carry = shifted y4
 base2 no const mulpd xmm5, xmm3		;; next carry = shifted y4		;35-40	;21-25
 	movapd	[rbp+0*16], xmm12	;; Save carry1
 base2	subpd	xmm2, XMM_LIMIT_BIGMAX[r8];; z3 = y3 - (maximum*BIGVAL-BIGVAL)	;36-39	;21-23
-ttp	movapd	xmm12, XMMM_TTP_FUDGE[r8] ;; two-to-phi fudge
+ttp	movapd	xmm12, XMM_TTP_FUDGE[r8] ;; two-to-phi fudge
 ttp	mulpd	xmm12, [rdx+2*32+16]	;; two-to-phi = fudge * grp		;37-42	;22-26
 ttp	mov	r8b, [rdi+6]		;; Load next big vs. little flags
 	movapd	[rbp+1*16], xmm13	;; Save carry2
