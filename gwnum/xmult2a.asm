@@ -116,8 +116,8 @@ ttp	bump	rdi, 4			;; Next big/little flags
 	sub	loopcount1, 1		;; Test loop counter
 	jnz	ilp1			;; Loop til done
 	add	rsi, normblkdst		;; Skip gap in blkdst or clmblkdst
-	lea	rbp, [rbp+64]		;; Next set of carries
-ttp	lea	rdx, [rdx+128]		;; Next set of 8 group multipliers
+	bump	rbp, 64			;; Next set of carries
+ttp	bump	rdx, 128		;; Next set of 8 group multipliers
 	sub	loopcount2, 1		;; Test loop counter
 	jz	ilexit			;; Jump when loop complete
 	add	loopcount3, 80000000h/4 ;; 8 iterations
