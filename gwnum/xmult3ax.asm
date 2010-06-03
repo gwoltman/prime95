@@ -117,7 +117,7 @@ ablkdn:	sub	rsi, pass1blkdst	; Restore start of block ptr
 	add	rsi, pass1blkdst
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
 	jne	askip2			; Yes, skip bumping ttp/biglit ptrs
-	bump	rbp, 128		; Next set of group multipliers
+	bump	rbp, 16*128		; Next set of group multipliers
 	add	rdi, normval3		; Adjust little/big flags ptr
 askip2:	dec	loopcount2		; Decrement outer loop counter
 	jnz	ablk 			; Loop til done
@@ -233,7 +233,7 @@ sblkdn:	sub	rsi, pass1blkdst	; Restore start of block ptr
 	add	rsi, pass1blkdst
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
 	jne	sskip2			; Yes, skip bumping ttp/biglit ptrs
-	bump	rbp, 128		; Next set of group multipliers
+	bump	rbp, 16*128		; Next set of group multipliers
 	add	rdi, normval3		; Adjust little/big flags ptr
 sskip2:	dec	loopcount2		; Decrement outer loop counter
 	jnz	sblk 			; Loop til done
@@ -355,7 +355,7 @@ asblkdn:sub	rsi, pass1blkdst	; Restore start of block ptr
 	add	rbp, pass1blkdst
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
 	jne	asskip2			; Yes, skip bumping ttp/biglit ptrs
-	bump	rbx, 128		; Next set of group multipliers
+	bump	rbx, 16*128		; Next set of group multipliers
 	add	rdi, normval3		; Adjust little/big flags ptr
 asskip2:dec	loopcount2		; Decrement outer loop counter
 	jnz	asblk 			; Loop til done
@@ -510,7 +510,7 @@ mblkdn:	mov	rsi, saved_blk_start	; Restore start ptr
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
 	jne	mskip2			; Yes, skip bumping ttp/biglit ptrs
 	add	rdi, normval3		; Adjust little/big flags ptr
-	bump	rbp, 128		; Next set of group multipliers
+	bump	rbp, 16*128		; Next set of group multipliers
 mskip2:	dec	loopcount2		; Decrement outer loop counter
 	jnz	mblk 			; Loop til section done
 

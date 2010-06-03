@@ -69,7 +69,7 @@ nb2ilp1:xnorm012_wpn noexec		; Split carries for one cache line
 	add	rbp, pass1blkdst	; Next FFT data pointer
 	cmp	RATIONAL_FFT, 0		; Don't bump these two pointers
 	jne	short nb2iskip		; for rational FFTs
-	bump	rdx, 128		; Next group multiplier
+	bump	rdx, 16*128		; Next group multiplier
 	lea	rdi, [rdi+rbx*4]	; Next big/little flags pointer
 nb2iskip:sub	loopcount2, 1		; Test loop counter
 	jnz	nb2ilp1			; Next carry row in section
@@ -80,7 +80,7 @@ ilp1:	xnorm012_wpn exec		; Split carries for one cache line
 	add	rbp, pass1blkdst	; Next FFT data pointer
 	cmp	RATIONAL_FFT, 0		; Don't bump these two pointers
 	jne	short iskip		; for rational FFTs
-	bump	rdx, 128		; Next group multiplier
+	bump	rdx, 16*128		; Next group multiplier
 	lea	rdi, [rdi+rbx*4]	; Next big/little flags pointer
 iskip:	sub	loopcount2, 1		; Test loop counter
 	jnz	ilp1			; Next carry row in section
@@ -120,7 +120,7 @@ c2d:	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
 	add	rbp, pass1blkdst	; Next FFT data pointer
 	cmp	RATIONAL_FFT, 0		; Don't bump these two pointers
 	jne	short zskip		; for rational FFTs
-	bump	rdx, 128		; Next group multiplier
+	bump	rdx, 16*128		; Next group multiplier
 	lea	rdi, [rdi+rbx*4]	; Next big/little flags pointer
 zskip:	sub	loopcount2, 1		; Test loop counter
 	jnz	zlp1			; Next carry row in section

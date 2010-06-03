@@ -2706,7 +2706,7 @@ double *r4dwpn_build_norm_table (
 		for (u = 0; u < 2; u++) {
 			for (m = 0; m < 2; m++) {
 				for (k = 0; k < 2; k++) {
-					double	ttp, ttmp;
+					double	ttp, ttmp, *tab32;
 					long	n;
 
 /* Call double-precision routine to compute the two multipliers */
@@ -2715,11 +2715,26 @@ double *r4dwpn_build_norm_table (
 					gwfft_weights3 (gwdata->dd_data, n, &ttp, &ttmp, NULL);
 
 /* Now set the entry for BOTH the MSW and LSW in an SSE2 pair */
+/* Multiply by the fudge factor to save a multiply during normalize */					
 
-					table[k] = ttmp;
-					table[2+k] = ttp;
+					if (k == 0) {
+						table[0] = table[2] = table[4] = table[6] = table[16] = table[18] = table[20] = table[22] = ttmp;
+						table[8] = table[10] = table[12] = table[14] = table[24] = table[26] = table[28] = table[30] = ttmp * (double) gwdata->b;
+					} else {
+						table[1] = table[3] = table[5] = table[7] = table[9] = table[11] = table[13] = table[15] = ttmp;
+						table[17] = table[19] = table[21] = table[23] = table[25] = table[27] = table[29] = table[31] = ttmp * (double) gwdata->b;
+					}
+
+					tab32 = table + 32;
+					if (k == 0) {
+						tab32[0] = tab32[2] = tab32[4] = tab32[6] = tab32[16] = tab32[18] = tab32[20] = tab32[22] = ttp;
+						tab32[8] = tab32[10] = tab32[12] = tab32[14] = tab32[24] = tab32[26] = tab32[28] = tab32[30] = ttp / (double) gwdata->b;
+					} else {
+						tab32[1] = tab32[3] = tab32[5] = tab32[7] = tab32[9] = tab32[11] = tab32[13] = tab32[15] = ttp;
+						tab32[17] = tab32[19] = tab32[21] = tab32[23] = tab32[25] = tab32[27] = tab32[29] = tab32[31] = ttp / (double) gwdata->b;
+					}
 				}
-				table += 4;
+				table += 64;
 			}
 		}
 	}
