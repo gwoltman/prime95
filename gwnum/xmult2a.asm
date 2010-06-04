@@ -1,4 +1,4 @@
-; Copyright 2001-2009 Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2010 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -94,15 +94,11 @@ ttp	mov	norm_ptr2, rbx		;; Save column multipliers ptr
 	mov	eax, addcount1		;; Load loop counter
 	mov	loopcount2, eax		;; Save loop counter
 	mov	loopcount3, 0		;; Clear outermost loop counter
-	sub	rax, rax		;; Clear big/lit flags
-	sub	rcx, rcx
-ttp	mov	al, [rdi+0]		;; Load big vs. little flags
-ttp	mov	cl, [rdi+1]		;; Load big vs. little flags
+ttp	movzx	rax, BYTE PTR [rdi+0]	;; Load big vs. little flags
+ttp	movzx	rcx, BYTE PTR [rdi+1]	;; Load big vs. little flags
 IFDEF X86_64
-	sub	r8, r8
-	sub	r9, r9
-ttp	mov	r8b, [rdi+2]		;; Load big vs. little flags
-ttp	mov	r9b, [rdi+3]		;; Load big vs. little flags
+ttp	movzx	r8, BYTE PTR [rdi+2]	;; Load big vs. little flags
+ttp	movzx	r9, BYTE PTR [rdi+3]	;; Load big vs. little flags
 ENDIF
 ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	mov	loopcount1, ebx		;; Save loop counter
@@ -170,7 +166,7 @@ ttp	mov	norm_ptr2, rbx		;; Save column multipliers ptr
 	mov	loopcount2z, eax	;; Save loop counter
 	mov	loopcount3z, 0		;; Clear outermost loop counter
 	sub	rax, rax		;; Clear big/lit flags
-ttp	mov	al, [rdi+0]		;; Load big vs. little flags
+ttp	movzx	rax, BYTE PTR [rdi+0]	;; Load big vs. little flags
 ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	mov	loopcount1z, ebx	;; Save loop counter
 	lea	rbx, XMM_COL_MULTS	;; Load col mult scratch area

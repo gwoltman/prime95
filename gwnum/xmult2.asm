@@ -1,4 +1,4 @@
-; Copyright 2001-2009 Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2010 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -122,7 +122,6 @@ PROCF	xgw_carries
 	mov	rbp, DESTARG		; Addr of the FFT data
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
 	mov	rdx, norm_grp_mults	; Addr of the group multipliers
-	sub	rcx, rcx		; Clear big/little flag
 	mov	eax, count3		; Load 3 section counts
 	mov	loopcount1, eax		; Save for later
 ilp0:	mov	eax, loopcount1		; Get list of counts
@@ -135,7 +134,6 @@ ilp0:	mov	eax, loopcount1		; Get list of counts
 	shl	rbx, 6			; Compute addr of the last carries row
 	add	rbx, rsi
 	xnorm012_2d_part2
-	sub	rax, rax		; Clear big/little flag
 	cmp	B_IS_2, 0		; Is b = 2?
 	jne	ilp1			; Yes, do simpler roundings
 nb2ilp1:mov	rbx, norm_col_mults	; Addr of the column multipliers
@@ -190,7 +188,6 @@ zlp0:	mov	eax, loopcount1		; Get list of counts
 	shl	rbx, 6			; Compute addr of the last carries row
 	add	rbx, rsi
 	xnorm012_2d_zpad_part2
-	sub	rax, rax		; Clear big/little flag
 	movapd	XMM_TMP1, xmm6		; xnorm012_2d_zpad needs to use this register
 zlp1:	mov	rbx, norm_col_mults	; Addr of the column multipliers
 	xnorm012_2d_zpad		; Split carries for one cache line

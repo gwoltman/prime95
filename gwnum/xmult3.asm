@@ -58,8 +58,6 @@ iskip:	mov	biglit_incr, rax	; Save computed increments
 	mov	rbp, DESTARG		; Addr of the FFT data
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
 	mov	rdx, norm_grp_mults	; Addr of the group multipliers
-	sub	rax, rax		; Clear big/little flag
-	sub	rcx, rcx		; Clear big/little flag
 ilp1:	cmp	B_IS_2, 0		; Is b = 2?
 	jne	b2			; Yes, do simpler roundings
 	xnorm012_wpn noexec		; Split carries for one cache line
@@ -84,7 +82,6 @@ xgw_carries_zpad:
 	mov	rbp, DESTARG		; Addr of the FFT data
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
 	mov	rdx, norm_grp_mults	; Addr of the group multipliers
-	sub	rax, rax		; Clear big/little flag
 zlp1:	xnorm012_wpn_zpad		; Split carries for one cache line
 	bump	rsi, 64			; Next carries pointer
 	add	rbp, pass1blkdst	; Next FFT data pointer

@@ -1,4 +1,4 @@
-; Copyright 2001-2009 Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2010 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -106,7 +106,6 @@ add0:	cmp	B_IS_2, 0		; Is this base 2?
 nb2add0:cmp	RATIONAL_FFT, 0		; Test for irrational FFTs
 	je	nb2iadd0   		; Yes, use two-to-phi multipliers
 	mov	loopcount4, 128		; Cache lines in 8KB chunk
-	sub	rax, rax		; Clear big/lit flag
 nb2radd1:
 	xnorm_op_2d addpd, noexec, noexec, saved_reg ; Add and normalize 8 values
 	dec	loopcount4		; Decrement inner loop counter
@@ -116,7 +115,6 @@ nb2iadd0:mov	eax, normval1		; Load count of clms in 8KB chunk
 	mov	loopcount4, eax
 nb2iadd1:mov	eax, cache_line_multiplier ; Load inner loop count
 	mov	loopcount5, eax	; Save inner loop count
-	sub	rax, rax		; Clear big/lit flag
 nb2iadd2:xnorm_op_2d addpd, exec, noexec, saved_reg ; Add and normalize 8 values
 	dec	loopcount5		; Decrement inner loop counter
 	jnz	nb2iadd2 			; Loop til done
@@ -127,7 +125,6 @@ nb2iadd2:xnorm_op_2d addpd, exec, noexec, saved_reg ; Add and normalize 8 values
 b2add:	cmp	RATIONAL_FFT, 0		; Test for irrational FFTs
 	je	iadd0   		; Yes, use two-to-phi multipliers
 	mov	loopcount4, 128		; Cache lines in 8KB chunk
-	sub	rax, rax		; Clear big/lit flag
 radd1:	xnorm_op_2d addpd, noexec, exec, saved_reg ; Add and normalize 8 values
 	dec	loopcount4		; Decrement inner loop counter
 	jnz	radd1 			; Loop til done
@@ -136,7 +133,6 @@ iadd0:	mov	eax, normval1		; Load count of clms in 8KB chunk
 	mov	loopcount4, eax
 iadd1:	mov	eax, cache_line_multiplier ; Load inner loop count
 	mov	loopcount5, eax	; Save inner loop count
-	sub	rax, rax		; Clear big/lit flag
 iadd2:	xnorm_op_2d addpd, exec, exec, saved_reg ; Add and normalize 8 values
 	dec	loopcount5		; Decrement inner loop counter
 	jnz	iadd2 			; Loop til done
@@ -277,7 +273,6 @@ sub0:	cmp	B_IS_2, 0		; Is this base 2?
 	cmp	RATIONAL_FFT, 0		; Test for irrational FFTs
 	je	nb2isub0   		; Yes, use two-to-phi multipliers
 	mov	loopcount4, 128		; Cache lines in 8KB chunk
-	sub	rax, rax		; Clear big/lit flag
 nb2rsub1:
 	xnorm_op_2d subpd, noexec, noexec, saved_reg ; Subtract and normalize 8 values
 	dec	loopcount4		; Decrement inner loop counter
@@ -287,7 +282,6 @@ nb2isub0:mov	eax, normval1		; Load count of clms in 8KB chunk
 	mov	loopcount4, eax
 nb2isub1:mov	eax, cache_line_multiplier ; Load inner loop count
 	mov	loopcount5, eax		; Save inner loop count
-	sub	rax, rax		; Clear big/lit flag
 nb2isub2:xnorm_op_2d subpd, exec, noexec, saved_reg ; Subtract and normalize 8 values
 	dec	loopcount5		; Decrement inner loop counter
 	jnz	nb2isub2		; Loop til done
@@ -298,7 +292,6 @@ nb2isub2:xnorm_op_2d subpd, exec, noexec, saved_reg ; Subtract and normalize 8 v
 b2sub:	cmp	RATIONAL_FFT, 0		; Test for irrational FFTs
 	je	isub0   		; Yes, use two-to-phi multipliers
 	mov	loopcount4, 128		; Cache lines in 8KB chunk
-	sub	rax, rax		; Clear big/lit flag
 rsub1:	xnorm_op_2d subpd, noexec, exec, saved_reg ; Subtract and normalize 8 values
 	dec	loopcount4		; Decrement inner loop counter
 	jnz	rsub1 			; Loop til done
@@ -307,7 +300,6 @@ isub0:	mov	eax, normval1		; Load count of clms in 8KB chunk
 	mov	loopcount4, eax
 isub1:	mov	eax, cache_line_multiplier ; Load inner loop count
 	mov	loopcount5, eax		; Save inner loop count
-	sub	rax, rax		; Clear big/lit flag
 isub2:	xnorm_op_2d subpd, exec, exec, saved_reg ; Subtract and normalize 8 values
 	dec	loopcount5		; Decrement inner loop counter
 	jnz	isub2 			; Loop til done
@@ -472,7 +464,6 @@ as0:	cmp	B_IS_2, 0		; Is this base 2?
 	cmp	RATIONAL_FFT, 0		; Test for irrational FFTs
 	je	nb2ias0	   		; Yes, use two-to-phi multipliers
 	mov	loopcount4, 128		; Cache lines in an 8KB chunk
-	sub	rax, rax		; Clear big/lit flag
 nb2ras1: xnorm_addsub_2d noexec, noexec, saved_reg ; Add & sub and normalize 8 values
 	dec	loopcount4		; Decrement inner loop counter
 	jnz	nb2ras1			; Loop til done
@@ -495,7 +486,6 @@ nb2ias2:xnorm_addsub_2d exec, noexec, saved_reg	; Add & subtract and normalize 8
 b2as:	cmp	RATIONAL_FFT, 0		; Test for irrational FFTs
 	je	ias0	   		; Yes, use two-to-phi multipliers
 	mov	loopcount4, 128		; Cache lines in an 8KB chunk
-	sub	rax, rax		; Clear big/lit flag
 ras1:	xnorm_addsub_2d noexec, exec, saved_reg ; Add & sub and normalize 8 values
 	dec	loopcount4		; Decrement inner loop counter
 	jnz	ras1 			; Loop til done
@@ -619,7 +609,6 @@ PROCFL	gwxadds2
 	mov	rbp, norm_grp_mults	; Addr of the group multipliers
 	mov	rbx, norm_col_mults	; Addr of the column multipliers
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
-	sub	rax, rax		; Clear biglit flag
 	cmp	B_IS_2, 0		; Is this base 2?
 	jne	b2addsm			; yes, do simpler rounding
 	xnorm_smalladd_2d noexec	; Similar to add last carry code
@@ -682,8 +671,6 @@ mul0:	cmp	B_IS_2, 0		; Is this base 2?
 	cmp	RATIONAL_FFT, 0		; Test for irrational FFTs
 	je	nb2imul0   		; Yes, use two-to-phi multipliers
 	mov	loopcount4, 128		; Cache lines in 8KB chunk
-	sub	rax, rax		; Clear big/lit flags
-	sub	rcx, rcx
 nb2rmul1:xnorm_smallmul_2d noexec, noexec ; Mul and normalize 8 values
 	dec	loopcount4		; Decrement inner loop counter
 	jnz	nb2rmul1		; Loop til done
@@ -692,8 +679,6 @@ nb2imul0:mov	eax, normval1		; Load count of clms in 8KB chunk
 	mov	loopcount4, eax
 nb2imul1:mov	eax, cache_line_multiplier ; Load inner loop count
 	mov	loopcount5, eax		; Save inner loop count
-	sub	rax, rax		; Clear big/lit flags
-	sub	rcx, rcx
 nb2imul2:xnorm_smallmul_2d exec, noexec ; Mul and normalize 8 values
 	dec	loopcount5		; Decrement inner loop counter
 	jnz	nb2imul2		; Loop til done
@@ -705,8 +690,6 @@ nb2imul2:xnorm_smallmul_2d exec, noexec ; Mul and normalize 8 values
 b2mul:	cmp	RATIONAL_FFT, 0		; Test for irrational FFTs
 	je	imul0   		; Yes, use two-to-phi multipliers
 	mov	loopcount4, 128		; Cache lines in 8KB chunk
-	sub	rax, rax		; Clear big/lit flags
-	sub	rcx, rcx
 rmul1:	xnorm_smallmul_2d noexec, exec	; Mul and normalize 8 values
 	dec	loopcount4		; Decrement inner loop counter
 	jnz	rmul1 			; Loop til done
@@ -715,8 +698,6 @@ imul0:	mov	eax, normval1		; Load count of clms in 8KB chunk
 	mov	loopcount4, eax
 imul1:	mov	eax, cache_line_multiplier ; Load inner loop count
 	mov	loopcount5, eax		; Save inner loop count
-	sub	rax, rax		; Clear big/lit flags
-	sub	rcx, rcx
 imul2:	xnorm_smallmul_2d exec, exec	; Mul and normalize 8 values
 	dec	loopcount5		; Decrement inner loop counter
 	jnz	imul2 			; Loop til done
