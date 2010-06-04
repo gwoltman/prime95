@@ -669,3 +669,30 @@ void gwsincos2_weighted (
 	END_x86_FIX
 }
 
+// This computes the two FFT weights and the two fudged weights in one call.
+
+extern "C"
+void gwfft_weights_fudged (
+	void	*dd_data_arg,
+	unsigned long j,
+	unsigned long b,
+	double	*fft_weight,
+	double	*fft_weight_inverse,
+	double	*fft_weight_over_b,
+	double	*fft_weight_inverse_times_b)
+{
+	dd_real temp, bpower, weight, weight_inverse;
+
+	x86_FIX
+	temp = (double) j * dd_data->gw__num_b_per_word;
+	bpower = gwceil (temp) - temp;
+	if (! dd_data->gw__c_is_one) bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) j;
+	weight = exp (dd_data->gw__logb * bpower);
+	*fft_weight = double (weight);
+	*fft_weight_over_b = double (weight / (double) b);
+	weight_inverse = 1.0 / weight;
+	*fft_weight_inverse = double (weight_inverse);
+	*fft_weight_inverse_times_b = double (weight_inverse * (double) b);
+	END_x86_FIX
+}
+

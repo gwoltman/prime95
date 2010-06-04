@@ -2419,14 +2419,9 @@ double *r4dwpn_build_pass1_table (
 					double	ttp, ttmp;
 
 					temp = (group + j + i);
-
 					gwfft_weights3 (gwdata->dd_data, temp, &ttp, NULL, &ttmp);
 					table[0] = ttp;
 					table[2] = ttmp;
-					gwfft_weights3 (gwdata->dd_data, temp + upper_sse2_word, &ttp, NULL, &ttmp);
-					table[1] = ttp;
-					table[3] = ttmp;
-
 					gwsincos2_weighted (gwdata->dd_data, temp, N, temp, (double *) &sincos);
 					table[4] = sincos[0];	/* temp */
 					table[6] = sincos[1];
@@ -2436,6 +2431,9 @@ double *r4dwpn_build_pass1_table (
 					table[14] = sincos[5];
 
 					temp += upper_sse2_word;
+					gwfft_weights3 (gwdata->dd_data, temp, &ttp, NULL, &ttmp);
+					table[1] = ttp;
+					table[3] = ttmp;
 					gwsincos2_weighted (gwdata->dd_data, temp, N, temp, (double *) &sincos);
 					table[5] = sincos[0];	/* temp */
 					table[7] = sincos[1];
@@ -2686,25 +2684,25 @@ double *r4dwpn_build_norm_table (
 	num_cols = gwdata->PASS2_SIZE * 8;
 	for (i = 0; i < gwdata->FFTLEN / 4; i += num_cols) {
 		for (j = 0; j < gwdata->FFTLEN; j += gwdata->FFTLEN / 4) {
-			double	ttp, ttmp, *tab32;
+			double	ttp, ttmp, ttp_over_b, ttmp_times_b, *tab32;
 
 /* Call double-precision routine to compute the multipliers */
 
-			gwfft_weights3 (gwdata->dd_data, i + j, &ttp, &ttmp, NULL);
+			gwfft_weights_fudged (gwdata->dd_data, i + j, gwdata->b, &ttp, &ttmp, &ttp_over_b, &ttmp_times_b);
 
 /* Now set the entry for BOTH the MSW and LSW in an SSE2 pair */
 /* Multiply by the fudge factor to save a multiply during normalize */					
 
 			table[0] = table[2] = table[4] = table[6] = table[16] = table[18] = table[20] = table[22] = ttmp;
 			table[1] = table[3] = table[5] = table[7] = table[9] = table[11] = table[13] = table[15] = ttmp;
-			table[8] = table[10] = table[12] = table[14] = table[24] = table[26] = table[28] = table[30] = ttmp * (double) gwdata->b;
-			table[17] = table[19] = table[21] = table[23] = table[25] = table[27] = table[29] = table[31] = ttmp * (double) gwdata->b;
+			table[8] = table[10] = table[12] = table[14] = table[24] = table[26] = table[28] = table[30] = ttmp_times_b;
+			table[17] = table[19] = table[21] = table[23] = table[25] = table[27] = table[29] = table[31] = ttmp_times_b;
 
 			tab32 = table + 32;
 			tab32[0] = tab32[2] = tab32[4] = tab32[6] = tab32[16] = tab32[18] = tab32[20] = tab32[22] = ttp;
-			tab32[8] = tab32[10] = tab32[12] = tab32[14] = tab32[24] = tab32[26] = tab32[28] = tab32[30] = ttp / (double) gwdata->b;
 			tab32[1] = tab32[3] = tab32[5] = tab32[7] = tab32[9] = tab32[11] = tab32[13] = tab32[15] = ttp;
-			tab32[17] = tab32[19] = tab32[21] = tab32[23] = tab32[25] = tab32[27] = tab32[29] = tab32[31] = ttp / (double) gwdata->b;
+			tab32[8] = tab32[10] = tab32[12] = tab32[14] = tab32[24] = tab32[26] = tab32[28] = tab32[30] = ttp_over_b;
+			tab32[17] = tab32[19] = tab32[21] = tab32[23] = tab32[25] = tab32[27] = tab32[29] = tab32[31] = ttp_over_b;
 
 			table += 64;
 		}
@@ -6362,11 +6360,11 @@ int internal_gwsetup (
 		asm_data->CARRY_ADJUST6 = pow ((double) b, num_b_in_third_top_word);
 		if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
 			unsigned long col;
-			col = (gwdata->FFTLEN-1) % (gwdata->PASS2_SIZE / 2 * 8);
+			col = (gwdata->FFTLEN-1) % (gwdata->PASS2_SIZE * 8);
 			asm_data->CARRY_ADJUST3 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-1) / gwfft_weight (gwdata->dd_data, col);
-			col = (gwdata->FFTLEN-2) % (gwdata->PASS2_SIZE / 2 * 8);
+			col = (gwdata->FFTLEN-2) % (gwdata->PASS2_SIZE * 8);
 			asm_data->CARRY_ADJUST5 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-2) / gwfft_weight (gwdata->dd_data, col);
-			col = (gwdata->FFTLEN-3) % (gwdata->PASS2_SIZE / 2 * 8);
+			col = (gwdata->FFTLEN-3) % (gwdata->PASS2_SIZE * 8);
 			asm_data->CARRY_ADJUST7 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-3) / gwfft_weight (gwdata->dd_data, col);
 		} else {
 			asm_data->CARRY_ADJUST3 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-1);
@@ -6521,13 +6519,13 @@ int internal_gwsetup (
 			int	i;
 			for (i = 0; i < 7; i++) {
 				unsigned long col;
-				col = (gwdata->FFTLEN / 2 - 3 + i) % (gwdata->PASS2_SIZE / 2 * 8);
+				col = (gwdata->FFTLEN / 2 - 3 + i) % (gwdata->PASS2_SIZE * 8);
 				gwdata->ZPAD_COPY7_ADJUST[i] = gwfft_weight (gwdata->dd_data, col);
 			}
 			/* Adjustments for ZPAD0 - ZPAD6 */
 			for (i = 0; i < 7; i++) {
 				unsigned long col;
-				col = i % (gwdata->PASS2_SIZE / 2 * 8);
+				col = i % (gwdata->PASS2_SIZE * 8);
 				gwdata->ZPAD_0_7_ADJUST[i] = gwfft_weight_inverse (gwdata->dd_data, col);
 			}
 		} else {

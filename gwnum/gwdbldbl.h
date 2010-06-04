@@ -39,6 +39,7 @@ double gwfft_weight_exponent (void *, unsigned long);
 unsigned long gwfft_base (void *, unsigned long);
 void gwsincos_weighted (void *, unsigned long, unsigned long, unsigned long, double *);
 void gwsincos2_weighted (void *, unsigned long, unsigned long, unsigned long, double *);
+void gwfft_weights_fudged (void	*, unsigned long, unsigned long, double *, double *, double *, double *);
 
 #ifdef __cplusplus
 }
