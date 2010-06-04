@@ -77,7 +77,7 @@ noadd:	mov	saved_rsi, rsi		;; Save for xtop_carry_adjust
 	mov	rdi, norm_ptr1		;; Load big/little flags array ptr
 	mov	eax, addcount1		;; Load loop counter
 	mov	loopcount2, eax		;; Save loop counter
-	mov	loopcount3, 0		;; Clear outermost loop counter
+	mov	loopcount3, 0		;; Set loop counter
 	sub	rax, rax		;; Clear big/lit flags
 	sub	rcx, rcx
 ttp	mov	al, [rdi+0]		;; Load big vs. little flags
@@ -90,7 +90,6 @@ ttp	mov	r9b, [rdi+3]		;; Load big vs. little flags
 ENDIF
 ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	mov	loopcount1, ebx		;; Save loop counter
-	xprefetcht1 [rdx+16*128]		;; Prefetch group multiplier
 ilp1:	xprefetchw [rsi+64]
 	xnorm_wpn ttp, zero, echk, const, base2, sse4 ;; Normalize 8 values
 	bump	rsi, 64			;; Next cache line
@@ -99,12 +98,12 @@ ttp	bump	rdi, 4			;; Next big/little flags
 	jnz	ilp1			;; Loop til done
 	add	rsi, normblkdst		;; Skip gap in blkdst or clmblkdst
 	bump	rbp, 64			;; Next set of carries
-ttp	bump	rdx, 16*128		;; Next set of 8 group multipliers
 	sub	loopcount2, 1		;; Test loop counter
 	jz	ilexit			;; Jump when loop complete
 	add	loopcount3, 80000000h/4 ;; 8 iterations
 	jnc	ilp0
 	add	rsi, normblkdst8	;; Add 128 every 8 clmblkdsts
+ttp	bump	rdx, 4*512		;; Next set of group multipliers
 	jmp	ilp0			;; Iterate
 ilexit:	movapd	XMM_MAXERR, xmm6	;; Save maximum error
 ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr
@@ -138,12 +137,11 @@ const	mov	const_fft, 1		;; Set flag saying mul-by-const
 	mov	rdi, norm_ptr1		;; Load big/little flags array ptr
 	mov	eax, addcount1		;; Load loop counter
 	mov	loopcount2z, eax	;; Save loop counter
-	mov	loopcount3z, 0		;; Clear outermost loop counter
+	mov	loopcount3z, 0		;; Set loop counter
 	sub	rax, rax		;; Clear big/lit flags
 ttp	mov	al, [rdi+0]		;; Load big vs. little flags
 ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	mov	loopcount1z, ebx	;; Save loop counter
-	xprefetcht1 [rdx+16*128]	;; Prefetch group multiplier
 ilp1:	xprefetchw [rsi+64]
 	xnorm_wpn_zpad ttp, echk, const, base2, sse4, khi, c1, cm1 ;; Normalize 8 values
 	bump	rsi, 64			;; Next cache line
@@ -152,12 +150,12 @@ ttp	bump	rdi, 4			;; Next big/little flags
 	jnz	ilp1			;; Loop til done
 	add	rsi, normblkdst		;; Skip gap in blkdst or clmblkdst
 	bump	rbp, 64			;; Next set of carries
-ttp	bump	rdx, 16*128		;; Next set of 8 group multipliers
 	sub	loopcount2z, 1		;; Test loop counter
 	jz	ilexit			;; Jump when loop complete
 	add	loopcount3z, 80000000h/4 ;; 8 iterations
 	jnc	ilp0
 	add	rsi, normblkdst8	;; Add 128 every 8 clmblkdsts
+ttp	bump	rdx, 4*512		;; Next set of group multipliers
 	jmp	ilp0			;; Iterate
 ilexit:	movapd	XMM_MAXERR, xmm6	;; Save maximum error
 ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr

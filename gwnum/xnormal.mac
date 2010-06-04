@@ -3547,20 +3547,15 @@ ttp	mov	al, [rdi+4]		;; Load next big vs. little flags
 ; eax = big vs. little word flag #1
 
 xnorm012_wpn_part1 MACRO
-	movsd	xmm6, Q [rbx-40]	;; Load 2 carries from last row
-	movsd	xmm7, Q [rbx-8]		;; Second carry is very last carry
-	subsd	xmm7, XMM_BIGVAL
-	mulsd	xmm7, XMM_MINUS_C	;; Negate the carry
-	addsd	xmm7, XMM_BIGVAL
-	ENDM
-xnorm012_wpn_part2 MACRO
-	movsd	xmm0, xmm7		; Copy 2 carries from prev section
-	movsd	xmm2, xmm6
-	movsd	xmm1, Q [rbx-56]	; Load 2 carries from end this section
+	movsd	xmm0, Q [rbx-8]		;; The very last carry
+	subsd	xmm0, XMM_BIGVAL
+	mulsd	xmm0, XMM_MINUS_C	;; Negate the carry
+	addsd	xmm0, XMM_BIGVAL
+	movsd	xmm1, Q [rbx-56]	;; Load 3 other carries from last row
+	movsd	xmm2, Q [rbx-40]
 	movsd	xmm3, Q [rbx-24]
-	movsd	xmm6, Q [rbx-8]		; Remember 2 carries for next section
-	movsd	xmm7, Q [rbx-40]
 	ENDM
+
 xnorm012_wpn MACRO base2
 	LOCAL	hard, done
 
@@ -4272,17 +4267,12 @@ div_k_done:
 	addsd	xmm2, Q [rsi+7*64]	;; Add in FFT data
 	movsd	Q [rsi+7*64], xmm2	;; Save value7
 
-	subsd	xmm6, xmm6		;; Clear 2 carries from last row
-	movsd	xmm7, XMM_BIGVAL
-	ENDM
-xnorm012_wpn_zpad_part2 MACRO
-	movsd	xmm0, xmm7		;; Copy 2 carries from prev section
-	movsd	xmm2, xmm6
+	movsd	xmm0, XMM_BIGVAL	;; Copy 2 carries from prev section
+	subsd	xmm2, xmm2
 	movsd	xmm1, Q [rbx-56]	;; Load 2 carries from end this section
 	movsd	xmm3, Q [rbx-24]
-	movsd	xmm6, Q [rbx-8]		;; Remember 2 carries for next section
-	movsd	xmm7, Q [rbx-40]
 	ENDM
+
 xnorm012_wpn_zpad MACRO
 	LOCAL	b2, done
 	cmp	B_IS_2, 0		;; Is b = 2?

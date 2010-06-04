@@ -41,9 +41,10 @@ XMM_HSCD1 = 16			;; Sizeof a half sin/cos table entry used in real FFTs in pass 
 XMM_HSCD2 = 32			;; Sizeof a half sin/cos table entry used in real FFTs in pass 2
 
 ;; Used in r4dwpn (radix-4 delay with patial normalization) FFTs
-XMM_ND1 = 32			;; Sizeof a normalization-only table entry
-XMM_SCND1 = 48			;; Sizeof a radix-3 sin/cos/noralization table entry
-XMM_SCND2 = 96			;; Sizeof a radix-4 or radix-5 sin/cos/noralization table entry
+XMM_SCND1 = 80			;; Sizeof a complex radix-3 sin/cos/noralization table entry
+XMM_SCND2 = 128			;; Sizeof a complex radix-4 or radix-5 sin/cos/noralization table entry
+XMM_SCND1R = 48			;; Sizeof a real radix-3 sin/cos/noralization table entry
+XMM_SCND2R = 96			;; Sizeof a real radix-4 or radix-5 sin/cos/noralization table entry
 
 ; **********************************************************
 ; **********************************************************

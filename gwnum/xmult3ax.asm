@@ -36,17 +36,18 @@ PROCFL	gwxadd3
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
-	mov	rbp, norm_grp_mults	; Addr of the group multipliers
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
 	movapd	xmm7, XMM_BIGVAL	; Init 4 carries
 	movapd	XMM_TMP1, xmm7
 	movapd	XMM_TMP2, xmm7
 	movapd	XMM_TMP3, xmm7
 	movapd	XMM_TMP4, xmm7
-	mov	eax, count3		; Load 3 section counts
+	mov	eax, count3		; Load block count
 	mov	loopcount2, eax		; Save count of blocks
 
 	;; Do a block
+
+agrp:	mov	rbp, norm_grp_mults	; Addr of the group multipliers
 
 ablk:	mov	eax, normval4		; Load count of 8KB chunks in a blk
 	mov	loopcount3, eax
@@ -66,12 +67,12 @@ nb2radd1:
 nb2iadd0:mov	eax, normval1		; Load count of clms in 8KB chunk
 	mov	loopcount4, eax
 nb2iadd1:mov	eax, cache_line_multiplier ; Load inner loop count
-	mov	loopcount5, eax	; Save inner loop count
+	mov	loopcount5, eax		; Save inner loop count
 	sub	rax, rax		; Clear big/lit flags
 	sub	rbx, rbx
 nb2iadd2:xnorm_op_wpn addpd, exec, noexec ; Add and normalize 8 values
 	dec	loopcount5		; Decrement inner loop counter
-	jnz	nb2iadd2 			; Loop til done
+	jnz	nb2iadd2		; Loop til done
 	add	rdi, normval2		; Adjust ptr to little/big flags
 	dec	loopcount4		; Decrement middle loop counter
 	jnz	nb2iadd1		; Loop til done
@@ -88,10 +89,10 @@ radd1:	xnorm_op_wpn addpd, noexec, exec ; Add and normalize 8 values
 iadd0:	mov	eax, normval1		; Load count of clms in 8KB chunk
 	mov	loopcount4, eax
 iadd1:	mov	eax, cache_line_multiplier ; Load inner loop count
-	mov	loopcount5, eax	; Save inner loop count
+	mov	loopcount5, eax		; Save inner loop count
 	sub	rax, rax		; Clear big/lit flags
 	sub	rbx, rbx
-iadd2:	xnorm_op_wpn addpd, exec, exec ; Add and normalize 8 values
+iadd2:	xnorm_op_wpn addpd, exec, exec	; Add and normalize 8 values
 	dec	loopcount5		; Decrement inner loop counter
 	jnz	iadd2 			; Loop til done
 	add	rdi, normval2		; Adjust ptr to little/big flags
@@ -116,11 +117,15 @@ ablkdn:	sub	rsi, pass1blkdst	; Restore start of block ptr
 	xnorm_op_wpn_blk rsi, rbp, XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4
 	add	rsi, pass1blkdst
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
-	jne	askip2			; Yes, skip bumping ttp/biglit ptrs
-	bump	rbp, 16*128		; Next set of group multipliers
+	jne	short askip2		; Yes, skip bumping ttp/biglit ptrs
 	add	rdi, normval3		; Adjust little/big flags ptr
-askip2:	dec	loopcount2		; Decrement outer loop counter
-	jnz	ablk 			; Loop til done
+askip2:	add	loopcount2, 80000000h/4 ; Loop 8 times
+	jnc	ablk
+	cmp	RATIONAL_FFT, 0		; Rational FFT?
+	jne	short askip3		; Yes, skip bumping ttp/biglit ptrs
+	bump	rbp, 4*512		; Next set of group multipliers
+askip3:	sub	loopcount2, 8		; Decrement outer loop counter
+	jnz	agrp 			; Loop til done
 
 	;; All blocks done
 
@@ -152,17 +157,18 @@ PROCFL	gwxsub3
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
-	mov	rbp, norm_grp_mults	; Addr of the group multipliers
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
 	movapd	xmm7, XMM_BIGVAL	; Init 4 carries
 	movapd	XMM_TMP1, xmm7
 	movapd	XMM_TMP2, xmm7
 	movapd	XMM_TMP3, xmm7
 	movapd	XMM_TMP4, xmm7
-	mov	eax, count3		; Load 3 section counts
+	mov	eax, count3		; Load block count
 	mov	loopcount2, eax		; Save count of blocks
 
 	;; Do a block
+
+sgrp:	mov	rbp, norm_grp_mults	; Addr of the group multipliers
 
 sblk:	mov	eax, normval4		; Load count of 8KB chunks in a blk
 	mov	loopcount3, eax
@@ -232,11 +238,15 @@ sblkdn:	sub	rsi, pass1blkdst	; Restore start of block ptr
 	xnorm_op_wpn_blk rsi, rbp, XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4
 	add	rsi, pass1blkdst
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
-	jne	sskip2			; Yes, skip bumping ttp/biglit ptrs
-	bump	rbp, 16*128		; Next set of group multipliers
+	jne	short sskip2		; Yes, skip bumping ttp/biglit ptrs
 	add	rdi, normval3		; Adjust little/big flags ptr
-sskip2:	dec	loopcount2		; Decrement outer loop counter
-	jnz	sblk 			; Loop til done
+sskip2:	add	loopcount2, 80000000h/4 ; Loop 8 times
+	jnc	sblk
+	cmp	RATIONAL_FFT, 0		; Rational FFT?
+	jne	short sskip3		; Yes, skip bumping ttp/biglit ptrs
+sskip3:	bump	rbp, 4*512		; Next set of group multipliers
+	sub	loopcount2, 8		; Decrement outer loop counter
+	jnz	sgrp 			; Loop til done
 
 	;; All blocks done
 
@@ -269,7 +279,6 @@ PROCFL	gwxaddsub3
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
 	mov	rbp, DEST2ARG	  	; Address of destination #2
-	mov	rbx, norm_grp_mults	; Addr of the group multipliers
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
 	movapd	xmm7, XMM_BIGVAL	; Init 8 carries
 	movapd	XMM_TMP1, xmm7
@@ -280,10 +289,12 @@ PROCFL	gwxaddsub3
 	movapd	XMM_TMP6, xmm7
 	movapd	XMM_TMP7, xmm7
 	movapd	XMM_TMP8, xmm7
-	mov	eax, count3		; Load 3 section counts
+	mov	eax, count3		; Load block count
 	mov	loopcount2, eax		; Save count of blocks
 	
 	;; Do a block
+
+asgrp:	mov	rbx, norm_grp_mults	; Addr of the group multipliers
 
 asblk:	mov	eax, normval4		; Load count of 8KB chunks in a blk
 	mov	loopcount3, eax
@@ -354,11 +365,15 @@ asblkdn:sub	rsi, pass1blkdst	; Restore start of block ptr
 	add	rsi, pass1blkdst
 	add	rbp, pass1blkdst
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
-	jne	asskip2			; Yes, skip bumping ttp/biglit ptrs
-	bump	rbx, 16*128		; Next set of group multipliers
+	jne	short asskip2		; Yes, skip bumping ttp/biglit ptrs
 	add	rdi, normval3		; Adjust little/big flags ptr
-asskip2:dec	loopcount2		; Decrement outer loop counter
-	jnz	asblk 			; Loop til done
+asskip2:add	loopcount2, 80000000h/4 ; Loop 8 times
+	jnc	asblk
+	cmp	RATIONAL_FFT, 0		; Rational FFT?
+	jne	short asskip3		; Yes, skip bumping ttp/biglit ptrs
+	bump	rbx, 4*512		; Next set of group multipliers
+asskip3:sub	loopcount2, 8		; Decrement outer loop counter
+	jnz	asgrp 			; Loop til done
 
 	;; All blocks done
 
@@ -420,13 +435,10 @@ loopcount5	EQU	DPTR [rsp+first_local+2*SZPTR+12]
 PROCFL	gwxmuls3
 	ad_prolog 2*SZPTR+16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rsi, DESTARG		; Address of destination
-	mov	rbp, norm_grp_mults	; Addr of the group multipliers
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
 	movlpd	xmm0, DBLARG		; Small multiplier value
 	movhpd	xmm0, DBLARG		; Small multiplier value
-	cmp	RATIONAL_FFT, 0		; Test for irrational FFTs
-	jne	skip			; No, skip mul by two-to-phi fudge factor
-skip:	movapd	XMM_TMP5, xmm0		; Save small value
+	movapd	XMM_TMP5, xmm0		; Save small value
 	movapd	xmm7, XMM_BIGVAL	; Init 4 carries
 	movapd	XMM_TMP1, xmm7
 	movapd	XMM_TMP2, xmm7
@@ -436,6 +448,8 @@ skip:	movapd	XMM_TMP5, xmm0		; Save small value
 	mov	loopcount2, eax		; Save count of blocks
 
 	;; Do a block
+
+mgrp:	mov	rbp, norm_grp_mults	; Addr of the group multipliers
 
 mblk:	mov	saved_blk_start, rsi
 	mov	saved_blk_biglit, rdi
@@ -508,11 +522,15 @@ mblkdn:	mov	rsi, saved_blk_start	; Restore start ptr
 	mov	rdi, saved_blk_biglit	; Restore biglit ptr
 	add	rsi, pass2gapsize	; Next dest
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
-	jne	mskip2			; Yes, skip bumping ttp/biglit ptrs
+	jne	short mskip2		; Yes, skip bumping ttp/biglit ptrs
 	add	rdi, normval3		; Adjust little/big flags ptr
-	bump	rbp, 16*128		; Next set of group multipliers
-mskip2:	dec	loopcount2		; Decrement outer loop counter
-	jnz	mblk 			; Loop til section done
+mskip2:	add	loopcount2, 80000000h/4 ; Loop 8 times
+	jnc	mblk
+	cmp	RATIONAL_FFT, 0		; Rational FFT?
+	jne	short mskip3		; Yes, skip bumping ttp/biglit ptrs
+	bump	rbp, 4*512		; Next set of group multipliers
+mskip3:	sub	loopcount2, 8		; Decrement outer loop counter
+	jnz	mgrp 			; Loop til section done
 
 	;; All blocks done
 

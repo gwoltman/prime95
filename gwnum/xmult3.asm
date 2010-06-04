@@ -32,67 +32,51 @@ _TEXT SEGMENT
 ; low carry.  Handle both the with and without two-to-phi array cases.
 ; Add these carries back into the FFT data.
 
-loopcount1	EQU	DPTR [rsp+first_local]
-loopcount2	EQU	DPTR [rsp+first_local+4]
+biglit_incr	EQU	PPTR [rsp+first_local]
+grp_incr	EQU	PPTR [rsp+first_local+SZPTR]
+loopcount2	EQU	DPTR [rsp+first_local+2*SZPTR]
 
 PROCF	xgw_carries_wpn
-	int_prolog 8,0,0
-	cmp	ZERO_PADDED_FFT, 0	; Special case the zero padded FFT case
-	jne	xgw_carries_zpad
+	int_prolog 2*SZPTR+4,0,0
+	mov	eax, cache_line_multiplier; Cache lines in each pass1 loop
+	shl	rax, 2			; Compute biglit increment
+	mov	edx, 4*512		; Compute grp increment
+	cmp	RATIONAL_FFT, 0		; Don't bump these two pointers
+	je	short iskip		; for rational FFTs
+	sub	rax, rax		; Zero biglit_incr
+	sub	rdx, rdx		; Zero grp_incr
+iskip:	mov	biglit_incr, rax	; Save computed increments
+	mov	grp_incr, rdx
 	mov	rsi, carries		; Addr of the carries
-	mov	ebx, addcount1		; Compute addr after carries
+	mov	ebx, count3		; Load block count
+	mov	loopcount2, ebx		; Save count of carry rows
 	shl	rbx, 6
 	add	rbx, rsi
+	cmp	ZERO_PADDED_FFT, 0	; Special case the zero padded FFT case
+	jne	xgw_carries_zpad
 	xnorm012_wpn_part1
 	mov	rbp, DESTARG		; Addr of the FFT data
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
 	mov	rdx, norm_grp_mults	; Addr of the group multipliers
-	sub	rcx, rcx		; Clear big/little flag
-	mov	eax, count3		; Load 3 section counts
-	mov	loopcount1, eax		; Save for later
-ilp0:	mov	eax, loopcount1		; Get list of counts
-	mov	ebx, eax		; Form count for this section
-	and	rbx, 07FFh
-	jz	spldn			; No rows to do.  We're all done!
-	mov	loopcount2, ebx		; Save count of carry rows this section
-	shr	eax, 11			; Move counts list along
-	mov	loopcount1, eax
-	shl	rbx, 6			; Compute addr of the last carries row
-	add	rbx, rsi
-	xnorm012_wpn_part2
 	sub	rax, rax		; Clear big/little flag
-	cmp	B_IS_2, 0		; Is b = 2?
-	jne	ilp1			; Yes, do simpler roundings
-nb2ilp1:xnorm012_wpn noexec		; Split carries for one cache line
-	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
-	bump	rsi, 64			; Next carries pointer
+	sub	rcx, rcx		; Clear big/little flag
+ilp1:	cmp	B_IS_2, 0		; Is b = 2?
+	jne	b2			; Yes, do simpler roundings
+	xnorm012_wpn noexec		; Split carries for one cache line
+	jmp	nb2			; Rejoin common code
+b2:	xnorm012_wpn exec		; Split carries for one cache line
+nb2:	bump	rsi, 64			; Next carries pointer
 	add	rbp, pass1blkdst	; Next FFT data pointer
-	cmp	RATIONAL_FFT, 0		; Don't bump these two pointers
-	jne	short nb2iskip		; for rational FFTs
-	bump	rdx, 16*128		; Next group multiplier
-	lea	rdi, [rdi+rbx*4]	; Next big/little flags pointer
-nb2iskip:sub	loopcount2, 1		; Test loop counter
-	jnz	nb2ilp1			; Next carry row in section
-	jmp	ilp0			; Next section
-ilp1:	xnorm012_wpn exec		; Split carries for one cache line
-	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
-	bump	rsi, 64			; Next carries pointer
-	add	rbp, pass1blkdst	; Next FFT data pointer
-	cmp	RATIONAL_FFT, 0		; Don't bump these two pointers
-	jne	short iskip		; for rational FFTs
-	bump	rdx, 16*128		; Next group multiplier
-	lea	rdi, [rdi+rbx*4]	; Next big/little flags pointer
-iskip:	sub	loopcount2, 1		; Test loop counter
-	jnz	ilp1			; Next carry row in section
-	jmp	ilp0			; Next section
-spldn:	mov	zero_fft, 0		; Clear zero-high-words-fft flag
+	add	rdi, biglit_incr	; Next big/little flags pointer
+	add	loopcount2, 80000000h/4	; 8 iterations
+	jnc	ilp1
+	add	rdx, grp_incr		; Next group multiplier
+	sub	loopcount2, 8		; Test loop counter
+	jnz	ilp1			; Next carry row
+idn:	mov	zero_fft, 0		; Clear zero-high-words-fft flag
 	jmp	cdn			; Jump to common exit code
 
 xgw_carries_zpad:
-	mov	rsi, carries		; Addr of the carries
-	mov	ebx, addcount1		; Compute addr after carries
-	shl	rbx, 6
-	add	rbx, rsi
 	mov	rsi, DESTARG		; Addr of the FFT data
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
 	xnorm012_wpn_zpad_part1
@@ -100,35 +84,19 @@ xgw_carries_zpad:
 	mov	rbp, DESTARG		; Addr of the FFT data
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
 	mov	rdx, norm_grp_mults	; Addr of the group multipliers
-	mov	eax, count3		; Load 3 section counts
-	mov	loopcount1, eax		; Save for later
-zlp0:	mov	eax, loopcount1		; Get list of counts
-	mov	ebx, eax		; Form count for this section
-	and	rbx, 07FFh
-	jz	zpldn			; No rows to do.  We're all done!
-	mov	loopcount2, ebx		; Save count of carry rows this section
-	shr	eax, 11			; Move counts list along
-	mov	loopcount1, eax
-	shl	rbx, 6			; Compute addr of the last carries row
-	add	rbx, rsi
-	xnorm012_wpn_zpad_part2
 	sub	rax, rax		; Clear big/little flag
-	movapd	XMM_TMP1, xmm6		; xnorm012_wpn_zpad needs to use this register
 zlp1:	xnorm012_wpn_zpad		; Split carries for one cache line
-c2d:	mov	ebx, cache_line_multiplier; Cache lines in each pass1 loop
 	bump	rsi, 64			; Next carries pointer
 	add	rbp, pass1blkdst	; Next FFT data pointer
-	cmp	RATIONAL_FFT, 0		; Don't bump these two pointers
-	jne	short zskip		; for rational FFTs
-	bump	rdx, 16*128		; Next group multiplier
-	lea	rdi, [rdi+rbx*4]	; Next big/little flags pointer
-zskip:	sub	loopcount2, 1		; Test loop counter
-	jnz	zlp1			; Next carry row in section
-	movapd	xmm6, XMM_TMP1		; Restore saved register
-	jmp	zlp0			; Next section
-zpldn:	mov	const_fft, 0		; Clear mul-by-const-fft flag
+	add	rdi, biglit_incr	; Next big/little flags pointer
+	add	loopcount2, 80000000h/4	; 8 iterations
+	jnc	zlp1
+	add	rdx, grp_incr		; Next group multiplier
+	sub	loopcount2, 8		; Test loop counter
+	jnz	zlp1			; Next carry row
+	mov	const_fft, 0		; Clear mul-by-const-fft flag
 
-cdn:	int_epilog 8,0,0
+cdn:	int_epilog 2*SZPTR+4,0,0
 xgw_carries_wpn ENDP
 
 
