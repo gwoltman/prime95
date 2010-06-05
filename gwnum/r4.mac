@@ -2583,9 +2583,9 @@ ENDIF
 ;; Also, a normalization multiplier must be applied to the final R1/I1 value.
 ;;
 
-r4_x4cl_wpn_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg,normreg
+r4_x4cl_wpn_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
 	d3 = d2 + d1
-	r4_x4c_wpn_djbfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg,screg+48,normreg,srcreg+srcinc,d1,[srcreg],[srcreg+16]
+	r4_x4c_wpn_djbfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg+32,screg+80,screg,srcreg+srcinc,d1,[srcreg],[srcreg+16]
 ;;	xstore	[srcreg], xmm0		;; Save R1
 ;;	xstore	[srcreg+16], xmm0	;; Save I1
 	xload	xmm0, [srcreg+32]	;; R1
@@ -2598,7 +2598,7 @@ r4_x4cl_wpn_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg,normreg
 	xstore	[srcreg+d1+16], xmm1	;; Save I3
 	xstore	[srcreg+d1+32], xmm2	;; Save R4
 	xstore	[srcreg+d1+48], xmm4	;; Save I4
-	r4_x4c_wpn_djbfft_partial_mem xmm0,xmm7,xmm3,xmm2,xmm5,xmm6,xmm1,xmm4,[srcreg+d2+32],[srcreg+d3+32],[srcreg+d2+48],[srcreg+d3+48],screg,screg+48,normreg,srcreg+srcinc+d2,d1,[srcreg+d2],[srcreg+d2+16]
+	r4_x4c_wpn_djbfft_partial_mem xmm0,xmm7,xmm3,xmm2,xmm5,xmm6,xmm1,xmm4,[srcreg+d2+32],[srcreg+d3+32],[srcreg+d2+48],[srcreg+d3+48],screg+32,screg+80,screg,srcreg+srcinc+d2,d1,[srcreg+d2],[srcreg+d2+16]
 ;;	xstore	[srcreg+d2], xmm0	;; Save R1
 ;;	xstore	[srcreg+d2+16], xmm0	;; Save I1
 	xstore	[srcreg+d2+32], xmm4	;; Save R2
@@ -2776,7 +2776,7 @@ IFDEF X86_64
 
 ; Theoretical best case is 44 clocks on a Core 2.  Now at ?? clocks.
 
-r4_x4cl_wpn_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg,normreg
+r4_x4cl_wpn_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
 	xload	xmm0, [srcreg]		;; R1
 	xload	xmm2, [srcreg+d2]	;; R3
 	xload	xmm5, [srcreg+d1+16]	;; I2
@@ -2797,7 +2797,7 @@ r4_x4cl_wpn_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg,normreg
 
 	xcopy	xmm11, xmm4		;; Copy I1				; 4-6
 	subpd	xmm4, xmm6		;; I1 = I1 - I3 (new I3)		; 4-6	avail 12+
-	xload	xmm12, [screg+16]	;; cosine/sine				; 4
+	xload	xmm12, [screg+32+16]	;; cosine/sine				; 4
 
 	addpd	xmm2, xmm8		;; R3 = R1 + R3 (new R1)		; 5-7	avail 8,13+
 	xcopy	xmm13, xmm12							; 5-7
@@ -2813,7 +2813,7 @@ r4_x4cl_wpn_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg,normreg
 
 	 addpd	xmm5, xmm0		;; I4 = R3 + I4 (final R4)		; 9-11	avail 10.9,11
 	 xcopy	xmm9, xmm4		;; Copy I3				; 9-11
-	xload	xmm10, [screg+48+16]	;; cosine/sine				; 9
+	xload	xmm10, [screg+80+16]	;; cosine/sine				; 9
 
 	 subpd	xmm0, xmm8		;; R3 = R3 - I4 (final R3)		; 10-12	avail 11,8
 
@@ -2835,24 +2835,24 @@ r4_x4cl_wpn_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg,normreg
 
 	 addpd	xmm3, xmm8		;; R2 = R1 + R2 (final R1)		; 15-17	avail 8
 	mulpd	xmm15, xmm1		;; B3 = I3 * cosine/sine		; 15-19
-	xload	xmm8, [screg]		;; Sine * normalization value		; 15
+	xload	xmm8, [screg+32]	;; Sine * normalization value		; 15
 
 	 addpd	xmm7, xmm9		;; I2 = I1 + I2 (final I1)		; 16-18	avail 9
 	mulpd	xmm10, xmm2		;; A2 = R2 * cosine/sine		; 16-20
-	xload	xmm9, [screg+48]	;; Sine * normalization value		; 16
+	xload	xmm9, [screg+80]	;; Sine * normalization value		; 16
 
 	addpd	xmm12, xmm4		;; A4 = A4 + I4				; 17-19	avail 4
 	mulpd	xmm11, xmm6		;; B2 = I2 * cosine/sine		; 17-21
 	xload	xmm4, [srcreg+32]	;;#2 R1					; 17
 
 	subpd	xmm13, xmm1		;; A3 = A3 - I3				; 18-20	avail 1
-	mulpd	xmm3, [normreg]		;; Apply normalization to final R1	; 18-22
+	mulpd	xmm3, [screg]		;; Apply normalization to final R1	; 18-22
 	xload	xmm1, [srcreg+d2+32]	;; next R3
 
 	xprefetchw [srcreg+srcinc+d1]
 
 	subpd	xmm14, xmm5		;; B4 = B4 - R4				; 19-21	avail 5
-	mulpd	xmm7, [normreg]		;; Apply normalization to final I1	; 19-23
+	mulpd	xmm7, [screg]		;; Apply normalization to final I1	; 19-23
 	xstore	[srcreg], xmm3		;; Save R1				; 23	avail 3,5
 	xload	xmm3, [srcreg+d1+48]	;;#2 I2					; 19
 
@@ -2890,7 +2890,7 @@ r4_x4cl_wpn_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg,normreg
 
 	addpd	xmm1, xmm6		;;#2 R3 = R1 + R3 (new R1)		; 27-29	avail 6
 	xstore	[srcreg+d1+48], xmm14	;; Save I4				; 27	avail 6,14
-	xload	xmm14, [screg+16]	;;#2 cosine/sine			; 27	avail 6
+	xload	xmm14, [screg+32+16]	;;#2 cosine/sine			; 27	avail 6
 
 	addpd	xmm0, xmm8		;;#2 R4 = R2 + R4 (new R2)		; 28-30	avail 6,8
 	xstore	[srcreg+d1+16], xmm15	;; Save I3				; 28	avail 6,8,15
@@ -2911,7 +2911,7 @@ r4_x4cl_wpn_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg,normreg
 	 xcopy	xmm2, xmm9		;;#2 Copy I3				; 31-33	avail 8,13
 
 	 subpd	xmm4, xmm6		;;#2 R3 = R3 - I4 (final R3)		; 32-34	avail 8,13,6
-	xload	xmm8, [screg+48+16]	;;#2 cosine/sine			; 32	avail 13,6
+	xload	xmm8, [screg+80+16]	;;#2 cosine/sine			; 32	avail 13,6
 
 	 subpd	xmm9, xmm7		;;#2 I3 = I3 - R4 (final I4)		; 33-35
 	xcopy	xmm13, xmm8							; 33-35	avail 6
@@ -2929,22 +2929,22 @@ r4_x4cl_wpn_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg,normreg
 
 	 addpd	xmm0, xmm6		;;#2 R2 = R1 + R2 (final R1)		; 37-39	avail 6
 	mulpd	xmm11, xmm7		;;#2 B3 = I3 * cosine/sine		; 37-41
-	xload	xmm6, [screg]		;;#2 Sine * normalization value		; 37	avail none
+	xload	xmm6, [screg+32]	;;#2 Sine * normalization value		; 37	avail none
 
 	 addpd	xmm5, xmm2		;;#2 I2 = I1 + I2 (final I1)		; 38-40	avail 2
 	mulpd	xmm8, xmm1		;;#2 A2 = R2 * cosine/sine		; 38-42
-	xload	xmm2, [screg+48]	;;#2 Sine * normalization value		; 38	avail none
+	xload	xmm2, [screg+80]	;;#2 Sine * normalization value		; 38	avail none
 
 	addpd	xmm14, xmm9		;;#2 A4 = A4 + I4			; 39-41	avail 9
 	mulpd	xmm13, xmm12		;;#2 B2 = I2 * cosine/sine		; 39-43
 
 	subpd	xmm15, xmm7		;;#2 A3 = A3 - I3			; 40-42	avail 9,7
-	mulpd	xmm0, [normreg]		;;#2 Apply normalization to final R1	; 40-44
+	mulpd	xmm0, [screg]		;;#2 Apply normalization to final R1	; 40-44
 
 	xprefetchw [srcreg+srcinc+d2+d1]
 
 	subpd	xmm10, xmm3		;;#2 B4 = B4 - R4			; 41-43	avail 9,7,3
-	mulpd	xmm5, [normreg]		;;#2 Apply normalization to final I1	; 41-45
+	mulpd	xmm5, [screg]		;;#2 Apply normalization to final I1	; 41-45
 
 	addpd	xmm11, xmm4		;;#2 B3 = B3 + R3			; 42-44	avail 9,7,3,4
 	mulpd	xmm14, xmm6		;;#2 A4 = A4 * sine (final R4)		; 42-46
@@ -2974,9 +2974,9 @@ r4_x4cl_wpn_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg,normreg
 	ENDM
 ENDIF
 
-r4_x4cl_wpn_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scoff,normreg
+r4_x4cl_wpn_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 	d3 = d2 + d1
-	r4_x4c_wpn_djbunfft_mem [srcreg+16],[srcreg+48],[srcreg+d1+16],[srcreg+d1+48],[srcreg+d2+16],[srcreg+d2+48],[srcreg+d3+16],[srcreg+d3+48],[srcreg+d1+16],screg+scoff,normreg,srcreg+srcinc+d2,d1
+	r4_x4c_wpn_djbunfft_mem [srcreg+16],[srcreg+48],[srcreg+d1+16],[srcreg+d1+48],[srcreg+d2+16],[srcreg+d2+48],[srcreg+d3+16],[srcreg+d3+48],[srcreg+d1+16],screg+32+scoff,screg+scoff,srcreg+srcinc+d2,d1
 ;;	xstore	[srcreg+d1+16], xmm6	;; Save R3
 	xstore	[srcreg+d1+48], xmm3	;; Save I3
 	xload	xmm6, [srcreg+d1]	;; R3
@@ -2989,7 +2989,7 @@ r4_x4cl_wpn_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scoff,normreg
 	xstore	[srcreg+d1+32], xmm4	;; Save I1
 	xstore	[srcreg+d3], xmm5	;; Save R2
 	xstore	[srcreg+d3+32], xmm2	;; Save I2
-	r4_x4c_wpn_djbunfft_partial_mem xmm7,xmm4,xmm6,xmm3,xmm5,xmm2,xmm0,xmm1,[srcreg],[srcreg+32],[srcreg+d2],[srcreg+d2+32],[srcreg],screg,normreg,srcreg+srcinc,d1
+	r4_x4c_wpn_djbunfft_partial_mem xmm7,xmm4,xmm6,xmm3,xmm5,xmm2,xmm0,xmm1,[srcreg],[srcreg+32],[srcreg+d2],[srcreg+d2+32],[srcreg],screg+32,screg,srcreg+srcinc,d1
 ;;	xstore	[srcreg], xmm4		;; Save R1
 	xstore	[srcreg+32], xmm5	;; Save I1
 	xstore	[srcreg+16], xmm6	;; Save R3
@@ -3161,14 +3161,14 @@ r4_x4c_wpn_djbunfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem1,mem2,mem5,mem
 IFDEF X86_64
 
 ; Theoretical best case is 44 clocks on a Core 2.  Now at ?? clocks.
-r4_x4cl_wpn_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scoff,normreg
+r4_x4cl_wpn_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 	xload	xmm0, [srcreg+d2+d1+16]	;; R4
-	xload	xmm1, [screg+scoff+16]	;; cosine/sine
+	xload	xmm1, [screg+scoff+32+16] ;; cosine/sine
 	xcopy	xmm2, xmm0		;; Copy R4				; 1-3
 	mulpd	xmm0, xmm1		;; A4 = R4 * cosine/sine		; 1-5
 
 	xload	xmm5, [srcreg+d1+48]	;; I2
-	xload	xmm6, [screg+scoff+48+16] ;; cosine/sine
+	xload	xmm6, [screg+scoff+80+16] ;; cosine/sine
 	xcopy	xmm7, xmm5		;; Copy I2				; 2-4
 	mulpd	xmm5, xmm6		;; B2 = I2 * cosine/sine		; 2-6
 
@@ -3189,13 +3189,13 @@ r4_x4cl_wpn_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scoff,normreg
 	mulpd	xmm11, xmm1		;; B4 = I4 * cosine/sine		; 6-10	avail 1,12+
 
 	subpd	xmm5, xmm9		;; B2 = B2 - R2				; 7-9	avail 1,9,12+
-	xload	xmm1, [screg+scoff+48+32] ;; sine * normalization_inverse	; 7
+	xload	xmm1, [screg+scoff+80+32] ;; sine * normalization_inverse	; 7
 
 	addpd	xmm3, xmm10		;; A3 = A3 + I3 (new R3 / sine)		; 8-10	avail 9,10,12+
 
 	addpd	xmm8, xmm7		;; A2 = A2 + I2				; 9-11	avail 9,10,7,12+
 	xload	xmm7, [srcreg+48]	;; I1					; 9
-	mulpd	xmm7, [normreg+16]	;; I1 * normalization_inverse		; 9-13
+	mulpd	xmm7, [screg+scoff+16]	;; I1 * normalization_inverse		; 9-13
 
 	subpd	xmm6, xmm4		;; B3 = B3 - R3 (new I3 / sine)		; 10-12	avail 9,10,4,12+
 	mulpd	xmm5, xmm1		;; B2 = B2 * sine (new I2)		; 10-14
@@ -3203,11 +3203,11 @@ r4_x4cl_wpn_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scoff,normreg
 
 	addpd	xmm11, xmm2		;; B4 = B4 + R4 (new I4 / sine)		; 11-13	avail 9,10,2,12+
 	xload	xmm2, [srcreg+16]	;; R1					; 11	avail 9,10,12+
-	mulpd	xmm2, [normreg+16]	;; R1 * normalization_inverse		; 11-15
+	mulpd	xmm2, [screg+scoff+16]	;; R1 * normalization_inverse		; 11-15
 
 	subpd	xmm0, xmm3		;; R4 = R4 - R3 (newer I4 / sine)	; 12-14
 	mulpd	xmm8, xmm1		;; A2 = A2 * sine (new R2)		; 12-16	avail 9,10,1,12+
-	xload	xmm1, [screg+scoff+32]	;; sine * normalization_inverse		; 12	avail 9,10,12+
+	xload	xmm1, [screg+scoff+32+32] ;; sine * normalization_inverse	; 12	avail 9,10,12+
 
 	addpd	xmm3, xmm4		;; R3 = R4 + R3 (newer R3 / sine)	; 13-15	avail 9,10,4,12+
 	xcopy	xmm4, xmm6		;; Copy I3 / sine			; 13-15
@@ -3220,7 +3220,7 @@ r4_x4cl_wpn_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scoff,normreg
 
 	subpd	xmm7, xmm5		;; I1 = I1 - I2 (newer I2)		; 15-17
 	mulpd	xmm0, xmm1		;; newer I4 * sine			; 15-19
-	xload	xmm12, [screg+16]	;;#2 cosine/sine			; 15	avail 13+
+	xload	xmm12, [screg+32+16]	;;#2 cosine/sine			; 15	avail 13+
 
 	addpd	xmm11, xmm4		;; I4 = I3 + I4 (newer I3 / sine)	; 16-18 avail 4,13+
 	mulpd	xmm3, xmm1		;; newer R3 * sine			; 16-20
@@ -3231,7 +3231,7 @@ r4_x4cl_wpn_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scoff,normreg
 	xload	xmm13, [srcreg+d1+32]	;;#2 I2					; 17	avail 10,14+
 
 	addpd	xmm2, xmm8		;; R2 = R1 + R2 (newer R1)		; 18-20
-	xload	xmm14, [screg+48+16]	;;#2 cosine/sine			; 18	avail 10,15
+	xload	xmm14, [screg+80+16]	;;#2 cosine/sine			; 18	avail 10,15
 
 	subpd	xmm4, xmm8		;; R1 = R1 - R2 (newer R2)		; 19-21	avail 10,8,15
 	mulpd	xmm11, xmm1		;; newer I3 * sine			; 19-23	avail 10,8,1,15
@@ -3281,12 +3281,12 @@ r4_x4cl_wpn_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scoff,normreg
 	xstore	[srcreg+d2+d1], xmm6	;; Save R2				; 28	avail 12,6 storable 0,5,11
 
 	subpd	xmm13, xmm4		;;#2 B2 = B2 - R2			; 29-31	avail 12,6,4 storable 0,5,11
-	xload	xmm6, [screg+48+32]	;;#2 sine * normalization_inverse	; 29	avail 12,4 storable 0,5,11
+	xload	xmm6, [screg+80+32]	;;#2 sine * normalization_inverse	; 29	avail 12,4 storable 0,5,11
 	xstore	[srcreg+d1+48], xmm5	;; Save I3				; 29	avail 12,4,5 storable 0,11
 
 	addpd	xmm2, xmm7		;;#2 A3 = A3 + I3 (new R3 / sine)	; 30-32	avail 12,4,5,7 storable 0,11
 	xload	xmm5, [srcreg+32]	;;#2 I1					; 30	avail 12,4,7 storable 0,11
-	mulpd	xmm5, [normreg+16]	;;#2 I1 * normalization_inverse		; 30-34
+	mulpd	xmm5, [screg+16]	;;#2 I1 * normalization_inverse		; 30-34
 	xstore	[srcreg+d1+32], xmm11	;; Save I1				; 30	avail 12,4,7,11 storable 0
 
 	addpd	xmm1, xmm10		;;#2 A2 = A2 + I2			; 31-33	avail 12,4,7,11,10 storable 0
@@ -3298,11 +3298,11 @@ r4_x4cl_wpn_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scoff,normreg
 	xcopy	xmm4, xmm9		;;#2 Copy R4 / sine			; 32-34	avail 12,11,10,0,8
 
 	addpd	xmm3, xmm15		;;#2 B4 = B4 + R4 (new I4 / sine)	; 33-35	avail 12,11,10,0,8,15
-	mulpd	xmm7, [normreg+16]	;;#2 R1 * normalization_inverse		; 33-37
+	mulpd	xmm7, [screg+16]	;;#2 R1 * normalization_inverse		; 33-37
 
 	subpd	xmm9, xmm2		;;#2 R4 = R4 - R3 (newer I4 / sine)	; 34-36
 	mulpd	xmm1, xmm6		;;#2 A2 = A2 * sine (new R2)		; 34-38	avail 12,11,10,0,8,15,6
-	xload	xmm6, [screg+32]	;;#2 sine * normalization_inverse	; 34	avail 12,11,10,0,8,15
+	xload	xmm6, [screg+32++32]	;;#2 sine * normalization_inverse	; 34	avail 12,11,10,0,8,15
 
 	addpd	xmm2, xmm4		;;#2 R3 = R4 + R3 (newer R3 / sine)	; 35-37	avail 12,11,10,0,8,15,4
 	xcopy	xmm4, xmm14		;;#2 Copy I3 / sine			; 35-37	avail 12,11,10,0,8,15
@@ -6239,10 +6239,12 @@ ENDIF
 r4_x4cl_wpn_eight_reals_unfft_preload MACRO
 	ENDM
 
-r4_x4cl_wpn_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scoff1,screg2,scoff2,normreg
+r4_x4cl_wpn_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scoff1,screg2,scoff2
 	d3 = d2 + d1
+	d2a = d2
+	d1a = d1
 	tmp = srcinc+d2
-	r4_x8r_wpn_unfft_mem [srcreg+16],[srcreg+48],[srcreg+d1+16],[srcreg+d1+48],[srcreg+d2+16],[srcreg+d2+48],[srcreg+d3+16],[srcreg+d3+48],screg2+scoff2,screg1+scoff1,screg2+scoff2+48,normreg,srcreg+tmp,d1,[srcreg+d3+16],[srcreg+d3+48]
+	r4_x8r_wpn_unfft_mem [srcreg+16],[srcreg+48],[srcreg+d1a+16],[srcreg+d1a+48],[srcreg+d2a+16],[srcreg+d2a+48],[srcreg+d3+16],[srcreg+d3+48],screg2+scoff2,screg1+scoff1+32,screg2+scoff2+48,screg1+scoff1,srcreg+tmp,d1a,[srcreg+d3+16],[srcreg+d3+48]
 	xstore	[srcreg+d1+16], xmm7	;; Save R3
 ;;	xstore	[srcreg+d3+16], xmm2	;; Save R4
 	xstore	[srcreg+d1+48], xmm6	;; Save R7
@@ -6255,7 +6257,7 @@ r4_x4cl_wpn_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scoff1,screg2,sco
 	xstore	[srcreg+d3], xmm4	;; Save R2
 	xstore	[srcreg+d1+32], xmm0	;; Save R5
 	xstore	[srcreg+d3+32], xmm3	;; Save R6
-	r4_x8r_wpn_unfft_partial_mem xmm0,xmm1,xmm2,xmm5,xmm3,xmm4,xmm6,xmm7,[srcreg],[srcreg+32],[srcreg+d2],[srcreg+d2+32],screg2,screg1,screg2+48,normreg,srcreg+srcinc,d1,[srcreg+d2+16],[srcreg+d2+48]
+	r4_x8r_wpn_unfft_partial_mem xmm0,xmm1,xmm2,xmm5,xmm3,xmm4,xmm6,xmm7,[srcreg],[srcreg+32],[srcreg+d2],[srcreg+d2+32],screg2,screg1+32,screg2+48,screg1,srcreg+srcinc,d1,[srcreg+d2+16],[srcreg+d2+48]
 	xstore	[srcreg], xmm1		;; Save R1
 	xstore	[srcreg+d2], xmm3	;; Save R2
 	xstore	[srcreg+32], xmm0	;; Save R5
@@ -6451,7 +6453,7 @@ r4_x4cl_wpn_eight_reals_unfft_preload MACRO
 	xload	xmm15, XMM_SQRTHALF
 	ENDM
 
-r4_x4cl_wpn_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scoff1,screg2,scoff2,normreg
+r4_x4cl_wpn_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scoff1,screg2,scoff2
 	xload	xmm0, [srcreg+d2+d1+16]	;; R4
 	xload	xmm1, [screg2+scoff2+48+16];; cosine/sine for w^5n
 	xcopy	xmm2, xmm0		;; Copy R4
@@ -6503,7 +6505,7 @@ r4_x4cl_wpn_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scoff1,screg2,sco
 
 	subpd	xmm12, xmm13		;;#2 B3 = B3 - R3			; 13-15	avail 5,14,6,7,10,2,13
 	xload	xmm5, [srcreg+d1+16]	;; R2
-	xload	xmm14, [screg1+scoff1+16];; cosine/sine for w^2n
+	xload	xmm14, [screg1+scoff1+32+16];; cosine/sine for w^2n
 	xcopy	xmm6, xmm5		;; Copy R2
 	mulpd	xmm5, xmm14		;; A2 = R2 * cosine/sine		; 13-17	avail 7,10,2,13
 
@@ -6539,10 +6541,10 @@ r4_x4cl_wpn_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scoff1,screg2,sco
 
 	xcopy	xmm2, xmm11		;;#2 Copy R5
 	subpd	xmm11, xmm8		;;#2 new R6 = R5 - R7			; 21-23	avail 7,13,1
-	mulpd	xmm6, [normreg+16]	;; R1 * normalization_inverse		; 21-25
+	mulpd	xmm6, [screg1+scoff1+16];; R1 * normalization_inverse		; 21-25
 
 	addpd	xmm2, xmm8		;;#2 new R5 = R5 + R7			; 22-24	avail 7,13,1,8
-	xload	xmm7, [screg1+scoff1+32] ;; sine * normalization_inverse
+	xload	xmm7, [screg1+scoff1+32+32] ;; sine * normalization_inverse
 	mulpd	xmm5, xmm7		;; new R3 = A2 * sine (final R2)	; 22-26	avail 13,1,8
 
 	xcopy	xmm13, xmm12		;;#2 Copy R6
@@ -6551,7 +6553,7 @@ r4_x4cl_wpn_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scoff1,screg2,sco
 	xload	xmm7, [srcreg+48]	;; R2
 
 	addpd	xmm13, xmm9		;;#2 new R7 = R6 + R8			; 24-26	avail 1,8,9
-	mulpd	xmm7, [normreg+16]	;; R2 * normalization_inverse		; 24-28
+	mulpd	xmm7, [screg1+scoff1+16];; R2 * normalization_inverse		; 24-28
 
 	xcopy	xmm1, xmm3		;; Copy R6
 	addpd	xmm3, xmm4		;; R6 = R6 + R8				; 25-27	avail 8,7,9
@@ -6569,7 +6571,7 @@ r4_x4cl_wpn_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scoff1,screg2,sco
 
 	addpd	xmm14, xmm9		;; R4 = R2 + R4 (new R2)		; 30-32	avail 1,5,9
 	xload	xmm1, [srcreg+d1]	;;#2 R2
-	xload	xmm5, [screg1+16]	;;#2 cosine/sine for w^2n
+	xload	xmm5, [screg1+32+16]	;;#2 cosine/sine for w^2n
 	mulpd	xmm1, xmm5		;;#2 A2 = R2 * cosine/sine		; 30-34	avail 9
 
 	xcopy	xmm9, xmm6		;; Copy R3
@@ -6596,12 +6598,12 @@ r4_x4cl_wpn_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scoff1,screg2,sco
 	subpd	xmm7, xmm4		;; R4 = R4 - R8 (final R8)		; 37-39	avail 6,0,8 storable 10,7
 	xstore	[srcreg+d1], xmm10	;; Save R1				; 37	avail 6,0,8,10 storable 7
 	xload	xmm10, [srcreg]		;;#2 R1					; 37
-	mulpd	xmm10, [normreg+16]	;;#2 R1 * normalization_inverse		; 37-41
+	mulpd	xmm10, [screg1+16]	;;#2 R1 * normalization_inverse		; 37-41
 
 	xprefetchw [srcreg+srcinc+d2+d1];;#2
 
 	addpd	xmm4, xmm9		;; R8 = R4 + R8 (final R4)		; 38-40	avail 6,0,8,9 storable 7,4
-	xload	xmm6, [screg1+32]	;;#2 sine * normalization_inverse
+	xload	xmm6, [screg1+32+32]	;;#2 sine * normalization_inverse
 	mulpd	xmm1, xmm6		;;#2 new R3 = A2 * sine (final R2)	; 38-42	avail 0,8,9 storable 7,4
 
 	xcopy	xmm0, xmm14		;; Copy R2
@@ -6610,7 +6612,7 @@ r4_x4cl_wpn_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scoff1,screg2,sco
 	xload	xmm6, [srcreg+32]	;;#2 R2					; 39
 
 	addpd	xmm3, xmm0		;; R6 = R2 + R6 (final R2)		; 40-42	avail 8,9,0 storable 7,4,14,3
-	mulpd	xmm6, [normreg+16]	;;#2 R2 * normalization_inverse		; 40-44
+	mulpd	xmm6, [screg1+16]	;;#2 R2 * normalization_inverse		; 40-44
 	xstore	[srcreg+d2+d1+48], xmm7	;; Save R8				; 40	avail 8,9,0,7 storable 4,14,3
 
 	xcopy	xmm8, xmm11		;;#2 Copy R6
@@ -6798,8 +6800,8 @@ r4_x4cl_wpn_eight_reals_four_complex_djbfft_preload MACRO
 	r4_x8r_wpn_fft_mem_preload
 	ENDM
 
-r4_x4cl_wpn_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,screg2,normreg
-	r4_x8r_wpn_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg2,screg1,screg2+48,normreg,srcreg+srcinc,d1,[srcreg],[srcreg+16]
+r4_x4cl_wpn_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,screg2
+	r4_x8r_wpn_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg2,screg1+32,screg2+48,screg1,srcreg+srcinc,d1,[srcreg],[srcreg+16]
 ;;	xstore	[srcreg], xmm0		;; Save real value #1
 ;;	xstore	[srcreg+16], xmm0	;; Save real value #2
 	xload	xmm0, [srcreg+32]	;; R1
@@ -6812,7 +6814,7 @@ r4_x4cl_wpn_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,scr
 	xstore	[srcreg+d1+16], xmm3	;; Save I3
 	xstore	[srcreg+d1+32], xmm6	;; Save R4
 	xstore	[srcreg+d1+48], xmm2	;; Save I4
-	r4_x4c_wpn_djbfft_partial_mem xmm0,xmm7,xmm3,xmm2,xmm1,xmm5,xmm4,xmm6,[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+d2+48],[srcreg+d2+d1+48],screg1,screg1+48,normreg,srcreg+srcinc+d2,d1,[srcreg+d2],[srcreg+d2+16]
+	r4_x4c_wpn_djbfft_partial_mem xmm0,xmm7,xmm3,xmm2,xmm1,xmm5,xmm4,xmm6,[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+d2+48],[srcreg+d2+d1+48],screg1+32,screg1+80,screg1,srcreg+srcinc+d2,d1,[srcreg+d2],[srcreg+d2+16]
 ;;	xstore	[srcreg+d2], xmm0	;; Save real value #1
 ;;	xstore	[srcreg+d2+16], xmm0	;; Save real value #2
 	xstore	[srcreg+d2+32], xmm6	;; Save R2

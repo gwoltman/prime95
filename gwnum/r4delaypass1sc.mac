@@ -43,8 +43,8 @@
 ;;	(Scratch size + Fixed sin/cos data + Normalization data) +
 ;;	(amount of data prefetched during inverse FFT process)
 ;; ALSO NOTE:  Numbers above are for clm = 4.  Clm affects the FFT data size,
-;; scratch size, variable sin/cos size, data prefetched early, and one small
-;; table of normalization data.
+;; scratch size, variable sin/cos size, data prefetched early, big/lit flags,
+;; and one small table of normalization data.
 
 ;; Estimated memory requirements for each all-complex pass 1 macro:
 ;;

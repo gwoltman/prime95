@@ -27,30 +27,33 @@ _TEXT SEGMENT
 ;; Add two numbers with carry propogation
 ;;
 
-loopcount2	EQU	DPTR [rsp+first_local]
-loopcount3	EQU	DPTR [rsp+first_local+4]
-loopcount4	EQU	DPTR [rsp+first_local+8]
-loopcount5	EQU	DPTR [rsp+first_local+12]
+saved_blk_start EQU	PPTR [rsp+first_local+0*SZPTR]
+saved_blk_biglit EQU	PPTR [rsp+first_local+1*SZPTR]
+loopcount2	EQU	DPTR [rsp+first_local+2*SZPTR]
+loopcount3	EQU	DPTR [rsp+first_local+2*SZPTR+4]
+loopcount4	EQU	DPTR [rsp+first_local+2*SZPTR+8]
+loopcount5	EQU	DPTR [rsp+first_local+2*SZPTR+12]
 
 PROCFL	gwxadd3
-	ad_prolog 16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
+	mov	rbp, norm_grp_mults	; Addr of the group multipliers
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
-	movapd	xmm7, XMM_BIGVAL	; Init 4 carries
-	movapd	XMM_TMP1, xmm7
-	movapd	XMM_TMP2, xmm7
-	movapd	XMM_TMP3, xmm7
-	movapd	XMM_TMP4, xmm7
+	xload	xmm7, XMM_BIGVAL	; Init 4 carries
+	xstore	XMM_TMP1, xmm7
+	xstore	XMM_TMP2, xmm7
+	xstore	XMM_TMP3, xmm7
+	xstore	XMM_TMP4, xmm7
 	mov	eax, count3		; Load block count
 	mov	loopcount2, eax		; Save count of blocks
 
 	;; Do a block
 
-agrp:	mov	rbp, norm_grp_mults	; Addr of the group multipliers
-
-ablk:	mov	eax, normval4		; Load count of 8KB chunks in a blk
+ablk:	mov	saved_blk_start, rsi
+	mov	saved_blk_biglit, rdi
+	mov	eax, normval4		; Load count of 8KB chunks in a blk
 	mov	loopcount3, eax
 
 add0:	cmp	B_IS_2, 0		; Is this base 2?
@@ -105,10 +108,11 @@ achunkdn:bump	rcx, 128		; Skip 128 bytes every 8KB
 
 	;; Block done
 
-ablkdn:	sub	rsi, pass1blkdst	; Restore start of block ptr
-					; Add 4 carries to start of block
-	xnorm_op_wpn_blk rsi, rbp, XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4
-	add	rsi, pass1blkdst
+ablkdn:	xchg	rsi, saved_blk_start	; Restore/save block start ptr
+	xchg	rdi, saved_blk_biglit	; Restore/save block biglit ptr
+	xnorm_op_wpn_blk rsi, rbp, XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4 ; Add 4 carries to start of block
+	mov	rsi, saved_blk_start	; Restore start ptr
+	mov	rdi, saved_blk_biglit	; Restore biglit ptr
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
 	jne	short askip2		; Yes, skip bumping ttp/biglit ptrs
 	add	rdi, normval3		; Adjust little/big flags ptr
@@ -118,52 +122,55 @@ askip2:	add	loopcount2, 80000000h/4 ; Loop 8 times
 	jne	short askip3		; Yes, skip bumping ttp/biglit ptrs
 	bump	rbp, 4*512		; Next set of group multipliers
 askip3:	sub	loopcount2, 8		; Decrement outer loop counter
-	jnz	agrp 			; Loop til done
+	jnz	ablk 			; Loop til done
 
 	;; All blocks done
 
 	mov	rax, DESTARG		; Address of destination
 	mov	rbx, norm_grp_mults	; Group ttp ptr
-					; Add 2 carries to start of section
-	xnorm_op_wpn_sec XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4
+	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
+	xnorm_op_wpn_sec XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4 ; Add 2 carries to start of section
 	mov	rsi, DESTARG		; Addr of FFT data
-	movapd	xmm7, XMM_TMP3		; Load wraparound carry
+	xload	xmm7, XMM_TMP3		; Load wraparound carry
 	xnorm_top_carry_cmn rsi, xmm7, 2
 	mov	rbp, norm_grp_mults	; Addr of the group multipliers
-	movapd	xmm6, XMM_TMP1		; Load non-wraparound carry
+	xload	xmm6, XMM_TMP1		; Load non-wraparound carry
 	xnorm_op_wpn_fft		; Add 2 carries to start of fft
 
-	ad_epilog 16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwxadd3 ENDP
 
 ;;
 ;; Subtract two numbers with carry propogation
 ;;
 
-loopcount2	EQU	DPTR [rsp+first_local]
-loopcount3	EQU	DPTR [rsp+first_local+4]
-loopcount4	EQU	DPTR [rsp+first_local+8]
-loopcount5	EQU	DPTR [rsp+first_local+12]
+saved_blk_start EQU	PPTR [rsp+first_local+0*SZPTR]
+saved_blk_biglit EQU	PPTR [rsp+first_local+1*SZPTR]
+loopcount2	EQU	DPTR [rsp+first_local+2*SZPTR]
+loopcount3	EQU	DPTR [rsp+first_local+2*SZPTR+4]
+loopcount4	EQU	DPTR [rsp+first_local+2*SZPTR+8]
+loopcount5	EQU	DPTR [rsp+first_local+2*SZPTR+12]
 
 PROCFL	gwxsub3
-	ad_prolog 16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
+	mov	rbp, norm_grp_mults	; Addr of the group multipliers
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
-	movapd	xmm7, XMM_BIGVAL	; Init 4 carries
-	movapd	XMM_TMP1, xmm7
-	movapd	XMM_TMP2, xmm7
-	movapd	XMM_TMP3, xmm7
-	movapd	XMM_TMP4, xmm7
+	xload	xmm7, XMM_BIGVAL	; Init 4 carries
+	xstore	XMM_TMP1, xmm7
+	xstore	XMM_TMP2, xmm7
+	xstore	XMM_TMP3, xmm7
+	xstore	XMM_TMP4, xmm7
 	mov	eax, count3		; Load block count
 	mov	loopcount2, eax		; Save count of blocks
 
 	;; Do a block
 
-sgrp:	mov	rbp, norm_grp_mults	; Addr of the group multipliers
-
-sblk:	mov	eax, normval4		; Load count of 8KB chunks in a blk
+sblk:	mov	saved_blk_start, rsi
+	mov	saved_blk_biglit, rdi
+	mov	eax, normval4		; Load count of 8KB chunks in a blk
 	mov	loopcount3, eax
 
 sub0:	cmp	B_IS_2, 0		; Is this base 2?
@@ -218,10 +225,11 @@ schunkdn:bump	rcx, 128		; Skip 128 bytes every 8KB
 
 	;; Block done
 
-sblkdn:	sub	rsi, pass1blkdst	; Restore start of block ptr
-					; Add 4 carries to start of block
-	xnorm_op_wpn_blk rsi, rbp, XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4
-	add	rsi, pass1blkdst
+sblkdn:	xchg	rsi, saved_blk_start	; Restore/save block start ptr
+	xchg	rdi, saved_blk_biglit	; Restore/save block biglit ptr
+	xnorm_op_wpn_blk rsi, rbp, XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4 ; Add 4 carries to start of block
+	mov	rsi, saved_blk_start	; Restore start ptr
+	mov	rdi, saved_blk_biglit	; Restore biglit ptr
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
 	jne	short sskip2		; Yes, skip bumping ttp/biglit ptrs
 	add	rdi, normval3		; Adjust little/big flags ptr
@@ -229,59 +237,64 @@ sskip2:	add	loopcount2, 80000000h/4 ; Loop 8 times
 	jnc	sblk
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
 	jne	short sskip3		; Yes, skip bumping ttp/biglit ptrs
-sskip3:	bump	rbp, 4*512		; Next set of group multipliers
-	sub	loopcount2, 8		; Decrement outer loop counter
-	jnz	sgrp 			; Loop til done
+	bump	rbp, 4*512		; Next set of group multipliers
+sskip3:	sub	loopcount2, 8		; Decrement outer loop counter
+	jnz	sblk 			; Loop til done
 
 	;; All blocks done
 
 	mov	rax, DESTARG		; Reload FFT data ptr
 	mov	rbx, norm_grp_mults	; Reload group ttp ptr
-					; Add 2 carries to start of section
-	xnorm_op_wpn_sec XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4
+	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
+	xnorm_op_wpn_sec XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4 ; Add 2 carries to start of section
 	mov	rsi, DESTARG		; Addr of FFT data
-	movapd	xmm7, XMM_TMP3		; Load wraparound carry
+	xload	xmm7, XMM_TMP3		; Load wraparound carry
 	xnorm_top_carry_cmn rsi, xmm7, 2
 	mov	rbp, norm_grp_mults	; Addr of the group multipliers
-	movapd	xmm6, XMM_TMP1		; Load non-wraparound carry
+	xload	xmm6, XMM_TMP1		; Load non-wraparound carry
 	xnorm_op_wpn_fft		; Add 2 carries to start of fft
 
-	ad_epilog 16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwxsub3 ENDP
 
 ;;
 ;; Add and subtract two numbers with carry propogation
 ;;
 
-loopcount2	EQU	DPTR [rsp+first_local]
-loopcount3	EQU	DPTR [rsp+first_local+4]
-loopcount4	EQU	DPTR [rsp+first_local+8]
-loopcount5	EQU	DPTR [rsp+first_local+12]
+saved_blk_start EQU	PPTR [rsp+first_local+0*SZPTR]
+saved_blk_start2 EQU	PPTR [rsp+first_local+1*SZPTR]
+saved_blk_biglit EQU	PPTR [rsp+first_local+2*SZPTR]
+loopcount2	EQU	DPTR [rsp+first_local+3*SZPTR]
+loopcount3	EQU	DPTR [rsp+first_local+3*SZPTR+4]
+loopcount4	EQU	DPTR [rsp+first_local+3*SZPTR+8]
+loopcount5	EQU	DPTR [rsp+first_local+3*SZPTR+12]
 
 PROCFL	gwxaddsub3
-	ad_prolog 16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 3*SZPTR+16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
 	mov	rbp, DEST2ARG	  	; Address of destination #2
+	mov	rbx, norm_grp_mults	; Addr of the group multipliers
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
-	movapd	xmm7, XMM_BIGVAL	; Init 8 carries
-	movapd	XMM_TMP1, xmm7
-	movapd	XMM_TMP2, xmm7
-	movapd	XMM_TMP3, xmm7
-	movapd	XMM_TMP4, xmm7
-	movapd	XMM_TMP5, xmm7
-	movapd	XMM_TMP6, xmm7
-	movapd	XMM_TMP7, xmm7
-	movapd	XMM_TMP8, xmm7
+	xload	xmm7, XMM_BIGVAL	; Init 8 carries
+	xstore	XMM_TMP1, xmm7
+	xstore	XMM_TMP2, xmm7
+	xstore	XMM_TMP3, xmm7
+	xstore	XMM_TMP4, xmm7
+	xstore	XMM_TMP5, xmm7
+	xstore	XMM_TMP6, xmm7
+	xstore	XMM_TMP7, xmm7
+	xstore	XMM_TMP8, xmm7
 	mov	eax, count3		; Load block count
 	mov	loopcount2, eax		; Save count of blocks
 	
 	;; Do a block
 
-asgrp:	mov	rbx, norm_grp_mults	; Addr of the group multipliers
-
-asblk:	mov	eax, normval4		; Load count of 8KB chunks in a blk
+asblk:	mov	saved_blk_start, rsi
+	mov	saved_blk_start2, rbp
+	mov	saved_blk_biglit, rdi
+	mov	eax, normval4		; Load count of 8KB chunks in a blk
 	mov	loopcount3, eax
 
 as0:	cmp	B_IS_2, 0		; Is this base 2?
@@ -337,14 +350,14 @@ aschunkdn:bump	rcx, 128		; Skip 128 bytes every 8KB
 
 	;; Block done
 
-asblkdn:sub	rsi, pass1blkdst	; Restore start of block ptr
-					; Add 4 carries to start of block
-	xnorm_op_wpn_blk rsi, rbx, XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4
-	sub	rbp, pass1blkdst	; Restore start of block ptr
-					; Add 4 carries to start of block
-	xnorm_op_wpn_blk rbp, rbx, XMM_TMP5, XMM_TMP6, XMM_TMP7, XMM_TMP8
-	add	rsi, pass1blkdst
-	add	rbp, pass1blkdst
+asblkdn:xchg	rsi, saved_blk_start	; Restore/save block start ptr
+	xchg	rbp, saved_blk_start2	; Restore/save block start ptr
+	xchg	rdi, saved_blk_biglit	; Restore/save block biglit ptr
+	xnorm_op_wpn_blk rsi, rbx, XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4 ; Add 4 carries to start of block
+	xnorm_op_wpn_blk rbp, rbx, XMM_TMP5, XMM_TMP6, XMM_TMP7, XMM_TMP8 ; Add 4 carries to start of block
+	mov	rsi, saved_blk_start	; Restore blk ptr
+	mov	rbp, saved_blk_start2	; Restore blk ptr
+	mov	rdi, saved_blk_biglit	; Restore biglit ptr
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
 	jne	short asskip2		; Yes, skip bumping ttp/biglit ptrs
 	add	rdi, normval3		; Adjust little/big flags ptr
@@ -354,31 +367,30 @@ asskip2:add	loopcount2, 80000000h/4 ; Loop 8 times
 	jne	short asskip3		; Yes, skip bumping ttp/biglit ptrs
 	bump	rbx, 4*512		; Next set of group multipliers
 asskip3:sub	loopcount2, 8		; Decrement outer loop counter
-	jnz	asgrp 			; Loop til done
+	jnz	asblk 			; Loop til done
 
 	;; All blocks done
 
 	mov	rax, DESTARG		; Reload ptr for dest #1
 	mov	rbx, norm_grp_mults	; Reload group ttp ptr
-					; Add 2 carries to start of section
-	xnorm_op_wpn_sec XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4
+	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
+	xnorm_op_wpn_sec XMM_TMP1, XMM_TMP2, XMM_TMP3, XMM_TMP4 ; Add 2 carries to start of section
 	mov	rax, DEST2ARG		; Reload ptr for dest #2
-					; Add 2 carries to start of section
-	xnorm_op_wpn_sec XMM_TMP5, XMM_TMP6, XMM_TMP7, XMM_TMP8
+	xnorm_op_wpn_sec XMM_TMP5, XMM_TMP6, XMM_TMP7, XMM_TMP8 ; Add 2 carries to start of section
 
 	mov	rsi, DESTARG		; Addr of FFT data
-	movapd	xmm7, XMM_TMP3		; Load wraparound carry
+	xload	xmm7, XMM_TMP3		; Load wraparound carry
 	xnorm_top_carry_cmn rsi, xmm7, 2
 	mov	rbp, norm_grp_mults	; Addr of the group multipliers
-	movapd	xmm6, XMM_TMP1		; Load non-wraparound carry
+	xload	xmm6, XMM_TMP1		; Load non-wraparound carry
 	xnorm_op_wpn_fft		; Add 2 carries to start of fft
 
 	mov	rsi, DEST2ARG		; Addr of FFT data
-	movapd	xmm7, XMM_TMP7		; Load wraparound carry
+	xload	xmm7, XMM_TMP7		; Load wraparound carry
 	xnorm_top_carry_cmn rsi, xmm7, 2
-	movapd	xmm6, XMM_TMP5		; Load non-wraparound carry
+	xload	xmm6, XMM_TMP5		; Load non-wraparound carry
 	xnorm_op_wpn_fft		; Add 2 carries to start of fft
-	ad_epilog 16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 3*SZPTR+16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwxaddsub3 ENDP
 
 ;;
@@ -415,21 +427,20 @@ loopcount5	EQU	DPTR [rsp+first_local+2*SZPTR+12]
 PROCFL	gwxmuls3
 	ad_prolog 2*SZPTR+16,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rsi, DESTARG		; Address of destination
+	mov	rbp, norm_grp_mults	; Addr of the group multipliers
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
 	movlpd	xmm0, DBLARG		; Small multiplier value
 	movhpd	xmm0, DBLARG		; Small multiplier value
-	movapd	XMM_TMP5, xmm0		; Save small value
-	movapd	xmm7, XMM_BIGVAL	; Init 4 carries
-	movapd	XMM_TMP1, xmm7
-	movapd	XMM_TMP2, xmm7
-	movapd	XMM_TMP3, xmm7
-	movapd	XMM_TMP4, xmm7
+	xstore	XMM_TMP5, xmm0		; Save small value
+	xload	xmm7, XMM_BIGVAL	; Init 4 carries
+	xstore	XMM_TMP1, xmm7
+	xstore	XMM_TMP2, xmm7
+	xstore	XMM_TMP3, xmm7
+	xstore	XMM_TMP4, xmm7
 	mov	eax, count3		; Load blocks count
 	mov	loopcount2, eax		; Save count of blocks
 
 	;; Do a block
-
-mgrp:	mov	rbp, norm_grp_mults	; Addr of the group multipliers
 
 mblk:	mov	saved_blk_start, rsi
 	mov	saved_blk_biglit, rdi
@@ -480,6 +491,7 @@ imul2:	xnorm_smallmul_wpn exec, exec	; Mul and normalize 8 values
 mchunkdn:bump	rsi, 128		; Skip 128 bytes every 8KB
 	dec	loopcount3		; Test loop counter
 	jnz	mul0
+	add	rsi, pass2gapsize	; Next dest
 
 	;; Block done
 
@@ -492,7 +504,6 @@ mchunkdn:bump	rsi, 128		; Skip 128 bytes every 8KB
 b2mblk:	xnorm_smallmul_wpn_blk exec	; Add 4 carries to start of block
 mblkdn:	mov	rsi, saved_blk_start	; Restore start ptr
 	mov	rdi, saved_blk_biglit	; Restore biglit ptr
-	add	rsi, pass2gapsize	; Next dest
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
 	jne	short mskip2		; Yes, skip bumping ttp/biglit ptrs
 	add	rdi, normval3		; Adjust little/big flags ptr
@@ -502,7 +513,7 @@ mskip2:	add	loopcount2, 80000000h/4 ; Loop 8 times
 	jne	short mskip3		; Yes, skip bumping ttp/biglit ptrs
 	bump	rbp, 4*512		; Next set of group multipliers
 mskip3:	sub	loopcount2, 8		; Decrement outer loop counter
-	jnz	mgrp 			; Loop til section done
+	jnz	mblk 			; Loop til section done
 
 	;; All blocks done
 
@@ -516,8 +527,8 @@ mskip3:	sub	loopcount2, 8		; Decrement outer loop counter
 b2msec:	xnorm_smallmul_wpn_sec exec	; Add 2 carries to start of section
 msecdn:
 
-	movapd	xmm6, XMM_TMP1		; Load non-wraparound carry
-	movapd	xmm7, XMM_TMP3		; Load wraparound carry
+	xload	xmm6, XMM_TMP1		; Load non-wraparound carry
+	xload	xmm7, XMM_TMP3		; Load wraparound carry
 
 	cmp	ZERO_PADDED_FFT, 0	;; Zero-padded FFT?
 	jne	mulzp			;; Yes, do special zpad carry
