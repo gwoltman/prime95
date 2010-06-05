@@ -72,6 +72,8 @@ no zero	movsd	Q [rsi][rdi], xmm0	;; Save the new value
 no zero	subsd	xmm7, ADDIN_VALUE	;; Do not include addin in sumout
 noadd:	mov	saved_rsi, rsi		;; Save for xtop_carry_adjust
 
+	xnorm_wpn_preload ttp, zero, echk, const, base2, sse4
+
 	mov	rdx, norm_grp_mults	;; Addr of the group multipliers
 	mov	rbp, carries		;; Addr of the carries
 	mov	rdi, norm_ptr1		;; Load big/little flags array ptr

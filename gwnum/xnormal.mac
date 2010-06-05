@@ -40,6 +40,27 @@ no sse4	subpd	tmpreg2, XMM_BIGVAL
 	maxpd	errreg, tmpreg2		;; Compute maximum error
 	ENDM
 
+IFDEF X86_64
+;; Same as above but with xmm15 preloaded with a useful constant
+error_check_interleaved_64 MACRO sse4, xmmreg1, tmpreg1, xmmreg2, tmpreg2, errreg
+sse4	roundpd	tmpreg1, xmmreg1, 0	;; Convert to an integer
+sse4	roundpd	tmpreg2, xmmreg2, 0	;; Convert to an integer
+no sse4	xcopy	tmpreg1, xmm15		;; Convert to an integer
+no sse4	addpd	tmpreg1, xmmreg1
+no sse4	xcopy	tmpreg2, xmm15		;; Convert to an integer
+no sse4	addpd	tmpreg2, xmmreg2
+no sse4	subpd	tmpreg1, xmm15
+no sse4	subpd	tmpreg2, xmm15
+	subpd	tmpreg1, xmmreg1	;; This is the convolution error
+	subpd	tmpreg2, xmmreg2	;; This is the convolution error
+sse4	andpd	tmpreg1, xmm15		;; Compute absolute value
+sse4	andpd	tmpreg2, xmm15		;; Compute absolute value
+no sse4	andpd	tmpreg1, XMM_ABSVAL	;; Compute absolute value
+no sse4	andpd	tmpreg2, XMM_ABSVAL	;; Compute absolute value
+	maxpd	errreg, tmpreg1		;; Compute maximum error
+	maxpd	errreg, tmpreg2		;; Compute maximum error
+	ENDM
+ENDIF
 
 ; In general, normalization routines calculate:
 ;		newFFTvalue = (FFTvalue * const + carry) % base
@@ -3284,6 +3305,9 @@ const	xload	xmm4, XMM_K_TIMES_MULCONST_HI
 ;	xstore	[rbp+0*16], xmm2	;; Save carry
 ;
 
+xnorm_wpn_preload MACRO ttp, zero, echk, const, base2, sse4
+	ENDM
+
 xnorm_wpn MACRO ttp, zero, echk, const, base2, sse4
 ttp		movzx	eax, bl				;; Big/lit flags 1
 ttp		movzx	ecx, bh				;; Big/lit flags 2
@@ -3374,6 +3398,12 @@ zero		xorpd	xmm1, xmm1
 	ENDM
 
 IFDEF X86_64
+
+xnorm_wpn_preload MACRO ttp, zero, echk, const, base2, sse4
+echk sse4	movapd	xmm15, XMM_ABSVAL
+echk no sse4	movapd	xmm15, XMM_BIGVAL
+	ENDM
+
 xnorm_wpn MACRO ttp, zero, echk, const, base2, sse4
 ttp		movzx	r9, bl				;; Big/lit flags 1
 ttp		movzx	ecx, bh				;; Big/lit flags 2
@@ -3381,7 +3411,7 @@ ttp		movzx	ecx, bh				;; Big/lit flags 2
 ttp		mulpd	xmm8, [rdx+0*512][r9]		;; Mul by fudged grp two-to-minus-phi	;1-5	;1-4
 		xload	xmm9, [rsi+1*16]		;; Load values2
 ttp		mulpd	xmm9, [rdx+1*512][rcx]		;; Mul by fudged grp two-to-minus-phi	;3-7	;2-5
-no const echk	error_check_interleaved sse4, xmm8, xmm10, xmm9, xmm11, xmm6
+no const echk	error_check_interleaved_64 sse4, xmm8, xmm10, xmm9, xmm11, xmm6
 const		mul_by_const_interleaved base2, echk, sse4, xmm8, xmm12, xmm10, r9, xmm9, xmm13, xmm11, rcx, xmm6
 ttp		shr	rbx, 16				;; Move big/lit flags along
 ttp		movzx	r8, bl				;; Big/lit flags 3
@@ -3390,7 +3420,7 @@ ttp		movzx	eax, bh				;; Big/lit flags 4
 ttp		mulpd	xmm0, [rdx+2*512][r8]		;; Mul by fudged grp two-to-minus-phi	;5-9	;3-6
 		xload	xmm1, [rsi+3*16]		;; Load values4
 ttp		mulpd	xmm1, [rdx+3*512][rax]		;; Mul by fudged grp two-to-minus-phi	;7-11	;4-7
-no const echk	error_check_interleaved sse4, xmm0, xmm2, xmm1, xmm3, xmm6
+no const echk	error_check_interleaved_64 sse4, xmm0, xmm2, xmm1, xmm3, xmm6
 const		mul_by_const_interleaved base2, echk, sse4, xmm0, xmm4, xmm2, r8, xmm1, xmm5, xmm3, rax, xmm6
 const		addpd	xmm8, [rbp+0*16]		;; x1 = values + carry
 no const	addpd	xmm8, xmm12			;; x1 = values + carry			;6-9	;5-7
@@ -3403,6 +3433,7 @@ const		addpd	xmm0, [rbp+2*16]		;; x3 = values + carry
 no const	addpd	xmm0, xmm4			;; x3 = values + carry			;10-13	;7-9
 base2		xload	xmm10, XMM_LIMIT_BIGMAX[r9]	;; Load maximum * BIGVAL - BIGVAL
 base2 no const	xcopy	xmm4, xmm10			;; Copy maximum * BIGVAL - BIGVAL
+base2 const no echk xcopy xmm15, xmm10			;; Copy maximum * BIGVAL - BIGVAL
 base2		addpd	xmm10, xmm8			;; y1 = top bits of x			;12-15	;8-10
 const		addpd	xmm1, [rbp+3*16]		;; x4 = values + carry
 no const	addpd	xmm1, xmm5			;; x4 = values + carry			;14-17	;9-11
@@ -3427,14 +3458,15 @@ base2 const	addpd	xmm13, xmm11			;; Add in upper mul-by-const bits
 base2 const	mulpd	xmm13, XMM_LIMIT_INVERSE[rcx]	;; next carry = shifted y2
 base2 no const	xload	xmm13, XMM_LIMIT_INVERSE[rcx]	;; next carry = shifted y2
 base2 no const	mulpd	xmm13, xmm11			;; next carry = shifted y2		;21-26	;13-17
-base2 const	subpd	xmm10, XMM_LIMIT_BIGMAX[r9]	;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
+base2 const echk subpd	xmm10, XMM_LIMIT_BIGMAX[r9]	;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
+base2 const no echk subpd xmm10, xmm15			;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
 base2 no const	subpd	xmm10, xmm4			;; z1 = y1 - (maximum*BIGVAL-BIGVAL)	;22-25	;13-15
 base2 const	addpd	xmm4, xmm2			;; Add in upper mul-by-const bits
 base2 const	mulpd	xmm4, XMM_LIMIT_INVERSE[r8]	;; next carry = shifted y3
 base2 no const	xload	xmm4, XMM_LIMIT_INVERSE[r8]	;; next carry = shifted y3
 base2 no const	mulpd	xmm4, xmm2			;; next carry = shifted y3		;23-28	;14-18
 base2 const echk subpd	xmm11, XMM_LIMIT_BIGMAX[rcx]	;; z2 = y2 - (maximum*BIGVAL-BIGVAL)
-base2 const no echk subpd xmm11, xmm6			;; z2 = y2 - (maximum*BIGVAL-BIGVAL)	;24-27	;14-16
+base2 const no echk subpd xmm11, xmm6			;; z2 = y2 - (maximum*BIGVAL-BIGVAL)
 base2 no const	subpd	xmm11, xmm5			;; z2 = y2 - (maximum*BIGVAL-BIGVAL)	;24-27	;14-16
 base2 const	addpd	xmm5, xmm3			;; Add in upper mul-by-const bits
 base2 const	mulpd	xmm5, XMM_LIMIT_INVERSE[rax]	;; next carry = shifted y4
