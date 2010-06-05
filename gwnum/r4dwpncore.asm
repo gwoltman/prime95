@@ -129,7 +129,7 @@ TLB_PRIMING = 0
 ;	r4dwpn_pass1sc512 640K, 1280, 4
 
 ;	r4dwpn_pass1sc640 480K, 768, 4
-;	r4dwpn_pass1sc640 640K, 10, 4
+	r4dwpn_pass1sc640 640K, 10, 4
 ;	r4dwpn_pass1sc640 800K, 1280, 4
 
 ;	r4dwpn_pass1sc768 576K, 768, 4
