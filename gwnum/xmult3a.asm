@@ -78,14 +78,9 @@ noadd:	mov	saved_rsi, rsi		;; Save for xtop_carry_adjust
 	mov	eax, addcount1		;; Load loop counter
 	mov	loopcount2, eax		;; Save loop counter
 	mov	loopcount3, 0		;; Set loop counter
-ttp	movzx	rax, BYTE PTR [rdi+0]	;; Load big vs. little flags
-ttp	movzx	rcx, BYTE PTR [rdi+1]	;; Load big vs. little flags
-IFDEF X86_64
-ttp	movzx	r8, BYTE PTR [rdi+2]	;; Load big vs. little flags
-ttp	movzx	r9, BYTE PTR [rdi+3]	;; Load big vs. little flags
-ENDIF
-ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
-	mov	loopcount1, ebx		;; Save loop counter
+ttp	mov	ebx, [rdi+0]		;; Preload 4 big vs. little flags
+ilp0:	mov	eax, cache_line_multiplier ;; Load inner loop counter
+	mov	loopcount1, eax		;; Save loop counter
 IFDEF X86_64
 no const xload	xmm12, [rbp+0*16]	;; Preload carries
 no const xload	xmm13, [rbp+1*16]
