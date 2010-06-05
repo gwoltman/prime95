@@ -3380,55 +3380,55 @@ const	mul_by_const_interleaved base2, echk, sse4, xmm0, xmm4, xmm2, r8, xmm1, xm
 
 no base2 rounding_interleaved base2, const, sse4, xmm8, xmm12, xmm10, rax, xmm9, xmm13, xmm11, rcx
 
-	addpd	xmm0, [rbp+2*16]	;; x3 = values + carry			;20-23	;13-15
+	addpd	xmm0, [rbp+2*16]	;; x3 = values + carry			;10-13	;7-9
 base2	movapd	xmm10, XMM_LIMIT_BIGMAX[rax];; Load maximum * BIGVAL - BIGVAL
-base2	addpd	xmm10, xmm8		;; y1 = top bits of x			;22-25	;14-16
-	addpd	xmm1, [rbp+3*16]	;; x4 = values + carry			;24-27	;15-17
+base2	addpd	xmm10, xmm8		;; y1 = top bits of x			;12-15	;8-10
+	addpd	xmm1, [rbp+3*16]	;; x4 = values + carry			;14-17	;9-11
 
 no base2 rounding_interleaved base2, const, sse4, xmm0, xmm4, xmm2, r8, xmm1, xmm5, xmm3, r9
 
 base2	movapd	xmm11, XMM_LIMIT_BIGMAX[rcx];; Load maximum * BIGVAL - BIGVAL
-base2	addpd	xmm11, xmm9		;; y2 = top bits of x			;26-29	;16-18
+base2	addpd	xmm11, xmm9		;; y2 = top bits of x			;16-19	;10-12
 base2 const addpd xmm12, xmm10		;; Add in upper mul-by-const bits
 base2 const mulpd xmm12, XMM_LIMIT_INVERSE[rax];; next carry = shifted y1
 base2 no const movapd xmm12, XMM_LIMIT_INVERSE[rax];; next carry = shifted y1
-base2 no const mulpd xmm12, xmm10	;; next carry = shifted y1		;27-32	;17-21
+base2 no const mulpd xmm12, xmm10	;; next carry = shifted y1		;17-22	;11-15
 base2	movapd	xmm2, XMM_LIMIT_BIGMAX[r8];; Load maximum * BIGVAL - BIGVAL
-base2	addpd	xmm2, xmm0		;; y3 = top bits of x			;28-31	;17-19
+base2	addpd	xmm2, xmm0		;; y3 = top bits of x			;18-21	;11-13
 base2	movapd	xmm3, XMM_LIMIT_BIGMAX[r9];; Load maximum * BIGVAL - BIGVAL
-base2	addpd	xmm3, xmm1		;; y4 = top bits of x			;30-33	;18-20
+base2	addpd	xmm3, xmm1		;; y4 = top bits of x			;20-23	;12-14
 base2 const addpd xmm13, xmm11		;; Add in upper mul-by-const bits
 base2 const mulpd xmm13, XMM_LIMIT_INVERSE[rcx];; next carry = shifted y2
 base2 no const movapd xmm13, XMM_LIMIT_INVERSE[rcx];; next carry = shifted y2
-base2 no const mulpd xmm13, xmm11	;; next carry = shifted y2		;31-36	;19-23
-base2	subpd	xmm10, XMM_LIMIT_BIGMAX[rax];; z1 = y1 - (maximum*BIGVAL-BIGVAL) ;32-35	;19-22
+base2 no const mulpd xmm13, xmm11	;; next carry = shifted y2		;21-26	;13-17
+base2	subpd	xmm10, XMM_LIMIT_BIGMAX[rax];; z1 = y1 - (maximum*BIGVAL-BIGVAL);22-25	;13-15
 base2 const addpd xmm4, xmm2		;; Add in upper mul-by-const bits
 base2 const mulpd xmm4, XMM_LIMIT_INVERSE[r8];; next carry = shifted y3
 base2 no const movapd xmm4, XMM_LIMIT_INVERSE[r8];; next carry = shifted y3
-base2 no const mulpd xmm4, xmm2		;; next carry = shifted y3		;33-38	;20-24
-base2	subpd	xmm11, XMM_LIMIT_BIGMAX[rcx];; z2 = y2 - (maximum*BIGVAL-BIGVAL) ;34-37	;20-22
+base2 no const mulpd xmm4, xmm2		;; next carry = shifted y3		;23-28	;14-18
+base2	subpd	xmm11, XMM_LIMIT_BIGMAX[rcx];; z2 = y2 - (maximum*BIGVAL-BIGVAL);24-27	;14-16
 base2 const addpd xmm5, xmm3		;; Add in upper mul-by-const bits
 base2 const mulpd xmm5, XMM_LIMIT_INVERSE[r9];; next carry = shifted y4
 base2 no const movapd xmm5, XMM_LIMIT_INVERSE[r9];; next carry = shifted y4
-base2 no const mulpd xmm5, xmm3		;; next carry = shifted y4		;35-40	;21-25
+base2 no const mulpd xmm5, xmm3		;; next carry = shifted y4		;25-30	;15-19
 	movapd	[rbp+0*16], xmm12	;; Save carry1
-base2	subpd	xmm2, XMM_LIMIT_BIGMAX[r8];; z3 = y3 - (maximum*BIGVAL-BIGVAL)	;36-39	;21-23
+base2	subpd	xmm2, XMM_LIMIT_BIGMAX[r8];; z3 = y3 - (maximum*BIGVAL-BIGVAL)	;26-29	;15-17
 	movapd	[rbp+1*16], xmm13	;; Save carry2
-base2	subpd	xmm3, XMM_LIMIT_BIGMAX[r9];; z4 = y4 - (maximum*BIGVAL-BIGVAL)	;38-41	;22-24
-base2	subpd	xmm8, xmm10		;; rounded value = x1 - z1		;40-43	;23-25
+base2	subpd	xmm3, XMM_LIMIT_BIGMAX[r9];; z4 = y4 - (maximum*BIGVAL-BIGVAL)	;28-31	;16-18
+base2	subpd	xmm8, xmm10		;; rounded value = x1 - z1		;30-33	;17-19
 	movapd	[rbp+2*16], xmm4	;; Save carry3
-base2	subpd	xmm9, xmm11		;; rounded value = x2 - z2		;42-45	;24-26
+base2	subpd	xmm9, xmm11		;; rounded value = x2 - z2		;32-35	;18-20
 	movapd	[rbp+3*16], xmm5	;; Save carry4
-base2	subpd	xmm0, xmm2		;; rounded value = x3 - z3		;44-47	;25-27
-ttp	mulpd	xmm8, [rdx+0*512+256][rax] ;; value1 *= fudged grp two-to-phi	;45-50	;26-30
+base2	subpd	xmm0, xmm2		;; rounded value = x3 - z3		;34-37	;19-21
+ttp	mulpd	xmm8, [rdx+0*512+256][rax] ;; value1 *= fudged grp two-to-phi	;35-40	;20-24
 ttp	movzx	rax, BYTE PTR [rdi+4]	;; Load next big vs. little flags
-base2	subpd	xmm1, xmm3		;; rounded value = x4 - z4		;46-49	;26-28
-ttp	mulpd	xmm9, [rdx+1*512+256][rcx] ;; value2 *= fudged grp two-to-phi	;47-52	;27-31
+base2	subpd	xmm1, xmm3		;; rounded value = x4 - z4		;36-39	;20-22
+ttp	mulpd	xmm9, [rdx+1*512+256][rcx] ;; value2 *= fudged grp two-to-phi	;37-42	;21-25
 ttp	movzx	rcx, BYTE PTR [rdi+5]	;; Load next big vs. little flags
-ttp	mulpd	xmm0, [rdx+2*512+256][r8] ;; value3 *= fudged grp two-to-phi	;49-54	;28-32
+ttp	mulpd	xmm0, [rdx+2*512+256][r8] ;; value3 *= fudged grp two-to-phi	;38-41	;22-26
 ttp	movzx	r8, BYTE PTR [rdi+6]	;; Load next big vs. little flags
 zero	xorpd	xmm0, xmm0
-ttp	mulpd	xmm1, [rdx+3*512+256][r9] ;; value4 *= fudged grp two-to-phi	;51-56	;29-33
+ttp	mulpd	xmm1, [rdx+3*512+256][r9] ;; value4 *= fudged grp two-to-phi	;40-43	;23-27
 ttp	movzx 	r9, BYTE PTR [rdi+7]	;; Load next big vs. little flags
 zero	xorpd	xmm1, xmm1
 	movapd	[rsi+0*16], xmm8	;; Save new value1
