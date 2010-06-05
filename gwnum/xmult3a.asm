@@ -61,7 +61,7 @@ inorm	MACRO	lab, ttp, zero, echk, const, base2, sse4
 	PROCFLP	lab
 	int_prolog SZPTR+12,0,0
 zero	mov	zero_fft, 1		;; Set flag saying zero upper half
-	xload	xmm6, XMM_MAXERR	;; Load maximum error
+echk	xload	xmm6, XMM_MAXERR	;; Load maximum error
 no zero	mov	edx, ADDIN_ROW		;; Is this the time to do our addin?
 no zero	cmp	edx, THIS_BLOCK
 no zero	jne	short noadd		;; Jump if addin does not occur now
@@ -108,7 +108,8 @@ ENDIF
 	add	rsi, normblkdst8	;; Add 128 every 8 clmblkdsts
 ttp	bump	rdx, 4*512		;; Next set of group multipliers
 	jmp	ilp0			;; Iterate
-ilexit:	xstore	XMM_MAXERR, xmm6	;; Save maximum error
+ilexit:
+echk	xstore	XMM_MAXERR, xmm6	;; Save maximum error
 ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr
 
 	; Handle adjusting the carry out of the topmost FFT word
@@ -132,7 +133,7 @@ zpnorm	MACRO	lab, ttp, echk, const, base2, sse4, khi, c1, cm1
 	PROCFLP	lab
 	int_prolog 12,0,0
 const	mov	const_fft, 1		;; Set flag saying mul-by-const
-	xload	xmm6, XMM_MAXERR	;; Load maximum error
+echk	xload	xmm6, XMM_MAXERR	;; Load maximum error
 	xsub_7_words
 
 	mov	rdx, norm_grp_mults	;; Addr of the group multipliers
@@ -159,7 +160,8 @@ ttp	bump	rdi, 4			;; Next big/little flags
 	add	rsi, normblkdst8	;; Add 128 every 8 clmblkdsts
 ttp	bump	rdx, 4*512		;; Next set of group multipliers
 	jmp	ilp0			;; Iterate
-ilexit:	xstore	XMM_MAXERR, xmm6	;; Save maximum error
+ilexit:
+echk	xstore	XMM_MAXERR, xmm6	;; Save maximum error
 ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr
 	int_epilog 12,0,0
 	ENDPP	lab

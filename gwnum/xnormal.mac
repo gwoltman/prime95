@@ -3299,21 +3299,26 @@ const		mul_by_const_interleaved base2, echk, sse4, xmm0, xmm4, xmm2, rax, xmm1, 
 no base2	rounding_interleaved base2, const, sse4, xmm0, xmm4, xmm2, rax, xmm1, xmm5, xmm3, rcx
 
 base2		xload	xmm2, XMM_LIMIT_BIGMAX[rax]	;; Load maximum * BIGVAL - BIGVAL
+base2 no const	xcopy	xmm5, xmm2			;; Copy maximum * BIGVAL - BIGVAL
+base2 const no echk xcopy xmm6, xmm2			;; Copy maximum * BIGVAL - BIGVAL
 base2		addpd	xmm2, xmm0			;; y1 = top bits of x
 base2		xload	xmm3, XMM_LIMIT_BIGMAX[rcx]	;; Load maximum * BIGVAL - BIGVAL
+base2		xcopy	xmm7, xmm3			;; Copy maximum * BIGVAL - BIGVAL
 base2		addpd	xmm3, xmm1			;; y2 = top bits of x
 base2 const	addpd	xmm4, xmm2			;; Add in upper mul-by-const bits
 base2 const	mulpd	xmm4, XMM_LIMIT_INVERSE[rax]	;; next carry = shifted y1
 base2 no const	xload	xmm4, XMM_LIMIT_INVERSE[rax]	;; next carry = shifted y1
 base2 no const	mulpd	xmm4, xmm2			;; next carry = shifted y1
 		xstore	[rbp+0*16], xmm4		;; Save carry1
-base2		subpd	xmm2, XMM_LIMIT_BIGMAX[rax]	;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
+base2 const echk subpd	xmm2, XMM_LIMIT_BIGMAX[rax]	;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
+base2 const no echk subpd xmm2, xmm6			;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
+base2 no const	subpd	xmm2, xmm5			;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
 base2 const	addpd	xmm5, xmm3			;; Add in upper mul-by-const bits
 base2 const	mulpd	xmm5, XMM_LIMIT_INVERSE[rcx]	;; next carry = shifted y2
 base2 no const	xload	xmm5, XMM_LIMIT_INVERSE[rcx]	;; next carry = shifted y2
 base2 no const	mulpd	xmm5, xmm3			;; next carry = shifted y2
 		xstore	[rbp+1*16], xmm5		;; Save carry2
-base2		subpd	xmm3, XMM_LIMIT_BIGMAX[rcx]	;; z2 = y2 - (maximum*BIGVAL-BIGVAL)
+base2		subpd	xmm3, xmm7			;; z2 = y2 - (maximum*BIGVAL-BIGVAL)
 base2		subpd	xmm0, xmm2			;; rounded value = x1 - z1
 base2		subpd	xmm1, xmm3			;; rounded value = x2 - z2
 ttp		mulpd	xmm0, [rdx+0*512+256][rax]	;; value1 = rounded value * fudged grp two-to-phi
@@ -3337,21 +3342,26 @@ const		mul_by_const_interleaved base2, echk, sse4, xmm0, xmm4, xmm2, rax, xmm1, 
 no base2	rounding_interleaved base2, const, sse4, xmm0, xmm4, xmm2, rax, xmm1, xmm5, xmm3, rcx
 
 base2		xload	xmm2, XMM_LIMIT_BIGMAX[rax]	;; Load maximum * BIGVAL - BIGVAL
+base2 no const	xcopy	xmm5, xmm2			;; Copy maximum * BIGVAL - BIGVAL
+base2 const no echk xcopy xmm6, xmm2			;; Copy maximum * BIGVAL - BIGVAL
 base2		addpd	xmm2, xmm0			;; y1 = top bits of x
 base2		xload	xmm3, XMM_LIMIT_BIGMAX[rcx]	;; Load maximum * BIGVAL - BIGVAL
+base2		xcopy	xmm7, xmm3			;; Copy maximum * BIGVAL - BIGVAL
 base2		addpd	xmm3, xmm1			;; y2 = top bits of x
 base2 const	addpd	xmm4, xmm2			;; Add in upper mul-by-const bits
 base2 const	mulpd	xmm4, XMM_LIMIT_INVERSE[rax]	;; next carry = shifted y1
 base2 no const	xload	xmm4, XMM_LIMIT_INVERSE[rax]	;; next carry = shifted y1
 base2 no const	mulpd	xmm4, xmm2			;; next carry = shifted y1
 		xstore	[rbp+2*16], xmm4		;; Save carry1
-base2		subpd	xmm2, XMM_LIMIT_BIGMAX[rax]	;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
+base2 const echk subpd	xmm2, XMM_LIMIT_BIGMAX[rax]	;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
+base2 const no echk subpd xmm2, xmm6			;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
+base2 no const	subpd	xmm2, xmm5			;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
 base2 const	addpd	xmm5, xmm3			;; Add in upper mul-by-const bits
 base2 const	mulpd	xmm5, XMM_LIMIT_INVERSE[rcx]	;; next carry = shifted y2
 base2 no const	xload	xmm5, XMM_LIMIT_INVERSE[rcx]	;; next carry = shifted y2
 base2 no const	mulpd	xmm5, xmm3			;; next carry = shifted y2
 		xstore	[rbp+3*16], xmm5		;; Save carry2
-base2		subpd	xmm3, XMM_LIMIT_BIGMAX[rcx]	;; z2 = y2 - (maximum*BIGVAL-BIGVAL)
+base2		subpd	xmm3, xmm7			;; z2 = y2 - (maximum*BIGVAL-BIGVAL)
 base2		subpd	xmm0, xmm2			;; rounded value = x1 - z1
 base2		subpd	xmm1, xmm3			;; rounded value = x2 - z2
 ttp		mulpd	xmm0, [rdx+2*512+256][rax]	;; value1 *= rounded value * fudged grp two-to-phi
@@ -3401,6 +3411,7 @@ no base2	rounding_interleaved base2, const, sse4, xmm0, xmm4, xmm2, r8, xmm1, xm
 
 base2		xload	xmm11, XMM_LIMIT_BIGMAX[rcx]	;; Load maximum * BIGVAL - BIGVAL
 base2 no const	xcopy	xmm5, xmm11			;; Copy maximum * BIGVAL - BIGVAL
+base2 const no echk xcopy xmm6, xmm11			;; Copy maximum * BIGVAL - BIGVAL
 base2		addpd	xmm11, xmm9			;; y2 = top bits of x			;16-19	;10-12
 base2 const	addpd	xmm12, xmm10			;; Add in upper mul-by-const bits
 base2 const	mulpd	xmm12, XMM_LIMIT_INVERSE[r9]	;; next carry = shifted y1
@@ -3422,7 +3433,8 @@ base2 const	addpd	xmm4, xmm2			;; Add in upper mul-by-const bits
 base2 const	mulpd	xmm4, XMM_LIMIT_INVERSE[r8]	;; next carry = shifted y3
 base2 no const	xload	xmm4, XMM_LIMIT_INVERSE[r8]	;; next carry = shifted y3
 base2 no const	mulpd	xmm4, xmm2			;; next carry = shifted y3		;23-28	;14-18
-base2 const	subpd	xmm11, XMM_LIMIT_BIGMAX[rcx]	;; z2 = y2 - (maximum*BIGVAL-BIGVAL)
+base2 const echk subpd	xmm11, XMM_LIMIT_BIGMAX[rcx]	;; z2 = y2 - (maximum*BIGVAL-BIGVAL)
+base2 const no echk subpd xmm11, xmm6			;; z2 = y2 - (maximum*BIGVAL-BIGVAL)	;24-27	;14-16
 base2 no const	subpd	xmm11, xmm5			;; z2 = y2 - (maximum*BIGVAL-BIGVAL)	;24-27	;14-16
 base2 const	addpd	xmm5, xmm3			;; Add in upper mul-by-const bits
 base2 const	mulpd	xmm5, XMM_LIMIT_INVERSE[rax]	;; next carry = shifted y4
