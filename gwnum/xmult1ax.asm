@@ -1,4 +1,4 @@
-; Copyright 2001-2009 Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2010 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -13,6 +13,7 @@ ENDIF
 
 INCLUDE	unravel.mac
 INCLUDE extrn.mac
+INCLUDE xbasics.mac
 INCLUDE xmult.mac
 INCLUDE memory.mac
 INCLUDE xnormal.mac

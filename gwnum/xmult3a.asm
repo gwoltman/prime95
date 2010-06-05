@@ -61,7 +61,7 @@ inorm	MACRO	lab, ttp, zero, echk, const, base2, sse4
 	PROCFLP	lab
 	int_prolog SZPTR+12,0,0
 zero	mov	zero_fft, 1		;; Set flag saying zero upper half
-	movapd	xmm6, XMM_MAXERR	;; Load maximum error
+	xload	xmm6, XMM_MAXERR	;; Load maximum error
 no zero	mov	edx, ADDIN_ROW		;; Is this the time to do our addin?
 no zero	cmp	edx, THIS_BLOCK
 no zero	jne	short noadd		;; Jump if addin does not occur now
@@ -86,6 +86,12 @@ ttp	movzx	r9, BYTE PTR [rdi+3]	;; Load big vs. little flags
 ENDIF
 ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	mov	loopcount1, ebx		;; Save loop counter
+IFDEF X86_64
+no const xload	xmm12, [rbp+0*16]	;; Preload carries
+no const xload	xmm13, [rbp+1*16]
+no const xload	xmm4, [rbp+2*16]
+no const xload	xmm5, [rbp+3*16]
+ENDIF
 ilp1:	xprefetchw [rsi+64]
 	xnorm_wpn ttp, zero, echk, const, base2, sse4 ;; Normalize 8 values
 	bump	rsi, 64			;; Next cache line
@@ -93,6 +99,12 @@ ttp	bump	rdi, 4			;; Next big/little flags
 	sub	loopcount1, 1		;; Test loop counter
 	jnz	ilp1			;; Loop til done
 	add	rsi, normblkdst		;; Skip gap in blkdst or clmblkdst
+IFDEF X86_64
+no const xstore	[rbp+0*16], xmm12	;; Store carries
+no const xstore	[rbp+1*16], xmm13
+no const xstore	[rbp+2*16], xmm4
+no const xstore	[rbp+3*16], xmm5
+ENDIF
 	bump	rbp, 64			;; Next set of carries
 	sub	loopcount2, 1		;; Test loop counter
 	jz	ilexit			;; Jump when loop complete
@@ -101,7 +113,7 @@ ttp	bump	rdi, 4			;; Next big/little flags
 	add	rsi, normblkdst8	;; Add 128 every 8 clmblkdsts
 ttp	bump	rdx, 4*512		;; Next set of group multipliers
 	jmp	ilp0			;; Iterate
-ilexit:	movapd	XMM_MAXERR, xmm6	;; Save maximum error
+ilexit:	xstore	XMM_MAXERR, xmm6	;; Save maximum error
 ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr
 
 	; Handle adjusting the carry out of the topmost FFT word
@@ -125,7 +137,7 @@ zpnorm	MACRO	lab, ttp, echk, const, base2, sse4, khi, c1, cm1
 	PROCFLP	lab
 	int_prolog 12,0,0
 const	mov	const_fft, 1		;; Set flag saying mul-by-const
-	movapd	xmm6, XMM_MAXERR	;; Load maximum error
+	xload	xmm6, XMM_MAXERR	;; Load maximum error
 	xsub_7_words
 
 	mov	rdx, norm_grp_mults	;; Addr of the group multipliers
@@ -152,7 +164,7 @@ ttp	bump	rdi, 4			;; Next big/little flags
 	add	rsi, normblkdst8	;; Add 128 every 8 clmblkdsts
 ttp	bump	rdx, 4*512		;; Next set of group multipliers
 	jmp	ilp0			;; Iterate
-ilexit:	movapd	XMM_MAXERR, xmm6	;; Save maximum error
+ilexit:	xstore	XMM_MAXERR, xmm6	;; Save maximum error
 ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr
 	int_epilog 12,0,0
 	ENDPP	lab
