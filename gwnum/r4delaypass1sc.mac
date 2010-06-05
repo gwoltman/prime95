@@ -2550,7 +2550,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi
 					;; addressing to generate 1 byte offsets in radix-8 macro
 	lea	rdx, [rdi-128-2*clm*XMM_SCD4] ;; Real data sin/cos ptr
 	mov	rcx, DATA_ADDR		;; Destination pointer
-	loops_init_prefetch 20*2*clm, 64, 1, rbp ;; 20 iters of 2*clm
+	loops_init_prefetch 20*2*clm, 128, 1, rbp ;; 20 iters of 2*clm
 pfing	mov	rbp, PREMULT_PREFETCH	;; Load premult/sin/cos prefetch pointer
 	r8_sg8cl_sixteen_reals_eight_complex_fft8_preload
 b8b:	r8_sg8cl_sixteen_reals_eight_complex_fft8 rsi, 64, clmblkdst, 2*clmblkdst, 4*clmblkdst, rcx, 64, blkdst, 2*blkdst, 4*blkdst, rdi-128, rdx
