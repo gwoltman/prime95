@@ -113,7 +113,7 @@ TLB_PRIMING = 0
 ;	r4dwpn_pass1sc256 320K, 1280, 4
 
 ;	r4dwpn_pass1sc320 240K, 768, 4
-;	r4dwpn_pass1sc320 320K, 10, 4
+	r4dwpn_pass1sc320 320K, 10, 4
 ;	r4dwpn_pass1sc320 400K, 1280, 4
 
 ;	r4dwpn_pass1sc384 288K, 768, 4
@@ -121,11 +121,11 @@ TLB_PRIMING = 0
 ;	r4dwpn_pass1sc384 480K, 1280, 4
 
 ;	r4dwpn_pass1sc448 336K, 768, 4
-;	r4dwpn_pass1sc448 448K, 10, 4
+	r4dwpn_pass1sc448 448K, 10, 4
 ;	r4dwpn_pass1sc448 560K, 1280, 4
 
 ;	r4dwpn_pass1sc512 384K, 768, 4
-;	r4dwpn_pass1sc512 512K, 10, 4
+	r4dwpn_pass1sc512 512K, 10, 4
 ;	r4dwpn_pass1sc512 640K, 1280, 4
 
 ;	r4dwpn_pass1sc640 480K, 768, 4
@@ -177,7 +177,7 @@ TLB_PRIMING = 0
 	; The all-complex 10 levels variants (768, 1024, 1280)
 
 ;	r4dwpn_pass1sc128ac 96K, 768, 4
-;	r4dwpn_pass1sc128ac 128K, 10, 4
+	r4dwpn_pass1sc128ac 128K, 10, 4
 ;	r4dwpn_pass1sc128ac 160K, 1280, 4
 
 ;	r4dwpn_pass1sc256ac 192K, 768, 4
