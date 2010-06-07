@@ -265,6 +265,70 @@ void gwsincos3 (
 	END_x86_FIX
 }
 
+extern "C"
+void gwsincos5 (
+	unsigned long x,
+	unsigned long N,
+	double	*results)
+{
+	dd_real arg1, arg2, sine, cosine, sine2, cosine2, sine4, cosine4, sine5, cosine5;
+
+	x86_FIX
+	arg1 = dd_real::_2pi * (double) x / (double) N;
+	sincos (arg1, sine, cosine);
+	results[0] = sine;
+	results[0] += epsilon;		/* Protect against divide by zero */
+	results[1] = cosine / results[0];
+
+	sine2 = sine * cosine * 2.0;
+	cosine2 = sqr (cosine) - sqr (sine);
+
+	sine4 = sine2 * cosine2 * 2.0;
+	cosine4 = sqr (cosine2) - sqr (sine2);
+
+	sine5 = sine * cosine4 + sine4 * cosine;
+	cosine5 = cosine * cosine4 - sine * sine4;
+
+	results[2] = sine5;
+	results[2] += epsilon;		/* Protect against divide by zero */
+	results[3] = cosine5 / results[2];
+	END_x86_FIX
+}
+
+extern "C"
+void gwsincos25 (
+	unsigned long x,
+	unsigned long N,
+	double	*results)
+{
+	dd_real arg1, arg2, sine, cosine, sine2, cosine2, sine4, cosine4, sine5, cosine5;
+
+	x86_FIX
+	arg1 = dd_real::_2pi * (double) x / (double) N;
+	sincos (arg1, sine, cosine);
+	results[0] = sine;
+	results[0] += epsilon;		/* Protect against divide by zero */
+	results[1] = cosine / results[0];
+
+	sine2 = sine * cosine * 2.0;
+	cosine2 = sqr (cosine) - sqr (sine);
+
+	results[2] = sine2;
+	results[2] += epsilon;		/* Protect against divide by zero */
+	results[3] = cosine2 / results[2];
+
+	sine4 = sine2 * cosine2 * 2.0;
+	cosine4 = sqr (cosine2) - sqr (sine2);
+
+	sine5 = sine * cosine4 + sine4 * cosine;
+	cosine5 = cosine * cosine4 - sine * sine4;
+
+	results[4] = sine5;
+	results[4] += epsilon;		/* Protect against divide by zero */
+	results[5] = cosine5 / results[4];
+	END_x86_FIX
+}
+
 
 //
 // Utility routines to compute fft weights
@@ -666,6 +730,48 @@ void gwsincos2_weighted (
 	results[3] = sine2 * weight;
 	results[4] = cosine2 / sine2;
 	results[5] = sine2 / weight * dd_data->gw__over_fftlen;
+	END_x86_FIX
+}
+
+extern "C"
+void gwsincos5_weighted (
+	void	*dd_data_arg,
+	unsigned long x,
+	unsigned long N,
+	unsigned long j,
+	double	*results)
+{
+	dd_real arg1, arg2, sine, cosine, sine2, cosine2, sine4, cosine4, sine5, cosine5;
+	dd_real temp, bpower, weight;
+
+	x86_FIX
+	temp = (double) j * dd_data->gw__num_b_per_word;
+	bpower = gwceil (temp) - temp;
+	if (! dd_data->gw__c_is_one) bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) j;
+	weight = exp (dd_data->gw__logb * bpower);
+
+	arg1 = dd_real::_2pi * (double) x / (double) N;
+	sincos (arg1, sine, cosine);
+
+	sine2 = sine * cosine * 2.0;
+	cosine2 = sqr (cosine) - sqr (sine);
+
+	sine4 = sine2 * cosine2 * 2.0;
+	cosine4 = sqr (cosine2) - sqr (sine2);
+
+	sine5 = sine * cosine4 + sine4 * cosine;
+	cosine5 = cosine * cosine4 - sine * sine4;
+
+	sine = sine + epsilon;		// Hack to avoid divide-by-zero errors
+	sine5 = sine5 + epsilon;
+
+	results[0] = sine * weight;
+	results[1] = cosine / sine;
+	results[2] = sine / weight * dd_data->gw__over_fftlen;
+
+	results[3] = sine5 * weight;
+	results[4] = cosine5 / sine5;
+	results[5] = sine5 / weight * dd_data->gw__over_fftlen;
 	END_x86_FIX
 }
 

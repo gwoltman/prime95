@@ -108,7 +108,7 @@ ENDIF
 	add	loopcount3, 80000000h/4 ;; 8 iterations
 	jnc	ilp0
 	add	rsi, normblkdst8	;; Add 128 every 8 clmblkdsts
-ttp	bump	rdx, 4*512		;; Next set of group multipliers
+ttp	bump	rdx, 4*XMM_GMD		;; Next set of group multipliers
 	jmp	ilp0			;; Iterate
 ilexit:
 echk	xstore	XMM_MAXERR, xmm6	;; Save maximum error
@@ -160,7 +160,7 @@ ttp	bump	rdi, 4			;; Next big/little flags
 	add	loopcount3z, 80000000h/4 ;; 8 iterations
 	jnc	ilp0
 	add	rsi, normblkdst8	;; Add 128 every 8 clmblkdsts
-ttp	bump	rdx, 4*512		;; Next set of group multipliers
+ttp	bump	rdx, 4*XMM_GMD		;; Next set of group multipliers
 	jmp	ilp0			;; Iterate
 ilexit:
 echk	xstore	XMM_MAXERR, xmm6	;; Save maximum error

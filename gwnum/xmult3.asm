@@ -40,7 +40,7 @@ PROCF	xgw_carries_wpn
 	int_prolog 2*SZPTR+4,0,0
 	mov	eax, cache_line_multiplier; Cache lines in each pass1 loop
 	shl	rax, 2			; Compute biglit increment
-	mov	edx, 4*512		; Compute grp increment
+	mov	edx, 4*XMM_GMD		; Compute grp increment
 	cmp	RATIONAL_FFT, 0		; Don't bump these two pointers
 	je	short iskip		; for rational FFTs
 	sub	rax, rax		; Zero biglit_incr

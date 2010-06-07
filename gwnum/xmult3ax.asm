@@ -120,7 +120,7 @@ askip2:	add	loopcount2, 80000000h/4 ; Loop 8 times
 	jnc	ablk
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
 	jne	short askip3		; Yes, skip bumping ttp/biglit ptrs
-	bump	rbp, 4*512		; Next set of group multipliers
+	bump	rbp, 4*XMM_GMD		; Next set of group multipliers
 askip3:	sub	loopcount2, 8		; Decrement outer loop counter
 	jnz	ablk 			; Loop til done
 
@@ -237,7 +237,7 @@ sskip2:	add	loopcount2, 80000000h/4 ; Loop 8 times
 	jnc	sblk
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
 	jne	short sskip3		; Yes, skip bumping ttp/biglit ptrs
-	bump	rbp, 4*512		; Next set of group multipliers
+	bump	rbp, 4*XMM_GMD		; Next set of group multipliers
 sskip3:	sub	loopcount2, 8		; Decrement outer loop counter
 	jnz	sblk 			; Loop til done
 
@@ -365,7 +365,7 @@ asskip2:add	loopcount2, 80000000h/4 ; Loop 8 times
 	jnc	asblk
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
 	jne	short asskip3		; Yes, skip bumping ttp/biglit ptrs
-	bump	rbx, 4*512		; Next set of group multipliers
+	bump	rbx, 4*XMM_GMD		; Next set of group multipliers
 asskip3:sub	loopcount2, 8		; Decrement outer loop counter
 	jnz	asblk 			; Loop til done
 
@@ -511,7 +511,7 @@ mskip2:	add	loopcount2, 80000000h/4 ; Loop 8 times
 	jnc	mblk
 	cmp	RATIONAL_FFT, 0		; Rational FFT?
 	jne	short mskip3		; Yes, skip bumping ttp/biglit ptrs
-	bump	rbp, 4*512		; Next set of group multipliers
+	bump	rbp, 4*XMM_GMD		; Next set of group multipliers
 mskip3:	sub	loopcount2, 8		; Decrement outer loop counter
 	jnz	mblk 			; Loop til section done
 

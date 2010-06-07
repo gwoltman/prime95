@@ -537,6 +537,24 @@ unsigned long pow_two_above_or_equal (
 	return (result);
 }
 
+/* Routine to split a r4dwpn FFT word into column and group multiplier indexes */
+
+unsigned long dwpn_col (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	unsigned long word)
+{
+	unsigned long upper_sse2_word, high, low;
+
+	upper_sse2_word = gwdata->PASS2_SIZE >> 1;
+	high = word / upper_sse2_word;
+	low = word - high * upper_sse2_word;
+
+	high = high >> 1;
+	high = high % 8;
+	high = high * gwdata->PASS2_SIZE;
+
+	return (high + low);
+}
 
 /* This routine builds the sin/cos table used in pass 1 by a traditional */
 /* DJB radix-4 FFT  - called by gwsetup.   If this is an all-complex FFT, */
@@ -709,20 +727,18 @@ double *r4_build_pass1_table (
 				for (j = 0; j < N*2 / 8; j += pass1_increment) {
 					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
-						gwsincos (temp, N*2, (double *) &sincos);
+						gwsincos5 (temp, N*2, (double *) &sincos);
 						table[0] = sincos[0];	/* temp */
 						table[2] = sincos[1];
-						gwsincos (5*temp, N*2, (double *) &sincos);
-						table[4] = sincos[0];	/* 5 * temp */
-						table[6] = sincos[1];
+						table[4] = sincos[2];	/* 5 * temp */
+						table[6] = sincos[3];
 
 						temp += upper_sse2_word;
-						gwsincos (temp, N*2, (double *) &sincos);
+						gwsincos5 (temp, N*2, (double *) &sincos);
 						table[1] = sincos[0];	/* temp */
 						table[3] = sincos[1];
-						gwsincos (5*temp, N*2, (double *) &sincos);
-						table[5] = sincos[0];	/* 5 * temp */
-						table[7] = sincos[1];
+						table[5] = sincos[2];	/* 5 * temp */
+						table[7] = sincos[3];
 
 						table += 8;
 					}
@@ -894,24 +910,22 @@ double *r4_build_pass1_table (
 				for (j = 0; j < N / 8; j += pass1_increment) {
 					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
-						gwsincos2 (temp, N, (double *) &sincos);
+						gwsincos25 (temp, N, (double *) &sincos);
 						table[0] = sincos[0];	/* temp */
 						table[2] = sincos[1];
 						table[4] = sincos[2];	/* 2 * temp */
 						table[6] = sincos[3];
-						gwsincos (5*temp, N, (double *) &sincos);
-						table[8] = sincos[0];	/* 5 * temp */
-						table[10] = sincos[1];
+						table[8] = sincos[4];	/* 5 * temp */
+						table[10] = sincos[5];
 
 						temp += upper_sse2_word;
-						gwsincos2 (temp, N, (double *) &sincos);
+						gwsincos25 (temp, N, (double *) &sincos);
 						table[1] = sincos[0];	/* temp */
 						table[3] = sincos[1];
 						table[5] = sincos[2];	/* 2 * temp */
 						table[7] = sincos[3];
-						gwsincos (5*temp, N, (double *) &sincos);
-						table[9] = sincos[0];	/* 5 * temp */
-						table[11] = sincos[1];
+						table[9] = sincos[4];	/* 5 * temp */
+						table[11] = sincos[5];
 
 						table += 12;
 					}
@@ -1109,12 +1123,11 @@ double *r4_build_pass2_real_table (
 /* Real FFTs with eight_reals macros need w^n and w^5n for 2N. */
 
 	for (i = 0; i < N / 4; i++) {
-		gwsincos (i, N * 2, (double *) &sincos);
+		gwsincos5 (i, N * 2, (double *) &sincos);
 		table[0] = sincos[0];	/* temp for 2*N */
 		table[1] = sincos[1];
-		gwsincos (5*i, N * 2, (double *) &sincos);
-		table[2] = sincos[0];	/* 5 * temp for 2*N */
-		table[3] = sincos[1];
+		table[2] = sincos[2];	/* 5 * temp for 2*N */
+		table[3] = sincos[3];
 		table += 4;
 	}
 
@@ -1538,20 +1551,18 @@ double *r4delay_build_pass1_table (
 				for (j = 0; j < N*2 / 8; j += pass1_increment) {
 					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
-						gwsincos (temp, N*2, (double *) &sincos);
+						gwsincos5 (temp, N*2, (double *) &sincos);
 						table[0] = sincos[0];	/* temp */
 						table[2] = sincos[1];
-						gwsincos (5*temp, N*2, (double *) &sincos);
-						table[4] = sincos[0];	/* 5 * temp */
-						table[6] = sincos[1];
+						table[4] = sincos[2];	/* 5 * temp */
+						table[6] = sincos[3];
 
 						temp += upper_sse2_word;
-						gwsincos (temp, N*2, (double *) &sincos);
+						gwsincos5 (temp, N*2, (double *) &sincos);
 						table[1] = sincos[0];	/* temp */
 						table[3] = sincos[1];
-						gwsincos (5*temp, N*2, (double *) &sincos);
-						table[5] = sincos[0];	/* 5 * temp */
-						table[7] = sincos[1];
+						table[5] = sincos[2];	/* 5 * temp */
+						table[7] = sincos[3];
 
 						table += 8;
 					}
@@ -1745,24 +1756,22 @@ double *r4delay_build_fixed_pass1_table (
 		}
 		else {
 			for (j = 0; j < N / 8; j += pass1_increment) {
-				gwsincos2 (j, N, (double *) &sincos);
+				gwsincos25 (j, N, (double *) &sincos);
 				table[0] = sincos[0];	/* temp */
 				table[2] = sincos[1];
 				table[4] = sincos[2];	/* 2 * temp */
 				table[6] = sincos[3];
-				gwsincos (5*j, N, (double *) &sincos);
-				table[8] = sincos[0];	/* 5 * temp */
-				table[10] = sincos[1];
+				table[8] = sincos[4];	/* 5 * temp */
+				table[10] = sincos[5];
 
 				temp = j + upper_sse2_word;
-				gwsincos2 (temp, N, (double *) &sincos);
+				gwsincos25 (temp, N, (double *) &sincos);
 				table[1] = sincos[0];	/* temp */
 				table[3] = sincos[1];
 				table[5] = sincos[2];	/* 2 * temp */
 				table[7] = sincos[3];
-				gwsincos (5*temp, N, (double *) &sincos);
-				table[9] = sincos[0];	/* 5 * temp */
-				table[11] = sincos[1];
+				table[9] = sincos[4];	/* 5 * temp */
+				table[11] = sincos[5];
 
 				table += 12;
 			}
@@ -1773,20 +1782,18 @@ double *r4delay_build_fixed_pass1_table (
 			    pass1_size == 2048 || pass1_size == 3072 || pass1_size == 4096) {
 				/* Output the sin/cos values for the real data */
 				for (j = 0; j < N*2 / 8; j += pass1_increment) {
-					gwsincos (j, N*2, (double *) &sincos);
+					gwsincos5 (j, N*2, (double *) &sincos);
 					table[0] = sincos[0];	/* temp */
 					table[2] = sincos[1];
-					gwsincos (5*j, N*2, (double *) &sincos);
-					table[4] = sincos[0];	/* 5 * temp */
-					table[6] = sincos[1];
+					table[4] = sincos[2];	/* 5 * temp */
+					table[6] = sincos[3];
 
 					temp = j + upper_sse2_word;
-					gwsincos (temp, N*2, (double *) &sincos);
+					gwsincos5 (temp, N*2, (double *) &sincos);
 					table[1] = sincos[0];	/* temp */
 					table[3] = sincos[1];
-					gwsincos (5*temp, N*2, (double *) &sincos);
-					table[5] = sincos[0];	/* 5 * temp */
-					table[7] = sincos[1];
+					table[5] = sincos[2];	/* 5 * temp */
+					table[7] = sincos[3];
 
 					table += 8;
 				}
@@ -2232,20 +2239,18 @@ double *r4dwpn_build_pass1_table (
 				for (j = 0; j < N*2 / 8; j += pass1_increment) {
 					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
-						gwsincos (temp, N*2, (double *) &sincos);
+						gwsincos5 (temp, N*2, (double *) &sincos);
 						table[0] = sincos[0];	/* temp */
 						table[2] = sincos[1];
-						gwsincos (5*temp, N*2, (double *) &sincos);
-						table[4] = sincos[0];	/* 5 * temp */
-						table[6] = sincos[1];
+						table[4] = sincos[2];	/* 5 * temp */
+						table[6] = sincos[3];
 
 						temp += upper_sse2_word;
-						gwsincos (temp, N*2, (double *) &sincos);
+						gwsincos5 (temp, N*2, (double *) &sincos);
 						table[1] = sincos[0];	/* temp */
 						table[3] = sincos[1];
-						gwsincos (5*temp, N*2, (double *) &sincos);
-						table[5] = sincos[0];	/* 5 * temp */
-						table[7] = sincos[1];
+						table[5] = sincos[2];	/* 5 * temp */
+						table[7] = sincos[3];
 
 						table += 8;
 					}
@@ -2388,24 +2393,21 @@ double *r4dwpn_build_pass1_table (
 				for (j = 0; j < N*2 / 8; j += pass1_increment) {
 					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
-						gwsincos_weighted (gwdata->dd_data, temp, N*2, temp, (double *) &sincos);
+						gwsincos5_weighted (gwdata->dd_data, temp, N*2, temp, (double *) &sincos);
 						table[0] = sincos[0];	/* temp */
 						table[2] = sincos[1];
 						table[4] = sincos[2];
-						gwsincos_weighted (gwdata->dd_data, 5*temp, N*2, temp, (double *) &sincos);
-						table[6] = sincos[0];	/* 5 * temp */
-						table[8] = sincos[1];
-						table[10] = sincos[2];
+						table[6] = sincos[3];	/* 5 * temp */
+						table[8] = sincos[4];
+						table[10] = sincos[5];
 
-						temp += upper_sse2_word;
-						gwsincos_weighted (gwdata->dd_data, temp, N*2, temp, (double *) &sincos);
+						gwsincos5_weighted (gwdata->dd_data, temp + upper_sse2_word, N*2, temp, (double *) &sincos);
 						table[1] = sincos[0];	/* temp */
 						table[3] = sincos[1];
 						table[5] = sincos[2];
-						gwsincos_weighted (gwdata->dd_data, 5*temp, N*2, temp, (double *) &sincos);
-						table[7] = sincos[0];	/* 5 * temp */
-						table[9] = sincos[1];
-						table[11] = sincos[2];
+						table[7] = sincos[3];	/* 5 * temp */
+						table[9] = sincos[4];
+						table[11] = sincos[5];
 
 						table += 12;
 					}
@@ -2686,31 +2688,42 @@ double *r4dwpn_build_norm_table (
 	num_cols = gwdata->PASS2_SIZE * 8;
 	for (i = 0; i < gwdata->FFTLEN / 4; i += num_cols) {
 		for (j = 0; j < gwdata->FFTLEN; j += gwdata->FFTLEN / 4) {
-			double	ttp, ttmp, ttp_over_b, ttmp_times_b, *tab32;
+			int	upper_is_bigger;
+			double	ttp, ttmp, ttp_over_b, ttmp_times_b, *tab24;
+
+/* One of the fudge factors never occurs, allowing us to reduce fudge factor memory usage by 25% */
+/* Which combination never occurs is dependent upon whether the upper sse2 word's weight is larger */
+/* or smaller than the lower sse2 word's weight. */			
+
+			upper_is_bigger = gwfft_weight_exponent (gwdata->dd_data, i + j + upper_sse2_word) > gwfft_weight_exponent (gwdata->dd_data, i + j);
 
 /* Call double-precision routine to compute the multipliers. */
 /* We compute two-to-phi multiplied by the fudge factor so that normalize won't have to. */
 
 			gwfft_weights_fudged (gwdata->dd_data, i + j, gwdata->b, &ttp, &ttmp, &ttp_over_b, &ttmp_times_b);
 
-/* Set the entries LSW in an SSE2 pair */
+/* Set the LSW entries in an SSE2 pair */
 
-			table[0] = table[2] = table[4] = table[6] = table[16] = table[18] = table[20] = table[22] = ttmp;
-			table[8] = table[10] = table[12] = table[14] = table[24] = table[26] = table[28] = table[30] = ttmp_times_b;
-			tab32 = table + 32;
-			tab32[0] = tab32[2] = tab32[4] = tab32[6] = tab32[16] = tab32[18] = tab32[20] = tab32[22] = ttp;
-			tab32[8] = tab32[10] = tab32[12] = tab32[14] = tab32[24] = tab32[26] = tab32[28] = tab32[30] = ttp_over_b;
+			table[0] = table[2] = table[4] = table[6] = ttmp;
+			table[8] = table[10] = table[12] = table[14] = upper_is_bigger ? ttmp : ttmp_times_b;
+			table[16] = table[18] = table[20] = table[22] = ttmp_times_b;
+			tab24 = table + 24;
+			tab24[0] = tab24[2] = tab24[4] = tab24[6] = ttp;
+			tab24[8] = tab24[10] = tab24[12] = tab24[14] = upper_is_bigger ? ttp : ttp_over_b;
+			tab24[16] = tab24[18] = tab24[20] = tab24[22] = ttp_over_b;
 
-/* Set the entries MSW in an SSE2 pair */
+/* Set the MSW entries in an SSE2 pair */
 
 			gwfft_weights_fudged (gwdata->dd_data, i + j + upper_sse2_word, gwdata->b, &ttp, &ttmp, &ttp_over_b, &ttmp_times_b);
 
-			table[1] = table[3] = table[5] = table[7] = table[9] = table[11] = table[13] = table[15] = ttmp;
-			table[17] = table[19] = table[21] = table[23] = table[25] = table[27] = table[29] = table[31] = ttmp_times_b;
-			tab32[1] = tab32[3] = tab32[5] = tab32[7] = tab32[9] = tab32[11] = tab32[13] = tab32[15] = ttp;
-			tab32[17] = tab32[19] = tab32[21] = tab32[23] = tab32[25] = tab32[27] = tab32[29] = tab32[31] = ttp_over_b;
+			table[1] = table[3] = table[5] = table[7] = ttmp;
+			table[9] = table[11] = table[13] = table[15] = upper_is_bigger ? ttmp_times_b : ttmp;
+			table[17] = table[19] = table[21] = table[23] = ttmp_times_b;
+			tab24[1] = tab24[3] = tab24[5] = tab24[7] = ttp;
+			tab24[9] = tab24[11] = tab24[13] = tab24[15] = upper_is_bigger ? ttp_over_b : ttp;
+			tab24[17] = tab24[19] = tab24[21] = tab24[23] = ttp_over_b;
 
-			table += 64;
+			table += 48;
 		}
 	}
 	return (table);
@@ -2882,6 +2895,11 @@ double *r4dwpn_build_biglit_table (
 					((struct gwasm_data *) gwdata->asm_data)->BIGLIT_INCR4 =
 						(uint32_t) ((char *) p - (char *) table);
 			    }
+
+/* Apply our method for reducing fudge factor data by 25%.  We've observed that one */
+/* of the 4 combinations never occurs. */
+
+			    if (*p >= 128) *p -= 64;
 			    p++;
 			}
 		    }
@@ -2889,25 +2907,6 @@ double *r4dwpn_build_biglit_table (
 	    }
 	}
 	return ((double *) p);
-}
-
-/* Routine to split a R4DWPN FFT word into column and group multiplier indexes */
-
-unsigned long dwpn_col (
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	unsigned long word)
-{
-	unsigned long upper_sse2_word, high, low;
-
-	upper_sse2_word = gwdata->PASS2_SIZE >> 1;
-	high = word / upper_sse2_word;
-	low = word - high * upper_sse2_word;
-
-	high = high >> 1;
-	high = high % 8;
-	high = high * gwdata->PASS2_SIZE;
-
-	return (high + low);
 }
 
 /* This routine builds a sin/cos table - used by gwsetup */
@@ -6544,7 +6543,7 @@ int internal_gwsetup (
 		if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
 			int	i;
 			for (i = 0; i < 7; i++) {
-				gwdata->ZPAD_COPY7_ADJUST[i] = gwfft_weight (gwdata->dd_data, dwpn_col (gwdata, i));
+				gwdata->ZPAD_COPY7_ADJUST[i] = gwfft_weight (gwdata->dd_data, dwpn_col (gwdata, gwdata->FFTLEN / 2 - 3 + i));
 			}
 			/* Adjustments for ZPAD0 - ZPAD6 */
 			for (i = 0; i < 7; i++) {
