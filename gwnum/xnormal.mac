@@ -6683,7 +6683,7 @@ ttp	bump	rdi, 4			;; Next flags ptr
 xnorm_op_wpn_blk MACRO srcreg, screg, carry1, carry2, carry3, carry4
 	xload	xmm2, XMM_BIGVAL
 
-	movzx	rax, BYTE PTR [edi]	;; Load biglit flag
+	movzx	rax, BYTE PTR [rdi]	;; Load biglit flag
 	xload	xmm0, carry1		;; Load carries
 	subsd	xmm0, xmm2
 	mulsd	xmm0, Q [screg+0*XMM_GMD+XMM_GMD/2+8][rax] ;; mul by fudged grp two-to-phi
@@ -6692,7 +6692,7 @@ xnorm_op_wpn_blk MACRO srcreg, screg, carry1, carry2, carry3, carry4
 	shufpd	xmm0, xmm2, 1
 	xstore	carry1, xmm0		;; Save carries for start of next blk
 
-	movzx	rax, BYTE PTR [edi+1]	;; Load biglit flag
+	movzx	rax, BYTE PTR [rdi+1]	;; Load biglit flag
 	xload	xmm0, carry2		;; Load carries
 	subsd	xmm0, xmm2
 	mulsd	xmm0, Q [screg+1*XMM_GMD+XMM_GMD/2+8][rax] ;; mul by fudged grp two-to-phi
@@ -6701,7 +6701,7 @@ xnorm_op_wpn_blk MACRO srcreg, screg, carry1, carry2, carry3, carry4
 	shufpd	xmm0, xmm2, 1
 	xstore	carry2, xmm0		;; Save carries for start of next blk
 
-	movzx	rax, BYTE PTR [edi+2]	;; Load biglit flag
+	movzx	rax, BYTE PTR [rdi+2]	;; Load biglit flag
 	xload	xmm0, carry3		;; Load carries
 	subsd	xmm0, xmm2
 	mulsd	xmm0, Q [screg+2*XMM_GMD+XMM_GMD/2+8][rax] ;; mul by fudged grp two-to-phi
@@ -6710,7 +6710,7 @@ xnorm_op_wpn_blk MACRO srcreg, screg, carry1, carry2, carry3, carry4
 	shufpd	xmm0, xmm2, 1
 	xstore	carry3, xmm0		;; Save carries for start of next blk
 
-	movzx	rax, BYTE PTR [edi+3]	;; Load biglit flag
+	movzx	rax, BYTE PTR [rdi+3]	;; Load biglit flag
 	xload	xmm0, carry4		;; Load carries
 	subsd	xmm0, xmm2
 	mulsd	xmm0, Q [screg+3*XMM_GMD+XMM_GMD/2+8][rax] ;; mul by fudged grp two-to-phi
@@ -6729,7 +6729,7 @@ xnorm_op_wpn_blk MACRO srcreg, screg, carry1, carry2, carry3, carry4
 xnorm_op_wpn_sec MACRO carry1, carry2, carry3, carry4
 	xload	xmm2, XMM_BIGVAL
 
-	movzx	rcx, BYTE PTR [edi+1]	;; Load biglit flag
+	movzx	rcx, BYTE PTR [rdi+1]	;; Load biglit flag
 	movsd	xmm0, carry1		;; Load carry
 	subsd	xmm0, xmm2
 	mulsd	xmm0, Q [rbx+1*XMM_GMD+XMM_GMD/2][rcx] ;; mul by fudged grp two-to-phi
@@ -6740,7 +6740,7 @@ xnorm_op_wpn_sec MACRO carry1, carry2, carry3, carry4
 	xstore	carry1, xmm1
 	xstore	carry2, xmm2		;; Save carries for start of next sec
 
-	movzx	rcx, BYTE PTR [edi+3]	;; Load biglit flag
+	movzx	rcx, BYTE PTR [rdi+3]	;; Load biglit flag
 	movsd	xmm0, carry3		;; Load carry
 	subsd	xmm0, xmm2
 	mulsd	xmm0, Q [rbx+3*XMM_GMD+XMM_GMD/2][rcx] ;; mul by fudged grp two-to-phi
@@ -6763,14 +6763,14 @@ xnorm_op_wpn_sec MACRO carry1, carry2, carry3, carry4
 xnorm_op_wpn_fft MACRO
 	movsd	xmm2, XMM_BIGVAL
 
-	movzx	rax, BYTE PTR [edi]	;; Load biglit flag
+	movzx	rax, BYTE PTR [rdi]	;; Load biglit flag
 	subsd	xmm7, xmm2		;; Remove XMM_BIGVAL
 	mulsd	xmm7, XMM_MINUS_C	;; mul wrap around carry by -c
 	mulsd	xmm7, Q [rbp+0*XMM_GMD+XMM_GMD/2][rax] ;; mul by fudged grp two-to-phi
 	addsd	xmm7, Q [rsi+0*16]	;; Add in FFT data
 	movsd	Q [rsi+0*16], xmm7	;; Save FFT word
 
-	movzx	rax, BYTE PTR [edi+2]	;; Load biglit flag
+	movzx	rax, BYTE PTR [rdi+2]	;; Load biglit flag
 	subsd	xmm6, xmm2		;; Remove XMM_BIGVAL
 	mulsd	xmm6, Q [rbp+2*XMM_GMD+XMM_GMD/2][rax] ;; mul by fudged grp two-to-phi
 	addsd	xmm6, Q [rsi+2*16]	;; Add in FFT data
