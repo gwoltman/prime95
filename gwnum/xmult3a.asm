@@ -131,12 +131,12 @@ done:	int_epilog SZPTR+12,0,0
 	ENDM
 
 IFDEF X86_64
-loopcount1	EQU	r10
+loopcount1z	EQU	r10
 ELSE
-loopcount1	EQU	DPTR [rsp+first_local]
+loopcount1z	EQU	DPTR [rsp+first_local]
 ENDIF
-loopcount2	EQU	DPTR [rsp+first_local+4]
-loopcount3	EQU	DPTR [rsp+first_local+8]
+loopcount2z	EQU	DPTR [rsp+first_local+4]
+loopcount3z	EQU	DPTR [rsp+first_local+8]
 
 zpnorm	MACRO	lab, ttp, echk, const, base2, sse4, khi, c1, cm1
 	LOCAL	setlp, ilp0, ilp1, ilexit
@@ -150,22 +150,22 @@ echk	xload	xmm6, XMM_MAXERR	;; Load maximum error
 	mov	rbp, carries		;; Addr of the carries
 	mov	rdi, norm_ptr1		;; Load big/little flags array ptr
 	mov	eax, addcount1		;; Load loop counter
-	mov	loopcount2, eax		;; Save loop counter
-	mov	loopcount3, 0		;; Set loop counter
+	mov	loopcount2z, eax	;; Save loop counter
+	mov	loopcount3z, 0		;; Set loop counter
 ttp	movzx	rax, BYTE PTR [rdi+0]	;; Load big vs. little flags
 ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
-	mov	loopcount1, rbx		;; Save loop counter
+	mov	loopcount1z, rbx	;; Save loop counter
 ilp1:	xprefetchw [rsi+64]
 	xnorm_wpn_zpad ttp, echk, const, base2, sse4, khi, c1, cm1 ;; Normalize 8 values
 	bump	rsi, 64			;; Next cache line
 ttp	bump	rdi, 4			;; Next big/little flags
-	sub	loopcount1, 1		;; Test loop counter
+	sub	loopcount1z, 1		;; Test loop counter
 	jnz	ilp1			;; Loop til done
 	add	rsi, normblkdst		;; Skip gap in blkdst or clmblkdst
 	bump	rbp, 64			;; Next set of carries
-	sub	loopcount2, 1		;; Test loop counter
+	sub	loopcount2z, 1		;; Test loop counter
 	jz	ilexit			;; Jump when loop complete
-	add	loopcount3, 80000000h/4	;; 8 iterations
+	add	loopcount3z, 80000000h/4 ;; 8 iterations
 	jnc	ilp0
 	add	rsi, normblkdst8	;; Add 128 every 8 clmblkdsts
 ttp	bump	rdx, 4*XMM_GMD		;; Next set of group multipliers

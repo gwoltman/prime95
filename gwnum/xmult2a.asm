@@ -58,7 +58,11 @@ nozpad:
 ; routine.
 
 saved_rsi	EQU	PPTR [rsp+first_local]
+IFDEF X86_64
+loopcount1	EQU	r10
+ELSE
 loopcount1	EQU	DPTR [rsp+first_local+SZPTR]
+ENDIF
 loopcount2	EQU	DPTR [rsp+first_local+SZPTR+4]
 loopcount3	EQU	DPTR [rsp+first_local+SZPTR+8]
 
@@ -101,7 +105,7 @@ ttp	movzx	r8, BYTE PTR [rdi+2]	;; Load big vs. little flags
 ttp	movzx	r9, BYTE PTR [rdi+3]	;; Load big vs. little flags
 ENDIF
 ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
-	mov	loopcount1, ebx		;; Save loop counter
+	mov	loopcount1, rbx		;; Save loop counter
 	lea	rbx, XMM_COL_MULTS	;; Load col mult scratch area
 	xprefetcht1 [rdx+128]		;; Prefetch group multiplier
 ilp1:	xprefetchw [rsi+64]
@@ -136,7 +140,11 @@ done:	int_epilog SZPTR+12,0,0
 	ENDPP	lab
 	ENDM
 
+IFDEF X86_64
+loopcount1z	EQU	r10
+ELSE
 loopcount1z	EQU	DPTR [rsp+first_local]
+ENDIF
 loopcount2z	EQU	DPTR [rsp+first_local+4]
 loopcount3z	EQU	DPTR [rsp+first_local+8]
 
@@ -168,7 +176,7 @@ ttp	mov	norm_ptr2, rbx		;; Save column multipliers ptr
 	sub	rax, rax		;; Clear big/lit flags
 ttp	movzx	rax, BYTE PTR [rdi+0]	;; Load big vs. little flags
 ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
-	mov	loopcount1z, ebx	;; Save loop counter
+	mov	loopcount1z, rbx	;; Save loop counter
 	lea	rbx, XMM_COL_MULTS	;; Load col mult scratch area
 	xprefetcht1 [rdx+128]		;; Prefetch group multiplier
 ilp1:	xprefetchw [rsi+64]
