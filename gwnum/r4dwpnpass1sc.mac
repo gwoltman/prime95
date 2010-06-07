@@ -40,7 +40,7 @@
 ;; pushing out the fixed sin/cos data and normalization data because of the
 ;; LRU cache-eviction algorithm.  The L2 cache size formula is:
 ;;	(FFT data size + Variable sin/cos data) * 2 +
-;;	(Scratch size + Fixed sin/cos data + Normalization data) +
+;;	(Scratch size + Fixed sin/cos data + Normalization data + big/lit data) +
 ;;	(amount of data prefetched during inverse FFT process)
 ;; ALSO NOTE:  Numbers above are for clm = 4.  Clm affects the FFT data size,
 ;; scratch size, variable sin/cos size, big/lit flags, and data prefetched early.
@@ -54,11 +54,12 @@
 ;; Variable sin/cos data:	16K	10K	14K	14K	20K	28K	28K	22K	26K	26K	44K	52K	52K
 ;; Fixed sin/cos data:		5K	9K	12K	15K	18K	24K	30K	39K	52K	65K	78K	104K	130K
 ;; Normalization data:		16K	22K	28K	34K	40K	52K	64K	76K	100K	124K	148K	196K	244K
+;; Big/lit flags:		2K	3K	4K	5K	6K	8K	10K	12K	16K	20K	24K	32K	40K
 ;; Data prefetched early:	16K	12K	16K	10K	24K	32K	20K	0K	0K	0K	0K	0K	0K
 ;;
-;; Min L2 cache size (clm=4):	157K	207K	276K	327K	410K	548K	650K	735K	972K	1201K	1466K	1940K	2398K
-;;     L2 cache size (clm=2):	87K	117K	156K	186K	232K	310K	370K	423K	560K	693K	844K	1118K	1384K
-;;     L2 cache size (clm=1):	52K	72K	96K	115.5K	143K	191K	230K	267K	354K	439K	533K	707K	877K
+;; Min L2 cache size (clm=4):	159K	210K	280K	332K	416K	556K	660K	747K	988K	1221K	1490K	1972K	2438K
+;;     L2 cache size (clm=2):	88K	118.5K	158K	188.5K	235K	314K	375K	429K	568K	703K	856K	1134K	1404K
+;;     L2 cache size (clm=1):	52.5K	72.75K	97K	116.75K	144.5K	193K	232.5K	270K	358K	444K	539K	715K	887K
 
 
 ;;***********************************************************************
