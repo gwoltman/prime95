@@ -19,19 +19,19 @@
 ;;
 ;; Estimated memory requirements for each real pass 1 macro:
 ;;
-;; Pass 1 size:			256	320	384	448	512	640	768	896	1024	1280	1536	1792	2048	2560	3072	3584	4096
+;; Pass 1 size:			128	256	320	384	448	512	640	768	896	1024	1280	1536	1792	2048	2560	3072	3584	4096
 ;;
-;; FFT data:			32K	40K	48K	56K	64K	80K	96K	112K	128K	160K	192K	224K	256K	320K	384K	768K	512K
-;; Scratch size:		32K	40K	48K	56K	64K	80K	96K	112K	128K	160K	192K	224K	256K	320K	384K	768K	512K
-;; Variable sin/cos data:	23K	14.5K	16.5K	18.5K	20.5K	35K	33K	43K	47K	30.5K	28.5K	34.5K	36.5K	61K	57K	69K	73K
-;; Fixed sin/cos data:		1.5K	4.5K	4.5K	6.5K	6K	9K	9K	13K	16K	18K	18K	26K	32K	36K	48K	52K	64K
-;; Normalization data:		12K	19K	22K	25K	28K	34K	40K	46K	48K	64K	76K	88K	100K	124K	148K	172K	196K
-;; Big/lit flags:		2K	2.5K	3K	3.5K	4K	5K	6K	7K	8K	10K	12K	14K	16K	20K	24K	28K	32K
-;; Data prefetched early:	16K	16K	12K	16K	16K	32K	24K	32K	32K	16K	0K	64K	0K	32K	0K	128K	0K
+;; FFT data:			16K	32K	40K	48K	56K	64K	80K	96K	112K	128K	160K	192K	224K	256K	320K	384K	768K	512K
+;; Scratch size:		16K	32K	40K	48K	56K	64K	80K	96K	112K	128K	160K	192K	224K	256K	320K	384K	768K	512K
+;; Variable sin/cos data:	11.5K	23K	14.5K	16.5K	18.5K	20.5K	35K	33K	43K	47K	30.5K	28.5K	34.5K	36.5K	61K	57K	69K	73K
+;; Fixed sin/cos data:		1.5K	1.5K	4.5K	4.5K	6.5K	6K	9K	9K	13K	16K	18K	18K	26K	32K	36K	48K	52K	64K
+;; Normalization data:		12K	12K	19K	22K	25K	28K	34K	40K	46K	48K	64K	76K	88K	100K	124K	148K	172K	196K
+;; Big/lit flags:		1K	2K	2.5K	3K	3.5K	4K	5K	6K	7K	8K	10K	12K	14K	16K	20K	24K	28K	32K
+;; Data prefetched early:	8K	16K	16K	12K	16K	16K	32K	24K	32K	32K	16K	0K	64K	0K	32K	0K	128K	0K
 ;;
-;; Min L2 cache size (clm=4):	165.5K	191K	218.5K	256K	287K	378K	433K	508K	579.5K	649K	739K	933K	989K	1294K	1486K	2822K	1974K
-;;     L2 cache size (clm=2):	89.5K	105.25K	120.5K	141.75K	158.5K	208.5K	239K	281.5K	321.75K	363.5K	414.5K	521.5K	558.5K	725K	839K	1521K	1115K
-;;     L2 cache size (clm=1):	52.5K	62.37K	71.5K	84.63K	94.25K	123.75K	142K	168.25K	192.25K	220.75K	252.25K	315.75K	343.25K	440.5K	515.5K	870.5K	685.5K
+;; Min L2 cache size (clm=4):	93.5K	165.5K	191K	218.5K	256K	287K	378K	433K	508K	579.5K	649K	739K	933K	989K	1294K	1486K	2822K	1974K
+;;     L2 cache size (clm=2):		89.5K	105.25K	120.5K	141.75K	158.5K	208.5K	239K	281.5K	321.75K	363.5K	414.5K	521.5K	558.5K	725K	839K	1521K	1115K
+;;     L2 cache size (clm=1):		52.5K	62.37K	71.5K	84.63K	94.25K	123.75K	142K	168.25K	192.25K	220.75K	252.25K	315.75K	343.25K	440.5K	515.5K	870.5K	685.5K
 ;;
 ;; NOTE:  To calculate the minimum efficient L2 cache size, we double the
 ;; data and variable sin/cos data sizes as both the current data
@@ -47,19 +47,19 @@
 
 ;; Estimated memory requirements for each all-complex pass 1 macro:
 ;;
-;; Pass 1 size:			256	384	512	640	768	1024	1280	1536	2048	2560	3072	4096	5120
+;; Pass 1 size:			128	256	384	512	640	768	1024	1280	1536	2048	2560	3072	4096	5120
 ;;
-;; FFT data:			32K	48K	64K	80K	96K	128K	160K	192K	256K	320K	384K	512K	640K
-;; Scratch size:		32K	48K	64K	80K	96K	128K	160K	192K	256K	320K	384K	512K	640K
-;; Variable sin/cos data:	16K	10K	14K	14K	20K	28K	28K	22K	26K	26K	44K	52K	52K
-;; Fixed sin/cos data:		5K	9K	12K	15K	18K	24K	30K	39K	52K	65K	78K	104K	130K
-;; Normalization data:		12K	22K	28K	34K	40K	52K	64K	76K	100K	124K	148K	196K	244K
-;; Big/lit flags:		2K	3K	4K	5K	6K	8K	10K	12K	16K	20K	24K	32K	40K
-;; Data prefetched early:	16K	12K	16K	10K	24K	32K	20K	0K	0K	0K	0K	0K	0K
+;; FFT data:			16K	32K	48K	64K	80K	96K	128K	160K	192K	256K	320K	384K	512K	640K
+;; Scratch size:		16K	32K	48K	64K	80K	96K	128K	160K	192K	256K	320K	384K	512K	640K
+;; Variable sin/cos data:		12K	10K	14K	14K	20K	28K	28K	22K	26K	26K	44K	52K	52K
+;; Fixed sin/cos data:			5K	9K	12K	15K	18K	24K	30K	39K	52K	65K	78K	104K	130K
+;; Normalization data:		12K	12K	22K	28K	34K	40K	52K	64K	76K	100K	124K	148K	196K	244K
+;; Big/lit flags:		1K	2K	3K	4K	5K	6K	8K	10K	12K	16K	20K	24K	32K	40K
+;; Data prefetched early:	8K	16K	12K	16K	10K	24K	32K	20K	0K	0K	0K	0K	0K	0K
 ;;
-;; Min L2 cache size (clm=4):	159K	210K	280K	332K	416K	556K	660K	747K	988K	1221K	1490K	1972K	2438K
-;;     L2 cache size (clm=2):	88K	118.5K	158K	188.5K	235K	314K	375K	429K	568K	703K	856K	1134K	1404K
-;;     L2 cache size (clm=1):	52.5K	72.75K	97K	116.75K	144.5K	193K	232.5K	270K	358K	444K	539K	715K	887K
+;; Min L2 cache size (clm=4):	??K	159K	210K	280K	332K	416K	556K	660K	747K	988K	1221K	1490K	1972K	2438K
+;;     L2 cache size (clm=2):		88K	118.5K	158K	188.5K	235K	314K	375K	429K	568K	703K	856K	1134K	1404K
+;;     L2 cache size (clm=1):		52.5K	72.75K	97K	116.75K	144.5K	193K	232.5K	270K	358K	444K	539K	715K	887K
 
 
 ;;***********************************************************************
@@ -76,8 +76,7 @@
 
 ;; Perform a pass 1 FFT of length 128 doubles.
 ;; Memory examples are for a 128K FFT with 10 levels done in pass 2.
-;; Sin/cos data needed: 4*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD2 + 2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD4 = 17*2*clm 64-byte cache lines
-;; BUG:	we under-prefetch the sin/cos data by 2*clm*64 bytes
+;; Sin/cos data needed: 4*2*clm*XMM_SCND2 + 4*2*clm*XMM_SCND2R + 2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD4 = 23*2*clm 64-byte cache lines
 
 r4dwpn_pass1sc128 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b6a, b6b, b7a, b7b, b8b, b9b
@@ -137,7 +136,7 @@ c0b:	start_timer 16
 	mov	rcx, scratch_area	;; Get address of scratch area
 	mov	rdx, PREMULT_ADDR	;; Real data sin/cos pointer
 	lea	rdi, [rdx+2*clm*XMM_SCD2] ;; Complex data sin/cos ptr
-pfing	lea	rbp, [rdx+(17-8)*2*clm*64] ;; Finish prefetch the sin/cos/premult data
+pfing	lea	rbp, [rdx+(23-8)*2*clm*64] ;; Finish prefetch the sin/cos/premult data
 	loops_init_prefetch_touch 16*2*clm, 64, 2, rbp, 4096, c9a ;; 16*2*clm iterations
 	xtouch	[rbp]			;; Prefetch TLB
 c8b:	r4_sg2cl_eight_reals_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi, rdx
@@ -186,28 +185,28 @@ c9b:	r4_sg2cl_four_complex_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 ;;	do 6 macros each processing 32 data values
 
 	start_timer 17
-	lea	rdi, [rdx+4*2*clm*XMM_SCD2] ;; Next complex data sin/cos ptr
+	lea	rdi, [rdx+4*2*clm*XMM_SCND2R] ;; Next complex data sin/cos ptr
 	loops_init 8*2*clm		;; 8*2*clm iterations
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 
-	r4_x4cl_eight_reals_unfft_preload
+	r4_x4cl_wpn_eight_reals_unfft_preload
 c6a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
-c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*clm*XMM_SCD2, rdx, 2*2*clm*XMM_SCD2
-	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
-	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
+c6b:	r4_x4cl_wpn_eight_reals_unfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*clm*XMM_SCND2, rdx, 2*2*clm*XMM_SCND2R
+	bump	rdi, XMM_SCND2		;; Next sine/cosine pointer
+	bump	rdx, XMM_SCND2R		;; Next sine/cosine pointer
 	newxloop1 c6b, clmblkdst	;; 2*clm iterations
 	loops	2, c6a			;; 2 iterations
 	bump	rsi, -2*clmblkdst+clmblkdst8 ;; Next source pointer
-	bump	rdi, -2*2*clm*XMM_SCD2	;; Restore sine/cosine pointer
+	bump	rdi, -2*2*clm*XMM_SCND2	;; Restore sine/cosine pointer
 
 	loops_reset
 c7a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
-c7b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*clm*XMM_SCD2
-	bump	rdi, XMM_SCD2		;; Next clm's sin/cos data
+c7b:	r4_x4cl_wpn_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*clm*XMM_SCND2
+	bump	rdi, XMM_SCND2		;; Next clm's sin/cos data
 	newxloop1 c7b, clmblkdst	;; 2*clm iterations
 	loops	2, c7a			;; 2 iterations
 	bump	rsi, -2*clmblkdst+clmblkdst8 ;; Next source pointer
-	bump	rdi, -2*2*clm*XMM_SCD2	;; Restore sine/cosine pointer
+	bump	rdi, -2*2*clm*XMM_SCND2	;; Restore sine/cosine pointer
 	loops	4, c7a			;; Test outer loop counter
 	bump	rsi, -4*clmblkdst8	;; Restore source pointer
 	end_timer 17
@@ -316,26 +315,26 @@ b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 2*clmblkdst8, rdi
 	start_timer 25
 	mov	rdx, PREMULT_ADDR	;; Address of premultiplier/sin/cos table
 	bump	rdx, 2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD4 ;; Real data sin/cos ptr
-	lea	rdi, [rdx+4*2*clm*XMM_SCD2] ;; Complex data sin/cos ptr
+	lea	rdi, [rdx+4*2*clm*XMM_SCND2R] ;; Complex data sin/cos ptr
 	loops_init 8*2*clm		;; 2 iterations of 4 iters of 2*clm
-	r4_x4cl_eight_reals_four_complex_djbfft_preload
+	r4_x4cl_wpn_eight_reals_four_complex_djbfft_preload
 b6a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
-b6b:	r4_x4cl_eight_reals_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, rdx
-	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
-	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
+b6b:	r4_x4cl_wpn_eight_reals_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, rdx
+	bump	rdi, XMM_SCND2		;; Next sine/cosine pointer
+	bump	rdx, XMM_SCND2R		;; Next sine/cosine pointer
 	newxloop1 b6b, clmblkdst	;; 2*clm iterations
 	loops	4, b6a			;; 4 iterations
 	bump	rsi, -4*clmblkdst+2*clmblkdst8
-	bump	rdi, -4*2*clm*XMM_SCD2	;; Restore sin/cos ptr
+	bump	rdi, -4*2*clm*XMM_SCND2	;; Restore sin/cos ptr
 
 	loops_reset
 b7a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
-b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
-	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
+b7b:	r4_x4cl_wpn_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
+	bump	rdi, XMM_SCND2		;; Next sine/cosine pointer
 	newxloop1 b7b, clmblkdst	;; 2*clm iterations
 	loops	4, b7a			;; Test middle loop counter
 	bump	rsi, -4*clmblkdst+2*clmblkdst8 ;; Next source pointer
-	bump	rdi, -4*2*clm*XMM_SCD2	;; Restore sin/cos ptr
+	bump	rdi, -4*2*clm*XMM_SCND2	;; Restore sin/cos ptr
 	loops	2, b7a			;; Test outer loop counter
 	bump	rsi, -2*2*clmblkdst8	;; Restore source pointer
 	end_timer 25
@@ -367,10 +366,10 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
 ;;	do 7 macros each processing 32 data values
 
 	start_timer 26
-	bump	rdi, -4*2*clm*XMM_SCD2-4*2*clm*XMM_SCD4 ;; Complex data sin/cos ptr
+	bump	rdi, -4*2*clm*XMM_SCND2R-4*2*clm*XMM_SCD4 ;; Complex data sin/cos ptr
 	lea	rdx, [rdi-2*clm*XMM_SCD2] ;; Real data sin/cos ptr
 	mov	rcx, DATA_ADDR		;; Destination pointer
-	loops_init_prefetch 8*2*clm, 64, 1, rbp ;; 8 iters of 2*clm
+	loops_init_prefetch 8*2*clm, 128, 1, rbp ;; 8 iters of 2*clm
 pfing	mov	rbp, PREMULT_PREFETCH	;; Load premult/sin/cos prefetch pointer
 	r4_sg4cl_eight_reals_four_complex_fft4_preload
 b8b:	r4_sg4cl_eight_reals_four_complex_fft4 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst, rdi, rdx

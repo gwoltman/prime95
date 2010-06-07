@@ -34,10 +34,11 @@ _TEXT SEGMENT
 
 biglit_incr	EQU	PPTR [rsp+first_local]
 grp_incr	EQU	PPTR [rsp+first_local+SZPTR]
-loopcount2	EQU	DPTR [rsp+first_local+2*SZPTR]
+loopcount1	EQU	DPTR [rsp+first_local+2*SZPTR]
+loopcount2	EQU	DPTR [rsp+first_local+2*SZPTR+4]
 
 PROCF	xgw_carries_wpn
-	int_prolog 2*SZPTR+4,0,0
+	int_prolog 2*SZPTR+8,0,0
 	mov	eax, cache_line_multiplier; Cache lines in each pass1 loop
 	shl	rax, 2			; Compute biglit increment
 	mov	edx, 4*XMM_GMD		; Compute grp increment
@@ -48,8 +49,7 @@ PROCF	xgw_carries_wpn
 iskip:	mov	biglit_incr, rax	; Save computed increments
 	mov	grp_incr, rdx
 	mov	rsi, carries		; Addr of the carries
-	mov	ebx, count3		; Load block count
-	mov	loopcount2, ebx		; Save count of carry rows
+	mov	ebx, addcount1		; Load block count
 	shl	rbx, 6
 	add	rbx, rsi
 	cmp	ZERO_PADDED_FFT, 0	; Special case the zero padded FFT case
@@ -58,6 +58,10 @@ iskip:	mov	biglit_incr, rax	; Save computed increments
 	mov	rbp, DESTARG		; Addr of the FFT data
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
 	mov	rdx, norm_grp_mults	; Addr of the group multipliers
+	mov	eax, count3		; Load count of grp multipliers
+	mov	loopcount2, eax		; Save count
+ilp0:	mov	eax, count2		; Load wpn count
+	mov	loopcount1, eax		; Save count
 ilp1:	cmp	B_IS_2, 0		; Is b = 2?
 	jne	b2			; Yes, do simpler roundings
 	xnorm012_wpn noexec		; Split carries for one cache line
@@ -66,11 +70,11 @@ b2:	xnorm012_wpn exec		; Split carries for one cache line
 nb2:	bump	rsi, 64			; Next carries pointer
 	add	rbp, pass1blkdst	; Next FFT data pointer
 	add	rdi, biglit_incr	; Next big/little flags pointer
-	add	loopcount2, 80000000h/4	; 8 iterations
-	jnc	ilp1
+	sub	loopcount1, 1		; Test loop counter
+	jnz	ilp1
 	add	rdx, grp_incr		; Next group multiplier
-	sub	loopcount2, 8		; Test loop counter
-	jnz	ilp1			; Next carry row
+	sub	loopcount2, 1		; Test loop counter
+	jnz	ilp0			; Next carry row
 idn:	mov	zero_fft, 0		; Clear zero-high-words-fft flag
 	jmp	cdn			; Jump to common exit code
 
@@ -82,18 +86,22 @@ xgw_carries_zpad:
 	mov	rbp, DESTARG		; Addr of the FFT data
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
 	mov	rdx, norm_grp_mults	; Addr of the group multipliers
+	mov	eax, count3		; Load count of grp multipliers
+	mov	loopcount2, eax		; Save count
+zlp0:	mov	eax, count2		; Load wpn count
+	mov	loopcount1, eax		; Save count
 zlp1:	xnorm012_wpn_zpad		; Split carries for one cache line
 	bump	rsi, 64			; Next carries pointer
 	add	rbp, pass1blkdst	; Next FFT data pointer
 	add	rdi, biglit_incr	; Next big/little flags pointer
-	add	loopcount2, 80000000h/4	; 8 iterations
-	jnc	zlp1
+	sub	loopcount1, 1		; Test loop counter
+	jnz	zlp1
 	add	rdx, grp_incr		; Next group multiplier
-	sub	loopcount2, 8		; Test loop counter
-	jnz	zlp1			; Next carry row
+	sub	loopcount2, 1		; Test loop counter
+	jnz	zlp0			; Next carry row
 	mov	const_fft, 0		; Clear mul-by-const-fft flag
 
-cdn:	int_epilog 2*SZPTR+4,0,0
+cdn:	int_epilog 2*SZPTR+8,0,0
 xgw_carries_wpn ENDP
 
 

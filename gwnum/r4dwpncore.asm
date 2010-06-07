@@ -105,7 +105,7 @@ TLB_PRIMING = 0
 	; The 10 levels variants (768, 1024, 1280)
 
 ;	r4dwpn_pass1sc128 96K, 768, 4
-;	r4dwpn_pass1sc128 128K, 10, 4
+	r4dwpn_pass1sc128 128K, 10, 4
 ;	r4dwpn_pass1sc128 160K, 1280, 4
 
 ;	r4dwpn_pass1sc256 192K, 768, 4

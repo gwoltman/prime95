@@ -913,6 +913,8 @@ struct gwhandle_struct {
 	double	ZPAD_COPY7_ADJUST[7]; /* Adjustments for copying the 7 words */
 				/* around the halfway point of a zero pad FFT. */
 	double	ZPAD_0_7_ADJUST[7]; /* Adjustments for ZPAD0_7 in a r4dwpn FFT */
+	unsigned long wpn_count; /* Count of r4dwpn pass 1 blocks that use the */
+				/* same ttp/ttmp grp multipliers */
 };
 
 /* A psuedo declaration for our big numbers.  The actual pointers to */

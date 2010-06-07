@@ -550,7 +550,7 @@ unsigned long dwpn_col (
 	low = word - high * upper_sse2_word;
 
 	high = high >> 1;
-	high = high % 8;
+	high = high % gwdata->wpn_count;
 	high = high * gwdata->PASS2_SIZE;
 
 	return (high + low);
@@ -1878,6 +1878,7 @@ double *r4dwpn_build_pass1_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table)		/* Pointer to the table to fill in */
 {
+	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
 	unsigned long pass1_size, pass1_increment, delay_count;
 	unsigned long group, i, j, k, N, temp, upper_sse2_word;
 	int	pow2_count;
@@ -1912,6 +1913,13 @@ double *r4dwpn_build_pass1_table (
 
 	pass1_size /= (delay_count * 2);
 	for (pow2_count = 0; (pass1_size & 1) == 0; pass1_size /= 2) pow2_count++;
+
+/* Set count of pass 1 blocks share one set of two-to-phi grp multipliers */
+
+	if (pow2_count & 1) gwdata->wpn_count = 8;
+	else gwdata->wpn_count = 4;
+	asm_data->count2 = gwdata->wpn_count;
+	asm_data->count3 = asm_data->addcount1 / gwdata->wpn_count;
 
 /* Set pointer to table of multipliers */
 
@@ -2685,7 +2693,7 @@ double *r4dwpn_build_norm_table (
 /* Build the group multipliers table */
 
 	upper_sse2_word = gwdata->PASS2_SIZE / 2;
-	num_cols = gwdata->PASS2_SIZE * 8;
+	num_cols = gwdata->PASS2_SIZE * gwdata->wpn_count;
 	for (i = 0; i < gwdata->FFTLEN / 4; i += num_cols) {
 		for (j = 0; j < gwdata->FFTLEN; j += gwdata->FFTLEN / 4) {
 			int	upper_is_bigger;
@@ -2846,7 +2854,7 @@ double *r4dwpn_build_biglit_table (
 
 /* Determine the number of column two-to-phi multipliers */
 
-	num_cols = gwdata->PASS2_SIZE * 8;
+	num_cols = gwdata->PASS2_SIZE * gwdata->wpn_count;
 
 /* Loop to build table in exactly the same order that it will be */
 /* used by the assembly code. */
