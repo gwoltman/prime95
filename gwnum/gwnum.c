@@ -2413,6 +2413,9 @@ double *r4dwpn_build_pass1_table (
 			}
 
 /* Output the sin/cos value for the complex sections, used by the r4_wpn_four_complex_djbfft macro */
+/* We apply the two-to-phi weight for the upper SSE2 word in the group multipliers.  There is a */
+/* reason for doing it there rather than here (it reduces the number of valid fudge factor combinations */
+/* for each SSE2 word from 4 to 3). */
 
 			for (j = 0; j < N / 4; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
@@ -2430,11 +2433,9 @@ double *r4dwpn_build_pass1_table (
 					table[12] = sincos[4];
 					table[14] = sincos[5];
 
-					temp += upper_sse2_word;
-					gwfft_weights3 (gwdata->dd_data, temp, &ttp, NULL, &ttmp);
 					table[1] = ttp;
 					table[3] = ttmp;
-					gwsincos2_weighted (gwdata->dd_data, temp, N, temp, (double *) &sincos);
+					gwsincos2_weighted (gwdata->dd_data, temp + upper_sse2_word, N, temp, (double *) &sincos);
 					table[5] = sincos[0];	/* temp */
 					table[7] = sincos[1];
 					table[9] = sincos[2];
@@ -2677,31 +2678,36 @@ double *r4dwpn_build_norm_table (
 	double	*table,		/* Pointer to the table to fill in */
 	int	col)		/* TRUE if building column, not group, table */
 {
-	unsigned long i, j, num_cols;
+	unsigned long i, j, num_cols, upper_sse2_word;
 
 /* Build the group multipliers table */
 
+	upper_sse2_word = gwdata->PASS2_SIZE / 2;
 	num_cols = gwdata->PASS2_SIZE * 8;
 	for (i = 0; i < gwdata->FFTLEN / 4; i += num_cols) {
 		for (j = 0; j < gwdata->FFTLEN; j += gwdata->FFTLEN / 4) {
 			double	ttp, ttmp, ttp_over_b, ttmp_times_b, *tab32;
 
-/* Call double-precision routine to compute the multipliers */
+/* Call double-precision routine to compute the multipliers. */
+/* We compute two-to-phi multiplied by the fudge factor so that normalize won't have to. */
 
 			gwfft_weights_fudged (gwdata->dd_data, i + j, gwdata->b, &ttp, &ttmp, &ttp_over_b, &ttmp_times_b);
 
-/* Now set the entry for BOTH the MSW and LSW in an SSE2 pair */
-/* Multiply by the fudge factor to save a multiply during normalize */					
+/* Set the entries LSW in an SSE2 pair */
 
 			table[0] = table[2] = table[4] = table[6] = table[16] = table[18] = table[20] = table[22] = ttmp;
-			table[1] = table[3] = table[5] = table[7] = table[9] = table[11] = table[13] = table[15] = ttmp;
 			table[8] = table[10] = table[12] = table[14] = table[24] = table[26] = table[28] = table[30] = ttmp_times_b;
-			table[17] = table[19] = table[21] = table[23] = table[25] = table[27] = table[29] = table[31] = ttmp_times_b;
-
 			tab32 = table + 32;
 			tab32[0] = tab32[2] = tab32[4] = tab32[6] = tab32[16] = tab32[18] = tab32[20] = tab32[22] = ttp;
-			tab32[1] = tab32[3] = tab32[5] = tab32[7] = tab32[9] = tab32[11] = tab32[13] = tab32[15] = ttp;
 			tab32[8] = tab32[10] = tab32[12] = tab32[14] = tab32[24] = tab32[26] = tab32[28] = tab32[30] = ttp_over_b;
+
+/* Set the entries MSW in an SSE2 pair */
+
+			gwfft_weights_fudged (gwdata->dd_data, i + j + upper_sse2_word, gwdata->b, &ttp, &ttmp, &ttp_over_b, &ttmp_times_b);
+
+			table[1] = table[3] = table[5] = table[7] = table[9] = table[11] = table[13] = table[15] = ttmp;
+			table[17] = table[19] = table[21] = table[23] = table[25] = table[27] = table[29] = table[31] = ttmp_times_b;
+			tab32[1] = tab32[3] = tab32[5] = tab32[7] = tab32[9] = tab32[11] = tab32[13] = tab32[15] = ttp;
 			tab32[17] = tab32[19] = tab32[21] = tab32[23] = tab32[25] = tab32[27] = tab32[29] = tab32[31] = ttp_over_b;
 
 			table += 64;
@@ -2823,7 +2829,7 @@ double *r4dwpn_build_biglit_table (
 {
 	unsigned char *p;
 	unsigned long upper_sse2_word, num_cols;
-	unsigned long group, i, j, k, m;
+	unsigned long group, i, j, k, m, n;
 
 /* Determine the number of column two-to-phi multipliers */
 
@@ -2835,18 +2841,19 @@ double *r4dwpn_build_biglit_table (
 	p = (unsigned char *) table;
 	upper_sse2_word = gwdata->PASS2_SIZE / 2;
 	for (group = 0; group < upper_sse2_word; group += gwdata->PASS1_CACHE_LINES) {
-		for (j = 0; j < gwdata->FFTLEN / 4; j += gwdata->PASS2_SIZE) {
-			for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
-				for (k = 0; k < gwdata->FFTLEN; k += gwdata->FFTLEN / 4) {
-					for (m = 0; m < gwdata->PASS2_SIZE; m += upper_sse2_word) {
-						unsigned long word;
+	    for (n = 0; n < gwdata->FFTLEN / 4; n += num_cols) {
+	        for (j = 0; j < num_cols; j += gwdata->PASS2_SIZE) {
+		    for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+			for (k = 0; k < gwdata->FFTLEN; k += gwdata->FFTLEN / 4) {
+			    for (m = 0; m < gwdata->PASS2_SIZE; m += upper_sse2_word) {
+				unsigned long word;
 
 /* Now set the big/little flag for a LSW in an SSE2 pair */
 /* Otherwise, set the big/little flag for a MSW in an SSE2 pair */
 
-						word = group + j + i + k + m;
-						if (m == 0) *p = is_big_word (gwdata, word) * 16;
-						else if (is_big_word (gwdata, word)) *p += 32;
+				word = group + j + n + i + k + m;
+				if (m == 0) *p = is_big_word (gwdata, word) * 16;
+				else if (is_big_word (gwdata, word)) *p += 32;
 
 /* Set the ttp and ttmp fudge flags for two pass FFTs.  The fudge flag is */
 /* set if the col mult * the grp mult is twice the correct fft_weight, */
@@ -2854,12 +2861,12 @@ double *r4dwpn_build_biglit_table (
 /* Since we can't do equality compares on floats, this test is a little bit */
 /* cryptic. */
 
-						if (gwfft_weight_exponent (gwdata->dd_data, word) + 0.5 <
-						    gwfft_weight_exponent (gwdata->dd_data, word % num_cols) +
-						    gwfft_weight_exponent (gwdata->dd_data, word - word % num_cols)) {
-							if (m == 0) *p += 64;
-							else *p += 128;
-						}
+				if (gwfft_weight_exponent (gwdata->dd_data, word) + 0.5 <
+				    gwfft_weight_exponent (gwdata->dd_data, n + k + m) +
+				    gwfft_weight_exponent (gwdata->dd_data, group + j + i)) {
+					if (m == 0) *p += 64;
+					else *p += 128;
+				}
 
 /* Set some offsets that help the assembly code step through the big/lit */
 /* array in a non-traditional order.  Two pass-FFTs step through the array */
@@ -2868,19 +2875,39 @@ double *r4dwpn_build_biglit_table (
 /* that tell the assembly code the big/lit array distance between words */
 /* 0 and 2, and words 0 and 4. */
 
-						if (word == 2)
-							((struct gwasm_data *) gwdata->asm_data)->BIGLIT_INCR2 =
-								(uint32_t) ((char *) p - (char *) table);
-						if (word == 4)
-							((struct gwasm_data *) gwdata->asm_data)->BIGLIT_INCR4 =
-								(uint32_t) ((char *) p - (char *) table);
-					}
-					p++;
-				}
+				if (word == 2)
+					((struct gwasm_data *) gwdata->asm_data)->BIGLIT_INCR2 =
+						(uint32_t) ((char *) p - (char *) table);
+				if (word == 4)
+					((struct gwasm_data *) gwdata->asm_data)->BIGLIT_INCR4 =
+						(uint32_t) ((char *) p - (char *) table);
+			    }
+			    p++;
 			}
+		    }
 		}
+	    }
 	}
 	return ((double *) p);
+}
+
+/* Routine to split a R4DWPN FFT word into column and group multiplier indexes */
+
+unsigned long dwpn_col (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	unsigned long word)
+{
+	unsigned long upper_sse2_word, high, low;
+
+	upper_sse2_word = gwdata->PASS2_SIZE >> 1;
+	high = word / upper_sse2_word;
+	low = word - high * upper_sse2_word;
+
+	high = high >> 1;
+	high = high % 8;
+	high = high * gwdata->PASS2_SIZE;
+
+	return (high + low);
 }
 
 /* This routine builds a sin/cos table - used by gwsetup */
@@ -6359,13 +6386,12 @@ int internal_gwsetup (
 		asm_data->CARRY_ADJUST4 = pow ((double) b, num_b_in_second_top_word);
 		asm_data->CARRY_ADJUST6 = pow ((double) b, num_b_in_third_top_word);
 		if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-			unsigned long col;
-			col = (gwdata->FFTLEN-1) % (gwdata->PASS2_SIZE * 8);
-			asm_data->CARRY_ADJUST3 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-1) / gwfft_weight (gwdata->dd_data, col);
-			col = (gwdata->FFTLEN-2) % (gwdata->PASS2_SIZE * 8);
-			asm_data->CARRY_ADJUST5 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-2) / gwfft_weight (gwdata->dd_data, col);
-			col = (gwdata->FFTLEN-3) % (gwdata->PASS2_SIZE * 8);
-			asm_data->CARRY_ADJUST7 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-3) / gwfft_weight (gwdata->dd_data, col);
+			asm_data->CARRY_ADJUST3 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-1) /
+						  gwfft_weight (gwdata->dd_data, dwpn_col (gwdata, gwdata->FFTLEN-1));
+			asm_data->CARRY_ADJUST5 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-2) /
+						  gwfft_weight (gwdata->dd_data, dwpn_col (gwdata, gwdata->FFTLEN-2));
+			asm_data->CARRY_ADJUST7 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-3) /
+						  gwfft_weight (gwdata->dd_data, dwpn_col (gwdata, gwdata->FFTLEN-3));
 		} else {
 			asm_data->CARRY_ADJUST3 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-1);
 			asm_data->CARRY_ADJUST5 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-2);
@@ -6518,15 +6544,11 @@ int internal_gwsetup (
 		if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
 			int	i;
 			for (i = 0; i < 7; i++) {
-				unsigned long col;
-				col = (gwdata->FFTLEN / 2 - 3 + i) % (gwdata->PASS2_SIZE * 8);
-				gwdata->ZPAD_COPY7_ADJUST[i] = gwfft_weight (gwdata->dd_data, col);
+				gwdata->ZPAD_COPY7_ADJUST[i] = gwfft_weight (gwdata->dd_data, dwpn_col (gwdata, i));
 			}
 			/* Adjustments for ZPAD0 - ZPAD6 */
 			for (i = 0; i < 7; i++) {
-				unsigned long col;
-				col = i % (gwdata->PASS2_SIZE * 8);
-				gwdata->ZPAD_0_7_ADJUST[i] = gwfft_weight_inverse (gwdata->dd_data, col);
+				gwdata->ZPAD_0_7_ADJUST[i] = gwfft_weight_inverse (gwdata->dd_data, dwpn_col (gwdata, i));
 			}
 		} else {
 			int	i;
@@ -8343,10 +8365,8 @@ int get_fft_value (
 /* Handle r4dwpn FFTs which are only partially normalized */
 
 	else if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-		unsigned long col;
-		col = i % (gwdata->PASS2_SIZE * 8);
-		val = val * gwfft_weight_inverse_sloppy (gwdata->dd_data, i) /
-		            gwfft_weight_inverse_sloppy (gwdata->dd_data, col);
+		val = val * gwfft_weight_sloppy (gwdata->dd_data, dwpn_col (gwdata, i))
+		          * gwfft_weight_inverse_sloppy (gwdata->dd_data, i);
 		if (val < -0.5)
 			*retval = (long) (val - 0.5);
 		else
@@ -8385,10 +8405,8 @@ void set_fft_value (
 /* Handle r4dwpn FFTs which are only partially normalized */
 
 	if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-		unsigned long col;
-		col = i % (gwdata->PASS2_SIZE * 8);
 		* addr (gwdata, g, i) = val * gwfft_weight_sloppy (gwdata->dd_data, i) / 
-					      gwfft_weight_sloppy (gwdata->dd_data, col);
+					      gwfft_weight_sloppy (gwdata->dd_data, dwpn_col (gwdata, i));
 		return;
 	}
 
@@ -9028,11 +9046,9 @@ void raw_gwsetaddin (
 /* Handle r4dwpn FFTs which are only partially normalized */
 
 	if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-		unsigned long col;
-		col = word % (gwdata->PASS2_SIZE * 8);
 		asm_data->ADDIN_VALUE = val *
 					gwfft_weight_sloppy (gwdata->dd_data, word) /
-					gwfft_weight_sloppy (gwdata->dd_data, col);
+					gwfft_weight_sloppy (gwdata->dd_data, dwpn_col (gwdata, word));
 	}
 
 /* Set the addin value - multiply it by two-to-phi and FFTLEN/2/k. */
