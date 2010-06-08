@@ -208,5 +208,17 @@ TLB_PRIMING = 0
 	r4delay_pass1sc1280ac 1280K, 10, 4
 	r4delay_pass1sc1280ac 1600K, 1280, 4
 
+	r4delay_pass1sc1536ac 1536K, 10, 4
+
+	r4delay_pass1sc2048ac 2M, 10, 4
+
+	r4delay_pass1sc2560ac 2560K, 10, 4
+
+	r4delay_pass1sc3072ac 3M, 10, 4
+
+	r4delay_pass1sc4096ac 4M, 10, 4
+
+	r4delay_pass1sc5120ac 5M, 10, 4
+
 _TEXT	ENDS
 END

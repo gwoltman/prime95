@@ -6841,7 +6841,6 @@ c9b:	r8_sg4cl_eight_complex_unfft8 rsi, 64, blkdst, 2*blkdst, rcx, 64, clmblkdst
 	start_timer 17
 	lea	rdi, [rdx+8*2*clm*XMM_SCD2] ;; Complex data sin/cos ptr
 	loops_init 224*2*clm		;; 224 iterations of 2*clm
-;;bug	xtouchpages rbp, 224*2*clm * 64 / 8 ;; Prefetch TLBs
 	r4_x4cl_eight_reals_unfft_preload
 c6b:	r4_x4cl_eight_reals_unfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*2*clm*XMM_SCD2, rdx, 4*2*clm*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
