@@ -43,7 +43,7 @@ XMM_HSCD2 = 32			;; Sizeof a half sin/cos table entry used in real FFTs in pass 
 ;; Used in r4dwpn (radix-4 delay with partial normalization) FFTs
 XMM_SCND2 = 128			;; Sizeof a complex radix-4 or radix-5 sin/cos/noralization table entry
 XMM_SCND2R = 96			;; Sizeof a real radix-4 or radix-5 sin/cos/noralization table entry
-XMM_GMD = 384			;; Sizeof a grp two-to-phi/two-to-minus-phi multiplier block in a r4dwpn FFT
+XMM_GMD = 288			;; Sizeof a grp two-to-phi/two-to-minus-phi multiplier block in a r4dwpn FFT
 
 ; **********************************************************
 ; **********************************************************

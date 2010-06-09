@@ -2591,7 +2591,7 @@ double *r4dwpn_build_norm_table (
 	for (i = 0; i < gwdata->FFTLEN / 4; i += num_cols) {
 		for (j = 0; j < gwdata->FFTLEN; j += gwdata->FFTLEN / 4) {
 			int	upper_is_bigger;
-			double	ttp, ttmp, ttp_over_b, ttmp_times_b, *tab24;
+			double	ttp, ttmp, ttp_over_b, ttmp_times_b, *tab18;
 
 /* One of the fudge factors never occurs, allowing us to reduce fudge factor memory usage by 25% */
 /* Which combination never occurs is dependent upon whether the upper sse2 word's weight is larger */
@@ -2606,26 +2606,26 @@ double *r4dwpn_build_norm_table (
 
 /* Set the LSW entries in an SSE2 pair */
 
-			table[0] = table[2] = table[4] = table[6] = ttmp;
-			table[8] = table[10] = table[12] = table[14] = upper_is_bigger ? ttmp : ttmp_times_b;
-			table[16] = table[18] = table[20] = table[22] = ttmp_times_b;
-			tab24 = table + 24;
-			tab24[0] = tab24[2] = tab24[4] = tab24[6] = ttp;
-			tab24[8] = tab24[10] = tab24[12] = tab24[14] = upper_is_bigger ? ttp : ttp_over_b;
-			tab24[16] = tab24[18] = tab24[20] = tab24[22] = ttp_over_b;
+			table[0] = table[2] = table[4] = ttmp;
+			table[6] = table[8] = table[10] = upper_is_bigger ? ttmp : ttmp_times_b;
+			table[12] = table[14] = table[16] = ttmp_times_b;
+			tab18 = table + 18;
+			tab18[0] = tab18[2] = tab18[4] = ttp;
+			tab18[6] = tab18[8] = tab18[10] = upper_is_bigger ? ttp : ttp_over_b;
+			tab18[12] = tab18[14] = tab18[16] = ttp_over_b;
 
 /* Set the MSW entries in an SSE2 pair */
 
 			gwfft_weights_fudged (gwdata->dd_data, i + j + upper_sse2_word, gwdata->b, &ttp, &ttmp, &ttp_over_b, &ttmp_times_b);
 
-			table[1] = table[3] = table[5] = table[7] = ttmp;
-			table[9] = table[11] = table[13] = table[15] = upper_is_bigger ? ttmp_times_b : ttmp;
-			table[17] = table[19] = table[21] = table[23] = ttmp_times_b;
-			tab24[1] = tab24[3] = tab24[5] = tab24[7] = ttp;
-			tab24[9] = tab24[11] = tab24[13] = tab24[15] = upper_is_bigger ? ttp_over_b : ttp;
-			tab24[17] = tab24[19] = tab24[21] = tab24[23] = ttp_over_b;
+			table[1] = table[3] = table[5] = ttmp;
+			table[7] = table[9] = table[11] = upper_is_bigger ? ttmp_times_b : ttmp;
+			table[13] = table[15] = table[17] = ttmp_times_b;
+			tab18[1] = tab18[3] = tab18[5] = ttp;
+			tab18[7] = tab18[9] = tab18[11] = upper_is_bigger ? ttp_over_b : ttp;
+			tab18[13] = tab18[15] = tab18[17] = ttp_over_b;
 
-			table += 48;
+			table += 36;
 		}
 	}
 	return (table);
@@ -2745,6 +2745,12 @@ double *r4dwpn_build_biglit_table (
 	unsigned char *p;
 	unsigned long upper_sse2_word, num_cols;
 	unsigned long group, i, j, k, m, n;
+	int	both_big_possible;
+
+/* Determine if the the first big/lit entry is both are big words.  If so, */
+/* then the "both words are small" case cannot happen. */
+
+	both_big_possible = is_big_word (gwdata, gwdata->PASS2_SIZE / 2);
 
 /* Determine the number of column two-to-phi multipliers */
 
@@ -2802,6 +2808,13 @@ double *r4dwpn_build_biglit_table (
 /* of the 4 combinations never occurs. */
 
 			    if (*p >= 128) *p -= 64;
+
+/* Apply our method for reducing big/little data by 25%.  Either the "both words are big" */
+/* or the "both words are small" combination never occurs. */
+
+			    if (both_big_possible) *p = (*p >> 6) * 48 + (*p & 0x3F) - 16;
+			    else *p = (*p >> 6) * 48 + (*p & 0x3F);
+
 			    p++;
 			}
 		    }
@@ -6085,6 +6098,27 @@ if (mem_needed > 200000000) mem_needed = 200000000;	//BUG, BUG, BUG
 	memcpy (asm_data->XMM_LIMIT_BIGMAX_NEG+8, asm_data->XMM_LIMIT_BIGMAX_NEG, 8 * sizeof (double));
 	memcpy (asm_data->XMM_LIMIT_BIGMAX_NEG+16, asm_data->XMM_LIMIT_BIGMAX_NEG, 8 * sizeof (double));
 	memcpy (asm_data->XMM_LIMIT_BIGMAX_NEG+24, asm_data->XMM_LIMIT_BIGMAX_NEG, 8 * sizeof (double));
+
+/* Newer FFTs use a clever mechanism to reduce this data by 25% */
+/* We shift table down if the upper SSE2 word is a big word.  If so, */
+/* the "both words are small" case cannot happen. */
+
+	if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
+
+		if (is_big_word (gwdata, gwdata->PASS2_SIZE / 2)) {
+			memcpy (asm_data->XMM_LIMIT_INVERSE, asm_data->XMM_LIMIT_INVERSE+2, 6 * sizeof (double));
+			memcpy (asm_data->XMM_LIMIT_BIGMAX, asm_data->XMM_LIMIT_BIGMAX+2, 6 * sizeof (double));
+			memcpy (asm_data->XMM_LIMIT_BIGMAX_NEG, asm_data->XMM_LIMIT_BIGMAX_NEG+2, 6 * sizeof (double));
+		}
+
+		/* We only need 3 copies of the data */
+		memcpy (asm_data->XMM_LIMIT_INVERSE+6, asm_data->XMM_LIMIT_INVERSE, 6 * sizeof (double));
+		memcpy (asm_data->XMM_LIMIT_INVERSE+12, asm_data->XMM_LIMIT_INVERSE, 6 * sizeof (double));
+		memcpy (asm_data->XMM_LIMIT_BIGMAX+6, asm_data->XMM_LIMIT_BIGMAX, 6 * sizeof (double));
+		memcpy (asm_data->XMM_LIMIT_BIGMAX+12, asm_data->XMM_LIMIT_BIGMAX, 6 * sizeof (double));
+		memcpy (asm_data->XMM_LIMIT_BIGMAX_NEG+6, asm_data->XMM_LIMIT_BIGMAX_NEG, 6 * sizeof (double));
+		memcpy (asm_data->XMM_LIMIT_BIGMAX_NEG+12, asm_data->XMM_LIMIT_BIGMAX_NEG, 6 * sizeof (double));
+	}
 
 /* Now compute a number of constants the assembly code needs.  These will */
 /* be copied to properly aligned (SSE2 constants must be on 16-byte */
