@@ -59,7 +59,7 @@ loopcount1	EQU	DPTR [rsp+first_local+SZPTR]
 ENDIF
 loopcount2	EQU	DPTR [rsp+first_local+SZPTR+4]
 loopcount3	EQU	DPTR [rsp+first_local+SZPTR+8]
-blk8_counter	EQU	DPTR [rsp+first_local+SZPTR+12]
+blk8_counter	EQU	BYTE PTR [rsp+first_local+SZPTR+12]
 
 inorm	MACRO	lab, ttp, zero, echk, const, base2, sse4
 	LOCAL	noadd, setlp, ilp0, ilp1, ilp2, not8, done
@@ -81,11 +81,11 @@ noadd:	mov	saved_rsi, rsi		;; Save for xtop_carry_adjust
 
 	mov	rdx, norm_grp_mults	;; Addr of the group multipliers
 	mov	rbp, carries		;; Addr of the carries
-	mov	rdi, norm_ptr1		;; Load big/little flags array ptr
+	mov	rdi, norm_ptr1		;; Load big/little & fudge flags array ptr
 	mov	blk8_counter, 0		;; Clear counter
 	mov	eax, count3		;; Load count of grp multipliers
 	mov	loopcount3, eax		;; Save loop counter
-ttp	mov	ebx, [rdi+0]		;; Preload 4 big vs. little flags
+ttp	movzx	rbx, WORD PTR [rdi]	;; Preload 4 big vs. little & fudge flags
 ilp0:	mov	eax, count2		;; Load wpn count
 	mov	loopcount2, eax		;; Save count
 ilp1:	mov	eax, cache_line_multiplier ;; Load inner loop counter
@@ -99,7 +99,7 @@ ENDIF
 ilp2:	xprefetchw [rsi+64]
 	xnorm_wpn ttp, zero, echk, const, base2, sse4 ;; Normalize 8 values
 	bump	rsi, 64			;; Next cache line
-ttp	bump	rdi, 4			;; Next big/little flags
+ttp	bump	rdi, 2			;; Next big/little flags
 	sub	loopcount1, 1		;; Test loop counter
 	jnz	ilp2			;; Loop til done
 	add	rsi, normblkdst		;; Skip gap in blkdst or clmblkdst
@@ -110,7 +110,7 @@ no const xstore	[rbp+2*16], xmm4
 no const xstore	[rbp+3*16], xmm5
 ENDIF
 	bump	rbp, 64			;; Next set of carries
-	add	blk8_counter, 80000000h/4 ;; Test for a multiple of 8 blocks
+	add	blk8_counter, 80h/4	;; Test for a multiple of 8 blocks
 	jnc	short not8
 	add	rsi, normblkdst8	;; Add 128 every 8 clmblkdsts
 not8:	sub	loopcount2, 1		;; Test loop counter
@@ -134,19 +134,14 @@ done:	int_epilog SZPTR+16,0,0
 	ENDPP	lab
 	ENDM
 
-IFDEF X86_64
-loopcount1z	EQU	r10
-ELSE
-loopcount1z	EQU	DPTR [rsp+first_local]
-ENDIF
-loopcount2z	EQU	DPTR [rsp+first_local+4]
-loopcount3z	EQU	DPTR [rsp+first_local+8]
-blk8_counterz	EQU	DPTR [rsp+first_local+12]
+loopcount2z	EQU	DPTR [rsp+first_local]
+loopcount3z	EQU	DPTR [rsp+first_local+4]
+blk8_counterz	EQU	BYTE PTR [rsp+first_local+8]
 
 zpnorm	MACRO	lab, ttp, echk, const, base2, sse4, khi, c1, cm1
 	LOCAL	setlp, ilp0, ilp1, ilp2, not8
 	PROCFLP	lab
-	int_prolog 16,0,0
+	int_prolog 12,0,0
 const	mov	const_fft, 1		;; Set flag saying mul-by-const
 echk	xload	xmm6, XMM_MAXERR	;; Load maximum error
 	xsub_7_words
@@ -157,20 +152,19 @@ echk	xload	xmm6, XMM_MAXERR	;; Load maximum error
 	mov	blk8_counterz, 0	;; Clear counter
 	mov	eax, count3		;; Load count of grp multipliers
 	mov	loopcount3z, eax	;; Save loop counter
-ttp	movzx	rax, BYTE PTR [rdi+0]	;; Load big vs. little flags
-ilp0:	mov	ebx, count2		;; Load wpn count
-	mov	loopcount2z, ebx	;; Save loop counter
-ilp1:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
-	mov	loopcount1z, rbx	;; Save loop counter
+ttp	movzx	rbx, WORD PTR [rdi]	;; Preload big vs. little & fudge flags
+ilp0:	mov	eax, count2		;; Load wpn count
+	mov	loopcount2z, eax	;; Save loop counter
+ilp1:	mov	ecx, cache_line_multiplier ;; Load inner loop counter
 ilp2:	xprefetchw [rsi+64]
 	xnorm_wpn_zpad ttp, echk, const, base2, sse4, khi, c1, cm1 ;; Normalize 8 values
 	bump	rsi, 64			;; Next cache line
-ttp	bump	rdi, 4			;; Next big/little flags
-	sub	loopcount1z, 1		;; Test loop counter
+ttp	bump	rdi, 2			;; Next big/little flags
+	sub	rcx, 1			;; Test loop counter
 	jnz	ilp2			;; Loop til done
 	add	rsi, normblkdst		;; Skip gap in blkdst or clmblkdst
 	bump	rbp, 64			;; Next set of carries
-	add	blk8_counterz, 80000000h/4 ;; Test for a multiple of 8 blocks
+	add	blk8_counterz, 80h/4	;; Test for a multiple of 8 blocks
 	jnc	short not8
 	add	rsi, normblkdst8	;; Add 128 every 8 clmblkdsts
 not8:	sub	loopcount2z, 1		;; Test loop counter
@@ -181,7 +175,7 @@ ttp	bump	rdx, 4*XMM_GMD		;; Next set of group multipliers
 
 echk	xstore	XMM_MAXERR, xmm6	;; Save maximum error
 ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr
-	int_epilog 16,0,0
+	int_epilog 12,0,0
 	ENDPP	lab
 	ENDM
 

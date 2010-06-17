@@ -140,15 +140,15 @@ struct gwasm_data {
 
 	double	XMM_SUMOUT[2];	/* Used in normalization macros */
 	double	XMM_MAXERR[2];	/* Used in normalization macros */
-	double	XMM_LIMIT_BIGMAX[32]; /* Normalization constants */
-	double	XMM_LIMIT_INVERSE[32];
+	double	XMM_LIMIT_BIGMAX[56]; /* Normalization constants */
+	double	XMM_LIMIT_INVERSE[56];
 	double	XMM_COL_MULTS[1024];
 	double	XMM_TTP_FUDGE[32];
 	double	XMM_TTMP_FUDGE[32];
 	double	XMM_BIGVAL[2];	/* Used to round double to integer */
 	double	XMM_MINUS_C[2];	/* -c stored as double */
 	double	XMM_NORM012_FF[2]; /* Used in xnorm012 macros (FFTLEN/2) */
-	double	XMM_LIMIT_BIGMAX_NEG[32];
+	double	XMM_LIMIT_BIGMAX_NEG[56];
 	int32_t	XMM_ABSVAL[4];	/* Used to compute absolute values */
 	double	XMM_P309[2];	/* Used in radix-20 macros */
 	double	XMM_P809[2];
@@ -2582,50 +2582,107 @@ double *r4dwpn_build_norm_table (
 	double	*table,		/* Pointer to the table to fill in */
 	int	col)		/* TRUE if building column, not group, table */
 {
-	unsigned long i, j, num_cols, upper_sse2_word;
+	unsigned long i, j, num_cols, upper_sse2_word, second_word_in_cache_line;
 
 /* Build the group multipliers table */
 
 	upper_sse2_word = gwdata->PASS2_SIZE / 2;
+	second_word_in_cache_line = gwdata->FFTLEN / 4;
 	num_cols = gwdata->PASS2_SIZE * gwdata->wpn_count;
 	for (i = 0; i < gwdata->FFTLEN / 4; i += num_cols) {
-		for (j = 0; j < gwdata->FFTLEN; j += gwdata->FFTLEN / 4) {
-			int	upper_is_bigger;
-			double	ttp, ttmp, ttp_over_b, ttmp_times_b, *tab18;
+		for (j = 0; j < gwdata->FFTLEN; j += gwdata->FFTLEN / 2) {
+			double	word1_lower_weight, word1_upper_weight, word2_lower_weight, word2_upper_weight;
+			int	word1_lower_sort, word1_upper_sort, word2_lower_sort, word2_upper_sort;
+			double	ttp, ttmp, ttp_over_b, ttmp_times_b, *tab10;
 
-/* One of the fudge factors never occurs, allowing us to reduce fudge factor memory usage by 25% */
-/* Which combination never occurs is dependent upon whether the upper sse2 word's weight is larger */
-/* or smaller than the lower sse2 word's weight. */			
+/* The sort order of the weights determines which fudge factor combination never occur. */
 
-			upper_is_bigger = gwfft_weight_exponent (gwdata->dd_data, i + j + upper_sse2_word) > gwfft_weight_exponent (gwdata->dd_data, i + j);
+			word1_lower_weight = gwfft_weight_exponent (gwdata->dd_data, i + j);
+			word1_upper_weight = gwfft_weight_exponent (gwdata->dd_data, i + j + upper_sse2_word);
+			word2_lower_weight = gwfft_weight_exponent (gwdata->dd_data, i + j + second_word_in_cache_line);
+			word2_upper_weight = gwfft_weight_exponent (gwdata->dd_data, i + j + second_word_in_cache_line + upper_sse2_word);
 
-/* Call double-precision routine to compute the multipliers. */
+/* Now sort the four weights */
+
+			word1_lower_sort = (word1_lower_weight > word1_upper_weight) +
+					   (word1_lower_weight > word2_lower_weight) +
+					   (word1_lower_weight > word2_upper_weight);
+			word1_upper_sort = (word1_upper_weight > word1_lower_weight) +
+					   (word1_upper_weight > word2_lower_weight) +
+					   (word1_upper_weight > word2_upper_weight);
+			word2_lower_sort = (word2_lower_weight > word1_lower_weight) +
+					   (word2_lower_weight > word1_upper_weight) +
+					   (word2_lower_weight > word2_upper_weight);
+			word2_upper_sort = (word2_upper_weight > word1_lower_weight) +
+					   (word2_upper_weight > word1_upper_weight) +
+					   (word2_upper_weight > word2_lower_weight);
+
+/* Call double-precision routine to compute first set of multipliers. */
 /* We compute two-to-phi multiplied by the fudge factor so that normalize won't have to. */
 
 			gwfft_weights_fudged (gwdata->dd_data, i + j, gwdata->b, &ttp, &ttmp, &ttp_over_b, &ttmp_times_b);
 
 /* Set the LSW entries in an SSE2 pair */
 
-			table[0] = table[2] = table[4] = ttmp;
-			table[6] = table[8] = table[10] = upper_is_bigger ? ttmp : ttmp_times_b;
-			table[12] = table[14] = table[16] = ttmp_times_b;
-			tab18 = table + 18;
-			tab18[0] = tab18[2] = tab18[4] = ttp;
-			tab18[6] = tab18[8] = tab18[10] = upper_is_bigger ? ttp : ttp_over_b;
-			tab18[12] = tab18[14] = tab18[16] = ttp_over_b;
+			table[0] = ttmp;
+			table[2] = word1_lower_sort < 3 ? ttmp : ttmp_times_b;
+			table[4] = word1_lower_sort < 2 ? ttmp : ttmp_times_b;
+			table[6] = word1_lower_sort < 1 ? ttmp : ttmp_times_b;
+			table[8] = ttmp_times_b;
+			tab10 = table + 10;
+			tab10[0] = ttp;
+			tab10[2] = word1_lower_sort < 3 ? ttp : ttp_over_b;
+			tab10[4] = word1_lower_sort < 2 ? ttp : ttp_over_b;
+			tab10[6] = word1_lower_sort < 1 ? ttp : ttp_over_b;
+			tab10[8] = ttp_over_b;
 
 /* Set the MSW entries in an SSE2 pair */
 
 			gwfft_weights_fudged (gwdata->dd_data, i + j + upper_sse2_word, gwdata->b, &ttp, &ttmp, &ttp_over_b, &ttmp_times_b);
 
-			table[1] = table[3] = table[5] = ttmp;
-			table[7] = table[9] = table[11] = upper_is_bigger ? ttmp_times_b : ttmp;
-			table[13] = table[15] = table[17] = ttmp_times_b;
-			tab18[1] = tab18[3] = tab18[5] = ttp;
-			tab18[7] = tab18[9] = tab18[11] = upper_is_bigger ? ttp_over_b : ttp;
-			tab18[13] = tab18[15] = tab18[17] = ttp_over_b;
+			table[1] = ttmp;
+			table[3] = word1_upper_sort < 3 ? ttmp : ttmp_times_b;
+			table[5] = word1_upper_sort < 2 ? ttmp : ttmp_times_b;
+			table[7] = word1_upper_sort < 1 ? ttmp : ttmp_times_b;
+			table[9] = ttmp_times_b;
+			tab10[1] = ttp;
+			tab10[3] = word1_upper_sort < 3 ? ttp : ttp_over_b;
+			tab10[5] = word1_upper_sort < 2 ? ttp : ttp_over_b;
+			tab10[7] = word1_upper_sort < 1 ? ttp : ttp_over_b;
+			tab10[9] = ttp_over_b;
 
-			table += 36;
+			table += 20;
+
+/* Repeat for the second word in the cache line */
+
+			gwfft_weights_fudged (gwdata->dd_data, i + j + second_word_in_cache_line, gwdata->b, &ttp, &ttmp, &ttp_over_b, &ttmp_times_b);
+
+			table[0] = ttmp;
+			table[2] = word2_lower_sort < 3 ? ttmp : ttmp_times_b;
+			table[4] = word2_lower_sort < 2 ? ttmp : ttmp_times_b;
+			table[6] = word2_lower_sort < 1 ? ttmp : ttmp_times_b;
+			table[8] = ttmp_times_b;
+			tab10 = table + 10;
+			tab10[0] = ttp;
+			tab10[2] = word2_lower_sort < 3 ? ttp : ttp_over_b;
+			tab10[4] = word2_lower_sort < 2 ? ttp : ttp_over_b;
+			tab10[6] = word2_lower_sort < 1 ? ttp : ttp_over_b;
+			tab10[8] = ttp_over_b;
+
+			gwfft_weights_fudged (gwdata->dd_data, i + j + second_word_in_cache_line + upper_sse2_word, gwdata->b, &ttp, &ttmp, &ttp_over_b, &ttmp_times_b);
+
+			table[1] = ttmp;
+			table[3] = word2_upper_sort < 3 ? ttmp : ttmp_times_b;
+			table[5] = word2_upper_sort < 2 ? ttmp : ttmp_times_b;
+			table[7] = word2_upper_sort < 1 ? ttmp : ttmp_times_b;
+			table[9] = ttmp_times_b;
+			tab10[1] = ttp;
+			tab10[3] = word2_upper_sort < 3 ? ttp : ttp_over_b;
+			tab10[5] = word2_upper_sort < 2 ? ttp : ttp_over_b;
+			tab10[7] = word2_upper_sort < 1 ? ttp : ttp_over_b;
+			tab10[9] = ttp_over_b;
+
+			table += 20;
 		}
 	}
 	return (table);
@@ -2742,15 +2799,118 @@ double *r4dwpn_build_biglit_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table)		/* Pointer to the table to fill in */
 {
+const	int	START_OF_CHAIN = 0x8000;
+const	int	UNCHAINED = 1000;
+const	int	END_OF_CHAIN = 1001;
+	int	combos[16], next_combo[16];
 	unsigned char *p;
 	unsigned long upper_sse2_word, num_cols;
-	unsigned long group, i, j, k, m, n;
-	int	both_big_possible;
+	unsigned long group, i, j, k, m, n, num_combos;
 
-/* Determine if the the first big/lit entry is both are big words.  If so, */
-/* then the "both words are small" case cannot happen. */
+/* Big/lit flags form a very regular pattern.  For example, if there are 18.3 b's */
+/* per FFT word then you get either a big word followed by two little words or a */
+/* big  followed by three little words.  Here we determine which patterns of big/lit */
+/* are possible in an xnorm_2d_wpn macro which processes 4 SSE2 words.  There are */
+/* 16 possible valid combinations which can be represented by indexing into an array */
+/* of 28 SSE2 values. */
 
-	both_big_possible = is_big_word (gwdata, gwdata->PASS2_SIZE / 2);
+/* Generate all 16 possible valid combinations of big/lit flags */
+
+	upper_sse2_word = gwdata->PASS2_SIZE / 2;
+	num_combos = 0;
+	for (i = 0; i < 16; i++) {
+		int	combo;
+		double	base[8], next_base[8], incr;
+
+		/* Generate the bases for the first cache line */
+		if (i == 0) {
+			for (j = 0; j < 4; j++) {
+				base[2*j+1] = (j * gwdata->FFTLEN / 4 + upper_sse2_word) * gwdata->avg_num_b_per_word;
+				base[2*j] = (j * gwdata->FFTLEN / 4) * gwdata->avg_num_b_per_word;
+				next_base[2*j+1] = base[2*j+1] + gwdata->avg_num_b_per_word;
+				next_base[2*j] = base[2*j] + gwdata->avg_num_b_per_word;
+			}
+		}
+
+		/* For i=0-7, adjust the weights so that one of bases is an integer */
+		/* For i=8-15, adjust the weights so that one of the next_bases is an integer */
+		if (i < 8) incr = ceil (base[i]) - base[i];
+		else incr = ceil (next_base[i-8]) - next_base[i-8];
+		for (j = 0; j < 8; j++) {
+			base[j] += incr;
+			next_base[j] += incr;
+		}
+		ASSERTG (ceil (i < 8 ? base[i] : next_base[i-8]) - (i < 8 ? base[i] : next_base[i-8]) < 0.01);
+
+		/* Generate this combination */
+		combo = 0;
+		for (j = 0; j < 4; j++) {
+			combo <<= 2;
+			combo += ((int) ceil (next_base[2*j+1]) - (int) ceil (base[2*j+1]) > (int) gwdata->NUM_B_PER_SMALL_WORD) * 2 +
+				 ((int) ceil (next_base[2*j]) - (int) ceil (base[2*j]) > (int) gwdata->NUM_B_PER_SMALL_WORD);
+		}
+
+		/* Ignore this combo if it is a duplicate.  Otherwise, add it to our combos collection. */
+		for (j = 0; ; j++) {
+			if (j == num_combos) {
+				combos[num_combos++] = combo;
+				break;
+			}
+			if (combo == combos[j]) break;
+		}
+	}
+
+/* Now concatentate them to save space.  Let's hope they fit in 28 entries. */
+
+	for (i = 0; i < num_combos; i++) next_combo[i] = UNCHAINED;
+	for (i = 0; i < num_combos; i++) {
+		int	chain_end;
+
+		/* Skip if already part of a chain */
+		if (next_combo[i] != UNCHAINED) continue;
+
+		/* Create a chain starting with this combo */
+		for (chain_end = i; ; ) {
+			/* Find an unchained combo whose 3 starting big/lit flags */
+			/* match the 3 ending big/lit flags of the last entry in the current chain. */
+			for (j = 0; j < num_combos; j++) {
+				if (j == chain_end) continue;
+				if (next_combo[j] != UNCHAINED && ! (next_combo[j] & START_OF_CHAIN)) continue;
+				if ((combos[j] >> 2) == (combos[chain_end] & 0x3F)) break;
+			}
+			/* If a next was found, add it to the current chain */
+			if (j == num_combos) {
+				next_combo[chain_end] = END_OF_CHAIN;
+				break;
+			}
+			next_combo[chain_end] = j;
+			if (next_combo[j] & START_OF_CHAIN) {
+				next_combo[j] &= ~START_OF_CHAIN;
+				break;
+			}
+			chain_end = j;
+		}
+		next_combo[i] |= START_OF_CHAIN;
+	}
+
+/* HACK: Remember the chains in ASM_TIMERS so that we can properly build LIMIT_INVERSE,
+/* LIMIT_BIGMAX, and LIMIT_BIGMAX_NEG at a later time. */
+
+	n = 0;
+	for (i = 0; i < num_combos; i++) {
+		if (! (next_combo[i] & START_OF_CHAIN)) continue;
+		next_combo[i] &= ~START_OF_CHAIN;
+
+		/* Output 3 bytes to get chain started */
+		gwdata->ASM_TIMERS[n++] = (combos[i] >> 6);
+		gwdata->ASM_TIMERS[n++] = (combos[i] >> 4) & 3;
+		gwdata->ASM_TIMERS[n++] = (combos[i] >> 2) & 3;
+
+		/* Output 1 byte for each chain entry */
+		for (j = i; j != END_OF_CHAIN; j = next_combo[j])
+			gwdata->ASM_TIMERS[n++] = combos[j] & 3;
+	}
+	ASSERTG (n <= 28);
 
 /* Determine the number of column two-to-phi multipliers */
 
@@ -2760,7 +2920,6 @@ double *r4dwpn_build_biglit_table (
 /* used by the assembly code. */
 
 	p = (unsigned char *) table;
-	upper_sse2_word = gwdata->PASS2_SIZE / 2;
 	for (group = 0; group < upper_sse2_word; group += gwdata->PASS1_CACHE_LINES) {
 	    for (n = 0; n < gwdata->FFTLEN / 4; n += num_cols) {
 	        for (j = 0; j < num_cols; j += gwdata->PASS2_SIZE) {
@@ -2777,8 +2936,8 @@ double *r4dwpn_build_biglit_table (
 				else if (is_big_word (gwdata, word)) *p += 32;
 
 /* Set the ttp and ttmp fudge flags for two pass FFTs.  The fudge flag is */
-/* set if the col mult * the grp mult is twice the correct fft_weight, */
-/* meaning a mul by 0.5 is required to generate the correct multiplier. */
+/* set if the col mult * the grp mult is b times the correct fft_weight, */
+/* meaning a mul by 1/b is required to generate the correct multiplier. */
 /* Since we can't do equality compares on floats, this test is a little bit */
 /* cryptic. */
 
@@ -2809,14 +2968,28 @@ double *r4dwpn_build_biglit_table (
 
 			    if (*p >= 128) *p -= 64;
 
-/* Apply our method for reducing big/little data by 25%.  Either the "both words are big" */
-/* or the "both words are small" combination never occurs. */
-
-			    if (both_big_possible) *p = (*p >> 6) * 48 + (*p & 0x3F) - 16;
-			    else *p = (*p >> 6) * 48 + (*p & 0x3F);
-
 			    p++;
 			}
+
+/* Combine last four big/lit 2-bit flag values into one 5-bit flags value. */
+
+			p -= 4;
+			for (m = 0; m <= 24; m++) {
+				if (gwdata->ASM_TIMERS[m]   == (p[0] & 48) >> 4 &&
+				    gwdata->ASM_TIMERS[m+1] == (p[1] & 48) >> 4 &&
+				    gwdata->ASM_TIMERS[m+2] == (p[2] & 48) >> 4 &&
+				    gwdata->ASM_TIMERS[m+3] == (p[3] & 48) >> 4)
+					break;
+			}
+			ASSERTG (m != 25);
+
+/* Combine 1st and 2nd fudge factor flags.  Combine 3rd and 4th fudge factor flags. */
+/* Output the 2 combined fudge factors and the 5-bit big/lit flags value using just 2 bytes. */
+/* This is a more compact encoding than in previous versions. */
+
+			p[0] = ((p[1] >> 6) + (p[0] >> 6)) * 16 + ((p[3] >> 6) + (p[2] >> 6)) * 2;
+			p[1] = (unsigned char) (m << 2);
+			p += 2;
 		    }
 		}
 	    }
@@ -5381,7 +5554,6 @@ int internal_gwsetup (
 	gwdata->large_pages_ptr = NULL;
 	gwdata->large_pages_gwnum = NULL;
 	mem_needed = gwdata->mem_needed + gwdata->SCRATCH_SIZE;
-if (mem_needed > 200000000) mem_needed = 200000000;	//BUG, BUG, BUG
 	if (gwdata->use_large_pages) {
 		tables = (double *) large_pages_malloc (mem_needed + gwnum_size (gwdata) + 4096);
 		if (tables != NULL) {
@@ -6099,25 +6271,25 @@ if (mem_needed > 200000000) mem_needed = 200000000;	//BUG, BUG, BUG
 	memcpy (asm_data->XMM_LIMIT_BIGMAX_NEG+16, asm_data->XMM_LIMIT_BIGMAX_NEG, 8 * sizeof (double));
 	memcpy (asm_data->XMM_LIMIT_BIGMAX_NEG+24, asm_data->XMM_LIMIT_BIGMAX_NEG, 8 * sizeof (double));
 
-/* Newer FFTs use a clever mechanism to reduce this data by 25% */
-/* We shift table down if the upper SSE2 word is a big word.  If so, */
-/* the "both words are small" case cannot happen. */
+/* Newer FFTs use a clever mechanism to reduce big/lit flags data. */
+/* Output the valid combinations that were precomputed in r4dwpn_build_biglit_table. */
 
 	if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
+		int	i;
+		double	inv1, inv2, bmax1, bmax2;
 
-		if (is_big_word (gwdata, gwdata->PASS2_SIZE / 2)) {
-			memcpy (asm_data->XMM_LIMIT_INVERSE, asm_data->XMM_LIMIT_INVERSE+2, 6 * sizeof (double));
-			memcpy (asm_data->XMM_LIMIT_BIGMAX, asm_data->XMM_LIMIT_BIGMAX+2, 6 * sizeof (double));
-			memcpy (asm_data->XMM_LIMIT_BIGMAX_NEG, asm_data->XMM_LIMIT_BIGMAX_NEG+2, 6 * sizeof (double));
+		inv1 = asm_data->XMM_LIMIT_INVERSE[0];
+		inv2 = asm_data->XMM_LIMIT_INVERSE[7];
+		bmax1 = asm_data->XMM_LIMIT_BIGMAX[0];
+		bmax2 = asm_data->XMM_LIMIT_BIGMAX[7];
+		for (i = 0; i < 28; i++) {
+			asm_data->XMM_LIMIT_INVERSE[i+i] = (gwdata->ASM_TIMERS[i] & 1) ? inv2 : inv1;
+			asm_data->XMM_LIMIT_INVERSE[i+i+1] = (gwdata->ASM_TIMERS[i] & 2) ? inv2 : inv1;
+			asm_data->XMM_LIMIT_BIGMAX[i+i] = (gwdata->ASM_TIMERS[i] & 1) ? bmax2 : bmax1;
+			asm_data->XMM_LIMIT_BIGMAX[i+i+1] = (gwdata->ASM_TIMERS[i] & 2) ? bmax2 : bmax1;
+			asm_data->XMM_LIMIT_BIGMAX_NEG[i+i] = (gwdata->ASM_TIMERS[i] & 1) ? -bmax2 : -bmax1;
+			asm_data->XMM_LIMIT_BIGMAX_NEG[i+i+1] = (gwdata->ASM_TIMERS[i] & 2) ? -bmax2 : -bmax1;
 		}
-
-		/* We only need 3 copies of the data */
-		memcpy (asm_data->XMM_LIMIT_INVERSE+6, asm_data->XMM_LIMIT_INVERSE, 6 * sizeof (double));
-		memcpy (asm_data->XMM_LIMIT_INVERSE+12, asm_data->XMM_LIMIT_INVERSE, 6 * sizeof (double));
-		memcpy (asm_data->XMM_LIMIT_BIGMAX+6, asm_data->XMM_LIMIT_BIGMAX, 6 * sizeof (double));
-		memcpy (asm_data->XMM_LIMIT_BIGMAX+12, asm_data->XMM_LIMIT_BIGMAX, 6 * sizeof (double));
-		memcpy (asm_data->XMM_LIMIT_BIGMAX_NEG+6, asm_data->XMM_LIMIT_BIGMAX_NEG, 6 * sizeof (double));
-		memcpy (asm_data->XMM_LIMIT_BIGMAX_NEG+12, asm_data->XMM_LIMIT_BIGMAX_NEG, 6 * sizeof (double));
 	}
 
 /* Now compute a number of constants the assembly code needs.  These will */
@@ -6268,7 +6440,13 @@ if (mem_needed > 200000000) mem_needed = 200000000;	//BUG, BUG, BUG
 				asm_data->cache_line_multiplier * 4 -
 				(asm_data->cache_line_multiplier * 4 +
 						asm_data->normval2) *
-				    asm_data->normval1 * asm_data->normval4;
+					asm_data->normval1 * asm_data->normval4;
+
+			/* This FFT type uses only half the big/lit data */
+			if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
+				asm_data->normval2 /= 2;
+				asm_data->normval3 /= 2;
+			}
 		}
 	}
 
