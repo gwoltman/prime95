@@ -100,9 +100,13 @@ ttp	mov	norm_ptr2, rbx		;; Save column multipliers ptr
 	mov	loopcount3, 0		;; Clear outermost loop counter
 ttp	movzx	rax, BYTE PTR [rdi+0]	;; Load big vs. little flags
 ttp	movzx	rcx, BYTE PTR [rdi+1]	;; Load big vs. little flags
+no ttp	sub	rax, rax
+no ttp	sub	rcx, rcx
 IFDEF X86_64
 ttp	movzx	r8, BYTE PTR [rdi+2]	;; Load big vs. little flags
 ttp	movzx	r9, BYTE PTR [rdi+3]	;; Load big vs. little flags
+no ttp	sub	r8, r8
+no ttp	sub	r9, r9
 ENDIF
 ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	mov	loopcount1, rbx		;; Save loop counter
@@ -175,6 +179,7 @@ ttp	mov	norm_ptr2, rbx		;; Save column multipliers ptr
 	mov	loopcount3z, 0		;; Clear outermost loop counter
 	sub	rax, rax		;; Clear big/lit flags
 ttp	movzx	rax, BYTE PTR [rdi+0]	;; Load big vs. little flags
+no ttp	sub	rax, rax
 ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	mov	loopcount1z, rbx	;; Save loop counter
 	lea	rbx, XMM_COL_MULTS	;; Load col mult scratch area
