@@ -5822,7 +5822,7 @@ int selfTestInternal (
 /* time runs out */
 
 	for (iter = 1; ; iter++) {
-		char	fft_desc[80];
+		char	fft_desc[100];
 		unsigned long p, reshi, reslo;
 		unsigned int ll_iters, num_gwnums;
 		gwnum	*gwarray, g;

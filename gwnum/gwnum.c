@@ -8595,7 +8595,7 @@ void gwfft_description (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	char	*buf)		/* Buffer to return string in */
 {
-	sprintf (buf, "%s%sFFT length %lu%s",
+	sprintf (buf, "%s%s%sFFT length %lu%s",
 		 gwdata->ALL_COMPLEX_FFT ? "all-complex " :
 		 gwdata->ZERO_PADDED_FFT ? "zero-padded " :
 		 gwdata->GENERAL_MOD ? "generic reduction " : "",
@@ -8604,12 +8604,29 @@ void gwfft_description (
 		 (gwdata->ARCH == 3) ? "Core2 " :
 		 (gwdata->ARCH == 4) ? "AMD K8 " :
 		 (gwdata->ARCH == 5) ? "AMD K10 " : " ",
+		 (gwdata->PASS2_SIZE == 0) ? "" :
+		 (gwdata->FFT_TYPE == 0) ? "type-0 " :
+		 (gwdata->FFT_TYPE == 1) ? "type-1 " :
+		 (gwdata->FFT_TYPE == 2) ? "type-2 " : "type-3 ",
 		 gwdata->FFTLEN >= 1048576 && (gwdata->FFTLEN & 0xFFFFF) == 0 ?
 			 gwdata->FFTLEN / 1048576 :
 		 gwdata->FFTLEN >= 1024 && (gwdata->FFTLEN & 0x3FF) == 0 ?
 			 gwdata->FFTLEN / 1024 : gwdata->FFTLEN,
 		 gwdata->FFTLEN >= 1048576 && (gwdata->FFTLEN & 0xFFFFF) == 0 ? "M" :
 		 gwdata->FFTLEN >= 1024 && (gwdata->FFTLEN & 0x3FF) == 0 ? "K" : "");
+
+	if (gwdata->PASS2_SIZE) {
+		int	p1size;
+		char	p1buf[20], p2buf[20];
+
+		p1size = gwdata->FFTLEN / gwdata->PASS2_SIZE;
+		if (p1size % 1024) sprintf (p1buf, "%d", p1size);
+		else sprintf (p1buf, "%dK", p1size / 1024);
+		if (gwdata->PASS2_SIZE % 1024) sprintf (p2buf, "%d", gwdata->PASS2_SIZE);
+		else sprintf (p2buf, "%dK", gwdata->PASS2_SIZE / 1024);
+		sprintf (buf + strlen (buf), ", Pass1=%s, Pass2=%s", p1buf, p2buf);
+	}
+
 	if (gwdata->num_threads > 1)
 		sprintf (buf + strlen (buf), ", %d threads", (int) gwdata->num_threads);
 
