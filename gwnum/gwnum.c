@@ -2800,8 +2800,10 @@ double *r4dwpn_build_biglit_table (
 	double	*table)		/* Pointer to the table to fill in */
 {
 const	int	START_OF_CHAIN = 0x8000;
-const	int	UNCHAINED = 1000;
-const	int	END_OF_CHAIN = 1001;
+const	int	END_OF_CHAIN = 0x4000;
+const	int	CHAIN_3_COMMON = 0x2000;
+const	int	CHAIN_2_COMMON = 0x1000;
+const	int	CHAIN_1_COMMON = 0x0800;
 	int	combos[16], next_combo[16];
 	unsigned char *p;
 	unsigned long upper_sse2_word, num_cols;
@@ -2862,35 +2864,51 @@ const	int	END_OF_CHAIN = 1001;
 
 /* Now concatentate them to save space.  Let's hope they fit in 28 entries. */
 
-	for (i = 0; i < num_combos; i++) next_combo[i] = UNCHAINED;
-	for (i = 0; i < num_combos; i++) {
-		int	chain_end;
+	/* Init the next-in-chain array */
+	for (i = 0; i < num_combos; i++)
+		next_combo[i] = START_OF_CHAIN + END_OF_CHAIN;
 
-		/* Skip if already part of a chain */
-		if (next_combo[i] != UNCHAINED) continue;
+	/* Look for 2 chains where the end of one chain has elements in common with */
+	/* the start of the other chain,  First look for 3 elements in common, then */
+	/* two, then one. */
+	for (n = 3; n != 0; n--) {
 
-		/* Create a chain starting with this combo */
-		for (chain_end = i; ; ) {
-			/* Find an unchained combo whose 3 starting big/lit flags */
-			/* match the 3 ending big/lit flags of the last entry in the current chain. */
+		/* Examine all chain starts */
+		for (i = 0; i < num_combos; i++) {
+			int	chain_end;
+
+			/* Skip if not the start of a chain */
+			if (! (next_combo[i] & START_OF_CHAIN)) continue;
+
+			/* Find end of chain */
+			for (chain_end = i; ! (next_combo[chain_end] & END_OF_CHAIN); chain_end = next_combo[chain_end] & 0xFF);
+
+			/* Now look at all chain ends */
 			for (j = 0; j < num_combos; j++) {
+
+				/* Skip if not a chain end */
+				if (! (next_combo[j] & END_OF_CHAIN)) continue;
+				/* Can't chain to ourselves! */
 				if (j == chain_end) continue;
-				if (next_combo[j] != UNCHAINED && ! (next_combo[j] & START_OF_CHAIN)) continue;
-				if ((combos[j] >> 2) == (combos[chain_end] & 0x3F)) break;
+
+				/* See if chain end has the proper number of common elements with the chain start */
+				if (n == 3 && (combos[i] >> 2) == (combos[j] & 0x3F)) {
+					next_combo[j] = (next_combo[j] & START_OF_CHAIN) + CHAIN_3_COMMON + i;
+					next_combo[i] &= ~START_OF_CHAIN;
+					break;
+				}
+				if (n == 2 && (combos[i] >> 4) == (combos[j] & 0x0F)) {
+					next_combo[j] = (next_combo[j] & START_OF_CHAIN) + CHAIN_2_COMMON + i;
+					next_combo[i] &= ~START_OF_CHAIN;
+					break;
+				}
+				if (n == 1 && (combos[i] >> 6) == (combos[j] & 0x03)) {
+					next_combo[j] = (next_combo[j] & START_OF_CHAIN) + CHAIN_1_COMMON + i;
+					next_combo[i] &= ~START_OF_CHAIN;
+					break;
+				}
 			}
-			/* If a next was found, add it to the current chain */
-			if (j == num_combos) {
-				next_combo[chain_end] = END_OF_CHAIN;
-				break;
-			}
-			next_combo[chain_end] = j;
-			if (next_combo[j] & START_OF_CHAIN) {
-				next_combo[j] &= ~START_OF_CHAIN;
-				break;
-			}
-			chain_end = j;
 		}
-		next_combo[i] |= START_OF_CHAIN;
 	}
 
 /* HACK: Remember the chains in ASM_TIMERS so that we can properly build LIMIT_INVERSE,
@@ -2899,16 +2917,18 @@ const	int	END_OF_CHAIN = 1001;
 	n = 0;
 	for (i = 0; i < num_combos; i++) {
 		if (! (next_combo[i] & START_OF_CHAIN)) continue;
-		next_combo[i] &= ~START_OF_CHAIN;
 
-		/* Output 3 bytes to get chain started */
-		gwdata->ASM_TIMERS[n++] = (combos[i] >> 6);
-		gwdata->ASM_TIMERS[n++] = (combos[i] >> 4) & 3;
-		gwdata->ASM_TIMERS[n++] = (combos[i] >> 2) & 3;
-
-		/* Output 1 byte for each chain entry */
-		for (j = i; j != END_OF_CHAIN; j = next_combo[j])
-			gwdata->ASM_TIMERS[n++] = combos[j] & 3;
+		/* Output up to 4 bytes for each entry in the chain */
+		for (j = i; ; j = next_combo[j] & 0xFF) {
+			gwdata->ASM_TIMERS[n++] = (combos[j] >> 6);
+			if (! (next_combo[j] & CHAIN_3_COMMON))
+				gwdata->ASM_TIMERS[n++] = (combos[j] >> 4) & 3;
+			if (! (next_combo[j] & (CHAIN_3_COMMON + CHAIN_2_COMMON)))
+				gwdata->ASM_TIMERS[n++] = (combos[j] >> 2) & 3;
+			if (! (next_combo[j] & (CHAIN_3_COMMON + CHAIN_2_COMMON + CHAIN_1_COMMON)))
+				gwdata->ASM_TIMERS[n++] = combos[j] & 3;
+			if (next_combo[j] & END_OF_CHAIN) break;
+		}
 	}
 	ASSERTG (n <= 28);
 
