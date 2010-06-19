@@ -4433,6 +4433,7 @@ int pick_fft_size (
 /* Init the FFT code using the smaller FFT size */
 
 	gwinit (&lldata.gwdata);
+	gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
 	stop_reason = lucasSetup (thread_num, w->n, small_fftlen, &lldata);
 	if (stop_reason) return (stop_reason);
 
@@ -4659,6 +4660,7 @@ int prime (
 begin:	gwinit (&lldata.gwdata);
 	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
 		gwset_use_large_pages (&lldata.gwdata);
+	gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
 	gwset_num_threads (&lldata.gwdata, THREADS_PER_TEST[thread_num]);
 	gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&lldata.gwdata, sp_info);
@@ -5859,9 +5861,13 @@ int selfTestInternal (
 		cpu_supports_3dnow = (CPU_FLAGS & CPU_3DNOW) ? TRUE : FALSE;
 
 /* Now run Lucas setup, for extra safety double the maximum allowable */
-/* sum(inputs) vs. sum(outputs) difference. */
+/* sum(inputs) vs. sum(outputs) difference.  For faster detection of unstable */
+/* systems, enable SUM(INPUTS) != SUM(OUTPUTS) checking on the first test. */
+/* For a better variety of tests, enable SUM(INPUTS) != SUM(OUTPUTS) checking half the time. */
+
 
 		gwinit (&lldata.gwdata);
+		gwset_sum_inputs_checking (&lldata.gwdata, iter & 1);
 		gwset_num_threads (&lldata.gwdata, num_threads);
 		lldata.gwdata.GW_BIGBUF = (char *) bigbuf;
 		lldata.gwdata.GW_BIGBUF_SIZE = (bigbuf != NULL) ? (size_t) memory * (size_t) 1048576 : 0;
@@ -6103,6 +6109,7 @@ int lucas_QA (
 /* Now run Lucas setup */
 
 		gwinit (&lldata.gwdata);
+		gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
 		stop_reason = lucasSetup (thread_num, p, fftlen, &lldata);
 		lldata.units_bit = units_bit;
 		if (stop_reason) return (stop_reason);
@@ -6493,6 +6500,7 @@ int primeTime (
 /* Init the FFT code */
 
 	gwinit (&lldata.gwdata);
+	gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
 	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
 		gwset_use_large_pages (&lldata.gwdata);
 	gwset_num_threads (&lldata.gwdata, num_threads);
@@ -6782,6 +6790,7 @@ int primeBench (
 /* my 1400 MHz P4 to run 10 iterations of a 1792K FFT. */
 
 		gwinit (&lldata.gwdata);
+		gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
 		if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
 			gwset_use_large_pages (&lldata.gwdata);
 		gwset_num_threads (&lldata.gwdata, threads);

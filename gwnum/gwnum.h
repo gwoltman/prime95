@@ -154,7 +154,16 @@ void gwdone (
 /* switch to a generic modular reduction if k * mulbyconst or c * mulbyconst */
 /* is too large.  Call this routine prior to calling gwsetup. */
 
-#define gwsetmaxmulbyconst(h,c)		((h)->maxmulbyconst = c)
+#define gwset_maxmulbyconst(h,c)	((h)->maxmulbyconst = c)
+#define gwsetmaxmulbyconst		gwset_maxmulbyconst
+
+/* The gwsetup routines pick the fastest FFT implementation by default. */
+/* Setting this option will cause gwsetup to give preference to FFT */
+/* implementations that support the SUM(INPUTS) != SUM(OUTPUTS) error check. */
+/* NOTE:  This error check is not available for k*b^n+c IBDWT FFTs when */
+/* c is positive.  Setting this option will have no effect. */
+
+#define gwset_sum_inputs_checking(h,b) ((h)->sum_inputs_checking = b)
 
 /* When doing a gwsetup_general_mod, the library prefers to use an */
 /* integral number of bits per word (a rational FFT) because they are */
@@ -750,6 +759,9 @@ struct gwhandle_struct {
 	/* Variables which affect gwsetup.  These are usually set by macros above. */
 	double	safety_margin;	/* Reduce maximum allowable bits per */
 				/* FFT data word by this amount. */
+	int	sum_inputs_checking; /* If possible, pick an FFT implementation */
+				/* that supports the SUM(INPUTS) != SUM(OUTPUTS) */
+				/* error check. */
 	long	maxmulbyconst;	/* Gwsetup needs to know the maximum value */
 				/* the caller will use in gwsetmulbyconst. */
 				/* The default value is 3, commonly used */
@@ -772,14 +784,14 @@ struct gwhandle_struct {
 	int	use_large_pages; /* FUTURE USE: Try to use 2MB pages */
 	/* End of variables affecting gwsetup */
 
+	int	cpu_flags;	/* Copy of CPU_FLAGS at time gwsetup was */
+				/* called (just in case CPU_FLAGS changes) */
 	double	k;		/* K in K*B^N+C */
 	unsigned long b;	/* B in K*B^N+C */
 	unsigned long n;	/* N in K*B^N+C */
 	signed long c;		/* C in K*B^N+C */
 	unsigned long FFTLEN;	/* The FFT size we are using */
 	void	(*GWPROCPTRS[16])(void*); /* Ptrs to assembly routines */
-	int	cpu_flags;	/* Copy of CPU_FLAGS at time setup was */
-				/* called (just in case CPU_FLAGS changes) */
 	int	ZERO_PADDED_FFT;/* True if doing a zero pad FFT */
 	int	ALL_COMPLEX_FFT;/* True if using all-complex FFTs */
 	int	RATIONAL_FFT;	/* True if bits per FFT word is integer */
@@ -798,13 +810,13 @@ struct gwhandle_struct {
 	unsigned long GW_GEN_MOD_MAX; /* Maximum number of words we can safely */
 				/* allow in a GENERAL_MOD number. */
 	unsigned long GW_GEN_MOD_MAX_OFFSET; /* Offset to the GW_GEN_MOD_MAX word */
+	unsigned long NUM_B_PER_SMALL_WORD; /* Number of b's in a little word. */
+				/* For the common case, b=2, this is the */
+				/* number of bits in a little word. */
 	double	avg_num_b_per_word; /* Number of base b's in each fft word */
 	double	bit_length;	/* Bit length of k*b^n */
 	double	fft_max_bits_per_word;	/* Maximum bits per data word that */
 				/* this FFT size can support */
-	unsigned long NUM_B_PER_SMALL_WORD; /* Number of b's in a little word. */
-				/* For the common case, b=2, this is the */
-				/* number of bits in a little word. */
 	unsigned long PASS2_SIZE; /* Number of complex values FFTed in pass 2. */
 	long	PASS2GAPSIZE;	/* Gap between blocks in pass 2 */
 	unsigned long PASS1_CACHE_LINES; /* Cache lines grouped together in */
@@ -813,9 +825,9 @@ struct gwhandle_struct {
 	unsigned long SCRATCH_SIZE; /* Size of the pass 1 scratch area */
 	unsigned long EXTRA_BITS; /* Number of unnormalized adds that can */
 				/* be safely performed. */
-	unsigned long saved_copyz_n;/* Used to reduce COPYZERO calculations */
 	gwnum	GW_RANDOM;	/* A random number used in */
 				/* gwsquare_carefully. */
+	unsigned long saved_copyz_n;/* Used to reduce COPYZERO calculations */
 	char	GWSTRING_REP[60]; /* The gwsetup modulo number as a string. */
 	unsigned int NORMNUM;	/* The post-multiply normalize routine index */
 	int	GWERROR;	/* Set if an error is detected */

@@ -2443,6 +2443,7 @@ return 0;
 /* Setup the gwnum assembly code */
 
 	gwinit (&ecmdata.gwdata);
+	gwset_sum_inputs_checking (&ecmdata.gwdata, SUM_INPUTS_ERRCHK);
 	gwset_num_threads (&ecmdata.gwdata, THREADS_PER_TEST[thread_num]);
 	gwset_thread_callback (&ecmdata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&ecmdata.gwdata, sp_info);
@@ -4560,6 +4561,7 @@ restart:
 /* Setup the assembly code */
 
 	gwinit (&pm1data.gwdata);
+	gwset_sum_inputs_checking (&pm1data.gwdata, SUM_INPUTS_ERRCHK);
 	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
 		gwset_use_large_pages (&pm1data.gwdata);
 	gwset_num_threads (&pm1data.gwdata, THREADS_PER_TEST[thread_num]);

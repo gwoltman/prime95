@@ -4247,10 +4247,13 @@ int score_jmptab_entry (
 	}
 
 /* The Radix-4/8 DJB FFT with partial normalization saves a few multiplies by doing part */
-/* of the normalization during the forward and inverse FFT. */
+/* of the normalization during the forward and inverse FFT.  If the user prefers more */
+/* SUM(INPUTS) != SUM(OUTPUTS) error checking, then reduce the score of partial normalization FFTs. */	
 
 	if (fft_type == FFT_TYPE_RADIX_4_DWPN) {
 		score += 55;
+		if (gwdata->sum_inputs_checking && !gwdata->ALL_COMPLEX_FFT)
+			score -= 100;
 	}
 
 /* All done, return the accumulated score */

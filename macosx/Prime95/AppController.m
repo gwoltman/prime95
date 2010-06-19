@@ -3,7 +3,7 @@
 //  Prime95
 //
 //  Created by George Woltman on 4/17/09.
-//  Copyright 2009 Mersenne Research, Inc. All rights reserved.
+//  Copyright 2009-2010 Mersenne Research, Inc. All rights reserved.
 //
 
 #import "AppController.h"
@@ -149,6 +149,12 @@ AppController *myAppController;			// Global variable to allow access to this obj
 	if (theAction == @selector(advancedManualCommunication:)) {
 		if (USE_PRIMENET) return YES;
 		return NO;
+	}
+
+	if (theAction == @selector(toggleSuminpErrorChecking:)) {
+		if (SUM_INPUTS_ERRCHK) [item setState:NSOnState];
+		else [item setState:NSOffState];
+		return YES;
 	}
 
 	if (theAction == @selector(toggleErrorChecking:)) {
@@ -357,6 +363,14 @@ AppController *myAppController;			// Global variable to allow access to this obj
 	if (!manualCommunicationController) manualCommunicationController = [[ManualCommunicationController alloc] init];
 	else [manualCommunicationController reInit];
 	[manualCommunicationController showWindow:self];
+}
+
+// This menu choice toggles the SUM(INPUTS) != SUM(OUTPUTS) error checking
+
+- (IBAction)toggleSuminpErrorChecking:(id)sender
+{
+	SUM_INPUTS_ERRCHK = !SUM_INPUTS_ERRCHK;
+	IniWriteInt (INI_FILE, "SumInputsErrorCheck", SUM_INPUTS_ERRCHK);
 }
 
 // This menu choice toggles the roundoff error checking
