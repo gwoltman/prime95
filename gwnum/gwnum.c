@@ -8622,8 +8622,8 @@ void gwfft_description (
 		p1size = gwdata->FFTLEN / gwdata->PASS2_SIZE;
 		if (p1size % 1024) sprintf (p1buf, "%d", p1size);
 		else sprintf (p1buf, "%dK", p1size / 1024);
-		if (gwdata->PASS2_SIZE % 1024) sprintf (p2buf, "%d", gwdata->PASS2_SIZE);
-		else sprintf (p2buf, "%dK", gwdata->PASS2_SIZE / 1024);
+		if (gwdata->PASS2_SIZE % 1024) sprintf (p2buf, "%d", (int) gwdata->PASS2_SIZE);
+		else sprintf (p2buf, "%dK", (int) (gwdata->PASS2_SIZE / 1024));
 		sprintf (buf + strlen (buf), ", Pass1=%s, Pass2=%s", p1buf, p2buf);
 	}
 
