@@ -140,15 +140,15 @@ struct gwasm_data {
 
 	double	XMM_SUMOUT[2];	/* Used in normalization macros */
 	double	XMM_MAXERR[2];	/* Used in normalization macros */
-	double	XMM_LIMIT_BIGMAX[56]; /* Normalization constants */
-	double	XMM_LIMIT_INVERSE[56];
+	double	XMM_LIMIT_BIGMAX[64]; /* Normalization constants */
+	double	XMM_LIMIT_INVERSE[64];
 	double	XMM_COL_MULTS[1024];
 	double	XMM_TTP_FUDGE[32];
 	double	XMM_TTMP_FUDGE[32];
 	double	XMM_BIGVAL[2];	/* Used to round double to integer */
 	double	XMM_MINUS_C[2];	/* -c stored as double */
 	double	XMM_NORM012_FF[2]; /* Used in xnorm012 macros (FFTLEN/2) */
-	double	XMM_LIMIT_BIGMAX_NEG[56];
+	double	XMM_LIMIT_BIGMAX_NEG[64];
 	int32_t	XMM_ABSVAL[4];	/* Used to compute absolute values */
 	double	XMM_P309[2];	/* Used in radix-20 macros */
 	double	XMM_P809[2];
@@ -2814,7 +2814,7 @@ const	int	CHAIN_1_COMMON = 0x0800;
 /* big  followed by three little words.  Here we determine which patterns of big/lit */
 /* are possible in an xnorm_2d_wpn macro which processes 4 SSE2 words.  There are */
 /* 16 possible valid combinations which can be represented by indexing into an array */
-/* of 28 SSE2 values. */
+/* of 32 SSE2 values. */
 
 /* Generate all 16 possible valid combinations of big/lit flags */
 
@@ -2862,7 +2862,7 @@ const	int	CHAIN_1_COMMON = 0x0800;
 		}
 	}
 
-/* Now concatentate them to save space.  Let's hope they fit in 28 entries. */
+/* Now concatentate them to save space.  Let's hope they fit in 32 entries. */
 
 	/* Init the next-in-chain array */
 	for (i = 0; i < num_combos; i++)
@@ -2930,7 +2930,7 @@ const	int	CHAIN_1_COMMON = 0x0800;
 			if (next_combo[j] & END_OF_CHAIN) break;
 		}
 	}
-	ASSERTG (n <= 28);
+	ASSERTG (n <= 32);
 
 /* Determine the number of column two-to-phi multipliers */
 
@@ -2994,14 +2994,14 @@ const	int	CHAIN_1_COMMON = 0x0800;
 /* Combine last four big/lit 2-bit flag values into one 5-bit flags value. */
 
 			p -= 4;
-			for (m = 0; m <= 24; m++) {
+			for (m = 0; m <= 28; m++) {
 				if (gwdata->ASM_TIMERS[m]   == (p[0] & 48) >> 4 &&
 				    gwdata->ASM_TIMERS[m+1] == (p[1] & 48) >> 4 &&
 				    gwdata->ASM_TIMERS[m+2] == (p[2] & 48) >> 4 &&
 				    gwdata->ASM_TIMERS[m+3] == (p[3] & 48) >> 4)
 					break;
 			}
-			ASSERTG (m != 25);
+			ASSERTG (m != 29);
 
 /* Combine 1st and 2nd fudge factor flags.  Combine 3rd and 4th fudge factor flags. */
 /* Output the 2 combined fudge factors and the 5-bit big/lit flags value using just 2 bytes. */
@@ -6302,7 +6302,7 @@ int internal_gwsetup (
 		inv2 = asm_data->XMM_LIMIT_INVERSE[7];
 		bmax1 = asm_data->XMM_LIMIT_BIGMAX[0];
 		bmax2 = asm_data->XMM_LIMIT_BIGMAX[7];
-		for (i = 0; i < 28; i++) {
+		for (i = 0; i < 32; i++) {
 			asm_data->XMM_LIMIT_INVERSE[i+i] = (gwdata->ASM_TIMERS[i] & 1) ? inv2 : inv1;
 			asm_data->XMM_LIMIT_INVERSE[i+i+1] = (gwdata->ASM_TIMERS[i] & 2) ? inv2 : inv1;
 			asm_data->XMM_LIMIT_BIGMAX[i+i] = (gwdata->ASM_TIMERS[i] & 1) ? bmax2 : bmax1;
