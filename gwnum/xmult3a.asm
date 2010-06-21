@@ -146,6 +146,8 @@ const	mov	const_fft, 1		;; Set flag saying mul-by-const
 echk	xload	xmm6, XMM_MAXERR	;; Load maximum error
 	xsub_7_words
 
+	xnorm_wpn_zpad_preload ttp, echk, const, base2, sse4, khi, c1, cm1
+
 	mov	rdx, norm_grp_mults	;; Addr of the group multipliers
 	mov	rbp, carries		;; Addr of the carries
 	mov	rdi, norm_ptr1		;; Load big/little flags array ptr
@@ -156,6 +158,12 @@ ttp	movzx	rbx, WORD PTR [rdi]	;; Preload big vs. little & fudge flags
 ilp0:	mov	eax, count2		;; Load wpn count
 	mov	loopcount2z, eax	;; Save loop counter
 ilp1:	mov	ecx, cache_line_multiplier ;; Load inner loop counter
+IFDEF X86_64
+	xload	xmm4, [rbp+0*16]	;; Preload carries
+	xload	xmm11, [rbp+1*16]
+	xload	xmm3, [rbp+2*16]
+	xload	xmm10, [rbp+3*16]
+ENDIF
 ilp2:	xprefetchw [rsi+64]
 	xnorm_wpn_zpad ttp, echk, const, base2, sse4, khi, c1, cm1 ;; Normalize 8 values
 	bump	rsi, 64			;; Next cache line
@@ -163,6 +171,12 @@ ttp	bump	rdi, 2			;; Next big/little flags
 	sub	rcx, 1			;; Test loop counter
 	jnz	ilp2			;; Loop til done
 	add	rsi, normblkdst		;; Skip gap in blkdst or clmblkdst
+IFDEF X86_64
+	xstore	[rbp+0*16], xmm4	;; Store carries
+	xstore	[rbp+1*16], xmm11
+	xstore	[rbp+2*16], xmm3
+	xstore	[rbp+3*16], xmm10
+ENDIF
 	bump	rbp, 64			;; Next set of carries
 	add	blk8_counterz, 80h/4	;; Test for a multiple of 8 blocks
 	jnc	short not8

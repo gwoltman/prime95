@@ -458,6 +458,89 @@ echk	maxpd	xmm6, xmmvalin		;; Compute maximum error
 	subpd	xmmvalout, xmmvalin	;; xmmvalout now contains FFTvalue % base
 	ENDM
 
+;; Interleaved version used in 64-bit implementation of zpad normalization.
+;; Relies on some registers being preloaded.
+
+split_lower_zpad_word_interleaved MACRO echk, base2, sse4, xmmvalin, xmmcarry, xmmvalout, basereg, xmmvalin2, xmmcarry2, xmmvalout2, basereg2
+base2		base2_split_lower_zpad_word_interleaved echk, sse4, xmmvalin, xmmcarry, xmmvalout, basereg, xmmvalin2, xmmcarry2, xmmvalout2, basereg2
+no base2	nobase2_split_lower_zpad_word_interleaved echk, sse4, xmmvalin, xmmcarry, xmmvalout, basereg, xmmvalin2, xmmcarry2, xmmvalout2, basereg2
+	ENDM
+
+base2_split_lower_zpad_word_interleaved MACRO echk, sse4, xmmvalin, xmmcarry, xmmvalout, basereg, xmmvalin2, xmmcarry2, xmmvalout2, basereg2
+	addpd	xmmvalin, xmmcarry	;; Add in previous high FFT data
+	addpd	xmmvalin2, xmmcarry2	;; Add in previous high FFT data
+	xcopy	xmmcarry, xmm13		;; XMM_BIGBIGVAL ;; Big word rounding constant
+	addpd	xmmcarry, xmmvalin	;; Round to multiple of big word
+	xcopy	xmmcarry2, xmm13	;; XMM_BIGBIGVAL ;; Big word rounding constant
+	addpd	xmmcarry2, xmmvalin2	;; Round to multiple of big word
+	subpd	xmmcarry, xmm13		;; XMM_BIGBIGVAL
+	subpd	xmmcarry2, xmm13	;; XMM_BIGBIGVAL
+sse4	roundpd	xmmvalout, xmmvalin, 0	;; Round to an integer
+sse4	roundpd	xmmvalout2, xmmvalin2, 0 ;; Round to an integer
+
+no sse4	echk	xload	xmmvalout, XMM_BIGVAL	;; Round to an integer
+no sse4	echk	addpd	xmmvalout, xmmvalin
+no sse4	echk	xload	xmmvalout2, XMM_BIGVAL	;; Round to an integer
+no sse4	echk	addpd	xmmvalout2, xmmvalin2
+no sse4	echk	subpd	xmmvalout, XMM_BIGVAL
+no sse4	echk	subpd	xmmvalout2, XMM_BIGVAL
+
+no sse4 no echk	xcopy	xmmvalout, xmm6		;; XMM_BIGVAL ;; Round to an integer
+no sse4	no echk	addpd	xmmvalout, xmmvalin
+no sse4	no echk	xcopy	xmmvalout2, xmm6	;; XMM_BIGVAL ;; Round to an integer
+no sse4	no echk	addpd	xmmvalout2, xmmvalin2
+no sse4	no echk	subpd	xmmvalout, xmm6		;; XMM_BIGVAL
+no sse4	no echk	subpd	xmmvalout2, xmm6	;; XMM_BIGVAL
+
+echk	subpd	xmmvalin, xmmvalout	;; This is the convolution error
+echk	subpd	xmmvalin2, xmmvalout2	;; This is the convolution error
+echk	andpd	xmmvalin, XMM_ABSVAL	;; Compute absolute value
+echk	andpd	xmmvalin2, XMM_ABSVAL	;; Compute absolute value
+echk	maxpd	xmm6, xmmvalin		;; Compute maximum error
+echk	maxpd	xmm6, xmmvalin2		;; Compute maximum error
+	subpd	xmmvalout, xmmcarry	;; xmmvalout now contains low bigword bits
+	subpd	xmmvalout2, xmmcarry2	;; xmmvalout now contains low bigword bits
+	mulpd	xmmcarry, XMM_LIMIT_INVERSE[basereg];; Saved shifted FFT hi data
+	mulpd	xmmcarry2, XMM_LIMIT_INVERSE[basereg2];; Saved shifted FFT hi data
+	ENDM
+
+nobase2_split_lower_zpad_word_interleaved MACRO echk, sse4, xmmvalin, xmmcarry, xmmvalout, basereg, xmmvalin2, xmmcarry2, xmmvalout2, basereg2
+	addpd	xmmvalin, xmmcarry	;; Add in previous high FFT data
+	addpd	xmmvalin2, xmmcarry2	;; Add in previous high FFT data
+	xload	xmmcarry, XMM_LIMIT_INVERSE[basereg] ;; Load base
+	mulpd	xmmcarry, xmmvalin	;; Compute FFTvalue / base
+	xload	xmmcarry2, XMM_LIMIT_INVERSE[basereg2] ;; Load base
+	mulpd	xmmcarry2, xmmvalin2	;; Compute FFTvalue / base
+sse4	roundpd	xmmcarry, xmmcarry, 0	;; Round to integer
+sse4	roundpd	xmmcarry2, xmmcarry2, 0	;; Round to integer
+no sse4	addpd	xmmcarry, xmm13		;; XMM_BIGVAL ;; Round to integer
+no sse4	addpd	xmmcarry2, xmm13	;; XMM_BIGVAL ;; Round to integer
+no sse4	subpd	xmmcarry, xmm13		;; XMM_BIGVAL ;; Carry = shifted FFTvalue / base
+no sse4	subpd	xmmcarry2, xmm13	;; XMM_BIGVAL ;; Carry = shifted FFTvalue / base
+sse4	roundpd	xmmvalout, xmmvalin, 0	;; Round input to an integer
+sse4	roundpd	xmmvalout2, xmmvalin2, 0 ;; Round input to an integer
+no sse4	xcopy	xmmvalout, xmm13	;; XMM_BIGVAL ;; Round input to an integer
+no sse4	addpd	xmmvalout, xmmvalin
+no sse4	xcopy	xmmvalout2, xmm13	;; XMM_BIGVAL ;; Round input to an integer
+no sse4	addpd	xmmvalout2, xmmvalin2
+no sse4	subpd	xmmvalout, xmm13	;; XMM_BIGVAL
+no sse4	subpd	xmmvalout2, xmm13	;; XMM_BIGVAL
+echk	subpd	xmmvalin, xmmvalout	;; This is the convolution error
+echk	subpd	xmmvalin2, xmmvalout2	;; This is the convolution error
+echk no sse4	andpd	xmmvalin, XMM_ABSVAL	;; Compute absolute value
+echk no sse4	andpd	xmmvalin2, XMM_ABSVAL	;; Compute absolute value
+echk sse4	andpd	xmmvalin, xmm13		;; XMM_ABSVAL ;; Compute absolute value
+echk sse4	andpd	xmmvalin2, xmm13	;; XMM_ABSVAL ;; Compute absolute value
+echk	maxpd	xmm6, xmmvalin		;; Compute maximum error
+echk	maxpd	xmm6, xmmvalin2		;; Compute maximum error
+	xload	xmmvalin, XMM_LIMIT_BIGMAX[basereg]
+	mulpd	xmmvalin, xmmcarry
+	xload	xmmvalin2, XMM_LIMIT_BIGMAX[basereg2]
+	mulpd	xmmvalin2, xmmcarry2
+	subpd	xmmvalout, xmmvalin	;; xmmvalout now contains FFTvalue % base
+	subpd	xmmvalout2, xmmvalin2	;; xmmvalout now contains FFTvalue % base
+	ENDM
+
 ; Split upper is like split lower except that previous carry is not added in and
 ; result carry is not shifted down.
 
@@ -496,6 +579,83 @@ echk	maxpd	xmm6, xmmvalin		;; Compute maximum error
 	xload	xmmvalin, XMM_LIMIT_BIGMAX[basereg]
 	mulpd	xmmvalin, xmmcarry
 	subpd	xmmvalout, xmmvalin	;; xmmvalout now contains FFTvalue % base
+	ENDM
+
+;; Interleaved version used in 64-bit implementation of zpad normalization.
+;; Relies on some registers being preloaded.
+
+split_upper_zpad_word_interleaved MACRO echk, base2, sse4, xmmvalin, xmmcarry, xmmvalout, basereg, xmmvalin2, xmmcarry2, xmmvalout2, basereg2
+base2		base2_split_upper_zpad_word_interleaved echk, sse4, xmmvalin, xmmcarry, xmmvalout, basereg, xmmvalin2, xmmcarry2, xmmvalout2, basereg2
+no base2	nobase2_split_upper_zpad_word_interleaved echk, sse4, xmmvalin, xmmcarry, xmmvalout, basereg, xmmvalin2, xmmcarry2, xmmvalout2, basereg2
+	ENDM
+
+base2_split_upper_zpad_word_interleaved MACRO echk, sse4, xmmvalin, xmmcarry, xmmvalout, basereg, xmmvalin2, xmmcarry2, xmmvalout2, basereg2
+	xcopy	xmmcarry, xmm13		;; XMM_BIGBIGVAL ;; Big word rounding constant
+	addpd	xmmcarry, xmmvalin	;; Round to multiple of big word
+	xcopy	xmmcarry2, xmm13	;; XMM_BIGBIGVAL ;; Big word rounding constant
+	addpd	xmmcarry2, xmmvalin2	;; Round to multiple of big word
+	subpd	xmmcarry, xmm13		;; XMM_BIGBIGVAL
+	subpd	xmmcarry2, xmm13	;; XMM_BIGBIGVAL
+sse4	roundpd	xmmvalout, xmmvalin, 0	;; Round input to an integer
+sse4	roundpd	xmmvalout2, xmmvalin2, 0 ;; Round input to an integer
+
+no sse4	echk	xload	xmmvalout, XMM_BIGVAL	;; Round input to an integer
+no sse4	echk	addpd	xmmvalout, xmmvalin
+no sse4	echk	xload	xmmvalout2, XMM_BIGVAL	;; Round input to an integer
+no sse4	echk	addpd	xmmvalout2, xmmvalin2
+no sse4	echk	subpd	xmmvalout, XMM_BIGVAL
+no sse4	echk	subpd	xmmvalout2, XMM_BIGVAL
+
+no sse4	no echk	xcopy	xmmvalout, xmm6		;; XMM_BIGVAL ;; Round input to an integer
+no sse4	no echk	addpd	xmmvalout, xmmvalin
+no sse4	no echk	xcopy	xmmvalout2, xmm6	;; XMM_BIGVAL ;; Round input to an integer
+no sse4	no echk	addpd	xmmvalout2, xmmvalin2
+no sse4	no echk	subpd	xmmvalout, xmm6		;; XMM_BIGVAL
+no sse4	no echk	subpd	xmmvalout2, xmm6	;; XMM_BIGVAL
+
+echk	subpd	xmmvalin, xmmvalout	;; This is the convolution error
+echk	subpd	xmmvalin2, xmmvalout2	;; This is the convolution error
+echk	andpd	xmmvalin, XMM_ABSVAL	;; Compute absolute value
+echk	andpd	xmmvalin2, XMM_ABSVAL	;; Compute absolute value
+echk	maxpd	xmm6, xmmvalin		;; Compute maximum error
+echk	maxpd	xmm6, xmmvalin2		;; Compute maximum error
+	subpd	xmmvalout, xmmcarry	;; xmmvalout now contains low bigword bits
+	subpd	xmmvalout2, xmmcarry2	;; xmmvalout now contains low bigword bits
+	ENDM
+
+nobase2_split_upper_zpad_word_interleaved MACRO echk, sse4, xmmvalin, xmmcarry, xmmvalout, basereg, xmmvalin2, xmmcarry2, xmmvalout2, basereg2
+	xload	xmmcarry, XMM_LIMIT_INVERSE[basereg] ;; Load base
+	mulpd	xmmcarry, xmmvalin	;; Compute FFTvalue / base
+	xload	xmmcarry2, XMM_LIMIT_INVERSE[basereg2] ;; Load base
+	mulpd	xmmcarry2, xmmvalin2	;; Compute FFTvalue / base
+sse4	roundpd	xmmcarry, xmmcarry, 0	;; Round to integer
+sse4	roundpd	xmmcarry2, xmmcarry2, 0	;; Round to integer
+no sse4	addpd	xmmcarry, xmm13		;; XMM_BIGVAL ;; Round to integer
+no sse4	addpd	xmmcarry2, xmm13	;; XMM_BIGVAL ;; Round to integer
+no sse4	subpd	xmmcarry, xmm13		;; XMM_BIGVAL
+no sse4	subpd	xmmcarry2, xmm13	;; XMM_BIGVAL
+sse4	roundpd	xmmvalout, xmmvalin, 0	;; Round input to an integer
+sse4	roundpd	xmmvalout2, xmmvalin2, 0 ;; Round input to an integer
+no sse4	xcopy	xmmvalout, xmm13	;; XMM_BIGVAL ;; Round input to an integer
+no sse4	addpd	xmmvalout, xmmvalin
+no sse4	xcopy	xmmvalout2, xmm13	;; XMM_BIGVAL ;; Round input to an integer
+no sse4	addpd	xmmvalout2, xmmvalin2
+no sse4	subpd	xmmvalout, xmm13	;; XMM_BIGVAL
+no sse4	subpd	xmmvalout2, xmm13	;; XMM_BIGVAL
+echk	subpd	xmmvalin, xmmvalout	;; This is the convolution error
+echk	subpd	xmmvalin2, xmmvalout2	;; This is the convolution error
+echk no sse4	andpd	xmmvalin, XMM_ABSVAL	;; Compute absolute value
+echk no sse4	andpd	xmmvalin2, XMM_ABSVAL	;; Compute absolute value
+echk sse4	andpd	xmmvalin, xmm13		;; XMM_ABSVAL ;; Compute absolute value
+echk sse4	andpd	xmmvalin2, xmm13	;; XMM_ABSVAL ;; Compute absolute value
+echk	maxpd	xmm6, xmmvalin		;; Compute maximum error
+echk	maxpd	xmm6, xmmvalin2		;; Compute maximum error
+	xload	xmmvalin, XMM_LIMIT_BIGMAX[basereg]
+	mulpd	xmmvalin, xmmcarry
+	xload	xmmvalin2, XMM_LIMIT_BIGMAX[basereg2]
+	mulpd	xmmvalin2, xmmcarry2
+	subpd	xmmvalout, xmmvalin	;; xmmvalout now contains FFTvalue % base
+	subpd	xmmvalout2, xmmvalin2	;; xmmvalout now contains FFTvalue % base
 	ENDM
 
 ; The single word version
@@ -3511,6 +3671,9 @@ ENDIF
 ;; ALSO NOTE:  In the zero pad case, big/lit & fudge flags 1,2 and the
 ;; same as big/lit & fudge flags 3,4.
 
+xnorm_wpn_zpad_preload MACRO ttp, echk, const, base2, sse4, khi, c1, cm1
+	ENDM
+
 xnorm_wpn_zpad MACRO ttp, echk, const, base2, sse4, khi, c1, cm1
 ttp	movzx	eax, bh			;; Big/little flags 1-4
 ttp	and	rbx, 0f0h		;; Fudge flags 1,2
@@ -3605,6 +3768,124 @@ ttp	movzx	rbx, WORD PTR [rdi+2]	;; Load next big vs. little & fudge flags
 	xstore	[rsi+2*16], xmm1	;; Zero high value1
 	xstore	[rsi+3*16], xmm1	;; Zero high value2
 	ENDM
+
+;; 64-bit version using extra registers
+
+IFDEF X86_64
+
+xnorm_wpn_zpad_preload MACRO ttp, echk, const, base2, sse4, khi, c1, cm1
+no const			xload	xmm15, XMM_K_LO
+const				xload	xmm15, XMM_K_TIMES_MULCONST_LO
+no const			xload	xmm14, XMM_MINUS_C
+const				xload	xmm14, XMM_MINUS_C_TIMES_MULCONST
+base2				xload	xmm13, XMM_BIGBIGVAL
+base2 no echk no sse4		xload	xmm6, XMM_BIGVAL
+base2 no echk sse4 khi no const	xload	xmm6, XMM_K_HI
+base2 no echk sse4 khi const	xload	xmm6, XMM_K_TIMES_MULCONST_HI
+no base2 no sse4		xload	xmm13, XMM_BIGVAL
+no base2 sse4 echk		xload	xmm13, XMM_ABSVAL
+no base2 no echk khi no const	xload	xmm6, XMM_K_HI
+no base2 no echk khi const	xload	xmm6, XMM_K_TIMES_MULCONST_HI
+	ENDM
+
+xnorm_wpn_zpad MACRO ttp, echk, const, base2, sse4, khi, c1, cm1
+ttp	movzx	eax, bh			;; Big/little flags 1-4
+ttp	and	rbx, 0f0h		;; Fudge flags 1,2
+
+ttp	xload	xmm2, [rdx+0*XMM_GMD][rbx] ;; Fudged grp two-to-minus-phi
+	xload	xmm0, [rsi]		;; Load values1
+	xload	xmm1, [rsi+2*16]	;; Load values2
+ttp	mulpd	xmm0, xmm2		;; Mul by fudged grp two-to-minus-phi
+ttp	mulpd	xmm1, xmm2		;; Mul by fudged grp two-to-minus-phi
+
+ttp	xload	xmm9, [rdx+1*XMM_GMD][rbx] ;; Fudged grp two-to-minus-phi
+	xload	xmm7, [rsi+16]		;; Load high values1
+	xload	xmm8, [rsi+3*16]	;; Load high values2
+ttp	mulpd	xmm7, xmm9		;; Mul by fudged grp two-to-minus-phi
+ttp	mulpd	xmm8, xmm9		;; Mul by fudged grp two-to-minus-phi
+
+					;; Split lower word adding in previous high FFT data
+	split_lower_zpad_word_interleaved echk, base2, sse4, xmm0, xmm3, xmm5, rax*4, xmm7, xmm10, xmm12, rax*4+16
+
+no const	xcopy	xmm0, xmm15	;; XMM_K_LO
+const		xcopy	xmm0, xmm15	;; XMM_K_TIMES_MULCONST_LO
+		mulpd	xmm0, xmm5
+no const	xcopy	xmm7, xmm15	;; XMM_K_LO
+const		xcopy	xmm7, xmm15	;; XMM_K_TIMES_MULCONST_LO
+		mulpd	xmm7, xmm12
+
+		addpd	xmm0, xmm4	;; x1 = values + carry
+		addpd	xmm7, xmm11	;; x2 = values + carry
+
+khi no const no base2 echk		xload	xmm4, XMM_K_HI
+khi no const no base2 no echk		xcopy	xmm4, xmm6	;; XMM_K_HI
+khi no const base2 echk			xload	xmm4, XMM_K_HI
+khi no const base2 no echk no sse4	xload	xmm4, XMM_K_HI
+khi no const base2 no echk sse4		xcopy	xmm4, xmm6	;; XMM_K_HI
+khi const no base2 echk			xload	xmm4, XMM_K_TIMES_MULCONST_HI
+khi const no base2 no echk		xcopy	xmm4, xmm6	;; XMM_K_TIMES_MULCONST_HI
+khi const base2 echk			xload	xmm4, XMM_K_TIMES_MULCONST_HI
+khi const base2 no echk no sse4		xload	xmm4, XMM_K_TIMES_MULCONST_HI
+khi const base2 no echk sse4		xcopy	xmm4, xmm6	;; XMM_K_TIMES_MULCONST_HI
+khi no base2				mulpd	xmm4, XMM_LIMIT_INVERSE[rax*4] ;; Non-base2 rounding needs shifted carry
+khi					mulpd	xmm4, xmm5
+
+khi no const no base2 echk		xload	xmm11, XMM_K_HI
+khi no const no base2 no echk		xcopy	xmm11, xmm6	;; XMM_K_HI
+khi no const base2 echk			xload	xmm11, XMM_K_HI
+khi no const base2 no echk no sse4	xload	xmm11, XMM_K_HI
+khi no const base2 no echk sse4		xcopy	xmm11, xmm6	;; XMM_K_HI
+khi const no base2 echk			xload	xmm11, XMM_K_TIMES_MULCONST_HI
+khi const no base2 no echk		xcopy	xmm11, xmm6	;; XMM_K_TIMES_MULCONST_HI
+khi const base2 echk			xload	xmm11, XMM_K_TIMES_MULCONST_HI
+khi const base2 no echk no sse4		xload	xmm11, XMM_K_TIMES_MULCONST_HI
+khi const base2 no echk sse4		xcopy	xmm11, xmm6	;; XMM_K_TIMES_MULCONST_HI
+khi no base2				mulpd	xmm11, XMM_LIMIT_INVERSE[rax*4+16] ;; Non-base2 rounding needs shifted carry
+khi					mulpd	xmm11, xmm12
+
+c1	mulpd   xmm1, xmm14		;; XMM_MINUS_C	;; Do one mul before split rather than two after split
+c1	mulpd   xmm8, xmm14		;; XMM_MINUS_C	;; Do one mul before split rather than two after split
+
+khi	split_upper_zpad_word_interleaved echk, base2, sse4, xmm1, xmm5, xmm2, rax*4, xmm8, xmm12, xmm9, rax*4+16
+no khi	split_upper_zpad_word_interleaved echk, base2, sse4, xmm1, xmm4, xmm2, rax*4, xmm8, xmm11, xmm9, rax*4+16
+
+khi no const no c1 no cm1	mulpd	xmm2, xmm14	;; XMM_MINUS_C
+khi no const no c1 no cm1	mulpd	xmm5, xmm14	;; XMM_MINUS_C
+khi const			mulpd	xmm2, xmm14	;; XMM_MINUS_C_TIMES_MULCONST
+khi const			mulpd	xmm5, xmm14	;; XMM_MINUS_C_TIMES_MULCONST
+no khi no const no c1 no cm1	mulpd	xmm2, xmm14	;; XMM_MINUS_C
+no khi no const no c1 no cm1	mulpd	xmm4, xmm14	;; XMM_MINUS_C
+no khi const			mulpd	xmm2, xmm14	;; XMM_MINUS_C_TIMES_MULCONST
+no khi const			mulpd	xmm4, xmm14	;; XMM_MINUS_C_TIMES_MULCONST
+khi no const no c1 no cm1	mulpd	xmm9, xmm14	;; XMM_MINUS_C
+khi no const no c1 no cm1	mulpd	xmm12, xmm14	;; XMM_MINUS_C
+khi const			mulpd	xmm9, xmm14	;; XMM_MINUS_C_TIMES_MULCONST
+khi const			mulpd	xmm12, xmm14	;; XMM_MINUS_C_TIMES_MULCONST
+no khi no const no c1 no cm1	mulpd	xmm9, xmm14	;; XMM_MINUS_C
+no khi no const no c1 no cm1	mulpd	xmm11, xmm14	;; XMM_MINUS_C
+no khi const			mulpd	xmm9, xmm14	;; XMM_MINUS_C_TIMES_MULCONST
+no khi const			mulpd	xmm11, xmm14	;; XMM_MINUS_C_TIMES_MULCONST
+
+	addpd	xmm0, xmm2		;; Add upper FFT word to lower FFT word
+khi	addpd	xmm4, xmm5		;; Add upper FFT word to lower FFT word
+	addpd	xmm7, xmm9		;; Add upper FFT word to lower FFT word
+khi	addpd	xmm11, xmm12		;; Add upper FFT word to lower FFT word
+
+	rounding_interleaved ttp, base2, exec, sse4, xmm0, xmm4, xmm2, rax*4, xmm7, xmm11, xmm9, rax*4+16
+
+ttp	mulpd	xmm0, [rdx+0*XMM_GMD+XMM_GMD/2][rbx] ;; new value1 *= fudged grp two-to-phi
+ttp	mulpd	xmm7, [rdx+1*XMM_GMD+XMM_GMD/2][rbx] ;; new value2 *= fudged grp two-to-phi
+
+ttp	movzx	rbx, WORD PTR [rdi+2]	;; Load next big vs. little & fudge flags
+
+	xstore	[rsi], xmm0		;; Save new value1
+	xstore	[rsi+1*16], xmm7	;; Save new value2
+
+	subpd	xmm1, xmm1		;; new high values = zero
+	xstore	[rsi+2*16], xmm1	;; Zero high value1
+	xstore	[rsi+3*16], xmm1	;; Zero high value2
+	ENDM
+ENDIF
 
 
 ; *************** WPN followup macro ******************
