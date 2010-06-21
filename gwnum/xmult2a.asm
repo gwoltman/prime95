@@ -158,7 +158,7 @@ zpnorm	MACRO	lab, ttp, echk, const, base2, sse4, khi, c1, cm1
 	int_prolog 12,0,0
 const	mov	const_fft, 1		;; Set flag saying mul-by-const
 	movapd	xmm7, XMM_SUMOUT	;; Load SUMOUT
-	movapd	xmm6, XMM_MAXERR	;; Load maximum error
+echk	movapd	xmm6, XMM_MAXERR	;; Load maximum error
 	xsub_7_words
 
 	mov	rbx, norm_ptr2		;; Load column multipliers ptr
@@ -183,6 +183,12 @@ no ttp	sub	rax, rax
 ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	mov	loopcount1z, rbx	;; Save loop counter
 	lea	rbx, XMM_COL_MULTS	;; Load col mult scratch area
+IFDEF X86_64
+	xload	xmm4, [rbp+0*16]	;; Preload carries
+	xload	xmm12, [rbp+1*16]
+	xload	xmm3, [rbp+2*16]
+	xload	xmm11, [rbp+3*16]
+ENDIF
 	xprefetcht1 [rdx+128]		;; Prefetch group multiplier
 ilp1:	xprefetchw [rsi+64]
 	xnorm_2d_zpad ttp, echk, const, base2, sse4, khi, c1, cm1 ;; Normalize 8 values
@@ -192,6 +198,12 @@ ttp	bump	rdi, 4			;; Next big/little flags
 	sub	loopcount1z, 1		;; Test loop counter
 	jnz	ilp1			;; Loop til done
 	add	rsi, normblkdst		;; Skip gap in blkdst or clmblkdst
+IFDEF X86_64
+	xstore	[rbp+0*16], xmm4	;; Store carries
+	xstore	[rbp+1*16], xmm12
+	xstore	[rbp+2*16], xmm3
+	xstore	[rbp+3*16], xmm11
+ENDIF
 	bump	rbp, 64			;; Next set of carries
 ttp	bump	rdx, 128		;; Next set of 8 group multipliers
 	sub	loopcount2z, 1		;; Test loop counter
@@ -201,7 +213,7 @@ ttp	bump	rdx, 128		;; Next set of 8 group multipliers
 	add	rsi, normblkdst8	;; Add 128 every 8 clmblkdsts
 	jmp	ilp0			;; Iterate
 ilexit:	movapd	XMM_SUMOUT, xmm7	;; Save SUMOUT
-	movapd	XMM_MAXERR, xmm6	;; Save maximum error
+echk	movapd	XMM_MAXERR, xmm6	;; Save maximum error
 ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr
 	int_epilog 12,0,0
 	ENDPP	lab

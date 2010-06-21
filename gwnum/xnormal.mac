@@ -2220,6 +2220,110 @@ ttp	mulpd	xmm0, xmm3		;; new value2 *= fudged col two-to-phi
 	ENDM
 
 
+;; 64-bit implementation using extra registers
+
+IFDEF X86_64
+
+xnorm_2d_zpad MACRO ttp, echk, const, base2, sse4, khi, c1, cm1
+	xload	xmm2, [rbx][rax]	;; col two-to-minus-phi
+ttp	mulpd	xmm2, [rdx+0*32]	;; Mul by grp two-to-minus-phi
+	xload	xmm0, [rsi]		;; Load values1
+	addpd	xmm7, xmm0		;; sumout += values1
+	xload	xmm1, [rsi+2*16]	;; Load values2
+	addpd	xmm7, xmm1		;; sumout += values2
+	mulpd	xmm0, xmm2		;; Mul by fudged col two-to-minus-phi
+	mulpd	xmm1, xmm2		;; Mul by fudged col two-to-minus-phi
+
+	split_lower_zpad_word echk, base2, sse4, xmm0, xmm3, xmm5, rax
+
+no const	xload	xmm0, XMM_K_LO
+const		xload	xmm0, XMM_K_TIMES_MULCONST_LO
+		mulpd	xmm0, xmm5
+
+		addpd	xmm0, xmm4	;; x1 = values + carry
+
+khi no const	xload	xmm4, XMM_K_HI
+khi const	xload	xmm4, XMM_K_TIMES_MULCONST_HI
+khi no base2	mulpd	xmm4, XMM_LIMIT_INVERSE[rax] ;; Non-base2 rounding needs shifted carry
+khi		mulpd	xmm4, xmm5
+ 
+c1		mulpd   xmm1, XMM_MINUS_C	;; Do one mul before split rather than two after split
+
+khi	split_upper_zpad_word echk, base2, sse4, xmm1, xmm5, xmm2, rax
+no khi	split_upper_zpad_word echk, base2, sse4, xmm1, xmm4, xmm2, rax
+
+khi no const no c1 no cm1	mulpd	xmm2, XMM_MINUS_C
+khi no const no c1 no cm1	mulpd	xmm5, XMM_MINUS_C
+khi const			mulpd	xmm2, XMM_MINUS_C_TIMES_MULCONST
+khi const			mulpd	xmm5, XMM_MINUS_C_TIMES_MULCONST
+no khi no const no c1 no cm1	mulpd	xmm2, XMM_MINUS_C
+no khi no const no c1 no cm1	mulpd	xmm4, XMM_MINUS_C
+no khi const			mulpd	xmm2, XMM_MINUS_C_TIMES_MULCONST
+no khi const			mulpd	xmm4, XMM_MINUS_C_TIMES_MULCONST
+
+	addpd	xmm0, xmm2		;; Add upper FFT word to lower FFT word
+khi	addpd	xmm4, xmm5		;; Add upper FFT word to lower FFT word
+
+ttp	movzx	rcx, BYTE PTR [rdi+1]	;; Load next big vs. little flags
+	xload	xmm10, [rbx][rcx]	;; col two-to-minus-phi
+ttp	mulpd	xmm10, [rdx+1*32]	;; Mul by grp two-to-minus-phi
+	xload	xmm8, [rsi+16]		;; Load high values1
+	addpd	xmm7, xmm8		;; sumout += values1
+	xload	xmm9, [rsi+3*16]	;; Load high values2
+	addpd	xmm7, xmm9		;; sumout += values2
+	mulpd	xmm8, xmm10		;; Mul by fudged col two-to-minus-phi
+	mulpd	xmm9, xmm10		;; Mul by fudged col two-to-minus-phi
+
+	split_lower_zpad_word echk, base2, sse4, xmm8, xmm11, xmm13, rcx
+
+no const	xload	xmm8, XMM_K_LO
+const		xload	xmm8, XMM_K_TIMES_MULCONST_LO
+		mulpd	xmm8, xmm13
+
+		addpd	xmm8, xmm12	;; x2 = values + carry
+
+khi no const	xload	xmm12, XMM_K_HI
+khi const	xload	xmm12, XMM_K_TIMES_MULCONST_HI
+khi no base2	mulpd	xmm12, XMM_LIMIT_INVERSE[rcx] ;; Non-base2 rounding needs shifted carry
+khi		mulpd	xmm12, xmm13
+
+c1		mulpd   xmm9, XMM_MINUS_C	;; Do one mul before split rather than two after split
+
+khi	split_upper_zpad_word echk, base2, sse4, xmm9, xmm13, xmm10, rcx
+no khi	split_upper_zpad_word echk, base2, sse4, xmm9, xmm12, xmm10, rcx
+
+khi no const no c1 no cm1	mulpd	xmm10, XMM_MINUS_C
+khi no const no c1 no cm1	mulpd	xmm13, XMM_MINUS_C
+khi const			mulpd	xmm10, XMM_MINUS_C_TIMES_MULCONST
+khi const			mulpd	xmm13, XMM_MINUS_C_TIMES_MULCONST
+no khi no const no c1 no cm1	mulpd	xmm10, XMM_MINUS_C
+no khi no const no c1 no cm1	mulpd	xmm12, XMM_MINUS_C
+no khi const			mulpd	xmm10, XMM_MINUS_C_TIMES_MULCONST
+no khi const			mulpd	xmm12, XMM_MINUS_C_TIMES_MULCONST
+
+	addpd	xmm8, xmm10		;; Add upper FFT word to lower FFT word
+khi	addpd	xmm12, xmm13		;; Add upper FFT word to lower FFT word
+
+	rounding_interleaved ttp, base2, exec, sse4, xmm0, xmm4, xmm2, rax, xmm8, xmm12, xmm10, rcx
+
+ttp	xload	xmm5, [rbx+256][rax]	;; col two-to-phi
+ttp	mulpd	xmm5, [rdx+0*32+16]	;; new value1 = val * grp two-to-phi
+ttp	mulpd	xmm0, xmm5		;; new value1 *= fudged col two-to-phi
+	xstore	[rsi], xmm0		;; Save new value1
+
+ttp	xload	xmm13, [rbx+256][rcx]	;; col two-to-phi
+ttp	mulpd	xmm13, [rdx+1*32+16]	;; new value2 = val * grp two-to-phi
+ttp	movzx	rax, BYTE PTR [rdi+4]	;; Load next big vs. little flags
+ttp	mulpd	xmm8, xmm13		;; new value2 *= fudged col two-to-phi
+	xstore	[rsi+1*16], xmm8	;; Save new value2
+
+	subpd	xmm1, xmm1		;; new high values = zero
+	xstore	[rsi+2*16], xmm1	;; Zero high value1
+	xstore	[rsi+3*16], xmm1	;; Zero high value2
+	ENDM
+ENDIF
+
+
 ; *************** Top carry adjust macro ******************
 ; This macro corrects the carry out of the topmost word when k is not 1.
 ; The problem is the top carry is from b^ceil(logb(k)+n) rather than at k*b^n.
