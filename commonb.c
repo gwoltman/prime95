@@ -6800,17 +6800,26 @@ int primeBench (
 		stop_reason = lucasSetup (thread_num, fftlen * 17 + 1, fftlen + plus1, &lldata);
 		if (stop_reason) break;
 		fftlen = gwfftlen (&lldata.gwdata);
-		if (fftlen > max_FFT_length * 1024) break;
+		if (fftlen > max_FFT_length * 1024) {
+			lucasDone (&lldata);
+			break;
+		}
 
 /* Only bench FFT lengths that are a multiple of 1K */
 
-		if (fftlen & 0x3FF) break;
+		if (fftlen & 0x3FF) {
+			lucasDone (&lldata);
+			break;
+		}
 
 /* If requested, only bench PFAs of 5,6,7,8 */
 
 		for (i = fftlen; i >= 9 && (i & 1) == 0; i >>= 1);
 		is_a_5678 = (i <= 8);
-		if (only_time_5678 && !is_a_5678) break;
+		if (only_time_5678 && !is_a_5678) {
+			lucasDone (&lldata);
+			break;
+		}
 
 /* Output a blank line between different FFT lengths when timing all implementations */
 
@@ -6890,6 +6899,9 @@ int primeBench (
 			sprintf (buf, "Best time for %luK%s FFT length: ",
 				 fftlen / 1024, plus1 ? " all-complex" : "");
 			timers[0] = best_time;
+			print_timer (timers, 0, buf, TIMER_MS);
+			timers[0] = total_time / iterations;
+			strcat (buf, ", avg: ");
 			print_timer (timers, 0, buf, TIMER_NL | TIMER_MS);
 		}
 		writeResults (buf);
