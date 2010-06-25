@@ -4817,9 +4817,10 @@ next3:		if (! (jmptab->counts[0] & 0x80000000)) break;
 		gwdata->SCRATCH_SIZE = 0;
 
 /* Calculate the gap between data blocks.  This is used by addr_offset called from */
-/* gwmap_to_estimated_size without a call to gwsetup. */
-
-	if (gwdata->PASS2GAPSIZE * 2 * 2 * 8 / 8192 * 128 % 128 == 0)
+/* gwmap_to_estimated_size without a call to gwsetup.  This must match the calculation */
+/* done in the set_FFT_constants macro in xmult.mac */
+	
+	if (gwdata->PASS2_SIZE * 2 * 2 * 8 / 8192 * 128 % 256 == 0)
 		gwdata->PASS2GAPSIZE = -128;
 	else
 		gwdata->PASS2GAPSIZE = 0;

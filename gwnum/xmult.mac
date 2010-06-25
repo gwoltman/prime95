@@ -311,7 +311,7 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 ;; Make sure the distance between two blocks is an odd multiple of 128.  This
 ;; ensures a good scattering of FFT data in the L2 cache during pass 1.
 
-	IF blkdst MOD 128 EQ 0
+	IF blkdst MOD 256 EQ 0
 	blkdst = blkdst - 128
 	ENDIF
 	ENDM
