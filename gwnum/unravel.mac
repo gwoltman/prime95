@@ -1800,6 +1800,7 @@ x:
 		org x
 		;; Adjust loops_count and iters so that this looks like a power-of-two
 		loops_count = loops_count / iters * next_power_2
+		loops_pffreq = loops_pffreq / iters * next_power_2
 		iters = next_power_2
 	      ELSE
 	        loops_non_power2_problem
@@ -1834,11 +1835,30 @@ x:
 	ENDM
 
 loops_undo MACRO iters
-	loops_completed = loops_completed / (iters)
-	IF loops_count LE 128
-	  sub	al, (iters) * loops_completed
+	IF (iters AND (iters-1)) EQ 0
+	  loops_completed = loops_completed / (iters)
+	  IF loops_count LE 128
+	    sub	al, (iters) * loops_completed
+	  ELSE
+	    sub	eax, (iters) * loops_completed
+	  ENDIF
 	ELSE
-	  sub	eax, (iters) * loops_completed
+	  next_power_2 = iters OR (iters SHR 1)
+	  next_power_2 = next_power_2 OR (next_power_2 SHR 2)
+	  next_power_2 = next_power_2 OR (next_power_2 SHR 4)
+	  next_power_2 = next_power_2 OR (next_power_2 SHR 8)
+	  next_power_2 = (next_power_2 OR (next_power_2 SHR 16)) + 1
+	  loops_completed = loops_completed / next_power_2
+	  IF loops_count LE 128
+	    sub	al, next_power_2 * loops_completed
+	  ELSE
+	    sub	eax, next_power_2 * loops_completed
+	  ENDIF
+	  loops_count = loops_count / next_power_2 * iters
+	  loops_pffreq = loops_pffreq / next_power_2 * iters
+	  IF loops_completed EQ 1
+	    loops_initial_value = loops_original_initial_value
+	  ENDIF
 	ENDIF
 	ENDM
 
