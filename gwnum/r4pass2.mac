@@ -937,10 +937,9 @@ c5b:	r4_x4cl_four_complex_djbunfft rsi, 8*64, 2*64, 4*64, rbx, 2*16*XMM_SCD2
 c4b:	r4_x4cl_four_complex_djbunfft rsi, 2*64, 8*64, 16*64, rdi, 8*4*XMM_SCD2
 	bump	rdi, 2*4*XMM_SCD2	;; Next sine/cosine pointer
 	loops	4, c4b			;; Loop 4 times
-	bump	rdi, -4*2*4*XMM_SCD2	;; Restore sine/cosine pointer
 
 	bump	rsi, -4*2*64+64		;; Next source pointer
-	bump	rdi, 4*XMM_SCD2		;; Next sine/cosine pointer
+	bump	rdi, -4*2*4*XMM_SCD2+4*XMM_SCD2 ;; Next sine/cosine pointer
 	bump	rbx, 16*XMM_SCD2	;; Next sine/cosine pointer
 	loops	2, c5b			;; Loop twice
 	bump	rsi, -2*64+32*64	;; Next source pointer
@@ -4899,7 +4898,7 @@ xpass2_11_real_done:
 	end_timer 2
 	ENDM
 
-; *************** radix4-pass2-2048-levels-complex macro ******************
+; *************** radix4-pass2-11-levels-complex macro ******************
 ; This macro takes 2 groups of 2048 complex values and
 ; performs the final 11 levels of a standard mostly radix-4 FFT, squares the
 ; results, and does the first 11 levels of the inverse FFT.
@@ -6794,7 +6793,7 @@ xpass2_2304_real_done:
 
 r4_pass2_2304_levels_complex MACRO
 	LOCAL	b1b, b2b, b3a, b3b, b4b, b5b, b6a, b6b0, b6b, b6c, b6d0, b6d
-	LOCAL	c1b, c2b, c3b, c4b, c5a, c5b
+	LOCAL	c1b, c2a, c2b, c3b, c4b, c5a, c5b
 	LOCAL	xpass2_2304_levels_complex_1, xpass2_2304_levels_complex_2
 	LOCAL	xpass2_2304_levels_complex_3, xpass2_2304_levels_complex_4
 	LOCAL	xpass2_2304_levels_complex_unfft, xpass2_2304_levels_complex_done
@@ -6834,21 +6833,6 @@ r4_pass2_2304_levels_complex MACRO
 ;;	distance between fft data elements is 768
 ;;	do 384 macros each processing 24 data values
 
-	start_timer 4
-	mov	rdi, xsincos_complex	;; The sin/cos data
-	loops_init 384			;; 3 iterations of 128
-	r3_f3cl_three_complex_djbfft_preload
-b1b:	r3_f3cl_three_complex_djbfft rsi, 64, 3*dist128, rdi, 384*XMM_SCD1
-	bump	rdi, XMM_SCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+3*dist128+3*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+3*XMM_SCD1]
-	loops	128, b1b		;; Test inner loop counter
-	bump	rsi, -128*64+dist128	;; Next source pointer
-	loops	3, b1b			;; Test outer loop counter
-	bump	rsi, -3*dist128		;; Restore source pointer
-	end_timer 4
-
 ;; Do FFT levels 3,4 (actually 1.585 levels)
 ;;
 ;; On input the 64-byte cache lines hold these data values:
@@ -6870,6 +6854,23 @@ b1b:	r3_f3cl_three_complex_djbfft rsi, 64, 3*dist128, rdi, 384*XMM_SCD1
 ;;	distance between fft data elements is 256
 ;;	do 384 macros each processing 24 data values
 
+IF @INSTR(,@CATSTR(%xarch),<P4>) NE 1	;; Core 2 faster doing separate loops
+
+	start_timer 4
+	mov	rdi, xsincos_complex	;; The sin/cos data
+	loops_init 384			;; 3 iterations of 128
+	r3_f3cl_three_complex_djbfft_preload
+b1b:	r3_f3cl_three_complex_djbfft rsi, 64, 3*dist128, rdi, 384*XMM_SCD1
+	bump	rdi, XMM_SCD1		;; Next sin/cos data
+;	xprefetcht1 [rsi+3*64]		;; Prefetch a few iterations ahead in
+;	xprefetcht1 [rsi+3*dist128+3*64];; case they are not in the L2 cache
+;	xprefetcht1 [rdi+3*XMM_SCD1]
+	loops	128, b1b		;; Test inner loop counter
+	bump	rsi, -128*64+dist128	;; Next source pointer
+	loops	3, b1b			;; Test outer loop counter
+	bump	rsi, -3*dist128		;; Restore source pointer
+	end_timer 4
+
 	start_timer 5
 	mov	rcx, DATA_PREFETCH	;; Prefetch pointer (we need to prefetch 
 					;; 1152 cache lines + 16 pad cache lines)
@@ -6886,6 +6887,41 @@ b2b:	r3_nf3cl_three_complex_djbfft rsi, 64, dist128, rdi, 128*3*XMM_SCD1
 	loops	3, b2b			;; Test loop counter
 	bump	rsi, -3*3*dist128	;; Restore source pointer
 	end_timer 5
+
+ELSE					;; Pentium 4 faster doing merged loops
+
+	start_timer 4
+	mov	rdi, xsincos_complex	;; The sin/cos data
+	mov	rbp, rdi
+	mov	rcx, DATA_PREFETCH	;; Prefetch pointer (we need to prefetch 
+					;; 1152 cache lines + 16 pad cache lines)
+	xtouch	[rcx]			;; Load first prefetch TLB
+	loops_init 384			;; 3 iters of 128
+
+	r3_f3cl_three_complex_djbfft_preload
+;;	r3_nf3cl_three_complex_djbfft_preload ;; Risky - assume this preload is identical to r3_f3cl_three_complex_djbfft_preload
+
+b1b:	r3_f3cl_three_complex_djbfft rsi, dist128, 3*dist128, rdi, 384*XMM_SCD1
+	bump	rdi, 128*XMM_SCD1	;; Next sin/cos data
+;	xprefetcht1 [rsi+64]		;; Prefetch a few iterations ahead in
+;	xprefetcht1 [rsi+dist128+64]	;; case they are not in the L2 cache
+;	xprefetcht1 [rdi+XMM_SCD1]
+	loops	3, b1b			;; Test loop counter
+	bump	rsi, -3*dist128		;; Restore source pointer
+	loops_undo 3
+
+b2b:	r3_nf3cl_three_complex_djbfft rsi, 3*dist128, dist128, rbp, 128*3*XMM_SCD1
+	loops	3, b2b			;; Test loop counter
+
+	bump	rsi, -3*3*dist128+64	;; Next source pointer
+	bump	rdi, -3*128*XMM_SCD1+XMM_SCD1 ;; Next sin/cos ptr
+	bump	rbp, 3*XMM_SCD1		;; Next sin/cos ptr
+	loops	128, b1b		;; Test loop counter
+	bump	rsi, -128*64		;; Restore source pointer
+	bump	rdi, -128*XMM_SCD1	;; Restore sin/cos ptr
+	end_timer 4
+
+ENDIF
 
 ;; Do FFT levels 5,6
 ;;
@@ -7193,21 +7229,6 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 2*64, 32*64, 64*64, rdi, 32*1*XMM_SCD2
 ;;	distance between fft data elements is 256
 ;;	do 384 macros each processing 24 data values
 
-	start_timer 13
-	mov	rdi, xsincos_complex	;; Load sin/cos pointer
-	loops_init_prefetch 384, 64, 4, rcx;; 3 iters of 128
-	xtouch	[rcx+4096-64]		;; Load prefetch TLBs
-	xtouch	[rcx+2*4096-64]
-	r3_x3cl_three_complex_djbunfft_preload
-c2b:	r3_x3cl_three_complex_djbunfft rsi, 64, dist128, rdi, 128*3*XMM_SCD1
-	bump	rdi, 3*XMM_SCD1		;; Next sine/cosine pointer
-	loops	128, c2b		;; Loop 128 times
-	bump	rsi, -128*64+3*dist128	;; Next source pointer
-	bump	rdi, -128*3*XMM_SCD1	;; Reset sine/cosine pointer
-	loops	3, c2b			;; Test loop counter
-	bump	rsi, -3*3*dist128	;; Restore source pointer
-	end_timer 13
-
 ;; Do inverse FFT levels 1,2 (actually 1.585 FFT levels)
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0	+4608	384	+4608	768	+4608	1152	+4608
@@ -7231,6 +7252,23 @@ c2b:	r3_x3cl_three_complex_djbunfft rsi, 64, dist128, rdi, 128*3*XMM_SCD1
 ;;	distance between fft data elements is 768
 ;;	do 384 macros each processing 24 data values
 
+IF @INSTR(,@CATSTR(%xarch),<P4>) NE 1	;; Core 2 faster doing separate loops
+
+	start_timer 13
+	mov	rdi, xsincos_complex	;; Load sin/cos pointer
+	loops_init_prefetch 384, 64, 4, rcx;; 3 iters of 128
+	xtouch	[rcx+4096-64]		;; Load prefetch TLBs
+	xtouch	[rcx+2*4096-64]
+	r3_x3cl_three_complex_djbunfft_preload
+c2b:	r3_x3cl_three_complex_djbunfft rsi, 64, dist128, rdi, 128*3*XMM_SCD1
+	bump	rdi, 3*XMM_SCD1		;; Next sine/cosine pointer
+	loops	128, c2b		;; Loop 128 times
+	bump	rsi, -128*64+3*dist128	;; Next source pointer
+	bump	rdi, -128*3*XMM_SCD1	;; Reset sine/cosine pointer
+	loops	3, c2b			;; Test loop counter
+	bump	rsi, -3*3*dist128	;; Restore source pointer
+	end_timer 13
+
 	start_timer 14
 	mov	rdi, xsincos_complex	;; Load sin/cos pointer
 	bump	rcx, -8*64		;; Back up prefetch pointer by 8 cache lines
@@ -7244,6 +7282,35 @@ c1b:	r3_x3cl_three_complex_djbunfft rsi, 64, 3*dist128, rdi, 384*XMM_SCD1
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	3, c1b			;; Test outer loop counter
 	end_timer 14
+
+ELSE					;; Pentium 4 faster doing merged loops
+
+	start_timer 13
+	mov	rdi, xsincos_complex	;; Load sin/cos pointer
+	mov	rbp, rdi
+	bump	rcx, -24*64		;; Back up prefetch pointer by 24 cache lines
+	loops_init_prefetch 384, 64, 3, rcx;; 3 iters of 128
+	r3_x3cl_three_complex_djbunfft_preload
+
+c2a:	xtouch	[rcx+4096-64]		;; Load prefetch TLB
+
+c2b:	r3_x3cl_three_complex_djbunfft rsi, 3*dist128, dist128, rbp, 128*3*XMM_SCD1
+	loops	3, c2b			;; Test loop counter
+	loops	1, c2b			;; This forces output of the prefetch instructions
+	bump	rsi, -3*3*dist128	;; Restore source pointer
+	loops_undo 3			;; Back up loop counter
+
+c1b:	r3_x3cl_three_complex_djbunfft rsi, dist128, 3*dist128, rdi, 384*XMM_SCD1
+	bump	rdi, 128*XMM_SCD1	;; Next sin/cos ptr
+	loops	3, c1b			;; Test loop counter
+
+	bump	rsi, -3*dist128+64	;; Next source pointer
+	bump	rdi, -3*128*XMM_SCD1+XMM_SCD1 ;; Next sin/cos ptr
+	bump	rbp, 3*XMM_SCD1		;; Next sine/cosine pointer
+	loops_touch 32, c2b, 4, c2a	;; Loop 128 times
+	end_timer 13
+
+ENDIF
 
 xpass2_2304_levels_complex_done:
 	ENDM
@@ -9975,20 +10042,6 @@ r4_pass2_12_levels_complex MACRO
 ;;	distance between fft data elements is 1024
 ;;	do 1024 macros each processing 16 data values
 
-	start_timer 4
-	mov	rdi, xsincos_complex	;; The sin/cos data
-	loops_init 1024			;; 8 iterations of 128
-b1b:	r4_f2cl_four_complex_djbfft rsi, 64, 8*dist128, rdi
-	bump	rdi, XMM_SCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+8*dist128+4*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+4*XMM_SCD2]
-	loops	128, b1b		;; Test inner loop counter
-	bump	rsi, -128*64+dist128	;; Next source pointer
-	loops	8, b1b			;; Test outer loop counter
-	bump	rsi, -8*dist128		;; Restore source pointer
-	end_timer 4
-
 ;; Do FFT levels 3,4
 ;;
 ;; On input the 64-byte cache lines hold these data values:
@@ -10010,6 +10063,22 @@ b1b:	r4_f2cl_four_complex_djbfft rsi, 64, 8*dist128, rdi
 ;;	distance between fft data elements is 256
 ;;	do 512 macros each processing 32 data values
 
+IF @INSTR(,@CATSTR(%xarch),<P4>) NE 1	;; Core 2 faster doing separate loops
+
+	start_timer 4
+	mov	rdi, xsincos_complex	;; The sin/cos data
+	loops_init 1024			;; 8 iterations of 128
+b1b:	r4_f2cl_four_complex_djbfft rsi, 64, 8*dist128, rdi
+	bump	rdi, XMM_SCD2		;; Next sin/cos data
+;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
+;	xprefetcht1 [rsi+8*dist128+4*64];; case they are not in the L2 cache
+;	xprefetcht1 [rdi+4*XMM_SCD2]
+	loops	128, b1b		;; Test inner loop counter
+	bump	rsi, -128*64+dist128	;; Next source pointer
+	loops	8, b1b			;; Test outer loop counter
+	bump	rsi, -8*dist128		;; Restore source pointer
+	end_timer 4
+
 	start_timer 5
 	mov	rdi, xsincos_complex	;; Ptr to the sin/cos data
 	loops_init 512			;; 2 iters of 2 iters of 128
@@ -10023,6 +10092,36 @@ b2b:	r4_x4cl_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi
 	loops	2, b2b			;; Test loop counter
 	bump	rsi, -2*8*dist128	;; Restore source pointer
 	end_timer 5
+
+ELSE					;; Pentium 4 faster doing merged loops
+
+	start_timer 4
+	mov	rdi, xsincos_complex	;; The sin/cos data
+	mov	rbp, rdi
+	loops_init 1024			;; 8 iterations of 128
+b1b:	r4_f2cl_four_complex_djbfft rsi, 2*dist128, 8*dist128, rdi
+	bump	rdi, 256*XMM_SCD2	;; Next sin/cos data
+;	xprefetcht1 [rsi+64]		;; Prefetch a few iterations ahead in
+;	xprefetcht1 [rsi+2*dist128+64]	;; case they are not in the L2 cache
+;	xprefetcht1 [rdi+XMM_SCD2]
+	loops	4, b1b			;; Test inner loop counter
+	bump	rsi, -4*2*dist128	;; Restore source pointer
+	loops_undo 4			;; Back up loop counter
+
+b2b:	r4_x4cl_four_complex_djbfft rsi, 8*dist128, 2*dist128, 4*dist128, rbp
+	loops	2, b2b, 2		;; Test inner loop counter with non-standard increment
+
+	bump	rsi, -2*8*dist128+64	;; Next source pointer
+	bump	rdi, -4*256*XMM_SCD2+XMM_SCD2 ;; Next sin/cos data
+	bump	rbp, 4*XMM_SCD2		;; Next sin/cos data
+	loops	128, b1b		;; Test loop counter
+	bump	rsi, -128*64+dist128	;; Next source pointer
+	loops	2, b1b			;; Test loop counter
+	bump	rsi, -2*dist128		;; Restore source pointer
+	bump	rdi, -256*XMM_SCD2	;; Restore sin/cos pointer
+	end_timer 4
+
+ENDIF
 
 ;; Do FFT levels 5,6
 ;;
@@ -10090,7 +10189,7 @@ b2b:	r4_x4cl_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi
 ;; Do this 64 cache lines at a time to maximize accessing data
 ;; while it is in the L1 cache.
 
-IFDEF NO_MERGED_3_LOOPS
+IFDEF NEVER				;; Never faster to do separate loops
 
 	start_timer 6
 	mov	rcx, DATA_PREFETCH	;; Prefetch pointer
@@ -10144,7 +10243,7 @@ b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
 	bump	rsi, -2*8*dist128	;; Restore source pointer
 	end_timer 8
 
-ELSE
+ELSE					;; Always faster to do merged loops
 
 	start_timer 6
 	mov	rcx, DATA_PREFETCH	;; Prefetch pointer
@@ -10354,7 +10453,7 @@ b6d:	r4_x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 
 xpass2_12_levels_complex_unfft:
 
-IFDEF NO_MERGED_3_PASSES
+IFDEF NEVER				;; Never faster to do separate loops
 
 	start_timer 10
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
@@ -10407,7 +10506,7 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 64, 32*64, 64*64, rdi, 32*1*XMM_SCD2
 	bump	rsi, -2*8*dist128	;; Restore source pointer
 	end_timer 12
 
-ELSE
+ELSE					;; Always faster to do merged loops
 
 	start_timer 10
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
@@ -10481,22 +10580,6 @@ ENDIF
 ;;	distance between fft data elements is 256
 ;;	do 512 macros each processing 32 data values
 
-	start_timer 13
-	mov	rdi, xsincos_complex	;; Load sin/cos pointer
-	loops_init_prefetch 512, 64, 2, rcx;; 2 iters of 2 iters of 128
-c2a:	xtouch	[rcx+4096-128]		;; Load prefetch TLBs
-	xtouch	[rcx+2*4096-128]
-c2b:	r4_x4cl_four_complex_djbunfft rsi, 64, dist128, 2*dist128, rdi, 128*4*XMM_SCD2
-	bump	rdi, 4*XMM_SCD2		;; Next sine/cosine pointer
-	loops	128, c2b		;; Loop 128 times
-	bump	rsi, -128*64+4*dist128	;; Next source pointer
-	bump	rdi, -128*4*XMM_SCD2	;; Reset sine/cosine pointer
-	loops	2, c2b			;; Test loop counter
-	bump	rcx, -128*64+8192+128	;; Next 8KB section to prefetch
-	loops	2, c2a			;; Test loop counter
-	bump	rsi, -2*2*4*dist128	;; Restore source pointer
-	end_timer 13
-
 ;; Do inverse FFT levels 1,2
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0	+8K	512	+8K	1024	+8K	1536	+8K
@@ -10520,6 +10603,24 @@ c2b:	r4_x4cl_four_complex_djbunfft rsi, 64, dist128, 2*dist128, rdi, 128*4*XMM_S
 ;;	distance between fft data elements is 1024
 ;;	do 512 macros each processing 32 data values
 
+IF @INSTR(,@CATSTR(%xarch),<P4>) NE 1	;; Core 2 faster doing separate loops
+
+	start_timer 13
+	mov	rdi, xsincos_complex	;; Load sin/cos pointer
+	loops_init_prefetch 512, 64, 2, rcx;; 2 iters of 2 iters of 128
+c2a:	xtouch	[rcx+4096-128]		;; Load prefetch TLBs
+	xtouch	[rcx+2*4096-128]
+c2b:	r4_x4cl_four_complex_djbunfft rsi, 64, dist128, 2*dist128, rdi, 128*4*XMM_SCD2
+	bump	rdi, 4*XMM_SCD2		;; Next sine/cosine pointer
+	loops	128, c2b		;; Loop 128 times
+	bump	rsi, -128*64+4*dist128	;; Next source pointer
+	bump	rdi, -128*4*XMM_SCD2	;; Reset sine/cosine pointer
+	loops	2, c2b			;; Test loop counter
+	bump	rcx, -128*64+8192+128	;; Next 8KB section to prefetch
+	loops	2, c2a			;; Test loop counter
+	bump	rsi, -2*2*4*dist128	;; Restore source pointer
+	end_timer 13
+
 	start_timer 14
 	mov	rdi, xsincos_complex	;; Load sin/cos pointer
 	loops_init 512			;; 4 iters of 128
@@ -10529,6 +10630,36 @@ c1b:	r4_x4cl_four_complex_djbunfft rsi, 64, 4*dist128, 8*dist128, rdi, 512*XMM_S
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	4, c1b			;; Test outer loop counter
 	end_timer 14
+
+ELSE					;; Pentium 4 faster doing merged loops
+
+	start_timer 13
+	mov	rdi, xsincos_complex	;; Load sin/cos pointer
+	mov	rbp, rdi
+	loops_init_prefetch 512, 64, 4, rcx;; 2 iters of 2 iters of 128
+
+c2a:	xtouch	[rcx+4096-128]		;; Load prefetch TLBs
+	xtouch	[rcx+2*4096-128]
+
+c2b:	r4_x4cl_four_complex_djbunfft rsi, 4*dist128, dist128, 2*dist128, rbp, 128*4*XMM_SCD2
+	loops	4, c2b			;; Loop 4 times
+	loops	1, c2b			;; This forces output of the prefetch instructions
+	bump	rsi, -4*4*dist128	;; Restore source pointer
+	loops_undo 4			;; Back up loop counter
+
+c1b:	r4_x4cl_four_complex_djbunfft rsi, dist128, 4*dist128, 8*dist128, rdi, 512*XMM_SCD2
+	bump	rdi, 128*XMM_SCD2	;; Next sin/cos data
+	loops	4, c1b			;; Test loop counter
+
+	bump	rsi, -4*dist128+64	;; Next source pointer
+	bump	rdi, -4*128*XMM_SCD2+XMM_SCD2 ;; Next set of sin/cos data
+	bump	rbp, 4*XMM_SCD2		;; Next sine/cosine pointer
+	loops	64, c2b			;; Test loop counter
+	bump	rcx, -128*64+8192+128	;; Next 8KB section to prefetch
+	loops	2, c2a			;; Test loop counter
+	end_timer 13
+
+ENDIF
 
 xpass2_12_levels_complex_done:
 	ENDM
