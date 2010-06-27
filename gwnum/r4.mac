@@ -1381,8 +1381,10 @@ r4_x4c_djbunfft MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem7,mem8,dst1,screg,off,pre1,pre2
 
 
 ;; 64-bit implementations of the above - use the extra XMM registers
+;; For some reason this implementation is worse on a Pentium 4.
 
 IFDEF X86_64
+IF @INSTR(,@CATSTR(%xarch),<P4>) NE 1
 
 ; Theoretical best case is 44 clocks on a Core 2.  Now at 51.4 clocks.
 r4_x4cl_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scoff
@@ -1580,6 +1582,7 @@ r4_x4cl_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 
 	bump	srcreg, srcinc
 	ENDM
+ENDIF
 ENDIF
 
 ;;
@@ -8205,23 +8208,4 @@ r4_x4c_fft_partial_mem MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem3, mem4, mem7, m
 	mulpd	r1, [screg+off+64]	;; A4 = A4 * sine (final R4)
 	mulpd	r5, [screg+off+64]	;; B4 = B4 * sine (final I4)
 	ENDM
-
-;;
-;; Override any or all of the above macros with versions
-;; optimized for a different CPU architecture
-;;
-
-IF @INSTR(,@CATSTR(%xarch),<P4>) EQ 1
-INCLUDE	r4p4.mac
-IFDEF X86_64
-;INCLUDE r464p4.mac
-ENDIF
-ENDIF
-
-IF @INSTR(,@CATSTR(%xarch),<K8>) EQ 1
-;INCLUDE	r4k8.mac
-IFDEF X86_64
-;INCLUDE	r464k8.mac
-ENDIF
-ENDIF
 
