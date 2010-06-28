@@ -1639,11 +1639,8 @@ loops_init_prefetch MACRO count, pfamt, pffreq, pfreg, first_completed, first_it
 	    IF pfamt EQ 64
 	      loops_pffreq = pffreq
 	      loops_pfamt = 1
-	    ELSEIF pffreq GT 1
-	      loops_pffreq = pffreq / 2
-	      loops_pfamt = 1
 	    ELSE
-	      loops_pffreq = 1
+	      loops_pffreq = pffreq
 	      loops_pfamt = 2
 	    ENDIF
 	  ENDIF
