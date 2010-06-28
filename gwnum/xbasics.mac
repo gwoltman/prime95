@@ -340,13 +340,3 @@ xmult7	MACRO	src1, src2
 nozpad:
 	ENDM
 
-;;
-;; Override any or all of the above macros with versions
-;; optimized for a different CPU architecture
-;;
-
-IFDEF xarch
-IF @INSTR(,@CATSTR(%xarch),<P4>) EQ 1
-;;INCLUDE xbasics_p4.mac
-ENDIF
-ENDIF
