@@ -1650,6 +1650,9 @@ loops_init_common MACRO count, first_completed, first_iters
 	loops_count = count
 	loops_completed = 1
 	loops_count_is_power_of_two = 1
+	loops_np2_initial_value_adjust = 0
+	loops_np2_first_initial_value_adjust = 0
+	loops_np2_loops_completed = 0
 
 	;; Compute the initial value
 
@@ -1755,7 +1758,7 @@ loops	MACRO iters, dest, incr
 	ENDIF
 	ENDM
 
-loops_no_prefetch MACRO iters, dest, incr			;; Like loops macro except if won't prefetch
+loops_no_prefetch MACRO iters, dest, incr			;; Like loops macro except it won't prefetch
 	LOCAL	local_incr, local_iters
 	;; Make local copies of params
 	local_iters = iters
@@ -1777,6 +1780,9 @@ loops_common MACRO iters, dest, incr
 	local_iters = iters
 	IF local_iters GT 1
 	  non_power_2_adjustment = 0
+	  IF loops_np2_first_initial_value_adjust NE 0 AND loops_np2_loops_completed EQ loops_completed
+		add	eax, loops_np2_first_initial_value_adjust - loops_np2_initial_value_adjust ;; restore first non-power-of-2 initial value
+	  ENDIF
 	  IF loops_completed NE 1
 	    incr = 1
 	  ENDIF
@@ -1812,15 +1818,19 @@ loops_common MACRO iters, dest, incr
 	        next_power_2 = (next_power_2 OR (next_power_2 SHR 16)) + 1
 		non_power_2_adjustment = next_power_2 - local_iters * loops_completed
 x:
-		loops_initial_value = loops_initial_value + non_power_2_adjustment
+		loops_np2_initial_value_adjust = loops_np2_initial_value_adjust + non_power_2_adjustment
 	        org loops_initial_value_label
-		DD	loops_initial_value
+		DD	loops_initial_value + loops_np2_initial_value_adjust
 		org x
 		;; Adjust loops_count and local_iters so that this looks like a power-of-two
 		loops_count = loops_count / (local_iters * loops_completed) * next_power_2
 		loops_pffreq = loops_pffreq / (local_iters * loops_completed) * next_power_2
-		local_iters = next_power_2
-		loops_completed = 1
+		IF (loops_completed AND (loops_completed-1)) EQ 0
+			local_iters = next_power_2 / loops_completed
+		ELSE
+			local_iters = next_power_2
+			loops_completed = 1
+		ENDIF
 	      ELSE
 	        loops_non_power2_problem
 	      ENDIF
@@ -1854,6 +1864,7 @@ x:
 	ENDM
 
 loops_undo MACRO iters
+	LOCAL	x,y
 	IF (iters AND (iters-1)) EQ 0
 	  loops_completed = loops_completed / (iters)
 	  IF loops_count LE 128
@@ -1867,17 +1878,27 @@ loops_undo MACRO iters
 	  next_power_2 = next_power_2 OR (next_power_2 SHR 4)
 	  next_power_2 = next_power_2 OR (next_power_2 SHR 8)
 	  next_power_2 = (next_power_2 OR (next_power_2 SHR 16)) + 1
-	  loops_completed = loops_completed / next_power_2
-	  IF loops_count LE 128
-	    sub	al, next_power_2 * loops_completed
-	  ELSE
-	    sub	eax, next_power_2 * loops_completed
+
+	  ;; We have to be careful when rolling back initial values in the
+	  ;; non-power-of-two case.  For example, a "loops 3,2" followed by a "loops 3"
+	  ;; has an initial value of 10.  If we "loops_undo 18" this to execute a
+	  ;; "loops 6,3" which needs an initial value of 14, then we must make
+	  ;; suitable adjustments here.
+	  IF loops_np2_first_initial_value_adjust EQ 0
+		loops_np2_first_initial_value_adjust = loops_np2_initial_value_adjust	;; remember first non-power-of-2 initial value adjustment
+		loops_np2_loops_completed = loops_completed				;; remember loops completed (to later restore first initial value)
 	  ENDIF
+	  loops_completed = loops_completed / next_power_2
+	  loops_initial_value = loops_original_initial_value - loops_np2_initial_value_adjust - next_power_2 * loops_completed
+	  loops_np2_initial_value_adjust = 0
+	  add	eax, 9999
+x:	  org	x-4
+y:
+	  DD	loops_initial_value
+	  loops_initial_value_label = OFFSET y
+
 	  loops_count = loops_count / next_power_2 * iters
 	  loops_pffreq = loops_pffreq / next_power_2 * iters
-	  IF loops_completed EQ 1
-	    loops_initial_value = loops_original_initial_value
-	  ENDIF
 	ENDIF
 	ENDM
 
@@ -1885,6 +1906,7 @@ loops_reset MACRO
 	loops_completed = 1
 	loops_count = loops_original_count
 	loops_initial_value = loops_original_initial_value
+	loops_np2_initial_value_adjust = 0
 	ENDM
 
 loops_touch MACRO iters1, dest1, iters2, dest2
