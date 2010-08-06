@@ -53,7 +53,7 @@ y:
 ;; stack space.
 
 ah_prolog MACRO num_C_args, space_needed, calls_C_code, regs:vararg
-	LOCAL	xmm_loc, xmm_space, stack_space
+	;;LOCAL	xmm_loc, xmm_space, stack_space
 
 ;; In 32-bit mode, save registers and set push_amt.  The caller needs to
 ;; know how much data was pushed so that it can access the C arguments
@@ -323,7 +323,7 @@ ah_prolog MACRO num_C_args, space_needed, calls_C_code, regs:vararg
 ;; Epilog macro that restores the requested registers and the stack pointer
 
 ah_epilog MACRO num_C_args, space_needed, calls_C_code, regs:vararg
-	LOCAL	xmm_loc, xmm_space, stack_space
+	;;LOCAL	xmm_loc, xmm_space, stack_space
 
 ;; In 32-bit mode, deallocate stack space and restore registers
 
@@ -613,7 +613,7 @@ ah_epilog MACRO num_C_args, space_needed, calls_C_code, regs:vararg
 ;;	Parameter gwdata_asm_area = rdi
 
 ad_prolog MACRO space_needed, calls_C_code, regs:vararg
-	LOCAL	stack_space
+	;;LOCAL	stack_space
 
 ;; In 32-bit mode, save registers and switch the stack pointer
 
@@ -753,7 +753,7 @@ ad_epilog MACRO space_needed, calls_C_code, regs:vararg
 ;; push the same amount of data on the stack.
 
 int_prolog MACRO space_needed, callers_push_amt, calls_C_code, regs:vararg
-	LOCAL	xmm_loc, xmm_space, stack_space
+	;;LOCAL	xmm_loc, xmm_space, stack_space
 
 ;; In 32-bit mode, save registers and set new push_amt.
 
@@ -1082,7 +1082,7 @@ int_prolog MACRO space_needed, callers_push_amt, calls_C_code, regs:vararg
 ;; Epilog macro that reverses our internal prolog routine
 
 int_epilog MACRO space_needed, callers_push_amt, calls_C_code, regs:vararg
-	LOCAL	xmm_loc, xmm_space, stack_space
+	;;LOCAL	xmm_loc, xmm_space, stack_space
 
 ;; In 32-bit mode, deallocate stack space and restore registers
 
@@ -1456,7 +1456,7 @@ opt_save_reg MACRO reg, offset
 ; Call a C callback routine
 
 c_call MACRO routine
-	LOCAL	pad_bytes
+	;;LOCAL	pad_bytes
 
 	;; Push argument to call C code
 
@@ -1581,17 +1581,16 @@ Q	EQU	<QWORD PTR>
 ;; Caller must be aware that condition codes may be changed.
 
 bump	MACRO	reg, amt
-	LOCAL	y, z
 	IFNB <reg>
 	IF amt EQ 128
 	sub	reg, -99		;; Workaround MASM bug.  It won't
-y:					;; generate one byte immediates
-	org	y-1			;; for -128.
+					;; generate one byte immediates
+	org	$-1			;; for -128.
 	DB	80h			;; Replace -99 with -128
 	ELSEIF amt EQ -128
 	add	reg, -99		;; Workaround MASM bug.  It won't
-z:					;; generate one byte immediates
-	org	z-1			;; for -128.
+					;; generate one byte immediates
+	org	$-1			;; for -128.
 	DB	80h			;; Replace -99 with -128
 	ELSEIF amt NE 0
 	add	reg, amt
@@ -1638,7 +1637,8 @@ loops_init_prefetch MACRO count, pfamt, pffreq, pfreg, first_completed, first_it
 	ENDM
 
 loops_init_common MACRO count, first_completed, first_iters
-	LOCAL	local_first_completed, local_first_iters, x, y
+	;;LOCAL	local_first_completed, local_first_iters
+	LOCAL	x
 	IFB <first_completed>
 	  local_first_completed = 0
 	  local_first_iters = 1
@@ -1672,9 +1672,8 @@ loops_init_common MACRO count, first_completed, first_iters
 	  loops_count_is_power_of_two = 0
 	  mov	eax, 9999
 x:	  org	x-4
-y:
 	  DD	loops_initial_value
-	  loops_initial_value_label = OFFSET y
+	  loops_initial_value_label = (OFFSET x) - 4
 
 	;; Otherwise output the initial value using the shortest instruction possible
 	ELSEIF loops_initial_value EQ 0
@@ -1716,7 +1715,7 @@ loops_set_prefetch MACRO pfamt, pffreq, pfreg
 	ENDM
 
 loops	MACRO iters, dest, incr
-	LOCAL	small_count, local_incr, local_iters
+	;;LOCAL	small_count, local_incr, local_iters
 	;; Make local copies of params
 	local_iters = iters
 	IFB <incr>
@@ -1759,7 +1758,7 @@ loops	MACRO iters, dest, incr
 	ENDM
 
 loops_no_prefetch MACRO iters, dest, incr			;; Like loops macro except it won't prefetch
-	LOCAL	local_incr, local_iters
+	;;LOCAL	local_incr, local_iters
 	;; Make local copies of params
 	local_iters = iters
 	IFB <incr>
@@ -1776,7 +1775,9 @@ loops_no_prefetch MACRO iters, dest, incr			;; Like loops macro except it won't 
 	ENDM
 
 loops_common MACRO iters, dest, incr
-	LOCAL next_power_2, non_power_2_adjustment, x, local_iters
+	;;LOCAL next_power_2, non_power_2_adjustment
+	LOCAL local_iters
+	LOCAL x
 	local_iters = iters
 	IF local_iters GT 1
 	  non_power_2_adjustment = 0
@@ -1864,7 +1865,7 @@ x:
 	ENDM
 
 loops_undo MACRO iters
-	LOCAL	x,y
+	LOCAL	x
 	IF (iters AND (iters-1)) EQ 0
 	  loops_completed = loops_completed / (iters)
 	  IF loops_count LE 128
@@ -1893,9 +1894,8 @@ loops_undo MACRO iters
 	  loops_np2_initial_value_adjust = 0
 	  add	eax, 9999
 x:	  org	x-4
-y:
 	  DD	loops_initial_value
-	  loops_initial_value_label = OFFSET y
+	  loops_initial_value_label = (OFFSET x) - 4
 
 	  loops_count = loops_count / next_power_2 * iters
 	  loops_pffreq = loops_pffreq / next_power_2 * iters
