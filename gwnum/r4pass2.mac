@@ -7321,7 +7321,7 @@ xpass2_2304_levels_complex_done:
 
 r4_pass2_3072_levels_real MACRO
 	LOCAL	b1b, b2b, b3b, b4b, b5b, b6b, b7b
-	LOCAL	b8b, b9b, baa, bab, bac, bad
+	LOCAL	b8b, b9b, baa, bab0, bab, bac, bad0, bad
 	LOCAL	c1b, c2b, c3b, c4b, c5b, c6b, c7b, c8b, c9b
 	LOCAL	xpass2_3072_levels_real_1, xpass2_3072_levels_real_2
 	LOCAL	xpass2_3072_levels_real_3, xpass2_3072_levels_real_4
@@ -7904,7 +7904,7 @@ xpass2_3072_real_done:
 ; results, and does the first 11.585 levels of the inverse FFT.
 
 r4_pass2_3072_levels_complex MACRO
-	LOCAL	b1a0, b1a, b1b, b2b, b3a, b3b, b4b, b5b, b6a, b6b0, b6b, b6c, b6d
+	LOCAL	b1a0, b1a, b1b, b2b, b3a, b3b, b4b, b5b, b6a, b6b0, b6b, b6c, b6d0, b6d
 	LOCAL	c1b, c2a, c2b, c3b, c4b, c5a, c5b
 	LOCAL	xpass2_3072_levels_complex_1, xpass2_3072_levels_complex_2
 	LOCAL	xpass2_3072_levels_complex_3, xpass2_3072_levels_complex_4
@@ -14187,7 +14187,7 @@ xpass2_4608_levels_complex_done:
 
 r4_pass2_6144_levels_real MACRO
 	LOCAL	b1b, b2b, b3a, b3b, b4b, b5a, b5b, b6b, b7a, b7b
-	LOCAL	b8b, b9b, baa, bab0, bab, bac, bad
+	LOCAL	b8b, b9b, baa, bab0, bab, bac, bad0, bad
 	LOCAL	c1b, c2b, c3a, c3b, c4b, c5a, c5b, c6b, c7a, c7b, c8b, c9a, c9b
 	LOCAL	xpass2_6144_levels_real_1, xpass2_6144_levels_real_2
 	LOCAL	xpass2_6144_levels_real_3, xpass2_6144_levels_real_4
@@ -15908,7 +15908,7 @@ xpass2_7680_real_done:
 
 r4_pass2_7680_levels_complex MACRO
 	LOCAL	b1a0, b1a, b1b, b2a, b2b, b3a, b3b, b4b, b5b
-	LOCAL	b6a, b6b0, b6b, b6c, b6d
+	LOCAL	b6a, b6b0, b6b, b6c, b6d0, b6d
 	LOCAL	c1b, c2a0, c2a, c2b, c3b, c4b, c5a, c5b
 	LOCAL	xpass2_7680_levels_complex_1, xpass2_7680_levels_complex_2
 	LOCAL	xpass2_7680_levels_complex_3, xpass2_7680_levels_complex_4
