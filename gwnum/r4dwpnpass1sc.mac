@@ -186,8 +186,8 @@ c9b:	r4_sg2cl_four_complex_unfft4 rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 
 	start_timer 17
 	lea	rdi, [rdx+4*2*clm*XMM_SCND2R] ;; Next complex data sin/cos ptr
-	loops_init 8*2*clm		;; 8*2*clm iterations
 	set_data_prefetch_ptrs		;; Init prefetching pointers
+	loops_init 8*2*clm		;; 8*2*clm iterations
 
 	r4_x4cl_wpn_eight_reals_unfft_preload
 c6a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
@@ -888,8 +888,8 @@ c7b:	r4_x4cl_wpn_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
-	loops_init 8*2*clm		;; 8 iterations of 2*clm
 	set_data_prefetch_ptrs		;; Init prefetching pointers
+	loops_init 8*2*clm		;; 8 iterations of 2*clm
 	r5_x10cl_20_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r5_x10cl_20_reals_last_unfft rsi, 64, clmblkdst8, rdi, 8*XMM_SCD9
@@ -1265,8 +1265,8 @@ c5b:	r3_x3cl_three_complex_djbunfft rsi, 64, clmblkdst8, rdi, 8*2*clm*XMM_SCD1
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
-	loops_init 24*2*clm		;; 24 iterations of 2*clm
 	set_data_prefetch_ptrs		;; Init prefetching pointers
+	loops_init 24*2*clm		;; 24 iterations of 2*clm
 	r4_x4cl_eight_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 3*clmblkdst8, 6*clmblkdst8, rdi, 24*XMM_SCD3
@@ -1646,8 +1646,8 @@ c7b:	r4_x4cl_wpn_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
-	loops_init 8*2*clm		;; 8 iterations of 2*clm
 	set_data_prefetch_ptrs		;; Init prefetching pointers
+	loops_init 8*2*clm		;; 8 iterations of 2*clm
 	r7_x14cl_28_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r7_x14cl_28_reals_last_unfft rsi, 64, clmblkdst8, rdi, 8*XMM_SCD13
@@ -2023,8 +2023,8 @@ c5b:	r4_x4cl_four_complex_djbunfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 8*XMM
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos data ptr
-	loops_init 32*2*clm		;; 32 iterations of 2*clm
 	set_data_prefetch_ptrs		;; Init prefetching pointers
+	loops_init 32*2*clm		;; 32 iterations of 2*clm
 	r4_x4cl_eight_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 4*clmblkdst8, 8*clmblkdst8, rdi, 32*XMM_SCD3
@@ -2405,8 +2405,8 @@ c7b:	r4_x4cl_wpn_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
-	loops_init 16*2*clm		;; 16 iterations of 2*clm
 	set_data_prefetch_ptrs		;; Init prefetching pointers
+	loops_init 16*2*clm		;; 16 iterations of 2*clm
 	r5_x10cl_20_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r5_x10cl_20_reals_last_unfft rsi, 64, 2*clmblkdst8, rdi, 16*XMM_SCD9
@@ -2794,8 +2794,8 @@ c5b:	r3_x3cl_three_complex_djbunfft rsi, 64, 2*clmblkdst8, rdi, 16*2*clm*XMM_SCD
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
-	loops_init 48*2*clm		;; 48 iterations of 2*clm
 	set_data_prefetch_ptrs		;; Init prefetching pointers
+	loops_init 48*2*clm		;; 48 iterations of 2*clm
 	r4_x4cl_eight_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 6*clmblkdst8, 12*clmblkdst8, rdi, 48*XMM_SCD3
@@ -3180,8 +3180,8 @@ c7b:	r4_x4cl_wpn_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
-	loops_init 16*2*clm		;; 16 iterations of 2*clm
 	set_data_prefetch_ptrs		;; Init prefetching pointers
+	loops_init 16*2*clm		;; 16 iterations of 2*clm
 	r7_x14cl_28_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r7_x14cl_28_reals_last_unfft rsi, 64, 2*clmblkdst8, rdi, 16*XMM_SCD13
@@ -3570,8 +3570,8 @@ c5b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, 16*
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
-	loops_init 64*2*clm		;; 64 iterations of 2*clm
 	set_data_prefetch_ptrs		;; Init prefetching pointers
+	loops_init 64*2*clm		;; 64 iterations of 2*clm
 	r4_x4cl_eight_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rdi, 64*XMM_SCD3
@@ -3998,8 +3998,8 @@ c5b:	r4_x4cl_four_complex_djbunfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 8*2*c
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
-	loops_init 32*2*clm		;; 32 iterations of 2*clm
 	set_data_prefetch_ptrs		;; Init prefetching pointers
+	loops_init 32*2*clm		;; 32 iterations of 2*clm
 	r5_x10cl_20_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r5_x10cl_20_reals_last_unfft rsi, 64, 4*clmblkdst8, rdi, 32*XMM_SCD9
@@ -4969,8 +4969,8 @@ c5b:	r4_x4cl_wpn_four_complex_djbunfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 8
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
-	loops_init 32*2*clm		;; 32 iterations of 2*clm
 	set_data_prefetch_ptrs		;; Init prefetching pointers
+	loops_init 32*2*clm		;; 32 iterations of 2*clm
 	r7_x14cl_28_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r7_x14cl_28_reals_last_unfft rsi, 64, 4*clmblkdst8, rdi, 32*XMM_SCD13
@@ -5943,8 +5943,8 @@ c5b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, 16*
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
-	loops_init 64*2*clm		;; 64 iterations of 2*clm
 	set_data_prefetch_ptrs		;; Init prefetching pointers
+	loops_init 64*2*clm		;; 64 iterations of 2*clm
 	r5_x10cl_20_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r5_x10cl_20_reals_last_unfft rsi, 64, 8*clmblkdst8, rdi, 64*XMM_SCD9
@@ -6930,8 +6930,8 @@ c5b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, 16*
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
-	loops_init 64*2*clm		;; 64iterations of 2*clm
 	set_data_prefetch_ptrs		;; Init prefetching pointers
+	loops_init 64*2*clm		;; 64iterations of 2*clm
 	r7_x14cl_28_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r7_x14cl_28_reals_last_unfft rsi, 64, 8*clmblkdst8, rdi, 64*XMM_SCD13
@@ -9431,8 +9431,8 @@ c5b:	r3_x3cl_three_complex_djbunfft rsi, 64, 2*clmblkdst8, rdi, 16*2*clm*XMM_SCD
 	start_timer 20
 	mov	rdx, sincos1		;; Load fixed all-complex premultipliers
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
-	loops_init 48*2*clm		;; 48 iterations of 2*clm
 	set_data_prefetch_ptrs		;; Init prefetching pointers
+	loops_init 48*2*clm		;; 48 iterations of 2*clm
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r4_x4cl_four_complex_last_djbunfft rsi, 64, 6*clmblkdst8, 12*clmblkdst8, rdi, 48*XMM_SCD2, rdx, 48*XMM_SCD4
 	newxloop1 c1b, clmblkdst, rdi, XMM_SCD2, rdx, XMM_SCD4 ;; 2*clm iterations
@@ -9778,8 +9778,8 @@ c5b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, 16*
 	start_timer 20
 	mov	rdx, sincos1		;; Load fixed all-complex premultipliers
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
-	loops_init 64*2*clm		;; 64 iterations of 2*clm
 	set_data_prefetch_ptrs		;; Init prefetching pointers
+	loops_init 64*2*clm		;; 64 iterations of 2*clm
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r4_x4cl_four_complex_last_djbunfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rdi, 64*XMM_SCD2, rdx, 64*XMM_SCD4
 	newxloop1 c1b, clmblkdst, rdi, XMM_SCD2, rdx, XMM_SCD4 ;; 2*clm iterations
@@ -10124,8 +10124,8 @@ c5b:	r5_x5cl_five_complex_djbunfft rsi, 64, 2*clmblkdst8, rdi, 16*2*clm*XMM_SCD2
 	start_timer 20
 	mov	rdx, sincos1		;; Load fixed all-complex premultipliers
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
-	loops_init 80*2*clm		;; 80 iterations of 2*clm
 	set_data_prefetch_ptrs		;; Init prefetching pointers
+	loops_init 80*2*clm		;; 80 iterations of 2*clm
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r4_x4cl_four_complex_last_djbunfft rsi, 64, 10*clmblkdst8, 20*clmblkdst8, rdi, 80*XMM_SCD2, rdx, 80*XMM_SCD4
 	newxloop2 c1b, clmblkdst, rdi, XMM_SCD2, rdx, XMM_SCD4 ;; 2*2*clm iterations

@@ -88,7 +88,7 @@ c0b:	start_timer 16
 	lea	rdi, [rdx+2*clm*XMM_SCD2] ;; Complex data sin/cos ptr
 pfing	lea	rbp, [rdx+(8-4)*2*clm*64] ;; Finish prefetch the sin/cos/premult data
 	loops_init_prefetch_touch 4*2*clm, 64, 1, rbp, 4096, c9a ;; 4*2*clm iterations
-	xtouch	[rbp]			;; Prefetch TLB
+	xtouch	[rbp]			;; Preload TLB
 c8b:	r4_sg2cl_eight_reals_djbunfft rsi, 64, blkdst, rcx, 64, clmblkdst, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next premult/sin/cos data
 	bump	rdx, XMM_SCD2		;; Next sine/cosine pointer
@@ -98,7 +98,7 @@ c8b:	r4_sg2cl_eight_reals_djbunfft rsi, 64, blkdst, rcx, 64, clmblkdst, rdi, rdx
 	bump	rdi, -2*clm*XMM_SCD2	;; Restore premult/sine/cosine pointer
 
 	loops_reset
-c9a:	xtouch	[rbp+4096]		;; Prefetch TLB
+c9a:	xtouch	[rbp+4096]		;; Preload TLB
 c9b:	r4_sg2cl_four_complex_djbunfft rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 	bump	rdi, XMM_SCD2		;; Next premult/sin/cos data
 	loops	2*clm, c9b		;; Loop 2*clm times
@@ -127,6 +127,7 @@ c9b:	r4_sg2cl_four_complex_djbunfft rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 ;;	do 2 macros each processing 32 data values
 
 	start_timer 20
+	set_data_prefetch_ptrs		;; Init prefetching pointers
 	loops_init 2*2*clm		;; 2 iterations of 2*clm
 	r4_x4cl_eight_reals_last_unfft_preload
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
@@ -797,8 +798,8 @@ c9b:	r4_sg2cl_four_complex_djbunfft rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 
 	start_timer 17
 	lea	rdi, [rdx+4*2*clm*XMM_SCD1] ;; Next complex data sin/cos ptr
-	loops_init 8*2*clm		;; 8*2*clm iterations
 	set_data_prefetch_ptrs		;; Init prefetching pointers
+	loops_init 8*2*clm		;; 8*2*clm iterations
 
 	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c6b:	r3_x3cl_six_reals_unfft rsi, 64, 2*clmblkdst, rdi, 2*2*clm*XMM_SCD1, rdx, 2*2*clm*XMM_SCD1
@@ -1337,8 +1338,8 @@ c9b:	r4_sg2cl_four_complex_djbunfft rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 
 	start_timer 17
 	lea	rdi, [rdx+4*2*clm*XMM_SCD2] ;; Next complex data sin/cos ptr
-	loops_init 8*2*clm		;; 8*2*clm iterations
 	set_data_prefetch_ptrs		;; Init prefetching pointers
+	loops_init 8*2*clm		;; 8*2*clm iterations
 
 	r4_x4cl_eight_reals_unfft_preload
 c6a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
@@ -2201,6 +2202,7 @@ c9b:	r4_sg2cl_four_complex_djbunfft rsi, 64, blkdst, rcx, 64, clmblkdst, rdi
 ;;	do 2 macros each processing 32 data values
 
 	start_timer 20
+	set_data_prefetch_ptrs		;; Init prefetching pointers
 	loops_init 2*2*clm		;; 2 iterations of 2*clm
 c1a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 c1b:	r4_x4cl_four_complex_last_unfft4 rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2*2*clm*XMM_SCD4
