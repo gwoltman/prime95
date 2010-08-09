@@ -8012,7 +8012,7 @@ ELSE					;; Pentium 4 faster doing merged loops
 	mov	rcx, DATA_PREFETCH	;; Prefetch pointer (we need to prefetch 
 					;; 1536 cache lines + 22 pad cache lines)
 	xtouch	[rcx]			;; Load first prefetch TLB
-	loops_init_prefetch 1536, 64, 6, rcx ;; 256 iterations of 3
+	loops_init_prefetch 1536, 64, 12, rcx ;; 256 iterations of 3
 
 b1a0:	xtouch	[rcx+4096-64]		;; Load prefetch TLBs
 b1a:	r3_f3cl_three_complex_djbfft_preload
@@ -8029,7 +8029,7 @@ b2b:	r4_x2cl_2sc_four_complex_djbfft rsi, 4*dist128, 2*dist128, rbp, rdx
 	bump	rdi, -2*256*XMM_SCD1+XMM_SCD1 ;; Next sin/cos data
 	bump	rbp, 3*XMM_SCD1		;; Next sin/cos data
 	bump	rdx, 6*XMM_SCD1		;; Next sin/cos data
-	loops_touch 64, b1a, 2, b1a0	;; Test loop counter
+	loops	128, b1a		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	2, b1a0			;; Test loop counter
 	bump	rsi, -2*dist128		;; Restore source pointer
