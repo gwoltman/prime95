@@ -590,7 +590,7 @@ int read_memory_settings (
 void nameAndReadIniFiles (
 	int	named_ini_files)
 {
-	char	buf[120];
+	char	buf[513];
 
 /* Initialize mutexes */
 
@@ -673,6 +673,33 @@ void nameAndReadIniFiles (
 	if (STRESS_TESTER == 1 && (USE_PRIMENET || WORKTODO_COUNT)) {
 		STRESS_TESTER = 0;
 		IniWriteInt (INI_FILE, "StressTester", 0);
+	}
+
+/* Output our calculated CPU architecture and characteristics */
+
+	sprintf (buf, "CPU architecture: %s\n",
+		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_PRE_SSE2 ? "Pre-SSE2" :
+		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_PENTIUM_4 ? "Pentium 4" :
+		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_CORE_2 ? "Core 2" :
+		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_CORE_I7 ? "Core i3/i5/i7/i9" :
+		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_INTEL_OTHER ? "Unknown Intel" :
+		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_K8 ? "AMD K8" :
+		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_K10 ? "AMD K10" :
+		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_OTHER ? "Not Intel and not AMD" : "Undefined");
+	OutputStr (MAIN_THREAD_NUM, buf);
+	strcpy (buf, "L2 cache size: ");
+	if (CPU_L2_CACHE_SIZE < 0) strcat (buf, "unknown\n");
+	else if (CPU_L2_CACHE_SIZE & 0x3FF)
+		sprintf (buf + strlen (buf), "%d KB\n", CPU_L2_CACHE_SIZE);
+	else
+		sprintf (buf + strlen (buf), "%d MB\n", CPU_L2_CACHE_SIZE >> 10);
+	OutputStr (MAIN_THREAD_NUM, buf);
+	if (CPU_L3_CACHE_SIZE > 0) {
+		if (CPU_L3_CACHE_SIZE & 0x3FF)
+			sprintf (buf, "L3 cache size: %d KB\n", CPU_L3_CACHE_SIZE);
+		else
+			sprintf (buf, "L3 cache size: %d MB\n", CPU_L3_CACHE_SIZE >> 10);
+		OutputStr (MAIN_THREAD_NUM, buf);
 	}
 
 /* Start some initial timers */
