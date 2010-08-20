@@ -432,10 +432,10 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 
 		if (! (CPU_FLAGS & CPU_SSE2))
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_PRE_SSE2;
-		else if ((family_code == 15 && model_number <= 4) ||
-			 (family_code == 15 && model_number == 6))
+		else if ((family_code == 15 && model_number <= 4 && extended_model == 0) ||
+			 (family_code == 15 && model_number == 6 && extended_model == 0))
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_PENTIUM_4;
-		else if ((family_code == 6 && model_number == 15) ||
+		else if ((family_code == 6 && model_number == 15 && extended_model == 0) ||
 			 (family_code == 6 && model_number == 6 && extended_model == 1) ||
 			 (family_code == 6 && model_number == 7 && extended_model == 1))
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_CORE_2;
