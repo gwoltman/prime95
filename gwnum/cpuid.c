@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2009 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2010 Mersenne Research, Inc.  All rights reserved
 | Author:  George Woltman
 | Email: woltman@alum.mit.edu
 |
@@ -432,18 +432,24 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 
 		if (! (CPU_FLAGS & CPU_SSE2))
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_PRE_SSE2;
-		else if ((family_code == 15 && model_number <= 3) ||
+		else if ((family_code == 15 && model_number <= 4) ||
 			 (family_code == 15 && model_number == 6))
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_PENTIUM_4;
 		else if ((family_code == 6 && model_number == 15) ||
 			 (family_code == 6 && model_number == 6 && extended_model == 1) ||
 			 (family_code == 6 && model_number == 7 && extended_model == 1))
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_CORE_2;
-		else if ((family_code == 6 && model_number == 10 && extended_model == 1) ||
+		else if ((family_code == 6 && model_number == 5 && extended_model == 2) ||		// Core i3 (according to CPU world)
+			 (family_code == 6 && model_number == 10 && extended_model == 1) ||		// Core i7
+			 (family_code == 6 && model_number == 12 && extended_model == 2) ||		// Core i9 (according to Wikipedia)
 			 (family_code == 6 && model_number == 13 && extended_model == 1) ||
-			 (family_code == 6 && model_number == 14 && extended_model == 1))
+			 (family_code == 6 && model_number == 14 && extended_model == 1))		// Core i5/i7
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_CORE_I7;
 		else
+			// Some defined family/model/extended-model values we don't handle:
+			// Pentium M:		6 / 9 / 0  and 6 / 13 / 0
+			// Core Solo/Duo:	6 / 14 / 0
+			// Atom:		6 / 12 / 1
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_INTEL_OTHER;
 
 /* Try to determine if hyperthreading is supported.  I think this code */
