@@ -2362,8 +2362,7 @@ if (w->n == 600) {
 gwhandle gwdata;
 void *workbuf;
 int j, min_test, max_test, test, cnt, NUM_X87_TESTS, NUM_SSE2_TESTS;
-#define timeit(a,n,w) (((void**)a)[0]=w,((uint32_t*)a)[2]=n,(*timeitptr)(a))
-int (*timeitptr)(void*); /* Ptrs to assembly routine */
+#define timeit(a,n,w) (((void**)a)[0]=w,((uint32_t*)a)[2]=n,gwtimeit(a))
 
 gwinit (&gwdata);
 gwsetup (&gwdata, 1.0, 2, 10000000, -1);
@@ -2372,8 +2371,6 @@ memset (workbuf, 0, 40000000);
 RDTSC_TIMING = 12;
 min_test = IniGetInt (INI_FILE, "MinTest", 0);
 max_test = IniGetInt (INI_FILE, "MaxTest", min_test);
-/* Time either Opteron optimized or P4 optimized SSE2 macros */
-timeitptr = (CPU_FLAGS & CPU_3DNOW) ? gwtimeitAMD : gwtimeit;
 NUM_X87_TESTS = timeit (gwdata.asm_data, -1, NULL);
 NUM_SSE2_TESTS = timeit (gwdata.asm_data, -2, NULL);
 //SetThreadPriority (CURRENT_THREAD, THREAD_PRIORITY_TIME_CRITICAL);
