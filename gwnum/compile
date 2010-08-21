@@ -31,7 +31,7 @@ gwnum.lib: release\cpuid.obj release\gwnum.obj release\gwthread.obj release\gwut
 	   r4dwpn_core.obj r4dwpn_p4.obj r4dwpn_p4tp.obj r4dwpn_k8.obj r4dwpn_k10.obj \
 	   r4dwpn3_core.obj r4dwpn3_p4.obj r4dwpn3_p4tp.obj r4dwpn3_k8.obj r4dwpn3_k10.obj \
 	   r4dwpn5_core.obj r4dwpn5_p4.obj r4dwpn5_p4tp.obj r4dwpn5_k8.obj r4dwpn5_k10.obj \
-	   timeit.obj timeitp.obj
+	   timeit.obj
     del gwnum.lib
     lib /OUT:gwnum.lib release\*.obj *.obj
 
@@ -47,7 +47,7 @@ gwnumd.lib: debug\cpuid.obj debug\gwnum.obj debug\gwthread.obj debug\gwutil.obj 
 	    r4dwpn_core.obj r4dwpn_p4.obj r4dwpn_p4tp.obj r4dwpn_k8.obj r4dwpn_k10.obj \
 	    r4dwpn3_core.obj r4dwpn3_p4.obj r4dwpn3_p4tp.obj r4dwpn3_k8.obj r4dwpn3_k10.obj \
 	    r4dwpn5_core.obj r4dwpn5_p4.obj r4dwpn5_p4tp.obj r4dwpn5_k8.obj r4dwpn5_k10.obj \
-	    timeit.obj timeitp.obj
+	    timeit.obj
     del gwnumd.lib
     lib /OUT:gwnumd.lib debug\*.obj *.obj
 
@@ -62,7 +62,7 @@ linux\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj m
 	       r4dwpn_core.obj r4dwpn_p4.obj r4dwpn_p4tp.obj r4dwpn_k8.obj r4dwpn_k10.obj \
 	       r4dwpn3_core.obj r4dwpn3_p4.obj r4dwpn3_p4tp.obj r4dwpn3_k8.obj r4dwpn3_k10.obj \
 	       r4dwpn5_core.obj r4dwpn5_p4.obj r4dwpn5_p4tp.obj r4dwpn5_k8.obj r4dwpn5_k10.obj \
-	       timeit.obj timeitp.obj
+	       timeit.obj
     attrib -r linux\gwnum.a
     del linux\gwnum.a
     del linux\gwnum.lib
@@ -82,7 +82,7 @@ macosx\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj 
 		r4dwpn_core.obj r4dwpn_p4.obj r4dwpn_p4tp.obj r4dwpn_k8.obj r4dwpn_k10.obj \
 		r4dwpn3_core.obj r4dwpn3_p4.obj r4dwpn3_p4tp.obj r4dwpn3_k8.obj r4dwpn3_k10.obj \
 		r4dwpn5_core.obj r4dwpn5_p4.obj r4dwpn5_p4tp.obj r4dwpn5_k8.obj r4dwpn5_k10.obj \
-		timeit.obj timeitp.obj
+		timeit.obj
     attrib -r macosx\gwnum.a
     del macosx\gwnum.a
     del macosx\gwnum.lib
@@ -330,8 +330,5 @@ r4dwpn5_k10.obj: r4dwpn5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpn
     $(masm) /DARCH=K10 /For4dwpn5_k10.obj r4dwpn5.asm
 
 timeit.obj: timeit.asm mult.mac lucas.mac xmult.mac hg.mac r4.mac r2.mac r3.mac r5.mac r8.mac
-    $(masm) timeit.asm
-
-timeitp.obj: timeit.asm xmult.mac hg.mac r4.mac r2.mac r3.mac r5.mac r8.mac
-    $(masm) /DAMD /Fotimeitp.obj timeit.asm
+    $(masm) /DARCH=CORE timeit.asm
 

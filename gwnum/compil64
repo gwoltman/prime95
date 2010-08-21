@@ -31,7 +31,7 @@ gwnum64.lib: amd64\release\cpuid.obj amd64\release\gwnum.obj amd64\release\gwthr
 	     amd64\r4dwpn_core.obj amd64\r4dwpn_p4.obj amd64\r4dwpn_k8.obj amd64\r4dwpn_k10.obj \
 	     amd64\r4dwpn3_core.obj amd64\r4dwpn3_p4.obj amd64\r4dwpn3_k8.obj amd64\r4dwpn3_k10.obj \
 	     amd64\r4dwpn5_core.obj amd64\r4dwpn5_p4.obj amd64\r4dwpn5_k8.obj amd64\r4dwpn5_k10.obj \
-	     amd64\cpuidhlp.obj amd64\mult.obj amd64\gianthlp.obj amd64\timeit.obj amd64\timeitp.obj
+	     amd64\cpuidhlp.obj amd64\mult.obj amd64\gianthlp.obj amd64\timeit.obj
     del gwnum64.lib
     lib /OUT:gwnum64.lib amd64\release\*.obj amd64\*.obj
 
@@ -46,7 +46,7 @@ gwnum64d.lib: amd64\debug\cpuid.obj amd64\debug\gwnum.obj amd64\debug\gwthread.o
 	      amd64\r4dwpn_core.obj amd64\r4dwpn_p4.obj amd64\r4dwpn_k8.obj amd64\r4dwpn_k10.obj \
 	      amd64\r4dwpn3_core.obj amd64\r4dwpn3_p4.obj amd64\r4dwpn3_k8.obj amd64\r4dwpn3_k10.obj \
 	      amd64\r4dwpn5_core.obj amd64\r4dwpn5_p4.obj amd64\r4dwpn5_k8.obj amd64\r4dwpn5_k10.obj \
-	      amd64\cpuidhlp.obj amd64\mult.obj amd64\gianthlp.obj amd64\timeit.obj amd64\timeitp.obj
+	      amd64\cpuidhlp.obj amd64\mult.obj amd64\gianthlp.obj amd64\timeit.obj
     del gwnum64d.lib
     lib /OUT:gwnum64d.lib amd64\debug\*.obj amd64\*.obj
 
@@ -60,7 +60,7 @@ linux64\gwnum.a: linux64\xmult1ax.obj linux64\xmult2.obj linux64\xmult2a.obj lin
 		 linux64\r4dwpn_core.obj linux64\r4dwpn_p4.obj linux64\r4dwpn_k8.obj linux64\r4dwpn_k10.obj \
 		 linux64\r4dwpn3_core.obj linux64\r4dwpn3_p4.obj linux64\r4dwpn3_k8.obj linux64\r4dwpn3_k10.obj \
 		 linux64\r4dwpn5_core.obj linux64\r4dwpn5_p4.obj linux64\r4dwpn5_k8.obj linux64\r4dwpn5_k10.obj \
-		 linux64\cpuidhlp.obj linux64\mult.obj linux64\gianthlp.obj linux64\timeit.obj linux64\timeitp.obj
+		 linux64\cpuidhlp.obj linux64\mult.obj linux64\gianthlp.obj linux64\timeit.obj
     attrib -r linux64\gwnum.a
     del linux64\gwnum.a
     lib /OUT:linux64\gwnum.lib linux64\*.obj
@@ -78,7 +78,7 @@ macosx64\gwnum.a: linux64\xmult1ax.obj linux64\xmult2.obj linux64\xmult2a.obj li
 		  linux64\r4dwpn_core.obj linux64\r4dwpn_p4.obj linux64\r4dwpn_k8.obj linux64\r4dwpn_k10.obj \
 		  linux64\r4dwpn3_core.obj linux64\r4dwpn3_p4.obj linux64\r4dwpn3_k8.obj linux64\r4dwpn3_k10.obj \
 		  linux64\r4dwpn5_core.obj linux64\r4dwpn5_p4.obj linux64\r4dwpn5_k8.obj linux64\r4dwpn5_k10.obj \
-		  linux64\cpuidhlp.obj linux64\mult.obj linux64\gianthlp.obj linux64\timeit.obj linux64\timeitp.obj
+		  linux64\cpuidhlp.obj linux64\mult.obj linux64\gianthlp.obj linux64\timeit.obj
     attrib -r macosx64\gwnum.a
     del macosx64\gwnum.a
     lib /OUT:macosx64\gwnum.lib linux64\*.obj
@@ -265,10 +265,7 @@ amd64\gianthlp.obj: gianthlp.asm
     $(masm64) /Foamd64\gianthlp.obj gianthlp.asm
 
 amd64\timeit.obj: timeit.asm xmult.mac hg.mac r4.mac r2.mac r3.mac r5.mac r8.mac
-    $(masm64) /Foamd64\timeit.obj timeit.asm
-
-amd64\timeitp.obj: timeit.asm xmult.mac hg.mac r4.mac r2.mac r3.mac r5.mac r8.mac
-    $(masm64) /DAMD /Foamd64\timeitp.obj timeit.asm
+    $(masm64) /DARCH=K8 /Foamd64\timeit.obj timeit.asm
 
 # Create 64-bit linux object files.  Windows and Linux (gcc) use different
 # ABI (application binary interface).  These means arguments are passed in
@@ -407,8 +404,5 @@ linux64\gianthlp.obj: gianthlp.asm
     $(masm64lx) /Folinux64\gianthlp.obj gianthlp.asm
 
 linux64\timeit.obj: timeit.asm xmult.mac hg.mac r4.mac r2.mac r3.mac r5.mac r8.mac
-    $(masm64lx) /Folinux64\timeit.obj timeit.asm
-
-linux64\timeitp.obj: timeit.asm xmult.mac hg.mac r4.mac r2.mac r3.mac r5.mac r8.mac
-    $(masm64lx) /DAMD /Folinux64\timeitp.obj timeit.asm
+    $(masm64lx) /DARCH=K8 /Folinux64\timeit.obj timeit.asm
 
