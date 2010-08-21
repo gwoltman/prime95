@@ -23,10 +23,12 @@ ELSEIF @INSTR(,%ARCH,<K8>) NE 0
 	xarch	TEXTEQU	<K8>
 	PREFETCHING = 64
 	TLB_PRIMING = 0
+	AMD = 1
 ELSEIF @INSTR(,%ARCH,<K10>) NE 0
 	xarch	TEXTEQU	<K10>
 	PREFETCHING = 64
 	TLB_PRIMING = 0
+	AMD = 1
 ELSE
 	arch_not_given_on_command_line	
 ENDIF
@@ -42,6 +44,8 @@ P4	= 02h			; Assemble this FFT for P4 architecture
 P4TP	= 04h			; Assemble this FFT for early P4 architectures requiring TLB priming
 K8	= 08h			; Assemble this FFT for K8 architecture
 K10	= 10h			; Assemble this FFT for K10 architecture
+
+K10 = 0  ;; We haven't optimized any macros for the K10 yet, so don't assemble any K10-optimized FFTs
 
 IFDEF X86_64
 	CORE_32	= 0
