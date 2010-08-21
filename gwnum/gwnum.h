@@ -1013,7 +1013,6 @@ extern void (*OutputBothRoutine)(int,char *);
 /* when optimizing these building blocks. */
 
 int gwtimeit (void *);
-int gwtimeitAMD (void *);
 #define get_asm_timers(g) ((uint32_t *) &(g)->ASM_TIMERS)
 
 #ifdef __cplusplus
