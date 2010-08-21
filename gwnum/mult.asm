@@ -15,9 +15,8 @@ IFNDEF X86_64
 ENDIF
 
 INCLUDE	unravel.mac
-INCLUDE xmult.mac
 
-VERSION_NUMBER = 2601		;; Version 26.1
+VERSION_NUMBER = 2602		;; Version 26.2
 
 ;
 ; Global variables needed by FFT setup code
@@ -33,14 +32,76 @@ ENDIF
 
 ; The flags word of a procedure entry is divided as follows:
 ;	80000000h		always on
-;	4 SHL 26		(no prefetching)
-;	2 SHL 26		(tlb priming)
+;	2 SHL 26		(no prefetching - not used by gwnum)
 ;	1 SHL 26		(in_place)
 ;	fft_type SHL 21		(hg=0, r4=1, r4delay=2, r4dwpn=3)
 ;	arch SHL 17		(ppro=0,p3=1,p4=2,core=3,k8=4,k10=5)
-;	min_L2_cache SHL 13	(0=0,128KB=1,WILLI=2,CELE_D=3,512KB=4,1024KB=5,2048KB=6)
+;	best_impl_for SHL 13	(CORE2=0,I7=1,P4_1024=2,etc.)
 ;	clm SHL 9		(1,2,4,8)
 ;	pass2size_over_64	(many valid values)
+
+; Machine types.  FFTs often have several different implementations.  For the most common CPUs,
+; we run benchmarks to determine which FFT implementation is the fastest.  A jmptable entry is
+; built for the fastest implementation.  At runtime, the GWNUM setup code figures out what CPU
+; it is running on and selects the best matching FFT implementation.
+
+; The jmptable uses a bit number to encode the "best implementation for machine type" value.
+
+	BIF_CORE2   = 0			; Core 2 CPUs, big L2 caches
+	BIF_I7	    = 1			; Core i7 CPUs, 256K L2, big L3 caches
+	BIF_P4_1024 = 2			; Pentium 4, 1MB cache
+	BIF_P4TP_512  = 3		; Pentium 4, 512K cache (did not support EMT64)
+	BIF_P4TP_256  = 4		; Pentium 4, 256K cache (did not support EMT64)
+	BIF_P4TP_128  = 5		; Pentium 4, 128K cache (did not support EMT64)
+	BIF_K8	    = 6			; AMD K8 CPUs
+	BIF_K10	    = 7			; AMD K10 CPUs
+
+; The PRCENTRY macro uses a bit mask to encode the "best implementation for machine type" values.
+; The PRCENTRY macro also lets us specify different "best implementation for machine type" values
+; for 32-bit and 64-bit operating systems.
+
+	CORE2	= 00000001h		; Core 2 CPUs, big L2 caches
+	I7	= 00000002h		; Core i7 CPUs, 256K L2, big L3 caches
+	P4_1024	= 00000004h		; Pentium 4, 1MB cache
+	P4TP_512 = 00000008h		; Pentium 4, 512K cache (did not support EMT64)
+	P4TP_256 = 00000010h		; Pentium 4, 256K cache (did not support EMT64)
+	P4TP_128 = 00000020h		; Pentium 4, 128K cache (did not support EMT64)
+	K8	= 00000040h		; AMD K8 CPUs
+	K10	= 00000080h		; AMD K10 CPUs
+
+IFDEF X86_64
+	CORE2_32 = 0
+	CORE2_64 = CORE2
+	I7_32 = 0
+	I7_64 = I7
+	P4_1024_32 = 0
+	P4_1024_64 = P4_1024
+	P4TP_512 = 0
+	P4TP_256 = 0
+	P4TP_128 = 0
+	K8_32 = 0
+	K8_64 = K8
+	K10_32 = 0
+	K10_64 = K10
+ELSE
+	CORE2_32 = CORE2
+	CORE2_64 = 0
+	I7_32 = I7
+	I7_64 = 0
+	P4_1024_32 = P4_1024
+	P4_1024_64 = 0
+	K8_32 = K8
+	K8_64 = 0
+	K10_32 = K10
+	K10_64 = 0
+ENDIF
+
+; Macros to build jmptable entries
+
+PRCSTRT MACRO max_exp, fftlen, speed
+	DD	max_exp, fftlen, speed
+	saved_fftlen = fftlen			; Remember for use in PRCENTRY macro
+	ENDM
 
 X87PRC MACRO procname, mem_needed, p2larg, clmarg
 	EXTRN	procname:PROC
@@ -71,126 +132,269 @@ X87PRC MACRO procname, mem_needed, p2larg, clmarg
 	DD	mem_needed
 	ENDM
 
-PRCENTRY MACRO procname, mem_needed, L2arg
-	EXTRN	procname:PROC
-	flags = 0
-	IF (@INSTR (,@CATSTR(procname),_np_)) NE 0
-		flags = flags + 4
+; Used for small FFTs (below 7K).  At present there is only one FFT implementation.
+
+PRCENTRY MACRO procname, mem_needed
+	PRCENTRY3 procname, mem_needed, 0
+	ENDM
+
+; Used for FFTs with multiple implemenations.  This macro generates a table entry
+; for each CPU architecture where this is the fastest FFT implementation.
+
+PRCENTRY2 MACRO procname, mem_needed, best_impl_for
+	;; Copy input argument
+	IFB <best_impl_for>
+		bif = 0
+	ELSE
+		bif = best_impl_for
 	ENDIF
-	IF (@INSTR (,@CATSTR(procname),_tp_)) NE 0
+	;; Hack to force output of jmptable entries.  Used when we are benchmarking
+	;; all possible FFT implementations to determine best implementation
+	IFDEF IMPL_ALL_CORE
+		bif = bif OR CORE2
+	ENDIF
+	IF (@INSTR (,&procname,_op_)) EQ 0
+	IFDEF IMPL_ALL_P4
+		bif = bif OR P4_1024
+	ENDIF
+	IFDEF IMPL_ALL_P4TP
+		;; We do not generate a TLB priming version when we are not prefetching
+		IF (@INSTR (,@CATSTR(procname),_np_)) EQ 0
+			bif = bif OR P4TP_512
+		ENDIF
+	ENDIF
+	IFDEF IMPL_ALL_K8
+		bif = bif OR K8
+	ENDIF
+	IFDEF IMPL_ALL_K10
+		bif = bif OR K10
+	ENDIF
+	ENDIF
+	;; We arbitrarily decide that older architectures are ill-equiped to run large FFTs.
+	;; Thus, we make sure that bif bit is cleared
+	IF (saved_fftlen GT 4194304) AND ((bif AND P4TP_128) NE 0)
+		bif = bif - P4TP_128
+	ENDIF
+	IF (saved_fftlen GT 4194304) AND ((bif AND P4TP_256) NE 0)
+		bif = bif - P4TP_256
+	ENDIF
+	IF (saved_fftlen GT 4194304) AND ((bif AND P4TP_512) NE 0)
+		bif = bif - P4TP_512
+	ENDIF
+	IF (saved_fftlen GT 6291456) AND ((bif AND P4_1024) NE 0)
+		bif = bif - P4_1024
+	ENDIF
+	IF (saved_fftlen GT 6291456) AND ((bif AND K8) NE 0)
+		bif = bif - K8
+	ENDIF
+	;; Output one jmptable entry for each CPU where this is the best FFT implementation.
+	IF (bif AND CORE2) NE 0
+		PRCENTRY3 @CATSTR(procname, <_CORE>), mem_needed, CORE2
+	ENDIF
+	IF (bif AND I7) NE 0
+		PRCENTRY3 @CATSTR(procname, <_CORE>), mem_needed, I7
+	ENDIF
+	IF (bif AND P4_1024) NE 0
+		PRCENTRY3 @CATSTR(procname, <_P4>), mem_needed, P4_1024
+	ENDIF
+	IF (bif AND P4TP_512) NE 0
+		IF (@INSTR (,@CATSTR(procname),_np_)) EQ 0
+			PRCENTRY3 @CATSTR(procname, <_P4TP>), mem_needed, P4TP_512
+		ELSE
+			PRCENTRY3 @CATSTR(procname, <_P4>), mem_needed, P4TP_512
+		ENDIF
+	ENDIF
+	IF (bif AND P4TP_256) NE 0
+		IF (@INSTR (,@CATSTR(procname),_np_)) EQ 0
+			PRCENTRY3 @CATSTR(procname, <_P4TP>), mem_needed, P4TP_256
+		ELSE
+			PRCENTRY3 @CATSTR(procname, <_P4>), mem_needed, P4TP_256
+		ENDIF
+	ENDIF
+	IF (bif AND P4TP_128) NE 0
+		IF (@INSTR (,@CATSTR(procname),_np_)) EQ 0
+			PRCENTRY3 @CATSTR(procname, <_P4TP>), mem_needed, P4TP_128
+		ELSE
+			PRCENTRY3 @CATSTR(procname, <_P4>), mem_needed, P4TP_128
+		ENDIF
+	ENDIF
+	IF (bif AND K8) NE 0
+		PRCENTRY3 @CATSTR(procname, <_K8>), mem_needed, K8
+	ENDIF
+	IF (bif AND K10) NE 0
+		PRCENTRY3 @CATSTR(procname, <_K10>), mem_needed, K10
+	ENDIF
+	ENDM
+
+;; Macro to create an entry for one CPU that is optimized for a different CPU type.
+;; For example, on a P4, some CORE optimized implementations are faster than the
+;; P4 optimized implementations.
+PRCENTRY2A MACRO procname, mem_needed, best_impl_for
+	;; When building a special version for timing all implementations,
+	;; don't bother creating these specialized entries.
+	IFDEF IMPL_ALL_CORE
+		exitm
+	ENDIF
+	IFDEF IMPL_ALL_P4
+		exitm
+	ENDIF
+	IFDEF IMPL_ALL_P4TP
+		exitm
+	ENDIF
+	IFDEF IMPL_ALL_K8
+		exitm
+	ENDIF
+	IFDEF IMPL_ALL_K10
+		exitm
+	ENDIF
+	;; Copy input argument
+	bif = best_impl_for
+	;; Output one jmptable entry for each CPU where this is the best FFT implementation.
+	IF (bif AND CORE2) NE 0
+		PRCENTRY3 procname, mem_needed, CORE2
+	ENDIF
+	IF (bif AND I7) NE 0
+		PRCENTRY3 procname, mem_needed, I7
+	ENDIF
+	IF (bif AND P4_1024) NE 0
+		PRCENTRY3 procname, mem_needed, P4_1024
+	ENDIF
+	IF (bif AND P4TP_512) NE 0
+		PRCENTRY3 procname, mem_needed, P4TP_512
+	ENDIF
+	IF (bif AND P4TP_256) NE 0
+		PRCENTRY3 procname, mem_needed, P4TP_256
+	ENDIF
+	IF (bif AND P4TP_128) NE 0
+		PRCENTRY3 procname, mem_needed, P4TP_128
+	ENDIF
+	IF (bif AND K8) NE 0
+		PRCENTRY3 procname, mem_needed, K8
+	ENDIF
+	IF (bif AND K10) NE 0
+		PRCENTRY3 procname, mem_needed, K10
+	ENDIF
+	ENDM
+
+PRCENTRY3 MACRO procname, mem_needed, bif
+	EXTRN	&procname:PROC
+	flags = 0
+	IF (@INSTR (,&procname,_np_)) NE 0
 		flags = flags + 2
 	ENDIF
-	IF (@INSTR (,@CATSTR(procname),_ip_)) NE 0
+	IF (@INSTR (,&procname,_ip_)) NE 0
 		flags = flags + 1
 	ENDIF
-	IF (@INSTR (,@CATSTR(procname),_hg_)) NE 0
+	IF (@INSTR (,&procname,_hg_)) NE 0
 		fft_type = 0
-	ELSEIF (@INSTR (,@CATSTR(procname),_r4_)) NE 0
+	ELSEIF (@INSTR (,&procname,_r4_)) NE 0
 		fft_type = 1
-	ELSEIF (@INSTR (,@CATSTR(procname),_r4delay_)) NE 0
+	ELSEIF (@INSTR (,&procname,_r4delay_)) NE 0
 		fft_type = 2
-	ELSEIF (@INSTR (,@CATSTR(procname),_r4dwpn_)) NE 0
+	ELSEIF (@INSTR (,&procname,_r4dwpn_)) NE 0
 		fft_type = 3
 	ELSE
 		bad_sse2_fft_type
 	ENDIF
-	IF (@INSTR (,@CATSTR(procname),_P4)) NE 0
+	IF (@INSTR (,&procname,_P4)) NE 0
 		arch = 2
-	ELSEIF (@INSTR (,@CATSTR(procname),_CORE)) NE 0
+	ELSEIF (@INSTR (,&procname,_CORE)) NE 0
 		arch = 3
-	ELSEIF (@INSTR (,@CATSTR(procname),_K8)) NE 0
+	ELSEIF (@INSTR (,&procname,_K8)) NE 0
 		arch = 4
-	ELSEIF (@INSTR (,@CATSTR(procname),_K10)) NE 0
+	ELSEIF (@INSTR (,&procname,_K10)) NE 0
 		arch = 5
 	ELSE
 		bad_sse2_arch
 	ENDIF
-	IFB <L2arg>
-		min_L2_cache = 0
-	ELSEIF L2arg EQ 128
-		min_L2_cache = 1
-	ELSEIF L2arg EQ WILLI
-		min_L2_cache = 2
-	ELSEIF L2arg EQ CELE_D
-		min_L2_cache = 3
-	ELSEIF L2arg EQ 512
-		min_L2_cache = 4
-	ELSEIF L2arg EQ 1024
-		min_L2_cache = 5
-	ELSEIF L2arg EQ 2048
-		min_L2_cache = 6
-	ELSE
-		bad_L2_cache
-	ENDIF
-	IF (@INSTR (,@CATSTR(procname),_1_)) NE 0
+	IF (@INSTR (,&procname,_1_)) NE 0
 		clm = 1
-	ELSEIF (@INSTR (,@CATSTR(procname),_2_)) NE 0
+	ELSEIF (@INSTR (,&procname,_2_)) NE 0
 		clm = 2
-	ELSEIF (@INSTR (,@CATSTR(procname),_4_)) NE 0
+	ELSEIF (@INSTR (,&procname,_4_)) NE 0
 		clm = 4
-	ELSEIF (@INSTR (,@CATSTR(procname),_8_)) NE 0
+	ELSEIF (@INSTR (,&procname,_8_)) NE 0
 		clm = 8
 	ELSE
 		clm = 0
 	ENDIF
-	IF (@INSTR (,@CATSTR(procname),_op_)) NE 0
+	IF (@INSTR (,&procname,_op_)) NE 0
 		pass2_size_over_64 = 0
-	ELSEIF (@INSTR (,@CATSTR(procname),_192_)) NE 0
+	ELSEIF (@INSTR (,&procname,_192_)) NE 0
 		pass2_size_over_64 = 192 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_768_)) NE 0
+	ELSEIF (@INSTR (,&procname,_768_)) NE 0
 		pass2_size_over_64 = 768 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_10_)) NE 0
+	ELSEIF (@INSTR (,&procname,_10_)) NE 0
 		pass2_size_over_64 = 1024 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_1280_)) NE 0
+	ELSEIF (@INSTR (,&procname,_1280_)) NE 0
 		pass2_size_over_64 = 1280 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_1536_)) NE 0
+	ELSEIF (@INSTR (,&procname,_1536_)) NE 0
 		pass2_size_over_64 = 1536 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_11_)) NE 0
+	ELSEIF (@INSTR (,&procname,_11_)) NE 0
 		pass2_size_over_64 = 2048 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_2304_)) NE 0
+	ELSEIF (@INSTR (,&procname,_2304_)) NE 0
 		pass2_size_over_64 = 2304 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_2560_)) NE 0
+	ELSEIF (@INSTR (,&procname,_2560_)) NE 0
 		pass2_size_over_64 = 2560 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_3072_)) NE 0
+	ELSEIF (@INSTR (,&procname,_3072_)) NE 0
 		pass2_size_over_64 = 3072 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_3840_)) NE 0
+	ELSEIF (@INSTR (,&procname,_3840_)) NE 0
 		pass2_size_over_64 = 3840 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_12_)) NE 0
+	ELSEIF (@INSTR (,&procname,_12_)) NE 0
 		pass2_size_over_64 = 4096 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_4608_)) NE 0
+	ELSEIF (@INSTR (,&procname,_4608_)) NE 0
 		pass2_size_over_64 = 4608 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_5120_)) NE 0
+	ELSEIF (@INSTR (,&procname,_5120_)) NE 0
 		pass2_size_over_64 = 5120 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_6144_)) NE 0
+	ELSEIF (@INSTR (,&procname,_6144_)) NE 0
 		pass2_size_over_64 = 6144 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_6400_)) NE 0
+	ELSEIF (@INSTR (,&procname,_6400_)) NE 0
 		pass2_size_over_64 = 6400 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_7680_)) NE 0
+	ELSEIF (@INSTR (,&procname,_7680_)) NE 0
 		pass2_size_over_64 = 7680 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_13_)) NE 0
+	ELSEIF (@INSTR (,&procname,_13_)) NE 0
 		pass2_size_over_64 = 8192 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_9216_)) NE 0
+	ELSEIF (@INSTR (,&procname,_9216_)) NE 0
 		pass2_size_over_64 = 9216 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_10240_)) NE 0
+	ELSEIF (@INSTR (,&procname,_10240_)) NE 0
 		pass2_size_over_64 = 10240 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_12288_)) NE 0
+	ELSEIF (@INSTR (,&procname,_12288_)) NE 0
 		pass2_size_over_64 = 12288 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_12800_)) NE 0
+	ELSEIF (@INSTR (,&procname,_12800_)) NE 0
 		pass2_size_over_64 = 12800 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_15360_)) NE 0
+	ELSEIF (@INSTR (,&procname,_15360_)) NE 0
 		pass2_size_over_64 = 15360 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_14_)) NE 0
+	ELSEIF (@INSTR (,&procname,_14_)) NE 0
 		pass2_size_over_64 = 16384 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_20480_)) NE 0
+	ELSEIF (@INSTR (,&procname,_20480_)) NE 0
 		pass2_size_over_64 = 20480 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_25600_)) NE 0
+	ELSEIF (@INSTR (,&procname,_25600_)) NE 0
 		pass2_size_over_64 = 25600 SHR 6
-	ELSEIF (@INSTR (,@CATSTR(procname),_8_)) NE 0
+	ELSEIF (@INSTR (,&procname,_8_)) NE 0
 		pass2_size_over_64 = 256 SHR 6
 	ELSE
-		unknown pass2 size
+		unknown_pass2_size
 	ENDIF
-	DD	80000000h + flags SHL 26 + fft_type SHL 21 + arch SHL 17 + min_L2_cache SHL 13 + clm SHL 9 + pass2_size_over_64
+	IF bif EQ CORE2
+		best_impl_for = BIF_CORE2
+	ELSEIF bif EQ I7
+		best_impl_for = BIF_I7
+	ELSEIF bif EQ P4_1024
+		best_impl_for = BIF_P4_1024
+	ELSEIF bif EQ P4TP_512
+		best_impl_for = BIF_P4TP_512
+	ELSEIF bif EQ P4TP_256
+		best_impl_for = BIF_P4TP_256
+	ELSEIF bif EQ P4TP_128
+		best_impl_for = BIF_P4TP_128
+	ELSEIF bif EQ K8
+		best_impl_for = BIF_K8
+	ELSEIF bif EQ K10
+		best_impl_for = BIF_K10
+	ELSE
+		best_impl_for = 0
+	ENDIF
+	DD	80000000h + flags SHL 26 + fft_type SHL 21 + arch SHL 17 + best_impl_for SHL 13 + clm SHL 9 + pass2_size_over_64
 	DP	OFFSET procname
 	DD	mem_needed
 	ENDM
@@ -556,2331 +760,2474 @@ ENDIF
 
 ;; Jump tables for the Pentium 4 SSE2 optimized code
 
-CELE_D	EQU	257		;; 256K L2 cache of a Celeron D
-WILLI	EQU	256		;; 256K L2 cache of a Willamette P4
-
-xjmptable DD	743,	32,	0.00000111
+xjmptable DD	0
+	org	$-4
+	PRCSTRT	743,	32,	0.00000111
 	PRCENTRY		xfft_hg_32_op_CORE, 896
 	DD			4, 4
 	DD			1, 1, 1, 1, 1, 0
-	DD	1099,	48,	0.00000144
+	PRCSTRT	1099,	48,	0.00000144
 	PRCENTRY		xfft_hg_48_op_CORE, 1408 
 	DD			6, 6
 	DD			2, 1, 1, 1, 1, 0
-	DD	1469,	64,	0.00000178
+	PRCSTRT	1469,	64,	0.00000178
 	PRCENTRY		xfft_hg_64_op_CORE, 1920 
 	DD			8, 8
 	DD			3, 1, 1, 1, 1, 0
-	DD	1827,	80,	0.00000222
+	PRCSTRT	1827,	80,	0.00000222
 	PRCENTRY		xfft_hg_80_op_CORE, 2176 
 	DD			10, 8*2048+2
 	DD			4, 2, 1, 1, 1, 0
-	DD	2179,	96,	0.00000259
+	PRCSTRT	2179,	96,	0.00000259
 	PRCENTRY		xfft_hg_96_op_CORE, 2432 
 	DD			12, 12
 	DD			5, 2, 1, 1, 1, 0
-	DD	2539,	112,	0.00000311
+	PRCSTRT	2539,	112,	0.00000311
 	PRCENTRY		xfft_hg_112_op_CORE, 2944
 	DD			14, (8*2048+4)*2048+2
 	DD			6, 3, 1, 1, 1, 0
-	DD	2905,	128,	0.00000319
+	PRCSTRT	2905,	128,	0.00000319
 	PRCENTRY		xfft_hg_128_op_CORE, 3328
 	DD			16, 16
 	DD			7, 3, 1, 1, 1, 0
-	DD	3613,	160,	0.00000450
+	PRCSTRT	3613,	160,	0.00000450
 	PRCENTRY		xfft_hg_160_op_CORE, 4736
 	DD			20, 16*2048+4
 	DD			9, 9, 2, 1, 4, 0
-	DD	4311,	192,	0.00000542
+	PRCSTRT	4311,	192,	0.00000542
 	PRCENTRY		xfft_hg_192_op_CORE, 5632
 	DD			24, 24
 	DD			11, 11, 2, 1, 5, 0
-	DD	5029,	224,	0.00000663
+	PRCSTRT	5029,	224,	0.00000663
 	PRCENTRY		xfft_hg_224_op_CORE, 6656
 	DD			28, (16*2048+8)*2048+4
 	DD			13, 13, 3, 1, 6, 0
-	DD	5755,	256,	0.00000691
+	PRCSTRT	5755,	256,	0.00000691
 	PRCENTRY		xfft_hg_256_op_CORE, 7296
 	DD			32, 32
 	DD			15, 15, 3, 1, 7, 0
-	DD	7149,	320,	0.00000928
+	PRCSTRT	7149,	320,	0.00000928
 	PRCENTRY		xfft_hg_320_op_CORE, 8448
 	DD			40, 32*2048+8
 	DD			19, 9, 2, 4, 1, 0
-	DD	8527,	384,	0.0000111
+	PRCSTRT	8527,	384,	0.0000111
 	PRCENTRY		xfft_hg_384_op_CORE, 9984
 	DD			48, 48
 	DD			23, 11, 2, 5, 1, 0
-	DD	9933,	448,	0.0000133
+	PRCSTRT	9933,	448,	0.0000133
 	PRCENTRY		xfft_hg_448_op_CORE, 11648
 	DD			56, (32*2048+16)*2048+8
 	DD			27, 13, 3, 6, 1, 0
-	DD	11359,	512,	0.0000143
+	PRCSTRT	11359,	512,	0.0000143
 	PRCENTRY		xfft_hg_512_op_CORE, 13056
 	DD			64, 64
 	DD			31, 15, 3, 7, 1, 0
-	DD	14119,	640,	0.0000215
+	PRCSTRT	14119,	640,	0.0000215
 	PRCENTRY		xfft_hg_640_op_CORE, 17408
 	DD			80, 64*2048+16
 	DD			39, 19, 9, 9, 4*256+2, 0
-	DD	16839,	768,	0.0000260
+	PRCSTRT	16839,	768,	0.0000260
 	PRCENTRY		xfft_hg_768_op_CORE, 20736
 	DD			96, 96
 	DD			47, 23, 11, 11, 5*256+2, 0
-	DD	19639,	896,	0.0000321
+	PRCSTRT	19639,	896,	0.0000321
 	PRCENTRY		xfft_hg_896_op_CORE, 24448
 	DD			112, (64*2048+32)*2048+16
 	DD			55, 27, 13, 13, 6*256+3, 0
-	DD	22477,	1024,	0.0000349
+	PRCSTRT	22477,	1024,	0.0000349
 	PRCENTRY		xfft_hg_1024_op_CORE, 26112
 	DD			128, 128
 	DD			63, 31, 15, 15, 7*256+3, 0
-	DD	27899,	1280,	0.0000494
+	PRCSTRT	27899,	1280,	0.0000494
 	PRCENTRY		xfft_hg_1280_op_CORE, 33664
 	DD			160, 128*2048+32
 	DD			79, 39, 9, 4*256+19, 2, 0
-	DD	33289,	1536,	0.0000601
+	PRCSTRT	33289,	1536,	0.0000601
 	PRCENTRY		xfft_hg_1536_op_CORE, 40320
 	DD			192, 192
 	DD			95, 47, 11, 5*256+23, 2, 0
-	DD	38799,	1792,	0.0000719
+	PRCSTRT	38799,	1792,	0.0000719
 	PRCENTRY		xfft_hg_1792_op_CORE, 47232
 	DD			224, (128*2048+64)*2048+32
 	DD			111, 55, 13, 6*256+27, 3, 0
-	DD	44339,	2048,	0.0000773
+	PRCSTRT	44339,	2048,	0.0000773
 	PRCENTRY		xfft_hg_2048_op_CORE, 52224
 	DD			256, 256
 	DD			127, 63, 15, 7*256+31, 3, 0
-	DD	55099,	2560,	0.000111
+	PRCSTRT	55099,	2560,	0.000111
 	PRCENTRY		xfft_hg_2560_op_CORE, 68096
 	DD			320, 256*2048+64
 	DD			159, 79, 9*256+19, 9*256+39, 4*256+2, 0
-	DD	65729,	3072,	0.000131
+	PRCSTRT	65729,	3072,	0.000131
 	PRCENTRY		xfft_hg_3072_op_CORE, 81792
 	DD			384, 384
 	DD			191, 95, 11*256+23, 11*256+47, 5*256+2, 0
-	DD	76559,	3584,	0.000165
+	PRCSTRT	76559,	3584,	0.000165
 	PRCENTRY		xfft_hg_3584_op_CORE, 95488
 	DD			448, (256*2048+128)*2048+64
 	DD			223, 111, 13*256+27, 13*256+55, 6*256+3, 0
-	DD	87549,	4096,	0.000163
+	PRCSTRT	87549,	4096,	0.000163
 	PRCENTRY		xfft_hg_4096_op_CORE, 104448
 	DD			512, 512
 	DD			255, 127, 15*256+31, 15*256+63, 7*256+3, 0
-	DD	108800,	5120,	0.000215
+	PRCSTRT	108800,	5120,	0.000215
 	PRCENTRY		xfft_hg_5120_op_CORE, 135296
 	DD			640, 512*2048+128
 	DD			319, 159, 9*256+39, 19*256+79, 4*256+2, 0
-	DD	129900,	6144,	0.000276
+	PRCSTRT	129900,	6144,	0.000276
 	PRCENTRY		xfft_hg_6144_op_CORE, 162432
 	DD			768, 768
 	DD			383, 191, 11*256+47, 23*256+95, 5*256+2, 0
-	DD	151300,	7168,	0.000374
-	PRCENTRY		xfft_hg_7168_op_CORE, 189568
+	PRCSTRT	151300,	7168,	0.000374
+	PRCENTRY2		xfft_hg_7168_op, 189568, I7_32
+	PRCENTRY2A		xfft_hg_7168_op_CORE, 189568, P4_1024_32
 	DD			896, (512*2048+256)*2048+128
 	DD			447, 223, 13*256+55, 27*256+111, 6*256+3, 0
-	DD	172700,	8192,	0.000398
-	PRCENTRY		xfft_r4_8K_8_4_CORE, 81408
-	PRCENTRY		xfft_r4_8K_np_8_4_CORE, 81408
-	PRCENTRY		xfft_hg_8192_op_CORE, 208896
+	PRCSTRT	172700,	8192,	0.000398
+	PRCENTRY2		xfft_r4_8K_8_4, 81408
+	PRCENTRY2		xfft_r4_8K_np_8_4, 81408, P4_1024 + P4TP_512 + P4TP_256 + I7_32 + CORE2
+	PRCENTRY2		xfft_hg_8192_op, 208896, I7_64
 	DD			1024, 1024
 	DD			511, 255, 15*256+63, 31*256+127, 7*256+3, 0
-	DD	214400,	10240,	0.000470
-	PRCENTRY		xfft_hg_10K_ip_8_4_K8, 59904
-	PRCENTRY		xfft_hg_10K_ip_8_4_CORE, 59904
-	PRCENTRY		xfft_hg_10K_ip_tp_8_4_P4, 59904
-	DD			0
-	DD	255300,	12288,	0.000590
-	PRCENTRY		xfft_hg_12K_ip_8_4_K8, 69632
-	PRCENTRY		xfft_hg_12K_ip_8_4_CORE, 69632
-	PRCENTRY		xfft_hg_12K_ip_tp_8_4_P4, 69632
-	DD			0
-	DD	297300,	14336,	0.000716
-	PRCENTRY		xfft_hg_14K_ip_8_4_K8, 79488
-	PRCENTRY		xfft_hg_14K_ip_8_4_CORE, 79488
-	PRCENTRY		xfft_hg_14K_ip_tp_8_4_P4, 79488
-	DD			0
-	DD	340400,	16384,	0.000787
-	PRCENTRY		xfft_r4_16K_8_4_CORE, 168960
-	PRCENTRY		xfft_r4_16K_np_8_4_CORE, 168960
-	PRCENTRY		xfft_hg_16K_ip_8_4_K8, 89088
-	PRCENTRY		xfft_hg_16K_ip_8_4_CORE, 89088
-	PRCENTRY		xfft_hg_16K_ip_tp_8_4_P4, 89088
-	DD			0
-	DD	423300,	20480,	0.00103
-	PRCENTRY		xfft_r4_20K_8_4_CORE, 188160
-	PRCENTRY		xfft_r4_20K_np_8_4_CORE, 188160
-	PRCENTRY		xfft_hg_20K_ip_8_4_K8, 107904
-	PRCENTRY		xfft_hg_20K_ip_8_4_CORE, 107904
-	PRCENTRY		xfft_hg_20K_ip_tp_8_4_P4, 107904
-	DD			0
-	DD	504600,	24576,	0.00132
-	PRCENTRY		xfft_r4_24K_768_4_CORE, 241152
-	PRCENTRY		xfft_r4_24K_np_768_4_CORE, 241152
-	PRCENTRY		xfft_r4_24K_8_4_CORE, 223744
-	PRCENTRY		xfft_r4_24K_np_8_4_CORE, 223744
-	PRCENTRY		xfft_hg_24K_ip_8_4_K8, 127232
-	PRCENTRY		xfft_hg_24K_ip_8_4_CORE, 127232
-	PRCENTRY		xfft_hg_24K_ip_tp_8_4_P4, 127232
-	DD			0
-	DD	587500,	28672,	0.00156
-	PRCENTRY		xfft_r4_28K_8_4_CORE, 259328
-	PRCENTRY		xfft_r4_28K_np_8_4_CORE, 259328
-	PRCENTRY		xfft_hg_28K_ip_8_4_K8, 146688
-	PRCENTRY		xfft_hg_28K_ip_8_4_CORE, 146688
-	PRCENTRY		xfft_hg_28K_ip_tp_8_4_P4, 146688
-	DD			0
-	DD	671400,	32768,	0.00175
-	PRCENTRY		xfft_r4dwpn_32K_8_4_CORE, 223744
-	PRCENTRY		xfft_r4dwpn_32K_np_8_4_CORE, 223744
-	PRCENTRY		xfft_r4delay_32K_8_4_CORE, 173568
-	PRCENTRY		xfft_r4delay_32K_np_8_4_CORE, 173568
-	PRCENTRY		xfft_r4_32K_10_4_CORE, 325120
-	PRCENTRY		xfft_r4_32K_np_10_4_CORE, 325120
-	PRCENTRY		xfft_r4_32K_8_4_CORE, 311296
-	PRCENTRY		xfft_r4_32K_np_8_4_CORE, 311296
-	PRCENTRY		xfft_hg_32K_ip_8_4_K8, 165888
-	PRCENTRY		xfft_hg_32K_ip_8_4_CORE, 165888
-	PRCENTRY		xfft_hg_32K_ip_tp_8_4_P4, 165888
-	DD			0
-	DD	835200,	40960,	0.00225
-	PRCENTRY		xfft_r4_40K_1280_4_CORE, 400896
-	PRCENTRY		xfft_r4_40K_np_1280_4_CORE, 400896
-	PRCENTRY		xfft_hg_40K_ip_11_4_K8, 189696
-	PRCENTRY		xfft_hg_40K_ip_11_4_CORE, 189696
-	PRCENTRY		xfft_hg_40K_ip_tp_11_4_P4, 189696
-	DD			0
-	DD	995500, 49152,	0.00279
-	PRCENTRY		xfft_r4_48K_768_4_CORE, 500736
-	PRCENTRY		xfft_r4_48K_np_768_4_CORE, 500736
-	PRCENTRY		xfft_hg_48K_ip_11_4_K8, 206208
-	PRCENTRY		xfft_hg_48K_ip_11_4_CORE, 206208
-	PRCENTRY		xfft_hg_48K_ip_tp_11_4_P4, 206208
-	DD			0
-	DD	1158000, 57344,	0.00327
-	PRCENTRY		xfft_r4_56K_8_4_CORE, 524800
-	PRCENTRY		xfft_r4_56K_np_8_4_CORE, 524800
-	PRCENTRY		xfft_hg_56K_ip_11_4_K8, 222976
-	PRCENTRY		xfft_hg_56K_ip_11_4_CORE, 222976
-	PRCENTRY		xfft_hg_56K_ip_tp_11_4_P4, 222976
-	DD			0
-	DD	1243000, 61440,	0.00344
-	PRCENTRY		xfft_r4_60K_768_4_CORE, 556800
-	PRCENTRY		xfft_r4_60K_np_768_4_CORE, 556800
-	DD			0
-	DD	1325000, 65536,	0.00367
-	PRCENTRY		xfft_r4dwpn_64K_8_4_CORE, 432128
-	PRCENTRY		xfft_r4dwpn_64K_np_8_4_CORE, 432128
-	PRCENTRY		xfft_r4delay_64K_8_4_CORE, 336896
-	PRCENTRY		xfft_r4delay_64K_np_8_4_CORE, 336896
-	PRCENTRY		xfft_r4_64K_10_4_CORE, 670720
-	PRCENTRY		xfft_r4_64K_np_10_4_CORE, 670720
-	PRCENTRY		xfft_r4_64K_8_4_CORE, 628736
-	PRCENTRY		xfft_r4_64K_np_8_4_CORE, 628736
-	PRCENTRY		xfft_hg_64K_ip_11_4_K8, 239488
-	PRCENTRY		xfft_hg_64K_ip_11_4_CORE, 239488
-	PRCENTRY		xfft_hg_64K_ip_tp_11_4_P4, 239488
-	DD			0
-	DD	1485000, 73728,	0.00422
-	PRCENTRY		xfft_r4_72K_768_4_CORE, 662016
-	PRCENTRY		xfft_r4_72K_np_768_4_CORE, 662016
-	DD			0
-	DD	1648000, 81920, 0.00474
-	PRCENTRY		xfft_r4dwpn_80K_8_4_CORE, 366592
-	PRCENTRY		xfft_r4dwpn_80K_np_8_4_CORE, 366592
-	PRCENTRY		xfft_r4delay_80K_8_4_CORE, 308736
-	PRCENTRY		xfft_r4delay_80K_np_8_4_CORE, 308736
-	PRCENTRY		xfft_r4_80K_1280_4_CORE, 832512
-	PRCENTRY		xfft_r4_80K_np_1280_4_CORE, 832512
-	PRCENTRY		xfft_r4_80K_10_4_CORE, 745216
-	PRCENTRY		xfft_r4_80K_np_10_4_CORE, 745216
-	PRCENTRY		xfft_hg_80K_ip_11_4_K8, 273408
-	PRCENTRY		xfft_hg_80K_ip_11_4_CORE, 273408
-	PRCENTRY		xfft_hg_80K_ip_tp_11_4_P4, 273408
-	DD			0
-	DD	1725000, 86016, 0.00503
-	PRCENTRY		xfft_r4_84K_768_4_CORE, 767232
-	PRCENTRY		xfft_r4_84K_np_768_4_CORE, 767232
-	DD			0
-	DD	1966000, 98304, 0.00584
-	PRCENTRY		xfft_r4dwpn_96K_768_4_CORE, 645632
-	PRCENTRY		xfft_r4dwpn_96K_np_768_4_CORE, 645632
-	PRCENTRY		xfft_r4dwpn_96K_8_4_CORE, 413184
-	PRCENTRY		xfft_r4dwpn_96K_np_8_4_CORE, 413184
-	PRCENTRY		xfft_r4delay_96K_768_4_CORE, 505344
-	PRCENTRY		xfft_r4delay_96K_np_768_4_CORE, 505344
-	PRCENTRY		xfft_r4delay_96K_8_4_CORE, 352768
-	PRCENTRY		xfft_r4delay_96K_np_8_4_CORE, 352768
-	PRCENTRY		xfft_r4_96K_10_4_CORE, 885248
-	PRCENTRY		xfft_r4_96K_np_10_4_CORE, 885248
-	PRCENTRY		xfft_r4_96K_768_4_CORE, 921600
-	PRCENTRY		xfft_r4_96K_np_768_4_CORE, 921600
-	PRCENTRY		xfft_hg_96K_ip_11_4_K8, 306688
-	PRCENTRY		xfft_hg_96K_ip_11_4_CORE, 306688
-	PRCENTRY		xfft_hg_96K_ip_tp_11_4_P4, 306688
-	DD			0
-	DD	2287000, 114688, 0.00693
-	PRCENTRY		xfft_r4dwpn_112K_8_4_CORE, 461824
-	PRCENTRY		xfft_r4dwpn_112K_np_8_4_CORE, 461824
-	PRCENTRY		xfft_r4delay_112K_8_4_CORE, 398848
-	PRCENTRY		xfft_r4delay_112K_np_8_4_CORE, 398848
-	PRCENTRY		xfft_r4_112K_10_4_CORE, 1025280
-	PRCENTRY		xfft_r4_112K_np_10_4_CORE, 1025280
-	PRCENTRY		xfft_hg_112K_ip_11_4_K8, 340096
-	PRCENTRY		xfft_hg_112K_ip_11_4_CORE, 340096
-	PRCENTRY		xfft_hg_112K_ip_tp_11_4_P4, 340096
-	DD			0
-	DD	2452000, 122880, 0.00730
-	PRCENTRY		xfft_r4_120K_1280_4_CORE, 1100288
-	PRCENTRY		xfft_r4_120K_np_1280_4_CORE, 1100288
-	DD			0
-	DD	2614000, 131072, 0.00779
-	PRCENTRY		xfft_r4dwpn_128K_10_4_CORE, 860672
-	PRCENTRY		xfft_r4dwpn_128K_np_10_4_CORE, 860672
-	PRCENTRY		xfft_r4dwpn_128K_8_4_CORE, 509952
-	PRCENTRY		xfft_r4dwpn_128K_np_8_4_CORE, 509952
-	PRCENTRY		xfft_r4delay_128K_10_4_CORE, 675328
-	PRCENTRY		xfft_r4delay_128K_np_10_4_CORE, 675328
-	PRCENTRY		xfft_r4delay_128K_8_4_CORE, 444416
-	PRCENTRY		xfft_r4delay_128K_np_8_4_CORE, 444416
-	PRCENTRY		xfft_hg_128K_ip_11_4_K8, 373248
-	PRCENTRY		xfft_hg_128K_ip_11_4_CORE, 373248
-	PRCENTRY		xfft_hg_128K_ip_tp_11_4_P4, 373248
-	DD			0
-	DD	2929000, 147456, 0.00870
-	PRCENTRY		xfft_r4_144K_1536_4_CORE, 1319424
-	PRCENTRY		xfft_r4_144K_np_1536_4_CORE, 1319424
-	DD			0
-	DD	3251000, 163840, 0.00914
-	PRCENTRY		xfft_r4dwpn_160K_1280_4_CORE, 1067520
-	PRCENTRY		xfft_r4dwpn_160K_np_1280_4_CORE, 1067520
-	PRCENTRY		xfft_r4dwpn_160K_8_4_CORE, 704000
-	PRCENTRY		xfft_r4dwpn_160K_np_8_4_CORE, 704000
-	PRCENTRY		xfft_r4delay_160K_1280_4_CORE, 837120
-	PRCENTRY		xfft_r4delay_160K_np_1280_4_CORE, 837120
-	PRCENTRY		xfft_r4delay_160K_8_4_CORE, 607232
-	PRCENTRY		xfft_r4delay_160K_np_8_4_CORE, 607232
-	PRCENTRY		xfft_hg_160K_10_2_K8, 471424
-	PRCENTRY		xfft_hg_160K_10_4_CORE, 471424
-	PRCENTRY		xfft_hg_160K_tp_10_2_P4, 471424
-	DD			0
-	DD	3875000, 196608, 0.0114
-	PRCENTRY		xfft_r4dwpn_192K_768_4_CORE, 1210368
-	PRCENTRY		xfft_r4dwpn_192K_np_768_4_CORE, 1210368
-	PRCENTRY		xfft_r4dwpn_192K_8_4_CORE, 792576
-	PRCENTRY		xfft_r4dwpn_192K_np_8_4_CORE, 792576
-	PRCENTRY		xfft_r4delay_192K_768_4_CORE, 979968
-	PRCENTRY		xfft_r4delay_192K_np_768_4_CORE, 979968
-	PRCENTRY		xfft_r4delay_192K_8_4_CORE, 695296
-	PRCENTRY		xfft_r4delay_192K_np_8_4_CORE, 695296
-	PRCENTRY		xfft_r4_192K_768_4_CORE, 1861632
-	PRCENTRY		xfft_r4_192K_np_768_4_CORE, 1861632
-	PRCENTRY		xfft_hg_192K_10_2_K8, 555392
-	PRCENTRY		xfft_hg_192K_10_4_CORE, 555392, 256
-	PRCENTRY		xfft_hg_192K_tp_10_4_P4, 555392, 256
-	PRCENTRY		xfft_hg_192K_tp_10_1_P4, 555392
-	DD			0
-	DD	4512000, 229376, 0.0134
-	PRCENTRY		xfft_r4dwpn_224K_8_4_CORE, 813568
-	PRCENTRY		xfft_r4dwpn_224K_np_8_4_CORE, 813568
-	PRCENTRY		xfft_r4delay_224K_8_4_CORE, 787456
-	PRCENTRY		xfft_r4delay_224K_np_8_4_CORE, 787456
-	PRCENTRY		xfft_hg_224K_10_2_K8, 639616
-	PRCENTRY		xfft_hg_224K_10_4_CORE, 639616, 256
-	PRCENTRY		xfft_hg_224K_tp_10_4_P4, 639616, 256
-	PRCENTRY		xfft_hg_224K_tp_10_2_P4, 639616
-	DD			0
-	DD	4837000, 245760, 0.0141
-	PRCENTRY		xfft_r4dwpn_240K_768_4_CORE, 962560
-	PRCENTRY		xfft_r4dwpn_240K_np_768_4_CORE, 962560
-	PRCENTRY		xfft_r4delay_240K_768_4_CORE, 886272
-	PRCENTRY		xfft_r4delay_240K_np_768_4_CORE, 886272
-	DD			0
-	DD	5158000, 262144, 0.0150
-	PRCENTRY		xfft_r4dwpn_256K_10_4_CORE, 1683456
-	PRCENTRY		xfft_r4dwpn_256K_np_10_4_CORE, 1683456
-	PRCENTRY		xfft_r4dwpn_256K_8_4_CORE, 976896
-	PRCENTRY		xfft_r4dwpn_256K_np_8_4_CORE, 976896
-	PRCENTRY		xfft_r4delay_256K_10_4_CORE, 1305600
-	PRCENTRY		xfft_r4delay_256K_np_10_4_CORE, 1305600
-	PRCENTRY		xfft_r4delay_256K_8_4_CORE, 878592
-	PRCENTRY		xfft_r4delay_256K_np_8_4_CORE, 878592
-	PRCENTRY		xfft_hg_256K_10_2_K8, 721920
-	PRCENTRY		xfft_hg_256K_10_4_CORE, 721920, 256
-	PRCENTRY		xfft_hg_256K_tp_10_4_P4, 721920, 256
-	PRCENTRY		xfft_hg_256K_tp_10_2_P4, 721920
-	DD			0
-	DD	5781000, 294912, 0.0172
-	PRCENTRY		xfft_r4dwpn_288K_768_4_CORE, 1076736, 256
-	PRCENTRY		xfft_r4delay_288K_768_4_CORE, 1012224, 256
-	DD			0
-	DD	6421000, 327680, 0.0192
-	PRCENTRY		xfft_r4dwpn_320K_1280_4_CORE, 2009088, 256
-	PRCENTRY		xfft_r4dwpn_320K_10_4_CORE, 1372160, 256
-	PRCENTRY		xfft_r4delay_320K_1280_4_CORE, 1623040, 256
-	PRCENTRY		xfft_r4delay_320K_10_4_CORE, 1179136, 256
-	PRCENTRY		xfft_hg_320K_10_1_K8, 890624
-	PRCENTRY		xfft_hg_320K_10_4_CORE, 890624, 256
-	PRCENTRY		xfft_hg_320K_tp_10_4_P4, 890624, 256
-	PRCENTRY		xfft_hg_320K_tp_10_1_P4, 890624
-	DD			0
-	DD	6716000, 344064, 0.0205
-	PRCENTRY		xfft_r4dwpn_336K_768_4_CORE, 1293312, 256
-	PRCENTRY		xfft_r4delay_336K_768_4_CORE, 1140224, 256
-	DD			0
-	DD	7651000, 393216, 0.0238
-	PRCENTRY		xfft_r4dwpn_384K_1536_4_CORE, 2408448, 256
-	PRCENTRY		xfft_r4dwpn_384K_10_4_CORE, 1431040, 256
-	PRCENTRY		xfft_r4dwpn_384K_768_4_CORE, 1308672, 256
-	PRCENTRY		xfft_r4delay_384K_1536_4_CORE, 1944576, 256
-	PRCENTRY		xfft_r4delay_384K_10_4_CORE, 1346048, 256
-	PRCENTRY		xfft_r4delay_384K_768_4_CORE, 1267712, 256
-	PRCENTRY		xfft_hg_384K_10_1_K8, 1058432
-	PRCENTRY		xfft_hg_384K_10_4_CORE, 1058432, 256
-	PRCENTRY		xfft_hg_384K_tp_10_4_P4, 1058432, 256
-	PRCENTRY		xfft_hg_384K_tp_10_2_P4, 1058432
-	DD			0
-	DD	7967000, 409600, 0.0248
-	PRCENTRY		xfft_r4dwpn_400K_1280_4_CORE, 1701888, 256
-	PRCENTRY		xfft_r4delay_400K_1280_4_CORE, 1463808, 256
-	DD			0
-	DD	8908000, 458752, 0.0283
-	PRCENTRY		xfft_r4dwpn_448K_10_4_CORE, 1713152, 256
-	PRCENTRY		xfft_r4delay_448K_10_4_CORE, 1515008, 256
-	PRCENTRY		xfft_hg_448K_10_1_K8, 1226496
-	PRCENTRY		xfft_hg_448K_10_4_CORE, 1226496, 512
-	PRCENTRY		xfft_hg_448K_tp_10_4_P4, 1226496, 512
-	PRCENTRY		xfft_hg_448K_tp_10_2_P4, 1226496
-	DD			0
-	DD	9547000, 491520, 0.0298
-	PRCENTRY		xfft_r4dwpn_480K_1536_4_CORE, 2035712, 256
-	PRCENTRY		xfft_r4dwpn_480K_1280_4_CORE, 1912320, 256
-	PRCENTRY		xfft_r4dwpn_480K_768_4_CORE, 2027008, 512
-	PRCENTRY		xfft_r4delay_480K_1536_4_CORE, 1752576, 256
-	PRCENTRY		xfft_r4delay_480K_1280_4_CORE, 1671680, 256
-	PRCENTRY		xfft_r4delay_480K_768_4_CORE, 1741824, 512
-	DD			0
-	DD	10180000, 524288, 0.0319
-	PRCENTRY		xfft_r4dwpn_512K_11_4_CORE, 3350528, 256
-	PRCENTRY		xfft_r4dwpn_512K_10_4_CORE, 1884160, 256
-	PRCENTRY		xfft_r4delay_512K_11_4_CORE, 2595840, 256
-	PRCENTRY		xfft_r4delay_512K_10_4_CORE, 1683456, 256
-	PRCENTRY		xfft_hg_512K_10_1_K8, 1392640
-	PRCENTRY		xfft_hg_512K_10_4_CORE, 1392640, 512
-	PRCENTRY		xfft_hg_512K_tp_10_4_P4, 1392640, 512
-	PRCENTRY		xfft_hg_512K_tp_10_2_P4, 1392640
-	DD			0
-	DD	11100000, 573440, 0.0353
-	PRCENTRY		xfft_r4dwpn_560K_1280_4_CORE, 2124800, 256
-	PRCENTRY		xfft_r4delay_560K_1280_4_CORE, 1881600, 256
-	DD			0
-	DD	11410000, 589824, 0.0365
-	PRCENTRY		xfft_r4dwpn_576K_2304_4_CORE, 3745792, 1024
-	PRCENTRY		xfft_r4dwpn_576K_1536_4_CORE, 2287104, 256
-	PRCENTRY		xfft_r4dwpn_576K_768_4_CORE, 2279424, 512
-	PRCENTRY		xfft_r4delay_576K_2304_4_CORE, 2896896, 1024
-	PRCENTRY		xfft_r4delay_576K_1536_4_CORE, 2001408, 256
-	PRCENTRY		xfft_r4delay_576K_768_4_CORE, 1993728, 512
-	DD			0
-	DD	12650000, 655360, 0.0410
-	PRCENTRY		xfft_r4dwpn_640K_2560_4_CORE, 4005888, 256
-	PRCENTRY		xfft_r4dwpn_640K_11_4_CORE, 2711552, 256
-	PRCENTRY		xfft_r4dwpn_640K_1280_4_CORE, 2336768, 256
-	PRCENTRY		xfft_r4dwpn_640K_10_4_CORE, 2692608, 512
-	PRCENTRY		xfft_r4delay_640K_2560_4_CORE, 3230720, 256
-	PRCENTRY		xfft_r4delay_640K_11_4_CORE, 2338304, 256
-	PRCENTRY		xfft_r4delay_640K_1280_4_CORE, 2091008, 256
-	PRCENTRY		xfft_r4delay_640K_10_4_CORE, 2313216, 512
-	PRCENTRY		xfft_hg_640K_12_2_K8, 1214848
-	PRCENTRY		xfft_hg_640K_tp_12_2_P4, 1214848, 1024
-	PRCENTRY		xfft_hg_640K_11_4_CORE, 1437440, 256
-	PRCENTRY		xfft_hg_640K_tp_11_4_P4, 1437440, 256
-	PRCENTRY		xfft_hg_640K_tp_11_1_P4, 1437440
-	DD			0
-	DD	13250000, 688128, 0.0434
-	PRCENTRY		xfft_r4dwpn_672K_1536_4_CORE, 2540544, 256
-	PRCENTRY		xfft_r4dwpn_672K_768_4_CORE, 2535936, 512
-	PRCENTRY		xfft_r4delay_672K_1536_4_CORE, 2252288, 256
-	PRCENTRY		xfft_r4delay_672K_768_4_CORE, 2249728, 512
-	DD			0
-	DD	14160000, 737280, 0.0471
-	PRCENTRY		xfft_r4dwpn_720K_2304_4_CORE, 3024896, 256
-	PRCENTRY		xfft_r4delay_720K_2304_4_CORE, 2606592, 256
-	DD			0
-	DD	15070000, 786432, 0.0507
-	PRCENTRY		xfft_r4dwpn_768K_3072_4_CORE, 5009408, 256
-	PRCENTRY		xfft_r4dwpn_768K_11_4_CORE, 3044864, 256
-	PRCENTRY		xfft_r4dwpn_768K_1536_4_CORE, 2793472, 256
-	PRCENTRY		xfft_r4dwpn_768K_10_4_CORE, 3026944, 256
-	PRCENTRY		xfft_r4dwpn_768K_768_4_CORE, 2791424, 512
-	PRCENTRY		xfft_r4delay_768K_3072_4_CORE, 3877888, 256
-	PRCENTRY		xfft_r4delay_768K_11_4_CORE, 2669056, 256
-	PRCENTRY		xfft_r4delay_768K_1536_4_CORE, 2502656, 256
-	PRCENTRY		xfft_r4delay_768K_10_4_CORE, 2647040, 256
-	PRCENTRY		xfft_r4delay_768K_768_4_CORE, 2504704, 512
-	PRCENTRY		xfft_hg_768K_12_2_K8, 1413504
-	PRCENTRY		xfft_hg_768K_tp_12_2_P4, 1413504, 1024
-	PRCENTRY		xfft_hg_768K_11_4_CORE, 1703552, CELE_D
-	PRCENTRY		xfft_hg_768K_tp_11_4_P4, 1703552, CELE_D
-	PRCENTRY		xfft_hg_768K_tp_11_2_P4, 1703552, WILLI
-	PRCENTRY		xfft_hg_768K_np_10_1_P4, 2066816
-	DD			0
-	DD	15690000, 819200, 0.0528
-	PRCENTRY		xfft_r4dwpn_800K_2560_4_CORE, 3371008, 256
-	PRCENTRY		xfft_r4dwpn_800K_1280_4_CORE, 3350016, 256
-	PRCENTRY		xfft_r4delay_800K_2560_4_CORE, 2907648, 256
-	PRCENTRY		xfft_r4delay_800K_1280_4_CORE, 2876416, 256
-	DD			0
-	DD	16930000, 884736, 0.0582
-	PRCENTRY		xfft_r4dwpn_864K_2304_4_CORE, 3399168, 512
-	PRCENTRY		xfft_r4delay_864K_2304_4_CORE, 2978304, 512
-	DD			0
-	DD	17550000, 917504, 0.0607
-	PRCENTRY		xfft_r4dwpn_896K_11_4_CORE, 3136512, 256
-	PRCENTRY		xfft_r4dwpn_896K_10_4_CORE, 3121664, 256
-	PRCENTRY		xfft_r4delay_896K_11_4_CORE, 3001856, 256
-	PRCENTRY		xfft_r4delay_896K_10_4_CORE, 2984960, 256
-	PRCENTRY		xfft_hg_896K_12_2_K8, 1612416, 1024
-	PRCENTRY		xfft_hg_896K_12_1_K8, 1612416
-	PRCENTRY		xfft_hg_896K_tp_12_2_P4, 1612416, 1024
-	PRCENTRY		xfft_hg_896K_11_4_CORE, 1969920, CELE_D
-	PRCENTRY		xfft_hg_896K_tp_11_4_P4, 1969920, CELE_D
-	PRCENTRY		xfft_hg_896K_tp_11_2_P4, 1969920, WILLI
-	PRCENTRY		xfft_hg_896K_np_11_1_P4, 1969920
-	DD			0
-	DD	18800000, 983040, 0.0642
-	PRCENTRY		xfft_r4dwpn_960K_3840_4_CORE, 6244352, 512
-	PRCENTRY		xfft_r4dwpn_960K_3072_4_CORE, 4042752, 512
-	PRCENTRY		xfft_r4dwpn_960K_2560_4_CORE, 3786240, 512
-	PRCENTRY		xfft_r4dwpn_960K_1536_4_CORE, 4011520, 512
-	PRCENTRY		xfft_r4dwpn_960K_1280_4_CORE, 3766272, 512
-	PRCENTRY		xfft_r4dwpn_960K_768_4_CORE, 2287616, 1024
-	PRCENTRY		xfft_r4delay_960K_3840_4_CORE, 4830208, 512
-	PRCENTRY		xfft_r4delay_960K_3072_4_CORE, 3489280, 512
-	PRCENTRY		xfft_r4delay_960K_2560_4_CORE, 3320320, 512
-	PRCENTRY		xfft_r4delay_960K_1536_4_CORE, 3443712, 512
-	PRCENTRY		xfft_r4delay_960K_1280_4_CORE, 3292160, 512
-	PRCENTRY		xfft_r4delay_960K_768_4_CORE, 2101248, 1024
-	DD			0
-toonear	DD	19740000, 1032192, 0.0667
-toonear	PRCENTRY		xfft_r4dwpn_1008K_2304_4_CORE, 93352064, 512
-toonear	PRCENTRY		xfft_r4delay_1008K_2304_4_CORE, 3352064, 512
-toonear	DD			0
-	DD	20050000, 1048576, 0.0676
-	PRCENTRY		xfft_r4dwpn_1M_12_4_CORE, 6672384, 512
-	PRCENTRY		xfft_r4dwpn_1M_11_4_CORE, 3715072, 512
-	PRCENTRY		xfft_r4dwpn_1M_10_4_CORE, 3424256, 1024
-	PRCENTRY		xfft_r4delay_1M_12_4_CORE, 5164032, 512
-	PRCENTRY		xfft_r4delay_1M_11_4_CORE, 3334144, 512
-	PRCENTRY		xfft_r4delay_1M_10_4_CORE, 3321856, 256
-	PRCENTRY		xfft_hg_1024K_12_2_K8, 1809408, 1024
-	PRCENTRY		xfft_hg_1024K_12_1_K8, 1809408
-	PRCENTRY		xfft_hg_1024K_tp_12_1_P4, 1809408, 1024
-	PRCENTRY		xfft_hg_1024K_11_4_CORE, 2234368, 512
-	PRCENTRY		xfft_hg_1024K_tp_11_4_P4, 2234368, 512
-	PRCENTRY		xfft_hg_1024K_tp_11_2_P4, 2234368, 256
-	PRCENTRY		xfft_hg_1024K_np_11_1_P4, 2234368
-	DD			0
-	DD	21850000, 1146880, 0.0761
-	PRCENTRY		xfft_r4dwpn_1120K_2560_4_CORE, 4203520, 512
-	PRCENTRY		xfft_r4delay_1120K_2560_4_CORE, 3735040, 512
-	DD			0
-	DD	22490000, 1179648, 0.0784
-	PRCENTRY		xfft_r4dwpn_1152K_4608_4_CORE, 7475200, 512
-	PRCENTRY		xfft_r4dwpn_1152K_3072_4_CORE, 4539904, 512
-	PRCENTRY		xfft_r4dwpn_1152K_2304_4_CORE, 4151296, 512
-	PRCENTRY		xfft_r4delay_1152K_4608_4_CORE, 5778432, 512
-	PRCENTRY		xfft_r4delay_1152K_3072_4_CORE, 3983872, 512
-	PRCENTRY		xfft_r4delay_1152K_2304_4_CORE, 3725312, 512
-	DD			0
-	DD	23360000, 1228800, 0.0832
-	PRCENTRY		xfft_r4dwpn_1200K_3840_4_CORE, 5031936, 512
-	PRCENTRY		xfft_r4delay_1200K_3840_4_CORE, 4343296, 512
-	DD			0
-	DD	24930000, 1310720, 0.0892
-	PRCENTRY		xfft_r4dwpn_1280K_5120_4_CORE, 8335360
-	PRCENTRY		xfft_r4dwpn_1280K_12_4_CORE, 5378048
-	PRCENTRY		xfft_r4dwpn_1280K_2560_4_CORE, 4620288, 512
-	PRCENTRY		xfft_r4dwpn_1280K_11_4_CORE, 5342720, 256
-	PRCENTRY		xfft_r4dwpn_1280K_1280_4_CORE, 4605952, 256
-	PRCENTRY		xfft_r4dwpn_1280K_10_4_CORE, 3010560, 2048
-	PRCENTRY		xfft_r4delay_1280K_5120_4_CORE, 6450176
-	PRCENTRY		xfft_r4delay_1280K_12_4_CORE, 4644352
-	PRCENTRY		xfft_r4delay_1280K_2560_4_CORE, 4149248, 512
-	PRCENTRY		xfft_r4delay_1280K_11_4_CORE, 4586496, 256
-	PRCENTRY		xfft_r4delay_1280K_1280_4_CORE, 4130816, 256
-	PRCENTRY		xfft_r4delay_1280K_10_4_CORE, 2779136, 256
-	PRCENTRY		xfft_hg_1280K_12_1_K8, 2207488
-	PRCENTRY		xfft_hg_1280K_12_4_CORE, 2207488, CELE_D
-	PRCENTRY		xfft_hg_1280K_tp_12_4_P4, 2207488, CELE_D
-	PRCENTRY		xfft_hg_1280K_tp_11_2_P4, 2769152, WILLI
-	PRCENTRY		xfft_hg_1280K_np_11_1_P4, 2769152
-	DD			0
-	DD	26120000, 1376256, 0.0952
-	PRCENTRY		xfft_r4dwpn_1344K_3072_4_CORE, 5039104, 512
-	PRCENTRY		xfft_r4dwpn_1344K_1536_4_CORE, 5011968, 512
-	PRCENTRY		xfft_r4delay_1344K_3072_4_CORE, 4480512, 512
-	PRCENTRY		xfft_r4delay_1344K_1536_4_CORE, 4443136, 512
-	DD			0
-	DD	27900000, 1474560, 0.104
-	PRCENTRY		xfft_r4dwpn_1440K_4608_4_CORE, 6017024, 512
-	PRCENTRY		xfft_r4dwpn_1440K_3840_4_CORE, 5651968, 512
-	PRCENTRY		xfft_r4dwpn_1440K_2304_4_CORE, 5983744, 512
-	PRCENTRY		xfft_r4delay_1440K_4608_4_CORE, 5193216, 512
-	PRCENTRY		xfft_r4delay_1440K_3840_4_CORE, 4960768, 512
-	PRCENTRY		xfft_r4delay_1440K_2304_4_CORE, 5133312, 512
-	DD			0
-	DD	29690000, 1572864, 0.113
-	PRCENTRY		xfft_r4dwpn_1536K_6144_4_CORE, 10002432, 512
-	PRCENTRY		xfft_r4dwpn_1536K_12_4_CORE, 6039040, 512
-	PRCENTRY		xfft_r4dwpn_1536K_3072_4_CORE, 5537792, 512
-	PRCENTRY		xfft_r4dwpn_1536K_11_4_CORE, 6004736, 256
-	PRCENTRY		xfft_r4dwpn_1536K_1536_4_CORE, 5513216, 256
-	PRCENTRY		xfft_r4dwpn_1536K_10_4_CORE, 3039232, 1024
-	PRCENTRY		xfft_r4delay_1536K_12_1_K8, 7740000
-	PRCENTRY		xfft_r4delay_1536K_6144_4_CORE, 7740416, 512
-	PRCENTRY		xfft_r4delay_1536K_12_4_CORE, 5302784, 512
-	PRCENTRY		xfft_r4delay_1536K_3072_4_CORE, 4976640, 512
-	PRCENTRY		xfft_r4delay_1536K_11_4_CORE, 5248000, 256
-	PRCENTRY		xfft_r4delay_1536K_1536_4_CORE, 4943872, 256
-	PRCENTRY		xfft_r4delay_1536K_10_4_CORE, 2797568, 1024
-	PRCENTRY		xfft_r4delay_1536K_12_4_P4, 5302784, 1024
-	PRCENTRY		xfft_r4delay_1536K_tp_12_4_P4, 5302784, 512
-	PRCENTRY		xfft_r4delay_1536K_tp_12_1_P4, 5302784, CELE_D
-	PRCENTRY		xfft_hg_1536K_12_1_K8, 2604672
-	PRCENTRY		xfft_hg_1536K_12_4_CORE, 2604672, 512
-	PRCENTRY		xfft_hg_1536K_tp_12_4_P4, 2604672, 512
-	PRCENTRY		xfft_hg_1536K_tp_12_1_P4, 2604672, CELE_D
-	PRCENTRY		xfft_hg_1536K_tp_11_1_P4, 3301760, WILLI
-	PRCENTRY		xfft_hg_1536K_np_11_1_P4, 3301760
-	DD			0
-	DD	30900000, 1638400, 0.119
-	PRCENTRY		xfft_r4dwpn_1600K_5120_4_CORE, 6713344, 512
-	PRCENTRY		xfft_r4dwpn_1600K_2560_4_CORE, 6657536, 512
-	PRCENTRY		xfft_r4dwpn_1600K_1280_4_CORE, 3725312, 512
-	PRCENTRY		xfft_r4delay_1600K_5120_4_CORE, 5799424, 512
-	PRCENTRY		xfft_r4delay_1600K_2560_4_CORE, 5712896, 512
-	PRCENTRY		xfft_r4delay_1600K_1280_4_CORE, 3448832, 512
-	DD			0
-	DD	32420000, 1720320, 0.125
-	PRCENTRY		xfft_r4dwpn_1680K_3840_4_CORE, 5829632, 512
-	PRCENTRY		xfft_r4delay_1680K_3840_4_CORE, 5580288, 512
-	DD			0
-	DD	33370000, 1769472, 0.129
-	PRCENTRY		xfft_r4dwpn_1728K_4608_4_CORE, 6759936, 512
-	PRCENTRY		xfft_r4dwpn_1728K_2304_4_CORE, 6727680, 512
-	PRCENTRY		xfft_r4delay_1728K_4608_4_CORE, 5933568, 512
-	PRCENTRY		xfft_r4delay_1728K_2304_4_CORE, 5876736, 512
-	DD			0
-	DD	34560000, 1835008, 0.135
-	PRCENTRY		xfft_r4dwpn_1792K_12_4_CORE, 6702080, 512
-	PRCENTRY		xfft_r4dwpn_1792K_11_4_CORE, 6670848, 512
-	PRCENTRY		xfft_r4dwpn_1792K_10_4_CORE, 4081152, 1024
-	PRCENTRY		xfft_r4delay_1792K_12_4_CORE, 5963264, 512
-	PRCENTRY		xfft_r4delay_1792K_11_4_CORE, 5913600, 512
-	PRCENTRY		xfft_r4delay_1792K_10_4_CORE, 3336192, 1024
-	PRCENTRY		xfft_hg_1792K_12_1_K8, 3002112
-	PRCENTRY		xfft_hg_1792K_12_4_CORE, 3002112, 512
-	PRCENTRY		xfft_hg_1792K_tp_12_4_P4, 3002112, 512
-	PRCENTRY		xfft_hg_1792K_tp_12_1_P4, 3002112, CELE_D
-	PRCENTRY		xfft_hg_1792K_tp_11_1_P4, 3834368, WILLI
-	PRCENTRY		xfft_hg_1792K_np_11_1_P4, 3834368
-	DD			0
-	DD	37030000, 1966080, 0.145
-	PRCENTRY		xfft_r4dwpn_1920K_7680_4_CORE, 12472320, 512
-	PRCENTRY		xfft_r4dwpn_1920K_6144_4_CORE, 8052736, 512
-	PRCENTRY		xfft_r4dwpn_1920K_5120_4_CORE, 7538176, 512
-	PRCENTRY		xfft_r4dwpn_1920K_3840_4_CORE, 6895616, 512
-	PRCENTRY		xfft_r4dwpn_1920K_3072_4_CORE, 7984640, 512
-	PRCENTRY		xfft_r4dwpn_1920K_2560_4_CORE, 7483392, 512
-	PRCENTRY		xfft_r4dwpn_1920K_1536_4_CORE, 4444160, 512
-	PRCENTRY		xfft_r4delay_1920K_7680_4_CORE, 9645056, 512
-	PRCENTRY		xfft_r4delay_1920K_6144_4_CORE, 6958592, 512
-	PRCENTRY		xfft_r4delay_1920K_5120_4_CORE, 6621696, 512
-	PRCENTRY		xfft_r4delay_1920K_3840_4_CORE, 6199296, 512
-	PRCENTRY		xfft_r4delay_1920K_3072_4_CORE, 6851584, 512
-	PRCENTRY		xfft_r4delay_1920K_2560_4_CORE, 6538240, 512
-	PRCENTRY		xfft_r4delay_1920K_1536_4_CORE, 4122624, 512
-	DD			0
-toonear	DD	38570000, 2048000, 0.151
-toonear	PRCENTRY		xfft_r4dwpn_2000K_6400_4_CORE, 97214592, 512
-toonear	PRCENTRY		xfft_r4delay_2000K_6400_4_CORE, 7214592, 512
-toonear	DD			0
-toonear	DD	38880000, 2064384, 0.153
-toonear	PRCENTRY		xfft_r4dwpn_2016K_4608_4_CORE, 96675968, 512
-toonear	PRCENTRY		xfft_r4dwpn_2016K_2304_4_CORE, 96624256, 512
-toonear	PRCENTRY		xfft_r4delay_2016K_4608_4_CORE, 6675968, 512
-toonear	PRCENTRY		xfft_r4delay_2016K_2304_4_CORE, 6624256, 512
-toonear	DD			0
-	DD	39500000, 2097152, 0.155
-	PRCENTRY		xfft_r4dwpn_2M_13_4_CORE, 12800000, 512
-	PRCENTRY		xfft_r4dwpn_2M_12_4_CORE, 7364608, 512
-	PRCENTRY		xfft_r4dwpn_2M_11_4_CORE, 7335936, 512
-	PRCENTRY		xfft_r4dwpn_2M_10_4_CORE, 3817472, 1024
-	PRCENTRY		xfft_r4delay_2M_12_1_K8, 33390000
-	PRCENTRY		xfft_r4delay_2M_13_4_CORE, 10312704, 512
-	PRCENTRY		xfft_r4delay_2M_12_4_CORE, 6623232, 512
-	PRCENTRY		xfft_r4delay_2M_11_4_CORE, 6578176, 512
-	PRCENTRY		xfft_r4delay_2M_10_4_CORE, 3616768, 1024
-	PRCENTRY		xfft_r4delay_2M_12_4_P4, 6623232, 512
-	PRCENTRY		xfft_r4delay_2M_tp_12_4_P4, 6623232, 512
-	PRCENTRY		xfft_r4delay_2M_tp_12_1_P4, 6623232, CELE_D
-	PRCENTRY		xfft_r4delay_2M_tp_12_2_P4, 6623232, WILLI
-	PRCENTRY		xfft_hg_2048K_12_1_K8, 3397632
-	PRCENTRY		xfft_hg_2048K_12_4_CORE, 3397632, 512
-	PRCENTRY		xfft_hg_2048K_tp_12_4_P4, 3397632, 512
-	PRCENTRY		xfft_hg_2048K_tp_12_1_P4, 3397632, CELE_D
-	PRCENTRY		xfft_hg_2048K_tp_12_2_P4, 3397632, WILLI
-	PRCENTRY		xfft_hg_2048K_np_11_1_P4, 4362240
-	DD			0
-	DD	43060000, 2293760, 0.175
-	PRCENTRY		xfft_r4dwpn_2240K_5120_4_CORE, 8365056, 512
-	PRCENTRY		xfft_r4dwpn_2240K_2560_4_CORE, 8313344, 512
-	PRCENTRY		xfft_r4delay_2240K_5120_4_CORE, 7446016, 512
-	PRCENTRY		xfft_r4delay_2240K_2560_4_CORE, 7367680, 512
-	DD			0
-	DD	44250000, 2359296, 0.181
-	PRCENTRY		xfft_r4dwpn_2304K_9216_4_CORE, 14970880, 512
-	PRCENTRY		xfft_r4dwpn_2304K_6144_4_CORE, 9041408, 512
-	PRCENTRY		xfft_r4dwpn_2304K_4608_4_CORE, 8249344, 512
-	PRCENTRY		xfft_r4dwpn_2304K_3072_4_CORE, 8974336, 512
-	PRCENTRY		xfft_r4dwpn_2304K_2304_4_CORE, 8222720, 1024
-	PRCENTRY		xfft_r4delay_2304K_9216_4_CORE, 11578368, 512
-	PRCENTRY		xfft_r4delay_2304K_6144_4_CORE, 7944704, 512
-	PRCENTRY		xfft_r4delay_2304K_4608_4_CORE, 7417856, 512
-	PRCENTRY		xfft_r4delay_2304K_3072_4_CORE, 7840768, 512
-	PRCENTRY		xfft_r4delay_2304K_2304_4_CORE, 7370752, 1024
-	DD			0
-	DD	46030000, 2457600, 0.191
-	PRCENTRY		xfft_r4dwpn_2400K_7680_4_CORE, 10031104, 512
-	PRCENTRY		xfft_r4dwpn_2400K_6400_4_CORE, 9383424, 1024
-	PRCENTRY		xfft_r4dwpn_2400K_3840_4_CORE, 9956864, 512
-	PRCENTRY		xfft_r4delay_2400K_7680_4_CORE, 8666624, 512
-	PRCENTRY		xfft_r4delay_2400K_6400_4_CORE, 8241664, 1024
-	PRCENTRY		xfft_r4delay_2400K_3840_4_CORE, 8541184, 512
-	DD			0
-	DD	49100000, 2621440, 0.204
-	PRCENTRY		xfft_r4dwpn_2560K_10240_4_CORE, 16654336, 512
-	PRCENTRY		xfft_r4dwpn_2560K_13_4_CORE, 10723328, 512
-	PRCENTRY		xfft_r4dwpn_2560K_12_4_CORE, 10630656, 1024
-	PRCENTRY		xfft_r4dwpn_2560K_2560_4_CORE, 9142272, 512
-	PRCENTRY		xfft_r4dwpn_2560K_11_4_CORE, 5890048, 512
-	PRCENTRY		xfft_r4dwpn_2560K_10_4_CORE, 5900288, 512
-	PRCENTRY		xfft_r4delay_2560K_10240_4_CORE, 12884992, 512
-	PRCENTRY		xfft_r4delay_2560K_13_4_CORE, 9268736, 512
-	PRCENTRY		xfft_r4delay_2560K_12_4_CORE, 9120768, 1024
-	PRCENTRY		xfft_r4delay_2560K_2560_4_CORE, 8196096, 512
-	PRCENTRY		xfft_r4delay_2560K_11_4_CORE, 5478400, 512
-	PRCENTRY		xfft_r4delay_2560K_10_4_CORE, 5513216, 1024
-	PRCENTRY		xfft_hg_2560K_13_1_K8, 3747584, 512
-	PRCENTRY		xfft_hg_2560K_12_1_K8, 4194560
-	PRCENTRY		xfft_hg_2560K_12_4_CORE, 4194560, 512
-	PRCENTRY		xfft_hg_2560K_tp_12_4_P4, 4194560, 512
-	PRCENTRY		xfft_hg_2560K_tp_12_1_P4, 4194560
-	DD			0
-	DD	51450000, 2752512, 0.218
-	PRCENTRY		xfft_r4dwpn_2688K_6144_4_CORE, 10032128, 512
-	PRCENTRY		xfft_r4dwpn_2688K_3072_4_CORE, 9265664, 1024
-	PRCENTRY		xfft_r4delay_2688K_6144_4_CORE, 8932864, 512
-	PRCENTRY		xfft_r4delay_2688K_3072_4_CORE, 8834048, 512
-	DD			0
-	DD	53460000, 2867200, 0.232
-	PRCENTRY		xfft_r4dwpn_2800K_6400_4_CORE, 10415104, 512
-	PRCENTRY		xfft_r4delay_2800K_6400_4_CORE, 9270784, 512
-	DD			0
-	DD	54950000, 2949120, 0.240
-	PRCENTRY		xfft_r4dwpn_2880K_9216_4_CORE, 12038144, 512
-	PRCENTRY		xfft_r4dwpn_2880K_7680_4_CORE, 11265536, 512
-	PRCENTRY		xfft_r4dwpn_2880K_4608_4_CORE, 11924992, 1024
-	PRCENTRY		xfft_r4dwpn_2880K_3840_4_CORE, 11192320, 512
-	PRCENTRY		xfft_r4dwpn_2880K_2304_4_CORE, 6588416, 512
-	PRCENTRY		xfft_r4delay_2880K_9216_4_CORE, 10403328, 512
-	PRCENTRY		xfft_r4delay_2880K_7680_4_CORE, 9898496, 512
-	PRCENTRY		xfft_r4delay_2880K_4608_4_CORE, 10226688, 1024
-	PRCENTRY		xfft_r4delay_2880K_3840_4_CORE, 9776128, 512
-	PRCENTRY		xfft_r4delay_2880K_2304_4_CORE, 6131712, 512
-	DD			0
-	DD	58520000, 3145728, 0.259
-	PRCENTRY		xfft_r4dwpn_3M_12288_4_CORE, 19976192, 512
-	PRCENTRY		xfft_r4dwpn_3M_13_4_CORE, 12039680, 512
-	PRCENTRY		xfft_r4dwpn_3M_6144_4_CORE, 11022336, 512
-	PRCENTRY		xfft_r4dwpn_3M_12_4_CORE, 11948032, 512
-	PRCENTRY		xfft_r4dwpn_3M_3072_4_CORE, 10960896, 512
-	PRCENTRY		xfft_r4dwpn_3M_11_4_CORE, 5918720, 512
-	PRCENTRY		xfft_r4dwpn_3M_10_4_CORE, 5939200, 1024
-	PRCENTRY		xfft_r4delay_3M_12288_4_CORE, 15453184, 512
-	PRCENTRY		xfft_r4delay_3M_13_4_CORE, 10582528, 512
-	PRCENTRY		xfft_r4delay_3M_6144_4_CORE, 9920512, 512
-	PRCENTRY		xfft_r4delay_3M_12_4_CORE, 10437632, 512
-	PRCENTRY		xfft_r4delay_3M_3072_4_CORE, 9826304, 512
-	PRCENTRY		xfft_r4delay_3M_11_4_CORE, 5496832, 512
-	PRCENTRY		xfft_r4delay_3M_10_4_CORE, 5550080, 512
-	PRCENTRY		xfft_hg_3072K_13_1_K8, 4406912, 512
-	PRCENTRY		xfft_hg_3072K_12_1_K8, 4989312
-	PRCENTRY		xfft_hg_3072K_12_4_CORE, 4989312, 512
-	PRCENTRY		xfft_hg_3072K_tp_12_4_P4, 4989312, 512
-	PRCENTRY		xfft_hg_3072K_tp_12_1_P4, 4989312
-	DD			0
-	DD	60940000, 3276800, 0.275
-	PRCENTRY		xfft_r4dwpn_3200K_12800_4_CORE, 20754432, 512
-	PRCENTRY		xfft_r4dwpn_3200K_10240_4_CORE, 13393920, 512
-	PRCENTRY		xfft_r4dwpn_3200K_5120_4_CORE, 13276672, 512
-	PRCENTRY		xfft_r4dwpn_3200K_2560_4_CORE, 7319552, 512
-	PRCENTRY		xfft_r4delay_3200K_12800_4_CORE, 16043008, 512
-	PRCENTRY		xfft_r4delay_3200K_10240_4_CORE, 11578880, 512
-	PRCENTRY		xfft_r4delay_3200K_5120_4_CORE, 11389952, 512
-	PRCENTRY		xfft_r4delay_3200K_2560_4_CORE, 6817792, 512
-	DD			0
-	DD	63970000, 3440640, 0.294
-	PRCENTRY		xfft_r4dwpn_3360K_7680_4_CORE, 12502016, 512
-	PRCENTRY		xfft_r4dwpn_3360K_3840_4_CORE, 12431872, 512
-	PRCENTRY		xfft_r4delay_3360K_7680_4_CORE, 11132416, 512
-	PRCENTRY		xfft_r4delay_3360K_3840_4_CORE, 11015168, 512
-	DD			0
-	DD	65790000, 3538944, 0.305
-	PRCENTRY		xfft_r4dwpn_3456K_9216_4_CORE, 13518336, 512
-	PRCENTRY		xfft_r4dwpn_3456K_4608_4_CORE, 13406208, 512
-	PRCENTRY		xfft_r4dwpn_3456K_2304_4_CORE, 6617088, 512
-	PRCENTRY		xfft_r4delay_3456K_9216_4_CORE, 11880960, 512
-	PRCENTRY		xfft_r4delay_3456K_4608_4_CORE, 11707392, 512
-	PRCENTRY		xfft_r4delay_3456K_2304_4_CORE, 6150144, 512
-	DD			0
-	DD	68130000, 3670016, 0.323
-	PRCENTRY		xfft_r4dwpn_3584K_13_4_CORE, 13358080, 512
-	PRCENTRY		xfft_r4dwpn_3584K_12_4_CORE, 13269504, 512
-	PRCENTRY		xfft_r4dwpn_3584K_11_4_CORE, 8074752, 512
-	PRCENTRY		xfft_r4dwpn_3584K_10_4_CORE, 7018496, 1024
-	PRCENTRY		xfft_r4delay_3584K_13_4_CORE, 11898368, 512
-	PRCENTRY		xfft_r4delay_3584K_12_4_CORE, 11758592, 512
-	PRCENTRY		xfft_r4delay_3584K_11_4_CORE, 6559744, 512
-	PRCENTRY		xfft_r4delay_3584K_10_4_CORE, 6627328, 1024
-	PRCENTRY		xfft_hg_3584K_13_1_K8, 5066496, 512
-	PRCENTRY		xfft_hg_3584K_12_1_K8, 5784064
-	PRCENTRY		xfft_hg_3584K_12_4_CORE, 5784064, 1024
-	PRCENTRY		xfft_hg_3584K_12_4_P4, 5784064, 1024
-	PRCENTRY		xfft_hg_3584K_tp_12_2_P4, 5784064, 512
-	PRCENTRY		xfft_hg_3584K_tp_12_1_P4, 5784064
-	DD			0
-	DD	73060000, 3932160, 0.352
-	PRCENTRY		xfft_r4dwpn_3840K_15360_4_CORE, 24965120, 512
-	PRCENTRY		xfft_r4dwpn_3840K_12288_4_CORE, 16060416, 512
-	PRCENTRY		xfft_r4dwpn_3840K_10240_4_CORE, 15037952, 512
-	PRCENTRY		xfft_r4dwpn_3840K_7680_4_CORE, 13737984, 512
-	PRCENTRY		xfft_r4dwpn_3840K_6144_4_CORE, 15926784, 512
-	PRCENTRY		xfft_r4dwpn_3840K_5120_4_CORE, 14921728, 512
-	PRCENTRY		xfft_r4dwpn_3840K_3840_4_CORE, 13670400, 512
-	PRCENTRY		xfft_r4dwpn_3840K_3072_4_CORE, 8761344, 512
-	PRCENTRY		xfft_r4delay_3840K_15360_4_CORE, 19311616, 512
-	PRCENTRY		xfft_r4delay_3840K_12288_4_CORE, 13884928, 512
-	PRCENTRY		xfft_r4delay_3840K_10240_4_CORE, 13220352, 512
-	PRCENTRY		xfft_r4delay_3840K_7680_4_CORE, 12365824, 512
-	PRCENTRY		xfft_r4delay_3840K_6144_4_CORE, 13663232, 512
-	PRCENTRY		xfft_r4delay_3840K_5120_4_CORE, 13034496, 512
-	PRCENTRY		xfft_r4delay_3840K_3840_4_CORE, 12253184, 512
-	PRCENTRY		xfft_r4delay_3840K_3072_4_CORE, 8169472, 512
-	DD			0
-	DD	76090000, 4096000, 0.371
-	PRCENTRY		xfft_r4dwpn_4000K_12800_4_CORE, 16674816, 512
-	PRCENTRY		xfft_r4dwpn_4000K_6400_4_CORE, 16555520, 512
-	PRCENTRY		xfft_r4delay_4000K_12800_4_CORE, 14409216, 512
-	PRCENTRY		xfft_r4delay_4000K_6400_4_CORE, 14197760, 512
-	DD			0
-toonear	DD	76680000, 4128768, 0.375
-toonear	PRCENTRY		xfft_r4dwpn_4032K_9216_4_CORE, 913360640, 512
-toonear	PRCENTRY		xfft_r4dwpn_4032K_4608_4_CORE, 913192192, 512
-toonear	PRCENTRY		xfft_r4dwpn_4032K_2304_4_CORE, 97344128, 1024
-toonear	PRCENTRY		xfft_r4delay_4032K_9216_4_CORE, 13360640, 512
-toonear	PRCENTRY		xfft_r4delay_4032K_4608_4_CORE, 13192192, 512
-toonear	PRCENTRY		xfft_r4delay_4032K_2304_4_CORE, 7344128, 1024
-toonear	DD			0
-	DD	77910000, 4194304, 0.382
-	PRCENTRY		xfft_r4dwpn_4M_14_4_CORE, 26628096, 1024
-	PRCENTRY		xfft_r4dwpn_4M_13_4_CORE, 14675968, 1024
-	PRCENTRY		xfft_r4dwpn_4M_13_2_CORE, 14675968, 1024
-	PRCENTRY		xfft_r4dwpn_4M_13_1_CORE, 14675968, 1024
-	PRCENTRY		xfft_r4dwpn_4M_12_4_CORE, 14589952, 1024
-	PRCENTRY		xfft_r4dwpn_4M_11_4_CORE, 8613888, 1024
-	PRCENTRY		xfft_r4dwpn_4M_10_4_CORE, 7581696, 2048
-	PRCENTRY		xfft_r4dwpn_4M_10_2_CORE, 7581696, 1024
-	PRCENTRY		xfft_r4delay_4M_12_1_K8, 66574080
-	PRCENTRY		xfft_r4delay_4M_14_4_CORE, 20597760, 2048
-	PRCENTRY		xfft_r4delay_4M_13_4_CORE, 13213696, 1024
-	PRCENTRY		xfft_r4delay_4M_13_2_CORE, 13213696, 1024
-	PRCENTRY		xfft_r4delay_4M_13_1_CORE, 13213696, 1024
-	PRCENTRY		xfft_r4delay_4M_12_4_CORE, 13078528, 1024
-	PRCENTRY		xfft_r4delay_4M_11_4_CORE, 7102464, 1024
-	PRCENTRY		xfft_r4delay_4M_10_4_CORE, 7188480, 1024
-	PRCENTRY		xfft_r4delay_4M_10_2_CORE, 7188480, 1024
-	PRCENTRY		xfft_r4delay_4M_12_4_P4, 13078528, 1024
-	PRCENTRY		xfft_r4delay_4M_tp_12_2_P4, 13078528, 512
-	PRCENTRY		xfft_r4delay_4M_tp_12_1_P4, 13078528
-	PRCENTRY		xfft_hg_4096K_13_1_K8, 5724160, 512
-	PRCENTRY		xfft_hg_4096K_12_1_K8, 6574080
-	PRCENTRY		xfft_hg_4096K_12_4_CORE, 6574080, 1024
-	PRCENTRY		xfft_hg_4096K_12_4_P4, 6574080, 1024
-	PRCENTRY		xfft_hg_4096K_tp_12_2_P4, 6574080, 512
-	PRCENTRY		xfft_hg_4096K_tp_12_1_P4, 6574080
-	DD			0
-	DD	84920000, 4587520, 0.436
-	PRCENTRY		xfft_r4dwpn_4480K_10240_4_CORE, 16684032, 1024
-	PRCENTRY		xfft_r4dwpn_4480K_5120_4_CORE, 16570880, 1024
-	PRCENTRY		xfft_r4delay_4480K_10240_4_CORE, 14863872, 1024
-	PRCENTRY		xfft_r4delay_4480K_5120_4_CORE, 14683136, 1024
-	DD			0
-	DD	87250000, 4718592, 0.454
-	PRCENTRY		xfft_r4dwpn_4608K_12288_4_CORE, 18032128, 1024
-	PRCENTRY		xfft_r4dwpn_4608K_9216_4_CORE, 16482304, 1024
-	PRCENTRY		xfft_r4dwpn_4608K_6144_4_CORE, 17899520, 1024
-	PRCENTRY		xfft_r4dwpn_4608K_4608_4_CORE, 16375808, 1024
-	PRCENTRY		xfft_r4dwpn_4608K_3072_4_CORE, 8790016, 1024
-	PRCENTRY		xfft_r4dwpn_4608K_2304_4_CORE, 9656320, 1024
-	PRCENTRY		xfft_r4delay_4608K_12288_4_CORE, 15854080, 1024
-	PRCENTRY		xfft_r4delay_4608K_9216_4_CORE, 14839808, 1024
-	PRCENTRY		xfft_r4delay_4608K_6144_4_CORE, 15635456, 1024
-	PRCENTRY		xfft_r4delay_4608K_4608_4_CORE, 14675968, 1024
-	PRCENTRY		xfft_r4delay_4608K_3072_4_CORE, 8187904, 1024
-	PRCENTRY		xfft_r4delay_4608K_2304_4_CORE, 7952384, 1024
-	DD			0
-	DD	90760000, 4915200, 0.480
-	PRCENTRY		xfft_r4dwpn_4800K_15360_4_CORE, 20066304, 1024
-	PRCENTRY		xfft_r4dwpn_4800K_12800_4_CORE, 18728448, 1024
-	PRCENTRY		xfft_r4dwpn_4800K_7680_4_CORE, 19871232, 1024
-	PRCENTRY		xfft_r4dwpn_4800K_6400_4_CORE, 18610176, 1024
-	PRCENTRY		xfft_r4dwpn_4800K_3840_4_CORE, 10905600, 1024
-	PRCENTRY		xfft_r4delay_4800K_15360_4_CORE, 17350144, 1024
-	PRCENTRY		xfft_r4delay_4800K_12800_4_CORE, 16460288, 1024
-	PRCENTRY		xfft_r4delay_4800K_7680_4_CORE, 17042432, 1024
-	PRCENTRY		xfft_r4delay_4800K_6400_4_CORE, 16251904, 1024
-	PRCENTRY		xfft_r4delay_4800K_3840_4_CORE, 10178560, 1024
-	DD			0
-	DD	96830000, 5242880, 0.485
-	PRCENTRY		xfft_r4dwpn_5M_20480_4_CORE, 33280000, 1024
-	PRCENTRY		xfft_r4dwpn_5M_14_4_CORE, 21401600, 1024
-	PRCENTRY		xfft_r4dwpn_5M_10240_4_CORE, 18329600, 1024
-	PRCENTRY		xfft_r4dwpn_5M_13_4_CORE, 21218816, 1024
-	PRCENTRY		xfft_r4dwpn_5M_5120_4_CORE, 18219008, 1024
-	PRCENTRY		xfft_r4dwpn_5M_12_4_CORE, 11636736, 1024
-	PRCENTRY		xfft_r4dwpn_5M_11_4_CORE, 11630592, 1024
-	PRCENTRY		xfft_r4delay_5M_20480_4_CORE, 25742336, 1024
-	PRCENTRY		xfft_r4delay_5M_14_4_CORE, 18505216, 1024
-	PRCENTRY		xfft_r4delay_5M_10240_4_CORE, 16506880, 1024
-	PRCENTRY		xfft_r4delay_5M_13_4_CORE, 18201600, 1024
-	PRCENTRY		xfft_r4delay_5M_5120_4_CORE, 16330752, 1024
-	PRCENTRY		xfft_r4delay_5M_12_4_CORE, 10864640, 1024
-	PRCENTRY		xfft_r4delay_5M_11_4_CORE, 10866688, 1024
-	PRCENTRY		xfft_hg_5M_12_4_K8, 8167040, 1024
-	PRCENTRY		xfft_hg_5M_12_1_K8, 8167040
-	PRCENTRY		xfft_hg_5M_12_4_CORE, 8167040, 1024
-	PRCENTRY		xfft_hg_5M_12_4_P4, 8167040, 1024
-	PRCENTRY		xfft_hg_5M_tp_12_1_P4, 8167040
-	DD			0
-	DD	101200000, 5505024, 0.561
-	PRCENTRY		xfft_r4dwpn_5376K_12288_4_CORE, 20005888, 1024
-	PRCENTRY		xfft_r4dwpn_5376K_6144_4_CORE, 19876352, 1024
-	PRCENTRY		xfft_r4dwpn_5376K_3072_4_CORE, 12060160, 1024
-	PRCENTRY		xfft_r4delay_5376K_12288_4_CORE, 17825280, 1024
-	PRCENTRY		xfft_r4delay_5376K_6144_4_CORE, 17611776, 1024
-	PRCENTRY		xfft_r4delay_5376K_3072_4_CORE, 9775104, 1024
-	DD			0
-	DD	105300000, 5734400, 0.592
-	PRCENTRY		xfft_r4dwpn_5600K_12800_4_CORE, 20784128, 1024
-	PRCENTRY		xfft_r4dwpn_5600K_6400_4_CORE, 20668928, 1024
-	PRCENTRY		xfft_r4delay_5600K_12800_4_CORE, 18513408, 1024
-	PRCENTRY		xfft_r4delay_5600K_6400_4_CORE, 18310144, 1024
-	DD			0
-	DD	108200000, 5898240, 0.614
-	PRCENTRY		xfft_r4dwpn_5760K_15360_4_CORE, 22529536, 1024
-	PRCENTRY		xfft_r4dwpn_5760K_9216_4_CORE, 23844352, 1024
-	PRCENTRY		xfft_r4dwpn_5760K_7680_4_CORE, 22335488, 1024
-	PRCENTRY		xfft_r4dwpn_5760K_4608_4_CORE, 13045760, 1024
-	PRCENTRY		xfft_r4dwpn_5760K_3840_4_CORE, 10934272, 1024
-	PRCENTRY		xfft_r4dwpn_5760K_2304_4_CORE, 13041664, 1024
-	PRCENTRY		xfft_r4delay_5760K_15360_4_CORE, 19810816, 1024
-	PRCENTRY		xfft_r4delay_5760K_9216_4_CORE, 20450304, 1024
-	PRCENTRY		xfft_r4delay_5760K_7680_4_CORE, 19506176, 1024
-	PRCENTRY		xfft_r4delay_5760K_4608_4_CORE, 12183552, 1024
-	PRCENTRY		xfft_r4delay_5760K_3840_4_CORE, 10196992, 1024
-	PRCENTRY		xfft_r4delay_5760K_2304_4_CORE, 12183552, 1024
-	DD			0
-	DD	115300000, 6291456, 0.668
-	PRCENTRY		xfft_r4dwpn_6M_14_4_CORE, 24028672, 1024
-	PRCENTRY		xfft_r4dwpn_6M_12288_4_CORE, 21979136, 1024
-	PRCENTRY		xfft_r4dwpn_6M_13_4_CORE, 23846912, 1024
-	PRCENTRY		xfft_r4dwpn_6M_6144_4_CORE, 21852160, 1024
-	PRCENTRY		xfft_r4dwpn_6M_12_4_CORE, 11665408, 1024
-	PRCENTRY		xfft_r4dwpn_6M_3072_4_CORE, 12861440, 1024
-	PRCENTRY		xfft_r4dwpn_6M_11_4_CORE, 11669504, 1024
-	PRCENTRY		xfft_r4delay_6M_14_4_CORE, 21129728, 1024
-	PRCENTRY		xfft_r4delay_6M_12288_4_CORE, 19795968, 1024
-	PRCENTRY		xfft_r4delay_6M_13_4_CORE, 20829184, 1024
-	PRCENTRY		xfft_r4delay_6M_6144_4_CORE, 19587072, 1024
-	PRCENTRY		xfft_r4delay_6M_12_4_CORE, 10883072, 1024
-	PRCENTRY		xfft_r4delay_6M_3072_4_CORE, 10579968, 1024
-	PRCENTRY		xfft_r4delay_6M_11_4_CORE, 10903552, 1024
-	PRCENTRY		xfft_hg_6M_12_4_K8, 9756288, 1024
-	PRCENTRY		xfft_hg_6M_12_1_K8, 9756288
-	PRCENTRY		xfft_hg_6M_12_4_CORE, 9756288, 2048
-	PRCENTRY		xfft_hg_6M_12_4_P4, 9756288, 2048
-	PRCENTRY		xfft_hg_6M_12_2_P4, 9756288, 1024
-	PRCENTRY		xfft_hg_6M_tp_12_1_P4, 9756288
-	DD			0
-	DD	120000000, 6553600, 0.715
-	PRCENTRY		xfft_r4dwpn_6400K_25600_4_CORE, 41562112, 1024
-	PRCENTRY		xfft_r4dwpn_6400K_20480_4_CORE, 26742784, 1024
-	PRCENTRY		xfft_r4dwpn_6400K_12800_4_CORE, 22839296, 1024
-	PRCENTRY		xfft_r4dwpn_6400K_10240_4_CORE, 26510848, 1024
-	PRCENTRY		xfft_r4dwpn_6400K_6400_4_CORE, 22726656, 1024
-	PRCENTRY		xfft_r4dwpn_6400K_5120_4_CORE, 14512128, 1024
-	PRCENTRY		xfft_r4delay_6400K_25600_4_CORE, 32140288, 1024
-	PRCENTRY		xfft_r4delay_6400K_20480_4_CORE, 23125504, 1024
-	PRCENTRY		xfft_r4delay_6400K_12800_4_CORE, 20566016, 1024
-	PRCENTRY		xfft_r4delay_6400K_10240_4_CORE, 22739968, 1024
-	PRCENTRY		xfft_r4delay_6400K_6400_4_CORE, 20367360, 1024
-	PRCENTRY		xfft_r4delay_6400K_5120_4_CORE, 13559808, 1024
-	DD			0
-	DD	126000000, 6881280, 0.774
-	PRCENTRY		xfft_r4dwpn_6720K_15360_4_CORE, 24994816, 1024
-	PRCENTRY		xfft_r4dwpn_6720K_7680_4_CORE, 24803840, 1024
-	PRCENTRY		xfft_r4dwpn_6720K_3840_4_CORE, 15040000, 1024
-	PRCENTRY		xfft_r4delay_6720K_15360_4_CORE, 22273536, 1024
-	PRCENTRY		xfft_r4delay_6720K_7680_4_CORE, 21974016, 1024
-	PRCENTRY		xfft_r4delay_6720K_3840_4_CORE, 12177408, 1024
-	DD			0
-	DD	129500000, 7077888, 0.809
-	PRCENTRY		xfft_r4dwpn_6912K_9216_4_CORE, 26800128, 1024
-	PRCENTRY		xfft_r4dwpn_6912K_4608_4_CORE, 13074432, 1024
-	PRCENTRY		xfft_r4dwpn_6912K_2304_4_CORE, 13080576, 1024
-	PRCENTRY		xfft_r4delay_6912K_9216_4_CORE, 23405568, 1024
-	PRCENTRY		xfft_r4delay_6912K_4608_4_CORE, 12201984, 1024
-	PRCENTRY		xfft_r4delay_6912K_2304_4_CORE, 12220416, 1024
-	DD			0
-	DD	134200000, 7340032, 0.886
-	PRCENTRY		xfft_r4dwpn_7M_14_4_CORE, 26657792, 1024
-	PRCENTRY		xfft_r4dwpn_7M_13_4_CORE, 26479104, 1024
-	PRCENTRY		xfft_r4dwpn_7M_12_4_CORE, 16049664, 1024
-	PRCENTRY		xfft_r4dwpn_7M_11_4_CORE, 13797376, 1024
-	PRCENTRY		xfft_r4delay_7M_14_4_CORE, 23756288, 1024
-	PRCENTRY		xfft_r4delay_7M_13_4_CORE, 23460864, 1024
-	PRCENTRY		xfft_r4delay_7M_12_4_CORE, 12994560, 1024
-	PRCENTRY		xfft_r4delay_7M_11_4_CORE, 13029376, 1024
-	PRCENTRY		xfft_hg_7M_12_4_K8, 11345536, 1024
-	PRCENTRY		xfft_hg_7M_12_1_K8, 11345536
-	PRCENTRY		xfft_hg_7M_12_4_CORE, 11345536, 2048
-	PRCENTRY		xfft_hg_7M_12_4_P4, 11345536, 2048
-	PRCENTRY		xfft_hg_7M_12_2_P4, 11345536, 1024
-	PRCENTRY		xfft_hg_7M_tp_12_1_P4, 11345536
-	DD			0
-	DD	143800000, 7864320, 0.949
-	PRCENTRY		xfft_r4dwpn_7680K_20480_4_CORE, 30025216, 1024
-	PRCENTRY		xfft_r4dwpn_7680K_15360_4_CORE, 27459584, 1024
-	PRCENTRY		xfft_r4dwpn_7680K_12288_4_CORE, 31798784, 1024
-	PRCENTRY		xfft_r4dwpn_7680K_10240_4_CORE, 29794304, 1024
-	PRCENTRY		xfft_r4dwpn_7680K_7680_4_CORE, 27271168, 1024
-	PRCENTRY		xfft_r4dwpn_7680K_6144_4_CORE, 17391616, 1024
-	PRCENTRY		xfft_r4dwpn_7680K_5120_4_CORE, 14540800, 1024
-	PRCENTRY		xfft_r4dwpn_7680K_3840_4_CORE, 16037888, 1024
-	PRCENTRY		xfft_r4dwpn_7680K_3072_4_CORE, 17352704, 1024
-	PRCENTRY		xfft_r4delay_7680K_20480_4_CORE, 26405376, 1024
-	PRCENTRY		xfft_r4delay_7680K_15360_4_CORE, 24735744, 1024
-	PRCENTRY		xfft_r4delay_7680K_12288_4_CORE, 27274240, 1024
-	PRCENTRY		xfft_r4delay_7680K_10240_4_CORE, 26022912, 1024
-	PRCENTRY		xfft_r4delay_7680K_7680_4_CORE, 24440832, 1024
-	PRCENTRY		xfft_r4delay_7680K_6144_4_CORE, 16259072, 1024
-	PRCENTRY		xfft_r4delay_7680K_5120_4_CORE, 13578240, 1024
-	PRCENTRY		xfft_r4delay_7680K_3840_4_CORE, 13178880, 1024
-	PRCENTRY		xfft_r4delay_7680K_3072_4_CORE, 16211968, 1024
-	DD			0
-	DD	149800000, 8192000, 1.007
-	PRCENTRY		xfft_r4dwpn_8000K_25600_4_CORE, 33386496, 1024
-	PRCENTRY		xfft_r4dwpn_8000K_12800_4_CORE, 33068544, 1024
-	PRCENTRY		xfft_r4dwpn_8000K_6400_4_CORE, 18077696, 1024
-	PRCENTRY		xfft_r4delay_8000K_25600_4_CORE, 28868096, 1024
-	PRCENTRY		xfft_r4delay_8000K_12800_4_CORE, 28355584, 1024
-	PRCENTRY		xfft_r4delay_8000K_6400_4_CORE, 16900096, 1024
-	DD			0
-toonear	DD	151000000, 8257536, 1.019
-toonear	PRCENTRY		xfft_r4dwpn_8064K_9216_4_CORE, 926364928, 1024
-toonear	PRCENTRY		xfft_r4dwpn_8064K_4608_4_CORE, 914575616, 1024
-toonear	PRCENTRY		xfft_r4dwpn_8064K_2304_4_CORE, 914608384, 1024
-toonear	PRCENTRY		xfft_r4delay_8064K_9216_4_CORE, 26364928, 1024
-toonear	PRCENTRY		xfft_r4delay_8064K_4608_4_CORE, 14575616, 1024
-toonear	PRCENTRY		xfft_r4delay_8064K_2304_4_CORE, 14608384, 1024
-toonear	DD			0
-	DD	153400000, 8388608, 1.042
-	PRCENTRY		xfft_r4dwpn_8M_14_4_CORE, 29286400, 1024
-	PRCENTRY		xfft_r4dwpn_8M_13_4_CORE, 29110272, 1024
-	PRCENTRY		xfft_r4dwpn_8M_12_4_CORE, 17113088, 1024
-	PRCENTRY		xfft_r4dwpn_8M_11_4_CORE, 14884864, 1024
-	PRCENTRY		xfft_r4dwpn_8M_11_2_CORE, 14884864, 1024
-	PRCENTRY		xfft_r4delay_8M_14_4_CORE, 26382336, 1024
-	PRCENTRY		xfft_r4delay_8M_13_4_CORE, 26091520, 1024
-	PRCENTRY		xfft_r4delay_8M_12_4_CORE, 14061568, 1024
-	PRCENTRY		xfft_r4delay_8M_11_4_CORE, 14114816, 1024
-	PRCENTRY		xfft_r4delay_8M_11_2_CORE, 14114816, 1024
-	PRCENTRY		xfft_hg_8M_12_4_K8, 12926976, 1024
-	PRCENTRY		xfft_hg_8M_12_1_K8, 12926976
-	PRCENTRY		xfft_hg_8M_12_4_CORE, 12926976, 2048
-	PRCENTRY		xfft_hg_8M_12_4_P4, 12926976, 2048
-	PRCENTRY		xfft_hg_8M_12_2_P4, 12926976, 1024
-	PRCENTRY		xfft_hg_8M_tp_12_1_P4, 12926976
-	DD			0
-	DD	167200000, 9175040, 1.110
-	PRCENTRY		xfft_r4dwpn_8960K_20480_4_CORE, 33309696, 1024
-	PRCENTRY		xfft_r4dwpn_8960K_10240_4_CORE, 33081856, 1024
-	PRCENTRY		xfft_r4dwpn_8960K_5120_4_CORE, 20039168, 1024
-	PRCENTRY		xfft_r4delay_8960K_20480_4_CORE, 29687296, 1024
-	PRCENTRY		xfft_r4delay_8960K_10240_4_CORE, 29309952, 1024
-	PRCENTRY		xfft_r4delay_8960K_5120_4_CORE, 16214016, 1024
-	DD			0
-	DD	172000000, 9437184, 1.131
-	PRCENTRY		xfft_r4dwpn_9M_12288_4_CORE, 35737600, 1024
-	PRCENTRY		xfft_r4dwpn_9M_9216_4_CORE, 32718848, 1024
-	PRCENTRY		xfft_r4dwpn_9M_6144_4_CORE, 17420288, 1024
-	PRCENTRY		xfft_r4dwpn_9M_4608_4_CORE, 19210240, 1024
-	PRCENTRY		xfft_r4dwpn_9M_3072_4_CORE, 17391616, 1024
-	PRCENTRY		xfft_r4dwpn_9M_2304_4_CORE, 16689152, 1024
-	PRCENTRY		xfft_r4delay_9M_12288_4_CORE, 31212544, 1024
-	PRCENTRY		xfft_r4delay_9M_9216_4_CORE, 29323264, 1024
-	PRCENTRY		xfft_r4delay_9M_6144_4_CORE, 16277504, 1024
-	PRCENTRY		xfft_r4delay_9M_4608_4_CORE, 15773696, 1024
-	PRCENTRY		xfft_r4delay_9M_3072_4_CORE, 16248832, 1024
-	PRCENTRY		xfft_r4delay_9M_2304_4_CORE, 15824896, 1024
-	DD			0
-	DD	178300000, 9830400, 1.166
-	PRCENTRY		xfft_r4dwpn_9600K_25600_4_CORE, 37488128, 1024
-	PRCENTRY		xfft_r4dwpn_9600K_15360_4_CORE, 39736832, 1024
-	PRCENTRY		xfft_r4dwpn_9600K_12800_4_CORE, 37171200, 1024
-	PRCENTRY		xfft_r4dwpn_9600K_7680_4_CORE, 21680128, 1024
-	PRCENTRY		xfft_r4dwpn_9600K_6400_4_CORE, 18106368, 1024
-	PRCENTRY		xfft_r4dwpn_9600K_3840_4_CORE, 21635072, 1024
-	PRCENTRY		xfft_r4delay_9600K_25600_4_CORE, 32967168, 1024
-	PRCENTRY		xfft_r4delay_9600K_15360_4_CORE, 34081792, 1024
-	PRCENTRY		xfft_r4delay_9600K_12800_4_CORE, 32457728, 1024
-	PRCENTRY		xfft_r4delay_9600K_7680_4_CORE, 20277248, 1024
-	PRCENTRY		xfft_r4delay_9600K_6400_4_CORE, 16918528, 1024
-	PRCENTRY		xfft_r4delay_9600K_3840_4_CORE, 20211712, 1024
-	DD			0
-	DD	190700000, 10485760, 1.221
-	PRCENTRY		xfft_r4dwpn_10M_20480_4_CORE, 36593664, 1024
-	PRCENTRY		xfft_r4dwpn_10M_14_4_CORE, 42382848, 1024
-	PRCENTRY		xfft_r4dwpn_10M_10240_4_CORE, 36368384, 1024
-	PRCENTRY		xfft_r4dwpn_10M_13_4_CORE, 23142400, 1024
-	PRCENTRY		xfft_r4dwpn_10M_12_4_CORE, 23078912, 1024
-	PRCENTRY		xfft_r4dwpn_10M_5120_4_CORE, 21364736, 1024
-	PRCENTRY		xfft_r4delay_10M_20480_4_CORE, 32968704, 1024
-	PRCENTRY		xfft_r4delay_10M_14_4_CORE, 36350976, 1024
-	PRCENTRY		xfft_r4delay_10M_10240_4_CORE, 32595968, 1024
-	PRCENTRY		xfft_r4delay_10M_13_4_CORE, 21649408, 1024
-	PRCENTRY		xfft_r4delay_10M_12_4_CORE, 21561344, 1024
-	PRCENTRY		xfft_r4delay_10M_5120_4_CORE, 17543168, 1024
-	PRCENTRY		xfft_hg_10M_13_4_K8, 13639296
-	PRCENTRY		xfft_hg_10M_13_4_CORE, 13639296
-	DD			0
-	DD	199500000, 11010048, 1.266
-	PRCENTRY		xfft_r4dwpn_10752K_12288_4_CORE, 39680512, 1024
-	PRCENTRY		xfft_r4dwpn_10752K_6144_4_CORE, 24032768, 1024
-	PRCENTRY		xfft_r4dwpn_10752K_3072_4_CORE, 20568064, 1024
-	PRCENTRY		xfft_r4delay_10752K_12288_4_CORE, 35154944, 1024
-	PRCENTRY		xfft_r4delay_10752K_6144_4_CORE, 19437568, 1024
-	PRCENTRY		xfft_r4delay_10752K_3072_4_CORE, 19423232, 1024
-	DD			0
-	DD	207600000, 11468800, 1.305
-	PRCENTRY		xfft_r4dwpn_11200K_25600_4_CORE, 41591808, 1024
-	PRCENTRY		xfft_r4dwpn_11200K_12800_4_CORE, 41277952, 1024
-	PRCENTRY		xfft_r4dwpn_11200K_6400_4_CORE, 24997376, 1024
-	PRCENTRY		xfft_r4delay_11200K_25600_4_CORE, 37068288, 1024
-	PRCENTRY		xfft_r4delay_11200K_12800_4_CORE, 36563968, 1024
-	PRCENTRY		xfft_r4delay_11200K_6400_4_CORE, 20209664, 1024
-	DD			0
-	DD	213400000, 11796480, 1.333
-	PRCENTRY		xfft_r4dwpn_11520K_15360_4_CORE, 44658688, 1024
-	PRCENTRY		xfft_r4dwpn_11520K_9216_4_CORE, 25997312, 1024
-	PRCENTRY		xfft_r4dwpn_11520K_7680_4_CORE, 21708800, 1024
-	PRCENTRY		xfft_r4dwpn_11520K_4608_4_CORE, 25913344, 1024
-	PRCENTRY		xfft_r4dwpn_11520K_3840_4_CORE, 21673984, 1024
-	PRCENTRY		xfft_r4delay_11520K_15360_4_CORE, 39003136, 1024
-	PRCENTRY		xfft_r4delay_11520K_9216_4_CORE, 24324096, 1024
-	PRCENTRY		xfft_r4delay_11520K_7680_4_CORE, 20295680, 1024
-	PRCENTRY		xfft_r4delay_11520K_4608_4_CORE, 24207360, 1024
-	PRCENTRY		xfft_r4delay_11520K_3840_4_CORE, 20248576, 1024
-	DD			0
-	DD	227300000, 12582912, 1.400
-	PRCENTRY		xfft_r4dwpn_12M_14_4_CORE, 47632384, 1024
-	PRCENTRY		xfft_r4dwpn_12M_12288_4_CORE, 43622400, 1024
-	PRCENTRY		xfft_r4dwpn_12M_13_4_CORE, 23171072, 1024
-	PRCENTRY		xfft_r4dwpn_12M_6144_4_CORE, 25620480, 1024
-	PRCENTRY		xfft_r4dwpn_12M_12_4_CORE, 23117824, 1024
-	PRCENTRY		xfft_r4dwpn_12M_3072_4_CORE, 22179840, 1024
-	PRCENTRY		xfft_r4delay_12M_14_4_CORE, 41600000, 1024
-	PRCENTRY		xfft_r4delay_12M_12288_4_CORE, 39096320, 1024
-	PRCENTRY		xfft_r4delay_12M_13_4_CORE, 21667840, 1024
-	PRCENTRY		xfft_r4delay_12M_6144_4_CORE, 21028864, 1024
-	PRCENTRY		xfft_r4delay_12M_12_4_CORE, 21598208, 1024
-	PRCENTRY		xfft_r4delay_12M_3072_4_CORE, 21032960, 1024
-	PRCENTRY		xfft_hg_12M_13_4_K8, 16277120
-	PRCENTRY		xfft_hg_12M_13_4_CORE, 16277120
-	DD			0
-	DD	236700000, 13107200, 1.488
-	PRCENTRY		xfft_r4dwpn_12800K_25600_4_CORE, 45694976, 1024
-	PRCENTRY		xfft_r4dwpn_12800K_20480_4_CORE, 52966912, 1024
-	PRCENTRY		xfft_r4dwpn_12800K_12800_4_CORE, 45383680, 1024
-	PRCENTRY		xfft_r4dwpn_12800K_10240_4_CORE, 28893184, 1024
-	PRCENTRY		xfft_r4dwpn_12800K_6400_4_CORE, 26650624, 1024
-	PRCENTRY		xfft_r4dwpn_12800K_5120_4_CORE, 28805120, 1024
-	PRCENTRY		xfft_r4delay_12800K_25600_4_CORE, 41168896, 1024
-	PRCENTRY		xfft_r4delay_12800K_20480_4_CORE, 45427712, 1024
-	PRCENTRY		xfft_r4delay_12800K_12800_4_CORE, 40669184, 1024
-	PRCENTRY		xfft_r4delay_12800K_10240_4_CORE, 27039744, 1024
-	PRCENTRY		xfft_r4delay_12800K_6400_4_CORE, 21866496, 1024
-	PRCENTRY		xfft_r4delay_12800K_5120_4_CORE, 26910720, 1024
-	DD			0
-	DD	248400000, 13762560, 1.597
-	PRCENTRY		xfft_r4dwpn_13440K_15360_4_CORE, 49584640, 1024
-	PRCENTRY		xfft_r4dwpn_13440K_7680_4_CORE, 29992448, 1024
-	PRCENTRY		xfft_r4dwpn_13440K_3840_4_CORE, 25636864, 1024
-	PRCENTRY		xfft_r4delay_13440K_15360_4_CORE, 43928576, 1024
-	PRCENTRY		xfft_r4delay_13440K_7680_4_CORE, 24242176, 1024
-	PRCENTRY		xfft_r4delay_13440K_3840_4_CORE, 24209408, 1024
-	DD			0
-	DD	255500000, 14155776, 1.663
-	PRCENTRY		xfft_r4dwpn_13824K_9216_4_CORE, 26025984, 1024
-	PRCENTRY		xfft_r4dwpn_13824K_4608_4_CORE, 25952256, 1024
-	PRCENTRY		xfft_r4delay_13824K_9216_4_CORE, 24342528, 1024
-	PRCENTRY		xfft_r4delay_13824K_4608_4_CORE, 24244224, 1024
-	DD			0
-	DD	264600000, 14680064, 1.700
-	PRCENTRY		xfft_r4dwpn_14M_14_4_CORE, 52886016, 1024
-	PRCENTRY		xfft_r4dwpn_14M_13_4_CORE, 32011776, 1024
-	PRCENTRY		xfft_r4dwpn_14M_12_4_CORE, 27342848, 1024
-	PRCENTRY		xfft_r4delay_14M_14_4_CORE, 46853120, 1024
-	PRCENTRY		xfft_r4delay_14M_13_4_CORE, 25876480, 1024
-	PRCENTRY		xfft_r4delay_14M_12_4_CORE, 25821184, 1024
-	PRCENTRY		xfft_hg_14M_13_4_K8, 18914944
-	PRCENTRY		xfft_hg_14M_13_4_CORE, 18914944
-	DD			0
-	DD	283900000, 15728640, 1.968
-	PRCENTRY		xfft_r4dwpn_15M_20480_4_CORE, 59527168, 1024
-	PRCENTRY		xfft_r4dwpn_15M_15360_4_CORE, 54509568, 1024
-	PRCENTRY		xfft_r4dwpn_15M_12288_4_CORE, 34639872, 1024
-	PRCENTRY		xfft_r4dwpn_15M_10240_4_CORE, 28921856, 1024
-	PRCENTRY		xfft_r4dwpn_15M_7680_4_CORE, 31973376, 1024
-	PRCENTRY		xfft_r4dwpn_15M_6144_4_CORE, 34535424, 1024
-	PRCENTRY		xfft_r4dwpn_15M_5120_4_CORE, 28844032, 1024
-	PRCENTRY		xfft_r4dwpn_15M_3840_4_CORE, 27641856, 1024
-	PRCENTRY		xfft_r4delay_15M_20480_4_CORE, 51987456, 1024
-	PRCENTRY		xfft_r4delay_15M_15360_4_CORE, 48852992, 1024
-	PRCENTRY		xfft_r4delay_15M_12288_4_CORE, 32425984, 1024
-	PRCENTRY		xfft_r4delay_15M_10240_4_CORE, 27058176, 1024
-	PRCENTRY		xfft_r4delay_15M_7680_4_CORE, 26226688, 1024
-	PRCENTRY		xfft_r4delay_15M_6144_4_CORE, 32264192, 1024
-	PRCENTRY		xfft_r4delay_15M_5120_4_CORE, 26947584, 1024
-	PRCENTRY		xfft_r4delay_15M_3840_4_CORE, 26212352, 1024
-	DD			0
-	DD	295500000, 16384000, 2.035
-	PRCENTRY		xfft_r4dwpn_16000K_25600_4_CORE, 66164224, 1024
-	PRCENTRY		xfft_r4dwpn_16000K_12800_4_CORE, 36024320, 1024
-	PRCENTRY		xfft_r4dwpn_16000K_6400_4_CORE, 35934208, 1024
-	PRCENTRY		xfft_r4delay_16000K_25600_4_CORE, 56740864, 1024
-	PRCENTRY		xfft_r4delay_16000K_12800_4_CORE, 33720320, 1024
-	PRCENTRY		xfft_r4delay_16000K_6400_4_CORE, 33568768, 1024
-	DD			0
-toonear	DD	297800000, 16515072, 2.057
-toonear	PRCENTRY		xfft_r4dwpn_16128K_9216_4_CORE, 929075456, 1024
-toonear	PRCENTRY		xfft_r4dwpn_16128K_4608_4_CORE, 928991488, 1024
-toonear	PRCENTRY		xfft_r4delay_16128K_9216_4_CORE, 29075456, 1024
-toonear	PRCENTRY		xfft_r4delay_16128K_4608_4_CORE, 28991488, 1024
-toonear	DD			0
-	DD	302600000, 16777216, 2.100
-	PRCENTRY		xfft_r4dwpn_16M_14_4_CORE, 58138624, 1024
-	PRCENTRY		xfft_r4dwpn_16M_13_4_CORE, 34123776, 1024
-	PRCENTRY		xfft_r4dwpn_16M_13_2_CORE, 34123776, 1024
-	PRCENTRY		xfft_r4dwpn_16M_13_1_CORE, 34123776, 1024
-	PRCENTRY		xfft_r4dwpn_16M_12_4_CORE, 29478912, 1024
-	PRCENTRY		xfft_r4dwpn_16M_12_2_CORE, 29478912, 1024
-	PRCENTRY		xfft_r4dwpn_16M_12_1_CORE, 29478912, 1024
-	PRCENTRY		xfft_r4delay_16M_14_4_CORE, 52105216, 1024
-	PRCENTRY		xfft_r4delay_16M_13_4_CORE, 27992064, 1024
-	PRCENTRY		xfft_r4delay_16M_13_2_CORE, 27992064, 1024
-	PRCENTRY		xfft_r4delay_16M_13_1_CORE, 27992064, 1024
-	PRCENTRY		xfft_r4delay_16M_12_4_CORE, 27955200, 1024
-	PRCENTRY		xfft_r4delay_16M_12_2_CORE, 27955200, 1024
-	PRCENTRY		xfft_r4delay_16M_12_1_CORE, 27955200, 1024
-	PRCENTRY		xfft_hg_16M_13_4_K8, 21544960
-	PRCENTRY		xfft_hg_16M_13_4_CORE, 21544960
-	DD			0
-	DD	329800000, 18350080, 2.325
-	PRCENTRY		xfft_r4dwpn_17920K_20480_4_CORE, 66091520, 1024
-	PRCENTRY		xfft_r4dwpn_17920K_10240_4_CORE, 39990784, 1024
-	PRCENTRY		xfft_r4dwpn_17920K_5120_4_CORE, 34117632, 1024
-	PRCENTRY		xfft_r4delay_17920K_20480_4_CORE, 58551296, 1024
-	PRCENTRY		xfft_r4delay_17920K_10240_4_CORE, 32315392, 1024
-	PRCENTRY		xfft_r4delay_17920K_5120_4_CORE, 32219136, 1024
-	DD			0
-	DD	339300000, 18874368, 2.400
-	PRCENTRY		xfft_r4dwpn_18M_12288_4_CORE, 34668544, 1024
-	PRCENTRY		xfft_r4dwpn_18M_9216_4_CORE, 38354944, 1024
-	PRCENTRY		xfft_r4dwpn_18M_6144_4_CORE, 34574336, 1024
-	PRCENTRY		xfft_r4dwpn_18M_4608_4_CORE, 33099776, 1024
-	PRCENTRY		xfft_r4dwpn_18M_4608_2_CORE, 33099776, 1024
-	PRCENTRY		xfft_r4delay_18M_12288_4_CORE, 32444416, 1024
-	PRCENTRY		xfft_r4delay_18M_9216_4_CORE, 31453184, 1024
-	PRCENTRY		xfft_r4delay_18M_6144_4_CORE, 32301056, 1024
-	PRCENTRY		xfft_r4delay_18M_4608_4_CORE, 31387648, 1024
-	PRCENTRY		xfft_r4delay_18M_4608_2_CORE, 31387648, 1024
-	DD			0
-	DD	352500000, 19660800, 2.513
-	PRCENTRY		xfft_r4dwpn_19200K_25600_4_CORE, 74362880, 1024
-	PRCENTRY		xfft_r4dwpn_19200K_15360_4_CORE, 43266048, 1024
-	PRCENTRY		xfft_r4dwpn_19200K_12800_4_CORE, 36052992, 1024
-	PRCENTRY		xfft_r4dwpn_19200K_7680_4_CORE, 43100160, 1024
-	PRCENTRY		xfft_r4dwpn_19200K_6400_4_CORE, 35973120, 1024
-	PRCENTRY		xfft_r4delay_19200K_25600_4_CORE, 64939008, 1024
-	PRCENTRY		xfft_r4delay_19200K_15360_4_CORE, 40511488, 1024
-	PRCENTRY		xfft_r4delay_19200K_12800_4_CORE, 33738752, 1024
-	PRCENTRY		xfft_r4delay_19200K_7680_4_CORE, 40263680, 1024
-	PRCENTRY		xfft_r4delay_19200K_6400_4_CORE, 33605632, 1024
-	DD			0
-	DD	376100000, 20971520, 2.700
-	PRCENTRY		xfft_r4dwpn_20M_20480_4_CORE, 72654848, 1024
-	PRCENTRY		xfft_r4dwpn_20M_14_4_CORE, 46141440, 1024
-	PRCENTRY		xfft_r4dwpn_20M_10240_4_CORE, 42627072, 1024
-	PRCENTRY		xfft_r4dwpn_20M_10240_2_CORE, 42627072, 1024
-	PRCENTRY		xfft_r4dwpn_20M_13_4_CORE, 45987840, 1024
-	PRCENTRY		xfft_r4dwpn_20M_5120_4_CORE, 36777984, 1024
-	PRCENTRY		xfft_r4delay_20M_20480_4_CORE, 65114112, 1024
-	PRCENTRY		xfft_r4delay_20M_14_4_CORE, 43206656, 1024
-	PRCENTRY		xfft_r4delay_20M_10240_4_CORE, 34955264, 1024
-	PRCENTRY		xfft_r4delay_20M_10240_2_CORE, 34955264, 1024
-	PRCENTRY		xfft_r4delay_20M_13_4_CORE, 42962944, 1024
-	PRCENTRY		xfft_r4delay_20M_5120_4_CORE, 34877440, 1024
-	PRCENTRY		xfft_hg_20M_13_2_K8, 26828928
-	PRCENTRY		xfft_hg_20M_13_2_CORE, 26828928
-	DD			0
-	DD	393800000, 22020096, 2.850
-	PRCENTRY		xfft_r4dwpn_21M_12288_4_CORE, 47965696, 1024
-	PRCENTRY		xfft_r4dwpn_21M_6144_4_CORE, 40896512, 1024
-	PRCENTRY		xfft_r4delay_21M_12288_4_CORE, 38750208, 1024
-	PRCENTRY		xfft_r4delay_21M_6144_4_CORE, 38621184, 1024
-	DD			0
-	DD	409300000, 22937600, 2.982
-	PRCENTRY		xfft_r4dwpn_22400K_25600_4_CORE, 82565632, 1024
-	PRCENTRY		xfft_r4dwpn_22400K_12800_4_CORE, 49907200, 1024
-	PRCENTRY		xfft_r4dwpn_22400K_6400_4_CORE, 42557440, 1024
-	PRCENTRY		xfft_r4delay_22400K_25600_4_CORE, 73141248, 1024
-	PRCENTRY		xfft_r4delay_22400K_12800_4_CORE, 40306688, 1024
-	PRCENTRY		xfft_r4delay_22400K_6400_4_CORE, 40187904, 1024
-	DD			0
-	DD	420700000, 23592960, 3.075
-	PRCENTRY		xfft_r4dwpn_23040K_15360_4_CORE, 43294720, 1024
-	PRCENTRY		xfft_r4dwpn_23040K_9216_4_CORE, 51693568, 1024
-	PRCENTRY		xfft_r4dwpn_23040K_7680_4_CORE, 43139072, 1024
-	PRCENTRY		xfft_r4delay_23040K_15360_4_CORE, 40529920, 1024
-	PRCENTRY		xfft_r4delay_23040K_9216_4_CORE, 48291840, 1024
-	PRCENTRY		xfft_r4delay_23040K_7680_4_CORE, 40300544, 1024
-	DD			0
-	DD	448000000, 25165824, 3.300
-	PRCENTRY		xfft_r4dwpn_24M_14_4_CORE, 46170112, 1024
-	PRCENTRY		xfft_r4dwpn_24M_12288_4_CORE, 51126272, 1024
-	PRCENTRY		xfft_r4dwpn_24M_13_4_CORE, 46026752, 1024
-	PRCENTRY		xfft_r4dwpn_24M_6144_4_CORE, 44081152, 1024
-	PRCENTRY		xfft_r4delay_24M_14_4_CORE, 43225088, 1024
-	PRCENTRY		xfft_r4delay_24M_12288_4_CORE, 41914368, 1024
-	PRCENTRY		xfft_r4delay_24M_13_4_CORE, 42999808, 1024
-	PRCENTRY		xfft_r4delay_24M_6144_4_CORE, 41803776, 1024
-	PRCENTRY		xfft_hg_24M_13_2_K8, 32104704
-	PRCENTRY		xfft_hg_24M_13_2_CORE, 32104704
-	DD			0
-	DD	467600000, 26214400, 3.450
-	PRCENTRY		xfft_r4dwpn_25M_25600_4_CORE, 90767360, 1024
-	PRCENTRY		xfft_r4dwpn_25M_20480_4_CORE, 57643008, 1024
-	PRCENTRY		xfft_r4dwpn_25M_12800_4_CORE, 53198848, 1024
-	PRCENTRY		xfft_r4dwpn_25M_10240_4_CORE, 57440256, 1024
-	PRCENTRY		xfft_r4dwpn_25M_6400_4_CORE, 45873152, 1024
-	PRCENTRY		xfft_r4delay_25M_25600_4_CORE, 81342464, 1024
-	PRCENTRY		xfft_r4delay_25M_20480_4_CORE, 53987328, 1024
-	PRCENTRY		xfft_r4delay_25M_12800_4_CORE, 43601920, 1024
-	PRCENTRY		xfft_r4delay_25M_10240_4_CORE, 53661696, 1024
-	PRCENTRY		xfft_r4delay_25M_6400_4_CORE, 43501568, 1024
-	DD			0
-	DD	488400000, 27525120, 3.638
-	PRCENTRY		xfft_r4dwpn_26880K_15360_4_CORE, 59934208, 1024
-	PRCENTRY		xfft_r4dwpn_26880K_7680_4_CORE, 51034112, 1024
-	PRCENTRY		xfft_r4delay_26880K_15360_4_CORE, 48408576, 1024
-	PRCENTRY		xfft_r4delay_26880K_7680_4_CORE, 48193536, 1024
-	DD			0
-	DD	503500000, 28311552, 3.750
-	PRCENTRY		xfft_r4dwpn_27M_9216_4_CORE, 51732480, 1024
-	PRCENTRY		xfft_r4delay_27M_9216_4_CORE, 48328704, 1024
-	DD			0
-	DD	521500000, 29360128, 3.900
-	PRCENTRY		xfft_r4dwpn_28M_14_4_CORE, 63923712, 1024
-	PRCENTRY		xfft_r4dwpn_28M_13_4_CORE, 54446080, 1024
-	PRCENTRY		xfft_r4delay_28M_14_4_CORE, 51628032, 1024
-	PRCENTRY		xfft_r4delay_28M_13_4_CORE, 51417088, 1024
-	PRCENTRY		xfft_hg_28M_13_2_K8, 37380480
-	PRCENTRY		xfft_hg_28M_13_2_CORE, 37380480
-	DD			0
-	DD	559300000, 31457280, 4.200
-	PRCENTRY		xfft_r4dwpn_30M_20480_4_CORE, 57671680, 1024
-	PRCENTRY		xfft_r4dwpn_30M_15360_4_CORE, 63881216, 1024
-	PRCENTRY		xfft_r4dwpn_30M_12288_4_CORE, 68888576, 1024
-	PRCENTRY		xfft_r4dwpn_30M_10240_4_CORE, 57479168, 1024
-	PRCENTRY		xfft_r4dwpn_30M_7680_4_CORE, 55005184, 1024
-	PRCENTRY		xfft_r4delay_30M_20480_4_CORE, 54005760, 1024
-	PRCENTRY		xfft_r4delay_30M_15360_4_CORE, 52359168, 1024
-	PRCENTRY		xfft_r4delay_30M_12288_4_CORE, 64356352, 1024
-	PRCENTRY		xfft_r4delay_30M_10240_4_CORE, 53698560, 1024
-	PRCENTRY		xfft_r4delay_30M_7680_4_CORE, 52162560, 1024
-	DD			0
-	DD	582200000, 32768000, 4.388
-	PRCENTRY		xfft_r4dwpn_32000K_25600_4_CORE, 71987200, 1024
-	PRCENTRY		xfft_r4dwpn_32000K_12800_4_CORE, 71698432, 1024
-	PRCENTRY		xfft_r4delay_32000K_25600_4_CORE, 67430400, 1024
-	PRCENTRY		xfft_r4delay_32000K_12800_4_CORE, 66977792, 1024
-	DD			0
-toonear	DD	585300000, 33030144, 4.425
-toonear	PRCENTRY		xfft_r4dwpn_32256K_9216_4_CORE, 957794560, 1024
-toonear	PRCENTRY		xfft_r4delay_32256K_9216_4_CORE, 57794560, 1024
-toonear	DD			0
-	DD	596000000, 33554432, 4.500
-	PRCENTRY		xfft_r4dwpn_32M_14_4_CORE, 68132864, 1024
-	PRCENTRY		xfft_r4dwpn_32M_13_4_CORE, 58679296, 1024
-	PRCENTRY		xfft_r4dwpn_32M_13_2_CORE, 58679296, 1024
-	PRCENTRY		xfft_r4dwpn_32M_13_1_CORE, 58679296, 1024
-	PRCENTRY		xfft_r4delay_32M_14_4_CORE, 55840768, 1024
-	PRCENTRY		xfft_r4delay_32M_13_4_CORE, 55648256, 1024
-	PRCENTRY		xfft_r4delay_32M_13_2_CORE, 55648256, 1024
-	PRCENTRY		xfft_r4delay_32M_13_1_CORE, 55648256, 1024
-	PRCENTRY		xfft_hg_32M_13_2_K8, 42639360
-	PRCENTRY		xfft_hg_32M_13_2_CORE, 42639360
+	PRCSTRT	214400,	10240,	0.000470
+	PRCENTRY2		xfft_hg_10K_ip_8_4, 59904, P4_1024 + P4TP_512 + P4TP_256 + I7_64 + CORE2
+	PRCENTRY2A		xfft_hg_10K_ip_8_4_P4, 59904, I7_32
+	DD			0
+	PRCSTRT	255300,	12288,	0.000590
+	PRCENTRY2		xfft_hg_12K_ip_8_4, 69632, P4_1024 + P4TP_512 + P4TP_256 + I7_64 + CORE2
+	PRCENTRY2A		xfft_hg_12K_ip_8_4_P4, 69632, I7_32
+	DD			0
+	PRCSTRT	297300,	14336,	0.000716
+	PRCENTRY2		xfft_hg_14K_ip_8_4, 79488, P4_1024 + P4TP_256 + I7_64
+	DD			0
+	PRCSTRT	340400,	16384,	0.000787
+	PRCENTRY2		xfft_r4_16K_8_4, 168960, P4TP_256
+	PRCENTRY2		xfft_r4_16K_np_8_4, 168960, P4_1024_64 + P4TP_512 + I7 + CORE2
+	PRCENTRY2		xfft_hg_16K_ip_8_4, 89088, P4_1024_32
+	DD			0
+	PRCSTRT	423300,	20480,	0.00103
+	PRCENTRY2		xfft_r4_20K_8_4, 188160, P4TP_256
+	PRCENTRY2A		xfft_r4_20K_8_4_P4, 188160, I7_32
+	PRCENTRY2		xfft_r4_20K_np_8_4, 188160, P4_1024_64 + P4TP_512 + I7_64 + CORE2
+	PRCENTRY2		xfft_hg_20K_ip_8_4, 107904, P4_1024_32
+	DD			0
+	PRCSTRT	504600,	24576,	0.00132
+	PRCENTRY2		xfft_r4_24K_768_4, 241152, P4TP_256
+	PRCENTRY2		xfft_r4_24K_np_768_4, 241152
+	PRCENTRY2		xfft_r4_24K_8_4, 223744, I7_64
+	PRCENTRY2A		xfft_r4_24K_8_4_P4, 223744, I7_32
+	PRCENTRY2		xfft_r4_24K_np_8_4, 223744, P4TP_512 + CORE2
+	PRCENTRY2		xfft_hg_24K_ip_8_4, 127232, P4_1024
+	DD			0
+	PRCSTRT	587500,	28672,	0.00156
+	PRCENTRY2		xfft_r4_28K_8_4, 259328
+	PRCENTRY2A		xfft_r4_28K_8_4_P4, 259328, I7
+	PRCENTRY2		xfft_r4_28K_np_8_4, 259328, CORE2_32
+	PRCENTRY2		xfft_hg_28K_ip_8_4, 146688, P4TP_256
+	PRCENTRY2A		xfft_hg_28K_ip_8_4_CORE, 146688, P4_1024
+	PRCENTRY2A		xfft_hg_28K_ip_8_4_P4, 146688, P4TP_512
+	DD			0
+	PRCSTRT	671400,	32768,	0.00175
+	PRCENTRY2		xfft_r4dwpn_32K_8_4, 211456, P4TP_512 + P4TP_256
+	PRCENTRY2A		xfft_r4dwpn_32K_8_4_P4, 211456, I7
+	PRCENTRY2		xfft_r4dwpn_32K_np_8_4, 211456, CORE2
+	PRCENTRY2		xfft_r4delay_32K_8_4, 173568
+	PRCENTRY2		xfft_r4delay_32K_np_8_4, 173568, CORE2_32
+	PRCENTRY2		xfft_r4_32K_10_4, 325120, P4TP_512
+	PRCENTRY2		xfft_r4_32K_np_10_4, 325120
+	PRCENTRY2		xfft_r4_32K_8_4, 311296
+	PRCENTRY2A		xfft_r4_32K_8_4_P4, 311296, I7
+	PRCENTRY2		xfft_r4_32K_np_8_4, 311296, CORE2_64
+	PRCENTRY2		xfft_hg_32K_ip_8_4, 165888, P4_1024
+	DD			0
+	PRCSTRT	835200,	40960,	0.00225
+	PRCENTRY2		xfft_r4_40K_1280_4, 400896, P4TP_256
+	PRCENTRY2A		xfft_r4_40K_1280_4_P4, 400896, I7_32
+	PRCENTRY2		xfft_r4_40K_np_1280_4, 400896, P4_1024_64 + CORE2
+	PRCENTRY2A		xfft_r4_40K_np_1280_4_P4, 400896, I7_64
+	PRCENTRY2		xfft_hg_40K_ip_11_4, 189696, P4_1024_32 + P4TP_512
+	DD			0
+	PRCSTRT	995500, 49152,	0.00279
+	PRCENTRY2		xfft_r4_48K_768_4, 500736, P4_1024
+	PRCENTRY2		xfft_r4_48K_np_768_4, 500736, I7 + CORE2
+	PRCENTRY2		xfft_hg_48K_ip_11_4, 206208, P4TP_512 + P4TP_256
+	DD			0
+	PRCSTRT	1158000, 57344,	0.00327
+	PRCENTRY2		xfft_r4_56K_8_4, 524800, P4_1024_32
+	PRCENTRY2A		xfft_r4_56K_8_4_P4, 524800, I7
+	PRCENTRY2A		xfft_r4_56K_8_4_CORE, 524800, P4_1024_64
+	PRCENTRY2		xfft_r4_56K_np_8_4, 524800
+	PRCENTRY2A		xfft_r4_56K_np_8_4_P4, 524800, CORE2_32
+	PRCENTRY2		xfft_hg_56K_ip_11_4, 222976, P4TP_512 + P4TP_256
+	DD			0
+	PRCSTRT	1243000, 61440,	0.00344
+	PRCENTRY2		xfft_r4_60K_768_4, 556800
+	PRCENTRY2		xfft_r4_60K_np_768_4, 556800
+	DD			0
+	PRCSTRT	1325000, 65536,	0.00367
+	PRCENTRY2		xfft_r4dwpn_64K_8_4, 411648, P4_1024_32 + P4TP_256
+	PRCENTRY2A		xfft_r4dwpn_64K_8_4_P4, 411648, I7
+	PRCENTRY2A		xfft_r4dwpn_64K_8_4_CORE, 411648, P4_1024_64
+	PRCENTRY2		xfft_r4dwpn_64K_np_8_4, 411648, CORE2_64
+	PRCENTRY2A		xfft_r4dwpn_64K_np_8_4_P4, 411648, CORE2_32
+	PRCENTRY2		xfft_r4delay_64K_8_4, 336896, P4_1024_32
+	PRCENTRY2A		xfft_r4delay_64K_8_4_P4, 336896, I7
+	PRCENTRY2A		xfft_r4delay_64K_8_4_CORE, 336896, P4_1024_64
+	PRCENTRY2		xfft_r4delay_64K_np_8_4, 336896, CORE2_64
+	PRCENTRY2A		xfft_r4delay_64K_np_8_4_P4, 336896, CORE2_32
+	PRCENTRY2		xfft_r4_64K_10_4, 670720
+	PRCENTRY2		xfft_r4_64K_np_10_4, 670720
+	PRCENTRY2		xfft_r4_64K_8_4, 628736
+	PRCENTRY2		xfft_r4_64K_np_8_4, 628736
+	PRCENTRY2		xfft_hg_64K_ip_11_4, 239488, P4TP_512
+	DD			0
+	PRCSTRT	1485000, 73728,	0.00422
+	PRCENTRY2		xfft_r4_72K_768_4, 662016, P4_1024_32 + P4TP_256
+	PRCENTRY2A		xfft_r4_72K_768_4_P4, 662016, I7_32
+	PRCENTRY2		xfft_r4_72K_np_768_4, 662016, I7_64 + CORE2
+	DD			0
+	PRCSTRT	1648000, 81920, 0.00474
+	PRCENTRY2		xfft_r4dwpn_80K_8_4, 335872, P4_1024_64
+	PRCENTRY2A		xfft_r4dwpn_80K_8_4_P4, 335872, I7
+	PRCENTRY2A		xfft_r4dwpn_80K_8_4_CORE, 335872, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_80K_8_2, 335872, P4TP_512 + P4TP_256
+	PRCENTRY2		xfft_r4dwpn_80K_np_8_4, 335872, CORE2
+	PRCENTRY2		xfft_r4delay_80K_8_4, 308736, P4_1024_64
+	PRCENTRY2A		xfft_r4delay_80K_8_4_CORE, 308736, P4_1024_32
+	PRCENTRY2		xfft_r4delay_80K_8_2, 308736, P4TP_512
+	PRCENTRY2		xfft_r4delay_80K_np_8_4, 308736, CORE2
+	PRCENTRY2		xfft_r4_80K_1280_4, 832512
+	PRCENTRY2		xfft_r4_80K_np_1280_4, 832512
+	PRCENTRY2		xfft_r4_80K_10_4, 745216
+	PRCENTRY2A		xfft_r4_80K_10_4_P4, 745216, I7
+	PRCENTRY2		xfft_r4_80K_np_10_4, 745216
+	PRCENTRY2		xfft_hg_80K_ip_11_4, 273408
+	DD			0
+	PRCSTRT	1725000, 86016, 0.00503
+	PRCENTRY2		xfft_r4_84K_768_4, 767232, P4_1024_64 + P4TP_512 + P4TP_256 + I7_64
+	PRCENTRY2A		xfft_r4_84K_768_4_P4, 767232, I7_32
+	PRCENTRY2A		xfft_r4_84K_768_4_CORE, 767232, P4_1024_32
+	PRCENTRY2		xfft_r4_84K_np_768_4, 767232, CORE2
+	DD			0
+	PRCSTRT	1966000, 98304, 0.00584
+	PRCENTRY2		xfft_r4dwpn_96K_768_4, 616960, P4TP_512 + I7_64
+	PRCENTRY2A		xfft_r4dwpn_96K_768_4_P4, 616960, I7_32
+	PRCENTRY2		xfft_r4dwpn_96K_np_768_4, 616960, CORE2
+	PRCENTRY2		xfft_r4dwpn_96K_8_4, 376320
+	PRCENTRY2A		xfft_r4dwpn_96K_8_4_CORE, 376320, P4_1024
+	PRCENTRY2		xfft_r4dwpn_96K_np_8_4, 376320
+	PRCENTRY2		xfft_r4delay_96K_768_4, 505344, P4TP_512 + P4TP_256 + I7_64
+	PRCENTRY2		xfft_r4delay_96K_np_768_4, 505344, CORE2_64
+	PRCENTRY2		xfft_r4delay_96K_8_4, 352768
+	PRCENTRY2A		xfft_r4delay_96K_8_4_CORE, 352768, P4_1024
+	PRCENTRY2		xfft_r4delay_96K_np_8_4, 352768
+	PRCENTRY2		xfft_r4_96K_10_4, 885248
+	PRCENTRY2		xfft_r4_96K_np_10_4, 885248
+	PRCENTRY2		xfft_r4_96K_768_4, 921600
+	PRCENTRY2		xfft_r4_96K_np_768_4, 921600, I7_32 + CORE2_32
+	PRCENTRY2		xfft_hg_96K_ip_11_4, 306688
+	DD			0
+	PRCSTRT	2287000, 114688, 0.00693
+	PRCENTRY2		xfft_r4dwpn_112K_8_4, 418816
+	PRCENTRY2A		xfft_r4dwpn_112K_8_4_P4, 418816, I7
+	PRCENTRY2A		xfft_r4dwpn_112K_8_4_CORE, 418816, P4_1024
+	PRCENTRY2		xfft_r4dwpn_112K_8_2, 418816, P4TP_512 + P4TP_256
+	PRCENTRY2		xfft_r4dwpn_112K_np_8_4, 418816, CORE2
+	PRCENTRY2		xfft_r4delay_112K_8_4, 398848
+	PRCENTRY2A		xfft_r4delay_112K_8_4_CORE, 398848, P4_1024
+	PRCENTRY2		xfft_r4delay_112K_8_2, 398848, P4TP_512 + P4TP_256
+	PRCENTRY2		xfft_r4delay_112K_np_8_4, 398848, CORE2_64
+	PRCENTRY2		xfft_r4_112K_10_4, 1025280, I7_64
+	PRCENTRY2A		xfft_r4_112K_10_4_P4, 1025280, I7_32
+	PRCENTRY2		xfft_r4_112K_np_10_4, 1025280, CORE2_32
+	PRCENTRY2		xfft_hg_112K_ip_11_4, 340096
+	DD			0
+	PRCSTRT	2452000, 122880, 0.00730
+	PRCENTRY2		xfft_r4_120K_1280_4, 1100288
+	PRCENTRY2		xfft_r4_120K_np_1280_4, 1100288
+	DD			0
+	PRCSTRT	2614000, 131072, 0.00779
+	PRCENTRY2		xfft_r4dwpn_128K_10_4, 823808, I7_64
+	PRCENTRY2A		xfft_r4dwpn_128K_10_4_P4, 823808, I7_32
+	PRCENTRY2		xfft_r4dwpn_128K_np_10_4, 823808, CORE2
+	PRCENTRY2		xfft_r4dwpn_128K_8_4, 460800
+	PRCENTRY2A		xfft_r4dwpn_128K_8_4_CORE, 460800, P4_1024
+	PRCENTRY2		xfft_r4dwpn_128K_np_8_4, 460800
+	PRCENTRY2		xfft_r4delay_128K_10_4, 675328, P4TP_512 + P4TP_256 + I7_64
+	PRCENTRY2A		xfft_r4delay_128K_10_4_P4, 675328, I7_32
+	PRCENTRY2		xfft_r4delay_128K_np_10_4, 675328, CORE2_64
+	PRCENTRY2		xfft_r4delay_128K_8_4, 444416
+	PRCENTRY2A		xfft_r4delay_128K_8_4_CORE, 444416, P4_1024
+	PRCENTRY2		xfft_r4delay_128K_np_8_4, 444416, CORE2_32
+	PRCENTRY2		xfft_hg_128K_ip_11_4, 373248
+	DD			0
+	PRCSTRT	2929000, 147456, 0.00870
+	PRCENTRY2		xfft_r4_144K_1536_4, 1319424, P4TP_256 + I7_64
+	PRCENTRY2A		xfft_r4_144K_1536_4_P4, 1319424, CORE2_32
+	PRCENTRY2A		xfft_r4_144K_1536_4_P4, 1319424, I7_32
+	PRCENTRY2A		xfft_r4_144K_1536_4_CORE, 1319424, P4_1024
+	DD			0
+	PRCSTRT	3251000, 163840, 0.00914
+	PRCENTRY2		xfft_r4dwpn_160K_1280_4, 1022464, P4TP_256
+	PRCENTRY2		xfft_r4dwpn_160K_8_4, 652800, CORE2_64
+	PRCENTRY2A		xfft_r4dwpn_160K_8_4_P4, 652800, CORE2_32
+	PRCENTRY2A		xfft_r4dwpn_160K_8_4_P4, 652800, I7
+	PRCENTRY2A		xfft_r4dwpn_160K_8_4_CORE, 652800, P4_1024
+	PRCENTRY2		xfft_r4delay_160K_1280_4, 837120
+	PRCENTRY2		xfft_r4delay_160K_8_4, 607232, CORE2_64
+	PRCENTRY2A		xfft_r4delay_160K_8_4_P4, 607232, CORE2_32
+	PRCENTRY2A		xfft_r4delay_160K_8_4_P4, 607232, I7
+	PRCENTRY2A		xfft_r4delay_160K_8_4_CORE, 607232, P4_1024
+	PRCENTRY2		xfft_hg_160K_10_4, 471424, P4TP_512 + P4TP_256
+	PRCENTRY2		xfft_hg_160K_10_2, 471424
+	DD			0
+	PRCSTRT	3875000, 196608, 0.0114
+	PRCENTRY2		xfft_r4dwpn_192K_768_4, 1210368, P4TP_256 + I7_64 + CORE2_64
+	PRCENTRY2A		xfft_r4dwpn_192K_768_4_P4, 1210368, CORE2_32
+	PRCENTRY2A		xfft_r4dwpn_192K_768_4_P4, 1210368, I7_32
+	PRCENTRY2		xfft_r4dwpn_192K_8_4, 731136
+	PRCENTRY2A		xfft_r4dwpn_192K_8_4_CORE, 731136, P4_1024
+	PRCENTRY2		xfft_r4delay_192K_768_4, 979968, I7_64 + CORE2_64
+	PRCENTRY2A		xfft_r4delay_192K_768_4_P4, 979968, CORE2_32
+	PRCENTRY2A		xfft_r4delay_192K_768_4_P4, 979968, I7_32
+	PRCENTRY2		xfft_r4delay_192K_8_4, 695296, P4_1024_64
+	PRCENTRY2		xfft_r4_192K_768_4, 1861632
+	PRCENTRY2		xfft_hg_192K_10_4, 555392, P4TP_512
+	PRCENTRY2		xfft_hg_192K_10_2, 555392, P4TP_256
+	PRCENTRY2		xfft_hg_192K_10_1, 555392, P4_1024_32
+	DD			0
+	PRCSTRT	4512000, 229376, 0.0134
+	PRCENTRY2		xfft_r4dwpn_224K_8_4, 813568, CORE2_64
+	PRCENTRY2A		xfft_r4dwpn_224K_8_4_P4, 813568, CORE2_32
+	PRCENTRY2A		xfft_r4dwpn_224K_8_4_P4, 813568, I7
+	PRCENTRY2A		xfft_r4dwpn_224K_8_4_CORE, 813568, P4_1024
+	PRCENTRY2		xfft_r4delay_224K_8_4, 787456, CORE2_64
+	PRCENTRY2A		xfft_r4delay_224K_8_4_P4, 787456, CORE2_32
+	PRCENTRY2A		xfft_r4delay_224K_8_4_P4, 787456, I7
+	PRCENTRY2A		xfft_r4delay_224K_8_4_CORE, 787456, P4_1024
+	PRCENTRY2		xfft_hg_224K_10_4, 639616, P4TP_512
+	PRCENTRY2		xfft_hg_224K_10_2, 639616, P4TP_256
+	DD			0
+	PRCSTRT	4837000, 245760, 0.0141
+	PRCENTRY2		xfft_r4dwpn_240K_768_4, 962560, P4_1024_64 + I7_64 + CORE2_64
+	PRCENTRY2A		xfft_r4dwpn_240K_768_4_P4, 962560, CORE2_32
+	PRCENTRY2A		xfft_r4dwpn_240K_768_4_CORE, 962560, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_240K_768_2, 962560, P4TP_256
+	PRCENTRY2		xfft_r4delay_240K_768_4, 886272, P4_1024_64 + I7_64 + CORE2_64
+	PRCENTRY2A		xfft_r4delay_240K_768_4_P4, 886272, CORE2_32
+	PRCENTRY2A		xfft_r4delay_240K_768_4_CORE, 886272, P4_1024_32
+	PRCENTRY2		xfft_r4delay_240K_768_2, 886272,  P4TP_256
+	DD			0
+	PRCSTRT	5158000, 262144, 0.0150
+	PRCENTRY2		xfft_r4dwpn_256K_10_4, 1613824, P4TP_256 + I7_64
+	PRCENTRY2A		xfft_r4dwpn_256K_10_4_P4, 1613824, I7_32
+	PRCENTRY2		xfft_r4dwpn_256K_8_4, 894976, CORE2
+	PRCENTRY2A		xfft_r4dwpn_256K_8_4_CORE, 894976, P4_1024
+	PRCENTRY2		xfft_r4delay_256K_10_4, 1305600, P4TP_256
+	PRCENTRY2A		xfft_r4delay_256K_10_4_P4, 1305600, I7
+	PRCENTRY2		xfft_r4delay_256K_8_4, 878592, CORE2
+	PRCENTRY2A		xfft_r4delay_256K_8_4_CORE, 878592, P4_1024
+	PRCENTRY2		xfft_hg_256K_10_4, 721920, P4TP_512
+	PRCENTRY2		xfft_hg_256K_10_2, 721920
+	DD			0
+	PRCSTRT	5781000, 294912, 0.0172
+	PRCENTRY2		xfft_r4dwpn_288K_768_4, 1076736, P4_1024 + I7_64 + CORE2
+	PRCENTRY2		xfft_r4dwpn_288K_768_2, 1076736, P4TP_256
+	PRCENTRY2A		xfft_r4dwpn_288K_768_2_P4, 1076736, I7_32
+	PRCENTRY2		xfft_r4delay_288K_768_4, 1012224, P4_1024 + I7_64 + CORE2
+	PRCENTRY2		xfft_r4delay_288K_768_2, 1012224, P4TP_256
+	PRCENTRY2A		xfft_r4delay_288K_768_2_P4, 1012224, I7_32
+	DD			0
+	PRCSTRT	6421000, 327680, 0.0192
+	PRCENTRY2		xfft_r4dwpn_320K_1280_4, 2009088
+	PRCENTRY2A		xfft_r4dwpn_320K_1280_4_P4, 2009088, I7_64
+	PRCENTRY2		xfft_r4dwpn_320K_10_4, 1280000, P4_1024_64 + CORE2
+	PRCENTRY2A		xfft_r4dwpn_320K_10_4_P4, 1280000, I7_32
+	PRCENTRY2		xfft_r4dwpn_320K_10_2, 1280000, P4TP_256
+	PRCENTRY2		xfft_r4delay_320K_1280_4, 1623040
+	PRCENTRY2A		xfft_r4delay_320K_1280_4_P4, 1623040, I7_64
+	PRCENTRY2		xfft_r4delay_320K_10_4, 1179136, P4_1024_64 + CORE2
+	PRCENTRY2A		xfft_r4delay_320K_10_4_P4, 1179136, I7_32
+	PRCENTRY2		xfft_r4delay_320K_10_2, 1179136, P4TP_256
+	PRCENTRY2		xfft_hg_320K_10_4, 890624, P4_1024_32 + P4TP_512
+	PRCENTRY2		xfft_hg_320K_10_1, 890624
+	DD			0
+	PRCSTRT	6716000, 344064, 0.0205
+	PRCENTRY2		xfft_r4dwpn_336K_768_4, 1192960, P4_1024_64 + I7_64 + CORE2_64
+	PRCENTRY2A		xfft_r4dwpn_336K_768_4_P4, 1192960, CORE2_32
+	PRCENTRY2A		xfft_r4dwpn_336K_768_4_P4, 1192960, I7_32
+	PRCENTRY2A		xfft_r4dwpn_336K_768_4_CORE, 1192960, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_336K_768_2, 1192960, P4TP_512 + P4TP_256
+	PRCENTRY2		xfft_r4delay_336K_768_4, 1140224, P4_1024_64 + I7_64 + CORE2_64
+	PRCENTRY2A		xfft_r4delay_336K_768_4_P4, 1140224, CORE2_32
+	PRCENTRY2A		xfft_r4delay_336K_768_4_P4, 1140224, I7_32
+	PRCENTRY2A		xfft_r4delay_336K_768_4_CORE, 1140224, P4_1024_32
+	PRCENTRY2		xfft_r4delay_336K_768_2, 1140224, P4TP_512 + P4TP_256
+	DD			0
+	PRCSTRT	7651000, 393216, 0.0238
+	PRCENTRY2		xfft_r4dwpn_384K_1536_4, 2408448, P4_1024_64 + P4TP_256 + I7_64
+	PRCENTRY2A		xfft_r4dwpn_384K_1536_4_P4, 2408448, I7_32
+	PRCENTRY2A		xfft_r4dwpn_384K_1536_4_CORE, 2408448, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_384K_10_4, 1431040
+	PRCENTRY2		xfft_r4dwpn_384K_768_4, 1308672, CORE2
+	PRCENTRY2		xfft_r4delay_384K_1536_4, 1944576, P4_1024_64 + P4TP_256 + I7_64
+	PRCENTRY2A		xfft_r4delay_384K_1536_4_P4, 1944576, I7_32
+	PRCENTRY2		xfft_r4delay_384K_10_4, 1346048, CORE2_64
+	PRCENTRY2		xfft_r4delay_384K_768_4, 1267712
+	PRCENTRY2A		xfft_r4delay_384K_768_4_P4, 1267712, CORE2_32
+	PRCENTRY2		xfft_hg_384K_10_4, 1058432, P4_1024_32 + P4TP_512
+	PRCENTRY2		xfft_hg_384K_10_2, 1058432
+	PRCENTRY2		xfft_hg_384K_10_1, 1058432
+	DD			0
+	PRCSTRT	7967000, 409600, 0.0248
+	PRCENTRY2		xfft_r4dwpn_400K_1280_4, 1589248, P4_1024_32 + P4TP_512 + CORE2
+	PRCENTRY2A		xfft_r4dwpn_400K_1280_4_P4, 1589248, I7
+	PRCENTRY2A		xfft_r4dwpn_400K_1280_4_CORE, 1589248, P4_1024_64
+	PRCENTRY2		xfft_r4dwpn_400K_1280_2, 1589248, P4TP_256
+	PRCENTRY2		xfft_r4delay_400K_1280_4, 1463808, P4_1024_32 + P4TP_512 + CORE2_64
+	PRCENTRY2A		xfft_r4delay_400K_1280_4_P4, 1463808, I7
+	PRCENTRY2A		xfft_r4delay_400K_1280_4_CORE, 1463808, P4_1024_64
+	PRCENTRY2		xfft_r4delay_400K_1280_2, 1463808, P4TP_256 + CORE2_32
+	DD			0
+	PRCSTRT	8908000, 458752, 0.0283
+	PRCENTRY2		xfft_r4dwpn_448K_10_4, 1584128, P4_1024_64 + CORE2
+	PRCENTRY2A		xfft_r4dwpn_448K_10_4_P4, 1584128, I7_64
+	PRCENTRY2A		xfft_r4dwpn_448K_10_4_CORE, 1584128, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_448K_10_2, 1584128
+	PRCENTRY2A		xfft_r4dwpn_448K_10_2_P4, 1584128, I7_32
+	PRCENTRY2		xfft_r4delay_448K_10_4, 1515008, P4_1024_64 + CORE2_64
+	PRCENTRY2A		xfft_r4delay_448K_10_4_P4, 1515008, CORE2_32
+	PRCENTRY2A		xfft_r4delay_448K_10_4_P4, 1515008, I7_32
+	PRCENTRY2A		xfft_r4delay_448K_10_4_CORE, 1515008, P4_1024_32
+	PRCENTRY2		xfft_r4delay_448K_10_2, 1515008, P4TP_256 + I7_64
+	PRCENTRY2		xfft_hg_448K_10_4, 1226496, P4TP_512
+	PRCENTRY2		xfft_hg_448K_10_2, 1226496
+	PRCENTRY2		xfft_hg_448K_10_1, 1226496
+	DD			0
+	PRCSTRT	9547000, 491520, 0.0298
+	PRCENTRY2		xfft_r4dwpn_480K_1536_4, 1902592, I7_64
+	PRCENTRY2A		xfft_r4dwpn_480K_1536_4_CORE, 1902592, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_480K_1536_2, 1902592, P4TP_512 + P4TP_256
+	PRCENTRY2		xfft_r4dwpn_480K_1280_4, 1777152
+	PRCENTRY2		xfft_r4dwpn_480K_768_4, 1893888, P4_1024_64 + CORE2
+	PRCENTRY2A		xfft_r4dwpn_480K_768_4_P4, 1893888, I7_32
+	PRCENTRY2		xfft_r4delay_480K_1536_4, 1752576, I7_64
+	PRCENTRY2A		xfft_r4delay_480K_1536_4_CORE, 1752576, P4_1024
+	PRCENTRY2		xfft_r4delay_480K_1536_2, 1752576, P4TP_512 + P4TP_256
+	PRCENTRY2		xfft_r4delay_480K_1280_4, 1671680
+	PRCENTRY2		xfft_r4delay_480K_768_4, 1741824, CORE2
+	PRCENTRY2A		xfft_r4delay_480K_768_4_P4, 1741824, I7_32
+	DD			0
+	PRCSTRT	10180000, 524288, 0.0319
+	PRCENTRY2		xfft_r4dwpn_512K_11_4, 3215360, P4TP_256
+	PRCENTRY2A		xfft_r4dwpn_512K_11_4_P4, 3215360, I7
+	PRCENTRY2A		xfft_r4dwpn_512K_11_4_CORE, 3215360, P4_1024
+	PRCENTRY2		xfft_r4dwpn_512K_10_4, 1736704, CORE2
+	PRCENTRY2		xfft_r4delay_512K_11_4, 2595840, P4TP_256
+	PRCENTRY2A		xfft_r4delay_512K_11_4_P4, 2595840, I7
+	PRCENTRY2A		xfft_r4delay_512K_11_4_CORE, 2595840, P4_1024_64
+	PRCENTRY2		xfft_r4delay_512K_10_4, 1683456, CORE2
+	PRCENTRY2		xfft_hg_512K_10_4, 1392640, P4_1024_32 + P4TP_512
+	PRCENTRY2		xfft_hg_512K_10_2, 1392640
+	PRCENTRY2		xfft_hg_512K_10_1, 1392640
+	DD			0
+	PRCSTRT	11100000, 573440, 0.0353
+	PRCENTRY2		xfft_r4dwpn_560K_1280_4, 1967104, P4TP_512 + CORE2
+	PRCENTRY2A		xfft_r4dwpn_560K_1280_4_P4, 1967104, I7_64
+	PRCENTRY2A		xfft_r4dwpn_560K_1280_4_CORE, 1967104, P4_1024_64
+	PRCENTRY2		xfft_r4dwpn_560K_1280_2, 1967104, P4TP_256
+	PRCENTRY2A		xfft_r4dwpn_560K_1280_2_P4, 1967104, I7_32
+	PRCENTRY2		xfft_r4delay_560K_1280_4, 1881600, P4_1024_32 + P4TP_512 + CORE2
+	PRCENTRY2A		xfft_r4delay_560K_1280_4_P4, 1881600, I7_64
+	PRCENTRY2A		xfft_r4delay_560K_1280_4_CORE, 1881600, P4_1024_64
+	PRCENTRY2		xfft_r4delay_560K_1280_2, 1881600, P4TP_256 + I7_32
+	DD			0
+	PRCSTRT	11410000, 589824, 0.0365
+	PRCENTRY2		xfft_r4dwpn_576K_2304_4, 3594240, I7_64
+	PRCENTRY2		xfft_r4dwpn_576K_1536_4, 2127360, P4_1024_64 + P4TP_512
+	PRCENTRY2A		xfft_r4dwpn_576K_1536_4_CORE, 2127360, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_576K_1536_2, 2127360, P4TP_256
+	PRCENTRY2		xfft_r4dwpn_576K_768_4, 2119680, CORE2
+	PRCENTRY2A		xfft_r4dwpn_576K_768_4_P4, 2119680, I7_32
+	PRCENTRY2		xfft_r4delay_576K_2304_4, 2896896, P4_1024_64 + I7_64
+	PRCENTRY2		xfft_r4delay_576K_1536_4, 2001408, P4TP_512
+	PRCENTRY2A		xfft_r4delay_576K_1536_4_CORE, 2001408, P4_1024_32
+	PRCENTRY2		xfft_r4delay_576K_1536_2, 2001408, P4TP_256
+	PRCENTRY2		xfft_r4delay_576K_768_4, 1993728, CORE2
+	PRCENTRY2A		xfft_r4delay_576K_768_4_P4, 1993728, I7_32
+	DD			0
+	PRCSTRT	12650000, 655360, 0.0410
+	PRCENTRY2		xfft_r4dwpn_640K_2560_4, 4005888
+	PRCENTRY2		xfft_r4dwpn_640K_11_4, 2537472, P4_1024_32 + P4TP_512
+	PRCENTRY2		xfft_r4dwpn_640K_11_2, 2537472, P4TP_256
+	PRCENTRY2		xfft_r4dwpn_640K_1280_4, 2156544
+	PRCENTRY2		xfft_r4dwpn_640K_10_4, 2518528, P4_1024_64 + CORE2
+	PRCENTRY2A		xfft_r4dwpn_640K_10_4_P4, 2518528, I7
+	PRCENTRY2		xfft_r4delay_640K_2560_4, 3230720
+	PRCENTRY2		xfft_r4delay_640K_11_4, 2338304, P4_1024_32
+	PRCENTRY2		xfft_r4delay_640K_11_2, 2338304, P4TP_256
+	PRCENTRY2		xfft_r4delay_640K_1280_4, 2091008
+	PRCENTRY2		xfft_r4delay_640K_10_4, 2313216, P4_1024_64 + CORE2
+	PRCENTRY2A		xfft_r4delay_640K_10_4_P4, 2313216, I7
+	PRCENTRY2		xfft_hg_640K_12_2, 1214848
+	PRCENTRY2		xfft_hg_640K_11_4, 1437440, P4TP_512
+	PRCENTRY2		xfft_hg_640K_11_1, 1437440
+	DD			0
+	PRCSTRT	13250000, 688128, 0.0434
+	PRCENTRY2		xfft_r4dwpn_672K_1536_4, 2354176, I7_64
+	PRCENTRY2A		xfft_r4dwpn_672K_1536_4_CORE, 2354176, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_672K_1536_2, 2354176, P4TP_512 + P4TP_256
+	PRCENTRY2		xfft_r4dwpn_672K_768_4, 2349568, P4_1024_64 + CORE2
+	PRCENTRY2A		xfft_r4dwpn_672K_768_4_P4, 2349568, I7_32
+	PRCENTRY2		xfft_r4delay_672K_1536_4, 2252288, I7_64
+	PRCENTRY2A		xfft_r4delay_672K_1536_4_CORE, 2252288, P4_1024_32
+	PRCENTRY2		xfft_r4delay_672K_1536_2, 2252288, P4TP_512 + P4TP_256
+	PRCENTRY2		xfft_r4delay_672K_768_4, 2249728, P4_1024_64 + CORE2
+	PRCENTRY2A		xfft_r4delay_672K_768_4_P4, 2249728, I7_32
+	DD			0
+	PRCSTRT	14160000, 737280, 0.0471
+	PRCENTRY2		xfft_r4dwpn_720K_2304_4, 2830336, P4_1024_64 + I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_720K_2304_2, 2830336, P4TP_256
+	PRCENTRY2		xfft_r4delay_720K_2304_4, 2606592, P4_1024_64 + I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4delay_720K_2304_2, 2606592, P4TP_256
+	DD			0
+	PRCSTRT	15070000, 786432, 0.0507
+	PRCENTRY2		xfft_r4dwpn_768K_3072_4, 4808704, I7_64
+	PRCENTRY2		xfft_r4dwpn_768K_3072_2, 4808704, P4TP_256 + I7_32
+	PRCENTRY2		xfft_r4dwpn_768K_11_4, 2835968
+	PRCENTRY2		xfft_r4dwpn_768K_1536_4, 2580480
+	PRCENTRY2		xfft_r4dwpn_768K_10_4, 2818048
+	PRCENTRY2		xfft_r4dwpn_768K_768_4, 2578432, CORE2
+	PRCENTRY2		xfft_r4delay_768K_3072_4, 3877888, I7_64
+	PRCENTRY2		xfft_r4delay_768K_3072_2, 3877888
+	PRCENTRY2		xfft_r4delay_768K_11_4, 2669056
+	PRCENTRY2		xfft_r4delay_768K_1536_4, 2502656
+	PRCENTRY2		xfft_r4delay_768K_10_4, 2647040, CORE2_32
+	PRCENTRY2A		xfft_r4delay_768K_10_4_P4, 2647040, I7_32
+	PRCENTRY2		xfft_r4delay_768K_768_4, 2504704, CORE2_64
+	PRCENTRY2		xfft_hg_768K_12_2, 1413504, P4_1024
+	PRCENTRY2		xfft_hg_768K_11_4, 1703552, P4TP_512 + P4TP_256
+	PRCENTRY2		xfft_hg_768K_11_2, 1703552
+	DD			0
+	PRCSTRT	15690000, 819200, 0.0528
+	PRCENTRY2		xfft_r4dwpn_800K_2560_4, 3155968
+	PRCENTRY2A		xfft_r4dwpn_800K_2560_4_CORE, 3155968, P4_1024
+	PRCENTRY2		xfft_r4dwpn_800K_2560_2, 3155968, P4TP_512 + P4TP_256
+	PRCENTRY2		xfft_r4dwpn_800K_1280_4, 3134976, I7_32 + CORE2
+	PRCENTRY2A		xfft_r4dwpn_800K_1280_4_P4, 3134976, I7_64
+	PRCENTRY2		xfft_r4delay_800K_2560_4, 2907648, P4TP_512
+	PRCENTRY2A		xfft_r4delay_800K_2560_4_CORE, 2907648, P4_1024
+	PRCENTRY2		xfft_r4delay_800K_2560_2, 2907648, P4TP_256
+	PRCENTRY2		xfft_r4delay_800K_1280_4, 2876416, CORE2
+	PRCENTRY2A		xfft_r4delay_800K_1280_4_P4, 2876416, I7
+	DD			0
+	PRCSTRT	16930000, 884736, 0.0582
+	PRCENTRY2		xfft_r4dwpn_864K_2304_4, 3165696
+	PRCENTRY2		xfft_r4dwpn_864K_2304_2, 3165696
+	PRCENTRY2		xfft_r4delay_864K_2304_4, 2978304
+	PRCENTRY2		xfft_r4delay_864K_2304_2, 2978304
+	DD			0
+	PRCSTRT	17550000, 917504, 0.0607
+	PRCENTRY2		xfft_r4dwpn_896K_11_4, 3136512
+	PRCENTRY2		xfft_r4dwpn_896K_11_2, 3136512, P4TP_256
+	PRCENTRY2		xfft_r4dwpn_896K_10_4, 3121664, P4_1024_64 + CORE2
+	PRCENTRY2A		xfft_r4dwpn_896K_10_4_P4, 3121664, I7
+	PRCENTRY2A		xfft_r4dwpn_896K_10_4_CORE, 3121664, P4_1024_32
+	PRCENTRY2		xfft_r4delay_896K_11_4, 3001856
+	PRCENTRY2A		xfft_r4delay_896K_11_4_CORE, 3001856, P4_1024_32
+	PRCENTRY2		xfft_r4delay_896K_11_2, 3001856, P4TP_256
+	PRCENTRY2		xfft_r4delay_896K_10_4, 2984960, P4_1024_64 + CORE2
+	PRCENTRY2A		xfft_r4delay_896K_10_4_P4, 2984960, I7
+	PRCENTRY2		xfft_hg_896K_12_2, 1612416
+	PRCENTRY2		xfft_hg_896K_12_1, 1612416
+	PRCENTRY2		xfft_hg_896K_11_4, 1969920, P4TP_512
+	PRCENTRY2		xfft_hg_896K_11_2, 1969920
+	DD			0
+	PRCSTRT	18800000, 983040, 0.0642
+	PRCENTRY2		xfft_r4dwpn_960K_3840_4, 5994496, I7_64
+	PRCENTRY2		xfft_r4dwpn_960K_3072_4, 3786752
+	PRCENTRY2		xfft_r4dwpn_960K_3072_2, 3786752, P4TP_512 + P4TP_256
+	PRCENTRY2		xfft_r4dwpn_960K_2560_4, 3528192
+	PRCENTRY2		xfft_r4dwpn_960K_1536_4, 3755520, P4_1024_64 + I7_32
+	PRCENTRY2A		xfft_r4dwpn_960K_1536_4_CORE, 3755520, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_960K_1280_4, 3508224, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_960K_768_4, 2000896, CORE2_64
+	PRCENTRY2		xfft_r4delay_960K_3840_4, 4830208, I7_64
+	PRCENTRY2		xfft_r4delay_960K_3072_4, 3489280
+	PRCENTRY2		xfft_r4delay_960K_3072_2, 3489280, P4TP_512 + P4TP_256
+	PRCENTRY2		xfft_r4delay_960K_2560_4, 3320320
+	PRCENTRY2		xfft_r4delay_960K_1536_4, 3443712
+	PRCENTRY2A		xfft_r4delay_960K_1536_4_P4, 3443712, I7_32
+	PRCENTRY2A		xfft_r4delay_960K_1536_4_CORE, 3443712, P4_1024
+	PRCENTRY2		xfft_r4delay_960K_1280_4, 3292160
+	PRCENTRY2		xfft_r4delay_960K_768_4, 2101248, CORE2
+	DD			0
+	PRCSTRT	19740000, 1032192, 0.0667
+	PRCENTRY2		xfft_r4dwpn_1008K_2304_4, 3503104
+	PRCENTRY2		xfft_r4delay_1008K_2304_4, 3352064
+	DD			0
+	PRCSTRT	20050000, 1048576, 0.0676
+	PRCENTRY2		xfft_r4dwpn_1M_12_4, 6406144, P4_1024 + I7
+	PRCENTRY2		xfft_r4dwpn_1M_11_4, 3436544
+	PRCENTRY2		xfft_r4dwpn_1M_11_2, 3436544, P4TP_256
+	PRCENTRY2		xfft_r4dwpn_1M_10_4, 3424256, CORE2
+	PRCENTRY2		xfft_r4delay_1M_12_4, 5164032, P4_1024_64 + I7
+	PRCENTRY2		xfft_r4delay_1M_11_4, 3334144
+	PRCENTRY2		xfft_r4delay_1M_11_2, 3334144, P4TP_256
+	PRCENTRY2		xfft_r4delay_1M_10_4, 3321856, CORE2
+	PRCENTRY2		xfft_hg_1024K_12_4, 1809408
+	PRCENTRY2		xfft_hg_1024K_12_2, 1809408
+	PRCENTRY2		xfft_hg_1024K_12_1, 1809408
+	PRCENTRY2		xfft_hg_1024K_11_4, 2234368, P4_1024_32 + P4TP_512
+	PRCENTRY2		xfft_hg_1024K_11_2, 2234368
+	DD			0
+	PRCSTRT	21850000, 1146880, 0.0761
+	PRCENTRY2		xfft_r4dwpn_1120K_2560_4, 3902464, P4_1024_64 + I7_64 + CORE2_64
+	PRCENTRY2A		xfft_r4dwpn_1120K_2560_4_CORE, 3902464, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_1120K_2560_2, 3902464, P4TP_512 + P4TP_256 + I7_32
+	PRCENTRY2		xfft_r4delay_1120K_2560_4, 3735040, P4TP_512 + CORE2_64
+	PRCENTRY2A		xfft_r4delay_1120K_2560_4_CORE, 3735040, P4_1024
+	PRCENTRY2		xfft_r4delay_1120K_2560_2, 3735040, P4TP_256 + I7
+	DD			0
+	PRCSTRT	22490000, 1179648, 0.0784
+	PRCENTRY2		xfft_r4dwpn_1152K_4608_4, 7176192, P4_1024 + I7_64
+	PRCENTRY2		xfft_r4dwpn_1152K_4608_2, 7176192, P4TP_512 + I7_32
+	PRCENTRY2		xfft_r4dwpn_1152K_3072_4, 4232704, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_1152K_3072_2, 4232704, P4TP_256 + CORE2_32
+	PRCENTRY2		xfft_r4dwpn_1152K_2304_4, 3840000
+	PRCENTRY2		xfft_r4delay_1152K_4608_4, 5778432, P4_1024 + P4TP_512 + I7_64
+	PRCENTRY2		xfft_r4delay_1152K_4608_2, 5778432, I7_32
+	PRCENTRY2		xfft_r4delay_1152K_3072_4, 3983872, CORE2_64
+	PRCENTRY2		xfft_r4delay_1152K_3072_2, 3983872, P4TP_256 + CORE2_32
+	PRCENTRY2		xfft_r4delay_1152K_2304_4, 3725312
+	DD			0
+	PRCSTRT	23360000, 1228800, 0.0832
+	PRCENTRY2		xfft_r4dwpn_1200K_3840_4, 4714496, P4_1024_64 + I7_64 + CORE2
+	PRCENTRY2		xfft_r4dwpn_1200K_3840_2, 4714496
+	PRCENTRY2		xfft_r4delay_1200K_3840_4, 4343296, P4_1024_64 + I7_64 + CORE2
+	PRCENTRY2		xfft_r4delay_1200K_3840_2, 4343296
+	DD			0
+	PRCSTRT	24930000, 1310720, 0.0892
+	PRCENTRY2		xfft_r4dwpn_1280K_5120_4, 8003584
+	PRCENTRY2		xfft_r4dwpn_1280K_12_4, 5040128, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_1280K_12_2, 5040128, P4TP_512
+	PRCENTRY2		xfft_r4dwpn_1280K_2560_4, 4276224
+	PRCENTRY2		xfft_r4dwpn_1280K_2560_2, 4276224
+	PRCENTRY2		xfft_r4dwpn_1280K_11_4, 5004800, P4_1024_64 + I7_32
+	PRCENTRY2A		xfft_r4dwpn_1280K_11_4_CORE, 5004800, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_1280K_11_2, 5004800, P4TP_256 + I7_64
+	PRCENTRY2		xfft_r4dwpn_1280K_1280_4, 4261888, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_1280K_10_4, 2641920
+	PRCENTRY2		xfft_r4delay_1280K_5120_4, 6450176, I7_64
+	PRCENTRY2		xfft_r4delay_1280K_12_4, 4644352, CORE2
+	PRCENTRY2		xfft_r4delay_1280K_12_2, 4644352
+	PRCENTRY2		xfft_r4delay_1280K_2560_4, 4149248
+	PRCENTRY2		xfft_r4delay_1280K_2560_2, 4149248
+	PRCENTRY2		xfft_r4delay_1280K_11_4, 4586496, P4_1024_64 + I7_32
+	PRCENTRY2		xfft_r4delay_1280K_11_2, 4586496, P4TP_256
+	PRCENTRY2		xfft_r4delay_1280K_1280_4, 4130816
+	PRCENTRY2		xfft_r4delay_1280K_10_4, 2779136
+	PRCENTRY2		xfft_hg_1280K_12_4, 2207488, P4_1024_32 + P4TP_512
+	PRCENTRY2		xfft_hg_1280K_12_1, 2207488
+	PRCENTRY2		xfft_hg_1280K_11_2, 2769152
+	DD			0
+	PRCSTRT	26120000, 1376256, 0.0952
+	PRCENTRY2		xfft_r4dwpn_1344K_3072_4, 4680704, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_1344K_3072_2, 4680704, P4TP_512 + P4TP_256 + I7_32
+	PRCENTRY2		xfft_r4dwpn_1344K_1536_4, 4653568, P4_1024_64 + I7_64 + CORE2_32
+	PRCENTRY2A		xfft_r4dwpn_1344K_1536_4_CORE, 4653568, P4_1024_32
+	PRCENTRY2		xfft_r4delay_1344K_3072_4, 4480512, CORE2
+	PRCENTRY2		xfft_r4delay_1344K_3072_2, 4480512, P4TP_512 + P4TP_256 + I7
+	PRCENTRY2		xfft_r4delay_1344K_1536_4, 4443136, P4_1024_32
+	PRCENTRY2A		xfft_r4delay_1344K_1536_4_CORE, 4443136, P4_1024_64
+	DD			0
+	PRCSTRT	27900000, 1474560, 0.104
+	PRCENTRY2		xfft_r4dwpn_1440K_4608_4, 5638144, P4_1024 + P4TP_512 + I7_64
+	PRCENTRY2		xfft_r4dwpn_1440K_4608_2, 5638144, P4TP_256 + I7_32
+	PRCENTRY2		xfft_r4dwpn_1440K_3840_4, 5271040
+	PRCENTRY2		xfft_r4dwpn_1440K_2304_4, 5604864, CORE2
+	PRCENTRY2		xfft_r4delay_1440K_4608_4, 5193216, P4_1024 + I7_64
+	PRCENTRY2		xfft_r4delay_1440K_4608_2, 5193216, P4TP_512 + P4TP_256 + I7_32
+	PRCENTRY2		xfft_r4delay_1440K_3840_4, 4960768
+	PRCENTRY2		xfft_r4delay_1440K_2304_4, 5133312, CORE2
+	DD			0
+	PRCSTRT	29690000, 1572864, 0.113
+	PRCENTRY2		xfft_r4dwpn_1536K_6144_4, 9605120
+	PRCENTRY2		xfft_r4dwpn_1536K_12_4, 5633536, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_1536K_3072_4, 5128192, I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_1536K_3072_2, 5128192, P4TP_256
+	PRCENTRY2		xfft_r4dwpn_1536K_11_4, 5599232, I7_32
+	PRCENTRY2		xfft_r4dwpn_1536K_11_2, 5599232
+	PRCENTRY2		xfft_r4dwpn_1536K_1536_4, 5103616
+	PRCENTRY2		xfft_r4dwpn_1536K_10_4, 2596864
+	PRCENTRY2		xfft_r4delay_1536K_6144_4, 7740416
+	PRCENTRY2		xfft_r4delay_1536K_12_4, 5302784, CORE2_32
+	PRCENTRY2		xfft_r4delay_1536K_3072_4, 4976640, CORE2_64
+	PRCENTRY2		xfft_r4delay_1536K_3072_2, 4976640, P4TP_256 + I7_64
+	PRCENTRY2		xfft_r4delay_1536K_11_4, 5248000, I7_32
+	PRCENTRY2		xfft_r4delay_1536K_11_2, 5248000
+	PRCENTRY2		xfft_r4delay_1536K_1536_4, 4943872
+	PRCENTRY2		xfft_r4delay_1536K_10_4, 2797568
+	PRCENTRY2		xfft_r4delay_1536K_12_4, 5302784
+	PRCENTRY2		xfft_r4delay_1536K_12_1, 5302784
+	PRCENTRY2		xfft_hg_1536K_12_4, 2604672, P4_1024_32 + P4TP_512
+	PRCENTRY2A		xfft_hg_1536K_12_4_CORE, 2604672, P4_1024_64
+	PRCENTRY2		xfft_hg_1536K_12_1, 2604672
+	PRCENTRY2		xfft_hg_1536K_11_1, 3301760
+	DD			0
+	PRCSTRT	30900000, 1638400, 0.119
+	PRCENTRY2		xfft_r4dwpn_1600K_5120_4, 6293504, P4TP_512 + I7_64 + CORE2
+	PRCENTRY2		xfft_r4dwpn_1600K_2560_4, 6237696, P4_1024_64 + I7_32
+	PRCENTRY2A		xfft_r4dwpn_1600K_2560_4_CORE, 6237696, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_1600K_1280_4, 3274752
+	PRCENTRY2		xfft_r4delay_1600K_5120_4, 5799424, P4TP_512 + I7_64 + CORE2
+	PRCENTRY2		xfft_r4delay_1600K_2560_4, 5712896, I7_32
+	PRCENTRY2A		xfft_r4delay_1600K_2560_4_CORE, 5712896, P4_1024
+	PRCENTRY2		xfft_r4delay_1600K_1280_4, 3448832
+	DD			0
+	PRCSTRT	32420000, 1720320, 0.125
+	PRCENTRY2		xfft_r4dwpn_1680K_3840_4, 5829632, P4_1024_64 + I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4delay_1680K_3840_4, 5580288, P4_1024_64 + I7_64 + CORE2_64
+	DD			0
+	PRCSTRT	33370000, 1769472, 0.129
+	PRCENTRY2		xfft_r4dwpn_1728K_4608_4, 6305280
+	PRCENTRY2		xfft_r4dwpn_1728K_2304_4, 6273024, I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4delay_1728K_4608_4, 5933568, I7_64
+	PRCENTRY2		xfft_r4delay_1728K_2304_4, 5876736, CORE2_64
+	DD			0
+	PRCSTRT	34560000, 1835008, 0.135
+	PRCENTRY2		xfft_r4dwpn_1792K_12_4, 6228992
+	PRCENTRY2		xfft_r4dwpn_1792K_12_2, 6228992, I7_32
+	PRCENTRY2		xfft_r4dwpn_1792K_11_4, 6197760, I7_64 + CORE2_64
+	PRCENTRY2A		xfft_r4dwpn_1792K_11_4_CORE, 6197760, P4_1024
+	PRCENTRY2		xfft_r4dwpn_1792K_10_4, 3608064, CORE2_32
+	PRCENTRY2		xfft_r4delay_1792K_12_4, 5963264, CORE2_32
+	PRCENTRY2		xfft_r4delay_1792K_12_2, 5963264, I7_32
+	PRCENTRY2		xfft_r4delay_1792K_11_4, 5913600, P4_1024_32 + I7_64
+	PRCENTRY2A		xfft_r4delay_1792K_11_4_CORE, 5913600, P4_1024_64
+	PRCENTRY2		xfft_r4delay_1792K_10_4, 3336192, CORE2_64
+	PRCENTRY2		xfft_hg_1792K_12_4, 3002112, P4TP_512
+	PRCENTRY2		xfft_hg_1792K_12_1, 3002112
+	PRCENTRY2		xfft_hg_1792K_11_1, 3834368
+	DD			0
+	PRCSTRT	37030000, 1966080, 0.145
+	PRCENTRY2		xfft_r4dwpn_1920K_7680_4, 11976704
+	PRCENTRY2		xfft_r4dwpn_1920K_6144_4, 7550976, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_1920K_5120_4, 7034368
+	PRCENTRY2		xfft_r4dwpn_1920K_3840_4, 6387712
+	PRCENTRY2		xfft_r4dwpn_1920K_3072_4, 7482880, P4_1024_64 + I7 + CORE2
+	PRCENTRY2		xfft_r4dwpn_1920K_2560_4, 6979584
+	PRCENTRY2		xfft_r4dwpn_1920K_1536_4, 3911680
+	PRCENTRY2		xfft_r4delay_1920K_7680_4, 9645056
+	PRCENTRY2		xfft_r4delay_1920K_6144_4, 6958592, P4_1024_32
+	PRCENTRY2		xfft_r4delay_1920K_5120_4, 6621696
+	PRCENTRY2		xfft_r4delay_1920K_3840_4, 6199296
+	PRCENTRY2		xfft_r4delay_1920K_3072_4, 6851584, P4_1024_64 + I7 + CORE2
+	PRCENTRY2		xfft_r4delay_1920K_2560_4, 6538240
+	PRCENTRY2		xfft_r4delay_1920K_1536_4, 4122624
+	DD			0
+	PRCSTRT	38570000, 2048000, 0.151
+	PRCENTRY2		xfft_r4dwpn_2000K_6400_4, 7831552, P4_1024_64
+	PRCENTRY2		xfft_r4delay_2000K_6400_4, 7214592, P4_1024_64
+	DD			0
+	PRCSTRT	38880000, 2064384, 0.153
+	PRCENTRY2		xfft_r4dwpn_2016K_4608_4, 6974464
+	PRCENTRY2		xfft_r4dwpn_2016K_2304_4, 6945280
+	PRCENTRY2		xfft_r4delay_2016K_4608_4, 6675968
+	PRCENTRY2		xfft_r4delay_2016K_2304_4, 6624256
+	DD			0
+	PRCSTRT	39500000, 2097152, 0.155
+	PRCENTRY2		xfft_r4dwpn_2M_13_4, 12800000, P4_1024_64
+	PRCENTRY2		xfft_r4dwpn_2M_12_4, 6823936, CORE2
+	PRCENTRY2		xfft_r4dwpn_2M_12_2, 6823936
+	PRCENTRY2		xfft_r4dwpn_2M_11_4, 6795264, I7
+	PRCENTRY2		xfft_r4dwpn_2M_10_4, 3817472
+	PRCENTRY2		xfft_r4delay_2M_13_4, 10312704
+	PRCENTRY2		xfft_r4delay_2M_12_4, 6623232, CORE2
+	PRCENTRY2		xfft_r4delay_2M_12_2, 6623232
+	PRCENTRY2		xfft_r4delay_2M_12_1, 6623232
+	PRCENTRY2		xfft_r4delay_2M_11_4, 6578176, I7
+	PRCENTRY2		xfft_r4delay_2M_10_4, 3616768
+	PRCENTRY2		xfft_hg_2048K_12_4, 3397632, P4_1024 + P4TP_512
+	PRCENTRY2		xfft_hg_2048K_12_2, 3397632
+	PRCENTRY2		xfft_hg_2048K_12_1, 3397632
+	DD			0
+	PRCSTRT	43060000, 2293760, 0.175
+	PRCENTRY2		xfft_r4dwpn_2240K_5120_4, 7777280, I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_2240K_5120_2, 7777280, P4TP_512 + I7_32
+	PRCENTRY2		xfft_r4dwpn_2240K_2560_4, 7725568
+	PRCENTRY2A		xfft_r4dwpn_2240K_2560_4_CORE, 7725568, P4_1024
+	PRCENTRY2		xfft_r4delay_2240K_5120_4, 7446016, I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4delay_2240K_5120_2, 7446016, P4TP_512 + I7_32
+	PRCENTRY2		xfft_r4delay_2240K_2560_4, 7367680
+	PRCENTRY2A		xfft_r4delay_2240K_2560_4_CORE, 7367680, P4_1024
+	DD			0
+	PRCSTRT	44250000, 2359296, 0.181
+	PRCENTRY2		xfft_r4dwpn_2304K_9216_4, 14376960, P4_1024_64
+	PRCENTRY2		xfft_r4dwpn_2304K_6144_4, 8439296
+	PRCENTRY2		xfft_r4dwpn_2304K_4608_4, 7643136, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_2304K_4608_2, 7643136, P4TP_512
+	PRCENTRY2		xfft_r4dwpn_2304K_3072_4, 8372224, I7 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_2304K_2304_4, 7616512, CORE2_32
+	PRCENTRY2		xfft_r4delay_2304K_9216_4, 11578368, P4_1024_64
+	PRCENTRY2		xfft_r4delay_2304K_6144_4, 7944704
+	PRCENTRY2		xfft_r4delay_2304K_4608_4, 7417856, P4_1024_32
+	PRCENTRY2		xfft_r4delay_2304K_4608_2, 7417856, P4TP_512
+	PRCENTRY2		xfft_r4delay_2304K_3072_4, 7840768, I7 + CORE2
+	PRCENTRY2		xfft_r4delay_2304K_2304_4, 7370752
+	DD			0
+	PRCSTRT	46030000, 2457600, 0.191
+	PRCENTRY2		xfft_r4dwpn_2400K_7680_4, 9406464, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_2400K_6400_4, 8756736
+	PRCENTRY2		xfft_r4dwpn_2400K_3840_4, 9332224, P4_1024_64 + I7_64 + CORE2
+	PRCENTRY2		xfft_r4delay_2400K_7680_4, 8666624, P4_1024_32
+	PRCENTRY2		xfft_r4delay_2400K_6400_4, 8241664
+	PRCENTRY2		xfft_r4delay_2400K_3840_4, 8541184, P4_1024_64 + I7_64 + CORE2
+	DD			0
+	PRCSTRT	49100000, 2621440, 0.204
+	PRCENTRY2		xfft_r4dwpn_2560K_10240_4, 15994880
+	PRCENTRY2		xfft_r4dwpn_2560K_13_4, 10057728
+	PRCENTRY2		xfft_r4dwpn_2560K_12_4, 9965056, P4_1024 + I7 + CORE2
+	PRCENTRY2		xfft_r4dwpn_2560K_12_2, 9965056, P4TP_512
+	PRCENTRY2		xfft_r4dwpn_2560K_2560_4, 8470528
+	PRCENTRY2		xfft_r4dwpn_2560K_11_4, 5193728
+	PRCENTRY2		xfft_r4dwpn_2560K_10_4, 5203968
+	PRCENTRY2		xfft_r4delay_2560K_10240_4, 12884992
+	PRCENTRY2		xfft_r4delay_2560K_13_4, 9268736
+	PRCENTRY2		xfft_r4delay_2560K_12_4, 9120768, P4_1024 + I7_32 + CORE2
+	PRCENTRY2		xfft_r4delay_2560K_12_2, 9120768
+	PRCENTRY2		xfft_r4delay_2560K_2560_4, 8196096, I7_64
+	PRCENTRY2		xfft_r4delay_2560K_11_4, 5478400
+	PRCENTRY2		xfft_r4delay_2560K_10_4, 5513216
+	PRCENTRY2		xfft_hg_2560K_13_1, 3747584
+	PRCENTRY2		xfft_hg_2560K_12_4, 4194560, P4TP_512
+	PRCENTRY2		xfft_hg_2560K_12_1, 4194560
+	DD			0
+	PRCSTRT	51450000, 2752512, 0.218
+	PRCENTRY2		xfft_r4dwpn_2688K_6144_4, 9329664
+	PRCENTRY2		xfft_r4dwpn_2688K_6144_2, 9329664
+	PRCENTRY2		xfft_r4dwpn_2688K_3072_4, 9265664, P4_1024 + I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_2688K_3072_2, 9265664, P4TP_512 + I7_32 + CORE2_32
+	PRCENTRY2		xfft_r4delay_2688K_6144_4, 8932864, P4_1024_32
+	PRCENTRY2		xfft_r4delay_2688K_6144_2, 8932864
+	PRCENTRY2		xfft_r4delay_2688K_3072_4, 8834048, P4_1024_64 + I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4delay_2688K_3072_2, 8834048, P4TP_512 + I7_32 + CORE2_32
+	DD			0
+	PRCSTRT	53460000, 2867200, 0.232
+	PRCENTRY2		xfft_r4dwpn_2800K_6400_4, 9683968, I7_64 + CORE2
+	PRCENTRY2		xfft_r4dwpn_2800K_6400_2, 9683968
+	PRCENTRY2		xfft_r4delay_2800K_6400_4, 9270784, CORE2
+	PRCENTRY2		xfft_r4delay_2800K_6400_2, 9270784, I7_64
+	DD			0
+	PRCSTRT	54950000, 2949120, 0.240
+	PRCENTRY2		xfft_r4dwpn_2880K_9216_4, 11290624, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_2880K_7680_4, 10515968
+	PRCENTRY2		xfft_r4dwpn_2880K_4608_4, 11177472, P4_1024
+	PRCENTRY2		xfft_r4dwpn_2880K_4608_2, 11177472, P4TP_512 + I7
+	PRCENTRY2		xfft_r4dwpn_2880K_3840_4, 10442752
+	PRCENTRY2		xfft_r4dwpn_2880K_2304_4, 5810176, CORE2_32
+	PRCENTRY2		xfft_r4delay_2880K_9216_4, 10403328, CORE2
+	PRCENTRY2		xfft_r4delay_2880K_7680_4, 9898496
+	PRCENTRY2		xfft_r4delay_2880K_4608_4, 10226688, P4_1024
+	PRCENTRY2		xfft_r4delay_2880K_4608_2, 10226688, P4TP_512 + I7
+	PRCENTRY2		xfft_r4delay_2880K_3840_4, 9776128
+	PRCENTRY2		xfft_r4delay_2880K_2304_4, 6131712
+	DD			0
+	PRCSTRT	58520000, 3145728, 0.259
+	PRCENTRY2		xfft_r4dwpn_3M_12288_4, 19185664
+	PRCENTRY2		xfft_r4dwpn_3M_13_4, 11240960
+	PRCENTRY2		xfft_r4dwpn_3M_6144_4, 10219520
+	PRCENTRY2		xfft_r4dwpn_3M_6144_2, 10219520, P4TP_512
+	PRCENTRY2		xfft_r4dwpn_3M_12_4, 11149312, P4_1024_64 + I7_32
+	PRCENTRY2		xfft_r4dwpn_3M_3072_4, 10158080, I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_3M_11_4, 5083136
+	PRCENTRY2		xfft_r4dwpn_3M_10_4, 5103616, CORE2_32
+	PRCENTRY2		xfft_r4delay_3M_12288_4, 15453184
+	PRCENTRY2		xfft_r4delay_3M_13_4, 10582528
+	PRCENTRY2		xfft_r4delay_3M_6144_4, 9920512
+	PRCENTRY2		xfft_r4delay_3M_6144_2, 9920512, P4TP_512
+	PRCENTRY2		xfft_r4delay_3M_12_4, 10437632, I7_32 + CORE2_64
+	PRCENTRY2		xfft_r4delay_3M_3072_4, 9826304, I7_64 + CORE2_32
+	PRCENTRY2		xfft_r4delay_3M_11_4, 5496832
+	PRCENTRY2		xfft_r4delay_3M_10_4, 5550080
+	PRCENTRY2		xfft_hg_3072K_13_1, 4406912
+	PRCENTRY2		xfft_hg_3072K_12_4, 4989312, P4_1024_32
+	PRCENTRY2A		xfft_hg_3072K_12_4_CORE, 4989312, P4_1024_64
+	PRCENTRY2		xfft_hg_3072K_12_1, 4989312
+	DD			0
+	PRCSTRT	60940000, 3276800, 0.275
+	PRCENTRY2		xfft_r4dwpn_3200K_12800_4, 19931136
+	PRCENTRY2		xfft_r4dwpn_3200K_10240_4, 12564480
+	PRCENTRY2		xfft_r4dwpn_3200K_5120_4, 12447232, P4_1024 + CORE2
+	PRCENTRY2		xfft_r4dwpn_3200K_5120_2, 12447232, P4TP_512 + I7
+	PRCENTRY2		xfft_r4dwpn_3200K_2560_4, 6459392
+	PRCENTRY2		xfft_r4delay_3200K_12800_4, 16043008
+	PRCENTRY2		xfft_r4delay_3200K_10240_4, 11578880
+	PRCENTRY2		xfft_r4delay_3200K_5120_4, 11389952, P4_1024 + CORE2
+	PRCENTRY2		xfft_r4delay_3200K_5120_2, 11389952, P4TP_512 + I7
+	PRCENTRY2		xfft_r4delay_3200K_2560_4, 6817792
+	DD			0
+	PRCSTRT	63970000, 3440640, 0.294
+	PRCENTRY2		xfft_r4dwpn_3360K_7680_4, 11627520, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_3360K_3840_4, 11557376, P4_1024_64 + I7_64 + CORE2
+	PRCENTRY2		xfft_r4delay_3360K_7680_4, 11132416, P4_1024_32
+	PRCENTRY2		xfft_r4delay_3360K_3840_4, 11015168, P4_1024_64 + I7_64 + CORE2
+	DD			0
+	PRCSTRT	65790000, 3538944, 0.305
+	PRCENTRY2		xfft_r4dwpn_3456K_9216_4, 12621312, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_3456K_4608_4, 12509184, I7_64
+	PRCENTRY2		xfft_r4dwpn_3456K_2304_4, 5683200
+	PRCENTRY2		xfft_r4delay_3456K_9216_4, 11880960, CORE2_64
+	PRCENTRY2		xfft_r4delay_3456K_4608_4, 11707392, I7_64
+	PRCENTRY2		xfft_r4delay_3456K_2304_4, 6150144
+	DD			0
+	PRCSTRT	68130000, 3670016, 0.323
+	PRCENTRY2		xfft_r4dwpn_3584K_13_4, 12426240
+	PRCENTRY2		xfft_r4dwpn_3584K_12_4, 12337664, P4_1024 + I7
+	PRCENTRY2		xfft_r4dwpn_3584K_11_4, 7142912
+	PRCENTRY2		xfft_r4dwpn_3584K_10_4, 6043648, CORE2
+	PRCENTRY2		xfft_r4delay_3584K_13_4, 11898368
+	PRCENTRY2		xfft_r4delay_3584K_12_4, 11758592, P4_1024 + I7 + CORE2_64
+	PRCENTRY2		xfft_r4delay_3584K_11_4, 6559744
+	PRCENTRY2		xfft_r4delay_3584K_10_4, 6627328, CORE2_32
+	PRCENTRY2		xfft_hg_3584K_13_1, 5066496, P4TP_512
+	PRCENTRY2		xfft_hg_3584K_12_4, 5784064
+	PRCENTRY2		xfft_hg_3584K_12_2, 5784064
+	PRCENTRY2		xfft_hg_3584K_12_1, 5784064
+	DD			0
+	PRCSTRT	73060000, 3932160, 0.352
+	PRCENTRY2		xfft_r4dwpn_3840K_15360_4, 23977984
+	PRCENTRY2		xfft_r4dwpn_3840K_12288_4, 15067136
+	PRCENTRY2		xfft_r4dwpn_3840K_10240_4, 14042624
+	PRCENTRY2		xfft_r4dwpn_3840K_7680_4, 12738560
+	PRCENTRY2		xfft_r4dwpn_3840K_6144_4, 14933504, P4_1024 + P4TP_512
+	PRCENTRY2		xfft_r4dwpn_3840K_5120_4, 13926400, I7
+	PRCENTRY2		xfft_r4dwpn_3840K_3840_4, 12670976, CORE2
+	PRCENTRY2		xfft_r4dwpn_3840K_3072_4, 7737344
+	PRCENTRY2		xfft_r4delay_3840K_15360_4, 19311616
+	PRCENTRY2		xfft_r4delay_3840K_12288_4, 13884928, CORE2_32
+	PRCENTRY2		xfft_r4delay_3840K_10240_4, 13220352
+	PRCENTRY2		xfft_r4delay_3840K_7680_4, 12365824
+	PRCENTRY2		xfft_r4delay_3840K_6144_4, 13663232, P4_1024 + P4TP_512
+	PRCENTRY2		xfft_r4delay_3840K_5120_4, 13034496, I7 + CORE2_64
+	PRCENTRY2		xfft_r4delay_3840K_3840_4, 12253184
+	PRCENTRY2		xfft_r4delay_3840K_3072_4, 8169472
+	DD			0
+	PRCSTRT	76090000, 4096000, 0.371
+	PRCENTRY2		xfft_r4dwpn_4000K_12800_4, 15640576
+	PRCENTRY2		xfft_r4dwpn_4000K_6400_4, 15521280, P4_1024_64
+	PRCENTRY2		xfft_r4delay_4000K_12800_4, 14409216
+	PRCENTRY2		xfft_r4delay_4000K_6400_4, 14197760, P4_1024_64
+	DD			0
+	PRCSTRT	76680000, 4128768, 0.375
+	PRCENTRY2		xfft_r4dwpn_4032K_9216_4, 13954048
+	PRCENTRY2		xfft_r4dwpn_4032K_4608_4, 13844992, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_4032K_2304_4, 8005120
+	PRCENTRY2		xfft_r4delay_4032K_9216_4, 13360640
+	PRCENTRY2		xfft_r4delay_4032K_4608_4, 13192192, P4_1024_32
+	PRCENTRY2		xfft_r4delay_4032K_2304_4, 7344128
+	DD			0
+	PRCSTRT	77910000, 4194304, 0.382
+	PRCENTRY2		xfft_r4dwpn_4M_14_4, 25575424
+	PRCENTRY2		xfft_r4dwpn_4M_13_4, 13611008
+	PRCENTRY2		xfft_r4dwpn_4M_13_2, 13611008, P4TP_512
+	PRCENTRY2		xfft_r4dwpn_4M_13_1, 13611008
+	PRCENTRY2		xfft_r4dwpn_4M_12_4, 13524992, P4_1024_64 + I7 + CORE2
+	PRCENTRY2		xfft_r4dwpn_4M_11_4, 7548928
+	PRCENTRY2		xfft_r4dwpn_4M_10_4, 6467584
+	PRCENTRY2		xfft_r4dwpn_4M_10_2, 6467584
+	PRCENTRY2		xfft_r4delay_4M_14_4, 20597760
+	PRCENTRY2		xfft_r4delay_4M_13_4, 13213696
+	PRCENTRY2		xfft_r4delay_4M_13_2, 13213696
+	PRCENTRY2		xfft_r4delay_4M_13_1, 13213696
+	PRCENTRY2		xfft_r4delay_4M_12_4, 13078528, P4_1024_64 + I7_64 + CORE2
+	PRCENTRY2		xfft_r4delay_4M_12_2, 13078528, I7_32
+	PRCENTRY2		xfft_r4delay_4M_12_1, 13078528
+	PRCENTRY2		xfft_r4delay_4M_11_4, 7102464
+	PRCENTRY2		xfft_r4delay_4M_10_4, 7188480
+	PRCENTRY2		xfft_r4delay_4M_10_2, 7188480
+	PRCENTRY2		xfft_hg_4096K_13_1, 5724160, P4TP_512
+	PRCENTRY2		xfft_hg_4096K_12_4, 6574080, P4_1024_32
+	PRCENTRY2		xfft_hg_4096K_12_2, 6574080
+	PRCENTRY2		xfft_hg_4096K_12_1, 6574080
+	DD			0
+	PRCSTRT	84920000, 4587520, 0.436
+	PRCENTRY2		xfft_r4dwpn_4480K_10240_4, 15522816
+	PRCENTRY2		xfft_r4dwpn_4480K_5120_4, 15409664, P4_1024 + I7 + CORE2
+	PRCENTRY2		xfft_r4delay_4480K_10240_4, 14863872
+	PRCENTRY2		xfft_r4delay_4480K_5120_4, 14683136, P4_1024 + I7 + CORE2
+	DD			0
+	PRCSTRT	87250000, 4718592, 0.454
+	PRCENTRY2		xfft_r4dwpn_4608K_12288_4, 16840192
+	PRCENTRY2		xfft_r4dwpn_4608K_9216_4, 15286272, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_4608K_6144_4, 16707584
+	PRCENTRY2		xfft_r4dwpn_4608K_4608_4, 15179776, P4_1024 + I7
+	PRCENTRY2		xfft_r4dwpn_4608K_3072_4, 7561216
+	PRCENTRY2		xfft_r4dwpn_4608K_2304_4, 8460288, CORE2_32
+	PRCENTRY2		xfft_r4delay_4608K_12288_4, 15854080
+	PRCENTRY2		xfft_r4delay_4608K_9216_4, 14839808, CORE2_64
+	PRCENTRY2		xfft_r4delay_4608K_6144_4, 15635456
+	PRCENTRY2		xfft_r4delay_4608K_4608_4, 14675968, P4_1024 + I7
+	PRCENTRY2		xfft_r4delay_4608K_3072_4, 8187904
+	PRCENTRY2		xfft_r4delay_4608K_2304_4, 7952384, CORE2_32
+	DD			0
+	PRCSTRT	90760000, 4915200, 0.480
+	PRCENTRY2		xfft_r4dwpn_4800K_15360_4, 18827264
+	PRCENTRY2		xfft_r4dwpn_4800K_12800_4, 17487360
+	PRCENTRY2		xfft_r4dwpn_4800K_7680_4, 18632192, P4_1024 + I7_32
+	PRCENTRY2		xfft_r4dwpn_4800K_6400_4, 17369088, I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_4800K_3840_4, 9635840, CORE2_32
+	PRCENTRY2		xfft_r4delay_4800K_15360_4, 17350144
+	PRCENTRY2		xfft_r4delay_4800K_12800_4, 16460288
+	PRCENTRY2		xfft_r4delay_4800K_7680_4, 17042432, P4_1024 + I7_32 + CORE2_64
+	PRCENTRY2		xfft_r4delay_4800K_6400_4, 16251904, I7_64 + CORE2_32
+	PRCENTRY2		xfft_r4delay_4800K_3840_4, 10178560
+	DD			0
+	PRCSTRT	96830000, 5242880, 0.485
+	PRCENTRY2		xfft_r4dwpn_5M_20480_4, 31965184
+	PRCENTRY2		xfft_r4dwpn_5M_14_4, 20080640
+	PRCENTRY2		xfft_r4dwpn_5M_10240_4, 17002496
+	PRCENTRY2		xfft_r4dwpn_5M_13_4, 19897856, P4_1024_64 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_5M_5120_4, 16891904, I7
+	PRCENTRY2		xfft_r4dwpn_5M_12_4, 10285056, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_5M_11_4, 10278912
+	PRCENTRY2		xfft_r4delay_5M_20480_4, 25742336
+	PRCENTRY2		xfft_r4delay_5M_14_4, 18505216, CORE2_64
+	PRCENTRY2		xfft_r4delay_5M_10240_4, 16506880
+	PRCENTRY2		xfft_r4delay_5M_13_4, 18201600, P4_1024_64
+	PRCENTRY2		xfft_r4delay_5M_5120_4, 16330752, I7
+	PRCENTRY2		xfft_r4delay_5M_12_4, 10864640, CORE2_32
+	PRCENTRY2		xfft_r4delay_5M_11_4, 10866688
+	PRCENTRY2		xfft_hg_5M_12_4, 8167040, P4_1024_32
+	PRCENTRY2		xfft_hg_5M_12_1, 8167040
+	DD			0
+	PRCSTRT	101200000, 5505024, 0.561
+	PRCENTRY2		xfft_r4dwpn_5376K_12288_4, 18615296
+	PRCENTRY2		xfft_r4dwpn_5376K_6144_4, 18485760, P4_1024 + I7
+	PRCENTRY2		xfft_r4dwpn_5376K_3072_4, 10669568, CORE2
+	PRCENTRY2		xfft_r4delay_5376K_12288_4, 17825280
+	PRCENTRY2		xfft_r4delay_5376K_6144_4, 17611776, P4_1024 + I7
+	PRCENTRY2		xfft_r4delay_5376K_3072_4, 9775104, CORE2
+	DD			0
+	PRCSTRT	105300000, 5734400, 0.592
+	PRCENTRY2		xfft_r4dwpn_5600K_12800_4, 19336192
+	PRCENTRY2		xfft_r4dwpn_5600K_6400_4, 19220992, P4_1024_64 + I7 + CORE2
+	PRCENTRY2		xfft_r4delay_5600K_12800_4, 18513408, P4_1024_32
+	PRCENTRY2		xfft_r4delay_5600K_6400_4, 18310144, P4_1024_64 + I7 + CORE2
+	DD			0
+	PRCSTRT	108200000, 5898240, 0.614
+	PRCENTRY2		xfft_r4dwpn_5760K_15360_4, 21042688
+	PRCENTRY2		xfft_r4dwpn_5760K_9216_4, 22359552, P4_1024 + I7_32 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_5760K_7680_4, 20848640
+	PRCENTRY2		xfft_r4dwpn_5760K_4608_4, 11530240, I7_64
+	PRCENTRY2		xfft_r4dwpn_5760K_3840_4, 9410560
+	PRCENTRY2		xfft_r4dwpn_5760K_2304_4, 11526144, CORE2_32
+	PRCENTRY2		xfft_r4delay_5760K_15360_4, 19810816
+	PRCENTRY2		xfft_r4delay_5760K_9216_4, 20450304, P4_1024 + CORE2_64
+	PRCENTRY2		xfft_r4delay_5760K_7680_4, 19506176, I7_64
+	PRCENTRY2		xfft_r4delay_5760K_4608_4, 12183552
+	PRCENTRY2		xfft_r4delay_5760K_3840_4, 10196992
+	PRCENTRY2		xfft_r4delay_5760K_2304_4, 12183552, I7_32 + CORE2_32
+	DD			0
+	PRCSTRT	115300000, 6291456, 0.668
+	PRCENTRY2		xfft_r4dwpn_6M_14_4, 22443520
+	PRCENTRY2		xfft_r4dwpn_6M_12288_4, 20389888
+	PRCENTRY2		xfft_r4dwpn_6M_13_4, 22261760
+	PRCENTRY2		xfft_r4dwpn_6M_6144_4, 20262912, P4_1024 + I7 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_6M_12_4, 10043392, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_6M_3072_4, 11272192
+	PRCENTRY2		xfft_r4dwpn_6M_11_4, 10047488
+	PRCENTRY2		xfft_r4delay_6M_14_4, 21129728
+	PRCENTRY2		xfft_r4delay_6M_12288_4, 19795968
+	PRCENTRY2		xfft_r4delay_6M_13_4, 20829184, CORE2_64
+	PRCENTRY2		xfft_r4delay_6M_6144_4, 19587072, P4_1024 + I7_32
+	PRCENTRY2		xfft_r4delay_6M_12_4, 10883072, I7_64 + CORE2_32
+	PRCENTRY2		xfft_r4delay_6M_3072_4, 10579968
+	PRCENTRY2		xfft_r4delay_6M_11_4, 10903552
+	PRCENTRY2		xfft_hg_6M_12_4, 9756288
+	PRCENTRY2		xfft_hg_6M_12_2, 9756288
+	PRCENTRY2		xfft_hg_6M_12_1, 9756288
+	DD			0
+	PRCSTRT	120000000, 6553600, 0.715
+	PRCENTRY2		xfft_r4dwpn_6400K_25600_4, 39919616
+	PRCENTRY2		xfft_r4dwpn_6400K_20480_4, 25094144
+	PRCENTRY2		xfft_r4dwpn_6400K_12800_4, 21184512
+	PRCENTRY2		xfft_r4dwpn_6400K_10240_4, 24862208, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_6400K_6400_4, 21071872, I7 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_6400K_5120_4, 12832768
+	PRCENTRY2		xfft_r4delay_6400K_25600_4, 32140288
+	PRCENTRY2		xfft_r4delay_6400K_20480_4, 23125504
+	PRCENTRY2		xfft_r4delay_6400K_12800_4, 20566016
+	PRCENTRY2		xfft_r4delay_6400K_10240_4, 22739968, CORE2_64
+	PRCENTRY2		xfft_r4delay_6400K_6400_4, 20367360, I7_32 + CORE2_32
+	PRCENTRY2		xfft_r4delay_6400K_5120_4, 13559808, I7_64
+	DD			0
+	PRCSTRT	126000000, 6881280, 0.774
+	PRCENTRY2		xfft_r4dwpn_6720K_15360_4, 23260160
+	PRCENTRY2		xfft_r4dwpn_6720K_7680_4, 23069184, I7
+	PRCENTRY2		xfft_r4dwpn_6720K_3840_4, 13305344, CORE2
+	PRCENTRY2		xfft_r4delay_6720K_15360_4, 22273536
+	PRCENTRY2		xfft_r4delay_6720K_7680_4, 21974016, I7
+	PRCENTRY2		xfft_r4delay_6720K_3840_4, 12177408, CORE2
+	DD			0
+	PRCSTRT	129500000, 7077888, 0.809
+	PRCENTRY2		xfft_r4dwpn_6912K_9216_4, 25018368, I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_6912K_4608_4, 11255808
+	PRCENTRY2		xfft_r4dwpn_6912K_2304_4, 11261952, CORE2_32
+	PRCENTRY2		xfft_r4delay_6912K_9216_4, 23405568, CORE2_64
+	PRCENTRY2		xfft_r4delay_6912K_4608_4, 12201984, I7_64
+	PRCENTRY2		xfft_r4delay_6912K_2304_4, 12220416, CORE2_32
+	DD			0
+	PRCSTRT	134200000, 7340032, 0.886
+	PRCENTRY2		xfft_r4dwpn_7M_14_4, 24808448
+	PRCENTRY2		xfft_r4dwpn_7M_13_4, 24629760, I7_32
+	PRCENTRY2		xfft_r4dwpn_7M_12_4, 14200320, CORE2
+	PRCENTRY2		xfft_r4dwpn_7M_11_4, 11905024, I7_64
+	PRCENTRY2		xfft_r4delay_7M_14_4, 23756288
+	PRCENTRY2		xfft_r4delay_7M_13_4, 23460864, I7_32
+	PRCENTRY2		xfft_r4delay_7M_12_4, 12994560, I7_64 + CORE2
+	PRCENTRY2		xfft_r4delay_7M_11_4, 13029376
+	PRCENTRY2		xfft_hg_7M_12_4, 11345536
+	PRCENTRY2		xfft_hg_7M_12_2, 11345536
+	PRCENTRY2		xfft_hg_7M_12_1, 11345536
+	DD			0
+	PRCSTRT	143800000, 7864320, 0.949
+	PRCENTRY2		xfft_r4dwpn_7680K_20480_4, 28046848
+	PRCENTRY2		xfft_r4dwpn_7680K_15360_4, 25477120
+	PRCENTRY2		xfft_r4dwpn_7680K_12288_4, 29822464
+	PRCENTRY2		xfft_r4dwpn_7680K_10240_4, 27815936
+	PRCENTRY2		xfft_r4dwpn_7680K_7680_4, 25288704, I7
+	PRCENTRY2		xfft_r4dwpn_7680K_6144_4, 15384576
+	PRCENTRY2		xfft_r4dwpn_7680K_5120_4, 12525568
+	PRCENTRY2		xfft_r4dwpn_7680K_3840_4, 14055424
+	PRCENTRY2		xfft_r4dwpn_7680K_3072_4, 15345664, CORE2
+	PRCENTRY2		xfft_r4delay_7680K_20480_4, 26405376
+	PRCENTRY2		xfft_r4delay_7680K_15360_4, 24735744
+	PRCENTRY2		xfft_r4delay_7680K_12288_4, 27274240, CORE2_32
+	PRCENTRY2		xfft_r4delay_7680K_10240_4, 26022912
+	PRCENTRY2		xfft_r4delay_7680K_7680_4, 24440832, I7_64
+	PRCENTRY2		xfft_r4delay_7680K_6144_4, 16259072
+	PRCENTRY2		xfft_r4delay_7680K_5120_4, 13578240
+	PRCENTRY2		xfft_r4delay_7680K_3840_4, 13178880
+	PRCENTRY2		xfft_r4delay_7680K_3072_4, 16211968, I7_32 + CORE2_64
+	DD			0
+	PRCSTRT	149800000, 8192000, 1.007
+	PRCENTRY2		xfft_r4dwpn_8000K_25600_4, 31328256
+	PRCENTRY2		xfft_r4dwpn_8000K_12800_4, 31010304, I7_64
+	PRCENTRY2		xfft_r4dwpn_8000K_6400_4, 15988736
+	PRCENTRY2		xfft_r4delay_8000K_25600_4, 28868096
+	PRCENTRY2		xfft_r4delay_8000K_12800_4, 28355584, I7_64
+	PRCENTRY2		xfft_r4delay_8000K_6400_4, 16900096
+	DD			0
+	PRCSTRT	151000000, 8257536, 1.019
+	PRCENTRY2		xfft_r4dwpn_8064K_9216_4, 27681280
+	PRCENTRY2		xfft_r4dwpn_8064K_4608_4, 15937024
+	PRCENTRY2		xfft_r4dwpn_8064K_2304_4, 13348864
+	PRCENTRY2		xfft_r4delay_8064K_9216_4, 26364928
+	PRCENTRY2		xfft_r4delay_8064K_4608_4, 14575616
+	PRCENTRY2		xfft_r4delay_8064K_2304_4, 14608384
+	DD			0
+	PRCSTRT	153400000, 8388608, 1.042
+	PRCENTRY2		xfft_r4dwpn_8M_14_4, 27172864, CORE2
+	PRCENTRY2		xfft_r4dwpn_8M_13_4, 26996736, I7
+	PRCENTRY2		xfft_r4dwpn_8M_12_4, 14999552
+	PRCENTRY2		xfft_r4dwpn_8M_11_4, 12722176
+	PRCENTRY2		xfft_r4dwpn_8M_11_2, 12722176
+	PRCENTRY2		xfft_r4delay_8M_14_4, 26382336, CORE2_64
+	PRCENTRY2		xfft_r4delay_8M_13_4, 26091520, I7
+	PRCENTRY2		xfft_r4delay_8M_12_4, 14061568, CORE2_32
+	PRCENTRY2		xfft_r4delay_8M_11_4, 14114816
+	PRCENTRY2		xfft_r4delay_8M_11_2, 14114816
+	PRCENTRY2		xfft_hg_8M_12_4, 12926976
+	PRCENTRY2		xfft_hg_8M_12_2, 12926976
+	PRCENTRY2		xfft_hg_8M_12_1, 12926976
+	DD			0
+	PRCSTRT	167200000, 9175040, 1.110
+	PRCENTRY2		xfft_r4dwpn_8960K_20480_4, 31001600
+	PRCENTRY2		xfft_r4dwpn_8960K_10240_4, 30773760, I7
+	PRCENTRY2		xfft_r4dwpn_8960K_5120_4, 17731072, CORE2
+	PRCENTRY2		xfft_r4delay_8960K_20480_4, 29687296
+	PRCENTRY2		xfft_r4delay_8960K_10240_4, 29309952, I7
+	PRCENTRY2		xfft_r4delay_8960K_5120_4, 16214016, CORE2
+	DD			0
+	PRCSTRT	172000000, 9437184, 1.131
+	PRCENTRY2		xfft_r4dwpn_9M_12288_4, 33366016
+	PRCENTRY2		xfft_r4dwpn_9M_9216_4, 30343168, I7 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_9M_6144_4, 15011840
+	PRCENTRY2		xfft_r4dwpn_9M_4608_4, 16834560
+	PRCENTRY2		xfft_r4dwpn_9M_3072_4, 14983168, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_9M_2304_4, 14264320
+	PRCENTRY2		xfft_r4delay_9M_12288_4, 31212544
+	PRCENTRY2		xfft_r4delay_9M_9216_4, 29323264, I7 + CORE2
+	PRCENTRY2		xfft_r4delay_9M_6144_4, 16277504
+	PRCENTRY2		xfft_r4delay_9M_4608_4, 15773696
+	PRCENTRY2		xfft_r4delay_9M_3072_4, 16248832
+	PRCENTRY2		xfft_r4delay_9M_2304_4, 15824896
+	DD			0
+	PRCSTRT	178300000, 9830400, 1.166
+	PRCENTRY2		xfft_r4dwpn_9600K_25600_4, 35018240
+	PRCENTRY2		xfft_r4dwpn_9600K_15360_4, 37268992, I7_32
+	PRCENTRY2		xfft_r4dwpn_9600K_12800_4, 34701312, I7_64
+	PRCENTRY2		xfft_r4dwpn_9600K_7680_4, 19181568
+	PRCENTRY2		xfft_r4dwpn_9600K_6400_4, 15599616
+	PRCENTRY2		xfft_r4dwpn_9600K_3840_4, 19136512, CORE2
+	PRCENTRY2		xfft_r4delay_9600K_25600_4, 32967168
+	PRCENTRY2		xfft_r4delay_9600K_15360_4, 34081792, I7_32 + CORE2_64
+	PRCENTRY2		xfft_r4delay_9600K_12800_4, 32457728
+	PRCENTRY2		xfft_r4delay_9600K_7680_4, 20277248
+	PRCENTRY2		xfft_r4delay_9600K_6400_4, 16918528
+	PRCENTRY2		xfft_r4delay_9600K_3840_4, 20211712, I7_64 + CORE2_32
+	DD			0
+	PRCSTRT	190700000, 10485760, 1.221
+	PRCENTRY2		xfft_r4dwpn_10M_20480_4, 33955840
+	PRCENTRY2		xfft_r4dwpn_10M_14_4, 39751168, CORE2
+	PRCENTRY2		xfft_r4dwpn_10M_10240_4, 33730560, I7_64
+	PRCENTRY2		xfft_r4dwpn_10M_13_4, 20480000
+	PRCENTRY2		xfft_r4dwpn_10M_12_4, 20416512, I7_32
+	PRCENTRY2		xfft_r4dwpn_10M_5120_4, 18726912
+	PRCENTRY2		xfft_r4delay_10M_20480_4, 32968704
+	PRCENTRY2		xfft_r4delay_10M_14_4, 36350976, CORE2
+	PRCENTRY2		xfft_r4delay_10M_10240_4, 32595968, I7_64
+	PRCENTRY2		xfft_r4delay_10M_13_4, 21649408
+	PRCENTRY2		xfft_r4delay_10M_12_4, 21561344, I7_32
+	PRCENTRY2		xfft_r4delay_10M_5120_4, 17543168
+	PRCENTRY2		xfft_hg_10M_13_4, 13639296
+	DD			0
+	PRCSTRT	199500000, 11010048, 1.266
+	PRCENTRY2		xfft_r4dwpn_10752K_12288_4, 36913664
+	PRCENTRY2		xfft_r4dwpn_10752K_6144_4, 21265920
+	PRCENTRY2		xfft_r4dwpn_10752K_3072_4, 17758208, I7 + CORE2
+	PRCENTRY2		xfft_r4delay_10752K_12288_4, 35154944, CORE2_32
+	PRCENTRY2		xfft_r4delay_10752K_6144_4, 19437568
+	PRCENTRY2		xfft_r4delay_10752K_3072_4, 19423232, I7 + CORE2_64
+	DD			0
+	PRCSTRT	207600000, 11468800, 1.305
+	PRCENTRY2		xfft_r4dwpn_11200K_25600_4, 38710272
+	PRCENTRY2		xfft_r4dwpn_11200K_12800_4, 38396416, I7
+	PRCENTRY2		xfft_r4dwpn_11200K_6400_4, 22115840, CORE2
+	PRCENTRY2		xfft_r4delay_11200K_25600_4, 37068288
+	PRCENTRY2		xfft_r4delay_11200K_12800_4, 36563968, I7
+	PRCENTRY2		xfft_r4delay_11200K_6400_4, 20209664, CORE2
+	DD			0
+	PRCSTRT	213400000, 11796480, 1.333
+	PRCENTRY2		xfft_r4dwpn_11520K_15360_4, 41697280
+	PRCENTRY2		xfft_r4dwpn_11520K_9216_4, 23007232, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_11520K_7680_4, 18710528
+	PRCENTRY2		xfft_r4dwpn_11520K_4608_4, 22923264, I7
+	PRCENTRY2		xfft_r4dwpn_11520K_3840_4, 18675712, CORE2_32
+	PRCENTRY2		xfft_r4delay_11520K_15360_4, 39003136
+	PRCENTRY2		xfft_r4delay_11520K_9216_4, 24324096, CORE2_64
+	PRCENTRY2		xfft_r4delay_11520K_7680_4, 20295680
+	PRCENTRY2		xfft_r4delay_11520K_4608_4, 24207360, I7 + CORE2_32
+	PRCENTRY2		xfft_r4delay_11520K_3840_4, 20248576
+	DD			0
+	PRCSTRT	227300000, 12582912, 1.400
+	PRCENTRY2		xfft_r4dwpn_12M_14_4, 44474368, I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_12M_12288_4, 40460288, I7_32
+	PRCENTRY2		xfft_r4dwpn_12M_13_4, 19976192
+	PRCENTRY2		xfft_r4dwpn_12M_6144_4, 22458368
+	PRCENTRY2		xfft_r4dwpn_12M_12_4, 19922944, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_12M_3072_4, 18968576
+	PRCENTRY2		xfft_r4delay_12M_14_4, 41600000, I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4delay_12M_12288_4, 39096320, I7_32
+	PRCENTRY2		xfft_r4delay_12M_13_4, 21667840
+	PRCENTRY2		xfft_r4delay_12M_6144_4, 21028864
+	PRCENTRY2		xfft_r4delay_12M_12_4, 21598208, CORE2_32
+	PRCENTRY2		xfft_r4delay_12M_3072_4, 21032960
+	PRCENTRY2		xfft_hg_12M_13_4, 16277120
+	DD			0
+	PRCSTRT	236700000, 13107200, 1.488
+	PRCENTRY2		xfft_r4dwpn_12800K_25600_4, 42401792
+	PRCENTRY2		xfft_r4dwpn_12800K_20480_4, 49679872
+	PRCENTRY2		xfft_r4dwpn_12800K_12800_4, 42090496, I7
+	PRCENTRY2		xfft_r4dwpn_12800K_10240_4, 25575424
+	PRCENTRY2		xfft_r4dwpn_12800K_6400_4, 23357440
+	PRCENTRY2		xfft_r4dwpn_12800K_5120_4, 25487360, CORE2
+	PRCENTRY2		xfft_r4delay_12800K_25600_4, 41168896
+	PRCENTRY2		xfft_r4delay_12800K_20480_4, 45427712
+	PRCENTRY2		xfft_r4delay_12800K_12800_4, 40669184, I7
+	PRCENTRY2		xfft_r4delay_12800K_10240_4, 27039744
+	PRCENTRY2		xfft_r4delay_12800K_6400_4, 21866496
+	PRCENTRY2		xfft_r4delay_12800K_5120_4, 26910720, CORE2
+	DD			0
+	PRCSTRT	248400000, 13762560, 1.597
+	PRCENTRY2		xfft_r4dwpn_13440K_15360_4, 46129664, I7_32
+	PRCENTRY2		xfft_r4dwpn_13440K_7680_4, 26537472
+	PRCENTRY2		xfft_r4dwpn_13440K_3840_4, 22138880, I7_64 + CORE2
+	PRCENTRY2		xfft_r4delay_13440K_15360_4, 43928576, I7_32
+	PRCENTRY2		xfft_r4delay_13440K_7680_4, 24242176
+	PRCENTRY2		xfft_r4delay_13440K_3840_4, 24209408, I7_64 + CORE2
+	DD			0
+	PRCSTRT	255500000, 14155776, 1.663
+	PRCENTRY2		xfft_r4dwpn_13824K_9216_4, 22437888
+	PRCENTRY2		xfft_r4dwpn_13824K_4608_4, 22364160, I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4delay_13824K_9216_4, 24342528, CORE2_64
+	PRCENTRY2		xfft_r4delay_13824K_4608_4, 24244224, I7_64
+	DD			0
+	PRCSTRT	264600000, 14680064, 1.700
+	PRCENTRY2		xfft_r4dwpn_14M_14_4, 49201664
+	PRCENTRY2		xfft_r4dwpn_14M_13_4, 28327424
+	PRCENTRY2		xfft_r4dwpn_14M_12_4, 23615488, I7 + CORE2
+	PRCENTRY2		xfft_r4delay_14M_14_4, 46853120
+	PRCENTRY2		xfft_r4delay_14M_13_4, 25876480
+	PRCENTRY2		xfft_r4delay_14M_12_4, 25821184, I7 + CORE2
+	PRCENTRY2		xfft_hg_14M_13_4, 18914944
+	DD			0
+	PRCSTRT	283900000, 15728640, 1.968
+	PRCENTRY2		xfft_r4dwpn_15M_20480_4, 55582720
+	PRCENTRY2		xfft_r4dwpn_15M_15360_4, 50561024, I7
+	PRCENTRY2		xfft_r4dwpn_15M_12288_4, 30666752, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_15M_10240_4, 24940544
+	PRCENTRY2		xfft_r4dwpn_15M_7680_4, 28024832
+	PRCENTRY2		xfft_r4dwpn_15M_6144_4, 30562304
+	PRCENTRY2		xfft_r4dwpn_15M_5120_4, 24862720, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_15M_3840_4, 23644160
+	PRCENTRY2		xfft_r4delay_15M_20480_4, 51987456
+	PRCENTRY2		xfft_r4delay_15M_15360_4, 48852992, I7
+	PRCENTRY2		xfft_r4delay_15M_12288_4, 32425984
+	PRCENTRY2		xfft_r4delay_15M_10240_4, 27058176
+	PRCENTRY2		xfft_r4delay_15M_7680_4, 26226688
+	PRCENTRY2		xfft_r4delay_15M_6144_4, 32264192
+	PRCENTRY2		xfft_r4delay_15M_5120_4, 26947584, CORE2
+	PRCENTRY2		xfft_r4delay_15M_3840_4, 26212352
+	DD			0
+	PRCSTRT	295500000, 16384000, 2.035
+	PRCENTRY2		xfft_r4dwpn_16000K_25600_4, 62057984, I7_64
+	PRCENTRY2		xfft_r4dwpn_16000K_12800_4, 31887360
+	PRCENTRY2		xfft_r4dwpn_16000K_6400_4, 31797248
+	PRCENTRY2		xfft_r4delay_16000K_25600_4, 56740864, I7_64
+	PRCENTRY2		xfft_r4delay_16000K_12800_4, 33720320
+	PRCENTRY2		xfft_r4delay_16000K_6400_4, 33568768
+	DD			0
+	PRCSTRT	297800000, 16515072, 2.057
+	PRCENTRY2		xfft_r4dwpn_16128K_9216_4, 31837696
+	PRCENTRY2		xfft_r4dwpn_16128K_4608_4, 26515456
+	PRCENTRY2		xfft_r4delay_16128K_9216_4, 29075456
+	PRCENTRY2		xfft_r4delay_16128K_4608_4, 28991488
+	DD			0
+	PRCSTRT	302600000, 16777216, 2.100
+	PRCENTRY2		xfft_r4dwpn_16M_14_4, 53927936, CORE2
+	PRCENTRY2		xfft_r4dwpn_16M_13_4, 29913088
+	PRCENTRY2		xfft_r4dwpn_16M_13_2, 29913088
+	PRCENTRY2		xfft_r4dwpn_16M_13_1, 29913088
+	PRCENTRY2		xfft_r4dwpn_16M_12_4, 25219072, I7
+	PRCENTRY2		xfft_r4dwpn_16M_12_2, 25219072
+	PRCENTRY2		xfft_r4dwpn_16M_12_1, 25219072
+	PRCENTRY2		xfft_r4delay_16M_14_4, 52105216, CORE2
+	PRCENTRY2		xfft_r4delay_16M_13_4, 27992064
+	PRCENTRY2		xfft_r4delay_16M_13_2, 27992064
+	PRCENTRY2		xfft_r4delay_16M_13_1, 27992064
+	PRCENTRY2		xfft_r4delay_16M_12_4, 27955200, I7
+	PRCENTRY2		xfft_r4delay_16M_12_2, 27955200
+	PRCENTRY2		xfft_r4delay_16M_12_1, 27955200
+	PRCENTRY2		xfft_hg_16M_13_4, 21544960
+	DD			0
+	PRCSTRT	329800000, 18350080, 2.325
+	PRCENTRY2		xfft_r4dwpn_17920K_20480_4, 61489664
+	PRCENTRY2		xfft_r4dwpn_17920K_10240_4, 35388928
+	PRCENTRY2		xfft_r4dwpn_17920K_5120_4, 29472768, I7 + CORE2
+	PRCENTRY2		xfft_r4delay_17920K_20480_4, 58551296
+	PRCENTRY2		xfft_r4delay_17920K_10240_4, 32315392
+	PRCENTRY2		xfft_r4delay_17920K_5120_4, 32219136, I7 + CORE2
+	DD			0
+	PRCSTRT	339300000, 18874368, 2.400
+	PRCENTRY2		xfft_r4dwpn_18M_12288_4, 29900800
+	PRCENTRY2		xfft_r4dwpn_18M_9216_4, 33619968, CORE2
+	PRCENTRY2		xfft_r4dwpn_18M_6144_4, 29806592
+	PRCENTRY2		xfft_r4dwpn_18M_4608_4, 28315648, I7
+	PRCENTRY2		xfft_r4dwpn_18M_4608_2, 28315648
+	PRCENTRY2		xfft_r4delay_18M_12288_4, 32444416
+	PRCENTRY2		xfft_r4delay_18M_9216_4, 31453184, CORE2
+	PRCENTRY2		xfft_r4delay_18M_6144_4, 32301056
+	PRCENTRY2		xfft_r4delay_18M_4608_4, 31387648, I7
+	PRCENTRY2		xfft_r4delay_18M_4608_2, 31387648
+	DD			0
+	PRCSTRT	352500000, 19660800, 2.513
+	PRCENTRY2		xfft_r4dwpn_19200K_25600_4, 69435392, I7
+	PRCENTRY2		xfft_r4dwpn_19200K_15360_4, 38309888
+	PRCENTRY2		xfft_r4dwpn_19200K_12800_4, 31088640
+	PRCENTRY2		xfft_r4dwpn_19200K_7680_4, 38144000
+	PRCENTRY2		xfft_r4dwpn_19200K_6400_4, 31008768, CORE2
+	PRCENTRY2		xfft_r4delay_19200K_25600_4, 64939008, I7
+	PRCENTRY2		xfft_r4delay_19200K_15360_4, 40511488
+	PRCENTRY2		xfft_r4delay_19200K_12800_4, 33738752
+	PRCENTRY2		xfft_r4delay_19200K_7680_4, 40263680
+	PRCENTRY2		xfft_r4delay_19200K_6400_4, 33605632, CORE2
+	DD			0
+	PRCSTRT	376100000, 20971520, 2.700
+	PRCENTRY2		xfft_r4dwpn_20M_20480_4, 67395584
+	PRCENTRY2		xfft_r4dwpn_20M_14_4, 40857600, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_20M_10240_4, 37367808
+	PRCENTRY2		xfft_r4dwpn_20M_10240_2, 37367808
+	PRCENTRY2		xfft_r4dwpn_20M_13_4, 40704000, I7_32 + CORE2_32
+	PRCENTRY2		xfft_r4dwpn_20M_5120_4, 31469568, I7_64
+	PRCENTRY2		xfft_r4delay_20M_20480_4, 65114112
+	PRCENTRY2		xfft_r4delay_20M_14_4, 43206656, CORE2_32
+	PRCENTRY2		xfft_r4delay_20M_10240_4, 34955264
+	PRCENTRY2		xfft_r4delay_20M_10240_2, 34955264
+	PRCENTRY2		xfft_r4delay_20M_13_4, 42962944, I7_32 + CORE2_64
+	PRCENTRY2		xfft_r4delay_20M_5120_4, 34877440, I7_64
+	PRCENTRY2		xfft_hg_20M_13_2, 26828928
+	DD			0
+	PRCSTRT	393800000, 22020096, 2.850
+	PRCENTRY2		xfft_r4dwpn_21M_12288_4, 42446336, CORE2
+	PRCENTRY2		xfft_r4dwpn_21M_6144_4, 35334144, I7
+	PRCENTRY2		xfft_r4delay_21M_12288_4, 38750208, CORE2_32
+	PRCENTRY2		xfft_r4delay_21M_6144_4, 38621184, I7 + CORE2_64
+	DD			0
+	PRCSTRT	409300000, 22937600, 2.982
+	PRCENTRY2		xfft_r4dwpn_22400K_25600_4, 76816896, I7
+	PRCENTRY2		xfft_r4dwpn_22400K_12800_4, 44158464
+	PRCENTRY2		xfft_r4dwpn_22400K_6400_4, 36765696, CORE2
+	PRCENTRY2		xfft_r4delay_22400K_25600_4, 73141248, I7
+	PRCENTRY2		xfft_r4delay_22400K_12800_4, 40306688
+	PRCENTRY2		xfft_r4delay_22400K_6400_4, 40187904, CORE2
+	DD			0
+	PRCSTRT	420700000, 23592960, 3.075
+	PRCENTRY2		xfft_r4dwpn_23040K_15360_4, 37347328, I7_64
+	PRCENTRY2		xfft_r4dwpn_23040K_9216_4, 45754368, I7_32 + CORE2
+	PRCENTRY2		xfft_r4dwpn_23040K_7680_4, 37191680
+	PRCENTRY2		xfft_r4delay_23040K_15360_4, 40529920, I7_64
+	PRCENTRY2		xfft_r4delay_23040K_9216_4, 48291840, I7_32 + CORE2
+	PRCENTRY2		xfft_r4delay_23040K_7680_4, 40300544
+	DD			0
+	PRCSTRT	448000000, 25165824, 3.300
+	PRCENTRY2		xfft_r4dwpn_24M_14_4, 39829504
+	PRCENTRY2		xfft_r4dwpn_24M_12288_4, 44818432
+	PRCENTRY2		xfft_r4dwpn_24M_13_4, 39686144, CORE2
+	PRCENTRY2		xfft_r4dwpn_24M_6144_4, 37724160, I7
+	PRCENTRY2		xfft_r4delay_24M_14_4, 43225088
+	PRCENTRY2		xfft_r4delay_24M_12288_4, 41914368
+	PRCENTRY2		xfft_r4delay_24M_13_4, 42999808, CORE2
+	PRCENTRY2		xfft_r4delay_24M_6144_4, 41803776, I7
+	PRCENTRY2		xfft_hg_24M_13_2, 32104704
+	DD			0
+	PRCSTRT	467600000, 26214400, 3.450
+	PRCENTRY2		xfft_r4dwpn_25M_25600_4, 84197376, I7
+	PRCENTRY2		xfft_r4dwpn_25M_20480_4, 51048448
+	PRCENTRY2		xfft_r4dwpn_25M_12800_4, 46628864
+	PRCENTRY2		xfft_r4dwpn_25M_10240_4, 50845696, CORE2
+	PRCENTRY2		xfft_r4dwpn_25M_6400_4, 39254016
+	PRCENTRY2		xfft_r4delay_25M_25600_4, 81342464, I7
+	PRCENTRY2		xfft_r4delay_25M_20480_4, 53987328, CORE2_32
+	PRCENTRY2		xfft_r4delay_25M_12800_4, 43601920
+	PRCENTRY2		xfft_r4delay_25M_10240_4, 53661696, CORE2_64
+	PRCENTRY2		xfft_r4delay_25M_6400_4, 43501568
+	DD			0
+	PRCSTRT	488400000, 27525120, 3.638
+	PRCENTRY2		xfft_r4dwpn_26880K_15360_4, 53038592
+	PRCENTRY2		xfft_r4dwpn_26880K_7680_4, 44095488, I7 + CORE2
+	PRCENTRY2		xfft_r4delay_26880K_15360_4, 48408576, CORE2_32
+	PRCENTRY2		xfft_r4delay_26880K_7680_4, 48193536, I7 + CORE2_64
+	DD			0
+	PRCSTRT	503500000, 28311552, 3.750
+	PRCENTRY2		xfft_r4dwpn_27M_9216_4, 44605440, I7_64 + CORE2
+	PRCENTRY2		xfft_r4delay_27M_9216_4, 48328704, I7_64 + CORE2
+	DD			0
+	PRCSTRT	521500000, 29360128, 3.900
+	PRCENTRY2		xfft_r4dwpn_28M_14_4, 56569344, CORE2
+	PRCENTRY2		xfft_r4dwpn_28M_13_4, 47048704, I7
+	PRCENTRY2		xfft_r4delay_28M_14_4, 51628032, CORE2
+	PRCENTRY2		xfft_r4delay_28M_13_4, 51417088, I7
+	PRCENTRY2		xfft_hg_28M_13_2, 37380480
+	DD			0
+	PRCSTRT	559300000, 31457280, 4.200
+	PRCENTRY2		xfft_r4dwpn_30M_20480_4, 49758208
+	PRCENTRY2		xfft_r4dwpn_30M_15360_4, 56000512
+	PRCENTRY2		xfft_r4dwpn_30M_12288_4, 60983296, I7_32 + CORE2
+	PRCENTRY2		xfft_r4dwpn_30M_10240_4, 49565696
+	PRCENTRY2		xfft_r4dwpn_30M_7680_4, 47075328, I7_64
+	PRCENTRY2		xfft_r4delay_30M_20480_4, 54005760
+	PRCENTRY2		xfft_r4delay_30M_15360_4, 52359168
+	PRCENTRY2		xfft_r4delay_30M_12288_4, 64356352, I7_32 + CORE2
+	PRCENTRY2		xfft_r4delay_30M_10240_4, 53698560
+	PRCENTRY2		xfft_r4delay_30M_7680_4, 52162560, I7_64
+	DD			0
+	PRCSTRT	582200000, 32768000, 4.388
+	PRCENTRY2		xfft_r4dwpn_32000K_25600_4, 63754240, I7_64
+	PRCENTRY2		xfft_r4dwpn_32000K_12800_4, 63465472
+	PRCENTRY2		xfft_r4delay_32000K_25600_4, 67430400, I7_64
+	PRCENTRY2		xfft_r4delay_32000K_12800_4, 66977792
+	DD			0
+	PRCSTRT	585300000, 33030144, 4.425
+	PRCENTRY2		xfft_r4dwpn_32256K_9216_4, 52885504
+	PRCENTRY2		xfft_r4delay_32256K_9216_4, 57794560
+	DD			0
+	PRCSTRT	596000000, 33554432, 4.500
+	PRCENTRY2		xfft_r4dwpn_32M_14_4, 59727872, CORE2
+	PRCENTRY2		xfft_r4dwpn_32M_13_4, 50225152, I7
+	PRCENTRY2		xfft_r4dwpn_32M_13_2, 50225152
+	PRCENTRY2		xfft_r4dwpn_32M_13_1, 50225152
+	PRCENTRY2		xfft_r4delay_32M_14_4, 55840768, CORE2
+	PRCENTRY2		xfft_r4delay_32M_13_4, 55648256, I7
+	PRCENTRY2		xfft_r4delay_32M_13_2, 55648256
+	PRCENTRY2		xfft_r4delay_32M_13_1, 55648256
+	PRCENTRY2		xfft_hg_32M_13_2, 42639360
 	DD			0
 	DD	0
-xjmptablep DD	739,	32,	0.00000111
+xjmptablep DD	0
+	org	$-4
+	PRCSTRT	739,	32,	0.00000111
 	PRCENTRY		xfft_hg_32_op_ac_CORE, 1152
 	DD			4, 4
 	DD			2, 1, 1, 1, 1, 0
-	DD	1095,	48,	0.00000144
+	PRCSTRT	1095,	48,	0.00000144
 	PRCENTRY		xfft_hg_48_op_ac_CORE, 1920
 	DD			6, 6
 	DD			3, 1, 1, 1, 1, 0
-	DD	1465,	64,	0.00000178
+	PRCSTRT	1465,	64,	0.00000178
 	PRCENTRY		xfft_hg_64_op_ac_CORE, 2432
 	DD			8, 8
 	DD			4, 1, 1, 1, 1, 0
-	DD	2173,	96,	0.00000259
+	PRCSTRT	2173,	96,	0.00000259
 	PRCENTRY		xfft_hg_96_op_ac_CORE, 3328
 	DD			12, 12
 	DD			6, 3, 1, 1, 1, 0
-	DD	2897,	128,	0.00000319
+	PRCSTRT	2897,	128,	0.00000319
 	PRCENTRY		xfft_hg_128_op_ac_CORE, 4352
 	DD			16, 16
 	DD			8, 4, 1, 2, 1, 0
-	DD	4295,	192,	0.00000542
+	PRCSTRT	4295,	192,	0.00000542
 	PRCENTRY		xfft_hg_192_op_ac_CORE, 6784
 	DD			24, 24
 	DD			12, 6, 3, 3, 1, 0
-	DD	5729,	256,	0.00000691
+	PRCSTRT	5729,	256,	0.00000691
 	PRCENTRY		xfft_hg_256_op_ac_CORE, 8576
 	DD			32, 32
 	DD			16, 8, 4, 4, 1, 0
-	DD	8493,	384,	0.0000111
+	PRCSTRT	8493,	384,	0.0000111
 	PRCENTRY		xfft_hg_384_op_ac_CORE, 13312
 	DD			48, 48
 	DD			24, 12, 3, 6, 1, 0
-	DD	11319,	512,	0.0000143
+	PRCSTRT	11319,	512,	0.0000143
 	PRCENTRY		xfft_hg_512_op_ac_CORE, 17152
 	DD			64, 64
 	DD			32, 16, 4, 2*256+8, 1, 0
-	DD	16779,	768,	0.0000260
+	PRCSTRT	16779,	768,	0.0000260
 	PRCENTRY		xfft_hg_768_op_ac_CORE, 26624
 	DD			96, 96
 	DD			48, 24, 3*256+6, 3*256+12, 1, 0
-	DD	22381,	1024,	0.0000349
+	PRCSTRT	22381,	1024,	0.0000349
 	PRCENTRY		xfft_hg_1024_op_ac_CORE, 34304
 	DD			128, 128
 	DD			64, 32, 4*256+8, 4*256+16, 1, 0
-	DD	33189,	1536,	0.0000601
+	PRCSTRT	33189,	1536,	0.0000601
 	PRCENTRY		xfft_hg_1536_op_ac_CORE, 52992
 	DD			192, 192
 	DD			96, 48, 12, 6*256+24, 3, 0
-	DD	44221,	2048,	0.0000773
+	PRCSTRT	44221,	2048,	0.0000773
 	PRCENTRY		xfft_hg_2048_op_ac_CORE, 68608
 	DD			256, 256
 	DD			128, 64, 16, 8*256+32, 2*256+4, 0
-	DD	65519,	3072,	0.000131
+	PRCSTRT	65519,	3072,	0.000131
 	PRCENTRY		xfft_hg_3072_op_ac_CORE, 106112
 	DD			384, 384
 	DD			192, 96, 6*256+24, 12*256+48, 3*256+3, 0
-	DD	87271,	4096,	0.000172
+	PRCSTRT	87271,	4096,	0.000172
 	PRCENTRY		xfft_hg_4096_op_ac_CORE, 137216
 	DD			512, 512
 	DD			256, 128, 8*256+32, 16*256+64, 4*256+4, 0
-	DD	129600,	6144,	0.000291
+	PRCSTRT	129600,	6144,	0.000291
 	PRCENTRY		xfft_hg_6144_op_ac_CORE, 211968
 	DD			768, 768
 	DD			384, 192, 12*256+48, 24*256+96, 6*256+3, 0
-	DD	172400,	8192,	0.000395
-	PRCENTRY		xfft_r4_8K_ac_8_4_CORE, 87552
-	PRCENTRY		xfft_r4_8K_ac_np_8_4_CORE, 87552
-	PRCENTRY		xfft_hg_8192_op_ac_CORE, 274432
+	PRCSTRT	172400,	8192,	0.000395
+	PRCENTRY2		xfft_r4_8K_ac_8_4, 87552, P4TP_256
+	PRCENTRY2		xfft_r4_8K_ac_np_8_4, 87552, P4_1024 + P4TP_512 + I7 + CORE2
+	PRCENTRY2		xfft_hg_8192_op_ac, 274432
 	DD			1024, 1024
 	DD			512, 256, 16*256+64, 32*256+128, 8*256+4, 0
-	DD	254800,	12288,	0.000626
-	PRCENTRY		xfft_hg_12K_ac_ip_8_4_K8, 64896
-	PRCENTRY		xfft_hg_12K_ac_ip_8_4_CORE, 64896
-	PRCENTRY		xfft_hg_12K_ac_ip_tp_8_4_P4, 64896
-	DD			0
-	DD	339100,	16384,	0.000857
-	PRCENTRY		xfft_r4_16K_ac_8_4_CORE, 183296
-	PRCENTRY		xfft_r4_16K_ac_np_8_4_CORE, 183296
-	PRCENTRY		xfft_hg_16K_ac_ip_8_4_K8, 84224
-	PRCENTRY		xfft_hg_16K_ac_ip_8_4_CORE, 84224
-	PRCENTRY		xfft_hg_16K_ac_ip_tp_8_4_P4, 84224
-	DD			0
-	DD	503400,	24576,	0.00135
-	PRCENTRY		xfft_r4_24K_ac_768_4_CORE, 259584
-	PRCENTRY		xfft_r4_24K_ac_np_768_4_CORE, 259584
-	PRCENTRY		xfft_r4_24K_ac_8_4_CORE, 246272
-	PRCENTRY		xfft_r4_24K_ac_np_8_4_CORE, 246272
-	PRCENTRY		xfft_hg_24K_ac_ip_8_4_K8, 123904
-	PRCENTRY		xfft_hg_24K_ac_ip_8_4_CORE, 123904
-	PRCENTRY		xfft_hg_24K_ac_ip_tp_8_4_P4, 123904
-	DD			0
-	DD	669600,	32768,	0.00179
-	PRCENTRY		xfft_r4dwpn_32K_ac_8_4_CORE, 153600
-	PRCENTRY		xfft_r4dwpn_32K_ac_np_8_4_CORE, 153600
-	PRCENTRY		xfft_r4delay_32K_ac_8_4_CORE, 132096
-	PRCENTRY		xfft_r4delay_32K_ac_np_8_4_CORE, 132096
-	PRCENTRY		xfft_r4_32K_ac_10_4_CORE, 349696
-	PRCENTRY		xfft_r4_32K_ac_np_10_4_CORE, 349696
-	PRCENTRY		xfft_r4_32K_ac_8_4_CORE, 333824
-	PRCENTRY		xfft_r4_32K_ac_np_8_4_CORE, 333824
-	PRCENTRY		xfft_hg_32K_ac_ip_8_4_K8, 162816
-	PRCENTRY		xfft_hg_32K_ac_ip_8_4_CORE, 162816
-	PRCENTRY		xfft_hg_32K_ac_ip_tp_8_4_P4, 162816
-	DD			0
-	DD	832200, 40960,	0.00236
-	PRCENTRY		xfft_r4_40K_ac_1280_4_CORE, 431616
-	PRCENTRY		xfft_r4_40K_ac_np_1280_4_CORE, 431616
-	DD			0
-	DD	992800, 49152,	0.00303
-	PRCENTRY		xfft_r4_48K_ac_768_4_CORE, 543744
-	PRCENTRY		xfft_r4_48K_ac_np_768_4_CORE, 543744
-	PRCENTRY		xfft_hg_48K_ac_ip_11_4_K8, 145280
-	PRCENTRY		xfft_hg_48K_ac_ip_11_4_CORE, 145280
-	PRCENTRY		xfft_hg_48K_ac_ip_tp_11_4_P4, 145280
-	DD			0
-	DD	1320000, 65536,	0.00404
-	PRCENTRY		xfft_r4dwpn_64K_ac_8_4_CORE, 318464
-	PRCENTRY		xfft_r4dwpn_64K_ac_np_8_4_CORE, 318464
-	PRCENTRY		xfft_r4delay_64K_ac_8_4_CORE, 256000
-	PRCENTRY		xfft_r4delay_64K_ac_np_8_4_CORE, 256000
-	PRCENTRY		xfft_r4_64K_ac_10_4_CORE, 728064
-	PRCENTRY		xfft_r4_64K_ac_np_10_4_CORE, 728064
-	PRCENTRY		xfft_r4_64K_ac_8_4_CORE, 675840
-	PRCENTRY		xfft_r4_64K_ac_np_8_4_CORE, 675840
-	PRCENTRY		xfft_hg_64K_ac_ip_11_4_K8, 178560
-	PRCENTRY		xfft_hg_64K_ac_ip_11_4_CORE, 178560
-	PRCENTRY		xfft_hg_64K_ac_ip_tp_11_4_P4, 178560
-	DD			0
-	DD	1481000, 73728,	0.00463
-	PRCENTRY		xfft_r4_72K_ac_768_4_CORE, 729600
-	PRCENTRY		xfft_r4_72K_ac_np_768_4_CORE, 729600
-	DD			0
-	DD	1642000, 81920,	0.00521
-	PRCENTRY		xfft_r4_80K_ac_1280_4_CORE, 904192
-	PRCENTRY		xfft_r4_80K_ac_np_1280_4_CORE, 904192
-	DD			0
-	DD	1962000, 98304, 0.00644
-	PRCENTRY		xfft_r4dwpn_96K_ac_768_4_CORE, 468992
-	PRCENTRY		xfft_r4dwpn_96K_ac_np_768_4_CORE, 468992
-	PRCENTRY		xfft_r4dwpn_96K_ac_8_4_CORE, 292864
-	PRCENTRY		xfft_r4dwpn_96K_ac_np_8_4_CORE, 292864
-	PRCENTRY		xfft_r4delay_96K_ac_768_4_CORE, 377856
-	PRCENTRY		xfft_r4delay_96K_ac_np_768_4_CORE, 377856
-	PRCENTRY		xfft_r4delay_96K_ac_8_4_CORE, 248832
-	PRCENTRY		xfft_r4delay_96K_ac_np_8_4_CORE, 248832
-	PRCENTRY		xfft_r4_96K_ac_10_4_CORE, 975360
-	PRCENTRY		xfft_r4_96K_ac_np_10_4_CORE, 975360
-	PRCENTRY		xfft_r4_96K_ac_768_4_CORE, 989184
-	PRCENTRY		xfft_r4_96K_ac_np_768_4_CORE, 989184
-	PRCENTRY		xfft_hg_96K_ac_ip_11_4_K8, 245632
-	PRCENTRY		xfft_hg_96K_ac_ip_11_4_CORE, 245632
-	PRCENTRY		xfft_hg_96K_ac_ip_tp_11_4_P4, 245632
-	DD			0
-	DD	2448000, 122880, 0.00815
-	PRCENTRY		xfft_r4_120K_ac_1280_4_CORE, 1212928
-	PRCENTRY		xfft_r4_120K_ac_np_1280_4_CORE, 1212928
-	DD			0
-	DD	2610000, 131072, 0.00871
-	PRCENTRY		xfft_r4dwpn_128K_ac_10_4_CORE, 624640
-	PRCENTRY		xfft_r4dwpn_128K_ac_np_10_4_CORE, 624640
-	PRCENTRY		xfft_r4dwpn_128K_ac_8_4_CORE, 389120
-	PRCENTRY		xfft_r4dwpn_128K_ac_np_8_4_CORE, 389120
-	PRCENTRY		xfft_r4delay_128K_ac_10_4_CORE, 504832
-	PRCENTRY		xfft_r4delay_128K_ac_np_10_4_CORE, 504832
-	PRCENTRY		xfft_r4delay_128K_ac_8_4_CORE, 339968
-	PRCENTRY		xfft_r4delay_128K_ac_np_8_4_CORE, 339968
-	PRCENTRY		xfft_hg_128K_ac_ip_11_4_K8, 312064
-	PRCENTRY		xfft_hg_128K_ac_ip_11_4_CORE, 312064
-	PRCENTRY		xfft_hg_128K_ac_ip_tp_11_4_P4, 312064
-	DD			0
-	DD	2924000, 147456, 0.00994
-	PRCENTRY		xfft_r4_144K_ac_1536_4_CORE, 1454592
-	PRCENTRY		xfft_r4_144K_ac_np_1536_4_CORE, 1454592
-	DD			0
-	DD	3238000, 163840, 0.0112
-	PRCENTRY		xfft_r4dwpn_160K_ac_1280_4_CORE, 772096
-	PRCENTRY		xfft_r4dwpn_160K_ac_np_1280_4_CORE, 772096
-	PRCENTRY		xfft_r4dwpn_160K_ac_8_4_CORE, 419840
-	PRCENTRY		xfft_r4dwpn_160K_ac_np_8_4_CORE, 419840
-	PRCENTRY		xfft_r4delay_160K_ac_1280_4_CORE, 623616
-	PRCENTRY		xfft_r4delay_160K_ac_np_1280_4_CORE, 623616
-	PRCENTRY		xfft_r4delay_160K_ac_8_4_CORE, 365568
-	PRCENTRY		xfft_r4delay_160K_ac_np_8_4_CORE, 365568
-	DD			0
-	DD	3867000, 196608, 0.0136
-	PRCENTRY		xfft_r4dwpn_192K_ac_768_4_CORE, 863232
-	PRCENTRY		xfft_r4dwpn_192K_ac_np_768_4_CORE, 863232
-	PRCENTRY		xfft_r4dwpn_192K_ac_8_4_CORE, 492544
-	PRCENTRY		xfft_r4dwpn_192K_ac_np_8_4_CORE, 492544
-	PRCENTRY		xfft_r4delay_192K_ac_768_4_CORE, 731136
-	PRCENTRY		xfft_r4delay_192K_ac_np_768_4_CORE, 731136
-	PRCENTRY		xfft_r4delay_192K_ac_8_4_CORE, 489472
-	PRCENTRY		xfft_r4delay_192K_ac_np_8_4_CORE, 489472
-	PRCENTRY		xfft_r4_192K_ac_768_4_CORE, 2002944
-	PRCENTRY		xfft_r4_192K_ac_np_768_4_CORE, 2002944
-	PRCENTRY		xfft_hg_192K_ac_10_2_K8, 529536
-	PRCENTRY		xfft_hg_192K_ac_10_4_CORE, 529536
-	PRCENTRY		xfft_hg_192K_ac_tp_10_4_P4, 529536
-	PRCENTRY		xfft_hg_192K_ac_tp_10_1_P4, 529536
-	DD			0
-	DD	5146000, 262144, 0.0179
-	PRCENTRY		xfft_r4dwpn_256K_ac_10_4_CORE, 1149952
-	PRCENTRY		xfft_r4dwpn_256K_ac_np_10_4_CORE, 1149952
-	PRCENTRY		xfft_r4dwpn_256K_ac_8_4_CORE, 737280
-	PRCENTRY		xfft_r4dwpn_256K_ac_np_8_4_CORE, 737280
-	PRCENTRY		xfft_r4delay_256K_ac_10_4_CORE, 972800
-	PRCENTRY		xfft_r4delay_256K_ac_np_10_4_CORE, 972800
-	PRCENTRY		xfft_r4delay_256K_ac_8_4_CORE, 671744
-	PRCENTRY		xfft_r4delay_256K_ac_np_8_4_CORE, 671744
-	PRCENTRY		xfft_hg_256K_ac_10_1_K8, 697344
-	PRCENTRY		xfft_hg_256K_ac_10_4_CORE, 697344, 256
-	PRCENTRY		xfft_hg_256K_ac_tp_10_4_P4, 697344, 256
-	PRCENTRY		xfft_hg_256K_ac_tp_10_2_P4, 697344
-	DD			0
-	DD	5768000, 294912, 0.0203
-	PRCENTRY		xfft_r4dwpn_288K_ac_768_4_CORE, 792576
-	PRCENTRY		xfft_r4delay_288K_ac_768_4_CORE, 691200
-	DD			0
-	DD	6390000, 327680, 0.0226
-	PRCENTRY		xfft_r4dwpn_320K_ac_1280_4_CORE, 1514496
-	PRCENTRY		xfft_r4dwpn_320K_ac_8_4_CORE, 789504
-	PRCENTRY		xfft_r4delay_320K_ac_1280_4_CORE, 1206272
-	PRCENTRY		xfft_r4delay_320K_ac_8_4_CORE, 722944
-	DD			0
-	DD	7635000, 393216, 0.0273
-	PRCENTRY		xfft_r4dwpn_384K_ac_1536_4_CORE, 1711104
-	PRCENTRY		xfft_r4dwpn_384K_ac_10_4_CORE, 1046528
-	PRCENTRY		xfft_r4dwpn_384K_ac_768_4_CORE, 1052672
-	PRCENTRY		xfft_r4delay_384K_ac_1536_4_CORE, 1443840
-	PRCENTRY		xfft_r4delay_384K_ac_10_4_CORE, 916480
-	PRCENTRY		xfft_r4delay_384K_ac_768_4_CORE, 946176
-	PRCENTRY		xfft_hg_384K_ac_10_1_K8, 1036288
-	PRCENTRY		xfft_hg_384K_ac_10_4_CORE, 1036288, 512
-	PRCENTRY		xfft_hg_384K_ac_10_4_CORE, 1036288, 512
-	PRCENTRY		xfft_hg_384K_ac_tp_10_4_P4, 1036288, 512
-	PRCENTRY		xfft_hg_384K_ac_tp_10_2_P4, 1036288
-	DD			0
-	DD	9521000, 491520, 0.0345
-	PRCENTRY		xfft_r4dwpn_480K_ac_1280_4_CORE, 1292288, 512
-	PRCENTRY		xfft_r4dwpn_480K_ac_768_4_CORE, 1116160, 512
-	PRCENTRY		xfft_r4delay_480K_ac_1280_4_CORE, 1133568, 512
-	PRCENTRY		xfft_r4delay_480K_ac_768_4_CORE, 1004544, 512
-	DD			0
-	DD	10150000, 524288, 0.0368
-	PRCENTRY		xfft_r4dwpn_512K_ac_11_4_CORE, 2419712, 512
-	PRCENTRY		xfft_r4dwpn_512K_ac_10_4_CORE, 1388544, 1024
-	PRCENTRY		xfft_r4delay_512K_ac_11_4_CORE, 1927168, 512
-	PRCENTRY		xfft_r4delay_512K_ac_10_4_CORE, 1253376, 512
-	PRCENTRY		xfft_hg_512K_ac_10_1_K8, 1372160
-	PRCENTRY		xfft_hg_512K_ac_10_4_CORE, 1372160, 512
-	PRCENTRY		xfft_hg_512K_ac_tp_10_4_P4, 1372160, 512
-	PRCENTRY		xfft_hg_512K_ac_tp_10_2_P4, 1372160
-	DD			0
-	DD	11370000, 589824, 0.0418
-	PRCENTRY		xfft_r4dwpn_576K_ac_2304_4_CORE, 2702336, 512
-	PRCENTRY		xfft_r4dwpn_576K_ac_1536_4_CORE, 1542144, 512
-	PRCENTRY		xfft_r4dwpn_576K_ac_768_4_CORE, 1545216, 512
-	PRCENTRY		xfft_r4delay_576K_ac_2304_4_CORE, 2148352, 512
-	PRCENTRY		xfft_r4delay_576K_ac_1536_4_CORE, 1354752, 512
-	PRCENTRY		xfft_r4delay_576K_ac_768_4_CORE, 1357824, 512
-	DD			0
-	DD	12590000, 655360, 0.0467
-	PRCENTRY		xfft_r4dwpn_640K_ac_2560_4_CORE, 2841600
-	PRCENTRY		xfft_r4dwpn_640K_ac_1280_4_CORE, 1716224
-	PRCENTRY		xfft_r4dwpn_640K_ac_10_4_CORE, 1284096, 1024
-	PRCENTRY		xfft_r4delay_640K_ac_2560_4_CORE, 2394112
-	PRCENTRY		xfft_r4delay_640K_ac_1280_4_CORE, 1552384
-	PRCENTRY		xfft_r4delay_640K_ac_10_4_CORE, 1328128
-	DD			0
-	DD	15040000, 786432, 0.0566
-	PRCENTRY		xfft_r4dwpn_768K_ac_3072_4_CORE, 3410944
-	PRCENTRY		xfft_r4dwpn_768K_ac_11_4_CORE, 2050048
-	PRCENTRY		xfft_r4dwpn_768K_ac_1536_4_CORE, 2048000
-	PRCENTRY		xfft_r4dwpn_768K_ac_10_4_CORE, 2044928
-	PRCENTRY		xfft_r4dwpn_768K_ac_768_4_CORE, 2056192
-	PRCENTRY		xfft_r4delay_768K_ac_3072_4_CORE, 2873344
-	PRCENTRY		xfft_r4delay_768K_ac_11_4_CORE, 1805312
-	PRCENTRY		xfft_r4delay_768K_ac_1536_4_CORE, 1855488
-	PRCENTRY		xfft_r4delay_768K_ac_10_4_CORE, 1796096
-	PRCENTRY		xfft_r4delay_768K_ac_768_4_CORE, 1867776
-	PRCENTRY		xfft_hg_768K_ac_12_2_K8, 1285248
-	PRCENTRY		xfft_hg_768K_ac_tp_12_2_P4, 1285248, 1024
-	PRCENTRY		xfft_hg_768K_ac_11_4_CORE, 1648640, 512
-	PRCENTRY		xfft_hg_768K_ac_tp_11_4_P4, 1648640, 512
-	PRCENTRY		xfft_hg_768K_ac_tp_11_2_P4, 1648640, 256
-	PRCENTRY		xfft_hg_768K_ac_np_11_1_P4, 1648640
-	DD			0
-	DD	15660000, 819200, 0.0591
-	PRCENTRY		xfft_r4dwpn_800K_ac_1280_4_CORE, 1812480, 512
-	PRCENTRY		xfft_r4delay_800K_ac_1280_4_CORE, 1643520, 512
-	DD			0
-	DD	16900000, 884736, 0.0639
-	PRCENTRY		xfft_r4dwpn_864K_ac_2304_4_CORE, 2050048, 512
-	PRCENTRY		xfft_r4delay_864K_ac_2304_4_CORE, 2010112, 512
-	DD			0
-	DD	18760000, 983040, 0.0713
-	PRCENTRY		xfft_r4dwpn_960K_ac_3840_4_CORE, 4496384, 512
-	PRCENTRY		xfft_r4dwpn_960K_ac_2560_4_CORE, 2541568, 512
-	PRCENTRY		xfft_r4dwpn_960K_ac_1536_4_CORE, 2160640, 512
-	PRCENTRY		xfft_r4dwpn_960K_ac_1280_4_CORE, 2536448, 512
-	PRCENTRY		xfft_r4dwpn_960K_ac_768_4_CORE, 2173952, 512
-	PRCENTRY		xfft_r4delay_960K_ac_3840_4_CORE, 3573760, 512
-	PRCENTRY		xfft_r4delay_960K_ac_2560_4_CORE, 2239488, 512
-	PRCENTRY		xfft_r4delay_960K_ac_1536_4_CORE, 1963008, 512
-	PRCENTRY		xfft_r4delay_960K_ac_1280_4_CORE, 2226176, 512
-	PRCENTRY		xfft_r4delay_960K_ac_768_4_CORE, 1984512, 512
-	DD			0
-	DD	20000000, 1048576, 0.0761
-	PRCENTRY		xfft_r4dwpn_1M_ac_12_4_CORE, 4807680, 512
-	PRCENTRY		xfft_r4dwpn_1M_ac_11_4_CORE, 2719744, 512
-	PRCENTRY		xfft_r4dwpn_1M_ac_10_4_CORE, 2719744, 1024
-	PRCENTRY		xfft_r4delay_1M_ac_12_4_CORE, 3823616, 512
-	PRCENTRY		xfft_r4delay_1M_ac_11_4_CORE, 2469888, 512
-	PRCENTRY		xfft_r4delay_1M_ac_10_4_CORE, 2469888, 512
-	PRCENTRY		xfft_hg_1024K_ac_12_1_K8, 1682432
-	PRCENTRY		xfft_hg_1024K_ac_tp_12_4_P4, 1682432, 2048
-	PRCENTRY		xfft_hg_1024K_ac_11_4_CORE, 2181120, 512
-	PRCENTRY		xfft_hg_1024K_ac_tp_11_4_P4, 2181120, 512
-	PRCENTRY		xfft_hg_1024K_ac_tp_12_1_P4, 1682432, CELE_D
-	PRCENTRY		xfft_hg_1024K_ac_tp_11_2_P4, 2181120, WILLI
-	PRCENTRY		xfft_hg_1024K_ac_np_11_1_P4, 2181120
-	DD			0
-	DD	22410000, 1179648, 0.088
-	PRCENTRY		xfft_r4dwpn_1152K_ac_4608_4_CORE, 5385216, 512
-	PRCENTRY		xfft_r4dwpn_1152K_ac_3072_4_CORE, 3045376, 512
-	PRCENTRY		xfft_r4dwpn_1152K_ac_2304_4_CORE, 3035136, 512
-	PRCENTRY		xfft_r4dwpn_1152K_ac_1536_4_CORE, 3032064, 512
-	PRCENTRY		xfft_r4delay_1152K_ac_4608_4_CORE, 4278272, 512
-	PRCENTRY		xfft_r4delay_1152K_ac_3072_4_CORE, 2685952, 512
-	PRCENTRY		xfft_r4delay_1152K_ac_2304_4_CORE, 2756608, 512
-	PRCENTRY		xfft_r4delay_1152K_ac_1536_4_CORE, 2660352, 512
-	DD			0
-	DD	24820000, 1310720, 0.101
-	PRCENTRY		xfft_r4dwpn_1280K_ac_5120_4_CORE, 6003712, 512
-	PRCENTRY		xfft_r4dwpn_1280K_ac_2560_4_CORE, 3375104, 512
-	PRCENTRY		xfft_r4dwpn_1280K_ac_11_4_CORE, 2865152, 512
-	PRCENTRY		xfft_r4dwpn_1280K_ac_1280_4_CORE, 3375104, 512
-	PRCENTRY		xfft_r4dwpn_1280K_ac_10_4_CORE, 2870272, 1024
-	PRCENTRY		xfft_r4delay_1280K_ac_5120_4_CORE, 4773888, 512
-	PRCENTRY		xfft_r4delay_1280K_ac_2560_4_CORE, 3067904, 512
-	PRCENTRY		xfft_r4delay_1280K_ac_11_4_CORE, 2610176, 512
-	PRCENTRY		xfft_r4delay_1280K_ac_1280_4_CORE, 3063808, 512
-	PRCENTRY		xfft_r4delay_1280K_ac_10_4_CORE, 2619392, 512
-	DD			0
-	DD	27830000, 1474560, 0.116
-	PRCENTRY		xfft_r4dwpn_1440K_ac_3840_4_CORE, 3782656, 512
-	PRCENTRY		xfft_r4dwpn_1440K_ac_2304_4_CORE, 3196928, 512
-	PRCENTRY		xfft_r4delay_1440K_ac_3840_4_CORE, 3337216, 512
-	PRCENTRY		xfft_r4delay_1440K_ac_2304_4_CORE, 2913280, 512
-	DD			0
-	DD	29640000, 1572864, 0.125
-	PRCENTRY		xfft_r4dwpn_1536K_ac_6144_4_CORE, 7203840, 512
-	PRCENTRY		xfft_r4dwpn_1536K_ac_12_4_CORE, 4044800, 512
-	PRCENTRY		xfft_r4dwpn_1536K_ac_3072_4_CORE, 4042752, 1024
-	PRCENTRY		xfft_r4dwpn_1536K_ac_11_4_CORE, 4031488, 1024
-	PRCENTRY		xfft_r4dwpn_1536K_ac_1536_4_CORE, 4034560, 1024
-	PRCENTRY		xfft_r4dwpn_1536K_ac_10_4_CORE, 2554880, 2048
-	PRCENTRY		xfft_r4delay_1536K_ac_6144_4_CORE, 5728256, 512
-	PRCENTRY		xfft_r4delay_1536K_ac_12_4_CORE, 3570688, 512
-	PRCENTRY		xfft_r4delay_1536K_ac_3072_4_CORE, 3678208, 1024
-	PRCENTRY		xfft_r4delay_1536K_ac_11_4_CORE, 3536896, 1024
-	PRCENTRY		xfft_r4delay_1536K_ac_1536_4_CORE, 3661824, 1024
-	PRCENTRY		xfft_r4delay_1536K_ac_10_4_CORE, 2378752, 1024
-	PRCENTRY		xfft_hg_1536K_ac_12_1_K8, 2480128
-	PRCENTRY		xfft_hg_1536K_ac_12_4_CORE, 2480128, 512
-	PRCENTRY		xfft_hg_1536K_ac_tp_12_4_P4, 2480128, 512
-	PRCENTRY		xfft_hg_1536K_ac_tp_12_1_P4, 2480128, CELE_D
-	PRCENTRY		xfft_hg_1536K_ac_tp_11_1_P4, 3252352, WILLI
-	PRCENTRY		xfft_hg_1536K_ac_np_11_1_P4, 3252352
-	DD			0
-	DD	30860000, 1638400, 0.131
-	PRCENTRY		xfft_r4dwpn_1600K_ac_6400_4_CORE, 7478272, 512
-	PRCENTRY		xfft_r4dwpn_1600K_ac_2560_4_CORE, 3553280, 512
-	PRCENTRY		xfft_r4dwpn_1600K_ac_1280_4_CORE, 3558400, 512
-	PRCENTRY		xfft_r4delay_1600K_ac_6400_4_CORE, 5941248, 512
-	PRCENTRY		xfft_r4delay_1600K_ac_2560_4_CORE, 3240960, 512
-	PRCENTRY		xfft_r4delay_1600K_ac_1280_4_CORE, 3246080, 512
-	DD			0
-	DD	33300000, 1769472, 0.142
-	PRCENTRY		xfft_r4dwpn_1728K_ac_4608_4_CORE, 4524032, 512
-	PRCENTRY		xfft_r4dwpn_1728K_ac_2304_4_CORE, 4510720, 512
-	PRCENTRY		xfft_r4delay_1728K_ac_4608_4_CORE, 3992576, 512
-	PRCENTRY		xfft_r4delay_1728K_ac_2304_4_CORE, 3954688, 512
-	DD			0
-	DD	36950000, 1966080, 0.158
-	PRCENTRY		xfft_r4dwpn_1920K_ac_7680_4_CORE, 8973312, 512
-	PRCENTRY		xfft_r4dwpn_1920K_ac_5120_4_CORE, 5044224, 512
-	PRCENTRY		xfft_r4dwpn_1920K_ac_3840_4_CORE, 5025792, 512
-	PRCENTRY		xfft_r4dwpn_1920K_ac_3072_4_CORE, 4253696, 512
-	PRCENTRY		xfft_r4dwpn_1920K_ac_2560_4_CORE, 5014528, 512
-	PRCENTRY		xfft_r4dwpn_1920K_ac_1536_4_CORE, 4250624, 512
-	PRCENTRY		xfft_r4delay_1920K_ac_7680_4_CORE, 7129088, 512
-	PRCENTRY		xfft_r4delay_1920K_ac_5120_4_CORE, 4455424, 512
-	PRCENTRY		xfft_r4delay_1920K_ac_3840_4_CORE, 4575232, 512
-	PRCENTRY		xfft_r4delay_1920K_ac_3072_4_CORE, 3884032, 512
-	PRCENTRY		xfft_r4delay_1920K_ac_2560_4_CORE, 4397056, 512
-	PRCENTRY		xfft_r4delay_1920K_ac_1536_4_CORE, 3876864, 512
-	DD			0
-	DD	39390000, 2097152, 0.169
-	PRCENTRY		xfft_r4dwpn_2M_ac_13_4_CORE, 9595904, 512
-	PRCENTRY		xfft_r4dwpn_2M_ac_12_4_CORE, 5369856, 512
-	PRCENTRY		xfft_r4dwpn_2M_ac_11_4_CORE, 5361664, 512
-	PRCENTRY		xfft_r4dwpn_2M_ac_10_4_CORE, 3420160, 1024
-	PRCENTRY		xfft_r4delay_2M_ac_12_1_K8, 48900000
-	PRCENTRY		xfft_r4delay_2M_ac_13_4_CORE, 7628800, 512
-	PRCENTRY		xfft_r4delay_2M_ac_12_4_CORE, 4890624, 512
-	PRCENTRY		xfft_r4delay_2M_ac_11_4_CORE, 4866048, 512
-	PRCENTRY		xfft_r4delay_2M_ac_10_4_CORE, 2940928, 512
-	PRCENTRY		xfft_r4delay_2M_ac_tp_12_4_P4, 4890624, 512
-	PRCENTRY		xfft_r4delay_2M_ac_tp_12_1_P4, 4890624, 256
-	PRCENTRY		xfft_hg_2048K_ac_12_1_K8, 3274752
-	PRCENTRY		xfft_hg_2048K_ac_12_4_CORE, 3274752, 512
-	PRCENTRY		xfft_hg_2048K_ac_tp_12_4_P4, 3274752, 512
-	PRCENTRY		xfft_hg_2048K_ac_tp_12_1_P4, 3274752, 256
-	PRCENTRY		xfft_hg_2048K_ac_np_11_1_P4, 4317184
-	DD			0
-	DD	44140000, 2359296, 0.199
-	PRCENTRY		xfft_r4dwpn_2304K_ac_9216_4_CORE, 10787840, 1024
-	PRCENTRY		xfft_r4dwpn_2304K_ac_6144_4_CORE, 6047744, 512
-	PRCENTRY		xfft_r4dwpn_2304K_ac_4608_4_CORE, 6012928, 512
-	PRCENTRY		xfft_r4dwpn_2304K_ac_3072_4_CORE, 6009856, 512
-	PRCENTRY		xfft_r4dwpn_2304K_ac_2304_4_CORE, 6004736, 512
-	PRCENTRY		xfft_r4delay_2304K_ac_9216_4_CORE, 8574976, 1024
-	PRCENTRY		xfft_r4delay_2304K_ac_6144_4_CORE, 5344256, 512
-	PRCENTRY		xfft_r4delay_2304K_ac_4608_4_CORE, 5476352, 512
-	PRCENTRY		xfft_r4delay_2304K_ac_3072_4_CORE, 5269504, 512
-	PRCENTRY		xfft_r4delay_2304K_ac_2304_4_CORE, 5447680, 512
-	DD			0
-	DD	45920000, 2457600, 0.211
-	PRCENTRY		xfft_r4dwpn_2400K_ac_6400_4_CORE, 6273024, 512
-	PRCENTRY		xfft_r4dwpn_2400K_ac_3840_4_CORE, 5285888, 512
-	PRCENTRY		xfft_r4delay_2400K_ac_6400_4_CORE, 5540864, 512
-	PRCENTRY		xfft_r4delay_2400K_ac_3840_4_CORE, 4830208, 512
-	DD			0
-	DD	48900000, 2621440, 0.229
-	PRCENTRY		xfft_r4dwpn_2560K_ac_10240_4_CORE, 11987968, 512
-	PRCENTRY		xfft_r4dwpn_2560K_ac_5120_4_CORE, 6696960, 1024
-	PRCENTRY		xfft_r4dwpn_2560K_ac_12_4_CORE, 5646336, 1024
-	PRCENTRY		xfft_r4dwpn_2560K_ac_2560_4_CORE, 6672384, 1024
-	PRCENTRY		xfft_r4dwpn_2560K_ac_11_4_CORE, 5643264, 1024
-	PRCENTRY		xfft_r4dwpn_2560K_ac_10_4_CORE, 3458048, 512
-	PRCENTRY		xfft_r4delay_2560K_ac_10240_4_CORE, 9529344, 512
-	PRCENTRY		xfft_r4delay_2560K_ac_5120_4_CORE, 6103040, 1024
-	PRCENTRY		xfft_r4delay_2560K_ac_12_4_CORE, 5161984, 1024
-	PRCENTRY		xfft_r4delay_2560K_ac_2560_4_CORE, 6053888, 1024
-	PRCENTRY		xfft_r4delay_2560K_ac_11_4_CORE, 5146624, 1024
-	PRCENTRY		xfft_r4delay_2560K_ac_10_4_CORE, 3240960, 1024
-	DD			0
-	DD	54840000, 2949120, 0.267
-	PRCENTRY		xfft_r4dwpn_2880K_ac_7680_4_CORE, 7522304, 512
-	PRCENTRY		xfft_r4dwpn_2880K_ac_4608_4_CORE, 6322176, 512
-	PRCENTRY		xfft_r4dwpn_2880K_ac_3840_4_CORE, 7484416, 512
-	PRCENTRY		xfft_r4dwpn_2880K_ac_2304_4_CORE, 6319104, 512
-	PRCENTRY		xfft_r4delay_2880K_ac_7680_4_CORE, 6646784, 512
-	PRCENTRY		xfft_r4delay_2880K_ac_4608_4_CORE, 5780480, 512
-	PRCENTRY		xfft_r4delay_2880K_ac_3840_4_CORE, 6559744, 512
-	PRCENTRY		xfft_r4delay_2880K_ac_2304_4_CORE, 5761024, 512
-	DD			0
-	DD	58410000, 3145728, 0.289
-	PRCENTRY		xfft_r4dwpn_3M_ac_12288_4_CORE, 14375936, 512
-	PRCENTRY		xfft_r4dwpn_3M_ac_13_4_CORE, 8046592, 512
-	PRCENTRY		xfft_r4dwpn_3M_ac_6144_4_CORE, 8028160, 512
-	PRCENTRY		xfft_r4dwpn_3M_ac_3072_4_CORE, 7995392, 512
-	PRCENTRY		xfft_r4dwpn_3M_ac_12_4_CORE, 7992320, 512
-	PRCENTRY		xfft_r4dwpn_3M_ac_10_4_CORE, 4978688, 1024
-	PRCENTRY		xfft_r4delay_3M_ac_12288_4_CORE, 11425792, 512
-	PRCENTRY		xfft_r4delay_3M_ac_13_4_CORE, 7113728, 512
-	PRCENTRY		xfft_r4delay_3M_ac_6144_4_CORE, 7319552, 512
-	PRCENTRY		xfft_r4delay_3M_ac_3072_4_CORE, 7254016, 512
-	PRCENTRY		xfft_r4delay_3M_ac_12_4_CORE, 7006208, 512
-	PRCENTRY		xfft_r4delay_3M_ac_10_4_CORE, 4720640, 512
-	PRCENTRY		xfft_hg_3072K_ac_13_1_K8, 4143104, 512
-	PRCENTRY		xfft_hg_3072K_ac_12_1_K8, 4870272
-	PRCENTRY		xfft_hg_3072K_ac_12_4_CORE, 4870272, 1024
-	PRCENTRY		xfft_hg_3072K_ac_12_4_P4, 4870272, 1024
-	PRCENTRY		xfft_hg_3072K_ac_tp_12_2_P4, 4870272, 512
-	PRCENTRY		xfft_hg_3072K_ac_tp_12_1_P4, 4870272
-	DD			0
-	DD	60820000, 3276800, 0.306
-	PRCENTRY		xfft_r4dwpn_3200K_ac_12800_4_CORE, 14937088, 512
-	PRCENTRY		xfft_r4dwpn_3200K_ac_6400_4_CORE, 8335360, 512
-	PRCENTRY		xfft_r4dwpn_3200K_ac_5120_4_CORE, 7038976, 512
-	PRCENTRY		xfft_r4dwpn_3200K_ac_2560_4_CORE, 7019520, 512
-	PRCENTRY		xfft_r4delay_3200K_ac_12800_4_CORE, 11864064, 512
-	PRCENTRY		xfft_r4delay_3200K_ac_6400_4_CORE, 7598080, 512
-	PRCENTRY		xfft_r4delay_3200K_ac_5120_4_CORE, 6439936, 512
-	PRCENTRY		xfft_r4delay_3200K_ac_2560_4_CORE, 6400000, 512
-	DD			0
-	DD	65640000, 3538944, 0.340
-	PRCENTRY		xfft_r4dwpn_3456K_ac_9216_4_CORE, 9041920, 512
-	PRCENTRY		xfft_r4dwpn_3456K_ac_4608_4_CORE, 8963072, 512
-	PRCENTRY		xfft_r4dwpn_3456K_ac_2304_4_CORE, 5512192, 512
-	PRCENTRY		xfft_r4delay_3456K_ac_9216_4_CORE, 7994368, 512
-	PRCENTRY		xfft_r4delay_3456K_ac_4608_4_CORE, 7854080, 512
-	PRCENTRY		xfft_r4delay_3456K_ac_2304_4_CORE, 5192704, 512
-	DD			0
-	DD	72870000, 3932160, 0.391
-	PRCENTRY		xfft_r4dwpn_3840K_ac_15360_4_CORE, 17964032, 512
-	PRCENTRY		xfft_r4dwpn_3840K_ac_10240_4_CORE, 10045440, 512
-	PRCENTRY		xfft_r4dwpn_3840K_ac_7680_4_CORE, 9994240, 512
-	PRCENTRY		xfft_r4dwpn_3840K_ac_6144_4_CORE, 8435712, 512
-	PRCENTRY		xfft_r4dwpn_3840K_ac_5120_4_CORE, 9974784, 512
-	PRCENTRY		xfft_r4dwpn_3840K_ac_3840_4_CORE, 9961472, 512
-	PRCENTRY		xfft_r4dwpn_3840K_ac_3072_4_CORE, 8408064, 512
-	PRCENTRY		xfft_r4delay_3840K_ac_15360_4_CORE, 14276608, 512
-	PRCENTRY		xfft_r4delay_3840K_ac_10240_4_CORE, 8883200, 512
-	PRCENTRY		xfft_r4delay_3840K_ac_7680_4_CORE, 9113600, 512
-	PRCENTRY		xfft_r4delay_3840K_ac_6144_4_CORE, 7721984, 512
-	PRCENTRY		xfft_r4delay_3840K_ac_5120_4_CORE, 8742912, 512
-	PRCENTRY		xfft_r4delay_3840K_ac_3840_4_CORE, 9035776, 512
-	PRCENTRY		xfft_r4delay_3840K_ac_3072_4_CORE, 7665664, 512
-	DD			0
-	DD	75890000, 4096000, 0.412
-	PRCENTRY		xfft_r4dwpn_4000K_ac_6400_4_CORE, 8759296, 512
-	PRCENTRY		xfft_r4delay_4000K_ac_6400_4_CORE, 8016896, 512
-	DD			0
-	DD	77700000, 4194304, 0.425
-	PRCENTRY		xfft_r4dwpn_4M_ac_14_4_CORE, 19160064
-	PRCENTRY		xfft_r4dwpn_4M_ac_13_4_CORE, 10682368
-	PRCENTRY		xfft_r4dwpn_4M_ac_13_2_CORE, 10682368
-	PRCENTRY		xfft_r4dwpn_4M_ac_13_1_CORE, 10682368
-	PRCENTRY		xfft_r4dwpn_4M_ac_12_4_CORE, 10633216
-	PRCENTRY		xfft_r4dwpn_4M_ac_12_2_CORE, 10633216
-	PRCENTRY		xfft_r4dwpn_4M_ac_12_1_CORE, 10633216
-	PRCENTRY		xfft_r4dwpn_4M_ac_10_4_CORE, 6107136, 1024
-	PRCENTRY		xfft_r4delay_4M_ac_12_1_K8, 66450000
-	PRCENTRY		xfft_r4delay_4M_ac_14_4_CORE, 15226880
-	PRCENTRY		xfft_r4delay_4M_ac_13_4_CORE, 9744384
-	PRCENTRY		xfft_r4delay_4M_ac_13_2_CORE, 9744384
-	PRCENTRY		xfft_r4delay_4M_ac_13_1_CORE, 9744384
-	PRCENTRY		xfft_r4delay_4M_ac_12_4_CORE, 9646080
-	PRCENTRY		xfft_r4delay_4M_ac_12_2_CORE, 9646080
-	PRCENTRY		xfft_r4delay_4M_ac_12_1_CORE, 9646080
-	PRCENTRY		xfft_r4delay_4M_ac_10_4_CORE, 5844992
-	PRCENTRY		xfft_r4delay_4M_ac_12_4_P4, 9646080, 1024
-	PRCENTRY		xfft_r4delay_4M_ac_tp_12_2_P4, 9646080, 512
-	PRCENTRY		xfft_hg_4096K_ac_13_1_K8, 5462016, 512
-	PRCENTRY		xfft_hg_4096K_ac_12_1_K8, 6459392
-	PRCENTRY		xfft_hg_4096K_ac_12_4_CORE, 6459392, 1024
-	PRCENTRY		xfft_hg_4096K_ac_12_4_P4, 6459392, 1024
-	PRCENTRY		xfft_hg_4096K_ac_tp_12_2_P4, 6459392, 512
-	PRCENTRY		xfft_hg_4096K_ac_tp_12_1_P4, 6459392
-	DD			0
-	DD	87020000, 4718592, 0.486
-	PRCENTRY		xfft_r4dwpn_4608K_ac_12288_4_CORE, 12040192
-	PRCENTRY		xfft_r4dwpn_4608K_ac_9216_4_CORE, 12005376
-	PRCENTRY		xfft_r4dwpn_4608K_ac_6144_4_CORE, 11961344
-	PRCENTRY		xfft_r4dwpn_4608K_ac_4608_4_CORE, 11931648
-	PRCENTRY		xfft_r4dwpn_4608K_ac_3072_4_CORE, 7306240
-	PRCENTRY		xfft_r4dwpn_4608K_ac_2304_4_CORE, 7524352
-	PRCENTRY		xfft_r4delay_4608K_ac_12288_4_CORE, 10648576
-	PRCENTRY		xfft_r4delay_4608K_ac_9216_4_CORE, 10952704
-	PRCENTRY		xfft_r4delay_4608K_ac_6144_4_CORE, 10483712
-	PRCENTRY		xfft_r4delay_4608K_ac_4608_4_CORE, 10821632
-	PRCENTRY		xfft_r4delay_4608K_ac_3072_4_CORE, 6900736
-	PRCENTRY		xfft_r4delay_4608K_ac_2304_4_CORE, 6410240
-	DD			0
-	DD	90500000, 4915200, 0.509
-	PRCENTRY		xfft_r4dwpn_4800K_ac_12800_4_CORE, 12503040
-	PRCENTRY		xfft_r4dwpn_4800K_ac_7680_4_CORE, 10500096
-	PRCENTRY		xfft_r4dwpn_4800K_ac_6400_4_CORE, 12432384
-	PRCENTRY		xfft_r4dwpn_4800K_ac_3840_4_CORE, 10472448
-	PRCENTRY		xfft_r4delay_4800K_ac_12800_4_CORE, 11054080
-	PRCENTRY		xfft_r4delay_4800K_ac_7680_4_CORE, 9614336
-	PRCENTRY		xfft_r4delay_4800K_ac_6400_4_CORE, 10893312
-	PRCENTRY		xfft_r4delay_4800K_ac_3840_4_CORE, 9545728
-	DD			0
-	DD	96000000, 5242880, 0.550
-	PRCENTRY		xfft_r4dwpn_5M_ac_20480_4_CORE, 23944192
-	PRCENTRY		xfft_r4dwpn_5M_ac_10240_4_CORE, 13336576
-	PRCENTRY		xfft_r4dwpn_5M_ac_13_4_CORE, 11220992
-	PRCENTRY		xfft_r4dwpn_5M_ac_5120_4_CORE, 13271040
-	PRCENTRY		xfft_r4dwpn_5M_ac_12_4_CORE, 11176960
-	PRCENTRY		xfft_r4dwpn_5M_ac_10_4_CORE, 6711296, 1024
-	PRCENTRY		xfft_r4delay_5M_ac_20480_4_CORE, 19027968
-	PRCENTRY		xfft_r4delay_5M_ac_10240_4_CORE, 12169216
-	PRCENTRY		xfft_r4delay_5M_ac_13_4_CORE, 10277888
-	PRCENTRY		xfft_r4delay_5M_ac_5120_4_CORE, 12038144
-	PRCENTRY		xfft_r4delay_5M_ac_12_4_CORE, 10188800
-	PRCENTRY		xfft_r4delay_5M_ac_10_4_CORE, 6445056
-	DD			0
-	DD	108000000, 5898240, 0.623
-	PRCENTRY		xfft_r4dwpn_5760K_ac_15360_4_CORE, 15038464
-	PRCENTRY		xfft_r4dwpn_5760K_ac_9216_4_CORE, 12609536
-	PRCENTRY		xfft_r4dwpn_5760K_ac_7680_4_CORE, 14910464
-	PRCENTRY		xfft_r4dwpn_5760K_ac_4608_4_CORE, 12540928
-	PRCENTRY		xfft_r4dwpn_5760K_ac_3840_4_CORE, 9075712
-	PRCENTRY		xfft_r4dwpn_5760K_ac_2304_4_CORE, 7398400
-	PRCENTRY		xfft_r4delay_5760K_ac_15360_4_CORE, 13302784
-	PRCENTRY		xfft_r4delay_5760K_ac_9216_4_CORE, 11551744
-	PRCENTRY		xfft_r4delay_5760K_ac_7680_4_CORE, 13064192
-	PRCENTRY		xfft_r4delay_5760K_ac_4608_4_CORE, 11429888
-	PRCENTRY		xfft_r4delay_5760K_ac_3840_4_CORE, 8584192
-	PRCENTRY		xfft_r4delay_5760K_ac_2304_4_CORE, 7037952
-	DD			0
-	DD	115000000, 6291456, 0.668
-	PRCENTRY		xfft_r4dwpn_6M_ac_14_4_CORE, 16037888
-	PRCENTRY		xfft_r4dwpn_6M_ac_12288_4_CORE, 15986688
-	PRCENTRY		xfft_r4dwpn_6M_ac_13_4_CORE, 15926272
-	PRCENTRY		xfft_r4dwpn_6M_ac_6144_4_CORE, 15912960
-	PRCENTRY		xfft_r4dwpn_6M_ac_12_4_CORE, 9681920
-	PRCENTRY		xfft_r4dwpn_6M_ac_3072_4_CORE, 10006528
-	PRCENTRY		xfft_r4delay_6M_ac_14_4_CORE, 14187520
-	PRCENTRY		xfft_r4delay_6M_ac_12288_4_CORE, 14589952
-	PRCENTRY		xfft_r4delay_6M_ac_13_4_CORE, 13957120
-	PRCENTRY		xfft_r4delay_6M_ac_6144_4_CORE, 14434304
-	PRCENTRY		xfft_r4delay_6M_ac_12_4_CORE, 9161728
-	PRCENTRY		xfft_r4delay_6M_ac_3072_4_CORE, 8511488
-	PRCENTRY		xfft_hg_6M_ac_12_4_K8, 9650176, 1024
-	PRCENTRY		xfft_hg_6M_ac_12_1_K8, 9650176
-	PRCENTRY		xfft_hg_6M_ac_12_4_CORE, 9650176, 2048
-	PRCENTRY		xfft_hg_6M_ac_12_4_P4, 9650176, 2048
-	PRCENTRY		xfft_hg_6M_ac_12_2_P4, 9650176, 1024
-	PRCENTRY		xfft_hg_6M_ac_tp_12_1_P4, 9650176
-	DD			0
-	DD	119700000, 6553600, 0.715
-	PRCENTRY		xfft_r4dwpn_6400K_ac_25600_4_CORE, 29924352
-	PRCENTRY		xfft_r4dwpn_6400K_ac_12800_4_CORE, 16613376
-	PRCENTRY		xfft_r4dwpn_6400K_ac_10240_4_CORE, 14006272
-	PRCENTRY		xfft_r4dwpn_6400K_ac_6400_4_CORE, 16547840
-	PRCENTRY		xfft_r4dwpn_6400K_ac_5120_4_CORE, 13945856
-	PRCENTRY		xfft_r4delay_6400K_ac_25600_4_CORE, 23779328
-	PRCENTRY		xfft_r4delay_6400K_ac_12800_4_CORE, 15159296
-	PRCENTRY		xfft_r4delay_6400K_ac_10240_4_CORE, 12833792
-	PRCENTRY		xfft_r4delay_6400K_ac_6400_4_CORE, 15007744
-	PRCENTRY		xfft_r4delay_6400K_ac_5120_4_CORE, 12711936
-	DD			0
-	DD	128900000, 7077888, 0.760
-	PRCENTRY		xfft_r4dwpn_6912K_ac_9216_4_CORE, 17904640
-	PRCENTRY		xfft_r4dwpn_6912K_ac_4608_4_CORE, 10849280
-	PRCENTRY		xfft_r4dwpn_6912K_ac_2304_4_CORE, 10885120
-	PRCENTRY		xfft_r4delay_6912K_ac_9216_4_CORE, 15689728
-	PRCENTRY		xfft_r4delay_6912K_ac_4608_4_CORE, 10271744
-	PRCENTRY		xfft_r4delay_6912K_ac_2304_4_CORE, 10319872
-	DD			0
-	DD	142900000, 7864320, 0.851
-	PRCENTRY		xfft_r4dwpn_7680K_ac_20480_4_CORE, 20035584
-	PRCENTRY		xfft_r4dwpn_7680K_ac_15360_4_CORE, 19968000
-	PRCENTRY		xfft_r4dwpn_7680K_ac_12288_4_CORE, 16787456
-	PRCENTRY		xfft_r4dwpn_7680K_ac_10240_4_CORE, 19891200
-	PRCENTRY		xfft_r4dwpn_7680K_ac_7680_4_CORE, 19845120
-	PRCENTRY		xfft_r4dwpn_7680K_ac_6144_4_CORE, 16718848
-	PRCENTRY		xfft_r4dwpn_7680K_ac_5120_4_CORE, 12057600
-	PRCENTRY		xfft_r4dwpn_7680K_ac_3840_4_CORE, 12464128
-	PRCENTRY		xfft_r4dwpn_7680K_ac_3072_4_CORE, 9782272
-	PRCENTRY		xfft_r4delay_7680K_ac_20480_4_CORE, 17726464
-	PRCENTRY		xfft_r4delay_7680K_ac_15360_4_CORE, 18227200
-	PRCENTRY		xfft_r4delay_7680K_ac_12288_4_CORE, 15385600
-	PRCENTRY		xfft_r4delay_7680K_ac_10240_4_CORE, 17430528
-	PRCENTRY		xfft_r4delay_7680K_ac_7680_4_CORE, 17997824
-	PRCENTRY		xfft_r4delay_7680K_ac_6144_4_CORE, 15239168
-	PRCENTRY		xfft_r4delay_7680K_ac_5120_4_CORE, 11422720
-	PRCENTRY		xfft_r4delay_7680K_ac_3840_4_CORE, 10588160
-	PRCENTRY		xfft_r4delay_7680K_ac_3072_4_CORE, 9335808
-	DD			0
-	DD	149500000, 8192000, 1.007
-	PRCENTRY		xfft_r4dwpn_8000K_ac_12800_4_CORE, 17446912
-	PRCENTRY		xfft_r4dwpn_8000K_ac_6400_4_CORE, 17386496
-	PRCENTRY		xfft_r4delay_8000K_ac_12800_4_CORE, 15987712
-	PRCENTRY		xfft_r4delay_8000K_ac_6400_4_CORE, 15845376
-	DD			0
-	DD	153100000, 8388608, 1.042
-	PRCENTRY		xfft_r4dwpn_8M_ac_14_4_CORE, 21295104
-	PRCENTRY		xfft_r4dwpn_8M_ac_13_4_CORE, 21188608
-	PRCENTRY		xfft_r4dwpn_8M_ac_12_4_CORE, 13299712
-	PRCENTRY		xfft_r4delay_8M_ac_14_4_CORE, 19439616
-	PRCENTRY		xfft_r4delay_8M_ac_13_4_CORE, 19218432
-	PRCENTRY		xfft_r4delay_8M_ac_12_4_CORE, 11296768
-	PRCENTRY		xfft_hg_8M_ac_12_4_K8, 12828672, 1024
-	PRCENTRY		xfft_hg_8M_ac_12_1_K8, 12828672
-	PRCENTRY		xfft_hg_8M_ac_12_4_CORE, 12828672, 2048
-	PRCENTRY		xfft_hg_8M_ac_12_4_P4, 12828672, 2048
-	PRCENTRY		xfft_hg_8M_ac_12_2_P4, 12828672, 1024
-	PRCENTRY		xfft_hg_8M_ac_tp_12_1_P4, 12828672
-	DD			0
-	DD	171500000, 9437184, 1.131
-	PRCENTRY		xfft_r4dwpn_9M_ac_12288_4_CORE, 23852032
-	PRCENTRY		xfft_r4dwpn_9M_ac_9216_4_CORE, 23822336
-	PRCENTRY		xfft_r4dwpn_9M_ac_6144_4_CORE, 14437376
-	PRCENTRY		xfft_r4dwpn_9M_ac_4608_4_CORE, 14925824
-	PRCENTRY		xfft_r4dwpn_9M_ac_3072_4_CORE, 14448640
-	PRCENTRY		xfft_r4dwpn_9M_ac_2304_4_CORE, 13324288
-	PRCENTRY		xfft_r4delay_9M_ac_12288_4_CORE, 20899840
-	PRCENTRY		xfft_r4delay_9M_ac_9216_4_CORE, 21606400
-	PRCENTRY		xfft_r4delay_9M_ac_6144_4_CORE, 13687808
-	PRCENTRY		xfft_r4delay_9M_ac_4608_4_CORE, 12668928
-	PRCENTRY		xfft_r4delay_9M_ac_3072_4_CORE, 13699072
-	PRCENTRY		xfft_r4delay_9M_ac_2304_4_CORE, 12754944
-	DD			0
-	DD	178400000, 9830400, 1.166
-	PRCENTRY		xfft_r4dwpn_9600K_ac_25600_4_CORE, 25032704
-	PRCENTRY		xfft_r4dwpn_9600K_ac_15360_4_CORE, 20965376
-	PRCENTRY		xfft_r4dwpn_9600K_ac_12800_4_CORE, 24806400
-	PRCENTRY		xfft_r4dwpn_9600K_ac_7680_4_CORE, 20847616
-	PRCENTRY		xfft_r4dwpn_9600K_ac_6400_4_CORE, 15006720
-	PRCENTRY		xfft_r4dwpn_9600K_ac_3840_4_CORE, 12141568
-	PRCENTRY		xfft_r4delay_9600K_ac_25600_4_CORE, 22150144
-	PRCENTRY		xfft_r4delay_9600K_ac_15360_4_CORE, 19219456
-	PRCENTRY		xfft_r4delay_9600K_ac_12800_4_CORE, 21731328
-	PRCENTRY		xfft_r4delay_9600K_ac_7680_4_CORE, 18999296
-	PRCENTRY		xfft_r4delay_9600K_ac_6400_4_CORE, 14228480
-	PRCENTRY		xfft_r4delay_9600K_ac_3840_4_CORE, 11609088
-	DD			0
-	DD	189900000, 10485760, 1.221
-	PRCENTRY		xfft_r4dwpn_10M_ac_20480_4_CORE, 26603520
-	PRCENTRY		xfft_r4dwpn_10M_ac_14_4_CORE, 22358016
-	PRCENTRY		xfft_r4dwpn_10M_ac_10240_4_CORE, 26464256
-	PRCENTRY		xfft_r4dwpn_10M_ac_13_4_CORE, 22256640
-	PRCENTRY		xfft_r4dwpn_10M_ac_5120_4_CORE, 16592896
-	PRCENTRY		xfft_r4dwpn_10M_ac_12_4_CORE, 12944384
-	PRCENTRY		xfft_r4delay_10M_ac_20480_4_CORE, 24289280
-	PRCENTRY		xfft_r4delay_10M_ac_14_4_CORE, 20497408
-	PRCENTRY		xfft_r4delay_10M_ac_10240_4_CORE, 24002560
-	PRCENTRY		xfft_r4delay_10M_ac_13_4_CORE, 20285440
-	PRCENTRY		xfft_r4delay_10M_ac_5120_4_CORE, 14082048
-	PRCENTRY		xfft_r4delay_10M_ac_12_4_CORE, 12383232
-	DD			0
-	DD	212900000, 11796480, 1.330
-	PRCENTRY		xfft_r4dwpn_11520K_ac_15360_4_CORE, 29799424
-	PRCENTRY		xfft_r4dwpn_11520K_ac_9216_4_CORE, 25021440
-	PRCENTRY		xfft_r4dwpn_11520K_ac_7680_4_CORE, 17976320
-	PRCENTRY		xfft_r4dwpn_11520K_ac_4608_4_CORE, 14504960
-	PRCENTRY		xfft_r4dwpn_11520K_ac_3840_4_CORE, 17987584
-	PRCENTRY		xfft_r4dwpn_11520K_ac_2304_4_CORE, 14583808
-	PRCENTRY		xfft_r4delay_11520K_ac_15360_4_CORE, 26109952
-	PRCENTRY		xfft_r4delay_11520K_ac_9216_4_CORE, 22804480
-	PRCENTRY		xfft_r4delay_11520K_ac_7680_4_CORE, 17054720
-	PRCENTRY		xfft_r4delay_11520K_ac_4608_4_CORE, 13886464
-	PRCENTRY		xfft_r4delay_11520K_ac_3840_4_CORE, 17053696
-	PRCENTRY		xfft_r4delay_11520K_ac_2304_4_CORE, 14010368
-	DD			0
-	DD	226800000, 12582912, 1.400
-	PRCENTRY		xfft_r4dwpn_12M_ac_14_4_CORE, 31781888
-	PRCENTRY		xfft_r4dwpn_12M_ac_12288_4_CORE, 31735808
-	PRCENTRY		xfft_r4dwpn_12M_ac_13_4_CORE, 19188736
-	PRCENTRY		xfft_r4dwpn_12M_ac_6144_4_CORE, 19890176
-	PRCENTRY		xfft_r4dwpn_12M_ac_12_4_CORE, 19183616
-	PRCENTRY		xfft_r4dwpn_12M_ac_3072_4_CORE, 17674240
-	PRCENTRY		xfft_r4delay_12M_ac_14_4_CORE, 27846656
-	PRCENTRY		xfft_r4delay_12M_ac_12288_4_CORE, 28782592
-	PRCENTRY		xfft_r4delay_12M_ac_13_4_CORE, 18209792
-	PRCENTRY		xfft_r4delay_12M_ac_6144_4_CORE, 16871424
-	PRCENTRY		xfft_r4delay_12M_ac_12_4_CORE, 18188288
-	PRCENTRY		xfft_r4delay_12M_ac_3072_4_CORE, 16920576
-	PRCENTRY		xfft_hg_12M_ac_13_4_K8, 16031744
-	PRCENTRY		xfft_hg_12M_ac_13_4_CORE, 16031744
-	DD			0
-	DD	236100000, 13107200, 1.488
-	PRCENTRY		xfft_r4dwpn_12800K_ac_25600_4_CORE, 33239040
-	PRCENTRY		xfft_r4dwpn_12800K_ac_20480_4_CORE, 27928576
-	PRCENTRY		xfft_r4dwpn_12800K_ac_12800_4_CORE, 33017856
-	PRCENTRY		xfft_r4dwpn_12800K_ac_10240_4_CORE, 27794432
-	PRCENTRY		xfft_r4dwpn_12800K_ac_6400_4_CORE, 20688896
-	PRCENTRY		xfft_r4dwpn_12800K_ac_5120_4_CORE, 16106496
-	PRCENTRY		xfft_r4delay_12800K_ac_25600_4_CORE, 30351360
-	PRCENTRY		xfft_r4delay_12800K_ac_20480_4_CORE, 25609216
-	PRCENTRY		xfft_r4delay_12800K_ac_12800_4_CORE, 29941760
-	PRCENTRY		xfft_r4delay_12800K_ac_10240_4_CORE, 25331712
-	PRCENTRY		xfft_r4delay_12800K_ac_6400_4_CORE, 17543168
-	PRCENTRY		xfft_r4delay_12800K_ac_5120_4_CORE, 15430656
-	DD			0
-	DD	254900000, 14155776, 1.663
-	PRCENTRY		xfft_r4dwpn_13824K_ac_9216_4_CORE, 21560320
-	PRCENTRY		xfft_r4dwpn_13824K_ac_4608_4_CORE, 21530624
-	PRCENTRY		xfft_r4delay_13824K_ac_9216_4_CORE, 20466688
-	PRCENTRY		xfft_r4delay_13824K_ac_4608_4_CORE, 20412416
-	DD			0
-	DD	281800000, 15728640, 1.875
-	PRCENTRY		xfft_r4dwpn_15M_ac_20480_4_CORE, 39711744
-	PRCENTRY		xfft_r4dwpn_15M_ac_15360_4_CORE, 39649280
-	PRCENTRY		xfft_r4dwpn_15M_ac_12288_4_CORE, 33328128
-	PRCENTRY		xfft_r4dwpn_15M_ac_10240_4_CORE, 23940096
-	PRCENTRY		xfft_r4dwpn_15M_ac_7680_4_CORE, 24805376
-	PRCENTRY		xfft_r4dwpn_15M_ac_6144_4_CORE, 19272704
-	PRCENTRY		xfft_r4dwpn_15M_ac_5120_4_CORE, 23918592
-	PRCENTRY		xfft_r4dwpn_15M_ac_3840_4_CORE, 21999616
-	PRCENTRY		xfft_r4dwpn_15M_ac_3072_4_CORE, 19326976
-	PRCENTRY		xfft_r4delay_15M_ac_20480_4_CORE, 34793472
-	PRCENTRY		xfft_r4delay_15M_ac_15360_4_CORE, 35958784
-	PRCENTRY		xfft_r4delay_15M_ac_12288_4_CORE, 30373888
-	PRCENTRY		xfft_r4delay_15M_ac_10240_4_CORE, 22731776
-	PRCENTRY		xfft_r4delay_15M_ac_7680_4_CORE, 21024768
-	PRCENTRY		xfft_r4delay_15M_ac_6144_4_CORE, 18482176
-	PRCENTRY		xfft_r4delay_15M_ac_5120_4_CORE, 22677504
-	PRCENTRY		xfft_r4delay_15M_ac_3840_4_CORE, 21061632
-	PRCENTRY		xfft_r4delay_15M_ac_3072_4_CORE, 18569216
-	DD			0
-	DD	293300000, 16384000, 2.078
-	PRCENTRY		xfft_r4dwpn_16000K_ac_25600_4_CORE, 34891776
-	PRCENTRY		xfft_r4dwpn_16000K_ac_12800_4_CORE, 34675712
-	PRCENTRY		xfft_r4dwpn_16000K_ac_6400_4_CORE, 20038656
-	PRCENTRY		xfft_r4delay_16000K_ac_25600_4_CORE, 31998976
-	PRCENTRY		xfft_r4delay_16000K_ac_12800_4_CORE, 31598592
-	PRCENTRY		xfft_r4delay_16000K_ac_6400_4_CORE, 19219456
-	DD			0
-	DD	301900000, 16777216, 2.100
-	PRCENTRY		xfft_r4dwpn_16M_ac_14_4_CORE, 42287104
-	PRCENTRY		xfft_r4dwpn_16M_ac_13_4_CORE, 26476544
-	PRCENTRY		xfft_r4dwpn_16M_ac_13_2_CORE, 26476544
-	PRCENTRY		xfft_r4dwpn_16M_ac_13_1_CORE, 26476544
-	PRCENTRY		xfft_r4dwpn_16M_ac_12_4_CORE, 23457792
-	PRCENTRY		xfft_r4dwpn_16M_ac_12_2_CORE, 23457792
-	PRCENTRY		xfft_r4dwpn_16M_ac_12_1_CORE, 23457792
-	PRCENTRY		xfft_r4delay_16M_ac_14_4_CORE, 38350848
-	PRCENTRY		xfft_r4delay_16M_ac_13_4_CORE, 22441984
-	PRCENTRY		xfft_r4delay_16M_ac_13_2_CORE, 22441984
-	PRCENTRY		xfft_r4delay_16M_ac_13_1_CORE, 22441984
-	PRCENTRY		xfft_r4delay_16M_ac_12_4_CORE, 22458368
-	PRCENTRY		xfft_r4delay_16M_ac_12_2_CORE, 22458368
-	PRCENTRY		xfft_r4delay_16M_ac_12_1_CORE, 22458368
-	PRCENTRY		xfft_hg_16M_ac_13_4_K8, 21307392
-	PRCENTRY		xfft_hg_16M_ac_13_4_CORE, 21307392
-	DD			0
-	DD	338100000, 18874368, 2.400
-	PRCENTRY		xfft_r4dwpn_18M_ac_12288_4_CORE, 28687360
-	PRCENTRY		xfft_r4dwpn_18M_ac_9216_4_CORE, 29765632
-	PRCENTRY		xfft_r4dwpn_18M_ac_6144_4_CORE, 28657664
-	PRCENTRY		xfft_r4dwpn_18M_ac_4608_4_CORE, 26329088
-	PRCENTRY		xfft_r4delay_18M_ac_12288_4_CORE, 27249664
-	PRCENTRY		xfft_r4delay_18M_ac_9216_4_CORE, 25223168
-	PRCENTRY		xfft_r4delay_18M_ac_6144_4_CORE, 27170816
-	PRCENTRY		xfft_r4delay_18M_ac_4608_4_CORE, 25206784
-	DD			0
-	DD	350600000, 19660800, 2.469
-	PRCENTRY		xfft_r4dwpn_19200K_ac_25600_4_CORE, 49624064
-	PRCENTRY		xfft_r4dwpn_19200K_ac_15360_4_CORE, 41634816
-	PRCENTRY		xfft_r4dwpn_19200K_ac_12800_4_CORE, 29838336
-	PRCENTRY		xfft_r4dwpn_19200K_ac_7680_4_CORE, 23991296
-	PRCENTRY		xfft_r4dwpn_19200K_ac_6400_4_CORE, 29816832
-	PRCENTRY		xfft_r4dwpn_19200K_ac_3840_4_CORE, 24045568
-	PRCENTRY		xfft_r4delay_19200K_ac_25600_4_CORE, 43476992
-	PRCENTRY		xfft_r4delay_19200K_ac_15360_4_CORE, 37943296
-	PRCENTRY		xfft_r4delay_19200K_ac_12800_4_CORE, 28343296
-	PRCENTRY		xfft_r4delay_19200K_ac_7680_4_CORE, 23028736
-	PRCENTRY		xfft_r4delay_19200K_ac_6400_4_CORE, 28268544
-	PRCENTRY		xfft_r4delay_19200K_ac_3840_4_CORE, 23103488
-	DD			0
-	DD	374400000, 20971520, 2.700
-	PRCENTRY		xfft_r4dwpn_20M_ac_20480_4_CORE, 52838400
-	PRCENTRY		xfft_r4dwpn_20M_ac_14_4_CORE, 44403712
-	PRCENTRY		xfft_r4dwpn_20M_ac_10240_4_CORE, 33062912
-	PRCENTRY		xfft_r4dwpn_20M_ac_10240_2_CORE, 33062912
-	PRCENTRY		xfft_r4dwpn_20M_ac_13_4_CORE, 25596928
-	PRCENTRY		xfft_r4dwpn_20M_ac_5120_4_CORE, 29241344
-	PRCENTRY		xfft_r4dwpn_20M_ac_12_4_CORE, 25634816
-	PRCENTRY		xfft_r4delay_20M_ac_20480_4_CORE, 47919104
-	PRCENTRY		xfft_r4delay_20M_ac_14_4_CORE, 40466432
-	PRCENTRY		xfft_r4delay_20M_ac_10240_4_CORE, 28012544
-	PRCENTRY		xfft_r4delay_20M_ac_10240_2_CORE, 28012544
-	PRCENTRY		xfft_r4delay_20M_ac_13_4_CORE, 24577024
-	PRCENTRY		xfft_r4delay_20M_ac_5120_4_CORE, 27996160
-	PRCENTRY		xfft_r4delay_20M_ac_12_4_CORE, 24631296
-	DD			0
-	DD	419700000, 23592960, 3.075
-	PRCENTRY		xfft_r4dwpn_23040K_ac_15360_4_CORE, 35814400
-	PRCENTRY		xfft_r4dwpn_23040K_ac_9216_4_CORE, 28754944
-	PRCENTRY		xfft_r4dwpn_23040K_ac_7680_4_CORE, 35735552
-	PRCENTRY		xfft_r4dwpn_23040K_ac_4608_4_CORE, 28768256
-	PRCENTRY		xfft_r4delay_23040K_ac_15360_4_CORE, 34032640
-	PRCENTRY		xfft_r4delay_23040K_ac_9216_4_CORE, 27620352
-	PRCENTRY		xfft_r4delay_23040K_ac_7680_4_CORE, 33880064
-	PRCENTRY		xfft_r4delay_23040K_ac_4608_4_CORE, 27641856
-	DD			0
-	DD	446900000, 25165824, 3.300
-	PRCENTRY		xfft_r4dwpn_24M_ac_14_4_CORE, 38190080
-	PRCENTRY		xfft_r4dwpn_24M_ac_12288_4_CORE, 39645184
-	PRCENTRY		xfft_r4dwpn_24M_ac_13_4_CORE, 38127616
-	PRCENTRY		xfft_r4dwpn_24M_ac_6144_4_CORE, 35028992
-	PRCENTRY		xfft_r4delay_24M_ac_14_4_CORE, 36293632
-	PRCENTRY		xfft_r4delay_24M_ac_12288_4_CORE, 33579008
-	PRCENTRY		xfft_r4delay_24M_ac_13_4_CORE, 36149248
-	PRCENTRY		xfft_r4delay_24M_ac_6144_4_CORE, 33538048
-	PRCENTRY		xfft_hg_24M_ac_13_2_K8, 31883392
-	PRCENTRY		xfft_hg_24M_ac_13_2_CORE, 31883392
-	DD			0
-	DD	466100000, 26214400, 3.450
-	PRCENTRY		xfft_r4dwpn_25M_ac_25600_4_CORE, 66027520
-	PRCENTRY		xfft_r4dwpn_25M_ac_20480_4_CORE, 55479296
-	PRCENTRY		xfft_r4dwpn_25M_ac_12800_4_CORE, 41254912
-	PRCENTRY		xfft_r4dwpn_25M_ac_10240_4_CORE, 31921152
-	PRCENTRY		xfft_r4dwpn_25M_ac_6400_4_CORE, 36450304
-	PRCENTRY		xfft_r4dwpn_25M_ac_5120_4_CORE, 31942656
-	PRCENTRY		xfft_r4delay_25M_ac_25600_4_CORE, 59879424
-	PRCENTRY		xfft_r4delay_25M_ac_20480_4_CORE, 50558976
-	PRCENTRY		xfft_r4delay_25M_ac_12800_4_CORE, 34934784
-	PRCENTRY		xfft_r4delay_25M_ac_10240_4_CORE, 30671872
-	PRCENTRY		xfft_r4delay_25M_ac_6400_4_CORE, 34897920
-	PRCENTRY		xfft_r4delay_25M_ac_5120_4_CORE, 30693376
-	DD			0
-	DD	502200000, 28311552, 3.750
-	PRCENTRY		xfft_r4dwpn_27M_ac_9216_4_CORE, 42858496
-	PRCENTRY		xfft_r4delay_27M_ac_9216_4_CORE, 40634368
-	DD			0
-	DD	557600000, 31457280, 4.200
-	PRCENTRY		xfft_r4dwpn_30M_ac_20480_4_CORE, 47692800
-	PRCENTRY		xfft_r4dwpn_30M_ac_15360_4_CORE, 49524736
-	PRCENTRY		xfft_r4dwpn_30M_ac_12288_4_CORE, 38241280
-	PRCENTRY		xfft_r4dwpn_30M_ac_10240_4_CORE, 47597568
-	PRCENTRY		xfft_r4dwpn_30M_ac_7680_4_CORE, 43679744
-	PRCENTRY		xfft_r4dwpn_30M_ac_6144_4_CORE, 38254592
-	PRCENTRY		xfft_r4delay_30M_ac_20480_4_CORE, 45337600
-	PRCENTRY		xfft_r4delay_30M_ac_15360_4_CORE, 41934848
-	PRCENTRY		xfft_r4delay_30M_ac_12288_4_CORE, 36762624
-	PRCENTRY		xfft_r4delay_30M_ac_10240_4_CORE, 45127680
-	PRCENTRY		xfft_r4delay_30M_ac_7680_4_CORE, 41820160
-	PRCENTRY		xfft_r4delay_30M_ac_6144_4_CORE, 36759552
-	DD			0
-	DD	579700000, 32768000, 4.388
-	PRCENTRY		xfft_r4dwpn_32000K_ac_25600_4_CORE, 69323776
-	PRCENTRY		xfft_r4dwpn_32000K_ac_12800_4_CORE, 39785472
-	PRCENTRY		xfft_r4dwpn_32000K_ac_6400_4_CORE, 39806976
-	PRCENTRY		xfft_r4delay_32000K_ac_25600_4_CORE, 63174656
-	PRCENTRY		xfft_r4delay_32000K_ac_12800_4_CORE, 38249472
-	PRCENTRY		xfft_r4delay_32000K_ac_6400_4_CORE, 38250496
-	DD			0
-	DD	594600000, 33554432, 4.500
-	PRCENTRY		xfft_r4dwpn_32M_ac_14_4_CORE, 52817920
-	PRCENTRY		xfft_r4dwpn_32M_ac_13_4_CORE, 46596096
-	PRCENTRY		xfft_r4dwpn_32M_ac_13_2_CORE, 46596096
-	PRCENTRY		xfft_r4dwpn_32M_ac_13_1_CORE, 46596096
-	PRCENTRY		xfft_r4delay_32M_ac_14_4_CORE, 44720128
-	PRCENTRY		xfft_r4delay_32M_ac_13_4_CORE, 44613632
-	PRCENTRY		xfft_r4delay_32M_ac_13_2_CORE, 44613632
-	PRCENTRY		xfft_r4delay_32M_ac_13_1_CORE, 44613632
-	PRCENTRY		xfft_hg_32M_ac_13_2_K8, 42434560
-	PRCENTRY		xfft_hg_32M_ac_13_2_CORE, 42434560
+	PRCSTRT	254800,	12288,	0.000626
+	PRCENTRY2		xfft_hg_12K_ac_ip_8_4, 64896, P4_1024 + P4TP_512 + P4TP_256 + CORE2_64
+	PRCENTRY2A		xfft_hg_12K_ac_ip_8_4_P4, 64896, CORE2_32
+	PRCENTRY2A		xfft_hg_12K_ac_ip_8_4_P4, 64896, I7
+	DD			0
+	PRCSTRT	339100,	16384,	0.000857
+	PRCENTRY2		xfft_r4_16K_ac_8_4, 183296
+	PRCENTRY2		xfft_r4_16K_ac_np_8_4, 183296, P4TP_512 + P4TP_256 + I7 + CORE2
+	PRCENTRY2A		xfft_r4_16K_ac_np_8_4_CORE, 183296, P4_1024
+	PRCENTRY2		xfft_hg_16K_ac_ip_8_4, 84224
+	DD			0
+	PRCSTRT	503400,	24576,	0.00135
+	PRCENTRY2		xfft_r4_24K_ac_768_4, 259584
+	PRCENTRY2		xfft_r4_24K_ac_np_768_4, 259584, I7_64 + CORE2
+	PRCENTRY2		xfft_r4_24K_ac_8_4, 246272, P4TP_256
+	PRCENTRY2A		xfft_r4_24K_ac_8_4_P4, 246272, I7_32
+	PRCENTRY2		xfft_r4_24K_ac_np_8_4, 246272, P4TP_512
+	PRCENTRY2		xfft_hg_24K_ac_ip_8_4, 123904, P4_1024
+	DD			0
+	PRCSTRT	669600,	32768,	0.00179
+	PRCENTRY2		xfft_r4dwpn_32K_ac_8_4, 153600, P4TP_256
+	PRCENTRY2A		xfft_r4dwpn_32K_ac_8_4_P4, 153600, I7
+	PRCENTRY2		xfft_r4dwpn_32K_ac_np_8_4, 153600, P4TP_512 + CORE2
+	PRCENTRY2		xfft_r4delay_32K_ac_8_4, 132096
+	PRCENTRY2		xfft_r4delay_32K_ac_np_8_4, 132096
+	PRCENTRY2		xfft_r4_32K_ac_10_4, 349696
+	PRCENTRY2		xfft_r4_32K_ac_np_10_4, 349696
+	PRCENTRY2		xfft_r4_32K_ac_8_4, 333824
+	PRCENTRY2		xfft_r4_32K_ac_np_8_4, 333824
+	PRCENTRY2		xfft_hg_32K_ac_ip_8_4, 162816, P4_1024
+	DD			0
+	PRCSTRT	832200, 40960,	0.00236
+	PRCENTRY2		xfft_r4_40K_ac_1280_4, 431616, P4TP_512 + P4TP_256
+	PRCENTRY2		xfft_r4_40K_ac_np_1280_4, 431616, P4_1024 + I7 + CORE2
+	DD			0
+	PRCSTRT	992800, 49152,	0.00303
+	PRCENTRY2		xfft_r4_48K_ac_768_4, 543744
+	PRCENTRY2		xfft_r4_48K_ac_np_768_4, 543744, P4_1024_64 + I7 + CORE2
+	PRCENTRY2A		xfft_r4_48K_ac_np_768_4_CORE, 543744, P4_1024_32
+	PRCENTRY2		xfft_hg_48K_ac_ip_11_4, 145280, P4TP_512 + P4TP_256
+	DD			0
+	PRCSTRT	1320000, 65536,	0.00404
+	PRCENTRY2		xfft_r4dwpn_64K_ac_8_4, 297984, P4_1024_32 + P4TP_512 + P4TP_256
+	PRCENTRY2A		xfft_r4dwpn_64K_ac_8_4_P4, 297984, I7
+	PRCENTRY2A		xfft_r4dwpn_64K_ac_8_4_CORE, 297984, P4_1024_64
+	PRCENTRY2		xfft_r4dwpn_64K_ac_np_8_4, 297984, CORE2
+	PRCENTRY2		xfft_r4delay_64K_ac_8_4, 256000
+	PRCENTRY2		xfft_r4delay_64K_ac_np_8_4, 256000
+	PRCENTRY2		xfft_r4_64K_ac_10_4, 728064
+	PRCENTRY2		xfft_r4_64K_ac_np_10_4, 728064
+	PRCENTRY2		xfft_r4_64K_ac_8_4, 675840
+	PRCENTRY2		xfft_r4_64K_ac_np_8_4, 675840
+	PRCENTRY2		xfft_hg_64K_ac_ip_11_4, 178560
+	DD			0
+	PRCSTRT	1481000, 73728,	0.00463
+	PRCENTRY2		xfft_r4_72K_ac_768_4, 729600, P4_1024_32 + P4TP_512 + P4TP_256
+	PRCENTRY2A		xfft_r4_72K_ac_768_4_CORE, 729600, P4_1024_64
+	PRCENTRY2		xfft_r4_72K_ac_np_768_4, 729600, I7 + CORE2
+	DD			0
+	PRCSTRT	1642000, 81920,	0.00521
+	PRCENTRY2		xfft_r4_80K_ac_1280_4, 904192, P4_1024 + P4TP_512 + P4TP_256
+	PRCENTRY2		xfft_r4_80K_ac_np_1280_4, 904192, I7 + CORE2
+	DD			0
+	PRCSTRT	1962000, 98304, 0.00644
+	PRCENTRY2		xfft_r4dwpn_96K_ac_768_4, 440320, I7_64
+	PRCENTRY2		xfft_r4dwpn_96K_ac_np_768_4, 440320, I7_32 + CORE2
+	PRCENTRY2		xfft_r4dwpn_96K_ac_8_4, 256000
+	PRCENTRY2A		xfft_r4dwpn_96K_ac_8_4_CORE, 256000, P4_1024
+	PRCENTRY2		xfft_r4dwpn_96K_ac_np_8_4, 256000
+	PRCENTRY2		xfft_r4delay_96K_ac_768_4, 377856, P4TP_256
+	PRCENTRY2		xfft_r4delay_96K_ac_np_768_4, 377856
+	PRCENTRY2		xfft_r4delay_96K_ac_8_4, 248832
+	PRCENTRY2		xfft_r4delay_96K_ac_np_8_4, 248832
+	PRCENTRY2		xfft_r4_96K_ac_10_4, 975360
+	PRCENTRY2		xfft_r4_96K_ac_np_10_4, 975360
+	PRCENTRY2		xfft_r4_96K_ac_768_4, 989184
+	PRCENTRY2		xfft_r4_96K_ac_np_768_4, 989184
+	PRCENTRY2		xfft_hg_96K_ac_ip_11_4, 245632, P4TP_512
+	DD			0
+	PRCSTRT	2448000, 122880, 0.00815
+	PRCENTRY2		xfft_r4_120K_ac_1280_4, 1212928
+	PRCENTRY2		xfft_r4_120K_ac_np_1280_4, 1212928
+	DD			0
+	PRCSTRT	2610000, 131072, 0.00871
+	PRCENTRY2		xfft_r4dwpn_128K_ac_10_4, 587776, P4_1024_64 + I7_64
+	PRCENTRY2A		xfft_r4dwpn_128K_ac_10_4_P4, 587776, I7_32
+	PRCENTRY2A		xfft_r4dwpn_128K_ac_10_4_CORE, 587776, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_128K_ac_np_10_4, 587776, CORE2
+	PRCENTRY2		xfft_r4dwpn_128K_ac_8_4, 339968, P4TP_512
+	PRCENTRY2		xfft_r4dwpn_128K_ac_8_2, 339968
+	PRCENTRY2		xfft_r4dwpn_128K_ac_np_8_4, 339968
+	PRCENTRY2		xfft_r4delay_128K_ac_10_4, 504832, P4TP_256
+	PRCENTRY2		xfft_r4delay_128K_ac_np_10_4, 504832
+	PRCENTRY2		xfft_r4delay_128K_ac_8_4, 339968
+	PRCENTRY2		xfft_r4delay_128K_ac_8_2, 339968
+	PRCENTRY2		xfft_r4delay_128K_ac_np_8_4, 339968
+	PRCENTRY2		xfft_hg_128K_ac_ip_11_4, 312064
+	DD			0
+	PRCSTRT	2924000, 147456, 0.00994
+	PRCENTRY2		xfft_r4_144K_ac_1536_4, 1454592, P4TP_512 + P4TP_256 + I7_64
+	PRCENTRY2A		xfft_r4_144K_ac_1536_4_P4, 1454592, CORE2_32
+	PRCENTRY2A		xfft_r4_144K_ac_1536_4_P4, 1454592, I7_32
+	PRCENTRY2A		xfft_r4_144K_ac_1536_4_CORE, 1454592, P4_1024
+	DD			0
+	PRCSTRT	3238000, 163840, 0.0112
+	PRCENTRY2		xfft_r4dwpn_160K_ac_1280_4, 727040, P4TP_256 + CORE2_64
+	PRCENTRY2A		xfft_r4dwpn_160K_ac_1280_4_P4, 727040, CORE2_32
+	PRCENTRY2A		xfft_r4dwpn_160K_ac_1280_4_P4, 727040, I7
+	PRCENTRY2A		xfft_r4dwpn_160K_ac_1280_4_CORE, 727040, P4_1024_64
+	PRCENTRY2		xfft_r4dwpn_160K_ac_8_4, 358400
+	PRCENTRY2A		xfft_r4dwpn_160K_ac_8_4_CORE, 358400, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_160K_ac_8_2, 358400
+	PRCENTRY2		xfft_r4delay_160K_ac_1280_4, 623616
+	PRCENTRY2		xfft_r4delay_160K_ac_8_4, 365568, P4TP_512
+	PRCENTRY2		xfft_r4delay_160K_ac_8_2, 365568
+	DD			0
+	PRCSTRT	3867000, 196608, 0.0136
+	PRCENTRY2		xfft_r4dwpn_192K_ac_768_4, 863232, P4TP_256 + I7_64 + CORE2_64
+	PRCENTRY2A		xfft_r4dwpn_192K_ac_768_4_P4, 863232, CORE2_32
+	PRCENTRY2A		xfft_r4dwpn_192K_ac_768_4_P4, 863232, I7_32
+	PRCENTRY2		xfft_r4dwpn_192K_ac_8_4, 492544
+	PRCENTRY2A		xfft_r4dwpn_192K_ac_8_4_CORE, 492544, P4_1024
+	PRCENTRY2		xfft_r4delay_192K_ac_768_4, 731136
+	PRCENTRY2		xfft_r4delay_192K_ac_8_4, 489472
+	PRCENTRY2		xfft_r4_192K_ac_768_4, 2002944
+	PRCENTRY2		xfft_hg_192K_ac_10_4, 529536
+	PRCENTRY2		xfft_hg_192K_ac_10_2, 529536
+	PRCENTRY2		xfft_hg_192K_ac_10_1, 529536, P4TP_512
+	DD			0
+	PRCSTRT	5146000, 262144, 0.0179
+	PRCENTRY2		xfft_r4dwpn_256K_ac_10_4, 1149952, P4_1024_32 + P4TP_512 + P4TP_256 + CORE2_64
+	PRCENTRY2A		xfft_r4dwpn_256K_ac_10_4_P4, 1149952, I7
+	PRCENTRY2		xfft_r4dwpn_256K_ac_8_4, 655360
+	PRCENTRY2A		xfft_r4dwpn_256K_ac_8_4_P4, 655360, CORE2_32
+	PRCENTRY2A		xfft_r4dwpn_256K_ac_8_4_CORE, 655360, P4_1024_64
+	PRCENTRY2		xfft_r4dwpn_256K_ac_8_2, 655360
+	PRCENTRY2		xfft_r4delay_256K_ac_10_4, 972800
+	PRCENTRY2		xfft_r4delay_256K_ac_8_4, 671744
+	PRCENTRY2		xfft_r4delay_256K_ac_8_2, 671744
+	PRCENTRY2		xfft_hg_256K_ac_10_4, 697344
+	PRCENTRY2		xfft_hg_256K_ac_10_2, 697344
+	PRCENTRY2		xfft_hg_256K_ac_10_1, 697344
+	DD			0
+	PRCSTRT	5768000, 294912, 0.0203
+	PRCENTRY2		xfft_r4dwpn_288K_ac_768_4, 706560, P4_1024_64 + CORE2_64
+	PRCENTRY2A		xfft_r4dwpn_288K_ac_768_4_P4, 706560, CORE2_32
+	PRCENTRY2A		xfft_r4dwpn_288K_ac_768_4_P4, 706560, I7_32
+	PRCENTRY2A		xfft_r4dwpn_288K_ac_768_4_CORE, 706560, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_288K_ac_768_2, 706560, P4TP_256 + I7_64
+	PRCENTRY2		xfft_r4delay_288K_ac_768_4, 691200, P4TP_512
+	PRCENTRY2		xfft_r4delay_288K_ac_768_2, 691200
+	DD			0
+	PRCSTRT	6390000, 327680, 0.0226
+	PRCENTRY2		xfft_r4dwpn_320K_ac_1280_4, 1428480, P4TP_512 + P4TP_256 + CORE2_64
+	PRCENTRY2A		xfft_r4dwpn_320K_ac_1280_4_P4, 1428480, CORE2_32
+	PRCENTRY2A		xfft_r4dwpn_320K_ac_1280_4_P4, 1428480, I7
+	PRCENTRY2A		xfft_r4dwpn_320K_ac_1280_4_CORE, 1428480, P4_1024_64
+	PRCENTRY2		xfft_r4dwpn_320K_ac_8_4, 687104
+	PRCENTRY2A		xfft_r4dwpn_320K_ac_8_4_CORE, 687104, P4_1024_32
+	PRCENTRY2		xfft_r4delay_320K_ac_1280_4, 1206272
+	PRCENTRY2		xfft_r4delay_320K_ac_8_4, 722944
+	DD			0
+	PRCSTRT	7635000, 393216, 0.0273
+	PRCENTRY2		xfft_r4dwpn_384K_ac_1536_4, 1711104, P4TP_256 + I7_64
+	PRCENTRY2A		xfft_r4dwpn_384K_ac_1536_4_P4, 1711104, I7_32
+	PRCENTRY2A		xfft_r4dwpn_384K_ac_1536_4_CORE, 1711104, P4_1024
+	PRCENTRY2		xfft_r4dwpn_384K_ac_10_4, 935936, CORE2
+	PRCENTRY2		xfft_r4dwpn_384K_ac_10_2, 935936
+	PRCENTRY2		xfft_r4dwpn_384K_ac_768_4, 937984
+	PRCENTRY2		xfft_r4delay_384K_ac_1536_4, 1443840
+	PRCENTRY2		xfft_r4delay_384K_ac_10_4, 916480
+	PRCENTRY2		xfft_r4delay_384K_ac_10_2, 916480
+	PRCENTRY2		xfft_r4delay_384K_ac_768_4, 946176
+	PRCENTRY2		xfft_hg_384K_ac_10_4, 1036288, P4TP_512
+	PRCENTRY2		xfft_hg_384K_ac_10_2, 1036288
+	PRCENTRY2		xfft_hg_384K_ac_10_1, 1036288
+	DD			0
+	PRCSTRT	9521000, 491520, 0.0345
+	PRCENTRY2		xfft_r4dwpn_480K_ac_1280_4, 1157120, I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_480K_ac_768_4, 972800
+	PRCENTRY2		xfft_r4delay_480K_ac_1280_4, 1133568
+	PRCENTRY2		xfft_r4delay_480K_ac_768_4, 1004544
+	DD			0
+	PRCSTRT	10150000, 524288, 0.0368
+	PRCENTRY2		xfft_r4dwpn_512K_ac_11_4, 2284544, P4_1024_32 + P4TP_512 + P4TP_256
+	PRCENTRY2A		xfft_r4dwpn_512K_ac_11_4_P4, 2284544, I7
+	PRCENTRY2A		xfft_r4dwpn_512K_ac_11_4_CORE, 2284544, P4_1024_64
+	PRCENTRY2		xfft_r4dwpn_512K_ac_10_4, 1241088, CORE2
+	PRCENTRY2		xfft_r4delay_512K_ac_11_4, 1927168
+	PRCENTRY2		xfft_r4delay_512K_ac_10_4, 1253376
+	PRCENTRY2		xfft_hg_512K_ac_10_4, 1372160
+	PRCENTRY2		xfft_hg_512K_ac_10_2, 1372160
+	PRCENTRY2		xfft_hg_512K_ac_10_1, 1372160
+	DD			0
+	PRCSTRT	11370000, 589824, 0.0418
+	PRCENTRY2		xfft_r4dwpn_576K_ac_2304_4, 2550784, P4_1024 + I7
+	PRCENTRY2		xfft_r4dwpn_576K_ac_1536_4, 1382400, P4TP_256
+	PRCENTRY2		xfft_r4dwpn_576K_ac_768_4, 1385472, CORE2
+	PRCENTRY2		xfft_r4delay_576K_ac_2304_4, 2148352
+	PRCENTRY2		xfft_r4delay_576K_ac_1536_4, 1354752, P4TP_512
+	PRCENTRY2		xfft_r4delay_576K_ac_768_4, 1357824
+	DD			0
+	PRCSTRT	12590000, 655360, 0.0467
+	PRCENTRY2		xfft_r4dwpn_640K_ac_2560_4, 2841600, P4TP_512 + P4TP_256
+	PRCENTRY2A		xfft_r4dwpn_640K_ac_2560_4_P4, 2841600, I7
+	PRCENTRY2A		xfft_r4dwpn_640K_ac_2560_4_CORE, 2841600, P4_1024
+	PRCENTRY2		xfft_r4dwpn_640K_ac_1280_4, 1536000, CORE2
+	PRCENTRY2		xfft_r4dwpn_640K_ac_1280_2, 1536000
+	PRCENTRY2		xfft_r4dwpn_640K_ac_10_4, 1284096
+	PRCENTRY2		xfft_r4delay_640K_ac_2560_4, 2394112
+	PRCENTRY2		xfft_r4delay_640K_ac_1280_4, 1552384
+	PRCENTRY2		xfft_r4delay_640K_ac_1280_2, 1552384
+	PRCENTRY2		xfft_r4delay_640K_ac_10_4, 1328128
+	DD			0
+	PRCSTRT	15040000, 786432, 0.0566
+	PRCENTRY2		xfft_r4dwpn_768K_ac_3072_4, 3410944, P4_1024 + I7_64
+	PRCENTRY2		xfft_r4dwpn_768K_ac_11_4, 1841152, P4TP_512
+	PRCENTRY2		xfft_r4dwpn_768K_ac_11_2, 1841152, P4TP_256
+	PRCENTRY2		xfft_r4dwpn_768K_ac_1536_4, 1835008
+	PRCENTRY2		xfft_r4dwpn_768K_ac_1536_2, 1835008
+	PRCENTRY2		xfft_r4dwpn_768K_ac_10_4, 1836032, CORE2
+	PRCENTRY2A		xfft_r4dwpn_768K_ac_10_4_P4, 1836032, I7_32
+	PRCENTRY2		xfft_r4dwpn_768K_ac_768_4, 1843200
+	PRCENTRY2		xfft_r4delay_768K_ac_3072_4, 2873344
+	PRCENTRY2		xfft_r4delay_768K_ac_11_4, 1805312
+	PRCENTRY2		xfft_r4delay_768K_ac_11_2, 1805312
+	PRCENTRY2		xfft_r4delay_768K_ac_1536_4, 1855488
+	PRCENTRY2		xfft_r4delay_768K_ac_1536_2, 1855488
+	PRCENTRY2		xfft_r4delay_768K_ac_10_4, 1796096
+	PRCENTRY2		xfft_r4delay_768K_ac_768_4, 1867776
+	PRCENTRY2		xfft_hg_768K_ac_12_2, 1285248
+	PRCENTRY2		xfft_hg_768K_ac_11_4, 1648640
+	PRCENTRY2		xfft_hg_768K_ac_11_2, 1648640
+	DD			0
+	PRCSTRT	15660000, 819200, 0.0591
+	PRCENTRY2		xfft_r4dwpn_800K_ac_1280_4, 1587200, P4_1024 + CORE2
+	PRCENTRY2A		xfft_r4dwpn_800K_ac_1280_4_P4, 1587200, I7
+	PRCENTRY2		xfft_r4dwpn_800K_ac_1280_2, 1587200, P4TP_512 + P4TP_256
+	PRCENTRY2		xfft_r4delay_800K_ac_1280_4, 1643520
+	PRCENTRY2		xfft_r4delay_800K_ac_1280_2, 1643520
+	DD			0
+	PRCSTRT	16900000, 884736, 0.0639
+	PRCENTRY2		xfft_r4dwpn_864K_ac_2304_4, 2050048, P4_1024 + I7 + CORE2
+	PRCENTRY2		xfft_r4dwpn_864K_ac_2304_2, 2050048, P4TP_256
+	PRCENTRY2		xfft_r4delay_864K_ac_2304_4, 2010112
+	PRCENTRY2		xfft_r4delay_864K_ac_2304_2, 2010112
+	DD			0
+	PRCSTRT	18760000, 983040, 0.0713
+	PRCENTRY2		xfft_r4dwpn_960K_ac_3840_4, 4246528, P4_1024_64 + I7
+	PRCENTRY2		xfft_r4dwpn_960K_ac_2560_4, 2283520
+	PRCENTRY2		xfft_r4dwpn_960K_ac_2560_2, 2283520, P4TP_256
+	PRCENTRY2		xfft_r4dwpn_960K_ac_1536_4, 1894400
+	PRCENTRY2A		xfft_r4dwpn_960K_ac_1536_4_CORE, 1894400, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_960K_ac_1536_2, 1894400
+	PRCENTRY2		xfft_r4dwpn_960K_ac_1280_4, 2278400, CORE2
+	PRCENTRY2		xfft_r4dwpn_960K_ac_768_4, 1907712
+	PRCENTRY2		xfft_r4delay_960K_ac_3840_4, 3573760
+	PRCENTRY2		xfft_r4delay_960K_ac_2560_4, 2239488
+	PRCENTRY2		xfft_r4delay_960K_ac_2560_2, 2239488
+	PRCENTRY2		xfft_r4delay_960K_ac_1536_4, 1963008
+	PRCENTRY2		xfft_r4delay_960K_ac_1536_2, 1963008
+	PRCENTRY2		xfft_r4delay_960K_ac_1280_4, 2226176
+	PRCENTRY2		xfft_r4delay_960K_ac_768_4, 1984512
+	DD			0
+	PRCSTRT	20000000, 1048576, 0.0761
+	PRCENTRY2		xfft_r4dwpn_1M_ac_12_4, 4541440, P4_1024 + P4TP_512 + I7 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_1M_ac_11_4, 2441216
+	PRCENTRY2		xfft_r4dwpn_1M_ac_11_2, 2441216, P4TP_256
+	PRCENTRY2		xfft_r4dwpn_1M_ac_10_4, 2441216, CORE2_32
+	PRCENTRY2		xfft_r4delay_1M_ac_12_4, 3823616
+	PRCENTRY2		xfft_r4delay_1M_ac_11_4, 2469888
+	PRCENTRY2		xfft_r4delay_1M_ac_11_2, 2469888
+	PRCENTRY2		xfft_r4delay_1M_ac_10_4, 2469888
+	PRCENTRY2		xfft_hg_1024K_ac_12_4, 1682432
+	PRCENTRY2		xfft_hg_1024K_ac_12_1, 1682432
+	PRCENTRY2		xfft_hg_1024K_ac_11_4, 2181120
+	PRCENTRY2		xfft_hg_1024K_ac_11_2, 2181120
+	DD			0
+	PRCSTRT	22410000, 1179648, 0.088
+	PRCENTRY2		xfft_r4dwpn_1152K_ac_4608_4, 5086208, P4_1024 + P4TP_512 + I7
+	PRCENTRY2		xfft_r4dwpn_1152K_ac_3072_4, 2738176, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_1152K_ac_3072_2, 2738176, P4TP_256 + CORE2_32
+	PRCENTRY2		xfft_r4dwpn_1152K_ac_2304_4, 2723840
+	PRCENTRY2		xfft_r4dwpn_1152K_ac_1536_4, 2724864
+	PRCENTRY2		xfft_r4delay_1152K_ac_4608_4, 4278272
+	PRCENTRY2		xfft_r4delay_1152K_ac_3072_4, 2685952
+	PRCENTRY2		xfft_r4delay_1152K_ac_3072_2, 2685952
+	PRCENTRY2		xfft_r4delay_1152K_ac_2304_4, 2756608
+	PRCENTRY2		xfft_r4delay_1152K_ac_1536_4, 2660352
+	DD			0
+	PRCSTRT	24820000, 1310720, 0.101
+	PRCENTRY2		xfft_r4dwpn_1280K_ac_5120_4, 5671936, P4_1024 + I7 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_1280K_ac_2560_4, 3031040
+	PRCENTRY2		xfft_r4dwpn_1280K_ac_2560_2, 3031040, P4TP_256
+	PRCENTRY2		xfft_r4dwpn_1280K_ac_11_4, 2516992, P4TP_512
+	PRCENTRY2		xfft_r4dwpn_1280K_ac_11_2, 2516992
+	PRCENTRY2		xfft_r4dwpn_1280K_ac_1280_4, 3031040, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_1280K_ac_10_4, 2522112
+	PRCENTRY2		xfft_r4delay_1280K_ac_5120_4, 4773888
+	PRCENTRY2		xfft_r4delay_1280K_ac_2560_4, 3067904
+	PRCENTRY2		xfft_r4delay_1280K_ac_2560_2, 3067904
+	PRCENTRY2		xfft_r4delay_1280K_ac_11_4, 2610176
+	PRCENTRY2		xfft_r4delay_1280K_ac_11_2, 2610176
+	PRCENTRY2		xfft_r4delay_1280K_ac_1280_4, 3063808
+	PRCENTRY2		xfft_r4delay_1280K_ac_10_4, 2619392
+	DD			0
+	PRCSTRT	27830000, 1474560, 0.116
+	PRCENTRY2		xfft_r4dwpn_1440K_ac_3840_4, 3401728, P4_1024_64 + I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_1440K_ac_3840_2, 3401728
+	PRCENTRY2		xfft_r4dwpn_1440K_ac_2304_4, 2807808
+	PRCENTRY2		xfft_r4delay_1440K_ac_3840_4, 3337216
+	PRCENTRY2		xfft_r4delay_1440K_ac_3840_2, 3337216, P4TP_256
+	PRCENTRY2		xfft_r4delay_1440K_ac_2304_4, 2913280
+	DD			0
+	PRCSTRT	29640000, 1572864, 0.125
+	PRCENTRY2		xfft_r4dwpn_1536K_ac_6144_4, 6806528, P4_1024
+	PRCENTRY2		xfft_r4dwpn_1536K_ac_12_4, 3639296, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_1536K_ac_3072_4, 3633152, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_1536K_ac_3072_2, 3633152, P4TP_256
+	PRCENTRY2		xfft_r4dwpn_1536K_ac_11_4, 3625984, I7
+	PRCENTRY2		xfft_r4dwpn_1536K_ac_11_2, 3625984, P4TP_512
+	PRCENTRY2		xfft_r4dwpn_1536K_ac_1536_4, 3624960
+	PRCENTRY2		xfft_r4dwpn_1536K_ac_10_4, 2112512
+	PRCENTRY2		xfft_r4delay_1536K_ac_6144_4, 5728256
+	PRCENTRY2		xfft_r4delay_1536K_ac_12_4, 3570688
+	PRCENTRY2		xfft_r4delay_1536K_ac_3072_4, 3678208
+	PRCENTRY2		xfft_r4delay_1536K_ac_3072_2, 3678208
+	PRCENTRY2		xfft_r4delay_1536K_ac_11_4, 3536896
+	PRCENTRY2		xfft_r4delay_1536K_ac_11_2, 3536896
+	PRCENTRY2		xfft_r4delay_1536K_ac_1536_4, 3661824
+	PRCENTRY2		xfft_r4delay_1536K_ac_10_4, 2378752
+	PRCENTRY2		xfft_hg_1536K_ac_12_4, 2480128
+	PRCENTRY2		xfft_hg_1536K_ac_12_1, 2480128
+	PRCENTRY2		xfft_hg_1536K_ac_11_1, 3252352
+	DD			0
+	PRCSTRT	30860000, 1638400, 0.131
+	PRCENTRY2		xfft_r4dwpn_1600K_ac_6400_4, 7064576, P4_1024_64 + I7 + CORE2
+	PRCENTRY2		xfft_r4dwpn_1600K_ac_2560_4, 3123200
+	PRCENTRY2A		xfft_r4dwpn_1600K_ac_2560_4_CORE, 3123200, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_1600K_ac_2560_2, 3123200, P4TP_512
+	PRCENTRY2		xfft_r4dwpn_1600K_ac_1280_4, 3128320
+	PRCENTRY2		xfft_r4delay_1600K_ac_6400_4, 5941248
+	PRCENTRY2		xfft_r4delay_1600K_ac_2560_4, 3240960
+	PRCENTRY2		xfft_r4delay_1600K_ac_2560_2, 3240960
+	PRCENTRY2		xfft_r4delay_1600K_ac_1280_4, 3246080
+	DD			0
+	PRCSTRT	33300000, 1769472, 0.142
+	PRCENTRY2		xfft_r4dwpn_1728K_ac_4608_4, 4069376, P4_1024_32 + P4TP_512 + I7_64
+	PRCENTRY2		xfft_r4dwpn_1728K_ac_2304_4, 4056064, P4_1024_64 + I7_32 + CORE2
+	PRCENTRY2		xfft_r4delay_1728K_ac_4608_4, 3992576
+	PRCENTRY2		xfft_r4delay_1728K_ac_2304_4, 3954688
+	DD			0
+	PRCSTRT	36950000, 1966080, 0.158
+	PRCENTRY2		xfft_r4dwpn_1920K_ac_7680_4, 8477696, P4_1024
+	PRCENTRY2		xfft_r4dwpn_1920K_ac_5120_4, 4540416, I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_1920K_ac_3840_4, 4517888
+	PRCENTRY2		xfft_r4dwpn_1920K_ac_3072_4, 3741696
+	PRCENTRY2		xfft_r4dwpn_1920K_ac_3072_2, 3741696
+	PRCENTRY2		xfft_r4dwpn_1920K_ac_2560_4, 4510720, I7_32
+	PRCENTRY2		xfft_r4dwpn_1920K_ac_1536_4, 3738624
+	PRCENTRY2		xfft_r4delay_1920K_ac_7680_4, 7129088
+	PRCENTRY2		xfft_r4delay_1920K_ac_5120_4, 4455424
+	PRCENTRY2		xfft_r4delay_1920K_ac_3840_4, 4575232
+	PRCENTRY2		xfft_r4delay_1920K_ac_3072_4, 3884032
+	PRCENTRY2		xfft_r4delay_1920K_ac_3072_2, 3884032
+	PRCENTRY2		xfft_r4delay_1920K_ac_2560_4, 4397056
+	PRCENTRY2		xfft_r4delay_1920K_ac_1536_4, 3876864
+	DD			0
+	PRCSTRT	39390000, 2097152, 0.169
+	PRCENTRY2		xfft_r4dwpn_2M_ac_13_4, 9067520, P4_1024
+	PRCENTRY2		xfft_r4dwpn_2M_ac_12_4, 4829184, CORE2
+	PRCENTRY2		xfft_r4dwpn_2M_ac_12_2, 4829184
+	PRCENTRY2		xfft_r4dwpn_2M_ac_11_4, 4820992, I7
+	PRCENTRY2		xfft_r4dwpn_2M_ac_10_4, 2879488
+	PRCENTRY2		xfft_r4delay_2M_ac_13_4, 7628800
+	PRCENTRY2		xfft_r4delay_2M_ac_12_4, 4890624
+	PRCENTRY2		xfft_r4delay_2M_ac_12_2, 4890624
+	PRCENTRY2		xfft_r4delay_2M_ac_12_1, 4890624
+	PRCENTRY2		xfft_r4delay_2M_ac_11_4, 4866048
+	PRCENTRY2		xfft_r4delay_2M_ac_10_4, 2940928
+	PRCENTRY2		xfft_hg_2048K_ac_12_4, 3274752, P4TP_512
+	PRCENTRY2		xfft_hg_2048K_ac_12_2, 3274752
+	PRCENTRY2		xfft_hg_2048K_ac_12_1, 3274752
+	DD			0
+	PRCSTRT	44140000, 2359296, 0.199
+	PRCENTRY2		xfft_r4dwpn_2304K_ac_9216_4, 10193920, P4_1024
+	PRCENTRY2		xfft_r4dwpn_2304K_ac_6144_4, 5445632
+	PRCENTRY2		xfft_r4dwpn_2304K_ac_4608_4, 5406720
+	PRCENTRY2		xfft_r4dwpn_2304K_ac_4608_2, 5406720
+	PRCENTRY2		xfft_r4dwpn_2304K_ac_3072_4, 5407744, I7 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_2304K_ac_2304_4, 5398528, CORE2_32
+	PRCENTRY2		xfft_r4delay_2304K_ac_9216_4, 8574976
+	PRCENTRY2		xfft_r4delay_2304K_ac_6144_4, 5344256
+	PRCENTRY2		xfft_r4delay_2304K_ac_4608_4, 5476352
+	PRCENTRY2		xfft_r4delay_2304K_ac_4608_2, 5476352, P4TP_512
+	PRCENTRY2		xfft_r4delay_2304K_ac_3072_4, 5269504
+	PRCENTRY2		xfft_r4delay_2304K_ac_2304_4, 5447680
+	DD			0
+	PRCSTRT	45920000, 2457600, 0.211
+	PRCENTRY2		xfft_r4dwpn_2400K_ac_6400_4, 5646336, P4_1024_64 + I7_64 + CORE2
+	PRCENTRY2		xfft_r4dwpn_2400K_ac_3840_4, 4651008
+	PRCENTRY2		xfft_r4dwpn_2400K_ac_3840_2, 4651008
+	PRCENTRY2		xfft_r4delay_2400K_ac_6400_4, 5540864
+	PRCENTRY2		xfft_r4delay_2400K_ac_3840_4, 4830208
+	PRCENTRY2		xfft_r4delay_2400K_ac_3840_2, 4830208
+	DD			0
+	PRCSTRT	48900000, 2621440, 0.229
+	PRCENTRY2		xfft_r4dwpn_2560K_ac_10240_4, 11328512, P4_1024
+	PRCENTRY2		xfft_r4dwpn_2560K_ac_5120_4, 6025216, P4TP_512 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_2560K_ac_5120_2, 6025216
+	PRCENTRY2		xfft_r4dwpn_2560K_ac_12_4, 4970496, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_2560K_ac_2560_4, 6000640
+	PRCENTRY2A		xfft_r4dwpn_2560K_ac_2560_4_P4, 6000640, I7_32
+	PRCENTRY2		xfft_r4dwpn_2560K_ac_11_4, 4967424, I7_64
+	PRCENTRY2		xfft_r4dwpn_2560K_ac_10_4, 2720768
+	PRCENTRY2		xfft_r4delay_2560K_ac_10240_4, 9529344
+	PRCENTRY2		xfft_r4delay_2560K_ac_5120_4, 6103040
+	PRCENTRY2		xfft_r4delay_2560K_ac_5120_2, 6103040
+	PRCENTRY2		xfft_r4delay_2560K_ac_12_4, 5161984
+	PRCENTRY2		xfft_r4delay_2560K_ac_2560_4, 6053888
+	PRCENTRY2		xfft_r4delay_2560K_ac_11_4, 5146624
+	PRCENTRY2		xfft_r4delay_2560K_ac_10_4, 3240960
+	DD			0
+	PRCSTRT	54840000, 2949120, 0.267
+	PRCENTRY2		xfft_r4dwpn_2880K_ac_7680_4, 6772736
+	PRCENTRY2		xfft_r4dwpn_2880K_ac_4608_4, 5564416, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_2880K_ac_4608_2, 5564416, P4TP_512
+	PRCENTRY2		xfft_r4dwpn_2880K_ac_3840_4, 6734848, P4_1024_64 + I7_64 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_2880K_ac_2304_4, 5561344
+	PRCENTRY2		xfft_r4delay_2880K_ac_7680_4, 6646784
+	PRCENTRY2		xfft_r4delay_2880K_ac_4608_4, 5780480
+	PRCENTRY2		xfft_r4delay_2880K_ac_4608_2, 5780480
+	PRCENTRY2		xfft_r4delay_2880K_ac_3840_4, 6559744
+	PRCENTRY2		xfft_r4delay_2880K_ac_2304_4, 5761024
+	DD			0
+	PRCSTRT	58410000, 3145728, 0.289
+	PRCENTRY2		xfft_r4dwpn_3M_ac_12288_4, 13585408
+	PRCENTRY2		xfft_r4dwpn_3M_ac_13_4, 7247872
+	PRCENTRY2		xfft_r4dwpn_3M_ac_6144_4, 7225344
+	PRCENTRY2		xfft_r4dwpn_3M_ac_6144_2, 7225344
+	PRCENTRY2		xfft_r4dwpn_3M_ac_12_4, 7193600, P4_1024 + I7 + CORE2
+	PRCENTRY2		xfft_r4dwpn_3M_ac_3072_4, 7192576
+	PRCENTRY2		xfft_r4dwpn_3M_ac_10_4, 4143104
+	PRCENTRY2		xfft_r4delay_3M_ac_12288_4, 11425792
+	PRCENTRY2		xfft_r4delay_3M_ac_13_4, 7113728
+	PRCENTRY2		xfft_r4delay_3M_ac_6144_4, 7319552, P4TP_512
+	PRCENTRY2		xfft_r4delay_3M_ac_6144_2, 7319552
+	PRCENTRY2		xfft_r4delay_3M_ac_12_4, 7006208
+	PRCENTRY2		xfft_r4delay_3M_ac_3072_4, 7254016
+	PRCENTRY2		xfft_r4delay_3M_ac_10_4, 4720640
+	PRCENTRY2		xfft_hg_3072K_ac_13_1, 4143104
+	PRCENTRY2		xfft_hg_3072K_ac_12_4, 4870272
+	PRCENTRY2		xfft_hg_3072K_ac_12_2, 4870272
+	PRCENTRY2		xfft_hg_3072K_ac_12_1, 4870272
+	DD			0
+	PRCSTRT	60820000, 3276800, 0.306
+	PRCENTRY2		xfft_r4dwpn_3200K_ac_12800_4, 14113792, P4_1024
+	PRCENTRY2		xfft_r4dwpn_3200K_ac_6400_4, 7499776, CORE2
+	PRCENTRY2		xfft_r4dwpn_3200K_ac_5120_4, 6199296, I7_64
+	PRCENTRY2		xfft_r4dwpn_3200K_ac_5120_2, 6199296, P4TP_512
+	PRCENTRY2		xfft_r4dwpn_3200K_ac_2560_4, 6179840
+	PRCENTRY2A		xfft_r4dwpn_3200K_ac_2560_4_P4, 6179840, I7_32
+	PRCENTRY2		xfft_r4delay_3200K_ac_12800_4, 11864064
+	PRCENTRY2		xfft_r4delay_3200K_ac_6400_4, 7598080
+	PRCENTRY2		xfft_r4delay_3200K_ac_5120_4, 6439936
+	PRCENTRY2		xfft_r4delay_3200K_ac_5120_2, 6439936
+	PRCENTRY2		xfft_r4delay_3200K_ac_2560_4, 6400000
+	DD			0
+	PRCSTRT	65640000, 3538944, 0.340
+	PRCENTRY2		xfft_r4dwpn_3456K_ac_9216_4, 8144896
+	PRCENTRY2		xfft_r4dwpn_3456K_ac_4608_4, 8066048, P4_1024 + P4TP_512 + I7 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_3456K_ac_2304_4, 4578304, CORE2_32
+	PRCENTRY2		xfft_r4delay_3456K_ac_9216_4, 7994368
+	PRCENTRY2		xfft_r4delay_3456K_ac_4608_4, 7854080
+	PRCENTRY2		xfft_r4delay_3456K_ac_2304_4, 5192704
+	DD			0
+	PRCSTRT	72870000, 3932160, 0.391
+	PRCENTRY2		xfft_r4dwpn_3840K_ac_15360_4, 16976896
+	PRCENTRY2		xfft_r4dwpn_3840K_ac_10240_4, 9050112
+	PRCENTRY2		xfft_r4dwpn_3840K_ac_7680_4, 8994816
+	PRCENTRY2		xfft_r4dwpn_3840K_ac_6144_4, 7432192, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_3840K_ac_5120_4, 8979456, P4_1024_64 + I7 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_3840K_ac_3840_4, 8962048, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_3840K_ac_3072_4, 7404544
+	PRCENTRY2		xfft_r4delay_3840K_ac_15360_4, 14276608
+	PRCENTRY2		xfft_r4delay_3840K_ac_10240_4, 8883200
+	PRCENTRY2		xfft_r4delay_3840K_ac_7680_4, 9113600
+	PRCENTRY2		xfft_r4delay_3840K_ac_6144_4, 7721984, P4TP_512
+	PRCENTRY2		xfft_r4delay_3840K_ac_5120_4, 8742912
+	PRCENTRY2		xfft_r4delay_3840K_ac_3840_4, 9035776
+	PRCENTRY2		xfft_r4delay_3840K_ac_3072_4, 7665664
+	DD			0
+	PRCSTRT	75890000, 4096000, 0.412
+	PRCENTRY2		xfft_r4dwpn_4000K_ac_6400_4, 7714816
+	PRCENTRY2		xfft_r4delay_4000K_ac_6400_4, 8016896
+	DD			0
+	PRCSTRT	77700000, 4194304, 0.425
+	PRCENTRY2		xfft_r4dwpn_4M_ac_14_4, 18107392, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_4M_ac_13_4, 9617408, P4TP_512
+	PRCENTRY2		xfft_r4dwpn_4M_ac_13_2, 9617408
+	PRCENTRY2		xfft_r4dwpn_4M_ac_13_1, 9617408
+	PRCENTRY2		xfft_r4dwpn_4M_ac_12_4, 9568256, P4_1024 + I7 + CORE2_32
+	PRCENTRY2		xfft_r4dwpn_4M_ac_12_2, 9568256
+	PRCENTRY2		xfft_r4dwpn_4M_ac_12_1, 9568256
+	PRCENTRY2		xfft_r4dwpn_4M_ac_10_4, 4993024
+	PRCENTRY2		xfft_r4delay_4M_ac_14_4, 15226880
+	PRCENTRY2		xfft_r4delay_4M_ac_13_4, 9744384
+	PRCENTRY2		xfft_r4delay_4M_ac_13_2, 9744384
+	PRCENTRY2		xfft_r4delay_4M_ac_13_1, 9744384
+	PRCENTRY2		xfft_r4delay_4M_ac_12_4, 9646080
+	PRCENTRY2		xfft_r4delay_4M_ac_12_2, 9646080
+	PRCENTRY2		xfft_r4delay_4M_ac_12_1, 9646080
+	PRCENTRY2		xfft_r4delay_4M_ac_10_4, 5844992
+	PRCENTRY2		xfft_hg_4096K_ac_13_1, 5462016
+	PRCENTRY2		xfft_hg_4096K_ac_12_4, 6459392
+	PRCENTRY2		xfft_hg_4096K_ac_12_2, 6459392
+	PRCENTRY2		xfft_hg_4096K_ac_12_1, 6459392
+	DD			0
+	PRCSTRT	87020000, 4718592, 0.486
+	PRCENTRY2		xfft_r4dwpn_4608K_ac_12288_4, 10848256
+	PRCENTRY2		xfft_r4dwpn_4608K_ac_9216_4, 10809344, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_4608K_ac_6144_4, 10769408, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_4608K_ac_4608_4, 10735616, P4_1024_64 + I7
+	PRCENTRY2		xfft_r4dwpn_4608K_ac_3072_4, 6077440
+	PRCENTRY2		xfft_r4dwpn_4608K_ac_2304_4, 6328320, CORE2_32
+	PRCENTRY2		xfft_r4delay_4608K_ac_12288_4, 10648576
+	PRCENTRY2		xfft_r4delay_4608K_ac_9216_4, 10952704
+	PRCENTRY2		xfft_r4delay_4608K_ac_6144_4, 10483712
+	PRCENTRY2		xfft_r4delay_4608K_ac_4608_4, 10821632
+	PRCENTRY2		xfft_r4delay_4608K_ac_3072_4, 6900736
+	PRCENTRY2		xfft_r4delay_4608K_ac_2304_4, 6410240
+	DD			0
+	PRCSTRT	90500000, 4915200, 0.509
+	PRCENTRY2		xfft_r4dwpn_4800K_ac_12800_4, 11261952
+	PRCENTRY2		xfft_r4dwpn_4800K_ac_7680_4, 9250816, P4_1024_32
+	PRCENTRY2		xfft_r4dwpn_4800K_ac_6400_4, 11191296, P4_1024_64 + I7 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_4800K_ac_3840_4, 9223168, CORE2_32
+	PRCENTRY2		xfft_r4delay_4800K_ac_12800_4, 11054080
+	PRCENTRY2		xfft_r4delay_4800K_ac_7680_4, 9614336
+	PRCENTRY2		xfft_r4delay_4800K_ac_6400_4, 10893312
+	PRCENTRY2		xfft_r4delay_4800K_ac_3840_4, 9545728
+	DD			0
+	PRCSTRT	96000000, 5242880, 0.550
+	PRCENTRY2		xfft_r4dwpn_5M_ac_20480_4, 22629376
+	PRCENTRY2		xfft_r4dwpn_5M_ac_10240_4, 12009472
+	PRCENTRY2		xfft_r4dwpn_5M_ac_13_4, 9889792
+	PRCENTRY2		xfft_r4dwpn_5M_ac_5120_4, 11943936, I7 + CORE2
+	PRCENTRY2		xfft_r4dwpn_5M_ac_12_4, 9845760, P4_1024
+	PRCENTRY2		xfft_r4dwpn_5M_ac_10_4, 5318656
+	PRCENTRY2		xfft_r4delay_5M_ac_20480_4, 19027968
+	PRCENTRY2		xfft_r4delay_5M_ac_10240_4, 12169216
+	PRCENTRY2		xfft_r4delay_5M_ac_13_4, 10277888
+	PRCENTRY2		xfft_r4delay_5M_ac_5120_4, 12038144
+	PRCENTRY2		xfft_r4delay_5M_ac_12_4, 10188800
+	PRCENTRY2		xfft_r4delay_5M_ac_10_4, 6445056
+	DD			0
+	PRCSTRT	108000000, 5898240, 0.623
+	PRCENTRY2		xfft_r4dwpn_5760K_ac_15360_4, 13551616
+	PRCENTRY2		xfft_r4dwpn_5760K_ac_9216_4, 11114496
+	PRCENTRY2		xfft_r4dwpn_5760K_ac_7680_4, 13423616, I7_32 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_5760K_ac_4608_4, 11045888, P4_1024 + I7_64
+	PRCENTRY2		xfft_r4dwpn_5760K_ac_3840_4, 7552000
+	PRCENTRY2		xfft_r4dwpn_5760K_ac_2304_4, 5841920, CORE2_32
+	PRCENTRY2		xfft_r4delay_5760K_ac_15360_4, 13302784
+	PRCENTRY2		xfft_r4delay_5760K_ac_9216_4, 11551744
+	PRCENTRY2		xfft_r4delay_5760K_ac_7680_4, 13064192
+	PRCENTRY2		xfft_r4delay_5760K_ac_4608_4, 11429888
+	PRCENTRY2		xfft_r4delay_5760K_ac_3840_4, 8584192
+	PRCENTRY2		xfft_r4delay_5760K_ac_2304_4, 7037952
+	DD			0
+	PRCSTRT	115000000, 6291456, 0.668
+	PRCENTRY2		xfft_r4dwpn_6M_ac_14_4, 14452736, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_6M_ac_12288_4, 14397440, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_6M_ac_13_4, 14341120, P4_1024_64
+	PRCENTRY2		xfft_r4dwpn_6M_ac_6144_4, 14323712, P4_1024_32 + I7
+	PRCENTRY2		xfft_r4dwpn_6M_ac_12_4, 8059904
+	PRCENTRY2		xfft_r4dwpn_6M_ac_3072_4, 8417280
+	PRCENTRY2		xfft_r4delay_6M_ac_14_4, 14187520
+	PRCENTRY2		xfft_r4delay_6M_ac_12288_4, 14589952
+	PRCENTRY2		xfft_r4delay_6M_ac_13_4, 13957120
+	PRCENTRY2		xfft_r4delay_6M_ac_6144_4, 14434304
+	PRCENTRY2		xfft_r4delay_6M_ac_12_4, 9161728
+	PRCENTRY2		xfft_r4delay_6M_ac_3072_4, 8511488
+	PRCENTRY2		xfft_hg_6M_ac_12_4, 9650176
+	PRCENTRY2		xfft_hg_6M_ac_12_2, 9650176
+	PRCENTRY2		xfft_hg_6M_ac_12_1, 9650176
+	DD			0
+	PRCSTRT	119700000, 6553600, 0.715
+	PRCENTRY2		xfft_r4dwpn_6400K_ac_25600_4, 28281856
+	PRCENTRY2		xfft_r4dwpn_6400K_ac_12800_4, 14958592
+	PRCENTRY2		xfft_r4dwpn_6400K_ac_10240_4, 12347392
+	PRCENTRY2		xfft_r4dwpn_6400K_ac_6400_4, 14893056, CORE2
+	PRCENTRY2		xfft_r4dwpn_6400K_ac_5120_4, 12286976, I7
+	PRCENTRY2		xfft_r4delay_6400K_ac_25600_4, 23779328
+	PRCENTRY2		xfft_r4delay_6400K_ac_12800_4, 15159296
+	PRCENTRY2		xfft_r4delay_6400K_ac_10240_4, 12833792
+	PRCENTRY2		xfft_r4delay_6400K_ac_6400_4, 15007744
+	PRCENTRY2		xfft_r4delay_6400K_ac_5120_4, 12711936
+	DD			0
+	PRCSTRT	128900000, 7077888, 0.760
+	PRCENTRY2		xfft_r4dwpn_6912K_ac_9216_4, 16122880, I7 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_6912K_ac_4608_4, 9030656
+	PRCENTRY2		xfft_r4dwpn_6912K_ac_2304_4, 9066496, CORE2_32
+	PRCENTRY2		xfft_r4delay_6912K_ac_9216_4, 15689728
+	PRCENTRY2		xfft_r4delay_6912K_ac_4608_4, 10271744
+	PRCENTRY2		xfft_r4delay_6912K_ac_2304_4, 10319872
+	DD			0
+	PRCSTRT	142900000, 7864320, 0.851
+	PRCENTRY2		xfft_r4dwpn_7680K_ac_20480_4, 18057216
+	PRCENTRY2		xfft_r4dwpn_7680K_ac_15360_4, 17985536
+	PRCENTRY2		xfft_r4dwpn_7680K_ac_12288_4, 14800896
+	PRCENTRY2		xfft_r4dwpn_7680K_ac_10240_4, 17912832, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_7680K_ac_7680_4, 17862656, I7
+	PRCENTRY2		xfft_r4dwpn_7680K_ac_6144_4, 14732288
+	PRCENTRY2		xfft_r4dwpn_7680K_ac_5120_4, 10042368
+	PRCENTRY2		xfft_r4dwpn_7680K_ac_3840_4, 10481664, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_7680K_ac_3072_4, 7734272
+	PRCENTRY2		xfft_r4delay_7680K_ac_20480_4, 17726464
+	PRCENTRY2		xfft_r4delay_7680K_ac_15360_4, 18227200
+	PRCENTRY2		xfft_r4delay_7680K_ac_12288_4, 15385600
+	PRCENTRY2		xfft_r4delay_7680K_ac_10240_4, 17430528
+	PRCENTRY2		xfft_r4delay_7680K_ac_7680_4, 17997824
+	PRCENTRY2		xfft_r4delay_7680K_ac_6144_4, 15239168
+	PRCENTRY2		xfft_r4delay_7680K_ac_5120_4, 11422720
+	PRCENTRY2		xfft_r4delay_7680K_ac_3840_4, 10588160
+	PRCENTRY2		xfft_r4delay_7680K_ac_3072_4, 9335808
+	DD			0
+	PRCSTRT	149500000, 8192000, 1.007
+	PRCENTRY2		xfft_r4dwpn_8000K_ac_12800_4, 15378432
+	PRCENTRY2		xfft_r4dwpn_8000K_ac_6400_4, 15318016, I7_64
+	PRCENTRY2		xfft_r4delay_8000K_ac_12800_4, 15987712
+	PRCENTRY2		xfft_r4delay_8000K_ac_6400_4, 15845376
+	DD			0
+	PRCSTRT	153100000, 8388608, 1.042
+	PRCENTRY2		xfft_r4dwpn_8M_ac_14_4, 19181568, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_8M_ac_13_4, 19075072, I7
+	PRCENTRY2		xfft_r4dwpn_8M_ac_12_4, 11186176, CORE2_32
+	PRCENTRY2		xfft_r4delay_8M_ac_14_4, 19439616
+	PRCENTRY2		xfft_r4delay_8M_ac_13_4, 19218432
+	PRCENTRY2		xfft_r4delay_8M_ac_12_4, 11296768
+	PRCENTRY2		xfft_hg_8M_ac_12_4, 12828672
+	PRCENTRY2		xfft_hg_8M_ac_12_2, 12828672
+	PRCENTRY2		xfft_hg_8M_ac_12_1, 12828672
+	DD			0
+	PRCSTRT	171500000, 9437184, 1.131
+	PRCENTRY2		xfft_r4dwpn_9M_ac_12288_4, 21480448
+	PRCENTRY2		xfft_r4dwpn_9M_ac_9216_4, 21446656, I7 + CORE2
+	PRCENTRY2		xfft_r4dwpn_9M_ac_6144_4, 12028928
+	PRCENTRY2		xfft_r4dwpn_9M_ac_4608_4, 12550144
+	PRCENTRY2		xfft_r4dwpn_9M_ac_3072_4, 12040192
+	PRCENTRY2		xfft_r4dwpn_9M_ac_2304_4, 10899456
+	PRCENTRY2		xfft_r4delay_9M_ac_12288_4, 20899840
+	PRCENTRY2		xfft_r4delay_9M_ac_9216_4, 21606400
+	PRCENTRY2		xfft_r4delay_9M_ac_6144_4, 13687808
+	PRCENTRY2		xfft_r4delay_9M_ac_4608_4, 12668928
+	PRCENTRY2		xfft_r4delay_9M_ac_3072_4, 13699072
+	PRCENTRY2		xfft_r4delay_9M_ac_2304_4, 12754944
+	DD			0
+	PRCSTRT	178400000, 9830400, 1.166
+	PRCENTRY2		xfft_r4dwpn_9600K_ac_25600_4, 22562816
+	PRCENTRY2		xfft_r4dwpn_9600K_ac_15360_4, 18487296
+	PRCENTRY2		xfft_r4dwpn_9600K_ac_12800_4, 22336512, I7 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_9600K_ac_7680_4, 18369536
+	PRCENTRY2		xfft_r4dwpn_9600K_ac_6400_4, 12499968
+	PRCENTRY2		xfft_r4dwpn_9600K_ac_3840_4, 9602048, CORE2_32
+	PRCENTRY2		xfft_r4delay_9600K_ac_25600_4, 22150144
+	PRCENTRY2		xfft_r4delay_9600K_ac_15360_4, 19219456
+	PRCENTRY2		xfft_r4delay_9600K_ac_12800_4, 21731328
+	PRCENTRY2		xfft_r4delay_9600K_ac_7680_4, 18999296
+	PRCENTRY2		xfft_r4delay_9600K_ac_6400_4, 14228480
+	PRCENTRY2		xfft_r4delay_9600K_ac_3840_4, 11609088
+	DD			0
+	PRCSTRT	189900000, 10485760, 1.221
+	PRCENTRY2		xfft_r4dwpn_10M_ac_20480_4, 23965696
+	PRCENTRY2		xfft_r4dwpn_10M_ac_14_4, 19716096, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_10M_ac_10240_4, 23826432, I7 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_10M_ac_13_4, 19614720
+	PRCENTRY2		xfft_r4dwpn_10M_ac_5120_4, 13955072
+	PRCENTRY2		xfft_r4dwpn_10M_ac_12_4, 10241024
+	PRCENTRY2		xfft_r4delay_10M_ac_20480_4, 24289280
+	PRCENTRY2		xfft_r4delay_10M_ac_14_4, 20497408
+	PRCENTRY2		xfft_r4delay_10M_ac_10240_4, 24002560
+	PRCENTRY2		xfft_r4delay_10M_ac_13_4, 20285440
+	PRCENTRY2		xfft_r4delay_10M_ac_5120_4, 14082048
+	PRCENTRY2		xfft_r4delay_10M_ac_12_4, 12383232
+	DD			0
+	PRCSTRT	212900000, 11796480, 1.330
+	PRCENTRY2		xfft_r4dwpn_11520K_ac_15360_4, 26838016, I7 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_11520K_ac_9216_4, 22051840
+	PRCENTRY2		xfft_r4dwpn_11520K_ac_7680_4, 14978048
+	PRCENTRY2		xfft_r4dwpn_11520K_ac_4608_4, 11473920
+	PRCENTRY2		xfft_r4dwpn_11520K_ac_3840_4, 14989312, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_11520K_ac_2304_4, 11552768
+	PRCENTRY2		xfft_r4delay_11520K_ac_15360_4, 26109952
+	PRCENTRY2		xfft_r4delay_11520K_ac_9216_4, 22804480
+	PRCENTRY2		xfft_r4delay_11520K_ac_7680_4, 17054720
+	PRCENTRY2		xfft_r4delay_11520K_ac_4608_4, 13886464
+	PRCENTRY2		xfft_r4delay_11520K_ac_3840_4, 17053696
+	PRCENTRY2		xfft_r4delay_11520K_ac_2304_4, 14010368
+	DD			0
+	PRCSTRT	226800000, 12582912, 1.400
+	PRCENTRY2		xfft_r4dwpn_12M_ac_14_4, 28623872, I7_64 + CORE2
+	PRCENTRY2		xfft_r4dwpn_12M_ac_12288_4, 28573696, I7_32
+	PRCENTRY2		xfft_r4dwpn_12M_ac_13_4, 15993856
+	PRCENTRY2		xfft_r4dwpn_12M_ac_6144_4, 16728064
+	PRCENTRY2		xfft_r4dwpn_12M_ac_12_4, 15988736
+	PRCENTRY2		xfft_r4dwpn_12M_ac_3072_4, 14462976
+	PRCENTRY2		xfft_r4delay_12M_ac_14_4, 27846656
+	PRCENTRY2		xfft_r4delay_12M_ac_12288_4, 28782592
+	PRCENTRY2		xfft_r4delay_12M_ac_13_4, 18209792
+	PRCENTRY2		xfft_r4delay_12M_ac_6144_4, 16871424
+	PRCENTRY2		xfft_r4delay_12M_ac_12_4, 18188288
+	PRCENTRY2		xfft_r4delay_12M_ac_3072_4, 16920576
+	PRCENTRY2		xfft_hg_12M_ac_13_4, 16031744
+	DD			0
+	PRCSTRT	236100000, 13107200, 1.488
+	PRCENTRY2		xfft_r4dwpn_12800K_ac_25600_4, 29945856, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_12800K_ac_20480_4, 24631296
+	PRCENTRY2		xfft_r4dwpn_12800K_ac_12800_4, 29724672, I7
+	PRCENTRY2		xfft_r4dwpn_12800K_ac_10240_4, 24497152
+	PRCENTRY2		xfft_r4dwpn_12800K_ac_6400_4, 17395712, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_12800K_ac_5120_4, 12747776
+	PRCENTRY2		xfft_r4delay_12800K_ac_25600_4, 30351360
+	PRCENTRY2		xfft_r4delay_12800K_ac_20480_4, 25609216
+	PRCENTRY2		xfft_r4delay_12800K_ac_12800_4, 29941760
+	PRCENTRY2		xfft_r4delay_12800K_ac_10240_4, 25331712
+	PRCENTRY2		xfft_r4delay_12800K_ac_6400_4, 17543168
+	PRCENTRY2		xfft_r4delay_12800K_ac_5120_4, 15430656
+	DD			0
+	PRCSTRT	254900000, 14155776, 1.663
+	PRCENTRY2		xfft_r4dwpn_13824K_ac_9216_4, 17972224, CORE2
+	PRCENTRY2		xfft_r4dwpn_13824K_ac_4608_4, 17942528, I7
+	PRCENTRY2		xfft_r4delay_13824K_ac_9216_4, 20466688
+	PRCENTRY2		xfft_r4delay_13824K_ac_4608_4, 20412416
+	DD			0
+	PRCSTRT	281800000, 15728640, 1.875
+	PRCENTRY2		xfft_r4dwpn_15M_ac_20480_4, 35767296
+	PRCENTRY2		xfft_r4dwpn_15M_ac_15360_4, 35700736, I7
+	PRCENTRY2		xfft_r4dwpn_15M_ac_12288_4, 29375488
+	PRCENTRY2		xfft_r4dwpn_15M_ac_10240_4, 19958784
+	PRCENTRY2		xfft_r4dwpn_15M_ac_7680_4, 20856832
+	PRCENTRY2		xfft_r4dwpn_15M_ac_6144_4, 15258624
+	PRCENTRY2		xfft_r4dwpn_15M_ac_5120_4, 19937280, CORE2
+	PRCENTRY2		xfft_r4dwpn_15M_ac_3840_4, 18001920
+	PRCENTRY2		xfft_r4dwpn_15M_ac_3072_4, 15312896
+	PRCENTRY2		xfft_r4delay_15M_ac_20480_4, 34793472
+	PRCENTRY2		xfft_r4delay_15M_ac_15360_4, 35958784
+	PRCENTRY2		xfft_r4delay_15M_ac_12288_4, 30373888
+	PRCENTRY2		xfft_r4delay_15M_ac_10240_4, 22731776
+	PRCENTRY2		xfft_r4delay_15M_ac_7680_4, 21024768
+	PRCENTRY2		xfft_r4delay_15M_ac_6144_4, 18482176
+	PRCENTRY2		xfft_r4delay_15M_ac_5120_4, 22677504
+	PRCENTRY2		xfft_r4delay_15M_ac_3840_4, 21061632
+	PRCENTRY2		xfft_r4delay_15M_ac_3072_4, 18569216
+	DD			0
+	PRCSTRT	293300000, 16384000, 2.078
+	PRCENTRY2		xfft_r4dwpn_16000K_ac_25600_4, 30775296
+	PRCENTRY2		xfft_r4dwpn_16000K_ac_12800_4, 30559232, I7_64
+	PRCENTRY2		xfft_r4dwpn_16000K_ac_6400_4, 15860736
+	PRCENTRY2		xfft_r4delay_16000K_ac_25600_4, 31998976
+	PRCENTRY2		xfft_r4delay_16000K_ac_12800_4, 31598592
+	PRCENTRY2		xfft_r4delay_16000K_ac_6400_4, 19219456
+	DD			0
+	PRCSTRT	301900000, 16777216, 2.100
+	PRCENTRY2		xfft_r4dwpn_16M_ac_14_4, 38076416, CORE2
+	PRCENTRY2		xfft_r4dwpn_16M_ac_13_4, 22265856
+	PRCENTRY2		xfft_r4dwpn_16M_ac_13_2, 22265856
+	PRCENTRY2		xfft_r4dwpn_16M_ac_13_1, 22265856
+	PRCENTRY2		xfft_r4dwpn_16M_ac_12_4, 19197952, I7
+	PRCENTRY2		xfft_r4dwpn_16M_ac_12_2, 19197952
+	PRCENTRY2		xfft_r4dwpn_16M_ac_12_1, 19197952
+	PRCENTRY2		xfft_r4delay_16M_ac_14_4, 38350848
+	PRCENTRY2		xfft_r4delay_16M_ac_13_4, 22441984
+	PRCENTRY2		xfft_r4delay_16M_ac_13_2, 22441984
+	PRCENTRY2		xfft_r4delay_16M_ac_13_1, 22441984
+	PRCENTRY2		xfft_r4delay_16M_ac_12_4, 22458368
+	PRCENTRY2		xfft_r4delay_16M_ac_12_2, 22458368
+	PRCENTRY2		xfft_r4delay_16M_ac_12_1, 22458368
+	PRCENTRY2		xfft_hg_16M_ac_13_4, 21307392
+	DD			0
+	PRCSTRT	338100000, 18874368, 2.400
+	PRCENTRY2		xfft_r4dwpn_18M_ac_12288_4, 23919616
+	PRCENTRY2		xfft_r4dwpn_18M_ac_9216_4, 25030656, CORE2
+	PRCENTRY2		xfft_r4dwpn_18M_ac_6144_4, 23889920
+	PRCENTRY2		xfft_r4dwpn_18M_ac_4608_4, 21544960, I7
+	PRCENTRY2		xfft_r4delay_18M_ac_12288_4, 27249664
+	PRCENTRY2		xfft_r4delay_18M_ac_9216_4, 25223168
+	PRCENTRY2		xfft_r4delay_18M_ac_6144_4, 27170816
+	PRCENTRY2		xfft_r4delay_18M_ac_4608_4, 25206784
+	DD			0
+	PRCSTRT	350600000, 19660800, 2.469
+	PRCENTRY2		xfft_r4dwpn_19200K_ac_25600_4, 44696576, I7 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_19200K_ac_15360_4, 36699136
+	PRCENTRY2		xfft_r4dwpn_19200K_ac_12800_4, 24873984
+	PRCENTRY2		xfft_r4dwpn_19200K_ac_7680_4, 18994176
+	PRCENTRY2		xfft_r4dwpn_19200K_ac_6400_4, 24852480, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_19200K_ac_3840_4, 19048448
+	PRCENTRY2		xfft_r4delay_19200K_ac_25600_4, 43476992
+	PRCENTRY2		xfft_r4delay_19200K_ac_15360_4, 37943296
+	PRCENTRY2		xfft_r4delay_19200K_ac_12800_4, 28343296
+	PRCENTRY2		xfft_r4delay_19200K_ac_7680_4, 23028736
+	PRCENTRY2		xfft_r4delay_19200K_ac_6400_4, 28268544
+	PRCENTRY2		xfft_r4delay_19200K_ac_3840_4, 23103488
+	DD			0
+	PRCSTRT	374400000, 20971520, 2.700
+	PRCENTRY2		xfft_r4dwpn_20M_ac_20480_4, 47579136
+	PRCENTRY2		xfft_r4dwpn_20M_ac_14_4, 39140352, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_20M_ac_10240_4, 27803648
+	PRCENTRY2		xfft_r4dwpn_20M_ac_10240_2, 27803648
+	PRCENTRY2		xfft_r4dwpn_20M_ac_13_4, 20272128
+	PRCENTRY2		xfft_r4dwpn_20M_ac_5120_4, 23932928, I7_32
+	PRCENTRY2		xfft_r4dwpn_20M_ac_12_4, 20310016, I7_64 + CORE2_32
+	PRCENTRY2		xfft_r4delay_20M_ac_20480_4, 47919104
+	PRCENTRY2		xfft_r4delay_20M_ac_14_4, 40466432
+	PRCENTRY2		xfft_r4delay_20M_ac_10240_4, 28012544
+	PRCENTRY2		xfft_r4delay_20M_ac_10240_2, 28012544
+	PRCENTRY2		xfft_r4delay_20M_ac_13_4, 24577024
+	PRCENTRY2		xfft_r4delay_20M_ac_5120_4, 27996160
+	PRCENTRY2		xfft_r4delay_20M_ac_12_4, 24631296
+	DD			0
+	PRCSTRT	419700000, 23592960, 3.075
+	PRCENTRY2		xfft_r4dwpn_23040K_ac_15360_4, 29867008
+	PRCENTRY2		xfft_r4dwpn_23040K_ac_9216_4, 22774784, CORE2
+	PRCENTRY2		xfft_r4dwpn_23040K_ac_7680_4, 29788160
+	PRCENTRY2		xfft_r4dwpn_23040K_ac_4608_4, 22788096, I7
+	PRCENTRY2		xfft_r4delay_23040K_ac_15360_4, 34032640
+	PRCENTRY2		xfft_r4delay_23040K_ac_9216_4, 27620352
+	PRCENTRY2		xfft_r4delay_23040K_ac_7680_4, 33880064
+	PRCENTRY2		xfft_r4delay_23040K_ac_4608_4, 27641856
+	DD			0
+	PRCSTRT	446900000, 25165824, 3.300
+	PRCENTRY2		xfft_r4dwpn_24M_ac_14_4, 31849472, CORE2
+	PRCENTRY2		xfft_r4dwpn_24M_ac_12288_4, 33337344
+	PRCENTRY2		xfft_r4dwpn_24M_ac_13_4, 31787008
+	PRCENTRY2		xfft_r4dwpn_24M_ac_6144_4, 28672000, I7_32
+	PRCENTRY2		xfft_r4delay_24M_ac_14_4, 36293632
+	PRCENTRY2		xfft_r4delay_24M_ac_12288_4, 33579008
+	PRCENTRY2		xfft_r4delay_24M_ac_13_4, 36149248
+	PRCENTRY2		xfft_r4delay_24M_ac_6144_4, 33538048
+	PRCENTRY2		xfft_hg_24M_ac_13_2, 31883392
+	DD			0
+	PRCSTRT	466100000, 26214400, 3.450
+	PRCENTRY2		xfft_r4dwpn_25M_ac_25600_4, 59457536, I7 + CORE2_64
+	PRCENTRY2		xfft_r4dwpn_25M_ac_20480_4, 48905216, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_25M_ac_12800_4, 34684928
+	PRCENTRY2		xfft_r4dwpn_25M_ac_10240_4, 25285632
+	PRCENTRY2		xfft_r4dwpn_25M_ac_6400_4, 29831168
+	PRCENTRY2		xfft_r4dwpn_25M_ac_5120_4, 25307136
+	PRCENTRY2		xfft_r4delay_25M_ac_25600_4, 59879424
+	PRCENTRY2		xfft_r4delay_25M_ac_20480_4, 50558976
+	PRCENTRY2		xfft_r4delay_25M_ac_12800_4, 34934784
+	PRCENTRY2		xfft_r4delay_25M_ac_10240_4, 30671872
+	PRCENTRY2		xfft_r4delay_25M_ac_6400_4, 34897920
+	PRCENTRY2		xfft_r4delay_25M_ac_5120_4, 30693376
+	DD			0
+	PRCSTRT	502200000, 28311552, 3.750
+	PRCENTRY2		xfft_r4dwpn_27M_ac_9216_4, 35731456, I7 + CORE2
+	PRCENTRY2		xfft_r4delay_27M_ac_9216_4, 40634368
+	DD			0
+	PRCSTRT	557600000, 31457280, 4.200
+	PRCENTRY2		xfft_r4dwpn_30M_ac_20480_4, 39779328
+	PRCENTRY2		xfft_r4dwpn_30M_ac_15360_4, 41644032
+	PRCENTRY2		xfft_r4dwpn_30M_ac_12288_4, 30295040, CORE2_32
+	PRCENTRY2		xfft_r4dwpn_30M_ac_10240_4, 39684096, CORE2_64
+	PRCENTRY2		xfft_r4dwpn_30M_ac_7680_4, 35749888
+	PRCENTRY2		xfft_r4dwpn_30M_ac_6144_4, 30308352, I7
+	PRCENTRY2		xfft_r4delay_30M_ac_20480_4, 45337600
+	PRCENTRY2		xfft_r4delay_30M_ac_15360_4, 41934848
+	PRCENTRY2		xfft_r4delay_30M_ac_12288_4, 36762624
+	PRCENTRY2		xfft_r4delay_30M_ac_10240_4, 45127680
+	PRCENTRY2		xfft_r4delay_30M_ac_7680_4, 41820160
+	PRCENTRY2		xfft_r4delay_30M_ac_6144_4, 36759552
+	DD			0
+	PRCSTRT	579700000, 32768000, 4.388
+	PRCENTRY2		xfft_r4dwpn_32000K_ac_25600_4, 61111296, I7_64
+	PRCENTRY2		xfft_r4dwpn_32000K_ac_12800_4, 31511552
+	PRCENTRY2		xfft_r4dwpn_32000K_ac_6400_4, 31533056
+	PRCENTRY2		xfft_r4delay_32000K_ac_25600_4, 63174656
+	PRCENTRY2		xfft_r4delay_32000K_ac_12800_4, 38249472
+	PRCENTRY2		xfft_r4delay_32000K_ac_6400_4, 38250496
+	DD			0
+	PRCSTRT	594600000, 33554432, 4.500
+	PRCENTRY2		xfft_r4dwpn_32M_ac_14_4, 44412928, CORE2
+	PRCENTRY2		xfft_r4dwpn_32M_ac_13_4, 38141952, I7
+	PRCENTRY2		xfft_r4dwpn_32M_ac_13_2, 38141952
+	PRCENTRY2		xfft_r4dwpn_32M_ac_13_1, 38141952
+	PRCENTRY2		xfft_r4delay_32M_ac_14_4, 44720128
+	PRCENTRY2		xfft_r4delay_32M_ac_13_4, 44613632
+	PRCENTRY2		xfft_r4delay_32M_ac_13_2, 44613632
+	PRCENTRY2		xfft_r4delay_32M_ac_13_1, 44613632
+	PRCENTRY2		xfft_hg_32M_ac_13_2, 42434560
 	DD			0
 	DD	0
 
