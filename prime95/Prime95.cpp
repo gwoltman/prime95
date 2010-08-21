@@ -124,8 +124,8 @@ BOOL CPrime95App::InitInstance()
 
 	// Dispatch commands specified on the command line
 	orig_cmdShow = m_nCmdShow;
-	//if (!ProcessShellCommand(cmdInfo))
-	//	return FALSE;
+	if (!ProcessShellCommand(cmdInfo))
+		return FALSE;
 
 /* Change the working directory to the same directory that */
 /* the executable is located.  This is especially important */
