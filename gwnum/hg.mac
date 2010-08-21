@@ -1,4 +1,4 @@
-; Copyright 2001-2009 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2010 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -3783,9 +3783,6 @@ ENDIF
 
 IF @INSTR(,@CATSTR(%xarch),<P4>) EQ 1
 INCLUDE	hgp4.mac
-IFDEF X86_64
-INCLUDE hg64p4.mac
-ENDIF
 ENDIF
 
 IF @INSTR(,@CATSTR(%xarch),<K8>) EQ 1
