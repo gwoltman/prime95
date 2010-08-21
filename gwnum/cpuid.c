@@ -432,24 +432,27 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 
 		if (! (CPU_FLAGS & CPU_SSE2))
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_PRE_SSE2;
-		else if ((family_code == 15 && model_number <= 4 && extended_model == 0) ||
-			 (family_code == 15 && model_number == 6 && extended_model == 0))
+		else if ((family == 15 && model <= 4) ||
+			 (family == 15 && model == 6))
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_PENTIUM_4;
-		else if ((family_code == 6 && model_number == 15 && extended_model == 0) ||
-			 (family_code == 6 && model_number == 6 && extended_model == 1) ||
-			 (family_code == 6 && model_number == 7 && extended_model == 1))
+		else if ((family == 6 && model == 9) ||
+			 (family == 6 && model == 13))
+			CPU_ARCHITECTURE = CPU_ARCHITECTURE_PENTIUM_M;
+		else if (family == 6 && model == 14)
+			CPU_ARCHITECTURE = CPU_ARCHITECTURE_CORE;
+		else if ((family == 6 && model == 15) ||
+			 (family == 6 && model == 22) ||
+			 (family == 6 && model == 23))
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_CORE_2;
-		else if ((family_code == 6 && model_number == 5 && extended_model == 2) ||		// Core i3 (according to CPU world)
-			 (family_code == 6 && model_number == 10 && extended_model == 1) ||		// Core i7
-			 (family_code == 6 && model_number == 12 && extended_model == 2) ||		// Core i9 (according to Wikipedia)
-			 (family_code == 6 && model_number == 13 && extended_model == 1) ||
-			 (family_code == 6 && model_number == 14 && extended_model == 1))		// Core i5/i7
+		else if ((family == 6 && model == 37) ||		// Core i3/i5 (according to CPU-world)
+			 (family == 6 && model == 26) ||		// Core i7
+			 (family == 6 && model == 30) ||		// Core i5/i7
+			 (family == 6 && model == 44) ||		// Core i9 (according to Wikipedia)
+			 (family == 6 && model == 29))			// ??? I read it somewhere....
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_CORE_I7;
+		else if (family == 6 && model == 28)
+			CPU_ARCHITECTURE = CPU_ARCHITECTURE_ATOM;
 		else
-			// Some defined family/model/extended-model values we don't handle:
-			// Pentium M:		6 / 9 / 0  and 6 / 13 / 0
-			// Core Solo/Duo:	6 / 14 / 0
-			// Atom:		6 / 12 / 1
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_INTEL_OTHER;
 
 /* Try to determine if hyperthreading is supported.  I think this code */
@@ -469,11 +472,14 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			Cpuid (11, &reg);
 		}
 		if (max_cpuid_value >= 11 && reg.EBX != 0) {
-			unsigned int cores;
+			unsigned int i, cores;
 			CPU_HYPERTHREADS = reg.EBX & 0xFFFF;
-			reg.ECX = 1;
-			Cpuid(11, &reg);
-			cores = reg.EBX & 0xFFFF;
+			for (i = 1; i < 5; i++) {
+				reg.ECX = i;
+				Cpuid (11, &reg);
+				if ((reg.EBX & 0xFFFF) == 0) break;
+				cores = (reg.EBX & 0xFFFF) / CPU_HYPERTHREADS;
+			}
 			if (num_logical_processors <= cores) CPU_HYPERTHREADS = 1;
 		} else if (max_cpuid_value >= 1) {
 			Cpuid (1, &reg);

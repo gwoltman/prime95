@@ -4113,6 +4113,9 @@ int calculate_bif (
 
 	switch (CPU_ARCHITECTURE) {
 	case CPU_ARCHITECTURE_PRE_SSE2:		/* Cannot happen, gwinfo should have selected x87 FFTs */
+	case CPU_ARCHITECTURE_PENTIUM_M:	/* Not sure what is best for these three architectures */
+	case CPU_ARCHITECTURE_CORE:
+	case CPU_ARCHITECTURE_ATOM:
 		return 2;			/* Look for FFTs optimized for large cache P4s */
 	case CPU_ARCHITECTURE_PENTIUM_4:
 		if (CPU_L2_CACHE_SIZE <= 128)	/* We haven't optimized for these yet */
