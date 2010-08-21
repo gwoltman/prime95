@@ -20,15 +20,47 @@ all:	gwnum64.lib gwnum64d.lib linux64\gwnum.a macosx64\gwnum.a amd64\release\ecm
 
 # Make libraries out of the object files
 
-gwnum64.lib: amd64\release\cpuid.obj amd64\release\gwnum.obj amd64\release\gwthread.obj amd64\release\gwutil.obj amd64\release\gwdbldbl.obj amd64\release\giants.obj amd64\xmult1ax.obj amd64\xmult2.obj amd64\xmult2a.obj amd64\xmult2ap.obj amd64\xmult2ax.obj amd64\xmult3.obj amd64\xmult3a.obj amd64\xmult3ap.obj amd64\xmult3ax.obj amd64\hgcore.obj amd64\hgp4.obj amd64\hgk8.obj amd64\r4core.obj amd64\r4p4.obj amd64\r4k8.obj amd64\r4delaycore.obj amd64\r4delaycore2.obj amd64\r4delaycore3.obj amd64\r4delaycore4.obj amd64\r4delaycore5.obj amd64\r4delaycore6.obj amd64\r4delaycore7.obj amd64\r4delaycore8.obj amd64\r4delayp4.obj amd64\r4delayk8.obj amd64\r4dwpncore.obj amd64\r4dwpncore2.obj amd64\r4dwpncore3.obj amd64\r4dwpncore4.obj amd64\r4dwpncore5.obj amd64\r4dwpncore6.obj amd64\r4dwpncore7.obj amd64\r4dwpncore8.obj amd64\cpuidhlp.obj amd64\mult.obj amd64\gianthlp.obj amd64\timeit.obj amd64\timeitp.obj
+gwnum64.lib: amd64\release\cpuid.obj amd64\release\gwnum.obj amd64\release\gwthread.obj amd64\release\gwutil.obj amd64\release\gwdbldbl.obj \
+	     amd64\release\giants.obj amd64\xmult1ax.obj amd64\xmult2.obj amd64\xmult2a.obj amd64\xmult2ap.obj amd64\xmult2ax.obj \
+	     amd64\xmult3.obj amd64\xmult3a.obj amd64\xmult3ap.obj amd64\xmult3ax.obj \
+	     amd64\hg_core.obj amd64\hg_p4.obj amd64\hg_k8.obj amd64\hg_k10.obj \
+	     amd64\r4_core.obj amd64\r4_p4.obj amd64\r4_k8.obj amd64\r4_k10.obj \
+	     amd64\r4delay_core.obj amd64\r4delay_p4.obj amd64\r4delay_k8.obj amd64\r4delay_k10.obj \
+	     amd64\r4delay3_core.obj amd64\r4delay3_p4.obj amd64\r4delay3_k8.obj amd64\r4delay3_k10.obj \
+	     amd64\r4delay5_core.obj amd64\r4delay5_p4.obj amd64\r4delay5_k8.obj amd64\r4delay5_k10.obj \
+	     amd64\r4dwpn_core.obj amd64\r4dwpn_p4.obj amd64\r4dwpn_k8.obj amd64\r4dwpn_k10.obj \
+	     amd64\r4dwpn3_core.obj amd64\r4dwpn3_p4.obj amd64\r4dwpn3_k8.obj amd64\r4dwpn3_k10.obj \
+	     amd64\r4dwpn5_core.obj amd64\r4dwpn5_p4.obj amd64\r4dwpn5_k8.obj amd64\r4dwpn5_k10.obj \
+	     amd64\cpuidhlp.obj amd64\mult.obj amd64\gianthlp.obj amd64\timeit.obj amd64\timeitp.obj
     del gwnum64.lib
     lib /OUT:gwnum64.lib amd64\release\*.obj amd64\*.obj
 
-gwnum64d.lib: amd64\debug\cpuid.obj amd64\debug\gwnum.obj amd64\debug\gwthread.obj amd64\debug\gwutil.obj amd64\debug\gwdbldbl.obj amd64\debug\giants.obj amd64\xmult1ax.obj amd64\xmult2.obj amd64\xmult2a.obj amd64\xmult2ap.obj amd64\xmult2ax.obj amd64\xmult3.obj amd64\xmult3a.obj amd64\xmult3ap.obj amd64\xmult3ax.obj amd64\hgcore.obj amd64\hgp4.obj amd64\hgk8.obj amd64\r4core.obj amd64\r4p4.obj amd64\r4k8.obj amd64\r4delaycore.obj amd64\r4delaycore2.obj amd64\r4delaycore3.obj amd64\r4delaycore4.obj amd64\r4delaycore5.obj amd64\r4delaycore6.obj amd64\r4delaycore7.obj amd64\r4delaycore8.obj amd64\r4delayp4.obj amd64\r4delayk8.obj amd64\r4dwpncore.obj amd64\r4dwpncore2.obj amd64\r4dwpncore3.obj amd64\r4dwpncore4.obj amd64\r4dwpncore5.obj amd64\r4dwpncore6.obj amd64\r4dwpncore7.obj amd64\r4dwpncore8.obj amd64\cpuidhlp.obj amd64\mult.obj amd64\gianthlp.obj amd64\timeit.obj amd64\timeitp.obj
+gwnum64d.lib: amd64\debug\cpuid.obj amd64\debug\gwnum.obj amd64\debug\gwthread.obj amd64\debug\gwutil.obj amd64\debug\gwdbldbl.obj \
+	      amd64\debug\giants.obj amd64\xmult1ax.obj amd64\xmult2.obj amd64\xmult2a.obj amd64\xmult2ap.obj amd64\xmult2ax.obj \
+	      amd64\xmult3.obj amd64\xmult3a.obj amd64\xmult3ap.obj amd64\xmult3ax.obj \
+	      amd64\hg_core.obj amd64\hg_p4.obj amd64\hg_k8.obj amd64\hg_k10.obj \
+	      amd64\r4_core.obj amd64\r4_p4.obj amd64\r4_k8.obj amd64\r4_k10.obj \
+	      amd64\r4delay_core.obj amd64\r4delay_p4.obj amd64\r4delay_k8.obj amd64\r4delay_k10.obj \
+	      amd64\r4delay3_core.obj amd64\r4delay3_p4.obj amd64\r4delay3_k8.obj amd64\r4delay3_k10.obj \
+	      amd64\r4delay5_core.obj amd64\r4delay5_p4.obj amd64\r4delay5_k8.obj amd64\r4delay5_k10.obj \
+	      amd64\r4dwpn_core.obj amd64\r4dwpn_p4.obj amd64\r4dwpn_k8.obj amd64\r4dwpn_k10.obj \
+	      amd64\r4dwpn3_core.obj amd64\r4dwpn3_p4.obj amd64\r4dwpn3_k8.obj amd64\r4dwpn3_k10.obj \
+	      amd64\r4dwpn5_core.obj amd64\r4dwpn5_p4.obj amd64\r4dwpn5_k8.obj amd64\r4dwpn5_k10.obj \
+	      amd64\cpuidhlp.obj amd64\mult.obj amd64\gianthlp.obj amd64\timeit.obj amd64\timeitp.obj
     del gwnum64d.lib
     lib /OUT:gwnum64d.lib amd64\debug\*.obj amd64\*.obj
 
-linux64\gwnum.a: linux64\xmult1ax.obj linux64\xmult2.obj linux64\xmult2a.obj linux64\xmult2ap.obj linux64\xmult2ax.obj linux64\xmult3.obj linux64\xmult3a.obj linux64\xmult3ap.obj linux64\xmult3ax.obj linux64\hgcore.obj linux64\hgp4.obj linux64\hgk8.obj linux64\r4core.obj linux64\r4p4.obj linux64\r4k8.obj linux64\r4delaycore.obj linux64\r4delaycore2.obj linux64\r4delaycore3.obj linux64\r4delaycore4.obj linux64\r4delaycore5.obj linux64\r4delaycore6.obj linux64\r4delaycore7.obj linux64\r4delaycore8.obj linux64\r4delayp4.obj linux64\r4delayk8.obj linux64\r4dwpncore.obj linux64\r4dwpncore2.obj linux64\r4dwpncore3.obj linux64\r4dwpncore4.obj linux64\r4dwpncore5.obj linux64\r4dwpncore6.obj linux64\r4dwpncore7.obj linux64\r4dwpncore8.obj linux64\cpuidhlp.obj linux64\mult.obj linux64\gianthlp.obj linux64\timeit.obj linux64\timeitp.obj
+linux64\gwnum.a: linux64\xmult1ax.obj linux64\xmult2.obj linux64\xmult2a.obj linux64\xmult2ap.obj linux64\xmult2ax.obj \
+		 linux64\xmult3.obj linux64\xmult3a.obj linux64\xmult3ap.obj linux64\xmult3ax.obj \
+		 linux64\hg_core.obj linux64\hg_p4.obj linux64\hg_k8.obj linux64\hg_k10.obj \
+		 linux64\r4_core.obj linux64\r4_p4.obj linux64\r4_k8.obj linux64\r4_k10.obj \
+		 linux64\r4delay_core.obj linux64\r4delay_p4.obj linux64\r4delay_k8.obj linux64\r4delay_k10.obj \
+		 linux64\r4delay3_core.obj linux64\r4delay3_p4.obj linux64\r4delay3_k8.obj linux64\r4delay3_k10.obj \
+		 linux64\r4delay5_core.obj linux64\r4delay5_p4.obj linux64\r4delay5_k8.obj linux64\r4delay5_k10.obj \
+		 linux64\r4dwpn_core.obj linux64\r4dwpn_p4.obj linux64\r4dwpn_k8.obj linux64\r4dwpn_k10.obj \
+		 linux64\r4dwpn3_core.obj linux64\r4dwpn3_p4.obj linux64\r4dwpn3_k8.obj linux64\r4dwpn3_k10.obj \
+		 linux64\r4dwpn5_core.obj linux64\r4dwpn5_p4.obj linux64\r4dwpn5_k8.obj linux64\r4dwpn5_k10.obj \
+		 linux64\cpuidhlp.obj linux64\mult.obj linux64\gianthlp.obj linux64\timeit.obj linux64\timeitp.obj
     attrib -r linux64\gwnum.a
     del linux64\gwnum.a
     lib /OUT:linux64\gwnum.lib linux64\*.obj
@@ -36,7 +68,17 @@ linux64\gwnum.a: linux64\xmult1ax.obj linux64\xmult2.obj linux64\xmult2a.obj lin
     attrib -r linux64\gwnum.a
     del linux64\gwnum.lib
 
-macosx64\gwnum.a: linux64\xmult1ax.obj linux64\xmult2.obj linux64\xmult2a.obj linux64\xmult2ap.obj linux64\xmult2ax.obj linux64\xmult3.obj linux64\xmult3a.obj linux64\xmult3ap.obj linux64\xmult3ax.obj linux64\hgcore.obj linux64\hgp4.obj linux64\hgk8.obj linux64\r4core.obj linux64\r4p4.obj linux64\r4k8.obj linux64\r4delaycore.obj linux64\r4delaycore2.obj linux64\r4delaycore3.obj linux64\r4delaycore4.obj linux64\r4delaycore5.obj linux64\r4delaycore6.obj linux64\r4delaycore7.obj linux64\r4delaycore8.obj linux64\r4delayp4.obj linux64\r4delayk8.obj linux64\r4dwpncore.obj linux64\r4dwpncore2.obj linux64\r4dwpncore3.obj linux64\r4dwpncore4.obj linux64\r4dwpncore5.obj linux64\r4dwpncore6.obj linux64\r4dwpncore7.obj linux64\r4dwpncore8.obj linux64\cpuidhlp.obj linux64\mult.obj linux64\gianthlp.obj linux64\timeit.obj linux64\timeitp.obj
+macosx64\gwnum.a: linux64\xmult1ax.obj linux64\xmult2.obj linux64\xmult2a.obj linux64\xmult2ap.obj linux64\xmult2ax.obj \
+		  linux64\xmult3.obj linux64\xmult3a.obj linux64\xmult3ap.obj linux64\xmult3ax.obj \
+		  linux64\hg_core.obj linux64\hg_p4.obj linux64\hg_k8.obj linux64\hg_k10.obj \
+		  linux64\r4_core.obj linux64\r4_p4.obj linux64\r4_k8.obj linux64\r4_k10.obj \
+		  linux64\r4delay_core.obj linux64\r4delay_p4.obj linux64\r4delay_k8.obj linux64\r4delay_k10.obj \
+		  linux64\r4delay3_core.obj linux64\r4delay3_p4.obj linux64\r4delay3_k8.obj linux64\r4delay3_k10.obj \
+		  linux64\r4delay5_core.obj linux64\r4delay5_p4.obj linux64\r4delay5_k8.obj linux64\r4delay5_k10.obj \
+		  linux64\r4dwpn_core.obj linux64\r4dwpn_p4.obj linux64\r4dwpn_k8.obj linux64\r4dwpn_k10.obj \
+		  linux64\r4dwpn3_core.obj linux64\r4dwpn3_p4.obj linux64\r4dwpn3_k8.obj linux64\r4dwpn3_k10.obj \
+		  linux64\r4dwpn5_core.obj linux64\r4dwpn5_p4.obj linux64\r4dwpn5_k8.obj linux64\r4dwpn5_k10.obj \
+		  linux64\cpuidhlp.obj linux64\mult.obj linux64\gianthlp.obj linux64\timeit.obj linux64\timeitp.obj
     attrib -r macosx64\gwnum.a
     del macosx64\gwnum.a
     lib /OUT:macosx64\gwnum.lib linux64\*.obj
@@ -117,77 +159,101 @@ amd64\xmult3ap.obj: xmult3a.asm xmult.mac xnormal.mac
 amd64\xmult3ax.obj: xmult3ax.asm xmult.mac xnormal.mac
     $(masm64) /Foamd64\xmult3ax.obj xmult3ax.asm
 
-amd64\hgcore.obj: hgcore.asm xmult.mac hg.mac hgpass1sc.mac hgpass2.mac
-    $(masm64) /Foamd64\hgcore.obj hgcore.asm
+amd64\hg_core.obj: hg.asm xmult.mac hg.mac hgpass1sc.mac hgpass2.mac
+    $(masm64) /DARCH=CORE /Foamd64\hg_core.obj hg.asm
 
-amd64\hgp4.obj: hgp4.asm xmult.mac hg.mac hgpass1sc.mac hgpass2.mac
-    $(masm64) /Foamd64\hgp4.obj hgp4.asm
+amd64\hg_p4.obj: hg.asm xmult.mac hg.mac hgpass1sc.mac hgpass2.mac
+    $(masm64) /DARCH=P4 /Foamd64\hg_p4.obj hg.asm
 
-amd64\hgk8.obj: hgk8.asm xmult.mac hg.mac hgpass1sc.mac hgpass2.mac
-    $(masm64) /Foamd64\hgk8.obj hgk8.asm
+amd64\hg_k8.obj: hg.asm xmult.mac hg.mac hgpass1sc.mac hgpass2.mac
+    $(masm64) /DARCH=K8 /Foamd64\hg_k8.obj hg.asm
 
-amd64\r4core.obj: r4core.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4pass1sc.mac r4pass2.mac
-    $(masm64) /Foamd64\r4core.obj r4core.asm
+amd64\hg_k10.obj: hg.asm xmult.mac hg.mac hgpass1sc.mac hgpass2.mac
+    $(masm64) /DARCH=K10 /Foamd64\hg_k10.obj hg.asm
 
-amd64\r4p4.obj: r4p4.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4pass1sc.mac r4pass2.mac
-    $(masm64) /Foamd64\r4p4.obj r4p4.asm
+amd64\r4_core.obj: r4.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4pass1sc.mac r4pass2.mac
+    $(masm64) /DARCH=CORE /Foamd64\r4_core.obj r4.asm
 
-amd64\r4k8.obj: r4k8.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4pass1sc.mac r4pass2.mac
-    $(masm64) /Foamd64\r4k8.obj r4k8.asm
+amd64\r4_p4.obj: r4.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4pass1sc.mac r4pass2.mac
+    $(masm64) /DARCH=P4 /Foamd64\r4_p4.obj r4.asm
 
-amd64\r4delaycore.obj: r4delaycore.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64) /Foamd64\r4delaycore.obj r4delaycore.asm
+amd64\r4_k8.obj: r4.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4pass1sc.mac r4pass2.mac
+    $(masm64) /DARCH=K8 /Foamd64\r4_k8.obj r4.asm
 
-amd64\r4delaycore2.obj: r4delaycore2.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64) /Foamd64\r4delaycore2.obj r4delaycore2.asm
+amd64\r4_k10.obj: r4.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4pass1sc.mac r4pass2.mac
+    $(masm64) /DARCH=K10 /Foamd64\r4_k10.obj r4.asm
 
-amd64\r4delaycore3.obj: r4delaycore3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64) /Foamd64\r4delaycore3.obj r4delaycore3.asm
+amd64\r4delay_core.obj: r4delay.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64) /DARCH=CORE /Foamd64\r4delay_core.obj r4delay.asm
 
-amd64\r4delaycore4.obj: r4delaycore4.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64) /Foamd64\r4delaycore4.obj r4delaycore4.asm
+amd64\r4delay_p4.obj: r4delay.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64) /DARCH=P4 /Foamd64\r4delay_p4.obj r4delay.asm
 
-amd64\r4delaycore5.obj: r4delaycore5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64) /Foamd64\r4delaycore5.obj r4delaycore5.asm
+amd64\r4delay_k8.obj: r4delay.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64) /DARCH=K8 /Foamd64\r4delay_k8.obj r4delay.asm
 
-amd64\r4delaycore6.obj: r4delaycore6.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64) /Foamd64\r4delaycore6.obj r4delaycore6.asm
+amd64\r4delay_k10.obj: r4delay.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64) /DARCH=K10 /Foamd64\r4delay_k10.obj r4delay.asm
 
-amd64\r4delaycore7.obj: r4delaycore7.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64) /Foamd64\r4delaycore7.obj r4delaycore7.asm
+amd64\r4delay3_core.obj: r4delay3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64) /DARCH=CORE /Foamd64\r4delay3_core.obj r4delay3.asm
 
-amd64\r4delaycore8.obj: r4delaycore8.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64) /Foamd64\r4delaycore8.obj r4delaycore8.asm
+amd64\r4delay3_p4.obj: r4delay3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64) /DARCH=P4 /Foamd64\r4delay3_p4.obj r4delay3.asm
 
-amd64\r4delayp4.obj: r4delayp4.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64) /Foamd64\r4delayp4.obj r4delayp4.asm
+amd64\r4delay3_k8.obj: r4delay3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64) /DARCH=K8 /Foamd64\r4delay3_k8.obj r4delay3.asm
 
-amd64\r4delayk8.obj: r4delayk8.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64) /Foamd64\r4delayk8.obj r4delayk8.asm
+amd64\r4delay3_k10.obj: r4delay3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64) /DARCH=K10 /Foamd64\r4delay3_k10.obj r4delay3.asm
 
-amd64\r4dwpncore.obj: r4dwpncore.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
-    $(masm64) /Foamd64\r4dwpncore.obj r4dwpncore.asm
+amd64\r4delay5_core.obj: r4delay5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64) /DARCH=CORE /Foamd64\r4delay5_core.obj r4delay5.asm
 
-amd64\r4dwpncore2.obj: r4dwpncore2.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
-    $(masm64) /Foamd64\r4dwpncore2.obj r4dwpncore2.asm
+amd64\r4delay5_p4.obj: r4delay5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64) /DARCH=P4 /Foamd64\r4delay5_p4.obj r4delay5.asm
 
-amd64\r4dwpncore3.obj: r4dwpncore3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
-    $(masm64) /Foamd64\r4dwpncore3.obj r4dwpncore3.asm
+amd64\r4delay5_k8.obj: r4delay5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64) /DARCH=K8 /Foamd64\r4delay5_k8.obj r4delay5.asm
 
-amd64\r4dwpncore4.obj: r4dwpncore4.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
-    $(masm64) /Foamd64\r4dwpncore4.obj r4dwpncore4.asm
+amd64\r4delay5_k10.obj: r4delay5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64) /DARCH=K10 /Foamd64\r4delay5_k10.obj r4delay5.asm
 
-amd64\r4dwpncore5.obj: r4dwpncore5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
-    $(masm64) /Foamd64\r4dwpncore5.obj r4dwpncore5.asm
+amd64\r4dwpn_core.obj: r4dwpn.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64) /DARCH=CORE /Foamd64\r4dwpn_core.obj r4dwpn.asm
 
-amd64\r4dwpncore6.obj: r4dwpncore6.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
-    $(masm64) /Foamd64\r4dwpncore6.obj r4dwpncore6.asm
+amd64\r4dwpn_p4.obj: r4dwpn.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64) /DARCH=P4 /Foamd64\r4dwpn_p4.obj r4dwpn.asm
 
-amd64\r4dwpncore7.obj: r4dwpncore7.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
-    $(masm64) /Foamd64\r4dwpncore7.obj r4dwpncore7.asm
+amd64\r4dwpn_k8.obj: r4dwpn.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64) /DARCH=K8 /Foamd64\r4dwpn_k8.obj r4dwpn.asm
 
-amd64\r4dwpncore8.obj: r4dwpncore8.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
-    $(masm64) /Foamd64\r4dwpncore8.obj r4dwpncore8.asm
+amd64\r4dwpn_k10.obj: r4dwpn.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64) /DARCH=K10 /Foamd64\r4dwpn_k10.obj r4dwpn.asm
+
+amd64\r4dwpn3_core.obj: r4dwpn3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64) /DARCH=CORE /Foamd64\r4dwpn3_core.obj r4dwpn3.asm
+
+amd64\r4dwpn3_p4.obj: r4dwpn3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64) /DARCH=P4 /Foamd64\r4dwpn3_p4.obj r4dwpn3.asm
+
+amd64\r4dwpn3_k8.obj: r4dwpn3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64) /DARCH=K8 /Foamd64\r4dwpn3_k8.obj r4dwpn3.asm
+
+amd64\r4dwpn3_k10.obj: r4dwpn3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64) /DARCH=K10 /Foamd64\r4dwpn3_k10.obj r4dwpn3.asm
+
+amd64\r4dwpn5_core.obj: r4dwpn5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64) /DARCH=CORE /Foamd64\r4dwpn5_core.obj r4dwpn5.asm
+
+amd64\r4dwpn5_p4.obj: r4dwpn5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64) /DARCH=P4 /Foamd64\r4dwpn5_p4.obj r4dwpn5.asm
+
+amd64\r4dwpn5_k8.obj: r4dwpn5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64) /DARCH=K8 /Foamd64\r4dwpn5_k8.obj r4dwpn5.asm
+
+amd64\r4dwpn5_k10.obj: r4dwpn5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64) /DARCH=K10 /Foamd64\r4dwpn5_k10.obj r4dwpn5.asm
 
 amd64\cpuidhlp.obj: cpuidhlp.asm
     $(masm64) /Foamd64\cpuidhlp.obj cpuidhlp.asm
@@ -235,77 +301,101 @@ linux64\xmult3ap.obj: xmult3a.asm xmult.mac xnormal.mac
 linux64\xmult3ax.obj: xmult3ax.asm xmult.mac xnormal.mac
     $(masm64lx) /Folinux64\xmult3ax.obj xmult3ax.asm
 
-linux64\hgcore.obj: hgcore.asm xmult.mac hg.mac hgpass1sc.mac hgpass2.mac
-    $(masm64lx) /Folinux64\hgcore.obj hgcore.asm
+linux64\hg_core.obj: hg.asm xmult.mac hg.mac hgpass1sc.mac hgpass2.mac
+    $(masm64lx) /DARCH=CORE /Folinux64\hg_core.obj hg.asm
 
-linux64\hgp4.obj: hgp4.asm xmult.mac hg.mac hgpass1sc.mac hgpass2.mac
-    $(masm64lx) /Folinux64\hgp4.obj hgp4.asm
+linux64\hg_p4.obj: hg.asm xmult.mac hg.mac hgpass1sc.mac hgpass2.mac
+    $(masm64lx) /DARCH=P4 /Folinux64\hg_p4.obj hg.asm
 
-linux64\hgk8.obj: hgk8.asm xmult.mac hg.mac hgpass1sc.mac hgpass2.mac
-    $(masm64lx) /Folinux64\hgk8.obj hgk8.asm
+linux64\hg_k8.obj: hg.asm xmult.mac hg.mac hgpass1sc.mac hgpass2.mac
+    $(masm64lx) /DARCH=K8 /Folinux64\hg_k8.obj hg.asm
 
-linux64\r4core.obj: r4core.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4pass1sc.mac r4pass2.mac
-    $(masm64lx) /Folinux64\r4core.obj r4core.asm
+linux64\hg_k10.obj: hg.asm xmult.mac hg.mac hgpass1sc.mac hgpass2.mac
+    $(masm64lx) /DARCH=K10 /Folinux64\hg_k10.obj hg.asm
 
-linux64\r4p4.obj: r4p4.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4pass1sc.mac r4pass2.mac
-    $(masm64lx) /Folinux64\r4p4.obj r4p4.asm
+linux64\r4_core.obj: r4.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4pass1sc.mac r4pass2.mac
+    $(masm64lx) /DARCH=CORE /Folinux64\r4_core.obj r4.asm
 
-linux64\r4k8.obj: r4k8.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4pass1sc.mac r4pass2.mac
-    $(masm64lx) /Folinux64\r4k8.obj r4k8.asm
+linux64\r4_p4.obj: r4.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4pass1sc.mac r4pass2.mac
+    $(masm64lx) /DARCH=P4 /Folinux64\r4_p4.obj r4.asm
 
-linux64\r4delaycore.obj: r4delaycore.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64lx) /Folinux64\r4delaycore.obj r4delaycore.asm
+linux64\r4_k8.obj: r4.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4pass1sc.mac r4pass2.mac
+    $(masm64lx) /DARCH=K8 /Folinux64\r4_k8.obj r4.asm
 
-linux64\r4delaycore2.obj: r4delaycore2.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64lx) /Folinux64\r4delaycore2.obj r4delaycore2.asm
+linux64\r4_k10.obj: r4.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4pass1sc.mac r4pass2.mac
+    $(masm64lx) /DARCH=K10 /Folinux64\r4_k10.obj r4.asm
 
-linux64\r4delaycore3.obj: r4delaycore3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64lx) /Folinux64\r4delaycore3.obj r4delaycore3.asm
+linux64\r4delay_core.obj: r4delay.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64lx) /DARCH=CORE /Folinux64\r4delay_core.obj r4delay.asm
 
-linux64\r4delaycore4.obj: r4delaycore4.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64lx) /Folinux64\r4delaycore4.obj r4delaycore4.asm
+linux64\r4delay_p4.obj: r4delay.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64lx) /DARCH=P4 /Folinux64\r4delay_p4.obj r4delay.asm
 
-linux64\r4delaycore5.obj: r4delaycore5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64lx) /Folinux64\r4delaycore5.obj r4delaycore5.asm
+linux64\r4delay_k8.obj: r4delay.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64lx) /DARCH=K8 /Folinux64\r4delay_k8.obj r4delay.asm
 
-linux64\r4delaycore6.obj: r4delaycore6.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64lx) /Folinux64\r4delaycore6.obj r4delaycore6.asm
+linux64\r4delay_k10.obj: r4delay.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64lx) /DARCH=K10 /Folinux64\r4delay_k10.obj r4delay.asm
 
-linux64\r4delaycore7.obj: r4delaycore7.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64lx) /Folinux64\r4delaycore7.obj r4delaycore7.asm
+linux64\r4delay3_core.obj: r4delay3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64lx) /DARCH=CORE /Folinux64\r4delay3_core.obj r4delay3.asm
 
-linux64\r4delaycore8.obj: r4delaycore8.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64lx) /Folinux64\r4delaycore8.obj r4delaycore8.asm
+linux64\r4delay3_p4.obj: r4delay3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64lx) /DARCH=P4 /Folinux64\r4delay3_p4.obj r4delay3.asm
 
-linux64\r4delayp4.obj: r4delayp4.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64lx) /Folinux64\r4delayp4.obj r4delayp4.asm
+linux64\r4delay3_k8.obj: r4delay3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64lx) /DARCH=K8 /Folinux64\r4delay3_k8.obj r4delay3.asm
 
-linux64\r4delayk8.obj: r4delayk8.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
-    $(masm64lx) /Folinux64\r4delayk8.obj r4delayk8.asm
+linux64\r4delay3_k10.obj: r4delay3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64lx) /DARCH=K10 /Folinux64\r4delay3_k10.obj r4delay3.asm
 
-linux64\r4dwpncore.obj: r4dwpncore.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
-    $(masm64lx) /Folinux64\r4dwpncore.obj r4dwpncore.asm
+linux64\r4delay5_core.obj: r4delay5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64lx) /DARCH=CORE /Folinux64\r4delay5_core.obj r4delay5.asm
 
-linux64\r4dwpncore2.obj: r4dwpncore2.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
-    $(masm64lx) /Folinux64\r4dwpncore2.obj r4dwpncore2.asm
+linux64\r4delay5_p4.obj: r4delay5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64lx) /DARCH=P4 /Folinux64\r4delay5_p4.obj r4delay5.asm
 
-linux64\r4dwpncore3.obj: r4dwpncore3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
-    $(masm64lx) /Folinux64\r4dwpncore3.obj r4dwpncore3.asm
+linux64\r4delay5_k8.obj: r4delay5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64lx) /DARCH=K8 /Folinux64\r4delay5_k8.obj r4delay5.asm
 
-linux64\r4dwpncore4.obj: r4dwpncore4.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
-    $(masm64lx) /Folinux64\r4dwpncore4.obj r4dwpncore4.asm
+linux64\r4delay5_k10.obj: r4delay5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4delaypass1sc.mac r4delaypass2.mac
+    $(masm64lx) /DARCH=K10 /Folinux64\r4delay5_k10.obj r4delay5.asm
 
-linux64\r4dwpncore5.obj: r4dwpncore5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
-    $(masm64lx) /Folinux64\r4dwpncore5.obj r4dwpncore5.asm
+linux64\r4dwpn_core.obj: r4dwpn.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64lx) /DARCH=CORE /Folinux64\r4dwpn_core.obj r4dwpn.asm
 
-linux64\r4dwpncore6.obj: r4dwpncore6.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
-    $(masm64lx) /Folinux64\r4dwpncore6.obj r4dwpncore6.asm
+linux64\r4dwpn_p4.obj: r4dwpn.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64lx) /DARCH=P4 /Folinux64\r4dwpn_p4.obj r4dwpn.asm
 
-linux64\r4dwpncore7.obj: r4dwpncore7.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
-    $(masm64lx) /Folinux64\r4dwpncore7.obj r4dwpncore7.asm
+linux64\r4dwpn_k8.obj: r4dwpn.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64lx) /DARCH=K8 /Folinux64\r4dwpn_k8.obj r4dwpn.asm
 
-linux64\r4dwpncore8.obj: r4dwpncore8.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
-    $(masm64lx) /Folinux64\r4dwpncore8.obj r4dwpncore8.asm
+linux64\r4dwpn_k10.obj: r4dwpn.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64lx) /DARCH=K10 /Folinux64\r4dwpn_k10.obj r4dwpn.asm
+
+linux64\r4dwpn3_core.obj: r4dwpn3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64lx) /DARCH=CORE /Folinux64\r4dwpn3_core.obj r4dwpn3.asm
+
+linux64\r4dwpn3_p4.obj: r4dwpn3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64lx) /DARCH=P4 /Folinux64\r4dwpn3_p4.obj r4dwpn3.asm
+
+linux64\r4dwpn3_k8.obj: r4dwpn3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64lx) /DARCH=K8 /Folinux64\r4dwpn3_k8.obj r4dwpn3.asm
+
+linux64\r4dwpn3_k10.obj: r4dwpn3.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64lx) /DARCH=K10 /Folinux64\r4dwpn3_k10.obj r4dwpn3.asm
+
+linux64\r4dwpn5_core.obj: r4dwpn5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64lx) /DARCH=CORE /Folinux64\r4dwpn5_core.obj r4dwpn5.asm
+
+linux64\r4dwpn5_p4.obj: r4dwpn5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64lx) /DARCH=P4 /Folinux64\r4dwpn5_p4.obj r4dwpn5.asm
+
+linux64\r4dwpn5_k8.obj: r4dwpn5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64lx) /DARCH=K8 /Folinux64\r4dwpn5_k8.obj r4dwpn5.asm
+
+linux64\r4dwpn5_k10.obj: r4dwpn5.asm xmult.mac r4.mac r2.mac r3.mac r5.mac r8.mac r4dwpnpass1sc.mac r4dwpnpass2.mac
+    $(masm64lx) /DARCH=K10 /Folinux64\r4dwpn5_k10.obj r4dwpn5.asm
 
 linux64\cpuidhlp.obj: cpuidhlp.asm
     $(masm64lx) /Folinux64\cpuidhlp.obj cpuidhlp.asm
