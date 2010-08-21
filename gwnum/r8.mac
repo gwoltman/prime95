@@ -4530,22 +4530,3 @@ r8_h16r_simple_fft_with_mulf MACRO srcreg,d1,d2,dst
 	movsd	dst[d1+32][8], xmm3		;; Save I3
 	ENDM
 
-;;
-;; Override any or all of the above macros with versions
-;; optimized for a different CPU architecture
-;;
-
-IF @INSTR(,@CATSTR(%xarch),<P4>) EQ 1
-INCLUDE	r8p4.mac
-IFDEF X86_64
-;INCLUDE	r864p4.mac
-ENDIF
-ENDIF
-
-IF @INSTR(,@CATSTR(%xarch),<K8>) EQ 1
-;INCLUDE	r8k8.mac
-IFDEF X86_64
-;INCLUDE	r864k8.mac
-ENDIF
-ENDIF
-
