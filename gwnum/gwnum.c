@@ -4100,165 +4100,90 @@ int is_pathological_distribution (
 	return (FALSE);
 }
 
-/* This routine scores different FFT implementations for a specific FFT length. */
-/* In theory, the highest score will yield the fastest run time. */
+/* Determine the "bif" value we will look for.  Often this is a straight-forward mapping from */
+/* the CPU_ARCHITECTURE.  However, for some CPU architectures, like Pentium M and Core Solo, we */
+/* don't have jmptable entries detailing the fastest FFT implementations for those architectures. */
 
-int score_jmptab_entry (
+int calculate_bif (
+	gwhandle *gwdata)	/* Gwnum global data */
+{
+
+/* Map the CPU architecture as determined by CPUID to one of the CPU architectures */
+/* that the FFT assembly code is optimized for. */
+
+	switch (CPU_ARCHITECTURE) {
+	case CPU_ARCHITECTURE_PRE_SSE2:		/* Cannot happen, gwinfo should have selected x87 FFTs */
+		return 2;			/* Look for FFTs optimized for large cache P4s */
+	case CPU_ARCHITECTURE_PENTIUM_4:
+		if (CPU_L2_CACHE_SIZE <= 128)	/* We haven't optimized for these yet */
+			return 4;		/* Look for FFTs optimized for 256K cache P4s */
+		if (CPU_L2_CACHE_SIZE <= 256)
+			return 4;		/* Look for FFTs optimized for 256K cache P4s */
+		if (CPU_L2_CACHE_SIZE <= 512)
+			return 3;		/* Look for FFTs optimized for 512K cache P4s */
+		if (gwdata->cpu_flags & CPU_TLB_PRIMING)
+			return 3;		/* Look for FFTs optimized for 512K cache P4s */
+		return 2;			/* Look for FFTs optimized for large cache P4s */
+	case CPU_ARCHITECTURE_CORE_2:
+		return 0;			/* Look for FFTs optimized for Core 2 */
+	case CPU_ARCHITECTURE_CORE_I7:
+		return 1;			/* Look for FFTs optimized for Core i3/i5/i7/i9 */
+	case CPU_ARCHITECTURE_INTEL_OTHER:	/* This is probably one of Intel's next generation CPUs */ 
+		return 1;			/* Look for FFTs optimized for Core i3/i5/i7/i9 */
+	case CPU_ARCHITECTURE_AMD_K8:
+		return 6;			/* Look for FFTs optimized for K8 */
+	case CPU_ARCHITECTURE_AMD_K10:
+		return 7;			/* Look for FFTs optimized for K10 */
+	case CPU_ARCHITECTURE_AMD_OTHER:
+	case CPU_ARCHITECTURE_OTHER:
+	default:
+		return 0;			/* For no particularly good reason, look for FFTs optimized for Core 2 */
+	}
+}
+
+/* Ugly little macros to bump jmptable pointer to next procedure entry or to next count */
+#define INC_JMPTAB_1(x)	x = (struct gwasm_jmptab *) ((char *)(x) + sizeof(uint32_t) + sizeof(void*) + sizeof(uint32_t))
+#define DEC_JMPTAB_1(x)	x = (struct gwasm_jmptab *) ((char *)(x) - sizeof(uint32_t) - sizeof(void*) - sizeof(uint32_t))
+#define INC_JMPTAB_2(x)	x = (struct gwasm_jmptab *) ((char *)(x) + sizeof(int32_t))
+
+/* This routine checks to see if there is an FFT implementation for this FFT length and */
+/* CPU architecture.  For example, when the FFT length is just less than a power of two, on */
+/* some CPUs it may be better to use the larger power-of-two FFT length and thus there */
+/* will not be an FFT implementation for this slightly smaller FFT length. */ 
+
+int is_fft_implemented (
 	gwhandle *gwdata,	/* Gwnum global data */
 	struct gwasm_jmptab *jmptab)
 {
-	int	score;
-	int	arch;		/* (ppro=0,p3=1,p4=2,core=3,k8=4,k10=5) */
-	int	min_L2_cache;	/* (0=0,128KB=1,WILLI=2,CELE_D=3,512KB=4,1024KB=5,2048KB=6) */
-	int	cache_size;	/* Cache size of this CPU */
-	int	fft_type;	/* (home-grown=0, radix-4=1, r4delay=2, r4dwpn=3) */
+	int	desired_bif;		/* The "best implementation for" value we will look for. */
+					/* See mult.asm for defined BIF_ values. */
 
-/* We will generate a score for each FFT implementation.  A higher score */
-/* means we think an implementation will run faster.  A score of zero */
-/* means the FFT implementation will not run at all.  For no good reason, */
-/* we'll start with a base score of 100. */
+/* For FFT lengths below 7K there is only one FFT implementation and it is always available */
 
-	score = 100;
+	if (jmptab->fftlen < 7168) return (TRUE);
 
-/* Our K8 and K10 optimized FFTs requires prefetchw (3DNow!) capability. */
-/* If this is an Intel CPU, skip over these implementations. */
+/* If we are benchmarking all FFT implementations or we are doing QA, then we want to test */
+/* this FFT length even if it isn't optimal */
 
-	arch = (jmptab->flags >> 17) & 0xF;
-	if ((arch == 4 || arch == 5) && ! (gwdata->cpu_flags & CPU_3DNOW))
-		return (0);
+	if (gwdata->bench_pick_nth_fft || gwdata->qa_pick_nth_fft) return (TRUE);
 
-/* Score big points if the FFT implementation was specifically optimized */
-/* for this CPU architecture.  Score minor points if the FFT was designed */
-/* for AMD and this is an AMD chip (and vice versa) */	
+/* Determine the "bif" value we will look for.  Often this is a straight-forward mapping from */
+/* the CPU_ARCHITECTURE.  However, for some CPU architectures, like Pentium M and Core Solo, we */
+/* don't have jmptable entries detailing the fastest FFT implementations for those architectures. */
 
-	if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_PENTIUM_4) {
-		if (arch == 2) score += 50;
-	}
-	if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_CORE_2 ||
-	    CPU_ARCHITECTURE == CPU_ARCHITECTURE_CORE_I7) {
-		if (arch == 3) score += 50;
-	}
-	if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_INTEL_OTHER) {
-		if (arch == 3) score += 25;
-	}
-	if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_K8) {
-		if (arch == 4) score += 50;
-		if (arch == 5) score += 10;
-	}
-	if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_K10) {
-		if (arch == 4) score += 10;
-		if (arch == 5) score += 50;
-	}
-	if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_OTHER) {
-		if (arch == 4 || arch == 5) score += 10;
-	}
-	if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_OTHER) {
-		if (arch == 3) score += 25;
-	}
-
-/* Lose points if this CPU requires TLB priming and the FFT implementation */
-/* does not do that.  Gain points if the CPU doesn't require TLB priming */
-/* and the FFT implementation also doesn't do TLB priming. */
+	desired_bif = calculate_bif (gwdata);
 	
-	if (gwdata->cpu_flags & CPU_TLB_PRIMING) {
-		if (! ((jmptab->flags >> 26) & 2)) score -= 10;
-	} else {
-		if (! ((jmptab->flags >> 26) & 2)) score += 1;
-	}
-	    
-/* If L2 cache size is unknown, assume it is 512KB.  We do this because */
-/* it is probably a new processor, and most new processors will have this */
-/* much cache. */
+/* Loop through the FFT implementations to see if we find an implementation */
+/* that matches our desired "bif" value. */
 
-	if (CPU_L2_CACHE_SIZE >= 0)
-		cache_size = CPU_L2_CACHE_SIZE;
-	else
-		cache_size = 512;
-
-/* Nehalem has a small L2 cache and a large L3 cache.  We are better off */
-/* choosing FFTs designed for larger L2 caches. */
-
-	if (CPU_L3_CACHE_SIZE > 0)
-		cache_size += CPU_L3_CACHE_SIZE;
-
-/* Since hyperthreaded CPUs have a shared L2 cache, we pretend we have */
-/* half as much L2 cache when we are running two threads. */
-
-	if (CPU_HYPERTHREADS > 1 && gwdata->num_threads > 1)
-		cache_size >>= 1;
-
-/* The Celeron D (256K L2 cache) and Willamette P4 (256K L2 cache) have */
-/* different optimal FFT implementations.  Adjust the cache size for the */
-/* Celeron D so that we can distinguish between the two processors in our */
-/* table lookup.  The Celeron D has a 4-way set associative cache, while */
-/* the Willamette has an 8-way set-associative cache. */
-
-	if (cache_size == 256 && CPU_L2_SET_ASSOCIATIVE == 4)
-		cache_size = 257;
-
-/* Check L2 cache size preference.  Score points for matching or */
-/* exceeding the minimum L2 cache size.  Deduct points for having */
-/* too little cache (thrashing likely to occur). */
-
-	min_L2_cache = (jmptab->flags >> 13) & 0xF;
-	if (cache_size >= 2048)
-		score += min_L2_cache;
-	else if (cache_size >= 1024)
-		if (min_L2_cache >= 6) score -= 10;
-		else score += min_L2_cache;
-	else if (cache_size >= 512)
-		if (min_L2_cache >= 5) score -= 10;
-		else score += min_L2_cache;
-	else if (cache_size >= 257)
-		if (min_L2_cache >= 4) score -= 10;
-		else score += min_L2_cache;
-	else if (cache_size >= 256)
-		if (min_L2_cache >= 3) score -= 10;
-		else score += min_L2_cache;
-	else if (cache_size >= 128)
-		if (min_L2_cache >= 2) score -= 10;
-		else score += min_L2_cache;
-	else
-		if (min_L2_cache >= 1) score -= 10;
-		else score += min_L2_cache;
-
-/* Check desirability of various FFT types.  The home-grown FFT type used */
-/* in version 25 is our base line.  */
-
-	fft_type = (jmptab->flags >> 21) & 0xF;
-
-/* The Radix-4 FFT uses more memory and */
-/* consequently more memory bandwidth.  The Core 2 chips have the available */
-/* bandwidth, but Pentium 4's do not. */
-	
-	if (fft_type == FFT_TYPE_RADIX_4) {
-		if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_CORE_2 ||
-		    CPU_ARCHITECTURE == CPU_ARCHITECTURE_CORE_I7)
-			score += 5;
-		else
-			score -= 5;
+	while (jmptab->flags & 0x80000000) {
+		if (((jmptab->flags >> 13) & 0xF) == desired_bif) return (TRUE);
+		INC_JMPTAB_1 (jmptab);
 	}
 
-/* The Radix-4/8 DJB FFT with much less pass 1 sin/cos data at the expense of a */
-/* few extra delayed complex multiplies. */
+/* FFT implementation not found.  A larger FFT length should be faster. */
 
-	if (fft_type == FFT_TYPE_RADIX_4_DELAYED) {
-		score += 35;
-	}
-
-/* The Radix-4/8 DJB FFT with partial normalization saves a few multiplies by doing part */
-/* of the normalization during the forward and inverse FFT.  If the user prefers more */
-/* SUM(INPUTS) != SUM(OUTPUTS) error checking, then reduce the score of partial normalization FFTs. */	
-
-	if (fft_type == FFT_TYPE_RADIX_4_DWPN) {
-		score += 55;
-		if (gwdata->sum_inputs_checking && !gwdata->ALL_COMPLEX_FFT)
-			score -= 100;
-	}
-
-/* All done, return the accumulated score */
-
-	return (score);
+	return (FALSE);
 }
 
 /* This routine used to be in assembly language.  It scans the assembly */
@@ -4274,7 +4199,7 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 	signed long c)		/* C in K*B^N+C. Must be rel. prime to K. */
 {
 	struct gwinfo1_data asm_info;
-	struct gwasm_jmptab *jmptab, *zpad_jmptab, *generic_jmptab, *best_jmptab;
+	struct gwasm_jmptab *jmptab, *zpad_jmptab, *generic_jmptab;
 	double	log2k, logbk, log2b, log2c, log2maxmulbyconst;
 	double	max_bits_per_input_word, max_bits_per_output_word;
 	double	max_weighted_bits_per_output_word;
@@ -4283,13 +4208,10 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 	double	weighted_bits_per_output_word;
 	unsigned long max_exp;
 	char	buf[20];
-	int	qa_nth_fft, best_score;
+	int	qa_nth_fft, desired_bif;
+	void	*prev_proc_ptrs[5];
 	uint32_t flags, no_prefetch, in_place;
 	struct gwasm_data *asm_data;
-
-/* Ugly little macros to bump jmptable pointer to next procedure entry or to next count */
-#define INC_JMPTAB_1(x)	x = (struct gwasm_jmptab *) ((char *)(x) + sizeof(uint32_t) + sizeof(void*) + sizeof(uint32_t))
-#define INC_JMPTAB_2(x)	x = (struct gwasm_jmptab *) ((char *)(x) + sizeof(int32_t))
 
 /* Get pointer to 4 assembly jmptables and the version number */
 
@@ -4338,6 +4260,7 @@ again:	zpad_jmptab = NULL;
 
 			if ((double) n * log2b / (double) zpad_jmptab->fftlen > 26.0) goto next1;
 			if (zpad_jmptab->fftlen < gwdata->minimum_fftlen) goto next1;
+			if (! is_fft_implemented (gwdata, zpad_jmptab)) goto next1;
 
 /* Don't bother looking at this FFT length if the generic reduction would be faster */
 
@@ -4433,7 +4356,8 @@ again:	zpad_jmptab = NULL;
 
 /* Move past procedure entries and counts to next jmptable entry */
 
-next1:			while (zpad_jmptab->counts[0] & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
+next1:			while (zpad_jmptab->flags & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
+			DEC_JMPTAB_1 (zpad_jmptab);
 			while (zpad_jmptab->counts[0]) INC_JMPTAB_2 (zpad_jmptab);
 			zpad_jmptab = (struct gwasm_jmptab *) &zpad_jmptab->counts[1];
 		}
@@ -4471,6 +4395,7 @@ next1:			while (zpad_jmptab->counts[0] & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
 
 		if ((double) n * log2b / (double) jmptab->fftlen > 26.0) goto next2;
 		if (jmptab->fftlen < gwdata->minimum_fftlen) goto next2;
+		if (! is_fft_implemented (gwdata, jmptab)) goto next2;
 
 /* Check if this FFT length will work with this k,n,c combo */
 
@@ -4649,7 +4574,8 @@ next1:			while (zpad_jmptab->counts[0] & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
 
 /* Move past procedure entries and counts to next jmptable entry */
 
-next2:		while (jmptab->counts[0] & 0x80000000) INC_JMPTAB_1 (jmptab);
+next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
+		DEC_JMPTAB_1 (jmptab);
 		while (jmptab->counts[0]) INC_JMPTAB_2 (jmptab);
 		jmptab = (struct gwasm_jmptab *) &jmptab->counts[1];
 	}
@@ -4697,26 +4623,54 @@ next2:		while (jmptab->counts[0] & 0x80000000) INC_JMPTAB_1 (jmptab);
 /* the one best suited to this CPU. */
 
 	qa_nth_fft = gwdata->ZERO_PADDED_FFT ? 100 : 1000;
-	best_score = 0;
-	best_jmptab = NULL;
+	desired_bif = calculate_bif (gwdata);
+	prev_proc_ptrs[0] = NULL;
+	prev_proc_ptrs[1] = NULL;
+	prev_proc_ptrs[2] = NULL;
+	prev_proc_ptrs[3] = NULL;
+	prev_proc_ptrs[4] = NULL;
 	for ( ; ; ) {
-		int	score;
+		int	arch;		/* (ppro=0,p3=1,p4=2,core=3,k8=4,k10=5) */
+		int	best_impl_for;	/* (CORE2=0,I7=1,etc.  See BIF_ definitions in mult.asm) */
+		int	fft_type;	/* (home-grown=0, radix-4=1, r4delay=2, r4dwpn=3) */
 
-/* Score the suitability of this implementation */
+/* Handle an FFT implementation not found condition.  Should only happen */
+/* if we're benchmarking or QA'ing and we've tested every implementation. */
 
-		score = score_jmptab_entry (gwdata, jmptab);
+		if (! (jmptab->flags & 0x80000000)) {
 
-/* If this CPU will crash running this FFT (score = 0) then skip this entry */
+/* If we are QA'ing every FFT implementation and we did not find another */
+/* zero-padded FFT implementation, then go find a non-zero-padded one. */
 
-		if (score == 0) goto next3;
+			if (gwdata->qa_pick_nth_fft && gwdata->qa_pick_nth_fft < 1000) {
+				gwdata->qa_pick_nth_fft = 1000;
+				goto again;
+			}
+
+/* Else return an error */
+
+			return (GWERROR_TOO_LARGE);
+		}
+
+/* If this CPU will crash running this FFT then skip this entry. */
+/* Our K8 and K10 optimized FFTs requires prefetchw (3DNow!) capability. */
+/* If this is an Intel CPU, skip over these implementations. */
+
+		arch = (jmptab->flags >> 17) & 0xF;
+		if ((arch == 4 || arch == 5) && ! (gwdata->cpu_flags & CPU_3DNOW))
+			goto next3;
 
 /* Handle benchmarking case that selects the nth FFT implementation */
 /* without regard to any other consideration. */
 
 		if (gwdata->bench_pick_nth_fft) {
+			if (jmptab->proc_ptr == prev_proc_ptrs[0]) goto next3;
+			if (jmptab->proc_ptr == prev_proc_ptrs[1]) goto next3;
+			if (jmptab->proc_ptr == prev_proc_ptrs[2]) goto next3;
+			if (jmptab->proc_ptr == prev_proc_ptrs[3]) goto next3;
+			if (jmptab->proc_ptr == prev_proc_ptrs[4]) goto next3;
 			gwdata->bench_pick_nth_fft--;
 			if (gwdata->bench_pick_nth_fft) goto next3;
-			best_jmptab = jmptab;
 			break;
 		}
 
@@ -4725,55 +4679,54 @@ next2:		while (jmptab->counts[0] & 0x80000000) INC_JMPTAB_1 (jmptab);
 /* the QA code next time. */
 
 		if (gwdata->qa_pick_nth_fft) {
+			if (jmptab->proc_ptr == prev_proc_ptrs[0]) goto next3;
+			if (jmptab->proc_ptr == prev_proc_ptrs[1]) goto next3;
+			if (jmptab->proc_ptr == prev_proc_ptrs[2]) goto next3;
+			if (jmptab->proc_ptr == prev_proc_ptrs[3]) goto next3;
+			if (jmptab->proc_ptr == prev_proc_ptrs[4]) goto next3;
 			qa_nth_fft++;
 			if (qa_nth_fft <= gwdata->qa_pick_nth_fft) goto next3;
-			best_jmptab = jmptab;
 			gwdata->qa_picked_nth_fft = qa_nth_fft;
 			break;
 		}
 
-/* If this is the best choice thusfar, remember the information */
+/* The Radix-4/8 DJB FFT with partial normalization saves a few multiplies by doing part */
+/* of the normalization during the forward and inverse FFT.  Unfortunately, this optimization */
+/* makes the SUM(INPUTS) != SUM(OUTPUTS) error check impossible.  If the user prefers */
+/* SUM(INPUTS) != SUM(OUTPUTS) error checking, then skip r4dwpn FFT type (except all-complex */
+/* FFTs which never could support SUM(INPUTS) != SUM(OUTPUTS) error checking. */
 
-		if (score > best_score) {
-			best_score = score;
-			best_jmptab = jmptab;
-		}
+		fft_type = (jmptab->flags >> 21) & 0xF;
+		if (gwdata->sum_inputs_checking &&
+		    ! gwdata->ALL_COMPLEX_FFT &&
+		    fft_type == FFT_TYPE_RADIX_4_DWPN)
+			goto next3;
 
-/* Move onto next FFT implementation if there is one */
+/* See if this is the best implementation for this CPU architecture */
 
-next3:		if (! (jmptab->counts[0] & 0x80000000)) break;
+		best_impl_for = (jmptab->flags >> 13) & 0xF;
+		if (best_impl_for == desired_bif) break;
+
+/* Move onto the next FFT implementation */
+
+next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
+		prev_proc_ptrs[3] = prev_proc_ptrs[2];
+		prev_proc_ptrs[2] = prev_proc_ptrs[1];
+		prev_proc_ptrs[1] = prev_proc_ptrs[0];
+		prev_proc_ptrs[0] = jmptab->proc_ptr;
 		INC_JMPTAB_1 (jmptab);
 	}
 
-/* Handle an FFT implementation not found condition.  Should only */
-/* if we're benchmarking or QA'ing and we've tested every implementation. */
+/* Remember the information from the chosen FFT implementation */
 
-	if (best_jmptab == NULL) {
-
-/* If we are QA'ing every FFT implementation and we did not find another */
-/* zero-padded FFT implementation, then go find a non-zero-padded one. */
-
-		if (gwdata->qa_pick_nth_fft && gwdata->qa_pick_nth_fft < 1000) {
-			gwdata->qa_pick_nth_fft = 1000;
-			goto again;
-		}
-
-/* Else return an error */
-
-		return (GWERROR_TOO_LARGE);
-	}
-
-/* If this is the best choice thusfar, remember the information */
-
-	flags = best_jmptab->flags;
-	gwdata->GWPROCPTRS[0] = best_jmptab->proc_ptr;
-	gwdata->mem_needed = best_jmptab->mem_needed;
+	flags = jmptab->flags;
+	gwdata->GWPROCPTRS[0] = jmptab->proc_ptr;
+	gwdata->mem_needed = jmptab->mem_needed;
 
 /* Break the flags word from the jmptable entry into its constituent parts */
 /* The 32-bit flags word is as follows (copied from mult.asm): */
 /*	80000000h		always on */
-/*	4 SHL 26		(no prefetching) */
-/*	2 SHL 26		(tlb priming) */
+/*	2 SHL 26		(no prefetching - not used by gwnum) */
 /*	1 SHL 26		(in_place) */
 /*	fft_type SHL 21		(hg=0, r4=1, r4delay=2) */
 /*	arch SHL 17		(ppro=0,p3=1,p4=2,core=3,k8=4,k10=5) */
@@ -4781,7 +4734,7 @@ next3:		if (! (jmptab->counts[0] & 0x80000000)) break;
 /*	clm SHL 9		(1,2,4,8) */
 /*	pass2size_over_64	(many valid values) */
 
-	no_prefetch = (flags >> 28) & 0x00000001;
+	no_prefetch = (flags >> 27) & 0x00000001;
 	in_place = (flags >> 26) & 0x00000001;
 	gwdata->FFT_TYPE = (flags >> 21) & 0x0000000F;
 	gwdata->ARCH = (flags >> 17) & 0x0000000F;
