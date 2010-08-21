@@ -677,7 +677,7 @@ void nameAndReadIniFiles (
 
 /* Output our calculated CPU architecture and characteristics */
 
-	sprintf (buf, "CPU architecture: %s\n",
+	sprintf (buf, "Optimizing for CPU architecture: %s, ",
 		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_PRE_SSE2 ? "Pre-SSE2" :
 		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_PENTIUM_4 ? "Pentium 4" :
 		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_CORE_2 ? "Core 2" :
@@ -686,21 +686,20 @@ void nameAndReadIniFiles (
 		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_K8 ? "AMD K8" :
 		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_K10 ? "AMD K10" :
 		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_OTHER ? "Not Intel and not AMD" : "Undefined");
-	OutputStr (MAIN_THREAD_NUM, buf);
-	strcpy (buf, "L2 cache size: ");
-	if (CPU_L2_CACHE_SIZE < 0) strcat (buf, "unknown\n");
+	strcat (buf, "L2 cache size: ");
+	if (CPU_L2_CACHE_SIZE < 0) strcat (buf, "unknown");
 	else if (CPU_L2_CACHE_SIZE & 0x3FF)
-		sprintf (buf + strlen (buf), "%d KB\n", CPU_L2_CACHE_SIZE);
+		sprintf (buf + strlen (buf), "%d KB", CPU_L2_CACHE_SIZE);
 	else
-		sprintf (buf + strlen (buf), "%d MB\n", CPU_L2_CACHE_SIZE >> 10);
-	OutputStr (MAIN_THREAD_NUM, buf);
+		sprintf (buf + strlen (buf), "%d MB", CPU_L2_CACHE_SIZE >> 10);
 	if (CPU_L3_CACHE_SIZE > 0) {
 		if (CPU_L3_CACHE_SIZE & 0x3FF)
-			sprintf (buf, "L3 cache size: %d KB\n", CPU_L3_CACHE_SIZE);
+			sprintf (buf + strlen (buf), ", L3 cache size: %d KB", CPU_L3_CACHE_SIZE);
 		else
-			sprintf (buf, "L3 cache size: %d MB\n", CPU_L3_CACHE_SIZE >> 10);
-		OutputStr (MAIN_THREAD_NUM, buf);
+			sprintf (buf + strlen (buf), ", L3 cache size: %d MB", CPU_L3_CACHE_SIZE >> 10);
 	}
+	strcat (buf, "\n");
+	OutputStr (MAIN_THREAD_NUM, buf);
 
 /* Start some initial timers */
 
