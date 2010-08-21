@@ -153,7 +153,7 @@ PRCENTRY2 MACRO procname, mem_needed, best_impl_for
 	IFDEF IMPL_ALL_CORE
 		bif = bif OR CORE2
 	ENDIF
-	IF (@INSTR (,&procname,_op_)) EQ 0
+	IF (@INSTR (,&procname,_op)) EQ 0
 	IFDEF IMPL_ALL_P4
 		bif = bif OR P4_1024
 	ENDIF
