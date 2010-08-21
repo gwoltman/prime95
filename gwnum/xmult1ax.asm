@@ -14,7 +14,6 @@ ENDIF
 INCLUDE	unravel.mac
 INCLUDE extrn.mac
 INCLUDE xbasics.mac
-INCLUDE xmult.mac
 INCLUDE memory.mac
 INCLUDE xnormal.mac
 

@@ -2,9 +2,6 @@
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
-; These macros take the basic FFT building blocks and build even
-; larger building blocks.
-;
 
 ; Return from a type 1 FFT - return to caller
 
@@ -41,8 +38,8 @@ XMM_HSCD1 = 16			;; Sizeof a half sin/cos table entry used in real FFTs in pass 
 XMM_HSCD2 = 32			;; Sizeof a half sin/cos table entry used in real FFTs in pass 2
 
 ;; Used in r4dwpn (radix-4 delay with partial normalization) FFTs
-XMM_SCND2 = 128			;; Sizeof a complex radix-4 or radix-5 sin/cos/noralization table entry
-XMM_SCND2R = 96			;; Sizeof a real radix-4 or radix-5 sin/cos/noralization table entry
+XMM_SCND2 = 128			;; Sizeof a complex radix-4 or radix-5 sin/cos/normalization table entry
+XMM_SCND2R = 96			;; Sizeof a real radix-4 or radix-5 sin/cos/normalization table entry
 XMM_GMD = 160			;; Sizeof a grp two-to-phi/two-to-minus-phi multiplier block in a r4dwpn FFT
 
 ; **********************************************************
@@ -184,23 +181,6 @@ nozpad:
 	ENDM
 
 
-;
-; Macros used to conditionally eliminate some FFT implementations.
-; Using macros allows us change our minds and include these implementations
-; for a test build.
-;
-
-;; Used for FFT sizes above 32M, these aren't practical to run just yet.
-toobig	MACRO ops:vararg
-	noexec	&ops
-	ENDM
-;; Used for FFT sizes that are near a power of two (PFA 5*5*5=125 and 3*3*7=63).
-;; Thusfar, the next larger power-of-two FFT has proven to be faster.
-toonear	MACRO ops:vararg
-	noexec	&ops
-	ENDM
-
-
 ; ********************************************************
 ; ********************************************************
 ; ******************  PASS 1 MACROS  *********************
@@ -230,13 +210,13 @@ toonear	MACRO ops:vararg
 ;	_ac for all_complex
 ;	_ip for two-pass in-place (no scratch area)
 ;	_np for no_prefetch
-;	_tp for tlb_priming
 ; xpass2_levels is:
 ;	number of complex values handled in pass 2 -- if not a power of 2
 ;	log2(number of complex values in pass 2) -- if a power of 2
 ;
 ; xarch indicates FFT is optimized for one of these architectures:
 ;	P4		Pentium 4
+;	P4TP		Pentium 4's requiring TLB priming
 ;	CORE		Core 2 / Core i7, default for unrecognized Intel CPUs
 ;	K8		first generation AMD64 chips
 ;	K10		second generation AMD64 chips (Phenom), default for unrecognized AMD CPUs
@@ -263,20 +243,22 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 	ENDIF
 	IF PREFETCHING EQ 0
 	xprocname CATSTR xprocname,<_np>
-	ELSEIF TLB_PRIMING EQ 1
-	xprocname CATSTR xprocname,<_tp>
 	ENDIF
 	xprocname CATSTR xprocname,<_>,%xpass2_levels,<_>,%clm,<_>,xarch
+	IF TLB_PRIMING EQ 1
+	xprocname CATSTR xprocname,<TP>
+	ENDIF
 
 ;; Generate the pass 2 routine name
 
 	xpass2name CATSTR <xpass2_>,xfft_type
 	IF PREFETCHING EQ 0
 	xpass2name CATSTR xpass2name,<_np>
-	ELSEIF TLB_PRIMING EQ 1
-	xpass2name CATSTR xpass2name,<_tp>
 	ENDIF
 	xpass2name CATSTR xpass2name,<_>,%xpass2_levels,<_levels_>,xarch
+	IF TLB_PRIMING EQ 1
+	xpass2name CATSTR xpass2name,<TP>
+	ENDIF
 
 ;; Compute the number of 128-byte cache lines in pass 2
 
@@ -823,20 +805,20 @@ newxloop1nopre MACRO label2, incr_rsi, pm_incr_reg, pm_incr_amt, sc_incr_reg, sc
 ;	sr = split-radix
 ; options are:
 ;	_np for no_prefetch
-;	_tp for tlb_priming
 ; xpass2_levels is:
 ;	number of complex values handled in pass 2 -- if not a power of 2
 ;	log2(number of complex values in pass 2) -- if a power of 2
 ;
 ; xarch indicates FFT is optimized for one of these architectures:
 ;	P4		Pentium 4
+;	P4TP		Pentium 4's requiring TLB priming
 ;	CORE		Core 2 / Core i7, default for unrecognized Intel CPUs
 ;	K8		first generation AMD64 chips
 ;	K10		second generation AMD64 chips (Phenom), default for unrecognized AMD CPUs
 ;
 ; Examples:
 ;	xpass2_r4_12_levels_CORE
-;	xpass2_r4_tp_12_levels_P4
+;	xpass2_r4_np_12_levels_P4
 
 ;; Create a for this fft type, pass 2 levels, and architecture combination
 
@@ -849,10 +831,11 @@ xpass2gen MACRO levels
 	procname CATSTR <xpass2_>,xfft_type
 	IF PREFETCHING EQ 0
 	procname CATSTR procname,<_np>
-	ELSEIF TLB_PRIMING EQ 1
-	procname CATSTR procname,<_tp>
 	ENDIF
 	procname CATSTR procname,<_>,%levels,<_levels_>,xarch
+	IF TLB_PRIMING EQ 1
+	procname CATSTR procname,<TP>
+	ENDIF
 
 ;; Generate the macro names
 
