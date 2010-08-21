@@ -6779,8 +6779,8 @@ int primeBench (
 /* Loop over a variety of FFT lengths */
 
 	  for (plus1 = 0; plus1 <= 1; plus1++) {
-	    if (plus1 == 0 && time_all_complex == 2) break;
-	    if (plus1 == 1 && time_all_complex == 0) break;
+	    if (plus1 == 0 && time_all_complex == 2) continue;
+	    if (plus1 == 1 && time_all_complex == 0) continue;
 	    for (fftlen = min_FFT_length * 1024; fftlen <= max_FFT_length * 1024; fftlen += 10) {
 	      for (ii = 1; ; ii++) {
 		if (ii > 1 && !all_bench) break;
