@@ -4175,7 +4175,7 @@ int is_fft_implemented (
 /* don't have jmptable entries detailing the fastest FFT implementations for those architectures. */
 
 	desired_bif = calculate_bif (gwdata);
-	
+
 /* Loop through the FFT implementations to see if we find an implementation */
 /* that matches our desired "bif" value. */
 
@@ -4654,6 +4654,11 @@ next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
 
 			return (GWERROR_TOO_LARGE);
 		}
+
+/* If this is a small FFT or an x87 FFT, then there is only one implementation */
+
+		if (gwdata->FFTLEN < 7168) break;
+		if (! (gwdata->cpu_flags & CPU_SSE2)) break;
 
 /* If this CPU will crash running this FFT then skip this entry. */
 /* Our K8 and K10 optimized FFTs requires prefetchw (3DNow!) capability. */
@@ -8557,6 +8562,7 @@ void gwfft_description (
 		 gwdata->ZERO_PADDED_FFT ? "zero-padded " :
 		 gwdata->GENERAL_MOD ? "generic reduction " : "",
 		 (! (gwdata->cpu_flags & CPU_SSE2)) ? "x87 " :
+		 (gwdata->PASS2_SIZE == 0) ? "" :
 		 (gwdata->ARCH == 2) ? "Pentium4 " :
 		 (gwdata->ARCH == 3) ? "Core2 " :
 		 (gwdata->ARCH == 4) ? "AMD K8 " :
