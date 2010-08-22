@@ -1,4 +1,4 @@
-; Copyright 2001-2009 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2010 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -7,7 +7,6 @@
 ; are optimized for the Core 2 / Core i7 architecture.  Optimized versions
 ; of these macros for other architectures can be found in other files.
 ;
-
 
 ;; The movaps instruction does the same thing as a movapd instruction
 ;; but is one less byte.  The shorter instruction might improve decode
@@ -24,7 +23,11 @@ xstore	MACRO	mem, reg
 	ENDM
 
 xcopy	MACRO	reg1, reg2
+	IFDEF AMD
+	movapd	reg1, reg2	;; There is a HUGE penalty for using the shorter movaps instruction
+	ELSE
 	movaps	reg1, reg2
+	ENDIF
 	ENDM
 
 ;;
