@@ -4136,7 +4136,8 @@ int calculate_bif (
 	case CPU_ARCHITECTURE_AMD_K8:
 		return 6;			/* Look for FFTs optimized for K8 */
 	case CPU_ARCHITECTURE_AMD_K10:
-		return 7;			/* Look for FFTs optimized for K10 */
+		return 6;			/* K10 optimizations not implemented yet, Look for FFTs optimized for K8 */
+		//return 7;			/* Look for FFTs optimized for K10 */
 	case CPU_ARCHITECTURE_AMD_OTHER:
 	case CPU_ARCHITECTURE_OTHER:
 	default:
