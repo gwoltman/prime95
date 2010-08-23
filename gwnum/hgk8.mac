@@ -334,34 +334,14 @@ x4c_fft4_cmn MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem4,mem8,dest3,off1,off2,off3,off4,p
 ; These macros implement AMD 64-bit SSE2 optimized versions of macros found
 ; in hg.mac.  We make use of the 8 extra registers and AMD-specific optimizations.
 
-
-;;  The AMD64 (K8) and Phenom (K10) architecture differ from the Intel architectures
+;;  The AMD64 (K8) and Phenom (K10) architectures differ from the Intel architectures
 ;;  in that it can perform 2 load operations per clock cycle.  Adds and multiplies
 ;;  both take 4 clocks.
 ;;
-;;  The K8 architecture also pays a big penalty for use of "movapd reg, reg".  Use
+;;  The K8/K10 architectures also pay a big penalty for use of "movapd reg, reg".  Use
 ;;  of this instruction causes "bubbles" in both the add and multiply pipes.
 
 IFDEF X86_64
-
-;; On AMD64 (K8 architecture, not the Phenom K10 architecture), punpckhqdq is grossly slow.
-shuffle_store MACRO mem1, mem2, reglo, reghi
-	movsd	Q mem1, reglo
-	movsd	Q mem1[8], reghi
-	unpckhpd reglo, reghi
-	xstore	mem2, reglo
-	ENDM
-
-shuffle_load MACRO reglo, reghi, mem1, mem2
-	xload	reglo, mem1
-	xload	reghi, mem2
-	unpcklpd reglo, reghi
-	movlpd	reghi, Q mem1[8]
-	ENDM
-
-shuffle_load_with_temp MACRO reglo, reghi, mem1, mem2, tmp
-	shuffle_load reglo, reghi, mem1, mem2
-	ENDM
 
 ;; Cheat sheet for scheduling dependency chains (and num registers required)
 ;;	  12345678901234567890123456789012345678901234567890123456789012345678901234567890
