@@ -165,7 +165,7 @@ r4_f2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
 
 ;; Used in later levels of pass 2.
 r4_nf2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
-	r4_x4c_djbfft_mem [srcreg],[srcreg+d1],[srcreg+16],[srcreg+d1+16],[srcreg+32],[srcreg+d1+32],[srcreg+48],[srcreg+d1+48],screg,0,srcreg+srcinc+rbx,d1,[srcreg],[srcreg+16]
+	r4_x4c_djbfft_mem [srcreg],[srcreg+d1],[srcreg+16],[srcreg+d1+16],[srcreg+32],[srcreg+d1+32],[srcreg+48],[srcreg+d1+48],screg,0,srcreg+srcinc,d1,[srcreg],[srcreg+16]
 ;;	xstore	[srcreg], xmm0		;; Save R1
 ;;	xstore	[srcreg+16], xmm0	;; Save I1
 	xstore	[srcreg+32], xmm7	;; Save R2
@@ -439,8 +439,287 @@ r4_x4c_djbfft MACRO r1,r2,r3,r4,r5,r6,r7,r8,screg,off,pre1,pre2,dst1,dst2
 	mulpd	r5, r3			;; B4 = B4 * sine (final I4)
 	ENDM
 
+;; AMD optimized versions of the above macros
+
+;;
+;; These macros could be improved further if we didn't keep output register compatibility
+;; with the Core2/P4 macros.  That is, we'd have to rewrite all the callers of these
+;; macros like we do for the Core2/P4 64-bit macros.  One optimization revolves around
+;; noting that subpd/multwo/addpd can be changed to addpd/multwo/subpd giving us greater
+;; flexibility in ordering the computation of intermediate results.
+;;
+;; In 64-bit mode, we should investigate preloading XMM_TWO.
+;;
+
+IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+
+;; K10 Cheat sheet for scheduling dependency chains
+;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
+;;r13(r3)     AAAA
+;;i24(i4)      AAAA
+;;i13(i3)       AAAA
+;;r24(r4)        AAAA
+;;r13(r1)         AAAA
+;;r24(r2)          AAAA
+;;i13(i1)           AAAA
+;;i24(i2)            AAAA
+;;mR3(depR3-I4)       AAAA
+;;mI4(depI3-R4)	       AAAA			
+;;mR2(depR1-R2)	        AAAA
+;;mI2(depI1-I2)          AAAA
+;;mR4(depR3+I4)       MMMMAAAA
+;;mI3(depI3+R4)	       MMMMAAAA				
+;;mR1(depR1+R2)	        MMMMAAAA
+;;mI1(depI1+I2)	         MMMMAAAA
+;;A3		          MMMM AAAAMMMM
+;;A2                        MMMMAAAAMMMM
+;;B2		             MMMMAAAAMMMM
+;;B3		               MMMMAAAAMMMM
+;;A4                          MMMMAAAAMMMM
+;;B4		                MMMMAAAAMMMM
+
+;; K8 Cheat sheet for scheduling dependency chains
+;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
+;;r13(r3)     AAAA
+;;i24(i4)       AAAA
+;;i13(i3)         AAAA
+;;r24(r4)           AAAA
+;;r13(r1)             AAAA
+;;r24(r2)               AAAA
+;;i13(i1)                 AAAA
+;;i24(i2)                   AAAA
+;;mR3(depR3-I4)               AAAA
+;;mI4(depI3-R4)	                AAAA			
+;;mR2(depR1-R2)	                  AAAA
+;;mI2(depI1-I2) 	            AAAA
+;;mR4(depR3+I4)               MMMM    AAAA
+;;mI3(depI3+R4)	                MMMM    AAAA				
+;;mR1(depR1+R2)	                  MMMM    AAAA
+;;mI1(depI1+I2)	                    MMMM    AAAA
+;;A3		                      MMMM      AAAAMMMM
+;;A2                                    MMMM  AAAAMMMM
+;;B2		                          MMMM    AAAAMMMM
+;;B3		                            MMMM      AAAAMMMM
+;;A4                                          MMMM  AAAAMMMM
+;;B4		                                MMMM    AAAAMMMM
+
+r4_x4c_2sc_djbfft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,screg1,screg2,pre1,pre2,dst1,dst2
+	xload	xmm0, R1		;; R1
+	xload	xmm2, R3		;; R3
+	subpd	xmm0, xmm2		;; R1 = R1 - R3 (new R3)		;; 1-4
+
+	xload	xmm5, R6		;; I2
+	xload	xmm7, R8		;; I4
+	subpd	xmm5, xmm7		;; I2 = I2 - I4 (new I4)		;; 3-6
+
+	xload	xmm4, R5		;; I1
+	xload	xmm6, R7		;; I3
+	subpd	xmm4, xmm6		;; I1 = I1 - I3 (new I3)		;; 5-8
+
+	xload	xmm1, R2		;; R2
+	xload	xmm3, R4		;; R4
+	subpd	xmm1, xmm3		;; R2 = R2 - R4 (new R4)		;; 7-10
+
+	addpd	xmm2, R1		;; R3 = R1 + R3 (new R1)		;; 9-12
+
+	addpd	xmm3, R2		;; R4 = R2 + R4 (new R2)		;; 11-14
+
+	addpd	xmm6, R5		;; I3 = I1 + I3 (new I1)		;; 13-16
+
+	addpd	xmm7, R6		;; I4 = I2 + I4 (new I2)		;; 15-18
+
+	xprefetchw [pre1]
+
+	 subpd	xmm0, xmm5		;; R3 = R3 - I4 (final R3)		;; 17-20
+	 multwo	xmm5			;; I4 = I4 * 2				;; 17-20
+
+	 subpd	xmm4, xmm1		;; I3 = I3 - R4 (final I4)		;; 19-22
+	 multwo	xmm1			;; R4 = R4 * 2				;; 19-22
+
+	 subpd	xmm2, xmm3		;; R1 = R1 - R2 (final R2)		;; 21-24
+	 multwo	xmm3			;; R2 = R2 * 2				;; 21-24
+
+	 subpd	xmm6, xmm7		;; I1 = I1 - I2 (final I2)		;; 23-26
+	 multwo	xmm7			;; I2 = I2 * 2				;; 23-26
+
+	 addpd	xmm5, xmm0		;; I4 = R3 + I4 (final R4)		;; 25-28
+	 addpd	xmm1, xmm4		;; R4 = I3 + R4 (final I3)		;; 27-30
+	xprefetchw [pre1][pre2]
+	 addpd	xmm3, xmm2		;; R2 = R1 + R2 (final R1)		;; 29-32
+	 addpd	xmm7, xmm6		;; I2 = I1 + I2 (final I1)		;; 31-34
+
+	xstore	dst1, xmm3		;; Save R1				;; 33
+
+	xload	xmm3, [screg1+16]	;; cosine/sine
+	mulpd	xmm3, xmm0		;; A3 = R3 * cosine/sine		;; 25-28
+
+	xstore	dst2, xmm7		;; Save I1				;; 35
+
+	xload	xmm7, [screg2+16]	;; cosine/sine
+	mulpd	xmm7, xmm2		;; A2 = R2 * cosine/sine		;; 27-30
+
+	subpd	xmm7, xmm6		;; A2 = A2 - I2				;; 33-36
+	mulpd	xmm6, [screg2+16]	;; B2 = I2 * cosine/sine		;; 29-32
+
+	subpd	xmm3, xmm1		;; A3 = A3 - I3				;; 35-38
+	mulpd	xmm1, [screg1+16]	;; B3 = I3 * cosine/sine		;; 31-34
+
+	addpd	xmm6, xmm2		;; B2 = B2 + R2				;; 37-40
+
+	xload	xmm2, [screg1+16]	;; cosine/sine
+	mulpd	xmm2, xmm5		;; A4 = R4 * cosine/sine		;; 33-36
+
+	addpd	xmm2, xmm4		;; A4 = A4 + I4				;; 39-42
+	mulpd	xmm4, [screg1+16]	;; B4 = I4 * cosine/sine		;; 35-38
+
+	mulpd	xmm7, [screg2]		;; A2 = A2 * sine (final R2)		;; 37-40
+
+	mulpd	xmm6, [screg2]		;; B2 = B2 * sine (final I2)		;; 41-44
+
+	addpd	xmm1, xmm0		;; B3 = B3 + R3				;; 41-44
+	xload	xmm0, [screg1]		;; Sine
+	mulpd	xmm3, xmm0		;; A3 = A3 * sine (final R3)		;; 39-42
+
+	subpd	xmm4, xmm5		;; B4 = B4 - R4				;; 43-46
+	mulpd	xmm2, xmm0		;; A4 = A4 * sine (final R4)		;; 43-46
+
+	mulpd	xmm1, xmm0		;; B3 = B3 * sine (final I3)		;; 45-48
+	mulpd	xmm4, xmm0		;; B4 = B4 * sine (final I4)		;; 47-50
+	ENDM
+
+;; K10 Cheat sheet for scheduling dependency chains  (non-optimal, we need a version coded just for the K10)
+;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
+;;i13(i1)     AAAA
+;;i13(i3)      AAAA
+;;r24(r2)       AAAA
+;;r24(r4)        AAAA
+;;r13(r1)         AAAA
+;;r13(r3)          AAAA
+;;i24(i2)           AAAA
+;;i24(i4)            AAAA
+;;mI4(depI3-R4)	      AAAA			
+;;mR3(depR3-I4)          AAAA
+;;mR2(depR1-R2)	       AAAA
+;;mI2(depI1-I2) 	AAAA
+;;mI3(depI3+R4)	      MMMMAAAA				
+;;mR4(depR3+I4)          MMMMAAAA
+;;mR1(depR1+R2)	       MMMMAAAA
+;;mI1(depI1+I2)	        MMMMAAAA
+;;A3		             MMMMAAAAMMMM
+;;A2                       MMMM    AAAAMMMM			;; The add might get scheduled sooner
+;;B3		              MMMMAAAAMMMM
+;;A4		                 MMMMAAAAMMMM
+;;B2                            MMMMAAAAMMMM
+;;B4		                  MMMMAAAAMMMM
+
+;; K8 Cheat sheet for scheduling dependency chains
+;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
+;;i13(i1)     AAAA
+;;i13(i3)       AAAA
+;;r24(r2)         AAAA
+;;r24(r4)           AAAA
+;;r13(r1)             AAAA
+;;r13(r3)               AAAA
+;;i24(i2)                 AAAA
+;;i24(i4)                   AAAA
+;;mI4(depI3-R4)	              AAAA			
+;;mR3(depR3-I4)                 AAAA
+;;mR2(depR1-R2)	                  AAAA
+;;mI2(depI1-I2) 	            AAAA
+;;mI3(depI3+R4)	              MMMM    AAAA				
+;;mR4(depR3+I4)                 MMMM    AAAA
+;;mR1(depR1+R2)	                  MMMM    AAAA
+;;mI1(depI1+I2)	                    MMMM    AAAA
+;;A3		                      MMMM    AAAAMMMM
+;;A2                                    MMMM      AAAAMMMM
+;;B3		                          MMMM  AAAAMMMM
+;;A4		                            MMMM    AAAAMMMM
+;;B2                                          MMMM    AAAAMMMM
+;;B4		                                MMMM    AAAAMMMM
+
+r4_x4c_2sc_djbfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem3,mem4,mem7,mem8,screg1,screg2,pre1,pre2,dst1,dst2
+	xload	r7, mem7						;; K8
+	addpd	r7, r5			;; I3 = I1 + I3 (new I1)	;; 1-4
+	subpd	r5, mem7		;; I1 = I1 - I3 (new I3)	;; 3-6
+
+	xload	r4, mem4
+	addpd	r4, r2			;; R4 = R2 + R4 (new R2)	;; 5-8
+	subpd	r2, mem4		;; R2 = R2 - R4 (new R4)	;; 7-10
+
+	xload	r3, mem3
+	addpd	r3, r1			;; R3 = R1 + R3 (new R1)	;; 9-12
+	subpd	r1, mem3		;; R1 = R1 - R3 (new R3)	;; 11-14
+
+	xload	r8, mem8
+	addpd	r8, r6			;; I4 = I2 + I4 (new I2)	;; 13-16
+	subpd	r6, mem8		;; I2 = I2 - I4 (new I4)	;; 15-18
+
+	xprefetchw [pre1]
+
+	subpd	r5, r2			;; I3 = I3 - R4 (final I4)	;; 17-20
+	multwo	r2			;; R4 = R4 * 2			;; 17-20
+
+	subpd	r1, r6			;; R3 = R3 - I4 (final R3)	;; 19-22
+	multwo	r6			;; I4 = I4 * 2			;; 19-22
+
+	subpd	r3, r4			;; R1 = R1 - R2 (final R2)	;; 21-24
+	multwo	r4			;; R2 = R2 * 2			;; 21-24
+
+	subpd	r7, r8			;; I1 = I1 - I2 (final I2)	;; 23-26
+	multwo	r8			;; I2 = I2 * 2			;; 23-26
+
+	addpd	r6, r1			;; I4 = R3 + I4 (final R4)	;; 25-28
+	addpd	r2, r5			;; R4 = I3 + R4 (final I3)	;; 27-30
+	xprefetchw [pre1][pre2]
+	addpd	r4, r3			;; R2 = R1 + R2 (final R1)	;; 29-32
+	addpd	r8, r7			;; I2 = I1 + I2 (final I1)	;; 31-34
+
+	xstore	dst1, r4		;; Save R1
+
+	xload	r4, [screg1+16]		;; cosine/sine
+	mulpd	r4, r1			;; A3 = R3 * cosine/sine	;; 25-28
+
+	xstore	dst2, r8		;; Save I1
+
+	xload	r8, [screg2+16]		;; cosine/sine
+	mulpd	r8, r3			;; A2 = R2 * cosine/sine	;; 27-30
+
+	subpd	r4, r2			;; A3 = A3 - I3			;; 33-36
+	mulpd	r2, [screg1+16]		;; B3 = I3 * cosine/sine	;; 29-32
+
+	addpd	r2, r1			;; B3 = B3 + R3			;; 35-38
+
+	xload	r1, [screg1+16]		;; cosine/sine
+	mulpd	r1, r6			;; A4 = R4 * cosine/sine	;; 31-34
+
+	subpd	r8, r7			;; A2 = A2 - I2			;; 37-40
+	mulpd	r7, [screg2+16]		;; B2 = I2 * cosine/sine	;; 33-36
+
+	addpd	r1, r5			;; A4 = A4 + I4			;; 39-42
+	mulpd	r5, [screg1+16]		;; B4 = I4 * cosine/sine	;; 35-38
+
+	addpd	r7, r3			;; B2 = B2 + R2			;; 41-44
+	xload	r3, [screg1]		;; sine
+	mulpd	r4, r3			;; A3 = A3 * sine (final R3)	;; 37-40
+
+	mulpd	r2, r3			;; B3 = B3 * sine (final I3)	;; 39-42
+
+	mulpd	r8, [screg2]		;; A2 = A2 * sine (final R2)	;; 41-44
+
+	subpd	r5, r6			;; B4 = B4 - R4			;; 43-46
+	mulpd	r1, r3			;; A4 = A4 * sine (final R4)	;; 43-46
+
+	mulpd	r7, [screg2]		;; B2 = B2 * sine (final I2)	;; 45-48
+
+	mulpd	r5, r3			;; B4 = B4 * sine (final I4)	;; 47-50
+
+	ENDM
+
+ENDIF
+
 ;; 64-bit implementations of the above - use the extra XMM registers
 
+IF (@INSTR(,@CATSTR(%xarch),<CORE>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<P4>) NE 0)
 IFDEF X86_64
 
 ; Theoretical best case is 44 clocks on a Core 2.  Now at 47.2 clocks.
@@ -649,7 +928,7 @@ r4_f2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
 	ENDM
 
 r4_nf2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
-	r4_x4c_djbfft_mem64 [srcreg],[srcreg+d1],[srcreg+16],[srcreg+d1+16],[srcreg+32],[srcreg+d1+32],[srcreg+48],[srcreg+d1+48],screg,0,srcreg+srcinc+rbx,d1,[srcreg],[srcreg+16]
+	r4_x4c_djbfft_mem64 [srcreg],[srcreg+d1],[srcreg+16],[srcreg+d1+16],[srcreg+32],[srcreg+d1+32],[srcreg+48],[srcreg+d1+48],screg,0,srcreg+srcinc,d1,[srcreg],[srcreg+16]
 	xstore	[srcreg+d1+32], xmm12	;; Save R4
 	xstore	[srcreg+d1], xmm13	;; Save R3
 	xstore	[srcreg+d1+48], xmm14	;; Save I4
@@ -769,6 +1048,7 @@ r4_x4c_2sc_djbfft_mem64 MACRO R1,R2,R3,R4,R5,R6,R7,R8,screg1,screg2,pre1,pre2,ds
 	mulpd	xmm11, xmm9		;; B2 = B2 * sine (final I2)		; 25-29
 	ENDM
 
+ENDIF
 ENDIF
 
 ;;
@@ -1380,11 +1660,289 @@ r4_x4c_djbunfft MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem7,mem8,dst1,screg,off,pre1,pre2
 	ENDM
 
 
+;; AMD optimized versions of the above macros
+
+IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+
+;; K10 Cheat sheet for scheduling dependency chains  (some empty add slots that a 64-bit version could make use of)
+;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
+;;A2	      MMMMAAAAMMMM
+;;B2	       MMMMAAAAMMMM
+;;A4            MMMMAAAA
+;;A3             MMMMAAAA
+;;B3		  MMMMAAAA
+;;B4		   MMMMAAAA
+
+;;i4(r4-r3)              AAAAMMMM
+;;r3(r4+r3)              MMMMAAAAMMMM
+;;r4(i3-i4)                AAAAMMMM
+;;i3(i3+i4)                MMMMAAAAMMMM
+;;i2(i1-i2)                     AAAA
+;;r2(r1-r2)                      AAAA
+;;r1(r1+r2)                       AAAA
+;;i1(i1+i2)                        AAAA
+
+;;I4(I2-I4)	                    AAAA
+;;I2(I2+I4) 	                    MMMMAAAA
+;;R4(R2-R4)	                     AAAA			
+;;R2(R2+R4)                          MMMMAAAA
+;;R3(R1-R3)	                      AAAA
+;;R1(R1+R3)	                      MMMMAAAA
+;;I3(I1-I3)	                       AAAA				
+;;I1(I1+I3)                            MMMMAAAA
+
+;; K8 Cheat sheet for scheduling dependency chains
+;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
+;;A2	      MMMMAAAA    MMMM
+;;B2	        MMMMAAAA    MMMM
+;;A4              MMMMAAAA
+;;A3                MMMMAAAA
+;;B3		      MMMMAAAA
+;;B4		        MMMMAAAA
+
+;;i4(r4-r3)                   AAAAMMMM
+;;r3(r4+r3)                   MMMMAAAAMMMM
+;;r4(i3-i4)                     AAAAMMMM
+;;i3(i3+i4)                     MMMMAAAAMMMM
+;;i2(i1-i2)                           AAAA
+;;r2(r1-r2)                             AAAA
+;;r1(r1+r2)                               AAAA
+;;i1(i1+i2)                                 AAAA
+
+;;I4(I2-I4)	                              AAAA
+;;I2(I2+I4)			              MMMM    AAAA
+;;R4(R2-R4)	                                AAAA			
+;;R2(R2+R4)			                MMMM    AAAA
+;;R3(R1-R3)	                                  AAAA
+;;R1(R1+R3)	                                  MMMM    AAAA
+;;I3(I1-I3)	                                    AAAA				
+;;I1(I1+I3)                                         MMMM    AAAA
+
+r4_x4c_2sc_djbunfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,dst3,screg1,screg2,pre1,pre2
+	xload	xmm3, [screg2+16]	;; cosine/sine			;; K8
+	xload	xmm6, mem3		;; R2
+	mulpd	xmm6, xmm3		;; A2 = R2 * cosine/sine	;; 1-4
+	xload	xmm0, mem4		;; I2
+	mulpd	xmm3, xmm0		;; B2 = I2 * cosine/sine	;; 3-6
+
+	xload	xmm5, [screg1+16]	;; cosine/sine
+	xload	xmm2, mem7		;; R4
+	mulpd	xmm2, xmm5		;; A4 = R4 * cosine/sine	;; 5-8
+	addpd	xmm6, xmm0		;; A2 = A2 + I2			;; 5-8
+
+	xload	xmm7, mem5		;; R3
+	mulpd	xmm7, xmm5		;; A3 = R3 * cosine/sine	;; 7-10
+	subpd	xmm3, mem3		;; B2 = B2 - R2			;; 7-10
+
+	xload	xmm1, mem6		;; I3
+	mulpd	xmm5, xmm1		;; B3 = I3 * cosine/sine	;; 9-12
+	xload	xmm4, mem8		;; I4
+	subpd	xmm2, xmm4		;; A4 = A4 - I4			;; 9-12
+
+	mulpd	xmm4, [screg1+16]	;; B4 = I4 * cosine/sine	;; 11-14
+	addpd	xmm7, xmm1		;; A3 = A3 + I3			;; 11-14
+
+	mulpd	xmm6, [screg2]		;; A2 = A2 * sine (new R2)	;; 13-16
+	subpd	xmm5, mem5		;; B3 = B3 - R3			;; 13-16
+
+	mulpd	xmm3, [screg2]		;; B2 = B2 * sine (new I2)	;; 15-18
+	addpd	xmm4, mem7		;; B4 = B4 + R4			;; 15-18
+
+	xprefetchw [pre1]
+
+	subpd	xmm2, xmm7		;; R4 = R4 - R3 (new I4)	;; 17-20
+	multwo	xmm7			;; R3 = R3 * 2			;; 17-20
+
+	subpd	xmm5, xmm4		;; I3 = I3 - I4 (new R4)	;; 19-22
+	multwo	xmm4			;; I4 = I4 * 2			;; 19-22
+
+	addpd	xmm7, xmm2		;; R3 = R4 + R3 (new R3)	;; 21-24
+	xload	xmm0, [screg1]		;; Sine
+	mulpd	xmm2, xmm0		;; new I4 = new I4 * sine	;; 21-24
+
+	addpd	xmm4, xmm5		;; I4 = I3 + I4 (new I3)	;; 23-26
+	mulpd	xmm5, xmm0		;; new R4 = new R4 * sine	;; 23-26
+
+	xload	xmm1, mem2		;; I1
+	subpd	xmm1, xmm3		;; I1 = I1 - I2 (new I2)	;; 25-28
+	mulpd	xmm7, xmm0		;; new R3 = new R3 * sine	;; 25-28
+
+	mulpd	xmm4, xmm0		;; new I3 = new I3 * sine	;; 27-30
+	xload	xmm0, mem1		;; R1
+	subpd	xmm0, xmm6		;; R1 = R1 - R2 (new R2)	;; 27-30
+
+	addpd	xmm6, mem1		;; R2 = R1 + R2 (new R1)	;; 29-32
+
+	addpd	xmm3, mem2		;; I2 = I1 + I2 (new I1)	;; 31-34
+
+	xprefetchw [pre1][pre2]
+
+	subpd	xmm1, xmm2		;; I2 = I2 - I4 (final I4)	;; 33-36
+	multwo	xmm2			;; I4 = I4 * 2			;; 33-36
+
+	subpd	xmm0, xmm5		;; R2 = R2 - R4 (final R4)	;; 35-38
+	multwo	xmm5			;; R4 = R4 * 2			;; 35-38
+
+	subpd	xmm6, xmm7		;; R1 = R1 - R3 (final R3)	;; 37-40
+	multwo	xmm7			;; R3 = R3 * 2			;; 37-40
+
+	subpd	xmm3, xmm4		;; I1 = I1 - I3 (final I3)	;; 39-42
+	multwo	xmm4			;; I3 = I3 * 2			;; 39-42
+
+	addpd	xmm2, xmm1		;; I4 = I2 + I4 (final I2)	;; 41-44
+	IFNB <dst3>
+	xstore	dst3, xmm6						;; 41
+	ENDIF
+
+	addpd	xmm5, xmm0		;; R4 = R2 + R4 (final R2)	;; 43-46
+	addpd	xmm7, xmm6		;; R3 = R1 + R3 (final R1)	;; 45-48
+	addpd	xmm4, xmm3		;; I3 = I1 + I3 (final I1)	;; 47-50
+
+	ENDM
+
+;; K10 Cheat sheet for scheduling dependency chains  (some empty add slots that a 64-bit version could make use of)
+;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
+;;B2	      MMMMAAAAMMMM
+;;A2	       MMMMAAAAMMMM
+;;B4            MMMMAAAA
+;;A4             MMMMAAAA
+;;A3		  MMMMAAAA
+;;B3		   MMMMAAAA
+
+;;i4(r4-r3)               AAAAMMMM
+;;r3(r4+r3)               MMMMAAAAMMMM
+;;r4(i3-i4)                AAAAMMMM
+;;i3(i3+i4)                MMMMAAAAMMMM
+;;i2(i1-i2)                     AAAA
+;;r2(r1-r2)                      AAAA
+;;r1(r1+r2)                       AAAA
+;;i1(i1+i2)                        AAAA
+
+;;I4(I2-I4)	                    AAAA
+;;I2(I2+I4) 	                    MMMMAAAA
+;;R4(R2-R4)	                     AAAA			
+;;R2(R2+R4)                          MMMMAAAA
+;;R3(R1-R3)	                      AAAA
+;;R1(R1+R3)	                      MMMMAAAA
+;;I3(I1-I3)	                       AAAA				
+;;I1(I1+I3)                            MMMMAAAA
+
+;; K8 Cheat sheet for scheduling dependency chains
+;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
+;;B2	      MMMMAAAA    MMMM
+;;A2	        MMMMAAAA    MMMM
+;;B4		  MMMMAAAA
+;;A4                MMMMAAAA
+;;A3                  MMMMAAAA
+;;B3		        MMMMAAAA
+
+;;i4(r4-r3)                   AAAAMMMM
+;;r3(r4+r3)                   MMMMAAAAMMMM
+;;r4(i3-i4)                     AAAAMMMM
+;;i3(i3+i4)                     MMMMAAAAMMMM
+;;i2(i1-i2)                           AAAA
+;;r2(r1-r2)                             AAAA
+;;r1(r1+r2)                               AAAA
+;;i1(i1+i2)                                 AAAA
+
+;;I4(I2-I4)	                              AAAA
+;;I2(I2+I4)			              MMMM    AAAA
+;;R4(R2-R4)	                                AAAA			
+;;R2(R2+R4)			                MMMM    AAAA
+;;R3(R1-R3)	                                  AAAA
+;;R1(R1+R3)	                                  MMMM    AAAA
+;;I3(I1-I3)	                                    AAAA				
+;;I1(I1+I3)                                         MMMM    AAAA
+
+r4_x4c_2sc_djbunfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem1,mem2,mem5,mem6,dst1,screg1,screg2,pre1,pre2
+	xload	r1, [screg2+16]		;; cosine/sine
+	mulpd	r1, r4			;; B2 = I2 * cosine/sine	;; 1-4
+
+	subpd	r1, r3			;; B2 = B2 - R2			;; 5-8
+
+	mulpd	r3, [screg2+16]		;; A2 = R2 * cosine/sine	;; 3-6
+
+	xload	r5, [screg1+16]		;; cosine/sine
+	mulpd	r5, r8			;; B4 = I4 * cosine/sine	;; 5-8
+
+	addpd	r3, r4			;; A2 = A2 + I2			;; 7-10
+
+	addpd	r5, r7			;; B4 = B4 + R4			;; 9-12
+
+	xload	r4, [screg1+16]		;; cosine/sine
+	mulpd	r7, r4			;; A4 = R4 * cosine/sine	;; 7-10
+
+	xload	r2, mem5		;; R3
+	mulpd	r2, r4			;; A3 = R3 * cosine/sine	;; 9-12
+
+	subpd	r7, r8			;; A4 = A4 - I4			;; 11-14
+	mulpd	r4, mem6		;; B3 = I3 * cosine/sine	;; 11-14
+
+	addpd	r2, mem6		;; A3 = A3 + I3			;; 13-16
+	mulpd	r1, [screg2]		;; B2 = B2 * sine (new I2)	;; 13-16
+
+	subpd	r4, mem5		;; B3 = B3 - R3			;; 15-18
+	mulpd	r3, [screg2]		;; A2 = A2 * sine (new R2)	;; 15-18
+
+	xprefetchw [pre1]
+
+	subpd	r7, r2			;; R4 = R4 - R3 (new I4)	;; 17-20
+	multwo	r2			;; R3 = R3 * 2			;; 17-20
+
+	subpd	r4, r5			;; I3 = I3 - I4 (new R4)	;; 19-22
+	multwo	r5			;; I4 = I4 * 2			;; 19-22
+
+	addpd	r2, r7			;; R3 = R4 + R3 (new R3)	;; 21-24
+	xload	r6, [screg1]		;; Sine
+	mulpd	r7, r6			;; new I4 = new I4 * sine	;; 21-24
+
+	addpd	r5, r4			;; I4 = I3 + I4 (new I3)	;; 23-26
+	mulpd	r4, r6			;; new R4 = new R4 * sine	;; 23-26
+
+	xload	r8, mem2		;; I1
+	subpd	r8, r1			;; I1 = I1 - I2 (new I2)	;; 25-28
+	mulpd	r2, r6			;; new R3 = new R3 * sine	;; 25-28
+
+	mulpd	r5, r6			;; new I3 = new I3 * sine	;; 27-30
+	xload	r6, mem1		;; R1
+	subpd	r6, r3			;; R1 = R1 - R2 (new R2)	;; 27-30
+
+	addpd	r3, mem1		;; R2 = R1 + R2 (new R1)	;; 29-32
+
+	xprefetchw [pre1][pre2]
+
+	addpd	r1, mem2		;; I2 = I1 + I2 (new I1)	;; 31-34
+
+	subpd	r8, r7			;; I2 = I2 - I4 (final I4)	;; 33-36
+	multwo	r7			;; I4 = I4 * 2			;; 33-36
+
+	subpd	r6, r4			;; R2 = R2 - R4 (final R4)	;; 35-38
+	multwo	r4			;; R4 = R4 * 2			;; 35-38
+
+	subpd	r3, r2			;; R1 = R1 - R3 (final R3)	;; 37-40
+	multwo	r2			;; R3 = R3 * 2			;; 37-40
+
+	subpd	r1, r5			;; I1 = I1 - I3 (final I3)	;; 39-42
+	multwo	r5			;; I3 = I3 * 2			;; 39-42
+
+	addpd	r7, r8			;; I4 = I2 + I4 (final I2)	;; 41-44
+	addpd	r4, r6			;; R4 = R2 + R4 (final R2)	;; 43-46
+	addpd	r2, r3			;; R3 = R1 + R3 (final R1)	;; 45-48
+	addpd	r5, r1			;; I3 = I1 + I3 (final I1)	;; 47-50
+
+	IFNB <dst1>
+	xstore	dst1, r2
+	ENDIF
+
+	ENDM
+
+ENDIF
+
 ;; 64-bit implementations of the above - use the extra XMM registers
 ;; For some reason this implementation is worse on a Pentium 4.
 
+IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0
 IFDEF X86_64
-IF @INSTR(,@CATSTR(%xarch),<P4>) NE 1
 
 ; Theoretical best case is 44 clocks on a Core 2.  Now at 51.4 clocks.
 r4_x4cl_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scoff
