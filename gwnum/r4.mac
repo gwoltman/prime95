@@ -367,6 +367,7 @@ r4_x4c_2sc_djbfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem3,mem4,mem7,mem8,
 	mulpd	r5, r3			;; B4 = B4 * sine (final I4)
 	ENDM
 
+IFDEF UNUSED
 r4_x4c_djbfft MACRO r1,r2,r3,r4,r5,r6,r7,r8,screg,off,pre1,pre2,dst1,dst2
 	subpd	r1, r3			;; R1 = R1 - R3 (new R3)
 	multwo	r3
@@ -438,6 +439,7 @@ r4_x4c_djbfft MACRO r1,r2,r3,r4,r5,r6,r7,r8,screg,off,pre1,pre2,dst1,dst2
 	mulpd	r7, [screg+off+32]	;; B2 = B2 * sine (final I2)
 	mulpd	r5, r3			;; B4 = B4 * sine (final I4)
 	ENDM
+ENDIF
 
 ;; AMD optimized versions of the above macros
 
@@ -1563,6 +1565,7 @@ r4_x4c_djbunfft_partial_mem_shuffle MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem1,mem2,mem5
 	ENDM
 ENDIF
 
+IFDEF UNUSED
 r4_x4c_djbunfft MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem7,mem8,dst1,screg,off,pre1,pre2
 	xload	r7, [screg+off+32+16]	;; cosine/sine
 	mulpd	r7, r3			;; A2 = R2 * cosine/sine
@@ -1658,6 +1661,7 @@ r4_x4c_djbunfft MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem7,mem8,dst1,screg,off,pre1,pre2
 
 	ENDIF
 	ENDM
+ENDIF
 
 
 ;; AMD optimized versions of the above macros
@@ -4224,6 +4228,133 @@ r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2, dest
 	ENDM
 
 
+IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+
+r4_x4c_simple_fft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,pre1,pre2
+	xload	xmm0, R1		;; R1
+	xload	xmm2, R3		;; R3
+	subpd	xmm0, xmm2		;; R1 = R1 - R3 (new R3)
+	addpd	xmm2, R1		;; R3 = R1 + R3 (new R1)
+
+	xload	xmm4, R5		;; I1
+	xload	xmm6, R7		;; I3
+	subpd	xmm4, xmm6		;; I1 = I1 - I3 (new I3)
+	addpd	xmm6, R5		;; I3 = I1 + I3 (new I1)
+
+	xprefetchw [pre1]
+
+	xload	xmm1, R2		;; R2
+	xload	xmm3, R4		;; R4
+	subpd	xmm1, xmm3		;; R2 = R2 - R4 (new R4)
+	addpd	xmm3, R2		;; R4 = R2 + R4 (new R2)
+
+	xload	xmm5, R6		;; I2
+	xload	xmm7, R8		;; I4
+	subpd	xmm5, xmm7		;; I2 = I2 - I4 (new I4)
+	addpd	xmm7, R6		;; I4 = I2 + I4 (new I2)
+
+	xprefetchw [pre1][pre2]
+
+	subpd	xmm4, xmm1		;; I3 = I3 - R4 (final I4)
+	multwo	xmm1			;; R4 = R4 * 2
+
+	subpd	xmm0, xmm5		;; R3 = R3 - I4 (final R3)
+	multwo	xmm5			;; I4 = I4 * 2
+
+	subpd	xmm2, xmm3		;; R1 = R1 - R2 (final R2)
+	multwo	xmm3			;; R2 = R2 * 2
+
+	subpd	xmm6, xmm7		;; I1 = I1 - I2 (final I2)
+	multwo	xmm7			;; I2 = I2 * 2
+
+	addpd	xmm1, xmm4		;; R4 = I3 + R4 (final I3)
+	addpd	xmm5, xmm0		;; I4 = R3 + I4 (final R4)
+	addpd	xmm3, xmm2		;; R2 = R1 + R2 (final R1)
+	addpd	xmm7, xmm6		;; I2 = I1 + I2 (final I1)
+	ENDM
+
+r4_x4c_simple_fft_partial_mem MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem3, mem4, mem7, mem8, pre1, pre2
+	xload	r3, mem3		;; R3
+	addpd	r3, r1			;; R3 = R1 + R3 (new R1)
+	subpd	r1, mem3		;; R1 = R1 - R3 (new R3)
+
+	xload	r7, mem7		;; I3
+	addpd	r7, r5			;; I3 = I1 + I3 (new I1)
+	subpd	r5, mem7		;; I1 = I1 - I3 (new I3)
+
+	xprefetchw [pre1]
+
+	xload	r4, mem4		;; R4
+	addpd	r4, r2			;; R4 = R2 + R4 (new R2)
+	subpd	r2, mem4		;; R2 = R2 - R4 (new R4)
+
+	xload	r8, mem8		;; I4
+	addpd	r8, r6			;; I4 = I2 + I4 (new I2)
+	subpd	r6, mem8		;; I2 = I2 - I4 (new I4)
+
+	xprefetchw [pre1][pre2]
+
+	subpd	r5, r2			;; I3 = I3 - R4 (final I4)
+	multwo	r2			;; R4 = R4 * 2
+
+	subpd	r1, r6			;; R3 = R3 - I4 (final R3)
+	multwo	r6			;; I4 = I4 * 2
+
+	subpd	r3, r4			;; R1 = R1 - R2 (final R2)
+	multwo	r4			;; R2 = R2 * 2
+
+	subpd	r7, r8			;; I1 = I1 - I2 (final I2)
+	multwo	r8			;; I2 = I2 * 2
+
+	addpd	r2, r5			;; R4 = I3 + R4 (final I3)
+	addpd	r6, r1			;; I4 = R3 + I4 (final R4)
+	addpd	r4, r3			;; R2 = R1 + R2 (final R1)
+	addpd	r8, r7			;; I2 = I1 + I2 (final I1)
+	ENDM
+
+r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2, dest1
+	subpd	r1, r3			;; R1 = R1 - R2 (new R2)
+	multwo	r3			;; R2 = R2 * 2
+	addpd	r3, r1			;; R2 = R1 + R2 (new R1)
+
+	subpd	r7, r5			;; R4 = R4 - R3 (new I4)
+	multwo	r5			;; R3 = R3 * 2
+	addpd	r5, r7			;; R3 = R4 + R3 (new R3)
+
+	subpd	r2, r4			;; I1 = I1 - I2 (new I2)
+	multwo	r4			;; I2 = I2 * 2
+	addpd	r4, r2			;; I2 = I1 + I2 (new I1)
+
+	xload	r8, mem8		;; I4
+	addpd	r8, r6			;; I4 = I3 + I4 (new I3)
+	subpd	r6, mem8		;; I3 = I3 - I4 (new R4)
+
+	xprefetchw [pre1]
+
+	subpd	r3, r5			;; R1 = R1 - R3 (final R3)
+	multwo	r5			;; R3 = R3 * 2
+
+	subpd	r1, r6			;; R2 = R2 - R4 (final R4)
+	multwo	r6			;; R4 = R4 * 2
+
+	subpd	r2, r7			;; I2 = I2 - I4 (final I4)
+	multwo	r7			;; R4 = R4 * 2
+
+	subpd	r4, r8			;; I1 = I1 - I3 (final I3)
+	multwo	r8			;; I3 = I3 * 2
+
+	xprefetchw [pre1][pre2]
+
+	addpd	r5, r3			;; R3 = R1 + R3 (final R1)
+	addpd	r6, r1			;; R4 = R2 + R4 (final R2)
+	xstore	dest1, r5
+	addpd	r7, r2			;; I4 = I2 + I4 (final I2)
+	addpd	r8, r4			;; I3 = I1 + I3 (final I1)
+	ENDM
+
+ENDIF
+
+IF (@INSTR(,@CATSTR(%xarch),<CORE>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<P4>) NE 0)
 IFDEF X86_64
 
 r4_x4c_simple_fft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,pre1,pre2
@@ -4354,6 +4485,13 @@ r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2, dest
 	subpd	r4, r8			;; I1 = I1 - I3 (final I3)
 	addpd	r8, r5			;; I3 = I1 + I3 (final I1)
 	ENDM
+
+ENDIF
+ENDIF
+
+
+IF (@INSTR(,@CATSTR(%xarch),<CORE>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<P4>) NE 0)
+IFDEF X86_64
 
 r4_x4cl_four_complex_fft_final MACRO srcreg,srcinc,d1,d2
 	xload	xmm15, [srcreg]		;; R1
@@ -5213,6 +5351,7 @@ r4_x4cl_four_complex_with_mulf MACRO srcreg,srcinc,d1,d2
 	bump	srcreg, srcinc
 	ENDM
 
+ENDIF
 ENDIF
 
 ;;
