@@ -4656,11 +4656,6 @@ next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
 			return (GWERROR_TOO_LARGE);
 		}
 
-/* If this is a small FFT or an x87 FFT, then there is only one implementation */
-
-		if (gwdata->FFTLEN < 7168) break;
-		if (! (gwdata->cpu_flags & CPU_SSE2)) break;
-
 /* If this CPU will crash running this FFT then skip this entry. */
 /* Our K8 and K10 optimized FFTs requires prefetchw (3DNow!) capability. */
 /* If this is an Intel CPU, skip over these implementations. */
@@ -4670,7 +4665,9 @@ next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
 			goto next3;
 
 /* Handle benchmarking case that selects the nth FFT implementation */
-/* without regard to any other consideration. */
+/* without regard to any other consideration.  NOTE: Due to the extreme */
+/* penalty a K8 pays for using the movaps instruction that the Core and P4 */
+/* implementations use, we will not benchmark these on a K8. */
 
 		if (gwdata->bench_pick_nth_fft) {
 			if (jmptab->proc_ptr == prev_proc_ptrs[0]) goto next3;
@@ -4678,6 +4675,9 @@ next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
 			if (jmptab->proc_ptr == prev_proc_ptrs[2]) goto next3;
 			if (jmptab->proc_ptr == prev_proc_ptrs[3]) goto next3;
 			if (jmptab->proc_ptr == prev_proc_ptrs[4]) goto next3;
+			if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_K8 &&
+			    (arch == 2 || arch == 3))
+				goto next3;
 			gwdata->bench_pick_nth_fft--;
 			if (gwdata->bench_pick_nth_fft) goto next3;
 			break;
@@ -4693,11 +4693,19 @@ next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
 			if (jmptab->proc_ptr == prev_proc_ptrs[2]) goto next3;
 			if (jmptab->proc_ptr == prev_proc_ptrs[3]) goto next3;
 			if (jmptab->proc_ptr == prev_proc_ptrs[4]) goto next3;
+			if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_K8 &&
+			    (arch == 2 || arch == 3))
+				goto next3;
 			qa_nth_fft++;
 			if (qa_nth_fft <= gwdata->qa_pick_nth_fft) goto next3;
 			gwdata->qa_picked_nth_fft = qa_nth_fft;
 			break;
 		}
+
+/* If this is a small FFT or an x87 FFT, then there is only one implementation */
+
+		if (gwdata->FFTLEN < 7168) break;
+		if (! (gwdata->cpu_flags & CPU_SSE2)) break;
 
 /* The Radix-4/8 DJB FFT with partial normalization saves a few multiplies by doing part */
 /* of the normalization during the forward and inverse FFT.  Unfortunately, this optimization */
