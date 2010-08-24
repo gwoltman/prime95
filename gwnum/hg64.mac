@@ -1,28 +1,9 @@
-; Copyright 2001-2009 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2010 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
 ; These macros implement 64-bit SSE2 optimized versions of macros found
 ; in hg.mac.  We make use of the 8 extra registers.
-
-;;SHUFPD uses Core 2 port 0 (competes with mulpd)
-;;SHUFPS uses Core 2 port 5 (but adds one clock latency to transfer data to integer unit)
-;;UNPCKHPD uses Core 2 port 0 (competes with mulpd)
-;;PUNPCKHQDQ uses Core 2 port 5 (but adds one clock latency to transfer data to integer unit)
-;; This implementation chooses the port 5 option as it underutilized
-shuffle_store MACRO mem1, mem2, reglo, reghi
-	movsd	Q mem1, reglo
-	movsd	Q mem1[8], reghi
-	punpckhqdq reglo, reghi
-	xstore	mem2, reglo
-	ENDM
-
-shuffle_load MACRO reglo, reghi, mem1, mem2
-	xload	reglo, mem1
-	xload	reghi, mem2
-	punpcklqdq reglo, reghi
-	movlpd	reghi, Q mem1[8]
-	ENDM
 
 xfive_reals_fft_preload MACRO
 	xload	xmm8, XMM_P618		;; (.588/.951)
