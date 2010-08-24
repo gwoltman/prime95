@@ -64,81 +64,74 @@ mulhalfs MACRO	r
 ;; On AMD64 (K8 architecture, not the Phenom K10 architecture), punpckhqdq is grossly slow.
 
 unpckhi MACRO dest, src
-	IFNDEF AMD
-	punpckhqdq dest, src
-	ELSE
+	IF (@INSTR(,@CATSTR(%xarch),<P4>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
 	unpckhpd dest, src
+	ELSE
+	punpckhqdq dest, src
 	ENDIF
 	ENDM
 
 unpcklo MACRO dest, src
-	IFNDEF AMD
-	punpcklqdq dest, src
-	ELSE
+	IF (@INSTR(,@CATSTR(%xarch),<P4>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
 	unpcklpd dest, src
+	ELSE
+	punpcklqdq dest, src
 	ENDIF
 	ENDM
 
 ;; Macros that load or store register(s) shuffling the data
 
 low_load MACRO reg, mem1, mem2
-	IFNDEF AMD
-	xload	reg, mem1
-	unpcklo reg, Q mem2
-	ELSE
+	IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
 	movhpd	reg, Q mem2
 	movlpd	reg, Q mem1
+	ELSE
+	xload	reg, mem1
+	unpcklo reg, Q mem2
 	ENDIF
 	ENDM
 
 high_load MACRO reg, mem1, mem2
-	IFNDEF AMD
-	xload	reg, mem2
+	IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+	movhpd	reg, Q mem2[8]
 	movlpd	reg, Q mem1[8]
 	ELSE
-	movhpd	reg, Q mem2[8]
+	xload	reg, mem2
 	movlpd	reg, Q mem1[8]
 	ENDIF
 	ENDM
 
 shuffle_load MACRO reglo, reghi, mem1, mem2
-	IFNDEF AMD
-	xload	reglo, mem1
-	xload	reghi, mem2
-	unpcklo	reglo, reghi
-	movlpd	reghi, Q mem1[8]
-	ELSE
+	IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
 	movhpd	reglo, Q mem2
 	movlpd	reglo, Q mem1
 	movhpd	reghi, Q mem2[8]
+	movlpd	reghi, Q mem1[8]
+	ELSE
+	xload	reglo, mem1
+	xload	reghi, mem2
+	unpcklo	reglo, reghi
 	movlpd	reghi, Q mem1[8]
 	ENDIF
 	ENDM
 
 shuffle_load_with_temp MACRO reglo, reghi, mem1, mem2, tmp
-	IFNDEF	AMD
+	IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+	shuffle_load reglo, reghi, mem1, mem2
+	ELSE
 	xload	reglo, mem1
 	xcopy	reghi, reglo
 	xload	tmp, mem2
 	unpcklo	reglo, tmp
 	unpckhi	reghi, tmp
-	ELSE
-	shuffle_load reglo, reghi, mem1, mem2
 	ENDIF
 	ENDM
 
 shuffle_store MACRO mem1, mem2, reglo, reghi
-	IFNDEF AMD
 	movsd	Q mem1, reglo
 	movsd	Q mem1[8], reghi
 	unpckhi reglo, reghi
 	xstore	mem2, reglo
-	ELSE
-	movsd	Q mem1, reglo
-	movsd	Q mem1[8], reghi
-	unpckhi reglo, reghi
-	xstore	mem2, reglo
-	ENDIF
 	ENDM
 
 ;; Like shuffle_store but mem1 has already been written to memory
@@ -151,14 +144,14 @@ shuffle_store_partial MACRO mem1, mem2, reglo, reghi
 
 ;; Like shuffle_store but a temporary register is available
 shuffle_store_with_temp MACRO mem1, mem2, reglo, reghi, tmp
-	IFNDEF AMD
+	IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+	shuffle_store mem1, mem2, reglo, reghi
+	ELSE
 	xcopy	tmp, reglo
 	unpcklo reglo, reghi
 	xstore	mem1, reglo
 	unpckhi tmp, reghi
 	xstore	mem2, tmp
-	ELSE
-	shuffle_store mem1, mem2, reglo, reghi
 	ENDIF
 	ENDM
 

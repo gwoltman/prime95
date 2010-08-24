@@ -6,22 +6,6 @@
 ; in hg.mac.
 
 
-; *************** utility macros ******************
-
-; No noticeable difference between these two identical unpack instructions.
-; The P4 optimization manual lists a 2 clock latency difference
-unpckhi MACRO dest, src
-	unpckhpd dest, src
-;;	punpckhqdq dest, src
-	ENDM
-
-; No noticeable difference between these two identical unpack instructions.
-; The P4 optimization manual lists a different execution unit
-unpcklo MACRO dest, src
-	unpcklpd dest, src
-;;	punpcklqdq dest, src
-	ENDM
-
 x6r_fft MACRO r1, r2, r3, r4, r5, r6, t1, t2
 	xcopy	t1, r3
 	addpd	r3, r5			;; T4 = R3 + R5
