@@ -1556,7 +1556,7 @@ nonoexec MACRO ops:vararg
 ;IMPL_ALL_CORE = 1
 ;IMPL_ALL_P4 = 1
 ;IMPL_ALL_P4TP = 1
-;IMPL_ALL_K8 = 1
+IMPL_ALL_K8 = 1
 ;IMPL_ALL_K10 = 1
 
 ; Handy macro to only include statement if we are prefetching
@@ -1622,6 +1622,7 @@ loops_init_prefetch MACRO count, pfamt, pffreq, pfreg, first_completed, first_it
 	IF PREFETCHING EQ 0
 	  loops_init count, first_completed, first_iters
 	ELSE
+	  loops_double_prefetching = 0
 	  loops_set_prefetch pfamt, pffreq, pfreg
 	  IFB <first_iters>
 	    loops_init_common count, first_completed, first_iters
@@ -1689,6 +1690,9 @@ x:	  org	x-4
 
 loops_set_prefetch MACRO pfamt, pffreq, pfreg
 	IF PREFETCHING NE 0
+	  IF loops_double_prefetching EQ 1
+	    cant_set_prefetch_with_delayed_double_prefetch_pending
+	  ENDIF
 	  IF pfamt NE 64 AND pfamt NE 128
 	    bad_pfamt_in_loops_init_prefetch
           ELSEIF PREFETCHING EQ 128
@@ -1709,6 +1713,7 @@ loops_set_prefetch MACRO pfamt, pffreq, pfreg
 	    ENDIF
 	  ENDIF
 	  loops_pfreg EQU pfreg
+	  loops_orig_pffreq = pffreq
 	ENDIF
 	ENDM
 
@@ -1735,6 +1740,10 @@ loops	MACRO iters, dest, incr
 	    prefetcht1 [loops_pfreg]
 	    prefetcht1 [loops_pfreg+PREFETCHING]
 	    bump loops_pfreg, 2*PREFETCHING
+	  ENDIF
+	  IF loops_double_prefetching EQ 1
+	    loops_double_prefetching = 0
+	    loops_pffreq = loops_pffreq * 2
 	  ENDIF
 	  local_iters = local_iters/small_count
 	ENDIF
@@ -1864,6 +1873,25 @@ x:
 
 loops_undo MACRO iters
 	LOCAL	x
+
+	IF loops_pffreq EQ loops_completed
+	  IF loops_pfamt EQ 1
+	    prefetcht1 [loops_pfreg]
+	    bump loops_pfreg, PREFETCHING
+	  ELSE
+	    prefetcht1 [loops_pfreg]
+	    prefetcht1 [loops_pfreg+PREFETCHING]
+	    bump loops_pfreg, 2*PREFETCHING
+	  ENDIF
+	  IF loops_double_prefetching EQ 1
+	    loops_double_prefetching = 0
+	    loops_pffreq = loops_pffreq * 2
+	  ENDIF
+	ELSEIF loops_orig_pffreq EQ loops_completed
+	  loops_double_prefetching = 1
+	  loops_pffreq = loops_pffreq / 2
+	ENDIF
+
 	IF (iters AND (iters-1)) EQ 0
 	  loops_completed = loops_completed / (iters)
 	  IF loops_count LE 128
