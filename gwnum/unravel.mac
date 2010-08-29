@@ -1683,6 +1683,9 @@ x:	  org	x-4
 	  mov	eax, loops_initial_value
 	ENDIF
 
+	;; Clear funky xprefetch variable
+	loops_undo_called = 0
+
 	;; Save values for a loops_reset
 	loops_original_count = loops_count
 	loops_original_initial_value = loops_initial_value
@@ -1926,6 +1929,10 @@ x:	  org	x-4
 	  loops_count = loops_count / next_power_2 * iters
 	  loops_pffreq = loops_pffreq / next_power_2 * iters
 	ENDIF
+
+	;; Set funky xprefetch variable
+	loops_undo_called = 1
+
 	ENDM
 
 loops_reset MACRO

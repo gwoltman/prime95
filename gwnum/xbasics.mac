@@ -187,15 +187,24 @@ xprefetcht1 MACRO addr
 	ENDM
 
 ; Macro to prefetch a line into the L1 cache (AMD only)
+; Note:  We use an ugly hack to not prefetch if loops_undo 
+; has been called.  This only happens when we have merged FFT levels
+; in pass 2.
+
+loops_undo_called = 0
 
 xprefetch MACRO addr
 	IFDEF AMD
+	IF loops_undo_called EQ 0
 	prefetch addr
+	ENDIF
 	ENDIF
 	ENDM
 xprefetchw MACRO addr
 	IFDEF AMD
+	IF loops_undo_called EQ 0
 	prefetchw addr
+	ENDIF
 	ENDIF
 	ENDM
 
