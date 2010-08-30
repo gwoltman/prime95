@@ -208,6 +208,12 @@ xprefetchw MACRO addr
 	ENDIF
 	ENDM
 
+xxprefetch MACRO addr
+	IFDEF AMD
+	prefetch addr
+	ENDIF
+	ENDM
+
 ;;
 ;; Macros that do a complex squaring or multiplication
 ;;
