@@ -8294,12 +8294,12 @@ r4_h8r_h4c_2sc_djbfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,s
 
 	;; Do the eight reals part
 
-	punpcklqdq xmm3, xmm3		;; Copy to high part of XMM register
-	punpcklqdq xmm1, xmm1
-	punpcklqdq xmm7, xmm7
-	punpcklqdq xmm0, xmm0
-	punpcklqdq xmm6, xmm6
-	punpcklqdq xmm4, xmm4
+	unpcklo xmm3, xmm3		;; Copy to high part of XMM register
+	unpcklo xmm1, xmm1
+	unpcklo xmm7, xmm7
+	unpcklo xmm0, xmm0
+	unpcklo xmm6, xmm6
+	unpcklo xmm4, xmm4
 
 	movlpd	xmm1, Q mem4		;; R4
 	movlpd	xmm7, Q mem8		;; R8
@@ -8560,12 +8560,12 @@ r4_h8r_h4c_2sc_djbunfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1
 
 	;; Do the eight-reals part
 
-	punpcklqdq xmm0, xmm0
-	punpcklqdq xmm1, xmm1
-	punpcklqdq xmm3, xmm3
-	punpcklqdq xmm4, xmm4
-	punpcklqdq xmm6, xmm6
-	punpcklqdq xmm7, xmm7
+	unpcklo xmm0, xmm0
+	unpcklo xmm1, xmm1
+	unpcklo xmm3, xmm3
+	unpcklo xmm4, xmm4
+	unpcklo xmm6, xmm6
+	unpcklo xmm7, xmm7
 
 	movlpd	xmm1, Q [screg3+24]	;; cosine/sine for w^5n
 	mulsd	xmm1, Q mem7		;; A4 = R4 * cosine/sine
@@ -8884,12 +8884,12 @@ r4_h8r_h4c_simple_fft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,dst1,dst
 
 	;; Do the eight reals part
 
-	punpcklqdq xmm2, xmm2		;; Copy to high part of XMM register
-	punpcklqdq xmm6, xmm6
-	punpcklqdq xmm0, xmm0
-	punpcklqdq xmm1, xmm1
-	punpcklqdq xmm5, xmm5
-	punpcklqdq xmm4, xmm4
+	unpcklo xmm2, xmm2		;; Copy to high part of XMM register
+	unpcklo xmm6, xmm6
+	unpcklo xmm0, xmm0
+	unpcklo xmm1, xmm1
+	unpcklo xmm5, xmm5
+	unpcklo xmm4, xmm4
 
 	movlpd	xmm1, Q mem4		;; R4
 	movsd	xmm7, Q mem8		;; R8
@@ -8990,13 +8990,13 @@ r4_h8r_h4c_simple_unfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,pre1,p
 
 	;; Do the eight-reals part
 
-	punpcklqdq xmm0, xmm0
-	punpcklqdq xmm1, xmm1
-	punpcklqdq xmm2, xmm2
-	punpcklqdq xmm3, xmm3
-	punpcklqdq xmm5, xmm5
-	punpcklqdq xmm6, xmm6
-	punpcklqdq xmm7, xmm7
+	unpcklo xmm0, xmm0
+	unpcklo xmm1, xmm1
+	unpcklo xmm2, xmm2
+	unpcklo xmm3, xmm3
+	unpcklo xmm5, xmm5
+	unpcklo xmm6, xmm6
+	unpcklo xmm7, xmm7
 
 	movsd	xmm4, Q mem5		;; R5
 	movlpd	xmm1, Q mem7		;; R7

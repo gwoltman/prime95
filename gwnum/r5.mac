@@ -2017,13 +2017,13 @@ r5_h10r_h5c_djbfft_mem MACRO src,mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,mem9,me
 	mulsd	xmm2, xmm7			;; B4 = B4 * sine (new I4)
 
 	;; Do the ten-reals part
-	punpcklqdq xmm1, xmm1		;; Copy to high part of XMM register
-	punpcklqdq xmm6, xmm6
-	punpcklqdq xmm0, xmm0
-	punpcklqdq xmm3, xmm3
-	punpcklqdq xmm5, xmm5
-	punpcklqdq xmm4, xmm4
-	punpcklqdq xmm2, xmm2
+	unpcklo xmm1, xmm1		;; Copy to high part of XMM register
+	unpcklo xmm6, xmm6
+	unpcklo xmm0, xmm0
+	unpcklo xmm3, xmm3
+	unpcklo xmm5, xmm5
+	unpcklo xmm4, xmm4
+	unpcklo xmm2, xmm2
 
 	movlpd	xmm3, Q [src+mem3]	;; R3
 	addsd	xmm3, Q mem9		;; R3+R9
@@ -2648,11 +2648,11 @@ r5_h10r_h5c_djbunfft_mem MACRO src,memr1,memi1,memr2,memi2,memr3,memi3,memr4,mem
 
 	;; Do the ten reals part
 
-	punpcklqdq xmm6, xmm6
-	punpcklqdq xmm4, xmm4
-	punpcklqdq xmm2, xmm2
-	punpcklqdq xmm0, xmm0
-	punpcklqdq xmm5, xmm5
+	unpcklo xmm6, xmm6
+	unpcklo xmm4, xmm4
+	unpcklo xmm2, xmm2
+	unpcklo xmm0, xmm0
+	unpcklo xmm5, xmm5
 
 	movsd	xmm1, Q memr2		;; R2
 	mulsd	xmm1, Q [screg3+8]	;; A2 = R2 * cosine/sine
