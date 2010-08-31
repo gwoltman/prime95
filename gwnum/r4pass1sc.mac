@@ -927,6 +927,7 @@ b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 12*clmblkdst, rdi
 	bump	rdi, -12*2*clm*XMM_SCD3-4*2*clm*XMM_SCD1 ;; Complex data sin/cos ptr
 	lea	rdx, [rdi-4*2*clm*XMM_SCD1] ;; Real data sin/cos ptr
 	loops_init 8*2*clm		;; 2 iterations of 4 iters of 2*clm
+	r3_x3cl_six_reals_three_complex_djbfft_preload
 b6a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b6b:	r3_x3cl_six_reals_three_complex_djbfft rsi, 64, 4*clmblkdst, rdi, rdx
 	bump	rdi, XMM_SCD1		;; Next sine/cosine pointer

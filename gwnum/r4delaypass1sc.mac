@@ -1358,6 +1358,7 @@ b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 6*clmblkdst8, rdi
 	bump	rdx, 4*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD2 + 2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD4 ;; Real data sin/cos ptr
 	lea	rdi, [rdx+16*2*clm*XMM_SCD1] ;; Complex data sin/cos ptr
 	loops_init 32*2*clm		;; 2 sets of 2 iters of 8 of 2*clm
+	r3_x3cl_six_reals_three_complex_djbfft_preload
 b4a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b4b:	r3_x3cl_six_reals_three_complex_djbfft rsi, 64, 2*clmblkdst8, rdi, rdx
 	bump	rdi, XMM_SCD1		;; Next sine/cosine pointer
@@ -2887,6 +2888,7 @@ b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 12*clmblkdst8, rdi
 	bump	rdx, 8*2*clm*XMM_SCD2 + 8*2*clm*XMM_SCD2 + 2*clm*XMM_SCD4 + 4*2*clm*XMM_SCD8 ;; Real data sin/cos ptr
 	lea	rdi, [rdx+32*2*clm*XMM_SCD1] ;; Complex data sin/cos ptr
 	loops_init 64*2*clm		;; 8 iters of 8 of 2*clm
+	r3_x3cl_six_reals_three_complex_djbfft_preload
 b4a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b4b:	r3_x3cl_six_reals_three_complex_djbfft rsi, 64, 4*clmblkdst8, rdi, rdx
 	bump	rdi, XMM_SCD1		;; Next sine/cosine pointer
@@ -4627,6 +4629,7 @@ b3b:	r4_x4cl_four_complex_djbfft rsi, 64, 6*clmblkdst8, 12*clmblkdst8, rdi
 	bump	rdx, 4*2*clm*XMM_SCD2 + 4*2*clm*XMM_SCD2 + 2*clm*XMM_SCD2 + 16*2*clm*XMM_SCD4 ;; Real data sin/cos ptr
 	lea	rdi, [rdx+16*2*clm*XMM_SCD1] ;; Complex data sin/cos ptr
 	loops_init 128*2*clm		;; 8 iters of 2 iters of 8 of 2*clm
+	r3_x3cl_six_reals_three_complex_djbfft_preload
 b4a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b4b:	r3_x3cl_six_reals_three_complex_djbfft rsi, 64, 2*clmblkdst8, rdi, rdx
 	bump	rdi, XMM_SCD1		;; Next sine/cosine pointer
@@ -6584,6 +6587,7 @@ b3b:	r4_x4cl_four_complex_djbfft rsi, 64, 12*clmblkdst8, 24*clmblkdst8, rdi
 	bump	rdx, 8*2*clm*XMM_SCD2 + 8*2*clm*XMM_SCD2 + 2*clm*XMM_SCD4 + 16*2*clm*XMM_SCD8 ;; Real data sin/cos ptr
 	lea	rdi, [rdx+32*2*clm*XMM_SCD1] ;; Real data sin/cos ptr
 	loops_init 256*2*clm		;; 2 sets of 16 iters of 8 of 2*clm
+	r3_x3cl_six_reals_three_complex_djbfft_preload
 b4a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b4b:	r3_x3cl_six_reals_three_complex_djbfft rsi, 64, 4*clmblkdst8, rdi, rdx
 	bump	rdi, XMM_SCD1		;; Next sine/cosine pointer

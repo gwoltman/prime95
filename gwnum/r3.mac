@@ -1074,6 +1074,10 @@ ENDIF
 ;; ************************************* six-reals-fft variants ******************************************
 ;;
 
+r3_x3cl_six_reals_three_complex_djbfft_preload MACRO
+	r3_x3cl_three_complex_djbfft_preload
+	ENDM
+
 r3_x3cl_six_reals_three_complex_djbfft MACRO srcreg,srcinc,d1,screg1,screg2
 	xload	xmm2, [srcreg+2*d1+32]		;; R3
 	xload	xmm5, [srcreg+2*d1+48]		;; I3
