@@ -37,11 +37,21 @@ INCLUDE r8.mac
 ;; Instead of multiplying by w^2x, w^x, w^3x, we multiply by w^2x, w^x, w^-x.
 ;;
 
+r4_x4cl_four_complex_djbfft_preload MACRO
+	r4_x4cl_2sc_four_complex_djbfft_preload
+	ENDM
+
 r4_x4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
 	r4_x4cl_2sc_four_complex_djbfft srcreg,srcinc,d1,d2,screg,screg+32
 	ENDM
 
 ;; Special version used in pass 2 when first levels are radix-3.
+
+r4_x4cl_2sc_four_complex_djbfft_preload MACRO
+	r4_x4c_2sc_djbfft_mem_preload
+	;r4_x4c_2sc_djbfft_partial_mem_preload -- assumed to be identical to r4_x4c_2sc_djbfft_mem_preload
+	ENDM
+
 r4_x4cl_2sc_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,screg2
 	d3 = d2 + d1
 	r4_x4c_2sc_djbfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg1,screg2,srcreg+srcinc,d1,[srcreg],[srcreg+16]
@@ -71,6 +81,10 @@ r4_x4cl_2sc_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,screg2
 
 ;; Used in last levels of an r4 FFT pass 1 (not in r4delay FFT).  No swizzling.
 IFDEF UNUSED
+r4_g4cl_four_complex_djbfft_preload MACRO
+	r4_x4c_djbfft_mem_preload
+	;r4_x4c_djbfft_partial_mem_preload -- assumed same as r4_x4c_djbfft_mem_preload
+	ENDM
 r4_g4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	xprefetch [srcreg+srcinc]
 	r4_x4c_djbfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg,0,dstreg+dstinc,e1,[dstreg],[dstreg+16]
@@ -104,6 +118,12 @@ r4_g4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 ENDIF
 
 ;; Used in last levels of an r4 FFT pass 1 (not in r4delay FFT).  Swizzling.
+
+r4_sg4cl_four_complex_djbfft_preload MACRO
+	r4_x4c_djbfft_mem_preload
+	;r4_x4c_djbfft_partial_mem_preload -- assumed to be identical to r4_x4c_djbfft_mem_preload
+	ENDM
+
 r4_sg4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	xprefetch [srcreg+srcinc]
 	r4_x4c_djbfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg,0,dstreg+dstinc,e1,[dstreg],[dstreg+32]
@@ -150,6 +170,11 @@ r4_s2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
 ENDIF
 
 ;; Used in first levels of pass 2 when last levels of pass 1 swizzled.
+
+r4_f2cl_four_complex_djbfft_preload MACRO
+	r4_x4c_djbfft_mem_preload
+	ENDM
+
 r4_f2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
 	r4_x4c_djbfft_mem [srcreg][rbx],[srcreg+d1][rbx],[srcreg+16][rbx],[srcreg+d1+16][rbx],[srcreg+32][rbx],[srcreg+d1+32][rbx],[srcreg+48][rbx],[srcreg+d1+48][rbx],screg,0,srcreg+srcinc+rbx,d1,[srcreg],[srcreg+16]
 ;;	xstore	[srcreg], xmm0		;; Save R1
@@ -164,6 +189,11 @@ r4_f2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
 	ENDM
 
 ;; Used in later levels of pass 2.
+
+r4_nf2cl_four_complex_djbfft_preload MACRO
+	r4_x4c_djbfft_mem_preload
+	ENDM
+
 r4_nf2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
 	r4_x4c_djbfft_mem [srcreg],[srcreg+d1],[srcreg+16],[srcreg+d1+16],[srcreg+32],[srcreg+d1+32],[srcreg+48],[srcreg+d1+48],screg,0,srcreg+srcinc,d1,[srcreg],[srcreg+16]
 ;;	xstore	[srcreg], xmm0		;; Save R1
@@ -178,6 +208,11 @@ r4_nf2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
 	ENDM
 
 ;; Used in pass 2 after radix-3 levels.  Uses two sin/cos ptrs instead of one.
+
+r4_x2cl_2sc_four_complex_djbfft_preload MACRO
+	r4_x4c_2sc_djbfft_mem_preload
+	ENDM
+
 r4_x2cl_2sc_four_complex_djbfft MACRO srcreg,srcinc,d1,screg1,screg2
 	r4_x4c_2sc_djbfft_mem [srcreg],[srcreg+d1],[srcreg+16],[srcreg+d1+16],[srcreg+32],[srcreg+d1+32],[srcreg+48],[srcreg+d1+48],screg1,screg2,srcreg+srcinc,d1,[srcreg],[srcreg+16]
 ;;	xstore	[srcreg], xmm0		;; Save R1
@@ -192,6 +227,11 @@ r4_x2cl_2sc_four_complex_djbfft MACRO srcreg,srcinc,d1,screg1,screg2
 	ENDM
 
 ;; Used in pass 2 after radix-5 levels.
+
+r4_x2cl_four_complex_djbfft_preload MACRO
+	r4_x4c_2sc_djbfft_mem_preload
+	ENDM
+
 r4_x2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg1
 	r4_x4c_2sc_djbfft_mem [srcreg],[srcreg+d1],[srcreg+16],[srcreg+d1+16],[srcreg+32],[srcreg+d1+32],[srcreg+48],[srcreg+d1+48],screg1,screg1+32,srcreg+srcinc,d1,[srcreg],[srcreg+16]
 ;;	xstore	[srcreg], xmm0		;; Save R1
@@ -205,9 +245,19 @@ r4_x2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg1
 	bump	srcreg, srcinc
 	ENDM
 
+;; The common macros to get the four complex djbfft job done
+
+r4_x4c_djbfft_mem_preload MACRO
+	r4_x4c_2sc_djbfft_mem_preload
+	ENDM
+
 r4_x4c_djbfft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,screg,off,pre1,pre2,dst1,dst2
 	r4_x4c_2sc_djbfft_mem R1,R2,R3,R4,R5,R6,R7,R8,screg+off,screg+off+32,pre1,pre2,dst1,dst2
 	ENDM
+
+r4_x4c_2sc_djbfft_mem_preload MACRO
+	ENDM
+
 r4_x4c_2sc_djbfft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,screg1,screg2,pre1,pre2,dst1,dst2
 	xload	xmm0, R1		;; R1
 	xload	xmm2, R3		;; R3
@@ -289,9 +339,17 @@ r4_x4c_2sc_djbfft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,screg1,screg2,pre1,pre2,dst1
 	mulpd	xmm4, xmm5		;; B4 = B4 * sine (final I4)
 	ENDM
 
+r4_x4c_djbfft_partial_mem_preload MACRO
+	r4_x4c_2sc_djbfft_partial_mem_preload
+	ENDM
+
 r4_x4c_djbfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem3,mem4,mem7,mem8,screg,off,pre1,pre2,dst1,dst2
 	r4_x4c_2sc_djbfft_partial_mem r1,r2,r3,r4,r5,r6,r7,r8,mem3,mem4,mem7,mem8,screg+off,screg+off+32,pre1,pre2,dst1,dst2
 	ENDM
+
+r4_x4c_2sc_djbfft_partial_mem_preload MACRO
+	ENDM
+
 r4_x4c_2sc_djbfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem3,mem4,mem7,mem8,screg1,screg2,pre1,pre2,dst1,dst2
 	xload	r3, mem3
 	addpd	r3, r1			;; R3 = R1 + R3 (new R1)
@@ -441,17 +499,13 @@ r4_x4c_djbfft MACRO r1,r2,r3,r4,r5,r6,r7,r8,screg,off,pre1,pre2,dst1,dst2
 	ENDM
 ENDIF
 
-;; AMD optimized versions of the above macros
+;; 32-bit AMD optimized versions of the above macros
 
-;;
 ;; These macros could be improved further if we didn't keep output register compatibility
 ;; with the Core2/P4 macros.  That is, we'd have to rewrite all the callers of these
 ;; macros like we do for the Core2/P4 64-bit macros.  One optimization revolves around
 ;; noting that subpd/multwo/addpd can be changed to addpd/multwo/subpd giving us greater
 ;; flexibility in ordering the computation of intermediate results.
-;;
-;; In 64-bit mode, we should investigate preloading XMM_TWO.
-;;
 
 IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
 
@@ -726,6 +780,9 @@ IFDEF X86_64
 
 ; Theoretical best case is 44 clocks on a Core 2.  Now at 47.2 clocks.
 
+r4_x4cl_2sc_four_complex_djbfft_preload MACRO
+	ENDM
+
 r4_x4cl_2sc_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,screg2
 	xload	xmm0, [srcreg]		;; R1
 	xload	xmm2, [srcreg+d2]	;; R3
@@ -917,6 +974,8 @@ r4_x4cl_2sc_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,screg2
 	bump	srcreg, srcinc
 	ENDM
 
+r4_f2cl_four_complex_djbfft_preload MACRO
+	ENDM
 
 r4_f2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
 	r4_x4c_djbfft_mem64 [srcreg][rbx],[srcreg+d1][rbx],[srcreg+16][rbx],[srcreg+d1+16][rbx],[srcreg+32][rbx],[srcreg+d1+32][rbx],[srcreg+48][rbx],[srcreg+d1+48][rbx],screg,0,srcreg+srcinc+rbx,d1,[srcreg],[srcreg+16]
@@ -927,6 +986,9 @@ r4_f2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
 	xstore	[srcreg+32], xmm10	;; Save R2
 	xstore	[srcreg+48], xmm11	;; Save I2
 	bump	srcreg, srcinc
+	ENDM
+
+r4_nf2cl_four_complex_djbfft_preload MACRO
 	ENDM
 
 r4_nf2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
@@ -940,6 +1002,9 @@ r4_nf2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg
 	bump	srcreg, srcinc
 	ENDM
 
+r4_x2cl_2sc_four_complex_djbfft_preload MACRO
+	ENDM
+
 r4_x2cl_2sc_four_complex_djbfft MACRO srcreg,srcinc,d1,screg1,screg2
 	r4_x4c_2sc_djbfft_mem64 [srcreg],[srcreg+d1],[srcreg+16],[srcreg+d1+16],[srcreg+32],[srcreg+d1+32],[srcreg+48],[srcreg+d1+48],screg1,screg2,srcreg+srcinc,d1,[srcreg],[srcreg+16]
 	xstore	[srcreg+d1+32], xmm12	;; Save R4
@@ -949,6 +1014,9 @@ r4_x2cl_2sc_four_complex_djbfft MACRO srcreg,srcinc,d1,screg1,screg2
 	xstore	[srcreg+32], xmm10	;; Save R2
 	xstore	[srcreg+48], xmm11	;; Save I2
 	bump	srcreg, srcinc
+	ENDM
+
+r4_x2cl_four_complex_djbfft_preload MACRO
 	ENDM
 
 r4_x2cl_four_complex_djbfft MACRO srcreg,srcinc,d1,screg1
@@ -1048,6 +1116,185 @@ r4_x4c_2sc_djbfft_mem64 MACRO R1,R2,R3,R4,R5,R6,R7,R8,screg1,screg2,pre1,pre2,ds
 	mulpd	xmm15, xmm8		;; B3 = B3 * sine (final I3)		; 23-27
 	mulpd	xmm10, xmm9		;; A2 = A2 * sine (final R2)		; 24-28
 	mulpd	xmm11, xmm9		;; B2 = B2 * sine (final I2)		; 25-29
+	ENDM
+
+ENDIF
+ENDIF
+
+;; 64-bit AMD optimized versions of the above macros.  Same as 32-bit macros with some
+;; constants preloaded.  We can probably do better than that.
+
+IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IFDEF X86_64
+
+r4_x4c_2sc_djbfft_mem_preload MACRO
+	xload	xmm15, XMM_TWO
+	ENDM
+
+r4_x4c_2sc_djbfft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,screg1,screg2,pre1,pre2,dst1,dst2
+	xload	xmm0, R1		;; R1
+	xload	xmm2, R3		;; R3
+	subpd	xmm0, xmm2		;; R1 = R1 - R3 (new R3)		;; 1-4
+
+	xload	xmm5, R6		;; I2
+	xload	xmm7, R8		;; I4
+	subpd	xmm5, xmm7		;; I2 = I2 - I4 (new I4)		;; 3-6
+
+	xload	xmm4, R5		;; I1
+	xload	xmm6, R7		;; I3
+	subpd	xmm4, xmm6		;; I1 = I1 - I3 (new I3)		;; 5-8
+
+	xload	xmm1, R2		;; R2
+	xload	xmm3, R4		;; R4
+	subpd	xmm1, xmm3		;; R2 = R2 - R4 (new R4)		;; 7-10
+
+	addpd	xmm2, R1		;; R3 = R1 + R3 (new R1)		;; 9-12
+
+	addpd	xmm3, R2		;; R4 = R2 + R4 (new R2)		;; 11-14
+
+	addpd	xmm6, R5		;; I3 = I1 + I3 (new I1)		;; 13-16
+
+	addpd	xmm7, R6		;; I4 = I2 + I4 (new I2)		;; 15-18
+
+	xprefetchw [pre1]
+
+	 subpd	xmm0, xmm5		;; R3 = R3 - I4 (final R3)		;; 17-20
+	 mulpd	xmm5, xmm15		;; I4 = I4 * 2				;; 17-20
+
+	 subpd	xmm4, xmm1		;; I3 = I3 - R4 (final I4)		;; 19-22
+	 mulpd	xmm1, xmm15		;; R4 = R4 * 2				;; 19-22
+
+	 subpd	xmm2, xmm3		;; R1 = R1 - R2 (final R2)		;; 21-24
+	 mulpd	xmm3, xmm15		;; R2 = R2 * 2				;; 21-24
+
+	 subpd	xmm6, xmm7		;; I1 = I1 - I2 (final I2)		;; 23-26
+	 mulpd	xmm7, xmm15		;; I2 = I2 * 2				;; 23-26
+
+	 addpd	xmm5, xmm0		;; I4 = R3 + I4 (final R4)		;; 25-28
+	 addpd	xmm1, xmm4		;; R4 = I3 + R4 (final I3)		;; 27-30
+	xprefetchw [pre1][pre2]
+	 addpd	xmm3, xmm2		;; R2 = R1 + R2 (final R1)		;; 29-32
+	 addpd	xmm7, xmm6		;; I2 = I1 + I2 (final I1)		;; 31-34
+
+	xstore	dst1, xmm3		;; Save R1				;; 33
+
+	xload	xmm3, [screg1+16]	;; cosine/sine
+	mulpd	xmm3, xmm0		;; A3 = R3 * cosine/sine		;; 25-28
+
+	xstore	dst2, xmm7		;; Save I1				;; 35
+
+	xload	xmm7, [screg2+16]	;; cosine/sine
+	mulpd	xmm7, xmm2		;; A2 = R2 * cosine/sine		;; 27-30
+
+	subpd	xmm7, xmm6		;; A2 = A2 - I2				;; 33-36
+	mulpd	xmm6, [screg2+16]	;; B2 = I2 * cosine/sine		;; 29-32
+
+	subpd	xmm3, xmm1		;; A3 = A3 - I3				;; 35-38
+	mulpd	xmm1, [screg1+16]	;; B3 = I3 * cosine/sine		;; 31-34
+
+	addpd	xmm6, xmm2		;; B2 = B2 + R2				;; 37-40
+
+	xload	xmm2, [screg1+16]	;; cosine/sine
+	mulpd	xmm2, xmm5		;; A4 = R4 * cosine/sine		;; 33-36
+
+	addpd	xmm2, xmm4		;; A4 = A4 + I4				;; 39-42
+	mulpd	xmm4, [screg1+16]	;; B4 = I4 * cosine/sine		;; 35-38
+
+	mulpd	xmm7, [screg2]		;; A2 = A2 * sine (final R2)		;; 37-40
+
+	mulpd	xmm6, [screg2]		;; B2 = B2 * sine (final I2)		;; 41-44
+
+	addpd	xmm1, xmm0		;; B3 = B3 + R3				;; 41-44
+	xload	xmm0, [screg1]		;; Sine
+	mulpd	xmm3, xmm0		;; A3 = A3 * sine (final R3)		;; 39-42
+
+	subpd	xmm4, xmm5		;; B4 = B4 - R4				;; 43-46
+	mulpd	xmm2, xmm0		;; A4 = A4 * sine (final R4)		;; 43-46
+
+	mulpd	xmm1, xmm0		;; B3 = B3 * sine (final I3)		;; 45-48
+	mulpd	xmm4, xmm0		;; B4 = B4 * sine (final I4)		;; 47-50
+	ENDM
+
+r4_x4c_2sc_djbfft_partial_mem_preload MACRO
+	xload	xmm15, XMM_TWO
+	ENDM
+
+r4_x4c_2sc_djbfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem3,mem4,mem7,mem8,screg1,screg2,pre1,pre2,dst1,dst2
+	xload	r7, mem7						;; K8
+	addpd	r7, r5			;; I3 = I1 + I3 (new I1)	;; 1-4
+	subpd	r5, mem7		;; I1 = I1 - I3 (new I3)	;; 3-6
+
+	xload	r4, mem4
+	addpd	r4, r2			;; R4 = R2 + R4 (new R2)	;; 5-8
+	subpd	r2, mem4		;; R2 = R2 - R4 (new R4)	;; 7-10
+
+	xload	r3, mem3
+	addpd	r3, r1			;; R3 = R1 + R3 (new R1)	;; 9-12
+	subpd	r1, mem3		;; R1 = R1 - R3 (new R3)	;; 11-14
+
+	xload	r8, mem8
+	addpd	r8, r6			;; I4 = I2 + I4 (new I2)	;; 13-16
+	subpd	r6, mem8		;; I2 = I2 - I4 (new I4)	;; 15-18
+
+	xprefetchw [pre1]
+
+	subpd	r5, r2			;; I3 = I3 - R4 (final I4)	;; 17-20
+	mulpd	r2, xmm15		;; R4 = R4 * 2			;; 17-20
+
+	subpd	r1, r6			;; R3 = R3 - I4 (final R3)	;; 19-22
+	mulpd	r6, xmm15		;; I4 = I4 * 2			;; 19-22
+
+	subpd	r3, r4			;; R1 = R1 - R2 (final R2)	;; 21-24
+	mulpd	r4, xmm15		;; R2 = R2 * 2			;; 21-24
+
+	subpd	r7, r8			;; I1 = I1 - I2 (final I2)	;; 23-26
+	mulpd	r8, xmm15		;; I2 = I2 * 2			;; 23-26
+
+	addpd	r6, r1			;; I4 = R3 + I4 (final R4)	;; 25-28
+	addpd	r2, r5			;; R4 = I3 + R4 (final I3)	;; 27-30
+	xprefetchw [pre1][pre2]
+	addpd	r4, r3			;; R2 = R1 + R2 (final R1)	;; 29-32
+	addpd	r8, r7			;; I2 = I1 + I2 (final I1)	;; 31-34
+
+	xstore	dst1, r4		;; Save R1
+
+	xload	r4, [screg1+16]		;; cosine/sine
+	mulpd	r4, r1			;; A3 = R3 * cosine/sine	;; 25-28
+
+	xstore	dst2, r8		;; Save I1
+
+	xload	r8, [screg2+16]		;; cosine/sine
+	mulpd	r8, r3			;; A2 = R2 * cosine/sine	;; 27-30
+
+	subpd	r4, r2			;; A3 = A3 - I3			;; 33-36
+	mulpd	r2, [screg1+16]		;; B3 = I3 * cosine/sine	;; 29-32
+
+	addpd	r2, r1			;; B3 = B3 + R3			;; 35-38
+
+	xload	r1, [screg1+16]		;; cosine/sine
+	mulpd	r1, r6			;; A4 = R4 * cosine/sine	;; 31-34
+
+	subpd	r8, r7			;; A2 = A2 - I2			;; 37-40
+	mulpd	r7, [screg2+16]		;; B2 = I2 * cosine/sine	;; 33-36
+
+	addpd	r1, r5			;; A4 = A4 + I4			;; 39-42
+	mulpd	r5, [screg1+16]		;; B4 = I4 * cosine/sine	;; 35-38
+
+	addpd	r7, r3			;; B2 = B2 + R2			;; 41-44
+	xload	r3, [screg1]		;; sine
+	mulpd	r4, r3			;; A3 = A3 * sine (final R3)	;; 37-40
+
+	mulpd	r2, r3			;; B3 = B3 * sine (final I3)	;; 39-42
+
+	mulpd	r8, [screg2]		;; A2 = A2 * sine (final R2)	;; 41-44
+
+	subpd	r5, r6			;; B4 = B4 - R4			;; 43-46
+	mulpd	r1, r3			;; A4 = A4 * sine (final R4)	;; 43-46
+
+	mulpd	r7, [screg2]		;; B2 = B2 * sine (final I2)	;; 45-48
+
+	mulpd	r5, r3			;; B4 = B4 * sine (final I4)	;; 47-50
+
 	ENDM
 
 ENDIF
@@ -4229,9 +4476,8 @@ r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2, dest
 	addpd	r8, r5			;; I3 = I1 + I3 (final I1)
 	ENDM
 
-
 ;; 32-bit AMD optimized versions of the above macros
-;;
+
 IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
 
 r4_x4c_simple_fft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,pre1,pre2
@@ -4359,7 +4605,6 @@ r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2, dest
 ENDIF
 
 ;; 64-bit Intel optimized versions of the above macros
-;;
 
 IF (@INSTR(,@CATSTR(%xarch),<CORE>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<P4>) NE 0)
 IFDEF X86_64
@@ -4498,7 +4743,6 @@ ENDIF
 
 ;; 64-bit AMD optimized versions of the above macros.  Derived from Intel 64-bit
 ;; version -- could probably be optimized further.
-;;
 
 IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
 IFDEF X86_64
@@ -4754,7 +4998,6 @@ ENDIF
 ENDIF
 
 ;; 64-bit Intel optimized versions of the above macros.
-;;
 
 IF (@INSTR(,@CATSTR(%xarch),<CORE>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<P4>) NE 0)
 IFDEF X86_64
@@ -7681,7 +7924,9 @@ ENDIF
 ENDIF
 
 ;; 64-bit AMD optimized versions of the above macros.  Same as 32-bit version with
-;; some constants preloaded.
+;; some constants preloaded. NOT REALLY ANY BETTER!!  We should try rewritting with
+;; combining r4_x8r_unfft_mem and r4_x8r_unfft_partial_mem into one macro.  Should
+;; yield significant savings.
 
 IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
 IFDEF X86_64
@@ -8295,6 +8540,7 @@ ENDIF
 
 r4_x4cl_eight_reals_four_complex_djbfft_preload MACRO
 	r4_x8r_fft_mem_preload
+	;r4_x4c_djbfft_partial_mem_preload -- must be compatible with r4_x8r_fft_mem_preload!!
 	ENDM
 
 r4_x4cl_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,screg2
@@ -8325,9 +8571,12 @@ r4_x4cl_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,screg2
 
 ;; Macro to do an eight_reals_fft and a four_complex_djbfft.
 ;; This macro is used in the last levels of an r4 FFT pass 1 (no swizzling)
+
 r4_sg4cl_eight_reals_four_complex_djbfft_preload MACRO
 	r4_x8r_fft_mem_preload
+	;r4_x4c_djbfft_partial_mem_preload -- must be compatible with r4_x8r_fft_mem_preload!!
 	ENDM
+
 r4_sg4cl_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg1,screg2
 	r4_x8r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg2,screg1,screg2+32,dstreg+dstinc,e1,[dstreg],[dstreg+32]
 	shuffle_store_partial [dstreg], [dstreg+16], xmm0, xmm7				;; Save real value #1,R2
@@ -8359,6 +8608,7 @@ r4_sg4cl_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,dstreg,dstinc
 IFDEF UNUSED
 r4_g4cl_eight_reals_four_complex_fft4_preload MACRO
 	r4_x8r_fft_mem_preload
+	;r4_x4c_djbfft_partial_mem_preload -- must be compatible with r4_x8r_fft_mem_preload!!
 	ENDM
 r4_g4cl_eight_reals_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg1,screg2
 	r4_x8r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg2,screg1+32,screg2+32,dstreg+dstinc,e1,[dstreg],[dstreg+16]
@@ -8391,6 +8641,7 @@ ENDIF
 ;; Used in the last levels of an r4delay pass 1 (swizzling)
 r4_sg4cl_eight_reals_four_complex_fft4_preload MACRO
 	r4_x8r_fft_mem_preload
+	;r4_x4c_djbfft_mem_preload -- must be compatible with r4_x8r_fft_mem_preload!!
 	ENDM
 r4_sg4cl_eight_reals_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg1,screg2
 	r4_x8r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg2,screg1+32,screg2+32,dstreg+dstinc,e1,[dstreg],[dstreg+32]
@@ -8727,6 +8978,10 @@ r4_h2cl_2sc_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,screg1,screg2
 ;; The eight-reals macro and one of the four-complex only use half the XMM 
 ;; register.  This isn't very efficient, but this macro isn't called a whole lot.
 
+r4_h4cl_eight_reals_four_complex_djbfft_preload MACRO
+	r4_x4c_djbfft_partial_mem_preload
+	ENDM
+
 r4_h4cl_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,screg2
 	r4_h8r_h4c_djbfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg1,screg2,srcreg+srcinc,d1,[srcreg],[srcreg+16]
 ;;	xstore	[srcreg], xmm0		;; Save real value #1
@@ -8755,6 +9010,11 @@ r4_h4cl_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,screg2
 
 ;; Like r4_h4cl_eight_reals_four_complex_djbfft but takes 2 sin/cos ptrs for the 4 complex djbfft.
 ;; Used in pass 2 when the first levels are a three-complex FFT.
+
+r4_h4cl_2sc_eight_reals_four_complex_djbfft_preload MACRO
+	r4_x4c_2sc_djbfft_partial_mem_preload
+	ENDM
+
 r4_h4cl_2sc_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg3
 	r4_h8r_h4c_2sc_djbfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],screg1,screg2,screg3,srcreg+srcinc,d1,[srcreg],[srcreg+16]
 ;;	xstore	[srcreg], xmm0		;; Save real value #1

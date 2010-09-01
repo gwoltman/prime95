@@ -117,6 +117,7 @@ b1b:	r3_f3cl_three_complex_djbfft rsi, 64, 32*64, rdi, 32*XMM_SCD1
 	xtouch	[rcx+2*4096-128]
 
 	loops_init_prefetch 48, 64, 2, rcx
+	r4_nf2cl_four_complex_djbfft_preload
 b4b:	r4_nf2cl_four_complex_djbfft rsi, 64, 16*64, rdi
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
 	loops	16, b4b			;; Loop 16 times
@@ -149,6 +150,7 @@ b4b:	r4_nf2cl_four_complex_djbfft rsi, 64, 16*64, rdi
 
 	start_timer 6
 	loops_init_prefetch 24, 64, 2, rcx
+	r4_x4cl_four_complex_djbfft_preload
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sine/cosine pointer
 	loops	4, b5b			;; Loop 4 times
@@ -429,6 +431,7 @@ b1b:	r4_fh2cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, rdi, rdx
 	xtouch	[rcx]			;; Preload first TLB
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-64]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -442,6 +445,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 ;;	do 16 macros each processing 32 data values
 
 	loops_reset			;; 1 more iters of 16
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	16, b7b			;; Test inner loop counter
@@ -473,6 +477,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 ;;	do 4 macros each processing 32 data values
 
 	loops_init_prefetch 32, 64, 2, rcx
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -486,6 +491,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 ;;	do 28 macros each processing 32 data values
 
 	loops_reset			;; 7 more iters of 4
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	4, b9b			;; Test loop counter
@@ -731,6 +737,7 @@ r4_pass2_8_levels_complex MACRO
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
 	loops_init 64			;; 64 iterations
+	r4_f2cl_four_complex_djbfft_preload
 b1b:	xxprefetch [rdi+XMM_SCD2]	;; Prefetch for next pass
 	r4_f2cl_four_complex_djbfft rsi, 64, 64*64, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
@@ -795,6 +802,7 @@ b1b:	xxprefetch [rdi+XMM_SCD2]	;; Prefetch for next pass
 	xtouch	[rcx+2*4096-64]
 	mov	rbx, rdi		;; Copy sin/cos ptr
 	loops_init_prefetch 32, 64, 2, rcx ;; 2*4 iters of 16 cache lines
+	r4_x4cl_four_complex_djbfft_preload
 
 b4b:	r4_x4cl_four_complex_djbfft rsi, 4*64, 16*64, 32*64, rdi
 	xxprefetch [rdi+4*XMM_SCD2]	;; Prefetch for next pass
@@ -1092,6 +1100,7 @@ b4b:	r4_h2cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, rdi, rdx
 ;;	do 128 macros each processing 16 data values
 
 	loops_reset			;; 2 more iters of 64
+	r4_nf2cl_four_complex_djbfft_preload
 b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, 64*64, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	loops	64, b5b			;; Test inner loop counter
@@ -1123,6 +1132,7 @@ b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, 64*64, rdi
 ;;	do 16 macros each processing 32 data values
 
 	loops_init_prefetch 96, 64, 2, rcx
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -1136,6 +1146,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 ;;	do 80 macros each processing 32 data values
 
 	loops_reset			;; 3 iters of 1 or 2 of 16
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	16, b7b			;; Test inner loop counter
@@ -1169,6 +1180,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 ;;	do 4 macros each processing 32 data values
 
 	loops_init_prefetch 96, 64, 2, rcx
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -1182,6 +1194,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 ;;	do 92 macros each processing 32 data values
 
 	loops_reset			;; 3 iters of 7 or 8 of 4
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	4, b9b			;; Test loop counter
@@ -1581,6 +1594,8 @@ b1b:	xxprefetch [rdi+XMM_SCD1]	;; Prefetch for next pass
 	mov	rbx, rdi		;; Copy sin/cos pointers
 	mov	rbp, rdi
 	loops_init_prefetch 192, 64, 4, rcx ;; 3 iters of 4 of 32 cache lines
+	;r4_nf2cl_four_complex_djbfft_preload -- assume same as r4_x4cl_four_complex_djbfft_preload
+	r4_x4cl_four_complex_djbfft_preload
 
 b3b:	xxprefetch [rdi+4*XMM_SCD2]	;; Prefetch for next pass
 	r4_nf2cl_four_complex_djbfft rsi, 4*64, 64*64, rdi
@@ -1918,6 +1933,7 @@ b1b:	r4_fh2cl_eight_reals_four_complex_djbfft rsi, 64, 2*dist128, rdi, rdx
 	xtouch	[rcx]			;; Preload first TLB
 	loops_init_prefetch 128, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -1931,6 +1947,7 @@ b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 ;;	do 64 macros each processing 32 data values
 
 	loops_reset			;; 1 more iter of 64
+	r4_x4cl_four_complex_djbfft_preload
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	loops	64, b5b			;; Test inner loop counter
@@ -1963,6 +1980,7 @@ b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 
 	loops_init_prefetch 128, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLB
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -1976,6 +1994,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 ;;	do 96 macros each processing 32 data values
 
 	loops_reset			;; 4 iters of 1 or 2 of 16
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	16, b7b			;; Test inner loop counter
@@ -2011,6 +2030,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 
 	loops_init_prefetch 128, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLB
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 64*XMM_HSCD2	;; Next sin/cos data
@@ -2024,6 +2044,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 ;;	do 124 macros each processing 32 data values
 
 	loops_reset			;; 4 iters of 7 or 8 of 4
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	4, b9b			;; Test loop counter
@@ -2338,6 +2359,7 @@ r4_pass2_10_levels_complex MACRO
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
 	loops_init 256			;; 256 iterations
+	r4_f2cl_four_complex_djbfft_preload
 b1b:	xxprefetch [rdi+XMM_SCD2]	;; Prefetch for next pass
 	r4_f2cl_four_complex_djbfft rsi, 64, 2*dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
@@ -2423,6 +2445,7 @@ b1b:	xxprefetch [rdi+XMM_SCD2]	;; Prefetch for next pass
 	mov	rbx, rdi
 	mov	rbp, rdi
 	loops_init_prefetch 128, 64, 2, rcx ;; 2*4 iters of 64 cache lines
+	r4_x4cl_four_complex_djbfft_preload
 
 	xtouch	[rcx+4096-64]		;; Load prefetch TLBs
 	xtouch	[rcx+2*4096-64]
@@ -2797,6 +2820,7 @@ b4b:	r4_h2cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, rdi, rdx
 ;;	do 256 macros each processing 16 data values
 
 	loops_reset			;; 4 more iters of 64
+	r4_nf2cl_four_complex_djbfft_preload
 b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, 64*64, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	loops	64, b5b			;; Test inner loop counter
@@ -2828,6 +2852,7 @@ b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, 64*64, rdi
 ;;	do 16 macros each processing 32 data values
 
 	loops_init_prefetch 160, 64, 2, rcx
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -2841,6 +2866,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 ;;	do 144 macros each processing 32 data values
 
 	loops_reset			;; 5 iters of 1 or 2 of 16
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	16, b7b			;; Test inner loop counter
@@ -2874,6 +2900,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 ;;	do 4 macros each processing 32 data values
 
 	loops_init_prefetch 160, 64, 2, rcx
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -2887,6 +2914,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 ;;	do 156 macros each processing 32 data values
 
 	loops_reset			;; 5 iters of 7 or 8 of 4
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	4, b9b			;; Test loop counter
@@ -3289,6 +3317,8 @@ b1b:	xxprefetch [rdi+XMM_SCD2]	;; Prefetch for next pass
 	mov	rbx, rdi		;; Copy sin/cos ptrs
 	mov	rbp, rdi
 	loops_init_prefetch 320, 64, 4, rcx ;; 5 iters of 4 of 32 cache lines
+	;r4_nf2cl_four_complex_djbfft_preload -- assume same as r4_x4cl_four_complex_djbfft_preload
+	r4_x4cl_four_complex_djbfft_preload
 
 b3b:	xxprefetch [rdi+4*XMM_SCD2]	;; Prefetch for next pass
 	r4_nf2cl_four_complex_djbfft rsi, 4*64, 64*64, rdi
@@ -3651,6 +3681,7 @@ b4b:	r4_h2cl_eight_reals_four_complex_djbfft rsi, 64, dist128, rdi, rdx
 ;;	do 256 macros each processing 16 data values
 
 	loops_reset			;; 2 more iterations of 128
+	r4_nf2cl_four_complex_djbfft_preload
 b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	loops	128, b5b		;; Test inner loop counter
@@ -3684,6 +3715,7 @@ b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, dist128, rdi
 	loops_init_prefetch 192, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-64]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -3697,6 +3729,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi, rdx
 ;;	do 160 macros each processing 32 data values
 
 	loops_reset			;; 5 more iters of 32
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	32, b7b			;; Test inner loop counter
@@ -3730,6 +3763,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 	loops_init_prefetch 192, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-64]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -3743,6 +3777,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, rdx
 ;;	do 760 macros each processing 32 data values
 
 	loops_reset			;; 6 iters of 3 or 4 of 8
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	8, b9b			;; Test loop counter
@@ -4159,6 +4194,8 @@ b1b:	xxprefetch [rdi+XMM_SCD1]	;; Prefetch for next pass
 	mov	rbx, rdi		;; Copy sin/cos pointers
 	mov	rbp, rdi
 	loops_init_prefetch 384, 64, 4, rcx ;; 3*8 iters of 32 cache lines
+	;r4_nf2cl_four_complex_djbfft_preload -- assume same as r4_x4cl_four_complex_djbfft_preload
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+4096-64]		;; Load 2 prefetch TLBs
 	xtouch	[rcx+2*4096-64]
@@ -4522,6 +4559,7 @@ b1b:	r4_fh2cl_eight_reals_four_complex_djbfft rsi, 64, 4*dist128, rdi, rdx
 	loops_init_prefetch 256, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-64]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, dist128, 2*dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -4535,6 +4573,7 @@ b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, dist128, 2*dist128, rdi, r
 ;;	do 128 macros each processing 32 data values
 
 	loops_reset			;; 1 more iterations of 128
+	r4_x4cl_four_complex_djbfft_preload
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, dist128, 2*dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	loops	128, b5b		;; Test inner loop counter
@@ -4569,6 +4608,7 @@ b5b:	r4_x4cl_four_complex_djbfft rsi, 64, dist128, 2*dist128, rdi
 	loops_init_prefetch 256, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-64]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -4582,6 +4622,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi, rdx
 ;;	do 224 macros each processing 32 data values
 
 	loops_reset			;; 7 more iters of 32
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	32, b7b			;; Test inner loop counter
@@ -4616,6 +4657,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 	loops_init_prefetch 256, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-64]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 64*XMM_HSCD2	;; Next sin/cos data
@@ -4629,6 +4671,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, rdx
 ;;	do 248 macros each processing 32 data values
 
 	loops_reset			;; 8 iters of 3 or 4 of 8
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	8, b9b			;; Test loop counter
@@ -4961,6 +5004,7 @@ r4_pass2_11_levels_complex MACRO
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
 	loops_init 512			;; 4 iterations of 128
+	r4_f2cl_four_complex_djbfft_preload
 b1b:	xxprefetch [rdi+XMM_SCD2]	;; Prefetch for next pass
 	r4_f2cl_four_complex_djbfft rsi, 64, 4*dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
@@ -5046,6 +5090,8 @@ b1b:	xxprefetch [rdi+XMM_SCD2]	;; Prefetch for next pass
 	mov	rbx, rdi		;; Copy sin/cos pointers
 	mov	rbp, rdi
 	loops_init_prefetch 256, 64, 2, rcx ;; 2*8 iters of 64 cache lines
+	r4_x4cl_four_complex_djbfft_preload
+
 	xtouch	[rcx+4096-64]		;; Load some prefetch TLBs
 	xtouch	[rcx+2*4096-64]
 	xtouch	[rcx+3*4096-64]
@@ -5439,6 +5485,7 @@ b4b:	r4_h2cl_eight_reals_four_complex_djbfft rsi, 64, dist128, rdi, rdx
 ;;	do 512 macros each processing 16 data values
 
 	loops_reset			;; 4 more iterations of 128
+	r4_nf2cl_four_complex_djbfft_preload
 b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	loops	128, b5b		;; Test inner loop counter
@@ -5473,6 +5520,7 @@ b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, dist128, rdi
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-64]
 	xtouch	[rcx+3*4096-64]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -5486,6 +5534,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi, rdx
 ;;	do 288 macros each processing 32 data values
 
 	loops_reset			;; 9 more iters of 32
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	32, b7b			;; Test inner loop counter
@@ -5520,6 +5569,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-64]
 	xtouch	[rcx+3*4096-64]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -5533,6 +5583,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, rdx
 ;;	do 312 macros each processing 32 data values
 
 	loops_reset			;; 10 iters of 3 or 4 of 8
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	8, b9b			;; Test loop counter
@@ -5953,6 +6004,8 @@ b1b:	xxprefetch [rdi+XMM_SCD2]	;; Prefetch for next pass
 	mov	rbx, rdi		;; Copy sin/cos pointers
 	mov	rbp, rdi
 	loops_init_prefetch 640, 64, 4, rcx ;; 5*8 iters of 32 cache lines
+	;r4_nf2cl_four_complex_djbfft_preload -- assume same as r4_x4cl_four_complex_djbfft_preload
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+4096-64]		;; Load prefetch TLBs
 	xtouch	[rcx+2*4096-64]
@@ -6386,6 +6439,7 @@ b4b:	r4_h2cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, rdi, rdx
 ;;	do 512 macros each processing 16 data values
 
 	loops_reset			;; 8 more iterations of 64
+	r4_nf2cl_four_complex_djbfft_preload
 b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, 64*64, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	loops	64, b5b			;; Test inner loop counter
@@ -6421,6 +6475,7 @@ b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, 64*64, rdi
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-64]
 	xtouch	[rcx+3*4096-64]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -6434,6 +6489,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 ;;	do 272 macros each processing 32 data values
 
 	loops_reset			;; 9 iters of 1 or 2 of 16
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	16, b7b			;; Test inner loop counter
@@ -6471,6 +6527,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-64]
 	xtouch	[rcx+3*4096-64]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -6484,6 +6541,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 ;;	do 284 macros each processing 32 data values
 
 	loops_reset			;; 9 iters of 7 or 8 of 4
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	4, b9b			;; Test loop counter
@@ -7011,6 +7069,8 @@ ENDIF
 	mov	rbx, rdi
 	mov	rbp, rdi
 	loops_init_prefetch 576, 64, 4, rcx ;; 2*4 iters of 4 of 64 cache lines
+	;r4_nf2cl_four_complex_djbfft_preload -- assume same as r4_x4cl_four_complex_djbfft_preload
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+4096-64]		;; Load six prefetch TLBs
 
@@ -7441,6 +7501,7 @@ b2b:	r4_h2cl_2sc_eight_reals_four_complex_djbfft rsi, 64, 2*dist128, rdi, rbx, r
 ;;	do 512 macros each processing 16 data values
 
 	loops_reset			;; 2 more iters of 256
+	r4_x2cl_2sc_four_complex_djbfft_preload
 b3b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 2*dist128, rdi, rbx
 	bump	rdi, 3*XMM_SCD1		;; Next sin/cos data
 	bump	rbx, 6*XMM_SCD1		;; Next sin/cos data
@@ -7481,6 +7542,7 @@ b3b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 2*dist128, rdi, rbx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-64]
 	xtouch	[rcx+3*4096-64]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -7494,6 +7556,7 @@ b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 ;;	do 320 macros each processing 32 data values
 
 	loops_reset			;; 5 iterations of 64
+	r4_x4cl_four_complex_djbfft_preload
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	loops	64, b5b			;; Test inner loop counter
@@ -7529,6 +7592,7 @@ b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-64]
 	xtouch	[rcx+3*4096-64]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -7542,6 +7606,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 ;;	do 368 macros each processing 32 data values
 
 	loops_reset			;; 12 iters of 1 or 2 of 16
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	16, b7b			;; Test inner loop counter
@@ -7579,6 +7644,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-64]
 	xtouch	[rcx+3*4096-64]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 64*XMM_HSCD2	;; Next sin/cos data
@@ -7592,6 +7658,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 ;;	do 380 macros each processing 32 data values
 
 	loops_reset			;; 12 iters of 7 or 8 of 4
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	4, b9b			;; Test loop counter
@@ -8010,6 +8077,7 @@ b1b:	r3_f3cl_three_complex_djbfft rsi, 64, 4*dist128, rdi, 512*XMM_SCD1
 					;; 1536 cache lines + 22 pad cache lines)
 	xtouch	[rcx]			;; Load first prefetch TLB
 	loops_init 768			;; 3 iters of 2 iters of 128
+	r4_x2cl_2sc_four_complex_djbfft_preload
 b2b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 2*dist128, rdi, rdx
 	bump	rdi, 3*XMM_SCD1		;; Next sin/cos data
 	bump	rdx, 6*XMM_SCD1		;; Next sin/cos data
@@ -8044,6 +8112,7 @@ b1b:	r3_f3cl_three_complex_djbfft rsi, 2*dist128, 4*dist128, rdi, 512*XMM_SCD1
 	bump	rsi, -4*dist128		;; Restore source pointer
 	loops_undo 6			;; Rollback loop counter
 
+	r4_x2cl_2sc_four_complex_djbfft_preload
 b2b:	r4_x2cl_2sc_four_complex_djbfft rsi, 4*dist128, 2*dist128, rbp, rdx
 	loops	3, b2b, 2		;; Test loop counter with non-standard incr
 
@@ -8131,6 +8200,7 @@ ENDIF
 	mov	rbx, rdi
 	mov	rbp, rdi
 	loops_init_prefetch 384, 64, 2, rcx ;; 6 iters of 4 of 64 cache lines
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+4096-64]		;; Load prefetch TLBs
 	xtouch	[rcx+2*4096-64]
@@ -8624,6 +8694,7 @@ b4b:	r4_h2cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, rdi, rdx
 ;;	do 896 macros each processing 16 data values
 
 	loops_reset			;; 14 more iterations of 64
+	r4_nf2cl_four_complex_djbfft_preload
 b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, 64*64, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	loops	64, b5b			;; Test inner loop counter
@@ -8660,6 +8731,7 @@ b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, 64*64, rdi
 	xtouch	[rcx+2*4096-128]
 	xtouch	[rcx+3*4096-128]
 	xtouch	[rcx+4*4096-128]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -8673,6 +8745,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 ;;	do 464 macros each processing 32 data values
 
 	loops_reset			;; 15 iters of 1 or 2 of 16
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	16, b7b			;; Test inner loop counter
@@ -8711,6 +8784,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	xtouch	[rcx+2*4096-128]
 	xtouch	[rcx+3*4096-128]
 	xtouch	[rcx+4*4096-128]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -8724,6 +8798,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 ;;	do 476 macros each processing 32 data values
 
 	loops_reset			;; 15 iters of 7 or 8 of 4
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	4, b9b			;; Test loop counter
@@ -9259,6 +9334,8 @@ ENDIF
 	mov	rbx, rdi
 	mov	rbp, rdi
 	loops_init_prefetch 960, 64, 4, rcx ;; 2*4 iters of 4 of 64 cache lines
+	;r4_nf2cl_four_complex_djbfft_preload -- assume same as r4_x4cl_four_complex_djbfft_preload
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+4096-64]		;; Load 12 prefetch TLBs
 
@@ -9673,6 +9750,7 @@ b1b:	r4_fh2cl_eight_reals_four_complex_djbfft rsi, 64, 8*dist128, rdi, rdx
 	mov	rcx, DATA_PREFETCH	;; Prefetch pointer
 	xtouch	[rcx]			;; Preload first TLB
 	loops_init_prefetch 256, 64, 1, rcx
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b2b0:	xtouch	[rcx+4096-128]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-128]
 b2b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi, rdx
@@ -9691,6 +9769,7 @@ b2b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi,
 ;;	do 256 macros each processing 32 data values
 
 	loops_init_prefetch 256, 64, 1, rcx
+	r4_x4cl_four_complex_djbfft_preload
 b3b0:	xtouch	[rcx+4096-128]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-128]
 b3b:	r4_x4cl_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi
@@ -9728,6 +9807,7 @@ b3b:	r4_x4cl_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi
 	bump	rdi, -256*4*XMM_SCD2+1024*XMM_SCD2 ;; Load sin/cos pointer
 	loops_init_prefetch 512, 64, 1, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -9741,6 +9821,7 @@ b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 ;;	do 448 macros each processing 32 data values
 
 	loops_reset			;; 7 iterations of 64
+	r4_x4cl_four_complex_djbfft_preload
 b5a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
@@ -9776,6 +9857,7 @@ b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 ;;	do 16 macros each processing 32 data values
 
 	loops_init 512
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 64*XMM_HSCD2	;; Next sin/cos data
@@ -9789,6 +9871,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 ;;	do 496 macros each processing 32 data values
 
 	loops_reset			;; 16 iters of 1 or 2 of 16
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	16, b7b			;; Test inner loop counter
@@ -9823,6 +9906,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 ;;	do 4 macros each processing 32 data values
 
 	loops_init 512
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 256*XMM_HSCD2	;; Next sin/cos data
@@ -9836,6 +9920,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 ;;	do 510 macros each processing 32 data values
 
 	loops_reset			;; 16 iters of 7 or 8 of 4
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	4, b9b			;; Test loop counter
@@ -10227,6 +10312,7 @@ IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
 	loops_init 1024			;; 8 iterations of 128
+	r4_f2cl_four_complex_djbfft_preload
 b1b:	r4_f2cl_four_complex_djbfft rsi, 64, 8*dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 ;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
@@ -10241,6 +10327,7 @@ b1b:	r4_f2cl_four_complex_djbfft rsi, 64, 8*dist128, rdi
 	start_timer 5
 	mov	rdi, xsincos_complex	;; Ptr to the sin/cos data
 	loops_init 512			;; 2 iters of 2 iters of 128
+	r4_x4cl_four_complex_djbfft_preload
 b2b:	r4_x4cl_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	128, b2b		;; Test inner loop counter
@@ -10258,6 +10345,9 @@ ELSE					;; Pentium 4 faster doing merged loops
 	mov	rdi, xsincos_complex	;; The sin/cos data
 	mov	rbp, rdi
 	loops_init 1024			;; 8 iterations of 128
+	;r4_f2cl_four_complex_djbfft_preload -- assume same as r4_x4cl_four_complex_djbfft_preload
+	r4_x4cl_four_complex_djbfft_preload
+
 b1b:	r4_f2cl_four_complex_djbfft rsi, 2*dist128, 8*dist128, rdi
 	xxprefetch [rdi+XMM_SCD2]	;; Prefetch for next pass
 	bump	rdi, 256*XMM_SCD2	;; Next sin/cos data
@@ -10353,6 +10443,7 @@ IFDEF NEVER				;; Never faster to do separate loops
 	xtouch	[rcx]			;; Load first TLB
 	bump	rdi, 1024*XMM_SCD2	;; Load sin/cos pointer
 	loops_init_prefetch 512, 64, 2, rcx ;; 2*4 iters of 64
+	r4_x4cl_four_complex_djbfft_preload
 b3a:	xtouch	[rcx+4096-128]		;; Load two prefetch TLBs
 	xtouch	[rcx+2*4096-128]
 b3b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
@@ -10368,6 +10459,7 @@ b3b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 
 	start_timer 7
 	loops_init_prefetch 512, 64, 2, rcx ;; 2*8*2 iters of 16
+	r4_x4cl_four_complex_djbfft_preload
 b4a:	xtouch	[rcx+4096-128]		;; Load two prefetch TLBs
 	xtouch	[rcx+2*4096-128]
 b4b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
@@ -10385,6 +10477,7 @@ b4b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 
 	start_timer 8
 	loops_init_prefetch 512, 64, 2, rcx ;; 2*8*8 iters of 4
+	r4_x4cl_four_complex_djbfft_preload
 b5a:	xtouch	[rcx+4096-128]		;; Load two prefetch TLBs
 	xtouch	[rcx+2*4096-128]
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
@@ -10409,6 +10502,7 @@ ELSE					;; Always faster to do merged loops
 	mov	rbx, rdi
 	mov	rbp, rdi
 	loops_init_prefetch 512, 64, 2, rcx ;; 2*4 iters of 4 of 64 cache lines
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+4096-128]		;; Load six prefetch TLBs
 	xtouch	[rcx+2*4096-128]
@@ -10930,6 +11024,7 @@ b2b:	r4_h2cl_eight_reals_four_complex_djbfft rsi, 64, 2*dist128, rdi, rdx
 ;;	do 1024 macros each processing 16 data values
 
 	loops_init_prefetch 1024, 64, 4, rcx
+	r4_x2cl_four_complex_djbfft_preload
 b3a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b3b:	r4_x2cl_four_complex_djbfft rsi, 64, 2*dist128, rdi
 	bump	rdi, 5*XMM_SCD2		;; Next sin/cos data
@@ -10972,6 +11067,7 @@ b3b:	r4_x2cl_four_complex_djbfft rsi, 64, 2*dist128, rdi
 	xtouch	[rcx+3*4096-128]
 	xtouch	[rcx+4*4096-128]
 	xtouch	[rcx+5*4096-128]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -10985,6 +11081,7 @@ b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 ;;	do 576 macros each processing 32 data values
 
 	loops_reset			;; 9 iterations of 64
+	r4_x4cl_four_complex_djbfft_preload
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	loops	64, b5b			;; Test inner loop counter
@@ -11022,6 +11119,7 @@ b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 	xtouch	[rcx+3*4096-128]
 	xtouch	[rcx+4*4096-128]
 	xtouch	[rcx+5*4096-128]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -11035,6 +11133,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 ;;	do 368 macros each processing 32 data values
 
 	loops_reset			;; 20 iters of 1 or 2 of 16
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	16, b7b			;; Test inner loop counter
@@ -11074,6 +11173,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	xtouch	[rcx+3*4096-128]
 	xtouch	[rcx+4*4096-128]
 	xtouch	[rcx+5*4096-128]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 64*XMM_HSCD2	;; Next sin/cos data
@@ -11087,6 +11187,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 ;;	do 636 macros each processing 32 data values
 
 	loops_reset			;; 20 iters of 7 or 8 of 4
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	4, b9b			;; Test loop counter
@@ -11504,6 +11605,7 @@ b1b:	r5_f5cl_five_complex_djbfft rsi, 64, 4*dist128, rdi, 512*XMM_SCD2
 					;; 2560 cache lines + 38 pad cache lines)
 	xtouch	[rcx]			;; Preload first TLB
 	loops_init_prefetch 1280, 64, 4, rcx ;; 3 iters of 2 iters of 128
+	r4_x2cl_four_complex_djbfft_preload
 b2a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b2b:	r4_x2cl_four_complex_djbfft rsi, 64, 2*dist128, rdi
 	bump	rdi, 5*XMM_SCD2		;; Next sin/cos data
@@ -11538,6 +11640,7 @@ b1b:	r5_f5cl_five_complex_djbfft rsi, 2*dist128, 4*dist128, rdi, 512*XMM_SCD2
 	bump	rsi, -2*2*dist128	;; Restore source pointer
 	loops_undo 10
 
+	r4_x2cl_four_complex_djbfft_preload
 b2b:	r4_x2cl_four_complex_djbfft rsi, 4*dist128, 2*dist128, rbp
 	loops	5, b2b, 2		;; Test loop counter with non-standard incr
 
@@ -11624,6 +11727,7 @@ ENDIF
 	mov	rbx, rdi
 	mov	rbp, rdi
 	loops_init_prefetch 640, 64, 2, rcx ;; 10 iters of 4 of 64 cache lines
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+4096-64]		;; Load prefetch TLBs
 	xtouch	[rcx+2*4096-64]
@@ -12106,6 +12210,7 @@ b4b:	r4_h2cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, rdi, rdx
 ;;	do 1536 macros each processing 16 data values
 
 	loops_reset			;; 24 more iterations of 64
+	r4_nf2cl_four_complex_djbfft_preload
 b5a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 	xtouch	[rcx+80*64-64]
 b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, 64*64, rdi
@@ -12141,6 +12246,7 @@ b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, 64*64, rdi
 
 	loops_init_prefetch 800, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -12154,6 +12260,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 ;;	do 784 macros each processing 32 data values
 
 	loops_reset			;; 25 iters of 1 or 2 of 16
+	r4_x4cl_four_complex_djbfft_preload
 b7a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 	xtouch	[rcx+80*64-64]
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
@@ -12190,6 +12297,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 ;;	do 4 macros each processing 32 data values
 
 	loops_init_prefetch 800, 64, 2, rcx
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -12203,6 +12311,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 ;;	do 796 macros each processing 32 data values
 
 	loops_reset			;; 25 iters of 7 or 8 of 4
+	r4_x4cl_four_complex_djbfft_preload
 b9a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 	xtouch	[rcx+80*64-64]
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
@@ -12735,6 +12844,8 @@ ENDIF
 	mov	rbx, rdi
 	mov	rbp, rdi
 	loops_init_prefetch 1600, 64, 4, rcx ;; 25 iters of 4 of 32 cache lines
+	;r4_nf2cl_four_complex_djbfft_preload -- assume same as r4_x4cl_four_complex_djbfft_preload
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+3072-64]		;; Load prefetch TLB
 
@@ -13224,6 +13335,7 @@ b4b:	r4_h2cl_eight_reals_four_complex_djbfft rsi, 64, dist128, rdi, rdx
 ;;	do 1024 macros each processing 16 data values
 
 	loops_reset			;; 8 more iterations of 128
+	r4_nf2cl_four_complex_djbfft_preload
 b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	loops	128, b5b		;; Test inner loop counter
@@ -13260,6 +13372,7 @@ b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, dist128, rdi
 	xtouch	[rcx+3*4096-64]
 	xtouch	[rcx+4*4096-64]
 	xtouch	[rcx+5*4096-64]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -13273,6 +13386,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi, rdx
 ;;	do 544 macros each processing 32 data values
 
 	loops_reset			;; 17 more iters of 32
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	32, b7b			;; Test inner loop counter
@@ -13309,6 +13423,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 	xtouch	[rcx+3*4096-64]
 	xtouch	[rcx+4*4096-64]
 	xtouch	[rcx+5*4096-64]
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -13322,6 +13437,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, rdx
 ;;	do 568 macros each processing 32 data values
 
 	loops_reset			;; 18 iters of 3 or 4 of 8
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	8, b9b			;; Test loop counter
@@ -13874,6 +13990,8 @@ ENDIF
 	mov	rbx, rdi
 	mov	rbp, rdi
 	loops_init_prefetch 1152, 64, 4, rcx ;; 9 * 8 iters of 32 cache lines
+	;r4_nf2cl_four_complex_djbfft_preload -- assume same as r4_x4cl_four_complex_djbfft_preload
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+4096-64]		;; Load prefetch TLBs
 	xtouch	[rcx+2*4096-64]
@@ -14320,6 +14438,7 @@ b2b:	r4_h2cl_2sc_eight_reals_four_complex_djbfft rsi, 64, 4*dist128, rdi, rbx, r
 ;;	do 1024 macros each processing 16 data values
 
 	loops_reset
+	r4_x2cl_2sc_four_complex_djbfft_preload
 b3a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b3b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 4*dist128, rdi, rbx
 	bump	rdi, 3*XMM_SCD1		;; Next sin/cos data
@@ -14358,6 +14477,7 @@ b3b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 4*dist128, rdi, rbx
 	bump	rdi, 3072*XMM_SCD1	;; Load sin/cos pointer
 	loops_init_prefetch 768, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, dist128, 2*dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -14371,6 +14491,7 @@ b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, dist128, 2*dist128, rdi, r
 ;;	do 640 macros each processing 32 data values
 
 	loops_reset			;; 5 iterations of 128
+	r4_x4cl_four_complex_djbfft_preload
 b5a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, dist128, 2*dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
@@ -14404,6 +14525,7 @@ b5b:	r4_x4cl_four_complex_djbfft rsi, 64, dist128, 2*dist128, rdi
 
 	loops_init_prefetch 768, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -14417,6 +14539,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi, rdx
 ;;	do 736 macros each processing 32 data values
 
 	loops_reset			;; 23 more iters of 32
+	r4_x4cl_four_complex_djbfft_preload
 b7a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
@@ -14450,6 +14573,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 
 	loops_init_prefetch 768, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 64*XMM_HSCD2	;; Next sin/cos data
@@ -14463,6 +14587,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, rdx
 ;;	do 760 macros each processing 32 data values
 
 	loops_reset			;; 24 iters of 3 or 4 of 8
+	r4_x4cl_four_complex_djbfft_preload
 b9a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
@@ -14883,6 +15008,7 @@ b1b:	r3_f3cl_three_complex_djbfft rsi, 64, 8*dist128, rdi, 1024*XMM_SCD1
 	mov	rdi, xsincos_complex	;; Ptr to the sin/cos data
 	mov	rdx, rdi
 	loops_init_prefetch 1536, 64, 4, rcx ;; 3 iters of 4 iters of 128
+	r4_x2cl_2sc_four_complex_djbfft_preload
 b2a:	xtouch	[rcx+4096-64]		;; Load prefetch TLBs
 b2b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 4*dist128, rdi, rdx
 	bump	rdi, 3*XMM_SCD1		;; Next sin/cos data
@@ -14919,6 +15045,7 @@ b1b:	r3_f3cl_three_complex_djbfft rsi, 4*dist128, 8*dist128, rdi, 1024*XMM_SCD1
 	bump	rsi, -2*4*dist128	;; Restore source pointer
 	loops_undo 6
 
+	r4_x2cl_2sc_four_complex_djbfft_preload
 b2b:	r4_x2cl_2sc_four_complex_djbfft rsi, 8*dist128, 4*dist128, rbp, rdx
 	loops	3, b2b, 2		;; Test loop counter with non-standard incr
 
@@ -15006,6 +15133,7 @@ ENDIF
 	mov	rbx, rdi
 	mov	rbp, rdi
 	loops_init_prefetch 768, 64, 2, rcx ;; 6*8 iters of 64 cache lines
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+4096-64]		;; Load prefetch TLBs
 	xtouch	[rcx+2*4096-64]
@@ -15510,6 +15638,7 @@ b4b:	r4_h2cl_eight_reals_four_complex_djbfft rsi, 64, dist128, rdi, rdx
 ;;	do 1792 macros each processing 16 data values
 
 	loops_reset			;; 14 more iterations of 128
+	r4_nf2cl_four_complex_djbfft_preload
 b5a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
@@ -15544,6 +15673,7 @@ b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, dist128, rdi
 
 	loops_init_prefetch 960, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -15557,6 +15687,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi, rdx
 ;;	do 928 macros each processing 32 data values
 
 	loops_reset			;; 29 more iters of 32
+	r4_x4cl_four_complex_djbfft_preload
 b7a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
@@ -15590,6 +15721,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 
 	loops_init_prefetch 960, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -15603,6 +15735,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, rdx
 ;;	do 952 macros each processing 32 data values
 
 	loops_reset			;; 30 iters of 3 or 4 of 8
+	r4_x4cl_four_complex_djbfft_preload
 b9a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
@@ -16157,6 +16290,8 @@ ENDIF
 	mov	rbx, rdi
 	mov	rbp, rdi
 	loops_init_prefetch 1920, 64, 4, rcx ;; 15*8 iters of 32 cache lines
+	;r4_nf2cl_four_complex_djbfft_preload -- assume same as r4_x4cl_four_complex_djbfft_preload
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+4096-64]		;; Load 12 prefetch TLBs
 	xtouch	[rcx+2*4096-64]
@@ -16594,6 +16729,7 @@ b1b:	r4_fh2cl_eight_reals_four_complex_djbfft rsi, 64, 16*dist128, rdi, rdx
 	mov	rcx, DATA_PREFETCH	;; Prefetch pointer
 	xtouch	[rcx]			;; Preload first TLB
 	loops_init_prefetch 512, 64, 1, rcx
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b2b0:	xtouch	[rcx+4096-128]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-128]
 b2b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*dist128, 8*dist128, rdi, rdx
@@ -16612,6 +16748,7 @@ b2b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*dist128, 8*dist128, rdi,
 ;;	do 512 macros each processing 32 data values
 
 	loops_init_prefetch 512, 64, 1, rcx
+	r4_x4cl_four_complex_djbfft_preload
 b3b0:	xtouch	[rcx+4096-128]		;; Preload the TLBs
 	xtouch	[rcx+2*4096-128]
 b3b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*dist128, 8*dist128, rdi
@@ -16648,6 +16785,7 @@ b3b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*dist128, 8*dist128, rdi
 
 	bump	rdi, -4*128*4*XMM_SCD2+2048*XMM_SCD2 ;; Load sin/cos pointer
 	loops_init 1024
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, dist128, 2*dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -16661,6 +16799,7 @@ b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, dist128, 2*dist128, rdi, r
 ;;	do 896 macros each processing 32 data values
 
 	loops_reset			;; 7 iterations of 128
+	r4_x4cl_four_complex_djbfft_preload
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, dist128, 2*dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	loops	128, b5b		;; Test inner loop counter
@@ -16693,6 +16832,7 @@ b5b:	r4_x4cl_four_complex_djbfft rsi, 64, dist128, 2*dist128, rdi
 ;;	do 32 macros each processing 32 data values
 
 	loops_init 1024
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 64*XMM_HSCD2	;; Next sin/cos data
@@ -16706,6 +16846,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi, rdx
 ;;	do 992 macros each processing 32 data values
 
 	loops_reset			;; 31 iters of 32
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	32, b7b			;; Test inner loop counter
@@ -16738,6 +16879,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 ;;	do 8 macros each processing 32 data values
 
 	loops_init 1024
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 256*XMM_HSCD2	;; Next sin/cos data
@@ -16751,6 +16893,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, rdx
 ;;	do 1020 macros each processing 32 data values
 
 	loops_reset			;; 32 iters of 7 or 8 of 4
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	8, b9b			;; Test loop counter
@@ -17138,6 +17281,7 @@ IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
 	loops_init 2048			;; 16 iterations of 128
+	r4_f2cl_four_complex_djbfft_preload
 b1b:	r4_f2cl_four_complex_djbfft rsi, 64, 16*dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 ;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
@@ -17152,6 +17296,7 @@ b1b:	r4_f2cl_four_complex_djbfft rsi, 64, 16*dist128, rdi
 	start_timer 5
 	mov	rdi, xsincos_complex	;; Ptr to the sin/cos data
 	loops_init 1024			;; 2 iters of 4 iters of 128
+	r4_x4cl_four_complex_djbfft_preload
 b2b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*dist128, 8*dist128, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	128, b2b		;; Test inner loop counter
@@ -17169,6 +17314,8 @@ ELSE					;; Pentium 4 faster doing merged loops
 	mov	rdi, xsincos_complex	;; The sin/cos data
 	mov	rbp, rdi
 	loops_init 2048			;; 16 iterations of 128
+	;r4_f2cl_four_complex_djbfft_preload -- assume same as r4_x4cl_four_complex_djbfft_preload
+	r4_x4cl_four_complex_djbfft_preload
 
 b1b:	r4_f2cl_four_complex_djbfft rsi, 4*dist128, 16*dist128, rdi
 	xxprefetch [rdi+XMM_SCD2]	;; Prefetch for next pass
@@ -17265,6 +17412,7 @@ IFDEF NEVER				;; Never faster to do separate loops
 	xtouch	[rcx]			;; Load first TLB
 	bump	rdi, 2048*XMM_SCD2	;; Load sin/cos pointer
 	loops_init_prefetch 1024, 64, 2, rcx ;; 4*2 iters of 128
+	r4_x4cl_four_complex_djbfft_preload
 b3a:	xtouch	[rcx+4096-64]		;; Load prefetch TLBs
 b3b:	r4_x4cl_four_complex_djbfft rsi, 64, dist128, 2*dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
@@ -17279,6 +17427,7 @@ b3b:	r4_x4cl_four_complex_djbfft rsi, 64, dist128, 2*dist128, rdi
 
 	start_timer 7
 	loops_init_prefetch 1024, 64, 2, rcx ;; 4*8 iters of 32
+	r4_x4cl_four_complex_djbfft_preload
 b4a:	xtouch	[rcx+4096-64]		;; Load two prefetch TLBs
 b4b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sine/cosine pointer
@@ -17293,6 +17442,7 @@ b4b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 
 	start_timer 8
 	loops_init_prefetch 1024, 64, 2, rcx ;; 4*8*4 iters of 8
+	r4_x4cl_four_complex_djbfft_preload
 b5a:	xtouch	[rcx+4096-64]		;; Load two prefetch TLBs
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sine/cosine pointer
@@ -17316,6 +17466,7 @@ ELSE					;; Always faster to do merged loops
 	mov	rbx, rdi		;; Copy sin/cos ptrs
 	mov	rbp, rdi
 	loops_init_prefetch 1024, 64, 2, rcx ;; 4*2*8 iters of 64 cache lines
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+4096-128]		;; Load six prefetch TLBs
 	xtouch	[rcx+2*4096-128]
@@ -17834,6 +17985,7 @@ b2b:	r4_h2cl_eight_reals_four_complex_djbfft rsi, 64, 4*dist128, rdi, rdx
 ;;	do 2048 macros each processing 16 data values
 
 	loops_reset
+	r4_x2cl_four_complex_djbfft_preload
 b3a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b3b:	r4_x2cl_four_complex_djbfft rsi, 64, 4*dist128, rdi
 	bump	rdi, 5*XMM_SCD2		;; Next sin/cos data
@@ -17870,6 +18022,7 @@ b3b:	r4_x2cl_four_complex_djbfft rsi, 64, 4*dist128, rdi
 	bump	rdi, 2560*XMM_SCD2	;; Load sin/cos pointer
 	loops_init_prefetch 1280, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, dist128, 2*dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -17883,6 +18036,7 @@ b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, dist128, 2*dist128, rdi, r
 ;;	do 1152 macros each processing 32 data values
 
 	loops_reset			;; 9 more iterations of 128
+	r4_x4cl_four_complex_djbfft_preload
 b5a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, dist128, 2*dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
@@ -17916,6 +18070,7 @@ b5b:	r4_x4cl_four_complex_djbfft rsi, 64, dist128, 2*dist128, rdi
 
 	loops_init_prefetch 1280, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -17929,6 +18084,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi, rdx
 ;;	do 736 macros each processing 32 data values
 
 	loops_reset			;; 40 iters of 32
+	r4_x4cl_four_complex_djbfft_preload
 b7a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
@@ -17962,6 +18118,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 
 	loops_init_prefetch 1280, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 64*XMM_HSCD2	;; Next sin/cos data
@@ -17975,6 +18132,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, rdx
 ;;	do 1272 macros each processing 32 data values
 
 	loops_reset			;; 40 iters of 3 or 4 of 8
+	r4_x4cl_four_complex_djbfft_preload
 b9a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
@@ -18391,6 +18549,7 @@ b1b:	r5_f5cl_five_complex_djbfft rsi, 64, 8*dist128, rdi, 1024*XMM_SCD2
 					;; 5120 cache lines + 78 pad cache lines)
 	xtouch	[rcx]			;; Preload first TLB
 	loops_init_prefetch 2560, 64, 4, rcx ;; 5 iters of 4 iters of 128
+	r4_x2cl_four_complex_djbfft_preload
 b2a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b2b:	r4_x2cl_four_complex_djbfft rsi, 64, 4*dist128, rdi
 	bump	rdi, 5*XMM_SCD2		;; Next sin/cos data
@@ -18424,6 +18583,7 @@ b1b:	r5_f5cl_five_complex_djbfft rsi, 4*dist128, 8*dist128, rdi, 1024*XMM_SCD2
 	bump	rsi, -2*4*dist128	;; Restore source pointer
 	loops_undo 10
 
+	r4_x2cl_four_complex_djbfft_preload
 b2b:	r4_x2cl_four_complex_djbfft rsi, 8*dist128, 4*dist128, rbp
 	loops	5, b2b, 2		;; Test loop counter with non-standard incr
 
@@ -18510,6 +18670,7 @@ ENDIF
 	mov	rbx, rdi		;; Copy sin/cos ptrs
 	mov	rbp, rdi
 	loops_init_prefetch 1280, 64, 2, rcx ;; 10*8 iters of 64 cache lines
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+4096-64]		;; Load prefetch TLBs
 	xtouch	[rcx+2*4096-64]
@@ -19005,6 +19166,7 @@ b4b:	r4_h2cl_eight_reals_four_complex_djbfft rsi, 64, dist128, rdi, rdx
 ;;	do 3072 macros each processing 16 data values
 
 	loops_reset			;; 24 more iterations of 128
+	r4_nf2cl_four_complex_djbfft_preload
 b5a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
@@ -19038,6 +19200,7 @@ b5b:	r4_nf2cl_four_complex_djbfft rsi, 64, dist128, rdi
 
 	loops_init_prefetch 1600, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -19051,6 +19214,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi, rdx
 ;;	do 1568 macros each processing 32 data values
 
 	loops_reset			;; 50 iters of 32
+	r4_x4cl_four_complex_djbfft_preload
 b7a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
@@ -19084,6 +19248,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 32*64, 64*64, rdi
 
 	loops_init_prefetch 1600, 64, 2, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -19097,6 +19262,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, rdx
 ;;	do 1592 macros each processing 32 data values
 
 	loops_reset			;; 50 iters of 3 or 4 of 8
+	r4_x4cl_four_complex_djbfft_preload
 b9a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
@@ -19637,6 +19803,8 @@ ENDIF
 	mov	rbx, rdi		;; Copy sin/cos ptrs
 	mov	rbp, rdi
 	loops_init_prefetch 3200, 64, 4, rcx ;; 25 iters of 8 of 32 cache lines
+	;r4_nf2cl_four_complex_djbfft_preload -- assume same as r4_x4cl_four_complex_djbfft_preload
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+4096-64]		;; Load prefetch TLB
 	xtouch	[rcx+2*4096-64]
@@ -20142,6 +20310,7 @@ b2b:	r4_h2cl_2sc_eight_reals_four_complex_djbfft rsi, 64, 2*dist128, rdi, rbx, r
 ;;	do 2048 macros each processing 16 data values
 
 	loops_reset
+	r4_x2cl_2sc_four_complex_djbfft_preload
 b3b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 2*dist128, rdi, rbx
 	bump	rdi, 9*XMM_SCD1		;; Next sin/cos data
 	bump	rbx, 18*XMM_SCD1	;; Next sin/cos data
@@ -20179,6 +20348,7 @@ b3b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 2*dist128, rdi, rbx
 	bump	rdi, 4608*XMM_SCD1	;; Load sin/cos pointer
 	loops_init_prefetch 1152, 64, 1, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -20192,6 +20362,7 @@ b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 ;;	do 1088 macros each processing 32 data values
 
 	loops_reset			;; 17 more iterations of 64
+	r4_x4cl_four_complex_djbfft_preload
 b5a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
@@ -20225,6 +20396,7 @@ b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 
 	loops_init_prefetch 1152, 64, 1, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -20238,6 +20410,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 ;;	do 1136 macros each processing 32 data values
 
 	loops_reset			;; 36 iters of 1 or 2 of 16
+	r4_x4cl_four_complex_djbfft_preload
 b7a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
@@ -20272,6 +20445,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 ;;	do 4 macros each processing 32 data values
 
 	loops_init 1152
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 64*XMM_HSCD2	;; Next sin/cos data
@@ -20285,6 +20459,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 ;;	do 1148 macros each processing 32 data values
 
 	loops_reset			;; 36 iters of 7 or 8 of 4
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	4, b9b			;; Test loop counter
@@ -20776,6 +20951,7 @@ b7b:	r3_nf3cl_three_complex_djbfft rsi, 64, 4*dist128, rdi, 512*3*XMM_SCD1
 	start_timer 5
 	mov	rdx, rdi
 	loops_init 2304			;; 9 iters of 2 iters of 128
+	r4_x2cl_2sc_four_complex_djbfft_preload
 b2b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 2*dist128, rdi, rdx
 	bump	rdi, 9*XMM_SCD1		;; Next sin/cos data
 	bump	rdx, 18*XMM_SCD1	;; Next sin/cos data
@@ -20818,6 +20994,7 @@ b7b:	r3_nf3cl_three_complex_djbfft rsi, 2*dist128, 4*dist128, rbp, 512*3*XMM_SCD
 	bump	rsi, -3*12*dist128	;; Restore source pointer
 	loops_undo 18
 
+	r4_x2cl_2sc_four_complex_djbfft_preload
 b2b:	r4_x2cl_2sc_four_complex_djbfft rsi, 4*dist128, 2*dist128, rcx, rdx
 	loops	9, b2b, 2		;; Test loop counter with non-standard incr
 
@@ -20909,6 +21086,7 @@ ENDIF
 	mov	rbx, rdi
 	mov	rbp, rdi
 	loops_init_prefetch 1152, 64, 2, rcx ;; 2*4 iters of 4 of 64 cache lines
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+48*64-64]		;; Load prefetch TLB
 
@@ -21396,6 +21574,7 @@ d2b:	r4_h2cl_2sc_eight_reals_four_complex_djbfft rsi, 64, 8*dist128, rdi, rbx, r
 ;;	do 2048 macros each processing 16 data values
 
 	loops_reset			;; 2 more iters of 1024
+	r4_x2cl_2sc_four_complex_djbfft_preload
 d3b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 8*dist128, rdi, rbx
 	bump	rdi, 3*XMM_SCD1		;; Next sin/cos data
 	bump	rbx, 6*XMM_SCD1		;; Next sin/cos data
@@ -21431,6 +21610,7 @@ d3b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 8*dist128, rdi, rbx
 ;;	do 256 macros each processing 32 data values
 
 	loops_init_prefetch 1536, 64, 1, rcx
+	r4_h4cl_2sc_eight_reals_four_complex_djbfft_preload
 b2b0:	xtouch	[rcx+4096-64]		;; Preload the TLB
 b2b:	r4_h4cl_2sc_eight_reals_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi, rbx, rdx
 	bump	rdi, 12*XMM_SCD1	;; Next sin/cos data
@@ -21449,6 +21629,7 @@ b2b:	r4_h4cl_2sc_eight_reals_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, 
 ;;	do 1280 macros each processing 32 data values
 
 	loops_reset
+	r4_x4cl_2sc_four_complex_djbfft_preload
 b3b0:	xtouch	[rcx+4096-64]		;; Preload the TLB
 b3b:	r4_x4cl_2sc_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi, rbx
 	bump	rdi, 12*XMM_SCD1	;; Next sin/cos data
@@ -21487,6 +21668,7 @@ b3b:	r4_x4cl_2sc_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi, rbx
 	bump	rdi, 6144*XMM_SCD1	;; Load sin/cos pointer
 	loops_init_prefetch 1536, 64, 1, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLB
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -21500,6 +21682,7 @@ b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 ;;	do 1472 macros each processing 32 data values
 
 	loops_reset			;; 23 more iterations of 64
+	r4_x4cl_four_complex_djbfft_preload
 b5a:	xtouch	[rcx+4096-64]		;; Preload the TLB
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
@@ -21532,6 +21715,7 @@ b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 ;;	do 16 macros each processing 32 data values
 
 	loops_init 1536
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 64*XMM_HSCD2	;; Next sin/cos data
@@ -21545,6 +21729,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 ;;	do 1520 macros each processing 32 data values
 
 	loops_reset			;; 48 iters of 1 or 2 of 16
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	16, b7b			;; Test inner loop counter
@@ -21578,6 +21763,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 ;;	do 4 macros each processing 32 data values
 
 	loops_init 1536
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 256*XMM_HSCD2	;; Next sin/cos data
@@ -21591,6 +21777,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 ;;	do 1532 macros each processing 32 data values
 
 	loops_reset			;; 48 iters of 7 or 8 of 4
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	4, b9b			;; Test loop counter
@@ -22049,6 +22236,7 @@ b1b:	xxprefetch [rdi+XMM_SCD1]	;; Prefetch for next pass
 	mov	rdi, xsincos_complex	;; Ptr to the sin/cos data
 	mov	rbx, rdi
 	loops_init 3072			;; 3 iters of 8 iters of 128
+	r4_x2cl_2sc_four_complex_djbfft_preload
 b7b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 8*dist128, rdi, rbx
 	bump	rdi, 3*XMM_SCD1		;; Next sin/cos data
 	bump	rbx, 6*XMM_SCD1		;; Next sin/cos data
@@ -22085,6 +22273,7 @@ b7b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 8*dist128, rdi, rbx
 
 	start_timer 5
 	loops_init_prefetch 1536, 64, 2, rcx ;; 6 iters of 2 iters of 128
+	r4_x4cl_2sc_four_complex_djbfft_preload
 b2a:	xtouch	[rcx+4096-64]		;; Load prefetch TLB
 b2b:	r4_x4cl_2sc_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi, rbx
 	bump	rdi, 12*XMM_SCD1	;; Next sin/cos data
@@ -22170,6 +22359,7 @@ b2b:	r4_x4cl_2sc_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi, rbx
 	mov	rbx, rdi
 	mov	rbp, rdi
 	loops_init_prefetch 1536, 64, 2, rcx ;; 24 iters of 4 of 64 cache lines
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+48*64-64]		;; Load prefetch TLB
 
@@ -22662,6 +22852,7 @@ b2b:	r4_h2cl_2sc_eight_reals_four_complex_djbfft rsi, 64, 2*dist128, rdi, rbx, r
 ;;	do 3584 macros each processing 16 data values
 
 	loops_reset
+	r4_x2cl_2sc_four_complex_djbfft_preload
 b3b0:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b3b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 2*dist128, rdi, rbx
 	bump	rdi, 15*XMM_SCD1	;; Next sin/cos data
@@ -22700,6 +22891,7 @@ b3b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 2*dist128, rdi, rbx
 	bump	rdi, 7680*XMM_SCD1	;; Load sin/cos pointer
 	loops_init_prefetch 1920, 64, 1, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -22713,6 +22905,7 @@ b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 ;;	do 1856 macros each processing 32 data values
 
 	loops_reset			;; 29 more iterations of 64
+	r4_x4cl_four_complex_djbfft_preload
 b5a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
@@ -22745,6 +22938,7 @@ b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 ;;	do 16 macros each processing 32 data values
 
 	loops_init 1920
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -22758,6 +22952,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 ;;	do 1904 macros each processing 32 data values
 
 	loops_reset			;; 60 iters of 1 or 2 of 16
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	16, b7b			;; Test inner loop counter
@@ -22791,6 +22986,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 ;;	do 4 macros each processing 32 data values
 
 	loops_init 1920
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 64*XMM_HSCD2	;; Next sin/cos data
@@ -22804,6 +23000,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 ;;	do 1916 macros each processing 32 data values
 
 	loops_reset			;; 60 iters of 7 or 8 of 4
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	4, b9b			;; Test loop counter
@@ -23301,6 +23498,7 @@ b7b:	r5_nf5cl_2sc_five_complex_djbfft rsi, 64, 4*dist128, rdi, 512*3*XMM_SCD1, r
 
 	start_timer 5
 	loops_init_prefetch 3840, 64, 4, rcx ;; 15 iters of 2 iters of 128
+	r4_x2cl_2sc_four_complex_djbfft_preload
 b2a:	xtouch	[rcx+4096-64]		;; Load prefetch TLBs
 b2b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 2*dist128, rdi, rdx
 	bump	rdi, 15*XMM_SCD1	;; Next sin/cos data
@@ -23386,6 +23584,7 @@ b2b:	r4_x2cl_2sc_four_complex_djbfft rsi, 64, 2*dist128, rdi, rdx
 	mov	rbx, rdi
 	mov	rbp, rdi
 	loops_init_prefetch 1920, 64, 2, rcx ;; 2*4 iters of 4 of 64 cache lines
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+48*64-128]		;; Load prefetch TLB
 
@@ -23804,6 +24003,7 @@ b1b:	r4_fh2cl_eight_reals_four_complex_djbfft rsi, 64, 32*dist128, rdi, rdx
 	mov	rcx, DATA_PREFETCH	;; Prefetch pointer
 	xtouch	[rcx]			;; Preload first TLB
 	loops_init 1024
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 d2b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*dist128, 16*dist128, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -23819,6 +24019,7 @@ d2b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 8*dist128, 16*dist128, rdi
 ;;	do 1024 macros each processing 32 data values
 
 	loops_init 1024
+	r4_x4cl_four_complex_djbfft_preload
 d3b:	r4_x4cl_four_complex_djbfft rsi, 64, 8*dist128, 16*dist128, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	128, d3b		;; Test inner loop counter
@@ -23850,6 +24051,7 @@ d3b:	r4_x4cl_four_complex_djbfft rsi, 64, 8*dist128, 16*dist128, rdi
 ;;	do 256 macros each processing 32 data values
 
 	loops_init_prefetch 2048, 64, 1, rcx
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b2b0:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b2b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
@@ -23867,6 +24069,7 @@ b2b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi,
 ;;	do 1792 macros each processing 32 data values
 
 	loops_reset
+	r4_x4cl_four_complex_djbfft_preload
 b3b0:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b3b:	r4_x4cl_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
@@ -23904,6 +24107,7 @@ b3b:	r4_x4cl_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi
 	bump	rdi, 4096*XMM_SCD2	;; Load sin/cos pointer
 	loops_init_prefetch 2048, 64, 1, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 64*XMM_HSCD2	;; Next sin/cos data
@@ -23917,6 +24121,7 @@ b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 ;;	do 1986 macros each processing 32 data values
 
 	loops_reset			;; 31 iterations of 64
+	r4_x4cl_four_complex_djbfft_preload
 b5a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
@@ -23951,6 +24156,7 @@ b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 ;;	do 16 macros each processing 32 data values
 
 	loops_init 2048
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 256*XMM_HSCD2	;; Next sin/cos data
@@ -23964,6 +24170,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 ;;	do 2032 macros each processing 32 data values
 
 	loops_reset			;; 64 iters of 1 or 2 of 16
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	16, b7b			;; Test inner loop counter
@@ -23997,6 +24204,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 ;;	do 4 macros each processing 32 data values
 
 	loops_init 2048
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 1024*XMM_HSCD2	;; Next sin/cos data
@@ -24010,6 +24218,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 ;;	do 2044 macros each processing 32 data values
 
 	loops_reset			;; 64 iters of 7 or 8 of 4
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	4, b9b			;; Test loop counter
@@ -24469,6 +24678,7 @@ IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
 	start_timer 3
 	mov	rdi, xsincos_complex	;; The sin/cos data
 	loops_init 4096			;; 8 iterations of 128
+	r4_f2cl_four_complex_djbfft_preload
 b1b:	r4_f2cl_four_complex_djbfft rsi, 64, 32*dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 ;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
@@ -24485,6 +24695,7 @@ b1b:	r4_f2cl_four_complex_djbfft rsi, 64, 32*dist128, rdi
 	mov	rcx, DATA_PREFETCH	;; Prefetch pointer
 	xtouch	[rcx]			;; Load first TLB
 	loops_init_prefetch 2048, 64, 2, rcx ;; 2 iters of 8 iters of 128
+	r4_x4cl_four_complex_djbfft_preload
 b7a:	xtouch	[rcx+4096-64]		;; Load prefetch TLB
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 8*dist128, 16*dist128, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
@@ -24501,6 +24712,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 8*dist128, 16*dist128, rdi
 
 	start_timer 5
 	loops_init 2048			;; 8 iters of 2 iters of 128
+	r4_x4cl_four_complex_djbfft_preload
 b2b:	r4_x4cl_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	128, b2b		;; Test inner loop counter
@@ -24522,6 +24734,8 @@ ELSE					;; Pentium 4 faster doing merged loops
 	xtouch	[rcx]			;; Load first TLB
 
 	loops_init_prefetch 4096, 64, 4, rcx ;; 256 iterations of 32
+	;r4_f2cl_four_complex_djbfft_preload -- assume same as r4_x4cl_four_complex_djbfft_preload
+	r4_x4cl_four_complex_djbfft_preload
 
 b1a:	xtouch	[rcx+4096-64]		;; Load prefetch TLB
 b1b:	r4_f2cl_four_complex_djbfft rsi, 2*dist128, 32*dist128, rdi
@@ -24629,6 +24843,7 @@ IFDEF NEVER				;; Never faster to do separate loops
 	start_timer 6
 	bump	rdi, 4096*XMM_SCD2	;; Load sin/cos pointer
 	loops_init_prefetch 2048, 64, 2, rcx ;; 8*4 iters of 64
+	r4_x4cl_four_complex_djbfft_preload
 b3a:	xtouch	[rcx+4096-128]		;; Load two prefetch TLBs
 	xtouch	[rcx+2*4096-128]
 b3b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
@@ -24644,6 +24859,7 @@ b3b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 
 	start_timer 7
 	loops_init_prefetch 2048, 64, 2, rcx ;; 8*8*2 iters of 16
+	r4_x4cl_four_complex_djbfft_preload
 b4a:	xtouch	[rcx+4096-128]		;; Load two prefetch TLBs
 	xtouch	[rcx+2*4096-128]
 b4b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
@@ -24661,6 +24877,7 @@ b4b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 
 	start_timer 8
 	loops_init_prefetch 2048, 64, 2, rcx ;; 8*8*8 iters of 4
+	r4_x4cl_four_complex_djbfft_preload
 b5a:	xtouch	[rcx+4096-128]		;; Load two prefetch TLBs
 	xtouch	[rcx+2*4096-128]
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
@@ -24683,6 +24900,7 @@ ELSE					;; Always faster to do merged loops
 	mov	rbx, rdi
 	mov	rbp, rdi
 	loops_init_prefetch 2048, 64, 2, rcx ;; 2*4 iters of 4 of 64 cache lines
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+4096-128]		;; Load six prefetch TLBs
 	xtouch	[rcx+2*4096-128]
@@ -25229,6 +25447,7 @@ d2b:	r4_h2cl_eight_reals_four_complex_djbfft rsi, 64, 8*dist128, rdi, rdx
 ;;	do 4096 macros each processing 16 data values
 
 	loops_reset			;; 4 more iters of 1024
+	r4_x2cl_four_complex_djbfft_preload
 d3b:	r4_x2cl_four_complex_djbfft rsi, 64, 8*dist128, rdi
 	bump	rdi, 5*XMM_SCD2		;; Next sin/cos data
 	loops	128, d3b		;; Test inner loop counter
@@ -25262,6 +25481,7 @@ d3b:	r4_x2cl_four_complex_djbfft rsi, 64, 8*dist128, rdi
 ;;	do 256 macros each processing 32 data values
 
 	loops_init_prefetch 2560, 64, 1, rcx
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b2b0:	xtouch	[rcx+4096-64]		;; Preload the TLB
 b2b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi, rdx
 	bump	rdi, 20*XMM_SCD2	;; Next sin/cos data
@@ -25278,6 +25498,7 @@ b2b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi,
 ;;	do 2304 macros each processing 32 data values
 
 	loops_reset
+	r4_x4cl_four_complex_djbfft_preload
 b3b0:	xtouch	[rcx+4096-64]		;; Preload the TLB
 b3b:	r4_x4cl_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi
 	bump	rdi, 20*XMM_SCD2	;; Next sin/cos data
@@ -25314,6 +25535,7 @@ b3b:	r4_x4cl_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi
 	bump	rdi, 5120*XMM_SCD2	;; Load sin/cos pointer
 	loops_init_prefetch 2560, 64, 1, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLBs
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -25327,6 +25549,7 @@ b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 ;;	do 2496 macros each processing 32 data values
 
 	loops_reset			;; 39 more iterations of 64
+	r4_x4cl_four_complex_djbfft_preload
 b5a:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
@@ -25359,6 +25582,7 @@ b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 ;;	do 16 macros each processing 32 data values
 
 	loops_init 2560
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 64*XMM_HSCD2	;; Next sin/cos data
@@ -25372,6 +25596,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 ;;	do 2544 macros each processing 32 data values
 
 	loops_reset			;; 80 iters of 1 or 2 of 16
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	16, b7b			;; Test inner loop counter
@@ -25405,6 +25630,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 ;;	do 4 macros each processing 32 data values
 
 	loops_init 2560
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 256*XMM_HSCD2	;; Next sin/cos data
@@ -25418,6 +25644,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 ;;	do 2556 macros each processing 32 data values
 
 	loops_reset			;; 80 iters of 7 or 8 of 4
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	4, b9b			;; Test loop counter
@@ -25868,6 +26095,7 @@ b1b:	xxprefetch [rdi+XMM_SCD2]	;; Prefetch for next pass
 	xtouch	[rcx]			;; Load first prefetch TLB
 	mov	rdi, xsincos_complex	;; Ptr to the sin/cos data
 	loops_init 5120			;; 3 iters of 8 iters of 128
+	r4_x2cl_four_complex_djbfft_preload
 b7b:	r4_x2cl_four_complex_djbfft rsi, 64, 8*dist128, rdi
 	bump	rdi, 5*XMM_SCD2		;; Next sin/cos data
 	loops	128, b7b		;; Test inner loop counter
@@ -25902,6 +26130,7 @@ b7b:	r4_x2cl_four_complex_djbfft rsi, 64, 8*dist128, rdi
 
 	start_timer 5
 	loops_init_prefetch 2560, 64, 2, rcx ;; 10 iters of 2 iters of 128
+	r4_x4cl_four_complex_djbfft_preload
 b2a:	xtouch	[rcx+4096-64]		;; Load prefetch TLB
 b2b:	r4_x4cl_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi
 	bump	rdi, 20*XMM_SCD2	;; Next sin/cos data
@@ -25985,6 +26214,7 @@ b2b:	r4_x4cl_four_complex_djbfft rsi, 64, 2*dist128, 4*dist128, rdi
 	mov	rbx, rdi
 	mov	rbp, rdi
 	loops_init_prefetch 2560, 64, 2, rcx ;; 40 iters of 4 of 64 cache lines
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+48*64-64]		;; Load prefetch TLB
 
@@ -26467,6 +26697,7 @@ b2b:	r4_h2cl_eight_reals_four_complex_djbfft rsi, 64, 2*dist128, rdi, rdx
 ;;	do 6144 macros each processing 16 data values
 
 	loops_reset
+	r4_x2cl_four_complex_djbfft_preload
 b3b0:	xtouch	[rcx+4096-64]		;; Preload the TLB
 b3b:	r4_x2cl_four_complex_djbfft rsi, 64, 2*dist128, rdi
 	bump	rdi, 25*XMM_SCD2	;; Next sin/cos data
@@ -26503,6 +26734,7 @@ b3b:	r4_x2cl_four_complex_djbfft rsi, 64, 2*dist128, rdi
 	bump	rdi, 6400*XMM_SCD2	;; Load sin/cos pointer
 	loops_init_prefetch 3200, 64, 1, rcx
 	xtouch	[rcx+4096-64]		;; Preload the TLB
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 4*XMM_HSCD2	;; Next sin/cos data
@@ -26516,6 +26748,7 @@ b4b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, dist128, rdi, rdx
 ;;	do 3136 macros each processing 32 data values
 
 	loops_reset			;; 49 more iterations of 64
+	r4_x4cl_four_complex_djbfft_preload
 b5a:	xtouch	[rcx+4096-64]		;; Preload the TLB
 b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
@@ -26548,6 +26781,7 @@ b5b:	r4_x4cl_four_complex_djbfft rsi, 64, 64*64, dist128, rdi
 ;;	do 16 macros each processing 32 data values
 
 	loops_init 3200
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	bump	rdx, 16*XMM_HSCD2	;; Next sin/cos data
@@ -26561,6 +26795,7 @@ b6b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, rdx
 ;;	do 3184 macros each processing 32 data values
 
 	loops_reset			;; 100 iters of 1 or 2 of 16
+	r4_x4cl_four_complex_djbfft_preload
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 	bump	rdi, 4*XMM_SCD2		;; Next sin/cos data
 	loops	16, b7b			;; Test inner loop counter
@@ -26594,6 +26829,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi
 ;;	do 4 macros each processing 32 data values
 
 	loops_init 3200
+	r4_h4cl_eight_reals_four_complex_djbfft_preload
 b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	bump	rdx, 64*XMM_HSCD2	;; Next sin/cos data
@@ -26607,6 +26843,7 @@ b8b:	r4_h4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, rdx
 ;;	do 3196 macros each processing 32 data values
 
 	loops_reset			;; 100 iters of 7 or 8 of 4
+	r4_x4cl_four_complex_djbfft_preload
 b9b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi
 	bump	rdi, 16*XMM_SCD2	;; Next sin/cos data
 	loops	4, b9b			;; Test loop counter
@@ -27093,6 +27330,7 @@ b7b:	r5_nf5cl_five_complex_djbfft rsi, 64, 4*dist128, rdi, 512*5*XMM_SCD2
 
 	start_timer 5
 	loops_init_prefetch 6400, 64, 4, rcx ;; 25 iters of 2 iters of 128
+	r4_x2cl_four_complex_djbfft_preload
 b2a:	xtouch	[rcx+4096-64]		;; Load prefetch TLB
 b2b:	r4_x2cl_four_complex_djbfft rsi, 64, 2*dist128, rdi
 	bump	rdi, 25*XMM_SCD2	;; Next sin/cos data
@@ -27176,6 +27414,7 @@ b2b:	r4_x2cl_four_complex_djbfft rsi, 64, 2*dist128, rdi
 	mov	rbx, rdi
 	mov	rbp, rdi
 	loops_init_prefetch 3200, 64, 2, rcx ;; 2*4 iters of 4 of 64 cache lines
+	r4_x4cl_four_complex_djbfft_preload
 
 b3a:	xtouch	[rcx+48*64-64]		;; Load prefetch TLB
 

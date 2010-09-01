@@ -227,6 +227,7 @@ b8b:	r4_sg4cl_eight_reals_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, r
 	bump	rdi, -2*clm*XMM_SCD2	;; Restore premult/sine/cosine pointer
 
 	loops_reset
+	r4_sg4cl_four_complex_djbfft_preload
 b9b:	r4_sg4cl_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst, rdi
 	bump	rdi, XMM_SCD2		;; Next premult/sin/cos ptr
 	loops	2*clm, b9b
@@ -674,6 +675,7 @@ b8b:	r4_sg4cl_eight_reals_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, r
 	bump	rdi, -2*clm*XMM_SCD2	;; Restore premult/sine/cosine pointer
 
 	loops_reset
+	r4_sg4cl_four_complex_djbfft_preload
 b9b:	r4_sg4cl_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst, rdi
 	bump	rdi, XMM_SCD2		;; Next premult/sin/cos ptr
 	loops	2*clm, b9b
@@ -992,6 +994,7 @@ b8b:	r4_sg4cl_eight_reals_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, r
 	bump	rdi, -2*clm*XMM_SCD2	;; Restore premult/sine/cosine pointer
 
 	loops_reset
+	r4_sg4cl_four_complex_djbfft_preload
 b9b:	r4_sg4cl_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst, rdi
 	bump	rdi, XMM_SCD2		;; Next premult/sin/cos ptr
 	loops	2*clm, b9b
@@ -1211,6 +1214,7 @@ b8b:	r4_sg4cl_eight_reals_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, r
 	bump	rdi, -2*clm*XMM_SCD2	;; Restore premult/sine/cosine pointer
 
 	loops_reset
+	r4_sg4cl_four_complex_djbfft_preload
 b9b:	r4_sg4cl_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst, rdi
 	bump	rdi, XMM_SCD2		;; Next premult/sin/cos ptr
 	loops	2*clm, b9b
@@ -1483,6 +1487,7 @@ b6b:	r4_x4cl_eight_reals_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, r
 	bump	rdi, -4*2*clm*XMM_SCD2	;; Restore sin/cos ptr
 
 	loops_reset
+	r4_x4cl_four_complex_djbfft_preload
 b7a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
@@ -1536,6 +1541,7 @@ b8b:	r4_sg4cl_eight_reals_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, r
 	bump	rdi, -2*clm*XMM_SCD2	;; Restore premult/sine/cosine pointer
 
 	loops_reset
+	r4_sg4cl_four_complex_djbfft_preload
 b9b:	r4_sg4cl_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst, rdi
 	bump	rdi, XMM_SCD2		;; Next premult/sin/cos ptr
 	loops	2*clm, b9b
@@ -2043,6 +2049,7 @@ b6b:	r4_x4cl_eight_reals_four_complex_djbfft rsi, 64, clmblkdst8, 2*clmblkdst8, 
 	bump	rdi, -8*2*clm*XMM_SCD2	;; Restore sin/cos ptr
 
 	loops_reset
+	r4_x4cl_four_complex_djbfft_preload
 b7a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
@@ -2286,6 +2293,7 @@ b1b:	r4_x2cl_four_complex_first_fft4_scratch rsi, 64, 4*clmblkdst, rdi
 	mov	rcx, DATA_ADDR		;; Destination pointer
 	loops_init_prefetch 2*2*clm, 128, 1, rbp ;; 2 iters of 2*clm
 pfing	mov	rbp, PREMULT_PREFETCH	;; Load premult/sin/cos prefetch pointer
+	r4_sg4cl_four_complex_djbfft_preload
 b9b:	r4_sg4cl_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst, rdi
 	bump	rdi, XMM_SCD2		;; Next premult/sin/cos ptr
 	loops	2*clm, b9b
@@ -2741,6 +2749,7 @@ b7b:	r3_x3cl_three_complex_djbfft rsi, 64, 4*clmblkdst, rdi
 	mov	rcx, DATA_ADDR		;; Destination pointer
 	loops_init_prefetch 6*2*clm, 128, 1, rbp ;; 6 iters of 2*clm
 pfing	mov	rbp, PREMULT_PREFETCH	;; Load premult/sin/cos prefetch pointer
+	r4_sg4cl_four_complex_djbfft_preload
 b9b:	r4_sg4cl_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst, rdi
 	bump	rdi, XMM_SCD2		;; Next premult/sin/cos ptr
 	loops	2*clm, b9b
@@ -2965,6 +2974,7 @@ b1b:	r4_x2cl_four_complex_first_fft4_scratch rsi, 64, 2*clmblkdst8, rdi
 	start_timer 25
 	bump	rdi, -16*2*clm*XMM_SCD4 - 4*2*clm*XMM_SCD2
 	loops_init 8*2*clm		;; 2 iterations of 4 iters of 2*clm
+	r4_x4cl_four_complex_djbfft_preload
 b7a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
@@ -3003,6 +3013,7 @@ b7b:	r4_x4cl_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
 	mov	rcx, DATA_ADDR		;; Destination pointer
 	loops_init_prefetch 8*2*clm, 128, 1, rbp ;; 8 iters of 2*clm
 pfing	mov	rbp, PREMULT_PREFETCH	;; Load premult/sin/cos prefetch pointer
+	r4_sg4cl_four_complex_djbfft_preload
 b9b:	r4_sg4cl_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst, rdi
 	bump	rdi, XMM_SCD2		;; Next premult/sin/cos ptr
 	loops	2*clm, b9b
@@ -3236,6 +3247,7 @@ b1b:	r4_x2cl_four_complex_first_fft4_scratch rsi, 64, 4*clmblkdst8, rdi
 	start_timer 25
 	bump	rdi, -32*2*clm*XMM_SCD4 - 8*2*clm*XMM_SCD2 ;; Next sin/cos ptr
 	loops_init 16*2*clm		;; 2 iterations of 8 iters of 2*clm
+	r4_x4cl_four_complex_djbfft_preload
 b7a:	xtouch	[rcx+rbp+(clm-1)*128]	;; Preload TLB
 b7b:	r4_x4cl_four_complex_djbfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi
 	bump	rdi, XMM_SCD2		;; Next sine/cosine pointer
