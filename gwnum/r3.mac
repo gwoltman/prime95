@@ -18,6 +18,7 @@
 ;;
 
 r3_x3cl_three_complex_djbfft_preload MACRO
+	r3_x3c_djbfft_partial_mem_preload
 	ENDM
 
 r3_x3cl_three_complex_djbfft MACRO srcreg,srcinc,d1,screg
@@ -63,7 +64,10 @@ r3_nf3cl_three_complex_djbfft MACRO srcreg,srcinc,d1,screg,scoff
 	r3_f3cl_three_complex_djbfft_common srcreg,0,srcinc,d1,screg,scoff
 	ENDM
 
+;; The common 3-complex djbfft code.
+
 r3_f3cl_three_complex_djbfft_common_preload MACRO
+	r3_x3c_djbfft_partial_mem_preload
 	ENDM
 
 r3_f3cl_three_complex_djbfft_common MACRO srcreg,srcoff,srcinc,d1,screg,scoff
@@ -94,6 +98,10 @@ r3_f3cl_three_complex_djbfft_common MACRO srcreg,srcoff,srcinc,d1,screg,scoff
 ;; Res2:  (R1-.5R2-.866I2-.5R3+.866I3) + (I1-.5I2+.866R2-.5I3-.866R3)i
 ;; Res3:  (R1-.5R2+.866I2-.5R3-.866I3) + (I1-.5I2-.866R2-.5I3+.866R3)i
 ;; Then multiply 2 of the 3 results by twiddle factors.
+
+r3_x3c_djbfft_partial_mem_preload MACRO
+	ENDM
+
 r3_x3c_djbfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,t1,t2,memr1,memr2,memi1,memi2,screg,pre1,pre2
 	xload	r2, memr2
 	xcopy	t1, r3
@@ -506,18 +514,14 @@ ENDIF
 IF @INSTR(,@CATSTR(%xarch),<P4>) EQ 1
 IFDEF X86_64
 
-r3_x3cl_three_complex_djbfft_preload MACRO
-	xload	xmm14, XMM_HALF
-	xload	xmm15, XMM_P866
-	ENDM
-
-r3_f3cl_three_complex_djbfft_common_preload MACRO
-	xload	xmm14, XMM_HALF
-	xload	xmm15, XMM_P866
-	ENDM
-
 ;; Identical to the 32-bit version but uses registers for HALF and P866.  Very likely
 ;; this could be optimized further.
+
+r3_x3c_djbfft_partial_mem_preload MACRO
+	xload	xmm14, XMM_HALF
+	xload	xmm15, XMM_P866
+	ENDM
+
 r3_x3c_djbfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,t1,t2,memr1,memr2,memi1,memi2,screg,pre1,pre2
 	xload	r2, memr2
 	xcopy	t1, r3
@@ -574,12 +578,7 @@ ENDIF
 IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
 IFDEF X86_64
 
-r3_x3cl_three_complex_djbfft_preload MACRO
-	xload	xmm14, XMM_P866
-	xload	xmm15, XMM_TWO
-	ENDM
-
-r3_f3cl_three_complex_djbfft_common_preload MACRO
+r3_x3c_djbfft_partial_mem_preload MACRO
 	xload	xmm14, XMM_P866
 	xload	xmm15, XMM_TWO
 	ENDM
@@ -650,6 +649,7 @@ ENDIF
 ;;
 
 r3_x3cl_three_complex_djbunfft_preload MACRO
+	r3_x3c_djbunfft_partial_mem_preload
 	ENDM
 
 r3_x3cl_three_complex_djbunfft MACRO srcreg,srcinc,d1,screg,scoff
@@ -680,6 +680,10 @@ r3_x3cl_three_complex_djbunfft MACRO srcreg,srcinc,d1,screg,scoff
 ;; Res1:  (R1+R2+R3) + (I1+I2+I3)i
 ;; Res2:  (R1-.5R2+.866I2-.5R3-.866I3) + (I1-.5I2-.866R2-.5I3+.866R3)i
 ;; Res3:  (R1-.5R2-.866I2-.5R3+.866I3) + (I1-.5I2+.866R2-.5I3-.866R3)i
+
+r3_x3c_djbunfft_partial_mem_preload MACRO
+	ENDM
+
 r3_x3c_djbunfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,t1,t2,memr1,memi1,memr3,memi3,screg,scoff,pre1,pre2
 	xcopy	t1, r3			;; Copy R2
 	xload	t2, [screg+scoff+16]
@@ -733,7 +737,7 @@ r3_x3c_djbunfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,t1,t2,memr1,memi1,memr3,memi
 	ENDM
 
 ; AMD version of some of the above macros.  Could be improved slightly by eliminating the 
-; first xcopy.  Half the time this is called thep preloaded r3 value is still in memory.
+; first xcopy.  Half the time this is called the preloaded r3 value is still in memory.
 ; Or we eliminate the initial xcopy (do a cosine/sine load instead) but it will
 ; change the output registers.
 
@@ -948,13 +952,14 @@ ENDIF
 IF @INSTR(,@CATSTR(%xarch),<P4>) EQ 1
 IFDEF X86_64
 
-r3_x3cl_three_complex_djbunfft_preload MACRO
+;; Same as 32-bit version but HALF and P866 in registers.  Very likely this
+;; could be optimized further.
+
+r3_x3c_djbunfft_partial_mem_preload MACRO
 	xload	xmm14, XMM_HALF
 	xload	xmm15, XMM_P866
 	ENDM
 
-;; Same as 32-bit version but HALD and P866 in registers.  Very likely this
-;; could be optimized further.
 r3_x3c_djbunfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,t1,t2,memr1,memi1,memr3,memi3,screg,scoff,pre1,pre2
 	xcopy	t1, r3			;; Copy R2
 	xload	t2, [screg+scoff+16]
@@ -1009,7 +1014,7 @@ ENDIF
 IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
 IFDEF X86_64
 
-r3_x3cl_three_complex_djbunfft_preload MACRO
+r3_x3c_djbunfft_partial_mem_preload MACRO
 	xload	xmm14, XMM_P866
 	xload	xmm15, XMM_TWO
 	ENDM
@@ -1075,7 +1080,7 @@ ENDIF
 ;;
 
 r3_x3cl_six_reals_three_complex_djbfft_preload MACRO
-	r3_x3cl_three_complex_djbfft_preload
+	r3_x3c_djbfft_partial_mem_preload
 	ENDM
 
 r3_x3cl_six_reals_three_complex_djbfft MACRO srcreg,srcinc,d1,screg1,screg2
