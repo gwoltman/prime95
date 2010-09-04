@@ -4747,7 +4747,7 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 /*	1 SHL 26		(in_place) */
 /*	fft_type SHL 21		(hg=0, r4=1, r4delay=2) */
 /*	arch SHL 17		(ppro=0,p3=1,p4=2,core=3,k8=4,k10=5) */
-/*	min_L2_cache SHL 13	(0=0,128KB=1,WILLI=2,CELE_D=3,512KB=4,1024KB=5,2048KB=6) */
+/*	best_impl_for SHL 13	(CORE2=0,I7=1,P4_1024=2,etc.) */
 /*	clm SHL 9		(1,2,4,8) */
 /*	pass2size_over_64	(many valid values) */
 
