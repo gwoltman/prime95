@@ -4693,6 +4693,7 @@ next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
 			if (jmptab->proc_ptr == prev_proc_ptrs[3]) goto next3;
 			if (jmptab->proc_ptr == prev_proc_ptrs[4]) goto next3;
 			if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_K8 &&
+			    (jmptab->flags & 0x3F) != 0 &&
 			    (arch == 2 || arch == 3))
 				goto next3;
 			gwdata->bench_pick_nth_fft--;
