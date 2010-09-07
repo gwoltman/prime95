@@ -4136,7 +4136,7 @@ int calculate_bif (
 	case CPU_ARCHITECTURE_AMD_K8:
 		return 6;			/* Look for FFTs optimized for K8 */
 	case CPU_ARCHITECTURE_AMD_K10:
-		return 6;			/* K10 optimizations not implemented yet, Look for FFTs optimized for K8 */
+		return 0;			/* K10 optimizations not implemented yet, Look for FFTs optimized for Core 2 */
 		//return 7;			/* Look for FFTs optimized for K10 */
 	case CPU_ARCHITECTURE_AMD_OTHER:
 	case CPU_ARCHITECTURE_OTHER:
@@ -4535,6 +4535,23 @@ next1:			while (zpad_jmptab->flags & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
 
 		if (weighted_bits_per_output_word <= max_weighted_bits_per_output_word) {
 
+/* Unfortunately, users uncovered some cases that the spreading carry over 4 words */
+/* test in the next paragraph did not push us to a higher FFT length.  The problem */
+/* is that if the carry doesn't fit, the next FFT multiply will have some words that */
+/* are 1 bit larger than expected.  This leads to an even greater chance that the next */
+/* carry won't spread.  This can spiral out of control.  Since this situation is much */
+/* more serious than the reason above where we choose a higher FFT, we will be even more */
+/* conservative in our estimate of bits_per_output_word.  We suspect our estimate is */
+/* more likely to be wrong when b != 2, simply because we have a much longer history */
+/* of dealing with the b = 2 case.  Someday we should consider implementing spreading */
+/* the carry over 5 or 6 words.  The test cases that necessitated this fix were */
+/* 9238*619^619+1, 9276*626^626+1, 9876*626^626+1, 7504*627^627+1, 8004*627^627+1, */
+/* 9056*627^627+1, 9256*627^627+1, 9386*635^635+1, 8619*650^650+1, 9732*650^650+1. */
+/* No one has yet reported a failure for the b = 2 case but we'll add some safety anyway. */
+
+			if (b == 2) bits_per_output_word += 0.3;
+			else bits_per_output_word += 0.9;
+			
 /* Because carries are spread over 4 words, there is a minimum limit on */
 /* the bits per word.  An FFT result word cannot be more than 5 times */
 /* bits-per-input-word (bits-per-input-word are stored in the current */
