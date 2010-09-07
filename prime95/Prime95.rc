@@ -623,7 +623,9 @@ END
 STRINGTABLE 
 BEGIN
     AFX_IDS_APP_TITLE       "Prime95"
+#ifdef _DEBUG
     AFX_IDS_UNTITLED        "Prime95"
+#endif
     AFX_IDS_IDLEMESSAGE     "For Help, press F1"
     AFX_IDS_HELPMODEMESSAGE "Select an object on which to get Help"
 END
