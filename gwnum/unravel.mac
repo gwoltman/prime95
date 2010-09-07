@@ -1556,7 +1556,7 @@ nonoexec MACRO ops:vararg
 ;IMPL_ALL_CORE = 1
 ;IMPL_ALL_P4 = 1
 ;IMPL_ALL_P4TP = 1
-IMPL_ALL_K8 = 1
+;IMPL_ALL_K8 = 1
 ;IMPL_ALL_K10 = 1
 
 ; Handy macro to only include statement if we are prefetching
