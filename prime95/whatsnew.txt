@@ -1,3 +1,9 @@
+New features in Version 26.2 of prime95.exe
+-------------------------------------------
+
+1)  Faster FFTs for most SSE2-capable CPU architectures.
+2)  More FFT lengths supported.
+
 New features in Version 25.11 of prime95.exe
 --------------------------------------------
 

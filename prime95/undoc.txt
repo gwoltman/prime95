@@ -362,12 +362,18 @@ where string is any text up to 256 bytes.
 
 The benchmarking code by default only times a subset of the large FFT sizes.
 In prime.txt, set
-	FullBench=1
-to have the benchmarking code time all of the large FFT sizes.
-
-"AllBench=1" in prime.txt is used to time FFT implementations optimized for
-other L2 cache sizes.  This is only useful during the development cycle to
-find the optimal FFT implementations for each CPU type. 
+	MinBenchFFT=n
+	MaxBenchFFT=n
+	OnlyBench5678=0 or 1
+	BenchAllComplex=0 or 1 or 2
+	AllBench=0 or 1
+to alter these defaults.  The first to specify the range of FFT length (in K).
+Enter an n value between 1 and 32768.  Set OnlyBench5678=0 to time FFT
+lengths other than 5*2^n, 6*2^n, 7*2^n, and 8*2^n.  Set BenchAllComplex to 0 for
+timing real FFTs only, 1 for real and complex FFTs, 2 for complex FFTs only.
+Set AllBench=1 to time FFT implementations optimized for other L2 cache sizes 
+and CPU architectures.  This is only useful during the development cycle to find
+the optimal FFT implementations for each CPU.
 
 If you want to run the program on several machines this is typically done
 by carrying the program and files around on portable media such as a floppy

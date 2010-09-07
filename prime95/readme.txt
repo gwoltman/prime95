@@ -15,7 +15,6 @@ FILE LIST
 readme.txt	This file.
 prime95.exe	The program to factor and run Lucas-Lehmer tests on
 		Mersenne numbers.
-prime95.chm	The help file in HTML help format.
 whatsnew.txt	A list of new features in prime95.exe.
 stress.txt	A discussion of issues relating to stress testing a computer.
 undoc.txt	A list of formerly undocumented and unsupported features.
@@ -52,9 +51,7 @@ INSTRUCTIONS
 
 There are two ways to use this program.  The automatic way uses
 a central server, which we call the PrimeNet server, to get work to do
-and report your results.  Anyone with Internet access, including AOL,
-CompuServe, and dial-up ISP users should use this method.  You do not
-need a permanent connection to the Internet.
+and report your results.  You do not need a permanent connection to the Internet.
 
 The second method is the manual method.  It requires a little more work
 and monitoring.  I recommend this for computers with no Internet access
@@ -71,7 +68,7 @@ Violating that policy could result in termination and/or prosecution.
 INSTRUCTIONS FOR THE AUTOMATIC METHOD
 -------------------------------------
 
-1)  Run the setup program, p95setup.exe or download and unzip prime95.zip.
+1)  Download and unzip prime95.zip.
     You've probably done this already since you are reading this file.
 2)  Connect to the Internet.  Create an account at http://mersenne.org
 3)  Run prime95.exe.  You will see 4 dialog boxes:
@@ -99,7 +96,8 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
     is not practical, consider raising prime95's priority to 4 or 5.
 
     The "Start at Bootup" menu choice (on by default) will run prime95
-    every time you boot your computer.
+    every time you boot your computer.  The "Start at Bootup" choice
+    became "Start at Logon" starting with Windows Vista.
 
 
 MANUAL METHOD INSTRUCTIONS
@@ -120,13 +118,14 @@ MANUAL METHOD INSTRUCTIONS
     file "results.txt" to the PrimeNet server and get more work.
 
     The "Start at Bootup" menu choice (on by default) will run prime95
-    every time you boot your computer.
+    every time you boot your computer.  The "Start at Bootup" choice
+    became "Start at Logon" starting with Windows Vista.
 
 
 NOTES
 -----
 
-Running prime95 may significantly increase your electric bill.  The amount
+Running prime95 may SIGNIFICANTLY INCREASE YOUR ELECTRIC BILL.  The amount
 depends on your computer and your local electric rates.
 
 It can take many CPU weeks to test a large Mersenne number.  This program
@@ -331,6 +330,9 @@ the P-1 method of factoring.  You can also edit the worktodo.txt file
 directly.  For example:
 	Pminus1=k,b,n,c,B1,B2
 
+SUM(INPUTS) error checking.  Selecting this option will run an extra error
+check on every iteration.  This will slow down the primality test slightly.
+
 Round off checking.  This option will slow the program down by several percent.
 This option displays the smallest and largest "convolution error".  The
 convolution error must be less than 0.49 or the results will be incorrect.
@@ -345,7 +347,7 @@ The Unreserve Exponent choice lets you tell the server to unreserve
 an exponent you have been assigned.  You might do this if a second computer
 you had been running GIMPS on died or if you had been assigned an exponent
 of one work type (such as a first-time-test) and now you have switched to
-another work type (such as 10,000,000 digit numbers).  Any work you have
+another work type (such as double-checking).  Any work you have
 done on the unreserved exponent will be lost.
 
 The Quit GIMPS menu choice is used when you no longer want this computer
