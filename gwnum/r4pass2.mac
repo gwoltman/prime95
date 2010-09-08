@@ -399,7 +399,6 @@ r4_pass2_8_levels_real MACRO
 b1b:	r4_fh2cl_eight_reals_four_complex_djbfft rsi, 64, 64*64, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, XMM_HSCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	64, b1b			;; Test loop counter
 	bump	rsi, -64*64		;; Restore source pointer
 	bump	rdi, -64*XMM_SCD2	;; Restore sin/cos pointer
@@ -744,9 +743,6 @@ r4_pass2_8_levels_complex MACRO
 b1b:	xxprefetch [rdi+XMM_SCD2]	;; Prefetch for next pass
 	r4_f2cl_four_complex_djbfft rsi, 64, 64*64, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+4*2*dist128+4*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+4*XMM_SCD1]
 	loops	64, b1b			;; Test loop counter
 	bump	rsi, -64*64		;; Restore source pointer
 	bump	rdi, -64*XMM_SCD2	;; Restore sin/cos data
@@ -1058,7 +1054,6 @@ r4_pass2_768_levels_real MACRO
 b1b:	r3_fh3cl_six_reals_three_complex_djbfft rsi, 64, dist128, rdi, 128*XMM_SCD1, rdx, 128*XMM_HSCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
 	bump	rdx, XMM_HSCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64		;; Restore source pointer
 	bump	rdi, 128*XMM_SCD1	;; Next sin/cos ptr
@@ -1518,9 +1513,6 @@ b1b:	xxprefetch [rdi+XMM_SCD1]	;; Prefetch for next pass
 	xxprefetch [rdi+129*XMM_SCD1]	;; Prefetch for next pass
 	r3_f3cl_three_complex_djbfft rsi, 64, dist128, rdi, 128*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+4*dist128+4*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+4*XMM_SCD1]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64		;; Restore source pointer
 	bump	rdi, 128*XMM_SCD1	;; Next sin/cos ptr
@@ -1910,7 +1902,6 @@ r4_pass2_10_levels_real MACRO
 b1b:	r4_fh2cl_eight_reals_four_complex_djbfft rsi, 64, 2*dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, XMM_HSCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	2, b1b			;; Test loop counter
@@ -2376,9 +2367,6 @@ r4_pass2_10_levels_complex MACRO
 b1b:	xxprefetch [rdi+XMM_SCD2]	;; Prefetch for next pass
 	r4_f2cl_four_complex_djbfft rsi, 64, 2*dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+4*2*dist128+4*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+4*XMM_SCD2]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	2, b1b			;; Test inner loop counter
@@ -2786,7 +2774,6 @@ r4_pass2_1280_levels_real MACRO
 b1b:	r5_fh5cl_ten_reals_five_complex_djbfft rsi, 64, dist128, rdi, 128*XMM_SCD2, rdx, 128*XMM_HSCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, XMM_HSCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64		;; Restore source pointer
 	bump	rdi, 128*XMM_SCD2	;; Next sin/cos ptr
@@ -3249,9 +3236,6 @@ b1b:	xxprefetch [rdi+XMM_SCD2]	;; Prefetch for next pass
 	xxprefetch [rdi+129*XMM_SCD2]	;; Prefetch for next pass
 	r5_f5cl_five_complex_djbfft rsi, 64, dist128, rdi, 128*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+4*dist128+4*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+4*XMM_SCD2]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64		;; Restore source pointer
 	bump	rdi, 128*XMM_SCD2	;; Next sin/cos ptr
@@ -3653,7 +3637,6 @@ r4_pass2_1536_levels_real MACRO
 b1b:	r3_fh3cl_six_reals_three_complex_djbfft rsi, 64, 2*dist128, rdi, 256*XMM_SCD1, rdx, 256*XMM_HSCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
 	bump	rdx, XMM_HSCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	2, b1b			;; Test loop counter
@@ -4134,9 +4117,6 @@ b1b:	xxprefetch [rdi+XMM_SCD1]	;; Prefetch for next pass
 	xxprefetch [rdi+257*XMM_SCD1]	;; Prefetch for next pass
 	r3_f3cl_three_complex_djbfft rsi, 64, 2*dist128, rdi, 256*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+4*8*dist128+4*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+4*XMM_SCD1]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	2, b1b			;; Test outer loop counter
@@ -4549,7 +4529,6 @@ r4_pass2_11_levels_real MACRO
 b1b:	r4_fh2cl_eight_reals_four_complex_djbfft rsi, 64, 4*dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, XMM_HSCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	4, b1b			;; Test loop counter
@@ -5035,9 +5014,6 @@ r4_pass2_11_levels_complex MACRO
 b1b:	xxprefetch [rdi+XMM_SCD2]	;; Prefetch for next pass
 	r4_f2cl_four_complex_djbfft rsi, 64, 4*dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+4*4*dist128+4*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+4*XMM_SCD2]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	4, b1b			;; Test outer loop counter
@@ -5466,7 +5442,6 @@ r4_pass2_2560_levels_real MACRO
 b1b:	r5_fh5cl_ten_reals_five_complex_djbfft rsi, 64, 2*dist128, rdi, 256*XMM_SCD2, rdx, 256*XMM_HSCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, XMM_HSCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	2, b1b			;; Test loop counter
@@ -5954,9 +5929,6 @@ b1b:	xxprefetch [rdi+XMM_SCD2]	;; Prefetch for next pass
 	xxprefetch [rdi+257*XMM_SCD2]	;; Prefetch for next pass
 	r5_f5cl_five_complex_djbfft rsi, 64, 2*dist128, rdi, 256*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+4*8*dist128+4*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+4*XMM_SCD2]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	2, b1b			;; Test outer loop counter
@@ -6374,7 +6346,6 @@ r4_pass2_2304_levels_real MACRO
 b1b:	r3_fh3cl_six_reals_three_complex_djbfft rsi, 64, 3*dist128, rdi, 384*XMM_SCD1, rdx, 384*XMM_HSCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
 	bump	rdx, XMM_HSCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	3, b1b			;; Test loop counter
@@ -6974,9 +6945,6 @@ IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
 	r3_f3cl_three_complex_djbfft_preload
 b1b:	r3_f3cl_three_complex_djbfft rsi, 64, 3*dist128, rdi, 384*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+3*dist128+3*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+3*XMM_SCD1]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	3, b1b			;; Test outer loop counter
@@ -7486,7 +7454,6 @@ r4_pass2_3072_levels_real MACRO
 b1b:	r3_fh3cl_six_reals_three_complex_djbfft rsi, 64, 4*dist128, rdi, 512*XMM_SCD1, rdx, 512*XMM_HSCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
 	bump	rdx, XMM_HSCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	4, b1b			;; Test loop counter
@@ -8102,9 +8069,6 @@ IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
 	r3_f3cl_three_complex_djbfft_preload
 b1b:	r3_f3cl_three_complex_djbfft rsi, 64, 4*dist128, rdi, 512*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+4*dist128+4*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+4*XMM_SCD1]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	4, b1b			;; Test outer loop counter
@@ -8635,7 +8599,6 @@ r4_pass2_3840_levels_real MACRO
 b1b:	r3_fh3cl_six_reals_three_complex_djbfft rsi, 64, 5*dist128, rdi, 640*XMM_SCD1, rdx, 640*XMM_HSCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
 	bump	rdx, XMM_HSCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	5, b1b			;; Test loop counter
@@ -9247,9 +9210,6 @@ IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
 	r3_f3cl_three_complex_djbfft_preload
 b1b:	r3_f3cl_three_complex_djbfft rsi, 64, 5*dist128, rdi, 640*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+3*dist128+3*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+3*XMM_SCD1]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	5, b1b			;; Test outer loop counter
@@ -9764,7 +9724,6 @@ r4_pass2_12_levels_real MACRO
 b1b:	r4_fh2cl_eight_reals_four_complex_djbfft rsi, 64, 8*dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, XMM_HSCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	8, b1b			;; Test loop counter
@@ -10022,7 +9981,7 @@ baa:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 
 xpass2_12_levels_real_1:
 	r4_h4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
-	xprefetcht1 [rcx]
+	L2prefetch128 [rcx]
 	bump	rcx, 128
 	loops_init_prefetch 512, 128, 1, rcx, 1, 32
 bab0:	xtouch	[rcx+4096-64]		;; Preload the TLBs
@@ -10050,7 +10009,7 @@ xpass2_12_levels_real_4:
 	mov	rcx, DATA_PREFETCH	;; Load prefetch pointer
 	xtouch	[rcx]			;; Preload the TLBs
 	r4_h4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
-	xprefetcht1 [rcx]
+	L2prefetch128 [rcx]
 	bump	rcx, 128
 	loops_init_prefetch 512, 128, 1, rcx, 1, 32
 bad0:	xtouch	[rcx+4096-64]		;; Preload the TLBs
@@ -10367,9 +10326,6 @@ IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
 	r4_f2cl_four_complex_djbfft_preload
 b1b:	r4_f2cl_four_complex_djbfft rsi, 64, 8*dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+8*dist128+4*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+4*XMM_SCD2]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	8, b1b			;; Test outer loop counter
@@ -11033,7 +10989,6 @@ r4_pass2_5120_levels_real MACRO
 b1b:	r5_fh5cl_ten_reals_five_complex_djbfft rsi, 64, 4*dist128, rdi, 512*XMM_SCD2, rdx, 512*XMM_HSCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, XMM_HSCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	4, b1b			;; Test loop counter
@@ -11653,9 +11608,6 @@ IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
 	r5_f5cl_five_complex_djbfft_preload
 b1b:	r5_f5cl_five_complex_djbfft rsi, 64, 4*dist128, rdi, 512*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+4*dist128+4*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+4*XMM_SCD2]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	4, b1b			;; Test outer loop counter
@@ -12178,7 +12130,6 @@ r4_pass2_6400_levels_real MACRO
 b1b:	r5_fh5cl_ten_reals_five_complex_djbfft rsi, 64, 5*dist128, rdi, 640*XMM_SCD2, rdx, 640*XMM_HSCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, XMM_HSCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	5, b1b			;; Test loop counter
@@ -12777,9 +12728,6 @@ IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
 	r5_f5cl_five_complex_djbfft_preload
 b1b:	r5_f5cl_five_complex_djbfft rsi, 64, 5*dist128, rdi, 640*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+4*dist128+4*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+4*XMM_SCD2]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	5, b1b			;; Test outer loop counter
@@ -13301,7 +13249,6 @@ r4_pass2_4608_levels_real MACRO
 b1b:	r3_fh3cl_six_reals_three_complex_djbfft rsi, 64, 6*dist128, rdi, 768*XMM_SCD1, rdx, 768*XMM_HSCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
 	bump	rdx, XMM_HSCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	6, b1b			;; Test loop counter
@@ -13925,9 +13872,6 @@ IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
 	r3_f3cl_three_complex_djbfft_preload
 b1b:	r3_f3cl_three_complex_djbfft rsi, 64, 6*dist128, rdi, 768*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+3*6*dist128+3*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+3*XMM_SCD1]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	6, b1b			;; Test outer loop counter
@@ -14460,7 +14404,6 @@ r4_pass2_6144_levels_real MACRO
 b1b:	r3_fh3cl_six_reals_three_complex_djbfft rsi, 64, 8*dist128, rdi, 1024*XMM_SCD1, rdx, 1024*XMM_HSCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
 	bump	rdx, XMM_HSCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	8, b1b			;; Test loop counter
@@ -15070,9 +15013,6 @@ IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
 	r3_f3cl_three_complex_djbfft_preload
 b1b:	r3_f3cl_three_complex_djbfft rsi, 64, 8*dist128, rdi, 1024*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+4*8*dist128+4*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+4*XMM_SCD1]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	8, b1b			;; Test outer loop counter
@@ -15615,7 +15555,6 @@ r4_pass2_7680_levels_real MACRO
 b1b:	r3_fh3cl_six_reals_three_complex_djbfft rsi, 64, 10*dist128, rdi, 1280*XMM_SCD1, rdx, 1280*XMM_HSCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
 	bump	rdx, XMM_HSCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	10, b1b			;; Test loop counter
@@ -16231,9 +16170,6 @@ IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
 	r3_f3cl_three_complex_djbfft_preload
 b1b:	r3_f3cl_three_complex_djbfft rsi, 64, 10*dist128, rdi, 1280*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+3*10*dist128+3*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+3*XMM_SCD1]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	10, b1b			;; Test outer loop counter
@@ -16780,7 +16716,6 @@ r4_pass2_13_levels_real MACRO
 b1b:	r4_fh2cl_eight_reals_four_complex_djbfft rsi, 64, 16*dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, XMM_HSCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	16, b1b			;; Test loop counter
@@ -17373,9 +17308,6 @@ IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
 	r4_f2cl_four_complex_djbfft_preload
 b1b:	r4_f2cl_four_complex_djbfft rsi, 64, 16*dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+16*dist128+4*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+4*XMM_SCD2]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	16, b1b			;; Test outer loop counter
@@ -18032,7 +17964,6 @@ r4_pass2_10240_levels_real MACRO
 b1b:	r5_fh5cl_ten_reals_five_complex_djbfft rsi, 64, 8*dist128, rdi, 1024*XMM_SCD2, rdx, 1024*XMM_HSCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, XMM_HSCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	8, b1b			;; Test loop counter
@@ -18634,9 +18565,6 @@ IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
 	r5_f5cl_five_complex_djbfft_preload
 b1b:	r5_f5cl_five_complex_djbfft rsi, 64, 8*dist128, rdi, 1024*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+4*8*dist128+4*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+4*XMM_SCD2]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	8, b1b			;; Test outer loop counter
@@ -19170,7 +19098,6 @@ r4_pass2_12800_levels_real MACRO
 b1b:	r5_fh5cl_ten_reals_five_complex_djbfft rsi, 64, 10*dist128, rdi, 1280*XMM_SCD2, rdx, 1280*XMM_HSCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, XMM_HSCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	10, b1b			;; Test loop counter
@@ -19772,9 +19699,6 @@ IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
 	r5_f5cl_five_complex_djbfft_preload
 b1b:	r5_f5cl_five_complex_djbfft rsi, 64, 10*dist128, rdi, 1280*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+4*10*dist128+4*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+4*XMM_SCD2]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	10, b1b			;; Test outer loop counter
@@ -20317,7 +20241,6 @@ r4_pass2_9216_levels_real MACRO
 b1b:	r3_fh3cl_six_reals_three_complex_djbfft rsi, 64, 12*dist128, rdi, 1536*XMM_SCD1, rdx, 1536*XMM_HSCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
 	bump	rdx, XMM_HSCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	12, b1b			;; Test loop counter
@@ -20619,7 +20542,8 @@ baa:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 
 xpass2_9216_levels_real_1:
 	r4_h4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
-	xprefetcht1 [rcx]
+	L2prefetch128 [rcx]
+	bump	rcx, 128
 	loops_init_prefetch 1152, 128, 1, rcx, 1, 32
 bab0:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 bab:	r4_x4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
@@ -20644,7 +20568,8 @@ xpass2_9216_levels_real_4:
 	mov	rcx, DATA_PREFETCH	;; Load prefetch pointer
 	xtouch	[rcx]			;; Preload the TLBs
 	r4_h4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
-	xprefetcht1 [rcx]
+	L2prefetch128 [rcx]
+	bump	rcx, 128
 	loops_init_prefetch 1152, 128, 1, rcx, 1, 32
 bad0:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 bad:	r4_x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
@@ -21031,9 +20956,6 @@ IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
 	r3_f3cl_three_complex_djbfft_preload
 b1b:	r3_f3cl_three_complex_djbfft rsi, 64, 12*dist128, rdi, 1536*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+12*dist128+3*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+3*XMM_SCD1]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	12, b1b			;; Test outer loop counter
@@ -21637,7 +21559,6 @@ r4_pass2_12288_levels_real MACRO
 b1b:	r3_fh3cl_six_reals_three_complex_djbfft rsi, 64, 16*dist128, rdi, 2048*XMM_SCD1, rdx, 2048*XMM_HSCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
 	bump	rdx, XMM_HSCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	16, b1b			;; Test loop counter
@@ -21944,7 +21865,8 @@ baa:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 
 xpass2_12288_levels_real_1:
 	r4_h4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
-	xprefetcht1 [rcx]
+	L2prefetch128 [rcx]
+	bump	rcx, 128
 	loops_init_prefetch 1536, 128, 1, rcx, 1, 32
 bab0:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 bab:	r4_x4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
@@ -21969,7 +21891,8 @@ xpass2_12288_levels_real_4:
 	mov	rcx, DATA_PREFETCH	;; Load prefetch pointer
 	xtouch	[rcx]			;; Preload the TLBs
 	r4_h4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
-	xprefetcht1 [rcx]
+	L2prefetch128 [rcx]
+	bump	rcx, 128
 	loops_init_prefetch 1536, 128, 1, rcx, 1, 32
 bad0:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 bad:	r4_x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
@@ -22318,9 +22241,6 @@ b1b:	xxprefetch [rdi+XMM_SCD1]	;; Prefetch for next pass
 	xxprefetch [rdi+2049*XMM_SCD1]	;; Prefetch for next pass
 	r3_f3cl_three_complex_djbfft rsi, 64, 16*dist128, rdi, 2048*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+16*dist128+3*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+3*XMM_SCD1]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	16, b1b			;; Test outer loop counter
@@ -22867,7 +22787,6 @@ r4_pass2_15360_levels_real MACRO
 b1b:	r3_fh3cl_six_reals_three_complex_djbfft rsi, 64, 20*dist128, rdi, 2560*XMM_SCD1, rdx, 2560*XMM_HSCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
 	bump	rdx, XMM_HSCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	20, b1b			;; Test loop counter
@@ -23175,7 +23094,8 @@ baa:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 
 xpass2_15360_levels_real_1:
 	r4_h4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
-	xprefetcht1 [rcx]
+	L2prefetch128 [rcx]
+	bump	rcx, 128
 	loops_init_prefetch 1920, 128, 1, rcx, 1, 32
 bab0:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 bab:	r4_x4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
@@ -23200,7 +23120,8 @@ xpass2_15360_levels_real_4:
 	mov	rcx, DATA_PREFETCH	;; Load prefetch pointer
 	xtouch	[rcx]			;; Preload the TLBs
 	r4_h4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
-	xprefetcht1 [rcx]
+	L2prefetch128 [rcx]
+	bump	rcx, 128
 	loops_init_prefetch 1920, 128, 1, rcx, 1, 32
 bad0:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 bad:	r4_x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
@@ -23548,9 +23469,6 @@ b1b:	xxprefetch [rdi+XMM_SCD1]	;; Prefetch for next pass
 	xxprefetch [rdi+2561*XMM_SCD1]	;; Prefetch for next pass
 	r3_f3cl_three_complex_djbfft rsi, 64, 20*dist128, rdi, 2560*XMM_SCD1
 	bump	rdi, XMM_SCD1		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+12*dist128+3*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+3*XMM_SCD1]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	20, b1b			;; Test outer loop counter
@@ -24098,7 +24016,6 @@ r4_pass2_14_levels_real MACRO
 b1b:	r4_fh2cl_eight_reals_four_complex_djbfft rsi, 64, 32*dist128, rdi, rdx
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, XMM_HSCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	32, b1b			;; Test loop counter
@@ -24399,7 +24316,7 @@ baa:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 
 xpass2_14_levels_real_1:
 	r4_h4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
-	xprefetcht1 [rcx]
+	L2prefetch128 [rcx]
 	bump	rcx, 128
 	loops_init_prefetch 2048, 128, 1, rcx, 1, 32
 bab0:	xtouch	[rcx+4096-64]		;; Preload the TLBs
@@ -24427,7 +24344,7 @@ xpass2_14_levels_real_4:
 	mov	rcx, DATA_PREFETCH	;; Load prefetch pointer
 	xtouch	[rcx]			;; Preload the TLBs
 	r4_h4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
-	xprefetcht1 [rcx]
+	L2prefetch128 [rcx]
 	bump	rcx, 128
 	loops_init_prefetch 2048, 128, 1, rcx, 1, 32
 bad0:	xtouch	[rcx+4096-64]		;; Preload the TLBs
@@ -24814,9 +24731,6 @@ IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
 	r4_f2cl_four_complex_djbfft_preload
 b1b:	r4_f2cl_four_complex_djbfft rsi, 64, 32*dist128, rdi
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+4*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+32*dist128+4*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+4*XMM_SCD2]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	32, b1b			;; Test outer loop counter
@@ -25540,7 +25454,6 @@ r4_pass2_20480_levels_real MACRO
 b1b:	r5_fh5cl_ten_reals_five_complex_djbfft rsi, 64, 16*dist128, rdi, 2048*XMM_SCD2, rdx, 2048*XMM_HSCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, XMM_HSCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	16, b1b			;; Test loop counter
@@ -25838,7 +25751,8 @@ baa:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 
 xpass2_20480_levels_real_1:
 	r4_h4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
-	xprefetcht1 [rcx]
+	L2prefetch128 [rcx]
+	bump	rcx, 128
 	loops_init_prefetch 2560, 128, 1, rcx, 1, 32
 bab0:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 bab:	r4_x4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
@@ -25863,7 +25777,8 @@ xpass2_20480_levels_real_4:
 	mov	rcx, DATA_PREFETCH	;; Load prefetch pointer
 	xtouch	[rcx]			;; Preload the TLBs
 	r4_h4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
-	xprefetcht1 [rcx]
+	L2prefetch128 [rcx]
+	bump	rcx, 128
 	loops_init_prefetch 2560, 128, 1, rcx, 1, 32
 bad0:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 bad:	r4_x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
@@ -26205,9 +26120,6 @@ b1b:	xxprefetch [rdi+XMM_SCD2]	;; Prefetch for next pass
 	xxprefetch [rdi+2049*XMM_SCD2]	;; Prefetch for next pass
 	r5_f5cl_five_complex_djbfft rsi, 64, 16*dist128, rdi, 2048*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+16*dist128+3*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+3*XMM_SCD1]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	16, b1b			;; Test outer loop counter
@@ -26745,7 +26657,6 @@ r4_pass2_25600_levels_real MACRO
 b1b:	r5_fh5cl_ten_reals_five_complex_djbfft rsi, 64, 20*dist128, rdi, 2560*XMM_SCD2, rdx, 2560*XMM_HSCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
 	bump	rdx, XMM_HSCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	128, b1b		;; Test loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	20, b1b			;; Test loop counter
@@ -27045,7 +26956,8 @@ baa:	r4_x4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 
 xpass2_25600_levels_real_1:
 	r4_h4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
-	xprefetcht1 [rcx]
+	L2prefetch128 [rcx]
+	bump	rcx, 128
 	loops_init_prefetch 3200, 128, 1, rcx, 1, 32
 bab0:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 bab:	r4_x4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
@@ -27070,7 +26982,8 @@ xpass2_25600_levels_real_4:
 	mov	rcx, DATA_PREFETCH	;; Load prefetch pointer
 	xtouch	[rcx]			;; Preload the TLBs
 	r4_h4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
-	xprefetcht1 [rcx]
+	L2prefetch128 [rcx]
+	bump	rcx, 128
 	loops_init_prefetch 3200, 128, 1, rcx, 1, 32
 bad0:	xtouch	[rcx+4096-64]		;; Preload the TLBs
 bad:	r4_x4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
@@ -27409,9 +27322,6 @@ b1b:	xxprefetch [rdi+XMM_SCD2]	;; Prefetch for next pass
 	xxprefetch [rdi+2561*XMM_SCD2]	;; Prefetch for next pass
 	r5_f5cl_five_complex_djbfft rsi, 64, 20*dist128, rdi, 2560*XMM_SCD2
 	bump	rdi, XMM_SCD2		;; Next sin/cos data
-;	xprefetcht1 [rsi+3*64]		;; Prefetch a few iterations ahead in
-;	xprefetcht1 [rsi+20*dist128+3*64];; case they are not in the L2 cache
-;	xprefetcht1 [rdi+3*XMM_SCD2]
 	loops	128, b1b		;; Test inner loop counter
 	bump	rsi, -128*64+dist128	;; Next source pointer
 	loops	20, b1b			;; Test outer loop counter

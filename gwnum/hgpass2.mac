@@ -1,4 +1,4 @@
-; Copyright 2001-2009 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2010 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -84,7 +84,7 @@ hg_pass2_8_levels_real MACRO
 
 	loops_init 64			;; Load loop counter
 b1b:	s2cl_eight_reals_fft_1 rsi, 2*64, 64
-	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
+	L2prefetch128 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	64, b1b			;; Test loop counter
 	bump	rsi, -64*2*64		;; Restore source pointer
 
@@ -534,12 +534,12 @@ hg_pass2_8_levels_complex MACRO
 	mov	rdi, PREMULT_ADDR	;; The group multipliers
 	loops_init 64			;; 16 iterations of 4
 b1b:	s2cl_four_complex_gpm_fft rsi, 64, 64*64
-	xprefetcht1 [rsi+5*64]		;; Prefetch a few iterations ahead in
-	xprefetcht1 [rsi+64*64+5*64]	;; case they are not in the L2 cache
+	L2prefetch128 [rsi+5*64]		;; Prefetch a few iterations ahead in
+	L2prefetch128 [rsi+64*64+5*64]	;; case they are not in the L2 cache
 	loops	4, b1b			;; Test inner loop counter
 	bump	rdi, XMM_PMD		;; Next group multiplier
-	xprefetcht1 [rdi+4*XMM_PMD]
-	xprefetcht1 [rdi+16*XMM_PMD]
+	L2prefetch128 [rdi+4*XMM_PMD]
+	L2prefetch128 [rdi+16*XMM_PMD]
 	loops	16, b1b			;; Test outer loop counter
 	bump	rsi, -64*64		;; Restore source pointer
 	end_timer 4
@@ -843,7 +843,7 @@ hg_pass2_10_levels_real MACRO
 
 	loops_init 256
 b1b:	s2cl_eight_reals_fft_1 rsi, 2*64, 64
-	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
+	L2prefetch128 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	64, b1b			;; Test loop counter
 	bump	rsi, -64*2*64+dist128	;; Next source pointer
 	loops	4, b1b			;; Test loop counter
@@ -1408,11 +1408,11 @@ hg_pass2_10_levels_complex MACRO
 	mov	rdi, PREMULT_ADDR	;; The group multipliers
 	loops_init 256			;; 64 iterations of 4
 b1b:	s2cl_four_complex_gpm_fft rsi, 64, 2*dist128
-	xprefetcht1 [rsi+5*64]		;; Prefetch a few iterations ahead in
-	xprefetcht1 [rsi+2*dist128+5*64];; case they are not in the L2 cache
+	L2prefetch128 [rsi+5*64]		;; Prefetch a few iterations ahead in
+	L2prefetch128 [rsi+2*dist128+5*64];; case they are not in the L2 cache
 	loops	8, b1b			;; Test inner loop counter
 	bump	rdi, XMM_PMD		;; Next group multiplier
-	xprefetcht1 [rdi+2*XMM_PMD]
+	L2prefetch128 [rdi+2*XMM_PMD]
 	loops	16, b1b			;; Test loop counter
 	bump	rsi, -16*8*64+dist128	;; Next source pointer
 	loops	2, b1b			;; Test outer loop counter
@@ -1829,7 +1829,7 @@ hg_pass2_11_levels_real MACRO
 
 	loops_init 512
 b1b:	s2cl_eight_reals_fft_1 rsi, 2*64, 64
-	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
+	L2prefetch128 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	64, b1b			;; Test loop counter
 	bump	rsi, -64*2*64+dist128	;; Next source pointer
 	loops	8, b1b			;; Test loop counter
@@ -2400,11 +2400,11 @@ hg_pass2_11_levels_complex MACRO incr
 	mov	rdi, PREMULT_ADDR	;; The group multipliers
 	loops_init 512			;; 128 iterations of 4
 b1b:	s2cl_four_complex_gpm_fft rsi, 64, 4*dist128
-	xprefetcht1 [rsi+5*64]		;; Prefetch a few iterations ahead in
-	xprefetcht1 [rsi+4*dist128+5*64];; case they are not in the L2 cache
+	L2prefetch128 [rsi+5*64]		;; Prefetch a few iterations ahead in
+	L2prefetch128 [rsi+4*dist128+5*64];; case they are not in the L2 cache
 	loops	8, b1b			;; Test inner loop counter
 	bump	rdi, XMM_PMD		;; Next group multiplier
-	xprefetcht1 [rdi+2*XMM_PMD]
+	L2prefetch128 [rdi+2*XMM_PMD]
 	loops	16, b1b			;; Test loop counter
 	bump	rsi, -16*8*64+dist128	;; Next source pointer
 	loops	4, b1b			;; Test outer loop counter
@@ -2915,7 +2915,7 @@ hg_pass2_12_levels_real MACRO
 
 	loops_init 1024
 b1b:	s2cl_eight_reals_fft_1 rsi, 2*64, 64
-	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
+	L2prefetch128 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	64, b1b			;; Test loop counter
 	bump	rsi, -64*2*64+dist128	;; Next source pointer
 	loops	16, b1b			;; Test loop counter
@@ -3587,11 +3587,11 @@ hg_pass2_12_levels_complex MACRO
 	loops_init 1024			;; 256 iterations of 4
 ;	mov	rcx, xsincos_complex	;; Prefetch pointer
 b1b:	s2cl_four_complex_gpm_fft rsi, 64, 8*dist128
-	xprefetcht1 [rsi+5*64]		;; Prefetch a few iterations ahead in
-	xprefetcht1 [rsi+8*dist128+5*64];; case they are not in the L2 cache
+	L2prefetch128 [rsi+5*64]		;; Prefetch a few iterations ahead in
+	L2prefetch128 [rsi+8*dist128+5*64];; case they are not in the L2 cache
 	loops	16, b1b			;; Test inner loop counter
 	bump	rdi, XMM_PMD		;; Next group multiplier
-	xprefetcht1 [rdi+2*XMM_PMD]
+	L2prefetch128 [rdi+2*XMM_PMD]
 ;	xtouch	[rcx]			;; Touch the sin/cos data to keep it
 ;	bump	rcx, 96			;; in the L2 data cache
 	loops	8, b1b			;; Test loop counter
@@ -4109,7 +4109,7 @@ hg_pass2_13_levels_real MACRO
 
 	loops_init 2048
 b1b:	s2cl_eight_reals_fft_1 rsi, 2*64, 64
-	xprefetcht1 [rsi+3*128]		;; Prefetch a few iterations ahead
+	L2prefetch128 [rsi+3*128]		;; Prefetch a few iterations ahead
 	loops	64, b1b			;; Test loop counter
 	bump	rsi, -64*2*64+dist128	;; Next source pointer
 	loops	32, b1b			;; Test loop counter
@@ -4784,11 +4784,11 @@ hg_pass2_13_levels_complex MACRO
 	loops_init 2048
 ;	mov	rcx, xsincos_complex	;; Prefetch pointer
 b1b:	s2cl_four_complex_gpm_fft rsi, 64, 16*dist128
-	xprefetcht1 [rsi+5*64]		;; Prefetch a few iterations ahead in
-	xprefetcht1 [rsi+16*dist128+5*64];; case they are not in the L2 cache
+	L2prefetch128 [rsi+5*64]		;; Prefetch a few iterations ahead in
+	L2prefetch128 [rsi+16*dist128+5*64];; case they are not in the L2 cache
 	loops	16, b1b			;; Test inner loop counter
 	bump	rdi, XMM_PMD		;; Next group multiplier
-	xprefetcht1 [rdi+2*XMM_PMD]
+	L2prefetch128 [rdi+2*XMM_PMD]
 ;	xtouch	[rcx]			;; Touch the sin/cos data to keep it
 ;	bump	rcx, 96			;; in the L2 data cache
 	loops	8, b1b			;; Test loop counter
@@ -4907,7 +4907,7 @@ b3b:	x2cl_two_complex_fft rsi, 64*64, 2*dist128, rdi
 b4b:	x4cl_four_complex_fft rsi, 2*dist128, 64*64, dist128, rbx
 	bump	rbx, 2*XMM_SCD		;; Next sine/cosine pointer
 	loops	2, b4b, 2		;; Test loop counter
-	xprefetcht1 [rcx]
+	L2prefetch128 [rcx]
 	bump	rcx, 128
 	bump	rbx, -2*2*XMM_SCD	;; Restore sine/cosine pointer
 
@@ -5231,7 +5231,7 @@ c3b0:	xtouch	[rcx+4096-128]		;; Load two prefetch TLBs
 c3b:	x4cl_four_complex_unfft rsi, dist128, 32*64, 64*64, rbx
 	bump	rbx, XMM_SCD		;; Next sine/cosine pointer
 	loops	2, c3b, 2		;; Test inner loop counter
-	xprefetcht1 [rcx]
+	L2prefetch128 [rcx]
 	bump	rcx, 128
 	bump	rsi, -2*dist128		;; Restore source pointer
 	bump	rbx, -2*XMM_SCD		;; Restore sine/cosine pointer

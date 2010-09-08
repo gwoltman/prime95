@@ -1,4 +1,4 @@
-; Copyright 2001-2009 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2010 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -200,7 +200,7 @@ c5b:	x2cl_two_complex_unfft rsi, 64, 2*clmblkdst
 	sub	ah, 1			;; Test outer loop counter
 	jnz	c5b			;; Iterate if necessary
 	bump	rdi, -9*XMM_SCD		;; Restore sine/cosine pointer
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 
 	bump	rsi, -5*clmblkdst8	;; Restore source pointer
@@ -385,7 +385,7 @@ b5b:	x2cl_two_complex_fft rsi, 64, 4*clmblkdst, rbx
 	bump	rbx, 2*XMM_SCD		;; Next sine/cosine pointer
 	add	ah, 256/4		;; Test outer loop counter
 	jnc	b5b			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	bump	rbx, -9*XMM_SCD		;; Restore sine/cosine pointer
 
@@ -443,8 +443,8 @@ b6b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 5*256+1		;; 9 iterations of 2*clm
 b7b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
@@ -888,8 +888,8 @@ b6b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 6*256+1		;; 11 iterations of 2*clm
 b7b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
@@ -1248,8 +1248,8 @@ pfing	bump	rcx, -48*blkdst		;; Restore prefetch pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 6*256+2		;; 6 iterations of 2 iters of 2*clm
 b7b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
@@ -1644,7 +1644,7 @@ b3a:	x2cl_four_complex_fft rsi, 64, clmblkdst8
 	bump	rsi, -2*64+4*clmblkdst	;; Next source pointer
 	add	ah, 256/2
 	jnc	b3a
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 
 	bump	rsi, -2*4*clmblkdst+2*clmblkdst8;; Next source pointer
@@ -1726,8 +1726,8 @@ b6b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 7*256+1		;; 13 iterations of 2*clm
 b7b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
@@ -2081,7 +2081,7 @@ b1b:	x2cl_eight_reals_fft rsi, 64, 4*clmblkdst8
 	add	ah, 256/2
 	jnc	b1b
 	bump	rsi, -2*4*clmblkdst+clmblkdst8;; Next source pointer
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	add	eax, 80000000h/2	;; 4 iterations
 	jnc	b1b
@@ -2171,8 +2171,8 @@ b6b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 8*256+1		;; 15 iterations of 2*clm
 b7b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
@@ -2528,8 +2528,8 @@ pfing	bump	rcx, -64*blkdst		;; Restore prefetch pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 8*256+2		;; 8 iters of 2 of 2*clm
 b7b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
@@ -2753,7 +2753,7 @@ c3b:	x4cl_four_complex_unfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	add	ah, 256/2		;; Test outer loop counter
 	jnc	c3b			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	bump	rdi, -2*XMM_SCD		;; Restore sine/cosine pointer
 
@@ -2913,7 +2913,7 @@ b3b:	x4cl_four_complex_fft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi
 	bump	rsi, -2*64+4*clmblkdst
 	add	ah, 256/2		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	bump	rsi, -2*4*clmblkdst+clmblkdst8
 	add	eax, 80000000h
@@ -2987,8 +2987,8 @@ b6b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 10*256+1		;; 19 iterations of 2*clm
 b7b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
@@ -3216,7 +3216,7 @@ c1b:	x3cl_six_reals_last_unfft rsi, 64, 4*clmblkdst8
 	bump	rsi, -2*64+clmblkdst8
 	add	ah, 256/4
 	jnc	c1b
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 
 	IF clm GT 1
@@ -3345,7 +3345,7 @@ b1b:	x3cl_six_reals_fft rsi, 64, 4*clmblkdst8
 	bump	rsi, -2*64+4*clmblkdst
 	add	ah, 256/2		;; Test inner loop counter
 	jnc	b1b			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	bump	rsi, -2*4*clmblkdst+clmblkdst8
 	add	eax, 80000000h/4*2
@@ -3440,8 +3440,8 @@ b6b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 12*256+1		;; 23 iterations of 2*clm
 b7b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
@@ -3802,8 +3802,8 @@ pfing	bump	rcx, -96*blkdst		;; Restore prefetch pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 12*256+2		;; 12 iterations 2 iters of 2*clm
 b7b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
@@ -4285,8 +4285,8 @@ b6b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 14*256+1		;; 27 iterations of 2*clm
 b7b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
@@ -4636,7 +4636,7 @@ b1b:	x2cl_eight_reals_fft rsi, 64, 8*clmblkdst8
 	bump	rsi, -2*64+4*clmblkdst
 	add	ah, 256/2		;; Test inner loop counter
 	jnc	b1b			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	bump	rsi, -2*4*clmblkdst+clmblkdst8
 	add	eax, 80000000h/8*2
@@ -4733,8 +4733,8 @@ b6b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 16*256+1		;; 31 iterations of 2*clm
 b7b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
@@ -5086,8 +5086,8 @@ pfing	bump	rcx, -128*blkdst	;; Restore prefetch pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 16*256+2		;; 32 iterations of 2*clm
 b7b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b7b			;; Iterate if necessary
@@ -5635,8 +5635,8 @@ b8b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 20*256+1		;; 39 iterations of 2*clm
 b9b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b9b			;; Iterate if necessary
@@ -6181,8 +6181,8 @@ b8b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 24*256+1		;; 47 iterations of 2*clm
 b9b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b9b			;; Iterate if necessary
@@ -6622,8 +6622,8 @@ pfing	bump	rcx, -192*blkdst	;; Restore prefetch pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 24*256+2		;; 24 iterations of 2 iters of 2*clm
 b9b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b9b			;; Iterate if necessary
@@ -7199,8 +7199,8 @@ b8b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 28*256+1		;; 55 iterations of 2*clm
 b9b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b9b			;; Iterate if necessary
@@ -7737,8 +7737,8 @@ b8b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 32*256+1		;; 63 iterations of 2*clm
 b9b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b9b			;; Iterate if necessary
@@ -8168,8 +8168,8 @@ pfing	bump	rcx, -256*blkdst	;; Restore prefetch pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 32*256+2		;; 32 iters of 2 of 2*clm
 b9b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b9b			;; Iterate if necessary
@@ -8441,7 +8441,7 @@ c3b:	x4cl_four_complex_unfft rsi, 64, 4*clmblkdst8, 8*clmblkdst8, rdi
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	add	ah, 256/2		;; Test middle loop counter
 	jnc	c3b			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	bump	rdi, -2*XMM_SCD		;; Restore sine/cosine pointer
 
@@ -8590,7 +8590,7 @@ b2b:	x1cl_half_eight_reals_fft_2 rsi, 64
 	bump	rsi, -2*64+2*clmblkdst8
 	add	ah, 256/4		;; Test inner loop counter
 	jnc	b2b			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 
 ;;	bump	rsi, -4*2*clmblkdst8+8*clmblkdst8
@@ -8600,14 +8600,14 @@ b3b:	x4cl_four_complex_fft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rdi
 	bump	rsi, -2*64+2*clmblkdst8
 	add	ah, 256/4		;; Test inner loop counter
 	jnc	b3b			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 
 	bump	rsi, -4*2*clmblkdst8-8*clmblkdst8;;Restore src pointer
 b4b:	x4cl_eight_reals_fft_2 rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rbx
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b4b			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 
 	bump	rsi, -2*64+8*clmblkdst8	;; Next source pointer
@@ -8732,8 +8732,8 @@ b8b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 40*256+1		;; 79 iterations of 2*clm
 b9b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b9b			;; Iterate if necessary
@@ -9005,7 +9005,7 @@ c3b:	x4cl_four_complex_unfft rsi, 64, 4*clmblkdst8, 8*clmblkdst8, rdi
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	add	ah, 256/2		;; Test middle loop counter
 	jnc	c3b			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	bump	rdi, -2*XMM_SCD		;; Restore sine/cosine pointer
 
@@ -9016,7 +9016,7 @@ c1b:	x3cl_six_reals_last_unfft rsi, 64, 16*clmblkdst8
 	bump	rsi, -2*64+4*clmblkdst8	;; Next source pointer
 	add	ah, 256/2		;; Test middle loop counter
 	jnc	c1b			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	add	edx, 80000000h		;; Test middle loop counter
 	jnc	c1b			;; Iterate if necessary
@@ -9300,8 +9300,8 @@ b8b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 48*256+1		;; 95 iterations of 2*clm
 b9b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b9b			;; Iterate if necessary
@@ -9742,8 +9742,8 @@ pfing	bump	rcx, -384*blkdst	;; Restore prefetch pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 48*256+2		;; 48 iterations of 2 iters of 2*clm
 b9b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b9b			;; Iterate if necessary
@@ -10020,7 +10020,7 @@ c3b:	x4cl_four_complex_unfft rsi, 64, 4*clmblkdst8, 8*clmblkdst8, rdi
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	ah, 1			;; Test middle loop counter
 	jnz	c3b			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	bump	rdi, -3*XMM_SCD		;; Restore sine/cosine pointer
 
@@ -10340,8 +10340,8 @@ b8b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 56*256+1		;; 111 iterations of 2*clm
 b9b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b9b			;; Iterate if necessary
@@ -10597,7 +10597,7 @@ c2a:	xtouchlines 4			;; Preload TLBs
 c2b:	x4cl_eight_reals_unfft_2 rsi, 64, 4*clmblkdst8, 8*clmblkdst8
 	add	al, 256/2
 	jnc	c2b
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 
 	bump	rsi, -2*64+16*clmblkdst8;; Next source pointer
@@ -10609,7 +10609,7 @@ c3b:	x4cl_four_complex_unfft rsi, 64, 4*clmblkdst8, 8*clmblkdst8, rdi
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	sub	ah, 1			;; Test middle loop counter
 	jnz	c3b			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	bump	rdi, -3*XMM_SCD		;; Restore sine/cosine pointer
 
@@ -10620,7 +10620,7 @@ c1b:	x4cl_eight_reals_last_unfft rsi, 64, 16*clmblkdst8, 32*clmblkdst8
 	bump	rsi, -2*64+4*clmblkdst8
 	add	ah, 256/2
 	jnc	c1b
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	add	edx, 80000000h
 	jnc	c1b
@@ -10899,8 +10899,8 @@ b8b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 64*256+1		;; 127 iterations of 2*clm
 b9b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b9b			;; Iterate if necessary
@@ -11330,8 +11330,8 @@ pfing	bump	rcx, -512*blkdst	;; Restore prefetch pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 64*256+2		;; 64 iters of 2 of 2*clm
 b9b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b9b			;; Iterate if necessary
@@ -11983,8 +11983,8 @@ b8b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 80*256+1		;; 159 iterations of 2*clm
 b9b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b9b			;; Iterate if necessary
@@ -12635,8 +12635,8 @@ b8b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 96*256+1		;; 95 iterations of 2*clm
 b9b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b9b			;; Iterate if necessary
@@ -13150,8 +13150,8 @@ pfing	bump	rcx, -768*blkdst	;; Restore prefetch pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 96*65536+2		;; 96 iterations of 2 iters of 2*clm
 b9b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b9b			;; Iterate if necessary
@@ -13837,8 +13837,8 @@ b8b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 112*65536+1	;; 223 iterations of 2*clm
 b9b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b9b			;; Iterate if necessary
@@ -14487,8 +14487,8 @@ b8b:	g4cl_eight_reals_fft_2 rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*
 	bump	rdi, XMM_SCD		;; Next sine/cosine pointer
 	mov	eax, 128*65536+1	;; 255 iterations of 2*clm
 b9b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b9b			;; Iterate if necessary
@@ -14989,8 +14989,8 @@ pfing	bump	rcx, -1024*blkdst	;; Restore prefetch pointer
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	eax, 128*65536+2	;; 128 iters of 2 of 2*clm
 b9b:	g4cl_four_complex_fft rsi, 64, clmblkdst, 2*clmblkdst, rcx, 64, blkdst, 2*blkdst
-	xprefetcht1 [rcx-64][rbp]
-	xprefetcht1 [rcx-64+blkdst][rbp]
+	L2prefetch128 [rcx-64][rbp]
+	L2prefetch128 [rcx-64+blkdst][rbp]
 	bump	rbp, -64+2*blkdst
 	add	al, 256/2		;; Test inner loop counter
 	jnc	b9b			;; Iterate if necessary
@@ -15030,14 +15030,14 @@ xloop1	MACRO	label2, incr
 	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	label2			;; Iterate if necessary
 	bump	rsi, -2*clm*64+incr	;; Next source pointer
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	ENDIF
 
 	IF clm GE 2
 	add	al, 256/2		;; Test inner loop counter
 	jnc	label2			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 	bump	rcx, 128
 	add	dl, 256/clm
 	jnc	label2
@@ -15050,7 +15050,7 @@ pfing	bump	rcx, blkdst		;; Next prefetch pointer
 ;; every 2 times the building block macro is called.
 xloop1prefetch2	MACRO label2, incr
 	IF clm EQ 1
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	label2			;; Iterate if necessary
@@ -15058,7 +15058,7 @@ pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	ENDIF
 
 	IF clm GE 2
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 	bump	rcx, blkdst		;; Next prefetch pointer
 	add	al, 256/2		;; Test inner loop counter
 	jnc	label2			;; Iterate if necessary
@@ -15088,14 +15088,14 @@ xloop2edi MACRO label2, incr, incr_edi
 	add	al, 256/2/2		;; Test inner loop counter
 	jnc	label2			;; Iterate if necessary
 	ENDIF
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	ENDIF
 
 	IF clm EQ 2
 	add	al, 256/2/clm		;; Test inner loop counter
 	jnc	label2			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 	bump	rcx, 128
 	bump	rsi, -2*clm*64+incr	;; Next source pointer
 	bump	rdi, incr_edi		;; Next premultiplier pointer
@@ -15107,7 +15107,7 @@ pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	IF clm GE 4
 	add	al, 256/2/2		;; Test inner loop counter
 	jnc	label2			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 	bump	rcx, 128
 	add	dl, 256/(clm/2)
 	jnc	label2
@@ -15132,7 +15132,7 @@ xloop4edi	MACRO	label2, incr, incr_edi
 	bump	rdi, incr_edi		;; Next premultiplier pointer
 	add	dl, 256/4		;; Test outer loop counter
 	jnc	label2			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	ENDIF
 
@@ -15143,7 +15143,7 @@ pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	bump	rdi, incr_edi		;; Next premultiplier pointer
 	add	dl, 256/2		;; Test middle loop counter
 	jnc	label2			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 	bump	rcx, 128
 	add	ah, 256/2		;; Test outer loop counter
 	jnc	label2			;; Iterate if necessary
@@ -15155,7 +15155,7 @@ pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	jnc	label2			;; Iterate if necessary
 	bump	rsi, -2*clm*64+incr	;; Next source pointer
 	bump	rdi, incr_edi		;; Next premultiplier pointer
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 	bump	rcx, 128
 	add	dl, 256/4		;; Test outer loop counter
 	jnc	label2			;; Iterate if necessary
@@ -15165,7 +15165,7 @@ pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	IF clm GT 4
 	add	al, 256/2/4		;; Test inner loop counter
 	jnc	label2			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 	bump	rcx, 128
 	add	dl, 256/(clm/4)		;; Test loop counter
 	jnc	label2			;; Iterate if necessary
@@ -15190,7 +15190,7 @@ xloop8edi MACRO label2, incr, incr_edi
 	bump	rdi, incr_edi		;; Next premultiplier pointer
 	add	dl, 256/8		;; Test outer loop counter
 	jnc	label2			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	ENDIF
 
@@ -15201,7 +15201,7 @@ pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	bump	rdi, incr_edi		;; Next premultiplier pointer
 	add	dl, 256/4		;; Test middle loop counter
 	jnc	label2			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 	bump	rcx, 128
 	add	ah, 256/2		;; Test outer loop counter
 	jnc	label2			;; Iterate if necessary
@@ -15215,7 +15215,7 @@ pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	bump	rdi, incr_edi		;; Next premultiplier pointer
 	add	dl, 256/2		;; Test middle loop counter
 	jnc	label2			;; Iterate if necessary
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 	bump	rcx, 128
 	add	ah, 256/4		;; Test outer loop counter
 	jnc	label2			;; Iterate if necessary
@@ -15227,7 +15227,7 @@ pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	jnc	label2			;; Iterate if necessary
 	bump	rsi, -2*clm*64+incr	;; Next source pointer
 	bump	rdi, incr_edi		;; Next premultiplier pointer
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 	bump	rcx, 128
 	add	dl, 256/8		;; Test outer loop counter
 	jnc	label2			;; Iterate if necessary
@@ -15268,12 +15268,12 @@ xloop1sp MACRO	label2, incr
 	add	al, 256/2		;; Test inner loop counter
 	jnc	label2			;; Iterate if necessary
 	bump	rsi, -2*64+incr		;; Next source pointer
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	ENDM
 
 xloop1prefetch2sp MACRO label2, incr
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	add	al, 256/2		;; Test inner loop counter
 	jnc	label2			;; Iterate if necessary
@@ -15286,7 +15286,7 @@ xloop2sp MACRO	label2, incr
 	lea	rsi, [rsi-2*64+incr]	;; Next source pointer
 	jns	label2			;; Iterate if necessary
 	sub	al, 128			;; Restore loop counters
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	ENDM
 
@@ -15296,7 +15296,7 @@ xloop4sp MACRO	label2, incr
 	lea	rsi, [rsi-2*64+incr]	;; Next source pointer
 	jns	label2			;; Iterate if necessary
 	sub	al, 128			;; Restore loop counters
-	xprefetcht1 [rcx][rbp]
+	L2prefetch128 [rcx][rbp]
 pfing	bump	rcx, blkdst		;; Next prefetch pointer
 	ENDM
 

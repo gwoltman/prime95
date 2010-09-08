@@ -111,7 +111,7 @@ ENDIF
 ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	mov	loopcount1, rbx		;; Save loop counter
 	lea	rbx, XMM_COL_MULTS	;; Load col mult scratch area
-	xprefetcht1 [rdx+128]		;; Prefetch group multiplier
+	L2prefetch128 [rdx+128]		;; Prefetch group multiplier
 ilp1:	xprefetchw [rsi+64]
 	xnorm_2d ttp, zero, echk, const, base2, sse4 ;; Normalize 8 values
 	bump	rsi, 64			;; Next cache line
@@ -189,7 +189,7 @@ IFDEF X86_64
 	xload	xmm3, [rbp+2*16]
 	xload	xmm11, [rbp+3*16]
 ENDIF
-	xprefetcht1 [rdx+128]		;; Prefetch group multiplier
+	L2prefetch128 [rdx+128]		;; Prefetch group multiplier
 ilp1:	xprefetchw [rsi+64]
 	xnorm_2d_zpad ttp, echk, const, base2, sse4, khi, c1, cm1 ;; Normalize 8 values
 	bump	rsi, 64			;; Next cache line

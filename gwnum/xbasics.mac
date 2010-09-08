@@ -170,9 +170,9 @@ xtouch	MACRO	addr
 	ENDIF
 	ENDM
 
-; Macro to prefetch a 128-byte line into the L2 cache
+; Macro to prefetch 128 bytes into the L2 cache
 
-xprefetcht1 MACRO addr
+L2prefetch128 MACRO addr
 	IF PREFETCHING NE 0
 	IFDEF AMD
 	prefetchw addr
@@ -186,7 +186,7 @@ xprefetcht1 MACRO addr
 	ENDIF
 	ENDM
 
-; Macro to prefetch a line into the L1 cache (AMD only)
+; Macro to prefetch a 64-byte line into the L1 cache (AMD only)
 ; Note:  We use an ugly hack to not prefetch if loops_undo 
 ; has been called.  This only happens when we have merged FFT levels
 ; in pass 2.
