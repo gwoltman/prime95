@@ -320,7 +320,7 @@ x8r2_half_unfft MACRO r1, r2, r3, r4, t1, t2, t3
 	addpd	r3, r2			;; R3 = R1 + R3 (final R1)
 	ENDM
 
-half_x4r_fft MACRO r1, r2, r3, r4
+half_x4r_fft MACRO r1, r2, r3, r4, t1
 	subpd	r1, r2			;; R1 - R2 (final R2)
 	multwo	r2
 	addpd	r2, r1			;; R1 + R2 (final R1)
