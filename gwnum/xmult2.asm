@@ -25,6 +25,7 @@ ENDIF
 
 INCLUDE	unravel.mac
 INCLUDE extrn.mac
+INCLUDE xarch.mac
 INCLUDE xbasics.mac
 INCLUDE xmult.mac
 INCLUDE xnormal.mac

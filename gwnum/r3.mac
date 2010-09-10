@@ -159,7 +159,7 @@ r3_x3c_djbfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,t1,t2,memr1,memr2,memi1,memi2,
 
 ; AMD version of some of the above macros
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 
 r3_x3c_djbfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,t1,t2,memr1,memr2,memi1,memi2,screg,pre1,pre2
 	xload	r2, memr2
@@ -223,7 +223,7 @@ ENDIF
 
 ; 64-bit version of some of the above macros - use the extra registers
 
-IF (@INSTR(,@CATSTR(%xarch),<CORE>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 IFDEF X86_64
 
 ; Core 2 optimal is 32 clocks.  Currently at 35.5 clocks.
@@ -511,7 +511,7 @@ ENDIF
 
 ;; The Pentium-4 64-bit version
 
-IF @INSTR(,@CATSTR(%xarch),<P4>) EQ 1
+IF @INSTR(,%xarch,<P4>) EQ 1
 IFDEF X86_64
 
 ;; Identical to the 32-bit version but uses registers for HALF and P866.  Very likely
@@ -575,7 +575,7 @@ ENDIF
 
 ; 64-bit AMD version.  Same as the 32-bit version -- can be improved
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 IFDEF X86_64
 
 r3_x3c_djbfft_partial_mem_preload MACRO
@@ -741,7 +741,7 @@ r3_x3c_djbunfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,t1,t2,memr1,memi1,memr3,memi
 ; Or we eliminate the initial xcopy (do a cosine/sine load instead) but it will
 ; change the output registers.
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 
 r3_x3c_djbunfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,t1,t2,memr1,memi1,memr3,memi3,screg,scoff,pre1,pre2
 	xcopy	t1, r3			;; Copy R2
@@ -800,7 +800,7 @@ ENDIF
 
 ; 64-bit version of some of the above macros - use the extra registers
 
-IF (@INSTR(,@CATSTR(%xarch),<CORE>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 IFDEF X86_64
 
 ; Core 2 optimal is 32 clocks.  Currently at 39 clocks.
@@ -949,7 +949,7 @@ ENDIF
 
 ;; The Pentium-4 64-bit version
 
-IF @INSTR(,@CATSTR(%xarch),<P4>) EQ 1
+IF @INSTR(,%xarch,<P4>) EQ 1
 IFDEF X86_64
 
 ;; Same as 32-bit version but HALF and P866 in registers.  Very likely this
@@ -1011,7 +1011,7 @@ ENDIF
 ; 64-bit AMD version.  same as the 32-bit version but with some preloaded constants.
 ; Probably could be improved.
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 IFDEF X86_64
 
 r3_x3c_djbunfft_partial_mem_preload MACRO

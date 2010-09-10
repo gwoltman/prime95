@@ -507,7 +507,7 @@ ENDIF
 ;; noting that subpd/multwo/addpd can be changed to addpd/multwo/subpd giving us greater
 ;; flexibility in ordering the computation of intermediate results.
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 
 ;; K10 Cheat sheet for scheduling dependency chains
 ;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
@@ -775,7 +775,7 @@ ENDIF
 
 ;; 64-bit Intel implementations of the above - use the extra XMM registers
 
-IF (@INSTR(,@CATSTR(%xarch),<CORE>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<P4>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 IFDEF X86_64
 
 ; Theoretical best case is 44 clocks on a Core 2.  Now at 47.2 clocks.
@@ -1124,7 +1124,7 @@ ENDIF
 ;; 64-bit AMD optimized versions of the above macros.  Same as 32-bit macros with some
 ;; constants preloaded.  We can probably do better than that.
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 IFDEF X86_64
 
 r4_x4c_2sc_djbfft_mem_preload MACRO
@@ -1943,7 +1943,7 @@ ENDIF
 
 ;; 32-bit AMD optimized versions of the above macros
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 
 ;; K10 Cheat sheet for scheduling dependency chains  (some empty add slots that a 64-bit version could make use of)
 ;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
@@ -2222,7 +2222,7 @@ ENDIF
 ;; 64-bit Intel implementations of the above - use the extra XMM registers
 ;; For some reason this implementation is worse on a Pentium 4.
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0
+IF (@INSTR(,%xarch,<CORE>) NE 0) (@INSTR(,%xarch,<BLEND>) NE 0)
 IFDEF X86_64
 
 ; Theoretical best case is 44 clocks on a Core 2.  Now at 51.4 clocks.
@@ -2427,7 +2427,7 @@ ENDIF
 ;; 64-bit AMD optimized versions of the above macros.  The same as the 32-bit
 ;; version with some constants preloaded.  We could probably do better.
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 IFDEF X86_64
 
 r4_x4c_2sc_djbunfft_mem_preload MACRO
@@ -3806,7 +3806,7 @@ r4_x4c_wpn_djbfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem3,mem4,mem7,mem8,
 
 ;; 32-bit AMD optimized versions of the above macros
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 
 r4_x4c_wpn_djbfft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,screg1,screg2,normreg,pre1,pre2,dst1,dst2
 	xload	xmm0, R1		;; R1
@@ -3970,7 +3970,7 @@ ENDIF
 
 ;; 64-bit Intel implementations of the above - use the extra XMM registers
 
-IF (@INSTR(,@CATSTR(%xarch),<CORE>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<P4>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 IFDEF X86_64
 
 ; Theoretical best case is 44 clocks on a Core 2.  Now at ?? clocks.
@@ -4176,7 +4176,7 @@ ENDIF
 
 ;; 64-bit AMD optimized versions of the above macros
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 IFDEF X86_64
 
 r4_x4c_wpn_djbfft_mem_preload MACRO
@@ -4543,7 +4543,7 @@ r4_x4c_wpn_djbunfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem1,mem2,mem5,mem
 
 ;; 32-bit AMD optimized versions of the above macros
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 
 ;; K8 Cheat sheet for scheduling dependency chains
 ;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
@@ -4747,7 +4747,7 @@ ENDIF
 
 ;; 64-bit Intel implementations of the above - use the extra XMM registers
 
-IF (@INSTR(,@CATSTR(%xarch),<CORE>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<P4>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 IFDEF X86_64
 
 ; Theoretical best case is 44 clocks on a Core 2.  Now at ?? clocks.
@@ -4955,7 +4955,7 @@ ENDIF
 
 ;; 64-bit AMD optimized versions of the above macros
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 IFDEF X86_64
 
 r4_x4c_wpn_djbunfft_mem_preload MACRO
@@ -5440,7 +5440,7 @@ r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2, dest
 
 ;; 32-bit AMD optimized versions of the above macros
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 
 r4_x4c_simple_fft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,pre1,pre2
 	xload	xmm0, R1		;; R1
@@ -5568,7 +5568,7 @@ ENDIF
 
 ;; 64-bit Intel optimized versions of the above macros
 
-IF (@INSTR(,@CATSTR(%xarch),<CORE>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<P4>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 IFDEF X86_64
 
 r4_x4c_simple_fft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,pre1,pre2
@@ -5706,7 +5706,7 @@ ENDIF
 ;; 64-bit AMD optimized versions of the above macros.  Derived from Intel 64-bit
 ;; version -- could probably be optimized further.
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 IFDEF X86_64
 
 r4_x4cl_four_complex_with_square_preload MACRO
@@ -5961,7 +5961,7 @@ ENDIF
 
 ;; 64-bit Intel optimized versions of the above macros.
 
-IF (@INSTR(,@CATSTR(%xarch),<CORE>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<P4>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 IFDEF X86_64
 
 r4_x4cl_four_complex_fft_final MACRO srcreg,srcinc,d1,d2
@@ -7062,7 +7062,7 @@ r4_x4c_fft4_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,dest1,dest2,screg,
 ;; 32-bit AMD optimized versions of the above macros.  Derived from Intel 32-bit
 ;; version -- could probably be optimized further.
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 
 r4_x4c_fft4_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,dest1,dest2,screg,off,pre1,pre2
 	xload	xmm2, mem3			;; R3
@@ -7820,7 +7820,7 @@ r4_x8r_fft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,screg
 
 ;; 32-bit AMD optimized versions of the above macros
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 
 ;R8	AAAA
 ;R4	  AAAA
@@ -7936,7 +7936,7 @@ ENDIF
 
 ;; 64-bit Intel optimized versions of the above macros
 
-IF (@INSTR(,@CATSTR(%xarch),<CORE>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<P4>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 IFDEF X86_64
 
 ; Optimal Core 2 timing is 24 clocks, currently at 27 clocks
@@ -8048,7 +8048,7 @@ ENDIF
 ;; 64-bit AMD optimized versions of the above macros.  Same as 32-bit version with
 ;; some constants preloaded.
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 IFDEF X86_64
 
 r4_x8r_fft_mem_preload MACRO
@@ -8505,7 +8505,7 @@ r4_s8r_unfft4 MACRO memr1_1,memr1_2,memr2,memi2,memr3,memi3,memr4,memi4,screg1,s
 
 ;; 32-bit AMD optimized versions of the above macros
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 
 r4_x8r_unfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,screg5,pre1,pre2,dst4,dst8
 	xload	xmm6, [screg5+16]	;; cosine/sine for w^5n
@@ -8666,7 +8666,7 @@ ENDIF
 
 ;; 64-bit Intel optimized versions of the above macros
 
-IF (@INSTR(,@CATSTR(%xarch),<CORE>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<P4>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 IFDEF X86_64
 
 r4_x4cl_eight_reals_unfft_cmn_preload MACRO
@@ -8890,7 +8890,7 @@ ENDIF
 ;; combining r4_x8r_unfft_mem and r4_x8r_unfft_partial_mem into one macro.  Should
 ;; yield significant savings.
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 IFDEF X86_64
 
 r4_x4cl_eight_reals_unfft_cmn_preload MACRO
@@ -9746,7 +9746,7 @@ r4_x8r_wpn_fft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,s
 
 ; 32-bit AMD version
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 
 r4_x8r_wpn_fft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,screg5,normreg,pre1,pre2,dst1,dst2
 	xload	xmm3, mem4		;; R4
@@ -9835,7 +9835,7 @@ ENDIF
 
 ;; 64-bit Intel version.
 
-IF (@INSTR(,@CATSTR(%xarch),<CORE>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<P4>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 IFDEF X86_64
 
 ; Optimal Core 2 timing is 24 clocks, currently at ?? clocks
@@ -9951,7 +9951,7 @@ ENDIF
 ; 64-bit AMD optimized version.  This is the 32-bit K8 version, but with XMM_TWO and
 ; XMM_SQRTHALF preloaded.
 
-IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 IFDEF X86_64
 
 ;; WARNING:  this preload must be compatible with r4_x4c_wpn_djbfft_partial_mem

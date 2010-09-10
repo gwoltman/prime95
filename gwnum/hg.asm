@@ -36,7 +36,7 @@ _TEXT SEGMENT
 
 ;; Implement the small one pass FFTs, for now only assemble one-pass FFTs for the CORE architecture
 
-IF @INSTR(,%xarch,<CORE>) NE 0
+IF @INSTR(,%xarch,<BLEND>) NE 0
 	xonepass 32, 0
 	xonepass 48, 0
 	xonepass 64, 0
@@ -86,7 +86,8 @@ IF @INSTR(,%xarch,<CORE>) NE 0
 	xonepass 4096, 1
 	xonepass 6144, 1
 	xonepass 8192, 1
-ENDIF
+
+ELSE
 
 ;; Generate pass 2 routines optmized for this architecture
 
@@ -255,6 +256,8 @@ buildfor                                + K10,	hg_pass1sclevels11complex3 12M, 1
 buildfor                                + K10,	hg_pass1sclevels11complex4 16M, 13, 4
 buildfor                                + K10,	hg_pass1sclevels12complex3 24M, 13, 2
 buildfor                                + K10,	hg_pass1sclevels12complex4 32M, 13, 2
+
+ENDIF
 
 _TEXT	ENDS
 END

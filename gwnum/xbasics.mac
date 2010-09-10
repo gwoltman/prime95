@@ -23,8 +23,10 @@ xstore	MACRO	mem, reg
 	ENDM
 
 xcopy	MACRO	reg1, reg2
-	IFDEF AMD
-	movapd	reg1, reg2	;; There is a HUGE penalty for using the shorter movaps instruction
+	;; There is a HUGE penalty for using the shorter movaps instruction on AMD K8 machines.
+	;; Therefore, we use the longer movapd instruction for the BLEND architecture.
+	IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
+	movapd	reg1, reg2
 	ELSE
 	movaps	reg1, reg2
 	ENDIF
@@ -64,7 +66,7 @@ mulhalfs MACRO	r
 ;; On AMD64 (K8 architecture, not the Phenom K10 architecture), punpckhqdq is grossly slow.
 
 unpckhi MACRO dest, src
-	IF (@INSTR(,@CATSTR(%xarch),<P4>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+	IF (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 	unpckhpd dest, src
 	ELSE
 	punpckhqdq dest, src
@@ -72,7 +74,7 @@ unpckhi MACRO dest, src
 	ENDM
 
 unpcklo MACRO dest, src
-	IF (@INSTR(,@CATSTR(%xarch),<P4>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+	IF (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 	unpcklpd dest, src
 	ELSE
 	punpcklqdq dest, src
@@ -82,7 +84,7 @@ unpcklo MACRO dest, src
 ;; Macros that load or store register(s) shuffling the data
 
 low_load MACRO reg, mem1, mem2
-	IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+	IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 	movhpd	reg, Q mem2
 	movlpd	reg, Q mem1
 	ELSE
@@ -92,7 +94,7 @@ low_load MACRO reg, mem1, mem2
 	ENDM
 
 high_load MACRO reg, mem1, mem2
-	IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+	IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 	movhpd	reg, Q mem2[8]
 	movlpd	reg, Q mem1[8]
 	ELSE
@@ -102,7 +104,7 @@ high_load MACRO reg, mem1, mem2
 	ENDM
 
 shuffle_load MACRO reglo, reghi, mem1, mem2
-	IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+	IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 	movhpd	reglo, Q mem2
 	movlpd	reglo, Q mem1
 	movhpd	reghi, Q mem2[8]
@@ -116,7 +118,7 @@ shuffle_load MACRO reglo, reghi, mem1, mem2
 	ENDM
 
 shuffle_load_with_temp MACRO reglo, reghi, mem1, mem2, tmp
-	IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+	IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 	shuffle_load reglo, reghi, mem1, mem2
 	ELSE
 	xload	reglo, mem1
@@ -144,7 +146,7 @@ shuffle_store_partial MACRO mem1, mem2, reglo, reghi
 
 ;; Like shuffle_store but a temporary register is available
 shuffle_store_with_temp MACRO mem1, mem2, reglo, reghi, tmp
-	IF (@INSTR(,@CATSTR(%xarch),<K8>) NE 0) OR (@INSTR(,@CATSTR(%xarch),<K10>) NE 0)
+	IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 	shuffle_store mem1, mem2, reglo, reghi
 	ELSE
 	xcopy	tmp, reglo

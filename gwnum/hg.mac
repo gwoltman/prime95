@@ -3781,10 +3781,10 @@ ENDIF
 ;; optimized for a different CPU architecture
 ;;
 
-IF @INSTR(,@CATSTR(%xarch),<P4>) EQ 1
+IF @INSTR(,%xarch,<P4>) EQ 1
 INCLUDE	hgp4.mac
 ENDIF
 
-IF @INSTR(,@CATSTR(%xarch),<K8>) EQ 1
+IF @INSTR(,%xarch,<K8>) EQ 1
 INCLUDE	hgk8.mac
 ENDIF

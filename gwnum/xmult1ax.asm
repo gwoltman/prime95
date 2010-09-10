@@ -13,6 +13,7 @@ ENDIF
 
 INCLUDE	unravel.mac
 INCLUDE extrn.mac
+INCLUDE xarch.mac
 INCLUDE xbasics.mac
 INCLUDE memory.mac
 INCLUDE xnormal.mac
@@ -470,7 +471,7 @@ saved_reg3	EQU	PPTR [rsp+first_local+2*SZPTR]
 
 inorm	MACRO	lab, ttp, zero, echk, const, base2, sse4
 	LOCAL	ilp0, ilp1
-	PROCFL	lab
+	PROCFLP	lab
 	int_prolog 3*SZPTR,0,0
 	mov	rsi, DESTARG		;; Addr of multiplied number
 no zero	mov	edi, ADDIN_OFFSET	;; Get address to add value into
@@ -513,12 +514,12 @@ ttp	mov	rbp, saved_reg1		;; Restore ttp pointer
 no base2 jmp	non2dn			;; Go to non-base2 end code
 zero	jmp	zdn			;; Go to zero upper half end code
 base2 no zero jmp idn			;; Go to normal end code
-&lab	ENDP
+	ENDPP lab
 	ENDM
 
 zpnorm	MACRO	lab, ttp, echk, const, base2, sse4, khi, c1, cm1
 	LOCAL	ilp0, ilp1
-	PROCFL	lab
+	PROCFLP	lab
 	int_prolog 3*SZPTR,0,0
 	mov	rsi, DESTARG		;; Addr of multiplied number
 	movapd	xmm2, XMM_BIGVAL	;; Start process with no carry
@@ -551,7 +552,7 @@ no base2 const jmp non2zpcdn		;; Go to zero padded FFT end code
 no base2 no const jmp non2zpdn		;; Go to non-base2 end code
 base2 const jmp	zpcdn			;; Go to zero padded FFT end code
 base2 no const jmp zpdn			;; Go to zero padded FFT end code
-&lab	ENDP
+	ENDPP lab
 	ENDM
 
 ; The many different normalization routines.  One for each valid combination of

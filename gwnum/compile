@@ -22,8 +22,8 @@ all:	gwnum.lib gwnumd.lib linux\gwnum.a macosx\gwnum.a release\ecmstag1.obj debu
 gwnum.lib: release\cpuid.obj release\gwnum.obj release\gwthread.obj release\gwutil.obj release\gwdbldbl.obj \
 	   release\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj \
 	   mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj \
-	   xmult1ax.obj xmult2.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3a.obj xmult3ap.obj xmult3ax.obj \
-	   hg_core.obj hg_p4.obj hg_p4tp.obj hg_k8.obj hg_k10.obj \
+	   xmult1ax.obj xmult2.obj xmult2a_core.obj xmult2a_k8.obj xmult2ax.obj xmult3.obj xmult3a_core.obj xmult3a_k8.obj xmult3ax.obj \
+	   hg_blend.obj hg_core.obj hg_p4.obj hg_p4tp.obj hg_k8.obj hg_k10.obj \
 	   r4_core.obj r4_p4.obj r4_p4tp.obj r4_k8.obj r4_k10.obj \
 	   r4delay_core.obj r4delay_p4.obj r4delay_p4tp.obj r4delay_k8.obj r4delay_k10.obj \
 	   r4delay3_core.obj r4delay3_p4.obj r4delay3_p4tp.obj r4delay3_k8.obj r4delay3_k10.obj \
@@ -38,8 +38,8 @@ gwnum.lib: release\cpuid.obj release\gwnum.obj release\gwthread.obj release\gwut
 gwnumd.lib: debug\cpuid.obj debug\gwnum.obj debug\gwthread.obj debug\gwutil.obj debug\gwdbldbl.obj \
 	    debug\giants.obj mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj \
 	    mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj \
-	    xmult1ax.obj xmult2.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3a.obj xmult3ap.obj xmult3ax.obj \
-	    hg_core.obj hg_p4.obj hg_p4tp.obj hg_k8.obj hg_k10.obj \
+	    xmult1ax.obj xmult2.obj xmult2a_core.obj xmult2a_k8.obj xmult2ax.obj xmult3.obj xmult3a_core.obj xmult3a_k8.obj xmult3ax.obj \
+	    hg_blend.obj hg_core.obj hg_p4.obj hg_p4tp.obj hg_k8.obj hg_k10.obj \
 	    r4_core.obj r4_p4.obj r4_p4tp.obj r4_k8.obj r4_k10.obj \
 	    r4delay_core.obj r4delay_p4.obj r4delay_p4tp.obj r4delay_k8.obj r4delay_k10.obj \
 	    r4delay3_core.obj r4delay3_p4.obj r4delay3_p4tp.obj r4delay3_k8.obj r4delay3_k10.obj \
@@ -53,8 +53,8 @@ gwnumd.lib: debug\cpuid.obj debug\gwnum.obj debug\gwthread.obj debug\gwutil.obj 
 
 linux\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj \
 	       mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj \
-	       xmult1ax.obj xmult2.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3a.obj xmult3ap.obj xmult3ax.obj \
-	       hg_core.obj hg_p4.obj hg_p4tp.obj hg_k8.obj hg_k10.obj \
+	       xmult1ax.obj xmult2.obj xmult2a_core.obj xmult2a_k8.obj xmult2ax.obj xmult3.obj xmult3a_core.obj xmult3a_k8.obj xmult3ax.obj \
+	       hg_blend.obj hg_core.obj hg_p4.obj hg_p4tp.obj hg_k8.obj hg_k10.obj \
 	       r4_core.obj r4_p4.obj r4_p4tp.obj r4_k8.obj r4_k10.obj \
 	       r4delay_core.obj r4delay_p4.obj r4delay_p4tp.obj r4delay_k8.obj r4delay_k10.obj \
 	       r4delay3_core.obj r4delay3_p4.obj r4delay3_p4tp.obj r4delay3_k8.obj r4delay3_k10.obj \
@@ -73,8 +73,8 @@ linux\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj m
 
 macosx\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj \
 		mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj \
-		xmult1ax.obj xmult2.obj xmult2a.obj xmult2ap.obj xmult2ax.obj xmult3.obj xmult3a.obj xmult3ap.obj xmult3ax.obj \
-		hg_core.obj hg_p4.obj hg_p4tp.obj hg_k8.obj hg_k10.obj \
+		xmult1ax.obj xmult2.obj xmult2a_core.obj xmult2a_k8.obj xmult2ax.obj xmult3.obj xmult3a_core.obj xmult3a_k8.obj xmult3ax.obj \
+		hg_blend.obj hg_core.obj hg_p4.obj hg_p4tp.obj hg_k8.obj hg_k10.obj \
 		r4_core.obj r4_p4.obj r4_p4tp.obj r4_k8.obj r4_k10.obj \
 		r4delay_core.obj r4delay_p4.obj r4delay_p4tp.obj r4delay_k8.obj r4delay_k10.obj \
 		r4delay3_core.obj r4delay3_p4.obj r4delay3_p4tp.obj r4delay3_k8.obj r4delay3_k10.obj \
@@ -183,31 +183,34 @@ cpuidhlp.obj: cpuidhlp.asm
     $(masm) cpuidhlp.asm
 
 xmult1ax.obj: xmult1ax.asm xmult.mac xnormal.mac
-    $(masm) xmult1ax.asm
+    $(masm) /DARCH=BLEND xmult1ax.asm
 
 xmult2.obj: xmult2.asm xmult.mac xnormal.mac
-    $(masm) xmult2.asm
+    $(masm) /DARCH=BLEND xmult2.asm
 
-xmult2a.obj: xmult2a.asm xmult.mac xnormal.mac
-    $(masm) xmult2a.asm
+xmult2a_core.obj: xmult2a.asm xmult.mac xnormal.mac
+    $(masm) /DARCH=CORE /Foxmult2a_core.obj xmult2a.asm
 
-xmult2ap.obj: xmult2a.asm xmult.mac xnormal.mac
-    $(masm) /DAMD /Foxmult2ap.obj xmult2a.asm
+xmult2a_k8.obj: xmult2a.asm xmult.mac xnormal.mac
+    $(masm) /DARCH=K8 /Foxmult2a_k8.obj xmult2a.asm
 
 xmult2ax.obj: xmult2ax.asm xmult.mac xnormal.mac
-    $(masm) xmult2ax.asm
+    $(masm) /DARCH=BLEND xmult2ax.asm
 
 xmult3.obj: xmult3.asm xmult.mac xnormal.mac
-    $(masm) xmult3.asm
+    $(masm) /DARCH=BLEND xmult3.asm
 
-xmult3a.obj: xmult3a.asm xmult.mac xnormal.mac
-    $(masm) xmult3a.asm
+xmult3a_core.obj: xmult3a.asm xmult.mac xnormal.mac
+    $(masm) /DARCH=CORE /Foxmult3a_core.obj xmult3a.asm
 
-xmult3ap.obj: xmult3a.asm xmult.mac xnormal.mac
-    $(masm) /DAMD /Foxmult3ap.obj xmult3a.asm
+xmult3a_k8.obj: xmult3a.asm xmult.mac xnormal.mac
+    $(masm) /DARCH=K8 /Foxmult3a_k8.obj xmult3a.asm
 
 xmult3ax.obj: xmult3ax.asm xmult.mac xnormal.mac
-    $(masm) xmult3ax.asm
+    $(masm) /DARCH=BLEND xmult3ax.asm
+
+hg_blend.obj: hg.asm xmult.mac hg.mac hgpass1sc.mac hgpass2.mac
+    $(masm) /DARCH=BLEND /Fohg_blend.obj hg.asm
 
 hg_core.obj: hg.asm xmult.mac hg.mac hgpass1sc.mac hgpass2.mac
     $(masm) /DARCH=CORE /Fohg_core.obj hg.asm

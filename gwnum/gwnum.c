@@ -396,7 +396,7 @@ void *sse2_aux_prctab[] = {
 /* We also define a macro that will pick the correct entry from the array. */
 
 #define sse2_explode(macro)			sse2_explode1(macro,xr)			sse2_explode1(macro,xi)
-#define sse2_explode1(macro,name)		sse2_explode2(macro,name##1,notAMD)	sse2_explode2(macro,name##2,notAMD)	sse2_explode2(macro,name##2,AMD)	sse2_explode2(macro,name##3,notAMD)	sse2_explode2(macro,name##3,AMD)
+#define sse2_explode1(macro,name)		sse2_explode2(macro,name##1,BLEND)	sse2_explode2(macro,name##2,CORE)	sse2_explode2(macro,name##2,K8)		sse2_explode2(macro,name##3,CORE)	sse2_explode2(macro,name##3,K8)
 #define sse2_explode2(macro,name,suff)		sse2_zero_explode(macro,name##z,suff)	sse2_explode3(macro,name,suff,notzp)	sse2_explode3(macro,name##zp,suff,zp)
 #define sse2_zero_explode(macro,name,suff)	sse2_explode9##suff(macro,name)		sse2_explode9##suff(macro,name##e)
 #define sse2_explode3(macro,name,suff,zp)	sse2_explode4(macro,name,suff,zp)	sse2_explode4(macro,name##e,suff,zp)
@@ -407,8 +407,9 @@ void *sse2_aux_prctab[] = {
 #define sse2_explode7zp(macro,name,suff,c)	sse2_explode8##c(macro,name,suff)	sse2_explode8##c(macro,name##k,suff)
 #define sse2_explode8c(macro,name,suff)		sse2_explode9##suff(macro,name)
 #define sse2_explode8notc(macro,name,suff)	sse2_explode9##suff(macro,name)		sse2_explode9##suff(macro,name##c1)	sse2_explode9##suff(macro,name##cm1)
-#define sse2_explode9notAMD(macro,name)		macro(name)
-#define sse2_explode9AMD(macro,name)		macro(name##AMD)
+#define sse2_explode9BLEND(macro,name)		macro(name##BLEND)
+#define sse2_explode9CORE(macro,name)		macro(name##CORE)
+#define sse2_explode9K8(macro,name)		macro(name##K8)
 
 sse2_explode(extern_decl)
 void *sse2_prctab[] = { sse2_explode(array_entry) NULL };

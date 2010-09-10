@@ -15,6 +15,7 @@ ENDIF
 
 INCLUDE	unravel.mac
 INCLUDE extrn.mac
+INCLUDE xarch.mac
 INCLUDE xbasics.mac
 INCLUDE xmult.mac
 INCLUDE xnormal.mac
@@ -196,8 +197,6 @@ ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr
 ; The 16 different normalization routines.  One for each combination of
 ; rational/irrational, zeroing/no zeroing, error check/no error check, and
 ; mul by const/no mul by const.
-
-PREFETCHING = 64
 
 	inorm	xr3, noexec, noexec, noexec, noexec, exec, noexec
 	inorm	xr3e, noexec, noexec, exec, noexec, exec, noexec

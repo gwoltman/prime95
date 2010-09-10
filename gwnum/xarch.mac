@@ -7,7 +7,11 @@
 ; Expand the command line architecture definition into its names and features
 ;
 
-IF @INSTR(,%ARCH,<CORE>) NE 0
+IF @INSTR(,%ARCH,<BLEND>) NE 0
+	xarch	TEXTEQU	<BLEND>
+	PREFETCHING = 64
+	TLB_PRIMING = 0
+ELSEIF @INSTR(,%ARCH,<CORE>) NE 0
 	xarch	TEXTEQU	<CORE>
 	PREFETCHING = 64
 	TLB_PRIMING = 0
