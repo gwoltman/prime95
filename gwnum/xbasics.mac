@@ -85,8 +85,8 @@ unpcklo MACRO dest, src
 
 low_load MACRO reg, mem1, mem2
 	IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
+	movsd	reg, Q mem1
 	movhpd	reg, Q mem2
-	movlpd	reg, Q mem1
 	ELSE
 	xload	reg, mem1
 	unpcklo reg, Q mem2
@@ -95,8 +95,8 @@ low_load MACRO reg, mem1, mem2
 
 high_load MACRO reg, mem1, mem2
 	IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
+	movsd	reg, Q mem1[8]
 	movhpd	reg, Q mem2[8]
-	movlpd	reg, Q mem1[8]
 	ELSE
 	xload	reg, mem2
 	movlpd	reg, Q mem1[8]
@@ -105,10 +105,10 @@ high_load MACRO reg, mem1, mem2
 
 shuffle_load MACRO reglo, reghi, mem1, mem2
 	IF (@INSTR(,%xarch,<K8>) NE 0)
+	movsd	reglo, Q mem1
+	movsd	reghi, Q mem1[8]
 	movhpd	reglo, Q mem2
-	movlpd	reglo, Q mem1
 	movhpd	reghi, Q mem2[8]
-	movlpd	reghi, Q mem1[8]
 	ELSE
 	xload	reglo, mem1
 	xload	reghi, mem2
