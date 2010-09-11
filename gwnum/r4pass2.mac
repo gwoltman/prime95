@@ -6937,7 +6937,7 @@ r4_pass2_2304_levels_complex MACRO
 ;;	distance between fft data elements is 256
 ;;	do 384 macros each processing 24 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
@@ -7335,7 +7335,7 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 2*64, 32*64, 64*64, rdi, 32*1*XMM_SCD2
 ;;	distance between fft data elements is 768
 ;;	do 384 macros each processing 24 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointer
@@ -8061,7 +8061,7 @@ r4_pass2_3072_levels_complex MACRO
 ;;	distance between fft data elements is 256
 ;;	do 768 macros each processing 16 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
@@ -8473,7 +8473,7 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 2*64, 32*64, 64*64, rdi, 32*1*XMM_SCD2
 ;;	distance between fft data elements is 1024
 ;;	do 512 macros each processing 24 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointer
@@ -9202,7 +9202,7 @@ r4_pass2_3840_levels_complex MACRO
 ;;	distance between fft data elements is 256
 ;;	do 384 macros each processing 40 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
@@ -9600,7 +9600,7 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 2*64, 32*64, 64*64, rdi, 32*1*XMM_SCD2
 ;;	distance between fft data elements is 1280
 ;;	do 640 macros each processing 24 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointer
@@ -10318,7 +10318,7 @@ r4_pass2_12_levels_complex MACRO
 ;;	distance between fft data elements is 256
 ;;	do 512 macros each processing 32 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
@@ -10867,7 +10867,7 @@ ENDIF
 ;;	distance between fft data elements is 1024
 ;;	do 512 macros each processing 32 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointer
@@ -11600,7 +11600,7 @@ r4_pass2_5120_levels_complex MACRO
 ;;	distance between fft data elements is 256
 ;;	do 1280 macros each processing 16 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
@@ -12009,7 +12009,7 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 2*64, 32*64, 64*64, rdi, 32*1*XMM_SCD2
 ;;	distance between fft data elements is 1024
 ;;	do 512 macros each processing 40 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointer
@@ -12720,7 +12720,7 @@ r4_pass2_6400_levels_complex MACRO
 ;;	distance between fft data elements is 256
 ;;	do 640 macros each processing 40 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
@@ -13123,7 +13123,7 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 2*64, 32*64, 64*64, rdi, 32*1*XMM_SCD2
 ;;	distance between fft data elements is 1280
 ;;	do 640 macros each processing 40 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointer
@@ -13864,7 +13864,7 @@ r4_pass2_4608_levels_complex MACRO
 ;;	distance between fft data elements is 512
 ;;	do 768 macros each processing 24 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
@@ -14283,7 +14283,7 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 4*64, 64*64, dist128, rdi, 64*1*XMM_SCD2
 ;;	distance between fft data elements is 1536
 ;;	do 768 macros each processing 24 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointer
@@ -15005,7 +15005,7 @@ r4_pass2_6144_levels_complex MACRO
 ;;	distance between fft data elements is 512
 ;;	do 1536 macros each processing 16 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
@@ -15428,7 +15428,7 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 4*64, 64*64, dist128, rdi, 64*1*XMM_SCD2
 ;;	distance between fft data elements is 2048
 ;;	do 1024 macros each processing 24 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointer
@@ -16162,7 +16162,7 @@ r4_pass2_7680_levels_complex MACRO
 ;;	distance between fft data elements is 512
 ;;	do 768 macros each processing 40 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
@@ -16588,7 +16588,7 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 4*64, 64*64, dist128, rdi, 64*1*XMM_SCD2
 ;;	distance between fft data elements is 2560
 ;;	do 1280 macros each processing 24 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointer
@@ -17300,7 +17300,7 @@ r4_pass2_13_levels_complex MACRO
 ;;	distance between fft data elements is 512
 ;;	do 1024 macros each processing 32 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
@@ -17842,7 +17842,7 @@ ENDIF
 ;;	distance between fft data elements is 2048
 ;;	do 1024 macros each processing 32 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointer
@@ -18557,7 +18557,7 @@ r4_pass2_10240_levels_complex MACRO
 ;;	distance between fft data elements is 512
 ;;	do 2560 macros each processing 16 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
@@ -18977,7 +18977,7 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 4*64, 64*64, dist128, rdi, 64*1*XMM_SCD2
 ;;	distance between fft data elements is 2048
 ;;	do 1024 macros each processing 40 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointer
@@ -19691,7 +19691,7 @@ r4_pass2_12800_levels_complex MACRO
 ;;	distance between fft data elements is 512
 ;;	do 1280 macros each processing 40 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos data
@@ -20111,7 +20111,7 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 4*64, 64*64, dist128, rdi, 64*1*XMM_SCD2
 ;;	distance between fft data elements is 2560
 ;;	do 1280 macros each processing 40 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointer
@@ -20948,7 +20948,7 @@ r4_pass2_9216_levels_complex MACRO
 ;;	distance between fft data elements is 256
 ;;	do 2304 macros each processing 16 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 3
 	mov	rdi, xsincos_complex	;; The sin/cos data
@@ -21403,7 +21403,7 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 2*64, 32*64, 64*64, rdi, 32*1*XMM_SCD2
 ;;	distance between fft data elements is 3072
 ;;	do 1536 macros each processing 24 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointer
@@ -24723,7 +24723,7 @@ r4_pass2_14_levels_complex MACRO
 ;;	distance between fft data elements is 256
 ;;	do 2048 macros each processing 32 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 3
 	mov	rdi, xsincos_complex	;; The sin/cos data
@@ -25312,7 +25312,7 @@ ENDIF
 ;;	distance between fft data elements is 1024
 ;;	do 2048 macros each processing 32 data values
 
-IF @INSTR(,@CATSTR(%xarch),<CORE>) NE 0	;; Core 2 faster doing separate loops
+IF @INSTR(,%xarch,<CORE>) NE 0		;; Core 2 faster doing separate loops
 
 	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointer
