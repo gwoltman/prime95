@@ -172,11 +172,12 @@ xtouch	MACRO	addr
 	ENDIF
 	ENDM
 
-; Macro to prefetch 128 bytes into the L2 cache
+; Macro to prefetch 128 bytes into the L2 cache.  NOTE:  AMD K8 and K10 only
+; supports prefetching to the L1 cache which is later evicted to the L2 cache.
 
 L2prefetch128 MACRO addr
 	IF PREFETCHING NE 0
-	IFDEF AMD
+	IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 	prefetchw addr
 	prefetchw addr[64]
 	ELSE
@@ -196,14 +197,14 @@ L2prefetch128 MACRO addr
 loops_undo_called = 0
 
 xprefetch MACRO addr
-	IFDEF AMD
+	IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 	IF loops_undo_called EQ 0
 	prefetch addr
 	ENDIF
 	ENDIF
 	ENDM
 xprefetchw MACRO addr
-	IFDEF AMD
+	IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 	IF loops_undo_called EQ 0
 	prefetchw addr
 	ENDIF
@@ -211,7 +212,7 @@ xprefetchw MACRO addr
 	ENDM
 
 xxprefetch MACRO addr
-	IFDEF AMD
+	IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 	prefetch addr
 	ENDIF
 	ENDM
