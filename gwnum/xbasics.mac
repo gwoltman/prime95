@@ -66,7 +66,7 @@ mulhalfs MACRO	r
 ;; On AMD64 (K8 architecture, not the Phenom K10 architecture), punpckhqdq is grossly slow.
 
 unpckhi MACRO dest, src
-	IF (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
+	IF (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 	unpckhpd dest, src
 	ELSE
 	punpckhqdq dest, src
@@ -74,7 +74,7 @@ unpckhi MACRO dest, src
 	ENDM
 
 unpcklo MACRO dest, src
-	IF (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
+	IF (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 	unpcklpd dest, src
 	ELSE
 	punpcklqdq dest, src
@@ -104,7 +104,7 @@ high_load MACRO reg, mem1, mem2
 	ENDM
 
 shuffle_load MACRO reglo, reghi, mem1, mem2
-	IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
+	IF (@INSTR(,%xarch,<K8>) NE 0)
 	movhpd	reglo, Q mem2
 	movlpd	reglo, Q mem1
 	movhpd	reghi, Q mem2[8]

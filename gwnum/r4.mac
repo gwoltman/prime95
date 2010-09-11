@@ -499,7 +499,7 @@ r4_x4c_djbfft MACRO r1,r2,r3,r4,r5,r6,r7,r8,screg,off,pre1,pre2,dst1,dst2
 	ENDM
 ENDIF
 
-;; 32-bit AMD optimized versions of the above macros
+;; 32-bit AMD K8 optimized versions of the above macros
 
 ;; These macros could be improved further if we didn't keep output register compatibility
 ;; with the Core2/P4 macros.  That is, we'd have to rewrite all the callers of these
@@ -507,32 +507,7 @@ ENDIF
 ;; noting that subpd/multwo/addpd can be changed to addpd/multwo/subpd giving us greater
 ;; flexibility in ordering the computation of intermediate results.
 
-IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
-
-;; K10 Cheat sheet for scheduling dependency chains
-;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
-;;r13(r3)     AAAA
-;;i24(i4)      AAAA
-;;i13(i3)       AAAA
-;;r24(r4)        AAAA
-;;r13(r1)         AAAA
-;;r24(r2)          AAAA
-;;i13(i1)           AAAA
-;;i24(i2)            AAAA
-;;mR3(depR3-I4)       AAAA
-;;mI4(depI3-R4)	       AAAA			
-;;mR2(depR1-R2)	        AAAA
-;;mI2(depI1-I2)          AAAA
-;;mR4(depR3+I4)       MMMMAAAA
-;;mI3(depI3+R4)	       MMMMAAAA				
-;;mR1(depR1+R2)	        MMMMAAAA
-;;mI1(depI1+I2)	         MMMMAAAA
-;;A3		          MMMM AAAAMMMM
-;;A2                        MMMMAAAAMMMM
-;;B2		             MMMMAAAAMMMM
-;;B3		               MMMMAAAAMMMM
-;;A4                          MMMMAAAAMMMM
-;;B4		                MMMMAAAAMMMM
+IF (@INSTR(,%xarch,<K8>) NE 0)
 
 ;; K8 Cheat sheet for scheduling dependency chains
 ;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
@@ -643,31 +618,6 @@ r4_x4c_2sc_djbfft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,screg1,screg2,pre1,pre2,dst1
 	mulpd	xmm4, xmm0		;; B4 = B4 * sine (final I4)		;; 47-50
 	ENDM
 
-;; K10 Cheat sheet for scheduling dependency chains  (non-optimal, we need a version coded just for the K10)
-;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
-;;i13(i1)     AAAA
-;;i13(i3)      AAAA
-;;r24(r2)       AAAA
-;;r24(r4)        AAAA
-;;r13(r1)         AAAA
-;;r13(r3)          AAAA
-;;i24(i2)           AAAA
-;;i24(i4)            AAAA
-;;mI4(depI3-R4)	      AAAA			
-;;mR3(depR3-I4)          AAAA
-;;mR2(depR1-R2)	       AAAA
-;;mI2(depI1-I2) 	AAAA
-;;mI3(depI3+R4)	      MMMMAAAA				
-;;mR4(depR3+I4)          MMMMAAAA
-;;mR1(depR1+R2)	       MMMMAAAA
-;;mI1(depI1+I2)	        MMMMAAAA
-;;A3		             MMMMAAAAMMMM
-;;A2                       MMMM    AAAAMMMM			;; The add might get scheduled sooner
-;;B3		              MMMMAAAAMMMM
-;;A4		                 MMMMAAAAMMMM
-;;B2                            MMMMAAAAMMMM
-;;B4		                  MMMMAAAAMMMM
-
 ;; K8 Cheat sheet for scheduling dependency chains
 ;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
 ;;i13(i1)     AAAA
@@ -773,9 +723,9 @@ r4_x4c_2sc_djbfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem3,mem4,mem7,mem8,
 
 ENDIF
 
-;; 64-bit Intel implementations of the above - use the extra XMM registers
+;; 64-bit Intel and AMD K10 implementations of the above - use the extra XMM registers
 
-IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 IFDEF X86_64
 
 ; Theoretical best case is 44 clocks on a Core 2.  Now at 47.2 clocks.
@@ -1121,10 +1071,10 @@ r4_x4c_2sc_djbfft_mem64 MACRO R1,R2,R3,R4,R5,R6,R7,R8,screg1,screg2,pre1,pre2,ds
 ENDIF
 ENDIF
 
-;; 64-bit AMD optimized versions of the above macros.  Same as 32-bit macros with some
+;; 64-bit AMD K8 optimized versions of the above macros.  Same as 32-bit macros with some
 ;; constants preloaded.  We can probably do better than that.
 
-IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0)
 IFDEF X86_64
 
 r4_x4c_2sc_djbfft_mem_preload MACRO
@@ -1943,34 +1893,7 @@ ENDIF
 
 ;; 32-bit AMD optimized versions of the above macros
 
-IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
-
-;; K10 Cheat sheet for scheduling dependency chains  (some empty add slots that a 64-bit version could make use of)
-;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
-;;A2	      MMMMAAAAMMMM
-;;B2	       MMMMAAAAMMMM
-;;A4            MMMMAAAA
-;;A3             MMMMAAAA
-;;B3		  MMMMAAAA
-;;B4		   MMMMAAAA
-
-;;i4(r4-r3)              AAAAMMMM
-;;r3(r4+r3)              MMMMAAAAMMMM
-;;r4(i3-i4)                AAAAMMMM
-;;i3(i3+i4)                MMMMAAAAMMMM
-;;i2(i1-i2)                     AAAA
-;;r2(r1-r2)                      AAAA
-;;r1(r1+r2)                       AAAA
-;;i1(i1+i2)                        AAAA
-
-;;I4(I2-I4)	                    AAAA
-;;I2(I2+I4) 	                    MMMMAAAA
-;;R4(R2-R4)	                     AAAA			
-;;R2(R2+R4)                          MMMMAAAA
-;;R3(R1-R3)	                      AAAA
-;;R1(R1+R3)	                      MMMMAAAA
-;;I3(I1-I3)	                       AAAA				
-;;I1(I1+I3)                            MMMMAAAA
+IF (@INSTR(,%xarch,<K8>) NE 0)
 
 ;; K8 Cheat sheet for scheduling dependency chains
 ;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
@@ -2080,33 +2003,6 @@ r4_x4c_2sc_djbunfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,dst3,screg
 	addpd	xmm4, xmm3		;; I3 = I1 + I3 (final I1)	;; 47-50
 
 	ENDM
-
-;; K10 Cheat sheet for scheduling dependency chains  (some empty add slots that a 64-bit version could make use of)
-;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
-;;B2	      MMMMAAAAMMMM
-;;A2	       MMMMAAAAMMMM
-;;B4            MMMMAAAA
-;;A4             MMMMAAAA
-;;A3		  MMMMAAAA
-;;B3		   MMMMAAAA
-
-;;i4(r4-r3)               AAAAMMMM
-;;r3(r4+r3)               MMMMAAAAMMMM
-;;r4(i3-i4)                AAAAMMMM
-;;i3(i3+i4)                MMMMAAAAMMMM
-;;i2(i1-i2)                     AAAA
-;;r2(r1-r2)                      AAAA
-;;r1(r1+r2)                       AAAA
-;;i1(i1+i2)                        AAAA
-
-;;I4(I2-I4)	                    AAAA
-;;I2(I2+I4) 	                    MMMMAAAA
-;;R4(R2-R4)	                     AAAA			
-;;R2(R2+R4)                          MMMMAAAA
-;;R3(R1-R3)	                      AAAA
-;;R1(R1+R3)	                      MMMMAAAA
-;;I3(I1-I3)	                       AAAA				
-;;I1(I1+I3)                            MMMMAAAA
 
 ;; K8 Cheat sheet for scheduling dependency chains
 ;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
@@ -2219,10 +2115,10 @@ r4_x4c_2sc_djbunfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem1,mem2,mem5,mem
 
 ENDIF
 
-;; 64-bit Intel implementations of the above - use the extra XMM registers
+;; 64-bit Intel and K10 implementations of the above - use the extra XMM registers
 ;; For some reason this implementation is worse on a Pentium 4.
 
-IF (@INSTR(,%xarch,<CORE>) NE 0) (@INSTR(,%xarch,<BLEND>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 IFDEF X86_64
 
 ; Theoretical best case is 44 clocks on a Core 2.  Now at 51.4 clocks.
@@ -2424,10 +2320,10 @@ r4_x4cl_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 ENDIF
 ENDIF
 
-;; 64-bit AMD optimized versions of the above macros.  The same as the 32-bit
+;; 64-bit AMD K8 optimized versions of the above macros.  The same as the 32-bit
 ;; version with some constants preloaded.  We could probably do better.
 
-IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0)
 IFDEF X86_64
 
 r4_x4c_2sc_djbunfft_mem_preload MACRO
@@ -3804,9 +3700,9 @@ r4_x4c_wpn_djbfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem3,mem4,mem7,mem8,
 	mulpd	r5, r3			;; B4 = B4 * sine (final I4)
 	ENDM
 
-;; 32-bit AMD optimized versions of the above macros
+;; 32-bit AMD K8 optimized versions of the above macros
 
-IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0)
 
 r4_x4c_wpn_djbfft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,screg1,screg2,normreg,pre1,pre2,dst1,dst2
 	xload	xmm0, R1		;; R1
@@ -3970,7 +3866,7 @@ ENDIF
 
 ;; 64-bit Intel implementations of the above - use the extra XMM registers
 
-IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 IFDEF X86_64
 
 ; Theoretical best case is 44 clocks on a Core 2.  Now at ?? clocks.
@@ -4174,9 +4070,9 @@ r4_x4cl_wpn_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
 ENDIF
 ENDIF
 
-;; 64-bit AMD optimized versions of the above macros
+;; 64-bit AMD K8 optimized versions of the above macros
 
-IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0)
 IFDEF X86_64
 
 r4_x4c_wpn_djbfft_mem_preload MACRO
@@ -4541,9 +4437,9 @@ r4_x4c_wpn_djbunfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem1,mem2,mem5,mem
 	addpd	r5, r2			;; I3 = I1 + I3 (final I1)
 	ENDM
 
-;; 32-bit AMD optimized versions of the above macros
+;; 32-bit AMD K8 optimized versions of the above macros
 
-IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0)
 
 ;; K8 Cheat sheet for scheduling dependency chains
 ;;	      12345678901234567890123456789012345678901234567890123456789012345678901234567890
@@ -4745,9 +4641,9 @@ r4_x4c_wpn_djbunfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem1,mem2,mem5,mem
 
 ENDIF
 
-;; 64-bit Intel implementations of the above - use the extra XMM registers
+;; 64-bit Intel and AMD K10 implementations of the above - use the extra XMM registers
 
-IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
 IFDEF X86_64
 
 ; Theoretical best case is 44 clocks on a Core 2.  Now at ?? clocks.
@@ -4953,9 +4849,9 @@ r4_x4cl_wpn_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 ENDIF
 ENDIF
 
-;; 64-bit AMD optimized versions of the above macros
+;; 64-bit AMD K8 optimized versions of the above macros
 
-IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0)
 IFDEF X86_64
 
 r4_x4c_wpn_djbunfft_mem_preload MACRO
@@ -5163,7 +5059,7 @@ r4_x4cl_four_complex_fft_final MACRO srcreg,srcinc,d1,d2
 	xload	xmm6, [srcreg+d1+48]	;; R6
 	xstore	[srcreg+d1+32], xmm5	;; Save R7
 	xstore	[srcreg+d1+48], xmm4	;; Save R8
-	r4_x4c_simple_fft_partial_mem xmm3, xmm2, xmm0, xmm5, xmm7, xmm6, xmm1, xmm4, [srcreg+d2+32], [srcreg+d2+d1+32], [srcreg+d2+48], [srcreg+d2+d1+48], srcreg+srcinc+d2, d1
+	r4_x4c_simple_fft_partial_mem xmm3,xmm2,xmm0,xmm5,xmm7,xmm6,xmm1,xmm4,[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+d2+48],[srcreg+d2+d1+48],srcreg+srcinc+d2,d1
 	xstore	[srcreg+d2], xmm5	;; Save R1
 	xstore	[srcreg+d2+16], xmm4	;; Save R2
 	xstore	[srcreg+d2+32], xmm0	;; Save R3
@@ -5193,7 +5089,7 @@ r4_x4cl_four_complex_with_square MACRO srcreg,srcinc,d1,d2
 	xload	xmm0, [srcreg]
 	xstore	[srcreg], xmm4
 	xp_complex_square xmm0, xmm1, xmm4	;; Square R5, R6
-	r4_x4c_simple_unfft xmm3,xmm7,xmm2,xmm6,xmm0,xmm1,xmm5,xmm4,[srcreg],srcreg+srcinc,d1,[srcreg]
+	r4_x4c_simple_unfft xmm3,xmm7,xmm2,xmm6,xmm0,xmm1,xmm5,xmm4,[srcreg],,,[srcreg]
 ;;	xstore	[srcreg], xmm0			;; Save R1
 	xstore	[srcreg+16], xmm2		;; Save R3
 	xload	xmm0, [srcreg+32]		;; R1
@@ -5214,7 +5110,7 @@ r4_x4cl_four_complex_with_square MACRO srcreg,srcinc,d1,d2
 	xload	xmm0, [srcreg+d2]		;; R5
 	xstore	[srcreg+d2], xmm2		;; R8
 	xp_complex_square xmm0, xmm4, xmm2	;; Square R5, R6
-	r4_x4c_simple_unfft xmm3,xmm7,xmm1,xmm5,xmm0,xmm4,xmm6,xmm2,[srcreg+d2],srcreg+srcinc+d2,d1,[srcreg+d2]
+	r4_x4c_simple_unfft xmm3,xmm7,xmm1,xmm5,xmm0,xmm4,xmm6,xmm2,[srcreg+d2],,,[srcreg+d2]
 ;;	xstore	[srcreg+d2], xmm0		;; Save R1
 	xstore	[srcreg+d2+16], xmm1		;; Save R3
 	xstore	[srcreg+d2+32], xmm2		;; Save R5
@@ -5236,7 +5132,7 @@ r4_x4cl_four_complex_with_mult MACRO srcreg,srcinc,d1,d2
 	r4_x4c_simple_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+16],[srcreg+d1+16],[srcreg+d2+16],[srcreg+d2+d1+16],srcreg+srcinc,d1
 	xp4c_mulf xmm3,xmm7,xmm2,xmm6,xmm0,xmm1,xmm5,xmm4,[srcreg],[srcreg+16],[srcreg+32],[srcreg+48],[srcreg+d1],[srcreg+d1+16],[srcreg+d1+32],[srcreg+d1+48]
 	xstore	[srcreg], xmm4
-	r4_x4c_simple_unfft xmm3,xmm7,xmm2,xmm6,xmm0,xmm1,xmm5,xmm4,[srcreg],srcreg+srcinc,d1,[srcreg]
+	r4_x4c_simple_unfft xmm3,xmm7,xmm2,xmm6,xmm0,xmm1,xmm5,xmm4,[srcreg],,,[srcreg]
 ;;	xstore	[srcreg], xmm0			;; Save R1
 	xstore	[srcreg+16], xmm2		;; Save R3
 	xload	xmm0, [srcreg+32]		;; R1
@@ -5252,7 +5148,7 @@ r4_x4cl_four_complex_with_mult MACRO srcreg,srcinc,d1,d2
 	r4_x4c_simple_fft_partial_mem xmm0,xmm4,xmm1,xmm3,xmm2,xmm6,xmm5,xmm7,[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+d2+48],[srcreg+d2+d1+48],srcreg+srcinc+d2,d1
 	xp4c_mulf xmm3,xmm7,xmm1,xmm5,xmm0,xmm4,xmm6,xmm2,[srcreg+d2],[srcreg+d2+16],[srcreg+d2+32],[srcreg+d2+48],[srcreg+d2+d1],[srcreg+d2+d1+16],[srcreg+d2+d1+32],[srcreg+d2+d1+48]
 	xstore	[srcreg+d2], xmm2
-	r4_x4c_simple_unfft xmm3,xmm7,xmm1,xmm5,xmm0,xmm4,xmm6,xmm2,[srcreg+d2],srcreg+srcinc+d2,d1,[srcreg+d2]
+	r4_x4c_simple_unfft xmm3,xmm7,xmm1,xmm5,xmm0,xmm4,xmm6,xmm2,[srcreg+d2],,,[srcreg+d2]
 ;;	xstore	[srcreg+d2], xmm0		;; Save R1
 	xstore	[srcreg+d2+16], xmm1		;; Save R3
 	xstore	[srcreg+d2+32], xmm2		;; Save R5
@@ -5415,7 +5311,9 @@ r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2, dest
 	subpd	r3, r5			;; R1 = R1 - R3 (final R3)
 	addpd	r5, r8			;; R3 = R1 + R3 (final R1)
 
+	IFNB <pre1>
 	xprefetchw [pre1]
+	ENDIF
 
 	xload	r8, mem8		;; I4
 	addpd	r8, r6			;; I4 = I3 + I4 (new I3)
@@ -5431,16 +5329,18 @@ r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2, dest
 	subpd	r2, r7			;; I2 = I2 - I4 (final I4)
 	addpd	r7, r5			;; I4 = I2 + I4 (final I2)
 
+	IFNB <pre1>
 	xprefetchw [pre1][pre2]
+	ENDIF
 
 	xcopy	r5, r4			;; Copy I1
 	subpd	r4, r8			;; I1 = I1 - I3 (final I3)
 	addpd	r8, r5			;; I3 = I1 + I3 (final I1)
 	ENDM
 
-;; 32-bit AMD optimized versions of the above macros
+;; 32-bit AMD K8 optimized versions of the above macros
 
-IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0)
 
 r4_x4c_simple_fft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,pre1,pre2
 	xload	xmm0, R1		;; R1
@@ -5541,7 +5441,9 @@ r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2, dest
 	addpd	r8, r6			;; I4 = I3 + I4 (new I3)
 	subpd	r6, mem8		;; I3 = I3 - I4 (new R4)
 
+	IFNB <pre1>
 	xprefetchw [pre1]
+	ENDIF
 
 	subpd	r3, r5			;; R1 = R1 - R3 (final R3)
 	multwo	r5			;; R3 = R3 * 2
@@ -5555,7 +5457,9 @@ r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2, dest
 	subpd	r4, r8			;; I1 = I1 - I3 (final I3)
 	multwo	r8			;; I3 = I3 * 2
 
+	IFNB <pre1>
 	xprefetchw [pre1][pre2]
+	ENDIF
 
 	addpd	r5, r3			;; R3 = R1 + R3 (final R1)
 	addpd	r6, r1			;; R4 = R2 + R4 (final R2)
@@ -5566,9 +5470,9 @@ r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2, dest
 
 ENDIF
 
-;; 64-bit Intel optimized versions of the above macros
+;; 64-bit Intel and AMD K10 optimized versions of the above macros
 
-IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 IFDEF X86_64
 
 r4_x4c_simple_fft_mem MACRO R1,R2,R3,R4,R5,R6,R7,R8,pre1,pre2
@@ -5676,7 +5580,9 @@ r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2, dest
 	subpd	r3, r5			;; R1 = R1 - R3 (final R3)
 	addpd	r5, r8			;; R3 = R1 + R3 (final R1)
 
+	IFNB <pre1>
 	xprefetchw [pre1]
+	ENDIF
 
 	xload	r8, mem8		;; I4
 	xcopy	xmm8, r8		;; Copy I4
@@ -5693,7 +5599,9 @@ r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2, dest
 	subpd	r2, r7			;; I2 = I2 - I4 (final I4)
 	addpd	r7, r5			;; I4 = I2 + I4 (final I2)
 
+	IFNB <pre1>
 	xprefetchw [pre1][pre2]
+	ENDIF
 
 	xcopy	r5, r4			;; Copy I1
 	subpd	r4, r8			;; I1 = I1 - I3 (final I3)
@@ -5703,10 +5611,10 @@ r4_x4c_simple_unfft MACRO r1, r2, r3, r4, r5, r6, r7, r8, mem8, pre1, pre2, dest
 ENDIF
 ENDIF
 
-;; 64-bit AMD optimized versions of the above macros.  Derived from Intel 64-bit
+;; 64-bit AMD K8 optimized versions of the above macros.  Derived from Intel 64-bit
 ;; version -- could probably be optimized further.
 
-IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0)
 IFDEF X86_64
 
 r4_x4cl_four_complex_with_square_preload MACRO
@@ -5959,9 +5867,9 @@ r4_x4cl_four_complex_with_square MACRO srcreg,srcinc,d1,d2
 ENDIF
 ENDIF
 
-;; 64-bit Intel optimized versions of the above macros.
+;; 64-bit Intel and AMD K10 optimized versions of the above macros.
 
-IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 IFDEF X86_64
 
 r4_x4cl_four_complex_fft_final MACRO srcreg,srcinc,d1,d2
@@ -7059,10 +6967,10 @@ r4_x4c_fft4_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,dest1,dest2,screg,
 	mulpd	xmm5, [screg+off+0]		;; B1 = B1 * sine (final I1)
 	ENDM
 
-;; 32-bit AMD optimized versions of the above macros.  Derived from Intel 32-bit
+;; 32-bit AMD K8 optimized versions of the above macros.  Derived from Intel 32-bit
 ;; version -- could probably be optimized further.
 
-IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0)
 
 r4_x4c_fft4_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,dest1,dest2,screg,off,pre1,pre2
 	xload	xmm2, mem3			;; R3
@@ -7160,8 +7068,6 @@ ENDIF
 IFDEF X86_64
 
 r4_sg4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
-	xprefetch [srcreg+srcinc]
-
 	xload	xmm0, [srcreg]			;; R1
 	xload	xmm1, [srcreg+d2]		;; R3
 	xcopy	xmm2, xmm0			;; Copy R1			; 1-3
@@ -7178,6 +7084,8 @@ r4_sg4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	xload	xmm10, [srcreg+d2+d1+16]	;; I4
 	xcopy	xmm11, xmm9			;; Copy I2			; 4-6
 	addpd	xmm9, xmm10			;; I4 = I2 + I4 (new I2)	; 4-6	avail 12+
+
+	xprefetch [srcreg+srcinc]
 
 	subpd	xmm2, xmm1			;; R1 = R1 - R3 (new R3)	; 5-7	avail 1,12+
 
@@ -7198,12 +7106,16 @@ r4_sg4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	addpd	xmm3, xmm1			;; R2 = R1 + R2 (final R1)	; 10-12 avail 7,10,1,14+
 	xcopy	xmm7, xmm8			;; Copy I3			; 10-12 avail 10,1,14+
 
+	xprefetch [srcreg+srcinc+d1]
+
 	subpd	xmm6, xmm9			;; I1 = I1 - I2 (final I2)	; 11-13
 	xcopy	xmm1, xmm2			;; Copy R3			; 11-13 (8) avail 10,14+
 
 	addpd	xmm9, xmm4			;; I2 = I1 + I2 (final I1)	; 12-14 avail 10,4,14+
 	xcopy	xmm10, xmm0			;; Copy R2			; 12-14 avail 4,14+
 	mulpd	xmm0, xmm12			;; A2 = R2 * cosine/sine	; 12-16
+
+	xprefetchw [dstreg+dstinc+e1]
 
 	subpd	xmm8, xmm5			;; I3 = I3 - R4 (final I4)	; 13-15
 	xcopy	xmm4, xmm3			;; Copy R1			; 13-15 avail 14+
@@ -7221,6 +7133,8 @@ r4_sg4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	xcopy	xmm7, xmm8			;; Copy I4			; 16-18 avail 1
 	mulpd	xmm8, xmm14			;; B4 = I4 * cosine/sine	; 16-20
 
+	xprefetch [srcreg+srcinc+d2]
+
 	subpd	xmm0, xmm6			;; A2 = A2 - I2			; 17-19	avail 1,6
 	xcopy	xmm1, xmm5			;; Copy I3			; 17-19	avail 6
 	mulpd	xmm5, xmm15			;; B3 = I3 * cosine/sine	; 17-21
@@ -7232,8 +7146,6 @@ r4_sg4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	addpd	xmm12, xmm10			;; B2 = B2 + R2			; 19-21	avail 9,10
 	mulpd	xmm14, xmm11			;; A4 = R4 * cosine/sine	; 19-23
 	xload	xmm9, [screg]			;; sine 1			; 19	avail 10
-
-	xprefetchw [dstreg+dstinc+e1]
 
 	addpd	xmm13, xmm4			;; B1 = B1 + R1			; 20-22	avail 10,4
 	mulpd	xmm0, xmm6			;; A2 = A2 * sine (final R2)	; 20-24
@@ -7261,8 +7173,6 @@ r4_sg4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	mulpd	xmm5, xmm11			;; B3 = B3 * sine (final I3)	; 25-29
 	xload	xmm7, [srcreg+d2+d1+32]		;;#2 R4				; 25	avail none
 
-	xprefetch [srcreg+srcinc+d1]
-
 	addpd	xmm1, xmm7			;;#2 R4 = R2 + R4 (new R2)	; 2-4
 	mulpd	xmm15, xmm11			;; A3 = A3 * sine (final R3)	; 26-30	avail 11
 
@@ -7281,9 +7191,9 @@ r4_sg4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	xcopy	xmm13, xmm4			;;#2 Copy I2			; 4-6
 	addpd	xmm4, xmm12			;;#2 I4 = I2 + I4 (new I2)	; 4-6	avail none
 
-	subpd	xmm6, xmm2			;;#2 R1 = R1 - R3 (new R3)	; 5-7	avail 2
+	xprefetchw [dstreg+dstinc+e2]
 
-	xprefetch [srcreg+srcinc+d2]
+	subpd	xmm6, xmm2			;;#2 R1 = R1 - R3 (new R3)	; 5-7	avail 2
 
 	subpd	xmm9, xmm7			;;#2 R2 = R2 - R4 (new R4)	; 6-8	avail 2,7
 
@@ -7291,6 +7201,8 @@ r4_sg4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 
 	subpd	xmm11, xmm3			;;#2 I1 = I1 - I3 (new I3)	; 7-9
 	xcopy	xmm2, xmm10			;;#2 Copy R1			; 7-9 (4)
+
+	xprefetch [srcreg+srcinc+d2+d1]
 
 	subpd	xmm13, xmm12			;;#2 I2 = I2 - I4 (new I4)	; 8-10
 	xload	xmm5, [screg+64+16]		;;#2 cosine/sine 2		; 8
@@ -7301,10 +7213,10 @@ r4_sg4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	xcopy	xmm7, xmm0			;;#2 Copy I1			; 9-11 (6)
 	xload	xmm8, [screg+0+16]		;;#2 cosine/sine 1		; 9
 
-	xprefetchw [dstreg+dstinc+e2]
-
 	addpd	xmm1, xmm2			;;#2 R2 = R1 + R2 (final R1)	; 10-12
 	xcopy	xmm3, xmm11			;;#2 Copy I3			; 10-12
+
+	xprefetchw [dstreg+dstinc+e2+e1]
 
 	subpd	xmm0, xmm4			;;#2 I1 = I1 - I2 (final I2)	; 11-13
 	xcopy	xmm2, xmm6			;;#2 Copy R3			; 11-13 (8)
@@ -7341,10 +7253,10 @@ r4_sg4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	mulpd	xmm14, xmm13			;;#2 A4 = R4 * cosine/sine	; 19-23
 	xload	xmm4, [screg]			;;#2 sine 1			; 19
 
-	xprefetchw [dstreg+dstinc+e2+e1]
-
 	addpd	xmm8, xmm7			;;#2 B1 = B1 + R1		; 20-22
 	mulpd	xmm10, xmm0			;;#2 A2 = A2 * sine (final R2)	; 20-24
+
+	bump	srcreg, srcinc
 
 	addpd	xmm11, xmm13			;;#2 B4 = B4 + R4		; 21-23
 	mulpd	xmm1, xmm4			;;#2 A1 = A1 * sine (final R1)	; 21-25
@@ -7353,9 +7265,6 @@ r4_sg4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	addpd	xmm9, xmm6			;;#2 B3 = B3 + R3		; 22-24
 	mulpd	xmm5, xmm0			;;#2 B2 = B2 * sine (final I2)	; 22-26
 	xload	xmm6, [screg+32]		;;#2 sine 3			; 22
-
-	xprefetch [srcreg+srcinc+d2+d1]
-	bump	srcreg, srcinc
 
 	subpd	xmm15, xmm2			;;#2 A3 = A3 - I3		; 23-25
 	mulpd	xmm8, xmm4			;;#2 B1 = B1 * sine (final I1)	; 23-27
@@ -7535,13 +7444,19 @@ r4_sg2cl_four_complex_unfft4 MACRO srcreg,srcinc,d1,dstreg,dstinc,e1,screg
 	subpd	xmm0, xmm7			;; R4 = R4 - R3 (new I4)
 	addpd	xmm7, xmm4			;; R3 = R4 + R3 (new R3)
 
+	xprefetchw [dstreg+dstinc+e1]
+
 	xcopy	xmm4, xmm6			;; Copy I3
 	subpd	xmm6, xmm2			;; I3 = I3 - I4 (new R4)
 	addpd	xmm2, xmm4			;; I4 = I3 + I4 (new I3)
 
+	xprefetch [srcreg]
+
 	xcopy	xmm4, xmm1			;; Copy I2
 	subpd	xmm1, xmm0			;; I2 = I2 - I4 (final I4)
 	addpd	xmm0, xmm4			;; I4 = I2 + I4 (final I2)
+
+	xprefetch [srcreg+d1]
 
 	xload	xmm4, [dstreg]			;; Reload new R1
 	xload	xmm5, [dstreg+16]		;; Reload new R2
@@ -7558,8 +7473,6 @@ r4_sg2cl_four_complex_unfft4 MACRO srcreg,srcinc,d1,dstreg,dstinc,e1,screg
 	xcopy	xmm1, xmm4			;; Copy R2
 	subpd	xmm4, xmm6			;; R2 = R2 - R4 (final R4)
 	addpd	xmm6, xmm1			;; R4 = R2 + R4 (final R2)
-
-	xprefetchw [dstreg+dstinc+e1]
 
 	xcopy	xmm1, xmm5			;; Copy R1
 	subpd	xmm5, xmm7			;; R1 = R1 - R3 (final R3)
@@ -7648,6 +7561,8 @@ r4_sg2cl_four_complex_unfft4 MACRO srcreg,srcinc,d1,dstreg,dstinc,e1,screg
 
 	addpd	xmm4, xmm0			;; I2 = I1 + I2 (newer I1)	; 19-21	avail 15,14,11,7,13,12,0
 
+	xprefetchw [dstreg+dstinc+e1]
+
 	addpd	xmm8, xmm9			;; R3 = R4 + R3 (newer R3)	; 20-22
 	xcopy	xmm0, xmm10			;; Copy I3			; 20-22	avail 15,14,11,7,13,12
 
@@ -7657,15 +7572,17 @@ r4_sg2cl_four_complex_unfft4 MACRO srcreg,srcinc,d1,dstreg,dstinc,e1,screg
 	subpd	xmm10, xmm12			;; I3 = I3 - I4 (newer R4)	; 22-24
 	xcopy	xmm5, xmm3			;; Copy I2			; 22-24 (21) avail 15,14,11,13,12
 
+	xprefetch [srcreg]
+
 	addpd	xmm12, xmm0			;; I4 = I3 + I4 (newer I3)	; 23-25	avail 15,14,11,13,12,0
 	xcopy	xmm11, xmm1			;; Copy R2			; 23-25 (18) avail 15,14,13,12,0
-
-	xprefetchw [dstreg+dstinc+e1]
 
 	subpd	xmm2, xmm8			;; R1 = R1 - R3 (final R3)	; 24-26
 	xcopy	xmm0, xmm4			;; Copy I1			; 24-26 (22) avail 15,14,13,12
 
 	addpd	xmm8, xmm7			;; R3 = R1 + R3 (final R1)	; 25-27	avail 15,14,13,12,7
+
+	xprefetch [srcreg+d1]
 
 	subpd	xmm3, xmm9			;; I2 = I2 - I4 (final I4)	; 26-28
 
@@ -7818,9 +7735,9 @@ r4_x8r_fft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,screg
 	mulpd	xmm3, xmm0		;; B3 = B3 * sine (final I3)
 	ENDM
 
-;; 32-bit AMD optimized versions of the above macros
+;; 32-bit AMD K8 optimized versions of the above macros
 
-IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0)
 
 ;R8	AAAA
 ;R4	  AAAA
@@ -7934,9 +7851,9 @@ r4_x8r_fft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,screg
 
 ENDIF
 
-;; 64-bit Intel optimized versions of the above macros
+;; 64-bit Intel and AMD K10 optimized versions of the above macros
 
-IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 IFDEF X86_64
 
 ; Optimal Core 2 timing is 24 clocks, currently at 27 clocks
@@ -8045,10 +7962,10 @@ r4_x8r_fft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,screg
 ENDIF
 ENDIF
 
-;; 64-bit AMD optimized versions of the above macros.  Same as 32-bit version with
+;; 64-bit AMD K8 optimized versions of the above macros.  Same as 32-bit version with
 ;; some constants preloaded.
 
-IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0)
 IFDEF X86_64
 
 r4_x8r_fft_mem_preload MACRO
@@ -8503,9 +8420,9 @@ r4_s8r_unfft4 MACRO memr1_1,memr1_2,memr2,memi2,memr3,memi3,memr4,memi4,screg1,s
 	addpd	xmm1, xmm5		;; R5 = R1 + R5 (final R1)
 	ENDM
 
-;; 32-bit AMD optimized versions of the above macros
+;; 32-bit AMD K8 optimized versions of the above macros
 
-IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0)
 
 r4_x8r_unfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,screg5,pre1,pre2,dst4,dst8
 	xload	xmm6, [screg5+16]	;; cosine/sine for w^5n
@@ -8664,9 +8581,9 @@ r4_x8r_unfft_partial_mem MACRO r1,r2,r3,r4,r5,r6,r7,r8,mem1,mem2,mem5,mem6,screg
 
 ENDIF
 
-;; 64-bit Intel optimized versions of the above macros
+;; 64-bit Intel and AMD K10 optimized versions of the above macros
 
-IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 IFDEF X86_64
 
 r4_x4cl_eight_reals_unfft_cmn_preload MACRO
@@ -8885,12 +8802,12 @@ r4_x4cl_eight_reals_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,scoff1,screg2,sco
 ENDIF
 ENDIF
 
-;; 64-bit AMD optimized versions of the above macros.  Same as 32-bit version with
+;; 64-bit AMD K8 optimized versions of the above macros.  Same as 32-bit version with
 ;; some constants preloaded. NOT REALLY ANY BETTER!!  We should try rewritting with
 ;; combining r4_x8r_unfft_mem and r4_x8r_unfft_partial_mem into one macro.  Should
 ;; yield significant savings.
 
-IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0)
 IFDEF X86_64
 
 r4_x4cl_eight_reals_unfft_cmn_preload MACRO
@@ -9744,9 +9661,9 @@ r4_x8r_wpn_fft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,s
 	mulpd	xmm3, xmm0		;; B3 = B3 * sine (final I3)
 	ENDM
 
-; 32-bit AMD version
+; 32-bit AMD K8 version
 
-IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0)
 
 r4_x8r_wpn_fft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,screg5,normreg,pre1,pre2,dst1,dst2
 	xload	xmm3, mem4		;; R4
@@ -9835,7 +9752,7 @@ ENDIF
 
 ;; 64-bit Intel version.
 
-IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
+IF (@INSTR(,%xarch,<CORE>) NE 0) OR (@INSTR(,%xarch,<P4>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0) OR (@INSTR(,%xarch,<BLEND>) NE 0)
 IFDEF X86_64
 
 ; Optimal Core 2 timing is 24 clocks, currently at ?? clocks
@@ -9948,10 +9865,10 @@ r4_x8r_wpn_fft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,s
 ENDIF
 ENDIF
 
-; 64-bit AMD optimized version.  This is the 32-bit K8 version, but with XMM_TWO and
+; 64-bit AMD K8 optimized version.  This is the 32-bit K8 version, but with XMM_TWO and
 ; XMM_SQRTHALF preloaded.
 
-IF (@INSTR(,%xarch,<K8>) NE 0) OR (@INSTR(,%xarch,<K10>) NE 0)
+IF (@INSTR(,%xarch,<K8>) NE 0)
 IFDEF X86_64
 
 ;; WARNING:  this preload must be compatible with r4_x4c_wpn_djbfft_partial_mem
