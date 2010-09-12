@@ -6503,6 +6503,11 @@ int primeTime (
 	gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
 	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
 		gwset_use_large_pages (&lldata.gwdata);
+	// Here is a hack to let me time different FFT implementations.
+	// For example, 39000001 times the first 2M FFT implementation,
+	// 39000002 times the second 2M FFT implementation, etc.
+	if (IniGetInt (INI_FILE, "TimeSpecificFFTImplementations", 0))
+		lldata.gwdata.bench_pick_nth_fft = p % 100;
 	gwset_num_threads (&lldata.gwdata, num_threads);
 	gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&lldata.gwdata, &sp_info);
