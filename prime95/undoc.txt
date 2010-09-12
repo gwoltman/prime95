@@ -75,6 +75,14 @@ fast as possible.  You can control how long this delay is by adding this
 line to prime.txt, where n is the number of seconds to sleep:
 	BootDelay=n
 
+Some machines report much better timings if the worker threads stagger
+their starts.  This was first noticed on Core i7 machines running Windows.
+Presumably staggering starts improves timings due to each worker allocating
+contiguous memory.  You can control how long the program waits between
+starting each worker.  In prime.txt, enter:
+	StaggerStarts=n
+where n is the number of seconds to wait.  The default is 8 seconds.
+
 The program supports 4 different code paths for LL testing depending on
 the CPU type.  It also has a few different factoring code paths.  You can
 force the program to choose a specific code path by setting the proper

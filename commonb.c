@@ -2388,6 +2388,7 @@ struct LaunchData {
 	unsigned int num_threads;	/* Num threads to run */
 	unsigned long p;		/* Exponent to time */
 	unsigned long iters;		/* Iterations to time */
+	int	delay_amount;		/* Seconds to delay starting worker */
 	int	stop_reason;		/* Returned stop reason */
 };
 
@@ -2525,6 +2526,7 @@ void Launcher (void *arg)
 	int	stop_reason;
 	gwthread handles[MAX_NUM_WORKER_THREADS];
 	struct LaunchData *ldwork[MAX_NUM_WORKER_THREADS];
+	int	delay_amount, total_delay_amount;
 
 /* This thread will create more worker threads if necessary and */
 /* then become thread number 0. */
@@ -2627,6 +2629,8 @@ again:	clearThreadHandleArray ();
 
 /* Launch more worker threads if needed */
 
+	delay_amount = IniGetInt (INI_FILE, "StaggerStarts", 8);
+	total_delay_amount = 0;
 	for (tnum = 1; tnum < ld->num_threads; tnum++) {
 		ldwork[tnum] = (struct LaunchData *) malloc (sizeof (struct LaunchData));
 		if (ldwork[tnum] == NULL) {
@@ -2635,12 +2639,15 @@ again:	clearThreadHandleArray ();
 		}
 		memcpy (ldwork[tnum], ld, sizeof (struct LaunchData));
 		ldwork[tnum]->thread_num = tnum;
+		total_delay_amount += delay_amount;
+		ldwork[tnum]->delay_amount = total_delay_amount;
 		gwthread_create_waitable (&handles[tnum], &LauncherDispatch, ldwork[tnum]);
 	}
 
 /* This thread is a worker thread too.  Call dispatching routine. */
 
 	ld->thread_num = 0;
+	ld->delay_amount = 0;
 	LauncherDispatch (ld);
 	stop_reason = ld->stop_reason;
 
@@ -2726,7 +2733,23 @@ void LauncherDispatch (void *arg)
 
 	ld = (struct LaunchData *) arg;
 
-/* Change the title bar */
+/* Handle a start delay here */
+
+	if (ld->delay_amount && LAUNCH_TYPE == LD_CONTINUE) {
+		char	buf[50];
+		int	totaltime;
+
+		title (ld->thread_num, "Waiting to start");
+		sprintf (buf, "Waiting %d seconds to stagger worker starts.\n", ld->delay_amount);
+		OutputStr (ld->thread_num, buf);
+
+		for (totaltime = 0; totaltime < ld->delay_amount * 1000; totaltime += 100) {
+			if (WORKER_THREADS_STOPPING) break;
+			Sleep (100);
+		}
+	}
+
+/* Output startup message */
 
 	title (ld->thread_num, "Starting");
 	OutputStr (ld->thread_num, "Worker starting\n");
