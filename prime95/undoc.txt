@@ -30,6 +30,20 @@ is the same as 0:00-8:00).  The above example lets the program use 500MB
 during the week from 5:30PM to 8:30AM and all day on weekends.  Otherwise
 (weekdays from 8:30AM to 5:30PM), the program can use only 200MB.
 
+You can control whether the program does extra error checking on every
+iteration of a primality test.  This runs a little bit slower.  Windows
+user can control these options from the Advanced Menu.  Linux users must
+add one or both of these lines to prime.txt to control these options:
+	ErrorCheck=0 or 1
+	SumInputsErrorCheck=0 or 1
+The first line controls "ROUNDOFF > 0.4" error checks, the second line
+controls "SUM(INPUTS) != SUM(OUTPUTS)" error checks.
+
+You can control whether the "count of errors during this test" message
+is output with every screen update.  In prime.txt set:
+	ErrorCountMessages=0 or 1
+Default value is 1.
+
 You can force the Options/CPU dialog to display times using AM/PM or
 a 24-hour clock format.  Otherwise, the program will make its best guess
 as to the proper format.  Add this line to prime.txt:
