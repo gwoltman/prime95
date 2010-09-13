@@ -4360,6 +4360,64 @@ void inc_error_count (
 	*error_count = (*error_count & ~maxval) + temp;
 }
 
+/* Create a message if the non-repeatable error count is more than zero */
+/* Returns TRUE if the non-repeatable error count is more than zero. */
+
+int make_error_count_message (
+	unsigned long error_count,
+	char	*buf,
+	int	buflen)
+{
+	int	count_repeatable, count_suminp, count_roundoff, count_illegal_sumout;
+	int	count_bad_errors;
+	char	local_buf[400], counts_buf[200];
+
+	count_repeatable = (error_count >> 24) & 0x7F;
+	count_illegal_sumout = (error_count >> 16) & 0xFF;
+	count_suminp = (error_count >> 8) & 0xFF;
+	count_roundoff = error_count & 0xFF;
+
+	if (count_illegal_sumout + count_suminp + count_roundoff - count_repeatable == 0) return (FALSE);
+
+	counts_buf[0] = 0;
+	if (count_roundoff >= 1) {
+		sprintf (local_buf, "%d ROUNDOFF > 0.4, ", count_roundoff);
+		strcat (counts_buf, local_buf);
+	}
+	if (count_suminp >= 1) {
+		sprintf (local_buf, "%d SUM(INPUTS) != SUM(OUTPUTS), ", count_suminp);
+		strcat (counts_buf, local_buf);
+	}
+	if (count_illegal_sumout >= 1) {
+		sprintf (local_buf, "%d ILLEGAL SUMOUT, ", count_illegal_sumout);
+		strcat (counts_buf, local_buf);
+	}
+	counts_buf[strlen(counts_buf)-2] = 0;
+	if (count_repeatable >= 1) {
+		sprintf (local_buf, "of which %d were repeatable (not hardware errors)", count_repeatable);
+		if (strlen (counts_buf) <= 40) strcat (counts_buf, " ");
+		else strcat (counts_buf, "\n");
+		strcat (counts_buf, local_buf);
+	}
+	strcat (counts_buf, ".\n");
+
+	strcpy (local_buf, "Possible hardware errors have occurred during the test:");
+	if (strlen (counts_buf) <= 25) strcat (local_buf, " ");
+	else strcat (local_buf, "\n");
+	strcat (local_buf, counts_buf);
+
+	count_bad_errors = count_suminp + count_roundoff - count_repeatable;
+	sprintf (local_buf+strlen(local_buf), "Confidence in final result is %s.\n",
+		 count_bad_errors == 0 ? "excellent" :
+		 count_bad_errors <= 3 ? "fair" :
+		 count_bad_errors <= 6 ? "poor" : "very poor");
+
+	if ((int) strlen (local_buf) >= buflen) local_buf[buflen-1] = 0;
+	strcpy (buf, local_buf);
+	return (TRUE);
+}
+
+
 /* Prepare for subtracting 2 from the squared result.  Also keep track */
 /* of the location of the ever changing units bit. */
 
@@ -4608,7 +4666,7 @@ int prime (
 	int	first_iter_msg, saving, near_fft_limit, sleep5;
 	unsigned long high32, low32;
 	int	rc, isPrime, stop_reason;
-	char	buf[160], fft_desc[100];
+	char	buf[400], fft_desc[100];
 	int	slow_iteration_count;
 	double	best_iteration_time;
 	unsigned long last_counter = 0;		/* Iteration of last error */
@@ -4998,6 +5056,13 @@ begin:	gwinit (&lldata.gwdata);
 			}
 			OutputStr (thread_num, buf);
 			first_iter_msg = FALSE;
+
+/* Output a message showing the error counts.  This way a user is likely to */
+/* notice a problem without reading the results.txt file. */
+
+			if (make_error_count_message (error_count, buf, sizeof (buf)) &&
+			    IniGetInt (INI_FILE, "ErrorCountMessages", 1))
+				OutputStr (thread_num, buf);
 		}
 
 /* Print a results file message every so often */
@@ -7084,7 +7149,7 @@ int prp (
 	double	reallymaxerr = 0.0;
 	double	best_iteration_time;
 	char	filename[32];
-	char	buf[160], fft_desc[100], res64[17];
+	char	buf[400], fft_desc[100], res64[17];
 	unsigned long last_counter = 0;		/* Iteration of last error */
 	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 	double	last_suminp = 0.0;
@@ -7466,6 +7531,13 @@ OutputStr (thread_num, "Iteration failed.\n");
 			}
 			OutputStr (thread_num, buf);
 			first_iter_msg = FALSE;
+
+/* Output a message showing the error counts.  This way a user is likely to */
+/* notice a problem without reading the results.txt file. */
+
+			if (make_error_count_message (error_count, buf, sizeof (buf)) &&
+			    IniGetInt (INI_FILE, "ErrorCountMessages", 1))
+				OutputStr (thread_num, buf);
 		}
 
 /* Print a results file message every so often */
