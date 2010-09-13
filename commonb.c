@@ -6893,7 +6893,10 @@ int primeBench (
 		gwset_thread_callback_data (&lldata.gwdata, &sp_info);
 		if (all_bench) lldata.gwdata.bench_pick_nth_fft = ii;
 		stop_reason = lucasSetup (thread_num, fftlen * 17 + 1, fftlen + plus1, &lldata);
-		if (stop_reason) break;
+		if (stop_reason) {
+			fftlen = max_FFT_length * 1024;
+			break;
+		}
 		fftlen = gwfftlen (&lldata.gwdata);
 		if (fftlen > max_FFT_length * 1024) {
 			lucasDone (&lldata);
