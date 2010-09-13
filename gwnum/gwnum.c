@@ -4958,10 +4958,12 @@ int gwsetup (
 
 	if (gwdata->GWERROR) return (gwdata->GWERROR);
 
-/* Sanity check the k value */
+/* Sanity check the k,b,n values */
 
 	if (k < 1.0) return (GWERROR_K_TOO_SMALL);
 	if (k > 9007199254740991.0) return (GWERROR_K_TOO_LARGE);
+	if (log2(b) * (double) n > MAX_PRIME_SSE2) return (GWERROR_TOO_LARGE);
+	if (! (gwdata->cpu_flags & CPU_SSE2) && log2(b) * (double) n > MAX_PRIME) return (GWERROR_TOO_LARGE);
 
 /* Init */
 
@@ -8576,6 +8578,51 @@ void bitaddr (
 /* Compute the bit within the word. */
 
 	*bit_in_word = bit - gwfft_base (gwdata->dd_data, *word);
+}
+
+/* Map a gwerror code into human readable text */
+
+void gwerror_text (
+	gwhandle *gwdata,	/* Handle used in all gwnum calls */
+	int	error_code,	/* Error code to turn ino text */
+	char	*buf,		/* Buffer to write text to */
+	int	buflen)		/* Sizeof the text buffer */
+{
+	char	localbuf[512];
+
+/* Map error code to text */
+
+	switch (error_code) {
+	case GWERROR_VERSION:
+		strcpy (localbuf, "Improperly compiled and linked.  Gwnum.h and FFT assembly code version numbers do not match.");
+		break;
+	case GWERROR_TOO_LARGE:
+		strcpy (localbuf, "Number sent to gwsetup is too large for the FFTs to handle.");
+		break;
+	case GWERROR_K_TOO_SMALL:
+		strcpy (localbuf, "Value of k in k*b^n+c is too small.  Values less than one are not supported.");
+		break;
+	case GWERROR_K_TOO_LARGE:
+		strcpy (localbuf, "Value of k in k*b^n+c is too large.  Values greater than 2251799813685247 are not supported.");
+		break;
+	case GWERROR_MALLOC:
+		strcpy (localbuf, "Unable to allocate memory.  One possible cause is the operating system's swap area is too small.");
+		break;
+	case GWERROR_VERSION_MISMATCH:
+		strcpy (localbuf, "GWNUM_VERSION from gwinit call doesn't match GWNUM_VERSION when gwnum.c was compiled.  Recompile and relink.");
+		break;
+	case GWERROR_STRUCT_SIZE_MISMATCH:
+		strcpy (localbuf, "Gwhandle structure size from gwinit call doesn't match size when gwnum.c was compiled.  Check compiler alignment switches, recompile and relink.");
+		break;
+	default:
+		sprintf (localbuf, "Unknown gwnum error code: %d", error_code);
+		break;
+	}
+
+/* Copy error message to caller's buffer */
+
+	if ((int) strlen (localbuf) >= buflen) localbuf[buflen-1] = 0;
+	strcpy (buf, localbuf);
 }
 
 /* Return a description of the FFT type chosen */

@@ -4087,8 +4087,11 @@ int lucasSetup (
 
 	if (res) {
 		if (!lldata->gwdata.bench_pick_nth_fft) {
-			char	buf[80];
+			char	buf[180];
 			sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
+			OutputBoth (thread_num, buf);
+			gwerror_text (&lldata->gwdata, res, buf, sizeof (buf) - 1);
+			strcat (buf, "\n");
 			OutputBoth (thread_num, buf);
 		}
 		return (STOP_FATAL_ERROR);
@@ -5888,7 +5891,6 @@ int selfTestInternal (
 /* systems, enable SUM(INPUTS) != SUM(OUTPUTS) checking on the first test. */
 /* For a better variety of tests, enable SUM(INPUTS) != SUM(OUTPUTS) checking half the time. */
 
-
 		gwinit (&lldata.gwdata);
 		gwset_sum_inputs_checking (&lldata.gwdata, iter & 1);
 		gwset_num_threads (&lldata.gwdata, num_threads);
@@ -7151,6 +7153,9 @@ begin:	gwinit (&gwdata);
 
 	if (res) {
 		sprintf (buf, "PRP cannot initialize FFT code, errcode=%d\n", res);
+		OutputBoth (thread_num, buf);
+		gwerror_text (&gwdata, res, buf, sizeof (buf) - 1);
+		strcat (buf, "\n");
 		OutputBoth (thread_num, buf);
 		return (STOP_FATAL_ERROR);
 	}

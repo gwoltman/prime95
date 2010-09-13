@@ -561,6 +561,9 @@ int gwnear_fft_limit (gwhandle *gwdata, double pct);
 |                    GWNUM MISC. INFORMATION ROUTINES                  |
 +---------------------------------------------------------------------*/
 
+/* Map a gwerror code into human readable text */
+void gwerror_text (gwhandle *gwdata, int error_code, char *buf, int buflen);
+
 /* Return TRUE if this is a GPL'ed version of the GWNUM library. */
 #define gwnum_is_gpl()		(0)
 
