@@ -69,6 +69,25 @@ ENDIF
 	K8	= 00000040h		; AMD K8 CPUs
 	K10	= 00000080h		; AMD K10 CPUs
 
+; Apple products do not contain AMD CPUs, nor small-cache Pentium 4s.  They don't contain
+; large cache Pentium 4s either, but gwnum treats Core CPUs as large-cache Pentium 4s.
+; Since the Core CPUs Apple used didn't support EMT64, we don't need to support large
+; cache Pentium 4's in 64-bit mode.
+
+IFDEF APPLE
+	K8 = 0
+	K10 = 0
+	P4TP_512 = 0
+	P4TP_256 = 0
+	P4TP_128 = 0
+IFNDEF X86_64
+	P4_1024	= 0
+ENDIF
+ENDIF
+
+; Define constants that let us specify different best FFT implementations for
+; 32-bit and 64-bit CPUs.
+
 IFDEF X86_64
 	CORE2_32 = 0
 	CORE2_64 = CORE2

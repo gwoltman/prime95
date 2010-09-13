@@ -409,7 +409,11 @@ void *sse2_aux_prctab[] = {
 #define sse2_explode8notc(macro,name,suff)	sse2_explode9##suff(macro,name)		sse2_explode9##suff(macro,name##c1)	sse2_explode9##suff(macro,name##cm1)
 #define sse2_explode9BLEND(macro,name)		macro(name##BLEND)
 #define sse2_explode9CORE(macro,name)		macro(name##CORE)
+#ifndef __APPLE__
 #define sse2_explode9K8(macro,name)		macro(name##K8)
+#else
+#define sse2_explode9K8(macro,name)		macro(name##CORE)		// Macs do not have AMD CPUs
+#endif
 
 sse2_explode(extern_decl)
 void *sse2_prctab[] = { sse2_explode(array_entry) NULL };

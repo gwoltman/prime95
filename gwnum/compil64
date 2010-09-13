@@ -68,23 +68,36 @@ linux64\gwnum.a: linux64\xmult1ax.obj linux64\xmult2.obj linux64\xmult2a_core.ob
     attrib -r linux64\gwnum.a
     del linux64\gwnum.lib
 
-macosx64\gwnum.a: linux64\xmult1ax.obj linux64\xmult2.obj linux64\xmult2a_core.obj linux64\xmult2a_k8.obj linux64\xmult2ax.obj \
-		  linux64\xmult3.obj linux64\xmult3a_core.obj linux64\xmult3a_k8.obj linux64\xmult3ax.obj \
-		  linux64\hg_blend.obj linux64\hg_core.obj linux64\hg_p4.obj linux64\hg_k8.obj linux64\hg_k10.obj \
-		  linux64\r4_core.obj linux64\r4_p4.obj linux64\r4_k8.obj linux64\r4_k10.obj \
-		  linux64\r4delay_core.obj linux64\r4delay_p4.obj linux64\r4delay_k8.obj linux64\r4delay_k10.obj \
-		  linux64\r4delay3_core.obj linux64\r4delay3_p4.obj linux64\r4delay3_k8.obj linux64\r4delay3_k10.obj \
-		  linux64\r4delay5_core.obj linux64\r4delay5_p4.obj linux64\r4delay5_k8.obj linux64\r4delay5_k10.obj \
-		  linux64\r4dwpn_core.obj linux64\r4dwpn_p4.obj linux64\r4dwpn_k8.obj linux64\r4dwpn_k10.obj \
-		  linux64\r4dwpn3_core.obj linux64\r4dwpn3_p4.obj linux64\r4dwpn3_k8.obj linux64\r4dwpn3_k10.obj \
-		  linux64\r4dwpn5_core.obj linux64\r4dwpn5_p4.obj linux64\r4dwpn5_k8.obj linux64\r4dwpn5_k10.obj \
-		  linux64\cpuidhlp.obj linux64\mult.obj linux64\gianthlp.obj linux64\timeit.obj
+macosx64\gwnum.a: linux64\xmult1ax.obj linux64\xmult2.obj linux64\xmult2a_core.obj linux64\xmult2ax.obj \
+		  linux64\xmult3.obj linux64\xmult3a_core.obj linux64\xmult3ax.obj \
+		  linux64\hg_blend.obj linux64\hg_core.obj linux64\hg_p4.obj \
+		  linux64\r4_core.obj linux64\r4_p4.obj \
+		  linux64\r4delay_core.obj linux64\r4delay_p4.obj \
+		  linux64\r4delay3_core.obj linux64\r4delay3_p4.obj \
+		  linux64\r4delay5_core.obj linux64\r4delay5_p4.obj \
+		  linux64\r4dwpn_core.obj linux64\r4dwpn_p4.obj \
+		  linux64\r4dwpn3_core.obj linux64\r4dwpn3_p4.obj \
+		  linux64\r4dwpn5_core.obj linux64\r4dwpn5_p4.obj \
+		  linux64\cpuidhlp.obj macosx64\mult.obj linux64\gianthlp.obj linux64\timeit.obj
     attrib -r macosx64\gwnum.a
+    del /q macosx64\foo
     del macosx64\gwnum.a
-    lib /OUT:macosx64\gwnum.lib linux64\*.obj
+    del macosx64\gwnum.lib
+    mkdir macosx64\foo
+    copy macosx64\mult.obj macosx64\foo
+    del macosx64\*.obj
+    xcopy /q linux64\*.obj macosx64
+    del macosx64\*_k8.obj
+    del macosx64\*_k10.obj
+    xcopy /y /q macosx64\foo macosx64
+    lib /OUT:macosx64\gwnum.lib macosx64\*.obj
     $(objconv) -fmacho64 -wd1050 -nu+ macosx64\gwnum.lib macosx64\gwnum.a
     attrib -r macosx64\gwnum.a
     del macosx64\gwnum.lib
+    del macosx64\*.obj
+    xcopy /q macosx64\foo macosx64
+    del /q macosx64\foo
+    rmdir macosx64\foo
 
 # Compile C code for 64-bit
 
@@ -411,4 +424,9 @@ linux64\gianthlp.obj: gianthlp.asm
 
 linux64\timeit.obj: timeit.asm xmult.mac hg.mac r4.mac r2.mac r3.mac r5.mac r8.mac
     $(masm64lx) /DARCH=CORE /Folinux64\timeit.obj timeit.asm
+
+# Create 64-bit Mac OS X object files.
+
+macosx64\mult.obj: mult.asm
+    $(masm64lx) /Fomacosx64\mult.obj /DAPPLE mult.asm
 

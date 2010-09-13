@@ -71,25 +71,38 @@ linux\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj m
     attrib -r linux\gwnum.a
     del linux\gwnum.lib
 
-macosx\gwnum.a: mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj \
+macosx\gwnum.a: macosx\mult.obj mult1.obj mult1aux.obj mult2.obj mult2p.obj mult2a.obj mult2aux.obj \
 		mult3.obj mult3p.obj mult3a.obj mult3ap.obj mult4.obj mult4p.obj gianthlp.obj cpuidhlp.obj \
-		xmult1ax.obj xmult2.obj xmult2a_core.obj xmult2a_k8.obj xmult2ax.obj xmult3.obj xmult3a_core.obj xmult3a_k8.obj xmult3ax.obj \
-		hg_blend.obj hg_core.obj hg_p4.obj hg_p4tp.obj hg_k8.obj hg_k10.obj \
-		r4_core.obj r4_p4.obj r4_p4tp.obj r4_k8.obj r4_k10.obj \
-		r4delay_core.obj r4delay_p4.obj r4delay_p4tp.obj r4delay_k8.obj r4delay_k10.obj \
-		r4delay3_core.obj r4delay3_p4.obj r4delay3_p4tp.obj r4delay3_k8.obj r4delay3_k10.obj \
-		r4delay5_core.obj r4delay5_p4.obj r4delay5_p4tp.obj r4delay5_k8.obj r4delay5_k10.obj \
-		r4dwpn_core.obj r4dwpn_p4.obj r4dwpn_p4tp.obj r4dwpn_k8.obj r4dwpn_k10.obj \
-		r4dwpn3_core.obj r4dwpn3_p4.obj r4dwpn3_p4tp.obj r4dwpn3_k8.obj r4dwpn3_k10.obj \
-		r4dwpn5_core.obj r4dwpn5_p4.obj r4dwpn5_p4tp.obj r4dwpn5_k8.obj r4dwpn5_k10.obj \
+		xmult1ax.obj xmult2.obj xmult2a_core.obj xmult2ax.obj xmult3.obj xmult3a_core.obj xmult3ax.obj \
+		hg_blend.obj hg_core.obj hg_p4.obj hg_p4tp.obj \
+		r4_core.obj r4_p4.obj r4_p4tp.obj \
+		r4delay_core.obj r4delay_p4.obj r4delay_p4tp.obj \
+		r4delay3_core.obj r4delay3_p4.obj r4delay3_p4tp.obj \
+		r4delay5_core.obj r4delay5_p4.obj r4delay5_p4tp.obj \
+		r4dwpn_core.obj r4dwpn_p4.obj r4dwpn_p4tp.obj \
+		r4dwpn3_core.obj r4dwpn3_p4.obj r4dwpn3_p4tp.obj \
+		r4dwpn5_core.obj r4dwpn5_p4.obj r4dwpn5_p4tp.obj \
 		timeit.obj
     attrib -r macosx\gwnum.a
+    del /q macosx\foo
     del macosx\gwnum.a
     del macosx\gwnum.lib
-    lib /OUT:macosx\gwnum.lib *.obj
+    mkdir macosx\foo
+    copy macosx\mult.obj macosx\foo
+    del macosx\*.obj
+    xcopy /q *.obj macosx
+    del macosx\*_k8.obj
+    del macosx\*_k10.obj
+    xcopy /y /q macosx\foo macosx
+    lib /OUT:macosx\gwnum.lib macosx\*.obj
     $(objconv) -fmacho32 -wd1050 macosx\gwnum.lib macosx\gwnum.a
     attrib -r macosx\gwnum.a
     del macosx\gwnum.lib
+    del macosx\*.obj
+    xcopy /q macosx\foo macosx
+    del /q macosx\foo
+    rmdir macosx\foo
+
 
 # Compile C code
 
@@ -138,7 +151,10 @@ debug\ecmstag1.obj: ecmstag1.c gwnum.h
 # Create 32-bit object files
 
 mult.obj: mult.asm
-    $(masm) /DPPRO mult.asm
+    $(masm) mult.asm
+
+macosx\mult.obj: mult.asm
+    $(masm) /DAPPLE /Fomacosx\mult.obj mult.asm
 
 mult1.obj: mult1.asm mult.mac fft1.mac lucas.mac
     $(masm) /DPPRO mult1.asm
