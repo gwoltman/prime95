@@ -1,3 +1,18 @@
+New features in Version 26.2 of mprime
+--------------------------------------
+
+1)  Faster FFTs for most SSE2-capable CPU architectures.
+2)  More FFT lengths supported.
+3)  Some of the new, faster FFTs don't let us do as much error checking on each iteration.
+    If you don't want to lose this error checking, look for "SUM(INPUTS) error checking" in
+    undoc,txt.  This will slow down your tests by about 2-5%.
+4)  When a possible hardware error occurs during a test, the error message would
+    likely scroll off the screen unnoticed.  Now, all future progress updates to
+    the screen will be followed by a message containing a count of the errors that
+    have occurred during the test.
+5)  Worker threads now stagger their starts.  This improves timings for some
+    CPUs and operating systems.  See undoc.txt to control this feature.
+
 New features in Version 25.11 of mprime
 ---------------------------------------
 
