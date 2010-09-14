@@ -8,8 +8,5 @@ cp stress.txt ../release
 cp mprime ../release
 cd ../release
 tar -czvf ../mprime64.tgz *
-rm mprime
-cp ../linux/sprime ./mprime
-tar -czvf ../sprime64.tgz *
 rm *
 cd ..
