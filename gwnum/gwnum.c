@@ -5076,6 +5076,13 @@ int gwsetup (
 			error_code = gwsetup_general_mod_giant (gwdata, g);
 			free (g);
 			if (error_code) return (error_code);
+			/* If GCD(k,c) was not 1, then the reciprocal in generic modular */
+			/* reduction may well have a nasty bit pattern.  The test case that */
+			/* brought this to light is 3*2^77574+3.  We don't have a lot of */
+			/* experience with these kinds of composite numbers.  For now, we */
+			/* just increase the MAXDIFF setting.  We may also need to increment */
+			/* safety margin to select a larget FFT size in some cases. */
+			if (gcd > 1) gwdata->MAXDIFF *= 100.0;
 		}
 	}
 
