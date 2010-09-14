@@ -3290,7 +3290,7 @@ bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n",
 /* Allocate memory for the string representation of the factor and for */
 /* a message.  Convert the factor to a string. */ 
 
-	msglen = factor->sign * 10 + 200;
+	msglen = factor->sign * 10 + 400;
 	str = (char *) malloc (msglen);
 	if (str == NULL) goto oom;
 	msg = (char *) malloc (msglen);
@@ -5592,9 +5592,10 @@ bingo:	if (stage == 1)
 	OutputBoth (thread_num, buf);
 
 /* Allocate memory for the string representation of the factor and for */
-/* a message.  Convert the factor to a string. */ 
+/* a message.  Convert the factor to a string.  Allocate lots of extra space */
+/* as formatMsgForResultsFile can append a lot of text. */	
 
-	msglen = factor->sign * 10 + 80;
+	msglen = factor->sign * 10 + 400;
 	str = (char *) malloc (msglen);
 	if (str == NULL) {
 		stop_reason = OutOfMemory (thread_num);
@@ -5615,8 +5616,8 @@ bingo:	if (stage == 1)
 		OutputBoth (thread_num, msg);
 		unlinkSaveFiles (filename);
 		OutputStr (thread_num, "Restarting P-1 from scratch.\n");
-		stop_reason = 0;	       // Bug - is this how we restart?
-		goto msg_and_exit;
+		stop_reason = 0;
+		goto error_restart;
 	}
 
 /* Output the validated factor */
@@ -5688,11 +5689,18 @@ error:	if (near_fft_limit && gw_get_maxerr (&pm1data.gwdata) >= 0.40625) {
 		if (stop_reason) goto exit;
 	}
 	error_recovery_mode = bit_number ? bit_number : 1;
+error_restart:
 	pm1_cleanup (&pm1data);
 	free (N);
 	N = NULL;
 	free (exp);
 	exp = NULL;
+	free (factor);
+	factor = NULL;
+	free (str);
+	str = NULL;
+	free (msg);
+	msg = NULL;
 	goto restart;
 }
 
