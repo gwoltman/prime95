@@ -1071,7 +1071,7 @@ static	struct IniCache *cache[10] = {0};
 			val = strchr (line, '=');
 			if (val == NULL) {
 				char	buf[1200];
-				sprintf (buf, "Illegal line in INI file: %s\n", line);
+				sprintf (buf, "Illegal line in %s: %s\n", newFileName, line);
 				OutputSomewhere (MAIN_THREAD_NUM, buf);
 				p->lines[i]->keyword = NULL;
 				p->lines[i]->value = (char *) malloc (strlen (line) + 1);
