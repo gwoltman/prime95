@@ -1135,7 +1135,7 @@ int avail_mem (
 	MEM_IN_USE[thread_num] = desired_memory;
 
 /* If any workers have not yet set their memory usage, then wait for them */
-/* to do so.  This allows us to accurately guage how much fixed memory */
+/* to do so.  This allows us to accurately gauge how much fixed memory */
 /* is consumed and how many variable usage workers there are. */
 /* Just in case we wake up from the timeout (should rarely happen), we try*/
 /* to stagger the timeouts by adding the thread number. */

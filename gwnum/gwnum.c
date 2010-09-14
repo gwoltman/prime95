@@ -5081,7 +5081,7 @@ int gwsetup (
 			/* brought this to light is 3*2^77574+3.  We don't have a lot of */
 			/* experience with these kinds of composite numbers.  For now, we */
 			/* just increase the MAXDIFF setting.  We may also need to increment */
-			/* safety margin to select a larget FFT size in some cases. */
+			/* safety margin to select a larger FFT size in some cases. */
 			if (gcd > 1) gwdata->MAXDIFF *= 100.0;
 		}
 	}
