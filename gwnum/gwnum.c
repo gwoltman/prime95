@@ -4110,43 +4110,70 @@ int is_pathological_distribution (
 /* don't have jmptable entries detailing the fastest FFT implementations for those architectures. */
 
 int calculate_bif (
-	gwhandle *gwdata)	/* Gwnum global data */
+	gwhandle *gwdata,	/* Gwnum global data */
+	unsigned long fftlen)
 {
+	int	retval;
 
 /* Map the CPU architecture as determined by CPUID to one of the CPU architectures */
 /* that the FFT assembly code is optimized for. */
 
 	switch (CPU_ARCHITECTURE) {
-	case CPU_ARCHITECTURE_PRE_SSE2:		/* Cannot happen, gwinfo should have selected x87 FFTs */
 	case CPU_ARCHITECTURE_PENTIUM_M:	/* Not sure what is best for these three architectures */
 	case CPU_ARCHITECTURE_CORE:
 	case CPU_ARCHITECTURE_ATOM:
-		return 2;			/* Look for FFTs optimized for large cache P4s */
+		retval = 2;			/* Look for FFTs optimized for large cache P4s */
+		break;
 	case CPU_ARCHITECTURE_PENTIUM_4:
 		if (CPU_L2_CACHE_SIZE <= 128)	/* We haven't optimized for these yet */
-			return 4;		/* Look for FFTs optimized for 256K cache P4s */
-		if (CPU_L2_CACHE_SIZE <= 256)
-			return 4;		/* Look for FFTs optimized for 256K cache P4s */
-		if (CPU_L2_CACHE_SIZE <= 512)
-			return 3;		/* Look for FFTs optimized for 512K cache P4s */
-		if (gwdata->cpu_flags & CPU_TLB_PRIMING)
-			return 3;		/* Look for FFTs optimized for 512K cache P4s */
-		return 2;			/* Look for FFTs optimized for large cache P4s */
+			retval = 4;		/* Look for FFTs optimized for 256K cache P4s */
+		else if (CPU_L2_CACHE_SIZE <= 256)
+			retval = 4;		/* Look for FFTs optimized for 256K cache P4s */
+		else if (CPU_L2_CACHE_SIZE <= 512)
+			retval = 3;		/* Look for FFTs optimized for 512K cache P4s */
+		else if (gwdata->cpu_flags & CPU_TLB_PRIMING)
+			retval = 3;		/* Look for FFTs optimized for 512K cache P4s */
+		else
+			retval = 2;		/* Look for FFTs optimized for large cache P4s */
+		break;
 	case CPU_ARCHITECTURE_CORE_2:
-		return 0;			/* Look for FFTs optimized for Core 2 */
+		retval = 0;			/* Look for FFTs optimized for Core 2 */
+		break;
 	case CPU_ARCHITECTURE_CORE_I7:
-		return 1;			/* Look for FFTs optimized for Core i3/i5/i7/i9 */
+		retval = 1;			/* Look for FFTs optimized for Core i3/i5/i7/i9 */
+		break;
 	case CPU_ARCHITECTURE_INTEL_OTHER:	/* This is probably one of Intel's next generation CPUs */ 
-		return 1;			/* Look for FFTs optimized for Core i3/i5/i7/i9 */
+		retval = 1;			/* Look for FFTs optimized for Core i3/i5/i7/i9 */
+		break;
 	case CPU_ARCHITECTURE_AMD_K8:
-		return 6;			/* Look for FFTs optimized for K8 */
+		retval = 6;			/* Look for FFTs optimized for K8 */
+		break;
 	case CPU_ARCHITECTURE_AMD_K10:
-		return 7;			/* Look for FFTs optimized for K10 */
+		retval = 7;			/* Look for FFTs optimized for K10 */
+		break;
+	case CPU_ARCHITECTURE_PRE_SSE2:		/* Cannot happen, gwinfo should have selected x87 FFTs */
 	case CPU_ARCHITECTURE_AMD_OTHER:
 	case CPU_ARCHITECTURE_OTHER:
 	default:
-		return 0;			/* For no particularly good reason, look for FFTs optimized for Core 2 */
+		retval = 0;			/* For no particularly good reason, look for FFTs optimized for Core 2 */
+		break;
 	}
+
+/* For slower CPU architectures we didn't bother to find the best FFT implementation */
+/* for the larger FFTs.  This was done to reduce the size of the executable.  If we */
+/* are asked to run one of these large FFTs, select an FFT optimized for a different */
+/* CPU architecture. */
+
+	if (fftlen > 4194304 && (retval == 3 || retval == 4))
+		retval = 2;		/* Small cache P4s have best FFT implementations up to 4M */
+	if (fftlen > 6291456 && retval == 2)
+		retval = 0;		/* P4s have best FFT implementations up to 6M */
+	if (fftlen > 6291456 && retval == 6)
+		retval = 7;		/* K8s have best FFT implementations up to 6M */
+
+/* Return the result */
+
+	return (retval);
 }
 
 /* Ugly little macros to bump jmptable pointer to next procedure entry or to next count */
@@ -4179,7 +4206,7 @@ int is_fft_implemented (
 /* the CPU_ARCHITECTURE.  However, for some CPU architectures, like Pentium M and Core Solo, we */
 /* don't have jmptable entries detailing the fastest FFT implementations for those architectures. */
 
-	desired_bif = calculate_bif (gwdata);
+	desired_bif = calculate_bif (gwdata, jmptab->fftlen);
 
 /* Loop through the FFT implementations to see if we find an implementation */
 /* that matches our desired "bif" value. */
@@ -4648,7 +4675,7 @@ next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
 /* the one best suited to this CPU. */
 
 	qa_nth_fft = gwdata->ZERO_PADDED_FFT ? 100 : 1000;
-	desired_bif = calculate_bif (gwdata);
+	desired_bif = calculate_bif (gwdata, gwdata->FFTLEN);
 	prev_proc_ptrs[0] = NULL;
 	prev_proc_ptrs[1] = NULL;
 	prev_proc_ptrs[2] = NULL;
