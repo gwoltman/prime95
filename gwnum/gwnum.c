@@ -4865,14 +4865,19 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 			}
 		} else {
 			if (gwdata->PASS2_SIZE == 0) {
-				/* 7 counts for one pass SSE2 FFTs */
-				asm_data->addcount1 = jmptab->counts[0];
-				asm_data->normcount1 = jmptab->counts[1];
-				asm_data->count1 = jmptab->counts[2];
-				asm_data->count2 = jmptab->counts[3];
-				asm_data->count3 = jmptab->counts[4];
-				asm_data->count4 = jmptab->counts[5];
-				asm_data->count5 = jmptab->counts[6];
+				struct gwasm_jmptab *last_jmptab;
+				/* 7 counts for one pass SSE2 FFTs.  Note the 7K FFT length has */
+				/* PRCENTRYs for each CPU architecture where the 7K FFT is faster */
+				/* than the 8K FFT.  Thus, we need to find where the seven count */
+				/* values begin. */
+				for (last_jmptab = jmptab; last_jmptab->counts[7] != 0; INC_JMPTAB_1 (last_jmptab));
+				asm_data->addcount1 = last_jmptab->counts[0];
+				asm_data->normcount1 = last_jmptab->counts[1];
+				asm_data->count1 = last_jmptab->counts[2];
+				asm_data->count2 = last_jmptab->counts[3];
+				asm_data->count3 = last_jmptab->counts[4];
+				asm_data->count4 = last_jmptab->counts[5];
+				asm_data->count5 = last_jmptab->counts[6];
 			} else if (gwdata->FFT_TYPE == FFT_TYPE_HOME_GROWN) {
 				int	pfa, pfa_shift;
 				/* Count of pass 2 sections */
