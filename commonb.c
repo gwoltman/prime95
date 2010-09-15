@@ -6894,7 +6894,9 @@ int primeBench (
 		if (all_bench) lldata.gwdata.bench_pick_nth_fft = ii;
 		stop_reason = lucasSetup (thread_num, fftlen * 17 + 1, fftlen + plus1, &lldata);
 		if (stop_reason) {
-			fftlen = max_FFT_length * 1024;
+			/* An error during all_bench is expected.  Continue on to next FFT length. */
+			/* An error during a norm bench is unexpected.  Sett fftlen so that we stop benching. */
+			if (!all_bench) fftlen = max_FFT_length * 1024;
 			break;
 		}
 		fftlen = gwfftlen (&lldata.gwdata);
