@@ -283,7 +283,7 @@ static	char	AFFINITY_SCRAMBLE[33] = {0};
 	else
 		mask = -1;
 
-/* Get the optional string used to scramble the affiniity mask bits to */
+/* Get the optional string used to scramble the affinity mask bits to */
 /* new or odd optimizations we had not considered. */
 
 	if (!AFFINITY_SCRAMBLE[0]) {
@@ -340,7 +340,8 @@ static	char	AFFINITY_SCRAMBLE[33] = {0};
 			sprintf (buf + strlen(buf), "logical CPU%s%s\n",
 				 (count == 1) ? " #" : "s ", cpu_list);
 		}
-		OutputStr (info->thread_num, buf);
+		if (info->type != SET_PRIORITY_BENCHMARKING)
+			OutputStr (info->thread_num, buf);
 	}
 
 /* Call OS-specific routine to set the priority and affinity */
