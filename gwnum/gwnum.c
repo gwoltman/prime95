@@ -6557,12 +6557,9 @@ int internal_gwsetup (
 		asm_data->CARRY_ADJUST4 = pow ((double) b, num_b_in_second_top_word);
 		asm_data->CARRY_ADJUST6 = pow ((double) b, num_b_in_third_top_word);
 		if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-			asm_data->CARRY_ADJUST3 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-1) /
-						  gwfft_weight (gwdata->dd_data, dwpn_col (gwdata, gwdata->FFTLEN-1));
-			asm_data->CARRY_ADJUST5 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-2) /
-						  gwfft_weight (gwdata->dd_data, dwpn_col (gwdata, gwdata->FFTLEN-2));
-			asm_data->CARRY_ADJUST7 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-3) /
-						  gwfft_weight (gwdata->dd_data, dwpn_col (gwdata, gwdata->FFTLEN-3));
+			asm_data->CARRY_ADJUST3 = gwfft_partial_weight (gwdata->dd_data, gwdata->FFTLEN-1, dwpn_col (gwdata, gwdata->FFTLEN-1));
+			asm_data->CARRY_ADJUST5 = gwfft_partial_weight (gwdata->dd_data, gwdata->FFTLEN-2, dwpn_col (gwdata, gwdata->FFTLEN-2));
+			asm_data->CARRY_ADJUST7 = gwfft_partial_weight (gwdata->dd_data, gwdata->FFTLEN-3, dwpn_col (gwdata, gwdata->FFTLEN-3));
 		} else {
 			asm_data->CARRY_ADJUST3 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-1);
 			asm_data->CARRY_ADJUST5 = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN-2);
@@ -8536,8 +8533,7 @@ int get_fft_value (
 /* Handle r4dwpn FFTs which are only partially normalized */
 
 	else if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-		val = val * gwfft_weight_sloppy (gwdata->dd_data, dwpn_col (gwdata, i))
-		          * gwfft_weight_inverse_sloppy (gwdata->dd_data, i);
+		val = val * gwfft_partial_weight_inverse_sloppy (gwdata->dd_data, i, dwpn_col (gwdata, i));
 		if (val < -0.5)
 			*retval = (long) (val - 0.5);
 		else
@@ -8576,8 +8572,7 @@ void set_fft_value (
 /* Handle r4dwpn FFTs which are only partially normalized */
 
 	if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-		* addr (gwdata, g, i) = val * gwfft_weight_sloppy (gwdata->dd_data, i) / 
-					      gwfft_weight_sloppy (gwdata->dd_data, dwpn_col (gwdata, i));
+		* addr (gwdata, g, i) = val * gwfft_partial_weight_sloppy (gwdata->dd_data, i, dwpn_col (gwdata, i));
 		return;
 	}
 
@@ -9281,8 +9276,7 @@ void raw_gwsetaddin (
 
 	if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
 		asm_data->ADDIN_VALUE = val *
-					gwfft_weight_sloppy (gwdata->dd_data, word) /
-					gwfft_weight_sloppy (gwdata->dd_data, dwpn_col (gwdata, word));
+			gwfft_partial_weight_sloppy (gwdata->dd_data, word, dwpn_col (gwdata, word));
 	}
 
 /* Set the addin value - multiply it by two-to-phi and FFTLEN/2/k. */

@@ -67,11 +67,6 @@ struct gwdbldbl_constants {
 	double	gwdbl__b_inverse;
 	double	gwdbl__num_b_per_word;
 	double	gwdbl__logb_abs_c_div_fftlen;
-#ifdef VERY_SLOPPY
-	unsigned long last_sloppy_j;
-	double	last_sloppy_result;
-	double	fast_sloppy_multiplier;
-#endif
 	unsigned long last_inv_sloppy_j;
 	double	last_inv_sloppy_result;
 	double	fast_inv_sloppy_multiplier;
@@ -390,11 +385,6 @@ void gwfft_weight_setup (
 	dd_data->gwdbl__b_inverse = 1.0 / (double) b;
 	dd_data->gwdbl__num_b_per_word = (double) dd_data->gw__num_b_per_word;
 	dd_data->gwdbl__logb_abs_c_div_fftlen = (double) dd_data->gw__logb_abs_c_div_fftlen;
-#ifdef VERY_SLOPPY
-	dd_data->last_sloppy_j = 0;
-	dd_data->last_sloppy_result = 1.0;
-	dd_data->fast_sloppy_multiplier = gwfft_weight (dd_data, 1);
-#endif
 	dd_data->last_inv_sloppy_j = 0;
 	dd_data->last_inv_sloppy_result = 1.0;
 	dd_data->fast_inv_sloppy_multiplier = gwfft_weight_inverse (dd_data, 1);
@@ -666,31 +656,31 @@ unsigned long gwfft_base (
 	return (bpower);
 }
 
-// These routines compute sin/cos multipliers and then applies
-// an FFT weight.
+// These routines compute sin/cos multipliers and then apply an FFT weight.
+// Used for r4dwpn FFTs were part of the weight is applied during the FFT.
 
 extern "C"
 void gwsincos_weighted (
 	void	*dd_data_arg,
 	unsigned long x,
 	unsigned long N,
-	unsigned long j,
+	unsigned long col,
 	double	*results)
 {
 	dd_real arg, sine, cosine;
 	dd_real temp, bpower, weight;
 
 	x86_FIX
-	temp = (double) j * dd_data->gw__num_b_per_word;
+	temp = (double) col * dd_data->gw__num_b_per_word;
 	bpower = gwceil (temp) - temp;
-	if (! dd_data->gw__c_is_one) bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) j;
+	if (! dd_data->gw__c_is_one) bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) col;
 	weight = exp (dd_data->gw__logb * bpower);
 
 	arg = dd_real::_2pi * (double) x / (double) N;
 	sincos (arg, sine, cosine);
 
 	sine += epsilon;		// Hack to avoid divide-by-zero errors
-	
+
 	results[0] = sine * weight;
 	results[1] = cosine / sine;
 	results[2] = sine / weight * dd_data->gw__over_fftlen;
@@ -702,16 +692,16 @@ void gwsincos2_weighted (
 	void	*dd_data_arg,
 	unsigned long x,
 	unsigned long N,
-	unsigned long j,
+	unsigned long col,
 	double	*results)
 {
 	dd_real arg1, arg2, sine, cosine, sine2, cosine2;
 	dd_real temp, bpower, weight;
 
 	x86_FIX
-	temp = (double) j * dd_data->gw__num_b_per_word;
+	temp = (double) col * dd_data->gw__num_b_per_word;
 	bpower = gwceil (temp) - temp;
-	if (! dd_data->gw__c_is_one) bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) j;
+	if (! dd_data->gw__c_is_one) bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) col;
 	weight = exp (dd_data->gw__logb * bpower);
 
 	arg1 = dd_real::_2pi * (double) x / (double) N;
@@ -738,16 +728,16 @@ void gwsincos5_weighted (
 	void	*dd_data_arg,
 	unsigned long x,
 	unsigned long N,
-	unsigned long j,
+	unsigned long col,
 	double	*results)
 {
 	dd_real arg1, arg2, sine, cosine, sine2, cosine2, sine4, cosine4, sine5, cosine5;
 	dd_real temp, bpower, weight;
 
 	x86_FIX
-	temp = (double) j * dd_data->gw__num_b_per_word;
+	temp = (double) col * dd_data->gw__num_b_per_word;
 	bpower = gwceil (temp) - temp;
-	if (! dd_data->gw__c_is_one) bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) j;
+	if (! dd_data->gw__c_is_one) bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) col;
 	weight = exp (dd_data->gw__logb * bpower);
 
 	arg1 = dd_real::_2pi * (double) x / (double) N;
@@ -800,5 +790,115 @@ void gwfft_weights_fudged (
 	*fft_weight_inverse = double (weight_inverse);
 	*fft_weight_inverse_times_b = double (weight_inverse * (double) b);
 	END_x86_FIX
+}
+
+// Like the gwfft_weight routines but used for r4dwpn FFTs where part of the weight is applied
+// during the FFT process.
+
+extern "C"
+double gwfft_partial_weight (
+	void	*dd_data_arg,
+	unsigned long j,
+	unsigned long col)
+{
+	dd_real temp, bpower, col_bpower, result;
+
+	x86_FIX
+	temp = (double) j * dd_data->gw__num_b_per_word;
+	bpower = gwceil (temp) - temp;
+	if (! dd_data->gw__c_is_one) bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) j;
+
+	temp = (double) col * dd_data->gw__num_b_per_word;
+	col_bpower = gwceil (temp) - temp;
+	if (! dd_data->gw__c_is_one) col_bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) col;
+
+	result = exp (dd_data->gw__logb * (bpower - col_bpower));
+	END_x86_FIX
+	return (double (result));
+}
+
+// Like the above, but faster and does not guarantee quite as much accuracy.
+
+extern "C"
+double gwfft_partial_weight_sloppy (
+	void	*dd_data_arg,
+	unsigned long j,
+	unsigned long col)
+{
+	dd_real temp, bpower, col_bpower;
+
+	x86_FIX
+	temp = (double) j * dd_data->gw__num_b_per_word;
+	bpower = gwceil (temp) - temp;
+	if (! dd_data->gw__c_is_one) bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) j;
+
+	temp = (double) col * dd_data->gw__num_b_per_word;
+	col_bpower = gwceil (temp) - temp;
+	if (! dd_data->gw__c_is_one) col_bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) col;
+	END_x86_FIX
+	return (pow (dd_data->gwdbl__b, double (bpower - col_bpower)));
+}
+
+// Compute the inverse of the fft partial weight
+
+extern "C"
+double gwfft_partial_weight_inverse (
+	void	*dd_data_arg,
+	unsigned long j,
+	unsigned long col)
+{
+	dd_real temp, bpower, col_bpower, result;
+
+	x86_FIX
+	temp = (double) j * dd_data->gw__num_b_per_word;
+	bpower = gwceil (temp) - temp;
+	if (! dd_data->gw__c_is_one) bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) j;
+
+	temp = (double) col * dd_data->gw__num_b_per_word;
+	col_bpower = gwceil (temp) - temp;
+	if (! dd_data->gw__c_is_one) col_bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) col;
+
+	result = exp (dd_data->gw__logb * (col_bpower - bpower));
+	END_x86_FIX
+	return (double (result));
+}
+
+// Like the above, but faster and does not guarantee quite as much accuracy.
+// We can be very sloppy as these weights are used to read FFT data values
+// when writing save files.
+
+extern "C"
+double gwfft_partial_weight_inverse_sloppy (
+	void	*dd_data_arg,
+	unsigned long j,
+	unsigned long col)
+{
+	double	temp, bpower, col_bpower;
+
+	temp = (double) j * dd_data->gwdbl__num_b_per_word;
+	bpower = ceil (temp) - temp;
+	if (bpower < 0.001 || bpower > 0.999) {
+		dd_real	dd_temp, dd_bpower;
+		x86_FIX
+		dd_temp = (double) j * dd_data->gw__num_b_per_word;
+		dd_bpower = gwceil (dd_temp) - dd_temp;
+		bpower = double (dd_bpower);
+		END_x86_FIX
+	}
+	if (! dd_data->gw__c_is_one) bpower += dd_data->gwdbl__logb_abs_c_div_fftlen * (double) j;
+
+	temp = (double) col * dd_data->gwdbl__num_b_per_word;
+	col_bpower = ceil (temp) - temp;
+	if (col_bpower < 0.001 || col_bpower > 0.999) {
+		dd_real	dd_temp, dd_col_bpower;
+		x86_FIX
+		dd_temp = (double) col * dd_data->gw__num_b_per_word;
+		dd_col_bpower = gwceil (dd_temp) - dd_temp;
+		col_bpower = double (dd_col_bpower);
+		END_x86_FIX
+	}
+	if (! dd_data->gw__c_is_one) col_bpower += dd_data->gwdbl__logb_abs_c_div_fftlen * (double) col;
+
+	return (pow (dd_data->gwdbl__b, col_bpower - bpower));
 }
 

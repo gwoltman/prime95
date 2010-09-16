@@ -43,6 +43,10 @@ void gwsincos_weighted (void *, unsigned long, unsigned long, unsigned long, dou
 void gwsincos2_weighted (void *, unsigned long, unsigned long, unsigned long, double *);
 void gwsincos5_weighted (void *, unsigned long, unsigned long, unsigned long, double *);
 void gwfft_weights_fudged (void	*, unsigned long, unsigned long, double *, double *, double *, double *);
+double gwfft_partial_weight (void *, unsigned long, unsigned long);
+double gwfft_partial_weight_sloppy (void *, unsigned long, unsigned long);
+double gwfft_partial_weight_inverse (void *, unsigned long, unsigned long);
+double gwfft_partial_weight_inverse_sloppy (void *, unsigned long, unsigned long);
 
 #ifdef __cplusplus
 }
