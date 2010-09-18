@@ -2630,7 +2630,7 @@ again:	clearThreadHandleArray ();
 
 /* Launch more worker threads if needed */
 
-	delay_amount = IniGetInt (INI_FILE, "StaggerStarts", 8);
+	delay_amount = IniGetInt (INI_FILE, "StaggerStarts", 5);
 	total_delay_amount = 0;
 	for (tnum = 1; tnum < ld->num_threads; tnum++) {
 		ldwork[tnum] = (struct LaunchData *) malloc (sizeof (struct LaunchData));
