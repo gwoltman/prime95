@@ -624,17 +624,8 @@ double *r4_build_pass1_table (
 			if (!gwdata->ALL_COMPLEX_FFT) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + i);
-					gwsincos1by2 (temp, N*2, table);
-					gwsincos1by2 (temp + pass1_increment, N*2, table+4);
-					gwsincos1by2 (temp + 2 * pass1_increment, N*2, table+8);
-					gwsincos1by2 (temp + 3 * pass1_increment, N*2, table+12);
-
-					temp += upper_sse2_word;
-					gwsincos1by2 (temp, N*2, table+1);
-					gwsincos1by2 (temp + pass1_increment, N*2, table+5);
-					gwsincos1by2 (temp + 2 * pass1_increment, N*2, table+9);
-					gwsincos1by2 (temp + 3 * pass1_increment, N*2, table+13);
-
+					gwsincos1plus0123by2 (temp, pass1_increment, N*2, table);
+					gwsincos1plus0123by2 (temp + upper_sse2_word, pass1_increment, N*2, table+1);
 					table += 16;
 				}
 			}
@@ -646,25 +637,8 @@ double *r4_build_pass1_table (
 /* We now calculate the standard sin/cos twiddle factors (temp*0,1,2,3,4,5,6,7 roots of N) */
 
 				temp = group + i;
-				gwsincos1by2 (0, N, table); 			/* OPT - These are constants! */
-				gwsincos1by2 (temp, N, table+4);
-				gwsincos1by2 (temp * 2, N, table+8);
-				gwsincos1by2 (temp * 3, N, table+12);
-				gwsincos1by2 (temp * 4, N, table+16);
-				gwsincos1by2 (temp * 5, N, table+20);
-				gwsincos1by2 (temp * 6, N, table+24);
-				gwsincos1by2 (temp * 7, N, table+28);
-
-				temp += upper_sse2_word;
-				gwsincos1by2 (0, N, table+1); 			/* OPT - These are constants! */
-				gwsincos1by2 (temp, N, table+5);
-				gwsincos1by2 (temp * 2, N, table+9);
-				gwsincos1by2 (temp * 3, N, table+13);
-				gwsincos1by2 (temp * 4, N, table+17);
-				gwsincos1by2 (temp * 5, N, table+21);
-				gwsincos1by2 (temp * 6, N, table+25);
-				gwsincos1by2 (temp * 7, N, table+29);
-
+				gwsincos1plus01234567by2 (0, temp, N, table);
+				gwsincos1plus01234567by2 (0, temp + upper_sse2_word, N, table+1);
 				table += 32;
 			}
 			pass1_size /= 8;
@@ -833,17 +807,9 @@ double *r4_build_pass1_table (
 /* premultiplier was for 2N, and a root-of-minus-one-of-2N is the same as a root */
 /* unity for 4N. */
 
-					gwsincos1by2 (temp, N * 4, table);		/* premult  */
-					gwsincos1by2 (5 * temp, N * 4, table+4);	/* temp + premult */
-					gwsincos1by2 (9 * temp, N * 4, table+8);	/* 2 * temp + premult */
-					gwsincos1by2 (13 * temp, N * 4, table+12);	/* 3 * temp + premult */
-
+					gwsincos1plus0123by2 (temp, 4 * temp, N * 4, table); /* premult + temp*0-3 */
 					temp += upper_sse2_word;
-					gwsincos1by2 (temp, N * 4, table+1);		/* premult  */
-					gwsincos1by2 (5 * temp, N * 4, table+5);	/* temp + premult */
-					gwsincos1by2 (9 * temp, N * 4, table+9);	/* 2 * temp + premult */
-					gwsincos1by2 (13 * temp, N * 4, table+13);	/* 3 * temp + premult */
-
+					gwsincos1plus0123by2 (temp, 4 * temp, N * 4, table+1);
 					table += 16;
 				}
 			}
@@ -1007,7 +973,6 @@ double *r4delay_build_fixed_premult_table (
 	double	*table)		/* Pointer to the table to fill in */
 {
 	unsigned long pass1_increment, j, N;
-	double	sincos[6];
 
 /* For all-complex FFTs, build the fixed roots-of-minus-one table. */
 /* Output these roots in the same order they will be used the first two */
@@ -1022,19 +987,15 @@ double *r4delay_build_fixed_premult_table (
 /* premultiplier was for 2N, and a root-of-minus-one-of-2N is the same as a root */
 /* unity for 4N. */					
 
-			gwsincos (j, N * 4, (double *) &sincos);
-			table[0] = table[1] = sincos[0];	/* premult  */
-			table[2] = table[3] = sincos[1];
-			gwsincos (j + N / 4, N * 4, (double *) &sincos);
-			table[4] = table[5] = sincos[0];	/* premult * -1 ^ 1/8 */
-			table[6] = table[7] = sincos[1];
-			gwsincos (j + 2 * N / 4, N * 4, (double *) &sincos);
-			table[8] = table[9] = sincos[0];	/* premult * -1 ^ 2/8 */
-			table[10] = table[11] = sincos[1];
-			gwsincos (j + 3 * N / 4, N * 4, (double *) &sincos);
-			table[12] = table[13] = sincos[0];	/* premult * -1 ^ 3/8 */
-			table[14] = table[15] = sincos[1];
-
+			gwsincos1plus0123by2 (j, N / 4, N * 4, table);
+			table[1] = table[0];	/* premult  */
+			table[3] = table[2];
+			table[5] = table[4];	/* premult * -1 ^ 1/8 */
+			table[7] = table[6];
+			table[9] = table[8];	/* premult * -1 ^ 2/8 */
+			table[11] = table[10];
+			table[13] = table[12];	/* premult * -1 ^ 3/8 */
+			table[15] = table[14];
 			table += 16;
 		}
 	}
@@ -1054,7 +1015,6 @@ double *r4delay_build_pass1_table (
 	unsigned long pass1_size, pass1_increment, delay_count;
 	unsigned long group, i, j, k, N, temp, upper_sse2_word;
 	int	pow2_count;
-	double	sincos[6];
 
 /* Initialize some needed constants */
 
@@ -1116,33 +1076,8 @@ double *r4delay_build_pass1_table (
 			if (!gwdata->ALL_COMPLEX_FFT) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + i);
-					gwsincos (temp, N*2, (double *) &sincos);
-					table[0] = sincos[0];	/* temp for 2*N */
-					table[2] = sincos[1];
-					gwsincos (temp + pass1_increment, N*2, (double *) &sincos);
-					table[4] = sincos[0];	/* temp + pass1_increment for 2*N */
-					table[6] = sincos[1];
-					gwsincos (temp + 2 * pass1_increment, N*2, (double *) &sincos);
-					table[8] = sincos[0];	/* temp + 2 * pass1_increment for 2*N */
-					table[10] = sincos[1];
-					gwsincos (temp + 3 * pass1_increment, N*2, (double *) &sincos);
-					table[12] = sincos[0];	/* temp + 3 * pass1_increment for 2*N */
-					table[14] = sincos[1];
-
-					temp += upper_sse2_word;
-					gwsincos (temp, N*2, (double *) &sincos);
-					table[1] = sincos[0];	/* temp for 2*N */
-					table[3] = sincos[1];
-					gwsincos (temp + pass1_increment, N*2, (double *) &sincos);
-					table[5] = sincos[0];	/* temp + pass1_increment for 2*N */
-					table[7] = sincos[1];
-					gwsincos (temp + 2 * pass1_increment, N*2, (double *) &sincos);
-					table[9] = sincos[0];	/* temp + 2 * pass1_increment for 2*N */
-					table[11] = sincos[1];
-					gwsincos (temp + 3 * pass1_increment, N*2, (double *) &sincos);
-					table[13] = sincos[0];	/* temp + 3 * pass1_increment for 2*N */
-					table[15] = sincos[1];
-
+					gwsincos1plus0123by2 (temp, pass1_increment, N*2, table);
+					gwsincos1plus0123by2 (temp + upper_sse2_word, pass1_increment, N*2, table+1);
 					table += 16;
 				}
 			}
@@ -1211,58 +1146,10 @@ double *r4delay_build_pass1_table (
 /* combined with the delayed group multipliers. */
 
 					temp = (group + i) * (bigN / N);
-					gwsincos (actemp + ktemp, bigN, (double *) &sincos);
-					table[0] = sincos[0];	/* premult,delay and temp*0 */
-					table[2] = sincos[1];
-					gwsincos (actemp + ktemp + temp, bigN, (double *) &sincos);
-					table[4] = sincos[0];	/* premult,delay and temp*1 */
-					table[6] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 2, bigN, (double *) &sincos);
-					table[8] = sincos[0];	/* premult,delay and temp*2 */
-					table[10] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 3, bigN, (double *) &sincos);
-					table[12] = sincos[0];	/* premult,delay and temp*3 */
-					table[14] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 4, bigN, (double *) &sincos);
-					table[16] = sincos[0];	/* premult,delay and temp*4 */
-					table[18] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 5, bigN, (double *) &sincos);
-					table[20] = sincos[0];	/* premult,delay and temp*5 */
-					table[22] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 6, bigN, (double *) &sincos);
-					table[24] = sincos[0];	/* premult,delay and temp*6 */
-					table[26] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 7, bigN, (double *) &sincos);
-					table[28] = sincos[0];	/* premult,delay and temp*7 */
-					table[30] = sincos[1];
-
+					gwsincos1plus01234567by2 (actemp + ktemp, temp, bigN, table); /* premult,delay and temp*0-7 */
 					temp = (group + i + upper_sse2_word) * (bigN / N);
 					if (gwdata->ALL_COMPLEX_FFT) actemp += upper_sse2_word;
-					gwsincos (actemp + ktemp, bigN, (double *) &sincos);
-					table[1] = sincos[0];	/* premult,delay and temp*0 */
-					table[3] = sincos[1];
-					gwsincos (actemp + ktemp + temp, bigN, (double *) &sincos);
-					table[5] = sincos[0];	/* premult,delay and temp*1 */
-					table[7] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 2, bigN, (double *) &sincos);
-					table[9] = sincos[0];	/* premult,delay and temp*2 */
-					table[11] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 3, bigN, (double *) &sincos);
-					table[13] = sincos[0];	/* premult,delay and temp*3 */
-					table[15] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 4, bigN, (double *) &sincos);
-					table[17] = sincos[0];	/* premult,delay and temp*4 */
-					table[19] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 5, bigN, (double *) &sincos);
-					table[21] = sincos[0];	/* premult,delay and temp*5 */
-					table[23] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 6, bigN, (double *) &sincos);
-					table[25] = sincos[0];	/* premult,delay and temp*6 */
-					table[27] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 7, bigN, (double *) &sincos);
-					table[29] = sincos[0];	/* premult,delay and temp*7 */
-					table[31] = sincos[1];
-
+					gwsincos1plus01234567by2 (actemp + ktemp, temp, bigN, table+1);
 					table += 32;
 				}
 			}
@@ -1352,34 +1239,10 @@ double *r4delay_build_pass1_table (
 /* combined with the delayed group multipliers. */
 
 					temp = (group + i) * (bigN / N);
-					gwsincos (actemp + ktemp, bigN, (double *) &sincos);
-					table[0] = sincos[0];	/* premult,delay and temp*0 */
-					table[2] = sincos[1];
-					gwsincos (actemp + ktemp + temp, bigN, (double *) &sincos);
-					table[4] = sincos[0];	/* premult,delay and temp*1 */
-					table[6] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 2, bigN, (double *) &sincos);
-					table[8] = sincos[0];	/* premult,delay and temp*2 */
-					table[10] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 3, bigN, (double *) &sincos);
-					table[12] = sincos[0];	/* premult,delay and temp*3 */
-					table[14] = sincos[1];
-
+					gwsincos1plus0123by2 (actemp + ktemp, temp, bigN, table); /* premult,delay and temp*0-3 */
 					temp = (group + i + upper_sse2_word) * (bigN / N);
 					if (gwdata->ALL_COMPLEX_FFT) actemp += upper_sse2_word;
-					gwsincos (actemp + ktemp, bigN, (double *) &sincos);
-					table[1] = sincos[0];	/* premult,delay and temp*0 */
-					table[3] = sincos[1];
-					gwsincos (actemp + ktemp + temp, bigN, (double *) &sincos);
-					table[5] = sincos[0];	/* premult,delay and temp*1 */
-					table[7] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 2, bigN, (double *) &sincos);
-					table[9] = sincos[0];	/* premult,delay and temp*2 */
-					table[11] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 3, bigN, (double *) &sincos);
-					table[13] = sincos[0];	/* premult,delay and temp*3 */
-					table[15] = sincos[1];
-
+					gwsincos1plus0123by2 (actemp + ktemp, temp, bigN, table+1);
 					table += 16;
 				}
 			}
@@ -1465,15 +1328,8 @@ double *r4delay_build_pass1_table (
 				for (j = 0; j < N / 3; j += pass1_increment) {
 					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
-						gwsincos (temp, N*2, (double *) &sincos);
-						table[0] = sincos[0];	/* temp */
-						table[2] = sincos[1];
-
-						temp += upper_sse2_word;
-						gwsincos (temp, N*2, (double *) &sincos);
-						table[1] = sincos[0];	/* temp */
-						table[3] = sincos[1];
-
+						gwsincos1by2 (temp, N*2, table);
+						gwsincos1by2 (temp + upper_sse2_word, N*2, table+1);
 						table += 4;
 					}
 				}
@@ -1484,14 +1340,8 @@ double *r4delay_build_pass1_table (
 			for (j = 0; j < N / 3; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
-					gwsincos (temp, N, (double *) &sincos);
-					table[0] = sincos[0];	/* temp */
-					table[2] = sincos[1];
-
-					gwsincos (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[0];	/* temp */
-					table[3] = sincos[1];
-
+					gwsincos1by2 (temp, N, table);
+					gwsincos1by2 (temp + upper_sse2_word, N, table+1);
 					table += 4;
 				}
 			}
@@ -1520,7 +1370,6 @@ double *r4delay_build_fixed_pass1_table (
 	double	*table)		/* Pointer to the table to fill in */
 {
 	unsigned long pass1_increment, upper_sse2_word, pass1_size, i, j, N;
-	double	sincos[6];
 
 /* Initialize some needed constants */
 
@@ -1535,12 +1384,8 @@ double *r4delay_build_fixed_pass1_table (
 		if (pass1_size % 20 == 0) {
 			for (j = 0; j < N / 20; j += pass1_increment) {
 				for (i = 1; i <= 9; i++) {	/* Create 9 twiddle factors */
-					gwsincos (i * j, N, (double *) &sincos);
-					table[0] = sincos[0];	/* i * j */
-					table[2] = sincos[1];
-					gwsincos (i * (j + upper_sse2_word), N, (double *) &sincos);
-					table[1] = sincos[0];
-					table[3] = sincos[1];
+					gwsincos1by2 (i * j, N, table);
+					gwsincos1by2 (i * (j + upper_sse2_word), N, table+1);
 					table += 4;
 				}
 			}
@@ -1549,12 +1394,8 @@ double *r4delay_build_fixed_pass1_table (
 		else if (pass1_size % 28 == 0) {
 			for (j = 0; j < N / 28; j += pass1_increment) {
 				for (i = 1; i <= 13; i++) {	/* Create 13 twiddle factors */
-					gwsincos (i * j, N, (double *) &sincos);
-					table[0] = sincos[0];	/* i * j */
-					table[2] = sincos[1];
-					gwsincos (i * (j + upper_sse2_word), N, (double *) &sincos);
-					table[1] = sincos[0];
-					table[3] = sincos[1];
+					gwsincos1by2 (i * j, N, table);
+					gwsincos1by2 (i * (j + upper_sse2_word), N, table+1);
 					table += 4;
 				}
 			}
@@ -1630,7 +1471,6 @@ double *r4dwpn_build_pass1_table (
 	unsigned long pass1_size, pass1_increment, delay_count;
 	unsigned long group, i, j, k, N, temp, upper_sse2_word;
 	int	pow2_count;
-	double	sincos[6];
 
 /* Initialize some needed constants */
 
@@ -1701,17 +1541,8 @@ double *r4dwpn_build_pass1_table (
 			if (!gwdata->ALL_COMPLEX_FFT) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + i);
-					gwsincos1by2 (temp, N*2, table);
-					gwsincos1by2 (temp + pass1_increment, N*2, table+4);
-					gwsincos1by2 (temp + 2 * pass1_increment, N*2, table+8);
-					gwsincos1by2 (temp + 3 * pass1_increment, N*2, table+12);
-
-					temp += upper_sse2_word;
-					gwsincos1by2 (temp, N*2, table+1);
-					gwsincos1by2 (temp + pass1_increment, N*2, table+5);
-					gwsincos1by2 (temp + 2 * pass1_increment, N*2, table+9);
-					gwsincos1by2 (temp + 3 * pass1_increment, N*2, table+13);
-
+					gwsincos1plus0123by2 (temp, pass1_increment, N*2, table);
+					gwsincos1plus0123by2 (temp + upper_sse2_word, pass1_increment, N*2, table+1);
 					table += 16;
 				}
 			}
@@ -1780,58 +1611,10 @@ double *r4dwpn_build_pass1_table (
 /* combined with the delayed group multipliers. */
 
 					temp = (group + i) * (bigN / N);
-					gwsincos (actemp + ktemp, bigN, (double *) &sincos);
-					table[0] = sincos[0];	/* premult,delay and temp*0 */
-					table[2] = sincos[1];
-					gwsincos (actemp + ktemp + temp, bigN, (double *) &sincos);
-					table[4] = sincos[0];	/* premult,delay and temp*1 */
-					table[6] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 2, bigN, (double *) &sincos);
-					table[8] = sincos[0];	/* premult,delay and temp*2 */
-					table[10] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 3, bigN, (double *) &sincos);
-					table[12] = sincos[0];	/* premult,delay and temp*3 */
-					table[14] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 4, bigN, (double *) &sincos);
-					table[16] = sincos[0];	/* premult,delay and temp*4 */
-					table[18] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 5, bigN, (double *) &sincos);
-					table[20] = sincos[0];	/* premult,delay and temp*5 */
-					table[22] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 6, bigN, (double *) &sincos);
-					table[24] = sincos[0];	/* premult,delay and temp*6 */
-					table[26] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 7, bigN, (double *) &sincos);
-					table[28] = sincos[0];	/* premult,delay and temp*7 */
-					table[30] = sincos[1];
-
+					gwsincos1plus01234567by2 (actemp + ktemp, temp, bigN, table); /* premult,delay and temp*0-7 */
 					temp = (group + i + upper_sse2_word) * (bigN / N);
 					if (gwdata->ALL_COMPLEX_FFT) actemp += upper_sse2_word;
-					gwsincos (actemp + ktemp, bigN, (double *) &sincos);
-					table[1] = sincos[0];	/* premult,delay and temp*0 */
-					table[3] = sincos[1];
-					gwsincos (actemp + ktemp + temp, bigN, (double *) &sincos);
-					table[5] = sincos[0];	/* premult,delay and temp*1 */
-					table[7] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 2, bigN, (double *) &sincos);
-					table[9] = sincos[0];	/* premult,delay and temp*2 */
-					table[11] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 3, bigN, (double *) &sincos);
-					table[13] = sincos[0];	/* premult,delay and temp*3 */
-					table[15] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 4, bigN, (double *) &sincos);
-					table[17] = sincos[0];	/* premult,delay and temp*4 */
-					table[19] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 5, bigN, (double *) &sincos);
-					table[21] = sincos[0];	/* premult,delay and temp*5 */
-					table[23] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 6, bigN, (double *) &sincos);
-					table[25] = sincos[0];	/* premult,delay and temp*6 */
-					table[27] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 7, bigN, (double *) &sincos);
-					table[29] = sincos[0];	/* premult,delay and temp*7 */
-					table[31] = sincos[1];
-
+					gwsincos1plus01234567by2 (actemp + ktemp, temp, bigN, table+1); /* premult,delay and temp*0-7 */
 					table += 32;
 				}
 			}
@@ -1921,34 +1704,10 @@ double *r4dwpn_build_pass1_table (
 /* combined with the delayed group multipliers. */
 
 					temp = (group + i) * (bigN / N);
-					gwsincos (actemp + ktemp, bigN, (double *) &sincos);
-					table[0] = sincos[0];	/* premult,delay and temp*0 */
-					table[2] = sincos[1];
-					gwsincos (actemp + ktemp + temp, bigN, (double *) &sincos);
-					table[4] = sincos[0];	/* premult,delay and temp*1 */
-					table[6] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 2, bigN, (double *) &sincos);
-					table[8] = sincos[0];	/* premult,delay and temp*2 */
-					table[10] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 3, bigN, (double *) &sincos);
-					table[12] = sincos[0];	/* premult,delay and temp*3 */
-					table[14] = sincos[1];
-
+					gwsincos1plus0123by2 (actemp + ktemp, temp, bigN, table); /* premult,delay and temp*0-3 */
 					temp = (group + i + upper_sse2_word) * (bigN / N);
 					if (gwdata->ALL_COMPLEX_FFT) actemp += upper_sse2_word;
-					gwsincos (actemp + ktemp, bigN, (double *) &sincos);
-					table[1] = sincos[0];	/* premult,delay and temp*0 */
-					table[3] = sincos[1];
-					gwsincos (actemp + ktemp + temp, bigN, (double *) &sincos);
-					table[5] = sincos[0];	/* premult,delay and temp*1 */
-					table[7] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 2, bigN, (double *) &sincos);
-					table[9] = sincos[0];	/* premult,delay and temp*2 */
-					table[11] = sincos[1];
-					gwsincos (actemp + ktemp + temp * 3, bigN, (double *) &sincos);
-					table[13] = sincos[0];	/* premult,delay and temp*3 */
-					table[15] = sincos[1];
-
+					gwsincos1plus0123by2 (actemp + ktemp, temp, bigN, table+1);
 					table += 16;
 				}
 			}

@@ -401,6 +401,124 @@ void gwsincos125by2 (
 }
 
 
+extern "C"
+void gwsincos1plus0123by2 (
+	unsigned long x,
+	unsigned long inc,
+	unsigned long N,
+	double	*results)
+{
+	dd_real twopi_over_N, sineinc, cosineinc, sine0, cosine0, sine1, cosine1, sine2, cosine2, sine3, cosine3;
+
+	x86_FIX
+	twopi_over_N = dd_real::_2pi / (double) N;
+	sincos (twopi_over_N * (double) x, sine0, cosine0);
+	sincos (twopi_over_N * (double) inc, sineinc, cosineinc);
+
+	sine1 = sine0 * cosineinc + cosine0 * sineinc;
+	cosine1 = cosine0 * cosineinc - sine0 * sineinc;
+
+	sine2 = sine1 * cosineinc + cosine1 * sineinc;
+	cosine2 = cosine1 * cosineinc - sine1 * sineinc;
+
+	sine3 = sine2 * cosineinc + cosine2 * sineinc;
+	cosine3 = cosine2 * cosineinc - sine2 * sineinc;
+
+	results[0] = sine0;
+	results[0] += epsilon;		/* Protect against divide by zero */
+	results[2] = cosine0 / results[0];
+
+	results[4] = sine1;
+	results[4] += epsilon;		/* Protect against divide by zero */
+	results[6] = cosine1 / results[4];
+
+	results[8] = sine2;
+	results[8] += epsilon;		/* Protect against divide by zero */
+	results[10] = cosine2 / results[8];
+
+	results[12] = sine3;
+	results[12] += epsilon;		/* Protect against divide by zero */
+	results[14] = cosine3 / results[12];
+	END_x86_FIX
+}
+
+extern "C"
+void gwsincos1plus01234567by2 (
+	unsigned long x,
+	unsigned long inc,
+	unsigned long N,
+	double	*results)
+{
+	dd_real twopi_over_N, sineinc, cosineinc, sine0, cosine0, sine1, cosine1, sine2, cosine2, sine3, cosine3;
+	dd_real sine4, cosine4, sine5, cosine5, sine6, cosine6, sine7, cosine7;
+
+	x86_FIX
+	twopi_over_N = dd_real::_2pi / (double) N;
+	sincos (twopi_over_N * (double) inc, sineinc, cosineinc);
+
+	if (x == 0) {
+		sine0 = 0.0;
+		cosine0 = 1.0;
+		sine1 = sineinc;
+		cosine1 = cosineinc;
+	} else {
+		sincos (twopi_over_N * (double) x, sine0, cosine0);
+		sine1 = sine0 * cosineinc + cosine0 * sineinc;
+		cosine1 = cosine0 * cosineinc - sine0 * sineinc;
+	}
+
+	sine2 = sine1 * cosineinc + cosine1 * sineinc;
+	cosine2 = cosine1 * cosineinc - sine1 * sineinc;
+
+	sine3 = sine2 * cosineinc + cosine2 * sineinc;
+	cosine3 = cosine2 * cosineinc - sine2 * sineinc;
+
+	sine4 = sine3 * cosineinc + cosine3 * sineinc;
+	cosine4 = cosine3 * cosineinc - sine3 * sineinc;
+
+	sine5 = sine4 * cosineinc + cosine4 * sineinc;
+	cosine5 = cosine4 * cosineinc - sine4 * sineinc;
+
+	sine6 = sine5 * cosineinc + cosine5 * sineinc;
+	cosine6 = cosine5 * cosineinc - sine5 * sineinc;
+
+	sine7 = sine6 * cosineinc + cosine6 * sineinc;
+	cosine7 = cosine6 * cosineinc - sine6 * sineinc;
+
+	results[0] = sine0;
+	results[0] += epsilon;		/* Protect against divide by zero */
+	results[2] = cosine0 / results[0];
+
+	results[4] = sine1;
+	results[4] += epsilon;		/* Protect against divide by zero */
+	results[6] = cosine1 / results[4];
+
+	results[8] = sine2;
+	results[8] += epsilon;		/* Protect against divide by zero */
+	results[10] = cosine2 / results[8];
+
+	results[12] = sine3;
+	results[12] += epsilon;		/* Protect against divide by zero */
+	results[14] = cosine3 / results[12];
+
+	results[16] = sine4;
+	results[16] += epsilon;		/* Protect against divide by zero */
+	results[18] = cosine4 / results[16];
+
+	results[20] = sine5;
+	results[20] += epsilon;		/* Protect against divide by zero */
+	results[22] = cosine5 / results[20];
+
+	results[24] = sine6;
+	results[24] += epsilon;		/* Protect against divide by zero */
+	results[26] = cosine6 / results[24];
+
+	results[28] = sine7;
+	results[28] += epsilon;		/* Protect against divide by zero */
+	results[30] = cosine7 / results[28];
+	END_x86_FIX
+}
+
 //
 // Utility routines to compute fft weights
 //

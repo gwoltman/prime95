@@ -32,6 +32,8 @@ void gwsincos12by2 (unsigned long, unsigned long, double *);
 void gwsincos13by2 (unsigned long, unsigned long, double *);
 void gwsincos15by2 (unsigned long, unsigned long, double *);
 void gwsincos125by2 (unsigned long, unsigned long, double *);
+void gwsincos1plus0123by2 (unsigned long, unsigned long, unsigned long, double *);
+void gwsincos1plus01234567by2 (unsigned long, unsigned long, unsigned long, double *);
 void *gwdbldbl_data_alloc (void);
 void gwfft_weight_setup (void *, int, double, unsigned long, unsigned long, signed long, unsigned long);
 double gwfft_weight (void *, unsigned long);
