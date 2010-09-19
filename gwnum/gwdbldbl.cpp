@@ -70,6 +70,10 @@ struct gwdbldbl_constants {
 	unsigned long last_inv_sloppy_j;
 	double	last_inv_sloppy_result;
 	double	fast_inv_sloppy_multiplier;
+	double	last_partial_sloppy_power[2];
+	double	last_partial_sloppy_result[2];
+	double	last_partial_inv_sloppy_power[2];
+	double	last_partial_inv_sloppy_result[2];
 };
 
 /* Macro routines below use to type the cast untyped data pointer */
@@ -114,7 +118,7 @@ void gwasm_constants (
 #define P434			asm_values[23]
 
 /* Do some initial setup */
-	
+
 	x86_FIX
 
 /* Initialize the five_reals sine-cosine data. */
@@ -388,6 +392,9 @@ void gwfft_weight_setup (
 	dd_data->last_inv_sloppy_j = 0;
 	dd_data->last_inv_sloppy_result = 1.0;
 	dd_data->fast_inv_sloppy_multiplier = gwfft_weight_inverse (dd_data, 1);
+
+	dd_data->last_partial_sloppy_power[0] = dd_data->last_partial_sloppy_power[1] = 999.0;
+	dd_data->last_partial_inv_sloppy_power[0] = dd_data->last_partial_inv_sloppy_power[1] = 999.0;
 	END_x86_FIX
 }
 
@@ -801,18 +808,18 @@ double gwfft_partial_weight (
 	unsigned long j,
 	unsigned long col)
 {
-	dd_real temp, bpower, col_bpower, result;
+	dd_real temp, j_bpower, col_bpower, result;
 
 	x86_FIX
 	temp = (double) j * dd_data->gw__num_b_per_word;
-	bpower = gwceil (temp) - temp;
-	if (! dd_data->gw__c_is_one) bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) j;
+	j_bpower = gwceil (temp) - temp;
+	if (! dd_data->gw__c_is_one) j_bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) j;
 
 	temp = (double) col * dd_data->gw__num_b_per_word;
 	col_bpower = gwceil (temp) - temp;
 	if (! dd_data->gw__c_is_one) col_bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) col;
 
-	result = exp (dd_data->gw__logb * (bpower - col_bpower));
+	result = exp (dd_data->gw__logb * (j_bpower - col_bpower));
 	END_x86_FIX
 	return (double (result));
 }
@@ -825,18 +832,28 @@ double gwfft_partial_weight_sloppy (
 	unsigned long j,
 	unsigned long col)
 {
-	dd_real temp, bpower, col_bpower;
+	dd_real temp, j_bpower, col_bpower;
+	double	bpower, result;
 
 	x86_FIX
 	temp = (double) j * dd_data->gw__num_b_per_word;
-	bpower = gwceil (temp) - temp;
-	if (! dd_data->gw__c_is_one) bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) j;
+	j_bpower = gwceil (temp) - temp;
+	if (! dd_data->gw__c_is_one) j_bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) j;
 
 	temp = (double) col * dd_data->gw__num_b_per_word;
 	col_bpower = gwceil (temp) - temp;
 	if (! dd_data->gw__c_is_one) col_bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) col;
 	END_x86_FIX
-	return (pow (dd_data->gwdbl__b, double (bpower - col_bpower)));
+
+	bpower = double (j_bpower - col_bpower);
+	if (bpower == dd_data->last_partial_sloppy_power[0]) return (dd_data->last_partial_sloppy_result[0]);
+	if (bpower == dd_data->last_partial_sloppy_power[1]) return (dd_data->last_partial_sloppy_result[1]);
+	result = pow (dd_data->gwdbl__b, bpower);
+	dd_data->last_partial_sloppy_power[0] = dd_data->last_partial_sloppy_power[1];
+	dd_data->last_partial_sloppy_result[0] = dd_data->last_partial_sloppy_result[1];
+	dd_data->last_partial_sloppy_power[1] = bpower;
+	dd_data->last_partial_sloppy_result[1] = result;
+	return (result);
 }
 
 // Compute the inverse of the fft partial weight
@@ -847,18 +864,18 @@ double gwfft_partial_weight_inverse (
 	unsigned long j,
 	unsigned long col)
 {
-	dd_real temp, bpower, col_bpower, result;
+	dd_real temp, j_bpower, col_bpower, result;
 
 	x86_FIX
 	temp = (double) j * dd_data->gw__num_b_per_word;
-	bpower = gwceil (temp) - temp;
-	if (! dd_data->gw__c_is_one) bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) j;
+	j_bpower = gwceil (temp) - temp;
+	if (! dd_data->gw__c_is_one) j_bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) j;
 
 	temp = (double) col * dd_data->gw__num_b_per_word;
 	col_bpower = gwceil (temp) - temp;
 	if (! dd_data->gw__c_is_one) col_bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) col;
 
-	result = exp (dd_data->gw__logb * (col_bpower - bpower));
+	result = exp (dd_data->gw__logb * (col_bpower - j_bpower));
 	END_x86_FIX
 	return (double (result));
 }
@@ -873,19 +890,19 @@ double gwfft_partial_weight_inverse_sloppy (
 	unsigned long j,
 	unsigned long col)
 {
-	double	temp, bpower, col_bpower;
+	double	temp, j_bpower, col_bpower, bpower, result;
 
 	temp = (double) j * dd_data->gwdbl__num_b_per_word;
-	bpower = ceil (temp) - temp;
-	if (bpower < 0.001 || bpower > 0.999) {
+	j_bpower = ceil (temp) - temp;
+	if (j_bpower < 0.001 || j_bpower > 0.999) {
 		dd_real	dd_temp, dd_bpower;
 		x86_FIX
 		dd_temp = (double) j * dd_data->gw__num_b_per_word;
 		dd_bpower = gwceil (dd_temp) - dd_temp;
-		bpower = double (dd_bpower);
+		j_bpower = double (dd_bpower);
 		END_x86_FIX
 	}
-	if (! dd_data->gw__c_is_one) bpower += dd_data->gwdbl__logb_abs_c_div_fftlen * (double) j;
+	if (! dd_data->gw__c_is_one) j_bpower += dd_data->gwdbl__logb_abs_c_div_fftlen * (double) j;
 
 	temp = (double) col * dd_data->gwdbl__num_b_per_word;
 	col_bpower = ceil (temp) - temp;
@@ -899,6 +916,13 @@ double gwfft_partial_weight_inverse_sloppy (
 	}
 	if (! dd_data->gw__c_is_one) col_bpower += dd_data->gwdbl__logb_abs_c_div_fftlen * (double) col;
 
-	return (pow (dd_data->gwdbl__b, col_bpower - bpower));
+	bpower = col_bpower - j_bpower;
+	if (bpower == dd_data->last_partial_inv_sloppy_power[0]) return (dd_data->last_partial_inv_sloppy_result[0]);
+	if (bpower == dd_data->last_partial_inv_sloppy_power[1]) return (dd_data->last_partial_inv_sloppy_result[1]);
+	result = pow (dd_data->gwdbl__b, bpower);
+	dd_data->last_partial_inv_sloppy_power[0] = dd_data->last_partial_inv_sloppy_power[1];
+	dd_data->last_partial_inv_sloppy_result[0] = dd_data->last_partial_inv_sloppy_result[1];
+	dd_data->last_partial_inv_sloppy_power[1] = bpower;
+	dd_data->last_partial_inv_sloppy_result[1] = result;
+	return (result);
 }
-
