@@ -572,7 +572,6 @@ double *r4_build_pass1_table (
 	unsigned long pass1_size, pass1_increment, first_levels_size;
 	unsigned long group, i, j, k, N, temp, upper_sse2_word;
 	int	pow2_count;
-	double	sincos[6];
 
 /* Initialize some needed constants */
 
@@ -625,32 +624,16 @@ double *r4_build_pass1_table (
 			if (!gwdata->ALL_COMPLEX_FFT) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + i);
-					gwsincos (temp, N*2, (double *) &sincos);
-					table[0] = sincos[0];	/* temp for 2*N */
-					table[2] = sincos[1];
-					gwsincos (temp + pass1_increment, N*2, (double *) &sincos);
-					table[4] = sincos[0];	/* temp + pass1_increment for 2*N */
-					table[6] = sincos[1];
-					gwsincos (temp + 2 * pass1_increment, N*2, (double *) &sincos);
-					table[8] = sincos[0];	/* temp + 2 * pass1_increment for 2*N */
-					table[10] = sincos[1];
-					gwsincos (temp + 3 * pass1_increment, N*2, (double *) &sincos);
-					table[12] = sincos[0];	/* temp + 3 * pass1_increment for 2*N */
-					table[14] = sincos[1];
+					gwsincos1by2 (temp, N*2, table);
+					gwsincos1by2 (temp + pass1_increment, N*2, table+4);
+					gwsincos1by2 (temp + 2 * pass1_increment, N*2, table+8);
+					gwsincos1by2 (temp + 3 * pass1_increment, N*2, table+12);
 
 					temp += upper_sse2_word;
-					gwsincos (temp, N*2, (double *) &sincos);
-					table[1] = sincos[0];	/* temp for 2*N */
-					table[3] = sincos[1];
-					gwsincos (temp + pass1_increment, N*2, (double *) &sincos);
-					table[5] = sincos[0];	/* temp + pass1_increment for 2*N */
-					table[7] = sincos[1];
-					gwsincos (temp + 2 * pass1_increment, N*2, (double *) &sincos);
-					table[9] = sincos[0];	/* temp + 2 * pass1_increment for 2*N */
-					table[11] = sincos[1];
-					gwsincos (temp + 3 * pass1_increment, N*2, (double *) &sincos);
-					table[13] = sincos[0];	/* temp + 3 * pass1_increment for 2*N */
-					table[15] = sincos[1];
+					gwsincos1by2 (temp, N*2, table+1);
+					gwsincos1by2 (temp + pass1_increment, N*2, table+5);
+					gwsincos1by2 (temp + 2 * pass1_increment, N*2, table+9);
+					gwsincos1by2 (temp + 3 * pass1_increment, N*2, table+13);
 
 					table += 16;
 				}
@@ -663,56 +646,24 @@ double *r4_build_pass1_table (
 /* We now calculate the standard sin/cos twiddle factors (temp*0,1,2,3,4,5,6,7 roots of N) */
 
 				temp = group + i;
-				gwsincos (0, N, (double *) &sincos);
-				table[0] = sincos[0];	/* temp*0 */
-				table[2] = sincos[1];
-				gwsincos (temp, N, (double *) &sincos);
-				table[4] = sincos[0];	/* temp*1 */
-				table[6] = sincos[1];
-				gwsincos (temp * 2, N, (double *) &sincos);
-				table[8] = sincos[0];	/* temp*2 */
-				table[10] = sincos[1];
-				gwsincos (temp * 3, N, (double *) &sincos);
-				table[12] = sincos[0];	/* temp*3 */
-				table[14] = sincos[1];
-				gwsincos (temp * 4, N, (double *) &sincos);
-				table[16] = sincos[0];	/* temp*4 */
-				table[18] = sincos[1];
-				gwsincos (temp * 5, N, (double *) &sincos);
-				table[20] = sincos[0];	/* temp*5 */
-				table[22] = sincos[1];
-				gwsincos (temp * 6, N, (double *) &sincos);
-				table[24] = sincos[0];	/* temp*6 */
-				table[26] = sincos[1];
-				gwsincos (temp * 7, N, (double *) &sincos);
-				table[28] = sincos[0];	/* temp*7 */
-				table[30] = sincos[1];
+				gwsincos1by2 (0, N, table); 			/* OPT - These are constants! */
+				gwsincos1by2 (temp, N, table+4);
+				gwsincos1by2 (temp * 2, N, table+8);
+				gwsincos1by2 (temp * 3, N, table+12);
+				gwsincos1by2 (temp * 4, N, table+16);
+				gwsincos1by2 (temp * 5, N, table+20);
+				gwsincos1by2 (temp * 6, N, table+24);
+				gwsincos1by2 (temp * 7, N, table+28);
 
-				temp = group + i + upper_sse2_word;
-				gwsincos (0, N, (double *) &sincos);
-				table[1] = sincos[0];	/* temp*0 */
-				table[3] = sincos[1];
-				gwsincos (temp, N, (double *) &sincos);
-				table[5] = sincos[0];	/* temp*1 */
-				table[7] = sincos[1];
-				gwsincos (temp * 2, N, (double *) &sincos);
-				table[9] = sincos[0];	/* temp*2 */
-				table[11] = sincos[1];
-				gwsincos (temp * 3, N, (double *) &sincos);
-				table[13] = sincos[0];	/* temp*3 */
-				table[15] = sincos[1];
-				gwsincos (temp * 4, N, (double *) &sincos);
-				table[17] = sincos[0];	/* temp*4 */
-				table[19] = sincos[1];
-				gwsincos (temp * 5, N, (double *) &sincos);
-				table[21] = sincos[0];	/* temp*5 */
-				table[23] = sincos[1];
-				gwsincos (temp * 6, N, (double *) &sincos);
-				table[25] = sincos[0];	/* temp*6 */
-				table[27] = sincos[1];
-				gwsincos (temp * 7, N, (double *) &sincos);
-				table[29] = sincos[0];	/* temp*7 */
-				table[31] = sincos[1];
+				temp += upper_sse2_word;
+				gwsincos1by2 (0, N, table+1); 			/* OPT - These are constants! */
+				gwsincos1by2 (temp, N, table+5);
+				gwsincos1by2 (temp * 2, N, table+9);
+				gwsincos1by2 (temp * 3, N, table+13);
+				gwsincos1by2 (temp * 4, N, table+17);
+				gwsincos1by2 (temp * 5, N, table+21);
+				gwsincos1by2 (temp * 6, N, table+25);
+				gwsincos1by2 (temp * 7, N, table+29);
 
 				table += 32;
 			}
@@ -732,19 +683,8 @@ double *r4_build_pass1_table (
 				for (j = 0; j < N*2 / 8; j += pass1_increment) {
 					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
-						gwsincos5 (temp, N*2, (double *) &sincos);
-						table[0] = sincos[0];	/* temp */
-						table[2] = sincos[1];
-						table[4] = sincos[2];	/* 5 * temp */
-						table[6] = sincos[3];
-
-						temp += upper_sse2_word;
-						gwsincos5 (temp, N*2, (double *) &sincos);
-						table[1] = sincos[0];	/* temp */
-						table[3] = sincos[1];
-						table[5] = sincos[2];	/* 5 * temp */
-						table[7] = sincos[3];
-
+						gwsincos15by2 (temp, N*2, table);
+						gwsincos15by2 (temp + upper_sse2_word, N*2, table+1);
 						table += 8;
 					}
 				}
@@ -755,18 +695,8 @@ double *r4_build_pass1_table (
 			for (j = 0; j < N / 4; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
-					gwsincos2 (temp, N, (double *) &sincos);
-					table[0] = sincos[0];	/* temp */
-					table[2] = sincos[1];
-					table[4] = sincos[2];	/* 2 * temp */
-					table[6] = sincos[3];
-
-					gwsincos2 (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[0];	/* temp */
-					table[3] = sincos[1];
-					table[5] = sincos[2];	/* 2 * temp */
-					table[7] = sincos[3];
-
+					gwsincos12by2 (temp, N, table);
+					gwsincos12by2 (temp + upper_sse2_word, N, table+1);
 					table += 8;
 				}
 			}
@@ -786,19 +716,8 @@ double *r4_build_pass1_table (
 				for (j = 0; j < N / 5; j += pass1_increment) {
 					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
-						gwsincos3 (temp, N*2, (double *) &sincos);
-						table[0] = sincos[0];	/* temp */
-						table[2] = sincos[1];
-						table[4] = sincos[4];	/* 3 * temp */
-						table[6] = sincos[5];
-
-						temp += upper_sse2_word;
-						gwsincos3 (temp, N*2, (double *) &sincos);
-						table[1] = sincos[0];	/* temp */
-						table[3] = sincos[1];
-						table[5] = sincos[4];	/* 3 * temp */
-						table[7] = sincos[5];
-
+						gwsincos13by2 (temp, N*2, table);
+						gwsincos13by2 (temp + upper_sse2_word, N*2, table+1);
 						table += 8;
 					}
 				}
@@ -809,18 +728,8 @@ double *r4_build_pass1_table (
 			for (j = 0; j < N / 5; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
-					gwsincos2 (temp, N, (double *) &sincos);
-					table[0] = sincos[0];	/* temp */
-					table[2] = sincos[1];
-					table[4] = sincos[2];	/* 2 * temp */
-					table[6] = sincos[3];
-
-					gwsincos2 (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[0];	/* temp */
-					table[3] = sincos[1];
-					table[5] = sincos[2];	/* 2 * temp */
-					table[7] = sincos[3];
-
+					gwsincos12by2 (temp, N, table);
+					gwsincos12by2 (temp + upper_sse2_word, N, table+1);
 					table += 8;
 				}
 			}
@@ -840,15 +749,8 @@ double *r4_build_pass1_table (
 				for (j = 0; j < N / 3; j += pass1_increment) {
 					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
-						gwsincos (temp, N*2, (double *) &sincos);
-						table[0] = sincos[0];	/* temp */
-						table[2] = sincos[1];
-
-						temp += upper_sse2_word;
-						gwsincos (temp, N*2, (double *) &sincos);
-						table[1] = sincos[0];	/* temp */
-						table[3] = sincos[1];
-
+						gwsincos1by2 (temp, N*2, table);
+						gwsincos1by2 (temp + upper_sse2_word, N*2, table+1);
 						table += 4;
 					}
 				}
@@ -859,14 +761,8 @@ double *r4_build_pass1_table (
 			for (j = 0; j < N / 3; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
-					gwsincos (temp, N, (double *) &sincos);
-					table[0] = sincos[0];	/* temp */
-					table[2] = sincos[1];
-
-					gwsincos (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[0];	/* temp */
-					table[3] = sincos[1];
-
+					gwsincos1by2 (temp, N, table);
+					gwsincos1by2 (temp + upper_sse2_word, N, table+1);
 					table += 4;
 				}
 			}
@@ -884,12 +780,8 @@ double *r4_build_pass1_table (
 					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
 						for (k = 1; k <= 9; k++) {	/* Create 9 twiddle factors */
-							gwsincos (k * temp, N, (double *) &sincos);
-							table[0] = sincos[0];
-							table[2] = sincos[1];
-							gwsincos (k * (temp + upper_sse2_word), N, (double *) &sincos);
-							table[1] = sincos[0];
-							table[3] = sincos[1];
+							gwsincos1by2 (k * temp, N, table);
+							gwsincos1by2 (k * (temp + upper_sse2_word), N, table+1);
 							table += 4;
 						}
 					}
@@ -900,12 +792,8 @@ double *r4_build_pass1_table (
 					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
 						for (k = 1; k <= 13; k++) {	/* Create 13 twiddle factors */
-							gwsincos (k * temp, N, (double *) &sincos);
-							table[0] = sincos[0];
-							table[2] = sincos[1];
-							gwsincos (k * (temp + upper_sse2_word), N, (double *) &sincos);
-							table[1] = sincos[0];
-							table[3] = sincos[1];
+							gwsincos1by2 (k * temp, N, table);
+							gwsincos1by2 (k * (temp + upper_sse2_word), N, table+1);
 							table += 4;
 						}
 					}
@@ -915,23 +803,8 @@ double *r4_build_pass1_table (
 				for (j = 0; j < N / 8; j += pass1_increment) {
 					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
-						gwsincos25 (temp, N, (double *) &sincos);
-						table[0] = sincos[0];	/* temp */
-						table[2] = sincos[1];
-						table[4] = sincos[2];	/* 2 * temp */
-						table[6] = sincos[3];
-						table[8] = sincos[4];	/* 5 * temp */
-						table[10] = sincos[5];
-
-						temp += upper_sse2_word;
-						gwsincos25 (temp, N, (double *) &sincos);
-						table[1] = sincos[0];	/* temp */
-						table[3] = sincos[1];
-						table[5] = sincos[2];	/* 2 * temp */
-						table[7] = sincos[3];
-						table[9] = sincos[4];	/* 5 * temp */
-						table[11] = sincos[5];
-
+						gwsincos125by2 (temp, N, table);
+						gwsincos125by2 (temp + upper_sse2_word, N, table+1);
 						table += 12;
 					}
 				}
@@ -960,32 +833,16 @@ double *r4_build_pass1_table (
 /* premultiplier was for 2N, and a root-of-minus-one-of-2N is the same as a root */
 /* unity for 4N. */
 
-					gwsincos (temp, N * 4, (double *) &sincos);
-					table[0] = sincos[0];	/* premult  */
-					table[2] = sincos[1];
-					gwsincos (5 * temp, N * 4, (double *) &sincos);
-					table[4] = sincos[0];	/* temp + premult */
-					table[6] = sincos[1];
-					gwsincos (9 * temp, N * 4, (double *) &sincos);
-					table[8] = sincos[0];	/* 2 * temp + premult */
-					table[10] = sincos[1];
-					gwsincos (13 * temp, N * 4, (double *) &sincos);
-					table[12] = sincos[0];	/* 3 * temp + premult */
-					table[14] = sincos[1];
+					gwsincos1by2 (temp, N * 4, table);		/* premult  */
+					gwsincos1by2 (5 * temp, N * 4, table+4);	/* temp + premult */
+					gwsincos1by2 (9 * temp, N * 4, table+8);	/* 2 * temp + premult */
+					gwsincos1by2 (13 * temp, N * 4, table+12);	/* 3 * temp + premult */
 
 					temp += upper_sse2_word;
-					gwsincos (temp, N * 4, (double *) &sincos);
-					table[1] = sincos[0];	/* premult  */
-					table[3] = sincos[1];
-					gwsincos (5 * temp, N * 4, (double *) &sincos);
-					table[5] = sincos[0];	/* temp + premult */
-					table[7] = sincos[1];
-					gwsincos (9 * temp, N * 4, (double *) &sincos);
-					table[9] = sincos[0];	/* 2 * temp + premult */
-					table[11] = sincos[1];
-					gwsincos (13 * temp, N * 4, (double *) &sincos);
-					table[13] = sincos[0];	/* 3 * temp + premult */
-					table[15] = sincos[1];
+					gwsincos1by2 (temp, N * 4, table+1);		/* premult  */
+					gwsincos1by2 (5 * temp, N * 4, table+5);	/* temp + premult */
+					gwsincos1by2 (9 * temp, N * 4, table+9);	/* 2 * temp + premult */
+					gwsincos1by2 (13 * temp, N * 4, table+13);	/* 3 * temp + premult */
 
 					table += 16;
 				}
@@ -1013,7 +870,6 @@ double *r4_build_pass2_complex_table (
 	double	*table)		/* Pointer to the table to fill in */
 {
 	unsigned long i, N, limit, aux_table_size;
-	double	sincos[6];
 
 /* We also build a smaller auxillary table so the final several levels aren't using */
 /* cache-unfriendly large strides to access sin/cos data.  If the last levels use */
@@ -1042,9 +898,9 @@ double *r4_build_pass2_complex_table (
 		else if (N % 5 == 0) limit = N * 2 / 5;
 		else limit = N / 3;
 		for (i = 0; i < limit; i++) {
-			gwsincos (i, N, (double *) &sincos);
-			table[1] = table[0] = sincos[0];	/* temp */
-			table[3] = table[2] = sincos[1];
+			gwsincos1by2 (i, N, table);
+			table[1] = table[0];
+			table[3] = table[2];
 			table += 4;
 		}
 	}
@@ -1057,11 +913,11 @@ double *r4_build_pass2_complex_table (
 		if (!aux_table_size ||  N / aux_table_size % 2 == 0) limit = N / 4;
 		else limit = N / 5;
 		for (i = 0; i < limit; i++) {
-			gwsincos2 (i, N, (double *) &sincos);
-			table[1] = table[0] = sincos[0];	/* temp */
-			table[3] = table[2] = sincos[1];
-			table[5] = table[4] = sincos[2];	/* 2 * temp */
-			table[7] = table[6] = sincos[3];
+			gwsincos12by2 (i, N, table);
+			table[1] = table[0];	/* temp */
+			table[3] = table[2];
+			table[5] = table[4];	/* 2 * temp */
+			table[7] = table[6];
 			table += 8;
 		}
 	}
@@ -1071,11 +927,11 @@ double *r4_build_pass2_complex_table (
 	if (aux_table_size) {
 		N = aux_table_size;
 		for (i = 0; i < N / 4; i++) {
-			gwsincos2 (i, N, (double *) &sincos);
-			table[1] = table[0] = sincos[0];	/* temp */
-			table[3] = table[2] = sincos[1];
-			table[5] = table[4] = sincos[2];	/* 2 * temp */
-			table[7] = table[6] = sincos[3];
+			gwsincos12by2 (i, N, table);
+			table[1] = table[0];	/* temp */
+			table[3] = table[2];
+			table[5] = table[4];	/* 2 * temp */
+			table[7] = table[6];
 			table += 8;
 		}
 	}
@@ -1426,19 +1282,8 @@ double *r4delay_build_pass1_table (
 			if (!gwdata->ALL_COMPLEX_FFT) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + i);
-					gwsincos5 (temp, N*2, (double *) &sincos);
-					table[0] = sincos[0];	/* temp for 2*N */
-					table[2] = sincos[1];
-					table[4] = sincos[2];	/* temp * 5 for 2*N */
-					table[6] = sincos[3];
-
-					temp += upper_sse2_word;
-					gwsincos5 (temp, N*2, (double *) &sincos);
-					table[1] = sincos[0];	/* temp for 2*N */
-					table[3] = sincos[1];
-					table[5] = sincos[2];	/* temp * 5 for 2*N */
-					table[7] = sincos[3];
-
+					gwsincos15by2 (temp, N*2, table);
+					gwsincos15by2 (temp + upper_sse2_word, N*2, table+1);
 					table += 8;
 				}
 			}
@@ -1554,19 +1399,8 @@ double *r4delay_build_pass1_table (
 				for (j = 0; j < N*2 / 8; j += pass1_increment) {
 					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
-						gwsincos5 (temp, N*2, (double *) &sincos);
-						table[0] = sincos[0];	/* temp */
-						table[2] = sincos[1];
-						table[4] = sincos[2];	/* 5 * temp */
-						table[6] = sincos[3];
-
-						temp += upper_sse2_word;
-						gwsincos5 (temp, N*2, (double *) &sincos);
-						table[1] = sincos[0];	/* temp */
-						table[3] = sincos[1];
-						table[5] = sincos[2];	/* 5 * temp */
-						table[7] = sincos[3];
-
+						gwsincos15by2 (temp, N*2, table);
+						gwsincos15by2 (temp + upper_sse2_word, N*2, table+1);
 						table += 8;
 					}
 				}
@@ -1577,18 +1411,8 @@ double *r4delay_build_pass1_table (
 			for (j = 0; j < N / 4; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
-					gwsincos2 (temp, N, (double *) &sincos);
-					table[0] = sincos[0];	/* temp */
-					table[2] = sincos[1];
-					table[4] = sincos[2];	/* 2 * temp */
-					table[6] = sincos[3];
-
-					gwsincos2 (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[0];	/* temp */
-					table[3] = sincos[1];
-					table[5] = sincos[2];	/* 2 * temp */
-					table[7] = sincos[3];
-
+					gwsincos12by2 (temp, N, table);
+					gwsincos12by2 (temp + upper_sse2_word, N, table+1);
 					table += 8;
 				}
 			}
@@ -1608,19 +1432,8 @@ double *r4delay_build_pass1_table (
 				for (j = 0; j < N / 5; j += pass1_increment) {
 					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
-						gwsincos3 (temp, N*2, (double *) &sincos);
-						table[0] = sincos[0];	/* temp */
-						table[2] = sincos[1];
-						table[4] = sincos[4];	/* 3 * temp */
-						table[6] = sincos[5];
-
-						temp += upper_sse2_word;
-						gwsincos3 (temp, N*2, (double *) &sincos);
-						table[1] = sincos[0];	/* temp */
-						table[3] = sincos[1];
-						table[5] = sincos[4];	/* 3 * temp */
-						table[7] = sincos[5];
-
+						gwsincos13by2 (temp, N*2, table);
+						gwsincos13by2 (temp + upper_sse2_word, N*2, table+1);
 						table += 8;
 					}
 				}
@@ -1631,18 +1444,8 @@ double *r4delay_build_pass1_table (
 			for (j = 0; j < N / 5; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
-					gwsincos2 (temp, N, (double *) &sincos);
-					table[0] = sincos[0];	/* temp */
-					table[2] = sincos[1];
-					table[4] = sincos[2];	/* 2 * temp */
-					table[6] = sincos[3];
-
-					gwsincos2 (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[0];	/* temp */
-					table[3] = sincos[1];
-					table[5] = sincos[2];	/* 2 * temp */
-					table[7] = sincos[3];
-
+					gwsincos12by2 (temp, N, table);
+					gwsincos12by2 (temp + upper_sse2_word, N, table+1);
 					table += 8;
 				}
 			}
@@ -1716,7 +1519,7 @@ double *r4delay_build_fixed_pass1_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table)		/* Pointer to the table to fill in */
 {
-	unsigned long pass1_increment, upper_sse2_word, pass1_size, i, j, temp, N;
+	unsigned long pass1_increment, upper_sse2_word, pass1_size, i, j, N;
 	double	sincos[6];
 
 /* Initialize some needed constants */
@@ -1759,23 +1562,8 @@ double *r4delay_build_fixed_pass1_table (
 		}
 		else {
 			for (j = 0; j < N / 8; j += pass1_increment) {
-				gwsincos25 (j, N, (double *) &sincos);
-				table[0] = sincos[0];	/* temp */
-				table[2] = sincos[1];
-				table[4] = sincos[2];	/* 2 * temp */
-				table[6] = sincos[3];
-				table[8] = sincos[4];	/* 5 * temp */
-				table[10] = sincos[5];
-
-				temp = j + upper_sse2_word;
-				gwsincos25 (temp, N, (double *) &sincos);
-				table[1] = sincos[0];	/* temp */
-				table[3] = sincos[1];
-				table[5] = sincos[2];	/* 2 * temp */
-				table[7] = sincos[3];
-				table[9] = sincos[4];	/* 5 * temp */
-				table[11] = sincos[5];
-
+				gwsincos125by2 (j, N, table);
+				gwsincos125by2 (j + upper_sse2_word, N, table+1);
 				table += 12;
 			}
 			N = N / 8;
@@ -1785,36 +1573,14 @@ double *r4delay_build_fixed_pass1_table (
 			    pass1_size == 2048 || pass1_size == 3072 || pass1_size == 4096) {
 				/* Output the sin/cos values for the real data */
 				for (j = 0; j < N*2 / 8; j += pass1_increment) {
-					gwsincos5 (j, N*2, (double *) &sincos);
-					table[0] = sincos[0];	/* temp */
-					table[2] = sincos[1];
-					table[4] = sincos[2];	/* 5 * temp */
-					table[6] = sincos[3];
-
-					temp = j + upper_sse2_word;
-					gwsincos5 (temp, N*2, (double *) &sincos);
-					table[1] = sincos[0];	/* temp */
-					table[3] = sincos[1];
-					table[5] = sincos[2];	/* 5 * temp */
-					table[7] = sincos[3];
-
+					gwsincos15by2 (j, N*2, table);
+					gwsincos15by2 (j + upper_sse2_word, N*2, table+1);
 					table += 8;
 				}
 				/* Output the sin/cos values for the complex data */
 				for (j = 0; j < N / 4; j += pass1_increment) {
-					gwsincos2 (j, N, (double *) &sincos);
-					table[0] = sincos[0];	/* temp */
-					table[2] = sincos[1];
-					table[4] = sincos[2];	/* 2 * temp */
-					table[6] = sincos[3];
-
-					temp = j + upper_sse2_word;
-					gwsincos2 (temp, N, (double *) &sincos);
-					table[1] = sincos[0];	/* temp */
-					table[3] = sincos[1];
-					table[5] = sincos[2];	/* 2 * temp */
-					table[7] = sincos[3];
-
+					gwsincos12by2 (j, N, table);
+					gwsincos12by2 (j + upper_sse2_word, N, table+1);
 					table += 8;
 				}
 				N = N / 4;
@@ -1829,18 +1595,8 @@ double *r4delay_build_fixed_pass1_table (
 	else {
 		N = gwdata->FFTLEN / 2;
 		for (j = 0; j < N / 4; j += pass1_increment) {
-			gwsincos2 (j, N, (double *) &sincos);
-			table[0] = sincos[0];	/* temp */
-			table[2] = sincos[1];
-			table[4] = sincos[2];	/* 2 * temp */
-			table[6] = sincos[3];
-
-			gwsincos2 (j + upper_sse2_word, N, (double *) &sincos);
-			table[1] = sincos[0];	/* temp */
-			table[3] = sincos[1];
-			table[5] = sincos[2];	/* 2 * temp */
-			table[7] = sincos[3];
-
+			gwsincos12by2 (j, N, table);
+			gwsincos12by2 (j + upper_sse2_word, N, table+1);
 			table += 8;
 		}
 		N = N / 4;
@@ -1850,19 +1606,8 @@ double *r4delay_build_fixed_pass1_table (
 		    pass1_size == 3072 || pass1_size == 4096 || pass1_size == 5120) {
 			/* Output the sin/cos values for the complex data */
 			for (j = 0; j < N / 4; j += pass1_increment) {
-				gwsincos2 (j, N, (double *) &sincos);
-				table[0] = sincos[0];	/* temp */
-				table[2] = sincos[1];
-				table[4] = sincos[2];	/* 2 * temp */
-				table[6] = sincos[3];
-
-				temp = j + upper_sse2_word;
-				gwsincos2 (temp, N, (double *) &sincos);
-				table[1] = sincos[0];	/* temp */
-				table[3] = sincos[1];
-				table[5] = sincos[2];	/* 2 * temp */
-				table[7] = sincos[3];
-
+				gwsincos12by2 (j, N, table);
+				gwsincos12by2 (j + upper_sse2_word, N, table+1);
 				table += 8;
 			}
 			N = N / 4;
@@ -1956,32 +1701,16 @@ double *r4dwpn_build_pass1_table (
 			if (!gwdata->ALL_COMPLEX_FFT) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + i);
-					gwsincos (temp, N*2, (double *) &sincos);
-					table[0] = sincos[0];	/* temp for 2*N */
-					table[2] = sincos[1];
-					gwsincos (temp + pass1_increment, N*2, (double *) &sincos);
-					table[4] = sincos[0];	/* temp + pass1_increment for 2*N */
-					table[6] = sincos[1];
-					gwsincos (temp + 2 * pass1_increment, N*2, (double *) &sincos);
-					table[8] = sincos[0];	/* temp + 2 * pass1_increment for 2*N */
-					table[10] = sincos[1];
-					gwsincos (temp + 3 * pass1_increment, N*2, (double *) &sincos);
-					table[12] = sincos[0];	/* temp + 3 * pass1_increment for 2*N */
-					table[14] = sincos[1];
+					gwsincos1by2 (temp, N*2, table);
+					gwsincos1by2 (temp + pass1_increment, N*2, table+4);
+					gwsincos1by2 (temp + 2 * pass1_increment, N*2, table+8);
+					gwsincos1by2 (temp + 3 * pass1_increment, N*2, table+12);
 
 					temp += upper_sse2_word;
-					gwsincos (temp, N*2, (double *) &sincos);
-					table[1] = sincos[0];	/* temp for 2*N */
-					table[3] = sincos[1];
-					gwsincos (temp + pass1_increment, N*2, (double *) &sincos);
-					table[5] = sincos[0];	/* temp + pass1_increment for 2*N */
-					table[7] = sincos[1];
-					gwsincos (temp + 2 * pass1_increment, N*2, (double *) &sincos);
-					table[9] = sincos[0];	/* temp + 2 * pass1_increment for 2*N */
-					table[11] = sincos[1];
-					gwsincos (temp + 3 * pass1_increment, N*2, (double *) &sincos);
-					table[13] = sincos[0];	/* temp + 3 * pass1_increment for 2*N */
-					table[15] = sincos[1];
+					gwsincos1by2 (temp, N*2, table+1);
+					gwsincos1by2 (temp + pass1_increment, N*2, table+5);
+					gwsincos1by2 (temp + 2 * pass1_increment, N*2, table+9);
+					gwsincos1by2 (temp + 3 * pass1_increment, N*2, table+13);
 
 					table += 16;
 				}
@@ -2122,19 +1851,8 @@ double *r4dwpn_build_pass1_table (
 			if (!gwdata->ALL_COMPLEX_FFT) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + i);
-					gwsincos5 (temp, N*2, (double *) &sincos);
-					table[0] = sincos[0];	/* temp for 2*N */
-					table[2] = sincos[1];
-					table[4] = sincos[2];	/* temp * 5 for 2*N */
-					table[6] = sincos[3];
-
-					temp += upper_sse2_word;
-					gwsincos5 (temp, N*2, (double *) &sincos);
-					table[1] = sincos[0];	/* temp for 2*N */
-					table[3] = sincos[1];
-					table[5] = sincos[2];	/* temp * 5 for 2*N */
-					table[7] = sincos[3];
-
+					gwsincos15by2 (temp, N*2, table);
+					gwsincos15by2 (temp + upper_sse2_word, N*2, table+1);
 					table += 8;
 				}
 			}
@@ -2255,19 +1973,8 @@ double *r4dwpn_build_pass1_table (
 					for (j = 0; j < N*2 / 8; j += pass1_increment) {
 					    for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
-						gwsincos5 (temp, N*2, (double *) &sincos);
-						table[0] = sincos[0];	/* temp */
-						table[2] = sincos[1];
-						table[4] = sincos[2];	/* 5 * temp */
-						table[6] = sincos[3];
-
-						temp += upper_sse2_word;
-						gwsincos5 (temp, N*2, (double *) &sincos);
-						table[1] = sincos[0];	/* temp */
-						table[3] = sincos[1];
-						table[5] = sincos[2];	/* 5 * temp */
-						table[7] = sincos[3];
-
+						gwsincos15by2 (temp, N*2, table);
+						gwsincos15by2 (temp + upper_sse2_word, N*2, table+1);
 						table += 8;
 					    }
 					}
@@ -2278,18 +1985,8 @@ double *r4dwpn_build_pass1_table (
 				for (j = 0; j < N / 4; j += pass1_increment) {
 				    for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
-					gwsincos2 (temp, N, (double *) &sincos);
-					table[0] = sincos[0];	/* temp */
-					table[2] = sincos[1];
-					table[4] = sincos[2];	/* 2 * temp */
-					table[6] = sincos[3];
-
-					gwsincos2 (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[0];	/* temp */
-					table[3] = sincos[1];
-					table[5] = sincos[2];	/* 2 * temp */
-					table[7] = sincos[3];
-
+					gwsincos12by2 (temp, N, table);
+					gwsincos12by2 (temp + upper_sse2_word, N, table+1);
 					table += 8;
 				    }
 				}
@@ -2307,22 +2004,7 @@ double *r4dwpn_build_pass1_table (
 					for (j = 0; j < N*2 / 8; j += pass1_increment) {
 					    for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
-						gwsincos5_weighted (gwdata->dd_data, temp, N*2, temp, (double *) &sincos);
-						table[0] = sincos[0];	/* temp */
-						table[2] = sincos[1];
-						table[4] = sincos[2];
-						table[6] = sincos[3];	/* 5 * temp */
-						table[8] = sincos[4];
-						table[10] = sincos[5];
-
-						gwsincos5_weighted (gwdata->dd_data, temp + upper_sse2_word, N*2, temp, (double *) &sincos);
-						table[1] = sincos[0];	/* temp */
-						table[3] = sincos[1];
-						table[5] = sincos[2];
-						table[7] = sincos[3];	/* 5 * temp */
-						table[9] = sincos[4];
-						table[11] = sincos[5];
-
+						gwsincos15by2_weighted (gwdata->dd_data, temp, temp + upper_sse2_word, N*2, temp, table);
 						table += 12;
 					    }
 					}
@@ -2335,30 +2017,8 @@ double *r4dwpn_build_pass1_table (
 
 				for (j = 0; j < N / 4; j += pass1_increment) {
 				    for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
-					double	ttp, ttmp;
-
 					temp = (group + j + i);
-					gwfft_weights3 (gwdata->dd_data, temp, &ttp, NULL, &ttmp);
-					table[0] = ttp;
-					table[2] = ttmp;
-					gwsincos2_weighted (gwdata->dd_data, temp, N, temp, (double *) &sincos);
-					table[4] = sincos[0];	/* temp */
-					table[6] = sincos[1];
-					table[8] = sincos[2];
-					table[10] = sincos[3];	/* 2 * temp */
-					table[12] = sincos[4];
-					table[14] = sincos[5];
-
-					table[1] = ttp;
-					table[3] = ttmp;
-					gwsincos2_weighted (gwdata->dd_data, temp + upper_sse2_word, N, temp, (double *) &sincos);
-					table[5] = sincos[0];	/* temp */
-					table[7] = sincos[1];
-					table[9] = sincos[2];
-					table[11] = sincos[3];	/* 2 * temp */
-					table[13] = sincos[4];
-					table[15] = sincos[5];
-
+					gwsincos12by2_weighted (gwdata->dd_data, temp, temp + upper_sse2_word, N, temp, table);
 					table += 16;
 				    }
 				}
@@ -2380,19 +2040,8 @@ double *r4dwpn_build_pass1_table (
 				for (j = 0; j < N / 5; j += pass1_increment) {
 					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
-						gwsincos3 (temp, N*2, (double *) &sincos);
-						table[0] = sincos[0];	/* temp */
-						table[2] = sincos[1];
-						table[4] = sincos[4];	/* 3 * temp */
-						table[6] = sincos[5];
-
-						temp += upper_sse2_word;
-						gwsincos3 (temp, N*2, (double *) &sincos);
-						table[1] = sincos[0];	/* temp */
-						table[3] = sincos[1];
-						table[5] = sincos[4];	/* 3 * temp */
-						table[7] = sincos[5];
-
+						gwsincos13by2 (temp, N*2, table);
+						gwsincos13by2 (temp + upper_sse2_word, N*2, table+1);
 						table += 8;
 					}
 				}
@@ -2403,18 +2052,8 @@ double *r4dwpn_build_pass1_table (
 			for (j = 0; j < N / 5; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
-					gwsincos2 (temp, N, (double *) &sincos);
-					table[0] = sincos[0];	/* temp */
-					table[2] = sincos[1];
-					table[4] = sincos[2];	/* 2 * temp */
-					table[6] = sincos[3];
-
-					gwsincos2 (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[0];	/* temp */
-					table[3] = sincos[1];
-					table[5] = sincos[2];	/* 2 * temp */
-					table[7] = sincos[3];
-
+					gwsincos12by2 (temp, N, table);
+					gwsincos12by2 (temp + upper_sse2_word, N, table+1);
 					table += 8;
 				}
 			}
@@ -2434,15 +2073,8 @@ double *r4dwpn_build_pass1_table (
 				for (j = 0; j < N / 3; j += pass1_increment) {
 					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
-						gwsincos (temp, N*2, (double *) &sincos);
-						table[0] = sincos[0];	/* temp */
-						table[2] = sincos[1];
-
-						temp += upper_sse2_word;
-						gwsincos (temp, N*2, (double *) &sincos);
-						table[1] = sincos[0];	/* temp */
-						table[3] = sincos[1];
-
+						gwsincos1by2 (temp, N*2, table);
+						gwsincos1by2 (temp + upper_sse2_word, N*2, table+1);
 						table += 4;
 					}
 				}
@@ -2453,14 +2085,8 @@ double *r4dwpn_build_pass1_table (
 			for (j = 0; j < N / 3; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
-					gwsincos (temp, N, (double *) &sincos);
-					table[0] = sincos[0];	/* temp */
-					table[2] = sincos[1];
-
-					gwsincos (temp + upper_sse2_word, N, (double *) &sincos);
-					table[1] = sincos[0];	/* temp */
-					table[3] = sincos[1];
-
+					gwsincos1by2 (temp, N, table);
+					gwsincos1by2 (temp + upper_sse2_word, N, table+1);
 					table += 4;
 				}
 			}
