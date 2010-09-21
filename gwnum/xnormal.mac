@@ -2372,11 +2372,11 @@ xnorm_top_carry_cmn MACRO srcreg, xreg, twopass
 	movsd	xmm0, CARRY_ADJUST1_HI	;; carry * HI_BITS(b^ceil(logb(k)))
 	mulsd	xmm0, xmm1
 	mulsd	xmm1, CARRY_ADJUST1_LO	;; carry * LO_BITS(b^ceil(logb(k)))
-	movsd	XMM_TMP8, xmm1
+	movsd	XMM_TMP6, xmm1
 	movsd	xmm1, K_HI		;; integer_part * HI_BITS(k)
 	mulsd	xmm1, xreg
 	subsd	xmm0, xmm1		;; High bits of remainder
-	addsd	xmm0, XMM_TMP8
+	addsd	xmm0, XMM_TMP6
 	movsd	xmm1, K_LO		;; integer_part * HI_BITS(k)
 	mulsd	xmm1, xreg
 	subsd	xmm0, xmm1		;; The remainder
