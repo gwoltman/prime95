@@ -8742,150 +8742,244 @@ void gianttogw (
 	giant	a,
 	gwnum	g)
 {
-	giant	newg = NULL;
-	unsigned long i, limit, carry;
-
 	ASSERTG (a->sign >= 0);		/* We only handle positive numbers */
+
+/* Jean Penne requested that we optimize the small number cases. */
+/* Setting the gwnum to zero is real easy. */
+
+	if (a->sign == 0) {
+		memset (g, 0, gwnum_datasize (gwdata));
+	}
+
+/* Small numbers can also be optimized for many moduli by zeroing all the */
+/* FFT data using memset and then setting only the affected FFT elements. */
+
+	else if (a->sign == 1 && (gwdata->k == 1.0 || abs (gwdata->c) == 1)) {
+		uint32_t low_addin;
+		int	i;
+
+/* Zero the FFT data */
+
+		memset (g, 0, gwnum_datasize (gwdata));
+
+/* To make the mod k*b^n+c step faster, gwnum's are pre-multiplied by 1/k. */
+/* Case 1 (k*b^n-1): Inverse of k is b^n.  Case 2 (k*b^n+1): Inverse of k is -b^n. */
+/* Since the value we are adding (or subtracting) from the top FFT words can be */
+/* greater than k, we must divide value by k and wrap-around to add it in to the */
+/* lowest FFT words.  The remainder gets added to (or subtracted from) the upper FFT words. */
+
+		if (gwdata->k > 1.0) {
+			double	quotient, remainder, high_addin;
+			unsigned long word, bit_in_word;
+
+			quotient = floor ((double) a->n[0] / gwdata->k);
+			remainder = (double) a->n[0] - quotient * gwdata->k;
+			if (gwdata->c == -1) {
+				low_addin = (uint32_t) quotient;
+				high_addin = remainder;
+			} else {
+				low_addin = (uint32_t) quotient + 1;
+				high_addin = gwdata->k - remainder;
+			}
+
+/* Add the high_addin value across the top FFT words */
+
+			bitaddr (gwdata, gwdata->n, &word, &bit_in_word);
+			for (i = word; high_addin > 0.0; i++, bit_in_word = 0) {
+				long	value, maxval;
+
+				maxval = intpow (gwdata->b, gwdata->NUM_B_PER_SMALL_WORD);
+				if (is_big_word (gwdata, i)) maxval *= gwdata->b;
+
+				if (bit_in_word == 0) {
+					quotient = floor (high_addin / (double) maxval);
+					remainder = high_addin - quotient * (double) maxval;
+					value = (long) remainder;
+					high_addin = quotient;
+				} else {
+					long	pow_fudge, fudged_maxval;
+					pow_fudge = intpow (gwdata->b, bit_in_word);
+					fudged_maxval = maxval / pow_fudge;
+					quotient = floor (high_addin / (double) fudged_maxval);
+					remainder = high_addin - quotient * (double) fudged_maxval;
+					value = (long) remainder * pow_fudge;
+					high_addin = quotient;
+				}
+
+				if (value > (maxval >> 1)) {
+					value = value - maxval;
+					high_addin += 1.0;
+				}
+				set_fft_value (gwdata, g, i, value);
+			}
+		}
+
+/* If k is 1, simply copy the giant value to the low FFT words */
+
+		else
+			low_addin = a->n[0];
+
+/* Spread the low_addin value across the lowest FFT words as necessary */
+
+		for (i = 0; low_addin; i++) {
+			long	value, maxval;
+
+			maxval = intpow (gwdata->b, gwdata->NUM_B_PER_SMALL_WORD);
+			if (is_big_word (gwdata, i)) maxval *= gwdata->b;
+
+			value = low_addin % maxval;
+			low_addin = low_addin / maxval;
+			if (value > (maxval >> 1)) {
+				value = value - maxval;
+				low_addin++;
+			}
+			set_fft_value (gwdata, g, i, value);
+		}
+	}
 
 /* To make the mod k*b^n+c step faster, gwnum's are pre-multiplied by 1/k */
 /* If k is greater than 1, then we calculate the inverse of k, multiply */
 /* the giant by the inverse of k, and do a mod k*b^n+c. */
 
-	if (gwdata->k > 1.0) {
-		newg = popg (&gwdata->gdata, (((unsigned long) gwdata->bit_length >> 5) + 1) * 2);
+	else {
+		unsigned long i, limit, carry;
+		giant	newg = NULL;
 
-		/* Easy case 1 (k*b^n-1): Inverse of k is b^n */
+		if (gwdata->k > 1.0) {
+			newg = popg (&gwdata->gdata, (((unsigned long) gwdata->bit_length >> 5) + 1) * 2);
 
-		if (gwdata->c == -1) {
-			if (gwdata->b == 2) {
-				gtog (a, newg);
-				gshiftleft (gwdata->n, newg);
-			} else {
-				itog (gwdata->b, newg);
-				power (newg, gwdata->n);
-				mulgi (&gwdata->gdata, a, newg);
+			/* Easy case 1 (k*b^n-1): Inverse of k is b^n */
+
+			if (gwdata->c == -1) {
+				if (gwdata->b == 2) {
+					gtog (a, newg);
+					gshiftleft (gwdata->n, newg);
+				} else {
+					itog (gwdata->b, newg);
+					power (newg, gwdata->n);
+					mulgi (&gwdata->gdata, a, newg);
+				}
 			}
-		}
 
-		/* Easy case 2 (k*b^n+1): Inverse of k is -b^n */
+			/* Easy case 2 (k*b^n+1): Inverse of k is -b^n */
 
-		else if (gwdata->c == 1) {
-			if (gwdata->b == 2) {
-				gtog (a, newg);
-				gshiftleft (gwdata->n, newg);
-				negg (newg);
-			} else {
-				itog (gwdata->b, newg);
-				power (newg, gwdata->n);
-				negg (newg);
-				mulgi (&gwdata->gdata, a, newg);
+			else if (gwdata->c == 1) {
+				if (gwdata->b == 2) {
+					gtog (a, newg);
+					gshiftleft (gwdata->n, newg);
+					negg (newg);
+				} else {
+					itog (gwdata->b, newg);
+					power (newg, gwdata->n);
+					negg (newg);
+					mulgi (&gwdata->gdata, a, newg);
+				}
 			}
-		}
 
-		else {				/* General inverse case */
-			giant	n;
-			n = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 1);
-			ultog (gwdata->b, n);	/* Compute k*b^n+c */
-			power (n, gwdata->n);
-			dblmulg (gwdata->k, n);
-			iaddg (gwdata->c, n);
-			dbltog (gwdata->k, newg);	/* Compute 1/k */
-			invg (n, newg);
-			ASSERTG (newg->sign > 0);  /* Assert inverse found */
-			mulgi (&gwdata->gdata, a, newg);
-						/* Multiply input num by 1/k */
-			pushg (&gwdata->gdata, 1);
-		}
+			else {				/* General inverse case */
+				giant	n;
+				n = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 1);
+				ultog (gwdata->b, n);		/* Compute k*b^n+c */
+				power (n, gwdata->n);
+				dblmulg (gwdata->k, n);
+				iaddg (gwdata->c, n);
+				dbltog (gwdata->k, newg);	/* Compute 1/k */
+				invg (n, newg);
+				ASSERTG (newg->sign > 0);	/* Assert inverse found */
+				mulgi (&gwdata->gdata, a, newg); /* Multiply input num by 1/k */
+				pushg (&gwdata->gdata, 1);
+			}
 
-		specialmodg (gwdata, newg);
-		a = newg;
-	}
+			specialmodg (gwdata, newg);
+			a = newg;
+		}
 
 /* Figure out how many FFT words we will need to set */
 
-	limit = (unsigned long) ceil ((double) bitlen (a) / (gwdata->avg_num_b_per_word * log2 (gwdata->b)));
-	if (limit > gwdata->FFTLEN) limit = gwdata->FFTLEN;
+		limit = (unsigned long) ceil ((double) bitlen (a) / (gwdata->avg_num_b_per_word * log2 (gwdata->b)));
+		if (limit > gwdata->FFTLEN) limit = gwdata->FFTLEN;
 
 /* Now convert the giant to FFT format.  For base 2 we simply copy bits.  */
 
-	if (gwdata->b == 2) {
-		unsigned long mask1, mask2, e1len;
-		int	bits1, bits2, bits_in_next_binval;
-		unsigned long binval;
-		uint32_t *e1;
+		if (gwdata->b == 2) {
+			unsigned long mask1, mask2, e1len;
+			int	bits1, bits2, bits_in_next_binval;
+			unsigned long binval;
+			uint32_t *e1;
 
-		e1len = a->sign;
-		e1 = a->n;
+			e1len = a->sign;
+			e1 = a->n;
 
-		bits1 = gwdata->NUM_B_PER_SMALL_WORD;
-		bits2 = bits1 + 1;
-		mask1 = (1L << bits1) - 1;
-		mask2 = (1L << bits2) - 1;
-		if (e1len) {binval = *e1++; e1len--; bits_in_next_binval = 32;}
-		else binval = 0;
-		carry = 0;
-		for (i = 0; i < limit; i++) {
-			int	big_word, bits;
-			long	value, mask;
-			big_word = is_big_word (gwdata, i);
-			bits = big_word ? bits2 : bits1;
-			mask = big_word ? mask2 : mask1;
-			if (i == limit - 1) value = binval;
-			else value = binval & mask;
-			value = value + carry;
-			if (value > (mask >> 1) && bits > 1 && i != gwdata->FFTLEN - 1) {
-				value = value - (mask + 1);
-				carry = 1;
-			} else {
-				carry = 0;
-			}
-			set_fft_value (gwdata, g, i, value);
+			bits1 = gwdata->NUM_B_PER_SMALL_WORD;
+			bits2 = bits1 + 1;
+			mask1 = (1L << bits1) - 1;
+			mask2 = (1L << bits2) - 1;
+			if (e1len) {binval = *e1++; e1len--; bits_in_next_binval = 32;}
+			else binval = 0;
+			carry = 0;
+			for (i = 0; i < limit; i++) {
+				int	big_word, bits;
+				long	value, mask;
+				big_word = is_big_word (gwdata, i);
+				bits = big_word ? bits2 : bits1;
+				mask = big_word ? mask2 : mask1;
+				if (i == limit - 1) value = binval;
+				else value = binval & mask;
+				value = value + carry;
+				if (value > (mask >> 1) && bits > 1 && i != gwdata->FFTLEN - 1) {
+					value = value - (mask + 1);
+					carry = 1;
+				} else {
+					carry = 0;
+				}
+				set_fft_value (gwdata, g, i, value);
 
-			binval >>= bits;
-			if (e1len == 0) continue;
-			if (bits_in_next_binval < bits) {
-				if (bits_in_next_binval)
-					binval |= (*e1 >> (32 - bits_in_next_binval)) << (32 - bits);
-				bits -= bits_in_next_binval;
-				e1++; e1len--; bits_in_next_binval = 32;
+				binval >>= bits;
 				if (e1len == 0) continue;
-			}
-			if (bits) {
-				binval |= (*e1 >> (32 - bits_in_next_binval)) << (32 - bits);
-				bits_in_next_binval -= bits;
+				if (bits_in_next_binval < bits) {
+					if (bits_in_next_binval)
+						binval |= (*e1 >> (32 - bits_in_next_binval)) << (32 - bits);
+					bits -= bits_in_next_binval;
+					e1++; e1len--; bits_in_next_binval = 32;
+					if (e1len == 0) continue;
+				}
+				if (bits) {
+					binval |= (*e1 >> (32 - bits_in_next_binval)) << (32 - bits);
+					bits_in_next_binval -= bits;
+				}
 			}
 		}
-	}
 
 /* Otherwise (non-base 2), we do a recursive divide and conquer radix conversion. */
 /* The resursive routine writes on a, so make a copy before calling */
 
-	else {
-		if (a != newg) {
-			newg = popg (&gwdata->gdata, a->sign * 2);
-			gtog (a, newg);
-			a = newg;
+		else {
+			if (a != newg) {
+				newg = popg (&gwdata->gdata, a->sign * 2);
+				gtog (a, newg);
+				a = newg;
+			}
+			carry = nonbase2_gianttogw (gwdata, a, g, limit, 0, 0);
 		}
-		carry = nonbase2_gianttogw (gwdata, a, g, limit, 0, 0);
-	}
 
 /* Write carry, if any, to FFT data */
 
-	if (carry) set_fft_value (gwdata, g, limit++, carry);
+		if (carry) set_fft_value (gwdata, g, limit++, carry);
 
 /* Clear the upper words */
 
-	for (i = limit; i < gwdata->FFTLEN; i++)
-		set_fft_value (gwdata, g, i, 0);
+		for (i = limit; i < gwdata->FFTLEN; i++)
+			set_fft_value (gwdata, g, i, 0);
+
+/* Free allocated memory */
+
+		if (a == newg) pushg (&gwdata->gdata, 1);
+	}
 
 /* Clear various flags */
 
 	((int32_t *) g)[-1] = 1; /* Set unnormalized add counter */
 	((int32_t *) g)[-7] = 0; /* Clear has been partially FFTed flag */
-
-/* Free allocated memory */
-
-	if (a == newg) pushg (&gwdata->gdata, 1);
 }
 
 /* Internal recursive routine to convert a giant to gwnum FFT format. */
