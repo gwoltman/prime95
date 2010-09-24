@@ -2,8 +2,8 @@
 
 /* Constants */
 
-#define VERSION		"26.2"
-#define BUILD_NUM	"2"
+#define VERSION		"26.3"
+#define BUILD_NUM	"1"
 /* The list of assigned OS ports follows: */
 /* Win9x (prime95) #1 */
 /* Linux (mprime)  #2 */
