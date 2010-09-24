@@ -495,10 +495,6 @@ void *x87_prctab[] = { x87_explode(array_entry) NULL };
 #endif
 #define is_valid_double(x)	(! isnan (x) && ! isinf (x))
 
-/* Error codes returned */
-
-#define GWERROR_BAD_FFT_DATA	-1
-
 /* Special flag value set in the gwnum freeable field */
 
 #define GWFREED_TEMPORARILY	0x80000000
@@ -9432,6 +9428,111 @@ void specialmodg (
 /* Free memory */
 
 	pushg (&gwdata->gdata, 1);
+}
+
+/* Test if a gwnum is zero.  This routine was originally written by Jean Penne. */
+/* It has not been adequately tested and MAY NOT BE BUG-FREE.  Use at your own risk! */
+
+int gwiszero (
+	gwhandle *gwdata,
+	gwnum 	gg)
+{
+	unsigned long j;
+	int 	result, count;
+
+	ASSERTG (((uint32_t *) gg)[-1] >= 1);
+	ASSERTG (((uint32_t *) gg)[-7] == 0);
+
+/* If the input number is the result of an unormalized addition or subtraction, then */
+/* we had better normalize the number! */
+
+	if (((uint32_t *) gg)[-1] > 1) {
+		struct gwasm_data *asm_data;
+		gwnum	gwnorm;
+
+		gwnorm = gwalloc (gwdata);
+		if (gwnorm == NULL) return (-GWERROR_MALLOC);
+		dbltogw (gwdata, 0.0, gwnorm);
+		asm_data = (struct gwasm_data *) gwdata->asm_data;
+		asm_data->SRCARG = gg;
+		asm_data->SRC2ARG = gwnorm;
+		asm_data->DESTARG = gwnorm;
+		gw_add (gwdata, asm_data);
+		result = gwiszero (gwdata, gwnorm);
+		gwfree (gwdata, gwnorm);
+		return (result);
+	}
+
+/* CONCERN!!!  Could the result of a normalized multiply be greater than k*b^n+c? */
+/* If so, we should test the top FFT word and if it is bigger than the maximum valid */
+/* value, do a normalizing add identical to the code above. */	
+
+/* Look through all the FFT data.  If each FFT word is zero, then the gwnum is zero. */
+/* If we run into just a few non-zero FFT elements, then the gwnum might still be zero */
+/* because of the way carries are propagated in the assembly code.  If we run into */
+/* a large number of non-zero FFT words then the gwnum is not zero. */
+
+#define	MAX_NZ_COUNT 16
+	count = 0;
+	for (j = 0; j < gwdata->FFTLEN; j++) {
+		double	val;
+		val = * addr (gwdata, gg, j);
+		if (! is_valid_double (val)) return (GWERROR_BAD_FFT_DATA);
+		if (val == 0.0) continue;
+		if (++count > MAX_NZ_COUNT) return (FALSE);	// Too many non zero words, the gwnum is not zero.
+	}
+	if (count) {			// The gwnum may be zero but needs a more accurate test...
+		giant	gtest;
+		gtest = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 5);
+		if (gtest == NULL) return (-GWERROR_MALLOC);
+		gwtogiant (gwdata, gg, gtest);
+		result = isZero (gtest);
+		pushg (&gwdata->gdata, 1);
+		return (result);
+	}
+	else
+		return (TRUE);			// The gwnum is zero
+}
+
+/* Test two gwnums for equality.  Written by Jean Penne.  Uses the gwiszero routine */
+/* which MAY NOT BE BUG-FREE.  Use this routine at your own risk. */
+
+int gwequal (
+	gwhandle *gwdata,
+	gwnum	gw1,
+	gwnum	gw2)
+{
+	struct gwasm_data *asm_data;
+	gwnum	gwdiff;
+	int	result;
+
+	ASSERTG (((uint32_t *) gw1)[-1] >= 1);
+	ASSERTG (((uint32_t *) gw2)[-1] >= 1);
+	ASSERTG (((uint32_t *) gw1)[-7] == 0);
+	ASSERTG (((uint32_t *) gw2)[-7] == 0);
+
+/* Allocate memory for the difference */
+
+	gwdiff = gwalloc (gwdata);
+
+/* Do a normalized subtract */
+
+	asm_data = (struct gwasm_data *) gwdata->asm_data;
+	asm_data->SRCARG = gw1;
+	asm_data->SRC2ARG = gw2;
+	asm_data->DESTARG = gwdiff;
+	gw_sub (gwdata, asm_data);
+	((uint32_t *) gwdiff)[-1] = 1;
+	((uint32_t *) gwdiff)[-7] = 0;
+
+/* The two input numbers are equal if the difference is zero */
+
+	result = gwiszero (gwdata, gwdiff);
+
+/* Cleanup and return result */
+
+	gwfree (gwdata, gwdiff);
+	return (result);
 }
 
 /******************************************************************/
