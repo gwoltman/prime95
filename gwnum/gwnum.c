@@ -8806,7 +8806,7 @@ void gianttogw (
 					high_addin = quotient;
 				}
 
-				if (value > (maxval >> 1)) {
+				if (value > (maxval >> 1) && i != gwdata->FFTLEN - 1) {
 					value = value - maxval;
 					high_addin += 1.0;
 				}
@@ -9198,30 +9198,26 @@ int gwtogiant (
 			bits = gwdata->NUM_B_PER_SMALL_WORD;
 			if (is_big_word (gwdata, i)) bits++;
 			val += carry;
-			for (j = 0; j < bits; j++) {
-				*outptr >>= 1;
-				if (val & 1) *outptr += 0x80000000;
-				val >>= 1;
-				bitsout++;
-				if (bitsout == 32) {
-					outptr++;
-					bitsout = 0;
-				}
+
+			carry = (val >> bits);
+			val -= (carry << bits);
+			*outptr += (val << bitsout);
+			bitsout += bits;
+			if (bitsout >= 32) {
+				bitsout -= 32;
+				*++outptr = (val >> (bits - bitsout));
 			}
-			carry = val;
 		}
 
 /* Finish outputting the last word and any carry data */
 
-		while (bitsout || (carry != -1 && carry != 0)) {
-			*outptr >>= 1;
-			if (carry & 1) *outptr += 0x80000000;
-			carry >>= 1;
-			bitsout++;
-			if (bitsout == 32) {
-				outptr++;
-				bitsout = 0;
-			}
+		if (bitsout) {
+			*outptr++ += (carry << bitsout);
+			carry >>= (32 - bitsout);
+		}
+		if (carry != -1 && carry != 0) {
+			*outptr++ = carry;
+			carry >>= 31;
 		}
 
 /* Set the length */
