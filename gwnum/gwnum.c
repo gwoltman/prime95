@@ -9096,7 +9096,7 @@ long gwtobinary64 (
 	tmp->n[tmp->sign] = 0;
 	tmp->sign = (tmp->sign + 1) / 2;
 	ASSERTG ((unsigned long) tmp->sign <= arraylen);
-	memcpy (array, tmp->n, tmp->sign * sizeof (unsigned long));
+	memcpy (array, tmp->n, tmp->sign * sizeof (uint64_t));
 	pushg (&gwdata->gdata, 1);
 	return (tmp->sign);
 }
