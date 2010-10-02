@@ -8806,9 +8806,13 @@ void gianttogw (
 					high_addin = quotient;
 				}
 
-				if (value > (maxval >> 1) && i != gwdata->FFTLEN - 1) {
+				if (value > (maxval >> 1)) {
 					value = value - maxval;
 					high_addin += 1.0;
+				}
+				if (i == gwdata->FFTLEN - 1) {
+					value = value + (long) high_addin * maxval;
+					high_addin = 0.0;
 				}
 				set_fft_value (gwdata, g, i, value);
 			}
