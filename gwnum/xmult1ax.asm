@@ -814,7 +814,8 @@ idn:	mov	rsi, DESTARG		; Address of squared number
 
 ; Normalize SUMOUT value by multiplying by 1 / (fftlen/2).
 
-cmnend:	xstore	XMM_TMP1, xmm7		; Add together the two partial sumouts
+cmnend:	mov	rsi, DESTARG		; Address of squared number
+	xstore	XMM_TMP1, xmm7		; Add together the two partial sumouts
 	addsd	xmm7, XMM_TMP1+8
 	mulsd	xmm7, ttmp_ff_inv
 	movsd	Q [rsi-24], xmm7	; Save sum of FFT outputs

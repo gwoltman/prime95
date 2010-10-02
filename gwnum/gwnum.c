@@ -3957,21 +3957,35 @@ next1:			while (zpad_jmptab->flags & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
 /* probably use this FFT length -- though we need to do a few more tests. */
 
 		if (weighted_bits_per_output_word <= max_weighted_bits_per_output_word) {
+			double	carries_spread_over;
 
-/* Because carries are spread over 4 words, there is a minimum limit on */
-/* the bits per word.  An FFT result word cannot be more than 5 times */
-/* bits-per-input-word (bits-per-input-word are stored in the current */
-/* word and the 4 words we propogate carries to).  The mul-by-const that */
-/* during the normalization process adds to the size of the carry. */
+/* Originally, carries were spread over 4 FFT words.  Some FFT code has been */
+/* upgraded to spread the carry over 6 FFT words.  Handle that here.  Note that */
+/* FFT lengths 80 and 112 were not upgraded. */
+
+			if (! (gwdata->cpu_flags & CPU_SSE2))
+				carries_spread_over = 4.0;
+			else if (jmptab->fftlen == 80 || jmptab->fftlen == 112)
+				carries_spread_over = 4.0;
+			else if ((jmptab->flags & 0x3F) == 0)	// One pass SSE2 FFTs
+				carries_spread_over = 6.0;
+			else					// Two pass SSE2 FFTs
+				carries_spread_over = 6.0;
+				
+/* Because carries are spread over 4 words, there is a minimum limit on the bits */
+/* per word.  An FFT result word cannot be more floor(bits-per-input-word) stored */
+/* in the current word plus ceil (4 * bits-per-input-word) for the carries to */
+/* propogate into.  The mul-by-const during the normalization process adds to */
+/* the size of the carry. */
 
 			if (bits_per_output_word + log2maxmulbyconst >
-							    floor (5.0 * b_per_input_word) * log2b) {
-// This assert was designed to find any cases where using 5 or more carry words
-// would use a shorter FFT than using a zero-padded FFT.  We did find a case:
-// 15539*2^15095288+7 would use 1.5M FFT length if I implemented 5 carry words
-// and requires a 1.75M FFT length for a zero-padded FFT.
-//				ASSERTG (zpad_jmptab == NULL ||
-//					 jmptab->fftlen >= zpad_jmptab->fftlen);
+					(floor (b_per_input_word) + ceil (carries_spread_over * b_per_input_word)) * log2b) {
+// This assert was designed to find any cases where using more carry words
+// would use a shorter FFT than using a zero-padded FFT.  There are many such
+// cases, especially with larger bases.  One example is 5001*500^100000-1.
+// It would use 132K FFT length if I implemented 7 carry words
+// and requires a 144K FFT length for a zero-padded FFT.
+//				ASSERTG (zpad_jmptab == NULL || jmptab->fftlen >= zpad_jmptab->fftlen);
 				goto next2;
 			}
 
@@ -3982,15 +3996,16 @@ next1:			while (zpad_jmptab->flags & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
 /* one-pass FFTs and within the top two words of two-pass FFTs. */
 
 			if ((jmptab->flags & 0x3F) == 0 && logbk > floor (3.0 * b_per_input_word)) {
-// This assert is designed to find any cases where using 3 or more carray adjust words
+// This assert is designed to find any cases where using 4 or more carry adjust words
 // would use a shorter FFT than using a zero-padded FFT.
-				ASSERTG (zpad_jmptab != NULL && jmptab->fftlen >= zpad_jmptab->fftlen);
+				ASSERTG (zpad_jmptab == NULL || jmptab->fftlen >= zpad_jmptab->fftlen);
 				goto next2;
 			}
 			if ((jmptab->flags & 0x3F) != 0 && logbk > floor (2.0 * b_per_input_word)) {
-// This assert is designed to find any cases where using 3 or more carray adjust words
-// would use a shorter FFT than using a zero-padded FFT.
-				ASSERTG (zpad_jmptab != NULL && jmptab->fftlen >= zpad_jmptab->fftlen);
+// This assert is designed to find any cases where using 3 or more carry adjust words
+// would use a shorter FFT than using a zero-padded FFT.  One example: 501*500^100000-1
+// It would use a 112K FFT instead of a 144K zero-padded FFT.
+//				ASSERTG (zpad_jmptab == NULL || jmptab->fftlen >= zpad_jmptab->fftlen);
 				goto next2;
 			}
 
@@ -4456,13 +4471,6 @@ int gwsetup (
 			error_code = gwsetup_general_mod_giant (gwdata, g);
 			free (g);
 			if (error_code) return (error_code);
-			/* If GCD(k,c) was not 1, then the reciprocal in generic modular */
-			/* reduction may well have a nasty bit pattern.  The test case that */
-			/* brought this to light is 3*2^77574+3.  We don't have a lot of */
-			/* experience with these kinds of composite numbers.  For now, we */
-			/* just increase the MAXDIFF setting.  We may also need to increment */
-			/* safety margin to select a larger FFT size in some cases. */
-			if (gcd > 1) gwdata->MAXDIFF *= 100.0;
 		}
 	}
 
@@ -4745,11 +4753,13 @@ int gwsetup_general_mod_giant (
 
 	gwdata->GENERAL_MOD = TRUE;
 
-/* It appears that when we multiply the modulus by a small d value, we are dealing */
-/* with bit patterns that may generate a larger than usual SUM(INPUTS)/SUM(OUTPUTS) */
-/* difference.  The test case is Phi(109965,2).  Thus we will increase MAXDIFF.	*/
-
-	if (d != 1) gwdata->MAXDIFF *= 100.0;
+/* Reciprocals in generic modular reduction may well have a nasty bit pattern. */
+/* Two test cases that brought this to light are 3*2^77574+3, and 3*8^86103+1 */
+/* (when forced to use generic reduction).  These nasty patterns can trigger */
+/* spurious SUM(INPUTS) != SUM(OUTPUTS) errors.  To counter this we increase */
+/* the MAXDIFF setting. */
+	
+	gwdata->MAXDIFF *= 1000.0;
 
 /* Create dummy string representation. Calling gtoc to get the first */
 /* several digits would be better, but it is too slow. */
