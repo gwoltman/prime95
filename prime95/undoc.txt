@@ -21,7 +21,7 @@ where setting is defined as
 At present, only Memory, MaxHighMemWorkers, PauseWhileRunning, LowMemWhileRunning,
 and PauseCheckInterval support this during/else syntax.  Also note you can
 no longer edit these options from the user interface.  To use this feature,
-you must manual edit the prime.txt file.  An example:
+you must manually edit the prime.txt/local.txt file.  An example in local.txt:
 	Memory=500 during 1-5/17:30-24:00,1-5/0:00-8:30,6-7/0:00-24:00 else 200
 The 1-5 and 6-7 refer to days of the week, with Monday=1 and Sunday=7.  The
 time portion refers to the hours of the day based on a 24-hour clock.
