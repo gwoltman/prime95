@@ -118,7 +118,7 @@ void stop_worker_for_abort (int);
 /* Routines dealing with day/night memory settings */
 
 void mem_settings_have_changed (void);
-unsigned int max_mem (void);
+unsigned int max_mem (int);
 int avail_mem (int, unsigned long, unsigned long, unsigned int *);
 int set_memory_usage (int, int, unsigned long);
 

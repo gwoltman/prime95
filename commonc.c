@@ -3512,7 +3512,7 @@ double work_estimate (
 			unsigned long guess_B1, guess_B2;
 			unsigned long squarings;
 			double	prob;
-			guess_pminus1_bounds (w->k, w->b, w->n, w->c,
+			guess_pminus1_bounds (thread_num, w->k, w->b, w->n, w->c,
 					      w->sieve_depth, w->tests_saved,
 					      &guess_B1, &guess_B2,
 					      &squarings, &prob);

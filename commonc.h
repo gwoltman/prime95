@@ -340,7 +340,7 @@ void invalidateNextRollingAverageUpdate (void);
 
 double work_estimate (int thread_num, struct work_unit *);
 unsigned int factorLimit (struct work_unit *);
-void guess_pminus1_bounds (double, unsigned long, unsigned long, signed long,
+void guess_pminus1_bounds (int, double, unsigned long, unsigned long, signed long,
 			   double, double, unsigned long *,
 			   unsigned long *, unsigned long *, double *);
 

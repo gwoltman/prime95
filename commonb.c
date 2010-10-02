@@ -1074,8 +1074,31 @@ int set_memory_usage (
 
 /* Return maximum memory (in MB) that will ever be available for a variable usage thread. */
 
-unsigned int max_mem (void)
+unsigned int max_mem (
+	int	thread_num)
 {
+	char	section_name[32];
+	int	memory;
+	const char *p;
+
+/* Compute the maximum memory setting for this thread.  If not found, return the global max memory. */
+
+	sprintf (section_name, "Worker #%d", thread_num+1);
+	p = IniSectionGetStringRaw (LOCALINI_FILE, section_name, "Memory");
+	if (p == NULL) return (MAX_MEM);
+
+	memory = 0;
+	for ( ; ; ) {
+		int	temp = atol (p);
+		if (temp > memory) memory = temp;
+		p = strstr (p, " else ");
+		if (p == NULL) break;
+		p = p + 6;
+	}
+
+/* Return the lesser of the global max memory and the thread's max memory */
+
+	if (memory < MAX_MEM) return (memory);
 	return (MAX_MEM);
 }
 
