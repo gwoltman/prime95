@@ -1074,11 +1074,11 @@ int set_memory_usage (
 
 /* Return maximum memory (in MB) that will ever be available for a variable usage thread. */
 
-unsigned int max_mem (
+unsigned long max_mem (
 	int	thread_num)
 {
 	char	section_name[32];
-	int	memory;
+	unsigned long memory;
 	const char *p;
 
 /* Compute the maximum memory setting for this thread.  If not found, return the global max memory. */
@@ -1089,7 +1089,7 @@ unsigned int max_mem (
 
 	memory = 0;
 	for ( ; ; ) {
-		int	temp = atol (p);
+		unsigned long temp = atol (p);
 		if (temp > memory) memory = temp;
 		p = strstr (p, " else ");
 		if (p == NULL) break;
