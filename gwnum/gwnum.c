@@ -4001,8 +4001,9 @@ next1:			while (zpad_jmptab->flags & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
 
 			if ((jmptab->flags & 0x3F) == 0 && logbk > floor (3.0 * b_per_input_word)) {
 // This assert is designed to find any cases where using 4 or more carry adjust words
-// would use a shorter FFT than using a zero-padded FFT.
-				ASSERTG (zpad_jmptab == NULL || jmptab->fftlen >= zpad_jmptab->fftlen);
+// would use a shorter FFT than using a zero-padded FFT.  We found an example:
+// 102233*299^239-1.  It would use length 256 FTT versus a length 320 zero-padded FFT.
+//				ASSERTG (zpad_jmptab == NULL || jmptab->fftlen >= zpad_jmptab->fftlen);
 				goto next2;
 			}
 			if ((jmptab->flags & 0x3F) != 0 && logbk > floor (2.0 * b_per_input_word)) {
