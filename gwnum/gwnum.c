@@ -236,8 +236,8 @@ struct gwasm_data {
 	double	XMM_K_HI_2[2];	/* XMM_K_HI, top bits */
 
 	double	INVERSE_K;	/* 1/K */
-	double	K_HI;		/* Upper bits of K */
-	double	K_LO;		/* Lower bits of K */
+	double	K;		/* K in SSE2, Upper bits of K in x87 (a.k.a K_HI) */
+	double	TWO_TO_17;	/* 2^17 in SSE2, Lower bits of K in x87 (a.k.a. K_LO) */
 	double	CARRY_ADJUST1;	/* Adjustment constant #1 in wrapping carry */
 	double	CARRY_ADJUST2;	/* Adjustment constant #2 in wrapping carry */
 	double	CARRY_ADJUST3;	/* Adjustment constant #3 in wrapping carry */
@@ -3654,7 +3654,7 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 
 again:	zpad_jmptab = NULL;
 	generic_jmptab = NULL;
-	if (gwdata->specific_fftlen == 0 &&
+	if (gwdata->specific_fftlen == 0 && ! gwdata->force_general_mod &&
 	    (k > 1.0 || n < 500 || abs (c) > 1) &&
 	    gwdata->qa_pick_nth_fft < 1000) {
 
@@ -3812,6 +3812,10 @@ next1:			while (zpad_jmptab->flags & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
 		if ((double) n * log2b / (double) jmptab->fftlen > 26.0) goto next2;
 		if (jmptab->fftlen < gwdata->minimum_fftlen) goto next2;
 		if (! is_fft_implemented (gwdata, jmptab)) goto next2;
+
+/* Top carry adjust can only handle k values of 34 bits or less */
+
+		if (log2k >= 34.0) goto next2;
 
 /* Check if this FFT length will work with this k,n,c combo */
 
@@ -5913,17 +5917,13 @@ int internal_gwsetup (
 
 	asm_data->TOP_CARRY_NEEDS_ADJUSTING = (k > 1.0 && !gwdata->ZERO_PADDED_FFT);
 	if (asm_data->TOP_CARRY_NEEDS_ADJUSTING) {
-		unsigned long num_b_in_k, kbits, kbits_lo;
-		unsigned long num_b_in_top_word, num_b_in_second_top_word, num_b_in_third_top_word;
+		unsigned long num_b_in_top_word, num_b_in_second_top_word, num_b_in_third_top_word, num_b_in_k;
+		double	carry_adjust_1_mod_k;
 
-/* Invert k and split k for computing top carry adjustment without */
-/* precision problems. */
+/* Copy k and inverted k */
 
+		asm_data->K = k;
 		asm_data->INVERSE_K = 1.0 / k;
-		kbits = (unsigned long) ceil (log2 (k));
-		kbits_lo = kbits / 2;
- 		asm_data->K_HI = ((unsigned long) k) & ~((1 << kbits_lo) - 1);
-		asm_data->K_LO = ((unsigned long) k) &  ((1 << kbits_lo) - 1);
 
 /* Calculate top carry adjusting constants */
 
@@ -5936,8 +5936,10 @@ int internal_gwsetup (
 
 		num_b_in_k = (unsigned long) ceil (logb (k));
 		asm_data->CARRY_ADJUST1 = pow ((double) b, num_b_in_k);
-		asm_data->CARRY_ADJUST1_HI = ((unsigned long) asm_data->CARRY_ADJUST1) & ~((1 << kbits_lo) - 1);
-		asm_data->CARRY_ADJUST1_LO = ((unsigned long) asm_data->CARRY_ADJUST1) &  ((1 << kbits_lo) - 1);
+		carry_adjust_1_mod_k = asm_data->CARRY_ADJUST1 - floor (asm_data->CARRY_ADJUST1 / k) * k;
+		asm_data->CARRY_ADJUST1_HI = floor (carry_adjust_1_mod_k / 131072.0);
+		asm_data->CARRY_ADJUST1_LO = carry_adjust_1_mod_k - asm_data->CARRY_ADJUST1_HI * 131072.0;
+		asm_data->TWO_TO_17 = 131072.0;
 		asm_data->CARRY_ADJUST2 = pow ((double) b, num_b_in_top_word) / asm_data->CARRY_ADJUST1;
 		asm_data->CARRY_ADJUST4 = pow ((double) b, num_b_in_second_top_word);
 		asm_data->CARRY_ADJUST6 = pow ((double) b, num_b_in_third_top_word);
@@ -5954,6 +5956,13 @@ int internal_gwsetup (
 		// It's too hard to upgrade the old x87 code to match the SSE2 code
 		// So, for x87 generate the same constants used prior to version 25.11
 		if (! (gwdata->cpu_flags & CPU_SSE2)) {
+			unsigned long kbits, kbits_lo;
+			kbits = (unsigned long) ceil (log2 (k));
+			kbits_lo = kbits / 2;
+			asm_data->K = ((unsigned long) k) & ~((1 << kbits_lo) - 1);		/* a.k.a. K_HI */
+			asm_data->TWO_TO_17 = ((unsigned long) k) &  ((1 << kbits_lo) - 1);	/* a.k.a. K_LO */
+			asm_data->CARRY_ADJUST1_HI = ((unsigned long) asm_data->CARRY_ADJUST1) & ~((1 << kbits_lo) - 1);
+			asm_data->CARRY_ADJUST1_LO = ((unsigned long) asm_data->CARRY_ADJUST1) &  ((1 << kbits_lo) - 1);
 			if (gwdata->PASS2_SIZE)
 				asm_data->CARRY_ADJUST4 *= asm_data->CARRY_ADJUST5;
 			else
@@ -8064,7 +8073,7 @@ void gwfft_description (
 		 (gwdata->ARCH == 3) ? "Core2 " :
 		 (gwdata->ARCH == 4) ? "AMD K8 " :
 		 (gwdata->ARCH == 5) ? "AMD K10 " : " ",
-		 (gwdata->PASS2_SIZE == 0) ? "" :
+		 (gwdata->PASS2_SIZE == 0 || ! (gwdata->cpu_flags & CPU_SSE2)) ? "" :
 		 (gwdata->FFT_TYPE == 0) ? "type-0 " :
 		 (gwdata->FFT_TYPE == 1) ? "type-1 " :
 		 (gwdata->FFT_TYPE == 2) ? "type-2 " : "type-3 ",

@@ -2436,7 +2436,7 @@ ENDIF
 ; The problem is the top carry is from b^ceil(logb(k)+n) rather than at k*b^n.
 ; So we recompute the top carry by multiplying by b^ceil(logb(k)) and then
 ; dividing by k.  The integer part is the new carry and the remainder is
-; added back to the top word or two.
+; added back to the top three words.
 
 ; The single-pass case, the top carry is in high word of xmm3
 xnorm_top_carry_1d MACRO
@@ -2462,33 +2462,56 @@ xnorm_top_carry_cmn MACRO srcreg, xreg, twopass
 	movsd	xreg, Q [rdi-8]		;; Load very last carry
 	ENDIF
 
-	movsd	xmm1, XMM_BIGVAL_NEG	;; Convert carry from int+BIGVAL state
-	addsd	xmm1, xreg
-	movsd	xreg, CARRY_ADJUST1	;; Mul by b^ceil(logb(k))
-	mulsd	xreg, xmm1
+	subsd	xreg, XMM_BIGVAL	;; Convert top carry from int+BIGVAL state
+	movsd	XMM_TMP6, xreg
+
+	;; We want to calculate carry * b^ceil(logb(k)) / k and
+	;; carry * b^ceil(logb(k)) % k.  This must be done very carefully as
+	;; carry * b^ceil(logb(k)) may not fit in 53 bits.
+
+	;; Here is a strategy that works for k values up to and including 34 bits.
+	;; We do lots of modulo k operations along the way to insure all intermediate
+	;; results are 51 bits or less.
+	;; Calculate y = carry % k.  This will fit in 34 bits.
+	;; Let z = b^ceil(logb(k)) % k.  Precalculate high_17_bits(z) and low_17_bits(z)
+	;; Remainder is (high_17_bits(z) * y % k * 2^17 + low_17_bits(z) * y) % k
+
+	movsd	xmm0, INVERSE_K
+	mulsd	xmm0, xreg		;; Mul top carry by 1/k
+	addsd	xmm0, XMM_BIGVAL	;; Integer part
+	subsd	xmm0, XMM_BIGVAL
+	mulsd	xmm0, K
+	subsd	xreg, xmm0		;; y = carry % k
+
+	movsd	xmm0, CARRY_ADJUST1_HI	;; high_17_bits(z)
+	mulsd	xmm0, xreg		;; high_17_bits(z) * y
+	movsd	xmm1, INVERSE_K
+	mulsd	xmm1, xmm0		;; Mul high_17_bits(z) * y by 1/k
+	addsd	xmm1, XMM_BIGVAL	;; Integer part
+	subsd	xmm1, XMM_BIGVAL
+	mulsd	xmm1, K
+	subsd	xmm0, xmm1		;; high_17_bits(z) * y % k
+	mulsd	xmm0, TWO_TO_17		;; high_17_bits(z) * y % k * 2^17
+	mulsd	xreg, CARRY_ADJUST1_LO	;; low_17_bits(z) * y
+	addsd	xmm0, xreg		;; high_17_bits(z) * y % k * 2^17 + low_17_bits(z) * y
+
+	movsd	xmm1, INVERSE_K
+	mulsd	xmm1, xmm0		;; Mul by 1/k
+	addsd	xmm1, XMM_BIGVAL	;; Integer part
+	subsd	xmm1, XMM_BIGVAL
+	mulsd	xmm1, K
+	subsd	xmm0, xmm1		;; Remainder!!!
+
+	;; Finally calculate integer_part = (carry * b^ceil(logb(k)) - remainder) / k
+
+	movsd	xreg, XMM_TMP6		;; Reload top carry
+	mulsd	xreg, CARRY_ADJUST1	;; Mul by b^ceil(logb(k))
+	subsd	xreg, xmm0		;; Subtract the remainder
 	mulsd	xreg, INVERSE_K		;; Mul by 1/k
-	addsd	xreg, XMM_BIGVAL	;; Integer part of carry over k
+	addsd	xreg, XMM_BIGVAL	;; Integer part of top carry over k
 	subsd	xreg, XMM_BIGVAL
-	;; Calculate remainder (very carefully).  Warning: carry * b^ceil(logb(k))
-	;; may not fit in 53 bits.  Also, integer_part * k may not fit in 53 bits.
-	;; So instead of computing the remainder in the normal way:
-	;;	carry * b^ceil(logb(k)) - integer_part * k
-	;; We calculate:
-	;;	carry * HI_BITS(b^ceil(logb(k))) - integer_part*HI_BITS(k) +
-	;;	carry * LO_BITS(b^ceil(logb(k))) - integer_part*LO_BITS(k)
-	movsd	xmm0, CARRY_ADJUST1_HI	;; carry * HI_BITS(b^ceil(logb(k)))
-	mulsd	xmm0, xmm1
-	mulsd	xmm1, CARRY_ADJUST1_LO	;; carry * LO_BITS(b^ceil(logb(k)))
-	movsd	XMM_TMP6, xmm1
-	movsd	xmm1, K_HI		;; integer_part * HI_BITS(k)
-	mulsd	xmm1, xreg
-	subsd	xmm0, xmm1		;; High bits of remainder
-	addsd	xmm0, XMM_TMP6
-	movsd	xmm1, K_LO		;; integer_part * HI_BITS(k)
-	mulsd	xmm1, xreg
-	subsd	xmm0, xmm1		;; The remainder
-;	addsd	xmm0, XMM_BIGVAL	;; Make sure remainder is an integer
-;	subsd	xmm0, XMM_BIGVAL
+
+	;; Now add the remainder to the top words
 
 	mulsd	xmm0, CARRY_ADJUST2	;; Shift remainder
 	movsd	xmm1, XMM_BIGVAL	;; Integer part of shifted remainder
