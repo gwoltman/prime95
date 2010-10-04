@@ -1,3 +1,9 @@
+New features in Version 26.3 of mprime
+--------------------------------------
+
+1)  A few crash bugs were fixed that affected only some CPU architectures and some
+    FFT lengths.  Other minor bug were fixed.
+
 New features in Version 26.2 of mprime
 --------------------------------------
 
