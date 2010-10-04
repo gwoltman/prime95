@@ -511,8 +511,8 @@ no zero	subsd	xmm7, ADDIN_VALUE	;; Do not include addin in sumout
 	sub	rcx, rcx
 	mov	edx, normcount1		;; Load loop counter
 	mov	saved_reg3, rsi		;; remember esi for xnorm012_1d_mid
-	mov	saved_reg2, rdi		;; remember edi for xnorm012_1d_mid
-	mov	saved_reg1, rbp		;; remember ebp for xnorm012_1d_mid
+ttp	mov	saved_reg2, rdi		;; remember edi for xnorm012_1d_mid
+ttp	mov	saved_reg1, rbp		;; remember ebp for xnorm012_1d_mid
 
 ilp0:	mov	ebx, edx		;; Load loop counter
 	and	ebx, 07FFh		;; Grab 11 bits of the counter
@@ -524,12 +524,12 @@ ttp	bump	rdi, 4			;; Next big/little flags
 	jnz	ilp1			;; Loop til done
 
 	xchg	rsi, saved_reg3		;; Restore FFT data addr
-	xchg	rdi, saved_reg2		;; Restore big/lit pointer
-	xchg	rbp, saved_reg1		;; Restore ttp pointer
+ttp	xchg	rdi, saved_reg2		;; Restore big/lit pointer
+ttp	xchg	rbp, saved_reg1		;; Restore ttp pointer
 	xnorm012_1d_mid ttp, zero, base2 ;; Rotate carries and add in carries
 	mov	rsi, saved_reg3		;; Restore FFT data addr
-	mov	rdi, saved_reg2		;; Restore big/lit pointer
-	mov	rbp, saved_reg1		;; Restore ttp pointer
+ttp	mov	rdi, saved_reg2		;; Restore big/lit pointer
+ttp	mov	rbp, saved_reg1		;; Restore ttp pointer
 
 	shr	edx, 11			;; Get next loop amount
 	jnz	ilp0

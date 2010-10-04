@@ -979,9 +979,9 @@ xnorm012_1d_mid MACRO ttp, zero, base2
 	test	FFTLEN, 16
 	jz	not_80_or_112
 
-	bump	rdi, -4			;; Modify input pointers so we
+ttp	bump	rdi, -4			;; Modify input pointers so we
 	bump	rsi, -64		;; propagate into only 4 words
-	bump	rbp, -128
+ttp	bump	rbp, -128
 	jmp	only_do_4
 
 not_80_or_112:
