@@ -6239,7 +6239,7 @@ int pfactor (
 /* Output a message that P-1 factoring is about to begin */
 
 	gw_as_string (testnum, w->k, w->b, w->n, w->c);
-	sprintf (buf, "Optimal P-1 factoring of %s using up to %dMB of memory.\n",
+	sprintf (buf, "Optimal P-1 factoring of %s using up to %luMB of memory.\n",
 		 testnum, max_mem (thread_num));
 	OutputStr (thread_num, buf);
 	sprintf (buf, "Assuming no factors below 2^%.2g and %.2g primality test%s saved if a factor is found.\n",
