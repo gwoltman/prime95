@@ -39,7 +39,7 @@ c1dn:
 _TEXT SEGMENT
 
 ;;
-;; Add two numbers without carry propogation.  Caller can use this for
+;; Add two numbers without carry propagation.  Caller can use this for
 ;; consecutive add or subtract operations.  However, the last operation
 ;; before a multiply must use the routine that will normalize data.
 ;;
@@ -71,7 +71,7 @@ uaddlp:	xload	xmm0, [rdx]		; Load second number
 gwxaddq1 ENDP
 
 ;;
-;; Add two numbers with carry propogation
+;; Add two numbers with carry propagation
 ;;
 
 saved_dest_ptr	EQU	PPTR [rsp+first_local+0*SZPTR]
@@ -135,7 +135,7 @@ nadddn:	mov	rbx, saved_col_ptr	; Restore multipliers pointer
 gwxadd1 ENDP
 
 ;;
-;; Subtract two numbers without carry propogation.  Caller can use this for
+;; Subtract two numbers without carry propagation.  Caller can use this for
 ;; consecutive add or subtract operations.  However, the last operation
 ;; before a multiply must use the routine that will normalize data.
 ;;
@@ -167,7 +167,7 @@ usublp:	xload	xmm0, [rdx]		; Load second number
 gwxsubq1 ENDP
 
 ;;
-;; Subtract two numbers with carry propogation
+;; Subtract two numbers with carry propagation
 ;;
 
 saved_dest_ptr	EQU	PPTR [rsp+first_local+0*SZPTR]
@@ -231,7 +231,7 @@ nsubdn:	mov	rbx, saved_col_ptr	; Restore multipliers pointer
 gwxsub1 ENDP
 
 ;;
-;; Add and subtract two numbers without carry propogation.
+;; Add and subtract two numbers without carry propagation.
 ;;
 
 PROCFL	gwxaddsubq1
@@ -276,7 +276,7 @@ uaddsublp:
 gwxaddsubq1 ENDP
 
 ;;
-;; Add and subtract two numbers with carry propogation
+;; Add and subtract two numbers with carry propagation
 ;;
 
 saved_dest1_ptr	EQU	PPTR [rsp+first_local+0*SZPTR]
@@ -377,7 +377,7 @@ cz1:	xcopyzero			; Copy/zero 8 values
 gwxcopyzero1 ENDP
 
 ;;
-;; Add in a small number with carry propogation
+;; Add in a small number with carry propagation
 ;;
 
 PROCFL	gwxadds1

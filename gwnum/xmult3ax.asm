@@ -56,7 +56,7 @@ c3dn:
 _TEXT SEGMENT
 
 ;;
-;; Add two numbers with carry propogation
+;; Add two numbers with carry propagation
 ;;
 
 saved_blk_start EQU	PPTR [rsp+first_local+0*SZPTR]
@@ -175,7 +175,7 @@ askip3:	sub	loopcount1, 1		; Decrement outer loop counter
 gwxadd3 ENDP
 
 ;;
-;; Subtract two numbers with carry propogation
+;; Subtract two numbers with carry propagation
 ;;
 
 saved_blk_start EQU	PPTR [rsp+first_local+0*SZPTR]
@@ -294,7 +294,7 @@ sskip3:	sub	loopcount1, 1		; Decrement outer loop counter
 gwxsub3 ENDP
 
 ;;
-;; Add and subtract two numbers with carry propogation
+;; Add and subtract two numbers with carry propagation
 ;;
 
 saved_blk_start EQU	PPTR [rsp+first_local+0*SZPTR]
@@ -436,7 +436,7 @@ asskip3:sub	loopcount1, 1		; Decrement outer loop counter
 gwxaddsub3 ENDP
 
 ;;
-;; Add in a small number with carry propogation
+;; Add in a small number with carry propagation
 ;;
 
 PROCFL	gwxadds3
@@ -456,7 +456,7 @@ addsmdn:
 gwxadds3 ENDP
 
 ;;
-;; Multiply a number by a small value with carry propogation
+;; Multiply a number by a small value with carry propagation
 ;;
 
 saved_blk_start EQU	PPTR [rsp+first_local+0*SZPTR]

@@ -53,7 +53,7 @@ c2dn:
 _TEXT SEGMENT
 
 ;;
-;; Add two numbers without carry propogation.  Caller can use this for
+;; Add two numbers without carry propagation.  Caller can use this for
 ;; consecutive add or subtract operations.  However, the last operation
 ;; before a multiply must use the routine that will normalize data.
 ;;
@@ -96,7 +96,7 @@ uaddlp:	xload	xmm0, [rdx]		; Load second number
 gwxaddq2 ENDP
 
 ;;
-;; Add two numbers with carry propogation
+;; Add two numbers with carry propagation
 ;;
 
 saved_reg	EQU	PPTR [rsp+first_local]
@@ -218,7 +218,7 @@ askip2:	dec	loopcount2		; Decrement outer loop counter
 gwxadd2 ENDP
 
 ;;
-;; Subtract two numbers without carry propogation.  Caller can use this for
+;; Subtract two numbers without carry propagation.  Caller can use this for
 ;; consecutive add or subtract operations.  However, the last operation
 ;; before a multiply must use the routine that will normalize data.
 ;;
@@ -261,7 +261,7 @@ usublp:	xload	xmm0, [rdx]		; Load second number
 gwxsubq2 ENDP
 
 ;;
-;; Subtract two numbers with carry propogation
+;; Subtract two numbers with carry propagation
 ;;
 
 saved_reg	EQU	PPTR [rsp+first_local]
@@ -383,7 +383,7 @@ sskip2:	dec	loopcount2		; Decrement outer loop counter
 gwxsub2 ENDP
 
 ;;
-;; Add and subtract two numbers without carry propogation.
+;; Add and subtract two numbers without carry propagation.
 ;;
 
 PROCFL	gwxaddsubq2
@@ -441,7 +441,7 @@ uaddsublp:
 gwxaddsubq2 ENDP
 
 ;;
-;; Add and subtract two numbers with carry propogation
+;; Add and subtract two numbers with carry propagation
 ;;
 
 saved_dest1_ptr	EQU	PPTR [rsp+first_local+0*SZPTR]
@@ -628,7 +628,7 @@ cz2:	xcopyzero
 gwxcopyzero2 ENDP
 
 ;;
-;; Add in a small number with carry propogation
+;; Add in a small number with carry propagation
 ;;
 
 PROCFL	gwxadds2
@@ -649,7 +649,7 @@ addsmdn:
 gwxadds2 ENDP
 
 ;;
-;; Multiply a number by a small value with carry propogation
+;; Multiply a number by a small value with carry propagation
 ;;
 
 saved_sec_biglit EQU	PPTR [rsp+first_local+0*SZPTR]
