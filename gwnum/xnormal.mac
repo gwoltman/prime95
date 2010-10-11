@@ -1349,7 +1349,7 @@ zero	subsd	xmm1, xmm1
 	addsd	xmm3, Q [rsi+128+16]	;; value1 = values + carry
 	addsd	xmm2, Q [rsi+128+48]	;; value2 = values + carry
 	movsd	Q [rsi+128+16], xmm3	;; Save value1
-zero	subsd	xmm1, xmm1
+zero	subsd	xmm2, xmm2
 	movsd	Q [rsi+128+48], xmm2	;; Save value2
 	ENDM
 
@@ -8435,6 +8435,6 @@ xcopyz MACRO col, xmmreg, mem
 	jge	short zdone		;; Jump if no zeroing
 	subsd	xmmreg, xmmreg		;; Clear just one double
 	jmp	short zdone
-z_two:	subpd	xmmreg, xmmreg
+z_two:	xorpd	xmmreg, xmmreg
 zdone:
 	ENDM
