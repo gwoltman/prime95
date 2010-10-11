@@ -2234,7 +2234,7 @@ void makestr (
 			x[i] >>= 1;
 		}
 	}
-	while (buf[0] == '0') strcpy (buf, buf+1);
+	while (buf[0] == '0') safe_strcpy (buf, buf+1);
 }
 
 /* Sleep five minutes before restarting */
