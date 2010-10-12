@@ -5105,7 +5105,7 @@ begin:	gwinit (&lldata.gwdata);
 			if (error_count_messages == 1)
 				make_error_count_message (error_count, error_count_messages,
 							  buf + strlen (buf),
-							  sizeof (buf) - strlen (buf));
+							  (int) (sizeof (buf) - strlen (buf)));
 			/* Append optional roundoff message */
 			if (ERRCHK && counter > 30) {
 				sprintf (buf+strlen(buf),
@@ -7593,7 +7593,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			if (error_count_messages == 1)
 				make_error_count_message (error_count, error_count_messages,
 							  buf + strlen (buf),
-							  sizeof (buf) - strlen (buf));
+							  (int) (sizeof (buf) - strlen (buf)));
 			/* Append optional roundoff message */
 			if (ERRCHK && counter > 30) {
 				sprintf (buf+strlen(buf),
