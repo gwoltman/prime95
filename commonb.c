@@ -196,15 +196,19 @@ gwmutex	MEM_MUTEX;		/* Lock for accessing mem globals */
 void SetPriority (
 	struct PriorityInfo *info)
 {
-static	char	AFFINITY_SCRAMBLE[33] = {0};
+static	char	AFFINITY_SCRAMBLE[MAX_NUM_WORKER_THREADS+1] = {0};
+static	char	AFFINITY_SCRAMBLE_STATE = 0;	/* 0 = not read in, 1 = read in and valid, 2 = no scramble string in local.txt */
 	unsigned int i;
-	int	mask;
+	int	mask[MAX_NUM_WORKER_THREADS/32];
+#define maskset(x)	mask[(x)/32] |= (1 << ((x) & 31))
+#define maskget(m,x)	(m[(x)/32] & (1 << ((x) & 31)))
 
 /* Benchmarking affinity.  For hyperthreaded CPUs, we put auxillary */
 /* threads onto the logical CPUs before moving onto the next physical CPU. */  
 
 	if (info->type == SET_PRIORITY_BENCHMARKING) {
-		mask = 1 << (info->aux_thread_num);
+		memset (mask, 0, sizeof (mask));
+		maskset (info->aux_thread_num);
 	}
 
 /* Torture test affinity.  If we're running the same number of torture */
@@ -213,18 +217,19 @@ static	char	AFFINITY_SCRAMBLE[33] = {0};
 
 	else if (info->type == SET_PRIORITY_TORTURE) {
 		if (info->num_threads == NUM_CPUS * CPU_HYPERTHREADS) {
-			mask = 1 << info->thread_num;
+			memset (mask, 0, sizeof (mask));
+			maskset (info->thread_num);
 		} else if (info->num_threads == NUM_CPUS) {
-			mask = 1 << (info->thread_num * CPU_HYPERTHREADS);
-			for (i = 1; i < CPU_HYPERTHREADS; i++) mask |= (mask << 1);
+			memset (mask, 0, sizeof (mask));
+			for (i = 0; i < CPU_HYPERTHREADS; i++) maskset (info->thread_num * CPU_HYPERTHREADS + i);
 		} else
-			mask = -1;
+			memset (mask, 0xFF, sizeof (mask));
 	}
 
 /* QA affinity.  Just let the threads run on any CPU. */
 
 	else if (info->type == SET_PRIORITY_QA) {
-		mask = -1;
+		memset (mask, 0xFF, sizeof (mask));
 	}
 
 /* Normal worker threads.  Pay attention to the affinity option set */
@@ -233,7 +238,7 @@ static	char	AFFINITY_SCRAMBLE[33] = {0};
 /* A CPU_AFFINITY setting of 99 means "run on any CPU". */
 
 	else if (CPU_AFFINITY[info->thread_num] == 99) {
- 		mask = -1;
+		memset (mask, 0xFF, sizeof (mask));
 	}
 
 /* A small CPU_AFFINITY setting means run only on that CPU.  Since there is */
@@ -242,9 +247,11 @@ static	char	AFFINITY_SCRAMBLE[33] = {0};
 
 	else if (CPU_AFFINITY[info->thread_num] < 100) {
 		if (CPU_AFFINITY[info->thread_num] + info->aux_thread_num >= NUM_CPUS * CPU_HYPERTHREADS)
-			mask = -1;
-		else
-			mask = 1 << (CPU_AFFINITY[info->thread_num] + info->aux_thread_num);
+			memset (mask, 0xFF, sizeof (mask));
+		else {
+			memset (mask, 0, sizeof (mask));
+			maskset (CPU_AFFINITY[info->thread_num] + info->aux_thread_num);
+		}
 	}
 
 /* A CPU_AFFINITY setting of 100 means "smart affinity assignments". */
@@ -255,7 +262,7 @@ static	char	AFFINITY_SCRAMBLE[33] = {0};
 /* threads on any CPU. */
 
 	else if (! PTOIsGlobalOption (CPU_AFFINITY))
-	 	mask = -1;
+		memset (mask, 0xFF, sizeof (mask));
 
 /* If number of worker threads equals number of logical cpus then run each */
 /* worker thread on its own logical CPU.  If the user also has us running */
@@ -263,8 +270,9 @@ static	char	AFFINITY_SCRAMBLE[33] = {0};
 /* performance hit will occur. */
 
 	else if (NUM_WORKER_THREADS == NUM_CPUS * CPU_HYPERTHREADS) {
-		mask = 1 << info->thread_num;
-		if (info->aux_thread_num) mask = -1;
+		memset (mask, 0, sizeof (mask));
+		maskset (info->thread_num);
+		if (info->aux_thread_num) memset (mask, 0xFF, sizeof (mask));
 	}
 
 /* If number of worker threads equals number of physical cpus then run each */
@@ -274,47 +282,51 @@ static	char	AFFINITY_SCRAMBLE[33] = {0};
 /* logical CPUs created by hyperthreading. */ 
 
 	else if (NUM_WORKER_THREADS == NUM_CPUS) {
-		mask = 1 << (info->thread_num * CPU_HYPERTHREADS);
-		for (i = 1; i < CPU_HYPERTHREADS; i++) mask |= (mask << 1);
+		memset (mask, 0, sizeof (mask));
+		for (i = 0; i < CPU_HYPERTHREADS; i++) maskset (info->thread_num * CPU_HYPERTHREADS + i);
 	}
 
 /* Otherwise, just run on any CPU. */
 
 	else
-		mask = -1;
+		memset (mask, 0xFF, sizeof (mask));
 
 /* Get the optional string used to scramble the affinity mask bits to */
 /* new or odd optimizations we had not considered. */
 
-	if (!AFFINITY_SCRAMBLE[0]) {
-		IniGetString (LOCALINI_FILE, "AffinityScramble", AFFINITY_SCRAMBLE, sizeof (AFFINITY_SCRAMBLE), "x");
-		if (AFFINITY_SCRAMBLE[0] != 'x') {
-			for (i = 0; i < 32; i++) {
+	if (AFFINITY_SCRAMBLE_STATE == 0) {
+		IniGetString (LOCALINI_FILE, "AffinityScramble", AFFINITY_SCRAMBLE, sizeof (AFFINITY_SCRAMBLE), "*");
+		if (AFFINITY_SCRAMBLE[0] == '*') {
+			AFFINITY_SCRAMBLE_STATE = 2;
+		} else {
+			AFFINITY_SCRAMBLE_STATE = 1;
+			for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
 				if (AFFINITY_SCRAMBLE[i] >= '0' && AFFINITY_SCRAMBLE[i] <= '9')
 					AFFINITY_SCRAMBLE[i] -= '0';
 				else if (AFFINITY_SCRAMBLE[i] >= 'A' && AFFINITY_SCRAMBLE[i] <= 'Z')
 					AFFINITY_SCRAMBLE[i] = AFFINITY_SCRAMBLE[i] - 'A' + 10;
+				else if (AFFINITY_SCRAMBLE[i] >= 'a' && AFFINITY_SCRAMBLE[i] <= 'z')
+					AFFINITY_SCRAMBLE[i] = AFFINITY_SCRAMBLE[i] - 'A' + 36;
+				else if (AFFINITY_SCRAMBLE[i] == '(')
+					AFFINITY_SCRAMBLE[i] = 62;
+				else if (AFFINITY_SCRAMBLE[i] == ')')
+					AFFINITY_SCRAMBLE[i] = 63;
 				else
-					AFFINITY_SCRAMBLE[i] = -1;
+					AFFINITY_SCRAMBLE[i] = i;  /* Illegal entry = no mapping */
 			}
 		}
 	}
 
 /* Apply the optional affinity mask scrambling */
 
-	if (AFFINITY_SCRAMBLE[0] != 'x' && mask != -1) {
-		int	new_mask;
-		new_mask = 0;
-		for (i = 0; i < 32; i++) {
-			if (mask & (1L << i)) {
-				if (AFFINITY_SCRAMBLE[i] < 0 ||
-				    AFFINITY_SCRAMBLE[i] >= (char) (NUM_CPUS * CPU_HYPERTHREADS))
-					new_mask = -1;
-				else
-					new_mask |= (1L << AFFINITY_SCRAMBLE[i]);
-			}
+	if (AFFINITY_SCRAMBLE_STATE == 1) {
+		int	old_mask[MAX_NUM_WORKER_THREADS/32];
+		memcpy (old_mask, mask, sizeof (mask));
+		memset (mask, 0, sizeof (mask));
+		for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
+			if (maskget (old_mask, i) && AFFINITY_SCRAMBLE[i] < MAX_NUM_WORKER_THREADS)
+				maskset (AFFINITY_SCRAMBLE[i]);
 		}
-		mask = new_mask;
 	}
 
 /* Output an informative message */
@@ -326,13 +338,13 @@ static	char	AFFINITY_SCRAMBLE[33] = {0};
 			strcpy (buf, "Setting affinity to run worker on ");
 		else
 			sprintf (buf, "Setting affinity to run helper thread %d on ", info->aux_thread_num);
-		if (mask == -1) {
+		if (mask[0] == -1) {
 			strcat (buf, "any logical CPU.\n");
 		} else {
 			int	i, count;
 			char	cpu_list[80];
-			for (i = count = 0; i < 32; i++) {
-				if (! (mask & (1 << i))) continue;
+			for (i = count = 0; i < MAX_NUM_WORKER_THREADS; i++) {
+				if (! maskget (mask, i)) continue;
 				count++;
 				if (count == 1) sprintf (cpu_list, "%d", i);
 				else sprintf (cpu_list + strlen(cpu_list), ",%d", i);

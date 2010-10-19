@@ -423,9 +423,9 @@ to CPUs for optimal speed.  However, new architectures or situations we
 haven't considered may make different affinity setting desirable.  In
 local.txt set
 	AffinityScramble=string
-Where the string "0123456789ABCDEFGHIJKLMNOPQRSTUV" is the "make no
-changes" string.  For example, let's say you have a system with 8 logical
-cores with 4 workers each using a helper thread.  The program would
+Where the string "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz()"
+is the 64-core "make no changes" string.  For example, let's say you have a system
+with 8 logical cores with 4 workers each using a helper thread.  The program would
 ordinarily assign the worker and helper threads to [0,1], [2,3], [4,5], [6,7].
 However, if you think [0,2], [1,3], [4,6], [5,7] would give better performance,
 you would set AffinityScramble=02134657 to test out your theory.
