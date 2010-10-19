@@ -348,6 +348,7 @@ void setThreadPriorityAndAffinity (
 	}
 #endif
 #endif
+}
 
 /* Init PrimeNet communication code, make sure an internet connection is active */
 /* Return false if not connected to internet */

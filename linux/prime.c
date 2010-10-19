@@ -1,4 +1,4 @@
-/* Copyright 1995-2009 Mersenne Research, Inc. */
+/* Copyright 1995-2010 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -20,6 +20,8 @@
 #include <unistd.h>
 #include <linux/unistd.h>
 #include <asm/unistd.h>
+#define __USE_GNU
+#include <sched.h>
 #include <sys/resource.h>
 #include <sys/sysinfo.h>
 #include <sys/time.h>
