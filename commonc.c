@@ -832,7 +832,7 @@ int readIniFiles (void)
 	if (PRIORITY > 10) PRIORITY = 10;
 	PTOGetAll (INI_FILE, "WorkPreference", WORK_PREFERENCE, 0);
 	PTOGetAll (LOCALINI_FILE, "Affinity", CPU_AFFINITY, 100);
-	PTOGetAll (LOCALINI_FILE, "ThreadsPerTest", THREADS_PER_TEST, CPU_HYPERTHREADS);
+	PTOGetAll (LOCALINI_FILE, "ThreadsPerTest", THREADS_PER_TEST, 1);
 	MANUAL_COMM = (int) IniGetInt (INI_FILE, "ManualComm", 0);
 	HIDE_ICON = (int) IniGetInt (INI_FILE, "HideIcon", 0);
 	TRAY_ICON = (int) IniGetInt (INI_FILE, "TrayIcon", 1);
