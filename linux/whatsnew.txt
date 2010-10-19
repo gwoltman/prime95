@@ -1,8 +1,14 @@
+New features in Version 26.4 of mprime
+--------------------------------------
+
+1)  The 64-bit version supports 64 threads (up from 32).
+2)  The FreeBSD version supports setting thread affinity.
+
 New features in Version 26.3 of mprime
 --------------------------------------
 
 1)  A few crash bugs were fixed that affected only some CPU architectures and some
-    FFT lengths.  Other minor bug were fixed.
+    FFT lengths.  Other minor bugs were fixed.
 
 New features in Version 26.2 of mprime
 --------------------------------------
