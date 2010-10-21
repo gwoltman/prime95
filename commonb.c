@@ -5953,7 +5953,7 @@ int selfTestInternal (
 	time_t	start_time, current_time;
 	struct self_test_info *test_data;
 	unsigned int test_data_count;
-	int	cpu_supports_3dnow, stop_reason;
+	int	stop_reason;
 
 /* Set the title */
 
@@ -6026,13 +6026,6 @@ int selfTestInternal (
 			break;
 		}
 
-/* Anecdotal evidence suggests that some AMD chips struggle with FFTs */
-/* that do not use the prefetchw instruction (they would fail a version */
-/* 23.8 torture test, but pass a version 24.11 torture test).  Thus, I've */
-/* made the torture test use both the prefetchw and non-prefetchw FFTs. */
-
-		cpu_supports_3dnow = (CPU_FLAGS & CPU_3DNOW) ? TRUE : FALSE;
-
 /* Now run Lucas setup, for extra safety double the maximum allowable */
 /* sum(inputs) vs. sum(outputs) difference.  For faster detection of unstable */
 /* systems, enable SUM(INPUTS) != SUM(OUTPUTS) checking on the first test. */
@@ -6043,14 +6036,7 @@ int selfTestInternal (
 		gwset_num_threads (&lldata.gwdata, num_threads);
 		lldata.gwdata.GW_BIGBUF = (char *) bigbuf;
 		lldata.gwdata.GW_BIGBUF_SIZE = (bigbuf != NULL) ? (size_t) memory * (size_t) 1048576 : 0;
-		if (cpu_supports_3dnow && p > 5000000 &&
-		    torture_index != NULL &&
-		    (test_data[i].reshi & 1) &&
-		    IniGetInt (INI_FILE, "Special3DNowTorture", 1))
-			CPU_FLAGS &= ~CPU_3DNOW;
 		stop_reason = lucasSetup (thread_num, p, fftlen, &lldata);
-		if (cpu_supports_3dnow)
-			CPU_FLAGS |= CPU_3DNOW;
 		if (stop_reason) return (stop_reason);
 		lldata.gwdata.MAXDIFF *= 2.0;
 
