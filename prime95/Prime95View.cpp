@@ -16,8 +16,13 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
+#ifdef X86_64
+#define MAX_VIEWS	66	/* 66 MDI windows: Main_thread, comm_thread */
+				/* and 64 worker threads. */
+#else
 #define MAX_VIEWS	34	/* 34 MDI windows: Main_thread, comm_thread */
 				/* and 32 worker threads. */
+#endif
 
 CPrime95View *Views[MAX_VIEWS] = {0};
 char	ThreadTitles[MAX_VIEWS][80] = {0};
