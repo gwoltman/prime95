@@ -4108,9 +4108,9 @@ int lucasSetup (
 	lldata->units_bit = 0;
 
 /* Init the FFT code for squaring modulo 1.0*2^p-1.  NOTE: As a kludge for */
-/* the benchmarking code, an odd FFTlen sets up the 1.0*2^p+1 FFT code. */
+/* the benchmarking and timing code, an odd FFTlen sets up the 1.0*2^p+1 FFT code. */
 
-	gwset_minimum_fftlen (&lldata->gwdata, fftlen & ~1);
+	gwset_specific_fftlen (&lldata->gwdata, fftlen & ~1);
 	if (fftlen & 1)
 		res = gwsetup (&lldata->gwdata, 1.0, 2, p, 1);
 	else
@@ -6959,8 +6959,9 @@ int primeBench (
 		gwset_num_threads (&lldata.gwdata, threads);
 		gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 		gwset_thread_callback_data (&lldata.gwdata, &sp_info);
+		gwset_minimum_fftlen (&lldata.gwdata, fftlen);
 		if (all_bench) lldata.gwdata.bench_pick_nth_fft = ii;
-		stop_reason = lucasSetup (thread_num, fftlen * 17 + 1, fftlen + plus1, &lldata);
+		stop_reason = lucasSetup (thread_num, fftlen * 17 + 1, plus1, &lldata);
 		if (stop_reason) {
 			/* An error during all_bench is expected.  Continue on to next FFT length. */
 			/* An error during a norm bench is unexpected.  Sett fftlen so that we stop benching. */
@@ -7002,7 +7003,7 @@ int primeBench (
 
 /* Output start message for this FFT length */
 
-		sprintf (buf, "Timing %lu iterations at %luK%s FFT length%s.  ",
+		sprintf (buf, "Timing %lu iterations of %luK%s FFT length%s.  ",
 			 iterations, fftlen / 1024,
 			 plus1 ? " all-complex" : "",
 			 gw_using_large_pages (&lldata.gwdata) ? " using large pages" : "");
