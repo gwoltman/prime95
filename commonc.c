@@ -3469,12 +3469,28 @@ double work_estimate (
 
 	can_use_multiple_threads = (CPU_FLAGS & CPU_SSE2 && w->n > 172700);
 
-/* For ECM, estimate about 13 * B1 squarings in stage 1 and 5 * B2 squarings */
-/* in stage 2.  The stage text is C<curve#>S<stage#>. */
+/* For ECM, estimating time is very difficult because it depends on how */
+/* much memory is available for temporaries in stage 2.  There are also */
+/* significant increases in time when numbers no longer fit in the L2 */
+/* or L3 cache.  */
+/* For small numbers, we do about 12.86 * B1 squarings in stage 1 and */
+/* 0.0617 * (B2 - B1) squarings in stage 2.  The extra overhead due to */
+/* adds/subs and gwfftmul, gwfftfftmul being less efficient than gwsquare */
+/* adds overhead, I'm guessing 10% for tiny numbers that likely fit in the */
+/* cache to 20% for numbers that don't fit in the cache. */
+/* For larger numbers, fewer temporaries and greater costs for modinv cause */
+/* us to eventually switch from a 2 FFTs/prime to 4 FFTs/prime strategy in */
+/* stage 2.  This switch occurs around 5,000,000 bits on a machine using */
+/* modest amounts of memory.  We'll be doing 0.1261 * (B2 - B1) stage 2 */
+/* squarings then.  Between 100,000 bits and 5,000,000 bits we'll gradually */
+/* increase the stage 2 cost to account for the fewer temporaries resulting */
+/* in more modular inverses combined with modular inverses getting more */
+/* and more expensive. */
+/* Also note: the stage text is C<curve#>S<stage#>. */
 
 	if (w->work_type == WORK_ECM) {
-		int	full_curves_to_do, stage;
-		double	stage1_time, stage2_time;
+		int	full_curves_to_do, stage, bits;
+		double	stage1_time, stage2_time, overhead, B2_minus_B1;
 
 		full_curves_to_do = w->curves_to_do;
 		stage = 0;
@@ -3484,11 +3500,18 @@ double work_estimate (
 		}
 
 		timing = gwmap_to_timing (w->k, w->b, w->n, w->c);
-		stage1_time = timing * (13.0 * w->B1);
-		if (w->B2)
-			stage2_time = timing * (0.06 * w->B2);
-		else
-			stage2_time = timing * (0.06 * 100.0 * w->B1);
+		bits = (int) (w->n * log ((double) w->b) / log (2.0));
+		if (bits <= 80000) overhead = 1.10;
+		else if (bits >= 1500000) overhead = 1.20;
+		else overhead = 1.10 + ((double) bits - 80000.0) / 1420000.0 * (1.20 - 1.10);
+
+		stage1_time = (12.86 * w->B1) * timing * overhead;
+
+		if (bits <= 100000) stage2_time = 0.0617;
+		else if (bits >= 5000000) stage2_time = 0.1261;
+		else stage2_time = 0.0617 + ((double) bits - 100000.0) / 4900000.0 * (0.1261 - 0.0617);
+		B2_minus_B1 = (w->B2 > 0.0) ? w->B2 - w->B1 : 99.0 * w->B1;
+		stage2_time = stage2_time * B2_minus_B1 * timing * overhead;
 
 		est = (double) full_curves_to_do * (stage1_time + stage2_time);
 		if (stage == 1)
