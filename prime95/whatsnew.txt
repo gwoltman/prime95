@@ -2,6 +2,8 @@ New features in Version 26.4 of prime95.exe
 -------------------------------------------
 
 1)  The 64-bit version supports 64 threads (up from 32).
+2)  Each on-screen window can now scroll back 1000 lines of output.
+3)  ECM time estimates improved.  ECM may be a smidge faster.
 
 New features in Version 26.3 of prime95.exe
 -------------------------------------------
