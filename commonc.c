@@ -3616,7 +3616,7 @@ double work_estimate (
 /* If PRPing add in the PRP testing time */
 
 	if (w->work_type == WORK_PRP) {
-		est = w->n * gwmap_to_timing (w->k, w->b, w->n, w->c);
+		est = w->n * log ((double) w->b) / log (2.0) * gwmap_to_timing (w->k, w->b, w->n, w->c);
 		if (w->stage[0] == 'P') est *= (1.0 - pct_complete);
 	}
 
