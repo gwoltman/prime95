@@ -266,17 +266,13 @@ int main (
 /* to see a CPU intensive program not running at nice priority when */
 /* executing a ps command. */
 
+#if defined (__linux__) || defined (__APPLE__) || defined (__FreeBSD__)
+	/* Linux/FreeBSD ranges from -20 to +19, lower values give more favorable scheduling */
 	nice_level = IniGetInt (INI_FILE, "Nice", 10);
 	if (!torture_test && nice_level) {
-/* Linux ranges from -20 to +19, lower values give more favorable scheduling */
-#if defined (__linux__) || defined (__HAIKU__)
 		setpriority (PRIO_PROCESS, 0, nice_level);
-#endif
-/* FreeBSD ranges from -20 to +20, lower values give more favorable scheduling */
-#if defined (__APPLE__) || defined (__FreeBSD__)
-		setpriority (PRIO_PROCESS, 0, nice_level);
-#endif
 	}
+#endif
 
 /* If running the torture test, do so now. */
 
