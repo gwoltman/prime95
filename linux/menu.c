@@ -409,7 +409,7 @@ again:	if (max_num_workers () > 1)
 
 		if (NUM_CPUS * CPU_HYPERTHREADS > 1) {
 			char question[200];
-			unsignrf long affinity;
+			unsigned long affinity;
 			sprintf (question,
 				 "CPU affinity (1-%d=specific CPU, 99=any CPU, 100=smart assignment)",
 				 (int) (NUM_CPUS * CPU_HYPERTHREADS));
