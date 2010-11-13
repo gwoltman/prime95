@@ -601,7 +601,7 @@ void nameAndReadIniFiles (
 	gwmutex_init (&WORKTODO_MUTEX);
 
 /* Figure out the names of the INI files */
-	
+
 	if (named_ini_files < 0) {
 		strcpy (INI_FILE, "prime.ini");
 		strcpy (LOCALINI_FILE, "local.ini");
@@ -5765,6 +5765,11 @@ retry:
 		    (est >= work_to_get + unreserve_threshold &&
 		     ! isWorkUnitActive (w) &&
 		     w->pct_complete == 0.0)) {
+
+			sprintf (buf, "DEBUG INFO.  est: %g, wtg: %g, ut: %g, hw: %ld\n",
+				 est, work_to_get, unreserve_threshold, header_words[1]);
+			LogMsg (buf);
+
 			if (w->assignment_uid[0]) {
 				struct primenetAssignmentUnreserve pkt;
 				memset (&pkt, 0, sizeof (pkt));
