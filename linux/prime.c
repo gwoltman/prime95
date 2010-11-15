@@ -50,6 +50,8 @@
 #include <pthread.h>
 #include <sched.h>
 #include <unistd.h>
+#include <sys/param.h>
+#include <sys/cpuset.h>
 #include <sys/resource.h>
 #include <sys/sysctl.h>
 #include <sys/types.h>
@@ -91,12 +93,6 @@ typedef int pid_t;
 #endif
 
 /* Globals */
-
-#ifndef __WATCOMC__
-#ifndef __APPLE__
-#define OPEN_MAX 20
-#endif
-#endif
 
 int volatile THREAD_KILL = 0;
 int NO_GUI = 1;

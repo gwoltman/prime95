@@ -309,7 +309,8 @@ void setThreadPriorityAndAffinity (
 	static	int	max_priority = 0;
 	struct sched_param sp;
 #ifdef __FreeBSD__
-	cpuset_t *cset;
+	int	i;
+	cpuset_t cset;
 #endif
 
 /* Get the default thread priority when a thread is first launched */
@@ -338,14 +339,10 @@ void setThreadPriorityAndAffinity (
 /* Set affinity for FreeBSD threads */
 
 #ifdef __FreeBSD__
-	cset = cpuset_create ();
-	if (cset != NULL) {
-		int	i;
-		for (i = 0; i < MAX_NUM_WORKER_THREADS; i++)
-			if (mask[i/32] & (1 << (i & 31))) cpuset_set (i, cset);
-		pthread_setaffinity_np (pthread_self(), cpuset_size (cset), cset);
-		cpuset_destroy (cset);
-	}
+	CPU_ZERO (&cset);
+	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++)
+		if (mask[i/32] & (1 << (i & 31))) CPU_SET (i, &cset);
+	cpuset_setaffinity (CPU_LEVEL_WHICH, CPU_WHICH_TID, -1, sizeof (cset), &cset);
 #endif
 #endif
 }
