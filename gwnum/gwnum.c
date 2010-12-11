@@ -3554,7 +3554,9 @@ int calculate_bif (
 /* are asked to run one of these large FFTs, select an FFT optimized for a different */
 /* CPU architecture. */
 
-	if (fftlen > 4194304 && (retval == 3 || retval == 4))
+	if (fftlen > 1572864 && retval == 4)
+		retval = 2;		/* Tiny cache P4s have best FFT implementations up to 1536K */
+	if (fftlen > 4194304 && retval == 3)
 		retval = 2;		/* Small cache P4s have best FFT implementations up to 4M */
 	if (fftlen > 6291456 && retval == 2)
 		retval = 0;		/* P4s have best FFT implementations up to 6M */
