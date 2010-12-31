@@ -4413,8 +4413,8 @@ int make_error_count_message (
 
 	count_repeatable = (error_count >> 24) & 0x7F;
 	count_illegal_sumout = (error_count >> 16) & 0xFF;
-	count_suminp = (error_count >> 8) & 0xFF;
-	count_roundoff = error_count & 0xFF;
+	count_roundoff = (error_count >> 8) & 0xFF;
+	count_suminp = error_count & 0xFF;
 
 /* Return if no hardware errors have occurred */
 
