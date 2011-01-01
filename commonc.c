@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2010 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2011 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
@@ -11,7 +11,7 @@
 | Commonc contains information used during setup and execution
 +---------------------------------------------------------------------*/
 
-char JUNK[]="Copyright 1996-2010 Mersenne Research, Inc. All rights reserved";
+char JUNK[]="Copyright 1996-2011 Mersenne Research, Inc. All rights reserved";
 
 char	INI_FILE[80] = {0};
 char	LOCALINI_FILE[80] = {0};
@@ -2956,7 +2956,7 @@ wdone:	    rc = addToWorkUnitArray (tnum, w, TRUE);
 
 /* See if any other worker's first work unit is testing the same number. */
 /* If so, assume any existing save files are for that worker */
-			
+
 			for (tnum2 = 0; tnum2 < MAX_NUM_WORKER_THREADS; tnum2++) {
 				for (w2 = WORK_UNITS[tnum2].first; w2 != NULL; w2 = w2->next) {
 					if (w2->work_type == WORK_NONE) continue;
