@@ -2910,6 +2910,23 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		goto illegal_line;
 	    }
 
+/* A user discovered a case where a computer that dual boots between 32-bit prime95 */
+/* and 64-bit prime95 can run into problems.  If near the FFT limit an FFT length is */
+/* picked and written to worktodo.ini.  When running the other executable, that FFT */
+/* length may not be supported leading to a "cannot iniitialize FFT error".  For */
+/* example, the 2800K FFT length is implemented in 64-bit prime95, but not 32-bit prime95. */
+/* The quick workaround here is to ignore FFT lengths from the worktodo file if that FFT */
+/* length is not supported.  This is non-optimal because the proper FFT size will */
+/* have to be recalculated. */
+
+	    if (w->forced_fftlen && gwmap_fftlen_to_max_exponent (w->forced_fftlen) == 0) {
+		    char	buf[100];
+		    sprintf (buf, "Warning: Ignoring unsupported FFT length, %ld, on line %ld of worktodo.txt.\n",
+			     w->forced_fftlen, linenum);
+		    OutputBoth (MAIN_THREAD_NUM, buf);
+		    w->forced_fftlen = 0;
+	    }
+
 /* Do more initialization of the work_unit structure */
 
 	    auxillaryWorkUnitInit (w);
