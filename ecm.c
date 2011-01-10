@@ -5647,7 +5647,7 @@ msg_and_exit:
 /* If this is pre-factoring for an LL or PRP test, then delete the large */
 /* save file. */
 
-	if (w->work_type == WORK_PMINUS1)
+	if (w->work_type == WORK_PMINUS1 && IniGetInt (INI_FILE, "KeepPminus1SaveFiles", 1))
 		pm1_save (&pm1data, filename, w, 0, x, NULL);
 	else
 		unlinkSaveFiles (filename);

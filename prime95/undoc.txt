@@ -165,6 +165,11 @@ You can have the program output residues every n iterations.  The default
 value is the InterimFiles value.  In prime.txt enter:
 	InterimResidues=n
 
+By default P-1 work does not delete the save files when the work unit completes.
+This lets you run P-1 to a higher bound at a later date.  You can force
+the program to delete save files by adding this line to prime.txt:
+	KeepPminus1SaveFiles=0
+
 You can force the program to skip the trial factoring step prior to
 running a Lucas-Lehmer test.  In prime.txt add this line:
 	SkipTrialFactoring=1
