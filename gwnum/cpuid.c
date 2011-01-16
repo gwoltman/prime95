@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2010 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2011 Mersenne Research, Inc.  All rights reserved
 | Author:  George Woltman
 | Email: woltman@alum.mit.edu
 |
@@ -356,6 +356,10 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			CPU_FLAGS |= CPU_SSE41;
 		if ((reg.ECX >> 20) & 0x1)
 			CPU_FLAGS |= CPU_SSE42;
+		if ((reg.ECX >> 28) & 0x1)
+			CPU_FLAGS |= CPU_AVX;
+		if ((reg.ECX >> 12) & 0x1)
+			CPU_FLAGS |= CPU_FMA;
 	}
 
 /* Call CPUID with 0x80000000 argument.  It tells us how many extended CPU */
@@ -447,11 +451,14 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			 (family == 6 && model == 22) ||
 			 (family == 6 && model == 23))
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_CORE_2;
-		else if ((family == 6 && model == 37) ||		// Core i3/i5 (according to CPU-world)
-			 (family == 6 && model == 26) ||		// Core i7
+		else if ((family == 6 && model == 26) ||		// Core i7
 			 (family == 6 && model == 30) ||		// Core i5/i7
-			 (family == 6 && model == 44) ||		// Core i9 (according to Wikipedia)
-			 (family == 6 && model == 29))			// ??? I read it somewhere....
+			 (family == 6 && model == 29) ||		// Xeon MP (based on Core i7 technology)
+			 (family == 6 && model == 46) ||		// Xeon MP (based on Core i7 technology)
+			 (family == 6 && model == 47) ||		// Xeon MP (based on Sandy Bridge technology)
+			 (family == 6 && model == 44) ||		// Core i7 (based on Sandy Bridge technology)
+			 (family == 6 && model == 37) ||		// Core i3, mobile i5/i7 (based on Sandy Bridge technology)
+			 (family == 6 && model == 42))			// Core i7 (based on Sandy Bridge technology)
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_CORE_I7;
 		else if (family == 6 && model == 28)
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_ATOM;
@@ -548,6 +555,21 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 						CPU_L1_CACHE_SIZE = 16;
 						CPU_L1_CACHE_LINE_SIZE = 32;
 						CPU_L1_SET_ASSOCIATIVE = 4;
+						break;
+					case 0x0D:
+						CPU_L1_CACHE_SIZE = 16;
+						CPU_L1_CACHE_LINE_SIZE = 64;
+						CPU_L1_SET_ASSOCIATIVE = 4;
+						break;
+					case 0x0E:
+						CPU_L1_CACHE_SIZE = 24;
+						CPU_L1_CACHE_LINE_SIZE = 64;
+						CPU_L1_SET_ASSOCIATIVE = 6;
+						break;
+					case 0x21:
+						CPU_L2_CACHE_SIZE = 256;
+						CPU_L2_CACHE_LINE_SIZE = 64;
+						CPU_L2_SET_ASSOCIATIVE = 8;
 						break;
 					case 0x22:
 						CPU_L3_CACHE_SIZE = 512;
@@ -646,6 +668,11 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 						CPU_L3_CACHE_LINE_SIZE = 64;
 						CPU_L3_SET_ASSOCIATIVE = 8;
 						break;
+					case 0x48:
+						CPU_L2_CACHE_SIZE = 3072;
+						CPU_L2_CACHE_LINE_SIZE = 64;
+						CPU_L2_SET_ASSOCIATIVE = 12;
+						break;
 					case 0x49:
 						if (family == 0x0F && model == 0x06) {
 							CPU_L3_CACHE_SIZE = 4096;
@@ -683,6 +710,7 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 						CPU_L2_SET_ASSOCIATIVE = 24;
 						break;
 					case 0x5B:
+					case 0xBA:
 						CPU_L2_DATA_TLBS = 64;
 						break;
 					case 0x5C:
@@ -748,6 +776,11 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 						CPU_L2_CACHE_LINE_SIZE = 64;
 						CPU_L2_SET_ASSOCIATIVE = 2;
 						break;
+					case 0x80:
+						CPU_L2_CACHE_SIZE = 512;
+						CPU_L2_CACHE_LINE_SIZE = 64;
+						CPU_L2_SET_ASSOCIATIVE = 8;
+						break;
 					case 0x82:
 						CPU_L2_CACHE_SIZE = 256;
 						CPU_L2_CACHE_LINE_SIZE = 32;
@@ -778,6 +811,81 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 						CPU_L2_CACHE_LINE_SIZE = 64;
 						CPU_L2_SET_ASSOCIATIVE = 8;
 						break;
+					case 0xD0:
+						CPU_L3_CACHE_SIZE = 512;
+						CPU_L3_CACHE_LINE_SIZE = 64;
+						CPU_L3_SET_ASSOCIATIVE = 4;
+						break;
+					case 0xD1:
+						CPU_L3_CACHE_SIZE = 1024;
+						CPU_L3_CACHE_LINE_SIZE = 64;
+						CPU_L3_SET_ASSOCIATIVE = 4;
+						break;
+					case 0xD2:
+						CPU_L3_CACHE_SIZE = 2048;
+						CPU_L3_CACHE_LINE_SIZE = 64;
+						CPU_L3_SET_ASSOCIATIVE = 4;
+						break;
+					case 0xD6:
+						CPU_L3_CACHE_SIZE = 1024;
+						CPU_L3_CACHE_LINE_SIZE = 64;
+						CPU_L3_SET_ASSOCIATIVE = 8;
+						break;
+					case 0xD7:
+						CPU_L3_CACHE_SIZE = 2048;
+						CPU_L3_CACHE_LINE_SIZE = 64;
+						CPU_L3_SET_ASSOCIATIVE = 8;
+						break;
+					case 0xD8:
+						CPU_L3_CACHE_SIZE = 4096;
+						CPU_L3_CACHE_LINE_SIZE = 64;
+						CPU_L3_SET_ASSOCIATIVE = 8;
+						break;
+					case 0xDC:
+						CPU_L3_CACHE_SIZE = 1536;
+						CPU_L3_CACHE_LINE_SIZE = 64;
+						CPU_L3_SET_ASSOCIATIVE = 12;
+						break;
+					case 0xDD:
+						CPU_L3_CACHE_SIZE = 3072;
+						CPU_L3_CACHE_LINE_SIZE = 64;
+						CPU_L3_SET_ASSOCIATIVE = 12;
+						break;
+					case 0xDE:
+						CPU_L3_CACHE_SIZE = 6144;
+						CPU_L3_CACHE_LINE_SIZE = 64;
+						CPU_L3_SET_ASSOCIATIVE = 12;
+						break;
+					case 0xE2:
+						CPU_L3_CACHE_SIZE = 2048;
+						CPU_L3_CACHE_LINE_SIZE = 64;
+						CPU_L3_SET_ASSOCIATIVE = 16;
+						break;
+					case 0xE3:
+						CPU_L3_CACHE_SIZE = 4096;
+						CPU_L3_CACHE_LINE_SIZE = 64;
+						CPU_L3_SET_ASSOCIATIVE = 16;
+						break;
+					case 0xE4:
+						CPU_L3_CACHE_SIZE = 8192;
+						CPU_L3_CACHE_LINE_SIZE = 64;
+						CPU_L3_SET_ASSOCIATIVE = 16;
+						break;
+					case 0xEA:
+						CPU_L3_CACHE_SIZE = 12288;
+						CPU_L3_CACHE_LINE_SIZE = 64;
+						CPU_L3_SET_ASSOCIATIVE = 24;
+						break;
+					case 0xEB:
+						CPU_L3_CACHE_SIZE = 18432;
+						CPU_L3_CACHE_LINE_SIZE = 64;
+						CPU_L3_SET_ASSOCIATIVE = 24;
+						break;
+					case 0xEC:
+						CPU_L3_CACHE_SIZE = 24576;
+						CPU_L3_CACHE_LINE_SIZE = 64;
+						CPU_L3_SET_ASSOCIATIVE = 24;
+						break;
 					}
 				}
 			}
@@ -801,10 +909,10 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			CPU_L2_CACHE_SIZE = (reg.ECX >> 16);
 		}
 
-/* If we still haven't figured out the L2 or L3 cache size, use 0x00000004 to deduce */
+/* If we still haven't figured out the L1, L2 or L3 cache size, use 0x00000004 to deduce */
 /* the cache size. */
 
-		if ((CPU_L2_CACHE_SIZE == -1 || CPU_L3_CACHE_SIZE == -1) &&
+		if ((CPU_L1_CACHE_SIZE == -1 || CPU_L2_CACHE_SIZE == -1 || CPU_L3_CACHE_SIZE == -1) &&
 		    max_cpuid_value >= 4) {
 			int	i;
 			for (i = 0; i < 10; i++) {
@@ -826,8 +934,13 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 				sets = reg.ECX + 1;
 				prefetch_stride = (reg.EDX & 0x3FF);
 				if (prefetch_stride == 0) prefetch_stride = 64;
-				/* Not documeted, but 45nm core 2 returns prefetch_stride of 1 */
+				/* Not documented, but 45nm core 2 returns prefetch_stride of 1 */
 				if (prefetch_stride == 1) prefetch_stride = 64;
+				if (CPU_L1_CACHE_SIZE == -1 && cache_level == 1) {
+					CPU_L1_CACHE_SIZE = (associativity * partitions * line_size * sets) >> 10;
+					CPU_L1_SET_ASSOCIATIVE = associativity;
+					CPU_L1_CACHE_LINE_SIZE = prefetch_stride;
+				}
 				if (CPU_L2_CACHE_SIZE == -1 && cache_level == 2) {
 					CPU_L2_CACHE_SIZE = (associativity * partitions * line_size * sets) >> 10;
 					CPU_L2_SET_ASSOCIATIVE = associativity;
