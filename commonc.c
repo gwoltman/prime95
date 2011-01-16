@@ -334,6 +334,12 @@ void getCpuInfo (void)
 	temp = IniGetInt (LOCALINI_FILE, "CpuSupports3DNow", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_3DNOW;
 	if (temp == 1) CPU_FLAGS |= CPU_3DNOW;
+	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsAVX", 99);
+	if (temp == 0) CPU_FLAGS &= ~CPU_AVX;
+	if (temp == 1) CPU_FLAGS |= CPU_AVX;
+	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsFMA", 99);
+	if (temp == 0) CPU_FLAGS &= ~CPU_FMA;
+	if (temp == 1) CPU_FLAGS |= CPU_FMA;
 
 /* Let the user override the L2 cache size in local.ini file */
 
@@ -398,14 +404,16 @@ void getCpuDescription (
 	strcat (buf, "\n");
 	if (CPU_FLAGS) {
 		strcat (buf, "CPU features: ");
-		if (CPU_FLAGS & CPU_RDTSC) strcat (buf, "RDTSC, ");
-		if (CPU_FLAGS & CPU_CMOV) strcat (buf, "CMOV, ");
+//		if (CPU_FLAGS & CPU_RDTSC) strcat (buf, "RDTSC, ");
+//		if (CPU_FLAGS & CPU_CMOV) strcat (buf, "CMOV, ");
 		if (CPU_FLAGS & CPU_PREFETCH) strcat (buf, "Prefetch, ");
 		if (CPU_FLAGS & CPU_3DNOW) strcat (buf, "3DNow!, ");
 		if (CPU_FLAGS & CPU_MMX) strcat (buf, "MMX, ");
 		if (CPU_FLAGS & CPU_SSE) strcat (buf, "SSE, ");
 		if (CPU_FLAGS & CPU_SSE2) strcat (buf, "SSE2, ");
 		if (CPU_FLAGS & CPU_SSE41) strcat (buf, "SSE4, ");
+		if (CPU_FLAGS & CPU_AVX) strcat (buf, "AVX, ");
+		if (CPU_FLAGS & CPU_FMA) strcat (buf, "FMA, ");
 		strcpy (buf + strlen (buf) - 2, "\n");
 	}
 	strcat (buf, "L1 cache size: ");
@@ -5598,6 +5606,7 @@ retry:
 		if (CPU_FLAGS & CPU_SSE) strcat (pkt.cpu_features, "SSE,");
 		if (CPU_FLAGS & CPU_SSE2) strcat (pkt.cpu_features, "SSE2,");
 		if (CPU_FLAGS & CPU_SSE41) strcat (pkt.cpu_features, "SSE4,");
+		if (CPU_FLAGS & CPU_AVX) strcat (pkt.cpu_features, "AVX,");
 		if (pkt.cpu_features[0])
 			pkt.cpu_features[strlen (pkt.cpu_features) - 1] = 0;
 		pkt.L1_cache_size = CPU_L1_CACHE_SIZE;
