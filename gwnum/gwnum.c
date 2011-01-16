@@ -5,7 +5,7 @@
 | in the multi-precision arithmetic routines.  That is, all routines
 | that deal with the gwnum data type.
 | 
-|  Copyright 2002-2010 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2011 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -3530,10 +3530,10 @@ int calculate_bif (
 		retval = 0;			/* Look for FFTs optimized for Core 2 */
 		break;
 	case CPU_ARCHITECTURE_CORE_I7:
-		retval = 1;			/* Look for FFTs optimized for Core i3/i5/i7/i9 */
+		retval = 1;			/* Look for FFTs optimized for Core i3/i5/i7 */
 		break;
 	case CPU_ARCHITECTURE_INTEL_OTHER:	/* This is probably one of Intel's next generation CPUs */ 
-		retval = 1;			/* Look for FFTs optimized for Core i3/i5/i7/i9 */
+		retval = 1;			/* Look for FFTs optimized for Core i3/i5/i7 */
 		break;
 	case CPU_ARCHITECTURE_AMD_K8:
 		retval = 6;			/* Look for FFTs optimized for K8 */
