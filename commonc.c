@@ -3214,19 +3214,11 @@ int writeWorkToDoFile (
 			break;
 
 		case WORK_PRP:
+			sprintf (buf, "PRP=%s%.0f,%lu,%lu,%ld", idbuf, w->k, w->b, w->n, w->c);
 			if (w->tests_saved > 0.0)
-				sprintf (buf,
-					 "PRP=%s%.0f,%lu,%lu,%ld",
-					 idbuf, w->k, w->b, w->n, w->c);
-			else
-				sprintf (buf,
-					 "PRP=%s%.0f,%lu,%lu,%ld,%g,%g",
-					 idbuf, w->k, w->b, w->n, w->c,
-					 w->sieve_depth, w->tests_saved);
+				sprintf (buf + strlen (buf), ",%g,%g", w->sieve_depth, w->tests_saved);
 			if (w->known_factors != NULL)
-				sprintf (buf + strlen (buf),
-					 ",\"%s\"",
-					 w->known_factors);
+				sprintf (buf + strlen (buf), ",\"%s\"", w->known_factors);
 			break;
 		}
 
