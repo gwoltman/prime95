@@ -50,8 +50,9 @@ extern double CPU_SPEED;		/* Actual CPU Speed in MHz */
 #define CPU_SSE42	0x0400
 #define CPU_TLB_PRIMING	0x0800		/* Prefetching requires TLB priming. */
 					/* Early Pentium 4's require priming. */
-#define CPU_AVX		0x1000		/* AVX instructions */
-#define CPU_FMA		0x2000		/* Fused multiply-add instructions */
+#define CPU_TSC_INVARIANT 0x1000	/* RDTSC does NOT count CPU clocks! */
+#define CPU_AVX		0x2000		/* AVX instructions */
+#define CPU_FMA		0x4000		/* Fused multiply-add instructions */
 extern unsigned int CPU_FLAGS;		/* Cpu capabilities */
 extern unsigned int CPU_CORES;		/* Number CPU cores */
 extern unsigned int CPU_HYPERTHREADS;	/* Number of virtual processors */

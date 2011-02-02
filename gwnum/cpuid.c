@@ -37,6 +37,11 @@
 #include <sys/timeb.h>
 #include "cpuid.h"
 
+/* Masm routines */
+
+void one_hundred_thousand_clocks ();
+void one_million_clocks ();
+
 /* Global variables describing the CPU we are running on */
 
 char	CPU_BRAND[49] = "";
@@ -367,6 +372,16 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 
 	Cpuid (0x80000000, &reg);
 	max_extended_cpuid_value = reg.EAX;
+
+/* Get the flag that says RDTSC counts independently of CPU clock ticks */
+/* Intel did this so that RDTSC would keep accurate real time regardless */
+/* of the CPU core speed controlled by SpeedStep. */
+
+	if (max_extended_cpuid_value >= 0x80000007) {
+		Cpuid (0x80000007, &reg);
+		if ((reg.EDX >> 8) & 0x1)
+			CPU_FLAGS |= CPU_TSC_INVARIANT;
+	}
 
 /* Two users on the Mersenne forums have reported their Core 2 machines */
 /* are not getting the brand string right after a reboot.  How strange. */
@@ -1299,10 +1314,34 @@ void guessCpuSpeed (void)
 
 	if (isHighResTimerAvailable ()) {
 		uint32_t start_hi, start_lo, end_hi, end_lo;
-		double	frequency, temp, start_time, end_time;
-		unsigned long iterations;
+		double	frequency, rdtsc_multiplier, temp, start_time, end_time;
+		unsigned long iterations, min_100000, min_1000000;
 		double	speed1, speed2, speed3, avg_speed;
 		int	tries;
+
+/* Sandy Bridge RDTSC no longer counts clock ticks.  Intel did this so that */
+/* RDTSC can make accurate timing as SpeedStep changes the CPU frequency. */
+/* For such CPUs we try to find the multiplier that will convert RDTSC clocks */
+/* into CPU clocks. */
+
+		rdtsc_multiplier = 1.0;
+		if (CPU_FLAGS & CPU_TSC_INVARIANT) {
+			// Run several million clocks in hopes of ramping up the core's
+			// clock speed to the maximum allowed by SpeedStep.
+			for (tries = 1; tries <= 50; tries++) one_million_clocks ();
+			// Find how many RDTSC clock ticks occur in 900,000 CPU clock ticks.
+			for (tries = 1; tries <= 10; tries++) {
+				rdtsc (&start_hi, &start_lo);
+				one_hundred_thousand_clocks ();
+				rdtsc (&end_hi, &end_lo);
+				if (tries == 1 || min_100000 > (end_lo - start_lo)) min_100000 = (end_lo - start_lo);
+				rdtsc (&start_hi, &start_lo);
+				one_million_clocks ();
+				rdtsc (&end_hi, &end_lo);
+				if (tries == 1 || min_1000000 > (end_lo - start_lo)) min_1000000 = (end_lo - start_lo);
+			}
+			rdtsc_multiplier = 900000.0 / (double) (min_1000000 - min_100000);
+		}
 
 /* Compute the number of high resolution ticks in one millisecond */
 /* This should give us good accuracy while hopefully avoiding time slices */
@@ -1338,7 +1377,7 @@ void guessCpuSpeed (void)
 /* Compute speed based on number of clocks in the time interval */
 
 			speed1 = (end_hi * 4294967296.0 + end_lo -
-				  start_hi * 4294967296.0 - start_lo) *
+				  start_hi * 4294967296.0 - start_lo) * rdtsc_multiplier *
 				 frequency /
 				 (end_time - start_time) / 1000000.0;
 
