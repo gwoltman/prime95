@@ -1341,6 +1341,11 @@ void guessCpuSpeed (void)
 				if (tries == 1 || min_1000000 > (end_lo - start_lo)) min_1000000 = (end_lo - start_lo);
 			}
 			rdtsc_multiplier = 900000.0 / (double) (min_1000000 - min_100000);
+			// On hyperthreaded machines (like my i7-860) the routines for
+			// 100,000 and 1,000,000 clocks will not work accurately when
+			// all cores are busy.  As a sanity check, make sure rdtsc_multiplier
+			// does not fall below 1.0.
+			if (CPU_HYPERTHREADS > 1 && rdtsc_multiplier < 1.0) rdtsc_multiplier = 1.0;
 		}
 
 /* Compute the number of high resolution ticks in one millisecond */
