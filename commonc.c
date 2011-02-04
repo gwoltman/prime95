@@ -5828,10 +5828,6 @@ retry:
 		     ! isWorkUnitActive (w) &&
 		     w->pct_complete == 0.0)) {
 
-			sprintf (buf, "DEBUG INFO.  est: %g, wtg: %g, ut: %g, hw: %ld\n",
-				 est, work_to_get, unreserve_threshold, header_words[1]);
-			LogMsg (buf);
-
 			if (w->assignment_uid[0]) {
 				struct primenetAssignmentUnreserve pkt;
 				memset (&pkt, 0, sizeof (pkt));
