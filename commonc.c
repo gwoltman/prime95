@@ -55,6 +55,7 @@ int	TRAY_ICON = TRUE;
 int	HIDE_ICON = FALSE;
 int	MERGE_WINDOWS = 0;		/* Flags indicating which MDI */
 					/* windows to merge together */
+double UNOFFICIAL_CPU_SPEED = 0.0;
 unsigned int ROLLING_AVERAGE = 0;
 unsigned int PRECISION = 2;
 int	RDTSC_TIMING = 1;
@@ -247,7 +248,7 @@ void generate_computer_guid (void)
 
 void getCpuSpeed (void)
 {
-	int	temp, old_cpu_speed;
+	int	temp, old_cpu_speed, report_new_cpu_speed;
 
 /* Guess the CPU speed using the RDTSC instruction */
 
@@ -263,15 +264,58 @@ void getCpuSpeed (void)
 	if (CPU_SPEED > 50000) CPU_SPEED = 50000;
 	if (CPU_SPEED < 25) CPU_SPEED = 25;
 
-/* If CPU speed has changed greatly since the last time, then */
+/* Set the unofficial CPU speed.  The unofficial CPU speed is the */
+/* last CPU speed measurement.  The official CPU speed is the one */
+/* reported to the server. */
+
+	UNOFFICIAL_CPU_SPEED = CPU_SPEED;
+
+/* If CPU speed is much less than the official CPU speed, then set a new */
+/* official CPU speed only after several slower measurements. */
+/* The reason for this is that erroneously (due to one aberrant CPU speed */
+/* calculation) reducing the speed we report to the server may result */
+/* in erroneously unreserving exponents. */
+
+	report_new_cpu_speed = FALSE;
+	old_cpu_speed = IniGetInt (LOCALINI_FILE, "OldCpuSpeed", 0);
+	if (CPU_SPEED < (double) old_cpu_speed * 0.97) {
+		if (IniGetInt (LOCALINI_FILE, "NewCpuSpeedCount", 0) <= 5) {
+			if (CPU_SPEED > (double) IniGetInt (LOCALINI_FILE, "NewCpuSpeed", 0))
+				IniWriteInt (LOCALINI_FILE, "NewCpuSpeed", (int) (CPU_SPEED + 0.5));
+			IniWriteInt (LOCALINI_FILE, "NewCpuSpeedCount", IniGetInt (LOCALINI_FILE, "NewCpuSpeedCount", 0) + 1);
+			CPU_SPEED = old_cpu_speed;
+		} else {
+			if (CPU_SPEED < (double) IniGetInt (LOCALINI_FILE, "NewCpuSpeed", 0))
+				CPU_SPEED = (double) IniGetInt (LOCALINI_FILE, "NewCpuSpeed", 0);
+			report_new_cpu_speed = TRUE;
+		}
+	}
+
+/* If CPU speed is close to last reported CPU speed, then use it. */
 /* tell the server, recalculate new completion dates, and reset the */
 /* rolling average.  Don't do this on the first run (before the Welcome */
 /* dialog has been displayed). */
 
-	old_cpu_speed = IniGetInt (LOCALINI_FILE, "OldCpuSpeed", 0);
-	if (CPU_SPEED < (double) old_cpu_speed * 0.97 ||
-	    CPU_SPEED > (double) old_cpu_speed * 1.03) {
+	else if (CPU_SPEED < (double) old_cpu_speed * 1.03) {
+		IniWriteInt (LOCALINI_FILE, "NewCpuSpeedCount", 0);
+		IniWriteInt (LOCALINI_FILE, "NewCpuSpeed", 0);
+	}
+
+/* If CPU speed is much larger than the speed reported to the server, then */
+/* use this new speed and tell the server. */
+
+	else {
+		report_new_cpu_speed = TRUE;
+	}
+
+/* Report a new CPU speed.  Remember the new CPU speed, tell the server, */
+/* recalculate new completion dates, and reset the rolling average.  Don't */
+/* do this on the first run (before the Welcome dialog has been displayed). */
+
+	if (report_new_cpu_speed) {
 		IniWriteInt (LOCALINI_FILE, "OldCpuSpeed", (int) (CPU_SPEED + 0.5));
+		IniWriteInt (LOCALINI_FILE, "NewCpuSpeedCount", 0);
+		IniWriteInt (LOCALINI_FILE, "NewCpuSpeed", 0);
 		if (old_cpu_speed) {
 			ROLLING_AVERAGE = 1000;
 			IniWriteInt (LOCALINI_FILE, "RollingAverage", 1000);
@@ -393,7 +437,7 @@ void getCpuDescription (
 
 /* Now format a pretty CPU description */
 
-	sprintf (buf, "%s\nCPU speed: %.2f MHz", CPU_BRAND, CPU_SPEED);
+	sprintf (buf, "%s\nCPU speed: %.2f MHz", CPU_BRAND, UNOFFICIAL_CPU_SPEED);
 	if (NUM_CPUS > 1 && CPU_HYPERTHREADS > 1)
 		sprintf (buf + strlen (buf),
 			 ", %lu hyperthreaded cores", NUM_CPUS);
