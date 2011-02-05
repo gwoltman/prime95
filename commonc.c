@@ -2581,7 +2581,7 @@ int readWorkToDoFile (void)
 		if (tnum == NUM_WORKER_THREADS) {
 		    char	buf[100];
 		    sprintf (buf,
-			     "Too many sections in worktodo.txt.  Line #%d\n",
+			     "Too many sections in worktodo.txt.  Line #%u\n",
 			     linenum);
 		    OutputSomewhere (MAIN_THREAD_NUM, buf);
 		}
@@ -2980,7 +2980,7 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 
 	    if (w->forced_fftlen && gwmap_fftlen_to_max_exponent (w->forced_fftlen) == 0) {
 		    char	buf[100];
-		    sprintf (buf, "Warning: Ignoring unsupported FFT length, %ld, on line %ld of worktodo.txt.\n",
+		    sprintf (buf, "Warning: Ignoring unsupported FFT length, %ld, on line %u of worktodo.txt.\n",
 			     w->forced_fftlen, linenum);
 		    OutputBoth (MAIN_THREAD_NUM, buf);
 		    w->forced_fftlen = 0;
