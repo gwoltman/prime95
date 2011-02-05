@@ -2506,16 +2506,23 @@ int readWorkToDoFile (void)
 		gwmutex_lock (&WORKTODO_MUTEX);
 
 /* Make sure no other threads are accessing work units right now. */
-/* There should be no worker threads active so any use will be very */
-/* short-lived.  Output a message if this takes too long - so that we */
-/* can diagnose locking problems that shouldn't be happening. */
+/* There should be no worker threads active so any use should be short-lived. */
 
-		if (WORKTODO_IN_USE_COUNT == 0) break;
+		if (WORKTODO_IN_USE_COUNT == 0 && !WORKTODO_CHANGED) break;
 		gwmutex_unlock (&WORKTODO_MUTEX);
-		Sleep (1);
-		if (i % 10000 == 0)
-			OutputStr (MAIN_THREAD_NUM,
-				   "Use count locking problem in reading worktodo file.\n"); 
+		if (i <= 10) {
+			Sleep (50);
+			continue;
+		}
+
+/* Uh oh, the lock hasn't been released after half-a-second.  This happens processing large */
+/* worktodo.txt files in communicateWithServer (see James Heinrich's complaints in 26.4 thread). */
+/* As a workaround, we'll simply not re-read the worktodo.txt file now.  We only reread the file */
+/* to pick up any manual edits that may have taken place since the last time worktodo.txt was */
+/* read in (and to process worktodo.add).  Hopefully the comm-with-server thread will finish up */
+/* and we can successfully re-read the worktodo.txt file at a later time. */
+
+		return (0);
 	}
 
 /* Clear file needs writing flag and count of worktodo lines */
