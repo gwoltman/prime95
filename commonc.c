@@ -3663,7 +3663,8 @@ double work_estimate (
 		for (i = (int) w->sieve_depth+1; i <= (int) w->factor_to; i++) {
 			if (i < 48) continue;
 			timing = (i > 64) ? 20.2 : (i > 62) ? 16.1 : 15.1;
-			timing *= 145000.0 * (1L << (i - 48)) / w->n;
+			if (i <= 72) timing *= 145000.0 * (1L << (i - 48)) / w->n;
+			else timing *= 145000.0 * 16777216.0 * (1L << (i - 72)) / w->n;
 			if (i == tf_level)
 				est += timing * (1.0 - pct_complete);
 			else
