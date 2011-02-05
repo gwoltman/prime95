@@ -30,7 +30,7 @@ prime.log	A text file listing all messages that have been sent
 prime.spl	A binary file of messages that have not yet been sent to
 		the PrimeNet server.
 pNNNNNNN &	Intermediate files produced by prime95.exe to resume
-qNNNNNNN	computation where it left off.
+		computation where it left off.
 eNNNNNNN	Intermediate files produced during ECM factoring.
 fNNNNNNN	Intermediate files produced during trial factoring.
 mNNNNNNN	Intermediate files produced during P-1 factoring.
