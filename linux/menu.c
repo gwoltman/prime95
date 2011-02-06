@@ -19,7 +19,7 @@ void get_line (
 {
 	int	len;
 	buf[0] = 0;
-	fgets (buf, 80, stdin);
+	(void) fgets (buf, 80, stdin);
 	len = strlen (buf);
 	if (len > 0 && buf[len-1] == '\n') buf[len-1] = 0;
 }
@@ -289,13 +289,10 @@ done:	if (askOkCancel ()) {
 		IniWriteInt (INI_FILE, "DialUp", DIAL_UP);
 
 		if (m_proxy_host[0] && m_proxy_port != 8080)
-			sprintf (m_proxy_host + strlen (m_proxy_host), ":%d",
-				 m_proxy_port);
-		IniSectionWriteString (INI_FILE, "PrimeNet",
-				       "ProxyHost", m_proxy_host);
+			sprintf (m_proxy_host + strlen (m_proxy_host), ":%lu", m_proxy_port);
+		IniSectionWriteString (INI_FILE, "PrimeNet", "ProxyHost", m_proxy_host);
 		if (m_proxy_host[0]) {
-			IniSectionWriteString (INI_FILE, "PrimeNet",
-				       "ProxyUser", m_proxy_user);
+			IniSectionWriteString (INI_FILE, "PrimeNet", "ProxyUser", m_proxy_user);
 			if (strcmp (m_proxy_pwd, orig_proxy_pwd)) {
 				IniSectionWriteString (INI_FILE, "PrimeNet",
 					"ProxyPass", m_proxy_pwd);

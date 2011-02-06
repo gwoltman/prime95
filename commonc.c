@@ -680,7 +680,7 @@ void nameAndReadIniFiles (
 	IniGetString (INI_FILE, "prime.log", LOGFILE, 80, LOGFILE);
 	IniGetString (INI_FILE, "prime.ini", INI_FILE, 80, INI_FILE);
 	if (buf[0]) {
-		_chdir (buf);
+		(void) _chdir (buf);
 		IniFileReread (INI_FILE);
 	}
 
@@ -1177,7 +1177,7 @@ void writeIniFile (
 			strcat (buf, p->lines[j]->value);
 		}
 		strcat (buf, "\n");
-		_write (fd, buf, (unsigned int) strlen (buf));
+		(void) _write (fd, buf, (unsigned int) strlen (buf));
 	}
 	p->dirty = 0;
 	_close (fd);
@@ -4499,7 +4499,7 @@ static	time_t	last_time = 0;
 		strcpy (buf+1, ctime (&this_time));
 		buf[25] = ']';
 		buf[26] = '\n';
-		_write (fd, buf, 27);
+		(void) _write (fd, buf, 27);
 	}
 
 /* Output the message */
@@ -4788,9 +4788,9 @@ void spoolMessage (
 			(msgType == PRIMENET_ASSIGNMENT_UNRESERVE) ?
 			sizeof (struct primenetAssignmentUnreserve) :
 			sizeof (struct primenetBenchmarkData);
-		_write (fd, &msgType, sizeof (short));
-		_write (fd, &datalen, sizeof (short));
-		_write (fd, msg, datalen);
+		(void) _write (fd, &msgType, sizeof (short));
+		(void) _write (fd, &datalen, sizeof (short));
+		(void) _write (fd, msg, datalen);
 	}
 
 /* Close the spool file */
@@ -4955,7 +4955,7 @@ static	time_t	last_time = 0;
 				OutputStr (COMM_THREAD_NUM, "Unable to truncate log file.\n");
 				return;
 			}
-			_write (fd, buf, (unsigned int) (p - buf));
+			(void) _write (fd, buf, (unsigned int) (p - buf));
 			free (buf);
 		}
 	}
@@ -4970,12 +4970,12 @@ static	time_t	last_time = 0;
 		buf[0] = '[';
 		strcpy (buf+1, ctime (&this_time));
 		sprintf (buf+25, " - ver %s]\n", VERSION);
-		_write (fd, buf, (unsigned int) strlen (buf));
+		(void) _write (fd, buf, (unsigned int) strlen (buf));
 	}
 
 /* Output the message */
 
-	_write (fd, str, (unsigned int) strlen (str));
+	(void) _write (fd, str, (unsigned int) strlen (str));
 	_close (fd);
 	gwmutex_unlock (&LOG_MUTEX);
 }
@@ -5800,7 +5800,7 @@ retry:
 		if (fd < 0) goto locked_leave;
 		_lseek (fd, msg_offset, SEEK_SET);
 		msgType = -1;
-		_write (fd, &msgType, sizeof (short));
+		(void) _write (fd, &msgType, sizeof (short));
 		_close (fd);
 		gwmutex_unlock (&SPOOL_FILE_MUTEX);
 		msg_offset = new_offset;

@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2010 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2011 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
@@ -6253,8 +6253,7 @@ int lucas_QA (
 /* Read a line from the file */
 
 		p = 0;
-		fscanf (fd, "%lu,%lu,%lu,%lu,%s\n",
-			&p, &fftlen, &iters, &units_bit, res);
+		(void) fscanf (fd, "%lu,%lu,%lu,%lu,%s\n", &p, &fftlen, &iters, &units_bit, res);
 		if (p == 0) break;
 
 /* In a type 4 run, we decrement through exponents to find any with */
@@ -6496,7 +6495,7 @@ int primeSieveTest (
 
 /* What is the factor? */
 
-		fscanf (fd, "%s", fac);
+		(void) fscanf (fd, "%s", fac);
 		fachi = facmid = faclo = 0;
 		for (f = fac; *f; f++) {
 			if (*f < '0' || *f > '9') continue;

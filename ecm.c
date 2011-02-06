@@ -1,3 +1,20 @@
+/**************************************************************
+ *
+ *	ecm.c
+ *
+ *	ECM and P-1 factoring program
+ *
+ *	Original author:  Richard Crandall - www.perfsci.com
+ *	Adapted to Mersenne numbers and optimized by George Woltman
+ *	Further optimizations from Paul Zimmerman's GMP-ECM program
+ *	Other important ideas courtesy of Peter Montgomery.
+ *
+ *	c. 1997 Perfectly Scientific, Inc.
+ *	c. 1998-2011 Mersenne Research, Inc.
+ *	All Rights Reserved.
+ *
+ *************************************************************/
+
 /* IDEAS:
    is sieve tuned optimally?  use assembly?
 	One idea: make sieve bytes correspond to the 8 possible values mod 30
@@ -17,23 +34,6 @@
 	   combos isn't great.  Another possibility would be to remember only
 	   those primes where a better solution is available
 */
-
-/**************************************************************
- *
- *	ecm.c
- *
- *	ECM and P-1 factoring program
- *
- *	Original author:  Richard Crandall - www.perfsci.com
- *	Adapted to Mersenne numbers and optimized by George Woltman
- *	Further optimizations from Paul Zimmerman's GMP-ECM program
- *	Other important ideas courtesy of Peter Montgomery.
- *
- *	c. 1997 Perfectly Scientific, Inc.
- *	c. 1998-2009 Mersenne Research, Inc.
- *	All Rights Reserved.
- *
- *************************************************************/
 
 /* Global variables */
 
@@ -1110,10 +1110,10 @@ int setN (
 		giant	tmp, f;
 
 		if (buf[0] != 'M' && buf[0] != 'P') continue;
-		fscanf (fd, "%ld", &p);
+		(void) fscanf (fd, "%ld", &p);
 		if (p > w->n) break;
 		if (p < w->n) continue;
-		fscanf (fd, "%s", buf);
+		(void) fscanf (fd, "%s", buf);
 		if (buf[1] != 'C') continue;
 
 /* Allocate space for factor verification */
@@ -1125,7 +1125,7 @@ int setN (
 
 /* Get the factor */
 
-		fscanf (fd, "%s", buf);
+		(void) fscanf (fd, "%s", buf);
 		ctog (buf, f);
 
 /* Divide N by factor - but first verify the factor */
@@ -3552,7 +3552,7 @@ int ecm_QA (
 /* Read a line from the file */
 
 		n = 0;
-		fscanf (fd, "%lf,%lu,%lu,%ld,%lf,%lu,%lu,%lu,%s\n",
+		(void) fscanf (fd, "%lf,%lu,%lu,%ld,%lf,%lu,%lu,%lu,%s\n",
 			&k, &b, &n, &c, &sigma, &B1, &B2_start, &B2_end,
 			fac_str);
 		if (n == 0) break;
@@ -5850,7 +5850,7 @@ int pminus1_QA (
 /* Read a line from the file */
 
 		n = 0;
-		fscanf (fd, "%lf,%lu,%lu,%ld,%lu,%lu,%lu,%s\n",
+		(void) fscanf (fd, "%lf,%lu,%lu,%ld,%lu,%lu,%lu,%s\n",
 			&k, &b, &n, &c, &B1, &B2_start, &B2_end, fac_str);
 		if (n == 0) break;
 

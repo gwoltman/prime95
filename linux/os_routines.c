@@ -2,7 +2,7 @@
 /* so that they can be included in both the command-line mprime version as */
 /* well as the Mac OS X GUI version. */
 
-/* Copyright 1995-2010 Mersenne Research, Inc. */
+/* Copyright 1995-2011 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -384,14 +384,14 @@ int LoadPrimeNet (void)
 	}
 	/* The old code for testing an Internet connection is below */
 	else {
-		fgets(buffer, 199, fd);
-		fgets(buffer, 199, fd);
+		(void) fgets(buffer, 199, fd);
+		(void) fgets(buffer, 199, fd);
 		while (!feof(fd)) {
 			if (strncmp(buffer, "lo", 2)) {
 				fclose(fd);
 				return TRUE;
 			}
-			fgets(buffer, 199, fd);
+			(void) fgets(buffer, 199, fd);
 		}
 	}
 	fclose(fd);
