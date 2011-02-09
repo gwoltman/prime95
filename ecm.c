@@ -5339,10 +5339,13 @@ replan:	stop_reason = choose_pminus1_implementation (&pm1data, w, &using_t3);
 	fd_term (&pm1data);
 
 /* Compute m = CEIL(start/D)*D, the first group we work on in stage 2 */
+/* For the count of paired primes to be accurate, this code must exactly mirror */
+/* the calculation of adjusted_C_start and first_m in fill_pminus1_bitarray. */	
 
 	if (pm1data.D >= 2310) m = pm1data.C / 13;
 	else if (pm1data.D >= 210) m = pm1data.C / 11;
 	else m = pm1data.C / 7;
+	m |= 1;
 	if (m < pm1data.C_start) m = pm1data.C_start;
 	m = (m / pm1data.D + 1) * pm1data.D;
 	stage2incr = (pm1data.E == 1) ? pm1data.D : pm1data.D + pm1data.D;
