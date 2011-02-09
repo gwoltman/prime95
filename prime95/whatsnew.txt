@@ -1,3 +1,11 @@
+New features in Version 26.5 of prime95.exe
+-------------------------------------------
+
+1)  Minor bug fixes.
+2)  Starting in build 2, P-1 work will display the chance of finding a factor.
+    The worktodo.txt line must include how_far_factored using the new syntax:
+	Pminus1=k,b,n,c,B1,B2[,how_far_factored][,B2_start][,"factors"]
+
 New features in Version 26.4 of prime95.exe
 -------------------------------------------
 

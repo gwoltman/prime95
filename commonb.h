@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2010 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2011 Mersenne Research, Inc.  All rights reserved
 +---------------------------------------------------------------------*/
 
 //#define SERVER_TESTING
@@ -70,6 +70,7 @@ int prp (int, struct PriorityInfo *, struct work_unit *, int);
 int ecm (int, struct PriorityInfo *, struct work_unit *);
 int pminus1 (int, struct PriorityInfo *, struct work_unit *);
 int pfactor (int, struct PriorityInfo *, struct work_unit *);
+double guess_pminus1_probability (struct work_unit *w);
 
 /* Utility routines */
 

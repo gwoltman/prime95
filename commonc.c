@@ -2838,7 +2838,7 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 /* Handle Pminus1 lines:  Old style:				*/
 /*	Pminus1=exponent,B1,B2,plus1[,B2_start]			*/
 /* New style is:						*/
-/*	Pminus1=k,b,n,c,B1,B2[,B2_start][,"factors"]		*/
+/*	Pminus1=k,b,n,c,B1,B2[,how_far_factored][,B2_start][,"factors"] */
 
 	    else if (_stricmp (keyword, "Pminus1") == 0) {
 		char	*q;
@@ -2871,6 +2871,15 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 			if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
 			w->B2 = atof (q+1);
 			q = strchr (q+1, ',');
+			w->sieve_depth = 0.0;
+			if (q != NULL && q[1] != '"') {
+				double	j;
+				j = atof (q+1);
+				if (j < 100.0) {
+					w->sieve_depth = j;
+					q = strchr (q+1, ',');
+				}
+			}
 			w->B2_start = 0;
 			if (q != NULL && q[1] != '"') {
 				double	j;
@@ -3254,14 +3263,12 @@ int writeWorkToDoFile (
 		case WORK_PMINUS1:
 			sprintf (buf, "Pminus1=%s%.0f,%lu,%lu,%ld,%.0f,%.0f",
 				 idbuf, w->k, w->b, w->n, w->c, w->B1, w->B2);
+			if (w->sieve_depth > 0.0)
+				sprintf (buf + strlen (buf), ",%.0f", w->sieve_depth);
 			if (w->B2_start > w->B1)
-				sprintf (buf + strlen (buf),
-					 ",%.0f",
-					 w->B2_start);
+				sprintf (buf + strlen (buf), ",%.0f", w->B2_start);
 			if (w->known_factors != NULL)
-				sprintf (buf + strlen (buf),
-					 ",\"%s\"",
-					 w->known_factors);
+				sprintf (buf + strlen (buf), ",\"%s\"", w->known_factors);
 			break;
 
 		case WORK_PRP:

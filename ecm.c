@@ -4625,12 +4625,15 @@ int pminus1 (
 	title (thread_num, buf);
 	if (w->work_type == WORK_PMINUS1) {
 		if (C <= B)
-			sprintf (buf, "P-1 on %s with B1=%.0f\n",
-				 testnum, (double) B);
+			sprintf (buf, "P-1 on %s with B1=%.0f\n", testnum, (double) B);
 		else
-			sprintf (buf, "P-1 on %s with B1=%.0f, B2=%.0f\n",
-				 testnum, (double) B, (double) C);
+			sprintf (buf, "P-1 on %s with B1=%.0f, B2=%.0f\n", testnum, (double) B, (double) C);
 		OutputStr (thread_num, buf);
+		if (w->sieve_depth > 0.0) {
+			double prob = guess_pminus1_probability (w);
+			sprintf (buf, "Chance of finding a factor is an estimated %.3g%%\n", prob * 100.0);
+			OutputStr (thread_num, buf);
+		}
 	}
 
 /* Clear all timers */
@@ -6224,6 +6227,76 @@ void guess_pminus1_bounds (
 		*squarings = 0;
 		*success_rate = 0.0;
 	}
+}
+
+/* Determine the probability of P-1 finding a factor */
+/* This code was pulled from guess_pminus1_bounds */
+
+double guess_pminus1_probability (
+	struct work_unit *w)
+{
+	double	log2, logB1, logB2, h, kk, logkk, temp, logtemp, prob;
+
+/* Constants */
+
+	log2 = log ((double) 2.0);
+	logB1 = log (w->B1);
+	logB2 = log (w->B2);
+
+/* What is the "average" value that must be smooth for P-1 to succeed? */
+/* Ordinarily this is 1.5 * 2^how_far_factored.  However, for Mersenne */
+/* numbers the factor must be of the form 2kp+1.  Consequently, the */
+/* value that must be smooth (k) is much smaller. */
+
+	kk = 1.5 * pow (2.0, w->sieve_depth);
+	if (w->k == 1.0 && w->b == 2 && w->c == -1) kk = kk / 2.0 / w->n;
+	logkk = log (kk);
+
+/* Set temp to the number that will need B1 smooth if k has an */
+/* average-sized factor found in stage 2 */
+
+	temp = kk / ((w->B1 + w->B2) / 2);
+	logtemp = log (temp);
+
+/* Loop over increasing bit lengths for the factor */
+
+	prob = 0.0;
+	for (h = w->sieve_depth; ; ) {
+		double	prob1, prob2;
+
+/* If temp < 1.0, then there are no factor to find in this bit level */
+
+		if (logtemp > 0.0) {
+
+/* See how many smooth k's we should find using B1 */
+/* Using Dickman's function (see Knuth pg 382-383) we want k^a <= B1 */
+
+			prob1 = F (logB1 / logkk);
+
+/* See how many smooth k's we should find using B2 */
+/* Adjust this slightly to eliminate k's that have two primes > B1 and < B2 */
+/* Do this by assuming the largest factor is the average of B1 and B2 */
+/* and the remaining cofactor is B1 smooth */
+
+			prob2 = prob1 + (F (logB2 / logkk) - prob1) *
+				        (F (logB1 / logtemp) / F (logB2 / logtemp));
+			if (prob2 < 0.0001) break;
+
+/* Add this data in to the total chance of finding a factor */
+
+			prob += prob2 / (h + 0.5);
+		}
+
+/* Move to next bit level */
+
+		h += 1.0;
+		logkk += log2;
+		logtemp += log2;
+	}
+
+/* Return the final probability */
+
+	return (prob);
 }
 
 /* Do the P-1 factoring step prior to a Lucas-Lehmer test */
