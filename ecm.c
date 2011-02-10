@@ -4786,11 +4786,15 @@ restart:
 /* an LL tester that has already begun stage 2 only do this for the */
 /* non-LL tester. */
 
-			if (B > pm1data.B_done) {
-				if (w->work_type == WORK_PMINUS1) {
-					gwfree (&pm1data.gwdata, gg);
-					goto more_B;
-				}
+			if (B > pm1data.B_done && w->work_type == WORK_PMINUS1) {
+				gwfree (&pm1data.gwdata, gg);
+				goto more_B;
+			}
+
+/* If B is larger than the one in the save file, then use the one in the save */
+/* file rather than discarding all the work done thusfar in stage 2. */
+
+			if (B != pm1data.B_done) {
 				B = pm1data.B_done;
 				C_start = pm1data.B_done;
 				sprintf (buf, "Ignoring suggested B1 value, using B1=%.0f from the save file\n", (double) B);
@@ -4808,9 +4812,13 @@ restart:
 
 			if (pm1data.bitarray_len == 0) goto more_C;
 
-/* If LL testing and bound #2 has changed then use the original bound #2 */
+/* If LL testing and bound #2 has changed then use the original bound #2. */
+/* If explicit P-1 testing and bound #2 is larger in the save file then use the original bound #2. */
+/* The user doing explicit P-1 testing that wants to discard the stage 2 work he has done thusfar */
+/* and reduce the stage 2 bound must manually delete the save file. */
 
-			if (w->work_type != WORK_PMINUS1 && C > pm1data.C) {
+			if ((w->work_type != WORK_PMINUS1 && C != pm1data.C) ||
+			    (w->work_type == WORK_PMINUS1 && C < pm1data.C)) {
 				C = pm1data.C;
 				sprintf (buf, "Ignoring suggested B2 value, using B2=%.0f from the save file\n", (double) C);
 				OutputStr (thread_num, buf);
