@@ -5210,8 +5210,7 @@ restart2:
 /* user opted to skip the GCD after stage 1. */
 
 restart3a:
-	sprintf (buf, "%s P-1 stage 2 init",
-		 gwmodulo_as_string (&pm1data.gwdata));
+	sprintf (buf, "%s P-1 stage 2 init", gwmodulo_as_string (&pm1data.gwdata));
 	title (thread_num, buf);
 	strcpy (w->stage, "S2");
 	w->pct_complete = 0.0;
@@ -5254,6 +5253,8 @@ more_C:	pm1data.C_start = (C_start > pm1data.C_done) ? C_start : pm1data.C_done;
 /* move to the next pass of a multi-pass stage 2 run */
 
 restart3b:
+	sprintf (buf, "%s P-1 stage 2 init", gwmodulo_as_string (&pm1data.gwdata));
+	title (thread_num, buf);
 	stage = 2;
 	strcpy (w->stage, "S2");
 	base_pct_complete =
@@ -5279,8 +5280,7 @@ replan:	stop_reason = choose_pminus1_implementation (&pm1data, w, &using_t3);
 /* for gg, and an optional gwnum for t3. */
 
 	memused = cvt_gwnums_to_mem (&pm1data.gwdata, pm1data.rels_this_pass + pm1data.E + 2 + using_t3);
-	if (set_memory_usage (thread_num, MEM_VARIABLE_USAGE, memused))
-		goto replan;
+	if (set_memory_usage (thread_num, MEM_VARIABLE_USAGE, memused)) goto replan;
 	sprintf (buf,
 		 "Using %luMB of memory.  Processing %lu relative primes (%lu of %lu already processed).\n",
 		 memused, pm1data.rels_this_pass, pm1data.rels_done, pm1data.numrels);
@@ -5392,6 +5392,15 @@ found_a_bit:;
 		j = i >> 1;
 		if (pm1data.nQx[j] != NULL)
 			gwtouch (&pm1data.gwdata, pm1data.nQx[j]);
+	}
+
+/* Stage 2 init complete, change the title */
+
+	{
+		char	mask[80];
+		sprintf (mask, "%%.%df%%%% of %%s P-1 stage 2 (using %%dMB)", PRECISION);
+		sprintf (buf, mask, trunc_percent (w->pct_complete), gwmodulo_as_string (&pm1data.gwdata), memused);
+		title (thread_num, buf);
 	}
 
 /* When E >= 2, we can do prime pairing and each loop iteration */
