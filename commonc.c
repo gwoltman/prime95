@@ -309,7 +309,8 @@ void getCpuSpeed (void)
 	}
 
 /* Report a new CPU speed.  Remember the new CPU speed, tell the server, */
-/* recalculate new completion dates, and reset the rolling average.  Don't */
+/* recalculate new completion dates, and reset the rolling average in */
+/* such a way as to reduce the chance of spurious unreserves.  Don't */
 /* do this on the first run (before the Welcome dialog has been displayed). */
 
 	if (report_new_cpu_speed) {
@@ -317,8 +318,13 @@ void getCpuSpeed (void)
 		IniWriteInt (LOCALINI_FILE, "NewCpuSpeedCount", 0);
 		IniWriteInt (LOCALINI_FILE, "NewCpuSpeed", 0);
 		if (old_cpu_speed) {
-			ROLLING_AVERAGE = 1000;
-			IniWriteInt (LOCALINI_FILE, "RollingAverage", 1000);
+			if (WORKTODO_COUNT) {
+				ROLLING_AVERAGE = (int) (ROLLING_AVERAGE * old_cpu_speed / CPU_SPEED);
+				if (ROLLING_AVERAGE < 1000) ROLLING_AVERAGE = 1000;
+			}
+			else
+				ROLLING_AVERAGE = 1000;
+			IniWriteInt (LOCALINI_FILE, "RollingAverage", ROLLING_AVERAGE);
 			IniWriteInt (LOCALINI_FILE, "RollingStartTime", 0);
 			spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
 			UpdateEndDates ();
