@@ -5680,7 +5680,8 @@ msg_and_exit:
 done:	if (w->work_type == WORK_PMINUS1 || w->work_type == WORK_PFACTOR)
 		stop_reason = STOP_WORK_UNIT_COMPLETE;
 	else {
-		w->pminus1ed = 1;
+		w->pminus1ed = 1;		// Flag to indicate LL test has completed P-1
+		w->tests_saved = 0.0;		// Variable to indicate PRP test has completed P-1
 		stop_reason = updateWorkToDoLine (thread_num, w);
 		if (stop_reason) goto exit;
 	}
@@ -6380,7 +6381,8 @@ int pfactor (
 			//this assignment out.
 			return (STOP_WORK_UNIT_COMPLETE);
 		} else {
-			w->pminus1ed = 1;
+			w->pminus1ed = 1;		// Flag to indicate LL test has completed P-1
+			w->tests_saved = 0.0;		// Variable to indicate PRP test has completed P-1
 			stop_reason = updateWorkToDoLine (thread_num, w);
 			if (stop_reason) return (stop_reason);
 			return (0);
