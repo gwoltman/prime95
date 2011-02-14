@@ -296,8 +296,9 @@ The first example pauses one worker thread on Saturday and Sunday between
 pauses 1 worker if decomp is running and 2 if mygame is running.
 
 LowMemWhileRunning is similar to PauseWhileRunning.  This option does not
-allow workers use a lot of memory.  This example, will make sure the program
-is using the minimum amount of memory possible while photoshop is running:
+allow workers to use a lot of memory.  This example in prime.txt will make
+sure the program is using the minimum amount of memory possible while
+photoshop is running:
 	LowMemWhileRunning=Photoshop
 
 By default, the program will check the PauseWhileRunning list every 10 seconds.
