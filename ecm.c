@@ -6064,7 +6064,7 @@ void guess_pminus1_bounds (
 	} best[2];
 
 /* Guard against wild tests_saved values.  Huge values will cause this routine */
-/* to run for a very long time.  This shouldn't happen as auxillaryWorkUnitInit */
+/* to run for a very long time.  This shouldn't happen as auxiliaryWorkUnitInit */
 /* now has the exact same test. */
 
 	if (tests_saved > 10) tests_saved = 10;

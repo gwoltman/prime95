@@ -47,7 +47,7 @@ void checkPauseListCallback (void);
 struct PriorityInfo {
  	int	type;		/* Type defined above */
 	int	thread_num;	/* Worker thread number */
-	int	aux_thread_num;	/* Set when gwnum launches auxillary threads */
+	int	aux_thread_num;	/* Set when gwnum launches auxiliary threads */
 	int	num_threads;	/* Total number of torture test threads */
 };
 void SetPriority (struct PriorityInfo *);

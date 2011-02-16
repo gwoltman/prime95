@@ -2347,7 +2347,7 @@ unsigned int countCommas (
 /* not appear in the worktodo.ini file, but need initializing in a */
 /* common place. */
 
-void auxillaryWorkUnitInit (
+void auxiliaryWorkUnitInit (
 	struct work_unit *w)
 {
 
@@ -3003,7 +3003,7 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 
 /* Do more initialization of the work_unit structure */
 
-	    auxillaryWorkUnitInit (w);
+	    auxiliaryWorkUnitInit (w);
 
 /* Grow the work_unit array if necessary and add this entry */
 
@@ -3410,7 +3410,7 @@ int addWorkToDoLine (
 
 /* Do more initialization of the work_unit structure */
 
-	auxillaryWorkUnitInit (w);
+	auxiliaryWorkUnitInit (w);
 
 /* Copy work unit from stack to malloc'ed area */
 
