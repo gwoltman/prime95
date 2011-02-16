@@ -203,7 +203,7 @@ static	char	AFFINITY_SCRAMBLE_STATE = 0;	/* 0 = not read in, 1 = read in and val
 #define maskset(x)	mask[(x)/32] |= (1 << ((x) & 31))
 #define maskget(m,x)	(m[(x)/32] & (1 << ((x) & 31)))
 
-/* Benchmarking affinity.  For hyperthreaded CPUs, we put auxillary */
+/* Benchmarking affinity.  For hyperthreaded CPUs, we put auxiliary */
 /* threads onto the logical CPUs before moving onto the next physical CPU. */  
 
 	if (info->type == SET_PRIORITY_BENCHMARKING) {
@@ -242,8 +242,8 @@ static	char	AFFINITY_SCRAMBLE_STATE = 0;	/* 0 = not read in, 1 = read in and val
 	}
 
 /* A small CPU_AFFINITY setting means run only on that CPU.  Since there is */
-/* no way to explicitly tell us which CPU to run an auxillary thread on, */
-/* we put the auxillary threads on the subsequent logical CPUs. */
+/* no way to explicitly tell us which CPU to run an auxiliary thread on, */
+/* we put the auxiliary threads on the subsequent logical CPUs. */
 
 	else if (CPU_AFFINITY[info->thread_num] < 100) {
 		if (CPU_AFFINITY[info->thread_num] + info->aux_thread_num >= NUM_CPUS * CPU_HYPERTHREADS)
@@ -266,7 +266,7 @@ static	char	AFFINITY_SCRAMBLE_STATE = 0;	/* 0 = not read in, 1 = read in and val
 
 /* If number of worker threads equals number of logical cpus then run each */
 /* worker thread on its own logical CPU.  If the user also has us running */
-/* auxillary threads, then the user has made a really bad decision and a */
+/* auxiliary threads, then the user has made a really bad decision and a */
 /* performance hit will occur. */
 
 	else if (NUM_WORKER_THREADS == NUM_CPUS * CPU_HYPERTHREADS) {
@@ -276,9 +276,9 @@ static	char	AFFINITY_SCRAMBLE_STATE = 0;	/* 0 = not read in, 1 = read in and val
 	}
 
 /* If number of worker threads equals number of physical cpus then run each */
-/* worker thread on its own physical CPU.  Run auxillary threads on the same */
+/* worker thread on its own physical CPU.  Run auxiliary threads on the same */
 /* physical CPU.  This should be advantageous on hyperthreaded CPUs.  We */
-/* should be careful to not run more auxillary threads than available */
+/* should be careful to not run more auxiliary threads than available */
 /* logical CPUs created by hyperthreading. */ 
 
 	else if (NUM_WORKER_THREADS == NUM_CPUS) {
@@ -6783,6 +6783,17 @@ int factorBench (
 	int	res, stop_reason;
 	double	timers[2];
 
+/* Keep the other CPU cores busy.  This should prevent "turbo boost" from kicking in. */
+/* We do this to hopefully produce more consistent benchmarks.  We don't want to report */
+/* a CPU speed of 1.87 GHz and then produce a benchmark running at a boosted 3.2 GHz */
+/* (this happens on a Core i7 Q840M processor). */
+
+	end_busy_loop = FALSE;
+	for (i = 0; i < NUM_CPUS-1; i++) {
+		gwthread thread_id;
+		gwthread_create (&thread_id, &busy_loop, NULL);
+	}
+
 /* Loop over all trial factor lengths */
 
 	num_lengths = sizeof (bit_lengths) / sizeof (int);
@@ -6791,7 +6802,10 @@ int factorBench (
 /* Initialize for this bit length. */
 
 		stop_reason = factorSetup (thread_num, 35000011, &facdata);
-		if (stop_reason) return (stop_reason);
+		if (stop_reason) {
+			end_busy_loop = TRUE;
+			return (stop_reason);
+		}
 		if (bit_lengths[i] <= 64) {
 			facdata.asm_data->FACHSW = 0;
 			facdata.asm_data->FACMSW = 1L << (bit_lengths[i]-33);
@@ -6800,7 +6814,10 @@ int factorBench (
 			facdata.asm_data->FACMSW = 0;
 		}
 		stop_reason = factorPassSetup (thread_num, 0, &facdata);
-		if (stop_reason) return (stop_reason);
+		if (stop_reason) {
+			end_busy_loop = TRUE;
+			return (stop_reason);
+		}
 
 /* Output start message for this bit length */
 
@@ -6819,6 +6836,7 @@ int factorBench (
 				OutputStrNoTimeStamp (thread_num, "\n");
 				OutputStr (thread_num, "Execution halted.\n");
 				factorDone (&facdata);
+				end_busy_loop = TRUE;
 				return (stop_reason);
 			}
 			clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
@@ -6853,6 +6871,10 @@ int factorBench (
 		}
 
 	}
+
+/* End the threads that are looping and return */
+
+	end_busy_loop = TRUE;
 	return (0);
 }
 
@@ -6936,6 +6958,17 @@ int primeBench (
 	      sprintf (buf, "Timing FFTs using %d threads on %d physical CPUs.\n", threads, (threads + CPU_HYPERTHREADS - 1) / CPU_HYPERTHREADS);
 	      OutputBoth (thread_num, buf);
 	    }
+	  }
+
+/* Keep the other CPU cores busy.  This should prevent "turbo boost" from kicking in. */
+/* We do this to hopefully produce more consistent benchmarks.  We don't want to report */
+/* a CPU speed of 1.87 GHz and then produce a benchmark running at a boosted 3.2 GHz */
+/* (this happens on a Core i7 Q840M processor). */
+
+	  end_busy_loop = FALSE;
+	  for (i = 0; i < NUM_CPUS - (threads + CPU_HYPERTHREADS - 1) / CPU_HYPERTHREADS; i++) {
+		  gwthread thread_id;
+		  gwthread_create (&thread_id, &busy_loop, NULL);
 	  }
 
 /* Loop over a variety of FFT lengths */
@@ -7030,6 +7063,7 @@ int primeBench (
 				OutputStrNoTimeStamp (thread_num, "\n");
 				OutputStr (thread_num, "Execution halted.\n");
 				lucasDone (&lldata);
+				end_busy_loop = TRUE;
 				return (stop_reason);
 			}
 			clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
@@ -7093,10 +7127,14 @@ int primeBench (
 
 /* Time next FFT */
 
-	      }
-	   }
-	}
-}
+	      }  // End ii implementation loop
+	    }  // End fftlen loop
+	  }  // End plus1 loop
+
+/* End the threads that are looping */
+
+	  end_busy_loop = TRUE;
+	} // End threads loop
 
 /* Now benchmark the trial factoring code */
 

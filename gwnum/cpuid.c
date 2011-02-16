@@ -36,6 +36,7 @@
 #endif
 #include <sys/timeb.h>
 #include "cpuid.h"
+#include "gwthread.h"
 
 /* Masm routines */
 
@@ -243,6 +244,15 @@ int canExecInstruction (
 #endif
 #endif
 
+/* Busy loop to keep CPU cores occupied.  Used sometimes to aid */
+/* in measuring CPU speed. */
+
+int	end_busy_loop = FALSE;
+
+void busy_loop (void *arg)
+{
+	while (!end_busy_loop) one_million_clocks ();
+}
 
 /* Work with CPUID instruction to guess the cpu type and features */
 /* See Intel's document AP-485 for using CPUID on Intel processors */
@@ -1319,13 +1329,24 @@ void guessCpuSpeed (void)
 		double	speed1, speed2, speed3, avg_speed;
 		int	tries;
 
-/* Sandy Bridge RDTSC no longer counts clock ticks.  Intel did this so that */
-/* RDTSC can make accurate timing as SpeedStep changes the CPU frequency. */
-/* For such CPUs we try to find the multiplier that will convert RDTSC clocks */
-/* into CPU clocks. */
+/* In Sandy Bridge and some or all of the Core 2 series CPUs, RDTSC no longer */
+/* counts clock ticks.  Intel did this so that RDTSC can make accurate timing */
+/* as SpeedStep changes the CPU frequency.  For such CPUs we try to find a */
+/* multiplier that will convert RDTSC clocks into CPU core clocks.  Note that */
+/* this isn't a perfect solution because some CPUs have a wide range of CPU core */
+/* speeds (such as the i7-Q840M which ranges from 1.87 to 3.2 GHz).  We try to */
+/* get the non-turbo-boost core speed by loading up all but one core before */
+/* doing our timings. */
 
 		rdtsc_multiplier = 1.0;
 		if (CPU_FLAGS & CPU_TSC_INVARIANT) {
+			unsigned int i;
+			gwthread thread_id;
+			// Start threads so that all cores are doing work.  This will
+			// hopefully let us measure the CPU core speed when all cores
+			// are busy rather than the speed when cores are Turbo boosted.
+			end_busy_loop = FALSE;
+			for (i = 1; i <= CPU_CORES-1; i++) gwthread_create (&thread_id, &busy_loop, NULL);
 			// Run several million clocks in hopes of ramping up the core's
 			// clock speed to the maximum allowed by SpeedStep.
 			for (tries = 1; tries <= 50; tries++) one_million_clocks ();
@@ -1343,9 +1364,11 @@ void guessCpuSpeed (void)
 			rdtsc_multiplier = 900000.0 / (double) (min_1000000 - min_100000);
 			// On hyperthreaded machines (like my i7-860) the routines for
 			// 100,000 and 1,000,000 clocks will not work accurately when
-			// all cores are busy.  As a sanity check, make sure rdtsc_multiplier
-			// does not fall below 1.0.
+			// hyperthreaded cores are busy.  As a sanity check, make sure
+			// rdtsc_multiplier does not fall below 1.0.
 			if (CPU_HYPERTHREADS > 1 && rdtsc_multiplier < 1.0) rdtsc_multiplier = 1.0;
+			// Terminate the busy loop threads
+			end_busy_loop = TRUE;
 		}
 
 /* Compute the number of high resolution ticks in one millisecond */
@@ -1468,7 +1491,6 @@ void guessCpuSpeed (void)
 		CPU_SPEED = avg_speed;
 	}
 }
-
 
 /*--------------------------------------------------------------------------
 | And now, the routines that access the high resolution performance counter.

@@ -114,6 +114,10 @@ void erdtsc (uint32_t *hi, uint32_t *lo);
 /* Init the x87 FPU, probably not needed any longer */
 void fpu_init (void);
 
+/* Internal routine to loop endlessly -- keeps a CPU core occupied */
+extern int end_busy_loop;
+void busy_loop (void *);
+
 #ifdef __cplusplus
 }
 #endif
