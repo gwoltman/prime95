@@ -6768,6 +6768,31 @@ int primeTime (
 	return (0);
 }
 
+/* Busy loop to keep CPU cores occupied.  Used during */
+/* a benchmark so that turbo boost does not kick in. */
+
+int	last_bench_cpu_num = 0;
+
+void bench_busy_loop (void *arg)
+{
+	int	cpu_num;
+	struct PriorityInfo sp_info;
+
+/* Set the affinity so that busy loop runs on the specified CPU core */
+
+	cpu_num = (int) (intptr_t) arg;
+	sp_info.type = SET_PRIORITY_BENCHMARKING;
+	sp_info.thread_num = 0;
+	sp_info.aux_thread_num = cpu_num * CPU_HYPERTHREADS;
+	SetPriority (&sp_info);
+
+/* Stay busy until last_bench_cpu_num says this CPU thread should close */
+
+	while (cpu_num > last_bench_cpu_num) one_hundred_thousand_clocks ();
+}
+
+/* Routine to benchmark the trial factoring code */
+
 #define BENCH1 "Your timings will be written to the results.txt file.\n"
 #define BENCH2 "Compare your results to other computers at http://www.mersenne.org/report_benchmarks\n"
 
@@ -6788,10 +6813,10 @@ int factorBench (
 /* a CPU speed of 1.87 GHz and then produce a benchmark running at a boosted 3.2 GHz */
 /* (this happens on a Core i7 Q840M processor). */
 
-	end_busy_loop = FALSE;
-	for (i = 0; i < NUM_CPUS-1; i++) {
+	last_bench_cpu_num = 0;			// CPU #0 is benching
+	for (i = 1; i < NUM_CPUS; i++) {	// CPU #1 to NUM_CPUS-1 are busy looping
 		gwthread thread_id;
-		gwthread_create (&thread_id, &busy_loop, NULL);
+		gwthread_create (&thread_id, &bench_busy_loop, (void *) i);
 	}
 
 /* Loop over all trial factor lengths */
@@ -6803,7 +6828,7 @@ int factorBench (
 
 		stop_reason = factorSetup (thread_num, 35000011, &facdata);
 		if (stop_reason) {
-			end_busy_loop = TRUE;
+			last_bench_cpu_num = NUM_CPUS;
 			return (stop_reason);
 		}
 		if (bit_lengths[i] <= 64) {
@@ -6815,7 +6840,7 @@ int factorBench (
 		}
 		stop_reason = factorPassSetup (thread_num, 0, &facdata);
 		if (stop_reason) {
-			end_busy_loop = TRUE;
+			last_bench_cpu_num = NUM_CPUS;
 			return (stop_reason);
 		}
 
@@ -6836,7 +6861,7 @@ int factorBench (
 				OutputStrNoTimeStamp (thread_num, "\n");
 				OutputStr (thread_num, "Execution halted.\n");
 				factorDone (&facdata);
-				end_busy_loop = TRUE;
+				last_bench_cpu_num = NUM_CPUS;
 				return (stop_reason);
 			}
 			clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
@@ -6874,7 +6899,7 @@ int factorBench (
 
 /* End the threads that are looping and return */
 
-	end_busy_loop = TRUE;
+	last_bench_cpu_num = NUM_CPUS;
 	return (0);
 }
 
@@ -6900,13 +6925,6 @@ int primeBench (
 	memset (&pkt, 0, sizeof (pkt));
 	strcpy (pkt.computer_guid, COMPUTER_GUID);
 
-/* Set the process/thread priority */
-
-	sp_info.type = SET_PRIORITY_BENCHMARKING;
-	sp_info.thread_num = thread_num;
-	sp_info.aux_thread_num = 0;
-	SetPriority (&sp_info);
-
 /* Output startup message */
 
 	title (thread_num, "Benchmarking");
@@ -6926,6 +6944,15 @@ int primeBench (
 #endif
 	writeResults (buf);
 
+/* Set the process/thread priority AFTER getting the CPU description. */
+/* This is required so that any threads spawned by getCpuSpeed will not */
+/* be confined to just one CPU core. */
+
+	sp_info.type = SET_PRIORITY_BENCHMARKING;
+	sp_info.thread_num = thread_num;
+	sp_info.aux_thread_num = 0;
+	SetPriority (&sp_info);
+
 /* Decide which FFT lengths to time */
 
 	min_FFT_length = 768;			/* Default lengths to test */
@@ -6944,6 +6971,17 @@ int primeBench (
 	time_all_complex = IniGetInt (INI_FILE, "BenchAllComplex", time_all_complex);
 	all_bench = IniGetInt (INI_FILE, "AllBench", 0);	/* Benchmark all implementations of each FFT length */
 
+/* Keep CPU cores busy.  This should prevent "turbo boost" from kicking in. */
+/* We do this to hopefully produce more consistent benchmarks.  We don't want to report */
+/* a CPU speed of 1.87 GHz and then produce a benchmark running at a boosted 3.2 GHz */
+/* (this happens on a Core i7 Q840M processor). */
+
+	last_bench_cpu_num = 0;			// CPU #0 is benching
+	for (i = 1; i < NUM_CPUS; i++) {	// CPU #1 to NUM_CPUS-1 are busy looping
+		gwthread thread_id;
+		gwthread_create (&thread_id, &bench_busy_loop, (void *) i);
+	}
+
 /* Loop over all all possible multithread possibilities */
 
 	for (threads = 1; threads <= NUM_CPUS * CPU_HYPERTHREADS; threads++) {
@@ -6960,16 +6998,9 @@ int primeBench (
 	    }
 	  }
 
-/* Keep the other CPU cores busy.  This should prevent "turbo boost" from kicking in. */
-/* We do this to hopefully produce more consistent benchmarks.  We don't want to report */
-/* a CPU speed of 1.87 GHz and then produce a benchmark running at a boosted 3.2 GHz */
-/* (this happens on a Core i7 Q840M processor). */
+/* Set global that makes sures we are running the correct number of busy loops */
 
-	  end_busy_loop = FALSE;
-	  for (i = 0; i < NUM_CPUS - (threads + CPU_HYPERTHREADS - 1) / CPU_HYPERTHREADS; i++) {
-		  gwthread thread_id;
-		  gwthread_create (&thread_id, &busy_loop, NULL);
-	  }
+	  last_bench_cpu_num = (threads-1) / CPU_HYPERTHREADS;
 
 /* Loop over a variety of FFT lengths */
 
@@ -7063,7 +7094,7 @@ int primeBench (
 				OutputStrNoTimeStamp (thread_num, "\n");
 				OutputStr (thread_num, "Execution halted.\n");
 				lucasDone (&lldata);
-				end_busy_loop = TRUE;
+				last_bench_cpu_num = NUM_CPUS;
 				return (stop_reason);
 			}
 			clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
@@ -7130,11 +7161,11 @@ int primeBench (
 	      }  // End ii implementation loop
 	    }  // End fftlen loop
 	  }  // End plus1 loop
-
-/* End the threads that are looping */
-
-	  end_busy_loop = TRUE;
 	} // End threads loop
+
+/* End the threads that are busy looping */
+
+	last_bench_cpu_num = NUM_CPUS;
 
 /* Now benchmark the trial factoring code */
 

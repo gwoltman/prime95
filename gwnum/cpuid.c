@@ -38,11 +38,6 @@
 #include "cpuid.h"
 #include "gwthread.h"
 
-/* Masm routines */
-
-void one_hundred_thousand_clocks ();
-void one_million_clocks ();
-
 /* Global variables describing the CPU we are running on */
 
 char	CPU_BRAND[49] = "";

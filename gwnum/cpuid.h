@@ -22,7 +22,8 @@ extern "C" {
 
 #include "gwcommon.h"
 
-/* Routines that the user should call */
+/* Routines that the user should call.  When calling */
+/* guessCpuSpeed, affinity should be set to run on any CPU core */
 
 void guessCpuType (void);
 void guessCpuSpeed (void);
@@ -114,9 +115,10 @@ void erdtsc (uint32_t *hi, uint32_t *lo);
 /* Init the x87 FPU, probably not needed any longer */
 void fpu_init (void);
 
-/* Internal routine to loop endlessly -- keeps a CPU core occupied */
-extern int end_busy_loop;
-void busy_loop (void *);
+/* Masm routines to burn up a specific number of clocks */
+
+void one_hundred_thousand_clocks ();
+void one_million_clocks ();
 
 #ifdef __cplusplus
 }
