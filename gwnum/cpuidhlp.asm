@@ -148,6 +148,14 @@ ecpuid	ENDP
 ;
 
 PROCL	one_hundred_thousand_clocks
+	xorpd	xmm0, xmm0
+	xorpd	xmm1, xmm1
+	xorpd	xmm2, xmm2
+	xorpd	xmm3, xmm3
+	xorpd	xmm4, xmm4
+	xorpd	xmm5, xmm5
+	xorpd	xmm6, xmm6
+	xorpd	xmm7, xmm7
 	mov	rax, 100000 / 200
 biglp:	addpd	xmm0, xmm0
 	addpd	xmm1, xmm1
@@ -355,6 +363,14 @@ biglp:	addpd	xmm0, xmm0
 one_hundred_thousand_clocks ENDP
 
 PROCL	one_million_clocks
+	xorpd	xmm0, xmm0
+	xorpd	xmm1, xmm1
+	xorpd	xmm2, xmm2
+	xorpd	xmm3, xmm3
+	xorpd	xmm4, xmm4
+	xorpd	xmm5, xmm5
+	xorpd	xmm6, xmm6
+	xorpd	xmm7, xmm7
 	mov	rax, 1000000 / 200
 biglp2:	addpd	xmm0, xmm0
 	addpd	xmm1, xmm1
