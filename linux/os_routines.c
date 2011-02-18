@@ -292,9 +292,8 @@ void setThreadPriorityAndAffinity (
 	linux_priority = (8 - (int) priority) * 19 / 7;
 	errcode = setpriority (PRIO_PROCESS, thread_id, linux_priority);
 
-/* Set affinity for this thread.  We assume the processor mask is the same */
-/* as in Windows with physical CPUs representing the least significant bits */
-/* and hyperthreaded logical CPUs as the next set of more significant bits */
+/* Set affinity for this thread.  It is the callers responsibility to */
+/* determine which logical hyperthreaded CPUs map to a single physical CPU. */
 
 	CPU_ZERO (&linux_mask);
 	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++)
