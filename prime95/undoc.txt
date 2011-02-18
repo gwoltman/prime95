@@ -423,18 +423,24 @@ You can set MaxHighMemWorkers=n in local.txt.  This tells the program how
 wany workers are allowed to use lots of memory.  This occurs doing stage 2
 of P-1 or ECM on medium-to-large numbers.  Default is available memory / 200MB.
 
-You can arbitrarily change how the program assigns affinity to CPUs.
-The program makes its best guess at assigning workers and helper threads
-to CPUs for optimal speed.  However, new architectures or situations we
-haven't considered may make different affinity setting desirable.  In
+The program makes its best guess at how the OS maps hyperthreaded logical CPU
+numbers to physical CPUs.  It also assigns workers and helper threads
+to CPUs for optimal speed.  However, bugs, new architectures, or situations we
+haven't considered may make different affinity settings desirable.  In
 local.txt set
-	AffinityScramble=string
-Where the string "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz()"
-is the 64-core "make no changes" string.  For example, let's say you have a system
-with 8 logical cores with 4 workers each using a helper thread.  The program would
-ordinarily assign the worker and helper threads to [0,1], [2,3], [4,5], [6,7].
-However, if you think [0,2], [1,3], [4,6], [5,7] would give better performance,
-you would set AffinityScramble=02134657 to test out your theory.
+	AffinityScramble2=string
+Where the characters in "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz()"
+represent 64 logical CPU numbers.  For example, let's say you have a system
+with 8 logical cores with 4 workers each using a helper thread.  Also, assume
+your system has logical CPUs 0 & 4 on the same physical CPU core, 1 & 5, etc.
+If the program is properly determining which logical CPUs share the same physical
+CPU, then the program internally generates an affinity scramble string of "04152637".
+The program's default policy is to assigni the worker and helper thread to the same
+physical CPU.  If the program is not properly determining which logical CPUs share the
+same physical CPU, or you think a different affinity policy would result in better
+performance, then set AffinityScramble2 accordingly.  Let's say you think
+running the helper threads on a different physical core would be better, then
+you might set AffinityScramble2=02134657 to test out your theory.
 
 In the prime.txt file, the DaysBetweenCheckin value can be set to any value
 between 0.04 and 7.0.  Some SeventeenOrBust users want to send updates hourly.

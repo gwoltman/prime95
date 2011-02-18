@@ -762,6 +762,10 @@ void nameAndReadIniFiles (
 	strcat (buf, "\n");
 	OutputStr (MAIN_THREAD_NUM, buf);
 
+/* Dynamically determine which logical hyperthreaded CPUs map to physical CPUs */
+
+	generate_affinity_scramble ();
+
 /* Start some initial timers */
 
 	add_timed_event (TE_ROLLING_AVERAGE, 6*60*60);
