@@ -2,7 +2,7 @@
 #
 
 CC = gcc
-CFLAGS = -I.. -I../gwnum -I/usr/local/include -O2 -march=i486 -malign-double -Wno-unused-result
+CFLAGS = -I.. -I../gwnum -I/usr/local/include -O2 -march=i486 -malign-double
 
 CPP = g++
 CPPFLAGS = -I.. -I../gwnum -I/usr/local/include -O2 -march=i486 -malign-double
