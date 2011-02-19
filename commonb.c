@@ -571,6 +571,10 @@ void generate_affinity_scramble_thread (void *arg)
 				AFFINITY_SCRAMBLE[i] = i;  /* Illegal entry = no mapping */
 		}
 	}
+
+/* Mark all the unused logical CPU numbers as "no scramble" */
+
+	for (k = NUM_CPUS * CPU_HYPERTHREADS; k < MAX_NUM_WORKER_THREADS; k++) AFFINITY_SCRAMBLE[k] = k;
 }
 
 /* Try to determine which hyperthreaded logical CPUs map to the same physical CPUs */
