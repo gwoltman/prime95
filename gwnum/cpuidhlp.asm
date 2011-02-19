@@ -144,6 +144,38 @@ ENDIF
 ecpuid	ENDP
 
 ;
+; Utility routine to execute XGETBV
+;
+
+; exgetbv (resptr)
+;	Call xgetbx a fill a structure with the eax, ebx, ecx, edx values
+; Windows 32-bit (_ecpuid)
+; Linux 32-bit (ecpuid)
+;	Parameter resptr = [esp+4]
+; Windows 64-bit (ecpuid)
+;	Parameter resptr = rcx
+; Linux 64-bit (ecpuid)
+;	Parameter res = rdi
+
+PROCFL	exgetbv
+	ah_prolog 1,0,0,rbx,rdi
+IFNDEF X86_64
+	mov	rdi, [esp+push_amt+4]	; Address of data struct to return info
+ENDIF
+IFDEF WINDOWS64
+	mov	rdi, rcx		; Address of data struct to return info
+ENDIF
+	mov	ecx, [rdi+8]		; ECX argument to XGETBV
+	xgetbv				; Perform the XGETBV
+	mov	[rdi], eax		; Return the results
+	mov	[rdi+4], ebx		; Return the results
+	mov	[rdi+8], ecx		; Return the results
+	mov	[rdi+12], edx		; Return the results
+	ah_epilog 1,0,0,rbx,rdi
+	ret
+exgetbv	ENDP
+
+;
 ; Utility routines that hopefully take (roughly) 100,000 and 1,000,000 clock cycles
 ;
 

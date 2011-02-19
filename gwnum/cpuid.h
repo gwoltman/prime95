@@ -108,6 +108,11 @@ void ecpuid (struct cpuid_data *);
 #define isCpuidSupported()	ecpuidsupport ()
 #define Cpuid(a,s)		{ (s)->EAX=a; ecpuid (s); }
 
+/* Cleaner access to xgetbv assembly code */
+
+void exgetbv (struct cpuid_data *);
+#define Xgetbv(a,s)		{ (s)->ECX=a; exgetbv (s); }
+
 /* Routine used to time code chunks */
 void erdtsc (uint32_t *hi, uint32_t *lo);
 #define rdtsc(hi,lo)		erdtsc(hi,lo)

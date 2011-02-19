@@ -370,6 +370,13 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			CPU_FLAGS |= CPU_AVX;
 		if ((reg.ECX >> 12) & 0x1)
 			CPU_FLAGS |= CPU_FMA;
+
+/* If hardware supports AVX, see if OS supports it too */
+
+		if (CPU_FLAGS & CPU_AVX) {
+			Xgetbv (0, &reg);
+			if ((reg.EAX & 6) != 6) CPU_FLAGS &= ~CPU_AVX;
+		}
 	}
 
 /* Call CPUID with 0x80000000 argument.  It tells us how many extended CPU */
