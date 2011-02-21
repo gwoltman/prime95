@@ -179,7 +179,8 @@ exgetbv	ENDP
 ; Utility routines that hopefully take (roughly) 100,000 and 1,000,000 clock cycles
 ;
 
-PROCL	one_hundred_thousand_clocks
+PROCFL	one_hundred_thousand_clocks
+	ah_prolog 0,0,0,xmm6,xmm7
 	xorpd	xmm0, xmm0
 	xorpd	xmm1, xmm1
 	xorpd	xmm2, xmm2
@@ -391,10 +392,12 @@ biglp:	addpd	xmm0, xmm0
 	addpd	xmm7, xmm7
 	sub	rax, 1
 	jnz	biglp
+	ah_epilog 0,0,0,xmm6,xmm7
 	ret
 one_hundred_thousand_clocks ENDP
 
-PROCL	one_million_clocks
+PROCFL	one_million_clocks
+	ah_prolog 0,0,0,xmm6,xmm7
 	xorpd	xmm0, xmm0
 	xorpd	xmm1, xmm1
 	xorpd	xmm2, xmm2
@@ -606,6 +609,7 @@ biglp2:	addpd	xmm0, xmm0
 	addpd	xmm7, xmm7
 	sub	rax, 1
 	jnz	biglp2
+	ah_epilog 0,0,0,xmm6,xmm7
 	ret
 one_million_clocks ENDP
 
