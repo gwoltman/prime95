@@ -7034,6 +7034,12 @@ void bench_busy_loop (void *arg)
 	int	cpu_num;
 	struct PriorityInfo sp_info;
 
+/* Only put newer CPUs into a busy loop.  We do this because one_hundred_thousand_clocks */
+/* uses SSE2 instructions and pre-SSE2 machines don't have speed step / turbo boost. */
+/* Without this check, dual-core Pentium 2 and 3 machines will crash benchmarking. */
+
+	if (! (CPU_FLAGS & CPU_SSE2)) return;
+
 /* Set the affinity so that busy loop runs on the specified CPU core */
 
 	cpu_num = (int) (intptr_t) arg;
