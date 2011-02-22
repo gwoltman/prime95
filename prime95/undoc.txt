@@ -435,7 +435,7 @@ with 8 logical cores with 4 workers each using a helper thread.  Also, assume
 your system has logical CPUs 0 & 4 on the same physical CPU core, 1 & 5, etc.
 If the program is properly determining which logical CPUs share the same physical
 CPU, then the program internally generates an affinity scramble string of "04152637".
-The program's default policy is to assigni the worker and helper thread to the same
+The program's default policy is to assign the worker and helper threads to the same
 physical CPU.  If the program is not properly determining which logical CPUs share the
 same physical CPU, or you think a different affinity policy would result in better
 performance, then set AffinityScramble2 accordingly.  Let's say you think
