@@ -323,12 +323,19 @@ Elliptic Curve Method of factoring.  ECM requires a minimum of 192 times
 the FFT size.  Thus, ECM factoring of F20 which uses a 64K FFT will use
 a minimum of 192 * 64K or 12MB of memory.  You can also edit the
 worktodo.txt file directly.  For example:
-	ECM2=k,b,n,c,B1,B2,curves_to_run
+	ECM2=k,b,n,c,B1,B2,curves_to_run[,"comma-separated-list-of-known-factors"]
 
 The P-1 choice lets you factor numbers of the form k*b^n+c using
 the P-1 method of factoring.  You can also edit the worktodo.txt file
 directly.  For example:
-	Pminus1=k,b,n,c,B1,B2
+	Pminus1=k,b,n,c[,"comma-separated-list-of-known-factors"]
+
+The PRP choice, only available on the Mac OS X version, lets you do a
+probable prime test on numbers of the form k*b^n+c.  You can also edit
+the worktodo.txt file directly.  For example:
+	PRP=k,b,n,c[,how_far_factored,tests_saved][,"comma-separated-list-of-known-factors"]
+where the how_far_factored and tests_saved values are used to pick
+optimal bounds for P-1 factoring prior to running the PRP test.
 
 SUM(INPUTS) error checking.  Selecting this option will run an extra error
 check on every iteration.  This will slow down the primality test slightly.
