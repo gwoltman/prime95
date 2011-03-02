@@ -9880,7 +9880,7 @@ void gwsafemul (		/* Multiply source with dest */
 
 /* Generate random FFT data.  We used to use the C runtime library. */
 /* However, when a caller discovered a bug in gwsquare_carefully it */
-/* very difficult to track down because the bug was no reproducible. */
+/* very difficult to track down because the bug was not reproducible. */
 /* We could make bugs reproducible by calling srand with a fixed value, */
 /* but it is bad form for a library to do this.  Thus, we found a */
 /* public domain random number generator to use. */
