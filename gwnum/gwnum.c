@@ -9058,10 +9058,12 @@ long nonbase2_gianttogw (
 			mask = is_big_word (gwdata, i) ? mask2 : mask1;
 
 			gtog (a, newg);
-			ultog (mask, tmp);
-			divg (tmp, a);
-			mulgi (&gwdata->gdata, a, tmp);
-			subg (tmp, newg);
+			if (i != gwdata->FFTLEN - 1) {
+				ultog (mask, tmp);
+				divg (tmp, a);
+				mulgi (&gwdata->gdata, a, tmp);
+				subg (tmp, newg);
+			}
 			value = (newg->sign) ? newg->n[0] : 0;
 			value += carry;
 
