@@ -2,7 +2,7 @@ New features in Version 26.6 of mprime
 --------------------------------------
 
 1)  For rare cases where the program cannot figure out the number of cores and hyperthreading,
-    the NumPhysicalCPUs option may help.  See undoc.txt.
+    the NumPhysicalCores option may help.  See undoc.txt.
 
 New features in Version 26.5 of mprime
 --------------------------------------
