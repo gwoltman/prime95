@@ -3597,7 +3597,8 @@ struct facasm_data {
 	uint32_t cpu_flags;		/* Copy of CPU_FLAGS */
 	uint32_t firstcall;		/* Flag set on first facpasssetup */
 	uint32_t pad[5];
-	uint32_t xmm_data[100];		/* XMM data initialized in C code */
+	uint32_t xmm_data[188];		/* XMM data initialized in C code */
+	uint32_t ymm_data[300];		/* YMM data initialized in C code */
 };
 
 /* This defines the factoring data handled in C code.  The handle */
@@ -3638,6 +3639,11 @@ int factorSetup (
 
 	asm_data->EXPONENT = p;
 	asm_data->cpu_flags = CPU_FLAGS;
+#ifdef X86_64
+	if (!IniGetInt (LOCALINI_FILE, "FactorUsingSSE2", 0)) asm_data->cpu_flags &= ~CPU_SSE2;
+#else
+	if (!IniGetInt (LOCALINI_FILE, "FactorUsingSSE2", 1)) asm_data->cpu_flags &= ~CPU_SSE2;
+#endif
 	asm_data->firstcall = 0;
 
 /* Setup complete */
@@ -3679,7 +3685,6 @@ int factorPassSetup (
 	TWO_TO_FACSIZE_PLUS_62	DQ	0.0
 	SSE2_LOOP_COUNTER	DD	0 */
 
-#ifndef X86_64
 	if (asm_data->cpu_flags & CPU_SSE2) {
 		unsigned long i, p, bits_in_factor;
 		uint32_t *xmm_data;
@@ -3718,7 +3723,6 @@ int factorPassSetup (
 
 		xmm_data[44] = bits_in_factor - 61;
 	}
-#endif
 
 /* Setup complete */
 
@@ -7066,7 +7070,7 @@ int factorBench (
 	unsigned long num_lengths, i, j;
 	double	best_time;
 	char	buf[512];
-	int	bit_lengths[] = {58, 59, 60, 61, 62, 63, 64, 65, 66, 67};
+	int	bit_lengths[] = {61, 62, 63, 64, 65, 66, 67, 75, 76, 77};
 	int	res, stop_reason;
 	double	timers[2];
 
