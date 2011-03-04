@@ -132,6 +132,16 @@ Where n is the number of physical CPUs or cores, not logical CPUs created by
 hyperthreading. Choose 1 for non-hyperthreaded and 2 for hyperthreaded. Finally,
 s is the speed in MHz.
 
+As an alternative to the above, one can set NumPhysicalCores=n in local.txt.
+This is useful on machines that are somtimes booted with hyperthreading enabled
+and sometimes without.  Normally, the program can detect this situation, but one
+notable problem case is a dual-CPU hyperthreaded machine,  For example, take a
+dual-CPU quad-core hyperthreaded machine.  When booted with hyperthreading enabled
+this is properly detected as an 8-core hyperthreaded machine.  When booted
+with hyperthreading disabled, this is improperly detected as a 4-core hyperthreaded
+machine.  If you set NumPhysicalCores=8, then the program will set the 
+hyperthreading state properly no matter how the machine is booted.
+
 The program used to do factoring and P-1 testing on exponents even if
 they were not the first entry in worktodo.txt.  The rationale was that
 if the number had a factor, the server could be contacted and another
