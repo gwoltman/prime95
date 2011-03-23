@@ -140,7 +140,6 @@ ENDIF
 	mov	[rdi+8], ecx		; Return the results
 	mov	[rdi+12], edx		; Return the results
 	ah_epilog 1,0,0,rbx,rdi
-	ret
 ecpuid	ENDP
 
 ;
@@ -172,12 +171,55 @@ ENDIF
 	mov	[rdi+8], ecx		; Return the results
 	mov	[rdi+12], edx		; Return the results
 	ah_epilog 1,0,0,rbx,rdi
-	ret
 exgetbv	ENDP
 
 ;
 ; Utility routines that hopefully take (roughly) 100,000 and 1,000,000 clock cycles
+; This implementation is based on the ROR op-code should has a reciprocal throughput
+; of 1 on Intel architectures according to Agner Fog's documents.  This routine will
+; be inaccurate on AMD cpus which have have a reciprocal thoughput of 1/3.
 ;
+; NOTE:  The ROR op-code inexplicably takes fewer clock cycles than expected
+; on a Pentium 4 (97600 instead of 100000).  I tried using LEA instead:
+;	lea	rbx, [rbx+rbx*8]
+;	lea	rcx, [rcx+rcx*8]
+;	lea	rdx, [rdx+rdx*8]
+;	lea	rdi, [rdi+rdi*8]
+;	lea	rsi, [rsi+rsi*8]
+; but this also ran too fast (83000 instead of 100000).
+
+PROCFL	one_hundred_thousand_clocks
+	ah_prolog 0,0,0,rdi,rsi
+	mov	rax, 100000 / 100
+biglp:	REPEAT 25
+	ror	ecx, 1
+	ror	edx, 1
+	ror	edi, 1
+	ror	esi, 1
+	ENDM
+	sub	rax, 1
+	jnz	biglp
+	ah_epilog 0,0,0,rdi,rsi
+one_hundred_thousand_clocks ENDP
+
+PROCFL	one_million_clocks
+	ah_prolog 0,0,0,rdi,rsi
+	mov	rax, 1000000 / 100
+biglp2:	REPEAT 25
+	ror	ecx, 1
+	ror	edx, 1
+	ror	edi, 1
+	ror	esi, 1
+	ENDM
+	sub	rax, 1
+	jnz	biglp2
+	ah_epilog 0,0,0,rdi,rsi
+one_million_clocks ENDP
+
+; This was our original implementation.  Unfortunately it took 200,000 and 2,000,000
+; clocks on a Pentium 4 (and 1.5 times that amount on a hyperthreaded Pentium 4).
+
+IFDEF ORIGNAL_IMPLEMENTATION
 
 PROCFL	one_hundred_thousand_clocks
 	ah_prolog 0,0,0,xmm6,xmm7
@@ -190,14 +232,7 @@ PROCFL	one_hundred_thousand_clocks
 	xorps	xmm6, xmm6
 	xorps	xmm7, xmm7
 	mov	rax, 100000 / 200
-biglp:	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
+biglp:	REPEAT 25
 	addps	xmm0, xmm0
 	addps	xmm1, xmm1
 	addps	xmm2, xmm2
@@ -206,194 +241,10 @@ biglp:	addps	xmm0, xmm0
 	addps	xmm5, xmm5
 	addps	xmm6, xmm6
 	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
+	ENDM
 	sub	rax, 1
 	jnz	biglp
 	ah_epilog 0,0,0,xmm6,xmm7
-	ret
 one_hundred_thousand_clocks ENDP
 
 PROCFL	one_million_clocks
@@ -407,14 +258,7 @@ PROCFL	one_million_clocks
 	xorps	xmm6, xmm6
 	xorps	xmm7, xmm7
 	mov	rax, 1000000 / 200
-biglp2:	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
+biglp2:	REPEAT 25
 	addps	xmm0, xmm0
 	addps	xmm1, xmm1
 	addps	xmm2, xmm2
@@ -423,195 +267,13 @@ biglp2:	addps	xmm0, xmm0
 	addps	xmm5, xmm5
 	addps	xmm6, xmm6
 	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
-	addps	xmm0, xmm0
-	addps	xmm1, xmm1
-	addps	xmm2, xmm2
-	addps	xmm3, xmm3
-	addps	xmm4, xmm4
-	addps	xmm5, xmm5
-	addps	xmm6, xmm6
-	addps	xmm7, xmm7
+	ENDM
 	sub	rax, 1
 	jnz	biglp2
 	ah_epilog 0,0,0,xmm6,xmm7
-	ret
 one_million_clocks ENDP
+
+ENDIF
 
 _TEXT	ENDS
 END
