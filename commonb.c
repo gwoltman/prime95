@@ -364,11 +364,15 @@ void generate_affinity_scramble_thread (void *arg)
 	char	buf[128];
 
 /* Use the highly accurate RDTSC instruction for timings. */
-/* Get the debug flag. */
+/* Get the debug flag (0 = no debugging, 1 = output debug info, 2 = bypass this code) */
 
 	saved_rdtsc_timing = RDTSC_TIMING;
 	RDTSC_TIMING = 13;
 	debug = IniGetInt (INI_FILE, "DebugAffinityScramble", 0);
+	if (debug == 2) {
+		AFFINITY_SCRAMBLE_STATE = 0;
+		return;
+	}
 
 /* Now search for sets of logical CPUs that comprise a physical CPU */
 
