@@ -85,9 +85,7 @@ IF @INSTR(,%xarch,<BLEND>) NE 0
 	xonepass 3072, 1
 	xonepass 4096, 1
 	xonepass 6144, 1
-IFDEF IMPL_ALL_CORE
-	xonepass 8192, 1		;; Only used when timing all possible FFT implementations
-ENDIF
+	xonepass 8192, 1
 
 ELSE
 
