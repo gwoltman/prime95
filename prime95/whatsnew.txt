@@ -3,6 +3,9 @@ New features in Version 26.6 of prime95.exe
 
 1)  For rare cases where the program cannot figure out the number of cores and hyperthreading,
     the NumPhysicalCores option may help.  See undoc.txt.
+2)  Faster FFT implementations are now selected for Core 2 CPUs with 1MB L2 cache or less
+    (marketed under the Celeron and Pentium label).
+3)  New, slightly higher, trial factoring breakeven points.
 
 New features in Version 26.5 of prime95.exe
 -------------------------------------------
