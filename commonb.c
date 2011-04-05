@@ -407,7 +407,7 @@ void generate_affinity_scramble_thread (void *arg)
 		}
 
 		if (debug) {
-			sprintf (buf, "Test clocks: %d\n", (int) best_100000);
+			sprintf (buf, "Test clocks on logical CPU #%d: %d\n", (int) k+1, (int) best_100000);
 			OutputStr (MAIN_THREAD_NUM, buf);
 		}
 
@@ -446,7 +446,7 @@ void generate_affinity_scramble_thread (void *arg)
 				}
 
 				if (debug) {
-					sprintf (buf, "Logical CPU %d clocks: %d\n", (int) k, (int) test_100000);
+					sprintf (buf, "Logical CPU %d clocks: %d\n", (int) k+1, (int) test_100000);
 					OutputStr (MAIN_THREAD_NUM, buf);
 				}
 
@@ -547,7 +547,7 @@ void generate_affinity_scramble_thread (void *arg)
 		for (i = 0; i < NUM_CPUS; i++) {
 			strcpy (buf, "Logical CPUs ");
 			for (j = 0; j < CPU_HYPERTHREADS; j++) {
-				sprintf (buf+strlen(buf), "%d,", (int) AFFINITY_SCRAMBLE[i*CPU_HYPERTHREADS+j]);
+				sprintf (buf+strlen(buf), "%d,", (int) AFFINITY_SCRAMBLE[i*CPU_HYPERTHREADS+j] + 1);
 			}
 			strcpy (buf+strlen(buf)-1, " form one physical CPU.\n");
 			OutputStr (MAIN_THREAD_NUM, buf);
@@ -735,8 +735,8 @@ void SetPriority (
 			for (i = count = 0; i < MAX_NUM_WORKER_THREADS; i++) {
 				if (! maskget (mask, i)) continue;
 				count++;
-				if (count == 1) sprintf (cpu_list, "%d", i);
-				else sprintf (cpu_list + strlen(cpu_list), ",%d", i);
+				if (count == 1) sprintf (cpu_list, "%d", i+1);
+				else sprintf (cpu_list + strlen(cpu_list), ",%d", i+1);
 			}
 			sprintf (buf + strlen(buf), "logical CPU%s%s\n",
 				 (count == 1) ? " #" : "s ", cpu_list);
