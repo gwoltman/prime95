@@ -3527,7 +3527,10 @@ int calculate_bif (
 			retval = 2;		/* Look for FFTs optimized for large cache P4s */
 		break;
 	case CPU_ARCHITECTURE_CORE_2:
-		retval = 0;			/* Look for FFTs optimized for Core 2 */
+		if (CPU_L2_CACHE_SIZE <= 1024)
+			retval = 8;		/* Look for FFTs optimized for Core 2 Celerons */
+		else
+			retval = 0;		/* Look for FFTs optimized for Core 2 */
 		break;
 	case CPU_ARCHITECTURE_CORE_I7:
 		retval = 1;			/* Look for FFTs optimized for Core i3/i5/i7 */
@@ -3562,6 +3565,8 @@ int calculate_bif (
 		retval = 0;		/* P4s have best FFT implementations up to 6M */
 	if (fftlen > 6291456 && retval == 6)
 		retval = 7;		/* K8s have best FFT implementations up to 6M */
+	if (fftlen > 4194304 && retval == 8)
+		retval = 0;		/* Small cache Core 2 Celerons have best FFT implementations up to 4M */
 
 /* Return the result */
 
