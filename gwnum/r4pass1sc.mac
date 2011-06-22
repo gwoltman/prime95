@@ -185,7 +185,7 @@ b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 4*clmblkdst, rdi
 	bump	rsi, -4*clmblkdst	;; Restore source pointer
 	end_timer 22
 
-;; Do FFT levels 6,7
+;; Do FFT levels 4,5
 ;;
 ;; On input the 64-byte cache lines hold these data values (+512 in high word):
 ;;	0K	4K	8K	12K
