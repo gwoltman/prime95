@@ -3,7 +3,8 @@
 ; Email: woltman@alum.mit.edu
 ;
 ; Assemble the radix-4 home-grown FFTs.  These were developed over many years
-; and used up until version 25 of the gwnum library.
+; and used up until version 25 of the gwnum library.  The one-pass FFTs and a few
+; of the smaller two-pass FFTs are still in use today.
 ;
 
 	TITLE   setup
@@ -34,9 +35,12 @@ EXTRN	xgw_finish_mult:PROC
 
 _TEXT SEGMENT
 
-;; Implement the small one pass FFTs, for now only assemble one-pass FFTs for the CORE architecture
+;; Implement the small one pass FFTs, for now only assemble one-pass FFTs for the BLEND architecture
 
 IF @INSTR(,%xarch,<BLEND>) NE 0
+
+PREFETCHING = 0
+
 	xonepass 32, 0
 	xonepass 48, 0
 	xonepass 64, 0
