@@ -2,7 +2,7 @@
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
-; These FFTs were split out of r4dwpncore.asm because of MASM limitations.
+; These FFTs were split out of r4dwpn.asm because of MASM limitations.
 ;
 
 	TITLE   setup

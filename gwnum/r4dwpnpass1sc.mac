@@ -1,13 +1,11 @@
-; Copyright 2009-2010 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2009-2011 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
-; These macros do the first pass of a primarily radix-4 DJB "r4delay" FFTs.
-; This is like the radix-4 "r4" FFTs except that the first levels in pass 1 use common
-; sin/cos data which is corrected in the last levels of pass 1.  Saves much memory
-; at the cost of a few complex multiplies.  The name "r4delay" comes about because
-; we delay fully applying the twiddle factors in the first levels until the last
-; pass 1 levels.
+; These macros do the first pass of a primarily radix-4 DJB "r4dwpn" FFTs.
+; This is like the radix-4 "r4delay" FFTs except that the group ttp multiplier
+; is merged with the sin/cos twiddles in one of the FFT levels.  This saves
+; us two multiply operations during normalization.
 ;
 
 ; ********************************************************
