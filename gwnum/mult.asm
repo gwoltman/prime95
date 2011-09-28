@@ -16,7 +16,7 @@ ENDIF
 
 INCLUDE	unravel.mac
 
-VERSION_NUMBER = 2606		;; Version 26.6
+VERSION_NUMBER = 2701		;; Version 27.1
 
 ;
 ; Global variables needed by FFT setup code
@@ -48,28 +48,30 @@ ENDIF
 ; The jmptable uses a bit number to encode the "best implementation for machine type" value.
 
 	BIF_CORE2   = 0			; Core 2 CPUs, big L2 caches
-	BIF_I7	    = 1			; Core i7 CPUs, 256K L2, big L3 caches
-	BIF_P4_1024 = 2			; Pentium 4, 1MB cache
-	BIF_P4TP_512  = 3		; Pentium 4, 512K cache (did not support EMT64)
-	BIF_P4TP_256  = 4		; Pentium 4, 256K cache (did not support EMT64)
-	BIF_P4TP_128  = 5		; Pentium 4, 128K cache (did not support EMT64)
-	BIF_K8	    = 6			; AMD K8 CPUs
-	BIF_K10	    = 7			; AMD K10 CPUs
-	BIF_CORE2_512 = 8		; Core 2 Celerons, 512K L2 cache, no L2 cache
+	BIF_CORE2_512 = 1		; Core 2 Celerons, 512K L2 cache, no L3 cache
+	BIF_I7	    = 2			; Core i7 CPUs, 256K L2, big L3 caches
+	BIF_P4_1024 = 3			; Pentium 4, 1MB cache
+	BIF_P4TP_512  = 4		; Pentium 4, 512K cache (did not support EMT64)
+	BIF_P4TP_256  = 5		; Pentium 4, 256K cache (did not support EMT64)
+	BIF_P4TP_128  = 6		; Pentium 4, 128K cache (did not support EMT64), not used
+	BIF_K8	    = 7			; AMD K8 CPUs
+	BIF_K10	    = 8			; AMD K10 CPUs
+	BIF_BULL    = 9			; AMD Bulldozer CPUs
 
 ; The PRCENTRY macro uses a bit mask to encode the "best implementation for machine type" values.
 ; The PRCENTRY macro also lets us specify different "best implementation for machine type" values
 ; for 32-bit and 64-bit operating systems.
 
 	CORE2	= 00000001h		; Core 2 CPUs, big L2 caches
-	I7	= 00000002h		; Core i7 CPUs, 256K L2, big L3 caches
-	P4_1024	= 00000004h		; Pentium 4, 1MB cache
-	P4TP_512 = 00000008h		; Pentium 4, 512K cache (did not support EMT64)
-	P4TP_256 = 00000010h		; Pentium 4, 256K cache (did not support EMT64)
-	P4TP_128 = 00000020h		; Pentium 4, 128K cache (did not support EMT64)
-	K8	= 00000040h		; AMD K8 CPUs
-	K10	= 00000080h		; AMD K10 CPUs
-	CORE2_512 = 00000100h		; Core 2 Celerons, 512K L2 cache, no L2 cache
+	CORE2_512 = 00000002h		; Core 2 Celerons, 512K L2 cache, no L2 cache
+	I7	= 00000004h		; Core i7 CPUs, 256K L2, big L3 caches
+	P4_1024	= 00000008h		; Pentium 4, 1MB cache
+	P4TP_512 = 00000010h		; Pentium 4, 512K cache (did not support EMT64)
+	P4TP_256 = 00000020h		; Pentium 4, 256K cache (did not support EMT64)
+	P4TP_128 = 00000040h		; Pentium 4, 128K cache (did not support EMT64)
+	K8	= 00000080h		; AMD K8 CPUs
+	K10	= 00000100h		; AMD K10 CPUs
+	BULL	= 00000200h		; AMD Bulldozer CPUs
 
 ; Apple products do not contain AMD CPUs, nor small-cache Pentium 4s.  They don't contain
 ; large cache Pentium 4s either, but gwnum treats Core CPUs as large-cache Pentium 4s.
@@ -79,6 +81,7 @@ ENDIF
 IFDEF APPLE
 	K8 = 0
 	K10 = 0
+	BULL = 0
 	P4TP_512 = 0
 	P4TP_256 = 0
 	P4TP_128 = 0
@@ -94,6 +97,8 @@ ENDIF
 IFDEF X86_64
 	CORE2_32 = 0
 	CORE2_64 = CORE2
+	CORE2_512_32 = 0
+	CORE2_512_64 = CORE2_512
 	I7_32 = 0
 	I7_64 = I7
 	P4_1024_32 = 0
@@ -105,11 +110,13 @@ IFDEF X86_64
 	K8_64 = K8
 	K10_32 = 0
 	K10_64 = K10
-	CORE2_512_32 = 0
-	CORE2_512_64 = CORE2_512
+	BULL_32 = 0
+	BULL_64 = BULL
 ELSE
 	CORE2_32 = CORE2
 	CORE2_64 = 0
+	CORE2_512_32 = CORE2_512
+	CORE2_512_64 = 0
 	I7_32 = I7
 	I7_64 = 0
 	P4_1024_32 = P4_1024
@@ -118,8 +125,8 @@ ELSE
 	K8_64 = 0
 	K10_32 = K10
 	K10_64 = 0
-	CORE2_512_32 = CORE2_512
-	CORE2_512_64 = 0
+	BULL_32 = BULL
+	BULL_64 = 0
 ENDIF
 
 ; Macros to build jmptable entries
@@ -158,7 +165,7 @@ X87PRC MACRO procname, mem_needed, p2larg, clmarg
 	DD	mem_needed
 	ENDM
 
-; Used for small FFTs (below 7K).  At present there is only one FFT implementation.
+; Used for small one-pass FFTs.  At present there is only one FFT implementation.
 
 PRCENTRY MACRO procname, mem_needed
 	PRCENTRY3 procname, mem_needed, 0
@@ -195,6 +202,9 @@ PRCENTRY2 MACRO procname, mem_needed, best_impl_for
 	IFDEF IMPL_ALL_K10
 		bif = bif OR K10
 	ENDIF
+	IFDEF IMPL_ALL_BULL
+		bif = bif OR BULL
+	ENDIF
 	ENDIF
 	;; We arbitrarily decide that older architectures are ill-equiped to run large FFTs.
 	;; Thus, we make sure that bif bit is cleared
@@ -216,6 +226,9 @@ PRCENTRY2 MACRO procname, mem_needed, best_impl_for
 	;; Output one jmptable entry for each CPU where this is the best FFT implementation.
 	IF (bif AND CORE2) NE 0
 		PRCENTRY3 @CATSTR(procname, <_CORE>), mem_needed, CORE2
+	ENDIF
+	IF (bif AND CORE2_512) NE 0
+		PRCENTRY3 @CATSTR(procname, <_CORE>), mem_needed, CORE2_512
 	ENDIF
 	IF (bif AND I7) NE 0
 		PRCENTRY3 @CATSTR(procname, <_CORE>), mem_needed, I7
@@ -250,8 +263,8 @@ PRCENTRY2 MACRO procname, mem_needed, best_impl_for
 	IF (bif AND K10) NE 0
 		PRCENTRY3 @CATSTR(procname, <_K10>), mem_needed, K10
 	ENDIF
-	IF (bif AND CORE2_512) NE 0
-		PRCENTRY3 @CATSTR(procname, <_CORE>), mem_needed, CORE2_512
+	IF (bif AND BULL) NE 0
+		PRCENTRY3 @CATSTR(procname, <_BULL>), mem_needed, BULL
 	ENDIF
 	ENDM
 
@@ -276,11 +289,17 @@ PRCENTRY2A MACRO procname, mem_needed, best_impl_for
 	IFDEF IMPL_ALL_K10
 		exitm
 	ENDIF
+	IFDEF IMPL_ALL_BULL
+		exitm
+	ENDIF
 	;; Copy input argument
 	bif = best_impl_for
 	;; Output one jmptable entry for each CPU where this is the best FFT implementation.
 	IF (bif AND CORE2) NE 0
 		PRCENTRY3 procname, mem_needed, CORE2
+	ENDIF
+	IF (bif AND CORE2_512) NE 0
+		PRCENTRY3 procname, mem_needed, CORE2_512
 	ENDIF
 	IF (bif AND I7) NE 0
 		PRCENTRY3 procname, mem_needed, I7
@@ -303,8 +322,8 @@ PRCENTRY2A MACRO procname, mem_needed, best_impl_for
 	IF (bif AND K10) NE 0
 		PRCENTRY3 procname, mem_needed, K10
 	ENDIF
-	IF (bif AND CORE2_512) NE 0
-		PRCENTRY3 procname, mem_needed, CORE2_512
+	IF (bif AND BULL) NE 0
+		PRCENTRY3 procname, mem_needed, BULL
 	ENDIF
 	ENDM
 
@@ -336,6 +355,8 @@ PRCENTRY3 MACRO procname, mem_needed, bif
 		arch = 4
 	ELSEIF (@INSTR (,&procname,_K10)) NE 0
 		arch = 5
+	ELSEIF (@INSTR (,&procname,_BULL)) NE 0
+		arch = 6
 	ELSEIF (@INSTR (,&procname,_BLEND)) NE 0
 		arch = 0
 	ELSE
@@ -411,6 +432,8 @@ PRCENTRY3 MACRO procname, mem_needed, bif
 	ENDIF
 	IF bif EQ CORE2
 		best_impl_for = BIF_CORE2
+	ELSEIF bif EQ CORE2_512
+		best_impl_for = BIF_CORE2_512
 	ELSEIF bif EQ I7
 		best_impl_for = BIF_I7
 	ELSEIF bif EQ P4_1024
@@ -425,8 +448,8 @@ PRCENTRY3 MACRO procname, mem_needed, bif
 		best_impl_for = BIF_K8
 	ELSEIF bif EQ K10
 		best_impl_for = BIF_K10
-	ELSEIF bif EQ CORE2_512
-		best_impl_for = BIF_CORE2_512
+	ELSEIF bif EQ BULL
+		best_impl_for = BIF_BULL
 	ELSE
 		best_impl_for = 0
 	ENDIF
@@ -3575,6 +3598,208 @@ ENDIF
 	DD			0
 	DD	0
 
+;; Jump tables for the AVX optimized code
+
+yjmptable DD	0
+	org	$-4
+	PRCSTRT	743,	32,	0.00000111
+	PRCENTRY		yfft_r4_32_op_BLEND, 11408
+	DD			0
+	PRCSTRT	1469,	64,	0.00000178
+	PRCENTRY		yfft_r4_64_op_BLEND, 21920 
+	DD			0
+	PRCSTRT	2179,	96,	0.00000259
+	PRCENTRY		yfft_r4_96_op_BLEND, 112432
+	DD			0
+	PRCSTRT	2905,	128,	0.00000319
+	PRCENTRY		yfft_r4_128_op_BLEND, 113328
+	DD			0
+	PRCSTRT	3613,	160,	0.00000450
+	PRCENTRY		yfft_r4_160_op_BLEND, 74736
+	DD			0
+	PRCSTRT	4311,	192,	0.00000542
+	PRCENTRY		yfft_r4_192_op_BLEND, 35632
+	DD			0
+	PRCSTRT	5755,	256,	0.00000691
+	PRCENTRY		yfft_r4_256_op_BLEND, 47296
+	DD			0
+	PRCSTRT	7149,	320,	0.00000928
+	PRCENTRY		yfft_r4_320_op_BLEND, 68448
+	DD			0
+	PRCSTRT	8527,	384,	0.0000111
+	PRCENTRY		yfft_r4_384_op_BLEND, 59984
+	DD			0
+	PRCSTRT	11319,	512,	0.0000143
+	PRCENTRY		yfft_r4_512_op_BLEND, 117152
+	DD			0
+	PRCSTRT	14119,	640,	0.0000215
+	PRCENTRY		yfft_r4_640_op_BLEND, 117408
+	DD			0
+	PRCSTRT	16839,	768,	0.0000260
+	PRCENTRY		yfft_r4_768_op_BLEND, 220736
+	DD			0
+	PRCSTRT	22477,	1024,	0.0000349
+	PRCENTRY		yfft_r4_1K_op_BLEND, 226112
+	DD			0
+	PRCSTRT	27899,	1280,	0.0000494
+	PRCENTRY		yfft_r4_1280_op_BLEND, 233664
+	DD			0
+	PRCSTRT	33289,	1536,	0.0000601
+	PRCENTRY		yfft_r4_1536_op_BLEND, 240320
+	DD			0
+	PRCSTRT	44339,	2048,	0.0000773
+	PRCENTRY		yfft_r4_2K_op_BLEND, 252224
+	DD			0
+	PRCSTRT	55099,	2560,	0.000111
+	PRCENTRY		yfft_r4_2560_op_BLEND, 368096
+	DD			0
+	PRCSTRT	65729,	3072,	0.000131
+	PRCENTRY		yfft_r4_3K_op_BLEND, 281792
+	DD			0
+	PRCSTRT	87549,	4096,	0.000163
+	PRCENTRY		yfft_r4_4K_op_BLEND, 304448
+	DD			0
+	PRCSTRT	108800,	5120,	0.000215
+	PRCENTRY		yfft_r4_5K_op_BLEND, 435296
+	DD			0
+	PRCSTRT	129900,	6144,	0.000276
+	PRCENTRY		yfft_r4_6K_op_BLEND, 562432
+	DD			0
+	PRCSTRT	172700,	8192,	0.000398
+	PRCENTRY		yfft_r4_8K_op_BLEND, 352224
+	DD			0
+	PRCSTRT	214400,	10240,	0.000470
+	PRCENTRY		yfft_r4_10K_op_BLEND, 652224
+	DD			0
+	PRCSTRT	255300,	12288,	0.000590
+	PRCENTRY		yfft_r4_12K_op_BLEND, 652224
+	DD			0
+	PRCSTRT	340400,	16384,	0.000787
+	PRCENTRY		yfft_r4_16K_op_BLEND, 852224
+	DD			0
+	PRCSTRT	381800,	18432,	0.000909
+	PRCENTRY		yfft_r4_18K_op_BLEND, 1352224
+	DD			0
+	PRCSTRT	423300,	20480,	0.00103
+	PRCENTRY		yfft_r4_20K_op_BLEND, 952224
+	DD			0
+	PRCSTRT	504600,	24576,	0.00132
+	PRCENTRY		yfft_r4_24K_op_BLEND, 1752224
+	DD			0
+	PRCSTRT	671400,	32768,	0.00175
+	PRCENTRY		yfft_r4_32K_op_BLEND, 1752224
+	DD			0
+
+	PRCSTRT	2614000, 131072, 0.00779
+	PRCENTRY2		yfft_r4dwpn_128K_10_4, 1823808, I7
+	PRCENTRY2		yfft_r4dwpn_128K_10_2, 1823808
+	DD	0
+	PRCSTRT	10180000, 524288, 0.0319
+	PRCENTRY2		yfft_r4dwpn_512K_12_4, 4823808, I7
+	DD	0
+
+	DD	0
+
+yjmptablep DD	0
+	org	$-4
+	PRCSTRT	739,	32,	0.00000111
+	PRCENTRY		yfft_r4_32_op_ac_BLEND, 11152
+	DD			0
+	PRCSTRT	1465,	64,	0.00000178
+	PRCENTRY		yfft_r4_64_op_ac_BLEND, 12432
+	DD			0
+	PRCSTRT	2173,	96,	0.00000259
+	PRCENTRY		yfft_r4_96_op_ac_BLEND, 13328
+	DD			0
+	PRCSTRT	2897,	128,	0.00000319
+	PRCENTRY		yfft_r4_128_op_ac_BLEND, 14352
+	DD			0
+	PRCSTRT	3605,	160,	0.00000399
+	PRCENTRY		yfft_r4_160_op_ac_BLEND, 44352
+	DD			0
+	PRCSTRT	4295,	192,	0.00000542
+	PRCENTRY		yfft_r4_192_op_ac_BLEND, 56784
+	DD			0
+	PRCSTRT	5729,	256,	0.00000691
+	PRCENTRY		yfft_r4_256_op_ac_BLEND, 68576
+	DD			0
+	PRCSTRT	7111,	320,	0.00000901
+	PRCENTRY		yfft_r4_320_op_ac_BLEND, 88576
+	DD			0
+	PRCSTRT	8493,	384,	0.0000111
+	PRCENTRY		yfft_r4_384_op_ac_BLEND, 53312
+	DD			0
+	PRCSTRT	11319,	512,	0.0000143
+	PRCENTRY		yfft_r4_512_op_ac_BLEND, 117152
+	DD			0
+	PRCSTRT	14049,	640,	0.0000202
+	PRCENTRY		yfft_r4_640_op_ac_BLEND, 117152
+	DD			0
+	PRCSTRT	16779,	768,	0.0000260
+	PRCENTRY		yfft_r4_768_op_ac_BLEND, 226624
+	DD			0
+	PRCSTRT	22381,	1024,	0.0000349
+	PRCENTRY		yfft_r4_1K_op_ac_BLEND, 334304
+	DD			0
+	PRCSTRT	27785,	1280,	0.475
+	PRCENTRY		yfft_r4_1280_op_ac_BLEND, 352992
+	DD			0
+	PRCSTRT	33189,	1536,	0.0000601
+	PRCENTRY		yfft_r4_1536_op_ac_BLEND, 252992
+	DD			0
+	PRCSTRT	44221,	2048,	0.0000773
+	PRCENTRY		yfft_r4_2K_op_ac_BLEND, 268608
+	DD			0
+	PRCSTRT	54870,	2560,	0.000105
+	PRCENTRY		yfft_r4_2560_op_ac_BLEND, 368608
+	DD			0
+	PRCSTRT	65519,	3072,	0.000131
+	PRCENTRY		yfft_r4_3K_op_ac_BLEND, 306112
+	DD			0
+	PRCSTRT	87271,	4096,	0.000172
+	PRCENTRY		yfft_r4_4K_op_ac_BLEND, 437216
+	DD			0
+	PRCSTRT	108400,	5120,	0.000232
+	PRCENTRY		yfft_r4_5K_op_ac_BLEND, 511968
+	DD			0
+	PRCSTRT	129600,	6144,	0.000291
+	PRCENTRY		yfft_r4_6K_op_ac_BLEND, 1211968
+	DD			0
+	PRCSTRT	172400,	8192,	0.000395
+	PRCENTRY		yfft_r4_8K_op_ac_BLEND, 1268608
+	DD			0
+	PRCSTRT	213600,	10240,	0.000511
+	PRCENTRY		yfft_r4_10K_op_ac_BLEND, 1268608
+	DD			0
+	PRCSTRT	254800,	12288,	0.000626
+	PRCENTRY		yfft_r4_12K_op_ac_BLEND, 1268608
+	DD			0
+	PRCSTRT	339100,	16384,	0.000857
+	PRCENTRY		yfft_r4_16K_op_ac_BLEND, 1268608
+	DD			0
+	PRCSTRT	381400,	18432,	0.000965
+	PRCENTRY		yfft_r4_18K_op_ac_BLEND, 1768608
+	DD			0
+	PRCSTRT	421200,	20480,	0.00111
+	PRCENTRY		yfft_r4_20K_op_ac_BLEND, 1268608
+	DD			0
+	PRCSTRT	503400,	24576,	0.00135
+	PRCENTRY		yfft_r4_24K_op_ac_BLEND, 1768608
+	DD			0
+	PRCSTRT	669600,	32768,	0.00179
+	PRCENTRY		yfft_r4_32K_op_ac_BLEND, 1768608
+	DD			0
+
+	PRCSTRT	2610000, 131072, 0.00871
+	PRCENTRY2		yfft_r4dwpn_128K_ac_10_4, 2587776, I7
+	PRCENTRY2		yfft_r4dwpn_128K_ac_10_2, 2587776
+	DD			0
+	PRCSTRT	10150000, 524288, 0.0368
+	PRCENTRY2		yfft_r4dwpn_512K_ac_12_4, 4587776, I7
+	DD			0
+
+	DD	0
+
 	;; Align so that other GWDATA areas are also aligned on a cache line
 	align 128
 _GWDATA ENDS
@@ -3600,9 +3825,9 @@ PROCL	gwinfo1
 	IFDEF LINUX64
 	mov	rcx, rdi		; Address of data struct to return info
 	ENDIF
-	mov	rax, OFFSET xjmptable	; P4 mersenne mod FFTs
+	mov	rax, OFFSET xjmptable	; SSE2 mersenne mod FFTs
 	mov	[rcx+0*SZPTR], rax
-	mov	rax, OFFSET xjmptablep	; P4 2^N+1 mod FFTs
+	mov	rax, OFFSET xjmptablep	; SSE2 2^N+1 mod FFTs
 	mov	[rcx+1*SZPTR], rax
 	IFNDEF X86_64
 	mov	rax, OFFSET jmptable	; x86 mersenne mod FFTs
@@ -3610,8 +3835,12 @@ PROCL	gwinfo1
 	mov	rax, OFFSET jmptablep	; x86 2^N+1 mod FFTs
 	mov	[rcx+3*SZPTR], rax
 	ENDIF
+	mov	rax, OFFSET yjmptable	; AVX mersenne mod FFTs
+	mov	[rcx+4*SZPTR], rax
+	mov	rax, OFFSET yjmptablep	; AVX 2^N+1 mod FFTs
+	mov	[rcx+5*SZPTR], rax
 	mov	eax, VERSION_NUMBER
-	mov	[rcx+4*SZPTR], eax
+	mov	[rcx+6*SZPTR], eax
 	ret
 gwinfo1 ENDP
 
