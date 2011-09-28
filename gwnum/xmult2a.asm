@@ -41,7 +41,7 @@ xsub_7_words MACRO
 	mov	eax, cache_line_multiplier ;; Load loop counter
 	mov	edx, THIS_BLOCK
 	mov	rcx, rsi		;; Copy source ptr (we preserve rsi)
-	mov	rdi, zpad_addr		;; Addr of first zpad element
+	lea	rdi, ZPAD0		;; Addr of first zpad element
 zlp:	movsd	xmm0, Q [rcx]		;; Load FFT word
 	movsd	xmm1, Q [rdi][rdx*8]	;; Load ZPAD data
 	mulsd	xmm1, XMM_NORM012_FF	;; Scale by FFTLEN/2
@@ -50,7 +50,9 @@ zlp:	movsd	xmm0, Q [rcx]		;; Load FFT word
 	movsd	Q [rcx], xmm0		;; Store FFT word
 	bump	rcx, 64			;; Bump pointers
 	inc	rdx
-	dec	eax			;; Iterate 2*clm (up to 8) times
+	cmp	rdx, 7			;; Only subtract 7 zpad words
+	je	short nozpad
+	dec	eax			;; Iterate 2*clm times
 	jnz	short zlp		;; Loop if necessary
 nozpad:
 	ENDM

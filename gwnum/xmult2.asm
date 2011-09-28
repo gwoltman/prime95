@@ -237,8 +237,8 @@ xgw_finish_mult:
 ; Set FFT-started flag
 
 	mov	rsi, DESTARG		; Addr of FFT data
-	mov	eax, POSTFFT		; Set FFT started flag
-	mov	DWORD PTR [rsi-28], eax
+	mov	al, POSTFFT		; Set FFT started flag
+	mov	BYTE PTR [rsi-28], al
 
 ; Normalize SUMOUT value by multiplying by 1 / (fftlen/2).
 

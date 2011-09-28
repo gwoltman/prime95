@@ -127,8 +127,8 @@ xgw_finish_mult_wpn:
 ; Set FFT-started flag
 
 	mov	rsi, DESTARG		; Addr of FFT data
-	mov	eax, POSTFFT		; Set FFT started flag
-	mov	DWORD PTR [rsi-28], eax
+	mov	al, POSTFFT		; Set FFT started flag
+	mov	BYTE PTR [rsi-28], al
 
 ; Calculate SUMOUT and MAXERR values
 
