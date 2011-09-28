@@ -150,36 +150,36 @@ ah_prolog MACRO num_C_args, space_needed, calls_C_code, regs:vararg
 		push_amt = push_amt+8
 	ENDIF
 
-	;; Compute space needed to save XMM registers
+	;; Compute space needed to save XMM and YMM registers
 	xmm_space = 0
-	IF (@INSTR (,@CATSTR (regs),xmm6)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm6)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm7)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm7)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm8)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm8)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm9)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm9)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm10)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm10)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm11)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm11)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm12)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm12)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm13)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm13)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm14)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm14)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm15)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm15)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
 
@@ -205,44 +205,44 @@ ah_prolog MACRO num_C_args, space_needed, calls_C_code, regs:vararg
 		push_amt = push_amt + stack_space
 	ENDIF
 
-	;; Save the XMM registers in the stack space we just allocated
-	IF (@INSTR (,@CATSTR (regs),xmm6)) NE 0
+	;; Save the XMM registers or lower half of YMM registers in the stack space we just allocated
+	IF (@INSTR (,@CATSTR (regs),mm6)) NE 0
 		save_xmm128 xmm6, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm7)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm7)) NE 0
 		save_xmm128 xmm7, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm8)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm8)) NE 0
 		save_xmm128 xmm8, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm9)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm9)) NE 0
 		save_xmm128 xmm9, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm10)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm10)) NE 0
 		save_xmm128 xmm10, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm11)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm11)) NE 0
 		save_xmm128 xmm11, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm12)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm12)) NE 0
 		save_xmm128 xmm12, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm13)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm13)) NE 0
 		save_xmm128 xmm13, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm14)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm14)) NE 0
 		save_xmm128 xmm14, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm15)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm15)) NE 0
 		save_xmm128 xmm15, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
@@ -410,34 +410,34 @@ ah_epilog MACRO num_C_args, space_needed, calls_C_code, regs:vararg
 	ENDIF
 
 	xmm_space = 0
-	IF (@INSTR (,@CATSTR (regs),xmm6)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm6)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm7)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm7)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm8)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm8)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm9)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm9)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm10)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm10)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm11)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm11)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm12)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm12)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm13)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm13)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm14)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm14)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm15)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm15)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
 
@@ -453,45 +453,45 @@ ah_epilog MACRO num_C_args, space_needed, calls_C_code, regs:vararg
 		stack_space = stack_space + (16 - ((stack_space + push_amt + 8) MOD 16))
 	ENDIF
 
-	;; Restore the saved XMM registers
+	;; Restore the saved XMM (and lower half of YMM) registers
 
-	IF (@INSTR (,@CATSTR (regs),xmm6)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm6)) NE 0
 		movapd	xmm6, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm7)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm7)) NE 0
 		movapd	xmm7, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm8)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm8)) NE 0
 		movapd	xmm8, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm9)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm9)) NE 0
 		movapd	xmm9, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm10)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm10)) NE 0
 		movapd	xmm10, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm11)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm11)) NE 0
 		movapd	xmm11, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm12)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm12)) NE 0
 		movapd	xmm12, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm13)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm13)) NE 0
 		movapd	xmm13, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm14)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm14)) NE 0
 		movapd	xmm14, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm15)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm15)) NE 0
 		movapd	xmm15, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
@@ -867,37 +867,37 @@ int_prolog MACRO space_needed, callers_push_amt, calls_C_code, regs:vararg
 	ENDIF
 	ENDIF
 
-	;; Compute space needed to save XMM registers
+	;; Compute space needed to save XMM and lower half of YMM registers
 	xmm_space = 0
 	IFNB <regs>
-	IF (@INSTR (,@CATSTR (regs),xmm6)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm6)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm7)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm7)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm8)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm8)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm9)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm9)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm10)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm10)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm11)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm11)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm12)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm12)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm13)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm13)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm14)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm14)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm15)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm15)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
 	ENDIF
@@ -923,45 +923,45 @@ int_prolog MACRO space_needed, callers_push_amt, calls_C_code, regs:vararg
 		push_amt = push_amt + stack_space
 	ENDIF
 
-	;; Save the XMM registers in the stack space we just allocated
+	;; Save the XMM and lower half of YMM registers in the stack space we just allocated
 	IFNB <regs>
-	IF (@INSTR (,@CATSTR (regs),xmm6)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm6)) NE 0
 		save_xmm128 xmm6, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm7)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm7)) NE 0
 		save_xmm128 xmm7, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm8)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm8)) NE 0
 		save_xmm128 xmm8, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm9)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm9)) NE 0
 		save_xmm128 xmm9, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm10)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm10)) NE 0
 		save_xmm128 xmm10, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm11)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm11)) NE 0
 		save_xmm128 xmm11, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm12)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm12)) NE 0
 		save_xmm128 xmm12, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm13)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm13)) NE 0
 		save_xmm128 xmm13, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm14)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm14)) NE 0
 		save_xmm128 xmm14, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm15)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm15)) NE 0
 		save_xmm128 xmm15, xmm_loc
 		xmm_loc = xmm_loc + 16
 	ENDIF
@@ -1201,34 +1201,34 @@ int_epilog MACRO space_needed, callers_push_amt, calls_C_code, regs:vararg
 
 	xmm_space = 0
 	IFNB <regs>
-	IF (@INSTR (,@CATSTR (regs),xmm6)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm6)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm7)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm7)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm8)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm8)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm9)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm9)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm10)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm10)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm11)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm11)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm12)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm12)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm13)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm13)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm14)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm14)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm15)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm15)) NE 0
 		xmm_space = xmm_space + 16
 	ENDIF
 	ENDIF
@@ -1245,46 +1245,46 @@ int_epilog MACRO space_needed, callers_push_amt, calls_C_code, regs:vararg
 		stack_space = stack_space + (16 - ((stack_space + push_amt + 8) MOD 16))
 	ENDIF
 
-	;; Restore the saved XMM registers
+	;; Restore the saved XMM and lower half of YMM registers
 
 	IFNB <regs>
-	IF (@INSTR (,@CATSTR (regs),xmm6)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm6)) NE 0
 		movapd	xmm6, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm7)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm7)) NE 0
 		movapd	xmm7, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm8)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm8)) NE 0
 		movapd	xmm8, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm9)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm9)) NE 0
 		movapd	xmm9, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm10)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm10)) NE 0
 		movapd	xmm10, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm11)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm11)) NE 0
 		movapd	xmm11, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm12)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm12)) NE 0
 		movapd	xmm12, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm13)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm13)) NE 0
 		movapd	xmm13, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm14)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm14)) NE 0
 		movapd	xmm14, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
-	IF (@INSTR (,@CATSTR (regs),xmm15)) NE 0
+	IF (@INSTR (,@CATSTR (regs),mm15)) NE 0
 		movapd	xmm15, [rsp+xmm_loc]
 		xmm_loc = xmm_loc + 16
 	ENDIF
@@ -1560,6 +1560,7 @@ nonoexec MACRO ops:vararg
 ;IMPL_ALL_P4TP = 1
 ;IMPL_ALL_K8 = 1
 ;IMPL_ALL_K10 = 1
+;IMPL_ALL_BULL = 1
 
 ; Handy macro to only include statement if we are prefetching
 
@@ -2006,6 +2007,9 @@ ENDIF
 	ENDM
 
 PROCFP	MACRO x
+IFDEF yarch
+	PROCF	@CATSTR(&x,%yarch)
+ELSE
 IFDEF xarch
 	PROCF	@CATSTR(&x,%xarch)
 ELSE
@@ -2019,10 +2023,14 @@ ELSE
 ENDIF
 ENDIF
 ENDIF
+ENDIF
 	ENDM
 
 
 PROCFLP	MACRO x
+IFDEF yarch
+	PROCFL	@CATSTR(&x,%yarch)
+ELSE
 IFDEF xarch
 	PROCFL	@CATSTR(&x,%xarch)
 ELSE
@@ -2036,6 +2044,7 @@ ELSE
 ENDIF
 ENDIF
 ENDIF
+ENDIF
 	ENDM
 
 ;
@@ -2045,6 +2054,9 @@ ENDIF
 ;
 
 EXTRNP	MACRO x
+IFDEF yarch
+EXTRN	@CATSTR(&x,%yarch):PROC
+ELSE
 IFDEF xarch
 EXTRN	@CATSTR(&x,%xarch):PROC
 ELSE
@@ -2058,9 +2070,13 @@ EXTRN	&x:PROC
 ENDIF
 ENDIF
 ENDIF
+ENDIF
 	ENDM
 
 ENDPP	MACRO x
+IFDEF yarch
+@CATSTR(&x,%yarch) ENDP
+ELSE
 IFDEF xarch
 @CATSTR(&x,%xarch) ENDP
 ELSE
@@ -2071,6 +2087,7 @@ IFDEF PPRO
 &x&PPRO ENDP
 ELSE
 &x	ENDP
+ENDIF
 ENDIF
 ENDIF
 ENDIF
