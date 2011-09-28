@@ -1,0 +1,426 @@
+; Copyright 2011 - Mersenne Research, Inc.  All rights reserved
+; Author:  George Woltman
+; Email: woltman@alum.mit.edu
+;
+
+;;
+;;
+;; All new macros for version 27 of gwnum.  Do a radix-3 step in an FFT.
+;; The forward FFT macros multiply by the sin/cos values at the end of the macro
+;; and the inverse FFTs multiply by the sin/cos values at the start of the macro.
+;; We also implement the Daniel J. Bernstein (DJB) "exponent-1" idea to save sin/cos
+;; memory.
+;;
+;;
+
+;;
+;; ************************************* three-complex-djbfft variants ******************************************
+;;
+
+yr3_3cl_three_complex_djbfft_preload MACRO
+	yr3_3c_djbfft_mem_preload
+	ENDM
+yr3_3cl_three_complex_djbfft MACRO srcreg,srcinc,d1,screg
+	yr3_3c_djbfft_mem [srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32],[srcreg+2*d1],[srcreg+2*d1+32],noexec,screg,screg+32,srcreg+srcinc,d1
+	vmovapd	[srcreg], ymm2			;; Save R1
+	vmovapd	[srcreg+32], ymm5		;; Save I1
+	vmovapd	[srcreg+d1], ymm4		;; Save R2
+	vmovapd	[srcreg+d1+32], ymm3		;; Save I2
+	vmovapd	[srcreg+2*d1], ymm1		;; Save R3
+	vmovapd	[srcreg+2*d1+32], ymm6		;; Save I3
+	bump	srcreg, srcinc
+	ENDM
+
+; Like the 3cl version except vbroadcastsd is used to reduce sin/cos data
+yr3_b3cl_three_complex_djbfft_preload MACRO
+	yr3_3c_djbfft_mem_preload
+	ENDM
+yr3_b3cl_three_complex_djbfft MACRO srcreg,srcinc,d1,screg
+	yr3_3c_djbfft_mem [srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32],[srcreg+2*d1],[srcreg+2*d1+32],exec,screg,screg+8,srcreg+srcinc,d1
+	vmovapd	[srcreg], ymm2			;; Save R1
+	vmovapd	[srcreg+32], ymm5		;; Save I1
+	vmovapd	[srcreg+d1], ymm4		;; Save R2
+	vmovapd	[srcreg+d1+32], ymm3		;; Save I2
+	vmovapd	[srcreg+2*d1], ymm1		;; Save R3
+	vmovapd	[srcreg+2*d1+32], ymm6		;; Save I3
+	bump	srcreg, srcinc
+	ENDM
+
+; Like b3cl but extracts the sin/cos data to broadcasts from
+; the six-real/three_complex sin/cos YMM registers
+yr3_fb3cl_three_complex_djbfft_preload MACRO
+	yr3_3c_djbfft_mem_preload
+	ENDM
+yr3_fb3cl_three_complex_djbfft MACRO srcreg,srcinc,d1,screg
+	yr3_3c_djbfft_mem [srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32],[srcreg+2*d1],[srcreg+2*d1+32],exec,screg+8,screg+48,srcreg+srcinc,d1
+	vmovapd	[srcreg], ymm2			;; Save R1
+	vmovapd	[srcreg+32], ymm5		;; Save I1
+	vmovapd	[srcreg+d1], ymm4		;; Save R2
+	vmovapd	[srcreg+d1+32], ymm3		;; Save I2
+	vmovapd	[srcreg+2*d1], ymm1		;; Save R3
+	vmovapd	[srcreg+2*d1+32], ymm6		;; Save I3
+	bump	srcreg, srcinc
+	ENDM
+
+;; Do a 3-complex FFT.  The input values are R1+R4i, R2+R5i, R3+R6i
+;; A 3-complex FFT is:
+;; Res1:  (R1+R2+R3) + (I1+I2+I3)i
+;; Res2:  (R1-.5R2-.866I2-.5R3+.866I3) + (I1-.5I2+.866R2-.5I3-.866R3)i
+;; Res3:  (R1-.5R2+.866I2-.5R3-.866I3) + (I1-.5I2-.866R2-.5I3+.866R3)i
+;; Then multiply 2 of the 3 results by twiddle factors.
+
+yr3_3c_djbfft_mem_preload MACRO
+	ENDM
+yr3_3c_djbfft_mem MACRO memr1,memi1,memr2,memi2,memr3,memi3,bcast,scregS,scregC,pre1,pre2
+	vmovapd	ymm0, memr2		;; R2
+	vmovapd	ymm1, memr3		;; R3
+	vaddpd	ymm2, ymm0, ymm1	;; R2 + R3
+	vmovapd	ymm3, memi2		;; I2
+	vmovapd	ymm4, memi3		;; I3
+	vaddpd	ymm5, ymm3, ymm4	;; I2 + I3
+	vsubpd	ymm0, ymm0, ymm1	;; R2 - R3
+	vmovapd	ymm1, YMM_HALF
+	vmulpd	ymm6, ymm1, ymm2	;; 0.5 * (R2 + R3)
+	vsubpd	ymm3, ymm3, ymm4	;; I2 - I3
+	vmulpd	ymm1, ymm1, ymm5	;; 0.5 * (I2 + I3)
+	vmovapd	ymm7, memr1		;; R1
+	vaddpd	ymm2, ymm7, ymm2	;; R1 + R2 + R3 (final R1)
+	vmovapd	ymm4, YMM_P866
+	vmulpd	ymm0, ymm4, ymm0	;; 0.866 * (R2 - R3)
+	vsubpd	ymm7, ymm7, ymm6	;; (R1-.5R2-.5R3)
+	vmulpd	ymm3, ymm4, ymm3	;; 0.866 * (I2 - I3)
+	vmovapd	ymm6, memi1		;; I1
+	vaddpd	ymm5, ymm6, ymm5	;; I1 + I2 + I3 (final I1)
+	vsubpd	ymm6, ymm6, ymm1	;; (I1-.5I2-.5I3)
+
+	yprefetchw [pre1]
+
+	vsubpd	ymm1, ymm7, ymm3	;; Final R2
+	vaddpd	ymm7, ymm7, ymm3	;; Final R3
+	vaddpd	ymm3, ymm6, ymm0	;; Final I2
+	vsubpd	ymm6, ymm6, ymm0	;; Final I3
+
+	yprefetchw [pre1][pre2]
+
+no bcast vmovapd ymm0, [scregC]		;; cosine/sine
+bcast	vbroadcastsd ymm0, Q [scregC]	;; cosine/sine
+	vmulpd	ymm4, ymm1, ymm0	;; A2 = R2 * cosine/sine
+	vsubpd	ymm4, ymm4, ymm3	;; A2 = A2 - I2
+	vmulpd	ymm3, ymm3, ymm0	;; B2 = I2 * cosine/sine
+	vaddpd	ymm3, ymm3, ymm1	;; B2 = B2 + R2
+
+	yprefetchw [pre1][2*pre2]
+
+	vmulpd	ymm1, ymm7, ymm0	;; A3 = R3 * cosine/sine
+	vaddpd	ymm1, ymm1, ymm6	;; A3 = A3 + I3
+	vmulpd	ymm6, ymm6, ymm0	;; B3 = I3 * cosine/sine
+	vsubpd	ymm6, ymm6, ymm7	;; B3 = B3 - R3
+
+no bcast vmovapd ymm0, [scregS]		;; sine
+bcast	vbroadcastsd ymm0, Q [scregS]	;; sine
+	vmulpd	ymm4, ymm4, ymm0	;; A2 = A2 * sine (new R2)
+	vmulpd	ymm3, ymm3, ymm0	;; B2 = B2 * sine (new I2)
+	vmulpd	ymm1, ymm1, ymm0	;; A3 = A3 * sine (new R3)
+	vmulpd	ymm6, ymm6, ymm0	;; B3 = B3 * sine (new I3)
+	ENDM
+
+
+;;
+;; ************************************* three-complex-djbunfft variants ******************************************
+;;
+
+yr3_3cl_three_complex_djbunfft_preload MACRO
+	yr3_3c_djbunfft_mem_preload
+	ENDM
+yr3_3cl_three_complex_djbunfft MACRO srcreg,srcinc,d1,screg
+	yr3_3c_djbunfft_mem [srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32],[srcreg+2*d1],[srcreg+2*d1+32],noexec,screg,screg+32,srcreg+srcinc,d1
+	vmovapd	[srcreg], ymm2		;; Save R1
+	vmovapd	[srcreg+32], ymm5	;; Save I1
+	vmovapd	[srcreg+d1], ymm6	;; Save R2
+	vmovapd	[srcreg+d1+32], ymm1	;; Save I2
+	vmovapd	[srcreg+2*d1], ymm7	;; Save R3
+	vmovapd	[srcreg+2*d1+32], ymm3	;; Save I3
+	bump	srcreg, srcinc
+	ENDM
+
+; Like the 3cl version except vbroadcastsd is used to reduce sin/cos data
+yr3_b3cl_three_complex_djbunfft_preload MACRO
+	yr3_3c_djbunfft_mem_preload
+	ENDM
+yr3_b3cl_three_complex_djbunfft MACRO srcreg,srcinc,d1,screg
+	yr3_3c_djbunfft_mem [srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32],[srcreg+2*d1],[srcreg+2*d1+32],exec,screg,screg+8,srcreg+srcinc,d1
+	vmovapd	[srcreg], ymm2		;; Save R1
+	vmovapd	[srcreg+32], ymm5	;; Save I1
+	vmovapd	[srcreg+d1], ymm6	;; Save R2
+	vmovapd	[srcreg+d1+32], ymm1	;; Save I2
+	vmovapd	[srcreg+2*d1], ymm7	;; Save R3
+	vmovapd	[srcreg+2*d1+32], ymm3	;; Save I3
+	bump	srcreg, srcinc
+	ENDM
+
+; Like b3cl but extracts the sin/cos data to broadcasts from
+; the six-real/three_complex sin/cos YMM registers
+yr3_fb3cl_three_complex_djbunfft_preload MACRO
+	yr3_3c_djbunfft_mem_preload
+	ENDM
+yr3_fb3cl_three_complex_djbunfft MACRO srcreg,srcinc,d1,screg
+	yr3_3c_djbunfft_mem [srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32],[srcreg+2*d1],[srcreg+2*d1+32],exec,screg+8,screg+48,srcreg+srcinc,d1
+	vmovapd	[srcreg], ymm2		;; Save R1
+	vmovapd	[srcreg+32], ymm5	;; Save I1
+	vmovapd	[srcreg+d1], ymm6	;; Save R2
+	vmovapd	[srcreg+d1+32], ymm1	;; Save I2
+	vmovapd	[srcreg+2*d1], ymm7	;; Save R3
+	vmovapd	[srcreg+2*d1+32], ymm3	;; Save I3
+	bump	srcreg, srcinc
+	ENDM
+
+;; Do a 3-complex inverse FFT.  The input values are R1+R2i, R3+R4i, R5+R6i
+;; First we apply twiddle factors to 2 of the 3 input numbers.
+;; A 3-complex inverse FFT is:
+;; Res1:  (R1+R2+R3) + (I1+I2+I3)i
+;; Res2:  (R1-.5R2+.866I2-.5R3-.866I3) + (I1-.5I2-.866R2-.5I3+.866R3)i
+;; Res3:  (R1-.5R2-.866I2-.5R3+.866I3) + (I1-.5I2+.866R2-.5I3-.866R3)i
+
+yr3_3c_djbunfft_mem_preload MACRO
+	ENDM
+yr3_3c_djbunfft_mem MACRO memr1,memi1,memr2,memi2,memr3,memi3,bcast,scregS,scregC,pre1,pre2
+no bcast vmovapd ymm0, [scregC]		;; cosine/sine
+bcast	vbroadcastsd ymm0, Q [scregC]	;; cosine/sine
+	vmovapd	ymm1, memr2		;; R2
+	vmulpd	ymm2, ymm1, ymm0	;; A2 = R2 * cosine/sine
+	vmovapd	ymm3, memr3		;; R3
+	vmulpd	ymm4, ymm3, ymm0	;; A3 = R3 * cosine/sine
+	vmovapd	ymm5, memi2		;; I2
+	vaddpd	ymm2, ymm2, ymm5	;; A2 = A2 + I2
+	vmovapd	ymm6, memi3		;; I3
+	vsubpd	ymm4, ymm4, ymm6	;; A3 = A3 - I3
+	vmulpd	ymm5, ymm5, ymm0	;; B2 = I2 * cosine/sine
+	vmulpd	ymm6, ymm6, ymm0	;; B3 = I3 * cosine/sine
+	vsubpd	ymm5, ymm5, ymm1	;; B2 = B2 - R2
+	vaddpd	ymm6, ymm6, ymm3	;; B3 = B3 + R3
+no bcast vmovapd ymm0, [scregS]		;; sine
+bcast	vbroadcastsd ymm0, Q [scregS]	;; sine
+	vmulpd	ymm2, ymm2, ymm0	;; A2 = A2 * sine (final R2)
+	vmulpd	ymm4, ymm4, ymm0	;; A3 = A3 * sine (final R3)
+	vmulpd	ymm5, ymm5, ymm0	;; B2 = B2 * sine (final I2)
+	vmulpd	ymm6, ymm6, ymm0	;; B3 = B3 * sine (final I3)
+
+	yprefetchw [pre1]
+
+	vsubpd	ymm0, ymm2, ymm4	;; R2 - R3
+	vaddpd	ymm2, ymm2, ymm4	;; R2 + R3
+	vmovapd	ymm7, YMM_P866
+	vmulpd	ymm0, ymm7, ymm0	;; 0.866 * (R2 - R3)
+	vsubpd	ymm1, ymm5, ymm6	;; I2 - I3
+	vaddpd	ymm5, ymm5, ymm6	;; I2 + I3
+
+	yprefetchw [pre1][pre2]
+	yprefetchw [pre1][2*pre2]
+
+	vmulpd	ymm1, ymm7, ymm1	;; 0.866 * (I2 - I3)
+	vmovapd	ymm7, YMM_HALF
+	vmulpd	ymm4, ymm7, ymm2	;; 0.5 * (R2 + R3)
+	vmovapd	ymm6, memr1		;; R1
+	vaddpd	ymm2, ymm6, ymm2	;; R1 + R2 + R3 (final R1)
+	vsubpd	ymm6, ymm6, ymm4	;; (R1-.5R2-.5R3)
+	vmulpd	ymm7, ymm7, ymm5	;; 0.5 * (I2 + I3)
+	vmovapd	ymm3, memi1		;; I1
+	vaddpd	ymm5, ymm3, ymm5	;; I1 + I2 + I3 (final I1)
+	vsubpd	ymm3, ymm3, ymm7	;; (I1-.5I2-.5I3)
+	vsubpd	ymm7, ymm6, ymm1	;; Final R3
+	vaddpd	ymm6, ymm6, ymm1	;; Final R2
+	vsubpd	ymm1, ymm3, ymm0	;; Final I2
+	vaddpd	ymm3, ymm3, ymm0	;; Final I3
+	ENDM
+
+
+;;
+;; ************************************* six-reals-fft variants ******************************************
+;;
+
+; R1 #1 = R1 + R3 + R5
+; R1 #2 = R2 + R4 + R6
+; R2 = R1 - R4 + 0.5 * (R2 - R3 - R5 + R6)
+; I2 = 0.866 * (R2 + R3 - R5 - R6)
+; R3 = R1 + R4 - 0.5 * (R2 + R3 + R5 + R6)
+; I3 = 0.866 * (R2 - R3 + R5 - R6)
+
+;; Macro to do one six_reals_fft and three three_complex_djbfft.
+;; The six-reals operation is done in the lower double of the YMM
+;; register.  The three-complex is done in the high doubles of the
+;; YMM register.   This is REALLY funky, as we do both at the same
+;; time within the full ymm register whenever possible.
+
+yr3_3cl_six_reals_three_complex_djbfft_preload MACRO
+	yr3_o6r_t3c_djbfft_mem_preload
+	ENDM
+yr3_3cl_six_reals_three_complex_djbfft MACRO srcreg,srcinc,d1,screg
+	yr3_o6r_t3c_djbfft_mem [srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32],[srcreg+2*d1],[srcreg+2*d1+32],screg,srcreg+srcinc,d1
+	vmovapd	[srcreg], ymm0			;; Save R1
+	vmovapd	[srcreg+32], ymm5		;; Save I1
+	vmovapd	[srcreg+d1], ymm3		;; Save R2
+	vmovapd	[srcreg+d1+32], ymm7		;; Save I2
+	vmovapd	[srcreg+2*d1], ymm6		;; Save R3
+	vmovapd	[srcreg+2*d1+32], ymm4		;; Save I3
+	bump	srcreg, srcinc
+	ENDM
+
+yr3_o6r_t3c_djbfft_mem_preload MACRO
+	ENDM
+yr3_o6r_t3c_djbfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,screg,pre1,pre2
+					;; Six-reals comments		;; Three complex comments
+	vmovapd	ymm0, mem3		;; R2				;; R2
+	vmovapd	ymm1, mem4		;; R5				;; I2
+	vblendpd ymm4, ymm1, ymm0, 1	;; R2				;; I2
+	vmovapd	ymm3, mem6		;; R6				;; I3
+	vaddpd	ymm5, ymm4, ymm3	;; R2 + R6			;; I2 + I3
+	vsubpd	ymm4, ymm4, ymm3	;; R2 - R6			;; I2 - I3
+	vmovapd	ymm2, mem5		;; R3				;; R3
+	vblendpd ymm6, ymm0, ymm2, 1	;; R3				;; R2
+	vblendpd ymm7, ymm2, ymm1, 1	;; R5				;; R3
+	vaddpd	ymm0, ymm6, ymm7	;; R3 + R5			;; R2 + R3
+	vsubpd	ymm6, ymm6, ymm7	;; R3 - R5			;; R2 - R3
+
+	yprefetchw [pre1]
+
+	vmovapd	ymm7, YMM_HALF
+	vmulpd	ymm1, ymm7, ymm5	;; 0.5 * (R2 + R6)		;; 0.5 * (I2 + I3)
+	vmovapd	ymm2, mem2		;; R4				;; I1
+	vaddpd	ymm5, ymm2, ymm5	;; final R1 #2 = R4 + R2 + R6	;; I1 + I2 + I3 (final I1)
+	vmulpd	ymm7, ymm7, ymm0	;; 0.5 * (R3 + R5)		;; 0.5 * (R2 + R3)
+	vmovapd	ymm3, YMM_P866
+	vmulpd	ymm4, ymm3, ymm4	;; X = 0.866 * (R2 - R6)	;; B = 0.866 * (I2 - I3)
+	vmulpd	ymm6, ymm3, ymm6	;; Y = 0.866 * (R3 - R5)	;; Y = 0.866 * (R2 - R3)
+	vmovapd	ymm3, mem1		;; R1				;; R1
+	vaddpd	ymm0, ymm3, ymm0	;; final R1 #1 = R1 + R3 + R5	;; R1 + R2 + R3 (final R1)
+	vsubpd	ymm2, ymm2, ymm1	;; B = R4 - 0.5 * (R2 + R6)	;; X = (I1-.5I2-.5I3)
+	vsubpd	ymm3, ymm3, ymm7	;; A = R1 - 0.5 * (R3 + R5)	;; A = (R1-.5R2-.5R3)
+
+	yprefetchw [pre1][pre2]
+
+	vblendpd ymm1, ymm2, ymm4, 1	;; X				;; X
+	vsubpd	ymm7, ymm1, ymm6	;; X - Y (final I3)		;; X - Y (final I3)
+	vaddpd	ymm1, ymm1, ymm6	;; X + Y (final I2)		;; X + Y (final I2)
+	vblendpd ymm4, ymm4, ymm2, 1	;; B				;; B
+	vaddpd	ymm6, ymm3, ymm4	;; A + B (final R3)		;; A + B (final R3)
+	vsubpd	ymm3, ymm3, ymm4	;; A - B (final R2)		;; A - B (final R2)
+
+	yprefetchw [pre1][2*pre2]
+
+	vmovapd	ymm2, [screg+64+32]	;; cosine/sine
+	vmulpd	ymm4, ymm7, ymm2	;; B3 = I3 * cosine/sine
+	vaddpd	ymm4, ymm4, ymm6	;; B3 = B3 + R3
+	vmulpd	ymm6, ymm6, ymm2	;; A3 = R3 * cosine/sine
+	vsubpd	ymm6, ymm6, ymm7	;; A3 = A3 - I3
+
+	vmovapd	ymm2, [screg+32]	;; cosine/sine
+	vmulpd	ymm7, ymm1, ymm2	;; B2 = I2 * cosine/sine
+	vaddpd	ymm7, ymm7, ymm3	;; B2 = B2 + R2
+	vmulpd	ymm3, ymm3, ymm2	;; A2 = R2 * cosine/sine
+	vsubpd	ymm3, ymm3, ymm1	;; A2 = A2 - I2
+
+	vmovapd	ymm1, [screg+64]	;; sine
+	vmulpd	ymm4, ymm4, ymm1	;; B3 = B3 * sine (new I3)
+	vmulpd	ymm6, ymm6, ymm1	;; A3 = A3 * sine (new R3)
+	vmovapd	ymm1, [screg]		;; sine
+	vmulpd	ymm7, ymm7, ymm1	;; B2 = B2 * sine (new I2)
+	vmulpd	ymm3, ymm3, ymm1	;; A2 = A2 * sine (new R2)
+	ENDM
+
+
+;;
+;; ************************************* six-reals-unfft variants ******************************************
+;;
+
+; R1 = R1#1 + (R2 + R3)
+; R2 = R1#2 + 0.5 * (R2 - R3) + 0.866 * (I2 + I3)
+; R3 = R1#1 - 0.5 * (R2 + R3) + 0.866 * (I2 - I3)
+; R4 = R1#2 - (R2 - R3)
+; R5 = R1#1 - 0.5 * (R2 + R3) - 0.866 * (I2 - I3)
+; R6 = R1#2 + 0.5 * (R2 - R3) - 0.866 * (I2 + I3)
+
+;; Macro to do one six_reals_unfft and three three_complex_djbunfft.
+;; The six-reals operation is done in the lower double of the YMM
+;; register.  The three-complex is done in the high doubles of the
+;; YMM register.   This is REALLY funky, as we do both at the same
+;; time within the full ymm register whenever possible.
+
+yr3_3cl_six_reals_three_complex_djbunfft_preload MACRO
+	yr3_o6r_t3c_djbunfft_mem_preload
+	ENDM
+yr3_3cl_six_reals_three_complex_djbunfft MACRO srcreg,srcinc,d1,screg
+	yr3_o6r_t3c_djbunfft_mem [srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32],[srcreg+2*d1],[srcreg+2*d1+32],screg,srcreg+srcinc,d1
+	vmovapd	[srcreg], ymm1		;; Save R1
+	vmovapd	[srcreg+32], ymm2	;; Save I1
+	vmovapd	[srcreg+d1], ymm4	;; Save R2
+	vmovapd	[srcreg+d1+32], ymm5	;; Save I2
+	vmovapd	[srcreg+2*d1], ymm3	;; Save R3
+	vmovapd	[srcreg+2*d1+32], ymm6	;; Save I3
+	bump	srcreg, srcinc
+	ENDM
+
+yr3_o6r_t3c_djbunfft_mem_preload MACRO
+	ENDM
+yr3_o6r_t3c_djbunfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,screg,pre1,pre2
+					;; Six-reals comments		;; Three complex comments
+	vmovapd	ymm1, mem3				;; R2
+	vmovapd	ymm7, [screg+32]			;; cosine/sine
+	vmulpd	ymm2, ymm1, ymm7			;; A2 = R2 * cosine/sine
+	vmovapd	ymm3, mem5				;; R3
+	vmovapd	ymm6, [screg+64+32]			;; cosine/sine
+	vmulpd	ymm4, ymm3, ymm6			;; A3 = R3 * cosine/sine
+	vmovapd	ymm0, mem4				;; I2
+	vaddpd	ymm2, ymm2, ymm0			;; A2 = A2 + I2
+	vmovapd	ymm5, mem6				;; I3
+	vaddpd	ymm4, ymm4, ymm5			;; A3 = A3 + I3
+	vmulpd	ymm0, ymm0, ymm7			;; B2 = I2 * cosine/sine
+	vmulpd	ymm5, ymm5, ymm6			;; B3 = I3 * cosine/sine
+	vsubpd	ymm0, ymm0, ymm1			;; B2 = B2 - R2
+	vsubpd	ymm5, ymm5, ymm3			;; B3 = B3 - R3
+	vmovapd	ymm7, [screg]				;; sine
+	vmulpd	ymm2, ymm2, ymm7			;; A2 = A2 * sine (final R2)
+	vmovapd	ymm6, [screg+64]			;; sine
+	vmulpd	ymm4, ymm4, ymm6			;; A3 = A3 * sine (final R3)
+	vmulpd	ymm0, ymm0, ymm7			;; B2 = B2 * sine (final I2)
+	vmulpd	ymm5, ymm5, ymm6			;; B3 = B3 * sine (final I3)
+
+	yprefetchw [pre1]
+
+	vblendpd ymm1, ymm2, ymm4, 1	;; R3				; R2
+	vblendpd ymm4, ymm4, ymm2, 1	;; R2				; R3
+	vsubpd	ymm2, ymm1, ymm4	;; R3 - R2			; R2 - R3
+	vaddpd	ymm1, ymm1, ymm4	;; R2 + R3			; R2 + R3
+	vsubpd	ymm3, ymm0, ymm5	;; I2 - I3			; I2 - I3
+	vaddpd	ymm0, ymm0, ymm5	;; I2 + I3			; I2 + I3
+
+	yprefetchw [pre1][pre2]
+
+	vmovapd	ymm7, YMM_P866
+	vmulpd	ymm3, ymm7, ymm3	;; B = 0.866 * (I2 - I3)	; B = 0.866 * (I2 - I3)
+	vblendpd ymm4, ymm2, ymm0, 1	;; I2 + I3			; R2 - R3
+	vmulpd	ymm4, ymm7, ymm4	;; Y = 0.866 * (I2 + I3)	; Y = 0.866 * (R2 - R3)
+
+	vmovapd	ymm7, YMM_HALF
+	vmulpd	ymm5, ymm7, ymm1	;; 0.5 * (R2 + R3)		; 0.5 * (R2 + R3)
+	vblendpd ymm6, ymm0, ymm2, 1	;; R3 - R2			; I2 + I3
+	vmulpd	ymm0, ymm7, ymm6	;; 0.5 * (R3 - R2)		; 0.5 * (I2 + I3)
+
+	yprefetchw [pre1][2*pre2]
+
+	vmovapd	ymm7, mem1		;; R1#1				; R1
+	vaddpd	ymm1, ymm7, ymm1	;; R1#1 + R2 + R3 (final R1)	; R1 + R2 + R3 (final R1)
+	vsubpd	ymm7, ymm7, ymm5	;; A = R1#1 - 0.5 * (R2 + R3)	; A = (R1-.5R2-.5R3)
+
+	vmovapd	ymm5, mem2		;; R1#2				; I1
+	vaddpd	ymm2, ymm5, ymm6	;; R1#2 + (R3 - R2) (final R4)	; I1 + I2 + I3 (final I1)
+	vsubpd	ymm5, ymm5, ymm0	;; X = R1#2 - 0.5 * (R3 - R2)	; X = (I1-.5I2-.5I3)
+	vsubpd	ymm0, ymm7, ymm3	;; A - B (final R5)		; A - B (final R3)
+	vaddpd	ymm7, ymm7, ymm3	;; A + B (final R3)		; A + B (final R2)
+	vsubpd	ymm3, ymm5, ymm4	;; X - Y (final R6)		; X - Y (final I2)
+	vaddpd	ymm5, ymm5, ymm4	;; X + Y (final R2)		; X + Y (final I3)
+
+	vblendpd ymm4, ymm7, ymm5, 1	;; final R2			; final R2
+	vblendpd ymm6, ymm5, ymm3, 1	;; final R6			; final I3
+	vblendpd ymm5, ymm3, ymm0, 1	;; final R5			; final I2
+	vblendpd ymm3, ymm0, ymm7, 1	;; final R3			; final R3
+	ENDM
