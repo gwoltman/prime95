@@ -86,6 +86,7 @@ extern unsigned int CPU_SIGNATURE;	/* Vendor-specific family number, */
 #define CPU_ARCHITECTURE_INTEL_OTHER	99
 #define CPU_ARCHITECTURE_AMD_K8		100
 #define CPU_ARCHITECTURE_AMD_K10	101
+#define CPU_ARCHITECTURE_AMD_BULLDOZER	102
 #define CPU_ARCHITECTURE_AMD_OTHER	199
 #define CPU_ARCHITECTURE_OTHER		999
 extern int CPU_ARCHITECTURE;		/* Our attempt to derive the CPU */
