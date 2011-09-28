@@ -59,9 +59,9 @@ typedef double *gwnum;
 /* gwsetup verifies that the version numbers match.  This prevents bugs */
 /* from accidentally linking in the wrong gwnum library. */
 
-#define GWNUM_VERSION		"26.6"
-#define GWNUM_MAJOR_VERSION	26
-#define GWNUM_MINOR_VERSION	6
+#define GWNUM_VERSION		"27.1"
+#define GWNUM_MAJOR_VERSION	27
+#define GWNUM_MINOR_VERSION	1
 
 /* Error codes returned by the three gwsetup routines */
 
@@ -328,12 +328,12 @@ long gwtobinarylongs (
 /* gwswap	Quickly swaps two gw numbers */
 /* gwcopy(s,d)	Copies gwnum s to d */
 /* gwadd	Adds two numbers and normalizes result if necessary */
-/* gwsub	Subtracts first number from second number and normalizes
+/* gwsub	Subtracts first number from second number and normalizes */
 /*		result if necessary */
 /* gwadd3quick	Adds two numbers WITHOUT normalizing */
 /* gwsub3quick	Subtracts second number from first WITHOUT normalizing */
 /* gwadd3	Adds two numbers and normalizes them if necessary */
-/* gwsub3	Subtracts second number from first number and normalizes
+/* gwsub3	Subtracts second number from first number and normalizes */
 /*		result if necessary */
 /* gwaddsub	Adds and subtracts 2 numbers (first+second and first-second) */
 /*		normalizes the results if necessary */
@@ -732,20 +732,39 @@ x array large enough to hold any value less than num_being_factored.
 
 */
 
-int gwnum_ecmStage1 (
+int gwnum_ecmStage1_u32 (
 	double	k,			/* K in K*B^N+C */
 	unsigned long b,		/* B in K*B^N+C */
 	unsigned long n,		/* N in K*B^N+C */
 	signed long c,			/* C in K*B^N+C */
-	unsigned long *num_being_factored_array, /* Number to factor */
+	uint32_t *num_being_factored_array, /* Number to factor */
 	unsigned long num_being_factored_array_len,
-	unsigned long B1,		/* Stage 1 bound */
-	unsigned long *B1_done,		/* Stage 1 that is already done */
-	unsigned long *A_array,		/* A - caller derives it from sigma */
+	uint64_t B1,			/* Stage 1 bound */
+	uint64_t *B1_done,		/* Stage 1 that is already done */
+	uint32_t *A_array,		/* A - caller derives it from sigma */
 	unsigned long A_array_len,
-	unsigned long *x_array,		/* X value of point */
+	uint32_t *x_array,		/* X value of point */
 	unsigned long *x_array_len,
-	unsigned long *z_array,		/* Z value of point */
+	uint32_t *z_array,		/* Z value of point */
+	unsigned long *z_array_len,
+	int	(*stop_check_proc)(int),/* Ptr to proc that returns TRUE */
+					/* if user interrupts processing */
+	unsigned long options);
+
+int gwnum_ecmStage1_u64 (
+	double	k,			/* K in K*B^N+C */
+	unsigned long b,		/* B in K*B^N+C */
+	unsigned long n,		/* N in K*B^N+C */
+	signed long c,			/* C in K*B^N+C */
+	uint64_t *num_being_factored_array, /* Number to factor */
+	unsigned long num_being_factored_array_len,
+	uint64_t B1,			/* Stage 1 bound */
+	uint64_t *B1_done,		/* Stage 1 that is already done */
+	uint64_t *A_array,		/* A - caller derives it from sigma */
+	unsigned long A_array_len,
+	uint64_t *x_array,		/* X value of point */
+	unsigned long *x_array_len,
+	uint64_t *z_array,		/* Z value of point */
 	unsigned long *z_array_len,
 	int	(*stop_check_proc)(int),/* Ptr to proc that returns TRUE */
 					/* if user interrupts processing */
@@ -949,7 +968,7 @@ struct gwhandle_struct {
 	void	*large_pages_gwnum; /* Pointer to the one large pages gwnum */
 	double	ZPAD_COPY7_ADJUST[7]; /* Adjustments for copying the 7 words */
 				/* around the halfway point of a zero pad FFT. */
-	double	ZPAD_0_7_ADJUST[7]; /* Adjustments for ZPAD0_7 in a r4dwpn FFT */
+	double	ZPAD_0_6_ADJUST[7]; /* Adjustments for ZPAD0_6 in a r4dwpn FFT */
 	unsigned long wpn_count; /* Count of r4dwpn pass 1 blocks that use the */
 				/* same ttp/ttmp grp multipliers */
 };
@@ -971,7 +990,7 @@ struct gwhandle_struct {
 /* data-88: Seven doubles (input FFT values near the halfway point */
 /*	    when doing a zero-padded FFT). */
 /* data-96: Eight unused bytes */
-/* typedef struct {
+/* typedef struct { */
 /*	char	pad[96];	   Used to track unnormalized add/sub */
 /*				   and original address */
 /*	double	data[512];	   The big number broken into chunks */
@@ -984,8 +1003,10 @@ struct gwhandle_struct {
 
 #define MAX_PRIME	79300000L	/* Maximum number of x87 bits */
 #define MAX_PRIME_SSE2	596000000L	/* SSE2 bit limit */
+#define MAX_PRIME_AVX	596000000L	/* AVX bit limit */
 #define MAX_FFTLEN	4194304L	/* 4M FFT max for x87 */
 #define MAX_FFTLEN_SSE2	33554432L	/* 32M FFT max for SSE2 */
+#define MAX_FFTLEN_AVX	33554432L	/* 32M FFT max for AVX */
 
 /* Informational routines that can be called prior to gwsetup */
 /* Many of these routines only work for k*b^n+c FFTs. */
