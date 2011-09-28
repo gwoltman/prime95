@@ -1274,7 +1274,10 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 
 		if (max_extended_cpuid_value >= 0x80000006) {
 			Cpuid (0x80000006, &reg);
-			CPU_L2_CACHE_SIZE = (reg.ECX >> 24) & 0xFF;
+			if (family_code < 6 || (family_code == 6 && model_number <= 7))		// Older VIA processors
+				CPU_L2_CACHE_SIZE = (reg.ECX >> 24) & 0xFF;
+			else									// Newer VIA processors
+				CPU_L2_CACHE_SIZE = (reg.ECX >> 16) & 0xFFFF;
 			CPU_L2_CACHE_LINE_SIZE = reg.ECX & 0xFF;
 		}
 
