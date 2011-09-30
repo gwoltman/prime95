@@ -897,6 +897,21 @@ void gwsincos012by_weighted (
 	weight = exp (dd_data->gw__logb * bpower);
 	inv_weight = dd_data->gw__over_fftlen / weight;
 
+	// This hack causes SSE2 code to get duplicated weight and inv_weight values, while
+	// AVX code does not (it uses the vbroadcastsd instruction to reduce memory usage)
+	if (incr >= 4) {
+		results[0] = weight;
+		results[1] = inv_weight;
+		results += incr;		// Two wasted doubles in AVX code.  Future optimization will reclaim these bytes.
+	} else {
+		for (i = 0; i < incr; i++) {
+			results[i] = weight;
+			results[incr+i] = inv_weight;
+		}
+		results += 2*incr;
+	}
+
+	// Now output the weighted sin/cos data
 	twopi_over_N = dd_real::_2pi / (double) N;
 	for (i = 0; i < incr; i++) {
 		sincos (twopi_over_N * (double) (x + i * upper_x_incr), sine, cosine);
@@ -907,16 +922,13 @@ void gwsincos012by_weighted (
 		sine = sine + epsilon;		// Hack to avoid divide-by-zero errors
 		sine2 = sine2 + epsilon;
 
-		results[i] = weight;
-		results[incr+i] = inv_weight;
+		results[i] = sine * weight;
+		results[incr+i] = cosine / sine;
+		results[2*incr+i] = sine * inv_weight;
 
-		results[2*incr+i] = sine * weight;
-		results[3*incr+i] = cosine / sine;
-		results[4*incr+i] = sine * inv_weight;
-
-		results[5*incr+i] = sine2 * weight;
-		results[6*incr+i] = cosine2 / sine2;
-		results[7*incr+i] = sine2 * inv_weight;
+		results[3*incr+i] = sine2 * weight;
+		results[4*incr+i] = cosine2 / sine2;
+		results[5*incr+i] = sine2 * inv_weight;
 	}
 	END_x86_FIX
 }

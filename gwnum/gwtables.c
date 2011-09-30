@@ -733,7 +733,7 @@ double *yr4dwpn_build_pass1_table (
 				    for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
 					gwsincos012by4_weighted (gwdata->dd_data, temp, upper_avx_word, N, temp, table);
-					table += 32;
+					table += 28;
 				    }
 				}
 			}
