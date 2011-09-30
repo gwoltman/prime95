@@ -306,7 +306,7 @@ lab:	mov	rbx, 0			;; Offset for some sse2 macros (s.b. non-zero for with_mult ma
 	mov	ecx, odd_iters
 	mov	SRCARG, rdi		;; Save work buf addr
 ss0a:	mov	rdi, SRCARG		;; Reload work buf addr (sincos data)
-	lea	rsi, [rdi+4096]		;; Source & dest ptr
+	lea	rsi, [rdi+262144+4096+64] ;; Source & dest ptr
 	lea	rdx, [rsi+524288+256]	;; Destination for "g" macros
 ss0b:	&ops
 IF memused NE 192
@@ -337,7 +337,7 @@ lab:	mov	rbx, 262144+128		;; Offset for some sse2 macros (s.b. non-zero for with
 	mov	ecx, odd_iters
 	mov	SRCARG, rdi		;; Save work buf addr
 ss0a:	mov	rdi, SRCARG		;; Reload work buf addr (sincos data)
-	lea	rsi, [rdi+4096]		;; Source & dest ptr
+	lea	rsi, [rdi+262144+4096+64] ;; Source & dest ptr
 	lea	rdx, [rsi+524288+256]	;; Destination for "g" macros
 ss0b:	&ops
 IF memused NE 192
@@ -369,7 +369,7 @@ lab:	mov	rbx, 0			;; Offset for some avx macros (s.b. non-zero for with_mult mac
 	mov	ecx, odd_iters
 	mov	SRCARG, rdi		;; Save work buf addr
 av0a:	mov	rdi, SRCARG		;; Reload work buf addr (sincos data)
-	lea	rsi, [rdi+4096]		;; Source & dest ptr
+	lea	rsi, [rdi+262144+4096+64] ;; Source & dest ptr
 	lea	rdx, [rsi+524288+256]	;; Destination for "g" macros
 av0b:	&ops
 	bump	rdi, rdi_incr		;; Next sine/cosine pointer
@@ -396,7 +396,7 @@ lab:	mov	rbx, 262144+128		;; Offset for some sse2 macros (s.b. non-zero for with
 	mov	ecx, odd_iters
 	mov	SRCARG, rdi		;; Save work buf addr
 av0a:	mov	rdi, SRCARG		;; Reload work buf addr (sincos data)
-	lea	rsi, [rdi+4096]		;; Source & dest ptr
+	lea	rsi, [rdi+262144+4096+64] ;; Source & dest ptr
 	lea	rdx, [rsi+524288+256]	;; Destination for "g" macros
 av0b:	&ops
 	bump	rdi, rdi_incr		;; Next sine/cosine pointer
