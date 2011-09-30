@@ -98,14 +98,6 @@ yr4_s4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
 	i2 = d2 + 32
 	i3 = d3 + 32
 	yr4_4c_2sc_djbfft_mem [srcreg][rbx],[srcreg+d1][rbx],[srcreg+d2][rbx],[srcreg+d3][rbx],[srcreg+32][rbx],[srcreg+i1][rbx],[srcreg+i2][rbx],[srcreg+i3][rbx],noexec,screg,screg+64,32,srcreg+srcinc,d1,d2,[srcreg],[srcreg+32]
-;;	vmovapd	[srcreg], ymm0		;; Save R1
-;;	vmovapd	[srcreg+32], ymm0	;; Save I1
-	vmovapd	[srcreg+d1], ymm2	;; Save R2
-	vmovapd	[srcreg+d1+32], ymm7	;; Save I2
-	vmovapd	[srcreg+d2], ymm5	;; Save R3
-	vmovapd	[srcreg+d2+32], ymm6	;; Save I3
-	vmovapd	[srcreg+d2+d1], ymm3	;; Save R4
-	vmovapd	[srcreg+d2+d1+32], ymm4	;; Save I4
 
 	;; Swizzle using 8 shufpds and 8 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
 
