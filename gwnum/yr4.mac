@@ -1883,6 +1883,23 @@ yr4_4cl_eight_reals_first_fft_scratch MACRO srcreg,srcinc,d1,d2,screg
 	bump	srcreg, srcinc
 	ENDM
 
+;; This macro is used in the middle levels of two pass AVX FFTs.
+yr4_4cl_eight_reals_fft_preload MACRO
+	yr4_8r_fft_mem_preload
+	ENDM
+yr4_4cl_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg1,screg2
+	yr4_8r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d2+d1+32],screg2,screg1,screg2+64,srcreg+srcinc,d1,d2,[srcreg+32]
+	vmovapd	[srcreg], ymm1		;; Save R1
+	;;vmovapd [srcreg+32], ymm0	;; Save I1
+	vmovapd	[srcreg+d1], ymm3	;; Save R2
+	vmovapd	[srcreg+d1+32], ymm5	;; Save I2
+	vmovapd	[srcreg+d2], ymm2	;; Save R3
+	vmovapd	[srcreg+d2+32], ymm6	;; Save I3
+	vmovapd	[srcreg+d2+d1], ymm4	;; Save R4
+	vmovapd	[srcreg+d2+d1+32], ymm7	;; Save I4
+	bump	srcreg, srcinc
+	ENDM
+
 ;; This macro is used in the first levels of the second pass of two pass AVX FFTs.
 ;; It swizzles the outputs before storing the results.  This is identical functionality
 ;; to the first eight_reals in a one pass FFT.
@@ -2129,11 +2146,27 @@ yr4_s4cl_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg
 	yr4_s4cl_eight_reals_last_unfft srcreg,srcinc,d1,d2,screg
 	ENDM
 
+;; This version is used in the middle levels of pass 1 in a two pass AVX FFT.
+yr4_4cl_eight_reals_unfft_preload MACRO
+	yr4_4cl_eight_reals_unfft_cmn_preload
+	ENDM
+yr4_4cl_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,screg2
+	yr4_4cl_eight_reals_unfft_cmn srcreg,srcinc,d1,d2,screg2,screg1,screg2+64
+	ENDM
+
 ;; This version is used in the last levels of pass 1 in a two pass AVX FFT.
 yr4_4cl_eight_reals_last_unfft_preload MACRO
+	yr4_4cl_eight_reals_unfft_cmn_preload
 	ENDM
 yr4_4cl_eight_reals_last_unfft MACRO srcreg,srcinc,d1,d2,screg
-	vmovapd	ymm1, [screg+64+32]	;; cosine/sine for w^2n
+	yr4_4cl_eight_reals_unfft_cmn srcreg,srcinc,d1,d2,screg,screg+64,screg+128
+	ENDM
+
+;; Common code for eight reals unfft
+yr4_4cl_eight_reals_unfft_cmn_preload MACRO
+	ENDM
+yr4_4cl_eight_reals_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg5
+	vmovapd	ymm1, [screg2+32]	;; cosine/sine for w^2n
 	vmovapd	ymm4, [srcreg+d1]	;; R2
 	vmulpd	ymm2, ymm4, ymm1	;; A2 = R2 * cosine/sine
 	vmovapd	ymm7, [srcreg+d1+32]	;; I2
@@ -2141,7 +2174,7 @@ yr4_4cl_eight_reals_last_unfft MACRO srcreg,srcinc,d1,d2,screg
 	vmulpd	ymm7, ymm7, ymm1	;; B2 = I2 * cosine/sine
 	vsubpd	ymm7, ymm7, ymm4	;; B2 = B2 - R2
 
-	vmovapd	ymm1, [screg+128+32]	;; cosine/sine for w^5n
+	vmovapd	ymm1, [screg5+32]	;; cosine/sine for w^5n
 	vmovapd	ymm0, [srcreg+d2+d1]	;; R4
 	vmulpd	ymm4, ymm0, ymm1	;; A4 = R4 * cosine/sine
 	vmovapd	ymm5, [srcreg+d2+d1+32]	;; I4
@@ -2149,7 +2182,7 @@ yr4_4cl_eight_reals_last_unfft MACRO srcreg,srcinc,d1,d2,screg
 	vmulpd	ymm5, ymm5, ymm1	;; B4 = I4 * cosine/sine
 	vsubpd	ymm5, ymm5, ymm0	;; B4 = B4 - R4
 
-	vmovapd	ymm1, [screg+32] 	;; cosine/sine for w^n
+	vmovapd	ymm1, [screg1+32] 	;; cosine/sine for w^n
 	vmovapd	ymm3, [srcreg+d2]	;; R3
 	vmulpd	ymm0, ymm1, ymm3	;; A3 = R3 * cosine/sine for w^n
 	vmovapd	ymm6, [srcreg+d2+32]	;; I3
@@ -2159,13 +2192,13 @@ yr4_4cl_eight_reals_last_unfft MACRO srcreg,srcinc,d1,d2,screg
 
 	yprefetchw [srcreg+srcinc]
 
-	vmovapd	ymm1, [screg+64]	;; sine for w^2n
+	vmovapd	ymm1, [screg2]		;; sine for w^2n
 	vmulpd	ymm2, ymm2, ymm1	;; new R3 = A2 * sine
 	vmulpd	ymm7, ymm7, ymm1	;; new R4 = B2 * sine
-	vmovapd	ymm1, [screg+128]	;; sine for w^5n
+	vmovapd	ymm1, [screg5]		;; sine for w^5n
 	vmulpd	ymm4, ymm4, ymm1	;; new R7 = A4 * sine
 	vmulpd	ymm5, ymm5, ymm1	;; new R8 = B4 * sine
-	vmovapd	ymm1, [screg]		;; sine for w^n
+	vmovapd	ymm1, [screg1]		;; sine for w^n
 	vmulpd	ymm0, ymm0, ymm1	;; new R5 = A3 * sine
 	vmulpd	ymm6, ymm6, ymm1	;; new R6 = B3 * sine
 
@@ -2227,14 +2260,14 @@ yr4_4cl_eight_reals_last_unfft MACRO srcreg,srcinc,d1,d2,screg
 ;; ******************************* eight-real-with-partial-normalization variants *************************************
 ;;
 ;; These macros are used in pass 1 of yr4dwpn two pass FFTs.  They are like the standard eight-real
-;; DJBFFT macros except that a normalization multiplier has been pre-applied to the sine multiplier.
+;; FFT macros except that a normalization multiplier has been pre-applied to the sine multiplier.
 ;; Consequently, the forward FFT and inverse FFT use different sine multipliers.
 ;; Also, a normalization multiplier must be applied to the final R1/I1 value.
 ;;
 
-yr4_4cl_wpn_eight_reals_djbfft_preload MACRO
+yr4_4cl_wpn_eight_reals_fft_preload MACRO
 	ENDM
-yr4_4cl_wpn_eight_reals_djbfft MACRO srcreg,srcinc,d1,d2,screg1,screg2
+yr4_4cl_wpn_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg1,screg2
 	;; screg1 is normalization weights for R1/I1
 	;; screg1+64 is weighted sin/cos values for R2/I2 (w^2n)
 	;; screg2 is weighted sin/cos values for R3/I3 (w^n)

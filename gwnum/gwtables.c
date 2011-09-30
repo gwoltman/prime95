@@ -675,7 +675,7 @@ double *yr4dwpn_build_pass1_table (
 
 			if (N != gwdata->PASS2_SIZE * gwdata->wpn_count * 4) {
 
-/* For the yr4_eight_reals_four_complex_djbfft building block levels, output the extra */
+/* For the yr4_eight_reals_fft building block levels, output the extra */
 /* sin/cos values needed for the eight_reals.  The eight_reals doubles N because */
 /* the real part of the FFT is one level behind the complex part of the FFT. */
 
@@ -683,7 +683,6 @@ double *yr4dwpn_build_pass1_table (
 					for (j = 0; j < N*2 / 8; j += pass1_increment) {
 					    for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 						temp = (group + j + i);
-//BUG - this will likely change when we code the 8 reals case
 						gwsincos15by4 (temp, N*2, table);
 						gwsincos15by4 (temp + upper_avx_word, N*2, table+1);
 						gwsincos15by4 (temp + 2 * upper_avx_word, N*2, table+2);
