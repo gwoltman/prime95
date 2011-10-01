@@ -463,7 +463,7 @@ yr4dwpn5_core.obj: yr4dwpn5.asm ymult.mac yr4.mac yr3.mac yr5.mac yr8.mac yr4dwp
     $(masm) /DARCH=CORE /Foyr4dwpn5_core.obj yr4dwpn5.asm
     strip yr4dwpn5_core.obj
 
-timeit.obj: timeit.asm mult.mac lucas.mac xmult.mac hg.mac r4.mac r2.mac r3.mac r5.mac r8.mac
+timeit.obj: timeit.asm mult.mac lucas.mac xmult.mac hg.mac r4.mac r2.mac r3.mac r5.mac r8.mac yr4.mac yr3.mac yr5.mac yr8.mac
     $(masm) /DARCH=CORE timeit.asm
     strip timeit.obj
 
