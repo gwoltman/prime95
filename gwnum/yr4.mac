@@ -1820,10 +1820,12 @@ yr4_sg4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	vmulpd	ymm0, ymm0, ymm2		;; B1 = I1 * cosine/sine
 	vaddpd	ymm0, ymm0, ymm3		;; B1 = B1 + R1
 
-	vmulpd	ymm1, ymm1, [screg+192]		;; A4 = A4 * sine (final R4)
-	vmulpd	ymm7, ymm7, [screg+192]		;; B4 = B4 * sine (final I4)
-	vmulpd	ymm5, ymm5, [screg+0]		;; A1 = A1 * sine (final R1)
-	vmulpd	ymm0, ymm0, [screg+0]		;; B1 = B1 * sine (final I1)
+	vmovapd	ymm3, [screg+192]		;; sine
+	vmulpd	ymm1, ymm1, ymm3		;; A4 = A4 * sine (final R4)
+	vmulpd	ymm7, ymm7, ymm3		;; B4 = B4 * sine (final I4)
+	vmovapd	ymm3, [screg+0]			;; sine
+	vmulpd	ymm5, ymm5, ymm3		;; A1 = A1 * sine (final R1)
+	vmulpd	ymm0, ymm0, ymm3		;; B1 = B1 * sine (final I1)
 
 	vmovapd	[dstreg], ymm5			;; Save R1
 	vmovapd	[dstreg+32], ymm0		;; Save I1
@@ -1887,10 +1889,12 @@ yr4_sg4cl_four_complex_unfft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,scre
 
 	vmulpd	ymm1, ymm1, [screg+0]		;; B1 = B1 * sine (new I1)
 	vmulpd	ymm3, ymm3, [screg+128]		;; B2 = B2 * sine (new I2)
-	vmulpd	ymm5, ymm5, [screg+64]		;; A3 = A3 * sine (new R3)
-	vmulpd	ymm2, ymm2, [screg+64]		;; B3 = B3 * sine (new I3)
-	vmulpd	ymm7, ymm7, [screg+192]		;; A4 = A4 * sine (new R4)
-	vmulpd	ymm4, ymm4, [screg+192]		;; B4 = B4 * sine (new I4)
+	vmovapd	ymm6, [screg+64]		;; sine
+	vmulpd	ymm5, ymm5, ymm6		;; A3 = A3 * sine (new R3)
+	vmulpd	ymm2, ymm2, ymm6		;; B3 = B3 * sine (new I3)
+	vmovapd	ymm6, [screg+192]		;; sine
+	vmulpd	ymm7, ymm7, ymm6		;; A4 = A4 * sine (new R4)
+	vmulpd	ymm4, ymm4, ymm6		;; B4 = B4 * sine (new I4)
 
 	bump	srcreg, srcinc
 
