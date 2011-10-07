@@ -2380,7 +2380,7 @@ gwinit (&gwdata);
 gwsetup (&gwdata, 1.0, 2, 500 /*10000000*/, -1);
 workbuf = (void *) aligned_malloc (40000000, 4096);
 memset (workbuf, 0, 40000000);
-RDTSC_TIMING = 12;
+RDTSC_TIMING = 2;
 min_test = IniGetInt (INI_FILE, "MinTest", 0);
 max_test = IniGetInt (INI_FILE, "MaxTest", min_test);
 NUM_X87_TESTS = timeit (gwdata.asm_data, -1, NULL);

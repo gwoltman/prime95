@@ -297,9 +297,11 @@ void print_timer (
 			sprintf (buf, "%.2f ms.", t * 1000.0);
 		else
 			sprintf (buf, "%.3f ms.", t * 1000.0);
-		if (RDTSC_TIMING == 12 && (CPU_FLAGS & CPU_RDTSC)) {
+
+		if (RDTSC_TIMING == 12 && (CPU_FLAGS & CPU_RDTSC))
 			sprintf (buf+strlen(buf), " (%.0f clocks)", timers[i]);
-		}
+		else if (RDTSC_TIMING == 2)
+			sprintf (buf+strlen(buf), " (%.0f clocks)", t * CPU_SPEED * 1000000.0);
 	}
 
 /* Append optional newline */
@@ -4406,7 +4408,7 @@ int lucasSetup (
 		}
 		return (STOP_FATAL_ERROR);
 	}
-		
+
 /* Allocate memory for the Lucas-Lehmer data (the number to square) */
 
 	lldata->lldata = gwalloc (&lldata->gwdata);
