@@ -967,7 +967,7 @@ done:	vmovapd	ymm2, YMM_TMP1			;; Restore carry for next section
 ; rdi = big vs. little array pointer
 ; Input arguments are destroyed!
 
-ynorm_1d_cleanup MACRO zero, ttp, base2
+ynorm_1d_cleanup MACRO ttp, base2, zero
 	LOCAL	section_begin, section_restart, section_loop, new_section, done
 
 ttp	mov	rdi, norm_biglit_array		; Address of the big/little flags array
@@ -3444,7 +3444,7 @@ ttp	bump	rbp, 64				;; Next two-to-phi ptr
 ; rax, rdx, rsi, rbp, rdi = trash
 
 ynorm_smallmul_1d_mid_cleanup MACRO ttp, base2, srcptr, biglitptr, ttpptr
-	ynorm_1d_mid_cleanup ttp, noexec, base2, srcptr, biglitptr, ttpptr
+	ynorm_1d_mid_cleanup ttp, base2, noexec, srcptr, biglitptr, ttpptr
 	ENDM
 
 ; This macro performs the smallmul normalize process by adding the section
@@ -3526,7 +3526,7 @@ ynorm_smallmul_1d_cleanup MACRO ttp, base2, destptr
 	mov	rbp, norm_col_mults		;; Address of the multipliers
 	mov	rdi, norm_biglit_array		;; Addr of the big/little flags array
 	ynorm_top_carry_1d ttp, base2		;; No, do a very standard carry
-	ynorm_1d_cleanup noexec, ttp, base2
+	ynorm_1d_cleanup ttp, base2, noexec
 	ENDM
 
 ; This macro is similar to ynorm_op_1d_zpad_cleanup for handling zpad carries in an
