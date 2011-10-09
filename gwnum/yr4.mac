@@ -70,7 +70,25 @@ yr4_b4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
 	bump	srcreg, srcinc
 	ENDM
 
-; Like b4cl but extracts the sin/cos data to broadcasts from
+; Like b4cl but extracts the sin/cos data to broadcast from
+; a higher level's uncompressed sin/cos data
+yr4_bb4cl_four_complex_djbfft_preload MACRO
+	yr4_4c_2sc_djbfft_mem_preload
+	ENDM
+yr4_bb4cl_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
+	yr4_4c_2sc_djbfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d2+d1+32],exec,screg,screg+64,32,srcreg+srcinc,d1,d2,[srcreg],[srcreg+32]
+;;	vmovapd	[srcreg], ymm0		;; Save R1
+;;	vmovapd	[srcreg+32], ymm0	;; Save I1
+	vmovapd	[srcreg+d1], ymm2	;; Save R2
+	vmovapd	[srcreg+d1+32], ymm7	;; Save I2
+	vmovapd	[srcreg+d2], ymm5	;; Save R3
+	vmovapd	[srcreg+d2+32], ymm6	;; Save I3
+	vmovapd	[srcreg+d2+d1], ymm3	;; Save R4
+	vmovapd	[srcreg+d2+d1+32], ymm4	;; Save I4
+	bump	srcreg, srcinc
+	ENDM
+
+; Like b4cl but extracts the sin/cos data to broadcast from
 ; the eight-real/four_complex sin/cos YMM registers
 yr4_fb4cl_four_complex_djbfft_preload MACRO
 	yr4_4c_2sc_djbfft_mem_preload
@@ -264,7 +282,25 @@ yr4_b4cl_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg
 	bump	srcreg, srcinc
 	ENDM
 
-; Like b4cl but extracts the sin/cos data to broadcasts from
+; Like b4cl but extracts the sin/cos data to broadcast from
+; a higher level's uncompressed sin/cos data
+yr4_bb4cl_four_complex_djbunfft_preload MACRO
+	yr4_4c_2sc_djbunfft_mem_preload
+	ENDM
+yr4_bb4cl_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg
+	yr4_4c_2sc_djbunfft_mem [srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32],[srcreg+d2],[srcreg+d2+32],[srcreg+d2+d1],[srcreg+d2+d1+32],exec,screg,screg+64,32,srcreg+srcinc,d1,d2,[srcreg]
+;;	vmovapd	[srcreg], ymm		;; Save R1
+	vmovapd	[srcreg+32], ymm6	;; Save I1
+	vmovapd	[srcreg+d1], ymm2	;; Save R2
+	vmovapd	[srcreg+d1+32], ymm4	;; Save I2
+	vmovapd	[srcreg+d2], ymm5	;; Save R3
+	vmovapd	[srcreg+d2+32], ymm1	;; Save I3
+	vmovapd	[srcreg+d2+d1], ymm3	;; Save R4
+	vmovapd	[srcreg+d2+d1+32], ymm7	;; Save I4
+	bump	srcreg, srcinc
+	ENDM
+
+; Like b4cl but extracts the sin/cos data to broadcast from
 ; the eight-real/four_complex sin/cos YMM registers
 yr4_fb4cl_four_complex_djbunfft_preload MACRO
 	yr4_4c_2sc_djbunfft_mem_preload

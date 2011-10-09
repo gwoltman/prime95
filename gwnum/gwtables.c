@@ -1033,6 +1033,7 @@ table=NULL; //BUG,BUG -- this does not match the way the real FFT code works.  T
 
 /* Build a smaller table for the remaining FFT levels */
 
+	if (gwdata->PASS2_SIZE > 1280) N = 256;		/* Last eight levels done in L1 cache */
 	for (i = 0; i < 4; i++) {
 		for (j = 0; j < N / 4; j += 4) {
 			gwsincos12by1 (i + j, N, table);
