@@ -33,7 +33,7 @@ _TEXT SEGMENT
 
 ;; Generate pass 2 routines optimized for this architecture
 
-;buildfor CORE   ,	ypass2gen 8
+buildfor CORE   ,	ypass2gen 8
 ;buildfor CORE   ,	ypass2gen 768
 buildfor CORE   ,	ypass2gen 10
 ;buildfor CORE   ,	ypass2gen 1280
@@ -45,7 +45,7 @@ buildfor CORE   ,	ypass2gen 10
 
 	; The 8 levels variants
 
-;buildfor        ,	yr4dwpn_pass1sc128 32K, 8, 4
+buildfor CORE    ,	yr4dwpn_pass1sc128 32K, 8, 4
 ;buildfor CORE_64,	yr4dwpn_pass1sc128 32K, 8, 2
 ;buildfor CORE_64,	yr4dwpn_pass1sc256 64K, 8, 4
 ;buildfor        ,	yr4dwpn_pass1sc256 64K, 8, 2
@@ -57,7 +57,7 @@ buildfor CORE   ,	ypass2gen 10
 ;buildfor CORE   ,	yr4dwpn_pass1sc448 112K, 8, 4
 ;buildfor        ,	yr4dwpn_pass1sc448 112K, 8, 2
 ;buildfor CORE_64,	yr4dwpn_pass1sc448 112K, 8, 1
-;buildfor CORE   ,	yr4dwpn_pass1sc512 128K, 8, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512 128K, 8, 4
 ;buildfor        ,	yr4dwpn_pass1sc512 128K, 8, 2
 ;buildfor        ,	yr4dwpn_pass1sc512 128K, 8, 1
 ;buildfor CORE   ,	yr4dwpn_pass1sc640 160K, 8, 4
@@ -247,14 +247,14 @@ buildfor CORE   ,	yr4dwpn_pass1sc512 512K, 10, 4
 
 	; The all-complex 8 levels variants
 
-;buildfor        ,	yr4dwpn_pass1sc128ac 32K, 8, 4
+buildfor CORE   ,	yr4dwpn_pass1sc128ac 32K, 8, 4
 ;buildfor CORE_64,	yr4dwpn_pass1sc128ac 32K, 8, 2
 ;buildfor        ,	yr4dwpn_pass1sc128ac 32K, 8, 1
 ;buildfor CORE_64,	yr4dwpn_pass1sc256ac 64K, 8, 4
 ;buildfor        ,	yr4dwpn_pass1sc256ac 64K, 8, 2
 ;buildfor CORE   ,	yr4dwpn_pass1sc256ac 64K, 8, 1
 ;buildfor CORE   ,	yr4dwpn_pass1sc384ac 96K, 8, 4
-;buildfor        ,	yr4dwpn_pass1sc512ac 128K, 8, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512ac 128K, 8, 4
 ;buildfor        ,	yr4dwpn_pass1sc512ac 128K, 8, 2
 ;buildfor CORE_32,	yr4dwpn_pass1sc640ac 160K, 8, 4
 ;buildfor        ,	yr4dwpn_pass1sc640ac 160K, 8, 2
