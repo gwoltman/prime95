@@ -985,6 +985,7 @@ double *yr4_build_pass2_complex_table (
 	double	*table)		/* Pointer to the table to fill in */
 {
 	unsigned long i, j, N;
+	unsigned int pow2_count;
 
 /* If the pass 2 size is divisible by 3, then the first level does a */
 /* radix-3 step which only requires one sin/cos value.  The first levels */
@@ -1033,7 +1034,9 @@ table=NULL; //BUG,BUG -- this does not match the way the real FFT code works.  T
 
 /* Build a smaller table for the remaining FFT levels */
 
-	if (gwdata->PASS2_SIZE > 1280) N = 256;		/* Last eight levels done in L1 cache */
+	for (i = N, pow2_count = 0; (i & 1) == 0; i >>= 1) pow2_count++;
+	if (pow2_count & 1) N = 128;		/* Last seven levels done in L1 cache */
+	else if (N > 256) N = 256;		/* Last eight levels done in L1 cache */
 	for (i = 0; i < 4; i++) {
 		for (j = 0; j < N / 4; j += 4) {
 			gwsincos12by1 (i + j, N, table);
