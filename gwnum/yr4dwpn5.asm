@@ -36,13 +36,15 @@ _TEXT SEGMENT
 ;buildfor CORE   ,	ypass2gen 4608
 ;buildfor CORE   ,	ypass2gen 6144
 ;buildfor CORE   ,	ypass2gen 7680
-;buildfor CORE   ,	ypass2gen 13
+buildfor CORE   ,	ypass2gen 13
 ;buildfor CORE   ,	ypass2gen 10240
 ;buildfor CORE   ,	ypass2gen 12800
 
 ;; Routines for many FFT sizes
 
 	; The 13 levels variants (4608, 6144, 7680, 8192, 10240, 12800)
+
+buildfor CORE   ,	yr4dwpn_pass1sc128 1M, 13, 4
 
 ;buildfor CORE_64,	yr4dwpn_pass1sc256 1152K, 4608, 4
 ;buildfor CORE_32,	yr4dwpn_pass1sc256 1152K, 4608, 2
@@ -80,7 +82,7 @@ _TEXT SEGMENT
 ;buildfor        ,	yr4dwpn_pass1sc512 3M, 6144, 4
 ;buildfor        ,	yr4dwpn_pass1sc512 3M, 6144, 2
 ;buildfor        ,	yr4dwpn_pass1sc512 3840K, 7680, 4
-;buildfor        ,	yr4dwpn_pass1sc512 4M, 13, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512 4M, 13, 4
 ;buildfor        ,	yr4dwpn_pass1sc512 4M, 13, 2
 ;buildfor        ,	yr4dwpn_pass1sc512 4M, 13, 1
 ;buildfor        ,	yr4dwpn_pass1sc512 5M, 10240, 4
@@ -179,6 +181,8 @@ _TEXT SEGMENT
 
 	; The all-complex 13 levels variants (4608, 6144, 7680, 8192, 10240, 12800)
 
+buildfor CORE   ,	yr4dwpn_pass1sc128ac 1M, 13, 4
+
 ;buildfor CORE   ,	yr4dwpn_pass1sc256ac 1152K, 4608, 4
 ;buildfor        ,	yr4dwpn_pass1sc256ac 1536K, 6144, 4
 ;buildfor        ,	yr4dwpn_pass1sc256ac 1920K, 7680, 4
@@ -198,7 +202,7 @@ _TEXT SEGMENT
 ;buildfor        ,	yr4dwpn_pass1sc512ac 3M, 6144, 4
 ;buildfor        ,	yr4dwpn_pass1sc512ac 3M, 6144, 2
 ;buildfor        ,	yr4dwpn_pass1sc512ac 3840K, 7680, 4
-;buildfor        ,	yr4dwpn_pass1sc512ac 4M, 13, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512ac 4M, 13, 4
 ;buildfor        ,	yr4dwpn_pass1sc512ac 4M, 13, 2
 ;buildfor        ,	yr4dwpn_pass1sc512ac 4M, 13, 1
 ;buildfor        ,	yr4dwpn_pass1sc512ac 5M, 10240, 4
