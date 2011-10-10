@@ -1735,6 +1735,14 @@ loops	MACRO iters, dest, incr
 	;; If necessary, split loop issue prefetch instruction(s)
 	IF loops_pffreq GE loops_completed AND loops_pffreq LT loops_completed * local_iters * local_incr
 	  small_count = loops_pffreq / loops_completed / local_incr
+	  IF small_count EQ 0
+	    ;; This only happens when one specifies a incr larger than the pffreq.
+	    ;; This will result in fewer cache lines being prefetched than would
+	    ;; ordinarily be expected.  This might be considered a feature as it
+	    ;; could allow greater fine tuning of the number of cache lines prefetched
+	    ;; in rare circumstances.
+	    small_count = 1
+	  ENDIF
 	  IF (local_iters MOD small_count) NE 0
 	    error_with_non_power_of_2_and_prefetching
 	  ENDIF
