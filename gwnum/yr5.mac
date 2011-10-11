@@ -434,6 +434,437 @@ bcast	vbroadcastsd ymm0, Q [screg2]		;; sine
 
 
 ;;
+;; ************************************* ten-reals-fft variants ******************************************
+;;
+
+yr5_f5cl_ten_reals_fft_preload MACRO
+	yr5_10r_fft_mem_preload
+	ENDM
+yr5_f5cl_ten_reals_fft MACRO srcreg,srcinc,d1,screg
+	d2=2*d1
+	d3=3*d1
+	d4=4*d1
+	yr5_10r_fft_mem [srcreg][rbx],[srcreg+d1][rbx],[srcreg+d2][rbx],[srcreg+d3][rbx],[srcreg+d4][rbx],screg,[srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32]
+;;	vmovapd	[srcreg+d1], ymm2		;; Save R2
+;;	vmovapd	[srcreg+d1+32], ymm4		;; Save I2
+	vmovapd	[srcreg+d2], ymm0		;; Save R3
+	vmovapd	[srcreg+d2+32], ymm1		;; Save I3
+	vmovapd	[srcreg+d3], ymm7		;; Save R4
+	vmovapd	[srcreg+d3+32], ymm2		;; Save I4
+	vmovapd	[srcreg+d4], ymm6		;; Save R5
+	vmovapd	[srcreg+d4+32], ymm5		;; Save I5
+	bump	srcreg, srcinc
+	ENDM
+
+;; To calculate a 10-reals FFT (in a shorthand notation):
+;; r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9 + r10	*  w^0000000000
+;; r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9 + r10	*  w^0123456789
+;; r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9 + r10	*  w^0246802468
+;; r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9 + r10	*  w^0369258147
+;; r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9 + r10	*  w^0482604826
+;; r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9 + r10	*  w^0505050505
+;; r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9 + r10	*  w^0628406284
+;; r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9 + r10	*  w^0741852963
+;; r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9 + r10	*  w^0864208642
+;; r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9 + r10	*  w^0987654321
+;; Noting that w^5 = -1 and that Hermetian symmetry means we won't need
+;; to calculate the last 5 rows:
+;; r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9 + r10	*  w^0000000000
+;; r1 + r2 + r3 + r4 + r5 - r6 - r7 - r8 - r9 - r10	*  w^0123401234
+;; r1 + r2 + r3 - r4 - r5 + r6 + r7 + r8 - r9 - r10	*  w^0241302413
+;; r1 + r2 - r3 - r4 + r5 - r6 - r7 + r8 + r9 - r10	*  w^0314203142
+;; r1 + r2 - r3 + r4 - r5 + r6 + r7 - r8 + r9 - r10	*  w^0432104321
+;; Reorganize into odds and evens, that is
+;; r1 + r3 + r5 + r7 + r9  * powers + (r2 + r4 + r6 + r8 + r10) * powers
+;; Thus:
+;; r1 + r3 + r5 + r7 + r9	*  w^00000	+ r2 + r4 + r6 + r8 + r10	*  w^00000
+;; r1 + r3 + r5 - r7 - r9	*  w^02413	+ r2 + r4 - r6 - r8 - r10	*  w^13024
+;; r1 + r3 - r5 + r7 - r9	*  w^04321	+ r2 - r4 + r6 + r8 - r10	*  w^21043
+;; r1 - r3 + r5 - r7 + r9	*  w^01234	+ r2 - r4 - r6 + r8 - r10	*  w^34012
+;; r1 - r3 - r5 + r7 + r9	*  w^03142	+ r2 + r4 + r6 - r8 - r10	*  w^42031
+;; Apply the sin/cos values:
+;; w^1/10 = .809 + .588i
+;; w^2/10 = .309 + .951i
+;; w^3/10 = -.309 + .951i
+;; w^4/10 = -.809 + .588i
+;; reals:
+;; r1 + r3 + r5 + r7 + r9			+ r2 + r4 + r6 + r8 + r10
+;; r1 + .309r3 - .809r5 - .809r7 + .309r9	+ .809r2 - .309r4 - r6 - .309r8 + .809r10
+;; r1 - .809r3 + .309r5 + .309r7 - .809r9	+ .309r2 - .809r4 + r6 - .809r8 + .309r10
+;; r1 - .809r3 + .309r5 + .309r7 - .809r9	+ -.309r2 + .809r4 - r6 + .809r8 - .309r10
+;; r1 + .309r3 - .809r5 - .809r7 + .309r9	+ -.809r2 + .309r4 + r6 + .309r8 - .809r10
+;; imaginarys:
+;; 0						+ 0
+;;  + .951r3 + .588r5 - .588r7 - .951r9		+ .588r2 + .951r4 - .951r8 - .588r10
+;;  + .588r3 - .951r5 + .951r7 - .588r9		+ .951r2 - .588r4 + .588r8 - .951r10
+;;  - .588r3 + .951r5 - .951r7 + .588r9		+ .951r2 - .588r4 + .588r8 - .951r10
+;;  - .951r3 - .588r5 + .588r7 + .951r9		+ .588r2 + .951r4 - .951r8 - .588r10
+;; Further simplifying:
+;; reals:
+;; r1 + r3 + r5 + r7 + r9		+ r2 + r4 + r6 + r8 + r10
+;; r1 + .309(r3+r9) - .809(r5+r7)	+ .809(r2+r10) - .309(r4+r8) - r6
+;; r1 - .809(r3+r9) + .309(r5+r7)	+ .309(r2+r10) - .809(r4+r8) + r6
+;; r1 - .809(r3+r9) + .309(r5+r7)	+ -.309(r2+r10) + .809(r4+r8) - r6
+;; r1 + .309(r3+r9) - .809(r5+r7)	+ -.809(r2+r10) + .309(r4+r8) + r6
+;; imaginarys:
+;; 0					+ 0
+;;  + .951(r3-r9) + .588(r5-r7)		+ .588(r2-r10) + .951(r4-r8)
+;;  + .588(r3-r9) - .951(r5-r7)		+ .951(r2-r10) - .588(r4-r8)
+;;  - .588(r3-r9) + .951(r5-r7)		+ .951(r2-r10) - .588(r4-r8)
+;;  - .951(r3-r9) - .588(r5-r7)		+ .588(r2-r10) + .951(r4-r8)
+
+yr5_10r_fft_mem_preload MACRO
+	ENDM
+yr5_10r_fft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg,dst1,dst2,dst3,dst4
+	vmovapd	ymm0, memr3		;; R3
+	vmovapd ymm1, memr4[32]		;; R9
+	vsubpd	ymm7, ymm0, ymm1	;; R3-R9
+	vaddpd	ymm0, ymm0, ymm1	;; R3+R9
+	vmovapd	ymm3, memr5		;; R5
+	vmovapd ymm4, memr2[32]		;; R7
+	vsubpd	ymm6, ymm3, ymm4	;; R5-R7
+	vaddpd	ymm3, ymm3, ymm4	;; R5+R7
+	vmovapd	ymm1, YMM_P951
+	vmulpd	ymm2, ymm1, ymm7	;; new oddI2 = .951*(R3-R9)
+	vmovapd	ymm5, YMM_P588
+	vmulpd	ymm7, ymm5, ymm7	;; new oddI3 = .588*(R3-R9)
+	vmulpd	ymm5, ymm5, ymm6	;; .588*(R5-R7)
+	vmulpd	ymm1, ymm1, ymm6	;; .951*(R5-R7)
+	vaddpd	ymm2, ymm2, ymm5	;; new oddI2 += .588*(R5-R7)
+	vsubpd	ymm7, ymm7, ymm1	;; new oddI3 -= .951*(R5-R7)
+	vmovapd	ymm1, YMM_P309
+	vmulpd	ymm5, ymm1, ymm0	;; new oddR2 = .309*(R3+R9)
+	vmovapd	ymm4, memr1		;; R1
+	vaddpd	ymm5, ymm5, ymm4	;; new oddR2 += R1
+	vmovapd	ymm6, YMM_M809
+	vmovapd	YMM_TMP6, ymm2		;; Save oddI2
+	vmulpd	ymm2, ymm6, ymm0	;; new oddR3 = -.809*(R3+R9)
+	vaddpd	ymm0, ymm4, ymm0	;; new oddR1 = R1+R3+R9
+	vaddpd	ymm2, ymm2, ymm4	;; new oddR3 += R1
+	vmulpd	ymm4, ymm6, ymm3	;; -.809*(R5+R7)
+	vaddpd	ymm0, ymm0, ymm3	;; new oddR1 = R1+R3+R5+R7+R9
+	vmulpd	ymm3, ymm1, ymm3	;; .309*(R5+R7)
+	vaddpd	ymm5, ymm5, ymm4	;; new oddR2 += -.809*(R5+R7)
+	vaddpd	ymm2, ymm2, ymm3	;; new oddR3 += .309*(R5+R7)
+	vmovapd	YMM_TMP8, ymm7		;; Save oddI3
+	vmovapd	dst1, ymm0		;; Save oddR1
+	vmovapd	YMM_TMP1, ymm5		;; Save oddR2
+	vmovapd	YMM_TMP3, ymm2		;; Save oddR3
+
+	vmovapd ymm2, memr2		;; R2
+	vmovapd	ymm5, memr5[32]		;; R10
+	vsubpd	ymm7, ymm2, ymm5	;; R2-R10
+	vaddpd	ymm2, ymm2, ymm5	;; R2+R10
+	vmovapd ymm4, memr4		;; R4
+	vmovapd	ymm3, memr3[32]		;; R8
+	vsubpd	ymm6, ymm4, ymm3	;; R4-R8
+	vaddpd	ymm4, ymm4, ymm3	;; R4+R8
+
+	vmovapd	ymm0, YMM_P951
+	vmulpd	ymm1, ymm0, ymm7	;; new evenI3 = .951*(R2-R10)
+	vmovapd	ymm3, YMM_P588
+	vmulpd	ymm7, ymm3, ymm7	;; new evenI2 = .588*(R2-R10)
+	vmulpd	ymm3, ymm3, ymm6	;; .588*(R4-R8)
+	vmulpd	ymm0, ymm0, ymm6	;; .951*(R4-R8)
+	vsubpd	ymm1, ymm1, ymm3	;; new evenI3 -= .588*(R4-R8)
+	vaddpd	ymm7, ymm7, ymm0	;; new evenI2 += .951*(R4-R8)
+
+	vmulpd	ymm3, ymm2, YMM_P309	;; new evenR3 = .309*(R2+R10)
+	vmovapd	ymm5, memr1[32]		;; R6
+	vaddpd	ymm3, ymm3, ymm5	;; new evenR3 += R6
+	vmovapd	ymm6, YMM_M809
+	vmulpd	ymm0, ymm6, ymm2	;; new evenR5 = -.809*(R2+R10)
+	vaddpd	ymm2, ymm5, ymm2	;; new evenR1 = R6+R2+R10
+	vaddpd	ymm0, ymm0, ymm5	;; new evenR5 += R6
+	vmulpd	ymm6, ymm6, ymm4	;; -.809*(R4+R8)
+	vaddpd	ymm2, ymm2, ymm4	;; new evenR1 = R6+R2+R4+R8+R10
+	vmulpd	ymm4, ymm4, YMM_P309	;; .309*(R4+R8)
+	vaddpd	ymm3, ymm3, ymm6	;; new evenR3 += -.809*(R4+R8)
+	vaddpd	ymm0, ymm0, ymm4	;; new evenR5 += .309*(R4+R8)
+	vmovapd	dst2, ymm2		;; Save evenR1
+
+	vmovapd	ymm2, YMM_TMP1		;; oddR2
+	vaddpd	ymm4, ymm2, ymm0	;; New R5 = oddR2 + evenR5
+	vmovapd	ymm6, YMM_TMP6		;; oddI2
+	vsubpd	ymm5, ymm7, ymm6	;; New I5 = evenI2 - oddI2
+	vsubpd	ymm2, ymm2, ymm0	;; New R2 = oddR2 - evenR5
+	vaddpd	ymm7, ymm7, ymm6	;; New I2 = evenI2 + oddI2
+
+	vmovapd	ymm0, [screg+192+32]	;; cosine/sine for w^4
+	vmulpd	ymm6, ymm4, ymm0	;; A5 = R5 * cosine/sine
+	vsubpd	ymm6, ymm6, ymm5	;; A5 = A5 - I5
+	vmulpd	ymm5, ymm5, ymm0	;; B5 = I5 * cosine/sine
+	vaddpd	ymm5, ymm5, ymm4	;; B5 = B5 + R5
+
+	vmovapd	ymm0, [screg+32]	;; cosine/sine for w^1
+	vmulpd	ymm4, ymm2, ymm0	;; A2 = R2 * cosine/sine
+	vsubpd	ymm4, ymm4, ymm7	;; A2 = A2 - I2
+	vmulpd	ymm7, ymm7, ymm0	;; B2 = I2 * cosine/sine
+	vaddpd	ymm7, ymm7, ymm2	;; B2 = B2 + R2
+
+	vmovapd	ymm2, [screg+192]
+	vmulpd	ymm6, ymm6, ymm2	;; A5 = A5 * sine (final R5)
+	vmulpd	ymm5, ymm5, ymm2	;; B5 = B5 * sine (final I5)
+	vmovapd	ymm2, [screg]
+	vmulpd	ymm4, ymm4, ymm2	;; A2 = A2 * sine (final R2)
+	vmulpd	ymm7, ymm7, ymm2	;; B2 = B2 * sine (final I2)
+
+	vmovapd	dst3, ymm4		;; Save final R2
+	vmovapd	dst4, ymm7		;; Save final I2
+
+	vmovapd	ymm4, YMM_TMP3		;; oddR3
+	vsubpd	ymm0, ymm4, ymm3	;; New R4 = oddR3 - evenR3
+	vaddpd	ymm4, ymm4, ymm3	;; New R3 = oddR3 + evenR3
+	vmovapd	ymm7, YMM_TMP8		;; oddI3
+	vsubpd	ymm2, ymm1, ymm7	;; New I4 = evenI3 - oddI3
+	vaddpd	ymm1, ymm1, ymm7	;; New I3 = evenI3 + oddI3
+
+	vmovapd	ymm3, [screg+128+32]	;; cosine/sine for w^3
+	vmulpd	ymm7, ymm0, ymm3	;; A4 = R4 * cosine/sine
+	vsubpd	ymm7, ymm7, ymm2	;; A4 = A4 - I4
+	vmulpd	ymm2, ymm2, ymm3	;; B4 = I4 * cosine/sine
+	vaddpd	ymm2, ymm2, ymm0	;; B4 = B4 + R4
+
+	vmovapd	ymm3, [screg+64+32]	;; cosine/sine for w^2
+	vmulpd	ymm0, ymm4, ymm3	;; A3 = R3 * cosine/sine
+	vsubpd	ymm0, ymm0, ymm1	;; A3 = A3 - I3
+	vmulpd	ymm1, ymm1, ymm3	;; B3 = I3 * cosine/sine
+	vaddpd	ymm1, ymm1, ymm4	;; B3 = B3 + R3
+
+	vmovapd	ymm4, [screg+128]
+	vmulpd	ymm7, ymm7, ymm4	;; A4 = A4 * sine (final R4)
+	vmulpd	ymm2, ymm2, ymm4	;; B4 = B4 * sine (final I4)
+	vmovapd	ymm4, [screg+64]
+	vmulpd	ymm0, ymm0, ymm4	;; A3 = A3 * sine (final R3)
+	vmulpd	ymm1, ymm1, ymm4	;; B3 = B3 * sine (final I3)
+	ENDM
+
+;;
+;;
+;; ************************************* ten-reals-unfft variants ******************************************
+;;
+
+yr5_5cl_ten_reals_unfft_preload MACRO
+	yr5_10r_unfft_mem_preload
+	ENDM
+yr5_5cl_ten_reals_unfft MACRO srcreg,srcinc,d1,screg
+	d2 = 2*d1
+	d3 = 3*d1
+	d4 = 4*d1
+	yr5_10r_unfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d3],[srcreg+d4],screg,[srcreg],[srcreg+d2],[srcreg+d4],[srcreg+32]
+;	vmovapd	[srcreg], ymm4		;; Save R1
+	vmovapd	[srcreg+d1], ymm1	;; Save R2
+;	vmovapd	[srcreg+d2], ymm3	;; Save R3
+	vmovapd	[srcreg+d3], ymm0	;; Save R4
+;	vmovapd	[srcreg+d4], ymm0	;; Save R5
+;	vmovapd	[srcreg+32], ymm2	;; Save I1
+	vmovapd	[srcreg+d1+32], ymm2	;; Save I2
+	vmovapd	[srcreg+d2+32], ymm6	;; Save I3
+	vmovapd	[srcreg+d3+32], ymm4	;; Save I4
+	vmovapd	[srcreg+d4+32], ymm3	;; Save I5
+	bump	srcreg, srcinc
+	ENDM
+
+;; To calculate a 10-reals unFFT (in a shorthand notation):
+;; c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10	*  w^0000000000
+;; c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10	*  w^0123456789
+;; c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10	*  w^0246802468
+;; c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10	*  w^0369258147
+;; c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10	*  w^0482604826
+;; c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10	*  w^0505050505
+;; c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10	*  w^0628406284
+;; c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10	*  w^0741852963
+;; c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10	*  w^0864208642
+;; c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10	*  w^0987654321
+;; Noting that w^5 = -1
+;; c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10	*  w^0000000000
+;; c1 + c2 + c3 + c4 + c5 - c6 - c7 - c8 - c9 - c10	*  w^0123401234
+;; c1 + c2 + c3 - c4 - c5 + c6 + c7 + c8 - c9 - c10	*  w^0241302413
+;; c1 + c2 - c3 - c4 + c5 - c6 - c7 + c8 + c9 - c10	*  w^0314203142
+;; c1 + c2 - c3 + c4 - c5 + c6 + c7 - c8 + c9 - c10	*  w^0432104321
+;; c1 - c2 + c3 - c4 + c5 - c6 + c7 - c8 + c9 - c10	*  w^0000000000
+;; c1 - c2 + c3 - c4 + c5 + c6 - c7 + c8 - c9 + c10	*  w^0123401234
+;; c1 - c2 + c3 + c4 - c5 - c6 + c7 - c8 - c9 + c10	*  w^0241302413
+;; c1 - c2 - c3 + c4 + c5 + c6 - c7 - c8 + c9 + c10	*  w^0314203142
+;; c1 - c2 - c3 - c4 - c5 - c6 + c7 + c8 + c9 + c10	*  w^0432104321
+;; incoming is:	r1_1 = c1r + c6r
+;;		c2 = c2r + c2i
+;;		c3 = c3r + c3i
+;;		c4 = c4r + c4i
+;;		c5 = c5r + c5i
+;;		r1_2 = c1r - c6r
+;;		c7 = c5r - c5i	(implied)
+;;		c8 = c4r - c4i	(implied)
+;;		c9 = c3r - c3i	(implied)
+;;		c10 = c2r - c2i	(implied)
+;; And noticing the signs of the real and imaginary parts of the sin/cos values:
+;; w^1/10 = .809 - .588i
+;; w^2/10 = .309 - .951i
+;; w^3/10 = -.309 - .951i
+;; w^4/10 = -.809 - .588i
+;; We get reals:
+;; r1_1 + 2c2 + 2c3 + 2c4 + 2c5	*  w^00000
+;; r1_2 + 2c2 + 2c3 + 2c4 + 2c5	*  w^01234
+;; r1_1 + 2c2 + 2c3 - 2c4 - 2c5	*  w^02413
+;; r1_2 + 2c2 - 2c3 - 2c4 + 2c5	*  w^03142
+;; r1_1 + 2c2 - 2c3 + 2c4 - 2c5	*  w^04321
+;; r1_2 - 2c2 + 2c3 - 2c4 + 2c5	*  w^00000
+;; r1_1 - 2c2 + 2c3 - 2c4 + 2c5	*  w^01234
+;; r1_2 - 2c2 + 2c3 + 2c4 - 2c5	*  w^02413
+;; r1_1 - 2c2 - 2c3 + 2c4 + 2c5	*  w^03142
+;; r1_2 - 2c2 - 2c3 - 2c4 - 2c5	*  w^04321
+;; Now drop the multiplication by 2 (the actual r1_1 and r1_2 inputs are already doubled)
+;; and expand the sin/cos multipliers:
+;; r1_1 + c2r + c3r + c4r + c5r
+;; r1_2 + .809c2r + .588c2i + .309c3r + .951c3i - .309c4r + .951c4i - .809c5r + .588c5i
+;; r1_1 + .309c2r + .951c2i - .809c3r + .588c3i - .809c4r - .588c4i + .309c5r - .951c5i
+;; r1_2 - .309c2r + .951c2i - .809c3r - .588c3i + .809c4r - .588c4i + .309c5r + .951c5i
+;; r1_1 - .809c2r + .588c2i + .309c3r - .951c3i + .309c4r + .951c4i - .809c5r - .588c5i
+;; r1_2 - c2r + c3r - c4r + c5r
+;; r1_1 - .809c2r - .588c2i + .309c3r + .951c3i + .309c4r - .951c4i - .809c5r + .588c5i
+;; r1_2 - .309c2r - .951c2i - .809c3r + .588c3i + .809c4r + .588c4i + .309c5r - .951c5i
+;; r1_1 + .309c2r - .951c2i - .809c3r - .588c3i - .809c4r + .588c4i + .309c5r + .951c5i
+;; r1_2 + .809c2r - .588c2i + .309c3r - .951c3i - .309c4r - .951c4i - .809c5r - .588c5i
+;; Simplify:
+;; r1_1 + c2r + c3r + c4r + c5r
+;; r1_2 + .809(c2r-c5r) + .588(c2i+c5i) + .309(c3r-c4r) + .951(c3i+c4i)
+;; r1_1 + .309(c2r+c5r) + .951(c2i-c5i) - .809(c3r+c4r) + .588(c3i-c4i)
+;; r1_2 - .309(c2r-c5r) + .951(c2i+c5i) - .809(c3r-c4r) - .588(c3i+c4i)
+;; r1_1 - .809(c2r+c5r) + .588(c2i-c5i) + .309(c3r+c4r) - .951(c3i-c4i)
+;; r1_2 - c2r + c3r - c4r + c5r
+;; r1_1 - .809(c2r+c5r) - .588(c2i-c5i) + .309(c3r+c4r) + .951(c3i-c4i)
+;; r1_2 - .309(c2r-c5r) - .951(c2i+c5i) - .809(c3r-c4r) + .588(c3i+c4i)
+;; r1_1 + .309(c2r+c5r) - .951(c2i-c5i) - .809(c3r+c4r) - .588(c3i-c4i)
+;; r1_2 + .809(c2r-c5r) - .588(c2i+c5i) + .309(c3r-c4r) - .951(c3i+c4i)
+
+yr5_10r_unfft_mem_preload MACRO
+	ENDM
+yr5_10r_unfft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg,dstr1,dstr3,dstr5,dsti1
+	vmovapd	ymm2, memr2		;; R2
+	vmovapd	ymm4, [screg+32]	;; cosine/sine
+	vmulpd	ymm1, ymm2, ymm4	;; A2 = R2 * cosine/sine
+	vmovapd	ymm5, memr5		;; R5
+	vmovapd	ymm6, [screg+192+32]	;; cosine/sine
+	vmulpd	ymm0, ymm5, ymm6	;; A5 = R5 * cosine/sine
+	vmovapd	ymm3, memr2[32]		;; I2
+	vaddpd	ymm1, ymm1, ymm3	;; A2 = A2 + I2
+	vmovapd	ymm7, memr5[32]		;; I5
+	vaddpd	ymm0, ymm0, ymm7	;; A5 = A5 + I5
+	vmulpd	ymm3, ymm3, ymm4	;; B2 = I2 * cosine/sine
+	vmulpd	ymm7, ymm7, ymm6	;; B5 = I5 * cosine/sine
+	vsubpd	ymm3, ymm3, ymm2	;; B2 = B2 - R2
+	vsubpd	ymm7, ymm7, ymm5	;; B5 = B5 - R5
+	vmovapd	ymm4, [screg]		;; sine
+	vmulpd	ymm1, ymm1, ymm4	;; A2 = A2 * sine (new R2)
+	vmovapd	ymm6, [screg+192]	;; sine
+	vmulpd	ymm0, ymm0, ymm6	;; A5 = A5 * sine (new R5)
+	vmulpd	ymm3, ymm3, ymm4	;; B2 = B2 * sine (new I2)
+	vmulpd	ymm7, ymm7, ymm6	;; B5 = B5 * sine (new I5)
+	vaddpd	ymm2, ymm0, ymm1	;; R2+R5
+	vsubpd	ymm0, ymm0, ymm1	;; NEG(R2-R5) = R5-R2
+	vaddpd	ymm1, ymm3, ymm7	;; I2+I5
+	vsubpd	ymm3, ymm3, ymm7	;; I2-I5
+	vmovapd	YMM_TMP1, ymm2		;; Temp save R2+R5
+	vmovapd	YMM_TMP2, ymm3		;; Temp save I2-I5
+	vmovapd	YMM_TMP3, ymm0		;; Temp save NEG(R2-R5)
+	vmovapd	YMM_TMP4, ymm1		;; Temp save I2+I5
+
+	vmovapd	ymm2, memr4		;; R4
+	vmovapd	ymm4, [screg+128+32]	;; cosine/sine
+	vmulpd	ymm1, ymm2, ymm4	;; A4 = R4 * cosine/sine
+	vmovapd	ymm5, memr3		;; R3
+	vmovapd	ymm6, [screg+64+32]	;; cosine/sine
+	vmulpd	ymm0, ymm5, ymm6	;; A3 = R3 * cosine/sine
+	vmovapd	ymm3, memr4[32]		;; I4
+	vaddpd	ymm1, ymm1, ymm3	;; A4 = A4 + I4
+	vmovapd	ymm7, memr3[32]		;; I3
+	vaddpd	ymm0, ymm0, ymm7	;; A3 = A3 + I3
+	vmulpd	ymm3, ymm3, ymm4	;; B4 = I4 * cosine/sine
+	vmulpd	ymm7, ymm7, ymm6	;; B3 = I3 * cosine/sine
+	vsubpd	ymm3, ymm3, ymm2	;; B4 = B4 - R4
+	vsubpd	ymm7, ymm7, ymm5	;; B3 = B3 - R3
+	vmovapd	ymm4, [screg+128]	;; sine
+	vmulpd	ymm1, ymm1, ymm4	;; A4 = A4 * sine (new R4)
+	vmovapd	ymm6, [screg+64]	;; sine
+	vmulpd	ymm0, ymm0, ymm6	;; A3 = A3 * sine (new R3)
+	vmulpd	ymm3, ymm3, ymm4	;; B4 = B4 * sine (new I4)
+	vmulpd	ymm7, ymm7, ymm6	;; B3 = B3 * sine (new I3)
+	vaddpd	ymm2, ymm0, ymm1	;; R3+R4
+	vsubpd	ymm0, ymm0, ymm1	;; R3-R4
+	vaddpd	ymm1, ymm7, ymm3	;; I3+I4
+	vsubpd	ymm7, ymm7, ymm3	;; I3-I4
+	vmovapd	YMM_TMP5, ymm0		;; Temp save R3-R4
+	vmovapd	YMM_TMP6, ymm1		;; Temp save I3+I4
+
+	vmovapd	ymm1, YMM_TMP1		;; Reload R2+R5
+	vmovapd	ymm4, YMM_P309
+	vmulpd	ymm5, ymm4, ymm1	;; new R3 = .309*(R2+R5)
+	vmovapd	ymm6, memr1		;; R1_1
+	vaddpd	ymm5, ymm5, ymm6	;; new R3 += R1_1
+	vmovapd	ymm0, YMM_M809
+	vmulpd	ymm3, ymm0, ymm1	;; new R5 = -.809*(R2+R5)
+	vaddpd	ymm1, ymm6, ymm1	;; new R1 = R1_1+R2+R5
+	vaddpd	ymm3, ymm3, ymm6	;; new R5 += R1_1
+	vmulpd	ymm0, ymm0, ymm2	;; -.809*(R3+R4)
+	vaddpd	ymm1, ymm1, ymm2	;; final R1 = R1_1+R2+R5+R3+R4
+	vmulpd	ymm2, ymm4, ymm2	;; .309*(R3+R4)
+	vaddpd	ymm5, ymm5, ymm0	;; new R3 += -.809*(R3+R4)
+	vaddpd	ymm3, ymm3, ymm2	;; new R5 += .309*(R3+R4)
+
+	vmovapd	ymm0, YMM_TMP2		;; Reload I2-I5
+	vmovapd	ymm6, YMM_P951
+	vmulpd	ymm2, ymm6, ymm0	;; tmp1 = .951*(I2-I5)
+	vmovapd	ymm4, YMM_P588
+	vmulpd	ymm0, ymm4, ymm0	;; tmp2 = .588*(I2-I5)
+	vmulpd	ymm4, ymm4, ymm7	;; .588*(I3-I4)
+	vmulpd	ymm7, ymm6, ymm7	;; .951*(I3-I4)
+	vaddpd	ymm2, ymm2, ymm4	;; tmp1 += .588*(I3-I4)
+	vsubpd	ymm0, ymm0, ymm7	;; tmp2 -= .951*(I3-I4)
+
+	vsubpd	ymm4, ymm5, ymm2	;; final R9 = new R3 - tmp1
+	vaddpd	ymm5, ymm5, ymm2	;; final R3 = new R3 + tmp1
+	vsubpd	ymm2, ymm3, ymm0	;; final R7 = new R5 - tmp2
+	vaddpd	ymm3, ymm3, ymm0	;; final R5 = new R5 + tmp2
+
+	vmovapd	dstr1, ymm1		;; Save final R1
+	vmovapd	dstr3, ymm5		;; Save final R3
+	vmovapd	dstr5, ymm3		;; Save final R5
+
+	vmovapd	ymm3, YMM_TMP5		;; Reload R3-R4
+	vmovapd	ymm0, YMM_P309
+	vmulpd	ymm1, ymm0, ymm3	;; new R2 = .309*(R3-R4)
+	vmovapd	ymm7, memr1[32]		;; R1_2
+	vaddpd	ymm1, ymm1, ymm7	;; new R2 += R1_2
+	vmovapd	ymm5, YMM_M809
+	vmulpd	ymm6, ymm5, ymm3	;; new R4 = -.809*(R3-R4)
+	vaddpd	ymm3, ymm7, ymm3	;; new R6 = R1_2+(R3-R4)
+	vaddpd	ymm6, ymm6, ymm7	;; new R4 += R1_2
+	vmovapd	ymm7, YMM_TMP3		;; Reload NEG(R2-R5)
+	vmulpd	ymm5, ymm5, ymm7	;; -.809*NEG(R2-R5)
+	vaddpd	ymm3, ymm3, ymm7	;; final R6 = R6+(R3-R4)+NEG(R2-R5)
+	vmulpd	ymm0, ymm0, ymm7	;; .309*NEG(R2-R5)
+	vaddpd	ymm1, ymm1, ymm5	;; new R2 += -.809*NEG(R2-R5)
+	vaddpd	ymm6, ymm6, ymm0	;; new R4 += .309*NEG(R2-R5)
+
+	vmovapd	ymm0, YMM_TMP6		;; Reload I3+I4
+	vmovapd	ymm5, YMM_P588
+	vmulpd	ymm7, ymm5, ymm0	;; tmp2 = .588*(I3+I4)
+	vmulpd	ymm0, ymm0, YMM_P951	;; tmp1 = .951*(I3+I4)
+	vmovapd	dsti1, ymm3		;; Save final I1
+	vmovapd	ymm3, YMM_TMP4		;; Reload I2+I5
+	vmulpd	ymm5, ymm5, ymm3	;; .588*(I2+I5)
+	vmulpd	ymm3, ymm3, YMM_P951	;; .951*(I2+I5)
+	vaddpd	ymm0, ymm0, ymm5	;; tmp1 += .588*(I2+I5)
+	vsubpd	ymm7, ymm7, ymm3	;; tmp2 -= .951*(I2+I5)
+
+	vsubpd	ymm3, ymm1, ymm0	;; Final R10 = new R2 - tmp1
+	vaddpd	ymm1, ymm1, ymm0	;; Final R2 = new R2 + tmp1
+	vsubpd	ymm0, ymm6, ymm7	;; Final R4 = new R4 - tmp2
+	vaddpd	ymm6, ymm6, ymm7	;; Final R8 = new R4 + tmp2
+	ENDM
+
+
+;;
 ;; ************************************* ten-reals-five-complex-fft variants ******************************************
 ;;
 

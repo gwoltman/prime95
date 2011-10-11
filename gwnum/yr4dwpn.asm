@@ -36,7 +36,7 @@ _TEXT SEGMENT
 buildfor CORE   ,	ypass2gen 8
 buildfor CORE   ,	ypass2gen 768
 buildfor CORE   ,	ypass2gen 10
-;buildfor CORE   ,	ypass2gen 1280
+buildfor CORE   ,	ypass2gen 1280
 ;buildfor CORE   ,	ypass2gen 1536
 buildfor CORE   ,	ypass2gen 11
 ;buildfor CORE   ,	ypass2gen 2560
@@ -75,7 +75,7 @@ buildfor CORE   ,	yr4dwpn_pass1sc128 96K, 768, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128 128K, 10, 4
 ;buildfor CORE   ,	yr4dwpn_pass1sc128 128K, 10, 2
 ;buildfor        ,	yr4dwpn_pass1sc128 128K, 10, 1
-;buildfor        ,	yr4dwpn_pass1sc128 160K, 1280, 4
+buildfor CORE   ,	yr4dwpn_pass1sc128 160K, 1280, 4
 ;buildfor CORE   ,	yr4dwpn_pass1sc128 160K, 1280, 2
 ;buildfor        ,	yr4dwpn_pass1sc128 160K, 1280, 1
 
@@ -124,7 +124,7 @@ buildfor CORE   ,	yr4dwpn_pass1sc512 384K, 768, 4
 buildfor CORE   ,	yr4dwpn_pass1sc512 512K, 10, 4
 ;buildfor CORE_64,	yr4dwpn_pass1sc512 512K, 10, 2
 ;buildfor        ,	yr4dwpn_pass1sc512 512K, 10, 1
-;buildfor        ,	yr4dwpn_pass1sc512 640K, 1280, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512 640K, 1280, 4
 
 ;buildfor CORE   ,	yr4dwpn_pass1sc640 480K, 768, 4
 ;buildfor CORE   ,	yr4dwpn_pass1sc640 640K, 10, 4
@@ -271,7 +271,7 @@ buildfor CORE   ,	yr4dwpn_pass1sc128ac 96K, 768, 4
 ;buildfor CORE   ,	yr4dwpn_pass1sc128ac 96K, 768, 2
 buildfor CORE   ,	yr4dwpn_pass1sc128ac 128K, 10, 4
 ;buildfor CORE   ,	yr4dwpn_pass1sc128ac 128K, 10, 2
-;buildfor CORE_64,	yr4dwpn_pass1sc128ac 160K, 1280, 4
+buildfor CORE   ,	yr4dwpn_pass1sc128ac 160K, 1280, 4
 ;buildfor CORE   ,	yr4dwpn_pass1sc128ac 160K, 1280, 2
 
 ;buildfor CORE_64,	yr4dwpn_pass1sc256ac 192K, 768, 4
@@ -300,7 +300,7 @@ buildfor CORE   ,	yr4dwpn_pass1sc512ac 384K, 768, 4
 buildfor CORE   ,	yr4dwpn_pass1sc512ac 512K, 10, 4
 ;buildfor        ,	yr4dwpn_pass1sc512ac 512K, 10, 2
 ;buildfor        ,	yr4dwpn_pass1sc512ac 512K, 10, 1
-;buildfor CORE   ,	yr4dwpn_pass1sc512ac 640K, 1280, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512ac 640K, 1280, 4
 ;buildfor        ,	yr4dwpn_pass1sc512ac 640K, 1280, 2
 ;buildfor CORE_32,	yr4dwpn_pass1sc512ac 640K, 1280, 1
 
