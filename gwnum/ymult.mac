@@ -80,7 +80,7 @@ yonepass MACRO fftname, all_complex
 	ENDIF
 	yprocname CATSTR yprocname,<_>,yarch
 
-;; Generate the pass 2 routine name
+;; Generate the FFT macro name
 
 	ymacroname CATSTR <yfft>,<&fftname>
 	IF all_complex EQ 1
@@ -169,7 +169,11 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 	IF PREFETCHING EQ 0
 	ypass2name CATSTR ypass2name,<_np>
 	ENDIF
+	IF ypass2_levels LE 24
 	ypass2name CATSTR ypass2name,<_>,%ypass2_levels,<_levels_>,yarch
+	ELSE
+	ypass2name CATSTR ypass2name,<_>,%ypass2_levels,<_>,yarch
+	ENDIF
 
 ;; Compute the number of 64-byte cache lines in pass 2
 
@@ -680,12 +684,21 @@ ypass2gen MACRO levels
 	IF PREFETCHING EQ 0
 	procname CATSTR procname,<_np>
 	ENDIF
+	IF levels LE 24
 	procname CATSTR procname,<_>,%levels,<_levels_>,yarch
+	ELSE
+	procname CATSTR procname,<_>,%levels,<_>,yarch
+	ENDIF
 
 ;; Generate the macro names
 
+	IF levels LE 24
 	realmacro CATSTR <y>,yfft_type,<_>,<pass2_>,%levels,<_levels_real>
 	complexmacro CATSTR <y>,yfft_type,<_>,<pass2_>,%levels,<_levels_complex>
+	ELSE
+	realmacro CATSTR <y>,yfft_type,<_>,<pass2_>,%levels,<_real>
+	complexmacro CATSTR <y>,yfft_type,<_>,<pass2_>,%levels,<_complex>
+	ENDIF
 
 ;; Define pass 2 constants
 

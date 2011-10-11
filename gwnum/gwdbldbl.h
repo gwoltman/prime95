@@ -50,6 +50,10 @@ void gwsincos15by (unsigned long, unsigned long, double *, int);
 #define gwsincos125by4(a,b,c)	gwsincos125by(a,b,c,4)
 void gwsincos125by (unsigned long, unsigned long, double *, int);
 
+#define gwsincos1234by2(a,b,c)	gwsincos1234by(a,b,c,2)
+#define gwsincos1234by4(a,b,c)	gwsincos1234by(a,b,c,4)
+void gwsincos1234by (unsigned long, unsigned long, double *, int);
+
 #define gwsincos1plus0123by1(a,b,c,d)	gwsincos1plus0123by(a,b,c,d,1)
 #define gwsincos1plus0123by2(a,b,c,d)	gwsincos1plus0123by(a,b,c,d,2)
 #define gwsincos1plus0123by4(a,b,c,d)	gwsincos1plus0123by(a,b,c,d,4)

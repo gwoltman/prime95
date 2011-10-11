@@ -17,6 +17,7 @@
 ;; ************************************* five-complex-djbfft variants ******************************************
 ;;
 
+;; The standard version
 yr5_5cl_five_complex_djbfft_preload MACRO
 	ENDM
 yr5_5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg
@@ -24,6 +25,24 @@ yr5_5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg
 	d3=3*d1
 	d4=4*d1
 	yr5_5c_djbfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d3],[srcreg+d4],noexec,screg,screg+64,32,[srcreg],[srcreg+32],[srcreg+d1]
+	vmovapd	[srcreg+d1+32], ymm6		;; Save I2
+	vmovapd	[srcreg+d2], ymm5		;; Save R3
+	vmovapd	[srcreg+d2+32], ymm2		;; Save I3
+	vmovapd	[srcreg+d3], ymm0		;; Save R4
+	vmovapd	[srcreg+d3+32], ymm1		;; Save I4
+	vmovapd	[srcreg+d4], ymm7		;; Save R5
+	vmovapd	[srcreg+d4+32], ymm4		;; Save I5
+	bump	srcreg, srcinc
+	ENDM
+
+;; Like 5cl but uses rbx to index into source
+yr5_f5cl_five_complex_djbfft_preload MACRO
+	ENDM
+yr5_f5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg
+	d2=2*d1
+	d3=3*d1
+	d4=4*d1
+	yr5_5c_djbfft_mem [srcreg][rbx],[srcreg+d1][rbx],[srcreg+d2][rbx],[srcreg+d3][rbx],[srcreg+d4][rbx],noexec,screg,screg+64,32,[srcreg],[srcreg+32],[srcreg+d1]
 	vmovapd	[srcreg+d1+32], ymm6		;; Save I2
 	vmovapd	[srcreg+d2], ymm5		;; Save R3
 	vmovapd	[srcreg+d2+32], ymm2		;; Save I3
@@ -53,10 +72,10 @@ yr5_b5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg
 	ENDM
 
 ; Like b5cl but extracts the sin/cos data to broadcasts from
-; the ten-real/five_complex sin/cos YMM registers
-yr5_fb5cl_five_complex_djbfft_preload MACRO
+; the ten-real/five_complex sin/cos table
+yr5_rb5cl_five_complex_djbfft_preload MACRO
 	ENDM
-yr5_fb5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg
+yr5_rb5cl_five_complex_djbfft MACRO srcreg,srcinc,d1,screg
 	d2=2*d1
 	d3=3*d1
 	d4=4*d1
@@ -264,11 +283,11 @@ yr5_b5cl_five_complex_djbunfft MACRO srcreg,srcinc,d1,screg,scoff
 	ENDM
 
 ; Like b5cl but extracts the sin/cos data to broadcasts from
-; the ten-real/five_complex sin/cos YMM registers
-yr5_fb5cl_five_complex_djbunfft_preload MACRO
+; the ten-real/five_complex sin/cos table
+yr5_rb5cl_five_complex_djbunfft_preload MACRO
 	yr5_5c_djbunfft_mem_preload
 	ENDM
-yr5_fb5cl_five_complex_djbunfft MACRO srcreg,srcinc,d1,screg,scoff
+yr5_rb5cl_five_complex_djbunfft MACRO srcreg,srcinc,d1,screg,scoff
 	d2 = 2*d1
 	d3 = 3*d1
 	d4 = 4*d1

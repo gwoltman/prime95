@@ -132,7 +132,7 @@ c0b:	start_timer 16
 	lea	rdi, [rdx+clm*YMM_SCD2]	;; Complex data sin/cos ptr
 pfing	lea	rbp, [rdx+(44-16)*clm*64] ;; Finish prefetch the sin/cos/premult data
 	loops_init_prefetch 4*4*clm, 64, 1, rbp ;; 4*4*clm iterations
-c8b:	yr4_sg4cl_eight_reals_unfft4 rsi, 64, blkdst, 2*blkdst, rcx, 256, 64, 128, rdi, rdx
+c8b:	yr4_sg4cl_2sc_eight_reals_unfft4 rsi, 64, blkdst, 2*blkdst, rcx, 256, 64, 128, rdi, rdx
 	bump	rdi, YMM_SCD4		;; Next premult/sin/cos data
 	bump	rdx, YMM_SCD2		;; Next sine/cosine pointer
 	loops	clm, c8b		;; Loop clm times
@@ -181,8 +181,8 @@ c9b:	yr4_sg4cl_four_complex_unfft4 rsi, 64, blkdst, 2*blkdst, rcx, 256, 64, 128,
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 	loops_init 4*4*clm		;; 4*4*clm iterations
 
-	yr4_b4cl_wpn_eight_reals_unfft_preload
-c6b:	yr4_b4cl_wpn_eight_reals_unfft rsi, 64, clmblkdst, 2*clmblkdst, rdi, rdx
+	yr4_b4cl_2sc_wpn_eight_reals_unfft_preload
+c6b:	yr4_b4cl_2sc_wpn_eight_reals_unfft rsi, 64, clmblkdst, 2*clmblkdst, rdi, rdx
 	bump	rdi, YMM_SCND2		;; Next sine/cosine pointer
 	bump	rdx, YMM_SCND2R		;; Next sine/cosine pointer
 	yloop1	c6b, 4*clmblkdst	;; 4*clm iterations
@@ -214,15 +214,15 @@ c7b:	yr4_b4cl_wpn_four_complex_djbunfft rsi, 64, clmblkdst, 2*clmblkdst, rdi
 ;;	...
 ;;	60K	...
 
-;; Do 16 eight_reals_last_unfft operations
+;; Do 16 eight_reals_unfft operations
 ;;	distance between fft data elements is 16K
 ;;	do 4 macros each processing 32 data values
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos data ptr
 	loops_init 4*4*clm		;; 4 iterations of 4*clm
-	yr4_4cl_eight_reals_last_unfft_preload
-c1b:	yr4_4cl_eight_reals_last_unfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
+	yr4_4cl_eight_reals_unfft_preload
+c1b:	yr4_4cl_eight_reals_unfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
 	yloop1	c1b, clmblkdst, rdi, YMM_SCD3 ;; 4*clm iterations
 	loops	4, c1b			;; 4 iterations
 	end_timer 20
@@ -254,7 +254,7 @@ b0b:	copy_fft_data_to_scratch 16
 ;;	32K	...
 ;;	...
 
-;; Do 16 eight_reals_first_fft operations
+;; Do 16 eight_reals_fft operations
 ;;	distance between fft data elements is 16K
 ;;	do 4 iterations each processing 32 data values
 
@@ -264,8 +264,8 @@ yes_fft:start_timer 22
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 pfing	bump	rcx, 32*blkdst		;; We've already prefetched 32 blocks
 	loops_init 4*4*clm		;; 4 iters of 4*clm
-	yr4_4cl_eight_reals_first_fft_scratch_preload
-b1b:	yr4_4cl_eight_reals_first_fft_scratch rsi, 64, 4*clmblkdst, clmblkdst8, rdi
+	yr4_4cl_eight_reals_fft_preload
+b1b:	yr4_4cl_eight_reals_fft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
 	yloop1 b1b, clmblkdst, rdi, YMM_SCD3 ;; 4*clm iters prefetching 4*clm cache lines
 	loops	4, b1b			;; 4 iterations
 	bump	rsi, -4*clmblkdst	;; Restore source pointer
@@ -296,8 +296,8 @@ b1b:	yr4_4cl_eight_reals_first_fft_scratch rsi, 64, 4*clmblkdst, clmblkdst8, rdi
 	bump	rdx, clm*YMM_SCD2 + 4*clm*YMM_SCD4 ;; Real data sin/cos ptr
 	lea	rdi, [rdx+4*clm*YMM_SCND2R] ;; Complex data sin/cos ptr
 	loops_init 4*4*clm		;; 4 iterations of 4*clm
-	yr4_b4cl_wpn_eight_reals_fft_preload
-b6b:	yr4_b4cl_wpn_eight_reals_fft rsi, 64, clmblkdst, 2*clmblkdst, rdi, rdx
+	yr4_b4cl_2sc_wpn_eight_reals_fft_preload
+b6b:	yr4_b4cl_2sc_wpn_eight_reals_fft rsi, 64, clmblkdst, 2*clmblkdst, rdi, rdx
 	bump	rdi, YMM_SCND2		;; Next sine/cosine pointer
 	bump	rdx, YMM_SCND2R		;; Next sine/cosine pointer
 	yloop1 b6b, 4*clmblkdst		;; 4*clm iterations
@@ -345,8 +345,8 @@ b7b:	yr4_b4cl_wpn_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, rdi
 	mov	rcx, DATA_ADDR		;; Destination pointer
 	loops_init_prefetch 4*4*clm, 128, 1, rbp ;; 4 iters of 4*clm
 pfing	mov	rbp, PREMULT_PREFETCH	;; Load premult/sin/cos prefetch pointer
-	yr4_sg4cl_eight_reals_fft4_preload
-b8b:	yr4_sg4cl_eight_reals_fft4 rsi, 256, 64, 128, rcx, 64, blkdst, 2*blkdst, rdi, rdx
+	yr4_sg4cl_2sc_eight_reals_fft4_preload
+b8b:	yr4_sg4cl_2sc_eight_reals_fft4 rsi, 256, 64, 128, rcx, 64, blkdst, 2*blkdst, rdi, rdx
 	bump	rdi, YMM_SCD4		;; Next sine/cosine pointer
 	bump	rdx, YMM_SCD2		;; Next sine/cosine pointer
 	loops	clm, b8b		;; clm iterations
@@ -546,7 +546,7 @@ yes_fft:start_timer 22
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 pfing	bump	rcx, 32*blkdst		;; We've already prefetched 32 blocks
 	loops_init 4*4*clm		;; 4 iters of 4*clm
-b1b:	yr4_4cl_four_complex_first_djbfft_scratch rsi, 64, 4*clmblkdst, clmblkdst8, rdi, rdx
+b1b:	yr4_4cl_four_complex_first_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, rdx
 	yloop1	b1b, clmblkdst, rdi, YMM_SCD2, rdx, YMM_SCD4 ;; 4*clm iters prefetching 4*clm cache lines
 	loops	4, b1b			;; 4 iterations
 	bump	rsi, -4*clmblkdst	;; Restore source pointer
@@ -696,7 +696,7 @@ c0b:	start_timer 16
 	lea	rdi, [rdx+clm*YMM_SCD2]	;; Complex data sin/cos ptr
 pfing	lea	rbp, [rdx+(92-32)*clm*64] ;; Finish prefetch the sin/cos/premult data
 	loops_init_prefetch 16*4*clm, 64, 2, rbp ;; 16*4*clm iterations
-c8b:	yr4_sg4cl_eight_reals_unfft4 rsi, 64, blkdst, 2*blkdst, rcx, 256, 64, 128, rdi, rdx
+c8b:	yr4_sg4cl_2sc_eight_reals_unfft4 rsi, 64, blkdst, 2*blkdst, rcx, 256, 64, 128, rdi, rdx
 	bump	rdi, YMM_SCD4		;; Next premult/sin/cos data
 	bump	rdx, YMM_SCD2		;; Next sine/cosine pointer
 	loops	clm, c8b		;; Loop clm times
@@ -745,8 +745,8 @@ c9b:	yr4_sg4cl_four_complex_unfft4 rsi, 64, blkdst, 2*blkdst, rcx, 256, 64, 128,
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 	loops_init 16*4*clm		;; 16*4*clm iterations
 
-	yr4_b4cl_wpn_eight_reals_unfft_preload
-c6b:	yr4_b4cl_wpn_eight_reals_unfft rsi, 64, clmblkdst, 2*clmblkdst, rdi, rdx
+	yr4_b4cl_2sc_wpn_eight_reals_unfft_preload
+c6b:	yr4_b4cl_2sc_wpn_eight_reals_unfft rsi, 64, clmblkdst, 2*clmblkdst, rdi, rdx
 	bump	rdi, YMM_SCND2		;; Next sine/cosine pointer
 	bump	rdx, YMM_SCND2R		;; Next sine/cosine pointer
 	yloop1halfpre c6b, 4*clmblkdst	;; 4*clm iterations
@@ -790,8 +790,8 @@ c7b:	yr4_b4cl_wpn_four_complex_djbunfft rsi, 64, clmblkdst, 2*clmblkdst, rdi
 	lea	rdi, [rdx+4*YMM_SCD2]	;; Complex data sin/cos ptr
 	loops_init 16*4*clm		;; 16*4*clm iterations
 
-	yr4_4cl_eight_reals_unfft_preload
-c4b:	yr4_4cl_eight_reals_unfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, rdx
+	yr4_4cl_2sc_eight_reals_unfft_preload
+c4b:	yr4_4cl_2sc_eight_reals_unfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, rdx
 	yloop1halfpre c4b, clmblkdst, rdi, YMM_SCD2, rdx, YMM_SCD2 ;; 4*clm iterations
 	loops	4, c4b			;; Test loop counter
 	bump	rsi, -4*clmblkdst+2*clmblkdst8 ;; Next source pointer
@@ -822,15 +822,15 @@ c5b:	yr4_4cl_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
 ;;	...
 ;;	252K	...
 
-;; Do 64 eight_reals_last_unfft operations
+;; Do 64 eight_reals_unfft operations
 ;;	distance between fft data elements is 64K
 ;;	do 16 macros each processing 32 data values
 
 	start_timer 20
 	bump	rdi, -4*YMM_SCD2-16*YMM_SCD3 ;; Next fixed sine/cosine pointer
 	loops_init 16*4*clm		;; 16 iterations of 4*clm
-	yr4_4cl_eight_reals_last_unfft_preload
-c1b:	yr4_4cl_eight_reals_last_unfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi
+	yr4_4cl_eight_reals_unfft_preload
+c1b:	yr4_4cl_eight_reals_unfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi
 	yloop1	c1b, clmblkdst, rdi, YMM_SCD3 ;; 4*clm iterations
 	loops	8, c1b			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8 ;; Next source pointer
@@ -864,7 +864,7 @@ b0b:	copy_fft_data_to_scratch 64
 ;;	128K	...
 ;;	...
 
-;; Do 64 eight_reals_first_fft operations
+;; Do 64 eight_reals_fft operations
 ;;	distance between fft data elements is 64K
 ;;	do 16 iterations each processing 32 data values
 
@@ -874,8 +874,8 @@ yes_fft:start_timer 22
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 pfing	bump	rcx, 128*blkdst		;; We've already prefetched 128 blocks
 	loops_init 16*4*clm		;; 16 iters of 4*clm
-	yr4_4cl_eight_reals_first_fft_scratch_preload
-b1b:	yr4_4cl_eight_reals_first_fft_scratch rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi
+	yr4_4cl_eight_reals_fft_preload
+b1b:	yr4_4cl_eight_reals_fft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi
 	yloop1 b1b, clmblkdst, rdi, YMM_SCD3 ;; 4*clm iters prefetching 4*clm cache lines
 	loops	8, b1b			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8 ;; Next source pointer
@@ -910,8 +910,8 @@ b1b:	yr4_4cl_eight_reals_first_fft_scratch rsi, 64, 2*clmblkdst8, 4*clmblkdst8, 
 	start_timer 24
 	lea	rdi, [rdx+4*YMM_SCD2]	;; Complex data sin/cos ptr
 	loops_init 16*4*clm		;; 16 iterations of 4*clm
-	yr4_4cl_eight_reals_fft_preload
-b4b:	yr4_4cl_eight_reals_fft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, rdx
+	yr4_4cl_2sc_eight_reals_fft_preload
+b4b:	yr4_4cl_2sc_eight_reals_fft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, rdx
 	yloop1halfpre b4b, clmblkdst, rdi, YMM_SCD2, rdx, YMM_SCD2 ;; 4*clm iterations
 	loops	4, b4b			;; Test middle loop counter
 	bump	rsi, -4*clmblkdst+2*clmblkdst8 ;; Next source pointer
@@ -953,8 +953,8 @@ b5b:	yr4_4cl_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
 	bump	rdx, clm*YMM_SCD2 + 16*clm*YMM_SCD4 ;; Real data sin/cos ptr
 	lea	rdi, [rdx+4*clm*YMM_SCND2R] ;; Complex data sin/cos ptr
 	loops_init 16*4*clm		;; 16 iterations of 4*clm
-	yr4_b4cl_wpn_eight_reals_fft_preload
-b6b:	yr4_b4cl_wpn_eight_reals_fft rsi, 64, clmblkdst, 2*clmblkdst, rdi, rdx
+	yr4_b4cl_2sc_wpn_eight_reals_fft_preload
+b6b:	yr4_b4cl_2sc_wpn_eight_reals_fft rsi, 64, clmblkdst, 2*clmblkdst, rdi, rdx
 	bump	rdi, YMM_SCND2		;; Next sine/cosine pointer
 	bump	rdx, YMM_SCND2R		;; Next sine/cosine pointer
 	yloop1halfpre b6b, 4*clmblkdst	;; 4*clm iterations
@@ -1002,8 +1002,8 @@ b7b:	yr4_b4cl_wpn_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, rdi
 	mov	rcx, DATA_ADDR		;; Destination pointer
 	loops_init_prefetch 16*4*clm, 64, 1, rbp ;; 16 iters of 4*clm
 pfing	mov	rbp, PREMULT_PREFETCH	;; Load premult/sin/cos prefetch pointer
-	yr4_sg4cl_eight_reals_fft4_preload
-b8b:	yr4_sg4cl_eight_reals_fft4 rsi, 256, 64, 128, rcx, 64, blkdst, 2*blkdst, rdi, rdx
+	yr4_sg4cl_2sc_eight_reals_fft4_preload
+b8b:	yr4_sg4cl_2sc_eight_reals_fft4 rsi, 256, 64, 128, rcx, 64, blkdst, 2*blkdst, rdi, rdx
 	bump	rdi, YMM_SCD4		;; Next sine/cosine pointer
 	bump	rdx, YMM_SCD2		;; Next sine/cosine pointer
 	loops	clm, b8b		;; clm iterations
@@ -1239,7 +1239,7 @@ yes_fft:start_timer 22
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 pfing	bump	rcx, 128*blkdst		;; We've already prefetched 128 blocks
 	loops_init 16*4*clm		;; 16 iters of 4*clm
-b1b:	yr4_4cl_four_complex_first_djbfft_scratch rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, rdx
+b1b:	yr4_4cl_four_complex_first_djbfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, rdx
 	yloop1	b1b, clmblkdst, rdi, YMM_SCD2, rdx, YMM_SCD4 ;; 4*clm iters prefetching 4*clm cache lines
 	loops	8, b1b			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8 ;; Next source pointer
@@ -1517,15 +1517,15 @@ c7b:	r4_x4cl_wpn_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 2
 ;;	...
 ;;	31K
 
-;; Do 16 eight_reals_last_unfft operations
+;; Do 16 eight_reals_unfft operations
 ;;	distance between fft data elements is 16K
 ;;	do 8 macros each processing 32 data values
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos data ptr
 	loops_init 8*2*clm		;; 8 iterations of 2*clm
-	r4_x4cl_eight_reals_last_unfft_preload
-c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 8*YMM_SCD3
+	r4_x4cl_eight_reals_unfft_preload
+c1b:	r4_x4cl_eight_reals_unfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 8*YMM_SCD3
 	yloop1 c1b, clmblkdst, rdi, YMM_SCD3 ;; 2*clm iterations
 	loops	8, c1b			;; 8 iterations
 	end_timer 20
@@ -1558,7 +1558,7 @@ b0b:	copy_fft_data_to_scratch 32
 ;;	64K	...
 ;;	...
 
-;; Do 16 eight_reals_first_fft operations
+;; Do 16 eight_reals_fft operations
 ;;	distance between fft data elements is 16K
 ;;	do 16 iterations each processing 16 data values
 
@@ -1568,8 +1568,8 @@ yes_fft:start_timer 22
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 pfing	bump	rcx, 16*blkdst		;; We've already prefetched 16 blocks
 	loops_init 16*2*clm		;; 2 iters of 4 iters of 2*2*clm
-	r4_x2cl_eight_reals_first_fft_scratch_preload
-b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 2*clmblkdst8, rdi
+	r4_x2cl_eight_reals_fft_scratch_preload
+b1b:	r4_x2cl_eight_reals_fft_scratch rsi, 64, 2*clmblkdst8, rdi
 	yloop2 b1b, clmblkdst, rdi, YMM_SCD3 ;; 2*2*clm iters prefetching 2*clm cache lines
 	loops	4, b1b			;; 4 iterations
 	bump	rsi, -4*2*clmblkdst+clmblkdst8
@@ -1841,15 +1841,15 @@ c7b:	r4_x4cl_wpn_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 4*
 ;;	...
 ;;	63K
 
-;; Do 32 eight_reals_last_unfft operations
+;; Do 32 eight_reals_unfft operations
 ;;	distance between fft data elements is 32K
 ;;	do 16 macros each processing 32 data values
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
 	loops_init 16*2*clm		;; 16 iterations of 2*clm
-	r4_x4cl_eight_reals_last_unfft_preload
-c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, 16*YMM_SCD3
+	r4_x4cl_eight_reals_unfft_preload
+c1b:	r4_x4cl_eight_reals_unfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, 16*YMM_SCD3
 	yloop1 c1b, clmblkdst, rdi, YMM_SCD3 ;; 2*clm iterations
 	loops	8, c1b			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8 ;; Next source pointer
@@ -1884,7 +1884,7 @@ b0b:	copy_fft_data_to_scratch 64
 ;;	128K	...
 ;;	...
 
-;; Do 32 eight_reals_first_fft operations
+;; Do 32 eight_reals_fft operations
 ;;	distance between fft data elements is 32K
 ;;	do 32 iterations each processing 16 data values
 
@@ -1894,8 +1894,8 @@ yes_fft:start_timer 22
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 pfing	bump	rcx, 32*blkdst		;; We've already prefetched 32 blocks
 	loops_init 32*2*clm		;; 4 iters of 4 iters of 2*2*clm
-	r4_x2cl_eight_reals_first_fft_scratch_preload
-b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 4*clmblkdst8, rdi
+	r4_x2cl_eight_reals_fft_scratch_preload
+b1b:	r4_x2cl_eight_reals_fft_scratch rsi, 64, 4*clmblkdst8, rdi
 	yloop2 b1b, clmblkdst, rdi, YMM_SCD3 ;; 2*2*clm iters prefetching 2*clm cache lines
 	loops	4, b1b			;; 4 iterations
 	bump	rsi, -4*2*clmblkdst+clmblkdst8
@@ -2537,7 +2537,7 @@ c5b:	r3_x3cl_three_complex_djbunfft rsi, 64, clmblkdst8, rdi, 8*2*clm*YMM_SCD1
 ;;	...
 ;;	95K
 
-;; Do 48 eight_reals_last_unfft operations
+;; Do 48 eight_reals_unfft operations
 ;;	distance between fft data elements is 48K
 ;;	do 24 macros each processing 32 data values
 
@@ -2545,8 +2545,8 @@ c5b:	r3_x3cl_three_complex_djbunfft rsi, 64, clmblkdst8, rdi, 8*2*clm*YMM_SCD1
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 	loops_init 24*2*clm		;; 24 iterations of 2*clm
-	r4_x4cl_eight_reals_last_unfft_preload
-c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 3*clmblkdst8, 6*clmblkdst8, rdi, 24*YMM_SCD3
+	r4_x4cl_eight_reals_unfft_preload
+c1b:	r4_x4cl_eight_reals_unfft rsi, 64, 3*clmblkdst8, 6*clmblkdst8, rdi, 24*YMM_SCD3
 	yloop1 c1b, clmblkdst, rdi, YMM_SCD3 ;; 2*clm iterations
 	loops	8, c1b			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8 ;; Next source pointer
@@ -2581,7 +2581,7 @@ b0b:	copy_fft_data_to_scratch 96
 ;;	192K	...
 ;;	...
 
-;; Do 48 eight_reals_first_fft operations
+;; Do 48 eight_reals_fft operations
 ;;	distance between fft data elements is 48K
 ;;	do 48 iterations each processing 16 data values
 
@@ -2592,8 +2592,8 @@ yes_fft:start_timer 22
 pfing	bump	rcx, (24-4)*blkdst	;; We've already prefetched 24 blocks, but
 					;; code below prefetches 4 blocks too many
 	loops_init 48*2*clm		;; 6 iters of 4 iters of 2*2*clm
-	r4_x2cl_eight_reals_first_fft_scratch_preload
-b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 6*clmblkdst8, rdi
+	r4_x2cl_eight_reals_fft_scratch_preload
+b1b:	r4_x2cl_eight_reals_fft_scratch rsi, 64, 6*clmblkdst8, rdi
 	yloop2 b1b, clmblkdst, rdi, YMM_SCD3 ;; 2*2*clm iters prefetching 2*clm cache lines
 	loops	4, b1b			;; 4 iterations
 	bump	rsi, -4*2*clmblkdst+clmblkdst8
@@ -3287,7 +3287,7 @@ c5b:	r4_x4cl_four_complex_djbunfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 8*YMM
 ;;	...
 ;;	127K
 
-;; Do 64 eight_reals_last_unfft operations
+;; Do 64 eight_reals_unfft operations
 ;;	distance between fft data elements is 64K
 ;;	do 32 macros each processing 32 data values
 
@@ -3295,8 +3295,8 @@ c5b:	r4_x4cl_four_complex_djbunfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 8*YMM
 	mov	rdi, sincos2		;; Load fixed sin/cos data ptr
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 	loops_init 32*2*clm		;; 32 iterations of 2*clm
-	r4_x4cl_eight_reals_last_unfft_preload
-c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 4*clmblkdst8, 8*clmblkdst8, rdi, 32*YMM_SCD3
+	r4_x4cl_eight_reals_unfft_preload
+c1b:	r4_x4cl_eight_reals_unfft rsi, 64, 4*clmblkdst8, 8*clmblkdst8, rdi, 32*YMM_SCD3
 	yloop1 c1b, clmblkdst, rdi, YMM_SCD3 ;; 2*clm iterations
 	loops	8, c1b			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8 ;; Next source pointer
@@ -3331,7 +3331,7 @@ b0b:	copy_fft_data_to_scratch 128
 ;;	256K	...
 ;;	...
 
-;; Do 64 eight_reals_first_fft operations
+;; Do 64 eight_reals_fft operations
 ;;	distance between fft data elements is 64K
 ;;	do 64 iterations each processing 16 data values
 
@@ -3341,8 +3341,8 @@ yes_fft:start_timer 22
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 pfing	bump	rcx, 32*blkdst		;; We've already prefetched 32 blocks
 	loops_init 64*2*clm		;; 8 iters of 4 iters of 2*2*clm
-	r4_x2cl_eight_reals_first_fft_scratch_preload
-b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 8*clmblkdst8, rdi
+	r4_x2cl_eight_reals_fft_scratch_preload
+b1b:	r4_x2cl_eight_reals_fft_scratch rsi, 64, 8*clmblkdst8, rdi
 	yloop2 b1b, clmblkdst, rdi, YMM_SCD3 ;; 2*2*clm iters prefetching 2*clm cache lines
 	loops	4, b1b			;; 4 iterations
 	bump	rsi, -4*2*clmblkdst+clmblkdst8
@@ -4051,7 +4051,7 @@ c5b:	r3_x3cl_three_complex_djbunfft rsi, 64, 2*clmblkdst8, rdi, 16*2*clm*YMM_SCD
 ;;	...
 ;;	191K
 
-;; Do 96 eight_reals_last_unfft operations
+;; Do 96 eight_reals_unfft operations
 ;;	distance between fft data elements is 96K
 ;;	do 48 macros each processing 32 data values
 
@@ -4059,8 +4059,8 @@ c5b:	r3_x3cl_three_complex_djbunfft rsi, 64, 2*clmblkdst8, rdi, 16*2*clm*YMM_SCD
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 	loops_init 48*2*clm		;; 48 iterations of 2*clm
-	r4_x4cl_eight_reals_last_unfft_preload
-c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 6*clmblkdst8, 12*clmblkdst8, rdi, 48*YMM_SCD3
+	r4_x4cl_eight_reals_unfft_preload
+c1b:	r4_x4cl_eight_reals_unfft rsi, 64, 6*clmblkdst8, 12*clmblkdst8, rdi, 48*YMM_SCD3
 	yloop1 c1b, clmblkdst, rdi, YMM_SCD3 ;; 2*clm iterations
 	loops	8, c1b			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8 ;; Next source pointer
@@ -4095,7 +4095,7 @@ b0b:	copy_fft_data_to_scratch 192
 ;;	384K	...
 ;;	...
 
-;; Do 96 eight_reals_first_fft operations
+;; Do 96 eight_reals_fft operations
 ;;	distance between fft data elements is 96K
 ;;	do 96 iterations each processing 16 data values
 
@@ -4106,8 +4106,8 @@ yes_fft:start_timer 22
 pfing	bump	rcx, (48-8)*blkdst	;; We've already prefetched 48 blocks, but
 					;; code below prefetches 8 blocks too many
 	loops_init 96*2*clm		;; 12 iters of 4 iters of 2*2*clm
-	r4_x2cl_eight_reals_first_fft_scratch_preload
-b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 12*clmblkdst8, rdi
+	r4_x2cl_eight_reals_fft_scratch_preload
+b1b:	r4_x2cl_eight_reals_fft_scratch rsi, 64, 12*clmblkdst8, rdi
 	yloop2 b1b, clmblkdst, rdi, YMM_SCD3 ;; 2*2*clm iters prefetching 2*clm cache lines
 	loops	4, b1b			;; 4 iterations
 	bump	rsi, -4*2*clmblkdst+clmblkdst8
@@ -4820,7 +4820,7 @@ c5b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, 16*
 ;;	...
 ;;	255K
 
-;; Do 128 eight_reals_last_unfft operations
+;; Do 128 eight_reals_unfft operations
 ;;	distance between fft data elements is 128K
 ;;	do 64 macros each processing 32 data values
 
@@ -4828,8 +4828,8 @@ c5b:	r4_x4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, 16*
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 	loops_init 64*2*clm		;; 64 iterations of 2*clm
-	r4_x4cl_eight_reals_last_unfft_preload
-c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rdi, 64*YMM_SCD3
+	r4_x4cl_eight_reals_unfft_preload
+c1b:	r4_x4cl_eight_reals_unfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rdi, 64*YMM_SCD3
 	yloop1 c1b, clmblkdst, rdi, YMM_SCD3 ;; 2*clm iterations
 	loops	8, c1b			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8 ;; Next source pointer
@@ -4864,7 +4864,7 @@ b0b:	copy_fft_data_to_scratch 256
 ;;	512K	...
 ;;	...
 
-;; Do 128 eight_reals_first_fft operations
+;; Do 128 eight_reals_fft operations
 ;;	distance between fft data elements is 128K
 ;;	do 128 iterations each processing 16 data values
 
@@ -4874,8 +4874,8 @@ yes_fft:start_timer 22
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 pfing	bump	rcx, 64*blkdst		;; We've already prefetched 64 blocks
 	loops_init 128*2*clm		;; 16 iters of 4 iters of 2*2*clm
-	r4_x2cl_eight_reals_first_fft_scratch_preload
-b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 16*clmblkdst8, rdi
+	r4_x2cl_eight_reals_fft_scratch_preload
+b1b:	r4_x2cl_eight_reals_fft_scratch rsi, 64, 16*clmblkdst8, rdi
 	yloop2 b1b, clmblkdst, rdi, YMM_SCD3 ;; 2*2*clm iters prefetching 2*clm cache lines
 	loops	4, b1b			;; 4 iterations
 	bump	rsi, -4*2*clmblkdst+clmblkdst8
@@ -5731,15 +5731,15 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 64, 3*clmblkdst8, 6*clmblkdst8, rdi, 24*
 ;;	...
 ;;	383K
 
-;; Do 192 eight_reals_last_unfft operations
+;; Do 192 eight_reals_unfft operations
 ;;	distance between fft data elements is 192K
 ;;	do 96 macros each processing 32 data values
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
 	loops_init 96*2*clm		;; 96 iterations of 2*clm
-	r4_x4cl_eight_reals_last_unfft_preload
-c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 12*clmblkdst8, 24*clmblkdst8, rdi, 96*YMM_SCD3
+	r4_x4cl_eight_reals_unfft_preload
+c1b:	r4_x4cl_eight_reals_unfft rsi, 64, 12*clmblkdst8, 24*clmblkdst8, rdi, 96*YMM_SCD3
 	yloop1nopre c1b, clmblkdst, rdi, YMM_SCD3 ;; 2*clm iterations
 	loops	8, c1b			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8 ;; Next source pointer
@@ -5774,7 +5774,7 @@ b0b:	copy_fft_data_to_scratch 384
 ;;	768K	...
 ;;	...
 
-;; Do 192 eight_reals_first_fft operations
+;; Do 192 eight_reals_fft operations
 ;;	distance between fft data elements is 192K
 ;;	do 192 iterations each processing 16 data values
 
@@ -5783,8 +5783,8 @@ yes_fft:start_timer 22
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 	loops_init 192*2*clm		;; 24 iters of 4 iters of 2*2*clm
-	r4_x2cl_eight_reals_first_fft_scratch_preload
-b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 24*clmblkdst8, rdi
+	r4_x2cl_eight_reals_fft_scratch_preload
+b1b:	r4_x2cl_eight_reals_fft_scratch rsi, 64, 24*clmblkdst8, rdi
 	yloop2 b1b, clmblkdst, rdi, YMM_SCD3 ;; 2*2*clm iters prefetching 2*clm cache lines
 	loops	4, b1b			;; 4 iterations
 	bump	rsi, -4*2*clmblkdst+clmblkdst8
@@ -6699,15 +6699,15 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 64, 4*clmblkdst8, 8*clmblkdst8, rdi, 32*
 ;;	...
 ;;	511K
 
-;; Do 256 eight_reals_last_unfft operations
+;; Do 256 eight_reals_unfft operations
 ;;	distance between fft data elements is 256K
 ;;	do 128 macros each processing 32 data values
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
 	loops_init 128*2*clm		;; 128 iterations of 2*clm
-	r4_x4cl_eight_reals_last_unfft_preload
-c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 16*clmblkdst8, 32*clmblkdst8, rdi, 128*YMM_SCD3
+	r4_x4cl_eight_reals_unfft_preload
+c1b:	r4_x4cl_eight_reals_unfft rsi, 64, 16*clmblkdst8, 32*clmblkdst8, rdi, 128*YMM_SCD3
 	yloop1nopre c1b, clmblkdst, rdi, YMM_SCD3 ;; 2*clm iterations
 	loops	8, c1b			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8 ;; Next source pointer
@@ -6740,7 +6740,7 @@ b0b:	copy_fft_data_to_scratch 512
 ;;	...
 ;;	127K
 
-;; Do 256 eight_reals_first_fft operations
+;; Do 256 eight_reals_fft operations
 ;;	distance between fft data elements is 256K
 ;;	do 256 iterations each processing 16 data values
 
@@ -6749,8 +6749,8 @@ yes_fft:start_timer 22
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 	loops_init 256*2*clm		;; 32 iters of 4 iters of 2*2*clm
-	r4_x2cl_eight_reals_first_fft_scratch_preload
-b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 32*clmblkdst8, rdi
+	r4_x2cl_eight_reals_fft_scratch_preload
+b1b:	r4_x2cl_eight_reals_fft_scratch rsi, 64, 32*clmblkdst8, rdi
 	yloop2 b1b, clmblkdst, rdi, YMM_SCD3 ;; 2*2*clm iters prefetching 2*clm cache lines
 	loops	4, b1b			;; 4 iterations
 	bump	rsi, -4*2*clmblkdst+clmblkdst8
@@ -7675,15 +7675,15 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 64, 6*clmblkdst8, 12*clmblkdst8, rdi, 48
 ;;	...
 ;;	767K
 
-;; Do 384 eight_reals_last_unfft operations
+;; Do 384 eight_reals_unfft operations
 ;;	distance between fft data elements is 384K
 ;;	do 192 macros each processing 32 data values
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
 	loops_init 192*2*clm		;; 192 iterations of 2*clm
-	r4_x4cl_eight_reals_last_unfft_preload
-c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 24*clmblkdst8, 48*clmblkdst8, rdi, 192*YMM_SCD3
+	r4_x4cl_eight_reals_unfft_preload
+c1b:	r4_x4cl_eight_reals_unfft rsi, 64, 24*clmblkdst8, 48*clmblkdst8, rdi, 192*YMM_SCD3
 	yloop1nopre c1b, clmblkdst, rdi, YMM_SCD3 ;; 2*clm iterations
 	loops	8, c1b			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8 ;; Next source pointer
@@ -7718,7 +7718,7 @@ b0b:	copy_fft_data_to_scratch 768
 ;;	1536K	...
 ;;	...
 
-;; Do 384 eight_reals_first_fft operations
+;; Do 384 eight_reals_fft operations
 ;;	distance between fft data elements is 384K
 ;;	do 384 iterations each processing 16 data values
 
@@ -7727,8 +7727,8 @@ yes_fft:start_timer 22
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 	loops_init 384*2*clm		;; 48 iters of 4 iters of 2*2*clm
-	r4_x2cl_eight_reals_first_fft_scratch_preload
-b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 48*clmblkdst8, rdi
+	r4_x2cl_eight_reals_fft_scratch_preload
+b1b:	r4_x2cl_eight_reals_fft_scratch rsi, 64, 48*clmblkdst8, rdi
 	yloop2 b1b, clmblkdst, rdi, YMM_SCD3 ;; 2*2*clm iters prefetching 2*clm cache lines
 	loops	4, b1b			;; 4 iterations
 	bump	rsi, -4*2*clmblkdst+clmblkdst8
@@ -8657,15 +8657,15 @@ c3b:	r4_x4cl_four_complex_djbunfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rdi, 64
 ;;	...
 ;;	1023K
 
-;; Do 512 eight_reals_last_unfft operations
+;; Do 512 eight_reals_unfft operations
 ;;	distance between fft data elements is 512K
 ;;	do 256 macros each processing 32 data values
 
 	start_timer 20
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
 	loops_init 256*2*clm		;; 256 iterations of 2*clm
-	r4_x4cl_eight_reals_last_unfft_preload
-c1b:	r4_x4cl_eight_reals_last_unfft rsi, 64, 32*clmblkdst8, 64*clmblkdst8, rdi, 256*YMM_SCD3
+	r4_x4cl_eight_reals_unfft_preload
+c1b:	r4_x4cl_eight_reals_unfft rsi, 64, 32*clmblkdst8, 64*clmblkdst8, rdi, 256*YMM_SCD3
 	yloop1nopre c1b, clmblkdst, rdi, YMM_SCD3 ;; 2*clm iterations
 	loops	8, c1b			;; 8 iterations
 	bump	rsi, -8*clmblkdst+clmblkdst8 ;; Next source pointer
@@ -8700,7 +8700,7 @@ b0b:	copy_fft_data_to_scratch 1024
 ;;	2048K	...
 ;;	...
 
-;; Do 512 eight_reals_first_fft operations
+;; Do 512 eight_reals_fft operations
 ;;	distance between fft data elements is 512K
 ;;	do 512 iterations each processing 16 data values
 
@@ -8709,8 +8709,8 @@ yes_fft:start_timer 22
 	mov	rdi, sincos2		;; Load fixed sin/cos postmultipliers
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 	loops_init 512*2*clm		;; 64 iters of 4 iters of 2*2*clm
-	r4_x2cl_eight_reals_first_fft_scratch_preload
-b1b:	r4_x2cl_eight_reals_first_fft_scratch rsi, 64, 64*clmblkdst8, rdi
+	r4_x2cl_eight_reals_fft_scratch_preload
+b1b:	r4_x2cl_eight_reals_fft_scratch rsi, 64, 64*clmblkdst8, rdi
 	yloop2 b1b, clmblkdst, rdi, YMM_SCD3 ;; 2*2*clm iters prefetching 2*clm cache lines
 	loops	4, b1b			;; 4 iterations
 	bump	rsi, -4*2*clmblkdst+clmblkdst8

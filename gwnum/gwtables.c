@@ -987,28 +987,25 @@ double *yr4_build_pass2_complex_table (
 	unsigned long i, j, N;
 	unsigned int pow2_count;
 
-/* If the pass 2 size is divisible by 3, then the first level does a */
-/* radix-3 step which only requires one sin/cos value.  The first levels */
+/* If the pass 2 size is divisible by 3, then the initial levels do */
+/* radix-3 steps which only requires one sin/cos value.  The first levels */
 /* in pass 2 have an upper_avx_word of one. */
 
 	N = gwdata->PASS2_SIZE;
-	if (N % 3 == 0) {
-table=NULL; //BUG,BUG -- this does not match the way the real FFT code works.  That code
-// expects the first level to be radix-4, then the 3's, then the 5's, then more 4's.
-//The real code uses the same sceme as the one-pass FFTs,
+	while (N % 3 == 0) {
 		for (i = 0; i < N / 3; i += 4) {
 			gwsincos1by4 (i, N, table);
 			gwsincos1by4 (i+1, N, table+1);
 			gwsincos1by4 (i+2, N, table+2);
 			gwsincos1by4 (i+3, N, table+3);
-			table += 16;
+			table += 8;
 		}
 		N = N / 3;
 	}
 
-/* For first level radix-5 building block, output two sin/cos values. */
+/* For initial level radix-5 building block, output two sin/cos values. */
 
-	else if (N % 5 == 0) {
+	while (N % 5 == 0) {
 		for (i = 0; i < N / 5; i += 4) {
 			gwsincos12by4 (i, N, table);
 			gwsincos12by4 (i+1, N, table+1);
@@ -1019,18 +1016,16 @@ table=NULL; //BUG,BUG -- this does not match the way the real FFT code works.  T
 		N = N / 5;
 	}
 
-/* For first level radix-4 block, output two sin/cos values. */
+/* For the first level radix-4 block, output two sin/cos values. */
 
-	else {
-		for (i = 0; i < N / 4; i += 4) {
-			gwsincos12by4 (i, N, table);
-			gwsincos12by4 (i+1, N, table+1);
-			gwsincos12by4 (i+2, N, table+2);
-			gwsincos12by4 (i+3, N, table+3);
-			table += 16;
-		}
-		N = N / 4;
+	for (i = 0; i < N / 4; i += 4) {
+		gwsincos12by4 (i, N, table);
+		gwsincos12by4 (i+1, N, table+1);
+		gwsincos12by4 (i+2, N, table+2);
+		gwsincos12by4 (i+3, N, table+3);
+		table += 16;
 	}
+	N = N / 4;
 
 /* Build a smaller table for the remaining FFT levels */
 
@@ -1055,127 +1050,125 @@ double *yr4_build_pass2_real_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table)		/* Pointer to the table to fill in */
 {
-	unsigned long size, avx_increment, j, N;
-	int	pow2_count;
+	unsigned long avx_increment, j, N;
+	int	swizzled;
 
 /* All complex FFTs, don't need these tables */
 
 	if (gwdata->ALL_COMPLEX_FFT) return (table);
 
-/* Count the power-of-two FFT levels after the initial FFT levels.  If odd, the */
-/* the last levels will be a radix-8, if even the last levels will be a radix-4. */
+/* Init */
 
-	size = gwdata->PASS2_SIZE / 4;
-	for (pow2_count = 0; (size & 1) == 0; size /= 2) pow2_count++;
+	avx_increment = 1;
+	N = gwdata->PASS2_SIZE;
+	swizzled = FALSE;
 
-/* Init necessary variables */
+/* Output sin/cos values for an initial 6-real, 10-real, or 8-real macro. */
 
-	size = gwdata->PASS2_SIZE / 4;		/* Complex values we're generating sin/cos data for */
-	avx_increment = gwdata->PASS2_SIZE / 2;
-
-/* The first group has no sin/cos data! */
-
-	if (pow2_count & 1) {
-		N = 8;
-		size /= 8;
+	if (N % 3 == 0) {
+		for (j = 0; j < N / 3; j += 4) {
+			gwsincos12by4 (j, N*2, table);
+			gwsincos12by4 (j + avx_increment, N*2, table+1);
+			gwsincos12by4 (j + 2*avx_increment, N*2, table+2);
+			gwsincos12by4 (j + 3*avx_increment, N*2, table+3);
+			table += 16;
+		}
+		N = N / 3;
+	} else 	if (N % 5 == 0) {
+		for (j = 0; j < N / 5; j += 4) {
+			gwsincos1234by4 (j, N*2, table);
+			gwsincos1234by4 (j + avx_increment, N*2, table+1);
+			gwsincos1234by4 (j + 2*avx_increment, N*2, table+2);
+			gwsincos1234by4 (j + 3*avx_increment, N*2, table+3);
+			table += 32;
+		}
+		N = N / 5;
 	} else {
-		N = 4;
-		size /= 4;
+		for (j = 0; j < N / 4; j += 4) {
+			gwsincos125by4 (j, N*2, table);
+			gwsincos125by4 (j + avx_increment, N*2, table+1);
+			gwsincos125by4 (j + 2*avx_increment, N*2, table+2);
+			gwsincos125by4 (j + 3*avx_increment, N*2, table+3);
+			table += 24;
+		}
+		swizzled = TRUE;
+		N = N / 4;
 	}
 
-/* For the yr4_four_complex_djbfft and yr4_eight_reals_four_complex_djbfft */
-/* building block levels, output the sin/cos values. */
+/* Output sin/cos values for any remaining 6-real/3-complex and 10-real/5-complex macros */
 
-	if ((size & 3) == 0) {
-		while ((size & 3) == 0) {
-			N = N * 4;
-			size /= 4;
+	while (N % 3 == 0) {
+		for (j = 0; j < N / 3; j += 4) {
+			gwsincos1by4 (j, N*2, table);				/* For the six real */
+			gwsincos1by4 (j + avx_increment, N*2, table+1);
+			gwsincos1by4 (j + 2*avx_increment, N*2, table+2);
+			gwsincos1by4 (j + 3*avx_increment, N*2, table+3);
+			table += 8;
 		}
+		for (j = 0; j < N / 3; j += 4) {
+			gwsincos1by4 (j, N, table);				/* For the three-complex */
+			gwsincos1by4 (j + avx_increment, N, table+1);
+			gwsincos1by4 (j + 2*avx_increment, N, table+2);
+			gwsincos1by4 (j + 3*avx_increment, N, table+3);
+			table += 8;
+		}
+		N = N / 3;
+	}
 
-/* For the yr4_eight_reals_four_complex_djbfft building block levels, output the */
-/* sin/cos values needed.  The eight_reals doubles N because the real part of the FFT */
+	while (N % 5 == 0) {
+		for (j = 0; j < N / 5; j += 4) {
+			gwsincos13by4 (j, N*2, table);				/* For the ten real */
+			gwsincos13by4 (j + avx_increment, N*2, table+1);
+			gwsincos13by4 (j + 2*avx_increment, N*2, table+2);
+			gwsincos13by4 (j + 3*avx_increment, N*2, table+3);
+			table += 16;
+		}
+		for (j = 0; j < N / 5; j += 4) {
+			gwsincos12by4 (j, N, table);				/* For the five-complex */
+			gwsincos12by4 (j + avx_increment, N, table+1);
+			gwsincos12by4 (j + 2*avx_increment, N, table+2);
+			gwsincos12by4 (j + 3*avx_increment, N, table+3);
+			table += 16;
+		}
+		N = N / 5;
+	}
+
+/* If we haven't yet swizzled the FFT data (happens during first eight-reals level) */
+/* then output one eight-reals / four-complex sin/cos table to do the swizzling. */
+
+	if (!swizzled) {
+		for (j = 0; j < N / 4; j += 4) {
+			gwsincos15by4 (j, N*2, table);				/* For the eight real */
+			gwsincos15by4 (j + avx_increment, N*2, table+1);
+			gwsincos15by4 (j + 2*avx_increment, N*2, table+2);
+			gwsincos15by4 (j + 3*avx_increment, N*2, table+3);
+			table += 16;
+		}
+		for (j = 0; j < N / 4; j += 4) {
+			gwsincos12by4 (j, N, table);				/* For the four-complex */
+			gwsincos12by4 (j + avx_increment, N, table+1);
+			gwsincos12by4 (j + 2*avx_increment, N, table+2);
+			gwsincos12by4 (j + 3*avx_increment, N, table+3);
+			table += 16;
+		}
+		N = N / 4;
+	}
+
+/* Output one last sin/cos table for the remaining yr4_eight_reals_four_complex_djbfft */
+/* building block levels.  The eight_reals doubles N because the real part of the FFT */
 /* is one level behind the complex part of the FFT.  The four-complex sin/cos values */
 /* are the same for all 3 of the upper YMM doubles. */		
 
-		for (j = 0; j < N / 4; j++) {
-			gwsincos125by4 (j, N*2, table);				/* For the eight_reals */
-			gwsincos12by4 (j + avx_increment, N, table+1);		/* For the four-complex */
-			table[3] = table[2] = table[1];
-			table[7] = table[6] = table[5];
-			table[11] = table[10] = table[9];
-			table[15] = table[14] = table[13];
-			table[19] = table[18] = table[17] = -table[1];
-			table[23] = table[22] = table[21] = -table[5];
-			table += 24;
-		}
-	}
-
-/* For the yr5_five_complex_djbfft building block levels, output the sin/cos values. */
-
-	while (size % 5 == 0) {
-		while ((size % 5) == 0) {
-			N = N * 5;
-			size /= 5;
-		}
-
-/* For the yr5_ten_reals_five_complex_djbfft building block levels, output the */
-/* sin/cos values needed.  The ten_reals doubles N because the real part of the FFT */
-/* is one level behind the complex part of the FFT.  The five-complex sin/cos values */
-/* are the same for all 3 of the upper YMM doubles. */
-
-		for (j = 0; j < N / 5; j++) {
-			gwsincos13by4 (j, N*2, table);				/* For the ten_reals */
-			gwsincos12by4 (j + avx_increment, N, table+1);		/* For the five-complex */
-			table[16] = table[8];					/* For the ten_reals */
-			table[20] = table[12];
-			table[8] = table[1];
-			table[12] = table[5];
-			table[24] = table[9];
-			table[28] = table[13];
-			table[3] = table[2] = table[1];				/* For the five-complex */
-			table[7] = table[6] = table[5];
-			table[11] = table[10] = table[9];
-			table[15] = table[14] = table[13];
-			table[19] = table[18] = table[17] = -table[9];
-			table[23] = table[22] = table[21] = -table[13];
-			table[27] = table[26] = table[25] = -table[1];
-			table[31] = table[30] = table[29] = -table[5];
-			table += 32;
-		}
-	}
-
-/* For the yr3_three_complex_djbfft building block levels, output the sin/cos values. */
-
-	while (size % 3 == 0) {
-		while ((size % 3) == 0) {
-			N = N * 3;
-			size /= 3;
-		}
-
-/* The yr3_six_reals building blocks require an extra sin/cos value.  The six_reals doubles N */
-/* because the real part of the FFT is one level behind the complex part of the FFT. */
-
-		for (j = 0; j < N / 3; j++) {
-			gwsincos12by4 (j, N*2, table);				/* For the six-reals FFT */
-			gwsincos1by4 (j + avx_increment, N, table+1);		/* For the three-complex FFT */
-			table[3] = table[2] = table[1];
-			table[7] = table[6] = table[5];
-			table[11] = table[10] = table[9] = -table[1];
-			table[15] = table[14] = table[13] = -table[5];
-			table += 16;
-		}
-	}
-	ASSERTG (size == 1);
-
-/* Output one last set of sin/cos values for the first 8-reals FFT. */
-
-	avx_increment = 1;
-	N = gwdata->PASS2_SIZE * 2;
-	for (j = 0; j < N / 8; j += 4) {
-		gwsincos125by4 (j, N, table);
-		gwsincos125by4 (j + avx_increment, N, table+1);
-		gwsincos125by4 (j + 2*avx_increment, N, table+2);
-		gwsincos125by4 (j + 3*avx_increment, N, table+3);
+	avx_increment = N * 2;
+	for (j = 0; j < N / 4; j++) {
+		gwsincos125by4 (j, N*2, table);				/* For the eight_reals */
+		gwsincos12by4 (j + avx_increment, N, table+1);		/* For the four-complex */
+		table[3] = table[2] = table[1];
+		table[7] = table[6] = table[5];
+		table[11] = table[10] = table[9];
+		table[15] = table[14] = table[13];
+		table[19] = table[18] = table[17] = -table[1];
+		table[23] = table[22] = table[21] = -table[5];
 		table += 24;
 	}
 
