@@ -37,9 +37,9 @@ buildfor CORE   ,	ypass2gen 8
 buildfor CORE   ,	ypass2gen 768
 buildfor CORE   ,	ypass2gen 10
 buildfor CORE   ,	ypass2gen 1280
-;buildfor CORE   ,	ypass2gen 1536
+buildfor CORE   ,	ypass2gen 1536
 buildfor CORE   ,	ypass2gen 11
-;buildfor CORE   ,	ypass2gen 2560
+buildfor CORE   ,	ypass2gen 2560
 
 ;; Routines for many FFT sizes
 
@@ -177,7 +177,9 @@ buildfor CORE   ,	yr4dwpn_pass1sc512 640K, 1280, 4
 
 	; The 11 levels variants (1536, 2048, 2560)
 
+buildfor CORE   ,	yr4dwpn_pass1sc128 192K, 1536, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128 256K, 11, 4
+buildfor CORE   ,	yr4dwpn_pass1sc128 320K, 2560, 4
 
 ;buildfor CORE   ,	yr4dwpn_pass1sc256 384K, 1536, 4
 ;buildfor CORE   ,	yr4dwpn_pass1sc256 512K, 11, 4
@@ -204,10 +206,10 @@ buildfor CORE   ,	yr4dwpn_pass1sc128 256K, 11, 4
 ;buildfor CORE_32,	yr4dwpn_pass1sc448 1120K, 2560, 2
 ;buildfor        ,	yr4dwpn_pass1sc448 1120K, 2560, 1
 
-;buildfor        ,	yr4dwpn_pass1sc512 768K, 1536, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512 768K, 1536, 4
 buildfor CORE   ,	yr4dwpn_pass1sc512 1M, 11, 4
 ;buildfor        ,	yr4dwpn_pass1sc512 1M, 11, 2
-;buildfor        ,	yr4dwpn_pass1sc512 1280K, 2560, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512 1280K, 2560, 4
 ;buildfor        ,	yr4dwpn_pass1sc512 1280K, 2560, 2
 
 ;buildfor CORE_32,	yr4dwpn_pass1sc640 960K, 1536, 4
@@ -342,7 +344,9 @@ buildfor CORE   ,	yr4dwpn_pass1sc512ac 640K, 1280, 4
 
 	; The all-complex 11 levels variants (1536, 2048, 2560)
 
+buildfor CORE   ,	yr4dwpn_pass1sc128ac 192K, 1536, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128ac 256K, 11, 4
+buildfor CORE   ,	yr4dwpn_pass1sc128ac 320K, 2560, 4
 
 ;buildfor CORE   ,	yr4dwpn_pass1sc256ac 384K, 1536, 4
 ;buildfor CORE_64,	yr4dwpn_pass1sc256ac 512K, 11, 4
@@ -354,11 +358,11 @@ buildfor CORE   ,	yr4dwpn_pass1sc128ac 256K, 11, 4
 ;buildfor        ,	yr4dwpn_pass1sc384ac 960K, 2560, 4
 ;buildfor        ,	yr4dwpn_pass1sc384ac 960K, 2560, 2
 
-;buildfor        ,	yr4dwpn_pass1sc512ac 768K, 1536, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512ac 768K, 1536, 4
 ;buildfor        ,	yr4dwpn_pass1sc512ac 768K, 1536, 2
 buildfor CORE   ,	yr4dwpn_pass1sc512ac 1M, 11, 4
 ;buildfor        ,	yr4dwpn_pass1sc512ac 1M, 11, 2
-;buildfor        ,	yr4dwpn_pass1sc512ac 1280K, 2560, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512ac 1280K, 2560, 4
 ;buildfor        ,	yr4dwpn_pass1sc512ac 1280K, 2560, 2
 
 ;buildfor CORE_32,	yr4dwpn_pass1sc640ac 960K, 1536, 4
