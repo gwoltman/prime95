@@ -1000,8 +1000,8 @@ INCLUDE yr4.mac
 	avxmac avcase92, 192, 4096, YMM_SCD1/4, yr3_b3cl_three_complex_djbunfft rsi, 3*64, 64, rdi
 	avxmac avcase93, 192, 100000, YMM_SCD1/4, yr3_b3cl_three_complex_djbunfft rsi, 3*64, 64, rdi
 
-	avxmac avcase94, 192, 4096, YMM_SCD2, yr3_f3cl_six_reals_fft rsi, 3*64, 64, rdi
-	avxmac avcase95, 192, 100000, YMM_SCD2, yr3_f3cl_six_reals_fft rsi, 3*64, 64, rdi
+	avxmac avcase94, 192, 4096, YMM_SCD2, yr3_3cl_six_reals_fft rsi, 3*64, 64, rdi
+	avxmac avcase95, 192, 100000, YMM_SCD2, yr3_3cl_six_reals_fft rsi, 3*64, 64, rdi
 	avxmacbx avcase96, 192, 4096, YMM_SCD2, yr3_f3cl_six_reals_fft rsi, 3*64, 64, rdi
 	avxmacbx avcase97, 192, 100000, YMM_SCD2, yr3_f3cl_six_reals_fft rsi, 3*64, 64, rdi
 	avxmac avcase98, 192, 4096, YMM_SCD2, yr3_3cl_six_reals_unfft rsi, 3*64, 64, rdi
@@ -1024,8 +1024,8 @@ INCLUDE yr4.mac
 	avxmac avcase112, 320, 4096, YMM_SCD2/4, yr5_b5cl_five_complex_djbunfft rsi, 5*64, 64, rdi
 	avxmac avcase113, 320, 100000, YMM_SCD2/4, yr5_b5cl_five_complex_djbunfft rsi, 5*64, 64, rdi
 
-	avxmac avcase114, 192, 4096, YMM_SCD4, yr5_f5cl_ten_reals_fft rsi, 5*64, 64, rdi
-	avxmac avcase115, 192, 100000, YMM_SCD4, yr5_f5cl_ten_reals_fft rsi, 5*64, 64, rdi
+	avxmac avcase114, 192, 4096, YMM_SCD4, yr5_5cl_ten_reals_fft rsi, 5*64, 64, rdi
+	avxmac avcase115, 192, 100000, YMM_SCD4, yr5_5cl_ten_reals_fft rsi, 5*64, 64, rdi
 	avxmacbx avcase116, 192, 4096, YMM_SCD4, yr5_f5cl_ten_reals_fft rsi, 5*64, 64, rdi
 	avxmacbx avcase117, 192, 100000, YMM_SCD4, yr5_f5cl_ten_reals_fft rsi, 5*64, 64, rdi
 	avxmac avcase118, 192, 4096, YMM_SCD4, yr5_5cl_ten_reals_unfft rsi, 5*64, 64, rdi

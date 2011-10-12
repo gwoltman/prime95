@@ -33,20 +33,23 @@ _TEXT SEGMENT
 
 ;; Generate pass 2 routines optimized for this architecture
 
-;buildfor CORE   ,	ypass2gen 2304
+buildfor CORE   ,	ypass2gen 2304
 buildfor CORE   ,	ypass2gen 3072
-;buildfor CORE   ,	ypass2gen 3840
+buildfor CORE   ,	ypass2gen 3840
 buildfor CORE   ,	ypass2gen 12
 buildfor CORE   ,	ypass2gen 5120
-;buildfor CORE   ,	ypass2gen 6400
+buildfor CORE   ,	ypass2gen 6400
 
 ;; Routines for many FFT sizes
 
 	; The 12 levels variants (2304, 3072, 3840, 4096, 5120, 6400)
 
+buildfor CORE   ,	yr4dwpn_pass1sc128 288K, 2304, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128 384K, 3072, 4
+buildfor CORE   ,	yr4dwpn_pass1sc128 480K, 3840, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128 512K, 12, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128 640K, 5120, 4
+buildfor CORE   ,	yr4dwpn_pass1sc128 800K, 6400, 4
 
 ;buildfor CORE_64,	yr4dwpn_pass1sc256 576K, 2304, 4
 ;buildfor        ,	yr4dwpn_pass1sc256 576K, 2304, 2
@@ -114,19 +117,19 @@ buildfor CORE   ,	yr4dwpn_pass1sc128 640K, 5120, 4
 ;buildfor CORE   ,	yr4dwpn_pass1sc448 2800K, 6400, 4
 ;buildfor CORE_64,	yr4dwpn_pass1sc448 2800K, 6400, 2
 
-;buildfor        ,	yr4dwpn_pass1sc512 1152K, 2304, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512 1152K, 2304, 4
 ;buildfor        ,	yr4dwpn_pass1sc512 1152K, 2304, 2
 ;buildfor        ,	yr4dwpn_pass1sc512 1152K, 2304, 1
 buildfor CORE   ,	yr4dwpn_pass1sc512 1536K, 3072, 4
 ;buildfor        ,	yr4dwpn_pass1sc512 1536K, 3072, 2
-;buildfor        ,	yr4dwpn_pass1sc512 1920K, 3840, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512 1920K, 3840, 4
 ;buildfor        ,	yr4dwpn_pass1sc512 1920K, 3840, 2
 ;buildfor        ,	yr4dwpn_pass1sc512 1920K, 3840, 1
 buildfor CORE   ,	yr4dwpn_pass1sc512 2M, 12, 4
 ;buildfor CORE   ,	yr4dwpn_pass1sc512 2M, 12, 2
 ;buildfor        ,	yr4dwpn_pass1sc512 2M, 12, 1
 buildfor CORE   ,	yr4dwpn_pass1sc512 2560K, 5120, 4
-;buildfor        ,	yr4dwpn_pass1sc512 3200K, 6400, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512 3200K, 6400, 4
 
 ;buildfor CORE   ,	yr4dwpn_pass1sc640 1440K, 2304, 4
 ;buildfor        ,	yr4dwpn_pass1sc640 1440K, 2304, 2
@@ -242,9 +245,12 @@ buildfor CORE   ,	yr4dwpn_pass1sc512 2560K, 5120, 4
 
 	; The all-complex 12 levels variants (2304, 3072, 3840, 4096, 5120, 6400)
 
+buildfor CORE   ,	yr4dwpn_pass1sc128ac 288K, 2304, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128ac 384K, 3072, 4
+buildfor CORE   ,	yr4dwpn_pass1sc128ac 480K, 3840, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128ac 512K, 12, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128ac 640K, 5120, 4
+buildfor CORE   ,	yr4dwpn_pass1sc128ac 800K, 6400, 4
 
 ;buildfor CORE   ,	yr4dwpn_pass1sc256ac 576K, 2304, 4
 ;buildfor        ,	yr4dwpn_pass1sc256ac 576K, 2304, 2
@@ -282,17 +288,17 @@ buildfor CORE   ,	yr4dwpn_pass1sc128ac 640K, 5120, 4
 ;buildfor CORE   ,	yr4dwpn_pass1sc384ac 2400K, 6400, 2
 ;buildfor        ,	yr4dwpn_pass1sc384ac 2400K, 6400, 1
 
-;buildfor        ,	yr4dwpn_pass1sc512ac 1152K, 2304, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512ac 1152K, 2304, 4
 buildfor CORE   ,	yr4dwpn_pass1sc512ac 1536K, 3072, 4
 ;buildfor        ,	yr4dwpn_pass1sc512ac 1536K, 3072, 2
-;buildfor        ,	yr4dwpn_pass1sc512ac 1920K, 3840, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512ac 1920K, 3840, 4
 buildfor CORE   ,	yr4dwpn_pass1sc512ac 2M, 12, 4
 ;buildfor CORE   ,	yr4dwpn_pass1sc512ac 2M, 12, 2
 ;buildfor        ,	yr4dwpn_pass1sc512ac 2M, 12, 1
 buildfor CORE   ,	yr4dwpn_pass1sc512ac 2560K, 5120, 4
 ;buildfor CORE   ,	yr4dwpn_pass1sc512ac 2560K, 5120, 2
 ;buildfor        ,	yr4dwpn_pass1sc512ac 2560K, 5120, 1
-;buildfor CORE   ,	yr4dwpn_pass1sc512ac 3200K, 6400, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512ac 3200K, 6400, 4
 
 ;buildfor        ,	yr4dwpn_pass1sc640ac 1440K, 2304, 4
 ;buildfor        ,	yr4dwpn_pass1sc640ac 1920K, 3072, 4

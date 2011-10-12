@@ -47,6 +47,21 @@ yr3_f3cl_three_complex_djbfft MACRO srcreg,srcinc,d1,screg
 	bump	srcreg, srcinc
 	ENDM
 
+;; Like 3cl, but uses a six_reals sin/cos table
+yr3_r3cl_three_complex_djbfft_preload MACRO
+	yr3_3c_djbfft_mem_preload
+	ENDM
+yr3_r3cl_three_complex_djbfft MACRO srcreg,srcinc,d1,screg
+	yr3_3c_djbfft_mem [srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32],[srcreg+2*d1],[srcreg+2*d1+32],noexec,screg+64,screg+96,srcreg+srcinc,d1
+	vmovapd	[srcreg], ymm2			;; Save R1
+	vmovapd	[srcreg+32], ymm5		;; Save I1
+	vmovapd	[srcreg+d1], ymm4		;; Save R2
+	vmovapd	[srcreg+d1+32], ymm3		;; Save I2
+	vmovapd	[srcreg+2*d1], ymm1		;; Save R3
+	vmovapd	[srcreg+2*d1+32], ymm6		;; Save I3
+	bump	srcreg, srcinc
+	ENDM
+
 ; Like the 3cl version except vbroadcastsd is used to reduce sin/cos data
 yr3_b3cl_three_complex_djbfft_preload MACRO
 	yr3_3c_djbfft_mem_preload
@@ -159,6 +174,21 @@ yr3_3cl_three_complex_djbunfft MACRO srcreg,srcinc,d1,screg
 	bump	srcreg, srcinc
 	ENDM
 
+; Like 3cl but uses a six-reals sin/cos table
+yr3_r3cl_three_complex_djbunfft_preload MACRO
+	yr3_3c_djbunfft_mem_preload
+	ENDM
+yr3_r3cl_three_complex_djbunfft MACRO srcreg,srcinc,d1,screg
+	yr3_3c_djbunfft_mem [srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32],[srcreg+2*d1],[srcreg+2*d1+32],noexec,screg+64,screg+96,srcreg+srcinc,d1
+	vmovapd	[srcreg], ymm2		;; Save R1
+	vmovapd	[srcreg+32], ymm5	;; Save I1
+	vmovapd	[srcreg+d1], ymm6	;; Save R2
+	vmovapd	[srcreg+d1+32], ymm1	;; Save I2
+	vmovapd	[srcreg+2*d1], ymm7	;; Save R3
+	vmovapd	[srcreg+2*d1+32], ymm3	;; Save I3
+	bump	srcreg, srcinc
+	ENDM
+
 ; Like the 3cl version except vbroadcastsd is used to reduce sin/cos data
 yr3_b3cl_three_complex_djbunfft_preload MACRO
 	yr3_3c_djbunfft_mem_preload
@@ -261,6 +291,21 @@ bcast	vbroadcastsd ymm0, Q [scregS]	;; sine
 ; R3 = R1 + R4 - 0.5 * (R2 + R3 + R5 + R6)
 ; I3 = 0.866 * (R2 - R3 + R5 - R6)
 
+yr3_3cl_six_reals_fft_preload MACRO
+	yr3_6r_fft_mem_preload
+	ENDM
+yr3_3cl_six_reals_fft MACRO srcreg,srcinc,d1,screg
+	yr3_6r_fft_mem [srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32],[srcreg+2*d1],[srcreg+2*d1+32],screg,srcreg+srcinc,d1
+	vmovapd	[srcreg], ymm0			;; Save R1
+	vmovapd	[srcreg+32], ymm5		;; Save I1
+	vmovapd	[srcreg+d1], ymm3		;; Save R2
+	vmovapd	[srcreg+d1+32], ymm7		;; Save I2
+	vmovapd	[srcreg+2*d1], ymm6		;; Save R3
+	vmovapd	[srcreg+2*d1+32], ymm4		;; Save I3
+	bump	srcreg, srcinc
+	ENDM
+
+; Like the 3cl version but indexes into source using rbx
 yr3_f3cl_six_reals_fft_preload MACRO
 	yr3_6r_fft_mem_preload
 	ENDM

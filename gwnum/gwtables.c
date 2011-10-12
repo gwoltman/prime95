@@ -1099,36 +1099,22 @@ double *yr4_build_pass2_real_table (
 
 	while (N % 3 == 0) {
 		for (j = 0; j < N / 3; j += 4) {
-			gwsincos1by4 (j, N*2, table);				/* For the six real */
-			gwsincos1by4 (j + avx_increment, N*2, table+1);
-			gwsincos1by4 (j + 2*avx_increment, N*2, table+2);
-			gwsincos1by4 (j + 3*avx_increment, N*2, table+3);
-			table += 8;
-		}
-		for (j = 0; j < N / 3; j += 4) {
-			gwsincos1by4 (j, N, table);				/* For the three-complex */
-			gwsincos1by4 (j + avx_increment, N, table+1);
-			gwsincos1by4 (j + 2*avx_increment, N, table+2);
-			gwsincos1by4 (j + 3*avx_increment, N, table+3);
-			table += 8;
+			gwsincos12by4 (j, N*2, table);		/* For the six real (and three complex) */
+			gwsincos12by4 (j + avx_increment, N*2, table+1);
+			gwsincos12by4 (j + 2*avx_increment, N*2, table+2);
+			gwsincos12by4 (j + 3*avx_increment, N*2, table+3);
+			table += 16;
 		}
 		N = N / 3;
 	}
 
 	while (N % 5 == 0) {
 		for (j = 0; j < N / 5; j += 4) {
-			gwsincos13by4 (j, N*2, table);				/* For the ten real */
-			gwsincos13by4 (j + avx_increment, N*2, table+1);
-			gwsincos13by4 (j + 2*avx_increment, N*2, table+2);
-			gwsincos13by4 (j + 3*avx_increment, N*2, table+3);
-			table += 16;
-		}
-		for (j = 0; j < N / 5; j += 4) {
-			gwsincos12by4 (j, N, table);				/* For the five-complex */
-			gwsincos12by4 (j + avx_increment, N, table+1);
-			gwsincos12by4 (j + 2*avx_increment, N, table+2);
-			gwsincos12by4 (j + 3*avx_increment, N, table+3);
-			table += 16;
+			gwsincos1234by4 (j, N*2, table);	/* For the ten real (and five complex) */
+			gwsincos1234by4 (j + avx_increment, N*2, table+1);
+			gwsincos1234by4 (j + 2*avx_increment, N*2, table+2);
+			gwsincos1234by4 (j + 3*avx_increment, N*2, table+3);
+			table += 32;
 		}
 		N = N / 5;
 	}
@@ -1138,14 +1124,14 @@ double *yr4_build_pass2_real_table (
 
 	if (!swizzled) {
 		for (j = 0; j < N / 4; j += 4) {
-			gwsincos15by4 (j, N*2, table);				/* For the eight real */
+			gwsincos15by4 (j, N*2, table);		/* For the eight real */
 			gwsincos15by4 (j + avx_increment, N*2, table+1);
 			gwsincos15by4 (j + 2*avx_increment, N*2, table+2);
 			gwsincos15by4 (j + 3*avx_increment, N*2, table+3);
 			table += 16;
 		}
 		for (j = 0; j < N / 4; j += 4) {
-			gwsincos12by4 (j, N, table);				/* For the four-complex */
+			gwsincos12by4 (j, N, table);		/* For the four-complex */
 			gwsincos12by4 (j + avx_increment, N, table+1);
 			gwsincos12by4 (j + 2*avx_increment, N, table+2);
 			gwsincos12by4 (j + 3*avx_increment, N, table+3);
