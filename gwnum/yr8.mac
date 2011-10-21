@@ -18,6 +18,8 @@
 ;; No sin/cos multipliers are needed.
 ;;
 
+yr8_8cl_eight_complex_fft_final_preload MACRO
+	ENDM
 yr8_8cl_eight_complex_fft_final MACRO srcreg,srcinc,d1,d2,d4
 	yr8_8c_simple_fft_part1 srcreg,d1,d2,d4
 	yr8_8c_simple_fft_part2 srcreg,d1,d2,d4
@@ -189,6 +191,8 @@ yr8_8c_simple_fft_part2 MACRO srcreg,d1,d2,d4
 ;; No sin/cos multipliers are needed.
 ;;
 
+yr8_8cl_eight_complex_with_square_preload MACRO
+	ENDM
 yr8_8cl_eight_complex_with_square MACRO srcreg,srcinc,d1,d2,d4
 	yr8_8c_simple_fft_part1 srcreg,d1,d2,d4
 	yr8_8c_simple_fft_with_square srcreg,d1,d2,d4
@@ -401,6 +405,8 @@ yr8_8c_simple_unfft MACRO srcreg,d1,d2,d4
 ;; No sin/cos multipliers are needed.
 ;;
 
+yr8_8cl_eight_complex_with_mult_preload MACRO
+	ENDM
 yr8_8cl_eight_complex_with_mult MACRO srcreg,srcinc,d1,d2,d4
 	yr8_8c_simple_fft_part1 srcreg,d1,d2,d4
 	yr8_8c_simple_fft_with_mult srcreg,srcreg+rbp,d1,d2,d4
@@ -511,6 +517,8 @@ yr8_8c_simple_fft_with_mult MACRO srcreg,altsrc,d1,d2,d4
 ;; No sin/cos multipliers are needed.
 ;;
 
+yr8_8cl_eight_complex_with_mulf_preload MACRO
+	ENDM
 yr8_8cl_eight_complex_with_mulf MACRO srcreg,srcinc,d1,d2,d4
 	yr8_8c_simple_fft_with_mulf srcreg,d1,d2,d4
 	yr8_8c_simple_unfft srcreg,d1,d2,d4

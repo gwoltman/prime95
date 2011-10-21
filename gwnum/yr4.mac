@@ -1603,6 +1603,8 @@ yr4_b4cl_wpn_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 
 ;; Macros to do four four_complex_fft in the final levels of an FFT.
 
+yr4_4cl_four_complex_fft_final_preload MACRO
+	ENDM
 yr4_4cl_four_complex_fft_final MACRO srcreg,srcinc,d1,d2
 	yr4_4c_simple_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg]
 ;;	vmovapd	[srcreg], ymm0			;; Save R1
@@ -1616,6 +1618,8 @@ yr4_4cl_four_complex_fft_final MACRO srcreg,srcinc,d1,d2
 	bump	srcreg, srcinc
 	ENDM
 
+yr4_4cl_four_complex_with_square_preload MACRO
+	ENDM
 yr4_4cl_four_complex_with_square MACRO srcreg,srcinc,d1,d2
 	yr4_4c_simple_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg]
 	yp_complex_square ymm2, ymm1, ymm5	;; Square R2, I2
@@ -1643,6 +1647,8 @@ yr4_4cl_four_complex_with_square MACRO srcreg,srcinc,d1,d2
 	bump	srcreg, srcinc
 	ENDM
 
+yr4_4cl_four_complex_with_mult_preload MACRO
+	ENDM
 yr4_4cl_four_complex_with_mult MACRO srcreg,srcinc,d1,d2
 	yr4_4c_simple_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg]
 	vmovapd	[srcreg+32], ymm4		;; Save I1
@@ -1672,6 +1678,8 @@ yr4_4cl_four_complex_with_mult MACRO srcreg,srcinc,d1,d2
 	bump	srcreg, srcinc
 	ENDM
 
+yr4_4cl_four_complex_with_mulf_preload MACRO
+	ENDM
 yr4_4cl_four_complex_with_mulf MACRO srcreg,srcinc,d1,d2
 	vmovapd	ymm2, [srcreg+d1][rbx]		;; R2
 	vmovapd	ymm1, [srcreg+d1+32][rbx]	;; I2
