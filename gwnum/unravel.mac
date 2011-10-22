@@ -1640,7 +1640,6 @@ loops_init_prefetch MACRO count, pfamt, pffreq, pfreg, first_completed, first_it
 
 loops_init_common MACRO count, first_completed, first_iters
 	;;LOCAL	local_first_completed, local_first_iters
-	LOCAL	x
 	IFB <first_completed>
 	  local_first_completed = 0
 	  local_first_iters = 1
@@ -1672,10 +1671,7 @@ loops_init_common MACRO count, first_completed, first_iters
 	;; will need to be adjusted later.
 	IF (loops_count AND (loops_count-1)) NE 0
 	  loops_count_is_power_of_two = 0
-	  mov	eax, 9999
-x:	  org	x-4
-	  DD	loops_initial_value
-	  loops_initial_value_label = (OFFSET x) - 4
+	  set_initial_loop_count loops_initial_value
 
 	;; Otherwise output the initial value using the shortest instruction possible
 	ELSEIF loops_initial_value EQ 0
@@ -1779,9 +1775,8 @@ loops	MACRO iters, dest, incr
 	ENDM
 
 loops_no_prefetch MACRO iters, dest, incr			;; Like loops macro except it won't prefetch
-	;;LOCAL	local_incr, local_iters
+	;;LOCAL	local_incr
 	;; Make local copies of params
-	local_iters = iters
 	IFB <incr>
 	  local_incr = 1
 	ELSE
@@ -1789,18 +1784,16 @@ loops_no_prefetch MACRO iters, dest, incr			;; Like loops macro except it won't 
 	ENDIF
 	;; Jump to passed in dest or to touch label
 	IF loops_touchfreq EQ 0 OR loops_completed LT loops_touchfreq
-	  loops_common local_iters, dest, local_incr
+	  loops_common iters, dest, local_incr
 	ELSE
-	  loops_common local_iters, loops_touchlabel, local_incr
+	  loops_common iters, loops_touchlabel, local_incr
 	ENDIF
 	ENDM
 
 loops_common MACRO iters, dest, incr
-	;;LOCAL next_power_2, non_power_2_adjustment
-	LOCAL local_iters
-	LOCAL x
-	local_iters = iters
-	IF local_iters GT 1
+	;;LOCAL local_cmn_iters, next_power_2, non_power_2_adjustment
+	local_cmn_iters = iters
+	IF local_cmn_iters GT 1
 	  non_power_2_adjustment = 0
 	  IF loops_np2_first_initial_value_adjust NE 0 AND loops_np2_loops_completed EQ loops_completed
 		add	eax, loops_np2_first_initial_value_adjust - loops_np2_initial_value_adjust ;; restore first non-power-of-2 initial value
@@ -1808,21 +1801,21 @@ loops_common MACRO iters, dest, incr
 	  IF loops_completed NE 1
 	    incr = 1
 	  ENDIF
-	  IF loops_completed EQ 1 AND (local_iters AND (local_iters-1)) EQ 0 AND (incr AND (incr-1)) EQ 0
-	    IF (loops_count LE 256 AND local_iters * incr EQ loops_count)
-	      add al, 256/(local_iters)
+	  IF loops_completed EQ 1 AND (local_cmn_iters AND (local_cmn_iters-1)) EQ 0 AND (incr AND (incr-1)) EQ 0
+	    IF (loops_count LE 256 AND local_cmn_iters * incr EQ loops_count)
+	      add al, 256/(local_cmn_iters)
 	    ELSE
-	      IF (loops_count LE 128 AND (local_iters) * loops_count * (incr) LE 256)
-	        add al, 80h/(local_iters)*2+(incr)
+	      IF (loops_count LE 128 AND (local_cmn_iters) * loops_count * (incr) LE 256)
+	        add al, 80h/(local_cmn_iters)*2+(incr)
 	      ELSE
-	        add eax, 80000000h/(local_iters)*2+(incr)
+	        add eax, 80000000h/(local_cmn_iters)*2+(incr)
 	      ENDIF
 	    ENDIF
 	    jnc	dest
 	    loops_completed = incr
 	  ELSE
 	    ;; Handle non-power-of-2 iteration counts
-	    IF (local_iters AND (local_iters-1)) NE 0 OR (incr AND (incr-1)) NE 0
+	    IF (local_cmn_iters AND (local_cmn_iters-1)) NE 0 OR (incr AND (incr-1)) NE 0
 	      IF loops_completed EQ 1
 	        IF loops_count LT 256
 		  add al, incr
@@ -1832,50 +1825,47 @@ loops_common MACRO iters, dest, incr
 	        loops_completed = incr
 	      ENDIF
 	      IF (loops_count AND (loops_count-1)) NE 0
-	        next_power_2 = local_iters * loops_completed
+	        next_power_2 = local_cmn_iters * loops_completed
 	        next_power_2 = next_power_2 OR (next_power_2 SHR 1)
 	        next_power_2 = next_power_2 OR (next_power_2 SHR 2)
 	        next_power_2 = next_power_2 OR (next_power_2 SHR 4)
 	        next_power_2 = next_power_2 OR (next_power_2 SHR 8)
 	        next_power_2 = (next_power_2 OR (next_power_2 SHR 16)) + 1
-		non_power_2_adjustment = next_power_2 - local_iters * loops_completed
-x:
+		non_power_2_adjustment = next_power_2 - local_cmn_iters * loops_completed
 		loops_np2_initial_value_adjust = loops_np2_initial_value_adjust + non_power_2_adjustment
-	        org loops_initial_value_label
-		DD	loops_initial_value + loops_np2_initial_value_adjust
-		org x
-		;; Adjust loops_count and local_iters so that this looks like a power-of-two
-		loops_count = loops_count / (local_iters * loops_completed) * next_power_2
-		loops_pffreq = loops_pffreq / (local_iters * loops_completed) * next_power_2
+		overwrite_initial_loop_count loops_initial_value + loops_np2_initial_value_adjust
+		;; Adjust loops_count and local_cmn_iters so that this looks like a power-of-two
+		loops_count = loops_count / (local_cmn_iters * loops_completed) * next_power_2
+		loops_pffreq = loops_pffreq / (local_cmn_iters * loops_completed) * next_power_2
 		IF (loops_completed AND (loops_completed-1)) EQ 0
-			local_iters = next_power_2 / loops_completed
+			local_cmn_iters = next_power_2 / loops_completed
 		ELSE
-			local_iters = next_power_2
+			local_cmn_iters = next_power_2
 			loops_completed = 1
 		ENDIF
 	      ELSE
 	        loops_non_power2_problem
 	      ENDIF
 	    ENDIF
-	    IF local_iters * loops_completed LE 128
-	      test al, (local_iters-1)*loops_completed
+	    IF local_cmn_iters * loops_completed LE 128
+	      test al, (local_cmn_iters-1)*loops_completed
 	      jnz dest
 	    ENDIF
-	    IF local_iters * loops_completed EQ 256
+	    IF local_cmn_iters * loops_completed EQ 256
 	      IF loops_count_is_power_of_two NE 0
 	        test al, al	;; Save one byte if loop count is a power of two
 	        jnz dest
 	      ELSE
-		test al, (local_iters-1)*loops_completed
+		test al, (local_cmn_iters-1)*loops_completed
 		jnz dest
 	      ENDIF
 	    ENDIF
-	    IF local_iters * loops_completed GT 256
-	      test eax, (local_iters-1)*loops_completed
+	    IF local_cmn_iters * loops_completed GT 256
+	      test eax, (local_cmn_iters-1)*loops_completed
 	      jnz dest
 	    ENDIF
 	  ENDIF
-	  loops_completed = local_iters * loops_completed
+	  loops_completed = local_cmn_iters * loops_completed
 	  IF loops_completed GT loops_count
 	    error_looped_more_than_loop_count
 	  ENDIF
@@ -1886,8 +1876,6 @@ x:
 	ENDM
 
 loops_undo MACRO iters
-	LOCAL	x
-
 	IF loops_pffreq EQ loops_completed
 	  IF loops_pfamt EQ 1
 	    prefetcht1 [loops_pfreg]
@@ -1932,10 +1920,7 @@ loops_undo MACRO iters
 	  loops_completed = loops_completed / next_power_2
 	  loops_initial_value = loops_original_initial_value - loops_np2_initial_value_adjust - next_power_2 * loops_completed
 	  loops_np2_initial_value_adjust = 0
-	  add	eax, 9999
-x:	  org	x-4
-	  DD	loops_initial_value
-	  loops_initial_value_label = (OFFSET x) - 4
+	  set_initial_loop_count loops_initial_value
 
 	  loops_count = loops_count / next_power_2 * iters
 	  loops_pffreq = loops_pffreq / next_power_2 * iters
@@ -1962,12 +1947,22 @@ loops_touch MACRO iters1, dest1, iters2, dest2
 	ENDIF
 	ENDM
 
-; Macro to flush the P4 trace cache
-
-trace_cache_flush MACRO
-	LOCAL	rrr
-rrr:	mov	ds:BYTE PTR rrr, 0C6h
+;; Internal macro to set and overwrite initial loop count
+set_initial_loop_count MACRO loops_initial_value
+	LOCAL	x
+	mov	eax, 9999
+x:	org	x-4
+	DD	loops_initial_value
+	loops_initial_value_label = (OFFSET x) - 4
 	ENDM
+overwrite_initial_loop_count MACRO new_initial_value
+	LOCAL	x
+x:
+	org loops_initial_value_label
+	DD	new_initial_value
+	org x
+	ENDM
+
 
 ; Macros to create PROC statements.
 ;
