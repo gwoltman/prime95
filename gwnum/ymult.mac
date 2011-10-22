@@ -484,7 +484,7 @@ yloop1doublepre MACRO label1, incr_rsi, pm_incr_reg, pm_incr_amt, sc_incr_reg, s
 
 	ENDIF
 
-	bump	rsi, -2*clm*64+incr_rsi	;; Next source pointer
+	bump	rsi, -4*clm*64+incr_rsi	;; Next source pointer
 	bump	pm_incr_reg, pm_incr_amt ;; Next premultiplier pointer
 	bump	sc_incr_reg, sc_incr_amt ;; Next sin/cos pointer
 	ENDM
