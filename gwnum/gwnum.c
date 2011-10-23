@@ -578,7 +578,7 @@ int is_fft_implemented (
 
 	if (! (gwdata->cpu_flags & (CPU_AVX | CPU_SSE2))) return (TRUE);
 
-/* For AVX FFT lengths below 8K there is only one FFT implementation and it is always available */
+/* For AVX FFT lengths <= 32K there is only one FFT implementation and it is always available */
 
 	if (gwdata->cpu_flags & CPU_AVX && jmptab->fftlen <= 32768) return (TRUE);
 
@@ -1171,10 +1171,12 @@ next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
 /* makes the SUM(INPUTS) != SUM(OUTPUTS) error check impossible.  If the user prefers */
 /* SUM(INPUTS) != SUM(OUTPUTS) error checking, then skip r4dwpn FFT type (except all-complex */
 /* FFTs which never could support SUM(INPUTS) != SUM(OUTPUTS) error checking. */
+/* Ignore this preference for AVX FFTs as we do not support two-pass FFTs with this error check. */
 
 		fft_type = (jmptab->flags >> 21) & 0xF;
 		if (gwdata->sum_inputs_checking &&
 		    ! gwdata->ALL_COMPLEX_FFT &&
+		    ! (gwdata->cpu_flags & CPU_AVX) &&
 		    fft_type == FFT_TYPE_RADIX_4_DWPN)
 			goto next3;
 
