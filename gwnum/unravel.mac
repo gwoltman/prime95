@@ -1609,18 +1609,14 @@ bump	MACRO	reg, amt
 ; test/jnz which generates a fused-op internally on Core 2 machines.
 ;
 
+;; Init the loops macros without prefetching.  Optionally mark a few of the initial loops completed.
 loops_init MACRO count, first_completed, first_iters
-	loops_init_common count, first_completed, first_iters
 	loops_pffreq = 0
+	loops_init_common count, first_completed, first_iters
 	loops_touchfreq = 0
 	ENDM
 
-loops_init_prefetch_touch MACRO count, pfamt, pffreq, pfreg, touch_amt, touch_label, first_completed, first_iters
-	loops_init_prefetch count, pfamt, pffreq, pfreg, first_completed, first_iters
-	loops_touchfreq = touch_amt / pfamt * pffreq
-	loops_touchlabel EQU touch_label
-	ENDM
-
+;; Init the loops macros with prefetching.  Optionally mark a few of the initial loops completed.
 loops_init_prefetch MACRO count, pfamt, pffreq, pfreg, first_completed, first_iters
 	IF PREFETCHING EQ 0
 	  loops_init count, first_completed, first_iters
@@ -1631,6 +1627,7 @@ loops_init_prefetch MACRO count, pfamt, pffreq, pfreg, first_completed, first_it
 	    loops_init_common count, first_completed, first_iters
 	  ELSEIF loops_pffreq NE 1 AND loops_pffreq LT first_iters
 	    loops_init_common count, first_completed, loops_pffreq
+	    loops_first_iters = first_iters
 	  ELSE
 	    loops_init_common count, first_completed, first_iters
 	  ENDIF
@@ -1638,44 +1635,52 @@ loops_init_prefetch MACRO count, pfamt, pffreq, pfreg, first_completed, first_it
 	loops_touchfreq = 0
 	ENDM
 
+;; Init the loops macros with prefetching and touching.  Optionally mark a few of the initial loops completed.
+loops_init_prefetch_touch MACRO count, pfamt, pffreq, pfreg, touch_amt, touch_label, first_completed, first_iters
+	loops_init_prefetch count, pfamt, pffreq, pfreg, first_completed, first_iters
+	loops_touchfreq = touch_amt / pfamt * pffreq
+	loops_touchlabel EQU touch_label
+	ENDM
+
+;; Internal loops init routine
 loops_init_common MACRO count, first_completed, first_iters
-	;;LOCAL	local_first_completed, local_first_iters
 	IFB <first_completed>
-	  local_first_completed = 0
-	  local_first_iters = 1
+	  loops_first_completed = 0
+	  loops_first_iters = 1
 	ELSE
-	  local_first_completed = first_completed
-	  local_first_iters = first_iters
+	  loops_first_completed = first_completed
+	  loops_first_iters = first_iters
 	ENDIF
 
 	loops_count = count
-	loops_completed = 1
+	loops_completed = 0
 	loops_count_is_power_of_two = 1
 	loops_np2_initial_value_adjust = 0
 	loops_np2_first_initial_value_adjust = 0
 	loops_np2_loops_completed = 0
+	loops_counter_needs_repair = 0
 
 	;; Compute the initial value
 
-	IF local_first_completed EQ 0
+	IF loops_first_completed EQ 0
 	  loops_initial_value = 0
-	ELSEIF (count LE 256 AND local_first_iters EQ count)
-	  loops_initial_value = local_first_completed * 256/local_first_iters
-	ELSEIF (count LE 128 AND local_first_iters * count LE 256)
-	  loops_initial_value = local_first_completed * (256/local_first_iters+1)
+	ELSEIF (count LE 256 AND loops_first_iters EQ count)
+	  loops_initial_value = loops_first_completed * 256/loops_first_iters
+	ELSEIF (count LE 128 AND loops_first_iters * count LE 256)
+	  loops_initial_value = loops_first_completed * (256/loops_first_iters+1)
 	ELSE
-	  loops_initial_value = local_first_completed * (80000000h/local_first_iters*2+1)
+	  loops_initial_value = loops_first_completed * (80000000h/loops_first_iters*2+1)
 	ENDIF
 
 	;; Always output non-power-of-2 counts as 4 bytes as the initial value
 	;; will need to be adjusted later.
 	IF (loops_count AND (loops_count-1)) NE 0
 	  loops_count_is_power_of_two = 0
-	  set_initial_loop_count loops_initial_value
+	  set_initial_loop_count mov, loops_initial_value
 
 	;; Otherwise output the initial value using the shortest instruction possible
 	ELSEIF loops_initial_value EQ 0
-	  sub	eax, eax
+	  sub	rax, rax
 	ELSEIF loops_initial_value GT 0 AND loops_initial_value LT 256
 	  mov	al, loops_initial_value
 	ELSE
@@ -1690,6 +1695,7 @@ loops_init_common MACRO count, first_completed, first_iters
 	loops_original_initial_value = loops_initial_value
 	ENDM
 
+;; Override the initial loops prefetching settings
 loops_set_prefetch MACRO pfamt, pffreq, pfreg
 	IF PREFETCHING NE 0
 	  IF loops_double_prefetching EQ 1
@@ -1719,77 +1725,105 @@ loops_set_prefetch MACRO pfamt, pffreq, pfreg
 	ENDIF
 	ENDM
 
+;; Main looping macro.  Normally third argument is blank meaning increment loop counter by 1.
 loops	MACRO iters, dest, incr
-	;;LOCAL	small_count, local_incr, local_iters
-	;; Make local copies of params
+
+	;; Make local copies of params.  Validate them.
 	local_iters = iters
 	IFB <incr>
 	  local_incr = 1
 	ELSE
 	  local_incr = incr
 	ENDIF
+	IF local_incr NE 1 AND loops_completed GT 1
+	  loops_non_standard_incr_only_supported_on_first_loops_call
+	ENDIF
+	IF local_iters EQ 1 AND local_incr GT 1
+	  loops_non_standard_incr_only_supported_with_iters_more_than_one
+	ENDIF
+
+	;; Do some work required only on the first loops call
+	IF loops_completed EQ 0
+	  ;; Verify initial iters value.  If one specified in loops_init call they must match.
+	  IF loops_first_completed NE 0 AND local_iters NE loops_first_iters
+	    loops_mismatched_first_iters
+	  ENDIF
+	  ;; Verify pffreq and incr.
+	  IF loops_pffreq NE 0 AND loops_pffreq LT local_incr
+	    loops_pffreq_less_than_incr
+	  ENDIF
+	  ;; If prefetch frequency equals the incr then output prefetch instructions before testing loop counter
+	  IF (loops_pffreq NE 0) AND (loops_pffreq LE local_incr)
+	    output_prefetch_instructions
+	  ENDIF
+	  loops_completed = 1
+	ENDIF
+
+	;; Ignore loops calls where the iteration count is one.  This avoids potentially outputting
+	;; the prefetch instructions twice
+	IF local_iters EQ 1
+	  EXITM
+	ENDIF
+
 	;; If necessary, split loop issue prefetch instruction(s)
-	IF loops_pffreq GE loops_completed AND loops_pffreq LT loops_completed * local_iters * local_incr
+	IF loops_pffreq GT loops_completed * local_incr AND loops_pffreq LT loops_completed * local_incr * local_iters
 	  small_count = loops_pffreq / loops_completed / local_incr
-	  IF small_count EQ 0
-	    ;; This only happens when one specifies a incr larger than the pffreq.
-	    ;; This will result in fewer cache lines being prefetched than would
-	    ;; ordinarily be expected.  This might be considered a feature as it
-	    ;; could allow greater fine tuning of the number of cache lines prefetched
-	    ;; in rare circumstances.
-	    small_count = 1
+	  ;; Validate small count.  User can use loops_set_prefetch to make sure this doesn't happen.
+	  IF small_count LE 1
+	    loops_pffreq_small_count_is_bad
 	  ENDIF
 	  IF (local_iters MOD small_count) NE 0
 	    error_with_non_power_of_2_and_prefetching
 	  ENDIF
-	  loops_common small_count, dest, local_incr
-	  IF loops_pfamt EQ 1
-	    prefetcht1 [loops_pfreg]
-	    bump loops_pfreg, PREFETCHING
-	  ELSE
-	    prefetcht1 [loops_pfreg]
-	    prefetcht1 [loops_pfreg+PREFETCHING]
-	    bump loops_pfreg, 2*PREFETCHING
-	  ENDIF
-	  IF loops_double_prefetching EQ 1
-	    loops_double_prefetching = 0
-	    loops_pffreq = loops_pffreq * 2
-	  ENDIF
-	  local_iters = local_iters/small_count
+	  ;; Compute large count before recursion destroys local_iters
+	  large_count = local_iters / small_count
+	  ;; Recurse to do first part of loop
+	  loops small_count, dest, local_incr
+	  ;; Fall through to do remaining part of the loop
+	  local_iters = large_count
 	ENDIF
+
 	;; If necessary, split loop for jumping to touch label
-	IF loops_touchfreq GT loops_completed AND loops_touchfreq LT loops_completed * local_iters * local_incr
+	IF loops_touchfreq GT loops_completed * local_incr AND loops_touchfreq LT loops_completed * local_incr * local_iters
 	  small_count = loops_touchfreq / loops_completed / local_incr
+	  ;; Validate small count.
+	  IF small_count LE 1
+	    loops_touchfreq_small_count_is_bad
+	  ENDIF
 	  IF (local_iters MOD small_count) NE 0
 	    error_with_non_power_of_2_and_prefetch_touching
 	  ENDIF
-	  loops_common small_count, dest, local_incr
-	  local_iters = local_iters/small_count
+	  ;; Compute large count before recursion destroys local_iters
+	  large_count = local_iters / small_count
+	  ;; Recurse to do first part of loop
+	  loops small_count, dest, local_incr
+	  ;; Fall through to do remaining part of the loop
+	  local_iters = large_count
 	ENDIF
+
 	;; Jump to passed in dest or to touch label
 	IF loops_touchfreq EQ 0 OR loops_completed LT loops_touchfreq
 	  loops_common local_iters, dest, local_incr
 	ELSE
 	  loops_common local_iters, loops_touchlabel, local_incr
 	ENDIF
+
+	;; Output prefetch instructions after jump instruction when enough loops have been completed
+	IF loops_pffreq EQ loops_completed
+	    output_prefetch_instructions
+	ENDIF
+
 	ENDM
 
-loops_no_prefetch MACRO iters, dest, incr			;; Like loops macro except it won't prefetch
-	;;LOCAL	local_incr
-	;; Make local copies of params
-	IFB <incr>
-	  local_incr = 1
-	ELSE
-	  local_incr = incr
-	ENDIF
-	;; Jump to passed in dest or to touch label
-	IF loops_touchfreq EQ 0 OR loops_completed LT loops_touchfreq
-	  loops_common iters, dest, local_incr
-	ELSE
-	  loops_common iters, loops_touchlabel, local_incr
-	ENDIF
+;; Like loops macro except it won't prefetch
+loops_no_prefetch MACRO iters, dest, incr
+	save_loops_pffreq = loops_pffreq
+	loops_pffreq = 0
+	loops iters, dest, incr
+	loops_pffreq = save_loops_pffreq
 	ENDM
 
+;; Internal loops macro that manages the loops counter
 loops_common MACRO iters, dest, incr
 	;;LOCAL local_cmn_iters, next_power_2, non_power_2_adjustment
 	local_cmn_iters = iters
@@ -1804,12 +1838,21 @@ loops_common MACRO iters, dest, incr
 	  IF loops_completed EQ 1 AND (local_cmn_iters AND (local_cmn_iters-1)) EQ 0 AND (incr AND (incr-1)) EQ 0
 	    IF (loops_count LE 256 AND local_cmn_iters * incr EQ loops_count)
 	      add al, 256/(local_cmn_iters)
+	    ELSEIF (loops_count LE 128 AND (local_cmn_iters) * loops_count * (incr) LE 256)
+	      add al, 80h/(local_cmn_iters)*2+(incr)
 	    ELSE
-	      IF (loops_count LE 128 AND (local_cmn_iters) * loops_count * (incr) LE 256)
-	        add al, 80h/(local_cmn_iters)*2+(incr)
+	      add eax, 80000000h/(local_cmn_iters)*2+(incr)
+	    ENDIF
+	    IF loops_counter_needs_repair EQ 1
+	      IF (loops_count LE 256 AND local_cmn_iters * incr EQ loops_count)
+	        loops_initial_value = 256/(local_cmn_iters)
+	      ELSEIF (loops_count LE 128 AND (local_cmn_iters) * loops_count * (incr) LE 256)
+	        loops_initial_value = 80h/(local_cmn_iters)*2+(incr)
 	      ELSE
-	        add eax, 80000000h/(local_cmn_iters)*2+(incr)
+	        loops_initial_value = 80000000h/(local_cmn_iters)*2+(incr)
 	      ENDIF
+	      overwrite_initial_loop_count loops_initial_value
+	      loops_counter_needs_repair = 0
 	    ENDIF
 	    jnc	dest
 	    loops_completed = incr
@@ -1821,6 +1864,11 @@ loops_common MACRO iters, dest, incr
 		  add al, incr
 		ELSE
 		  add eax, incr
+		ENDIF
+		IF loops_counter_needs_repair EQ 1
+		  loops_initial_value = incr
+		  overwrite_initial_loop_count loops_initial_value
+		  loops_counter_needs_repair = 0
 		ENDIF
 	        loops_completed = incr
 	      ENDIF
@@ -1875,25 +1923,16 @@ loops_common MACRO iters, dest, incr
 	ENDIF
 	ENDM
 
+;; Undo some previous loops calls
 loops_undo MACRO iters
-	IF loops_pffreq EQ loops_completed
-	  IF loops_pfamt EQ 1
-	    prefetcht1 [loops_pfreg]
-	    bump loops_pfreg, PREFETCHING
-	  ELSE
-	    prefetcht1 [loops_pfreg]
-	    prefetcht1 [loops_pfreg+PREFETCHING]
-	    bump loops_pfreg, 2*PREFETCHING
-	  ENDIF
-	  IF loops_double_prefetching EQ 1
-	    loops_double_prefetching = 0
-	    loops_pffreq = loops_pffreq * 2
-	  ENDIF
-	ELSEIF loops_orig_pffreq EQ loops_completed
+	;; Handle nasty case where caller requested prefetching 64 bytes at the
+	;; loops_completed boundary on a machine that prefetches 128 bytes at a time
+	IF loops_orig_pffreq EQ loops_completed AND loops_pffreq NE loops_completed
 	  loops_double_prefetching = 1
 	  loops_pffreq = loops_pffreq / 2
 	ENDIF
 
+	;; Undo the changes to the loop counter
 	IF (iters AND (iters-1)) EQ 0
 	  loops_completed = loops_completed / (iters)
 	  IF loops_count LE 128
@@ -1920,7 +1959,7 @@ loops_undo MACRO iters
 	  loops_completed = loops_completed / next_power_2
 	  loops_initial_value = loops_original_initial_value - loops_np2_initial_value_adjust - next_power_2 * loops_completed
 	  loops_np2_initial_value_adjust = 0
-	  set_initial_loop_count loops_initial_value
+	  set_initial_loop_count add, loops_initial_value
 
 	  loops_count = loops_count / next_power_2 * iters
 	  loops_pffreq = loops_pffreq / next_power_2 * iters
@@ -1929,15 +1968,37 @@ loops_undo MACRO iters
 	;; Set funky xprefetch variable
 	loops_undo_called = 1
 
+	;; If we've undone everyhting, set loops_completed to zero so that prefetching
+	;; can be output before the next loops test.
+	IF loops_completed EQ 1
+	  loops_completed = 0
+	ENDIF
 	ENDM
 
+;; Kinda like loops_undo except that the loop counter is not adjusted
 loops_reset MACRO
-	loops_completed = 1
+	;; Handle nasty case where a "loops 1" preceeds the loops_reset.  We must treat this as
+	;; a initial_increment after the loops_reset.  For example, in this code
+	;; a:  some code
+	;;     loops clm, a
+	;;     loops_reset
+	;; b:  some other code
+	;;     loops clm, b
+	;;     loops 4, b
+	;; when clm=1, we must treat the "loops 4" as 1/4 complete.
+	IF loops_completed EQ 1
+	  set_initial_loop_count mov, 0
+	  loops_counter_needs_repair = 1
+	ENDIF
+
+	;; Reset variables
+	loops_completed = 0
 	loops_count = loops_original_count
 	loops_initial_value = loops_original_initial_value
 	loops_np2_initial_value_adjust = 0
 	ENDM
 
+;; Do two loops calls if touching cache lines, one combined loops call otherwise
 loops_touch MACRO iters1, dest1, iters2, dest2
 	IF OFFSET dest1 NE OFFSET dest2
 	loops	iters1, dest1
@@ -1947,10 +2008,26 @@ loops_touch MACRO iters1, dest1, iters2, dest2
 	ENDIF
 	ENDM
 
-;; Internal macro to set and overwrite initial loop count
-set_initial_loop_count MACRO loops_initial_value
+;; Internal loops macro to output prefetch instructions
+output_prefetch_instructions MACRO
+	IF loops_pfamt EQ 1
+	    prefetcht1 [loops_pfreg]
+	    bump loops_pfreg, PREFETCHING
+	ELSE
+	    prefetcht1 [loops_pfreg]
+	    prefetcht1 [loops_pfreg+PREFETCHING]
+	    bump loops_pfreg, 2*PREFETCHING
+	ENDIF
+	IF loops_double_prefetching EQ 1
+	    loops_double_prefetching = 0
+	    loops_pffreq = loops_pffreq * 2
+	ENDIF
+	ENDM
+
+;; Internal macros to set and overwrite initial loop count
+set_initial_loop_count MACRO opcode, loops_initial_value
 	LOCAL	x
-	mov	eax, 9999
+	opcode	eax, 9999
 x:	org	x-4
 	DD	loops_initial_value
 	loops_initial_value_label = (OFFSET x) - 4
