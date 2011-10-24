@@ -201,9 +201,11 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 
 ;; Compute the needed distances
 ;; Choose a clmblkdst to avoid the bad 4KB distance (especially in 4*clmblkdst)
+;; Inexplicably, testing reveals that 2KB is also a bad distance.  So, we also
+;; choose a funky clmblkdst for clm=2.
 
 	blkdst = (p2cl*64+p2cl/64*64)
-	IF clm LE 2
+	IF clm EQ 1
 		clmblkdst = (4*clm*64)
 		clmblkdst8 = (clmblkdst*8+64)
 	ELSE
