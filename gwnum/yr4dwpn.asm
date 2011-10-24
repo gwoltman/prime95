@@ -122,8 +122,8 @@ buildfor CORE   ,	yr4dwpn_pass1sc512 384K, 768, 4
 ;buildfor        ,	yr4dwpn_pass1sc512 384K, 768, 2
 ;buildfor        ,	yr4dwpn_pass1sc512 384K, 768, 1
 buildfor CORE   ,	yr4dwpn_pass1sc512 512K, 10, 4
-;buildfor CORE_64,	yr4dwpn_pass1sc512 512K, 10, 2
-;buildfor        ,	yr4dwpn_pass1sc512 512K, 10, 1
+buildfor CORE   ,	yr4dwpn_pass1sc512 512K, 10, 2
+buildfor CORE   ,	yr4dwpn_pass1sc512 512K, 10, 1
 buildfor CORE   ,	yr4dwpn_pass1sc512 640K, 1280, 4
 
 ;buildfor CORE   ,	yr4dwpn_pass1sc640 480K, 768, 4

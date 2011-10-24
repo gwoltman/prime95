@@ -1232,11 +1232,17 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 	if (gwdata->PASS2_SIZE && !in_place) {
 		if (gwdata->cpu_flags & CPU_AVX) {		// AVX scratch area size
 			int	pass1_chunks, gaps;
-			// AVX pads 64 bytes every 8 chunks (where pass1_chunks is the number of
-			// cache lines that a pass 1 data set occupies)
+			// For small clms, AVX pads 64 bytes every 8 chunks (where pass1_chunks is the number of
+			// cache lines that a pass 1 data set occupies).  For large clms, AVX pads 64 bytes every
+			// chunk, and -64 bytes every 8 chunks.
 			pass1_chunks = (gwdata->FFTLEN / gwdata->PASS2_SIZE) >> 3;
-			gaps = pass1_chunks / 8 - 1;
-			gwdata->SCRATCH_SIZE = pass1_chunks * gwdata->PASS1_CACHE_LINES * 64 + gaps * 64;
+			if (gwdata->PASS1_CACHE_LINES < 16) {	// clm=1 or clm=2
+				gaps = pass1_chunks / 8 - 1;
+				gwdata->SCRATCH_SIZE = pass1_chunks * gwdata->PASS1_CACHE_LINES * 64 + gaps * 64;
+			} else {				// clm=4 or more
+				gaps = pass1_chunks / 8;
+				gwdata->SCRATCH_SIZE = pass1_chunks * (gwdata->PASS1_CACHE_LINES * 64 + 64) + gaps * -64;
+			}
 		} else if (gwdata->cpu_flags & CPU_SSE2) {	// SSE2 scratch area size
 			int	pass1_chunks, gaps;
 			// SSE2 pads 128 bytes every 8 chunks
@@ -3262,9 +3268,14 @@ int internal_gwsetup (
 			    gwdata->FFTLEN / gwdata->PASS2_SIZE == 96 ||
 			    gwdata->FFTLEN / gwdata->PASS2_SIZE == 112 ||
 			    gwdata->FFTLEN / gwdata->PASS2_SIZE == 224) {
-				asm_data->normblkdst8 = 0;		/* Small pass 1's with PFA have no padding every 8 clmblkdsts */
-			} else {
+				asm_data->normblkdst = 0;		/* Small pass 1's with PFA have no padding every 8 clmblkdsts */
+				asm_data->normblkdst8 = 0;
+			} else if (gwdata->PASS1_CACHE_LINES < 16) {	/* If clm=1 or clm=2 */
+				asm_data->normblkdst = 0;		/* Pad for clmblkdst is 64 bytes */
 				asm_data->normblkdst8 = 64;		/* Pad for clmblkdst8 is 64 bytes */
+			} else {					/* If clm=4 or more */
+				asm_data->normblkdst = 64;		/* Pad for clmblkdst is 64 bytes */
+				asm_data->normblkdst8 = -64;		/* Pad for clmblkdst8 is -64 bytes */
 			}
 
 			/* Calculate "cache lines in a 4KB page" / clm */
@@ -6274,7 +6285,7 @@ void raw_gwsetaddin (
 			if (word >= gwdata->FFTLEN / 2) asm_data->ADDIN_OFFSET += 32;
 			asm_data->ADDIN_OFFSET += ((word / gwdata->PASS2_SIZE) & 3) * 8;
 			row = (word % (gwdata->FFTLEN / 2)) / (4 * gwdata->PASS2_SIZE);
-			asm_data->ADDIN_OFFSET += row * (gwdata->PASS1_CACHE_LINES * 64);
+			asm_data->ADDIN_OFFSET += row * (gwdata->PASS1_CACHE_LINES * 64 + (uint32_t) asm_data->normblkdst);
 			asm_data->ADDIN_OFFSET += (row >> 3) * (uint32_t) asm_data->normblkdst8;
 		}
 

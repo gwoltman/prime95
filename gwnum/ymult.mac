@@ -200,10 +200,16 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 	ENDIF
 
 ;; Compute the needed distances
+;; Choose a clmblkdst to avoid the bad 4KB distance (especially in 4*clmblkdst)
 
 	blkdst = (p2cl*64+p2cl/64*64)
-	clmblkdst = (4*clm*64)
-	clmblkdst8 = (clmblkdst*8+64)
+	IF clm LE 2
+		clmblkdst = (4*clm*64)
+		clmblkdst8 = (clmblkdst*8+64)
+	ELSE
+		clmblkdst = (4*clm*64+64)
+		clmblkdst8 = (clmblkdst*8-64)
+	ENDIF
 
 ;; Make sure the distance between two blocks is an odd multiple of 64.  This
 ;; ensures a good scattering of FFT data in the L2 cache during pass 1.

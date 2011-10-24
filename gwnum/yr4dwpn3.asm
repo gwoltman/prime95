@@ -48,6 +48,8 @@ buildfor CORE   ,	yr4dwpn_pass1sc128 288K, 2304, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128 384K, 3072, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128 480K, 3840, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128 512K, 12, 4
+buildfor CORE   ,	yr4dwpn_pass1sc128 512K, 12, 2
+buildfor CORE   ,	yr4dwpn_pass1sc128 512K, 12, 1
 buildfor CORE   ,	yr4dwpn_pass1sc128 640K, 5120, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128 800K, 6400, 4
 

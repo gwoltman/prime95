@@ -97,7 +97,7 @@ struct gwasm_data {
 	void	*norm_biglit_array;	/* Ptr to byte array of big/lit flags */
 	void	*norm_ptr1;
 	void	*norm_ptr2;
-	intptr_t normblkdst;		/* Dist between blocks in normalization of in-place two-pass FFTs (not used in AVX) */
+	intptr_t normblkdst;		/* Dist between blocks in normalization of in-place two-pass FFTs */
 	intptr_t normblkdst8;		/* Dist between 8 blocks in normalize of two-pass FFTs using scratch area */
 	intptr_t normval2;		/* Add / sub temporaries */
 	intptr_t normval3;

@@ -102,10 +102,11 @@ ttp	bump	rdi, 2			;; Next big/little flags
 	jnz	ilp2			;; Loop til done
 	vmovapd [rbp+0*32], ymm2	;; Save carries
 	vmovapd [rbp+1*32], ymm3
+	add	rsi, normblkdst		;; Add 0 or 64 every clmblkdst
 	bump	rbp, 64			;; Next set of carries
 	add	blk8_counter, 80h/4	;; Test for a multiple of 8 blocks
 	jnc	short not8
-	add	rsi, normblkdst8	;; Add 64 every 8 clmblkdsts
+	add	rsi, normblkdst8	;; Add 64 or -64 every 8 clmblkdsts
 not8:	sub	loopcount2, 1		;; Test loop counter
 	jnz	ilp1			;; Iterate
 ttp	bump	rdx, 2*YMM_GMD		;; Next set of group multipliers
@@ -172,10 +173,11 @@ IFDEF X86_64
 	vmovapd	[rbp+2*32], ymm9
 	vmovapd	[rbp+3*32], ymm10
 ENDIF
+	add	rsi, normblkdst		;; Add 0 or 64 every clmblkdst
 	bump	rbp, 64			;; Next set of carries
 	add	blk8_counterz, 80h/4	;; Test for a multiple of 8 blocks
 	jnc	short not8
-	add	rsi, normblkdst8	;; Add 64 every 8 clmblkdsts
+	add	rsi, normblkdst8	;; Add 64 or -64 every 8 clmblkdsts
 not8:	sub	loopcount2z, 1		;; Test loop counter
 	jnz	ilp1			;; Iterate
 ttp	bump	rdx, YMM_GMD		;; Next set of group multipliers
