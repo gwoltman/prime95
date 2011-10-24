@@ -1236,10 +1236,13 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 			// cache lines that a pass 1 data set occupies).  For large clms, AVX pads 64 bytes every
 			// chunk, and -64 bytes every 8 chunks.
 			pass1_chunks = (gwdata->FFTLEN / gwdata->PASS2_SIZE) >> 3;
-			if (gwdata->PASS1_CACHE_LINES < 8) {	// clm=1
+			if (gwdata->PASS1_CACHE_LINES == 4) {		// clm=1
 				gaps = pass1_chunks / 8 - 1;
 				gwdata->SCRATCH_SIZE = pass1_chunks * gwdata->PASS1_CACHE_LINES * 64 + gaps * 64;
-			} else {				// clm=2 or more
+			} else if (gwdata->PASS1_CACHE_LINES < 8) {	// clm=2
+				gaps = pass1_chunks / 8 - 1;
+				gwdata->SCRATCH_SIZE = pass1_chunks * gwdata->PASS1_CACHE_LINES * 64 + gaps * 192;
+			} else {					// clm=4 or more
 				gaps = pass1_chunks / 8;
 				gwdata->SCRATCH_SIZE = pass1_chunks * (gwdata->PASS1_CACHE_LINES * 64 + 64) + gaps * -64;
 			}
@@ -3270,10 +3273,13 @@ int internal_gwsetup (
 			    gwdata->FFTLEN / gwdata->PASS2_SIZE == 224) {
 				asm_data->normblkdst = 0;		/* Small pass 1's with PFA have no padding every 8 clmblkdsts */
 				asm_data->normblkdst8 = 0;
-			} else if (gwdata->PASS1_CACHE_LINES < 8) {	/* If clm=1 */
+			} else if (gwdata->PASS1_CACHE_LINES == 4) {	/* If clm=1 */
 				asm_data->normblkdst = 0;		/* Pad for clmblkdst is 64 bytes */
 				asm_data->normblkdst8 = 64;		/* Pad for clmblkdst8 is 64 bytes */
-			} else {					/* If clm=2 or more */
+			} else if (gwdata->PASS1_CACHE_LINES == 8) {	/* If clm=2 */
+				asm_data->normblkdst = 0;		/* Pad for clmblkdst is 0 bytes */
+				asm_data->normblkdst8 = 192;		/* Pad for clmblkdst8 is 192 bytes */
+			} else {					/* If clm=4 or more */
 				asm_data->normblkdst = 64;		/* Pad for clmblkdst is 64 bytes */
 				asm_data->normblkdst8 = -64;		/* Pad for clmblkdst8 is -64 bytes */
 			}
