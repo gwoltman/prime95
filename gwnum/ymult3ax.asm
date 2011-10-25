@@ -48,9 +48,9 @@ qaddlp:	vmovapd	ymm0, [rdx]		; Load second number
 	bump	rsi, 64			; Next dest
 	add	eax, 80000000h/32	; 64 cache lines in a 4KB chunk
 	jnc	short qaddlp		; Loop if necessary
-	bump	rcx, 64			; Skip 64 bytes every 4KB
-	bump	rdx, 64			; Skip 64 bytes every 4KB
-	bump	rsi, 64			; Skip 64 bytes every 4KB
+	add	rcx, fourKBgapsize	; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize	; Skip 64 or 192 bytes every 4KB
+	add	rsi, fourKBgapsize	; Skip 64 or 192 bytes every 4KB
 	dec	rax			; Check middle loop counter
 	jnz	short qaddlp		; Loop if necessary
 	add	rcx, pass2gapsize	; Next source
@@ -122,8 +122,8 @@ add2:	ynorm_op_wpn vaddpd, exec, exec, dist_to_dest	; Add and normalize 8 values
 	add	rdi, normval2			; Adjust ptr to little/big flags
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	add1				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	add0
 
@@ -195,8 +195,8 @@ add2r:	ynorm_op_wpn vaddpd, noexec, exec, rdi	; Add and normalize 8 values
 	jnz	add2r
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	add1r				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	add0r
 
@@ -268,8 +268,8 @@ add2n:	ynorm_op_wpn vaddpd, exec, noexec, dist_to_dest	; Add and normalize 8 val
 	add	rdi, normval2			; Adjust ptr to little/big flags
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	add1n				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	add0n
 
@@ -341,8 +341,8 @@ add2nr:	ynorm_op_wpn vaddpd, noexec, noexec, rdi ; Add and normalize 8 values
 	jnz	add2nr
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	add1nr				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	add0nr
 
@@ -413,8 +413,8 @@ add2zp:	ynorm_op_wpn_zpad vaddpd, exec, exec	; Add and normalize 8 values
 	add	rdi, normval2			; Adjust ptr to little/big flags
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	add1zp				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	add0zp
 
@@ -486,8 +486,8 @@ add2rzp: ynorm_op_wpn_zpad vaddpd, noexec, exec	; Add and normalize 8 values
 	jnz	add2rzp
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	add1rzp				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	add0rzp
 
@@ -558,8 +558,8 @@ add2nzp: ynorm_op_wpn_zpad vaddpd, exec, noexec	; Add and normalize 8 values
 	add	rdi, normval2			; Adjust ptr to little/big flags
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	add1nzp				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	add0nzp
 
@@ -631,8 +631,8 @@ add2nrzp: ynorm_op_wpn_zpad vaddpd, noexec, noexec ; Add and normalize 8 values
 	jnz	add2nrzp
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	add1nrzp			; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	add0nrzp
 
@@ -682,9 +682,9 @@ qsublp:	vmovapd	ymm0, [rdx]		; Load second number
 	bump	rsi, 64			; Next dest
 	add	eax, 80000000h/32	; 64 cache lines in a 4KB chunk
 	jnc	short qsublp		; Loop if necessary
-	bump	rcx, 64			; Skip 64 bytes every 4KB
-	bump	rdx, 64			; Skip 64 bytes every 4KB
-	bump	rsi, 64			; Skip 64 bytes every 4KB
+	add	rcx, fourKBgapsize	; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize	; Skip 64 or 192 bytes every 4KB
+	add	rsi, fourKBgapsize	; Skip 64 or 192 bytes every 4KB
 	dec	rax			; Check middle loop counter
 	jnz	short qsublp		; Loop if necessary
 	add	rcx, pass2gapsize	; Next source
@@ -756,8 +756,8 @@ sub2:	ynorm_op_wpn vsubpd, exec, exec, dist_to_dest	; Add and normalize 8 values
 	add	rdi, normval2			; Adjust ptr to little/big flags
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	sub1				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	sub0
 
@@ -829,8 +829,8 @@ sub2r:	ynorm_op_wpn vsubpd, noexec, exec, rdi	; Add and normalize 8 values
 	jnz	sub2r
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	sub1r				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	sub0r
 
@@ -902,8 +902,8 @@ sub2n:	ynorm_op_wpn vsubpd, exec, noexec, dist_to_dest	; Add and normalize 8 val
 	add	rdi, normval2			; Adjust ptr to little/big flags
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	sub1n				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	sub0n
 
@@ -975,8 +975,8 @@ sub2nr:	ynorm_op_wpn vsubpd, noexec, noexec, rdi ; Add and normalize 8 values
 	jnz	sub2nr
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	sub1nr				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	sub0nr
 
@@ -1047,8 +1047,8 @@ sub2zp:	ynorm_op_wpn_zpad vsubpd, exec, exec	; Add and normalize 8 values
 	add	rdi, normval2			; Adjust ptr to little/big flags
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	sub1zp				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	sub0zp
 
@@ -1120,8 +1120,8 @@ sub2rzp: ynorm_op_wpn_zpad vsubpd, noexec, exec	; Add and normalize 8 values
 	jnz	sub2rzp
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	sub1rzp				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	sub0rzp
 
@@ -1192,8 +1192,8 @@ sub2nzp: ynorm_op_wpn_zpad vsubpd, exec, noexec	; Add and normalize 8 values
 	add	rdi, normval2			; Adjust ptr to little/big flags
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	sub1nzp				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	sub0nzp
 
@@ -1265,8 +1265,8 @@ sub2nrzp: ynorm_op_wpn_zpad vsubpd, noexec, noexec ; Add and normalize 8 values
 	jnz	sub2nrzp
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	sub1nrzp			; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	sub0nrzp
 
@@ -1321,10 +1321,10 @@ qaddsublp:
 	bump	rbp, 64			; Next dest
 	add	eax, 80000000h/32	; 64 cache lines in a 4KB chunk
 	jnc	qaddsublp		; Loop if necessary
-	bump	rcx, 64			; Skip 64 bytes every 4KB
-	bump	rdx, 64			; Skip 64 bytes every 4KB
-	bump	rsi, 64			; Skip 64 bytes every 4KB
-	bump	rbp, 64			; Skip 64 bytes every 8KB
+	add	rcx, fourKBgapsize	; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize	; Skip 64 or 192 bytes every 4KB
+	add	rsi, fourKBgapsize	; Skip 64 or 192 bytes every 4KB
+	add	rbp, fourKBgapsize	; Skip 64 or 192 bytes every 4KB
 	dec	rax			; Check middle loop counter
 	jnz	qaddsublp		; Loop if necessary
 	add	rcx, pass2gapsize	; Next source
@@ -1403,8 +1403,8 @@ as2:	ynorm_addsub_wpn exec, exec, dist_to_dest1, dist_to_dest2 ; Add & subtract 
 	add	rdi, normval2			; Adjust ptr to little/big flags
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	as1				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	as0
 
@@ -1488,8 +1488,8 @@ as2r:	ynorm_addsub_wpn noexec, exec, rdi, rbp	; Add & subtract and normalize 8 v
 	jnz	as2r
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	as1r				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	as0r
 
@@ -1571,8 +1571,8 @@ as2n:	ynorm_addsub_wpn exec, noexec, dist_to_dest1, dist_to_dest2 ; Add & subtra
 	add	rdi, normval2			; Adjust ptr to little/big flags
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	as1n				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	as0n
 
@@ -1656,8 +1656,8 @@ as2nr:	ynorm_addsub_wpn noexec, noexec, rdi, rbp ; Add & subtract and normalize 
 	jnz	as2nr
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	as1nr				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	as0nr
 
@@ -1738,8 +1738,8 @@ as2zp:	ynorm_addsub_wpn_zpad exec, exec, dist_to_dest2 ; Add & subtract and norm
 	add	rdi, normval2			; Adjust ptr to little/big flags
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	as1zp				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	as0zp
 
@@ -1823,8 +1823,8 @@ as2rzp:	ynorm_addsub_wpn_zpad noexec, exec, rdi ; Add & subtract and normalize 8
 	jnz	as2rzp
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	as1rzp				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	as0rzp
 
@@ -1905,8 +1905,8 @@ as2nzp:	ynorm_addsub_wpn_zpad exec, noexec, dist_to_dest2 ; Add & subtract and n
 	add	rdi, normval2			; Adjust ptr to little/big flags
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	as1nzp				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	as0nzp
 
@@ -1990,8 +1990,8 @@ as2nrzp: ynorm_addsub_wpn_zpad noexec, noexec, rdi ; Add & subtract and normaliz
 	jnz	as2nrzp
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	as1nrzp				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
-	bump	rdx, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
+	add	rdx, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	as0nrzp
 
@@ -2032,18 +2032,18 @@ PROCFL	gwycopyzero3
 	sub	ecx, ecx		; Offset to compare to COPYZERO
 	mov	ebx, addcount1		; Load pass 1 blk count
 	shl	ebx, 2			; Convert to a pass 2 block count
-cz1:	mov	eax, normval4		; Load count of 8KB chunks in a block
+cz1:	mov	eax, normval4		; Load count of 4KB chunks in a block
 cz2:	ycopyzero
 	bump	rsi, 64			; Next source
 	bump	rdi, 64			; Next dest
 	bump	rcx, 64			; Next compare offset
 	add	eax, 80000000h/32	; 64 cache lines in a 4KB chunk
 	jnc	short cz2		; Loop if necessary
-	bump	rsi, 64			; Skip 64 bytes every 8KB
-	bump	rdi, 64			; Skip 64 bytes every 8KB
-	bump	rcx, 64			; Skip 64 bytes every 8KB
+	add	rsi, fourKBgapsize	; Skip 64 or 192 bytes every 4KB
+	add	rdi, fourKBgapsize	; Skip 64 or 192 bytes every 4KB
+	add	rcx, fourKBgapsize	; Skip 64 or 192 bytes every 4KB
 	dec	rax			; Test loop counter
-	jnz	short cz2		; Loop if necessary
+	jnz	cz2			; Loop if necessary
 	add	rsi, pass2gapsize
 	add	rdi, pass2gapsize
 	add	rcx, pass2gapsize
@@ -2136,7 +2136,7 @@ mul2:	ynorm_smallmul_wpn exec, exec		; Multiply and normalize 8 values
 	add	rdi, normval2			; Adjust ptr to little/big flags
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	mul1				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	mul0
 
@@ -2199,7 +2199,7 @@ mul2r:	ynorm_smallmul_wpn noexec, exec		; Multiply and normalize 8 values
 	jnz	mul2r
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	mul1r				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	mul0r
 
@@ -2261,7 +2261,7 @@ mul2n:	ynorm_smallmul_wpn exec, noexec		; Multiply and normalize 8 values
 	add	rdi, normval2			; Adjust ptr to little/big flags
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	mul1n				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	mul0n
 
@@ -2324,7 +2324,7 @@ mul2nr:	ynorm_smallmul_wpn noexec, noexec	; Multiply and normalize 8 values
 	jnz	mul2nr
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	mul1nr				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	mul0nr
 
@@ -2386,7 +2386,7 @@ mul2zp:	ynorm_smallmul_wpn_zpad exec, exec	; Multiply and normalize 8 values
 	add	rdi, normval2			; Adjust ptr to little/big flags
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	mul1zp				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	mul0zp
 
@@ -2446,7 +2446,7 @@ mul2rzp: ynorm_smallmul_wpn_zpad noexec, exec	; Multiply and normalize 8 values
 	jnz	mul2rzp
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	mul1rzp				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	mul0rzp
 
@@ -2507,7 +2507,7 @@ mul2nzp: ynorm_smallmul_wpn_zpad exec, noexec	; Multiply and normalize 8 values
 	add	rdi, normval2			; Adjust ptr to little/big flags
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	mul1nzp				; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	mul0nzp
 
@@ -2567,7 +2567,7 @@ mul2nrzp: ynorm_smallmul_wpn_zpad noexec, noexec ; Multiply and normalize 8 valu
 	jnz	mul2nrzp
 	dec	loopcount4			; Loop until 4KB processed
 	jnz	mul1nrzp			; Loop til done
-	bump	rsi, 64				; Skip 64 bytes every 4KB
+	add	rsi, fourKBgapsize		; Skip 64 or 192 bytes every 4KB
 	dec	loopcount3			; Loop until pass 1 block completed
 	jnz	mul0nrzp
 

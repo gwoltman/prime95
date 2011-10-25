@@ -1263,13 +1263,20 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 	} else
 		gwdata->SCRATCH_SIZE = 0;
 
-/* Calculate the gap between data blocks.  This is used by addr_offset called from */
-/* gwmap_to_estimated_size without a call to gwsetup.  This must match the calculation */
+/* Calculate the gaps between data blocks.  This is used by addr_offset called from */
+/* gwmap_to_estimated_size without a call to gwsetup.  This must match the calculations */
 /* done in the set_FFT_constants macro in ymult.mac and xmult.mac */
 
 	if (gwdata->cpu_flags & CPU_AVX) {
-		if (gwdata->PASS2_SIZE * 2 * 8 / 4096 * 64 % 128 == 0)
-			gwdata->PASS2GAPSIZE = -64;
+		// Some pass 2 sizes avoid the 4KB distance problem with a mere 64 pad bytes
+//BUG - enumerate more sizes....
+		if (gwdata->PASS2_SIZE == 4096)
+			gwdata->FOURKBGAPSIZE = 64;
+		else
+			gwdata->FOURKBGAPSIZE = 192;
+		// Make sure pass 2 blocks contain an odd number of 64-byte cache lines
+		if (gwdata->PASS2_SIZE * 2 * 8 / 4096 * gwdata->FOURKBGAPSIZE % 128 == 0)
+			gwdata->PASS2GAPSIZE = -gwdata->FOURKBGAPSIZE;
 		else
 			gwdata->PASS2GAPSIZE = 0;
 	} else {
@@ -2484,7 +2491,7 @@ int internal_gwsetup (
 
 			if (gwdata->PASS2_SIZE) {
 				ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
-				asm_data->pass2_premults = tables;
+				asm_data->u.xmm.pass2_premults = tables;
 				tables = hg_build_premult_table (gwdata, tables);
 
 /* Build the rest of the tables */
@@ -2653,7 +2660,7 @@ int internal_gwsetup (
 /* a section. */
 
 		if (gwdata->PASS2_SIZE) {
-			asm_data->pass2_premults = tables;
+			asm_data->u.x87.pass2_premults = tables;
 			tables = x87_build_premult_table (gwdata, tables);
 			asm_data->xsincos_complex = tables;
 			tables = x87_build_sin_cos_table (tables, gwdata->PASS2_SIZE*2, 0);
@@ -3261,9 +3268,10 @@ int internal_gwsetup (
 
 			/* There are 64 pad bytes every 4KB and optional */
 			/* pad bytes between each pass 1 block. */
+			asm_data->fourKBgapsize = gwdata->FOURKBGAPSIZE;
 			asm_data->pass2gapsize = gwdata->PASS2GAPSIZE;
 			asm_data->pass2blkdst = gwdata->PASS2_SIZE * 16;
-			asm_data->pass2blkdst += (asm_data->pass2blkdst >> 12) * 64 + asm_data->pass2gapsize;
+			asm_data->pass2blkdst += (asm_data->pass2blkdst >> 12) * asm_data->fourKBgapsize + asm_data->pass2gapsize;
 			asm_data->pass1blkdst = asm_data->pass2blkdst * 4;
 
 			/* Calculate normblk distances used in normalizing two-pass FFTs */
@@ -3895,7 +3903,7 @@ void xcopy_3_words (
 /* Calculate pass 1 block address.  Note that SSE2 block addresses are */
 /* computed based on 128 pad bytes after every 128 cache lines.  That is: */
 /* DESTARG + (block * 64) + (block >> 7 * 128).  AVX addresses are based */
-/* on 64 pad bytes after every 64 cache lines. */
+/* on 64 or 192 pad bytes after every 64 cache lines. */
 
 __inline void *pass1_data_addr (
 	gwhandle *gwdata,
@@ -3904,7 +3912,7 @@ __inline void *pass1_data_addr (
 {
 	if (gwdata->cpu_flags & CPU_AVX) {
 		block >>= 2;
-		return ((char *) asm_data->DESTARG + (block << 6) + ((block >> 6) << 6));
+		return ((char *) asm_data->DESTARG + (block << 6) + ((block >> 6) * gwdata->FOURKBGAPSIZE));
 	} else
 		return ((char *) asm_data->DESTARG + (block << 6) + ((block >> 7) << 7));
 }
@@ -4908,18 +4916,19 @@ int multithread_init (
 /* so that both real and all-complex FFTs can use the same formula to */
 /* calculate the proper address given a block number. */
 
-	gwdata->pass2_premult_block_size =
-		(gwdata->PASS2_SIZE == 256) ? 32 * 128 :
-		(gwdata->PASS2_SIZE == 1024) ? 64 * 128 :
-		(gwdata->PASS2_SIZE == 2048) ? 96 * 128 :
-		(gwdata->PASS2_SIZE == 4096) ? 128 * 128 :
-		(gwdata->PASS2_SIZE == 8192) ? 192 * 128 : 0;
-	if (gwdata->ALL_COMPLEX_FFT)
-		gwdata->adjusted_pass2_premults = asm_data->pass2_premults;
-	else
-		gwdata->adjusted_pass2_premults =
-			(char *) asm_data->pass2_premults -
-			gwdata->pass2_premult_block_size;
+	if (gwdata->FFT_TYPE == FFT_TYPE_HOME_GROWN) {
+		gwdata->pass2_premult_block_size =
+			(gwdata->PASS2_SIZE == 256) ? 32 * 128 :
+			(gwdata->PASS2_SIZE == 1024) ? 64 * 128 :
+			(gwdata->PASS2_SIZE == 2048) ? 96 * 128 :
+			(gwdata->PASS2_SIZE == 4096) ? 128 * 128 :
+			(gwdata->PASS2_SIZE == 8192) ? 192 * 128 : 0;
+		if (gwdata->ALL_COMPLEX_FFT)
+			gwdata->adjusted_pass2_premults = asm_data->u.xmm.pass2_premults;
+		else
+			gwdata->adjusted_pass2_premults =
+				(char *) asm_data->u.xmm.pass2_premults - gwdata->pass2_premult_block_size;
+	}
 
 /* If we aren't multithreading, use the simpler version of routines */
 
@@ -5353,7 +5362,7 @@ unsigned long addr_offset (
 			addr = addr * sizeof (double);
 			/* Now add 64 bytes every 4KB and one pass2gapsize */
 			/* for every pass 2 block. */
-			addr = addr + (addr >> 12) * 64 + grps * gwdata->PASS2GAPSIZE;
+			addr = addr + (addr >> 12) * gwdata->FOURKBGAPSIZE + grps * gwdata->PASS2GAPSIZE;
 		}
 	}
 

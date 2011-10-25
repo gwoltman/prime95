@@ -103,10 +103,10 @@ struct gwasm_data {
 	intptr_t normval3;
 	void	*scratch_area;		/* Scratch area for pass 1 of SSE2 FFTs */
 	void	*plus1_premults;	/* Address of 2^N+1 premultiplier data */
+	intptr_t fourKBgapsize;		/* Wasted bytes between 4KB data blks */
 	intptr_t pass2gapsize;		/* Wasted bytes between pass2 data blks */
 	intptr_t pass1blkdst;		/* Dist between blocks in pass 1 */
 	intptr_t pass2blkdst;		/* Dist between blocks in pass 2 */
-	void	*pass2_premults;	/* Address of pass 2 premultiplier data */
 
 	gwhandle *gwdata;		/* Allows callback routines to access gwdata */
 	void	*pass2_wake_up_threads;	/* Callback routine to wake up auxiliary threads */
@@ -254,7 +254,8 @@ struct gwasm_data {
 		intptr_t ZPAD_WORD5_OFFSET;	/* Offset of the 5th word */
 		intptr_t ZPAD_WORD5_RBP_OFFSET;	/* Offset to 5th word's ttp data */
 		void	*sincos11;		/* Sin/cos table pointers only used by SSE2 home-grown FFTs */
-		void	*UNUSED_XMM_PTRS[13];
+		void	*pass2_premults;	/* Address of pass 2 premultiplier data for home-grown FFTs */
+		void	*UNUSED_XMM_PTRS[12];
 
 		double	XMM_TWO[2];	/* 2.0 */
 		double	XMM_HALF[2];	/* 0.5 */
@@ -317,7 +318,8 @@ struct gwasm_data {
 
 	    struct x87_data {
 		void	*zpad_addr;	/* Address of next ZPAD word to write */
-		void	*UNUSED_X87_PTRS[15];
+		void	*pass2_premults;	/* Address of pass 2 premultiplier data for home-grown FFTs */
+		void	*UNUSED_X87_PTRS[14];
 
 		double	SQRTHALF;	/* SQRT(0.5) */
 		double	SUMOUT;		/* Used in normalization macros */
