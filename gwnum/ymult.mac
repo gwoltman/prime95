@@ -146,7 +146,6 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 
 ;; Copy some of the args 
 
-	ypass2_levels = p2_levels
 	clm = clmarg
 
 ;; Generate the procedure name
@@ -161,7 +160,7 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 	IF PREFETCHING EQ 0
 	yprocname CATSTR yprocname,<_np>
 	ENDIF
-	yprocname CATSTR yprocname,<_>,%ypass2_levels,<_>,%clm,<_>,yarch
+	yprocname CATSTR yprocname,<_>,%p2_levels,<_>,%clm,<_>,yarch
 
 ;; Generate the pass 2 routine name
 
@@ -169,34 +168,34 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 	IF PREFETCHING EQ 0
 	ypass2name CATSTR ypass2name,<_np>
 	ENDIF
-	IF ypass2_levels LE 24
-	ypass2name CATSTR ypass2name,<_>,%ypass2_levels,<_levels_>,yarch
+	IF p2_levels LE 24
+	ypass2name CATSTR ypass2name,<_>,%p2_levels,<_levels_>,yarch
 	ELSE
-	ypass2name CATSTR ypass2name,<_>,%ypass2_levels,<_>,yarch
+	ypass2name CATSTR ypass2name,<_>,%p2_levels,<_>,yarch
 	ENDIF
 
 ;; Compute the number of 64-byte cache lines in pass 2
 
-	IF ypass2_levels EQ 8
+	IF p2_levels EQ 8
 	p2cl = 64
 	ENDIF
-	IF ypass2_levels EQ 10
+	IF p2_levels EQ 10
 	p2cl = 256
 	ENDIF
-	IF ypass2_levels EQ 11
+	IF p2_levels EQ 11
 	p2cl = 512
 	ENDIF
-	IF ypass2_levels EQ 12
+	IF p2_levels EQ 12
 	p2cl = 1024
 	ENDIF
-	IF ypass2_levels EQ 13
+	IF p2_levels EQ 13
 	p2cl = 2048
 	ENDIF
-	IF ypass2_levels EQ 14
+	IF p2_levels EQ 14
 	p2cl = 4096
 	ENDIF
-	IF ypass2_levels GE 64
-	p2cl = ypass2_levels / 4
+	IF p2_levels GE 64
+	p2cl = p2_levels / 4
 	ENDIF
 
 ;; Compute the needed distances
@@ -218,20 +217,25 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 		clmblkdst8 = (clmblkdst*8-64)
 	ENDIF
 
-;; Each 4KB page in pass 2 is padded with either 64 or 192 bytes
+;; Each 4KB page in pass 2 is padded with 64 to 192 bytes
 ;; to avoid 4KB distances in pass 2 y4cl macro calls.
 
-	IF ypass2_levels EQ 12
-		blkdst = (p2cl*64+p2cl/64*64)
-	ELSE
-		blkdst = (p2cl*64+p2cl/64*192)
+	IF p2_levels EQ 8 OR p2_levels EQ 11 OR p2_levels EQ 2304 OR p2_levels EQ 3072 OR p2_levels EQ 3840 OR p2_levels EQ 12 OR p2_levels EQ 5120
+		fourKBgap = 64
+	ELSEIF p2_levels EQ 6144 OR p2_levels EQ 6400 OR p2_levels EQ 13 OR p2_levels EQ 10240 OR p2_levels EQ 12288 OR p2_levels EQ 14 OR p2_levels EQ 20480
+		fourKBgap = 64
+	ELSEIF p2_levels EQ 768 OR p2_levels EQ 10 OR p2_levels EQ 1280 OR p2_levels EQ 1536 OR p2_levels EQ 2560 OR p2_levels EQ 4608
+		fourKBgap = 128
+	ELSEIF p2_levels EQ 7680 OR p2_levels EQ 9216 OR p2_levels EQ 12800 OR p2_levels EQ 15360 OR p2_levels EQ 25600
+		fourKBgap = 128
 	ENDIF
 
-;; Make sure the distance between two blocks is an odd multiple of 64.  This
-;; ensures a good scattering of FFT data in the L2 cache during pass 1.
+;; Calculate the distance between blocks.  Make sure the distance between two blocks is an
+;; odd multiple of 64.  This ensures a good scattering of FFT data in the L2 cache during pass 1.
 
+	blkdst = (p2cl*64+p2cl/64*fourKBgap)
 	IF blkdst MOD 128 EQ 0
-	blkdst = blkdst - 192
+		blkdst = blkdst - 64
 	ENDIF
 	ENDM
 
@@ -722,13 +726,18 @@ ypass2gen MACRO levels
 	complexmacro CATSTR <y>,yfft_type,<_>,<pass2_>,%levels,<_complex>
 	ENDIF
 
-;; Define pass 2 constants.  Each 4KB page is padded with either 64 or 192 bytes.
+;; Define pass 2 constants.  Each 4KB page is padded with 64 to 192 bytes.
 
-	IF levels EQ 12
-		dist64 = (64*64+64)
-	ELSE
-		dist64 = (64*64+192)
+	IF levels EQ 8 OR levels EQ 11 OR levels EQ 2304 OR levels EQ 3072 OR levels EQ 3840 OR levels EQ 12 OR levels EQ 5120
+		fourKBgap = 64
+	ELSEIF levels EQ 6144 OR levels EQ 6400 OR levels EQ 13 OR levels EQ 10240 OR levels EQ 12288 OR levels EQ 14 OR levels EQ 20480
+		fourKBgap = 64
+	ELSEIF levels EQ 768 OR levels EQ 10 OR levels EQ 1280 OR levels EQ 1536 OR levels EQ 2560 OR levels EQ 4608 OR levels EQ 7680
+		fourKBgap = 128
+	ELSEIF levels EQ 9216 OR levels EQ 12800 OR levels EQ 15360 OR levels EQ 25600
+		fourKBgap = 128
 	ENDIF
+	dist64 = (64*64+fourKBgap)
 
 ;; Generate the procedure
 

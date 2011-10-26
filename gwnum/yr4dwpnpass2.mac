@@ -3600,9 +3600,15 @@ b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 	loops_undo 4*4*2		;; Back up loop counter
 
 	yr8_8cl_eight_complex_with_square_preload
-b5b:	yr8_8cl_eight_complex_with_square rsi, 2*64, 32*64, dist64, 64
-	loops	16, b5b, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b5b:	yr8_8cl_eight_complex_with_square rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b5b, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b5b:	yr8_8cl_eight_complex_with_square rsi, 4*64, 32*64, dist64, 64
+	loops	8, b5b, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b5b			;; Loop 2 times
+	bump	rsi, -2*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	yr4_b4cl_four_complex_djbunfft_preload
@@ -3676,9 +3682,15 @@ b4a:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 128, 2, rcx	;; prefetch 96 cache lines in this loop
 	yr8_8cl_eight_complex_fft_final_preload
-b5a:	yr8_8cl_eight_complex_fft_final rsi, 2*64, 32*64, dist64, 64
-	loops	16, b5a, 2		;; Loop 16 times with non-standard increment
+;; Loop below reworked to avoid 4KB distances
+;;b5a:	yr8_8cl_eight_complex_fft_final rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b5a, 2		;; Loop 16 times with non-standard increment
 ;;	bump	rsi, -16*2*64		;; Restore source pointer
+b5a:	yr8_8cl_eight_complex_fft_final rsi, 4*64, 32*64, dist64, 64
+	loops	8, b5a, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b5a			;; Loop 2 times
+;;	bump	rsi, -2*2*64		;; Restore source pointer
 
 	bump	rsi, -16*2*64+2*dist64	;; Next source pointer
 	loops	3, b3a			;; Loop 3 times
@@ -3720,9 +3732,15 @@ b4c:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 	loops_undo 4*4*2		;; Back up loop counter
 
 	yr8_8cl_eight_complex_with_mult_preload
-b5c:	yr8_8cl_eight_complex_with_mult rsi, 2*64, 32*64, dist64, 64
-	loops	16, b5c, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b5c:	yr8_8cl_eight_complex_with_mult rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b5c, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b5c:	yr8_8cl_eight_complex_with_mult rsi, 4*64, 32*64, dist64, 64
+	loops	8, b5c, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b5c			;; Loop 2 times
+	bump	rsi, -2*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	yr4_b4cl_four_complex_djbunfft_preload
@@ -3768,9 +3786,15 @@ ypass2_1536_complex_4:
 
 	loops_set_prefetch 128, 2, rcx	;; prefetch 96 cache lines in this loop
 	yr8_8cl_eight_complex_with_mulf_preload
-b5d:	yr8_8cl_eight_complex_with_mulf rsi, 2*64, 32*64, dist64, 64
-	loops	16, b5d, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b5d:	yr8_8cl_eight_complex_with_mulf rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b5d, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b5d:	yr8_8cl_eight_complex_with_mulf rsi, 4*64, 32*64, dist64, 64
+	loops	8, b5d, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b5d			;; Loop 2 times
+	bump	rsi, -2*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 1, rcx	;; prefetch 96 cache lines in this loop
@@ -4517,9 +4541,15 @@ b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 64, 16, rcx	;; prefetch 8 cache lines in this loop
 	yr8_8cl_eight_complex_with_square_preload
-b5b:	yr8_8cl_eight_complex_with_square rsi, 2*64, 2*dist64, 4*dist64, 64
-	loops	16, b5b, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b5b:	yr8_8cl_eight_complex_with_square rsi, 2*64, 2*dist64, 4*dist64, 64
+;;	loops	16, b5b, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b5b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 2*dist64, 4*dist64, 64
+	loops	4, b5b, 2		;; Loop 4 times with non-standard increment
+	bump	rsi, -4*8*64+2*64	;; Next source pointer
+	loops	4, b5b			;; Loop 2 times
+	bump	rsi, -4*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 2, rcx	;; prefetch 64 cache lines in this loop
@@ -4589,9 +4619,15 @@ b4a:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 128, 2, rcx	;; prefetch 128 cache lines in this loop
 	yr8_8cl_eight_complex_fft_final_preload
-b5a:	yr8_8cl_eight_complex_fft_final rsi, 2*64, 2*dist64, 4*dist64, 64
-	loops	16, b5a, 2		;; Loop 16 times with non-standard increment
+;; Loop below reworked to avoid 4KB distances
+;;b5a:	yr8_8cl_eight_complex_fft_final rsi, 2*64, 2*dist64, 4*dist64, 64
+;;	loops	16, b5a, 2		;; Loop 16 times with non-standard increment
 ;;	bump	rsi, -16*2*64		;; Restore source pointer
+b5a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 2*dist64, 4*dist64, 64
+	loops	4, b5a, 2		;; Loop 4 times with non-standard increment
+	bump	rsi, -4*8*64+2*64	;; Next source pointer
+	loops	4, b5a			;; Loop 4 times
+;;	bump	rsi, -4*2*64		;; Restore source pointer
 
 	bump	rsi, -16*2*64+32*64	;; Next source pointer
 	loops	2, b3a			;; Loop 2 times
@@ -4634,9 +4670,15 @@ b4c:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 64, 16, rcx	;; prefetch 8 cache lines in this loop
 	yr8_8cl_eight_complex_with_mult_preload
-b5c:	yr8_8cl_eight_complex_with_mult rsi, 2*64, 2*dist64, 4*dist64, 64
-	loops	16, b5c, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b5c:	yr8_8cl_eight_complex_with_mult rsi, 2*64, 2*dist64, 4*dist64, 64
+;;	loops	16, b5c, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b5c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 2*dist64, 4*dist64, 64
+	loops	4, b5c, 2		;; Loop 4 times with non-standard increment
+	bump	rsi, -4*8*64+2*64	;; Next source pointer
+	loops	4, b5c			;; Loop 4 times
+	bump	rsi, -4*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 2, rcx	;; prefetch 64 cache lines in this loop
@@ -4682,9 +4724,15 @@ ypass2_11_levels_complex_4:
 
 	loops_set_prefetch 128, 2, rcx	;; prefetch 128 cache lines in this loop
 	yr8_8cl_eight_complex_with_mulf_preload
-b5d:	yr8_8cl_eight_complex_with_mulf rsi, 2*64, 2*dist64, 4*dist64, 64
-	loops	16, b5d, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b5d:	yr8_8cl_eight_complex_with_mulf rsi, 2*64, 2*dist64, 4*dist64, 64
+;;	loops	16, b5d, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b5d:	yr8_8cl_eight_complex_with_mulf rsi, 8*64, 2*dist64, 4*dist64, 64
+	loops	4, b5d, 2		;; Loop 4 times with non-standard increment
+	bump	rsi, -4*8*64+2*64	;; Next source pointer
+	loops	4, b5d			;; Loop 4 times
+	bump	rsi, -4*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 1, rcx	;; prefetch 128 cache lines in this loop
@@ -5499,9 +5547,15 @@ b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 64, 16, rcx	;; prefetch 10 cache lines in this loop
 	yr8_8cl_eight_complex_with_square_preload
-b5b:	yr8_8cl_eight_complex_with_square rsi, 2*64, 32*64, dist64, 64
-	loops	16, b5b, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b5b:	yr8_8cl_eight_complex_with_square rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b5b, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b5b:	yr8_8cl_eight_complex_with_square rsi, 4*64, 32*64, dist64, 64
+	loops	8, b5b, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b5b			;; Loop 2 times
+	bump	rsi, -2*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 2, rcx	;; prefetch 80 cache lines in this loop
@@ -5577,9 +5631,15 @@ b4a:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 128, 2, rcx	;; prefetch 160 cache lines in this loop
 	yr8_8cl_eight_complex_fft_final_preload
-b5a:	yr8_8cl_eight_complex_fft_final rsi, 2*64, 32*64, dist64, 64
-	loops	16, b5a, 2		;; Loop 16 times with non-standard increment
+;; Loop below reworked to avoid 4KB distances
+;;b5a:	yr8_8cl_eight_complex_fft_final rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b5a, 2		;; Loop 16 times with non-standard increment
 ;;	bump	rsi, -16*2*64		;; Restore source pointer
+b5a:	yr8_8cl_eight_complex_fft_final rsi, 4*64, 32*64, dist64, 64
+	loops	8, b5a, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b5a			;; Loop 2 times
+;;	bump	rsi, -2*2*64		;; Restore source pointer
 
 	bump	rsi, -16*2*64+2*dist64	;; Next source pointer
 	loops	5, b3a			;; Loop 5 times
@@ -5625,9 +5685,15 @@ b4c:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 64, 16, rcx	;; prefetch 10 cache lines in this loop
 	yr8_8cl_eight_complex_with_mult_preload
-b5c:	yr8_8cl_eight_complex_with_mult rsi, 2*64, 32*64, dist64, 64
-	loops	16, b5c, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b5c:	yr8_8cl_eight_complex_with_mult rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b5c, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b5c:	yr8_8cl_eight_complex_with_mult rsi, 4*64, 32*64, dist64, 64
+	loops	8, b5c, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b5c			;; Loop 2 times
+	bump	rsi, -2*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 2, rcx	;; prefetch 80 cache lines in this loop
@@ -5675,9 +5741,15 @@ ypass2_2560_complex_4:
 
 	loops_set_prefetch 128, 2, rcx	;; prefetch 160 cache lines in this loop
 	yr8_8cl_eight_complex_with_mulf_preload
-b5d:	yr8_8cl_eight_complex_with_mulf rsi, 2*64, 32*64, dist64, 64
-	loops	16, b5d, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b5d:	yr8_8cl_eight_complex_with_mulf rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b5d, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b5d:	yr8_8cl_eight_complex_with_mulf rsi, 4*64, 32*64, dist64, 64
+	loops	8, b5d, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b5d			;; Loop 2 times
+	bump	rsi, -2*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 1, rcx	;; prefetch 160 cache lines in this loop
@@ -7712,9 +7784,15 @@ b5b:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
 
 	loops_set_prefetch 64, 4, rcx	;; prefetch 48 cache lines in this loop
 	yr4_4cl_four_complex_with_square_preload
-b6b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64
-	loops	64, b6b			;; Loop 64 times
-	bump	rsi, -64*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64
+;;	loops	64, b6b			;; Loop 64 times
+;;	bump	rsi, -64*64		;; Restore source pointer
+b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, dist64, 2*dist64
+	loops	16, b6b			;; Loop 16 times
+	bump	rsi, -16*4*64+64	;; Next source pointer
+	loops	4, b6b			;; Loop 4 times
+	bump	rsi, -4*64		;; Restore source pointer
 	loops_undo 64			;; Back up loop counter
 
 	loops_set_prefetch 64, 4, rcx	;; prefetch 48 cache lines in this loop
@@ -7803,9 +7881,15 @@ b5a:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
 	loops_undo 4*16			;; Back up loop counter
 
 	loops_set_prefetch 64, 2, rcx	;; prefetch 96 cache lines in this loop
-b6a:	yr4_4cl_four_complex_fft_final rsi, 64, dist64, 2*dist64
-	loops	64, b6a			;; Loop 64 times
+;; Loop below reworked to avoid 4KB distances
+;;b6a:	yr4_4cl_four_complex_fft_final rsi, 64, dist64, 2*dist64
+;;	loops	64, b6a			;; Loop 64 times
 ;;	bump	rsi, -64*64		;; Restore source pointer
+b6a:	yr4_4cl_four_complex_fft_final rsi, 4*64, dist64, 2*dist64
+	loops	16, b6a			;; Loop 16 times
+	bump	rsi, -16*4*64+64	;; Next source pointer
+	loops	4, b6a			;; Loop 4 times
+;;	bump	rsi, -4*64		;; Restore source pointer
 
 	bump	rsi, -64*64+4*dist64	;; Next source pointer
 	loops	3, b3a			;; Loop 3 times
@@ -7857,9 +7941,15 @@ b5c:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
 
 	loops_set_prefetch 64, 4, rcx	;; prefetch 48 cache lines in this loop
 	yr4_4cl_four_complex_with_mult_preload
-b6c:	yr4_4cl_four_complex_with_mult rsi, 64, dist64, 2*dist64
-	loops	64, b6c			;; Loop 64 times
-	bump	rsi, -64*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6c:	yr4_4cl_four_complex_with_mult rsi, 64, dist64, 2*dist64
+;;	loops	64, b6c			;; Loop 64 times
+;;	bump	rsi, -64*64		;; Restore source pointer
+b6c:	yr4_4cl_four_complex_with_mult rsi, 4*64, dist64, 2*dist64
+	loops	16, b6c			;; Loop 16 times
+	bump	rsi, -16*4*64+64	;; Next source pointer
+	loops	4, b6c			;; Loop 4 times
+	bump	rsi, -4*64		;; Restore source pointer
 	loops_undo 64			;; Back up loop counter
 
 	loops_set_prefetch 64, 4, rcx	;; prefetch 48 cache lines in this loop
@@ -7914,9 +8004,15 @@ ypass2_3072_complex_4:
 
 	loops_set_prefetch 64, 2, rcx	;; prefetch 96 cache lines in this loop
 	yr4_4cl_four_complex_with_mulf_preload
-b6d:	yr4_4cl_four_complex_with_mulf rsi, 64, dist64, 2*dist64
-	loops	64, b6d			;; Loop 64 times
-	bump	rsi, -64*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6d:	yr4_4cl_four_complex_with_mulf rsi, 64, dist64, 2*dist64
+;;	loops	64, b6d			;; Loop 64 times
+;;	bump	rsi, -64*64		;; Restore source pointer
+b6d:	yr4_4cl_four_complex_with_mulf rsi, 4*64, dist64, 2*dist64
+	loops	16, b6d			;; Loop 16 times
+	bump	rsi, -16*4*64+64	;; Next source pointer
+	loops	4, b6d			;; Loop 4 times
+	bump	rsi, -4*64		;; Restore source pointer
 	loops_undo 64			;; Back up loop counter
 
 	loops_set_prefetch 64, 1, rcx	;; prefetch 192 cache lines in this loop
@@ -11041,9 +11137,15 @@ b5b:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
 	loops_undo 4*16			;; Back up loop counter
 
 	yr4_4cl_four_complex_with_square_preload
-b6b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64
-	loops	64, b6b			;; Loop 64 times
-	bump	rsi, -64*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64
+;;	loops	64, b6b			;; Loop 64 times
+;;	bump	rsi, -64*64		;; Restore source pointer
+b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, dist64, 2*dist64
+	loops	16, b6b			;; Loop 16 times
+	bump	rsi, -16*4*64+64	;; Next source pointer
+	loops	4, b6b			;; Loop 4 times
+	bump	rsi, -4*64		;; Restore source pointer
 	loops_undo 64			;; Back up loop counter
 
 	yr4_b4cl_four_complex_djbunfft_preload
@@ -11126,9 +11228,15 @@ b5a:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
 	loops_undo 4*16			;; Back up loop counter
 
 	yr4_4cl_four_complex_fft_final_preload
-b6a:	yr4_4cl_four_complex_fft_final rsi, 64, dist64, 2*dist64
-	loops	64, b6a			;; Loop 64 times
+;; Loop below reworked to avoid 4KB distances
+;;b6a:	yr4_4cl_four_complex_fft_final rsi, 64, dist64, 2*dist64
+;;	loops	64, b6a			;; Loop 64 times
 ;;	bump	rsi, -64*64		;; Restore source pointer
+b6a:	yr4_4cl_four_complex_fft_final rsi, 4*64, dist64, 2*dist64
+	loops	16, b6a			;; Loop 16 times
+	bump	rsi, -16*4*64+64	;; Next source pointer
+	loops	4, b6a			;; Loop 4 times
+;;	bump	rsi, -4*64		;; Restore source pointer
 
 	bump	rsi, -64*64+4*dist64	;; Next source pointer
 	loops	5, b3a			;; Loop 5 times
@@ -11176,9 +11284,15 @@ b5c:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
 	loops_undo 4*16			;; Back up loop counter
 
 	yr4_4cl_four_complex_with_mult_preload
-b6c:	yr4_4cl_four_complex_with_mult rsi, 64, dist64, 2*dist64
-	loops	64, b6c			;; Loop 64 times
-	bump	rsi, -64*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6c:	yr4_4cl_four_complex_with_mult rsi, 64, dist64, 2*dist64
+;;	loops	64, b6c			;; Loop 64 times
+;;	bump	rsi, -64*64		;; Restore source pointer
+b6c:	yr4_4cl_four_complex_with_mult rsi, 4*64, dist64, 2*dist64
+	loops	16, b6c			;; Loop 16 times
+	bump	rsi, -16*4*64+64	;; Next source pointer
+	loops	4, b6c			;; Loop 4 times
+	bump	rsi, -4*64		;; Restore source pointer
 	loops_undo 64			;; Back up loop counter
 
 	yr4_b4cl_four_complex_djbunfft_preload
@@ -11229,9 +11343,15 @@ ypass2_5120_complex_4:
 	loops_init_prefetch 320, 64, 1, rcx ;; 5 iters of 256 cache lines
 
 	yr4_4cl_four_complex_with_mulf_preload
-b6d:	yr4_4cl_four_complex_with_mulf rsi, 64, dist64, 2*dist64
-	loops	64, b6d			;; Loop 64 times
-	bump	rsi, -64*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6d:	yr4_4cl_four_complex_with_mulf rsi, 64, dist64, 2*dist64
+;;	loops	64, b6d			;; Loop 64 times
+;;	bump	rsi, -64*64		;; Restore source pointer
+b6d:	yr4_4cl_four_complex_with_mulf rsi, 4*64, dist64, 2*dist64
+	loops	16, b6d			;; Loop 16 times
+	bump	rsi, -16*4*64+64	;; Next source pointer
+	loops	4, b6d			;; Loop 4 times
+	bump	rsi, -4*64		;; Restore source pointer
 	loops_undo 64			;; Back up loop counter
 
 	yr4_b4cl_four_complex_djbunfft_preload
@@ -13252,9 +13372,15 @@ b5b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 64, 16, rcx	;; prefetch 18 cache lines in this loop
 	yr8_8cl_eight_complex_with_square_preload
-b6b:	yr8_8cl_eight_complex_with_square rsi, 2*64, 32*64, dist64, 64
-	loops	16, b6b, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6b:	yr8_8cl_eight_complex_with_square rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b6b, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6b:	yr8_8cl_eight_complex_with_square rsi, 4*64, 32*64, dist64, 64
+	loops	8, b6b, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b6b			;; Loop 2 times
+	bump	rsi, -2*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 4, rcx	;; prefetch 72 cache lines in this loop
@@ -13350,9 +13476,15 @@ b5a:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 64, 2, rcx	;; prefetch 144 cache lines in this loop
 	yr8_8cl_eight_complex_fft_final_preload
-b6a:	yr8_8cl_eight_complex_fft_final rsi, 2*64, 32*64, dist64, 64
-	loops	16, b6a, 2		;; Loop 16 times with non-standard increment
+;; Loop below reworked to avoid 4KB distances
+;;b6a:	yr8_8cl_eight_complex_fft_final rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b6a, 2		;; Loop 16 times with non-standard increment
 ;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6a:	yr8_8cl_eight_complex_fft_final rsi, 4*64, 32*64, dist64, 64
+	loops	8, b6a, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b6a			;; Loop 2 times
+;;	bump	rsi, -2*2*64		;; Restore source pointer
 
 	bump	rsi, -16*2*64+2*dist64	;; Next source pointer
 	loops	9, b3a			;; Loop 9 times
@@ -13407,9 +13539,15 @@ b5c:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 64, 16, rcx	;; prefetch 18 cache lines in this loop
 	yr8_8cl_eight_complex_with_mult_preload
-b6c:	yr8_8cl_eight_complex_with_mult rsi, 2*64, 32*64, dist64, 64
-	loops	16, b6c, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6c:	yr8_8cl_eight_complex_with_mult rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b6c, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6c:	yr8_8cl_eight_complex_with_mult rsi, 4*64, 32*64, dist64, 64
+	loops	8, b6c, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b6c			;; Loop 2 times
+	bump	rsi, -2*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 4, rcx	;; prefetch 72 cache lines in this loop
@@ -13467,9 +13605,15 @@ ypass2_4608_complex_4:
 
 	loops_set_prefetch 64, 2, rcx	;; prefetch 144 cache lines in this loop
 	yr8_8cl_eight_complex_with_mulf_preload
-b6d:	yr8_8cl_eight_complex_with_mulf rsi, 2*64, 32*64, dist64, 64
-	loops	16, b6d, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6d:	yr8_8cl_eight_complex_with_mulf rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b6d, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6d:	yr8_8cl_eight_complex_with_mulf rsi, 4*64, 32*64, dist64, 64
+	loops	8, b6d, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b6d			;; Loop 2 times
+	bump	rsi, -2*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 1, rcx	;; prefetch 288 cache lines in this loop
@@ -14449,9 +14593,15 @@ b5b:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 64, 2, rcx	;; prefetch 192 cache lines in this loop
 	yr8_8cl_eight_complex_with_square_preload
-b6b:	yr8_8cl_eight_complex_with_square rsi, 2*64, 2*dist64, 4*dist64, 64
-	loops	16, b6b, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6b:	yr8_8cl_eight_complex_with_square rsi, 2*64, 2*dist64, 4*dist64, 64
+;;	loops	16, b6b, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 2*dist64, 4*dist64, 64
+	loops	4, b6b, 2		;; Loop 4 times with non-standard increment
+	bump	rsi, -4*8*64+2*64	;; Next source pointer
+	loops	4, b6b			;; Loop 4 times
+	bump	rsi, -4*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 4, rcx	;; prefetch 96 cache lines in this loop
@@ -14523,9 +14673,15 @@ b5a:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 128, 2, rcx	;; prefetch 384 cache lines in this loop
 	yr8_8cl_eight_complex_fft_final_preload
-b6a:	yr8_8cl_eight_complex_fft_final rsi, 2*64, 2*dist64, 4*dist64, 64
-	loops	16, b6a, 2		;; Loop 16 times with non-standard increment
+;; Loop below reworked to avoid 4KB distances
+;;b6a:	yr8_8cl_eight_complex_fft_final rsi, 2*64, 2*dist64, 4*dist64, 64
+;;	loops	16, b6a, 2		;; Loop 16 times with non-standard increment
 ;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 2*dist64, 4*dist64, 64
+	loops	4, b6a, 2		;; Loop 4 times with non-standard increment
+	bump	rsi, -4*8*64+2*64	;; Next source pointer
+	loops	4, b6a			;; Loop 4 times
+;;	bump	rsi, -4*2*64		;; Restore source pointer
 
 	bump	rsi, -16*2*64+32*64	;; Next source pointer
 	loops	2, b4a			;; Loop 2 times
@@ -14570,9 +14726,15 @@ b5c:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 64, 2, rcx	;; prefetch 192 cache lines in this loop
 	yr8_8cl_eight_complex_with_mult_preload
-b6c:	yr8_8cl_eight_complex_with_mult rsi, 2*64, 2*dist64, 4*dist64, 64
-	loops	16, b6c, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6c:	yr8_8cl_eight_complex_with_mult rsi, 2*64, 2*dist64, 4*dist64, 64
+;;	loops	16, b6c, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 2*dist64, 4*dist64, 64
+	loops	4, b6c, 2		;; Loop 4 times with non-standard increment
+	bump	rsi, -4*8*64+2*64	;; Next source pointer
+	loops	4, b6c			;; Loop 4 times
+	bump	rsi, -4*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 4, rcx	;; prefetch 96 cache lines in this loop
@@ -14620,9 +14782,15 @@ ypass2_6144_complex_4:
 
 	loops_set_prefetch 128, 2, rcx	;; prefetch 384 cache lines in this loop
 	yr8_8cl_eight_complex_with_mulf_preload
-b6d:	yr8_8cl_eight_complex_with_mulf rsi, 2*64, 2*dist64, 4*dist64, 64
-	loops	16, b6d, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6d:	yr8_8cl_eight_complex_with_mulf rsi, 2*64, 2*dist64, 4*dist64, 64
+;;	loops	16, b6d, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6d:	yr8_8cl_eight_complex_with_mulf rsi, 8*64, 2*dist64, 4*dist64, 64
+	loops	4, b6d, 2		;; Loop 4 times with non-standard increment
+	bump	rsi, -4*8*64+2*64	;; Next source pointer
+	loops	4, b6d			;; Loop 4 times
+	bump	rsi, -4*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 1, rcx	;; prefetch 384 cache lines in this loop
@@ -15619,9 +15787,15 @@ b5b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 64, 4, rcx	;; prefetch 120 cache lines in this loop
 	yr8_8cl_eight_complex_with_square_preload
-b6b:	yr8_8cl_eight_complex_with_square rsi, 2*64, 32*64, dist64, 64
-	loops	16, b6b, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6b:	yr8_8cl_eight_complex_with_square rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b6b, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6b:	yr8_8cl_eight_complex_with_square rsi, 4*64, 32*64, dist64, 64
+	loops	8, b6b, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b6b			;; Loop 2 times
+	bump	rsi, -2*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 2, rcx	;; prefetch 240 cache lines in this loop
@@ -15717,9 +15891,15 @@ b5a:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 64, 2, rcx	;; prefetch 240 cache lines in this loop
 	yr8_8cl_eight_complex_fft_final_preload
-b6a:	yr8_8cl_eight_complex_fft_final rsi, 2*64, 32*64, dist64, 64
-	loops	16, b6a, 2		;; Loop 16 times with non-standard increment
+;; Loop below reworked to avoid 4KB distances
+;;b6a:	yr8_8cl_eight_complex_fft_final rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b6a, 2		;; Loop 16 times with non-standard increment
 ;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6a:	yr8_8cl_eight_complex_fft_final rsi, 4*64, 32*64, dist64, 64
+	loops	8, b6a, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b6a			;; Loop 2 times
+;;	bump	rsi, -2*2*64		;; Restore source pointer
 
 	bump	rsi, -16*2*64+2*dist64	;; Next source pointer
 	loops	15, b3a			;; Loop 15 times
@@ -15773,9 +15953,15 @@ b5c:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 64, 4, rcx	;; prefetch 120 cache lines in this loop
 	yr8_8cl_eight_complex_with_mult_preload
-b6c:	yr8_8cl_eight_complex_with_mult rsi, 2*64, 32*64, dist64, 64
-	loops	16, b6c, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6c:	yr8_8cl_eight_complex_with_mult rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b6c, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6c:	yr8_8cl_eight_complex_with_mult rsi, 4*64, 32*64, dist64, 64
+	loops	8, b6c, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b6c			;; Loop 2 times
+	bump	rsi, -2*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 2, rcx	;; prefetch 240 cache lines in this loop
@@ -15833,9 +16019,15 @@ ypass2_7680_complex_4:
 
 	loops_set_prefetch 64, 2, rcx	;; prefetch 240 cache lines in this loop
 	yr8_8cl_eight_complex_with_mulf_preload
-b6d:	yr8_8cl_eight_complex_with_mulf rsi, 2*64, 32*64, dist64, 64
-	loops	16, b6d, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6d:	yr8_8cl_eight_complex_with_mulf rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b6d, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6d:	yr8_8cl_eight_complex_with_mulf rsi, 4*64, 32*64, dist64, 64
+	loops	8, b6d, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b6d			;; Loop 2 times
+	bump	rsi, -2*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 1, rcx	;; prefetch 480 cache lines in this loop
@@ -17904,9 +18096,15 @@ b5b:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 64, 2, rcx	;; prefetch 320 cache lines in this loop
 	yr8_8cl_eight_complex_with_square_preload
-b6b:	yr8_8cl_eight_complex_with_square rsi, 2*64, 2*dist64, 4*dist64, 64
-	loops	16, b6b, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6b:	yr8_8cl_eight_complex_with_square rsi, 2*64, 2*dist64, 4*dist64, 64
+;;	loops	16, b6b, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 2*dist64, 4*dist64, 64
+	loops	4, b6b, 2		;; Loop 4 times with non-standard increment
+	bump	rsi, -4*8*64+2*64	;; Next source pointer
+	loops	4, b6b			;; Loop 4 times
+	bump	rsi, -4*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 2, rcx	;; prefetch 320 cache lines in this loop
@@ -17978,9 +18176,15 @@ b5a:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 128, 2, rcx	;; prefetch 640 cache lines in this loop
 	yr8_8cl_eight_complex_fft_final_preload
-b6a:	yr8_8cl_eight_complex_fft_final rsi, 2*64, 2*dist64, 4*dist64, 64
-	loops	16, b6a, 2		;; Loop 16 times with non-standard increment
+;; Loop below reworked to avoid 4KB distances
+;;b6a:	yr8_8cl_eight_complex_fft_final rsi, 2*64, 2*dist64, 4*dist64, 64
+;;	loops	16, b6a, 2		;; Loop 16 times with non-standard increment
 ;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 2*dist64, 4*dist64, 64
+	loops	4, b6a, 2		;; Loop 4 times with non-standard increment
+	bump	rsi, -4*8*64+2*64	;; Next source pointer
+	loops	4, b6a			;; Loop 4 times
+;;	bump	rsi, -4*2*64		;; Restore source pointer
 
 	bump	rsi, -16*2*64+32*64	;; Next source pointer
 	loops	2, b4a			;; Loop 2 times
@@ -18025,9 +18229,15 @@ b5c:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 64, 2, rcx	;; prefetch 320 cache lines in this loop
 	yr8_8cl_eight_complex_with_mult_preload
-b6c:	yr8_8cl_eight_complex_with_mult rsi, 2*64, 2*dist64, 4*dist64, 64
-	loops	16, b6c, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6c:	yr8_8cl_eight_complex_with_mult rsi, 2*64, 2*dist64, 4*dist64, 64
+;;	loops	16, b6c, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 2*dist64, 4*dist64, 64
+	loops	4, b6c, 2		;; Loop 4 times with non-standard increment
+	bump	rsi, -4*8*64+2*64	;; Next source pointer
+	loops	4, b6c			;; Loop 4 times
+	bump	rsi, -4*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 2, rcx	;; prefetch 320 cache lines in this loop
@@ -18075,9 +18285,15 @@ ypass2_10240_complex_4:
 
 	loops_set_prefetch 128, 2, rcx	;; prefetch 640 cache lines in this loop
 	yr8_8cl_eight_complex_with_mulf_preload
-b6d:	yr8_8cl_eight_complex_with_mulf rsi, 2*64, 2*dist64, 4*dist64, 64
-	loops	16, b6d, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6d:	yr8_8cl_eight_complex_with_mulf rsi, 2*64, 2*dist64, 4*dist64, 64
+;;	loops	16, b6d, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6d:	yr8_8cl_eight_complex_with_mulf rsi, 8*64, 2*dist64, 4*dist64, 64
+	loops	4, b6d, 2		;; Loop 4 times with non-standard increment
+	bump	rsi, -4*8*64+2*64	;; Next source pointer
+	loops	4, b6d			;; Loop 4 times
+	bump	rsi, -4*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 1, rcx	;; prefetch 640 cache lines in this loop
@@ -19071,9 +19287,15 @@ b5b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 	loops_undo 4*4*2		;; Back up loop counter
 
 	yr8_8cl_eight_complex_with_square_preload
-b6b:	yr8_8cl_eight_complex_with_square rsi, 2*64, 32*64, dist64, 64
-	loops	16, b6b, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6b:	yr8_8cl_eight_complex_with_square rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b6b, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6b:	yr8_8cl_eight_complex_with_square rsi, 4*64, 32*64, dist64, 64
+	loops	8, b6b, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b6b			;; Loop 2 times
+	bump	rsi, -2*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	yr4_eb4cl_four_complex_djbunfft_preload
@@ -19166,9 +19388,15 @@ b5a:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 
 	loops_set_prefetch 128, 2, rcx	;; prefetch 800 cache lines in this loop
 	yr8_8cl_eight_complex_fft_final_preload
-b6a:	yr8_8cl_eight_complex_fft_final rsi, 2*64, 32*64, dist64, 64
-	loops	16, b6a, 2		;; Loop 16 times with non-standard increment
+;; Loop below reworked to avoid 4KB distances
+;;b6a:	yr8_8cl_eight_complex_fft_final rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b6a, 2		;; Loop 16 times with non-standard increment
 ;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6a:	yr8_8cl_eight_complex_fft_final rsi, 4*64, 32*64, dist64, 64
+	loops	8, b6a, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b6a			;; Loop 2 times
+;;	bump	rsi, -2*2*64		;; Restore source pointer
 
 	bump	rsi, -16*2*64+2*dist64	;; Next source pointer
 	loops	25, b3a			;; Loop 25 times
@@ -19219,9 +19447,15 @@ b5c:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi
 	loops_undo 4*4*2		;; Back up loop counter
 
 	yr8_8cl_eight_complex_with_mult_preload
-b6c:	yr8_8cl_eight_complex_with_mult rsi, 2*64, 32*64, dist64, 64
-	loops	16, b6c, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6c:	yr8_8cl_eight_complex_with_mult rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b6c, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6c:	yr8_8cl_eight_complex_with_mult rsi, 4*64, 32*64, dist64, 64
+	loops	8, b6c, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b6c			;; Loop 2 times
+	bump	rsi, -2*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	yr4_eb4cl_four_complex_djbunfft_preload
@@ -19276,9 +19510,15 @@ ypass2_12800_complex_4:
 
 	loops_set_prefetch 128, 2, rcx	;; prefetch 800 cache lines in this loop
 	yr8_8cl_eight_complex_with_mulf_preload
-b6d:	yr8_8cl_eight_complex_with_mulf rsi, 2*64, 32*64, dist64, 64
-	loops	16, b6d, 2		;; Loop 16 times with non-standard increment
-	bump	rsi, -16*2*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b6d:	yr8_8cl_eight_complex_with_mulf rsi, 2*64, 32*64, dist64, 64
+;;	loops	16, b6d, 2		;; Loop 16 times with non-standard increment
+;;	bump	rsi, -16*2*64		;; Restore source pointer
+b6d:	yr8_8cl_eight_complex_with_mulf rsi, 4*64, 32*64, dist64, 64
+	loops	8, b6d, 2		;; Loop 8 times with non-standard increment
+	bump	rsi, -8*4*64+2*64	;; Next source pointer
+	loops	2, b6d			;; Loop 2 times
+	bump	rsi, -2*2*64		;; Restore source pointer
 	loops_undo 16*2			;; Back up loop counter
 
 	loops_set_prefetch 64, 1, rcx	;; prefetch 800 cache lines in this loop

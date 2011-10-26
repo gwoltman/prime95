@@ -1268,15 +1268,20 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 /* done in the set_FFT_constants macro in ymult.mac and xmult.mac */
 
 	if (gwdata->cpu_flags & CPU_AVX) {
-		// Some pass 2 sizes avoid the 4KB distance problem with a mere 64 pad bytes
-//BUG - enumerate more sizes....
-		if (gwdata->PASS2_SIZE == 4096)
+		// Pass 2 sizes avoid the 4KB distance problem with 64, 128, or 192 pad bytes
+		if (gwdata->PASS2_SIZE == 256 || gwdata->PASS2_SIZE == 2048 || gwdata->PASS2_SIZE == 2304 ||
+		    gwdata->PASS2_SIZE == 3072 || gwdata->PASS2_SIZE == 3840 ||
+		    gwdata->PASS2_SIZE == 4096 || gwdata->PASS2_SIZE == 5120 || gwdata->PASS2_SIZE == 6144 || gwdata->PASS2_SIZE == 6400 || gwdata->PASS2_SIZE == 8192 ||
+		    gwdata->PASS2_SIZE == 10240 || gwdata->PASS2_SIZE == 12288 || gwdata->PASS2_SIZE == 16384 || gwdata->PASS2_SIZE == 20480)
 			gwdata->FOURKBGAPSIZE = 64;
-		else
-			gwdata->FOURKBGAPSIZE = 192;
+		if (gwdata->PASS2_SIZE == 768 || gwdata->PASS2_SIZE == 1024 || gwdata->PASS2_SIZE == 1280 ||
+		    gwdata->PASS2_SIZE == 1536 || gwdata->PASS2_SIZE == 2560 || gwdata->PASS2_SIZE == 4608 ||
+		    gwdata->PASS2_SIZE == 7680 || gwdata->PASS2_SIZE == 9216 || gwdata->PASS2_SIZE == 12800 ||
+		    gwdata->PASS2_SIZE == 15360 || gwdata->PASS2_SIZE == 25600)
+			gwdata->FOURKBGAPSIZE = 128;
 		// Make sure pass 2 blocks contain an odd number of 64-byte cache lines
 		if (gwdata->PASS2_SIZE * 2 * 8 / 4096 * gwdata->FOURKBGAPSIZE % 128 == 0)
-			gwdata->PASS2GAPSIZE = -gwdata->FOURKBGAPSIZE;
+			gwdata->PASS2GAPSIZE = -64;
 		else
 			gwdata->PASS2GAPSIZE = 0;
 	} else {
@@ -3903,7 +3908,7 @@ void xcopy_3_words (
 /* Calculate pass 1 block address.  Note that SSE2 block addresses are */
 /* computed based on 128 pad bytes after every 128 cache lines.  That is: */
 /* DESTARG + (block * 64) + (block >> 7 * 128).  AVX addresses are based */
-/* on 64 or 192 pad bytes after every 64 cache lines. */
+/* on 64 to 192 pad bytes after every 64 cache lines. */
 
 __inline void *pass1_data_addr (
 	gwhandle *gwdata,
