@@ -1269,15 +1269,14 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 
 	if (gwdata->cpu_flags & CPU_AVX) {
 		// Pass 2 sizes avoid the 4KB distance problem with 64, 128, or 192 pad bytes
-		if (gwdata->PASS2_SIZE == 256 || gwdata->PASS2_SIZE == 2048 || gwdata->PASS2_SIZE == 2304 ||
-		    gwdata->PASS2_SIZE == 3072 || gwdata->PASS2_SIZE == 3840 ||
-		    gwdata->PASS2_SIZE == 4096 || gwdata->PASS2_SIZE == 5120 || gwdata->PASS2_SIZE == 6144 || gwdata->PASS2_SIZE == 6400 || gwdata->PASS2_SIZE == 8192 || gwdata->PASS2_SIZE == 9216 ||
-		    gwdata->PASS2_SIZE == 10240 || gwdata->PASS2_SIZE == 12288 || gwdata->PASS2_SIZE == 16384 || gwdata->PASS2_SIZE == 20480)
+		if (gwdata->PASS2_SIZE == 256 || gwdata->PASS2_SIZE == 2048 || gwdata->PASS2_SIZE == 2304 || gwdata->PASS2_SIZE == 3072 ||
+		    gwdata->PASS2_SIZE == 3840 || gwdata->PASS2_SIZE == 4096 || gwdata->PASS2_SIZE == 5120 || gwdata->PASS2_SIZE == 6144 ||
+		    gwdata->PASS2_SIZE == 6400 || gwdata->PASS2_SIZE == 8192 || gwdata->PASS2_SIZE == 9216 || gwdata->PASS2_SIZE == 10240 ||
+		    gwdata->PASS2_SIZE == 12288 || gwdata->PASS2_SIZE == 15360 || gwdata->PASS2_SIZE == 16384 || gwdata->PASS2_SIZE == 20480)
 			gwdata->FOURKBGAPSIZE = 64;
 		if (gwdata->PASS2_SIZE == 768 || gwdata->PASS2_SIZE == 1024 || gwdata->PASS2_SIZE == 1280 ||
 		    gwdata->PASS2_SIZE == 1536 || gwdata->PASS2_SIZE == 2560 || gwdata->PASS2_SIZE == 4608 ||
-		    gwdata->PASS2_SIZE == 7680 || gwdata->PASS2_SIZE == 12800 ||
-		    gwdata->PASS2_SIZE == 15360 || gwdata->PASS2_SIZE == 25600)
+		    gwdata->PASS2_SIZE == 7680 || gwdata->PASS2_SIZE == 12800 || gwdata->PASS2_SIZE == 25600)
 			gwdata->FOURKBGAPSIZE = 128;
 		// Make sure pass 2 block gapsize matches the computation of blkdst in ymult.mac
 		if (gwdata->PASS2_SIZE == 9216)
