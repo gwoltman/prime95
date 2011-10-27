@@ -222,19 +222,26 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 
 	IF p2_levels EQ 8 OR p2_levels EQ 11 OR p2_levels EQ 2304 OR p2_levels EQ 3072 OR p2_levels EQ 3840 OR p2_levels EQ 12 OR p2_levels EQ 5120
 		fourKBgap = 64
-	ELSEIF p2_levels EQ 6144 OR p2_levels EQ 6400 OR p2_levels EQ 13 OR p2_levels EQ 10240 OR p2_levels EQ 12288 OR p2_levels EQ 14 OR p2_levels EQ 20480
+	ELSEIF p2_levels EQ 6144 OR p2_levels EQ 6400 OR p2_levels EQ 13 OR p2_levels EQ 9216 OR p2_levels EQ 10240 OR p2_levels EQ 12288 OR p2_levels EQ 14 OR p2_levels EQ 20480
 		fourKBgap = 64
 	ELSEIF p2_levels EQ 768 OR p2_levels EQ 10 OR p2_levels EQ 1280 OR p2_levels EQ 1536 OR p2_levels EQ 2560 OR p2_levels EQ 4608
 		fourKBgap = 128
-	ELSEIF p2_levels EQ 7680 OR p2_levels EQ 9216 OR p2_levels EQ 12800 OR p2_levels EQ 15360 OR p2_levels EQ 25600
+	ELSEIF p2_levels EQ 7680 OR p2_levels EQ 12800 OR p2_levels EQ 15360 OR p2_levels EQ 25600
 		fourKBgap = 128
 	ENDIF
 
-;; Calculate the distance between blocks.  Make sure the distance between two blocks is an
-;; odd multiple of 64.  This ensures a good scattering of FFT data in the L2 cache during pass 1.
+;; Calculate the distance between pass 1 blocks.  Since we don't support in-place FFTs in pass 1,
+;; most any gap size *should* be OK (as long as the block distance isn't 64 mod 4096).  However,
+;; theory doesn't work for reasons I cannot explain.  For example, the 1152K FFT with 9216 in pass 2
+;; incurs penalties in the sg4cl macros for reasons unknown.  Thus, for most FFTs we choose a gap
+;; that minimizes memory used, but there are some special cases that we enumerate first.
+
+;; BUG - need to see if more special cases are needed
 
 	blkdst = (p2cl*64+p2cl/64*fourKBgap)
-	IF blkdst MOD 128 EQ 0
+	IF p2_levels EQ 9216
+		blkdst = blkdst + 4*64
+	ELSEIF blkdst MOD 128 EQ 0
 		blkdst = blkdst - 64
 	ENDIF
 	ENDM
@@ -730,11 +737,11 @@ ypass2gen MACRO levels
 
 	IF levels EQ 8 OR levels EQ 11 OR levels EQ 2304 OR levels EQ 3072 OR levels EQ 3840 OR levels EQ 12 OR levels EQ 5120
 		fourKBgap = 64
-	ELSEIF levels EQ 6144 OR levels EQ 6400 OR levels EQ 13 OR levels EQ 10240 OR levels EQ 12288 OR levels EQ 14 OR levels EQ 20480
+	ELSEIF levels EQ 6144 OR levels EQ 6400 OR levels EQ 13 OR levels EQ 9216 OR levels EQ 10240 OR levels EQ 12288 OR levels EQ 14 OR levels EQ 20480
 		fourKBgap = 64
 	ELSEIF levels EQ 768 OR levels EQ 10 OR levels EQ 1280 OR levels EQ 1536 OR levels EQ 2560 OR levels EQ 4608 OR levels EQ 7680
 		fourKBgap = 128
-	ELSEIF levels EQ 9216 OR levels EQ 12800 OR levels EQ 15360 OR levels EQ 25600
+	ELSEIF levels EQ 12800 OR levels EQ 15360 OR levels EQ 25600
 		fourKBgap = 128
 	ENDIF
 	dist64 = (64*64+fourKBgap)
