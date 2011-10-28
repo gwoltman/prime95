@@ -1042,10 +1042,19 @@ yr4dwpn_pass2_768_complex MACRO
 	mov	rdi, xsincos_complex	;; The sin/cos data
 	loops_init 64			;; 64 iterations
 	yr3_f3cl_three_complex_djbfft_preload
-b1b:	yr3_f3cl_three_complex_djbfft rsi, 64, dist64, rdi
-	bump	rdi, YMM_SCD1		;; Next sin/cos data
-	loops	64, b1b			;; Test inner loop counter
-	bump	rsi, -64*64		;; Restore source pointer
+;; Loop below reworked to avoid 4KB distances
+;;b1b:	yr3_f3cl_three_complex_djbfft rsi, 64, dist64, rdi
+;;	bump	rdi, YMM_SCD1		;; Next sin/cos data
+;;	loops	64, b1b			;; Test inner loop counter
+;;	bump	rsi, -64*64		;; Restore source pointer
+b1b:	yr3_f3cl_three_complex_djbfft rsi, 4*64, dist64, rdi
+	bump	rdi, 4*YMM_SCD1		;; Next sin/cos data
+	loops	16, b1b			;; Test inner loop counter
+	bump	rsi, -16*4*64+64	;; Next source pointer
+	bump	rdi, -16*4*YMM_SCD1+YMM_SCD1 ;; Next sin/cos data
+	loops	4, b1b			;; Test loop counter
+	bump	rsi, -4*64		;; Restore source pointer
+	bump	rdi, -4*YMM_SCD1+64*YMM_SCD1 ;; Next sin/cos data
 	end_timer 4
 
 ;; Do FFT levels 3,4
@@ -1366,9 +1375,16 @@ c2b:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi
 	bump	rcx, (192+2-7*24-32)*64 ;; Move prefetch pointer along
 	loops_init_prefetch 64, 64, 2, rcx ;; 64 iters
 	yr3_3cl_three_complex_djbunfft_preload
-c1b:	yr3_3cl_three_complex_djbunfft rsi, 64, dist64, rdi
-	bump	rdi, YMM_SCD1		;; Next set of sin/cos data
-	loops	64, c1b			;; Test loop counter
+;; Loop below reworked to avoid 4KB distances
+;;c1b:	yr3_3cl_three_complex_djbunfft rsi, 64, dist64, rdi
+;;	bump	rdi, YMM_SCD1		;; Next set of sin/cos data
+;;	loops	64, c1b			;; Test loop counter
+c1b:	yr3_3cl_three_complex_djbunfft rsi, 4*64, dist64, rdi
+	bump	rdi, 4*YMM_SCD1		;; Next set of sin/cos data
+	loops	16, c1b			;; Test loop counter
+	bump	rsi, -16*4*64+64	;; Next source pointer
+	bump	rdi, -16*4*YMM_SCD1+YMM_SCD1 ;; Next set of sin/cos data
+	loops	4, c1b			;; Test loop counter
 	end_timer 14
 
 ypass2_768_complex_done:
