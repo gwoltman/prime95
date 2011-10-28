@@ -220,13 +220,13 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 ;; Each 4KB page in pass 2 is padded with 64 to 192 bytes
 ;; to avoid 4KB distances in pass 2 y4cl macro calls.
 
-	IF p2_levels EQ 8 OR p2_levels EQ 768 OR p2_levels EQ 11 OR p2_levels EQ 2304 OR p2_levels EQ 3072 OR p2_levels EQ 3840 OR p2_levels EQ 12 OR p2_levels EQ 5120
+	IF p2_levels EQ 8 OR p2_levels EQ 768 OR p2_levels EQ 11 OR p2_levels EQ 2304 OR p2_levels EQ 3072 OR p2_levels EQ 3840
 		fourKBgap = 64
-	ELSEIF p2_levels EQ 6144 OR p2_levels EQ 6400 OR p2_levels EQ 13 OR p2_levels EQ 9216 OR p2_levels EQ 10240 OR p2_levels EQ 12288 OR p2_levels EQ 15360 OR p2_levels EQ 14 OR p2_levels EQ 20480 OR p2_levels EQ 25600
+	ELSEIF p2_levels EQ 12 OR p2_levels EQ 5120 OR p2_levels EQ 6144 OR p2_levels EQ 6400 OR p2_levels EQ 13 OR p2_levels EQ 9216
 		fourKBgap = 64
-	ELSEIF p2_levels EQ 10 OR p2_levels EQ 1280 OR p2_levels EQ 1536 OR p2_levels EQ 2560 OR p2_levels EQ 4608
-		fourKBgap = 128
-	ELSEIF p2_levels EQ 7680 OR p2_levels EQ 12800
+	ELSEIF p2_levels EQ 10240 OR p2_levels EQ 12288 OR p2_levels EQ 15360 OR p2_levels EQ 14 OR p2_levels EQ 20480 OR p2_levels EQ 25600
+		fourKBgap = 64
+	ELSEIF p2_levels EQ 10 OR p2_levels EQ 1280 OR p2_levels EQ 1536 OR p2_levels EQ 2560 OR p2_levels EQ 4608 OR p2_levels EQ 7680 OR p2_levels EQ 12800
 		fourKBgap = 128
 	ENDIF
 
@@ -735,13 +735,13 @@ ypass2gen MACRO levels
 
 ;; Define pass 2 constants.  Each 4KB page is padded with 64 to 192 bytes.
 
-	IF levels EQ 8 OR levels EQ 768 OR levels EQ 11 OR levels EQ 2304 OR levels EQ 3072 OR levels EQ 3840 OR levels EQ 12 OR levels EQ 5120
+	IF levels EQ 8 OR levels EQ 768 OR levels EQ 11 OR levels EQ 2304 OR levels EQ 3072 OR levels EQ 3840 OR levels EQ 12
 		fourKBgap = 64
-	ELSEIF levels EQ 6144 OR levels EQ 6400 OR levels EQ 13 OR levels EQ 9216 OR levels EQ 10240 OR levels EQ 12288 OR levels EQ 15360 OR levels EQ 14 OR levels EQ 20480 OR levels EQ 25600
+	ELSEIF levels EQ 5120 OR levels EQ 6144 OR levels EQ 6400 OR levels EQ 13 OR levels EQ 9216 OR levels EQ 10240
 		fourKBgap = 64
-	ELSEIF levels EQ 10 OR levels EQ 1280 OR levels EQ 1536 OR levels EQ 2560 OR levels EQ 4608 OR levels EQ 7680
-		fourKBgap = 128
-	ELSEIF levels EQ 12800
+	ELSEIF levels EQ 12288 OR levels EQ 15360 OR levels EQ 14 OR levels EQ 20480 OR levels EQ 25600
+		fourKBgap = 64
+	ELSEIF levels EQ 10 OR levels EQ 1280 OR levels EQ 1536 OR levels EQ 2560 OR levels EQ 4608 OR levels EQ 7680 OR levels EQ 12800
 		fourKBgap = 128
 	ENDIF
 	dist64 = (64*64+fourKBgap)
