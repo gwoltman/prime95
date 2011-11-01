@@ -862,7 +862,8 @@ struct gwhandle_struct {
 	double	fft_max_bits_per_word;	/* Maximum bits per data word that */
 				/* this FFT size can support */
 	unsigned long PASS2_SIZE; /* Number of complex values FFTed in pass 2. */
-	long	FOURKBGAPSIZE;	/* Gap between 4KB blocks in pass 2 */
+	long	FOURKBGAPSIZE;	/* Gap between 4KB blocks in pass 2 of a two-pass FFT. */
+				/* Number of cache lines in a padded block in a one-pass FFT. */
 	long	PASS2GAPSIZE;	/* Gap between blocks in pass 2 */
 	unsigned long PASS1_CACHE_LINES; /* Cache lines grouped together in */
 				/* first pass of an FFT. */

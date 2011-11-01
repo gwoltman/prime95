@@ -27,11 +27,12 @@ _TEXT SEGMENT
 ;;
 
 PROCFL	gwyaddq1
-	ad_prolog 0,0,rsi
+	ad_prolog 0,0,rbx,rsi
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
 	mov	eax, addcount1		; Load loop counter
+uaddlp2:mov	ebx, count2		; Load loop counter
 uaddlp:	vmovapd	ymm0, [rdx]		; Load second number
 	vaddpd	ymm0, ymm0, [rcx]	; Add in first number
 	vmovapd	ymm1, [rdx+32]		; Load second number
@@ -47,9 +48,14 @@ uaddlp:	vmovapd	ymm0, [rdx]		; Load second number
 	bump	rcx, 128		; Next source
 	bump	rdx, 128		; Next source
 	bump	rsi, 128		; Next dest
-	sub	eax, 1			; Check loop counter
+	sub	ebx, 1			; Check loop counter
 	jnz	short uaddlp		; Loop if necessary
-	ad_epilog 0,0,rsi
+	bump	rcx, 64			; Pad 64 bytes
+	bump	rdx, 64			; Pad 64 bytes
+	bump	rsi, 64			; Pad 64 bytes
+	sub	eax, 1			; Check loop counter
+	jnz	short uaddlp2		; Loop if necessary
+	ad_epilog 0,0,rbx,rsi
 gwyaddq1 ENDP
 
 ;;
@@ -60,10 +66,11 @@ saved_dest_ptr	EQU	PPTR [rsp+first_local+0*SZPTR]
 saved_ttp_ptr	EQU	PPTR [rsp+first_local+1*SZPTR]
 loopcount1	EQU	DPTR [rsp+first_local+2*SZPTR+0]
 loopcount2	EQU	DPTR [rsp+first_local+2*SZPTR+4]
+loopcount3	EQU	DPTR [rsp+first_local+2*SZPTR+8]
 
 	; Base-2, irrational, not zero-padded
 PROCFL	gwyadd1
-	ad_prolog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -78,10 +85,20 @@ b2addsec:
 	mov	loopcount2, eax
 	mov	saved_dest_ptr, rsi	; remember rsi for ynorm_op_1d_mid_cleanup
 	mov	saved_ttp_ptr, rbp	; remember rbp for ynorm_op_1d_mid_cleanup
+b2addlp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 b2addlp:
 	ynorm_op_1d vaddpd, exec, exec	; Add and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	b2addlp			; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short b2addsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	jnz	b2addlp2		; Loop til done
+b2addsecdn:
 
 	mov	rax, saved_dest_ptr	; Restore dest pointer
 	mov	rbx, saved_ttp_ptr	; Restore multipliers pointer
@@ -91,12 +108,12 @@ b2addlp:
 
 	ynorm_op_1d_cleanup exec, exec, DESTARG	; Do final carry cleanup
 
-	ad_epilog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwyadd1 ENDP
 
 	; Base-2, rational, not zero-padded
 PROCFL	gwyaddr1
-	ad_prolog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -108,10 +125,20 @@ b2raddsec:
 	mov	eax, normcount1		; Get count of cache lines in a section
 	mov	loopcount2, eax
 	mov	saved_dest_ptr, rsi	; remember rsi for ynorm_op_1d_mid_cleanup
+b2raddlp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 b2raddlp:
 	ynorm_op_1d vaddpd, noexec, exec ; Add and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	short b2raddlp		; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short b2raddsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	jnz	b2raddlp2		; Loop til done
+b2raddsecdn:
 
 	mov	rax, saved_dest_ptr	; Restore dest pointer
 	ynorm_op_1d_mid_cleanup noexec, exec ; Rotate and add in carries
@@ -120,12 +147,12 @@ b2raddlp:
 
 	ynorm_op_1d_cleanup noexec, exec, DESTARG ; Do final carry cleanup
 
-	ad_epilog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwyaddr1 ENDP
 
 	; Base-2, irrational, zero-padded
 PROCFL	gwyaddzp1
-	ad_prolog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -140,10 +167,20 @@ b2zpaddsec:
 	mov	loopcount2, eax
 	mov	saved_dest_ptr, rsi	; remember rsi for ynorm_op_1d_zpad_mid_cleanup
 	mov	saved_ttp_ptr, rbp	; remember rbp for ynorm_op_1d_zpad_mid_cleanup
+b2zpaddlp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 b2zpaddlp:
 	ynorm_op_1d_zpad vaddpd, exec, exec ; Add and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	b2zpaddlp		; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short b2zpaddsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	jnz	b2zpaddlp2		; Loop til done
+b2zpaddsecdn:
 
 	mov	rax, saved_dest_ptr	; Restore dest pointer
 	mov	rbx, saved_ttp_ptr	; Restore multipliers pointer
@@ -153,12 +190,12 @@ b2zpaddlp:
 
 	ynorm_op_1d_zpad_cleanup exec, exec, DESTARG ; Do final carry cleanup
 
-	ad_epilog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwyaddzp1 ENDP
 
 	; Base-2, rational, zero-padded
 PROCFL	gwyaddrzp1
-	ad_prolog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -170,10 +207,20 @@ b2rzpaddsec:
 	mov	eax, normcount1		; Get count of cache lines in a section
 	mov	loopcount2, eax
 	mov	saved_dest_ptr, rsi	; remember rsi for ynorm_op_1d_zpad_mid_cleanup
+b2rzpaddlp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 b2rzpaddlp:
 	ynorm_op_1d_zpad vaddpd, noexec, exec ; Add and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	short b2rzpaddlp	; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short b2rzpaddsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	jnz	b2rzpaddlp2		; Loop til done
+b2rzpaddsecdn:
 
 	mov	rax, saved_dest_ptr	; Restore dest pointer
 	ynorm_op_1d_zpad_mid_cleanup noexec, exec ; Rotate and add in carries
@@ -182,12 +229,12 @@ b2rzpaddlp:
 
 	ynorm_op_1d_zpad_cleanup noexec, exec, DESTARG ; Do final carry cleanup
 
-	ad_epilog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwyaddrzp1 ENDP
 
 	; Not base-2, irrational, not zero-padded
 PROCFL	gwyaddn1
-	ad_prolog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -202,10 +249,20 @@ nb2addsec:
 	mov	loopcount2, eax
 	mov	saved_dest_ptr, rsi	; remember rsi for ynorm_op_1d_mid_cleanup
 	mov	saved_ttp_ptr, rbp	; remember rbp for ynorm_op_1d_mid_cleanup
+nb2addlp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 nb2addlp:
 	ynorm_op_1d vaddpd, exec, noexec ; Add and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	nb2addlp		; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short nb2addsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	jnz	nb2addlp2		; Loop til done
+nb2addsecdn:
 
 	mov	rax, saved_dest_ptr	; Restore dest pointer
 	mov	rbx, saved_ttp_ptr	; Restore multipliers pointer
@@ -215,12 +272,12 @@ nb2addlp:
 
 	ynorm_op_1d_cleanup exec, noexec, DESTARG ; Do final carry cleanup
 
-	ad_epilog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwyaddn1 ENDP
 
 	; Not base-2, rational, not zero-padded
 PROCFL	gwyaddnr1
-	ad_prolog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -232,10 +289,20 @@ nb2raddsec:
 	mov	eax, normcount1		; Get count of cache lines in a section
 	mov	loopcount2, eax
 	mov	saved_dest_ptr, rsi	; remember rsi for ynorm_op_1d_mid_cleanup
+nb2raddlp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 nb2raddlp:
 	ynorm_op_1d vaddpd, noexec, noexec ; Add and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	short nb2raddlp		; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short nb2raddsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	jnz	nb2raddlp2		; Loop til done
+nb2raddsecdn:
 
 	mov	rax, saved_dest_ptr	; Restore dest pointer
 	ynorm_op_1d_mid_cleanup noexec, noexec ; Rotate and add in carries
@@ -244,12 +311,12 @@ nb2raddlp:
 
 	ynorm_op_1d_cleanup noexec, noexec, DESTARG ; Do final carry cleanup
 
-	ad_epilog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwyaddnr1 ENDP
 
 	; Not base-2, irrational, zero-padded
 PROCFL	gwyaddnzp1
-	ad_prolog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -264,10 +331,20 @@ nb2zpaddsec:
 	mov	loopcount2, eax
 	mov	saved_dest_ptr, rsi	; remember rsi for ynorm_op_1d_zpad_mid_cleanup
 	mov	saved_ttp_ptr, rbp	; remember rbp for ynorm_op_1d_zpad_mid_cleanup
+nb2zpaddlp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 nb2zpaddlp:
 	ynorm_op_1d_zpad vaddpd, exec, noexec ; Add and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	nb2zpaddlp		; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short nb2zpaddsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	jnz	nb2zpaddlp2		; Loop til done
+nb2zpaddsecdn:
 
 	mov	rax, saved_dest_ptr	; Restore dest pointer
 	mov	rbx, saved_ttp_ptr	; Restore multipliers pointer
@@ -277,12 +354,12 @@ nb2zpaddlp:
 
 	ynorm_op_1d_zpad_cleanup exec, noexec, DESTARG ; Do final carry cleanup
 
-	ad_epilog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwyaddnzp1 ENDP
 
 	; Not base-2, rational, zero-padded
 PROCFL	gwyaddnrzp1
-	ad_prolog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -294,10 +371,20 @@ nb2rzpaddsec:
 	mov	eax, normcount1		; Get count of cache lines in a section
 	mov	loopcount2, eax
 	mov	saved_dest_ptr, rsi	; remember rsi for ynorm_op_1d_zpad_mid_cleanup
+nb2rzpaddlp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 nb2rzpaddlp:
 	ynorm_op_1d_zpad vaddpd, noexec, noexec ; Add and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	short nb2rzpaddlp	; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short nb2rzpaddsecdn; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	jnz	nb2rzpaddlp2		; Loop til done
+nb2rzpaddsecdn:
 
 	mov	rax, saved_dest_ptr	; Restore dest pointer
 	ynorm_op_1d_zpad_mid_cleanup noexec, noexec ; Rotate and add in carries
@@ -306,7 +393,7 @@ nb2rzpaddlp:
 
 	ynorm_op_1d_zpad_cleanup noexec, noexec, DESTARG ; Do final carry cleanup
 
-	ad_epilog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwyaddnrzp1 ENDP
 
 ;;
@@ -316,11 +403,12 @@ gwyaddnrzp1 ENDP
 ;;
 
 PROCFL	gwysubq1
-	ad_prolog 0,0,rsi
+	ad_prolog 0,0,rbx,rsi
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
 	mov	eax, addcount1		; Load loop counter
+usublp2:mov	ebx, count2		; Load loop counter
 usublp:	vmovapd	ymm0, [rdx]		; Load second number
 	vsubpd	ymm0, ymm0, [rcx]	; Subtract first number
 	vmovapd	ymm1, [rdx+32]		; Load second number
@@ -336,9 +424,14 @@ usublp:	vmovapd	ymm0, [rdx]		; Load second number
 	bump	rcx, 128		; Next source
 	bump	rdx, 128		; Next source
 	bump	rsi, 128		; Next dest
-	sub	eax, 1			; Check loop counter
+	sub	ebx, 1			; Check loop counter
 	jnz	short usublp		; Loop if necessary
-	ad_epilog 0,0,rsi
+	bump	rcx, 64			; Pad 64 bytes
+	bump	rdx, 64			; Pad 64 bytes
+	bump	rsi, 64			; Pad 64 bytes
+	sub	eax, 1			; Check loop counter
+	jnz	short usublp2		; Loop if necessary
+	ad_epilog 0,0,rbx,rsi
 gwysubq1 ENDP
 
 ;;
@@ -349,10 +442,11 @@ saved_dest_ptr	EQU	PPTR [rsp+first_local+0*SZPTR]
 saved_ttp_ptr	EQU	PPTR [rsp+first_local+1*SZPTR]
 loopcount1	EQU	DPTR [rsp+first_local+2*SZPTR+0]
 loopcount2	EQU	DPTR [rsp+first_local+2*SZPTR+4]
+loopcount3	EQU	DPTR [rsp+first_local+2*SZPTR+8]
 
 	; Base-2, irrational, not zero-padded
 PROCFL	gwysub1
-	ad_prolog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -367,10 +461,20 @@ b2subsec:
 	mov	loopcount2, eax
 	mov	saved_dest_ptr, rsi	; remember rsi for ynorm_op_1d_mid_cleanup
 	mov	saved_ttp_ptr, rbp	; remember rbp for ynorm_op_1d_mid_cleanup
+b2sublp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 b2sublp:
 	ynorm_op_1d vsubpd, exec, exec	; Subtract and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	b2sublp			; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short b2subsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	jnz	b2sublp2		; Loop til done
+b2subsecdn:
 
 	mov	rax, saved_dest_ptr	; Restore dest pointer
 	mov	rbx, saved_ttp_ptr	; Restore multipliers pointer
@@ -380,12 +484,12 @@ b2sublp:
 
 	ynorm_op_1d_cleanup exec, exec, DESTARG	; Do final carry cleanup
 
-	ad_epilog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwysub1 ENDP
 
 	; Base-2, rational, not zero-padded
 PROCFL	gwysubr1
-	ad_prolog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -397,10 +501,20 @@ b2rsubsec:
 	mov	eax, normcount1		; Get count of cache lines in a section
 	mov	loopcount2, eax
 	mov	saved_dest_ptr, rsi	; remember rsi for ynorm_op_1d_mid_cleanup
+b2rsublp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 b2rsublp:
 	ynorm_op_1d vsubpd, noexec, exec ; Subtract and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	short b2rsublp		; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short b2rsubsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	jnz	b2rsublp2		; Loop til done
+b2rsubsecdn:
 
 	mov	rax, saved_dest_ptr	; Restore dest pointer
 	ynorm_op_1d_mid_cleanup noexec, exec ; Rotate and add in carries
@@ -409,12 +523,12 @@ b2rsublp:
 
 	ynorm_op_1d_cleanup noexec, exec, DESTARG ; Do final carry cleanup
 
-	ad_epilog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwysubr1 ENDP
 
 	; Base-2, irrational, zero-padded
 PROCFL	gwysubzp1
-	ad_prolog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -429,10 +543,20 @@ b2zpsubsec:
 	mov	loopcount2, eax
 	mov	saved_dest_ptr, rsi	; remember rsi for ynorm_op_1d_zpad_mid_cleanup
 	mov	saved_ttp_ptr, rbp	; remember rbp for ynorm_op_1d_zpad_mid_cleanup
+b2zpsublp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 b2zpsublp:
 	ynorm_op_1d_zpad vsubpd, exec, exec ; Subtract and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	b2zpsublp		; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short b2zpsubsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	jnz	b2zpsublp2		; Loop til done
+b2zpsubsecdn:
 
 	mov	rax, saved_dest_ptr	; Restore dest pointer
 	mov	rbx, saved_ttp_ptr	; Restore multipliers pointer
@@ -442,12 +566,12 @@ b2zpsublp:
 
 	ynorm_op_1d_zpad_cleanup exec, exec, DESTARG ; Do final carry cleanup
 
-	ad_epilog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwysubzp1 ENDP
 
 	; Base-2, rational, zero-padded
 PROCFL	gwysubrzp1
-	ad_prolog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -459,10 +583,20 @@ b2rzpsubsec:
 	mov	eax, normcount1		; Get count of cache lines in a section
 	mov	loopcount2, eax
 	mov	saved_dest_ptr, rsi	; remember rsi for ynorm_op_1d_zpad_mid_cleanup
+b2rzpsublp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 b2rzpsublp:
 	ynorm_op_1d_zpad vsubpd, noexec, exec ; Subtract and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	short b2rzpsublp	; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short b2rzpsubsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	jnz	b2rzpsublp2		; Loop til done
+b2rzpsubsecdn:
 
 	mov	rax, saved_dest_ptr	; Restore dest pointer
 	ynorm_op_1d_zpad_mid_cleanup noexec, exec ; Rotate and add in carries
@@ -471,12 +605,12 @@ b2rzpsublp:
 
 	ynorm_op_1d_zpad_cleanup noexec, exec, DESTARG ; Do final carry cleanup
 
-	ad_epilog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwysubrzp1 ENDP
 
 	; Not base-2, irrational, not zero-padded
 PROCFL	gwysubn1
-	ad_prolog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -491,10 +625,20 @@ nb2subsec:
 	mov	loopcount2, eax
 	mov	saved_dest_ptr, rsi	; remember rsi for ynorm_op_1d_mid_cleanup
 	mov	saved_ttp_ptr, rbp	; remember rbp for ynorm_op_1d_mid_cleanup
+nb2sublp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 nb2sublp:
 	ynorm_op_1d vsubpd, exec, noexec ; Subtract and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	nb2sublp		; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short nb2subsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	jnz	nb2sublp2		; Loop til done
+nb2subsecdn:
 
 	mov	rax, saved_dest_ptr	; Restore dest pointer
 	mov	rbx, saved_ttp_ptr	; Restore multipliers pointer
@@ -504,12 +648,12 @@ nb2sublp:
 
 	ynorm_op_1d_cleanup exec, noexec, DESTARG ; Do final carry cleanup
 
-	ad_epilog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwysubn1 ENDP
 
 	; Not base-2, rational, not zero-padded
 PROCFL	gwysubnr1
-	ad_prolog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -521,10 +665,20 @@ nb2rsubsec:
 	mov	eax, normcount1		; Get count of cache lines in a section
 	mov	loopcount2, eax
 	mov	saved_dest_ptr, rsi	; remember rsi for ynorm_op_1d_mid_cleanup
+nb2rsublp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 nb2rsublp:
 	ynorm_op_1d vsubpd, noexec, noexec ; Subtract and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	short nb2rsublp		; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short nb2rsubsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	jnz	nb2rsublp2		; Loop til done
+nb2rsubsecdn:
 
 	mov	rax, saved_dest_ptr	; Restore dest pointer
 	ynorm_op_1d_mid_cleanup noexec, noexec ; Rotate and add in carries
@@ -533,12 +687,12 @@ nb2rsublp:
 
 	ynorm_op_1d_cleanup noexec, noexec, DESTARG ; Do final carry cleanup
 
-	ad_epilog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwysubnr1 ENDP
 
 	; Not base-2, irrational, zero-padded
 PROCFL	gwysubnzp1
-	ad_prolog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -553,10 +707,20 @@ nb2zpsubsec:
 	mov	loopcount2, eax
 	mov	saved_dest_ptr, rsi	; remember rsi for ynorm_op_1d_zpad_mid_cleanup
 	mov	saved_ttp_ptr, rbp	; remember rbp for ynorm_op_1d_zpad_mid_cleanup
+nb2zpsublp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 nb2zpsublp:
 	ynorm_op_1d_zpad vsubpd, exec, noexec ; Subtract and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	nb2zpsublp		; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short nb2zpsubsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	jnz	nb2zpsublp2		; Loop til done
+nb2zpsubsecdn:
 
 	mov	rax, saved_dest_ptr	; Restore dest pointer
 	mov	rbx, saved_ttp_ptr	; Restore multipliers pointer
@@ -566,12 +730,12 @@ nb2zpsublp:
 
 	ynorm_op_1d_zpad_cleanup exec, noexec, DESTARG ; Do final carry cleanup
 
-	ad_epilog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwysubnzp1 ENDP
 
 	; Not base-2, rational, zero-padded
 PROCFL	gwysubnrzp1
-	ad_prolog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -583,10 +747,20 @@ nb2rzpsubsec:
 	mov	eax, normcount1		; Get count of cache lines in a section
 	mov	loopcount2, eax
 	mov	saved_dest_ptr, rsi	; remember rsi for ynorm_op_1d_zpad_mid_cleanup
+nb2rzpsublp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 nb2rzpsublp:
 	ynorm_op_1d_zpad vsubpd, noexec, noexec ; Subtract and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	short nb2rzpsublp	; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short nb2rzpsubsecdn; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	jnz	nb2rzpsublp2		; Loop til done
+nb2rzpsubsecdn:
 
 	mov	rax, saved_dest_ptr	; Restore dest pointer
 	ynorm_op_1d_zpad_mid_cleanup noexec, noexec ; Rotate and add in carries
@@ -595,7 +769,7 @@ nb2rzpsublp:
 
 	ynorm_op_1d_zpad_cleanup noexec, noexec, DESTARG ; Do final carry cleanup
 
-	ad_epilog 2*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 2*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwysubnrzp1 ENDP
 
 ;;
@@ -603,12 +777,14 @@ gwysubnrzp1 ENDP
 ;;
 
 PROCFL	gwyaddsubq1
-	ad_prolog 0,0,rbp,rsi,ymm6,ymm7
+	ad_prolog 0,0,rbx,rbp,rsi,ymm6,ymm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination #1
 	mov	rbp, DEST2ARG	  	; Address of destination #2
 	mov	eax, addcount1		; Load loop counter
+uaddsublp2:
+	mov	ebx, count2		; Load loop counter
 uaddsublp:
 	vmovapd	ymm1, [rcx]		; Load first number
 	vaddpd	ymm0, ymm1, [rdx]	; Add in second number
@@ -634,9 +810,15 @@ uaddsublp:
 	bump	rdx, 128		; Next source
 	bump	rsi, 128		; Next dest
 	bump	rbp, 128		; Next dest
-	sub	eax, 1			; Check loop counter
+	sub	ebx, 1			; Check loop counter
 	jnz	uaddsublp		; Loop if necessary
-	ad_epilog 0,0,rbp,rsi,ymm6,ymm7
+	bump	rcx, 64			; Pad 64 bytes
+	bump	rdx, 64			; Pad 64 bytes
+	bump	rsi, 64			; Pad 64 bytes
+	bump	rbp, 64			; Pad 64 bytes
+	sub	eax, 1			; Check loop counter
+	jnz	uaddsublp2		; Loop if necessary
+	ad_epilog 0,0,rbx,rbp,rsi,ymm6,ymm7
 gwyaddsubq1 ENDP
 
 ;;
@@ -648,10 +830,11 @@ saved_dest2_ptr	EQU	PPTR [rsp+first_local+1*SZPTR]
 saved_ttp_ptr	EQU	PPTR [rsp+first_local+2*SZPTR]
 loopcount1	EQU	DPTR [rsp+first_local+3*SZPTR+0]
 loopcount2	EQU	DPTR [rsp+first_local+3*SZPTR+4]
+loopcount3	EQU	DPTR [rsp+first_local+3*SZPTR+8]
 
 	; Base-2, irrational, not zero-padded
 PROCFL	gwyaddsub1
-	ad_prolog 3*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 3*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -670,10 +853,21 @@ b2addsubsec:
 	mov	saved_ttp_ptr, rbx	; remember rbx for ynorm_addsub_1d_mid_cleanup
 	mov	saved_dest2_ptr, rbp	; remember dest #2 for ynorm_addsub_1d_mid_cleanup
 	mov	saved_dest1_ptr, rsi	; remember dest #1 for ynorm_addsub_1d_mid_cleanup
+b2addsublp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 b2addsublp:
 	ynorm_addsub_1d exec, exec	; Add/sub and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	b2addsublp		; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short b2addsubsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	lea	rbp, [rbp+64]		; Pad by 64 bytes
+	jnz	b2addsublp2		; Loop til done
+b2addsubsecdn:
 
 	xchg	rbx, saved_ttp_ptr	; Save/restore ttp/ttmp multipliers pointer
 	ynorm_addsub_1d_mid_cleanup exec, exec, saved_dest1_ptr, saved_dest2_ptr ; Rotate and add in carries
@@ -687,12 +881,12 @@ b2addsublp:
 	vmovapd	ymm3, ymm7		; Load carry
 	ynorm_op_1d_cleanup exec, exec, DEST2ARG ; Do final carry cleanup of result #2
 
-	ad_epilog 3*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 3*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwyaddsub1 ENDP
 
 	; Base-2, rational, not zero-padded
 PROCFL	gwyaddsubr1
-	ad_prolog 3*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 3*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -708,10 +902,21 @@ b2raddsubsec:
 	mov	loopcount2, eax
 	mov	saved_dest2_ptr, rbp	; remember dest #2 for ynorm_addsub_1d_mid_cleanup
 	mov	saved_dest1_ptr, rsi	; remember dest #1 for ynorm_addsub_1d_mid_cleanup
+b2raddsublp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 b2raddsublp:
 	ynorm_addsub_1d noexec, exec	; Add/sub and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	b2raddsublp		; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short b2raddsubsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	lea	rbp, [rbp+64]		; Pad by 64 bytes
+	jnz	b2raddsublp2		; Loop til done
+b2raddsubsecdn:
 
 	ynorm_addsub_1d_mid_cleanup noexec, exec, saved_dest1_ptr, saved_dest2_ptr ; Rotate and add in carries
 	sub	loopcount1, 1		; Test section counter
@@ -723,12 +928,12 @@ b2raddsublp:
 	vmovapd	ymm3, ymm7		; Load carry
 	ynorm_op_1d_cleanup noexec, exec, DEST2ARG ; Do final carry cleanup of result #2
 
-	ad_epilog 3*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 3*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwyaddsubr1 ENDP
 
 	; Base-2, irrational, zero-padded
 PROCFL	gwyaddsubzp1
-	ad_prolog 3*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 3*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -747,10 +952,21 @@ b2zpaddsubsec:
 	mov	saved_ttp_ptr, rbx	; remember rbx for ynorm_addsub_1d_zpad_mid_cleanup
 	mov	saved_dest2_ptr, rbp	; remember dest #2 for ynorm_addsub_1d_zpad_mid_cleanup
 	mov	saved_dest1_ptr, rsi	; remember dest #1 for ynorm_addsub_1d_zpad_mid_cleanup
+b2zpaddsublp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 b2zpaddsublp:
 	ynorm_addsub_1d_zpad exec, exec	; Add/sub and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	b2zpaddsublp		; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short b2zpaddsubsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	lea	rbp, [rbp+64]		; Pad by 64 bytes
+	jnz	b2zpaddsublp2		; Loop til done
+b2zpaddsubsecdn:
 
 	xchg	rbx, saved_ttp_ptr	; Save/restore ttp/ttmp multipliers pointer
 	ynorm_addsub_1d_zpad_mid_cleanup exec, exec, saved_dest1_ptr, saved_dest2_ptr ; Rotate and add in carries
@@ -764,12 +980,12 @@ b2zpaddsublp:
 	vmovapd	ymm3, ymm7		; Load carry
 	ynorm_op_1d_zpad_cleanup exec, exec, DEST2ARG ; Do final carry cleanup of result #2
 
-	ad_epilog 3*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 3*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwyaddsubzp1 ENDP
 
 	; Base-2, rational, zero-padded
 PROCFL	gwyaddsubrzp1
-	ad_prolog 3*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 3*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -785,10 +1001,21 @@ b2rzpaddsubsec:
 	mov	loopcount2, eax
 	mov	saved_dest2_ptr, rbp	; remember dest #2 for ynorm_addsub_1d_zpad_mid_cleanup
 	mov	saved_dest1_ptr, rsi	; remember dest #1 for ynorm_addsub_1d_zpad_mid_cleanup
+b2rzpaddsublp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 b2rzpaddsublp:
 	ynorm_addsub_1d_zpad noexec, exec ; Add/sub and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	b2rzpaddsublp		; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short b2rzpaddsubsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	lea	rbp, [rbp+64]		; Pad by 64 bytes
+	jnz	b2rzpaddsublp2		; Loop til done
+b2rzpaddsubsecdn:
 
 	ynorm_addsub_1d_zpad_mid_cleanup noexec, exec, saved_dest1_ptr, saved_dest2_ptr ; Rotate and add in carries
 	sub	loopcount1, 1		; Test section counter
@@ -800,12 +1027,12 @@ b2rzpaddsublp:
 	vmovapd	ymm3, ymm7		; Load carry
 	ynorm_op_1d_zpad_cleanup noexec, exec, DEST2ARG ; Do final carry cleanup of result #2
 
-	ad_epilog 3*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 3*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwyaddsubrzp1 ENDP
 
 	; Non base-2, irrational, not zero-padded
 PROCFL	gwyaddsubn1
-	ad_prolog 3*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 3*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -824,10 +1051,21 @@ nb2addsubsec:
 	mov	saved_ttp_ptr, rbx	; remember rbx for ynorm_addsub_1d_mid_cleanup
 	mov	saved_dest2_ptr, rbp	; remember dest #2 for ynorm_addsub_1d_mid_cleanup
 	mov	saved_dest1_ptr, rsi	; remember dest #1 for ynorm_addsub_1d_mid_cleanup
+nb2addsublp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 nb2addsublp:
 	ynorm_addsub_1d exec, noexec	; Add/sub and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	nb2addsublp		; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short nb2addsubsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	lea	rbp, [rbp+64]		; Pad by 64 bytes
+	jnz	nb2addsublp2		; Loop til done
+nb2addsubsecdn:
 
 	xchg	rbx, saved_ttp_ptr	; Save/restore ttp/ttmp multipliers pointer
 	ynorm_addsub_1d_mid_cleanup exec, noexec, saved_dest1_ptr, saved_dest2_ptr ; Rotate and add in carries
@@ -841,12 +1079,12 @@ nb2addsublp:
 	vmovapd	ymm3, ymm7		; Load carry
 	ynorm_op_1d_cleanup exec, noexec, DEST2ARG ; Do final carry cleanup of result #2
 
-	ad_epilog 3*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 3*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwyaddsubn1 ENDP
 
 	; Non base-2, rational, not zero-padded
 PROCFL	gwyaddsubnr1
-	ad_prolog 3*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 3*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -862,10 +1100,21 @@ nb2raddsubsec:
 	mov	loopcount2, eax
 	mov	saved_dest2_ptr, rbp	; remember dest #2 for ynorm_addsub_1d_mid_cleanup
 	mov	saved_dest1_ptr, rsi	; remember dest #1 for ynorm_addsub_1d_mid_cleanup
+nb2raddsublp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 nb2raddsublp:
 	ynorm_addsub_1d noexec, noexec	; Add/sub and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	nb2raddsublp		; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short nb2raddsubsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	lea	rbp, [rbp+64]		; Pad by 64 bytes
+	jnz	nb2raddsublp2		; Loop til done
+nb2raddsubsecdn:
 
 	ynorm_addsub_1d_mid_cleanup noexec, noexec, saved_dest1_ptr, saved_dest2_ptr ; Rotate and add in carries
 	sub	loopcount1, 1		; Test section counter
@@ -877,12 +1126,12 @@ nb2raddsublp:
 	vmovapd	ymm3, ymm7		; Load carry
 	ynorm_op_1d_cleanup noexec, noexec, DEST2ARG ; Do final carry cleanup of result #2
 
-	ad_epilog 3*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 3*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwyaddsubnr1 ENDP
 
 	; Non base-2, irrational, zero-padded
 PROCFL	gwyaddsubnzp1
-	ad_prolog 3*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 3*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -901,10 +1150,21 @@ nb2zpaddsubsec:
 	mov	saved_ttp_ptr, rbx	; remember rbx for ynorm_addsub_1d_zpad_mid_cleanup
 	mov	saved_dest2_ptr, rbp	; remember dest #2 for ynorm_addsub_1d_zpad_mid_cleanup
 	mov	saved_dest1_ptr, rsi	; remember dest #1 for ynorm_addsub_1d_zpad_mid_cleanup
+nb2zpaddsublp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 nb2zpaddsublp:
 	ynorm_addsub_1d_zpad exec, noexec ; Add/sub and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	nb2zpaddsublp		; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short nb2zpaddsubsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	lea	rbp, [rbp+64]		; Pad by 64 bytes
+	jnz	nb2zpaddsublp2		; Loop til done
+nb2zpaddsubsecdn:
 
 	xchg	rbx, saved_ttp_ptr	; Save/restore ttp/ttmp multipliers pointer
 	ynorm_addsub_1d_zpad_mid_cleanup exec, noexec, saved_dest1_ptr, saved_dest2_ptr ; Rotate and add in carries
@@ -918,12 +1178,12 @@ nb2zpaddsublp:
 	vmovapd	ymm3, ymm7		; Load carry
 	ynorm_op_1d_zpad_cleanup exec, noexec, DEST2ARG ; Do final carry cleanup of result #2
 
-	ad_epilog 3*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 3*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwyaddsubnzp1 ENDP
 
 	; Non base-2, rational, zero-padded
 PROCFL	gwyaddsubnrzp1
-	ad_prolog 3*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 3*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
@@ -939,10 +1199,21 @@ nb2rzpaddsubsec:
 	mov	loopcount2, eax
 	mov	saved_dest2_ptr, rbp	; remember dest #2 for ynorm_addsub_1d_zpad_mid_cleanup
 	mov	saved_dest1_ptr, rsi	; remember dest #1 for ynorm_addsub_1d_zpad_mid_cleanup
+nb2rzpaddsublp2:
+	mov	eax, count1		; Get count of cache lines before a padding occurs
+	mov	loopcount3, eax
 nb2rzpaddsublp:
 	ynorm_addsub_1d_zpad noexec, noexec ; Add/sub and normalize 8 values
-	sub	loopcount2, 1		; Decrement loop counter
+	sub	loopcount3, 1		; Decrement loop counter
 	jnz	nb2rzpaddsublp		; Loop til done
+	sub	loopcount2, 1		; Decrement loop counter
+	js	short nb2rzpaddsubsecdn	; Loop til done
+	lea	rcx, [rcx+64]		; Pad by 64 bytes
+	lea	rdx, [rdx+64]		; Pad by 64 bytes
+	lea	rsi, [rsi+64]		; Pad by 64 bytes
+	lea	rbp, [rbp+64]		; Pad by 64 bytes
+	jnz	nb2rzpaddsublp2		; Loop til done
+nb2rzpaddsubsecdn:
 
 	ynorm_addsub_1d_zpad_mid_cleanup noexec, noexec, saved_dest1_ptr, saved_dest2_ptr ; Rotate and add in carries
 	sub	loopcount1, 1		; Test section counter
@@ -954,7 +1225,7 @@ nb2rzpaddsublp:
 	vmovapd	ymm3, ymm7		; Load carry
 	ynorm_op_1d_zpad_cleanup noexec, noexec, DEST2ARG ; Do final carry cleanup of result #2
 
-	ad_epilog 3*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 3*SZPTR+12,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwyaddsubnrzp1 ENDP
 
 ;;
@@ -967,13 +1238,19 @@ PROCFL	gwycopyzero1
 	mov	rdi, DESTARG		; Address of destination
 	sub	ecx, ecx		; Offset to compare to COPYZERO
 	mov	eax, addcount1		; Load loop counter
-	add	rax, rax
+cz2:	mov	edx, count2		; Load loop counter
+	add	rdx, rdx
 cz1:	ycopyzero			; Copy/zero 8 values
 	bump	rsi, 64			; Next source
 	bump	rdi, 64			; Next dest
 	bump	rcx, 64			; Next compare offset
-	sub	eax, 1			; Test loop counter
+	sub	edx, 1			; Check loop counter
 	jnz	short cz1		; Loop if necessary
+	bump	rsi, 64			; Pad 64 bytes
+	bump	rdi, 64			; Pad 64 bytes
+	bump	rcx, 64			; Pad 64 bytes
+	sub	eax, 1			; Test loop counter
+	jnz	cz2			; Loop if necessary
 	ad_epilog 0,0,rsi,rdi
 gwycopyzero1 ENDP
 
@@ -1010,10 +1287,11 @@ saved_reg1	EQU	PPTR [rsp+first_local+3*SZPTR]
 saved_reg2	EQU	PPTR [rsp+first_local+4*SZPTR]
 saved_reg3	EQU	PPTR [rsp+first_local+5*SZPTR]
 loopcount1	EQU	DPTR [rsp+first_local+6*SZPTR]
+loopcount3	EQU	DPTR [rsp+first_local+6*SZPTR+4]
 
 	; Base-2, irrational, not zero-padded
 PROCFL	gwymuls1
-	ad_prolog 6*SZPTR+4,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 6*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rsi, DESTARG			; Address of destination
 	vbroadcastsd ymm7, DBLARG		; Load small multiplier value
 	vmulpd	ymm7, ymm7, YMM_NORM012_FF	; Mul by FFTLEN/2
@@ -1027,11 +1305,19 @@ b2mulsec:
 	mov	saved_dest_ptr, rsi		; remember rsi for ynorm_smallmul_1d_mid_cleanup
 	mov	saved_ttp_ptr, rbp		; remember rbp for ynorm_smallmul_1d_mid_cleanup
 	mov	saved_biglit_ptr, rdi		; remember rdi for ynorm_smallmul_1d_mid_cleanup
-	mov	ebx, normcount1			; Load count of cache lines in a section
+	mov	eax, normcount1			; Load count of cache lines in a section
+	mov	loopcount3, eax
+b2mullp2:
+	mov	ebx, count1			; Get count of cache lines before a padding occurs
 b2mullp:
 	ynorm_smallmul_1d exec, exec		; Mul and normalize 8 values
 	sub	ebx, 1				; Decrement loop counter
 	jnz	b2mullp				; Loop til done
+	sub	loopcount3, 1			; Decrement loop counter
+	js	short b2mulsecdn		; Loop til done
+	lea	rsi, [rsi+64]			; Pad 64 bytes
+	jnz	b2mullp2			; Loop til done
+b2mulsecdn:
 
 	mov	saved_reg1, rsi			; Save FFT data addr
 	mov	saved_reg2, rdi			; Save big/lit pointer
@@ -1045,12 +1331,12 @@ b2mullp:
 
 	ynorm_smallmul_1d_cleanup exec, exec, DESTARG ; Do final carry propagations
 
-	ad_epilog 6*SZPTR+4,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 6*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwymuls1 ENDP
 
 	; Base-2, rational, not zero-padded
 PROCFL	gwymulsr1
-	ad_prolog 6*SZPTR+4,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 6*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rsi, DESTARG			; Address of destination
 	vbroadcastsd ymm7, DBLARG		; Load small multiplier value
 	vmovapd	ymm2, YMM_BIGVAL		; Start process with no carry
@@ -1059,11 +1345,19 @@ PROCFL	gwymulsr1
 	mov	loopcount1, eax			; Save counter
 b2rmulsec:
 	mov	saved_dest_ptr, rsi		; remember rsi for ynorm_smallmul_1d_mid_cleanup
-	mov	ebx, normcount1			; Load count of cache lines in a section
+	mov	eax, normcount1			; Load count of cache lines in a section
+	mov	loopcount3, eax
+b2rmullp2:
+	mov	ebx, count1			; Get count of cache lines before a padding occurs
 b2rmullp:
 	ynorm_smallmul_1d noexec, exec		; Mul and normalize 8 values
 	sub	ebx, 1				; Decrement loop counter
 	jnz	b2rmullp			; Loop til done
+	sub	loopcount3, 1			; Decrement loop counter
+	js	short b2rmulsecdn		; Loop til done
+	lea	rsi, [rsi+64]			; Pad 64 bytes
+	jnz	b2rmullp2			; Loop til done
+b2rmulsecdn:
 
 	mov	saved_reg1, rsi			; Save FFT data addr
 	ynorm_smallmul_1d_mid_cleanup noexec, exec, saved_dest_ptr, saved_biglit_ptr, saved_ttp_ptr ; Rotate carries and add in carries
@@ -1073,12 +1367,12 @@ b2rmullp:
 
 	ynorm_smallmul_1d_cleanup noexec, exec, DESTARG ; Do final carry propagations
 
-	ad_epilog 6*SZPTR+4,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 6*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwymulsr1 ENDP
 
 	; Base-2, irrational, zero-padded
 PROCFL	gwymulszp1
-	ad_prolog 6*SZPTR+4,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 6*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rsi, DESTARG			; Address of destination
 	vbroadcastsd ymm7, DBLARG		; Load small multiplier value
 	vmulpd	ymm7, ymm7, YMM_NORM012_FF	; Mul by FFTLEN/2
@@ -1092,11 +1386,19 @@ b2zpmulsec:
 	mov	saved_dest_ptr, rsi		; remember rsi for ynorm_smallmul_1d_mid_cleanup
 	mov	saved_ttp_ptr, rbp		; remember rbp for ynorm_smallmul_1d_mid_cleanup
 	mov	saved_biglit_ptr, rdi		; remember rdi for ynorm_smallmul_1d_mid_cleanup
-	mov	ebx, normcount1			; Load count of cache lines in a section
+	mov	eax, normcount1			; Load count of cache lines in a section
+	mov	loopcount3, eax
+b2zpmullp2:
+	mov	ebx, count1			; Get count of cache lines before a padding occurs
 b2zpmullp:
 	ynorm_smallmul_1d_zpad exec, exec	; Mul and normalize 8 values
 	sub	ebx, 1				; Decrement loop counter
 	jnz	b2zpmullp			; Loop til done
+	sub	loopcount3, 1			; Decrement loop counter
+	js	short b2zpmulsecdn		; Loop til done
+	lea	rsi, [rsi+64]			; Pad 64 bytes
+	jnz	b2zpmullp2			; Loop til done
+b2zpmulsecdn:
 
 	mov	saved_reg1, rsi			; Save FFT data addr
 	mov	saved_reg2, rdi			; Save big/lit pointer
@@ -1110,12 +1412,12 @@ b2zpmullp:
 
 	ynorm_smallmul_1d_zpad_cleanup exec, exec, DESTARG ; Do final carry propagations
 
-	ad_epilog 6*SZPTR+4,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 6*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwymulszp1 ENDP
 
 	; Base-2, rational, zero-padded
 PROCFL	gwymulsrzp1
-	ad_prolog 6*SZPTR+4,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 6*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rsi, DESTARG			; Address of destination
 	vbroadcastsd ymm7, DBLARG		; Load small multiplier value
 	vmovapd	ymm2, YMM_BIGVAL		; Start process with no carry
@@ -1124,11 +1426,19 @@ PROCFL	gwymulsrzp1
 	mov	loopcount1, eax			; Save counter
 b2rzpmulsec:
 	mov	saved_dest_ptr, rsi		; remember rsi for ynorm_smallmul_1d_mid_cleanup
-	mov	ebx, normcount1			; Load count of cache lines in a section
+	mov	eax, normcount1			; Load count of cache lines in a section
+	mov	loopcount3, eax
+b2rzpmullp2:
+	mov	ebx, count1			; Get count of cache lines before a padding occurs
 b2rzpmullp:
 	ynorm_smallmul_1d_zpad noexec, exec	; Mul and normalize 8 values
 	sub	ebx, 1				; Decrement loop counter
 	jnz	b2rzpmullp			; Loop til done
+	sub	loopcount3, 1			; Decrement loop counter
+	js	short b2rzpmulsecdn		; Loop til done
+	lea	rsi, [rsi+64]			; Pad 64 bytes
+	jnz	b2rzpmullp2			; Loop til done
+b2rzpmulsecdn:
 
 	mov	saved_reg1, rsi			; Save FFT data addr
 	ynorm_smallmul_1d_zpad_mid_cleanup noexec, exec, saved_dest_ptr, saved_biglit_ptr, saved_ttp_ptr ; Rotate carries and add in carries
@@ -1138,12 +1448,12 @@ b2rzpmullp:
 
 	ynorm_smallmul_1d_zpad_cleanup noexec, exec, DESTARG ; Do final carry propagations
 
-	ad_epilog 6*SZPTR+4,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 6*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwymulsrzp1 ENDP
 
 	; Non base-2, irrational, not zero-padded
 PROCFL	gwymulsn1
-	ad_prolog 6*SZPTR+4,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 6*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rsi, DESTARG			; Address of destination
 	vbroadcastsd ymm7, DBLARG		; Load small multiplier value
 	vmulpd	ymm7, ymm7, YMM_NORM012_FF	; Mul by FFTLEN/2
@@ -1157,11 +1467,19 @@ nb2mulsec:
 	mov	saved_dest_ptr, rsi		; remember rsi for ynorm_smallmul_1d_mid_cleanup
 	mov	saved_ttp_ptr, rbp		; remember rbp for ynorm_smallmul_1d_mid_cleanup
 	mov	saved_biglit_ptr, rdi		; remember rdi for ynorm_smallmul_1d_mid_cleanup
-	mov	ebx, normcount1			; Load count of cache lines in a section
+	mov	eax, normcount1			; Load count of cache lines in a section
+	mov	loopcount3, eax
+nb2mullp2:
+	mov	ebx, count1			; Get count of cache lines before a padding occurs
 nb2mullp:
 	ynorm_smallmul_1d exec, noexec		; Mul and normalize 8 values
 	sub	ebx, 1				; Decrement loop counter
 	jnz	nb2mullp			; Loop til done
+	sub	loopcount3, 1			; Decrement loop counter
+	js	short nb2mulsecdn		; Loop til done
+	lea	rsi, [rsi+64]			; Pad 64 bytes
+	jnz	nb2mullp2			; Loop til done
+nb2mulsecdn:
 
 	mov	saved_reg1, rsi			; Save FFT data addr
 	mov	saved_reg2, rdi			; Save big/lit pointer
@@ -1175,12 +1493,12 @@ nb2mullp:
 
 	ynorm_smallmul_1d_cleanup exec, noexec, DESTARG ; Do final carry propagations
 
-	ad_epilog 6*SZPTR+4,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 6*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwymulsn1 ENDP
 
 	; Non base-2, rational, not zero-padded
 PROCFL	gwymulsnr1
-	ad_prolog 6*SZPTR+4,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 6*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rsi, DESTARG			; Address of destination
 	vbroadcastsd ymm7, DBLARG		; Load small multiplier value
 	vxorpd	ymm2, ymm2, ymm2		; Start process with no carry
@@ -1189,11 +1507,19 @@ PROCFL	gwymulsnr1
 	mov	loopcount1, eax			; Save counter
 nb2rmulsec:
 	mov	saved_dest_ptr, rsi		; remember rsi for ynorm_smallmul_1d_mid_cleanup
-	mov	ebx, normcount1			; Load count of cache lines in a section
+	mov	eax, normcount1			; Load count of cache lines in a section
+	mov	loopcount3, eax
+nb2rmullp2:
+	mov	ebx, count1			; Get count of cache lines before a padding occurs
 nb2rmullp:
 	ynorm_smallmul_1d noexec, noexec	; Mul and normalize 8 values
 	sub	ebx, 1				; Decrement loop counter
 	jnz	nb2rmullp			; Loop til done
+	sub	loopcount3, 1			; Decrement loop counter
+	js	short nb2rmulsecdn		; Loop til done
+	lea	rsi, [rsi+64]			; Pad 64 bytes
+	jnz	nb2rmullp2			; Loop til done
+nb2rmulsecdn:
 
 	mov	saved_reg1, rsi			; Save FFT data addr
 	ynorm_smallmul_1d_mid_cleanup noexec, noexec, saved_dest_ptr, saved_biglit_ptr, saved_ttp_ptr ; Rotate carries and add in carries
@@ -1203,12 +1529,12 @@ nb2rmullp:
 
 	ynorm_smallmul_1d_cleanup noexec, noexec, DESTARG ; Do final carry propagations
 
-	ad_epilog 6*SZPTR+4,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 6*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwymulsnr1 ENDP
 
 	; Non base-2, irrational, zero-padded
 PROCFL	gwymulsnzp1
-	ad_prolog 6*SZPTR+4,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 6*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rsi, DESTARG			; Address of destination
 	vbroadcastsd ymm7, DBLARG		; Load small multiplier value
 	vmulpd	ymm7, ymm7, YMM_NORM012_FF	; Mul by FFTLEN/2
@@ -1222,11 +1548,19 @@ nb2zpmulsec:
 	mov	saved_dest_ptr, rsi		; remember rsi for ynorm_smallmul_1d_mid_cleanup
 	mov	saved_ttp_ptr, rbp		; remember rbp for ynorm_smallmul_1d_mid_cleanup
 	mov	saved_biglit_ptr, rdi		; remember rdi for ynorm_smallmul_1d_mid_cleanup
-	mov	ebx, normcount1			; Load count of cache lines in a section
+	mov	eax, normcount1			; Load count of cache lines in a section
+	mov	loopcount3, eax
+nb2zpmullp2:
+	mov	ebx, count1			; Get count of cache lines before a padding occurs
 nb2zpmullp:
 	ynorm_smallmul_1d_zpad exec, noexec	; Mul and normalize 8 values
 	sub	ebx, 1				; Decrement loop counter
 	jnz	nb2zpmullp			; Loop til done
+	sub	loopcount3, 1			; Decrement loop counter
+	js	short nb2zpmulsecdn		; Loop til done
+	lea	rsi, [rsi+64]			; Pad 64 bytes
+	jnz	nb2zpmullp2			; Loop til done
+nb2zpmulsecdn:
 
 	mov	saved_reg1, rsi			; Save FFT data addr
 	mov	saved_reg2, rdi			; Save big/lit pointer
@@ -1240,12 +1574,12 @@ nb2zpmullp:
 
 	ynorm_smallmul_1d_zpad_cleanup exec, noexec, DESTARG ; Do final carry propagations
 
-	ad_epilog 6*SZPTR+4,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 6*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwymulsnzp1 ENDP
 
 	; Non base-2, rational, zero-padded
 PROCFL	gwymulsnrzp1
-	ad_prolog 6*SZPTR+4,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_prolog 6*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 	mov	rsi, DESTARG			; Address of destination
 	vbroadcastsd ymm7, DBLARG		; Load small multiplier value
 	vxorpd	ymm2, ymm2, ymm2		; Start process with no carry
@@ -1254,11 +1588,19 @@ PROCFL	gwymulsnrzp1
 	mov	loopcount1, eax			; Save counter
 nb2rzpmulsec:
 	mov	saved_dest_ptr, rsi		; remember rsi for ynorm_smallmul_1d_mid_cleanup
-	mov	ebx, normcount1			; Load count of cache lines in a section
+	mov	eax, normcount1			; Load count of cache lines in a section
+	mov	loopcount3, eax
+nb2rzpmullp2:
+	mov	ebx, count1			; Get count of cache lines before a padding occurs
 nb2rzpmullp:
 	ynorm_smallmul_1d_zpad noexec, noexec	; Mul and normalize 8 values
 	sub	ebx, 1				; Decrement loop counter
 	jnz	nb2rzpmullp			; Loop til done
+	sub	loopcount3, 1			; Decrement loop counter
+	js	short nb2rzpmulsecdn		; Loop til done
+	lea	rsi, [rsi+64]			; Pad 64 bytes
+	jnz	nb2rzpmullp2			; Loop til done
+nb2rzpmulsecdn:
 
 	mov	saved_reg1, rsi			; Save FFT data addr
 	ynorm_smallmul_1d_zpad_mid_cleanup noexec, noexec, saved_dest_ptr, saved_biglit_ptr, saved_ttp_ptr ; Rotate carries and add in carries
@@ -1268,7 +1610,7 @@ nb2rzpmullp:
 
 	ynorm_smallmul_1d_zpad_cleanup noexec, noexec, DESTARG ; Do final carry propagations
 
-	ad_epilog 6*SZPTR+4,0,rbx,rbp,rsi,rdi,xmm6,xmm7
+	ad_epilog 6*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwymulsnrzp1 ENDP
 
 ;;
@@ -1285,11 +1627,12 @@ section_srcptr		EQU	PPTR [rsp+first_local+3*SZPTR]
 section_biglitptr	EQU	PPTR [rsp+first_local+4*SZPTR]
 section_ttpptr		EQU	PPTR [rsp+first_local+5*SZPTR]
 loopcount1		EQU	DPTR [rsp+first_local+6*SZPTR]
+loopcount2		EQU	DPTR [rsp+first_local+6*SZPTR+4]
 
 inorm	MACRO	lab, ttp, zero, echk, const, base2
-	LOCAL	ilp0, ilp1
+	LOCAL	ilp0, ilp1, ilp2, ilpsecdn
 	PROCFLP	lab
-	int_prolog 6*SZPTR+4,0,0
+	int_prolog 6*SZPTR+8,0,0
 	mov	rsi, DESTARG		;; Addr of multiplied number
 no zero	mov	edi, ADDIN_OFFSET	;; Get address to add value into
 no zero	vmovsd	xmm0, ADDIN_VALUE	;; Get the addin value
@@ -1307,13 +1650,20 @@ echk	vxorpd	ymm6, ymm6, ymm6	;; Clear maximum error
 ilp0:	mov	section_srcptr, rsi	;; remember rsi for ynorm_1d_mid_cleanup
 ttp	mov	section_biglitptr, rdi	;; remember rdi for ynorm_1d_mid_cleanup
 ttp	mov	section_ttpptr, rbp	;; remember rbp for ynorm_1d_mid_cleanup
-	mov	ebx, normcount1		;; Load loop counter
+	mov	eax, normcount1		;; Load loop counter
+	mov	loopcount2, eax
+ilp2:	mov	ebx, count1		;; Get count of cache lines before a padding occurs
 ilp1:	ynorm_1d ttp, base2, zero, echk, const ;; Normalize 8 values
 	bump	rsi, 64			;; Next cache line
 ttp	bump	rbp, 128		;; Next set of 8 multipliers
 ttp	bump	rdi, 2			;; Next big/little flags
 	sub	ebx, 1			;; Test loop counter
 	jnz	ilp1			;; Loop til done
+	sub	loopcount2, 1		;; Test loop counter
+	js	short ilpsecdn		;; Loop til done
+	lea	rsi, [rsi+64]		;; Pad 64 bytes
+	jnz	ilp2			;; Loop til done
+ilpsecdn:
 	mov	saved_reg1, rsi		;; Save FFT data addr
 ttp	mov	saved_reg2, rdi		;; Save big/lit pointer
 ttp	mov	saved_reg3, rbp		;; Save ttp pointer
@@ -1333,9 +1683,9 @@ base2 no zero no ttp	jmp	b2rdn	;; Go to base2 rational end code
 	ENDM
 
 zpnorm	MACRO	lab, ttp, echk, const, base2, khi, c1, cm1
-	LOCAL	ilp0, ilp1
+	LOCAL	ilp0, ilp1, ilp2, ilpsecdn
 	PROCFLP	lab
-	int_prolog 6*SZPTR+4,0,0
+	int_prolog 6*SZPTR+8,0,0
 	mov	rsi, DESTARG		;; Addr of multiplied number
 base2	vmovapd	ymm2, YMM_BIGVAL	;; Start process with no carry
 no base2 vxorpd	ymm2, ymm2, ymm2	;; Start process with no carry
@@ -1345,16 +1695,23 @@ echk	vxorpd	ymm6, ymm6, ymm6	;; Clear maximum error
 	mov	rdi, norm_biglit_array	;; Addr of the big/little flags array
 	mov	eax, 4			;; Do 4 sections
 	mov	loopcount1, eax		;; Save loop counter
-ilp0:	mov	ebx, normcount1		;; Get count of cache lines in a section
-	mov	section_srcptr, rsi	;; remember rsi for ynorm_1d_mid_cleanup
+ilp0:	mov	section_srcptr, rsi	;; remember rsi for ynorm_1d_mid_cleanup
 ttp	mov	section_biglitptr, rdi	;; remember rdi for ynorm_1d_mid_cleanup
 ttp	mov	section_ttpptr, rbp	;; remember rbp for ynorm_1d_mid_cleanup
+	mov	eax, normcount1		;; Get count of cache lines in a section
+	mov	loopcount2, eax
+ilp2:	mov	ebx, count1		;; Get count of cache lines before a padding occurs
 ilp1:	ynorm_1d_zpad ttp, echk, const, base2, khi, c1, cm1 ;; Normalize 8 values
 	bump	rsi, 64			;; Next cache line
 ttp	bump	rbp, 64			;; Next set of 8 multipliers
 ttp	bump	rdi, 1			;; Next big/little flags
 	sub	ebx, 1			;; Test loop counter
 	jnz	ilp1			;; Loop til done
+	sub	loopcount2, 1		;; Test loop counter
+	js	short ilpsecdn		;; Loop til done
+	lea	rsi, [rsi+64]		;; Pad 64 bytes
+	jnz	ilp2			;; Loop til done
+ilpsecdn:
 	mov	saved_reg1, rsi		;; Save FFT data addr
 ttp	mov	saved_reg2, rdi		;; Save big/lit pointer
 ttp	mov	saved_reg3, rbp		;; Save ttp pointer
@@ -1469,7 +1826,7 @@ base2 no const jmp zpdn			;; Go to zero padded FFT end code
 PROCF	__common_ynorm1_end_code
 
 	;; Dummy prolog to match normalization code
-	int_prolog 6*SZPTR+4,0,0
+	int_prolog 6*SZPTR+8,0,0
 
 ; Finish off the normalization process by adding any carry to first values.
 ; Handle both the with and without two-to-phi array cases.
@@ -1530,7 +1887,7 @@ cmnend:	mov	rsi, DESTARG		; Address of squared number
 
 ; Return
 
-	int_epilog 6*SZPTR+4,0,0
+	int_epilog 6*SZPTR+8,0,0
 __common_ynorm1_end_code ENDP
 
 _TEXT	ENDS

@@ -1285,6 +1285,14 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 			gwdata->PASS2GAPSIZE = -64;
 		else
 			gwdata->PASS2GAPSIZE = 0;
+		// For one-pass FFTs, select the optimal padding frequency
+		if (gwdata->PASS2_SIZE == 0) {
+			if (gwdata->FFTLEN == 32768)
+				gwdata->FOURKBGAPSIZE = 64;		/* Pad every 4KB */
+			else
+				gwdata->FOURKBGAPSIZE = 0;		/* No padding */
+		}
+
 	} else {
 		if (gwdata->PASS2_SIZE * 2 * 2 * 8 / 8192 * 128 % 256 == 0)
 			gwdata->PASS2GAPSIZE = -128;
@@ -1292,14 +1300,23 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 			gwdata->PASS2GAPSIZE = 0;
 	}
 
-/* Copy the counts */
+/* Copy or calculate various counts */
 
 	asm_data = (struct gwasm_data *) gwdata->asm_data;
 	if (asm_data != NULL) {
 		if (gwdata->cpu_flags & CPU_AVX) {
 			if (gwdata->PASS2_SIZE == 0) {
-				asm_data->addcount1 = gwdata->FFTLEN / 16;	/* Loop counter for add/sub functions */
-				asm_data->normcount1 = gwdata->FFTLEN / 32;	/* Loop counter for normalization routines */
+				if (gwdata->FOURKBGAPSIZE) {			/* Pad every 256, 512, 1KB, 2KB, or 4KB */
+					asm_data->count1 = gwdata->FOURKBGAPSIZE;	/* Cache lines before a padding occurs */
+					asm_data->normcount1 = gwdata->FFTLEN / 32 / gwdata->FOURKBGAPSIZE; /* Number of padding groups in each of the 4 sections */
+					asm_data->count2 = asm_data->count1 / 2;	/* Counter for add/sub quick functions */
+					asm_data->addcount1 = asm_data->normcount1 * 4;	/* Number of add/sub quick padding groups */
+				} else {					/* No padding */
+					asm_data->count1 = gwdata->FFTLEN / 32;		/* Cache lines in a section */
+					asm_data->normcount1 = 0;			/* Number of padding groups in each of the 4 sections */
+					asm_data->count2 = gwdata->FFTLEN / 16;		/* Counter for add/sub quick functions (4 AVX words processed at a time) */
+					asm_data->addcount1 = 1;			/* Number of add/sub quick padding groups */
+				}
 			}
 			else {
 				/* Count of sections for add, sub, addsub, ygw_carries_wpn */
@@ -5339,6 +5356,9 @@ unsigned long addr_offset (
 			top5bits = i / (fftlen >> 5); i -= top5bits * (fftlen >> 5);
 			addr = ((top5bits >> 2) & 3) * (fftlen >> 2) + (i << 3) + ((top5bits >> 4) << 2) + (top5bits & 3);
 			addr = addr * sizeof (double);
+			/* Now optionally add 64 pad bytes every 256, 512, 1KB, 2KB or 4KB */
+			 if (gwdata->FOURKBGAPSIZE)
+				addr = addr + (addr / (gwdata->FOURKBGAPSIZE << 6)) * 64;
 		}
 
 /* Larger FFTs use two passes.  This the example for a length 64K FFT (pass2_size = 1K): */
