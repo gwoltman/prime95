@@ -1287,7 +1287,7 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 			gwdata->PASS2GAPSIZE = 0;
 		// For one-pass FFTs, select the optimal padding frequency
 		if (gwdata->PASS2_SIZE == 0) {
-			if (gwdata->FFTLEN == 12288 || gwdata->FFTLEN == 16384 || gwdata->FFTLEN == 18432 || gwdata->FFTLEN == 20480 || gwdata->FFTLEN == 24576 || gwdata->FFTLEN == 32768)
+			if (gwdata->FFTLEN == 6144 || gwdata->FFTLEN == 8192 || gwdata->FFTLEN == 10240 || gwdata->FFTLEN == 12288 || gwdata->FFTLEN == 16384 || gwdata->FFTLEN == 18432 || gwdata->FFTLEN == 20480 || gwdata->FFTLEN == 24576 || gwdata->FFTLEN == 32768)
 				gwdata->FOURKBGAPSIZE = 64;		/* Pad every 4KB */
 			else
 				gwdata->FOURKBGAPSIZE = 0;		/* No padding */
