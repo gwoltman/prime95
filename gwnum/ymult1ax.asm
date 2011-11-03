@@ -1698,7 +1698,7 @@ echk	vxorpd	ymm6, ymm6, ymm6	;; Clear maximum error
 ilp0:	mov	section_srcptr, rsi	;; remember rsi for ynorm_1d_mid_cleanup
 ttp	mov	section_biglitptr, rdi	;; remember rdi for ynorm_1d_mid_cleanup
 ttp	mov	section_ttpptr, rbp	;; remember rbp for ynorm_1d_mid_cleanup
-	mov	eax, normcount1		;; Get count of cache lines in a section
+	mov	eax, normcount1		;; Get count of padded groups in a section
 	mov	loopcount2, eax
 ilp2:	mov	ebx, count1		;; Get count of cache lines before a padding occurs
 ilp1:	ynorm_1d_zpad ttp, echk, const, base2, khi, c1, cm1 ;; Normalize 8 values
