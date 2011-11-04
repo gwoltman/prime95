@@ -107,6 +107,7 @@ yonepass MACRO fftname, all_complex
 
 ;; Call the macro containing the guts of the FFT
 
+	clear_timers
 	ymacroname
 
 ;; Footer for the routine
