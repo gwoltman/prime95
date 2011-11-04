@@ -1612,6 +1612,7 @@ bump	MACRO	reg, amt
 ;; Init the loops macros without prefetching.  Optionally mark a few of the initial loops completed.
 loops_init MACRO count, first_completed, first_iters
 	loops_pffreq = 0
+	loops_orig_pffreq = 0
 	loops_init_common count, first_completed, first_iters
 	loops_touchfreq = 0
 	ENDM
