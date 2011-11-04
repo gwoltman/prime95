@@ -228,10 +228,12 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 		clmblkdst8 = (clmblkdst*8-64)
 	ENDIF
 
-;; Each 4KB page in pass 2 is padded with 64 to 192 bytes
-;; to avoid 4KB distances in pass 2 y4cl macro calls.
+;; Each 4KB page in pass 2 is padded with 64 to 192 bytes to avoid 4KB distances in pass 2 y4cl macro calls.
+;; In the old days, pass 2 sizes had to be a multiple of 4KB.  When we added other pass 2 sizes, no 4KB padding was needed.
 
-	IF p2_levels EQ 8 OR p2_levels EQ 768 OR p2_levels EQ 11 OR p2_levels EQ 2304 OR p2_levels EQ 3072 OR p2_levels EQ 3840
+	IF p2_levels EQ 192
+		fourKBgap = 0
+	ELSEIF p2_levels EQ 8 OR p2_levels EQ 768 OR p2_levels EQ 11 OR p2_levels EQ 2304 OR p2_levels EQ 3072 OR p2_levels EQ 3840
 		fourKBgap = 64
 	ELSEIF p2_levels EQ 12 OR p2_levels EQ 5120 OR p2_levels EQ 6144 OR p2_levels EQ 6400 OR p2_levels EQ 13 OR p2_levels EQ 9216
 		fourKBgap = 64
@@ -250,10 +252,14 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 ;; BUG - need to see if more special cases are needed
 
 	blkdst = (p2cl*64+p2cl/64*fourKBgap)
-	IF p2_levels EQ 9216
+	IF fourKBgap EQ 0
+		blkdst = blkdst + 0
+	ELSEIF p2_levels EQ 9216
 		blkdst = blkdst + 4*64
 	ELSEIF blkdst MOD 128 EQ 0
 		blkdst = blkdst - 64
+	ELSE
+		blkdst = blkdst + 0
 	ENDIF
 	ENDM
 
@@ -746,7 +752,9 @@ ypass2gen MACRO levels
 
 ;; Define pass 2 constants.  Each 4KB page is padded with 64 to 192 bytes.
 
-	IF levels EQ 8 OR levels EQ 768 OR levels EQ 11 OR levels EQ 2304 OR levels EQ 3072 OR levels EQ 3840 OR levels EQ 12
+	IF levels EQ 192
+		fourKBgap = 0
+	ELSEIF levels EQ 8 OR levels EQ 768 OR levels EQ 11 OR levels EQ 2304 OR levels EQ 3072 OR levels EQ 3840 OR levels EQ 12
 		fourKBgap = 64
 	ELSEIF levels EQ 5120 OR levels EQ 6144 OR levels EQ 6400 OR levels EQ 13 OR levels EQ 9216 OR levels EQ 10240
 		fourKBgap = 64

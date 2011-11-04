@@ -1269,6 +1269,8 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 
 	if (gwdata->cpu_flags & CPU_AVX) {
 		// Pass 2 sizes avoid the 4KB distance problem with 64, 128, or 192 pad bytes
+		if (gwdata->PASS2_SIZE == 192)
+			gwdata->FOURKBGAPSIZE = 0;
 		if (gwdata->PASS2_SIZE == 256 || gwdata->PASS2_SIZE == 768 || gwdata->PASS2_SIZE == 2048 || gwdata->PASS2_SIZE == 2304 ||
 		    gwdata->PASS2_SIZE == 3072 || gwdata->PASS2_SIZE == 3840 || gwdata->PASS2_SIZE == 4096 || gwdata->PASS2_SIZE == 5120 ||
 		    gwdata->PASS2_SIZE == 6144 || gwdata->PASS2_SIZE == 6400 || gwdata->PASS2_SIZE == 8192 || gwdata->PASS2_SIZE == 9216 ||
@@ -1279,7 +1281,9 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 		    gwdata->PASS2_SIZE == 4608 || gwdata->PASS2_SIZE == 7680 || gwdata->PASS2_SIZE == 12800)
 			gwdata->FOURKBGAPSIZE = 128;
 		// Make sure pass 2 block gapsize matches the computation of blkdst in ymult.mac
-		if (gwdata->PASS2_SIZE == 9216)
+		if (gwdata->FOURKBGAPSIZE == 0)
+			gwdata->PASS2GAPSIZE = 0;
+		else if (gwdata->PASS2_SIZE == 9216)
 			gwdata->PASS2GAPSIZE = 4*64;
 		else if (gwdata->PASS2_SIZE * 2 * 8 / 4096 * gwdata->FOURKBGAPSIZE % 128 == 0)
 			gwdata->PASS2GAPSIZE = -64;
@@ -3291,9 +3295,12 @@ int internal_gwsetup (
 
 		if (gwdata->PASS2_SIZE) {
 
-			/* Calculate number of 4KB pages in a pass 2 block */
+			/* If we are padding 4KB pages, then calculate the number of 4KB pages in a pass 2 block. */
 			/* Data size = pass2_size complex numbers */
-			asm_data->normval4 = (gwdata->PASS2_SIZE * 16) >> 12;
+			if (gwdata->FOURKBGAPSIZE)
+				asm_data->normval4 = (gwdata->PASS2_SIZE * 16) >> 12;
+			else
+				asm_data->normval4 = 1;
 
 			/* There are 64 pad bytes every 4KB and optional */
 			/* pad bytes between each pass 1 block. */
@@ -3321,8 +3328,12 @@ int internal_gwsetup (
 				asm_data->normblkdst8 = -64;		/* Pad for clmblkdst8 is -64 bytes */
 			}
 
-			/* Calculate "cache lines in a 4KB page" / clm */
-			asm_data->normval1 = (4096 / 64) / (asm_data->cache_line_multiplier / 4);
+			/* If we are padding every 4KB, then calculate "cache lines in a 4KB page" / clm. */
+			/* Otherwise calculate "cache lines in a pass 2 block" / clm. */
+			if (gwdata->FOURKBGAPSIZE)
+				asm_data->normval1 = (4096 / 64) / (asm_data->cache_line_multiplier / 4);
+			else
+				asm_data->normval1 = (gwdata->PASS2_SIZE * 16 / 64) / (asm_data->cache_line_multiplier / 4);
 
 			/* Big/lit flags ptr fudge factor in add/sub */
 			asm_data->normval2 = asm_data->cache_line_multiplier * 2 * (asm_data->addcount1 - 1);

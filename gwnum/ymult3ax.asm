@@ -37,6 +37,9 @@ PROCFL	gwyaddq3
 	mov	ebx, addcount1		; Load pass 1 blk count
 	shl	ebx, 2			; Convert to a pass 2 block count
 qadd0:	mov	eax, normval4		; Load count of 4KB chunks in a block
+qadd1:	mov	edi, normval1		; Load count of clms in 4KB
+	imul	edi, cache_line_multiplier ; Compute cache lines in 4KB chunk
+	shr	edi, 2
 qaddlp:	vmovapd	ymm0, [rdx]		; Load second number
 	vaddpd	ymm0, ymm0, [rcx]	; Add in first number
 	vmovapd	ymm1, [rdx+32]		; Load second number
@@ -46,13 +49,13 @@ qaddlp:	vmovapd	ymm0, [rdx]		; Load second number
 	bump	rcx, 64			; Next source
 	bump	rdx, 64			; Next source
 	bump	rsi, 64			; Next dest
-	add	eax, 80000000h/32	; 64 cache lines in a 4KB chunk
-	jnc	short qaddlp		; Loop if necessary
+	dec	rdi			; Test for end of 4KB chunk
+	jnz	short qaddlp		; Loop if necessary
 	add	rcx, fourKBgapsize	; Skip 64 to 192 bytes every 4KB
 	add	rdx, fourKBgapsize	; Skip 64 to 192 bytes every 4KB
 	add	rsi, fourKBgapsize	; Skip 64 to 192 bytes every 4KB
 	dec	rax			; Check middle loop counter
-	jnz	short qaddlp		; Loop if necessary
+	jnz	short qadd1		; Loop if necessary
 	add	rcx, pass2gapsize	; Next source
 	add	rdx, pass2gapsize	; Next source
 	add	rsi, pass2gapsize	; Next dest
@@ -671,6 +674,9 @@ PROCFL	gwysubq3
 	mov	ebx, addcount1		; Load pass 1 blk count
 	shl	ebx, 2			; Convert to a pass 2 block count
 qsub0:	mov	eax, normval4		; Load count of 4KB chunks in a block
+qsub1:	mov	edi, normval1		; Load count of clms in 4KB
+	imul	edi, cache_line_multiplier ; Compute cache lines in 4KB chunk
+	shr	edi, 2
 qsublp:	vmovapd	ymm0, [rdx]		; Load second number
 	vsubpd	ymm0, ymm0, [rcx]	; Subtract first number
 	vmovapd	ymm1, [rdx+32]		; Load second number
@@ -680,13 +686,13 @@ qsublp:	vmovapd	ymm0, [rdx]		; Load second number
 	bump	rcx, 64			; Next source
 	bump	rdx, 64			; Next source
 	bump	rsi, 64			; Next dest
-	add	eax, 80000000h/32	; 64 cache lines in a 4KB chunk
-	jnc	short qsublp		; Loop if necessary
+	dec	rdi			; Test for end of 4KB chunk
+	jnz	short qsublp		; Loop if necessary
 	add	rcx, fourKBgapsize	; Skip 64 to 192 bytes every 4KB
 	add	rdx, fourKBgapsize	; Skip 64 to 192 bytes every 4KB
 	add	rsi, fourKBgapsize	; Skip 64 to 192 bytes every 4KB
 	dec	rax			; Check middle loop counter
-	jnz	short qsublp		; Loop if necessary
+	jnz	short qsub1		; Loop if necessary
 	add	rcx, pass2gapsize	; Next source
 	add	rdx, pass2gapsize	; Next source
 	add	rsi, pass2gapsize	; Next dest
@@ -1304,6 +1310,9 @@ PROCFL	gwyaddsubq3
 	mov	ebx, addcount1		; Load pass 1 blk count
 	shl	ebx, 2			; Convert to a pass 2 block count
 qaddsub0:mov	eax, normval4		; Load count of 4KB chunks in a block
+qaddsub1:mov	edi, normval1		; Load count of clms in 4KB
+	imul	edi, cache_line_multiplier ; Compute cache lines in 4KB chunk
+	shr	edi, 2
 qaddsublp:
 	vmovapd	ymm0, [rcx]		; Load first number
 	vsubpd	ymm1, ymm0, [rdx]	; Subtract out second number
@@ -1319,14 +1328,14 @@ qaddsublp:
 	bump	rdx, 64			; Next source
 	bump	rsi, 64			; Next dest
 	bump	rbp, 64			; Next dest
-	add	eax, 80000000h/32	; 64 cache lines in a 4KB chunk
-	jnc	qaddsublp		; Loop if necessary
+	dec	rdi			; Test for end of 4KB chunk
+	jnz	short qaddsublp		; Loop if necessary
 	add	rcx, fourKBgapsize	; Skip 64 to 192 bytes every 4KB
 	add	rdx, fourKBgapsize	; Skip 64 to 192 bytes every 4KB
 	add	rsi, fourKBgapsize	; Skip 64 to 192 bytes every 4KB
 	add	rbp, fourKBgapsize	; Skip 64 to 192 bytes every 4KB
 	dec	rax			; Check middle loop counter
-	jnz	qaddsublp		; Loop if necessary
+	jnz	qaddsub1		; Loop if necessary
 	add	rcx, pass2gapsize	; Next source
 	add	rdx, pass2gapsize	; Next source
 	add	rsi, pass2gapsize	; Next dest
@@ -2033,12 +2042,15 @@ PROCFL	gwycopyzero3
 	mov	ebx, addcount1		; Load pass 1 blk count
 	shl	ebx, 2			; Convert to a pass 2 block count
 cz1:	mov	eax, normval4		; Load count of 4KB chunks in a block
-cz2:	ycopyzero
+cz2:	mov	edx, normval1		; Load count of clms in 4KB
+	imul	edx, cache_line_multiplier ; Compute cache lines in 4KB chunk
+	shr	edi, 2
+cz3:	ycopyzero
 	bump	rsi, 64			; Next source
 	bump	rdi, 64			; Next dest
 	bump	rcx, 64			; Next compare offset
-	add	eax, 80000000h/32	; 64 cache lines in a 4KB chunk
-	jnc	short cz2		; Loop if necessary
+	dec	rdx			; Test for end of 4KB chunk
+	jnz	short cz3		; Loop if necessary
 	add	rsi, fourKBgapsize	; Skip 64 to 192 bytes every 4KB
 	add	rdi, fourKBgapsize	; Skip 64 to 192 bytes every 4KB
 	add	rcx, fourKBgapsize	; Skip 64 to 192 bytes every 4KB
