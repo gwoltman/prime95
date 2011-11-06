@@ -13774,19 +13774,37 @@ b3b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 2*dist64, 4*dist64, rdi
 	start_timer 7
 	loops_init 384			;; 12 iterations of 32
 	yr4_4cl_eight_reals_four_complex_djbfft_preload
-b4a:	yr4_4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, dist64, rdi
-	bump	rdi, 4*YMM_SCD3		;; Next sin/cos pointer
-	loops	32, b4a			;; Test loop counter
-	bump	rsi, -32*64+2*dist64	;; Next source pointer
-	bump	rdi, -32*4*YMM_SCD3	;; Restore sin/cos pointer
+;; Loop below reworked to avoid 4KB distances
+;;b4a:	yr4_4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, dist64, rdi
+;;	bump	rdi, 4*YMM_SCD3		;; Next sin/cos pointer
+;;	loops	32, b4a			;; Test loop counter
+;;	bump	rsi, -32*64+2*dist64	;; Next source pointer
+;;	bump	rdi, -32*4*YMM_SCD3	;; Restore sin/cos pointer
+b4a:	yr4_4cl_eight_reals_four_complex_djbfft rsi, 2*64, 32*64, dist64, rdi
+	bump	rdi, 2*4*YMM_SCD3	;; Next sin/cos pointer
+	loops	16, b4a			;; Test loop counter
+	bump	rsi, -16*2*64+64	;; Next source pointer
+	bump	rdi, -16*2*4*YMM_SCD3+4*YMM_SCD3 ;; Next sin/cos pointer
+	loops	2, b4a			;; Test loop counter
+	bump	rsi, -2*64+2*dist64	;; Next source pointer
+	bump	rdi, -2*4*YMM_SCD3	;; Restore sin/cos pointer
 
 	loops_reset			;; 11 more iters of 32
 	yr4_rb4cl_four_complex_djbfft_preload
-b4b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 32*64, dist64, rdi
-	bump	rdi, 4*YMM_SCD3		;; Next sin/cos pointer
-	loops	32, b4b			;; Test loop counter
-	bump	rsi, -32*64+2*dist64	;; Next source pointer
-	bump	rdi, -32*4*YMM_SCD3	;; Restore sin/cos pointer
+;; Loop below reworked to avoid 4KB distances
+;;b4b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 32*64, dist64, rdi
+;;	bump	rdi, 4*YMM_SCD3		;; Next sin/cos pointer
+;;	loops	32, b4b			;; Test loop counter
+;;	bump	rsi, -32*64+2*dist64	;; Next source pointer
+;;	bump	rdi, -32*4*YMM_SCD3	;; Restore sin/cos pointer
+b4b:	yr4_rb4cl_four_complex_djbfft rsi, 2*64, 32*64, dist64, rdi
+	bump	rdi, 2*4*YMM_SCD3	;; Next sin/cos pointer
+	loops	16, b4b			;; Test loop counter
+	bump	rsi, -16*2*64+64	;; Next source pointer
+	bump	rdi, -16*2*4*YMM_SCD3+4*YMM_SCD3 ;; Next sin/cos pointer
+	loops	2, b4b			;; Test loop counter
+	bump	rsi, -2*64+2*dist64	;; Next source pointer
+	bump	rdi, -2*4*YMM_SCD3	;; Restore sin/cos pointer
 	loops	12, b4b			;; Test loop counter
 	bump	rsi, -12*2*dist64	;; Restore source pointer
 	end_timer 7
@@ -13970,19 +13988,37 @@ c5b:	yr4_rb4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi
 	start_timer 11
 	loops_init 384			;; 12 iterations of 32
 	yr4_4cl_eight_reals_four_complex_djbunfft_preload
-c4a:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi
-	bump	rdi, 4*YMM_SCD3		;; Next sine/cosine pointer
-	loops	32, c4a			;; Test loop counter
-	bump	rsi, -32*64+2*dist64	;; Next source pointer
-	bump	rdi, -32*4*YMM_SCD3	;; Restore sine/cosine pointer
+;; Loop below reworked to avoid 4KB distances
+;;c4a:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi
+;;	bump	rdi, 4*YMM_SCD3		;; Next sine/cosine pointer
+;;	loops	32, c4a			;; Test loop counter
+;;	bump	rsi, -32*64+2*dist64	;; Next source pointer
+;;	bump	rdi, -32*4*YMM_SCD3	;; Restore sine/cosine pointer
+c4a:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 2*64, 32*64, dist64, rdi
+	bump	rdi, 2*4*YMM_SCD3	;; Next sine/cosine pointer
+	loops	16, c4a			;; Test loop counter
+	bump	rsi, -16*2*64+64	;; Next source pointer
+	bump	rdi, -16*2*4*YMM_SCD3+4*YMM_SCD3 ;; Next sine/cosine pointer
+	loops	2, c4a			;; Test loop counter
+	bump	rsi, -2*64+2*dist64	;; Next source pointer
+	bump	rdi, -2*4*YMM_SCD3	;; Restore sine/cosine pointer
 
 	loops_reset			;; 11 more iters of 32
 	yr4_rb4cl_four_complex_djbunfft_preload
-c4b:	yr4_rb4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi
-	bump	rdi, 4*YMM_SCD3		;; Next sine/cosine pointer
-	loops	32, c4b			;; Test loop counter
-	bump	rsi, -32*64+2*dist64	;; Next source pointer
-	bump	rdi, -32*4*YMM_SCD3	;; Restore sine/cosine pointer
+;; Loop below reworked to avoid 4KB distances
+;;c4b:	yr4_rb4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi
+;;	bump	rdi, 4*YMM_SCD3		;; Next sine/cosine pointer
+;;	loops	32, c4b			;; Test loop counter
+;;	bump	rsi, -32*64+2*dist64	;; Next source pointer
+;;	bump	rdi, -32*4*YMM_SCD3	;; Restore sine/cosine pointer
+c4b:	yr4_rb4cl_four_complex_djbunfft rsi, 2*64, 32*64, dist64, rdi
+	bump	rdi, 2*4*YMM_SCD3	;; Next sine/cosine pointer
+	loops	16, c4b			;; Test loop counter
+	bump	rsi, -16*2*64+64	;; Next source pointer
+	bump	rdi, -16*2*4*YMM_SCD3+4*YMM_SCD3 ;; Next sine/cosine pointer
+	loops	2, c4b			;; Test loop counter
+	bump	rsi, -2*64+2*dist64	;; Next source pointer
+	bump	rdi, -2*4*YMM_SCD3	;; Restore sine/cosine pointer
 	loops	12, c4b			;; Test loop counter
 	bump	rsi, -12*2*dist64	;; Restore source pointer
 	end_timer 11
@@ -14239,11 +14275,20 @@ b3b:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*dist64, 4*dist64, rdi
 	start_timer 7
 	loops_init 384			;; 12 iterations of 32
 	yr4_b4cl_four_complex_djbfft_preload
-b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 32*64, dist64, rdi
-	bump	rdi, 4*YMM_SCD2/4	;; Next sin/cos pointer
-	loops	32, b4b			;; Test loop counter
-	bump	rsi, -32*64+2*dist64	;; Next source pointer
-	bump	rdi, -32*4*YMM_SCD2/4	;; Restore sin/cos pointer
+;; Loop below reworked to avoid 4KB distances
+;;b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 32*64, dist64, rdi
+;;	bump	rdi, 4*YMM_SCD2/4	;; Next sin/cos pointer
+;;	loops	32, b4b			;; Test loop counter
+;;	bump	rsi, -32*64+2*dist64	;; Next source pointer
+;;	bump	rdi, -32*4*YMM_SCD2/4	;; Restore sin/cos pointer
+b4b:	yr4_b4cl_four_complex_djbfft rsi, 2*64, 32*64, dist64, rdi
+	bump	rdi, 2*4*YMM_SCD2/4	;; Next sin/cos pointer
+	loops	16, b4b			;; Test loop counter
+	bump	rsi, -16*2*64+64	;; Next source pointer
+	bump	rdi, -16*2*4*YMM_SCD2/4+4*YMM_SCD2/4 ;; Next sin/cos pointer
+	loops	2, b4b			;; Test loop counter
+	bump	rsi, -2*64+2*dist64	;; Next source pointer
+	bump	rdi, -2*4*YMM_SCD2/4	;; Restore sin/cos pointer
 	loops	12, b4b			;; Test loop counter
 	bump	rsi, -12*2*dist64	;; Restore source pointer
 	end_timer 7
@@ -14403,11 +14448,20 @@ c5b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi
 	start_timer 11
 	loops_init 384			;; 12 iterations of 32
 	yr4_b4cl_four_complex_djbunfft_preload
-c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi
-	bump	rdi, 4*YMM_SCD2/4	;; Next sine/cosine pointer
-	loops	32, c4b			;; Test loop counter
-	bump	rsi, -32*64+2*dist64	;; Next source pointer
-	bump	rdi, -32*4*YMM_SCD2/4	;; Restore sine/cosine pointer
+;; Loop below reworked to avoid 4KB distances
+;;c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi
+;;	bump	rdi, 4*YMM_SCD2/4	;; Next sine/cosine pointer
+;;	loops	32, c4b			;; Test loop counter
+;;	bump	rsi, -32*64+2*dist64	;; Next source pointer
+;;	bump	rdi, -32*4*YMM_SCD2/4	;; Restore sine/cosine pointer
+c4b:	yr4_b4cl_four_complex_djbunfft rsi, 2*64, 32*64, dist64, rdi
+	bump	rdi, 2*4*YMM_SCD2/4	;; Next sine/cosine pointer
+	loops	16, c4b			;; Test loop counter
+	bump	rsi, -16*2*64+64	;; Next source pointer
+	bump	rdi, -16*2*4*YMM_SCD2/4+4*YMM_SCD2/4 ;; Next sine/cosine pointer
+	loops	2, c4b			;; Test loop counter
+	bump	rsi, -2*64+2*dist64	;; Next source pointer
+	bump	rdi, -2*4*YMM_SCD2/4	;; Restore sine/cosine pointer
 	loops	12, c4b			;; Test loop counter
 	bump	rsi, -12*2*dist64	;; Restore source pointer
 	end_timer 11
@@ -14672,19 +14726,37 @@ b3b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 2*dist64, 4*dist64, rdi
 	start_timer 7
 	loops_init 512			;; 16 iterations of 32
 	yr4_4cl_eight_reals_four_complex_djbfft_preload
-b4a:	yr4_4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, dist64, rdi
-	bump	rdi, 16*YMM_SCD3	;; Next sin/cos pointer
-	loops	32, b4a			;; Test loop counter
-	bump	rsi, -32*64+2*dist64	;; Next source pointer
-	bump	rdi, -32*16*YMM_SCD3	;; Restore sin/cos pointer
+;; Loop below reworked to avoid 4KB distances
+;;b4a:	yr4_4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, dist64, rdi
+;;	bump	rdi, 16*YMM_SCD3	;; Next sin/cos pointer
+;;	loops	32, b4a			;; Test loop counter
+;;	bump	rsi, -32*64+2*dist64	;; Next source pointer
+;;	bump	rdi, -32*16*YMM_SCD3	;; Restore sin/cos pointer
+b4a:	yr4_4cl_eight_reals_four_complex_djbfft rsi, 2*64, 32*64, dist64, rdi
+	bump	rdi, 2*16*YMM_SCD3	;; Next sin/cos pointer
+	loops	16, b4a			;; Test loop counter
+	bump	rsi, -16*2*64+64	;; Next source pointer
+	bump	rdi, -16*2*16*YMM_SCD3+16*YMM_SCD3 ;; Next sin/cos pointer
+	loops	2, b4a			;; Test loop counter
+	bump	rsi, -2*64+2*dist64	;; Next source pointer
+	bump	rdi, -2*16*YMM_SCD3	;; Restore sin/cos pointer
 
 	loops_reset			;; 15 more iters of 32
 	yr4_rb4cl_four_complex_djbfft_preload
-b4b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 32*64, dist64, rdi
-	bump	rdi, 16*YMM_SCD3	;; Next sin/cos pointer
-	loops	32, b4b			;; Test loop counter
-	bump	rsi, -32*64+2*dist64	;; Next source pointer
-	bump	rdi, -32*16*YMM_SCD3	;; Restore sin/cos pointer
+;; Loop below reworked to avoid 4KB distances
+;;b4b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 32*64, dist64, rdi
+;;	bump	rdi, 16*YMM_SCD3	;; Next sin/cos pointer
+;;	loops	32, b4b			;; Test loop counter
+;;	bump	rsi, -32*64+2*dist64	;; Next source pointer
+;;	bump	rdi, -32*16*YMM_SCD3	;; Restore sin/cos pointer
+b4b:	yr4_rb4cl_four_complex_djbfft rsi, 2*64, 32*64, dist64, rdi
+	bump	rdi, 2*16*YMM_SCD3	;; Next sin/cos pointer
+	loops	16, b4b			;; Test loop counter
+	bump	rsi, -16*2*64+64	;; Next source pointer
+	bump	rdi, -16*2*16*YMM_SCD3+16*YMM_SCD3 ;; Next sin/cos pointer
+	loops	2, b4b			;; Test loop counter
+	bump	rsi, -2*64+2*dist64	;; Next source pointer
+	bump	rdi, -2*16*YMM_SCD3	;; Restore sin/cos pointer
 	loops	16, b4b			;; Test loop counter
 	bump	rsi, -16*2*dist64	;; Restore source pointer
 	end_timer 7
@@ -14868,19 +14940,37 @@ c5b:	yr4_rb4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi
 	start_timer 11
 	loops_init 512			;; 16 iterations of 32
 	yr4_4cl_eight_reals_four_complex_djbunfft_preload
-c4a:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi
-	bump	rdi, 16*YMM_SCD3	;; Next sine/cosine pointer
-	loops	32, c4a			;; Test loop counter
-	bump	rsi, -32*64+2*dist64	;; Next source pointer
-	bump	rdi, -32*16*YMM_SCD3	;; Restore sine/cosine pointer
+;; Loop below reworked to avoid 4KB distances
+;;c4a:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi
+;;	bump	rdi, 16*YMM_SCD3	;; Next sine/cosine pointer
+;;	loops	32, c4a			;; Test loop counter
+;;	bump	rsi, -32*64+2*dist64	;; Next source pointer
+;;	bump	rdi, -32*16*YMM_SCD3	;; Restore sine/cosine pointer
+c4a:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 2*64, 32*64, dist64, rdi
+	bump	rdi, 2*16*YMM_SCD3	;; Next sine/cosine pointer
+	loops	16, c4a			;; Test loop counter
+	bump	rsi, -16*2*64+64	;; Next source pointer
+	bump	rdi, -16*2*16*YMM_SCD3+16*YMM_SCD3 ;; Next sine/cosine pointer
+	loops	2, c4a			;; Test loop counter
+	bump	rsi, -2*64+2*dist64	;; Next source pointer
+	bump	rdi, -2*16*YMM_SCD3	;; Restore sine/cosine pointer
 
 	loops_reset			;; 15 more iters of 32
 	yr4_rb4cl_four_complex_djbunfft_preload
-c4b:	yr4_rb4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi
-	bump	rdi, 16*YMM_SCD3	;; Next sine/cosine pointer
-	loops	32, c4b			;; Test loop counter
-	bump	rsi, -32*64+2*dist64	;; Next source pointer
-	bump	rdi, -32*16*YMM_SCD3	;; Restore sine/cosine pointer
+;; Loop below reworked to avoid 4KB distances
+;;c4b:	yr4_rb4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi
+;;	bump	rdi, 16*YMM_SCD3	;; Next sine/cosine pointer
+;;	loops	32, c4b			;; Test loop counter
+;;	bump	rsi, -32*64+2*dist64	;; Next source pointer
+;;	bump	rdi, -32*16*YMM_SCD3	;; Restore sine/cosine pointer
+c4b:	yr4_rb4cl_four_complex_djbunfft rsi, 2*64, 32*64, dist64, rdi
+	bump	rdi, 2*16*YMM_SCD3	;; Next sine/cosine pointer
+	loops	16, c4b			;; Test loop counter
+	bump	rsi, -16*2*64+64	;; Next source pointer
+	bump	rdi, -16*2*16*YMM_SCD3+16*YMM_SCD3 ;; Next sine/cosine pointer
+	loops	2, c4b			;; Test loop counter
+	bump	rsi, -2*64+2*dist64	;; Next source pointer
+	bump	rdi, -2*16*YMM_SCD3	;; Restore sine/cosine pointer
 	loops	16, c4b			;; Test loop counter
 	bump	rsi, -16*2*dist64	;; Restore source pointer
 	end_timer 11
@@ -15140,11 +15230,20 @@ b3b:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*dist64, 4*dist64, rdi
 	start_timer 7
 	loops_init 512			;; 16 iterations of 32
 	yr4_b4cl_four_complex_djbfft_preload
-b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 32*64, dist64, rdi
-	bump	rdi, 16*YMM_SCD2/4	;; Next sin/cos pointer
-	loops	32, b4b			;; Test loop counter
-	bump	rsi, -32*64+2*dist64	;; Next source pointer
-	bump	rdi, -32*16*YMM_SCD2/4	;; Restore sin/cos pointer
+;; Loop below reworked to avoid 4KB distances
+;;b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 32*64, dist64, rdi
+;;	bump	rdi, 16*YMM_SCD2/4	;; Next sin/cos pointer
+;;	loops	32, b4b			;; Test loop counter
+;;	bump	rsi, -32*64+2*dist64	;; Next source pointer
+;;	bump	rdi, -32*16*YMM_SCD2/4	;; Restore sin/cos pointer
+b4b:	yr4_b4cl_four_complex_djbfft rsi, 2*64, 32*64, dist64, rdi
+	bump	rdi, 2*16*YMM_SCD2/4	;; Next sin/cos pointer
+	loops	16, b4b			;; Test loop counter
+	bump	rsi, -16*2*64+64	;; Next source pointer
+	bump	rdi, -16*2*16*YMM_SCD2/4+16*YMM_SCD2/4 ;; Next sin/cos pointer
+	loops	2, b4b			;; Test loop counter
+	bump	rsi, -2*64+2*dist64	;; Next source pointer
+	bump	rdi, -2*16*YMM_SCD2/4	;; Restore sin/cos pointer
 	loops	16, b4b			;; Test loop counter
 	bump	rsi, -16*2*dist64	;; Restore source pointer
 	end_timer 7
@@ -15304,11 +15403,20 @@ c5b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi
 	start_timer 11
 	loops_init 512			;; 16 iterations of 32
 	yr4_b4cl_four_complex_djbunfft_preload
-c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi
-	bump	rdi, 16*YMM_SCD2/4	;; Next sine/cosine pointer
-	loops	32, c4b			;; Test loop counter
-	bump	rsi, -32*64+2*dist64	;; Next source pointer
-	bump	rdi, -32*16*YMM_SCD2/4	;; Restore sine/cosine pointer
+;; Loop below reworked to avoid 4KB distances
+;;c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi
+;;	bump	rdi, 16*YMM_SCD2/4	;; Next sine/cosine pointer
+;;	loops	32, c4b			;; Test loop counter
+;;	bump	rsi, -32*64+2*dist64	;; Next source pointer
+;;	bump	rdi, -32*16*YMM_SCD2/4	;; Restore sine/cosine pointer
+c4b:	yr4_b4cl_four_complex_djbunfft rsi, 2*64, 32*64, dist64, rdi
+	bump	rdi, 2*16*YMM_SCD2/4	;; Next sine/cosine pointer
+	loops	16, c4b			;; Test loop counter
+	bump	rsi, -16*2*64+64	;; Next source pointer
+	bump	rdi, -16*2*16*YMM_SCD2/4+16*YMM_SCD2/4 ;; Next sine/cosine pointer
+	loops	2, c4b			;; Test loop counter
+	bump	rsi, -2*64+2*dist64	;; Next source pointer
+	bump	rdi, -2*16*YMM_SCD2/4	;; Restore sine/cosine pointer
 	loops	16, c4b			;; Test loop counter
 	bump	rsi, -16*2*dist64	;; Restore source pointer
 	end_timer 11
@@ -15574,19 +15682,37 @@ b3b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 2*dist64, 4*dist64, rdi
 	start_timer 7
 	loops_init 640			;; 20 iterations of 32
 	yr4_4cl_eight_reals_four_complex_djbfft_preload
-b4a:	yr4_4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, dist64, rdi
-	bump	rdi, 4*YMM_SCD3		;; Next sin/cos pointer
-	loops	32, b4a			;; Test loop counter
-	bump	rsi, -32*64+2*dist64	;; Next source pointer
-	bump	rdi, -32*4*YMM_SCD3	;; Restore sin/cos pointer
+;; Loop below reworked to avoid 4KB distances
+;;b4a:	yr4_4cl_eight_reals_four_complex_djbfft rsi, 64, 32*64, dist64, rdi
+;;	bump	rdi, 4*YMM_SCD3		;; Next sin/cos pointer
+;;	loops	32, b4a			;; Test loop counter
+;;	bump	rsi, -32*64+2*dist64	;; Next source pointer
+;;	bump	rdi, -32*4*YMM_SCD3	;; Restore sin/cos pointer
+b4a:	yr4_4cl_eight_reals_four_complex_djbfft rsi, 2*64, 32*64, dist64, rdi
+	bump	rdi, 2*4*YMM_SCD3	;; Next sin/cos pointer
+	loops	16, b4a			;; Test loop counter
+	bump	rsi, -16*2*64+64	;; Next source pointer
+	bump	rdi, -16*2*4*YMM_SCD3+4*YMM_SCD3 ;; Next sin/cos pointer
+	loops	2, b4a			;; Test loop counter
+	bump	rsi, -2*64+2*dist64	;; Next source pointer
+	bump	rdi, -2*4*YMM_SCD3	;; Restore sin/cos pointer
 
 	loops_reset			;; 19 more iters of 32
 	yr4_rb4cl_four_complex_djbfft_preload
-b4b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 32*64, dist64, rdi
-	bump	rdi, 4*YMM_SCD3		;; Next sin/cos pointer
-	loops	32, b4b			;; Test loop counter
-	bump	rsi, -32*64+2*dist64	;; Next source pointer
-	bump	rdi, -32*4*YMM_SCD3	;; Restore sin/cos pointer
+;; Loop below reworked to avoid 4KB distances
+;;b4b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 32*64, dist64, rdi
+;;	bump	rdi, 4*YMM_SCD3		;; Next sin/cos pointer
+;;	loops	32, b4b			;; Test loop counter
+;;	bump	rsi, -32*64+2*dist64	;; Next source pointer
+;;	bump	rdi, -32*4*YMM_SCD3	;; Restore sin/cos pointer
+b4b:	yr4_rb4cl_four_complex_djbfft rsi, 2*64, 32*64, dist64, rdi
+	bump	rdi, 2*4*YMM_SCD3	;; Next sin/cos pointer
+	loops	16, b4b			;; Test loop counter
+	bump	rsi, -16*2*64+64	;; Next source pointer
+	bump	rdi, -16*2*4*YMM_SCD3+4*YMM_SCD3 ;; Next sin/cos pointer
+	loops	2, b4b			;; Test loop counter
+	bump	rsi, -2*64+2*dist64	;; Next source pointer
+	bump	rdi, -2*4*YMM_SCD3	;; Restore sin/cos pointer
 	loops	20, b4b			;; Test loop counter
 	bump	rsi, -20*2*dist64	;; Restore source pointer
 	end_timer 7
@@ -15770,19 +15896,37 @@ c5b:	yr4_rb4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi
 	start_timer 11
 	loops_init 640			;; 20 iterations of 32
 	yr4_4cl_eight_reals_four_complex_djbunfft_preload
-c4a:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi
-	bump	rdi, 4*YMM_SCD3		;; Next sine/cosine pointer
-	loops	32, c4a			;; Test loop counter
-	bump	rsi, -32*64+2*dist64	;; Next source pointer
-	bump	rdi, -32*4*YMM_SCD3	;; Restore sine/cosine pointer
+;; Loop below reworked to avoid 4KB distances
+;;c4a:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi
+;;	bump	rdi, 4*YMM_SCD3		;; Next sine/cosine pointer
+;;	loops	32, c4a			;; Test loop counter
+;;	bump	rsi, -32*64+2*dist64	;; Next source pointer
+;;	bump	rdi, -32*4*YMM_SCD3	;; Restore sine/cosine pointer
+c4a:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 2*64, 32*64, dist64, rdi
+	bump	rdi, 2*4*YMM_SCD3	;; Next sine/cosine pointer
+	loops	16, c4a			;; Test loop counter
+	bump	rsi, -16*2*64+64	;; Next source pointer
+	bump	rdi, -16*2*4*YMM_SCD3+4*YMM_SCD3 ;; Next sine/cosine pointer
+	loops	2, c4a			;; Test loop counter
+	bump	rsi, -2*64+2*dist64	;; Next source pointer
+	bump	rdi, -2*4*YMM_SCD3	;; Restore sine/cosine pointer
 
 	loops_reset			;; 19 more iters of 32
 	yr4_rb4cl_four_complex_djbunfft_preload
-c4b:	yr4_rb4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi
-	bump	rdi, 4*YMM_SCD3		;; Next sine/cosine pointer
-	loops	32, c4b			;; Test loop counter
-	bump	rsi, -32*64+2*dist64	;; Next source pointer
-	bump	rdi, -32*4*YMM_SCD3	;; Restore sine/cosine pointer
+;; Loop below reworked to avoid 4KB distances
+;;c4b:	yr4_rb4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi
+;;	bump	rdi, 4*YMM_SCD3		;; Next sine/cosine pointer
+;;	loops	32, c4b			;; Test loop counter
+;;	bump	rsi, -32*64+2*dist64	;; Next source pointer
+;;	bump	rdi, -32*4*YMM_SCD3	;; Restore sine/cosine pointer
+c4b:	yr4_rb4cl_four_complex_djbunfft rsi, 2*64, 32*64, dist64, rdi
+	bump	rdi, 2*4*YMM_SCD3	;; Next sine/cosine pointer
+	loops	16, c4b			;; Test loop counter
+	bump	rsi, -16*2*64+64	;; Next source pointer
+	bump	rdi, -16*2*4*YMM_SCD3+4*YMM_SCD3 ;; Next sine/cosine pointer
+	loops	2, c4b			;; Test loop counter
+	bump	rsi, -2*64+2*dist64	;; Next source pointer
+	bump	rdi, -2*4*YMM_SCD3	;; Restore sine/cosine pointer
 	loops	20, c4b			;; Test loop counter
 	bump	rsi, -20*2*dist64	;; Restore source pointer
 	end_timer 11
@@ -16043,11 +16187,20 @@ b3b:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*dist64, 4*dist64, rdi
 	start_timer 7
 	loops_init 640			;; 20 iterations of 32
 	yr4_b4cl_four_complex_djbfft_preload
-b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 32*64, dist64, rdi
-	bump	rdi, 4*YMM_SCD2/4	;; Next sin/cos pointer
-	loops	32, b4b			;; Test loop counter
-	bump	rsi, -32*64+2*dist64	;; Next source pointer
-	bump	rdi, -32*4*YMM_SCD2/4	;; Restore sin/cos pointer
+;; Loop below reworked to avoid 4KB distances
+;;b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 32*64, dist64, rdi
+;;	bump	rdi, 4*YMM_SCD2/4	;; Next sin/cos pointer
+;;	loops	32, b4b			;; Test loop counter
+;;	bump	rsi, -32*64+2*dist64	;; Next source pointer
+;;	bump	rdi, -32*4*YMM_SCD2/4	;; Restore sin/cos pointer
+b4b:	yr4_b4cl_four_complex_djbfft rsi, 2*64, 32*64, dist64, rdi
+	bump	rdi, 2*4*YMM_SCD2/4	;; Next sin/cos pointer
+	loops	16, b4b			;; Test loop counter
+	bump	rsi, -16*2*64+64	;; Next source pointer
+	bump	rdi, -16*2*4*YMM_SCD2/4+4*YMM_SCD2/4 ;; Next sin/cos pointer
+	loops	2, b4b			;; Test loop counter
+	bump	rsi, -2*64+2*dist64	;; Next source pointer
+	bump	rdi, -2*4*YMM_SCD2/4	;; Restore sin/cos pointer
 	loops	20, b4b			;; Test loop counter
 	bump	rsi, -20*2*dist64	;; Restore source pointer
 	end_timer 7
@@ -16207,11 +16360,20 @@ c5b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi
 	start_timer 11
 	loops_init 640			;; 20 iterations of 32
 	yr4_b4cl_four_complex_djbunfft_preload
-c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi
-	bump	rdi, 4*YMM_SCD2/4	;; Next sine/cosine pointer
-	loops	32, c4b			;; Test loop counter
-	bump	rsi, -32*64+2*dist64	;; Next source pointer
-	bump	rdi, -32*4*YMM_SCD2/4	;; Restore sine/cosine pointer
+;; Loop below reworked to avoid 4KB distances
+;;c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi
+;;	bump	rdi, 4*YMM_SCD2/4	;; Next sine/cosine pointer
+;;	loops	32, c4b			;; Test loop counter
+;;	bump	rsi, -32*64+2*dist64	;; Next source pointer
+;;	bump	rdi, -32*4*YMM_SCD2/4	;; Restore sine/cosine pointer
+c4b:	yr4_b4cl_four_complex_djbunfft rsi, 2*64, 32*64, dist64, rdi
+	bump	rdi, 2*4*YMM_SCD2/4	;; Next sine/cosine pointer
+	loops	16, c4b			;; Test loop counter
+	bump	rsi, -16*2*64+64	;; Next source pointer
+	bump	rdi, -16*2*4*YMM_SCD2/4+4*YMM_SCD2/4 ;; Next sine/cosine pointer
+	loops	2, c4b			;; Test loop counter
+	bump	rsi, -2*64+2*dist64	;; Next source pointer
+	bump	rdi, -2*4*YMM_SCD2/4	;; Restore sine/cosine pointer
 	loops	20, c4b			;; Test loop counter
 	bump	rsi, -20*2*dist64	;; Restore source pointer
 	end_timer 11
