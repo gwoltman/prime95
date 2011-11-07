@@ -33,6 +33,9 @@ _TEXT SEGMENT
 
 ;; Generate pass 2 routines optimized for this architecture
 
+buildfor CORE   ,	ypass2gen 48
+buildfor CORE   ,	ypass2gen 6
+buildfor CORE   ,	ypass2gen 80
 buildfor CORE   ,	ypass2gen 192
 buildfor CORE   ,	ypass2gen 8
 buildfor CORE   ,	ypass2gen 320
@@ -44,6 +47,36 @@ buildfor CORE   ,	ypass2gen 11
 buildfor CORE   ,	ypass2gen 2560
 
 ;; Routines for many FFT sizes
+
+	; The 6 levels variants (48, 64, 80)
+
+buildfor CORE    ,	yr4dwpn_pass1sc128 6K, 48, 4
+buildfor CORE    ,	yr4dwpn_pass1sc128 8K, 6, 4
+buildfor CORE    ,	yr4dwpn_pass1sc128 10K, 80, 4
+
+;buildfor CORE_64,	yr4dwpn_pass1sc256 12K, 48, 4
+;buildfor CORE_64,	yr4dwpn_pass1sc256 16K, 6, 4
+;buildfor CORE_64,	yr4dwpn_pass1sc256 20K, 80, 4
+
+;buildfor CORE_32,	yr4dwpn_pass1sc320 15K, 48, 4
+;buildfor CORE_32,	yr4dwpn_pass1sc320 20K, 6, 4
+;buildfor CORE_32,	yr4dwpn_pass1sc320 25K, 80, 4
+
+;buildfor CORE   ,	yr4dwpn_pass1sc384 18K, 48, 4
+;buildfor CORE   ,	yr4dwpn_pass1sc384 24K, 6, 4
+;buildfor CORE   ,	yr4dwpn_pass1sc384 30K, 80, 4
+
+;buildfor CORE   ,	yr4dwpn_pass1sc448 21K, 48, 4
+;buildfor CORE   ,	yr4dwpn_pass1sc448 28K, 6, 4
+;buildfor CORE   ,	yr4dwpn_pass1sc448 35K, 80, 4
+
+buildfor CORE   ,	yr4dwpn_pass1sc512 24K, 48, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512 32K, 6, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512 40K, 80, 4
+
+;buildfor CORE   ,	yr4dwpn_pass1sc640 30K, 48, 4
+;buildfor CORE   ,	yr4dwpn_pass1sc640 40K, 6, 4
+;buildfor CORE   ,	yr4dwpn_pass1sc640 50K, 80, 4
 
 	; The 8 levels variants (192, 256, 320)
 
@@ -279,6 +312,36 @@ buildfor CORE   ,	yr4dwpn_pass1sc512 1280K, 2560, 4
 
 ;buildfor        ,	yr4dwpn_pass1sc4096 8M, 11, 4
 ;buildfor        ,	yr4dwpn_pass1sc4096 8M, 11, 2
+
+	; The all-complex 6 levels variants (48, 64, 80)
+
+buildfor CORE    ,	yr4dwpn_pass1sc128ac 6K, 48, 4
+buildfor CORE    ,	yr4dwpn_pass1sc128ac 8K, 6, 4
+buildfor CORE    ,	yr4dwpn_pass1sc128ac 10K, 80, 4
+
+;buildfor CORE_64,	yr4dwpn_pass1sc256ac 12K, 48, 4
+;buildfor CORE_64,	yr4dwpn_pass1sc256ac 16K, 6, 4
+;buildfor CORE_64,	yr4dwpn_pass1sc256ac 20K, 80, 4
+
+;buildfor CORE_32,	yr4dwpn_pass1sc320ac 15K, 48, 4
+;buildfor CORE_32,	yr4dwpn_pass1sc320ac 20K, 6, 4
+;buildfor CORE_32,	yr4dwpn_pass1sc320ac 25K, 80, 4
+
+;buildfor CORE   ,	yr4dwpn_pass1sc384ac 18K, 48, 4
+;buildfor CORE   ,	yr4dwpn_pass1sc384ac 24K, 6, 4
+;buildfor CORE   ,	yr4dwpn_pass1sc384ac 30K, 80, 4
+
+;buildfor CORE   ,	yr4dwpn_pass1sc448ac 21K, 48, 4
+;buildfor CORE   ,	yr4dwpn_pass1sc448ac 28K, 6, 4
+;buildfor CORE   ,	yr4dwpn_pass1sc448ac 35K, 80, 4
+
+buildfor CORE   ,	yr4dwpn_pass1sc512ac 24K, 48, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512ac 32K, 6, 4
+buildfor CORE   ,	yr4dwpn_pass1sc512ac 40K, 80, 4
+
+;buildfor CORE   ,	yr4dwpn_pass1sc640ac 30K, 48, 4
+;buildfor CORE   ,	yr4dwpn_pass1sc640ac 40K, 6, 4
+;buildfor CORE   ,	yr4dwpn_pass1sc640ac 50K, 80, 4
 
 	; The all-complex 8 levels variants (192, 256, 320)
 

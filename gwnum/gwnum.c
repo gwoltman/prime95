@@ -1218,7 +1218,12 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 	gwdata->ARCH = (flags >> 17) & 0x0000000F;
 	if (gwdata->cpu_flags & CPU_AVX) gwdata->PASS1_CACHE_LINES = ((flags >> 9) & 0x0000000F) * 4;
 	else gwdata->PASS1_CACHE_LINES = ((flags >> 9) & 0x0000000F) * 2;
-	gwdata->PASS2_SIZE = (flags & 0x0000001FF) << 6;
+	if ((flags & 0x0000001FF) == 511)
+		gwdata->PASS2_SIZE = 48;
+	else if ((flags & 0x0000001FF) == 510)
+		gwdata->PASS2_SIZE = 80;
+	else
+		gwdata->PASS2_SIZE = (flags & 0x0000001FF) << 6;
 
 /* Set more info so that addr_offset called from */
 /* gwmap_to_estimated_size can work without a call to gwsetup. */
@@ -1269,7 +1274,7 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 
 	if (gwdata->cpu_flags & CPU_AVX) {
 		// Pass 2 sizes avoid the 4KB distance problem with 64, 128, or 192 pad bytes
-		if (gwdata->PASS2_SIZE == 192 || gwdata->PASS2_SIZE == 320)
+		if (gwdata->PASS2_SIZE == 48 || gwdata->PASS2_SIZE == 64 || gwdata->PASS2_SIZE == 80 || gwdata->PASS2_SIZE == 192 || gwdata->PASS2_SIZE == 320)
 			gwdata->FOURKBGAPSIZE = 0;
 		if (gwdata->PASS2_SIZE == 256 || gwdata->PASS2_SIZE == 768 || gwdata->PASS2_SIZE == 2048 || gwdata->PASS2_SIZE == 2304 ||
 		    gwdata->PASS2_SIZE == 3072 || gwdata->PASS2_SIZE == 3840 || gwdata->PASS2_SIZE == 4096 || gwdata->PASS2_SIZE == 5120 ||
