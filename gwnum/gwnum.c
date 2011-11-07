@@ -1269,7 +1269,7 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 
 	if (gwdata->cpu_flags & CPU_AVX) {
 		// Pass 2 sizes avoid the 4KB distance problem with 64, 128, or 192 pad bytes
-		if (gwdata->PASS2_SIZE == 192)
+		if (gwdata->PASS2_SIZE == 192 || gwdata->PASS2_SIZE == 320)
 			gwdata->FOURKBGAPSIZE = 0;
 		if (gwdata->PASS2_SIZE == 256 || gwdata->PASS2_SIZE == 768 || gwdata->PASS2_SIZE == 2048 || gwdata->PASS2_SIZE == 2304 ||
 		    gwdata->PASS2_SIZE == 3072 || gwdata->PASS2_SIZE == 3840 || gwdata->PASS2_SIZE == 4096 || gwdata->PASS2_SIZE == 5120 ||

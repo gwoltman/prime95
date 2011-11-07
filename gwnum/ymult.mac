@@ -232,7 +232,7 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p2_levels, clmarg
 ;; Each 4KB page in pass 2 is padded with 64 to 192 bytes to avoid 4KB distances in pass 2 y4cl macro calls.
 ;; In the old days, pass 2 sizes had to be a multiple of 4KB.  When we added other pass 2 sizes, no 4KB padding was needed.
 
-	IF p2_levels EQ 192
+	IF p2_levels EQ 192 OR p2_levels EQ 320
 		fourKBgap = 0
 	ELSEIF p2_levels EQ 8 OR p2_levels EQ 768 OR p2_levels EQ 11 OR p2_levels EQ 2304 OR p2_levels EQ 3072 OR p2_levels EQ 3840
 		fourKBgap = 64
@@ -753,7 +753,7 @@ ypass2gen MACRO levels
 
 ;; Define pass 2 constants.  Each 4KB page is padded with 64 to 192 bytes.
 
-	IF levels EQ 192
+	IF levels EQ 192 OR levels EQ 320
 		fourKBgap = 0
 	ELSEIF levels EQ 8 OR levels EQ 768 OR levels EQ 11 OR levels EQ 2304 OR levels EQ 3072 OR levels EQ 3840 OR levels EQ 12
 		fourKBgap = 64
