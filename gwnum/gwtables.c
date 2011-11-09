@@ -675,23 +675,6 @@ double *yr4dwpn_build_pass1_table (
 
 			if (N != gwdata->PASS2_SIZE * gwdata->wpn_count * 4) {
 
-/* For the yr4_eight_reals_fft building block levels, output the extra */
-/* sin/cos values needed for the eight_reals.  The eight_reals doubles N because */
-/* the real part of the FFT is one level behind the complex part of the FFT. */
-
-				if (!gwdata->ALL_COMPLEX_FFT) {
-					for (j = 0; j < N*2 / 8; j += pass1_increment) {
-					    for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
-						temp = (group + j + i);
-						gwsincos15by4 (temp, N*2, table);
-						gwsincos15by4 (temp + upper_avx_word, N*2, table+1);
-						gwsincos15by4 (temp + 2 * upper_avx_word, N*2, table+2);
-						gwsincos15by4 (temp + 3 * upper_avx_word, N*2, table+3);
-						table += 16;
-					    }
-					}
-				}
-
 /* Output the sin/cos value for the complex sections, used by the yr4_four_complex_djbfft macro */
 
 				for (j = 0; j < N / 4; j += pass1_increment) {
@@ -702,6 +685,19 @@ double *yr4dwpn_build_pass1_table (
 					gwsincos12by4 (temp + 2 * upper_avx_word, N, table+2);
 					gwsincos12by4 (temp + 3 * upper_avx_word, N, table+3);
 					table += 16;
+
+/* For the yr4_eight_reals_fft building block levels, output the extra */
+/* sin/cos values needed for the eight_reals.  The eight_reals doubles N because */
+/* the real part of the FFT is one level behind the complex part of the FFT. */
+
+					if (!gwdata->ALL_COMPLEX_FFT) {
+						gwsincos15by4 (temp, N*2, table);
+						gwsincos15by4 (temp + upper_avx_word, N*2, table+1);
+						gwsincos15by4 (temp + 2 * upper_avx_word, N*2, table+2);
+						gwsincos15by4 (temp + 3 * upper_avx_word, N*2, table+3);
+						table += 16;
+					}
+
 				    }
 				}
 			}
@@ -709,20 +705,6 @@ double *yr4dwpn_build_pass1_table (
 /* For the wpn building block level, output the sin/cos and column normalization values. */
 
 			else {
-
-/* For the yr4_wpn_eight_reals_four_complex_djbfft building block levels, output the extra */
-/* sin/cos values needed for the eight_reals.  The eight_reals doubles N because */
-/* the real part of the FFT is one level behind the complex part of the FFT. */
-
-				if (!gwdata->ALL_COMPLEX_FFT) {
-					for (j = 0; j < N*2 / 8; j += pass1_increment) {
-					    for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
-						temp = (group + j + i);
-						gwsincos15by4_weighted (gwdata->dd_data, temp, upper_avx_word, N*2, temp, table);
-						table += 24;
-					    }
-					}
-				}
 
 /* Output the sin/cos value for the complex sections, used by the yr4_wpn_four_complex_djbfft macro */
 /* We apply the two-to-phi weight for the upper AVX words in the group multipliers.  There is a */
@@ -734,6 +716,15 @@ double *yr4dwpn_build_pass1_table (
 					temp = (group + j + i);
 					gwsincos012by4_weighted (gwdata->dd_data, temp, upper_avx_word, N, temp, table);
 					table += 28;
+
+/* For the yr4_wpn_eight_reals_four_complex_djbfft building block levels, output the extra */
+/* sin/cos values needed for the eight_reals.  The eight_reals doubles N because */
+/* the real part of the FFT is one level behind the complex part of the FFT. */
+
+					if (!gwdata->ALL_COMPLEX_FFT) {
+						gwsincos15by4_weighted (gwdata->dd_data, temp, upper_avx_word, N*2, temp, table);
+						table += 24;
+					}
 				    }
 				}
 			}
@@ -832,7 +823,7 @@ double *yr4dwpn_build_pass1_table (
 /* delayed multiplier FFT - called by gwsetup.  It is like the traditional radix-4 FFT */
 /* but with the all-complex premultipliers split into two parts to reduce memory. */
 
-double *yr4delay_build_fixed_premult_table (
+double *yr4dwpn_build_fixed_premult_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table)		/* Pointer to the table to fill in */
 {
@@ -868,7 +859,7 @@ double *yr4delay_build_fixed_premult_table (
 /* This routine builds the fixed postmultiplier table used in pass 1 of the */
 /* radix-4/8 delayed DJB FFT - called by gwsetup. */
 
-double *yr4delay_build_fixed_pass1_table (
+double *yr4dwpn_build_fixed_pass1_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	double	*table)		/* Pointer to the table to fill in */
 {
@@ -921,20 +912,17 @@ double *yr4delay_build_fixed_pass1_table (
 			/* the next FFT levels to further reduce memory usage. */
 			if (pass1_size == 512 || pass1_size == 1024 || pass1_size == 1536 ||
 			    pass1_size == 2048 || pass1_size == 3072 || pass1_size == 4096) {
-				/* Output the sin/cos values for the real data */
-				for (j = 0; j < N*2 / 8; j += pass1_increment) {
-					gwsincos15by4 (j, N*2, table);
-					gwsincos15by4 (j + upper_avx_word, N*2, table+1);
-					gwsincos15by4 (j + 2 * upper_avx_word, N*2, table+2);
-					gwsincos15by4 (j + 3 * upper_avx_word, N*2, table+3);
-					table += 16;
-				}
-				/* Output the sin/cos values for the complex data */
+				/* Output the sin/cos values for the complex data followed by sin/cos values for the real data */
 				for (j = 0; j < N / 4; j += pass1_increment) {
 					gwsincos12by4 (j, N, table);
 					gwsincos12by4 (j + upper_avx_word, N, table+1);
 					gwsincos12by4 (j + 2 * upper_avx_word, N, table+2);
 					gwsincos12by4 (j + 3 * upper_avx_word, N, table+3);
+					table += 16;
+					gwsincos15by4 (j, N*2, table);
+					gwsincos15by4 (j + upper_avx_word, N*2, table+1);
+					gwsincos15by4 (j + 2 * upper_avx_word, N*2, table+2);
+					gwsincos15by4 (j + 3 * upper_avx_word, N*2, table+3);
 					table += 16;
 				}
 				N = N / 4;

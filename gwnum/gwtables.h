@@ -391,8 +391,8 @@ double *yr4_build_onepass_norm_table (gwhandle *gwdata, double *table);
 double *yr4dwpn_build_pass1_table (gwhandle *gwdata, double *table);
 double *yr4dwpn_build_norm_table (gwhandle *gwdata, double *table, int col);
 double *yr4dwpn_build_biglit_table (gwhandle *gwdata, double *table);
-double *yr4delay_build_fixed_premult_table (gwhandle *gwdata, double *table);
-double *yr4delay_build_fixed_pass1_table (gwhandle *gwdata, double *table);
+double *yr4dwpn_build_fixed_premult_table (gwhandle *gwdata, double *table);
+double *yr4dwpn_build_fixed_pass1_table (gwhandle *gwdata, double *table);
 double *yr4_build_pass2_complex_table (gwhandle *gwdata, double *table);
 double *yr4_build_pass2_real_table (gwhandle *gwdata, double *table);
 

@@ -32,12 +32,11 @@ YMM_SCD4 = 256			;; Sizeof an entry in premultiplier table
 zYMM_SCD8 = 512			;; Sizeof a radix-8 with premultipliers table entry
 zYMM_SCD9 = 576			;; Sizeof a real radix-20 with premultipliers table entry
 zYMM_SCD13 = 832		;; Sizeof a real radix-28 with premultipliers table entry
-zYMM_HSCD1 = 32			;; Sizeof a half sin/cos table entry used in real FFTs in pass 2
-zYMM_HSCD2 = 64			;; Sizeof a half sin/cos table entry used in real FFTs in pass 2
 
 ;; Used in r4dwpn (radix-4 delay with partial normalization) FFTs
-YMM_SCND2 = 224			;; Sizeof a complex radix-4 or radix-5 sin/cos/normalization table entry
-YMM_SCND2R = 192		;; Sizeof a real radix-4 or radix-5 sin/cos/normalization table entry
+YMM_SCND2 = 224			;; Sizeof a complex radix-4 sin/cos/normalization table entry
+;;YMM_SCND2R = 192		;; Sizeof a real radix-4 sin/cos/normalization table entry
+YMM_SCND4 = 416			;; Sizeof a complex plus real radix-4 sin/cos/normalization table entry
 YMM_GMD = 320			;; Sizeof a grp two-to-phi/two-to-minus-phi multiplier block in a r4dwpn FFT
 
 ; **********************************************************

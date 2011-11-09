@@ -2221,10 +2221,10 @@ int internal_gwsetup (
 			tables = yr4dwpn_build_pass1_table (gwdata, tables);
 			ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 			asm_data->sincos1 = tables;
-			tables = yr4delay_build_fixed_premult_table (gwdata, tables);
+			tables = yr4dwpn_build_fixed_premult_table (gwdata, tables);
 			ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 			asm_data->sincos2 = tables;
-			tables = yr4delay_build_fixed_pass1_table (gwdata, tables);
+			tables = yr4dwpn_build_fixed_pass1_table (gwdata, tables);
 
 /* Build the sin/cos table used in complex pass 2 blocks */
 /* The pass 2 tables are the same as for a traditional radix-4 FFT */		
