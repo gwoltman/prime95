@@ -835,8 +835,8 @@ ELSE
 	bump	rdi, 16*YMM_SCD3		;; Sin/cos ptr
 	loops_init 16*4*clm			;; 16*4*clm iterations
 
-	yr4_4cl_2sc_eight_reals_unfft_preload
-c4b:	yr4_4cl_2sc_eight_reals_unfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
+	yr4_4cl_csc_eight_reals_unfft_preload
+c4b:	yr4_4cl_csc_eight_reals_unfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
 	yloop1halfpre c4b, clmblkdst, rdi, YMM_SCD4 ;; 4*clm iterations
 	loops	4, c4b				;; Test loop counter
 	bump	rsi, -4*clmblkdst+2*clmblkdst8	;; Next source pointer
