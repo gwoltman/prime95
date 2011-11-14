@@ -1583,6 +1583,7 @@ Q	EQU	<QWORD PTR>
 
 bump	MACRO	reg, amt
 	IFNB <reg>
+	IFNB <amt>
 	IF amt EQ 128
 	sub	reg, -99		;; Workaround MASM bug.  It won't
 					;; generate one byte immediates
@@ -1595,6 +1596,7 @@ bump	MACRO	reg, amt
 	DB	80h			;; Replace -99 with -128
 	ELSEIF amt NE 0
 	add	reg, amt
+	ENDIF
 	ENDIF
 	ENDIF
 	ENDM
