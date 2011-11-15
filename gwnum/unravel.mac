@@ -1999,6 +1999,7 @@ loops_reset MACRO
 	loops_count = loops_original_count
 	loops_initial_value = loops_original_initial_value
 	loops_np2_initial_value_adjust = 0
+	ybump_flag = 0
 	ENDM
 
 ;; Do two loops calls if touching cache lines, one combined loops call otherwise
