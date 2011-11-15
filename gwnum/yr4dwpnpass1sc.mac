@@ -1043,7 +1043,7 @@ b9b:	yr4_sg4cl_four_complex_fft4 rsi, 256, 64, 128, rcx, 64, blkdst, 2*blkdst, r
 	loops	8, b9b				;; Test outer loop counter
 	end_timer 26
 
-;; Work on next 4*clm sets of 128 values
+;; Work on next 4*clm sets of 512 values
 
 endlp:	ypass1_get_next_block pass2, c0b, b0b, _wpn ;; Get next block and jump
 	yfft_footer
@@ -1412,7 +1412,7 @@ b9b:	yr4_sg4cl_four_complex_fft4 rsi, 256, 64, 128, rcx, 64, blkdst, 2*blkdst, r
 	loops	4, b9b			;; Test loop counter
 	end_timer 26
 
-;; Work on next 4*clm sets of 128 values
+;; Work on next 4*clm sets of 512 values
 
 endlp:	ypass1_get_next_block pass2, c0b, b0b, _wpn ;; Get next block and jump
 	yfft_footer
