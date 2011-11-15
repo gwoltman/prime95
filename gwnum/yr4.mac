@@ -760,10 +760,15 @@ yr4_4cl_four_complex_first_djbfft MACRO srcreg,srcinc,d1,d2,screg,pmreg
 	yr4_4c_first_djbfft_cmn srcreg,srcinc,d1,d2,screg,pmreg,noexec
 	ENDM
 
-; Like yr4_4cl_four_complex_first_djbfft but the pmreg data is loaded with vbroadcastsd
-yr4_b4cl_four_complex_first_djbfft_scratch MACRO srcreg,srcinc,d1,d2,screg,pmreg
-	yr4_4c_first_djbfft_cmn srcreg,srcinc,d1,d2,screg,pmreg,exec
+; Like yr4_4cl_four_complex_first_djbfft but the sin/cos and premultiplier data is in one table
+yr4_4cl_csc_four_complex_first_djbfft MACRO srcreg,srcinc,d1,d2,screg
+	yr4_4c_first_djbfft_cmn srcreg,srcinc,d1,d2,screg+256,screg,noexec
 	ENDM
+
+; Like yr4_4cl_four_complex_first_djbfft but the pmreg data is loaded with vbroadcastsd
+;yr4_b4cl_four_complex_first_djbfft MACRO srcreg,srcinc,d1,d2,screg,pmreg
+;	yr4_4c_first_djbfft_cmn srcreg,srcinc,d1,d2,screg,pmreg,exec
+;	ENDM
 
 ; Common code for the 4cl_four_complex_first_djbfft variants
 yr4_4c_first_djbfft_cmn MACRO srcreg,srcinc,d1,d2,screg,pmreg,bcast
@@ -1081,10 +1086,15 @@ yr4_4cl_four_complex_last_djbunfft MACRO srcreg,srcinc,d1,d2,screg,pmreg
 	yr4_4c_last_djbunfft_cmn srcreg,srcinc,d1,d2,screg,pmreg,noexec
 	ENDM
 
-; Like yr4_4cl_four_complex_last_djbunfft but pmreg data loaded with vbroadcastsd
-yr4_b4cl_four_complex_last_djbunfft MACRO srcreg,srcinc,d1,d2,screg,pmreg
-	yr4_4c_last_djbunfft_cmn srcreg,srcinc,d1,d2,screg,pmreg,exec
+;; Like yr4_4cl_four_complex_last_djbunfft, except the screg and pmreg data is combined
+yr4_4cl_csc_four_complex_last_djbunfft MACRO srcreg,srcinc,d1,d2,screg
+	yr4_4c_last_djbunfft_cmn srcreg,srcinc,d1,d2,screg+256,screg,noexec
 	ENDM
+
+; Like yr4_4cl_four_complex_last_djbunfft but pmreg data loaded with vbroadcastsd
+;yr4_b4cl_four_complex_last_djbunfft MACRO srcreg,srcinc,d1,d2,screg,pmreg
+;	yr4_4c_last_djbunfft_cmn srcreg,srcinc,d1,d2,screg,pmreg,exec
+;	ENDM
 
 ; Common code for the yr4_4cl_four_complex_last_djbunfft variants
 yr4_4c_last_djbunfft_cmn MACRO srcreg,srcinc,d1,d2,screg,pmreg,bcast

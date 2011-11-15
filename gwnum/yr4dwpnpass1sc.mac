@@ -483,11 +483,10 @@ c7b:	yr4_b4cl_wpn_four_complex_djbunfft rsi, 64, clmblkdst, 2*clmblkdst, rdi
 ;;	do 4 macros each processing 32 data values
 
 	start_timer 20
-	mov	rdx, sincos1		;; Load fixed all-complex premultipliers
-	mov	rdi, sincos2		;; Load fixed sin/cos ptr
+	mov	rdi, sincos2		;; Load fixed premultiplier/sin/cos ptr
 	loops_init 4*4*clm		;; 4 iterations of 4*clm
-c1b:	yr4_4cl_four_complex_last_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, rdx
-	yloop	4*clm, c1b, -4*clm*64+clmblkdst, rdi, YMM_SCD2, rdx, YMM_SCD4 ;; 4*clm iterations
+c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
+	yloop	4*clm, c1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iterations
 	yloop	4, c1b			;; 4 iterations
 	end_timer 20
 
@@ -524,13 +523,12 @@ b0b:	copy_fft_data_to_scratch 16
 
 yes_fft:start_timer 22
 	mov	rsi, scratch_area	;; Get address of scratch area
-	mov	rdx, sincos1		;; Address of fixed all-complex premultipliers
-	mov	rdi, sincos2		;; Load fixed sin/cos ptr
+	mov	rdi, sincos2		;; Load fixed premultiplier/sin/cos ptr
 	set_data_prefetch_ptrs		;; Init prefetching pointers
 pfing	bump	rcx, 32*blkdst		;; We've already prefetched 32 blocks
 	loops_init 4*4*clm		;; 4 iters of 4*clm
-b1b:	yr4_4cl_four_complex_first_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, rdx
-	yloop	4*clm, b1b, -4*clm*64+clmblkdst, rdi, YMM_SCD2, rdx, YMM_SCD4 ;; 4*clm iters prefetching 4*clm cache lines
+b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
+	yloop	4*clm, b1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
 	yloop	4, b1b, -4*clmblkdst	;; 4 iterations, restore source pointer
 	end_timer 22
 
@@ -1197,8 +1195,7 @@ c7b:	yr4_b4cl_wpn_four_complex_djbunfft rsi, 64, clmblkdst, 2*clmblkdst, rdi
 
 IF clm GE 2
 	loops_init 16*4*clm			;; 16*4*clm iterations
-	mov	rdx, sincos1			;; Load fixed all-complex premultipliers
-	mov	rbp, sincos2			;; Load fixed sin/cos ptr
+	mov	rbp, sincos2			;; Load fixed premultiplier/sin/cos ptr
 
 c5a:	start_timer 18
 	yr4_4cl_four_complex_djbunfft_preload
@@ -1210,10 +1207,10 @@ c5b:	yr4_4cl_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
 	end_timer 18
 
 	start_timer 20
-c1b:	yr4_4cl_four_complex_last_djbunfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rbp, rdx
-	yloop	4*clm, c1b, -4*clm*64+4*clmblkdst, rbp, 4*YMM_SCD2, rdx, 4*YMM_SCD4 ;; 4*clm iterations
+c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rbp
+	yloop	4*clm, c1b, -4*clm*64+4*clmblkdst, rbp, 4*YMM_SCD6 ;; 4*clm iterations
 	yloop	2, c1b, -2*4*clmblkdst+clmblkdst8 ;; 2 iterations
-	yloop	2, c1b, -2*clmblkdst8+clmblkdst, rbp, -4*4*YMM_SCD2+YMM_SCD2, rdx, -4*4*YMM_SCD4+YMM_SCD4 ;; 2 iterations, next source pointer, next sin/cos ptrs
+	yloop	2, c1b, -2*clmblkdst8+clmblkdst, rbp, -4*4*YMM_SCD6+YMM_SCD6 ;; 2 iterations, next source pointer, next sin/cos ptr
 	end_timer 20
 
 	loops	4, c5a				;; Test loop counter
@@ -1232,11 +1229,10 @@ c5b:	yr4_4cl_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
 	end_timer 18
 
 	start_timer 20
-	mov	rdx, sincos1			;; Load fixed all-complex premultipliers
-	mov	rdi, sincos2			;; Load fixed sin/cos ptr
+	mov	rdi, sincos2			;; Load fixed premultiplier/sin/cos ptr
 	loops_init 16*4*clm			;; 16 iterations of 4*clm
-c1b:	yr4_4cl_four_complex_last_djbunfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, rdx
-	yloop	4*clm, c1b, -4*clm*64+clmblkdst, rdi, YMM_SCD2, rdx, YMM_SCD4 ;; 4*clm iterations
+c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi
+	yloop	4*clm, c1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iterations
 	yloop	8, c1b, -8*clmblkdst+clmblkdst8 ;; 8 iterations
 	yloop	2, c1b				;; 2 iterations
 	end_timer 20
@@ -1296,61 +1292,57 @@ b0b:	copy_fft_data_to_scratch 64
 
 ;; Process data in small chunks for more L1 data cache hits
 
-yes_fft:mov	rsi, scratch_area	;; Get address of scratch area
-	mov	rdx, sincos1		;; Address of fixed all-complex premultipliers
-	mov	rbp, sincos2		;; Load fixed sin/cos ptr
-	mov	rdi, PREMULT_ADDR	;; Address of premultiplier/sin/cos table
-	bump	rdi, 4*clm*YMM_SCND2 + 4*clm*YMM_SCD4
-	set_data_prefetch_ptrs		;; Init prefetching pointers
-pfing	bump	rcx, 128*blkdst		;; We've already prefetched 128 blocks
+yes_fft:mov	rsi, scratch_area		;; Get address of scratch area
+	mov	rdi, sincos2			;; Load fixed premultiplier/sin/cos ptr
+	set_data_prefetch_ptrs			;; Init prefetching pointers
+pfing	bump	rcx, 128*blkdst			;; We've already prefetched 128 blocks
 
 IF clm GE 2
-	loops_init 16*4*clm		;; 16 iters of 4*clm
+	mov	rbp, PREMULT_ADDR		;; Address of sin/cos table
+	bump	rbp, 4*clm*YMM_SCND2 + 4*clm*YMM_SCD4
+	loops_init 16*4*clm			;; 16 iters of 4*clm
 b1a:	start_timer 22
-b1b:	yr4_4cl_four_complex_first_djbfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rbp, rdx
-	yloop	4*clm, b1b, -4*clm*64+4*clmblkdst, rbp, 4*YMM_SCD2, rdx, 4*YMM_SCD4 ;; 4*clm iters prefetching 4*clm cache lines
+b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi
+	yloop	4*clm, b1b, -4*clm*64+4*clmblkdst, rdi, 4*YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
 	yloop	2, b1b, -2*4*clmblkdst+clmblkdst8 ;; 2 iterations
-	yloop	2, b1b, -2*clmblkdst8, rbp, -4*YMM_SCD2+YMM_SCD2, rdx, -4*YMM_SCD4+YMM_SCD4 ;; 2 iterations, restore source ptr, next sin/cos ptrs
+	yloop	2, b1b, -2*clmblkdst8, rdi, -4*4*YMM_SCD6+YMM_SCD6 ;; 2 iterations, restore source ptr, next sin/cos ptr
 	loops_undo 2*2*4*clm
 	end_timer 22
 
 	start_timer 24
 	yr4_4cl_four_complex_djbfft_preload
-b5b:	yr4_4cl_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
-	bump	rdi, YMM_SCD2		;; Next sine/cosine pointer
-	yloophalfpre 4*clm, b5b, -4*clm*64+2*clmblkdst8, rdi, -4*clm*YMM_SCD2 ;; 4*clm iterations, restore sin/cos ptr
-	yloophalfpre 4, b5b, -4*2*clmblkdst8+clmblkdst, rdi, 4*clm*YMM_SCD2 ;; Test loop counter, next source pointer, next sin/cos ptr
+b5b:	yr4_4cl_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rbp
+	bump	rbp, YMM_SCD2			;; Next sine/cosine pointer
+	yloophalfpre 4*clm, b5b, -4*clm*64+2*clmblkdst8, rbp, -4*clm*YMM_SCD2 ;; 4*clm iterations, restore sin/cos ptr
+	yloophalfpre 4, b5b, -4*2*clmblkdst8+clmblkdst, rbp, 4*clm*YMM_SCD2 ;; Test loop counter, next source pointer, next sin/cos ptr
 	end_timer 24
 
 	loops	4, b1a				;; Test loop counter
 	bump	rsi, -4*clmblkdst		;; Restore source pointer
+	lea	rdi, [rbp-4*4*clm*YMM_SCD2-4*clm*YMM_SCND2] ;; Next sin/cos ptr
 
 ELSE
 
-yes_fft:start_timer 22
-	mov	rsi, scratch_area	;; Get address of scratch area
-	mov	rdx, sincos1		;; Address of fixed all-complex premultipliers
-	mov	rdi, sincos2		;; Load fixed sin/cos ptr
-	set_data_prefetch_ptrs		;; Init prefetching pointers
-pfing	bump	rcx, 128*blkdst		;; We've already prefetched 128 blocks
-	loops_init 16*4*clm		;; 16 iters of 4*clm
-b1b:	yr4_4cl_four_complex_first_djbfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, rdx
-	yloop	4*clm, b1b, -4*clm*64+clmblkdst, rdi, YMM_SCD2, rdx, YMM_SCD4 ;; 4*clm iters prefetching 4*clm cache lines
+	start_timer 22
+	loops_init 16*4*clm			;; 16 iters of 4*clm
+b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi
+	yloop	4*clm, b1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
 	yloop	8, b1b, -8*clmblkdst+clmblkdst8 ;; 8 iterations
-	yloop	2, b1b, -2*clmblkdst8	;; 2 iterations
+	yloop	2, b1b, -2*clmblkdst8		;; 2 iterations
 	end_timer 22
 
 	start_timer 24
-	mov	rdi, PREMULT_ADDR	;; Address of premultiplier/sin/cos table
+	mov	rdi, PREMULT_ADDR		;; Address of sin/cos table
 	bump	rdi, 4*clm*YMM_SCND2 + 4*clm*YMM_SCD4
-	loops_init 16*4*clm		;; 16 iters of 4*clm
+	loops_init 16*4*clm			;; 16 iters of 4*clm
 	yr4_4cl_four_complex_djbfft_preload
 b5b:	yr4_4cl_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi
-	bump	rdi, YMM_SCD2		;; Next sine/cosine pointer
+	bump	rdi, YMM_SCD2			;; Next sine/cosine pointer
 	yloophalfpre 4*clm, b5b, -4*clm*64+clmblkdst ;; 4*clm iterations
 	yloophalfpre 4, b5b, -4*clmblkdst+2*clmblkdst8, rdi, -4*4*clm*YMM_SCD2 ;; Test loop counter, restore sin/cos ptr
 	yloophalfpre 4, b5b, -4*2*clmblkdst8	;; Test loop counter, restore source pointer
 	end_timer 24
+	bump	rdi, -4*clm*YMM_SCND2		;; Next sin/cos ptr
 
 ENDIF
 
@@ -1372,7 +1364,6 @@ ENDIF
 ;;	do 16 macros each processing 32 data values
 
 	start_timer 25
-	bump	rdi, -4*clm*YMM_SCND2	;; Next sin/cos ptr
 	loops_init 16*4*clm		;; 16 iters of 4*clm
 	yr4_b4cl_wpn_four_complex_djbfft_preload
 b7b:	yr4_b4cl_wpn_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, rdi

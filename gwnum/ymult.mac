@@ -29,6 +29,7 @@ YMM_SCD1 = 64			;; Sizeof a small (radix-3) DJB sin/cos table entry
 YMM_SCD2 = 128			;; Sizeof a DJB sin/cos table entry
 YMM_SCD3 = 192			;; Sizeof an eight_reals sin/cos table entry
 YMM_SCD4 = 256			;; Sizeof an entry in premultiplier table
+YMM_SCD6 = 384			;; Sizeof a combined first_djbfft / last_djbunfft table entry
 zYMM_SCD8 = 512			;; Sizeof a radix-8 with premultipliers table entry
 zYMM_SCD9 = 576			;; Sizeof a real radix-20 with premultipliers table entry
 zYMM_SCD13 = 832		;; Sizeof a real radix-28 with premultipliers table entry

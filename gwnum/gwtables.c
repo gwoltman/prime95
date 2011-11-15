@@ -819,43 +819,6 @@ double *yr4dwpn_build_pass1_table (
 	return (table);
 }
 
-/* This routine builds the fixed sin/cos premultiplier table used in pass 1 by the radix-4 */
-/* delayed multiplier FFT - called by gwsetup.  It is like the traditional radix-4 FFT */
-/* but with the all-complex premultipliers split into two parts to reduce memory. */
-
-double *yr4dwpn_build_fixed_premult_table (
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	double	*table)		/* Pointer to the table to fill in */
-{
-	unsigned long upper_avx_word, pass1_increment, j, N;
-
-/* For all-complex FFTs, build the fixed roots-of-minus-one table. */
-/* Output these roots in the same order they will be used the first two */
-/* levels of pass 1. */
-
-	if (gwdata->ALL_COMPLEX_FFT) {
-		N = gwdata->FFTLEN / 2;
-		upper_avx_word = gwdata->PASS2_SIZE;
-		pass1_increment = gwdata->PASS2_SIZE * 4;
-		for (j = 0; j < N / 4; j += pass1_increment) {
-
-/* Here we compute the roots-of-minus-one premultiplier.  The root-of-minus-one */
-/* premultiplier was for 2N, and a root-of-minus-one-of-2N is the same as a root */
-/* unity for 4N. */					
-
-			gwsincos1plus0123by4 (j, N / 4, N * 4, table);
-			gwsincos1plus0123by4 (j + upper_avx_word, N / 4, N * 4, table + 1);
-			gwsincos1plus0123by4 (j + 2 * upper_avx_word, N / 4, N * 4, table + 2);
-			gwsincos1plus0123by4 (j + 3 * upper_avx_word, N / 4, N * 4, table + 3);
-			table += 32;
-		}
-	}
-
-/* Return address of the end of the table */
-
-	return (table);
-}
-
 /* This routine builds the fixed postmultiplier table used in pass 1 of the */
 /* radix-4/8 delayed DJB FFT - called by gwsetup. */
 
@@ -930,13 +893,22 @@ double *yr4dwpn_build_fixed_pass1_table (
 		}
 	}
 
-/* For all-complex FFTs, also build the fixed roots-of-minus-one table. */
-/* Output these roots in the same order they will be used in the first two */
-/* levels of pass 1. */
+/* For all-complex FFTs, build the fixed roots-of-minus-one table and the */
+/* DJB FFT sin/cos table.  Output these values in the same order they will */
+/* be used in the first two levels of pass 1. */
 
 	else {
 		N = gwdata->FFTLEN / 2;
 		for (j = 0; j < N / 4; j += pass1_increment) {
+			/* Compute the roots-of-minus-one premultiplier.  The root-of-minus-one */
+			/* premultiplier is for 2N, and a root-of-minus-one-of-2N is the same as */
+			/* a root unity for 4N. */					
+			gwsincos1plus0123by4 (j, N / 4, N * 4, table);
+			gwsincos1plus0123by4 (j + upper_avx_word, N / 4, N * 4, table + 1);
+			gwsincos1plus0123by4 (j + 2 * upper_avx_word, N / 4, N * 4, table + 2);
+			gwsincos1plus0123by4 (j + 3 * upper_avx_word, N / 4, N * 4, table + 3);
+			table += 32;
+			/* Output the fixed sin/cos DJB FFT entry */
 			gwsincos12by4 (j, N, table);
 			gwsincos12by4 (j + upper_avx_word, N, table+1);
 			gwsincos12by4 (j + 2 * upper_avx_word, N, table+2);

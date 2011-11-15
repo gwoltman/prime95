@@ -951,8 +951,8 @@ INCLUDE yr4.mac
 
 	avxmac avcase50, 256, 4096, YMM_SCD4, yr4_4cl_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi, rdi
 	avxmac avcase51, 256, 100000, YMM_SCD4, yr4_4cl_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi, rdi
-	avxmac avcase52, 256, 4096, YMM_SCD2, yr4_b4cl_four_complex_first_djbfft_scratch rsi, 4*64, 64, 2*64, rdi, rdi
-	avxmac avcase53, 256, 100000, YMM_SCD2, yr4_b4cl_four_complex_first_djbfft_scratch rsi, 4*64, 64, 2*64, rdi, rdi
+	avxmac avcase52, 256, 4096, YMM_SCD6, yr4_4cl_csc_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi
+	avxmac avcase53, 256, 100000, YMM_SCD6, yr4_4cl_csc_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase54, 256, 4096, YMM_SCD4, yr4_fs4cl_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase55, 256, 100000, YMM_SCD4, yr4_fs4cl_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi
 	avxmacbx avcase56, 256, 4096, YMM_SCD4, yr4_fs4cl_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi
@@ -960,8 +960,8 @@ INCLUDE yr4.mac
 
 	avxmac avcase58, 256, 4096, YMM_SCD4, yr4_4cl_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi, rdi
 	avxmac avcase59, 256, 100000, YMM_SCD4, yr4_4cl_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi, rdi
-	avxmac avcase60, 256, 4096, YMM_SCD2, yr4_b4cl_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi, rdi
-	avxmac avcase61, 256, 100000, YMM_SCD2, yr4_b4cl_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi, rdi
+	avxmac avcase60, 256, 4096, YMM_SCD6, yr4_4cl_csc_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi
+	avxmac avcase61, 256, 100000, YMM_SCD6, yr4_4cl_csc_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase62, 256, 4096, YMM_SCD4, yr4_s4cl_four_complex_last_unfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase63, 256, 100000, YMM_SCD4, yr4_s4cl_four_complex_last_unfft rsi, 4*64, 64, 2*64, rdi
 
