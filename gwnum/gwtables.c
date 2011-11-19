@@ -675,7 +675,7 @@ double *yr4dwpn_build_pass1_table (
 
 			if (N != gwdata->PASS2_SIZE * gwdata->wpn_count * 4) {
 
-/* Output the sin/cos value for the complex sections, used by the yr4_four_complex_djbfft macro */
+/* Output the sin/cos value for the complex sections, used by the yr4_4cl_four_complex_djbfft macro */
 
 				for (j = 0; j < N / 4; j += pass1_increment) {
 				    for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
@@ -686,7 +686,7 @@ double *yr4dwpn_build_pass1_table (
 					gwsincos12by4 (temp + 3 * upper_avx_word, N, table+3);
 					table += 16;
 
-/* For the yr4_eight_reals_fft building block levels, output the extra */
+/* For the yr4_4cl_csc_eight_reals_fft building block levels, output the extra */
 /* sin/cos values needed for the eight_reals.  The eight_reals doubles N because */
 /* the real part of the FFT is one level behind the complex part of the FFT. */
 
@@ -706,7 +706,7 @@ double *yr4dwpn_build_pass1_table (
 
 			else {
 
-/* Output the sin/cos value for the complex sections, used by the yr4_wpn_four_complex_djbfft macro */
+/* Output the sin/cos value for the complex sections, used by the yr4_4cl_wpn_four_complex_djbfft macro */
 /* We apply the two-to-phi weight for the upper AVX words in the group multipliers.  There is a */
 /* reason for doing it there rather than here (it reduces the number of valid fudge factor combinations */
 /* for each AVX word from 16 to 5). */
@@ -717,7 +717,7 @@ double *yr4dwpn_build_pass1_table (
 					gwsincos012by4_weighted (gwdata->dd_data, temp, upper_avx_word, N, temp, table);
 					table += 28;
 
-/* For the yr4_wpn_eight_reals_four_complex_djbfft building block levels, output the extra */
+/* For the yr4_4cl_csc_wpn_eight_reals_four_complex_djbfft building block levels, output the extra */
 /* sin/cos values needed for the eight_reals.  The eight_reals doubles N because */
 /* the real part of the FFT is one level behind the complex part of the FFT. */
 
@@ -737,24 +737,7 @@ double *yr4dwpn_build_pass1_table (
 		while (pass1_size % 5 == 0) {
 			N = N * 5;
 
-/* The yr5_ten_reals building blocks require extra sin/cos */
-/* values.  The ten_reals doubles N because the real part of the */
-/* FFT is one level behind the complex part of the FFT. */
-
-			if (!gwdata->ALL_COMPLEX_FFT) {
-				for (j = 0; j < N / 5; j += pass1_increment) {
-					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
-						temp = (group + j + i);
-						gwsincos13by4 (temp, N*2, table);
-						gwsincos13by4 (temp + upper_avx_word, N*2, table+1);
-						gwsincos13by4 (temp + 2 * upper_avx_word, N*2, table+2);
-						gwsincos13by4 (temp + 3 * upper_avx_word, N*2, table+3);
-						table += 16;
-					}
-				}
-			}
-
-/* Output the sin/cos data for the complex sections, (the yr5_five_complex_djbfft building block). */
+/* Output the sin/cos data for the complex sections, (the yr5_5cl_five_complex_djbfft building block). */
 
 			for (j = 0; j < N / 5; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
@@ -764,34 +747,28 @@ double *yr4dwpn_build_pass1_table (
 					gwsincos12by4 (temp + 2 * upper_avx_word, N, table+2);
 					gwsincos12by4 (temp + 3 * upper_avx_word, N, table+3);
 					table += 16;
+
+/* The yr5_5cl_csc_ten_reals building blocks require extra sin/cos values.  The ten_reals doubles N */
+/* because the real part of the FFT is one level behind the complex part of the FFT. */
+
+					if (!gwdata->ALL_COMPLEX_FFT) {
+						gwsincos13by4 (temp, N*2, table);
+						gwsincos13by4 (temp + upper_avx_word, N*2, table+1);
+						gwsincos13by4 (temp + 2 * upper_avx_word, N*2, table+2);
+						gwsincos13by4 (temp + 3 * upper_avx_word, N*2, table+3);
+						table += 16;
+					}
 				}
 			}
 			pass1_size /= 5;
 		}
 
-/* For the yr3_three_complex_djbfft building block levels, output the sin/cos values. */
+/* For the yr3_3cl_three_complex_djbfft building block levels, output the sin/cos values. */
 
 		while (pass1_size % 3 == 0) {
 			N = N * 3;
 
-/* The yr3_six_reals building blocks require an extra sin/cos */
-/* value.  The six_reals doubles N because the real part of the */
-/* FFT is one level behind the complex part of the FFT. */
-
-			if (!gwdata->ALL_COMPLEX_FFT) {
-				for (j = 0; j < N / 3; j += pass1_increment) {
-					for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
-						temp = (group + j + i);
-						gwsincos1by4 (temp, N*2, table);
-						gwsincos1by4 (temp + upper_avx_word, N*2, table+1);
-						gwsincos1by4 (temp + 2 * upper_avx_word, N*2, table+2);
-						gwsincos1by4 (temp + 3 * upper_avx_word, N*2, table+3);
-						table += 8;
-					}
-				}
-			}
-
-/* Output the sin/cos data for the complex sections (used by the yr3_three_complex_djbfft building block). */
+/* Output the sin/cos data for the complex sections (used by the yr3_3cl_three_complex_djbfft building block). */
 
 			for (j = 0; j < N / 3; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
@@ -801,6 +778,17 @@ double *yr4dwpn_build_pass1_table (
 					gwsincos1by4 (temp + 2 * upper_avx_word, N, table+2);
 					gwsincos1by4 (temp + 3 * upper_avx_word, N, table+3);
 					table += 8;
+
+/* The yr3_3cl_csc_six_reals building blocks require an extra sin/cos value.  The six_reals doubles N */
+/* because the real part of the FFT is one level behind the complex part of the FFT. */
+
+					if (!gwdata->ALL_COMPLEX_FFT) {
+						gwsincos1by4 (temp, N*2, table);
+						gwsincos1by4 (temp + upper_avx_word, N*2, table+1);
+						gwsincos1by4 (temp + 2 * upper_avx_word, N*2, table+2);
+						gwsincos1by4 (temp + 3 * upper_avx_word, N*2, table+3);
+						table += 8;
+					}
 				}
 			}
 			pass1_size /= 3;

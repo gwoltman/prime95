@@ -1241,7 +1241,9 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 			// cache lines that a pass 1 data set occupies).  For large clms, AVX pads 64 bytes every
 			// chunk, and -64 bytes every 8 chunks.
 			pass1_chunks = (gwdata->FFTLEN / gwdata->PASS2_SIZE) >> 3;
-			if (gwdata->PASS1_CACHE_LINES == 4) {		// clm=1
+			if (gwdata->FFTLEN / gwdata->PASS2_SIZE == 384) { // Tiny pass 1 sizes
+				gwdata->SCRATCH_SIZE = pass1_chunks * (gwdata->PASS1_CACHE_LINES * 64 + 64) - 64;
+			} else if (gwdata->PASS1_CACHE_LINES == 4) {	// clm=1
 				gaps = pass1_chunks / 8 - 1;
 				gwdata->SCRATCH_SIZE = pass1_chunks * gwdata->PASS1_CACHE_LINES * 64 + gaps * 64;
 			} else if (gwdata->PASS1_CACHE_LINES < 8) {	// clm=2
@@ -3313,11 +3315,8 @@ int internal_gwsetup (
 			asm_data->pass1blkdst = asm_data->pass2blkdst * 4;
 
 			/* Calculate normblk distances used in normalizing two-pass FFTs */
-			if (gwdata->FFTLEN / gwdata->PASS2_SIZE == 80 ||
-			    gwdata->FFTLEN / gwdata->PASS2_SIZE == 96 ||
-			    gwdata->FFTLEN / gwdata->PASS2_SIZE == 112 ||
-			    gwdata->FFTLEN / gwdata->PASS2_SIZE == 224) {
-				asm_data->normblkdst = 0;		/* Small pass 1's with PFA have no padding every 8 clmblkdsts */
+			if (gwdata->FFTLEN / gwdata->PASS2_SIZE == 384) {
+				asm_data->normblkdst = 64;		/* Small pass 1's with PFA have no padding every 8 clmblkdsts */
 				asm_data->normblkdst8 = 0;
 			} else if (gwdata->PASS1_CACHE_LINES == 4) {	/* If clm=1 */
 				asm_data->normblkdst = 0;		/* Pad for clmblkdst is 64 bytes */

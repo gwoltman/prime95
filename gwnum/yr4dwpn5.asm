@@ -67,12 +67,12 @@ buildfor CORE   ,	yr4dwpn_pass1sc128 1600K, 12800, 4
 ;buildfor        ,	yr4dwpn_pass1sc320 3200K, 10240, 4
 ;buildfor        ,	yr4dwpn_pass1sc320 4000K, 12800, 4
 
-;buildfor        ,	yr4dwpn_pass1sc384 1728K, 4608, 4
-;buildfor        ,	yr4dwpn_pass1sc384 2304K, 6144, 4
-;buildfor        ,	yr4dwpn_pass1sc384 2880K, 7680, 4
-;buildfor        ,	yr4dwpn_pass1sc384 3M, 13, 4
-;buildfor        ,	yr4dwpn_pass1sc384 3840K, 10240, 4
-;buildfor        ,	yr4dwpn_pass1sc384 4800K, 12800, 4
+buildfor CORE   ,	yr4dwpn_pass1sc384 1728K, 4608, 4
+buildfor        ,	yr4dwpn_pass1sc384 2304K, 6144, 4
+buildfor CORE   ,	yr4dwpn_pass1sc384 2880K, 7680, 4
+buildfor        ,	yr4dwpn_pass1sc384 3M, 13, 4
+buildfor        ,	yr4dwpn_pass1sc384 3840K, 10240, 4
+buildfor CORE   ,	yr4dwpn_pass1sc384 4800K, 12800, 4
 
 ;buildfor        ,	yr4dwpn_pass1sc448 2016K, 4608, 4
 ;buildfor        ,	yr4dwpn_pass1sc448 2688K, 6144, 4
@@ -200,12 +200,12 @@ buildfor CORE   ,	yr4dwpn_pass1sc128ac 1600K, 12800, 4
 ;buildfor        ,	yr4dwpn_pass1sc256ac 2560K, 10240, 4
 ;buildfor        ,	yr4dwpn_pass1sc256ac 3200K, 12800, 4
 
-;buildfor CORE_64,	yr4dwpn_pass1sc384ac 1728K, 4608, 4
-;buildfor        ,	yr4dwpn_pass1sc384ac 2304K, 6144, 4
-;buildfor        ,	yr4dwpn_pass1sc384ac 2880K, 7680, 4
-;buildfor        ,	yr4dwpn_pass1sc384ac 3M, 13, 4
-;buildfor        ,	yr4dwpn_pass1sc384ac 3840K, 10240, 4
-;buildfor        ,	yr4dwpn_pass1sc384ac 4800K, 12800, 4
+buildfor CORE   ,	yr4dwpn_pass1sc384ac 1728K, 4608, 4
+buildfor        ,	yr4dwpn_pass1sc384ac 2304K, 6144, 4
+buildfor CORE   ,	yr4dwpn_pass1sc384ac 2880K, 7680, 4
+buildfor        ,	yr4dwpn_pass1sc384ac 3M, 13, 4
+buildfor        ,	yr4dwpn_pass1sc384ac 3840K, 10240, 4
+buildfor CORE   ,	yr4dwpn_pass1sc384ac 4800K, 12800, 4
 
 buildfor CORE   ,	yr4dwpn_pass1sc512ac 2304K, 4608, 4
 ;buildfor        ,	yr4dwpn_pass1sc512ac 2304K, 4608, 2
@@ -311,6 +311,8 @@ buildfor CORE   ,	yr4dwpn_pass1sc128 1152K, 9216, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128 1536K, 12288, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128 1920K, 15360, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128 2M, 14, 4
+buildfor        ,	yr4dwpn_pass1sc128 2M, 14, 2
+buildfor        ,	yr4dwpn_pass1sc128 2M, 14, 1
 buildfor CORE   ,	yr4dwpn_pass1sc128 2560K, 20480, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128 3200K, 25600, 4
 
@@ -328,14 +330,14 @@ buildfor CORE   ,	yr4dwpn_pass1sc128 3200K, 25600, 4
 ;buildfor        ,	yr4dwpn_pass1sc320 6400K, 20480, 4
 ;buildfor        ,	yr4dwpn_pass1sc320 8000K, 25600, 4
 
-;buildfor CORE_64,	yr4dwpn_pass1sc384 3456K, 9216, 4
-;buildfor        ,	yr4dwpn_pass1sc384 3456K, 9216, 2
-;buildfor        ,	yr4dwpn_pass1sc384 3456K, 9216, 1
-;buildfor        ,	yr4dwpn_pass1sc384 4608K, 12288, 4
-;buildfor        ,	yr4dwpn_pass1sc384 5760K, 15360, 4
-;buildfor        ,	yr4dwpn_pass1sc384 6M, 14, 4
-;buildfor        ,	yr4dwpn_pass1sc384 7680K, 20480, 4
-;buildfor        ,	yr4dwpn_pass1sc384 9600K, 25600, 4
+buildfor CORE   ,   	yr4dwpn_pass1sc384 3456K, 9216, 4
+buildfor        ,	yr4dwpn_pass1sc384 4608K, 12288, 4
+buildfor CORE   ,	yr4dwpn_pass1sc384 5760K, 15360, 4
+buildfor        ,	yr4dwpn_pass1sc384 6M, 14, 4
+buildfor        ,	yr4dwpn_pass1sc384 6M, 14, 2
+buildfor        ,	yr4dwpn_pass1sc384 6M, 14, 1
+buildfor        ,	yr4dwpn_pass1sc384 7680K, 20480, 4
+buildfor CORE   ,	yr4dwpn_pass1sc384 9600K, 25600, 4
 
 ;buildfor        ,	yr4dwpn_pass1sc448 4032K, 9216, 4
 ;buildfor        ,	yr4dwpn_pass1sc448 5376K, 12288, 4
@@ -348,6 +350,8 @@ buildfor CORE   ,	yr4dwpn_pass1sc512 4608K, 9216, 4
 buildfor CORE   ,	yr4dwpn_pass1sc512 6M, 12288, 4
 buildfor CORE   ,	yr4dwpn_pass1sc512 7680K, 15360, 4
 buildfor CORE   ,	yr4dwpn_pass1sc512 8M, 14, 4
+buildfor        ,	yr4dwpn_pass1sc512 8M, 14, 2
+buildfor        ,	yr4dwpn_pass1sc512 8M, 14, 1
 buildfor CORE   ,	yr4dwpn_pass1sc512 10M, 20480, 4
 buildfor CORE   ,	yr4dwpn_pass1sc512 12800K, 25600, 4
 
@@ -441,6 +445,8 @@ buildfor CORE   ,	yr4dwpn_pass1sc128ac 1152K, 9216, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128ac 1536K, 12288, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128ac 1920K, 15360, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128ac 2M, 14, 4
+buildfor        ,	yr4dwpn_pass1sc128ac 2M, 14, 2
+buildfor        ,	yr4dwpn_pass1sc128ac 2M, 14, 1
 buildfor CORE   ,	yr4dwpn_pass1sc128ac 2560K, 20480, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128ac 3200K, 25600, 4
 
@@ -451,19 +457,23 @@ buildfor CORE   ,	yr4dwpn_pass1sc128ac 3200K, 25600, 4
 ;buildfor        ,	yr4dwpn_pass1sc256ac 5M, 20480, 4
 ;buildfor        ,	yr4dwpn_pass1sc256ac 6400K, 25600, 4
 
-;buildfor        ,	yr4dwpn_pass1sc384ac 3456K, 9216, 4
+buildfor CORE   ,	yr4dwpn_pass1sc384ac 3456K, 9216, 4
 ;buildfor CORE_64,	yr4dwpn_pass1sc384ac 3456K, 9216, 2
 ;buildfor        ,	yr4dwpn_pass1sc384ac 3456K, 9216, 1
-;buildfor        ,	yr4dwpn_pass1sc384ac 4608K, 12288, 4
-;buildfor        ,	yr4dwpn_pass1sc384ac 5760K, 15360, 4
-;buildfor CORE_64,	yr4dwpn_pass1sc384ac 6M, 14, 4
-;buildfor        ,	yr4dwpn_pass1sc384ac 7680K, 20480, 4
-;buildfor        ,	yr4dwpn_pass1sc384ac 9600K, 25600, 4
+buildfor        ,	yr4dwpn_pass1sc384ac 4608K, 12288, 4
+buildfor CORE   ,	yr4dwpn_pass1sc384ac 5760K, 15360, 4
+buildfor CORE   ,	yr4dwpn_pass1sc384ac 6M, 14, 4
+buildfor CORE   ,	yr4dwpn_pass1sc384ac 6M, 14, 2
+buildfor CORE   ,	yr4dwpn_pass1sc384ac 6M, 14, 1
+buildfor        ,	yr4dwpn_pass1sc384ac 7680K, 20480, 4
+buildfor CORE   ,	yr4dwpn_pass1sc384ac 9600K, 25600, 4
 
 buildfor CORE   ,	yr4dwpn_pass1sc512ac 4608K, 9216, 4
 buildfor CORE   ,	yr4dwpn_pass1sc512ac 6M, 12288, 4
 buildfor CORE   ,	yr4dwpn_pass1sc512ac 7680K, 15360, 4
 buildfor CORE   ,	yr4dwpn_pass1sc512ac 8M, 14, 4
+buildfor        ,	yr4dwpn_pass1sc512ac 8M, 14, 2
+buildfor        ,	yr4dwpn_pass1sc512ac 8M, 14, 1
 buildfor CORE   ,	yr4dwpn_pass1sc512ac 10M, 20480, 4
 buildfor CORE   ,	yr4dwpn_pass1sc512ac 12800K, 25600, 4
 
