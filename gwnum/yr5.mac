@@ -484,7 +484,27 @@ yr5_5cl_ten_reals_fft MACRO srcreg,srcinc,d1,screg
 	d2=2*d1
 	d3=3*d1
 	d4=4*d1
-	yr5_10r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d3],[srcreg+d4],screg,[srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32]
+	yr5_10r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d3],[srcreg+d4],screg,screg+64,screg+128,screg+192,[srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32]
+;;	vmovapd	[srcreg+d1], ymm2		;; Save R2
+;;	vmovapd	[srcreg+d1+32], ymm4		;; Save I2
+	vmovapd	[srcreg+d2], ymm0		;; Save R3
+	vmovapd	[srcreg+d2+32], ymm1		;; Save I3
+	vmovapd	[srcreg+d3], ymm7		;; Save R4
+	vmovapd	[srcreg+d3+32], ymm2		;; Save I4
+	vmovapd	[srcreg+d4], ymm6		;; Save R5
+	vmovapd	[srcreg+d4+32], ymm5		;; Save I5
+	bump	srcreg, srcinc
+	ENDM
+
+; Like the 5cl version but the sin/cos data can be used by a five_complex macro at the same FFT level
+yr5_5cl_csc_ten_reals_fft_preload MACRO
+	yr5_10r_fft_mem_preload
+	ENDM
+yr5_5cl_csc_ten_reals_fft MACRO srcreg,srcinc,d1,screg
+	d2=2*d1
+	d3=3*d1
+	d4=4*d1
+	yr5_10r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d3],[srcreg+d4],screg+128,screg,screg+192,screg+64,[srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32]
 ;;	vmovapd	[srcreg+d1], ymm2		;; Save R2
 ;;	vmovapd	[srcreg+d1+32], ymm4		;; Save I2
 	vmovapd	[srcreg+d2], ymm0		;; Save R3
@@ -504,7 +524,7 @@ yr5_f5cl_ten_reals_fft MACRO srcreg,srcinc,d1,screg
 	d2=2*d1
 	d3=3*d1
 	d4=4*d1
-	yr5_10r_fft_mem [srcreg][rbx],[srcreg+d1][rbx],[srcreg+d2][rbx],[srcreg+d3][rbx],[srcreg+d4][rbx],screg,[srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32]
+	yr5_10r_fft_mem [srcreg][rbx],[srcreg+d1][rbx],[srcreg+d2][rbx],[srcreg+d3][rbx],[srcreg+d4][rbx],screg,screg+64,screg+128,screg+192,[srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32]
 ;;	vmovapd	[srcreg+d1], ymm2		;; Save R2
 ;;	vmovapd	[srcreg+d1+32], ymm4		;; Save I2
 	vmovapd	[srcreg+d2], ymm0		;; Save R3
@@ -575,7 +595,7 @@ yr5_f5cl_ten_reals_fft MACRO srcreg,srcinc,d1,screg
 
 yr5_10r_fft_mem_preload MACRO
 	ENDM
-yr5_10r_fft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg,dst1,dst2,dst3,dst4
+yr5_10r_fft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg1,screg2,screg3,screg4,dst1,dst2,dst3,dst4
 	vmovapd	ymm0, memr3		;; R3
 	vmovapd ymm1, memr4[32]		;; R9
 	vsubpd	ymm7, ymm0, ymm1	;; R3-R9
@@ -650,22 +670,22 @@ yr5_10r_fft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg,dst1,dst2,dst3,dst4
 	vsubpd	ymm2, ymm2, ymm0	;; New R2 = oddR2 - evenR5
 	vaddpd	ymm7, ymm7, ymm6	;; New I2 = evenI2 + oddI2
 
-	vmovapd	ymm0, [screg+192+32]	;; cosine/sine for w^4
+	vmovapd	ymm0, [screg4+32]	;; cosine/sine for w^4
 	vmulpd	ymm6, ymm4, ymm0	;; A5 = R5 * cosine/sine
 	vsubpd	ymm6, ymm6, ymm5	;; A5 = A5 - I5
 	vmulpd	ymm5, ymm5, ymm0	;; B5 = I5 * cosine/sine
 	vaddpd	ymm5, ymm5, ymm4	;; B5 = B5 + R5
 
-	vmovapd	ymm0, [screg+32]	;; cosine/sine for w^1
+	vmovapd	ymm0, [screg1+32]	;; cosine/sine for w^1
 	vmulpd	ymm4, ymm2, ymm0	;; A2 = R2 * cosine/sine
 	vsubpd	ymm4, ymm4, ymm7	;; A2 = A2 - I2
 	vmulpd	ymm7, ymm7, ymm0	;; B2 = I2 * cosine/sine
 	vaddpd	ymm7, ymm7, ymm2	;; B2 = B2 + R2
 
-	vmovapd	ymm2, [screg+192]
+	vmovapd	ymm2, [screg4]
 	vmulpd	ymm6, ymm6, ymm2	;; A5 = A5 * sine (final R5)
 	vmulpd	ymm5, ymm5, ymm2	;; B5 = B5 * sine (final I5)
-	vmovapd	ymm2, [screg]
+	vmovapd	ymm2, [screg1]
 	vmulpd	ymm4, ymm4, ymm2	;; A2 = A2 * sine (final R2)
 	vmulpd	ymm7, ymm7, ymm2	;; B2 = B2 * sine (final I2)
 
@@ -679,22 +699,22 @@ yr5_10r_fft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg,dst1,dst2,dst3,dst4
 	vsubpd	ymm2, ymm1, ymm7	;; New I4 = evenI3 - oddI3
 	vaddpd	ymm1, ymm1, ymm7	;; New I3 = evenI3 + oddI3
 
-	vmovapd	ymm3, [screg+128+32]	;; cosine/sine for w^3
+	vmovapd	ymm3, [screg3+32]	;; cosine/sine for w^3
 	vmulpd	ymm7, ymm0, ymm3	;; A4 = R4 * cosine/sine
 	vsubpd	ymm7, ymm7, ymm2	;; A4 = A4 - I4
 	vmulpd	ymm2, ymm2, ymm3	;; B4 = I4 * cosine/sine
 	vaddpd	ymm2, ymm2, ymm0	;; B4 = B4 + R4
 
-	vmovapd	ymm3, [screg+64+32]	;; cosine/sine for w^2
+	vmovapd	ymm3, [screg2+32]	;; cosine/sine for w^2
 	vmulpd	ymm0, ymm4, ymm3	;; A3 = R3 * cosine/sine
 	vsubpd	ymm0, ymm0, ymm1	;; A3 = A3 - I3
 	vmulpd	ymm1, ymm1, ymm3	;; B3 = I3 * cosine/sine
 	vaddpd	ymm1, ymm1, ymm4	;; B3 = B3 + R3
 
-	vmovapd	ymm4, [screg+128]
+	vmovapd	ymm4, [screg3]
 	vmulpd	ymm7, ymm7, ymm4	;; A4 = A4 * sine (final R4)
 	vmulpd	ymm2, ymm2, ymm4	;; B4 = B4 * sine (final I4)
-	vmovapd	ymm4, [screg+64]
+	vmovapd	ymm4, [screg2]
 	vmulpd	ymm0, ymm0, ymm4	;; A3 = A3 * sine (final R3)
 	vmulpd	ymm1, ymm1, ymm4	;; B3 = B3 * sine (final I3)
 	ENDM
@@ -711,7 +731,29 @@ yr5_5cl_ten_reals_unfft MACRO srcreg,srcinc,d1,screg
 	d2 = 2*d1
 	d3 = 3*d1
 	d4 = 4*d1
-	yr5_10r_unfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d3],[srcreg+d4],screg,[srcreg],[srcreg+d2],[srcreg+d4],[srcreg+32]
+	yr5_10r_unfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d3],[srcreg+d4],screg,screg+64,screg+128,screg+192,[srcreg],[srcreg+d2],[srcreg+d4],[srcreg+32]
+;	vmovapd	[srcreg], ymm4		;; Save R1
+	vmovapd	[srcreg+d1], ymm1	;; Save R2
+;	vmovapd	[srcreg+d2], ymm3	;; Save R3
+	vmovapd	[srcreg+d3], ymm0	;; Save R4
+;	vmovapd	[srcreg+d4], ymm0	;; Save R5
+;	vmovapd	[srcreg+32], ymm2	;; Save I1
+	vmovapd	[srcreg+d1+32], ymm2	;; Save I2
+	vmovapd	[srcreg+d2+32], ymm6	;; Save I3
+	vmovapd	[srcreg+d3+32], ymm4	;; Save I4
+	vmovapd	[srcreg+d4+32], ymm3	;; Save I5
+	bump	srcreg, srcinc
+	ENDM
+
+;; Like 5cl except that five_complex macros at the same FFT level can use the sin/cos data
+yr5_5cl_csc_ten_reals_unfft_preload MACRO
+	yr5_10r_unfft_mem_preload
+	ENDM
+yr5_5cl_csc_ten_reals_unfft MACRO srcreg,srcinc,d1,screg
+	d2 = 2*d1
+	d3 = 3*d1
+	d4 = 4*d1
+	yr5_10r_unfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d3],[srcreg+d4],screg+128,screg,screg+192,screg+64,[srcreg],[srcreg+d2],[srcreg+d4],[srcreg+32]
 ;	vmovapd	[srcreg], ymm4		;; Save R1
 	vmovapd	[srcreg+d1], ymm1	;; Save R2
 ;	vmovapd	[srcreg+d2], ymm3	;; Save R3
@@ -799,12 +841,12 @@ yr5_5cl_ten_reals_unfft MACRO srcreg,srcinc,d1,screg
 
 yr5_10r_unfft_mem_preload MACRO
 	ENDM
-yr5_10r_unfft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg,dstr1,dstr3,dstr5,dsti1
+yr5_10r_unfft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg1,screg2,screg3,screg4,dstr1,dstr3,dstr5,dsti1
 	vmovapd	ymm2, memr2		;; R2
-	vmovapd	ymm4, [screg+32]	;; cosine/sine
+	vmovapd	ymm4, [screg1+32]	;; cosine/sine
 	vmulpd	ymm1, ymm2, ymm4	;; A2 = R2 * cosine/sine
 	vmovapd	ymm5, memr5		;; R5
-	vmovapd	ymm6, [screg+192+32]	;; cosine/sine
+	vmovapd	ymm6, [screg4+32]	;; cosine/sine
 	vmulpd	ymm0, ymm5, ymm6	;; A5 = R5 * cosine/sine
 	vmovapd	ymm3, memr2[32]		;; I2
 	vaddpd	ymm1, ymm1, ymm3	;; A2 = A2 + I2
@@ -814,9 +856,9 @@ yr5_10r_unfft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg,dstr1,dstr3,dstr5,ds
 	vmulpd	ymm7, ymm7, ymm6	;; B5 = I5 * cosine/sine
 	vsubpd	ymm3, ymm3, ymm2	;; B2 = B2 - R2
 	vsubpd	ymm7, ymm7, ymm5	;; B5 = B5 - R5
-	vmovapd	ymm4, [screg]		;; sine
+	vmovapd	ymm4, [screg1]		;; sine
 	vmulpd	ymm1, ymm1, ymm4	;; A2 = A2 * sine (new R2)
-	vmovapd	ymm6, [screg+192]	;; sine
+	vmovapd	ymm6, [screg4]		;; sine
 	vmulpd	ymm0, ymm0, ymm6	;; A5 = A5 * sine (new R5)
 	vmulpd	ymm3, ymm3, ymm4	;; B2 = B2 * sine (new I2)
 	vmulpd	ymm7, ymm7, ymm6	;; B5 = B5 * sine (new I5)
@@ -830,10 +872,10 @@ yr5_10r_unfft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg,dstr1,dstr3,dstr5,ds
 	vmovapd	YMM_TMP4, ymm1		;; Temp save I2+I5
 
 	vmovapd	ymm2, memr4		;; R4
-	vmovapd	ymm4, [screg+128+32]	;; cosine/sine
+	vmovapd	ymm4, [screg3+32]	;; cosine/sine
 	vmulpd	ymm1, ymm2, ymm4	;; A4 = R4 * cosine/sine
 	vmovapd	ymm5, memr3		;; R3
-	vmovapd	ymm6, [screg+64+32]	;; cosine/sine
+	vmovapd	ymm6, [screg2+32]	;; cosine/sine
 	vmulpd	ymm0, ymm5, ymm6	;; A3 = R3 * cosine/sine
 	vmovapd	ymm3, memr4[32]		;; I4
 	vaddpd	ymm1, ymm1, ymm3	;; A4 = A4 + I4
@@ -843,9 +885,9 @@ yr5_10r_unfft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg,dstr1,dstr3,dstr5,ds
 	vmulpd	ymm7, ymm7, ymm6	;; B3 = I3 * cosine/sine
 	vsubpd	ymm3, ymm3, ymm2	;; B4 = B4 - R4
 	vsubpd	ymm7, ymm7, ymm5	;; B3 = B3 - R3
-	vmovapd	ymm4, [screg+128]	;; sine
+	vmovapd	ymm4, [screg3]		;; sine
 	vmulpd	ymm1, ymm1, ymm4	;; A4 = A4 * sine (new R4)
-	vmovapd	ymm6, [screg+64]	;; sine
+	vmovapd	ymm6, [screg2]		;; sine
 	vmulpd	ymm0, ymm0, ymm6	;; A3 = A3 * sine (new R3)
 	vmulpd	ymm3, ymm3, ymm4	;; B4 = B4 * sine (new I4)
 	vmulpd	ymm7, ymm7, ymm6	;; B3 = B3 * sine (new I3)
