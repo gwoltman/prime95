@@ -1935,13 +1935,14 @@ loops_undo MACRO iters
 	  loops_pffreq = loops_pffreq / 2
 	ENDIF
 
-	;; Undo the changes to the loop counter
+	;; Change the loop counter
 	IF (iters AND (iters-1)) EQ 0
 	  loops_completed = loops_completed / (iters)
+
 	  IF loops_count LE 128
-	    sub	al, (iters) * loops_completed
+	    sub al, (iters) * loops_completed
 	  ELSE
-	    sub	eax, (iters) * loops_completed
+	    sub eax, (iters) * loops_completed
 	  ENDIF
 	ELSE
 	  next_power_2 = iters OR (iters SHR 1)
@@ -1971,15 +1972,21 @@ loops_undo MACRO iters
 	;; Set funky xprefetch variable
 	loops_undo_called = 1
 
-	;; If we've undone everyhting, set loops_completed to zero so that prefetching
+	;; If we've undone everything, set loops_completed to zero so that prefetching
 	;; can be output before the next loops test.
 	IF loops_completed EQ 1
 	  loops_completed = 0
 	ENDIF
 	ENDM
 
-;; Kinda like loops_undo except that the loop counter is not adjusted
-loops_reset MACRO
+;; Kinda like loops_undo except that the loop counter is not adjusted (or set to a specific amount)
+loops_reset MACRO new_loop_count
+	;; Optionally reset counter to a specific value
+	IFNB <new_loop_count>
+		add	eax, new_loop_count
+		EXITM
+	ENDIF
+
 	;; Handle nasty case where a "loops 1" preceeds the loops_reset.  We must treat this as
 	;; a initial_increment after the loops_reset.  For example, in this code
 	;; a:  some code

@@ -4117,12 +4117,17 @@ base2	vaddsd	carry2, carry2, YMM_BIGVAL	;; Restore BIGVAL
 	sub	rdx, rdx			;; Init loop counter
 
 cloop:
-ttp	movzx	rbx, WORD PTR [rdi]		;; Load big vs. little flags
+ttp	movzx	rbx, WORD PTR [rdi]		;; Load big vs. little & fudge flags
 ttp	movzx	eax, bh				;; Big/lit flags 1-2
+ttp	and	rbx, 01ch			;; Fudge flags 2
 
 	vaddsd	xmm0, carry2, Q [rsi]		;; x1 = values1 + carry2
-	vaddsd	xmm1, carry1, Q [rsi+32]	;; x2 = values2 + carry1
+no ttp	vaddsd	xmm1, carry1, Q [rsi+32]	;; x2 = values2 + carry1
+ttp	vmovsd	xmm1, Q [rsi+32]		;; values2
+ttp	vmulsd	xmm1, xmm1, Q [rbp+1*YMM_GMD][rbx*8] ;; values2 *= fudged grp two-to-minus-phi
+ttp	vaddsd	xmm1, carry1, xmm1		;; x2 = values2 + carry1
 	new_single_rounding_interleaved ttp, base2, xmm0, carry2, xmm4, rax*8, xmm1, carry1, xmm5, rax*8+32
+ttp	vmulsd	xmm1, xmm1, Q [rbp+1*YMM_GMD+YMM_GMD/2][rbx*8] ;; value2 *= fudged grp two-to-phi
 	vmovsd	Q [rsi], xmm0			;; Save new value1
 	vmovsd	Q [rsi+32], xmm1		;; Save new value2
 

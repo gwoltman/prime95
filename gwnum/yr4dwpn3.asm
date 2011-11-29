@@ -53,14 +53,14 @@ buildfor CORE   ,	yr4dwpn_pass1sc128 512K, 12, 1
 buildfor CORE   ,	yr4dwpn_pass1sc128 640K, 5120, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128 800K, 6400, 4
 
-;buildfor CORE_64,	yr4dwpn_pass1sc256 576K, 2304, 4
-;buildfor CORE_64,	yr4dwpn_pass1sc256 768K, 3072, 4
-;buildfor CORE_64,	yr4dwpn_pass1sc256 960K, 3840, 4
-;buildfor CORE   ,	yr4dwpn_pass1sc256 1M, 12, 4
-;buildfor CORE   ,	yr4dwpn_pass1sc256 1M, 12, 2
-;buildfor        ,	yr4dwpn_pass1sc256 1M, 12, 1
-;buildfor        ,	yr4dwpn_pass1sc256 1280K, 5120, 4
-;buildfor        ,	yr4dwpn_pass1sc256 1600K, 6400, 4
+buildfor        ,	yr4dwpn_pass1sc256 576K, 2304, 4
+buildfor        ,	yr4dwpn_pass1sc256 768K, 3072, 4
+buildfor        ,	yr4dwpn_pass1sc256 960K, 3840, 4
+buildfor CORE   ,	yr4dwpn_pass1sc256 1M, 12, 4
+buildfor CORE   ,	yr4dwpn_pass1sc256 1M, 12, 2
+buildfor        ,	yr4dwpn_pass1sc256 1M, 12, 1
+buildfor        ,	yr4dwpn_pass1sc256 1280K, 5120, 4
+buildfor        ,	yr4dwpn_pass1sc256 1600K, 6400, 4
 
 ;buildfor CORE_64,	yr4dwpn_pass1sc320 720K, 2304, 4
 ;buildfor        ,	yr4dwpn_pass1sc320 960K, 3072, 4
@@ -215,14 +215,14 @@ buildfor        ,	yr4dwpn_pass1sc128ac 512K, 12, 1
 buildfor CORE   ,	yr4dwpn_pass1sc128ac 640K, 5120, 4
 buildfor CORE   ,	yr4dwpn_pass1sc128ac 800K, 6400, 4
 
-;buildfor CORE   ,	yr4dwpn_pass1sc256ac 576K, 2304, 4
-;buildfor CORE_64,	yr4dwpn_pass1sc256ac 768K, 3072, 4
-;buildfor CORE   ,	yr4dwpn_pass1sc256ac 960K, 3840, 4
-;buildfor CORE   ,	yr4dwpn_pass1sc256ac 1M, 12, 4
-;buildfor CORE   ,	yr4dwpn_pass1sc256ac 1M, 12, 2
-;buildfor        ,	yr4dwpn_pass1sc256ac 1M, 12, 1
-;buildfor CORE   ,	yr4dwpn_pass1sc256ac 1280K, 5120, 4
-;buildfor CORE   ,	yr4dwpn_pass1sc256ac 1600K, 6400, 4
+buildfor        ,	yr4dwpn_pass1sc256ac 576K, 2304, 4
+buildfor        ,	yr4dwpn_pass1sc256ac 768K, 3072, 4
+buildfor        ,	yr4dwpn_pass1sc256ac 960K, 3840, 4
+buildfor        ,	yr4dwpn_pass1sc256ac 1M, 12, 4
+buildfor        ,	yr4dwpn_pass1sc256ac 1M, 12, 2
+buildfor        ,	yr4dwpn_pass1sc256ac 1M, 12, 1
+buildfor        ,	yr4dwpn_pass1sc256ac 1280K, 5120, 4
+buildfor        ,	yr4dwpn_pass1sc256ac 1600K, 6400, 4
 
 buildfor CORE   ,	yr4dwpn_pass1sc384ac 864K, 2304, 4
 buildfor CORE   ,	yr4dwpn_pass1sc384ac 1152K, 3072, 4

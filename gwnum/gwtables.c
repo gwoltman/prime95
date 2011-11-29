@@ -468,21 +468,17 @@ double *yr4dwpn_build_pass1_table (
 		if (pow2_count & 1) {
 			N = N * 8;
 
-/* For the r4_g8cl_sixteen_reals_eight_complex_djbfft building block, output the extra */
-/* sin/cos values needed for the sixteen_reals.  The sixteen_reals is done in three parts: */
-/* 4 four_reals_fft, 1 eight_reals_fft, and 1 four-complex_fft.  The four_reals_fft needs */
-/* four sin/cos twiddles using 2*N, the eight_reals_fft and four_complex_fft can use the same */
-/* sin/cos twiddles that will be generated later for the r4r8_g8cl_eight_complex_fft8 macro. */
+/* For the yr8_sg8cl_sixteen_reals_fft8 building block, output the extra */
+/* sin/cos values needed for the sixteen_reals. */
 
 			if (!gwdata->ALL_COMPLEX_FFT) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i += 4) {
-//BUG - this will likely change when we code the 16 reals case
 					// Asm code swizzled the input so that upper_avx_word is 1
 					temp = group + i;
-					gwsincos1plus0123by4 (temp, pass1_increment, N*2, table);
-					gwsincos1plus0123by4 (temp + 1, pass1_increment, N*2, table+1);
-					gwsincos1plus0123by4 (temp + 2, pass1_increment, N*2, table+2);
-					gwsincos1plus0123by4 (temp + 3, pass1_increment, N*2, table+3);
+					gwsincos15913by4 (temp, N*2, table);
+					gwsincos15913by4 (temp + 1, N*2, table+1);
+					gwsincos15913by4 (temp + 2, N*2, table+2);
+					gwsincos15913by4 (temp + 3, N*2, table+3);
 					table += 32;
 				}
 			}

@@ -1818,7 +1818,7 @@ yr4_4c_simple_unfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,dst1
 yr4_sg4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 
 	;; On input the 64-byte cache lines hold these data values:
-	;;	0	+1K	+1K	+1K	4	+1K	+1K	+1K
+	;;	0	+1K	+1K	+1K	4K	+1K	+1K	+1K
 	;;	1	...
 	;;	2	...
 	;;	3	...
@@ -1924,7 +1924,7 @@ yr4_sg4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg
 	vmulpd	ymm0, ymm0, ymm2		;; B3 = B3 * sine (final I3)
 	vmovapd	ymm2, [screg+128]
 	vmulpd	ymm6, ymm6, ymm2		;; A2 = A2 * sine (final R2)
-	vmulpd	ymm4, ymm4, ymm2
+	vmulpd	ymm4, ymm4, ymm2		;; B2 = B2 * sine (final I2)
 
 	vmovapd	[dstreg+e2], ymm5		;; Save R3
 	vmovapd	[dstreg+e2+32], ymm0		;; Save I3

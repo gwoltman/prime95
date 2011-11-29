@@ -349,22 +349,28 @@ void pass1_aux_entry_point (void*);
 void pass2_aux_entry_point (void*);
 
 /* Routine to split a r4dwpn FFT word into column and group multiplier indexes */
-/* We return the column index which is (word % (wpn_count * pass2_size)) -- also */
-/* we remove bit(s) associated with the upper SSE2/AVX words because those are */
+/* We remove bit(s) associated with the upper SSE2/AVX words because those are */
 /* handled by the group multipliers. */
 
 unsigned long dwpn_col (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	unsigned long word)
 {
+	unsigned long high, low;
+
 	if (gwdata->cpu_flags & CPU_AVX) {
-		word &= ~(gwdata->PASS2_SIZE * 3);	/* Remove two upper_avx_word bits */
-		word %= (gwdata->wpn_count * gwdata->PASS2_SIZE); /* Get column index */
+		low = word % gwdata->PASS2_SIZE;
+		high = (((word / gwdata->PASS2_SIZE) & ~3) % gwdata->wpn_count) * gwdata->PASS2_SIZE;
 	} else {
-		word &= ~(gwdata->PASS2_SIZE >> 1);	/* Remove one upper_sse2_word bit */
-		word %= (gwdata->wpn_count * gwdata->PASS2_SIZE); /* Get column index */
+		unsigned long upper_sse2_word = gwdata->PASS2_SIZE >> 1;
+		high = word / upper_sse2_word;
+		low = word - high * upper_sse2_word;
+
+		high = high >> 1;
+		high = high % gwdata->wpn_count;
+		high = high * gwdata->PASS2_SIZE;
 	}
-	return (word);
+	return (high + low);
 }
 
 /* Return true if half of the words would have the same pattern of big */

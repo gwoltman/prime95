@@ -30,7 +30,7 @@ ELSE
 X87_CASES	EQU	13
 ENDIF
 SSE2_CASES	EQU	216
-AVX_CASES	EQU	132
+AVX_CASES	EQU	140
 
 loopent	MACRO	y,z		; Create a entry in the loop entry table
 	DP	&y&z
@@ -1036,14 +1036,24 @@ INCLUDE yr4.mac
 	avxmac avcase122, 320, 4096, YMM_SCD4, yr5_5cl_ten_reals_five_complex_djbunfft rsi, 5*64, 64, rdi
 	avxmac avcase123, 320, 100000, YMM_SCD4, yr5_5cl_ten_reals_five_complex_djbunfft rsi, 5*64, 64, rdi
 
-	avxmac avcase124, 512, 4096, 0, yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
-	avxmac avcase125, 512, 100000, 0, yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
-	avxmac avcase126, 512, 4096, 0, yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
-	avxmac avcase127, 512, 100000, 0, yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
-	avxmacbx avcase128, 512, 4096, 0, yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
-	avxmacbx avcase129, 512, 100000, 0, yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
-	avxmacbx avcase130, 512, 4096, 0, yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
-	avxmacbx avcase131, 512, 100000, 0, yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+	avxmac avcase124, 512, 4096, YMM_SCD8, yr8_sg8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
+	avxmac avcase125, 512, 100000, YMM_SCD8, yr8_sg8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
+	avxmac avcase126, 512, 4096, YMM_SCD8, yr8_sg8cl_eight_complex_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
+	avxmac avcase127, 512, 100000, YMM_SCD8, yr8_sg8cl_eight_complex_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
+
+	avxmac avcase128, 512, 4096, 0, yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+	avxmac avcase129, 512, 100000, 0, yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+	avxmac avcase130, 512, 4096, 0, yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+	avxmac avcase131, 512, 100000, 0, yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+	avxmacbx avcase132, 512, 4096, 0, yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+	avxmacbx avcase133, 512, 100000, 0, yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+	avxmacbx avcase134, 512, 4096, 0, yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+	avxmacbx avcase135, 512, 100000, 0, yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+
+	avxmac avcase136, 512, 4096, YMM_SCD8, yr8_sg8cl_2sc_sixteen_reals_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, rdi
+	avxmac avcase137, 512, 100000, YMM_SCD8, yr8_sg8cl_2sc_sixteen_reals_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, rdi
+	avxmac avcase138, 512, 4096, YMM_SCD8, yr8_sg8cl_2sc_sixteen_reals_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, rdi
+	avxmac avcase139, 512, 100000, YMM_SCD8, yr8_sg8cl_2sc_sixteen_reals_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, rdi
 
 ; Exit the timing code
 
