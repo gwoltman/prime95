@@ -7404,7 +7404,7 @@ int primeBench (
 				 lldata.gwdata.FFT_TYPE, lldata.gwdata.ARCH,
 				 fftlen / (lldata.gwdata.PASS2_SIZE ? lldata.gwdata.PASS2_SIZE : 1),
 				 lldata.gwdata.PASS2_SIZE,
-				 lldata.gwdata.PASS1_CACHE_LINES / 2);
+				 lldata.gwdata.PASS1_CACHE_LINES / ((CPU_FLAGS & CPU_AVX) ? 4 : 2));
 			timers[0] = best_time;
 			print_timer (timers, 0, buf, TIMER_MS);
 			timers[0] = total_time / iterations;
