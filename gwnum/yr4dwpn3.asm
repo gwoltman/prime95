@@ -123,14 +123,14 @@ buildfor CORE   ,	yr4dwpn_pass1sc640 4000K, 6400, 4
 ;buildfor CORE   ,	yr4dwpn_pass1sc896 4480K, 5120, 4
 ;buildfor CORE   ,	yr4dwpn_pass1sc896 5600K, 6400, 4
 
-;buildfor CORE_32,	yr4dwpn_pass1sc1024 2304K, 2304, 4
-;buildfor CORE_64,	yr4dwpn_pass1sc1024 3M, 3072, 4
-;buildfor CORE   ,	yr4dwpn_pass1sc1024 3840K, 3840, 4
-;buildfor CORE   ,	yr4dwpn_pass1sc1024 4M, 12, 4
-;buildfor        ,	yr4dwpn_pass1sc1024 4M, 12, 2
-;buildfor CORE_32,	yr4dwpn_pass1sc1024 4M, 12, 1
-;buildfor CORE   ,	yr4dwpn_pass1sc1024 5M, 5120, 4
-;buildfor CORE   ,	yr4dwpn_pass1sc1024 6400K, 6400, 4
+buildfor        ,	yr4dwpn_pass1sc1024 2304K, 2304, 4
+buildfor CORE_64,	yr4dwpn_pass1sc1024 3M, 3072, 4
+buildfor CORE   ,	yr4dwpn_pass1sc1024 3840K, 3840, 4
+buildfor CORE   ,	yr4dwpn_pass1sc1024 4M, 12, 4
+buildfor        ,	yr4dwpn_pass1sc1024 4M, 12, 2
+buildfor CORE_32,	yr4dwpn_pass1sc1024 4M, 12, 1
+buildfor CORE   ,	yr4dwpn_pass1sc1024 5M, 5120, 4
+buildfor CORE   ,	yr4dwpn_pass1sc1024 6400K, 6400, 4
 
 ;buildfor CORE_32,	yr4dwpn_pass1sc1280 2880K, 2304, 4
 ;buildfor        ,	yr4dwpn_pass1sc1280 3840K, 3072, 4
@@ -260,14 +260,14 @@ buildfor CORE   ,	yr4dwpn_pass1sc640ac 4000K, 6400, 4
 ;buildfor CORE   ,	yr4dwpn_pass1sc768ac 3840K, 5120, 4
 ;buildfor CORE   ,	yr4dwpn_pass1sc768ac 4800K, 6400, 4
 
-;buildfor CORE_32,	yr4dwpn_pass1sc1024ac 2304K, 2304, 4
-;buildfor        ,	yr4dwpn_pass1sc1024ac 3M, 3072, 4
-;buildfor CORE_32,	yr4dwpn_pass1sc1024ac 3840K, 3840, 4
-;buildfor CORE   ,	yr4dwpn_pass1sc1024ac 4M, 12, 4
-;buildfor CORE_64,	yr4dwpn_pass1sc1024ac 4M, 12, 2
-;buildfor CORE_32,	yr4dwpn_pass1sc1024ac 4M, 12, 1
-;buildfor CORE   ,	yr4dwpn_pass1sc1024ac 5M, 5120, 4
-;buildfor CORE   ,	yr4dwpn_pass1sc1024ac 6400K, 6400, 4
+buildfor CORE_32,	yr4dwpn_pass1sc1024ac 2304K, 2304, 4
+buildfor        ,	yr4dwpn_pass1sc1024ac 3M, 3072, 4
+buildfor CORE_32,	yr4dwpn_pass1sc1024ac 3840K, 3840, 4
+buildfor CORE   ,	yr4dwpn_pass1sc1024ac 4M, 12, 4
+buildfor CORE_64,	yr4dwpn_pass1sc1024ac 4M, 12, 2
+buildfor CORE_32,	yr4dwpn_pass1sc1024ac 4M, 12, 1
+buildfor CORE   ,	yr4dwpn_pass1sc1024ac 5M, 5120, 4
+buildfor CORE   ,	yr4dwpn_pass1sc1024ac 6400K, 6400, 4
 
 ;buildfor        ,	yr4dwpn_pass1sc1280ac 2880K, 2304, 4
 ;buildfor        ,	yr4dwpn_pass1sc1280ac 3840K, 3072, 4
