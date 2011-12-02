@@ -858,6 +858,12 @@ int readIniFiles (void)
 	ROLLING_AVERAGE = (unsigned int) IniGetInt (LOCALINI_FILE, "RollingAverage", 1000);
 	if (ROLLING_AVERAGE < 10) ROLLING_AVERAGE = 10;
 	if (ROLLING_AVERAGE > 4000) ROLLING_AVERAGE = 4000;
+	/* Rolling average needs to be reset when AVX capable machines upgrade from v26 to v27. */
+	if (CPU_FLAGS & CPU_AVX && ! IniGetInt (LOCALINI_FILE, "RollingAverageIsFromV27", 0)) {
+		ROLLING_AVERAGE = 1000;
+		IniWriteInt (LOCALINI_FILE, "RollingAverage", 1000);
+		IniWriteInt (LOCALINI_FILE, "RollingAverageIsFromV27", 1);
+	}
 
 	PRECISION = (unsigned int) IniGetInt (INI_FILE, "PercentPrecision", 2);
 	if (PRECISION > 6) PRECISION = 6;
