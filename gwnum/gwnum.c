@@ -6012,7 +6012,7 @@ unsigned long gwmap_to_estimated_size (
 
 /* Speed of other AVX processors compared to a Sandy Bridge */
 
-#define REL_BULLDOZER_SPEED	1.1	/* Bulldozer is slightly slower than a Sandy Bridge */
+#define REL_BULLDOZER_SPEED	1.4	/* Bulldozer is slower than a Sandy Bridge */
 
 /* Make a guess as to how long a squaring will take.  If the number cannot */
 /* be handled, then kludgily return 100.0. */
@@ -6046,7 +6046,7 @@ double gwmap_to_timing (
 /* AMD64s and Pentium Ms are slower than P4s. */
 
 	if (gwdata.cpu_flags & CPU_AVX) {
-		timing = 0.10 * timing + 0.90 * timing * 4000.0 / CPU_SPEED;
+		timing = 0.10 * timing + 0.90 * timing * 4100.0 / CPU_SPEED;
 		if (strstr (CPU_BRAND, "AMD")) timing *= REL_BULLDOZER_SPEED;
 	} else if (gwdata.cpu_flags & CPU_SSE2) {
 		timing = 0.10 * timing + 0.90 * timing * 1400.0 / CPU_SPEED;
