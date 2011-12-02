@@ -1661,7 +1661,6 @@ loops_init_common MACRO count, first_completed, first_iters
 	loops_np2_initial_value_adjust = 0
 	loops_np2_first_initial_value_adjust = 0
 	loops_np2_loops_completed = 0
-	loops_counter_needs_repair = 0
 
 	;; Compute the initial value
 
@@ -1738,12 +1737,6 @@ loops	MACRO iters, dest, incr
 	ELSE
 	  local_incr = incr
 	ENDIF
-	IF local_incr NE 1 AND loops_completed GT 1
-	  loops_non_standard_incr_only_supported_on_first_loops_call
-	ENDIF
-	IF local_iters EQ 1 AND local_incr GT 1
-	  loops_non_standard_incr_only_supported_with_iters_more_than_one
-	ENDIF
 
 	;; Do some work required only on the first loops call
 	IF loops_completed EQ 0
@@ -1759,11 +1752,30 @@ loops	MACRO iters, dest, incr
 	  IF (loops_pffreq NE 0) AND (loops_pffreq LE local_incr)
 	    output_prefetch_instructions
 	  ENDIF
+	  ;; Set the loop counter needs incrementing flag
+	  loops_incr_needed = 1
+	  ;; Set loops_completed which is also used to indicate first loops call
 	  loops_completed = 1
+	  ;; If local_iters is one, increment the loop counter.
+	  IF local_iters EQ 1
+	    IF loops_count LT 256
+	      add al, local_incr
+	    ELSE
+	      add eax, local_incr
+	    ENDIF
+	    loops_incr_needed = 0
+	    loops_completed = local_incr
+	    EXITM
+	  ENDIF
 	ENDIF
 
-	;; Ignore loops calls where the iteration count is one.  This avoids potentially outputting
-	;; the prefetch instructions twice
+	;; Verify the increment, only first call can be non-standard
+	IF local_incr NE 1 AND loops_incr_needed EQ 0
+	  loops_non_standard_incr_only_supported_on_first_loops_call
+	ENDIF
+
+	;; Ignore loops calls where the iteration count is one.  This avoids potentially
+	;; outputting the prefetch instructions twice
 	IF local_iters EQ 1
 	  EXITM
 	ENDIF
@@ -1784,6 +1796,7 @@ loops	MACRO iters, dest, incr
 	  loops small_count, dest, local_incr
 	  ;; Fall through to do remaining part of the loop
 	  local_iters = large_count
+	  local_incr = 1
 	ENDIF
 
 	;; If necessary, split loop for jumping to touch label
@@ -1802,6 +1815,7 @@ loops	MACRO iters, dest, incr
 	  loops small_count, dest, local_incr
 	  ;; Fall through to do remaining part of the loop
 	  local_iters = large_count
+	  local_incr = 1
 	ENDIF
 
 	;; Jump to passed in dest or to touch label
@@ -1833,12 +1847,12 @@ loops_common MACRO iters, dest, incr
 	IF local_cmn_iters GT 1
 	  non_power_2_adjustment = 0
 	  IF loops_np2_first_initial_value_adjust NE 0 AND loops_np2_loops_completed EQ loops_completed
-		add	eax, loops_np2_first_initial_value_adjust - loops_np2_initial_value_adjust ;; restore first non-power-of-2 initial value
+	    add eax, loops_np2_first_initial_value_adjust - loops_np2_initial_value_adjust ;; restore first non-power-of-2 initial value
 	  ENDIF
 	  IF loops_completed NE 1
 	    incr = 1
 	  ENDIF
-	  IF loops_completed EQ 1 AND (local_cmn_iters AND (local_cmn_iters-1)) EQ 0 AND (incr AND (incr-1)) EQ 0
+	  IF loops_incr_needed EQ 1 AND (local_cmn_iters AND (local_cmn_iters-1)) EQ 0 AND (incr AND (incr-1)) EQ 0
 	    IF (loops_count LE 256 AND local_cmn_iters * incr EQ loops_count)
 	      add al, 256/(local_cmn_iters)
 	    ELSEIF (loops_count LE 128 AND (local_cmn_iters) * loops_count * (incr) LE 256)
@@ -1846,33 +1860,19 @@ loops_common MACRO iters, dest, incr
 	    ELSE
 	      add eax, 80000000h/(local_cmn_iters)*2+(incr)
 	    ENDIF
-	    IF loops_counter_needs_repair EQ 1
-	      IF (loops_count LE 256 AND local_cmn_iters * incr EQ loops_count)
-	        loops_initial_value = 256/(local_cmn_iters)
-	      ELSEIF (loops_count LE 128 AND (local_cmn_iters) * loops_count * (incr) LE 256)
-	        loops_initial_value = 80h/(local_cmn_iters)*2+(incr)
-	      ELSE
-	        loops_initial_value = 80000000h/(local_cmn_iters)*2+(incr)
-	      ENDIF
-	      overwrite_initial_loop_count loops_initial_value
-	      loops_counter_needs_repair = 0
-	    ENDIF
-	    jnc	dest
+	    loops_incr_needed = 0
 	    loops_completed = incr
+	    jnc	dest
 	  ELSE
 	    ;; Handle non-power-of-2 iteration counts
 	    IF (local_cmn_iters AND (local_cmn_iters-1)) NE 0 OR (incr AND (incr-1)) NE 0
-	      IF loops_completed EQ 1
+	      IF loops_incr_needed EQ 1
 	        IF loops_count LT 256
 		  add al, incr
 		ELSE
 		  add eax, incr
 		ENDIF
-		IF loops_counter_needs_repair EQ 1
-		  loops_initial_value = incr
-		  overwrite_initial_loop_count loops_initial_value
-		  loops_counter_needs_repair = 0
-		ENDIF
+		loops_incr_needed = 0
 	        loops_completed = incr
 	      ENDIF
 	      IF (loops_count AND (loops_count-1)) NE 0
@@ -1985,20 +1985,6 @@ loops_reset MACRO new_loop_count
 	IFNB <new_loop_count>
 		add	eax, new_loop_count
 		EXITM
-	ENDIF
-
-	;; Handle nasty case where a "loops 1" preceeds the loops_reset.  We must treat this as
-	;; a initial_increment after the loops_reset.  For example, in this code
-	;; a:  some code
-	;;     loops clm, a
-	;;     loops_reset
-	;; b:  some other code
-	;;     loops clm, b
-	;;     loops 4, b
-	;; when clm=1, we must treat the "loops 4" as 1/4 complete.
-	IF loops_completed EQ 1
-	  set_initial_loop_count mov, 0
-	  loops_counter_needs_repair = 1
 	ENDIF
 
 	;; Reset variables
