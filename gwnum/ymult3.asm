@@ -52,9 +52,6 @@ PROCFL	ygw_carries_wpn3
 	add	rbx, rsi
 	ynorm012_wpn_part1 exec
 
-;;BUG	cmp	zero_fft, 1		;; Are we zeroing high words?				;; what to do here?
-;;BUG	je	done			;; Yes, skip high words
-
 	mov	rbp, DESTARG		; Addr of the FFT data
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
 	mov	rdx, norm_grp_mults	; Addr of the group multipliers
@@ -62,7 +59,11 @@ PROCFL	ygw_carries_wpn3
 	mov	loopcount2, eax		; Save count
 ilp0:	mov	eax, count2		; Load wpn count
 	mov	loopcount1, eax		; Save count
-ilp1:	ynorm012_wpn exec, exec, saveptr1, saveptr2, saveptr3 ; Propagate carries for one cache line
+ilp1:	cmp	zero_fft, 1		; Are we zeroing high words?
+	jne	short nz		; No, leave top carry alone
+	vmovapd	ymm7, YMM_BIGVAL	; Yes, don't add carries into upper words
+	vmovapd [esi+32], ymm7
+nz:	ynorm012_wpn exec, exec, saveptr1, saveptr2, saveptr3 ; Propagate carries for one cache line
 	bump	rsi, 64			; Next carries pointer
 	add	rbp, pass1blkdst	; Next FFT data pointer
 	add	rdi, biglit_incr	; Next big/little flags pointer
@@ -86,16 +87,17 @@ PROCFL	ygw_carries_wpnr3
 	add	rbx, rsi
 	ynorm012_wpn_part1 exec
 
-;;BUG	cmp	zero_fft, 1		;; Are we zeroing high words?				;; what to do here?
-;;BUG	je	done			;; Yes, skip high words
-
 	mov	rbp, DESTARG		; Addr of the FFT data
 	mov	rdi, norm_biglit_array	; Addr of the big/little flags array			;; Needed???
 	mov	rdx, norm_grp_mults	; Addr of the group multipliers				;; Needed???
 
 	mov	eax, addcount1		; Load count of pass 1 blocks
 	mov	loopcount2, eax		; Save count
-rlp1:	ynorm012_wpn noexec, exec, saveptr1, saveptr2, saveptr3 ; Propagate carries for one cache line
+rlp1:	cmp	zero_fft, 1		; Are we zeroing high words?
+	jne	short rnz		; No, leave top carry alone
+	vmovapd	ymm7, YMM_BIGVAL	; Yes, don't add carry into upper words
+	vmovapd [esi+32], ymm7
+rnz:	ynorm012_wpn noexec, exec, saveptr1, saveptr2, saveptr3 ; Propagate carries for one cache line
 	bump	rsi, 64			; Next carries pointer
 	add	rbp, pass1blkdst	; Next FFT data pointer
 	sub	loopcount2, 1		; Test loop counter

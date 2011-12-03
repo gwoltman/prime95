@@ -2031,9 +2031,6 @@ no base2	vxorpd	ymm1, ymm1, ymm1		;; Create comparison value
 		or	rbx, rcx			;; Are any bits on?
 		jz	short done			;; No, we are done
 
-;;;;;; if zero, then we didn't need to do ANY work on propagating upper carries
-;;;;;; but not worth optimizing -- just clear the ymm7 carry at the start?
-
 ttp	bump	rdi, 2				;; Advance pointers
 	add	rbp, pass2blkdst		;; Next FFT data ptr
  	add	al, 256/4			;; Special increment needed every 4th iteration
@@ -4948,25 +4945,21 @@ base2	vsubsd	xmm2, xmm2, YMM_BIGVAL		;; Remove rounding constant
 ;;
 
 ycopyzero MACRO
-	ycopyz	0, xmm0, [rsi]		;; Load and copy first doubles
-	vmovapd	[rdi], xmm0		;; Save first doubles
-	ycopyz	1, xmm1, [rsi+16]	;; Load and copy second doubles
-	vmovapd	[rdi+16], xmm1		;; Save second doubles
+	LOCAL	nz1,nz2,nz3,nz4
+	cmp	ecx, COPYZERO+3*4	;; Is this the first cache line where we copy 1 values?
+	jne	short nz1		;; No, jump
+	vmovapd	ymm1, YMM_TMP1		;; Yes, switch to the copy 1 values mask
+nz1:	cmp	ecx, COPYZERO+2*4	;; Is this the first cache line where we copy 2 values?
+	jne	short nz2		;; No, jump
+	vmovapd	ymm1, YMM_TMP2		;; Yes, switch to the copy 2 values mask
+nz2:	cmp	ecx, COPYZERO+1*4	;; Is this the first cache line where we copy 3 values?
+	jne	short nz3		;; No, jump
+	vmovapd	ymm1, YMM_TMP3		;; Yes, switch to the copy 3 values mask
+nz3:	cmp	ecx, COPYZERO+0*4	;; Is this the first cache line where we copy 4 values?
+	jne	short nz4		;; No, jump
+	vmovapd	ymm1, YMM_TMP4		;; Yes, switch to the copy 4 values mask
+nz4:	vmaskmovpd ymm0, ymm1, [rsi]	;; Conditionally load low doubles
+	vmovapd	[rdi], ymm0		;; Save low doubles
 	vmovapd	ymm2, [rsi+32]		;; Load high doubles
 	vmovapd	[rdi+32], ymm2		;; Save high doubles
-	ENDM
-
-ycopyz MACRO col, xmmreg, mem
-	LOCAL	z_none, z_two, zdone
-	cmp	ecx, COPYZERO+col*8+4	;; Check higher pointer
-	jl	short z_two		;; Jump if zeroing both
-	cmp	ecx, COPYZERO+col*8	;; Check lower pointer
-	jge	short z_none		;; Jump if no zeroing
-	vxorpd	xmmreg, xmmreg, xmmreg	;; Zero one double
-	vmovhpd	xmmreg, xmmreg, Q mem[8] ;; Load one double
-	jmp	short zdone
-z_none:	vmovapd	xmmreg, mem		;; Load both doubles
-	jmp	short zdone
-z_two:	vxorpd	xmmreg, xmmreg, xmmreg
-zdone:
 	ENDM

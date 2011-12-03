@@ -6101,11 +6101,27 @@ void calc8ptrs (
 /* This is a grossly inefficient way to do this.  However, it should */
 /* be called rarely. */
 
-	for (i = 0; i < 8; i++) ptrs[i] = 0;
-	for (i = 0; i < n; i++) {
-		j = addr_offset (gwdata, i);
-		k = (j & 63) >> 3;
-		if (j >= ptrs[k]) ptrs[k] = j - (k << 3) + 64;
+/* AVX offsets do not always increase, use a new method.  Remember the */
+/* offset of the first word in each column that doesn't need zeroing. */
+
+	if (gwdata->cpu_flags & CPU_AVX) {
+		for (i = 0; i < 8; i++) ptrs[i] = 0xFFFFFFFF;	/* Start by clearing the eight ptrs. */
+		for (i = n; i < gwdata->FFTLEN; i++) {
+			j = addr_offset (gwdata, i);
+			k = (j & 63) >> 3;
+			if (ptrs[k] == 0xFFFFFFFF) ptrs[k] = j - (k << 3);
+		}
+	}
+
+/* The original version that works for offsets that are always increasing */
+
+	else {
+		for (i = 0; i < 8; i++) ptrs[i] = 0;	/* Start by clearing the eight ptrs. */
+		for (i = 0; i < n; i++) {
+			j = addr_offset (gwdata, i);
+			k = (j & 63) >> 3;
+			if (j >= ptrs[k]) ptrs[k] = j - (k << 3) + 64;
+		}
 	}
 }
 
