@@ -1681,7 +1681,7 @@ ttp	bump	rdi, 2			;; Next big/little flags
 	jnz	ilp1			;; Loop til done
 	sub	loopcount2, 1		;; Test loop counter
 	js	short ilpsecdn		;; Loop til done
-	lea	rsi, [rsi+64]		;; Pad 64 bytes
+	lea	rsi, [rsi+64]		;; Pad 64 bytes, preserve flags
 	jnz	ilp2			;; Loop til done
 ilpsecdn:
 	mov	saved_reg1, rsi		;; Save FFT data addr
@@ -1729,7 +1729,7 @@ ttp	bump	rdi, 1			;; Next big/little flags
 	jnz	ilp1			;; Loop til done
 	sub	loopcount2, 1		;; Test loop counter
 	js	short ilpsecdn		;; Loop til done
-	lea	rsi, [rsi+64]		;; Pad 64 bytes
+	lea	rsi, [rsi+64]		;; Pad 64 bytes, preserve flags
 	jnz	ilp2			;; Loop til done
 ilpsecdn:
 	mov	saved_reg1, rsi		;; Save FFT data addr
