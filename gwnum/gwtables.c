@@ -239,7 +239,7 @@ double *yr4_build_onepass_biglit_table (
 {
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
 	unsigned char *p = (unsigned char *) table;
-	unsigned long i, j;
+	unsigned long i, j, top5bits;
 
 /* Init table of first 8 big/lit values */
 
@@ -256,9 +256,11 @@ double *yr4_build_onepass_biglit_table (
 
 			if (! is_big_word (gwdata, i)) continue;
 
-/* Find where this data appears in the FFT array */
+/* Find where this data appears in the table we are building.  Use the same algorithm */
+/* as addr_offset except no padding is necessary. */			
 
-			j = addr_offset (gwdata, i) / sizeof (double);
+			top5bits = i / (gwdata->FFTLEN >> 5); j = i - top5bits * (gwdata->FFTLEN >> 5);
+			j = ((top5bits >> 2) & 3) * (gwdata->FFTLEN >> 2) + (j << 3) + ((top5bits >> 4) << 2) + (top5bits & 3);
 
 /* Add to the biglit table entry for each big word double in an AVX word */
 
@@ -284,9 +286,11 @@ double *yr4_build_onepass_biglit_table (
 
 		if (! is_big_word (gwdata, i)) continue;
 
-/* Find where this data appears in the FFT array */
+/* Find where this data appears in the table we are building.  Use the same algorithm */
+/* as addr_offset except no padding is necessary. */			
 
-		j = addr_offset (gwdata, i) / sizeof (double);
+		top5bits = i / (gwdata->FFTLEN >> 5); j = i - top5bits * (gwdata->FFTLEN >> 5);
+		j = ((top5bits >> 2) & 3) * (gwdata->FFTLEN >> 2) + (j << 3) + ((top5bits >> 4) << 2) + (top5bits & 3);
 
 /* Add to the biglit table entry for each big word double in an AVX word */
 
@@ -320,15 +324,17 @@ double *yr4_build_onepass_norm_table (
 	if (gwdata->ZERO_PADDED_FFT) {
 		for (i = 0; i < gwdata->FFTLEN / 2; i++) {
 			double	ttp, ttmp;
-			unsigned long j, table_entry;
+			unsigned long top5bits, j, table_entry;
 
 /* Call double-precision routine to compute the two multipliers */
 
 			gwfft_weights3 (gwdata->dd_data, i, &ttp, NULL, &ttmp);
 
-/* Find where this data appears in the FFT array and in the table we are building. */
+/* Find where this data appears in the table we are building.  Use the same algorithm */
+/* as addr_offset except no padding is necessary. */			
 
-			j = addr_offset (gwdata, i) / sizeof (double);
+			top5bits = i / (gwdata->FFTLEN >> 5); j = i - top5bits * (gwdata->FFTLEN >> 5);
+			j = ((top5bits >> 2) & 3) * (gwdata->FFTLEN >> 2) + (j << 3) + ((top5bits >> 4) << 2) + (top5bits & 3);
 			table_entry = j >> 3;
 
 /* Now set the entry for the proper double in an AVX word */
@@ -351,15 +357,17 @@ double *yr4_build_onepass_norm_table (
 	else {
 		for (i = 0; i < gwdata->FFTLEN; i++) {
 			double	ttp, ttmp;
-			unsigned long j, table_entry;
+			unsigned long top5bits, j, table_entry;
 
 /* Call double-precision routine to compute the two multipliers */
 
 			gwfft_weights3 (gwdata->dd_data, i, &ttp, NULL, &ttmp);
 
-/* Find where this data appears in the FFT array and in the table we are building. */
+/* Find where this data appears in the table we are building.  Use the same algorithm */
+/* as addr_offset except no padding is necessary. */			
 
-			j = addr_offset (gwdata, i) / sizeof (double);
+			top5bits = i / (gwdata->FFTLEN >> 5); j = i - top5bits * (gwdata->FFTLEN >> 5);
+			j = ((top5bits >> 2) & 3) * (gwdata->FFTLEN >> 2) + (j << 3) + ((top5bits >> 4) << 2) + (top5bits & 3);
 			table_entry = j >> 2;
 
 /* Now set the entry for the proper double in an AVX word */
