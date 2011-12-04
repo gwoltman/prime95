@@ -15862,7 +15862,7 @@ b6a:	yr8_8cl_eight_complex_fft_final rsi, 4*64, 32*64, dist64, 64
 	loops	2, b6a			;; Loop 2 times
 ;;	bump	rsi, -2*2*64		;; Restore source pointer
 
-	bump	rsi, -16*2*64+2*dist64	;; Next source pointer
+	bump	rsi, -2*2*64+2*dist64	;; Next source pointer
 	loops	9, b3a			;; Loop 9 times
 	end_timer 6
 	jmp	ypass2_4608_complex_done
