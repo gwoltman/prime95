@@ -1351,7 +1351,7 @@ const	int	END_OF_CHAIN = 0x4000;
 			}
 		}
 	}
-GWASSERT (n <= 20);	// Lets see what the AVX limits really are!!!
+GWASSERT (n <= 24);	// Lets see what the AVX limits really are!!!
 	GWASSERT (n <= 48);		// I've seen n get as high as 35
 
 /* Determine the number of column two-to-phi multipliers */
