@@ -13614,7 +13614,7 @@ b6a:	yr4_4cl_four_complex_fft_final rsi, 4*64, dist64, 2*dist64
 	loops	4, b6a			;; Loop 4 times
 ;;	bump	rsi, -4*64		;; Restore source pointer
 
-	bump	rsi, -64*64+4*dist64	;; Next source pointer
+	bump	rsi, -4*64+4*dist64	;; Next source pointer
 	loops	5, b3a			;; Loop 5 times
 	end_timer 6
 	jmp	ypass2_5120_complex_done
