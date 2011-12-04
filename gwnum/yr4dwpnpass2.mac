@@ -6068,7 +6068,7 @@ b5a:	yr8_8cl_eight_complex_fft_final rsi, 4*64, 32*64, dist64, 64
 	loops	2, b5a			;; Loop 2 times
 ;;	bump	rsi, -2*2*64		;; Restore source pointer
 
-	bump	rsi, -16*2*64+2*dist64	;; Next source pointer
+	bump	rsi, -2*2*64+2*dist64	;; Next source pointer
 	loops	3, b3a			;; Loop 3 times
 	end_timer 6
 	jmp	ypass2_1536_complex_done
@@ -7005,7 +7005,7 @@ b5a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 2*dist64, 4*dist64, 64
 	loops	4, b5a			;; Loop 4 times
 ;;	bump	rsi, -4*2*64		;; Restore source pointer
 
-	bump	rsi, -16*2*64+32*64	;; Next source pointer
+	bump	rsi, -4*2*64+32*64	;; Next source pointer
 	loops	2, b3a			;; Loop 2 times
 	bump	rsi, -2*32*64+dist64	;; Next source pointer
 	loops	2, b3a			;; Loop 2 times
@@ -8017,7 +8017,7 @@ b5a:	yr8_8cl_eight_complex_fft_final rsi, 4*64, 32*64, dist64, 64
 	loops	2, b5a			;; Loop 2 times
 ;;	bump	rsi, -2*2*64		;; Restore source pointer
 
-	bump	rsi, -16*2*64+2*dist64	;; Next source pointer
+	bump	rsi, -2*2*64+2*dist64	;; Next source pointer
 	loops	5, b3a			;; Loop 5 times
 	bump	rsi, -5*2*dist64	;; Restore source pointer
 	end_timer 6
@@ -10267,7 +10267,7 @@ b6a:	yr4_4cl_four_complex_fft_final rsi, 4*64, dist64, 2*dist64
 	loops	4, b6a			;; Loop 4 times
 ;;	bump	rsi, -4*64		;; Restore source pointer
 
-	bump	rsi, -64*64+4*dist64	;; Next source pointer
+	bump	rsi, -4*64+4*dist64	;; Next source pointer
 	loops	3, b3a			;; Loop 3 times
 	end_timer 6
 	jmp	ypass2_3072_complex_done
@@ -20564,7 +20564,7 @@ b6a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 2*dist64, 4*dist64, 64
 	loops	4, b6a			;; Loop 4 times
 ;;	bump	rsi, -4*2*64		;; Restore source pointer
 
-	bump	rsi, -16*2*64+32*64	;; Next source pointer
+	bump	rsi, -4*2*64+32*64	;; Next source pointer
 	loops	2, b4a			;; Loop 2 times
 	bump	rsi, -2*32*64+dist64	;; Next source pointer
 	loops	2, b4a			;; Loop 2 times
@@ -21776,7 +21776,7 @@ b6a:	yr8_8cl_eight_complex_fft_final rsi, 4*64, 32*64, dist64, 64
 	loops	2, b6a			;; Loop 2 times
 ;;	bump	rsi, -2*2*64		;; Restore source pointer
 
-	bump	rsi, -16*2*64+2*dist64	;; Next source pointer
+	bump	rsi, -2*2*64+2*dist64	;; Next source pointer
 	loops	25, b3a			;; Loop 25 times
 	end_timer 6
 	jmp	ypass2_12800_complex_done
