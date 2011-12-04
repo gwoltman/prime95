@@ -7405,7 +7405,7 @@ c2b:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 4*64, dist64, 2*dist64, rdi
 	bump	rdi, 4*YMM_SCD3		;; Next sine/cosine pointer
 	loops	16, c2b			;; Test loop counter
 	bump	rsi, -16*4*64+64	;; Next source pointer
-	bump	rdi, 16*4*YMM_SCD3+YMM_SCD3 ;; Next sine/cosine pointer
+	bump	rdi, -16*4*YMM_SCD3+YMM_SCD3 ;; Next sine/cosine pointer
 	loops	4, c2b			;; Test loop counter
 	bump	rsi, -4*64		;; Restore source pointer
 	bump	rdi, -4*YMM_SCD3+64*YMM_SCD3 ;; Next sine/cosine pointer
@@ -7449,7 +7449,7 @@ c1b:	yr4_s4cl_eight_reals_unfft rsi, 4*64, dist64, 2*dist64, rdi
 	bump	rdi, 4*YMM_SCD3		;; Next sin/cos pointer
 	loops	16, c1b			;; Test loop counter
 	bump	rsi, -16*4*64+64	;; Next source pointer
-	bump	rdi, 16*4*YMM_SCD3+YMM_SCD3 ;; Next sine/cosine pointer
+	bump	rdi, -16*4*YMM_SCD3+YMM_SCD3 ;; Next sine/cosine pointer
 	loops	4, c1b			;; Test loop counter
 	end_timer 12
 
