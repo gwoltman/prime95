@@ -584,14 +584,6 @@ int is_fft_implemented (
 
 	if (! (gwdata->cpu_flags & (CPU_AVX | CPU_SSE2))) return (TRUE);
 
-/* For AVX FFT lengths <= 32K there is only one FFT implementation and it is always available */
-
-	if (gwdata->cpu_flags & CPU_AVX && jmptab->fftlen <= 32768) return (TRUE);
-
-/* For SSE2 FFT lengths below 7K there is only one FFT implementation and it is always available */
-
-	if (jmptab->fftlen < 7168) return (TRUE);
-
 /* If we are benchmarking all FFT implementations or we are doing QA, then we want to test */
 /* this FFT length even if it isn't optimal */
 
@@ -604,9 +596,11 @@ int is_fft_implemented (
 	desired_bif = calculate_bif (gwdata, jmptab->fftlen);
 
 /* Loop through the FFT implementations to see if we find an implementation */
-/* that matches our desired "bif" value. */
+/* that is one-pass (one-pass FFTs are designed to run on any architecture) */
+/* or matches our desired "bif" value. */
 
 	while (jmptab->flags & 0x80000000) {
+		if ((jmptab->flags & 0x1FF) == 0) return (TRUE);
 		if (((jmptab->flags >> 13) & 0xF) == desired_bif) return (TRUE);
 		INC_JMPTAB_1 (jmptab);
 	}
