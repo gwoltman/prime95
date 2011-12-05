@@ -8568,7 +8568,7 @@ yfft3K MACRO type
 
 ;; Do zero-pad prep work.  Copy 7 words around the halfway point.
 
-	ycopy_7_words 11*dist32+29*64+24, 11*dist32+30*64+24, 11*dist32+31+24, 32, 64+32, 2*64+32, 3*64+32
+	ycopy_7_words 11*dist32+29*64+24, 11*dist32+30*64+24, 11*dist32+31*64+24, 32, 64+32, 2*64+32, 3*64+32
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
