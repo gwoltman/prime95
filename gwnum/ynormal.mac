@@ -793,6 +793,7 @@ khi no base2 no const	vmovapd	ymm5, YMM_K_HI
 khi no base2 const	vmovapd	ymm5, YMM_K_TIMES_MULCONST_HI
 khi no base2 ttp	vmulpd	ymm5, ymm5, YMM_LIMIT_INVERSE[rax*2] ;; Non-base2 rounding needs shifted carry
 khi no base2 no ttp	vmulpd	ymm5, ymm5, YMM_LIMIT_INVERSE[0] ;; Non-base2 rounding needs shifted carry
+khi no base2		vroundpd ymm5, ymm5, 0			;; THIS IS WASTEFUL.  The mul and round should be precomputed!
 khi no base2		vmulpd	ymm5, ymm5, ymm4
 
 		vaddpd	ymm0, ymm0, ymm2	;; x1 = values + carry
@@ -930,6 +931,7 @@ no const vmulpd ymm3, ymm3, YMM_K_HI		;; low bits of high FFT carry * k_hi
 const	vmulpd	ymm3, ymm3, YMM_K_TIMES_MULCONST_HI ;; low bits of high FFT carry * k_hi
 ttp	vmulpd	ymm3, ymm3, YMM_LIMIT_INVERSE[rax*2] ;; shift low bits of high FFT carry * k_hi
 no ttp	vmulpd	ymm3, ymm3, YMM_LIMIT_INVERSE[0] ;; shift low bits of high FFT carry * k_hi
+	vroundpd ymm3, ymm3, 0			;; WASTEFUL.  Round (k_hi * limit_inverse) should be precomputed
 	rounding ttp, base2, noexec, ymm0, ymm2, ymm4, rax*2
 	vaddpd	ymm2, ymm2, ymm3		;; Carry += shifted low bits of high_FFT_carry * k_hi
 ttp	vmulpd	ymm0, ymm0, [rbp+32]		;; new value1 = val * two-to-phi
@@ -1828,6 +1830,7 @@ khi no base2 no const	vmovapd	ymm5, YMM_K_HI
 khi no base2 const	vmovapd	ymm5, YMM_K_TIMES_MULCONST_HI
 khi no base2 ttp	vmulpd	ymm5, ymm5, YMM_LIMIT_INVERSE[rax*8] ;; Non-base2 rounding needs shifted carry
 khi no base2 no ttp	vmulpd	ymm5, ymm5, YMM_LIMIT_INVERSE[0] ;; Non-base2 rounding needs shifted carry
+khi no base2		vroundpd ymm5, ymm5, 0			;; THIS IS WASTEFUL.  The mul and round should be precomputed!
 khi no base2		vmulpd	ymm5, ymm5, ymm4
 
 			vaddpd	ymm0, ymm0, ymm2		;; x1 = values + carry
@@ -2532,6 +2535,7 @@ no const vmulpd ymm3, ymm3, YMM_K_HI		;; low bits of high FFT carry * k_hi
 const	vmulpd	ymm3, ymm3, YMM_K_TIMES_MULCONST_HI ;; low bits of high FFT carry * k_hi
 ttp	vmulpd	ymm3, ymm3, YMM_LIMIT_INVERSE[rsi*8] ;; shift low bits of high FFT carry * k_hi
 no ttp	vmulpd	ymm3, ymm3, YMM_LIMIT_INVERSE[0] ;; shift low bits of high FFT carry * k_hi
+	vroundpd ymm3, ymm3, 0			;; WASTEFUL.  round(k_hi * inverse) should be precomputed.
 	rounding ttp, base2, noexec, ymm0, ymm2, ymm4, rsi*8
 	vaddpd	ymm2, ymm2, ymm3		;; Carry += shifted low bits of high_FFT_carry * k_hi
 ttp	vmulpd	ymm0, ymm0, [rdx+0*YMM_GMD+YMM_GMD/2][rcx] ;; mul by fudged grp two-to-phi
