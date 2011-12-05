@@ -6205,7 +6205,6 @@ void gwsetmulbyconst (
 			asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[2] = asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[3] =
 				ktimesval - asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[0];
 		}
-		big_word = big_word * big_word;
 	}
 
 /* Adjust the SSE2 assembly language constants affected by mulbyconst */
@@ -6230,7 +6229,6 @@ void gwsetmulbyconst (
 			asm_data->u.xmm.XMM_K_TIMES_MULCONST_LO[0] =
 			asm_data->u.xmm.XMM_K_TIMES_MULCONST_LO[1] = ktimesval - asm_data->u.xmm.XMM_K_TIMES_MULCONST_HI[0];
 		}
-		big_word = big_word * big_word;
 	}
 
 /* Adjust the x87 assembly language constants affected by mulbyconst */
