@@ -1696,10 +1696,10 @@ ttp		movzx	rbx, WORD PTR [rdi+2]		;; Load next 4 big vs. little & fudge flags
 IFDEF X86_64
 
 ynorm_wpn_preload MACRO ttp, base2, zero, echk, const
-echk		movapd	ymm15, YMM_ABSVAL
+echk		vmovapd	ymm15, YMM_ABSVAL
 	ENDM
 
-ynorm_wpn MACRO ttp, base2, zero, echk, const
+buggy_ynorm_wpn MACRO ttp, base2, zero, echk, const
 needs work....
 ttp		movzx	rcx, bl				;; Fudge flags 1,2
 ttp		and	rcx, 0f0h
@@ -1861,7 +1861,7 @@ ttp			movzx	rbx, WORD PTR [rdi+2]		;; Load next big vs. little & fudge flags
 
 IFDEF X86_64
 
-ynorm_wpn_zpad_preload MACRO ttp, echk, const, base2, khi, c1, cm1
+buggy_ynorm_wpn_zpad_preload MACRO ttp, echk, const, base2, khi, c1, cm1
 no const			xload	ymm15, YMM_K_LO
 const				xload	ymm15, YMM_K_TIMES_MULCONST_LO
 no const			xload	ymm14, YMM_MINUS_C
@@ -1874,7 +1874,7 @@ no base2 no echk khi no const	xload	ymm6, YMM_K_HI
 no base2 no echk khi const	xload	ymm6, YMM_K_TIMES_MULCONST_HI
 	ENDM
 
-ynorm_wpn_zpad MACRO ttp, echk, const, base2, khi, c1, cm1
+buggy_ynorm_wpn_zpad MACRO ttp, echk, const, base2, khi, c1, cm1
 broken....
 ttp	movzx	eax, bh			;; Big/little flags 1-4
 ttp	and	rbx, 0f0h		;; Fudge flags 1,2
@@ -2521,7 +2521,7 @@ no ttp	sub	rax, rax			;; Init loop counter
 cloop:
 
 ttp	movzx	rcx, WORD PTR [rdi]		;; Load big vs. little flags
-ttp	movzx	rsi, ch				;; Big/lit flags 1-2
+ttp	movzx	esi, ch				;; Big/lit flags 1-2
 ttp	and	rcx, 0e0h			;; Fudge flags 1 & 2
 
 	vmovapd	ymm0, [rbp]			;; Load values1
@@ -4291,7 +4291,7 @@ no ttp	sub	rdx, rdx			;; Init loop counter
 
 cloop:
 ttp	movzx	rbx, WORD PTR [rdi]		;; Load big vs. little flags
-ttp	movzx	rax, bh				;; Big/lit flags 1-2
+ttp	movzx	eax, bh				;; Big/lit flags 1-2
 ttp	and	rbx, 0e0h			;; Fudge flags 1
 
 	vmovsd	xmm0, Q [rsi]			;; Load value
@@ -4410,7 +4410,7 @@ cloop:
 ttp	movzx	rbx, WORD PTR [rdi]		;; Load big vs. little flags
 ttp	movzx	ecx, bl				;; Fudge flags 1
 ttp	and	rcx, 0e0h
-ttp	movzx	rax, bh				;; Big/lit flags 1-2
+ttp	movzx	eax, bh				;; Big/lit flags 1-2
 ttp	and	rbx, 01ch			;; Fudge flags 2
 
 	vmovapd	ymm0, [rsi]			;; Load values1
@@ -4464,7 +4464,7 @@ no ttp	sub	rdx, rdx			;; Init loop counter
 
 cloop:
 ttp	movzx	rcx, WORD PTR [rdi]		;; Load big vs. little flags
-ttp	movzx	rax, ch				;; Big/lit flags 1-2
+ttp	movzx	eax, ch				;; Big/lit flags 1-2
 ttp	and	rcx, 0e0h			;; Fudge flags 1 & 2
 
 	vmovapd	ymm0, [rsi]			;; Load values1
@@ -4521,7 +4521,7 @@ cloop:
 ttp	movzx	rbx, WORD PTR [rdi]		;; Load big vs. little flags
 ttp	movzx	ecx, bl				;; Fudge flags 1
 ttp	and	rcx, 0e0h
-ttp	movzx	rax, bh				;; Big/lit flags 1-2
+ttp	movzx	eax, bh				;; Big/lit flags 1-2
 ttp	and	rbx, 01ch			;; Fudge flags 2
 
 	vmovsd	xmm0, Q [rsi]			;; Load value1

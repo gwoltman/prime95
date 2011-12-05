@@ -158,8 +158,8 @@ ilp1:	mov	ecx, cache_line_multiplier ;; Load inner loop counter
 	vmovapd	ymm2, [rbp+0*32]	;; Preload carries
 	vmovapd	ymm3, [rbp+1*32]
 IFDEF X86_64
-	vmovapd	ymm9, [rbp+2*32]
-	vmovapd	ymm10, [rbp+3*32]
+;;	vmovapd	ymm9, [rbp+2*32]
+;;	vmovapd	ymm10, [rbp+3*32]
 ENDIF
 ilp2:	yprefetchw [rsi+64]
 	ynorm_wpn_zpad ttp, base2, echk, const, khi, c1, cm1 ;; Normalize 8 values
@@ -170,8 +170,8 @@ ttp	bump	rdi, 2			;; Next big/little flags
 	vmovapd	[rbp+0*32], ymm2	;; Store carries
 	vmovapd	[rbp+1*32], ymm3
 IFDEF X86_64
-	vmovapd	[rbp+2*32], ymm9
-	vmovapd	[rbp+3*32], ymm10
+;;	vmovapd	[rbp+2*32], ymm9
+;;	vmovapd	[rbp+3*32], ymm10
 ENDIF
 	add	rsi, normblkdst		;; Add 0 or 64 every clmblkdst
 	bump	rbp, 64			;; Next set of carries
