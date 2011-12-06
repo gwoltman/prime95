@@ -150,12 +150,12 @@ yr5_5c_djbfft_mem MACRO r1,r2,r3,r4,r5,bcast,screg1,screg2,cosoff,dstr1,dsti1,ds
 	vmovapd	ymm3, r3[32]
 	vsubpd	ymm3, ymm3, r4[32]		;; i34s=i3-i4
 	vmulpd	ymm4, ymm0, YMM_P309		;; cos2*r25a
-	vmulpd	ymm5, ymm1, YMM_M809		;; cos4*r34a
+	vmulpd	ymm5, ymm1, YMM_P809		;; -cos4*r34a
 	vmulpd	ymm6, ymm2, YMM_P951		;; sin2*i25s
 	vmulpd	ymm7, ymm3, YMM_P588		;; sin4*i34s
-	vaddpd	ymm4, ymm4, ymm5		;; cos2*r25a + cos4*r34a
+	vsubpd	ymm4, ymm4, ymm5		;; cos2*r25a + cos4*r34a
 	vaddpd	ymm6, ymm6, ymm7		;; t2=sin2*i25s + sin4*i34s
-	vmulpd	ymm5, ymm0, YMM_M809		;; cos4*r25a
+	vmulpd	ymm5, ymm0, YMM_P809		;; -cos4*r25a
 	vaddpd	ymm0, ymm0, ymm1		;; r25a + r34a
 	vmovapd	ymm7, r1
 	vaddpd	ymm4, ymm4, ymm7		;; t1=cos2*r25a + cos4*r34a + r1
@@ -163,7 +163,7 @@ yr5_5c_djbfft_mem MACRO r1,r2,r3,r4,r5,bcast,screg1,screg2,cosoff,dstr1,dsti1,ds
 	vmulpd	ymm1, ymm1, YMM_P309		;; cos2*r34a
 	vmulpd	ymm2, ymm2, YMM_P588		;; sin4*i25s
 	vmulpd	ymm3, ymm3, YMM_P951		;; sin2*i34s
-	vaddpd	ymm5, ymm5, ymm1		;; cos4*r25a+cos2*r34a
+	vsubpd	ymm5, ymm1, ymm5		;; cos4*r25a+cos2*r34a
 	vsubpd	ymm2, ymm2, ymm3		;; t4=sin4*i25s-sin2*i34s
 	vaddpd	ymm5, ymm5, ymm7		;; t3=cos4*r25a+cos2*r34a+r1
 	vsubpd	ymm7, ymm4, ymm6		;; outr(1)=t1-t2
@@ -190,13 +190,13 @@ yr5_5c_djbfft_mem MACRO r1,r2,r3,r4,r5,bcast,screg1,screg2,cosoff,dstr1,dsti1,ds
 	vaddpd	ymm5, ymm2, ymm3		;; i25a+i34a
 	vmovapd	ymm0, YMM_P309
 	vmulpd	ymm6, ymm2, ymm0		;; cos2*i25a
-	vmovapd	ymm7, YMM_M809
-	vmulpd	ymm2, ymm2, ymm7		;; cos4*i25a
-	vmulpd	ymm7, ymm7, ymm3		;; cos4*i34a
+	vmovapd	ymm7, YMM_P809
+	vmulpd	ymm2, ymm2, ymm7		;; -cos4*i25a
+	vmulpd	ymm7, ymm7, ymm3		;; -cos4*i34a
 	vmulpd	ymm3, ymm3, ymm0		;; cos2*i34a
 
-	vaddpd	ymm6, ymm6, ymm7		;; cos2*i25a + cos4*i34a
-	vaddpd	ymm2, ymm2, ymm3		;; cos4*i25a + cos2*i34a
+	vsubpd	ymm6, ymm6, ymm7		;; cos2*i25a + cos4*i34a
+	vsubpd	ymm2, ymm3, ymm2		;; cos4*i25a + cos2*i34a
 
 	vmovapd	ymm7, YMM_P951
 	vmulpd	ymm0, ymm7, ymm4		;; sin2*r25s
@@ -411,12 +411,12 @@ bcast	vbroadcastsd ymm0, Q [screg2]		;; sine
 	vmovapd	YMM_TMP4, ymm4			;; Save i3+i4
 
 	vmulpd	ymm0, ymm1, YMM_P309		;; cos2*r25a
-	vmulpd	ymm2, ymm3, YMM_M809		;; cos4*r34a
+	vmulpd	ymm2, ymm3, YMM_P809		;; -cos4*r34a
 	vmulpd	ymm4, ymm7, YMM_P951		;; sin2*i25s
 	vmulpd	ymm6, ymm5, YMM_P588		;; sin4*i34s
-	vaddpd	ymm0, ymm0, ymm2		;; cos2*r25a + cos4*r34a
+	vsubpd	ymm0, ymm0, ymm2		;; cos2*r25a + cos4*r34a
 	vaddpd	ymm4, ymm4, ymm6		;; t2=sin2*i25s + sin4*i34s
-	vmulpd	ymm2, ymm1, YMM_M809		;; cos4*r25a
+	vmulpd	ymm2, ymm1, YMM_P809		;; -cos4*r25a
 	vaddpd	ymm1, ymm1, ymm3		;; r25a + r34a
 	vmovapd	ymm6, r1
 	vaddpd	ymm0, ymm0, ymm6		;; t1=cos2*r25a + cos4*r34a + r1
@@ -424,7 +424,7 @@ bcast	vbroadcastsd ymm0, Q [screg2]		;; sine
 	vmulpd	ymm3, ymm3, YMM_P309		;; cos2*r34a
 	vmulpd	ymm7, ymm7, YMM_P588		;; sin4*i25s
 	vmulpd	ymm5, ymm5, YMM_P951		;; sin2*i34s
-	vaddpd	ymm2, ymm2, ymm3		;; cos4*r25a+cos2*r34a
+	vsubpd	ymm2, ymm3, ymm2		;; cos4*r25a+cos2*r34a
 	vsubpd	ymm7, ymm7, ymm5		;; t4=sin4*i25s-sin2*i34s
 	vaddpd	ymm2, ymm2, ymm6		;; t3=cos4*r25a+cos2*r34a+r1
 
@@ -447,18 +447,18 @@ bcast	vbroadcastsd ymm0, Q [screg2]		;; sine
 	vaddpd	ymm5, ymm2, ymm3		;; i25a+i34a
 	vmovapd	ymm4, YMM_P309
 	vmulpd	ymm6, ymm2, ymm4		;; cos2*i25a
-	vmovapd	ymm7, YMM_M809
-	vmulpd	ymm2, ymm2, ymm7		;; cos4*i25a
-	vmulpd	ymm7, ymm3, ymm7		;; cos4*i34a
+	vmovapd	ymm7, YMM_P809
+	vmulpd	ymm2, ymm2, ymm7		;; -cos4*i25a
+	vmulpd	ymm7, ymm3, ymm7		;; -cos4*i34a
 	vmulpd	ymm3, ymm3, ymm4		;; cos2*i34a
 
 	vmulpd	ymm4, ymm0, YMM_P951		;; sin2*r25s
-	vaddpd	ymm6, ymm6, ymm7		;; cos2*i25a + cos4*i34a
+	vsubpd	ymm6, ymm6, ymm7		;; cos2*i25a + cos4*i34a
 	vmovapd	ymm7, YMM_P588
 	vmulpd	ymm0, ymm0, ymm7		;; sin4*r25s
 	vmulpd	ymm7, ymm1, ymm7		;; sin4*r34s
 	vmulpd	ymm1, ymm1, YMM_P951		;; sin2*r34s
-	vaddpd	ymm2, ymm2, ymm3		;; cos4*i25a + cos2*i34a
+	vsubpd	ymm2, ymm3, ymm2		;; cos4*i25a + cos2*i34a
 	vmovapd	ymm3, r1[32]			;; I1
 	vaddpd	ymm6, ymm6, ymm3		;; t5=cos2*i25a + cos4*i34a + i1
 	vaddpd	ymm4, ymm4, ymm7		;; t6=sin2*r25s + sin4*r34s
@@ -616,15 +616,15 @@ yr5_10r_fft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg1,screg2,screg3,screg4,
 	vmulpd	ymm5, ymm1, ymm0	;; new oddR2 = .309*(R3+R9)
 	vmovapd	ymm4, memr1		;; R1
 	vaddpd	ymm5, ymm5, ymm4	;; new oddR2 += R1
-	vmovapd	ymm6, YMM_M809
+	vmovapd	ymm6, YMM_P809
 	vmovapd	YMM_TMP6, ymm2		;; Save oddI2
-	vmulpd	ymm2, ymm6, ymm0	;; new oddR3 = -.809*(R3+R9)
+	vmulpd	ymm2, ymm6, ymm0	;; new -oddR3 = -.809*(R3+R9)
 	vaddpd	ymm0, ymm4, ymm0	;; new oddR1 = R1+R3+R9
-	vaddpd	ymm2, ymm2, ymm4	;; new oddR3 += R1
-	vmulpd	ymm4, ymm6, ymm3	;; -.809*(R5+R7)
+	vsubpd	ymm2, ymm4, ymm2	;; new oddR3 += R1
+	vmulpd	ymm4, ymm6, ymm3	;; --.809*(R5+R7)
 	vaddpd	ymm0, ymm0, ymm3	;; new oddR1 = R1+R3+R5+R7+R9
 	vmulpd	ymm3, ymm1, ymm3	;; .309*(R5+R7)
-	vaddpd	ymm5, ymm5, ymm4	;; new oddR2 += -.809*(R5+R7)
+	vsubpd	ymm5, ymm5, ymm4	;; new oddR2 += -.809*(R5+R7)
 	vaddpd	ymm2, ymm2, ymm3	;; new oddR3 += .309*(R5+R7)
 	vmovapd	YMM_TMP8, ymm7		;; Save oddI3
 	vmovapd	dst1, ymm0		;; Save oddR1
@@ -652,14 +652,14 @@ yr5_10r_fft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg1,screg2,screg3,screg4,
 	vmulpd	ymm3, ymm2, YMM_P309	;; new evenR3 = .309*(R2+R10)
 	vmovapd	ymm5, memr1[32]		;; R6
 	vaddpd	ymm3, ymm3, ymm5	;; new evenR3 += R6
-	vmovapd	ymm6, YMM_M809
-	vmulpd	ymm0, ymm6, ymm2	;; new evenR5 = -.809*(R2+R10)
+	vmovapd	ymm6, YMM_P809
+	vmulpd	ymm0, ymm6, ymm2	;; new -evenR5 = -.809*(R2+R10)
 	vaddpd	ymm2, ymm5, ymm2	;; new evenR1 = R6+R2+R10
-	vaddpd	ymm0, ymm0, ymm5	;; new evenR5 += R6
-	vmulpd	ymm6, ymm6, ymm4	;; -.809*(R4+R8)
+	vsubpd	ymm0, ymm5, ymm0	;; new evenR5 += R6
+	vmulpd	ymm6, ymm6, ymm4	;; --.809*(R4+R8)
 	vaddpd	ymm2, ymm2, ymm4	;; new evenR1 = R6+R2+R4+R8+R10
 	vmulpd	ymm4, ymm4, YMM_P309	;; .309*(R4+R8)
-	vaddpd	ymm3, ymm3, ymm6	;; new evenR3 += -.809*(R4+R8)
+	vsubpd	ymm3, ymm3, ymm6	;; new evenR3 += -.809*(R4+R8)
 	vaddpd	ymm0, ymm0, ymm4	;; new evenR5 += .309*(R4+R8)
 	vmovapd	dst2, ymm2		;; Save evenR1
 
@@ -903,14 +903,14 @@ yr5_10r_unfft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg1,screg2,screg3,screg
 	vmulpd	ymm5, ymm4, ymm1	;; new R3 = .309*(R2+R5)
 	vmovapd	ymm6, memr1		;; R1_1
 	vaddpd	ymm5, ymm5, ymm6	;; new R3 += R1_1
-	vmovapd	ymm0, YMM_M809
-	vmulpd	ymm3, ymm0, ymm1	;; new R5 = -.809*(R2+R5)
+	vmovapd	ymm0, YMM_P809
+	vmulpd	ymm3, ymm0, ymm1	;; new -R5 = -.809*(R2+R5)
 	vaddpd	ymm1, ymm6, ymm1	;; new R1 = R1_1+R2+R5
-	vaddpd	ymm3, ymm3, ymm6	;; new R5 += R1_1
-	vmulpd	ymm0, ymm0, ymm2	;; -.809*(R3+R4)
+	vsubpd	ymm3, ymm6, ymm3	;; new R5 += R1_1
+	vmulpd	ymm0, ymm0, ymm2	;; --.809*(R3+R4)
 	vaddpd	ymm1, ymm1, ymm2	;; final R1 = R1_1+R2+R5+R3+R4
 	vmulpd	ymm2, ymm4, ymm2	;; .309*(R3+R4)
-	vaddpd	ymm5, ymm5, ymm0	;; new R3 += -.809*(R3+R4)
+	vsubpd	ymm5, ymm5, ymm0	;; new R3 += -.809*(R3+R4)
 	vaddpd	ymm3, ymm3, ymm2	;; new R5 += .309*(R3+R4)
 
 	vmovapd	ymm0, YMM_TMP2		;; Reload I2-I5
@@ -937,15 +937,15 @@ yr5_10r_unfft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg1,screg2,screg3,screg
 	vmulpd	ymm1, ymm0, ymm3	;; new R2 = .309*(R3-R4)
 	vmovapd	ymm7, memr1[32]		;; R1_2
 	vaddpd	ymm1, ymm1, ymm7	;; new R2 += R1_2
-	vmovapd	ymm5, YMM_M809
-	vmulpd	ymm6, ymm5, ymm3	;; new R4 = -.809*(R3-R4)
+	vmovapd	ymm5, YMM_P809
+	vmulpd	ymm6, ymm5, ymm3	;; new -R4 = -.809*(R3-R4)
 	vaddpd	ymm3, ymm7, ymm3	;; new R6 = R1_2+(R3-R4)
-	vaddpd	ymm6, ymm6, ymm7	;; new R4 += R1_2
+	vsubpd	ymm6, ymm7, ymm6	;; new R4 += R1_2
 	vmovapd	ymm7, YMM_TMP3		;; Reload NEG(R2-R5)
-	vmulpd	ymm5, ymm5, ymm7	;; -.809*NEG(R2-R5)
+	vmulpd	ymm5, ymm5, ymm7	;; --.809*NEG(R2-R5)
 	vaddpd	ymm3, ymm3, ymm7	;; final R6 = R6+(R3-R4)+NEG(R2-R5)
 	vmulpd	ymm0, ymm0, ymm7	;; .309*NEG(R2-R5)
-	vaddpd	ymm1, ymm1, ymm5	;; new R2 += -.809*NEG(R2-R5)
+	vsubpd	ymm1, ymm1, ymm5	;; new R2 += -.809*NEG(R2-R5)
 	vaddpd	ymm6, ymm6, ymm0	;; new R4 += .309*NEG(R2-R5)
 
 	vmovapd	ymm0, YMM_TMP6		;; Reload I3+I4
@@ -1074,15 +1074,15 @@ yr5_o10r_t5c_djbfft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg,dst1,dst2,dst3
 	vmulpd	ymm5, ymm1, ymm0	;; new oddR2 = .309*(R3+R9)		; cos2*r25a
 	vmovapd	ymm4, memr1		;; R1					; r1
 	vaddpd	ymm5, ymm5, ymm4	;; new oddR2 += R1			; cos2*r25a + r1
-	vmovapd	ymm6, YMM_M809
+	vmovapd	ymm6, YMM_P809
 	vmovapd	YMM_TMP6, ymm2		;; Save oddI2				; Save t6
-	vmulpd	ymm2, ymm6, ymm0	;; new oddR3 = -.809*(R3+R9)		; cos4*r25a
+	vmulpd	ymm2, ymm6, ymm0	;; new -oddR3 = -.809*(R3+R9)		; cos4*r25a
 	vaddpd	ymm0, ymm4, ymm0	;; new oddR1 = R1+R3+R9			; r1 + r25a
-	vaddpd	ymm2, ymm2, ymm4	;; new oddR3 += R1			; cos4*r25a + r1
-	vmulpd	ymm4, ymm6, ymm3	;; -.809*(R5+R7)			; cos4*r34a
+	vsubpd	ymm2, ymm4, ymm2	;; new oddR3 += R1			; cos4*r25a + r1
+	vmulpd	ymm4, ymm6, ymm3	;; --.809*(R5+R7)			; cos4*r34a
 	vaddpd	ymm0, ymm0, ymm3	;; new oddR1 = R1+R3+R5+R7+R9		; outr(0) = r1+r25a+r34a
 	vmulpd	ymm3, ymm1, ymm3	;; .309*(R5+R7)				; cos2*r34a
-	vaddpd	ymm5, ymm5, ymm4	;; new oddR2 += -.809*(R5+R7)		; t1=cos2*r25a + cos4*r34a + r1
+	vsubpd	ymm5, ymm5, ymm4	;; new oddR2 += -.809*(R5+R7)		; t1=cos2*r25a + cos4*r34a + r1
 	vaddpd	ymm2, ymm2, ymm3	;; new oddR3 += .309*(R5+R7)		; t3=cos4*r25a + cos2*r34a + r1
 	vmovapd	YMM_TMP8, ymm7		;; Save oddI3				; Save t8
 	vmovapd	dst1, ymm0		;; Save oddR1				; Save R1
@@ -1112,14 +1112,14 @@ yr5_o10r_t5c_djbfft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg,dst1,dst2,dst3
 	vmulpd	ymm3, ymm2, YMM_P309	;; new evenR3 = .309*(R2+R10)		; cos2*i25a
 	vmovapd	ymm5, memr1[32]		;; R6					; i1
 	vaddpd	ymm3, ymm3, ymm5	;; new evenR3 += R6			; cos2*i25a + i1
-	vmovapd	ymm6, YMM_M809
-	vmulpd	ymm0, ymm6, ymm2	;; new evenR5 = -.809*(R2+R10)		; cos4*i25a
+	vmovapd	ymm6, YMM_P809
+	vmulpd	ymm0, ymm6, ymm2	;; new -evenR5 = -.809*(R2+R10)		; cos4*i25a
 	vaddpd	ymm2, ymm5, ymm2	;; new evenR1 = R6+R2+R10		; i1 + i25a
-	vaddpd	ymm0, ymm0, ymm5	;; new evenR5 += R6			; cos4*i25a+ i1
-	vmulpd	ymm6, ymm6, ymm4	;; -.809*(R4+R8)			; cos4*i34a
+	vsubpd	ymm0, ymm5, ymm0	;; new evenR5 += R6			; cos4*i25a+ i1
+	vmulpd	ymm6, ymm6, ymm4	;; --.809*(R4+R8)			; cos4*i34a
 	vaddpd	ymm2, ymm2, ymm4	;; new evenR1 = R6+R2+R4+R8+R10		; outi(0)=i1+i25a+i34a
 	vmulpd	ymm4, ymm4, YMM_P309	;; .309*(R4+R8)				; cos2*i34a
-	vaddpd	ymm3, ymm3, ymm6	;; new evenR3 += -.809*(R4+R8)		; t5=cos2*i25a + cos4*i34a + i1
+	vsubpd	ymm3, ymm3, ymm6	;; new evenR3 += -.809*(R4+R8)		; t5=cos2*i25a + cos4*i34a + i1
 	vaddpd	ymm0, ymm0, ymm4	;; new evenR5 += .309*(R4+R8)		; t7=cos4*i25a + cos2*i34a + i1
 	vmovapd	dst2, ymm2		;; Save evenR1				; Save I1
 
@@ -1359,14 +1359,14 @@ yr5_o10r_t5c_djbunfft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg,dstr1,dstr3,
 	vmulpd	ymm5, ymm4, ymm1	;; new R3 = .309*(R2+R5)	; cos2*r25a
 	vmovapd	ymm6, memr1		;; R1_1				; r1
 	vaddpd	ymm5, ymm5, ymm6	;; new R3 += R1_1		; cos2*r25a + r1
-	vmovapd	ymm0, YMM_M809
-	vmulpd	ymm3, ymm0, ymm1	;; new R5 = -.809*(R2+R5)	; cos4*r25a
+	vmovapd	ymm0, YMM_P809
+	vmulpd	ymm3, ymm0, ymm1	;; new -R5 = -.809*(R2+R5)	; cos4*r25a
 	vaddpd	ymm1, ymm6, ymm1	;; new R1 = R1_1+R2+R5		; r1 + r25a
-	vaddpd	ymm3, ymm3, ymm6	;; new R5 += R1_1		; cos4*r25a + r1
-	vmulpd	ymm0, ymm0, ymm2	;; -.809*(R3+R4)		; cos4*r34a
+	vsubpd	ymm3, ymm6, ymm3	;; new R5 += R1_1		; cos4*r25a + r1
+	vmulpd	ymm0, ymm0, ymm2	;; --.809*(R3+R4)		; cos4*r34a
 	vaddpd	ymm1, ymm1, ymm2	;; final R1 = R1_1+R2+R5+R3+R4	; outr(0) = r1 + r25a + r34a
 	vmulpd	ymm2, ymm4, ymm2	;; .309*(R3+R4)			; cos2*r34a
-	vaddpd	ymm5, ymm5, ymm0	;; new R3 += -.809*(R3+R4)	; t1=cos2*r25a + cos4*r34a + r1
+	vsubpd	ymm5, ymm5, ymm0	;; new R3 += -.809*(R3+R4)	; t1=cos2*r25a + cos4*r34a + r1
 	vaddpd	ymm3, ymm3, ymm2	;; new R5 += .309*(R3+R4)	; t3=cos4*r25a + cos2*r34a + r1
 
 	vmovapd	ymm0, YMM_TMP2		;; Reload I2-I5			; Reload i25s
@@ -1395,15 +1395,15 @@ yr5_o10r_t5c_djbunfft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg,dstr1,dstr3,
 	vmulpd	ymm1, ymm0, ymm3	;; new R2 = .309*(R3-R4)	; cos2*i34a
 	vmovapd	ymm7, memr1[32]		;; R1_2				; i1
 	vaddpd	ymm1, ymm1, ymm7	;; new R2 += R1_2		; cos2*i34a + i1
-	vmovapd	ymm4, YMM_M809
-	vmulpd	ymm6, ymm4, ymm3	;; new R4 = -.809*(R3-R4)	; cos4*i34a
+	vmovapd	ymm4, YMM_P809
+	vmulpd	ymm6, ymm4, ymm3	;; new -R4 = -.809*(R3-R4)	; cos4*i34a
 	vaddpd	ymm3, ymm7, ymm3	;; new R6 = R1_2+(R3-R4)	; i1 + i34a
-	vaddpd	ymm6, ymm6, ymm7	;; new R4 += R1_2		; cos4*i34a + i1
+	vsubpd	ymm6, ymm7, ymm6	;; new R4 += R1_2		; cos4*i34a + i1
 	vmovapd	ymm7, YMM_TMP3		;; Reload NEG(R2-R5)		; Reload i25a
-	vmulpd	ymm4, ymm4, ymm7	;; -.809*NEG(R2-R5)		; cos4*i25a
+	vmulpd	ymm4, ymm4, ymm7	;; --.809*NEG(R2-R5)		; cos4*i25a
 	vaddpd	ymm3, ymm3, ymm7	;; final R6 = R6+(R3-R4)+NEG(R2-R5) ; outi(0)=i1 + i34a + i25a
 	vmulpd	ymm0, ymm0, ymm7	;; .309*NEG(R2-R5)		; cos2*i25a
-	vaddpd	ymm1, ymm1, ymm4	;; new R2 += -.809*NEG(R2-R5)	; t7=cos2*i34a + i1 + cos4*i25a
+	vsubpd	ymm1, ymm1, ymm4	;; new R2 += -.809*NEG(R2-R5)	; t7=cos2*i34a + i1 + cos4*i25a
 	vaddpd	ymm6, ymm6, ymm0	;; new R4 += .309*NEG(R2-R5)	; t5=cos4*i34a + i1 + cos2*i25a
 
 	vmovapd	ymm0, YMM_TMP6		;; Reload I3+I4			; Reload r34s

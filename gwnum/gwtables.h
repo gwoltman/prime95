@@ -232,8 +232,8 @@ struct gwasm_data {
 		double	YMM_P866[4];	/* Used in three-complex building blocks */
 		double	UNUSED_YMM_DOUBLES2[4];
 
-		double	YMM_P309[4];	/* Used in five-complex macros */
-		double	YMM_M809[4];
+		double	YMM_P309[4];	/* Used in five-complex and 20-reals macros */
+		double	YMM_P809[4];
 
 		double	YMM_P951[4];
 		double	YMM_P588[4];

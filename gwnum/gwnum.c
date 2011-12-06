@@ -2879,17 +2879,12 @@ int internal_gwsetup (
 
 		asm_data->u.ymm.YMM_P951[0] = asm_data->u.ymm.YMM_P951[1] =
 		asm_data->u.ymm.YMM_P951[2] = asm_data->u.ymm.YMM_P951[3] = asm_values[0];
-//		asm_data->u.xmm.XMM_P618[0] = asm_data->u.xmm.XMM_P618[1] = asm_values[1];
 		asm_data->u.ymm.YMM_P309[0] = asm_data->u.ymm.YMM_P309[1] =
 		asm_data->u.ymm.YMM_P309[2] = asm_data->u.ymm.YMM_P309[3] = asm_values[2];
-//		asm_data->u.xmm.XMM_M262[0] = asm_data->u.xmm.XMM_M262[1] = asm_values[3];
 		asm_data->u.ymm.YMM_P588[0] = asm_data->u.ymm.YMM_P588[1] =
 		asm_data->u.ymm.YMM_P588[2] = asm_data->u.ymm.YMM_P588[3] = asm_values[4];
-//		asm_data->u.xmm.XMM_M162[0] = asm_data->u.xmm.XMM_M162[1] = asm_values[5];
-//		asm_data->u.xmm.XMM_P809[0] = asm_data->u.xmm.XMM_P809[1] = -asm_values[6];
-		asm_data->u.ymm.YMM_M809[0] = asm_data->u.ymm.YMM_M809[1] =
-		asm_data->u.ymm.YMM_M809[2] = asm_data->u.ymm.YMM_M809[3] = asm_values[6];
-//		asm_data->u.xmm.XMM_M382[0] = asm_data->u.xmm.XMM_M382[1] = asm_values[7];
+		asm_data->u.ymm.YMM_P809[0] = asm_data->u.ymm.YMM_P809[1] =
+		asm_data->u.ymm.YMM_P809[2] = asm_data->u.ymm.YMM_P809[3] = -asm_values[6];
 		asm_data->u.ymm.YMM_P866[0] = asm_data->u.ymm.YMM_P866[1] =
 		asm_data->u.ymm.YMM_P866[2] = asm_data->u.ymm.YMM_P866[3] = asm_values[8];
 //		asm_data->u.xmm.XMM_P975[0] = asm_data->u.xmm.XMM_P975[1] = asm_values[11];
