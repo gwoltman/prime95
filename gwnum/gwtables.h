@@ -201,7 +201,7 @@ struct gwasm_data {
 		void	*YMM_CARRIES_ROUTINE;	/* Routine to propagate carries in 2-pass FFTs */
 		intptr_t UNUSED_YMM_PTRS[1];
 
-		double	YMM_TWO[4];	/* 2.0 */
+		double	YMM_MINUS_C[4];	/* -c stored as double */
 		double	YMM_HALF[4];	/* 0.5 */
 
 		double	YMM_SQRTHALF[4];/* SQRT(0.5) */
@@ -212,9 +212,6 @@ struct gwasm_data {
 
 		double	YMM_BIGVAL[4];	/* Used to round double to integer */
 		double	YMM_BIGBIGVAL[4]; /* Used to round to big word multiple */
-
-		double	YMM_BIGVAL_NEG[4];
-		double	YMM_MINUS_C[4];	/* -c stored as double */
 
 		double	YMM_NORM012_FF[4]; /* Used in xnorm012 macros (FFTLEN/2) */
 		double	YMM_MULCONST[4];
@@ -244,9 +241,6 @@ struct gwasm_data {
 		double	YMM_TMP1_8[32];	/* 8 YMM temporaries */
 		double	YMM_LIMIT_BIGMAX[192]; /* Normalization constants */
 		double	YMM_LIMIT_INVERSE[192];
-		double	YMM_LIMIT_BIGMAX_NEG[192];
-		double	YMM_TTP_FUDGE[64];
-		double	YMM_TTMP_FUDGE[64];
 		double	YMM_COL_MULTS[2048];
 	    } ymm;
 

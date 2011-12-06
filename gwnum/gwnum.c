@@ -2785,8 +2785,6 @@ int internal_gwsetup (
 	if (gwdata->cpu_flags & CPU_AVX) {
 		int	i;
 
-//		asm_data->u.ymm.YMM_TWO[0] = asm_data->u.ymm.YMM_TWO[1] =
-//		asm_data->u.ymm.YMM_TWO[2] = asm_data->u.ymm.YMM_TWO[3] = 2.0;
 		asm_data->u.ymm.YMM_HALF[0] = asm_data->u.ymm.YMM_HALF[1] =
 		asm_data->u.ymm.YMM_HALF[2] = asm_data->u.ymm.YMM_HALF[3] = 0.5;
 		asm_data->u.ymm.YMM_SQRTHALF[0] = asm_data->u.ymm.YMM_SQRTHALF[1] =
@@ -2796,80 +2794,10 @@ int internal_gwsetup (
 		asm_data->u.ymm.YMM_ABSVAL[1] = asm_data->u.ymm.YMM_ABSVAL[3] =
 		asm_data->u.ymm.YMM_ABSVAL[5] = asm_data->u.ymm.YMM_ABSVAL[7] = 0x7FFFFFFF;
 
-//		asm_data->u.xmm.XMM_TTP_FUDGE[0] = asm_data->u.xmm.XMM_TTP_FUDGE[1] =
-//		asm_data->u.xmm.XMM_TTP_FUDGE[2] = asm_data->u.xmm.XMM_TTP_FUDGE[3] =
-//		asm_data->u.xmm.XMM_TTP_FUDGE[4] = asm_data->u.xmm.XMM_TTP_FUDGE[5] =
-//		asm_data->u.xmm.XMM_TTP_FUDGE[6] = asm_data->u.xmm.XMM_TTP_FUDGE[7] =
-//		asm_data->u.xmm.XMM_TTP_FUDGE[9] = asm_data->u.xmm.XMM_TTP_FUDGE[11] =
-//		asm_data->u.xmm.XMM_TTP_FUDGE[13] = asm_data->u.xmm.XMM_TTP_FUDGE[15] =
-//		asm_data->u.xmm.XMM_TTP_FUDGE[16] = asm_data->u.xmm.XMM_TTP_FUDGE[18] =
-//		asm_data->u.xmm.XMM_TTP_FUDGE[20] = asm_data->u.xmm.XMM_TTP_FUDGE[22] = 1.0;
-//		asm_data->u.xmm.XMM_TTP_FUDGE[8] = asm_data->u.xmm.XMM_TTP_FUDGE[10] =
-//		asm_data->u.xmm.XMM_TTP_FUDGE[12] = asm_data->u.xmm.XMM_TTP_FUDGE[14] =
-//		asm_data->u.xmm.XMM_TTP_FUDGE[17] = asm_data->u.xmm.XMM_TTP_FUDGE[19] =
-//		asm_data->u.xmm.XMM_TTP_FUDGE[21] = asm_data->u.xmm.XMM_TTP_FUDGE[23] =
-//		asm_data->u.xmm.XMM_TTP_FUDGE[24] = asm_data->u.xmm.XMM_TTP_FUDGE[25] =
-//		asm_data->u.xmm.XMM_TTP_FUDGE[26] = asm_data->u.xmm.XMM_TTP_FUDGE[27] =
-//		asm_data->u.xmm.XMM_TTP_FUDGE[28] = asm_data->u.xmm.XMM_TTP_FUDGE[29] =
-//		asm_data->u.xmm.XMM_TTP_FUDGE[30] = asm_data->u.xmm.XMM_TTP_FUDGE[31] = 1.0 / (double) b;
-
-//		asm_data->u.xmm.XMM_TTMP_FUDGE[0] = asm_data->u.xmm.XMM_TTMP_FUDGE[1] =
-//		asm_data->u.xmm.XMM_TTMP_FUDGE[2] = asm_data->u.xmm.XMM_TTMP_FUDGE[3] =
-//		asm_data->u.xmm.XMM_TTMP_FUDGE[4] = asm_data->u.xmm.XMM_TTMP_FUDGE[5] =
-//		asm_data->u.xmm.XMM_TTMP_FUDGE[6] = asm_data->u.xmm.XMM_TTMP_FUDGE[7] =
-//		asm_data->u.xmm.XMM_TTMP_FUDGE[9] = asm_data->u.xmm.XMM_TTMP_FUDGE[11] =
-//		asm_data->u.xmm.XMM_TTMP_FUDGE[13] = asm_data->u.xmm.XMM_TTMP_FUDGE[15] =
-//		asm_data->u.xmm.XMM_TTMP_FUDGE[16] = asm_data->u.xmm.XMM_TTMP_FUDGE[18] =
-//		asm_data->u.xmm.XMM_TTMP_FUDGE[20] = asm_data->u.xmm.XMM_TTMP_FUDGE[22] = 1.0;
-//		asm_data->u.xmm.XMM_TTMP_FUDGE[8] = asm_data->u.xmm.XMM_TTMP_FUDGE[10] =
-//		asm_data->u.xmm.XMM_TTMP_FUDGE[12] = asm_data->u.xmm.XMM_TTMP_FUDGE[14] =
-//		asm_data->u.xmm.XMM_TTMP_FUDGE[17] = asm_data->u.xmm.XMM_TTMP_FUDGE[19] =
-//		asm_data->u.xmm.XMM_TTMP_FUDGE[21] = asm_data->u.xmm.XMM_TTMP_FUDGE[23] =
-//		asm_data->u.xmm.XMM_TTMP_FUDGE[24] = asm_data->u.xmm.XMM_TTMP_FUDGE[25] =
-//		asm_data->u.xmm.XMM_TTMP_FUDGE[26] = asm_data->u.xmm.XMM_TTMP_FUDGE[27] =
-//		asm_data->u.xmm.XMM_TTMP_FUDGE[28] = asm_data->u.xmm.XMM_TTMP_FUDGE[29] =
-//		asm_data->u.xmm.XMM_TTMP_FUDGE[30] = asm_data->u.xmm.XMM_TTMP_FUDGE[31] = (double) b;
-
-//		asm_data->u.x87.TTP_FUDGE[0] = asm_data->u.x87.TTP_FUDGE[1] =
-//		asm_data->u.x87.TTP_FUDGE[2] = asm_data->u.x87.TTP_FUDGE[3] =
-//		asm_data->u.x87.TTP_FUDGE[4] = asm_data->u.x87.TTP_FUDGE[5] =
-//		asm_data->u.x87.TTP_FUDGE[6] = asm_data->u.x87.TTP_FUDGE[7] =
-//		asm_data->u.x87.TTP_FUDGE[9] = asm_data->u.x87.TTP_FUDGE[11] =
-//		asm_data->u.x87.TTP_FUDGE[13] = asm_data->u.x87.TTP_FUDGE[15] =
-//		asm_data->u.x87.TTP_FUDGE[16] = asm_data->u.x87.TTP_FUDGE[18] =
-//		asm_data->u.x87.TTP_FUDGE[20] = asm_data->u.x87.TTP_FUDGE[22] = 1.0;
-//		asm_data->u.x87.TTP_FUDGE[8] = asm_data->u.x87.TTP_FUDGE[10] =
-//		asm_data->u.x87.TTP_FUDGE[12] = asm_data->u.x87.TTP_FUDGE[14] =
-//		asm_data->u.x87.TTP_FUDGE[17] = asm_data->u.x87.TTP_FUDGE[19] =
-//		asm_data->u.x87.TTP_FUDGE[21] = asm_data->u.x87.TTP_FUDGE[23] =
-//		asm_data->u.x87.TTP_FUDGE[24] = asm_data->u.x87.TTP_FUDGE[25] =
-//		asm_data->u.x87.TTP_FUDGE[26] = asm_data->u.x87.TTP_FUDGE[27] =
-//		asm_data->u.x87.TTP_FUDGE[28] = asm_data->u.x87.TTP_FUDGE[29] =
-//		asm_data->u.x87.TTP_FUDGE[30] = asm_data->u.x87.TTP_FUDGE[31] = 1.0 / (double) b;
-
-//		asm_data->u.x87.TTMP_FUDGE[0] = asm_data->u.x87.TTMP_FUDGE[1] =
-//		asm_data->u.x87.TTMP_FUDGE[2] = asm_data->u.x87.TTMP_FUDGE[3] =
-//		asm_data->u.x87.TTMP_FUDGE[4] = asm_data->u.x87.TTMP_FUDGE[5] =
-//		asm_data->u.x87.TTMP_FUDGE[6] = asm_data->u.x87.TTMP_FUDGE[7] =
-//		asm_data->u.x87.TTMP_FUDGE[9] = asm_data->u.x87.TTMP_FUDGE[11] =
-//		asm_data->u.x87.TTMP_FUDGE[13] = asm_data->u.x87.TTMP_FUDGE[15] =
-//		asm_data->u.x87.TTMP_FUDGE[16] = asm_data->u.x87.TTMP_FUDGE[18] =
-//		asm_data->u.x87.TTMP_FUDGE[20] = asm_data->u.x87.TTMP_FUDGE[22] = 1.0;
-//		asm_data->u.x87.TTMP_FUDGE[8] = asm_data->u.x87.TTMP_FUDGE[10] =
-//		asm_data->u.x87.TTMP_FUDGE[12] = asm_data->u.x87.TTMP_FUDGE[14] =
-//		asm_data->u.x87.TTMP_FUDGE[17] = asm_data->u.x87.TTMP_FUDGE[19] =
-//		asm_data->u.x87.TTMP_FUDGE[21] = asm_data->u.x87.TTMP_FUDGE[23] =
-//		asm_data->u.x87.TTMP_FUDGE[24] = asm_data->u.x87.TTMP_FUDGE[25] =
-//		asm_data->u.x87.TTMP_FUDGE[26] = asm_data->u.x87.TTMP_FUDGE[27] =
-//		asm_data->u.x87.TTMP_FUDGE[28] = asm_data->u.x87.TTMP_FUDGE[29] =
-//		asm_data->u.x87.TTMP_FUDGE[30] = asm_data->u.x87.TTMP_FUDGE[31] = (double) b;
-
 /* Compute the AVX (53-bit) rounding constants */
 
 		asm_data->u.ymm.YMM_BIGVAL[0] = asm_data->u.ymm.YMM_BIGVAL[1] =
 		asm_data->u.ymm.YMM_BIGVAL[2] = asm_data->u.ymm.YMM_BIGVAL[3] = 3.0 * pow (2.0, 51.0);
-//		asm_data->u.ymm.YMM_BIGVAL_NEG[0] = asm_data->u.ymm.YMM_BIGVAL_NEG[1] =
-//		asm_data->u.ymm.YMM_BIGVAL_NEG[2] = asm_data->u.ymm.YMM_BIGVAL_NEG[3] = -asm_data->u.ymm.YMM_BIGVAL[0];
 		asm_data->u.ymm.YMM_BIGBIGVAL[0] = asm_data->u.ymm.YMM_BIGBIGVAL[1] =
 		asm_data->u.ymm.YMM_BIGBIGVAL[2] = asm_data->u.ymm.YMM_BIGBIGVAL[3] = big_word * asm_data->u.ymm.YMM_BIGVAL[0];
 
