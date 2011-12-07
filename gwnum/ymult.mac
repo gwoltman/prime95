@@ -421,7 +421,7 @@ set_data_prefetch_ptrs MACRO
 	ENDIF
 	ENDM
 
-;; This macro loops the specified number of times, prefetching two 64-byte cache lines
+;; This macro loops the specified number of times, prefetching four 64-byte cache lines
 ;; for every building block macro called.  Prefetch pointer is bumped to the next block
 ;; after clm*64 bytes prefetched.
 yloopquadpre MACRO iters, label1, incr_rsi, pm_incr_reg, pm_incr_amt, sc_incr_reg, sc_incr_amt
