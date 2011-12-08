@@ -425,8 +425,8 @@ double *yr4dwpn_build_pass1_table (
 
 	if (pass1_size % 7 == 0)
 		delay_count = 14;
-//	else if (pass1_size % 5 == 0 && !gwdata->ALL_COMPLEX_FFT)
-//		delay_count = 10;
+	else if (pass1_size == 320 && !gwdata->ALL_COMPLEX_FFT)
+		delay_count = 10;
  	else if ((pass1_size == 512 && !gwdata->ALL_COMPLEX_FFT) ||
 		 (pass1_size == 1024 && !gwdata->ALL_COMPLEX_FFT) ||
 		 (pass1_size == 2560 && gwdata->ALL_COMPLEX_FFT) ||
@@ -830,20 +830,19 @@ double *yr4dwpn_build_fixed_pass1_table (
 
 	if (! gwdata->ALL_COMPLEX_FFT) {
 		N = gwdata->FFTLEN;
-//		if (pass1_size % 20 == 0) {
-//			for (j = 0; j < N / 20; j += pass1_increment) {
-//				for (i = 1; i <= 9; i++) {	/* Create 9 twiddle factors */
-//					gwsincos1by4 (i * j, N, table);
-//					gwsincos1by4 (i * (j + upper_avx_word), N, table+1);
-//					gwsincos1by4 (i * (j + 2 * upper_avx_word), N, table+2);
-//					gwsincos1by4 (i * (j + 3 * upper_avx_word), N, table+3);
-//					table += 8;
-//				}
-//			}
-//			N = N / 20;
-//		}
-//		else
-		if (pass1_size % 28 == 0) {
+		if (pass1_size == 320) {
+			for (j = 0; j < N / 20; j += pass1_increment) {
+				for (i = 1; i <= 9; i++) {	/* Create 9 twiddle factors */
+					gwsincos1by4 (i * j, N, table);
+					gwsincos1by4 (i * (j + upper_avx_word), N, table+1);
+					gwsincos1by4 (i * (j + 2 * upper_avx_word), N, table+2);
+					gwsincos1by4 (i * (j + 3 * upper_avx_word), N, table+3);
+					table += 8;
+				}
+			}
+			N = N / 20;
+		}
+		else if (pass1_size % 28 == 0) {
 			for (j = 0; j < N / 28; j += pass1_increment) {
 				for (i = 1; i <= 13; i++) {	/* Create 13 twiddle factors */
 					gwsincos1by4 (i * j, N, table);

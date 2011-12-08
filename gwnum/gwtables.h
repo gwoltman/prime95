@@ -238,10 +238,9 @@ struct gwasm_data {
 		double	YMM_P951[4];
 		double	YMM_P588[4];
 
-		double	YMM_TMP1_8[32];	/* 8 YMM temporaries */
-		double	YMM_LIMIT_BIGMAX[192]; /* Normalization constants */
+		double	YMM_TMPS[18*4];		/* 18 YMM temporaries */
+		double	YMM_LIMIT_BIGMAX[192];	/* Normalization constants */
 		double	YMM_LIMIT_INVERSE[192];
-		double	YMM_COL_MULTS[2048];
 	    } ymm;
 
 	    struct xmm_data {

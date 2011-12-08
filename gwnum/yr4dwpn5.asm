@@ -58,12 +58,12 @@ buildfor        ,	yr4dwpn_pass1sc256 2M, 13, 1
 buildfor        ,	yr4dwpn_pass1sc256 2560K, 10240, 1
 buildfor        ,	yr4dwpn_pass1sc256 3200K, 12800, 1
 
-;buildfor        ,	yr4dwpn_pass1sc320 1440K, 4608, 4
-;buildfor        ,	yr4dwpn_pass1sc320 1920K, 6144, 4
-;buildfor        ,	yr4dwpn_pass1sc320 2400K, 7680, 4
-;buildfor        ,	yr4dwpn_pass1sc320 2560K, 13, 4
-;buildfor        ,	yr4dwpn_pass1sc320 3200K, 10240, 4
-;buildfor        ,	yr4dwpn_pass1sc320 4000K, 12800, 4
+buildfor        ,	yr4dwpn_pass1sc320 1440K, 4608, 1
+buildfor        ,	yr4dwpn_pass1sc320 1920K, 6144, 1
+buildfor        ,	yr4dwpn_pass1sc320 2400K, 7680, 1
+buildfor        ,	yr4dwpn_pass1sc320 2560K, 13, 1
+buildfor        ,	yr4dwpn_pass1sc320 3200K, 10240, 1
+buildfor        ,	yr4dwpn_pass1sc320 4000K, 12800, 1
 
 buildfor CORE   ,	yr4dwpn_pass1sc384 1728K, 4608, 1
 buildfor CORE   ,	yr4dwpn_pass1sc384 2304K, 6144, 1
@@ -309,14 +309,14 @@ buildfor        ,	yr4dwpn_pass1sc256 4M, 14, 1
 buildfor        ,	yr4dwpn_pass1sc256 5M, 20480, 1
 buildfor        ,	yr4dwpn_pass1sc256 6400K, 25600, 1
 
-;buildfor        ,	yr4dwpn_pass1sc320 2880K, 9216, 4
-;buildfor        ,	yr4dwpn_pass1sc320 3840K, 12288, 4
-;buildfor        ,	yr4dwpn_pass1sc320 4800K, 15360, 4
-;buildfor        ,	yr4dwpn_pass1sc320 5M, 14, 4
-;buildfor        ,	yr4dwpn_pass1sc320 5M, 14, 2
-;buildfor        ,	yr4dwpn_pass1sc320 5M, 14, 1
-;buildfor        ,	yr4dwpn_pass1sc320 6400K, 20480, 4
-;buildfor        ,	yr4dwpn_pass1sc320 8000K, 25600, 4
+buildfor        ,	yr4dwpn_pass1sc320 2880K, 9216, 1
+buildfor        ,	yr4dwpn_pass1sc320 3840K, 12288, 1
+buildfor        ,	yr4dwpn_pass1sc320 4800K, 15360, 1
+buildfor        ,	yr4dwpn_pass1sc320 5M, 14, 4
+buildfor        ,	yr4dwpn_pass1sc320 5M, 14, 2
+buildfor        ,	yr4dwpn_pass1sc320 5M, 14, 1
+buildfor        ,	yr4dwpn_pass1sc320 6400K, 20480, 1
+buildfor        ,	yr4dwpn_pass1sc320 8000K, 25600, 1
 
 buildfor CORE   ,   	yr4dwpn_pass1sc384 3456K, 9216, 1
 buildfor        ,	yr4dwpn_pass1sc384 4608K, 12288, 1

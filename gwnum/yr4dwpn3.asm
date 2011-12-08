@@ -62,14 +62,14 @@ buildfor CORE   ,	yr4dwpn_pass1sc256 1M, 12, 1
 buildfor CORE   ,	yr4dwpn_pass1sc256 1280K, 5120, 1
 buildfor CORE   ,	yr4dwpn_pass1sc256 1600K, 6400, 1
 
-;buildfor        ,	yr4dwpn_pass1sc320 720K, 2304, 4
-;buildfor        ,	yr4dwpn_pass1sc320 960K, 3072, 4
-;buildfor        ,	yr4dwpn_pass1sc320 1200K, 3840, 4
-;buildfor        ,	yr4dwpn_pass1sc320 1280K, 12, 4
-;buildfor        ,	yr4dwpn_pass1sc320 1280K, 12, 2
-;buildfor        ,	yr4dwpn_pass1sc320 1280K, 12, 1
-;buildfor        ,	yr4dwpn_pass1sc320 1600K, 5120, 4
-;buildfor        ,	yr4dwpn_pass1sc320 2000K, 6400, 4
+buildfor        ,	yr4dwpn_pass1sc320 720K, 2304, 1
+buildfor        ,	yr4dwpn_pass1sc320 960K, 3072, 1
+buildfor        ,	yr4dwpn_pass1sc320 1200K, 3840, 1
+buildfor        ,	yr4dwpn_pass1sc320 1280K, 12, 4
+buildfor        ,	yr4dwpn_pass1sc320 1280K, 12, 2
+buildfor        ,	yr4dwpn_pass1sc320 1280K, 12, 1
+buildfor        ,	yr4dwpn_pass1sc320 1600K, 5120, 1
+buildfor        ,	yr4dwpn_pass1sc320 2000K, 6400, 1
 
 buildfor        ,	yr4dwpn_pass1sc384 864K, 2304, 1
 buildfor        ,   	yr4dwpn_pass1sc384 1152K, 3072, 1
