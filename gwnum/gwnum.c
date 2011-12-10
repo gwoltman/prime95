@@ -2887,20 +2887,22 @@ int internal_gwsetup (
 		asm_data->u.ymm.YMM_P809[2] = asm_data->u.ymm.YMM_P809[3] = -asm_values[6];
 		asm_data->u.ymm.YMM_P866[0] = asm_data->u.ymm.YMM_P866[1] =
 		asm_data->u.ymm.YMM_P866[2] = asm_data->u.ymm.YMM_P866[3] = asm_values[8];
-//		asm_data->u.xmm.XMM_P975[0] = asm_data->u.xmm.XMM_P975[1] = asm_values[11];
-//		asm_data->u.xmm.XMM_P445[0] = asm_data->u.xmm.XMM_P445[1] = asm_values[12];
-//		asm_data->u.xmm.XMM_P180[0] = asm_data->u.xmm.XMM_P180[1] = asm_values[13];
-//		asm_data->u.xmm.XMM_P623[0] = asm_data->u.xmm.XMM_P623[1] = asm_values[14];
-//		asm_data->u.xmm.XMM_M358[0] = asm_data->u.xmm.XMM_M358[1] = asm_values[15];
-//		asm_data->u.xmm.XMM_P404[0] = asm_data->u.xmm.XMM_P404[1] = asm_values[16];
-//		asm_data->u.xmm.XMM_P223[0] = asm_data->u.xmm.XMM_P223[1] = -asm_values[17];
-//		asm_data->u.xmm.XMM_P901[0] = asm_data->u.xmm.XMM_P901[1] = -asm_values[18];
+		asm_data->u.ymm.YMM_P975[0] = asm_data->u.ymm.YMM_P975[1] =
+		asm_data->u.ymm.YMM_P975[2] = asm_data->u.ymm.YMM_P975[3] = asm_values[11];
+		asm_data->u.ymm.YMM_P623[0] = asm_data->u.ymm.YMM_P623[1] =
+		asm_data->u.ymm.YMM_P623[2] = asm_data->u.ymm.YMM_P623[3] = asm_values[14];
+		asm_data->u.ymm.YMM_P223[0] = asm_data->u.ymm.YMM_P223[1] =
+		asm_data->u.ymm.YMM_P223[2] = asm_data->u.ymm.YMM_P223[3] = -asm_values[17];
+		asm_data->u.ymm.YMM_P901[0] = asm_data->u.ymm.YMM_P901[1] =
+		asm_data->u.ymm.YMM_P901[2] = asm_data->u.ymm.YMM_P901[3] = -asm_values[18];
 		asm_data->u.ymm.YMM_P924[0] = asm_data->u.ymm.YMM_P924[1] =
 		asm_data->u.ymm.YMM_P924[2] = asm_data->u.ymm.YMM_P924[3] = asm_values[20];
 		asm_data->u.ymm.YMM_P383[0] = asm_data->u.ymm.YMM_P383[1] =
 		asm_data->u.ymm.YMM_P383[2] = asm_data->u.ymm.YMM_P383[3] = asm_values[21];
-//		asm_data->u.xmm.XMM_P782[0] = asm_data->u.xmm.XMM_P782[1] = asm_values[22];
-//		asm_data->u.xmm.XMM_P434[0] = asm_data->u.xmm.XMM_P434[1] = asm_values[23];
+		asm_data->u.ymm.YMM_P782[0] = asm_data->u.ymm.YMM_P782[1] =
+		asm_data->u.ymm.YMM_P782[2] = asm_data->u.ymm.YMM_P782[3] = asm_values[22];
+		asm_data->u.ymm.YMM_P434[0] = asm_data->u.ymm.YMM_P434[1] =
+		asm_data->u.ymm.YMM_P434[2] = asm_data->u.ymm.YMM_P434[3] = asm_values[23];
 	}
 
 /* Init constants for SSE2 code */

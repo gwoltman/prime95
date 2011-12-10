@@ -30,7 +30,7 @@ ELSE
 X87_CASES	EQU	13
 ENDIF
 SSE2_CASES	EQU	216
-AVX_CASES	EQU	144
+AVX_CASES	EQU	148
 
 loopent	MACRO	y,z		; Create a entry in the loop entry table
 	DP	&y&z
@@ -1059,6 +1059,11 @@ INCLUDE yr4.mac
 	avxmac avcase141, 192, 100000, YMM_SCD9, yr5_10cl_20_reals_fft rsi, 10*64, 64, 128, rdi
 	avxmac avcase142, 192, 4096, YMM_SCD9, yr5_10cl_20_reals_unfft rsi, 10*64, 64, 128, rdi
 	avxmac avcase143, 192, 100000, YMM_SCD9, yr5_10cl_20_reals_unfft rsi, 10*64, 64, 128, rdi
+
+	avxmac avcase144, 192, 4096, YMM_SCD13, yr7_14cl_28_reals_fft rsi, 10*64, 64, 128, rdi
+	avxmac avcase145, 192, 100000, YMM_SCD13, yr7_14cl_28_reals_fft rsi, 10*64, 64, 128, rdi
+	avxmac avcase146, 192, 4096, YMM_SCD13, yr7_14cl_28_reals_unfft rsi, 10*64, 64, 128, rdi
+	avxmac avcase147, 192, 100000, YMM_SCD13, yr7_14cl_28_reals_unfft rsi, 10*64, 64, 128, rdi
 
 ; Exit the timing code
 

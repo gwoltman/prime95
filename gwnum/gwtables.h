@@ -238,7 +238,16 @@ struct gwasm_data {
 		double	YMM_P951[4];
 		double	YMM_P588[4];
 
-		double	YMM_TMPS[18*4];		/* 18 YMM temporaries */
+		double	YMM_P975[4];	/* Used in radix-28 macros */
+		double	YMM_P623[4];
+
+		double	YMM_P901[4];
+		double	YMM_P782[4];
+
+		double	YMM_P434[4];
+		double	YMM_P223[4];
+
+		double	YMM_TMPS[26*4];		/* 26 YMM temporaries */
 		double	YMM_LIMIT_BIGMAX[192];	/* Normalization constants */
 		double	YMM_LIMIT_INVERSE[192];
 	    } ymm;

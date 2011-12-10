@@ -9,6 +9,7 @@
 
 INCLUDE yr3.mac
 INCLUDE yr5.mac
+INCLUDE yr7.mac
 INCLUDE yr8.mac
 
 ;;
