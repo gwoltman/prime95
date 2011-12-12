@@ -1291,7 +1291,7 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 		// Make sure pass 2 block gapsize matches the computation of blkdst in ymult.mac
 		if (gwdata->FOURKBGAPSIZE == 0)
 			gwdata->PASS2GAPSIZE = 0;
-		else if (gwdata->PASS2_SIZE == 9216)
+		else if (gwdata->PASS2_SIZE == 2304 || gwdata->PASS2_SIZE == 9216)
 			gwdata->PASS2GAPSIZE = 4*64;
 		else if (gwdata->PASS2_SIZE * 2 * 8 / 4096 * gwdata->FOURKBGAPSIZE % 128 == 0)
 			gwdata->PASS2GAPSIZE = -64;

@@ -260,7 +260,7 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p1_size, p2_levels, clma
 	blkdst = (p2cl*64+p2cl/64*fourKBgap)
 	IF fourKBgap EQ 0
 		blkdst = blkdst + 0
-	ELSEIF p2_levels EQ 9216
+	ELSEIF p2_levels EQ 2304 OR p2_levels EQ 9216
 		blkdst = blkdst + 4*64
 	ELSEIF blkdst MOD 128 EQ 0
 		blkdst = blkdst - 64
