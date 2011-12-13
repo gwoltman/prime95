@@ -229,12 +229,12 @@ buildfor        ,	yr4dwpn_pass1sc1024ac 8M, 13, 4
 buildfor CORE   ,	yr4dwpn_pass1sc1024ac 10M, 10240, 4
 buildfor        ,	yr4dwpn_pass1sc1024ac 12800K, 12800, 4
 
-;buildfor        ,	yr4dwpn_pass1sc1280ac 5760K, 4608, 4
-;buildfor        ,	yr4dwpn_pass1sc1280ac 7680K, 6144, 4
-;buildfor        ,	yr4dwpn_pass1sc1280ac 9600K, 7680, 4
-;buildfor        ,	yr4dwpn_pass1sc1280ac 10M, 13, 4
-;buildfor        ,	yr4dwpn_pass1sc1280ac 12800K, 10240, 4
-;buildfor        ,	yr4dwpn_pass1sc1280ac 16000K, 12800, 4
+buildfor        ,	yr4dwpn_pass1sc1280ac 5760K, 4608, 4
+buildfor        ,	yr4dwpn_pass1sc1280ac 7680K, 6144, 4
+buildfor        ,	yr4dwpn_pass1sc1280ac 9600K, 7680, 4
+buildfor        ,	yr4dwpn_pass1sc1280ac 10M, 13, 4
+buildfor        ,	yr4dwpn_pass1sc1280ac 12800K, 10240, 4
+buildfor        ,	yr4dwpn_pass1sc1280ac 16000K, 12800, 4
 
 ;buildfor        ,	yr4dwpn_pass1sc1536ac 6912K, 4608, 4
 ;buildfor        ,	yr4dwpn_pass1sc1536ac 9M, 6144, 4
@@ -518,14 +518,14 @@ buildfor        ,	yr4dwpn_pass1sc1024ac 16M, 14, 1
 buildfor CORE   ,	yr4dwpn_pass1sc1024ac 20M, 20480, 4
 buildfor CORE   ,	yr4dwpn_pass1sc1024ac 25M, 25600, 4
 
-;buildfor        ,	yr4dwpn_pass1sc1280ac 11520K, 9216, 4
-;buildfor        ,	yr4dwpn_pass1sc1280ac 15M, 12288, 4
-;buildfor        ,	yr4dwpn_pass1sc1280ac 19200K, 15360, 4
-;buildfor        ,	yr4dwpn_pass1sc1280ac 20M, 14, 4
-;buildfor        ,	yr4dwpn_pass1sc1280ac 20M, 14, 2
-;buildfor        ,	yr4dwpn_pass1sc1280ac 20M, 14, 1
-;buildfor        ,	yr4dwpn_pass1sc1280ac 25M, 20480, 4
-;buildfor        ,	yr4dwpn_pass1sc1280ac 32000K, 25600, 4
+buildfor        ,	yr4dwpn_pass1sc1280ac 11520K, 9216, 4
+buildfor        ,	yr4dwpn_pass1sc1280ac 15M, 12288, 4
+buildfor        ,	yr4dwpn_pass1sc1280ac 19200K, 15360, 4
+buildfor        ,	yr4dwpn_pass1sc1280ac 20M, 14, 4
+buildfor        ,	yr4dwpn_pass1sc1280ac 20M, 14, 2
+buildfor        ,	yr4dwpn_pass1sc1280ac 20M, 14, 1
+buildfor        ,	yr4dwpn_pass1sc1280ac 25M, 20480, 4
+buildfor        ,	yr4dwpn_pass1sc1280ac 32000K, 25600, 4
 
 ;buildfor        ,	yr4dwpn_pass1sc1536ac 13824K, 9216, 4
 ;buildfor        ,	yr4dwpn_pass1sc1536ac 18M, 12288, 4

@@ -375,11 +375,11 @@ buildfor        ,	yr4dwpn_pass1sc1024ac 256K, 8, 2
 buildfor        ,	yr4dwpn_pass1sc1024ac 256K, 8, 1
 buildfor        ,	yr4dwpn_pass1sc1024ac 320K, 320, 1
 
-;buildfor        ,	yr4dwpn_pass1sc1280ac 240K, 192, 4
-;buildfor        ,	yr4dwpn_pass1sc1280ac 320K, 8, 4
-;buildfor        ,	yr4dwpn_pass1sc1280ac 320K, 8, 2
-;buildfor        ,	yr4dwpn_pass1sc1280ac 320K, 8, 1
-;buildfor        ,	yr4dwpn_pass1sc1280ac 400K, 320, 4
+buildfor        ,	yr4dwpn_pass1sc1280ac 240K, 192, 2
+buildfor        ,	yr4dwpn_pass1sc1280ac 320K, 8, 4
+buildfor        ,	yr4dwpn_pass1sc1280ac 320K, 8, 2
+buildfor        ,	yr4dwpn_pass1sc1280ac 320K, 8, 1
+buildfor        ,	yr4dwpn_pass1sc1280ac 400K, 320, 2
 
 	; The all-complex 10 levels variants (768, 1024, 1280)
 
@@ -425,11 +425,11 @@ buildfor        ,	yr4dwpn_pass1sc1024ac 1M, 10, 2
 buildfor        ,	yr4dwpn_pass1sc1024ac 1M, 10, 1
 buildfor        ,	yr4dwpn_pass1sc1024ac 1280K, 1280, 4
 
-;buildfor        ,	yr4dwpn_pass1sc1280ac 960K, 768, 4
-;buildfor        ,	yr4dwpn_pass1sc1280ac 1280K, 10, 4
-;buildfor        ,	yr4dwpn_pass1sc1280ac 1280K, 10, 2
-;buildfor        ,	yr4dwpn_pass1sc1280ac 1280K, 10, 1
-;buildfor        ,	yr4dwpn_pass1sc1280ac 1600K, 1280, 4
+buildfor        ,	yr4dwpn_pass1sc1280ac 960K, 768, 2
+buildfor        ,	yr4dwpn_pass1sc1280ac 1280K, 10, 4
+buildfor        ,	yr4dwpn_pass1sc1280ac 1280K, 10, 2
+buildfor        ,	yr4dwpn_pass1sc1280ac 1280K, 10, 1
+buildfor        ,	yr4dwpn_pass1sc1280ac 1600K, 1280, 2
 
 ;buildfor        ,	yr4dwpn_pass1sc1536ac 1536K, 10, 4
 ;buildfor        ,	yr4dwpn_pass1sc1536ac 1536K, 10, 2
@@ -485,9 +485,9 @@ buildfor        ,	yr4dwpn_pass1sc1024ac 1536K, 1536, 4
 buildfor        ,	yr4dwpn_pass1sc1024ac 2M, 11, 4
 buildfor        ,	yr4dwpn_pass1sc1024ac 2560K, 2560, 4
 
-;buildfor        ,	yr4dwpn_pass1sc1280ac 1920K, 1536, 4
-;buildfor        ,	yr4dwpn_pass1sc1280ac 2560K, 11, 4
-;buildfor        ,	yr4dwpn_pass1sc1280ac 3200K, 2560, 4
+buildfor        ,	yr4dwpn_pass1sc1280ac 1920K, 1536, 2
+buildfor        ,	yr4dwpn_pass1sc1280ac 2560K, 11, 2
+buildfor        ,	yr4dwpn_pass1sc1280ac 3200K, 2560, 2
 
 ;; Some small FFTs fit completely in a large L2 cache and thus do
 ;; not need to be prefetched.
