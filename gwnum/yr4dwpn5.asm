@@ -104,12 +104,12 @@ buildfor        ,	yr4dwpn_pass1sc768 6M, 13, 2
 buildfor        ,	yr4dwpn_pass1sc768 7680K, 10240, 2
 buildfor        ,	yr4dwpn_pass1sc768 9600K, 12800, 2
 
-;buildfor        ,	yr4dwpn_pass1sc896 4032K, 4608, 4
-;buildfor        ,	yr4dwpn_pass1sc896 5376K, 6144, 4
-;buildfor        ,	yr4dwpn_pass1sc896 6720K, 7680, 4
-;buildfor        ,	yr4dwpn_pass1sc896 7M, 13, 4
-;buildfor        ,	yr4dwpn_pass1sc896 8960K, 10240, 4
-;buildfor        ,	yr4dwpn_pass1sc896 11200K, 12800, 4
+buildfor        ,	yr4dwpn_pass1sc896 4032K, 4608, 2
+buildfor        ,	yr4dwpn_pass1sc896 5376K, 6144, 2
+buildfor        ,	yr4dwpn_pass1sc896 6720K, 7680, 2
+buildfor        ,	yr4dwpn_pass1sc896 7M, 13, 2
+buildfor        ,	yr4dwpn_pass1sc896 8960K, 10240, 2
+buildfor        ,	yr4dwpn_pass1sc896 11200K, 12800, 2
 
 buildfor        ,	yr4dwpn_pass1sc1024 4608K, 4608, 4
 buildfor        ,	yr4dwpn_pass1sc1024 6M, 6144, 4
@@ -363,14 +363,14 @@ buildfor        ,	yr4dwpn_pass1sc768 12M, 14, 1
 buildfor        ,	yr4dwpn_pass1sc768 15M, 20480, 2
 buildfor        ,	yr4dwpn_pass1sc768 19200K, 25600, 2
 
-;buildfor        ,	yr4dwpn_pass1sc896 8064K, 9216, 4
-;buildfor        ,	yr4dwpn_pass1sc896 10752K, 12288, 4
-;buildfor        ,	yr4dwpn_pass1sc896 13440K, 15360, 4
-;buildfor        ,	yr4dwpn_pass1sc896 14M, 14, 4
-;buildfor        ,	yr4dwpn_pass1sc896 14M, 14, 2
-;buildfor        ,	yr4dwpn_pass1sc896 14M, 14, 1
-;buildfor        ,	yr4dwpn_pass1sc896 17920K, 20480, 4
-;buildfor        ,	yr4dwpn_pass1sc896 22400K, 25600, 4
+buildfor        ,	yr4dwpn_pass1sc896 8064K, 9216, 2
+buildfor        ,	yr4dwpn_pass1sc896 10752K, 12288, 2
+buildfor        ,	yr4dwpn_pass1sc896 13440K, 15360, 2
+buildfor        ,	yr4dwpn_pass1sc896 14M, 14, 4
+buildfor        ,	yr4dwpn_pass1sc896 14M, 14, 2
+buildfor        ,	yr4dwpn_pass1sc896 14M, 14, 1
+buildfor        ,	yr4dwpn_pass1sc896 17920K, 20480, 2
+buildfor        ,	yr4dwpn_pass1sc896 22400K, 25600, 2
 
 buildfor        ,	yr4dwpn_pass1sc1024 9M, 9216, 4
 buildfor        ,	yr4dwpn_pass1sc1024 12M, 12288, 4

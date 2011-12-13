@@ -137,11 +137,11 @@ buildfor        ,	yr4dwpn_pass1sc768 192K, 8, 2
 buildfor        ,	yr4dwpn_pass1sc768 192K, 8, 1
 buildfor        ,	yr4dwpn_pass1sc768 240K, 320, 2
 
-;buildfor        ,	yr4dwpn_pass1sc896 168K, 192, 4
-;buildfor        ,	yr4dwpn_pass1sc896 224K, 8, 4
-;buildfor        ,	yr4dwpn_pass1sc896 224K, 8, 2
-;buildfor        ,	yr4dwpn_pass1sc896 224K, 8, 1
-;buildfor        ,	yr4dwpn_pass1sc896 280K, 320, 4
+buildfor        ,	yr4dwpn_pass1sc896 168K, 192, 2
+buildfor        ,	yr4dwpn_pass1sc896 224K, 8, 4
+buildfor        ,	yr4dwpn_pass1sc896 224K, 8, 2
+buildfor        ,	yr4dwpn_pass1sc896 224K, 8, 1
+buildfor        ,	yr4dwpn_pass1sc896 280K, 320, 2
 
 buildfor        ,	yr4dwpn_pass1sc1024 192K, 192, 2
 buildfor        ,	yr4dwpn_pass1sc1024 256K, 8, 4
@@ -199,11 +199,11 @@ buildfor        ,	yr4dwpn_pass1sc768 768K, 10, 2
 buildfor        ,	yr4dwpn_pass1sc768 768K, 10, 1
 buildfor        ,	yr4dwpn_pass1sc768 960K, 1280, 2
 
-;buildfor        ,	yr4dwpn_pass1sc896 672K, 768, 4
-;buildfor        ,	yr4dwpn_pass1sc896 896K, 10, 4
-;buildfor        ,	yr4dwpn_pass1sc896 896K, 10, 2
-;buildfor        ,	yr4dwpn_pass1sc896 896K, 10, 1
-;buildfor        ,	yr4dwpn_pass1sc896 1120K, 1280, 4
+buildfor        ,	yr4dwpn_pass1sc896 672K, 768, 2
+buildfor        ,	yr4dwpn_pass1sc896 896K, 10, 4
+buildfor        ,	yr4dwpn_pass1sc896 896K, 10, 2
+buildfor        ,	yr4dwpn_pass1sc896 896K, 10, 1
+buildfor        ,	yr4dwpn_pass1sc896 1120K, 1280, 2
 
 buildfor        ,	yr4dwpn_pass1sc1024 768K, 768, 4
 buildfor        ,	yr4dwpn_pass1sc1024 1M, 10, 4
@@ -279,9 +279,9 @@ buildfor        ,	yr4dwpn_pass1sc768 1152K, 1536, 2
 buildfor        ,	yr4dwpn_pass1sc768 1536K, 11, 2
 buildfor        ,	yr4dwpn_pass1sc768 1920K, 2560, 2
 
-;buildfor        ,	yr4dwpn_pass1sc896 1344K, 1536, 4
-;buildfor        ,	yr4dwpn_pass1sc896 1792K, 11, 4
-;buildfor        ,	yr4dwpn_pass1sc896 2240K, 2560, 4
+buildfor        ,	yr4dwpn_pass1sc896 1344K, 1536, 2
+buildfor        ,	yr4dwpn_pass1sc896 1792K, 11, 2
+buildfor        ,	yr4dwpn_pass1sc896 2240K, 2560, 2
 
 buildfor        ,	yr4dwpn_pass1sc1024 1536K, 1536, 4
 buildfor        ,	yr4dwpn_pass1sc1024 2M, 11, 4
