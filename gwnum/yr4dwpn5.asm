@@ -97,12 +97,12 @@ buildfor        ,	yr4dwpn_pass1sc640 5M, 13, 1
 buildfor        ,	yr4dwpn_pass1sc640 6400K, 10240, 2
 buildfor        ,	yr4dwpn_pass1sc640 8000K, 12800, 2
 
-;buildfor        ,	yr4dwpn_pass1sc768 3456K, 4608, 4
-;buildfor        ,	yr4dwpn_pass1sc768 4608K, 6144, 4
-;buildfor        ,	yr4dwpn_pass1sc768 5760K, 7680, 4
-;buildfor        ,	yr4dwpn_pass1sc768 6M, 13, 4
-;buildfor        ,	yr4dwpn_pass1sc768 7680K, 10240, 4
-;buildfor        ,	yr4dwpn_pass1sc768 9600K, 12800, 4
+buildfor        ,	yr4dwpn_pass1sc768 3456K, 4608, 2
+buildfor        ,	yr4dwpn_pass1sc768 4608K, 6144, 2
+buildfor        ,	yr4dwpn_pass1sc768 5760K, 7680, 2
+buildfor        ,	yr4dwpn_pass1sc768 6M, 13, 2
+buildfor        ,	yr4dwpn_pass1sc768 7680K, 10240, 2
+buildfor        ,	yr4dwpn_pass1sc768 9600K, 12800, 2
 
 ;buildfor        ,	yr4dwpn_pass1sc896 4032K, 4608, 4
 ;buildfor        ,	yr4dwpn_pass1sc896 5376K, 6144, 4
@@ -215,12 +215,12 @@ buildfor        ,	yr4dwpn_pass1sc640ac 5M, 13, 1
 buildfor        ,	yr4dwpn_pass1sc640ac 6400K, 10240, 4
 buildfor        ,	yr4dwpn_pass1sc640ac 8000K, 12800, 4
 
-;buildfor        ,	yr4dwpn_pass1sc768ac 3456K, 4608, 4
-;buildfor        ,	yr4dwpn_pass1sc768ac 4608K, 6144, 4
-;buildfor        ,	yr4dwpn_pass1sc768ac 5760K, 7680, 4
-;buildfor        ,	yr4dwpn_pass1sc768ac 6M, 13, 4
-;buildfor        ,	yr4dwpn_pass1sc768ac 7680K, 10240, 4
-;buildfor        ,	yr4dwpn_pass1sc768ac 9600K, 12800, 4
+buildfor        ,	yr4dwpn_pass1sc768ac 3456K, 4608, 2
+buildfor        ,	yr4dwpn_pass1sc768ac 4608K, 6144, 2
+buildfor        ,	yr4dwpn_pass1sc768ac 5760K, 7680, 2
+buildfor        ,	yr4dwpn_pass1sc768ac 6M, 13, 2
+buildfor        ,	yr4dwpn_pass1sc768ac 7680K, 10240, 2
+buildfor        ,	yr4dwpn_pass1sc768ac 9600K, 12800, 2
 
 buildfor        ,	yr4dwpn_pass1sc1024ac 4608K, 4608, 4
 buildfor        ,	yr4dwpn_pass1sc1024ac 6M, 6144, 4
@@ -354,14 +354,14 @@ buildfor        ,	yr4dwpn_pass1sc640 10M, 14, 1
 buildfor        ,	yr4dwpn_pass1sc640 12800K, 20480, 2
 buildfor CORE   ,	yr4dwpn_pass1sc640 16000K, 25600, 2
 
-;buildfor        ,	yr4dwpn_pass1sc768 6912K, 9216, 4
-;buildfor        ,	yr4dwpn_pass1sc768 9M, 12288, 4
-;buildfor        ,	yr4dwpn_pass1sc768 11520K, 15360, 4
-;buildfor        ,	yr4dwpn_pass1sc768 12M, 14, 4
-;buildfor        ,	yr4dwpn_pass1sc768 12M, 14, 2
-;buildfor        ,	yr4dwpn_pass1sc768 12M, 14, 1
-;buildfor        ,	yr4dwpn_pass1sc768 15M, 20480, 4
-;buildfor        ,	yr4dwpn_pass1sc768 19200K, 25600, 4
+buildfor        ,	yr4dwpn_pass1sc768 6912K, 9216, 2
+buildfor        ,	yr4dwpn_pass1sc768 9M, 12288, 2
+buildfor        ,	yr4dwpn_pass1sc768 11520K, 15360, 2
+buildfor        ,	yr4dwpn_pass1sc768 12M, 14, 4
+buildfor        ,	yr4dwpn_pass1sc768 12M, 14, 2
+buildfor        ,	yr4dwpn_pass1sc768 12M, 14, 1
+buildfor        ,	yr4dwpn_pass1sc768 15M, 20480, 2
+buildfor        ,	yr4dwpn_pass1sc768 19200K, 25600, 2
 
 ;buildfor        ,	yr4dwpn_pass1sc896 8064K, 9216, 4
 ;buildfor        ,	yr4dwpn_pass1sc896 10752K, 12288, 4
@@ -500,14 +500,14 @@ buildfor        ,	yr4dwpn_pass1sc640ac 10M, 14, 1
 buildfor        ,	yr4dwpn_pass1sc640ac 12800K, 20480, 4
 buildfor CORE   ,	yr4dwpn_pass1sc640ac 16000K, 25600, 4
 
-;buildfor        ,	yr4dwpn_pass1sc768ac 6912K, 9216, 4
-;buildfor        ,	yr4dwpn_pass1sc768ac 9M, 12288, 4
-;buildfor        ,	yr4dwpn_pass1sc768ac 11520K, 15360, 4
-;buildfor        ,	yr4dwpn_pass1sc768ac 12M, 14, 4
-;buildfor        ,	yr4dwpn_pass1sc768ac 12M, 14, 2
-;buildfor        ,	yr4dwpn_pass1sc768ac 12M, 14, 1
-;buildfor        ,	yr4dwpn_pass1sc768ac 15M, 20480, 4
-;buildfor        ,	yr4dwpn_pass1sc768ac 19200K, 25600, 4
+buildfor        ,	yr4dwpn_pass1sc768ac 6912K, 9216, 2
+buildfor        ,	yr4dwpn_pass1sc768ac 9M, 12288, 2
+buildfor        ,	yr4dwpn_pass1sc768ac 11520K, 15360, 2
+buildfor        ,	yr4dwpn_pass1sc768ac 12M, 14, 4
+buildfor        ,	yr4dwpn_pass1sc768ac 12M, 14, 2
+buildfor        ,	yr4dwpn_pass1sc768ac 12M, 14, 1
+buildfor        ,	yr4dwpn_pass1sc768ac 15M, 20480, 2
+buildfor        ,	yr4dwpn_pass1sc768ac 19200K, 25600, 2
 
 buildfor CORE   ,	yr4dwpn_pass1sc1024ac 9M, 9216, 4
 buildfor CORE   ,	yr4dwpn_pass1sc1024ac 12M, 12288, 4
