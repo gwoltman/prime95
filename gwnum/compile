@@ -435,7 +435,7 @@ ymult1ax.obj: ymult1ax.asm ymult.mac ynormal.mac
     $(masm) /DARCH=BLEND ymult1ax.asm
     strip ymult1ax.obj
 
-yr4_blend.obj: yr4.asm ymult.mac yonepass.mac yr4.mac yr2.mac yr3.mac yr5.mac yr7.mac yr8.mac
+yr4_blend.obj: yr4.asm ymult.mac yonepass.mac yr4.mac yr3.mac yr5.mac yr7.mac yr8.mac
     $(masm) /DARCH=BLEND /Foyr4_blend.obj yr4.asm
     strip yr4_blend.obj
 

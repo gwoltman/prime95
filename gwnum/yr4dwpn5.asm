@@ -132,12 +132,12 @@ buildfor        ,	yr4dwpn_pass1sc1024 12800K, 12800, 4
 ;buildfor        ,	yr4dwpn_pass1sc1536 15M, 10240, 4
 ;buildfor        ,	yr4dwpn_pass1sc1536 19200K, 12800, 4
 
-;buildfor        ,	yr4dwpn_pass1sc1792 8064K, 4608, 4
-;buildfor        ,	yr4dwpn_pass1sc1792 10752K, 6144, 4
-;buildfor        ,	yr4dwpn_pass1sc1792 13440K, 7680, 4
-;buildfor        ,	yr4dwpn_pass1sc1792 14M, 13, 4
-;buildfor        ,	yr4dwpn_pass1sc1792 17920K, 10240, 4
-;buildfor        ,	yr4dwpn_pass1sc1792 22400K, 12800, 4
+buildfor        ,	yr4dwpn_pass1sc1792 8064K, 4608, 4
+buildfor        ,	yr4dwpn_pass1sc1792 10752K, 6144, 4
+buildfor        ,	yr4dwpn_pass1sc1792 13440K, 7680, 4
+buildfor        ,	yr4dwpn_pass1sc1792 14M, 13, 4
+buildfor        ,	yr4dwpn_pass1sc1792 17920K, 10240, 4
+buildfor        ,	yr4dwpn_pass1sc1792 22400K, 12800, 4
 
 buildfor        ,	yr4dwpn_pass1sc2048 9M, 4608, 4
 buildfor        ,	yr4dwpn_pass1sc2048 12M, 6144, 4
@@ -399,12 +399,12 @@ buildfor CORE   ,	yr4dwpn_pass1sc1024 25M, 25600, 4
 ;buildfor        ,	yr4dwpn_pass1sc1536 30M, 20480, 4
 ;;buildfor        ,	yr4dwpn_pass1sc1536 38400K, 25600, 4
 
-;buildfor        ,	yr4dwpn_pass1sc1792 16128K, 9216, 4
-;buildfor        ,	yr4dwpn_pass1sc1792 21M, 12288, 4
-;buildfor        ,	yr4dwpn_pass1sc1792 26880K, 15360, 4
-;buildfor        ,	yr4dwpn_pass1sc1792 28M, 14, 4
-;buildfor        ,	yr4dwpn_pass1sc1792 28M, 14, 2
-;buildfor        ,	yr4dwpn_pass1sc1792 28M, 14, 1
+buildfor        ,	yr4dwpn_pass1sc1792 16128K, 9216, 4
+buildfor        ,	yr4dwpn_pass1sc1792 21M, 12288, 4
+buildfor        ,	yr4dwpn_pass1sc1792 26880K, 15360, 4
+buildfor        ,	yr4dwpn_pass1sc1792 28M, 14, 4
+buildfor        ,	yr4dwpn_pass1sc1792 28M, 14, 2
+buildfor        ,	yr4dwpn_pass1sc1792 28M, 14, 1
 ;;buildfor        ,	yr4dwpn_pass1sc1792 35840K, 20480, 4
 ;;buildfor        ,	yr4dwpn_pass1sc1792 44800K, 25600, 4
 
