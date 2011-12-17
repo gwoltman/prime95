@@ -118,12 +118,12 @@ buildfor        ,	yr4dwpn_pass1sc1024 8M, 13, 4
 buildfor CORE   ,	yr4dwpn_pass1sc1024 10M, 10240, 4
 buildfor        ,	yr4dwpn_pass1sc1024 12800K, 12800, 4
 
-;buildfor        ,	yr4dwpn_pass1sc1280 5760K, 4608, 4
-;buildfor        ,	yr4dwpn_pass1sc1280 7680K, 6144, 4
-;buildfor        ,	yr4dwpn_pass1sc1280 9600K, 7680, 4
-;buildfor        ,	yr4dwpn_pass1sc1280 10M, 13, 4
-;buildfor        ,	yr4dwpn_pass1sc1280 12800K, 10240, 4
-;buildfor        ,	yr4dwpn_pass1sc1280 16000K, 12800, 4
+buildfor        ,	yr4dwpn_pass1sc1280 5760K, 4608, 4
+buildfor        ,	yr4dwpn_pass1sc1280 7680K, 6144, 4
+buildfor        ,	yr4dwpn_pass1sc1280 9600K, 7680, 4
+buildfor        ,	yr4dwpn_pass1sc1280 10M, 13, 4
+buildfor        ,	yr4dwpn_pass1sc1280 12800K, 10240, 4
+buildfor        ,	yr4dwpn_pass1sc1280 16000K, 12800, 4
 
 ;buildfor        ,	yr4dwpn_pass1sc1536 6912K, 4608, 4
 ;buildfor        ,	yr4dwpn_pass1sc1536 9M, 6144, 4
@@ -381,14 +381,14 @@ buildfor        ,	yr4dwpn_pass1sc1024 16M, 14, 1
 buildfor CORE   ,	yr4dwpn_pass1sc1024 20M, 20480, 4
 buildfor CORE   ,	yr4dwpn_pass1sc1024 25M, 25600, 4
 
-;buildfor        ,	yr4dwpn_pass1sc1280 11520K, 9216, 4
-;buildfor        ,	yr4dwpn_pass1sc1280 15M, 12288, 4
-;buildfor        ,	yr4dwpn_pass1sc1280 19200K, 15360, 4
-;buildfor        ,	yr4dwpn_pass1sc1280 20M, 14, 4
-;buildfor        ,	yr4dwpn_pass1sc1280 20M, 14, 2
-;buildfor        ,	yr4dwpn_pass1sc1280 20M, 14, 1
-;buildfor        ,	yr4dwpn_pass1sc1280 25M, 20480, 4
-;buildfor        ,	yr4dwpn_pass1sc1280 32000K, 25600, 4
+buildfor        ,	yr4dwpn_pass1sc1280 11520K, 9216, 4
+buildfor        ,	yr4dwpn_pass1sc1280 15M, 12288, 4
+buildfor        ,	yr4dwpn_pass1sc1280 19200K, 15360, 4
+buildfor        ,	yr4dwpn_pass1sc1280 20M, 14, 4
+buildfor        ,	yr4dwpn_pass1sc1280 20M, 14, 2
+buildfor        ,	yr4dwpn_pass1sc1280 20M, 14, 1
+buildfor        ,	yr4dwpn_pass1sc1280 25M, 20480, 4
+buildfor        ,	yr4dwpn_pass1sc1280 32000K, 25600, 4
 
 ;buildfor        ,	yr4dwpn_pass1sc1536 13824K, 9216, 4
 ;buildfor        ,	yr4dwpn_pass1sc1536 18M, 12288, 4
