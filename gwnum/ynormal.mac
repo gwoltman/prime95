@@ -6,6 +6,18 @@
 ; and multiplication by two-to-phi powers using SSE2 instructions.
 ;
 
+; Utility macros used in normalization macros
+
+; Compute absolute value of a ymm register.  In 64-bit mode we assume
+; ymm15 has been preloaded with the necessary constant.
+ 
+absval MACRO ymmreg
+	IFDEF X86_64
+	vandpd	ymmreg, ymmreg, ymm15		;; Compute absolute value
+	ELSE
+	vandpd	ymmreg, ymmreg, YMM_ABSVAL	;; Compute absolute value
+	ENDIF
+	ENDM
 
 ; These macros implement the variants of the normalization routines
 ; in a non-pipelined way.  It is simply too much work to hand optimize
@@ -16,7 +28,7 @@
 error_check MACRO ymmreg, tmpreg, errreg
 	vroundpd tmpreg, ymmreg, 0		;; Convert to an integer
 	vsubpd	tmpreg, tmpreg, ymmreg		;; This is the convolution error
-	vandpd	tmpreg, tmpreg, YMM_ABSVAL	;; Compute absolute value
+	absval	tmpreg				;; Compute absolute value
 	vmaxpd	errreg, errreg, tmpreg		;; Compute maximum error
 	ENDM
 
@@ -25,25 +37,11 @@ error_check_interleaved MACRO ymmreg1, tmpreg1, ymmreg2, tmpreg2, errreg
 	vroundpd tmpreg2, ymmreg2, 0		;; Convert to an integer
 	vsubpd	tmpreg1, tmpreg1, ymmreg1	;; This is the convolution error
 	vsubpd	tmpreg2, tmpreg2, ymmreg2	;; This is the convolution error
-	vandpd	tmpreg1, tmpreg1, YMM_ABSVAL	;; Compute absolute value
-	vandpd	tmpreg2, tmpreg2, YMM_ABSVAL	;; Compute absolute value
+	absval	tmpreg1				;; Compute absolute value
+	absval	tmpreg2				;; Compute absolute value
 	vmaxpd	errreg, errreg, tmpreg1		;; Compute maximum error
 	vmaxpd	errreg, errreg, tmpreg2		;; Compute maximum error
 	ENDM
-
-IFDEF X86_64
-;; Same as above but with ymm15 preloaded with a useful constant
-error_check_interleaved_64 MACRO ymmreg1, tmpreg1, ymmreg2, tmpreg2, errreg
-	vroundpd tmpreg1, ymmreg1, 0		;; Convert to an integer
-	vroundpd tmpreg2, ymmreg2, 0		;; Convert to an integer
-	vsubpd	tmpreg1, tmpreg1, ymmreg1	;; This is the convolution error
-	vsubpd	tmpreg2, tmpreg2, ymmreg2	;; This is the convolution error
-	vandpd	tmpreg1, tmpreg1, ymm15		;; Compute absolute value
-	vandpd	tmpreg2, tmpreg2, ymm15		;; Compute absolute value
-	vmaxpd	errreg, errreg, tmpreg1		;; Compute maximum error
-	vmaxpd	errreg, errreg, tmpreg2		;; Compute maximum error
-	ENDM
-ENDIF
 
 ; In general, normalization routines calculate:
 ;		newFFTvalue = (FFTvalue * const + carry) % base
@@ -76,7 +74,7 @@ base2_mul_by_const MACRO echk, ymmval, ymmcarry, ymmtmp1, ymmtmp2, errreg
 	vsubpd	ymmtmp1, ymmtmp1, ymmtmp2	;; ymmtmp1 is the high bits of FFT value
 	vroundpd ymmtmp2, ymmval, 0		;; Round FFT value to an integer
 echk	vsubpd	ymmval, ymmval, ymmtmp2		;; This is the convolution error
-echk	vandpd	ymmval, ymmval, YMM_ABSVAL	;; Compute absolute value
+echk	absval	ymmval				;; Compute absolute value
 echk	vmaxpd	errreg, errreg, ymmval		;; Compute maximum error
 	vsubpd	ymmval, ymmtmp2, ymmtmp1	;; ymmval now contains low 25 bits of FFT value
 	vmovapd	ymmtmp2, YMM_MULCONST
@@ -90,7 +88,7 @@ nobase2_mul_by_const MACRO echk, ymmval, ymmcarry, ymmtmp1, ymmtmp2, basereg, er
 	vroundpd ymmtmp2, ymmval, 0				;; Round FFT value to an integer
 	vroundpd ymmtmp1, ymmtmp1, 0				;; Round FFT value / base to an integer
 echk	vsubpd	ymmval, ymmval, ymmtmp2				;; This is the convolution error
-echk	vandpd	ymmval, ymmval, YMM_ABSVAL			;; Compute absolute value
+echk	absval	ymmval						;; Compute absolute value
 echk	vmaxpd	errreg, errreg, ymmval				;; Compute maximum error
 	vmulpd	ymmval, ymmtmp1, YMM_LIMIT_BIGMAX[basereg]	;; round (FFT value / base) * base
 	vsubpd	ymmval, ymmtmp2, ymmval				;; This is FFTvalue % base
@@ -107,7 +105,7 @@ base2
 	vmovapd	ymmtmp, ymmval			;; Copy value (can't be avoided without using a 2nd temp reg)
 	vroundpd ymmval, ymmval, 0		;; Round FFT value to an integer
 echk	vsubpd	ymmtmp, ymmval, ymmtmp		;; This is the convolution error
-echk	vandpd	ymmtmp, ymmtmp, YMM_ABSVAL	;; Compute absolute value
+echk	absval	ymmtmp				;; Compute absolute value
 echk	vmaxpd	errreg, errreg, ymmtmp		;; Compute maximum error
 	vaddpd	ymmtmp, ymmval, YMM_BIGBIGVAL	;; Round to nearest multiple of 2^25
 	vsubpd	ymmtmp, ymmtmp, YMM_BIGBIGVAL	;; ymmtmp is the high bits of FFT value
@@ -120,7 +118,7 @@ nobase2:
 	vmovapd	ymmtmp, ymmval					;; Copy value (can't be avoided without using a 2nd temp reg)
 	vroundpd ymmval, ymmval, 0				;; Round FFT value to an integer
 echk	vsubpd	ymmtmp, ymmval, ymmtmp				;; This is the convolution error
-echk	vandpd	ymmtmp, ymmtmp, YMM_ABSVAL			;; Compute absolute value
+echk	absval	ymmtmp						;; Compute absolute value
 echk	vmaxpd	errreg, errreg, ymmtmp				;; Compute maximum error
 	vmulpd	ymmtmp, ymmval, YMM_LIMIT_INVERSE[basereg]	;; Compute FFT value / base
 	vroundpd ymmtmp, ymmtmp, 0				;; Round FFT value / base to an integer
@@ -152,8 +150,8 @@ base2_mul_by_const_interleaved MACRO echk, ymmval, ymmcarry, ymmtmp, ymmval2, ym
 ;	vroundpd ymmtmp2, ymmval2, 0		;; Round to an integer
 ;echk	vsubpd	ymmval, ymmval, ymmtmp		;; This is the convolution error
 ;echk	vsubpd	ymmval2, ymmval2, ymmtmp2	;; This is the convolution error
-;echk	vandpd	ymmval, ymmval, YMM_ABSVAL	;; Compute absolute value
-;echk	vandpd	ymmval2, ymmval2, YMM_ABSVAL	;; Compute absolute value
+;echk	absval	ymmval				;; Compute absolute value
+;echk	absval	ymmval2				;; Compute absolute value
 ;echk	vmaxpd	errreg, errreg, ymmval		;; Compute maximum error
 ;echk	vmaxpd	errreg, errreg, ymmval2		;; Compute maximum error
 ;	vsubpd	ymmval, ymmtmp, ymmcarry	;; ymmreg now contains low 25 bits
@@ -177,8 +175,8 @@ nobase2_mul_by_const_interleaved MACRO echk, ymmval, ymmcarry, ymmtmp, basereg, 
 ;;	vroundpd ymmcarry2, ymmcarry2, 0			;; Round to an integer
 ;;echk	vsubpd	ymmval, ymmval, ymmtmp				;; This is the convolution error
 ;;echk	vsubpd	ymmval2, ymmval2, ymmtmp2			;; This is the convolution error
-;;echk	vandpd	ymmval, ymmval, YMM_ABSVAL			;; Compute absolute value
-;;echk	vandpd	ymmval2, ymmval2, YMM_ABSVAL			;; Compute absolute value
+;;echk	absval	ymmval						;; Compute absolute value
+;;echk	absval	ymmval2						;; Compute absolute value
 ;;echk	vmaxpd	errreg, errreg, ymmval				;; Compute maximum error
 ;;echk	vmaxpd	errreg, errreg, ymmval2				;; Compute maximum error
 ;;	vmulpd	ymmval, ymmcarry, YMM_LIMIT_BIGMAX[basereg]
@@ -402,7 +400,7 @@ base2_split_lower_zpad_word MACRO echk, ymmvalin, ymmcarry, ymmvalout, basereg
 	vsubpd	ymmcarry, ymmcarry, ymmvalout
 	vroundpd ymmvalout, ymmvalin, 0				;; Round to an integer
 echk	vsubpd	ymmvalin, ymmvalin, ymmvalout			;; This is the convolution error
-echk	vandpd	ymmvalin, ymmvalin, YMM_ABSVAL			;; Compute absolute value
+echk	absval	ymmvalin					;; Compute absolute value
 echk	vmaxpd	ymm6, ymm6, ymmvalin				;; Compute maximum error
 	vsubpd	ymmvalout, ymmvalout, ymmcarry			;; ymmvalout now contains low bigword bits
 	vmulpd	ymmcarry, ymmcarry, YMM_LIMIT_INVERSE[basereg]	;; Saved shifted FFT hi data
@@ -414,7 +412,7 @@ nobase2_split_lower_zpad_word MACRO echk, ymmvalin, ymmcarry, ymmvalout, basereg
 	vroundpd ymmvalout, ymmvalin, 0				;; Round input to an integer
 	vroundpd ymmcarry, ymmcarry, 0				;; Round FFTvalue / base to integer
 echk	vsubpd	ymmvalin, ymmvalin, ymmvalout			;; This is the convolution error
-echk	vandpd	ymmvalin, ymmvalin, YMM_ABSVAL			;; Compute absolute value
+echk	absval	ymmvalin					;; Compute absolute value
 echk	vmaxpd	ymm6, ymm6, ymmvalin				;; Compute maximum error
 	vmulpd	ymmvalin, ymmcarry, YMM_LIMIT_BIGMAX[basereg]
 	vsubpd	ymmvalout, ymmvalout, ymmvalin			;; ymmvalout now contains FFTvalue % base
@@ -423,7 +421,7 @@ echk	vmaxpd	ymm6, ymm6, ymmvalin				;; Compute maximum error
 ;; Interleaved version used in 64-bit implementation of zpad normalization.
 ;; Relies on some registers being preloaded.
 
-split_lower_zpad_word_interleaved MACRO ttp, echk, base2, ymmvalin, ymmcarry, ymmvalout, basereg, ymmvalin2, ymmcarry2, ymmvalout2, basereg2
+split_lower_zpad_word_interleaved MACRO ttp, base2, echk, ymmvalin, ymmcarry, ymmvalout, basereg, ymmvalin2, ymmcarry2, ymmvalout2, basereg2
 base2 ttp	base2_split_lower_zpad_word_interleaved echk, ymmvalin, ymmcarry, ymmvalout, basereg, ymmvalin2, ymmcarry2, ymmvalout2, basereg2
 base2 no ttp	base2_split_lower_zpad_word_interleaved echk, ymmvalin, ymmcarry, ymmvalout, 0, ymmvalin2, ymmcarry2, ymmvalout2, 0
 no base2 ttp	nobase2_split_lower_zpad_word_interleaved echk, ymmvalin, ymmcarry, ymmvalout, basereg, ymmvalin2, ymmcarry2, ymmvalout2, basereg2
@@ -441,8 +439,8 @@ base2_split_lower_zpad_word_interleaved MACRO echk, ymmvalin, ymmcarry, ymmvalou
 	vroundpd ymmvalout2, ymmvalin2, 0			;; Round to an integer
 echk	vsubpd	ymmvalin, ymmvalin, ymmvalout			;; This is the convolution error
 echk	vsubpd	ymmvalin2, ymmvalin2, ymmvalout2		;; This is the convolution error
-echk	vandpd	ymmvalin, ymmvalin, YMM_ABSVAL			;; Compute absolute value
-echk	vandpd	ymmvalin2, ymmvalin2, YMM_ABSVAL		;; Compute absolute value
+echk	absval	ymmvalin					;; Compute absolute value
+echk	absval	ymmvalin2					;; Compute absolute value
 echk	vmaxpd	ymm6, ymm6, ymmvalin				;; Compute maximum error
 echk	vmaxpd	ymm6, ymm6, ymmvalin2				;; Compute maximum error
 	vsubpd	ymmvalout, ymmvalout, ymmcarry			;; ymmvalout now contains low bigword bits
@@ -462,8 +460,8 @@ nobase2_split_lower_zpad_word_interleaved MACRO echk, ymmvalin, ymmcarry, ymmval
 	vroundpd ymmcarry2, ymmcarry2, 0			;; Round FFTvalue / base to integer
 echk	vsubpd	ymmvalin, ymmvalin, ymmvalout			;; This is the convolution error
 echk	vsubpd	ymmvalin2, ymmvalin2, ymmvalout2		;; This is the convolution error
-echk	vandpd	ymmvalin, ymmvalin, ymm13			;; Compute absolute value (YMM_ABSVAL is in ymm13)
-echk	vandpd	ymmvalin2, ymmvalin2, ymm13			;; Compute absolute value (YMM_ABSVAL is in ymm13)
+echk	absval	ymmvalin					;; Compute absolute value
+echk	absval	ymmvalin2					;; Compute absolute value
 echk	vmaxpd	ymm6, ymm6, ymmvalin				;; Compute maximum error
 echk	vmaxpd	ymm6, ymm6, ymmvalin2				;; Compute maximum error
 	vmulpd	ymmvalin, ymmcarry, YMM_LIMIT_BIGMAX[basereg]
@@ -488,7 +486,7 @@ base2_split_upper_zpad_word MACRO echk, ymmvalin, ymmcarry, ymmvalout, basereg
 	vsubpd	ymmcarry, ymmcarry, ymmvalout
 	vroundpd ymmvalout, ymmvalin, 0			;; Round input to an integer
 echk	vsubpd	ymmvalin, ymmvalin, ymmvalout		;; This is the convolution error
-echk	vandpd	ymmvalin, ymmvalin, YMM_ABSVAL		;; Compute absolute value
+echk	absval	ymmvalin				;; Compute absolute value
 echk	vmaxpd	ymm6, ymm6, ymmvalin			;; Compute maximum error
 	vsubpd	ymmvalout, ymmvalout, ymmcarry		;; ymmvalout now contains low bigword bits
 	ENDM
@@ -498,7 +496,7 @@ nobase2_split_upper_zpad_word MACRO echk, ymmvalin, ymmcarry, ymmvalout, basereg
 	vroundpd ymmvalout, ymmvalin, 0				;; Round input to an integer
 	vroundpd ymmcarry, ymmcarry, 0				;; Round FFTvalue / base to integer
 echk	vsubpd	ymmvalin, ymmvalin, ymmvalout			;; This is the convolution error
-echk	vandpd	ymmvalin, ymmvalin, YMM_ABSVAL			;; Compute absolute value
+echk	absval	ymmvalin					;; Compute absolute value
 echk	vmaxpd	ymm6, ymm6, ymmvalin				;; Compute maximum error
 	vmulpd	ymmvalin, ymmcarry, YMM_LIMIT_BIGMAX[basereg]
 	vsubpd	ymmvalout, ymmvalout, ymmvalin			;; ymmvalout now contains FFTvalue % base
@@ -521,8 +519,8 @@ base2_split_upper_zpad_word_interleaved MACRO echk, ymmvalin, ymmcarry, ymmvalou
 	vroundpd ymmvalout2, ymmvalin2, 0		;; Round input to an integer
 echk	vsubpd	ymmvalin, ymmvalin, ymmvalout		;; This is the convolution error
 echk	vsubpd	ymmvalin2, ymmvalin2, ymmvalout2	;; This is the convolution error
-echk	vandpd	ymmvalin, ymmvalin, YMM_ABSVAL		;; Compute absolute value
-echk	vandpd	ymmvalin2, ymmvalin2, YMM_ABSVAL	;; Compute absolute value
+echk	absval	ymmvalin				;; Compute absolute value
+echk	absval	ymmvalin2				;; Compute absolute value
 echk	vmaxpd	ymm6, ymm6, ymmvalin			;; Compute maximum error
 echk	vmaxpd	ymm6, ymm6, ymmvalin2			;; Compute maximum error
 	vsubpd	ymmvalout, ymmvalout, ymmcarry		;; ymmvalout now contains low bigword bits
@@ -538,8 +536,8 @@ nobase2_split_upper_zpad_word_interleaved MACRO echk, ymmvalin, ymmcarry, ymmval
 	vroundpd ymmcarry2, ymmcarry2, 0			;; Round FFTvalue / base to integer
 echk	vsubpd	ymmvalin, ymmvalin, ymmvalout			;; This is the convolution error
 echk	vsubpd	ymmvalin2, ymmvalin2, ymmvalout2		;; This is the convolution error
-echk	vandpd	ymmvalin, ymmvalin, ymm13			;; Compute absolute value (YMM_ABSVAL in ymm13)
-echk	vandpd	ymmvalin2, ymmvalin2, ymm13			;; Compute absolute value
+echk	absval	ymmvalin					;; Compute absolute value (YMM_ABSVAL in ymm13)
+echk	absval	ymmvalin2					;; Compute absolute value
 echk	vmaxpd	ymm6, ymm6, ymmvalin				;; Compute maximum error
 echk	vmaxpd	ymm6, ymm6, ymmvalin2				;; Compute maximum error
 	vmulpd	ymmvalin, ymmcarry, YMM_LIMIT_BIGMAX[basereg]
@@ -737,6 +735,15 @@ rotate_five_carries MACRO ymmreg1, ymmreg2, ymmtmp
 ;	vmulpd	ymm4, ymm4, [rbp+32]	;; new value = val * two-to-phi
 ;	vmovapd	[rsi+0*dist1], ymm4	;; Save new value
 
+ynorm_1d_preload MACRO ttp, base2, zero, echk, const
+	ENDM
+
+IFDEF X86_64
+ynorm_1d_preload MACRO ttp, base2, zero, echk, const
+echk	vmovapd	ymm15, YMM_ABSVAL
+	ENDM
+ENDIF
+
 ynorm_1d MACRO ttp, base2, zero, echk, const
 ttp		movzx	rax, BYTE PTR [rdi]	;; Load big vs. little flags
 ttp		movzx	rcx, BYTE PTR [rdi+1]
@@ -773,7 +780,16 @@ zero		vxorpd	ymm5, ymm5, ymm5
 ; rdi = pointer to array of big vs. little flags
 ; eax = big vs. little word flag #1
 
-ynorm_1d_zpad MACRO ttp, echk, const, base2, khi, c1, cm1
+ynorm_1d_zpad_preload MACRO ttp, base2, echk, const, khi, c1, cm1
+	ENDM
+
+IFDEF X86_64
+ynorm_1d_zpad_preload MACRO ttp, base2, echk, const, khi, c1, cm1
+echk	vmovapd	ymm15, YMM_ABSVAL
+	ENDM
+ENDIF
+
+ynorm_1d_zpad MACRO ttp, base2, echk, const, khi, c1, cm1
 ttp		movzx	rax, BYTE PTR [rdi]	;; Load big vs. little flags
 		vmovapd	ymm0, [rsi]		;; Load values1
 		vmovapd	ymm1, [rsi+32]		;; Load values2
@@ -1671,6 +1687,12 @@ kok:
 ynorm_wpn_preload MACRO ttp, base2, zero, echk, const
 	ENDM
 
+IFDEF X86_64
+ynorm_wpn_preload MACRO ttp, base2, zero, echk, const
+echk	vmovapd	ymm15, YMM_ABSVAL
+	ENDM
+ENDIF
+
 ynorm_wpn MACRO ttp, base2, zero, echk, const
 ttp		movzx	ecx, bl				;; Fudge flags 1
 ttp		and	rcx, 0e0h
@@ -1694,11 +1716,6 @@ ttp		movzx	rbx, WORD PTR [rdi+2]		;; Load next 4 big vs. little & fudge flags
 	ENDM
 
 IFDEF X86_64
-
-ynorm_wpn_preload MACRO ttp, base2, zero, echk, const
-echk		vmovapd	ymm15, YMM_ABSVAL
-	ENDM
-
 buggy_ynorm_wpn MACRO ttp, base2, zero, echk, const
 needs work....
 ttp		movzx	rcx, bl				;; Fudge flags 1,2
@@ -1869,7 +1886,7 @@ const				xload	ymm14, YMM_MINUS_C_TIMES_MULCONST
 base2				xload	ymm13, YMM_BIGBIGVAL
 base2 no echk khi no const	xload	ymm6, YMM_K_HI
 base2 no echk khi const		xload	ymm6, YMM_K_TIMES_MULCONST_HI
-no base2 echk			xload	ymm13, YMM_ABSVAL
+no base2 echk			xload	ymm13, YMM_ABSVAL  --- this won't work, must be ymm15
 no base2 no echk khi no const	xload	ymm6, YMM_K_HI
 no base2 no echk khi const	xload	ymm6, YMM_K_TIMES_MULCONST_HI
 	ENDM
@@ -1892,7 +1909,7 @@ ttp	mulpd	ymm7, ymm9		;; Mul by fudged grp two-to-minus-phi
 ttp	mulpd	ymm8, ymm9		;; Mul by fudged grp two-to-minus-phi
 
 					;; Split lower word adding in previous high FFT data
-	split_lower_zpad_word_interleaved ttp, echk, base2, ymm0, ymm3, ymm5, rax*8, ymm7, ymm10, ymm12, rax*8+32
+	split_lower_zpad_word_interleaved ttp, base2, echk, ymm0, ymm3, ymm5, rax*8, ymm7, ymm10, ymm12, rax*8+32
 
 no const	xcopy	ymm0, ymm15	;; YMM_K_LO
 const		xcopy	ymm0, ymm15	;; YMM_K_TIMES_MULCONST_LO

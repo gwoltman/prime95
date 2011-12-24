@@ -1665,6 +1665,7 @@ no base2 vxorpd	ymm2, ymm2, ymm2	;; Start process with no carry
 echk	vxorpd	ymm6, ymm6, ymm6	;; Clear maximum error
 	mov	rbp, norm_col_mults	;; Addr of the multipliers
 	mov	rdi, norm_biglit_array	;; Addr of the big/little flags array
+	ynorm_1d_preload ttp, base2, zero, echk, const ;; Preload useful constants
 	mov	eax, 4			;; Load loop counter (4 sections)
 	mov	loopcount1, eax
 ilp0:	mov	section_srcptr, rsi	;; remember rsi for ynorm_1d_mid_cleanup
@@ -1713,6 +1714,7 @@ no base2 vxorpd	ymm2, ymm2, ymm2	;; Start process with no carry
 echk	vxorpd	ymm6, ymm6, ymm6	;; Clear maximum error
 	mov	rbp, norm_col_mults	;; Addr of the multipliers
 	mov	rdi, norm_biglit_array	;; Addr of the big/little flags array
+	ynorm_1d_zpad_preload ttp, base2, echk, const, khi, c1, cm1 ;; Preload useful constants
 	mov	eax, 4			;; Do 4 sections
 	mov	loopcount1, eax		;; Save loop counter
 ilp0:	mov	section_srcptr, rsi	;; remember rsi for ynorm_1d_mid_cleanup
@@ -1721,7 +1723,7 @@ ttp	mov	section_ttpptr, rbp	;; remember rbp for ynorm_1d_mid_cleanup
 	mov	eax, normcount1		;; Get count of padded groups in a section
 	mov	loopcount2, eax
 ilp2:	mov	ebx, count1		;; Get count of cache lines before a padding occurs
-ilp1:	ynorm_1d_zpad ttp, echk, const, base2, khi, c1, cm1 ;; Normalize 8 values
+ilp1:	ynorm_1d_zpad ttp, base2, echk, const, khi, c1, cm1 ;; Normalize 8 values
 	bump	rsi, 64			;; Next cache line
 ttp	bump	rbp, 64			;; Next set of 8 multipliers
 ttp	bump	rdi, 1			;; Next big/little flags
