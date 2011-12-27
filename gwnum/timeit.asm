@@ -895,6 +895,8 @@ INCLUDE ybasics.mac
 INCLUDE ymult.mac
 INCLUDE yr4.mac
 
+MAXRPT	EQU	1
+
 	avxmac avcase0, 256, 4096, YMM_SCD3, yr4_4cl_eight_reals_fft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase1, 256, 100000, YMM_SCD3, yr4_4cl_eight_reals_fft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase2, 256, 4096, YMM_SCD3, yr4_s4cl_eight_reals_fft rsi, 4*64, 64, 2*64, rdi
@@ -919,16 +921,16 @@ INCLUDE yr4.mac
 	avxmac avcase20, 256, 4096, YMM_SCD4, yr4_sg4cl_2sc_eight_reals_unfft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, rdi
 	avxmac avcase21, 256, 100000, YMM_SCD4, yr4_sg4cl_2sc_eight_reals_unfft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, rdi
 
-	avxmac avcase22, 256, 4096, YMM_SCD2, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase23, 256, 100000, YMM_SCD2, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase24, 256, 4096, YMM_SCD2/4, yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase25, 256, 100000, YMM_SCD2/4, yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase26, 256, 4096, YMM_SCD3, yr4_rb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase27, 256, 100000, YMM_SCD3, yr4_rb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase28, 256, 4096, YMM_SCD2, yr4_s4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase29, 256, 100000, YMM_SCD2, yr4_s4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
-	avxmacbx avcase30, 256, 4096, YMM_SCD2, yr4_fs4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
-	avxmacbx avcase31, 256, 100000, YMM_SCD2, yr4_fs4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
+	avxmac avcase22, 256*2, 4096, 0, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
+	avxmac avcase23, 256*2, 100000, 0, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
+	avxmac avcase24, 256*2, 4096, 0, yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2/4, MAXRPT
+	avxmac avcase25, 256*2, 100000, 0, yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2/4, MAXRPT
+	avxmac avcase26, 256*2, 4096, 0, yr4_rb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD3, MAXRPT
+	avxmac avcase27, 256*2, 100000, 0, yr4_rb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD3, MAXRPT
+	avxmac avcase28, 256*2, 4096, 0, yr4_s4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
+	avxmac avcase29, 256*2, 100000, 0, yr4_s4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
+	avxmacbx avcase30, 256*2, 4096, 0, yr4_fs4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
+	avxmacbx avcase31, 256*2, 100000, 0, yr4_fs4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
 	avxmac avcase32, 256, 4096, YMM_SCND2, yr4_4cl_wpn_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase33, 256, 100000, YMM_SCND2, yr4_4cl_wpn_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase34, 256, 4096, YMM_SCND2, yr4_b4cl_wpn_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
@@ -936,12 +938,12 @@ INCLUDE yr4.mac
 	avxmac avcase36, 256, 4096, YMM_SCD4, yr4_sg4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
 	avxmac avcase37, 256, 100000, YMM_SCD4, yr4_sg4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
 
-	avxmac avcase38, 256, 4096, YMM_SCD2, yr4_4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase39, 256, 100000, YMM_SCD2, yr4_4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase40, 256, 4096, YMM_SCD2/4, yr4_b4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase41, 256, 100000, YMM_SCD2/4, yr4_b4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase42, 256, 4096, YMM_SCD2, yr4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase43, 256, 100000, YMM_SCD2, yr4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi
+	avxmac avcase38, 256, 4096, 0, yr4_4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
+	avxmac avcase39, 256, 100000, 0, yr4_4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
+	avxmac avcase40, 256, 4096, 0, yr4_b4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2/4, MAXRPT
+	avxmac avcase41, 256, 100000, 0, yr4_b4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2/4, MAXRPT
+	avxmac avcase42, 256, 4096, 0, yr4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
+	avxmac avcase43, 256, 100000, 0, yr4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
 	avxmac avcase44, 256, 4096, YMM_SCND2, yr4_4cl_wpn_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase45, 256, 100000, YMM_SCND2, yr4_4cl_wpn_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase46, 256, 4096, YMM_SCND2, yr4_b4cl_wpn_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi
