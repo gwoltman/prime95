@@ -1828,6 +1828,12 @@ ENDIF
 ynorm_wpn_zpad_preload MACRO ttp, base2, echk, const, khi, c1, cm1
 	ENDM
 
+IFDEF X86_64
+ynorm_wpn_zpad_preload MACRO ttp, base2, echk, const, khi, c1, cm1
+echk	vmovapd	ymm15, YMM_ABSVAL
+	ENDM
+ENDIF
+
 ynorm_wpn_zpad MACRO ttp, base2, echk, const, khi, c1, cm1
 ttp			movzx	eax, bh				;; Big/lit flags 1-2
 ttp			and	rbx, 0e0h			;; Fudge flags 2
