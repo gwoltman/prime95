@@ -1928,6 +1928,11 @@ loops_common MACRO iters, dest, incr
 
 ;; Undo some previous loops calls
 loops_undo MACRO iters
+	;; Sanity check
+	IF iters GT loops_completed
+		bad_loops_undo_amount
+	ENDIF
+
 	;; Handle nasty case where caller requested prefetching 64 bytes at the
 	;; loops_completed boundary on a machine that prefetches 128 bytes at a time
 	IF loops_orig_pffreq EQ loops_completed AND loops_pffreq NE loops_completed
@@ -1979,14 +1984,8 @@ loops_undo MACRO iters
 	ENDIF
 	ENDM
 
-;; Kinda like loops_undo except that the loop counter is not adjusted (or set to a specific amount)
-loops_reset MACRO new_loop_count
-	;; Optionally reset counter to a specific value
-	IFNB <new_loop_count>
-		add	eax, new_loop_count
-		EXITM
-	ENDIF
-
+;; Kinda like loops_undo except that the loop counter is not adjusted
+loops_reset MACRO
 	;; Reset variables
 	loops_completed = 0
 	loops_count = loops_original_count
