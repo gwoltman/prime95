@@ -59,9 +59,9 @@ typedef double *gwnum;
 /* gwsetup verifies that the version numbers match.  This prevents bugs */
 /* from accidentally linking in the wrong gwnum library. */
 
-#define GWNUM_VERSION		"27.2"
+#define GWNUM_VERSION		"27.3"
 #define GWNUM_MAJOR_VERSION	27
-#define GWNUM_MINOR_VERSION	2
+#define GWNUM_MINOR_VERSION	3
 
 /* Error codes returned by the three gwsetup routines */
 
