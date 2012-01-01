@@ -2285,13 +2285,13 @@ int internal_gwsetup (
 
 /* Create offsets for carry propagation code to step through norm array */
 
-		asm_data->u.ymm.YMM_SRC_INCR7 = addr_offset (gwdata, 7) - addr_offset (gwdata, 6);
-		asm_data->u.ymm.YMM_SRC_INCR6 = addr_offset (gwdata, 6) - addr_offset (gwdata, 5);
-		asm_data->u.ymm.YMM_SRC_INCR5 = addr_offset (gwdata, 5) - addr_offset (gwdata, 4);
-		asm_data->u.ymm.YMM_SRC_INCR4 = addr_offset (gwdata, 4) - addr_offset (gwdata, 3);
-		asm_data->u.ymm.YMM_SRC_INCR3 = addr_offset (gwdata, 3) - addr_offset (gwdata, 2);
-		asm_data->u.ymm.YMM_SRC_INCR2 = addr_offset (gwdata, 2) - addr_offset (gwdata, 1);
-		asm_data->u.ymm.YMM_SRC_INCR1 = addr_offset (gwdata, 1) - addr_offset (gwdata, 0);
+		asm_data->u.ymm.YMM_SRC_INCR7 = (intptr_t) addr_offset (gwdata, 7) - (intptr_t) addr_offset (gwdata, 6);
+		asm_data->u.ymm.YMM_SRC_INCR6 = (intptr_t) addr_offset (gwdata, 6) - (intptr_t) addr_offset (gwdata, 5);
+		asm_data->u.ymm.YMM_SRC_INCR5 = (intptr_t) addr_offset (gwdata, 5) - (intptr_t) addr_offset (gwdata, 4);
+		asm_data->u.ymm.YMM_SRC_INCR4 = (intptr_t) addr_offset (gwdata, 4) - (intptr_t) addr_offset (gwdata, 3);
+		asm_data->u.ymm.YMM_SRC_INCR3 = (intptr_t) addr_offset (gwdata, 3) - (intptr_t) addr_offset (gwdata, 2);
+		asm_data->u.ymm.YMM_SRC_INCR2 = (intptr_t) addr_offset (gwdata, 2) - (intptr_t) addr_offset (gwdata, 1);
+		asm_data->u.ymm.YMM_SRC_INCR1 = (intptr_t) addr_offset (gwdata, 1) - (intptr_t) addr_offset (gwdata, 0);
 	}
 
 /* Initialize tables for SSE2 FFTs */

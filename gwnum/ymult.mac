@@ -421,115 +421,73 @@ set_data_prefetch_ptrs MACRO
 	ENDIF
 	ENDM
 
-;; This macro loops the specified number of times, prefetching four 64-byte cache lines
-;; for every building block macro called.  Prefetch pointer is bumped to the next block
-;; after clm*64 bytes prefetched.
-yloopquadpre MACRO iters, label1, incr_rsi, pm_incr_reg, pm_incr_amt, sc_incr_reg, sc_incr_amt
+;; yloop initialization
 
-	;; Init local variables
-	ylocal_iters = iters
-
-	;; Handle prefetching 64 bytes at a time
-	IF (PREFETCHING EQ 64) OR (PREFETCHING EQ 128 AND clm EQ 1)
-
-		;; On first call, issue four prefetch instructions
-		yloop_prefetch_multiple_at_iter 1, 4, 64, label1
-
-		;; Perform clm/4 iterations before issuing blkdst bump instruction
-		yloop_bump_at_iter clm/4, label1
-
-	;; Handle prefetching 128 bytes at a time
-	ELSEIF PREFETCHING EQ 128
-
-		;; On first call issue two prefetch instructions
-		yloop_prefetch_multiple_at_iter 1, 2, 128, label1
-
-		;; Perform clm/4 iterations before issuing blkdst bump instruction
-		yloop_bump_at_iter clm/4, label1
-
-	ENDIF
-
-	;; Loop any remaining iterations
-	IF (ylocal_iters GT 1)
-		loops	ylocal_iters, label1		;; Test loop counter
-	ENDIF
-
-	;; Optionally bump pointers
-	bump	rsi, incr_rsi			;; Next source pointer
-	bump	pm_incr_reg, pm_incr_amt	;; Next premultiplier pointer
-	bump	sc_incr_reg, sc_incr_amt	;; Next sin/cos pointer
+yloop_init MACRO count, first_completed, first_iters
+	loops_init count, first_completed, first_iters
+	yloop_prefetch_type = 0
 	ENDM
 
+; Predefined yloop prefetching rates
 
-;; This macro loops the specified number of times, prefetching two 64-byte cache lines
-;; for every building block macro called.  Prefetch pointer is bumped to the next block
-;; after clm*64 bytes prefetched.
-yloopdoublepre MACRO iters, label1, incr_rsi, pm_incr_reg, pm_incr_amt, sc_incr_reg, sc_incr_amt
+YNONE = 0			;; Prefetch no cache lines every macro call
+YQUAD = 1			;; Prefetch 4 cache lines every macro call
+YDOUBLE = 2			;; Prefetch 2 cache lines every macro call
+YSINGLE = 3			;; Prefetch 1 cache line every macro call
+YHALF = 4			;; Prefetch 1 cache line every 2 macro calls
+YQUARTER = 5			;; Prefetch 1 cache line every 4 macro calls
+YOTHER = 6			;; Prefetch 1 cache line every N macro calls
 
-	;; Init local variables
-	ylocal_iters = iters
+;; Set yloop prefetching.  Plain vanilla prefetching, prefetch pointer is bumped
+;; one cache line at a time.
 
-	;; Handle prefetching 64 bytes at a time
-	IF (PREFETCHING EQ 64) OR (PREFETCHING EQ 128 AND clm EQ 1)
-
-		;; On first call, issue two prefetch instructions
-		yloop_prefetch_multiple_at_iter 1, 2, 64, label1
-
-		;; Perform clm/2 iterations before issuing blkdst bump instruction
-		yloop_bump_at_iter clm/2, label1
-
-	;; Handle prefetching 128 bytes at a time
-	ELSEIF PREFETCHING EQ 128
-
-		;; On first call issue prefetch instruction
-		yloop_prefetch_at_iter 1, 128, label1
-
-		;; Perform clm/2 iterations before issuing blkdst bump instruction
-		yloop_bump_at_iter clm/2, label1
-
+yloop_set_prefetch MACRO rate, arg1, arg2
+	yloop_prefetch_type = 1
+	IFNB <arg1>
+	IF (@INSTR (,@CATSTR (arg1),r)) NE 0
+		yloop_pfreg EQU arg1
+		yloop_set_rate rate, arg2
+		EXITM
 	ENDIF
-
-	;; Loop any remaining iterations
-	IF (ylocal_iters GT 1)
-		loops	ylocal_iters, label1		;; Test loop counter
 	ENDIF
-
-	;; Optionally bump pointers
-	bump	rsi, incr_rsi			;; Next source pointer
-	bump	pm_incr_reg, pm_incr_amt	;; Next premultiplier pointer
-	bump	sc_incr_reg, sc_incr_amt	;; Next sin/cos pointer
+	yloop_pfreg EQU rcx
+	yloop_set_rate rate, arg1
 	ENDM
 
+;; Set yloop prefetching.  In this type of prefetching, the prefetch pointer is bumped
+;; by blkdst after clm*64 bytes are prefetched.
 
-;; This macro loops the specified number of times, prefetching one 64-byte cache line
-;; for every building block macro called.  Prefetch pointer is bumped to the next block
-;; after clm*64 bytes prefetched.
+yloop_set_clm_prefetch MACRO rate
+	yloop_prefetch_type = 2
+	yloop_set_rate rate
+	ENDM
+
+;; Adjust the loop counter so that fewer iterations are performed.  This is an ugly hack
+;; as it requires the caller to understand the inner workings of how looping is implemented.
+yloop_adjust MACRO new_loop_count
+	add	eax, new_loop_count
+	ENDM
+
+;; This macro loops the specified number of times, prefetching 64-byte cache lines as
+;; necessary.  Prefetch pointer is bumped to the next block after clm*64 bytes prefetched.
 yloop MACRO iters, label1, incr_rsi, pm_incr_reg, pm_incr_amt, sc_incr_reg, sc_incr_amt
 
 	;; Init local variables
 	ylocal_iters = iters
 
-	;; Handle prefetching 64 bytes at a time
-	IF (PREFETCHING EQ 64) OR (PREFETCHING EQ 128 AND clm EQ 1)
+	;; Handle standard prefetching
+	IF yloop_prefetch_type EQ 1
+		yloopstandardpre label1
 
-		;; On first call, issue prefetch instruction
-		yloop_prefetch_at_iter 1, 64, label1
+	;; Handle "clm prefetching" where we bump the prefetch pointer every 64*clm bytes
+	ELSEIF yloop_prefetch_type EQ 2
+		yloopclmpre label1
+		yloop_bump_at_iter (clm*yloop_prefetch_iter/yloop_prefetch_count/(PREFETCHING/64)), label1
 
-		;; Perform clm iterations before issuing blkdst bump instruction
-		yloop_bump_at_iter clm, label1
-
-	;; Handle prefetching 128 bytes at a time
-	ELSEIF PREFETCHING EQ 128
-
-		;; Perform 2 iterations before issuing prefetch instruction
-		yloop_prefetch_at_iter 2, 128, label1
-
-		;; Perform clm iterations before issuing blkdst bump instruction
-		yloop_bump_at_iter clm, label1
 	ENDIF
 
-	;; Loop any remaining iterations
-	IF (ylocal_iters GT 1)
+	;; Loop any remaining iterations (or if YNONE prefetching and iters = 1 and this is the first call)
+	IF (ylocal_iters GT 1 OR loops_completed EQ 0)
 		loops	ylocal_iters, label1		;; Test loop counter
 	ENDIF
 
@@ -540,115 +498,49 @@ yloop MACRO iters, label1, incr_rsi, pm_incr_reg, pm_incr_amt, sc_incr_reg, sc_i
 	ENDM
 
 
-;; This macro loops the specified number of times, prefetching one 64-byte cache line
-;; for every two building block macros called.  Prefetch pointer is bumped to the next block
-;; after clm*64 bytes prefetched.
-yloophalfpre MACRO iters, label1, incr_rsi, pm_incr_reg, pm_incr_amt, sc_incr_reg, sc_incr_amt
+;; Internal macro to set yloop prefetching rate.
 
-	;; Init local variables
-	ylocal_iters = iters
-
-	;; Handle prefetching 64 bytes at a time
-	IF (PREFETCHING EQ 64) OR (PREFETCHING EQ 128 AND clm EQ 1)
-
-		;; On second call, issue prefetch instruction
-		yloop_prefetch_at_iter 2, 64, label1
-
-		;; Perform clm*2 iterations before issuing blkdst bump instruction
-		yloop_bump_at_iter clm*2, label1
-
-	;; Handle prefetching 128 bytes at a time
-	ELSEIF PREFETCHING EQ 128
-
-		;; Perform 4 iterations before issuing prefetch instruction
-		yloop_prefetch_at_iter 4, 128, label1
-
-		;; Perform clm*2 iterations before issuing blkdst bump instruction
-		yloop_bump_at_iter clm*2, label1
+yloop_set_rate MACRO rate, N
+	IF (rate EQ YNONE)
+		yloop_prefetch_type = 0
+	ELSEIF (rate EQ YQUAD)
+		yloop_prefetch_iter = 1
+		yloop_prefetch_count = 4
+	ELSEIF (rate EQ YDOUBLE)
+		yloop_prefetch_iter = 1
+		yloop_prefetch_count = 2
+	ELSEIF (rate EQ YSINGLE)
+		yloop_prefetch_iter = 1
+		yloop_prefetch_count = 1
+	ELSEIF (rate EQ YHALF)
+		yloop_prefetch_iter = 2
+		yloop_prefetch_count = 1
+	ELSEIF (rate EQ YQUARTER)
+		yloop_prefetch_iter = 4
+		yloop_prefetch_count = 1
+	ELSEIF (rate EQ YOTHER)
+		yloop_prefetch_iter = N
+		yloop_prefetch_count = 1
 	ENDIF
-
-	;; Loop any remaining iterations
-	IF (ylocal_iters GT 1)
-		loops	ylocal_iters, label1		;; Test loop counter
+	;; Handle supported prefetch amounts
+	IF (PREFETCHING EQ 0)
+		yloop_prefetch_rate = YNONE
+	ELSEIF (PREFETCHING EQ 128)
+		IF (yloop_prefetch_count EQ 1)
+			yloop_prefetch_iter = yloop_prefetch_iter * 2
+		ELSE
+			yloop_prefetch_count = (yloop_prefetch_count+1)/2
+		ENDIF
 	ENDIF
-
-	;; Optionally bump pointers
-	bump	rsi, incr_rsi			;; Next source pointer
-	bump	pm_incr_reg, pm_incr_amt	;; Next premultiplier pointer
-	bump	sc_incr_reg, sc_incr_amt	;; Next sin/cos pointer
 	ENDM
-
-
-;; This macro loops the specified number of times, prefetching one 64-byte cache line
-;; for every four building block macros called.  Prefetch pointer is bumped to the next block
-;; after clm*64 bytes prefetched.
-yloopquarterpre MACRO iters, label1, incr_rsi, pm_incr_reg, pm_incr_amt, sc_incr_reg, sc_incr_amt
-
-	;; Init local variables
-	ylocal_iters = iters
-
-	;; Handle prefetching 64 bytes at a time
-	IF (PREFETCHING EQ 64) OR (PREFETCHING EQ 128 AND clm EQ 1)
-
-		;; On fourth call, issue prefetch instruction
-		yloop_prefetch_at_iter 4, 64, label1
-
-		;; Perform clm*4 iterations before issuing blkdst bump instruction
-		yloop_bump_at_iter clm*4, label1
-
-	;; Handle prefetching 128 bytes at a time
-	ELSEIF PREFETCHING EQ 128
-
-		;; Perform 8 iterations before issuing prefetch instruction
-		yloop_prefetch_at_iter 8, 128, label1
-
-		;; Perform clm*4 iterations before issuing blkdst bump instruction
-		yloop_bump_at_iter clm*4, label1
-	ENDIF
-
-	;; Loop any remaining iterations
-	IF (ylocal_iters GT 1)
-		loops	ylocal_iters, label1		;; Test loop counter
-	ENDIF
-
-	;; Optionally bump pointers
-	bump	rsi, incr_rsi			;; Next source pointer
-	bump	pm_incr_reg, pm_incr_amt	;; Next premultiplier pointer
-	bump	sc_incr_reg, sc_incr_amt	;; Next sin/cos pointer
-	ENDM
-
-
-;; This macro loops the specified number of times, no prefetching.
-yloopnopre MACRO iters, label1, incr_rsi, pm_incr_reg, pm_incr_amt, sc_incr_reg, sc_incr_amt
-
-	;; Not prefetching, just loop
-	loops	iters, label1			;; Test loop counter
-
-	;; Optionally bump pointers
-	bump	rsi, incr_rsi			;; Next source pointer
-	bump	pm_incr_reg, pm_incr_amt	;; Next premultiplier pointer
-	bump	sc_incr_reg, sc_incr_amt	;; Next sin/cos pointer
-	ENDM
-
-
-;; Internal macro to prefetch when loop counter reaches a certain level.
-;; Loop count is assumed to be in yloop_iters and may be modified.
-
-yloop_prefetch_at_iter MACRO prefetch_iter, prefetch_incr, label1
-	;; Call general-purpose macro
-	yloop_prefetch_multiple_at_iter prefetch_iter, 1, prefetch_incr, label1
-ENDM
-
 
 ;; Internal macro to prefetch one or more cache lines when loop counter reaches a certain level.
 ;; Loop count is assumed to be in yloop_iters and may be modified.
 
-ybump_flag = 0				;; Init sanity check flag
-
-yloop_prefetch_multiple_at_iter MACRO prefetch_iter, prefetch_count, prefetch_incr, label1
+yloopstandardpre MACRO label1
 
 	;; If we're at or past the prefetch iteration, then we've already prefetched
-	IF loops_completed GE prefetch_iter
+	IF loops_completed GE yloop_prefetch_iter
 		EXITM
 	ENDIF
 
@@ -659,8 +551,8 @@ yloop_prefetch_multiple_at_iter MACRO prefetch_iter, prefetch_count, prefetch_in
 	ENDIF
 
 	;; Perform iterations before issuing prefetch instruction
-	IF prefetch_iter LT loops_completed * ylocal_iters
-		small_count = prefetch_iter / loops_completed
+	IF yloop_prefetch_iter LT loops_completed * ylocal_iters
+		small_count = yloop_prefetch_iter / loops_completed
 		IF (ylocal_iters MOD small_count) NE 0
 			yerror_with_non_power_of_2_and_prefetching
 		ENDIF
@@ -672,7 +564,59 @@ yloop_prefetch_multiple_at_iter MACRO prefetch_iter, prefetch_count, prefetch_in
 	ENDIF
 
 	;; Issue prefetch instruction(s)
-	IF loops_completed EQ prefetch_iter
+	IF loops_completed GE yloop_prefetch_iter
+
+		prefetcht1 [yloop_pfreg]
+		IF yloop_prefetch_count GE 2
+			prefetcht1 [yloop_pfreg + PREFETCHING]
+		ENDIF
+		IF yloop_prefetch_count GE 3
+			prefetcht1 [yloop_pfreg + 2 * PREFETCHING]
+		ENDIF
+		IF yloop_prefetch_count GE 4
+			prefetcht1 [yloop_pfreg + 3 * PREFETCHING]
+		ENDIF
+		IF yloop_prefetch_count GE 5
+			prefetch_count_too_large
+		ENDIF
+
+		bump	yloop_pfreg, yloop_prefetch_count * PREFETCHING	;; Next prefetch pointer
+	ENDIF
+ENDM
+
+;; Internal macro to prefetch one or more cache lines when loop counter reaches a certain level.
+;; Loop count is assumed to be in yloop_iters and may be modified.
+
+ybump_flag = 0				;; Init sanity check flag
+
+yloopclmpre MACRO label1
+
+	;; If we're at or past the prefetch iteration, then we've already prefetched
+	IF loops_completed GE yloop_prefetch_iter
+		EXITM
+	ENDIF
+
+	;; Make dummy loops call so that loops_completed is set to one
+	;; This makes future calculations easier.
+	IF loops_completed EQ 0
+		loops	1, label1
+	ENDIF
+
+	;; Perform iterations before issuing prefetch instruction
+	IF yloop_prefetch_iter LT loops_completed * ylocal_iters
+		small_count = yloop_prefetch_iter / loops_completed
+		IF (ylocal_iters MOD small_count) NE 0
+			yerror_with_non_power_of_2_and_prefetching
+		ENDIF
+		ylocal_iters = ylocal_iters / small_count
+		loops	small_count, label1	;; Test loop counter
+	ELSE
+		loops	ylocal_iters, label1	;; Test loop counter
+		ylocal_iters = 1
+	ENDIF
+
+	;; Issue prefetch instruction(s)
+	IF loops_completed GE yloop_prefetch_iter
 		;; Perform sanity check
 		IF ybump_flag EQ 1
 			previous_blkdst_bump_never_occurred
@@ -680,26 +624,25 @@ yloop_prefetch_multiple_at_iter MACRO prefetch_iter, prefetch_count, prefetch_in
 		ybump_flag = 1
 
 		prefetcht1 [rcx]
-		IF prefetch_count GE 2
-			prefetcht1 [rcx + (prefetch_incr)/(clm*64)*blkdst + (prefetch_incr mod (clm*64))]
+		IF yloop_prefetch_count GE 2
+			prefetcht1 [rcx + (PREFETCHING)/(clm*64)*blkdst + (PREFETCHING mod (clm*64))]
 		ENDIF
-		IF prefetch_count GE 3
-			prefetcht1 [rcx + (2*prefetch_incr)/(clm*64)*blkdst + ((2*prefetch_incr) mod (clm*64))]
+		IF yloop_prefetch_count GE 3
+			prefetcht1 [rcx + (2*PREFETCHING)/(clm*64)*blkdst + ((2*PREFETCHING) mod (clm*64))]
 		ENDIF
-		IF prefetch_count GE 4
-			prefetcht1 [rcx + (3*prefetch_incr)/(clm*64)*blkdst + ((3*prefetch_incr) mod (clm*64))]
+		IF yloop_prefetch_count GE 4
+			prefetcht1 [rcx + (3*PREFETCHING)/(clm*64)*blkdst + ((3*PREFETCHING) mod (clm*64))]
 		ENDIF
-		IF prefetch_count GE 5
-			prefetch_count_too_large
+		IF yloop_prefetch_count GE 5
+			yloop_prefetch_count_too_large
 		ENDIF
 
-		bump	rcx, (prefetch_count*prefetch_incr)/(clm*64)*blkdst + ((prefetch_count*prefetch_incr) mod (clm*64))	;; Next prefetch pointer
-		IF prefetch_count*prefetch_incr GE clm*64
+		bump	rcx, (yloop_prefetch_count*PREFETCHING)/(clm*64)*blkdst + ((yloop_prefetch_count*PREFETCHING) mod (clm*64))	;; Next prefetch pointer
+		IF yloop_prefetch_count*PREFETCHING GE clm*64
 			ybump_flag = 0
 		ENDIF
 	ENDIF
 ENDM
-
 
 ;; Internal macro to bump prefetch pointer when loop counter reaches a certain level.
 ;; Loop count is assumed to be in yloop_iters and may be modified.
