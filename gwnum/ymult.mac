@@ -426,6 +426,7 @@ set_data_prefetch_ptrs MACRO
 yloop_init MACRO count, first_completed, first_iters
 	loops_init count, first_completed, first_iters
 	yloop_prefetch_type = 0
+	yloop_unrolled_count = 0
 	ENDM
 
 ; Predefined yloop prefetching rates
@@ -473,7 +474,7 @@ yloop_adjust MACRO new_loop_count
 yloop MACRO iters, label1, incr_rsi, pm_incr_reg, pm_incr_amt, sc_incr_reg, sc_incr_amt
 
 	;; Init local variables
-	ylocal_iters = iters
+	ylocal_iters = iters / (yloop_unrolled_count+1)
 
 	;; Handle standard prefetching
 	IF yloop_prefetch_type EQ 1
@@ -486,10 +487,15 @@ yloop MACRO iters, label1, incr_rsi, pm_incr_reg, pm_incr_amt, sc_incr_reg, sc_i
 
 	ENDIF
 
-	;; Loop any remaining iterations (or if YNONE prefetching and iters = 1 and this is the first call)
-	IF (ylocal_iters GT 1 OR loops_completed EQ 0)
-		loops	ylocal_iters, label1		;; Test loop counter
+	;; Loop any remaining iterations
+	IF loops_completed EQ 0
+		loops	ylocal_iters, label1, (yloop_unrolled_count+1)
+	ELSEIF ylocal_iters GT 1
+		loops	ylocal_iters, label1
 	ENDIF
+
+	;; Clear count of unrolled building blocks
+	yloop_unrolled_count = 0
 
 	;; Optionally bump pointers
 	bump	rsi, incr_rsi			;; Next source pointer
@@ -497,6 +503,79 @@ yloop MACRO iters, label1, incr_rsi, pm_incr_reg, pm_incr_amt, sc_incr_reg, sc_i
 	bump	sc_incr_reg, sc_incr_amt	;; Next sin/cos pointer
 	ENDM
 
+;; This macro is called by the building block macros when they are unrolling a building block.
+;; We must do any required prefetching and record the fact so that we don't loop as much in yloop.
+
+yloop_unrolled_one MACRO
+
+	;; Bump the count of unrolled building blocks
+	yloop_unrolled_count = yloop_unrolled_count + 1
+
+	;; Handle standard prefetching
+	IF yloop_prefetch_type EQ 1
+
+		;; If we're at the prefetch iteration, then prefetch
+		IF yloop_unrolled_count EQ yloop_prefetch_iter
+
+			prefetcht1 [yloop_pfreg]
+			IF yloop_prefetch_count GE 2
+				prefetcht1 [yloop_pfreg + PREFETCHING]
+			ENDIF
+			IF yloop_prefetch_count GE 3
+				prefetcht1 [yloop_pfreg + 2 * PREFETCHING]
+			ENDIF
+			IF yloop_prefetch_count GE 4
+				prefetcht1 [yloop_pfreg + 3 * PREFETCHING]
+			ENDIF
+			IF yloop_prefetch_count GE 5
+				prefetch_count_too_large
+			ENDIF
+
+			bump	yloop_pfreg, yloop_prefetch_count * PREFETCHING	;; Next prefetch pointer
+		ENDIF
+
+	;; Handle "clm prefetching" where we bump the prefetch pointer every 64*clm bytes
+	ELSEIF yloop_prefetch_type EQ 2
+
+		;; If we're at the prefetch iteration, then prefetch
+		IF yloop_unrolled_count EQ yloop_prefetch_iter
+
+			;; Perform sanity check
+			IF ybump_flag EQ 1
+				previous_blkdst_bump_never_occurred
+			ENDIF
+			ybump_flag = 1
+
+			prefetcht1 [rcx]
+			IF yloop_prefetch_count GE 2
+				prefetcht1 [rcx + (PREFETCHING)/(clm*64)*blkdst + (PREFETCHING mod (clm*64))]
+			ENDIF
+			IF yloop_prefetch_count GE 3
+				prefetcht1 [rcx + (2*PREFETCHING)/(clm*64)*blkdst + ((2*PREFETCHING) mod (clm*64))]
+			ENDIF
+			IF yloop_prefetch_count GE 4
+				prefetcht1 [rcx + (3*PREFETCHING)/(clm*64)*blkdst + ((3*PREFETCHING) mod (clm*64))]
+			ENDIF
+			IF yloop_prefetch_count GE 5
+				yloop_prefetch_count_too_large
+			ENDIF
+
+			bump	rcx, (yloop_prefetch_count*PREFETCHING)/(clm*64)*blkdst + ((yloop_prefetch_count*PREFETCHING) mod (clm*64))	;; Next prefetch pointer
+			IF yloop_prefetch_count*PREFETCHING GE clm*64
+				ybump_flag = 0
+			ENDIF
+		ENDIF
+
+		;; If we're at the bump iteration, then bump prefetch pointer to the next blkdst
+		IF yloop_unrolled_count EQ (clm*yloop_prefetch_iter/yloop_prefetch_count/(PREFETCHING/64))
+			IF ybump_flag EQ 0
+				ybump_flag_in_impossible_state
+			ENDIF
+			bump	rcx, -clm*64+blkdst		;; Next prefetch pointer
+			ybump_flag = 0
+		ENDIF
+	ENDIF
+	ENDM
 
 ;; Internal macro to set yloop prefetching rate.
 
@@ -540,14 +619,14 @@ yloop_set_rate MACRO rate, N
 yloopstandardpre MACRO label1
 
 	;; If we're at or past the prefetch iteration, then we've already prefetched
-	IF loops_completed GE yloop_prefetch_iter
+	IF loops_completed GE yloop_prefetch_iter OR yloop_unrolled_count GE yloop_prefetch_iter
 		EXITM
 	ENDIF
 
 	;; Make dummy loops call so that loops_completed is set to one
 	;; This makes future calculations easier.
 	IF loops_completed EQ 0
-		loops	1, label1
+		loops	1, label1, (yloop_unrolled_count+1)
 	ENDIF
 
 	;; Perform iterations before issuing prefetch instruction
@@ -592,14 +671,14 @@ ybump_flag = 0				;; Init sanity check flag
 yloopclmpre MACRO label1
 
 	;; If we're at or past the prefetch iteration, then we've already prefetched
-	IF loops_completed GE yloop_prefetch_iter
+	IF loops_completed GE yloop_prefetch_iter OR yloop_unrolled_count GE yloop_prefetch_iter
 		EXITM
 	ENDIF
 
 	;; Make dummy loops call so that loops_completed is set to one
 	;; This makes future calculations easier.
 	IF loops_completed EQ 0
-		loops	1, label1
+		loops	1, label1, (yloop_unrolled_count+1)
 	ENDIF
 
 	;; Perform iterations before issuing prefetch instruction
@@ -650,8 +729,14 @@ ENDM
 yloop_bump_at_iter MACRO bump_iter, label1
 
 	;; If we're at or past the bump iteration, then we've already bumped
-	IF loops_completed GE bump_iter OR bump_iter LE 1
+	IF loops_completed GE bump_iter OR yloop_unrolled_count GE bump_iter OR bump_iter LE 1
 		EXITM
+	ENDIF
+
+	;; Make dummy loops call so that loops_completed is set
+	;; This makes future calculations easier.
+	IF loops_completed EQ 0
+		loops	1, label1, (yloop_unrolled_count+1)
 	ENDIF
 
 	;; Perform iterations before issuing prefetch instruction

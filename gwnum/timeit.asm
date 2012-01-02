@@ -274,7 +274,7 @@ loop1:  movapd  xmm0, [rsi]             ; Read one cache line
 
 x87mac	MACRO	memused, memarea, ops:vararg
 	LOCAL	ss0a, ss0b
-	inner_iters = memarea / memused
+	inner_iters = memarea / (memused)
 	outer_iters = 10000 / inner_iters
 	mov	eax, outer_iters
 	mov	SRCARG, rdi		;; Save work buf addr
@@ -292,7 +292,7 @@ ss0b:	disp	&ops
 
 sse2mac MACRO	lab, memused, memarea, ops:vararg
 	LOCAL	ss0a, ss0b
-	inner_iters = memarea / memused
+	inner_iters = memarea / (memused)
 	outer_iters = 10000 / inner_iters
 	odd_iters = 10000 - inner_iters * outer_iters
 	IF odd_iters EQ 0
@@ -323,7 +323,7 @@ ENDIF
 	ENDM
 sse2macbx MACRO	lab, memused, memarea, ops:vararg
 	LOCAL	ss0a, ss0b
-	inner_iters = memarea / memused
+	inner_iters = memarea / (memused)
 	outer_iters = 10000 / inner_iters
 	odd_iters = 10000 - inner_iters * outer_iters
 	IF odd_iters EQ 0
@@ -374,7 +374,7 @@ jjj:	mov	cl, [esi]
 avxmac MACRO	lab, memused, memarea, rdi_incr, ops:vararg
 	LOCAL	av00, av0a, av0b
 IF memarea GT 500000
-	inner_iters = 16 * 1024 / memused
+	inner_iters = 16 * 1024 / (memused)
 	middle_iters = memarea / (16 * 1024)
 	outer_iters = 10000 / (inner_iters * middle_iters)
 lab:	mov	rbx, 0			;; Offset for some avx macros (s.b. non-zero for with_mult macros)
@@ -397,7 +397,7 @@ av0b:	&ops
 	jnz	av0a
 	jmp	exit
 ELSE
-	inner_iters = memarea / memused
+	inner_iters = memarea / (memused)
 	outer_iters = 10000 / inner_iters
 	odd_iters = 10000 - inner_iters * outer_iters
 	IF odd_iters EQ 0
@@ -425,7 +425,7 @@ ENDIF
 	ENDM
 avxmacbx MACRO	lab, memused, memarea, rdi_incr, ops:vararg
 	LOCAL	av0a, av0b
-	inner_iters = memarea / memused
+	inner_iters = memarea / (memused)
 	outer_iters = 10000 / inner_iters
 	odd_iters = 10000 - inner_iters * outer_iters
 	IF odd_iters EQ 0
@@ -895,176 +895,177 @@ INCLUDE ybasics.mac
 INCLUDE ymult.mac
 INCLUDE yr4.mac
 
-MAXRPT	EQU	1
+	yloop_init 32			;; Dummy call to yloop_init
+MAXRPT	EQU	2
 
-	avxmac avcase0, 256, 4096, YMM_SCD3, yr4_4cl_eight_reals_fft rsi, 4*64, 64, 2*64, rdi
+	avxmac avcase0, 256, 8192, YMM_SCD3, yr4_4cl_eight_reals_fft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase1, 256, 100000, YMM_SCD3, yr4_4cl_eight_reals_fft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase2, 256, 4096, YMM_SCD3, yr4_s4cl_eight_reals_fft rsi, 4*64, 64, 2*64, rdi
+	avxmac avcase2, 256, 8192, YMM_SCD3, yr4_s4cl_eight_reals_fft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase3, 256, 100000, YMM_SCD3, yr4_s4cl_eight_reals_fft rsi, 4*64, 64, 2*64, rdi
-	avxmacbx avcase4, 256, 4096, YMM_SCD3, yr4_fs4cl_eight_reals_fft rsi, 4*64, 64, 2*64, rdi
+	avxmacbx avcase4, 256, 8192, YMM_SCD3, yr4_fs4cl_eight_reals_fft rsi, 4*64, 64, 2*64, rdi
 	avxmacbx avcase5, 256, 100000, YMM_SCD3, yr4_fs4cl_eight_reals_fft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase6, 256, 4096, YMM_SCND2, yr4_4cl_2sc_wpn_eight_reals_fft rsi, 4*64, 64, 2*64, rdi, rdi
+	avxmac avcase6, 256, 8192, YMM_SCND2, yr4_4cl_2sc_wpn_eight_reals_fft rsi, 4*64, 64, 2*64, rdi, rdi
 	avxmac avcase7, 256, 100000, YMM_SCND2, yr4_4cl_2sc_wpn_eight_reals_fft rsi, 4*64, 64, 2*64, rdi, rdi
-	avxmac avcase8, 256, 4096, YMM_SCND2, yr4_b4cl_2sc_wpn_eight_reals_fft rsi, 4*64, 64, 2*64, rdi, rdi
+	avxmac avcase8, 256, 8192, YMM_SCND2, yr4_b4cl_2sc_wpn_eight_reals_fft rsi, 4*64, 64, 2*64, rdi, rdi
 	avxmac avcase9, 256, 100000, YMM_SCND2, yr4_b4cl_2sc_wpn_eight_reals_fft rsi, 4*64, 64, 2*64, rdi, rdi
-	avxmac avcase10, 256, 4096, YMM_SCD4, yr4_sg4cl_2sc_eight_reals_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, rdi
+	avxmac avcase10, 256, 8192, YMM_SCD4, yr4_sg4cl_2sc_eight_reals_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, rdi
 	avxmac avcase11, 256, 100000, YMM_SCD4, yr4_sg4cl_2sc_eight_reals_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, rdi
 
-	avxmac avcase12, 256, 4096, YMM_SCD3, yr4_4cl_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi
+	avxmac avcase12, 256, 8192, YMM_SCD3, yr4_4cl_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase13, 256, 100000, YMM_SCD3, yr4_4cl_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase14, 256, 4096, YMM_SCD3, yr4_s4cl_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi
+	avxmac avcase14, 256, 8192, YMM_SCD3, yr4_s4cl_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase15, 256, 100000, YMM_SCD3, yr4_s4cl_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase16, 256, 4096, YMM_SCND2, yr4_4cl_2sc_wpn_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi, rdi
+	avxmac avcase16, 256, 8192, YMM_SCND2, yr4_4cl_2sc_wpn_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi, rdi
 	avxmac avcase17, 256, 100000, YMM_SCND2, yr4_4cl_2sc_wpn_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi, rdi
-	avxmac avcase18, 256, 4096, YMM_SCND2, yr4_b4cl_2sc_wpn_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi, rdi
+	avxmac avcase18, 256, 8192, YMM_SCND2, yr4_b4cl_2sc_wpn_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi, rdi
 	avxmac avcase19, 256, 100000, YMM_SCND2, yr4_b4cl_2sc_wpn_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi, rdi
-	avxmac avcase20, 256, 4096, YMM_SCD4, yr4_sg4cl_2sc_eight_reals_unfft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, rdi
+	avxmac avcase20, 256, 8192, YMM_SCD4, yr4_sg4cl_2sc_eight_reals_unfft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, rdi
 	avxmac avcase21, 256, 100000, YMM_SCD4, yr4_sg4cl_2sc_eight_reals_unfft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, rdi
 
-	avxmac avcase22, 256*2, 4096, 0, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
-	avxmac avcase23, 256*2, 100000, 0, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
-	avxmac avcase24, 256*2, 4096, 0, yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2/4, MAXRPT
-	avxmac avcase25, 256*2, 100000, 0, yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2/4, MAXRPT
-	avxmac avcase26, 256*2, 4096, 0, yr4_rb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD3, MAXRPT
-	avxmac avcase27, 256*2, 100000, 0, yr4_rb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD3, MAXRPT
-	avxmac avcase28, 256*2, 4096, 0, yr4_s4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
-	avxmac avcase29, 256*2, 100000, 0, yr4_s4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
-	avxmacbx avcase30, 256*2, 4096, 0, yr4_fs4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
-	avxmacbx avcase31, 256*2, 100000, 0, yr4_fs4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
-	avxmac avcase32, 256, 4096, YMM_SCND2, yr4_4cl_wpn_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
+	avxmac avcase22, 256*MAXRPT, 8192, 0, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
+	avxmac avcase23, 256*MAXRPT, 100000, 0, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
+	avxmac avcase24, 256*MAXRPT, 8192, 0, yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2/4, MAXRPT
+	avxmac avcase25, 256*MAXRPT, 100000, 0, yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2/4, MAXRPT
+	avxmac avcase26, 256*MAXRPT, 8192, 0, yr4_rb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD3, MAXRPT
+	avxmac avcase27, 256*MAXRPT, 100000, 0, yr4_rb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD3, MAXRPT
+	avxmac avcase28, 256*MAXRPT, 8192, 0, yr4_s4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
+	avxmac avcase29, 256*MAXRPT, 100000, 0, yr4_s4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
+	avxmacbx avcase30, 256*MAXRPT, 8192, 0, yr4_fs4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
+	avxmacbx avcase31, 256*MAXRPT, 100000, 0, yr4_fs4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
+	avxmac avcase32, 256, 8192, YMM_SCND2, yr4_4cl_wpn_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase33, 256, 100000, YMM_SCND2, yr4_4cl_wpn_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase34, 256, 4096, YMM_SCND2, yr4_b4cl_wpn_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
+	avxmac avcase34, 256, 8192, YMM_SCND2, yr4_b4cl_wpn_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase35, 256, 100000, YMM_SCND2, yr4_b4cl_wpn_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase36, 256, 4096, YMM_SCD4, yr4_sg4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	avxmac avcase36, 256, 8192, YMM_SCD4, yr4_sg4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
 	avxmac avcase37, 256, 100000, YMM_SCD4, yr4_sg4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
 
-	avxmac avcase38, 256, 4096, 0, yr4_4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
-	avxmac avcase39, 256, 100000, 0, yr4_4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
-	avxmac avcase40, 256, 4096, 0, yr4_b4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2/4, MAXRPT
-	avxmac avcase41, 256, 100000, 0, yr4_b4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2/4, MAXRPT
-	avxmac avcase42, 256, 4096, 0, yr4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
-	avxmac avcase43, 256, 100000, 0, yr4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
-	avxmac avcase44, 256, 4096, YMM_SCND2, yr4_4cl_wpn_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi
+	avxmac avcase38, 256*MAXRPT, 8192, 0, yr4_4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
+	avxmac avcase39, 256*MAXRPT, 100000, 0, yr4_4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
+	avxmac avcase40, 256*MAXRPT, 8192, 0, yr4_b4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2/4, MAXRPT
+	avxmac avcase41, 256*MAXRPT, 100000, 0, yr4_b4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2/4, MAXRPT
+	avxmac avcase42, 256*MAXRPT, 8192, 0, yr4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
+	avxmac avcase43, 256*MAXRPT, 100000, 0, yr4_s4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, MAXRPT
+	avxmac avcase44, 256, 8192, YMM_SCND2, yr4_4cl_wpn_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase45, 256, 100000, YMM_SCND2, yr4_4cl_wpn_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase46, 256, 4096, YMM_SCND2, yr4_b4cl_wpn_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi
+	avxmac avcase46, 256, 8192, YMM_SCND2, yr4_b4cl_wpn_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase47, 256, 100000, YMM_SCND2, yr4_b4cl_wpn_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase48, 256, 4096, YMM_SCD4, yr4_sg4cl_four_complex_unfft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
+	avxmac avcase48, 256, 8192, YMM_SCD4, yr4_sg4cl_four_complex_unfft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
 	avxmac avcase49, 256, 100000, YMM_SCD4, yr4_sg4cl_four_complex_unfft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi
 
-	avxmac avcase50, 256, 4096, YMM_SCD4, yr4_4cl_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi, rdi
+	avxmac avcase50, 256, 8192, YMM_SCD4, yr4_4cl_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi, rdi
 	avxmac avcase51, 256, 100000, YMM_SCD4, yr4_4cl_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi, rdi
-	avxmac avcase52, 256, 4096, YMM_SCD6, yr4_4cl_csc_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi
+	avxmac avcase52, 256, 8192, YMM_SCD6, yr4_4cl_csc_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase53, 256, 100000, YMM_SCD6, yr4_4cl_csc_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase54, 256, 4096, YMM_SCD4, yr4_fs4cl_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi
+	avxmac avcase54, 256, 8192, YMM_SCD4, yr4_fs4cl_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase55, 256, 100000, YMM_SCD4, yr4_fs4cl_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi
-	avxmacbx avcase56, 256, 4096, YMM_SCD4, yr4_fs4cl_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi
+	avxmacbx avcase56, 256, 8192, YMM_SCD4, yr4_fs4cl_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi
 	avxmacbx avcase57, 256, 100000, YMM_SCD4, yr4_fs4cl_four_complex_first_djbfft rsi, 4*64, 64, 2*64, rdi
 
-	avxmac avcase58, 256, 4096, YMM_SCD4, yr4_4cl_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi, rdi
+	avxmac avcase58, 256, 8192, YMM_SCD4, yr4_4cl_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi, rdi
 	avxmac avcase59, 256, 100000, YMM_SCD4, yr4_4cl_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi, rdi
-	avxmac avcase60, 256, 4096, YMM_SCD6, yr4_4cl_csc_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi
+	avxmac avcase60, 256, 8192, YMM_SCD6, yr4_4cl_csc_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase61, 256, 100000, YMM_SCD6, yr4_4cl_csc_four_complex_last_djbunfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase62, 256, 4096, YMM_SCD4, yr4_s4cl_four_complex_last_unfft rsi, 4*64, 64, 2*64, rdi
+	avxmac avcase62, 256, 8192, YMM_SCD4, yr4_s4cl_four_complex_last_unfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase63, 256, 100000, YMM_SCD4, yr4_s4cl_four_complex_last_unfft rsi, 4*64, 64, 2*64, rdi
 
-	avxmac avcase64, 256, 4096, 0, yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
+	avxmac avcase64, 256, 8192, 0, yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	avxmac avcase65, 256, 100000, 0, yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
-	avxmac avcase66, 256, 4096, 0, yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	avxmac avcase66, 256, 8192, 0, yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
 	avxmac avcase67, 256, 100000, 0, yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
-	avxmacbx avcase68, 256, 4096, 0, yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
+	avxmacbx avcase68, 256, 8192, 0, yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 	avxmacbx avcase69, 256, 100000, 0, yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
-	avxmacbx avcase70, 256, 4096, 0, yr4_4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	avxmacbx avcase70, 256, 8192, 0, yr4_4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	avxmacbx avcase71, 256, 100000, 0, yr4_4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 
-	avxmac avcase72, 256, 4096, YMM_SCD3, yr4_4cl_eight_reals_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
+	avxmac avcase72, 256, 8192, YMM_SCD3, yr4_4cl_eight_reals_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase73, 256, 100000, YMM_SCD3, yr4_4cl_eight_reals_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi
-	avxmac avcase74, 256, 4096, YMM_SCD3, yr4_4cl_eight_reals_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi
+	avxmac avcase74, 256, 8192, YMM_SCD3, yr4_4cl_eight_reals_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi
 	avxmac avcase75, 256, 100000, YMM_SCD3, yr4_4cl_eight_reals_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi
 
-	avxmac avcase76, 256, 4096, 0, yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+	avxmac avcase76, 256, 8192, 0, yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
 	avxmac avcase77, 256, 100000, 0, yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
-	avxmac avcase78, 256, 4096, 0, yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+	avxmac avcase78, 256, 8192, 0, yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	avxmac avcase79, 256, 100000, 0, yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
-	avxmacbx avcase80, 256, 4096, 0, yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+	avxmacbx avcase80, 256, 8192, 0, yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
 	avxmacbx avcase81, 256, 100000, 0, yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
-	avxmacbx avcase82, 256, 4096, 0, yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	avxmacbx avcase82, 256, 8192, 0, yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	avxmacbx avcase83, 256, 100000, 0, yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
 
-	avxmac avcase84, 192, 4096, YMM_SCD1, yr3_3cl_three_complex_djbfft rsi, 3*64, 64, rdi
+	avxmac avcase84, 192, 8192, YMM_SCD1, yr3_3cl_three_complex_djbfft rsi, 3*64, 64, rdi
 	avxmac avcase85, 192, 100000, YMM_SCD1, yr3_3cl_three_complex_djbfft rsi, 3*64, 64, rdi
-	avxmacbx avcase86, 192, 4096, YMM_SCD1, yr3_f3cl_three_complex_djbfft rsi, 3*64, 64, rdi
+	avxmacbx avcase86, 192, 8192, YMM_SCD1, yr3_f3cl_three_complex_djbfft rsi, 3*64, 64, rdi
 	avxmacbx avcase87, 192, 100000, YMM_SCD1, yr3_f3cl_three_complex_djbfft rsi, 3*64, 64, rdi
-	avxmac avcase88, 192, 4096, YMM_SCD1/4, yr3_b3cl_three_complex_djbfft rsi, 3*64, 64, rdi
+	avxmac avcase88, 192, 8192, YMM_SCD1/4, yr3_b3cl_three_complex_djbfft rsi, 3*64, 64, rdi
 	avxmac avcase89, 192, 100000, YMM_SCD1/4, yr3_b3cl_three_complex_djbfft rsi, 3*64, 64, rdi
 
-	avxmac avcase90, 192, 4096, YMM_SCD1, yr3_3cl_three_complex_djbunfft rsi, 3*64, 64, rdi
+	avxmac avcase90, 192, 8192, YMM_SCD1, yr3_3cl_three_complex_djbunfft rsi, 3*64, 64, rdi
 	avxmac avcase91, 192, 100000, YMM_SCD1, yr3_3cl_three_complex_djbunfft rsi, 3*64, 64, rdi
-	avxmac avcase92, 192, 4096, YMM_SCD1/4, yr3_b3cl_three_complex_djbunfft rsi, 3*64, 64, rdi
+	avxmac avcase92, 192, 8192, YMM_SCD1/4, yr3_b3cl_three_complex_djbunfft rsi, 3*64, 64, rdi
 	avxmac avcase93, 192, 100000, YMM_SCD1/4, yr3_b3cl_three_complex_djbunfft rsi, 3*64, 64, rdi
 
-	avxmac avcase94, 192, 4096, YMM_SCD2, yr3_3cl_six_reals_fft rsi, 3*64, 64, rdi
+	avxmac avcase94, 192, 8192, YMM_SCD2, yr3_3cl_six_reals_fft rsi, 3*64, 64, rdi
 	avxmac avcase95, 192, 100000, YMM_SCD2, yr3_3cl_six_reals_fft rsi, 3*64, 64, rdi
-	avxmacbx avcase96, 192, 4096, YMM_SCD2, yr3_f3cl_six_reals_fft rsi, 3*64, 64, rdi
+	avxmacbx avcase96, 192, 8192, YMM_SCD2, yr3_f3cl_six_reals_fft rsi, 3*64, 64, rdi
 	avxmacbx avcase97, 192, 100000, YMM_SCD2, yr3_f3cl_six_reals_fft rsi, 3*64, 64, rdi
-	avxmac avcase98, 192, 4096, YMM_SCD2, yr3_3cl_six_reals_unfft rsi, 3*64, 64, rdi
+	avxmac avcase98, 192, 8192, YMM_SCD2, yr3_3cl_six_reals_unfft rsi, 3*64, 64, rdi
 	avxmac avcase99, 192, 100000, YMM_SCD2, yr3_3cl_six_reals_unfft rsi, 3*64, 64, rdi
 
-	avxmac avcase100, 192, 4096, YMM_SCD2, yr3_3cl_six_reals_three_complex_djbfft rsi, 3*64, 64, rdi
+	avxmac avcase100, 192, 8192, YMM_SCD2, yr3_3cl_six_reals_three_complex_djbfft rsi, 3*64, 64, rdi
 	avxmac avcase101, 192, 100000, YMM_SCD2, yr3_3cl_six_reals_three_complex_djbfft rsi, 3*64, 64, rdi
-	avxmac avcase102, 192, 4096, YMM_SCD2, yr3_3cl_six_reals_three_complex_djbunfft rsi, 3*64, 64, rdi
+	avxmac avcase102, 192, 8192, YMM_SCD2, yr3_3cl_six_reals_three_complex_djbunfft rsi, 3*64, 64, rdi
 	avxmac avcase103, 192, 100000, YMM_SCD2, yr3_3cl_six_reals_three_complex_djbunfft rsi, 3*64, 64, rdi
 
-	avxmac avcase104, 320, 4096, YMM_SCD2, yr5_5cl_five_complex_djbfft rsi, 5*64, 64, rdi
+	avxmac avcase104, 320, 8192, YMM_SCD2, yr5_5cl_five_complex_djbfft rsi, 5*64, 64, rdi
 	avxmac avcase105, 320, 100000, YMM_SCD2, yr5_5cl_five_complex_djbfft rsi, 5*64, 64, rdi
-	avxmacbx avcase106, 320, 4096, YMM_SCD2, yr5_f5cl_five_complex_djbfft rsi, 5*64, 64, rdi
+	avxmacbx avcase106, 320, 8192, YMM_SCD2, yr5_f5cl_five_complex_djbfft rsi, 5*64, 64, rdi
 	avxmacbx avcase107, 320, 100000, YMM_SCD2, yr5_f5cl_five_complex_djbfft rsi, 5*64, 64, rdi
-	avxmac avcase108, 320, 4096, YMM_SCD2/4, yr5_b5cl_five_complex_djbfft rsi, 5*64, 64, rdi
+	avxmac avcase108, 320, 8192, YMM_SCD2/4, yr5_b5cl_five_complex_djbfft rsi, 5*64, 64, rdi
 	avxmac avcase109, 320, 100000, YMM_SCD2/4, yr5_b5cl_five_complex_djbfft rsi, 5*64, 64, rdi
 
-	avxmac avcase110, 320, 4096, YMM_SCD2, yr5_5cl_five_complex_djbunfft rsi, 5*64, 64, rdi
+	avxmac avcase110, 320, 8192, YMM_SCD2, yr5_5cl_five_complex_djbunfft rsi, 5*64, 64, rdi
 	avxmac avcase111, 320, 100000, YMM_SCD2, yr5_5cl_five_complex_djbunfft rsi, 5*64, 64, rdi
-	avxmac avcase112, 320, 4096, YMM_SCD2/4, yr5_b5cl_five_complex_djbunfft rsi, 5*64, 64, rdi
+	avxmac avcase112, 320, 8192, YMM_SCD2/4, yr5_b5cl_five_complex_djbunfft rsi, 5*64, 64, rdi
 	avxmac avcase113, 320, 100000, YMM_SCD2/4, yr5_b5cl_five_complex_djbunfft rsi, 5*64, 64, rdi
 
-	avxmac avcase114, 192, 4096, YMM_SCD4, yr5_5cl_ten_reals_fft rsi, 5*64, 64, rdi
+	avxmac avcase114, 192, 8192, YMM_SCD4, yr5_5cl_ten_reals_fft rsi, 5*64, 64, rdi
 	avxmac avcase115, 192, 100000, YMM_SCD4, yr5_5cl_ten_reals_fft rsi, 5*64, 64, rdi
-	avxmacbx avcase116, 192, 4096, YMM_SCD4, yr5_f5cl_ten_reals_fft rsi, 5*64, 64, rdi
+	avxmacbx avcase116, 192, 8192, YMM_SCD4, yr5_f5cl_ten_reals_fft rsi, 5*64, 64, rdi
 	avxmacbx avcase117, 192, 100000, YMM_SCD4, yr5_f5cl_ten_reals_fft rsi, 5*64, 64, rdi
-	avxmac avcase118, 192, 4096, YMM_SCD4, yr5_5cl_ten_reals_unfft rsi, 5*64, 64, rdi
+	avxmac avcase118, 192, 8192, YMM_SCD4, yr5_5cl_ten_reals_unfft rsi, 5*64, 64, rdi
 	avxmac avcase119, 192, 100000, YMM_SCD4, yr5_5cl_ten_reals_unfft rsi, 5*64, 64, rdi
 
-	avxmac avcase120, 320, 4096, YMM_SCD4, yr5_5cl_ten_reals_five_complex_djbfft rsi, 5*64, 64, rdi
+	avxmac avcase120, 320, 8192, YMM_SCD4, yr5_5cl_ten_reals_five_complex_djbfft rsi, 5*64, 64, rdi
 	avxmac avcase121, 320, 100000, YMM_SCD4, yr5_5cl_ten_reals_five_complex_djbfft rsi, 5*64, 64, rdi
-	avxmac avcase122, 320, 4096, YMM_SCD4, yr5_5cl_ten_reals_five_complex_djbunfft rsi, 5*64, 64, rdi
+	avxmac avcase122, 320, 8192, YMM_SCD4, yr5_5cl_ten_reals_five_complex_djbunfft rsi, 5*64, 64, rdi
 	avxmac avcase123, 320, 100000, YMM_SCD4, yr5_5cl_ten_reals_five_complex_djbunfft rsi, 5*64, 64, rdi
 
-	avxmac avcase124, 512, 4096, YMM_SCD8, yr8_sg8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
+	avxmac avcase124, 512, 8192, YMM_SCD8, yr8_sg8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
 	avxmac avcase125, 512, 100000, YMM_SCD8, yr8_sg8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
-	avxmac avcase126, 512, 4096, YMM_SCD8, yr8_sg8cl_eight_complex_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
+	avxmac avcase126, 512, 8192, YMM_SCD8, yr8_sg8cl_eight_complex_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
 	avxmac avcase127, 512, 100000, YMM_SCD8, yr8_sg8cl_eight_complex_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
 
-	avxmac avcase128, 512, 4096, 0, yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+	avxmac avcase128, 512, 8192, 0, yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	avxmac avcase129, 512, 100000, 0, yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
-	avxmac avcase130, 512, 4096, 0, yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+	avxmac avcase130, 512, 8192, 0, yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 	avxmac avcase131, 512, 100000, 0, yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
-	avxmacbx avcase132, 512, 4096, 0, yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+	avxmacbx avcase132, 512, 8192, 0, yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 	avxmacbx avcase133, 512, 100000, 0, yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
-	avxmacbx avcase134, 512, 4096, 0, yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+	avxmacbx avcase134, 512, 8192, 0, yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 	avxmacbx avcase135, 512, 100000, 0, yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 
-	avxmac avcase136, 512, 4096, YMM_SCD8, yr8_sg8cl_2sc_sixteen_reals_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, rdi
+	avxmac avcase136, 512, 8192, YMM_SCD8, yr8_sg8cl_2sc_sixteen_reals_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, rdi
 	avxmac avcase137, 512, 100000, YMM_SCD8, yr8_sg8cl_2sc_sixteen_reals_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, rdi
-	avxmac avcase138, 512, 4096, YMM_SCD8, yr8_sg8cl_2sc_sixteen_reals_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, rdi
+	avxmac avcase138, 512, 8192, YMM_SCD8, yr8_sg8cl_2sc_sixteen_reals_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, rdi
 	avxmac avcase139, 512, 100000, YMM_SCD8, yr8_sg8cl_2sc_sixteen_reals_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, rdi
 
-	avxmac avcase140, 192, 4096, YMM_SCD9, yr5_10cl_20_reals_fft rsi, 10*64, 64, 128, rdi
+	avxmac avcase140, 192, 8192, YMM_SCD9, yr5_10cl_20_reals_fft rsi, 10*64, 64, 128, rdi
 	avxmac avcase141, 192, 100000, YMM_SCD9, yr5_10cl_20_reals_fft rsi, 10*64, 64, 128, rdi
-	avxmac avcase142, 192, 4096, YMM_SCD9, yr5_10cl_20_reals_unfft rsi, 10*64, 64, 128, rdi
+	avxmac avcase142, 192, 8192, YMM_SCD9, yr5_10cl_20_reals_unfft rsi, 10*64, 64, 128, rdi
 	avxmac avcase143, 192, 100000, YMM_SCD9, yr5_10cl_20_reals_unfft rsi, 10*64, 64, 128, rdi
 
-	avxmac avcase144, 192, 4096, YMM_SCD13, yr7_14cl_28_reals_fft rsi, 10*64, 64, 128, rdi
+	avxmac avcase144, 192, 8192, YMM_SCD13, yr7_14cl_28_reals_fft rsi, 10*64, 64, 128, rdi
 	avxmac avcase145, 192, 100000, YMM_SCD13, yr7_14cl_28_reals_fft rsi, 10*64, 64, 128, rdi
-	avxmac avcase146, 192, 4096, YMM_SCD13, yr7_14cl_28_reals_unfft rsi, 10*64, 64, 128, rdi
+	avxmac avcase146, 192, 8192, YMM_SCD13, yr7_14cl_28_reals_unfft rsi, 10*64, 64, 128, rdi
 	avxmac avcase147, 192, 100000, YMM_SCD13, yr7_14cl_28_reals_unfft rsi, 10*64, 64, 128, rdi
 
 ; Exit the timing code
