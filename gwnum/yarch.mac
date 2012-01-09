@@ -1,4 +1,4 @@
-; Copyright 2011 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2012 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -30,7 +30,7 @@ ENDIF
 ;
 
 CORE	= 01h			; Assemble this FFT for CORE architecture
-BULL	= 02h			; Assemble this FFT for K10 architecture
+BULL	= 02h			; Assemble this FFT for Bulldozer architecture
 
 IFDEF X86_64
 	CORE_32	= 0

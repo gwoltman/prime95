@@ -3241,7 +3241,7 @@ b4b:	yr4_4cl_csc_eight_reals_fft rsi, 64, 4*clmblkdst, clmblkdst8, rbx
 
 	loops_reset
 	yloop_set_clm_prefetch YHALF
-b5b:	yr4_4cl_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rbx, 0, 4*clm
+b5b:	yr4_4cl_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rbx, 0, 4*clm, L1PREFETCH_ALL, clmblkdst
 	yloop	4*clm, b5b, -4*clm*64+2*clmblkdst8 ;; 4*clm iterations
 	yloop	4, b5b, -4*2*clmblkdst8+clmblkdst, rbx, YMM_SCD4 ;; Test loop counter, next source pointer, next sin/cos ptr
 	end_timer 24

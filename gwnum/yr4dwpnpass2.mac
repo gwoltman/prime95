@@ -1,4 +1,4 @@
-; Copyright 2011 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2012 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -3944,7 +3944,7 @@ ypass2_10_levels_real_done:
 ; mostly radix-4 FFT, squares the results, and does the first 10 levels of the inverse FFT.
 
 yr4dwpn_pass2_10_levels_complex MACRO
-	LOCAL	b1b, b2b, b3b, b4b, b5a, b5b, b5c, b5d, c1b, c2b, c3b, c4b
+	LOCAL	b1b, b2a, b2b, b3b, b4b, b5a, b5b, b5c, b5d, c1b, c2b, c3b, c4a, c4b
 	LOCAL	ypass2_10_levels_complex_1, ypass2_10_levels_complex_2
 	LOCAL	ypass2_10_levels_complex_3, ypass2_10_levels_complex_4
 	LOCAL	ypass2_10_levels_complex_unfft, ypass2_10_levels_complex_done
@@ -4054,26 +4054,30 @@ b1b:	yr4_fs4cl_four_complex_djbfft rsi, 64, dist64, 2*dist64, rdi, YMM_SCD2, 64
 ;; Do this 64 cache lines at a time to maximize accessing data
 ;; while it is in the L1 cache.
 
-	start_timer 6
 	mov	rbx, rdi
 	mov	rbp, rdi
 	yloop_init 64			;; 4 iters of 64 cache lines
 	yloop_set_prefetch YHALF
 
+b2a:	start_timer 6
 b2b:	yr4_b4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
 	yloop	16, b2b, -16*64		;; Loop 16 times, restore source pointer
 	loops_undo 16			;; Back up loop counter
+	end_timer 6
 
+	start_timer 7
 b3b:	yr4_b4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rbx, 4*YMM_SCD2/4, 4
 	yloop	4, b3b, -4*64+16*64, rbx, -4*4*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b3b, -4*16*64, rbx, YMM_SCD2/4 ;; Loop 4 times, restore source pointer, next sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 7
 
+	start_timer 8
 b4b:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rbp, 0, 16
 	yloop	16, b4b, -16*4*64+dist64, rbp, 4*YMM_SCD2/4 ;; Loop 16 times, next source pointer, next sine/cosine pointer
+	end_timer 8
 
-	yloop	4, b2b, -4*dist64		;; Loop 4 times, restore source pointer
-	end_timer 6
+	yloop	4, b2a, -4*dist64		;; Loop 4 times, restore source pointer
 
 ;; Do FFT levels 9,10 as well as inverse FFT levels 9,10
 ;; On input and output the 64-byte cache lines hold these data values:
@@ -4203,7 +4207,6 @@ b5d:	yr4_4cl_four_complex_with_mulf rsi, 64, dist64, 2*dist64
 ;; while it is in the L1 cache.
 
 ypass2_10_levels_complex_unfft:
-	start_timer 10
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	bump	rdi, 64*YMM_SCD2
 	mov	rbx, rdi
@@ -4211,20 +4214,25 @@ ypass2_10_levels_complex_unfft:
 	yloop_init 64			;; 4 iters of 64 cache lines
 	yloop_set_prefetch YHALF
 
+c4a:	start_timer 10
 c4b:	yr4_b4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rbp, 0, 16
 	yloop	16, c4b, -16*4*64		;; Loop 16 times, restore source pointer
 	loops_undo 16			;; Restore loop counter
+	end_timer 10
 
+	start_timer 11
 c3b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rbx, 4*YMM_SCD2/4, 4
 	yloop	4, c3b, -4*64+16*64, rbx, -4*4*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	yloop	4, c3b, -4*16*64, rbx, YMM_SCD2/4 ;; Loop 4 times, restore source pointer, next sine/cosine pointer
 	loops_undo 4*4			;; Restore loop counter
+	end_timer 11
 
+	start_timer 12
 c2b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
 	yloop	16, c2b, -16*64+dist64, rbp, 4*YMM_SCD2/4 ;; Loop 16 times, next source pointer, next sine/cosine pointer
+	end_timer 12
 
-	yloop	4, c4b, -4*dist64	;; Loop 4 times, restore source pointer
-	end_timer 10
+	yloop	4, c4a, -4*dist64	;; Loop 4 times, restore source pointer
 
 ;; Do inverse FFT levels 1,2
 ;; On input the 64-byte cache lines hold these data values:
@@ -5397,7 +5405,7 @@ ypass2_1536_real_done:
 ; mostly radix-4 FFT, squares the results, and does the first 10.585 levels of the inverse FFT.
 
 yr4dwpn_pass2_1536_complex MACRO
-	LOCAL	b1a, b1b, b2b, b3a, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b5d0, b5d
+	LOCAL	b1a, b1b, b2b, b3a, b3b0, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b5d0, b5d
 	LOCAL	c1b, c2a, c2b, c3b, c3c, c3d, c4b, c4c, c4d
 	LOCAL	ypass2_1536_complex_1, ypass2_1536_complex_2
 	LOCAL	ypass2_1536_complex_3, ypass2_1536_complex_4
@@ -5452,26 +5460,28 @@ yr4dwpn_pass2_1536_complex MACRO
 ;;	distance between fft data elements is 128
 ;;	do 96 macros each processing 32 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	lea	rbp, [rdi+128*YMM_SCD1]
 	yloop_init 128			;; 128 iterations or 96 iterations
 
+b1a:	start_timer 4
 	yloop_set_prefetch YQUARTER	;; Prefetch 32 cache lines
-b1a:	yr3_f3cl_three_complex_djbfft_preload
+	yr3_f3cl_three_complex_djbfft_preload
 b1b:	yr3_f3cl_three_complex_djbfft rsi, 32*64, 2*dist64, rdi
 	bump	rdi, 32*YMM_SCD1	;; Next sin/cos data
 	yloop	2, b1b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, b1b, -2*dist64, rdi, -4*32*YMM_SCD1+YMM_SCD1 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 4			;; Restore loop counter
+	end_timer 4
 
+	start_timer 5
 	yloop_adjust 1			;; One fewer iterations in this loop
 	yloop_set_prefetch YQUARTER	;; Prefetch 32 cache lines
-b2b:	yr4_s4cl_four_complex_djbfft rsi, 2*dist64, 32*64, dist64, rbp, 0, 3
+b2b:	yr4_s4cl_four_complex_djbfft rsi, 2*dist64, 32*64, dist64, rbp, 0, 3, L1PREFETCH_ALL, 64
 	yloop	4, b2b, -3*2*dist64+64, rbp, YMM_SCD2 ;; 3 iterations!!  Next source pointer, next sin/cos data
+	end_timer 5
 
 	yloop	32, b1a, -32*64, rdi, -32*YMM_SCD1+128*YMM_SCD1+32*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
-	end_timer 4
 
 ;; Do FFT levels 5,6
 ;; On input the 64-byte cache lines hold these data values:
@@ -5602,16 +5612,18 @@ b2b:	yr4_s4cl_four_complex_djbfft rsi, 2*dist64, 32*64, dist64, rbp, 0, 3
 	jg	ypass2_1536_complex_3
 
 ypass2_1536_complex_2:
-	start_timer 6
 	yloop_init 96			;; 3 iters of 128 cache lines
 
+b3b0:	start_timer 6
 	yloop_set_prefetch YHALF	;; Prefetch 48 cache lines in this loop
 b3b:	yr4_b4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
 	yloop	8, b3b, -8*64+32*64	;; Loop 8 times, next source pointer
 	yloop	2, b3b, -2*32*64+dist64	;; Loop 2 times, next source pointer
 	yloop	2, b3b, -2*dist64, rdi, -32*YMM_SCD2/4 ;; Loop 2 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*8			;; Back up loop counter
+	end_timer 6
 
+	start_timer 7
 	yloop_set_prefetch YHALF	;; Prefetch 48 cache lines in this loop
 b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	yloop	2, b4b, -2*64+8*64, rdi, -2*4*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
@@ -5619,7 +5631,9 @@ b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	yloop	2, b4b, -2*32*64+dist64	;; Loop 2 times, next source pointer
 	yloop	2, b4b, -2*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 2 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*2		;; Back up loop counter
+	end_timer 7
 
+	start_timer 9
 	yloop_adjust 2*8		;; 16 fewer iterations in this loop
 	yloop_set_prefetch YSINGLE	;; Prefetch 48 cache lines in this loop
 	yr8_8cl_eight_complex_with_square_preload
@@ -5630,7 +5644,9 @@ b5b:	yr8_8cl_eight_complex_with_square rsi, 4*64, 32*64, dist64, 64
 	yloop	8, b5b, -8*4*64+2*64	;; Loop 8 times, next source pointer
 	yloop	4, b5b, -2*2*64		;; 2 iterations!!  Restore source pointer
 	loops_undo 4*8			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 	yloop_set_prefetch YHALF	;; Prefetch 48 cache lines in this loop
 c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	yloop	2, c4b, -2*64+8*64, rdi, -2*4*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
@@ -5638,15 +5654,17 @@ c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	yloop	2, c4b, -2*32*64+dist64	;; Loop 2 times, next source pointer
 	yloop	2, c4b, -2*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 2 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*2		;; Back up loop counter
+	end_timer 10
 
+	start_timer 11
 	yloop_set_prefetch YHALF	;; Prefetch 48 cache lines in this loop
-c3b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
+c3b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8, L1PREFETCH_ALL, 2*dist64
 	yloop	8, c3b, -8*64+32*64	;; Loop 8 times, next source pointer
 	yloop	2, c3b, -2*32*64+dist64	;; Loop 2 times, next source pointer
 	yloop	2, c3b, -2*dist64+2*dist64, rdi, -32*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
+	end_timer 11
 
-	yloop	3, b3b, -3*2*dist64	;; Loop 3 times, restore source pointer
-	end_timer 6
+	yloop	3, b3b0, -3*2*dist64	;; Loop 3 times, restore source pointer
 	jmp	ypass2_1536_complex_unfft
 
 
@@ -5663,7 +5681,7 @@ b3a:	yr4_b4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
 	loops_undo 4*8			;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 96 cache lines in this loop
-b4a:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
+b4a:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2, L1PREFETCH_ALL, 2*dist64
 	yloop	2, b4a, -2*64+8*64, rdi, -2*4*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b4a, -4*8*64+32*64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	2, b4a, -2*32*64+dist64	;; Loop 2 times, next source pointer
@@ -5725,7 +5743,7 @@ c4c:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	loops_undo 4*4*2		;; Back up loop counter
 
 	yloop_set_prefetch YHALF	;; Prefetch 48 cache lines in this loop
-c3c:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
+c3c:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8, L1PREFETCH_ALL, 2*dist64
 	yloop	8, c3c, -8*64+32*64	;; Loop 8 times, next source pointer
 	yloop	2, c3c, -2*32*64+dist64	;; Loop 2 times, next source pointer
 	yloop	2, c3c, -2*dist64+2*dist64, rdi, -32*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
@@ -5762,7 +5780,7 @@ c4d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	loops_undo 4*4*2		;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 96 cache lines in this loop
-c3d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
+c3d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8, L1PREFETCH_ALL, 2*dist64
 	yloop	8, c3d, -8*64+32*64	;; Loop 8 times, next source pointer
 	yloop	2, c3d, -2*32*64+dist64	;; Loop 2 times, next source pointer
 	yloop	2, c3d, -2*dist64+2*dist64, rdi, -32*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
@@ -5812,27 +5830,29 @@ c3d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
 ;;	do 128 macros each processing 24 data values
 
 ypass2_1536_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	lea	rbp, [rdi+128*YMM_SCD1]
 	bump	rcx, (384+2*5-2*32-5*48-32-64)*64 ;; Move prefetch pointer along
 	yloop_init 128			;; 128 iterations or 96 iterations
 
-c2a:	yloop_adjust 1			;; One fewer iteration this loop
+c2a:	start_timer 13
+	yloop_adjust 1			;; One fewer iteration this loop
 	yloop_set_prefetch YQUARTER	;; Prefetch 32 cache lines in this loop
-c2b:	yr4_s4cl_four_complex_djbunfft rsi, 2*dist64, 32*64, dist64, rbp, 0, 3
+c2b:	yr4_s4cl_four_complex_djbunfft rsi, 2*dist64, 32*64, dist64, rbp, 0, 3, L1PREFETCH_ALL, 64
 	yloop	4, c2b, -3*2*dist64, rbp, YMM_SCD2 ;; 3 iterations!!  Restore source pointer, next sine/cosine pointer
 	loops_undo 4			;; Restore loop counter
+	end_timer 13
 
+	start_timer 14
 	yloop_set_prefetch YHALF	;; Prefetch 64 cache lines in this loop
 	yr3_3cl_three_complex_djbunfft_preload
 c1b:	yr3_3cl_three_complex_djbunfft rsi, 32*64, 2*dist64, rdi
 	bump	rdi, 32*YMM_SCD1	;; Next set of sin/cos data
 	yloop	2, c1b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, c1b, -2*dist64+64, rdi, -4*32*YMM_SCD1+YMM_SCD1 ;; Test loop counter, next source pointer, next sine/cosine pointer
+	end_timer 14
 
 	yloop	32, c2a			;; Loop 32 times
-	end_timer 13
 
 ypass2_1536_complex_done:
 	ENDM
@@ -6207,8 +6227,8 @@ ypass2_11_levels_real_done:
 ; radix-4 FFT, squares the results, and does the first 11 levels of the inverse FFT.
 
 yr4dwpn_pass2_11_levels_complex MACRO
-	LOCAL	b1b, b2b, b3a, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b5d0, b5d
-	LOCAL	c1b, c2b, c3b, c3c, c3d, c4b, c4c, c4d
+	LOCAL	b1a, b1b, b2b, b3a, b3b0, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b5d0, b5d
+	LOCAL	c1b, c2a, c2b, c3b, c3c, c3d, c4b, c4c, c4d
 	LOCAL	ypass2_11_levels_complex_1, ypass2_11_levels_complex_2
 	LOCAL	ypass2_11_levels_complex_3, ypass2_11_levels_complex_4
 	LOCAL	ypass2_11_levels_complex_unfft, ypass2_11_levels_complex_done
@@ -6262,22 +6282,24 @@ yr4dwpn_pass2_11_levels_complex MACRO
 ;;	distance between fft data elements is 128
 ;;	do 128 macros each processing 32 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	mov	rbp, rdi
 	yloop_init 128			;; 128 iterations
 	yloop_set_prefetch YHALF
 
+b1a:	start_timer 4
 b1b:	yr4_fs4cl_four_complex_djbfft rsi, 32*64, 2*dist64, 4*dist64, rdi, 32*YMM_SCD2, 2
 	yloop	2, b1b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, b1b, -2*dist64, rdi, -4*32*YMM_SCD2+YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 4
-
-b2b:	yr4_eb4cl_four_complex_djbfft rsi, 2*dist64, 32*64, dist64, rbp, YMM_SCD2, 4
-	yloop	4, b2b, -4*2*dist64+64	;; Test loop counter, next source pointer
-
-	yloop	32, b1b, -32*64, rdi, -32*YMM_SCD2+128*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
 	end_timer 4
+
+	start_timer 5
+b2b:	yr4_eb4cl_four_complex_djbfft rsi, 2*dist64, 32*64, dist64, rbp, YMM_SCD2, 4, L1PREFETCH_ALL, 64
+	yloop	4, b2b, -4*2*dist64+64	;; Test loop counter, next source pointer
+	end_timer 5
+
+	yloop	32, b1a, -32*64, rdi, -32*YMM_SCD2+128*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
 
 ;; Do FFT levels 5,6
 ;; On input the 64-byte cache lines hold these data values:
@@ -6394,22 +6416,26 @@ b2b:	yr4_eb4cl_four_complex_djbfft rsi, 2*dist64, 32*64, dist64, rbp, YMM_SCD2, 
 	jg	ypass2_11_levels_complex_3
 
 ypass2_11_levels_complex_2:
-	start_timer 6
 	yloop_init 128			;; 4 iters of 128 cache lines
 
+b3b0:	start_timer 6
 	yloop_set_prefetch YHALF	;; Prefetch 64 cache lines in this loop
 b3b:	yr4_b4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
 	yloop	8, b3b, -8*64+2*dist64	;; Loop 8 times, next source pointer
 	yloop	4, b3b, -4*2*dist64, rdi, -32*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*8			;; Back up loop counter
+	end_timer 6
 
+	start_timer 7
 	yloop_set_prefetch YHALF	;; Prefetch 64 cache lines in this loop
 b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	yloop	2, b4b, -2*64+8*64, rdi, -2*4*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b4b, -4*8*64+2*dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b4b, -4*2*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*2		;; Back up loop counter
+	end_timer 7
 
+	start_timer 9
 	yloop_adjust 4*4		;; 16 fewer iterations this loop
 	yloop_set_prefetch YOTHER, 16	;; Prefetch 8 cache lines in this loop
 	yr8_8cl_eight_complex_with_square_preload
@@ -6420,22 +6446,26 @@ b5b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 2*dist64, 4*dist64, 64
 	yloop	4, b5b, -4*8*64+2*64	;; Loop 4 times, next source pointer
 	yloop	8, b5b, -4*2*64		;; 4 iterations!!  Restore source pointer
 	loops_undo 8*4			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 	yloop_set_prefetch YHALF	;; Prefetch 64 cache lines in this loop
 c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	yloop	2, c4b, -2*64+8*64, rdi, -2*4*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
 	yloop	4, c4b, -4*8*64+2*dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, c4b, -4*2*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*2		;; Back up loop counter
+	end_timer 10
 
+	start_timer 11
 	yloop_set_prefetch YHALF	;; Prefetch 64 cache lines in this loop
-c3b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
+c3b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8, L1PREFETCH_ALL, 32*64
 	yloop	8, c3b, -8*64+2*dist64	;; Loop 8 times, next source pointer
 	yloop	4, c3b, -4*2*dist64+32*64, rdi, -32*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
+	end_timer 11
 
-	yloop	2, b3b, -2*32*64+dist64	;; Loop 2 times, next source pointer
-	yloop	2, b3b, -2*dist64	;; Loop 2 times, restore source pointer
-	end_timer 6
+	yloop	2, b3b0, -2*32*64+dist64 ;; Loop 2 times, next source pointer
+	yloop	2, b3b0, -2*dist64	;; Loop 2 times, restore source pointer
 	jmp	ypass2_11_levels_complex_unfft
 
 
@@ -6451,7 +6481,7 @@ b3a:	yr4_b4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
 	loops_undo 4*8			;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 128 cache lines in this loop
-b4a:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
+b4a:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2, L1PREFETCH_ALL, 32*64
 	yloop	2, b4a, -2*64+8*64, rdi, -2*4*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b4a, -4*8*64+2*dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b4a, -4*2*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
@@ -6510,7 +6540,7 @@ c4c:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	loops_undo 4*4*2		;; Back up loop counter
 
 	yloop_set_prefetch YHALF	;; Prefetch 64 cache lines in this loop
-c3c:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
+c3c:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8, L1PREFETCH_ALL, 32*64
 	yloop	8, c3c, -8*64+2*dist64	;; Loop 8 times, next source pointer
 	yloop	4, c3c, -4*2*dist64+32*64, rdi, -32*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 
@@ -6546,7 +6576,7 @@ c4d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	loops_undo 4*4*2		;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 128 cache lines in this loop
-c3d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
+c3d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8, L1PREFETCH_ALL, 32*64
 	yloop	8, c3d, -8*64+2*dist64	;; Loop 8 times, next source pointer
 	yloop	4, c3d, -4*2*dist64+32*64, rdi, -32*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 
@@ -6596,23 +6626,25 @@ c3d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
 ;;	do 128 macros each processing 32 data values
 
 ypass2_11_levels_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	mov	rbp, rdi
 	bump	rcx, (512+7-4*64-8-2*64-2*64)*64 ;; Move prefetch pointer along
 	yloop_init 128			;; 128 iterations
 	yloop_set_prefetch YHALF
 
+c2a:	start_timer 13
 c2b:	yr4_eb4cl_four_complex_djbunfft rsi, 2*dist64, 32*64, dist64, rbp, YMM_SCD2, 4
 	yloop	4, c2b, -4*2*dist64	;; Test loop counter, restore source pointer
 	loops_undo 4			;; Restore loop counter
+	end_timer 13
 
-c1b:	yr4_s4cl_four_complex_djbunfft rsi, 32*64, 2*dist64, 4*dist64, rdi, 32*YMM_SCD2, 2
+	start_timer 14
+c1b:	yr4_s4cl_four_complex_djbunfft rsi, 32*64, 2*dist64, 4*dist64, rdi, 32*YMM_SCD2, 2, L1PREFETCH_ALL, 64
 	yloop	2, c1b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, c1b, -2*dist64+64, rdi, -4*32*YMM_SCD2+YMM_SCD2 ;; Test loop counter, next source pointer, next sine/cosine pointer
+	end_timer 14
 
-	yloop	32, c2b			;; Loop 32 times
-	end_timer 13
+	yloop	32, c2a			;; Loop 32 times
 
 ypass2_11_levels_complex_done:
 	ENDM
@@ -7024,7 +7056,7 @@ ypass2_2560_real_done:
 ; mostly radix-4 FFT, squares the results, and does the first 11.322 levels of the inverse FFT.
 
 yr4dwpn_pass2_2560_complex MACRO
-	LOCAL	b1a, b1b, b2b, b3a, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b5d0, b5d
+	LOCAL	b1a, b1b, b2b, b3a, b3b0, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b5d0, b5d
 	LOCAL	c1b, c2a, c2b, c3b, c3c, c3d, c4b, c4c, c4d
 	LOCAL	ypass2_2560_complex_1, ypass2_2560_complex_2
 	LOCAL	ypass2_2560_complex_3, ypass2_2560_complex_4
@@ -7079,25 +7111,27 @@ yr4dwpn_pass2_2560_complex MACRO
 ;;	distance between fft data elements is 128
 ;;	do 160 macros each processing 32 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	lea	rbp, [rdi+128*YMM_SCD2]
 	yloop_init 160			;; 128 iterations or 160 iterations
 
+b1a:	start_timer 4
 	yloop_set_prefetch YSINGLE	;; Prefetch 128 cache lines in this loop
-b1a:	yr5_f5cl_five_complex_djbfft_preload
+	yr5_f5cl_five_complex_djbfft_preload
 b1b:	yr5_f5cl_five_complex_djbfft rsi, 32*64, 2*dist64, rdi
 	bump	rdi, 32*YMM_SCD2	;; Next sin/cos data
 	yloop	2, b1b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, b1b, -2*dist64, rdi, -4*32*YMM_SCD2+YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 4			;; Restore loop counter
+	end_timer 4
 
+	start_timer 5
 	yloop_set_prefetch YOTHER, 5	;; Prefetch 32 cache lines in this loop
-b2b:	yr4_s4cl_four_complex_djbfft rsi, 2*dist64, 32*64, dist64, rbp, 0, 5
+b2b:	yr4_s4cl_four_complex_djbfft rsi, 2*dist64, 32*64, dist64, rbp, 0, 5, L1PREFETCH_ALL, 64
 	yloop	5, b2b, -5*2*dist64+64, rbp, YMM_SCD2 ;; Test loop counter, next source pointer, next sin/cos data
+	end_timer 5
 
 	yloop	32, b1a, -32*64, rdi, -32*YMM_SCD2+128*YMM_SCD2+32*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
-	end_timer 4
 
 ;; Do FFT levels 5,6
 ;; On input the 64-byte cache lines hold these data values:
@@ -7228,16 +7262,18 @@ b2b:	yr4_s4cl_four_complex_djbfft rsi, 2*dist64, 32*64, dist64, rbp, 0, 5
 	jg	ypass2_2560_complex_3
 
 ypass2_2560_complex_2:
-	start_timer 6
 	yloop_init 160			;; 5 iters of 128 cache lines
 
+b3b0:	start_timer 6
 	yloop_set_prefetch YHALF	;; Prefetch 80 cache lines in this loop
 b3b:	yr4_b4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
 	yloop	8, b3b, -8*64+32*64	;; Loop 8 times, next source pointer
 	yloop	2, b3b, -2*32*64+dist64	;; Loop 2 times, next source pointer
 	yloop	2, b3b, -2*dist64, rdi, -32*YMM_SCD2/4 ;; Loop 2 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*8			;; Back up loop counter
+	end_timer 6
 
+	start_timer 7
 	yloop_set_prefetch YHALF	;; Prefetch 80 cache lines in this loop
 b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	yloop	2, b4b, -2*64+8*64, rdi, -2*4*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
@@ -7245,7 +7281,9 @@ b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	yloop	2, b4b, -2*32*64+dist64	;; Loop 2 times, next source pointer
 	yloop	2, b4b, -2*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 2 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*2		;; Back up loop counter
+	end_timer 7
 
+	start_timer 9
 	yloop_adjust 2*8		;; 16 fewer iterations this loop
 	yloop_set_prefetch YOTHER, 8	;; Prefetch 20 cache lines in this loop
 	yr8_8cl_eight_complex_with_square_preload
@@ -7256,7 +7294,9 @@ b5b:	yr8_8cl_eight_complex_with_square rsi, 4*64, 32*64, dist64, 64
 	yloop	8, b5b, -8*4*64+2*64	;; Loop 8 times, next source pointer
 	yloop	4, b5b, -2*2*64		;; 2 iterations!!  Restore source pointer
 	loops_undo 4*8			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 	yloop_set_prefetch YHALF	;; Prefetch 80 cache lines in this loop
 c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	yloop	2, c4b, -2*64+8*64, rdi, -2*4*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
@@ -7264,15 +7304,17 @@ c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	yloop	2, c4b, -2*32*64+dist64	;; Loop 2 times, next source pointer
 	yloop	2, c4b, -2*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 2 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*2		;; Back up loop counter
+	end_timer 10
 
+	start_timer 11
 	yloop_set_prefetch YHALF	;; Prefetch 80 cache lines in this loop
-c3b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
+c3b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8, L1PREFETCH_ALL, 2*dist64
 	yloop	8, c3b, -8*64+32*64	;; Loop 8 times, next source pointer
 	yloop	2, c3b, -2*32*64+dist64	;; Loop 2 times, next source pointer
 	yloop	2, c3b, -2*dist64+2*dist64, rdi, -32*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
+	end_timer 11
 
-	yloop	5, b3b, -5*2*dist64	;; Loop 5 times, restore source pointer
-	end_timer 6
+	yloop	5, b3b0, -5*2*dist64	;; Loop 5 times, restore source pointer
 	jmp	ypass2_2560_complex_unfft
 
 
@@ -7289,7 +7331,7 @@ b3a:	yr4_b4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
 	loops_undo 4*8			;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 160 cache lines in this loop
-b4a:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
+b4a:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2, L1PREFETCH_ALL, 2*dist64
 	yloop	2, b4a, -2*64+8*64, rdi, -2*4*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b4a, -4*8*64+32*64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	2, b4a, -2*32*64+dist64	;; Loop 2 times, next source pointer
@@ -7351,7 +7393,7 @@ c4c:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	loops_undo 4*4*2		;; Back up loop counter
 
 	yloop_set_prefetch YHALF	;; Prefetch 80 cache lines in this loop
-c3c:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
+c3c:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8, L1PREFETCH_ALL, 2*dist64
 	yloop	8, c3c, -8*64+32*64	;; Loop 8 times, next source pointer
 	yloop	2, c3c, -2*32*64+dist64	;; Loop 2 times, next source pointer
 	yloop	2, c3c, -2*dist64+2*dist64, rdi, -32*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
@@ -7388,7 +7430,7 @@ c4d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	loops_undo 4*4*2		;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 160 cache lines in this loop
-c3d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
+c3d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8, L1PREFETCH_ALL, 2*dist64
 	yloop	8, c3d, -8*64+32*64	;; Loop 8 times, next source pointer
 	yloop	2, c3d, -2*32*64+dist64	;; Loop 2 times, next source pointer
 	yloop	2, c3d, -2*dist64+2*dist64, rdi, -32*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
@@ -7438,18 +7480,20 @@ c3d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
 ;;	do 128 macros each processing 40 data values
 
 ypass2_2560_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	lea	rbp, [rdi+128*YMM_SCD2]
 	bump	rcx, (640+2*9-128-32-2*80-20-2*80-32-128)*64 ;; Move prefetch pointer along
 	yloop_init 256			;; 128 iterations or 160 iterations
 
-c2a:	yloop_adjust 3			;; Three fewer iterations in this loop
+c2a:	start_timer 13
+	yloop_adjust 3			;; Three fewer iterations in this loop
 	yloop_set_prefetch YOTHER, 8	;; Prefetch 32 cache lines in this loop
-c2b:	yr4_s4cl_four_complex_djbunfft rsi, 2*dist64, 32*64, dist64, rbp, 0, 5
+c2b:	yr4_s4cl_four_complex_djbunfft rsi, 2*dist64, 32*64, dist64, rbp, 0, 5, L1PREFETCH_ALL, 64
 	yloop	8, c2b, -5*2*dist64, rbp, YMM_SCD2 ;; 5 iterations!!  Restore source pointer, next sine/cosine pointer
 	loops_undo 8			;; Restore loop counter
+	end_timer 13
 
+	start_timer 14
 	yloop_adjust 4			;; Four fewer iterations in this loop
 	yloop_set_prefetch YSINGLE	;; Prefetch 128 cache lines in this loop
 	yr5_5cl_five_complex_djbunfft_preload
@@ -7457,9 +7501,9 @@ c1b:	yr5_5cl_five_complex_djbunfft rsi, 32*64, 2*dist64, rdi
 	bump	rdi, 32*YMM_SCD2	;; Next set of sin/cos data
 	yloop	2, c1b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	4, c1b, -2*dist64+64, rdi, -4*32*YMM_SCD2+YMM_SCD2 ;; 2 iterations!!  Next source pointer, next sine/cosine pointer
+	end_timer 14
 
 	yloop	32, c2a			;; Loop 32 times
-	end_timer 13
 
 ypass2_2560_complex_done:
 	ENDM
@@ -7929,8 +7973,8 @@ ypass2_2304_real_done:
 ; radix-4 FFT, squares the results, and does the first 11.17 levels of the inverse FFT.
 
 yr4dwpn_pass2_2304_complex MACRO
-	LOCAL	b1b, b2b, b3a, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d
-	LOCAL	c1b, c2b, c3b, c3c, c3d, c4b, c4c, c4d, c5b, c5c, c5d
+	LOCAL	b1a, b1b, b2b, b3a, b3b0, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d
+	LOCAL	c1b, c2a, c2b, c3b, c3c, c3d, c4b, c4c, c4d, c5b, c5c, c5d
 	LOCAL	ypass2_2304_complex_1, ypass2_2304_complex_2
 	LOCAL	ypass2_2304_complex_3, ypass2_2304_complex_4
 	LOCAL	ypass2_2304_complex_unfft, ypass2_2304_complex_done
@@ -7982,23 +8026,25 @@ yr4dwpn_pass2_2304_complex MACRO
 ;;	distance between fft data elements is 256
 ;;	do 192 macros each processing 24 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	lea	rbp, [rdi+192*YMM_SCD1]
 	yloop_init 192			;; 192 iterations
 	yloop_set_prefetch YOTHER, 3
 	yr3_f3cl_three_complex_djbfft_preload
 
+b1a:	start_timer 4
 b1b:	yr3_f3cl_three_complex_djbfft rsi, dist64, 3*dist64, rdi
 	bump	rdi, 64*YMM_SCD1	;; Next sin/cos data
 	yloop	3, b1b, -3*dist64, rdi, -3*64*YMM_SCD1+YMM_SCD1 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 3
+	end_timer 4
 
+	start_timer 5
 b2b:	yr3_3cl_three_complex_djbfft rsi, 3*dist64, dist64, rbp
 	yloop	3, b2b, -3*3*dist64+64, rbp, YMM_SCD1 ;; Test loop counter, next source pointer, next sin/cos data
+	end_timer 5
 
-	yloop	64, b1b, -64*64, rdi, -64*YMM_SCD1+192*YMM_SCD1+64*YMM_SCD1 ;; Test loop counter, restore source pointer, next sin/cos ptr
-	end_timer 4
+	yloop	64, b1a, -64*64, rdi, -64*YMM_SCD1+192*YMM_SCD1+64*YMM_SCD1 ;; Test loop counter, restore source pointer, next sin/cos ptr
 
 ;; Do FFT levels 5,6
 ;; On input the 64-byte cache lines hold these data values:
@@ -8170,50 +8216,62 @@ b2b:	yr3_3cl_three_complex_djbfft rsi, 3*dist64, dist64, rbp
 	jg	ypass2_2304_complex_3
 
 ypass2_2304_complex_2:
-	start_timer 6
 	yloop_init 144			;; 9 iters of 64 cache lines
 
+b3b0:	start_timer 6
 	yloop_set_prefetch YHALF	;; Prefetch 72 cache lines in this loop
 b3b:	yr4_s4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16
 	yloop	16, b3b, -16*64, rdi, -16*YMM_SCD2 ;; Loop 16 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 16			;; Back up loop counter
+	end_timer 6
 
+	start_timer 7
 	yloop_set_prefetch YQUARTER	;; Prefetch 36 cache lines in this loop
 b4b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2, 4
 	yloop	4, b4b, -4*64+16*64, rdi, -4*4*YMM_SCD2+YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b4b, -4*16*64, rdi, -4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 7
 
+	start_timer 8
 	yloop_set_prefetch YQUARTER	;; Prefetch 36 cache lines in this loop
 b5b:	yr4_eb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 4
 	yloop	4, b5b, 0, rdi, 4*YMM_SCD2 ;; Loop 4 times, next sine/cosine pointer
 	yloop	4, b5b, -16*4*64, rdi, -4*4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 8
 
+	start_timer 9
 	yloop_set_prefetch YQUARTER	;; Prefetch 36 cache lines in this loop
 	yr4_4cl_four_complex_with_square_preload
 b6b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64
 	yloop	16, b6b, -16*64	;; Loop 16 times, restore source pointer
 	loops_undo 16			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 	yloop_set_prefetch YQUARTER	;; Prefetch 36 cache lines in this loop
 c5b:	yr4_eb4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, 4
 	yloop	4, c5b, 0, rdi, 4*YMM_SCD2 ;; Loop 4 times, next sine/cosine pointer
 	yloop	4, c5b, -16*4*64, rdi, -4*4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4			;; Restore loop counter
+	end_timer 10
 
+	start_timer 11
 	yloop_set_prefetch YQUARTER	;; Prefetch 36 cache lines in this loop
 c4b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2, 4
 	yloop	4, c4b, -4*64+16*64, rdi, -4*4*YMM_SCD2+YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, c4b, -4*16*64, rdi, -4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 11
 
+	start_timer 12
 	yloop_set_prefetch YHALF	;; Prefetch 72 cache lines in this loop
-c3b:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16
+c3b:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16, L1PREFETCH_ALL, dist64
 	yloop	16, c3b, -16*64+dist64, rdi, -16*YMM_SCD2 ;; Loop 16 times, next source pointer, restore sine/cosine pointer
+	end_timer 12
 
-	yloop	9, b3b, -9*dist64	;; Loop 9 times, restore source pointer
-	end_timer 6
+	yloop	9, b3b0, -9*dist64	;; Loop 9 times, restore source pointer
 	jmp	ypass2_2304_complex_unfft
 
 
@@ -8234,7 +8292,7 @@ b4a:	yr4_eb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2, 4
 	loops_undo 4*4			;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 144 cache lines in this loop
-b5a:	yr4_eb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 4
+b5a:	yr4_eb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 4, L1PREFETCH_ALL, dist64
 	yloop	4, b5a, 0, rdi, 4*YMM_SCD2 ;; Loop 4 times, next sine/cosine pointer
 	yloop	4, b5a, -16*4*64, rdi, -4*4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
@@ -8290,7 +8348,7 @@ c4c:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2, 4
 	loops_undo 4*4			;; Back up loop counter
 
 	yloop_set_prefetch YHALF	;; Prefetch 72 cache lines in this loop
-c3c:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16
+c3c:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16, L1PREFETCH_ALL, dist64
 	yloop	16, c3c, -16*64+dist64, rdi, -16*YMM_SCD2 ;; Loop 16 times, next source pointer, restore sine/cosine pointer
 
 	yloop	9, b3c, -9*dist64	;; Loop 9 times, restore source pointer
@@ -8324,7 +8382,7 @@ c4d:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2, 4
 	loops_undo 4*4			;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 144 cache lines in this loop
-c3d:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16
+c3d:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16, L1PREFETCH_ALL, dist64
 	yloop	16, c3d, -16*64+dist64, rdi, -16*YMM_SCD2 ;; Loop 16 times, next source pointer, restore sine/cosine pointer
 
 	yloop	9, b6d, -9*dist64	;; Loop 9 times, restore source pointer
@@ -8370,7 +8428,6 @@ c3d:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16
 ;;	do 192 macros each processing 24 data values
 
 ypass2_2304_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	lea	rbp, [rdi+192*YMM_SCD1]
 	bump	rcx, (576+8-2*64-72-5*36-72-2*64)*64 ;; Move prefetch pointer along
@@ -8378,16 +8435,19 @@ ypass2_2304_complex_unfft:
 	yloop_set_prefetch YOTHER, 3
 	yr3_3cl_three_complex_djbunfft_preload
 
+c2a:	start_timer 13
 c2b:	yr3_3cl_three_complex_djbunfft rsi, 3*dist64, dist64, rbp
 	yloop	3, c2b, -3*3*dist64, rbp, YMM_SCD1 ;; Test loop counter, restore source pointer, next sine/cosine pointer
 	loops_undo 3			;; Restore loop counter
+	end_timer 13
 
+	start_timer 14
 c1b:	yr3_3cl_three_complex_djbunfft rsi, dist64, 3*dist64, rdi
 	bump	rdi, 64*YMM_SCD1	;; Next set of sin/cos data
 	yloop	3, c1b, -3*dist64+64, rdi, -3*64*YMM_SCD1+YMM_SCD1 ;; Test loop counter, next source pointer, next sine/cosine pointer
+	end_timer 14
 
-	yloop	64, c2b			;; Loop 64 times
-	end_timer 13
+	yloop	64, c2a			;; Loop 64 times
 
 ypass2_2304_complex_done:
 	ENDM
@@ -8870,7 +8930,7 @@ ypass2_3072_real_done:
 ; radix-4 FFT, squares the results, and does the first 11.585 levels of the inverse FFT.
 
 yr4dwpn_pass2_3072_complex MACRO
-	LOCAL	b1a, b1b, b2b, b3a, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d
+	LOCAL	b1a, b1b, b2b, b3a, b3b0, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d
 	LOCAL	c1b, c2a, c2b, c3b, c3c, c3d, c4b, c4c, c4d, c5b, c5c, c5d
 	LOCAL	ypass2_3072_complex_1, ypass2_3072_complex_2
 	LOCAL	ypass2_3072_complex_3, ypass2_3072_complex_4
@@ -8925,25 +8985,27 @@ yr4dwpn_pass2_3072_complex MACRO
 ;;	distance between fft data elements is 256
 ;;	do 192 macros each processing 32 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	lea	rbp, [rdi+256*YMM_SCD1]
 	yloop_init 256			;; 256 iterations or 192 iterations
 
+b1a:	start_timer 4
 	yloop_set_prefetch YQUARTER	;; Prefetch 64 cache lines
-b1a:	yr3_f3cl_three_complex_djbfft_preload
+	yr3_f3cl_three_complex_djbfft_preload
 b1b:	yr3_f3cl_three_complex_djbfft rsi, dist64, 4*dist64, rdi
 	bump	rdi, 64*YMM_SCD1	;; Next sin/cos data
 	yloop	4, b1b, -4*dist64, rdi, -4*64*YMM_SCD1+YMM_SCD1 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 4
+	end_timer 4
 
+	start_timer 5
 	yloop_adjust 1			;; One fewer iteration this loop
 	yloop_set_prefetch YQUARTER	;; Prefetch 64 cache lines
-b2b:	yr4_s4cl_four_complex_djbfft rsi, 4*dist64, dist64, 2*dist64, rbp, 0, 3
+b2b:	yr4_s4cl_four_complex_djbfft rsi, 4*dist64, dist64, 2*dist64, rbp, 0, 3, L1PREFETCH_ALL, 64
 	yloop	4, b2b, -3*4*dist64+64, rbp, YMM_SCD2 ;; 3 iterations!!  Next source pointer, next sin/cos data
+	end_timer 5
 
 	yloop	64, b1a, -64*64, rdi, -64*YMM_SCD1+256*YMM_SCD1+64*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
-	end_timer 4
 
 ;; Do FFT levels 5,6
 ;; On input the 64-byte cache lines hold these data values:
@@ -9127,28 +9189,34 @@ b2b:	yr4_s4cl_four_complex_djbfft rsi, 4*dist64, dist64, 2*dist64, rbp, 0, 3
 	jg	ypass2_3072_complex_3
 
 ypass2_3072_complex_2:
-	start_timer 6
 	yloop_init 192			;; 3 iters of 256 cache lines
 
+b3b0:	start_timer 6
 	yloop_set_prefetch YHALF	;; Prefetch 96 cache lines in this loop
 b3b:	yr4_b4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
 	yloop	16, b3b, -16*64+dist64	;; Loop 16 times, next source pointer
 	yloop	4, b3b, -4*dist64, rdi, -64*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 6
 
+	start_timer 7
 	yloop_set_prefetch YHALF	;; Prefetch 96 cache lines in this loop
 b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2/4, 4
 	yloop	4, b4b, -4*64+16*64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b4b, -4*16*64+dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b4b, -4*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*4		;; Back up loop counter
+	end_timer 7
 
+	start_timer 8
 	yloop_set_prefetch YQUARTER	;; Prefetch 48 cache lines in this loop
 b5b:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	yloop	16, b5b, -16*4*64+dist64, rdi, 4*YMM_SCD2/4 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, b5b, -4*dist64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 8
 
+	start_timer 9
 	yloop_set_prefetch YQUARTER	;; Prefetch 48 cache lines in this loop
 	yr4_4cl_four_complex_with_square_preload
 ;; Loop below reworked to avoid 4KB distances
@@ -9158,27 +9226,33 @@ b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, dist64, 2*dist64
 	yloop	16, b6b, -16*4*64+64	;; Loop 16 times, next source pointer
 	yloop	4, b6b, -4*64	;; Loop 4 times, restore source pointer
 	loops_undo 64			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 	yloop_set_prefetch YQUARTER	;; Prefetch 48 cache lines in this loop
 c5b:	yr4_b4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	yloop	16, c5b, -16*4*64+dist64, rdi, 4*YMM_SCD2/4 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, c5b, -4*dist64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Restore loop counter
+	end_timer 10
 
+	start_timer 11
 	yloop_set_prefetch YHALF	;; Prefetch 96 cache lines in this loop
 c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2/4, 4
 	yloop	4, c4b, -4*64+16*64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	yloop	4, c4b, -4*16*64+dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, c4b, -4*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*4		;; Back up loop counter
+	end_timer 11
 
+	start_timer 12
 	yloop_set_prefetch YHALF	;; Prefetch 96 cache lines in this loop
 c3b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
 	yloop	16, c3b, -16*64+dist64	;; Loop 16 times, next source pointer
 	yloop	4, c3b, -4*dist64+4*dist64, rdi, -64*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
+	end_timer 12
 
-	yloop	3, b3b, -3*4*dist64	;; Loop 3 times, restore source pointer
-	end_timer 6
+	yloop	3, b3b0, -3*4*dist64	;; Loop 3 times, restore source pointer
 	jmp	ypass2_3072_complex_unfft
 
 
@@ -9356,26 +9430,28 @@ c3d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
 ;;	do 256 macros each processing 24 data values
 
 ypass2_3072_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	lea	rbp, [rdi+256*YMM_SCD1]
 	bump	rcx, (768+11-2*64-2*96-3*48-2*96-2*64)*64 ;; Move prefetch pointer along
 	yloop_init 256			;; 256 iterations or 192 iterations
 
-c2a:	yloop_adjust 1			;; One fewer iteration this loop
+c2a:	start_timer 13
+	yloop_adjust 1			;; One fewer iteration this loop
 	yloop_set_prefetch YQUARTER	;; Prefetch 64 cache lines
-c2b:	yr4_s4cl_four_complex_djbunfft rsi, 4*dist64, dist64, 2*dist64, rbp, 0, 3
+c2b:	yr4_s4cl_four_complex_djbunfft rsi, 4*dist64, dist64, 2*dist64, rbp, 0, 3, L1PREFETCH_ALL, 64
 	yloop	4, c2b, -3*4*dist64, rbp, YMM_SCD2 ;; 3 iterations!!  Restore source pointer, next sine/cosine pointer
 	loops_undo 4			;; Restore loop counter
+	end_timer 13
 
+	start_timer 14
 	yloop_set_prefetch YQUARTER	;; Prefetch 64 cache lines
 	yr3_3cl_three_complex_djbunfft_preload
 c1b:	yr3_3cl_three_complex_djbunfft rsi, dist64, 4*dist64, rdi
 	bump	rdi, 64*YMM_SCD1	;; Next set of sin/cos data
 	yloop	4, c1b, -4*dist64+64, rdi, -4*64*YMM_SCD1+YMM_SCD1 ;; Test loop counter, next source pointer, next sine/cosine pointer
+	end_timer 14
 
 	yloop	64, c2a			;; Loop 64 times
-	end_timer 13
 
 ypass2_3072_complex_done:
 	ENDM
@@ -9840,7 +9916,7 @@ ypass2_3840_real_done:
 ; radix-4 FFT, squares the results, and does the first 11.907 levels of the inverse FFT.
 
 yr4dwpn_pass2_3840_complex MACRO
-	LOCAL	b1a, b1b, b2b, b3a, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d
+	LOCAL	b1a, b1b, b2b, b3a, b3b0, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d
 	LOCAL	c1b, c2a, c2b, c3b, c3c, c3d, c4b, c4c, c4d, c5b, c5c, c5d
 	LOCAL	ypass2_3840_complex_1, ypass2_3840_complex_2
 	LOCAL	ypass2_3840_complex_3, ypass2_3840_complex_4
@@ -9893,26 +9969,28 @@ yr4dwpn_pass2_3840_complex MACRO
 ;;	distance between fft data elements is 256
 ;;	do 192 macros each processing 40 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	lea	rbp, [rdi+320*YMM_SCD1]
 	yloop_init 320			;; 320 iterations or 192 iterations
 
-b1a:	yloop_set_prefetch YOTHER, 5	;; Prefetch 64 cache lines
+b1a:	start_timer 4
+	yloop_set_prefetch YOTHER, 5	;; Prefetch 64 cache lines
 	yr3_f3cl_three_complex_djbfft_preload
 b1b:	yr3_f3cl_three_complex_djbfft rsi, dist64, 5*dist64, rdi
 	bump	rdi, 64*YMM_SCD1	;; Next sin/cos data
 	yloop	5, b1b, -5*dist64, rdi, -5*64*YMM_SCD1+YMM_SCD1 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 5
+	end_timer 4
 
+	start_timer 5
 	yloop_adjust 2			;; Two fewer iterations this loop
 	yloop_set_prefetch YOTHER, 5	;; Prefetch 64 cache lines
 	yr5_5cl_five_complex_djbfft_preload
 b2b:	yr5_5cl_five_complex_djbfft rsi, 5*dist64, dist64, rbp
 	yloop	5, b2b, -3*5*dist64+64, rbp, YMM_SCD2 ;; 3 iterations!!  Next source pointer, next sin/cos data
+	end_timer 5
 
 	yloop	64, b1a, -64*64, rdi, -64*YMM_SCD1+320*YMM_SCD1+64*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
-	end_timer 4
 
 ;; Do FFT levels 5,6
 ;; On input the 64-byte cache lines hold these data values:
@@ -10084,50 +10162,62 @@ b2b:	yr5_5cl_five_complex_djbfft rsi, 5*dist64, dist64, rbp
 	jg	ypass2_3840_complex_3
 
 ypass2_3840_complex_2:
-	start_timer 6
 	yloop_init 240			;; 15 iters of 64 cache lines
 
+b3b0:	start_timer 6
 	yloop_set_prefetch YHALF	;; Prefetch 120 cache lines in this loop
 b3b:	yr4_s4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16
 	yloop	16, b3b, -16*64, rdi, -16*YMM_SCD2 ;; Loop 16 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 16			;; Back up loop counter
+	end_timer 6
 
+	start_timer 7
 	yloop_set_prefetch YHALF	;; Prefetch 120 cache lines in this loop
 b4b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2, 4
 	yloop	4, b4b, -4*64+16*64, rdi, -4*4*YMM_SCD2+YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b4b, -4*16*64, rdi, -4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 7
 
+	start_timer 8
 	yloop_set_prefetch YHALF	;; Prefetch 120 cache lines in this loop
 b5b:	yr4_eb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 4
 	yloop	4, b5b, 0, rdi, 4*YMM_SCD2 ;; Loop 4 times, next sine/cosine pointer
 	yloop	4, b5b, -16*4*64, rdi, -4*4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 8
 
+	start_timer 9
 	yloop_set_prefetch YQUARTER	;; Prefetch 60 cache lines in this loop
 	yr4_4cl_four_complex_with_square_preload
 b6b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64
 	yloop	16, b6b, -16*64	;; Loop 16 times, restore source pointer
 	loops_undo 16			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 	yloop_set_prefetch YQUARTER	;; Prefetch 60 cache lines in this loop
 c5b:	yr4_eb4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, 4
 	yloop	4, c5b, 0, rdi, 4*YMM_SCD2 ;; Loop 4 times, next sine/cosine pointer
 	yloop	4, c5b, -16*4*64, rdi, -4*4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4			;; Restore loop counter
+	end_timer 10
 
+	start_timer 11
 	yloop_set_prefetch YHALF	;; Prefetch 120 cache lines in this loop
 c4b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2, 4
 	yloop	4, c4b, -4*64+16*64, rdi, -4*4*YMM_SCD2+YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, c4b, -4*16*64, rdi, -4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 11
 
+	start_timer 12
 	yloop_set_prefetch YHALF	;; Prefetch 120 cache lines in this loop
-c3b:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16
+c3b:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16, L1PREFETCH_ALL, dist64
 	yloop	16, c3b, -16*64+dist64, rdi, -16*YMM_SCD2 ;; Loop 16 times, next source pointer, restore sine/cosine pointer
+	end_timer 12
 
-	yloop	15, b3b, -15*dist64	;; Loop 15 times, restore source pointer
-	end_timer 6
+	yloop	15, b3b0, -15*dist64	;; Loop 15 times, restore source pointer
 	jmp	ypass2_3840_complex_unfft
 
 
@@ -10148,7 +10238,7 @@ b4a:	yr4_eb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2, 4
 	loops_undo 4*4			;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 240 cache lines in this loop
-b5a:	yr4_eb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 4
+b5a:	yr4_eb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 4, L1PREFETCH_ALL, dist64
 	yloop	4, b5a, 0, rdi, 4*YMM_SCD2 ;; Loop 4 times, next sine/cosine pointer
 	yloop	4, b5a, -16*4*64, rdi, -4*4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
@@ -10204,7 +10294,7 @@ c4c:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2, 4
 	loops_undo 4*4			;; Back up loop counter
 
 	yloop_set_prefetch YHALF	;; Prefetch 120 cache lines in this loop
-c3c:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16
+c3c:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16, L1PREFETCH_ALL, dist64
 	yloop	16, c3c, -16*64+dist64, rdi, -16*YMM_SCD2 ;; Loop 16 times, next source pointer, restore sine/cosine pointer
 
 	yloop	15, b3c, -15*dist64	;; Loop 15 times, restore source pointer
@@ -10238,7 +10328,7 @@ c4d:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2, 4
 	loops_undo 4*4			;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 240 cache lines in this loop
-c3d:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16
+c3d:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16, L1PREFETCH_ALL, dist64
 	yloop	16, c3d, -16*64+dist64, rdi, -16*YMM_SCD2 ;; Loop 16 times, next source pointer, restore sine/cosine pointer
 
 	yloop	15, b6d, -15*dist64	;; Loop 15 times, restore source pointer
@@ -10284,27 +10374,29 @@ c3d:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16
 ;;	do 320 macros each processing 24 data values
 
 ypass2_3840_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	lea	rbp, [rdi+320*YMM_SCD1]
 	bump	rcx, (960+14-2*64-3*120-2*60-2*120-2*64)*64 ;; Move prefetch pointer along
 	yloop_init 320			;; 192 iterations or 320 iterations
 
-c2a:	yloop_adjust 2			;; Two fewer iterations in this loop
+c2a:	start_timer 13
+	yloop_adjust 2			;; Two fewer iterations in this loop
 	yloop_set_prefetch YOTHER, 5	;; Prefetch 64 cache lines
 	yr5_5cl_five_complex_djbunfft_preload
 c2b:	yr5_5cl_five_complex_djbunfft rsi, 5*dist64, dist64, rbp
 	yloop	5, c2b, -3*5*dist64, rbp, YMM_SCD2 ;; 3 iterations!!  Restore source pointer, next sine/cosine pointer
 	loops_undo 5			;; Restore loop counter
+	end_timer 13
 
+	start_timer 14
 	yloop_set_prefetch YOTHER, 5	;; Prefetch 64 cache lines
 	yr3_3cl_three_complex_djbunfft_preload
 c1b:	yr3_3cl_three_complex_djbunfft rsi, dist64, 5*dist64, rdi
 	bump	rdi, 64*YMM_SCD1	;; Next set of sin/cos data
 	yloop	5, c1b, -5*dist64+64, rdi, -5*64*YMM_SCD1+YMM_SCD1 ;; Test loop counter, next source pointer, next sine/cosine pointer
+	end_timer 14
 
 	yloop	64, c2a			;; Loop 64 times
-	end_timer 13
 
 ypass2_3840_complex_done:
 	ENDM
@@ -10817,7 +10909,7 @@ b1b:	yr4_fs4cl_four_complex_djbfft rsi, dist64, 4*dist64, 8*dist64, rdi, 64*YMM_
 	end_timer 4
 
 	start_timer 5
-b2b:	yr4_eb4cl_four_complex_djbfft rsi, 4*dist64, dist64, 2*dist64, rbp, YMM_SCD2, 4
+b2b:	yr4_eb4cl_four_complex_djbfft rsi, 4*dist64, dist64, 2*dist64, rbp, YMM_SCD2, 4, L1PREFETCH_ALL, 64
 	yloop	4, b2b, -4*4*dist64+64	;; Test loop counter, next source pointer
 	end_timer 5
 
@@ -11222,7 +11314,7 @@ c2b:	yr4_eb4cl_four_complex_djbunfft rsi, 4*dist64, dist64, 2*dist64, rbp, YMM_S
 	end_timer 13
 
 	start_timer 14
-c1b:	yr4_s4cl_four_complex_djbunfft rsi, dist64, 4*dist64, 8*dist64, rdi, 64*YMM_SCD2, 4
+c1b:	yr4_s4cl_four_complex_djbunfft rsi, dist64, 4*dist64, 8*dist64, rdi, 64*YMM_SCD2, 4, L1PREFETCH_ALL, 64
 	yloop	4, c1b, -4*dist64+64, rdi, -4*64*YMM_SCD2+YMM_SCD2 ;; Test loop counter, next source pointer, next sine/cosine pointer
 	end_timer 14
 
@@ -11709,8 +11801,8 @@ ypass2_5120_real_done:
 ; radix-4 FFT, squares the results, and does the first 12.322 levels of the inverse FFT.
 
 yr4dwpn_pass2_5120_complex MACRO
-	LOCAL	b1a, b1b, b2b, b3a, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d
-	LOCAL	c1b, c2b, c3b, c3c, c3d, c4b, c4c, c4d, c5b, c5c, c5d
+	LOCAL	b1a, b1b, b2b, b3a, b3b0, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d
+	LOCAL	c1b, c2a, c2b, c3b, c3c, c3d, c4b, c4c, c4d, c5b, c5c, c5d
 	LOCAL	ypass2_5120_complex_1, ypass2_5120_complex_2
 	LOCAL	ypass2_5120_complex_3, ypass2_5120_complex_4
 	LOCAL	ypass2_5120_complex_unfft, ypass2_5120_complex_done
@@ -11764,25 +11856,27 @@ yr4dwpn_pass2_5120_complex MACRO
 ;;	distance between fft data elements is 256
 ;;	do 320 macros each processing 32 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	lea	rbp, [rdi+256*YMM_SCD2]
 	yloop_init 320			;; 256 iterations or 320 iterations
 
-b1a:	yloop_adjust 1			;; One fewer iteration this loop
+b1a:	start_timer 4
+	yloop_adjust 1			;; One fewer iteration this loop
 	yloop_set_prefetch YOTHER, 5	;; Prefetch 64 cache lines in this loop
 	yr5_f5cl_five_complex_djbfft_preload
 b1b:	yr5_f5cl_five_complex_djbfft rsi, dist64, 4*dist64, rdi
 	bump	rdi, 64*YMM_SCD2	;; Next sin/cos data
 	yloop	5, b1b, -4*dist64, rdi, -4*64*YMM_SCD2+YMM_SCD2 ;; 4 iterations!!  Restore source pointer, next sin/cos data
 	loops_undo 5
+	end_timer 4
 
+	start_timer 5
 	yloop_set_prefetch YOTHER, 10	;; Prefetch 32 cache lines in this loop
-b2b:	yr4_s4cl_four_complex_djbfft rsi, 4*dist64, dist64, 2*dist64, rbp, 0, 5
+b2b:	yr4_s4cl_four_complex_djbfft rsi, 4*dist64, dist64, 2*dist64, rbp, 0, 5, L1PREFETCH_ALL, 64
 	yloop	5, b2b, -5*4*dist64+64, rbp, YMM_SCD2 ;; Test loop counter, next source pointer, next sin/cos data
+	end_timer 5
 
 	yloop	64, b1a, -64*64, rdi, -64*YMM_SCD2+256*YMM_SCD2+64*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
-	end_timer 4
 
 ;; Do FFT levels 5,6
 ;; On input the 64-byte cache lines hold these data values:
@@ -11966,26 +12060,32 @@ b2b:	yr4_s4cl_four_complex_djbfft rsi, 4*dist64, dist64, 2*dist64, rbp, 0, 5
 	jg	ypass2_5120_complex_3
 
 ypass2_5120_complex_2:
-	start_timer 6
 	yloop_init 320			;; 5 iters of 256 cache lines
 	yloop_set_prefetch YHALF
 
+b3b0:	start_timer 6
 b3b:	yr4_b4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
 	yloop	16, b3b, -16*64+dist64	;; Loop 16 times, next source pointer
 	yloop	4, b3b, -4*dist64, rdi, -64*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 6
 
+	start_timer 7
 b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2/4, 4
 	yloop	4, b4b, -4*64+16*64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b4b, -4*16*64+dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b4b, -4*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*4		;; Back up loop counter
+	end_timer 7
 
+	start_timer 8
 b5b:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	yloop	16, b5b, -16*4*64+dist64, rdi, 4*YMM_SCD2/4 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, b5b, -4*dist64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 8
 
+	start_timer 9
 	yr4_4cl_four_complex_with_square_preload
 ;; Loop below reworked to avoid 4KB distances
 ;;b6b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64
@@ -11994,24 +12094,30 @@ b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, dist64, 2*dist64
 	yloop	16, b6b, -16*4*64+64	;; Loop 16 times, next source pointer
 	yloop	4, b6b, -4*64	;; Loop 4 times, restore source pointer
 	loops_undo 64			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 c5b:	yr4_b4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	yloop	16, c5b, -16*4*64+dist64, rdi, 4*YMM_SCD2/4 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, c5b, -4*dist64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Restore loop counter
+	end_timer 10
 
+	start_timer 11
 c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2/4, 4
 	yloop	4, c4b, -4*64+16*64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	yloop	4, c4b, -4*16*64+dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, c4b, -4*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*4		;; Back up loop counter
+	end_timer 11
 
+	start_timer 12
 c3b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
 	yloop	16, c3b, -16*64+dist64	;; Loop 16 times, next source pointer
 	yloop	4, c3b, -4*dist64+4*dist64, rdi, -64*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
+	end_timer 12
 
-	yloop	5, b3b, -5*4*dist64	;; Loop 5 times, restore source pointer
-	end_timer 6
+	yloop	5, b3b0, -5*4*dist64	;; Loop 5 times, restore source pointer
 	jmp	ypass2_5120_complex_unfft
 
 
@@ -12178,26 +12284,28 @@ c3d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
 ;;	do 256 macros each processing 40 data values
 
 ypass2_5120_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	lea	rbp, [rdi+256*YMM_SCD2]
 	bump	rcx, (1280+19-64-32-7*160-64-32)*64 ;; Move prefetch pointer along
 	yloop_init 320			;; 256 iterations or 320 iterations
 
+c2a:	start_timer 13
 	yloop_set_prefetch YOTHER, 5	;; Prefetch 64 cache lines in this loop
-c2b:	yr4_s4cl_four_complex_djbunfft rsi, 4*dist64, dist64, 2*dist64, rbp, 0, 5
+c2b:	yr4_s4cl_four_complex_djbunfft rsi, 4*dist64, dist64, 2*dist64, rbp, 0, 5, L1PREFETCH_ALL, 64
 	yloop	5, c2b, -5*4*dist64, rbp, YMM_SCD2 ;; Test loop counter, restore source pointer, next sine/cosine pointer
 	loops_undo 5			;; Restore loop counter
+	end_timer 13
 
+	start_timer 14
 	yloop_adjust 1			;; One fewer iteration this loop
 	yloop_set_prefetch YOTHER, 10	;; Prefetch 32 cache lines in this loop
 	yr5_5cl_five_complex_djbunfft_preload
 c1b:	yr5_5cl_five_complex_djbunfft rsi, dist64, 4*dist64, rdi
 	bump	rdi, 64*YMM_SCD2	;; Next set of sin/cos data
 	yloop	5, c1b, -4*dist64+64, rdi, -4*64*YMM_SCD2+YMM_SCD2 ;; 4 iterations!!  Next source pointer, next sine/cosine pointer
+	end_timer 14
 
-	yloop	64, c2b			;; Loop 64 times
-	end_timer 13
+	yloop	64, c2a			;; Loop 64 times
 
 ypass2_5120_complex_done:
 	ENDM
@@ -12662,8 +12770,8 @@ ypass2_6400_real_done:
 ; radix-4 FFT, squares the results, and does the first 12.644 levels of the inverse FFT.
 
 yr4dwpn_pass2_6400_complex MACRO
-	LOCAL	b1b, b2b, b3a, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d
-	LOCAL	c1b, c2b, c3b, c3c, c3d, c4b, c4c, c4d, c5b, c5c, c5d
+	LOCAL	b1a, b1b, b2b, b3a, b3b0, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d
+	LOCAL	c1b, c2a, c2b, c3b, c3c, c3d, c4b, c4c, c4d, c5b, c5c, c5d
 	LOCAL	ypass2_6400_complex_1, ypass2_6400_complex_2
 	LOCAL	ypass2_6400_complex_3, ypass2_6400_complex_4
 	LOCAL	ypass2_6400_complex_unfft, ypass2_6400_complex_done
@@ -12715,24 +12823,26 @@ yr4dwpn_pass2_6400_complex MACRO
 ;;	distance between fft data elements is 256
 ;;	do 320 macros each processing 40 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	lea	rbp, [rdi+320*YMM_SCD2]
 	yloop_init 320			;; 320 iterations
 	yloop_set_prefetch YOTHER, 5
 
 	yr5_f5cl_five_complex_djbfft_preload
+b1a:	start_timer 4
 b1b:	yr5_f5cl_five_complex_djbfft rsi, dist64, 5*dist64, rdi
 	bump	rdi, 64*YMM_SCD2	;; Next sin/cos data
 	yloop	5, b1b, -5*dist64, rdi, -5*64*YMM_SCD2+YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 5
+	end_timer 4
 
+	start_timer 5
 ;;	yr5_5cl_five_complex_djbfft_preload
 b2b:	yr5_5cl_five_complex_djbfft rsi, 5*dist64, dist64, rbp
 	yloop	5, b2b, -5*5*dist64+64, rbp, YMM_SCD2 ;; Test loop counter, next source pointer, next sin/cos data
+	end_timer 5
 
-	yloop	64, b1b, -64*64, rdi, -64*YMM_SCD2+320*YMM_SCD2+64*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
-	end_timer 4
+	yloop	64, b1a, -64*64, rdi, -64*YMM_SCD2+320*YMM_SCD2+64*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
 
 ;; Do FFT levels 5,6
 ;; On input the 64-byte cache lines hold these data values:
@@ -12904,44 +13014,56 @@ b2b:	yr5_5cl_five_complex_djbfft rsi, 5*dist64, dist64, rbp
 	jg	ypass2_6400_complex_3
 
 ypass2_6400_complex_2:
-	start_timer 6
 	yloop_init 400			;; 25 iters of 64 cache lines
 	yloop_set_prefetch YHALF
 
+b3b0:	start_timer 6
 b3b:	yr4_s4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16
 	yloop	16, b3b, -16*64, rdi, -16*YMM_SCD2 ;; Loop 16 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 16			;; Back up loop counter
+	end_timer 6
 
+	start_timer 7
 b4b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2, 4
 	yloop	4, b4b, -4*64+16*64, rdi, -4*4*YMM_SCD2+YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b4b, -4*16*64, rdi, -4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 7
 
+	start_timer 8
 b5b:	yr4_eb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 4
 	yloop	4, b5b, 0, rdi, 4*YMM_SCD2 ;; Loop 4 times, next sine/cosine pointer
 	yloop	4, b5b, -16*4*64, rdi, -4*4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 8
 
+	start_timer 9
 	yr4_4cl_four_complex_with_square_preload
 b6b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64
 	yloop	16, b6b, -16*64	;; Loop 16 times, restore source pointer
 	loops_undo 16			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 c5b:	yr4_eb4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, 4
 	yloop	4, c5b, 0, rdi, 4*YMM_SCD2 ;; Loop 4 times, next sine/cosine pointer
 	yloop	4, c5b, -16*4*64, rdi, -4*4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4			;; Restore loop counter
+	end_timer 10
 
+	start_timer 11
 c4b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2, 4
 	yloop	4, c4b, -4*64+16*64, rdi, -4*4*YMM_SCD2+YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, c4b, -4*16*64, rdi, -4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 11
 
-c3b:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16
+	start_timer 12
+c3b:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16, L1PREFETCH_ALL, dist64
 	yloop	16, c3b, -16*64+dist64, rdi, -16*YMM_SCD2 ;; Loop 16 times, next source pointer, restore sine/cosine pointer
+	end_timer 12
 
-	yloop	25, b3b, -25*dist64	;; Loop 25 times, restore source pointer
-	end_timer 6
+	yloop	25, b3b0, -25*dist64	;; Loop 25 times, restore source pointer
 	jmp	ypass2_6400_complex_unfft
 
 
@@ -12960,7 +13082,7 @@ b4a:	yr4_eb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2, 4
 	yloop	4, b4a, -4*16*64, rdi, -4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
 
-b5a:	yr4_eb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 4
+b5a:	yr4_eb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 4, L1PREFETCH_ALL, dist64
 	yloop	4, b5a, 0, rdi, 4*YMM_SCD2 ;; Loop 4 times, next sine/cosine pointer
 	yloop	4, b5a, -16*4*64, rdi, -4*4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
@@ -13009,7 +13131,7 @@ c4c:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2, 4
 	yloop	4, c4c, -4*16*64, rdi, -4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
 
-c3c:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16
+c3c:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16, L1PREFETCH_ALL, dist64
 	yloop	16, c3c, -16*64+dist64, rdi, -16*YMM_SCD2 ;; Loop 16 times, next source pointer, restore sine/cosine pointer
 
 	yloop	25, b3c, -25*dist64	;; Loop 25 times, restore source pointer
@@ -13040,7 +13162,7 @@ c4d:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2, 4
 	yloop	4, c4d, -4*16*64, rdi, -4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
 
-c3d:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16
+c3d:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16, L1PREFETCH_ALL, dist64
 	yloop	16, c3d, -16*64+dist64, rdi, -16*YMM_SCD2 ;; Loop 16 times, next source pointer, restore sine/cosine pointer
 
 	yloop	25, b6d, -25*dist64	;; Loop 25 times, restore source pointer
@@ -13086,26 +13208,28 @@ c3d:	yr4_s4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2, 16
 ;;	do 320 macros each processing 40 data values
 
 ypass2_6400_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	lea	rbp, [rdi+320*YMM_SCD2]
 	bump	rcx, (1600+24-2*64-7*200-64-32)*64 ;; Move prefetch pointer along
 	yloop_init 320			;; 320 iterations
 
+c2a:	start_timer 13
 	yloop_set_prefetch YOTHER, 5	;; Prefetch 64 cache lines in this loop
 	yr5_5cl_five_complex_djbunfft_preload
 c2b:	yr5_5cl_five_complex_djbunfft rsi, 5*dist64, dist64, rbp
 	yloop	5, c2b, -5*5*dist64, rbp, YMM_SCD2 ;; Test loop counter, restore source pointer, next sine/cosine pointer
 	loops_undo 5			;; Restore loop counter
+	end_timer 13
 
+	start_timer 14
 	yloop_set_prefetch YOTHER, 10	;; Prefetch 32 cache lines in this loop
 ;;	yr5_5cl_five_complex_djbunfft_preload
 c1b:	yr5_5cl_five_complex_djbunfft rsi, dist64, 5*dist64, rdi
 	bump	rdi, 64*YMM_SCD2	;; Next set of sin/cos data
 	yloop	5, c1b, -5*dist64+64, rdi, -5*64*YMM_SCD2+YMM_SCD2 ;; Test loop counter, next source pointer, next sine/cosine pointer
+	end_timer 14
 
-	yloop	64, c2b			;; Loop 64 times
-	end_timer 13
+	yloop	64, c2a			;; Loop 64 times
 
 ypass2_6400_complex_done:
 	ENDM
@@ -13594,8 +13718,8 @@ ypass2_4608_real_done:
 ; radix-4 FFT, squares the results, and does the first 12.17 levels of the inverse FFT.
 
 yr4dwpn_pass2_4608_complex MACRO
-	LOCAL	b1b, b2b, b3a, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d0, b6d
-	LOCAL	c1b, c2b, c3b, c3c, c3d, c4b, c4c, c4d, c5b, c5c, c5d
+	LOCAL	b1a, b1b, b2b, b3a, b3b0, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d0, b6d
+	LOCAL	c1b, c2a, c2b, c3b, c3c, c3d, c4b, c4c, c4d, c5b, c5c, c5d
 	LOCAL	ypass2_4608_complex_1, ypass2_4608_complex_2
 	LOCAL	ypass2_4608_complex_3, ypass2_4608_complex_4
 	LOCAL	ypass2_4608_complex_unfft, ypass2_4608_complex_done
@@ -13647,24 +13771,26 @@ yr4dwpn_pass2_4608_complex MACRO
 ;;	distance between fft data elements is 512
 ;;	do 384 macros each processing 24 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	lea	rbp, [rdi+384*YMM_SCD1]
 	yloop_init 384			;; 384 iterations
 	yloop_set_prefetch YOTHER, 3
 	yr3_f3cl_three_complex_djbfft_preload
 
+b1a:	start_timer 4
 b1b:	yr3_f3cl_three_complex_djbfft rsi, 2*dist64, 6*dist64, rdi
 	bump	rdi, 128*YMM_SCD1	;; Next sin/cos data
 	yloop	3, b1b, -3*2*dist64, rdi, -3*128*YMM_SCD1+YMM_SCD1 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 3			;; Back up loop counter
+	end_timer 4
 
+	start_timer 5
 b2b:	yr3_3cl_three_complex_djbfft rsi, 6*dist64, 2*dist64, rbp
 	yloop	3, b2b, -3*6*dist64+64, rbp, YMM_SCD1 ;; Test loop counter, next source pointer, next sin/cos data
+	end_timer 5
 
-	yloop	64, b1b, -64*64+dist64	;; Test loop counter, next source pointer
-	yloop	2, b1b, -2*dist64, rdi, -128*YMM_SCD1+384*YMM_SCD1+128*YMM_SCD1 ;; Test loop counter, restore source pointer, next sin/cos ptr
-	end_timer 4
+	yloop	64, b1a, -64*64+dist64	;; Test loop counter, next source pointer
+	yloop	2, b1a, -2*dist64, rdi, -128*YMM_SCD1+384*YMM_SCD1+128*YMM_SCD1 ;; Test loop counter, restore source pointer, next sin/cos ptr
 
 ;; Do FFT levels 5,6
 ;; On input the 64-byte cache lines hold these data values:
@@ -13839,21 +13965,25 @@ b2b:	yr3_3cl_three_complex_djbfft rsi, 6*dist64, 2*dist64, rbp
 	jg	ypass2_4608_complex_3
 
 ypass2_4608_complex_2:
-	start_timer 6
 	yloop_init 288			;; 9 iters of 128 cache lines
 
+b3b0:	start_timer 6
 	yloop_set_prefetch YHALF	;; Prefetch 144 cache lines in this loop
 b3b:	yr4_s4cl_four_complex_djbfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32
 	yloop	32, b3b, -32*64, rdi, -32*YMM_SCD2 ;; Loop 32 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 32			;; Back up loop counter
+	end_timer 6
 
+	start_timer 7
 	yloop_set_prefetch YQUARTER	;; Prefetch 72 cache lines in this loop
 b4b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD2, 8
 	yloop	8, b4b, -8*64+32*64, rdi, -8*4*YMM_SCD2+YMM_SCD2 ;; Loop 8 times, next source pointer, next sine/cosine pointer
 	yloop	2, b4b, -2*32*64+dist64	;; Loop 2 times, next source pointer
 	yloop	2, b4b, -2*dist64, rdi, -4*YMM_SCD2 ;; Loop 2 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*8			;; Back up loop counter
+	end_timer 7
 
+	start_timer 8
 	yloop_set_prefetch YQUARTER	;; Prefetch 72 cache lines in this loop
 b5b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 16*YMM_SCD2, 2
 	yloop	2, b5b, -2*64+8*64, rdi, -2*16*YMM_SCD2 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
@@ -13861,7 +13991,9 @@ b5b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 16*YMM_SCD2, 2
 	yloop	2, b5b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, b5b, -2*dist64, rdi, -4*4*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*2		;; Back up loop counter
+	end_timer 8
 
+	start_timer 9
 	yloop_adjust 2*8		;; 16 fewer iterations this loop
 	yloop_set_prefetch YOTHER, 8	;; Prefetch 36 cache lines in this loop
 	yr8_8cl_eight_complex_with_square_preload
@@ -13872,7 +14004,9 @@ b6b:	yr8_8cl_eight_complex_with_square rsi, 4*64, 32*64, dist64, 64
 	yloop	8, b6b, -8*4*64+2*64	;; Loop 8 times, next source pointer
 	yloop	4, b6b, -2*2*64		;; 2 iterations!!  Restore source pointer
 	loops_undo 4*8			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 	yloop_set_prefetch YQUARTER	;; Prefetch 72 cache lines in this loop
 c5b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 16*YMM_SCD2, 2
 	yloop	2, c5b, -2*64+8*64, rdi, -2*16*YMM_SCD2 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
@@ -13880,20 +14014,24 @@ c5b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 16*YMM_SCD2, 2
 	yloop	2, c5b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, c5b, -2*dist64, rdi, -4*4*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*2		;; Back up loop counter
+	end_timer 10
 
+	start_timer 11
 	yloop_set_prefetch YHALF	;; Prefetch 144 cache lines in this loop
 c4b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD2, 8
 	yloop	8, c4b, -8*64+32*64, rdi, -8*4*YMM_SCD2+YMM_SCD2 ;; Loop 8 times, next source pointer, next sine/cosine pointer
 	yloop	2, c4b, -2*32*64+dist64	;; Loop 2 times, next source pointer
 	yloop	2, c4b, -2*dist64, rdi, -4*YMM_SCD2 ;; Loop 2 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*8			;; Back up loop counter
+	end_timer 11
 
+	start_timer 12
 	yloop_set_prefetch YHALF	;; Prefetch 144 cache lines in this loop
-c3b:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32
+c3b:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32, L1PREFETCH_ALL, 2*dist64
 	yloop	32, c3b, -32*64+2*dist64, rdi, -32*YMM_SCD2 ;; Loop 32 times, next source pointer, restore sine/cosine pointer
+	end_timer 12
 
-	yloop	9, b3b, -9*2*dist64	;; Loop 9 times, restore source pointer
-	end_timer 6
+	yloop	9, b3b0, -9*2*dist64	;; Loop 9 times, restore source pointer
 	jmp	ypass2_4608_complex_unfft
 
 
@@ -13915,7 +14053,7 @@ b4a:	yr4_eb4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD2, 8
 	loops_undo 4*8			;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 288 cache lines in this loop
-b5a:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 16*YMM_SCD2, 2
+b5a:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 16*YMM_SCD2, 2, L1PREFETCH_ALL, 2*dist64
 	yloop	2, b5a, -2*64+8*64, rdi, -2*16*YMM_SCD2 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b5a, -4*8*64+32*64, rdi, 4*YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	2, b5a, -2*32*64+dist64	;; Test loop counter, next source pointer
@@ -13989,7 +14127,7 @@ c4c:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD2, 8
 	loops_undo 4*8			;; Back up loop counter
 
 	yloop_set_prefetch YHALF	;; Prefetch 144 cache lines in this loop
-c3c:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32
+c3c:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32, L1PREFETCH_ALL, 2*dist64
 	yloop	32, c3c, -32*64+2*dist64, rdi, -32*YMM_SCD2 ;; Loop 32 times, next source pointer, restore sine/cosine pointer
 
 	yloop	9, b3c, -9*2*dist64	;; Loop 9 times, restore source pointer
@@ -14031,7 +14169,7 @@ c4d:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD2, 8
 	loops_undo 4*8			;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 288 cache lines in this loop
-c3d:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32
+c3d:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32, L1PREFETCH_ALL, 2*dist64
 	yloop	32, c3d, -32*64+2*dist64, rdi, -32*YMM_SCD2 ;; Loop 32 times, next source pointer, restore sine/cosine pointer
 
 	yloop	9, b6d0, -9*2*dist64	;; Loop 9 times, restore source pointer
@@ -14077,7 +14215,6 @@ c3d:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32
 ;;	do 384 macros each processing 24 data values
 
 ypass2_4608_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	lea	rbp, [rdi+384*YMM_SCD1]
 	bump	rcx, (1152+2*17-2*128-144-2*72-36-72-2*144-2*128)*64 ;; Move prefetch pointer along
@@ -14085,17 +14222,20 @@ ypass2_4608_complex_unfft:
 	yloop_set_prefetch YOTHER, 3
 	yr3_3cl_three_complex_djbunfft_preload
 
+c2a:	start_timer 13
 c2b:	yr3_3cl_three_complex_djbunfft rsi, 6*dist64, 2*dist64, rbp
 	yloop	3, c2b, -3*6*dist64, rbp, YMM_SCD1 ;; Test loop counter, restore source pointer, next sine/cosine pointer
 	loops_undo 3			;; Restore loop counter
+	end_timer 13
 
+	start_timer 14
 c1b:	yr3_3cl_three_complex_djbunfft rsi, 2*dist64, 6*dist64, rdi
 	bump	rdi, 128*YMM_SCD1	;; Next set of sin/cos data
 	yloop	3, c1b, -3*2*dist64+64, rdi, -3*128*YMM_SCD1+YMM_SCD1 ;; Test loop counter, next source pointer, next sine/cosine pointer
+	end_timer 14
 
-	yloop	64, c2b, -64*64+dist64	;; Loop 64 times, next source pointer
-	yloop	2, c2b			;; Loop 2 times
-	end_timer 13
+	yloop	64, c2a, -64*64+dist64	;; Loop 64 times, next source pointer
+	yloop	2, c2a			;; Loop 2 times
 
 ypass2_4608_complex_done:
 	ENDM
@@ -14597,7 +14737,7 @@ ypass2_6144_real_done:
 ; radix-4 FFT, squares the results, and does the first 12.585 levels of the inverse FFT.
 
 yr4dwpn_pass2_6144_complex MACRO
-	LOCAL	b1a, b1b, b2b, b3b, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d0, b6d
+	LOCAL	b1a, b1b, b2b, b3b, b4a, b4b0, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d0, b6d
 	LOCAL	c1b, c2b, c3a, c3b, c4b, c4c, c4d, c5b, c5c, c5d
 	LOCAL	ypass2_6144_complex_1, ypass2_6144_complex_2
 	LOCAL	ypass2_6144_complex_3, ypass2_6144_complex_4
@@ -14678,20 +14818,22 @@ yr4dwpn_pass2_6144_complex MACRO
 ;;	distance between fft data elements is 128
 ;;	do 384 macros each processing 32 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	lea	rbp, [rdi+512*YMM_SCD1]
 	mov	rdx, rbp
 	yloop_init 512			;; 512 iterations or 384 iterations
 
+b1a:	start_timer 4
 	yloop_set_prefetch YQUARTER	;; Prefetch 128 cache lines in this loop
-b1a:	yr3_f3cl_three_complex_djbfft_preload
+	yr3_f3cl_three_complex_djbfft_preload
 b1b:	yr3_f3cl_three_complex_djbfft rsi, 32*64, 8*dist64, rdi
 	bump	rdi, 32*YMM_SCD1	;; Next sin/cos data
 	yloop	2, b1b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	8, b1b, -8*dist64, rdi, -16*32*YMM_SCD1+YMM_SCD1 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 16			;; Back up loop counter
+	end_timer 4
 
+	start_timer 5
 	yloop_adjust 4			;; Four fewer iterations this loop
 	yloop_set_prefetch YHALF	;; Prefetch 192 cache lines in this loop
 b2b:	yr4_s4cl_four_complex_djbfft rsi, 32*64, 2*dist64, 4*dist64, rbp, 32*YMM_SCD2, 2
@@ -14699,15 +14841,17 @@ b2b:	yr4_s4cl_four_complex_djbfft rsi, 32*64, 2*dist64, 4*dist64, rbp, 32*YMM_SC
 	yloop	2, b2b, -2*dist64+8*dist64, rbp, -4*32*YMM_SCD2 ;; Test loop counter, next source pointer, restore sin/cos data
 	yloop	4, b2b, -3*8*dist64, rbp, YMM_SCD2 ;; 3 iterations!!  Restore source pointer, next sin/cos data
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 5
 
+	start_timer 6
 	yloop_adjust 4			;; Four fewer iterations this loop
 	yloop_set_prefetch YHALF	;; Prefetch 192 cache lines in this loop
-b3b:	yr4_eb4cl_four_complex_djbfft rsi, 2*dist64, 32*64, dist64, rdx, YMM_SCD2, 4
+b3b:	yr4_eb4cl_four_complex_djbfft rsi, 2*dist64, 32*64, dist64, rdx, YMM_SCD2, 4, L1PREFETCH_ALL, 64
 	yloop	4, b3b, 0, rdx, -4*YMM_SCD2 ;; Loop 4 times, restore sine/cosine pointer
 	yloop	4, b3b, -3*4*2*dist64+64, rdx, 4*YMM_SCD2 ;; 3 iterations!!  Next source pointer, next sine/cosine pointer
+	end_timer 6
 
 	yloop	32, b1a, -32*64, rdi, -32*YMM_SCD1+512*YMM_SCD1+128*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
-	end_timer 4
 
 ;; Do FFT levels 7,8
 ;; On input the 64-byte cache lines hold these data values:
@@ -14842,22 +14986,26 @@ b3b:	yr4_eb4cl_four_complex_djbfft rsi, 2*dist64, 32*64, dist64, rdx, YMM_SCD2, 
 	jg	ypass2_6144_complex_3
 
 ypass2_6144_complex_2:
-	start_timer 6
 	yloop_init 384			;; 12 iters of 128 cache lines
 
+b4b0:	start_timer 7
 	yloop_set_prefetch YQUARTER	;; Prefetch 96 cache lines in this loop
 b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
 	yloop	8, b4b, -8*64+2*dist64	;; Loop 8 times, next source pointer
 	yloop	4, b4b, -4*2*dist64, rdi, -32*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*8			;; Back up loop counter
+	end_timer 7
 
+	start_timer 8
 	yloop_set_prefetch YQUARTER	;; Prefetch 96 cache lines in this loop
 b5b:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	yloop	2, b5b, -2*64+8*64, rdi, -2*4*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b5b, -4*8*64+2*dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b5b, -4*2*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*2		;; Back up loop counter
+	end_timer 8
 
+	start_timer 9
 	yloop_adjust 4*4		;; 16 fewer iterations this loop
 	yloop_set_prefetch YHALF	;; Prefetch 192 cache lines in this loop
 	yr8_8cl_eight_complex_with_square_preload
@@ -14868,23 +15016,27 @@ b6b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 2*dist64, 4*dist64, 64
 	yloop	4, b6b, -4*8*64+2*64	;; Loop 4 times, next source pointer
 	yloop	8, b6b, -4*2*64		;; 4 iterations!!  Restore source pointer
 	loops_undo 8*4			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 	yloop_set_prefetch YQUARTER	;; Prefetch 96 cache lines in this loop
 c5b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	yloop	2, c5b, -2*64+8*64, rdi, -2*4*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
 	yloop	4, c5b, -4*8*64+2*dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, c5b, -4*2*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*2		;; Back up loop counter
+	end_timer 10
 
+	start_timer 11
 	yloop_set_prefetch YQUARTER	;; Prefetch 96 cache lines in this loop
-c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
+c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8, L1PREFETCH_ALL, 32*64
 	yloop	8, c4b, -8*64+2*dist64	;; Loop 8 times, next source pointer
 	yloop	4, c4b, -4*2*dist64+32*64, rdi, -32*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
+	end_timer 11
 
-	yloop	2, b4b, -2*32*64+dist64	;; Loop 2 times, next source pointer
-	yloop	2, b4b, -2*dist64+8*dist64 ;; Loop 2 times, next source pointer
-	yloop	3, b4b, -3*8*dist64	;; Loop 3 times, restore source pointer
-	end_timer 6
+	yloop	2, b4b0, -2*32*64+dist64 ;; Loop 2 times, next source pointer
+	yloop	2, b4b0, -2*dist64+8*dist64 ;; Loop 2 times, next source pointer
+	yloop	3, b4b0, -3*8*dist64	;; Loop 3 times, restore source pointer
 	jmp	ypass2_6144_complex_unfft
 
 
@@ -14900,7 +15052,7 @@ b4a:	yr4_b4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
 	loops_undo 4*8			;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 384 cache lines in this loop
-b5a:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
+b5a:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2, L1PREFETCH_ALL, 32*64
 	yloop	2, b5a, -2*64+8*64, rdi, -2*4*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b5a, -4*8*64+2*dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b5a, -4*2*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
@@ -14960,7 +15112,7 @@ c5c:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	loops_undo 4*4*2		;; Back up loop counter
 
 	yloop_set_prefetch YQUARTER	;; Prefetch 96 cache lines in this loop
-c4c:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
+c4c:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8, L1PREFETCH_ALL, 32*64
 	yloop	8, c4c, -8*64+2*dist64	;; Loop 8 times, next source pointer
 	yloop	4, c4c, -4*2*dist64+32*64, rdi, -32*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 
@@ -14997,7 +15149,7 @@ c5d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	loops_undo 4*4*2		;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 384 cache lines in this loop
-c4d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
+c4d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8, L1PREFETCH_ALL, 32*64
 	yloop	8, c4d, -8*64+2*dist64	;; Loop 8 times, next source pointer
 	yloop	4, c4d, -4*2*dist64+32*64, rdi, -32*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 
@@ -15074,37 +15226,41 @@ c4d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
 ;;	do 512 macros each processing 24 data values
 
 ypass2_6144_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	lea	rbp, [rdi+512*YMM_SCD1]
 	mov	rdx, rbp
 	bump	rcx, (1536+23-128-2*192-2*96-192-2*96-2*192-128)*64 ;; Move prefetch pointer along
 	yloop_init 512			;; 512 iterations or 384 iterations
 
-c3a:	yloop_adjust 4			;; Four fewer iterations this loop
+c3a:	start_timer 12
+	yloop_adjust 4			;; Four fewer iterations this loop
 	yloop_set_prefetch YHALF	;; Prefetch 192 cache lines in this loop
 c3b:	yr4_eb4cl_four_complex_djbunfft rsi, 2*dist64, 32*64, dist64, rdx, YMM_SCD2, 4
 	yloop	4, c3b, 0, rdx, -4*YMM_SCD2 ;; Loop 4 times, restore sine/cosine pointer
 	yloop	4, c3b, -3*4*2*dist64, rdx, 4*YMM_SCD2 ;; 3 iterations!!  Restore source pointer, next sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 12
 
+	start_timer 13
 	yloop_adjust 4			;; Four fewer iterations this loop
 	yloop_set_prefetch YHALF	;; Prefetch 192 cache lines in this loop
-c2b:	yr4_s4cl_four_complex_djbunfft rsi, 32*64, 2*dist64, 4*dist64, rbp, 32*YMM_SCD2, 2
+c2b:	yr4_s4cl_four_complex_djbunfft rsi, 32*64, 2*dist64, 4*dist64, rbp, 32*YMM_SCD2, 2, L1PREFETCH_ALL, 64
 	yloop	2, c2b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, c2b, -2*dist64+8*dist64, rbp, -4*32*YMM_SCD2 ;; Test loop counter, next source pointer, restore sine/cosine pointer
 	yloop	4, c2b, -3*8*dist64, rbp, YMM_SCD2 ;; 3 iterations!!  Restore source pointer, next sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 13
 
+	start_timer 14
 	yloop_set_prefetch YQUARTER	;; Prefetch 128 cache lines in this loop
 	yr3_3cl_three_complex_djbunfft_preload
 c1b:	yr3_3cl_three_complex_djbunfft rsi, 32*64, 8*dist64, rdi
 	bump	rdi, 32*YMM_SCD1	;; Next set of sin/cos data
 	yloop	2, c1b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	8, c1b, -8*dist64+64, rdi, -16*32*YMM_SCD1+YMM_SCD1 ;; Test loop counter, next source pointer, next sine/cosine pointer
+	end_timer 14
 
 	yloop	32, c3a			;; Loop 32 times
-	end_timer 13
 
 ypass2_6144_complex_done:
 	ENDM
@@ -15588,7 +15744,7 @@ ypass2_7680_real_done:
 ; radix-4 FFT, squares the results, and does the first 12.907 levels of the inverse FFT.
 
 yr4dwpn_pass2_7680_complex MACRO
-	LOCAL	b1a, b1b, b2b, b3a, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d0, b6d
+	LOCAL	b1a, b1b, b2b, b3a, b3b0, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d0, b6d
 	LOCAL	c1b, c2a, c2b, c3b, c3c, c3d, c4b, c4c, c4d, c5b, c5c, c5d
 	LOCAL	ypass2_7680_complex_1, ypass2_7680_complex_2
 	LOCAL	ypass2_7680_complex_3, ypass2_7680_complex_4
@@ -15641,27 +15797,29 @@ yr4dwpn_pass2_7680_complex MACRO
 ;;	distance between fft data elements is 512
 ;;	do 384 macros each processing 40 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	lea	rbp, [rdi+640*YMM_SCD1]
 	yloop_init 640			;; 640 iterations or 384 iterations
 
+b1a:	start_timer 4
 	yloop_set_prefetch YOTHER, 5	;; Prefetch 128 cache lines
-b1a:	yr3_f3cl_three_complex_djbfft_preload
+	yr3_f3cl_three_complex_djbfft_preload
 b1b:	yr3_f3cl_three_complex_djbfft rsi, 2*dist64, 10*dist64, rdi
 	bump	rdi, 128*YMM_SCD1	;; Next sin/cos data
 	yloop	5, b1b, -5*2*dist64, rdi, -5*128*YMM_SCD1+YMM_SCD1 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 5			;; Back up loop counter
+	end_timer 4
 
+	start_timer 5
 	yloop_adjust 2			;; Two fewer iterations this loop
 	yloop_set_prefetch YOTHER, 5	;; Prefetch 128 cache lines
 	yr5_5cl_five_complex_djbfft_preload
 b2b:	yr5_5cl_five_complex_djbfft rsi, 10*dist64, 2*dist64, rbp
 	yloop	5, b2b, -3*10*dist64+64, rbp, YMM_SCD2 ;; 3 iterations!!  Next source pointer, next sin/cos data
+	end_timer 5
 
 	yloop	64, b1a, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, b1a, -2*dist64, rdi, -128*YMM_SCD1+640*YMM_SCD1+128*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
-	end_timer 4
 
 ;; Do FFT levels 5,6
 ;; On input the 64-byte cache lines hold these data values:
@@ -15836,21 +15994,25 @@ b2b:	yr5_5cl_five_complex_djbfft rsi, 10*dist64, 2*dist64, rbp
 	jg	ypass2_7680_complex_3
 
 ypass2_7680_complex_2:
-	start_timer 6
 	yloop_init 480			;; 15 iters of 128 cache lines
 
+b3b0:	start_timer 6
 	yloop_set_prefetch YHALF	;; Prefetch 240 cache lines in this loop
 b3b:	yr4_s4cl_four_complex_djbfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32
 	yloop	32, b3b, -32*64, rdi, -32*YMM_SCD2 ;; Loop 32 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 32			;; Back up loop counter
+	end_timer 6
 
+	start_timer 7
 	yloop_set_prefetch YHALF	;; Prefetch 240 cache lines in this loop
 b4b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD2, 8
 	yloop	8, b4b, -8*64+32*64, rdi, -8*4*YMM_SCD2+YMM_SCD2 ;; Loop 8 times, next source pointer, next sine/cosine pointer
 	yloop	2, b4b, -2*32*64+dist64	;; Loop 2 times, next source pointer
 	yloop	2, b4b, -2*dist64, rdi, -4*YMM_SCD2 ;; Loop 2 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*8			;; Back up loop counter
+	end_timer 7
 
+	start_timer 8
 	yloop_set_prefetch YHALF	;; Prefetch 240 cache lines in this loop
 b5b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 16*YMM_SCD2, 2
 	yloop	2, b5b, -2*64+8*64, rdi, -2*16*YMM_SCD2 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
@@ -15858,7 +16020,9 @@ b5b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 16*YMM_SCD2, 2
 	yloop	2, b5b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, b5b, -2*dist64, rdi, -4*4*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*2		;; Back up loop counter
+	end_timer 8
 
+	start_timer 9
 	yloop_adjust 2*8		;; 16 fewer iterations this loop
 	yloop_set_prefetch YQUARTER	;; Prefetch 120 cache lines in this loop
 	yr8_8cl_eight_complex_with_square_preload
@@ -15869,7 +16033,9 @@ b6b:	yr8_8cl_eight_complex_with_square rsi, 4*64, 32*64, dist64, 64
 	yloop	8, b6b, -8*4*64+2*64	;; Loop 8 times, next source pointer
 	yloop	4, b6b, -2*2*64		;; 2 iterations!!  Restore source pointer
 	loops_undo 4*8			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 	yloop_set_prefetch YHALF	;; Prefetch 240 cache lines in this loop
 c5b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 16*YMM_SCD2, 2
 	yloop	2, c5b, -2*64+8*64, rdi, -2*16*YMM_SCD2 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
@@ -15877,20 +16043,24 @@ c5b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 16*YMM_SCD2, 2
 	yloop	2, c5b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, c5b, -2*dist64, rdi, -4*4*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*2		;; Back up loop counter
+	end_timer 10
 
+	start_timer 11
 	yloop_set_prefetch YHALF	;; Prefetch 240 cache lines in this loop
 c4b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD2, 8
 	yloop	8, c4b, -8*64+32*64, rdi, -8*4*YMM_SCD2+YMM_SCD2 ;; Loop 8 times, next source pointer, next sine/cosine pointer
 	yloop	2, c4b, -2*32*64+dist64	;; Loop 2 times, next source pointer
 	yloop	2, c4b, -2*dist64, rdi, -4*YMM_SCD2 ;; Loop 2 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*8			;; Back up loop counter
+	end_timer 11
 
+	start_timer 12
 	yloop_set_prefetch YHALF	;; Prefetch 240 cache lines in this loop
-c3b:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32
+c3b:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32, L1PREFETCH_ALL, 2*dist64
 	yloop	32, c3b, -32*64+2*dist64, rdi, -32*YMM_SCD2 ;; Loop 32 times, next source pointer, restore sine/cosine pointer
+	end_timer 12
 
-	yloop	15, b3b, -15*2*dist64	;; Loop 15 times, restore source pointer
-	end_timer 6
+	yloop	15, b3b0, -15*2*dist64	;; Loop 15 times, restore source pointer
 	jmp	ypass2_7680_complex_unfft
 
 
@@ -15912,7 +16082,7 @@ b4a:	yr4_eb4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD2, 8
 	loops_undo 4*8			;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 480 cache lines in this loop
-b5a:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 16*YMM_SCD2, 2
+b5a:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 16*YMM_SCD2, 2, L1PREFETCH_ALL, 2*dist64
 	yloop	2, b5a, -2*64+8*64, rdi, -2*16*YMM_SCD2 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b5a, -4*8*64+32*64, rdi, 4*YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	2, b5a, -2*32*64+dist64	;; Test loop counter, next source pointer
@@ -15986,7 +16156,7 @@ c4c:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD2, 8
 	loops_undo 4*8			;; Back up loop counter
 
 	yloop_set_prefetch YHALF	;; Prefetch 240 cache lines in this loop
-c3c:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32
+c3c:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32, L1PREFETCH_ALL, 2*dist64
 	yloop	32, c3c, -32*64+2*dist64, rdi, -32*YMM_SCD2 ;; Loop 32 times, next source pointer, restore sine/cosine pointer
 
 	yloop	15, b3c, -15*2*dist64	;; Loop 15 times, restore source pointer
@@ -16028,7 +16198,7 @@ c4d:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD2, 8
 	loops_undo 4*8			;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 480 cache lines in this loop
-c3d:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32
+c3d:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32, L1PREFETCH_ALL, 2*dist64
 	yloop	32, c3d, -32*64+2*dist64, rdi, -32*YMM_SCD2 ;; Loop 32 times, next source pointer, restore sine/cosine pointer
 
 	yloop	15, b6d0, -15*2*dist64	;; Loop 15 times, restore source pointer
@@ -16074,28 +16244,30 @@ c3d:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32
 ;;	do 640 macros each processing 24 data values
 
 ypass2_7680_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	lea	rbp, [rdi+640*YMM_SCD1]
 	bump	rcx, (1920+2*29-2*128-3*240-120-3*240-128-64)*64 ;; Move prefetch pointer along
 	yloop_init 640			;; 384 iterations or 640 iterations
 
-c2a:	yloop_adjust 2			;; Two fewer iterations this loop
+c2a:	start_timer 13
+	yloop_adjust 2			;; Two fewer iterations this loop
 	yloop_set_prefetch YOTHER, 5	;; Prefetch 128 cache lines in this loop
 	yr5_5cl_five_complex_djbunfft_preload
 c2b:	yr5_5cl_five_complex_djbunfft rsi, 10*dist64, 2*dist64, rbp
 	yloop	5, c2b, -3*10*dist64, rbp, YMM_SCD2 ;; 3 iterations!!  Restore source pointer, next sine/cosine pointer
 	loops_undo 5			;; Restore loop counter
+	end_timer 13
 
+	start_timer 14
 	yloop_set_prefetch YOTHER, 10	;; Prefetch 64 cache lines in this loop
 	yr3_3cl_three_complex_djbunfft_preload
 c1b:	yr3_3cl_three_complex_djbunfft rsi, 2*dist64, 10*dist64, rdi
 	bump	rdi, 128*YMM_SCD1	;; Next set of sin/cos data
 	yloop	5, c1b, -5*2*dist64+64, rdi, -5*128*YMM_SCD1+YMM_SCD1 ;; Test loop counter, next source pointer, next sine/cosine pointer
+	end_timer 14
 
 	yloop	64, c2a, -64*64+dist64	;; Loop 64 times, next source pointer
 	yloop	2, c2a			;; Loop 2 times
-	end_timer 13
 
 ypass2_7680_complex_done:
 	ENDM
@@ -16550,8 +16722,8 @@ ypass2_13_levels_real_done:
 ; radix-4 FFT, squares the results, and does the first 13 levels of the inverse FFT.
 
 yr4dwpn_pass2_13_levels_complex MACRO
-	LOCAL	b1b, b2b, b3b, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d0, b6d
-	LOCAL	c1b, c2b, c3b, c4b, c4c, c4d, c5b, c5c, c5d
+	LOCAL	b1a, b1b, b2b, b3b, b4a, b4b0, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d0, b6d
+	LOCAL	c1b, c2b, c3a, c3b, c4b, c4c, c4d, c5b, c5c, c5d
 	LOCAL	ypass2_13_levels_complex_1, ypass2_13_levels_complex_2
 	LOCAL	ypass2_13_levels_complex_3, ypass2_13_levels_complex_4
 	LOCAL	ypass2_13_levels_complex_unfft, ypass2_13_levels_complex_done
@@ -16629,32 +16801,36 @@ yr4dwpn_pass2_13_levels_complex MACRO
 ;;	distance between fft data elements is 128
 ;;	do 512 macros each processing 32 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	mov	rbp, rdi
 	mov	rdx, rdi
 	yloop_init 512			;; 512 iterations
 
+b1a:	start_timer 4
 	yloop_set_prefetch YHALF	;; Prefetch 256 cache lines in this loop
 b1b:	yr4_fs4cl_four_complex_djbfft rsi, 32*64, 8*dist64, 16*dist64, rdi, 32*YMM_SCD2, 2
 	yloop	2, b1b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	8, b1b, -8*dist64, rdi, -16*32*YMM_SCD2+YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 16			;; Back up loop counter
+	end_timer 4
 
+	start_timer 5
 	yloop_set_prefetch YHALF	;; Prefetch 256 cache lines in this loop
 b2b:	yr4_eb4cl_four_complex_djbfft rsi, 32*64, 2*dist64, 4*dist64, rbp, 128*YMM_SCD2, 2
 	yloop	2, b2b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, b2b, -2*dist64+8*dist64, rbp, -4*128*YMM_SCD2+YMM_SCD2 ;; Test loop counter, next source pointer, next sin/cos data
 	yloop	4, b2b, -4*8*dist64	;; Test loop counter, restore source pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 5
 
+	start_timer 6
 	yloop_set_prefetch YQUARTER	;; Prefetch 128 cache lines in this loop
-b3b:	yr4_eb4cl_four_complex_djbfft rsi, 2*dist64, 32*64, dist64, rdx, 0, 4
+b3b:	yr4_eb4cl_four_complex_djbfft rsi, 2*dist64, 32*64, dist64, rdx, 0, 4, L1PREFETCH_ALL, 64
 	yloop	4, b3b, 0, rdx, 4*YMM_SCD2 ;; Loop 4 times, next sine/cosine pointer
 	yloop	4, b3b, -4*4*2*dist64+64	;; Loop 4 times, next source pointer
+	end_timer 6
 
-	yloop	32, b1b, -32*64, rdi, -32*YMM_SCD2+512*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
-	end_timer 4
+	yloop	32, b1a, -32*64, rdi, -32*YMM_SCD2+512*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
 
 ;; Do FFT levels 7,8
 ;; On input the 64-byte cache lines hold these data values:
@@ -16771,44 +16947,52 @@ b3b:	yr4_eb4cl_four_complex_djbfft rsi, 2*dist64, 32*64, dist64, rdx, 0, 4
 	jg	ypass2_13_levels_complex_3
 
 ypass2_13_levels_complex_2:
-	start_timer 6
 	yloop_init 512			;; 16 iters of 128 cache lines
 
+b4b0:	start_timer 7
 	yloop_set_prefetch YQUARTER	;; Prefetch 128 cache lines in this loop
 b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
 	yloop	8, b4b, -8*64+8*dist64	;; Loop 8 times, next source pointer
 	yloop	4, b4b, -4*8*dist64, rdi, -32*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*8			;; Back up loop counter
+	end_timer 7
 
+	start_timer 8
 	yloop_set_prefetch YQUARTER	;; Prefetch 128 cache lines in this loop
 b5b:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	yloop	2, b5b, -2*64+8*64, rdi, -2*4*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b5b, -4*8*64+8*dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b5b, -4*8*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*2		;; Back up loop counter
+	end_timer 8
 
+	start_timer 9
 	yloop_adjust 16			;; 16 fewer iterations this loop
 	yloop_set_prefetch YOTHER, 16	;; Prefetch 32 cache lines in this loop
 	yr8_8cl_eight_complex_with_square_preload
 b6b:	yr8_8cl_eight_complex_with_square rsi, 2*64, 8*dist64, 16*dist64, 64
 	yloop	32, b6b, -16*2*64	;; 16 iterations!!  Restore source pointer
 	loops_undo 32			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 	yloop_set_prefetch YQUARTER	;; Prefetch 128 cache lines in this loop
 c5b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	yloop	2, c5b, -2*64+8*64, rdi, -2*4*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
 	yloop	4, c5b, -4*8*64+8*dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, c5b, -4*8*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*2		;; Back up loop counter
+	end_timer 10
 
+	start_timer 11
 	yloop_set_prefetch YQUARTER	;; Prefetch 128 cache lines in this loop
-c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
+c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8, L1PREFETCH_ALL, 32*64
 	yloop	8, c4b, -8*64+8*dist64	;; Loop 8 times, next source pointer
 	yloop	4, c4b, -4*8*dist64+32*64, rdi, -32*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
+	end_timer 11
 
-	yloop	2, b4b, -2*32*64+dist64	;; Loop 2 times, next source pointer
-	yloop	8, b4b, -8*dist64	;; Loop 8 times, restore source pointer
-	end_timer 6
+	yloop	2, b4b0, -2*32*64+dist64 ;; Loop 2 times, next source pointer
+	yloop	8, b4b0, -8*dist64	;; Loop 8 times, restore source pointer
 	jmp	ypass2_13_levels_complex_unfft
 
 
@@ -16824,7 +17008,7 @@ b4a:	yr4_b4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
 	loops_undo 4*8			;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 512 cache lines in this loop
-b5a:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
+b5a:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2, L1PREFETCH_ALL, 32*64
 	yloop	2, b5a, -2*64+8*64, rdi, -2*4*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b5a, -4*8*64+8*dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b5a, -4*8*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
@@ -16875,7 +17059,7 @@ c5c:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	loops_undo 4*4*2		;; Back up loop counter
 
 	yloop_set_prefetch YQUARTER	;; Prefetch 128 cache lines in this loop
-c4c:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
+c4c:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8, L1PREFETCH_ALL, 32*64
 	yloop	8, c4c, -8*64+8*dist64	;; Loop 8 times, next source pointer
 	yloop	4, c4c, -4*8*dist64+32*64, rdi, -32*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 
@@ -16907,7 +17091,7 @@ c5d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	loops_undo 4*4*2		;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 512 cache lines in this loop
-c4d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
+c4d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8, L1PREFETCH_ALL, 32*64
 	yloop	8, c4d, -8*64+8*dist64	;; Loop 8 times, next source pointer
 	yloop	4, c4d, -4*8*dist64+32*64, rdi, -32*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 
@@ -16981,33 +17165,37 @@ c4d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
 ;;	do 512 macros each processing 32 data values
 
 ypass2_13_levels_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	mov	rbp, rdi
 	mov	rdx, rdi
 	bump	rcx, (2048+31-2*256-3*128-32-2*128-128-2*256)*64 ;; Move prefetch pointer along
 	yloop_init 512			;; 512 iterations
 
+c3a:	start_timer 12
 	yloop_set_prefetch YQUARTER	;; Prefetch 128 cache lines in this loop
 c3b:	yr4_eb4cl_four_complex_djbunfft rsi, 2*dist64, 32*64, dist64, rdx, 0, 4
 	yloop	4, c3b, 0, rdx, 4*YMM_SCD2 ;; Loop 4 times, next sine/cosine pointer
 	yloop	4, c3b, -4*4*2*dist64	;; Loop 4 times, restore source pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 12
 
+	start_timer 13
 	yloop_set_prefetch YHALF	;; Prefetch 256 cache lines in this loop
 c2b:	yr4_eb4cl_four_complex_djbunfft rsi, 32*64, 2*dist64, 4*dist64, rbp, 128*YMM_SCD2, 2
 	yloop	2, c2b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, c2b, -2*dist64+8*dist64, rbp, -4*128*YMM_SCD2+YMM_SCD2 ;; Test loop counter, next source pointer, next sine/cosine pointer
 	yloop	4, c2b, -4*8*dist64	;; Test loop counter, restore source pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 13
 
+	start_timer 14
 	yloop_set_prefetch YHALF	;; Prefetch 256 cache lines in this loop
-c1b:	yr4_s4cl_four_complex_djbunfft rsi, 32*64, 8*dist64, 16*dist64, rdi, 32*YMM_SCD2, 2
+c1b:	yr4_s4cl_four_complex_djbunfft rsi, 32*64, 8*dist64, 16*dist64, rdi, 32*YMM_SCD2, 2, L1PREFETCH_ALL, 64
 	yloop	2, c1b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	8, c1b, -8*dist64+64, rdi, -16*32*YMM_SCD2+YMM_SCD2 ;; Test loop counter, next source pointer, next sine/cosine pointer
+	end_timer 14
 
-	yloop	32, c3b			;; Loop 32 times
-	end_timer 13
+	yloop	32, c3a			;; Loop 32 times
 
 ypass2_13_levels_complex_done:
 	ENDM
@@ -17509,8 +17697,8 @@ ypass2_10240_real_done:
 ; radix-4 FFT, squares the results, and does the first 13.322 levels of the inverse FFT.
 
 yr4dwpn_pass2_10240_complex MACRO
-	LOCAL	b1a, b1b, b2b, b3b, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d0, b6d
-	LOCAL	c1b, c2b, c3b, c4b, c4c, c4d, c5b, c5c, c5d
+	LOCAL	b1a, b1b, b2b, b3b, b4a, b4b0, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d0, b6d
+	LOCAL	c1b, c2b, c3a, c3b, c4b, c4c, c4d, c5b, c5c, c5d
 	LOCAL	ypass2_10240_complex_1, ypass2_10240_complex_2
 	LOCAL	ypass2_10240_complex_3, ypass2_10240_complex_4
 	LOCAL	ypass2_10240_complex_unfft, ypass2_10240_complex_done
@@ -17590,13 +17778,13 @@ yr4dwpn_pass2_10240_complex MACRO
 ;;	distance between fft data elements is 128
 ;;	do 640 macros each processing 32 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	lea	rbp, [rdi+512*YMM_SCD2]
 	mov	rdx, rbp
 	yloop_init 640			;; 512 iterations or 640 iterations
 
-b1a:	yloop_adjust 4			;; Four fewer iterations this loop
+b1a:	start_timer 4
+	yloop_adjust 4			;; Four fewer iterations this loop
 	yloop_set_prefetch YQUARTER 	;; Prefetch 128 cache lines in this loop
 	yr5_f5cl_five_complex_djbfft_preload
 b1b:	yr5_f5cl_five_complex_djbfft rsi, 32*64, 8*dist64, rdi
@@ -17604,21 +17792,25 @@ b1b:	yr5_f5cl_five_complex_djbfft rsi, 32*64, 8*dist64, rdi
 	yloop	2, b1b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	10, b1b, -8*dist64, rdi, -16*32*YMM_SCD2+YMM_SCD2 ;; 8 iterations!!  Restore source pointer, next sin/cos data
 	loops_undo 20			;; Back up loop counter
+	end_timer 4
 
+	start_timer 5
 	yloop_set_prefetch YQUARTER	;; Prefetch 160 cache lines in this loop
 b2b:	yr4_s4cl_four_complex_djbfft rsi, 32*64, 2*dist64, 4*dist64, rbp, 32*YMM_SCD2, 2
 	yloop	2, b2b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, b2b, -2*dist64+8*dist64, rbp, -4*32*YMM_SCD2 ;; Test loop counter, next source pointer, restore sin/cos data
 	yloop	5, b2b, -5*8*dist64, rbp, YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 5*4			;; Back up loop counter
+	end_timer 5
 
+	start_timer 6
 	yloop_set_prefetch YQUARTER	;; Prefetch 160 cache lines in this loop
-b3b:	yr4_eb4cl_four_complex_djbfft rsi, 2*dist64, 32*64, dist64, rdx, YMM_SCD2, 4
+b3b:	yr4_eb4cl_four_complex_djbfft rsi, 2*dist64, 32*64, dist64, rdx, YMM_SCD2, 4, L1PREFETCH_ALL, 64
 	yloop	4, b3b, 0, rdx, -4*YMM_SCD2 ;; Loop 4 times, restore sine/cosine pointer
 	yloop	5, b3b, -5*4*2*dist64+64, rdx, 4*YMM_SCD2 ;; Loop 5 times, next source pointer, next sine/cosine pointer
+	end_timer 6
 
 	yloop	32, b1a, -32*64, rdi, -32*YMM_SCD2+512*YMM_SCD2+128*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
-	end_timer 4
 
 ;; Do FFT levels 7,8
 ;; On input the 64-byte cache lines hold these data values:
@@ -17753,22 +17945,26 @@ b3b:	yr4_eb4cl_four_complex_djbfft rsi, 2*dist64, 32*64, dist64, rdx, YMM_SCD2, 
 	jg	ypass2_10240_complex_3
 
 ypass2_10240_complex_2:
-	start_timer 6
 	yloop_init 640			;; 20 iters of 128 cache lines
 
+b4b0:	start_timer 7
 	yloop_set_prefetch YHALF	;; Prefetch 320 cache lines in this loop
 b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
 	yloop	8, b4b, -8*64+2*dist64	;; Loop 8 times, next source pointer
 	yloop	4, b4b, -4*2*dist64, rdi, -32*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*8			;; Back up loop counter
+	end_timer 7
 
+	start_timer 8
 	yloop_set_prefetch YHALF	;; Prefetch 320 cache lines in this loop
 b5b:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	yloop	2, b5b, -2*64+8*64, rdi, -2*4*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b5b, -4*8*64+2*dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b5b, -4*2*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*2		;; Back up loop counter
+	end_timer 8
 
+	start_timer 9
 	yloop_adjust 4*4		;; 16 fewer iterations this loop
 	yloop_set_prefetch YHALF	;; Prefetch 320 cache lines in this loop
 	yr8_8cl_eight_complex_with_square_preload
@@ -17779,23 +17975,27 @@ b6b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 2*dist64, 4*dist64, 64
 	yloop	4, b6b, -4*8*64+2*64	;; Loop 4 times, next source pointer
 	yloop	8, b6b, -4*2*64		;; 4 iterations!!  Restore source pointer
 	loops_undo 8*4			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 	yloop_set_prefetch YHALF	;; Prefetch 320 cache lines in this loop
 c5b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	yloop	2, c5b, -2*64+8*64, rdi, -2*4*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
 	yloop	4, c5b, -4*8*64+2*dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, c5b, -4*2*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*2		;; Back up loop counter
+	end_timer 10
 
+	start_timer 11
 	yloop_set_prefetch YHALF	;; Prefetch 320 cache lines in this loop
-c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
+c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8, L1PREFETCH_ALL, 32*64
 	yloop	8, c4b, -8*64+2*dist64	;; Loop 8 times, next source pointer
 	yloop	4, c4b, -4*2*dist64+32*64, rdi, -32*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
+	end_timer 11
 
-	yloop	2, b4b, -2*32*64+dist64	;; Loop 2 times, next source pointer
-	yloop	2, b4b, -2*dist64+8*dist64	;; Loop 2 times, next source pointer
-	yloop	5, b4b, -5*8*dist64	;; Loop 5 times, restore source pointer
-	end_timer 6
+	yloop	2, b4b0, -2*32*64+dist64 ;; Loop 2 times, next source pointer
+	yloop	2, b4b0, -2*dist64+8*dist64 ;; Loop 2 times, next source pointer
+	yloop	5, b4b0, -5*8*dist64	;; Loop 5 times, restore source pointer
 	jmp	ypass2_10240_complex_unfft
 
 
@@ -17811,7 +18011,7 @@ b4a:	yr4_b4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
 	loops_undo 4*8			;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 640 cache lines in this loop
-b5a:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
+b5a:	yr4_b4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2, L1PREFETCH_ALL, 32*64
 	yloop	2, b5a, -2*64+8*64, rdi, -2*4*YMM_SCD2/4 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b5a, -4*8*64+2*dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b5a, -4*2*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
@@ -17871,7 +18071,7 @@ c5c:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	loops_undo 4*4*2		;; Back up loop counter
 
 	yloop_set_prefetch YHALF	;; Prefetch 320 cache lines in this loop
-c4c:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
+c4c:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8, L1PREFETCH_ALL, 32*64
 	yloop	8, c4c, -8*64+2*dist64	;; Loop 8 times, next source pointer
 	yloop	4, c4c, -4*2*dist64+32*64, rdi, -32*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 
@@ -17908,7 +18108,7 @@ c5d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 4*YMM_SCD2/4, 2
 	loops_undo 4*4*2		;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 640 cache lines in this loop
-c4d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
+c4d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8, L1PREFETCH_ALL, 32*64
 	yloop	8, c4d, -8*64+2*dist64	;; Loop 8 times, next source pointer
 	yloop	4, c4d, -4*2*dist64+32*64, rdi, -32*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 
@@ -17985,26 +18185,30 @@ c4d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD2/4, 8
 ;;	do 512 macros each processing 40 data values
 
 ypass2_10240_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	lea	rbp, [rdi+512*YMM_SCD2]
 	mov	rdx, rbp
 	bump	rcx, (2560+39-128-2*160-5*320-2*160-256)*64 ;; Move prefetch pointer along
 	yloop_init 640			;; 512 iterations or 640 iterations
 
+c3a:	start_timer 12
 	yloop_set_prefetch YQUARTER	;; Prefetch 160 cache lines in this loop
 c3b:	yr4_eb4cl_four_complex_djbunfft rsi, 2*dist64, 32*64, dist64, rdx, YMM_SCD2, 4
 	yloop	4, c3b, 0, rdx, -4*YMM_SCD2 ;; Loop 4 times, restore sine/cosine pointer
 	yloop	5, c3b, -5*4*2*dist64, rdx, 4*YMM_SCD2 ;; Loop 3 times, restore source pointer, next sine/cosine pointer
 	loops_undo 5*4			;; Back up loop counter
+	end_timer 12
 
+	start_timer 13
 	yloop_set_prefetch YQUARTER	;; Prefetch 160 cache lines in this loop
-c2b:	yr4_s4cl_four_complex_djbunfft rsi, 32*64, 2*dist64, 4*dist64, rbp, 32*YMM_SCD2, 2
+c2b:	yr4_s4cl_four_complex_djbunfft rsi, 32*64, 2*dist64, 4*dist64, rbp, 32*YMM_SCD2, 2, L1PREFETCH_ALL, 64
 	yloop	2, c2b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, c2b, -2*dist64+8*dist64, rbp, -4*32*YMM_SCD2 ;; Test loop counter, next source pointer, restore sine/cosine pointer
 	yloop	5, c2b, -5*8*dist64, rbp, YMM_SCD2 ;; Test loop counter, restore source pointer, next sine/cosine pointer
 	loops_undo 5*4			;; Back up loop counter
+	end_timer 13
 
+	start_timer 14
 	yloop_adjust 4			;; Four fewer iterations this loop
 	yloop_set_prefetch YHALF	;; Prefetch 256 cache lines in this loop
 	yr5_5cl_five_complex_djbunfft_preload
@@ -18012,9 +18216,9 @@ c1b:	yr5_5cl_five_complex_djbunfft rsi, 32*64, 8*dist64, rdi
 	bump	rdi, 32*YMM_SCD2	;; Next set of sin/cos data
 	yloop	2, c1b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	10, c1b, -8*dist64+64, rdi, -16*32*YMM_SCD2+YMM_SCD2 ;; 8 iterations!!  Next source pointer, next sine/cosine pointer
+	end_timer 14
 
-	yloop	32, c3b			;; Loop 32 times
-	end_timer 13
+	yloop	32, c3a			;; Loop 32 times
 
 ypass2_10240_complex_done:
 	ENDM
@@ -18498,8 +18702,8 @@ ypass2_12800_real_done:
 ; radix-4 FFT, squares the results, and does the first 13.644 levels of the inverse FFT.
 
 yr4dwpn_pass2_12800_complex MACRO
-	LOCAL	b1b, b2b, b3a, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d0, b6d
-	LOCAL	c1b, c2b, c3b, c3c, c3d, c4b, c4c, c4d, c5b, c5c, c5d
+	LOCAL	b1a, b1b, b2b, b3a, b3b0, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b6d0, b6d
+	LOCAL	c1b, c2a, c2b, c3b, c3c, c3d, c4b, c4c, c4d, c5b, c5c, c5d
 	LOCAL	ypass2_12800_complex_1, ypass2_12800_complex_2
 	LOCAL	ypass2_12800_complex_3, ypass2_12800_complex_4
 	LOCAL	ypass2_12800_complex_unfft, ypass2_12800_complex_done
@@ -18551,25 +18755,27 @@ yr4dwpn_pass2_12800_complex MACRO
 ;;	distance between fft data elements is 512
 ;;	do 640 macros each processing 40 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	lea	rbp, [rdi+640*YMM_SCD2]
 	yloop_init 640			;; 640 iterations
 	yloop_set_prefetch YOTHER, 5
 
 	yr5_f5cl_five_complex_djbfft_preload
+b1a:	start_timer 4
 b1b:	yr5_f5cl_five_complex_djbfft rsi, 2*dist64, 10*dist64, rdi
 	bump	rdi, 128*YMM_SCD2	;; Next sin/cos data
 	yloop	5, b1b, -5*2*dist64, rdi, -5*128*YMM_SCD2+YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 5			;; Back up loop counter
+	end_timer 4
 
+	start_timer 5
 ;;	yr5_5cl_five_complex_djbfft_preload
 b2b:	yr5_5cl_five_complex_djbfft rsi, 10*dist64, 2*dist64, rbp
 	yloop	5, b2b, -5*10*dist64+64, rbp, YMM_SCD2 ;; Test loop counter, next source pointer, next sin/cos data
+	end_timer 5
 
-	yloop	64, b1b, -64*64+dist64	;; Test loop counter, next source pointer
-	yloop	2, b1b, -2*dist64, rdi, -128*YMM_SCD2+640*YMM_SCD2+128*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
-	end_timer 4
+	yloop	64, b1a, -64*64+dist64	;; Test loop counter, next source pointer
+	yloop	2, b1a, -2*dist64, rdi, -128*YMM_SCD2+640*YMM_SCD2+128*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
 
 ;; Do FFT levels 5,6
 ;; On input the 64-byte cache lines hold these data values:
@@ -18744,21 +18950,25 @@ b2b:	yr5_5cl_five_complex_djbfft rsi, 10*dist64, 2*dist64, rbp
 	jg	ypass2_12800_complex_3
 
 ypass2_12800_complex_2:
-	start_timer 6
 	yloop_init 800			;; 25 iters of 128 cache lines
 
+b3b0:	start_timer 6
 	yloop_set_prefetch YHALF	;; Prefetch 400 cache lines
 b3b:	yr4_s4cl_four_complex_djbfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32
 	yloop	32, b3b, -32*64, rdi, -32*YMM_SCD2 ;; Loop 32 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 32			;; Back up loop counter
+	end_timer 6
 
+	start_timer 7
 	yloop_set_prefetch YHALF	;; Prefetch 400 cache lines
 b4b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD2, 8
 	yloop	8, b4b, -8*64+32*64, rdi, -8*4*YMM_SCD2+YMM_SCD2 ;; Loop 8 times, next source pointer, next sine/cosine pointer
 	yloop	2, b4b, -2*32*64+dist64	;; Loop 2 times, next source pointer
 	yloop	2, b4b, -2*dist64, rdi, -4*YMM_SCD2 ;; Loop 2 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*8			;; Back up loop counter
+	end_timer 7
 
+	start_timer 8
 	yloop_set_prefetch YHALF	;; Prefetch 400 cache lines
 b5b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 16*YMM_SCD2, 2
 	yloop	2, b5b, -2*64+8*64, rdi, -2*16*YMM_SCD2 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
@@ -18766,7 +18976,9 @@ b5b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 16*YMM_SCD2, 2
 	yloop	2, b5b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, b5b, -2*dist64, rdi, -4*4*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*2		;; Back up loop counter
+	end_timer 8
 
+	start_timer 9
 	yloop_adjust 2*8		;; 16 fewer iterations this loop
 	yloop_set_prefetch YSINGLE	;; Prefetch 400 cache lines
 	yr8_8cl_eight_complex_with_square_preload
@@ -18777,7 +18989,9 @@ b6b:	yr8_8cl_eight_complex_with_square rsi, 4*64, 32*64, dist64, 64
 	yloop	8, b6b, -8*4*64+2*64	;; Loop 8 times, next source pointer
 	yloop	4, b6b, -2*2*64		;; 2 iterations!!  Restore source pointer
 	loops_undo 4*8			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 	yloop_set_prefetch YHALF	;; Prefetch 400 cache lines
 c5b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 16*YMM_SCD2, 2
 	yloop	2, c5b, -2*64+8*64, rdi, -2*16*YMM_SCD2 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
@@ -18785,20 +18999,24 @@ c5b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 2*64, 4*64, rdi, 16*YMM_SCD2, 2
 	yloop	2, c5b, -2*32*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, c5b, -2*dist64, rdi, -4*4*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*2		;; Back up loop counter
+	end_timer 10
 
+	start_timer 11
 	yloop_set_prefetch YHALF	;; Prefetch 400 cache lines
 c4b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD2, 8
 	yloop	8, c4b, -8*64+32*64, rdi, -8*4*YMM_SCD2+YMM_SCD2 ;; Loop 8 times, next source pointer, next sine/cosine pointer
 	yloop	2, c4b, -2*32*64+dist64	;; Loop 2 times, next source pointer
 	yloop	2, c4b, -2*dist64, rdi, -4*YMM_SCD2 ;; Loop 2 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*8			;; Back up loop counter
+	end_timer 11
 
+	start_timer 12
 	yloop_set_prefetch YHALF	;; Prefetch 400 cache lines
-c3b:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32
+c3b:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32, L1PREFETCH_ALL, 2*dist64
 	yloop	32, c3b, -32*64+2*dist64, rdi, -32*YMM_SCD2 ;; Loop 32 times, next source pointer, restore sine/cosine pointer
+	end_timer 12
 
-	yloop	25, b3b, -25*2*dist64	;; Loop 25 times, restore source pointer
-	end_timer 6
+	yloop	25, b3b0, -25*2*dist64	;; Loop 25 times, restore source pointer
 	jmp	ypass2_12800_complex_unfft
 
 
@@ -18820,7 +19038,7 @@ b4a:	yr4_eb4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD2, 8
 	loops_undo 4*8			;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 800 cache lines in this loop
-b5a:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 16*YMM_SCD2, 2
+b5a:	yr4_eb4cl_four_complex_djbfft rsi, 64, 2*64, 4*64, rdi, 16*YMM_SCD2, 2, L1PREFETCH_ALL, 2*dist64
 	yloop	2, b5a, -2*64+8*64, rdi, -2*16*YMM_SCD2 ;; Loop 2 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b5a, -4*8*64+32*64, rdi, 4*YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	2, b5a, -2*32*64+dist64	;; Test loop counter, next source pointer
@@ -18894,7 +19112,7 @@ c4c:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD2, 8
 	loops_undo 4*8			;; Back up loop counter
 
 	yloop_set_prefetch YHALF	;; Prefetch 400 cache lines
-c3c:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32
+c3c:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32, L1PREFETCH_ALL, 2*dist64
 	yloop	32, c3c, -32*64+2*dist64, rdi, -32*YMM_SCD2 ;; Loop 32 times, next source pointer, restore sine/cosine pointer
 
 	yloop	25, b3c, -25*2*dist64	;; Loop 25 times, restore source pointer
@@ -18936,7 +19154,7 @@ c4d:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD2, 8
 	loops_undo 4*8			;; Back up loop counter
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 800 cache lines in this loop
-c3d:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32
+c3d:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32, L1PREFETCH_ALL, 2*dist64
 	yloop	32, c3d, -32*64+2*dist64, rdi, -32*YMM_SCD2 ;; Loop 32 times, next source pointer, restore sine/cosine pointer
 
 	yloop	25, b6d0, -25*2*dist64	;; Loop 25 times, restore source pointer
@@ -18982,7 +19200,6 @@ c3d:	yr4_s4cl_four_complex_djbunfft rsi, 64, 32*64, dist64, rdi, YMM_SCD2, 32
 ;;	do 640 macros each processing 40 data values
 
 ypass2_12800_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	lea	rbp, [rdi+640*YMM_SCD2]
 	bump	rcx, (3200+2*49-2*128-7*400-2*128)*64 ;; Move prefetch pointer along
@@ -18990,18 +19207,21 @@ ypass2_12800_complex_unfft:
 	yloop_set_prefetch YOTHER, 5
 
 	yr5_5cl_five_complex_djbunfft_preload
+c2a:	start_timer 13
 c2b:	yr5_5cl_five_complex_djbunfft rsi, 10*dist64, 2*dist64, rbp
 	yloop	5, c2b, -5*10*dist64, rbp, YMM_SCD2 ;; Test loop counter, restore source pointer, next sine/cosine pointer
 	loops_undo 5			;; Restore loop counter
+	end_timer 13
 
+	start_timer 14
 ;;	yr5_5cl_five_complex_djbunfft_preload
 c1b:	yr5_5cl_five_complex_djbunfft rsi, 2*dist64, 10*dist64, rdi
 	bump	rdi, 128*YMM_SCD2	;; Next set of sin/cos data
 	yloop	5, c1b, -5*2*dist64+64, rdi, -5*128*YMM_SCD2+YMM_SCD2 ;; Test loop counter, next source pointer, next sine/cosine pointer
+	end_timer 14
 
-	yloop	64, c2b, -64*64+dist64	;; Loop 64 times, next source pointer
-	yloop	2, c2b			;; Loop 2 times
-	end_timer 13
+	yloop	64, c2a, -64*64+dist64	;; Loop 64 times, next source pointer
+	yloop	2, c2a			;; Loop 2 times
 
 ypass2_12800_complex_done:
 	ENDM
@@ -19563,8 +19783,8 @@ ypass2_9216_real_done:
 ; radix-4 FFT, squares the results, and does the first 13.585 levels of the inverse FFT.
 
 yr4dwpn_pass2_9216_complex MACRO
-	LOCAL	b1b, b2b, b3a, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b7a, b7b, b7c, b7d
-	LOCAL	c1b, c2b, c3b, c3c, c3d, c4b, c4c, c4d, c5b, c5c, c5d, c6b, c6c, c6d
+	LOCAL	b1a, b1b, b2b, b3a, b3b0, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b7a, b7b, b7c, b7d
+	LOCAL	c1b, c2a, c2b, c3b, c3c, c3d, c4b, c4c, c4d, c5b, c5c, c5d, c6b, c6c, c6d
 	LOCAL	ypass2_9216_complex_1, ypass2_9216_complex_2
 	LOCAL	ypass2_9216_complex_3, ypass2_9216_complex_4
 	LOCAL	ypass2_9216_complex_unfft, ypass2_9216_complex_done
@@ -19616,25 +19836,27 @@ yr4dwpn_pass2_9216_complex MACRO
 ;;	distance between fft data elements is 1024
 ;;	do 768 macros each processing 24 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	lea	rbp, [rdi+768*YMM_SCD1]
 	yloop_init 768			;; 768 iterations
 	yloop_set_prefetch YOTHER, 3
 
 	yr3_f3cl_three_complex_djbfft_preload
+b1a:	start_timer 3
 b1b:	yr3_f3cl_three_complex_djbfft rsi, 4*dist64, 12*dist64, rdi
 	bump	rdi, 256*YMM_SCD1	;; Next sin/cos data
 	yloop	3, b1b, -3*4*dist64, rdi, -3*256*YMM_SCD1+YMM_SCD1 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 3			;; Back up loop counter
+	end_timer 3
 
+	start_timer 4
 ;;	yr3_3cl_three_complex_djbfft_preload
 b2b:	yr3_3cl_three_complex_djbfft rsi, 12*dist64, 4*dist64, rbp
 	yloop	3, b2b, -3*12*dist64+64, rbp, YMM_SCD1 ;; Test loop counter, next source pointer, next sin/cos data
-
-	yloop	64, b1b, -64*64+dist64	;; Test loop counter, next source pointer
-	yloop	4, b1b, -4*dist64, rdi, -256*YMM_SCD1+768*YMM_SCD1+256*YMM_SCD1 ;; Test loop counter, restore source pointer, next sin/cos ptr
 	end_timer 4
+
+	yloop	64, b1a, -64*64+dist64	;; Test loop counter, next source pointer
+	yloop	4, b1a, -4*dist64, rdi, -256*YMM_SCD1+768*YMM_SCD1+256*YMM_SCD1 ;; Test loop counter, restore source pointer, next sin/cos ptr
 
 ;; Do FFT levels 5,6
 ;; On input the 64-byte cache lines hold these data values:
@@ -19862,9 +20084,9 @@ b2b:	yr3_3cl_three_complex_djbfft rsi, 12*dist64, 4*dist64, rbp
 	jg	ypass2_9216_complex_3
 
 ypass2_9216_complex_2:
-	start_timer 6
 	yloop_init 576			;; 9 iters of 256 cache lines
 
+b3b0:	start_timer 5
 	yloop_set_prefetch YQUARTER	;; Prefetch 144 cache lines in this loop
 ;; Loop below reworked to avoid 4KB distances
 ;;b3b:	yr4_s4cl_four_complex_djbfft rsi, 64, dist64, 2*dist64, rdi, YMM_SCD2, 64
@@ -19873,26 +20095,34 @@ b3b:	yr4_s4cl_four_complex_djbfft rsi, 4*64, dist64, 2*dist64, rdi, 4*YMM_SCD2, 
 	yloop	16, b3b, -16*4*64+64, rdi, -16*4*YMM_SCD2+YMM_SCD2 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, b3b, -4*64, rdi, -4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 64			;; Back up loop counter
+	end_timer 5
 
+	start_timer 6
 	yloop_set_prefetch YQUARTER	;; Prefetch 144 cache lines in this loop
 b4b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, 4*YMM_SCD2, 16
 	yloop	16, b4b, -16*64+dist64, rdi, -16*4*YMM_SCD2+YMM_SCD2 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, b4b, -4*dist64, rdi, -4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 6
 
+	start_timer 7
 	yloop_set_prefetch YQUARTER	;; Prefetch 144 cache lines in this loop
 b5b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 16*YMM_SCD2, 4
 	yloop	4, b5b, -4*64+16*64, rdi, -4*16*YMM_SCD2 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b5b, -4*16*64+dist64, rdi, 4*YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b5b, -4*dist64, rdi, -4*4*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*4		;; Back up loop counter
+	end_timer 7
 
+	start_timer 8
 	yloop_set_prefetch YQUARTER	;; Prefetch 144 cache lines in this loop
 b6b:	yr4_eb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	yloop	16, b6b, -16*4*64+dist64, rdi, 16*YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b6b, -4*dist64, rdi, -4*16*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 8
 
+	start_timer 9
 	yloop_set_prefetch YOTHER, 16	;; Prefetch 36 cache lines in this loop
 	yr4_4cl_four_complex_with_square_preload
 ;; Loop below reworked to avoid 4KB distances
@@ -19902,26 +20132,34 @@ b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, dist64, 2*dist64
 	yloop	16, b7b, -16*4*64+64	;; Loop 16 times, next source pointer
 	yloop	4, b7b, -4*64	;; Loop 4 times, restore source pointer
 	loops_undo 64			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 	yloop_set_prefetch YQUARTER	;; Prefetch 144 cache lines in this loop
 c6b:	yr4_eb4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	yloop	16, c6b, -16*4*64+dist64, rdi, 16*YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, c6b, -4*dist64, rdi, -4*16*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 10
 
+	start_timer 11
 	yloop_set_prefetch YQUARTER	;; Prefetch 144 cache lines in this loop
 c5b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi, 16*YMM_SCD2, 4
 	yloop	4, c5b, -4*64+16*64, rdi, -4*16*YMM_SCD2 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	yloop	4, c5b, -4*16*64+dist64, rdi, 4*YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, c5b, -4*dist64, rdi, -4*4*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*4		;; Back up loop counter
+	end_timer 11
 
+	start_timer 12
 	yloop_set_prefetch YQUARTER	;; Prefetch 144 cache lines in this loop
 c4b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, 4*YMM_SCD2, 16
 	yloop	16, c4b, -16*64+dist64, rdi, -16*4*YMM_SCD2+YMM_SCD2 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, c4b, -4*dist64, rdi, -4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 12
 
+	start_timer 13
 	yloop_set_prefetch YHALF	;; Prefetch 288 cache lines in this loop
 ;; Loop below reworked to avoid 4KB distances
 ;;c3b:	yr4_s4cl_four_complex_djbunfft rsi, 4*64, dist64, 2*dist64, rdi, YMM_SCD2, 64
@@ -19929,9 +20167,9 @@ c4b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, 4*YMM_SCD2, 16
 c3b:	yr4_s4cl_four_complex_djbunfft rsi, 4*64, dist64, 2*dist64, rdi, 4*YMM_SCD2, 16
 	yloop	16, c3b, -16*4*64+64, rdi, -16*4*YMM_SCD2+YMM_SCD2 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, c3b, -4*64+4*dist64, rdi, -4*YMM_SCD2 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
+	end_timer 13
 
-	yloop	9, b3b, -9*4*dist64	;; Loop 9 times, restore source pointer
-	end_timer 6
+	yloop	9, b3b0, -9*4*dist64	;; Loop 9 times, restore source pointer
 	jmp	ypass2_9216_complex_unfft
 
 
@@ -20144,7 +20382,6 @@ c3d:	yr4_s4cl_four_complex_djbunfft rsi, 4*64, dist64, 2*dist64, rdi, 4*YMM_SCD2
 ;;	do 768 macros each processing 24 data values
 
 ypass2_9216_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	lea	rbp, [rdi+768*YMM_SCD1]
 	bump	rcx, (2304+35-2*256-4*144-36-3*144-288-2*256)*64 ;; Move prefetch pointer along
@@ -20152,18 +20389,21 @@ ypass2_9216_complex_unfft:
 	yloop_set_prefetch YOTHER, 3
 
 	yr3_3cl_three_complex_djbunfft_preload
+c2a:	start_timer 14
 c2b:	yr3_3cl_three_complex_djbunfft rsi, 12*dist64, 4*dist64, rbp
 	yloop	3, c2b, -3*12*dist64, rbp, YMM_SCD1 ;; Test loop counter, restore source pointer, next sine/cosine pointer
 	loops_undo 3			;; Restore loop counter
+	end_timer 14
 
+	start_timer 15
 ;;	yr3_3cl_three_complex_djbunfft_preload
 c1b:	yr3_3cl_three_complex_djbunfft rsi, 4*dist64, 12*dist64, rdi
 	bump	rdi, 256*YMM_SCD1	;; Next set of sin/cos data
 	yloop	3, c1b, -3*4*dist64+64, rdi, -3*256*YMM_SCD1+YMM_SCD1 ;; Test loop counter, next source pointer, next sine/cosine pointer
+	end_timer 15
 
 	yloop	64, c2b, -64*64+dist64	;; Loop 64 times, next source pointer
-	yloop	4, c2b			;; Loop 4 times
-	end_timer 13
+	yloop	4, c2a			;; Loop 4 times
 
 ypass2_9216_complex_done:
 	ENDM
@@ -20746,7 +20986,7 @@ ypass2_12288_real_done:
 ; radix-4 FFT, squares the results, and does the first 13.585 levels of the inverse FFT.
 
 yr4dwpn_pass2_12288_complex MACRO
-	LOCAL	b1a, b1b, b2b, b3b, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b7a, b7b, b7c, b7d
+	LOCAL	b1a, b1b, b2b, b3b, b4a, b4b0, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b7a, b7b, b7c, b7d
 	LOCAL	c1b, c2b, c3a, c3b, c4b, c4c, c4d, c5b, c5c, c5d, c6b, c6c, c6d
 	LOCAL	ypass2_12288_complex_1, ypass2_12288_complex_2
 	LOCAL	ypass2_12288_complex_3, ypass2_12288_complex_4
@@ -20827,34 +21067,38 @@ yr4dwpn_pass2_12288_complex MACRO
 ;;	distance between fft data elements is 256
 ;;	do 768 macros each processing 32 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	lea	rbp, [rdi+1024*YMM_SCD1]
 	mov	rdx, rbp
 	yloop_init 1024			;; 1024 iterations or 768 iterations
 
+b1a:	start_timer 3
 	yloop_set_prefetch YQUARTER	;; Prefetch 256 cache lines in this loop
-b1a:	yr3_f3cl_three_complex_djbfft_preload
+	yr3_f3cl_three_complex_djbfft_preload
 b1b:	yr3_f3cl_three_complex_djbfft rsi, dist64, 16*dist64, rdi
 	bump	rdi, 64*YMM_SCD1	;; Next sin/cos data
 	yloop	16, b1b, -16*dist64, rdi, -16*64*YMM_SCD1+YMM_SCD1 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 16			;; Back up loop counter
+	end_timer 3
 
+	start_timer 4
 	yloop_adjust 4			;; Four fewer iterations this loop
 	yloop_set_prefetch YQUARTER	;; Prefetch 192 cache lines in this loop
 b2b:	yr4_s4cl_four_complex_djbfft rsi, dist64, 4*dist64, 8*dist64, rbp, 64*YMM_SCD2, 4
 	yloop	4, b2b, -4*dist64+16*dist64, rbp, -4*64*YMM_SCD2 ;; Test loop counter, next source pointer, restore sin/cos data
 	yloop	4, b2b, -3*16*dist64, rbp, YMM_SCD2 ;; 3 iterations!!  Restore source pointer, next sin/cos data
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 4
 
+	start_timer 5
 	yloop_adjust 4			;; Four fewer iterations this loop
 	yloop_set_prefetch YQUARTER	;; Prefetch 192 cache lines in this loop
-b3b:	yr4_eb4cl_four_complex_djbfft rsi, 4*dist64, dist64, 2*dist64, rdx, YMM_SCD2, 4
+b3b:	yr4_eb4cl_four_complex_djbfft rsi, 4*dist64, dist64, 2*dist64, rdx, YMM_SCD2, 4, L1PREFETCH_ALL, 64
 	yloop	4, b3b, 0, rdx, -4*YMM_SCD2 ;; Loop 4 times, restore sine/cosine pointer
 	yloop	4, b3b, -3*4*4*dist64+64, rdx, 4*YMM_SCD2 ;; 3 iterations!!  Next source pointer, next sine/cosine pointer
+	end_timer 5
 
 	yloop	64, b1a, -64*64, rdi, -64*YMM_SCD1+1024*YMM_SCD1+256*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
-	end_timer 4
 
 ;; Do FFT levels 7,8
 ;; On input the 64-byte cache lines hold these data values:
@@ -21042,55 +21286,67 @@ b3b:	yr4_eb4cl_four_complex_djbfft rsi, 4*dist64, dist64, 2*dist64, rdx, YMM_SCD
 	jg	ypass2_12288_complex_3
 
 ypass2_12288_complex_2:
-	start_timer 6
 	yloop_init 768			;; 12 iters of 256 cache lines
 
+b4b0:	start_timer 6
 	yloop_set_prefetch YHALF	;; Prefetch 384 cache lines in this loop
 b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
 	yloop	16, b4b, -16*64+4*dist64	;; Loop 16 times, next source pointer
 	yloop	4, b4b, -4*4*dist64, rdi, -64*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 6
 
+	start_timer 7
 	yloop_set_prefetch YQUARTER	;; Prefetch 192 cache lines in this loop
 b5b:	yr4_b4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2/4, 4
 	yloop	4, b5b, -4*64+16*64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b5b, -4*16*64+4*dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b5b, -4*4*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, next sine/cosine pointer
 	loops_undo 4*4*4		;; Back up loop counter
+	end_timer 7
 
+	start_timer 8
 	yloop_set_prefetch YQUARTER	;; Prefetch 192 cache lines in this loop
 b6b:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	yloop	16, b6b, -16*4*64+4*dist64, rdi, 4*YMM_SCD2/4 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, b6b, -4*4*dist64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 8
 
+	start_timer 9
 	yloop_set_prefetch YQUARTER	;; Prefetch 192 cache lines in this loop
 	yr4_4cl_four_complex_with_square_preload
 b7b:	yr4_4cl_four_complex_with_square rsi, 64, 4*dist64, 8*dist64
-	yloop	64, b7b, -64*64	;; Loop 64 times, restore source pointer
+	yloop	64, b7b, -64*64		;; Loop 64 times, restore source pointer
 	loops_undo 64			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 	yloop_set_prefetch YQUARTER	;; Prefetch 192 cache lines in this loop
 c6b:	yr4_b4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	yloop	16, c6b, -16*4*64+4*dist64, rdi, 4*YMM_SCD2/4 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, c6b, -4*4*dist64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Restore loop counter
+	end_timer 10
 
+	start_timer 11
 	yloop_set_prefetch YHALF	;; Prefetch 384 cache lines in this loop
 c5b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2/4, 4
 	yloop	4, c5b, -4*64+16*64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	yloop	4, c5b, -4*16*64+4*dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, c5b, -4*4*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, next sine/cosine pointer
 	loops_undo 4*4*4		;; Back up loop counter
+	end_timer 11
 
+	start_timer 12
 	yloop_set_prefetch YHALF	;; Prefetch 384 cache lines in this loop
 c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
-	yloop	16, c4b, -16*64+4*dist64	;; Loop 16 times, next source pointer
+	yloop	16, c4b, -16*64+4*dist64 ;; Loop 16 times, next source pointer
 	yloop	4, c4b, -4*4*dist64+dist64, rdi, -64*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
+	end_timer 12
 
-	yloop	4, b4b, -4*dist64+16*dist64	;; Loop 4 times, next source pointer
-	yloop	3, b4b, -3*16*dist64	;; Loop 3 times, restore source pointer
-	end_timer 6
+	yloop	4, b4b0, -4*dist64+16*dist64 ;; Loop 4 times, next source pointer
+	yloop	3, b4b0, -3*16*dist64	;; Loop 3 times, restore source pointer
 	jmp	ypass2_12288_complex_unfft
 
 
@@ -21123,7 +21379,7 @@ b6a:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 b7a:	yr4_4cl_four_complex_fft_final rsi, 64, 4*dist64, 8*dist64
 	yloop	64, b7a, -64*64+dist64	;; Loop 64 times, next source pointer
 
-	yloop	4, b4a, -4*dist64+16*dist64	;; Loop 4 times, next source pointer
+	yloop	4, b4a, -4*dist64+16*dist64 ;; Loop 4 times, next source pointer
 	yloop	3, b4a			;; Loop 3 times
 	end_timer 6
 	jmp	ypass2_12288_complex_done
@@ -21286,35 +21542,39 @@ c4d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
 ;;	do 1024 macros each processing 24 data values
 
 ypass2_12288_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	lea	rbp, [rdi+1024*YMM_SCD1]
 	mov	rdx, rbp
 	bump	rcx, (3072+47-256-2*192-384-4*192-2*384-2*192-256)*64 ;; Move prefetch pointer along
 	yloop_init 1024			;; 1024 iterations or 768 iterations
 
-c3a:	yloop_adjust 4			;; Four fewer iterations this loop
+c3a:	start_timer 13
+	yloop_adjust 4			;; Four fewer iterations this loop
 	yloop_set_prefetch YQUARTER	;; Prefetch 192 cache lines in this loop
 c3b:	yr4_eb4cl_four_complex_djbunfft rsi, 4*dist64, dist64, 2*dist64, rdx, YMM_SCD2, 4
 	yloop	4, c3b, 0, rdx, -4*YMM_SCD2 ;; Loop 4 times, restore sine/cosine pointer
 	yloop	4, c3b, -3*4*4*dist64, rdx, 4*YMM_SCD2 ;; 3 iterations!!  Restore source pointer, next sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 13
 
+	start_timer 14
 	yloop_adjust 4			;; Four fewer iterations this loop
 	yloop_set_prefetch YQUARTER	;; Prefetch 192 cache lines in this loop
-c2b:	yr4_s4cl_four_complex_djbunfft rsi, dist64, 4*dist64, 8*dist64, rbp, 64*YMM_SCD2, 4
+c2b:	yr4_s4cl_four_complex_djbunfft rsi, dist64, 4*dist64, 8*dist64, rbp, 64*YMM_SCD2, 4, L1PREFETCH_ALL, 64
 	yloop	4, c2b, -4*dist64+16*dist64, rbp, -4*64*YMM_SCD2 ;; Test loop counter, next source pointer, restore sine/cosine pointer
 	yloop	4, c2b, -3*16*dist64, rbp, YMM_SCD2 ;; 3 iterations!!  Restore source pointer, next sine/cosine pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 14
 
+	start_timer 15
 	yloop_set_prefetch YQUARTER	;; Prefetch 256 cache lines in this loop
 	yr3_3cl_three_complex_djbunfft_preload
 c1b:	yr3_3cl_three_complex_djbunfft rsi, dist64, 16*dist64, rdi
 	bump	rdi, 64*YMM_SCD1	;; Next set of sin/cos data
 	yloop	16, c1b, -16*dist64+64, rdi, -16*64*YMM_SCD1+YMM_SCD1 ;; Test loop counter, next source pointer, next sine/cosine pointer
+	end_timer 15
 
 	yloop	64, c3a			;; Loop 64 times
-	end_timer 13
 
 ypass2_12288_complex_done:
 	ENDM
@@ -21871,7 +22131,7 @@ ypass2_15360_real_done:
 ; radix-4 FFT, squares the results, and does the first 13.907 levels of the inverse FFT.
 
 yr4dwpn_pass2_15360_complex MACRO
-	LOCAL	b1a, b1b, b2b, b3a, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b7a, b7b, b7c, b7d
+	LOCAL	b1a, b1b, b2b, b3a, b3b0, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b7a, b7b, b7c, b7d
 	LOCAL	c1b, c2a, c2b, c3b, c3c, c3d, c4b, c4c, c4d, c5b, c5c, c5d, c6b, c6c, c6d
 	LOCAL	ypass2_15360_complex_1, ypass2_15360_complex_2
 	LOCAL	ypass2_15360_complex_3, ypass2_15360_complex_4
@@ -21924,27 +22184,29 @@ yr4dwpn_pass2_15360_complex MACRO
 ;;	distance between fft data elements is 1024
 ;;	do 768 macros each processing 40 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	lea	rbp, [rdi+1280*YMM_SCD1]
 	yloop_init 1280			;; 1280 iterations or 768 iterations
 
+b1a:	start_timer 3
 	yloop_set_prefetch YOTHER, 5	;; Prefetch 256 cache lines
-b1a:	yr3_f3cl_three_complex_djbfft_preload
+	yr3_f3cl_three_complex_djbfft_preload
 b1b:	yr3_f3cl_three_complex_djbfft rsi, 4*dist64, 20*dist64, rdi
 	bump	rdi, 256*YMM_SCD1	;; Next sin/cos data
 	yloop	5, b1b, -5*4*dist64, rdi, -5*256*YMM_SCD1+YMM_SCD1 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 5			;; Back up loop counter
+	end_timer 3
 
+	start_timer 4
 	yloop_adjust 2			;; Two fewer iterations this loop
 	yloop_set_prefetch YOTHER, 5	;; Prefetch 256 cache lines
 	yr5_5cl_five_complex_djbfft_preload
 b2b:	yr5_5cl_five_complex_djbfft rsi, 20*dist64, 4*dist64, rbp
 	yloop	3, b2b, -3*20*dist64+64, rbp, YMM_SCD2 ;; 3 iterations!!  Next source pointer, next sin/cos data
+	end_timer 4
 
 	yloop	64, b1a, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	4, b1a, -4*dist64, rdi, -256*YMM_SCD1+1280*YMM_SCD1+256*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
-	end_timer 4
 
 ;; Do FFT levels 5,6
 ;; On input the 64-byte cache lines hold these data values:
@@ -22172,9 +22434,9 @@ b2b:	yr5_5cl_five_complex_djbfft rsi, 20*dist64, 4*dist64, rbp
 	jg	ypass2_15360_complex_3
 
 ypass2_15360_complex_2:
-	start_timer 6
 	yloop_init 960			;; 15 iters of 256 cache lines
 
+b3b0:	start_timer 5
 	yloop_set_prefetch YHALF	;; Prefetch 480 cache lines in this loop
 ;; Loop below reworked to avoid 4KB distances
 ;;b3b:	yr4_s4cl_four_complex_djbfft rsi, 64, dist64, 2*dist64, rdi, YMM_SCD2, 64
@@ -22183,26 +22445,34 @@ b3b:	yr4_s4cl_four_complex_djbfft rsi, 4*64, dist64, 2*dist64, rdi, 4*YMM_SCD2, 
 	yloop	16, b3b, -16*4*64+64, rdi, -16*4*YMM_SCD2+YMM_SCD2 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, b3b, -4*64, rdi, -4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 64			;; Back up loop counter
+	end_timer 5
 
+	start_timer 6
 	yloop_set_prefetch YQUARTER	;; Prefetch 240 cache lines in this loop
 b4b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, 4*YMM_SCD2, 16
 	yloop	16, b4b, -16*64+dist64, rdi, -16*4*YMM_SCD2+YMM_SCD2 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, b4b, -4*dist64, rdi, -4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 6
 
+	start_timer 7
 	yloop_set_prefetch YQUARTER	;; Prefetch 240 cache lines in this loop
 b5b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 16*YMM_SCD2, 4
 	yloop	4, b5b, -4*64+16*64, rdi, -4*16*YMM_SCD2 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b5b, -4*16*64+dist64, rdi, 4*YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b5b, -4*dist64, rdi, -4*4*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*4		;; Back up loop counter
+	end_timer 7
 
+	start_timer 8
 	yloop_set_prefetch YQUARTER	;; Prefetch 240 cache lines in this loop
 b6b:	yr4_eb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	yloop	16, b6b, -16*4*64+dist64, rdi, 16*YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b6b, -4*dist64, rdi, -4*16*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 8
 
+	start_timer 9
 	yloop_set_prefetch YQUARTER	;; Prefetch 240 cache lines in this loop
 	yr4_4cl_four_complex_with_square_preload
 ;; Loop below reworked to avoid 4KB distances
@@ -22212,26 +22482,34 @@ b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, dist64, 2*dist64
 	yloop	16, b7b, -16*4*64+64	;; Loop 16 times, next source pointer
 	yloop	4, b7b, -4*64	;; Loop 4 times, restore source pointer
 	loops_undo 64			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 	yloop_set_prefetch YQUARTER	;; Prefetch 240 cache lines in this loop
 c6b:	yr4_eb4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	yloop	16, c6b, -16*4*64+dist64, rdi, 16*YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, c6b, -4*dist64, rdi, -4*16*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 10
 
+	start_timer 11
 	yloop_set_prefetch YQUARTER	;; Prefetch 240 cache lines in this loop
 c5b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi, 16*YMM_SCD2, 4
 	yloop	4, c5b, -4*64+16*64, rdi, -4*16*YMM_SCD2 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	yloop	4, c5b, -4*16*64+dist64, rdi, 4*YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, c5b, -4*dist64, rdi, -4*4*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*4		;; Back up loop counter
+	end_timer 11
 
+	start_timer 12
 	yloop_set_prefetch YHALF	;; Prefetch 480 cache lines in this loop
 c4b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, 4*YMM_SCD2, 16
 	yloop	16, c4b, -16*64+dist64, rdi, -16*4*YMM_SCD2+YMM_SCD2 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, c4b, -4*dist64, rdi, -4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 12
 
+	start_timer 13
 	yloop_set_prefetch YHALF	;; Prefetch 480 cache lines in this loop
 ;; Loop below reworked to avoid 4KB distances
 ;;c3b:	yr4_s4cl_four_complex_djbunfft rsi, 64, dist64, 2*dist64, rdi, YMM_SCD2, 64
@@ -22239,9 +22517,9 @@ c4b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, 4*YMM_SCD2, 16
 c3b:	yr4_s4cl_four_complex_djbunfft rsi, 4*64, dist64, 2*dist64, rdi, 4*YMM_SCD2, 16
 	yloop	16, c3b, -16*4*64+64, rdi, -16*4*YMM_SCD2+YMM_SCD2 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, c3b, -4*64+4*dist64, rdi, -4*YMM_SCD2 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
+	end_timer 13
 
-	yloop	15, b3b, -15*4*dist64	;; Loop 15 times, restore source pointer
-	end_timer 6
+	yloop	15, b3b0, -15*4*dist64	;; Loop 15 times, restore source pointer
 	jmp	ypass2_15360_complex_unfft
 
 
@@ -22454,28 +22732,30 @@ c3d:	yr4_s4cl_four_complex_djbunfft rsi, 4*64, dist64, 2*dist64, rdi, 4*YMM_SCD2
 ;;	do 1280 macros each processing 24 data values
 
 ypass2_15360_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	lea	rbp, [rdi+1280*YMM_SCD1]
 	bump	rcx, (3840+59-2*256-480-6*240-2*480-2*256)*64 ;; Move prefetch pointer along
 	yloop_init 1280			;; 768 iterations or 1280 iterations
 
-c2a:	yloop_adjust 2			;; Two fewer iterations this loop
+c2a:	start_timer 14
+	yloop_adjust 2			;; Two fewer iterations this loop
 	yloop_set_prefetch YOTHER, 5	;; Prefetch 256 cache lines
 	yr5_5cl_five_complex_djbunfft_preload
 c2b:	yr5_5cl_five_complex_djbunfft rsi, 20*dist64, 4*dist64, rbp
 	yloop	5, c2b, -3*20*dist64, rbp, YMM_SCD2 ;; 3 iterations!!  Restore source pointer, next sine/cosine pointer
 	loops_undo 5			;; Restore loop counter
+	end_timer 14
 
+	start_timer 15
 	yloop_set_prefetch YOTHER, 5	;; Prefetch 256 cache lines
 	yr3_3cl_three_complex_djbunfft_preload
 c1b:	yr3_3cl_three_complex_djbunfft rsi, 4*dist64, 20*dist64, rdi
 	bump	rdi, 256*YMM_SCD1	;; Next set of sin/cos data
 	yloop	5, c1b, -5*4*dist64+64, rdi, -5*256*YMM_SCD1+YMM_SCD1 ;; Test loop counter, next source pointer, next sine/cosine pointer
+	end_timer 15
 
 	yloop	64, c2a, -64*64+dist64	;; Loop 64 times, next source pointer
 	yloop	4, c2a			;; Loop 4 times
-	end_timer 13
 
 ypass2_15360_complex_done:
 	ENDM
@@ -23002,8 +23282,8 @@ ypass2_14_levels_real_done:
 ; radix-4 FFT, squares the results, and does the first 14 levels of the inverse FFT.
 
 yr4dwpn_pass2_14_levels_complex MACRO
-	LOCAL	b1b, b2b, b3b, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b7a, b7b, b7c, b7d
-	LOCAL	c1b, c2b, c3b, c4b, c4c, c4d, c5b, c5c, c5d, c6b, c6c, c6d
+	LOCAL	b1a, b1b, b2b, b3b, b4a, b4b0, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b7a, b7b, b7c, b7d
+	LOCAL	c1b, c2b, c3a, c3b, c4b, c4c, c4d, c5b, c5c, c5d, c6b, c6c, c6d
 	LOCAL	ypass2_14_levels_complex_1, ypass2_14_levels_complex_2
 	LOCAL	ypass2_14_levels_complex_3, ypass2_14_levels_complex_4
 	LOCAL	ypass2_14_levels_complex_unfft, ypass2_14_levels_complex_done
@@ -23081,30 +23361,34 @@ yr4dwpn_pass2_14_levels_complex MACRO
 ;;	distance between fft data elements is 256
 ;;	do 1024 macros each processing 32 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	mov	rbp, rdi
 	mov	rdx, rdi
 	yloop_init 1024			;; 1024 iterations
 
+b1a:	start_timer 3
 	yloop_set_prefetch YHALF	;; Prefetch 512 cache lines in this loop
 b1b:	yr4_fs4cl_four_complex_djbfft rsi, dist64, 16*dist64, 32*dist64, rdi, 64*YMM_SCD2, 16
 	yloop	16, b1b, -16*dist64, rdi, -16*64*YMM_SCD2+YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 16			;; Back up loop counter
+	end_timer 3
 
+	start_timer 4
 	yloop_set_prefetch YHALF	;; Prefetch 512 cache lines in this loop
 b2b:	yr4_eb4cl_four_complex_djbfft rsi, dist64, 4*dist64, 8*dist64, rbp, 256*YMM_SCD2, 4
 	yloop	4, b2b, -4*dist64+16*dist64, rbp, -4*256*YMM_SCD2+YMM_SCD2 ;; Test loop counter, next source pointer, next sin/cos data
 	yloop	4, b2b, -4*16*dist64	;; Test loop counter, restore source pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 4
 
+	start_timer 5
 	yloop_set_prefetch YQUARTER	;; Prefetch 256 cache lines in this loop
-b3b:	yr4_eb4cl_four_complex_djbfft rsi, 4*dist64, dist64, 2*dist64, rdx, 0, 4
+b3b:	yr4_eb4cl_four_complex_djbfft rsi, 4*dist64, dist64, 2*dist64, rdx, 0, 4, L1PREFETCH_ALL, 64
 	yloop	4, b3b, 0, rdx, 4*YMM_SCD2 ;; Loop 4 times, next sine/cosine pointer
 	yloop	4, b3b, -4*4*4*dist64+64	;; Loop 4 times, next source pointer
+	end_timer 5
 
-	yloop	64, b1b, -64*64, rdi, -64*YMM_SCD2+1024*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
-	end_timer 4
+	yloop	64, b1a, -64*64, rdi, -64*YMM_SCD2+1024*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
 
 ;; Do FFT levels 7,8
 ;; On input the 64-byte cache lines hold these data values:
@@ -23266,54 +23550,66 @@ b3b:	yr4_eb4cl_four_complex_djbfft rsi, 4*dist64, dist64, 2*dist64, rdx, 0, 4
 	jg	ypass2_14_levels_complex_3
 
 ypass2_14_levels_complex_2:
-	start_timer 6
 	yloop_init 1024			;; 16 iters of 256 cache lines
 
+b4b0:	start_timer 6
 	yloop_set_prefetch YQUARTER	;; Prefetch 256 cache lines in this loop
 b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
 	yloop	16, b4b, -16*64+16*dist64	;; Loop 16 times, next source pointer
 	yloop	4, b4b, -4*16*dist64, rdi, -64*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 6
 
+	start_timer 7
 	yloop_set_prefetch YQUARTER	;; Prefetch 256 cache lines in this loop
 b5b:	yr4_b4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2/4, 4
 	yloop	4, b5b, -4*64+16*64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b5b, -4*16*64+16*dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b5b, -4*16*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, next sine/cosine pointer
 	loops_undo 4*4*4		;; Back up loop counter
+	end_timer 7
 
+	start_timer 8
 	yloop_set_prefetch YQUARTER	;; Prefetch 256 cache lines in this loop
 b6b:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	yloop	16, b6b, -16*4*64+16*dist64, rdi, 4*YMM_SCD2/4 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, b6b, -4*16*dist64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 8
 
+	start_timer 9
 	yloop_set_prefetch YOTHER, 16	;; Prefetch 64 cache lines in this loop
 	yr4_4cl_four_complex_with_square_preload
 b7b:	yr4_4cl_four_complex_with_square rsi, 64, 16*dist64, 32*dist64
 	yloop	64, b7b, -64*64	;; Loop 64 times, restore source pointer
 	loops_undo 64			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 	yloop_set_prefetch YQUARTER	;; Prefetch 256 cache lines in this loop
 c6b:	yr4_b4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	yloop	16, c6b, -16*4*64+16*dist64, rdi, 4*YMM_SCD2/4 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, c6b, -4*16*dist64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Restore loop counter
+	end_timer 10
 
+	start_timer 11
 	yloop_set_prefetch YQUARTER	;; Prefetch 256 cache lines in this loop
 c5b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2/4, 4
 	yloop	4, c5b, -4*64+16*64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	yloop	4, c5b, -4*16*64+16*dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, c5b, -4*16*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, next sine/cosine pointer
 	loops_undo 4*4*4		;; Back up loop counter
+	end_timer 11
 
+	start_timer 12
 	yloop_set_prefetch YQUARTER	;; Prefetch 256 cache lines in this loop
 c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
 	yloop	16, c4b, -16*64+16*dist64	;; Loop 16 times, next source pointer
 	yloop	4, c4b, -4*16*dist64+dist64, rdi, -64*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
+	end_timer 12
 
-	yloop	16, b4b, -16*dist64	;; Loop 16 times, restore source pointer
-	end_timer 6
+	yloop	16, b4b0, -16*dist64	;; Loop 16 times, restore source pointer
 	jmp	ypass2_14_levels_complex_unfft
 
 
@@ -23504,31 +23800,35 @@ c4d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
 ;;	do 1024 macros each processing 32 data values
 
 ypass2_14_levels_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	mov	rbp, rdi
 	mov	rdx, rdi
 	bump	rcx, (4096+63-2*512-4*256-64-3*256-256-2*512)*64 ;; Move prefetch pointer along
 	yloop_init 1024			;; 1024 iterations
 
+c3a:	start_timer 13
 	yloop_set_prefetch YQUARTER	;; Prefetch 256 cache lines in this loop
 c3b:	yr4_eb4cl_four_complex_djbunfft rsi, 4*dist64, dist64, 2*dist64, rdx, 0, 4
 	yloop	4, c3b, 0, rdx, 4*YMM_SCD2 ;; Loop 4 times, next sine/cosine pointer
 	yloop	4, c3b, -4*4*4*dist64	;; Loop 4 times, restore source pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 13
 
+	start_timer 14
 	yloop_set_prefetch YHALF	;; Prefetch 512 cache lines in this loop
 c2b:	yr4_eb4cl_four_complex_djbunfft rsi, dist64, 4*dist64, 8*dist64, rbp, 256*YMM_SCD2, 4
 	yloop	4, c2b, -4*dist64+16*dist64, rbp, -4*256*YMM_SCD2+YMM_SCD2 ;; Test loop counter, next source pointer, next sine/cosine pointer
 	yloop	4, c2b, -4*16*dist64	;; Test loop counter, restore source pointer
 	loops_undo 4*4			;; Back up loop counter
+	end_timer 14
 
+	start_timer 15
 	yloop_set_prefetch YHALF	;; Prefetch 512 cache lines in this loop
-c1b:	yr4_s4cl_four_complex_djbunfft rsi, dist64, 16*dist64, 32*dist64, rdi, 64*YMM_SCD2, 16
+c1b:	yr4_s4cl_four_complex_djbunfft rsi, dist64, 16*dist64, 32*dist64, rdi, 64*YMM_SCD2, 16, L1PREFETCH_ALL, 64
 	yloop	16, c1b, -16*dist64+64, rdi, -16*64*YMM_SCD2+YMM_SCD2 ;; Test loop counter, next source pointer, next sine/cosine pointer
+	end_timer 15
 
-	yloop	64, c3b			;; Loop 64 times
-	end_timer 13
+	yloop	64, c3a			;; Loop 64 times
 
 ypass2_14_levels_complex_done:
 	ENDM
@@ -24109,8 +24409,8 @@ ypass2_20480_real_done:
 ; radix-4 FFT, squares the results, and does the first 14.322 levels of the inverse FFT.
 
 yr4dwpn_pass2_20480_complex MACRO
-	LOCAL	b1a, b1b, b2b, b3b, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b7a, b7b, b7c, b7d
-	LOCAL	c1b, c2b, c3b, c4b, c4c, c4d, c5b, c5c, c5d, c6b, c6c, c6d
+	LOCAL	b1a, b1b, b2b, b3b, b4a, b4b0, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b7a, b7b, b7c, b7d
+	LOCAL	c1b, c2b, c3a, c3b, c4b, c4c, c4d, c5b, c5c, c5d, c6b, c6c, c6d
 	LOCAL	ypass2_20480_complex_1, ypass2_20480_complex_2
 	LOCAL	ypass2_20480_complex_3, ypass2_20480_complex_4
 	LOCAL	ypass2_20480_complex_unfft, ypass2_20480_complex_done
@@ -24190,33 +24490,37 @@ yr4dwpn_pass2_20480_complex MACRO
 ;;	distance between fft data elements is 256
 ;;	do 1280 macros each processing 32 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	lea	rbp, [rdi+1024*YMM_SCD2]
 	mov	rdx, rbp
 	yloop_init 1280			;; 1024 iterations or 1280 iterations
 
-b1a:	yloop_adjust 4			;; Four fewer iterations this loop
+b1a:	start_timer 3
+	yloop_adjust 4			;; Four fewer iterations this loop
 	yloop_set_prefetch YQUARTER	;; Prefetch 256 cache lines in this loop
 	yr5_f5cl_five_complex_djbfft_preload
 b1b:	yr5_f5cl_five_complex_djbfft rsi, dist64, 16*dist64, rdi
 	bump	rdi, 64*YMM_SCD2	;; Next sin/cos data
 	yloop	20, b1b, -16*dist64, rdi, -16*64*YMM_SCD2+YMM_SCD2 ;; 16 iterations!!  Restore source pointer, next sin/cos data
 	loops_undo 20			;; Back up loop counter
+	end_timer 3
 
+	start_timer 4
 	yloop_set_prefetch YHALF	;; Prefetch 640 cache lines in this loop
 b2b:	yr4_s4cl_four_complex_djbfft rsi, dist64, 4*dist64, 8*dist64, rbp, 64*YMM_SCD2, 4
 	yloop	4, b2b, -4*dist64+16*dist64, rbp, -4*64*YMM_SCD2 ;; Test loop counter, next source pointer, restore sin/cos data
 	yloop	5, b2b, -5*16*dist64, rbp, YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 5*4			;; Back up loop counter
+	end_timer 4
 
+	start_timer 5
 	yloop_set_prefetch YQUARTER	;; Prefetch 320 cache lines in this loop
-b3b:	yr4_eb4cl_four_complex_djbfft rsi, 4*dist64, dist64, 2*dist64, rdx, YMM_SCD2, 4
+b3b:	yr4_eb4cl_four_complex_djbfft rsi, 4*dist64, dist64, 2*dist64, rdx, YMM_SCD2, 4, L1PREFETCH_ALL, 64
 	yloop	4, b3b, 0, rdx, -4*YMM_SCD2 ;; Test loop counter, restore sine/cosine pointer
 	yloop	5, b3b, -5*4*4*dist64+64, rdx, 4*YMM_SCD2 ;; Test loop counter, next source pointer, next sine/cosine pointer
+	end_timer 5
 
 	yloop	64, b1a, -64*64, rdi, -64*YMM_SCD2+1024*YMM_SCD2+256*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
-	end_timer 4
 
 ;; Do FFT levels 7,8
 ;; On input the 64-byte cache lines hold these data values:
@@ -24404,49 +24708,61 @@ b3b:	yr4_eb4cl_four_complex_djbfft rsi, 4*dist64, dist64, 2*dist64, rdx, YMM_SCD
 	jg	ypass2_20480_complex_3
 
 ypass2_20480_complex_2:
-	start_timer 6
 	yloop_init 1280			;; 20 iters of 256 cache lines
 	yloop_set_prefetch YQUARTER
 
+b4b0:	start_timer 6
 b4b:	yr4_b4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
 	yloop	16, b4b, -16*64+4*dist64	;; Loop 16 times, next source pointer
 	yloop	4, b4b, -4*4*dist64, rdi, -64*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 6
 
+	start_timer 7
 b5b:	yr4_b4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2/4, 4
 	yloop	4, b5b, -4*64+16*64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b5b, -4*16*64+4*dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b5b, -4*4*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, next sine/cosine pointer
 	loops_undo 4*4*4		;; Back up loop counter
+	end_timer 7
 
+	start_timer 8
 b6b:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	yloop	16, b6b, -16*4*64+4*dist64, rdi, 4*YMM_SCD2/4 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, b6b, -4*4*dist64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 8
 
+	start_timer 9
 	yr4_4cl_four_complex_with_square_preload
 b7b:	yr4_4cl_four_complex_with_square rsi, 64, 4*dist64, 8*dist64
-	yloop	64, b7b, -64*64	;; Loop 64 times, restore source pointer
+	yloop	64, b7b, -64*64		;; Loop 64 times, restore source pointer
 	loops_undo 64			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 c6b:	yr4_b4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	yloop	16, c6b, -16*4*64+4*dist64, rdi, 4*YMM_SCD2/4 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, c6b, -4*4*dist64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Restore loop counter
+	end_timer 10
 
+	start_timer 11
 c5b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2/4, 4
 	yloop	4, c5b, -4*64+16*64, rdi, -4*4*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	yloop	4, c5b, -4*16*64+4*dist64, rdi, YMM_SCD2/4 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, c5b, -4*4*dist64, rdi, -4*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, next sine/cosine pointer
 	loops_undo 4*4*4		;; Back up loop counter
+	end_timer 11
 
+	start_timer 12
 c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
-	yloop	16, c4b, -16*64+4*dist64	;; Loop 16 times, next source pointer
+	yloop	16, c4b, -16*64+4*dist64 ;; Loop 16 times, next source pointer
 	yloop	4, c4b, -4*4*dist64+dist64, rdi, -64*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
+	end_timer 12
 
-	yloop	4, b4b, -4*dist64+16*dist64	;; Loop 4 times, next source pointer
-	yloop	5, b4b, -5*16*dist64	;; Loop 5 times, restore source pointer
-	end_timer 6
+	yloop	4, b4b0, -4*dist64+16*dist64 ;; Loop 4 times, next source pointer
+	yloop	5, b4b0, -5*16*dist64	;; Loop 5 times, restore source pointer
 	jmp	ypass2_20480_complex_unfft
 
 
@@ -24636,34 +24952,38 @@ c4d:	yr4_b4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
 ;;	do 1024 macros each processing 40 data values
 
 ypass2_20480_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	lea	rbp, [rdi+1024*YMM_SCD2]
 	mov	rdx, rbp
 	bump	rcx, (5120+79-256-640-320-7*320-2*640-512)*64 ;; Move prefetch pointer along
 	yloop_init 1280			;; 1024 iterations or 1280 iterations
 
+c3a:	start_timer 13
 	yloop_set_prefetch YHALF	;; Prefetch 640 cache lines in this loop
 c3b:	yr4_eb4cl_four_complex_djbunfft rsi, 4*dist64, dist64, 2*dist64, rdx, YMM_SCD2, 4
 	yloop	4, c3b, 0, rdx, -4*YMM_SCD2 ;; Test loop counter, restore sine/cosine pointer
 	yloop	5, c3b, -5*4*4*dist64, rdx, 4*YMM_SCD2 ;; Test loop counter, restore source pointer, next sine/cosine pointer
 	loops_undo 5*4			;; Back up loop counter
+	end_timer 13
 
+	start_timer 14
 	yloop_set_prefetch YHALF	;; Prefetch 640 cache lines in this loop
-c2b:	yr4_s4cl_four_complex_djbunfft rsi, dist64, 4*dist64, 8*dist64, rbp, 64*YMM_SCD2, 4
+c2b:	yr4_s4cl_four_complex_djbunfft rsi, dist64, 4*dist64, 8*dist64, rbp, 64*YMM_SCD2, 4, L1PREFETCH_ALL, 64
 	yloop	4, c2b, -4*dist64+16*dist64, rbp, -4*64*YMM_SCD2 ;; Test loop counter, next source pointer, restore sine/cosine pointer
 	yloop	5, c2b, -5*16*dist64, rbp, YMM_SCD2 ;; Test loop counter, restore source pointer, next sine/cosine pointer
 	loops_undo 5*4			;; Back up loop counter
+	end_timer 14
 
+	start_timer 15
 	yloop_adjust 4			;; Four fewer iterations this loop
 	yloop_set_prefetch YHALF	;; Prefetch 512 cache lines in this loop
 	yr5_5cl_five_complex_djbunfft_preload
 c1b:	yr5_5cl_five_complex_djbunfft rsi, dist64, 16*dist64, rdi
 	bump	rdi, 64*YMM_SCD2	;; Next set of sin/cos data
 	yloop	20, c1b, -16*dist64+64, rdi, -16*64*YMM_SCD2+YMM_SCD2 ;; 16 iterations!!  Next source pointer, next sine/cosine pointer
+	end_timer 15
 
-	yloop	64, c3b			;; Loop 64 times
-	end_timer 13
+	yloop	64, c3a			;; Loop 64 times
 
 ypass2_20480_complex_done:
 	ENDM
@@ -25220,8 +25540,8 @@ ypass2_25600_real_done:
 ; radix-4 FFT, squares the results, and does the first 14.644 levels of the inverse FFT.
 
 yr4dwpn_pass2_25600_complex MACRO
-	LOCAL	b1b, b2b, b3a, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b7a, b7b, b7c, b7d
-	LOCAL	c1b, c2b, c3b, c3c, c3d, c4b, c4c, c4d, c5b, c5c, c5d, c6b, c6c, c6d
+	LOCAL	b1a, b1b, b2b, b3a, b3b0, b3b, b3c, b4a, b4b, b4c, b5a, b5b, b5c, b6a, b6b, b6c, b7a, b7b, b7c, b7d
+	LOCAL	c1b, c2a, c2b, c3b, c3c, c3d, c4b, c4c, c4d, c5b, c5c, c5d, c6b, c6c, c6d
 	LOCAL	ypass2_25600_complex_1, ypass2_25600_complex_2
 	LOCAL	ypass2_25600_complex_3, ypass2_25600_complex_4
 	LOCAL	ypass2_25600_complex_unfft, ypass2_25600_complex_done
@@ -25273,25 +25593,27 @@ yr4dwpn_pass2_25600_complex MACRO
 ;;	distance between fft data elements is 1024
 ;;	do 1280 macros each processing 40 data values
 
-	start_timer 4
 	mov	rdi, xsincos_complex	;; The sin/cos ptrs
 	lea	rbp, [rdi+1280*YMM_SCD2]
 	yloop_init 1280			;; 1280 iterations
 	yloop_set_prefetch YOTHER, 5
 
 	yr5_f5cl_five_complex_djbfft_preload
+b1a:	start_timer 3
 b1b:	yr5_f5cl_five_complex_djbfft rsi, 4*dist64, 20*dist64, rdi
 	bump	rdi, 256*YMM_SCD2	;; Next sin/cos data
 	yloop	5, b1b, -5*4*dist64, rdi, -5*256*YMM_SCD2+YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos data
 	loops_undo 5			;; Back up loop counter
+	end_timer 3
 
+	start_timer 4
 ;;	yr5_5cl_five_complex_djbfft_preload
 b2b:	yr5_5cl_five_complex_djbfft rsi, 20*dist64, 4*dist64, rbp
 	yloop	5, b2b, -5*20*dist64+64, rbp, YMM_SCD2 ;; Test loop counter, next source pointer, next sin/cos data
-
-	yloop	64, b1b, -64*64+dist64	;; Test loop counter, next source pointer
-	yloop	4, b1b, -4*dist64, rdi, -256*YMM_SCD2+1280*YMM_SCD2+256*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
 	end_timer 4
+
+	yloop	64, b1a, -64*64+dist64	;; Test loop counter, next source pointer
+	yloop	4, b1a, -4*dist64, rdi, -256*YMM_SCD2+1280*YMM_SCD2+256*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
 
 ;; Do FFT levels 5,6
 ;; On input the 64-byte cache lines hold these data values:
@@ -25519,9 +25841,9 @@ b2b:	yr5_5cl_five_complex_djbfft rsi, 20*dist64, 4*dist64, rbp
 	jg	ypass2_25600_complex_3
 
 ypass2_25600_complex_2:
-	start_timer 6
 	yloop_init 1600			;; 25 iters of 256 cache lines
 
+b3b0:	start_timer 5
 	yloop_set_prefetch YHALF	;; Prefetch 800 cache lines in this loop
 ;; Loop below reworked to avoid 4KB distances
 ;;b3b:	yr4_s4cl_four_complex_djbfft rsi, 64, dist64, 2*dist64, rdi, YMM_SCD2, 64
@@ -25530,26 +25852,34 @@ b3b:	yr4_s4cl_four_complex_djbfft rsi, 4*64, dist64, 2*dist64, rdi, 4*YMM_SCD2, 
 	yloop	16, b3b, -16*4*64+64, rdi, -16*4*YMM_SCD2+YMM_SCD2 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, b3b, -4*64, rdi, -4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 64			;; Back up loop counter
+	end_timer 5
 
+	start_timer 6
 	yloop_set_prefetch YHALF	;; Prefetch 800 cache lines in this loop
 b4b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, 4*YMM_SCD2, 16
 	yloop	16, b4b, -16*64+dist64, rdi, -16*4*YMM_SCD2+YMM_SCD2 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, b4b, -4*dist64, rdi, -4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 6
 
+	start_timer 7
 	yloop_set_prefetch YQUARTER	;; Prefetch 400 cache lines in this loop
 b5b:	yr4_eb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 16*YMM_SCD2, 4
 	yloop	4, b5b, -4*64+16*64, rdi, -4*16*YMM_SCD2 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	yloop	4, b5b, -4*16*64+dist64, rdi, 4*YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b5b, -4*dist64, rdi, -4*4*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*4		;; Back up loop counter
+	end_timer 7
 
+	start_timer 8
 	yloop_set_prefetch YQUARTER	;; Prefetch 400 cache lines in this loop
 b6b:	yr4_eb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	yloop	16, b6b, -16*4*64+dist64, rdi, 16*YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, b6b, -4*dist64, rdi, -4*16*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 8
 
+	start_timer 9
 	yloop_set_prefetch YQUARTER	;; Prefetch 400 cache lines in this loop
 ;; Loop below reworked to avoid 4KB distances
 ;;b7b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64
@@ -25558,26 +25888,34 @@ b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, dist64, 2*dist64
 	yloop	16, b7b, -16*4*64+64	;; Loop 16 times, next source pointer
 	yloop	4, b7b, -4*64	;; Loop 4 times, restore source pointer
 	loops_undo 64			;; Back up loop counter
+	end_timer 9
 
+	start_timer 10
 	yloop_set_prefetch YQUARTER	;; Prefetch 400 cache lines in this loop
 c6b:	yr4_eb4cl_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	yloop	16, c6b, -16*4*64+dist64, rdi, 16*YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, c6b, -4*dist64, rdi, -4*16*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 10
 
+	start_timer 11
 	yloop_set_prefetch YHALF	;; Prefetch 800 cache lines in this loop
 c5b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi, 16*YMM_SCD2, 4
 	yloop	4, c5b, -4*64+16*64, rdi, -4*16*YMM_SCD2 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	yloop	4, c5b, -4*16*64+dist64, rdi, 4*YMM_SCD2 ;; Loop 4 times, next source pointer, next sine/cosine pointer
 	yloop	4, c5b, -4*dist64, rdi, -4*4*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*4*4		;; Back up loop counter
+	end_timer 11
 
+	start_timer 12
 	yloop_set_prefetch YHALF	;; Prefetch 800 cache lines in this loop
 c4b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, 4*YMM_SCD2, 16
 	yloop	16, c4b, -16*64+dist64, rdi, -16*4*YMM_SCD2+YMM_SCD2 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, c4b, -4*dist64, rdi, -4*YMM_SCD2 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
+	end_timer 12
 
+	start_timer 13
 	yloop_set_prefetch YHALF	;; Prefetch 800 cache lines in this loop
 ;; Loop below reworked to avoid 4KB distances
 ;;c3b:	yr4_s4cl_four_complex_djbunfft rsi, 64, dist64, 2*dist64, rdi, YMM_SCD2, 64
@@ -25585,9 +25923,9 @@ c4b:	yr4_eb4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, 4*YMM_SCD2, 16
 c3b:	yr4_s4cl_four_complex_djbunfft rsi, 4*64, dist64, 2*dist64, rdi, 4*YMM_SCD2, 16
 	yloop	16, c3b, -16*4*64+64, rdi, -16*4*YMM_SCD2+YMM_SCD2 ;; Loop 16 times, next source pointer, next sine/cosine pointer
 	yloop	4, c3b, -4*64+4*dist64, rdi, -4*YMM_SCD2 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
+	end_timer 13
 
-	yloop	25, b3b, -25*4*dist64	;; Loop 25 times, restore source pointer
-	end_timer 6
+	yloop	25, b3b0, -25*4*dist64	;; Loop 25 times, restore source pointer
 	jmp	ypass2_25600_complex_unfft
 
 
@@ -25800,7 +26138,6 @@ c3d:	yr4_s4cl_four_complex_djbunfft rsi, 4*64, dist64, 2*dist64, rdi, 4*YMM_SCD2
 ;;	do 1280 macros each processing 40 data values
 
 ypass2_25600_complex_unfft:
-	start_timer 13
 	mov	rdi, xsincos_complex	;; Load sin/cos pointers
 	lea	rbp, [rdi+1280*YMM_SCD2]
 	bump	rcx, (6400+99-2*256-2*800-4*400-3*800-2*256)*64 ;; Move prefetch pointer along
@@ -25808,18 +26145,21 @@ ypass2_25600_complex_unfft:
 	yloop_set_prefetch YOTHER, 5
 
 	yr5_5cl_five_complex_djbunfft_preload
+c2a:	start_timer 14
 c2b:	yr5_5cl_five_complex_djbunfft rsi, 20*dist64, 4*dist64, rbp
 	yloop	5, c2b, -5*20*dist64, rbp, YMM_SCD2 ;; Test loop counter, restore source pointer, next sine/cosine pointer
 	loops_undo 5			;; Restore loop counter
+	end_timer 14
 
+	start_timer 15
 ;;	yr5_5cl_five_complex_djbunfft_preload
 c1b:	yr5_5cl_five_complex_djbunfft rsi, 4*dist64, 20*dist64, rdi
 	bump	rdi, 256*YMM_SCD2	;; Next set of sin/cos data
 	yloop	5, c1b, -5*4*dist64+64, rdi, -5*256*YMM_SCD2+YMM_SCD2 ;; Test loop counter, next source pointer, next sine/cosine pointer
+	end_timer 15
 
-	yloop	64, c2b, -64*64+dist64	;; Loop 64 times, next source pointer
-	yloop	4, c2b			;; Loop 4 times
-	end_timer 13
+	yloop	64, c2a, -64*64+dist64	;; Loop 64 times, next source pointer
+	yloop	4, c2a			;; Loop 4 times
 
 ypass2_25600_complex_done:
 	ENDM
