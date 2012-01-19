@@ -30,7 +30,7 @@ ELSE
 X87_CASES	EQU	13
 ENDIF
 SSE2_CASES	EQU	216
-AVX_CASES	EQU	214
+AVX_CASES	EQU	222
 
 loopent	MACRO	y,z		; Create a entry in the loop entry table
 	DP	&y&z
@@ -1162,20 +1162,28 @@ MAXRPT	EQU	2
 	avxmac 192, 100000, YMM_SCD2, yr3_3cl_six_reals_three_complex_djbunfft rsi, 3*64, 64, rdi
 
 ;;170
-	avxmac 320, 8192, YMM_SCD2, yr5_5cl_five_complex_djbfft rsi, 5*64, 64, rdi
-	avxmac 320, 100000, YMM_SCD2, yr5_5cl_five_complex_djbfft rsi, 5*64, 64, rdi
-	avxmacbx 320, 8192, YMM_SCD2, yr5_f5cl_five_complex_djbfft rsi, 5*64, 64, rdi
-	avxmacbx 320, 100000, YMM_SCD2, yr5_f5cl_five_complex_djbfft rsi, 5*64, 64, rdi
-	avxmac 320, 8192, YMM_SCD2/4, yr5_b5cl_five_complex_djbfft rsi, 5*64, 64, rdi
-	avxmac 320, 100000, YMM_SCD2/4, yr5_b5cl_five_complex_djbfft rsi, 5*64, 64, rdi
-
-;;176
-	avxmac 320, 8192, YMM_SCD2, yr5_5cl_five_complex_djbunfft rsi, 5*64, 64, rdi
-	avxmac 320, 100000, YMM_SCD2, yr5_5cl_five_complex_djbunfft rsi, 5*64, 64, rdi
-	avxmac 320, 8192, YMM_SCD2/4, yr5_b5cl_five_complex_djbunfft rsi, 5*64, 64, rdi
-	avxmac 320, 100000, YMM_SCD2/4, yr5_b5cl_five_complex_djbunfft rsi, 5*64, 64, rdi
+	avxmac 320*1, 8192, 0, yr5_5cl_five_complex_djbfft rsi, 5*64, 64, rdi, YMM_SCD2, 1
+	avxmac 320*2, 8192, 0, yr5_5cl_five_complex_djbfft rsi, 5*64, 64, rdi, YMM_SCD2, 2
+	avxmac 320*1, 100000, 0, yr5_5cl_five_complex_djbfft rsi, 5*64, 64, rdi, YMM_SCD2, 1
+	avxmac 320*2, 100000, 0, yr5_5cl_five_complex_djbfft rsi, 5*64, 64, rdi, YMM_SCD2, 2
+	avxmacbx 320*1, 8192, 0, yr5_f5cl_five_complex_djbfft rsi, 5*64, 64, rdi, YMM_SCD2, 1
+	avxmacbx 320*1, 100000, 0, yr5_f5cl_five_complex_djbfft rsi, 5*64, 64, rdi, YMM_SCD2, 1
+	avxmac 320*1, 8192, 0, yr5_b5cl_five_complex_djbfft rsi, 5*64, 64, rdi, YMM_SCD2/4, 1
+	avxmac 320*2, 8192, 0, yr5_b5cl_five_complex_djbfft rsi, 5*64, 64, rdi, YMM_SCD2/4, 2
+	avxmac 320*1, 100000, 0, yr5_b5cl_five_complex_djbfft rsi, 5*64, 64, rdi, YMM_SCD2/4, 1
+	avxmac 320*2, 100000, 0, yr5_b5cl_five_complex_djbfft rsi, 5*64, 64, rdi, YMM_SCD2/4, 2
 
 ;;180
+	avxmac 320*1, 8192, 0, yr5_5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, YMM_SCD2, 1
+	avxmac 320*2, 8192, 0, yr5_5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, YMM_SCD2, 2
+	avxmac 320*1, 100000, 0, yr5_5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, YMM_SCD2, 1
+	avxmac 320*2, 100000, 0, yr5_5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, YMM_SCD2, 2
+	avxmac 320*1, 8192, 0, yr5_b5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, YMM_SCD2/4, 1
+	avxmac 320*2, 8192, 0, yr5_b5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, YMM_SCD2/4, 2
+	avxmac 320*1, 100000, 0, yr5_b5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, YMM_SCD2/4, 1
+	avxmac 320*2, 100000, 0, yr5_b5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, YMM_SCD2/4, 2
+
+;;188
 	avxmac 192, 8192, YMM_SCD4, yr5_5cl_ten_reals_fft rsi, 5*64, 64, rdi
 	avxmac 192, 100000, YMM_SCD4, yr5_5cl_ten_reals_fft rsi, 5*64, 64, rdi
 	avxmacbx 192, 8192, YMM_SCD4, yr5_f5cl_ten_reals_fft rsi, 5*64, 64, rdi
@@ -1183,19 +1191,19 @@ MAXRPT	EQU	2
 	avxmac 192, 8192, YMM_SCD4, yr5_5cl_ten_reals_unfft rsi, 5*64, 64, rdi
 	avxmac 192, 100000, YMM_SCD4, yr5_5cl_ten_reals_unfft rsi, 5*64, 64, rdi
 
-;;186
+;;194
 	avxmac 320, 8192, YMM_SCD4, yr5_5cl_ten_reals_five_complex_djbfft rsi, 5*64, 64, rdi
 	avxmac 320, 100000, YMM_SCD4, yr5_5cl_ten_reals_five_complex_djbfft rsi, 5*64, 64, rdi
 	avxmac 320, 8192, YMM_SCD4, yr5_5cl_ten_reals_five_complex_djbunfft rsi, 5*64, 64, rdi
 	avxmac 320, 100000, YMM_SCD4, yr5_5cl_ten_reals_five_complex_djbunfft rsi, 5*64, 64, rdi
 
-;;190
+;;198
 	avxmac 512, 8192, YMM_SCD8, yr8_sg8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
 	avxmac 512, 100000, YMM_SCD8, yr8_sg8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
 	avxmac 512, 8192, YMM_SCD8, yr8_sg8cl_eight_complex_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
 	avxmac 512, 100000, YMM_SCD8, yr8_sg8cl_eight_complex_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi
 
-;;194
+;;202
 	avxmac 512, 8192, 0, yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	avxmac 512, 100000, 0, yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	avxmac 512, 8192, 0, yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
@@ -1205,19 +1213,19 @@ MAXRPT	EQU	2
 	avxmacbx 512, 8192, 0, yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 	avxmacbx 512, 100000, 0, yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 
-;;202
+;;210
 	avxmac 512, 8192, YMM_SCD8, yr8_sg8cl_2sc_sixteen_reals_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, rdi
 	avxmac 512, 100000, YMM_SCD8, yr8_sg8cl_2sc_sixteen_reals_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, rdi
 	avxmac 512, 8192, YMM_SCD8, yr8_sg8cl_2sc_sixteen_reals_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, rdi
 	avxmac 512, 100000, YMM_SCD8, yr8_sg8cl_2sc_sixteen_reals_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, rdi
 
-;;206
+;;214
 	avxmac 192, 8192, YMM_SCD9, yr5_10cl_20_reals_fft rsi, 10*64, 64, 128, rdi
 	avxmac 192, 100000, YMM_SCD9, yr5_10cl_20_reals_fft rsi, 10*64, 64, 128, rdi
 	avxmac 192, 8192, YMM_SCD9, yr5_10cl_20_reals_unfft rsi, 10*64, 64, 128, rdi
 	avxmac 192, 100000, YMM_SCD9, yr5_10cl_20_reals_unfft rsi, 10*64, 64, 128, rdi
 
-;;210
+;;218
 	avxmac 192, 8192, YMM_SCD13, yr7_14cl_28_reals_fft rsi, 10*64, 64, 128, rdi
 	avxmac 192, 100000, YMM_SCD13, yr7_14cl_28_reals_fft rsi, 10*64, 64, 128, rdi
 	avxmac 192, 8192, YMM_SCD13, yr7_14cl_28_reals_unfft rsi, 10*64, 64, 128, rdi

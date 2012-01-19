@@ -4002,8 +4002,7 @@ c4b:	yr5_5cl_csc_ten_reals_unfft rsi, 64, 4*clmblkdst, rdi
 	loops_reset
 	yloop_set_clm_prefetch YQUARTER
 	yr5_5cl_five_complex_djbunfft_preload
-c5b:	yr5_5cl_five_complex_djbunfft rsi, 64, 4*clmblkdst, rdi
-	bump	rdi, YMM_SCD4
+c5b:	yr5_5cl_five_complex_djbunfft rsi, 64, 4*clmblkdst, rdi, YMM_SCD4, 4*clm
 	yloop	4*clm, c5b, -4*clm*64+20*clmblkdst, rdi, -4*clm*YMM_SCD4 ;; Test loop counter
 	yloop	8, c5b, -4*20*clmblkdst, rdi, 4*clm*YMM_SCD4 ;; 4 iterations!! Test loop counter, restore source pointer, next sin/cos pointer
 	loops_undo 8*4*clm
@@ -4034,8 +4033,7 @@ c4b:	yr5_5cl_csc_ten_reals_unfft rsi, 64, 4*clmblkdst, rdi
 	loops_reset
 	yloop_set_clm_prefetch YQUARTER
 	yr5_5cl_five_complex_djbunfft_preload
-c5b:	yr5_5cl_five_complex_djbunfft rsi, 64, 4*clmblkdst, rdi
-	bump	rdi, YMM_SCD4
+c5b:	yr5_5cl_five_complex_djbunfft rsi, 64, 4*clmblkdst, rdi, YMM_SCD4, 4*clm
 	yloop	4*clm, c5b, -4*clm*64+clmblkdst ;; 4*clm iterations
 	yloop	4, c5b, -4*clmblkdst+20*clmblkdst, rdi, -4*4*clm*YMM_SCD4 ;; 4 iterations, restore sine/cosine pointer
 	yloop	4, c5b, -4*20*clmblkdst	;; Test loop counter, restore source pointer
@@ -4140,8 +4138,7 @@ b4b:	yr5_5cl_csc_ten_reals_fft rsi, 64, 4*clmblkdst, rbx
 	loops_reset
 	yloop_set_clm_prefetch YSINGLE
 	yr5_5cl_five_complex_djbfft_preload
-b5b:	yr5_5cl_five_complex_djbfft rsi, 64, 4*clmblkdst, rbx
-	bump	rbx, YMM_SCD4
+b5b:	yr5_5cl_five_complex_djbfft rsi, 64, 4*clmblkdst, rbx, YMM_SCD4, 4*clm
 	yloop	4*clm, b5b, -4*clm*64+20*clmblkdst, rbx, -4*clm*YMM_SCD4 ;; 4*clm iterations
 	yloop	8, b5b, -4*20*clmblkdst+clmblkdst, rbx, 4*clm*YMM_SCD4 ;; 4 iterations!! next source pointer, next sin/cos ptr
 	end_timer 24
@@ -4174,8 +4171,7 @@ b4b:	yr5_5cl_csc_ten_reals_fft rsi, 64, 4*clmblkdst, rdi
 	loops_reset
 	yloop_set_clm_prefetch YSINGLE
 	yr5_5cl_five_complex_djbfft_preload
-b5b:	yr5_5cl_five_complex_djbfft rsi, 64, 4*clmblkdst, rdi
-	bump	rdi, YMM_SCD4
+b5b:	yr5_5cl_five_complex_djbfft rsi, 64, 4*clmblkdst, rdi, YMM_SCD4, 4*clm
 	yloop	4*clm, b5b, -4*clm*64+clmblkdst ;; 4*clm iterations
 	yloop	4, b5b, -4*clmblkdst+20*clmblkdst, rdi, -4*4*clm*YMM_SCD4 ;; Test loop counter, restore sin/cos ptr
 	yloop	4, b5b, -4*20*clmblkdst		;; Test loop counter, restore source pointer
@@ -4887,8 +4883,7 @@ c5a:	start_timer 18
 	yloop_adjust 4*4*clm			;; Do fewer iterations in this loop
 	yloop_set_clm_prefetch YQUARTER
 	yr5_5cl_five_complex_djbunfft_preload
-c5b:	yr5_5cl_five_complex_djbunfft rsi, 64, 4*clmblkdst, rdi
-	bump	rdi, YMM_SCD2			;; Next clm's sin/cos data
+c5b:	yr5_5cl_five_complex_djbunfft rsi, 64, 4*clmblkdst, rdi, YMM_SCD2, 4*clm
 	yloop	4*clm, c5b, -4*clm*64+20*clmblkdst, rdi, -4*clm*YMM_SCD2 ;; 4*clm iterations, restore sin/cos ptr
 	yloop	8, c5b, -4*20*clmblkdst, rdi, 4*clm*YMM_SCD2 ;; 4 iterations!! restore source pointer, next sin/cos ptr
 	loops_undo 8*4*clm
@@ -4910,8 +4905,7 @@ ELSE
 	yloop_init 16*4*clm			;; 16*4*clm iterations
 	yloop_set_clm_prefetch YQUARTER
 	yr5_5cl_five_complex_djbunfft_preload
-c5b:	yr5_5cl_five_complex_djbunfft rsi, 64, 4*clmblkdst, rdi
-	bump	rdi, YMM_SCD2			;; Next clm's sin/cos data
+c5b:	yr5_5cl_five_complex_djbunfft rsi, 64, 4*clmblkdst, rdi, YMM_SCD2, 4*clm
 	yloop	4*clm, c5b, -4*clm*64+clmblkdst ;; 4*clm iterations
 	yloop	4, c5b, -4*clmblkdst+20*clmblkdst, rdi, -4*4*clm*YMM_SCD2 ;; 4 iterations, restore sin/cos pointer
 	yloop	4, c5b, -4*20*clmblkdst		;; Test loop counter, restore source pointer
@@ -5004,8 +4998,7 @@ b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 20*clmblkdst, 40*clmblkdst, 
 	yloop_adjust 4*4*clm			;; Do fewer iterations in this loop
 	yloop_set_clm_prefetch YSINGLE
 	yr5_5cl_five_complex_djbfft_preload
-b5b:	yr5_5cl_five_complex_djbfft rsi, 64, 4*clmblkdst, rbp
-	bump	rbp, YMM_SCD2			;; Next sine/cosine pointer
+b5b:	yr5_5cl_five_complex_djbfft rsi, 64, 4*clmblkdst, rbp, YMM_SCD2, 4*clm
 	yloop	4*clm, b5b, -4*clm*64+20*clmblkdst, rbp, -4*clm*YMM_SCD2 ;; 4*clm iterations, restore sin/cos ptr
 	yloop	8, b5b, -4*20*clmblkdst+clmblkdst, rbp, 4*clm*YMM_SCD2 ;; 4 iterations!! next source pointer, next sin/cos ptr
 	end_timer 24
@@ -5029,8 +5022,7 @@ b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 20*clmblkdst, 40*clmblkdst, 
 	yloop_init 16*4*clm			;; 16 iters of 4*clm
 	yloop_set_clm_prefetch YSINGLE
 	yr5_5cl_five_complex_djbfft_preload
-b5b:	yr5_5cl_five_complex_djbfft rsi, 64, 4*clmblkdst, rdi
-	bump	rdi, YMM_SCD2			;; Next sine/cosine pointer
+b5b:	yr5_5cl_five_complex_djbfft rsi, 64, 4*clmblkdst, rdi, YMM_SCD2, 4*clm
 	yloop	4*clm, b5b, -4*clm*64+clmblkdst ;; 4*clm iterations
 	yloop	4, b5b, -4*clmblkdst+20*clmblkdst, rdi, -4*4*clm*YMM_SCD2 ;; Test loop counter, restore sin/cos ptr
 	yloop	4, b5b, -4*20*clmblkdst		;; Test loop counter, restore source pointer
@@ -8204,8 +8196,7 @@ c5a:	start_timer 18
 	yloop_adjust 4*4*clm			;; Do fewer iterations in this loop
 	yloop_set_clm_prefetch YQUARTER
 	yr5_5cl_five_complex_djbunfft_preload
-c5b:	yr5_5cl_five_complex_djbunfft rsi, 64, clmblkdst8, rdi
-	bump	rdi, YMM_SCD2			;; Next clm's sin/cos data
+c5b:	yr5_5cl_five_complex_djbunfft rsi, 64, clmblkdst8, rdi, YMM_SCD2, 4*clm
 	yloop	4*clm, c5b, -4*clm*64+5*clmblkdst8, rdi, -4*clm*YMM_SCD2 ;; 4*clm iterations, restore sin/cos ptr
 	yloop	8, c5b, -4*5*clmblkdst8, rdi, 4*clm*YMM_SCD2 ;; 4 iterations!! restore source pointer, next sin/cos ptr
 	loops_undo 8*4*clm
@@ -8227,8 +8218,7 @@ ELSE
 	yloop_init 32*4*clm			;; 32*4*clm iterations
 	yloop_set_clm_prefetch YQUARTER
 	yr5_5cl_five_complex_djbunfft_preload
-c5b:	yr5_5cl_five_complex_djbunfft rsi, 64, clmblkdst8, rdi
-	bump	rdi, YMM_SCD2			;; Next clm's sin/cos data
+c5b:	yr5_5cl_five_complex_djbunfft rsi, 64, clmblkdst8, rdi, YMM_SCD2, 4*clm
 	yloop	4*clm, c5b, -4*clm*64+clmblkdst ;; 4*clm iterations
 	yloop	8, c5b, -8*clmblkdst+5*clmblkdst8, rdi, -8*4*clm*YMM_SCD2 ;; 4 iterations, restore sin/cos pointer
 	yloop	4, c5b, -4*5*clmblkdst8		;; Test loop counter, restore source pointer
@@ -8322,8 +8312,7 @@ b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 5*clmblkdst8, 10*clmblkdst8,
 	yloop_adjust 4*4*clm			;; Do fewer iterations in this loop
 	yloop_set_clm_prefetch YSINGLE
 	yr5_5cl_five_complex_djbfft_preload
-b5b:	yr5_5cl_five_complex_djbfft rsi, 64, clmblkdst8, rbp
-	bump	rbp, YMM_SCD2			;; Next sine/cosine pointer
+b5b:	yr5_5cl_five_complex_djbfft rsi, 64, clmblkdst8, rbp, YMM_SCD2, 4*clm
 	yloop	4*clm, b5b, -4*clm*64+5*clmblkdst8, rbp, -4*clm*YMM_SCD2 ;; 4*clm iterations, restore sin/cos ptr
 	yloop	8, b5b, -4*5*clmblkdst8+clmblkdst, rbp, 4*clm*YMM_SCD2 ;; 4 iterations!! next source pointer, next sin/cos ptr
 	end_timer 24
@@ -8348,8 +8337,7 @@ b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 5*clmblkdst8, 10*clmblkdst8,
 	yloop_init 32*4*clm			;; 32 iters of 4*clm
 	yloop_set_clm_prefetch YSINGLE
 	yr5_5cl_five_complex_djbfft_preload
-b5b:	yr5_5cl_five_complex_djbfft rsi, 64, clmblkdst8, rdi
-	bump	rdi, YMM_SCD2			;; Next sine/cosine pointer
+b5b:	yr5_5cl_five_complex_djbfft rsi, 64, clmblkdst8, rdi, YMM_SCD2, 4*clm
 	yloop	4*clm, b5b, -4*clm*64+clmblkdst ;; 4*clm iterations
 	yloop	8, b5b, -8*clmblkdst+5*clmblkdst8, rdi, -8*4*clm*YMM_SCD2 ;; Test loop counter, restore sin/cos ptr
 	yloop	4, b5b, -4*5*clmblkdst8		;; Test loop counter, restore source pointer

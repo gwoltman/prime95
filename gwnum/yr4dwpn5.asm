@@ -289,7 +289,7 @@ buildfor CORE   ,	ypass2gen 9216
 buildfor CORE   ,	ypass2gen 12288
 buildfor CORE   ,	ypass2gen 15360
 buildfor CORE   ,	ypass2gen 14
-buildfor CORE   ,	ypass2gen 20480
+buildfor        ,	ypass2gen 20480
 buildfor CORE   ,	ypass2gen 25600
 
 ;; Routines for many FFT sizes
