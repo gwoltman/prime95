@@ -2,7 +2,7 @@
 | This file contains various utility routines that may be used by gwnum
 | setup.
 | 
-|  Copyright 2011 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2011-2012 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 #ifndef _GWTABLES_H
@@ -230,7 +230,7 @@ struct gwasm_data {
 		double	YMM_P383[4];	/* and in the sixteen reals macros. */
 
 		double	YMM_P866[4];	/* Used in three-complex building blocks */
-		double	UNUSED_YMM_DOUBLES2[4];
+		double	YMM_TWO[4];	/* 2.0 */
 
 		double	YMM_P309[4];	/* Used in five-complex and 20-reals macros */
 		double	YMM_P809[4];

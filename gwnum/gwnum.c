@@ -5,7 +5,7 @@
 | in the multi-precision arithmetic routines.  That is, all routines
 | that deal with the gwnum data type.
 | 
-|  Copyright 2002-2011 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2012 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -2787,6 +2787,8 @@ int internal_gwsetup (
 
 		asm_data->u.ymm.YMM_HALF[0] = asm_data->u.ymm.YMM_HALF[1] =
 		asm_data->u.ymm.YMM_HALF[2] = asm_data->u.ymm.YMM_HALF[3] = 0.5;
+		asm_data->u.ymm.YMM_TWO[0] = asm_data->u.ymm.YMM_TWO[1] =
+		asm_data->u.ymm.YMM_TWO[2] = asm_data->u.ymm.YMM_TWO[3] = 2.0;
 		asm_data->u.ymm.YMM_SQRTHALF[0] = asm_data->u.ymm.YMM_SQRTHALF[1] =
 		asm_data->u.ymm.YMM_SQRTHALF[2] = asm_data->u.ymm.YMM_SQRTHALF[3] = sqrt (0.5);
 		asm_data->u.ymm.YMM_ABSVAL[0] = asm_data->u.ymm.YMM_ABSVAL[2] =

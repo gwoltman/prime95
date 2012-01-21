@@ -132,7 +132,8 @@ ypass2_48_real_2:
 	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	yloop_init 2			;; 2 more iterations
 	yloop_set_prefetch YDOUBLE	;; Prefetch 4 cache lines
-b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 	yloop	2, b3b, -3*4*64		;; Test loop counter, restore source pointer
 	jmp	ypass2_48_real_unfft
 
@@ -321,7 +322,8 @@ ypass2_48_complex_2:
 	start_timer 9
 	yloop_init 3
 	yloop_set_prefetch YSINGLE	;; Prefetch 3 cache lines
-b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 3
 	yloop	3, b3b, -3*4*64		;; Loop 3 times, restore source pointer
 	end_timer 9
 	jmp	ypass2_48_complex_unfft
@@ -512,7 +514,8 @@ ypass2_6_levels_real_2:
 	yloop_init 4			;; 3 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YDOUBLE
-b3b:	yr4_4cl_four_complex_with_square rsi, 64, 4*64, 8*64
+	yr4_4cl_four_complex_with_square_preload
+b3b:	yr4_4cl_four_complex_with_square rsi, 64, 4*64, 8*64, 1
 	yloop	4, b3b, -4*64		;; Test loop counter, restore source pointer
 	jmp	ypass2_6_levels_real_unfft
 
@@ -699,7 +702,8 @@ ypass2_6_levels_complex_2:
 	start_timer 9
 	yloop_init 4
 	yloop_set_prefetch YSINGLE
-b3b:	yr4_4cl_four_complex_with_square rsi, 64, 4*64, 8*64
+	yr4_4cl_four_complex_with_square_preload
+b3b:	yr4_4cl_four_complex_with_square rsi, 64, 4*64, 8*64, 4
 	yloop	4, b3b, -4*64		;; Loop 4 times, restore source pointer
 	end_timer 9
 	jmp	ypass2_6_levels_complex_unfft
@@ -892,7 +896,8 @@ ypass2_80_real_2:
 	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	yloop_init 4			;; 4 more iterations
 	yloop_set_prefetch YDOUBLE
-b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 	yloop	4, b3b, -5*4*64		;; Test loop counter, restore source pointer
 	jmp	ypass2_80_real_unfft
 
@@ -1081,7 +1086,8 @@ ypass2_80_complex_2:
 	start_timer 9
 	yloop_init 5			
 	yloop_set_prefetch YSINGLE
-b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 5
 	yloop	5, b3b, -5*4*64		;; Loop 5 times, restore source pointer
 	end_timer 9
 	jmp	ypass2_80_complex_unfft
@@ -1328,7 +1334,8 @@ ypass2_192_real_2:
 	yloop_init 12			;; 11 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YSINGLE
-b4b:	yr4_4cl_four_complex_with_square rsi, 64, 4*64, 8*64
+	yr4_4cl_four_complex_with_square_preload
+b4b:	yr4_4cl_four_complex_with_square rsi, 64, 4*64, 8*64, 1
 	yloop	4, b4b, -4*64+16*64		;; Test loop counter, next source pointer
 	yloop	3, b4b, -3*16*64		;; Test loop counter, restore source pointer
 	jmp	ypass2_192_real_unfft
@@ -1608,7 +1615,8 @@ ypass2_192_complex_2:
 	start_timer 9
 	yloop_init 12
 	yloop_set_prefetch YHALF
-b4b:	yr4_4cl_four_complex_with_square rsi, 64, 4*64, 8*64
+	yr4_4cl_four_complex_with_square_preload
+b4b:	yr4_4cl_four_complex_with_square rsi, 64, 4*64, 8*64, 4
 	yloop	4, b4b, -4*64+16*64		;; Loop 4 times, next source pointer
 	yloop	3, b4b, -3*16*64		;; Loop 3 times, restore source pointer
 	end_timer 9
@@ -1878,7 +1886,8 @@ ypass2_8_levels_real_2:
 	yloop_init 16			;; 15 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YSINGLE
-b4b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64
+	yr4_4cl_four_complex_with_square_preload
+b4b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64, 1
 	yloop	16, b4b, -16*64		;; Test loop counter, restore source pointer
 	jmp	ypass2_8_levels_real_unfft
 
@@ -2137,7 +2146,8 @@ ypass2_8_levels_complex_2:
 	start_timer 9
 	yloop_init 16
 	yloop_set_prefetch YHALF
-b4b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64
+	yr4_4cl_four_complex_with_square_preload
+b4b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64, 16
 	yloop	16, b4b, -16*64		;; Loop 16 times, restore source pointer
 	end_timer 9
 	jmp	ypass2_8_levels_complex_unfft
@@ -2411,7 +2421,8 @@ ypass2_320_real_2:
 	yloop_init 20			;; 19 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YSINGLE
-b4b:	yr4_4cl_four_complex_with_square rsi, 64, 4*64, 8*64
+	yr4_4cl_four_complex_with_square_preload
+b4b:	yr4_4cl_four_complex_with_square rsi, 64, 4*64, 8*64, 1
 	yloop	4, b4b, -4*64+16*64		;; Test loop counter, next source pointer
 	yloop	5, b4b, -5*16*64		;; Test loop counter, restore source pointer
 	jmp	ypass2_320_real_unfft
@@ -2691,7 +2702,8 @@ ypass2_320_complex_2:
 	start_timer 9
 	yloop_init 20
 	yloop_set_prefetch YHALF
-b4b:	yr4_4cl_four_complex_with_square rsi, 64, 4*64, 8*64
+	yr4_4cl_four_complex_with_square_preload
+b4b:	yr4_4cl_four_complex_with_square rsi, 64, 4*64, 8*64, 4
 	yloop	4, b4b, -4*64+16*64		;; Loop 4 times, next source pointer
 	yloop	5, b4b, -5*16*64		;; Loop 5 times, restore source pointer
 	end_timer 9
@@ -3027,7 +3039,8 @@ ypass2_768_real_2:
 	yloop_init 48			;; 47 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YHALF
-b5b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64
+	yr4_4cl_four_complex_with_square_preload
+b5b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64, 1
 	yloop	16, b5b, -16*64+dist64		;; Loop 16 times, next source pointer
 	yloop	3, b5b, -3*dist64		;; Loop 3 times, restore source pointer
 	jmp	ypass2_768_real_unfft
@@ -3394,7 +3407,8 @@ ypass2_768_complex_2:
 	start_timer 9
 	yloop_init 48
 	yloop_set_prefetch YHALF
-b5b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64
+	yr4_4cl_four_complex_with_square_preload
+b5b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64, 16
 	yloop	16, b5b, -16*64+dist64		;; Loop 16 times, next source pointer
 	yloop	3, b5b, -3*dist64		;; Loop 3 times, restore source pointer
 	end_timer 9
@@ -3752,7 +3766,8 @@ ypass2_10_levels_real_2:
 	yloop_init 64			;; 63 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YHALF
-b5b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64
+	yr4_4cl_four_complex_with_square_preload
+b5b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64, 1
 	yloop	64, b5b, -64*64		;; Test loop counter, restore source pointer
 	jmp	ypass2_10_levels_real_unfft
 
@@ -4089,7 +4104,8 @@ ypass2_10_levels_complex_2:
 	start_timer 9
 	yloop_init 64
 	yloop_set_prefetch YHALF
-b5b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64
+	yr4_4cl_four_complex_with_square_preload
+b5b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64, 64
 	yloop	64, b5b, -64*64		;; Loop 64 times, restore source pointer
 	end_timer 9
 	jmp	ypass2_10_levels_complex_unfft
@@ -4445,7 +4461,8 @@ ypass2_1280_real_2:
 	yloop_init 80			;; 79 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YHALF
-b5b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64
+	yr4_4cl_four_complex_with_square_preload
+b5b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64, 1
 	yloop	16, b5b, -16*64+dist64	;; Loop 16 times, next source pointer
 	yloop	5, b5b, -5*dist64	;; Loop 5 times, restore source pointer
 	jmp	ypass2_1280_real_unfft
@@ -4806,7 +4823,8 @@ ypass2_1280_complex_2:
 	start_timer 9
 	yloop_init 80
 	yloop_set_prefetch YHALF
-b5b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64
+	yr4_4cl_four_complex_with_square_preload
+b5b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64, 16
 	yloop	16, b5b, -16*64+dist64	;; Loop 16 times, next source pointer
 	yloop	5, b5b, -5*dist64	;; Loop 5 times, restore source pointer
 	end_timer 9
@@ -7722,7 +7740,8 @@ ypass2_2304_real_2:
 	yloop_init 144			;; 143 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YQUARTER
-b6b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64
+	yr4_4cl_four_complex_with_square_preload
+b6b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64, 1
 	yloop	16, b6b, -16*64+dist64	;; Test loop counter, next source pointer
 	yloop	9, b6b, -9*dist64	;; Test loop counter, restore source pointer
 	jmp	ypass2_2304_real_unfft
@@ -8228,8 +8247,8 @@ b5b:	yr4_eb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 4
 	start_timer 9
 	yloop_set_prefetch YQUARTER	;; Prefetch 36 cache lines in this loop
 	yr4_4cl_four_complex_with_square_preload
-b6b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64
-	yloop	16, b6b, -16*64	;; Loop 16 times, restore source pointer
+b6b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64, 16
+	yloop	16, b6b, -16*64		;; Loop 16 times, restore source pointer
 	loops_undo 16			;; Back up loop counter
 	end_timer 9
 
@@ -8674,7 +8693,8 @@ ypass2_3072_real_2:
 	yloop_init 192			;; 191 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YHALF
-b6b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64
+	yr4_4cl_four_complex_with_square_preload
+b6b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64, 1
 	yloop	64, b6b, -64*64+4*dist64	;; Test loop counter, next source pointer
 	yloop	3, b6b, -3*4*dist64	;; Test loop counter, restore source pointer
 	jmp	ypass2_3072_real_unfft
@@ -9207,7 +9227,7 @@ b5b:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 ;; Loop below reworked to avoid 4KB distances
 ;;b6b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64
 ;;	yloop	64, b6b, -64*64	;; Loop 64 times, restore source pointer
-b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, dist64, 2*dist64
+b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, dist64, 2*dist64, 16
 	yloop	16, b6b, -16*4*64+64	;; Loop 16 times, next source pointer
 	yloop	4, b6b, -4*64	;; Loop 4 times, restore source pointer
 	loops_undo 64			;; Back up loop counter
@@ -9665,7 +9685,8 @@ ypass2_3840_real_2:
 	yloop_init 240			;; 239 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YHALF
-b6b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64
+	yr4_4cl_four_complex_with_square_preload
+b6b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64, 1
 	yloop	16, b6b, -16*64+dist64	;; Test loop counter, next source pointer
 	yloop	15, b6b, -15*dist64	;; Test loop counter, restore source pointer
 	jmp	ypass2_3840_real_unfft
@@ -10172,7 +10193,7 @@ b5b:	yr4_eb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 4
 	start_timer 9
 	yloop_set_prefetch YQUARTER	;; Prefetch 60 cache lines in this loop
 	yr4_4cl_four_complex_with_square_preload
-b6b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64
+b6b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64, 16
 	yloop	16, b6b, -16*64	;; Loop 16 times, restore source pointer
 	loops_undo 16			;; Back up loop counter
 	end_timer 9
@@ -10599,7 +10620,8 @@ ypass2_12_levels_real_2:
 	yloop_init 256			;; 255 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YOTHER, 16
-b6b:	yr4_4cl_four_complex_with_square rsi, 64, 4*dist64, 8*dist64
+	yr4_4cl_four_complex_with_square_preload
+b6b:	yr4_4cl_four_complex_with_square rsi, 64, 4*dist64, 8*dist64, 1
 	yloop	64, b6b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	4, b6b, -4*dist64	;; Test loop counter, restore source pointer
 	jmp	ypass2_12_levels_real_unfft
@@ -11062,7 +11084,7 @@ ypass2_12_levels_complex_2:
 b3b0:	start_timer 6
 	yloop_set_prefetch YHALF	;; Prefetch 128 cache lines in this loop
 b3b:	yr4_b4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
-	yloop	16, b3b, -16*64+4*dist64	;; Loop 16 times, next source pointer
+	yloop	16, b3b, -16*64+4*dist64 ;; Loop 16 times, next source pointer
 	yloop	4, b3b, -4*4*dist64, rdi, -64*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
 	end_timer 6
@@ -11087,8 +11109,8 @@ b5b:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	start_timer 9
 	yloop_set_prefetch YOTHER, 16	;; Prefetch 16 cache lines in this loop
 	yr4_4cl_four_complex_with_square_preload
-b6b:	yr4_4cl_four_complex_with_square rsi, 64, 4*dist64, 8*dist64
-	yloop	64, b6b, -64*64	;; Loop 64 times, restore source pointer
+b6b:	yr4_4cl_four_complex_with_square rsi, 64, 4*dist64, 8*dist64, 64
+	yloop	64, b6b, -64*64		;; Loop 64 times, restore source pointer
 	loops_undo 64			;; Back up loop counter
 	end_timer 9
 
@@ -11112,7 +11134,7 @@ c4b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD2/4, 4
 	start_timer 12
 	yloop_set_prefetch YHALF	;; Prefetch 128 cache lines in this loop
 c3b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
-	yloop	16, c3b, -16*64+4*dist64	;; Loop 16 times, next source pointer
+	yloop	16, c3b, -16*64+4*dist64 ;; Loop 16 times, next source pointer
 	yloop	4, c3b, -4*4*dist64+dist64, rdi, -64*YMM_SCD2/4 ;; Loop 4 times, next source pointer, restore sine/cosine pointer
 	end_timer 12
 
@@ -11127,7 +11149,7 @@ ypass2_12_levels_complex_1:
 
 	yloop_set_prefetch YSINGLE	;; Prefetch 256 cache lines in this loop
 b3a:	yr4_b4cl_four_complex_djbfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD2/4, 16
-	yloop	16, b3a, -16*64+4*dist64	;; Loop 16 times, next source pointer
+	yloop	16, b3a, -16*64+4*dist64 ;; Loop 16 times, next source pointer
 	yloop	4, b3a, -4*4*dist64, rdi, -64*YMM_SCD2/4 ;; Loop 4 times, restore source pointer, restore sine/cosine pointer
 	loops_undo 4*16			;; Back up loop counter
 
@@ -11541,7 +11563,8 @@ ypass2_5120_real_2:
 	yloop_init 320			;; 319 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YQUARTER
-b6b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64
+	yr4_4cl_four_complex_with_square_preload
+b6b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64, 1
 	yloop	64, b6b, -64*64+4*dist64	;; Test loop counter, next source pointer
 	yloop	5, b6b, -5*4*dist64	;; Test loop counter, restore source pointer
 	jmp	ypass2_5120_real_unfft
@@ -12072,7 +12095,7 @@ b5b:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 ;; Loop below reworked to avoid 4KB distances
 ;;b6b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64
 ;;	yloop	64, b6b, -64*64	;; Loop 64 times, restore source pointer
-b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, dist64, 2*dist64
+b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, dist64, 2*dist64, 16
 	yloop	16, b6b, -16*4*64+64	;; Loop 16 times, next source pointer
 	yloop	4, b6b, -4*64	;; Loop 4 times, restore source pointer
 	loops_undo 64			;; Back up loop counter
@@ -12517,7 +12540,8 @@ ypass2_6400_real_2:
 	yloop_init 400			;; 399 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YHALF
-b6b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64
+	yr4_4cl_four_complex_with_square_preload
+b6b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64, 1
 	yloop	16, b6b, -16*64+dist64	;; Test loop counter, next source pointer
 	yloop	25, b6b, -25*dist64	;; Test loop counter, restore source pointer
 	jmp	ypass2_6400_real_unfft
@@ -13021,7 +13045,7 @@ b5b:	yr4_eb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 4
 
 	start_timer 9
 	yr4_4cl_four_complex_with_square_preload
-b6b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64
+b6b:	yr4_4cl_four_complex_with_square rsi, 64, 16*64, 32*64, 16
 	yloop	16, b6b, -16*64	;; Loop 16 times, restore source pointer
 	loops_undo 16			;; Back up loop counter
 	end_timer 9
@@ -19483,7 +19507,8 @@ ypass2_9216_real_2:
 	yloop_init 576			;; 575 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YQUARTER
-b7b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64
+	yr4_4cl_four_complex_with_square_preload
+b7b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64, 1
 	yloop	64, b7b, -64*64+4*dist64	;; Test loop counter, next source pointer
 	yloop	9, b7b, -9*4*dist64	;; Test loop counter, restore source pointer
 	jmp	ypass2_9216_real_unfft
@@ -20109,7 +20134,7 @@ b6b:	yr4_eb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 ;; Loop below reworked to avoid 4KB distances
 ;;b7b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64
 ;;	yloop	64, b7b, -64*64	;; Loop 64 times, restore source pointer
-b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, dist64, 2*dist64
+b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, dist64, 2*dist64, 16
 	yloop	16, b7b, -16*4*64+64	;; Loop 16 times, next source pointer
 	yloop	4, b7b, -4*64	;; Loop 4 times, restore source pointer
 	loops_undo 64			;; Back up loop counter
@@ -20675,7 +20700,8 @@ ypass2_12288_real_2:
 	yloop_init 768			;; 767 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YQUARTER
-b7b:	yr4_4cl_four_complex_with_square rsi, 64, 4*dist64, 8*dist64
+	yr4_4cl_four_complex_with_square_preload
+b7b:	yr4_4cl_four_complex_with_square rsi, 64, 4*dist64, 8*dist64, 1
 	yloop	64, b7b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	4, b7b, -4*dist64+16*dist64	;; Test loop counter, next source pointer
 	yloop	3, b7b, -3*16*dist64	;; Test loop counter, restore source pointer
@@ -21298,7 +21324,7 @@ b6b:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	start_timer 9
 	yloop_set_prefetch YQUARTER	;; Prefetch 192 cache lines in this loop
 	yr4_4cl_four_complex_with_square_preload
-b7b:	yr4_4cl_four_complex_with_square rsi, 64, 4*dist64, 8*dist64
+b7b:	yr4_4cl_four_complex_with_square rsi, 64, 4*dist64, 8*dist64, 64
 	yloop	64, b7b, -64*64		;; Loop 64 times, restore source pointer
 	loops_undo 64			;; Back up loop counter
 	end_timer 9
@@ -21831,7 +21857,8 @@ ypass2_15360_real_2:
 	yloop_init 960			;; 959 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YQUARTER
-b7b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64
+	yr4_4cl_four_complex_with_square_preload
+b7b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64, 1
 	yloop	64, b7b, -64*64+4*dist64	;; Test loop counter, next source pointer
 	yloop	15, b7b, -15*4*dist64	;; Test loop counter, restore source pointer
 	jmp	ypass2_15360_real_unfft
@@ -22457,7 +22484,7 @@ b6b:	yr4_eb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 ;; Loop below reworked to avoid 4KB distances
 ;;b7b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64
 ;;	yloop	64, b7b, -64*64	;; Loop 64 times, restore source pointer
-b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, dist64, 2*dist64
+b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, dist64, 2*dist64, 16
 	yloop	16, b7b, -16*4*64+64	;; Loop 16 times, next source pointer
 	yloop	4, b7b, -4*64	;; Loop 4 times, restore source pointer
 	loops_undo 64			;; Back up loop counter
@@ -22995,7 +23022,8 @@ ypass2_14_levels_real_2:
 	yloop_init 1024			;; 1023 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YOTHER, 16
-b7b:	yr4_4cl_four_complex_with_square rsi, 64, 16*dist64, 32*dist64
+	yr4_4cl_four_complex_with_square_preload
+b7b:	yr4_4cl_four_complex_with_square rsi, 64, 16*dist64, 32*dist64, 1
 	yloop	64, b7b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	16, b7b, -16*dist64	;; Test loop counter, restore source pointer
 	jmp	ypass2_14_levels_real_unfft
@@ -23559,7 +23587,7 @@ b6b:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 	start_timer 9
 	yloop_set_prefetch YOTHER, 16	;; Prefetch 64 cache lines in this loop
 	yr4_4cl_four_complex_with_square_preload
-b7b:	yr4_4cl_four_complex_with_square rsi, 64, 16*dist64, 32*dist64
+b7b:	yr4_4cl_four_complex_with_square rsi, 64, 16*dist64, 32*dist64, 64
 	yloop	64, b7b, -64*64	;; Loop 64 times, restore source pointer
 	loops_undo 64			;; Back up loop counter
 	end_timer 9
@@ -24096,7 +24124,8 @@ ypass2_20480_real_2:
 	yloop_init 1280			;; 1279 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YQUARTER
-b7b:	yr4_4cl_four_complex_with_square rsi, 64, 4*dist64, 8*dist64
+	yr4_4cl_four_complex_with_square_preload
+b7b:	yr4_4cl_four_complex_with_square rsi, 64, 4*dist64, 8*dist64, 1
 	yloop	64, b7b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	4, b7b, -4*dist64+16*dist64	;; Test loop counter, next source pointer
 	yloop	5, b7b, -5*16*dist64	;; Test loop counter, restore source pointer
@@ -24713,7 +24742,7 @@ b6b:	yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 
 	start_timer 9
 	yr4_4cl_four_complex_with_square_preload
-b7b:	yr4_4cl_four_complex_with_square rsi, 64, 4*dist64, 8*dist64
+b7b:	yr4_4cl_four_complex_with_square rsi, 64, 4*dist64, 8*dist64, 64
 	yloop	64, b7b, -64*64		;; Loop 64 times, restore source pointer
 	loops_undo 64			;; Back up loop counter
 	end_timer 9
@@ -25236,7 +25265,8 @@ ypass2_25600_real_2:
 	yloop_init 1600			;; 1599 more iterations
 	yloop_adjust 1
 	yloop_set_prefetch YQUARTER
-b7b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64
+	yr4_4cl_four_complex_with_square_preload
+b7b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64, 1
 	yloop	64, b7b, -64*64+4*dist64	;; Test loop counter, next source pointer
 	yloop	25, b7b, -25*4*dist64	;; Test loop counter, restore source pointer
 	jmp	ypass2_25600_real_unfft
@@ -25858,10 +25888,11 @@ b6b:	yr4_eb4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, 16
 
 	start_timer 9
 	yloop_set_prefetch YQUARTER	;; Prefetch 400 cache lines in this loop
+	yr4_4cl_four_complex_with_square_preload
 ;; Loop below reworked to avoid 4KB distances
 ;;b7b:	yr4_4cl_four_complex_with_square rsi, 64, dist64, 2*dist64
 ;;	yloop	64, b7b, -64*64	;; Loop 64 times, restore source pointer
-b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, dist64, 2*dist64
+b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, dist64, 2*dist64, 16
 	yloop	16, b7b, -16*4*64+64	;; Loop 16 times, next source pointer
 	yloop	4, b7b, -4*64	;; Loop 4 times, restore source pointer
 	loops_undo 64			;; Back up loop counter

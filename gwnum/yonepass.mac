@@ -298,7 +298,8 @@ yfft32p MACRO type
 	yfft_1_ret
 
 ymid2p:	start_timer 5
-	yr4_4cl_four_complex_with_square rsi, 0, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+	yr4_4cl_four_complex_with_square rsi, 0, 64, 2*64, 1
 	end_timer 5
 	jmp	yfinish_unfft
 
@@ -688,7 +689,8 @@ b3a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 ymid2:	start_timer 6
 	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	yloop_init  2			;; 2 more iterations
-b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 2
 	yloop	2, b3b			;; Test loop counter
 	end_timer 6
 	jmp	yfinish_unfft
@@ -874,7 +876,8 @@ b3a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 
 ymid2p:	start_timer 6
 	yloop_init  3			;; 3 iterations
-b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 3
 	yloop	3, b3b			;; Test loop counter
 	end_timer 6
 	jmp	yfinish_unfft
@@ -1070,7 +1073,8 @@ b3a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 ymid2:	start_timer 6
 	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	yloop_init  4, 1, 4		;; 3 more iterations
-b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 	yloop	4, b3b			;; Test loop counter
 	end_timer 6
 	jmp	yfinish_unfft
@@ -1263,7 +1267,8 @@ b3a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 
 ymid2p:	start_timer 6
 	yloop_init  4			;; 4 iterations
-b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 4
 	yloop	4, b3b			;; Test loop counter
 	end_timer 6
 	jmp	yfinish_unfft
@@ -1461,7 +1466,8 @@ b3a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 ymid2:	start_timer 6
 	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	yloop_init  4			;; 4 more iterations
-b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 4
 	yloop	4, b3b			;; Test loop counter
 	end_timer 6
 	jmp	yfinish_unfft
@@ -1655,7 +1661,8 @@ b3a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 
 ymid2p:	start_timer 6
 	yloop_init  5			;; 5 iterations
-b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 5
 	yloop	5, b3b			;; Test loop counter
 	end_timer 6
 	jmp	yfinish_unfft
@@ -3057,7 +3064,8 @@ b4a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 ymid2:	start_timer 7
 	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	yloop_init  11			;; 11 more iterations
-b4b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b4b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 11
 	yloop	11, b4b			;; Test loop counter
 	end_timer 7
 	jmp	yfinish_unfft
@@ -3313,7 +3321,8 @@ b4a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 
 ymid2p:	start_timer 7
 	yloop_init  12			;; 12 iterations
-b4b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b4b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 12
 	yloop	12, b4b			;; Test loop counter
 	end_timer 7
 	jmp	yfinish_unfft
@@ -3576,7 +3585,8 @@ b4a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 ymid2:	start_timer 7
 	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	yloop_init  16, 1, 16		;; 15 more iterations
-b4b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b4b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 	yloop	16, b4b			;; Test loop counter
 	end_timer 7
 	jmp	yfinish_unfft
@@ -3834,7 +3844,8 @@ b4a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 
 ymid2p:	start_timer 7
 	yloop_init  16			;; 16 iterations
-b4b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b4b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 16
 	yloop	16, b4b			;; Test loop counter
 	end_timer 7
 	jmp	yfinish_unfft
@@ -4098,7 +4109,8 @@ b4a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 ymid2:	start_timer 7
 	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	yloop_init  19			;; 19 more iterations
-b4b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b4b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 19
 	yloop	19, b4b			;; Test loop counter
 	end_timer 7
 	jmp	yfinish_unfft
@@ -4359,7 +4371,8 @@ b4a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 
 ymid2p:	start_timer 7
 	yloop_init  20			;; 20 iterations
-b4b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b4b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 20
 	yloop	20, b4b			;; Test loop counter
 	end_timer 7
 	jmp	yfinish_unfft
@@ -6226,7 +6239,8 @@ b5a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 ymid2:	start_timer 8
 	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	yloop_init  48, 1, 4		;; 47 more iterations
-b5b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b5b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 	yloop	4, b5b, -4*4*64+dist16	;; Test loop counter, next source pointer
 	yloop	12, b5b			;; Test loop counter
 	end_timer 8
@@ -6547,7 +6561,8 @@ b5a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 
 ymid2p:	start_timer 8
 	yloop_init  48			;; 48 iterations
-b5b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b5b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 4
 	yloop	4, b5b, -4*4*64+dist16	;; Test loop counter, next source pointer
 	yloop	12, b5b			;; Test loop counter
 	end_timer 8
@@ -6884,7 +6899,8 @@ b5a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 ymid2:	start_timer 8
 	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	yloop_init  64, 1, 16		;; 63 more iterations
-b5b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b5b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 	yloop	16, b5b, -16*4*64+dist64 ;; Test loop counter, next source pointer
 	yloop	4, b5b			;; Test loop counter
 	end_timer 8
@@ -7224,7 +7240,8 @@ b5a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 
 ymid2p:	start_timer 8
 	yloop_init  64			;; 64 iterations
-b5b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b5b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 16
 	yloop	16, b5b, -16*4*64+dist64 ;; Test loop counter, next source pointer
 	yloop	4, b5b			;; Test loop counter
 	end_timer 8
@@ -7561,7 +7578,8 @@ b5a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 ymid2:	start_timer 8
 	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	yloop_init  80, 1, 4		;; 79 more iterations
-b5b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b5b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 	yloop	4, b5b, -4*4*64+dist16	;; Test loop counter, next source pointer
 	yloop	20, b5b			;; Test loop counter
 	end_timer 8
@@ -7887,7 +7905,8 @@ b5a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 
 ymid2p:	start_timer 8
 	yloop_init  80			;; 80 iterations
-b5b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b5b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 4
 	yloop	4, b5b, -4*4*64+dist16	;; Test loop counter, next source pointer
 	yloop	20, b5b			;; Test loop counter
 	end_timer 8
@@ -10247,7 +10266,8 @@ b6a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 ymid2:	start_timer 9
 	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	yloop_init  192, 1, 16		;; 191 more iterations
-b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 	yloop	16, b6b, -16*4*64+dist64 ;; Test loop counter, next source pointer
 	yloop	12, b6b			;; Test loop counter
 	end_timer 9
@@ -10648,7 +10668,8 @@ b6a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 
 ymid2p:	start_timer 9
 	yloop_init  192			;; 192 iterations
-b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 16
 	yloop	16, b6b, -16*4*64+dist64 ;; Test loop counter, next source pointer
 	yloop	12, b6b			;; Test loop counter
 	end_timer 9
@@ -11057,7 +11078,8 @@ b6a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 ymid2:	start_timer 9
 	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	yloop_init  256, 1, 16		;; 255 more iterations
-b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 	yloop	16, b6b, -16*4*64+dist64 ;; Test loop counter, next source pointer
 	yloop	16, b6b			;; Test loop counter
 	end_timer 9
@@ -11460,7 +11482,8 @@ b6a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 
 ymid2p:	start_timer 9
 	yloop_init  256			;; 256 iterations
-b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 16
 	yloop	16, b6b, -16*4*64+dist64 ;; Test loop counter, next source pointer
 	yloop	16, b6b			;; Test loop counter
 	end_timer 9
@@ -11870,7 +11893,8 @@ b6a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 ymid2:	start_timer 9
 	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	yloop_init  320, 1, 16		;; 319 more iterations
-b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 	yloop	16, b6b, -16*4*64+dist64 ;; Test loop counter, next source pointer
 	yloop	20, b6b			;; Test loop counter
 	end_timer 9
@@ -12276,7 +12300,8 @@ b6a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 
 ymid2p:	start_timer 9
 	yloop_init  320			;; 320 iterations
-b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 16
 	yloop	16, b6b, -16*4*64+dist64 ;; Test loop counter, next source pointer
 	yloop	20, b6b			;; Test loop counter
 	end_timer 9
@@ -15179,7 +15204,8 @@ b7a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 ymid2:	start_timer 10
 	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	yloop_init  576, 1, 16		;; 575 more iterations
-b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 	yloop	16, b7b, -16*4*64+dist64 ;; Test loop counter, next source pointer
 	yloop	36, b7b			;; Test loop counter
 	end_timer 10
@@ -15649,7 +15675,8 @@ b7a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 
 ymid2p:	start_timer 10
 	yloop_init  576			;; 576 iterations
-b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 16
 	yloop	16, b7b, -16*4*64+dist64 ;; Test loop counter, next source pointer
 	yloop	36, b7b			;; Test loop counter
 	end_timer 10
@@ -16125,7 +16152,8 @@ b7a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 ymid2:	start_timer 10
 	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	yloop_init  768, 1, 16		;; 767 more iterations
-b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 	yloop	16, b7b, -16*4*64+dist64 ;; Test loop counter, next source pointer
 	yloop	48, b7b			;; Test loop counter
 	end_timer 10
@@ -16594,7 +16622,8 @@ b7a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 
 ymid2p:	start_timer 10
 	yloop_init  768			;; 768 iterations
-b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 16
 	yloop	16, b7b, -16*4*64+dist64 ;; Test loop counter, next source pointer
 	yloop	48, b7b			;; Test loop counter
 	end_timer 10
@@ -17071,7 +17100,8 @@ b7a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 ymid2:	start_timer 10
 	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
 	yloop_init  1024, 1, 16		;; 1023 more iterations
-b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 	yloop	16, b7b, -16*4*64+dist64 ;; Test loop counter, next source pointer
 	yloop	64, b7b			;; Test loop counter
 	end_timer 10
@@ -17542,7 +17572,8 @@ b7a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 
 ymid2p:	start_timer 10
 	yloop_init  1024		;; 1024 iterations
-b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_4cl_four_complex_with_square_preload
+b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 16
 	yloop	16, b7b, -16*4*64+dist64 ;; Test loop counter, next source pointer
 	yloop	64, b7b			;; Test loop counter
 	end_timer 10

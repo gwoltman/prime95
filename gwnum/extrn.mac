@@ -1,4 +1,4 @@
-; Copyright 1995-2011 Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2012 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -241,7 +241,7 @@ YMM_P924		EQU	YPTR [UNION_BASE+16*SZPTR+64*8]
 YMM_P383		EQU	YPTR [UNION_BASE+16*SZPTR+68*8]
 
 YMM_P866		EQU	YPTR [UNION_BASE+16*SZPTR+72*8]
-;UNUSED_YMM_DOUBLES2[4]	EQU	YPTR [UNION_BASE+16*SZPTR+76*8]
+YMM_TWO			EQU	YPTR [UNION_BASE+16*SZPTR+76*8]
 
 YMM_P309		EQU	YPTR [UNION_BASE+16*SZPTR+80*8]
 YMM_P809		EQU	YPTR [UNION_BASE+16*SZPTR+84*8]
