@@ -1076,17 +1076,15 @@ double *yr4_build_pass2_real_table (
 
 	if (!swizzled) {
 		for (j = 0; j < N / 4; j += 4) {
-			gwsincos15by4 (j, N*2, table);		/* For the eight real */
-			gwsincos15by4 (j + avx_increment, N*2, table+1);
-			gwsincos15by4 (j + 2*avx_increment, N*2, table+2);
-			gwsincos15by4 (j + 3*avx_increment, N*2, table+3);
-			table += 16;
-		}
-		for (j = 0; j < N / 4; j += 4) {
 			gwsincos12by4 (j, N, table);		/* For the four-complex */
 			gwsincos12by4 (j + avx_increment, N, table+1);
 			gwsincos12by4 (j + 2*avx_increment, N, table+2);
 			gwsincos12by4 (j + 3*avx_increment, N, table+3);
+			table += 16;
+			gwsincos15by4 (j, N*2, table);		/* For the eight real */
+			gwsincos15by4 (j + avx_increment, N*2, table+1);
+			gwsincos15by4 (j + 2*avx_increment, N*2, table+2);
+			gwsincos15by4 (j + 3*avx_increment, N*2, table+3);
 			table += 16;
 		}
 		N = N / 4;

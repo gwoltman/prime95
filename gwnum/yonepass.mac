@@ -167,7 +167,7 @@ yfft32 MACRO type
 	start_timer 4
 	mov	rdi, sincos1		;; Load sin/cos data ptr
 	yr4_fs4cl_eight_reals_fft_preload
-	yr4_fs4cl_eight_reals_fft rsi, 0, 64, 2*64, rdi
+	yr4_fs4cl_eight_reals_fft rsi, 0, 64, 2*64, rdi, 0, 1
 	end_timer 4
 
 ;; Do FFT levels 4,5
@@ -233,7 +233,7 @@ yfinish_unfft:
 	start_timer 6
 	mov	rdi, sincos1		;; Load sin/cos data ptr
 	yr4_s4cl_eight_reals_unfft_preload
-	yr4_s4cl_eight_reals_unfft rsi, 0, 64, 2*64, rdi
+	yr4_s4cl_eight_reals_unfft rsi, 0, 64, 2*64, rdi, 0, 1
 	end_timer 6
 
 	ysub_7_words 8, 16, 24, 64, 72, 80
@@ -388,8 +388,7 @@ yfft64 MACRO type
 	mov	rdi, sincos1		;; Load sin/cos data ptr
 	yloop_init  2			;; 2 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 2*64, 4*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 2*64, 4*64, rdi, YMM_SCD3, 2
 	yloop	2, b1b, -2*64		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -459,8 +458,7 @@ yfinish_unfft:
 	mov	rdi, sincos1		;; Load sin/cos data ptr
 	yloop_init  2			;; 2 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 2*64, 4*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 2*64, 4*64, rdi, YMM_SCD3, 2
 	yloop	2, c1b			;; Test loop counter
 	end_timer 6
 
@@ -628,8 +626,7 @@ yfft96 MACRO type
 	bump	rdi, 4*YMM_SCD2
 	yloop_init  3			;; 3 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 3*64, 6*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 3*64, 6*64, rdi, YMM_SCD3, 3
 	yloop	3, b1b, -3*64		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -769,8 +766,7 @@ c2b:	yr3_3cl_six_reals_three_complex_djbunfft rsi, 64, 4*64, rdi, YMM_SCD2, 4
 	start_timer 8
 	yloop_init  3			;; 3 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 3*64, 6*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 3*64, 6*64, rdi, YMM_SCD3, 3
 	yloop	3, c1b			;; Test loop counter
 	end_timer 8
 
@@ -1009,8 +1005,7 @@ yfft128 MACRO type
 	bump	rdi, 4*YMM_SCD3
 	yloop_init  4			;; 4 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 4*64, 8*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 4*64, 8*64, rdi, YMM_SCD3, 4
 	yloop	4, b1b, -4*64		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -1157,8 +1152,7 @@ c2b:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 64, 4*64, 8*64, rdi
 	start_timer 8
 	yloop_init  4			;; 4 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 4*64, 8*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 4*64, 8*64, rdi, YMM_SCD3, 4
 	yloop	4, c1b			;; Test loop counter
 	end_timer 8
 
@@ -1402,8 +1396,7 @@ yfft160 MACRO type
 	bump	rdi, 4*YMM_SCD4
 	yloop_init  5			;; 5 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 5*64, 10*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 5*64, 10*64, rdi, YMM_SCD3, 5
 	yloop	5, b1b, -5*64		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -1550,8 +1543,7 @@ c2b:	yr5_5cl_ten_reals_five_complex_djbunfft rsi, 64, 4*64, rdi
 	start_timer 8
 	yloop_init  5			;; 5 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 5*64, 10*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 5*64, 10*64, rdi, YMM_SCD3, 5
 	yloop	5, c1b			;; Test loop counter
 	end_timer 8
 
@@ -1797,8 +1789,7 @@ yfft192 MACRO type
 	bump	rdi, 8*YMM_SCD2
 	yloop_init  6			;; 6 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 6*64, 12*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 6*64, 12*64, rdi, YMM_SCD3, 6
 	yloop	6, b1b, -6*64		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -1939,8 +1930,7 @@ c2b:	yr3_3cl_six_reals_three_complex_djbunfft rsi, 64, 8*64, rdi, YMM_SCD2, 8
 	start_timer 8
 	yloop_init  6			;; 6 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 6*64, 12*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 6*64, 12*64, rdi, YMM_SCD3, 6
 	yloop	6, c1b			;; Test loop counter
 	end_timer 8
 
@@ -2182,8 +2172,7 @@ yfft256 MACRO type
 	bump	rdi, 8*YMM_SCD3
 	yloop_init  8			;; 8 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 8*64, 16*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 8*64, 16*64, rdi, YMM_SCD3, 8
 	yloop	8, b1b, -8*64		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -2329,8 +2318,7 @@ c2b:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi
 	start_timer 8
 	yloop_init  8			;; 8 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 8*64, 16*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD3, 8
 	yloop	8, c1b			;; Test loop counter
 	end_timer 8
 
@@ -2573,8 +2561,7 @@ yfft320 MACRO type
 	bump	rdi, 8*YMM_SCD4
 	yloop_init  10			;; 10 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 10*64, 20*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 10*64, 20*64, rdi, YMM_SCD3, 10
 	yloop	10, b1b, -10*64		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -2720,8 +2707,7 @@ c2b:	yr5_5cl_ten_reals_five_complex_djbunfft rsi, 64, 8*64, rdi
 	start_timer 8
 	yloop_init  10			;; 10 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 10*64, 20*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 10*64, 20*64, rdi, YMM_SCD3, 10
 	yloop	10, c1b			;; Test loop counter
 	end_timer 8
 
@@ -2966,8 +2952,7 @@ yfft384 MACRO type
 	bump	rdi, 16*YMM_SCD2+4*YMM_SCD3
 	yloop_init  12			;; 12 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 12*64, 24*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 12*64, 24*64, rdi, YMM_SCD3, 12
 	yloop	12, b1b, -12*64		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -3182,8 +3167,7 @@ c2b:	yr3_3cl_six_reals_three_complex_djbunfft rsi, 64, 16*64, rdi, YMM_SCD2, 16
 	start_timer 10
 	yloop_init  12			;; 12 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 12*64, 24*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 12*64, 24*64, rdi, YMM_SCD3, 12
 	yloop	12, c1b			;; Test loop counter
 	end_timer 10
 
@@ -3485,8 +3469,7 @@ yfft512 MACRO type
 	bump	rdi, 16*YMM_SCD3
 	yloop_init  16			;; 16 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 16*64, 32*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 16*64, 32*64, rdi, YMM_SCD3, 16
 	yloop	16, b1b, -16*64		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -3705,8 +3688,7 @@ c2b:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 64, 16*64, 32*64, rdi
 	start_timer 10
 	yloop_init  16			;; 16 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 16*64, 32*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 16*64, 32*64, rdi, YMM_SCD3, 16
 	yloop	16, c1b			;; Test loop counter
 	end_timer 10
 
@@ -4008,8 +3990,7 @@ yfft640 MACRO type
 	bump	rdi, 16*YMM_SCD4+4*YMM_SCD3
 	yloop_init  20			;; 20 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 20*64, 40*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 20*64, 40*64, rdi, YMM_SCD3, 20
 	yloop	20, b1b, -20*64		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -4230,8 +4211,7 @@ c2b:	yr5_5cl_ten_reals_five_complex_djbunfft rsi, 64, 16*64, rdi
 	start_timer 10
 	yloop_init  20			;; 20 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 20*64, 40*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 20*64, 40*64, rdi, YMM_SCD3, 20
 	yloop	20, c1b			;; Test loop counter
 	end_timer 10
 
@@ -4537,8 +4517,7 @@ yfft768 MACRO type
 	bump	rdi, 32*YMM_SCD2+8*YMM_SCD3
 	yloop_init  24			;; 24 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 24*64, 48*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 24*64, 48*64, rdi, YMM_SCD3, 24
 	yloop	24, b1b, -24*64		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -4752,8 +4731,7 @@ c2b:	yr3_3cl_six_reals_three_complex_djbunfft rsi, 64, 32*64, rdi, YMM_SCD2, 32
 	start_timer 10
 	yloop_init  24			;; 24 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 24*64, 48*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 24*64, 48*64, rdi, YMM_SCD3, 24
 	yloop	24, c1b			;; Test loop counter
 	end_timer 10
 
@@ -5054,8 +5032,7 @@ yfft1K MACRO type
 	bump	rdi, 32*YMM_SCD3
 	yloop_init  32			;; 32 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, dist32, 2*dist32, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, dist32, 2*dist32, rdi, YMM_SCD3, 32
 	yloop	32, b1b, -32*64		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -5277,8 +5254,7 @@ c2b:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 64, dist32, 2*dist32, rdi
 	start_timer 10
 	yloop_init  32			;; 32 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, dist32, 2*dist32, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, dist32, 2*dist32, rdi, YMM_SCD3, 32
 	yloop	32, c1b			;; Test loop counter
 	end_timer 10
 
@@ -5583,8 +5559,7 @@ yfft1280 MACRO type
 	bump	rdi, 32*YMM_SCD4+8*YMM_SCD3
 	yloop_init  40			;; 40 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 40*64, 80*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 40*64, 80*64, rdi, YMM_SCD3, 40
 	yloop	40, b1b, -40*64		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -5804,8 +5779,7 @@ c2b:	yr5_5cl_ten_reals_five_complex_djbunfft rsi, 64, 32*64, rdi
 	start_timer 10
 	yloop_init  40			;; 40 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 40*64, 80*64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 40*64, 80*64, rdi, YMM_SCD3, 40
 	yloop	40, c1b			;; Test loop counter
 	end_timer 10
 
@@ -6102,8 +6076,7 @@ yfft1536 MACRO type
 	bump	rdi, 64*YMM_SCD2+16*YMM_SCD3
 	yloop_init  48			;; 48 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 3*dist16, 6*dist16, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 3*dist16, 6*dist16, rdi, YMM_SCD3, 16
 	yloop	16, b1b, -16*64+dist16	;; Test loop counter, next source pointer
 	yloop	3, b1b, -3*dist16	;; Test loop counter, restore source pointer
 	end_timer 4
@@ -6397,8 +6370,7 @@ c2b:	yr3_3cl_six_reals_three_complex_djbunfft rsi, 64, 4*dist16, rdi, YMM_SCD2, 
 	start_timer 12
 	yloop_init  48			;; 48 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 3*dist16, 6*dist16, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 3*dist16, 6*dist16, rdi, YMM_SCD3, 16
 	yloop	16, c1b, -16*64+dist16	;; Test loop counter, next source pointer
 	yloop	3, c1b			;; Test loop counter
 	end_timer 12
@@ -6752,11 +6724,9 @@ yfft2K MACRO type
 	yloop_init  64			;; 64 iterations
 	yr4_fs4cl_eight_reals_fft_preload
 ;; Loop below reworked to avoid 4KB distances
-;;b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, dist64, 2*dist64, rdi
-;;	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+;;b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, dist64, 2*dist64, rdi, YMM_SCD3, 64
 ;;	yloop	64, b1b, -64*64	;; Test loop counter, bump	rsi		;; Restore source pointer
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 4*64, dist64, 2*dist64, rdi
-	bump	rdi, 4*YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 4*64, dist64, 2*dist64, rdi, 4*YMM_SCD3, 16
 	yloop	16, b1b, -16*4*64+64, rdi, -16*4*YMM_SCD3+YMM_SCD3 ;; Test loop counter, next source pointer, next sin/cos pointer
 	yloop	4, b1b, -4*64		;; Test loop counter, restore source pointer
 	end_timer 4
@@ -7065,11 +7035,9 @@ c2b:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 4*64, dist64, 2*dist64, rdi
 	yloop_init  64			;; 64 iterations
 	yr4_s4cl_eight_reals_unfft_preload
 ;; Loop below reworked to avoid 4KB distances
-;;c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, dist64, 2*dist64, rdi
-;;	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+;;c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, dist64, 2*dist64, rdi, YMM_SCD3, 64
 ;;	yloop	64, c1b			;; Test loop counter
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 4*64, dist64, 2*dist64, rdi
-	bump	rdi, 4*YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 4*64, dist64, 2*dist64, rdi, 4*YMM_SCD3, 16
 	yloop	16, c1b, -16*4*64+64, rdi, -16*4*YMM_SCD3+YMM_SCD3 ;; Test loop counter, next source pointer, next sine/cosine pointer
 	yloop	4, c1b			;; Test loop counter
 	end_timer 12
@@ -7438,8 +7406,7 @@ yfft2560 MACRO type
 	bump	rdi, 64*YMM_SCD4+16*YMM_SCD3
 	yloop_init  80			;; 80 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 5*dist16, 10*dist16, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 5*dist16, 10*dist16, rdi, YMM_SCD3, 16
 	yloop	16, b1b, -16*64+dist16	;; Test loop counter, next source pointer
 	yloop	5, b1b, -5*dist16	;; Test loop counter, restore source pointer
 	end_timer 4
@@ -7739,8 +7706,7 @@ c2b:	yr5_5cl_ten_reals_five_complex_djbunfft rsi, 64, 4*dist16, rdi
 	start_timer 12
 	yloop_init  80			;; 80 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 5*dist16, 10*dist16, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 5*dist16, 10*dist16, rdi, YMM_SCD3, 16
 	yloop	16, c1b, -16*64+dist16	;; Test loop counter, next source pointer
 	yloop	5, c1b			;; Test loop counter
 	end_timer 12
@@ -8097,8 +8063,7 @@ yfft3K MACRO type
 	bump	rdi, 128*YMM_SCD2+32*YMM_SCD3
 	yloop_init  96			;; 96 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 3*dist32, 6*dist32, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 3*dist32, 6*dist32, rdi, YMM_SCD3, 32
 	yloop	32, b1b, -32*64+dist32	;; Test loop counter, next source pointer
 	yloop	3, b1b, -3*dist32	;; Test loop counter, restore source pointer
 	end_timer 4
@@ -8391,8 +8356,7 @@ c2b:	yr3_3cl_six_reals_three_complex_djbunfft rsi, 64, 4*dist32, rdi, YMM_SCD2, 
 	start_timer 12
 	yloop_init  96			;; 96 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 3*dist32, 6*dist32, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 3*dist32, 6*dist32, rdi, YMM_SCD3, 32
 	yloop	32, c1b, -32*64+dist32	;; Test loop counter, next source pointer
 	yloop	3, c1b			;; Test loop counter
 	end_timer 12
@@ -8744,8 +8708,7 @@ yfft4K MACRO type
 	bump	rdi, 128*YMM_SCD3
 	yloop_init  128			;; 128 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 2*dist64, 4*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 2*dist64, 4*dist64, rdi, YMM_SCD3, 64
 	yloop	64, b1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, b1b, -2*dist64	;; Test loop counter, restore source pointer
 	end_timer 4
@@ -9062,8 +9025,7 @@ c2b:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 64, 2*dist64, 4*dist64, rdi
 	start_timer 12
 	yloop_init  128			;; 128 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 2*dist64, 4*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 2*dist64, 4*dist64, rdi, YMM_SCD3, 64
 	yloop	64, c1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	2, c1b			;; Test loop counter
 	end_timer 12
@@ -9425,8 +9387,7 @@ yfft5K MACRO type
 	bump	rdi, 128*YMM_SCD4+32*YMM_SCD3
 	yloop_init  160			;; 160 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 5*dist32, 10*dist32, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 5*dist32, 10*dist32, rdi, YMM_SCD3, 32
 	yloop	32, b1b, -32*64+dist32	;; Test loop counter, next source pointer
 	yloop	5, b1b, -5*dist32	;; Test loop counter, restore source pointer
 	end_timer 4
@@ -9725,8 +9686,7 @@ c2b:	yr5_5cl_ten_reals_five_complex_djbunfft rsi, 64, 4*dist32, rdi
 	start_timer 12
 	yloop_init  160			;; 160 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 5*dist32, 10*dist32, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 5*dist32, 10*dist32, rdi, YMM_SCD3, 32
 	yloop	32, c1b, -32*64+dist32	;; Test loop counter, next source pointer
 	yloop	5, c1b			;; Test loop counter
 	end_timer 12
@@ -10083,8 +10043,7 @@ yfft6K MACRO type
 	bump	rdi, 256*YMM_SCD2+64*YMM_SCD3
 	yloop_init  192			;; 192 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 3*dist64, 6*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 3*dist64, 6*dist64, rdi, YMM_SCD3, 64
 	yloop	64, b1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	3, b1b, -3*dist64	;; Test loop counter, restore source pointer
 	end_timer 4
@@ -10470,8 +10429,7 @@ c2b:	yr3_3cl_six_reals_three_complex_djbunfft rsi, 64, 4*dist64, rdi, YMM_SCD2, 
 	start_timer 14
 	yloop_init  192			;; 192 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 3*dist64, 6*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 3*dist64, 6*dist64, rdi, YMM_SCD3, 64
 	yloop	64, c1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	3, c1b			;; Test loop counter
 	end_timer 14
@@ -10893,8 +10851,7 @@ yfft8K MACRO type
 	bump	rdi, 256*YMM_SCD3
 	yloop_init  256			;; 256 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 4*dist64, 8*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 4*dist64, 8*dist64, rdi, YMM_SCD3, 64
 	yloop	64, b1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	4, b1b, -4*dist64	;; Test loop counter, restore source pointer
 	end_timer 4
@@ -11284,8 +11241,7 @@ c2b:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 64, 4*dist64, 8*dist64, rdi
 	start_timer 14
 	yloop_init  256			;; 256 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 4*dist64, 8*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 4*dist64, 8*dist64, rdi, YMM_SCD3, 64
 	yloop	64, c1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	4, c1b			;; Test loop counter
 	end_timer 14
@@ -11707,8 +11663,7 @@ yfft10K MACRO type
 	bump	rdi, 256*YMM_SCD4+64*YMM_SCD3
 	yloop_init  320			;; 320 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 5*dist64, 10*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 5*dist64, 10*dist64, rdi, YMM_SCD3, 64
 	yloop	64, b1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	5, b1b, -5*dist64	;; Test loop counter, restore source pointer
 	end_timer 4
@@ -12100,8 +12055,7 @@ c2b:	yr5_5cl_ten_reals_five_complex_djbunfft rsi, 64, 4*dist64, rdi
 	start_timer 14
 	yloop_init  320			;; 320 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 5*dist64, 10*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 5*dist64, 10*dist64, rdi, YMM_SCD3, 64
 	yloop	64, c1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	5, c1b			;; Test loop counter
 	end_timer 14
@@ -12527,8 +12481,7 @@ yfft12K MACRO type
 	bump	rdi, 512*YMM_SCD2+128*YMM_SCD3
 	yloop_init  384			;; 384 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 6*dist64, 12*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 6*dist64, 12*dist64, rdi, YMM_SCD3, 64
 	yloop	64, b1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	6, b1b, -6*dist64	;; Test loop counter, restore source pointer
 	end_timer 4
@@ -12917,8 +12870,7 @@ c2b:	yr3_3cl_six_reals_three_complex_djbunfft rsi, 64, 8*dist64, rdi, YMM_SCD2, 
 	start_timer 14
 	yloop_init  384			;; 384 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 6*dist64, 12*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 6*dist64, 12*dist64, rdi, YMM_SCD3, 64
 	yloop	64, c1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	6, c1b			;; Test loop counter
 	end_timer 14
@@ -13341,8 +13293,7 @@ yfft16K MACRO type
 	bump	rdi, 512*YMM_SCD3
 	yloop_init  512			;; 512 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 8*dist64, 16*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 8*dist64, 16*dist64, rdi, YMM_SCD3, 64
 	yloop	64, b1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	8, b1b, -8*dist64	;; Test loop counter, restore source pointer
 	end_timer 4
@@ -13735,8 +13686,7 @@ c2b:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 64, 8*dist64, 16*dist64, rdi
 	start_timer 14
 	yloop_init  512			;; 512 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 8*dist64, 16*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 8*dist64, 16*dist64, rdi, YMM_SCD3, 64
 	yloop	64, c1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	8, c1b			;; Test loop counter
 	end_timer 14
@@ -14159,8 +14109,7 @@ yfft20K MACRO type
 	bump	rdi, 512*YMM_SCD4+128*YMM_SCD3
 	yloop_init  640			;; 640 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 10*dist64, 20*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 10*dist64, 20*dist64, rdi, YMM_SCD3, 64
 	yloop	64, b1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	10, b1b, -10*dist64	;; Test loop counter, restore source pointer
 	end_timer 4
@@ -14555,8 +14504,7 @@ c2b:	yr5_5cl_ten_reals_five_complex_djbunfft rsi, 64, 8*dist64, rdi
 	start_timer 14
 	yloop_init  640			;; 640 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 10*dist64, 20*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 10*dist64, 20*dist64, rdi, YMM_SCD3, 64
 	yloop	64, c1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	10, c1b			;; Test loop counter
 	end_timer 14
@@ -14983,8 +14931,7 @@ yfft18K MACRO type
 	bump	rdi, 768*YMM_SCD2+64*YMM_SCD3
 	yloop_init  576			;; 576 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 9*dist64, 18*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 9*dist64, 18*dist64, rdi, YMM_SCD3, 64
 	yloop	64, b1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	9, b1b, -9*dist64	;; Test loop counter, restore source pointer
 	end_timer 4
@@ -15446,8 +15393,7 @@ c2b:	yr3_3cl_six_reals_three_complex_djbunfft rsi, 64, 12*dist64, rdi, YMM_SCD2,
 	start_timer 16
 	yloop_init  576			;; 576 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 9*dist64, 18*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 9*dist64, 18*dist64, rdi, YMM_SCD3, 64
 	yloop	64, c1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	9, c1b			;; Test loop counter
 	end_timer 16
@@ -15931,8 +15877,7 @@ yfft24K MACRO type
 	bump	rdi, 1024*YMM_SCD2+256*YMM_SCD3
 	yloop_init  768			;; 768 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 12*dist64, 24*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 12*dist64, 24*dist64, rdi, YMM_SCD3, 64
 	yloop	64, b1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	12, b1b, -12*dist64	;; Test loop counter, restore source pointer
 	end_timer 4
@@ -16394,8 +16339,7 @@ c2b:	yr3_3cl_six_reals_three_complex_djbunfft rsi, 64, 16*dist64, rdi, YMM_SCD2,
 	start_timer 16
 	yloop_init  768			;; 768 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 12*dist64, 24*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 12*dist64, 24*dist64, rdi, YMM_SCD3, 64
 	yloop	64, c1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	12, c1b			;; Test loop counter
 	end_timer 16
@@ -16877,8 +16821,7 @@ yfft32K MACRO type
 	bump	rdi, 1024*YMM_SCD3
 	yloop_init  1024		;; 1024 iterations
 	yr4_fs4cl_eight_reals_fft_preload
-b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 16*dist64, 32*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 16*dist64, 32*dist64, rdi, YMM_SCD3, 64
 	yloop	64, b1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	16, b1b, -16*dist64	;; Test loop counter, restore source pointer
 	end_timer 4
@@ -17344,8 +17287,7 @@ c2b:	yr4_4cl_eight_reals_four_complex_djbunfft rsi, 64, 16*dist64, 32*dist64, rd
 	start_timer 16
 	yloop_init  1024		;; 1024 iterations
 	yr4_s4cl_eight_reals_unfft_preload
-c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 16*dist64, 32*dist64, rdi
-	bump	rdi, YMM_SCD3		;; Next sin/cos pointer
+c1b:	yr4_s4cl_eight_reals_unfft rsi, 64, 16*dist64, 32*dist64, rdi, YMM_SCD3, 64
 	yloop	64, c1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	16, c1b			;; Test loop counter
 	end_timer 16

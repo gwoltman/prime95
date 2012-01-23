@@ -3403,263 +3403,62 @@ ENDIF
 
 ;; Standard eight-reals FFT macro.
 yr4_4cl_eight_reals_fft_preload MACRO
-	yr4_8r_fft_mem_preload
+	yr4_8r_fft_cmn_preload
 	ENDM
-yr4_4cl_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg
-	yr4_8r_fft_mem2 [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d2+d1+32],screg,screg+64,screg+128,srcreg+srcinc,d1,d2,[srcreg],[srcreg+32]
-	;;vmovapd [srcreg], ymm1	;; Save R1
-	;;vmovapd [srcreg+32], ymm0	;; Save I1
-	vmovapd	[srcreg+d1], ymm3	;; Save R2
-	vmovapd	[srcreg+d1+32], ymm5	;; Save I2
-	vmovapd	[srcreg+d2], ymm2	;; Save R3
-	vmovapd	[srcreg+d2+32], ymm6	;; Save I3
-	vmovapd	[srcreg+d2+d1], ymm4	;; Save R4
-	vmovapd	[srcreg+d2+d1+32], ymm7	;; Save I4
-	bump	srcreg, srcinc
-	ENDM
-
-;; Like 4cl but uses two sin/cos data ptrs
-yr4_4cl_2sc_eight_reals_fft_preload MACRO
-	yr4_8r_fft_mem_preload
-	ENDM
-yr4_4cl_2sc_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg1,screg2
-	yr4_8r_fft_mem2 [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d2+d1+32],screg2,screg1,screg2+64,srcreg+srcinc,d1,d2,[srcreg],[srcreg+32]
-	;;vmovapd [srcreg], ymm1	;; Save R1
-	;;vmovapd [srcreg+32], ymm0	;; Save I1
-	vmovapd	[srcreg+d1], ymm3	;; Save R2
-	vmovapd	[srcreg+d1+32], ymm5	;; Save I2
-	vmovapd	[srcreg+d2], ymm2	;; Save R3
-	vmovapd	[srcreg+d2+32], ymm6	;; Save I3
-	vmovapd	[srcreg+d2+d1], ymm4	;; Save R4
-	vmovapd	[srcreg+d2+d1+32], ymm7	;; Save I4
-	bump	srcreg, srcinc
+yr4_4cl_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
+	yr4_8r_fft_cmn srcreg,srcinc,0,d1,d2,screg,screg+64,screg+128,screg,scinc,maxrpt,L1pt,L1pd
 	ENDM
 
 ;; Like 4cl but uses one combined sin/cos data ptr.  The first two sin/cos entries can be used by
 ;; four complex macros at the same FFT level.  The third and fourth sin/cos entries are used by
 ;; this eight reals macro.
 yr4_4cl_csc_eight_reals_fft_preload MACRO
-	yr4_8r_fft_mem_preload
+	yr4_8r_fft_cmn_preload
 	ENDM
-yr4_4cl_csc_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg
-	yr4_8r_fft_mem2 [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d2+d1+32],screg+128,screg,screg+192,srcreg+srcinc,d1,d2,[srcreg],[srcreg+32]
-	;;vmovapd [srcreg], ymm1	;; Save R1
-	;;vmovapd [srcreg+32], ymm0	;; Save I1
-	vmovapd	[srcreg+d1], ymm3	;; Save R2
-	vmovapd	[srcreg+d1+32], ymm5	;; Save I2
-	vmovapd	[srcreg+d2], ymm2	;; Save R3
-	vmovapd	[srcreg+d2+32], ymm6	;; Save I3
-	vmovapd	[srcreg+d2+d1], ymm4	;; Save R4
-	vmovapd	[srcreg+d2+d1+32], ymm7	;; Save I4
-	bump	srcreg, srcinc
+yr4_4cl_csc_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
+	yr4_8r_fft_cmn srcreg,srcinc,0,d1,d2,screg+128,screg,screg+192,screg,scinc,maxrpt,L1pt,L1pd
 	ENDM
 
 ;; Like 4cl but swizzles the outputs before storing the results.
 ;; This macro is used in the middle levels of the second pass of two pass AVX FFTs.
 yr4_s4cl_eight_reals_fft_preload MACRO
-	yr4_8r_fft_mem_preload
+	yr4_s8r_fft_cmn_preload
 	ENDM
-yr4_s4cl_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg
-
-	;; On input the 64-byte cache lines hold these data values:
-	;;	0	1	2	3	16	17	18	19
-	;;	4	...
-	;;	8	9	10	11	...
-	;;	12	...
-
-	d3 = d2 + d1			;; Work around MASM line length limitations in next line
-	yr4_8r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d3],[srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d3+32],screg,screg+64,screg+128,srcreg+srcinc,d1,d2,[srcreg+32]
-
-	;; R1 (0 1 2 3) is ymm1, R2 (8 9 10 11) is ymm3, R3 is ymm2, R4 is ymm4, I1 is in dst2, I2 is ymm5, I3 is ymm6, I4 is ymm7
-
-	;; Swizzle the 64-byte cache lines to hold these data values:
-	;;	0	8	16	24	4	12	20	28
-	;;	1	9	...
-	;;	2	10	...
-	;;	3	11	...
-
-	;; Swizzle using 8 shufpds and 8 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
-
-	vshufpd	ymm0, ymm1, ymm3, 0	;; Shuffle R1 and R2 to create 0 8 2 10
-	vshufpd	ymm1, ymm1, ymm3, 15	;; Shuffle R1 and R2 to create 1 9 3 11
-
-	vshufpd	ymm3, ymm2, ymm4, 0	;; Shuffle R3 and R4 to create 16 24 18 26
-	vshufpd	ymm2, ymm2, ymm4, 15	;; Shuffle R3 and R4 to create 17 25 19 27
-
-	vperm2f128 ymm4, ymm0, ymm3, 32	;; Shuffle R1/R2 low and R3/R4 low (0 8 16 24)
-	vperm2f128 ymm0, ymm0, ymm3, 49	;; Shuffle R1/R2 low and R3/R4 low (2 10 18 26)
-
-	vperm2f128 ymm3, ymm1, ymm2, 32	;; Shuffle R1/R2 hi and R3/R4 hi (1 9 17 25)
-	vperm2f128 ymm1, ymm1, ymm2, 49	;; Shuffle R1/R2 hi and R3/R4 hi (3 11 19 27)
-
-	vmovapd	[srcreg], ymm4		;; Save (0 8 16 24)
-	vmovapd	[srcreg+d2], ymm0	;; Save (2 10 18 26)
-	vmovapd	[srcreg+d1], ymm3	;; Save (1 9 17 25)
-	vmovapd	[srcreg+d2+d1], ymm1	;; Save (3 11 19 27)
-
-	vmovapd	ymm4, [srcreg+32]	;; Reload saved I1
-
-	vshufpd	ymm0, ymm4, ymm5, 0	;; Shuffle I1 and I2 to create 4 12 6 14
-	vshufpd	ymm4, ymm4, ymm5, 15	;; Shuffle I1 and I2 to create 5 13 7 15
-
-	vshufpd	ymm5, ymm6, ymm7, 0	;; Shuffle I3 and I4 to create 16 28 22 30
-	vshufpd	ymm6, ymm6, ymm7, 15	;; Shuffle I3 and I4 to create 21 29 23 31
-
-	vperm2f128 ymm7, ymm0, ymm5, 32	;; Shuffle I1/I2 low and I3/I4 low (4 12 20 28)
-	vperm2f128 ymm0, ymm0, ymm5, 49	;; Shuffle I1/I2 low and I3/I4 low (6 14 22 30)
-
-	vperm2f128 ymm5, ymm4, ymm6, 32	;; Shuffle I1/I2 hi and I3/I4 hi (5 13 21 29)
-	vperm2f128 ymm4, ymm4, ymm6, 49	;; Shuffle I1/I2 hi and I3/I4 hi (7 15 23 31)
-
-	vmovapd	[srcreg+32], ymm7	;; Save (4 12 20 28)
-	vmovapd	[srcreg+d2+32], ymm0	;; Save (6 14 22 30)
-	vmovapd	[srcreg+d1+32], ymm5	;; Save (5 13 21 29)
-	vmovapd	[srcreg+d2+d1+32], ymm4	;; Save (7 15 23 31)
-
-	bump	srcreg, srcinc
+yr4_s4cl_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
+	yr4_s8r_fft_cmn srcreg,srcinc,0,d1,d2,screg,screg+64,screg+128,screg,scinc,maxrpt,L1pt,L1pd
 	ENDM
 
-;; Like s4cl but uses two sin/cos ptrs
-yr4_s4cl_2sc_eight_reals_fft_preload MACRO
-	yr4_8r_fft_mem_preload
+;; Like s4cl but uses one combined sin/cos data ptr.  The first two sin/cos entries can be used by
+;; four complex macros at the same FFT level.  The third and fourth sin/cos entries are used by
+;; this eight reals macro.
+yr4_s4cl_csc_eight_reals_fft_preload MACRO
+	yr4_s8r_fft_cmn_preload
 	ENDM
-yr4_s4cl_2sc_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg1,screg2
-
-	;; On input the 64-byte cache lines hold these data values:
-	;;	0	1	2	3	16	17	18	19
-	;;	4	...
-	;;	8	9	10	11	...
-	;;	12	...
-
-	d3 = d2 + d1			;; Work around MASM line length limitations in next line
-	yr4_8r_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d3],[srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d3+32],screg2,screg1,screg2+64,srcreg+srcinc,d1,d2,[srcreg+32]
-
-	;; R1 (0 1 2 3) is ymm1, R2 (8 9 10 11) is ymm3, R3 is ymm2, R4 is ymm4, I1 is in dst2, I2 is ymm5, I3 is ymm6, I4 is ymm7
-
-	;; Swizzle the 64-byte cache lines to hold these data values:
-	;;	0	8	16	24	4	12	20	28
-	;;	1	9	...
-	;;	2	10	...
-	;;	3	11	...
-
-	;; Swizzle using 8 shufpds and 8 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
-
-	vshufpd	ymm0, ymm1, ymm3, 0	;; Shuffle R1 and R2 to create 0 8 2 10
-	vshufpd	ymm1, ymm1, ymm3, 15	;; Shuffle R1 and R2 to create 1 9 3 11
-
-	vshufpd	ymm3, ymm2, ymm4, 0	;; Shuffle R3 and R4 to create 16 24 18 26
-	vshufpd	ymm2, ymm2, ymm4, 15	;; Shuffle R3 and R4 to create 17 25 19 27
-
-	vperm2f128 ymm4, ymm0, ymm3, 32	;; Shuffle R1/R2 low and R3/R4 low (0 8 16 24)
-	vperm2f128 ymm0, ymm0, ymm3, 49	;; Shuffle R1/R2 low and R3/R4 low (2 10 18 26)
-
-	vperm2f128 ymm3, ymm1, ymm2, 32	;; Shuffle R1/R2 hi and R3/R4 hi (1 9 17 25)
-	vperm2f128 ymm1, ymm1, ymm2, 49	;; Shuffle R1/R2 hi and R3/R4 hi (3 11 19 27)
-
-	vmovapd	[srcreg], ymm4		;; Save (0 8 16 24)
-	vmovapd	[srcreg+d2], ymm0	;; Save (2 10 18 26)
-	vmovapd	[srcreg+d1], ymm3	;; Save (1 9 17 25)
-	vmovapd	[srcreg+d2+d1], ymm1	;; Save (3 11 19 27)
-
-	vmovapd	ymm4, [srcreg+32]	;; Reload saved I1
-
-	vshufpd	ymm0, ymm4, ymm5, 0	;; Shuffle I1 and I2 to create 4 12 6 14
-	vshufpd	ymm4, ymm4, ymm5, 15	;; Shuffle I1 and I2 to create 5 13 7 15
-
-	vshufpd	ymm5, ymm6, ymm7, 0	;; Shuffle I3 and I4 to create 16 28 22 30
-	vshufpd	ymm6, ymm6, ymm7, 15	;; Shuffle I3 and I4 to create 21 29 23 31
-
-	vperm2f128 ymm7, ymm0, ymm5, 32	;; Shuffle I1/I2 low and I3/I4 low (4 12 20 28)
-	vperm2f128 ymm0, ymm0, ymm5, 49	;; Shuffle I1/I2 low and I3/I4 low (6 14 22 30)
-
-	vperm2f128 ymm5, ymm4, ymm6, 32	;; Shuffle I1/I2 hi and I3/I4 hi (5 13 21 29)
-	vperm2f128 ymm4, ymm4, ymm6, 49	;; Shuffle I1/I2 hi and I3/I4 hi (7 15 23 31)
-
-	vmovapd	[srcreg+32], ymm7	;; Save (4 12 20 28)
-	vmovapd	[srcreg+d2+32], ymm0	;; Save (6 14 22 30)
-	vmovapd	[srcreg+d1+32], ymm5	;; Save (5 13 21 29)
-	vmovapd	[srcreg+d2+d1+32], ymm4	;; Save (7 15 23 31)
-
-	bump	srcreg, srcinc
+yr4_s4cl_csc_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
+	yr4_s8r_fft_cmn srcreg,srcinc,0,d1,d2,screg+128,screg,screg+192,screg,scinc,maxrpt,L1pt,L1pd
 	ENDM
 
 ;; Like s4cl but offsets the input by rbx.
 ;; This macro is used in the first levels of one pass and two pass AVX FFTs.
 yr4_fs4cl_eight_reals_fft_preload MACRO
-	yr4_8r_fft_mem_preload
+	yr4_s8r_fft_cmn_preload
 	ENDM
-yr4_fs4cl_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg
-
-	;; On input the 64-byte cache lines hold these data values:
-	;;	0	1	2	3	16	17	18	19
-	;;	4	...
-	;;	8	9	10	11	...
-	;;	12	...
-
-	d3 = d2 + d1			;; Work around MASM line length limitations in next line
-	yr4_8r_fft_mem [srcreg][rbx],[srcreg+d1][rbx],[srcreg+d2][rbx],[srcreg+d3][rbx],[srcreg+32][rbx],[srcreg+d1+32][rbx],[srcreg+d2+32][rbx],[srcreg+d3+32][rbx],screg,screg+64,screg+128,srcreg+srcinc,d1,d2,[srcreg+32]
-
-	;; R1 (0 1 2 3) is ymm1, R2 (8 9 10 11) is ymm3, R3 is ymm2, R4 is ymm4, I1 is in dst2, I2 is ymm5, I3 is ymm6, I4 is ymm7
-
-	;; Swizzle the 64-byte cache lines to hold these data values:
-	;;	0	8	16	24	4	12	20	28
-	;;	1	9	...
-	;;	2	10	...
-	;;	3	11	...
-
-	;; Swizzle using 8 shufpds and 8 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
-
-	vshufpd	ymm0, ymm1, ymm3, 0	;; Shuffle R1 and R2 to create 0 8 2 10
-	vshufpd	ymm1, ymm1, ymm3, 15	;; Shuffle R1 and R2 to create 1 9 3 11
-
-	vshufpd	ymm3, ymm2, ymm4, 0	;; Shuffle R3 and R4 to create 16 24 18 26
-	vshufpd	ymm2, ymm2, ymm4, 15	;; Shuffle R3 and R4 to create 17 25 19 27
-
-	vperm2f128 ymm4, ymm0, ymm3, 32	;; Shuffle R1/R2 low and R3/R4 low (0 8 16 24)
-	vperm2f128 ymm0, ymm0, ymm3, 49	;; Shuffle R1/R2 low and R3/R4 low (2 10 18 26)
-
-	vperm2f128 ymm3, ymm1, ymm2, 32	;; Shuffle R1/R2 hi and R3/R4 hi (1 9 17 25)
-	vperm2f128 ymm1, ymm1, ymm2, 49	;; Shuffle R1/R2 hi and R3/R4 hi (3 11 19 27)
-
-	vmovapd	[srcreg], ymm4		;; Save (0 8 16 24)
-	vmovapd	[srcreg+d2], ymm0	;; Save (2 10 18 26)
-	vmovapd	[srcreg+d1], ymm3	;; Save (1 9 17 25)
-	vmovapd	[srcreg+d2+d1], ymm1	;; Save (3 11 19 27)
-
-	vmovapd	ymm4, [srcreg+32]	;; Reload saved I1
-
-	vshufpd	ymm0, ymm4, ymm5, 0	;; Shuffle I1 and I2 to create 4 12 6 14
-	vshufpd	ymm4, ymm4, ymm5, 15	;; Shuffle I1 and I2 to create 5 13 7 15
-
-	vshufpd	ymm5, ymm6, ymm7, 0	;; Shuffle I3 and I4 to create 16 28 22 30
-	vshufpd	ymm6, ymm6, ymm7, 15	;; Shuffle I3 and I4 to create 21 29 23 31
-
-	vperm2f128 ymm7, ymm0, ymm5, 32	;; Shuffle I1/I2 low and I3/I4 low (4 12 20 28)
-	vperm2f128 ymm0, ymm0, ymm5, 49	;; Shuffle I1/I2 low and I3/I4 low (6 14 22 30)
-
-	vperm2f128 ymm5, ymm4, ymm6, 32	;; Shuffle I1/I2 hi and I3/I4 hi (5 13 21 29)
-	vperm2f128 ymm4, ymm4, ymm6, 49	;; Shuffle I1/I2 hi and I3/I4 hi (7 15 23 31)
-
-	vmovapd	[srcreg+32], ymm7	;; Save (4 12 20 28)
-	vmovapd	[srcreg+d2+32], ymm0	;; Save (6 14 22 30)
-	vmovapd	[srcreg+d1+32], ymm5	;; Save (5 13 21 29)
-	vmovapd	[srcreg+d2+d1+32], ymm4	;; Save (7 15 23 31)
-
-	bump	srcreg, srcinc
+yr4_fs4cl_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
+	yr4_s8r_fft_cmn srcreg,srcinc,rbx,d1,d2,screg,screg+64,screg+128,screg,scinc,maxrpt,L1pt,L1pd
 	ENDM
 
 ;; Common macro for eight-reals-FFT doing 2 and 3/4 levels.
 
-yr4_8r_fft_mem_preload MACRO
+yr4_8r_fft_cmn_preload MACRO
 	ENDM
-yr4_8r_fft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,screg5,pre1,pre2,pre3,dst2
-	vmovapd	ymm0, mem4		;; R4
-	vmovapd	ymm7, mem8		;; R8
+yr4_8r_fft_cmn MACRO srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,maxrpt,L1pt,L1pd
+	vmovapd	ymm0, [srcreg+srcoff+d2+d1]	;; R4
+	vmovapd	ymm7, [srcreg+srcoff+d2+d1+32]	;; R8
 	vsubpd	ymm3, ymm0, ymm7	;; new R8 = R4 - R8			; 1-3
 	vaddpd	ymm7, ymm0, ymm7	;; new R4 = R4 + R8			; 2-4
 
-	vmovapd	ymm4, mem2		;; R2
-	vmovapd	ymm5, mem6		;; R6
+	vmovapd	ymm4, [srcreg+srcoff+d1]	;; R2
+	vmovapd	ymm5, [srcreg+srcoff+d1+32]	;; R6
 	vsubpd	ymm1, ymm4, ymm5	;; new R6 = R2 - R6			; 3-5
 	vaddpd	ymm5, ymm4, ymm5	;; new R2 = R2 + R6			; 4-6
 
@@ -3667,23 +3466,23 @@ yr4_8r_fft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,screg
 	vmulpd	ymm3, ymm3, ymm2	;; R8 = R8 * square root		;  4-8
 	vmulpd	ymm1, ymm1, ymm2	;; R6 = R6 * square root		;  6-10
 
-	vmovapd	ymm2, mem1		;; R1
-	vmovapd	ymm4, mem5		;; R5
+	vmovapd	ymm2, [srcreg+srcoff]		;; R1
+	vmovapd	ymm4, [srcreg+srcoff+32]	;; R5
 	vsubpd	ymm0, ymm2, ymm4	;; new R5 = R1 - R5			; 5-7
 	vaddpd	ymm4, ymm2, ymm4	;; new R1 = R1 + R5			; 6-8
 
 	vaddpd	ymm2, ymm5, ymm7	;; R2 + R4 (final I1, a.k.a 2nd real result) ; 7-9
 	vsubpd	ymm5, ymm5, ymm7	;; R2 - R4 (final I2)			; 8-10
 
-	vmovapd	ymm6, mem3		;; R3
-	vmovapd	ymm7, mem7		;; R7
+	vmovapd	ymm6, [srcreg+srcoff+d2]	;; R3
+	vmovapd	ymm7, [srcreg+srcoff+d2+32]	;; R7
 
-	vmovapd	dst2, ymm2		;; Temporarily save final I1		; 10
+	vmovapd	[srcreg+32], ymm2	;; Save final I1			; 10
 
 	vaddpd	ymm2, ymm6, ymm7	;; new R3 = R3 + R7			; 9-11
 	vsubpd	ymm6, ymm6, ymm7	;; new R7 = R3 - R7			; 10-12
 
-	yprefetchw [pre1]
+	L1prefetchw srcreg+L1pd, L1pt
 
 	vsubpd	ymm7, ymm1, ymm3	;; R6 = R6 - R8 (Real part)		; 11-13
 	vaddpd	ymm3, ymm1, ymm3	;; R8 = R6 + R8 (Imaginary part)	; 12-14
@@ -3691,7 +3490,7 @@ yr4_8r_fft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,screg
 	vaddpd	ymm1, ymm4, ymm2	;; R1 + R3 (final R1)			; 13-15
 	vsubpd	ymm4, ymm4, ymm2	;; R1 - R3 (final R2)			; 14-16
 
-	yprefetchw [pre1][pre2]
+	L1prefetchw srcreg+d1+L1pd, L1pt
 
 	vsubpd	ymm2, ymm0, ymm7	;; R5 - R6 (final R4)			; 15-17
 	vaddpd	ymm0, ymm0, ymm7	;; R5 + R6 (final R3)			; 16-18
@@ -3699,93 +3498,14 @@ yr4_8r_fft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,screg
 	vsubpd	ymm7, ymm6, ymm3	;; R7 - R8 (final I4)			; 17-19
 	vaddpd	ymm6, ymm6, ymm3	;; R7 + R8 (final I3)			; 18-20
 
-	vmulpd	ymm3, ymm4, [screg2+32]	;; A2 = R2 * cosine/sine for w^2n	;  17-21
-	vsubpd	ymm3, ymm3, ymm5	;; A2 = A2 - I2				; 22-24
-	vmulpd	ymm5, ymm5, [screg2+32]	;; B2 = I2 * cosine/sine for w^2n	;  18-22
-	vaddpd	ymm5, ymm5, ymm4	;; B2 = B2 + R2				; 23-25
-
-	yprefetchw [pre1][pre3]
-
-	vmulpd	ymm4, ymm2, [screg5+32]	;; A4 = R4 * cosine/sine for w^5n	;  19-23
-	vsubpd	ymm4, ymm4, ymm7	;; A4 = A4 - I4				; 24-26
-	vmulpd	ymm7, ymm7, [screg5+32]	;; B4 = I4 * cosine/sine for w^5n	;  20-24
-	vaddpd	ymm7, ymm7, ymm2	;; B4 = B4 + R4				; 25-27
-
-	vmulpd	ymm2, ymm0, [screg1+32]	;; A3 = R3 * cosine/sine for w^n	;  21-25
-	vsubpd	ymm2, ymm2, ymm6	;; A3 = A3 - I3				; 26-28
-	vmulpd	ymm6, ymm6, [screg1+32]	;; B3 = I3 * cosine/sine for w^n	;  22-26
-	vaddpd	ymm6, ymm6, ymm0	;; B3 = B3 + R3				; 27-29
-
-	yprefetchw [pre1][pre2][pre3]
-
-	vmovapd	ymm0, [screg2]		;; sine for w^2n
-	vmulpd	ymm3, ymm3, ymm0	;; A2 = A2 * sine (final R2)		;  25-29
-	vmulpd	ymm5, ymm5, ymm0	;; B2 = B2 * sine (final I2)		;  26-30
-	vmovapd	ymm0, [screg5]		;; sine for w^5n
-	vmulpd	ymm4, ymm4, ymm0	;; A4 = A4 * sine (final R4)		;  27-31
-	vmulpd	ymm7, ymm7, ymm0	;; B4 = B4 * sine (final I4)		;  28-32
-	vmovapd	ymm0, [screg1]		;; sine for w^n
-	vmulpd	ymm2, ymm2, ymm0	;; A3 = A3 * sine (final R3)		;  29-33
-	vmulpd	ymm6, ymm6, ymm0	;; B3 = B3 * sine (final I3)		;  30-34
-	ENDM
-
-yr4_8r_fft_mem2_preload MACRO
-	ENDM
-yr4_8r_fft_mem2 MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,screg5,pre1,pre2,pre3,dst1,dst2
-	vmovapd	ymm0, mem4		;; R4
-	vmovapd	ymm7, mem8		;; R8
-	vsubpd	ymm3, ymm0, ymm7	;; new R8 = R4 - R8			; 1-3
-	vaddpd	ymm7, ymm0, ymm7	;; new R4 = R4 + R8			; 2-4
-
-	vmovapd	ymm4, mem2		;; R2
-	vmovapd	ymm5, mem6		;; R6
-	vsubpd	ymm1, ymm4, ymm5	;; new R6 = R2 - R6			; 3-5
-	vaddpd	ymm5, ymm4, ymm5	;; new R2 = R2 + R6			; 4-6
-
-	vbroadcastsd ymm2, YMM_SQRTHALF ;; sqrt(1/2)
-	vmulpd	ymm3, ymm3, ymm2	;; R8 = R8 * square root		;  4-8
-	vmulpd	ymm1, ymm1, ymm2	;; R6 = R6 * square root		;  6-10
-
-	vmovapd	ymm2, mem1		;; R1
-	vmovapd	ymm4, mem5		;; R5
-	vsubpd	ymm0, ymm2, ymm4	;; new R5 = R1 - R5			; 5-7
-	vaddpd	ymm4, ymm2, ymm4	;; new R1 = R1 + R5			; 6-8
-
-	vaddpd	ymm2, ymm5, ymm7	;; R2 + R4 (final I1, a.k.a 2nd real result) ; 7-9
-	vsubpd	ymm5, ymm5, ymm7	;; R2 - R4 (final I2)			; 8-10
-
-	vmovapd	ymm6, mem3		;; R3
-	vmovapd	ymm7, mem7		;; R7
-
-	vmovapd	dst2, ymm2		;; Save final I1			; 10
-
-	vaddpd	ymm2, ymm6, ymm7	;; new R3 = R3 + R7			; 9-11
-	vsubpd	ymm6, ymm6, ymm7	;; new R7 = R3 - R7			; 10-12
-
-	yprefetchw [pre1]
-
-	vsubpd	ymm7, ymm1, ymm3	;; R6 = R6 - R8 (Real part)		; 11-13
-	vaddpd	ymm3, ymm1, ymm3	;; R8 = R6 + R8 (Imaginary part)	; 12-14
-
-	vaddpd	ymm1, ymm4, ymm2	;; R1 + R3 (final R1)			; 13-15
-	vsubpd	ymm4, ymm4, ymm2	;; R1 - R3 (final R2)			; 14-16
-
-	yprefetchw [pre1][pre2]
-
-	vsubpd	ymm2, ymm0, ymm7	;; R5 - R6 (final R4)			; 15-17
-	vaddpd	ymm0, ymm0, ymm7	;; R5 + R6 (final R3)			; 16-18
-
-	vsubpd	ymm7, ymm6, ymm3	;; R7 - R8 (final I4)			; 17-19
-	vaddpd	ymm6, ymm6, ymm3	;; R7 + R8 (final I3)			; 18-20
-
-	vmovapd	dst1, ymm1		;; Save final R1			; 16
+	vmovapd	[srcreg], ymm1		;; Save final R1			; 16
 	vmovapd	ymm1, [screg2+32]	;; cosine/sine for w^2n
 	vmulpd	ymm3, ymm4, ymm1	;; A2 = R2 * cosine/sine for w^2n	;  17-21
 	vsubpd	ymm3, ymm3, ymm5	;; A2 = A2 - I2				; 22-24
 	vmulpd	ymm5, ymm5, ymm1	;; B2 = I2 * cosine/sine for w^2n	;  18-22
 	vaddpd	ymm5, ymm5, ymm4	;; B2 = B2 + R2				; 23-25
 
-	yprefetchw [pre1][pre3]
+	L1prefetchw srcreg+d2+L1pd, L1pt
 
 	vmovapd	ymm1, [screg5+32]	;; cosine/sine for w^5n
 	vmulpd	ymm4, ymm2, ymm1	;; A4 = R4 * cosine/sine for w^5n	;  19-23
@@ -3799,7 +3519,7 @@ yr4_8r_fft_mem2 MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,scre
 	vmulpd	ymm6, ymm6, ymm1	;; B3 = I3 * cosine/sine for w^n	;  22-26
 	vaddpd	ymm6, ymm6, ymm0	;; B3 = B3 + R3				; 27-29
 
-	yprefetchw [pre1][pre2][pre3]
+	L1prefetchw srcreg+d2+d1+L1pd, L1pt
 
 	vmovapd	ymm0, [screg2]		;; sine for w^2n
 	vmulpd	ymm3, ymm3, ymm0	;; A2 = A2 * sine (final R2)		;  25-29
@@ -3810,7 +3530,327 @@ yr4_8r_fft_mem2 MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,scre
 	vmovapd	ymm0, [screg1]		;; sine for w^n
 	vmulpd	ymm2, ymm2, ymm0	;; A3 = A3 * sine (final R3)		;  29-33
 	vmulpd	ymm6, ymm6, ymm0	;; B3 = B3 * sine (final I3)		;  30-34
+
+	vmovapd	[srcreg+d1], ymm3	;; Save R2
+	vmovapd	[srcreg+d1+32], ymm5	;; Save I2
+	vmovapd	[srcreg+d2], ymm2	;; Save R3
+	vmovapd	[srcreg+d2+32], ymm6	;; Save I3
+	vmovapd	[srcreg+d2+d1], ymm4	;; Save R4
+	vmovapd	[srcreg+d2+d1+32], ymm7	;; Save I4
+
+	bump	srcreg, srcinc
+	bump	screg, scinc
 	ENDM
+
+yr4_s8r_fft_cmn_preload MACRO
+	ENDM
+yr4_s8r_fft_cmn MACRO srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,maxrpt,L1pt,L1pd
+	vmovapd	ymm0, [srcreg+srcoff+d2+d1]	;; R4
+	vmovapd	ymm7, [srcreg+srcoff+d2+d1+32]	;; R8
+	vsubpd	ymm3, ymm0, ymm7	;; new R8 = R4 - R8			; 1-3
+	vaddpd	ymm7, ymm0, ymm7	;; new R4 = R4 + R8			; 2-4
+
+	vmovapd	ymm4, [srcreg+srcoff+d1]	;; R2
+	vmovapd	ymm5, [srcreg+srcoff+d1+32]	;; R6
+	vsubpd	ymm1, ymm4, ymm5	;; new R6 = R2 - R6			; 3-5
+	vaddpd	ymm5, ymm4, ymm5	;; new R2 = R2 + R6			; 4-6
+
+	vbroadcastsd ymm2, YMM_SQRTHALF ;; sqrt(1/2)
+	vmulpd	ymm3, ymm3, ymm2	;; R8 = R8 * square root		;  4-8
+	vmulpd	ymm1, ymm1, ymm2	;; R6 = R6 * square root		;  6-10
+
+	vmovapd	ymm2, [srcreg+srcoff]		;; R1
+	vmovapd	ymm4, [srcreg+srcoff+32]	;; R5
+	vsubpd	ymm0, ymm2, ymm4	;; new R5 = R1 - R5			; 5-7
+	vaddpd	ymm4, ymm2, ymm4	;; new R1 = R1 + R5			; 6-8
+
+	vaddpd	ymm2, ymm5, ymm7	;; R2 + R4 (final I1, a.k.a 2nd real result) ; 7-9
+	vsubpd	ymm5, ymm5, ymm7	;; R2 - R4 (final I2)			; 8-10
+
+	vmovapd	ymm6, [srcreg+srcoff+d2]	;; R3
+	vmovapd	ymm7, [srcreg+srcoff+d2+32]	;; R7
+
+	vmovapd	[srcreg+32], ymm2	;; Save final I1			; 10
+
+	vaddpd	ymm2, ymm6, ymm7	;; new R3 = R3 + R7			; 9-11
+	vsubpd	ymm6, ymm6, ymm7	;; new R7 = R3 - R7			; 10-12
+
+	L1prefetchw srcreg+L1pd, L1pt
+
+	vsubpd	ymm7, ymm1, ymm3	;; R6 = R6 - R8 (Real part)		; 11-13
+	vaddpd	ymm3, ymm1, ymm3	;; R8 = R6 + R8 (Imaginary part)	; 12-14
+
+	vaddpd	ymm1, ymm4, ymm2	;; R1 + R3 (final R1)			; 13-15
+	vsubpd	ymm4, ymm4, ymm2	;; R1 - R3 (final R2)			; 14-16
+
+	L1prefetchw srcreg+d1+L1pd, L1pt
+
+	vsubpd	ymm2, ymm0, ymm7	;; R5 - R6 (final R4)			; 15-17
+	vaddpd	ymm0, ymm0, ymm7	;; R5 + R6 (final R3)			; 16-18
+
+	vsubpd	ymm7, ymm6, ymm3	;; R7 - R8 (final I4)			; 17-19
+	vaddpd	ymm6, ymm6, ymm3	;; R7 + R8 (final I3)			; 18-20
+
+	vmovapd	[srcreg], ymm1		;; Save final R1			; 16
+	vmovapd	ymm1, [screg2+32]	;; cosine/sine for w^2n
+	vmulpd	ymm3, ymm4, ymm1	;; A2 = R2 * cosine/sine for w^2n	;  17-21
+	vsubpd	ymm3, ymm3, ymm5	;; A2 = A2 - I2				; 22-24
+	vmulpd	ymm5, ymm5, ymm1	;; B2 = I2 * cosine/sine for w^2n	;  18-22
+	vaddpd	ymm5, ymm5, ymm4	;; B2 = B2 + R2				; 23-25
+
+	L1prefetchw srcreg+d2+L1pd, L1pt
+
+	vmovapd	ymm1, [screg5+32]	;; cosine/sine for w^5n
+	vmulpd	ymm4, ymm2, ymm1	;; A4 = R4 * cosine/sine for w^5n	;  19-23
+	vsubpd	ymm4, ymm4, ymm7	;; A4 = A4 - I4				; 24-26
+	vmulpd	ymm7, ymm7, ymm1	;; B4 = I4 * cosine/sine for w^5n	;  20-24
+	vaddpd	ymm7, ymm7, ymm2	;; B4 = B4 + R4				; 25-27
+
+	vmovapd	ymm1, [screg1+32]	;; cosine/sine for w^n
+	vmulpd	ymm2, ymm0, ymm1	;; A3 = R3 * cosine/sine for w^n	;  21-25
+	vsubpd	ymm2, ymm2, ymm6	;; A3 = A3 - I3				; 26-28
+	vmulpd	ymm6, ymm6, ymm1	;; B3 = I3 * cosine/sine for w^n	;  22-26
+	vaddpd	ymm6, ymm6, ymm0	;; B3 = B3 + R3				; 27-29
+
+	L1prefetchw srcreg+d2+d1+L1pd, L1pt
+
+	vmovapd	ymm0, [screg2]		;; sine for w^2n
+	vmulpd	ymm3, ymm3, ymm0	;; A2 = A2 * sine (final R2)		;  25-29
+	vmulpd	ymm5, ymm5, ymm0	;; B2 = B2 * sine (final I2)		;  26-30
+	vmovapd	ymm0, [screg5]		;; sine for w^5n
+	vmulpd	ymm4, ymm4, ymm0	;; A4 = A4 * sine (final R4)		;  27-31
+	vmulpd	ymm7, ymm7, ymm0	;; B4 = B4 * sine (final I4)		;  28-32
+	vmovapd	ymm0, [screg1]		;; sine for w^n
+	vmulpd	ymm2, ymm2, ymm0	;; A3 = A3 * sine (final R3)		;  29-33
+	vmulpd	ymm6, ymm6, ymm0	;; B3 = B3 * sine (final I3)		;  30-34
+
+	;; Swizzle using 8 shufpds and 8 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+
+	vmovapd	ymm1, [srcreg]		;; Reload saved R1
+
+	vshufpd	ymm0, ymm1, ymm3, 0	;; Shuffle R1 and R2 to create 0 8 2 10
+	vshufpd	ymm1, ymm1, ymm3, 15	;; Shuffle R1 and R2 to create 1 9 3 11
+
+	vshufpd	ymm3, ymm2, ymm4, 0	;; Shuffle R3 and R4 to create 16 24 18 26
+	vshufpd	ymm2, ymm2, ymm4, 15	;; Shuffle R3 and R4 to create 17 25 19 27
+
+	vperm2f128 ymm4, ymm0, ymm3, 32	;; Shuffle R1/R2 low and R3/R4 low (0 8 16 24)
+	vperm2f128 ymm0, ymm0, ymm3, 49	;; Shuffle R1/R2 low and R3/R4 low (2 10 18 26)
+
+	vperm2f128 ymm3, ymm1, ymm2, 32	;; Shuffle R1/R2 hi and R3/R4 hi (1 9 17 25)
+	vperm2f128 ymm1, ymm1, ymm2, 49	;; Shuffle R1/R2 hi and R3/R4 hi (3 11 19 27)
+
+	vmovapd	[srcreg], ymm4		;; Save (0 8 16 24)
+	vmovapd	[srcreg+d2], ymm0	;; Save (2 10 18 26)
+	vmovapd	[srcreg+d1], ymm3	;; Save (1 9 17 25)
+	vmovapd	[srcreg+d2+d1], ymm1	;; Save (3 11 19 27)
+
+	vmovapd	ymm4, [srcreg+32]	;; Reload saved I1
+
+	vshufpd	ymm0, ymm4, ymm5, 0	;; Shuffle I1 and I2 to create 4 12 6 14
+	vshufpd	ymm4, ymm4, ymm5, 15	;; Shuffle I1 and I2 to create 5 13 7 15
+
+	vshufpd	ymm5, ymm6, ymm7, 0	;; Shuffle I3 and I4 to create 16 28 22 30
+	vshufpd	ymm6, ymm6, ymm7, 15	;; Shuffle I3 and I4 to create 21 29 23 31
+
+	vperm2f128 ymm7, ymm0, ymm5, 32	;; Shuffle I1/I2 low and I3/I4 low (4 12 20 28)
+	vperm2f128 ymm0, ymm0, ymm5, 49	;; Shuffle I1/I2 low and I3/I4 low (6 14 22 30)
+
+	vperm2f128 ymm5, ymm4, ymm6, 32	;; Shuffle I1/I2 hi and I3/I4 hi (5 13 21 29)
+	vperm2f128 ymm4, ymm4, ymm6, 49	;; Shuffle I1/I2 hi and I3/I4 hi (7 15 23 31)
+
+	vmovapd	[srcreg+32], ymm7	;; Save (4 12 20 28)
+	vmovapd	[srcreg+d2+32], ymm0	;; Save (6 14 22 30)
+	vmovapd	[srcreg+d1+32], ymm5	;; Save (5 13 21 29)
+	vmovapd	[srcreg+d2+d1+32], ymm4	;; Save (7 15 23 31)
+
+	bump	srcreg, srcinc
+	bump	screg, scinc
+	ENDM
+
+;; 64-bit version
+
+IFDEF X86_64
+
+yr4_8r_fft_cmn_preload MACRO
+	vmovapd	ymm15, YMM_SQRTHALF
+	ENDM
+
+yr4_8r_fft_cmn MACRO srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,maxrpt,L1pt,L1pd
+	IF maxrpt GE 5 AND maxrpt MOD 5 EQ 0
+	yr4_8r_fft_unroll -1,noexec,noexec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 0,noexec,exec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 1,exec,exec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 2,exec,exec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 3,exec,exec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 4,exec,exec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 5,exec,noexec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	bump	srcreg, 5*srcinc
+	ELSEIF maxrpt GE 4 AND maxrpt MOD 4 EQ 0
+	yr4_8r_fft_unroll -1,noexec,noexec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 0,noexec,exec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 1,exec,exec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 2,exec,exec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 3,exec,exec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 4,exec,noexec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	bump	srcreg, 4*srcinc
+	ELSEIF maxrpt GE 3 AND maxrpt MOD 3 EQ 0
+	yr4_8r_fft_unroll -1,noexec,noexec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 0,noexec,exec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 1,exec,exec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 2,exec,exec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 3,exec,noexec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	bump	srcreg, 3*srcinc
+	ELSEIF maxrpt GE 2 AND maxrpt MOD 2 EQ 0
+	yr4_8r_fft_unroll -1,noexec,noexec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 0,noexec,exec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 1,exec,exec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 2,exec,noexec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	bump	srcreg, 2*srcinc
+	ELSE
+	yr4_8r_fft_unroll -1,noexec,noexec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 0,noexec,exec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_fft_unroll 1,exec,noexec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	bump	srcreg, srcinc
+	ENDIF
+	ENDM
+
+yr4_8r_fft_unroll MACRO iter,prev,this,next,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+
+;; On first call, init registers
+
+	IF iter EQ -1
+y0	TEXTEQU	<ymm0>
+y1	TEXTEQU	<ymm1>
+y2	TEXTEQU	<ymm2>
+y3	TEXTEQU	<ymm3>
+y4	TEXTEQU	<ymm4>
+y5	TEXTEQU	<ymm5>
+y6	TEXTEQU	<ymm6>
+y7	TEXTEQU	<ymm7>
+y8	TEXTEQU	<ymm8>
+y9	TEXTEQU	<ymm9>
+y10	TEXTEQU	<ymm10>
+y11	TEXTEQU	<ymm11>
+y12	TEXTEQU	<ymm12>
+y13	TEXTEQU	<ymm13>
+y14	TEXTEQU	<ymm14>
+	ENDIF
+
+;; On later calls, previous R2,I2,R4,B4,A3,B3,sine5,sine1 will be in y0-7.  This R2,R4,R6,R8,R1 will be in y8-12.
+;; The remaining registers are free,  ymm15 preloaded with YMM_SQRTHALF.
+
+this	vsubpd	y14, y9, y11	;; new R8 = R4 - R8			; 1-3
+prev	vmulpd	y3, y3, y6	;; B4 = B4 * sine (final I4)		;  1-5
+this	vmovapd	y6, [srcreg+iter*srcinc+srcoff+32] ;; R5
+
+this	vsubpd	y13, y8, y10	;; new R6 = R2 - R6			; 2-4
+prev	vmulpd	y4, y4, y7	;; A3 = A3 * sine (final R3)		;  2-6
+prev	vmovapd	[srcreg+(iter-1)*srcinc+d1], y0	;; Save R2		; 3
+this	vmovapd	y0, [srcreg+iter*srcinc+srcoff+d2] ;; R3
+
+this	vaddpd	y9, y9, y11	;; new R4 = R4 + R8			; 3-5
+prev	vmulpd	y5, y5, y7	;; B3 = B3 * sine (final I3)		;  3-7
+this	vmovapd	y7, [srcreg+iter*srcinc+srcoff+d2+32] ;; R7
+
+this	vaddpd	y8, y8, y10	;; new R2 = R2 + R6			; 4-6
+this	vmulpd	y14, y14, ymm15	;; R8 = R8 * square root 1/2		;  4-8
+this	vmovapd	y10, [screg2+iter*scinc+32] ;; cosine/sine for w^2n
+
+this	vaddpd	y11, y12, y6	;; new R1 = R1 + R5			; 5-7
+this	vmulpd	y13, y13, ymm15	;; R6 = R6 * square root 1/2		;  5-9
+prev	vmovapd	[srcreg+(iter-1)*srcinc+d1+32], y1 ;; Save I2		; 4
+
+this	vaddpd	y1, y0, y7	;; new R3 = R3 + R7			; 6-8
+prev	vmovapd	[srcreg+(iter-1)*srcinc+d2+d1], y2 ;; Save R4		; 5
+this	vmovapd	y2, [screg5+iter*scinc+32] ;; cosine/sine for w^5n
+
+this	vsubpd	y12, y12, y6	;; new R5 = R1 - R5			; 7-9
+prev	vmovapd	[srcreg+(iter-1)*srcinc+d2+d1+32], y3 ;; Save I4	; 6
+
+this	vsubpd	y0, y0, y7	;; new R7 = R3 - R7			; 8-10
+this	L1prefetchw srcreg+iter*srcinc+L1pd, L1pt
+prev	vmovapd	[srcreg+(iter-1)*srcinc+d2], y4	;; Save R3		; 7
+
+this	vsubpd	y4, y11, y1	;; R1 - R3 (final R2)			; 9-11
+prev	vmovapd	[srcreg+(iter-1)*srcinc+d2+32], y5 ;; Save I3		; 8
+
+this	vsubpd	y5, y13, y14	;; R6 = R6 - R8 (Real part)		; 10-12
+
+this	vaddpd	y13, y13, y14	;; R8 = R6 + R8 (Imaginary part)	; 11-13
+this	L1prefetchw srcreg+iter*srcinc+d1+L1pd, L1pt
+
+this	vsubpd	y14, y8, y9	;; R2 - R4 (final I2)			; 12-14
+
+this	vsubpd	y7, y12, y5	;; R5 - R6 (final R4)			; 13-15
+this next yloop_unrolled_one
+
+this	vsubpd	y3, y0, y13	;; R7 - R8 (final I4)			; 14-16
+this	vmulpd	y6, y4, y10	;; A2 = R2 * cosine/sine for w^2n	;  14-18
+this	L1prefetchw srcreg+iter*srcinc+d2+L1pd, L1pt
+
+this	vaddpd	y12, y12, y5	;; R5 + R6 (final R3)			; 15-17
+this	vmulpd	y10, y14, y10	;; B2 = I2 * cosine/sine for w^2n	;  15-19
+this	vmovapd	y5, [screg1+iter*scinc+32] ;; cosine/sine for w^n
+
+this	vaddpd	y0, y0, y13	;; R7 + R8 (final I3)			; 16-18
+this	vmulpd	y13, y7, y2	;; A4 = R4 * cosine/sine for w^5n	;  16-20
+this	L1prefetchw srcreg+iter*srcinc+d2+d1+L1pd, L1pt
+
+this	vaddpd	y11, y11, y1	;; R1 + R3 (final R1)			; 17-19
+this	vmulpd	y2, y3, y2	;; B4 = I4 * cosine/sine for w^5n	;  17-21
+this	vmovapd	y1, [screg2+iter*scinc] ;; sine for w^2n
+
+this	vaddpd	y8, y8, y9	;; R2 + R4 (final I1, a.k.a 2nd real result) ; 18-20
+this	vmulpd	y9, y12, y5	;; A3 = R3 * cosine/sine for w^n	;  18-22
+this	vmovapd	[srcreg+iter*srcinc], y11 ;; Save R1			; 20
+this	vmovapd	y11, [screg5+iter*scinc] ;; sine for w^5n
+
+this	vsubpd	y6, y6, y14	;; A2 = A2 - I2				; 19-21
+this	vmulpd	y5, y0, y5	;; B3 = I3 * cosine/sine for w^n	;  19-23
+next	vmovapd	y14, [srcreg+(iter+1)*srcinc+srcoff+d2+d1] ;; R4
+
+this	vaddpd	y10, y10, y4	;; B2 = B2 + R2				; 20-22
+next	vmovapd	y4, [srcreg+(iter+1)*srcinc+srcoff+d2+d1+32] ;; R8
+
+this	vsubpd	y13, y13, y3	;; A4 = A4 - I4				; 21-23
+next	vmovapd	y3, [srcreg+(iter+1)*srcinc+srcoff+d1] ;; R2
+this	vmovapd	[srcreg+iter*srcinc+32], y8 ;; Save I1			; 21
+
+this	vaddpd	y2, y2, y7	;; B4 = B4 + R4				; 22-24
+this	vmulpd	y6, y6, y1	;; A2 = A2 * sine (final R2)		;  22-26
+next	vmovapd	y7, [srcreg+(iter+1)*srcinc+srcoff+d1+32] ;; R6
+
+this	vsubpd	y9, y9, y0	;; A3 = A3 - I3				; 23-25
+this	vmulpd	y10, y10, y1	;; B2 = B2 * sine (final I2)		;  23-27
+this	vmovapd	y1, [screg1+iter*scinc] ;; sine for w^n
+
+this	vaddpd	y5, y5, y12	;; B3 = B3 + R3				; 24-26
+this	vmulpd	y13, y13, y11	;; A4 = A4 * sine (final R4)		;  24-28
+next	vmovapd	y12, [srcreg+(iter+1)*srcinc+srcoff] ;; R1
+
+;; Shuffle register assignments so that next call has R2,I2,R4,B4,A3,B3,sine5,sine1 in y0-7 and next R2,R4,R6,R8,R1 in y8-12.
+
+ytmp	TEXTEQU	y0
+y0	TEXTEQU	y6
+y6	TEXTEQU	y11
+y11	TEXTEQU	y4
+y4	TEXTEQU	y9
+y9	TEXTEQU	y14
+y14	TEXTEQU	y8
+y8	TEXTEQU	y3
+y3	TEXTEQU	y2
+y2	TEXTEQU	y13
+y13	TEXTEQU	ytmp
+ytmp	TEXTEQU y1
+y1	TEXTEQU	y10
+y10	TEXTEQU	y7
+y7	TEXTEQU ytmp
+
+	ENDM
+
+ENDIF
+
 
 ;;
 ;; ************************************* eight-reals-unfft variants ******************************************
@@ -3823,145 +3863,154 @@ yr4_8r_fft_mem2 MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg1,screg2,scre
 
 ;; Standard eight-reals unfft.
 yr4_4cl_eight_reals_unfft_preload MACRO
-	yr4_4cl_2sc_eight_reals_unfft_cmn_preload
+	yr4_8r_unfft_cmn_preload
 	ENDM
-yr4_4cl_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg
-	yr4_4cl_2sc_eight_reals_unfft_cmn srcreg,srcinc,d1,d2,screg,screg+64,screg+128
+yr4_4cl_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
+	yr4_8r_unfft_cmn srcreg,srcinc,d1,d2,screg,screg+64,screg+128,screg,scinc,maxrpt,L1pt,L1pd
 	ENDM
 
 ;; Like 4cl but uses two sin/cos registers
 yr4_4cl_2sc_eight_reals_unfft_preload MACRO
-	yr4_4cl_2sc_eight_reals_unfft_cmn_preload
+	yr4_8r_unfft_cmn_preload
 	ENDM
-yr4_4cl_2sc_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,screg2
-	yr4_4cl_2sc_eight_reals_unfft_cmn srcreg,srcinc,d1,d2,screg2,screg1,screg2+64
+yr4_4cl_2sc_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,screg2,scinc,maxrpt,L1pt,L1pd
+	yr4_8r_unfft_cmn srcreg,srcinc,d1,d2,screg2,screg1,screg2+64,screg,scinc,maxrpt,L1pt,L1pd
 	ENDM
 
 ;; Like 4cl but uses one combined sin/cos data ptr.  The first two sin/cos entries can be used by
 ;; four complex macros at the same FFT level.  The third and fourth sin/cos entries are used by
 ;; this eight reals macro.
 yr4_4cl_csc_eight_reals_unfft_preload MACRO
-	yr4_4cl_2sc_eight_reals_unfft_cmn_preload
+	yr4_8r_unfft_cmn_preload
 	ENDM
-yr4_4cl_csc_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg
-	yr4_4cl_2sc_eight_reals_unfft_cmn srcreg,srcinc,d1,d2,screg+128,screg,screg+192
+yr4_4cl_csc_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
+	yr4_8r_unfft_cmn srcreg,srcinc,d1,d2,screg+128,screg,screg+192,screg,scinc,maxrpt,L1pt,L1pd
 	ENDM
 
 ;; Like 4cl, but swizzles the inputs.
 ;; This version is used in the last levels of a one pass AVX FFT.
 yr4_s4cl_eight_reals_unfft_preload MACRO
-	yr4_s4cl_2sc_eight_reals_unfft_cmn_preload
+	yr4_s8r_unfft_cmn_preload
 	ENDM
-yr4_s4cl_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg
-	yr4_s4cl_2sc_eight_reals_unfft_cmn srcreg,srcinc,d1,d2,screg,screg+64,screg+128
+yr4_s4cl_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
+	yr4_s8r_unfft_cmn srcreg,srcinc,d1,d2,screg,screg+64,screg+128,screg,scinc,maxrpt,L1pt,L1pd
 	ENDM
 
-;; Like s4cl, but uses two sin/cos pointers
-yr4_s4cl_2sc_eight_reals_unfft_preload MACRO
-	yr4_s4cl_2sc_eight_reals_unfft_cmn_preload
+;; Like s4cl but uses one combined sin/cos data ptr.  The first two sin/cos entries can be used by
+;; four complex macros at the same FFT level.  The third and fourth sin/cos entries are used by
+;; this eight reals macro.
+yr4_s4cl_csc_eight_reals_unfft_preload MACRO
+	yr4_s8r_unfft_cmn_preload
 	ENDM
-yr4_s4cl_2sc_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,screg2
-	yr4_s4cl_2sc_eight_reals_unfft_cmn srcreg,srcinc,d1,d2,screg2,screg1,screg2+64
+yr4_s4cl_csc_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
+	yr4_s8r_unfft_cmn srcreg,srcinc,d1,d2,screg+128,screg,screg+192,screg,scinc,maxrpt,L1pt,L1pd
 	ENDM
 
 ;; Common code for eight reals unfft
-yr4_4cl_2sc_eight_reals_unfft_cmn_preload MACRO
+yr4_8r_unfft_cmn_preload MACRO
 	ENDM
-yr4_4cl_2sc_eight_reals_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg5
-	vmovapd	ymm1, [screg2+32]	;; cosine/sine for w^2n
-	vmovapd	ymm4, [srcreg+d1]	;; R2
-	vmulpd	ymm2, ymm4, ymm1	;; A2 = R2 * cosine/sine
-	vmovapd	ymm7, [srcreg+d1+32]	;; I2
-	vaddpd	ymm2, ymm2, ymm7	;; A2 = A2 + I2
-	vmulpd	ymm7, ymm7, ymm1	;; B2 = I2 * cosine/sine
-	vsubpd	ymm7, ymm7, ymm4	;; B2 = B2 - R2
+yr4_8r_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,maxrpt,L1pt,L1pd
+	vmovapd	ymm5, [screg5+32]	;; cosine/sine for w^5n
+	vmovapd	ymm2, [srcreg+d2+d1]	;; R4
+	vmulpd	ymm4, ymm2, ymm5	;; A4 = R4 * cosine/sine		; 1-5
 
-	vmovapd	ymm1, [screg5+32]	;; cosine/sine for w^5n
-	vmovapd	ymm0, [srcreg+d2+d1]	;; R4
-	vmulpd	ymm4, ymm0, ymm1	;; A4 = R4 * cosine/sine
-	vmovapd	ymm5, [srcreg+d2+d1+32]	;; I4
-	vaddpd	ymm4, ymm4, ymm5	;; A4 = A4 + I4
-	vmulpd	ymm5, ymm5, ymm1	;; B4 = I4 * cosine/sine
-	vsubpd	ymm5, ymm5, ymm0	;; B4 = B4 - R4
-
-	vmovapd	ymm1, [screg1+32] 	;; cosine/sine for w^n
+	vmovapd	ymm6, [screg1+32] 	;; cosine/sine for w^n
 	vmovapd	ymm3, [srcreg+d2]	;; R3
-	vmulpd	ymm0, ymm1, ymm3	;; A3 = R3 * cosine/sine for w^n
-	vmovapd	ymm6, [srcreg+d2+32]	;; I3
-	vaddpd	ymm0, ymm0, ymm6	;; A3 = A3 + I3
-	vmulpd	ymm6, ymm6, ymm1	;; B3 = I3 * cosine/sine for w^n
-	vsubpd	ymm6, ymm6, ymm3	;; B3 = B3 - R3
+	vmulpd	ymm0, ymm3, ymm6	;; A3 = R3 * cosine/sine for w^n	; 2-6
 
-	yprefetchw [srcreg+srcinc]
+	vmovapd	ymm7, [srcreg+d2+d1+32]	;; I4
+	vmulpd	ymm5, ymm7, ymm5	;; B4 = I4 * cosine/sine		; 3-7
 
+	vmovapd	ymm1, [srcreg+d2+32]	;; I3
+	vmulpd	ymm6, ymm1, ymm6	;; B3 = I3 * cosine/sine for w^n	; 4-8
+
+	vaddpd	ymm4, ymm4, ymm7	;; A4 = A4 + I4				; 6-8
+	vaddpd	ymm0, ymm0, ymm1	;; A3 = A3 + I3				; 7-9
+	vsubpd	ymm5, ymm5, ymm2	;; B4 = B4 - R4				; 8-10
+
+	vmovapd	ymm7, [screg2+32]	;; cosine/sine for w^2n
+	vmovapd	ymm1, [srcreg+d1]	;; R2
+	vmulpd	ymm2, ymm1, ymm7	;; A2 = R2 * cosine/sine		; 5-9
+
+	vsubpd	ymm6, ymm6, ymm3	;; B3 = B3 - R3				; 9-11
+
+	vmovapd	ymm3, [srcreg+d1+32]	;; I2
+	vmulpd	ymm7, ymm3, ymm7	;; B2 = I2 * cosine/sine		; 6-10
+
+	vaddpd	ymm2, ymm2, ymm3	;; A2 = A2 + I2				; 10-12
+	vsubpd	ymm7, ymm7, ymm1	;; B2 = B2 - R2				; 11-13
+
+	L1prefetchw srcreg+L1pd, L1pt
+
+	vmovapd	ymm1, [screg5]		;; sine for w^5n			
+	vmulpd	ymm4, ymm4, ymm1	;; new R7 = A4 * sine			; 9-13
+	vmovapd	ymm3, [screg1]		;; sine for w^n
+	vmulpd	ymm0, ymm0, ymm3	;; new R5 = A3 * sine			; 10-14
+	vmulpd	ymm5, ymm5, ymm1	;; new R8 = B4 * sine			; 11-15
+	vmulpd	ymm6, ymm6, ymm3	;; new R6 = B3 * sine			; 12-16
 	vmovapd	ymm1, [screg2]		;; sine for w^2n
-	vmulpd	ymm2, ymm2, ymm1	;; new R3 = A2 * sine
-	vmulpd	ymm7, ymm7, ymm1	;; new R4 = B2 * sine
-	vmovapd	ymm1, [screg5]		;; sine for w^5n
-	vmulpd	ymm4, ymm4, ymm1	;; new R7 = A4 * sine
-	vmulpd	ymm5, ymm5, ymm1	;; new R8 = B4 * sine
-	vmovapd	ymm1, [screg1]		;; sine for w^n
-	vmulpd	ymm0, ymm0, ymm1	;; new R5 = A3 * sine
-	vmulpd	ymm6, ymm6, ymm1	;; new R6 = B3 * sine
+	vmulpd	ymm2, ymm2, ymm1	;; new R3 = A2 * sine			; 13-17
+	vmulpd	ymm7, ymm7, ymm1	;; new R4 = B2 * sine			; 14-18
 
-	yprefetchw [srcreg+srcinc+d1]
+	L1prefetchw srcreg+d1+L1pd, L1pt
 
-	vsubpd	ymm1, ymm0, ymm4	;; new R6 = R5 - R7
-	vaddpd	ymm0, ymm0, ymm4	;; new R5 = R5 + R7
+	vsubpd	ymm1, ymm0, ymm4	;; new R6 = R5 - R7			; 15-17
+	vaddpd	ymm0, ymm0, ymm4	;; new R5 = R5 + R7			; 16-18
 
-	vsubpd	ymm4, ymm6, ymm5	;; new R8 = R6 - R8
-	vaddpd	ymm6, ymm6, ymm5	;; new R7 = R6 + R8
+	vsubpd	ymm4, ymm6, ymm5	;; new R8 = R6 - R8			; 17-19
+	vaddpd	ymm6, ymm6, ymm5	;; new R7 = R6 + R8			; 18-20
 
-	yprefetchw [srcreg+srcinc+d2]
+	vaddpd	ymm5, ymm1, ymm4	;; R6 = R6 + R8				; 20-22
+	vsubpd	ymm4, ymm4, ymm1	;; R8 = R8 - R6				; 21-23
 
-	vaddpd	ymm5, ymm1, ymm4	;; R6 = R6 + R8
-	vsubpd	ymm4, ymm4, ymm1	;; R8 = R8 - R6
+	L1prefetchw srcreg+d2+L1pd, L1pt
 
-	vmulpd	ymm5, ymm5, YMM_SQRTHALF ;; R6 = R6 * square root of 1/2
-	vmulpd	ymm4, ymm4, YMM_SQRTHALF ;; R8 = R8 * square root of 1/2
+	vmovapd	ymm1, [srcreg]		;; R1
+	vsubpd	ymm3, ymm1, ymm2	;; R1 - R3 (new R3)			; 19-21
+	vaddpd	ymm1, ymm1, ymm2	;; R1 + R3 (new R1)			; 22-24
 
-	vmovapd	ymm3, [srcreg+32]	;; I1 (a.k.a R2)
-	vsubpd	ymm1, ymm3, ymm7	;; R2 - R4 (new R4)
-	vaddpd	ymm3, ymm3, ymm7	;; R2 + R4 (new R2)
+	vsubpd	ymm2, ymm3, ymm6	;; R3 - R7 (final R7)			; 23-25
+	vmulpd	ymm5, ymm5, YMM_SQRTHALF ;; R6 = R6 * square root of 1/2	; 23-27
 
-	yprefetchw [srcreg+srcinc+d2+d1]
+	vaddpd	ymm3, ymm3, ymm6	;; R3 + R7 (final R3)			; 24-26
+	vmulpd	ymm4, ymm4, YMM_SQRTHALF ;; R8 = R8 * square root of 1/2	; 24-28
 
-	vsubpd	ymm7, ymm1, ymm4	;; R4 - R8 (final R8)
-	vaddpd	ymm1, ymm1, ymm4	;; R4 + R8 (final R4)
+	vmovapd	ymm6, [srcreg+32]	;; I1 (a.k.a R2)
+	vmovapd	[srcreg+d2+32], ymm2	;; Save R7				; 26
+	vaddpd	ymm2, ymm6, ymm7	;; R2 + R4 (new R2)			; 25-27
 
-	vsubpd	ymm4, ymm3, ymm5	;; R2 - R6 (final R6)
-	vaddpd	ymm3, ymm3, ymm5	;; R2 + R6 (final R2)
+	vsubpd	ymm6, ymm6, ymm7	;; R2 - R4 (new R4)			; 26-28
 
-	vmovapd	ymm5, [srcreg]		;; R1
+	vsubpd	ymm7, ymm1, ymm0	;; R1 - R5 (final R5)			; 27-29
+	vmovapd	[srcreg+d2], ymm3	;; Save R3				; 27
 
-	vmovapd	[srcreg+d2+d1+32], ymm7	;; Save R8
-	vmovapd	[srcreg+d2+d1], ymm1	;; Save R4
+	vaddpd	ymm1, ymm1, ymm0	;; R1 + R5 (final R1)			; 28-30
 
-	vsubpd	ymm7, ymm5, ymm2	;; R1 - R3 (new R3)
-	vaddpd	ymm5, ymm5, ymm2	;; R1 + R3 (new R1)
+	L1prefetchw srcreg+d2+d1+L1pd, L1pt
 
-	vsubpd	ymm2, ymm7, ymm6	;; R3 - R7 (final R7)
-	vaddpd	ymm7, ymm7, ymm6	;; R3 + R7 (final R3)
+	vsubpd	ymm0, ymm2, ymm5	;; R2 - R6 (final R6)			; 29-31
 
-	vsubpd	ymm6, ymm5, ymm0	;; R1 - R5 (final R5)
-	vaddpd	ymm5, ymm5, ymm0	;; R1 + R5 (final R1)
+	vaddpd	ymm2, ymm2, ymm5	;; R2 + R6 (final R2)			; 30-32
+	vmovapd	[srcreg+32], ymm7	;; Save R5				; 30
 
-	vmovapd	[srcreg+d1+32], ymm4	;; Save R6
-	vmovapd	[srcreg+d1], ymm3	;; Save R2
+	vsubpd	ymm7, ymm6, ymm4	;; R4 - R8 (final R8)			; 31-33
+	vmovapd	[srcreg], ymm1		;; Save R1				; 31
 
-	vmovapd	[srcreg+d2+32], ymm2	;; Save R7
-	vmovapd	[srcreg+d2], ymm7	;; Save R3
+	vaddpd	ymm6, ymm6, ymm4	;; R4 + R8 (final R4)			; 32-34
+	vmovapd	[srcreg+d1+32], ymm0	;; Save R6				; 32
 
-	vmovapd	[srcreg+32], ymm6	;; Save R5
-	vmovapd	[srcreg], ymm5		;; Save R1
+	vmovapd	[srcreg+d1], ymm2	;; Save R2				; 33
+	vmovapd	[srcreg+d2+d1+32], ymm7	;; Save R8				; 34
+	vmovapd	[srcreg+d2+d1], ymm6	;; Save R4				; 35
 
 	bump	srcreg, srcinc
+	bump	screg, scinc
 	ENDM
 
 ;; Common swizzling eight reals unfft
-yr4_s4cl_2sc_eight_reals_unfft_cmn_preload MACRO
+yr4_s8r_unfft_cmn_preload MACRO
 	ENDM
-yr4_s4cl_2sc_eight_reals_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg5
+yr4_s8r_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,maxrpt,L1pt,L1pd
 
 	;; On input the 64-byte cache lines hold these data values:
 	;;	0	8	16	24	4	12	20	28
@@ -4031,7 +4080,7 @@ yr4_s4cl_2sc_eight_reals_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg
 	vmulpd	ymm6, ymm6, ymm1	;; B3 = I3 * cosine/sine for w^n
 	vsubpd	ymm6, ymm6, [srcreg+32]	;; B3 = B3 - R3
 
-	yprefetchw [srcreg+srcinc]
+	L1prefetchw srcreg+L1pd, L1pt
 
 	vmovapd	ymm1, [screg2]		;; sine for w^2n
 	vmulpd	ymm2, ymm2, ymm1	;; new R3 = A2 * sine
@@ -4043,7 +4092,7 @@ yr4_s4cl_2sc_eight_reals_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg
 	vmulpd	ymm0, ymm0, ymm1	;; new R5 = A3 * sine
 	vmulpd	ymm6, ymm6, ymm1	;; new R6 = B3 * sine
 
-	yprefetchw [srcreg+srcinc+d1]
+	L1prefetchw srcreg+d1+L1pd, L1pt
 
 	vsubpd	ymm1, ymm0, ymm4	;; new R6 = R5 - R7
 	vaddpd	ymm0, ymm0, ymm4	;; new R5 = R5 + R7
@@ -4051,7 +4100,7 @@ yr4_s4cl_2sc_eight_reals_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg
 	vsubpd	ymm4, ymm6, ymm5	;; new R8 = R6 - R8
 	vaddpd	ymm6, ymm6, ymm5	;; new R7 = R6 + R8
 
-	yprefetchw [srcreg+srcinc+d2]
+	L1prefetchw srcreg+d2+L1pd, L1pt
 
 	vaddpd	ymm5, ymm1, ymm4	;; R6 = R6 + R8
 	vsubpd	ymm4, ymm4, ymm1	;; R8 = R8 - R6
@@ -4062,7 +4111,7 @@ yr4_s4cl_2sc_eight_reals_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg
 	vsubpd	ymm1, ymm3, ymm7	;; R2 - R4 (new R4)
 	vaddpd	ymm3, ymm3, ymm7	;; R2 + R4 (new R2)
 
-	yprefetchw [srcreg+srcinc+d2+d1]
+	L1prefetchw srcreg+d2+d1+L1pd, L1pt
 
 	vsubpd	ymm7, ymm1, ymm4	;; R4 - R8 (final R8)
 	vaddpd	ymm1, ymm1, ymm4	;; R4 + R8 (final R4)
@@ -4094,7 +4143,194 @@ yr4_s4cl_2sc_eight_reals_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg
 	vmovapd	[srcreg], ymm5		;; Save R1
 
 	bump	srcreg, srcinc
+	bump	screg, scinc
 	ENDM
+
+;; 64-bit version
+
+IFDEF X86_64
+
+yr4_8r_unfft_cmn_preload MACRO
+	vmovapd	ymm15, YMM_SQRTHALF
+	ENDM
+yr4_8r_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,maxrpt,L1pt,L1pd
+	IF maxrpt GE 5 AND maxrpt MOD 5 EQ 0
+	yr4_8r_unfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 1,exec,exec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 2,exec,exec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 3,exec,exec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 4,exec,exec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 5,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	bump	srcreg, 5*srcinc
+	ELSEIF maxrpt GE 4 AND maxrpt MOD 4 EQ 0
+	yr4_8r_unfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 1,exec,exec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 2,exec,exec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 3,exec,exec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 4,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	bump	srcreg, 4*srcinc
+	ELSEIF maxrpt GE 3 AND maxrpt MOD 3 EQ 0
+	yr4_8r_unfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 1,exec,exec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 2,exec,exec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 3,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	bump	srcreg, 3*srcinc
+	ELSEIF maxrpt GE 2 AND maxrpt MOD 2 EQ 0
+	yr4_8r_unfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 1,exec,exec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 2,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	bump	srcreg, 2*srcinc
+	ELSE
+	yr4_8r_unfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 0,noexec,exec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	yr4_8r_unfft_unroll 1,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+	bump	srcreg, srcinc
+	ENDIF
+	ENDM
+
+yr4_8r_unfft_unroll MACRO iter,prev,this,next,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
+
+;; On first call, init registers
+
+	IF iter EQ -1
+y0	TEXTEQU	<ymm0>
+y1	TEXTEQU	<ymm1>
+y2	TEXTEQU	<ymm2>
+y3	TEXTEQU	<ymm3>
+y4	TEXTEQU	<ymm4>
+y5	TEXTEQU	<ymm5>
+y6	TEXTEQU	<ymm6>
+y7	TEXTEQU	<ymm7>
+y8	TEXTEQU	<ymm8>
+y9	TEXTEQU	<ymm9>
+y10	TEXTEQU	<ymm10>
+y11	TEXTEQU	<ymm11>
+y12	TEXTEQU	<ymm12>
+y13	TEXTEQU	<ymm13>
+y14	TEXTEQU	<ymm14>
+	ENDIF
+
+;; On later calls, previous R2,R4,R6,R8 will be in y0-3.  This A4,A3,A2,B4,B3,I4,I3,R4,R3,R2,c/s will be in y4-14.
+;; ymm15 has YMM_SQRTHALF.
+
+this	vaddpd	y4, y4, y9			;; A4 = A4 + I4				; 1-3
+this	vmovapd	y9, [srcreg+iter*srcinc+d1+32]	;; I2
+
+this	vaddpd	y5, y5, y10			;; A3 = A3 + I3				; 2-4
+this	vmulpd	y14, y9, y14			;; B2 = I2 * cosine/sine w^2		; 1-5
+this	vmovapd	y10, [screg5+iter*scinc]	;; sine for w^5			
+
+this	vsubpd	y7, y7, y11			;; B4 = B4 - R4				; 3-5
+this	vmovapd	y11, [screg1+iter*scinc]	;; sine for w^1
+
+this	vsubpd	y8, y8, y12			;; B3 = B3 - R3				; 4-6
+this	vmulpd	y4, y4, y10			;; new R7 = A4 * sine w^5		; 4-8
+this	vmovapd	y12, [screg2+iter*scinc]	;; sine for w^2
+
+this	vaddpd	y6, y6, y9			;; A2 = A2 + I2				; 5-7
+this	vmulpd	y5, y5, y11			;; new R5 = A3 * sine w^1		; 5-9
+this	vmovapd	y9, [srcreg+iter*srcinc]	;; R1
+
+this	vsubpd	y14, y14, y13			;; B2 = B2 - R2				; 6-8
+this	vmulpd	y7, y7, y10			;; new R8 = B4 * sine w^5		; 6-10
+this	vmovapd	y10, [srcreg+iter*srcinc+32]	;; I1 (a.k.a R2)
+
+prev	vaddpd	y0, y0, y2			;; R2 + R6 (final R2)			; 7-9
+this	vmulpd	y8, y8, y11			;; new R6 = B3 * sine w^1		; 7-11
+next	vmovapd	y11, [screg5+(iter+1)*scinc+32]	;; cosine/sine for w^5
+
+prev	vsubpd	y2, y1, y3			;; R4 - R8 (final R8)			; 8-10
+this	vmulpd	y6, y6, y12			;; new R3 = A2 * sine w^2		; 8-12
+next	vmovapd	y13, [srcreg+(iter+1)*srcinc+d2+d1] ;; R4
+
+prev	vaddpd	y1, y1, y3			;; R4 + R8 (final R4)			; 9-11
+this	vmulpd	y14, y14, y12			;; new R4 = B2 * sine w^2		; 9-13
+next	vmovapd	y12, [screg1+(iter+1)*scinc+32]	;; cosine/sine for w^1
+
+this	vsubpd	y3, y5, y4			;; new R6 = R5 - R7			; 10-12
+prev	vmovapd	[srcreg+(iter-1)*srcinc+d1], y0 ;; Save R2				; 10
+this	L1prefetchw srcreg+iter*srcinc+L1pd, L1pt
+
+this	vaddpd	y5, y5, y4			;; new R5 = R5 + R7			; 11-13
+prev	vmovapd	[srcreg+(iter-1)*srcinc+d2+d1+32], y2 ;; Save R8			; 11
+
+this	vsubpd	y2, y8, y7			;; new R8 = R6 - R8			; 12-14
+prev	vmovapd	[srcreg+(iter-1)*srcinc+d2+d1], y1 ;; Save R4				; 12
+
+this	vaddpd	y8, y8, y7			;; new R7 = R6 + R8			; 13-15
+next	vmovapd	y4, [srcreg+(iter+1)*srcinc+d2+d1+32] ;; I4
+this	L1prefetchw srcreg+iter*srcinc+d1+L1pd, L1pt
+
+this	vsubpd	y1, y9, y6			;; R1 - R3 (new R3)			; 14-16
+next	vmovapd	y7, [srcreg+(iter+1)*srcinc+d2]	;; R3
+
+this	vaddpd	y0, y3, y2			;; R6 = R6 + R8				; 15-17
+this next yloop_unrolled_one
+
+this	vsubpd	y2, y2, y3			;; R8 = R8 - R6				; 16-18
+next	vmovapd	y3, [screg2+(iter+1)*scinc+32]	;; cosine/sine for w^2
+
+this	vaddpd	y9, y9, y6			;; R1 + R3 (new R1)			; 17-19
+this	L1prefetchw srcreg+iter*srcinc+d2+L1pd, L1pt
+
+this	vsubpd	y6, y1, y8			;; R3 - R7 (final R7)			; 18-20
+this	vmulpd	y0, y0, ymm15			;; R6 = R6 * square root of 1/2		; 18-22
+
+this	vaddpd	y1, y1, y8			;; R3 + R7 (final R3)			; 19-21
+this	vmulpd	y2, y2, ymm15			;; R8 = R8 * square root of 1/2		; 19-23
+this	L1prefetchw srcreg+iter*srcinc+d2+d1+L1pd, L1pt
+
+this	vaddpd	y8, y10, y14			;; R2 + R4 (new R2)			; 20-22
+this	vmovapd	[srcreg+iter*srcinc+d2+32], y6	;; Save R7				; 21
+next	vmulpd	y6, y13, y11			;; A4 = R4 * cosine/sine w^5		; 20-24
+
+this	vsubpd	y10, y10, y14			;; R2 - R4 (new R4)			; 21-23
+next	vmulpd	y14, y7, y12			;; A3 = R3 * cosine/sine w^1		; 21-25
+this	vmovapd	[srcreg+iter*srcinc+d2], y1	;; Save R3				; 22
+
+this	vsubpd	y1, y9, y5			;; R1 - R5 (final R5)			; 22-24
+next	vmulpd	y11, y4, y11			;; B4 = I4 * cosine/sine w^5		; 22-26
+this	vmovapd	[srcreg+iter*srcinc+32], y1	;; Save R5				; 25
+next	vmovapd	y1, [srcreg+(iter+1)*srcinc+d2+32] ;; I3
+
+this	vaddpd	y9, y9, y5			;; R1 + R5 (final R1)			; 23-25
+next	vmulpd	y12, y1, y12			;; B3 = I3 * cosine/sine w^1		; 23-27
+next	vmovapd	y5, [srcreg+(iter+1)*srcinc+d1] ;; R2
+this	vmovapd	[srcreg+iter*srcinc], y9	;; Save R1				; 26
+
+this	vsubpd	y9, y8, y0			;; R2 - R6 (final R6)			; 24-26
+this	vmovapd	[srcreg+iter*srcinc+d1+32], y9	;; Save R6				; 27
+next	vmulpd	y9, y5, y3			;; A2 = R2 * cosine/sine w^2		; 24-28
+
+;; Shuffle register assignments so that next call has R2,R4,R6,R8 in y0-3 and next A4,A3,A2,B4,B3,I4,I3,R4,R3,R2,c/s in y4-14.
+
+ytmp	TEXTEQU	y0
+y0	TEXTEQU	y8
+y8	TEXTEQU	y12
+y12	TEXTEQU	y7
+y7	TEXTEQU	y11
+y11	TEXTEQU	y13
+y13	TEXTEQU	y5
+y5	TEXTEQU	y14
+y14	TEXTEQU	y3
+y3	TEXTEQU	y2
+y2	TEXTEQU	ytmp
+ytmp	TEXTEQU y1
+y1	TEXTEQU	y10
+y10	TEXTEQU	ytmp
+ytmp	TEXTEQU y4
+y4	TEXTEQU	y6
+y6	TEXTEQU	y9
+y9	TEXTEQU ytmp
+
+	ENDM
+
+ENDIF
+
 
 ;;
 ;; ******************************* eight-real-with-partial-normalization variants *************************************
