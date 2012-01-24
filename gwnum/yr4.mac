@@ -3005,6 +3005,8 @@ yr4_sg4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg,
 	ENDM
 
 
+;; 64-bit version
+
 IFDEF X86_64
 
 yr4_sg4cl_four_complex_fft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,screg,scinc,maxrpt,L1pt,L1pd
