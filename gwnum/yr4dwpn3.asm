@@ -71,7 +71,7 @@ buildfor        ,	yr4dwpn_pass1sc320 1280K, 12, 1
 buildfor CORE   ,	yr4dwpn_pass1sc320 1600K, 5120, 2
 buildfor        ,	yr4dwpn_pass1sc320 2000K, 6400, 2
 
-buildfor CORE        ,	yr4dwpn_pass1sc384 864K, 2304, 1	;; BUG
+buildfor        ,	yr4dwpn_pass1sc384 864K, 2304, 1
 buildfor        ,   	yr4dwpn_pass1sc384 1152K, 3072, 1
 buildfor        ,	yr4dwpn_pass1sc384 1440K, 3840, 1
 buildfor        ,	yr4dwpn_pass1sc384 1536K, 12, 4

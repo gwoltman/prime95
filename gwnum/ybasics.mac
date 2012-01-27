@@ -19,7 +19,7 @@ L1PREFETCH_ALL		EQU	3		; L1 prefetching on
 
 L1prefetch_toggle = 1
 
-L1prefetch MACRO addr, type, dist
+L1prefetch MACRO addr, type
 	IFNB <type>
 	L1prefetch_toggle = 1 - L1prefetch_toggle
 	IF (type EQ L1PREFETCH_ALL) OR (type EQ L1PREFETCH_EVEN AND L1prefetch_toggle EQ 0) OR (type EQ L1PREFETCH_ODD AND L1prefetch_toggle EQ 1)
@@ -31,7 +31,7 @@ L1prefetch MACRO addr, type, dist
 	ENDIF
 	ENDIF
 	ENDM
-L1prefetchw MACRO addr, type, dist
+L1prefetchw MACRO addr, type
 	IFNB <type>
 	L1prefetch_toggle = 1 - L1prefetch_toggle
 	IF (type EQ L1PREFETCH_ALL) OR (type EQ L1PREFETCH_EVEN AND L1prefetch_toggle EQ 0) OR (type EQ L1PREFETCH_ODD AND L1prefetch_toggle EQ 1)
