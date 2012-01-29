@@ -1222,16 +1222,16 @@ MAXRPT	EQU	2
 	avxmac 512*1, 100000, 0, yr8_sg8cl_2sc_sixteen_reals_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, 0, rdi, YMM_SCD8, 1
 
 ;;216
-	avxmac 192, 8192, YMM_SCD9, yr5_10cl_20_reals_fft rsi, 10*64, 64, 128, rdi
-	avxmac 192, 100000, YMM_SCD9, yr5_10cl_20_reals_fft rsi, 10*64, 64, 128, rdi
-	avxmac 192, 8192, YMM_SCD9, yr5_10cl_20_reals_unfft rsi, 10*64, 64, 128, rdi
-	avxmac 192, 100000, YMM_SCD9, yr5_10cl_20_reals_unfft rsi, 10*64, 64, 128, rdi
+	avxmac 640*1, 8192, 0, yr5_10cl_20_reals_fft rsi, 10*64, 64, 128, rdi, YMM_SCD9, 1
+	avxmac 640*1, 100000, 0, yr5_10cl_20_reals_fft rsi, 10*64, 64, 128, rdi, YMM_SCD9, 1
+	avxmac 640*1, 8192, 0, yr5_10cl_20_reals_unfft rsi, 10*64, 64, 128, rdi, YMM_SCD9, 1
+	avxmac 640*1, 100000, 0, yr5_10cl_20_reals_unfft rsi, 10*64, 64, 128, rdi, YMM_SCD9, 1
 
 ;;220
-	avxmac 192, 8192, YMM_SCD13, yr7_14cl_28_reals_fft rsi, 10*64, 64, 128, rdi
-	avxmac 192, 100000, YMM_SCD13, yr7_14cl_28_reals_fft rsi, 10*64, 64, 128, rdi
-	avxmac 192, 8192, YMM_SCD13, yr7_14cl_28_reals_unfft rsi, 10*64, 64, 128, rdi
-	avxmac 192, 100000, YMM_SCD13, yr7_14cl_28_reals_unfft rsi, 10*64, 64, 128, rdi
+	avxmac 896, 8192, YMM_SCD13, yr7_14cl_28_reals_fft rsi, 14*64, 64, 128, rdi
+	avxmac 896, 100000, YMM_SCD13, yr7_14cl_28_reals_fft rsi, 14*64, 64, 128, rdi
+	avxmac 896, 8192, YMM_SCD13, yr7_14cl_28_reals_unfft rsi, 14*64, 64, 128, rdi
+	avxmac 896, 100000, YMM_SCD13, yr7_14cl_28_reals_unfft rsi, 14*64, 64, 128, rdi
 
 ; Exit the timing code
 

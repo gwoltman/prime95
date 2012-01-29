@@ -1940,7 +1940,7 @@ yr5_o10r_t5c_djbunfft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg,dstr1,dstr3,
 yr5_10cl_20_reals_fft_preload MACRO
 	ENDM
 
-yr5_10cl_20_reals_fft MACRO srcreg,srcinc,d1,d2,screg
+yr5_10cl_20_reals_fft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
 
 	;; Do the odd columns for the real results
 
@@ -1986,6 +1986,8 @@ yr5_10cl_20_reals_fft MACRO srcreg,srcinc,d1,d2,screg
 	vsubpd	ymm4, ymm1, ymm6		;; Real odd-cols row #5
 	vaddpd	ymm1, ymm1, ymm6		;; Real odd-cols row #2
 
+	L1prefetchw srcreg+L1pd, L1pt
+
 	vsubpd	ymm5, ymm2, ymm7		;; Real odd-cols row #4
 	vaddpd	ymm2, ymm2, ymm7		;; Real odd-cols row #3
 
@@ -2016,6 +2018,8 @@ yr5_10cl_20_reals_fft MACRO srcreg,srcinc,d1,d2,screg
 	vaddpd	ymm3, ymm3, [srcreg+d2+d1+32]	;; r8+r14
 	vsubpd	ymm0, ymm4, ymm3		;; (r4+r18)-(r8+r14)
 	vaddpd	ymm4, ymm4, ymm3		;; (r4+r18)+(r8+r14)
+
+	L1prefetchw srcreg+d1+L1pd, L1pt
 
 	vmulpd	ymm5, ymm5, ymm0		;; .588((r4+r18)-(r8+r14))
 	vaddpd	ymm6, ymm6, ymm5		;; .951((r2+r20)-(r10+r12))+.588((r4+r18)-(r8+r14))
@@ -2060,6 +2064,8 @@ yr5_10cl_20_reals_fft MACRO srcreg,srcinc,d1,d2,screg
 	vmulpd	ymm0, ymm3, ymm7		;; .309((r2-r20)+(r10-r12))
 	vmulpd	ymm5, ymm2, ymm7		;; .809((r2-r20)+(r10-r12))
 
+	L1prefetchw srcreg+d2+L1pd, L1pt
+
 	vaddpd	ymm7, ymm7, ymm4		;; ((r2-r20)+(r10-r12))+(r6-r16)
 	vaddpd	ymm0, ymm0, ymm4		;; .309((r2-r20)+(r10-r12))+(r6-r16)
 	vsubpd	ymm5, ymm5, ymm4		;; .809((r2-r20)+(r10-r12))-(r6-r16)
@@ -2071,6 +2077,8 @@ yr5_10cl_20_reals_fft MACRO srcreg,srcinc,d1,d2,screg
 
 	vaddpd	ymm3, ymm4, ymm6		;; (r4-r18)+(r8-r14)
 	vsubpd	ymm4, ymm4, ymm6		;; (r4-r18)-(r8-r14)
+
+	L1prefetchw srcreg+d2+d1+L1pd, L1pt
 
 	vsubpd	ymm7, ymm7, ymm3		;; ((r2-r20)+(r10-r12))-((r4-r18)+(r8-r14))+(r6-r16)
 	vmulpd	ymm2, ymm2, ymm3		;; .809((r4-r18)+(r8-r14))
@@ -2086,6 +2094,8 @@ yr5_10cl_20_reals_fft MACRO srcreg,srcinc,d1,d2,screg
 	vmulpd	ymm0, ymm2, ymm1		;; .588((r2-r20)-(r10-r12))
 	vmovapd	ymm3, YMM_P951
 	vmulpd	ymm5, ymm3, ymm1		;; .951((r2-r20)-(r10-r12))
+
+	L1prefetchw srcreg+2*d2+L1pd, L1pt
 
 	vmulpd	ymm6, ymm3, ymm4		;; .951((r4-r18)-(r8-r14))
 	vaddpd	ymm0, ymm0, ymm6		;; .588((r2-r20)-(r10-r12))+.951((r4-r18)-(r8-r14))
@@ -2123,6 +2133,8 @@ yr5_10cl_20_reals_fft MACRO srcreg,srcinc,d1,d2,screg
 
 	vaddpd	ymm2, ymm1, ymm6		;; Imag odd-cols row #2
 	vsubpd	ymm1, ymm1, ymm6		;; Imag odd-cols row #5
+
+	L1prefetchw srcreg+2*d2+d1+L1pd, L1pt
 
 	vaddpd	ymm3, ymm5, ymm7		;; Imag odd-cols row #3
 	vsubpd	ymm5, ymm5, ymm7		;; Imag odd-cols row #4
@@ -2179,6 +2191,7 @@ yr5_10cl_20_reals_fft MACRO srcreg,srcinc,d1,d2,screg
 	vmulpd	ymm3, ymm3, ymm4		;; B3 = I3 * cosine/sine
 	vaddpd	ymm2, ymm2, ymm0		;; B9 = B9 + R9
 	vaddpd	ymm3, ymm3, ymm1		;; B3 = B3 + R3
+	L1prefetchw srcreg+3*d2+L1pd, L1pt
 	vmulpd	ymm6, ymm6, [screg+7*64]	;; A9 = A9 * sine (final R9)
 	vmulpd	ymm2, ymm2, [screg+7*64]	;; B9 = B9 * sine (final I9)
 	vmulpd	ymm7, ymm7, [screg+64]		;; A3 = A3 * sine (final R3)
@@ -2207,6 +2220,7 @@ yr5_10cl_20_reals_fft MACRO srcreg,srcinc,d1,d2,screg
 	vmulpd	ymm3, ymm3, ymm4		;; B4 = I4 * cosine/sine
 	vaddpd	ymm2, ymm2, ymm0		;; B8 = B8 + R8
 	vaddpd	ymm3, ymm3, ymm1		;; B4 = B4 + R4
+	L1prefetchw srcreg+3*d2+d1+L1pd, L1pt
 	vmulpd	ymm6, ymm6, [screg+6*64]	;; A8 = A8 * sine (final R8)
 	vmulpd	ymm2, ymm2, [screg+6*64]	;; B8 = B8 * sine (final I8)
 	vmulpd	ymm7, ymm7, [screg+2*64]	;; A4 = A4 * sine (final R4)
@@ -2235,6 +2249,7 @@ yr5_10cl_20_reals_fft MACRO srcreg,srcinc,d1,d2,screg
 	vmulpd	ymm3, ymm3, ymm4		;; B5 = I5 * cosine/sine
 	vaddpd	ymm2, ymm2, ymm0		;; B7 = B7 + R7
 	vaddpd	ymm3, ymm3, ymm1		;; B5 = B5 + R5
+	L1prefetchw srcreg+4*d2+L1pd, L1pt
 	vmulpd	ymm6, ymm6, [screg+5*64]	;; A7 = A7 * sine (final R7)
 	vmulpd	ymm2, ymm2, [screg+5*64]	;; B7 = B7 * sine (final I7)
 	vmulpd	ymm7, ymm7, [screg+3*64]	;; A5 = A5 * sine (final R5)
@@ -2249,6 +2264,7 @@ yr5_10cl_20_reals_fft MACRO srcreg,srcinc,d1,d2,screg
 	vmovapd	ymm5, [screg+4*64+32]		;; cosine/sine
 	vmulpd	ymm0, ymm1, ymm5		;; A6 = R6 * cosine/sine
 	vsubpd	ymm0, ymm0, ymm2		;; A6 = A6 - I6
+	L1prefetchw srcreg+4*d2+d1+L1pd, L1pt
 	vmulpd	ymm2, ymm2, ymm5		;; B6 = I6 * cosine/sine
 	vaddpd	ymm2, ymm2, ymm1		;; B6 = B6 + R6
 	vmulpd	ymm0, ymm0, [screg+4*64]	;; A6 = A6 * sine (final R6)
@@ -2257,6 +2273,7 @@ yr5_10cl_20_reals_fft MACRO srcreg,srcinc,d1,d2,screg
 	vmovapd	[srcreg+2*d2+d1+32], ymm2	;; Save final I6
 
 	bump	srcreg, srcinc
+	bump	screg, scinc
 	ENDM
 
 ;;
@@ -2317,7 +2334,7 @@ yr5_10cl_20_reals_fft MACRO srcreg,srcinc,d1,d2,screg
 yr5_10cl_20_reals_unfft_preload MACRO
 	ENDM
 
-yr5_10cl_20_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scoff
+yr5_10cl_20_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
 
 ;; Apply the 9 twiddle factors.  Also do the first +/- on the reals so that
 ;; we have a perfect balance of adds and multiplies.
@@ -2342,6 +2359,7 @@ yr5_10cl_20_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 	vmulpd	ymm6, ymm6, ymm5		;; R10 = A10 * sine
 	vmulpd	ymm3, ymm3, ymm1		;; I2 = B2 * sine
 	vmulpd	ymm7, ymm7, ymm5		;; I10 = B10 * sine
+	L1prefetchw srcreg+L1pd, L1pt
 	vaddpd	ymm1, ymm2, ymm6		;; R2+R10
 	vsubpd	ymm2, ymm2, ymm6		;; R2-R10
 	vaddpd	ymm5, ymm3, ymm7		;; I2+I10
@@ -2371,6 +2389,7 @@ yr5_10cl_20_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 	vmulpd	ymm6, ymm6, ymm5		;; R9 = A9 * sine
 	vmulpd	ymm3, ymm3, ymm1		;; I3 = B3 * sine
 	vmulpd	ymm7, ymm7, ymm5		;; I9 = B9 * sine
+	L1prefetchw srcreg+d1+L1pd, L1pt
 	vaddpd	ymm1, ymm2, ymm6		;; R3+R9
 	vsubpd	ymm2, ymm2, ymm6		;; R3-R9
 	vaddpd	ymm5, ymm3, ymm7		;; I3+I9
@@ -2400,6 +2419,7 @@ yr5_10cl_20_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 	vmulpd	ymm6, ymm6, ymm5		;; R8 = A8 * sine
 	vmulpd	ymm3, ymm3, ymm1		;; I4 = B4 * sine
 	vmulpd	ymm7, ymm7, ymm5		;; I8 = B8 * sine
+	L1prefetchw srcreg+d2+L1pd, L1pt
 	vaddpd	ymm1, ymm2, ymm6		;; R4+R8
 	vsubpd	ymm2, ymm2, ymm6		;; R4-R8
 	vaddpd	ymm5, ymm3, ymm7		;; I4+I8
@@ -2429,6 +2449,7 @@ yr5_10cl_20_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 	vmulpd	ymm6, ymm6, ymm5		;; R7 = A7 * sine
 	vmulpd	ymm3, ymm3, ymm1		;; I5 = B5 * sine
 	vmulpd	ymm7, ymm7, ymm5		;; I7 = B7 * sine
+	L1prefetchw srcreg+d2+d1+L1pd, L1pt
 	vaddpd	ymm1, ymm2, ymm6		;; R5+R7
 	vsubpd	ymm2, ymm2, ymm6		;; R5-R7
 	vaddpd	ymm5, ymm3, ymm7		;; I5+I7
@@ -2485,6 +2506,8 @@ yr5_10cl_20_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 	vmulpd	ymm1, ymm2, ymm1		;; .809(r5-r7)
 	vsubpd	ymm7, ymm7, ymm1		;; r1-.309(r3-r9)-.809(r5-r7)-r11
 
+	L1prefetchw srcreg+2*d2+L1pd, L1pt
+
 	;; Combine even and odd columns (even rows)
 
 	vaddpd	ymm0, ymm6, ymm4		;; real-cols row #2 (odd#2 + even#2)
@@ -2510,6 +2533,8 @@ yr5_10cl_20_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 	vmulpd	ymm1, ymm2, ymm1		;; .809(r4+r8)
 	vsubpd	ymm7, ymm7, ymm1		;; .309(r2+r10)-.809(r4+r8)
 
+	L1prefetchw srcreg+2*d2+d1+L1pd, L1pt
+
 	vmovapd	ymm4, YMM_TMPS[8*32]		;; r6
 	vaddpd	ymm0, ymm0, ymm4		;; (r2+r10)+(r4+r8)+r6
 	vsubpd	ymm6, ymm6, ymm4		;; .809(r2+r10)-.309(r4+r8)-r6
@@ -2525,6 +2550,8 @@ yr5_10cl_20_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 	vaddpd	ymm1, ymm3, ymm1		;; r1+(r3+r9)+r11
 	vaddpd	ymm4, ymm3, ymm4		;; r1+.309(r3+r9)+r11
 	vsubpd	ymm5, ymm3, ymm5		;; r1-.809(r3+r9)+r11
+
+	L1prefetchw srcreg+3*d2+L1pd, L1pt
 
 	vmovapd	ymm3, YMM_TMPS[10*32]		;; r5+r7
 	vaddpd	ymm1, ymm1, ymm3		;; r1+(r3+r9)+(r5+r7)+r11
@@ -2565,6 +2592,8 @@ yr5_10cl_20_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 	vmulpd	ymm1, ymm2, ymm1		;; .309(i4+i8)
 	vaddpd	ymm7, ymm7, ymm1		;; .809(i2+i10)+.309(i4+i8)
 
+	L1prefetchw srcreg+3*d2+d1+L1pd, L1pt
+
 	vmovapd	ymm4, YMM_TMPS[9*32]		;; i6
 	vaddpd	ymm0, ymm0, ymm4		;; (i2+i10)-(i4+i8)+i6
 	vaddpd	ymm6, ymm6, ymm4		;; .309(i2+i10)+.809(i4+i8)+i6
@@ -2594,6 +2623,8 @@ yr5_10cl_20_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 	vsubpd	ymm4, ymm4, ymm0		;; .951(i3+i9)-.588(i5+i7)
 
 	;; Combine even and odd columns, then real and imag data (even rows)
+
+	L1prefetchw srcreg+4*d2+L1pd, L1pt
 
 	vsubpd	ymm0, ymm6, ymm3		;; imag-cols row #10 (even#2 - odd#2)
 	vaddpd	ymm6, ymm6, ymm3		;; imag-cols row #2 (even#2 + odd#2)
@@ -2651,6 +2682,8 @@ yr5_10cl_20_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 
 	;; Combine even and odd columns, then real and imag data (odd rows)
 
+	L1prefetchw srcreg+4*d2+d1+L1pd, L1pt
+
 	vaddpd	ymm0, ymm6, ymm3		;; imag-cols row #3 (even#3 + odd#3)
 	vsubpd	ymm6, ymm6, ymm3		;; imag-cols row #9 (even#3 - odd#3)
 	vaddpd	ymm1, ymm7, ymm4		;; imag-cols row #5 (even#5 + odd#5)
@@ -2679,5 +2712,6 @@ yr5_10cl_20_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scoff
 	vmovapd	[srcreg+2*d2+32], ymm6		;; Save R15
 
 	bump	srcreg, srcinc
+	bump	screg, scinc
 	ENDM
 
