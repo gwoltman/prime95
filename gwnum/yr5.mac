@@ -3110,3 +3110,390 @@ yr5_10cl_20_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
 	bump	screg, scinc
 	ENDM
 
+;; 64-bit version
+
+IFDEF X86_64
+
+yr5_10cl_20_reals_unfft_preload MACRO
+	vmovapd	ymm12, YMM_P309
+	vmovapd	ymm13, YMM_P809
+	vmovapd	ymm14, YMM_P588
+	vmovapd	ymm15, YMM_P951
+	ENDM
+
+yr5_10cl_20_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
+
+	vmovapd	ymm0, [screg+32]		;; cosine/sine
+	vmovapd	ymm1, [srcreg+d1]		;; R2
+	vmulpd	ymm2, ymm1, ymm0		;; A2 = R2 * cosine/sine				;	1-5
+
+	vmovapd	ymm4, [screg+8*64+32]		;; cosine/sine
+	vmovapd	ymm5, [srcreg+4*d2+d1]		;; R10
+	vmulpd	ymm6, ymm5, ymm4		;; A10 = R10 * cosine/sine				;	2-6
+
+	vmovapd	ymm3, [srcreg+d1+32]		;; I2
+	vmulpd	ymm0, ymm3, ymm0		;; B2 = I2 * cosine/sine				;	3-7
+
+	vmovapd	ymm7, [srcreg+4*d2+d1+32]	;; I10
+	vmulpd	ymm4, ymm7, ymm4		;; B10 = I10 * cosine/sine				;	4-8
+
+	vmovapd	ymm8, [screg+64+32]		;; cosine/sine
+	vmovapd	ymm9, [srcreg+d2]		;; R3
+	vmulpd	ymm10, ymm9, ymm8		;; A3 = R3 * cosine/sine				;	5-9
+	vmovapd	ymm11, [screg+7*64+32]		;; cosine/sine
+
+	vaddpd	ymm2, ymm2, ymm3		;; A2 = A2 + I2						; 6-8
+	vmovapd	ymm3, [srcreg+4*d2]		;; R9
+	vaddpd	ymm6, ymm6, ymm7		;; A10 = A10 + I10					; 7-9
+	vmulpd	ymm7, ymm3, ymm11		;; A9 = R9 * cosine/sine				;	6-10
+
+	vsubpd	ymm0, ymm0, ymm1		;; B2 = B2 - R2						; 8-10
+	vmovapd	ymm1, [srcreg+d2+32]		;; I3
+	vmulpd	ymm8, ymm1, ymm8		;; B3 = I3 * cosine/sine				;	7-11
+
+	vsubpd	ymm4, ymm4, ymm5		;; B10 = B10 - R10					; 9-11
+	vmovapd	ymm5, [srcreg+4*d2+32]		;; I9
+	vmulpd	ymm11, ymm5, ymm11		;; B9 = I9 * cosine/sine				;	8-12
+
+	vaddpd	ymm10, ymm10, ymm1		;; A3 = A3 + I3						; 10-12
+	vmovapd	ymm1, [screg]			;; sine
+	vmulpd	ymm2, ymm2, ymm1		;; R2 = A2 * sine					;	9-13
+
+	vaddpd	ymm7, ymm7, ymm5		;; A9 = A9 + I9						; 11-13
+	vmovapd	ymm5, [screg+8*64]		;; sine
+	vmulpd	ymm6, ymm6, ymm5		;; R10 = A10 * sine					;	10-14
+
+	vmulpd	ymm0, ymm0, ymm1		;; I2 = B2 * sine					;	11-15
+	vmovapd	ymm1, [screg+64]		;; sine
+
+	vsubpd	ymm8, ymm8, ymm9		;; B3 = B3 - R3						; 12-14
+	vmulpd	ymm4, ymm4, ymm5		;; I10 = B10 * sine					;	12-16
+	vmovapd	ymm9, [screg+7*64]		;; sine
+
+	vsubpd	ymm11, ymm11, ymm3		;; B9 = B9 - R9						; 13-15
+	vmulpd	ymm10, ymm10, ymm1		;; R3 = A3 * sine					;	13-17
+	vmovapd	ymm5, [screg+2*64+32]		;; cosine/sine
+
+	vmulpd	ymm7, ymm7, ymm9		;; R9 = A9 * sine					;	14-18
+
+	vaddpd	ymm3, ymm2, ymm6		;; R2+R10						; 15-17
+	vmulpd	ymm8, ymm8, ymm1		;; I3 = B3 * sine					;	15-19
+	vmovapd	ymm1, [srcreg+d2+d1]		;; R4
+
+	vsubpd	ymm2, ymm2, ymm6		;; R2-R10						; 16-18
+	vmulpd	ymm11, ymm11, ymm9		;; I9 = B9 * sine					;	16-20
+	vmovapd	ymm6, [screg+6*64+32]		;; cosine/sine
+
+	vaddpd	ymm9, ymm0, ymm4		;; I2+I10						; 17-19
+
+	vsubpd	ymm0, ymm0, ymm4		;; I2-I10						; 18-20
+	vmulpd	ymm4, ymm1, ymm5		;; A4 = R4 * cosine/sine				;	18-22
+	vmovapd	YMM_TMPS[8*32], ymm3		;; Save R2+R10						; 18
+	vmovapd	ymm3, [srcreg+3*d2+d1]		;; R8
+
+	vmovapd	YMM_TMPS[0*32], ymm2		;; Save R2-R10						; 19
+	vaddpd	ymm2, ymm10, ymm7		;; R3+R9						; 19-21
+	vmovapd	YMM_TMPS[9*32], ymm9		;; Save I2+I10						; 20
+	vmulpd	ymm9, ymm3, ymm6		;; A8 = R8 * cosine/sine				;	19-23
+
+	vsubpd	ymm10, ymm10, ymm7		;; R3-R9						; 20-22
+	vmovapd	ymm7, [srcreg+d2+d1+32]		;; I4
+	vmulpd	ymm5, ymm7, ymm5		;; B4 = I4 * cosine/sine				;	20-24
+
+	vmovapd	YMM_TMPS[1*32], ymm0		;; Save I2-I10						; 21
+	vaddpd	ymm0, ymm8, ymm11		;; I3+I9						; 21-23
+	vmovapd	YMM_TMPS[4*32], ymm2		;; Save R3+R9						; 22
+	vmovapd	ymm2, [srcreg+3*d2+d1+32]	;; I8
+	vmulpd	ymm6, ymm2, ymm6		;; B8 = I8 * cosine/sine				;	21-25
+
+	L1prefetchw srcreg+L1pd, L1pt
+
+	vsubpd	ymm8, ymm8, ymm11		;; I3-I9						; 22-24
+	vmovapd	ymm11, [screg+3*64+32]		;; cosine/sine
+	vmovapd	YMM_TMPS[2*32], ymm10		;; Save R3-R9						; 23
+	vmovapd	ymm10, [srcreg+2*d2]		;; R5
+	vmovapd	YMM_TMPS[6*32], ymm0		;; Save I3+I9						; 24
+	vmulpd	ymm0, ymm10, ymm11		;; A5 = R5 * cosine/sine				;	22-26
+
+	vaddpd	ymm4, ymm4, ymm7		;; A4 = A4 + I4						; 23-25
+	vmovapd	ymm7, [screg+5*64+32]		;; cosine/sine
+	vaddpd	ymm9, ymm9, ymm2		;; A8 = A8 + I8						; 24-26
+	vmovapd	ymm2, [srcreg+3*d2]		;; R7
+	vmovapd	YMM_TMPS[3*32], ymm8		;; Save I3-I9						; 25
+	vmulpd	ymm8, ymm2, ymm7		;; A7 = R7 * cosine/sine				;	23-27
+
+	vsubpd	ymm5, ymm5, ymm1		;; B4 = B4 - R4						; 25-27
+	vmovapd	ymm1, [srcreg+2*d2+32]		;; I5
+	vmulpd	ymm11, ymm1, ymm11		;; B5 = I5 * cosine/sine				;	24-28
+
+	vsubpd	ymm6, ymm6, ymm3		;; B8 = B8 - R8						; 26-28
+	vmovapd	ymm3, [srcreg+3*d2+32]		;; I7
+	vmulpd	ymm7, ymm3, ymm7		;; B7 = I7 * cosine/sine				;	25-29
+
+	vaddpd	ymm0, ymm0, ymm1		;; A5 = A5 + I5						; 27-29
+	vmovapd	ymm1, [screg+2*64]		;; sine
+	vmulpd	ymm4, ymm4, ymm1		;; R4 = A4 * sine					;	26-30
+
+	vaddpd	ymm8, ymm8, ymm3		;; A7 = A7 + I7						; 28-30
+	vmovapd	ymm3, [screg+6*64]		;; sine
+	vmulpd	ymm9, ymm9, ymm3		;; R8 = A8 * sine					;	27-31
+
+	vmulpd	ymm5, ymm5, ymm1		;; I4 = B4 * sine					;	28-32
+	vmovapd	ymm1, [screg+3*64]		;; sine
+
+	vsubpd	ymm11, ymm11, ymm10		;; B5 = B5 - R5						; 29-31
+	vmulpd	ymm6, ymm6, ymm3		;; I8 = B8 * sine					;	29-33
+	vmovapd	ymm10, [screg+5*64]		;; sine
+
+	vsubpd	ymm7, ymm7, ymm2		;; B7 = B7 - R7						; 30-32
+	vmulpd	ymm0, ymm0, ymm1		;; R5 = A5 * sine					;	30-34
+	vmovapd	ymm3, [screg+4*64+32]		;; cosine/sine
+
+	vmulpd	ymm8, ymm8, ymm10		;; R7 = A7 * sine					;	31-35
+
+	vaddpd	ymm2, ymm4, ymm9		;; R4+R8						; 32-34
+	vmulpd	ymm11, ymm11, ymm1		;; I5 = B5 * sine					;	32-36
+	vmovapd	ymm1, [srcreg+2*d2+d1]		;; R6
+
+	vsubpd	ymm4, ymm4, ymm9		;; R4-R8						; 33-35
+	vmulpd	ymm7, ymm7, ymm10		;; I7 = B7 * sine					;	33-37
+
+	L1prefetchw srcreg+d1+L1pd, L1pt
+
+	vaddpd	ymm10, ymm5, ymm6		;; I4+I8						; 34-36
+	vmulpd	ymm9, ymm1, ymm3		;; A6 = R6 * cosine/sine				;	34-38
+
+	vsubpd	ymm5, ymm5, ymm6		;; I4-I8						; 35-37
+	vmovapd	ymm6, [srcreg+2*d2+d1+32]	;; I6
+	vmulpd	ymm3, ymm6, ymm3		;; B6 = I6 * cosine/sine				;	35-39
+	vmovapd	YMM_TMPS[12*32], ymm2		;; Save R4+R8						; 35
+
+	vaddpd	ymm2, ymm0, ymm8		;; R5+R7						; 36-38
+	vmovapd	YMM_TMPS[13*32], ymm10		;; Save I4+I8						; 37
+	vmovapd	ymm10, YMM_TMPS[0*32]		;; r2-r10
+	vmovapd	YMM_TMPS[5*32], ymm5		;; Save I4-I8						; 38
+	vmulpd	ymm5, ymm15, ymm10		;; .951(r2-r10)						;	36-40
+
+	vsubpd	ymm0, ymm0, ymm8		;; R5-R7						; 37-39
+	vmulpd	ymm10, ymm14, ymm10		;; .588(r2-r10)						;	37-41
+
+	vaddpd	ymm8, ymm11, ymm7		;; I5+I7						; 38-40
+	vmovapd	YMM_TMPS[10*32], ymm2		;; Save R5+R7						; 39
+	vmulpd	ymm2, ymm14, ymm4		;; .588(r4-r8)						;	38-42
+
+	L1prefetchw srcreg+d2+L1pd, L1pt
+
+	vsubpd	ymm11, ymm11, ymm7		;; I5-I7						; 39-41
+	vmulpd	ymm4, ymm15, ymm4		;; .951(r4-r8)						;	39-43
+	vmovapd	ymm7, YMM_TMPS[2*32]		;; r3-r9
+
+	vaddpd	ymm9, ymm9, ymm6		;; A6 = A6 + I6						; 40-42
+	vmulpd	ymm6, ymm13, ymm7		;; .809(r3-r9)						;	40-44
+
+	vsubpd	ymm3, ymm3, ymm1		;; B6 = B6 - R6						; 41-43
+	vmulpd	ymm1, ymm12, ymm7		;; .309(r3-r9)						;	41-45
+	vmovapd	YMM_TMPS[11*32], ymm8		;; Save I5+I7						; 41
+	vmovapd	ymm8, [srcreg+32]		;; r1-r11
+
+	vsubpd	ymm7, ymm8, ymm7		;; r1-(r3-r9)-r11					; 42-44
+	vmovapd	YMM_TMPS[7*32], ymm11		;; Save I5-I7						; 42
+	vmulpd	ymm11, ymm12, ymm0		;; .309(r5-r7)						;	42-46
+
+	vaddpd	ymm5, ymm5, ymm2		;; .951(r2-r10)+.588(r4-r8) (even#2)			; 43-45
+	vmulpd	ymm2, ymm13, ymm0		;; .809(r5-r7)						;	43-47
+
+	vsubpd	ymm10, ymm10, ymm4		;; .588(r2-r10)-.951(r4-r8) (even#4)			; 44-46
+	vmovapd	ymm4, YMM_TMPS[9*32]		;; i2+i10
+
+	vaddpd	ymm6, ymm8, ymm6		;; r1+.809(r3-r9)-r11					; 45-47
+
+	L1prefetchw srcreg+d2+d1+L1pd, L1pt
+
+	vsubpd	ymm8, ymm8, ymm1		;; r1-.309(r3-r9)-r11					; 46-48
+	vmulpd	ymm1, ymm12, ymm4		;; .309(i2+i10)						;	44-48
+
+	vaddpd	ymm7, ymm7, ymm0		;; r1-(r3-r9)+(r5-r7)-r11				; 47-49
+	vmulpd	ymm0, ymm13, ymm4		;; .809(i2+i10)						;	45-49
+
+	vaddpd	ymm6, ymm6, ymm11		;; r1+.809(r3-r9)+.309(r5-r7)-r11 (odd#2)		; 48-50
+	vmovapd	ymm11, YMM_TMPS[13*32]		;; i4+i8
+
+	vsubpd	ymm8, ymm8, ymm2		;; r1-.309(r3-r9)-.809(r5-r7)-r11 (odd#4)		; 49-51
+	vmulpd	ymm2, ymm13, ymm11		;; .809(i4+i8)						;	46-50
+
+	L1prefetchw srcreg+2*d2+L1pd, L1pt
+
+	vsubpd	ymm4, ymm4, ymm11		;; (i2+i10)-(i4+i8)					; 50-52
+	vmulpd	ymm11, ymm12, ymm11		;; .309(i4+i8)						;	47-51
+
+	vaddpd	ymm1, ymm1, ymm2		;; .309(i2+i10)+.809(i4+i8)				; 51-53
+	vmovapd	ymm2, [screg+4*64]		;; sine
+	vmulpd	ymm3, ymm3, ymm2		;; I6 = B6 * sine					;	48-52
+	vmulpd	ymm9, ymm9, ymm2		;; R6 = A6 * sine					;	49-53
+	vmovapd	ymm2, YMM_TMPS[6*32]		;; i3+i9
+
+	vaddpd	ymm0, ymm0, ymm11		;; .809(i2+i10)+.309(i4+i8)				; 52-54
+	vmulpd	ymm11, ymm14, ymm2		;; .588(i3+i9)						;	50-54
+	vmulpd	ymm2, ymm15, ymm2		;; .951(i3+i9)						;	51-55
+
+	vaddpd	ymm4, ymm4, ymm3		;; (i2+i10)-(i4+i8)+i6					; 53-55
+
+	vaddpd	ymm1, ymm1, ymm3		;; .309(i2+i10)+.809(i4+i8)+i6 (even#2)			; 54-56
+
+	vsubpd	ymm0, ymm0, ymm3		;; .809(i2+i10)+.309(i4+i8)-i6 (even#4)			; 55-57
+
+	vaddpd	ymm3, ymm7, ymm4		;; final R6						; 56-58
+
+	vsubpd	ymm7, ymm7, ymm4		;; final R16						; 57-59
+	vmovapd	ymm4, YMM_TMPS[11*32]		;; i5+i7
+	vmovapd	[srcreg+2*d2+d1], ymm3		;; Save R6						; 59
+	vmulpd	ymm3, ymm15, ymm4		;; .951(i5+i7)						;	52-56
+	vmulpd	ymm4, ymm14, ymm4		;; .588(i5+i7)						;	53-57
+
+	L1prefetchw srcreg+2*d2+d1+L1pd, L1pt
+
+	vaddpd	ymm11, ymm11, ymm3		;; .588(i3+i9)+.951(i5+i7) (odd#2)			; 58-60
+	vmovapd	ymm3, YMM_TMPS[8*32]		;; r2+r10
+
+	vsubpd	ymm2, ymm2, ymm4		;; .951(i3+i9)-.588(i5+i7) (odd#4)			; 59-61
+
+	vaddpd	ymm4, ymm6, ymm5		;; real-cols row #2 (odd#2 + even#2)			; 60-62
+	vsubpd	ymm6, ymm6, ymm5		;; real-cols row #10 (odd#2 - even#2)			; 61-63
+
+	L1prefetchw srcreg+3*d2+L1pd, L1pt
+
+	vaddpd	ymm5, ymm8, ymm10		;; real-cols row #4 (odd#4 + even#4)			; 62-64
+	vmovapd	[srcreg+2*d2+d1+32], ymm7	;; Save R16						; 62
+	vsubpd	ymm8, ymm8, ymm10		;; real-cols row #8 (odd#4 - even#4)			; 63-65
+
+	vsubpd	ymm10, ymm1, ymm11		;; imag-cols row #10 (even#2 - odd#2)			; 64-66
+	vaddpd	ymm1, ymm1, ymm11		;; imag-cols row #2 (even#2 + odd#2)			; 65-67
+	vsubpd	ymm11, ymm0, ymm2		;; imag-cols row #8 (even#4 - odd#4)			; 66-68
+	vaddpd	ymm0, ymm0, ymm2		;; imag-cols row #4 (even#4 + odd#4)			; 67-69
+
+	L1prefetchw srcreg+3*d2+d1+L1pd, L1pt
+
+	vaddpd	ymm2, ymm6, ymm10		;; final R10						; 68-70
+	vsubpd	ymm6, ymm6, ymm10		;; final R12						; 69-71
+
+	vaddpd	ymm10, ymm4, ymm1		;; final R2						; 70-72
+	vmulpd	ymm7, ymm13, ymm3		;; .809(r2+r10)						;	70-74
+
+	vsubpd	ymm4, ymm4, ymm1		;; final R20						; 71-73
+	vmulpd	ymm1, ymm12, ymm3		;; .309(r2+r10)						;	71-75
+	vmovapd	[srcreg+4*d2+d1], ymm2		;; Save R10						; 71
+
+	L1prefetchw srcreg+4*d2+L1pd, L1pt
+
+	vaddpd	ymm2, ymm8, ymm11		;; final R8						; 72-74
+	vmovapd	[srcreg+d1+32], ymm6		;; Save R12						; 72
+	vmovapd	ymm6, YMM_TMPS[12*32]		;; r4+r8
+	vmovapd	[srcreg+d1], ymm10		;; Save R2						; 73
+	vmulpd	ymm10, ymm12, ymm6		;; .309(r4+r8)						;	72-76
+
+	vsubpd	ymm8, ymm8, ymm11		;; final R14						; 73-75
+	vmulpd	ymm11, ymm13, ymm6		;; .809(r4+r8)						;	73-77
+
+	vmovapd	[srcreg+4*d2+d1+32], ymm4	;; Save R20						; 74
+	vaddpd	ymm4, ymm5, ymm0		;; final R4						; 74-76
+	vmovapd	[srcreg+3*d2+d1], ymm2		;; Save R8						; 75
+	vmovapd	ymm2, YMM_TMPS[4*32]		;; r3+r9
+	vmovapd	[srcreg+d2+d1+32], ymm8		;; Save R14						; 76
+	vmulpd	ymm8, ymm12, ymm2		;; .309(r3+r9)						;	74-78
+
+	vsubpd	ymm5, ymm5, ymm0		;; final R18						; 75-77
+	vmulpd	ymm0, ymm13, ymm2		;; .809(r3+r9)						;	75-79
+
+	vaddpd	ymm3, ymm3, ymm6		;; (r2+r10)+(r4+r8)					; 76-78
+	vmovapd	ymm6, YMM_TMPS[10*32]		;; r5+r7
+	vmovapd	[srcreg+d2+d1], ymm4		;; Save R4						; 77
+	vmulpd	ymm4, ymm13, ymm6		;; .809(r5+r7)						;	76-80
+
+	vsubpd	ymm7, ymm7, ymm10		;; .809(r2+r10)-.309(r4+r8)				; 77-79
+	vmulpd	ymm10, ymm12, ymm6		;; .309(r5+r7)						;	77-81
+
+	vsubpd	ymm1, ymm1, ymm11		;; .309(r2+r10)-.809(r4+r8)				; 78-80
+	vmovapd	ymm11, [srcreg]			;; r1+r11
+	vmovapd	[srcreg+3*d2+d1+32], ymm5	;; Save R18						; 78
+	vmovapd	ymm5, YMM_TMPS[1*32]		;; i2-i10
+
+	vaddpd	ymm3, ymm3, ymm9		;; (r2+r10)+(r4+r8)+r6					; 79-81
+	vsubpd	ymm7, ymm7, ymm9		;; .809(r2+r10)-.309(r4+r8)-r6				; 80-82
+	vaddpd	ymm1, ymm1, ymm9		;; .309(r2+r10)-.809(r4+r8)+r6				; 81-83
+
+	vaddpd	ymm2, ymm11, ymm2		;; r1+(r3+r9)+r11					; 82-84
+
+	vaddpd	ymm8, ymm11, ymm8		;; r1+.309(r3+r9)+r11					; 83-85
+	vmulpd	ymm9, ymm14, ymm5		;; .588(i2-i10)						;	83-87
+
+	vsubpd	ymm11, ymm11, ymm0		;; r1-.809(r3+r9)+r11					; 84-86
+	vmulpd	ymm5, ymm15, ymm5		;; .951(i2-i10)						;	84-88
+	vmovapd	ymm0, YMM_TMPS[5*32]		;; i4-i8
+
+	vaddpd	ymm2, ymm2, ymm6		;; r1+(r3+r9)+(r5+r7)+r11				; 85-87
+	vmulpd	ymm6, ymm15, ymm0		;; .951(i4-i8)						;	85-89
+
+	vsubpd	ymm8, ymm8, ymm4		;; r1+.309(r3+r9)-.809(r5+r7)+r11			; 86-88
+	vmulpd	ymm0, ymm14, ymm0		;; .588(i4-i8)						;	86-90
+	vmovapd	ymm4, YMM_TMPS[3*32]		;; i3-i9
+
+	vaddpd	ymm11, ymm11, ymm10		;; r1-.809(r3+r9)+.309(r5+r7)+r11			; 87-89
+
+	vaddpd	ymm10, ymm2, ymm3		;; real-cols row #1 (and final R1)			; 88-90
+	vmovapd	[srcreg], ymm10			;; Save final R1					; 91
+	vmulpd	ymm10, ymm15, ymm4		;; .951(i3-i9)						;	87-91
+	vmulpd	ymm4, ymm14, ymm4		;; .588(i3-i9)						;	88-92
+
+	vsubpd	ymm2, ymm2, ymm3		;; real-cols row #11 (and final R11)			; 89-91
+	vmovapd	ymm3, YMM_TMPS[7*32]		;; i5-i7
+	vmovapd	[srcreg+32], ymm2		;; Save final R11					; 92
+	vmulpd	ymm2, ymm14, ymm3		;; .588(i5-i7)						;	89-93
+
+	vaddpd	ymm9, ymm9, ymm6		;; .588(i2-i10)+.951(i4-i8)				; 90-92
+	vmulpd	ymm3, ymm15, ymm3		;; .951(i5-i7)						;	90-94
+
+	vsubpd	ymm5, ymm5, ymm0		;; .951(i2-i10)-.588(i4-i8)				; 91-93
+
+	vaddpd	ymm0, ymm8, ymm7		;; real-cols row #3					; 92-94
+	vsubpd	ymm8, ymm8, ymm7		;; real-cols row #9					; 93-95
+
+	vaddpd	ymm10, ymm10, ymm2		;; .951(i3-i9)+.588(i5-i7)				; 94-96
+	vsubpd	ymm4, ymm4, ymm3		;; .588(i3-i9)-.951(i5-i7)				; 95-97
+
+	L1prefetchw srcreg+4*d2+d1+L1pd, L1pt
+
+	vaddpd	ymm3, ymm11, ymm1		;; real-cols row #5					; 96-98
+	vsubpd	ymm11, ymm11, ymm1 		;; real-cols row #7					; 97-99
+
+	vaddpd	ymm1, ymm9, ymm10		;; imag-cols row #3 (even#3 + odd#3)			; 98-100
+	vsubpd	ymm9, ymm9, ymm10		;; imag-cols row #9 (even#3 - odd#3)			; 99-101
+	vaddpd	ymm10, ymm5, ymm4		;; imag-cols row #5 (even#5 + odd#5)			; 100-102
+	vsubpd	ymm5, ymm5, ymm4		;; imag-cols row #7 (even#5 - odd#5)			; 101-103
+
+	vaddpd	ymm4, ymm0, ymm1		;; final R3						; 102-104
+	vsubpd	ymm0, ymm0, ymm1		;; final R19						; 103-105
+	vaddpd	ymm1, ymm8, ymm9		;; final R9						; 104-106
+	vsubpd	ymm8, ymm8, ymm9		;; final R13						; 105-107
+	vmovapd	[srcreg+d2], ymm4		;; Save R3						; 105
+
+	vaddpd	ymm2, ymm3, ymm10		;; final R5						; 106-108
+	vmovapd	[srcreg+4*d2+32], ymm0		;; Save R19						; 106
+
+	vsubpd	ymm3, ymm3, ymm10		;; final R17						; 107-109
+	vmovapd	[srcreg+4*d2], ymm1		;; Save R9						; 107
+
+	vaddpd	ymm7, ymm11, ymm5		;; final R7						; 108-110
+	vmovapd	[srcreg+d2+32], ymm8		;; Save R13						; 108
+
+	vsubpd	ymm11, ymm11, ymm5		;; final R15						; 109-111
+	vmovapd	[srcreg+2*d2], ymm2		;; Save R5						; 109
+	vmovapd	[srcreg+3*d2+32], ymm3		;; Save R17						; 110
+	vmovapd	[srcreg+3*d2], ymm7		;; Save R7						; 111
+	vmovapd	[srcreg+2*d2+32], ymm11		;; Save R15						; 112
+
+	bump	srcreg, srcinc
+	bump	screg, scinc
+	ENDM
+
+ENDIF
+
