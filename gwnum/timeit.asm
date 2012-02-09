@@ -1228,10 +1228,10 @@ MAXRPT	EQU	2
 	avxmac 640*1, 100000, 0, yr5_10cl_20_reals_unfft rsi, 10*64, 64, 128, rdi, YMM_SCD9, 1
 
 ;;220
-	avxmac 896, 8192, YMM_SCD13, yr7_14cl_28_reals_fft rsi, 14*64, 64, 128, rdi
-	avxmac 896, 100000, YMM_SCD13, yr7_14cl_28_reals_fft rsi, 14*64, 64, 128, rdi
-	avxmac 896, 8192, YMM_SCD13, yr7_14cl_28_reals_unfft rsi, 14*64, 64, 128, rdi
-	avxmac 896, 100000, YMM_SCD13, yr7_14cl_28_reals_unfft rsi, 14*64, 64, 128, rdi
+	avxmac 896*1, 8192, 0, yr7_14cl_28_reals_fft rsi, 14*64, 64, 128, rdi, YMM_SCD13, 1
+	avxmac 896*1, 100000, 0, yr7_14cl_28_reals_fft rsi, 14*64, 64, 128, rdi, YMM_SCD13, 1
+	avxmac 896*1, 8192, 0, yr7_14cl_28_reals_unfft rsi, 14*64, 64, 128, rdi, YMM_SCD13, 1
+	avxmac 896*1, 100000, 0, yr7_14cl_28_reals_unfft rsi, 14*64, 64, 128, rdi, YMM_SCD13, 1
 
 ; Exit the timing code
 
