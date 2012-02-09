@@ -6885,7 +6885,7 @@ int primeTime (
 #define SAVED_LIMIT	10
 	llhandle lldata;
 	unsigned long i, j, saved, save_limit, num_threads;
-	char	buf[80], fft_desc[100];
+	char	buf[120], fft_desc[100];
 	double	time, saved_times[SAVED_LIMIT];
 	int	days, hours, minutes, stop_reason;
 	uint32_t *ASM_TIMERS;
