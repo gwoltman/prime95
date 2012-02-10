@@ -676,7 +676,7 @@ int test_randomly (
 	unsigned int b;
 	int	c;
 	unsigned int n;
-	char	buf[140], fft_desc[100], SPECIFIC_K[20], SPECIFIC_C[20];
+	char	buf[200], fft_desc[100], SPECIFIC_K[20], SPECIFIC_C[20];
 	int	MAX_THREADS, MIN_K_BITS, MAX_K_BITS;
 	int	MAX_C_BITS_FOR_SMALL_K, MAX_C_BITS_FOR_LARGE_K;
 	int	SPECIFIC_B, SPECIFIC_N, SPECIFIC_L2_CACHE, SPECIFIC_THREADS, SPECIFIC_FFTLEN;
