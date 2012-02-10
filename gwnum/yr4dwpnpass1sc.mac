@@ -465,7 +465,6 @@ c7b:	yr4_b4cl_wpn_four_complex_djbunfft rsi, 64, clmblkdst, 2*clmblkdst, rdi, YM
 	mov	rdi, sincos2		;; Load fixed premultiplier/sin/cos ptr
 	yloop_init 4*4*clm		;; 4 iterations of 4*clm
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_last_djbunfft_preload
 c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 0, 4*clm
 	yloop	4*clm, c1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iterations
 	yloop	4, c1b			;; 4 iterations
@@ -509,7 +508,6 @@ yes_fft:start_timer 22
 pfing	bump	rcx, 8*4*blkdst		;; We've already prefetched 8 blocks
 	yloop_init 4*4*clm		;; 4 iters of 4*clm
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_first_djbfft_preload
 b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, 0, 4*clm
 	yloop	4*clm, b1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
 	yloop	4, b1b, -4*clmblkdst	;; 4 iterations, restore source pointer
@@ -978,7 +976,6 @@ c7b:	yr4_b4cl_wpn_four_complex_djbunfft rsi, 64, 2*clmblkdst, 4*clmblkdst, rdi, 
 	mov	rdi, sincos2		;; Load fixed premultiplier/sin/cos ptr
 	yloop_init 8*4*clm		;; 8 iterations of 4*clm
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_last_djbunfft_preload
 c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 0, 4*clm, L1PREFETCH_ALL, 2*64
 	yloop	4*clm, c1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iterations
 	yloop	8, c1b			;; 8 iterations
@@ -1022,7 +1019,6 @@ yes_fft:start_timer 22
 pfing	bump	rcx, 16*4*blkdst	;; We've already prefetched 16 blocks
 	yloop_init 8*4*clm		;; 8 iters of 4*clm
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_first_djbfft_preload
 b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, 0, 4*clm, L1PREFETCH_ALL, 2*64
 	yloop	4*clm, b1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
 	yloop	8, b1b, -8*clmblkdst	;; 8 iterations, restore source pointer
@@ -2161,7 +2157,6 @@ c5b:	yr3_3cl_three_complex_djbunfft rsi, 64, 4*clmblkdst, rdi, YMM_SCD1, 4*clm
 	start_timer 20
 	yloop_adjust 4*clm			;; Do fewer iterations in this loop
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_last_djbunfft_preload
 c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 12*clmblkdst, 24*clmblkdst, rbp, 0, 4*clm
 	yloop	4*clm, c1b, -4*clm*64+4*clmblkdst, rbp, 4*YMM_SCD6 ;; 4*clm iterations
 	yloop	4, c1b, -3*4*clmblkdst+clmblkdst, rbp, -3*4*YMM_SCD6+YMM_SCD6 ;; Loop 3 times!! next source pointer, next sin/cos ptr
@@ -2185,7 +2180,6 @@ c5b:	yr3_3cl_three_complex_djbunfft rsi, 64, 4*clmblkdst, rdi, YMM_SCD1, 4*clm
 	mov	rdi, sincos2			;; Load fixed premultiplier/sin/cos ptr
 	yloop_init 12*4*clm			;; 12 iterations of 4*clm
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_last_djbunfft_preload
 c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 12*clmblkdst, 24*clmblkdst, rdi, 0, 4*clm
 	yloop	4*clm, c1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iterations
 	yloop	12, c1b				;; Test loop counter
@@ -2259,7 +2253,6 @@ IF (48*4*clm*64 GT GROUPING_SIZE) OR (clm GE CLM_GROUPING)
 b1a:	start_timer 22
 	yloop_adjust 4*clm			;; Do fewer iterations in this loop
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_first_djbfft_preload
 b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 12*clmblkdst, 24*clmblkdst, rdi, 0, 4*clm
 	yloop	4*clm, b1b, -4*clm*64+4*clmblkdst, rdi, 4*YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
 	yloop	4, b1b, -3*4*clmblkdst, rdi, -3*4*YMM_SCD6+YMM_SCD6 ;; 3 iterations!! restore source ptr, next sin/cos ptr
@@ -2282,7 +2275,6 @@ ELSE
 	start_timer 22
 	yloop_init 12*4*clm			;; 12 iters of 4*clm
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_first_djbfft_preload
 b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 12*clmblkdst, 24*clmblkdst, rdi, 0, 4*clm
 	yloop	4*clm, b1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
 	yloop	12, b1b, -12*clmblkdst		;; Test loop counter, restore source pointer
@@ -3460,7 +3452,6 @@ c5b:	yr4_4cl_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, YMM_SC
 
 	start_timer 20
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_last_djbunfft_preload
 c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rbp, 0, 4*clm
 	yloop	4*clm, c1b, -4*clm*64+4*clmblkdst, rbp, 4*YMM_SCD6 ;; 4*clm iterations
 	yloop	2, c1b, -2*4*clmblkdst+clmblkdst8 ;; 2 iterations
@@ -3484,7 +3475,6 @@ c5b:	yr4_4cl_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdi, YMM_SC
 	mov	rdi, sincos2			;; Load fixed premultiplier/sin/cos ptr
 	yloop_init 16*4*clm			;; 16 iterations of 4*clm
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_last_djbunfft_preload
 c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, 0, 4*clm, L1PREFETCH_ALL, 2*64 ;; Prefetch short dist ahead
 	yloop	4*clm, c1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iterations
 	yloop	8, c1b, -8*clmblkdst+clmblkdst8 ;; 8 iterations
@@ -3558,7 +3548,6 @@ IF (64*4*clm*64 GT GROUPING_SIZE) OR (clm GE CLM_GROUPING)
 	yloop_init 16*4*clm			;; 16 iters of 4*clm
 b1a:	start_timer 22
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_first_djbfft_preload
 b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, 0, 4*clm
 	yloop	4*clm, b1b, -4*clm*64+4*clmblkdst, rdi, 4*YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
 	yloop	2, b1b, -2*4*clmblkdst+clmblkdst8 ;; 2 iterations
@@ -3581,7 +3570,6 @@ ELSE
 	start_timer 22
 	yloop_init 16*4*clm			;; 16 iters of 4*clm
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_first_djbfft_preload
 b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, 0, 4*clm, L1PREFETCH_ALL, 2*64 ;; Prefetch short dist ahead
 	yloop	4*clm, b1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
 	yloop	8, b1b, -8*clmblkdst+clmblkdst8 ;; 8 iterations
@@ -4775,7 +4763,6 @@ c5b:	yr5_5cl_five_complex_djbunfft rsi, 64, 4*clmblkdst, rdi, YMM_SCD2, 4*clm
 	start_timer 20
 	yloop_adjust 3*4*clm			;; Do fewer iterations in this loop
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_last_djbunfft_preload
 c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 20*clmblkdst, 40*clmblkdst, rbp, 0, 4*clm
 	yloop	4*clm, c1b, -4*clm*64+4*clmblkdst, rbp, 4*YMM_SCD6 ;; 4*clm iterations
 	yloop	8, c1b, -5*4*clmblkdst+clmblkdst, rbp, -5*4*YMM_SCD6+YMM_SCD6 ;; 5 iterations!! next source pointer, next sin/cos ptr
@@ -4799,7 +4786,6 @@ c5b:	yr5_5cl_five_complex_djbunfft rsi, 64, 4*clmblkdst, rdi, YMM_SCD2, 4*clm
 	mov	rdi, sincos2			;; Load fixed premultiplier/sin/cos ptr
 	yloop_init 20*4*clm			;; 20 iterations of 4*clm
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_last_djbunfft_preload
 c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 20*clmblkdst, 40*clmblkdst, rdi, 0, 4*clm
 	yloop	4*clm, c1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iterations
 	yloop	20, c1b				;; Test loop counter
@@ -4873,7 +4859,6 @@ IF (80*4*clm*64 GT GROUPING_SIZE) OR (clm GE CLM_GROUPING)
 b1a:	start_timer 22
 	yloop_adjust 3*4*clm			;; Do fewer iterations in this loop
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_first_djbfft_preload
 b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 20*clmblkdst, 40*clmblkdst, rdi, 0, 4*clm
 	yloop	4*clm, b1b, -4*clm*64+4*clmblkdst, rdi, 4*YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
 	yloop	8, b1b, -5*4*clmblkdst, rdi, -5*4*YMM_SCD6+YMM_SCD6 ;; 5 iterations!! restore source ptr, next sin/cos ptr
@@ -4897,7 +4882,6 @@ ELSE
 	start_timer 22
 	yloop_init 20*4*clm			;; 20 iters of 4*clm
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_first_djbfft_preload
 b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 20*clmblkdst, 40*clmblkdst, rdi, 0, 4*clm
 	yloop	4*clm, b1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
 	yloop	20, b1b, -20*clmblkdst		;; Test loop counter, restore source pointer
@@ -5738,7 +5722,6 @@ c5b:	yr3_3cl_three_complex_djbunfft rsi, 64, clmblkdst8, rdi, YMM_SCD1, 4*clm
 	start_timer 20
 	yloop_adjust 4*clm			;; Do fewer iterations in this loop
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_last_djbunfft_preload
 c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 3*clmblkdst8, 6*clmblkdst8, rbp, 0, 4*clm
 	yloop	4*clm, c1b, -4*clm*64+clmblkdst8, rbp, 8*YMM_SCD6 ;; 4*clm iterations
 	yloop	4, c1b, -3*clmblkdst8+clmblkdst, rbp, -3*8*YMM_SCD6+YMM_SCD6 ;; Loop 3 times!! next source pointer, next sin/cos ptr
@@ -5762,7 +5745,6 @@ c5b:	yr3_3cl_three_complex_djbunfft rsi, 64, clmblkdst8, rdi, YMM_SCD1, 4*clm
 	mov	rdi, sincos2			;; Load fixed premultiplier/sin/cos ptr
 	yloop_init 24*4*clm			;; 24 iterations of 4*clm
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_last_djbunfft_preload
 c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 3*clmblkdst8, 6*clmblkdst8, rdi, 0, 4*clm
 	yloop	4*clm, c1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iterations
 	yloop	8, c1b, -8*clmblkdst+clmblkdst8	;; Test loop counter
@@ -5837,7 +5819,6 @@ IF (96*4*clm*64 GT GROUPING_SIZE) OR (clm GE CLM_GROUPING)
 b1a:	start_timer 22
 	yloop_adjust 4*clm			;; Do fewer iterations in this loop
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_first_djbfft_preload
 b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 3*clmblkdst8, 6*clmblkdst8, rdi, 0, 4*clm
 	yloop	4*clm, b1b, -4*clm*64+clmblkdst8, rdi, 8*YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
 	yloop	4, b1b, -3*clmblkdst8, rdi, -3*8*YMM_SCD6+YMM_SCD6 ;; 3 iterations!! restore source ptr, next sin/cos ptr
@@ -5860,7 +5841,6 @@ ELSE
 	start_timer 22
 	yloop_init 24*4*clm			;; 24 iters of 4*clm
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_first_djbfft_preload
 b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 3*clmblkdst8, 6*clmblkdst8, rdi, 0, 4*clm
 	yloop	4*clm, b1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
 	yloop	8, b1b, -8*clmblkdst+clmblkdst8	;; Test loop counter, next source pointer
@@ -7060,7 +7040,6 @@ c5b:	yr4_4cl_four_complex_djbunfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, YMM_S
 
 	start_timer 20
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_last_djbunfft_preload
 c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 4*clmblkdst8, 8*clmblkdst8, rbp, 0, 4*clm
 	yloop	4*clm, c1b, -4*clm*64+clmblkdst8, rbp, 8*YMM_SCD6 ;; 4*clm iterations
 	yloop	4, c1b, -4*clmblkdst8+clmblkdst, rbp, -4*8*YMM_SCD6+YMM_SCD6 ;; 4 iterations, next source pointer, next sin/cos ptr
@@ -7083,7 +7062,6 @@ c5b:	yr4_4cl_four_complex_djbunfft rsi, 64, clmblkdst8, 2*clmblkdst8, rdi, YMM_S
 	mov	rdi, sincos2			;; Load fixed premultiplier/sin/cos ptr
 	yloop_init 32*4*clm			;; 32 iterations of 4*clm
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_last_djbunfft_preload
 c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 4*clmblkdst8, 8*clmblkdst8, rdi, 0, 4*clm
 	yloop	4*clm, c1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iterations
 	yloop	8, c1b, -8*clmblkdst+clmblkdst8 ;; 8 iterations
@@ -7157,7 +7135,6 @@ IF (128*4*clm*64 GT GROUPING_SIZE) OR (clm GE CLM_GROUPING)
 	yloop_init 32*4*clm			;; 32 iters of 4*clm
 b1a:	start_timer 22
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_first_djbfft_preload
 b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 4*clmblkdst8, 8*clmblkdst8, rdi, 0, 4*clm
 	yloop	4*clm, b1b, -4*clm*64+clmblkdst8, rdi, 8*YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
 	yloop	4, b1b, -4*clmblkdst8, rdi, -4*8*YMM_SCD6+YMM_SCD6 ;; 4 iterations, restore source ptr, next sin/cos ptr
@@ -7179,7 +7156,6 @@ ELSE
 	start_timer 22
 	yloop_init 32*4*clm			;; 32 iters of 4*clm
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_first_djbfft_preload
 b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 4*clmblkdst8, 8*clmblkdst8, rdi, 0, 4*clm
 	yloop	4*clm, b1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
 	yloop	8, b1b, -8*clmblkdst+clmblkdst8 ;; 8 iterations
@@ -8014,7 +7990,6 @@ c5b:	yr5_5cl_five_complex_djbunfft rsi, 64, clmblkdst8, rdi, YMM_SCD2, 4*clm
 	start_timer 20
 	yloop_adjust 3*4*clm			;; Do fewer iterations in this loop
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_last_djbunfft_preload
 c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 5*clmblkdst8, 10*clmblkdst8, rbp, 0, 4*clm
 	yloop	4*clm, c1b, -4*clm*64+clmblkdst8, rbp, 8*YMM_SCD6 ;; 4*clm iterations
 	yloop	8, c1b, -5*clmblkdst8+clmblkdst, rbp, -5*8*YMM_SCD6+YMM_SCD6 ;; 5 iterations!! next source pointer, next sin/cos ptr
@@ -8038,7 +8013,6 @@ c5b:	yr5_5cl_five_complex_djbunfft rsi, 64, clmblkdst8, rdi, YMM_SCD2, 4*clm
 	mov	rdi, sincos2			;; Load fixed premultiplier/sin/cos ptr
 	yloop_init 40*4*clm			;; 40 iterations of 4*clm
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_last_djbunfft_preload
 c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 5*clmblkdst8, 10*clmblkdst8, rdi, 0, 4*clm
 	yloop	4*clm, c1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iterations
 	yloop	8, c1b, -8*clmblkdst+clmblkdst8	;; Test loop counter, next source pointer
@@ -8113,7 +8087,6 @@ IF (160*4*clm*64 GT GROUPING_SIZE) OR (clm GE CLM_GROUPING)
 b1a:	start_timer 22
 	yloop_adjust 3*4*clm			;; Do fewer iterations in this loop
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_first_djbfft_preload
 b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 5*clmblkdst8, 10*clmblkdst8, rdi, 0, 4*clm
 	yloop	4*clm, b1b, -4*clm*64+clmblkdst8, rdi, 8*YMM_SCD6 ;; 4*clm iters
 	yloop	8, b1b, -5*clmblkdst8, rdi, -5*8*YMM_SCD6+YMM_SCD6 ;; 5 iterations!! restore source ptr, next sin/cos ptr
@@ -8137,7 +8110,6 @@ ELSE
 	start_timer 22
 	yloop_init 40*4*clm			;; 40 iters of 4*clm
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_first_djbfft_preload
 b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 5*clmblkdst8, 10*clmblkdst8, rdi, 0, 4*clm
 	yloop	4*clm, b1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
 	yloop	8, b1b, -8*clmblkdst+clmblkdst8	;; Test loop counter, next source pointer
@@ -9112,7 +9084,6 @@ c3b:	yr4_4cl_four_complex_djbunfft rsi, 64, 12*clmblkdst, 24*clmblkdst, rbx, 0, 
 	start_timer 20
 	yloop_adjust 4*4			;; Fewer iterations in this loop
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_last_djbunfft_preload
 c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 48*clmblkdst, 96*clmblkdst, rbp, 0, 4
 	yloop	4, c1b, -4*64+4*clmblkdst, rbp, 4*YMM_SCD6 ;; 4 iterations, next sin/cos ptr
 	yloop	16, c1b, -12*4*clmblkdst+4*64, rbp, -12*4*YMM_SCD6 ;; 12 iterations!!  Next source pointer, restore sin/cos ptr
@@ -9148,7 +9119,6 @@ c3b:	yr4_4cl_four_complex_djbunfft rsi, 64, 12*clmblkdst, 24*clmblkdst, rdi, 0, 
 	bump	rdi, -48*YMM_SCD6		;; Sin/cos ptr
 	yloop_init 48*4*clm			;; 48 iterations of 4*clm
 	yloop_set_clm_prefetch YSINGLE
-	yr4_4cl_csc_four_complex_last_djbunfft_preload
 c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 48*clmblkdst, 96*clmblkdst, rdi, 0, 4*clm
 	yloop	4*clm, c1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iterations
 	yloop	48, c1b				;; 48 iterations
@@ -9244,7 +9214,6 @@ IF (192*4*clm*64 GT GROUPING_SIZE) OR (clm GE CLM_GROUPING)
 b1a:	start_timer 22
 	yloop_adjust 4*4			;; Fewer iterations this loop
 	yloop_set_clm_prefetch YNONE
-	yr4_4cl_csc_four_complex_first_djbfft_preload
 b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 48*clmblkdst, 96*clmblkdst, rbp, 0, 4
 	yloop	4, b1b, -4*64+4*clmblkdst, rbp, 4*YMM_SCD6 ;; Test loop counter, next sin/cos ptr
 	yloop	16, b1b, -12*4*clmblkdst, rbp, -12*4*YMM_SCD6 ;; 12 iterations!!  Restore source pointer, restore sin/cos ptr
@@ -9278,7 +9247,6 @@ ELSE
 	mov	rdi, sincos2			;; Load fixed premultiplier/sin/cos ptr
 	yloop_init 48*4*clm			;; 48 iters of 4*clm
 	yloop_set_clm_prefetch YNONE
-	yr4_4cl_csc_four_complex_first_djbfft_preload
 b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 48*clmblkdst, 96*clmblkdst, rdi, 0, 4*clm
 	yloop	4*clm, b1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
 	yloop	48, b1b, -48*clmblkdst		;; 48 iterations
@@ -10790,7 +10758,6 @@ c3b:	yr4_4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rbx, 0, 
 
 	start_timer 20
 	yloop_set_clm_prefetch YNONE
-	yr4_4cl_csc_four_complex_last_djbunfft_preload
 c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rbp, 0, 4
 	yloop	4, c1b, -4*64+4*clmblkdst, rbp, 4*YMM_SCD6 ;; 4 iterations, next sin/cos ptr
 	yloop	2, c1b, -2*4*clmblkdst+clmblkdst8 ;; Test loop counter, next source pointer
@@ -10827,7 +10794,6 @@ c3b:	yr4_4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, 0, 
 	bump	rdi, -64*YMM_SCD6		;; Sin/cos ptr
 	yloop_init 64*4*clm			;; 64 iterations of 4*clm
 	yloop_set_clm_prefetch YNONE
-	yr4_4cl_csc_four_complex_last_djbunfft_preload
 c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rdi, 0, 4*clm
 	yloop	4*clm, c1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iterations
 	yloop	8, c1b, -8*clmblkdst+clmblkdst8 ;; 8 iterations
@@ -10923,7 +10889,6 @@ IF (256*4*clm*64 GT GROUPING_SIZE) OR (clm GE CLM_GROUPING)
 
 b1a:	start_timer 22
 	yloop_set_clm_prefetch YNONE
-	yr4_4cl_csc_four_complex_first_djbfft_preload
 b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rbp, 0, 4
 	yloop	4, b1b, -4*64+4*clmblkdst, rbp, 4*YMM_SCD6 ;; Test loop counter, next sin/cos ptr
 	yloop	2, b1b, -2*4*clmblkdst+clmblkdst8 ;; Test loop counter, next source pointer
@@ -10957,7 +10922,6 @@ ELSE
 	mov	rdi, sincos2			;; Load fixed premultiplier/sin/cos ptr
 	yloop_init 64*4*clm			;; 64 iters of 4*clm
 	yloop_set_clm_prefetch YNONE
-	yr4_4cl_csc_four_complex_first_djbfft_preload
 b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rdi, 0, 4*clm
 	yloop	4*clm, b1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
 	yloop	8, b1b, -8*clmblkdst+clmblkdst8 ;; 8 iterations
