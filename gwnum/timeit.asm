@@ -1150,12 +1150,12 @@ MAXRPT	EQU	2
 	avxmac 192*2, 100000, 0, yr3_b3cl_three_complex_djbunfft rsi, 3*64, 64, rdi, YMM_SCD1/4, 2
 
 ;;162
-	avxmac 192, 8192, YMM_SCD2, yr3_3cl_six_reals_fft rsi, 3*64, 64, rdi
-	avxmac 192, 100000, YMM_SCD2, yr3_3cl_six_reals_fft rsi, 3*64, 64, rdi
-	avxmacbx 192, 8192, YMM_SCD2, yr3_f3cl_six_reals_fft rsi, 3*64, 64, rdi
-	avxmacbx 192, 100000, YMM_SCD2, yr3_f3cl_six_reals_fft rsi, 3*64, 64, rdi
-	avxmac 192, 8192, YMM_SCD2, yr3_3cl_six_reals_unfft rsi, 3*64, 64, rdi
-	avxmac 192, 100000, YMM_SCD2, yr3_3cl_six_reals_unfft rsi, 3*64, 64, rdi
+	avxmac 192*1, 8192, 0, yr3_3cl_six_reals_fft rsi, 3*64, 64, rdi, YMM_SCD2, 1
+	avxmac 192*4, 8192, 0, yr3_3cl_six_reals_fft rsi, 3*64, 64, rdi, YMM_SCD2, 4
+	avxmacbx 192*1, 8192, 0, yr3_f3cl_six_reals_fft rsi, 3*64, 64, rdi, YMM_SCD2, 1
+	avxmacbx 192*1, 100000, 0, yr3_f3cl_six_reals_fft rsi, 3*64, 64, rdi, YMM_SCD2, 1
+	avxmac 192*1, 8192, 0, yr3_3cl_six_reals_unfft rsi, 3*64, 64, rdi, YMM_SCD2, 1
+	avxmac 192*4, 8192, 0, yr3_3cl_six_reals_unfft rsi, 3*64, 64, rdi, YMM_SCD2, 4
 
 ;;168
 	avxmac 192, 8192, YMM_SCD2, yr3_3cl_six_reals_three_complex_djbfft rsi, 3*64, 64, rdi
