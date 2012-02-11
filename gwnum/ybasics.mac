@@ -44,11 +44,6 @@ L1prefetchw MACRO addr, type
 	ENDIF
 	ENDM
 
-yprefetch MACRO a
-ENDM
-yprefetchw MACRO a
-ENDM
-
 ;;
 ;; Macros that do a complex squaring or multiplication
 ;;

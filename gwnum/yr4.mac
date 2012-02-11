@@ -5406,7 +5406,7 @@ yr4_4cl_eight_reals_four_complex_djbfft_preload MACRO
 	yr4_o8r_t4c_djbfft_mem_preload
 	ENDM
 yr4_4cl_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
-	yr4_o8r_t4c_djbfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d2+d1+32],screg,srcreg+srcinc,d1,d2,[srcreg]
+	yr4_o8r_t4c_djbfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d2+d1+32],screg,[srcreg]
 ;;	vmovapd	[srcreg], ymm7		;; Save R1
 	vmovapd	[srcreg+32], ymm0	;; Save I1
 	vmovapd	[srcreg+d1], ymm3	;; Save R2
@@ -5424,7 +5424,7 @@ yr4_4cl_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
 ;; the full ymm register whenever possible.
 yr4_o8r_t4c_djbfft_mem_preload MACRO
 	ENDM
-yr4_o8r_t4c_djbfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg,pre,d1,d2,dst
+yr4_o8r_t4c_djbfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg,dst
 					;; Eight-reals comments		; Three four-complex comments
 	vmovapd	ymm2, mem6		;; R6				; I2
 	vmovapd	ymm6, mem4		;; R4				; R4
@@ -5458,8 +5458,6 @@ yr4_o8r_t4c_djbfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg,pre,d
 	vblendpd ymm0, ymm0, ymm1, 1	;; new R2			; new I1
 	vsubpd	ymm2, ymm2, mem7	;; new R7 = R3 - R7		; I1 - I3 (new I3)
 
-	yprefetchw [pre]
-
 	vaddpd	ymm1, ymm2, ymm7	;; R7 + R8 (final I3)		; I3 + R4 (final I3)
 	vsubpd	ymm2, ymm2, ymm7	;; R7 - R8 (final I4)		; I3 - R4 (final I4)
 
@@ -5468,15 +5466,11 @@ yr4_o8r_t4c_djbfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg,pre,d
 	vaddpd	ymm2, ymm7, ymm6	;; new R1 = R1 + R5		; R1 + R3 (new R1)
 	vsubpd	ymm7, ymm7, ymm6	;; new R5 = R1 - R5		; R1 - R3 (new R3)
 
-	yprefetchw [pre][d1]
-
 	vsubpd	ymm6, ymm0, ymm3	;; R2 - R4 (final I2)		; I1 - I2 (final I2)
 	vaddpd	ymm0, ymm0, ymm3	;; R2 + R4 (final I1, a.k.a 2nd real result) ; I1 + I2 (final I1)
 
 	vaddpd	ymm3, ymm2, ymm5	;; R1 + R3 (final R1)		; R1 + R2 (final R1)
 	vsubpd	ymm2, ymm2, ymm5	;; R1 - R3 (final R2)		; R1 - R2 (final R2)
-
-	yprefetchw [pre][d2]
 
 	vsubpd	ymm5, ymm7, ymm4	;; R5 - negR6 (final R3)	; R3 - I4 (final R3)
 	vaddpd	ymm7, ymm7, ymm4	;; R5 + negR6 (final R4)	; R3 + I4 (final R4)
@@ -5486,8 +5480,6 @@ yr4_o8r_t4c_djbfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg,pre,d
 	vmovapd	ymm4, [screg+64+32]	;; cosine/sine
 	vmulpd	ymm3, ymm2, ymm4	;; A2 = R2 * cosine/sine
 	vsubpd	ymm3, ymm3, ymm6	;; A2 = A2 - I2
-
-	yprefetchw [pre][d1][d2]
 
 	vmulpd	ymm6, ymm6, ymm4	;; B2 = I2 * cosine/sine
 	vaddpd	ymm6, ymm6, ymm2	;; B2 = B2 + R2
@@ -5531,7 +5523,7 @@ yr4_4cl_eight_reals_four_complex_djbunfft_preload MACRO
 	yr4_o8r_t4c_djbunfft_mem_preload
 	ENDM
 yr4_4cl_eight_reals_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg
-	yr4_o8r_t4c_djbunfft_mem [srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32],[srcreg+d2],[srcreg+d2+32],[srcreg+d2+d1],[srcreg+d2+d1+32],screg,srcreg+srcinc,d1,d2,[srcreg]
+	yr4_o8r_t4c_djbunfft_mem [srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32],[srcreg+d2],[srcreg+d2+32],[srcreg+d2+d1],[srcreg+d2+d1+32],screg,[srcreg]
 ;;	vmovapd	[srcreg], ymm1		;; Save R1
 	vmovapd	[srcreg+32], ymm6	;; Save R5/I1
 	vmovapd	[srcreg+d1], ymm0	;; Save R2
@@ -5545,7 +5537,7 @@ yr4_4cl_eight_reals_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg
 
 yr4_o8r_t4c_djbunfft_mem_preload MACRO
 	ENDM
-yr4_o8r_t4c_djbunfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg,pre,d1,d2,dst
+yr4_o8r_t4c_djbunfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg,dst
 	vmovapd	ymm3, [screg+64+32]	;; cosine/sine
 	vmovapd	ymm2, mem3		;; R2
 	vmulpd	ymm6, ymm2, ymm3	;; A2 = R2 * cosine/sine		; 1-5
@@ -5576,8 +5568,6 @@ yr4_o8r_t4c_djbunfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg,pre
 	vmulpd	ymm6, ymm6, [screg+64]	;; A2 = A2 * sine (new R2)		; 9-13
 	vmulpd	ymm3, ymm3, [screg+64]	;; B2 = B2 * sine (new I2)		; 10-14
 
-	yprefetchw [pre]
-
 	vaddpd	ymm1, ymm1, ymm4	;; A4 = A4 + I4				; 10-12
 	vsubpd	ymm5, ymm5, ymm2	;; B4 = B4 - R4				; 11-13
 
@@ -5587,8 +5577,6 @@ yr4_o8r_t4c_djbunfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg,pre
 	vmovapd	ymm4, [screg+128]	;; Sine
 	vmulpd	ymm1, ymm1, ymm4	;; A4 = A4 * sine (new R4)		; 13-17
 	vmulpd	ymm5, ymm5, ymm4	;; B4 = B4 * sine (new I4)		; 14-18
-
-	yprefetchw [pre][d1]
 
 					;; Eight reals comments		; Four complex comments
 					;; new R3 = A2
@@ -5616,8 +5604,6 @@ yr4_o8r_t4c_djbunfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg,pre
 	vmulsd	xmm3, xmm3, YMM_SQRTHALF ;; R6 *= square root of 1/2	; meaningless
 	vmulsd	xmm0, xmm0, YMM_SQRTHALF ;; negR8 *= square root of 1/2	; meaningless
 
-	yprefetchw [pre][d2]
-
 	vblendpd ymm2, ymm2, ymm3, 1	;; new R6			; new R4
 	vblendpd ymm4, ymm4, ymm0, 1	;; new negR8			; new negI4
 
@@ -5627,8 +5613,6 @@ yr4_o8r_t4c_djbunfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg,pre
 	vmovapd	ymm0, mem1		;; R1				; R1
 	vaddpd	ymm4, ymm0, ymm6	;; R1 + R3 (new R1)		; R1 + R2 (new R1)
 	vsubpd	ymm0, ymm0, ymm6	;; R1 - R3 (new R3)		; R1 - R2 (new R2)
-
-	yprefetchw [pre][d1][d2]
 
 	vblendpd ymm6, ymm1, ymm0, 1	;; new R3			; new I1
 	vblendpd ymm0, ymm0, ymm1, 1	;; new R2			; new R2
