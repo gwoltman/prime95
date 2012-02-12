@@ -4249,6 +4249,7 @@ yr4_8r_fft_cmn MACRO srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc
 	yr4_8r_fft_unroll 4,exec,exec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_fft_unroll 5,exec,noexec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	bump	srcreg, 5*srcinc
+	bump	screg, 5*scinc
 	ELSEIF maxrpt GE 4 AND maxrpt MOD 4 EQ 0
 	yr4_8r_fft_unroll -1,noexec,noexec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_fft_unroll 0,noexec,exec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
@@ -4257,6 +4258,7 @@ yr4_8r_fft_cmn MACRO srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc
 	yr4_8r_fft_unroll 3,exec,exec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_fft_unroll 4,exec,noexec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	bump	srcreg, 4*srcinc
+	bump	screg, 4*scinc
 	ELSEIF maxrpt GE 3 AND maxrpt MOD 3 EQ 0
 	yr4_8r_fft_unroll -1,noexec,noexec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_fft_unroll 0,noexec,exec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
@@ -4264,17 +4266,20 @@ yr4_8r_fft_cmn MACRO srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc
 	yr4_8r_fft_unroll 2,exec,exec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_fft_unroll 3,exec,noexec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	bump	srcreg, 3*srcinc
+	bump	screg, 3*scinc
 	ELSEIF maxrpt GE 2 AND maxrpt MOD 2 EQ 0
 	yr4_8r_fft_unroll -1,noexec,noexec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_fft_unroll 0,noexec,exec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_fft_unroll 1,exec,exec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_fft_unroll 2,exec,noexec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	bump	srcreg, 2*srcinc
+	bump	screg, 2*scinc
 	ELSE
 	yr4_8r_fft_unroll -1,noexec,noexec,exec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_fft_unroll 0,noexec,exec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_fft_unroll 1,exec,noexec,noexec,srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	bump	srcreg, srcinc
+	bump	screg, scinc
 	ENDIF
 	ENDM
 
@@ -4725,6 +4730,7 @@ yr4_8r_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,maxr
 	yr4_8r_unfft_unroll 4,exec,exec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_unfft_unroll 5,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	bump	srcreg, 5*srcinc
+	bump	screg, 5*scinc
 	ELSEIF maxrpt GE 4 AND maxrpt MOD 4 EQ 0
 	yr4_8r_unfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_unfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
@@ -4733,6 +4739,7 @@ yr4_8r_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,maxr
 	yr4_8r_unfft_unroll 3,exec,exec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_unfft_unroll 4,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	bump	srcreg, 4*srcinc
+	bump	screg, 4*scinc
 	ELSEIF maxrpt GE 3 AND maxrpt MOD 3 EQ 0
 	yr4_8r_unfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_unfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
@@ -4740,17 +4747,20 @@ yr4_8r_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,maxr
 	yr4_8r_unfft_unroll 2,exec,exec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_unfft_unroll 3,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	bump	srcreg, 3*srcinc
+	bump	screg, 3*scinc
 	ELSEIF maxrpt GE 2 AND maxrpt MOD 2 EQ 0
 	yr4_8r_unfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_unfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_unfft_unroll 1,exec,exec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_unfft_unroll 2,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	bump	srcreg, 2*srcinc
+	bump	screg, 2*scinc
 	ELSE
 	yr4_8r_unfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_unfft_unroll 0,noexec,exec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	yr4_8r_unfft_unroll 1,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,L1pt,L1pd
 	bump	srcreg, srcinc
+	bump	screg, scinc
 	ENDIF
 	ENDM
 
