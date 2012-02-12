@@ -383,7 +383,7 @@ struct gwasm_data {
 
 };
 
-/* Routines to buil sin/cos, weights tables */
+/* Routines to build sin/cos, weights tables */
 
 unsigned long pow_two_above_or_equal (unsigned long n);
 
@@ -391,7 +391,7 @@ double *yr4_build_onepass_sincos_table (gwhandle *gwdata, double *table);
 double *yr4_build_onepass_biglit_table (gwhandle *gwdata, double *table);
 double *yr4_build_onepass_norm_table (gwhandle *gwdata, double *table);
 double *yr4dwpn_build_pass1_table (gwhandle *gwdata, double *table);
-double *yr4dwpn_build_norm_table (gwhandle *gwdata, double *table, int col);
+double *yr4dwpn_build_norm_table (gwhandle *gwdata, double *table);
 double *yr4dwpn_build_biglit_table (gwhandle *gwdata, double *table);
 double *yr4dwpn_build_fixed_pass1_table (gwhandle *gwdata, double *table);
 double *yr4_build_pass2_complex_table (gwhandle *gwdata, double *table);
@@ -405,7 +405,7 @@ double *r4delay_build_pass1_table (gwhandle *gwdata, double *table);
 double *r4delay_build_fixed_pass1_table (gwhandle *gwdata, double *table);
 double *r4dwpn_build_pass1_table (gwhandle *gwdata, double *table);
 double *r4_build_norm_table (gwhandle *gwdata, double *table, int col);
-double *r4dwpn_build_norm_table (gwhandle *gwdata, double *table, int col);
+double *r4dwpn_build_norm_table (gwhandle *gwdata, double *table);
 double *r4_build_biglit_table (gwhandle *gwdata, double *table);
 double *r4dwpn_build_biglit_table (gwhandle *gwdata, double *table);
 double *hg_build_sin_cos_table (double	*table, unsigned long N, int hermetian_skip, int type);

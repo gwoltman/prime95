@@ -2260,7 +2260,7 @@ int internal_gwsetup (
 
 			ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 			asm_data->norm_grp_mults = tables;
-			tables = yr4dwpn_build_norm_table (gwdata, tables, 0);
+			tables = yr4dwpn_build_norm_table (gwdata, tables);
 
 /* Reserve room for the pass 1 scratch area. */
 
@@ -2491,7 +2491,7 @@ int internal_gwsetup (
 
 			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 			asm_data->norm_grp_mults = tables;
-			tables = r4dwpn_build_norm_table (gwdata, tables, 0);
+			tables = r4dwpn_build_norm_table (gwdata, tables);
 
 /* Reserve room for the pass 1 scratch area. */
 

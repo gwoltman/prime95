@@ -1118,8 +1118,7 @@ double *yr4_build_pass2_real_table (
 
 double *yr4dwpn_build_norm_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	double	*table,		/* Pointer to the table to fill in */
-	int	col)		/* TRUE if building column, not group, table */
+	double	*table)		/* Pointer to the table to fill in */
 {
 	unsigned long i, j, num_cols, upper_avx_word;
 
@@ -2847,8 +2846,7 @@ double *r4_build_norm_table (
 
 double *r4dwpn_build_norm_table (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	double	*table,		/* Pointer to the table to fill in */
-	int	col)		/* TRUE if building column, not group, table */
+	double	*table)		/* Pointer to the table to fill in */
 {
 	unsigned long i, j, num_cols, upper_sse2_word, second_word_in_cache_line;
 
