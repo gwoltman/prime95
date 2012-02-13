@@ -394,6 +394,7 @@ bcast	vbroadcastsd ymm0, Q [screg1]	;; sine
 	vmovapd	[srcreg+2*d1], ymm7	;; Save R3
 	vmovapd	[srcreg+2*d1+32], ymm3	;; Save I3
 	bump	srcreg, srcinc
+	bump	screg, scinc
 	ENDM
 
 ;; 64-bit version
