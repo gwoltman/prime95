@@ -631,7 +631,7 @@ yloop_emulate_first_loops_call MACRO
 	ENDIF
 	loops_incr_needed = 0
 	loops_completed = yloop_unrolled_count+1
-	IF yloop_adjustment LT ylocal_iters AND yloop_unrolled_count GT 0
+	IF yloop_unrolled_count GT 0 AND (loops_completed + yloop_adjustment) EQ ylocal_iters
 		loops_completed = loops_completed + yloop_adjustment
 	ENDIF
 	IF ylocal_iters MOD loops_completed NE 0
