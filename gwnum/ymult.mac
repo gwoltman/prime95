@@ -637,6 +637,30 @@ yloop_emulate_first_loops_call MACRO
 	IF ylocal_iters MOD loops_completed NE 0
 		bad_yloop_emulate_first_loops_call
 	ENDIF
+
+	;; Handle hard non-power-of-2 case.  For example: yloop 20 where we've unrolled 5 times.
+	IF (ylocal_iters AND (ylocal_iters-1)) NE 0 AND (loops_completed AND (loops_completed-1)) NE 0
+		next_power_2 = ylocal_iters
+		next_power_2 = next_power_2 OR (next_power_2 SHR 1)
+		next_power_2 = next_power_2 OR (next_power_2 SHR 2)
+		next_power_2 = next_power_2 OR (next_power_2 SHR 4)
+		next_power_2 = next_power_2 OR (next_power_2 SHR 8)
+		next_power_2 = (next_power_2 OR (next_power_2 SHR 16)) + 1
+		non_power_2_adjustment = next_power_2 - ylocal_iters
+		loops_np2_initial_value_adjust = non_power_2_adjustment
+		overwrite_initial_loop_count loops_np2_initial_value_adjust
+		loops_count = loops_count / ylocal_iters * next_power_2
+		ylocal_iters = next_power_2
+
+		next_power_2 = loops_completed
+		next_power_2 = next_power_2 OR (next_power_2 SHR 1)
+		next_power_2 = next_power_2 OR (next_power_2 SHR 2)
+		next_power_2 = next_power_2 OR (next_power_2 SHR 4)
+		next_power_2 = next_power_2 OR (next_power_2 SHR 8)
+		next_power_2 = (next_power_2 OR (next_power_2 SHR 16)) + 1
+		loops_completed = next_power_2
+	ENDIF
+
 	ylocal_iters = ylocal_iters / loops_completed
 ENDM
 
