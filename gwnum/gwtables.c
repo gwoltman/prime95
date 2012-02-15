@@ -1232,8 +1232,9 @@ double *yr4dwpn_build_biglit_table (
 const	int	START_OF_CHAIN = 0x8000;
 const	int	END_OF_CHAIN = 0x4000;
 	int	combos[16], next_combo[16];
+	unsigned char combo_recorded[256];
 	unsigned char *p;
-	unsigned long upper_avx_word, num_cols;
+	unsigned long upper_avx_word, fftlen_over_2, num_cols;
 	unsigned long group, i, j, k, m, n, num_combos;
 
 /* Init table of first 8 big/lit values */
@@ -1243,59 +1244,39 @@ const	int	END_OF_CHAIN = 0x4000;
 /* Big/lit flags form a very regular pattern.  For example, if there are 18.3 b's */
 /* per FFT word then you get either a big word followed by two little words or a */
 /* big  followed by three little words.  Here we determine which patterns of big/lit */
-/* are possible in an ynorm_wpn macro which processes 2 AVX words.  There are */
-/* 16 possible valid combinations which can be represented by indexing into an array */
-/* of 32 AVX values. */
+/* are possible in a ynorm_wpn macro which processes 2 AVX words. */
 
-/* Generate all 16 possible valid combinations of big/lit flags */
+/* Generate all possible valid combinations of big/lit flags */
 
+	memset (combo_recorded, 0, sizeof (combo_recorded));
 	upper_avx_word = gwdata->PASS2_SIZE;
+	fftlen_over_2 = gwdata->FFTLEN / 2;
 	num_combos = 0;
-	for (i = 0; i < 16; i++) {
-		int	combo;
-		double	base[8], next_base[8], incr;
 
-		/* Generate the bases for the first cache line */
-		if (i == 0) {
-			for (j = 0; j < 2; j++) {
-				for (k = 0; k < 4; k++) {
-					base[4*j+k] = (j * gwdata->FFTLEN / 2 + k * upper_avx_word) * gwdata->avg_num_b_per_word;
-					next_base[4*j+k] = base[4*j+k] + gwdata->avg_num_b_per_word;
-				}
-			}
-		}
+	/* Loop over all cache lines */
+	for (i = 0; i < upper_avx_word; i++) {
+		for (j = 0; j < fftlen_over_2; j += 4*upper_avx_word) {
+			int	combo;
 
-		/* For i=0-7, adjust the weights so that one of bases is an integer */
-		/* For i=8-15, adjust the weights so that one of the next_bases is an integer */
-		if (i < 8) incr = ceil (base[i]) - base[i];
-		else incr = ceil (next_base[i-8]) - next_base[i-8];
-		for (j = 0; j < 8; j++) {
-			base[j] += incr;
-			next_base[j] += incr;
-		}
-		ASSERTG (ceil (i < 8 ? base[i] : next_base[i-8]) - (i < 8 ? base[i] : next_base[i-8]) < 0.01);
+			/* Generate combo for this cache line */
+			combo = (is_big_word (gwdata, i + j + 3*upper_avx_word) << 7) +
+				(is_big_word (gwdata, i + j + 2*upper_avx_word) << 6) +
+				(is_big_word (gwdata, i + j + upper_avx_word) << 5) +
+				(is_big_word (gwdata, i + j) << 4) +
+				(is_big_word (gwdata, i + j + fftlen_over_2 + 3*upper_avx_word) << 3) +
+				(is_big_word (gwdata, i + j + fftlen_over_2 + 2*upper_avx_word) << 2) +
+				(is_big_word (gwdata, i + j + fftlen_over_2 + upper_avx_word) << 1) +
+				(is_big_word (gwdata, i + j + fftlen_over_2));
 
-		/* Generate this combination */
-		combo = 0;
-		for (j = 0; j < 2; j++) {
-			combo <<= 4;
-			combo += ((int) ceil (next_base[4*j+3]) - (int) ceil (base[4*j+3]) > (int) gwdata->NUM_B_PER_SMALL_WORD) * 8 +
-				 ((int) ceil (next_base[4*j+2]) - (int) ceil (base[4*j+2]) > (int) gwdata->NUM_B_PER_SMALL_WORD) * 4 +
-				 ((int) ceil (next_base[4*j+1]) - (int) ceil (base[4*j+1]) > (int) gwdata->NUM_B_PER_SMALL_WORD) * 2 +
-				 ((int) ceil (next_base[4*j]) - (int) ceil (base[4*j]) > (int) gwdata->NUM_B_PER_SMALL_WORD);
-		}
-
-		/* Ignore this combo if it is a duplicate.  Otherwise, add it to our combos collection. */
-		for (j = 0; ; j++) {
-			if (j == num_combos) {
+			/* Ignore this combo if it is a duplicate.  Otherwise, add it to our combos collection. */
+			if (! combo_recorded[combo]) {
+				combo_recorded[combo] = 1;
 				combos[num_combos++] = combo;
-				break;
 			}
-			if (combo == combos[j]) break;
 		}
 	}
 
-/* Now concatentate them to save space.  Let's hope they fit in 48 entries. */
+/* Concatentate combos to save space.  Let's hope they fit in 48 entries. */
 
 	/* Init the next-in-chain array */
 	for (i = 0; i < num_combos; i++)
@@ -1408,7 +1389,7 @@ GWASSERT (n <= 24);	// Lets see what the AVX limits really are!!!
 /* Combine last two big/lit 4-bit flag values into one 6-bit flags value. */
 
 			p -= 2;
-			for (m = 0; m <= 47; m++) {
+			for (m = 0; m <= 46; m++) {
 				if (((char *)gwdata->ASM_TIMERS)[m]   == (p[0] & 0xF) &&
 				    ((char *)gwdata->ASM_TIMERS)[m+1] == (p[1] & 0xF))
 					break;
@@ -3071,8 +3052,9 @@ const	int	CHAIN_3_COMMON = 0x2000;
 const	int	CHAIN_2_COMMON = 0x1000;
 const	int	CHAIN_1_COMMON = 0x0800;
 	int	combos[16], next_combo[16];
+	unsigned char combo_recorded[256];
 	unsigned char *p;
-	unsigned long upper_sse2_word, num_cols;
+	unsigned long upper_sse2_word, fftlen_over_4, num_cols;
 	unsigned long group, i, j, k, m, n, num_combos;
 
 /* Big/lit flags form a very regular pattern.  For example, if there are 18.3 b's */
@@ -3082,53 +3064,37 @@ const	int	CHAIN_1_COMMON = 0x0800;
 /* 16 possible valid combinations which can be represented by indexing into an array */
 /* of 32 SSE2 values. */
 
-/* Generate all 16 possible valid combinations of big/lit flags */
+/* Generate all possible valid combinations of big/lit flags */
 
+	memset (combo_recorded, 0, sizeof (combo_recorded));
 	upper_sse2_word = gwdata->PASS2_SIZE / 2;
+	fftlen_over_4 = gwdata->FFTLEN / 4;
 	num_combos = 0;
-	for (i = 0; i < 16; i++) {
-		int	combo;
-		double	base[8], next_base[8], incr;
 
-		/* Generate the bases for the first cache line */
-		if (i == 0) {
-			for (j = 0; j < 4; j++) {
-				base[2*j] = (j * gwdata->FFTLEN / 4) * gwdata->avg_num_b_per_word;
-				base[2*j+1] = (j * gwdata->FFTLEN / 4 + upper_sse2_word) * gwdata->avg_num_b_per_word;
-				next_base[2*j] = base[2*j] + gwdata->avg_num_b_per_word;
-				next_base[2*j+1] = base[2*j+1] + gwdata->avg_num_b_per_word;
-			}
-		}
+	/* Loop over all cache lines */
+	for (i = 0; i < upper_sse2_word; i++) {
+		for (j = 0; j < fftlen_over_4; j += 2*upper_sse2_word) {
+			int	combo;
 
-		/* For i=0-7, adjust the weights so that one of bases is an integer */
-		/* For i=8-15, adjust the weights so that one of the next_bases is an integer */
-		if (i < 8) incr = ceil (base[i]) - base[i];
-		else incr = ceil (next_base[i-8]) - next_base[i-8];
-		for (j = 0; j < 8; j++) {
-			base[j] += incr;
-			next_base[j] += incr;
-		}
-		ASSERTG (ceil (i < 8 ? base[i] : next_base[i-8]) - (i < 8 ? base[i] : next_base[i-8]) < 0.01);
+			/* Generate combo for this cache line */
+			combo = (is_big_word (gwdata, i + j + upper_sse2_word) << 7) +
+				(is_big_word (gwdata, i + j) << 6) +
+				(is_big_word (gwdata, i + j + fftlen_over_4 + upper_sse2_word) << 5) +
+				(is_big_word (gwdata, i + j + fftlen_over_4) << 4) +
+				(is_big_word (gwdata, i + j + 2*fftlen_over_4 + upper_sse2_word) << 3) +
+				(is_big_word (gwdata, i + j + 2*fftlen_over_4) << 2) +
+				(is_big_word (gwdata, i + j + 3*fftlen_over_4 + upper_sse2_word) << 1) +
+				(is_big_word (gwdata, i + j + 3*fftlen_over_4));
 
-		/* Generate this combination */
-		combo = 0;
-		for (j = 0; j < 4; j++) {
-			combo <<= 2;
-			combo += ((int) ceil (next_base[2*j+1]) - (int) ceil (base[2*j+1]) > (int) gwdata->NUM_B_PER_SMALL_WORD) * 2 +
-				 ((int) ceil (next_base[2*j]) - (int) ceil (base[2*j]) > (int) gwdata->NUM_B_PER_SMALL_WORD);
-		}
-
-		/* Ignore this combo if it is a duplicate.  Otherwise, add it to our combos collection. */
-		for (j = 0; ; j++) {
-			if (j == num_combos) {
+			/* Ignore this combo if it is a duplicate.  Otherwise, add it to our combos collection. */
+			if (! combo_recorded[combo]) {
+				combo_recorded[combo] = 1;
 				combos[num_combos++] = combo;
-				break;
 			}
-			if (combo == combos[j]) break;
 		}
 	}
 
-/* Now concatentate them to save space.  Let's hope they fit in 48 entries. */
+/* Concatentate combos to save space.  Let's hope they fit in 48 entries. */
 
 	/* Init the next-in-chain array */
 	for (i = 0; i < num_combos; i++)
