@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2011 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2012 Mersenne Research, Inc.  All rights reserved
 | Author:  George Woltman
 | Email: woltman@alum.mit.edu
 |
@@ -67,6 +67,32 @@ unsigned int CPU_SIGNATURE = 0;		/* Vendor-specific family number, */
 int	CPU_ARCHITECTURE = 0;		/* Our attempt to derive the CPU */
 					/* architecture. */
 
+/* Masm routines to burn up a specific number of clocks */
+
+void one_hundred_thousand_clocks_help ();
+void one_million_clocks_help ();
+
+/* Routines to burn up a specific number of clocks */
+
+void one_hundred_thousand_clocks (void)
+{
+	/* The helper function times the ROR instruction which has a throughput of 1 clock on Intel and 1/3 clock on AMD */
+	one_hundred_thousand_clocks_help ();
+	if (CPU_FLAGS & CPU_3DNOW) {
+		one_hundred_thousand_clocks_help ();
+		one_hundred_thousand_clocks_help ();
+	}
+}
+
+void one_million_clocks (void)
+{
+	/* The helper function times the ROR instruction which has a throughput of 1 clock on Intel and 1/3 clock on AMD */
+	one_million_clocks_help ();
+	if (CPU_FLAGS & CPU_3DNOW) {
+		one_million_clocks_help ();
+		one_million_clocks_help ();
+	}
+}
 
 /* Return the number of CPUs in the system */
 
@@ -119,7 +145,7 @@ unsigned int num_cpus (void)
 #ifdef X86_64
 
 int canExecInstruction (
-			unsigned long cpu_flag)
+	unsigned long cpu_flag)
 {
 	return (TRUE);
 }
@@ -1582,3 +1608,4 @@ double getHighResTimerFrequency (void)
 	return (1000000.0);
 #endif
 }
+

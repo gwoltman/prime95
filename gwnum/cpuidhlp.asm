@@ -1,4 +1,4 @@
-; Copyright 1995-2011 Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2012 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -188,7 +188,7 @@ exgetbv	ENDP
 ;	lea	rsi, [rsi+rsi*8]
 ; but this also ran too fast (83000 instead of 100000).
 
-PROCFL	one_hundred_thousand_clocks
+PROCFL	one_hundred_thousand_clocks_help
 	ah_prolog 0,0,0,rdi,rsi
 	mov	rax, 100000 / 100
 biglp:	REPEAT 25
@@ -200,9 +200,9 @@ biglp:	REPEAT 25
 	sub	rax, 1
 	jnz	biglp
 	ah_epilog 0,0,0,rdi,rsi
-one_hundred_thousand_clocks ENDP
+one_hundred_thousand_clocks_help ENDP
 
-PROCFL	one_million_clocks
+PROCFL	one_million_clocks_help
 	ah_prolog 0,0,0,rdi,rsi
 	mov	rax, 1000000 / 100
 biglp2:	REPEAT 25
@@ -214,14 +214,14 @@ biglp2:	REPEAT 25
 	sub	rax, 1
 	jnz	biglp2
 	ah_epilog 0,0,0,rdi,rsi
-one_million_clocks ENDP
+one_million_clocks_help ENDP
 
 ; This was our original implementation.  Unfortunately it took 200,000 and 2,000,000
 ; clocks on a Pentium 4 (and 1.5 times that amount on a hyperthreaded Pentium 4).
 
 IFDEF ORIGNAL_IMPLEMENTATION
 
-PROCFL	one_hundred_thousand_clocks
+PROCFL	one_hundred_thousand_clocks_help
 	ah_prolog 0,0,0,xmm6,xmm7
 	xorps	xmm0, xmm0
 	xorps	xmm1, xmm1
@@ -245,9 +245,9 @@ biglp:	REPEAT 25
 	sub	rax, 1
 	jnz	biglp
 	ah_epilog 0,0,0,xmm6,xmm7
-one_hundred_thousand_clocks ENDP
+one_hundred_thousand_clocks_help ENDP
 
-PROCFL	one_million_clocks
+PROCFL	one_million_clocks_help
 	ah_prolog 0,0,0,xmm6,xmm7
 	xorps	xmm0, xmm0
 	xorps	xmm1, xmm1
@@ -271,7 +271,7 @@ biglp2:	REPEAT 25
 	sub	rax, 1
 	jnz	biglp2
 	ah_epilog 0,0,0,xmm6,xmm7
-one_million_clocks ENDP
+one_million_clocks_help ENDP
 
 ENDIF
 
