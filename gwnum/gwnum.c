@@ -532,7 +532,8 @@ int calculate_bif (
 		retval = BIF_K10;		/* Look for FFTs optimized for K10 */
 		break;
 	case CPU_ARCHITECTURE_AMD_BULLDOZER:
-		retval = BIF_BULL;		/* Look for FFTs optimized for Bulldozer */
+//		retval = BIF_BULL;		/* Look for FFTs optimized for Bulldozer */
+		retval = BIF_I7;		/* Look for FFTs optimized for I7 until we write Bulldozer specific FFTs */
 		break;
 	case CPU_ARCHITECTURE_PRE_SSE2:		/* Cannot happen, gwinfo should have selected x87 FFTs */
 	case CPU_ARCHITECTURE_AMD_OTHER:
@@ -5933,7 +5934,7 @@ unsigned long gwmap_to_estimated_size (
 
 /* Speed of other AVX processors compared to a Sandy Bridge */
 
-#define REL_BULLDOZER_SPEED	1.4	/* Bulldozer is slower than a Sandy Bridge */
+#define REL_BULLDOZER_SPEED	1.9	/* Bulldozer is slower than a Sandy Bridge */
 
 /* Make a guess as to how long a squaring will take.  If the number cannot */
 /* be handled, then kludgily return 100.0. */
