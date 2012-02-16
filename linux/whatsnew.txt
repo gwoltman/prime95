@@ -1,3 +1,17 @@
+New features in Version 27.3 of mprime
+--------------------------------------
+
+1)  64-bit optimizations for AVX-capable computers.  Single core benchmarks on Intel Sandy
+    Bridge computers should see a decent speed increase.  However, running on 4 cores
+    runs into main memory bandwidth bottleneck.  Sandy Bridge-E CPUs with 4 memory channels
+    should avoid this problem.
+
+New features in Version 27.1 of mprime
+--------------------------------------
+
+1)  32-bit FFTs optimized for AVX-capable computers.  Intel Sandy Bridge computers should
+    see a 25% speed increase.
+
 New features in Version 26.6 of mprime
 --------------------------------------
 
