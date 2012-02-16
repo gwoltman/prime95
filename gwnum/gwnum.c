@@ -985,9 +985,9 @@ next1:			while (zpad_jmptab->flags & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
 				carries_spread_over = 4.0;					//BUG - avx code is much more lenient
 			else if (jmptab->fftlen == 80 || jmptab->fftlen == 112)
 				carries_spread_over = 4.0;
-			else if ((jmptab->flags & 0x3F) == 0)	// One pass SSE2 FFTs
+			else if ((jmptab->flags & 0x1FF) == 0)	// One pass AVX/SSE2 FFTs
 				carries_spread_over = 6.0;
-			else					// Two pass SSE2 FFTs
+			else					// Two pass AVX/SSE2 FFTs
 				carries_spread_over = 6.0;
 				
 /* Because carries are spread over 4 words, there is a minimum limit on the bits */
@@ -1013,14 +1013,14 @@ next1:			while (zpad_jmptab->flags & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
 /* if this k can be handled.  K must fit in the top three words for */
 /* one-pass FFTs and within the top two words of two-pass FFTs. */
 
-			if ((jmptab->flags & 0x3F) == 0 && logbk > floor (3.0 * b_per_input_word)) {
+			if ((jmptab->flags & 0x1FF) == 0 && logbk > floor (3.0 * b_per_input_word)) {
 // This assert is designed to find any cases where using 4 or more carry adjust words
 // would use a shorter FFT than using a zero-padded FFT.  We found an example:
 // 102233*299^239-1.  It would use length 256 FTT versus a length 320 zero-padded FFT.
 //				ASSERTG (zpad_jmptab == NULL || jmptab->fftlen >= zpad_jmptab->fftlen);
 				goto next2;
 			}
-			if ((jmptab->flags & 0x3F) != 0 && logbk > floor (2.0 * b_per_input_word)) {
+			if ((jmptab->flags & 0x1FF) != 0 && logbk > floor (2.0 * b_per_input_word)) {
 // This assert is designed to find any cases where using 3 or more carry adjust words
 // would use a shorter FFT than using a zero-padded FFT.  One example: 501*500^100000-1
 // It would use a 112K FFT instead of a 144K zero-padded FFT.
@@ -1133,7 +1133,7 @@ next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
 			if (jmptab->proc_ptr == prev_proc_ptrs[3]) goto next3;
 			if (jmptab->proc_ptr == prev_proc_ptrs[4]) goto next3;
 			if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_K8 &&
-			    (jmptab->flags & 0x3F) != 0 &&
+			    (jmptab->flags & 0x1FF) != 0 &&
 			    (arch == 2 || arch == 3))
 				goto next3;
 			gwdata->bench_pick_nth_fft--;
