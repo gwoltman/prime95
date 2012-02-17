@@ -1479,6 +1479,11 @@ void gwinit2 (
 		guessCpuSpeed ();
 	}
 	gwdata->cpu_flags = CPU_FLAGS;
+
+/* AMD Bulldozer is faster using SSE2 rather than AVX. */
+
+	if (gwdata->cpu_flags & CPU_AVX && gwdata->cpu_flags & CPU_3DNOW)
+		gwdata->cpu_flags &= ~CPU_AVX;
 }
 
 /* Allocate memory and initialize assembly code for arithmetic */

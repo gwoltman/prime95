@@ -1266,6 +1266,8 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 
 		if (! (CPU_FLAGS & CPU_SSE2))
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_PRE_SSE2;
+		else if (CPU_FLAGS & CPU_AVX)
+			CPU_ARCHITECTURE = CPU_ARCHITECTURE_AMD_BULLDOZER;
 		else if (max_extended_cpuid_value < 0x8000001A)
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_AMD_K8;
 		else {
