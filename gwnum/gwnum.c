@@ -497,6 +497,8 @@ int calculate_bif (
 		cpu_arch = CPU_ARCHITECTURE_CORE_2;
 	if (cpu_arch == CPU_ARCHITECTURE_AMD_K10 && ! (gwdata->cpu_flags & CPU_3DNOW))
 		cpu_arch = CPU_ARCHITECTURE_CORE_2;
+	if (cpu_arch == CPU_ARCHITECTURE_AMD_BULLDOZER && ! (gwdata->cpu_flags & CPU_3DNOW))
+		cpu_arch = CPU_ARCHITECTURE_CORE_2;
 
 /* Map the CPU architecture as determined by CPUID to one of the CPU architectures */
 /* that the FFT assembly code is optimized for. */
@@ -539,7 +541,7 @@ int calculate_bif (
 		break;
 	case CPU_ARCHITECTURE_AMD_BULLDOZER:
 //		retval = BIF_BULL;		/* Look for FFTs optimized for Bulldozer */
-		retval = BIF_I7;		/* Look for FFTs optimized for I7 until we write Bulldozer specific FFTs */
+		retval = BIF_K10;		/* Look for FFTs optimized for K10 until we write Bulldozer specific FFTs */
 		break;
 	case CPU_ARCHITECTURE_PRE_SSE2:		/* Cannot happen, gwinfo should have selected x87 FFTs */
 	case CPU_ARCHITECTURE_AMD_OTHER:
