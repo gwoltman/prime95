@@ -4201,7 +4201,7 @@ void pass1_wake_up_threads (
 /* of each cache line.  We fixed this problem in the AVX code, so only do this */
 /* for SSE2 FFTs. */
 
-	if (gwdata->pass1_state == 1 && gwdata->ZERO_PADDED_FFT && !gwdata->cpu_flags & CPU_AVX) {
+	if (gwdata->pass1_state == 1 && gwdata->ZERO_PADDED_FFT && ! (gwdata->cpu_flags & CPU_AVX)) {
 		int	i, carry_table_size;
 		double	*table;
 		carry_table_size = (gwdata->FFTLEN / gwdata->PASS2_SIZE) << 1;
@@ -4280,7 +4280,7 @@ void pass1_wake_up_threads_mt (
 /* of each cache line.  We fixed this problem in the AVX code, so only do this */
 /* for SSE2 FFTs. */
 
-	if (gwdata->pass1_state == 1 && gwdata->ZERO_PADDED_FFT && !gwdata->cpu_flags & CPU_AVX) {
+	if (gwdata->pass1_state == 1 && gwdata->ZERO_PADDED_FFT && ! (gwdata->cpu_flags & CPU_AVX)) {
 		int	i, carry_table_size;
 		double	*table;
 		carry_table_size = (gwdata->FFTLEN / gwdata->PASS2_SIZE) << 1;
