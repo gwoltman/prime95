@@ -120,8 +120,13 @@ void compare (int thread_num, gwhandle *gwdata, gwnum x, giant g)
 
 	tmp = popg (&gwdata->gdata, ((int) gwdata->bit_length >> 5) + 13);
 	gwtogiant (gwdata, x, tmp);
-	if (gcompg (g, tmp) != 0)
+	if (gcompg (g, tmp) != 0) {
+		gwnum	y;
+		y = gwalloc (gwdata);
+		gianttogw (gwdata, g, y);
 		OutputBoth (thread_num, "Test failed.\n");
+		gwfree (gwdata, y);
+	}
 	pushg (&gwdata->gdata, 1);
 }
 
@@ -149,6 +154,7 @@ void gen_data (gwhandle *gwdata, gwnum x, giant g)
 			  ((unsigned long) rand() << 10) +
 			  (unsigned long) rand();
 	}
+//	len = 1; g->n[i] = 30000;
 	g->sign = len;
 	specialmodg (gwdata, g);
 	gianttogw (gwdata, g, x);
