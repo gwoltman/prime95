@@ -1,4 +1,4 @@
-; Copyright 2011 - Mersenne Research, Inc.  All rights reserved.
+; Copyright 2011-2012 - Mersenne Research, Inc.  All rights reserved.
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -1694,6 +1694,7 @@ echk	vmovapd	ymm15, YMM_ABSVAL
 ENDIF
 
 ynorm_wpn MACRO ttp, base2, zero, echk, const
+		L1prefetchw rsi+64, L1PREFETCH_ALL
 ttp		movzx	ecx, bl				;; Fudge flags 1
 ttp		and	rcx, 0e0h
 ttp		movzx	eax, bh				;; Big/lit flags 1-2
@@ -1702,6 +1703,10 @@ ttp		and	rbx, 01ch			;; Fudge flags 2
 ttp		vmulpd	ymm0, ymm0, [rdx+0*YMM_GMD][rcx] ;; Mul by fudged grp two-to-minus-phi
 		vmovapd	ymm1, [rsi+1*32]		;; Load values2
 ttp		vmulpd	ymm1, ymm1, [rdx+1*YMM_GMD][rbx*8] ;; Mul by fudged grp two-to-minus-phi
+IFDEF X86_64
+ttp		L1prefetch r9, L1PREFETCH_ALL
+ttp		bump	r9, 64
+ENDIF
 const		mul_by_const_interleaved ttp, base2, echk, ymm0, ymm2, ymm4, rax*8, ymm1, ymm3, ymm5, rax*8+32, ymm6
 no const echk	error_check_interleaved ymm0, ymm4, ymm1, ymm5, ymm6
 no const	vaddpd	ymm0, ymm0, ymm2		;; x1 = values + carry

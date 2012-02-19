@@ -1,4 +1,4 @@
-; Copyright 2011 Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2012 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -90,12 +90,14 @@ noadd:	mov	saved_rsi, rsi		;; Save for top_carry_adjust
 ttp	movzx	rbx, WORD PTR [rdi]	;; Preload 4 big vs. little & fudge flags
 ilp0:	mov	eax, count2		;; Load wpn count
 	mov	loopcount2, eax		;; Save count
+IFDEF X86_64
+ttp	lea	r9, [rdx+2*YMM_GMD]	;; Prefetch pointer for group multipliers
+ENDIF
 ilp1:	mov	eax, cache_line_multiplier ;; Load inner loop counter
 	mov	loopcount1, rax		;; Save loop counter
 	vmovapd ymm2, [rbp+0*32]	;; Load carries
 	vmovapd ymm3, [rbp+1*32]
-ilp2:	L1prefetchw rsi+64, L1PREFETCH_ALL
-	ynorm_wpn ttp, base2, zero, echk, const ;; Normalize 8 values
+ilp2:	ynorm_wpn ttp, base2, zero, echk, const ;; Normalize 8 values
 	bump	rsi, 64			;; Next cache line
 ttp	bump	rdi, 2			;; Next big/little flags
 	sub	loopcount1, 1		;; Test loop counter
