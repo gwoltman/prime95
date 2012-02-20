@@ -69,18 +69,29 @@ no base2 no ttp nobase2_mul_by_const echk, ymmval, ymmcarry, ymmtmp1, ymmtmp2, 0
 	ENDM
 
 base2_mul_by_const MACRO echk, ymmval, ymmcarry, ymmtmp1, ymmtmp2, errreg
+IFNDEF X86_64
 	vmovapd	ymmtmp2, YMM_BIGBIGVAL		;; Round to nearest multiple of 2^25
 	vaddpd	ymmtmp1, ymmval, ymmtmp2
 	vsubpd	ymmtmp1, ymmtmp1, ymmtmp2	;; ymmtmp1 is the high bits of FFT value
+ELSE
+	vaddpd	ymmtmp1, ymmval, ymm14		;; Round to nearest multiple of 2^25
+	vsubpd	ymmtmp1, ymmtmp1, ymm14		;; ymmtmp1 is the high bits of FFT value
+ENDIF
 	vroundpd ymmtmp2, ymmval, 0		;; Round FFT value to an integer
 echk	vsubpd	ymmval, ymmval, ymmtmp2		;; This is the convolution error
 echk	absval	ymmval				;; Compute absolute value
 echk	vmaxpd	errreg, errreg, ymmval		;; Compute maximum error
 	vsubpd	ymmval, ymmtmp2, ymmtmp1	;; ymmval now contains low 25 bits of FFT value
+IFNDEF X86_64
 	vmovapd	ymmtmp2, YMM_MULCONST
 	vmulpd	ymmval, ymmval, ymmtmp2		;; Multiply low bits of FFT value by the small constant
 	vaddpd	ymmval, ymmval, ymmcarry	;; Add in the previous carry
 	vmulpd	ymmcarry, ymmtmp1, ymmtmp2	;; Next carry = high bits of FFT value times the small constant
+ELSE
+	vmulpd	ymmval, ymmval, ymm13		;; Multiply low bits of FFT value by the small constant
+	vaddpd	ymmval, ymmval, ymmcarry	;; Add in the previous carry
+	vmulpd	ymmcarry, ymmtmp1, ymm13	;; Next carry = high bits of FFT value times the small constant
+ENDIF
 	ENDM
 
 nobase2_mul_by_const MACRO echk, ymmval, ymmcarry, ymmtmp1, ymmtmp2, basereg, errreg
@@ -92,10 +103,16 @@ echk	absval	ymmval						;; Compute absolute value
 echk	vmaxpd	errreg, errreg, ymmval				;; Compute maximum error
 	vmulpd	ymmval, ymmtmp1, YMM_LIMIT_BIGMAX[basereg]	;; round (FFT value / base) * base
 	vsubpd	ymmval, ymmtmp2, ymmval				;; This is FFTvalue % base
+IFNDEF X86_64
 	vmovapd	ymmtmp2, YMM_MULCONST
 	vmulpd	ymmval, ymmval, ymmtmp2				;; Multiply FFTvalue % base by the small constant
 	vaddpd	ymmval, ymmval, ymmcarry			;; Add in the previous carry
 	vmulpd	ymmcarry, ymmtmp1, ymmtmp2			;; Next carry = round (FFTvalue / base) * the small constant
+ELSE
+	vmulpd	ymmval, ymmval, ymm13				;; Multiply FFTvalue % base by the small constant
+	vaddpd	ymmval, ymmval, ymmcarry			;; Add in the previous carry
+	vmulpd	ymmcarry, ymmtmp1, ymm13			;; Next carry = round (FFTvalue / base) * the small constant
+ENDIF
 	ENDM
 
 
@@ -395,9 +412,14 @@ no base2 no ttp	nobase2_split_lower_zpad_word echk, ymmvalin, ymmcarry, ymmvalou
 
 base2_split_lower_zpad_word MACRO echk, ymmvalin, ymmcarry, ymmvalout, basereg
 	vaddpd	ymmvalin, ymmvalin, ymmcarry			;; Add in previous high FFT data
+IFNDEF X86_64
 	vmovapd	ymmvalout, YMM_BIGBIGVAL			;; Big word rounding constant
 	vaddpd	ymmcarry, ymmvalin, ymmvalout			;; Round to multiple of big word
 	vsubpd	ymmcarry, ymmcarry, ymmvalout
+ELSE
+	vaddpd	ymmcarry, ymmvalin, ymm14			;; Round to multiple of big word
+	vsubpd	ymmcarry, ymmcarry, ymm14
+ENDIF
 	vroundpd ymmvalout, ymmvalin, 0				;; Round to an integer
 echk	vsubpd	ymmvalin, ymmvalin, ymmvalout			;; This is the convolution error
 echk	absval	ymmvalin					;; Compute absolute value
@@ -418,58 +440,6 @@ echk	vmaxpd	ymm6, ymm6, ymmvalin				;; Compute maximum error
 	vsubpd	ymmvalout, ymmvalout, ymmvalin			;; ymmvalout now contains FFTvalue % base
 	ENDM
 
-;; Interleaved version used in 64-bit implementation of zpad normalization.
-;; Relies on some registers being preloaded.
-
-split_lower_zpad_word_interleaved MACRO ttp, base2, echk, ymmvalin, ymmcarry, ymmvalout, basereg, ymmvalin2, ymmcarry2, ymmvalout2, basereg2
-base2 ttp	base2_split_lower_zpad_word_interleaved echk, ymmvalin, ymmcarry, ymmvalout, basereg, ymmvalin2, ymmcarry2, ymmvalout2, basereg2
-base2 no ttp	base2_split_lower_zpad_word_interleaved echk, ymmvalin, ymmcarry, ymmvalout, 0, ymmvalin2, ymmcarry2, ymmvalout2, 0
-no base2 ttp	nobase2_split_lower_zpad_word_interleaved echk, ymmvalin, ymmcarry, ymmvalout, basereg, ymmvalin2, ymmcarry2, ymmvalout2, basereg2
-no base2 no ttp	nobase2_split_lower_zpad_word_interleaved echk, ymmvalin, ymmcarry, ymmvalout, 0, ymmvalin2, ymmcarry2, ymmvalout2, 0
-	ENDM
-
-base2_split_lower_zpad_word_interleaved MACRO echk, ymmvalin, ymmcarry, ymmvalout, basereg, ymmvalin2, ymmcarry2, ymmvalout2, basereg2
-	vaddpd	ymmvalin, ymmvalin, ymmcarry			;; Add in previous high FFT data
-	vaddpd	ymmvalin2, ymmvalin2, ymmcarry2			;; Add in previous high FFT data
-	vaddpd	ymmcarry, ymmvalin, ymm13			;; Round to multiple of big word (YMM_BIGBIGVAL in ymm13)
-	vaddpd	ymmcarry2, ymmvalin2, ymm13			;; Round to multiple of big word
-	vsubpd	ymmcarry, ymmcarry, ymm13
-	vsubpd	ymmcarry2, ymmcarry2, ymm13
-	vroundpd ymmvalout, ymmvalin, 0				;; Round to an integer
-	vroundpd ymmvalout2, ymmvalin2, 0			;; Round to an integer
-echk	vsubpd	ymmvalin, ymmvalin, ymmvalout			;; This is the convolution error
-echk	vsubpd	ymmvalin2, ymmvalin2, ymmvalout2		;; This is the convolution error
-echk	absval	ymmvalin					;; Compute absolute value
-echk	absval	ymmvalin2					;; Compute absolute value
-echk	vmaxpd	ymm6, ymm6, ymmvalin				;; Compute maximum error
-echk	vmaxpd	ymm6, ymm6, ymmvalin2				;; Compute maximum error
-	vsubpd	ymmvalout, ymmvalout, ymmcarry			;; ymmvalout now contains low bigword bits
-	vsubpd	ymmvalout2, ymmvalout2, ymmcarry2		;; ymmvalout now contains low bigword bits
-	vmulpd	ymmcarry, ymmcarry, YMM_LIMIT_INVERSE[basereg]	;; Saved shifted FFT hi data
-	vmulpd	ymmcarry2, ymmcarry2, YMM_LIMIT_INVERSE[basereg2] ;; Saved shifted FFT hi data
-	ENDM
-
-nobase2_split_lower_zpad_word_interleaved MACRO echk, ymmvalin, ymmcarry, ymmvalout, basereg, ymmvalin2, ymmcarry2, ymmvalout2, basereg2
-	vaddpd	ymmvalin, ymmvalin, ymmcarry			;; Add in previous high FFT data
-	vaddpd	ymmvalin2, ymmvalin2, ymmcarry2			;; Add in previous high FFT data
-	vmulpd	ymmcarry, ymmvalin,YMM_LIMIT_INVERSE[basereg]	;; Compute FFTvalue / base
-	vmulpd	ymmcarry2, ymmvalin2,YMM_LIMIT_INVERSE[basereg2] ;; Compute FFTvalue / base
-	vroundpd ymmvalout, ymmvalin, 0				;; Round input to an integer
-	vroundpd ymmvalout2, ymmvalin2, 0			;; Round input to an integer
-	vroundpd ymmcarry, ymmcarry, 0				;; Round FFTvalue / base to integer
-	vroundpd ymmcarry2, ymmcarry2, 0			;; Round FFTvalue / base to integer
-echk	vsubpd	ymmvalin, ymmvalin, ymmvalout			;; This is the convolution error
-echk	vsubpd	ymmvalin2, ymmvalin2, ymmvalout2		;; This is the convolution error
-echk	absval	ymmvalin					;; Compute absolute value
-echk	absval	ymmvalin2					;; Compute absolute value
-echk	vmaxpd	ymm6, ymm6, ymmvalin				;; Compute maximum error
-echk	vmaxpd	ymm6, ymm6, ymmvalin2				;; Compute maximum error
-	vmulpd	ymmvalin, ymmcarry, YMM_LIMIT_BIGMAX[basereg]
-	vmulpd	ymmvalin2, ymmcarry2, YMM_LIMIT_BIGMAX[basereg2]
-	vsubpd	ymmvalout, ymmvalout, ymmvalin			;; ymmvalout now contains FFTvalue % base
-	vsubpd	ymmvalout2, ymmvalout2, ymmvalin2		;; ymmvalout now contains FFTvalue % base
-	ENDM
-
 ; Split upper is like split lower except that previous carry is not added in and
 ; result carry is not shifted down.
 
@@ -481,9 +451,14 @@ no base2 no ttp	nobase2_split_upper_zpad_word echk, ymmvalin, ymmcarry, ymmvalou
 	ENDM
 
 base2_split_upper_zpad_word MACRO echk, ymmvalin, ymmcarry, ymmvalout, basereg
+IFNDEF X86_64
 	vmovapd	ymmvalout, YMM_BIGBIGVAL		;; Big word rounding constant
 	vaddpd	ymmcarry, ymmvalin, ymmvalout		;; Round to multiple of big word
 	vsubpd	ymmcarry, ymmcarry, ymmvalout
+ELSE
+	vaddpd	ymmcarry, ymmvalin, ymm14		;; Round to multiple of big word
+	vsubpd	ymmcarry, ymmcarry, ymm14
+ENDIF
 	vroundpd ymmvalout, ymmvalin, 0			;; Round input to an integer
 echk	vsubpd	ymmvalin, ymmvalin, ymmvalout		;; This is the convolution error
 echk	absval	ymmvalin				;; Compute absolute value
@@ -500,50 +475,6 @@ echk	absval	ymmvalin					;; Compute absolute value
 echk	vmaxpd	ymm6, ymm6, ymmvalin				;; Compute maximum error
 	vmulpd	ymmvalin, ymmcarry, YMM_LIMIT_BIGMAX[basereg]
 	vsubpd	ymmvalout, ymmvalout, ymmvalin			;; ymmvalout now contains FFTvalue % base
-	ENDM
-
-;; Interleaved version used in 64-bit implementation of zpad normalization.
-;; Relies on some registers being preloaded.
-
-split_upper_zpad_word_interleaved MACRO echk, base2, ymmvalin, ymmcarry, ymmvalout, basereg, ymmvalin2, ymmcarry2, ymmvalout2, basereg2
-base2		base2_split_upper_zpad_word_interleaved echk, ymmvalin, ymmcarry, ymmvalout, basereg, ymmvalin2, ymmcarry2, ymmvalout2, basereg2
-no base2	nobase2_split_upper_zpad_word_interleaved echk, ymmvalin, ymmcarry, ymmvalout, basereg, ymmvalin2, ymmcarry2, ymmvalout2, basereg2
-	ENDM
-
-base2_split_upper_zpad_word_interleaved MACRO echk, ymmvalin, ymmcarry, ymmvalout, basereg, ymmvalin2, ymmcarry2, ymmvalout2, basereg2
-	vaddpd	ymmcarry, ymmvalin, ymm13		;; Round to multiple of big word (YMM_BIGBIGVAL in ymm13)
-	vaddpd	ymmcarry2, ymmvalin2, ymm13		;; Round to multiple of big word
-	vsubpd	ymmcarry, ymmcarry, ymm13
-	vsubpd	ymmcarry2, ymmcarry2, ymm13
-	vroundpd ymmvalout, ymmvalin, 0			;; Round input to an integer
-	vroundpd ymmvalout2, ymmvalin2, 0		;; Round input to an integer
-echk	vsubpd	ymmvalin, ymmvalin, ymmvalout		;; This is the convolution error
-echk	vsubpd	ymmvalin2, ymmvalin2, ymmvalout2	;; This is the convolution error
-echk	absval	ymmvalin				;; Compute absolute value
-echk	absval	ymmvalin2				;; Compute absolute value
-echk	vmaxpd	ymm6, ymm6, ymmvalin			;; Compute maximum error
-echk	vmaxpd	ymm6, ymm6, ymmvalin2			;; Compute maximum error
-	vsubpd	ymmvalout, ymmvalout, ymmcarry		;; ymmvalout now contains low bigword bits
-	vsubpd	ymmvalout2, ymmvalout2, ymmcarry2	;; ymmvalout now contains low bigword bits
-	ENDM
-
-nobase2_split_upper_zpad_word_interleaved MACRO echk, ymmvalin, ymmcarry, ymmvalout, basereg, ymmvalin2, ymmcarry2, ymmvalout2, basereg2
-	vmulpd	ymmcarry, ymmvalin, YMM_LIMIT_INVERSE[basereg]	;; Compute FFTvalue / base
-	vmulpd	ymmcarry2, ymmvalin2, YMM_LIMIT_INVERSE[basereg2] ;; Compute FFTvalue / base
-	vroundpd ymmvalout, ymmvalin, 0				;; Round input to an integer
-	vroundpd ymmvalout2, ymmvalin2, 0			;; Round input to an integer
-	vroundpd ymmcarry, ymmcarry, 0				;; Round FFTvalue / base to integer
-	vroundpd ymmcarry2, ymmcarry2, 0			;; Round FFTvalue / base to integer
-echk	vsubpd	ymmvalin, ymmvalin, ymmvalout			;; This is the convolution error
-echk	vsubpd	ymmvalin2, ymmvalin2, ymmvalout2		;; This is the convolution error
-echk	absval	ymmvalin					;; Compute absolute value (YMM_ABSVAL in ymm13)
-echk	absval	ymmvalin2					;; Compute absolute value
-echk	vmaxpd	ymm6, ymm6, ymmvalin				;; Compute maximum error
-echk	vmaxpd	ymm6, ymm6, ymmvalin2				;; Compute maximum error
-	vmulpd	ymmvalin, ymmcarry, YMM_LIMIT_BIGMAX[basereg]
-	vmulpd	ymmvalin2, ymmcarry2, YMM_LIMIT_BIGMAX[basereg2]
-	vsubpd	ymmvalout, ymmvalout, ymmvalin			;; ymmvalout now contains FFTvalue % base
-	vsubpd	ymmvalout2, ymmvalout2, ymmvalin2		;; ymmvalout now contains FFTvalue % base
 	ENDM
 
 ; The single word version
@@ -602,31 +533,6 @@ nobase2_split_upper_carry_zpad_word MACRO ymmcarryin, ymmcarryout, ymmtmp, baser
 	vroundpd ymmcarryout, ymmcarryout, 0				;; Next carry = round(carry / base)
 	vmulpd	ymmtmp, ymmcarryout, YMM_LIMIT_BIGMAX[basereg]
 	vsubpd	ymmcarryin, ymmcarryin, ymmtmp				;; ymmcarryin now contains carry % base
-	ENDM
-
-; The single float version for splitting the high FFT carry.
-
-single_split_upper_carry_zpad_word MACRO base2, ymmcarryin, ymmcarryout, ymmtmp, basereg
-base2		base2_single_split_upper_carry_zpad_word ymmcarryin, ymmcarryout, ymmtmp, basereg
-no base2	nobase2_single_split_upper_carry_zpad_word ymmcarryin, ymmcarryout, ymmtmp, basereg
-	ENDM
-
-base2_single_split_upper_carry_zpad_word MACRO ymmcarryin, ymmcarryout, ymmtmp, basereg
-xxx	movlpd	ymmcarryout, YMM_BIGBIGVAL ;; Big word rounding constant
-	addsd	ymmcarryout, ymmcarryin	;; Round to multiple of big word
-	subsd	ymmcarryout, YMM_BIGBIGVAL
-	subsd	ymmcarryin, ymmcarryout	;; ymmcarryin now contains low bigword bits
-	mulsd	ymmcarryout, YMM_LIMIT_INVERSE[basereg] ;; Next carry = shifted carry
-	ENDM
-
-nobase2_single_split_upper_carry_zpad_word MACRO ymmcarryin, ymmcarryout, ymmtmp, basereg
-	movlpd	ymmcarryout, YMM_LIMIT_INVERSE[basereg] ;; Load 1 / base
-	mulsd	ymmcarryout, ymmcarryin	;; Compute carry / base
-	addsd	ymmcarryout, YMM_BIGVAL	;; Round to integer
-	subsd	ymmcarryout, YMM_BIGVAL	;; Next carry = round(carry / base)
-	movlpd	ymmtmp, YMM_LIMIT_BIGMAX[basereg]
-	mulsd	ymmtmp, ymmcarryout
-	subsd	ymmcarryin, ymmtmp	;; ymmcarryin now contains carry % base
 	ENDM
 
 ; Round the ZPAD0 - ZPAD6 values.  Simpler than other rounding macros
@@ -740,7 +646,9 @@ ynorm_1d_preload MACRO ttp, base2, zero, echk, const
 
 IFDEF X86_64
 ynorm_1d_preload MACRO ttp, base2, zero, echk, const
-echk	vmovapd	ymm15, YMM_ABSVAL
+echk		vmovapd	ymm15, YMM_ABSVAL
+base2 const	vmovapd	ymm14, YMM_BIGBIGVAL
+const		vmovapd	ymm13, YMM_MULCONST
 	ENDM
 ENDIF
 
@@ -782,12 +690,6 @@ zero		vxorpd	ymm5, ymm5, ymm5
 
 ynorm_1d_zpad_preload MACRO ttp, base2, echk, const, khi, c1, cm1
 	ENDM
-
-IFDEF X86_64
-ynorm_1d_zpad_preload MACRO ttp, base2, echk, const, khi, c1, cm1
-echk	vmovapd	ymm15, YMM_ABSVAL
-	ENDM
-ENDIF
 
 ynorm_1d_zpad MACRO ttp, base2, echk, const, khi, c1, cm1
 ttp		movzx	rax, BYTE PTR [rdi]	;; Load big vs. little flags
@@ -833,6 +735,63 @@ ttp		vmulpd	ymm0, ymm0, [rbp+32]	;; new value1 = val * two-to-phi
 		vxorpd	ymm1, ymm1, ymm1	;; new value2 = zero
 		vmovapd	[rsi+32], ymm1		;; Zero value2
 	ENDM
+
+;; 64-bit version
+
+IFDEF X86_64
+
+ynorm_1d_zpad_preload MACRO ttp, base2, echk, const, khi, c1, cm1
+echk			vmovapd	ymm15, YMM_ABSVAL
+base2			vmovapd ymm14, YMM_BIGBIGVAL
+no const		vmovapd	ymm13, YMM_K_LO
+const			vmovapd	ymm13, YMM_K_TIMES_MULCONST_LO
+khi no const		vmovapd	ymm12, YMM_K_HI
+khi const		vmovapd	ymm12, YMM_K_TIMES_MULCONST_HI
+no const no c1 no cm1	vmovapd	ymm11, YMM_MINUS_C
+const			vmovapd	ymm11, YMM_MINUS_C_TIMES_MULCONST
+	ENDM
+
+ynorm_1d_zpad MACRO ttp, base2, echk, const, khi, c1, cm1
+ttp		movzx	rax, BYTE PTR [rdi]	;; Load big vs. little flags
+		vmovapd	ymm0, [rsi]		;; Load values1
+		vmovapd	ymm1, [rsi+32]		;; Load values2
+		vaddpd	ymm7, ymm7, ymm0	;; sumout += values1
+		vmulpd	ymm0, ymm0, [rbp]	;; Mul values1 by two-to-minus-phi
+		vaddpd	ymm7, ymm7, ymm1	;; sumout += values2
+		vmulpd	ymm1, ymm1, [rbp]	;; Mul values2 by two-to-minus-phi
+
+		split_lower_zpad_word ttp, base2, echk, ymm0, ymm3, ymm4, rax*2
+
+		vmulpd	ymm0, ymm4, ymm13	;; Mul by YMM_K_LO or YMM_K_TIMES_MULCONST_LO
+
+khi base2		vmulpd	ymm5, ymm4, ymm12		;; Mul by YMM_K_HI or YMM_K_TIMES_MULCONST_HI
+khi no base2 ttp	vmulpd	ymm5, ymm12, YMM_LIMIT_INVERSE[rax*2] ;; Non-base2 rounding needs shifted carry
+khi no base2 no ttp	vmulpd	ymm5, ymm12, YMM_LIMIT_INVERSE[0] ;; Non-base2 rounding needs shifted carry
+khi no base2		vroundpd ymm5, ymm5, 0			;; THIS IS WASTEFUL.  The mul and round should be precomputed!
+khi no base2		vmulpd	ymm5, ymm5, ymm4
+
+		vaddpd	ymm0, ymm0, ymm2	;; x1 = values + carry
+
+c1		vmulpd	ymm1, ymm1, YMM_MINUS_C	;; Do one mul before split rather than two after split
+
+		split_upper_zpad_word ttp, base2, echk, ymm1, ymm2, ymm4, rax*2
+
+no const no c1 no cm1	vmulpd	ymm4, ymm4, ymm11	;; Mul by YMM_MINUS_C
+no const no c1 no cm1	vmulpd	ymm2, ymm2, ymm11
+const			vmulpd	ymm4, ymm4, ymm11	;; Mul by YMM_MINUS_C_TIMES_MULCONST
+const			vmulpd	ymm2, ymm2, ymm11
+
+		vaddpd	ymm0, ymm0, ymm4	;; Add upper FFT word to lower FFT word
+khi		vaddpd	ymm2, ymm2, ymm5	;; Add upper FFT word to lower FFT word
+
+		rounding ttp, base2, exec, ymm0, ymm2, ymm4, rax*2
+
+ttp		vmulpd	ymm0, ymm0, [rbp+32]	;; new value1 = val * two-to-phi
+		vmovapd	[rsi], ymm0		;; Save value1
+		vxorpd	ymm1, ymm1, ymm1	;; new value2 = zero
+		vmovapd	[rsi+32], ymm1		;; Zero value2
+	ENDM
+ENDIF
 
 
 ; *************** 1D followup macros ******************
@@ -1689,7 +1648,9 @@ ynorm_wpn_preload MACRO ttp, base2, zero, echk, const
 
 IFDEF X86_64
 ynorm_wpn_preload MACRO ttp, base2, zero, echk, const
-echk	vmovapd	ymm15, YMM_ABSVAL
+echk		vmovapd	ymm15, YMM_ABSVAL
+base2 const	vmovapd	ymm14, YMM_BIGBIGVAL
+const		vmovapd	ymm13, YMM_MULCONST
 	ENDM
 ENDIF
 
@@ -1720,99 +1681,6 @@ ttp		movzx	rbx, WORD PTR [rdi+2]		;; Load next 4 big vs. little & fudge flags
 		vmovapd	[rsi+1*32], ymm1		;; Save new value2
 	ENDM
 
-IFDEF X86_64
-buggy_ynorm_wpn MACRO ttp, base2, zero, echk, const
-needs work....
-ttp		movzx	rcx, bl				;; Fudge flags 1,2
-ttp		and	rcx, 0f0h
-		xload	ymm8, [rsi+0*16]		;; Load values1				;P4	;Core2
-ttp		mulpd	ymm8, [rdx+0*YMM_GMD][rcx*2]	;; Mul by fudged grp two-to-minus-phi	;1-5	;1-4
-		xload	ymm9, [rsi+1*16]		;; Load values2
-ttp		mulpd	ymm9, [rdx+1*YMM_GMD][rcx*2]	;; Mul by fudged grp two-to-minus-phi	;3-7	;2-5
-ttp		movzx	eax, bh				;; Big/lit flags 1-4
-no const echk	error_check_interleaved_64 ymm8, ymm10, ymm9, ymm11, ymm6
-const		mul_by_const_interleaved ttp, base2, echk, ymm8, ymm12, ymm10, rax*8, ymm9, ymm13, ymm11, rax*8+32, ymm6
-ttp		and	rbx, 0fh			;; Fudge flags 3,4
-		xload	ymm0, [rsi+2*16]		;; Load values3
-ttp		mulpd	ymm0, [rdx+2*YMM_GMD][rbx*2*8]	;; Mul by fudged grp two-to-minus-phi	;5-9	;3-6
-		xload	ymm1, [rsi+3*16]		;; Load values4
-ttp		mulpd	ymm1, [rdx+3*YMM_GMD][rbx*2*8]	;; Mul by fudged grp two-to-minus-phi	;7-11	;4-7
-no const echk	error_check_interleaved_64 ymm0, ymm2, ymm1, ymm3, ymm6
-const		mul_by_const_interleaved ttp, base2, echk, ymm0, ymm4, ymm2, rax*8+64, ymm1, ymm5, ymm3, rax*8+96, ymm6
-const		addpd	ymm8, [rbp+0*16]		;; x1 = values + carry
-no const	addpd	ymm8, ymm12			;; x1 = values + carry			;6-9	;5-7
-const		addpd	ymm9, [rbp+1*16]		;; x2 = values + carry
-no const	addpd	ymm9, ymm13			;; x2 = values + carry			;8-11	;6-8
-
-no base2	rounding_interleaved ttp, base2, const, ymm8, ymm12, ymm10, rax*8, ymm9, ymm13, ymm11, rax*8+32
-
-const		addpd	ymm0, [rbp+2*16]		;; x3 = values + carry
-no const	addpd	ymm0, ymm4			;; x3 = values + carry			;10-13	;7-9
-base2		xload	ymm10, YMM_LIMIT_BIGMAX[rax*2*4]	;; Load maximum * BIGVAL - BIGVAL
-base2 no const	xcopy	ymm4, ymm10			;; Copy maximum * BIGVAL - BIGVAL
-base2 const no echk xcopy ymm15, ymm10			;; Copy maximum * BIGVAL - BIGVAL
-base2		addpd	ymm10, ymm8			;; y1 = top bits of x			;12-15	;8-10
-const		addpd	ymm1, [rbp+3*16]		;; x4 = values + carry
-no const	addpd	ymm1, ymm5			;; x4 = values + carry			;14-17	;9-11
-
-no base2	rounding_interleaved ttp, base2, const, ymm0, ymm4, ymm2, rax*8+64, ymm1, ymm5, ymm3, rax*8+96
-
-base2		xload	ymm11, YMM_LIMIT_BIGMAX[rax*2*4+16] ;; Load maximum * BIGVAL - BIGVAL
-base2 no const	xcopy	ymm5, ymm11			;; Copy maximum * BIGVAL - BIGVAL
-base2 const no echk xcopy ymm6, ymm11			;; Copy maximum * BIGVAL - BIGVAL
-base2		addpd	ymm11, ymm9			;; y2 = top bits of x			;16-19	;10-12
-base2 const	addpd	ymm12, ymm10			;; Add in upper mul-by-const bits
-base2 const	mulpd	ymm12, YMM_LIMIT_INVERSE[rax*2*4]	;; next carry = shifted y1
-base2 no const	xload	ymm12, YMM_LIMIT_INVERSE[rax*2*4]	;; next carry = shifted y1
-base2 no const	mulpd	ymm12, ymm10			;; next carry = shifted y1		;17-22	;11-15
-base2		xload	ymm2, YMM_LIMIT_BIGMAX[rax*2*4+32];; Load maximum * BIGVAL - BIGVAL
-base2		xcopy	ymm7, ymm2			;; Copy maximum * BIGVAL - BIGVAL
-base2		addpd	ymm2, ymm0			;; y3 = top bits of x			;18-21	;11-13
-base2		xload	ymm3, YMM_LIMIT_BIGMAX[rax*2*4+48];; Load maximum * BIGVAL - BIGVAL
-base2		xcopy	ymm14, ymm3			;; Copy maximum * BIGVAL - BIGVAL
-base2		addpd	ymm3, ymm1			;; y4 = top bits of x			;20-23	;12-14
-base2 const	addpd	ymm13, ymm11			;; Add in upper mul-by-const bits
-base2 const	mulpd	ymm13, YMM_LIMIT_INVERSE[rax*2*4+16];; next carry = shifted y2
-base2 no const	xload	ymm13, YMM_LIMIT_INVERSE[rax*2*4+16];; next carry = shifted y2
-base2 no const	mulpd	ymm13, ymm11			;; next carry = shifted y2		;21-26	;13-17
-base2 const echk subpd	ymm10, YMM_LIMIT_BIGMAX[rax*2*4]	;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
-base2 const no echk subpd ymm10, ymm15			;; z1 = y1 - (maximum*BIGVAL-BIGVAL)
-base2 no const	subpd	ymm10, ymm4			;; z1 = y1 - (maximum*BIGVAL-BIGVAL)	;22-25	;13-15
-base2 const	addpd	ymm4, ymm2			;; Add in upper mul-by-const bits
-base2 const	mulpd	ymm4, YMM_LIMIT_INVERSE[rax*2*4+32];; next carry = shifted y3
-base2 no const	xload	ymm4, YMM_LIMIT_INVERSE[rax*2*4+32];; next carry = shifted y3
-base2 no const	mulpd	ymm4, ymm2			;; next carry = shifted y3		;23-28	;14-18
-base2 const echk subpd	ymm11, YMM_LIMIT_BIGMAX[rax*2*4+16];; z2 = y2 - (maximum*BIGVAL-BIGVAL)
-base2 const no echk subpd ymm11, ymm6			;; z2 = y2 - (maximum*BIGVAL-BIGVAL)
-base2 no const	subpd	ymm11, ymm5			;; z2 = y2 - (maximum*BIGVAL-BIGVAL)	;24-27	;14-16
-base2 const	addpd	ymm5, ymm3			;; Add in upper mul-by-const bits
-base2 const	mulpd	ymm5, YMM_LIMIT_INVERSE[rax*2*4+48];; next carry = shifted y4
-base2 no const	xload	ymm5, YMM_LIMIT_INVERSE[rax*2*4+48];; next carry = shifted y4
-base2 no const	mulpd	ymm5, ymm3			;; next carry = shifted y4		;25-30	;15-19
-const		xstore	[rbp+0*16], ymm12		;; Save carry1
-base2		subpd	ymm2, ymm7			;; z3 = y3 - (maximum*BIGVAL-BIGVAL)	;26-29	;15-17
-const		xstore	[rbp+1*16], ymm13		;; Save carry2
-base2		subpd	ymm3, ymm14			;; z4 = y4 - (maximum*BIGVAL-BIGVAL)	;28-31	;16-18
-base2		subpd	ymm8, ymm10			;; rounded value = x1 - z1		;30-33	;17-19
-const		xstore	[rbp+2*16], ymm4		;; Save carry3
-base2		subpd	ymm9, ymm11			;; rounded value = x2 - z2		;32-35	;18-20
-const		xstore	[rbp+3*16], ymm5		;; Save carry4
-base2		subpd	ymm0, ymm2			;; rounded value = x3 - z3		;34-37	;19-21
-ttp		mulpd	ymm8, [rdx+0*YMM_GMD+YMM_GMD/2][rcx*2] ;; value1 *= fudged grp two-to-phi	;35-40	;20-24
-base2		subpd	ymm1, ymm3			;; rounded value = x4 - z4		;36-39	;20-22
-ttp		mulpd	ymm9, [rdx+1*YMM_GMD+YMM_GMD/2][rcx*2] ;; value2 *= fudged grp two-to-phi	;37-42	;21-25
-ttp no zero	mulpd	ymm0, [rdx+2*YMM_GMD+YMM_GMD/2][rbx*2*8] ;; value3 *= fudged grp two-to-phi;38-41	;22-26
-zero		xorpd	ymm0, ymm0
-ttp no zero	mulpd	ymm1, [rdx+3*YMM_GMD+YMM_GMD/2][rbx*2*8] ;; value4 *= fudged grp two-to-phi;40-43	;23-27
-zero		xorpd	ymm1, ymm1
-ttp		movzx	rbx, WORD PTR [rdi+2]		;; Load next 4 big vs. little & fudge flags
-		xstore	[rsi+0*16], ymm8		;; Save new value1
-		xstore	[rsi+1*16], ymm9		;; Save new value2
-		xstore	[rsi+2*16], ymm0		;; Save new value3
-		xstore	[rsi+3*16], ymm1		;; Save new value4
-	ENDM
-ENDIF
-
 ; This is the normalization routine when we are computing modulo k*b^n+c
 ; with a zero-padded b^2n FFT.  We do this by multiplying the lower FFT
 ; word by k and adding in the upper word times -c.  Of course, this is made
@@ -1833,13 +1701,8 @@ ENDIF
 ynorm_wpn_zpad_preload MACRO ttp, base2, echk, const, khi, c1, cm1
 	ENDM
 
-IFDEF X86_64
-ynorm_wpn_zpad_preload MACRO ttp, base2, echk, const, khi, c1, cm1
-echk	vmovapd	ymm15, YMM_ABSVAL
-	ENDM
-ENDIF
-
 ynorm_wpn_zpad MACRO ttp, base2, echk, const, khi, c1, cm1
+			L1prefetchw rsi+64, L1PREFETCH_ALL
 ttp			movzx	eax, bh				;; Big/lit flags 1-2
 ttp			and	rbx, 0e0h			;; Fudge flags 2
 			vmovapd	ymm0, [rsi+0*32]		;; Load values1
@@ -1889,104 +1752,60 @@ ttp			movzx	rbx, WORD PTR [rdi+2]		;; Load next big vs. little & fudge flags
 
 IFDEF X86_64
 
-buggy_ynorm_wpn_zpad_preload MACRO ttp, echk, const, base2, khi, c1, cm1
-no const			xload	ymm15, YMM_K_LO
-const				xload	ymm15, YMM_K_TIMES_MULCONST_LO
-no const			xload	ymm14, YMM_MINUS_C
-const				xload	ymm14, YMM_MINUS_C_TIMES_MULCONST
-base2				xload	ymm13, YMM_BIGBIGVAL
-base2 no echk khi no const	xload	ymm6, YMM_K_HI
-base2 no echk khi const		xload	ymm6, YMM_K_TIMES_MULCONST_HI
-no base2 echk			xload	ymm13, YMM_ABSVAL  --- this won't work, must be ymm15
-no base2 no echk khi no const	xload	ymm6, YMM_K_HI
-no base2 no echk khi const	xload	ymm6, YMM_K_TIMES_MULCONST_HI
+ynorm_wpn_zpad_preload MACRO ttp, base2, echk, const, khi, c1, cm1
+echk			vmovapd	ymm15, YMM_ABSVAL
+base2			vmovapd	ymm14, YMM_BIGBIGVAL
+no const		vmovapd	ymm13, YMM_K_LO
+const			vmovapd	ymm13, YMM_K_TIMES_MULCONST_LO
+khi no const		vmovapd	ymm12, YMM_K_HI
+khi const		vmovapd	ymm12, YMM_K_TIMES_MULCONST_HI
+no const no c1 no cm1	vmovapd	ymm11, YMM_MINUS_C
+const			vmovapd	ymm11, YMM_MINUS_C_TIMES_MULCONST
 	ENDM
 
-buggy_ynorm_wpn_zpad MACRO ttp, echk, const, base2, khi, c1, cm1
-broken....
-ttp	movzx	eax, bh			;; Big/little flags 1-4
-ttp	and	rbx, 0f0h		;; Fudge flags 1,2
+ynorm_wpn_zpad MACRO ttp, base2, echk, const, khi, c1, cm1
+			L1prefetchw rsi+64, L1PREFETCH_ALL
+ttp			movzx	eax, bh				;; Big/lit flags 1-2
+ttp			and	rbx, 0e0h			;; Fudge flags 2
+			vmovapd	ymm0, [rsi+0*32]		;; Load values1
+ttp			vmulpd	ymm0, ymm0, [rdx+0*YMM_GMD][rbx] ;; Mul by fudged grp two-to-minus-phi
+			vmovapd	ymm1, [rsi+1*32]		;; Load values2
+ttp			vmulpd	ymm1, ymm1, [rdx+0*YMM_GMD][rbx] ;; Mul by fudged grp two-to-minus-phi
 
-ttp	xload	ymm2, [rdx+0*YMM_GMD][rbx*2] ;; Fudged grp two-to-minus-phi
-	xload	ymm0, [rsi]		;; Load values1
-	xload	ymm1, [rsi+2*16]	;; Load values2
-ttp	mulpd	ymm0, ymm2		;; Mul by fudged grp two-to-minus-phi
-ttp	mulpd	ymm1, ymm2		;; Mul by fudged grp two-to-minus-phi
+			split_lower_zpad_word ttp, base2, echk, ymm0, ymm3, ymm4, rax*8
 
-ttp	xload	ymm9, [rdx+1*YMM_GMD][rbx*2] ;; Fudged grp two-to-minus-phi
-	xload	ymm7, [rsi+16]		;; Load high values1
-	xload	ymm8, [rsi+3*16]	;; Load high values2
-ttp	mulpd	ymm7, ymm9		;; Mul by fudged grp two-to-minus-phi
-ttp	mulpd	ymm8, ymm9		;; Mul by fudged grp two-to-minus-phi
+			vmulpd	ymm0, ymm4, ymm13		;; Mul by YMM_K_LO or YMM_K_TIMES_MULCONST_LO
 
-					;; Split lower word adding in previous high FFT data
-	split_lower_zpad_word_interleaved ttp, base2, echk, ymm0, ymm3, ymm5, rax*8, ymm7, ymm10, ymm12, rax*8+32
+khi base2		vmulpd	ymm5, ymm4, ymm12		;; Mul by YMM_K_HI or YMM_K_TIMES_MULCONST_HI
+khi no base2 ttp	vmulpd	ymm5, ymm12, YMM_LIMIT_INVERSE[rax*8] ;; Non-base2 rounding needs shifted carry
+khi no base2 no ttp	vmulpd	ymm5, ymm12, YMM_LIMIT_INVERSE[0] ;; Non-base2 rounding needs shifted carry
+khi no base2		vroundpd ymm5, ymm5, 0			;; THIS IS WASTEFUL.  The mul and round should be precomputed!
+khi no base2		vmulpd	ymm5, ymm5, ymm4
 
-no const	xcopy	ymm0, ymm15	;; YMM_K_LO
-const		xcopy	ymm0, ymm15	;; YMM_K_TIMES_MULCONST_LO
-		mulpd	ymm0, ymm5
-no const	xcopy	ymm7, ymm15	;; YMM_K_LO
-const		xcopy	ymm7, ymm15	;; YMM_K_TIMES_MULCONST_LO
-		mulpd	ymm7, ymm12
+			vaddpd	ymm0, ymm0, ymm2		;; x1 = values + carry
 
-		addpd	ymm0, ymm4	;; x1 = values + carry
-		addpd	ymm7, ymm11	;; x2 = values + carry
+c1			vmulpd	ymm1, ymm1, YMM_MINUS_C		;; Do one mul before split rather than two after split
 
-khi no const no base2 echk		xload	ymm4, YMM_K_HI
-khi no const no base2 no echk		xcopy	ymm4, ymm6	;; YMM_K_HI
-khi no const base2 echk			xload	ymm4, YMM_K_HI
-khi no const base2 no echk		xcopy	ymm4, ymm6	;; YMM_K_HI
-khi const no base2 echk			xload	ymm4, YMM_K_TIMES_MULCONST_HI
-khi const no base2 no echk		xcopy	ymm4, ymm6	;; YMM_K_TIMES_MULCONST_HI
-khi const base2 echk			xload	ymm4, YMM_K_TIMES_MULCONST_HI
-khi const base2 no echk			xcopy	ymm4, ymm6	;; YMM_K_TIMES_MULCONST_HI
-khi no base2				mulpd	ymm4, YMM_LIMIT_INVERSE[rax*2*4] ;; Non-base2 rounding needs shifted carry
-khi					mulpd	ymm5, ymm4
+			split_upper_zpad_word ttp, base2, echk, ymm1, ymm2, ymm4, rax*8
 
-khi no const no base2 echk		xload	ymm11, YMM_K_HI
-khi no const no base2 no echk		xcopy	ymm11, ymm6	;; YMM_K_HI
-khi no const base2 echk			xload	ymm11, YMM_K_HI
-khi no const base2 no echk		xcopy	ymm11, ymm6	;; YMM_K_HI
-khi const no base2 echk			xload	ymm11, YMM_K_TIMES_MULCONST_HI
-khi const no base2 no echk		xcopy	ymm11, ymm6	;; YMM_K_TIMES_MULCONST_HI
-khi const base2 echk			xload	ymm11, YMM_K_TIMES_MULCONST_HI
-khi const base2 no echk			xcopy	ymm11, ymm6	;; YMM_K_TIMES_MULCONST_HI
-khi no base2				mulpd	ymm11, YMM_LIMIT_INVERSE[rax*2*4+16] ;; Non-base2 rounding needs shifted carry
-khi					mulpd	ymm12, ymm11
+no const no c1 no cm1	vmulpd	ymm4, ymm4, ymm11		;; Mul by YMM_MINUS_C
+no const no c1 no cm1	vmulpd	ymm2, ymm2, ymm11
+const			vmulpd	ymm4, ymm4, ymm11		;; Mul by YMM_MINUS_C_TIMES_MULCONST
+const			vmulpd	ymm2, ymm2, ymm11
 
-c1	mulpd   ymm1, ymm14		;; YMM_MINUS_C	;; Do one mul before split rather than two after split
-c1	mulpd   ymm8, ymm14		;; YMM_MINUS_C	;; Do one mul before split rather than two after split
+			vaddpd	ymm0, ymm0, ymm4		;; Add upper FFT word to lower FFT word
+khi			vaddpd	ymm2, ymm2, ymm5		;; Add upper FFT word to lower FFT word
 
-	split_upper_zpad_word_interleaved echk, base2, ymm1, ymm4, ymm2, rax*8, ymm8, ymm11, ymm9, rax*8+32
+			rounding ttp, base2, exec, ymm0, ymm2, ymm4, rax*8
 
-no const no c1 no cm1	mulpd	ymm2, ymm14	;; YMM_MINUS_C
-no const no c1 no cm1	mulpd	ymm4, ymm14	;; YMM_MINUS_C
-const			mulpd	ymm2, ymm14	;; YMM_MINUS_C_TIMES_MULCONST
-const			mulpd	ymm4, ymm14	;; YMM_MINUS_C_TIMES_MULCONST
-no const no c1 no cm1	mulpd	ymm9, ymm14	;; YMM_MINUS_C
-no const no c1 no cm1	mulpd	ymm11, ymm14	;; YMM_MINUS_C
-const			mulpd	ymm9, ymm14	;; YMM_MINUS_C_TIMES_MULCONST
-const			mulpd	ymm11, ymm14	;; YMM_MINUS_C_TIMES_MULCONST
+ttp			vmulpd	ymm0, ymm0, [rdx+0*YMM_GMD+YMM_GMD/2][rbx] ;; new value1 *= fudged grp two-to-phi
+			vmovapd	[rsi], ymm0			;; Save new value1
+			vxorpd	ymm1, ymm1, ymm1		;; new value2 = zero
+			vmovapd	[rsi+32], ymm1			;; Zero value2
 
-	addpd	ymm0, ymm2		;; Add upper FFT word to lower FFT word
-khi	addpd	ymm4, ymm5		;; Add upper FFT word to lower FFT word
-	addpd	ymm7, ymm9		;; Add upper FFT word to lower FFT word
-khi	addpd	ymm11, ymm12		;; Add upper FFT word to lower FFT word
-
-	rounding_interleaved ttp, base2, exec, ymm0, ymm4, ymm2, rax*8, ymm7, ymm11, ymm9, rax*8+32
-
-ttp	mulpd	ymm0, [rdx+0*YMM_GMD+YMM_GMD/2][rbx*2] ;; new value1 *= fudged grp two-to-phi
-ttp	mulpd	ymm7, [rdx+1*YMM_GMD+YMM_GMD/2][rbx*2] ;; new value2 *= fudged grp two-to-phi
-
-ttp	movzx	rbx, WORD PTR [rdi+2]	;; Load next big vs. little & fudge flags
-
-	xstore	[rsi], ymm0		;; Save new value1
-	xstore	[rsi+1*16], ymm7	;; Save new value2
-
-	xorpd	ymm1, ymm1		;; new high values = zero
-	xstore	[rsi+2*16], ymm1	;; Zero high value1
-	xstore	[rsi+3*16], ymm1	;; Zero high value2
+ttp			movzx	rbx, WORD PTR [rdi+2]		;; Load next big vs. little & fudge flags
 	ENDM
+
 ENDIF
 
 

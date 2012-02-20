@@ -159,8 +159,7 @@ ilp0:	mov	eax, count2		;; Load wpn count
 ilp1:	mov	ecx, cache_line_multiplier ;; Load inner loop counter
 	vmovapd	ymm2, [rbp+0*32]	;; Preload carries
 	vmovapd	ymm3, [rbp+1*32]
-ilp2:	L1prefetchw rsi+64, L1PREFETCH_ALL
-	ynorm_wpn_zpad ttp, base2, echk, const, khi, c1, cm1 ;; Normalize 8 values
+ilp2:	ynorm_wpn_zpad ttp, base2, echk, const, khi, c1, cm1 ;; Normalize 8 values
 	bump	rsi, 64			;; Next cache line
 ttp	bump	rdi, 2			;; Next big/little flags
 	sub	rcx, 1			;; Test loop counter
