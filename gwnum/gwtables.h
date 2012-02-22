@@ -205,7 +205,7 @@ struct gwasm_data {
 		double	YMM_HALF[4];	/* 0.5 */
 
 		double	YMM_SQRTHALF[4];/* SQRT(0.5) */
-		double	YMM_SUMOUT[4];	/* Used in normalization macros */
+		double	YMM_UNUSED_DOUBLES1[4];
 
 		double	YMM_MAXERR[4];	/* Used in normalization macros */
 		int32_t	YMM_ABSVAL[8];	/* Used to compute absolute values */

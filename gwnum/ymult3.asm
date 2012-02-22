@@ -326,12 +326,8 @@ ygw_finish_mult_wpn:
 
 	mov	zero_fft, 0		; Clear zero-high-words-fft flag for next FFT
 
-; Calculate SUMOUT and MAXERR values
+; Calculate MAXERR value
 
-	vmovsd	xmm7, YMM_SUMOUT	; Add together the two partial sumouts
-	vaddsd	xmm7, xmm7, YMM_SUMOUT+8
-	vaddsd	xmm7, xmm7, YMM_SUMOUT+16
-	vaddsd	xmm7, xmm7, YMM_SUMOUT+24
 	vmovsd	Q [rsi-24], xmm7	; Save sum of FFT outputs
 	vmovsd	xmm6, YMM_MAXERR	; Compute new maximum error
 	vmaxsd	xmm6, xmm6, YMM_MAXERR+8

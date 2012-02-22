@@ -4135,8 +4135,8 @@ aux_done:	gwevent_reset (&gwdata->thread_work_to_do);
 		gwmutex_unlock (&gwdata->thread_lock);
 	}
 
-/* Call optional user provided callback routine so that the caller can set */
-/* do any necessary cleanup */
+/* Call optional user provided callback routine so that the caller can */
+/* do any necessary cleanup. */
 
 	if (gwdata->thread_callback != NULL)
 		(*gwdata->thread_callback) (
@@ -4180,10 +4180,6 @@ void pass1_wake_up_threads (
 	asm_data->norm_ptr1 = asm_data->norm_biglit_array;
 	asm_data->norm_ptr2 = asm_data->norm_col_mults;
 	if (gwdata->cpu_flags & CPU_AVX) {
-		asm_data->u.ymm.YMM_SUMOUT[0] = 0.0;
-		asm_data->u.ymm.YMM_SUMOUT[1] = 0.0;
-		asm_data->u.ymm.YMM_SUMOUT[2] = 0.0;
-		asm_data->u.ymm.YMM_SUMOUT[3] = 0.0;
 		asm_data->u.ymm.YMM_MAXERR[0] = asm_data->MAXERR;
 		asm_data->u.ymm.YMM_MAXERR[1] = asm_data->MAXERR;
 		asm_data->u.ymm.YMM_MAXERR[2] = asm_data->MAXERR;
@@ -4259,10 +4255,6 @@ void pass1_wake_up_threads_mt (
 	asm_data->norm_ptr1 = asm_data->norm_biglit_array;
 	asm_data->norm_ptr2 = asm_data->norm_col_mults;
 	if (gwdata->cpu_flags & CPU_AVX) {
-		asm_data->u.ymm.YMM_SUMOUT[0] = 0.0;
-		asm_data->u.ymm.YMM_SUMOUT[1] = 0.0;
-		asm_data->u.ymm.YMM_SUMOUT[2] = 0.0;
-		asm_data->u.ymm.YMM_SUMOUT[3] = 0.0;
 		asm_data->u.ymm.YMM_MAXERR[0] = asm_data->MAXERR;
 		asm_data->u.ymm.YMM_MAXERR[1] = asm_data->MAXERR;
 		asm_data->u.ymm.YMM_MAXERR[2] = asm_data->MAXERR;
@@ -4373,10 +4365,6 @@ void pass1_wait_for_carries_mt (
 	asm_data->norm_ptr1 = main_thread_asm_data->norm_ptr1;
 	asm_data->norm_ptr2 = main_thread_asm_data->norm_ptr2;
 	if (gwdata->cpu_flags & CPU_AVX) {
-		asm_data->u.ymm.YMM_SUMOUT[0] = main_thread_asm_data->u.ymm.YMM_SUMOUT[0];
-		asm_data->u.ymm.YMM_SUMOUT[1] = main_thread_asm_data->u.ymm.YMM_SUMOUT[1];
-		asm_data->u.ymm.YMM_SUMOUT[2] = main_thread_asm_data->u.ymm.YMM_SUMOUT[2];
-		asm_data->u.ymm.YMM_SUMOUT[3] = main_thread_asm_data->u.ymm.YMM_SUMOUT[3];
 		asm_data->u.ymm.YMM_MAXERR[0] = main_thread_asm_data->u.ymm.YMM_MAXERR[0];
 		asm_data->u.ymm.YMM_MAXERR[1] = main_thread_asm_data->u.ymm.YMM_MAXERR[1];
 		asm_data->u.ymm.YMM_MAXERR[2] = main_thread_asm_data->u.ymm.YMM_MAXERR[2];
