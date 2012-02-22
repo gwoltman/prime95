@@ -1,4 +1,4 @@
-; Copyright 1995-2011 - Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2012 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -1724,7 +1724,25 @@ loops_set_prefetch MACRO pfamt, pffreq, pfreg
 	  ENDIF
 	  loops_pfreg EQU pfreg
 	  loops_orig_pffreq = pffreq
+	  loops_pfincr = PREFETCHING
 	ENDIF
+	ENDM
+
+;; Set alternate prefetch pointer increment.  The loops macros were built on the premise
+;; of bumping the prefetch pointer by one cache line (64 bytes) on every prefetch.  This
+;; macros lets us choose a smaller increment so that the caller can avoid prefetching
+;; too many cache lines.  For example, if the caller loops 100 times but only wants to
+;; prefetch 80 cache lines then we can set out prefetch increment to 64 * 80 / 100 bytes.
+;; Note this is not the preferred solution.  In the example above it would be better to
+;; back up the prefetch pointer by 20 cache lines sometime during the looping process.
+;; This is preferred because there is no guarantee (due to rounding) that we can prefetch
+;; exactly the number of cache lines requested.  Unfortunately, the looping structure
+;; or a register shortage may prevent us from using the preferred solution.
+
+loops_set_alternate_prefetch_increment MACRO cache_lines_to_prefetch, number_of_loops
+	;; Set increment so that we prefetch at least the requested number of cache lines
+	;; The formula is ceil ((cache_lines_to_prefetch * 64 - 63) / number_of_loops)
+	loops_pfincr = ((cache_lines_to_prefetch) * PREFETCHING - (PREFETCHING - 1) + ((number_of_loops) - 1)) / (number_of_loops)
 	ENDM
 
 ;; Main looping macro.  Normally third argument is blank meaning increment loop counter by 1.
@@ -2008,11 +2026,11 @@ loops_touch MACRO iters1, dest1, iters2, dest2
 output_prefetch_instructions MACRO
 	IF loops_pfamt EQ 1
 	    prefetcht1 [loops_pfreg]
-	    bump loops_pfreg, PREFETCHING
+	    bump loops_pfreg, loops_pfincr
 	ELSE
 	    prefetcht1 [loops_pfreg]
-	    prefetcht1 [loops_pfreg+PREFETCHING]
-	    bump loops_pfreg, 2*PREFETCHING
+	    prefetcht1 [loops_pfreg+loops_pfincr]
+	    bump loops_pfreg, 2*loops_pfincr
 	ENDIF
 	IF loops_double_prefetching EQ 1
 	    loops_double_prefetching = 0

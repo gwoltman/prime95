@@ -9,7 +9,7 @@
  *  This is the only C++ routine in the gwnum library.  Since gwnum is
  *  a C based library, we declare all routines here as extern "C".
  * 
- *  Copyright 2005-2011 Mersenne Research, Inc.  All rights reserved.
+ *  Copyright 2005-2012 Mersenne Research, Inc.  All rights reserved.
  *
  **************************************************************/
 
@@ -987,9 +987,8 @@ void gwsincos012by_weighted (
 	// This hack causes SSE2 code to get duplicated weight and inv_weight values, while
 	// AVX code does not (it uses the vbroadcastsd instruction to reduce memory usage)
 	if (incr >= 4) {
-		results[0] = weight;
-		results[1] = inv_weight;
-		results += incr;		// Two wasted doubles in AVX code.  Future optimization will reclaim these bytes.
+		results[24] = weight;
+		results[25] = inv_weight;
 	} else {
 		for (i = 0; i < incr; i++) {
 			results[i] = weight;
@@ -1009,13 +1008,23 @@ void gwsincos012by_weighted (
 		sine = sine + epsilon;		// Hack to avoid divide-by-zero errors
 		sine2 = sine2 + epsilon;
 
-		results[i] = sine * weight;
-		results[incr+i] = cosine / sine;
-		results[2*incr+i] = sine * inv_weight;
-
-		results[3*incr+i] = sine2 * weight;
-		results[4*incr+i] = cosine2 / sine2;
-		results[5*incr+i] = sine2 * inv_weight;
+		// This hack outputs the weights in a different order for SSE2 and AVX.
+		// We changed the AVX output order for better grouping of data in the cache lines.
+		if (incr < 4) {
+			results[i] = sine * weight;
+			results[incr+i] = cosine / sine;
+			results[2*incr+i] = sine * inv_weight;
+			results[3*incr+i] = sine2 * weight;
+			results[4*incr+i] = cosine2 / sine2;
+			results[5*incr+i] = sine2 * inv_weight;
+		} else {
+			results[i] = cosine / sine;
+			results[incr+i] = cosine2 / sine2;
+			results[2*incr+i] = sine * weight;
+			results[3*incr+i] = sine2 * weight;
+			results[4*incr+i] = sine * inv_weight;
+			results[5*incr+i] = sine2 * inv_weight;
+		}
 	}
 	END_x86_FIX
 }
@@ -1057,13 +1066,23 @@ void gwsincos15by_weighted (
 		sine = sine + epsilon;		// Hack to avoid divide-by-zero errors
 		sine5 = sine5 + epsilon;
 
-		results[i] = sine * weight;
-		results[incr+i] = cosine / sine;
-		results[2*incr+i] = sine * inv_weight;
-
-		results[3*incr+i] = sine5 * weight;
-		results[4*incr+i] = cosine5 / sine5;
-		results[5*incr+i] = sine5 * inv_weight;
+		// This hack outputs the weights in a different order for SSE2 and AVX.
+		// We changed the AVX output order for better grouping of data in the cache lines.
+		if (incr < 4) {
+			results[i] = sine * weight;
+			results[incr+i] = cosine / sine;
+			results[2*incr+i] = sine * inv_weight;
+			results[3*incr+i] = sine2 * weight;
+			results[4*incr+i] = cosine2 / sine2;
+			results[5*incr+i] = sine2 * inv_weight;
+		} else {
+			results[i] = cosine / sine;
+			results[incr+i] = cosine5 / sine5;
+			results[2*incr+i] = sine * weight;
+			results[3*incr+i] = sine5 * weight;
+			results[4*incr+i] = sine * inv_weight;
+			results[5*incr+i] = sine5 * inv_weight;
+		}
 	}
 	END_x86_FIX
 }

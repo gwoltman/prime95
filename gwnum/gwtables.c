@@ -709,6 +709,15 @@ double *yr4dwpn_build_pass1_table (
 /* For the wpn building block level, output the sin/cos and column normalization values. */
 
 			else {
+				double *weights, *inv_weights;
+
+/* The weights are output in separate tables before the sin/cos values.  This requires two registers */
+/* to access the tables, but gains in that we can group data in cache lines better. */
+
+				weights = table;
+				table += N / 4 / pass1_increment * gwdata->PASS1_CACHE_LINES;
+				inv_weights = table;
+				table += N / 4 / pass1_increment * gwdata->PASS1_CACHE_LINES;
 
 /* Output the sin/cos value for the complex sections, used by the yr4_4cl_wpn_four_complex_djbfft macro */
 /* We apply the two-to-phi weight for the upper AVX words in the group multipliers.  There is a */
@@ -719,7 +728,9 @@ double *yr4dwpn_build_pass1_table (
 				    for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
 					temp = (group + j + i);
 					gwsincos012by4_weighted (gwdata->dd_data, temp, upper_avx_word, N, temp, table);
-					table += 28;
+					*weights++ = table[24];
+					*inv_weights++ = table[25];
+					table += 24;
 
 /* For the yr4_4cl_csc_wpn_eight_reals_four_complex_djbfft building block levels, output the extra */
 /* sin/cos values needed for the eight_reals.  The eight_reals doubles N because */
