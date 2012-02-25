@@ -4,7 +4,7 @@
 | This file contains the C routines to build sin/cos and weights tables
 | that the FFT assembly code needs.
 | 
-|  Copyright 2002-2011 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2012 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -1028,78 +1028,36 @@ double *yr4_build_pass2_real_table (
 
 /* Output sin/cos values for an initial 6-real, 10-real, or 8-real macro. */
 
-	if (N % 3 == 0) {
-		for (j = 0; j < N / 3; j += 4) {
-			gwsincos12by4 (j, N*2, table);
-			gwsincos12by4 (j + avx_increment, N*2, table+1);
-			gwsincos12by4 (j + 2*avx_increment, N*2, table+2);
-			gwsincos12by4 (j + 3*avx_increment, N*2, table+3);
-			table += 16;
-		}
-		N = N / 3;
-	} else 	if (N % 5 == 0) {
-		for (j = 0; j < N / 5; j += 4) {
-			gwsincos1234by4 (j, N*2, table);
-			gwsincos1234by4 (j + avx_increment, N*2, table+1);
-			gwsincos1234by4 (j + 2*avx_increment, N*2, table+2);
-			gwsincos1234by4 (j + 3*avx_increment, N*2, table+3);
-			table += 32;
-		}
-		N = N / 5;
-	} else {
-		for (j = 0; j < N / 4; j += 4) {
-			gwsincos125by4 (j, N*2, table);
-			gwsincos125by4 (j + avx_increment, N*2, table+1);
-			gwsincos125by4 (j + 2*avx_increment, N*2, table+2);
-			gwsincos125by4 (j + 3*avx_increment, N*2, table+3);
-			table += 24;
-		}
-		swizzled = TRUE;
-		N = N / 4;
-	}
-
-/* Output sin/cos values for any remaining 6-real/3-complex and 10-real/5-complex macros */
-
 	while (N % 3 == 0) {
 		for (j = 0; j < N / 3; j += 4) {
-			gwsincos12by4 (j, N*2, table);		/* For the six real (and three complex) */
-			gwsincos12by4 (j + avx_increment, N*2, table+1);
-			gwsincos12by4 (j + 2*avx_increment, N*2, table+2);
-			gwsincos12by4 (j + 3*avx_increment, N*2, table+3);
-			table += 16;
+			gwsincos1by4 (j, N*2, table);		/* For the six real (and three complex) */
+			gwsincos1by4 (j + avx_increment, N*2, table+1);
+			gwsincos1by4 (j + 2*avx_increment, N*2, table+2);
+			gwsincos1by4 (j + 3*avx_increment, N*2, table+3);
+			table += 8;
 		}
 		N = N / 3;
 	}
 
 	while (N % 5 == 0) {
 		for (j = 0; j < N / 5; j += 4) {
-			gwsincos1234by4 (j, N*2, table);	/* For the ten real (and five complex) */
-			gwsincos1234by4 (j + avx_increment, N*2, table+1);
-			gwsincos1234by4 (j + 2*avx_increment, N*2, table+2);
-			gwsincos1234by4 (j + 3*avx_increment, N*2, table+3);
-			table += 32;
+			gwsincos13by4 (j, N*2, table);	/* For the ten real (and five complex) */
+			gwsincos13by4 (j + avx_increment, N*2, table+1);
+			gwsincos13by4 (j + 2*avx_increment, N*2, table+2);
+			gwsincos13by4 (j + 3*avx_increment, N*2, table+3);
+			table += 16;
 		}
 		N = N / 5;
 	}
 
-/* If we haven't yet swizzled the FFT data (happens during first eight-reals level) */
-/* then output one eight-reals / four-complex sin/cos table to do the swizzling. */
-
-	if (!swizzled) {
-		for (j = 0; j < N / 4; j += 4) {
-			gwsincos12by4 (j, N, table);		/* For the four-complex */
-			gwsincos12by4 (j + avx_increment, N, table+1);
-			gwsincos12by4 (j + 2*avx_increment, N, table+2);
-			gwsincos12by4 (j + 3*avx_increment, N, table+3);
-			table += 16;
-			gwsincos15by4 (j, N*2, table);		/* For the eight real */
-			gwsincos15by4 (j + avx_increment, N*2, table+1);
-			gwsincos15by4 (j + 2*avx_increment, N*2, table+2);
-			gwsincos15by4 (j + 3*avx_increment, N*2, table+3);
-			table += 16;
-		}
-		N = N / 4;
+	for (j = 0; j < N / 4; j += 4) {
+		gwsincos15by4 (j, N*2, table);
+		gwsincos15by4 (j + avx_increment, N*2, table+1);
+		gwsincos15by4 (j + 2*avx_increment, N*2, table+2);
+		gwsincos15by4 (j + 3*avx_increment, N*2, table+3);
+		table += 16;
 	}
+	N = N / 4;
 
 /* Output one last sin/cos table for the remaining yr4_eight_reals_four_complex_djbfft */
 /* building block levels.  The eight_reals doubles N because the real part of the FFT */

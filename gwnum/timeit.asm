@@ -1186,12 +1186,12 @@ MAXRPT	EQU	2
 	avxmac 320*2, 100000, 0, yr5_b5cl_five_complex_djbunfft rsi, 5*64, 64, rdi, YMM_SCD2/4, 2
 
 ;;190
-	avxmac 192, 8192, YMM_SCD4, yr5_5cl_ten_reals_fft rsi, 5*64, 64, rdi
-	avxmac 192, 100000, YMM_SCD4, yr5_5cl_ten_reals_fft rsi, 5*64, 64, rdi
-	avxmacbx 192, 8192, YMM_SCD4, yr5_f5cl_ten_reals_fft rsi, 5*64, 64, rdi
-	avxmacbx 192, 100000, YMM_SCD4, yr5_f5cl_ten_reals_fft rsi, 5*64, 64, rdi
-	avxmac 192, 8192, YMM_SCD4, yr5_5cl_ten_reals_unfft rsi, 5*64, 64, rdi
-	avxmac 192, 100000, YMM_SCD4, yr5_5cl_ten_reals_unfft rsi, 5*64, 64, rdi
+	avxmac 192, 8192, 0, yr5_5cl_ten_reals_fft rsi, 5*64, 64, rdi, YMM_SCD4, 1
+	avxmac 192, 100000, 0, yr5_5cl_ten_reals_fft rsi, 5*64, 64, rdi, YMM_SCD4, 1
+	avxmacbx 192, 8192, 0, yr5_f5cl_ten_reals_fft rsi, 5*64, 64, rdi, YMM_SCD4, 1
+	avxmacbx 192, 100000, 0, yr5_f5cl_ten_reals_fft rsi, 5*64, 64, rdi, YMM_SCD4, 1
+	avxmac 192, 8192, 0, yr5_5cl_ten_reals_unfft rsi, 5*64, 64, rdi, YMM_SCD4, 1
+	avxmac 192, 100000, 0, yr5_5cl_ten_reals_unfft rsi, 5*64, 64, rdi, YMM_SCD4, 1
 
 ;;196
 	avxmac 320, 8192, YMM_SCD4, yr5_5cl_ten_reals_five_complex_djbfft rsi, 5*64, 64, rdi

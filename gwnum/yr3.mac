@@ -576,7 +576,15 @@ yr3_3cl_six_reals_fft_preload MACRO
 	yr3_6r_fft_cmn_preload
 	ENDM
 yr3_3cl_six_reals_fft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt,L1pt,L1pd
-	yr3_6r_fft_cmn srcreg,srcinc,0,d1,screg,screg+64,screg,scinc,maxrpt,L1pt,L1pd
+	yr3_6r_fft_cmn srcreg,srcinc,0,d1,screg,screg+64,screg,scinc,,,maxrpt,L1pt,L1pd
+	ENDM
+
+; Like the standard version but uses two sin/cos ptrs
+yr3_3cl_2sc_six_reals_fft_preload MACRO
+	yr3_6r_fft_cmn_preload
+	ENDM
+yr3_3cl_2sc_six_reals_fft MACRO srcreg,srcinc,d1,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
+	yr3_6r_fft_cmn srcreg,srcinc,0,d1,screg2,screg1,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
 	ENDM
 
 ; Like the standard version but the first sin/cos value can be used in a three-complex macro at the same FFT level
@@ -584,7 +592,7 @@ yr3_3cl_csc_six_reals_fft_preload MACRO
 	yr3_6r_fft_cmn_preload
 	ENDM
 yr3_3cl_csc_six_reals_fft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt,L1pt,L1pd
-	yr3_6r_fft_cmn srcreg,srcinc,0,d1,screg+64,screg,screg,scinc,maxrpt,L1pt,L1pd
+	yr3_6r_fft_cmn srcreg,srcinc,0,d1,screg+64,screg,screg,scinc,,,maxrpt,L1pt,L1pd
 	ENDM
 
 ; Like the standard version but indexes into source using rbx
@@ -592,12 +600,20 @@ yr3_f3cl_six_reals_fft_preload MACRO
 	yr3_6r_fft_cmn_preload
 	ENDM
 yr3_f3cl_six_reals_fft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt,L1pt,L1pd
-	yr3_6r_fft_cmn srcreg,srcinc,rbx,d1,screg,screg+64,screg,scinc,maxrpt,L1pt,L1pd
+	yr3_6r_fft_cmn srcreg,srcinc,rbx,d1,screg,screg+64,screg,scinc,,,maxrpt,L1pt,L1pd
+	ENDM
+
+; Like f3cl but uses 2 sin/cos ptrs
+yr3_f3cl_2sc_six_reals_fft_preload MACRO
+	yr3_6r_fft_cmn_preload
+	ENDM
+yr3_f3cl_2sc_six_reals_fft MACRO srcreg,srcinc,d1,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
+	yr3_6r_fft_cmn srcreg,srcinc,rbx,d1,screg2,screg1,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
 	ENDM
 
 yr3_6r_fft_cmn_preload MACRO
 	ENDM
-yr3_6r_fft_cmn MACRO srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,maxrpt,L1pt,L1pd
+yr3_6r_fft_cmn MACRO srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincA,scregB,scincB,maxrpt,L1pt,L1pd
 	vmovapd	ymm4, [srcreg+srcoff+d1]	;; R2
 	vmovapd	ymm3, [srcreg+srcoff+2*d1+32]	;; R6
 	vaddpd	ymm5, ymm4, ymm3		;; R2 + R6
@@ -657,7 +673,8 @@ yr3_6r_fft_cmn MACRO srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,maxrpt,L1
 	vmovapd	[srcreg+2*d1], ymm6		;; Save R3
 	vmovapd	[srcreg+2*d1+32], ymm4		;; Save I3
 	bump	srcreg, srcinc
-	bump	screg, scinc
+	bump	scregA, scincA
+	bump	scregB, scincB
 	ENDM
 
 ;; 64-bit version
@@ -668,39 +685,45 @@ yr3_6r_fft_cmn_preload MACRO
 	vmovapd	ymm14, YMM_HALF
 	vmovapd	ymm15, YMM_P866
 	ENDM
-yr3_6r_fft_cmn MACRO srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,maxrpt,L1pt,L1pd
+yr3_6r_fft_cmn MACRO srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincA,scregB,scincB,maxrpt,L1pt,L1pd
 	IF maxrpt GE 4 AND maxrpt MOD 4 EQ 0
-	yr3_6r_fft_unroll -1,noexec,noexec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_fft_unroll 0,noexec,exec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_fft_unroll 1,exec,exec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_fft_unroll 2,exec,exec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_fft_unroll 3,exec,exec,noexec,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_fft_unroll 4,exec,noexec,noexec,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
+	yr3_6r_fft_unroll -1,noexec,noexec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_fft_unroll 0,noexec,exec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_fft_unroll 1,exec,exec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_fft_unroll 2,exec,exec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_fft_unroll 3,exec,exec,noexec,srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_fft_unroll 4,exec,noexec,noexec,srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
 	bump	srcreg, 4*srcinc
-	bump	screg, 4*scinc
+	bump	scregA, 4*scincA
+	bump	scregB, 4*scincB
 	ELSEIF maxrpt GE 3 AND maxrpt MOD 3 EQ 0
-	yr3_6r_fft_unroll -1,noexec,noexec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_fft_unroll 0,noexec,exec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_fft_unroll 1,exec,exec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_fft_unroll 2,exec,exec,noexec,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_fft_unroll 3,exec,noexec,noexec,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
+	yr3_6r_fft_unroll -1,noexec,noexec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_fft_unroll 0,noexec,exec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_fft_unroll 1,exec,exec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_fft_unroll 2,exec,exec,noexec,srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_fft_unroll 3,exec,noexec,noexec,srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
 	bump	srcreg, 3*srcinc
-	bump	screg, 3*scinc
+	bump	scregA, 3*scincA
+	bump	scregB, 3*scincB
 	ELSEIF maxrpt GE 2 AND maxrpt MOD 2 EQ 0
-	yr3_6r_fft_unroll -1,noexec,noexec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_fft_unroll 0,noexec,exec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_fft_unroll 1,exec,exec,noexec,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_fft_unroll 2,exec,noexec,noexec,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
+	yr3_6r_fft_unroll -1,noexec,noexec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincB,L1pt,L1pd
+	yr3_6r_fft_unroll 0,noexec,exec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincB,L1pt,L1pd
+	yr3_6r_fft_unroll 1,exec,exec,noexec,srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincB,L1pt,L1pd
+	yr3_6r_fft_unroll 2,exec,noexec,noexec,srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincB,L1pt,L1pd
 	bump	srcreg, 2*srcinc
-	bump	screg, 2*scinc
+	bump	scregA, 2*scincA
+	bump	scregB, 2*scincB
 	ELSE
-	yr3_6r_fft_unroll -1,noexec,noexec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_fft_unroll 0,noexec,exec,noexec,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_fft_unroll 1,exec,noexec,noexec,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
+	yr3_6r_fft_unroll -1,noexec,noexec,exec,srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_fft_unroll 0,noexec,exec,noexec,srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_fft_unroll 1,exec,noexec,noexec,srcreg,srcinc,srcoff,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
 	bump	srcreg, srcinc
-	bump	screg, scinc
+	bump	scregA, scincA
+	bump	scregB, scincB
 	ENDIF
 	ENDM
+
+;;; WARNING:  Unrolling only works in scincB is blank/zero or scincA equals scincB
 
 yr3_6r_fft_unroll MACRO iter,prev,this,next,srcreg,srcinc,srcoff,d1,screg1,screg2,screg,scinc,L1pt,L1pd
 
@@ -830,7 +853,15 @@ yr3_3cl_six_reals_unfft_preload MACRO
 	yr3_6r_unfft_cmn_preload
 	ENDM
 yr3_3cl_six_reals_unfft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt,L1pt,L1pd
-	yr3_6r_unfft_cmn srcreg,srcinc,d1,screg,screg+64,screg,scinc,maxrpt,L1pt,L1pd
+	yr3_6r_unfft_cmn srcreg,srcinc,d1,screg,screg+64,screg,scinc,,,maxrpt,L1pt,L1pd
+	ENDM
+
+; Like standard version but uses 2 sin/cos ptrs
+yr3_3cl_2sc_six_reals_unfft_preload MACRO
+	yr3_6r_unfft_cmn_preload
+	ENDM
+yr3_3cl_2sc_six_reals_unfft MACRO srcreg,srcinc,d1,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
+	yr3_6r_unfft_cmn srcreg,srcinc,d1,screg2,screg1,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
 	ENDM
 
 ; Like standard version but the first sin/cos value can be used by a three-complex macro at the same FFT level
@@ -838,12 +869,12 @@ yr3_3cl_csc_six_reals_unfft_preload MACRO
 	yr3_6r_unfft_cmn_preload
 	ENDM
 yr3_3cl_csc_six_reals_unfft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt,L1pt,L1pd
-	yr3_6r_unfft_cmn srcreg,srcinc,d1,screg+64,screg,screg,scinc,maxrpt,L1pt,L1pd
+	yr3_6r_unfft_cmn srcreg,srcinc,d1,screg+64,screg,screg,scinc,,,maxrpt,L1pt,L1pd
 	ENDM
 
 yr3_6r_unfft_cmn_preload MACRO
 	ENDM
-yr3_6r_unfft_cmn MACRO srcreg,srcinc,d1,screg1,screg2,screg,scinc,maxrpt,L1pt,L1pd
+yr3_6r_unfft_cmn MACRO srcreg,srcinc,d1,screg1,screg2,scregA,scincA,scregB,scincB,maxrpt,L1pt,L1pd
 	vmovapd	ymm1, [srcreg+d1]		;; R2
 	vmovapd	ymm2, [screg1+32]		;; cosine/sine
 	vmulpd	ymm7, ymm1, ymm2		;; A2 = R2 * cosine/sine
@@ -903,7 +934,8 @@ yr3_6r_unfft_cmn MACRO srcreg,srcinc,d1,screg1,screg2,screg,scinc,maxrpt,L1pt,L1
 	vmovapd	[srcreg+2*d1], ymm7		;; Save R3
 	vmovapd	[srcreg+2*d1+32], ymm3		;; Save I3
 	bump	srcreg, srcinc
-	bump	screg, scinc
+	bump	scregA, scincA
+	bump	scregB, scincB
 	ENDM
 
 ;; 64-bit version
@@ -914,39 +946,45 @@ yr3_6r_unfft_cmn_preload MACRO
 	vmovapd	ymm14, YMM_HALF
 	vmovapd	ymm15, YMM_P866
 	ENDM
-yr3_6r_unfft_cmn MACRO srcreg,srcinc,d1,screg1,screg2,screg,scinc,maxrpt,L1pt,L1pd
+yr3_6r_unfft_cmn MACRO srcreg,srcinc,d1,screg1,screg2,scregA,scincA,scregB,scincB,maxrpt,L1pt,L1pd
 	IF maxrpt GE 4 AND maxrpt MOD 4 EQ 0
-	yr3_6r_unfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_unfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_unfft_unroll 1,exec,exec,exec,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_unfft_unroll 2,exec,exec,exec,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_unfft_unroll 3,exec,exec,noexec,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_unfft_unroll 4,exec,noexec,noexec,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
+	yr3_6r_unfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_unfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_unfft_unroll 1,exec,exec,exec,srcreg,srcinc,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_unfft_unroll 2,exec,exec,exec,srcreg,srcinc,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_unfft_unroll 3,exec,exec,noexec,srcreg,srcinc,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_unfft_unroll 4,exec,noexec,noexec,srcreg,srcinc,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
 	bump	srcreg, 4*srcinc
-	bump	screg, 4*scinc
+	bump	scregA, 4*scincA
+	bump	scregB, 4*scincB
 	ELSEIF maxrpt GE 3 AND maxrpt MOD 3 EQ 0
-	yr3_6r_unfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_unfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_unfft_unroll 1,exec,exec,exec,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_unfft_unroll 2,exec,exec,noexec,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_unfft_unroll 3,exec,noexec,noexec,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
+	yr3_6r_unfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_unfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_unfft_unroll 1,exec,exec,exec,srcreg,srcinc,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_unfft_unroll 2,exec,exec,noexec,srcreg,srcinc,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_unfft_unroll 3,exec,noexec,noexec,srcreg,srcinc,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
 	bump	srcreg, 3*srcinc
-	bump	screg, 3*scinc
+	bump	scregA, 3*scincA
+	bump	scregB, 3*scincB
 	ELSEIF maxrpt GE 2 AND maxrpt MOD 2 EQ 0
-	yr3_6r_unfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_unfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_unfft_unroll 1,exec,exec,noexec,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_unfft_unroll 2,exec,noexec,noexec,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
+	yr3_6r_unfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_unfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_unfft_unroll 1,exec,exec,noexec,srcreg,srcinc,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_unfft_unroll 2,exec,noexec,noexec,srcreg,srcinc,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
 	bump	srcreg, 2*srcinc
-	bump	screg, 2*scinc
+	bump	scregA, 2*scincA
+	bump	scregB, 2*scincB
 	ELSE
-	yr3_6r_unfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_unfft_unroll 0,noexec,exec,noexec,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
-	yr3_6r_unfft_unroll 1,exec,noexec,noexec,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
+	yr3_6r_unfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_unfft_unroll 0,noexec,exec,noexec,srcreg,srcinc,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
+	yr3_6r_unfft_unroll 1,exec,noexec,noexec,srcreg,srcinc,d1,screg1,screg2,scregA,scincA,L1pt,L1pd
 	bump	srcreg, srcinc
-	bump	screg, scinc
+	bump	scregA, scincA
+	bump	scregB, scincB
 	ENDIF
 	ENDM
+
+;;; WARNING:  Unrolling only works in scincB is blank/zero or scincA equals scincB
 
 yr3_6r_unfft_unroll MACRO iter,prev,this,next,srcreg,srcinc,d1,screg1,screg2,screg,scinc,L1pt,L1pd
 

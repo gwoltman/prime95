@@ -3943,8 +3943,7 @@ c4a:	start_timer 18
 	yloop_adjust 4*4*clm			;; Do fewer iterations in this loop
 	yloop_set_clm_prefetch YQUARTER
 	yr5_5cl_csc_ten_reals_unfft_preload
-c4b:	yr5_5cl_csc_ten_reals_unfft rsi, 64, 4*clmblkdst, rdi
-	bump	rdi, YMM_SCD4
+c4b:	yr5_5cl_csc_ten_reals_unfft rsi, 64, 4*clmblkdst, rdi, YMM_SCD4, 4*clm
 	yloop	4*clm, c4b, -4*clm*64+20*clmblkdst, rdi, -4*clm*YMM_SCD4 ;; Test loop counter
 
 	loops_reset
@@ -3973,8 +3972,7 @@ ELSE
 	yloop_init 16*4*clm			;; 16*4*clm iterations
 	yloop_set_clm_prefetch YQUARTER
 	yr5_5cl_csc_ten_reals_unfft_preload
-c4b:	yr5_5cl_csc_ten_reals_unfft rsi, 64, 4*clmblkdst, rdi
-	bump	rdi, YMM_SCD4
+c4b:	yr5_5cl_csc_ten_reals_unfft rsi, 64, 4*clmblkdst, rdi, YMM_SCD4, 4*clm
 	yloop	4*clm, c4b, -4*clm*64+clmblkdst ;; 4*clm iterations
 	yloop	4, c4b, -4*clmblkdst+20*clmblkdst, rdi, -4*4*clm*YMM_SCD4 ;; Test loop counter, restore sin/cos pointer
 
@@ -4079,8 +4077,7 @@ b1b:	yr4_4cl_eight_reals_fft rsi, 64, 20*clmblkdst, 40*clmblkdst, rdi, 0, 4*clm
 	yloop_adjust 4*4*clm			;; Do fewer iterations in this loop
 	yloop_set_clm_prefetch YSINGLE
 	yr5_5cl_csc_ten_reals_fft_preload
-b4b:	yr5_5cl_csc_ten_reals_fft rsi, 64, 4*clmblkdst, rbx
-	bump	rbx, YMM_SCD4
+b4b:	yr5_5cl_csc_ten_reals_fft rsi, 64, 4*clmblkdst, rbx, YMM_SCD4, 4*clm
 	yloop	4*clm, b4b, -4*clm*64+20*clmblkdst, rbx, -4*clm*YMM_SCD4 ;; 4*clm iterations
 
 	loops_reset
@@ -4111,8 +4108,7 @@ b1b:	yr4_4cl_eight_reals_fft rsi, 64, 20*clmblkdst, 40*clmblkdst, rdi, 0, 4*clm
 	yloop_init 16*4*clm			;; 16 iterations of 4*clm
 	yloop_set_clm_prefetch YSINGLE
 	yr5_5cl_csc_ten_reals_fft_preload
-b4b:	yr5_5cl_csc_ten_reals_fft rsi, 64, 4*clmblkdst, rdi
-	bump	rdi, YMM_SCD4
+b4b:	yr5_5cl_csc_ten_reals_fft rsi, 64, 4*clmblkdst, rdi, YMM_SCD4, 4*clm
 	yloop	4*clm, b4b, -4*clm*64+clmblkdst ;; 4*clm iterations
 	yloop	4, b4b, -4*clmblkdst+20*clmblkdst, rdi, -4*4*clm*YMM_SCD4 ;; Test loop counter, restore sin/cos ptr
 

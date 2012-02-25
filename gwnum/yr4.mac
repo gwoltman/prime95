@@ -4544,7 +4544,15 @@ yr4_s4cl_eight_reals_fft_preload MACRO
 	yr4_s8r_fft_cmn_preload
 	ENDM
 yr4_s4cl_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
-	yr4_s8r_fft_cmn srcreg,srcinc,0,d1,d2,screg,screg+64,screg+128,screg,scinc,maxrpt,L1pt,L1pd
+	yr4_s8r_fft_cmn srcreg,srcinc,0,d1,d2,screg,screg+64,screg+128,screg,scinc,,,maxrpt,L1pt,L1pd
+	ENDM
+
+;; Like s4cl but uses two sin/cos data ptrs.
+yr4_s4cl_2sc_eight_reals_fft_preload MACRO
+	yr4_s8r_fft_cmn_preload
+	ENDM
+yr4_s4cl_2sc_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
+	yr4_s8r_fft_cmn srcreg,srcinc,0,d1,d2,screg2,screg1,screg2+64,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
 	ENDM
 
 ;; Like s4cl but uses one combined sin/cos data ptr.  The first two sin/cos entries can be used by
@@ -4554,7 +4562,7 @@ yr4_s4cl_csc_eight_reals_fft_preload MACRO
 	yr4_s8r_fft_cmn_preload
 	ENDM
 yr4_s4cl_csc_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
-	yr4_s8r_fft_cmn srcreg,srcinc,0,d1,d2,screg+128,screg,screg+192,screg,scinc,maxrpt,L1pt,L1pd
+	yr4_s8r_fft_cmn srcreg,srcinc,0,d1,d2,screg+128,screg,screg+192,screg,scinc,,,maxrpt,L1pt,L1pd
 	ENDM
 
 ;; Like s4cl but offsets the input by rbx.
@@ -4563,7 +4571,15 @@ yr4_fs4cl_eight_reals_fft_preload MACRO
 	yr4_s8r_fft_cmn_preload
 	ENDM
 yr4_fs4cl_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
-	yr4_s8r_fft_cmn srcreg,srcinc,rbx,d1,d2,screg,screg+64,screg+128,screg,scinc,maxrpt,L1pt,L1pd
+	yr4_s8r_fft_cmn srcreg,srcinc,rbx,d1,d2,screg,screg+64,screg+128,screg,scinc,,,maxrpt,L1pt,L1pd
+	ENDM
+
+;; Like fs4cl but uses 2 sin/cos ptrs.
+yr4_fs4cl_2sc_eight_reals_fft_preload MACRO
+	yr4_s8r_fft_cmn_preload
+	ENDM
+yr4_fs4cl_2sc_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
+	yr4_s8r_fft_cmn srcreg,srcinc,rbx,d1,d2,screg2,screg1,screg2+64,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
 	ENDM
 
 ;; Common macro for eight-reals-FFT doing 2 and 3/4 levels.
@@ -4663,7 +4679,7 @@ yr4_8r_fft_cmn MACRO srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc
 
 yr4_s8r_fft_cmn_preload MACRO
 	ENDM
-yr4_s8r_fft_cmn MACRO srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scinc,maxrpt,L1pt,L1pd
+yr4_s8r_fft_cmn MACRO srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,scregA,scincA,scregB,scincB,maxrpt,L1pt,L1pd
 	vmovapd	ymm0, [srcreg+srcoff+d2+d1]	;; R4
 	vmovapd	ymm7, [srcreg+srcoff+d2+d1+32]	;; R8
 	vsubpd	ymm3, ymm0, ymm7	;; new R8 = R4 - R8			; 1-3
@@ -4784,7 +4800,8 @@ yr4_s8r_fft_cmn MACRO srcreg,srcinc,srcoff,d1,d2,screg1,screg2,screg5,screg,scin
 	vmovapd	[srcreg+d2+d1+32], ymm4	;; Save (7 15 23 31)
 
 	bump	srcreg, srcinc
-	bump	screg, scinc
+	bump	scregA, scincA
+	bump	scregB, scincB
 	ENDM
 
 ;; 64-bit version
@@ -4992,14 +5009,6 @@ yr4_4cl_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
 	yr4_8r_unfft_cmn srcreg,srcinc,d1,d2,screg,screg+64,screg+128,screg,scinc,maxrpt,L1pt,L1pd
 	ENDM
 
-;; Like 4cl but uses two sin/cos registers
-yr4_4cl_2sc_eight_reals_unfft_preload MACRO
-	yr4_8r_unfft_cmn_preload
-	ENDM
-yr4_4cl_2sc_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,screg2,scinc,maxrpt,L1pt,L1pd
-	yr4_8r_unfft_cmn srcreg,srcinc,d1,d2,screg2,screg1,screg2+64,screg,scinc,maxrpt,L1pt,L1pd
-	ENDM
-
 ;; Like 4cl but uses one combined sin/cos data ptr.  The first two sin/cos entries can be used by
 ;; four complex macros at the same FFT level.  The third and fourth sin/cos entries are used by
 ;; this eight reals macro.
@@ -5016,7 +5025,15 @@ yr4_s4cl_eight_reals_unfft_preload MACRO
 	yr4_s8r_unfft_cmn_preload
 	ENDM
 yr4_s4cl_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
-	yr4_s8r_unfft_cmn srcreg,srcinc,d1,d2,screg,screg+64,screg+128,screg,scinc,maxrpt,L1pt,L1pd
+	yr4_s8r_unfft_cmn srcreg,srcinc,d1,d2,screg,screg+64,screg+128,screg,scinc,,,maxrpt,L1pt,L1pd
+	ENDM
+
+;; Like s4cl but uses two sin/cos data ptrs.
+yr4_s4cl_2sc_eight_reals_unfft_preload MACRO
+	yr4_s8r_unfft_cmn_preload
+	ENDM
+yr4_s4cl_2sc_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
+	yr4_s8r_unfft_cmn srcreg,srcinc,d1,d2,screg2,screg1,screg2+64,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
 	ENDM
 
 ;; Like s4cl but uses one combined sin/cos data ptr.  The first two sin/cos entries can be used by
@@ -5026,7 +5043,7 @@ yr4_s4cl_csc_eight_reals_unfft_preload MACRO
 	yr4_s8r_unfft_cmn_preload
 	ENDM
 yr4_s4cl_csc_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt,L1pt,L1pd
-	yr4_s8r_unfft_cmn srcreg,srcinc,d1,d2,screg+128,screg,screg+192,screg,scinc,maxrpt,L1pt,L1pd
+	yr4_s8r_unfft_cmn srcreg,srcinc,d1,d2,screg+128,screg,screg+192,screg,scinc,,,maxrpt,L1pt,L1pd
 	ENDM
 
 ;; Common code for eight reals unfft
@@ -5133,7 +5150,7 @@ yr4_8r_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,maxr
 ;; Common swizzling eight reals unfft
 yr4_s8r_unfft_cmn_preload MACRO
 	ENDM
-yr4_s8r_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,maxrpt,L1pt,L1pd
+yr4_s8r_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg5,scregA,scincA,scregB,scincB,maxrpt,L1pt,L1pd
 
 	;; On input the 64-byte cache lines hold these data values:
 	;;	0	8	16	24	4	12	20	28
@@ -5266,7 +5283,8 @@ yr4_s8r_unfft_cmn MACRO srcreg,srcinc,d1,d2,screg1,screg2,screg5,screg,scinc,max
 	vmovapd	[srcreg], ymm5		;; Save R1
 
 	bump	srcreg, srcinc
-	bump	screg, scinc
+	bump	scregA, scincA
+	bump	scregB, scincB
 	ENDM
 
 ;; 64-bit version
