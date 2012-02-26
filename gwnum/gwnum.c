@@ -4425,10 +4425,17 @@ int pass1_done_with_carries_mt (
 	main_thread_asm_data = (struct gwasm_data *) gwdata->asm_data;
 	main_thread_asm_data->norm_ptr1 = asm_data->norm_ptr1;
 	main_thread_asm_data->norm_ptr2 = asm_data->norm_ptr2;
-	main_thread_asm_data->u.xmm.XMM_SUMOUT[0] = asm_data->u.xmm.XMM_SUMOUT[0];
-	main_thread_asm_data->u.xmm.XMM_SUMOUT[1] = asm_data->u.xmm.XMM_SUMOUT[1];
-	main_thread_asm_data->u.xmm.XMM_MAXERR[0] = asm_data->u.xmm.XMM_MAXERR[0];
-	main_thread_asm_data->u.xmm.XMM_MAXERR[1] = asm_data->u.xmm.XMM_MAXERR[1];
+	if (gwdata->cpu_flags & CPU_AVX) {
+		main_thread_asm_data->u.ymm.YMM_MAXERR[0] = asm_data->u.ymm.YMM_MAXERR[0];
+		main_thread_asm_data->u.ymm.YMM_MAXERR[1] = asm_data->u.ymm.YMM_MAXERR[1];
+		main_thread_asm_data->u.ymm.YMM_MAXERR[2] = asm_data->u.ymm.YMM_MAXERR[2];
+		main_thread_asm_data->u.ymm.YMM_MAXERR[3] = asm_data->u.ymm.YMM_MAXERR[3];
+	} else {
+		main_thread_asm_data->u.xmm.XMM_SUMOUT[0] = asm_data->u.xmm.XMM_SUMOUT[0];
+		main_thread_asm_data->u.xmm.XMM_SUMOUT[1] = asm_data->u.xmm.XMM_SUMOUT[1];
+		main_thread_asm_data->u.xmm.XMM_MAXERR[0] = asm_data->u.xmm.XMM_MAXERR[0];
+		main_thread_asm_data->u.xmm.XMM_MAXERR[1] = asm_data->u.xmm.XMM_MAXERR[1];
+	}
 
 /* Inform the next thread that it can now enter the normalization code */
 
