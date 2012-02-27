@@ -1,4 +1,4 @@
-; Copyright 2001-2010 Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2012 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -25,31 +25,6 @@ _TEXT SEGMENT
 ;;
 ;; Routines to do the normalization after a multiply
 ;;
-
-;; When doing zero-padded FFTs, the multiplied 7 words around the halfway point
-;; must be subtracted from the bottom of the FFT.  This must be done before
-;; normalization multiplies the FFT data by k.  This macro does that.
-
-xsub_7_words MACRO
-	LOCAL	nozpad, zlp
-	cmp	THIS_BLOCK, 8		;; Have we subtracted all 7 words?
-	jge	short nozpad		;; Yes, skip this code
-	mov	eax, cache_line_multiplier ;; Load loop counter
-	mov	edx, THIS_BLOCK
-	mov	rcx, rsi		;; Copy source ptr (we preserve rsi)
-	lea	rdi, ZPAD0		;; Addr of first zpad element
-zlp:	movsd	xmm0, Q [rcx]		;; Load FFT word
-	movsd	xmm1, Q [rdi][rdx*8]	;; Load ZPAD data
-	subsd	xmm0, xmm1
-	movsd	Q [rcx], xmm0		;; Store FFT word
-	bump	rcx, 64			;; Bump pointers
-	inc	rdx
-	cmp	rdx, 7			;; Only subtract 7 zpad words
-	je	short nozpad
-	dec	eax			;; Iterate 2*clm times
-	jnz	short zlp		;; Loop if necessary
-nozpad:
-	ENDM
 
 ; Macro to loop through all the FFT values and apply the proper normalization
 ; routine.
@@ -147,7 +122,6 @@ zpnorm	MACRO	lab, ttp, echk, const, base2, sse4, khi, c1, cm1
 	int_prolog 12,0,0
 const	mov	const_fft, 1		;; Set flag saying mul-by-const
 echk	xload	xmm6, XMM_MAXERR	;; Load maximum error
-	xsub_7_words
 
 	xnorm_wpn_zpad_preload ttp, echk, const, base2, sse4, khi, c1, cm1
 

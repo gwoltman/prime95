@@ -4323,13 +4323,25 @@ void pass1_wait_for_carries (
 
 	gwdata = asm_data->gwdata;
 
-/* In the radix-4 delay with partial normalization zero-padded FFT case prior to */
-/* normalizing the first data block, apply the partial normalization multipliers */
-/* to ZPAD0 - ZPAD6. */
+/* In zero-padded FFTs, we must subtract ZPAD0-6 from the first seven result words. */
+/* In the radix-4 delay with partial normalization also apply the partial */
+/* normalization multipliers to ZPAD0-6. */
 
-	if (asm_data->this_block == 0 && gwdata->ZERO_PADDED_FFT && gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-		int	i;
-		for (i = 0; i < 7; i++) asm_data->ZPAD0_6[i] *= gwdata->ZPAD_0_6_ADJUST[i];
+	if (gwdata->ZERO_PADDED_FFT && asm_data->this_block <= 6) {
+		unsigned int i;
+		double	*fft_data;
+
+		fft_data = (double *) asm_data->scratch_area;
+		for (i = asm_data->this_block; i <= 6 && i <= asm_data->this_block + asm_data->cache_line_multiplier; i++) {
+			if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
+				asm_data->ZPAD0_6[i] *= gwdata->ZPAD_0_6_ADJUST[i];
+				*fft_data -= asm_data->ZPAD0_6[i];
+			} else {
+				*fft_data -= asm_data->ZPAD0_6[i] * asm_data->u.xmm.XMM_NORM012_FF[0];
+				asm_data->u.xmm.XMM_SUMOUT[0] -= asm_data->ZPAD0_6[i] * asm_data->u.xmm.XMM_NORM012_FF[0];
+			}
+			fft_data += 8;		// Next cache line
+		}
 	}
 }
 
@@ -4342,14 +4354,27 @@ void pass1_wait_for_carries_mt (
 /* Get pointer to the gwdata structure */
 
 	gwdata = asm_data->gwdata;
+	main_thread_asm_data = (struct gwasm_data *) gwdata->asm_data;
 
-/* In the radix-4 delay with partial normalization zero-padded FFT case prior to */
-/* normalizing the first data block, apply the partial normalization multipliers */
-/* to ZPAD0 - ZPAD6. */
+/* In zero-padded FFTs, we must subtract ZPAD0-6 from the first seven result words. */
+/* In the radix-4 delay with partial normalization also apply the partial */
+/* normalization multipliers to ZPAD0-6. */
 
-	if (asm_data->this_block == 0 && gwdata->ZERO_PADDED_FFT && gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-		int	i;
-		for (i = 0; i < 7; i++) asm_data->ZPAD0_6[i] *= gwdata->ZPAD_0_6_ADJUST[i];
+	if (gwdata->ZERO_PADDED_FFT && asm_data->this_block <= 6) {
+		unsigned int i;
+		double	*fft_data;
+
+		fft_data = (double *) asm_data->scratch_area;
+		for (i = asm_data->this_block; i <= 6 && i <= asm_data->this_block + asm_data->cache_line_multiplier; i++) {
+			if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
+				main_thread_asm_data->ZPAD0_6[i] *= gwdata->ZPAD_0_6_ADJUST[i];
+				*fft_data -= main_thread_asm_data->ZPAD0_6[i];
+			} else {
+				*fft_data -= main_thread_asm_data->ZPAD0_6[i] * asm_data->u.xmm.XMM_NORM012_FF[0];
+				asm_data->u.xmm.XMM_SUMOUT[0] -= main_thread_asm_data->ZPAD0_6[i] * asm_data->u.xmm.XMM_NORM012_FF[0];
+			}
+			fft_data += 8;		// Next cache line
+		}
 	}
 
 /* Wait until the next normalization block to process is the block */
@@ -4361,7 +4386,6 @@ void pass1_wait_for_carries_mt (
 /* Copy the required normalization values so that assembly code can */
 /* access them */
 
-	main_thread_asm_data = (struct gwasm_data *) gwdata->asm_data;
 	asm_data->norm_ptr1 = main_thread_asm_data->norm_ptr1;
 	asm_data->norm_ptr2 = main_thread_asm_data->norm_ptr2;
 	if (gwdata->cpu_flags & CPU_AVX) {

@@ -26,30 +26,6 @@ _TEXT SEGMENT
 ;; Routines to do the normalization after a multiply
 ;;
 
-;; When doing zero-padded FFTs, the multiplied 7 words around the halfway point
-;; must be subtracted from the bottom of the FFT.  This must be done before
-;; normalization multiplies the FFT data by k.  This macro does that.
-
-ysub_7_words MACRO
-	LOCAL	nozpad, zlp
-	cmp	THIS_BLOCK, 8		;; Have we subtracted all 7 words?
-	jge	short nozpad		;; Yes, skip this code
-	mov	eax, cache_line_multiplier ;; Load loop counter
-	mov	edx, THIS_BLOCK
-	mov	rcx, rsi		;; Copy source ptr (we preserve rsi)
-	lea	rdi, ZPAD0		;; Addr of first zpad element
-zlp:	vmovsd	xmm0, Q [rcx]		;; Load FFT word
-	vsubsd	xmm0, xmm0, Q [rdi][rdx*8] ;; Subtract ZPAD data
-	vmovsd	Q [rcx], xmm0		;; Store FFT word
-	bump	rcx, 64			;; Bump pointers
-	inc	rdx
-	cmp	rdx, 7			;; Only subtract 7 zpad words
-	je	short nozpad
-	dec	eax			;; Iterate 4*clm times
-	jnz	short zlp		;; Loop if necessary
-nozpad:
-	ENDM
-
 ; Macro to loop through all the FFT values and apply the proper normalization
 ; routine.
 
@@ -143,7 +119,6 @@ zpnorm	MACRO	lab, ttp, echk, const, base2, khi, c1, cm1
 no const mov	const_fft, 0		;; Clear flag saying mul-by-const (needed by ygw_carries)
 const	mov	const_fft, 1		;; Set flag saying mul-by-const (needed by ygw_carries)
 echk	vmovapd	ymm6, YMM_MAXERR	;; Load maximum error
-	ysub_7_words
 
 	ynorm_wpn_zpad_preload ttp, base2, echk, const, khi, c1, cm1
 
