@@ -76,22 +76,16 @@ void one_million_clocks_help ();
 
 void one_hundred_thousand_clocks (void)
 {
-	/* The helper function times the ROR instruction which has a throughput of 1 clock on Intel and 1/3 clock on AMD */
+	/* The helper function times dependent ROR instructions which have a throughput of 1 clock on Intel and AMD. */
+	/* If a future chip, needs to call a different helper routine, we'd make that choice here. */
 	one_hundred_thousand_clocks_help ();
-	if (CPU_FLAGS & CPU_3DNOW) {
-		one_hundred_thousand_clocks_help ();
-		one_hundred_thousand_clocks_help ();
-	}
 }
 
 void one_million_clocks (void)
 {
-	/* The helper function times the ROR instruction which has a throughput of 1 clock on Intel and 1/3 clock on AMD */
+	/* The helper function times dependent ROR instructions which have a throughput of 1 clock on Intel and AMD. */
+	/* If a future chip, needs to call a different helper routine, we'd make that choice here. */
 	one_million_clocks_help ();
-	if (CPU_FLAGS & CPU_3DNOW) {
-		one_million_clocks_help ();
-		one_million_clocks_help ();
-	}
 }
 
 /* Return the number of CPUs in the system */
