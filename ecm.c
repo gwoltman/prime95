@@ -5640,8 +5640,7 @@ msg_and_exit:
 		if (pm1data.E <= 2)
 			sprintf (buf+strlen(buf), ", B2=%.0f", (double) C);
 		else
-			sprintf (buf+strlen(buf), ", B2=%.0f, E=%lu",
-				 (double) C, pm1data.E);
+			sprintf (buf+strlen(buf), ", B2=%.0f, E=%lu", (double) C, pm1data.E);
 	}
 	sprintf (buf+strlen(buf), ", We%d: %08lX\n", PORT, SEC5 (w->n, B, C));
 	OutputStr (thread_num, buf);
@@ -5719,12 +5718,11 @@ oom:	stop_reason = OutOfMemory (thread_num);
 /* Print a message if we found a factor! */
 
 bingo:	if (stage == 1)
-		sprintf (buf, "P-1 found a factor in stage #1, B1=%.0f.\n",
-			 (double) B);
+		sprintf (buf, "P-1 found a factor in stage #1, B1=%.0f.\n", (double) B);
+	else if (pm1data.E <= 2)
+		sprintf (buf, "P-1 found a factor in stage #2, B1=%.0f, B2=%.0f.\n", (double) B, (double) C);
 	else
-		sprintf (buf,
-			 "P-1 found a factor in stage #2, B1=%.0f, B2=%.0f.\n",
-			 (double) B, (double) C);
+		sprintf (buf, "P-1 found a factor in stage #2, B1=%.0f, B2=%.0f, E=%lu.\n", (double) B, (double) C, pm1data.E);
 	OutputBoth (thread_num, buf);
 
 /* Allocate memory for the string representation of the factor and for */
