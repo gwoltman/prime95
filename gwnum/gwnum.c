@@ -4338,7 +4338,7 @@ void pass1_wait_for_carries (
 				*fft_data -= asm_data->ZPAD0_6[i];
 			} else {
 				*fft_data -= asm_data->ZPAD0_6[i] * asm_data->u.xmm.XMM_NORM012_FF[0];
-				asm_data->u.xmm.XMM_SUMOUT[0] -= asm_data->ZPAD0_6[i] * asm_data->u.xmm.XMM_NORM012_FF[0];
+				asm_data->u.xmm.XMM_SUMOUT[0] += asm_data->ZPAD0_6[i] * asm_data->u.xmm.XMM_NORM012_FF[0];
 			}
 			fft_data += 8;		// Next cache line
 		}
@@ -4371,7 +4371,7 @@ void pass1_wait_for_carries_mt (
 				*fft_data -= main_thread_asm_data->ZPAD0_6[i];
 			} else {
 				*fft_data -= main_thread_asm_data->ZPAD0_6[i] * asm_data->u.xmm.XMM_NORM012_FF[0];
-				asm_data->u.xmm.XMM_SUMOUT[0] -= main_thread_asm_data->ZPAD0_6[i] * asm_data->u.xmm.XMM_NORM012_FF[0];
+				asm_data->u.xmm.XMM_SUMOUT[0] += main_thread_asm_data->ZPAD0_6[i] * asm_data->u.xmm.XMM_NORM012_FF[0];
 			}
 			fft_data += 8;		// Next cache line
 		}
