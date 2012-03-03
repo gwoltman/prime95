@@ -1,4 +1,4 @@
-; Copyright 2011 Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2012 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -1694,6 +1694,7 @@ ttp	mov	rdi, saved_reg2		;; Restore big/lit pointer
 ttp	mov	rbp, saved_reg3		;; Restore ttp pointer
 	sub	loopcount1, 1		;; Test section counter
 	jnz	ilp0
+echk	vmovapd	YMM_MAXERR, ymm6	;; Save maximum error
 zero ttp		jmp	zdn	;; Go to zero upper half irrational end code
 zero no ttp		jmp	zrdn	;; Go to zero upper half rational end code
 no base2 ttp		jmp	nb2dn	;; Go to non-base2 irrational end code
@@ -1743,6 +1744,7 @@ ttp	mov	rdi, saved_reg2		;; Restore big/lit pointer
 ttp	mov	rbp, saved_reg3		;; Restore ttp pointer
 	sub	loopcount1, 1		;; Test section counter
 	jnz	ilp0
+echk	vmovapd	YMM_MAXERR, ymm6	;; Save maximum error
 no base2 const jmp nb2zpcdn		;; Go to zero padded FFT end code
 no base2 no const jmp nb2zpdn		;; Go to non-base2 end code
 base2 const jmp	zpcdn			;; Go to zero padded FFT end code
@@ -1900,11 +1902,11 @@ cmnend:	mov	rsi, DESTARG		; Address of squared number
 	vaddsd	xmm7, xmm7, YMM_TMP1+24
 	vmulsd	xmm7, xmm7, ttmp_ff_inv
 	vmovsd	Q [rsi-24], xmm7	; Save sum of FFT outputs
-	vmovapd	YMM_TMP1, ymm6		; Compute new maximum error
-	vmaxsd	xmm6, xmm6, YMM_TMP1+8
-	vmaxsd	xmm6, xmm6, YMM_TMP1+16
-	vmaxsd	xmm6, xmm6, YMM_TMP1+24
-	vmaxsd	xmm6, xmm6, MAXERR
+	vmovsd	xmm6, MAXERR		; Compute new maximum error
+	vmaxsd	xmm6, xmm6, YMM_MAXERR
+	vmaxsd	xmm6, xmm6, YMM_MAXERR+8
+	vmaxsd	xmm6, xmm6, YMM_MAXERR+16
+	vmaxsd	xmm6, xmm6, YMM_MAXERR+24
 	vmovsd	MAXERR, xmm6
 
 ; Return
