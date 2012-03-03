@@ -1072,9 +1072,9 @@ void gwsincos15by_weighted (
 			results[i] = sine * weight;
 			results[incr+i] = cosine / sine;
 			results[2*incr+i] = sine * inv_weight;
-			results[3*incr+i] = sine2 * weight;
-			results[4*incr+i] = cosine2 / sine2;
-			results[5*incr+i] = sine2 * inv_weight;
+			results[3*incr+i] = sine5 * weight;
+			results[4*incr+i] = cosine5 / sine5;
+			results[5*incr+i] = sine5 * inv_weight;
 		} else {
 			results[i] = cosine / sine;
 			results[incr+i] = cosine5 / sine5;
