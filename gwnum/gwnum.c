@@ -4331,7 +4331,8 @@ void pass1_wait_for_carries (
 		unsigned int i;
 		double	*fft_data;
 
-		fft_data = (double *) asm_data->scratch_area;
+		if (gwdata->SCRATCH_SIZE) fft_data = (double *) asm_data->scratch_area;
+		else fft_data = (double *) asm_data->DESTARG;
 		for (i = asm_data->this_block; i <= 6 && i <= asm_data->this_block + asm_data->cache_line_multiplier; i++) {
 			if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
 				asm_data->ZPAD0_6[i] *= gwdata->ZPAD_0_6_ADJUST[i];
@@ -4364,7 +4365,8 @@ void pass1_wait_for_carries_mt (
 		unsigned int i;
 		double	*fft_data;
 
-		fft_data = (double *) asm_data->scratch_area;
+		if (gwdata->SCRATCH_SIZE) fft_data = (double *) asm_data->scratch_area;
+		else fft_data = (double *) asm_data->DESTARG;
 		for (i = asm_data->this_block; i <= 6 && i <= asm_data->this_block + asm_data->cache_line_multiplier; i++) {
 			if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
 				main_thread_asm_data->ZPAD0_6[i] *= gwdata->ZPAD_0_6_ADJUST[i];
