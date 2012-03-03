@@ -589,9 +589,14 @@ int is_fft_implemented (
 	int	desired_bif;		/* The "best implementation for" value we will look for. */
 					/* See mult.asm for defined BIF_ values. */
 
-/* For x87 FFTs, there is only one implementation and it is always available */
+/* For small AVX and SSE2 FFTs as well as all x87 FFTs, there is only one implementation and it is always available */
 
-	if (! (gwdata->cpu_flags & (CPU_AVX | CPU_SSE2))) return (TRUE);
+	if (gwdata->cpu_flags & CPU_AVX) {
+		if (jmptab->fftlen < 6144) return (TRUE);
+	} else if (gwdata->cpu_flags & CPU_SSE2) {
+		if (jmptab->fftlen < 7168) return (TRUE);
+	} else
+		return (TRUE);
 
 /* If we are benchmarking all FFT implementations or we are doing QA, then we want to test */
 /* this FFT length even if it isn't optimal */
@@ -605,11 +610,9 @@ int is_fft_implemented (
 	desired_bif = calculate_bif (gwdata, jmptab->fftlen);
 
 /* Loop through the FFT implementations to see if we find an implementation */
-/* that is one-pass (one-pass FFTs are designed to run on any architecture) */
-/* or matches our desired "bif" value. */
+/* that matches our desired "bif" value. */
 
 	while (jmptab->flags & 0x80000000) {
-		if ((jmptab->flags & 0x1FF) == 0) return (TRUE);
 		if (((jmptab->flags >> 13) & 0xF) == desired_bif) return (TRUE);
 		INC_JMPTAB_1 (jmptab);
 	}
@@ -1176,9 +1179,12 @@ next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
 
 /* If this is a small FFT or an x87 FFT, then there is only one implementation */
 
-		if (gwdata->FFTLEN < 7168) break;
-		if (gwdata->cpu_flags & CPU_AVX && gwdata->FFTLEN <= 32768) break;
-		if (! (gwdata->cpu_flags & (CPU_AVX | CPU_SSE2))) break;
+		if (gwdata->cpu_flags & CPU_AVX) {
+			if (gwdata->FFTLEN < 6144) break;
+		} else if (gwdata->cpu_flags & CPU_SSE2) {
+			if (gwdata->FFTLEN < 7168) break;
+		} else
+			break;
 
 /* The Radix-4/8 DJB FFT with partial normalization saves a few multiplies by doing part */
 /* of the normalization during the forward and inverse FFT.  Unfortunately, this optimization */
