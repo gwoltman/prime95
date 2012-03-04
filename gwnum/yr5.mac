@@ -1411,7 +1411,7 @@ yr5_10r_unfft_cmn MACRO srcreg,srcinc,d1,screg1,screg2,screg3,screg4,scregA,scin
 yr5_5cl_ten_reals_five_complex_djbfft_preload MACRO
 	yr5_o10r_t5c_djbfft_mem_preload
 	ENDM
-yr5_5cl_ten_reals_five_complex_djbfft MACRO srcreg,srcinc,d1,screg
+yr5_5cl_ten_reals_five_complex_djbfft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt
 	d2=2*d1
 	d3=3*d1
 	d4=4*d1
@@ -1425,6 +1425,7 @@ yr5_5cl_ten_reals_five_complex_djbfft MACRO srcreg,srcinc,d1,screg
 	vmovapd	[srcreg+d4], ymm6		;; Save R5
 	vmovapd	[srcreg+d4+32], ymm3		;; Save I5
 	bump	srcreg, srcinc
+	bump	screg, scinc
 	ENDM
 
 ;; To calculate a 10-reals FFT (in a shorthand notation):
@@ -1638,7 +1639,7 @@ yr5_o10r_t5c_djbfft_mem MACRO memr1,memr2,memr3,memr4,memr5,screg,dst1,dst2,dst3
 yr5_5cl_ten_reals_five_complex_djbunfft_preload MACRO
 	yr5_o10r_t5c_djbunfft_mem_preload
 	ENDM
-yr5_5cl_ten_reals_five_complex_djbunfft MACRO srcreg,srcinc,d1,screg
+yr5_5cl_ten_reals_five_complex_djbunfft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt
 	d2 = 2*d1
 	d3 = 3*d1
 	d4 = 4*d1
@@ -1654,6 +1655,7 @@ yr5_5cl_ten_reals_five_complex_djbunfft MACRO srcreg,srcinc,d1,screg
 	vmovapd	[srcreg+d3+32], ymm3	;; Save I4
 	vmovapd	[srcreg+d4+32], ymm6	;; Save I5
 	bump	srcreg, srcinc
+	bump	screg, scinc
 	ENDM
 
 ;; To calculate a 10-reals unFFT (in a shorthand notation):
