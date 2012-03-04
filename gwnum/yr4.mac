@@ -6197,7 +6197,7 @@ yr4_sg4cl_2sc_eight_reals_unfft4 MACRO srcreg,srcinc,d1,d2,dstreg,dstinc,e1,e2,s
 yr4_4cl_eight_reals_four_complex_djbfft_preload MACRO
 	yr4_o8r_t4c_djbfft_mem_preload
 	ENDM
-yr4_4cl_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
+yr4_4cl_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt
 	yr4_o8r_t4c_djbfft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d2+d1+32],screg,[srcreg]
 ;;	vmovapd	[srcreg], ymm7		;; Save R1
 	vmovapd	[srcreg+32], ymm0	;; Save I1
@@ -6208,6 +6208,7 @@ yr4_4cl_eight_reals_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg
 	vmovapd	[srcreg+d2+d1], ymm5	;; Save R4
 	vmovapd	[srcreg+d2+d1+32], ymm4	;; Save I4
 	bump	srcreg, srcinc
+	bump	screg, scinc
 	ENDM
 
 ;; Does a yr4_x8r_fft_mem on the low word of the ymm register
@@ -6314,7 +6315,7 @@ yr4_o8r_t4c_djbfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,screg,dst
 yr4_4cl_eight_reals_four_complex_djbunfft_preload MACRO
 	yr4_o8r_t4c_djbunfft_mem_preload
 	ENDM
-yr4_4cl_eight_reals_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg
+yr4_4cl_eight_reals_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg,scinc,maxrpt
 	yr4_o8r_t4c_djbunfft_mem [srcreg],[srcreg+32],[srcreg+d1],[srcreg+d1+32],[srcreg+d2],[srcreg+d2+32],[srcreg+d2+d1],[srcreg+d2+d1+32],screg,[srcreg]
 ;;	vmovapd	[srcreg], ymm1		;; Save R1
 	vmovapd	[srcreg+32], ymm6	;; Save R5/I1
@@ -6325,6 +6326,7 @@ yr4_4cl_eight_reals_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg
 	vmovapd	[srcreg+d2+d1], ymm7	;; Save R4
 	vmovapd	[srcreg+d2+d1+32], ymm3	;; Save R8/I4
 	bump	srcreg, srcinc
+	bump	screg, scinc
 	ENDM
 
 yr4_o8r_t4c_djbunfft_mem_preload MACRO
