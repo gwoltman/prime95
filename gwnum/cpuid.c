@@ -1213,7 +1213,7 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			if (CPU_L2_CACHE_SIZE == 1) /* Workaround Duron bug */
 				CPU_L2_CACHE_SIZE = 64;
 			CPU_L2_CACHE_LINE_SIZE = reg.ECX & 0xFF;
-			CPU_L2_SET_ASSOCIATIVE = (reg.ECX & 0xF);
+			CPU_L2_SET_ASSOCIATIVE = (reg.ECX >> 8) & 0xF;
 			if (CPU_L2_SET_ASSOCIATIVE == 0x2)
 				CPU_L2_SET_ASSOCIATIVE = 2;
 			else if (CPU_L2_SET_ASSOCIATIVE == 0x4)
@@ -1236,7 +1236,7 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			CPU_L3_DATA_TLBS = -1;
 			CPU_L3_CACHE_SIZE = (reg.EDX >> 18) * 512;
 			CPU_L3_CACHE_LINE_SIZE = reg.EDX & 0xFF;
-			CPU_L3_SET_ASSOCIATIVE = (reg.EDX & 0xF);
+			CPU_L3_SET_ASSOCIATIVE = (reg.EDX >> 8) & 0xF;
 			if (CPU_L3_SET_ASSOCIATIVE == 0x2)
 				CPU_L3_SET_ASSOCIATIVE = 2;
 			else if (CPU_L3_SET_ASSOCIATIVE == 0x4)
