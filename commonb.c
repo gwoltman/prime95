@@ -6870,8 +6870,6 @@ nextp:		stop_reason = stopCheck (thread_num);
 	return (0);
 }
 
-
-
 /******************/
 /* Debugging code */
 /******************/
@@ -6882,7 +6880,7 @@ int cpuid_dump (
 	struct cpuid_data reg;
 	unsigned int i, j, max_cpuid_value, max_extended_cpuid_value;
 	char	buf[200];
-#define dumpreg() {sprintf(buf,"i: %08lX, EAX; %08lX, EBX; %08lX, ECX; %08lX, EDX; %08lX\n", i, reg.EAX, reg.EBX, reg.ECX, reg.EDX); OutputBoth (thread_num, buf);}
+#define dumpreg() {sprintf(buf,"i: %08lX, EAX: %08lX, EBX: %08lX, ECX: %08lX, EDX: %08lX\n", i, reg.EAX, reg.EBX, reg.ECX, reg.EDX); OutputBoth (thread_num, buf);}
 
 /* Call CPUID with 0 and 0x80000000 arguments to get how many functions are supported. */
 
@@ -6906,9 +6904,13 @@ int cpuid_dump (
 /* Dump the extended CPUID data */
 
 	for (i = 0x80000000; i <= max_extended_cpuid_value; i++) {
-		memset (&reg, 0, sizeof (reg));
-		Cpuid (i, &reg);
-		dumpreg ();
+		for (j = 0; j < 5; j++) {
+			memset (&reg, 0, sizeof (reg));
+			reg.ECX = j;
+			Cpuid (i, &reg);
+			dumpreg ();
+			if (i != 0x8000001D) break;
+		}
 	}
 
 	return (0);
