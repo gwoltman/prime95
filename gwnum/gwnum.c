@@ -2760,6 +2760,10 @@ int internal_gwsetup (
 
 #endif
 
+/* Return "impossible" internal errors from building tables */
+
+	if (gwdata->GWERROR) return (gwdata->GWERROR);
+
 /* Finish verifying table size */
 
 #ifdef GDEBUG
@@ -3476,6 +3480,10 @@ int internal_gwsetup (
 			  num_b_in_k <= num_b_in_top_word + num_b_in_second_top_word) ||
 			 (!gwdata->PASS2_SIZE &&
 			  num_b_in_k <= num_b_in_top_word + num_b_in_second_top_word + num_b_in_third_top_word));
+		if (!	((gwdata->PASS2_SIZE &&
+			  num_b_in_k <= num_b_in_top_word + num_b_in_second_top_word) ||
+			 (!gwdata->PASS2_SIZE &&
+			  num_b_in_k <= num_b_in_top_word + num_b_in_second_top_word + num_b_in_third_top_word))) return (GWERROR_INTERNAL + 8);
 
 /* Get the addr of the top three words.  This is funky because in two-pass */
 /* FFTs we want the scratch area offset when normalizing after a multiply, */
@@ -5711,7 +5719,10 @@ void gwerror_text (
 		strcpy (localbuf, "Gwhandle structure size from gwinit call doesn't match size when gwnum.c was compiled.  Check compiler alignment switches, recompile and relink.");
 		break;
 	default:
-		sprintf (localbuf, "Unknown gwnum error code: %d", error_code);
+		if (error_code >= GWERROR_INTERNAL && error_code <= GWERROR_INTERNAL+100)
+			sprintf (localbuf, "Internal error #%d.  Please contact the program's author.", error_code - GWERROR_INTERNAL);
+		else
+			sprintf (localbuf, "Unknown gwnum error code: %d", error_code);
 		break;
 	}
 
@@ -6956,6 +6967,7 @@ int gwtogiant (
 			if (val == -1 || val == 0) break;
 			limit++;
 			ASSERTG (limit <= gwdata->FFTLEN / 2 + 2);
+			if (limit > gwdata->FFTLEN / 2 + 2) return (GWERROR_INTERNAL + 9);
 		}
 		while (limit > 1) {		/* Find top word */
 			err_code = get_fft_value (gwdata, gg, limit-1, &prev_val);
@@ -7396,6 +7408,8 @@ void emulate_mod (
 	double	saved_addin_value;
 
 	ASSERTG (* addr (gwdata, s, gwdata->FFTLEN-1) > -2.0 && * addr (gwdata, s, gwdata->FFTLEN-1) <= 0.0);
+	if (* addr (gwdata, s, gwdata->FFTLEN-1) <= -2.0 || * addr (gwdata, s, gwdata->FFTLEN-1) > 0.0)
+		gwdata->GWERROR = GWERROR_INTERNAL + 10;
 
 /* Save and clear the addin value */
 
@@ -7416,6 +7430,8 @@ void emulate_mod (
 	asm_data->NORMRTN = gwdata->GWPROCPTRS[zerohigh_routines + (gwdata->NORMNUM & 1)];
 	raw_gwfftmul (gwdata, gwdata->GW_RECIP_FFT, tmp);
 	ASSERTG (* addr (gwdata, tmp, gwdata->FFTLEN/2-1) > -2.0 && * addr (gwdata, tmp, gwdata->FFTLEN/2-1) <= 0.0);
+	if (* addr (gwdata, tmp, gwdata->FFTLEN/2-1) <= -2.0 || * addr (gwdata, tmp, gwdata->FFTLEN/2-1) > 0.0)
+		gwdata->GWERROR = GWERROR_INTERNAL + 11;
 
 /* Muliply quotient and modulus.  Select normalization routine that does */
 /* not zero the high FFT words. */
@@ -7427,6 +7443,7 @@ void emulate_mod (
 
 	gwsub (gwdata, tmp, s);
 	ASSERTG (* addr (gwdata, s, gwdata->FFTLEN-1) == 0.0);
+	if (* addr (gwdata, s, gwdata->FFTLEN-1) != 0.0) gwdata->GWERROR = GWERROR_INTERNAL + 12;
 	gwfree (gwdata, tmp);
 
 /* Restore the addin value */

@@ -178,6 +178,7 @@ double *yr4_build_onepass_sincos_table (
 		}
 	}
 	ASSERTG (size == 1);
+	if (size != 1) gwdata->GWERROR = GWERROR_INTERNAL + 1;
 
 /* Real FFTs output one last set of sin/cos values for the first 8-reals FFT. */
 
@@ -1298,7 +1299,8 @@ const	int	END_OF_CHAIN = 0x4000;
 		}
 	}
 GWASSERT (n <= 24);	// Lets see what the AVX limits really are!!!
-	GWASSERT (n <= 48);		// I've seen n get as high as 35
+	GWASSERT (n <= 48);
+	if (n > 48) gwdata->GWERROR = GWERROR_INTERNAL + 2;
 
 /* Determine the number of column two-to-phi multipliers */
 
@@ -1364,6 +1366,7 @@ GWASSERT (n <= 24);	// Lets see what the AVX limits really are!!!
 					break;
 			}
 			ASSERTG (m != 47);
+			if (m == 47) gwdata->GWERROR = GWERROR_INTERNAL + 3;
 
 /* Combine 1st and 2nd fudge factor flags into one byte. */
 
@@ -1570,6 +1573,7 @@ double *r4_build_pass1_table (
 			pass1_size /= 3;
 		}
 		ASSERTG (pass1_size == 1);
+		if (pass1_size != 1) gwdata->GWERROR = GWERROR_INTERNAL + 4;
 
 /* Real FFTs output one last set of sin/cos values for the first 20-reals, 28-reals, or 8-reals FFT. */
 
@@ -2175,6 +2179,7 @@ double *r4delay_build_pass1_table (
 			pass1_size /= 3;
 		}
 		ASSERTG (pass1_size == 1);
+		if (pass1_size != 1) gwdata->GWERROR = GWERROR_INTERNAL + 5;
 
 /* Calculate the size of each group's sin/cos/premult data for pass1_get_next_block */
 
@@ -3132,6 +3137,7 @@ const	int	CHAIN_1_COMMON = 0x0800;
 		}
 	}
 	GWASSERT (n <= 48);		// I've seen n get as high as 35
+	if (n > 48) gwdata->GWERROR = GWERROR_INTERNAL + 6;
 
 /* Determine the number of column two-to-phi multipliers */
 
@@ -3203,6 +3209,7 @@ const	int	CHAIN_1_COMMON = 0x0800;
 					break;
 			}
 			ASSERTG (m != 45);
+			if (m == 45) gwdata->GWERROR = GWERROR_INTERNAL + 7;
 
 /* Combine 1st and 2nd fudge factor flags.  Combine 3rd and 4th fudge factor flags. */
 /* Output the 2 combined fudge factors and the 6-bit big/lit flags value using just 2 bytes. */
