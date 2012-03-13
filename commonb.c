@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2011 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2012 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
@@ -6870,6 +6870,50 @@ nextp:		stop_reason = stopCheck (thread_num);
 	return (0);
 }
 
+
+
+/******************/
+/* Debugging code */
+/******************/
+
+int cpuid_dump (
+	int	thread_num)
+{
+	struct cpuid_data reg;
+	unsigned int i, j, max_cpuid_value, max_extended_cpuid_value;
+	char	buf[200];
+#define dumpreg() {sprintf(buf,"i: %08lX, EAX; %08lX, EBX; %08lX, ECX; %08lX, EDX; %08lX\n", i, reg.EAX, reg.EBX, reg.ECX, reg.EDX); OutputBoth (thread_num, buf);}
+
+/* Call CPUID with 0 and 0x80000000 arguments to get how many functions are supported. */
+
+	Cpuid (0, &reg);
+	max_cpuid_value = reg.EAX;
+	Cpuid (0x80000000, &reg);
+	max_extended_cpuid_value = reg.EAX;
+
+/* Dump the regular CPUID data */
+
+	for (i = 0; i <= max_cpuid_value; i++) {
+		for (j = 0; j < 5; j++) {
+			memset (&reg, 0, sizeof (reg));
+			reg.ECX = j;
+			Cpuid (i, &reg);
+			dumpreg ();
+			if (i != 4 && i != 11) break;
+		}
+	}
+
+/* Dump the extended CPUID data */
+
+	for (i = 0x80000000; i <= max_extended_cpuid_value; i++) {
+		memset (&reg, 0, sizeof (reg));
+		Cpuid (i, &reg);
+		dumpreg ();
+	}
+
+	return (0);
+}
+
 /*********************/
 /* Benchmarking code */
 /*********************/
@@ -6908,6 +6952,8 @@ int primeTime (
 			return (ecm_QA (thread_num, &sp_info));
 		if (p == 9990)
 			return (primeSieveTest (thread_num));
+		if (p == 9950)
+			return (cpuid_dump (thread_num));
 		if (p >= 9900 && p <= 9919)
 			return (test_randomly (thread_num, &sp_info));
 		return (test_all_impl (thread_num, &sp_info));
