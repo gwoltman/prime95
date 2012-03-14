@@ -189,7 +189,7 @@ int avx_prctab_index (gwhandle *gwdata, int z, int e, int c)
 	if (! gwdata->RATIONAL_FFT) index += 126;
 	if (gwdata->PASS2_SIZE) {
 		index += 42;
-		if (gwdata->cpu_flags & CPU_3DNOW) index += 42;
+		if (gwdata->cpu_flags & CPU_3DNOW_PREFETCH) index += 42;
 	}
 	if (z) {
 		if (e) index += 1;
@@ -248,7 +248,7 @@ int sse2_prctab_index (gwhandle *gwdata, int z, int e, int c)
 	if (gwdata->PASS2_SIZE) {
 		index += 82;
 		if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) index += 164;
-		if (gwdata->cpu_flags & CPU_3DNOW) index += 82;
+		if (gwdata->cpu_flags & CPU_3DNOW_PREFETCH) index += 82;
 	}
 	if (z) {
 		if (e) index += 1;
@@ -493,11 +493,11 @@ int calculate_bif (
 /* ever happen unless the results from CPUID are overridden. */
 
 	cpu_arch = CPU_ARCHITECTURE;
-	if (cpu_arch == CPU_ARCHITECTURE_AMD_K8 && ! (gwdata->cpu_flags & CPU_3DNOW))
+	if (cpu_arch == CPU_ARCHITECTURE_AMD_K8 && ! (gwdata->cpu_flags & CPU_3DNOW_PREFETCH))
 		cpu_arch = CPU_ARCHITECTURE_CORE_2;
-	if (cpu_arch == CPU_ARCHITECTURE_AMD_K10 && ! (gwdata->cpu_flags & CPU_3DNOW))
+	if (cpu_arch == CPU_ARCHITECTURE_AMD_K10 && ! (gwdata->cpu_flags & CPU_3DNOW_PREFETCH))
 		cpu_arch = CPU_ARCHITECTURE_CORE_2;
-	if (cpu_arch == CPU_ARCHITECTURE_AMD_BULLDOZER && ! (gwdata->cpu_flags & CPU_3DNOW))
+	if (cpu_arch == CPU_ARCHITECTURE_AMD_BULLDOZER && ! (gwdata->cpu_flags & CPU_3DNOW_PREFETCH))
 		cpu_arch = CPU_ARCHITECTURE_CORE_2;
 
 /* Map the CPU architecture as determined by CPUID to one of the CPU architectures */
@@ -1135,7 +1135,7 @@ next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
 /* If this is an Intel CPU, skip over these implementations. */
 
 		arch = (jmptab->flags >> 17) & 0xF;
-		if ((arch == 4 || arch == 5) && ! (gwdata->cpu_flags & CPU_3DNOW))
+		if ((arch == 4 || arch == 5) && ! (gwdata->cpu_flags & CPU_3DNOW_PREFETCH))
 			goto next3;
 
 /* Handle benchmarking case that selects the nth FFT implementation */
@@ -1490,7 +1490,7 @@ void gwinit2 (
 
 /* AMD Bulldozer is faster using SSE2 rather than AVX. */
 
-	if (gwdata->cpu_flags & CPU_AVX && gwdata->cpu_flags & CPU_3DNOW)
+	if (gwdata->cpu_flags & CPU_AVX && gwdata->cpu_flags & CPU_3DNOW_PREFETCH)
 		gwdata->cpu_flags &= ~CPU_AVX;
 }
 

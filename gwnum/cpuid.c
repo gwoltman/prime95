@@ -1176,23 +1176,23 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 /* they do not support the full SSE instruction set.  I think testing for */
 /* the AMD MMX extensions capability will detect this case. */
 
-		if (max_extended_cpuid_value >= 0x80000001 &&
-		    ! (CPU_FLAGS & CPU_PREFETCH)) {
+		if (max_extended_cpuid_value >= 0x80000001 && ! (CPU_FLAGS & CPU_PREFETCH)) {
 			Cpuid (0x80000001, &reg);
-			if ((reg.EDX >> 22) & 0x1 &&
-			    canExecInstruction (CPU_PREFETCH))
+			if ((reg.EDX >> 22) & 0x1 && canExecInstruction (CPU_PREFETCH))
 				CPU_FLAGS |= CPU_PREFETCH;
 		}
 
 /* Check for support of 3DNow! instructions.  The prefetchw instruction */
 /* from the 3DNow! instruction set is used by the assembly code. */
+/* Starting with Bulldozer, AMD stopped supporting 3DNow! but kept */
+/* support for the 3DNow! prefetch instructions.  */
 
-		if (max_extended_cpuid_value >= 0x80000001 &&
-		    ! (CPU_FLAGS & CPU_3DNOW)) {
+		if (max_extended_cpuid_value >= 0x80000001) {
 			Cpuid (0x80000001, &reg);
-			if ((reg.EDX >> 31) & 0x1 &&
-			    canExecInstruction (CPU_3DNOW))
-				CPU_FLAGS |= CPU_3DNOW;
+			if ((reg.EDX >> 31) & 0x1 && canExecInstruction (CPU_3DNOW))
+				CPU_FLAGS |= CPU_3DNOW + CPU_3DNOW_PREFETCH;
+			else if ((reg.ECX >> 8) & 0x1 && canExecInstruction (CPU_3DNOW))
+				CPU_FLAGS |= CPU_3DNOW_PREFETCH;
 		}
 
 /* Get the L1 cache size and number of data TLBs */

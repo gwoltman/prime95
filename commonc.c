@@ -387,8 +387,8 @@ void getCpuInfo (void)
 	if (temp == 0) CPU_FLAGS &= ~CPU_SSE41;
 	if (temp == 1) CPU_FLAGS |= CPU_SSE41;
 	temp = IniGetInt (LOCALINI_FILE, "CpuSupports3DNow", 99);
-	if (temp == 0) CPU_FLAGS &= ~CPU_3DNOW;
-	if (temp == 1) CPU_FLAGS |= CPU_3DNOW;
+	if (temp == 0) CPU_FLAGS &= ~(CPU_3DNOW + CPU_3DNOW_PREFETCH);
+	if (temp == 1) CPU_FLAGS |= (CPU_3DNOW + CPU_3DNOW_PREFETCH);
 	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsAVX", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_AVX;
 	if (temp == 1) CPU_FLAGS |= CPU_AVX;
@@ -461,9 +461,10 @@ void getCpuDescription (
 		strcat (buf, "CPU features: ");
 //		if (CPU_FLAGS & CPU_RDTSC) strcat (buf, "RDTSC, ");
 //		if (CPU_FLAGS & CPU_CMOV) strcat (buf, "CMOV, ");
-		if (CPU_FLAGS & CPU_PREFETCH) strcat (buf, "Prefetch, ");
+//		if (CPU_FLAGS & CPU_MMX) strcat (buf, "MMX, ");
 		if (CPU_FLAGS & CPU_3DNOW) strcat (buf, "3DNow!, ");
-		if (CPU_FLAGS & CPU_MMX) strcat (buf, "MMX, ");
+		else if (CPU_FLAGS & CPU_3DNOW_PREFETCH) strcat (buf, "3DNow! Prefetch, ");
+		else if (CPU_FLAGS & CPU_PREFETCH) strcat (buf, "Prefetch, ");
 		if (CPU_FLAGS & CPU_SSE) strcat (buf, "SSE, ");
 		if (CPU_FLAGS & CPU_SSE2) strcat (buf, "SSE2, ");
 		if (CPU_FLAGS & CPU_SSE41) strcat (buf, "SSE4, ");
