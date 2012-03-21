@@ -5149,13 +5149,27 @@ gwnum gwalloc (
 		gwdata->large_pages_gwnum = NULL;
 		p += -GW_HEADER_SIZE & 127;
 		freeable = 0;
-	} else if (gwdata->GW_BIGBUF_SIZE >= size + aligned_size) {
+	}
+	else if (gwdata->GW_BIGBUF_SIZE >= size + aligned_size) {
 		p = gwdata->GW_BIGBUF;
 		gwdata->GW_BIGBUF += aligned_size;
 		gwdata->GW_BIGBUF_SIZE -= aligned_size;
 		p += -GW_HEADER_SIZE & 127;
 		freeable = 0;
-	} else {
+	}
+/* FreeBSD supports supports large pages (superpages) automatically.  Allocate the */
+/* first gwnum on a 4MB to minimize fragmentation across superpage boundaries.  The */
+/* theory is this will maximize the number of superpage promotions. */
+#ifdef __FreeBSD__
+	else if (size >= 0x400000 && gwdata->gwnum_alloc_count == 0) {
+		p = (char *) aligned_offset_malloc (
+				size + GW_HEADER_SIZE, 0x400000,
+				(GW_HEADER_SIZE - gwdata->GW_ALIGNMENT_MOD) & 0x3FFFFF);
+		if (p == NULL) return (NULL);
+		freeable = 1;
+	}
+#endif
+	else {
 		p = (char *) aligned_offset_malloc (
 				size + GW_HEADER_SIZE, gwdata->GW_ALIGNMENT,
 				(GW_HEADER_SIZE - gwdata->GW_ALIGNMENT_MOD) &
