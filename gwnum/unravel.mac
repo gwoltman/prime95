@@ -1661,6 +1661,7 @@ loops_init_common MACRO count, first_completed, first_iters
 	loops_np2_initial_value_adjust = 0
 	loops_np2_first_initial_value_adjust = 0
 	loops_np2_loops_completed = 0
+	loops_double_prefetching = 0
 
 	;; Compute the initial value
 
