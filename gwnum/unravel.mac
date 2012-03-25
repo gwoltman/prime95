@@ -1703,6 +1703,9 @@ loops_set_prefetch MACRO pfamt, pffreq, pfreg
 	  IF loops_double_prefetching EQ 1
 	    cant_set_prefetch_with_delayed_double_prefetch_pending
 	  ENDIF
+	  IF loops_double_prefetching EQ 2
+	    loops_double_prefetching = 0
+	  ENDIF
 	  IF pfamt NE 64 AND pfamt NE 128
 	    bad_pfamt_in_loops_init_prefetch
           ELSEIF PREFETCHING EQ 128
@@ -1957,6 +1960,10 @@ loops_undo MACRO iters
 	  loops_double_prefetching = 1
 	  loops_pffreq = loops_pffreq / 2
 	ENDIF
+	IF loops_double_prefetching EQ 2
+	    loops_double_prefetching = 0
+	    loops_pffreq = loops_pffreq * 2
+	ENDIF
 
 	;; Change the loop counter
 	IF (iters AND (iters-1)) EQ 0
@@ -2033,8 +2040,7 @@ output_prefetch_instructions MACRO
 	    bump loops_pfreg, 2*loops_pfincr
 	ENDIF
 	IF loops_double_prefetching EQ 1
-	    loops_double_prefetching = 0
-	    loops_pffreq = loops_pffreq * 2
+	    loops_double_prefetching = 2
 	ENDIF
 	ENDM
 
