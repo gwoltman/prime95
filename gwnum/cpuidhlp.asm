@@ -175,16 +175,19 @@ exgetbv	ENDP
 
 ;
 ; Utility routines that hopefully take (roughly) 100,000 and 1,000,000 clock cycles
-; This implementation is based on the ADD op-code should has latency of 1 or less
+; This implementation is based on the ROR op-code which has latency of 1 or less
 ; on Intel and AMD architectures according to Agner Fog's documents.  The actual
-; latency should be one because each ADD instruction is dependent on the previous one.
+; latency should be one because each ROR instruction is dependent on the previous one.
+;
+; The opcode chosen has a reciprocal throughput of exactly one on Intel so that when two
+; hyperthreads are running on one physical core each thread will take twice as long to execute.
 ;
 
 PROCFL	one_hundred_thousand_clocks_help
 	ah_prolog 0,0,0,rdi,rsi
 	mov	rax, 100000 / 100
 biglp:	REPEAT 100
-	add	rcx, rcx
+	ror	rcx, 1
 	ENDM
 	sub	rax, 1
 	jnz	biglp
@@ -195,7 +198,7 @@ PROCFL	one_million_clocks_help
 	ah_prolog 0,0,0,rdi,rsi
 	mov	rax, 1000000 / 100
 biglp2:	REPEAT 100
-	add	rcx, rcx
+	ror	rcx, 1
 	ENDM
 	sub	rax, 1
 	jnz	biglp2
