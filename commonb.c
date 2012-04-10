@@ -6517,14 +6517,14 @@ int lucas_QA (
 /* Loop until the entire file is processed */
 
 	for ( ; ; ) {
-		unsigned long p, fftlen, iters;
+		unsigned long p, p_limit, fftlen, iters;
 		char	buf[500], res[80];
 		unsigned long reshi, reslo, units_bit;
-		unsigned long i, word, bit_in_word, maxerrcnt, loops;
+		unsigned long i, maxerrcnt;
 		double	maxsumdiff, maxerr, toterr, M, S;
 		unsigned long ge_300, ge_325, ge_350, ge_375, ge_400;
 		gwnum	t1, t2;
-		unsigned int iters_unchecked;
+		unsigned int iters_unchecked, M_count;
 
 /* Read a line from the file */
 
@@ -6532,24 +6532,23 @@ int lucas_QA (
 		(void) fscanf (fd, "%lu,%lu,%lu,%lu,%s\n", &p, &fftlen, &iters, &units_bit, res);
 		if (p == 0) break;
 
-/* In a type 4 run, we decrement through exponents to find any with */
-/* anamolously high average errors.  After selecting a tentative FFT */
-/* crossover, we do a type 4 run looking for a higher average error */
-/* below the crossover we selected. */
-
-		for (loops = (type != 4 ? 1 : units_bit % 100); loops--; p-=2){
-
-/* Now run Lucas setup */
-
-		gwinit (&lldata.gwdata);
-		gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
-		stop_reason = lucasSetup (thread_num, p, fftlen, &lldata);
-		lldata.units_bit = units_bit;
-		if (stop_reason) return (stop_reason);
 		maxsumdiff = 0.0;
 		ge_300 = ge_325 = ge_350 = ge_375 = ge_400 = 0;
 		maxerr = 0.0; maxerrcnt = 0; toterr = 0.0;
 		iters_unchecked = (type > 3) ? 2 : 40;
+		M = 0.0;  S = 0.0;  M_count = 0;
+
+/* Now run Lucas setup */
+
+		if (type == 4) iters /= 10, p_limit = p - 20;
+		else p_limit = p;
+		for ( ; p >= p_limit; p -= 2) {
+
+		gwinit (&lldata.gwdata);
+		gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
+		stop_reason = lucasSetup (thread_num, p, fftlen, &lldata);
+		if (stop_reason) { stop_reason = 0; goto not_impl; }
+		lldata.units_bit = units_bit;
 
 /* Check for a randomized units bit */
 
@@ -6561,18 +6560,17 @@ int lucas_QA (
 				lldata.units_bit += lo;
 			}
 			lldata.units_bit = lldata.units_bit % p;
-			sprintf (buf, "Units bit = %lu\n", lldata.units_bit);
-			OutputBoth (thread_num, buf);
 		}
 
 /* Init data area with a pre-determined value */
 
-		bitaddr (&lldata.gwdata, (lldata.units_bit + 2) % p, &word, &bit_in_word);
-		for (i = 0; i < gwfftlen (&lldata.gwdata); i++) {
-			set_fft_value (&lldata.gwdata, lldata.lldata, i,
-				       (type == 3 || type == 4) ?
-					 (rand () & 1) ? rand () : -rand () :
-				       (i == word) ? (1L << bit_in_word) : 0);
+		if (type == 3 || type == 4)
+			gw_random_number (&lldata.gwdata, lldata.lldata);
+		else {
+			unsigned long word, bit_in_word;
+			bitaddr (&lldata.gwdata, (lldata.units_bit + 2) % p, &word, &bit_in_word);
+			for (i = 0; i < gwfftlen (&lldata.gwdata); i++)
+				set_fft_value (&lldata.gwdata, lldata.lldata, i, (i == word) ? (1L << bit_in_word) : 0);
 		}
 
 /* The thorough, P-1, and ECM tests use more than one number */
@@ -6644,31 +6642,26 @@ int lucas_QA (
 /* Keep track of the standard deviation - see Knuth vol 2 */
 
 			if (i > iters_unchecked) {
+				double	newM;
 				toterr += gw_get_maxerr (&lldata.gwdata);
-				if (i == iters_unchecked + 1) {
-					M = gw_get_maxerr (&lldata.gwdata);
-					S = 0.0;
-				} else {
-					double	newM;
-					newM = M + (gw_get_maxerr (&lldata.gwdata) - M) /
-						   (i - iters_unchecked);
-					S = S + (gw_get_maxerr (&lldata.gwdata) - M) * (gw_get_maxerr (&lldata.gwdata) - newM);
-					M = newM;
-				}
-			}
+				M_count++;
+				newM = M + (gw_get_maxerr (&lldata.gwdata) - M) / M_count;
+				S = S + (gw_get_maxerr (&lldata.gwdata) - M) * (gw_get_maxerr (&lldata.gwdata) - newM);
+				M = newM;
 
 /* Maintain range info */
 
-			if (gw_get_maxerr (&lldata.gwdata) >= 0.300) ge_300++;
-			if (gw_get_maxerr (&lldata.gwdata) >= 0.325) ge_325++;
-			if (gw_get_maxerr (&lldata.gwdata) >= 0.350) ge_350++;
-			if (gw_get_maxerr (&lldata.gwdata) >= 0.375) ge_375++;
-			if (gw_get_maxerr (&lldata.gwdata) >= 0.400) ge_400++;
+				if (gw_get_maxerr (&lldata.gwdata) >= 0.300) ge_300++;
+				if (gw_get_maxerr (&lldata.gwdata) >= 0.325) ge_325++;
+				if (gw_get_maxerr (&lldata.gwdata) >= 0.350) ge_350++;
+				if (gw_get_maxerr (&lldata.gwdata) >= 0.375) ge_375++;
+				if (gw_get_maxerr (&lldata.gwdata) >= 0.400) ge_400++;
 
 /* Maintain maximum error info */
 
-			if (gw_get_maxerr (&lldata.gwdata) > maxerr) maxerr = gw_get_maxerr (&lldata.gwdata), maxerrcnt = 1;
-			else if (gw_get_maxerr (&lldata.gwdata) == maxerr) maxerrcnt++;
+				if (gw_get_maxerr (&lldata.gwdata) > maxerr) maxerr = gw_get_maxerr (&lldata.gwdata), maxerrcnt = 1;
+				else if (gw_get_maxerr (&lldata.gwdata) == maxerr) maxerrcnt++;
+			}
 			gw_clear_maxerr (&lldata.gwdata);
 
 /* Maintain maximum suminp/sumout difference */
@@ -6712,12 +6705,16 @@ int lucas_QA (
 
 		generateResidue64 (&lldata, &reshi, &reslo);
 		lucasDone (&lldata);
+		}
+
+		if (type == 4) iters *= 10, iters_unchecked *= 10, p = p_limit + 20;
+		else p = p_limit;
 
 /* Output array of distributions of MAXERR */
 
 		if (type == 1 || type == 3 || type == 4) {
-			S = sqrt (S / (iters - iters_unchecked - 1));
-			toterr /= iters - iters_unchecked;
+			S = sqrt (S / (M_count - 1));
+			toterr /= M_count;
 			sprintf (buf, "avg: %6.6f, stddev: %6.6f, #stdev to 0.5: %6.6f\n",
 				 toterr, S, (0.50 - toterr) / S);
 			OutputBoth (thread_num, buf);
@@ -6738,7 +6735,7 @@ int lucas_QA (
 			 ge_300, ge_325, ge_350, ge_375, ge_400,
 			 maxsumdiff, lldata.gwdata.MAXDIFF);
 		OutputBoth (thread_num, buf);
-		}
+not_impl:	;
 	}
 	fclose (fd);
 
