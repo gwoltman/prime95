@@ -117,15 +117,37 @@ unsigned int gen_n ()
 void compare (int thread_num, gwhandle *gwdata, gwnum x, giant g)
 {
 	giant	tmp;
+	int	i;
 
+	if (gwdata->POSTFFT) return;		// We cannot compare if we've started next forward FFT
 	tmp = popg (&gwdata->gdata, ((int) gwdata->bit_length >> 5) + 13);
 	gwtogiant (gwdata, x, tmp);
 	if (gcompg (g, tmp) != 0) {
-		gwnum	y;
-		y = gwalloc (gwdata);
+		gwnum	y = gwalloc (gwdata);
 		gianttogw (gwdata, g, y);
-		OutputBoth (thread_num, "Test failed.\n");
+		if (gw_get_maxerr (gwdata) >= 0.49)
+			OutputBoth (thread_num, "Test failed - probably due to roundoff error\n");
+		else
+			OutputBoth (thread_num, "Test failed.\n");
+		if(0) {			// Sometimes we must debug by finding which FFT words are different
+			for (i = 0; i < (int) gwdata->FFTLEN; i++) {
+				long val, val2;
+				get_fft_value (gwdata, x, i, &val);
+				get_fft_value (gwdata, y, i, &val2);
+				if (val != val2)
+					OutputBoth (thread_num, "mismatched words\n");
+			}
+		}
 		gwfree (gwdata, y);
+	}
+	if (0) {			// Test for doubles that aren't properly normalized
+		long val, bigval;
+		bigval = 1 << gwdata->NUM_B_PER_SMALL_WORD;
+		for (i = 0; i < (int) gwdata->FFTLEN; i++) {
+			get_fft_value (gwdata, x, i, &val);
+			if (val < -bigval || val > bigval)
+				OutputBoth (thread_num, "oflow.\n");
+		}
 	}
 	pushg (&gwdata->gdata, 1);
 }
@@ -154,7 +176,7 @@ void gen_data (gwhandle *gwdata, gwnum x, giant g)
 			  ((unsigned long) rand() << 10) +
 			  (unsigned long) rand();
 	}
-//	len = 1; g->n[i] = 30000;
+//	len = 1; g->n[0] = 30000;
 	g->sign = len;
 	specialmodg (gwdata, g);
 	gianttogw (gwdata, g, x);
@@ -451,7 +473,7 @@ void test_it (
 	for (i = 0; i < num_squarings; i++) {
 
 		/* Test POSTFFT sometimes */
-		gwstartnextfft (gwdata, !CHECK_OFTEN && (i & 3) == 2);
+		gwstartnextfft (gwdata, (i & 3) == 2);
 
 		/* Test gwsetaddin without and with POSTFFT set */
 		if ((i == 45 || i == 46) && abs (gwdata->c) == 1)
@@ -692,8 +714,8 @@ int test_randomly (
 
 	MAX_THREADS = IniSectionGetInt (INI_FILE, "QA", "MAX_THREADS", NUM_CPUS * CPU_HYPERTHREADS);
 	if (MAX_THREADS < 1) MAX_THREADS = 1;
-	if (MAX_THREADS > (int) (NUM_CPUS * CPU_HYPERTHREADS))
-		MAX_THREADS = NUM_CPUS * CPU_HYPERTHREADS;
+//	if (MAX_THREADS > (int) (NUM_CPUS * CPU_HYPERTHREADS))
+//		MAX_THREADS = NUM_CPUS * CPU_HYPERTHREADS;
 	MIN_K_BITS = IniSectionGetInt (INI_FILE, "QA", "MIN_K_BITS", 1);
 	MAX_K_BITS = IniSectionGetInt (INI_FILE, "QA", "MAX_K_BITS", 49);
 	MAX_C_BITS_FOR_SMALL_K = IniSectionGetInt (INI_FILE, "QA", "MAX_C_BITS_FOR_SMALL_K", 4);
