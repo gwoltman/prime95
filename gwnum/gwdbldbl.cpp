@@ -65,8 +65,9 @@ struct gwdbldbl_constants {
 	dd_real gw__over_fftlen;
 	double	gwdbl__b;
 	double	gwdbl__b_inverse;
-	double	gwdbl__num_b_per_word;
+	double	gwdbl__fractional_b_per_word;
 	double	gwdbl__logb_abs_c_div_fftlen;
+	unsigned long integral_b_per_word;
 	unsigned long last_inv_sloppy_j;
 	double	last_inv_sloppy_result;
 	double	fast_inv_sloppy_multiplier;
@@ -648,6 +649,11 @@ dd_real gwceil (dd_real val)
 	return (dd_real (ceil (double (val))));
 }
 
+dd_real gwfloor (dd_real val)
+{
+	return (dd_real (floor (double (val))));
+}
+
 extern "C"
 void *gwdbldbl_data_alloc (void)
 {
@@ -687,7 +693,8 @@ void gwfft_weight_setup (
 	}
 	dd_data->gwdbl__b = (double) b;
 	dd_data->gwdbl__b_inverse = 1.0 / (double) b;
-	dd_data->gwdbl__num_b_per_word = (double) dd_data->gw__num_b_per_word;
+	dd_data->integral_b_per_word = (unsigned long) double (gwfloor (dd_data->gw__num_b_per_word));
+	dd_data->gwdbl__fractional_b_per_word = (double) (dd_data->gw__num_b_per_word - gwfloor (dd_data->gw__num_b_per_word));
 	dd_data->gwdbl__logb_abs_c_div_fftlen = (double) dd_data->gw__logb_abs_c_div_fftlen;
 	dd_data->last_inv_sloppy_j = 0;
 	dd_data->last_inv_sloppy_result = 1.0;
@@ -715,6 +722,8 @@ double gwfft_weight (
 }
 
 // Like the above, but faster and does not guarantee quite as much accuracy.
+// We cannot be very sloppy as these weights are used to set FFT data values
+// when reading save files.  If we are too sloppy we get roundoff errors > 0.5.
 
 extern "C"
 double gwfft_weight_sloppy (
@@ -729,53 +738,6 @@ double gwfft_weight_sloppy (
 	if (! dd_data->gw__c_is_one) bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) j;
 	END_x86_FIX
 	return (pow (dd_data->gwdbl__b, double (bpower)));
-
-// We cannot be very sloppy as these weights are used to set FFT data values
-// when reading save files.  If we are too sloppy we get roundoff errors > 0.5.
-
-#ifdef VERY_SLOPPY
-	double	temp, bpower, result;
-
-// Our sequential sloppy optimizations won't work if abs(c) is not one.
-// This is because the result is not in the range 1.0 to 2.0.
-
-	if (! dd_data->gw__c_is_one) {
-		temp = (double) j * dd_data->gwdbl__num_b_per_word;
-		bpower = ceil (temp) - temp;
-		if (bpower < 0.001 || bpower > 0.999)
-			return (gwfft_weight (dd_data_arg, j));
-		bpower += dd_data->gwdbl__logb_abs_c_div_fftlen * (double) j;
-		return (pow (dd_data->gwdbl__b, bpower));
-	}
-
-// Compute weight from previous weight, but don't do too many of
-// these in a row as floating point roundoff errors will accumulate
-
-	if (j == dd_data->last_sloppy_j + 1 && (j & 0x7F)) {
-		result = dd_data->last_sloppy_result * dd_data->fast_sloppy_multiplier;
-		if (result >= dd_data->gwdbl__b) result = result * dd_data->gwdbl__b_inverse;
-	}
-
-// Use a slower sloppy technique
-
-	else {
-		temp = (double) j * dd_data->gwdbl__num_b_per_word;
-		bpower = ceil (temp) - temp;
-		result = pow (dd_data->gwdbl__b, double (bpower));
-	}
-
-// Just to be safe, if result is at all close to the boundaries return
-// the carefully computed weight.
-
-	if (result < 1.00001 || result > dd_data->gwdbl__b - 0.00001)
-		result = gwfft_weight (dd_data_arg, j);
-			 
-// Save the result for faster sequential sloppy calls
-
-	dd_data->last_sloppy_j  = j;
-	dd_data->last_sloppy_result = result;
-	return (result);
-#endif
 }
 
 // Compute the inverse of the fft weight
@@ -812,10 +774,9 @@ double gwfft_weight_inverse_sloppy (
 // This is because the result is not in the range 0.5 to 1.0.
 
 	if (! dd_data->gw__c_is_one) {
-		temp = (double) j * dd_data->gwdbl__num_b_per_word;
+		temp = (double) j * dd_data->gwdbl__fractional_b_per_word;
 		bpower = ceil (temp) - temp;
-		if (bpower < 0.001 || bpower > 0.999)
-			return (gwfft_weight_inverse (dd_data_arg, j));
+		if (bpower < 0.001 || bpower > 0.999) return (gwfft_weight_inverse (dd_data_arg, j));
 		bpower += dd_data->gwdbl__logb_abs_c_div_fftlen * (double) j;
 		return (pow (dd_data->gwdbl__b, - bpower));
 	}
@@ -826,21 +787,19 @@ double gwfft_weight_inverse_sloppy (
 	if (j == dd_data->last_inv_sloppy_j + 1 && (j & 0x7F)) {
 		result = dd_data->last_inv_sloppy_result * dd_data->fast_inv_sloppy_multiplier;
 		if (result <= dd_data->gwdbl__b_inverse) result = result * dd_data->gwdbl__b;
-	}
-
-// Use a slower sloppy technique
-
-	else {
-		temp = (double) j * dd_data->gwdbl__num_b_per_word;
-		bpower = ceil (temp) - temp;
-		result = pow (dd_data->gwdbl__b, - bpower);
-	}
 
 // Just to be safe, if result is at all close to the boundaries return
 // the carefully computed weight.
 
-	if (result < dd_data->gwdbl__b_inverse + 0.00001 || result > 0.99999)
+		if (result < dd_data->gwdbl__b_inverse + 0.001 || result > 0.999)
+			result = gwfft_weight_inverse (dd_data_arg, j);
+	}
+
+// Get an accurate value to start off a series of computing next weights
+
+	else {
 		result = gwfft_weight_inverse (dd_data_arg, j);
+	}
 
 // Save the result for faster sequential sloppy calls
 
@@ -911,11 +870,11 @@ double gwfft_weight_exponent (
 // For speed, try this with plain old doubles first
 
 	if (j == 0) return (0);
-	tempdbl = (double) j * dd_data->gwdbl__num_b_per_word;
+	tempdbl = (double) j * dd_data->gwdbl__fractional_b_per_word;
 	bpowerdbl = ceil (tempdbl) - tempdbl;
 	if (bpowerdbl > 0.001 && bpowerdbl < 0.999) return (bpowerdbl);
 
-// If at all uncertain of the result, use doubledoubles to do the calculation
+// We cannot be certain of the ceiling result, use doubledoubles to do the calculation
 
 	x86_FIX
 	temp = (double) j * dd_data->gw__num_b_per_word;
@@ -948,13 +907,13 @@ unsigned long gwfft_base (
 // For speed, try this with plain old doubles first
 
 	if (j == 0) return (0);
-	tempdbl = (double) j * dd_data->gwdbl__num_b_per_word;
+	tempdbl = (double) j * dd_data->gwdbl__fractional_b_per_word;
 	ceildbl = ceil (tempdbl);
 	diffdbl = ceildbl - tempdbl;
 	if (diffdbl > 0.001 && diffdbl < 0.999)
-		return ((unsigned long) ceildbl);
+		return ((unsigned long) ceildbl + j * dd_data->integral_b_per_word);
 
-// If at all uncertain of the result, use doubledoubles to do the calculation
+// We cannot be certain of the ceiling result, use doubledoubles to do the calculation
 
 	x86_FIX
 	temp = (double) j * dd_data->gw__num_b_per_word;
@@ -1207,7 +1166,7 @@ double gwfft_partial_weight_inverse_sloppy (
 {
 	double	temp, j_bpower, col_bpower, bpower, result;
 
-	temp = (double) j * dd_data->gwdbl__num_b_per_word;
+	temp = (double) j * dd_data->gwdbl__fractional_b_per_word;
 	j_bpower = ceil (temp) - temp;
 	if (j_bpower < 0.001 || j_bpower > 0.999) {
 		dd_real	dd_temp, dd_bpower;
@@ -1219,7 +1178,7 @@ double gwfft_partial_weight_inverse_sloppy (
 	}
 	if (! dd_data->gw__c_is_one) j_bpower += dd_data->gwdbl__logb_abs_c_div_fftlen * (double) j;
 
-	temp = (double) col * dd_data->gwdbl__num_b_per_word;
+	temp = (double) col * dd_data->gwdbl__fractional_b_per_word;
 	col_bpower = ceil (temp) - temp;
 	if (col_bpower < 0.001 || col_bpower > 0.999) {
 		dd_real	dd_temp, dd_col_bpower;
