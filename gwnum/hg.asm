@@ -1,4 +1,4 @@
-; Copyright 2001-2011 Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2012 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -28,10 +28,7 @@ INCLUDE hgpass1.mac
 INCLUDE hgpass1sc.mac
 INCLUDE hgpass2.mac
 
-EXTRN	pass1_aux_entry_point_return:PROC
-EXTRN	xgw_finish_fft:PROC
 EXTRN	xgw_carries:PROC
-EXTRN	xgw_finish_mult:PROC
 
 _TEXT SEGMENT
 

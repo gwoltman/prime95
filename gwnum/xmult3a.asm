@@ -43,7 +43,6 @@ inorm	MACRO	lab, ttp, zero, echk, const, base2, sse4
 	LOCAL	noadd, setlp, ilp0, ilp1, ilp2, not8, done
 	PROCFLP	lab
 	int_prolog SZPTR+16,0,0
-zero	mov	zero_fft, 1		;; Set flag saying zero upper half
 echk	xload	xmm6, XMM_MAXERR	;; Load maximum error
 no zero	mov	edx, ADDIN_ROW		;; Is this the time to do our addin?
 no zero	cmp	edx, THIS_BLOCK
@@ -98,7 +97,6 @@ ttp	bump	rdx, 4*XMM_GMD		;; Next set of group multipliers
 	jnz	ilp0			;; Iterate
 
 echk	xstore	XMM_MAXERR, xmm6	;; Save maximum error
-ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr
 
 	; Handle adjusting the carry out of the topmost FFT word
 
@@ -120,7 +118,6 @@ zpnorm	MACRO	lab, ttp, echk, const, base2, sse4, khi, c1, cm1
 	LOCAL	setlp, ilp0, ilp1, ilp2, not8
 	PROCFLP	lab
 	int_prolog 12,0,0
-const	mov	const_fft, 1		;; Set flag saying mul-by-const
 echk	xload	xmm6, XMM_MAXERR	;; Load maximum error
 
 	xnorm_wpn_zpad_preload ttp, echk, const, base2, sse4, khi, c1, cm1
@@ -165,7 +162,6 @@ ttp	bump	rdx, 4*XMM_GMD		;; Next set of group multipliers
 	jnz	ilp0			;; Iterate
 
 echk	xstore	XMM_MAXERR, xmm6	;; Save maximum error
-ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr
 	int_epilog 12,0,0
 	ENDPP	lab
 	ENDM

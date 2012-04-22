@@ -46,7 +46,6 @@ inorm	MACRO	lab, ttp, zero, echk, const, base2, sse4
 	LOCAL	noadd, setlp, ilp0, ilp1, ilexit, done
 	PROCFLP	lab
 	int_prolog SZPTR+12,0,0
-zero	mov	zero_fft, 1		;; Set flag saying zero upper half
 	movapd	xmm7, XMM_SUMOUT	;; Load SUMOUT
 	movapd	xmm6, XMM_MAXERR	;; Load maximum error
 no zero	mov	edx, ADDIN_ROW		;; Is this the time to do our addin?
@@ -66,7 +65,6 @@ ttp	bump	rdi, 512		;; Next scratch area section
 ttp	bump	rbx, 32			;; Next column multiplier
 ttp	sub	al, 1			;; Each cache line has its own col mult
 ttp	jnz	setlp
-ttp	mov	norm_ptr2, rbx		;; Save column multipliers ptr
 
 	mov	rdx, norm_grp_mults	;; Addr of the group multipliers
 	mov	rbp, carries		;; Addr of the carries
@@ -106,7 +104,6 @@ ttp	bump	rdx, 128		;; Next set of 8 group multipliers
 	jmp	ilp0			;; Iterate
 ilexit:	movapd	XMM_SUMOUT, xmm7	;; Save SUMOUT
 	movapd	XMM_MAXERR, xmm6	;; Save maximum error
-ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr
 
 	; Handle adjusting the carry out of the topmost FFT word
 
@@ -132,7 +129,6 @@ zpnorm	MACRO	lab, ttp, echk, const, base2, sse4, khi, c1, cm1
 	LOCAL	setlp, ilp0, ilp1, ilexit
 	PROCFLP	lab
 	int_prolog 12,0,0
-const	mov	const_fft, 1		;; Set flag saying mul-by-const
 	movapd	xmm7, XMM_SUMOUT	;; Load SUMOUT
 echk	movapd	xmm6, XMM_MAXERR	;; Load maximum error
 
@@ -144,7 +140,6 @@ ttp	bump	rdi, 512		;; Next scratch area section
 ttp	bump	rbx, 32			;; Next column multiplier
 ttp	sub	al, 1			;; Each cache line has its own col mult
 ttp	jnz	setlp
-ttp	mov	norm_ptr2, rbx		;; Save column multipliers ptr
 
 	mov	rdx, norm_grp_mults	;; Addr of the group multipliers
 	mov	rbp, carries		;; Addr of the carries
@@ -189,7 +184,6 @@ ttp	bump	rdx, 128		;; Next set of 8 group multipliers
 	jmp	ilp0			;; Iterate
 ilexit:	movapd	XMM_SUMOUT, xmm7	;; Save SUMOUT
 echk	movapd	XMM_MAXERR, xmm6	;; Save maximum error
-ttp	mov	norm_ptr1, rdi		;; Save big/little flags array ptr
 	int_epilog 12,0,0
 	ENDPP	lab
 	ENDM

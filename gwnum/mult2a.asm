@@ -1,4 +1,4 @@
-; Copyright 1995-2011 Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2012 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -67,6 +67,7 @@ inorm	MACRO	lab, ttp, zero, echk, const
 	int_prolog 20,0,0,rcx,rbp
 	mov	saved_edx, edx		;; Save registers for top_carry_adjust
 	mov	saved_esi, esi
+no zero	mov	zero_fft, 0		;; Set flag saying not zero upper half
 zero	mov	zero_fft, 1		;; Set flag saying zero upper half
 echk	fld	MAXERR			;; Load maximum error
 	fld	SUMOUT			;; Load SUMOUT
@@ -131,6 +132,7 @@ zpnorm	MACRO	lab, ttp, echk, const
 	LOCAL	ilp0, ilp1, ilpdn
 	PROCFLP	lab
 	int_prolog 12,0,0,rcx,rdx,rsi,rbp
+no const mov	const_fft, 0		;; Set flag saying not mul-by-const
 const	mov	const_fft, 1		;; Set flag saying mul-by-const
 echk	fld	MAXERR			;; Load maximum error
 	fld	SUMOUT			;; Load SUMOUT

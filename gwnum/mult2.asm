@@ -1,4 +1,4 @@
-; Copyright 1995-2011 Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2012 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -130,7 +130,6 @@ ilp1:	mov	ebx, norm_col_mults	; Addr of the column multipliers
 iskip:	dec	ecx			; Test loop counter
 	jnz	ilp1			; Next carry row in section
 	fcompp				; Pop last 2 carries
-	mov	zero_fft, 0		; Clear zero-high-words-fft flag
 	jmp	cdn			; Jump to common exit code
 
 gw_carries_zpad:
@@ -167,7 +166,6 @@ c2d:	mov	ebx, cache_line_multiplier ; Cache lines in each pass1 loop
 zskip:	dec	loopcount1		; Test loop counter
 	jnz	zlp1			; Next carry row in section
 	fcompp				; Pop last 2 carries
-	mov	const_fft, 0		; Clear mul-by-const-fft flag
 
 cdn:	int_epilog 4,0,0
 gw_carries ENDP

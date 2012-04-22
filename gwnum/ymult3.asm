@@ -1,4 +1,4 @@
-; Copyright 2011 Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2012 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -19,9 +19,6 @@ INCLUDE yarch.mac
 INCLUDE ybasics.mac
 INCLUDE ymult.mac
 INCLUDE ynormal.mac
-
-PUBLIC	ygw_finish_fft
-PUBLIC	ygw_finish_mult_wpn
 
 _TEXT SEGMENT
 
@@ -47,23 +44,16 @@ PROCFL	ygw_carries_wpn3
 	mov	biglit_incr, rax	; Save biglit increment
 
 	mov	rsi, carries		; Addr of the carries
-	mov	ebx, addcount1		; Load block count
-	shl	rbx, 6
-	add	rbx, rsi
 	ynorm012_wpn_part1 exec
 
-	mov	rbp, DESTARG		; Addr of the FFT data
-	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
+	mov	rbp, DATA_ADDR		; Addr of the FFT data
+	mov	rdi, norm_ptr1		; Addr of the big/little flags array
 	mov	rdx, norm_grp_mults	; Addr of the group multipliers
 	mov	eax, count3		; Load count of grp multipliers
 	mov	loopcount2, eax		; Save count
 ilp0:	mov	eax, count2		; Load wpn count
 	mov	loopcount1, eax		; Save count
-ilp1:	cmp	zero_fft, 1		; Are we zeroing high words?
-	jne	short nz		; No, leave top carry alone
-	vmovapd	ymm7, YMM_BIGVAL	; Yes, don't add carries into upper words
-	vmovapd [esi+32], ymm7
-nz:	ynorm012_wpn exec, exec, saveptr1, saveptr2, saveptr3 ; Propagate carries for one cache line
+ilp1:	ynorm012_wpn exec, exec, saveptr1, saveptr2, saveptr3 ; Propagate carries for one cache line
 	bump	rsi, 64			; Next carries pointer
 	add	rbp, pass1blkdst	; Next FFT data pointer
 	add	rdi, biglit_incr	; Next big/little flags pointer
@@ -82,22 +72,12 @@ PROCFL	ygw_carries_wpnr3
 	int_prolog 5*SZPTR+8,0,0
 
 	mov	rsi, carries		; Addr of the carries
-	mov	ebx, addcount1		; Load block count
-	shl	rbx, 6
-	add	rbx, rsi
 	ynorm012_wpn_part1 exec
 
-	mov	rbp, DESTARG		; Addr of the FFT data
-	mov	rdi, norm_biglit_array	; Addr of the big/little flags array			;; Needed???
-	mov	rdx, norm_grp_mults	; Addr of the group multipliers				;; Needed???
-
+	mov	rbp, DATA_ADDR		; Addr of the FFT data
 	mov	eax, addcount1		; Load count of pass 1 blocks
 	mov	loopcount2, eax		; Save count
-rlp1:	cmp	zero_fft, 1		; Are we zeroing high words?
-	jne	short rnz		; No, leave top carry alone
-	vmovapd	ymm7, YMM_BIGVAL	; Yes, don't add carry into upper words
-	vmovapd [esi+32], ymm7
-rnz:	ynorm012_wpn noexec, exec, saveptr1, saveptr2, saveptr3 ; Propagate carries for one cache line
+rlp1:	ynorm012_wpn noexec, exec, saveptr1, saveptr2, saveptr3 ; Propagate carries for one cache line
 	bump	rsi, 64			; Next carries pointer
 	add	rbp, pass1blkdst	; Next FFT data pointer
 	sub	loopcount2, 1		; Test loop counter
@@ -115,14 +95,10 @@ PROCFL	ygw_carries_wpnzp3
 	mov	biglit_incr, rax	; Save biglit increment
 
 	mov	rsi, carries		; Addr of the carries
-	mov	ebx, addcount1		; Load block count
-	shl	rbx, 6
-	add	rbx, rsi
 	ynorm012_wpn_zpad_part1 exec, exec
 
-	mov	rsi, carries		; Addr of the carries
-	mov	rbp, DESTARG		; Addr of the FFT data
-	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
+	mov	rbp, DATA_ADDR		; Addr of the FFT data
+	mov	rdi, norm_ptr1		; Addr of the big/little flags array
 	mov	rdx, norm_grp_mults	; Addr of the group multipliers
 	mov	eax, count3		; Load count of grp multipliers
 	mov	loopcount2, eax		; Save count
@@ -147,16 +123,9 @@ PROCFL	ygw_carries_wpnrzp3
 	int_prolog 5*SZPTR+8,0,0
 
 	mov	rsi, carries		; Addr of the carries
-	mov	ebx, addcount1		; Load block count
-	shl	rbx, 6
-	add	rbx, rsi
 	ynorm012_wpn_zpad_part1 noexec, exec
 
-	mov	rsi, carries		; Addr of the carries
-	mov	rbp, DESTARG		; Addr of the FFT data
-	mov	rdi, norm_biglit_array	; Addr of the big/little flags array			;; Needed???
-	mov	rdx, norm_grp_mults	; Addr of the group multipliers				;; Needed???
-
+	mov	rbp, DATA_ADDR		; Addr of the FFT data
 	mov	eax, addcount1		; Load count of pass 1 blocks
 	mov	loopcount2, eax		; Save count
 rlp1zp:	ynorm012_wpn_zpad noexec, exec, saveptr1, saveptr2, saveptr3 ; Propagate carries for one cache line
@@ -177,14 +146,10 @@ PROCFL	ygw_carries_wpnn3
 	mov	biglit_incr, rax	; Save biglit increment
 
 	mov	rsi, carries		; Addr of the carries
-	mov	ebx, addcount1		; Load block count
-	shl	rbx, 6
-	add	rbx, rsi
 	ynorm012_wpn_part1 noexec
 
-	mov	rsi, carries		; Addr of the carries
-	mov	rbp, DESTARG		; Addr of the FFT data
-	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
+	mov	rbp, DATA_ADDR		; Addr of the FFT data
+	mov	rdi, norm_ptr1		; Addr of the big/little flags array
 	mov	rdx, norm_grp_mults	; Addr of the group multipliers
 	mov	eax, count3		; Load count of grp multipliers
 	mov	loopcount2, eax		; Save count
@@ -209,15 +174,9 @@ PROCFL	ygw_carries_wpnnr3
 	int_prolog 5*SZPTR+8,0,0
 
 	mov	rsi, carries		; Addr of the carries
-	mov	ebx, addcount1		; Load block count
-	shl	rbx, 6
-	add	rbx, rsi
 	ynorm012_wpn_part1 noexec
 
-	mov	rbp, DESTARG		; Addr of the FFT data
-	mov	rdi, norm_biglit_array	; Addr of the big/little flags array			;; Needed???
-	mov	rdx, norm_grp_mults	; Addr of the group multipliers				;; Needed???
-
+	mov	rbp, DATA_ADDR		; Addr of the FFT data
 	mov	eax, addcount1		; Load count of pass 1 blocks
 	mov	loopcount2, eax		; Save count
 rlp1n:	ynorm012_wpn noexec, noexec, saveptr1, saveptr2, saveptr3 ; Propagate carries for one cache line
@@ -238,14 +197,10 @@ PROCFL	ygw_carries_wpnnzp3
 	mov	biglit_incr, rax	; Save biglit increment
 
 	mov	rsi, carries		; Addr of the carries
-	mov	ebx, addcount1		; Load block count
-	shl	rbx, 6
-	add	rbx, rsi
 	ynorm012_wpn_zpad_part1 exec, noexec
 
-	mov	rsi, carries		; Addr of the carries
-	mov	rbp, DESTARG		; Addr of the FFT data
-	mov	rdi, norm_biglit_array	; Addr of the big/little flags array
+	mov	rbp, DATA_ADDR		; Addr of the FFT data
+	mov	rdi, norm_ptr1		; Addr of the big/little flags array
 	mov	rdx, norm_grp_mults	; Addr of the group multipliers
 	mov	eax, count3		; Load count of grp multipliers
 	mov	loopcount2, eax		; Save count
@@ -270,16 +225,9 @@ PROCFL	ygw_carries_wpnnrzp3
 	int_prolog 5*SZPTR+8,0,0
 
 	mov	rsi, carries		; Addr of the carries
-	mov	ebx, addcount1		; Load block count
-	shl	rbx, 6
-	add	rbx, rsi
 	ynorm012_wpn_zpad_part1 noexec, noexec
 
-	mov	rsi, carries		; Addr of the carries
-	mov	rbp, DESTARG		; Addr of the FFT data
-	mov	rdi, norm_biglit_array	; Addr of the big/little flags array			;; Needed???
-	mov	rdx, norm_grp_mults	; Addr of the group multipliers				;; Needed???
-
+	mov	rbp, DATA_ADDR		; Addr of the FFT data
 	mov	eax, addcount1		; Load count of pass 1 blocks
 	mov	loopcount2, eax		; Save count
 rlp1nzp: ynorm012_wpn_zpad noexec, noexec, saveptr1, saveptr2, saveptr3 ; Propagate carries for one cache line
@@ -291,55 +239,6 @@ rlp1nzp: ynorm012_wpn_zpad noexec, noexec, saveptr1, saveptr2, saveptr3 ; Propag
 	int_epilog 5*SZPTR+8,0,0
 ygw_carries_wpnnrzp3 ENDP
 
-; Common code to finish off r4dwpn FFTs.  The Windows 64-bit ABI
-; frowns on us jumping from one procedure into another.
-; However, my reading of the spec is that as long as the two procedures have
-; identical prologs then stack unwinding for exception handling will work OK.
-; Of course, this code won't be linked into a 64-bit Windows executable,
-; but we include the dummy prolog to be consistent.
-
-PROCF	__common_wpn_yfft_exit_code
-
-	;; Create a dummy prolog
-	ad_prolog 0,1,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
-
-; Common code to finish up ffts
-
-ygw_finish_fft:
-	mov	rsi, DESTARG		; Restore source pointer
-	mov	DWORD PTR [rsi-28], 3	; Set has-been-FFTed flags
-	yfft_1_ret
-
-; Common code to finish up multiplies
-
-; Finish the multiply
-
-ygw_finish_mult_wpn:
-
-; Set FFT-started flag
-
-	mov	rsi, DESTARG		; Addr of FFT data
-	mov	al, POSTFFT		; Set FFT started flag
-	mov	BYTE PTR [rsi-28], al
-
-; Clear other flags
-
-	mov	zero_fft, 0		; Clear zero-high-words-fft flag for next FFT
-
-; Calculate MAXERR value
-
-	vmovsd	Q [rsi-24], xmm7	; Save sum of FFT outputs
-	vmovsd	xmm6, YMM_MAXERR	; Compute new maximum error
-	vmaxsd	xmm6, xmm6, YMM_MAXERR+8
-	vmaxsd	xmm6, xmm6, YMM_MAXERR+16
-	vmaxsd	xmm6, xmm6, YMM_MAXERR+24
-	vmovsd	MAXERR, xmm6
-
-; Return
-
-	ad_epilog 0,1,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
-
-__common_wpn_yfft_exit_code ENDP
 
 _TEXT	ENDS
 END

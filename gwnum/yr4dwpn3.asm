@@ -24,11 +24,6 @@ INCLUDE yr4.mac
 INCLUDE yr4dwpnpass1sc.mac
 INCLUDE yr4dwpnpass2.mac
 
-EXTRN	pass1_aux_entry_point_return:PROC
-EXTRN	ygw_finish_fft:PROC
-EXTRN	ygw_carries_wpn:PROC
-EXTRN	ygw_finish_mult_wpn:PROC
-
 _TEXT SEGMENT
 
 ;; Generate pass 2 routines optimized for this architecture

@@ -45,9 +45,8 @@ struct gwasm_data {
 	void	*premult_addr;		/* Premult data to use this pass */
 	void	*premult_prefetch;	/* Premult data to prefetch for next pass */
 	void	*pass1_wake_up_threads;	/* Callback routine to wake up auxiliary threads */
-	void	*pass1_wait_for_carries; /* Callback routine to ensure the normalization routine accesses */
-					/* the carry data in ascending block numbers */
-	void	*pass1_done_with_carries; /* Callback routine to let the next block access the carry data */
+	void	*pass1_pre_carries;	/* Callback routine to prior to normalizing a block of data */
+	void	*pass1_post_carries;	/* Callback routine to after normalizing a block of data */
 	void	*pass1_get_next_block;	/* Callback routine to get next block number for thread to process */
 
 	double	DBLARG;			/* Function argument */
@@ -60,15 +59,13 @@ struct gwasm_data {
 	char	ZERO_PADDED_FFT;	/* True if doing a zero pad FFT */
 	char	ZPAD_TYPE;		/* 1,2,or 3 words in k (used by zero pad) */
 	char	ffttype;		/* Type of fft (1, 2=square, 3, or 4) */
-	char	POSTFFT;		/* True if assembly code can start the */
-					/* FFT process on the result of a multiply */
 	char	TOP_CARRY_NEEDS_ADJUSTING; /* True when carry out of top word */
 					/* needs adjusting */
 	char	SPREAD_CARRY_OVER_4_WORDS; /* True when carry out of top word */
 					/* must be spread over more than 2 words */
 	char	zero_fft;		/* TRUE if zero upper half in normalize */
 	char	const_fft;		/* TRUE if mul-by-const in normalize */
-	char	UNUSED_CHARS[5];
+	char	UNUSED_CHARS[6];
 	uint32_t ADDIN_ROW;		/* For adding a constant after multiply */
 	uint32_t ADDIN_OFFSET;
 	double	ADDIN_VALUE;		/* Value to add in after a multiply */
@@ -321,7 +318,9 @@ struct gwasm_data {
 	    struct x87_data {
 		void	*zpad_addr;	/* Address of next ZPAD word to write */
 		void	*pass2_premults;	/* Address of pass 2 premultiplier data for home-grown FFTs */
-		void	*UNUSED_X87_PTRS[14];
+		char	POSTFFT;	/* True if assembly code can start the FFT process on the result of a multiply */
+		char	UNUSED_X87_CHARS[3];
+		void	*UNUSED_X87_PTRS[13];
 
 		double	SQRTHALF;	/* SQRT(0.5) */
 		double	SUMOUT;		/* Used in normalization macros */
@@ -338,8 +337,8 @@ struct gwasm_data {
 		double	K_TIMES_MULCONST_HI_2; /* XMM_K_TIMES_MULCONST_HI, top bits */
 		double	K_HI;		/* Upper bits of K */
 		double	K_LO;		/* Lower bits of K */
-		double	K_HI_1;	/* K_HI, bottom big word bits */
-		double	K_HI_2;	/* K_HI, top bits */
+		double	K_HI_1;		/* K_HI, bottom big word bits */
+		double	K_HI_2;		/* K_HI, top bits */
 		double	ALT_K_HI;	/* Alternative upper bits of K */
 
 		double	ALT_K_LO;	/* Alternative lower bits of K */

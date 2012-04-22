@@ -1811,16 +1811,40 @@ ENDIF
 
 ; *************** WPN followup macros ******************
 
-; This macro does initial prep work by loading the two wrap-around
-; carries from the last pass 1 block.
-; rbx = pointer past the last carry
+; This macro does initial prep work by shuffling the carries from the last pass 1 block.
+; rsi = start of the carries array
 
 ynorm012_wpn_part1 MACRO base2
-	vmovsd	xmm6, Q [rbx-8]		;; Load the last block's wrap-around carry
-base2	vsubsd	xmm6, xmm6, YMM_BIGVAL
-	vmulsd	xmm6, xmm6, YMM_MINUS_C	;; Negate the carry
-base2	vaddsd	xmm6, xmm6, YMM_BIGVAL
-	vmovsd	xmm7, Q [rbx-40]	;; Load the other carry we need for the first block
+	LOCAL	shuflp, done
+	cmp	THIS_BLOCK, 0		;; Are we carrying into the first data block?
+	jne	done			;; If not, skip wrapping carries and negating the last carry
+	mov	eax, addcount1		;; Load count of cache lines in the carries array
+shuflp:	vmovsd	xmm4, Q [rsi+0*32]	;; Shift 3 carry words up
+	vmovsd	Q [rsi+0*32], xmm0	;; Save prev cache line's high carry in low word
+	vmovsd	xmm5, Q [rsi+0*32+8]
+	vmovsd	Q [rsi+0*32+8], xmm4
+	vmovsd	xmm6, Q [rsi+0*32+16]
+	vmovsd	Q [rsi+0*32+16], xmm5
+	vmovsd	xmm0, Q [rsi+0*32+24]
+	vmovsd	Q [rsi+0*32+24], xmm6
+	vmovsd	xmm4, Q [rsi+1*32]	;; Shift 3 carry words up
+	vmovsd	Q [rsi+1*32], xmm1	;; Save prev cache line's high carry in low word
+	vmovsd	xmm5, Q [rsi+1*32+8]
+	vmovsd	Q [rsi+1*32+8], xmm4
+	vmovsd	xmm6, Q [rsi+1*32+16]
+	vmovsd	Q [rsi+1*32+16], xmm5
+	vmovsd	xmm1, Q [rsi+1*32+24]
+	vmovsd	Q [rsi+1*32+24], xmm6
+	bump	rsi, 64			;; Next carry cache line
+	dec	rax			;; Decement count of cache lines
+	jnz	short shuflp
+base2	vsubsd	xmm1, xmm1, YMM_BIGVAL
+	vmulsd	xmm1, xmm1, YMM_MINUS_C	;; Negate the very last carry
+base2	vaddsd	xmm1, xmm1, YMM_BIGVAL
+	mov	rsi, carries		;; Reload carries array pointer
+	vmovsd	Q [rsi+0*32], xmm1	;; Move last cache line's high carries into first cache line
+	vmovsd	Q [rsi+1*32], xmm0
+done:
 	ENDM
 
 ; This macro finishes the normalize process by adding back the carries
@@ -1832,16 +1856,17 @@ base2	vaddsd	xmm6, xmm6, YMM_BIGVAL
 ; rdi = pointer to big/little flags
 ; rdx = pointer two-to-phi group multipliers
 ; rax,rbx,rcx = destroyed
-; LSW of ymm6 = carry from previous block / carry for next block
-; LSW of ymm7 = carry from previous block / carry for next block
 
 ynorm012_wpn MACRO ttp, base2, srcptr, carryptr, biglitptr
-	LOCAL	clmloop, cloop, done
+	LOCAL	nz, clmloop, cloop, done
 
-	vmovapd	ymm2, [rsi]			;; Load one carry word
-	vmovapd	ymm3, [rsi+32]			;; Load hi data carry word
-	rotate_five_carries ymm2, ymm6, ymm0
-	rotate_five_carries ymm3, ymm7, ymm0
+	vmovapd	ymm2, [rsi]			;; Load low carry word
+	vmovapd	ymm3, [rsi+32]			;; Load hi carry word
+
+base2	cmp	zero_fft, 1			;; Are we zeroing high words?
+base2	jne	short nz			;; No, leave top carry alone
+base2	vmovapd	ymm3, YMM_BIGVAL		;; Yes, don't add carries into upper words
+nz:
 
 	mov	srcptr, rbp			;; Save pointers
 	mov	carryptr, rsi
@@ -1910,19 +1935,54 @@ no base2 vxorpd ymm4, ymm4, ymm4
 ;; rbx = pointer past the end of the carries array
 
 ynorm012_wpn_zpad_part1 MACRO ttp, base2
-	LOCAL	noncon, done
+	LOCAL	shuflp, noncon, zpaddn, done
+	cmp	THIS_BLOCK, 0		;; Are we carrying into the first data block?
+	jne	done			;; If not, skip wrapping carries and negating the last carry
+	mov	eax, addcount1		;; Load count of cache lines in the carries array
+shuflp:	vmovsd	xmm4, Q [rsi+0*32]	;; Shift 3 carry words up
+	vmovsd	Q [rsi+0*32], xmm2	;; Save prev cache line's high carry in low word
+	vmovsd	xmm5, Q [rsi+0*32+8]
+	vmovsd	Q [rsi+0*32+8], xmm4
+	vmovsd	xmm6, Q [rsi+0*32+16]
+	vmovsd	Q [rsi+0*32+16], xmm5
+	vmovsd	xmm2, Q [rsi+0*32+24]
+	vmovsd	Q [rsi+0*32+24], xmm6
+	vmovsd	xmm4, Q [rsi+1*32]	;; Shift 3 carry words up
+	vmovsd	Q [rsi+1*32], xmm3	;; Save prev cache line's high carry in low word
+	vmovsd	xmm5, Q [rsi+1*32+8]
+	vmovsd	Q [rsi+1*32+8], xmm4
+	vmovsd	xmm6, Q [rsi+1*32+16]
+	vmovsd	Q [rsi+1*32+16], xmm5
+	vmovsd	xmm3, Q [rsi+1*32+24]
+	vmovsd	Q [rsi+1*32+24], xmm6
+	bump	rsi, 64			;; Next carry cache line
+	dec	rax			;; Decement count of cache lines
+	jnz	short shuflp
+;;	mov	rsi, carries		;; Reload carries array pointer
+;;	vmovsd	Q [rsi+0*32], xmm3	;; Move last cache line's high carries into first cache line
+;;	vmovsd	Q [rsi+1*32], xmm2
+
+	mov	rsi, DESTARG		;; Address of FFT data
+ttp	lea	rdi, YMM_FIRST_BIGLIT_VALUES ;; Address of first big/little flags
+
 	cmp	const_fft, 0		;; Are we also multiplying by a constant?
 	je	noncon			;; Jump if not const
 	ynorm012_wpn_zpad_part1_cmn ttp, base2, exec
-	jmp	done
+	jmp	zpaddn
 noncon:	ynorm012_wpn_zpad_part1_cmn ttp, base2, noexec
+
+zpaddn:	mov	rsi, carries		;; Reload carries array pointer
+base2	vmovsd	xmm6, YMM_BIGVAL	;; Clear two carries just processed by ynorm012_wpn_zpad_part1_cmn
+no base2 vxorpd	xmm6, xmm6, xmm6
+	vxorpd	xmm7, xmm7, xmm7
+	vmovsd	Q [rsi], xmm6
+	vmovsd	Q [rsi+32], xmm7
 done:
 	ENDM
+
+;; On input, xmm2 and xmm3 contain high carries from the last carries array row
 ynorm012_wpn_zpad_part1_cmn MACRO ttp, base2, const
 	LOCAL	smallk, mediumk, div_k_done
-
-	vmovsd	xmm2, Q [rbx-40]	;; Load 2 carries from last row
-	vmovsd	xmm3, Q [rbx-8]		;; Second carry is very last carry
 
 	;; Strip BIGVAL from the traditional carry, we'll add the traditional
 	;; carry in later when we are working on the ZPAD0 - ZPAD6 values.
@@ -1941,8 +2001,6 @@ const	vmulsd	xmm3, xmm3, YMM_MULCONST
 	;; NOTE: ZPAD0's grp multiplier is 1.0.  Also, ZPAD6 will not
 	;; be bigger than a big word.  We must be careful to handle c's up
 	;; to about 30 bits
-
-ttp	lea	rdi, YMM_FIRST_BIGLIT_VALUES	;; Address of first big/little flags
 
 ttp	movzx	rax, BYTE PTR [rdi]		;; Load big vs. little flags
 	vmovsd	xmm0, ZPAD0			;; Load value
@@ -2224,9 +2282,6 @@ div_k_done:
 	;; Now normalize the data above the halfway point.  Remember that the
 	;; two-to-phi multipliers will be applied by the FFT.
 
-ttp	lea	rdi, YMM_FIRST_BIGLIT_VALUES	;; Address of first big/little flags
-	mov	rsi, DESTARG			;; Address of squared number
-
 ttp	movzx	rax, BYTE PTR [rdi]		;; First word
 	vmovsd	xmm0, ZPAD0			;; Load remainder of divide by k
 base2	vaddsd	xmm0, xmm0, YMM_BIGVAL
@@ -2255,7 +2310,7 @@ base2	vsubsd	xmm2, xmm2, YMM_BIGVAL		;; Remove integer rounding constant
 	;; column two-to-phi multiplier for the first value will be 1.0.  We 
 	;; must go 6 words deep in case k is 48-50 bits and c is 32 bits.
 
-	mov	rsi, DESTARG			;; Address of squared number
+	mov	rsi, DESTARG			;; Restore address of FFT data
 
 ttp	movzx	rax, BYTE PTR [rdi]		;; First word
 	vmovsd	xmm0, YMM_TMP1			;; Load integer part of divide by k
@@ -2321,12 +2376,6 @@ ttp	movzx	rax, BYTE PTR [rdi+6]		;; Load big vs. little flags
 base2	vsubsd	xmm2, xmm2, YMM_BIGVAL		;; Remove rounding constant
 	vaddsd	xmm2, xmm2, Q [rsi]		;; Add in FFT data
 	vmovsd	Q [rsi], xmm2			;; Save value8
-
-	;; Preload the two wrap-around carries for the ynorm012_wpn_zpad macro called
-	;; by ygw_carries.  Use zero for two carries as we already processed them above.
-base2	vmovsd	xmm6, YMM_BIGVAL	;; Copy 2 carries from prev section
-no base2 vxorpd	xmm6, xmm6, xmm6
-	vxorpd	xmm7, xmm7, xmm7
 	ENDM
 
 
@@ -2336,8 +2385,6 @@ no base2 vxorpd	xmm6, xmm6, xmm6
 ; rdi = pointer to big/little flags
 ; rdx = pointer two-to-phi group multipliers
 ; rax,rbx,rcx = destroyed
-; LSW of ymm6 = carry from previous block / carry for next block
-; LSW of ymm7 = carry from previous block / carry for next block
 
 ynorm012_wpn_zpad MACRO ttp, base2, srcptr, carryptr, biglitptr
 	LOCAL	noncon, done
@@ -2353,8 +2400,6 @@ ynorm012_wpn_zpad_cmn MACRO ttp, base2, const, srcptr, carryptr, biglitptr
 
 	vmovapd	ymm2, [rsi]			;; Load one carry word
 	vmovapd	ymm3, [rsi+32]			;; Load other carry word
-	rotate_five_carries ymm2, ymm6, ymm0
-	rotate_five_carries ymm3, ymm7, ymm0
 
 	mov	srcptr, rbp			;; Save pointers
 	mov	carryptr, rsi

@@ -16,6 +16,7 @@
 #include <math.h>
 #include <memory.h>
 #include <string.h>
+#include <time.h>
 #include "cpuid.h"
 #include "gwnum.h"
 #include "gwtables.h"
@@ -32,6 +33,10 @@
 
 #define log2(n)		(log((double)(n)) / log (2.0))
 #define logb(n)		(log((double)(n)) / log ((double)(b)))
+#define divide_rounding_up(a,b)		((a + (b) - 1) / (b))
+#define divide_rounding_down(a,b)	((a) / (b))
+#define round_up_to_multiple_of(a,b)	(divide_rounding_up (a, b) * (b))
+#define round_down_to_multiple_of(a,b)	(divide_rounding_down (a, b) * (b))
 
 /* MSVC6 has trouble with the pow function using integer arguments. */
 /* For example, "(unsigned long) pow (5.0, 7.0)" returns 78124 instead */
@@ -1344,7 +1349,7 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 	if (asm_data != NULL) {
 		if (gwdata->cpu_flags & CPU_AVX) {
 			if (gwdata->PASS2_SIZE == 0) {
-				if (gwdata->FOURKBGAPSIZE) {			/* Pad every 256, 512, 1KB, 2KB, or 4KB */
+				if (gwdata->FOURKBGAPSIZE) {				/* Pad every 256, 512, 1KB, 2KB, or 4KB */
 					asm_data->count1 = gwdata->FOURKBGAPSIZE;	/* Cache lines before a padding occurs */
 					asm_data->normcount1 = gwdata->FFTLEN / 32 / gwdata->FOURKBGAPSIZE; /* Number of padding groups in each of the 4 sections */
 					asm_data->count2 = asm_data->count1 / 2;	/* Counter for add/sub quick functions */
@@ -1765,7 +1770,7 @@ int gwsetup_general_mod_giant (
 /* If possible, increase n to the next multiple of FFT length.  This is */
 /* because rational FFTs are faster than irrational FFTs (no FFT weights). */
 
-		desired_n = ((n + fftlen - 1) / fftlen) * fftlen;
+		desired_n = round_up_to_multiple_of (n, fftlen);
 		if (desired_n < max_exponent) n = desired_n;
 	}
 
@@ -1936,7 +1941,7 @@ int gwsetup_without_mod (
 /* If possible, increase n to the next multiple of FFT length.  This is */
 /* because rational FFTs are faster than irrational FFTs (no FFT weights). */
 
-	desired_n = ((n + fftlen - 1) / fftlen) * fftlen;
+	desired_n = round_up_to_multiple_of (n, fftlen);
 	if (desired_n < max_exponent) n = desired_n;
 
 /* Our FFTs don't handle cases where there are few bits per word because */
@@ -2777,11 +2782,6 @@ int internal_gwsetup (
 		}
 	}
 #endif
-
-/* Do more assembly initialization */
-
-	asm_data->zero_fft = 0;
-	asm_data->const_fft = 0;
 
 /* Copy the count of cache lines grouped in pass 1.  This affects how */
 /* we build the normalization tables.  Note that cache line sizes are */
@@ -3819,7 +3819,7 @@ void xcopy_7_words (
 	destarg[-10] = * (double *)	/* Copy 2nd word below */
 		((char *) srcarg + asm_data->HIGH_WORD2_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[1];
 	destarg[-11] = * (double *)	/* Copy 3rd word below */
-		       ((char *) srcarg + asm_data->HIGH_WORD3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];
+		((char *) srcarg + asm_data->HIGH_WORD3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];
 }
 
 /* When POSTFFT is set, we must copy the 7 words at two different spots. */
@@ -3887,8 +3887,7 @@ void xcopy_3_words (
 /* Copy 3rd word below the halfway point */
 
 	if (asm_data->this_block <= gwdata->num_pass1_blocks - 3 &&
-	    asm_data->this_block + asm_data->cache_line_multiplier >
-						gwdata->num_pass1_blocks - 3) {
+	    asm_data->this_block + asm_data->cache_line_multiplier > gwdata->num_pass1_blocks - 3) {
 		if (gwdata->SCRATCH_SIZE) {
 			srcarg[-11] = * (double *)
 					((char *) asm_data->scratch_area +
@@ -3901,6 +3900,26 @@ void xcopy_3_words (
 	}
 }
 
+void xcopy_3_words_after_gwcarries (
+	struct gwasm_data *asm_data)
+{
+	gwhandle *gwdata;
+	double	*srcarg;
+
+/* Get pointer to the gwdata structure */
+
+	gwdata = asm_data->gwdata;
+
+/* Copy three words below the halfway point from the FFT data */
+
+	srcarg = (double *) asm_data->DESTARG;
+	srcarg[-9] = * (double *)
+			((char *) srcarg + asm_data->HIGH_WORD1_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[2];
+	srcarg[-10] = * (double *)
+			((char *) srcarg + asm_data->HIGH_WORD2_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[1];
+	srcarg[-11] = * (double *)
+			((char *) srcarg + asm_data->HIGH_WORD3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];
+}
 
 /* Inline routines for the processing blocks in multi-thread code below */
 
@@ -3922,7 +3941,7 @@ __inline void *pass1_data_addr (
 }
 
 /* Calculate pass 1 sin/cos/premult address (for those FFTs that do not use */
-/* the same sin/cos table for every pass 1 group. */
+/* the same sin/cos table for every pass 1 group). */
 
 __inline void *pass1_premult_addr (
 	gwhandle *gwdata,
@@ -3933,6 +3952,24 @@ __inline void *pass1_premult_addr (
 	    gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN)
 		return ((char *) gwdata->adjusted_pass1_premults + block * gwdata->pass1_premult_block_size);
 	return (NULL);
+}
+
+/* Calculate pass 1 state 1 normalization ptr addresses. */
+
+__inline void pass1_state1_norm_addrs (
+	gwhandle *gwdata,
+	struct gwasm_data *asm_data)
+{
+	if (gwdata->cpu_flags & CPU_AVX) {
+		asm_data->norm_ptr1 = (char *) asm_data->norm_biglit_array + (asm_data->addcount1 * asm_data->this_block * 2);
+	} else {
+		if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN)
+			asm_data->norm_ptr1 = (char *) asm_data->norm_biglit_array + (asm_data->addcount1 * asm_data->this_block * 2);
+		else {
+			asm_data->norm_ptr1 = (char *) asm_data->norm_biglit_array + (asm_data->addcount1 * asm_data->this_block * 4);
+			asm_data->norm_ptr2 = (char *) asm_data->norm_col_mults + (asm_data->this_block * 32);
+		}
+	}
 }
 
 /* Calculate pass 2 block address */
@@ -3954,32 +3991,192 @@ __inline void * pass2_premult_addr (
 	return ((char *) gwdata->adjusted_pass2_premults + block * gwdata->pass2_premult_block_size);
 }
 
-/* Assign next available block in state 0 of pass 1.  These are assigned in */
+/* Assign a thread's first block to process in pass 1 state 0.  These are assigned in */
+/* sequential order. */
+
+__inline void pass1_state0_assign_first_block (
+	gwhandle *gwdata,
+	struct gwasm_data *asm_data)
+{
+	asm_data->this_block = gwdata->next_block;
+	asm_data->data_addr = pass1_data_addr (gwdata, asm_data, asm_data->this_block);
+	asm_data->premult_addr = pass1_premult_addr (gwdata, asm_data->this_block);
+	gwdata->next_block += asm_data->cache_line_multiplier;
+}
+
+/* Assign next available block in pass 1 state 0.  These are assigned in */
 /* sequential order. */
 
 __inline void pass1_state0_assign_next_block (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data)
 {
-	asm_data->next_block = gwdata->next_block;
-	asm_data->data_prefetch = pass1_data_addr (gwdata, asm_data, asm_data->next_block);
-	asm_data->premult_prefetch = pass1_premult_addr (gwdata, asm_data->next_block);
-	gwdata->next_block += asm_data->cache_line_multiplier;
+	if (gwdata->next_block < gwdata->num_pass1_blocks) {
+		asm_data->next_block = gwdata->next_block;
+		asm_data->data_prefetch = pass1_data_addr (gwdata, asm_data, asm_data->next_block);
+		asm_data->premult_prefetch = pass1_premult_addr (gwdata, asm_data->next_block);
+		gwdata->next_block += asm_data->cache_line_multiplier;
+	} else {
+		asm_data->next_block = asm_data->this_block;
+		asm_data->data_prefetch = asm_data->data_addr;
+		asm_data->premult_prefetch = asm_data->premult_addr;
+	}
 }
 
-/* Assign first block in pass 2. */
+/* Assign a thread's first block in pass 1 state 1. */
+/* Returns TRUE if successful, FALSE if no free sections were found */
+
+int pass1_state1_assign_first_block (
+	gwhandle *gwdata,
+	struct gwasm_data *asm_data)
+{
+	int	i;
+
+	/* Get thread number / section number */
+	i = asm_data->thread_num;
+
+	/* If there are zero blocks in the section, see if we can find (part of) another section we can work on */
+	if (gwdata->pass1_carry_sections[i].next_block == gwdata->pass1_carry_sections[i].last_block) {
+		unsigned int j, largest_unfinished, largest_unfinished_size, min_split_size;
+
+		/* Calculate minimum split size.  It must be a multiple of num_postfft_blocks. */
+		/* It must also be a multiple of 8 if AVX zero-padded (because of using YMM_SRC_INCR[0-7] in */
+		/* ynorm012 macros and all SSE2 FFTs because of using BIGLIT_INCR4 in xnorm012 macros. */
+		min_split_size = gwdata->num_postfft_blocks;
+		if ((gwdata->cpu_flags & CPU_AVX && gwdata->ZERO_PADDED_FFT) || (! (gwdata->cpu_flags & CPU_AVX)))
+			min_split_size = round_up_to_multiple_of (min_split_size, 8);
+
+		/* Find largest unfinished section for splitting */
+		largest_unfinished = i;
+		largest_unfinished_size = 0;
+		for (j = 0; j < gwdata->num_threads; j++) {
+			unsigned int size;
+
+			if (gwdata->pass1_carry_sections[j].section_state >= 2) continue;
+			if (gwdata->pass1_carry_sections[j].last_block - gwdata->pass1_carry_sections[j].start_block <
+					gwdata->num_postfft_blocks + gwdata->num_postfft_blocks) continue;
+			size = gwdata->pass1_carry_sections[j].last_block - gwdata->pass1_carry_sections[j].next_block;
+			if (size > largest_unfinished_size && size >= min_split_size) {
+				largest_unfinished = j;
+				largest_unfinished_size = size;
+			}
+		}
+
+		/* If we found no sections that we can split, then return FALSE */
+		if (largest_unfinished_size == 0) return (FALSE);
+
+		/* If the target section hasn't even started, then take the entire section under */
+		/* the theory that the thread must be busy servicing some other process. */
+		if (gwdata->pass1_carry_sections[largest_unfinished].section_state == 0) {
+			memcpy (&gwdata->pass1_carry_sections[i],
+				&gwdata->pass1_carry_sections[largest_unfinished],
+				sizeof (struct pass1_carry_sections));
+			gwdata->pass1_carry_sections[largest_unfinished].start_block =
+			gwdata->pass1_carry_sections[largest_unfinished].next_block =
+				gwdata->pass1_carry_sections[largest_unfinished].last_block;
+		}
+
+		/* Split the target section */
+		else {
+			unsigned int new_size;
+
+			new_size = largest_unfinished_size / 2;
+			new_size = round_down_to_multiple_of (new_size, asm_data->cache_line_multiplier);
+			if ((gwdata->cpu_flags & CPU_AVX && gwdata->ZERO_PADDED_FFT) || (! (gwdata->cpu_flags & CPU_AVX)))
+				new_size = round_up_to_multiple_of (new_size, 8);
+			if (new_size < gwdata->num_postfft_blocks) new_size = gwdata->num_postfft_blocks;
+
+			gwdata->pass1_carry_sections[i].start_block =
+			gwdata->pass1_carry_sections[i].next_block =
+				gwdata->pass1_carry_sections[largest_unfinished].last_block - new_size;
+			gwdata->pass1_carry_sections[i].last_block =
+				gwdata->pass1_carry_sections[largest_unfinished].last_block;
+			gwdata->pass1_carry_sections[i].can_carry_into_next =
+				gwdata->pass1_carry_sections[largest_unfinished].can_carry_into_next;
+
+			gwdata->pass1_carry_sections[largest_unfinished].last_block -= new_size;
+			gwdata->pass1_carry_sections[largest_unfinished].can_carry_into_next = FALSE;
+			gwdata->pass1_carry_sections[i].dependent_section = largest_unfinished;
+		}
+
+		/* Finally, patch dependent_section if necessary */
+		if (! gwdata->pass1_carry_sections[i].can_carry_into_next) {
+			for (j = 0; j < gwdata->num_threads; j++) {
+				if (gwdata->pass1_carry_sections[j].start_block == gwdata->pass1_carry_sections[j].last_block) continue;
+				if (gwdata->pass1_carry_sections[j].start_block == gwdata->pass1_carry_sections[i].last_block ||
+				    (gwdata->pass1_carry_sections[j].start_block == 0 &&
+				     gwdata->pass1_carry_sections[i].last_block == gwdata->num_pass1_blocks)) {
+					gwdata->pass1_carry_sections[j].dependent_section = i;
+					break;
+				}
+			}
+			ASSERTG (j != gwdata->num_threads);
+		}
+	}
+
+	/* Return the first block in this section */
+	asm_data->this_block = gwdata->pass1_carry_sections[i].next_block;
+	asm_data->data_addr = pass1_data_addr (gwdata, asm_data, asm_data->this_block);
+	asm_data->premult_addr = pass1_premult_addr (gwdata, asm_data->this_block);
+	pass1_state1_norm_addrs (gwdata, asm_data);
+
+	/* Bump section's next available block pointer, update section state */
+	gwdata->pass1_carry_sections[i].next_block += asm_data->cache_line_multiplier;
+	gwdata->pass1_carry_sections[i].section_state = 1;
+
+	/* In SSE2 zero-padded FFT, set the upper half of the carries to zero instead */
+	/* of XMM_BIGVAL.  This saves us a couple of clocks per FFT data element in xnorm_2d_zpad. */
+	/* Ideally, we'd eliminate this code by fixing the add/sub and carry propagation code to also */
+	/* expect zero in the upper half of each carry cache line  (like we did in the AVX code). */
+	if (gwdata->ZERO_PADDED_FFT && ! (gwdata->cpu_flags & CPU_AVX)) {
+		int	i, carry_table_size;
+		double	*table;
+		carry_table_size = (gwdata->FFTLEN / gwdata->PASS2_SIZE) << 1;
+		table = (double *) asm_data->carries;
+		for (i = 0; i < carry_table_size; i += 8, table += 8) {
+			table[4] = 0.0;
+			table[5] = 0.0;
+			table[6] = 0.0;
+			table[7] = 0.0;
+		}
+	}
+
+	/* Return success */
+	return (TRUE);
+}
+
+/* Assign a thread's next block in pass 1 state 1. */
+
+void pass1_state1_assign_next_block (
+	gwhandle *gwdata,
+	struct gwasm_data *asm_data)
+{
+	int	i;
+
+	/* Get thread number / section number */
+	i = asm_data->thread_num;
+
+	/* Return the next block in this section (or first block in next section */
+	/* for carry propagation and possible postfft processing) */
+	asm_data->next_block = gwdata->pass1_carry_sections[i].next_block;
+	if (asm_data->next_block == gwdata->pass1_carry_sections[i].last_block && gwdata->pass1_carry_sections[i].section_state == 3)
+		asm_data->next_block = asm_data->this_block;
+	else if (asm_data->next_block == gwdata->num_pass1_blocks)
+		asm_data->next_block = 0;
+	asm_data->data_prefetch = pass1_data_addr (gwdata, asm_data, asm_data->next_block);
+	asm_data->premult_prefetch = pass1_premult_addr (gwdata, asm_data->next_block);
+}
+
+/* Assign a thread's first pass 2 block.  These are assigned in */
+/* sequential order. */
 
 __inline void pass2_assign_first_block (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data)
 {
-	asm_data->this_block = 0;
-	asm_data->data_addr = pass2_data_addr (gwdata, asm_data, 0);
-	asm_data->premult_addr = pass2_premult_addr (gwdata, 0);
-	asm_data->next_block = 1;
-	asm_data->data_prefetch = pass2_data_addr (gwdata, asm_data, 1);
-	asm_data->premult_prefetch = pass2_premult_addr (gwdata, 1);
-	gwdata->next_block = 2;
+	asm_data->this_block = gwdata->next_block++;
+	asm_data->data_addr = pass2_data_addr (gwdata, asm_data, asm_data->this_block);
+	asm_data->premult_addr = pass2_premult_addr (gwdata, asm_data->this_block);
 }
 
 /* Assign next available block in pass 2.  These are assigned in */
@@ -3989,9 +4186,15 @@ __inline void pass2_assign_next_block (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data)
 {
-	asm_data->next_block = gwdata->next_block++;
-	asm_data->data_prefetch = pass2_data_addr (gwdata, asm_data, asm_data->next_block);
-	asm_data->premult_prefetch = pass2_premult_addr (gwdata, asm_data->next_block);
+	if (gwdata->next_block < gwdata->num_pass2_blocks) {
+		asm_data->next_block = gwdata->next_block++;
+		asm_data->data_prefetch = pass2_data_addr (gwdata, asm_data, asm_data->next_block);
+		asm_data->premult_prefetch = pass2_premult_addr (gwdata, asm_data->next_block);
+	} else {
+		asm_data->next_block = asm_data->this_block;
+		asm_data->data_prefetch = asm_data->data_addr;
+		asm_data->premult_prefetch = asm_data->premult_addr;
+	}
 }
 
 
@@ -4002,6 +4205,7 @@ struct thread_data {
 	int	thread_num;
 	void	*asm_data_alloc;
 	void	*scratch_area;
+	void	*carries;
 };
 
 void auxiliary_thread (void *arg)
@@ -4030,6 +4234,28 @@ void auxiliary_thread (void *arg)
 /* Each auxiliary thread needs its own pass 1 scratch area */
 
 	asm_data->scratch_area = info->scratch_area;
+
+/* Init each auxiliary thread's carries area */
+	
+	asm_data->carries = info->carries;
+	if (gwdata->cpu_flags & CPU_AVX) {
+		int	i, carry_table_size;
+		double	carryval, *table;
+		carry_table_size = gwdata->FFTLEN / gwdata->PASS2_SIZE;
+		if (gwdata->b == 2) carryval = 3.0 * 131072.0 * 131072.0 * 131072.0;
+		else carryval = 0.0;
+		table = asm_data->carries;
+		for (i = 0; i < carry_table_size; i++)
+			if (gwdata->ZERO_PADDED_FFT && (i & 4)) *table++ = 0.0;
+			else *table++ = carryval;
+	} else {
+		int	i, carry_table_size;
+		double	xmm_bigval, *table;
+		carry_table_size = gwdata->FFTLEN / (gwdata->PASS2_SIZE / 2);
+		xmm_bigval = 3.0 * 131072.0 * 131072.0 * 131072.0;
+		table = asm_data->carries;
+		for (i = 0; i < carry_table_size; i++) *table++ = xmm_bigval;
+	}
 
 /* Call optional user provided callback routine so that the caller can set */
 /* the thread's priority and affinity */
@@ -4065,13 +4291,14 @@ void auxiliary_thread (void *arg)
 		asm_data->this_block = 0;
 		if (gwdata->pass1_state == 0) {
 			if (gwdata->next_block >= gwdata->num_pass1_blocks) goto aux_done;
+			pass1_state0_assign_first_block (gwdata, asm_data);
 			pass1_state0_assign_next_block (gwdata, asm_data);
 		} else if (gwdata->pass1_state == 1) {
-			asm_data->next_block = asm_data->thread_num * asm_data->cache_line_multiplier;
-			asm_data->data_prefetch = pass1_data_addr (gwdata, asm_data, asm_data->next_block);
-			asm_data->premult_prefetch = pass1_premult_addr (gwdata, asm_data->next_block);
+			if (! pass1_state1_assign_first_block (gwdata, asm_data)) goto aux_done;
+			pass1_state1_assign_next_block (gwdata, asm_data);
 		} else {
 			if (gwdata->next_block >= gwdata->num_pass2_blocks) goto aux_done;
+			pass2_assign_first_block (gwdata, asm_data);
 			pass2_assign_next_block (gwdata, asm_data);
 		}
 
@@ -4082,49 +4309,37 @@ void auxiliary_thread (void *arg)
 		gwevent_reset (&gwdata->all_threads_done);
 
 /* Copy some data from the main thread's asm_data to this thread.  We only */
-/* need to copy data that can change for multiply call */
+/* need to copy data that can change for each multiply call */
 
-//bug - copy the necessary bytes using memcpy (and only once, not twice (or three times), per multiply)
-asm_data->DIST_TO_FFTSRCARG = main_thread_asm_data->DIST_TO_FFTSRCARG;
-asm_data->DIST_TO_MULSRCARG = main_thread_asm_data->DIST_TO_MULSRCARG;
-asm_data->ffttype = main_thread_asm_data->ffttype;
-///bug-and these are used in pass 1
-asm_data->thread_work_routine = main_thread_asm_data->thread_work_routine;
-asm_data->NORMRTN = main_thread_asm_data->NORMRTN;
-asm_data->ADDIN_ROW = main_thread_asm_data->ADDIN_ROW;
-asm_data->ADDIN_OFFSET = main_thread_asm_data->ADDIN_OFFSET;
-asm_data->ADDIN_VALUE = main_thread_asm_data->ADDIN_VALUE;
-if (gwdata->cpu_flags & CPU_AVX) {
-	asm_data->u.ymm.YMM_MULCONST[0] = main_thread_asm_data->u.ymm.YMM_MULCONST[0];
-	asm_data->u.ymm.YMM_MULCONST[1] = main_thread_asm_data->u.ymm.YMM_MULCONST[1];
-	asm_data->u.ymm.YMM_MULCONST[2] = main_thread_asm_data->u.ymm.YMM_MULCONST[2];
-	asm_data->u.ymm.YMM_MULCONST[3] = main_thread_asm_data->u.ymm.YMM_MULCONST[3];
-	//if zpad more mulconsts must be copied
-	asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[0] = main_thread_asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[0];
-	asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[1] = main_thread_asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[1];
-	asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[2] = main_thread_asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[2];
-	asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[3] = main_thread_asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[3];
-	asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[0] = main_thread_asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[0];
-	asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[1] = main_thread_asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[1];
-	asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[2] = main_thread_asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[2];
-	asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[3] = main_thread_asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[3];
-	asm_data->u.ymm.YMM_MINUS_C_TIMES_MULCONST[0] = main_thread_asm_data->u.ymm.YMM_MINUS_C_TIMES_MULCONST[0];
-	asm_data->u.ymm.YMM_MINUS_C_TIMES_MULCONST[1] = main_thread_asm_data->u.ymm.YMM_MINUS_C_TIMES_MULCONST[1];
-	asm_data->u.ymm.YMM_MINUS_C_TIMES_MULCONST[2] = main_thread_asm_data->u.ymm.YMM_MINUS_C_TIMES_MULCONST[2];
-	asm_data->u.ymm.YMM_MINUS_C_TIMES_MULCONST[3] = main_thread_asm_data->u.ymm.YMM_MINUS_C_TIMES_MULCONST[3];
-} else if (gwdata->cpu_flags & CPU_SSE2) {
-	asm_data->u.xmm.XMM_MULCONST[0] = main_thread_asm_data->u.xmm.XMM_MULCONST[0];
-	asm_data->u.xmm.XMM_MULCONST[1] = main_thread_asm_data->u.xmm.XMM_MULCONST[1];
-//if zpad more mulconsts must be copied
-	asm_data->u.xmm.XMM_K_TIMES_MULCONST_HI[0] = main_thread_asm_data->u.xmm.XMM_K_TIMES_MULCONST_HI[0];
-	asm_data->u.xmm.XMM_K_TIMES_MULCONST_HI[1] = main_thread_asm_data->u.xmm.XMM_K_TIMES_MULCONST_HI[1];
-	asm_data->u.xmm.XMM_K_TIMES_MULCONST_LO[0] = main_thread_asm_data->u.xmm.XMM_K_TIMES_MULCONST_LO[0];
-	asm_data->u.xmm.XMM_K_TIMES_MULCONST_LO[1] = main_thread_asm_data->u.xmm.XMM_K_TIMES_MULCONST_LO[1];
-	asm_data->u.xmm.XMM_MINUS_C_TIMES_MULCONST[0] = main_thread_asm_data->u.xmm.XMM_MINUS_C_TIMES_MULCONST[0];
-	asm_data->u.xmm.XMM_MINUS_C_TIMES_MULCONST[1] = main_thread_asm_data->u.xmm.XMM_MINUS_C_TIMES_MULCONST[1];
-}
-//postfft is used in c callback routines
-asm_data->POSTFFT = main_thread_asm_data->POSTFFT;
+		asm_data->DIST_TO_FFTSRCARG = main_thread_asm_data->DIST_TO_FFTSRCARG;
+		asm_data->DIST_TO_MULSRCARG = main_thread_asm_data->DIST_TO_MULSRCARG;
+		asm_data->ffttype = main_thread_asm_data->ffttype;
+		asm_data->thread_work_routine = main_thread_asm_data->thread_work_routine;
+		if (gwdata->pass1_state == 1) {
+			asm_data->NORMRTN = main_thread_asm_data->NORMRTN;
+			asm_data->ADDIN_ROW = main_thread_asm_data->ADDIN_ROW;
+			asm_data->ADDIN_OFFSET = main_thread_asm_data->ADDIN_OFFSET;
+			asm_data->ADDIN_VALUE = main_thread_asm_data->ADDIN_VALUE;
+			if (gwdata->cpu_flags & CPU_AVX) {
+				memcpy (asm_data->u.ymm.YMM_MULCONST, main_thread_asm_data->u.ymm.YMM_MULCONST, 4 * sizeof (double));
+				memcpy (asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI, main_thread_asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI, 4 * sizeof (double));
+				memcpy (asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO, main_thread_asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO, 4 * sizeof (double));
+				memcpy (asm_data->u.ymm.YMM_MINUS_C_TIMES_MULCONST, main_thread_asm_data->u.ymm.YMM_MINUS_C_TIMES_MULCONST, 4 * sizeof (double));
+			} else if (gwdata->cpu_flags & CPU_SSE2) {
+				memcpy (asm_data->u.xmm.XMM_MULCONST, main_thread_asm_data->u.xmm.XMM_MULCONST, 2 * sizeof (double));
+				memcpy (asm_data->u.xmm.XMM_K_TIMES_MULCONST_HI, main_thread_asm_data->u.xmm.XMM_K_TIMES_MULCONST_HI, 2 * sizeof (double));
+				memcpy (asm_data->u.xmm.XMM_K_TIMES_MULCONST_LO, main_thread_asm_data->u.xmm.XMM_K_TIMES_MULCONST_LO, 2 * sizeof (double));
+				memcpy (asm_data->u.xmm.XMM_MINUS_C_TIMES_MULCONST, main_thread_asm_data->u.xmm.XMM_MINUS_C_TIMES_MULCONST, 2 * sizeof (double));
+			}
+			// Copy maxerr and sumout
+			if (gwdata->cpu_flags & CPU_AVX) {
+				memcpy (asm_data->u.ymm.YMM_MAXERR, &main_thread_asm_data->MAXERR, 4 * sizeof (double));
+			} else {
+				asm_data->u.xmm.XMM_SUMOUT[0] = 0.0;
+				asm_data->u.xmm.XMM_SUMOUT[1] = 0.0;
+				memcpy (asm_data->u.xmm.XMM_MAXERR, &main_thread_asm_data->MAXERR, 2 * sizeof (double));
+			}
+		}
 
 /* Now call the assembly code to do some work! */
 
@@ -4160,6 +4375,7 @@ aux_done:	gwevent_reset (&gwdata->thread_work_to_do);
 /* Free the allocated memory and exit the auxiliary thread */
 
 	aligned_free (info->scratch_area);
+	aligned_free (info->carries);
 	aligned_free (info->asm_data_alloc);
 	free (arg);
 }
@@ -4171,11 +4387,13 @@ aux_done:	gwevent_reset (&gwdata->thread_work_to_do);
 void pass1_wake_up_threads (
 	struct gwasm_data *asm_data)
 {
-	gwhandle *gwdata;
+	gwhandle *gwdata = asm_data->gwdata;
 
-/* Get pointer to the gwdata structure */
+/* Obtain the lock if multithreading */
 
-	gwdata = asm_data->gwdata;
+	if (gwdata->num_threads > 1) {
+		gwmutex_lock (&gwdata->thread_lock);
+	}
 
 /* Init pass1_state (kludge: passed in next_block parameter) */
 /* State is either 0 (forward FFT only) or 1 (inverse FFT and */
@@ -4183,199 +4401,100 @@ void pass1_wake_up_threads (
 
 	gwdata->pass1_state = asm_data->next_block;
 
-/* Prior to doing a forward zero-padded FFT copy 7 FFT elements */
+/* Initialization for the forward FFT case */
 
-	if (gwdata->pass1_state == 0 && gwdata->ZERO_PADDED_FFT)
-		xcopy_7_words (asm_data);
-
-/* Initialize the pointers that the normalization / carry propagation code */
-/* use. */
-
-	asm_data->norm_ptr1 = asm_data->norm_biglit_array;
-	asm_data->norm_ptr2 = asm_data->norm_col_mults;
-	if (gwdata->cpu_flags & CPU_AVX) {
-		asm_data->u.ymm.YMM_MAXERR[0] = asm_data->MAXERR;
-		asm_data->u.ymm.YMM_MAXERR[1] = asm_data->MAXERR;
-		asm_data->u.ymm.YMM_MAXERR[2] = asm_data->MAXERR;
-		asm_data->u.ymm.YMM_MAXERR[3] = asm_data->MAXERR;
-	} else {
-		asm_data->u.xmm.XMM_SUMOUT[0] = 0.0;
-		asm_data->u.xmm.XMM_SUMOUT[1] = 0.0;
-		asm_data->u.xmm.XMM_MAXERR[0] = asm_data->MAXERR;
-		asm_data->u.xmm.XMM_MAXERR[1] = asm_data->MAXERR;
-	}
-
-/* In the zero-padded FFT case prior to normalizing, the upper half of the */
-/* carries are set to zero instead of XMM_BIGVAL.  This saves us a couple */
-/* of clocks per FFT data element in xnorm_2d_zpad.  We zero the upper half */
-/* of each cache line.  We fixed this problem in the AVX code, so only do this */
-/* for SSE2 FFTs. */
-
-	if (gwdata->pass1_state == 1 && gwdata->ZERO_PADDED_FFT && ! (gwdata->cpu_flags & CPU_AVX)) {
-		int	i, carry_table_size;
-		double	*table;
-		carry_table_size = (gwdata->FFTLEN / gwdata->PASS2_SIZE) << 1;
-		table = (double *) asm_data->carries;
-		for (i = 0; i < carry_table_size; i += 8, table += 8) {
-			table[4] = 0.0;
-			table[5] = 0.0;
-			table[6] = 0.0;
-			table[7] = 0.0;
-		}
-	}
-
-/* Set up the this_block and next_block values for the main thread */
-
-	asm_data->this_block = 0;
-	asm_data->data_addr = pass1_data_addr (gwdata, asm_data, 0);
-	asm_data->premult_addr = pass1_premult_addr (gwdata, 0);
 	if (gwdata->pass1_state == 0) {
-		gwdata->next_block = asm_data->cache_line_multiplier;
-		pass1_state0_assign_next_block (gwdata, asm_data);
-	} else {
-		asm_data->next_block = asm_data->cache_line_multiplier;
-		asm_data->data_prefetch = pass1_data_addr (gwdata, asm_data, asm_data->next_block);
-		asm_data->premult_prefetch = pass1_premult_addr (gwdata, asm_data->next_block);
-		gwdata->next_block = 0;
-	}
-}
-
-void pass1_wake_up_threads_mt (
-	struct gwasm_data *asm_data)
-{
-	gwhandle *gwdata;
-	unsigned long i;
-
-/* Get pointer to the gwdata structure and obtain lock */
-
-	gwdata = asm_data->gwdata;
-	gwmutex_lock (&gwdata->thread_lock);
-
-/* Init pass1_state (kludge: passed in next_block parameter) */
-/* State is either 0 (forward FFT only) or 1 (inverse FFT and */
-/* optional next forward FFT) */
-
-	gwdata->pass1_state = asm_data->next_block;
 
 /* Prior to doing a forward zero-padded FFT copy 7 FFT elements */
 
-	if (gwdata->pass1_state == 0 && gwdata->ZERO_PADDED_FFT)
-		xcopy_7_words (asm_data);
-
-/* Initialize the pointers that the normalization / carry propagation code */
-/* use.  These are copied before and after each block is normalized so that */
-/* each thread essentially shares these values. */
-
-	asm_data->norm_ptr1 = asm_data->norm_biglit_array;
-	asm_data->norm_ptr2 = asm_data->norm_col_mults;
-	if (gwdata->cpu_flags & CPU_AVX) {
-		asm_data->u.ymm.YMM_MAXERR[0] = asm_data->MAXERR;
-		asm_data->u.ymm.YMM_MAXERR[1] = asm_data->MAXERR;
-		asm_data->u.ymm.YMM_MAXERR[2] = asm_data->MAXERR;
-		asm_data->u.ymm.YMM_MAXERR[3] = asm_data->MAXERR;
-	} else {
-		asm_data->u.xmm.XMM_SUMOUT[0] = 0.0;
-		asm_data->u.xmm.XMM_SUMOUT[1] = 0.0;
-		asm_data->u.xmm.XMM_MAXERR[0] = asm_data->MAXERR;
-		asm_data->u.xmm.XMM_MAXERR[1] = asm_data->MAXERR;
-	}
-
-/* In the zero-padded FFT case prior to normalizing, the upper half of the */
-/* carries are set to zero instead of XMM_BIGVAL.  This saves us a couple */
-/* of clocks per FFT data element in xnorm_2d_zpad.  We zero the upper half */
-/* of each cache line.  We fixed this problem in the AVX code, so only do this */
-/* for SSE2 FFTs. */
-
-	if (gwdata->pass1_state == 1 && gwdata->ZERO_PADDED_FFT && ! (gwdata->cpu_flags & CPU_AVX)) {
-		int	i, carry_table_size;
-		double	*table;
-		carry_table_size = (gwdata->FFTLEN / gwdata->PASS2_SIZE) << 1;
-		table = (double *) asm_data->carries;
-		for (i = 0; i < carry_table_size; i += 8, table += 8) {
-			table[4] = 0.0;
-			table[5] = 0.0;
-			table[6] = 0.0;
-			table[7] = 0.0;
-		}
-	}
+		if (gwdata->ZERO_PADDED_FFT) xcopy_7_words (asm_data);
 
 /* Set up the this_block and next_block values for the main thread */
 
-	asm_data->this_block = 0;
-	asm_data->data_addr = pass1_data_addr (gwdata, asm_data, 0);
-	asm_data->premult_addr = pass1_premult_addr (gwdata, 0);
-	if (gwdata->pass1_state == 0) {
-		gwdata->next_block = asm_data->cache_line_multiplier;
-		pass1_state0_assign_next_block (gwdata, asm_data);
-	} else {
-		asm_data->next_block = asm_data->cache_line_multiplier * gwdata->num_threads;
-		asm_data->data_prefetch = pass1_data_addr (gwdata, asm_data, asm_data->next_block);
-		asm_data->premult_prefetch = pass1_premult_addr (gwdata, asm_data->next_block);
 		gwdata->next_block = 0;
+		pass1_state0_assign_first_block (gwdata, asm_data);
+		pass1_state0_assign_next_block (gwdata, asm_data);
 	}
 
-/* Set flags and events, set assembly routine ptr that auxiliary threads */
-/* should call to do work, signal the auxiliary threads to resume working */
+/* Initialization for the inverse FFT (and optional next forward FFT) case */
 
-	gwevent_signal (&gwdata->pass1_norm_events[0]);
-	for (i = 1; i < gwdata->num_threads; i++)
-		gwevent_reset (&gwdata->pass1_norm_events[i]);
-	gwevent_reset (&gwdata->gwcarries_complete);
-	gwevent_signal (&gwdata->thread_work_to_do);
-	gwmutex_unlock (&gwdata->thread_lock);
+	if (gwdata->pass1_state == 1) {
+		int	i, num_blocks_allocated, num_blocks_remaining, num_threads_remaining;
+
+/* Initialize the pointers that the normalization / carry propagation code uses. */
+
+		if (gwdata->cpu_flags & CPU_AVX) {
+			memcpy (asm_data->u.ymm.YMM_MAXERR, &asm_data->MAXERR, 4 * sizeof (double));
+		} else {
+			((double *) asm_data->DESTARG)[-3] = 0.0;
+			asm_data->u.xmm.XMM_SUMOUT[0] = 0.0;
+			asm_data->u.xmm.XMM_SUMOUT[1] = 0.0;
+			memcpy (asm_data->u.xmm.XMM_MAXERR, &asm_data->MAXERR, 2 * sizeof (double));
+		}
+
+/* Split the available pass 1 blocks into contiguous sections for each thread to process. */
+
+		num_blocks_allocated = 0;
+		num_blocks_remaining = gwdata->num_pass1_blocks;
+		num_threads_remaining = gwdata->num_threads;
+		for (i = 0; i < (int) gwdata->num_threads; i++) {
+			int	num_blocks;
+
+			/* Calculate number of blocks in this section.  It must be a multiple of cache_line_multiplier. */
+			/* It must also be a multiple of 8 if AVX zero-padded (because of using YMM_SRC_INCR[0-7] in */
+			/* ynorm012 macros and all SSE2 FFTs because of using BIGLIT_INCR4 in xnorm012 macros. */
+			num_blocks = divide_rounding_up (num_blocks_remaining, num_threads_remaining);
+			num_blocks = round_up_to_multiple_of (num_blocks, asm_data->cache_line_multiplier);
+			if ((gwdata->cpu_flags & CPU_AVX && gwdata->ZERO_PADDED_FFT) || (! (gwdata->cpu_flags & CPU_AVX)))
+				num_blocks = round_up_to_multiple_of (num_blocks, 8);
+			if (num_blocks < (int) gwdata->num_postfft_blocks) num_blocks = gwdata->num_postfft_blocks;
+
+			/* Init section info */
+			gwdata->pass1_carry_sections[i].start_block = num_blocks_allocated;
+			gwdata->pass1_carry_sections[i].last_block = num_blocks_allocated + num_blocks;
+			gwdata->pass1_carry_sections[i].next_block = num_blocks_allocated;
+			gwdata->pass1_carry_sections[i].section_state = 0;
+			gwdata->pass1_carry_sections[i].can_carry_into_next = FALSE;
+			gwdata->pass1_carry_sections[i].dependent_section = i - 1;
+
+			/* Adjust counters */
+			num_blocks_allocated += num_blocks;
+			num_blocks_remaining -= num_blocks;
+			num_threads_remaining--;
+
+			/* The last section that allocates blocks propagates its carries into the first section */
+			if (num_blocks && num_blocks_remaining == 0)
+				gwdata->pass1_carry_sections[0].dependent_section = i;
+		}
+
+/* Set up the this_block and next_block values for the main thread */
+
+		pass1_state1_assign_first_block (gwdata, asm_data);
+		pass1_state1_assign_next_block (gwdata, asm_data);
+	}
+
+/* Signal the auxiliary threads to resume working */
+
+	if (gwdata->num_threads > 1) {
+		gwevent_signal (&gwdata->thread_work_to_do);
+		gwmutex_unlock (&gwdata->thread_lock);
+	}
 }
 
-/* This routine is called by the main thread assembly code to */
-/* wait for all the previous blocks to finish with the carry data. */
+/* This routine is called before normalizing a block of data. */
+/* This gives us an opportunity to make some adjustments for zero-padded FFTs. */
 
-void pass1_wait_for_carries (
+void pass1_pre_carries (
 	struct gwasm_data *asm_data)
 {
-	gwhandle *gwdata;
-
-/* Get pointer to the gwdata structure */
-
-	gwdata = asm_data->gwdata;
+	gwhandle *gwdata = asm_data->gwdata;
 
 /* In zero-padded FFTs, we must subtract ZPAD0-6 from the first seven result words. */
 /* In the radix-4 delay with partial normalization also apply the partial */
 /* normalization multipliers to ZPAD0-6. */
 
 	if (gwdata->ZERO_PADDED_FFT && asm_data->this_block <= 6) {
-		unsigned int i;
-		double	*fft_data;
-
-		if (gwdata->SCRATCH_SIZE) fft_data = (double *) asm_data->scratch_area;
-		else fft_data = (double *) asm_data->DESTARG;
-		for (i = asm_data->this_block; i <= 6 && i < asm_data->this_block + asm_data->cache_line_multiplier; i++) {
-			if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-				asm_data->ZPAD0_6[i] *= gwdata->ZPAD_0_6_ADJUST[i];
-				*fft_data -= asm_data->ZPAD0_6[i];
-			} else {
-				*fft_data -= asm_data->ZPAD0_6[i] * asm_data->u.xmm.XMM_NORM012_FF[0];
-				asm_data->u.xmm.XMM_SUMOUT[0] += asm_data->ZPAD0_6[i] * asm_data->u.xmm.XMM_NORM012_FF[0];
-			}
-			fft_data += 8;		// Next cache line
-		}
-	}
-}
-
-void pass1_wait_for_carries_mt (
-	struct gwasm_data *asm_data)
-{
-	gwhandle *gwdata;
-	struct gwasm_data *main_thread_asm_data;
-
-/* Get pointer to the gwdata structure */
-
-	gwdata = asm_data->gwdata;
-	main_thread_asm_data = (struct gwasm_data *) gwdata->asm_data;
-
-/* In zero-padded FFTs, we must subtract ZPAD0-6 from the first seven result words. */
-/* In the radix-4 delay with partial normalization also apply the partial */
-/* normalization multipliers to ZPAD0-6. */
-
-	if (gwdata->ZERO_PADDED_FFT && asm_data->this_block <= 6) {
+		struct gwasm_data *main_thread_asm_data = (struct gwasm_data *) gwdata->asm_data;
 		unsigned int i;
 		double	*fft_data;
 
@@ -4392,29 +4511,6 @@ void pass1_wait_for_carries_mt (
 			fft_data += 8;		// Next cache line
 		}
 	}
-
-/* Wait until the next normalization block to process is the block */
-/* that this thread is working on. */
-
-	gwevent_wait (&gwdata->pass1_norm_events[asm_data->thread_num], 0);
-	gwevent_reset (&gwdata->pass1_norm_events[asm_data->thread_num]);
-
-/* Copy the required normalization values so that assembly code can */
-/* access them */
-
-	asm_data->norm_ptr1 = main_thread_asm_data->norm_ptr1;
-	asm_data->norm_ptr2 = main_thread_asm_data->norm_ptr2;
-	if (gwdata->cpu_flags & CPU_AVX) {
-		asm_data->u.ymm.YMM_MAXERR[0] = main_thread_asm_data->u.ymm.YMM_MAXERR[0];
-		asm_data->u.ymm.YMM_MAXERR[1] = main_thread_asm_data->u.ymm.YMM_MAXERR[1];
-		asm_data->u.ymm.YMM_MAXERR[2] = main_thread_asm_data->u.ymm.YMM_MAXERR[2];
-		asm_data->u.ymm.YMM_MAXERR[3] = main_thread_asm_data->u.ymm.YMM_MAXERR[3];
-	} else {
-		asm_data->u.xmm.XMM_SUMOUT[0] = main_thread_asm_data->u.xmm.XMM_SUMOUT[0];
-		asm_data->u.xmm.XMM_SUMOUT[1] = main_thread_asm_data->u.xmm.XMM_SUMOUT[1];
-		asm_data->u.xmm.XMM_MAXERR[0] = main_thread_asm_data->u.xmm.XMM_MAXERR[0];
-		asm_data->u.xmm.XMM_MAXERR[1] = main_thread_asm_data->u.xmm.XMM_MAXERR[1];
-	}
 }
 
 /* This routine is called by the pass 1 threads when they are done */
@@ -4423,84 +4519,31 @@ void pass1_wait_for_carries_mt (
 #define PASS1_CARRIES_NO_FORWARD_FFT	0
 #define PASS1_CARRIES_FORWARD_FFT	1
 
-int pass1_done_with_carries (
+int pass1_post_carries (
 	struct gwasm_data *asm_data)
 {
-	gwhandle *gwdata;
+	gwhandle *gwdata = asm_data->gwdata;
+	int	i;
 
-/* Get pointer to the gwdata structure */
+/* If postfft is not set, then do not perform forward FFT on the result */
 
-	gwdata = asm_data->gwdata;
+	if (!gwdata->POSTFFT) return (PASS1_CARRIES_NO_FORWARD_FFT);
 
-/* If postfft is not set, then do not forward FFT the result */
+/* We must delay the forward FFT for the first few data blocks in each */
+/* section (until the carries are added back in). */
 
-	if (!asm_data->POSTFFT) return (PASS1_CARRIES_NO_FORWARD_FFT);
-
-/* If this is a zero padded FFT and we are doing the last block, then */
-/* we need to copy a few of the data values before they are FFTed. */
-
-	if (gwdata->ZERO_PADDED_FFT)
-		xcopy_3_words (asm_data);
-
-/* We must delay the forward FFT for the first few data blocks (until the */
-/* carries are added back in). */
-
-	if (asm_data->this_block < 8) return (PASS1_CARRIES_NO_FORWARD_FFT);
-	return (PASS1_CARRIES_FORWARD_FFT);
-}
-
-int pass1_done_with_carries_mt (
-	struct gwasm_data *asm_data)
-{
-	gwhandle *gwdata;
-	struct gwasm_data *main_thread_asm_data;
-
-/* Get pointer to the gwdata structure */
-
-	gwdata = asm_data->gwdata;
-
-/* Copy back the required normalization values so that the next thread */
-/* can pick up where we left off.  This is a nop if this is the main thread. */
-
-	main_thread_asm_data = (struct gwasm_data *) gwdata->asm_data;
-	main_thread_asm_data->norm_ptr1 = asm_data->norm_ptr1;
-	main_thread_asm_data->norm_ptr2 = asm_data->norm_ptr2;
-	if (gwdata->cpu_flags & CPU_AVX) {
-		main_thread_asm_data->u.ymm.YMM_MAXERR[0] = asm_data->u.ymm.YMM_MAXERR[0];
-		main_thread_asm_data->u.ymm.YMM_MAXERR[1] = asm_data->u.ymm.YMM_MAXERR[1];
-		main_thread_asm_data->u.ymm.YMM_MAXERR[2] = asm_data->u.ymm.YMM_MAXERR[2];
-		main_thread_asm_data->u.ymm.YMM_MAXERR[3] = asm_data->u.ymm.YMM_MAXERR[3];
-	} else {
-		main_thread_asm_data->u.xmm.XMM_SUMOUT[0] = asm_data->u.xmm.XMM_SUMOUT[0];
-		main_thread_asm_data->u.xmm.XMM_SUMOUT[1] = asm_data->u.xmm.XMM_SUMOUT[1];
-		main_thread_asm_data->u.xmm.XMM_MAXERR[0] = asm_data->u.xmm.XMM_MAXERR[0];
-		main_thread_asm_data->u.xmm.XMM_MAXERR[1] = asm_data->u.xmm.XMM_MAXERR[1];
-	}
-
-/* Inform the next thread that it can now enter the normalization code */
-
-	if (asm_data->this_block == asm_data->last_pass1_block)
-		gwevent_signal (&gwdata->pass1_norm_events[0]);
-	else if (asm_data->thread_num == gwdata->num_threads - 1)
-		gwevent_signal (&gwdata->pass1_norm_events[0]);
-	else
-		gwevent_signal (&gwdata->pass1_norm_events[asm_data->thread_num + 1]);
-
-/* If postfft is not set, then do not forward FFT the result */
-
-	if (!asm_data->POSTFFT) return (PASS1_CARRIES_NO_FORWARD_FFT);
-	
-/* If this is a zero padded FFT and we are doing the last block, then */
-/* we need to copy a few of the data values before they are FFTed. */
-
-	if (gwdata->ZERO_PADDED_FFT)
-		xcopy_3_words (asm_data);
-
-/* We must delay the forward FFT for the first few data blocks (until the */
-/* carries are added back in). */
-
-	if (asm_data->this_block < gwdata->num_postfft_blocks)
+	i = asm_data->thread_num;
+	if (asm_data->this_block < gwdata->pass1_carry_sections[i].start_block + gwdata->num_postfft_blocks)
 		return (PASS1_CARRIES_NO_FORWARD_FFT);
+
+/* If this is a zero padded FFT and we are doing the last 3 blocks, then */
+/* we need to copy a few of the data values before they are FFTed. */
+
+	if (gwdata->ZERO_PADDED_FFT && asm_data->this_block + asm_data->cache_line_multiplier >= gwdata->num_pass1_blocks - 3)
+		xcopy_3_words (asm_data);
+
+/* Perform the forward FFT on these data blocks while they are still in the cache */
+
 	return (PASS1_CARRIES_FORWARD_FFT);
 }
 
@@ -4520,18 +4563,12 @@ int pass1_done_with_carries_mt (
 /* Pass 1 states: */
 /* 0 = forward fft */
 /* 1 = inverse fft */
-/* 2 = gwcarries has started */
-/* 3 = gwcarries has completed  (may use event instead) */
 /* 999 = not in pass 1, we're doing pass 2 */
 
 int pass1_get_next_block (
 	struct gwasm_data *asm_data)
 {
-	gwhandle *gwdata;
-
-/* Get pointer to the gwdata structure */
-
-	gwdata = asm_data->gwdata;
+	gwhandle *gwdata = asm_data->gwdata;
 
 /* If state is zero, then we are doing the forward FFT.  In this case we */
 /* can process the blocks in any order (much like we do in pass 2). */
@@ -4539,114 +4576,120 @@ int pass1_get_next_block (
 	if (gwdata->pass1_state == 0) {
 
 /* There are no more blocks to process when the next block is the same */
-/* as the block just processed.  In that case, if this is the main thread */
-/* wait for auxiliary threads to complete.  If this is an auxiliary thread */
-/* then return code telling the assembly code to exit. */
+/* as the block just processed. */
 
 		if (asm_data->this_block == asm_data->next_block) {
 			asm_data->DIST_TO_FFTSRCARG = 0;
 			return (PASS1_START_PASS2);
 		}
 
-/* There is more pass 1 work to do.  Get next available block (if any). */
+/* There is more pass 1 work to do.  Get next available block (if any) for prefetching. */
 
 		asm_data->this_block = asm_data->next_block;
 		asm_data->data_addr = asm_data->data_prefetch;
 		asm_data->premult_addr = asm_data->premult_prefetch;
-		if (gwdata->next_block < gwdata->num_pass1_blocks) {
-			pass1_state0_assign_next_block (gwdata, asm_data);
-		}
-
+		pass1_state0_assign_next_block (gwdata, asm_data);
 		return (PASS1_DO_MORE_FORWARD_FFT);
 	}
 
 /* Otherwise, pass1_state is one and we are doing the inverse FFT (and */
-/* if POSTFFT is set pass 1 of the forward FFT on the result).  In this */
-/* case, the carry propgation code will force us to process blocks in order. */
+/* if POSTFFT is set pass 1 of the forward FFT on the result). */
 
-/* Handle the uncommon cases.  These occur when there is no next block */
-/* (next_block == this_block) or when we are processing the postfft data */
-/* blocks (next_block < this_block) */
+/* Pass 1 state 1 section states: */
+/* 0 = section not yet started */
+/* 1 = section being processed */
+/* 2 = section is adding carries into the next section */
+/* 3 = section is doing postfft processing of next section */
+/* 4 = section is complete */
 
-	if (asm_data->next_block <= asm_data->this_block) {
+/* Handle the common case, we're in the middle of processing a section */
 
-/* If gwcarries has not been called, then wait for all the carry */
-/* propagations to complete and then have the assembly code do gwcarries */
-/* For simplicity sake, we make the main thread do the gwcarries (I'd guess */
-/* that 99.99% of the time the main thread will be idle by the time the */
-/* last block has been normalized). */
+	ASSERTG (gwdata->pass1_carry_sections[0].section_state >= 1 && gwdata->pass1_carry_sections[0].section_state <= 3);
+	if (gwdata->pass1_carry_sections[0].section_state == 1) {
 
-		if (gwdata->pass1_state < 2) {
-			gwdata->pass1_state = 2;
-			return (PASS1_DO_GWCARRIES);
-		}
+/* If there is another block to process in the section, let's process it */
 
-/* Set state indicating gwcarries has completed. */ 
-/* After the carries are added back in, save the lowest four words of a */
-/* zero padded FFTs (before POSTFFT processing destroys the data). */
-
-		if (gwdata->pass1_state < 3) {
-			gwdata->pass1_state = 3;
-			if (gwdata->ZERO_PADDED_FFT && asm_data->POSTFFT)
-				xcopy_4_words (asm_data);
-		}
-
-/* There are no more blocks to process when the next block is the same */
-/* as the block just processed.  Return code telling the assembly code */
-/* to exit. */
-
-		if (asm_data->this_block == asm_data->next_block)
-			return (PASS1_COMPLETE);
-
-/* We are processing a post FFT block.  Fall through to figure out next */
-/* block to prefetch. */
-
-	}
-
-/* Calculate the next inverse FFT block to work on */
-
-	asm_data->this_block = asm_data->next_block;
-	asm_data->data_addr = asm_data->data_prefetch;
-	asm_data->premult_addr = asm_data->premult_prefetch;
-	if (gwdata->pass1_state == 1) {
-		unsigned long next_block;
-		next_block = asm_data->this_block + asm_data->cache_line_multiplier;
-		if (next_block < gwdata->num_pass1_blocks) {
-			asm_data->next_block = next_block;
-			asm_data->data_prefetch = pass1_data_addr (gwdata, asm_data, next_block);
-			asm_data->premult_prefetch = pass1_premult_addr (gwdata, next_block);
+		if (gwdata->pass1_carry_sections[0].next_block != gwdata->pass1_carry_sections[0].last_block) {
+			asm_data->this_block = gwdata->pass1_carry_sections[0].next_block;
+			gwdata->pass1_carry_sections[0].next_block += asm_data->cache_line_multiplier;
+			asm_data->data_addr = pass1_data_addr (gwdata, asm_data, asm_data->this_block);
+			asm_data->premult_addr = pass1_premult_addr (gwdata, asm_data->this_block);
+			pass1_state1_norm_addrs (gwdata, asm_data);
+			pass1_state1_assign_next_block (gwdata, asm_data);
 			return (PASS1_DO_MORE_INVERSE_FFT);
 		}
+
+/* Handle the case where we just did the last block.  We now need to apply the */
+/* carries back to the first blocks. */
+
+		gwdata->pass1_carry_sections[0].section_state = 2;
+		asm_data->this_block = 0;
+		asm_data->data_addr = pass1_data_addr (gwdata, asm_data, asm_data->this_block);
+		pass1_state1_norm_addrs (gwdata, asm_data);
+		asm_data->zero_fft = (asm_data->NORMRTN == gwdata->GWPROCPTRS[zerohigh_routines + (gwdata->NORMNUM & 1)]);
+		asm_data->const_fft = gwdata->NORMNUM & 2;
+		return (PASS1_DO_GWCARRIES);
 	}
 
-/* Either there is no next block or it will be a POSTFFT block */
+/* Handle case where we just propagated carries into the next block. */
 
-	if (asm_data->POSTFFT && gwdata->next_block < gwdata->num_postfft_blocks) {
-		asm_data->next_block = gwdata->next_block;
-		asm_data->data_prefetch = pass1_data_addr (gwdata, asm_data, asm_data->next_block);
-		asm_data->premult_prefetch = pass1_premult_addr (gwdata, asm_data->next_block);
-		gwdata->next_block += asm_data->cache_line_multiplier;
+	if (gwdata->pass1_carry_sections[0].section_state == 2 && gwdata->POSTFFT) {
+		gwdata->pass1_carry_sections[0].section_state = 3;
+
+/* After the carries are added back in to the first block, save the lowest four words of a */
+/* zero padded FFTs (before POSTFFT processing destroys the data). */
+
+		if (gwdata->ZERO_PADDED_FFT) xcopy_4_words (asm_data);
+
+/* Set blocks needing postfft processing */
+
+		gwdata->pass1_carry_sections[0].start_block = 0;
+		gwdata->pass1_carry_sections[0].last_block = gwdata->num_postfft_blocks;
+		gwdata->pass1_carry_sections[0].next_block = 0;
 	}
-	
-/* Return indicating whether to jump to the inverse fft code or for */
-/* POSTFFT processing jusmp to the forward fft code */
 
-	if (gwdata->pass1_state == 1) {
-		return (PASS1_DO_MORE_INVERSE_FFT);
-	} else {
+/* Do the forward FFT on the result blocks affected by our carries */
+
+	if (gwdata->pass1_carry_sections[0].section_state == 3 &&
+	    gwdata->pass1_carry_sections[0].next_block != gwdata->pass1_carry_sections[0].last_block) {
+		asm_data->this_block = gwdata->pass1_carry_sections[0].next_block;
+		gwdata->pass1_carry_sections[0].next_block += asm_data->cache_line_multiplier;
+		asm_data->data_addr = pass1_data_addr (gwdata, asm_data, asm_data->this_block);
+		asm_data->premult_addr = pass1_premult_addr (gwdata, asm_data->this_block);
+		pass1_state1_assign_next_block (gwdata, asm_data);
 		return (PASS1_DO_MORE_FORWARD_FFT);
 	}
+
+/* We're finished, do final cleanup */
+
+	if (gwdata->cpu_flags & CPU_AVX) {
+		if (asm_data->u.ymm.YMM_MAXERR[0] > asm_data->MAXERR) asm_data->MAXERR = asm_data->u.ymm.YMM_MAXERR[0];
+		if (asm_data->u.ymm.YMM_MAXERR[1] > asm_data->MAXERR) asm_data->MAXERR = asm_data->u.ymm.YMM_MAXERR[1];
+		if (asm_data->u.ymm.YMM_MAXERR[2] > asm_data->MAXERR) asm_data->MAXERR = asm_data->u.ymm.YMM_MAXERR[2];
+		if (asm_data->u.ymm.YMM_MAXERR[3] > asm_data->MAXERR) asm_data->MAXERR = asm_data->u.ymm.YMM_MAXERR[3];
+	} else if (gwdata->cpu_flags & CPU_SSE2) {
+		if (asm_data->u.xmm.XMM_MAXERR[0] > asm_data->MAXERR) asm_data->MAXERR = asm_data->u.xmm.XMM_MAXERR[0];
+		if (asm_data->u.xmm.XMM_MAXERR[1] > asm_data->MAXERR) asm_data->MAXERR = asm_data->u.xmm.XMM_MAXERR[1];
+		/* Accumulate SUMOUT */
+		((double *) asm_data->DESTARG)[-3] = asm_data->u.xmm.XMM_SUMOUT[0] + asm_data->u.xmm.XMM_SUMOUT[1];
+		/* Normalize SUMOUT value by multiplying by 1 / (fftlen/2). */
+		((double *) asm_data->DESTARG)[-3] *= asm_data->ttmp_ff_inv;
+	}
+
+	/* Set FFT-started flag */
+	((uint32_t *) asm_data->DESTARG)[-7] = gwdata->POSTFFT;
+
+	return (PASS1_COMPLETE);
 }
 
 int pass1_get_next_block_mt (
 	struct gwasm_data *asm_data)
 {
-	gwhandle *gwdata;
+	gwhandle *gwdata = asm_data->gwdata;
+	int	i;
 
-/* Get pointer to the gwdata structure.  Grab lock before reading or */
-/* writing any gwdata values. */
+/* Grab lock before reading or writing any gwdata values. */
 
-	gwdata = asm_data->gwdata;
 	gwmutex_lock (&gwdata->thread_lock);
 
 /* If state is zero, then we are doing the forward FFT.  In this case we */
@@ -4670,118 +4713,182 @@ int pass1_get_next_block_mt (
 			return (PASS1_START_PASS2);
 		}
 
-/* There is more pass 1 work to do.  Obtain lock and get next available */
-/* block (if any). */
+/* There is more pass 1 work to do.  Get next available block (if any) for prefetching. */
 
 		asm_data->this_block = asm_data->next_block;
 		asm_data->data_addr = asm_data->data_prefetch;
 		asm_data->premult_addr = asm_data->premult_prefetch;
-		if (gwdata->next_block < gwdata->num_pass1_blocks)
-			pass1_state0_assign_next_block (gwdata, asm_data);
+		pass1_state0_assign_next_block (gwdata, asm_data);
 		gwmutex_unlock (&gwdata->thread_lock);
-
 		return (PASS1_DO_MORE_FORWARD_FFT);
 	}
 
 /* Otherwise, pass1_state is one and we are doing the inverse FFT (and */
-/* if POSTFFT is set pass 1 of the forward FFT on the result).  In this */
-/* case, the carry propgation code will force us to process blocks in order. */
+/* if POSTFFT is set pass 1 of the forward FFT on the result). */
 
-/* Handle the uncommon cases.  These occur when there is no next block */
-/* (next_block == this_block) or when we are processing the postfft data */
-/* blocks (next_block < this_block) */
+/* Pass 1 state 1 section states: */
+/* 0 = section not yet started */
+/* 1 = section being processed */
+/* 2 = section is adding carries into the next section */
+/* 3 = section is doing postfft processing of next section */
 
-	if (asm_data->next_block <= asm_data->this_block) {
+/* Handle the common case, we're in the middle of processing a section */
 
-/* If gwcarries has not been called, then wait for all the carry */
-/* propagations to complete and then have the assembly code do gwcarries */
-/* For simplicity sake, we make the main thread do the gwcarries (I'd guess */
-/* that 99.99% of the time the main thread will be idle by the time the */
-/* last block has been normalized). */
+	i = asm_data->thread_num;
+	ASSERTG (gwdata->pass1_carry_sections[i].section_state >= 1 && gwdata->pass1_carry_sections[i].section_state <= 3);
+	if (gwdata->pass1_carry_sections[i].section_state == 1) {
 
-		if (gwdata->pass1_state < 2 && asm_data->thread_num == 0) {
-			gwmutex_unlock (&gwdata->thread_lock);
-			gwevent_wait (&gwdata->pass1_norm_events[0], 0);
-			gwmutex_lock (&gwdata->thread_lock);
-			gwdata->pass1_state = 2;
-			gwmutex_unlock (&gwdata->thread_lock);
-			return (PASS1_DO_GWCARRIES);
+/* If we just finished off the first blocks in the section, then set dependent section's OK to carry into flag */
+/* Signal an event in case the dependent section is waiting on us to process our first blocks. */
+
+		if (asm_data->this_block + asm_data->cache_line_multiplier ==
+				gwdata->pass1_carry_sections[i].start_block + gwdata->num_postfft_blocks) {
+			int	dep = gwdata->pass1_carry_sections[i].dependent_section;
+			ASSERTG (gwdata->pass1_carry_sections[dep].last_block == gwdata->pass1_carry_sections[i].start_block ||
+				 (gwdata->pass1_carry_sections[dep].last_block == gwdata->num_pass1_blocks &&
+				  gwdata->pass1_carry_sections[i].start_block == 0));
+			gwdata->pass1_carry_sections[dep].can_carry_into_next = TRUE;
+			gwevent_signal (&gwdata->can_carry_into);
 		}
 
-/* Set state indicating gwcarries has completed. */ 
-/* After the carries are added back in, save the lowest four words of a */
-/* zero padded FFTs (before POSTFFT processing destroys the data). */
+/* If there is another block to process in the section, let's process it */
 
-		if (gwdata->pass1_state < 3 && asm_data->thread_num == 0) {
-			gwdata->pass1_state = 3;
-			if (gwdata->ZERO_PADDED_FFT && asm_data->POSTFFT)
-				xcopy_4_words (asm_data);
-			gwevent_signal (&gwdata->gwcarries_complete);
-		}
-
-/* There are no more blocks to process when the next block is the same */
-/* as the block just processed.  In that case, if this is the main thread */
-/* wait for auxiliary threads to complete.  If this is an auxiliary thread */
-/* then return code telling the assembly code to exit. */
-
-		if (asm_data->this_block == asm_data->next_block) {
-			if (asm_data->thread_num) {
-				gwmutex_unlock (&gwdata->thread_lock);
-				return (PASS1_EXIT_THREAD);
-			}
-			gwmutex_unlock (&gwdata->thread_lock);
-			gwevent_wait (&gwdata->all_threads_done, 0);
-			return (PASS1_COMPLETE);
-		}
-
-/* We are processing a post FFT block.  Wait for the gwcarries code to */
-/* complete, then fall through to figure out next block to prefetch. */
-		
-		gwmutex_unlock (&gwdata->thread_lock);
-		gwevent_wait (&gwdata->gwcarries_complete, 0);
-		gwmutex_lock (&gwdata->thread_lock);
-	}
-
-/* Calculate the next inverse FFT block to work on */
-
-	asm_data->this_block = asm_data->next_block;
-	asm_data->data_addr = asm_data->data_prefetch;
-	asm_data->premult_addr = asm_data->premult_prefetch;
-	if (gwdata->pass1_state == 1) {
-		unsigned long next_block;
-		next_block = asm_data->this_block +
-				asm_data->cache_line_multiplier *
-				gwdata->num_threads;
-		if (next_block < gwdata->num_pass1_blocks) {
-			asm_data->next_block = next_block;
-			asm_data->data_prefetch = pass1_data_addr (gwdata, asm_data, next_block);
-			asm_data->premult_prefetch = pass1_premult_addr (gwdata, next_block);
+		if (gwdata->pass1_carry_sections[i].next_block != gwdata->pass1_carry_sections[i].last_block) {
+			asm_data->this_block = gwdata->pass1_carry_sections[i].next_block;
+			gwdata->pass1_carry_sections[i].next_block += asm_data->cache_line_multiplier;
+			asm_data->data_addr = pass1_data_addr (gwdata, asm_data, asm_data->this_block);
+			asm_data->premult_addr = pass1_premult_addr (gwdata, asm_data->this_block);
+			pass1_state1_norm_addrs (gwdata, asm_data);
+			pass1_state1_assign_next_block (gwdata, asm_data);
 			gwmutex_unlock (&gwdata->thread_lock);
 			return (PASS1_DO_MORE_INVERSE_FFT);
 		}
-	}
 
-/* Either there is no next block or it will be a POSTFFT block */
+/* Handle the case where we just did the last block in the section.  We now need to apply this */
+/* section's carries to the next section.  Unfortunately, the next section may not have processed */
+/* it's first blocks yet forcing us to wait.  Technically, each section should have its own event */
+/* as there is no guarantee that the signal will wake up the thread waiting here.  However, */
+/* waiting here should be rare as it only happens when one thread completes an entire section */
+/* before the dependent thread has processed its first blocks. */
 
-	if (asm_data->POSTFFT && gwdata->next_block < gwdata->num_postfft_blocks) {
-		asm_data->next_block = gwdata->next_block;
-		asm_data->data_prefetch = pass1_data_addr (gwdata, asm_data, asm_data->next_block);
-		asm_data->premult_prefetch = pass1_premult_addr (gwdata, asm_data->next_block);
-		gwdata->next_block += asm_data->cache_line_multiplier;
-	}
-	
-/* Return indicating whether to jump to the inverse fft code or for */
-/* POSTFFT processing jump to the forward fft code */
+		while (! gwdata->pass1_carry_sections[i].can_carry_into_next) {
+			gwevent_reset (&gwdata->can_carry_into);
+			gwmutex_unlock (&gwdata->thread_lock);
+			gwevent_wait (&gwdata->can_carry_into, 0);
+			gwmutex_lock (&gwdata->thread_lock);
+		}
 
-	if (gwdata->pass1_state == 1) {
+/* Now apply this section's carries to the next section. */
+
+		gwdata->pass1_carry_sections[i].section_state = 2;
+		asm_data->this_block = gwdata->pass1_carry_sections[i].last_block;
+		if (asm_data->this_block == gwdata->num_pass1_blocks) asm_data->this_block = 0;
+		/* Copy the 7 ZPAD values that were computed in the main thread */
+		if (gwdata->ZERO_PADDED_FFT && asm_data->this_block == 0) {
+			struct gwasm_data *main_thread_asm_data = (struct gwasm_data *) gwdata->asm_data;
+			memcpy (asm_data->ZPAD0_6, main_thread_asm_data->ZPAD0_6, 7 * sizeof (double));
+		}
+		asm_data->data_addr = pass1_data_addr (gwdata, asm_data, asm_data->this_block);
+		pass1_state1_norm_addrs (gwdata, asm_data);
+		asm_data->zero_fft = (asm_data->NORMRTN == gwdata->GWPROCPTRS[zerohigh_routines + (gwdata->NORMNUM & 1)]);
+		asm_data->const_fft = gwdata->NORMNUM & 2;
 		gwmutex_unlock (&gwdata->thread_lock);
-		return (PASS1_DO_MORE_INVERSE_FFT);
-	} else {
+		return (PASS1_DO_GWCARRIES);
+	}
+
+/* Handle case where we just propagated carries into the next block and we need to start the */
+/* forward FFT on the affected blocks. */
+
+	if (gwdata->pass1_carry_sections[i].section_state == 2 && gwdata->POSTFFT) {
+		gwdata->pass1_carry_sections[i].section_state = 3;
+
+/* After the carries are added back in to the first blocks, save the lowest four words of a */
+/* zero padded FFTs (before POSTFFT processing destroys the data). */
+
+		if (gwdata->ZERO_PADDED_FFT) {
+			if (asm_data->this_block == 0) xcopy_4_words (asm_data);
+
+/* After the carries are added back in to the last blocks, save the three words below the halfway */
+/* point in a zero padded FFTs (before POSTFFT processing destroys the data).  This can only happen */
+/* due to section splitting or a huge number of threads. */
+
+			if (asm_data->this_block + gwdata->num_postfft_blocks >= gwdata->num_pass1_blocks - 3)
+				xcopy_3_words_after_gwcarries (asm_data);
+		}
+
+/* Figure out which blocks need postfft processing */
+
+		gwdata->pass1_carry_sections[i].start_block = gwdata->pass1_carry_sections[i].next_block;
+		if (gwdata->pass1_carry_sections[i].start_block == gwdata->num_pass1_blocks) gwdata->pass1_carry_sections[i].start_block = 0;
+		gwdata->pass1_carry_sections[i].last_block = gwdata->pass1_carry_sections[i].start_block + gwdata->num_postfft_blocks;
+		gwdata->pass1_carry_sections[i].next_block = gwdata->pass1_carry_sections[i].start_block;
+	}
+
+/* Do the forward FFT on the postfft blocks */
+
+	if (gwdata->pass1_carry_sections[i].section_state == 3 &&
+	    gwdata->pass1_carry_sections[i].next_block != gwdata->pass1_carry_sections[i].last_block) {
+		asm_data->this_block = gwdata->pass1_carry_sections[i].next_block;
+		gwdata->pass1_carry_sections[i].next_block += asm_data->cache_line_multiplier;
+		asm_data->data_addr = pass1_data_addr (gwdata, asm_data, asm_data->this_block);
+		asm_data->premult_addr = pass1_premult_addr (gwdata, asm_data->this_block);
+		pass1_state1_assign_next_block (gwdata, asm_data);
 		gwmutex_unlock (&gwdata->thread_lock);
 		return (PASS1_DO_MORE_FORWARD_FFT);
 	}
-}
 
+/* We've finished this section */
+
+	gwdata->pass1_carry_sections[i].section_state = 4;
+
+/* See if there is some other section we can help finish off which will set the section_state back to 1 */
+
+	if (pass1_state1_assign_first_block (gwdata, asm_data)) {
+		pass1_state1_assign_next_block (gwdata, asm_data);
+		gwmutex_unlock (&gwdata->thread_lock);
+		return (PASS1_DO_MORE_INVERSE_FFT);
+	}
+   
+/* We've finished this thread, merge this thread's maxerr and sumout with the main thread */
+
+	if (gwdata->cpu_flags & CPU_AVX) {
+		struct gwasm_data *main_thread_asm_data = (struct gwasm_data *) gwdata->asm_data;
+		if (asm_data->u.ymm.YMM_MAXERR[0] > main_thread_asm_data->MAXERR) main_thread_asm_data->MAXERR = asm_data->u.ymm.YMM_MAXERR[0];
+		if (asm_data->u.ymm.YMM_MAXERR[1] > main_thread_asm_data->MAXERR) main_thread_asm_data->MAXERR = asm_data->u.ymm.YMM_MAXERR[1];
+		if (asm_data->u.ymm.YMM_MAXERR[2] > main_thread_asm_data->MAXERR) main_thread_asm_data->MAXERR = asm_data->u.ymm.YMM_MAXERR[2];
+		if (asm_data->u.ymm.YMM_MAXERR[3] > main_thread_asm_data->MAXERR) main_thread_asm_data->MAXERR = asm_data->u.ymm.YMM_MAXERR[3];
+	} else if (gwdata->cpu_flags & CPU_SSE2) {
+		struct gwasm_data *main_thread_asm_data = (struct gwasm_data *) gwdata->asm_data;
+		if (asm_data->u.xmm.XMM_MAXERR[0] > main_thread_asm_data->MAXERR) main_thread_asm_data->MAXERR = asm_data->u.xmm.XMM_MAXERR[0];
+		if (asm_data->u.xmm.XMM_MAXERR[1] > main_thread_asm_data->MAXERR) main_thread_asm_data->MAXERR = asm_data->u.xmm.XMM_MAXERR[1];
+		/* Accumulate SUMOUT */
+		((double *) asm_data->DESTARG)[-3] += asm_data->u.xmm.XMM_SUMOUT[0] + asm_data->u.xmm.XMM_SUMOUT[1];
+	}
+
+/* There are no more blocks to process.  If this is an auxiliary thread */
+/* then return code telling the assembly code to exit. */
+
+	if (asm_data->thread_num) {
+		gwmutex_unlock (&gwdata->thread_lock);
+		return (PASS1_EXIT_THREAD);
+	}
+
+/* There are no more blocks to process.  This is the main thread, */
+/* wait for auxiliary threads to complete. */
+
+	gwmutex_unlock (&gwdata->thread_lock);
+	gwevent_wait (&gwdata->all_threads_done, 0);
+
+/* We're finished, do final cleanup */
+
+	/* Set FFT-started flag */
+	((uint32_t *) asm_data->DESTARG)[-7] = gwdata->POSTFFT;
+
+	/* Normalize SUMOUT value by multiplying by 1 / (fftlen/2). */
+	((double *) asm_data->DESTARG)[-3] *= asm_data->ttmp_ff_inv;
+
+	return (PASS1_COMPLETE);
+}
 
 /* This callback routine is called by the main thread assembly code to */
 /* fire up all the auxiliary worker threads in pass 2. */
@@ -4789,39 +4896,28 @@ int pass1_get_next_block_mt (
 void pass2_wake_up_threads (
 	struct gwasm_data *asm_data)
 {
-	gwhandle *gwdata;
+	gwhandle *gwdata = asm_data->gwdata;
+
+/* Obtain the lock if multithreading */
+
+	if (gwdata->num_threads > 1) {
+		gwmutex_lock (&gwdata->thread_lock);
+	}
 
 /* Call assign_next_block twice to set up the main thread's this_block */
 /* and next_block values. */
 
-	gwdata = asm_data->gwdata;
 	gwdata->pass1_state = 999;
+	gwdata->next_block = 0;
 	pass2_assign_first_block (gwdata, asm_data);
-}
+	pass2_assign_next_block (gwdata, asm_data);
 
-/* This is the multi-thread version of the routine above */
+/* Signal the auxiliary threads to resume working */
 
-void pass2_wake_up_threads_mt (
-	struct gwasm_data *asm_data)
-{
-	gwhandle *gwdata;
-
-/* Get pointer to the gwdata structure and obtain lock */
-
-	gwdata = asm_data->gwdata;
-	gwmutex_lock (&gwdata->thread_lock);
-
-/* Do all the same work the single thread version does to set up the */
-/* main thread's data block and prefetch block. */
-
-	gwdata->pass1_state = 999;
-	pass2_assign_first_block (gwdata, asm_data);
-
-/* Set flags and events, set assembly routine ptr that auxiliary threads */
-/* should call to do work,  signal the auxiliary threads to resume working */
-
-	gwevent_signal (&gwdata->thread_work_to_do);
-	gwmutex_unlock (&gwdata->thread_lock);
+	if (gwdata->num_threads > 1) {
+		gwevent_signal (&gwdata->thread_work_to_do);
+		gwmutex_unlock (&gwdata->thread_lock);
+	}
 }
 
 /* This routine is called by assembly code threads to get the next */
@@ -4834,6 +4930,8 @@ int pass2_get_next_block (
 
 	if (asm_data->this_block == asm_data->next_block) {
 		asm_data->DIST_TO_FFTSRCARG = 0;
+		if (asm_data->ffttype == 1)
+			((uint32_t *) asm_data->DESTARG)[-7] = 3; // Set has-been-FFTed flag
 		return (TRUE);
 	}
 
@@ -4842,8 +4940,7 @@ int pass2_get_next_block (
 	asm_data->this_block = asm_data->next_block;
 	asm_data->data_addr = asm_data->data_prefetch;
 	asm_data->premult_addr = asm_data->premult_prefetch;
-	if (gwdata->next_block < gwdata->num_pass2_blocks)
-		pass2_assign_next_block (gwdata, asm_data);
+	pass2_assign_next_block (gwdata, asm_data);
 
 	return (FALSE);
 }
@@ -4853,12 +4950,10 @@ int pass2_get_next_block (
 int pass2_get_next_block_mt (
 	struct gwasm_data *asm_data)
 {
-	gwhandle *gwdata;
+	gwhandle *gwdata = asm_data->gwdata;
 
-/* Get pointer to the gwdata structure.  Grab lock before reading or */
-/* writing any gwdata values. */
+/* Grab lock before reading or writing any gwdata values. */
 
-	gwdata = asm_data->gwdata;
 	gwmutex_lock (&gwdata->thread_lock);
 
 /* There are no more blocks to process when the next block is the same */
@@ -4867,12 +4962,15 @@ int pass2_get_next_block_mt (
 /* then return code telling the assembly code to exit. */
 
 	if (asm_data->this_block == asm_data->next_block) {
-		if (asm_data->thread_num == 0) {
+		if (asm_data->thread_num) {
 			gwmutex_unlock (&gwdata->thread_lock);
-			gwevent_wait (&gwdata->all_threads_done, 0);
-			asm_data->DIST_TO_FFTSRCARG = 0;
-		} else
-			gwmutex_unlock (&gwdata->thread_lock);
+			return (TRUE);
+		}
+		gwmutex_unlock (&gwdata->thread_lock);
+		gwevent_wait (&gwdata->all_threads_done, 0);
+		asm_data->DIST_TO_FFTSRCARG = 0;
+		if (asm_data->ffttype == 1)
+			((uint32_t *) asm_data->DESTARG)[-7] = 3; // Set has-been-FFTed flag
 		return (TRUE);
 	}
 
@@ -4882,9 +4980,7 @@ int pass2_get_next_block_mt (
 	asm_data->this_block = asm_data->next_block;
 	asm_data->data_addr = asm_data->data_prefetch;
 	asm_data->premult_addr = asm_data->premult_prefetch;
-	if (gwdata->next_block < gwdata->num_pass2_blocks) {
-		pass2_assign_next_block (gwdata, asm_data);
-	}
+	pass2_assign_next_block (gwdata, asm_data);
 	gwmutex_unlock (&gwdata->thread_lock);
 
 /* Return code indicating more work to do */
@@ -4930,9 +5026,14 @@ int multithread_init (
 		asm_data->last_pass1_block = gwdata->num_pass1_blocks - asm_data->cache_line_multiplier;
 	}
 
-//bug - minor optimization:  for small k/c we can probably set this to
-//less than 8
+/* Determine how many data blocks are affected by carries out of pass 1 section.  Eight is always safe. */
+/* For Mersenne numbers, two or three should be safe.  For other k,b,n,c combinations, we should do a */
+/* little more research to set this to four or six when we can. */
+
 	gwdata->num_postfft_blocks = 8;
+	if (!gwdata->ZERO_PADDED_FFT && gwdata->k == 1.0 && gwdata->b == 2 && abs (gwdata->c) == 1)
+		gwdata->num_postfft_blocks = (gwdata->avg_num_b_per_word >= 18.0) ? 2 : 3;
+	gwdata->num_postfft_blocks = round_up_to_multiple_of (gwdata->num_postfft_blocks, asm_data->cache_line_multiplier);
 
 /* Calculate the values used to compute pass 2 premultier pointers. */
 /* This only happens for our home-grown FFTs.  Non-power-of-2 pass 2 */
@@ -4955,48 +5056,51 @@ int multithread_init (
 				(char *) asm_data->u.xmm.pass2_premults - gwdata->pass2_premult_block_size;
 	}
 
+/* Allocate and init carry section array */
+
+	gwdata->pass1_carry_sections = (struct pass1_carry_sections *) malloc (gwdata->num_threads * sizeof (struct pass1_carry_sections));
+	if (gwdata->pass1_carry_sections == NULL) return (GWERROR_MALLOC);
+
 /* If we aren't multithreading, use the simpler version of routines */
 
 	if (gwdata->num_threads <= 1) {
 		asm_data->pass1_wake_up_threads = pass1_wake_up_threads;
-		asm_data->pass1_wait_for_carries = pass1_wait_for_carries;
-		asm_data->pass1_done_with_carries = pass1_done_with_carries;
+		asm_data->pass1_pre_carries = pass1_pre_carries;
+		asm_data->pass1_post_carries = pass1_post_carries;
 		asm_data->pass1_get_next_block = pass1_get_next_block;
 		asm_data->pass2_wake_up_threads = pass2_wake_up_threads;
 		asm_data->pass2_get_next_block = pass2_get_next_block;
 		return (0);
 	}
 
-/* Sanity check num_threads argument */
+/* Init thread arrays */
 
-	if (gwdata->num_threads > MAX_AUXILIARY_THREADS+1)
-		gwdata->num_threads = MAX_AUXILIARY_THREADS+1;
+	gwdata->thread_ids = (gwthread *) malloc (gwdata->num_threads * sizeof (gwthread));
+	if (gwdata->thread_ids == NULL) return (GWERROR_MALLOC);
+	memset (gwdata->thread_ids, 0, gwdata->num_threads * sizeof (gwthread));
 
 /* Init mutexes and events used to control auxiliary threads */
 
 	gwmutex_init (&gwdata->thread_lock);
 	gwevent_init (&gwdata->thread_work_to_do);
 	gwevent_init (&gwdata->all_threads_done);
-	gwevent_init (&gwdata->gwcarries_complete);
-	for (i = 0; i < gwdata->num_threads; i++)
-		gwevent_init (&gwdata->pass1_norm_events[i]);
+	gwevent_init (&gwdata->can_carry_into);
 	gwdata->num_active_threads = 0;
 	gwevent_signal (&gwdata->all_threads_done);
 
 /* Set ptrs to call back routines in structure used by assembly code */
 
-	asm_data->pass1_wake_up_threads = pass1_wake_up_threads_mt;
-	asm_data->pass1_wait_for_carries = pass1_wait_for_carries_mt;
-	asm_data->pass1_done_with_carries = pass1_done_with_carries_mt;
+	asm_data->pass1_wake_up_threads = pass1_wake_up_threads;
+	asm_data->pass1_pre_carries = pass1_pre_carries;
+	asm_data->pass1_post_carries = pass1_post_carries;
 	asm_data->pass1_get_next_block = pass1_get_next_block_mt;
-	asm_data->pass2_wake_up_threads = pass2_wake_up_threads_mt;
+	asm_data->pass2_wake_up_threads = pass2_wake_up_threads;
 	asm_data->pass2_get_next_block = pass2_get_next_block_mt;
 
 /* Pre-create each auxiliary thread used in multiplication code. */
 /* We allocate the memory here so that error recovery is easier. */
 
 	gwdata->threads_must_exit = FALSE;
-	memset (gwdata->thread_id, 0, sizeof (gwdata->thread_id));
 	for (i = 0; i < gwdata->num_threads - 1; i++) {
 		struct thread_data *info;
 
@@ -5004,18 +5108,35 @@ int multithread_init (
 		if (info == NULL) return (GWERROR_MALLOC);
 		info->gwdata = gwdata;
 		info->thread_num = i+1;
+		/* Allocate the asm_data area and thread stack */
 		info->asm_data_alloc = aligned_malloc (sizeof (struct gwasm_data) + NEW_STACK_SIZE, 4096);
 		if (info->asm_data_alloc == NULL) {
 			free (info);
 			return (GWERROR_MALLOC);
 		}
+		/* Allocate the scratch area */
 		info->scratch_area = aligned_malloc (gwdata->SCRATCH_SIZE, 128);
 		if (info->scratch_area == NULL) {
 			aligned_free (info->asm_data_alloc);
 			free (info);
 			return (GWERROR_MALLOC);
 		}
-		gwthread_create_waitable (&gwdata->thread_id[i], &auxiliary_thread, info);
+		/* Allocate the carries area */
+		if (gwdata->cpu_flags & CPU_AVX) {
+			int	carry_table_size = gwdata->FFTLEN / gwdata->PASS2_SIZE;
+			info->carries = aligned_malloc (carry_table_size * sizeof (double), 128);
+		} else {
+			int	carry_table_size = gwdata->FFTLEN / (gwdata->PASS2_SIZE / 2);
+			info->carries = aligned_malloc (carry_table_size * sizeof (double), 128);
+		}
+		if (info->carries == NULL) {
+			aligned_free (info->asm_data_alloc);
+			aligned_free (info->scratch_area);
+			free (info);
+			return (GWERROR_MALLOC);
+		}
+		/* Launch the auxiliary thread */
+		gwthread_create_waitable (&gwdata->thread_ids[i], &auxiliary_thread, info);
 	}
 
 /* Return success */
@@ -5029,6 +5150,11 @@ void multithread_term (
 	gwhandle *gwdata)
 {
 	unsigned long i;
+
+/* Free up memory */
+
+	free (gwdata->pass1_carry_sections);
+	gwdata->pass1_carry_sections = NULL;
 
 /* Return if we aren't multithreading or multithreading was not initialized */
 
@@ -5046,17 +5172,20 @@ void multithread_term (
 /* that this thread can safely delete the gwdata structure */
 
 	for (i = 0; i < gwdata->num_threads - 1; i++)
-		if (gwdata->thread_id[i])
-			gwthread_wait_for_exit (&gwdata->thread_id[i]);
+		if (gwdata->thread_ids[i])
+			gwthread_wait_for_exit (&gwdata->thread_ids[i]);
+
+/* Free up memory */
+
+	free (gwdata->thread_ids);
+	gwdata->thread_ids = NULL;
 
 /* Now free up the multi-thread resources */
 
 	gwmutex_destroy (&gwdata->thread_lock);
 	gwevent_destroy (&gwdata->thread_work_to_do);
 	gwevent_destroy (&gwdata->all_threads_done);
-	gwevent_destroy (&gwdata->gwcarries_complete);
-	for (i = 0; i < gwdata->num_threads; i++)
-		gwevent_destroy (&gwdata->pass1_norm_events[i]);
+	gwevent_destroy (&gwdata->can_carry_into);
 	gwdata->thread_lock = NULL;
 }
 
@@ -5463,7 +5592,7 @@ unsigned long addr_offset (
 /*	1023	...							*/
 /*	2K	...							*/
 /*	...								*/
-/* and PFA layouts are even funkier.					*/		
+/* and PFA layouts are even funkier.					*/
 
 		else if (gwdata->FFT_TYPE == FFT_TYPE_HOME_GROWN) {
 			sets = (fftlen / gwdata->PASS2_SIZE) >> 2;
@@ -5752,25 +5881,44 @@ void gwfft_description (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	char	*buf)		/* Buffer to return string in */
 {
+	char	*arch, *ffttype;
+
+	arch = "";
+	if (gwdata->PASS2_SIZE) {
+		if (gwdata->cpu_flags & CPU_AVX) {
+			// No output means Intel Core2 optimized
+			if (gwdata->ARCH == 6) arch = "Bulldozer ";
+		}
+		else if (gwdata->cpu_flags & CPU_SSE2) {
+			// No output means Intel Core2 optimized
+			if (gwdata->ARCH == 2) arch = "Pentium4 ";
+			if (gwdata->ARCH == 4) arch = "AMD K8 ";
+			if (gwdata->ARCH == 5) arch = "AMD K10 ";
+		}
+	}
+
+	ffttype = "";
+	if (gwdata->PASS2_SIZE) {
+		if (gwdata->cpu_flags & CPU_AVX) {
+			// No output means r4dwpn (type-3) FFT
+		}
+		else if (gwdata->cpu_flags & CPU_SSE2) {
+			// No output means r4dwpn (type-3) FFT
+			if (gwdata->FFT_TYPE == 0) ffttype = "type-0 ";
+			if (gwdata->FFT_TYPE == 1) ffttype = "type-1 ";
+			if (gwdata->FFT_TYPE == 2) ffttype = "type-2 ";
+		}
+	}
+
 	sprintf (buf, "%s%s%s%sFFT length %lu%s",
 		 gwdata->ALL_COMPLEX_FFT ? "all-complex " :
 		 gwdata->ZERO_PADDED_FFT ? "zero-padded " :
 		 gwdata->GENERAL_MOD ? "generic reduction " : "",
 		 (gwdata->cpu_flags & CPU_AVX) ? "AVX " :
 		 (gwdata->cpu_flags & CPU_SSE2) ? "" : "x87 ",
-		 (gwdata->PASS2_SIZE == 0 || ! (gwdata->cpu_flags & (CPU_AVX | CPU_SSE2))) ? "" :
-		 (gwdata->ARCH == 2) ? "Pentium4 " :
-		 (gwdata->ARCH == 3) ? "Core2 " :
-		 (gwdata->ARCH == 4) ? "AMD K8 " :
-		 (gwdata->ARCH == 5) ? "AMD K10 " : " ",
-		 (gwdata->PASS2_SIZE == 0 || ! (gwdata->cpu_flags & CPU_SSE2)) ? "" :
-		 (gwdata->FFT_TYPE == 0) ? "type-0 " :
-		 (gwdata->FFT_TYPE == 1) ? "type-1 " :
-		 (gwdata->FFT_TYPE == 2) ? "type-2 " : "type-3 ",
-		 gwdata->FFTLEN >= 1048576 && (gwdata->FFTLEN & 0xFFFFF) == 0 ?
-			 gwdata->FFTLEN / 1048576 :
-		 gwdata->FFTLEN >= 1024 && (gwdata->FFTLEN & 0x3FF) == 0 ?
-			 gwdata->FFTLEN / 1024 : gwdata->FFTLEN,
+		 arch, ffttype,
+		 gwdata->FFTLEN >= 1048576 && (gwdata->FFTLEN & 0xFFFFF) == 0 ? gwdata->FFTLEN / 1048576 :
+		 gwdata->FFTLEN >= 1024 && (gwdata->FFTLEN & 0x3FF) == 0 ? gwdata->FFTLEN / 1024 : gwdata->FFTLEN,
 		 gwdata->FFTLEN >= 1048576 && (gwdata->FFTLEN & 0xFFFFF) == 0 ? "M" :
 		 gwdata->FFTLEN >= 1024 && (gwdata->FFTLEN & 0x3FF) == 0 ? "K" : "");
 
@@ -6128,7 +6276,7 @@ void gwcopyzero (
 {
 	struct gwasm_data *asm_data;
 
-	ASSERTG (((int32_t *) s)[-7] == 0);	// Number not partially FFTed?
+	ASSERTG (((uint32_t *) s)[-7] == 0);	// Number not partially FFTed?
 
 /* Handle case where no words are zeroed.  Some of the assembly routines */
 /* do not like a word count of zero. */
@@ -6154,8 +6302,8 @@ void gwcopyzero (
 /* Copy the unnormalized add counter and clear the */
 /* has been partially FFTed flag. */
 
-	((int32_t *) d)[-1] = ((int32_t *) s)[-1];
-	((int32_t *) d)[-7] = 0;
+	((uint32_t *) d)[-1] = ((uint32_t *) s)[-1];
+	((uint32_t *) d)[-7] = 0;
 }
 
 /* Set the constant which the results of a multiplication should be */
@@ -6259,11 +6407,12 @@ void gwstartnextfft (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	int	state)		/* New value for POSTFFT */
 {
-	struct gwasm_data *asm_data;
-
 	if (!gwdata->GENERAL_MOD) {
-		asm_data = (struct gwasm_data *) gwdata->asm_data;
-		asm_data->POSTFFT = state;
+		gwdata->POSTFFT = state;
+		if (! (gwdata->cpu_flags & (CPU_AVX | CPU_SSE2))) {	// Copy state to asm_data for x87 FFTs
+			struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
+			asm_data->u.x87.POSTFFT = state;
+		}
 	}
 }
 
@@ -6789,8 +6938,8 @@ void gianttogw (
 
 /* Clear various flags */
 
-	((int32_t *) g)[-1] = 1; /* Set unnormalized add counter */
-	((int32_t *) g)[-7] = 0; /* Clear has been partially FFTed flag */
+	((uint32_t *) g)[-1] = 1; /* Set unnormalized add counter */
+	((uint32_t *) g)[-7] = 0; /* Clear has been partially FFTed flag */
 }
 
 /* Internal recursive routine to convert a giant to gwnum FFT format. */
@@ -7687,9 +7836,13 @@ void gw_random_number (
 	giant	g;
 	unsigned long i, len;
 
-/* Init the random generator to a reproducible state */
+/* Init the random generator to a reproducible state for gwsquare_carefully. */
+/* For other users of this routine, initialize to a more random state. */
 
-	init_genrand (&rand_info, 5489);
+	if (x == gwdata->GW_RANDOM)
+		init_genrand (&rand_info, 5489);
+	else
+		init_genrand (&rand_info, (unsigned long) time (NULL));
 
 /* Generate the random number */
 
