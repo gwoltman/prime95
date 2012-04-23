@@ -6877,7 +6877,7 @@ int cpuid_dump (
 	struct cpuid_data reg;
 	unsigned int i, j, max_cpuid_value, max_extended_cpuid_value;
 	char	buf[200];
-#define dumpreg() {sprintf(buf,"i: %08lX, EAX: %08lX, EBX: %08lX, ECX: %08lX, EDX: %08lX\n", i, reg.EAX, reg.EBX, reg.ECX, reg.EDX); OutputBoth (thread_num, buf);}
+#define dumpreg() {sprintf(buf,"i: %08lX, EAX: %08lX, EBX: %08lX, ECX: %08lX, EDX: %08lX\n",i,(long)reg.EAX,(long)reg.EBX,(long)reg.ECX,(long)reg.EDX); OutputBoth(thread_num,buf);}
 
 /* Call CPUID with 0 and 0x80000000 arguments to get how many functions are supported. */
 
