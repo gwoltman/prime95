@@ -1,7 +1,7 @@
 New features in Version 27.6 of prime95.exe
 -------------------------------------------
 
-1)  Multi-threaded tests should be a little bit faster, especially when using a lot of threads.
+1)  Multi-threaded tests might be a little bit faster especially when using a lot of threads.
     Of course, single-threaded usage still gives the best throughput.
 2)  FFT crossover points were adjusted.  Many higher, a few lower.
 
