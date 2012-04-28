@@ -4424,12 +4424,16 @@ void pass1_wake_up_threads (
 /* Initialize the pointers that the normalization / carry propagation code uses. */
 
 		if (gwdata->cpu_flags & CPU_AVX) {
-			memcpy (asm_data->u.ymm.YMM_MAXERR, &asm_data->MAXERR, 4 * sizeof (double));
+			asm_data->u.ymm.YMM_MAXERR[0] =
+			asm_data->u.ymm.YMM_MAXERR[1] =
+			asm_data->u.ymm.YMM_MAXERR[2] =
+			asm_data->u.ymm.YMM_MAXERR[3] = asm_data->MAXERR;
 		} else {
-			((double *) asm_data->DESTARG)[-3] = 0.0;
-			asm_data->u.xmm.XMM_SUMOUT[0] = 0.0;
+			((double *) asm_data->DESTARG)[-3] = 0.0; // For accumulating SUMOUT
+			asm_data->u.xmm.XMM_SUMOUT[0] =
 			asm_data->u.xmm.XMM_SUMOUT[1] = 0.0;
-			memcpy (asm_data->u.xmm.XMM_MAXERR, &asm_data->MAXERR, 2 * sizeof (double));
+			asm_data->u.xmm.XMM_MAXERR[0] =
+			asm_data->u.xmm.XMM_MAXERR[1] = asm_data->MAXERR;
 		}
 
 /* Split the available pass 1 blocks into contiguous sections for each thread to process. */
