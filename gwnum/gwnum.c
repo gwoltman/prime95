@@ -5031,12 +5031,12 @@ int multithread_init (
 	}
 
 /* Determine how many data blocks are affected by carries out of pass 1 section.  Eight is always safe. */
-/* For Mersenne numbers, two or three should be safe.  For other k,b,n,c combinations, we should do a */
-/* little more research to set this to four or six when we can. */
+/* For Mersenne numbers, two or three should be safe (if we aren't using a larger FFT size than necessary). */
+/* For other k,b,n,c combinations, we should do a little more research to set this to four or six when we can. */
 
 	gwdata->num_postfft_blocks = 8;
 	if (!gwdata->ZERO_PADDED_FFT && gwdata->k == 1.0 && gwdata->b == 2 && abs (gwdata->c) == 1)
-		gwdata->num_postfft_blocks = (gwdata->avg_num_b_per_word >= 18.0) ? 2 : 3;
+		gwdata->num_postfft_blocks = (int) floor (53.0 / gwdata->avg_num_b_per_word);
 	gwdata->num_postfft_blocks = round_up_to_multiple_of (gwdata->num_postfft_blocks, asm_data->cache_line_multiplier);
 
 /* Calculate the values used to compute pass 2 premultier pointers. */
