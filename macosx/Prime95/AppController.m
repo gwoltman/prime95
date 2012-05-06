@@ -3,7 +3,7 @@
 //  Prime95
 //
 //  Created by George Woltman on 4/17/09.
-//  Copyright 2009-2010 Mersenne Research, Inc. All rights reserved.
+//  Copyright 2009-2012 Mersenne Research, Inc. All rights reserved.
 //
 
 #import "AppController.h"
@@ -26,6 +26,49 @@
 #import "WorkerWindowsController.h"
 #include "Prime95.h"
 
+
+/* Required Mac OS X files */
+#ifdef __APPLE__
+#include <dirent.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/resource.h>
+#include <sys/sysctl.h>
+#include <sys/time.h>
+#include <sys/timeb.h>
+#define PTHREAD_MIN_PRIORITY 0		/* Missing #defines from pthreads.h */
+#define PTHREAD_MAX_PRIORITY 31		/* Missing #defines from pthreads.h */
+#include <CoreFoundation/CoreFoundation.h>
+#include <IOKit/ps/IOPowerSources.h>
+#include <IOKit/ps/IOPSKeys.h>
+#endif
+
+/* Handle differences between Windows and Linux runtime libraries */
+
+#define _commit(f)	fsync(f)
+#define _open		open
+#define _close		close
+#define _read		read
+#define _write		write
+#define _lseek		lseek
+#define _unlink		unlink
+#define _creat		creat
+#define _chdir		chdir
+#define closesocket	close
+#define IsCharAlphaNumeric(c) isalnum(c)
+#define _stricmp	strcasecmp
+#define _timeb		timeb
+#define _ftime		ftime
+#define _O_APPEND	O_APPEND
+#define _O_RDONLY	O_RDONLY
+#define _O_WRONLY	O_WRONLY
+#define _O_RDWR		O_RDWR
+#define _O_CREAT	O_CREAT
+#define _O_TRUNC	O_TRUNC
+#define _O_BINARY 	0
+#define _O_TEXT		0
+
 AppController *myAppController;			// Global variable to allow access to this object
 
 @implementation AppController
@@ -33,6 +76,8 @@ AppController *myAppController;			// Global variable to allow access to this obj
 - (void) awakeFromNib
 {
 	NSString *workingDir;
+	int	fd, buflen;
+	char *buf = NULL;
 
 /* Init the global variable */
 
@@ -45,19 +90,41 @@ AppController *myAppController;			// Global variable to allow access to this obj
 /* editor (we write the default there so it is easy to find and overwrite by the user) */
 /* or by specifying -WorkingDirectory "some_path" as a command line argument. */
 
-/* However, SoB doesn't like this approach as it makes it hard for them to package up */
-/* an executable with a default prime.txt to contact their server using the MersenneIP= option. */
-/* So, if prime.txt exists in the default working directory we won't change the working directory. */
+/* SoB doesn't like this approach as it makes it hard for them to package up an executable */
+/* with a default prime.txt to contact their server using the MersenneIP= option. */
+/* Our workaround: if prime.txt exists in the application bundle we copy it to the new */
+/* working directory if no prime.txt file exists there. */
 
-	if (! fileExists ("prime.txt")) {
-		workingDir = [[NSUserDefaults standardUserDefaults] stringForKey:@"WorkingDirectory"];
-		if (workingDir == nil) {
-			workingDir = @"~/Prime95";
-			[[NSUserDefaults standardUserDefaults] setObject:workingDir forKey:@"WorkingDirectory"];
+	/* Read any prime.txt file (for later copying) from the application bundle */
+	if (fileExists ("prime.txt")) {
+		fd = _open ("prime.txt", _O_TEXT | _O_RDONLY);
+		if (fd >= 0) {
+			buf = (char *) malloc (100000);
+			if (buf != NULL) buflen = _read (fd, buf, 100000);
+			_close (fd);
 		}
-		workingDir = [workingDir stringByExpandingTildeInPath];
-		[[NSFileManager defaultManager] createDirectoryAtPath:workingDir attributes:nil];
-		[[NSFileManager defaultManager] changeCurrentDirectoryPath:workingDir];
+	}
+	
+	/* Change the working directory */
+	workingDir = [[NSUserDefaults standardUserDefaults] stringForKey:@"WorkingDirectory"];
+	if (workingDir == nil) {
+		workingDir = @"~/Prime95";
+		[[NSUserDefaults standardUserDefaults] setObject:workingDir forKey:@"WorkingDirectory"];
+	}
+	workingDir = [workingDir stringByExpandingTildeInPath];
+	[[NSFileManager defaultManager] createDirectoryAtPath:workingDir attributes:nil];
+	[[NSFileManager defaultManager] changeCurrentDirectoryPath:workingDir];
+	
+	/* Copy the prime.txt file from the application bundle */
+	if (buf != NULL) {
+		if (! fileExists ("prime.txt")) {
+			fd = _open ("prime.txt", _O_TEXT | _O_WRONLY | _O_CREAT, CREATE_FILE_ACCESS);
+			if (fd >= 0) {
+				(void) _write (fd, buf, buflen);
+				_close (fd);
+			}
+		}
+		free (buf);
 	}
 
 /* Initialize gwnum call back routines.  Using callback routines lets the */
@@ -529,49 +596,6 @@ AppController *myAppController;			// Global variable to allow access to this obj
 
 @end
 
-
-
-/* Required Mac OS X files */
-#ifdef __APPLE__
-#include <dirent.h>
-#include <pthread.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/resource.h>
-#include <sys/sysctl.h>
-#include <sys/time.h>
-#include <sys/timeb.h>
-#define PTHREAD_MIN_PRIORITY 0		/* Missing #defines from pthreads.h */
-#define PTHREAD_MAX_PRIORITY 31		/* Missing #defines from pthreads.h */
-#include <CoreFoundation/CoreFoundation.h>
-#include <IOKit/ps/IOPowerSources.h>
-#include <IOKit/ps/IOPSKeys.h>
-#endif
-
-/* Handle differences between Windows and Linux runtime libraries */
-
-#define _commit(f)	fsync(f)
-#define _open		open
-#define _close		close
-#define _read		read
-#define _write		write
-#define _lseek		lseek
-#define _unlink		unlink
-#define _creat		creat
-#define _chdir		chdir
-#define closesocket	close
-#define IsCharAlphaNumeric(c) isalnum(c)
-#define _stricmp	strcasecmp
-#define _timeb		timeb
-#define _ftime		ftime
-#define _O_APPEND	O_APPEND
-#define _O_RDONLY	O_RDONLY
-#define _O_WRONLY	O_WRONLY
-#define _O_RDWR		O_RDWR
-#define _O_CREAT	O_CREAT
-#define _O_TRUNC	O_TRUNC
-#define _O_BINARY 	0
-#define _O_TEXT		0
 
 /* Include our common C source files */
 
