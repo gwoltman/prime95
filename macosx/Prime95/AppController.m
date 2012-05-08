@@ -76,8 +76,6 @@ AppController *myAppController;			// Global variable to allow access to this obj
 - (void) awakeFromNib
 {
 	NSString *workingDir;
-	int	fd, buflen;
-	char *buf = NULL;
 
 /* Init the global variable */
 
@@ -95,16 +93,6 @@ AppController *myAppController;			// Global variable to allow access to this obj
 /* Our workaround: if prime.txt exists in the application bundle we copy it to the new */
 /* working directory if no prime.txt file exists there. */
 
-	/* Read any prime.txt file (for later copying) from the application bundle */
-	if (fileExists ("prime.txt")) {
-		fd = _open ("prime.txt", _O_TEXT | _O_RDONLY);
-		if (fd >= 0) {
-			buf = (char *) malloc (100000);
-			if (buf != NULL) buflen = _read (fd, buf, 100000);
-			_close (fd);
-		}
-	}
-	
 	/* Change the working directory */
 	workingDir = [[NSUserDefaults standardUserDefaults] stringForKey:@"WorkingDirectory"];
 	if (workingDir == nil) {
@@ -114,17 +102,41 @@ AppController *myAppController;			// Global variable to allow access to this obj
 	workingDir = [workingDir stringByExpandingTildeInPath];
 	[[NSFileManager defaultManager] createDirectoryAtPath:workingDir attributes:nil];
 	[[NSFileManager defaultManager] changeCurrentDirectoryPath:workingDir];
-	
-	/* Copy the prime.txt file from the application bundle */
-	if (buf != NULL) {
-		if (! fileExists ("prime.txt")) {
-			fd = _open ("prime.txt", _O_TEXT | _O_WRONLY | _O_CREAT, CREATE_FILE_ACCESS);
-			if (fd >= 0) {
-				(void) _write (fd, buf, buflen);
-				_close (fd);
+
+	/* If no prime.txt file exists, optionally copy one from the application bundle (for SoB) */
+	if (! fileExists ("prime.txt")) {
+		char	filename[1025];
+		int	infd;
+
+		// First try getting the prime.txt from within the bundle
+		sprintf (filename, "%s/prime.txt",
+			 [[[[[NSBundle mainBundle] executablePath] stringByDeletingLastPathComponent] stringByDeletingLastPathComponent] UTF8String]);
+
+		// Next try getting the prime.txt from the same directory as the app
+		if (! fileExists (filename))
+			sprintf (filename, "%s/prime.txt",
+				 [[[[NSBundle mainBundle] bundlePath] stringByDeletingLastPathComponent] UTF8String]);
+
+		// Open and copy the prime.txt file
+		infd = _open (filename, _O_TEXT | _O_RDONLY);
+		if (infd >= 0) {
+			int	outfd;
+
+			outfd = _open (filename, _O_TEXT | _O_WRONLY | _O_CREAT, CREATE_FILE_ACCESS);
+			if (outfd >= 0) {
+				char	*buf;
+				int	buflen;
+
+				buf = (char *) malloc (100000);
+				if (buf != NULL) {
+					buflen = _read (infd, buf, 100000);
+					(void) _write (outfd, buf, buflen);
+					free (buf);
+				}
+				_close (outfd);
 			}
+			_close (infd);
 		}
-		free (buf);
 	}
 
 /* Initialize gwnum call back routines.  Using callback routines lets the */
