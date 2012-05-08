@@ -122,7 +122,7 @@ AppController *myAppController;			// Global variable to allow access to this obj
 		if (infd >= 0) {
 			int	outfd;
 
-			outfd = _open (filename, _O_TEXT | _O_WRONLY | _O_CREAT, CREATE_FILE_ACCESS);
+			outfd = _open ("prime.txt", _O_TEXT | _O_WRONLY | _O_CREAT, CREATE_FILE_ACCESS);
 			if (outfd >= 0) {
 				char	*buf;
 				int	buflen;
