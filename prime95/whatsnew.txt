@@ -1,3 +1,9 @@
+New features in Version 27.7 of prime95.exe
+-------------------------------------------
+
+1)  When an error occurs reading a save file it is renamed with a .bad extension.
+    On rare occasions the file can be read successfully at a later time.
+
 New features in Version 27.6 of prime95.exe
 -------------------------------------------
 
