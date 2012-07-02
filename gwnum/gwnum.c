@@ -1521,12 +1521,14 @@ int gwsetup (
 
 	if (k < 1.0) return (GWERROR_K_TOO_SMALL);
 	if (k > 9007199254740991.0) return (GWERROR_K_TOO_LARGE);
-	if (gwdata->cpu_flags & CPU_AVX) {
-		if (log2(b) * (double) n > MAX_PRIME_AVX) return (GWERROR_TOO_LARGE);
-	} else if (gwdata->cpu_flags & CPU_SSE2) {
-		if (log2(b) * (double) n > MAX_PRIME_SSE2) return (GWERROR_TOO_LARGE);
-	} else {
-		if (log2(b) * (double) n > MAX_PRIME) return (GWERROR_TOO_LARGE);
+	if (gwdata->specific_fftlen == 0) {
+		if (gwdata->cpu_flags & CPU_AVX) {
+			if (log2(b) * (double) n > MAX_PRIME_AVX) return (GWERROR_TOO_LARGE);
+		} else if (gwdata->cpu_flags & CPU_SSE2) {
+			if (log2(b) * (double) n > MAX_PRIME_SSE2) return (GWERROR_TOO_LARGE);
+		} else {
+			if (log2(b) * (double) n > MAX_PRIME) return (GWERROR_TOO_LARGE);
+		}
 	}
 
 /* Init */
