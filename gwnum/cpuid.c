@@ -386,21 +386,19 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			CPU_FLAGS |= CPU_SSE41;
 		if ((reg.ECX >> 20) & 0x1)
 			CPU_FLAGS |= CPU_SSE42;
-		if ((reg.ECX >> 28) & 0x1)
-			CPU_FLAGS |= CPU_AVX;
-		if ((reg.ECX >> 12) & 0x1)
-			CPU_FLAGS |= CPU_FMA;
 
 /* If hardware supports AVX that doesn't mean the OS supports AVX. */
 /* See if OS supports XGETBV, then see if OS supports AVX. */
 
-		if (CPU_FLAGS & CPU_AVX) {
-			CPU_FLAGS &= ~CPU_AVX;
+		if ((reg.ECX >> 28) & 0x1) {
 			if ((reg.ECX >> 27) & 0x1) {
 				Xgetbv (0, &reg);
 				if ((reg.EAX & 6) == 6) CPU_FLAGS |= CPU_AVX;
 			}
 		}
+
+		if ((reg.ECX >> 12) & 0x1 && CPU_FLAGS & CPU_AVX)
+			CPU_FLAGS |= CPU_FMA;
 	}
 
 /* Call CPUID with 0x80000000 argument.  It tells us how many extended CPU */
@@ -409,12 +407,15 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 	Cpuid (0x80000000, &reg);
 	max_extended_cpuid_value = reg.EAX;
 
-/* Get the flag that says RDTSC counts independently of CPU clock ticks */
-/* Intel did this so that RDTSC would keep accurate real time regardless */
-/* of the CPU core speed controlled by SpeedStep. */
+/* Get more feature flags.  Specifically the AVX2 flag and the flag that says */
+/* RDTSC counts independently of CPU clock ticks Intel did this so that RDTSC */
+/* would keep accurate real time regardless of the CPU core speed controlled by SpeedStep. */
 
 	if (max_extended_cpuid_value >= 0x80000007) {
+		reg.ECX = 0;
 		Cpuid (0x80000007, &reg);
+		if ((reg.EBX >> 5) & 0x1 && CPU_FLAGS & CPU_AVX)
+			CPU_FLAGS |= CPU_AVX2;
 		if ((reg.EDX >> 8) & 0x1)
 			CPU_FLAGS |= CPU_TSC_INVARIANT;
 	}

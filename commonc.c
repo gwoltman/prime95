@@ -395,6 +395,9 @@ void getCpuInfo (void)
 	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsFMA", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_FMA;
 	if (temp == 1) CPU_FLAGS |= CPU_FMA;
+	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsAVX2", 99);
+	if (temp == 0) CPU_FLAGS &= ~CPU_AVX2;
+	if (temp == 1) CPU_FLAGS |= CPU_AVX2;
 
 /* Let the user override the L2 cache size in local.ini file */
 

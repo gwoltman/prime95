@@ -54,6 +54,7 @@ extern double CPU_SPEED;		/* Actual CPU Speed in MHz */
 #define CPU_SSE42		0x2000	/* SSE4.2 instructions supported */
 #define CPU_AVX			0x4000	/* AVX instructions supported */
 #define CPU_FMA			0x8000	/* Fused multiply-add instructions supported */
+#define CPU_AVX2		0x10000	/* AVX2 instructions supported */
 extern unsigned int CPU_FLAGS;		/* Cpu capabilities */
 extern unsigned int CPU_CORES;		/* Number CPU cores */
 extern unsigned int CPU_HYPERTHREADS;	/* Number of virtual processors that each CPU core supports. */
