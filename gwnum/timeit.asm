@@ -968,7 +968,7 @@ avcase11:	readwrite4 32768*1024, 2 ; Read/write 32MB
 		jmp	exit
 
 	yloop_init 32			;; Dummy call to yloop_init
-MAXRPT	EQU	2
+
 	avx_case_num = 12
 
 ;;12
