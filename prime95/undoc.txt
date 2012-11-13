@@ -462,6 +462,11 @@ never be swapped out.  Thus, using this option could negatively impact
 the performance of other applications.  Also, you'll need to have
 the "Lock Pages in Memory" privilege to use this option.
 
+WINDOWS ONLY:  You can have prime95 pause when the battery level gets low.
+This will allow you to charge the battery faster.  Add the line
+	BatteryPercent=n
+to prime.txt, where n is a number from 0 to 100.  The default value is zero.
+
 LINUX/FREEBSD/APPLE ONLY: In prime.txt you can have set the nice level.  By
 default, on startup mprime automatically sets the program to nice priority.
 This isn't really necessary since worker threads are usually set to at a much
