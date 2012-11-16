@@ -5039,6 +5039,11 @@ int multithread_init (
 		asm_data->last_pass1_block = gwdata->num_pass1_blocks - asm_data->cache_line_multiplier;
 	}
 
+/* Place a limit on the number of threads */
+
+	if (gwdata->num_threads > gwdata->num_pass1_blocks / asm_data->cache_line_multiplier)
+		gwdata->num_threads = gwdata->num_pass1_blocks / asm_data->cache_line_multiplier;
+
 /* Determine how many data blocks are affected by carries out of pass 1 section.  Zero-padded FFTs require 8 words */
 /* to propagate carries into.  For AVX FFTs, ynorm012_wpn can spread the carry over a maximum of either 4 or 8 words. */
 /* For SSE2 FFTs, xnorm012_2d and xnorm012_2d_wpn spreads carries over either 2 or 6 words. */
