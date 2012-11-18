@@ -977,7 +977,7 @@ next1:			while (zpad_jmptab->flags & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
 /* expected, if log2b is 6 you get about 2 extra bits, if log2b is 12 you can get */
 /* 3 extra bits.  This formula was found to be a bit too aggressive, at least for */
 /* large b.  Two examples:  2*22563^22563-1 and  2*22576^22576-1 fail in a 40K FFT. */
-/* Thus, we're changing the formula in v27 to a log2b of 12.5 gets 3 extra bits. */
+/* Thus, we're changing the formula in v27.9 to log2b of 12.5 gets the max of 3 extra bits. */
 /* Also, some examples such as 19464*19^31895+1 and 245*830^492-1 (worst case we */
 /* know of) still raise round off errors.  For added safety we assume an extra */
 /* 0.3 bits of output are needed when base is not 2. */
@@ -986,7 +986,7 @@ next1:			while (zpad_jmptab->flags & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
 			weighted_bits_per_output_word -=
 					((log2b <= 3.0) ? (log2b - 1.0) / 2.0 :
 					 (log2b <= 6.0) ? 1.0 + (log2b - 3.0) / 3.0 :
-							  2.0 + (log2b - 6.0) / 6.5);
+					 (log2b <= 12.5) ? 2.0 + (log2b - 6.0) / 6.5 : 3.0);
 			if (b != 2) weighted_bits_per_output_word += 0.3;
 		}
 
