@@ -4342,11 +4342,11 @@ void auxiliary_thread (void *arg)
 			}
 			// Copy maxerr and sumout
 			if (gwdata->cpu_flags & CPU_AVX) {
-				memcpy (asm_data->u.ymm.YMM_MAXERR, &main_thread_asm_data->MAXERR, 4 * sizeof (double));
+				memcpy (asm_data->u.ymm.YMM_MAXERR, &main_thread_asm_data->u.ymm.MAXERR, 4 * sizeof (double));
 			} else {
 				asm_data->u.xmm.XMM_SUMOUT[0] = 0.0;
 				asm_data->u.xmm.XMM_SUMOUT[1] = 0.0;
-				memcpy (asm_data->u.xmm.XMM_MAXERR, &main_thread_asm_data->MAXERR, 2 * sizeof (double));
+				memcpy (asm_data->u.xmm.XMM_MAXERR, &main_thread_asm_data->u.xmm.MAXERR, 2 * sizeof (double));
 			}
 		}
 
