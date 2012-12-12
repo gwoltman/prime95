@@ -1,8 +1,7 @@
-New features in Version 28.1 of prime95.exe
+New features in Version 27.9 of prime95.exe
 -------------------------------------------
 
-1)  Support for fused-multiply-add instructions.  These instructions which allow greater floating
-    point throughput were first available in AMD Bulldozer and Intel Haswell processors.
+1)  None, only minor bug fixes.
 
 New features in Version 27.7 of prime95.exe
 -------------------------------------------
