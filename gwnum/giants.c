@@ -1413,9 +1413,9 @@ void gtogshiftright (	/* shift src right. Equivalent to dest = src/2^bits. */
 		return;
 	}
 	if (remain == 0) {
-		memcpy (dest->n,
-			src->n + words,
-			(size - words) * sizeof (uint32_t));
+		memmove (dest->n,
+			 src->n + words,
+			 (size - words) * sizeof (uint32_t));
 		dest->sign = src->sign + (src->sign < 0 ? words : -words);
 		return;
 	}
@@ -1874,8 +1874,8 @@ void make_recip (	/* r becomes the steady-state reciprocal
 	b = bitlen (d);
 	normal_addg (r, d);
 	gshiftleft (b, r);
-	gtog (r, tmp2);
-	while (1) {
+	do {
+		gtog (r, tmp2);
 		gtog (r, tmp);
 		squaregi (gdata, tmp);
 		gshiftright (b, tmp);
@@ -1883,17 +1883,14 @@ void make_recip (	/* r becomes the steady-state reciprocal
 		gshiftright (b, tmp);
 		addg (r, r); 
 		subg (tmp, r);
-		if (gcompg (r, tmp2) <= 0) break;
-		gtog (r, tmp2);
-	}
+	} while (gcompg (r, tmp2) > 0);
 	setone (tmp);
 	gshiftleft (2*b, tmp);
 	gtog (r, tmp2); 
 	mulgi (gdata, d, tmp2);
 	subg (tmp2, tmp);
-	setone (tmp2);
 	while (tmp->sign < 0) {
-		subg (tmp2, r);
+		ulsubg (1, r);
 		addg (d, tmp);
 	}
 	pushg (gdata, 2);
