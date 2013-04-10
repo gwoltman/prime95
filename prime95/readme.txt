@@ -79,7 +79,7 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
     plan to visit the PrimeNet server's web page to view reports on your
     progress.
 3c) In the third dialog box, fill in roughly how many hours a day you leave
-    your computer running.  Click OK.
+    your computer running.  Click OK (just close the dialog box on a Mac).
 3d) In the fourth dialog box, leave the "Use Primenet..." checkbox
     checked.  Do not turn this checkbox off even if you disconnect
     from the Internet.   Check the "Use a dial-up..." checkbox
