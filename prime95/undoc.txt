@@ -100,7 +100,7 @@ starting each worker.  In prime.txt, enter:
 	StaggerStarts=n
 where n is the number of seconds to wait.  The default is 5 seconds.
 
-The program supports 4 different code paths for LL testing depending on
+The program supports many different code paths for LL testing depending on
 the CPU type.  It also has a few different factoring code paths.  You can
 force the program to choose a specific code path by setting the proper
 combination of these settings in local.txt:
@@ -110,6 +110,9 @@ combination of these settings in local.txt:
 	CpuSupportsSSE=0 or 1
 	CpuSupportsSSE2=0 or 1
 	CpuSupports3DNow=0 or 1
+	CpuSupportsAVX=0 or 1
+	CpuSupportsFMA3=0 or 1
+	CpuSupportsFMA4=0 or 1
 This shouldn't be necessary though as the program uses the CPUID instruction
 to see if the CPU supports these features.
 
