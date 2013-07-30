@@ -4,7 +4,7 @@
 | This file contains the C routines to build sin/cos and weights tables
 | that the FFT assembly code needs.
 | 
-|  Copyright 2002-2012 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2013 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -420,19 +420,22 @@ double *yr4dwpn_build_pass1_table (
 	pass1_increment = gwdata->PASS2_SIZE * 4;
 
 /* Determine number of delay groups.  In a standard radix-4 FFT, there is only one sin/cos */
-/* group in the last pass 1 level.  We reduce our memory usage by using just one fixed sin/cos */
+/* group in the last pass 1 level.  We reduce our memory usage by using a fixed sin/cos */
 /* table in the first FFT levels and having multiple groups of sin/cos data in the last pass 1 level. */
 /* I call these groups of sin/cos data in the last pass 1 level "delay groups". */
 
 	if (pass1_size % 7 == 0)
 		delay_count = 14;
+	else if ((pass1_size == 384 && !gwdata->ALL_COMPLEX_FFT) ||
+		 (pass1_size == 1536 && !gwdata->ALL_COMPLEX_FFT))
+		delay_count = 12;
 	else if (pass1_size % 5 == 0 && !gwdata->ALL_COMPLEX_FFT)
 		delay_count = 10;
- 	else if ((pass1_size == 512 && !gwdata->ALL_COMPLEX_FFT) ||
+	else if (pass1_size == 256 && !gwdata->ALL_COMPLEX_FFT)
+		delay_count = 8;
+	else if ((pass1_size == 512 && !gwdata->ALL_COMPLEX_FFT) ||
 		 (pass1_size == 1024 && !gwdata->ALL_COMPLEX_FFT) ||
-		 (pass1_size == 2560 && gwdata->ALL_COMPLEX_FFT) ||
-		 (pass1_size == 5120 && gwdata->ALL_COMPLEX_FFT) ||
-		 pass1_size == 1536 || pass1_size == 2048 || pass1_size == 3072 || pass1_size == 4096)
+		 pass1_size == 2048)
 		delay_count = 16;
 	else
 		delay_count = 4;
@@ -446,7 +449,8 @@ double *yr4dwpn_build_pass1_table (
 /* Set count of pass 1 blocks that share one set of two-to-phi grp multipliers */
 
 	if (pow2_count & 1) gwdata->wpn_count = 8;
-	else if (gwdata->FFTLEN / gwdata->PASS2_SIZE == 1792 ||
+	else if ((gwdata->FFTLEN / gwdata->PASS2_SIZE == 1536 && !gwdata->ALL_COMPLEX_FFT) ||
+		 gwdata->FFTLEN / gwdata->PASS2_SIZE == 1792 ||
 		 gwdata->FFTLEN / gwdata->PASS2_SIZE == 2048) gwdata->wpn_count = 16;
 	else gwdata->wpn_count = 4;
 
@@ -552,8 +556,8 @@ double *yr4dwpn_build_pass1_table (
 								ktemp = kmap[k] * final_group;
 							else
 								ktemp = bigN + kmap[k] * final_group;
-						} else {			/* delay_count == 10 or 14 */
-							/* Multipliers for the radix-20 or radix-28 step */
+						} else {			/* delay_count == 8, 10, 12, or 14 */
+							/* Multipliers for the radix-16, radix-20, radix-24, or radix-28 step */
 							ktemp = k * final_group;
 						}
 
@@ -652,8 +656,8 @@ double *yr4dwpn_build_pass1_table (
 								ktemp = kmap[k] * final_group;
 							else
 								ktemp = bigN + kmap[k] * final_group;
-						} else {			/* delay_count == 10 or 14 */
-							/* Multipliers for the radix-20 or radix-28 step */
+						} else {			/* delay_count == 8, 10, 12, or 14 */
+							/* Multipliers for the radix-16, radix-20, radix-24, or radix-28 step */
 							ktemp = k * final_group;
 						}
 
@@ -838,11 +842,23 @@ double *yr4dwpn_build_fixed_pass1_table (
 	pass1_increment = 4 * gwdata->PASS2_SIZE;
 	pass1_size = gwdata->FFTLEN / gwdata->PASS2_SIZE; /* Real values in a pass1 section */
 
-/* Real FFTs output one shared set of sin/cos values for the first 20-reals, 28-reals, or 8-reals FFT. */
+/* Real FFTs output one shared set of sin/cos values for the first 16-reals, 20-reals, 24-reals, 28-reals, or 8-reals FFT. */
 
 	if (! gwdata->ALL_COMPLEX_FFT) {
 		N = gwdata->FFTLEN;
-		if (pass1_size % 20 == 0) {
+		if (pass1_size == 256) {
+			for (j = 0; j < N / 16; j += pass1_increment) {
+				for (i = 1; i <= 7; i++) {	/* Create 7 twiddle factors */
+					gwsincos1by4 (i * j, N, table);
+					gwsincos1by4 (i * (j + upper_avx_word), N, table+1);
+					gwsincos1by4 (i * (j + 2 * upper_avx_word), N, table+2);
+					gwsincos1by4 (i * (j + 3 * upper_avx_word), N, table+3);
+					table += 8;
+				}
+			}
+			N = N / 16;
+		}
+		else if (pass1_size % 20 == 0) {
 			for (j = 0; j < N / 20; j += pass1_increment) {
 				for (i = 1; i <= 9; i++) {	/* Create 9 twiddle factors */
 					gwsincos1by4 (i * j, N, table);
@@ -853,6 +869,18 @@ double *yr4dwpn_build_fixed_pass1_table (
 				}
 			}
 			N = N / 20;
+		}
+		else if (pass1_size == 384 || pass1_size == 1536) {
+			for (j = 0; j < N / 24; j += pass1_increment) {
+				for (i = 1; i <= 11; i++) {	/* Create 11 twiddle factors */
+					gwsincos1by4 (i * j, N, table);
+					gwsincos1by4 (i * (j + upper_avx_word), N, table+1);
+					gwsincos1by4 (i * (j + 2 * upper_avx_word), N, table+2);
+					gwsincos1by4 (i * (j + 3 * upper_avx_word), N, table+3);
+					table += 8;
+				}
+			}
+			N = N / 24;
 		}
 		else if (pass1_size % 28 == 0) {
 			for (j = 0; j < N / 28; j += pass1_increment) {
@@ -877,8 +905,7 @@ double *yr4dwpn_build_fixed_pass1_table (
 			N = N / 8;
 			/* Sometimes we also use a fixed sin/cos table for */
 			/* the next FFT levels to further reduce memory usage. */
-			if (pass1_size == 512 || pass1_size == 1024 || pass1_size == 1536 ||
-			    pass1_size == 2048 || pass1_size == 3072 || pass1_size == 4096) {
+			if (pass1_size == 512 || pass1_size == 1024 || pass1_size == 1536 || pass1_size == 2048) { // BUG - 1536 & 3072 are radix-24?
 				/* Output the sin/cos values for the complex data followed by sin/cos values for the real data */
 				for (j = 0; j < N / 4; j += pass1_increment) {
 					gwsincos12by4 (j, N, table);
