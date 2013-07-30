@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2012 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2013 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
@@ -392,9 +392,15 @@ void getCpuInfo (void)
 	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsAVX", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_AVX;
 	if (temp == 1) CPU_FLAGS |= CPU_AVX;
-	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsFMA", 99);
-	if (temp == 0) CPU_FLAGS &= ~CPU_FMA;
-	if (temp == 1) CPU_FLAGS |= CPU_FMA;
+	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsFMA3", 99);
+	if (temp == 0) CPU_FLAGS &= ~CPU_FMA3;
+	if (temp == 1) CPU_FLAGS |= CPU_FMA3;
+	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsFMA4", 99);
+	if (temp == 0) CPU_FLAGS &= ~CPU_FMA4;
+	if (temp == 1) CPU_FLAGS |= CPU_FMA4;
+	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsAVX2", 99);
+	if (temp == 0) CPU_FLAGS &= ~CPU_AVX2;
+	if (temp == 1) CPU_FLAGS |= CPU_AVX2;
 
 /* Let the user override the L2 cache size in local.ini file */
 
@@ -469,7 +475,8 @@ void getCpuDescription (
 		if (CPU_FLAGS & CPU_SSE2) strcat (buf, "SSE2, ");
 		if (CPU_FLAGS & CPU_SSE41) strcat (buf, "SSE4, ");
 		if (CPU_FLAGS & CPU_AVX) strcat (buf, "AVX, ");
-		if (CPU_FLAGS & CPU_FMA) strcat (buf, "FMA, ");
+		if (CPU_FLAGS & CPU_AVX2) strcat (buf, "AVX2, ");
+		if (CPU_FLAGS & (CPU_FMA3 | CPU_FMA4)) strcat (buf, "FMA, ");
 		strcpy (buf + strlen (buf) - 2, "\n");
 	}
 	strcat (buf, "L1 cache size: ");
@@ -5682,6 +5689,8 @@ retry:
 		if (CPU_FLAGS & CPU_SSE2) strcat (pkt.cpu_features, "SSE2,");
 		if (CPU_FLAGS & CPU_SSE41) strcat (pkt.cpu_features, "SSE4,");
 		if (CPU_FLAGS & CPU_AVX) strcat (pkt.cpu_features, "AVX,");
+		if (CPU_FLAGS & CPU_AVX2) strcat (pkt.cpu_features, "AVX2,");
+		if (CPU_FLAGS & (CPU_FMA3 | CPU_FMA4)) strcat (pkt.cpu_features, "FMA, ");
 		if (pkt.cpu_features[0])
 			pkt.cpu_features[strlen (pkt.cpu_features) - 1] = 0;
 		pkt.L1_cache_size = CPU_L1_CACHE_SIZE;
