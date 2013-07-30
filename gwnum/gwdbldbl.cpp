@@ -8,8 +8,8 @@
  *
  *  This is the only C++ routine in the gwnum library.  Since gwnum is
  *  a C based library, we declare all routines here as extern "C".
- * 
- *  Copyright 2005-2012 Mersenne Research, Inc.  All rights reserved.
+ *
+ *  Copyright 2005-2013 Mersenne Research, Inc.  All rights reserved.
  *
  **************************************************************/
 
@@ -117,6 +117,13 @@ void gwasm_constants (
 #define P383			asm_values[21]
 #define P782			asm_values[22]
 #define P434			asm_values[23]
+#define P975_P434		asm_values[24]
+#define P782_P434		asm_values[25]
+#define P259			asm_values[26]
+#define P966			asm_values[27]
+#define P259_P707		asm_values[28]
+#define P966_P707		asm_values[29]
+#define P924_P383		asm_values[30]
 
 /* Do some initial setup */
 
@@ -179,6 +186,20 @@ void gwasm_constants (
 	P782 = double (sine1);
 	P434 = double (sine3);
 
+	P975_P434 = double (sine2 / P434);
+	P782_P434 = double (sine1 / P434);
+
+/* Initialize the 24-reals sine-cosine data. */
+
+	arg = dd_real::_2pi / 24.0;		// 2*PI * 1 / 24
+	sincos (arg, sine1, cosine1);		// cosine (0.966), sine (0.259)
+
+	P259 = double (sine1);
+	P966 = double (cosine1);
+
+	P259_P707 = double (sine1 / sqrt (0.5));
+	P966_P707 = double (cosine1 / sqrt (0.5));
+
 /* Initialize the roots of -1 used by r4_four_complex_first_fft. */
 
 	arg = dd_real::_2pi / 16.0;		// 2*PI / 16
@@ -186,6 +207,9 @@ void gwasm_constants (
 	P924 = double (cosine1);
 	P383 = double (sine1);
 
+/* Initialize the roots of -1 used by FMA 16-reals */
+
+	P924_P383 = double (cosine1 / double (sine1));
 	END_x86_FIX
 }
 
