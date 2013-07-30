@@ -1,3 +1,13 @@
+New features in Version 28.1 of mprime
+--------------------------------------
+
+1)  Support Intel's new for fused multiply add instruction introduced with the Haswell CPU.
+    This results in faster FFTs.  Note that performance on many Haswell systems is memory-bandwidth
+    limited.  This means that when running 4 workers, the performance gains from using the new FMA
+    instruction is minimal.
+2)  All new test torture test data for AVX CPUs.  The new data runs more interations, thus more time
+    is spent torturing the CPU rather than initializing the FFT routines.
+
 New features in Version 27.9 of mprime
 --------------------------------------
 
