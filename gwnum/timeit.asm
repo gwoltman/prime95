@@ -1,4 +1,4 @@
-; Copyright 1995-2012 Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2013 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -30,7 +30,7 @@ ELSE
 X87_CASES	EQU	13
 ENDIF
 SSE2_CASES	EQU	216
-AVX_CASES	EQU	224
+AVX_CASES	EQU	232
 
 loopent	MACRO	y,z		; Create a entry in the loop entry table
 	DP	&y&z
@@ -998,11 +998,11 @@ avcase11:	readwrite4 32768*1024, 2 ; Read/write 32MB
 	avxmac 256, 100000, 0, yr4_sg4cl_2sc_eight_reals_unfft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, YMM_SCD4, rdi, YMM_SCD2, 1
 
 ;;34
-	avxmac 256*1, 8192, 0, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, 1
-	avxmac 256*2, 8192, 0, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, 2
-	avxmac 256*3, 8192, 0, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, 3
-	avxmac 256*4, 8192, 0, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, 4
-	avxmac 256*5, 8192, 0, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, 5
+	avxmac 256*1, 8192, 0, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, 1	;;, L1PREFETCH_ALL, 2*256*1
+	avxmac 256*2, 8192, 0, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, 2	;;, L1PREFETCH_ALL, 2*256*2
+	avxmac 256*3, 8192, 0, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, 3	;;, L1PREFETCH_ALL, 2*256*3
+	avxmac 256*4, 8192, 0, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, 4	;;, L1PREFETCH_ALL, 2*256*4
+	avxmac 256*5, 8192, 0, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, 5	;;, L1PREFETCH_ALL, 2*256*5
 	avxmac 256*1, 100000, 0, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, 1
 	avxmac 256*2, 100000, 0, yr4_4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2, 2
 	avxmac 256*1, 8192, 0, yr4_b4cl_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, YMM_SCD2/4, 1
@@ -1222,12 +1222,24 @@ avcase11:	readwrite4 32768*1024, 2 ; Read/write 32MB
 	avxmac 512*1, 100000, 0, yr8_sg8cl_2sc_sixteen_reals_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, 0, rdi, YMM_SCD8, 1
 
 ;;216
+	avxmac 512*1, 8192, 0, yr8_8cl_16_reals_fft rsi, 8*64, 64, 128, 256, rdi, YMM_SCD7, 1
+	avxmac 512*1, 100000, 0, yr8_8cl_16_reals_fft rsi, 8*64, 64, 128, 256, rdi, YMM_SCD7, 1
+	avxmac 512*1, 8192, 0, yr8_8cl_16_reals_unfft rsi, 8*64, 64, 128, 256, rdi, YMM_SCD7, 1
+	avxmac 512*1, 100000, 0, yr8_8cl_16_reals_unfft rsi, 8*64, 64, 128, 256, rdi, YMM_SCD7, 1
+
+;;220
 	avxmac 640*1, 8192, 0, yr5_10cl_20_reals_fft rsi, 10*64, 64, 128, rdi, YMM_SCD9, 1
 	avxmac 640*1, 100000, 0, yr5_10cl_20_reals_fft rsi, 10*64, 64, 128, rdi, YMM_SCD9, 1
 	avxmac 640*1, 8192, 0, yr5_10cl_20_reals_unfft rsi, 10*64, 64, 128, rdi, YMM_SCD9, 1
 	avxmac 640*1, 100000, 0, yr5_10cl_20_reals_unfft rsi, 10*64, 64, 128, rdi, YMM_SCD9, 1
 
-;;220
+;;224
+	avxmac 768*1, 8192, 0, yr6_12cl_24_reals_fft rsi, 12*64, 64, 128, rdi, YMM_SCD11, 1
+	avxmac 768*1, 100000, 0, yr6_12cl_24_reals_fft rsi, 12*64, 64, 128, rdi, YMM_SCD11, 1
+	avxmac 768*1, 8192, 0, yr6_12cl_24_reals_unfft rsi, 12*64, 64, 128, rdi, YMM_SCD11, 1
+	avxmac 768*1, 100000, 0, yr6_12cl_24_reals_unfft rsi, 12*64, 64, 128, rdi, YMM_SCD11, 1
+
+;;228
 	avxmac 896*1, 8192, 0, yr7_14cl_28_reals_fft rsi, 14*64, 64, 128, rdi, YMM_SCD13, 1
 	avxmac 896*1, 100000, 0, yr7_14cl_28_reals_fft rsi, 14*64, 64, 128, rdi, YMM_SCD13, 1
 	avxmac 896*1, 8192, 0, yr7_14cl_28_reals_unfft rsi, 14*64, 64, 128, rdi, YMM_SCD13, 1
