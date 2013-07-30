@@ -1,4 +1,4 @@
-; Copyright 2011-2012 Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2013 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -77,8 +77,8 @@ ilp2:	ynorm_wpn ttp, base2, zero, echk, const ;; Normalize 8 values
 ttp	bump	rdi, 2			;; Next big/little flags
 	sub	loopcount1, 1		;; Test loop counter
 	jnz	ilp2			;; Loop til done
-	vmovapd [rbp+0*32], ymm2	;; Save carries
-	vmovapd [rbp+1*32], ymm3
+	ystore	[rbp+0*32], ymm2	;; Save carries
+	ystore	[rbp+1*32], ymm3
 	add	rsi, normblkdst		;; Add 0 or 64 every clmblkdst
 	bump	rbp, 64			;; Next set of carries
 	add	blk8_counter, 80h/4	;; Test for a multiple of 8 blocks
@@ -90,7 +90,7 @@ ttp	bump	rdx, 2*YMM_GMD		;; Next set of group multipliers
 	sub	loopcount3, 1		;; Test outer loop counter
 	jnz	ilp0			;; Iterate
 
-echk	vmovapd	YMM_MAXERR, ymm6	;; Save maximum error
+echk	ystore	YMM_MAXERR, ymm6	;; Save maximum error
 
 	; Handle adjusting the carry out of the topmost FFT word
 
@@ -128,15 +128,15 @@ ttp	movzx	rbx, WORD PTR [rdi]	;; Preload big vs. little & fudge flags
 ilp0:	mov	eax, count2		;; Load wpn count
 	mov	loopcount2z, eax	;; Save loop counter
 ilp1:	mov	ecx, cache_line_multiplier ;; Load inner loop counter
-	vmovapd	ymm2, [rbp+0*32]	;; Preload carries
-	vmovapd	ymm3, [rbp+1*32]
+	ystore	ymm2, [rbp+0*32]	;; Preload carries
+	ystore	ymm3, [rbp+1*32]
 ilp2:	ynorm_wpn_zpad ttp, base2, echk, const, khi, c1, cm1 ;; Normalize 8 values
 	bump	rsi, 64			;; Next cache line
 ttp	bump	rdi, 2			;; Next big/little flags
 	sub	rcx, 1			;; Test loop counter
 	jnz	ilp2			;; Loop til done
-	vmovapd	[rbp+0*32], ymm2	;; Store carries
-	vmovapd	[rbp+1*32], ymm3
+	ystore	[rbp+0*32], ymm2	;; Store carries
+	ystore	[rbp+1*32], ymm3
 	add	rsi, normblkdst		;; Add 0 or 64 every clmblkdst
 	bump	rbp, 64			;; Next set of carries
 	add	blk8_counterz, 80h/4	;; Test for a multiple of 8 blocks
@@ -148,7 +148,7 @@ ttp	bump	rdx, YMM_GMD		;; Next set of group multipliers
 	sub	loopcount3z, 1		;; Test outer loop counter
 	jnz	ilp0			;; Iterate
 
-echk	vmovapd	YMM_MAXERR, ymm6	;; Save maximum error
+echk	ystore	YMM_MAXERR, ymm6	;; Save maximum error
 	int_epilog 12,0,0
 	ENDPP	lab
 	ENDM
