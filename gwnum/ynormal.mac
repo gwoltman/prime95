@@ -639,7 +639,7 @@ rotate_five_carries MACRO ymmreg1, ymmreg2, ymmtmp
 ;	vsubpd	ymm4, ymm4, ymm0	;; rounded value = x - z
 ;	vmulpd	ymm2, ymm2, YMM_LIMIT_INVERSE[rax*2];; next carry = shifted y
 ;	vmulpd	ymm4, ymm4, [rbp+32]	;; new value = val * two-to-phi
-;	vmovapd	[rsi+0*dist1], ymm4	;; Save new value
+;	ystore	[rsi+0*dist1], ymm4	;; Save new value
 
 ynorm_1d_preload MACRO ttp, base2, zero, echk, const
 	ENDM
@@ -669,8 +669,8 @@ no const	vaddpd	ymm5, ymm5, ymm3	;; x2 = values + carry
 ttp		vmulpd	ymm4, ymm4, [rbp+32]	;; new value1 = val * two-to-phi
 ttp no zero	vmulpd	ymm5, ymm5, [rbp+96]	;; new value2 = val * two-to-phi
 zero		vxorpd	ymm5, ymm5, ymm5
-		vmovapd	[rsi], ymm4		;; Save value1
-		vmovapd	[rsi+32], ymm5		;; Save value2
+		ystore	[rsi], ymm4		;; Save value1
+		ystore	[rsi+32], ymm5		;; Save value2
 	ENDM
 
 
@@ -731,9 +731,9 @@ khi		vaddpd	ymm2, ymm2, ymm5	;; Add upper FFT word to lower FFT word
 		rounding ttp, base2, exec, ymm0, ymm2, ymm4, rax*2
 
 ttp		vmulpd	ymm0, ymm0, [rbp+32]	;; new value1 = val * two-to-phi
-		vmovapd	[rsi], ymm0		;; Save value1
+		ystore	[rsi], ymm0		;; Save value1
 		vxorpd	ymm1, ymm1, ymm1	;; new value2 = zero
-		vmovapd	[rsi+32], ymm1		;; Zero value2
+		ystore	[rsi+32], ymm1		;; Zero value2
 	ENDM
 
 ;; 64-bit version
@@ -787,9 +787,9 @@ khi		vaddpd	ymm2, ymm2, ymm5	;; Add upper FFT word to lower FFT word
 		rounding ttp, base2, exec, ymm0, ymm2, ymm4, rax*2
 
 ttp		vmulpd	ymm0, ymm0, [rbp+32]	;; new value1 = val * two-to-phi
-		vmovapd	[rsi], ymm0		;; Save value1
+		ystore	[rsi], ymm0		;; Save value1
 		vxorpd	ymm1, ymm1, ymm1	;; new value2 = zero
-		vmovapd	[rsi+32], ymm1		;; Zero value2
+		ystore	[rsi+32], ymm1		;; Zero value2
 	ENDM
 ENDIF
 
@@ -813,8 +813,8 @@ section_start:
 ttp	mov	rdi, biglitptr
 ttp	mov	rbp, ttpptr
 	mov	edx, count1			;; Count of cache lines in section or padded group
-	vmovapd	YMM_TMP1, ymm4			;; Save carry for next section
-	vmovapd	YMM_TMP2, ymm5			;; Save carry for next section
+	ystore	YMM_TMP1, ymm4			;; Save carry for next section
+	ystore	YMM_TMP2, ymm5			;; Save carry for next section
 
 section_loop:
 base2	vmovapd	ymm1, YMM_BIGVAL		;; Load comparison value
@@ -846,8 +846,8 @@ ttp		vmulpd	ymm1, ymm1, YMM_NORM012_FF	;; Mul by FFTLEN/2
 		rounding_interleaved ttp, base2, noexec, ymm0, ymm2, ymm4, rax*2, ymm1, ymm3, ymm5, rcx*2
 ttp		vmulpd	ymm0, ymm0, [rbp+32]		;; new value1 = val * two-to-phi
 ttp no zero	vmulpd	ymm1, ymm1, [rbp+96]		;; new value2 = val * two-to-phi
-		vmovapd	[rsi], ymm0			;; Save new value1
-no zero		vmovapd	[rsi+32], ymm1			;; Save new value2
+		ystore	[rsi], ymm0			;; Save new value1
+no zero		ystore	[rsi+32], ymm1			;; Save new value2
 
 ttp	bump	rdi, 2				;; Advance pointers
 	bump	rsi, 64
@@ -872,8 +872,8 @@ ttp		vmulpd	ymm2, ymm2, [rbp+32]		;; carry1 *= two-to-phi
 ttp no zero	vmulpd	ymm3, ymm3, [rbp+96]		;; carry2 *= two-to-phi
 		vaddpd	ymm2, ymm2, [rsi]		;; Add in values1
 no zero		vaddpd	ymm3, ymm3, [rsi+32]		;; Add in values2
-		vmovapd	[rsi], ymm2			;; Save new value1
-no zero		vmovapd	[rsi+32], ymm3			;; Save new value2
+		ystore	[rsi], ymm2			;; Save new value1
+no zero		ystore	[rsi+32], ymm3			;; Save new value2
 
 done:	vmovapd	ymm2, YMM_TMP1			;; Restore carry for next section
 	vmovapd	ymm3, YMM_TMP2			;; Restore carry for next section
@@ -897,8 +897,8 @@ section_start:
 ttp	mov	rdi, biglitptr
 ttp	mov	rbp, ttpptr
 	mov	edx, count1			;; Count of cache lines in section or padded group
-	vmovapd	YMM_TMP1, ymm4			;; Save carry for next section
-	vmovapd	YMM_TMP2, ymm5			;; Save carry for next section
+	ystore	YMM_TMP1, ymm4			;; Save carry for next section
+	ystore	YMM_TMP2, ymm5			;; Save carry for next section
 
 section_loop:
 base2	vmovapd	ymm1, YMM_BIGVAL		;; Load comparison value
@@ -935,7 +935,7 @@ no ttp	vmulpd	ymm3, ymm3, YMM_LIMIT_INVERSE[0] ;; shift low bits of high FFT car
 	rounding ttp, base2, noexec, ymm0, ymm2, ymm4, rax*2
 	vaddpd	ymm2, ymm2, ymm3		;; Carry += shifted low bits of high_FFT_carry * k_hi
 ttp	vmulpd	ymm0, ymm0, [rbp+32]		;; new value1 = val * two-to-phi
-	vmovapd	[rsi], ymm0			;; Save new value1
+	ystore	[rsi], ymm0			;; Save new value1
 	vmovapd	ymm3, ymm1			;; Next high FFT carry = high bits of current high FFT carry
 
 ttp	bump	rdi, 1				;; Advance pointers
@@ -958,7 +958,7 @@ force_done:
 base2	vsubpd	ymm2, ymm2, YMM_BIGVAL		;; Subtract rounding constant from carry
 ttp	vmulpd	ymm2, ymm2, [rbp+32]		;; carry1 *= two-to-phi
 	vaddpd	ymm2, ymm2, [rsi]		;; Add in values1
-	vmovapd	[rsi], ymm2			;; Save new value1
+	ystore	[rsi], ymm2			;; Save new value1
 
 done:	vmovapd	ymm2, YMM_TMP1			;; Restore carry for next section
 	vmovapd	ymm3, YMM_TMP2			;; Restore carry for next section
@@ -1000,8 +1000,8 @@ no base2	vxorpd	ymm5, ymm5, ymm5
 		vmovapd	ymm4, ymm5
 
 section_restart:
-		vmovapd	YMM_TMP5, ymm5			;; Save next section's initial carries
-		vmovapd	YMM_TMP4, ymm4
+		ystore	YMM_TMP5, ymm5			;; Save next section's initial carries
+		ystore	YMM_TMP4, ymm4
 		mov	edx, count1			;; Count of cache lines in section or padded group
 
 section_loop:
@@ -1030,8 +1030,8 @@ no zero		rounding_interleaved ttp, base2, noexec, ymm0, ymm3, ymm4, rax*2, ymm1,
 zero		rounding ttp, base2, noexec, ymm0, ymm3, ymm4, rax*2
 ttp		vmulpd	ymm0, ymm0, [rbp+32]		;; new value1 = val * two-to-phi
 no zero ttp	vmulpd	ymm1, ymm1, [rbp+96]		;; new value2 = val * two-to-phi
-		vmovapd	[rsi], ymm0			;; Save new value1
-no zero		vmovapd	[rsi+32], ymm1			;; Save new value2
+		ystore	[rsi], ymm0			;; Save new value1
+no zero		ystore	[rsi+32], ymm1			;; Save new value2
 
 ttp		bump	rdi, 2				;; Advance pointers
 		bump	rsi, 64
@@ -1076,8 +1076,8 @@ ttp		vmulpd	ymm3, ymm3, [rbp+32]		;; carry1 *= two-to-phi
 ttp no zero	vmulpd	ymm2, ymm2, [rbp+96]		;; carry2 *= two-to-phi
 		vaddpd	ymm3, ymm3, [rsi]		;; Add in values1
 no zero		vaddpd	ymm2, ymm2, [rsi+32]		;; Add in values2
-		vmovapd	[rsi], ymm3			;; Save new value1
-no zero		vmovapd	[rsi+32], ymm2			;; Save new value2
+		ystore	[rsi], ymm3			;; Save new value1
+no zero		ystore	[rsi+32], ymm2			;; Save new value2
 
 		mov	rsi, PPTR YMM_TMP7		;; Load next section pointers
 ttp		mov	rbp, PPTR YMM_TMP8
@@ -1102,8 +1102,8 @@ ttp		vmulpd	ymm3, ymm3, [rbp+32]		;; carry1 *= two-to-phi
 ttp no zero	vmulpd	ymm2, ymm2, [rbp+96]		;; carry2 *= two-to-phi
 		vaddpd	ymm3, ymm3, [rsi]		;; Add in values1
 no zero		vaddpd	ymm2, ymm2, [rsi+32]		;; Add in values2
-		vmovapd	[rsi], ymm3			;; Save new value1
-no zero		vmovapd	[rsi+32], ymm2			;; Save new value2
+		ystore	[rsi], ymm3			;; Save new value1
+no zero		ystore	[rsi+32], ymm2			;; Save new value2
 
 	ENDM
 
@@ -1607,7 +1607,7 @@ ynorm_top_carry_cmn MACRO base2, srcreg, xreg, twopass
 	ENDIF
 
 	IF twopass EQ 0
-	vmovapd	YMM_TMP6, ymm3		;; Save the full carry register
+	ystore	YMM_TMP6, ymm3		;; Save the full carry register
 	ELSE
 	vmovsd	YMM_TMP6, xreg		;; Save the carry for later use
 	ENDIF
@@ -1765,8 +1765,8 @@ ttp		vmulpd	ymm0, ymm0, [rdx+0*YMM_GMD+YMM_GMD/2][rcx] ;; value1 = rounded value
 ttp no zero	vmulpd	ymm1, ymm1, [rdx+1*YMM_GMD+YMM_GMD/2][rbx*8] ;; value2 = rounded value * fudged grp two-to-phi
 zero		vxorpd	ymm1, ymm1, ymm1
 ttp		movzx	rbx, WORD PTR [rdi+2]		;; Load next 4 big vs. little & fudge flags
-		vmovapd	[rsi+0*32], ymm0		;; Save new value1
-		vmovapd	[rsi+1*32], ymm1		;; Save new value2
+		ystore	[rsi+0*32], ymm0		;; Save new value1
+		ystore	[rsi+1*32], ymm1		;; Save new value2
 	ENDM
 
 ; This is the normalization routine when we are computing modulo k*b^n+c
@@ -1829,9 +1829,9 @@ khi			vaddpd	ymm2, ymm2, ymm5		;; Add upper FFT word to lower FFT word
 			rounding ttp, base2, exec, ymm0, ymm2, ymm4, rax*8
 
 ttp			vmulpd	ymm0, ymm0, [rdx+0*YMM_GMD+YMM_GMD/2][rbx] ;; new value1 *= fudged grp two-to-phi
-			vmovapd	[rsi], ymm0			;; Save new value1
+			ystore	[rsi], ymm0			;; Save new value1
 			vxorpd	ymm1, ymm1, ymm1		;; new value2 = zero
-			vmovapd	[rsi+32], ymm1			;; Zero value2
+			ystore	[rsi+32], ymm1			;; Zero value2
 
 ttp			movzx	rbx, WORD PTR [rdi+2]		;; Load next big vs. little & fudge flags
 	ENDM
@@ -1887,9 +1887,9 @@ khi			vaddpd	ymm2, ymm2, ymm5		;; Add upper FFT word to lower FFT word
 			rounding ttp, base2, exec, ymm0, ymm2, ymm4, rax*8
 
 ttp			vmulpd	ymm0, ymm0, [rdx+0*YMM_GMD+YMM_GMD/2][rbx] ;; new value1 *= fudged grp two-to-phi
-			vmovapd	[rsi], ymm0			;; Save new value1
+			ystore	[rsi], ymm0			;; Save new value1
 			vxorpd	ymm1, ymm1, ymm1		;; new value2 = zero
-			vmovapd	[rsi+32], ymm1			;; Zero value2
+			ystore	[rsi+32], ymm1			;; Zero value2
 
 ttp			movzx	rbx, WORD PTR [rdi+2]		;; Load next big vs. little & fudge flags
 	ENDM
@@ -1984,8 +1984,8 @@ ttp		vmulpd	ymm1, ymm1, [rdx+1*YMM_GMD][rbx*8] ;; Mul values2 by fudged two-to-m
 		rounding_interleaved ttp, base2, noexec, ymm0, ymm2, ymm4, rsi*8, ymm1, ymm3, ymm5, rsi*8+32
 ttp		vmulpd	ymm0, ymm0, [rdx+0*YMM_GMD+YMM_GMD/2][rcx] ;; value1 = rounded value * fudged grp two-to-phi
 ttp		vmulpd	ymm1, ymm1, [rdx+1*YMM_GMD+YMM_GMD/2][rbx*8] ;; value2 = rounded value * fudged grp two-to-phi
-		vmovapd	[rbp], ymm0			;; Save new value1
-		vmovapd	[rbp+32], ymm1			;; Save new value2
+		ystore	[rbp], ymm0			;; Save new value1
+		ystore	[rbp+32], ymm1			;; Save new value2
 
 base2		vmovapd	ymm1, YMM_BIGVAL		;; Load comparison value
 no base2	vxorpd	ymm1, ymm1, ymm1		;; Create comparison value
@@ -2016,8 +2016,8 @@ ttp		vmulpd	ymm2, ymm2, [rdx+0*YMM_GMD+YMM_GMD/2][rcx] ;; Carry *= fudged grp tw
 ttp		vmulpd	ymm3, ymm3, [rdx+1*YMM_GMD+YMM_GMD/2][rbx*8]
 		vaddpd	ymm0, ymm0, ymm2		;; Values1 += carry
 		vaddpd	ymm1, ymm1, ymm3		;; Values2 += carry
-		vmovapd	[rbp], ymm0			;; Save new value1
-		vmovapd	[rbp+32], ymm1			;; Save new value2
+		ystore	[rbp], ymm0			;; Save new value1
+		ystore	[rbp+32], ymm1			;; Save new value2
 
 done:	mov	rbp, srcptr			;; Restore pointers
 	mov	rsi, carryptr
@@ -2025,8 +2025,8 @@ ttp	mov	rdi, biglitptr
 
 base2	vmovapd	ymm4, YMM_BIGVAL		;; Clear conventional carry
 no base2 vxorpd ymm4, ymm4, ymm4
-	vmovapd	[rsi], ymm4
-	vmovapd	[rsi+32], ymm4
+	ystore	[rsi], ymm4
+	ystore	[rsi+32], ymm4
 	ENDM
 
 
@@ -2532,7 +2532,7 @@ no ttp	vmulpd	ymm3, ymm3, YMM_LIMIT_INVERSE[0] ;; shift low bits of high FFT car
 	rounding ttp, base2, noexec, ymm0, ymm2, ymm4, rsi*8
 	vaddpd	ymm2, ymm2, ymm3		;; Carry += shifted low bits of high_FFT_carry * k_hi
 ttp	vmulpd	ymm0, ymm0, [rdx+0*YMM_GMD+YMM_GMD/2][rcx] ;; mul by fudged grp two-to-phi
-	vmovapd	[rbp], ymm0			;; Save FFT data
+	ystore	[rbp], ymm0			;; Save FFT data
 	vmovapd	ymm3, ymm1			;; Next high FFT carry = high bits of high FFT carry
 
 base2	vmovapd	ymm1, YMM_BIGVAL		;; Load comparison value
@@ -2562,7 +2562,7 @@ last_iter:
 base2	vsubpd	ymm2, ymm2, YMM_BIGVAL		;; Subtract rounding constant from carry
 ttp	vmulpd	ymm2, ymm2, [rdx+0*YMM_GMD+YMM_GMD/2][rcx] ;; Carry *= fudged grp two-to-phi
 	vaddpd	ymm0, ymm0, ymm2		;; Values1 += carry
-	vmovapd	[rbp], ymm0			;; Save new values1
+	ystore	[rbp], ymm0			;; Save new values1
 
 done:	mov	rbp, srcptr			;; Restore pointers
 	mov	rsi, carryptr
@@ -2570,9 +2570,9 @@ ttp	mov	rdi, biglitptr
 
 base2	vmovapd	ymm4, YMM_BIGVAL		;; Clear conventional carry
 no base2 vxorpd ymm4, ymm4, ymm4
-	vmovapd	[rsi], ymm4
+	ystore	[rsi], ymm4
 base2	vxorpd ymm4, ymm4, ymm4			;; Clear high carry
-	vmovapd	[rsi+32], ymm4
+	ystore	[rsi+32], ymm4
 	ENDM
 
 
@@ -2624,8 +2624,8 @@ ttp	vmulpd	ymm1, ymm1, ymm5	;; Mul value2 by fudged two-to-minus-phi
 	rounding_interleaved ttp, base2, noexec, ymm0, ymm2, ymm4, rax*2, ymm1, ymm3, ymm5, rbx*2
 ttp	vmulpd	ymm0, ymm0, [rbp+32]	;; new value1 = val * two-to-phi
 ttp	vmulpd	ymm1, ymm1, [rbp+96]	;; new value2 = val * two-to-phi
-	vmovapd	[rsi], ymm0		;; Save value1
-	vmovapd	[rsi+32], ymm1		;; Save value2
+	ystore	[rsi], ymm0		;; Save value1
+	ystore	[rsi+32], ymm1		;; Save value2
 ttp	bump	rdi, 2			;; Next flags ptr
 	bump	rcx, 64			;; Next src ptr
 	bump	rdx, 64			;; Next src ptr
@@ -2649,8 +2649,8 @@ ttp	vmulpd	ymm1, ymm1, ymm5	;; Mul value2 by fudged two-to-minus-phi
 	rounding_interleaved ttp, base2, noexec, ymm0, ymm2, ymm4, rax*2, ymm1, ymm3, ymm5, rax*2
 ttp	vmulpd	ymm0, ymm0, [rbp+32]	;; new value1 = val * two-to-phi
 ttp	vmulpd	ymm1, ymm1, [rbp+32]	;; new value2 = val * two-to-phi
-	vmovapd	[rsi], ymm0		;; Save value1
-	vmovapd	[rsi+32], ymm1		;; Save value2
+	ystore	[rsi], ymm0		;; Save value1
+	ystore	[rsi+32], ymm1		;; Save value2
 ttp	bump	rdi, 1			;; Next flags ptr
 	bump	rcx, 64			;; Next src ptr
 	bump	rdx, 64			;; Next src ptr
@@ -2677,8 +2677,8 @@ ttp	vmulpd	ymm2, ymm2, [rbx+32]			;; carry1 *= two-to-phi
 ttp	vmulpd	ymm3, ymm3, [rbx+96]			;; carry2 *= two-to-phi
 	vaddpd	ymm0, ymm0, ymm2			;; x1 = values + carry
 	vaddpd	ymm1, ymm1, ymm3			;; x2 = values + carry
-	vmovapd	[rax], ymm0				;; Save new value1
-	vmovapd	[rax+32], ymm1				;; Save new value2
+	ystore	[rax], ymm0				;; Save new value1
+	ystore	[rax+32], ymm1				;; Save new value2
 	vmovapd	ymm2, ymm4				;; Install next section's carry
 	vmovapd	ymm3, ymm5				;; Install next section's carry
 	ENDM
@@ -2694,8 +2694,8 @@ ttp	vmulpd	ymm2, ymm2, [rbx+32]			;; carry1 *= two-to-phi
 ttp	vmulpd	ymm3, ymm3, [rbx+32]			;; carry2 *= two-to-phi
 	vaddpd	ymm0, ymm0, ymm2			;; x1 = values + carry
 	vaddpd	ymm1, ymm1, ymm3			;; x2 = values + carry
-	vmovapd	[rax], ymm0				;; Save new value1
-	vmovapd	[rax+32], ymm1				;; Save new value2
+	ystore	[rax], ymm0				;; Save new value1
+	ystore	[rax+32], ymm1				;; Save new value2
 	vmovapd	ymm2, ymm4				;; Install next section's carry
 	vmovapd	ymm3, ymm5				;; Install next section's carry
 	ENDM
@@ -3178,8 +3178,8 @@ ttp	vmulpd	ymm1, ymm1, ymm5	;; Mul values2 by two-to-minus-phi
 	rounding_interleaved ttp, base2, noexec, ymm0, ymm2, ymm4, rax*2, ymm1, ymm6, ymm5, rax*2
 ttp	vmulpd	ymm0, ymm0, [rbx+32]	;; new value1 = val * two-to-phi
 ttp	vmulpd	ymm1, ymm1, [rbx+32]	;; new value2 = val * two-to-phi
-	vmovapd	[rsi], ymm0		;; Save value1
-	vmovapd	[rbp], ymm1		;; Save value2
+	ystore	[rsi], ymm0		;; Save value1
+	ystore	[rbp], ymm1		;; Save value2
 
 ttp	movzx	rax, BYTE PTR [rdi+1]	;; Load big vs. little flags
 	vmovapd	ymm0, [rcx+32]		;; Load first number
@@ -3195,8 +3195,8 @@ ttp	vmulpd	ymm1, ymm1, ymm5	;; Mul values2 by two-to-minus-phi
 	rounding_interleaved ttp, base2, noexec, ymm0, ymm3, ymm4, rax*2, ymm1, ymm7, ymm5, rax*2
 ttp	vmulpd	ymm0, ymm0, [rbx+96]	;; new value1 = val * two-to-phi
 ttp	vmulpd	ymm1, ymm1, [rbx+96]	;; new value2 = val * two-to-phi
-	vmovapd	[rsi+32], ymm0		;; Save value1
-	vmovapd	[rbp+32], ymm1		;; Save value2
+	ystore	[rsi+32], ymm0		;; Save value1
+	ystore	[rbp+32], ymm1		;; Save value2
 
 ttp	bump	rdi, 2			;; Next flags ptr
 	bump	rcx, 64			;; Next src ptr
@@ -3222,8 +3222,8 @@ ttp	vmulpd	ymm1, ymm1, ymm5	;; Mul values2 by two-to-minus-phi
 	rounding_interleaved ttp, base2, noexec, ymm0, ymm2, ymm4, rax*2, ymm1, ymm6, ymm5, rax*2
 ttp	vmulpd	ymm0, ymm0, [rbx+32]	;; new value1 = val * two-to-phi
 ttp	vmulpd	ymm1, ymm1, [rbx+32]	;; new value2 = val * two-to-phi
-	vmovapd	[rsi], ymm0		;; Save value1
-	vmovapd	[rbp], ymm1		;; Save value2
+	ystore	[rsi], ymm0		;; Save value1
+	ystore	[rbp], ymm1		;; Save value2
 
 	vmovapd	ymm0, [rcx+32]		;; Load first number
 	vaddpd	ymm0, ymm0, [rdx+32]	;; Add second number
@@ -3238,8 +3238,8 @@ ttp	vmulpd	ymm1, ymm1, ymm5	;; Mul values2 by two-to-minus-phi
 	rounding_interleaved ttp, base2, noexec, ymm0, ymm3, ymm4, rax*2, ymm1, ymm7, ymm5, rax*2
 ttp	vmulpd	ymm0, ymm0, [rbx+32]	;; new value1 = val * two-to-phi
 ttp	vmulpd	ymm1, ymm1, [rbx+32]	;; new value2 = val * two-to-phi
-	vmovapd	[rsi+32], ymm0		;; Save value1
-	vmovapd	[rbp+32], ymm1		;; Save value2
+	ystore	[rsi+32], ymm0		;; Save value1
+	ystore	[rbp+32], ymm1		;; Save value2
 
 ttp	bump	rdi, 1			;; Next flags ptr
 	bump	rcx, 64			;; Next src ptr
@@ -3268,8 +3268,8 @@ ttp	vmulpd	ymm2, ymm2, [rbx+32]			;; carry1 *= two-to-phi
 ttp	vmulpd	ymm3, ymm3, [rbx+96]			;; carry2 *= two-to-phi
 	vaddpd	ymm0, ymm0, ymm2			;; x1 = values + carry
 	vaddpd	ymm1, ymm1, ymm3			;; x2 = values + carry
-	vmovapd	[rax], ymm0				;; Save new value1
-	vmovapd	[rax+32], ymm1				;; Save new value2
+	ystore	[rax], ymm0				;; Save new value1
+	ystore	[rax+32], ymm1				;; Save new value2
 	vmovapd	ymm2, ymm4				;; Install next section's carry
 	vmovapd	ymm3, ymm5				;; Install next section's carry
 
@@ -3283,8 +3283,8 @@ ttp	vmulpd	ymm6, ymm6, [rbx+32]			;; carry1 *= two-to-phi
 ttp	vmulpd	ymm7, ymm7, [rbx+96]			;; carry2 *= two-to-phi
 	vaddpd	ymm0, ymm0, ymm6			;; x1 = values + carry
 	vaddpd	ymm1, ymm1, ymm7			;; x2 = values + carry
-	vmovapd	[rax], ymm0				;; Save new value1
-	vmovapd	[rax+32], ymm1				;; Save new value2
+	ystore	[rax], ymm0				;; Save new value1
+	ystore	[rax+32], ymm1				;; Save new value2
 	vmovapd	ymm6, ymm4				;; Install next section's carry
 	vmovapd	ymm7, ymm5				;; Install next section's carry
 	ENDM
@@ -3301,8 +3301,8 @@ ttp	vmulpd	ymm2, ymm2, [rbx+32]			;; carry1 *= two-to-phi
 ttp	vmulpd	ymm3, ymm3, [rbx+32]			;; carry2 *= two-to-phi
 	vaddpd	ymm0, ymm0, ymm2			;; x1 = values + carry
 	vaddpd	ymm1, ymm1, ymm3			;; x2 = values + carry
-	vmovapd	[rax], ymm0				;; Save new value1
-	vmovapd	[rax+32], ymm1				;; Save new value2
+	ystore	[rax], ymm0				;; Save new value1
+	ystore	[rax+32], ymm1				;; Save new value2
 	vmovapd	ymm2, ymm4				;; Install next section's carry
 	vmovapd	ymm3, ymm5				;; Install next section's carry
 
@@ -3316,8 +3316,8 @@ ttp	vmulpd	ymm6, ymm6, [rbx+32]			;; carry1 *= two-to-phi
 ttp	vmulpd	ymm7, ymm7, [rbx+32]			;; carry2 *= two-to-phi
 	vaddpd	ymm0, ymm0, ymm6			;; x1 = values + carry
 	vaddpd	ymm1, ymm1, ymm7			;; x2 = values + carry
-	vmovapd	[rax], ymm0				;; Save new value1
-	vmovapd	[rax+32], ymm1				;; Save new value2
+	ystore	[rax], ymm0				;; Save new value1
+	ystore	[rax+32], ymm1				;; Save new value2
 	vmovapd	ymm6, ymm4				;; Install next section's carry
 	vmovapd	ymm7, ymm5				;; Install next section's carry
 	ENDM
@@ -3408,8 +3408,8 @@ ttp	vmulpd	ymm1, ymm1, [rbp+64]		;; Mul values2 by two-to-minus-phi
 	rounding_interleaved ttp, base2, noexec, ymm0, ymm2, ymm4, rax*2, ymm1, ymm3, ymm5, rcx*2
 ttp	vmulpd	ymm0, ymm0, [rbp+32]		;; new value1 = val * two-to-phi
 ttp	vmulpd	ymm1, ymm1, [rbp+96]		;; new value2 = val * two-to-phi
-	vmovapd	[rsi], ymm0			;; Save value1
-	vmovapd	[rsi+32], ymm1			;; Save value2
+	ystore	[rsi], ymm0			;; Save value1
+	ystore	[rsi+32], ymm1			;; Save value2
 ttp	bump	rdi, 2				;; Next flags ptr
 	bump	rsi, 64				;; Next dest ptr
 ttp	bump	rbp, 128			;; Next two-to-phi ptr
@@ -3429,8 +3429,8 @@ ttp	vmulpd	ymm1, ymm1, [rbp]		;; Mul values2 by two-to-minus-phi
 	rounding_interleaved ttp, base2, noexec, ymm0, ymm2, ymm4, rax*2, ymm1, ymm3, ymm5, rax*2
 ttp	vmulpd	ymm0, ymm0, [rbp+32]		;; new value1 = val * two-to-phi
 ttp	vmulpd	ymm1, ymm1, [rbp+32]		;; new value2 = val * two-to-phi
-	vmovapd	[rsi], ymm0			;; Save value1
-	vmovapd	[rsi+32], ymm1			;; Save value2
+	ystore	[rsi], ymm0			;; Save value1
+	ystore	[rsi+32], ymm1			;; Save value2
 ttp	bump	rdi, 1				;; Next flags ptr
 	bump	rsi, 64				;; Next dest ptr
 ttp	bump	rbp, 64				;; Next two-to-phi ptr
@@ -3468,8 +3468,8 @@ section_start:
 ttp	mov	rdi, biglitptr
 ttp	mov	rbp, ttpptr
 	mov	edx, count1			;; Count of cache lines in section padded group
-	vmovapd	YMM_TMP1, ymm4			;; Save carry for next section
-	vmovapd	YMM_TMP2, ymm5			;; Save carry for next section
+	ystore	YMM_TMP1, ymm4			;; Save carry for next section
+	ystore	YMM_TMP2, ymm5			;; Save carry for next section
 
 section_loop:
 base2	vmovapd	ymm1, YMM_BIGVAL		;; Load comparison value
@@ -3500,8 +3500,8 @@ ttp		vmulpd	ymm1, ymm1, YMM_NORM012_FF	;; Mul by FFTLEN/2
 		rounding_interleaved ttp, base2, noexec, ymm0, ymm2, ymm4, rax*2, ymm1, ymm3, ymm5, rax*2
 ttp		vmulpd	ymm0, ymm0, [rbp+32]		;; new value1 = val * two-to-phi
 ttp		vmulpd	ymm1, ymm1, [rbp+32]		;; new value2 = val * two-to-phi
-		vmovapd	[rsi], ymm0			;; Save new value1
-		vmovapd	[rsi+32], ymm1			;; Save new value2
+		ystore	[rsi], ymm0			;; Save new value1
+		ystore	[rsi+32], ymm1			;; Save new value2
 
 ttp	bump	rdi, 1				;; Advance pointers
 	bump	rsi, 64
@@ -3527,8 +3527,8 @@ ttp	vmulpd	ymm2, ymm2, [rbp+32]		;; carry1 *= two-to-phi
 ttp	vmulpd	ymm3, ymm3, [rbp+32]		;; carry2 *= two-to-phi
 	vaddpd	ymm2, ymm2, [rsi]		;; Add in values1
 	vaddpd	ymm3, ymm3, [rsi+32]		;; Add in values2
-	vmovapd	[rsi], ymm2			;; Save new value1
-	vmovapd	[rsi+32], ymm3			;; Save new value2
+	ystore	[rsi], ymm2			;; Save new value1
+	ystore	[rsi+32], ymm3			;; Save new value2
 
 done:	vmovapd	ymm2, YMM_TMP1			;; Restore carry for next section
 	vmovapd	ymm3, YMM_TMP2			;; Restore carry for next section
@@ -4041,8 +4041,8 @@ ttp		vmulpd	ymm1, ymm1, [rbp+1*YMM_GMD][rbx*8] ;; Mul by fudged grp two-to-minus
 		rounding_interleaved ttp, base2, noexec, ymm0, ymm2, ymm4, rax*8, ymm1, ymm3, ymm5, rax*8+32
 ttp		vmulpd	ymm0, ymm0, [rbp+0*YMM_GMD+YMM_GMD/2][rcx] ;; value1 *= fudged grp two-to-phi
 ttp		vmulpd	ymm1, ymm1, [rbp+1*YMM_GMD+YMM_GMD/2][rbx*8] ;; value2 *= fudged grp two-to-phi
-		vmovapd	[rsi+0*32], ymm0		;; Save new value1
-		vmovapd	[rsi+1*32], ymm1		;; Save new value2
+		ystore	[rsi+0*32], ymm0		;; Save new value1
+		ystore	[rsi+1*32], ymm1		;; Save new value2
 		sub	rsi, dist_to_dest		;; Change back to a pointer into the first input number
 	ENDM
 
@@ -4071,8 +4071,8 @@ ttp		vmulpd	ymm1, ymm1, [rbp+0*YMM_GMD][rcx] ;; Mul by fudged grp two-to-minus-p
 		rounding_interleaved ttp, base2, noexec, ymm0, ymm2, ymm4, rax*8, ymm1, ymm3, ymm5, rax*8
 ttp		vmulpd	ymm0, ymm0, [rbp+0*YMM_GMD+YMM_GMD/2][rcx] ;; value1 *= fudged grp two-to-phi
 ttp		vmulpd	ymm1, ymm1, [rbp+0*YMM_GMD+YMM_GMD/2][rcx] ;; value2 *= fudged grp two-to-phi
-		vmovapd	[rsi+rbx+0*32], ymm0		;; Save new value1
-		vmovapd	[rsi+rbx+1*32], ymm1		;; Save new value2
+		ystore	[rsi+rbx+0*32], ymm0		;; Save new value1
+		ystore	[rsi+rbx+1*32], ymm1		;; Save new value2
 	ENDM
 
 ; *************** WPN followup macros ******************
@@ -4096,8 +4096,8 @@ ttp	vmulpd	carry1, carry1, [rbp+0*YMM_GMD+YMM_GMD/2][rcx] ;; carry1 *= fudged gr
 ttp	vmulpd	carry2, carry2, [rbp+1*YMM_GMD+YMM_GMD/2][rbx*8] ;; carry2 *= fudged grp two-to-phi
 	vaddpd	ymm0, carry1, [rsi]			;; x1 = carry1 + values1
 	vaddpd	ymm1, carry2, [rsi+32]			;; x2 = carry2 + values2
-	vmovapd	[rsi], ymm0				;; Save new value1
-	vmovapd	[rsi+32], ymm1				;; Save new value2
+	ystore	[rsi], ymm0				;; Save new value1
+	ystore	[rsi+32], ymm1				;; Save new value2
 	vmovapd	carry1, ymm4				;; Set next block's carry
 	vmovapd	carry2, ymm5				;; Set next block's carry
 	ENDM
@@ -4110,7 +4110,7 @@ ttp	movzx	rcx, WORD PTR [rdi]			;; Load big vs. little & fudge flags
 ttp	and	rcx, 0e0h				;; Fudge flags 1 & 2
 ttp	vmulpd	carry1, carry1, [rbp+0*YMM_GMD+YMM_GMD/2][rcx] ;; carry1 *= fudged grp two-to-phi
 	vaddpd	ymm0, carry1, [rsi]			;; x1 = carry1 + values1
-	vmovapd	[rsi], ymm0				;; Save new value1
+	ystore	[rsi], ymm0				;; Save new value1
 	vmovapd	carry1, ymm4				;; Set next block's carry
 	ENDM
 
@@ -4223,8 +4223,8 @@ ttp		vmulpd	ymm1, ymm1, [rbp+1*YMM_GMD+YMM_GMD/2][rbx*8] ;; value2 *= fudged grp
 		vsubpd	ymm5, ymm5, [rdx+1*32]		;; first - second number
 
 		add	rsi, dist_to_dest1		;; Change to a destination pointer
-		vmovapd	[rsi+0*32], ymm0		;; Save new value1
-		vmovapd	[rsi+1*32], ymm1		;; Save new value1
+		ystore	[rsi+0*32], ymm0		;; Save new value1
+		ystore	[rsi+1*32], ymm1		;; Save new value1
 		sub	rsi, dist_to_dest1		;; Change back to a pointer into the first input number
 
 ttp		vmulpd	ymm4, ymm4, [rbp+0*YMM_GMD][rcx] ;; Mul by fudged grp two-to-minus-phi
@@ -4235,8 +4235,8 @@ ttp		vmulpd	ymm5, ymm5, [rbp+1*YMM_GMD][rbx*8] ;; Mul by fudged grp two-to-minus
 ttp		vmulpd	ymm4, ymm4, [rbp+0*YMM_GMD+YMM_GMD/2][rcx] ;; value1 *= fudged grp two-to-phi
 ttp		vmulpd	ymm5, ymm5, [rbp+1*YMM_GMD+YMM_GMD/2][rbx*8] ;; value2 *= fudged grp two-to-phi
 		add	rsi, dist_to_dest2		;; Change to a destination pointer
-		vmovapd	[rsi+0*32], ymm4		;; Save new value1
-		vmovapd	[rsi+1*32], ymm5		;; Save new value1
+		ystore	[rsi+0*32], ymm4		;; Save new value1
+		ystore	[rsi+1*32], ymm5		;; Save new value1
 		sub	rsi, dist_to_dest2		;; Change back to a pointer into the first input number
 	ENDM
 
@@ -4273,8 +4273,8 @@ ttp		vmulpd	ymm1, ymm1, [rbp+0*YMM_GMD+YMM_GMD/2][rcx] ;; value2 *= fudged grp t
 		vmovapd	ymm5, [rsi+1*32]		;; Load first number
 		vsubpd	ymm5, ymm5, [rdx+1*32]		;; first - second number
 
-		vmovapd	[rsi+rbx+0*32], ymm0		;; Save new value1
-		vmovapd	[rsi+rbx+1*32], ymm1		;; Save new value1
+		ystore	[rsi+rbx+0*32], ymm0		;; Save new value1
+		ystore	[rsi+rbx+1*32], ymm1		;; Save new value1
 
 ttp		vmulpd	ymm4, ymm4, [rbp+0*YMM_GMD][rcx] ;; Mul by fudged grp two-to-minus-phi
 ttp		vmulpd	ymm5, ymm5, [rbp+0*YMM_GMD][rcx] ;; Mul by fudged grp two-to-minus-phi
@@ -4284,8 +4284,8 @@ ttp		vmulpd	ymm5, ymm5, [rbp+0*YMM_GMD][rcx] ;; Mul by fudged grp two-to-minus-p
 ttp		vmulpd	ymm4, ymm4, [rbp+0*YMM_GMD+YMM_GMD/2][rcx] ;; value1 *= fudged grp two-to-phi
 ttp		vmulpd	ymm5, ymm5, [rbp+0*YMM_GMD+YMM_GMD/2][rcx] ;; value2 *= fudged grp two-to-phi
 		add	rsi, dist_to_dest2		;; Change to a destination pointer
-		vmovapd	[rsi+0*32], ymm4		;; Save new value1
-		vmovapd	[rsi+1*32], ymm5		;; Save new value1
+		ystore	[rsi+0*32], ymm4		;; Save new value1
+		ystore	[rsi+1*32], ymm5		;; Save new value1
 		sub	rsi, dist_to_dest2		;; Change back to a pointer into the first input number
 	ENDM
 
@@ -4381,8 +4381,8 @@ ttp	vmulpd	ymm1, ymm1, [rbp+1*YMM_GMD][rbx*8] ;; Mul by fudged grp two-to-minus-
 	rounding_interleaved ttp, base2, noexec, ymm0, ymm2, ymm4, rax*8, ymm1, ymm3, ymm5, rax*8+32
 ttp	vmulpd	ymm0, ymm0, [rbp+0*YMM_GMD+YMM_GMD/2][rcx] ;; value1 *= fudged grp two-to-phi
 ttp	vmulpd	ymm1, ymm1, [rbp+1*YMM_GMD+YMM_GMD/2][rbx*8] ;; value2 *= fudged grp two-to-phi
-	vmovapd	[rsi+0*32], ymm0		;; Save new value1
-	vmovapd	[rsi+1*32], ymm1		;; Save new value2
+	ystore	[rsi+0*32], ymm0		;; Save new value1
+	ystore	[rsi+1*32], ymm1		;; Save new value2
 	ENDM
 
 ; Zero-padded FFT version
@@ -4401,8 +4401,8 @@ ttp	vmulpd	ymm1, ymm1, [rbp+0*YMM_GMD][rcx] ;; Mul by fudged grp two-to-minus-ph
 	rounding_interleaved ttp, base2, noexec, ymm0, ymm2, ymm4, rax*8, ymm1, ymm3, ymm5, rax*8
 ttp	vmulpd	ymm0, ymm0, [rbp+0*YMM_GMD+YMM_GMD/2][rcx] ;; value1 *= fudged grp two-to-phi
 ttp	vmulpd	ymm1, ymm1, [rbp+0*YMM_GMD+YMM_GMD/2][rcx] ;; value2 *= fudged grp two-to-phi
-	vmovapd	[rsi+0*32], ymm0		;; Save new value1
-	vmovapd	[rsi+1*32], ymm1		;; Save new value2
+	ystore	[rsi+0*32], ymm0		;; Save new value1
+	ystore	[rsi+1*32], ymm1		;; Save new value2
 	ENDM
 
 ; This macro finishes the smallmul process by adding three carry values from the
@@ -4417,8 +4417,8 @@ ynorm_smallmul_wpn_blk MACRO ttp, base2
 	LOCAL	clmloop, cloop, done
 
 	rotate_carries_interleaved base2, ymm2, ymm4, ymm3, ymm5, ymm0, ymm1 ;; Rotate carries
-	vmovapd	YMM_TMP1, ymm4			;; Save next block's carries
-	vmovapd	YMM_TMP2, ymm5
+	ystore	YMM_TMP1, ymm4			;; Save next block's carries
+	ystore	YMM_TMP2, ymm5
 
 clmloop:
 ttp	mov	edx, cache_line_multiplier	;; We must increment rdi by a funky amount every 4*clm cache lines
@@ -4440,8 +4440,8 @@ ttp	vmulpd	ymm1, ymm1, [rbp+1*YMM_GMD][rbx*8] ;; Mul values2 by fudged two-to-mi
 	rounding_interleaved ttp, base2, noexec, ymm0, ymm2, ymm4, rax*8, ymm1, ymm3, ymm5, rax*8+32
 ttp	vmulpd	ymm0, ymm0, [rbp+0*YMM_GMD+YMM_GMD/2][rcx] ;; value1 = rounded value * fudged grp two-to-phi
 ttp	vmulpd	ymm1, ymm1, [rbp+1*YMM_GMD+YMM_GMD/2][rbx*8] ;; value2 = rounded value * fudged grp two-to-phi
-	vmovapd	[rsi], ymm0			;; Save new value1
-	vmovapd	[rsi+32], ymm1			;; Save new value2
+	ystore	[rsi], ymm0			;; Save new value1
+	ystore	[rsi+32], ymm1			;; Save new value2
 
 base2	vmovapd	ymm1, YMM_BIGVAL		;; Load comparison value
 no base2 vxorpd	ymm1, ymm1, ymm1		;; Create comparison value
@@ -4473,8 +4473,8 @@ ynorm_smallmul_wpn_zpad_blk MACRO ttp, base2
 	LOCAL	clmloop, cloop, done
 
 	rotate_carries_interleaved base2, ymm2, ymm4, ymm3, ymm5, ymm0, ymm1 ;; Rotate carries
-	vmovapd	YMM_TMP1, ymm4			;; Save next block's carries
-	vmovapd	YMM_TMP2, ymm5
+	ystore	YMM_TMP1, ymm4			;; Save next block's carries
+	ystore	YMM_TMP2, ymm5
 
 clmloop:
 ttp	mov	edx, cache_line_multiplier	;; We must increment rdi by a funky amount every 4*clm cache lines
@@ -4490,7 +4490,7 @@ ttp	vmulpd	ymm0, ymm0, [rbp+0*YMM_GMD][rcx] ;; Mul values1 by fudged two-to-minu
 	vaddpd	ymm0, ymm0, ymm2		;; x1 = values1 + carry
 	rounding ttp, base2, noexec, ymm0, ymm2, ymm4, rax*8
 ttp	vmulpd	ymm0, ymm0, [rbp+0*YMM_GMD+YMM_GMD/2][rcx] ;; value1 = rounded value * fudged grp two-to-phi
-	vmovapd	[rsi], ymm0			;; Save new value1
+	ystore	[rsi], ymm0			;; Save new value1
 
 base2	vmovapd	ymm1, YMM_BIGVAL		;; Load comparison value
 no base2 vxorpd	ymm1, ymm1, ymm1		;; Create comparison value
@@ -4981,7 +4981,7 @@ nz3:	cmp	ecx, COPYZERO+0*4	;; Is this the first cache line where we copy 4 value
 	jne	short nz4		;; No, jump
 	vmovapd	ymm1, YMM_TMP4		;; Yes, switch to the copy 4 values mask
 nz4:	vmaskmovpd ymm0, ymm1, [rsi]	;; Conditionally load low doubles
-	vmovapd	[rdi], ymm0		;; Save low doubles
+	ystore	[rdi], ymm0		;; Save low doubles
 	vmovapd	ymm2, [rsi+32]		;; Load high doubles
-	vmovapd	[rdi+32], ymm2		;; Save high doubles
+	ystore	[rdi+32], ymm2		;; Save high doubles
 	ENDM
