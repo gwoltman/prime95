@@ -809,7 +809,7 @@ void CPrime95Doc::OnTorture()
 		dlg.m_in_place_fft = TRUE;
 	}
 	dlg.m_memory = dlg.m_blendmemory;
-	dlg.m_timefft = 15;
+	dlg.m_timefft = 3;
 	if (dlg.DoModal () == IDOK) {
 		IniWriteInt (INI_FILE, "MinTortureFFT", dlg.m_minfft);
 		IniWriteInt (INI_FILE, "MaxTortureFFT", dlg.m_maxfft);
