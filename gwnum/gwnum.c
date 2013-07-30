@@ -5,7 +5,7 @@
 | in the multi-precision arithmetic routines.  That is, all routines
 | that deal with the gwnum data type.
 | 
-|  Copyright 2002-2012 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2013 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -164,7 +164,7 @@ void *avx_carries_prctab[] = {
 /* We also define a macro that will pick the correct entry from the array. */
 
 #define avx_explode(macro)			avx_explode1(macro,yr)			avx_explode1(macro,yi)
-#define avx_explode1(macro,name)		avx_explode2(macro,name##1,BLEND)	avx_explode2(macro,name##3,CORE)	avx_explode2(macro,name##3,BULL)
+#define avx_explode1(macro,name)		avx_explode2(macro,name##1,BLEND)	avx_explode2(macro,name##3,CORE)	avx_explode2(macro,name##3,FMA3)	avx_explode2(macro,name##3,BULL)
 #define avx_explode2(macro,name,suff)		avx_zero_explode(macro,name##z,suff)	avx_explode3(macro,name,suff,notzp)	avx_explode3(macro,name##zp,suff,zp)
 #define avx_zero_explode(macro,name,suff)	avx_explode9##suff(macro,name)		avx_explode9##suff(macro,name##e)
 #define avx_explode3(macro,name,suff,zp)	avx_explode4(macro,name,suff,zp)	avx_explode4(macro,name##e,suff,zp)
@@ -177,9 +177,14 @@ void *avx_carries_prctab[] = {
 #define avx_explode8notc(macro,name,suff)	avx_explode9##suff(macro,name)		avx_explode9##suff(macro,name##c1)	avx_explode9##suff(macro,name##cm1)
 #define avx_explode9BLEND(macro,name)		macro(name##BLEND)
 #define avx_explode9CORE(macro,name)		macro(name##CORE)
+#ifdef X86_64
+#define avx_explode9FMA3(macro,name)		macro(name##FMA3)
+#else
+#define avx_explode9FMA3(macro,name)		macro(name##CORE)			/* We don't support FMA FFTs on 32-bit builds */
+#endif
 #ifndef __APPLE__
 // #define avx_explode9BULL(macro,name)		macro(name##BULL)
-#define avx_explode9BULL(macro,name)		macro(name##CORE)			/* BUG BUG BUG - use the line above when we start making bulldozer FFTs */
+#define avx_explode9BULL(macro,name)		macro(name##CORE)			/* BUG BUG - use the line above if we implement Bulldozer FFTs */
 #else
 #define avx_explode9BULL(macro,name)		macro(name##CORE)			/* Macs do not have AMD CPUs */
 #endif
@@ -191,10 +196,11 @@ int avx_prctab_index (gwhandle *gwdata, int z, int e, int c)
 {
 	int	index = 0;
 
-	if (! gwdata->RATIONAL_FFT) index += 126;
+	if (! gwdata->RATIONAL_FFT) index += 168;				/* irrational FFTs are after the 4 sets of rational FFTs */
 	if (gwdata->PASS2_SIZE) {
-		index += 42;
-		if (gwdata->cpu_flags & CPU_3DNOW_PREFETCH) index += 42;
+		index += 42;							/* two-pass FFTs are after the one-pass BLEND FFTs */
+		if (gwdata->cpu_flags & CPU_FMA3) index += 42;			/* FMA3 FFTs are after the original AVX FFTs */
+		if (gwdata->cpu_flags & CPU_3DNOW_PREFETCH) index += 42;	/* Bulldozer FFTs are after the Intel FMA3 FFTs */
 	}
 	if (z) {
 		if (e) index += 1;
@@ -479,14 +485,24 @@ int is_pathological_distribution (
 /* BIF values copied from mult.asm */
 #define BIF_CORE2		0	// Core 2 CPUs, big L2 caches
 #define BIF_CORE2_512		1	// Core 2 Celerons, 512K L2 cache, no L3 cache
-#define BIF_I7			2	// Core i7 CPUs, 256K L2, big L3 caches
-#define BIF_P4_1024		3	// Pentium 4, 1MB cache
-#define BIF_P4TP_512		4	// Pentium 4, 512K cache (did not support EMT64)
-#define BIF_P4TP_256		5	// Pentium 4, 256K cache (did not support EMT64)
-#define BIF_P4TP_128		6	// Pentium 4, 128K cache (did not support EMT64)
-#define BIF_K8			7	// AMD K8 CPUs
-#define BIF_K10			8	// AMD K10 CPUs
-#define BIF_BULL		9	// AMD Bulldozer CPUs
+#define BIF_I7			2	// Core i3/5/7 CPUs, 256K L2, big L3 caches
+#define BIF_FMA3		3	// Core i3/5/7 CPUs - Haswell architecture with FMA3 support
+#define BIF_P4_1024		4	// Pentium 4, 1MB cache
+#define BIF_P4TP_512		5	// Pentium 4, 512K cache (did not support EMT64)
+#define BIF_P4TP_256		6	// Pentium 4, 256K cache (did not support EMT64)
+#define BIF_P4TP_128		7	// Pentium 4, 128K cache (did not support EMT64)
+#define BIF_K8			8	// AMD K8 CPUs
+#define BIF_K10			9	// AMD K10 CPUs
+#define BIF_BULL		10	// AMD Bulldozer CPUs
+
+/* Architecture values copied from mult.asm */
+#define ARCH_P4			2
+#define ARCH_CORE		3
+#define ARCH_FMA3		4
+#define ARCH_K8			5
+#define ARCH_K10		6
+#define ARCH_BULL		7
+#define ARCH_BLEND		0
 
 int calculate_bif (
 	gwhandle *gwdata,	/* Gwnum global data */
@@ -533,10 +549,16 @@ int calculate_bif (
 			retval = BIF_CORE2;	/* Look for FFTs optimized for Core 2 */
 		break;
 	case CPU_ARCHITECTURE_CORE_I7:
-		retval = BIF_I7;		/* Look for FFTs optimized for Core i3/i5/i7 */
+		if (! (gwdata->cpu_flags & CPU_FMA3))
+			retval = BIF_I7;	/* Look for FFTs optimized for Core i3/i5/i7 */
+		else
+			retval = BIF_FMA3;	/* Look for FFTs optimized for Haswell CPUs with FMA3 support */
 		break;
 	case CPU_ARCHITECTURE_INTEL_OTHER:	/* This is probably one of Intel's next generation CPUs */ 
-		retval = BIF_I7;		/* Look for FFTs optimized for Core i3/i5/i7 */
+		if (! (gwdata->cpu_flags & CPU_FMA3))
+			retval = BIF_I7;	/* Look for FFTs optimized for Core i3/i5/i7 */
+		else
+			retval = BIF_FMA3;	/* Look for FFTs optimized for Haswell CPUs with FMA3 support */
 		break;
 	case CPU_ARCHITECTURE_AMD_K8:
 		retval = BIF_K8;		/* Look for FFTs optimized for K8 */
@@ -555,6 +577,12 @@ int calculate_bif (
 		retval = BIF_CORE2;		/* For no particularly good reason, look for FFTs optimized for Core 2 */
 		break;
 	}
+
+/* We never implemented FMA3 FFTs for 32-bit builds (lack of YMM registers). */
+
+#ifndef X86_64
+	if (retval == BIF_FMA3) retval = BIF_I7;
+#endif
 
 /* For slower CPU architectures we didn't bother to find the best FFT implementation */
 /* for the larger FFTs.  This was done to reduce the size of the executable.  If we */
@@ -594,14 +622,14 @@ int is_fft_implemented (
 	int	desired_bif;		/* The "best implementation for" value we will look for. */
 					/* See mult.asm for defined BIF_ values. */
 
-/* For small AVX and SSE2 FFTs as well as all x87 FFTs, there is only one implementation and it is always available */
+/* For small SSE2 FFTs as well as all x87 FFTs, there is one implementation and it is always available */
 
-	if (gwdata->cpu_flags & CPU_AVX) {
-		if (jmptab->fftlen < 6144) return (TRUE);
-	} else if (gwdata->cpu_flags & CPU_SSE2) {
-		if (jmptab->fftlen < 7168) return (TRUE);
-	} else
-		return (TRUE);
+	if (! (gwdata->cpu_flags & CPU_AVX)) {
+		if (gwdata->cpu_flags & CPU_SSE2) {
+			if (jmptab->fftlen < 7168) return (TRUE);
+		} else
+			return (TRUE);
+	}
 
 /* If we are benchmarking all FFT implementations or we are doing QA, then we want to test */
 /* this FFT length even if it isn't optimal */
@@ -1113,7 +1141,7 @@ next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
 	prev_proc_ptrs[3] = NULL;
 	prev_proc_ptrs[4] = NULL;
 	for ( ; ; ) {
-		int	arch;		/* (ppro=0,p3=1,p4=2,core=3,k8=4,k10=5) */
+		int	arch;		/* (blend=0,p3=1,p4=2,core=3,fma3=4,k8=5,etc.) */
 		int	best_impl_for;	/* (CORE2=0,I7=1,etc.  See BIF_ definitions in mult.asm) */
 		int	fft_type;	/* (home-grown=0, radix-4=1, r4delay=2, r4dwpn=3) */
 
@@ -1140,7 +1168,13 @@ next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
 /* If this is an Intel CPU, skip over these implementations. */
 
 		arch = (jmptab->flags >> 17) & 0xF;
-		if ((arch == 4 || arch == 5) && ! (gwdata->cpu_flags & CPU_3DNOW_PREFETCH))
+		if ((arch == ARCH_K8 || arch == ARCH_K10 || arch == ARCH_BULL) && ! (gwdata->cpu_flags & CPU_3DNOW_PREFETCH))
+			goto next3;
+
+/* If this CPU will crash running this FFT then skip this entry. */
+/* Our FMA3 FFTs require support of the Intel FMA3 instruction. */
+
+		if (arch == ARCH_FMA3 && ! (gwdata->cpu_flags & CPU_FMA3))
 			goto next3;
 
 /* Handle benchmarking case that selects the nth FFT implementation */
@@ -1156,7 +1190,7 @@ next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
 			if (jmptab->proc_ptr == prev_proc_ptrs[4]) goto next3;
 			if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_K8 &&
 			    (jmptab->flags & 0x1FF) != 0 &&
-			    (arch == 2 || arch == 3))
+			    (arch == ARCH_P4 || arch == ARCH_CORE))
 				goto next3;
 			gwdata->bench_pick_nth_fft--;
 			if (gwdata->bench_pick_nth_fft) goto next3;
@@ -1174,7 +1208,7 @@ next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
 			if (jmptab->proc_ptr == prev_proc_ptrs[3]) goto next3;
 			if (jmptab->proc_ptr == prev_proc_ptrs[4]) goto next3;
 			if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_K8 &&
-			    (arch == 2 || arch == 3))
+			    (arch == ARCH_P4 || arch == ARCH_CORE))
 				goto next3;
 			qa_nth_fft++;
 			if (qa_nth_fft <= gwdata->qa_pick_nth_fft) goto next3;
@@ -1182,14 +1216,14 @@ next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
 			break;
 		}
 
-/* If this is a small FFT or an x87 FFT, then there is only one implementation */
+/* If this is a small SSE2 FFT or an x87 FFT, then there is only one implementation */
 
-		if (gwdata->cpu_flags & CPU_AVX) {
-			if (gwdata->FFTLEN < 6144) break;
-		} else if (gwdata->cpu_flags & CPU_SSE2) {
-			if (gwdata->FFTLEN < 7168) break;
-		} else
-			break;
+		if (! (gwdata->cpu_flags & CPU_AVX)) {
+			if (gwdata->cpu_flags & CPU_SSE2) {
+				if (gwdata->FFTLEN < 7168) break;
+			} else
+				break;
+		}
 
 /* The Radix-4/8 DJB FFT with partial normalization saves a few multiplies by doing part */
 /* of the normalization during the forward and inverse FFT.  Unfortunately, this optimization */
@@ -1232,7 +1266,7 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 /*	2 SHL 26		(no prefetching - not used by gwnum) */
 /*	1 SHL 26		(in_place) */
 /*	fft_type SHL 21		(hg=0, r4=1, r4delay=2) */
-/*	arch SHL 17		(ppro=0,p3=1,p4=2,core=3,k8=4,k10=5) */
+/*	arch SHL 17		(blend=0,p3=1,p4=2,core=3,fma3=4,k8=5,etc.) */
 /*	best_impl_for SHL 13	(CORE2=0,I7=1,P4_1024=2,etc.) */
 /*	clm SHL 9		(1,2,4,8) */
 /*	pass2size_over_64	(many valid values) */
@@ -1267,7 +1301,7 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 			// chunk, and -64 bytes every 8 chunks.
 			pass1_size = gwdata->FFTLEN / gwdata->PASS2_SIZE;
 			pass1_chunks = pass1_size >> 3;
-			if (pass1_size == 384 || pass1_size == 640 || pass1_size == 1536) { // Oddball pass 1 sizes
+			if ((pass1_size == 384 && gwdata->ALL_COMPLEX_FFT) || (pass1_size == 640 && gwdata->ALL_COMPLEX_FFT)) { // Oddball pass 1 sizes
 				gwdata->SCRATCH_SIZE = pass1_chunks * (gwdata->PASS1_CACHE_LINES * 64 + 64) - 64;
 			} else if (gwdata->PASS1_CACHE_LINES == 4) {	// clm=1
 				gaps = pass1_chunks / 8 - 1;
@@ -2818,6 +2852,8 @@ int internal_gwsetup (
 
 		asm_data->u.ymm.YMM_HALF[0] = asm_data->u.ymm.YMM_HALF[1] =
 		asm_data->u.ymm.YMM_HALF[2] = asm_data->u.ymm.YMM_HALF[3] = 0.5;
+		asm_data->u.ymm.YMM_ONE[0] = asm_data->u.ymm.YMM_ONE[1] =
+		asm_data->u.ymm.YMM_ONE[2] = asm_data->u.ymm.YMM_ONE[3] = 1.0;
 		asm_data->u.ymm.YMM_TWO[0] = asm_data->u.ymm.YMM_TWO[1] =
 		asm_data->u.ymm.YMM_TWO[2] = asm_data->u.ymm.YMM_TWO[3] = 2.0;
 		asm_data->u.ymm.YMM_SQRTHALF[0] = asm_data->u.ymm.YMM_SQRTHALF[1] =
@@ -2912,6 +2948,8 @@ int internal_gwsetup (
 
 		asm_data->u.ymm.YMM_P951[0] = asm_data->u.ymm.YMM_P951[1] =
 		asm_data->u.ymm.YMM_P951[2] = asm_data->u.ymm.YMM_P951[3] = asm_values[0];
+		asm_data->u.ymm.YMM_P618[0] = asm_data->u.ymm.YMM_P618[1] =
+		asm_data->u.ymm.YMM_P618[2] = asm_data->u.ymm.YMM_P618[3] = asm_values[1];
 		asm_data->u.ymm.YMM_P309[0] = asm_data->u.ymm.YMM_P309[1] =
 		asm_data->u.ymm.YMM_P309[2] = asm_data->u.ymm.YMM_P309[3] = asm_values[2];
 		asm_data->u.ymm.YMM_P588[0] = asm_data->u.ymm.YMM_P588[1] =
@@ -2936,7 +2974,21 @@ int internal_gwsetup (
 		asm_data->u.ymm.YMM_P782[2] = asm_data->u.ymm.YMM_P782[3] = asm_values[22];
 		asm_data->u.ymm.YMM_P434[0] = asm_data->u.ymm.YMM_P434[1] =
 		asm_data->u.ymm.YMM_P434[2] = asm_data->u.ymm.YMM_P434[3] = asm_values[23];
-	}
+		asm_data->u.ymm.YMM_P975_P434[0] = asm_data->u.ymm.YMM_P975_P434[1] =
+		asm_data->u.ymm.YMM_P975_P434[2] = asm_data->u.ymm.YMM_P975_P434[3] = asm_values[24];
+		asm_data->u.ymm.YMM_P782_P434[0] = asm_data->u.ymm.YMM_P782_P434[1] =
+		asm_data->u.ymm.YMM_P782_P434[2] = asm_data->u.ymm.YMM_P782_P434[3] = asm_values[25];
+		asm_data->u.ymm.YMM_P259[0] = asm_data->u.ymm.YMM_P259[1] =
+		asm_data->u.ymm.YMM_P259[2] = asm_data->u.ymm.YMM_P259[3] = asm_values[26];
+		asm_data->u.ymm.YMM_P966[0] = asm_data->u.ymm.YMM_P966[1] =
+		asm_data->u.ymm.YMM_P966[2] = asm_data->u.ymm.YMM_P966[3] = asm_values[27];
+		asm_data->u.ymm.YMM_P259_P707[0] = asm_data->u.ymm.YMM_P259_P707[1] =
+		asm_data->u.ymm.YMM_P259_P707[2] = asm_data->u.ymm.YMM_P259_P707[3] = asm_values[28];
+		asm_data->u.ymm.YMM_P966_P707[0] = asm_data->u.ymm.YMM_P966_P707[1] =
+		asm_data->u.ymm.YMM_P966_P707[2] = asm_data->u.ymm.YMM_P966_P707[3] = asm_values[29];
+		asm_data->u.ymm.YMM_P924_P383[0] = asm_data->u.ymm.YMM_P924_P383[1] =
+		asm_data->u.ymm.YMM_P924_P383[2] = asm_data->u.ymm.YMM_P924_P383[3] = asm_values[30];
+}
 
 /* Init constants for SSE2 code */
 
@@ -3276,7 +3328,7 @@ int internal_gwsetup (
 
 			/* Calculate normblk distances used in normalizing two-pass FFTs */
 			pass1_size = gwdata->FFTLEN / gwdata->PASS2_SIZE;
-			if (pass1_size == 384 || pass1_size == 640 || pass1_size == 1536) {
+			if ((pass1_size == 384 && gwdata->ALL_COMPLEX_FFT) || (pass1_size == 640 && gwdata->ALL_COMPLEX_FFT)) {
 				asm_data->normblkdst = 64;		/* Small pass 1's with PFA have no padding every 8 clmblkdsts */
 				asm_data->normblkdst8 = 0;
 			} else if (gwdata->PASS1_CACHE_LINES == 4) {	/* If clm=1 */
@@ -5485,9 +5537,7 @@ void gwcopy (			/* Copy a gwnum */
 
 /* Copy the data and 96-byte header */
 
-	memcpy ((char *) d - GW_HEADER_SIZE,
-		(char *) s - GW_HEADER_SIZE,
-		((uint32_t *) s)[-2] + GW_HEADER_SIZE);
+	memmove ((char *) d - GW_HEADER_SIZE, (char *) s - GW_HEADER_SIZE, ((uint32_t *) s)[-2] + GW_HEADER_SIZE);
 
 /* Restore the one piece of information that should not be copied over */
 
@@ -5909,17 +5959,15 @@ void gwfft_description (
 	char	*arch, *ffttype;
 
 	arch = "";
-	if (gwdata->PASS2_SIZE) {
-		if (gwdata->cpu_flags & CPU_AVX) {
-			// No output means Intel Core2 optimized
-			if (gwdata->ARCH == 6) arch = "Bulldozer ";
-		}
-		else if (gwdata->cpu_flags & CPU_SSE2) {
-			// No output means Intel Core2 optimized
-			if (gwdata->ARCH == 2) arch = "Pentium4 ";
-			if (gwdata->ARCH == 4) arch = "AMD K8 ";
-			if (gwdata->ARCH == 5) arch = "AMD K10 ";
-		}
+	if (gwdata->cpu_flags & CPU_AVX) {
+		// No output means Intel Core2 or FMA3 or Blend optimized
+		if (gwdata->ARCH == ARCH_BULL) arch = "Bulldozer ";
+	}
+	else if (gwdata->cpu_flags & CPU_SSE2) {
+		// No output means Intel Core2 or Blend optimized
+		if (gwdata->ARCH == ARCH_P4) arch = "Pentium4 ";
+		if (gwdata->ARCH == ARCH_K8) arch = "AMD K8 ";
+		if (gwdata->ARCH == ARCH_K10) arch = "AMD K10 ";
 	}
 
 	ffttype = "";
@@ -5939,6 +5987,7 @@ void gwfft_description (
 		 gwdata->ALL_COMPLEX_FFT ? "all-complex " :
 		 gwdata->ZERO_PADDED_FFT ? "zero-padded " :
 		 gwdata->GENERAL_MOD ? "generic reduction " : "",
+		 (gwdata->ARCH == ARCH_FMA3) ? "FMA3 " :
 		 (gwdata->cpu_flags & CPU_AVX) ? "AVX " :
 		 (gwdata->cpu_flags & CPU_SSE2) ? "" : "x87 ",
 		 arch, ffttype,
@@ -6174,6 +6223,7 @@ unsigned long gwmap_to_estimated_size (
 #define REL_CORE2_SPEED	0.625	/* Core 2 is much faster than a P4 */
 #define REL_I7_SPEED	0.59	/* Core i7 is even faster than a Core 2 */
 #define REL_PHENOM_SPEED 0.67	/* AMD Phenom is faster that a P4 */
+#define REL_FMA3_SPEED	0.75	/* Haswell FMA3 is faster than a Ivy/Sandy Bridge AVX CPU */
 
 /* Speed of other AVX processors compared to a Sandy Bridge */
 
@@ -6213,6 +6263,7 @@ double gwmap_to_timing (
 	if (gwdata.cpu_flags & CPU_AVX) {
 		timing = 0.10 * timing + 0.90 * timing * 4100.0 / CPU_SPEED;
 		if (strstr (CPU_BRAND, "AMD")) timing *= REL_BULLDOZER_SPEED;
+		if (gwdata.cpu_flags & CPU_FMA3) timing *= REL_FMA3_SPEED;
 	} else if (gwdata.cpu_flags & CPU_SSE2) {
 		timing = 0.10 * timing + 0.90 * timing * 1400.0 / CPU_SPEED;
 		if (strstr (CPU_BRAND, "Phenom")) timing *= REL_PHENOM_SPEED;
