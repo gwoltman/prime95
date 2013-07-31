@@ -16,7 +16,7 @@ ENDIF
 
 INCLUDE	unravel.mac
 
-VERSION_NUMBER = 2711		;; Version 27.11
+VERSION_NUMBER = 2801		;; Version 28.1
 
 ;
 ; Global variables needed by FFT setup code
@@ -197,7 +197,9 @@ PRCENTRY2 MACRO procname, mem_needed, best_impl_for
 		bif = bif OR CORE2
 	ENDIF
 	IFDEF IMPL_ALL_FMA3
+	IF (@INSTR (,&procname,yfft)) NE 0
 		bif = bif OR FMA3
+	ENDIF
 	ENDIF
 	IF (@INSTR (,&procname,_op)) EQ 0
 	IFDEF IMPL_ALL_P4
