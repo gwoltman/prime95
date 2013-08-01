@@ -1301,7 +1301,9 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 			// chunk, and -64 bytes every 8 chunks.
 			pass1_size = gwdata->FFTLEN / gwdata->PASS2_SIZE;
 			pass1_chunks = pass1_size >> 3;
-			if ((pass1_size == 384 && gwdata->ALL_COMPLEX_FFT) || (pass1_size == 640 && gwdata->ALL_COMPLEX_FFT)) { // Oddball pass 1 sizes
+			if ((pass1_size == 384 && gwdata->ALL_COMPLEX_FFT) ||
+			    (pass1_size == 640 && gwdata->ALL_COMPLEX_FFT) ||
+			    (pass1_size == 1536 && gwdata->ALL_COMPLEX_FFT)) { // Oddball pass 1 sizes
 				gwdata->SCRATCH_SIZE = pass1_chunks * (gwdata->PASS1_CACHE_LINES * 64 + 64) - 64;
 			} else if (gwdata->PASS1_CACHE_LINES == 4) {	// clm=1
 				gaps = pass1_chunks / 8 - 1;
@@ -3328,7 +3330,9 @@ int internal_gwsetup (
 
 			/* Calculate normblk distances used in normalizing two-pass FFTs */
 			pass1_size = gwdata->FFTLEN / gwdata->PASS2_SIZE;
-			if ((pass1_size == 384 && gwdata->ALL_COMPLEX_FFT) || (pass1_size == 640 && gwdata->ALL_COMPLEX_FFT)) {
+			if ((pass1_size == 384 && gwdata->ALL_COMPLEX_FFT) ||
+			    (pass1_size == 640 && gwdata->ALL_COMPLEX_FFT) ||
+			    (pass1_size == 1536 && gwdata->ALL_COMPLEX_FFT)) {
 				asm_data->normblkdst = 64;		/* Small pass 1's with PFA have no padding every 8 clmblkdsts */
 				asm_data->normblkdst8 = 0;
 			} else if (gwdata->PASS1_CACHE_LINES == 4) {	/* If clm=1 */

@@ -435,6 +435,7 @@ double *yr4dwpn_build_pass1_table (
 		delay_count = 8;
 	else if ((pass1_size == 512 && !gwdata->ALL_COMPLEX_FFT) ||
 		 (pass1_size == 1024 && !gwdata->ALL_COMPLEX_FFT) ||
+		 (pass1_size == 1536 && gwdata->ALL_COMPLEX_FFT) ||
 		 pass1_size == 2048)
 		delay_count = 16;
 	else
@@ -905,7 +906,7 @@ double *yr4dwpn_build_fixed_pass1_table (
 			N = N / 8;
 			/* Sometimes we also use a fixed sin/cos table for */
 			/* the next FFT levels to further reduce memory usage. */
-			if (pass1_size == 512 || pass1_size == 1024 || pass1_size == 1536 || pass1_size == 2048) { // BUG - 1536 & 3072 are radix-24?
+			if (pass1_size == 512 || pass1_size == 1024 || pass1_size == 2048) {
 				/* Output the sin/cos values for the complex data followed by sin/cos values for the real data */
 				for (j = 0; j < N / 4; j += pass1_increment) {
 					gwsincos12by4 (j, N, table);
