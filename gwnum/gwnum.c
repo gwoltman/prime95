@@ -6227,7 +6227,7 @@ unsigned long gwmap_to_estimated_size (
 #define REL_CORE2_SPEED	0.625	/* Core 2 is much faster than a P4 */
 #define REL_I7_SPEED	0.59	/* Core i7 is even faster than a Core 2 */
 #define REL_PHENOM_SPEED 0.67	/* AMD Phenom is faster that a P4 */
-#define REL_FMA3_SPEED	0.75	/* Haswell FMA3 is faster than a Ivy/Sandy Bridge AVX CPU */
+#define REL_FMA3_SPEED	0.95	/* Haswell FMA3 is faster than a Ivy/Sandy Bridge AVX CPU */
 
 /* Speed of other AVX processors compared to a Sandy Bridge */
 
