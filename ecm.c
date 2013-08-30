@@ -2235,7 +2235,7 @@ int ecm (
 	giant	N;		/* Number being factored */
 	giant	factor;		/* Factor found, if any */
 	gwnum	Ad4 = NULL;
-	int	msglen, continueECM;
+	int	msglen, continueECM, prpAfterEcmFactor;
 	char	*str, *msg;
 	double	timers[10];
 
@@ -3439,8 +3439,9 @@ bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n",
 /* See if the cofactor is prime and set flag if we will be continuing ECM */
 
 	continueECM = IniGetInt (INI_FILE, "ContinueECM", 0);
-	if (w->n < 100000 || continueECM) divg (factor, N);
-	if (w->n < 100000 && isProbablePrime (&ecmdata.gwdata, N)) {
+	prpAfterEcmFactor = IniGetInt (INI_FILE, "PRPAfterECMFactor", bitlen (N) < 100000);
+	if (prpAfterEcmFactor || continueECM) divg (factor, N);
+	if (prpAfterEcmFactor && isProbablePrime (&ecmdata.gwdata, N)) {
 		OutputBoth (thread_num, "Cofactor is a probable prime!\n");
 		continueECM = FALSE;
 	}
