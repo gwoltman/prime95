@@ -6428,208 +6428,6 @@ struct self_test_info SELF_TEST_DATA3[MAX_SELF_TEST_ITERS3] = {
 {15311, 28000000, 0xDB715E07}, {15169, 28000000, 0xB7945996}
 };
 
-#ifdef ONE_HOUR_SELF_TEST
-int selfTest (
-	int	thread_num,
-	struct PriorityInfo *sp_info,
-	struct work_unit *w)
-{
-	unsigned long fftlen;
-	char	iniName[32];
-	int	tests_completed, self_test_errors, self_test_warnings;
-
-/* What fft length are we running? */
-
-	if (w->forced_fftlen)
-		fftlen = w->forced_fftlen;
-	else
-		fftlen = gwmap_to_fftlen (1.0, 2, w->n, -1);
-
-/* If fftlength is less than 64K return (we don't have any small exponents */
-/* in our self test data) */
-
-	if (fftlen < 65536) return (0);
-
-/* Make sure we haven't run this self-test already. */
-
-	sprintf (iniName, SelfTestIniMask, (int) (fftlen/1024));
-	if (IniGetInt (LOCALINI_FILE, iniName, 0)) return (0);
-#ifdef SERVER_TESTING
-	return (0);
-#endif
-
-/* Make sure the user really wants to spend an hour doing this now */
-
-	OutputStr (thread_num, SELFMSG1A);
-	OutputStr (thread_num, SELFMSG1B);
-	OutputStr (thread_num, SELFMSG1C);
-
-/* Do the self test */
-
-	tests_completed = 0;
-	self_test_errors = 0;
-	self_test_warnings = 0;
-	return (selfTestInternal (thread_num, sp_info, fftlen, 60, NULL, 0, NULL,
-				  &tests_completed, &self_test_errors, &self_test_warnings));
-}
-#endif
-
-int tortureTest (
-	int	thread_num,
-	int	num_threads)
-{
-	struct PriorityInfo sp_info;
-	struct self_test_info *test_data; /* Self test data */
-	unsigned int test_data_count;
-	int	num_lengths;		/* Number of FFT lengths we will torture test */
-	unsigned long lengths[500];	/* The FFT lengths we will torture test */
-	int	data_index[500];	/* Last exponent tested for each FFT length */
-	int	test_time;
-	int	tests_completed, self_test_errors, self_test_warnings;
-	int	i, run_indefinitely, stop_reason;
-	unsigned long fftlen, min_fft, max_fft;
-	time_t	start_time, current_time;
-	unsigned int memory;	/* Memory to use during torture test */
-	void	*bigbuf = NULL;
-
-/* Set the process/thread priority */
-
-	sp_info.type = SET_PRIORITY_TORTURE;
-	sp_info.thread_num = thread_num;
-	sp_info.aux_thread_num = 0;
-	sp_info.num_threads = num_threads;
-	SetPriority (&sp_info);
-
-/* Init counters */
-
-	tests_completed = 0;
-	self_test_errors = 0;
-	self_test_warnings = 0;
-
-/* Pick which self test data array to use.  Machines are much faster now */
-/* compared to when the torture test was introduced.  This new self test */
-/* data will run more iterations and thus stress the cpu more by spending */
-/* less time in the initialization code. */
-
-	if (CPU_FLAGS & CPU_AVX) {
-		test_data = SELF_TEST_DATA3;
-		test_data_count = MAX_SELF_TEST_ITERS3;
-	} else if (CPU_SPEED >= 1000.0) {
-		test_data = SELF_TEST_DATA2;
-		test_data_count = MAX_SELF_TEST_ITERS2;
-	} else {
-		test_data = SELF_TEST_DATA;
-		test_data_count = MAX_SELF_TEST_ITERS;
-	}
-
-/* We used to support a menu option to run the self-test for an hour on */
-/* each FFT length.  If we ever decide to resupport this option, change */
-/* the run_indefiitely variable to an argument and change the output */
-/* message below. */
-
-loop:	run_indefinitely = TRUE;
-
-/* Make sure the user really wants to spend many hours doing this now */
-
-	if (run_indefinitely) {
-		OutputStr (thread_num, TORTURE1);
-		OutputStr (thread_num, TORTURE2);
-		test_time = IniGetInt (INI_FILE, "TortureTime", 15);
-	}
-
-/* Determine fft lengths we should run and allocate a big block */
-/* of memory to test. */
-
-	min_fft = IniGetInt (INI_FILE, "MinTortureFFT", 8) * 1024;
-	if (min_fft < 32) min_fft = 32;
-	max_fft = IniGetInt (INI_FILE, "MaxTortureFFT", 4096) * 1024;
-	memory = IniGetInt (INI_FILE, "TortureMem", 8);
-	while (memory > 8 && bigbuf == NULL) {
-		bigbuf = aligned_malloc ((size_t) memory * (size_t) 1048576, 128);
-		if (bigbuf == NULL) memory--;
-	}
-
-/* Enumerate the FFT lengths we will torture test. */
-
-	num_lengths = 0;
-	fftlen = gwmap_to_fftlen (1.0, 2, 15 * min_fft, -1);
-	while (fftlen <= max_fft) {
-		unsigned long max_exponent = gwmap_fftlen_to_max_exponent (fftlen);
-		if (fftlen >= min_fft && max_exponent > test_data[test_data_count-1].p) {
-			lengths[num_lengths] = fftlen;
-			data_index[num_lengths++] = 0;
-		}
-		fftlen = gwmap_to_fftlen (1.0, 2, max_exponent + 100, -1);
-		if (fftlen == 0) break;
-	}
-
-/* Raise error if no FFT lengths to test */
-
-	if (num_lengths == 0) {
-		OutputStr (thread_num, "No FFT lengths available in the range specified.\n");
-		return (0);
-	}
-
-/* For historical reasons, we alternate testing big and small FFT lengths */
-/* (the theory being we'll find bad memory or an overheat problem more quickly). */
-
-	for (i = 0; i <= num_lengths / 2 - 2; i += 2) {
-		int	temp;
-		temp = lengths[i];
-		lengths[i] = lengths[i + num_lengths / 2];
-		lengths[i + num_lengths / 2] = lengths[i + num_lengths / 2 + 1];
-		lengths[i + num_lengths / 2 + 1] = lengths[i + 1];
-		lengths[i + 1] = temp;
-	}
-
-/* Now self-test each fft length */
-
-	stop_reason = 0;
-	time (&start_time);
-	for ( ; ; ) {
-	    for (i = 0; i < num_lengths; i++) {
-		stop_reason =
-			selfTestInternal (thread_num, &sp_info, lengths[i], test_time, &data_index[i],
-					  memory, bigbuf, test_data, test_data_count, &tests_completed,
-					  &self_test_errors, &self_test_warnings);
-		if (stop_reason) {
-			char	buf[120];
-			int	hours, minutes;
-			time (&current_time);
-			minutes = (int) (current_time - start_time) / 60;
-			hours = minutes / 60;
-			minutes = minutes % 60;
-			sprintf (buf, "Torture Test completed %d tests in ", tests_completed);
-			if (hours > 1) sprintf (buf+strlen(buf), "%d hours, ", hours);
-			else if (hours == 1) sprintf (buf+strlen(buf), "1 hour, ");
-			sprintf (buf+strlen(buf),
-				 "%d minutes - %d errors, %d warnings.\n",
-				 minutes, self_test_errors, self_test_warnings);
-			OutputStr (thread_num, buf);
-			run_indefinitely = FALSE;
-			break;
-		}
-	    }
-	    if (! run_indefinitely) break;
-	}
-
-/* Self test completed!  Free memory. */
-
-	aligned_free (bigbuf);
-
-/* If this was a user requested stop, then wait for a restart */
-	
-	while (stop_reason == STOP_WORKER) {
-		implement_stop_one_worker (thread_num);
-		stop_reason = stopCheck (thread_num);
-		if (stop_reason == 0) goto loop;
-	}
-
-/* All done */
-
-	return (stop_reason);
-}
-
 int selfTestInternal (
 	int	thread_num,
 	struct PriorityInfo *sp_info,
@@ -6887,6 +6685,208 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 //	sprintf (iniName, SelfTestIniMask, (int) (fftlen/1024));
 //	IniWriteInt (LOCALINI_FILE, iniName, 1);
 	return (0);
+}
+
+#ifdef ONE_HOUR_SELF_TEST
+int selfTest (
+	int	thread_num,
+	struct PriorityInfo *sp_info,
+	struct work_unit *w)
+{
+	unsigned long fftlen;
+	char	iniName[32];
+	int	tests_completed, self_test_errors, self_test_warnings;
+
+/* What fft length are we running? */
+
+	if (w->forced_fftlen)
+		fftlen = w->forced_fftlen;
+	else
+		fftlen = gwmap_to_fftlen (1.0, 2, w->n, -1);
+
+/* If fftlength is less than 64K return (we don't have any small exponents */
+/* in our self test data) */
+
+	if (fftlen < 65536) return (0);
+
+/* Make sure we haven't run this self-test already. */
+
+	sprintf (iniName, SelfTestIniMask, (int) (fftlen/1024));
+	if (IniGetInt (LOCALINI_FILE, iniName, 0)) return (0);
+#ifdef SERVER_TESTING
+	return (0);
+#endif
+
+/* Make sure the user really wants to spend an hour doing this now */
+
+	OutputStr (thread_num, SELFMSG1A);
+	OutputStr (thread_num, SELFMSG1B);
+	OutputStr (thread_num, SELFMSG1C);
+
+/* Do the self test */
+
+	tests_completed = 0;
+	self_test_errors = 0;
+	self_test_warnings = 0;
+	return (selfTestInternal (thread_num, sp_info, fftlen, 60, NULL, 0, NULL,
+				  &tests_completed, &self_test_errors, &self_test_warnings));
+}
+#endif
+
+int tortureTest (
+	int	thread_num,
+	int	num_threads)
+{
+	struct PriorityInfo sp_info;
+	struct self_test_info *test_data; /* Self test data */
+	unsigned int test_data_count;
+	int	num_lengths;		/* Number of FFT lengths we will torture test */
+	unsigned long lengths[500];	/* The FFT lengths we will torture test */
+	int	data_index[500];	/* Last exponent tested for each FFT length */
+	int	test_time;
+	int	tests_completed, self_test_errors, self_test_warnings;
+	int	i, run_indefinitely, stop_reason;
+	unsigned long fftlen, min_fft, max_fft;
+	time_t	start_time, current_time;
+	unsigned int memory;	/* Memory to use during torture test */
+	void	*bigbuf = NULL;
+
+/* Set the process/thread priority */
+
+	sp_info.type = SET_PRIORITY_TORTURE;
+	sp_info.thread_num = thread_num;
+	sp_info.aux_thread_num = 0;
+	sp_info.num_threads = num_threads;
+	SetPriority (&sp_info);
+
+/* Init counters */
+
+	tests_completed = 0;
+	self_test_errors = 0;
+	self_test_warnings = 0;
+
+/* Pick which self test data array to use.  Machines are much faster now */
+/* compared to when the torture test was introduced.  This new self test */
+/* data will run more iterations and thus stress the cpu more by spending */
+/* less time in the initialization code. */
+
+	if (CPU_FLAGS & CPU_AVX) {
+		test_data = SELF_TEST_DATA3;
+		test_data_count = MAX_SELF_TEST_ITERS3;
+	} else if (CPU_SPEED >= 1000.0) {
+		test_data = SELF_TEST_DATA2;
+		test_data_count = MAX_SELF_TEST_ITERS2;
+	} else {
+		test_data = SELF_TEST_DATA;
+		test_data_count = MAX_SELF_TEST_ITERS;
+	}
+
+/* We used to support a menu option to run the self-test for an hour on */
+/* each FFT length.  If we ever decide to resupport this option, change */
+/* the run_indefiitely variable to an argument and change the output */
+/* message below. */
+
+loop:	run_indefinitely = TRUE;
+
+/* Make sure the user really wants to spend many hours doing this now */
+
+	if (run_indefinitely) {
+		OutputStr (thread_num, TORTURE1);
+		OutputStr (thread_num, TORTURE2);
+		test_time = IniGetInt (INI_FILE, "TortureTime", 15);
+	}
+
+/* Determine fft lengths we should run and allocate a big block */
+/* of memory to test. */
+
+	min_fft = IniGetInt (INI_FILE, "MinTortureFFT", 8) * 1024;
+	if (min_fft < 32) min_fft = 32;
+	max_fft = IniGetInt (INI_FILE, "MaxTortureFFT", 4096) * 1024;
+	memory = IniGetInt (INI_FILE, "TortureMem", 8);
+	while (memory > 8 && bigbuf == NULL) {
+		bigbuf = aligned_malloc ((size_t) memory * (size_t) 1048576, 128);
+		if (bigbuf == NULL) memory--;
+	}
+
+/* Enumerate the FFT lengths we will torture test. */
+
+	num_lengths = 0;
+	fftlen = gwmap_to_fftlen (1.0, 2, 15 * min_fft, -1);
+	while (fftlen <= max_fft) {
+		unsigned long max_exponent = gwmap_fftlen_to_max_exponent (fftlen);
+		if (fftlen >= min_fft && max_exponent > test_data[test_data_count-1].p) {
+			lengths[num_lengths] = fftlen;
+			data_index[num_lengths++] = 0;
+		}
+		fftlen = gwmap_to_fftlen (1.0, 2, max_exponent + 100, -1);
+		if (fftlen == 0) break;
+	}
+
+/* Raise error if no FFT lengths to test */
+
+	if (num_lengths == 0) {
+		OutputStr (thread_num, "No FFT lengths available in the range specified.\n");
+		return (0);
+	}
+
+/* For historical reasons, we alternate testing big and small FFT lengths */
+/* (the theory being we'll find bad memory or an overheat problem more quickly). */
+
+	for (i = 0; i <= num_lengths / 2 - 2; i += 2) {
+		int	temp;
+		temp = lengths[i];
+		lengths[i] = lengths[i + num_lengths / 2];
+		lengths[i + num_lengths / 2] = lengths[i + num_lengths / 2 + 1];
+		lengths[i + num_lengths / 2 + 1] = lengths[i + 1];
+		lengths[i + 1] = temp;
+	}
+
+/* Now self-test each fft length */
+
+	stop_reason = 0;
+	time (&start_time);
+	for ( ; ; ) {
+	    for (i = 0; i < num_lengths; i++) {
+		stop_reason =
+			selfTestInternal (thread_num, &sp_info, lengths[i], test_time, &data_index[i],
+					  memory, bigbuf, test_data, test_data_count, &tests_completed,
+					  &self_test_errors, &self_test_warnings);
+		if (stop_reason) {
+			char	buf[120];
+			int	hours, minutes;
+			time (&current_time);
+			minutes = (int) (current_time - start_time) / 60;
+			hours = minutes / 60;
+			minutes = minutes % 60;
+			sprintf (buf, "Torture Test completed %d tests in ", tests_completed);
+			if (hours > 1) sprintf (buf+strlen(buf), "%d hours, ", hours);
+			else if (hours == 1) sprintf (buf+strlen(buf), "1 hour, ");
+			sprintf (buf+strlen(buf),
+				 "%d minutes - %d errors, %d warnings.\n",
+				 minutes, self_test_errors, self_test_warnings);
+			OutputStr (thread_num, buf);
+			run_indefinitely = FALSE;
+			break;
+		}
+	    }
+	    if (! run_indefinitely) break;
+	}
+
+/* Self test completed!  Free memory. */
+
+	aligned_free (bigbuf);
+
+/* If this was a user requested stop, then wait for a restart */
+	
+	while (stop_reason == STOP_WORKER) {
+		implement_stop_one_worker (thread_num);
+		stop_reason = stopCheck (thread_num);
+		if (stop_reason == 0) goto loop;
+	}
+
+/* All done */
+
+	return (stop_reason);
 }
 
 /*******************************************/

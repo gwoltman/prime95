@@ -60,9 +60,6 @@ void LauncherDispatch (void *arg);
 int primeContinue (int);
 int tortureTest (int, int);
 int selfTest (int, struct PriorityInfo *, struct work_unit *);
-int selfTestInternal (int, struct PriorityInfo *, unsigned long, unsigned int,
-		      int *, unsigned int, void *, struct self_test_info *,
-		      unsigned int, int *, int *, int *);
 int primeTime (int, unsigned long, unsigned long);
 int primeBench (int);
 int primeFactor (int, struct PriorityInfo *, struct work_unit *, unsigned int);
