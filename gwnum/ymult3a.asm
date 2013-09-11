@@ -49,7 +49,6 @@ no zero	cmp	edx, THIS_BLOCK
 no zero	jne	short noadd		;; Jump if addin does not occur now
 no zero	mov	edi, ADDIN_OFFSET	;; Get address to add value into
 no zero	vmovsd	xmm0, ADDIN_VALUE	;; Get the requested add-in value
-no zero	vsubpd	ymm7, ymm7, ymm0	;; Do not include addin in sumout
 no zero	vaddsd	xmm0, xmm0, Q [rsi][rdi] ;; Add in the FFT value
 no zero	vmovsd	Q [rsi][rdi], xmm0	;; Save the new value
 noadd:	mov	saved_rsi, rsi		;; Save for top_carry_adjust
