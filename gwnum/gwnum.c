@@ -2351,6 +2351,21 @@ int internal_gwsetup (
 			asm_data->norm_col_mults = NULL;
 		}
 
+#ifdef GDEBUG
+	{
+		char buf[80];
+		sprintf (buf, "FFTlen: %d, clm: %d\n", (int) gwdata->FFTLEN, (int) gwdata->PASS1_CACHE_LINES); OutputBoth (0, buf);
+		sprintf (buf, "FFTlen: %d, scratch area: %d\n", (int) gwdata->FFTLEN, (int) gwdata->SCRATCH_SIZE); OutputBoth (0, buf);
+		sprintf (buf, "FFTlen: %d, pass1 var s/c data: %d\n", (int) gwdata->FFTLEN, (int) ((intptr_t) asm_data->sincos2 - (intptr_t) gwdata->adjusted_pass1_premults)); OutputBoth (0, buf);
+		sprintf (buf, "FFTlen: %d, pass1 fixed s/c data: %d\n", (int) gwdata->FFTLEN, (int) ((intptr_t) asm_data->xsincos_complex - (intptr_t) asm_data->sincos2)); OutputBoth (0, buf);
+		sprintf (buf, "FFTlen: %d, pass2 complex s/c data: %d\n", (int) gwdata->FFTLEN, (int) ((intptr_t) asm_data->sincos3 - (intptr_t) asm_data->xsincos_complex)); OutputBoth (0, buf);
+		sprintf (buf, "FFTlen: %d, pass2 real s/c data: %d\n", (int) gwdata->FFTLEN, (int) ((intptr_t) asm_data->carries - (intptr_t) asm_data->sincos3)); OutputBoth (0, buf);
+		sprintf (buf, "FFTlen: %d, carries: %d\n", (int) gwdata->FFTLEN, (int) ((intptr_t) asm_data->norm_grp_mults - (intptr_t) asm_data->carries)); OutputBoth (0, buf);
+		sprintf (buf, "FFTlen: %d, norm grp mults: %d\n", (int) gwdata->FFTLEN, (int) ((intptr_t) asm_data->scratch_area - (intptr_t) asm_data->norm_grp_mults)); OutputBoth (0, buf);
+		sprintf (buf, "FFTlen: %d, norm biglit: %d\n", (int) gwdata->FFTLEN, (int) ((intptr_t) tables - (intptr_t) asm_data->norm_biglit_array)); OutputBoth (0, buf);
+	}
+#endif
+
 /* Create offsets for carry propagation code to step through norm array */
 
 		asm_data->u.ymm.YMM_SRC_INCR7 = (intptr_t) addr_offset (gwdata, 7) - (intptr_t) addr_offset (gwdata, 6);
