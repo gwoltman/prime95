@@ -358,7 +358,7 @@ done:	yfft_footer
 
 yr4dwpn_pass1sc128ac MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1b, b7b, b9b, c0b, c1b, c7b, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 1, 128, pass2_levels, clmarg
 	yfft_header pass1
@@ -594,7 +594,7 @@ done:	yfft_footer
 IFDEF OLD_WAY
 yr4dwpn_pass1sc256 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1b, b6b, b7b, b8b, b9b, c0b, c1b, c6b, c7b, c8b, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 256, pass2_levels, clmarg
 	yfft_header pass1
@@ -866,7 +866,7 @@ ENDIF
 
 yr4dwpn_pass1sc256 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1b, b6b, b7b, b8b, b9b, c0b, c1b, c6b, c7b, c8b, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 256, pass2_levels, clmarg
 	yfft_header pass1
@@ -1137,7 +1137,7 @@ done:	yfft_footer
 
 yr4dwpn_pass1sc256ac MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1b, b7b, b9b, c0b, c1b, c7b, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 1, 256, pass2_levels, clmarg
 	yfft_header pass1
@@ -1375,7 +1375,7 @@ done:	yfft_footer
 
 yr4dwpn_pass1sc320 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1b, b6b, b7a, b7b, b8b, b9a, b9b, c0b, c1b, c6b, c7a, c7b, c7c, c8b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 320, pass2_levels, clmarg
 	yfft_header pass1
@@ -1769,7 +1769,7 @@ IFDEF OLD_WAY
 yr4dwpn_pass1sc384 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b4b, b5b, b6b, b7a, b7b, b8b, b9a, b9b
 	LOCAL	c0b, c1b, c4a, c4b, c5b, c6b, c7a, c7b, c7c, c8b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 384, pass2_levels, clmarg
 	yfft_header pass1
@@ -2308,7 +2308,7 @@ ENDIF
 yr4dwpn_pass1sc384 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1b, b6b, b7a, b7b, b8b, b9a, b9b
 	LOCAL	c0b, c1b, c6b, c7a, c7b, c7c, c8b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 384, pass2_levels, clmarg
 	yfft_header pass1
@@ -2700,7 +2700,7 @@ done:	yfft_footer
 
 yr4dwpn_pass1sc384ac MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b5b, b7a, b7b, b9b, c0b, c1b, c5a, c5b, c7b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 1, 384, pass2_levels, clmarg
 	yfft_header pass1
@@ -3130,7 +3130,7 @@ done:	yfft_footer
 
 yr4dwpn_pass1sc448 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1b, b6b, b7a, b7b, b8b, b9a, b9b, c0b, c1b, c6b, c7a, c7b, c7c, c8b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 448, pass2_levels, clmarg
 	yfft_header pass1
@@ -3523,7 +3523,7 @@ done:	yfft_footer
 yr4dwpn_pass1sc512 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b4b, b5b, b6b, b7a, b7b, b8b, b9a, b9b
 	LOCAL	c0b, c1b, c4a, c4b, c5b, c6b, c7a, c7b, c7c, c8b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 512, pass2_levels, clmarg
 	yfft_header pass1
@@ -4075,7 +4075,7 @@ done:	yfft_footer
 
 yr4dwpn_pass1sc512ac MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b5b, b7a, b7b, b9b, c0b, c1b, c5a, c5b, c7b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 1, 512, pass2_levels, clmarg
 	yfft_header pass1
@@ -4533,7 +4533,7 @@ IFDEF INFERIOR
 yr4dwpn_pass1sc640 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b4b, b5b, b6b, b7a, b7b, b8b, b9a, b9b
 	LOCAL	c0b, c1b, c4a, c4b, c5b, c6b, c7a, c7b, c7c, c8b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 640, pass2_levels, clmarg
 	yfft_header pass1
@@ -5079,7 +5079,7 @@ ENDIF
 yr4dwpn_pass1sc640 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b6b, b7a, b7b, b8b, b9a, b9b
 	LOCAL	c0b, c1b, c6b, c7a, c7b, c7c, c8b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 640, pass2_levels, clmarg
 	yfft_header pass1
@@ -5473,7 +5473,7 @@ IFDEF LESS_MEMORY_BUT_SLOWER
 yr4dwpn_pass1sc640 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b2b, b3b, b4b, b5b, b6b, b7a, b7b, b8b, b9a, b9b
 	LOCAL	c0b, c1b, c2b, c3b, c4a, c4b, c5b, c6b, c7b, c7c, c8b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 640, pass2_levels, clmarg
 	yfft_header pass1
@@ -6040,7 +6040,7 @@ ENDIF
 
 yr4dwpn_pass1sc640ac MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b5b, b7a, b7b, b9b, c0b, c1b, c5a, c5b, c7b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 1, 640, pass2_levels, clmarg
 	yfft_header pass1
@@ -6481,7 +6481,7 @@ done:	yfft_footer
 yr4dwpn_pass1sc768 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b4b, b5b, b6b, b7a, b7b, b8b, b9a, b9b
 	LOCAL	c0b, c1b, c4a, c4b, c5b, c6b, c7a, c7b, c7c, c8b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 768, pass2_levels, clmarg
 	yfft_header pass1
@@ -7044,7 +7044,7 @@ IFDEF LOTS_LESS_MEM_BUT_SLOWER
 yr4dwpn_pass1sc768 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b4b, b5b, b6b, b7a, b7b, b8b, b9a, b9b
 	LOCAL	c0b, c1b, c4a, c4b, c5b, c6b, c7a, c7b, c7c, c8b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 768, pass2_levels, clmarg
 	yfft_header pass1
@@ -7585,7 +7585,7 @@ ENDIF
 
 yr4dwpn_pass1sc768ac MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b5b, b7a, b7b, b9b, c0b, c1b, c5a, c5b, c7b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 1, 768, pass2_levels, clmarg
 	yfft_header pass1
@@ -8032,7 +8032,7 @@ done:	yfft_footer
 
 yr4dwpn_pass1sc896 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1b, b6b, b7a, b7b, b8b, b9a, b9b, c0b, c1b, c6b, c7a, c7b, c7c, c8b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 896, pass2_levels, clmarg
 	yfft_header pass1
@@ -8422,7 +8422,7 @@ done:	yfft_footer
 yr4dwpn_pass1sc1024 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b4b, b5b, b6b, b7a, b7b, b8b, b9a, b9b
 	LOCAL	c0b, c1b, c4a, c4b, c5b, c6b, c7a, c7b, c7c, c8b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 1024, pass2_levels, clmarg
 	yfft_header pass1
@@ -8975,7 +8975,7 @@ IFDEF SLOWER_EVEN_THOUGH_IT_USES_LESS_MEMORY
 yr4dwpn_pass1sc1024 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b4b, b5b, b6b, b7a, b7b, b8b, b9a, b9b
 	LOCAL	c0b, c1b, c4a, c4b, c5b, c6b, c7a, c7b, c7c, c8b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 1024, pass2_levels, clmarg
 	yfft_header pass1
@@ -9536,7 +9536,7 @@ ENDIF
 
 yr4dwpn_pass1sc1024ac MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b5b, b7a, b7b, b9b, c0b, c1b, c5a, c5b, c7b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 1, 1024, pass2_levels, clmarg
 	yfft_header pass1
@@ -9980,7 +9980,7 @@ done:	yfft_footer
 yr4dwpn_pass1sc1280 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b2b, b3b, b4b, b5b, b6b, b7a, b7b, b8b, b9a, b9b
 	LOCAL	c0b, c1b, c2b, c3b, c4a, c4b, c5b, c6b, c7b, c7c, c8b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 1280, pass2_levels, clmarg
 	yfft_header pass1
@@ -10548,7 +10548,7 @@ done:	yfft_footer
 
 yr4dwpn_pass1sc1280ac MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b5b, b7a, b7b, b9b, c0b, c1b, c5a, c5b, c7b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 1, 1280, pass2_levels, clmarg
 	yfft_header pass1
@@ -11003,7 +11003,7 @@ IFDEF OLD_WAY
 yr4dwpn_pass1sc1536 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b2b, b3a, b3b, b4b, b5b, b6b, b7a, b7b, b8b, b9a, b9b
 	LOCAL	c0b, c1b, c2b, c3a, c3b, c4a, c4b, c5b, c6b, c7a, c7b, c7c, c8b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 1536, pass2_levels, clmarg
 	yfft_header pass1
@@ -11673,7 +11673,7 @@ ENDIF
 yr4dwpn_pass1sc1536 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b2b, b3b, b4b, b5b, b6b, b7a, b7b, b8b, b9a, b9b
 	LOCAL	c0b, c1b, c2b, c3b, c4a, c4b, c5b, c6b, c7b, c7c, c8b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 1536, pass2_levels, clmarg
 	yfft_header pass1
@@ -12241,7 +12241,7 @@ done:	yfft_footer
 
 yr4dwpn_pass1sc1536ac MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b3a, b3b, b5b, b7a, b7b, b9b, c0b, c1b, c3a, c3b, c5a, c5b, c7b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 1, 1536, pass2_levels, clmarg
 	yfft_header pass1
@@ -12768,7 +12768,7 @@ done:	yfft_footer
 yr4dwpn_pass1sc1792 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b2b, b3b, b4b, b5b, b6b, b7a, b7b, b8b, b9a, b9b
 	LOCAL	c0b, c1b, c2b, c3b, c4a, c4b, c5b, c6b, c7b, c7c, c8b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 1792, pass2_levels, clmarg
 	yfft_header pass1
@@ -13337,7 +13337,7 @@ done:	yfft_footer
 yr4dwpn_pass1sc2048 MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b2b, b3b, b4b, b5b, b6b, b7a, b7b, b8b, b9a, b9b
 	LOCAL	c0b, c1b, c2b, c3b, c4a, c4b, c5b, c6b, c7b, c7c, c8b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 0, 2048, pass2_levels, clmarg
 	yfft_header pass1
@@ -14028,7 +14028,7 @@ done:	yfft_footer
 
 yr4dwpn_pass1sc2048ac MACRO fftname, pass2_levels, clmarg
 	LOCAL	b0b, b1a, b1b, b3b, b5b, b7a, b7b, b9b, c0b, c1b, c3b, c5a, c5b, c7b, c9a, c9b
-	LOCAL	pass1, pass2, endlp, done, done, yes_fft
+	LOCAL	pass1, pass2, endlp, done, yes_fft
 
 	set_FFT_constants fftname, 0, 1, 2048, pass2_levels, clmarg
 	yfft_header pass1
