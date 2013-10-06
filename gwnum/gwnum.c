@@ -164,7 +164,7 @@ void *avx_carries_prctab[] = {
 /* We also define a macro that will pick the correct entry from the array. */
 
 #define avx_explode(macro)			avx_explode1(macro,yr)			avx_explode1(macro,yi)
-#define avx_explode1(macro,name)		avx_explode2(macro,name##1,BLEND)	avx_explode2(macro,name##3,CORE)	avx_explode2(macro,name##3,FMA3)	avx_explode2(macro,name##3,BULL)
+#define avx_explode1(macro,name)		avx_explode2(macro,name##1,CORE)	avx_explode2(macro,name##1,FMA3)	avx_explode2(macro,name##3,CORE)	avx_explode2(macro,name##3,FMA3)	//avx_explode2(macro,name##3,BULL)
 #define avx_explode2(macro,name,suff)		avx_zero_explode(macro,name##z,suff)	avx_explode3(macro,name,suff,notzp)	avx_explode3(macro,name##zp,suff,zp)
 #define avx_zero_explode(macro,name,suff)	avx_explode9##suff(macro,name)		avx_explode9##suff(macro,name##e)
 #define avx_explode3(macro,name,suff,zp)	avx_explode4(macro,name,suff,zp)	avx_explode4(macro,name##e,suff,zp)
@@ -183,8 +183,7 @@ void *avx_carries_prctab[] = {
 #define avx_explode9FMA3(macro,name)		macro(name##CORE)			/* We don't support FMA FFTs on 32-bit builds */
 #endif
 #ifndef __APPLE__
-// #define avx_explode9BULL(macro,name)		macro(name##BULL)
-#define avx_explode9BULL(macro,name)		macro(name##CORE)			/* BUG BUG - use the line above if we implement Bulldozer FFTs */
+#define avx_explode9BULL(macro,name)		macro(name##BULL)
 #else
 #define avx_explode9BULL(macro,name)		macro(name##CORE)			/* Macs do not have AMD CPUs */
 #endif
@@ -197,10 +196,12 @@ int avx_prctab_index (gwhandle *gwdata, int z, int e, int c)
 	int	index = 0;
 
 	if (! gwdata->RATIONAL_FFT) index += 168;				/* irrational FFTs are after the 4 sets of rational FFTs */
-	if (gwdata->PASS2_SIZE) {
-		index += 42;							/* two-pass FFTs are after the one-pass BLEND FFTs */
+	if (gwdata->PASS2_SIZE == 0) {						/* One-pass FFTs */
+		if (gwdata->cpu_flags & CPU_FMA3) index += 42;			/* FMA3 FFTs are after the CORE FFTs */
+	} else {								/* Two-pass FFTs */
+		index += 84;							/* Two-pass FFTs are after the one-pass FFTs */
 		if (gwdata->cpu_flags & CPU_FMA3) index += 42;			/* FMA3 FFTs are after the original AVX FFTs */
-		if (gwdata->cpu_flags & CPU_3DNOW_PREFETCH) index += 42;	/* Bulldozer FFTs are after the Intel FMA3 FFTs */
+		//if (gwdata->cpu_flags & CPU_3DNOW_PREFETCH) index += 42;	/* Bulldozer FFTs are after the Intel FMA3 FFTs */
 	}
 	if (z) {
 		if (e) index += 1;

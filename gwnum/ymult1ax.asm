@@ -20,6 +20,11 @@ INCLUDE ynormal.mac
 
 _TEXT SEGMENT
 
+;; Only assemble the add/sub/etc routines when compiled with the CORE architecture
+;; Maybe someday we can look into whether or not FMA versions would be faster
+
+IF (@INSTR(,%yarch,<CORE>) NE 0)
+
 ;;
 ;; Add two numbers without carry propagation.  Caller can use this for
 ;; consecutive add or subtract operations.  However, the last operation
@@ -1633,6 +1638,8 @@ nb2rzpmulsecdn:
 	ad_epilog 6*SZPTR+8,0,rbx,rbp,rsi,rdi,xmm6,xmm7
 gwymulsnrzp1 ENDP
 
+ENDIF
+
 ;;
 ;; Routines to do the normalization after a multiply
 ;;
@@ -1847,7 +1854,7 @@ base2 no const jmp zpdn			;; Go to zero padded FFT end code
 ; However, my reading of the spec is that as long as the two procedures have
 ; identical prologs then stack unwinding for exception handling will work OK.
 
-PROCF	__common_ynorm1_end_code
+PROCFP	__common_ynorm1_end_code
 
 	;; Dummy prolog to match normalization code
 	int_prolog 6*SZPTR+8,0,0
@@ -1913,7 +1920,7 @@ cmnend:	mov	rsi, DESTARG		; Address of squared number
 ; Return
 
 	int_epilog 6*SZPTR+8,0,0
-__common_ynorm1_end_code ENDP
+	ENDPP __common_ynorm1_end_code 
 
 _TEXT	ENDS
 END

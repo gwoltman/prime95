@@ -30,7 +30,7 @@ ELSE
 X87_CASES	EQU	13
 ENDIF
 SSE2_CASES	EQU	216
-AVX_CASES	EQU	232
+AVX_CASES	EQU	242
 
 loopent	MACRO	y,z		; Create a entry in the loop entry table
 	DP	&y&z
@@ -492,6 +492,40 @@ av0b:	&ops
 	jmp	exit
 	ENDM
 
+ynormmac MACRO	memused, memarea, ops:vararg
+	LOCAL	avxlabel
+	avxlabel CATSTR <avcase>,%avx_case_num
+	avx_case_num = avx_case_num + 1
+	ynormmac1 avxlabel, memused, memarea, ops
+	ENDM
+ynormmac1 MACRO	lab, memused, memarea, ops:vararg
+	LOCAL	av00, av0a, av0b
+	inner_iters = memarea / (memused)
+	outer_iters = 10000 / inner_iters
+	odd_iters = 10000 - inner_iters * outer_iters
+	IF odd_iters EQ 0
+	odd_iters = inner_iters
+	ELSE
+	outer_iters = outer_iters + 1
+	ENDIF
+lab:	mov	edx, outer_iters
+	mov	ebx, odd_iters
+	mov	SRCARG, rdi		;; Save work buf addr
+av0a:	mov	rsi, SRCARG		;; Reload work buf addr (FFT data)
+	lea	rbp, [rsi+524288+256]	;; Addr of the multipliers
+	mov	rdi, norm_biglit_array	;; Addr of the big/little flags array
+av0b:	&ops
+	bump	rsi, 64			;; Next cache line
+	bump	rbp, 128		;; Next set of 8 multipliers
+	bump	rdi, 2			;; Next big/little flags
+	dec	ebx
+	jnz	av0b
+	mov	ebx, inner_iters
+	dec	edx
+	jnz	av0a
+	jmp	exit
+	ENDM
+
 _TEXT	SEGMENT
 
 x87table: looptab case, X87_CASES
@@ -935,6 +969,7 @@ INCLUDE yarch.mac
 INCLUDE ybasics.mac
 INCLUDE ymult.mac
 INCLUDE yr4.mac
+INCLUDE ynormal.mac
 
 ; This code reads/writes 64MB (1M cache lines) in contiguous blocks.  Timings are done
 ; on 4 memory sizes.  4KB will operate on the L1 cache only, 128KB will operate on the
@@ -1244,6 +1279,18 @@ avcase11:	readwrite4 32768*1024, 2 ; Read/write 32MB
 	avxmac 896*1, 100000, 0, yr7_14cl_28_reals_fft rsi, 14*64, 64, 128, rdi, YMM_SCD13, 1
 	avxmac 896*1, 8192, 0, yr7_14cl_28_reals_unfft rsi, 14*64, 64, 128, rdi, YMM_SCD13, 1
 	avxmac 896*1, 100000, 0, yr7_14cl_28_reals_unfft rsi, 14*64, 64, 128, rdi, YMM_SCD13, 1
+
+;;232
+	ynormmac 64, 8192, ynorm_1d exec, exec, noexec, noexec, noexec		;; base2 ttp (the most common case)
+	ynormmac 64, 8192, ynorm_1d exec, exec, noexec, exec, noexec		;; base2 ttp echk
+	ynormmac 64, 8192, ynorm_1d exec, exec, noexec, noexec, exec		;; base2 ttp const
+	ynormmac 64, 8192, ynorm_1d exec, exec, noexec, exec, exec		;; base2 ttp const echk
+	ynormmac 64, 8192, ynorm_1d noexec, exec, noexec, noexec, noexec	;; base2 nottp
+	ynormmac 64, 8192, ynorm_1d exec, noexec, noexec, noexec, noexec	;; nobase2 ttp
+	ynormmac 64, 8192, ynorm_1d exec, noexec, noexec, exec, noexec		;; nobase2 ttp echk
+	ynormmac 64, 8192, ynorm_1d exec, noexec, noexec, noexec, exec		;; nobase2 ttp const
+	ynormmac 64, 8192, ynorm_1d exec, noexec, noexec, exec, exec		;; nobase2 ttp const echk
+	ynormmac 64, 8192, ynorm_1d noexec, noexec, noexec, noexec, noexec	;; nobase2 nottp
 
 ; Exit the timing code
 
