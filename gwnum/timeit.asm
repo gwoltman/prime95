@@ -30,7 +30,7 @@ ELSE
 X87_CASES	EQU	13
 ENDIF
 SSE2_CASES	EQU	216
-AVX_CASES	EQU	242
+AVX_CASES	EQU	252
 
 loopent	MACRO	y,z		; Create a entry in the loop entry table
 	DP	&y&z
@@ -1291,6 +1291,18 @@ avcase11:	readwrite4 32768*1024, 2 ; Read/write 32MB
 	ynormmac 64, 8192, ynorm_1d exec, noexec, noexec, noexec, exec		;; nobase2 ttp const
 	ynormmac 64, 8192, ynorm_1d exec, noexec, noexec, exec, exec		;; nobase2 ttp const echk
 	ynormmac 64, 8192, ynorm_1d noexec, noexec, noexec, noexec, noexec	;; nobase2 nottp
+
+;; 242
+	ynormmac 64, 8192, ynorm_1d_zpad exec, exec, noexec, noexec, noexec, exec, noexec	;; base2 ttp c1 (the most common case)
+	ynormmac 64, 8192, ynorm_1d_zpad exec, exec, exec, noexec, noexec, exec, noexec		;; base2 ttp c1 echk
+	ynormmac 64, 8192, ynorm_1d_zpad exec, exec, noexec, exec, noexec, noexec, noexec	;; base2 ttp const
+	ynormmac 64, 8192, ynorm_1d_zpad exec, exec, exec, exec, noexec, noexec, noexec		;; base2 ttp const echk
+	ynormmac 64, 8192, ynorm_1d_zpad exec, exec, noexec, noexec, noexec, exec, noexec	;; base2 ttp c1 khi
+	ynormmac 64, 8192, ynorm_1d_zpad exec, noexec, noexec, noexec, noexec, exec, noexec	;; nobase2 ttp c1 (the most common case)
+	ynormmac 64, 8192, ynorm_1d_zpad exec, noexec, exec, noexec, noexec, exec, noexec	;; nobase2 ttp c1 echk
+	ynormmac 64, 8192, ynorm_1d_zpad exec, noexec, noexec, exec, noexec, noexec, noexec	;; nobase2 ttp const
+	ynormmac 64, 8192, ynorm_1d_zpad exec, noexec, exec, exec, noexec, noexec, noexec	;; nobase2 ttp const echk
+	ynormmac 64, 8192, ynorm_1d_zpad exec, noexec, noexec, noexec, noexec, exec, noexec	;; nobase2 ttp c1 khi
 
 ; Exit the timing code
 
