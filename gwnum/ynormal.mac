@@ -681,8 +681,8 @@ ynorm_1d MACRO ttp, base2, zero, echk, const
 ttp		movzx	rax, BYTE PTR [rdi]	;; Load big vs. little flags
 ttp		movzx	rcx, BYTE PTR [rdi+1]
 
-base2 no const ttp	ynorm_1d_base2_noconst	echk, rax*2, rcx*2
-base2 no const no ttp	ynorm_1d_base2_noconst	echk, 0, 0
+base2 no const ttp	ynorm_1d_base2_noconst	echk, zero, rax*2, rcx*2
+base2 no const no ttp	ynorm_1d_base2_noconst	echk, zero, 0, 0
 base2 const ttp		ynorm_1d_base2_const	echk, rax*2, rcx*2
 base2 const no ttp	ynorm_1d_base2_const	echk, 0, 0
 no base2 no const ttp	ynorm_1d_nobase2_noconst echk, rax*2, rcx*2
@@ -698,7 +698,7 @@ zero		vxorpd	ymm5, ymm5, ymm5
 	ENDM
 
 
-ynorm_1d_base2_noconst MACRO echk, basereg, basereg2
+ynorm_1d_base2_noconst MACRO echk, zero, basereg, basereg2
 	vmovapd	ymm0, [rsi]				;; Load value1
 	vmulpd	ymm8, ymm0, [rbp]			;; Mul value1 by two-to-minus-phi		; 1-5
 	vmovapd	ymm1, [rsi+32]				;; Load value2
@@ -717,12 +717,12 @@ echk	vsubpd	ymm10, ymm10, ymm8			;; This is the convolution error		;	(12-14)	(14
 echk	vsubpd	ymm11, ymm11, ymm9			;; This is the convolution error		;	(13-15)	(15-17)
 	vsubpd	ymm4, ymm2, ymm4			;; z = y - (maximum * BIGVAL - BIGVAL)		; 12-14	(14-16) (16-18)
 	vmulpd	ymm2, ymm2, YMM_LIMIT_INVERSE[basereg]	;; carry = shifted y				; 12-16	(13-17)	(13-17)
-	vsubpd	ymm5, ymm3, ymm5			;; z = y - (maximum * BIGVAL - BIGVAL)		; 13-15	(15-17)	(17-19)
+no zero	vsubpd	ymm5, ymm3, ymm5			;; z = y - (maximum * BIGVAL - BIGVAL)		; 13-15	(15-17)	(17-19)
 	vmulpd	ymm3, ymm3, YMM_LIMIT_INVERSE[basereg2]	;; carry = shifted y				; 13-17	(14-18)	(16-20)
 echk	absval	ymm10					;; Compute absolute value			;	(15)	(17)
 echk	absval	ymm11					;; Compute absolute value			;	(16)	(18)
 	vsubpd	ymm4, ymm0, ymm4			;; rounded val = x - z				; 15-17	(17-19)	(19-21)
-	vsubpd	ymm5, ymm1, ymm5			;; rounded val = x - z				; 16-18	(18-20)	(20-22)
+no zero	vsubpd	ymm5, ymm1, ymm5			;; rounded val = x - z				; 16-18	(18-20)	(20-22)
 echk	vmaxpd	ymm6, ymm6, ymm10			;; Compute maximum error			;	(19-21)	(18-20)
 echk	vmaxpd	ymm6, ymm6, ymm11			;; Compute maximum error			;	(20-22)	(21-23)
 ENDM
@@ -736,7 +736,7 @@ ENDM
 ;; This is done by computing "convolution error = value - (x - carry)
 
 IF (@INSTR(,%yarch,<FMA3>) NE 0)
-ynorm_1d_base2_noconst MACRO echk, basereg, basereg2
+ynorm_1d_base2_noconst MACRO echk, zero, basereg, basereg2
 	vmovapd	ymm0, [rsi]				;; Load value1
 	vmulpd	ymm8, ymm0, [rbp]			;; Mul value1 by two-to-minus-phi		; presumably free (can execute in previous iteration)
 	vmovapd	ymm1, [rsi+32]				;; Load value2
@@ -755,12 +755,12 @@ echk	vsubpd	ymm10, ymm0, ymm2			;; Start error calc (x - carry)			;	(11-13)
 echk	vsubpd	ymm11, ymm1, ymm3			;; Start error calc (x - carry)			;	(12-14)
 	vsubpd	ymm4, ymm12, ymm4			;; z = y - (maximum * BIGVAL - BIGVAL)		; 12-14	(13-15)
 	vmulpd	ymm2, ymm12, YMM_LIMIT_INVERSE[basereg]	;; carry = shifted y				; 12-16	(13-17)
-	vsubpd	ymm5, ymm13, ymm5			;; z = y - (maximum * BIGVAL - BIGVAL)		; 13-15	(14-16)
+no zero	vsubpd	ymm5, ymm13, ymm5			;; z = y - (maximum * BIGVAL - BIGVAL)		; 13-15	(14-16)
 	vmulpd	ymm3, ymm13, YMM_LIMIT_INVERSE[basereg2];; carry = shifted y				; 13-17	(14-18)
 echk	vsubpd	ymm10, ymm8, ymm10			;; Convolution error = value - (x - carry)	;	(15-17)
 echk	vsubpd	ymm11, ymm9, ymm11			;; Convolution error = value - (x - carry)	;	(16-18)
 	vsubpd	ymm4, ymm0, ymm4			;; rounded val = x - z				; 15-17	(17-19)
-	vsubpd	ymm5, ymm1, ymm5			;; rounded val = x - z				; 16-18	(18-20)
+no zero	vsubpd	ymm5, ymm1, ymm5			;; rounded val = x - z				; 16-18	(18-20)
 echk	absval	ymm10					;; Compute absolute value			;	(18)
 echk	absval	ymm11					;; Compute absolute value			;	(19)
 echk	vmaxpd	ymm6, ymm6, ymm10			;; Compute maximum error			;	(19-21)
@@ -2417,8 +2417,8 @@ ttp		vmulpd	ymm9, ymm9, [rdx+1*YMM_GMD][rbx*8] ;; Mul by fudged grp two-to-minus
 ttp		L1prefetch r9, L1PREFETCH_ALL
 ttp		bump	r9, 64
 
-base2 no const ttp	ynorm_wpn_base2_noconst	echk, rax*8, rax*8+32
-base2 no const no ttp	ynorm_wpn_base2_noconst	echk, 0, 0
+base2 no const ttp	ynorm_wpn_base2_noconst	echk, zero, rax*8, rax*8+32
+base2 no const no ttp	ynorm_wpn_base2_noconst	echk, zero, 0, 0
 base2 const ttp		ynorm_wpn_base2_const	echk, rax*8, rax*8+32
 base2 const no ttp	ynorm_wpn_base2_const	echk, 0, 0
 no base2 no const ttp	ynorm_wpn_nobase2_noconst echk, rax*8, rax*8+32
@@ -2435,7 +2435,7 @@ ttp		movzx	rbx, WORD PTR [rdi+2]		;; Load next 4 big vs. little & fudge flags
 	ENDM
 
 
-ynorm_wpn_base2_noconst MACRO echk, basereg, basereg2
+ynorm_wpn_base2_noconst MACRO echk, zero, basereg, basereg2
 	vaddpd	ymm0, ymm8, ymm2			;; x = value1 + carry				; 6-8	First dependence on previous iteration
 	vaddpd	ymm1, ymm9, ymm3			;; x = value2 + carry				; 7-9
 echk	vroundpd ymm10, ymm8, 0				;; Convert to an integer			;	(8-10)	(and 11-13 on Haswell)
@@ -2448,12 +2448,12 @@ echk	vsubpd	ymm10, ymm10, ymm8			;; This is the convolution error		;	(12-14)	(14
 echk	vsubpd	ymm11, ymm11, ymm9			;; This is the convolution error		;	(13-15)	(15-17)
 	vsubpd	ymm4, ymm2, ymm4			;; z = y - (maximum * BIGVAL - BIGVAL)		; 12-14	(14-16) (16-18)
 	vmulpd	ymm2, ymm2, YMM_LIMIT_INVERSE[basereg]	;; carry = shifted y				; 12-16	(13-17)	(13-17)
-	vsubpd	ymm5, ymm3, ymm5			;; z = y - (maximum * BIGVAL - BIGVAL)		; 13-15	(15-17)	(17-19)
+no zero	vsubpd	ymm5, ymm3, ymm5			;; z = y - (maximum * BIGVAL - BIGVAL)		; 13-15	(15-17)	(17-19)
 	vmulpd	ymm3, ymm3, YMM_LIMIT_INVERSE[basereg2]	;; carry = shifted y				; 13-17	(14-18)	(16-20)
 echk	absval	ymm10					;; Compute absolute value			;	(15)	(17)
 echk	absval	ymm11					;; Compute absolute value			;	(16)	(18)
 	vsubpd	ymm4, ymm0, ymm4			;; rounded val = x - z				; 15-17	(17-19)	(19-21)
-	vsubpd	ymm5, ymm1, ymm5			;; rounded val = x - z				; 16-18	(18-20)	(20-22)
+no zero	vsubpd	ymm5, ymm1, ymm5			;; rounded val = x - z				; 16-18	(18-20)	(20-22)
 echk	vmaxpd	ymm6, ymm6, ymm10			;; Compute maximum error			;	(19-21)	(18-20)
 echk	vmaxpd	ymm6, ymm6, ymm11			;; Compute maximum error			;	(20-22)	(21-23)
 ENDM
@@ -2467,7 +2467,7 @@ ENDM
 ;; This is done by computing "convolution error = value - (x - carry)
 
 IF (@INSTR(,%yarch,<FMA3>) NE 0)
-ynorm_wpn_base2_noconst MACRO echk, basereg, basereg2
+ynorm_wpn_base2_noconst MACRO echk, zero, basereg, basereg2
 	vaddpd	ymm0, ymm8, ymm2			;; x = value1 + carry				; 6-8	First dependence on previous iteration
 	vaddpd	ymm1, ymm9, ymm3			;; x = value2 + carry				; 7-9
 	vmovapd	ymm4, YMM_LIMIT_BIGMAX[basereg]		;; Load maximum * BIGVAL - BIGVAL
@@ -2478,12 +2478,12 @@ echk	vsubpd	ymm10, ymm0, ymm2			;; Start error calc (x - carry)			;	(11-13)
 echk	vsubpd	ymm11, ymm1, ymm3			;; Start error calc (x - carry)			;	(12-14)
 	vsubpd	ymm4, ymm12, ymm4			;; z = y - (maximum * BIGVAL - BIGVAL)		; 12-14	(13-15)
 	vmulpd	ymm2, ymm12, YMM_LIMIT_INVERSE[basereg]	;; carry = shifted y				; 12-16	(13-17)
-	vsubpd	ymm5, ymm13, ymm5			;; z = y - (maximum * BIGVAL - BIGVAL)		; 13-15	(14-16)
+no zero	vsubpd	ymm5, ymm13, ymm5			;; z = y - (maximum * BIGVAL - BIGVAL)		; 13-15	(14-16)
 	vmulpd	ymm3, ymm13, YMM_LIMIT_INVERSE[basereg2];; carry = shifted y				; 13-17	(14-18)
 echk	vsubpd	ymm10, ymm8, ymm10			;; Convolution error = value - (x - carry)	;	(15-17)
 echk	vsubpd	ymm11, ymm9, ymm11			;; Convolution error = value - (x - carry)	;	(16-18)
 	vsubpd	ymm4, ymm0, ymm4			;; rounded val = x - z				; 15-17	(17-19)
-	vsubpd	ymm5, ymm1, ymm5			;; rounded val = x - z				; 16-18	(18-20)
+no zero	vsubpd	ymm5, ymm1, ymm5			;; rounded val = x - z				; 16-18	(18-20)
 echk	absval	ymm10					;; Compute absolute value			;	(18)
 echk	absval	ymm11					;; Compute absolute value			;	(19)
 echk	vmaxpd	ymm6, ymm6, ymm10			;; Compute maximum error			;	(19-21)
