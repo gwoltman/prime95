@@ -2376,7 +2376,7 @@ int j, min_test, max_test, test, cnt, NUM_X87_TESTS, NUM_SSE2_TESTS, NUM_AVX_TES
 #define timeit(a,n,w) (((void**)a)[0]=w,((uint32_t*)a)[2]=n,gwtimeit(a))
 
 gwinit (&gwdata);
-gwsetup (&gwdata, 1.0, 2, 500 /*10000000*/, -1);
+gwsetup (&gwdata, 1.0, 2, 10000000, -1);
 workbuf = (void *) aligned_malloc (40000000, 4096);
 memset (workbuf, 0, 40000000);
 RDTSC_TIMING = 2;
@@ -2413,10 +2413,10 @@ timers[2] /= cnt;
 strcat (buf, ", avg: ");
 print_timer (timers, 2, buf, TIMER_NL | TIMER_CLR);
 OutputBoth (thread_num, buf);
-if (min_test) exit (0);
 }
 aligned_free (workbuf);
 gwdone (&gwdata);
+if (min_test) exit (0);
 return 0;
 }
 #endif
