@@ -543,8 +543,9 @@ ynormwpnmac1 MACRO lab, memused, memarea, ops:vararg
 	ELSE
 	outer_iters = outer_iters + 1
 	ENDIF
+lab:
 IFDEF X86_64
-lab:	mov	r14, outer_iters
+	mov	r14, outer_iters
 	mov	ebp, odd_iters
 	mov	SRCARG, rdi		;; Save work buf addr
 av0a:	mov	rsi, SRCARG		;; Reload work buf addr (FFT data)
