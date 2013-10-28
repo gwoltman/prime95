@@ -16,7 +16,7 @@ ENDIF
 
 INCLUDE	unravel.mac
 
-VERSION_NUMBER = 2801		;; Version 28.1
+VERSION_NUMBER = 2802		;; Version 28.2
 
 ;
 ; Global variables needed by FFT setup code
@@ -4038,7 +4038,7 @@ yjmptable DD	0
 	PRCENTRY2		yfft_r4dwpn_1152K_4608_1, 4750080, FMA3_64
 	PRCENTRY2		yfft_r4dwpn_1152K_3072_2, 4081408, I7
 	PRCENTRY2		yfft_r4dwpn_1152K_3072_1, 4081408
-	PRCENTRY2		yfft_r4dwpn_1152K_2304_2, 3739136			;;, I7_64
+	PRCENTRY2		yfft_r4dwpn_1152K_2304_2, 3739136
 	PRCENTRY2		yfft_r4dwpn_1152K_2304_1, 3739136
 	PRCENTRY2		yfft_r4dwpn_1152K_1536_2, 4054528
 	DD			0
