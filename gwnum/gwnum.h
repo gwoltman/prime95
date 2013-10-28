@@ -392,7 +392,7 @@ void gwsetmulbyconst (gwhandle *gwdata, long s);
 /* multiplication code whether or not it should multiply the result by */
 /* a small constant. */
 
-#define gwsetnormroutine(h,z,e,c) {(h)->NORMNUM=2*(c)+(e);}
+#define gwsetnormroutine(h,z,e,c) {(h)->NORMNUM=((c)?2:0)+((e)?1:0);}
 
 /* If you know the result of a multiplication will be the input to another */
 /* multiplication (but not gwsquare_carefully), then a small performance */
