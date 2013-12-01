@@ -4768,7 +4768,7 @@ restart:
 		if (error_recovery_mode) {
 			gwstartnextfft (&pm1data.gwdata, FALSE);
 			gwsetnormroutine (&pm1data.gwdata, 0, 0, 0);
-			gwsquare (&pm1data.gwdata, x);
+			gwsquare_carefully (&pm1data.gwdata, x);
 			pm1_save (&pm1data, filename, w, processed, x, gg);
 			error_recovery_mode = 0;
 		}
@@ -4913,28 +4913,23 @@ restart0:
 
 		if (error_recovery_mode && bit_number == error_recovery_mode) {
 			gwstartnextfft (&pm1data.gwdata, FALSE);
-			gwsetnormroutine (&pm1data.gwdata, 0, echk, bitval (exp, len - bit_number - 1));
+			gwsetnormroutine (&pm1data.gwdata, 0, 0, bitval (exp, len - bit_number - 1));
 			gwsquare_carefully (&pm1data.gwdata, x);
 			error_recovery_mode = 0;
 			saving = TRUE;
 		}
 
-/* Set various flags.  They control whether error-checking or the next FFT */
-/* can be started. */
+/* Set various flags.  They control whether error-checking or the next FFT can be started. */
 
 		else {
 			stop_reason = stopCheck (thread_num);
 			saving = testSaveFilesFlag (thread_num);
-			echk = stop_reason || ERRCHK || near_fft_limit;
-			if ((bit_number & 127) == 64) echk = 1;
+			echk = stop_reason || saving || ERRCHK || near_fft_limit || ((bit_number & 127) == 64);
 
 /* Either square x or square x and multiply it by three. */
 
 #ifndef SERVER_TESTING
-			gwstartnextfft (&pm1data.gwdata,
-					!stop_reason && !saving &&
-					!error_recovery_mode &&
-					bit_number+1 != len);
+			gwstartnextfft (&pm1data.gwdata, !stop_reason && !saving && bit_number+1 != error_recovery_mode && bit_number+1 != len);
 			gwsetnormroutine (&pm1data.gwdata, 0, echk, bitval (exp, len - bit_number - 1));
 			gwsquare (&pm1data.gwdata, x);
 #endif
@@ -4942,8 +4937,7 @@ restart0:
 
 /* Test for an error */
 
-		if (gw_test_for_error (&pm1data.gwdata) ||
-		    gw_get_maxerr (&pm1data.gwdata) >= 0.40625) goto error;
+		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwdata) >= 0.40625) goto error;
 		bit_number++;
 
 /* Calculate our stage 1 percentage complete */
@@ -4953,8 +4947,7 @@ restart0:
 /* Every N squarings, output a progress report */
 
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 &&
-		     gw_get_fft_count (&pm1data.gwdata) >= last_output + 2 * ITER_OUTPUT)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output + 2 * ITER_OUTPUT)) {
 			char	mask[80];
 			double	pct;
 			pct = trunc_percent (w->pct_complete);
@@ -4980,8 +4973,7 @@ restart0:
 
 /* Every N squarings, output a progress report to the results file */
 
-		if ((ITER_OUTPUT_RES != 999999999 &&
-		     gw_get_fft_count (&pm1data.gwdata) >= last_output_r + 2 * ITER_OUTPUT_RES) ||
+		if ((ITER_OUTPUT_RES != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output_r + 2 * ITER_OUTPUT_RES) ||
 		    (NO_GUI && stop_reason)) {
 			char	mask[80];
 			double	pct;
@@ -5007,7 +4999,7 @@ restart0:
 	if (error_recovery_mode) {
 		gwstartnextfft (&pm1data.gwdata, FALSE);
 		gwsetnormroutine (&pm1data.gwdata, 0, 0, 0);
-		gwsquare (&pm1data.gwdata, x);
+		gwsquare_carefully (&pm1data.gwdata, x);
 		pm1_save (&pm1data, filename, w, bit_number, x, NULL);
 		error_recovery_mode = 0;
 	}
