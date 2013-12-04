@@ -10,7 +10,7 @@
  *	Other important ideas courtesy of Peter Montgomery.
  *
  *	c. 1997 Perfectly Scientific, Inc.
- *	c. 1998-2011 Mersenne Research, Inc.
+ *	c. 1998-2013 Mersenne Research, Inc.
  *	All Rights Reserved.
  *
  *************************************************************/
@@ -4305,7 +4305,7 @@ int choose_pminus1_implementation (
 	unsigned long numvals;
 	int	using_t3;
 	double	cost, best_cost;
-	int	stop_reason, do_later;
+	int	stop_reason;
 
 /* Copy some pm1data variables for easier access */
 
@@ -4349,7 +4349,6 @@ int choose_pminus1_implementation (
 
 		if (cost < best_cost) {
 			best_cost = cost;
-			do_later = 0;
 			*using_t3_result = using_t3;
 			pm1data->rels_this_pass =
 				numvals - (pm1data->E+1) - using_t3;
