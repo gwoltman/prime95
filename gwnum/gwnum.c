@@ -4004,7 +4004,7 @@ void xcopy_3_words_after_gwcarries (
 /* DESTARG + (block * 64) + (block >> 7 * 128).  AVX addresses are based */
 /* on 64 to 192 pad bytes after every 64 cache lines. */
 
-__inline void *pass1_data_addr (
+static __inline void *pass1_data_addr (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data,
 	unsigned long block)
@@ -4019,7 +4019,7 @@ __inline void *pass1_data_addr (
 /* Calculate pass 1 sin/cos/premult address (for those FFTs that do not use */
 /* the same sin/cos table for every pass 1 group). */
 
-__inline void *pass1_premult_addr (
+static __inline void *pass1_premult_addr (
 	gwhandle *gwdata,
 	unsigned long block)
 {
@@ -4032,7 +4032,7 @@ __inline void *pass1_premult_addr (
 
 /* Calculate pass 1 state 1 normalization ptr addresses. */
 
-__inline void pass1_state1_norm_addrs (
+static __inline void pass1_state1_norm_addrs (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data)
 {
@@ -4050,7 +4050,7 @@ __inline void pass1_state1_norm_addrs (
 
 /* Calculate pass 2 block address */
 
-__inline void *pass2_data_addr (
+static __inline void *pass2_data_addr (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data,
 	unsigned long block)
@@ -4060,7 +4060,7 @@ __inline void *pass2_data_addr (
 
 /* Calculate pass 2 premultiplier address */
 
-__inline void * pass2_premult_addr (
+static __inline void * pass2_premult_addr (
 	gwhandle *gwdata,
 	unsigned long block)
 {
@@ -4070,7 +4070,7 @@ __inline void * pass2_premult_addr (
 /* Assign a thread's first block to process in pass 1 state 0.  These are assigned in */
 /* sequential order. */
 
-__inline void pass1_state0_assign_first_block (
+static __inline void pass1_state0_assign_first_block (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data)
 {
@@ -4083,7 +4083,7 @@ __inline void pass1_state0_assign_first_block (
 /* Assign next available block in pass 1 state 0.  These are assigned in */
 /* sequential order. */
 
-__inline void pass1_state0_assign_next_block (
+static __inline void pass1_state0_assign_next_block (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data)
 {
@@ -4251,7 +4251,7 @@ void pass1_state1_assign_next_block (
 /* Assign a thread's first pass 2 block.  These are assigned in */
 /* sequential order. */
 
-__inline void pass2_assign_first_block (
+static __inline void pass2_assign_first_block (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data)
 {
@@ -4263,7 +4263,7 @@ __inline void pass2_assign_first_block (
 /* Assign next available block in pass 2.  These are assigned in */
 /* sequential order. */
 
-__inline void pass2_assign_next_block (
+static __inline void pass2_assign_next_block (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data)
 {
