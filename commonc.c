@@ -1023,7 +1023,7 @@ void growIniLineArray (
 	if (p->num_lines != p->array_size) return;
 
 	newlines = (struct IniLine **)
-		malloc ((p->num_lines + 100) * sizeof (struct IniLine **));
+		malloc ((p->num_lines + 100) * sizeof (struct IniLine *));
 	if (p->num_lines) {
 		memcpy (newlines, p->lines, p->num_lines * sizeof (struct IniLine *));
 		free (p->lines);
