@@ -3520,7 +3520,6 @@ int ecm_QA (
 	struct PriorityInfo *sp_info)	/* SetPriority information */
 {
 	FILE	*fd;
-	int	savefiles;
 
 /* Set the title */
 
@@ -3558,7 +3557,6 @@ int ecm_QA (
 
 		if (b == 1) {
 			QA_TYPE = c;
-			savefiles = B1;
 			continue;
 		}
 
@@ -5807,7 +5805,6 @@ int pminus1_QA (
 	struct PriorityInfo *sp_info)	/* SetPriority information */
 {
 	FILE	*fd;
-	int	savefiles;
 
 /* Set the title */
 
@@ -5843,7 +5840,6 @@ int pminus1_QA (
 
 		if (n == 1) {
 			QA_TYPE = c;
-			savefiles = B1;
 			continue;
 		}
 
