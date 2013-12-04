@@ -3653,7 +3653,7 @@ typedef struct {
 	unsigned long pairs_set;/* Number of pairs originally set in */
 				/* bitarray */
 	unsigned long pairs_done;/* Number of pairs completed */
-	double	pct_mem_to_use;	/* If we get memory allocation errors, we *
+	double	pct_mem_to_use;	/* If we get memory allocation errors, we */
 				/* progressively try using less and less. */
 } pm1handle;
 
@@ -5607,7 +5607,7 @@ msg_and_exit:
 	formatMsgForResultsFile (buf, w);
 	writeResults (buf);
 
-/* Send P-1 completed message to the server.  Although don't do it for puny
+/* Send P-1 completed message to the server.  Although don't do it for puny */
 /* B1 values as this is just the user tinkering with P-1 factoring. */
 
 	if (B >= 10000 || IniGetInt (INI_FILE, "SendAllFactorData", 0)) {

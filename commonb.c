@@ -7424,7 +7424,7 @@ int primeTime (
 	gwsquare (&lldata.gwdata, lldata.lldata);
 
 /* Compute numbers in the lucas series */
-/* Note that for reasons unknown, we've seen cases where printing out
+/* Note that for reasons unknown, we've seen cases where printing out */
 /* the times on each iteration greatly impacts P4 timings. */
 
 	save_limit = (p <= 4000000) ? SAVED_LIMIT : 1;
@@ -7822,7 +7822,7 @@ int primeBench (
 		gwsquare (&lldata.gwdata, lldata.lldata);
 
 /* Compute numbers in the lucas series */
-/* Note that for reasons unknown, we've seen cases where printing out
+/* Note that for reasons unknown, we've seen cases where printing out */
 /* the times on each iteration greatly impacts P4 timings. */
 
 		total_time = 0.0;
