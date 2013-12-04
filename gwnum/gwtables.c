@@ -1310,7 +1310,7 @@ const	int	END_OF_CHAIN = 0x4000;
 		}
 	}
 
-/* HACK: Remember the chains in ASM_TIMERS so that we can properly build LIMIT_INVERSE
+/* HACK: Remember the chains in ASM_TIMERS so that we can properly build LIMIT_INVERSE */
 /* and LIMIT_BIGMAX at a later time. */
 
 	n = 0;
@@ -3145,7 +3145,7 @@ const	int	CHAIN_1_COMMON = 0x0800;
 		}
 	}
 
-/* HACK: Remember the chains in ASM_TIMERS so that we can properly build LIMIT_INVERSE,
+/* HACK: Remember the chains in ASM_TIMERS so that we can properly build LIMIT_INVERSE, */
 /* LIMIT_BIGMAX, and LIMIT_BIGMAX_NEG at a later time. */
 
 	n = 0;

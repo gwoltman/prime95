@@ -431,7 +431,7 @@ int is_pathological_distribution (
 	if (num_big_words == 0 || num_small_words == 0) return (FALSE);
 
 /* While the remaining number of big words and small words is even, this */
-/* represents a case of a big repeating pattern (the pattern in the upper half *
+/* represents a case of a big repeating pattern (the pattern in the upper half */
 /* of the remaining words is the same as the pattern in the lower half). */
 
 	total_length = num_big_words + num_small_words;
@@ -6276,7 +6276,7 @@ double gwmap_to_timing (
 /* just returning an educated guess here. */
 
 /* Adjust timing for various CPU architectures. */
-/* For Intel, 486s were very slow.  Pentium, Pentium Pro, Pentium II,
+/* For Intel, 486s were very slow.  Pentium, Pentium Pro, Pentium II, */
 /* and old celerons were slow because they did not support prefetch. */
 /* AMD64s and Pentium Ms are slower than P4s. */
 
