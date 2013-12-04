@@ -5506,11 +5506,12 @@ int sendProgramOptions (
 /* so we can detect future changes to the program options (even if user */
 /* hand edits prime.ini!) */
 
-		if (work_pref_changed)
+		if (work_pref_changed) {
 			if (tnum == -1)
 				PTOSetAll (INI_FILE, "WorkPreference", "SrvrPO1", WORK_PREFERENCE, WORK_PREFERENCE[0]);
 			else
 				PTOSetOne (INI_FILE, "WorkPreference", "SrvrPO1", WORK_PREFERENCE, tnum, WORK_PREFERENCE[tnum]);
+        }
 		if (tnum == -1) {
 			IniWriteInt (LOCALINI_FILE, "SrvrPO2", PRIORITY);
 			IniWriteInt (LOCALINI_FILE, "SrvrPO3", DAYS_OF_WORK);
