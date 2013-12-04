@@ -731,6 +731,13 @@ void SetPriority (
 		}
 	}
 
+/* Apple does not support setting affinities.  Set the mask */
+/* so that we print out the proper informative message. */
+
+#ifdef __APPLE__
+	memset (mask, 0xFF, sizeof (mask));
+#endif
+
 /* Output an informative message */
 
 	if (NUM_CPUS > 1 || CPU_HYPERTHREADS > 1) {
