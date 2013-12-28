@@ -544,14 +544,15 @@ ynormwpnmac1 MACRO lab, memused, memarea, ops:vararg
 	outer_iters = outer_iters + 1
 	ENDIF
 lab:
-IFDEF X86_64
-	mov	r14, outer_iters
+	mov	COPYZERO, outer_iters
 	mov	ebp, odd_iters
 	mov	SRCARG, rdi		;; Save work buf addr
 av0a:	mov	rsi, SRCARG		;; Reload work buf addr (FFT data)
 	mov	rdx, norm_grp_mults	;; Addr of the group multipliers
 	mov	rdi, norm_biglit_array	;; Addr of the big/little flags array
+IFDEF X86_64
 	lea	r9, [rdx+2*YMM_GMD]	;; Prefetch pointer for group multipliers
+ENDIF
 	movzx	rbx, WORD PTR [rdi]	;; Preload 4 big vs. little & fudge flags
 av0b:	&ops
 	bump	rsi, 64			;; Next cache line
@@ -561,11 +562,62 @@ av0b:	&ops
 	dec	rbp
 	jnz	av0b
 	mov	ebp, inner_iters
-	dec	r14
+	dec	COPYZERO
 	jnz	av0a
-ENDIF
 	jmp	exit
 	ENDM
+
+
+IFNDEF X86_64
+ynormwpn4mac MACRO memused, memarea, ops:vararg
+	ynormwpnmac memused, memarea, ops
+	ENDM
+ELSE
+ynormwpn4mac MACRO memused, memarea, ops:vararg
+	LOCAL	avxlabel
+	avxlabel CATSTR <avcase>,%avx_case_num
+	avx_case_num = avx_case_num + 1
+	ynormwpn4mac1 avxlabel, memused, memarea, ops
+	ENDM
+ynormwpn4mac1 MACRO lab, memused, memarea, ops:vararg
+	LOCAL	av00, av0a, av0b
+	inner_iters = memarea / (memused)
+	outer_iters = 10000 / inner_iters
+	odd_iters = 10000 - inner_iters * outer_iters
+	IF odd_iters EQ 0
+	odd_iters = inner_iters
+	ELSE
+	outer_iters = outer_iters + 1
+	ENDIF
+lab:
+	mov	COPYZERO, outer_iters
+	mov	ebp, odd_iters
+	mov	SRCARG, rdi		;; Save work buf addr
+av0a:	mov	rsi, SRCARG		;; Reload work buf addr (FFT data)
+	lea	r13, [rsi+8192+256]	;; Source ptr #2
+	mov	r12, norm_grp_mults	;; Addr of the group multipliers
+	lea	r15, [r12+2*YMM_GMD]	;; Addr of the group multipliers #2
+	lea	r9, [r15+2*YMM_GMD]	;; Prefetch pointer for group multipliers
+	mov	rdi, norm_biglit_array	;; Addr of the big/little flags array
+	lea	r14, [rdi+4096+128]	;; Addr of the big/little flags array #2
+	movzx	rbx, WORD PTR [rdi]	;; Preload 4 big vs. little & fudge flags
+	movzx	rcx, WORD PTR [r14]	;; Preload 4 big vs. little & fudge flags
+av0b:	&ops
+	bump	rsi, 64			;; Next cache line
+	bump	rdi, 2			;; Next big/little flags
+	bump	r13, 64			;; Next cache line
+	bump	r14, 2			;; Next big/little flags
+;	bump	r12, 4*YMM_GMD		;; Next set of group multipliers
+	bump	r12, 64
+	bump	r15, 64
+	dec	rbp
+	jnz	av0b
+	mov	ebp, inner_iters
+	dec	COPYZERO
+	jnz	av0a
+	jmp	exit
+	ENDM
+ENDIF
 
 _TEXT	SEGMENT
 
@@ -584,7 +636,7 @@ avxtable: looptab avcase, AVX_CASES
 ;	Parameter asm_data = rdi
 
 PROCFL	gwtimeit
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r11,r12,r13,r14,r15,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
 
 	mov	rdi, PPTR [AD_BASE]	; Load work buf address
 	mov	rsi, rdi
@@ -1346,32 +1398,32 @@ avcase11:	readwrite4 32768*1024, 2 ; Read/write 32MB
 	ynormmac 64, 8192, ynorm_1d_zpad exec, noexec, noexec, noexec, noexec, exec, noexec	;; nobase2 ttp c1 khi
 
 ;;252
-	ynormwpnmac 64, 8192, ynorm_wpn exec, exec, noexec, noexec, noexec		;; base2 ttp (the most common case)
-	ynormwpnmac 64, 8192, ynorm_wpn exec, exec, noexec, exec, noexec		;; base2 ttp echk
-	ynormwpnmac 64, 8192, ynorm_wpn exec, exec, noexec, noexec, exec		;; base2 ttp const
-	ynormwpnmac 64, 8192, ynorm_wpn exec, exec, noexec, exec, exec			;; base2 ttp const echk
-	ynormwpnmac 64, 8192, ynorm_wpn noexec, exec, noexec, noexec, noexec		;; base2 nottp
-	ynormwpnmac 64, 8192, ynorm_wpn exec, noexec, noexec, noexec, noexec		;; nobase2 ttp
-	ynormwpnmac 64, 8192, ynorm_wpn exec, noexec, noexec, exec, noexec		;; nobase2 ttp echk
-	ynormwpnmac 64, 8192, ynorm_wpn exec, noexec, noexec, noexec, exec		;; nobase2 ttp const
-	ynormwpnmac 64, 8192, ynorm_wpn exec, noexec, noexec, exec, exec		;; nobase2 ttp const echk
-	ynormwpnmac 64, 8192, ynorm_wpn noexec, noexec, noexec, noexec, noexec		;; nobase2 nottp
+	ynormwpn4mac 64, 8192, ynorm_wpn exec, exec, noexec, noexec, noexec		;; base2 ttp (the most common case)
+	ynormwpn4mac 64, 8192, ynorm_wpn exec, exec, noexec, exec, noexec		;; base2 ttp echk
+	ynormwpn4mac 64, 8192, ynorm_wpn exec, exec, noexec, noexec, exec		;; base2 ttp const
+	ynormwpn4mac 64, 8192, ynorm_wpn exec, exec, noexec, exec, exec			;; base2 ttp const echk
+	ynormwpn4mac 64, 8192, ynorm_wpn noexec, exec, noexec, noexec, noexec		;; base2 nottp
+	ynormwpn4mac 64, 8192, ynorm_wpn exec, noexec, noexec, noexec, noexec		;; nobase2 ttp
+	ynormwpn4mac 64, 8192, ynorm_wpn exec, noexec, noexec, exec, noexec		;; nobase2 ttp echk
+	ynormwpn4mac 64, 8192, ynorm_wpn exec, noexec, noexec, noexec, exec		;; nobase2 ttp const
+	ynormwpn4mac 64, 8192, ynorm_wpn exec, noexec, noexec, exec, exec		;; nobase2 ttp const echk
+	ynormwpn4mac 64, 8192, ynorm_wpn noexec, noexec, noexec, noexec, noexec		;; nobase2 nottp
 
 ;;262
-	ynormwpnmac 64, 8192, ynorm_wpn_zpad exec, exec, noexec, noexec, noexec, exec, noexec	;; base2 ttp c1 (the most common case)
-	ynormwpnmac 64, 8192, ynorm_wpn_zpad exec, exec, exec, noexec, noexec, exec, noexec	;; base2 ttp c1 echk
-	ynormwpnmac 64, 8192, ynorm_wpn_zpad exec, exec, noexec, exec, noexec, noexec, noexec	;; base2 ttp const
-	ynormwpnmac 64, 8192, ynorm_wpn_zpad exec, exec, exec, exec, noexec, noexec, noexec	;; base2 ttp const echk
-	ynormwpnmac 64, 8192, ynorm_wpn_zpad exec, exec, noexec, noexec, noexec, exec, noexec	;; base2 ttp c1 khi
-	ynormwpnmac 64, 8192, ynorm_wpn_zpad exec, noexec, noexec, noexec, noexec, exec, noexec	;; nobase2 ttp c1 (the most common case)
-	ynormwpnmac 64, 8192, ynorm_wpn_zpad exec, noexec, exec, noexec, noexec, exec, noexec	;; nobase2 ttp c1 echk
-	ynormwpnmac 64, 8192, ynorm_wpn_zpad exec, noexec, noexec, exec, noexec, noexec, noexec	;; nobase2 ttp const
-	ynormwpnmac 64, 8192, ynorm_wpn_zpad exec, noexec, exec, exec, noexec, noexec, noexec	;; nobase2 ttp const echk
-	ynormwpnmac 64, 8192, ynorm_wpn_zpad exec, noexec, noexec, noexec, noexec, exec, noexec	;; nobase2 ttp c1 khi
+	ynormwpn4mac 64, 8192, ynorm_wpn_zpad exec, exec, noexec, noexec, noexec, exec, noexec	;; base2 ttp c1 (the most common case)
+	ynormwpn4mac 64, 8192, ynorm_wpn_zpad exec, exec, exec, noexec, noexec, exec, noexec	;; base2 ttp c1 echk
+	ynormwpn4mac 64, 8192, ynorm_wpn_zpad exec, exec, noexec, exec, noexec, noexec, noexec	;; base2 ttp const
+	ynormwpn4mac 64, 8192, ynorm_wpn_zpad exec, exec, exec, exec, noexec, noexec, noexec	;; base2 ttp const echk
+	ynormwpn4mac 64, 8192, ynorm_wpn_zpad exec, exec, noexec, noexec, noexec, exec, noexec	;; base2 ttp c1 khi
+	ynormwpn4mac 64, 8192, ynorm_wpn_zpad exec, noexec, noexec, noexec, noexec, exec, noexec ;; nobase2 ttp c1 (the most common case)
+	ynormwpn4mac 64, 8192, ynorm_wpn_zpad exec, noexec, exec, noexec, noexec, exec, noexec	;; nobase2 ttp c1 echk
+	ynormwpn4mac 64, 8192, ynorm_wpn_zpad exec, noexec, noexec, exec, noexec, noexec, noexec ;; nobase2 ttp const
+	ynormwpn4mac 64, 8192, ynorm_wpn_zpad exec, noexec, exec, exec, noexec, noexec, noexec	;; nobase2 ttp const echk
+	ynormwpn4mac 64, 8192, ynorm_wpn_zpad exec, noexec, noexec, noexec, noexec, exec, noexec ;; nobase2 ttp c1 khi
 
 ; Exit the timing code
 
-exit:	ad_epilog 0,0,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
+exit:	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r11,r12,r13,r14,r15,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
 
 gwtimeit ENDP
 
