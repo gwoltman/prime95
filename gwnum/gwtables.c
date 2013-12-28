@@ -455,11 +455,18 @@ double *yr4dwpn_build_pass1_table (
 		 gwdata->FFTLEN / gwdata->PASS2_SIZE == 2048) gwdata->wpn_count = 16;
 	else gwdata->wpn_count = 4;
 
-/* Set counters for ygw_carries to use.  Remember that ygw_carries always works on */
-/* data after it has been copied to the scratch area. */
+/* Set counters for inorm, zpnorm and ygw_carries to use.  Remember that ygw_carries */
+/* always works on data after it has been copied to the scratch area. */
 
 	asm_data->count2 = gwdata->wpn_count / 4;
 	asm_data->count3 = asm_data->addcount1 / gwdata->wpn_count * 4;
+	if (asm_data->count2 == 1) {
+		asm_data->count4 = 1;
+		asm_data->count5 = asm_data->count3 / 2;
+	} else {
+		asm_data->count4 = asm_data->count2 / 2;
+		asm_data->count5 = asm_data->count3;
+	}
 
 /* Set pointer to table of multipliers */
 
