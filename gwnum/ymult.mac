@@ -277,7 +277,7 @@ set_FFT_constants MACRO fftname, in_place, all_complex, p1_size, p2_levels, clma
 
 yfft_header MACRO pass1
 	PROCF	yprocname
-	ad_prolog 0,1,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
+	ad_prolog 0,1,rbx,rbp,rsi,rdi,r12,r13,r14,r15,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
 	mov	rsi, DESTARG
 	mov	rbx, DIST_TO_FFTSRCARG
 	clear_timers
@@ -292,7 +292,7 @@ yfft_header MACRO pass1
 	ENDM
 
 yfft_footer MACRO
-	ad_epilog 0,1,rbx,rbp,rsi,rdi,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
+	ad_epilog 0,1,rbx,rbp,rsi,rdi,r12,r13,r14,r15,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
 	yprocname ENDP	
 	ENDM
 
