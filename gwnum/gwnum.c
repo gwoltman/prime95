@@ -656,6 +656,57 @@ int is_fft_implemented (
 	return (FALSE);
 }
 
+/* Some gwinfo calculations depend on whether this is a one-pass or two-pass FFT. */
+/* However, some FFTs have both a one-pass and two-pass implementation.  In such cases, */
+/* we must make sure that jmptab points to the implementation that we will actually use. */
+
+struct gwasm_jmptab *choose_one_pass_or_two_pass_impl (
+	gwhandle *gwdata,	/* Gwnum global data */
+	struct gwasm_jmptab *jmptab)
+{
+	struct gwasm_jmptab *orig_jmptab;	
+	int	desired_bif;		/* The "best implementation for" value we will look for. */
+					/* See mult.asm for defined BIF_ values. */
+
+/* For small SSE2 FFTs as well as all x87 FFTs, there is one implementation and it is always available */
+
+	if (! (gwdata->cpu_flags & CPU_AVX)) {
+		if (gwdata->cpu_flags & CPU_SSE2) {
+			if (jmptab->fftlen < 7168) return (jmptab);
+		} else
+			return (jmptab);
+	}
+
+/* If we are benchmarking all FFT implementations, then we always want to start with the first implementation */
+
+	if (gwdata->bench_pick_nth_fft) return (jmptab);
+
+/* If the first entry is a two-pass implementation, then all the implementations are two-pass */
+/* Use the first entry, as any of the entries will do for our purposes */
+
+	if ((jmptab->flags & 0x1FF) != 0) return (jmptab);
+
+/* Determine the "bif" value we will look for.  Often this is a straight-forward mapping from */
+/* the CPU_ARCHITECTURE.  However, for some CPU architectures, like Pentium M and Core Solo, we */
+/* don't have jmptable entries detailing the fastest FFT implementations for those architectures. */
+
+	desired_bif = calculate_bif (gwdata, jmptab->fftlen);
+
+/* Loop through the FFT implementations to see if we find a one-pass implementation */
+/* that matches our desired "bif" value.  Otherwise, return first two-pass implementation. */
+
+	orig_jmptab = jmptab;	
+	while (jmptab->flags & 0x80000000) {
+		if ((jmptab->flags & 0x1FF) != 0) return (jmptab);
+		if (((jmptab->flags >> 13) & 0xF) == desired_bif) return (orig_jmptab);
+		INC_JMPTAB_1 (jmptab);
+	}
+
+/* FFT implementation not found.  Can't happen as is_fft_implemented should have been called. */
+
+	return (orig_jmptab);
+}
+
 /* This routine used to be in assembly language.  It scans the assembly */
 /* code arrays looking for the best FFT size to implement our k*b^n+c FFT. */
 /* Returns 0 for IBDWT FFTs, 1 for zero padded FFTs, or a gwsetup error */
@@ -669,7 +720,7 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 	signed long c)		/* C in K*B^N+C. Must be rel. prime to K. */
 {
 	struct gwinfo1_data asm_info;
-	struct gwasm_jmptab *jmptab, *zpad_jmptab, *generic_jmptab;
+	struct gwasm_jmptab *jmptab, *zpad_jmptab, *generic_jmptab, *impl_jmptab;
 	double	log2k, logbk, log2b, log2c, log2maxmulbyconst;
 	double	max_bits_per_input_word, max_bits_per_output_word;
 	double	max_weighted_bits_per_output_word;
@@ -877,6 +928,12 @@ next1:			while (zpad_jmptab->flags & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
 
 		if (log2k >= 34.0) goto next2;
 
+/* Some calculations below depend on whether this is a one-pass or two-pass FFT. */
+/* However, some FFTs have both a one-pass and two-pass implementation.  In such cases, */
+/* we must make sure that jmptab points to the implementation that we will actually use. */
+
+		impl_jmptab = choose_one_pass_or_two_pass_impl (gwdata, jmptab);
+
 /* Check if this FFT length will work with this k,n,c combo */
 
 //  This is the old code which only supported b == 2
@@ -1030,12 +1087,12 @@ next1:			while (zpad_jmptab->flags & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
 /* FFT lengths 80 and 112 were not upgraded. */
 
 			if (! (gwdata->cpu_flags & (CPU_AVX | CPU_SSE2)))
-				carries_spread_over = 4.0;					//BUG - avx code is much more lenient
+				carries_spread_over = 4.0;
 			else if (jmptab->fftlen == 80 || jmptab->fftlen == 112)
 				carries_spread_over = 4.0;
-			else if ((jmptab->flags & 0x1FF) == 0)	// One pass AVX/SSE2 FFTs
+			else if ((impl_jmptab->flags & 0x1FF) == 0)	// One pass AVX/SSE2 FFTs
 				carries_spread_over = 6.0;
-			else					// Two pass AVX/SSE2 FFTs
+			else						// Two pass AVX/SSE2 FFTs
 				carries_spread_over = 6.0;
 				
 /* Because carries are spread over 4 words, there is a minimum limit on the bits */
@@ -1061,7 +1118,7 @@ next1:			while (zpad_jmptab->flags & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
 /* if this k can be handled.  K must fit in the top three words for */
 /* one-pass FFTs and within the top two words of two-pass FFTs. */
 
-			if ((jmptab->flags & 0x1FF) == 0 &&
+			if ((impl_jmptab->flags & 0x1FF) == 0 &&
 			    logbk > ceil (jmptab->fftlen * b_per_input_word) - ceil ((jmptab->fftlen-3) * b_per_input_word)) {
 // This assert is designed to find any cases where using 4 or more carry adjust words
 // would use a shorter FFT than using a zero-padded FFT.  We found an example:
@@ -1070,7 +1127,7 @@ next1:			while (zpad_jmptab->flags & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
 				goto next2;
 			}
 
-			if ((jmptab->flags & 0x1FF) != 0 &&
+			if ((impl_jmptab->flags & 0x1FF) != 0 &&
 			    logbk > ceil (jmptab->fftlen * b_per_input_word) - ceil ((jmptab->fftlen-2) * b_per_input_word)) {
 // This assert is designed to find any cases where using 3 or more carry adjust words
 // would use a shorter FFT than using a zero-padded FFT.  One example: 501*500^100000-1
