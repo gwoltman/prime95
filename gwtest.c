@@ -797,6 +797,12 @@ int test_randomly (
 /* Test using the default FFT implementation and comparing it to giants */
 
 again:		gwinit (&gwdata);
+		{
+			char	numstr[80];
+			gw_as_string (numstr, k, b, n, c);
+			sprintf (buf, "Trying gwsetup on %s.\n", numstr);
+			OutputBoth (thread_num, buf);
+		}
 		gwset_specific_fftlen (&gwdata, SPECIFIC_FFTLEN);
 		gwset_num_threads (&gwdata, threads);
 		gwset_thread_callback (&gwdata, SetAuxThreadPriority);
