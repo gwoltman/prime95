@@ -1,4 +1,4 @@
-; Copyright 1995-2013 Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2014 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -30,7 +30,7 @@ ELSE
 X87_CASES	EQU	13
 ENDIF
 SSE2_CASES	EQU	216
-AVX_CASES	EQU	272
+AVX_CASES	EQU	284
 
 loopent	MACRO	y,z		; Create a entry in the loop entry table
 	DP	&y&z
@@ -1420,6 +1420,20 @@ avcase11:	readwrite4 32768*1024, 2 ; Read/write 32MB
 	ynormwpn4mac 64, 8192, ynorm_wpn_zpad exec, noexec, noexec, exec, noexec, noexec, noexec ;; nobase2 ttp const
 	ynormwpn4mac 64, 8192, ynorm_wpn_zpad exec, noexec, exec, exec, noexec, noexec, noexec	;; nobase2 ttp const echk
 	ynormwpn4mac 64, 8192, ynorm_wpn_zpad exec, noexec, noexec, noexec, noexec, exec, noexec ;; nobase2 ttp c1 khi
+
+;;272
+	avxmac 256, 8192, 0, yr4_b4cl_csc_wpn4_eight_reals_fft rsi, 4*64, 64, 2*64, rdi, 0, rdi, YMM_SCND4, 1
+	avxmac 256, 100000, 0, yr4_b4cl_csc_wpn4_eight_reals_fft rsi, 4*64, 64, 2*64, rdi, 0, rdi, YMM_SCND4, 1
+	avxmac 256, 8192, 0, yr4_b4cl_csc_wpn4_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, YMM_SCND4, 1
+	avxmac 256, 100000, 0, yr4_b4cl_csc_wpn4_eight_reals_unfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, YMM_SCND4, 1
+	avxmac 256*1, 8192, 0, yr4_b4cl_wpn4_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, YMM_SCND2, 1
+	avxmac 256*2, 8192, 0, yr4_b4cl_wpn4_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, YMM_SCND2, 2
+	avxmac 256*1, 100000, 0, yr4_b4cl_wpn4_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, YMM_SCND2, 1
+	avxmac 256*2, 100000, 0, yr4_b4cl_wpn4_four_complex_djbfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, YMM_SCND2, 2
+	avxmac 256*1, 8192, 0, yr4_b4cl_wpn4_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, YMM_SCND2, 1
+	avxmac 256*2, 8192, 0, yr4_b4cl_wpn4_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, YMM_SCND2, 2
+	avxmac 256*1, 100000, 0, yr4_b4cl_wpn4_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, YMM_SCND2, 1
+	avxmac 256*2, 100000, 0, yr4_b4cl_wpn4_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, YMM_SCND2, 2
 
 ; Exit the timing code
 

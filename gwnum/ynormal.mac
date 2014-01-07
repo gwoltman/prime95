@@ -1,4 +1,4 @@
-; Copyright 2011-2013 - Mersenne Research, Inc.  All rights reserved.
+; Copyright 2011-2014 - Mersenne Research, Inc.  All rights reserved.
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -2428,6 +2428,7 @@ no const	ynorm_wpn_noconst ttp, base2, zero, echk
 const		ynorm_wpn_const ttp, base2, zero, echk
 	ENDM
 
+IFDEF YIMPL_WPN1_FFTS
 ynorm_wpn_noconst MACRO ttp, base2, zero, echk
 		L1prefetchw rsi+64, L1PREFETCH_ALL
 		L1prefetchw r13+64, L1PREFETCH_ALL
@@ -2478,9 +2479,62 @@ ttp		movzx	rcx, WORD PTR [r14+2]		;; Load next 4 big vs. little & fudge flags
 		ystore	[r13+0*32], ymm11		;; Save new value1
 		ystore	[r13+1*32], ymm12		;; Save new value2
 	ENDM
+ENDIF
 
+IFDEF YIMPL_WPN4_FFTS
+ynorm_wpn_noconst MACRO ttp, base2, zero, echk
+		L1prefetchw rsi+64, L1PREFETCH_ALL
+		L1prefetchw r13+64, L1PREFETCH_ALL
+
+ttp		movzx	r8d, bl				;; Fudge flags 1
+ttp		and	r8, 0e0h
+ttp		movzx	eax, bh				;; Big/lit flags 1-2
+ttp		and	rbx, 01ch			;; Fudge flags 2
+		vmovapd	ymm0, [rsi+0*32]		;; Load values1
+ttp		vmulpd	ymm0, ymm0, [r12+0*YMM_GMD][r8] ;; Mul by fudged grp two-to-minus-phi
+		vmovapd	ymm1, [rsi+1*32]		;; Load values2
+ttp		vmulpd	ymm1, ymm1, [r12+1*YMM_GMD][rbx*8] ;; Mul by fudged grp two-to-minus-phi
+
+ttp		movzx	r10d, cl			;; Fudge flags 1
+ttp		and	r10, 0e0h
+ttp		movzx	edx, ch				;; Big/lit flags 1-2
+ttp		and	rcx, 01ch			;; Fudge flags 2
+		vmovapd	ymm7, [r13+0*32]		;; Load values1
+ttp		vmulpd	ymm7, ymm7, [r12+0*YMM_GMD][r10] ;; Mul by fudged grp two-to-minus-phi
+		vmovapd	ymm8, [r13+1*32]		;; Load values2
+ttp		vmulpd	ymm8, ymm8, [r12+1*YMM_GMD][rcx*8] ;; Mul by fudged grp two-to-minus-phi
+
+ttp		L1prefetch r9, L1PREFETCH_ALL
+ttp		bump	r9, 64
+
+base2 no echk ttp	ynorm_wpn_base2_noconst	zero, rax*8, rax*8+32, rdx*8, rdx*8+32
+base2 no echk no ttp	ynorm_wpn_base2_noconst	zero, 0, 0, 0, 0
+base2 echk ttp		ynorm_wpn_base2_noconst_echk zero, rax*8, rax*8+32, rdx*8, rdx*8+32
+base2 echk no ttp	ynorm_wpn_base2_noconst_echk zero, 0, 0, 0, 0
+no base2 no echk ttp	ynorm_wpn_nobase2_noconst rax*8, rax*8+32, rdx*8, rdx*8+32
+no base2 no echk no ttp	ynorm_wpn_nobase2_noconst 0, 0, 0, 0
+no base2 echk ttp	ynorm_wpn_nobase2_noconst_echk rax*8, rax*8+32, rdx*8, rdx*8+32
+no base2 echk no ttp	ynorm_wpn_nobase2_noconst_echk 0, 0, 0, 0
+
+ttp		vmulpd	ymm4, ymm4, [r12+0*YMM_GMD+YMM_GMD/2][r8] ;; value1 = rounded value * fudged grp two-to-phi
+ttp no zero	vmulpd	ymm5, ymm5, [r12+1*YMM_GMD+YMM_GMD/2][rbx*8] ;; value2 = rounded value * fudged grp two-to-phi
+zero		vxorpd	ymm5, ymm5, ymm5
+ttp		movzx	rbx, WORD PTR [rdi+2]		;; Load next 4 big vs. little & fudge flags
+
+ttp		vmulpd	ymm11, ymm11, [r12+0*YMM_GMD+YMM_GMD/2][r10] ;; value1 = rounded value * fudged grp two-to-phi
+ttp no zero	vmulpd	ymm12, ymm12, [r12+1*YMM_GMD+YMM_GMD/2][rcx*8] ;; value2 = rounded value * fudged grp two-to-phi
+zero		vxorpd	ymm12, ymm12, ymm12
+ttp		movzx	rcx, WORD PTR [r14+2]		;; Load next 4 big vs. little & fudge flags
+
+		ystore	[rsi+0*32], ymm4		;; Save new value1
+		ystore	[rsi+1*32], ymm5		;; Save new value2
+		ystore	[r13+0*32], ymm11		;; Save new value1
+		ystore	[r13+1*32], ymm12		;; Save new value2
+	ENDM
+ENDIF
 
 IF (@INSTR(,%yarch,<FMA3>) NE 0)
+IFDEF YIMPL_WPN1_FFTS
 ynorm_wpn_noconst MACRO ttp, base2, zero, echk
 		L1prefetchw rsi+64, L1PREFETCH_ALL
 		L1prefetchw r13+64, L1PREFETCH_ALL
@@ -2565,6 +2619,92 @@ ttp		movzx	rcx, WORD PTR [r14+2]		;; Load next 4 big vs. little & fudge flags
 	ENDM
 ENDIF
 
+IFDEF YIMPL_WPN4_FFTS
+ynorm_wpn_noconst MACRO ttp, base2, zero, echk
+		L1prefetchw rsi+64, L1PREFETCH_ALL
+		L1prefetchw r13+64, L1PREFETCH_ALL
+
+ttp		movzx	r8d, bl				;; Fudge flags 1
+ttp		and	r8, 0e0h
+ttp		movzx	eax, bh				;; Big/lit flags 1-2
+ttp		and	rbx, 01ch			;; Fudge flags 2
+no echk			vmovapd	ymm0, [rsi+0*32]		;; Load values1
+no echk ttp		yfmaddpd ymm0, ymm0, [r12+0*YMM_GMD][r8], ymm2 ;; Mul by fudged grp two-to-minus-phi + carry
+no echk no ttp		vaddpd	ymm0, ymm0, ymm2		;; Add carry
+no echk			vmovapd	ymm1, [rsi+1*32]		;; Load values2
+no echk ttp		yfmaddpd ymm1, ymm1, [r12+1*YMM_GMD][rbx*8], ymm3 ;; Mul by fudged grp two-to-minus-phi + carry
+no echk no ttp		vaddpd	ymm1, ymm1, ymm3		;; Add carry
+base2 echk ttp		vmovapd	ymm11, [r12+0*YMM_GMD][r8]	;; Load fudged grp two-to-minus-phi
+base2 echk ttp		yfmaddpd ymm0, ymm11, [rsi+0*32], ymm2	;; Mul by values1
+base2 echk ttp		vmovapd	ymm12, [r12+1*YMM_GMD][rbx*8]	;; Load fudged grp two-to-minus-phi
+base2 echk ttp		yfmaddpd ymm1, ymm12, [rsi+1*32], ymm3	;; Mul by values2
+base2 echk no ttp	vmovapd	ymm11, [rsi+0*32]		;; Load values1
+base2 echk no ttp	vaddpd	ymm0, ymm11, ymm2		;; Add carry
+base2 echk no ttp	vmovapd	ymm12, [rsi+1*32]		;; Load values2
+base2 echk no ttp	vaddpd	ymm1, ymm12, ymm3		;; Add carry
+no base2 echk		vmovapd	ymm0, [rsi+0*32]		;; Load values1
+no base2 echk ttp	yfmaddpd ymm0, ymm0, [r12+0*YMM_GMD][r8], ymm2 ;; Mul by fudged grp two-to-minus-phi + carry
+no base2 echk no ttp	vaddpd	ymm0, ymm0, ymm2		;; Add carry
+no base2 echk		vmovapd	ymm1, [rsi+1*32]		;; Load values2
+no base2 echk ttp	yfmaddpd ymm1, ymm1, [r12+1*YMM_GMD][rbx*8], ymm3 ;; Mul by fudged grp two-to-minus-phi + carry
+no base2 echk no ttp	vaddpd	ymm1, ymm1, ymm3		;; Add carry
+
+ttp		movzx	r10d, cl			;; Fudge flags 1
+ttp		and	r10, 0e0h
+ttp		movzx	edx, ch				;; Big/lit flags 1-2
+ttp		and	rcx, 01ch			;; Fudge flags 2
+no echk			vmovapd	ymm7, [r13+0*32]		;; Load values1
+no echk ttp		yfmaddpd ymm7, ymm7, [r12+0*YMM_GMD][r10], ymm9 ;; Mul by fudged grp two-to-minus-phi + carry
+no echk no ttp		vaddpd	ymm7, ymm7, ymm9		;; Add carry
+no echk			vmovapd	ymm8, [r13+1*32]		;; Load values2
+no echk ttp		yfmaddpd ymm8, ymm8, [r12+1*YMM_GMD][rcx*8], ymm10 ;; Mul by fudged grp two-to-minus-phi + carry
+no echk no ttp		vaddpd	ymm8, ymm8, ymm10		;; Add carry
+base2 echk ttp		vmovapd	ymm13, [r12+0*YMM_GMD][r10]	;; Load fudged grp two-to-minus-phi
+base2 echk ttp		yfmaddpd ymm7, ymm13, [r13+0*32], ymm9	;; Mul by values1
+base2 echk ttp		vmovapd	ymm14, [r12+1*YMM_GMD][rcx*8]	;; Load fudged grp two-to-minus-phi
+base2 echk ttp		yfmaddpd ymm8, ymm14, [r13+1*32], ymm10 ;; Mul by values2
+base2 echk no ttp	vmovapd	ymm13, [r13+0*32]		;; Load values1
+base2 echk no ttp	vaddpd	ymm7, ymm13, ymm9		;; Add carry
+base2 echk no ttp	vmovapd	ymm14, [r13+1*32]		;; Load values2
+base2 echk no ttp	vaddpd	ymm8, ymm14, ymm10		;; Add carry
+no base2 echk		vmovapd	ymm7, [r13+0*32]		;; Load values1
+no base2 echk ttp	yfmaddpd ymm7, ymm7, [r12+0*YMM_GMD][r10], ymm9 ;; Mul by fudged grp two-to-minus-phi + carry
+no base2 echk no ttp	vaddpd	ymm7, ymm7, ymm9		;; Add carry
+no base2 echk		vmovapd	ymm8, [r13+1*32]		;; Load values2
+no base2 echk ttp	yfmaddpd ymm8, ymm8, [r12+1*YMM_GMD][rcx*8], ymm10 ;; Mul by fudged grp two-to-minus-phi + carry
+no base2 echk no ttp	vaddpd	ymm8, ymm8, ymm10		;; Add carry
+
+ttp		L1prefetch r9, L1PREFETCH_ALL
+ttp		bump	r9, 64
+
+base2 no echk ttp	ynorm_wpn_base2_noconst	zero, rax*8, rax*8+32, rdx*8, rdx*8+32
+base2 no echk no ttp	ynorm_wpn_base2_noconst	zero, 0, 0, 0, 0
+base2 echk ttp		ynorm_wpn_base2_noconst_echk zero, rax*8, rax*8+32, rdx*8, rdx*8+32
+base2 echk no ttp	ynorm_wpn_base2_noconst_echk_nottp zero, 0, 0, 0, 0
+no base2 no echk ttp	ynorm_wpn_nobase2_noconst rax*8, rax*8+32, rdx*8, rdx*8+32
+no base2 no echk no ttp	ynorm_wpn_nobase2_noconst 0, 0, 0, 0
+no base2 echk ttp	ynorm_wpn_nobase2_noconst_echk rax*8, rax*8+32, rdx*8, rdx*8+32
+no base2 echk no ttp	ynorm_wpn_nobase2_noconst_echk 0, 0, 0, 0
+
+ttp		vmulpd	ymm4, ymm4, [r12+0*YMM_GMD+YMM_GMD/2][r8] ;; value1 = rounded value * fudged grp two-to-phi
+ttp no zero	vmulpd	ymm5, ymm5, [r12+1*YMM_GMD+YMM_GMD/2][rbx*8] ;; value2 = rounded value * fudged grp two-to-phi
+zero		vxorpd	ymm5, ymm5, ymm5
+ttp		movzx	rbx, WORD PTR [rdi+2]		;; Load next 4 big vs. little & fudge flags
+
+ttp		vmulpd	ymm11, ymm11, [r12+0*YMM_GMD+YMM_GMD/2][r10] ;; value1 = rounded value * fudged grp two-to-phi
+ttp no zero	vmulpd	ymm12, ymm12, [r12+1*YMM_GMD+YMM_GMD/2][rcx*8] ;; value2 = rounded value * fudged grp two-to-phi
+zero		vxorpd	ymm12, ymm12, ymm12
+ttp		movzx	rcx, WORD PTR [r14+2]		;; Load next 4 big vs. little & fudge flags
+
+		ystore	[rsi+0*32], ymm4		;; Save new value1
+		ystore	[rsi+1*32], ymm5		;; Save new value2
+		ystore	[r13+0*32], ymm11		;; Save new value1
+		ystore	[r13+1*32], ymm12		;; Save new value2
+	ENDM
+ENDIF
+ENDIF
+
+IFDEF YIMPL_WPN1_FFTS
 ynorm_wpn_const MACRO ttp, base2, zero, echk
 		L1prefetchw rsi+64, L1PREFETCH_ALL
 		L1prefetchw r13+64, L1PREFETCH_ALL
@@ -2615,6 +2755,59 @@ ttp		movzx	rcx, WORD PTR [r14+2]		;; Load next 4 big vs. little & fudge flags
 		ystore	[r13+0*32], ymm4		;; Save new value1
 		ystore	[r13+1*32], ymm5		;; Save new value2
 	ENDM
+ENDIF
+
+IFDEF YIMPL_WPN4_FFTS
+ynorm_wpn_const MACRO ttp, base2, zero, echk
+		L1prefetchw rsi+64, L1PREFETCH_ALL
+		L1prefetchw r13+64, L1PREFETCH_ALL
+
+ttp		movzx	r8d, bl				;; Fudge flags 1
+ttp		and	r8, 0e0h
+ttp		movzx	eax, bh				;; Big/lit flags 1-2
+ttp		and	rbx, 01ch			;; Fudge flags 2
+		vmovapd	ymm7, [rsi+0*32]		;; Load values1
+ttp		vmulpd	ymm7, ymm7, [r12+0*YMM_GMD][r8] ;; Mul by fudged grp two-to-minus-phi
+		vmovapd	ymm8, [rsi+1*32]		;; Load values2
+ttp		vmulpd	ymm8, ymm8, [r12+1*YMM_GMD][rbx*8] ;; Mul by fudged grp two-to-minus-phi
+
+ttp		L1prefetch r9, L1PREFETCH_ALL
+ttp		bump	r9, 64
+
+base2 ttp	ynorm_wpn_base2_const	echk, rax*8, rax*8+32, ymm2, ymm3
+base2 no ttp	ynorm_wpn_base2_const	echk, 0, 0, ymm2, ymm3
+no base2 ttp	ynorm_wpn_nobase2_const	echk, rax*8, rax*8+32, ymm2, ymm3
+no base2 no ttp	ynorm_wpn_nobase2_const	echk, 0, 0, ymm2, ymm3
+
+ttp		movzx	r10d, cl			;; Fudge flags 1
+ttp		and	r10, 0e0h
+ttp		movzx	edx, ch				;; Big/lit flags 1-2
+ttp		and	rcx, 01ch			;; Fudge flags 2
+		vmovapd	ymm7, [r13+0*32]		;; Load values1
+ttp		vmulpd	ymm7, ymm7, [r12+0*YMM_GMD][r10] ;; Mul by fudged grp two-to-minus-phi
+		vmovapd	ymm8, [r13+1*32]		;; Load values2
+ttp		vmulpd	ymm8, ymm8, [r12+1*YMM_GMD][rcx*8] ;; Mul by fudged grp two-to-minus-phi
+
+ttp		vmulpd	ymm4, ymm4, [r12+0*YMM_GMD+YMM_GMD/2][r8] ;; value1 = rounded value * fudged grp two-to-phi
+ttp no zero	vmulpd	ymm5, ymm5, [r12+1*YMM_GMD+YMM_GMD/2][rbx*8] ;; value2 = rounded value * fudged grp two-to-phi
+zero		vxorpd	ymm5, ymm5, ymm5
+ttp		movzx	rbx, WORD PTR [rdi+2]		;; Load next 4 big vs. little & fudge flags
+		ystore	[rsi+0*32], ymm4		;; Save new value1
+		ystore	[rsi+1*32], ymm5		;; Save new value2
+
+base2 ttp	ynorm_wpn_base2_const	echk, rdx*8, rdx*8+32, ymm9, ymm10
+base2 no ttp	ynorm_wpn_base2_const	echk, 0, 0, ymm9, ymm10
+no base2 ttp	ynorm_wpn_nobase2_const	echk, rdx*8, rdx*8+32, ymm9, ymm10
+no base2 no ttp	ynorm_wpn_nobase2_const	echk, 0, 0, ymm9, ymm10
+
+ttp		vmulpd	ymm4, ymm4, [r12+0*YMM_GMD+YMM_GMD/2][r10] ;; value1 = rounded value * fudged grp two-to-phi
+ttp no zero	vmulpd	ymm5, ymm5, [r12+1*YMM_GMD+YMM_GMD/2][rcx*8] ;; value2 = rounded value * fudged grp two-to-phi
+zero		vxorpd	ymm5, ymm5, ymm5
+ttp		movzx	rcx, WORD PTR [r14+2]		;; Load next 4 big vs. little & fudge flags
+		ystore	[r13+0*32], ymm4		;; Save new value1
+		ystore	[r13+1*32], ymm5		;; Save new value2
+	ENDM
+ENDIF
 
 
 ynorm_wpn_base2_noconst MACRO zero, basereg, basereg2, basereg3, basereg4

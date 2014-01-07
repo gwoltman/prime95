@@ -1,4 +1,4 @@
-; Copyright 2011-2013 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2014 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -10239,3 +10239,1579 @@ yr4_o8r_t4c_simple_unfft_mem MACRO mem1,mem2,mem3,mem4,mem5,mem6,mem7,mem8,dst1
 	vblendpd ymm4, ymm4, YMM_TMP5, 1 ;; Blend in R5 real result
 	ENDM
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+;;
+;; ******************************* four-complex-with-partial-normalization4 variants *************************************
+;;
+;; These macros are used in pass 1 of yr4dwpn two pass FFTs.  They are like the original four-complex-wpn
+;; macros except that 4 normalization multipliers are pre-applied rather than post-applying one normalization
+;; multiplier.  This results in more multiplies (slower macros), but reduces group multiplier data and also
+;; reduces variable sine/cosine data used in pass 1.  On a Haswell machine, this is a net positive.
+;;
+
+;; screg1 is normalization weights
+;; screg2+0+0, screg2+0+32 is weighted sin/cos values for R3/I3/R4/I4 (w^2n)
+;; screg2+64+0, screg2+64+32 is weighted sin/cos values for R2/I2 (w^n)
+
+yr4_b4cl_wpn4_four_complex_djbfft_preload MACRO
+	ENDM
+yr4_b4cl_wpn4_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
+	vbroadcastsd ymm4, Q [screg1+0]	;; Load normalization multiplier for R1/I1
+	vmovapd	ymm0, [srcreg]		;; R1
+	vmulpd	ymm0, ymm0, ymm4	;; Apply weight1 to R1				;  1-5
+	vbroadcastsd ymm7, Q [screg1+16];; Load normalization multiplier for R3/I3
+	vmovapd	ymm6, [srcreg+d2]	;; R3
+	vmulpd	ymm6, ymm6, ymm7	;; Apply weight3 to R3				;  2-6
+	vmulpd	ymm4, ymm4, [srcreg+32]	;; Apply weight1 to I1				;  3-7
+	vmulpd	ymm7, ymm7, [srcreg+d2+32];; Apply weight3 to I3			;  4-8
+	vbroadcastsd ymm5, Q [screg1+8]	;; Load normalization multiplier for R2/I2
+	vmovapd	ymm1, [srcreg+d1]	;; R2
+	vmulpd	ymm1, ymm1, ymm5	;; Apply weight2 to R2				;  5-9
+	vbroadcastsd ymm3, Q [screg1+24];; Load normalization multiplier for R4/I4
+	vmulpd	ymm3, ymm3, [srcreg+d2+d1] ;; Apply weight4 to R4			;  6-10
+	vmulpd	ymm5, ymm5, [srcreg+d1+32] ;; Apply weight2 to I2			;  7-11
+	vaddpd	ymm2, ymm0, ymm6	;; R1 + R3 (new R1)				; 7-9
+	vsubpd	ymm0, ymm0, ymm6	;; R1 - R3 (new R3)				; 8-10
+	L1prefetchw srcreg+L1pd, L1pt
+	vaddpd	ymm6, ymm4, ymm7	;; I1 + I3 (new I1)				; 9-11
+	vsubpd	ymm4, ymm4, ymm7	;; I1 - I3 (new I3)				; 10-12
+	vaddpd	ymm7, ymm1, ymm3	;; R2 + R4 (new R2)				; 11-13
+	vsubpd	ymm1, ymm1, ymm3	;; R2 - R4 (new R4)				; 12-14
+	vsubpd	ymm3, ymm2, ymm7	;; R1 - R2 (final R2)				; 14-16
+	vaddpd	ymm2, ymm2, ymm7	;; R1 + R2 (final R1)				; 15-17
+	vbroadcastsd ymm7, Q [screg1+24];; Reload normalization multiplier for R4/I4
+	vmulpd	ymm7, ymm7, [srcreg+d2+d1+32] ;; Apply weight4 to I4			;  8-12
+	ystore	[srcreg], ymm2		;; Save R1
+	vaddpd	ymm2, ymm5, ymm7	;; I2 + I4 (new I2)				; 13-15
+	vsubpd	ymm5, ymm5, ymm7	;; I2 - I4 (new I4)				; 16-18
+	L1prefetchw srcreg+d1+L1pd, L1pt
+	vsubpd	ymm7, ymm6, ymm2	;; I1 - I2 (final I2)				; 17-19
+	vaddpd	ymm6, ymm6, ymm2	;; I1 + I2 (final I1)				; 18-20
+	vsubpd	ymm2, ymm0, ymm5	;; R3 - I4 (final R3)				; 19-21
+	ystore	[srcreg+32], ymm6	;; Save I1
+	vaddpd	ymm6, ymm4, ymm1	;; I3 + R4 (final I3)				; 20-22
+	L1prefetchw srcreg+d2+L1pd, L1pt
+	vaddpd	ymm0, ymm0, ymm5	;; R3 + I4 (final R4)				; 21-23
+	vsubpd	ymm4, ymm4, ymm1	;; I3 - R4 (final I4)				; 22-24
+	vmovapd ymm5, [screg2+64+32]	;; cosine/sine2
+	vmulpd	ymm1, ymm3, ymm5	;; A2 = R2 * cosine/sine			;  17-21
+	vsubpd	ymm1, ymm1, ymm7	;; A2 = A2 - I2					; 23-25
+	vmulpd	ymm7, ymm7, ymm5	;; B2 = I2 * cosine/sine			;  20-24
+	vaddpd	ymm7, ymm7, ymm3	;; B2 = B2 + R2					; 25-27
+	vmovapd ymm5, [screg2+0+32]	;; cosine/sine34
+	vmulpd	ymm3, ymm2, ymm5	;; A3 = R3 * cosine/sine			;  22-26
+	vsubpd	ymm3, ymm3, ymm6	;; A3 = A3 - I3					; 27-29
+	vmulpd	ymm6, ymm6, ymm5	;; B3 = I3 * cosine/sine			;  23-27
+	vaddpd	ymm6, ymm6, ymm2	;; B3 = B3 + R3					; 28-30
+	L1prefetchw srcreg+d2+d1+L1pd, L1pt
+	vmulpd	ymm2, ymm0, ymm5	;; A4 = R4 * cosine/sine			;  24-28
+	vaddpd	ymm2, ymm2, ymm4	;; A4 = A4 + I4					; 29-31
+	vmulpd	ymm4, ymm4, ymm5	;; B4 = I4 * cosine/sine			;  25-29
+	vsubpd	ymm4, ymm4, ymm0	;; B4 = B4 - R4					; 30-32
+	vmovapd ymm5, [screg2+64+0]	;; Sine2
+	vmulpd	ymm1, ymm1, ymm5	;; A2 = A2 * sine (final R2)			;  26-30
+	vmulpd	ymm7, ymm7, ymm5	;; B2 = B2 * sine (final I2)			;  28-32
+	vmovapd ymm5, [screg2+0+0]	;; Sine34
+	vmulpd	ymm3, ymm3, ymm5	;; A3 = A3 * sine (final R3)			;  30-34
+	vmulpd	ymm6, ymm6, ymm5	;; B3 = B3 * sine (final I3)			;  31-35
+	vmulpd	ymm2, ymm2, ymm5	;; A4 = A4 * sine (final R4)			;  32-36
+	vmulpd	ymm4, ymm4, ymm5	;; B4 = B4 * sine (final I4)			;  33-37
+	ystore	[srcreg+d1], ymm1	;; Save R2
+	ystore	[srcreg+d1+32], ymm7	;; Save I2
+	ystore	[srcreg+d2], ymm3	;; Save R3
+	ystore	[srcreg+d2+32], ymm6	;; Save I3
+	ystore	[srcreg+d2+d1], ymm2	;; Save R4
+	ystore	[srcreg+d2+d1+32], ymm4	;; Save I4
+	bump	srcreg, srcinc
+	bump	screg1, scinc1
+	bump	screg2, scinc2
+	ENDM
+
+;; 64-bit version
+
+IFDEF X86_64
+
+yr4_b4cl_wpn4_four_complex_djbfft_preload MACRO
+	yr4_4c_wpn4_djbfft_unroll_preload
+	ENDM
+yr4_b4cl_wpn4_four_complex_djbfft MACRO srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
+	IF maxrpt GE 5 AND maxrpt MOD 5 EQ 0
+	yr4_4c_wpn4_djbfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 1,exec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 2,exec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 3,exec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 4,exec,exec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 5,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	bump	srcreg, 5*srcinc
+	bump	screg1, 5*scinc1
+	bump	screg2, 5*scinc2
+	ELSEIF maxrpt GE 4 AND maxrpt MOD 4 EQ 0
+	yr4_4c_wpn4_djbfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 1,exec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 2,exec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 3,exec,exec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 4,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	bump	srcreg, 4*srcinc
+	bump	screg1, 4*scinc1
+	bump	screg2, 4*scinc2
+	ELSEIF maxrpt GE 3 AND maxrpt MOD 3 EQ 0
+	yr4_4c_wpn4_djbfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 1,exec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 2,exec,exec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 3,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	bump	srcreg, 3*srcinc
+	bump	screg1, 3*scinc1
+	bump	screg2, 3*scinc2
+	ELSEIF maxrpt GE 2 AND maxrpt MOD 2 EQ 0
+	yr4_4c_wpn4_djbfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 1,exec,exec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 2,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	bump	srcreg, 2*srcinc
+	bump	screg1, 2*scinc1
+	bump	screg2, 2*scinc2
+	ELSE
+	yr4_4c_wpn4_djbfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 0,noexec,exec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbfft_unroll 1,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	bump	srcreg, srcinc
+	bump	screg1, scinc1
+	bump	screg2, scinc2
+	ENDIF
+	ENDM
+
+yr4_4c_wpn4_djbfft_unroll_preload MACRO
+	ENDM
+yr4_4c_wpn4_djbfft_unroll MACRO iter,prev,this,next,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+
+;; On first call, init registers
+
+	IF iter EQ -1
+y0	TEXTEQU	<ymm0>
+y1	TEXTEQU	<ymm1>
+y2	TEXTEQU	<ymm2>
+y3	TEXTEQU	<ymm3>
+y4	TEXTEQU	<ymm4>
+y5	TEXTEQU	<ymm5>
+y6	TEXTEQU	<ymm6>
+y7	TEXTEQU	<ymm7>
+y8	TEXTEQU	<ymm8>
+y9	TEXTEQU	<ymm9>
+y10	TEXTEQU	<ymm10>
+y11	TEXTEQU	<ymm11>
+y12	TEXTEQU	<ymm12>
+y13	TEXTEQU	<ymm13>
+y14	TEXTEQU	<ymm14>
+y15	TEXTEQU	<ymm15>
+	ENDIF
+
+;; On later calls, previous A2,B2,A3,B3,A4,B4,sine will be in y0-6.  This R1,R2,R3,R4,I1,I2,I3,I4 will be in y7-14.
+;; The remaining register is free.
+
+this	vsubpd	y15, y7, y9				;; R1 - R3 (new R3)			; 1-3		n 9
+prev	vmulpd	y4, y4, y6				;; A4 = A4 * sine (final R4)		;  1-5
+this	L1prefetchw srcreg+iter*srcinc+L1pd, L1pt
+
+this	vaddpd	y7, y7, y9				;; R1 + R3 (new R1)			; 2-4		n 13
+prev	vmulpd	y3, y3, y6				;; B3 = B3 * sine (final I3)		;  2-6
+
+this	vsubpd	y9, y11, y13				;; I1 - I3 (new I3)			; 3-5		n 11
+prev	vmulpd	y5, y5, y6				;; B4 = B4 * sine (final I4)		;  3-7
+prev	vmovapd y6, [screg2+(iter-1)*scinc2+64+0]	;; Sine2
+
+this	vaddpd	y11, y11, y13				;; I1 + I3 (new I1)			; 4-6		n 14
+prev	vmulpd	y0, y0, y6				;; A2 = A2 * sine (final R2)		;  4-8
+next	vbroadcastsd y13, Q [screg1+(iter+1)*scinc1+0]	;; Normalization multiplier for R1 & I1
+
+prev	ystore	[srcreg+(iter-1)*srcinc+d2], y2		;; Save R3				; 5
+this	vsubpd	y2, y12, y14				;; I2 - I4 (new I4)			; 5-7		n 9
+prev	vmulpd	y1, y1, y6				;; B2 = B2 * sine (final I2)		;  5-9
+next	vmovapd	y6, [srcreg+(iter+1)*srcinc]		;; R1
+
+prev	ystore	[srcreg+(iter-1)*srcinc+d2+d1], y4	;; Save R4				; 6
+this	vaddpd	y12, y12, y14				;; I2 + I4 (new I2)			; 6-8		n 14
+this	L1prefetchw srcreg+iter*srcinc+d1+L1pd, L1pt
+
+prev	ystore	[srcreg+(iter-1)*srcinc+d2+32], y3	;; Save I3				; 7
+this	vsubpd	y3, y8, y10				;; R2 - R4 (new R4)			; 7-9		n 11
+
+prev	ystore	[srcreg+(iter-1)*srcinc+d2+d1+32], y5	;; Save I4				; 8
+this	vaddpd	y8, y8, y10				;; R2 + R4 (new R2)			; 8-10		n 13
+next	vmulpd	y6, y6, y13				;; Apply normalization multiplier to R1	;  8-12			n 1
+this	L1prefetchw srcreg+iter*srcinc+d2+L1pd, L1pt
+
+prev	ystore	[srcreg+(iter-1)*srcinc+d1], y0		;; Save R2				; 9
+this	vsubpd	y0, y15, y2				;; R3 - I4 (final R3)			; 9-11		n 12
+next	vmulpd	y13, y13, [srcreg+(iter+1)*srcinc+32]	;; Apply normalization multiplier to I1 ;  9-13			n 3
+next	vbroadcastsd y10, Q [screg1+(iter+1)*scinc1+16]	;; Normalization multiplier for R3 & I3
+
+prev	ystore	[srcreg+(iter-1)*srcinc+d1+32], y1	;; Save I2				; 10
+this	vaddpd	y15, y15, y2				;; R3 + I4 (final R4)			; 10-12		n 13
+next	vmovapd	y2, [srcreg+(iter+1)*srcinc+d2]		;; R3
+next	vmulpd	y2, y2, y10				;; Apply normalization multiplier to R3	;  10-14		n 1
+
+this	vaddpd	y1, y9, y3				;; I3 + R4 (final I3)			; 11-13		n 14
+next	vmulpd	y10, y10, [srcreg+(iter+1)*srcinc+d2+32];; Apply normalization multiplier to I3 ;  11-15		n 3
+
+this	vsubpd	y9, y9, y3				;; I3 - R4 (final I4)			; 12-14		n 15
+this	vmovapd y3, [screg2+iter*scinc2+0+32]		;; cosine/sine34
+this	vmulpd	y5, y0, y3				;; A3 = R3 * cosine/sine		;  12-16	n 17
+
+this	vsubpd	y14, y7, y8				;; R1 - R2 (final R2)			; 13-15		n 16
+this	vsubpd	y4, y11, y12				;; I1 - I2 (final I2)			; 14-16		n 17
+this	vaddpd	y7, y7, y8				;; R1 + R2 (final R1)			; 15-17
+this	vmulpd	y8, y15, y3				;; A4 = R4 * cosine/sine		;  13-17	n 18
+this	L1prefetchw srcreg+iter*srcinc+d2+d1+L1pd, L1pt
+
+this	vaddpd	y11, y11, y12				;; I1 + I2 (final I1)			; 16-18
+this	vmulpd	y12, y1, y3				;; B3 = I3 * cosine/sine		;  14-18	n 19
+this	vmulpd	y3, y9, y3				;; B4 = I4 * cosine/sine		;  15-19	n 20
+
+this	ystore	[srcreg+iter*srcinc], y7		;; Save R1				; 18
+this	vmovapd y7, [screg2+iter*scinc2+64+32]		;; cosine/sine2
+this	ystore	[srcreg+iter*srcinc+32], y11		;; Save I1				; 19
+this	vmulpd	y11, y14, y7				;; A2 = R2 * cosine/sine		;  16-20	n 21
+
+this	vsubpd	y5, y5, y1				;; A3 = A3 - I3				; 17-19		n 20
+this	vmulpd	y7, y4, y7				;; B2 = I2 * cosine/sine		;  17-21	n 22
+next	vbroadcastsd y1, Q [screg1+(iter+1)*scinc1+8]	;; Normalization multiplier for R2 & I2
+
+this	vaddpd	y8, y8, y9				;; A4 = A4 + I4				; 18-20		n 21
+next	vmovapd	y9, [srcreg+(iter+1)*srcinc+d1+32]	;; I2
+next	vmulpd	y9, y9, y1				;; Apply normalization multiplier to I2 ;  18-22		n 5
+this next yloop_unrolled_one
+
+this	vaddpd	y12, y12, y0				;; B3 = B3 + R3				; 19-21		n 22
+next	vmulpd	y1, y1, [srcreg+(iter+1)*srcinc+d1]	;; Apply normalization multiplier to R2	;  19-23		n 7
+
+next	vbroadcastsd y0, Q [screg1+(iter+1)*scinc1+24]	;; Normalization multiplier for R4 & I4
+this	vsubpd	y3, y3, y15				;; B4 = B4 - R4				; 20-22		n 1
+next	vmovapd	y15, [srcreg+(iter+1)*srcinc+d2+d1+32]	;; I4
+next	vmulpd	y15, y15, y0				;; Apply normalization multiplier to I4 ;  20-24		n 5
+
+this	vsubpd	y11, y11, y4				;; A2 = A2 - I2				; 21-23
+next	vmulpd	y0, y0, [srcreg+(iter+1)*srcinc+d2+d1]	;; Apply normalization multiplier to R4	;  21-25		n 7
+this	vmovapd y4, [screg2+iter*scinc2+0+0]		;; Sine34
+
+this	vaddpd	y7, y7, y14				;; B2 = B2 + R2				; 22-24
+this	vmulpd	y5, y5, y4				;; A3 = A3 * sine (final R3)		;  22-26
+
+;; Shuffle register assignments so that this A2,B2,A3,B3,A4,B4,sine34 are in y0-6 and next R1,R2,R3,R4,I1,I2,I3,I4 in y7-14.
+
+ytmp	TEXTEQU	y0
+y0	TEXTEQU	y11
+y11	TEXTEQU	y13
+y13	TEXTEQU	y10
+y10	TEXTEQU	ytmp
+ytmp	TEXTEQU	y1
+y1	TEXTEQU	y7
+y7	TEXTEQU	y6
+y6	TEXTEQU	y4
+y4	TEXTEQU	y8
+y8	TEXTEQU ytmp
+ytmp	TEXTEQU	y2
+y2	TEXTEQU	y5
+y5	TEXTEQU	y3
+y3	TEXTEQU	y12
+y12	TEXTEQU	y9
+y9	TEXTEQU	ytmp
+ytmp	TEXTEQU	y14
+y14	TEXTEQU	y15
+y15	TEXTEQU	ytmp
+	ENDM
+
+;; Haswell FMA3 version
+
+IF (@INSTR(,%yarch,<FMA3>) NE 0)
+
+yr4_4c_wpn4_djbfft_unroll_preload MACRO
+	vmovapd	ymm15, YMM_ONE
+	ENDM
+
+;; uops = 8 s/c loads, 8 loads, 8 stores, 8 muls, 22 fma, 11 mov = 65 uops / 4 = 16.25 clocks
+;; Timed at 19.2 clocks
+yr4_4c_wpn4_djbfft_unroll MACRO iter,prev,this,next,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+
+;; On first call, init registers
+
+	IF iter EQ -1
+y0	TEXTEQU	<ymm0>
+y1	TEXTEQU	<ymm1>
+y2	TEXTEQU	<ymm2>
+y3	TEXTEQU	<ymm3>
+y4	TEXTEQU	<ymm4>
+y5	TEXTEQU	<ymm5>
+y6	TEXTEQU	<ymm6>
+y7	TEXTEQU	<ymm7>
+y8	TEXTEQU	<ymm8>
+y9	TEXTEQU	<ymm9>
+y10	TEXTEQU	<ymm10>
+y11	TEXTEQU	<ymm11>
+y12	TEXTEQU	<ymm12>
+y13	TEXTEQU	<ymm13>
+y14	TEXTEQU	<ymm14>
+	ENDIF
+
+;; On later calls, previous A2,B2,R3S,I3S,R4S,I4S will be in y0-5.  This weight1,weight2,R1,R3,R4,I1,I3,I4 will be in y6-13.
+;; The remaining register is reserved for constant YMM_ONE.
+
+this	yfmsubpd y14, y8, y6, y9			;; R1 * weight1 - R3 (new R3)		; 1-5		n 8
+this	yfmaddpd y8, y8, y6, y9				;; R1 * weight1 + R3 (new R1)		; 1-5		n 9
+this	L1prefetchw srcreg+iter*srcinc+L1pd, L1pt
+
+this	yfmaddpd y9, y11, y6, y12			;; I1 * weight1 + I3 (new I1)		; 2-6		n 10
+this	yfmsubpd y11, y11, y6, y12			;; I1 * weight1 - I3 (new I3)		; 2-6		n 14
+
+prev	vmovapd y12, [screg2+(iter-1)*scinc2+0+32]	;; cosine/sine for R3/I3/R4/I4
+prev	yfmsubpd y6, y2, y12, y3			;; R3S * cosine/sine - I3S (final R3)	; 4-8
+prev	yfmaddpd y3, y3, y12, y2			;; I3S * cosine/sine + R3S (final I3)	; 4-8
+
+this	vmovapd	y2, [srcreg+iter*srcinc+d1]		;; R2
+prev	ystore	[srcreg+(iter-1)*srcinc+d2], y6		;; Save R3				;	9
+this	yfmsubpd y6, y2, y7, y10			;; R2 * weight2 - R4 (new R4)		; 3-7		n 8
+this	yfmaddpd y2, y2, y7, y10			;; R2 * weight2 + R4 (new R2)		; 3-7		n 9
+
+this	vmovapd	y10, [srcreg+iter*srcinc+d1+32]		;; I2
+prev	ystore	[srcreg+(iter-1)*srcinc+d2+32], y3	;; Save I3				;	10
+this	yfmaddpd y3, y10, y7, y13			;; I2 * weight2 + I4 (new I2)		; 5-9		n 10
+this	yfmsubpd y10, y10, y7, y13			;; I2 * weight2 - I4 (new I4)		; 5-9		n 13
+prev	vmovapd y7, [screg2+(iter-1)*scinc2+64+0]	;; Sine for R2/I2
+
+prev	yfmaddpd y13, y4, y12, y5			;; R4S * cosine/sine + I4S (final R4)	; 6-10
+prev	yfmsubpd y5, y5, y12, y4			;; I4S * cosine/sine - R4S (final I4)	; 6-10
+this	vmovapd y12, [screg2+iter*scinc2+0+0]		;; Sine for R3/I3/R4/I4
+
+prev	vmulpd	y0, y0, y7				;; A2 = A2 * sine (final R2)		; 7-11
+prev	vmulpd	y1, y1, y7				;; B2 = B2 * sine (final I2)		; 7-11
+next	vbroadcastsd y4, Q [screg1+(iter+1)*scinc1+16]	;; Normalization multiplier for R3 & I3
+
+this	vmulpd	y14, y14, y12				;; R3S = R3 * sine			; 8-12		n 13
+this	vmulpd	y6, y6, y12				;; R4S = R4 * sine			; 8-12		n 14
+this	L1prefetchw srcreg+iter*srcinc+d1+L1pd, L1pt
+
+this	yfmsubpd y7, y8, ymm15, y2			;; R1 - R2 (newer R2)			; 9-13		n 15
+this	yfmaddpd y8, y8, ymm15, y2			;; R1 + R2 (final R1)			; 9-13
+this next yloop_unrolled_one
+
+this	yfmsubpd y2, y9, ymm15, y3			;; I1 - I2 (newer I2)			; 10-14		n 15
+this	yfmaddpd y9, y9, ymm15, y3			;; I1 + I2 (final I1)			; 10-14
+this	L1prefetchw srcreg+iter*srcinc+d2+L1pd, L1pt
+
+next	vmulpd	y3, y4, [srcreg+(iter+1)*srcinc+d2]	;; R3 = R3 * weight3			; 11-15		n 16
+next	vmulpd	y4, y4, [srcreg+(iter+1)*srcinc+d2+32]	;; I3 = I3 * weight3			; 11-15		n 17
+prev	ystore	[srcreg+(iter-1)*srcinc+d2+d1], y13	;; Save R4				;	11
+
+next	vbroadcastsd y13, Q [screg1+(iter+1)*scinc1+24]	;; Normalization multiplier for R4 & I4
+prev	ystore	[srcreg+(iter-1)*srcinc+d2+d1+32], y5	;; Save I4				;	12
+next	vmulpd	y5, y13, [srcreg+(iter+1)*srcinc+d2+d1] ;; R4 = R4 * weight4			; 12-16		n 18
+next	vmulpd	y13, y13, [srcreg+(iter+1)*srcinc+d2+d1+32] ;; I4 = I4 * weight4		; 12-16		n 20
+
+prev	ystore	[srcreg+(iter-1)*srcinc+d1], y0		;; Save R2				;	13
+this	yfnmaddpd y0, y10, y12, y14			;; R3S - I4 * sine (newer R3S)		; 13-17		n 19
+this	yfmaddpd y10, y10, y12, y14			;; R3S + I4 * sine (newer R4S)		; 13-17		n 21
+this	L1prefetchw srcreg+iter*srcinc+d2+d1+L1pd, L1pt
+
+this	yfmaddpd y14, y11, y12, y6			;; I3 * sine + R4S (newer I3S)		; 14-18		n 19
+this	yfmsubpd y11, y11, y12, y6			;; I3 * sine - R4S (newer I4S)		; 14-18		n 21
+this	vmovapd y12, [screg2+iter*scinc2+64+32]		;; cosine/sine for R2/I2
+next	vbroadcastsd y6, Q [screg1+(iter+1)*scinc1+0]	;; Normalization multiplier for R1 & I1
+prev	ystore	[srcreg+(iter-1)*srcinc+d1+32], y1	;; Save I2				;	14
+
+this	yfmsubpd y1, y7, y12, y2			;; A2 = R2 * cosine/sine - I2		; 15-19		n 22
+this	yfmaddpd y2, y2, y12, y7			;; B2 = I2 * cosine/sine + R2		; 15-19		n 22
+next	vmovapd	y12, [srcreg+(iter+1)*srcinc]		;; R1
+next	vmovapd	y7, [srcreg+(iter+1)*srcinc+32]		;; I1
+this	ystore	[srcreg+iter*srcinc], y8		;; Save R1				;	15
+next	vbroadcastsd y8, Q [screg1+(iter+1)*scinc1+8]	;; Normalization multiplier for R2 & I2
+this	ystore	[srcreg+iter*srcinc+32], y9		;; Save I1				;	16
+
+;; Shuffle register assignments so that this A2,B2,R3S,I3S,R4S,I4S are in y0-5 and next weight1,weight2,R1,R3,R4,I1,I3,I4 are in y6-13.
+
+ytmp	TEXTEQU	y0
+y0	TEXTEQU	y1
+y1	TEXTEQU	y2
+y2	TEXTEQU	ytmp
+ytmp	TEXTEQU	y3
+y3	TEXTEQU	y14
+y14	TEXTEQU	y9
+y9	TEXTEQU	ytmp
+ytmp	TEXTEQU	y4
+y4	TEXTEQU	y10
+y10	TEXTEQU	y5
+y5	TEXTEQU	y11
+y11	TEXTEQU y7
+y7	TEXTEQU	y8
+y8	TEXTEQU	y12
+y12	TEXTEQU	ytmp
+	ENDM
+ENDIF
+
+ENDIF
+
+
+
+
+
+
+
+yr4_b4cl_wpn4_four_complex_djbunfft_preload MACRO
+	ENDM
+yr4_b4cl_wpn4_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
+	vmovapd ymm3, [screg2+64+32]	;; cosine/sine2
+	vmovapd	ymm2, [srcreg+d1]	;; R2
+	vmulpd	ymm6, ymm2, ymm3	;; A2 = R2 * cosine/sine		;  1-5
+	vmovapd	ymm0, [srcreg+d1+32]	;; I2
+	vmulpd	ymm3, ymm3, ymm0	;; B2 = I2 * cosine/sine		;  2-6
+
+	vmovapd ymm5, [screg2+0+32]	;; cosine/sine34
+	vmovapd	ymm4, [srcreg+d2]	;; R3
+	vmulpd	ymm7, ymm4, ymm5	;; A3 = R3 * cosine/sine		;  3-7
+	vmovapd	ymm1, [srcreg+d2+32]	;; I3
+
+	vaddpd	ymm6, ymm6, ymm0	;; A2 = A2 + I2				; 6-8
+
+	vmulpd	ymm0, ymm1, ymm5	;; B3 = I3 * cosine/sine		;  4-8
+
+	vsubpd	ymm3, ymm3, ymm2	;; B2 = B2 - R2				; 7-9
+	vaddpd	ymm7, ymm7, ymm1	;; A3 = A3 + I3				; 8-10
+
+	vmovapd	ymm2, [srcreg+d2+d1]	;; R4
+	vmulpd	ymm1, ymm2, ymm5	;; A4 = R4 * cosine/sine		;  5-9
+
+	vsubpd	ymm0, ymm0, ymm4	;; B3 = B3 - R3				; 9-11
+
+	vmovapd	ymm4, [srcreg+d2+d1+32]	;; I4
+	vmulpd	ymm5, ymm4, ymm5	;; B4 = I4 * cosine/sine		;  6-10
+
+	vsubpd	ymm1, ymm1, ymm4	;; A4 = A4 - I4				; 10-12
+	vaddpd	ymm5, ymm5, ymm2	;; B4 = B4 + R4				; 11-13
+
+	vmovapd ymm4, [screg2+64+0]	;; Sine2
+	vmulpd	ymm6, ymm6, ymm4	;; A2 = A2 * sine (new R2)		;  9-13
+	vmulpd	ymm3, ymm3, ymm4	;; B2 = B2 * sine (new I2)		;  10-14
+
+	vmovapd ymm4, [screg2+0+0]	;; Sine34
+	vmulpd	ymm7, ymm7, ymm4	;; A3 = A3 * sine (new R3)		;  11-15
+	vmulpd	ymm0, ymm0, ymm4	;; B3 = B3 * sine (new I3)		;  12-16
+	vmulpd	ymm1, ymm1, ymm4	;; A4 = A4 * sine (new R4)		;  13-17
+	vmulpd	ymm5, ymm5, ymm4	;; B4 = B4 * sine (new I4)		;  14-18
+	L1prefetchw srcreg+L1pd, L1pt
+
+	vmovapd	ymm2, [srcreg]		;; R1
+	vaddpd	ymm4, ymm2, ymm6	;; R1 + R2 (new R1)			; 14-16
+	vsubpd	ymm2, ymm2, ymm6	;; R1 - R2 (new R2)			; 15-17
+	L1prefetchw srcreg+d1+L1pd, L1pt
+
+	vaddpd	ymm6, ymm1, ymm7	;; R4 + R3 (new R3)			; 16-18
+	vsubpd	ymm1, ymm1, ymm7	;; R4 - R3 (new I4)			; 17-19
+	L1prefetchw srcreg+d2+L1pd, L1pt
+
+	vsubpd	ymm7, ymm0, ymm5	;; I3 - I4 (new R4)			; 18-20
+	vaddpd	ymm0, ymm0, ymm5	;; I3 + I4 (new I3)			; 19-21
+	L1prefetchw srcreg+d2+d1+L1pd, L1pt
+
+	vsubpd	ymm5, ymm4, ymm6	;; R1 - R3 (final R3)			; 20-22
+	vaddpd	ymm4, ymm4, ymm6	;; R1 + R3 (final R1)			; 21-23
+
+	vbroadcastsd ymm6, Q [screg1+16] ;; normalization_inverse for R3/I3
+	vmulpd	ymm5, ymm5, ymm6	;; R3 * weight3				;  23-27
+	ystore	[srcreg+d2], ymm5	;; Save R3				; 28
+
+	vmovapd	ymm6, [srcreg+32]	;; I1
+	vsubpd	ymm5, ymm6, ymm3	;; I1 - I2 (new I2)			; 22-24
+	vaddpd	ymm6, ymm6, ymm3	;; I1 + I2 (new I1)			; 23-25
+
+	vsubpd	ymm3, ymm2, ymm7	;; R2 - R4 (final R4)			; 24-26
+	vaddpd	ymm2, ymm2, ymm7	;; R2 + R4 (final R2)			; 25-27
+
+	vbroadcastsd ymm7, Q [screg1+0]	;; normalization_inverse for R1/I1
+	vmulpd	ymm4, ymm4, ymm7	;; R1 * weight1				;  24-28
+	ystore	[srcreg], ymm4		;; Save R1				; 29
+
+	vsubpd	ymm4, ymm5, ymm1	;; I2 - I4 (final I4)			; 26-28
+	vaddpd	ymm5, ymm5, ymm1	;; I2 + I4 (final I2)			; 27-29
+
+	vbroadcastsd ymm1, Q [screg1+24] ;; normalization_inverse for R4/I4
+	vmulpd	ymm3, ymm3, ymm1	;; R4 * weight4				;  27-31
+	ystore	[srcreg+d2+d1], ymm3	;; Save R4				; 32
+
+	vbroadcastsd ymm3, Q [screg1+8]	;; normalization_inverse for R2/I2
+	vmulpd	ymm2, ymm2, ymm3	;; R2 * weight2				;  28-32
+	ystore	[srcreg+d1], ymm2	;; Save R2				; 33
+
+	vsubpd	ymm2, ymm6, ymm0	;; I1 - I3 (final I3)			; 28-30
+	vaddpd	ymm6, ymm6, ymm0	;; I1 + I3 (final I1)			; 29-31
+	vbroadcastsd ymm0, Q [screg1+16] ;; normalization_inverse for R3/I3
+
+	vmulpd	ymm4, ymm4, ymm1	;; I4 * weight4				;  29-33
+	vmulpd	ymm5, ymm5, ymm3	;; I2 * weight2				;  30-34
+	vmulpd	ymm2, ymm2, ymm0	;; I3 * weight3				;  31-35
+	vmulpd	ymm6, ymm6, ymm7	;; I1 * weight1				;  32-36
+	ystore	[srcreg+d2+d1+32], ymm4	;; Save I4				; 34
+	ystore	[srcreg+d1+32], ymm5	;; Save I2				; 35
+	ystore	[srcreg+d2+32], ymm2	;; Save I3				; 36
+	ystore	[srcreg+32], ymm6	;; Save I1				; 37
+
+	bump	srcreg, srcinc
+	bump	screg1, scinc1
+	bump	screg2, scinc2
+	ENDM
+
+
+;; 64-bit version
+
+IFDEF X86_64
+
+yr4_b4cl_wpn4_four_complex_djbunfft_preload MACRO
+	yr4_4c_wpn4_djbunfft_unroll_preload
+	ENDM
+yr4_b4cl_wpn4_four_complex_djbunfft MACRO srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
+	IF maxrpt GE 5 AND maxrpt MOD 5 EQ 0
+	yr4_4c_wpn4_djbunfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 1,exec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 2,exec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 3,exec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 4,exec,exec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 5,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	bump	srcreg, 5*srcinc
+	bump	screg1, 5*scinc1
+	bump	screg2, 5*scinc2
+	ELSEIF maxrpt GE 4 AND maxrpt MOD 4 EQ 0
+	yr4_4c_wpn4_djbunfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 1,exec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 2,exec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 3,exec,exec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 4,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	bump	srcreg, 4*srcinc
+	bump	screg1, 4*scinc1
+	bump	screg2, 4*scinc2
+	ELSEIF maxrpt GE 3 AND maxrpt MOD 3 EQ 0
+	yr4_4c_wpn4_djbunfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 1,exec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 2,exec,exec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 3,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	bump	srcreg, 3*srcinc
+	bump	screg1, 3*scinc1
+	bump	screg2, 3*scinc2
+	ELSEIF maxrpt GE 2 AND maxrpt MOD 2 EQ 0
+	yr4_4c_wpn4_djbunfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 0,noexec,exec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 1,exec,exec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 2,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	bump	srcreg, 2*srcinc
+	bump	screg1, 2*scinc1
+	bump	screg2, 2*scinc2
+	ELSE
+	yr4_4c_wpn4_djbunfft_unroll -1,noexec,noexec,exec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 0,noexec,exec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	yr4_4c_wpn4_djbunfft_unroll 1,exec,noexec,noexec,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+	bump	srcreg, srcinc
+	bump	screg1, scinc1
+	bump	screg2, scinc2
+	ENDIF
+	ENDM
+
+yr4_4c_wpn4_djbunfft_unroll_preload MACRO
+	ENDM
+yr4_4c_wpn4_djbunfft_unroll MACRO iter,prev,this,next,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+
+;; On first call, init registers
+
+	IF iter EQ -1
+y0	TEXTEQU	<ymm0>
+y1	TEXTEQU	<ymm1>
+y2	TEXTEQU	<ymm2>
+y3	TEXTEQU	<ymm3>
+y4	TEXTEQU	<ymm4>
+y5	TEXTEQU	<ymm5>
+y6	TEXTEQU	<ymm6>
+y7	TEXTEQU	<ymm7>
+y8	TEXTEQU	<ymm8>
+y9	TEXTEQU	<ymm9>
+y10	TEXTEQU	<ymm10>
+y11	TEXTEQU	<ymm11>
+y12	TEXTEQU	<ymm12>
+y13	TEXTEQU	<ymm13>
+y14	TEXTEQU	<ymm14>
+y15	TEXTEQU	<ymm15>
+	ENDIF
+
+;; On later calls, previous R1,R2,R3,R4,I1,I2,I3,I4 are in y0-7.  This R2,R3/s,R4/s,B2,I3/s,I4/s,sine2 are in y8-14.
+;; The remaining register is free.
+
+prev	vbroadcastsd y15, Q [screg1+(iter-1)*scinc1+16] ;; normalization_inverse for R3 & I3
+prev	ystore	[srcreg+(iter-1)*srcinc+d2+d1+32], y7 ;; Save I4			; 1
+this	vaddpd	y7, y10, y9			;; C3 = R4/s + R3/s (newer R3/sine)	; 1-3		n 4
+this	vmulpd	y11, y11, y14			;; B2 = B2 * sine (new I2)		; 1-5		n 7
+
+prev	ystore	[srcreg+(iter-1)*srcinc+d2+d1], y3 ;; Save R4				; 2
+this	vsubpd	y10, y10, y9			;; D4 = R4/s - R3/s (newer I4/sine)	; 2-4		n 5
+prev	vmulpd	y2, y2, y15			;; R3 * normalization_inverse		;  2-6
+this	vmovapd y14, [screg2+iter*scinc2+0+0]	;; Sine34
+
+prev	ystore	[srcreg+(iter-1)*srcinc+d1+32], y5 ;; Save I2				; 3
+this	vsubpd	y5, y12, y13			;; C4 = I3/s - I4/s (newer R4/sine)	; 3-5		n 6
+prev	vmulpd	y6, y6, y15			;; I3 * normalization_inverse		;  3-7
+this	vmovapd	y3, [srcreg+iter*srcinc]	;; R1
+
+prev	ystore	[srcreg+(iter-1)*srcinc+d1], y1	;; Save R2				; 4
+this	vaddpd	y12, y12, y13			;; D3 = I3/s + I4/s (newer I3/sine)	; 4-6		n 7
+this	vmulpd	y7, y7, y14			;; C3 * sine (newer R3)			;  4-8		n 9
+this	vmovapd	y9, [srcreg+iter*srcinc+32]	;; I1
+
+this	vaddpd	y13, y3, y8			;; R1 + R2 (newer R1)			; 5-7		n 9
+this	vmulpd	y10, y10, y14			;; D4 * sine (newer I4)			;  5-9		n 11
+prev	vbroadcastsd y15, Q [screg1+(iter-1)*scinc1+0] ;; normalization_inverse for R1 & I1
+
+this	vsubpd	y3, y3, y8			;; R1 - R2 (newer R2)			; 6-8		n 13
+this	vmulpd	y5, y5, y14			;; C4 * sine (newer R4)			;  6-10		n 13
+next	vmovapd y1, [screg2+(iter+1)*scinc2+64+32] ;; cosine/sine2
+
+prev	ystore	[srcreg+(iter-1)*srcinc+d2], y2	;; Save R3				; 7
+this	vsubpd	y2, y9, y11			;; I1 - I2 (newer I2)			; 7-9		n 11
+this	vmulpd	y12, y12, y14			;; D3 * sine (newer I3)			;  7-11		n 15
+next	vmovapd	y8, [srcreg+(iter+1)*srcinc+d1]	;; R2
+
+prev	ystore	[srcreg+(iter-1)*srcinc+d2+32], y6 ;; Save I3				; 8
+this	vaddpd	y9, y9, y11			;; I1 + I2 (newer I1)			; 8-10		n 15
+prev	vmulpd	y0, y0, y15			;; R1 * normalization_inverse		;  8-12
+next	vmovapd	y14, [srcreg+(iter+1)*srcinc+d1+32] ;; I2
+
+this	vsubpd	y11, y13, y7			;; R1 - R3 (final R3)			; 9-11		n 12
+prev	vmulpd	y4, y4, y15			;; I1 * normalization_inverse		;  9-13
+next	vmovapd y6, [screg2+(iter+1)*scinc2+0+32] ;; cosine/sine34
+
+this	vaddpd	y13, y13, y7			;; R1 + R3 (final R1)			; 10-12		n 13
+next	vmovapd	y15, [srcreg+(iter+1)*srcinc+d2+d1] ;; R4
+
+this	vsubpd	y7, y2, y10			;; I2 - I4 (final I4)			; 11-13		n 14
+this	L1prefetchw srcreg+iter*srcinc+L1pd, L1pt
+
+this	vaddpd	y2, y2, y10			;; I2 + I4 (final I2)			; 12-14		n 15
+next	vmulpd	y10, y8, y1			;; A2 = R2 * cosine/sine		;  12-16	n 17
+this next yloop_unrolled_one
+
+prev	ystore	[srcreg+(iter-1)*srcinc], y0	;; Save R1				; 13
+this	vsubpd	y0, y3, y5			;; R2 - R4 (final R4)			; 13-15		n 16
+next	vmulpd	y1, y14, y1			;; B2 = I2 * cosine/sine		;  13-17	n 18
+this	L1prefetchw srcreg+iter*srcinc+d1+L1pd, L1pt
+
+prev	ystore	[srcreg+(iter-1)*srcinc+32], y4	;; Save I1				; 14
+this	vaddpd	y3, y3, y5			;; R2 + R4 (final R2)			; 14-16		n 17
+next	vmulpd	y5, y15, y6			;; A4 = R4 * cosine/sine		;  14-18	n 19
+this	L1prefetchw srcreg+iter*srcinc+d2+L1pd, L1pt
+
+this	vsubpd	y4, y9, y12			;; I1 - I3 (final I3)			; 15-17		n 18
+this	vaddpd	y9, y9, y12			;; I1 + I3 (final I1)			; 16-18		n 19
+next	vmovapd	y12, [srcreg+(iter+1)*srcinc+d2] ;; R3
+next	vaddpd	y10, y10, y14			;; A2 = A2 + I2				; 17-19		n 21
+next	vmulpd	y14, y12, y6			;; A3 = R3 * cosine/sine		;  15-19	n 20
+this	L1prefetchw srcreg+iter*srcinc+d2+d1+L1pd, L1pt
+
+next	vsubpd	y1, y1, y8			;; B2 = B2 - R2				; 18-20		n 3
+next	vmovapd	y8, [srcreg+(iter+1)*srcinc+d2+d1+32] ;; I4
+next	vsubpd	y5, y5, y8			;; A4 = A4 - I4 (new R4/sine)		; 19-21		n 1
+next	vmulpd	y8, y8, y6			;; B4 = I4 * cosine/sine		;  16-20	n 21
+next	vmulpd	y6, y6, [srcreg+(iter+1)*srcinc+d2+32] ;; B3 = I3 * cosine/sine		;  17-21	n 22
+
+next	vaddpd	y14, y14, [srcreg+(iter+1)*srcinc+d2+32] ;; A3 = A3 + I3 (new R3/sine)	; 20-22		n 1
+
+next	vaddpd	y8, y8, y15			;; B4 = B4 + R4 (new I4/sine)		; 21-23		n 3
+this	vbroadcastsd y15, Q [screg1+iter*scinc1+24] ;; normalization_inverse for R4 & I4
+this	vmulpd	y7, y7, y15			;; I4 * normalization_inverse		;  18-22
+this	vmulpd	y0, y0, y15			;; R4 * normalization_inverse		;  19-23
+this	vbroadcastsd y15, Q [screg1+iter*scinc1+8] ;; normalization_inverse for R2 & I2
+this	vmulpd	y2, y2, y15			;; I2 * normalization_inverse		;  20-24
+this	vmulpd	y3, y3, y15			;; R2 * normalization_inverse		;  21-25
+
+next	vmovapd y15, [screg2+(iter+1)*scinc2+64+0] ;; Sine2
+next	vsubpd	y6, y6, y12			;; B3 = B3 - R3 (new I3/sine)		; 22-24		n 3
+next	vmulpd	y10, y10, y15			;; A2 = A2 * sine (new R2)		;  22-26	n 5
+
+;; Shuffle register assignments so that this R1,R2,R3,R4,I1,I2,I3,I4 are in y0-7 and next R2,R3/s,R4/s,B2,I3/s,I4/s,sine2 are in y8-14.
+
+ytmp	TEXTEQU	y0
+y0	TEXTEQU	y13
+y13	TEXTEQU	y8
+y8	TEXTEQU y10
+y10	TEXTEQU	y5
+y5	TEXTEQU	y2
+y2	TEXTEQU	y11
+y11	TEXTEQU	y1
+y1	TEXTEQU	y3
+y3	TEXTEQU	ytmp
+ytmp	TEXTEQU	y4
+y4	TEXTEQU	y9
+y9	TEXTEQU	y14
+y14	TEXTEQU	y15
+y15	TEXTEQU	y12
+y12	TEXTEQU	y6
+y6	TEXTEQU	ytmp
+	ENDM
+
+
+;; Haswell FMA3 version
+
+IF (@INSTR(,%yarch,<FMA3>) NE 0)
+
+yr4_4c_wpn4_djbunfft_unroll_preload MACRO
+	ENDM
+
+;; uops = 8 s/c loads, 8 loads, 8 stores, 8 muls, 22 fma, 11 mov = 65 uops / 4 = 16.25 clocks
+;; Timed at 19.4 clocks
+yr4_4c_wpn4_djbunfft_unroll MACRO iter,prev,this,next,srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,L1pt,L1pd
+
+;; On first call, init registers
+
+	IF iter EQ -1
+y0	TEXTEQU	<ymm0>
+y1	TEXTEQU	<ymm1>
+y2	TEXTEQU	<ymm2>
+y3	TEXTEQU	<ymm3>
+y4	TEXTEQU	<ymm4>
+y5	TEXTEQU	<ymm5>
+y6	TEXTEQU	<ymm6>
+y7	TEXTEQU	<ymm7>
+y8	TEXTEQU	<ymm8>
+y9	TEXTEQU	<ymm9>
+y10	TEXTEQU	<ymm10>
+y11	TEXTEQU	<ymm11>
+y12	TEXTEQU	<ymm12>
+y13	TEXTEQU	<ymm13>
+y14	TEXTEQU	<ymm14>
+y15	TEXTEQU	<ymm15>
+	ENDIF
+
+;; On later calls, previous R1,R2,R3,R4,I1,I2,I3,I4 will be in y0-7.  This R2,I2,R3/s,I3/s,R4/s,I4/s,c/s2 will be in y8-14.
+
+this	yfmaddpd y15, y8, y14, y9			;; R2 * cosine/sine + I2 (new R2/sine)	; 1-5		n 6
+this	yfmsubpd y9, y9, y14, y8			;; I2 * cosine/sine - R2 (new I2/sine)	; 1-5		n 8
+
+prev	vbroadcastsd y14, Q [screg1+(iter-1)*scinc1+16]	;; normalization_inverse for R3 & I3
+prev	vbroadcastsd y8, Q [screg1+(iter-1)*scinc1+0]	;; normalization_inverse for R1 & I1
+prev	vmulpd	y2, y2, y14				;; R3 * normalization_inverse		; 2-6
+prev	vmulpd	y0, y0, y8				;; R1 * normalization_inverse		; 2-6
+this	L1prefetchw srcreg+iter*srcinc+L1pd, L1pt
+
+prev	vmulpd	y6, y6, y14				;; I3 * normalization_inverse		; 3-7
+prev	vmulpd	y4, y4, y8				;; I1 * normalization_inverse		; 3-7
+
+prev	vbroadcastsd y14, Q [screg1+(iter-1)*scinc1+24]	;; normalization_inverse for R4 & I4
+prev	vbroadcastsd y8, Q [screg1+(iter-1)*scinc1+8]	;; normalization_inverse for R2 & I2
+prev	vmulpd	y3, y3, y14				;; R4 * normalization_inverse		; 4-8
+prev	vmulpd	y1, y1, y8				;; R2 * normalization_inverse		; 4-8
+
+prev	ystore	[srcreg+(iter-1)*srcinc+d2], y2		;; Save R3				;	7
+this	vmovapd	y2, YMM_ONE
+prev	ystore	[srcreg+(iter-1)*srcinc], y0		;; Save R1				;	8
+this	yfmaddpd y0, y12, y2, y10			;; R4/sine + R3/sine (newer R3/sine)	; 5-9		n 12
+this	yfmsubpd y12, y12, y2, y10			;; R4/sine - R3/sine (newer I4/sine)	; 5-9		n 15
+
+this	vmovapd y10, [screg2+iter*scinc2+64+0]		;; Sine for R2/I2
+prev	ystore	[srcreg+(iter-1)*srcinc+d2+32], y6	;; Save I3				;	9
+this	vmovapd	y6, [srcreg+iter*srcinc]		;; R1
+prev	ystore	[srcreg+(iter-1)*srcinc+32], y4		;; Save I1				;	10
+this	yfmaddpd y4, y15, y10, y6			;; R1 + R2/sine * sine (newer R1)	; 6-10		n 12
+this	yfnmaddpd y15, y15, y10, y6			;; R1 - R2/sine * sine (newer R2)	; 6-10		n 14
+this	L1prefetchw srcreg+iter*srcinc+d1+L1pd, L1pt
+
+this	yfmaddpd y6, y11, y2, y13			;; I3/sine + I4/sine (newer I3/sine)	; 7-11		n 13
+this	yfmsubpd y11, y11, y2, y13			;; I3/sine - I4/sine (newer R4/sine)	; 7-11		n 14
+
+this	vmovapd	y2, [srcreg+iter*srcinc+32]		;; I1
+this	yfmaddpd y13, y9, y10, y2			;; I1 + I2/sine * sine (newer I1)	; 8-12		n 13
+this	yfnmaddpd y9, y9, y10, y2			;; I1 - I2/sine * sine (newer I2)	; 8-12		n 15
+next	vmovapd y10, [screg2+(iter+1)*scinc2+0+32]	;; cosine/sine for R3/I3/R4/I4
+
+this	L1prefetchw srcreg+iter*srcinc+d2+L1pd, L1pt
+prev	vmulpd	y7, y7, y14				;; I4 * normalization_inverse		; 9-13
+prev	vmulpd	y5, y5, y8				;; I2 * normalization_inverse		; 9-13
+
+next	vmovapd	y2, [srcreg+(iter+1)*srcinc+d2]		;; R3
+next	vmovapd	y14, [srcreg+(iter+1)*srcinc+d2+32]	;; I3
+next	yfmaddpd y8, y2, y10, y14			;; R3 * cosine/sine + I3 (new R3/sine)	; 10-14		n 20
+next	yfmsubpd y14, y14, y10, y2			;; I3 * cosine/sine - R3 (new I3/sine)	; 10-14		n 22
+
+next	vmovapd	y2, [srcreg+(iter+1)*srcinc+d2+d1]	;; R4
+prev	ystore	[srcreg+(iter-1)*srcinc+d2+d1], y3	;; Save R4				;	11
+next	vmovapd	y3, [srcreg+(iter+1)*srcinc+d2+d1+32]	;; I4
+prev	ystore	[srcreg+(iter-1)*srcinc+d1], y1		;; Save R2				;	12
+next	yfmsubpd y1, y2, y10, y3			;; R4 * cosine/sine - I4 (new R4/sine)	; 11-15		n 20
+next	yfmaddpd y3, y3, y10, y2			;; I4 * cosine/sine + R4 (new I4/sine)	; 11-15		n 22
+
+this	vmovapd y10, [screg2+iter*scinc2+0+0]		;; Sine for R3/I3/R4/I4
+this	yfnmaddpd y2, y0, y10, y4			;; R1 - R3/sine * sine (final R3)	; 12-16		n 2
+this	yfmaddpd y0, y0, y10, y4			;; R1 + R3/sine * sine (final R1)	; 12-16		n 2
+this	L1prefetchw srcreg+iter*srcinc+d2+d1+L1pd, L1pt
+
+this	yfnmaddpd y4, y6, y10, y13			;; I1 - I3/sine * sine (final I3)	; 13-17		n 3
+this	yfmaddpd y6, y6, y10, y13			;; I1 + I3/sine * sine (final I1)	; 13-17		n 3
+next	vmovapd y13, [screg2+(iter+1)*scinc2+64+32]	;; cosine/sine for R2/I2
+this next yloop_unrolled_one
+
+prev	ystore	[srcreg+(iter-1)*srcinc+d2+d1+32], y7	;; Save I4				;	14
+this	yfnmaddpd y7, y11, y10, y15			;; R2 - R4/sine * sine (final R4)	; 14-18		n 4
+this	yfmaddpd y11, y11, y10, y15			;; R2 + R4/sine * sine (final R2)	; 14-18		n 4
+next	vmovapd	y15, [srcreg+(iter+1)*srcinc+d1]	;; R2
+
+prev	ystore	[srcreg+(iter-1)*srcinc+d1+32], y5	;; Save I2				;	15
+this	yfnmaddpd y5, y12, y10, y9			;; I2 - I4/sine * sine (final I4)	; 15-19		n 5
+this	yfmaddpd y12, y12, y10, y9			;; I2 + I4/sine * sine (final I2)	; 15-19		n 5
+next	vmovapd	y10, [srcreg+(iter+1)*srcinc+d1+32]	;; I2
+
+;; Shuffle register assignments so that this R1,R2,R3,R4,I1,I2,I3,I4 are in y0-7, and
+;; next R2,I2,R3/s,I3/s,R4/s,I4/s,c/s2 are in y8-14.
+
+ytmp	TEXTEQU	y1
+y1	TEXTEQU	y11
+y11	TEXTEQU y14
+y14	TEXTEQU	y13
+y13	TEXTEQU	y3
+y3	TEXTEQU	y7
+y7	TEXTEQU	y5
+y5	TEXTEQU	y12
+y12	TEXTEQU	ytmp
+ytmp	TEXTEQU	y4
+y4	TEXTEQU	y6
+y6	TEXTEQU	ytmp
+ytmp	TEXTEQU	y8
+y8	TEXTEQU	y15
+y15	TEXTEQU	y9
+y9	TEXTEQU	y10
+y10	TEXTEQU	ytmp
+	ENDM
+ENDIF
+
+ENDIF
+
+
+
+
+
+
+
+
+
+
+;;
+;; ******************************* eight-real-with-partial-normalization4 variants *************************************
+;;
+;; These macros are used in pass 1 of yr4dwpn two pass FFTs.  They are like the original eight-real-wpn
+;; macros except that 4 normalization multipliers are pre-applied rather than post-applying one normalization
+;; multiplier.  This results in more multiplies (slower macros), but reduces group multiplier data and also
+;; reduces variable sine/cosine data used in pass 1.  On a Haswell machine, this is a net positive.
+;;
+
+;; Uses one combined sin/cos data ptr.  The first two sin/cos entries can be used by four complex
+;; macros at the same FFT level.  The third and fourth sin/cos entries are used by this eight reals macro.
+
+;; screg1 is normalization weights
+;; screg2+0, screg2+32 is sin/cos values for R2/I2 (w^2n)
+;; screg2+128+0, screg2+128+32 is sin/cos values for R3/I3 (w^n)
+;; screg2+192+0, screg2+192+32 is sin/cos values for R4/I4 (w^5n)
+
+yr4_b4cl_csc_wpn4_eight_reals_fft_preload MACRO
+	ENDM
+yr4_b4cl_csc_wpn4_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
+	vmovapd	ymm0, [srcreg+d2+d1]	;; R4
+	vmovapd	ymm7, [srcreg+d2+d1+32]	;; R8
+	vsubpd	ymm3, ymm0, ymm7	;; new R8 = R4 - R8			; 1-3
+	vaddpd	ymm7, ymm0, ymm7	;; new R4 = R4 + R8			; 2-4
+
+	vmovapd	ymm4, [srcreg+d1]	;; R2
+	vmovapd	ymm5, [srcreg+d1+32]	;; R6
+	vsubpd	ymm1, ymm4, ymm5	;; new R6 = R2 - R6			; 3-5
+	vaddpd	ymm5, ymm4, ymm5	;; new R2 = R2 + R6			; 4-6
+
+	vbroadcastsd ymm0, Q [screg1+24];; normalization for R4/I4
+	vmulpd	ymm3, ymm3, ymm0	;; I4 * normalization			;  4-8
+	vmulpd	ymm7, ymm7, ymm0	;; R4 * normalization			;  5-9
+
+	vmovapd	ymm2, [srcreg]		;; R1
+	vmovapd	ymm4, [srcreg+32]	;; R5
+	vsubpd	ymm0, ymm2, ymm4	;; new R5 = R1 - R5			; 5-7
+	vaddpd	ymm4, ymm2, ymm4	;; new R1 = R1 + R5			; 6-8
+
+	vbroadcastsd ymm6, Q [screg1+8]	;; normalization for R2/I2
+	vmulpd	ymm1, ymm1, ymm6	;; I2 * normalization			;  6-10
+	vmulpd	ymm5, ymm5, ymm6	;; R2 * normalization			;  7-11
+
+	vbroadcastsd ymm2, Q [screg1]	;; normalization for R1/I1
+	vmulpd	ymm0, ymm0, ymm2	;; I1 * normalization			;  9-13
+	vmulpd	ymm4, ymm4, ymm2	;; R1 * normalization			;  8-12
+
+	vmulpd	ymm3, ymm3, YMM_SQRTHALF ;; R8 = R8 * square root		;  10-14
+	vmulpd	ymm1, ymm1, YMM_SQRTHALF ;; R6 = R6 * square root		;  11-15
+
+	vaddpd	ymm2, ymm5, ymm7	;; R2 + R4 (final I1 / 2nd real result)	; 12-14
+	vsubpd	ymm5, ymm5, ymm7	;; R2 - R4 (final I2)			; 13-15
+
+	vmovapd	ymm6, [srcreg+d2]	;; R3
+	vmovapd	ymm7, [srcreg+d2+32]	;; R7
+	ystore	[srcreg+32], ymm2	;; Save I1				;  15
+	vaddpd	ymm2, ymm6, ymm7	;; new R3 = R3 + R7			; 7-9
+	vsubpd	ymm6, ymm6, ymm7	;; new R7 = R3 - R7			; 8-10
+
+	vbroadcastsd ymm7, Q [screg1+16];; normalization for R3/I3
+	vmulpd	ymm2, ymm2, ymm7	;; R3 * normalization			;  12-16
+	vmulpd	ymm6, ymm6, ymm7	;; I3 * normalization			;  13-17
+
+	L1prefetchw srcreg+L1pd, L1pt
+
+	vsubpd	ymm7, ymm1, ymm3	;; R6 = R6 - R8 (Real part)		; 16-18
+	vaddpd	ymm1, ymm1, ymm3	;; R8 = R6 + R8 (Imaginary part)	; 17-19
+
+	vsubpd	ymm3, ymm4, ymm2	;; R1 - R3 (final R2)			; 18-20
+	vaddpd	ymm4, ymm4, ymm2	;; R1 + R3 (final R1)			; 19-21
+
+	L1prefetchw srcreg+d1+L1pd, L1pt
+
+	vsubpd	ymm2, ymm0, ymm7	;; R5 - R6 (final R4)			; 20-22
+	vaddpd	ymm0, ymm0, ymm7	;; R5 + R6 (final R3)			; 21-23
+
+	ystore	[srcreg], ymm4		;; Save R1				; 22
+	vsubpd	ymm7, ymm6, ymm1	;; R7 - R8 (final I4)			; 22-24
+	vaddpd	ymm6, ymm6, ymm1	;; R7 + R8 (final I3)			; 23-25
+
+	vmovapd	ymm4, [screg2+0+32]	;; cosine/sine for w^2n
+	vmulpd	ymm1, ymm5, ymm4	;; B2 = I2 * cosine/sine for w^2n	;  16-20
+	vaddpd	ymm1, ymm1, ymm3	;; B2 = B2 + R2				; 24-26
+	vmulpd	ymm3, ymm3, ymm4	;; A2 = R2 * cosine/sine for w^2n	;  21-25
+	vsubpd	ymm3, ymm3, ymm5	;; A2 = A2 - I2				; 25-27
+
+	L1prefetchw srcreg+d2+L1pd, L1pt
+
+	vmovapd	ymm4, [screg2+192+32]	;; cosine/sine for w^5n
+	vmulpd	ymm5, ymm2, ymm4	;; A4 = R4 * cosine/sine for w^5n	;  23-27
+	vsubpd	ymm5, ymm5, ymm7	;; A4 = A4 - I4				; 28-30
+	vmulpd	ymm7, ymm7, ymm4	;; B4 = I4 * cosine/sine for w^5n	;  25-29
+	vaddpd	ymm7, ymm7, ymm2	;; B4 = B4 + R4				; 30-32
+
+	vmovapd	ymm4, [screg2+128+32]	;; cosine/sine for w^n
+	vmulpd	ymm2, ymm0, ymm4	;; A3 = R3 * cosine/sine for w^n	;  24-28
+	vsubpd	ymm2, ymm2, ymm6	;; A3 = A3 - I3				; 29-31
+	vmulpd	ymm6, ymm6, ymm4	;; B3 = I3 * cosine/sine for w^n	;  26-30
+	vaddpd	ymm6, ymm6, ymm0	;; B3 = B3 + R3				; 31-33
+
+	L1prefetchw srcreg+d2+d1+L1pd, L1pt
+
+	vmovapd	ymm0, [screg2+0+0]	;; sine for w^2n
+	vmulpd	ymm1, ymm1, ymm0	;; B2 = B2 * sine (final I2)		;  27-31
+	vmulpd	ymm3, ymm3, ymm0	;; A2 = A2 * sine (final R2)		;  28-32
+	vmovapd	ymm0, [screg2+192+0]	;; sine for w^5n
+	vmulpd	ymm5, ymm5, ymm0	;; A4 = A4 * sine (final R4)		;  31-35
+	vmulpd	ymm7, ymm7, ymm0	;; B4 = B4 * sine (final I4)		;  33-37
+	vmovapd	ymm0, [screg2+128+0]	;; sine for w^n
+	vmulpd	ymm2, ymm2, ymm0	;; A3 = A3 * sine (final R3)		;  32-36
+	vmulpd	ymm6, ymm6, ymm0	;; B3 = B3 * sine (final I3)		;  34-38
+
+	ystore	[srcreg+d1+32], ymm1	;; Save I2
+	ystore	[srcreg+d1], ymm3	;; Save R2
+	ystore	[srcreg+d2+d1], ymm5	;; Save R4
+	ystore	[srcreg+d2+d1+32], ymm7	;; Save I4
+	ystore	[srcreg+d2], ymm2	;; Save R3
+	ystore	[srcreg+d2+32], ymm6	;; Save I3
+	bump	srcreg, srcinc
+	bump	screg1, scinc1
+	bump	screg2, scinc2
+	ENDM
+
+;; 64-bit version
+
+IFDEF X86_64
+
+;; Uses one combined sin/cos data ptr.  The first two sin/cos entries can be used by four complex
+;; macros at the same FFT level.  The third and fourth sin/cos entries are used by this eight reals macro.
+yr4_b4cl_csc_wpn4_eight_reals_fft_preload MACRO
+	vmovapd	ymm15, YMM_SQRTHALF
+	ENDM
+yr4_b4cl_csc_wpn4_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
+	vmovapd	ymm0, [srcreg+d2+d1]	;; R4
+	vmovapd	ymm7, [srcreg+d2+d1+32]	;; R8
+	vsubpd	ymm3, ymm0, ymm7	;; new R8 = R4 - R8			; 1-3
+	vaddpd	ymm7, ymm0, ymm7	;; new R4 = R4 + R8			; 2-4
+
+	vmovapd	ymm4, [srcreg+d1]	;; R2
+	vmovapd	ymm5, [srcreg+d1+32]	;; R6
+	vsubpd	ymm1, ymm4, ymm5	;; new R6 = R2 - R6			; 3-5
+	vaddpd	ymm5, ymm4, ymm5	;; new R2 = R2 + R6			; 4-6
+
+	vbroadcastsd ymm0, Q [screg1+24];; normalization for R4/I4
+	vmulpd	ymm3, ymm3, ymm0	;; I4 * weight4				;  4-8
+	vmulpd	ymm7, ymm7, ymm0	;; R4 * weight4				;  5-9
+
+	vmovapd	ymm2, [srcreg]		;; R1
+	vmovapd	ymm4, [srcreg+32]	;; R5
+	vsubpd	ymm0, ymm2, ymm4	;; new R5 = R1 - R5			; 5-7
+	vaddpd	ymm4, ymm2, ymm4	;; new R1 = R1 + R5			; 6-8
+
+	vbroadcastsd ymm6, Q [screg1+8]	;; normalization for R2/I2
+	vmulpd	ymm1, ymm1, ymm6	;; I2 * weight2				;  6-10
+	vmulpd	ymm5, ymm5, ymm6	;; R2 * weight2				;  7-11
+
+	vmovapd	ymm6, [srcreg+d2]	;; R3
+	vmovapd	ymm9, [srcreg+d2+32]	;; R7
+	vaddpd	ymm2, ymm6, ymm9	;; new R3 = R3 + R7			; 7-9
+	vsubpd	ymm6, ymm6, ymm9	;; new R7 = R3 - R7			; 8-10
+
+	vbroadcastsd ymm10, Q [screg1]	;; normalization for R1/I1
+	vmulpd	ymm0, ymm0, ymm10	;; I1 * weight1				;  8-12
+	vmulpd	ymm4, ymm4, ymm10	;; R1 * weight1				;  9-13
+
+	vbroadcastsd ymm11, Q [screg1+16];; normalization for R3/I3
+	vmulpd	ymm3, ymm3, ymm15	;; R8 = R8 * square root		;  10-14
+	vmulpd	ymm1, ymm1, ymm15	;; R6 = R6 * square root		;  11-15
+
+	vaddpd	ymm12, ymm5, ymm7	;; R2 + R4 (final I1 / 2nd real result)	; 12-14
+	vmulpd	ymm2, ymm2, ymm11	;; R3 * weight3				;  12-16
+	L1prefetchw srcreg+L1pd, L1pt
+
+	vsubpd	ymm5, ymm5, ymm7	;; R2 - R4 (final I2)			; 13-15
+	vmulpd	ymm6, ymm6, ymm11	;; I3 * weight3				;  13-17
+	vmovapd	ymm13, [screg2+0+32]	;; cosine/sine for w^2n
+
+	L1prefetchw srcreg+d1+L1pd, L1pt
+
+	ystore	[srcreg+32], ymm12	;; Save I1				;  15
+
+	vsubpd	ymm7, ymm1, ymm3	;; R6 = R6 - R8 (Real part)		; 16-18
+	vmulpd	ymm14, ymm5, ymm13	;; B2 = I2 * cosine/sine for w^2n	;  16-20
+	vmovapd	ymm9, [screg2+192+32]	;; cosine/sine for w^5n
+
+	vaddpd	ymm1, ymm1, ymm3	;; R8 = R6 + R8 (Imaginary part)	; 17-19
+	L1prefetchw srcreg+d2+L1pd, L1pt
+
+	vsubpd	ymm3, ymm4, ymm2	;; R1 - R3 (final R2)			; 18-20
+	vmovapd	ymm10, [screg2+128+32]	;; cosine/sine for w^n
+
+	vaddpd	ymm4, ymm4, ymm2	;; R1 + R3 (final R1)			; 19-21
+	vmovapd	ymm11, [screg2+0+0]	;; sine for w^2n
+
+	vsubpd	ymm2, ymm0, ymm7	;; R5 - R6 (final R4)			; 20-22
+	L1prefetchw srcreg+d2+d1+L1pd, L1pt
+
+	vaddpd	ymm0, ymm0, ymm7	;; R5 + R6 (final R3)			; 21-23
+	vmulpd	ymm12, ymm3, ymm13	;; A2 = R2 * cosine/sine for w^2n	;  21-25
+	vmovapd	ymm13, [screg2+192+0]	;; sine for w^5n
+
+	ystore	[srcreg], ymm4		;; Save R1				; 22
+	vsubpd	ymm7, ymm6, ymm1	;; R7 - R8 (final I4)			; 22-24
+
+	vaddpd	ymm6, ymm6, ymm1	;; R7 + R8 (final I3)			; 23-25
+	vmulpd	ymm1, ymm2, ymm9	;; A4 = R4 * cosine/sine for w^5n	;  23-27
+
+	vaddpd	ymm14, ymm14, ymm3	;; B2 = B2 + R2				; 24-26
+	vmulpd	ymm3, ymm0, ymm10	;; A3 = R3 * cosine/sine for w^n	;  24-28
+
+	vsubpd	ymm12, ymm12, ymm5	;; A2 = A2 - I2				; 25-27
+	vmulpd	ymm5, ymm7, ymm9	;; B4 = I4 * cosine/sine for w^5n	;  25-29
+	vmovapd	ymm9, [screg2+128+0]	;; sine for w^n
+
+	vmulpd	ymm4, ymm6, ymm10	;; B3 = I3 * cosine/sine for w^n	;  26-30
+
+	vmulpd	ymm14, ymm14, ymm11	;; B2 = B2 * sine (final I2)		;  27-31
+
+	vsubpd	ymm1, ymm1, ymm7	;; A4 = A4 - I4				; 28-30
+	vmulpd	ymm12, ymm12, ymm11	;; A2 = A2 * sine (final R2)		;  28-32
+
+	vsubpd	ymm3, ymm3, ymm6	;; A3 = A3 - I3				; 29-31
+
+	vaddpd	ymm5, ymm5, ymm2	;; B4 = B4 + R4				; 30-32
+
+	vaddpd	ymm4, ymm4, ymm0	;; B3 = B3 + R3				; 31-33
+	vmulpd	ymm1, ymm1, ymm13	;; A4 = A4 * sine (final R4)		;  31-35
+
+	ystore	[srcreg+d1+32], ymm14	;; Save I2				; 32
+	vmulpd	ymm3, ymm3, ymm9	;; A3 = A3 * sine (final R3)		;  32-36
+
+	ystore	[srcreg+d1], ymm12	;; Save R2				; 33
+	vmulpd	ymm5, ymm5, ymm13	;; B4 = B4 * sine (final I4)		;  33-37
+
+	vmulpd	ymm4, ymm4, ymm9	;; B3 = B3 * sine (final I3)		;  34-38
+
+	ystore	[srcreg+d2+d1], ymm1	;; Save R4				; 36
+	ystore	[srcreg+d2], ymm3	;; Save R3				; 37
+	ystore	[srcreg+d2+d1+32], ymm5	;; Save I4				; 38
+	ystore	[srcreg+d2+32], ymm4	;; Save I3				; 39
+	bump	srcreg, srcinc
+	bump	screg1, scinc1
+	bump	screg2, scinc2
+	ENDM
+
+;; Haswell FMA3 version -- could be faster with unrolling
+
+IF (@INSTR(,%yarch,<FMA3>) NE 0)
+
+;; Uses one combined sin/cos data ptr.  The first two sin/cos entries can be used by four complex
+;; macros at the same FFT level.  The third and fourth sin/cos entries are used by this eight reals macro.
+yr4_b4cl_csc_wpn4_eight_reals_fft_preload MACRO
+	vmovapd	ymm14, YMM_ONE
+	vmovapd	ymm15, YMM_SQRTHALF
+	ENDM
+
+;; Timed at ?? clocks
+yr4_b4cl_csc_wpn4_eight_reals_fft MACRO srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
+
+	vbroadcastsd ymm9, Q [screg1+8]		;; normalization for R2/I2
+	vmovapd	ymm5, [srcreg+d1]		;; R2
+	vmulpd	ymm5, ymm5, ymm9		;; R2 * weight2				; 1-5
+
+	vbroadcastsd ymm10, Q [screg1+0]	;; normalization for R1/I1
+	vmovapd	ymm3, [srcreg]			;; R1
+	vmulpd	ymm3, ymm3, ymm10		;; R1 * weight1				; 1-5
+
+	vbroadcastsd ymm11, Q [screg1+16]	;; normalization for R3/I3
+	vmovapd	ymm6, [srcreg+d2]		;; R3
+	vmulpd	ymm6, ymm6, ymm11		;; R3 * weight3				; 2-6
+
+	vmovapd	ymm1, [srcreg+d2+d1]		;; R4
+	vmovapd	ymm2, [srcreg+d2+d1+32]		;; R8
+	yfmsubpd ymm0, ymm1, ymm14, ymm2	;; new R8 = R4 - R8			; 2-6
+	yfmaddpd ymm1, ymm1, ymm14, ymm2	;; new R4 = R4 + R8			; 3-7
+
+	vmovapd	ymm12, [srcreg+d1+32]		;; R6
+	yfnmaddpd ymm4, ymm12, ymm9, ymm5	;; new R6 = R2 - R6 * weight2			; 6-10
+	yfmaddpd ymm5, ymm12, ymm9, ymm5	;; new R2 = R2 + R6 * weight2			; 6-10
+
+	vmovapd	ymm12, [srcreg+32]		;; R5
+	yfmaddpd ymm2, ymm12, ymm10, ymm3	;; new R1 = R1 + R5 * weight1			; 7-11
+	yfnmaddpd ymm3, ymm12, ymm10, ymm3	;; new R5 = R1 - R5 * weight1			; 7-11
+
+	vmovapd	ymm8, [srcreg+d2+32]		;; R7
+	yfmaddpd ymm7, ymm8, ymm11, ymm6	;; new R3 = R3 + R7 * weight3			; 8-12
+	yfnmaddpd ymm6, ymm8, ymm11, ymm6	;; new R7 = R3 - R7 * weight3			; 8-12
+
+	vbroadcastsd ymm10, Q [screg1+24]	;; normalization for R4/I4
+	yfnmaddpd ymm8, ymm0, ymm10, ymm4	;; R6 = R6 - R8 * weight4 (Real part)		; 11-15
+	yfmaddpd ymm4, ymm0, ymm10, ymm4	;; R8 = R6 + R8 * weight4 (Imaginary part)	; 11-15
+	vmovapd	ymm0, [screg2+0+32]		;; cosine/sine for w^2n
+
+	yfmaddpd ymm9, ymm1, ymm10, ymm5	;; R2 + R4 * weight4 (final I1, a.k.a 2nd real result) ; 12-16
+	yfnmaddpd ymm5, ymm1, ymm10, ymm5	;; R2 - R4 * weight4 (final I2)			; 12-16
+	ystore	[srcreg+32], ymm9		;; Save I1				; 17
+	L1prefetchw srcreg+L1pd, L1pt
+
+	yfmaddpd ymm10, ymm2, ymm14, ymm7	;; R1 + R3 (final R1)			; 13-17
+	yfmsubpd ymm2, ymm2, ymm14, ymm7	;; R1 - R3 (final R2)			; 13-17
+	ystore	[srcreg], ymm10			;; Save R1				; 18
+	L1prefetchw srcreg+d2+d1+L1pd, L1pt
+
+	vmovapd	ymm11, [screg2+192+32]		;; cosine/sine for w^5n
+	yfnmaddpd ymm7, ymm8, ymm15, ymm3	;; R5 - R6 * square root (final R4)	; 16-20
+	yfnmaddpd ymm12, ymm4, ymm15, ymm6	;; R7 - R8 * square root (final I4)	; 16-20
+
+	vmovapd	ymm13, [screg2+128+32]		;; cosine/sine for w^n
+	yfmaddpd ymm8, ymm8, ymm15, ymm3	;; R5 + R6 * square root (final R3)	; 17-21
+	yfmaddpd ymm4, ymm4, ymm15, ymm6	;; R7 + R8 * square root (final I3)	; 17-21
+	vmovapd	ymm6, [screg2+0+0]		;; sine for w^2n
+
+	L1prefetchw srcreg+d1+L1pd, L1pt
+
+	yfmsubpd ymm3, ymm2, ymm0, ymm5		;; A2 = R2 * cosine/sine for w^2n - I2	; 18-22
+	yfmaddpd ymm5, ymm5, ymm0, ymm2		;; B2 = I2 * cosine/sine for w^2n + R2	; 18-22
+	vmovapd	ymm0, [screg2+192+0]		;; sine for w^5n
+	vmovapd	ymm2, [screg2+128+0]		;; sine for w^n
+
+	yfmsubpd ymm1, ymm7, ymm11, ymm12	;; A4 = R4 * cosine/sine for w^5n - I4	; 21-25
+	yfmaddpd ymm12, ymm12, ymm11, ymm7	;; B4 = I4 * cosine/sine for w^5n + R4	; 21-25
+
+	yfmsubpd ymm11, ymm8, ymm13, ymm4	;; A3 = R3 * cosine/sine for w^n - I3	; 22-26
+	yfmaddpd ymm4, ymm4, ymm13, ymm8	;; B3 = I3 * cosine/sine for w^n + R3	; 22-26
+
+	L1prefetchw srcreg+d2+L1pd, L1pt
+
+	vmulpd	ymm3, ymm3, ymm6		;; A2 = A2 * sine (final R2)		; 23-27
+	vmulpd	ymm5, ymm5, ymm6		;; B2 = B2 * sine (final I2)		; 23-27
+
+	vmulpd	ymm1, ymm1, ymm0		;; A4 = A4 * sine (final R4)		; 26-30
+	vmulpd	ymm12, ymm12, ymm0		;; B4 = B4 * sine (final I4)		; 26-30
+
+	vmulpd	ymm11, ymm11, ymm2		;; A3 = A3 * sine (final R3)		; 27-31
+	vmulpd	ymm4, ymm4, ymm2		;; B3 = B3 * sine (final I3)		; 27-31
+
+	ystore	[srcreg+d1], ymm3		;; Save R2				; 24
+	ystore	[srcreg+d1+32], ymm5		;; Save I2				; 24+1
+	ystore	[srcreg+d2+d1], ymm1		;; Save R4				; 26
+	ystore	[srcreg+d2+d1+32], ymm12	;; Save I4				; 26+1
+	ystore	[srcreg+d2], ymm11		;; Save R3				; 27+1
+	ystore	[srcreg+d2+32], ymm4		;; Save I3				; 27+2
+
+	bump	srcreg, srcinc
+	bump	screg1, scinc1
+	bump	screg2, scinc2
+	ENDM
+
+ENDIF
+
+ENDIF
+
+
+
+
+;; Uses one combined sin/cos data ptr.  The first two sin/cos entries can be used by four complex
+;; macros at the same FFT level.  The third and fourth sin/cos entries are used by this eight reals macro.
+
+;; screg1 is normalization weights for R1/I1
+;; screg2+0, screg2+0+32 is weighted sin/cos values for R2/I2 (w^2n)
+;; screg2+128+0, screg2+128+32 is weighted sin/cos values for R3/I3 (w^n)
+;; screg2+192+0, screg2+192+32 is weighted sin/cos values for R4/I4 (w^5n)
+
+yr4_b4cl_csc_wpn4_eight_reals_unfft_preload MACRO
+	ENDM
+yr4_b4cl_csc_wpn4_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
+
+	vmovapd	ymm1, [screg2+0+32]	;; cosine/sine for w^2n
+	vmovapd	ymm4, [srcreg+d1]	;; R2
+	vmulpd	ymm2, ymm4, ymm1	;; A2 = R2 * cosine/sine
+	vmovapd	ymm7, [srcreg+d1+32]	;; I2
+	vaddpd	ymm2, ymm2, ymm7	;; A2 = A2 + I2
+	vmulpd	ymm7, ymm7, ymm1	;; B2 = I2 * cosine/sine
+	vsubpd	ymm7, ymm7, ymm4	;; B2 = B2 - R2
+
+	vmovapd	ymm1, [screg2+192+32]	;; cosine/sine for w^5n
+	vmovapd	ymm0, [srcreg+d2+d1]	;; R4
+	vmulpd	ymm4, ymm0, ymm1	;; A4 = R4 * cosine/sine
+	vmovapd	ymm5, [srcreg+d2+d1+32]	;; I4
+	vaddpd	ymm4, ymm4, ymm5	;; A4 = A4 + I4
+	vmulpd	ymm5, ymm5, ymm1	;; B4 = I4 * cosine/sine
+	vsubpd	ymm5, ymm5, ymm0	;; B4 = B4 - R4
+
+	vmovapd	ymm1, [screg2+128+32] 	;; cosine/sine for w^n
+	vmovapd	ymm3, [srcreg+d2]	;; R3
+	vmulpd	ymm0, ymm1, ymm3	;; A3 = R3 * cosine/sine for w^n
+	vmovapd	ymm6, [srcreg+d2+32]	;; I3
+	vaddpd	ymm0, ymm0, ymm6	;; A3 = A3 + I3
+	vmulpd	ymm6, ymm6, ymm1	;; B3 = I3 * cosine/sine for w^n
+	vsubpd	ymm6, ymm6, ymm3	;; B3 = B3 - R3
+
+	L1prefetchw srcreg+L1pd, L1pt
+
+	vmovapd	ymm1, [screg2+0+0]	;; sine for w^2n
+	vmulpd	ymm2, ymm2, ymm1	;; new R3 = A2 * sine
+	vmulpd	ymm7, ymm7, ymm1	;; new R4 = B2 * sine
+	vmovapd	ymm1, [screg2+192+0]	;; sine for w^5n
+	vmulpd	ymm4, ymm4, ymm1	;; new R7 = A4 * sine
+	vmulpd	ymm5, ymm5, ymm1	;; new R8 = B4 * sine
+	vmovapd	ymm1, [screg2+128+0]	;; sine for w^n
+	vmulpd	ymm0, ymm0, ymm1	;; new R5 = A3 * sine
+	vmulpd	ymm6, ymm6, ymm1	;; new R6 = B3 * sine
+
+	L1prefetchw srcreg+d1+L1pd, L1pt
+
+	vsubpd	ymm1, ymm0, ymm4	;; new R6 = R5 - R7
+	vaddpd	ymm0, ymm0, ymm4	;; new R5 = R5 + R7
+
+	vsubpd	ymm4, ymm6, ymm5	;; new R8 = R6 - R8
+	vaddpd	ymm6, ymm6, ymm5	;; new R7 = R6 + R8
+
+	vaddpd	ymm5, ymm1, ymm4	;; R6 = R6 + R8
+	vsubpd	ymm4, ymm4, ymm1	;; R8 = R8 - R6
+
+	L1prefetchw srcreg+d2+L1pd, L1pt
+
+	vmulpd	ymm5, ymm5, YMM_SQRTHALF ;; R6 = R6 * square root of 1/2
+	vmulpd	ymm4, ymm4, YMM_SQRTHALF ;; R8 = R8 * square root of 1/2
+
+	vmovapd	ymm3, [srcreg+32]	;; R2
+
+	vsubpd	ymm1, ymm3, ymm7	;; R2 - R4 (new R4)
+	vaddpd	ymm3, ymm3, ymm7	;; R2 + R4 (new R2)
+
+	L1prefetchw srcreg+d2+d1+L1pd, L1pt
+
+	vbroadcastsd ymm7, Q [screg1+24] ;; normalization_inverse for R4/I4
+	vmulpd	ymm1, ymm1, ymm7	;; R4 * weight4
+	vmulpd	ymm4, ymm4, ymm7	;; I4 * weight4
+
+	vbroadcastsd ymm7, Q [screg1+8]	;; normalization_inverse for R2/I2
+	vmulpd	ymm3, ymm3, ymm7	;; R2 * weight2
+	vmulpd	ymm5, ymm5, ymm7	;; I2 * weight2
+
+	vsubpd	ymm7, ymm1, ymm4	;; R4 - R8 (final R8)
+	vaddpd	ymm1, ymm1, ymm4	;; R4 + R8 (final R4)
+
+	vsubpd	ymm4, ymm3, ymm5	;; R2 - R6 (final R6)
+	vaddpd	ymm3, ymm3, ymm5	;; R2 + R6 (final R2)
+
+	vmovapd	ymm5, [srcreg]		;; R1
+
+	ystore	[srcreg+d2+d1+32], ymm7	;; Save R8
+	ystore	[srcreg+d2+d1], ymm1	;; Save R4
+
+	vsubpd	ymm7, ymm5, ymm2	;; R1 - R3 (new R3)
+	vaddpd	ymm5, ymm5, ymm2	;; R1 + R3 (new R1)
+
+	vbroadcastsd ymm2, Q [screg1+16] ;; normalization_inverse for R3/I3
+	vmulpd	ymm7, ymm7, ymm2	;; R3 * weight3
+	vmulpd	ymm6, ymm6, ymm2	;; I3 * weight3
+
+	vbroadcastsd ymm2, Q [screg1]	;; normalization_inverse for R1/I1
+	vmulpd	ymm5, ymm5, ymm2	;; R1 * weight1
+	vmulpd	ymm0, ymm0, ymm2	;; I1 * weight1
+
+	vsubpd	ymm2, ymm7, ymm6	;; R3 - R7 (final R7)
+	vaddpd	ymm7, ymm7, ymm6	;; R3 + R7 (final R3)
+
+	vsubpd	ymm6, ymm5, ymm0	;; R1 - R5 (final R5)
+	vaddpd	ymm5, ymm5, ymm0	;; R1 + R5 (final R1)
+
+	ystore	[srcreg+d1+32], ymm4	;; Save R6
+	ystore	[srcreg+d1], ymm3	;; Save R2
+
+	ystore	[srcreg+d2+32], ymm2	;; Save R7
+	ystore	[srcreg+d2], ymm7	;; Save R3
+
+	ystore	[srcreg+32], ymm6	;; Save R5
+	ystore	[srcreg], ymm5		;; Save R1
+
+	bump	srcreg, srcinc
+	bump	screg1, scinc1
+	bump	screg2, scinc2
+	ENDM
+
+;; 64-bit version
+
+IFDEF X86_64
+
+;; Uses one combined sin/cos data ptr.  The first two sin/cos entries can be used by four complex
+;; macros at the same FFT level.  The third and fourth sin/cos entries are used by this eight reals macro.
+yr4_b4cl_csc_wpn4_eight_reals_unfft_preload MACRO
+	vmovapd	ymm15, YMM_SQRTHALF
+	ENDM
+yr4_b4cl_csc_wpn4_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
+
+	vmovapd	ymm10, [screg2+128+32] 	;; cosine/sine for w^n
+	vmovapd	ymm1, [srcreg+d2]	;; R3
+	vmulpd	ymm0, ymm1, ymm10	;; A3 = R3 * cosine/sine for w^n	; 1-5
+
+	vmovapd	ymm11, [screg2+192+32]	;; cosine/sine for w^5n
+	vmovapd	ymm3, [srcreg+d2+d1]	;; R4
+	vmulpd	ymm2, ymm3, ymm11	;; A4 = R4 * cosine/sine		; 2-6
+
+	vmovapd	ymm5, [srcreg+d2+32]	;; I3
+	vmulpd	ymm4, ymm5, ymm10	;; B3 = I3 * cosine/sine for w^n	; 3-7
+
+	vmovapd	ymm7, [srcreg+d2+d1+32]	;; I4
+	vmulpd	ymm6, ymm7, ymm11	;; B4 = I4 * cosine/sine		; 4-8
+
+	vmovapd	ymm12, [screg2+0+32]	;; cosine/sine for w^2n
+	vmovapd	ymm9, [srcreg+d1]	;; R2
+	vmulpd	ymm8, ymm9, ymm12	;; A2 = R2 * cosine/sine		; 5-9
+
+	vaddpd	ymm0, ymm0, ymm5	;; A3 = A3 + I3				; 6-8
+	vmovapd	ymm11, [srcreg+d1+32]	;; I2
+	vmulpd	ymm10, ymm11, ymm12	;; B2 = I2 * cosine/sine		; 6-10
+
+	vaddpd	ymm2, ymm2, ymm7	;; A4 = A4 + I4				; 7-9
+
+	vsubpd	ymm4, ymm4, ymm1	;; B3 = B3 - R3				; 8-10
+
+	vsubpd	ymm6, ymm6, ymm3	;; B4 = B4 - R4				; 9-11
+	vmovapd	ymm1, [screg2+128+0]	;; sine for w^n
+	vmulpd	ymm0, ymm0, ymm1	;; new R5 = A3 * sine			; 9-13
+
+	vaddpd	ymm8, ymm8, ymm11	;; A2 = A2 + I2				; 10-12
+	vmovapd	ymm3, [screg2+192+0]	;; sine for w^5n
+	vmulpd	ymm2, ymm2, ymm3	;; new R7 = A4 * sine			; 10-14
+
+	vsubpd	ymm10, ymm10, ymm9	;; B2 = B2 - R2				; 11-13
+	vmulpd	ymm4, ymm4, ymm1	;; new R6 = B3 * sine			; 11-15
+	vmovapd	ymm9, [screg2+0+0]	;; sine for w^2n
+
+	vmulpd	ymm6, ymm6, ymm3	;; new R8 = B4 * sine			; 12-16
+	vmovapd	ymm5, [srcreg]		;; R1
+
+	vmulpd	ymm8, ymm8, ymm9	;; new R3 = A2 * sine			; 13-17
+	L1prefetchw srcreg+L1pd, L1pt
+
+	vmulpd	ymm10, ymm10, ymm9	;; new R4 = B2 * sine			; 14-18
+	vmovapd	ymm7, [srcreg+32]	;; R2
+
+	vsubpd	ymm1, ymm0, ymm2	;; new R6 = R5 - R7			; 15-17
+	vbroadcastsd ymm13, Q [screg1]	;; normalization_inverse for R1/I1
+
+	vaddpd	ymm0, ymm0, ymm2	;; new R5 = R5 + R7			; 16-18
+	vbroadcastsd ymm14, Q [screg1+16] ;; normalization_inverse for R3/I3
+
+	vsubpd	ymm3, ymm4, ymm6	;; new R8 = R6 - R8			; 17-19
+	vbroadcastsd ymm12, Q [screg1+8] ;; normalization_inverse for R2/I2
+
+	vaddpd	ymm4, ymm4, ymm6	;; new R7 = R6 + R8			; 18-20
+	vbroadcastsd ymm11, Q [screg1+24] ;; normalization_inverse for R4/I4
+
+	vaddpd	ymm9, ymm5, ymm8	;; R1 + R3 (new R1)			; 19-21
+	vmulpd	ymm0, ymm0, ymm13	;; I1 * weight1				; 19-23
+	L1prefetchw srcreg+d1+L1pd, L1pt
+
+	vaddpd	ymm2, ymm1, ymm3	;; R6 = R6 + R8				; 20-22
+
+	vsubpd	ymm1, ymm3, ymm1	;; R8 = R8 - R6				; 21-23
+	vmulpd	ymm4, ymm4, ymm14	;; I3 * weight3				; 21-25
+	L1prefetchw srcreg+d2+L1pd, L1pt
+
+	vsubpd	ymm5, ymm5, ymm8	;; R1 - R3 (new R3)			; 22-24
+	vmulpd	ymm9, ymm9, ymm13	;; R1 * weight1				; 22-26
+
+;; IDEA: precompute weight2/4 times sqrthalf to reduce latency in calculating R6/R8
+
+	vaddpd	ymm6, ymm7, ymm10	;; R2 + R4 (new R2)			; 23-25
+	vmulpd	ymm2, ymm2, ymm15	;; R6 = R6 * square root of 1/2		; 23-27
+	L1prefetchw srcreg+d2+d1+L1pd, L1pt
+
+	vsubpd	ymm7, ymm7, ymm10	;; R2 - R4 (new R4)			; 24-26
+	vmulpd	ymm1, ymm1, ymm15	;; R8 = R8 * square root of 1/2		; 24-28
+
+	vmulpd	ymm5, ymm5, ymm14	;; R3 * weight3				; 25-29
+
+	vmulpd	ymm6, ymm6, ymm12	;; R2 * weight2				; 26-30
+
+	vsubpd	ymm3, ymm9, ymm0	;; R1 - R5 (final R5)			; 27-29
+	vmulpd	ymm7, ymm7, ymm11	;; R4 * weight4				; 27-31
+
+	vaddpd	ymm9, ymm9, ymm0	;; R1 + R5 (final R1)			; 28-30
+	vmulpd	ymm2, ymm2, ymm12	;; I2 * weight2				; 28-32
+
+	vmulpd	ymm1, ymm1, ymm11	;; I4 * weight4				; 29-33
+
+	ystore	[srcreg+32], ymm3	;; Save R5				; 30
+	vsubpd	ymm8, ymm5, ymm4	;; R3 - R7 (final R7)			; 30-32
+
+	ystore	[srcreg], ymm9		;; Save R1				; 31
+	vaddpd	ymm5, ymm5, ymm4	;; R3 + R7 (final R3)			; 31-33
+
+	ystore	[srcreg+d2+32], ymm8	;; Save R7				; 33
+	vsubpd	ymm0, ymm6, ymm2	;; R2 - R6 (final R6)			; 33-35
+
+	ystore	[srcreg+d2], ymm5	;; Save R3				; 34
+	vaddpd	ymm6, ymm6, ymm2	;; R2 + R6 (final R2)			; 34-36
+
+	vsubpd	ymm4, ymm7, ymm1	;; R4 - R8 (final R8)			; 35-37
+
+	ystore	[srcreg+d1+32], ymm0	;; Save R6				; 36
+	vaddpd	ymm7, ymm7, ymm1	;; R4 + R8 (final R4)			; 36-38
+
+	ystore	[srcreg+d1], ymm6	;; Save R2				; 37
+	ystore	[srcreg+d2+d1+32], ymm4	;; Save R8				; 38
+	ystore	[srcreg+d2+d1], ymm7	;; Save R4				; 39
+
+	bump	srcreg, srcinc
+	bump	screg1, scinc1
+	bump	screg2, scinc2
+	ENDM
+
+;; Haswell FMA3 version -- could be faster with unrolling
+
+IF (@INSTR(,%yarch,<FMA3>) NE 0)
+
+;; Uses one combined sin/cos data ptr.  The first two sin/cos entries can be used by four complex
+;; macros at the same FFT level.  The third and fourth sin/cos entries are used by this eight reals macro.
+yr4_b4cl_csc_wpn4_eight_reals_unfft_preload MACRO
+	vmovapd	ymm14, YMM_ONE
+	vmovapd	ymm15, YMM_SQRTHALF
+	ENDM
+
+;; Timed at ? clocks
+yr4_b4cl_csc_wpn4_eight_reals_unfft MACRO srcreg,srcinc,d1,d2,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
+	vmovapd	ymm3, [screg2+128+32]		;; cosine/sine for w^n
+	vmovapd	ymm2, [srcreg+d2]		;; R3
+	vmovapd	ymm1, [srcreg+d2+32]		;; I3
+	yfmaddpd ymm0, ymm2, ymm3, ymm1		;; A3 = R3 * cosine/sine for w^n + I3	; 1-5
+	yfmsubpd ymm1, ymm1, ymm3, ymm2		;; B3 = I3 * cosine/sine for w^n - R3	; 1-5
+
+	vmovapd	ymm5, [screg2+0+32]		;; cosine/sine for w^2n
+	vmovapd	ymm4, [srcreg+d1]		;; R2
+	vmovapd	ymm3, [srcreg+d1+32]		;; I2
+	yfmaddpd ymm2, ymm4, ymm5, ymm3		;; A2 = R2 * cosine/sine + I2		; 2-6
+	yfmsubpd ymm3, ymm3, ymm5, ymm4		;; B2 = I2 * cosine/sine - R2		; 2-6
+
+	vmovapd	ymm9, [screg2+192+32]		;; cosine/sine for w^5n
+	vmovapd	ymm8, [srcreg+d2+d1]		;; R4
+	vmovapd	ymm7, [srcreg+d2+d1+32]		;; I4
+	yfmaddpd ymm6, ymm8, ymm9, ymm7		;; A4 = R4 * cosine/sine + I4		; 3-7
+	yfmsubpd ymm7, ymm7, ymm9, ymm8		;; B4 = I4 * cosine/sine - R4		; 3-7
+
+	vmovapd	ymm9, [screg2+128+0]		;; sine for w^n
+	vmulpd	ymm0, ymm0, ymm9		;; new R5 = A3 * sine			; 6-10
+	vmulpd	ymm1, ymm1, ymm9		;; new R6 = B3 * sine			; 6-10
+
+	vmovapd	ymm4, [srcreg]			;; R1
+	vmovapd	ymm9, [screg2+0+0]		;; sine for w^2n
+	yfmaddpd ymm10, ymm2, ymm9, ymm4	;; R1 + (R3 = A2 * sine) (new R1)	; 7-11
+	yfnmaddpd ymm2, ymm2, ymm9, ymm4	;; R1 - (R3 = A2 * sine) (new R3)	; 7-11
+
+	vmovapd	ymm5, [srcreg+32]		;; R2
+	yfmaddpd ymm4, ymm3, ymm9, ymm5		;; R2 + (R4 = B2 * sine) (new R2)	; 8-12
+	yfnmaddpd ymm3, ymm3, ymm9, ymm5	;; R2 - (R4 = B2 * sine) (new R4)	; 8-12
+
+	vmovapd	ymm9, [screg2+192+0]		;; sine for w^5n
+	yfnmaddpd ymm5, ymm6, ymm9, ymm0	;; new R6 = R5 - (R7 = A4 * sine)	; 11-15
+	yfnmaddpd ymm11, ymm7, ymm9, ymm1	;; new R8 = R6 - (R8 = B4 * sine)	; 11-15
+	L1prefetchw srcreg+L1pd, L1pt
+
+	yfmaddpd ymm6, ymm6, ymm9, ymm0		;; new R5 = R5 + (R7 = A4 * sine)	; 12-16
+	yfmaddpd ymm7, ymm7, ymm9, ymm1		;; new R7 = R6 + (R8 = B4 * sine)	; 12-16
+	L1prefetchw srcreg+d1+L1pd, L1pt
+
+	yfmaddpd ymm0, ymm5, ymm14, ymm11	;; R6 = R6 + R8				; 16-20
+	yfmsubpd ymm11, ymm11, ymm14, ymm5	;; R8 = R8 - R6				; 16-20
+	L1prefetchw srcreg+d2+L1pd, L1pt
+
+	vbroadcastsd ymm5, Q [screg1+0]		;; normalization_inverse for R1/I1
+	vmulpd	ymm10, ymm10, ymm5		;; R1 * weight1				; 13-17
+	yfnmaddpd ymm9, ymm6, ymm5, ymm10	;; R1 - R5 * weight1 (final R5)		; 18-22
+	yfmaddpd ymm10, ymm6, ymm5, ymm10	;; R1 + R5 * weight1 (final R1)		; 18-22
+
+	vbroadcastsd ymm5, Q [screg1+16]	;; normalization_inverse for R3/I3
+	vmulpd	ymm2, ymm2, ymm5		;; R3 * weight3				; 13-17
+	yfnmaddpd ymm1, ymm7, ymm5, ymm2	;; R3 - R7 * weight3 (final R7)		; 19-23
+	yfmaddpd ymm2, ymm7, ymm5, ymm2		;; R3 + R7 * weight3 (final R3)		; 19-23
+	L1prefetchw srcreg+d2+d1+L1pd, L1pt
+
+	yfnmaddpd ymm6, ymm0, ymm15, ymm4	;; R2 - R6 * square root of 1/2 (final R6) ; 21-25
+	yfmaddpd ymm0, ymm0, ymm15, ymm4	;; R2 + R6 * square root of 1/2 (final R2) ; 21-25
+
+	yfnmaddpd ymm7, ymm11, ymm15, ymm3	;; R4 - R8 * square root of 1/2 (final R8) ; 22-26
+	yfmaddpd ymm3, ymm11, ymm15, ymm3	;; R4 + R8 * square root of 1/2 (final R4) ; 22-26
+
+	vbroadcastsd ymm5, Q [screg1+8]		;; normalization_inverse for R2/I2
+	vmulpd	ymm0, ymm0, ymm5		;; R2 * weight2				; 26-30
+	vmulpd	ymm6, ymm6, ymm5		;; R6 * weight2				; 26-30
+	vbroadcastsd ymm5, Q [screg1+24]	;; normalization_inverse for R4/I4
+	vmulpd	ymm3, ymm3, ymm5		;; R4 * weight4				; 27-31
+	vmulpd	ymm7, ymm7, ymm5		;; R8 * weight4				; 27-31
+
+	ystore	[srcreg+32], ymm9	;; Save R5				; 23
+	ystore	[srcreg], ymm10		;; Save R1				; 23+1
+	ystore	[srcreg+d2+32], ymm1	;; Save R7				; 24+1
+	ystore	[srcreg+d2], ymm2	;; Save R3				; 24+2
+	ystore	[srcreg+d1], ymm0	;; Save R2				; 31
+	ystore	[srcreg+d1+32], ymm6	;; Save R6				; 31+1
+	ystore	[srcreg+d2+d1], ymm3	;; Save R4				; 32+1
+	ystore	[srcreg+d2+d1+32], ymm7	;; Save R8				; 32+2
+
+	bump	srcreg, srcinc
+	bump	screg1, scinc1
+	bump	screg2, scinc2
+	ENDM
+
+ENDIF
+
+ENDIF

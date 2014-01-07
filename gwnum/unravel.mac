@@ -1,4 +1,4 @@
-; Copyright 1995-2013 - Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2014 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -1565,6 +1565,11 @@ x64 MACRO stmt:vararg
 	&stmt
 	ENDIF
 	ENDM
+
+; Macros that control whether the AVX FFTs use the wpn1 macros or newer (slower but less memory) wpn4 macros.
+
+;YIMPL_WPN1_FFTS = 1
+YIMPL_WPN4_FFTS = 1
 
 ; Macros to implement all possible implementations of an FFT.  We do this
 ; to find the fastest implementation to include in the final release.

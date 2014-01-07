@@ -4,7 +4,7 @@
 | This file contains the C routines to build sin/cos and weights tables
 | that the FFT assembly code needs.
 | 
-|  Copyright 2002-2013 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2014 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -15,6 +15,8 @@
 #include "gwnum.h"
 #include "gwtables.h"
 #include "gwdbldbl.h"
+
+#define USE_WPN4
 
 /* Find the power of two greater than or equal to N. */
 
@@ -412,6 +414,7 @@ double *yr4dwpn_build_pass1_table (
 	unsigned long pass1_size, pass1_increment, delay_count;
 	unsigned long group, i, j, k, N, temp, upper_avx_word;
 	int	pow2_count;
+	int	wpn4 = FALSE;		/* Flag indicating we are using wpn4 in pass 1 */
 
 /* Initialize some needed constants */
 
@@ -454,12 +457,18 @@ double *yr4dwpn_build_pass1_table (
 		 gwdata->FFTLEN / gwdata->PASS2_SIZE == 1792 ||
 		 gwdata->FFTLEN / gwdata->PASS2_SIZE == 2048) gwdata->wpn_count = 16;
 	else gwdata->wpn_count = 4;
+#ifdef USE_WPN4
+	{
+		gwdata->wpn_count *= 4;
+		wpn4 = TRUE;
+	}
+#endif
 
 /* Set counters for inorm, zpnorm and ygw_carries to use.  Remember that ygw_carries */
 /* always works on data after it has been copied to the scratch area. */
 
 	asm_data->count2 = gwdata->wpn_count / 4;
-	asm_data->count3 = asm_data->addcount1 / gwdata->wpn_count * 4;
+	asm_data->count3 = asm_data->addcount1 / asm_data->count2;
 	if (asm_data->count2 == 1) {
 		asm_data->count4 = 1;
 		asm_data->count5 = asm_data->count3 / 2;
@@ -688,9 +697,41 @@ double *yr4dwpn_build_pass1_table (
 
 			N = N * 4;
 
-/* For the non-wpn levels, output the sin/cos values. */
+/* For the wpn4 building block level, output a separate table of column normalization values before the sin/cos data. */
 
-			if (N != gwdata->PASS2_SIZE * gwdata->wpn_count * 4) {
+			if (wpn4 && N == gwdata->PASS2_SIZE * gwdata->wpn_count) {
+				double *weights, *inv_weights;
+
+/* The weights are output in separate tables before the sin/cos values.  This requires two registers */
+/* to access the tables, but gains in that we can group data in cache lines better. */
+
+				weights = table;
+				table += N / pass1_increment * gwdata->PASS1_CACHE_LINES;
+				inv_weights = table;
+				table += N / pass1_increment * gwdata->PASS1_CACHE_LINES;
+
+/* Output the weights after the sin/cos data, used by the yr4_4cl4_wpn_four_complex_djbfft macro. */
+/* We apply the two-to-phi weight for the upper AVX words in the group multipliers.  There is a */
+/* reason for doing it there rather than here (it reduces the number of valid fudge factor combinations */
+/* for each AVX word from 16 to 5). */
+
+				for (j = 0; j < N / 4; j += pass1_increment) {
+				    for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
+					double	not_used;
+					temp = (group + j + i);
+					gwfft_weights3 (gwdata->dd_data, temp, weights, &not_used, inv_weights);
+					gwfft_weights3 (gwdata->dd_data, temp + N/4, weights+1, &not_used, inv_weights+1);
+					gwfft_weights3 (gwdata->dd_data, temp + 2*N/4, weights+2, &not_used, inv_weights+2);
+					gwfft_weights3 (gwdata->dd_data, temp + 3*N/4, weights+3, &not_used, inv_weights+3);
+					weights += 4;
+					inv_weights += 4;
+				    }
+				}
+			}
+
+/* For the non-wpn and wpn4 levels, output the sin/cos values. */
+
+			if (wpn4 || N != gwdata->PASS2_SIZE * gwdata->wpn_count * 4) {
 
 /* Output the sin/cos value for the complex sections, used by the yr4_4cl_four_complex_djbfft macro */
 
@@ -721,7 +762,7 @@ double *yr4dwpn_build_pass1_table (
 
 /* For the wpn building block level, output the sin/cos and column normalization values. */
 
-			else {
+			if (!wpn4 && N == gwdata->PASS2_SIZE * gwdata->wpn_count * 4) {
 				double *weights, *inv_weights;
 
 /* The weights are output in separate tables before the sin/cos values.  This requires two registers */
