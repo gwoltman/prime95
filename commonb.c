@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2013 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2014 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
@@ -7804,9 +7804,11 @@ int primeBench (
 
 /* Compute the number of iterations to time.  This is based on the fact that it doesn't */
 /* take too long for my 1400 MHz P4 to run 10 iterations of a 1792K FFT. */
+/* Updated: minimum number of set to 25 for AVX machines */
 
 		iterations = (unsigned long) (10 * 1792 * CPU_SPEED / 1400 / (fftlen / 1024));
 		if (iterations < 10) iterations = 10;
+		if (iterations < 25 && (CPU_FLAGS & CPU_AVX)) iterations = 25;
 		if (iterations > 100) iterations = 100;
 
 /* Output start message for this FFT length */
