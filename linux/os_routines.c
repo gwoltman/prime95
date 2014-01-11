@@ -2,7 +2,7 @@
 /* so that they can be included in both the command-line mprime version as */
 /* well as the Mac OS X GUI version. */
 
-/* Copyright 1995-2013 Mersenne Research, Inc. */
+/* Copyright 1995-2014 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -322,7 +322,7 @@ void setThreadPriorityAndAffinity (
 /* This wouldn't be a problem except that the scheduler feels free to invoke SpeedStep */
 /* when background processes are using 100% of the CPU time.  Thus, we now change the */
 /* task policy to "trick" the scheduler into thinking we are a foreground process. */
-/* Alas, this trick doesn't seem to work. */
+/* Alas, this trick doesn't seem to work.  Code left here in case it might be useful one day. */
 
 #if defined (__APPLE__)
 #include <mach/mach_init.h>
@@ -334,7 +334,7 @@ void setThreadPriorityAndAffinity (
                                     task_policy_t		policy_info,
                                     mach_msg_type_number_t	count);
  
-	if (IniGetInt (INI_FILE, "SetForegroundPolicy", 1)) {
+	if (IniGetInt (INI_FILE, "SetForegroundPolicy", 0)) {
 		struct task_category_policy tcatpolicy;
  
 		tcatpolicy.role = TASK_FOREGROUND_APPLICATION;
