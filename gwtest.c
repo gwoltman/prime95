@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2013 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2014 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines to QA the gwnum FFT routines.
 | QA can be activated by using Advanced/Time menu choice on exponent 9900.
@@ -822,7 +822,7 @@ again:		gwinit (&gwdata);
 
 		// Try to QA a rational FFT
 		if ((rand () & 7) == 1 && !SPECIFIC_N && !gwdata.RATIONAL_FFT) {
-			n = (unsigned int) floor (n / gwdata.FFTLEN) * gwdata.FFTLEN;
+			n = n / gwdata.FFTLEN * gwdata.FFTLEN;		// Make n a multiple of the FFT length
 			gwdone (&gwdata);
 			goto again;
 		}
