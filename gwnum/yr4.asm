@@ -1,4 +1,4 @@
-; Copyright 2011-2013 Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2014 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -79,11 +79,11 @@ buildfor CORE + FMA3_64,	yonepass 2560, 1
 buildfor CORE + FMA3_64,	yonepass 3K, 1
 buildfor CORE + FMA3_64,	yonepass 4K, 1
 buildfor CORE + FMA3_64,	yonepass 5K, 1
-buildfor CORE + FMA3_64,	yonepass 6K, 1
-buildfor CORE + FMA3_64,	yonepass 8K, 1
-buildfor CORE + FMA3_64,	yonepass 10K, 1
-buildfor CORE + FMA3_64,	yonepass 12K, 1
-buildfor CORE + FMA3_64,	yonepass 16K, 1
+buildfor CORE_32 + FMA3_64,	yonepass 6K, 1
+buildfor CORE_32 + FMA3_64,	yonepass 8K, 1
+buildfor CORE_32 + FMA3_64,	yonepass 10K, 1
+buildfor CORE_32 + FMA3_64,	yonepass 12K, 1
+buildfor CORE_32 + FMA3_64,	yonepass 16K, 1
 buildfor               ,	yonepass 20K, 1
 buildfor               ,	yonepass 18K, 1
 buildfor               ,	yonepass 24K, 1
