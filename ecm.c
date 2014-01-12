@@ -3416,7 +3416,7 @@ bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n",
 /* Output the validated factor */
 
 	sprintf (msg, "%s has a factor: %s (ECM curve %d, B1=%.0f, B2=%.0f)\n",
-		 gwmodulo_as_string (&ecmdata.gwdata), str, curve, (double) B, (double) C);
+		 gwmodulo_as_string (&ecmdata.gwdata), str, (int) curve, (double) B, (double) C);
 	OutputStr (thread_num, msg);
 	formatMsgForResultsFile (msg, w);
 	writeResults (msg);
@@ -5722,7 +5722,7 @@ bingo:	if (stage == 1)
 			 gwmodulo_as_string (&pm1data.gwdata), str, (double) B, (double) C);
 	else
 		sprintf (msg, "%s has a factor: %s (P-1 B1=%.0f, B2=%.0f, E=%d)\n",
-			 gwmodulo_as_string (&pm1data.gwdata), str, (double) B, (double) C, pm1data.E);
+			 gwmodulo_as_string (&pm1data.gwdata), str, (double) B, (double) C, (int) pm1data.E);
 	OutputStr (thread_num, msg);
 	formatMsgForResultsFile (msg, w);
 	writeResults (msg);
