@@ -1,12 +1,14 @@
-New features in Version 28.1 of prime95.exe
+New features in Version 28.3 of prime95.exe
 -------------------------------------------
 
-1)  Support Intel's new for fused multiply add instruction introduced with the Haswell CPU.
+1)  Supports Intel's new for fused multiply add instruction introduced with the Haswell CPU.
     This results in faster FFTs.  Note that performance on many Haswell systems is memory-bandwidth
-    limited.  This means that when running 4 workers, the performance gains from using the new FMA
-    instruction is minimal.
-2)  All new test torture test data for AVX CPUs.  The new data runs more interations, thus more time
+    limited.  This means that when running workers on all cores performance gains will be small.
+2)  Some minor optimizations may give a very small performance boost for AVX CPUs.
+3)  All new test torture test data for AVX CPUs.  The new data runs more interations, thus more time
     is spent torturing the CPU rather than initializing the FFT routines.
+4)  Information added to result lines containing "has a factor".  This information may be used
+    by the server's manual web page to give proper TF / P-1 / ECM cpu credit at a future date.
 
 New features in Version 27.9 of prime95.exe
 -------------------------------------------

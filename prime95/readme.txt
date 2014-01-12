@@ -17,7 +17,7 @@ prime95.exe	The program to factor and run Lucas-Lehmer tests on
 		Mersenne numbers.
 whatsnew.txt	A list of new features in prime95.exe.
 stress.txt	A discussion of issues relating to stress testing a computer.
-undoc.txt	A list of formerly undocumented and unsupported features.
+undoc.txt	A list of undocumented and unsupported features.
 prime.txt	A file containing your preferences.  The menu choices
 		and dialog boxes are used to change your preferences.
 local.txt	Like prime.txt, this file contains more preferences.
@@ -29,11 +29,11 @@ prime.log	A text file listing all messages that have been sent
 		to the PrimeNet server.
 prime.spl	A binary file of messages that have not yet been sent to
 		the PrimeNet server.
-pNNNNNNN &	Intermediate files produced by prime95.exe to resume
-		computation where it left off.
-eNNNNNNN	Intermediate files produced during ECM factoring.
-fNNNNNNN	Intermediate files produced during trial factoring.
-mNNNNNNN	Intermediate files produced during P-1 factoring.
+pNNNNNNN,pNNNNNNN.buN	Intermediate files produced by prime95.exe to resume
+			computation where it left off.
+eNNNNNNN,eNNNNNNN.buN	Intermediate files produced during ECM factoring.
+fNNNNNNN,fNNNNNNN.buN	Intermediate files produced during trial factoring.
+mNNNNNNN,mNNNNNNN.buN	Intermediate files produced during P-1 factoring.
 
 
 WHAT IS THIS PROGRAM?
@@ -134,18 +134,17 @@ to disk.  This program also saves intermediate results to disk every 30 minutes
 in case there is a power failure.
 
 You can compare your computer's speed with other users by checking the
-web page http://mersenne.org/report_benchmarks/.  If you are much slower than
-comparable machines, there are several utilities available (such as
-TaskInfo2002, http://www.iarsn.com/) that can find programs that are
-stealing prime95's CPU cycles.
+web page http://mersenne.org/report_benchmarks/.  If you are much slower
+than comparable machines, utilities such as Task Manager are available
+that can find programs that are using CPU cycles.
 
 You can get several reports of your PrimeNet activity at any time
 by logging in at http://mersenne.org/.
 
 If you have overclocked your machine, I recommend running the torture
-test for a couple of days.  The longer you run the torture test
-the greater the chance that you will uncover an error caused by
-overheating or overstressed memory.
+test for a day.  The longer you run the torture test the greater the
+chance that you will uncover possible problems caused by overheating
+or overstressed memory.
 
 Depending on the exponent being tested, the program may decide that it
 would be wise to invest some time checking for small factors before
@@ -194,17 +193,17 @@ stage 2 of P-1 factoring.
 
 	Exponent	Minimum		Reasonable	Desirable
 	--------	-------		----------	---------
-	20000000	 40MB		   80MB		 120MB
-	33000000	 65MB		  125MB		 185MB
-	50000000	 85MB		  170MB		 250MB
+	70000000	 140MB		  440MB		 740MB
+	333000000	 620MB		  2060MB	 3500MB
 
-For example, my machine is a dual-processor with 512MB of memory.
-I guess Windows XP can survive on 100MB of memory.  Thus, I set
-memory to (512 - 100) or ~400MB.  This is my nighttime setting.
-During the day, I set memory to 80MB.  I can always stop
-prime95 if it is doing P-1 factoring and I detect memory thrashing.  More
-casual users will probably want to set the daytime memory to 8MB so they
-don't have to worry about prime95 impacting system performance.
+For example, my machine is a dual-processor with 4GB of memory.
+I guess Windows and the programs I normally use can survive on 512MB of
+memory.  Thus, I set memory to (4096 - 512) or 3500MB.  This is my
+nighttime setting.  During the day, I run more programs, so I set memory
+to 1000MB.  I can always stop prime95 if it is doing stage 2 P-1 factoring
+and I suspect memory is thrashing.  More casual users will probably want
+to set the daytime memory to 8MB so they don't have to worry about prime95
+impacting system performance.
 
 If at all in doubt, leave the settings at 8MB.  The worst that will
 happen is you end up running a Lucas-Lehmer primality test when stage 2
@@ -410,14 +409,14 @@ then reboot.
 Checking the "Start at Bootup" menu choice will run prime95 as a service
 that starts when your computer boots up.  Windows NT/2000/XP users need
 administrator privileges to use this feature.  Vista has eliminated support
-for running prime95 as a service.  Running prime95 is better than creating
-a shortcut to prime95 in the startup folder because services run even when
-no one is logged on.  These are the details you should be aware of:
+for running prime95 as a service.  Running prime95 as a service is better than
+creating a shortcut to prime95 in the startup folder because services run even
+when no one is logged on.  These are the details you should be aware of:
 	In Windows 95/98/Me:
 The HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunServices
 registry entry is created.  You will not be able to tell any difference between
 prime95 running as a service and prime95 running as an ordinary process.
-	Windows Vista and Windows NT/2000/XP without admin privileges:
+	Windows Vista/7/8 and Windows NT/2000/XP without admin privileges:
 In this case the menu text is changed to "Start at Logon".  The
 HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run registry entry
 is created.  Prime95 will run only when you are logged in.
