@@ -4373,7 +4373,7 @@ int primeFactor (
 		makestr (facdata.asm_data->FACHSW,
 			 facdata.asm_data->FACMSW,
 			 facdata.asm_data->FACLSW, str);
-		sprintf (buf, "M%ld has a factor: %s\n", p, str);
+		sprintf (buf, "M%ld has a factor: %s (TF)\n", p, str);
 		OutputStr (thread_num, buf);
 		formatMsgForResultsFile (buf, w);
 		writeResults (buf);
