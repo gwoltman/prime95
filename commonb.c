@@ -598,7 +598,7 @@ no_auto_detect:
 /* All our internal code uses this scheme: if there are N cpus with hyperthreading, */
 /* then physical cpu 0 is logical cpu 0 and 1, physical cpu 1 is logical cpu 2 and 3, etc. */
 /* When launching threads, we apply the dynamically generated affinity scramble computed */
-/*  here to map our internal scheme to the numbering scheme that the OS is using. */
+/* here to map our internal scheme to the numbering scheme that the OS is using. */
 
 void generate_affinity_scramble (void)
 {
@@ -608,6 +608,12 @@ void generate_affinity_scramble (void)
 /* If there is only one physical CPU, then affinity scrambling isn't needed */
 
 	if (CPU_HYPERTHREADS == 1 || NUM_CPUS == 1) return;
+
+/* There is no need to scare Apple users with error-like messages since we can't set affinity on Apple products */
+
+#ifdef __APPLE__
+	return;
+#endif
 
 /* Do the scramble computations in a separate thread to avoid changing the main thread's priority */
 
