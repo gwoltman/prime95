@@ -15,7 +15,7 @@
 char ERRMSG0[] = "Iteration: %ld/%ld, %s";
 char ERRMSG1A[] = "ERROR: ILLEGAL SUMOUT\n";
 char ERRMSG1B[] = "ERROR: SUM(INPUTS) != SUM(OUTPUTS), %.16g != %.16g\n";
-char ERRMSG1C[] = "ERROR: ROUND OFF (%.10g) > 0.40\n";
+char ERRMSG1C[] = "POSSIBLE ERROR: ROUND OFF (%.10g) > 0.40\n";
 char ERRMSG1D[] = "ERROR: Shift counter corrupt.\n";
 char ERRMSG1E[] = "ERROR: Illegal double encountered.\n";
 char ERRMSG1F[] = "ERROR: FFT data has been zeroed!\n";
