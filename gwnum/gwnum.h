@@ -78,6 +78,7 @@ typedef double *gwnum;
 					/* gwinit call doesn't match size */
 					/* when gwnum.c was compiled.  Check */
 					/* compiler alignment switches. */
+#define GWERROR_TOO_SMALL	1008	/* Gwsetup called on a number <= 1 */
 #define GWERROR_INTERNAL	2000	/* 2000 and up are "impossible" internal errors. */
 
 /* Error codes returned by gwtobinary, gwtogiant, gwiszero, gwequal, and get_fft_value */

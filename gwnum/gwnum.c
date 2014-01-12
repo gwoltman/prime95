@@ -1611,7 +1611,7 @@ int gwsetup (
 
 	if (gwdata->GWERROR) return (gwdata->GWERROR);
 
-/* Sanity check the k,b,n values */
+/* Sanity check the k,b,n,c values */
 
 	if (k < 1.0) return (GWERROR_K_TOO_SMALL);
 	if (k > 9007199254740991.0) return (GWERROR_K_TOO_LARGE);
@@ -1624,6 +1624,9 @@ int gwsetup (
 			if (log2(b) * (double) n > MAX_PRIME) return (GWERROR_TOO_LARGE);
 		}
 	}
+	if ((k == 1.0 && n == 0 && c == 0) ||
+	    (c < 0 && n * log ((double) b) + log (k) <= log ((double) 1-c)))
+		return (GWERROR_TOO_SMALL);
 
 /* Init */
 
@@ -5995,6 +5998,9 @@ void gwerror_text (
 	case GWERROR_VERSION:
 		strcpy (localbuf, "Improperly compiled and linked.  Gwnum.h and FFT assembly code version numbers do not match.");
 		break;
+	case GWERROR_TOO_SMALL:
+		strcpy (localbuf, "Number sent to gwsetup is less than or equal to one.");
+		break;
 	case GWERROR_TOO_LARGE:
 		strcpy (localbuf, "Number sent to gwsetup is too large for the FFTs to handle.");
 		break;
@@ -6101,7 +6107,9 @@ void gw_as_string (
 	unsigned long n,	/* N in K*B^N+C */
 	signed long c)		/* C in K*B^N+C */
 {
-	if (k != 1.0)
+	if (n == 0)
+		sprintf (buf, "%.0f", k + c);
+	else if (k != 1.0)
 		sprintf (buf, "%.0f*%lu^%lu%c%lu", k, b, n,
 			 c < 0 ? '-' : '+', (unsigned long) abs (c));
 	else if (b == 2 && c == -1)

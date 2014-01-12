@@ -8108,11 +8108,14 @@ begin:	gwinit (&gwdata);
 /* and return an error code. */
 
 	if (res) {
-		sprintf (buf, "PRP cannot initialize FFT code, errcode=%d\n", res);
+		char	string_rep[80];
+		gw_as_string (string_rep, w->k, w->b, w->n, w->c);
+		sprintf (buf, "PRP cannot initialize FFT code for %s, errcode=%d\n", string_rep, res);
 		OutputBoth (thread_num, buf);
 		gwerror_text (&gwdata, res, buf, sizeof (buf) - 1);
 		strcat (buf, "\n");
 		OutputBoth (thread_num, buf);
+		if (res == GWERROR_TOO_SMALL) return (STOP_WORK_UNIT_COMPLETE);
 		return (STOP_FATAL_ERROR);
 	}
 
@@ -8202,6 +8205,15 @@ begin:	gwinit (&gwdata);
 
 	stop_reason = setN (&gwdata, thread_num, w, &N);
 	if (stop_reason) goto exit;
+
+/* If N is one, the number is already fully factored.  Print an error message. */
+
+	if (isone (N)) {
+		sprintf (buf, "PRP test of one is not allowed.  Input string was: %s\n", string_rep);
+		OutputBoth (thread_num, buf);
+		stop_reason = STOP_WORK_UNIT_COMPLETE;
+		goto exit;
+	}
 
 /* Subtract 1 from N to compute a^(N-1) mod N.  Get the exact bit length */
 /* of the number.  We will perform bitlen(N)-1 squarings for the PRP test. */
