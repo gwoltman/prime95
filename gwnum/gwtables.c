@@ -430,6 +430,7 @@ double *yr4dwpn_build_pass1_table (
 	if (pass1_size % 7 == 0)
 		delay_count = 14;
 	else if ((pass1_size == 384 && !gwdata->ALL_COMPLEX_FFT) ||
+		 (pass1_size == 768 && !gwdata->ALL_COMPLEX_FFT) ||
 		 (pass1_size == 1536 && !gwdata->ALL_COMPLEX_FFT))
 		delay_count = 12;
 	else if (pass1_size % 5 == 0 && !gwdata->ALL_COMPLEX_FFT)
@@ -919,7 +920,7 @@ double *yr4dwpn_build_fixed_pass1_table (
 			}
 			N = N / 20;
 		}
-		else if (pass1_size == 384 || pass1_size == 1536) {
+		else if (pass1_size == 384 || pass1_size == 768 || pass1_size == 1536) {
 			for (j = 0; j < N / 24; j += pass1_increment) {
 				for (i = 1; i <= 11; i++) {	/* Create 11 twiddle factors */
 					gwsincos1by4 (i * j, N, table);
