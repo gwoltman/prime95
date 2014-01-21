@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2013 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2014 Mersenne Research, Inc.  All rights reserved
 | Author:  George Woltman
 | Email: woltman@alum.mit.edu
 |
@@ -520,7 +520,8 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			 (family == 6 && model == 42) ||		// Core i7 (based on Sandy Bridge technology)
 			 (family == 6 && model == 45) ||		// Core i7 (based on Sandy Bridge-E technology)
 			 (family == 6 && model == 58) ||		// Core i7 (based on Ivy Bridge technology)
-			 (family == 6 && model == 60))			// Core i7 (based on Haswell technology)
+			 (family == 6 && model == 60) ||		// Core i7 (based on Haswell technology)
+			 (family == 6 && model == 70))			// Core i7 (based on Haswell technology)
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_CORE_I7;
 		else if (family == 6 && model == 28)
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_ATOM;
