@@ -1765,8 +1765,8 @@ loops_set_prefetch MACRO pfamt, pffreq, pfreg
 
 loops_set_alternate_prefetch_increment MACRO cache_lines_to_prefetch, number_of_loops
 	;; Set increment so that we prefetch at least the requested number of cache lines
-	;; The formula is ceil ((cache_lines_to_prefetch * 64 - 63) / number_of_loops)
-	loops_pfincr = ((cache_lines_to_prefetch) * PREFETCHING - (PREFETCHING - 1) + ((number_of_loops) - 1)) / (number_of_loops)
+	;; The formula is (cache_lines_to_prefetch * 64 - 1) / number_of_loops
+	loops_pfincr = ((cache_lines_to_prefetch) * PREFETCHING - 1) / (number_of_loops)
 	ENDM
 
 ;; Main looping macro.  Normally third argument is blank meaning increment loop counter by 1.
