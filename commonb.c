@@ -15,7 +15,7 @@
 char ERRMSG0[] = "Iteration: %ld/%ld, %s";
 char ERRMSG1A[] = "ERROR: ILLEGAL SUMOUT\n";
 char ERRMSG1B[] = "ERROR: SUM(INPUTS) != SUM(OUTPUTS), %.16g != %.16g\n";
-char ERRMSG1C[] = "POSSIBLE ERROR: ROUND OFF (%.10g) > 0.40\n";
+char ERRMSG1C[] = "possible error: round off (%.10g) > 0.40\n";
 char ERRMSG1D[] = "ERROR: Shift counter corrupt.\n";
 char ERRMSG1E[] = "ERROR: Illegal double encountered.\n";
 char ERRMSG1F[] = "ERROR: FFT data has been zeroed!\n";
@@ -5480,7 +5480,7 @@ begin:	gwinit (&lldata.gwdata);
 /* then repeat the iteration using a safer, slower method.  This can */
 /* happen when operating near the limit of an FFT. */
 
-		if (echk && gw_get_maxerr (&lldata.gwdata) >= 0.40625) {
+		if (echk && gw_get_maxerr (&lldata.gwdata) > 0.40625) {
 			if (counter == last_counter &&
 			    gw_get_maxerr (&lldata.gwdata) == last_maxerr) {
 				OutputBoth (thread_num, ERROK);
@@ -8382,7 +8382,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* then repeat the iteration using a safer, slower method.  This can */
 /* happen when operating near the limit of an FFT. */
 
-		if (echk && gw_get_maxerr (&gwdata) >= 0.40625) {
+		if (echk && gw_get_maxerr (&gwdata) > 0.40625) {
 			if (counter == last_counter &&
 			    gw_get_maxerr (&gwdata) == last_maxerr) {
 				OutputBoth (thread_num, ERROK);
