@@ -5715,13 +5715,13 @@ bingo:	if (stage == 1)
 /* Output the validated factor */
 
 	if (stage == 1)
-		sprintf (msg, "%s has a factor: %s (P-1 B1=%.0f)\n",
+		sprintf (msg, "%s has a factor: %s (P-1, B1=%.0f)\n",
 			 gwmodulo_as_string (&pm1data.gwdata), str, (double) B);
 	else if (pm1data.E <= 2)
-		sprintf (msg, "%s has a factor: %s (P-1 B1=%.0f, B2=%.0f)\n",
+		sprintf (msg, "%s has a factor: %s (P-1, B1=%.0f, B2=%.0f)\n",
 			 gwmodulo_as_string (&pm1data.gwdata), str, (double) B, (double) C);
 	else
-		sprintf (msg, "%s has a factor: %s (P-1 B1=%.0f, B2=%.0f, E=%d)\n",
+		sprintf (msg, "%s has a factor: %s (P-1, B1=%.0f, B2=%.0f, E=%d)\n",
 			 gwmodulo_as_string (&pm1data.gwdata), str, (double) B, (double) C, (int) pm1data.E);
 	OutputStr (thread_num, msg);
 	formatMsgForResultsFile (msg, w);
