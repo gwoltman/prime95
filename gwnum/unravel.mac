@@ -1567,9 +1567,11 @@ x64 MACRO stmt:vararg
 	ENDM
 
 ; Macros that control whether the AVX FFTs use the wpn1 macros or newer (slower but less memory) wpn4 macros.
+; Also controls whether we use even newer (slower but less memory) reduced sin/cos macros.
 
 ;YIMPL_WPN1_FFTS = 1
 YIMPL_WPN4_FFTS = 1
+YIMPL_REDUCED_SINCOS_FFTS = 1
 
 ; Macros to implement all possible implementations of an FFT.  We do this
 ; to find the fastest implementation to include in the final release.

@@ -30,7 +30,7 @@ ELSE
 X87_CASES	EQU	13
 ENDIF
 SSE2_CASES	EQU	216
-AVX_CASES	EQU	284
+AVX_CASES	EQU	300
 
 loopent	MACRO	y,z		; Create a entry in the loop entry table
 	DP	&y&z
@@ -1434,6 +1434,26 @@ avcase11:	readwrite4 32768*1024, 2 ; Read/write 32MB
 	avxmac 256*2, 8192, 0, yr4_b4cl_wpn4_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, YMM_SCND2, 2
 	avxmac 256*1, 100000, 0, yr4_b4cl_wpn4_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, YMM_SCND2, 1
 	avxmac 256*2, 100000, 0, yr4_b4cl_wpn4_four_complex_djbunfft rsi, 4*64, 64, 2*64, rdi, 0, rdi, YMM_SCND2, 2
+
+;;284
+	avxmac 256*1, 8192, 0, yr4_rsc_sg4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, YMM_SCD4, 1
+	avxmac 256*1, 100000, 0, yr4_rsc_sg4cl_four_complex_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, YMM_SCD4, 1
+	avxmac 256*1, 8192, 0, yr4_rsc_sg4cl_four_complex_unfft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, YMM_SCD4, 1
+	avxmac 256*1, 100000, 0, yr4_rsc_sg4cl_four_complex_unfft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, YMM_SCD4, 1
+	avxmac 256*1, 8192, 0, yr4_rsc_sg4cl_2sc_eight_reals_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, YMM_SCD4, rdi, YMM_SCD2, 1
+	avxmac 256*1, 100000, 0, yr4_rsc_sg4cl_2sc_eight_reals_fft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, YMM_SCD4, rdi, YMM_SCD2, 1
+	avxmac 256*1, 8192, 0, yr4_rsc_sg4cl_2sc_eight_reals_unfft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, YMM_SCD4, rdi, YMM_SCD2, 1
+	avxmac 256*1, 100000, 0, yr4_rsc_sg4cl_2sc_eight_reals_unfft4 rsi, 4*64, 64, 2*64, rdx, 4*64, 64, 2*64, rdi, YMM_SCD4, rdi, YMM_SCD2, 1
+
+;;292
+	avxmac 512*1, 8192, 0, yr8_rsc_sg8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, YMM_SCD8, 1
+	avxmac 512*1, 100000, 0, yr8_rsc_sg8cl_eight_complex_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, YMM_SCD8, 1
+	avxmac 512*1, 8192, 0, yr8_rsc_sg8cl_eight_complex_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, YMM_SCD8, 1
+	avxmac 512*1, 100000, 0, yr8_rsc_sg8cl_eight_complex_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, YMM_SCD8, 1
+	avxmac 512*1, 8192, 0, yr8_rsc_sg8cl_2sc_sixteen_reals_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, 0, rdi, YMM_SCD8, 1
+	avxmac 512*1, 100000, 0, yr8_rsc_sg8cl_2sc_sixteen_reals_fft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, 0, rdi, YMM_SCD8, 1
+	avxmac 512*1, 8192, 0, yr8_rsc_sg8cl_2sc_sixteen_reals_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, 0, rdi, YMM_SCD8, 1
+	avxmac 512*1, 100000, 0, yr8_rsc_sg8cl_2sc_sixteen_reals_unfft8 rsi, 8*64, 64, 2*64, 4*64, rdx, 8*64, 64, 2*64, 4*64, rdi, 0, rdi, YMM_SCD8, 1
 
 ; Exit the timing code
 
