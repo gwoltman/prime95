@@ -1,3 +1,10 @@
+New features in Version 28.4 of mprime
+--------------------------------------
+
+1)  Reduced memory usage.  This may make some single-thread benchmarks slower, but when
+    running several workers on machines where memory is a bottleneck there should be a
+    small performance increase.
+
 New features in Version 28.3 of mprime
 --------------------------------------
 
