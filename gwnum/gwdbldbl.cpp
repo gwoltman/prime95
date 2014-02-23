@@ -9,7 +9,7 @@
  *  This is the only C++ routine in the gwnum library.  Since gwnum is
  *  a C based library, we declare all routines here as extern "C".
  *
- *  Copyright 2005-2013 Mersenne Research, Inc.  All rights reserved.
+ *  Copyright 2005-2014 Mersenne Research, Inc.  All rights reserved.
  *
  **************************************************************/
 
@@ -297,6 +297,24 @@ void gwsincos5 (
 }
 
 extern "C"
+void gwsincos1by_raw (
+	unsigned long x,
+	unsigned long N,
+	double	*results,
+	int	incr)
+{
+	dd_real twopi_over_N, sine, cosine;
+
+	x86_FIX
+	twopi_over_N = dd_real::_2pi / (double) N;
+	sincos (twopi_over_N * (double) x, sine, cosine);
+
+	results[0] = sine;
+	results[incr] = cosine;
+	END_x86_FIX
+}
+
+extern "C"
 void gwsincos1by (
 	unsigned long x,
 	unsigned long N,
@@ -310,6 +328,29 @@ void gwsincos1by (
 	results[0] = sine;
 	results[0] += epsilon;		/* Protect against divide by zero */
 	results[incr] = cosine / results[0];
+	END_x86_FIX
+}
+
+extern "C"
+void gwsincos12by_raw (
+	unsigned long x,
+	unsigned long N,
+	double	*results,
+	int	incr)
+{
+	dd_real arg1, sine, cosine, sine2, cosine2;
+
+	x86_FIX
+	arg1 = dd_real::_2pi * (double) x / (double) N;
+	sincos (arg1, sine, cosine);
+	results[0] = sine;
+	results[incr] = cosine;
+	results += incr + incr;
+
+	sine2 = sine * cosine * 2.0;
+	cosine2 = sqr (cosine) - sqr (sine);
+	results[0] = sine2;
+	results[incr] = cosine2;
 	END_x86_FIX
 }
 
@@ -482,6 +523,42 @@ void gwsincos125by (
 	results[incr] = cosine5 / results[0];
 	END_x86_FIX
 }
+
+extern "C"
+void gwsincos1234by_raw (
+	unsigned long x,
+	unsigned long N,
+	double	*results,
+	int	incr)
+{
+	dd_real arg1, sine, cosine, sine2, cosine2, sine3, cosine3, sine4, cosine4;
+
+	x86_FIX
+	arg1 = dd_real::_2pi * (double) x / (double) N;
+	sincos (arg1, sine, cosine);
+	results[0] = sine;
+	results[incr] = cosine;
+	results += incr + incr;
+
+	sine2 = sine * cosine * 2.0;
+	cosine2 = sqr (cosine) - sqr (sine);
+	results[0] = sine2;
+	results[incr] = cosine2;
+	results += incr + incr;
+
+	sine3 = sine * cosine2 + sine2 * cosine;
+	cosine3 = cosine * cosine2 - sine * sine2;
+	results[0] = sine3;
+	results[incr] = cosine3;
+	results += incr + incr;
+
+	sine4 = sine2 * cosine2 * 2.0;
+	cosine4 = sqr (cosine2) - sqr (sine2);
+	results[0] = sine4;
+	results[incr] = cosine4;
+	END_x86_FIX
+}
+
 
 extern "C"
 void gwsincos1234by (
