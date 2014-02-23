@@ -2,7 +2,7 @@
 | This file contains various utility routines that may be used by gwnum
 | setup.
 |
-|  Copyright 2011-2013 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2011-2014 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 #ifndef _GWTABLES_H
@@ -259,9 +259,9 @@ struct gwasm_data {
 		double	YMM_P259_P707[4];	/* Used in FMA versions of radix-24 macros */
 		double	YMM_P966_P707[4];
 
-		double	YMM_TMPS[26*4];		/* 26 YMM temporaries */
 		double	YMM_LIMIT_BIGMAX[192];	/* Normalization constants */
 		double	YMM_LIMIT_INVERSE[192];
+		double	YMM_TMPS[256];		/* 26 YMM temporaries or space for clm*YMM_SCD8 using sg8cl */
 	    } ymm;
 
 	    struct xmm_data {
