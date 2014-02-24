@@ -465,6 +465,14 @@ never be swapped out.  Thus, using this option could negatively impact
 the performance of other applications.  Also, you'll need to have
 the "Lock Pages in Memory" privilege to use this option.
 
+When looking for probable primes, the following 3 options are available in prime.txt:
+	SilentVictoryPRP=0 or 1		(default is 1)
+	OutputPrimes=0 or 1		(default is 1)
+	OutputComposites=0 or 1		(default is 1)
+Setting SilentVictory=0 will cause prime95 to make a continuous noise if a PRP is found.
+Setting	OutputPrimes=0 will cause prime95 to NOT output probable primes to results.txt.
+Setting	OutputComposites=0 will cause prime95 to NOT output composite PRP tests to results.txt.
+
 WINDOWS ONLY:  You can have prime95 pause when the battery level gets low.
 This will allow you to charge the battery faster.  Add the line
 	BatteryPercent=n

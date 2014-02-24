@@ -49,6 +49,7 @@ unsigned int NETWORK_RETRY_TIME = 70;
 double	DAYS_BETWEEN_CHECKINS = 1.0;
 int	NUM_BACKUP_FILES = 3;
 int	SILENT_VICTORY = 0;
+int	SILENT_VICTORY_PRP = 1;
 int	RUN_ON_BATTERY = 1;
 int	BATTERY_PERCENT = 0;
 int	TRAY_ICON = TRUE;
@@ -898,6 +899,7 @@ int readIniFiles (void)
 	if (DAYS_BETWEEN_CHECKINS > 7.0) DAYS_BETWEEN_CHECKINS = 7.0;
 	if (DAYS_BETWEEN_CHECKINS < 0.04) DAYS_BETWEEN_CHECKINS = 0.04;
 	SILENT_VICTORY = (int) IniGetInt (INI_FILE, "SilentVictory", 0);
+	SILENT_VICTORY_PRP = (int) IniGetInt (INI_FILE, "SilentVictoryPRP", 1);
 	RUN_ON_BATTERY = (int) IniGetInt (LOCALINI_FILE, "RunOnBattery", 1);
 	BATTERY_PERCENT = (int) IniGetInt (INI_FILE, "BatteryPercent", 0);
 

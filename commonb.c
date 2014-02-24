@@ -8023,6 +8023,23 @@ err:	_close (fd);
 	return (FALSE);
 }
 
+/* Output the good news of a new probable prime to the screen in an infinite loop */
+
+void good_news_prp (void *arg)
+{
+	char	buf[800];
+	int	i = 0;
+
+	title (MAIN_THREAD_NUM, "New Probable Prime!!!");
+	sprintf (buf, "New Probable Prime!!!!  %s is a probable prime!\n", (char *) arg);
+	while (WORKER_THREADS_ACTIVE && ! WORKER_THREADS_STOPPING) {
+		if ((i++ & 127) == 0) OutputStr (MAIN_THREAD_NUM, buf);
+		flashWindowAndBeep ();
+		Sleep (50);
+	}
+	free (arg);
+}
+
 /* Do a PRP test */
 
 int prp (
@@ -8618,6 +8635,16 @@ pushg(&gwdata.gdata, 2);}
 /* Delete the continuation files. */
 
 	unlinkSaveFiles (filename);
+
+/* Output good news to the screen in an infinite loop */
+
+	if (isProbablePrime && !SILENT_VICTORY_PRP) {
+		gwthread thread_handle;
+		char	*arg;
+		arg = (char *) malloc (strlen (string_rep) + 1);
+		strcpy (arg, string_rep);
+		gwthread_create (&thread_handle, &good_news_prp, (void *) arg);
+	}
 
 /* Return work unit completed stop reason */
 
