@@ -86,6 +86,25 @@ You can have the timings that are output to the screen be cumulative
 after each screen output.  Add this line to prime.txt:
 	CumulativeTiming=1
 
+You can update the title more frequently than the lines are output to the
+worker window.  This feature, only useful in Windows, allows you to keep
+track of progress in the tray icon or window title without "cluttering up"
+the worker window.  In prime.txt:
+	TitleOutputFrequency=n		(default value is 1)
+The title will update n times more frequently than the worker window.
+
+When workers are testing wildly different numbers, such as ECM on a small
+Mersenne number in one window and an LL test on a 100 million digit number
+in another window, then the "iterations between screen outputs" setting will
+cause the windows to output at wildly different rates.  You can workaround
+this in prime.txt:
+	ScaleOutputFrequency=0 or 1	(default value is 0)
+If you set this to 1, then "iterations between screen outputs" will be
+automatically scaled so that windows produce output at roughly the same rate.
+An LL test on M50,000,000 will not scale at all, ECM on a small number will
+scale to a much larger value and an LL test on a 100 million digit number
+will scale to a much smaller value.
+
 The program normally will not start any calculation until 90 seconds after
 a reboot.  This is done so that your normal boot up procedure can be as
 fast as possible.  You can control how long this delay is by adding this

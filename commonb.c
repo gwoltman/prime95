@@ -2686,6 +2686,47 @@ int SleepFive (
 	return (0);
 }
 
+/* Generate the scaling factors for ITER_OUTPUT in the rare cases where the user */
+/* has used some undoc.txt settings to change how often the title is output or to */
+/* make the frequency roughly the same in all windows even if using different FFT sizes. */
+
+void calc_output_frequencies (
+	gwhandle *gwdata,		/* Handle to the gwnum code */
+	double	*output_frequency,	/* Calculated adjustment to ITER_OUTPUT */
+	double	*output_title_frequency)/* Calculated adjustment to ITER_OUTPUT for title */
+{
+	int	scaled_freq, title_freq;
+	double	exp, temp;
+
+	/* Check the flag that says scale ITER_OUTPUT so that messages */
+	/* appear at roughly same rate for all FFT sizes (scale factor */
+	/* should be 1.0 if testing M50000000). */
+	scaled_freq = (int) IniGetInt (INI_FILE, "ScaleOutputFrequency", 0);
+	if (!scaled_freq) {
+		*output_frequency = 1.0;
+	} else {
+		*output_frequency = gwmap_to_timing (1.0, 2, 50000000, -1) /
+				    gwmap_to_timing (gwdata->k, gwdata->b, gwdata->n, gwdata->c);
+		if (gwget_num_threads (gwdata) > 1 && NUM_CPUS / CPU_HYPERTHREADS > NUM_WORKER_THREADS)
+			*output_frequency /= 1.8 * gwget_num_threads (gwdata);
+		/* For prettier output (outputs likely to be a multiple of a power of 10), round the */
+		/* output frequency to the nearest (10,15,20,25,30,40,...90) times a power of ten */
+		exp = floor (log (*output_frequency) / log (10.0));
+		temp = *output_frequency * pow (10.0, -exp);
+		if (temp < 1.25) temp = 1.0;
+		else if (temp <1.75) temp = 1.5;
+		else if (temp < 2.25) temp = 2.0;
+		else if (temp < 2.75) temp = 2.5;
+		else temp = floor (temp + 0.5);
+		*output_frequency = temp * pow (10.0, exp);
+	}
+
+	/* Calculate the title frequency as a multiple of the output frequency */
+	title_freq = (int) IniGetInt (INI_FILE, "TitleOutputFrequency", 1);
+	if (title_freq < 1) title_freq = 1;
+	*output_title_frequency = *output_frequency / (double) title_freq;
+}
+
 /* Truncate a percentage to the requested number of digits. */
 /* Truncating prevents 99.5% from showing up as 100% complete. */
 
@@ -4291,9 +4332,7 @@ int primeFactor (
 				if (first_iter_msg == 2) {
 					sprintf (buf, "M%ld to 2^%d", p, end_bits);
 				} else {
-					sprintf (fmt_mask,
-						 "%%.%df%%%% of M%%ld to 2^%%d",
-						 PRECISION);
+					sprintf (fmt_mask, "%%.%df%%%% of M%%ld to 2^%%d", PRECISION);
 					sprintf (buf, fmt_mask, pct, p, end_bits);
 				}
 				title (thread_num, buf);
@@ -4308,8 +4347,7 @@ int primeFactor (
 					clear_timer (timers, 0);
 				} else {
 					strcat (buf, "  Time: ");
-					print_timer (timers, 0, buf,
-						     TIMER_NL | TIMER_OPT_CLR);
+					print_timer (timers, 0, buf, TIMER_NL | TIMER_OPT_CLR);
 				}
 				OutputStr (thread_num, buf);
 				iters = 0;
@@ -5185,6 +5223,7 @@ int prime (
 	double	last_suminp = 0.0;
 	double	last_sumout = 0.0;
 	double	last_maxerr = 0.0;
+	double	output_frequency, output_title_frequency;
 	int	error_count_messages;
 
 /* Initialize */
@@ -5328,6 +5367,7 @@ begin:	gwinit (&lldata.gwdata);
 	strcpy (w->stage, "LL");
 	inverse_p = 1.0 / (double) p;
 	w->pct_complete = (double) counter * inverse_p;
+	calc_output_frequencies (&lldata.gwdata, &output_frequency, &output_title_frequency);
 
 /* Start off with the 1st Lucas number - four (ATH requested making the starting value overriddable). */
 /* Note we do something a little strange here.  We actually set the first number to 4 but shifted by */
@@ -5548,19 +5588,21 @@ begin:	gwinit (&lldata.gwdata);
 				reallymaxerr = gw_get_maxerr (&lldata.gwdata);
 		}
 
+/* Output the title every so often */
+
+		if (counter % (int) (ITER_OUTPUT * output_title_frequency) == 0 || first_iter_msg) {
+			char	fmt_mask[80];
+			sprintf (fmt_mask, "%%.%df%%%% of M%%ld", PRECISION);
+			sprintf (buf, fmt_mask, trunc_percent (w->pct_complete), p);
+			title (thread_num, buf);
+		}
+
 /* Print a message every so often */
 
-		if (counter % ITER_OUTPUT == 0 || first_iter_msg) {
+		if (counter % (int) (ITER_OUTPUT * output_frequency) == 0 || first_iter_msg) {
 			char	fmt_mask[80];
-			double	pct;
-			pct = trunc_percent (w->pct_complete);
-			sprintf (fmt_mask, "%%.%df%%%% of M%%ld", PRECISION);
-			sprintf (buf, fmt_mask, pct, p);
-			title (thread_num, buf);
-			sprintf (fmt_mask,
-				 "Iteration: %%ld / %%ld [%%.%df%%%%]",
-				 PRECISION);
-			sprintf (buf, fmt_mask, counter, p, pct);
+			sprintf (fmt_mask, "Iteration: %%ld / %%ld [%%.%df%%%%]", PRECISION);
+			sprintf (buf, fmt_mask, counter, p, trunc_percent (w->pct_complete));
 			/* Append a short form total errors message */
 			if (error_count_messages == 1)
 				make_error_count_message (error_count, error_count_messages,
@@ -5568,9 +5610,7 @@ begin:	gwinit (&lldata.gwdata);
 							  (int) (sizeof (buf) - strlen (buf)));
 			/* Append optional roundoff message */
 			if (ERRCHK && counter > 30) {
-				sprintf (buf+strlen(buf),
-					 ".  Round off: %10.10f to %10.10f",
-					 reallyminerr, reallymaxerr);
+				sprintf (buf+strlen(buf), ".  Round off: %10.10f to %10.10f", reallyminerr, reallymaxerr);
 			}
 			if (first_iter_msg) {
 				strcat (buf, ".\n");
@@ -5621,8 +5661,7 @@ begin:	gwinit (&lldata.gwdata);
 			sprintf (fmt_mask,
 				 "Stopping primality test of M%%ld at iteration %%ld [%%.%df%%%%]\n",
 				 PRECISION);
-			sprintf (buf, fmt_mask, p, counter,
-				 trunc_percent (w->pct_complete));
+			sprintf (buf, fmt_mask, p, counter, trunc_percent (w->pct_complete));
 			OutputStr (thread_num, buf);
 			lucasDone (&lldata);
 			return (stop_reason);
@@ -8068,6 +8107,7 @@ int prp (
 	double	last_suminp = 0.0;
 	double	last_sumout = 0.0;
 	double	last_maxerr = 0.0;
+	double	output_frequency, output_title_frequency;
 	char	string_rep[80];
 	int	string_rep_truncated;
 	int	error_count_messages;
@@ -8261,6 +8301,7 @@ begin:	gwinit (&gwdata);
 	strcpy (w->stage, "PRP");
 	inverse_Nlen = 1.0 / (double) (Nlen - 1);
 	w->pct_complete = (double) counter * inverse_Nlen;
+	calc_output_frequencies (&gwdata, &output_frequency, &output_title_frequency);
 
 /* If we are near the maximum exponent this fft length can test, then we */
 /* will error check all iterations */
@@ -8434,19 +8475,21 @@ OutputStr (thread_num, "Iteration failed.\n");
 				reallymaxerr = gw_get_maxerr (&gwdata);
 		}
 
+/* Output the title every so often */
+
+		if (counter % (int) (ITER_OUTPUT * output_title_frequency) == 0 || first_iter_msg) {
+			char	fmt_mask[80];
+			sprintf (fmt_mask, "%%.%df%%%% of %%s", PRECISION);
+			sprintf (buf, fmt_mask, trunc_percent (w->pct_complete), string_rep);
+			title (thread_num, buf);
+		}
+
 /* Print a message every so often */
 
-		if (counter % ITER_OUTPUT == 0 || first_iter_msg) {
+		if (counter % (int) (ITER_OUTPUT * output_frequency) == 0 || first_iter_msg) {
 			char	fmt_mask[80];
-			double	pct;
-			pct = trunc_percent (w->pct_complete);
-			sprintf (fmt_mask, "%%.%df%%%% of %%s", PRECISION);
-			sprintf (buf, fmt_mask, pct, string_rep);
-			title (thread_num, buf);
-			sprintf (fmt_mask,
-				 "Iteration: %%ld / %%ld [%%.%df%%%%]",
-				 PRECISION);
-			sprintf (buf, fmt_mask, counter, Nlen-1, pct);
+			sprintf (fmt_mask, "Iteration: %%ld / %%ld [%%.%df%%%%]", PRECISION);
+			sprintf (buf, fmt_mask, counter, Nlen-1, trunc_percent (w->pct_complete));
 			/* Append a short form total errors message */
 			if (error_count_messages == 1)
 				make_error_count_message (error_count, error_count_messages,
@@ -8454,9 +8497,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 							  (int) (sizeof (buf) - strlen (buf)));
 			/* Append optional roundoff message */
 			if (ERRCHK && counter > 30) {
-				sprintf (buf+strlen(buf),
-					 ".  Round off: %10.10f to %10.10f",
-					 reallyminerr, reallymaxerr);
+				sprintf (buf+strlen(buf), ".  Round off: %10.10f to %10.10f", reallyminerr, reallymaxerr);
 			}
 			if (first_iter_msg) {
 				strcat (buf, ".\n");
