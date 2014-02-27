@@ -41,6 +41,8 @@ unsigned int THREADS_PER_TEST[MAX_NUM_WORKER_THREADS] = {1};
 				/* computations. */
 int	MANUAL_COMM = 0;
 unsigned int volatile CPU_HOURS = 0;
+int	CLASSIC_OUTPUT = 0;
+int	OUTPUT_ROUNDOFF = 0;
 unsigned long volatile ITER_OUTPUT = 0;
 unsigned long volatile ITER_OUTPUT_RES = 999999999;
 unsigned long volatile DISK_WRITE_TIME = 30;
@@ -878,6 +880,8 @@ int readIniFiles (void)
 	PRECISION = (unsigned int) IniGetInt (INI_FILE, "PercentPrecision", 2);
 	if (PRECISION > 6) PRECISION = 6;
 
+	CLASSIC_OUTPUT = IniGetInt (INI_FILE, "ClassicOutput", 0);
+	OUTPUT_ROUNDOFF = IniGetInt (INI_FILE, "OutputRoundoff", 0);
 	ITER_OUTPUT = IniGetInt (INI_FILE, "OutputIterations", 10000);
 	if (ITER_OUTPUT > 999999999) ITER_OUTPUT = 999999999;
 	if (ITER_OUTPUT <= 0) ITER_OUTPUT = 1;

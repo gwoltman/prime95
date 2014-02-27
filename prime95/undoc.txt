@@ -86,6 +86,15 @@ You can have the timings that are output to the screen be cumulative
 after each screen output.  Add this line to prime.txt:
 	CumulativeTiming=1
 
+You can revert to the "classic" style output for worker windows doing
+Lucas-Lehmer and PRP tests.  This classic style does not display the
+ETA.  This style was in use prior to version 28.5.  In prime.txt:
+	ClassicOutput=0 or 1		(default value is 0)
+
+You can also output the maximum round off error seen thusfar in the
+worker windows when doing LL or PRP tests.
+	OutputRoundoff=0 or 1		(default value is 0)
+
 You can update the title more frequently than the lines are output to the
 worker window.  This feature, only useful in Windows, allows you to keep
 track of progress in the tray icon or window title without "cluttering up"

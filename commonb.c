@@ -9,13 +9,20 @@
 | Commonb contains information used only during execution
 | Commonc contains information used during setup and execution
 +---------------------------------------------------------------------*/
- 
+
+/* Set a #define for OSes where we cannot set affinities.  This will */
+/* force us into a different code path in a few places. */
+
+#ifdef __APPLE__
+#define OS_CANNOT_SET_AFFINITY
+#endif
+
 /* Globals for error messages */
 
 char ERRMSG0[] = "Iteration: %ld/%ld, %s";
 char ERRMSG1A[] = "ERROR: ILLEGAL SUMOUT\n";
 char ERRMSG1B[] = "ERROR: SUM(INPUTS) != SUM(OUTPUTS), %.16g != %.16g\n";
-char ERRMSG1C[] = "possible error: round off (%.10g) > 0.40\n";
+char ERRMSG1C[] = "Possible error: round off (%.10g) > 0.40\n";
 char ERRMSG1D[] = "ERROR: Shift counter corrupt.\n";
 char ERRMSG1E[] = "ERROR: Illegal double encountered.\n";
 char ERRMSG1F[] = "ERROR: FFT data has been zeroed!\n";
@@ -609,9 +616,9 @@ void generate_affinity_scramble (void)
 
 	if (CPU_HYPERTHREADS == 1 || NUM_CPUS == 1) return;
 
-/* There is no need to scare Apple users with error-like messages since we can't set affinity on Apple products */
+/* There is no need to scare users with error-like messages when we can't set affinity */
 
-#ifdef __APPLE__
+#ifdef OS_CANNOT_SET_AFFINITY
 	return;
 #endif
 
@@ -737,10 +744,10 @@ void SetPriority (
 		}
 	}
 
-/* Apple does not support setting affinities.  Set the mask */
+/* When the OS does not support setting affinities, set the mask */
 /* so that we print out the proper informative message. */
 
-#ifdef __APPLE__
+#ifdef OS_CANNOT_SET_AFFINITY
 	memset (mask, 0xFF, sizeof (mask));
 #endif
 
@@ -2738,6 +2745,23 @@ double trunc_percent (
 	percent -= 0.5 * pow (10.0, - (double) PRECISION);
 	if (percent < 0.0) return (0.0);
 	return (percent);
+}
+
+/* Format the ETA for output to the worker window */
+
+void formatETA (
+	double	howlong,		/* how long to complete (in seconds) */
+	char	*buf)
+{
+	double days, hours, minutes, seconds;
+	days = floor (howlong / 86400.0);  howlong -= days * 86400.0;
+	hours = floor (howlong / 3600.0);  howlong -= hours * 3600.0;
+	minutes = floor (howlong / 60.0);  howlong -= minutes * 60.0;
+	seconds = floor (howlong);
+	if (days >= 3.0)
+		sprintf (buf, ", ETA: %dd %02d:%02d", (int) days, (int) hours, (int) minutes);
+	else
+		sprintf (buf, ", ETA: %02d:%02d:%02d", (int) (days * 24.0 + hours), (int) minutes, (int) seconds);
 }
 
 /****************************************************************************/
@@ -4901,7 +4925,7 @@ int make_error_count_message (
 	counts_buf[0] = 0;
 
 	if (message_type == 1) {
-		sprintf (counts_buf, "errors: %d", count_total);
+		sprintf (counts_buf, ", errors: %d", count_total);
 	}
 
 	if (message_type == 2) {
@@ -5477,6 +5501,15 @@ begin:	gwinit (&lldata.gwdata);
 		timers[0] += timers[1];
 		iters++;
 
+/* Update min/max round-off error */
+
+		if (echk) {
+			if (gw_get_maxerr (&lldata.gwdata) < reallyminerr && counter > 30)
+				reallyminerr = gw_get_maxerr (&lldata.gwdata);
+			if (gw_get_maxerr (&lldata.gwdata) > reallymaxerr)
+				reallymaxerr = gw_get_maxerr (&lldata.gwdata);
+		}
+
 /* If the sum of the output values is an error (such as infinity) */
 /* then raise an error. */
 
@@ -5577,16 +5610,10 @@ begin:	gwinit (&lldata.gwdata);
 		}
 #endif
 
-/* Update counter, percentage complete, and maximum round-off error */
+/* Update counter, percentage complete */
 
 		counter++;
 		w->pct_complete = (double) counter * inverse_p;
-		if (ERRCHK) {
-			if (gw_get_maxerr (&lldata.gwdata) < reallyminerr && counter > 30)
-				reallyminerr = gw_get_maxerr (&lldata.gwdata);
-			if (gw_get_maxerr (&lldata.gwdata) > reallymaxerr)
-				reallymaxerr = gw_get_maxerr (&lldata.gwdata);
-		}
 
 /* Output the title every so often */
 
@@ -5607,25 +5634,45 @@ begin:	gwinit (&lldata.gwdata);
 			if (error_count_messages == 1)
 				make_error_count_message (error_count, error_count_messages,
 							  buf + strlen (buf),
-							  (int) (sizeof (buf) - strlen (buf)));
-			/* Append optional roundoff message */
-			if (ERRCHK && counter > 30) {
-				sprintf (buf+strlen(buf), ".  Round off: %10.10f to %10.10f", reallyminerr, reallymaxerr);
-			}
+					(int) (sizeof (buf) - strlen (buf)));
+			/* Truncate first message */
 			if (first_iter_msg) {
 				strcat (buf, ".\n");
 				clear_timer (timers, 0);
-			} else if (CUMULATIVE_TIMING) {
-				strcat (buf, ".  Total time: ");
-				print_timer (timers, 0, buf, TIMER_NL);
-			} else {
-				strcat (buf, ".  Per iteration time: ");
-				divide_timer (timers, 0, iters);
-				print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+				first_iter_msg = FALSE;
+			}
+			/* In v28.5 and later, format a consise message including the ETA */
+			else if (!CLASSIC_OUTPUT) {
+				double speed;
+				/* Append roundoff error */
+				if ((OUTPUT_ROUNDOFF || ERRCHK) && reallymaxerr >= 0.001)
+					sprintf (buf+strlen(buf), ", roundoff: %5.3f", reallymaxerr);
+				/* Append ms/iter */
+				speed = timer_value (timers, 0) / (double) iters;
+				sprintf (buf+strlen(buf), ", ms/iter: %6.3f", speed * 1000.0);
+				clear_timer (timers, 0);
 				iters = 0;
+				/* Append ETA */
+				formatETA ((p - counter) * speed, buf+strlen(buf));
+				strcat (buf, "\n");
+			}
+			/* Format the classic (pre-v28.5) message */
+			else {
+				/* Append optional roundoff message */
+				if (ERRCHK && counter > 30) {
+					sprintf (buf+strlen(buf), ".  Round off: %10.10f to %10.10f", reallyminerr, reallymaxerr);
+				}
+				if (CUMULATIVE_TIMING) {
+					strcat (buf, ".  Total time: ");
+					print_timer (timers, 0, buf, TIMER_NL);
+				} else {
+					strcat (buf, ".  Per iteration time: ");
+					divide_timer (timers, 0, iters);
+					print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+					iters = 0;
+				}
 			}
 			OutputStr (thread_num, buf);
-			first_iter_msg = FALSE;
 
 /* Output a verbose message showing the error counts.  This way a user is likely to */
 /* notice a problem without reading the results.txt file. */
@@ -7745,7 +7792,7 @@ int primeBench (
 
 /* Decide which FFT lengths to time */
 
-	min_FFT_length = 768;			/* Default lengths to test */
+	min_FFT_length = 1024;			/* Default lengths to test */
 	max_FFT_length = 8192;
 	time_all_complex = 0;
 	only_time_5678 = 1;
@@ -7772,7 +7819,7 @@ int primeBench (
 		gwthread_create (&thread_id, &bench_busy_loop, (void *) (intptr_t) i);
 	}
 
-/* Loop over all all possible multithread possibilities */
+/* Loop over all possible multithread possibilities */
 
 	for (threads = 1; threads <= NUM_CPUS * CPU_HYPERTHREADS; threads++) {
 	  if (threads > CPU_HYPERTHREADS && threads % CPU_HYPERTHREADS != 0)
@@ -7788,7 +7835,7 @@ int primeBench (
 	    }
 	  }
 
-/* Set global that makes sures we are running the correct number of busy loops */
+/* Set global that makes sure we are running the correct number of busy loops */
 
 	  last_bench_cpu_num = (threads-1) / CPU_HYPERTHREADS;
 
@@ -8397,6 +8444,16 @@ OutputStr (thread_num, "Iteration failed.\n");
 		timers[0] += timers[1];
 		iters++;
 
+/* Update min/max round-off error */
+
+		if (echk) {
+			if (counter > 30 &&
+			    gw_get_maxerr (&gwdata) < reallyminerr)
+				reallyminerr = gw_get_maxerr (&gwdata);
+			if (gw_get_maxerr (&gwdata) > reallymaxerr)
+				reallymaxerr = gw_get_maxerr (&gwdata);
+		}
+
 /* If the sum of the output values is an error (such as infinity) */
 /* then raise an error. */
 
@@ -8463,17 +8520,10 @@ OutputStr (thread_num, "Iteration failed.\n");
 			}
 		}
 
-/* Update counter, percentage complete, and maximum round-off error */
+/* Update counter, percentage complete */
 
 		counter++;
 		w->pct_complete = (double) counter * inverse_Nlen;
-		if (ERRCHK) {
-			if (counter > 30 &&
-			    gw_get_maxerr (&gwdata) < reallyminerr)
-				reallyminerr = gw_get_maxerr (&gwdata);
-			if (gw_get_maxerr (&gwdata) > reallymaxerr)
-				reallymaxerr = gw_get_maxerr (&gwdata);
-		}
 
 /* Output the title every so often */
 
@@ -8495,24 +8545,44 @@ OutputStr (thread_num, "Iteration failed.\n");
 				make_error_count_message (error_count, error_count_messages,
 							  buf + strlen (buf),
 							  (int) (sizeof (buf) - strlen (buf)));
-			/* Append optional roundoff message */
-			if (ERRCHK && counter > 30) {
-				sprintf (buf+strlen(buf), ".  Round off: %10.10f to %10.10f", reallyminerr, reallymaxerr);
-			}
+			/* Truncate first message */
 			if (first_iter_msg) {
 				strcat (buf, ".\n");
 				clear_timer (timers, 0);
-			} else if (CUMULATIVE_TIMING) {
-				strcat (buf, ".  Total time: ");
-				print_timer (timers, 0, buf, TIMER_NL);
-			} else {
-				strcat (buf, ".  Per iteration time: ");
-				divide_timer (timers, 0, iters);
-				print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+				first_iter_msg = FALSE;
+			}
+			/* In v28.5 and later, format a consise message including the ETA */
+			else if (!CLASSIC_OUTPUT) {
+				double speed;
+				/* Append roundoff error */
+				if ((OUTPUT_ROUNDOFF || ERRCHK) && reallymaxerr >= 0.001)
+					sprintf (buf+strlen(buf), ", roundoff: %5.3f", reallymaxerr);
+				/* Append ms/iter */
+				speed = timer_value (timers, 0) / (double) iters;
+				sprintf (buf+strlen(buf), ", ms/iter: %6.3f", speed * 1000.0);
+				clear_timer (timers, 0);
 				iters = 0;
+				/* Append ETA */
+				formatETA ((Nlen - 2 - counter) * speed, buf+strlen(buf));
+				strcat (buf, "\n");
+			}
+			/* Format the classic (pre-v28.5) message */
+			else {
+				/* Append optional roundoff message */
+				if (ERRCHK && counter > 30) {
+					sprintf (buf+strlen(buf), ".  Round off: %10.10f to %10.10f", reallyminerr, reallymaxerr);
+				}
+				if (CUMULATIVE_TIMING) {
+					strcat (buf, ".  Total time: ");
+					print_timer (timers, 0, buf, TIMER_NL);
+				} else {
+					strcat (buf, ".  Per iteration time: ");
+					divide_timer (timers, 0, iters);
+					print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+					iters = 0;
+				}
 			}
 			OutputStr (thread_num, buf);
-			first_iter_msg = FALSE;
 
 /* Output a verbose message showing the error counts.  This way a user is likely to */
 /* notice a problem without reading the results.txt file. */
