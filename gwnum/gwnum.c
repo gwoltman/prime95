@@ -2412,7 +2412,7 @@ int internal_gwsetup (
 			asm_data->norm_col_mults = NULL;
 		}
 
-#ifdef GDEBUG
+#ifdef GDEBUG_MEM
 	if (gwdata->PASS2_SIZE) {
 		char buf[80];
 		sprintf (buf, "FFTlen: %d, clm: %d, count3: %d, count2: %d\n", (int) gwdata->FFTLEN, (int) gwdata->PASS1_CACHE_LINES, (int) asm_data->count3, (int) asm_data->count2); OutputBoth (0, buf);
