@@ -647,8 +647,10 @@ void SetPriority (
 /* Benchmarking affinity with no hyperthreading. */
 
 	if (info->type == SET_PRIORITY_BENCHMARKING) {
+		int	cpu;
+		cpu = info->thread_num + info->aux_thread_num;
 		memset (mask, 0, sizeof (mask));
-		for (i = 0; i < CPU_HYPERTHREADS; i++) maskset (info->aux_thread_num * CPU_HYPERTHREADS + i);
+		for (i = 0; i < CPU_HYPERTHREADS; i++) maskset (cpu * CPU_HYPERTHREADS + i);
 	}
 
 /* Benchmarking affinity.  For hyperthreaded CPUs, we put auxiliary */
@@ -656,7 +658,7 @@ void SetPriority (
 
 	else if (info->type == SET_PRIORITY_BENCHMARKING_HYPER) {
 		int	cpu;
-		cpu = info->aux_thread_num / CPU_HYPERTHREADS;
+		cpu = info->thread_num + info->aux_thread_num / CPU_HYPERTHREADS;
 		memset (mask, 0, sizeof (mask));
 		for (i = 0; i < CPU_HYPERTHREADS; i++) maskset (cpu * CPU_HYPERTHREADS + i);
 	}
@@ -762,7 +764,8 @@ void SetPriority (
 
 /* Output an informative message */
 
-	if (NUM_CPUS > 1 || CPU_HYPERTHREADS > 1) {
+	if (info->type != SET_PRIORITY_BENCHMARKING && info->type != SET_PRIORITY_BENCHMARKING_HYPER &&
+	    (NUM_CPUS > 1 || CPU_HYPERTHREADS > 1)) {
 		char	buf[120];
 
 		if (info->aux_thread_num == 0)
@@ -783,8 +786,7 @@ void SetPriority (
 			sprintf (buf + strlen(buf), "logical CPU%s%s\n",
 				 (count == 1) ? " #" : "s ", cpu_list);
 		}
-		if (info->type != SET_PRIORITY_BENCHMARKING && info->type != SET_PRIORITY_BENCHMARKING_HYPER)
-			OutputStr (info->thread_num, buf);
+		OutputStr (info->thread_num, buf);
 	}
 
 /* Call OS-specific routine to set the priority and affinity */
@@ -7480,7 +7482,7 @@ int primeTime (
 /* Set the process/thread priority */
 
 	sp_info.type = SET_PRIORITY_BENCHMARKING;
-	sp_info.thread_num = thread_num;
+	sp_info.thread_num = 0;
 	sp_info.aux_thread_num = 0;
 	SetPriority (&sp_info);
 
@@ -7628,8 +7630,8 @@ void bench_busy_loop (void *arg)
 
 	cpu_num = (int) (intptr_t) arg;
 	sp_info.type = SET_PRIORITY_BENCHMARKING;
-	sp_info.thread_num = 0;
-	sp_info.aux_thread_num = cpu_num;
+	sp_info.thread_num = cpu_num;
+	sp_info.aux_thread_num = 0;
 	SetPriority (&sp_info);
 
 /* Stay busy until last_bench_cpu_num says this CPU thread should close */
@@ -7749,6 +7751,322 @@ int factorBench (
 	return (0);
 }
 
+/* Globals and structures used in primeBenchMultipleWorkers */
+
+int	num_bench_workers = 0;
+int	num_bench_workers_initialized = 0;
+int	bench_worker_finished = 0;
+int	bench_workers_time = 0;			/* Time (in seconds) to bench an FFT */
+gwmutex	bench_workers_mutex;
+gwevent	bench_workers_sync;
+
+struct prime_bench_arg {
+	int	main_thread_num;
+	unsigned long fftlen;
+	int	plus1;
+	int	cpu_num;
+	int	threads;
+	int	hyperthreads;
+	int	impl;
+	int	iterations;
+	double	total_time;
+};
+
+/* Time a few iterations on one worker. */
+
+void primeBenchOneWorker (void *arg)
+{
+	struct PriorityInfo sp_info;
+	llhandle lldata;
+	int	stop_reason;
+	double	timers[2];
+	struct prime_bench_arg *info;
+
+/* Type cast arg, init return info */
+
+	info = (struct prime_bench_arg *) arg;
+	info->iterations = 0;
+	info->total_time = 0.0;
+
+/* Set the affinity so that worker runs on the specified CPU core */
+
+	sp_info.type = (info->hyperthreads > 1) ? SET_PRIORITY_BENCHMARKING_HYPER : SET_PRIORITY_BENCHMARKING;
+	sp_info.thread_num = info->cpu_num;
+	sp_info.aux_thread_num = 0;
+	SetPriority (&sp_info);
+
+/* Initialize this FFT length */
+
+	gwinit (&lldata.gwdata);
+	gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
+	gwset_num_threads (&lldata.gwdata, info->threads);
+	gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
+	gwset_thread_callback_data (&lldata.gwdata, &sp_info);
+	gwset_minimum_fftlen (&lldata.gwdata, info->fftlen);
+	lldata.gwdata.bench_pick_nth_fft = info->impl;
+	stop_reason = lucasSetup (info->main_thread_num, info->fftlen * 17 + 1, info->plus1, &lldata);
+	if (stop_reason) {
+		gwevent_signal (&bench_workers_sync);
+		return;
+	}
+
+/* Fill data space with random values. */
+
+	generateRandomData (&lldata);
+
+/* Pause until all worker threads are initialized */
+
+	gwmutex_lock (&bench_workers_mutex);
+	num_bench_workers_initialized++;
+	if (num_bench_workers_initialized == num_bench_workers) gwevent_signal (&bench_workers_sync);
+	gwmutex_unlock (&bench_workers_mutex);
+	gwevent_wait (&bench_workers_sync, 0);
+
+/* Do one squaring untimed, to prime the caches and start the POSTFFT optimization going. */
+
+	gwsetnormroutine (&lldata.gwdata, 0, 0, 0);
+	gwstartnextfft (&lldata.gwdata, TRUE);
+	gwsquare (&lldata.gwdata, lldata.lldata);
+
+/* Compute numbers in the lucas series.  Keep track of the number of iterations and total time. */
+
+	for ( ; ; ) {
+		stop_reason = stopCheck (info->main_thread_num);
+		if (stop_reason) break;
+		clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
+		start_timer (timers, 0);
+		gwsquare (&lldata.gwdata, lldata.lldata);
+		end_timer (timers, 0);
+		// If any of the bench workers have finished, then do not imclude this timing
+		if (bench_worker_finished) break;
+		// Add in this timing.  If time exceeds our limit, end this worker
+		info->iterations++;
+		info->total_time += timer_value (timers, 0);
+		if (info->total_time > bench_workers_time) {
+			bench_worker_finished = TRUE;
+			break;
+		}
+	}
+	lucasDone (&lldata);
+}
+
+/* Time a few iterations of many FFT lengths on multiple workers.  This let's us */
+/* benchmark the affects of memory bandwidth limitations. */
+
+int primeBenchMultipleWorkers (
+	int	thread_num)
+{
+	llhandle lldata;
+	char	buf[512];
+	int	workers, cpus, hypercpus, impl;
+	int	all_bench, only_time_5678, time_all_complex, plus1, is_a_5678;
+	int	bench_hyperthreading, bench_multithreading, bench_oddballs;
+	int	i, stop_reason;
+	unsigned long fftlen, min_FFT_length, max_FFT_length;
+	double	throughput;
+	gwthread thread_id[MAX_NUM_WORKER_THREADS];
+	struct prime_bench_arg info[MAX_NUM_WORKER_THREADS];
+
+// Output some initial informative text
+
+	OutputStr (thread_num, "Benchmarking multiple workers to measure the impact of memory bandwidth\n");
+
+/* Init the worker synchronization primitives */
+
+	gwmutex_init (&bench_workers_mutex);
+	gwevent_init (&bench_workers_sync);
+
+/* Get the amount of time to bench each FFT */
+
+	bench_workers_time = IniGetInt (INI_FILE, "BenchTime", 10);
+
+/* Decide which FFT lengths to time */
+
+	min_FFT_length = 1024;			/* Default lengths to test */
+	max_FFT_length = 8192;
+	time_all_complex = 0;
+	only_time_5678 = 1;
+	if (IniGetInt (INI_FILE, "FullBench", 0)) { /* Obsolete: meant benchmark 4K to 32M FFTs, all-complex too */
+		min_FFT_length = 4;
+		max_FFT_length = 32768;
+		only_time_5678 = 0;
+		time_all_complex = 1;
+	}
+	min_FFT_length = IniGetInt (INI_FILE, "MinBenchFFT", min_FFT_length);
+	max_FFT_length = IniGetInt (INI_FILE, "MaxBenchFFT", max_FFT_length);
+	only_time_5678 = IniGetInt (INI_FILE, "OnlyBench5678", only_time_5678);
+	time_all_complex = IniGetInt (INI_FILE, "BenchAllComplex", time_all_complex);
+	all_bench = IniGetInt (INI_FILE, "AllBench", 0);	/* Benchmark all implementations of each FFT length */
+	bench_hyperthreading = IniGetInt (INI_FILE, "BenchHyperthreads", 1);	/* Benchmark hyperthreading */
+	bench_multithreading = IniGetInt (INI_FILE, "BenchMultithreads", 0);	/* Benchmark multi-threaded FFTs */
+	bench_oddballs = IniGetInt (INI_FILE, "BenchOddMultithreads", 0);	/* Benchmark odd multi-threaded combinations */
+
+/* Loop over a variety of FFT lengths */
+
+	for (plus1 = 0; plus1 <= 1; plus1++) {
+	  if (plus1 == 0 && time_all_complex == 2) continue;
+	  if (plus1 == 1 && time_all_complex == 0) continue;
+	  for (fftlen = min_FFT_length * 1024; fftlen <= max_FFT_length * 1024; fftlen += 10) {
+
+/* Initialize this FFT length */
+
+	    gwinit (&lldata.gwdata);
+	    gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
+	    gwset_minimum_fftlen (&lldata.gwdata, fftlen);
+	    stop_reason = lucasSetup (thread_num, fftlen * 17 + 1, plus1, &lldata);
+	    if (stop_reason) return (stop_reason);
+
+/* Make sure the FFT length is within the range we are benchmarking */
+
+	    fftlen = gwfftlen (&lldata.gwdata);
+	    if (fftlen > max_FFT_length * 1024) {
+		    lucasDone (&lldata);
+		    break;
+	    }
+
+/* Only bench FFT lengths that are a multiple of 1K */
+
+	    if (fftlen & 0x3FF) {
+		    lucasDone (&lldata);
+		    continue;
+	    }
+
+/* If requested, only bench PFAs of 5,6,7,8 */
+
+	    for (i = fftlen; i >= 9 && (i & 1) == 0; i >>= 1);
+	    is_a_5678 = (i <= 8);
+	    if (only_time_5678 && !is_a_5678) {
+		    lucasDone (&lldata);
+		    continue;
+	    }
+
+/* Loop over all possible multithread possibilities */
+
+	    for (hypercpus = 1; hypercpus <= CPU_HYPERTHREADS; hypercpus++) {
+	      if (hypercpus > 1 && !bench_hyperthreading) break;
+	      for (cpus = 1; cpus <= NUM_CPUS; cpus++) {
+	        for (workers = 1; workers <= cpus; workers++) {
+		  if (cpus > workers && !bench_multithreading) continue;
+		  if (cpus % workers != 0 && !bench_oddballs) continue;
+
+#ifdef OS_CANNOT_SET_AFFINITY
+		  /* If the OS cannot set affinity, then we can only bench hyperthreading on all CPUs */
+		  if (hypercpus > 1 && cpus != NUM_CPUS) continue;
+#endif
+		  /* Only SSE2 code supports multi-threaded FFTs */
+		  if ((cpus > workers || hypercpus > 1) && ! (CPU_FLAGS & CPU_SSE2)) continue;  
+
+/* If timing all implementations of an FFT, loop through all possible implementations */
+
+		  for (impl = 0; ; impl++) {
+			if (!all_bench) {
+				if (impl >= 1) break;
+			} else {
+				if (impl == 0) {
+					lucasDone (&lldata);
+					continue;
+				}
+				gwinit (&lldata.gwdata);
+				gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
+				gwset_minimum_fftlen (&lldata.gwdata, fftlen);
+				lldata.gwdata.bench_pick_nth_fft = impl;
+				stop_reason = lucasSetup (thread_num, fftlen * 17 + 1, plus1, &lldata);
+				if (stop_reason) break;	// Assume stop_reason set because there are no more implementations for this FFT
+			}
+
+/* Output start message for this benchmark */
+
+			sprintf (buf, "Timing %luK%s FFT, %d cpu%s%s, %d worker%s.  ",
+				 fftlen / 1024, plus1 ? " all-complex" : "",
+				 cpus, cpus > 1 ? "s" : "",
+				 hypercpus > 1 ? " hyperthreaded" : "",
+				 workers, workers > 1 ? "s" : "");
+			OutputStr (thread_num, buf);
+
+/* Start the workers */
+
+			num_bench_workers = workers;
+			num_bench_workers_initialized = 0;
+			bench_worker_finished = FALSE;
+			gwevent_reset (&bench_workers_sync);
+			for (i = 0; i < workers; i++) {
+				info[i].main_thread_num = thread_num;
+				info[i].fftlen = fftlen;
+				info[i].plus1 = plus1;
+				info[i].impl = impl;
+				info[i].cpu_num = i * cpus/workers + (i < cpus%workers ? i : cpus%workers);
+				info[i].threads = (cpus/workers + (i < cpus%workers ? 1 : 0)) * hypercpus;
+				info[i].hyperthreads = hypercpus;
+				gwthread_create_waitable (&thread_id[i], &primeBenchOneWorker, (void *) &info[i]);
+			}
+
+/* Wait for all the workers to finish */
+
+			for (i = 0; i < workers; i++)
+				gwthread_wait_for_exit (&thread_id[i]);
+
+/* Print the total throughput and average times for this FFT length */
+
+			strcpy (buf, "Average times: ");
+			throughput = 0.0;
+			for (i = 0; i < workers; i++) {
+				if (i) strcat (buf, ", ");
+				if (info[i].iterations) {
+					sprintf (buf+strlen(buf), "%5.2f", info[i].total_time / info[i].iterations * 1000.0);
+					throughput = throughput + info[i].iterations / info[i].total_time;
+				} else
+					strcat (buf, "INF");
+			}
+			sprintf (buf+strlen(buf), " ms.  Total throughput: %5.2f iter/sec.\n", throughput);
+			OutputStrNoTimeStamp (thread_num, buf);
+
+/* Output to the results file the total throughput and average times for this FFT length */
+
+			if (all_bench) {
+				sprintf (buf,
+					 "FFTlen=%luK%s, Type=%d, Arch=%d, Pass1=%lu, Pass2=%lu, clm=%lu",
+					 fftlen / 1024, plus1 ? " all-complex" : "",
+					 lldata.gwdata.FFT_TYPE, lldata.gwdata.ARCH,
+					 fftlen / (lldata.gwdata.PASS2_SIZE ? lldata.gwdata.PASS2_SIZE : 1),
+					 lldata.gwdata.PASS2_SIZE,
+					 lldata.gwdata.PASS1_CACHE_LINES / ((CPU_FLAGS & CPU_AVX) ? 4 : 2));
+			} else {
+				sprintf (buf, "Timings for %luK%s FFT length",
+					 fftlen / 1024, plus1 ? " all-complex" : "");
+			}
+			sprintf (buf+strlen(buf), " (%d cpu%s%s, %d worker%s): ",
+				 cpus, cpus > 1 ? "s" : "",
+				 hypercpus > 1 ? " hyperthreaded" : "",
+				 workers, workers > 1 ? "s" : "");
+
+			throughput = 0.0;
+			for (i = 0; i < workers; i++) {
+				if (i) strcat (buf, ", ");
+				if (info[i].iterations) {
+					sprintf (buf+strlen(buf), "%5.2f", info[i].total_time / info[i].iterations * 1000.0);
+					throughput = throughput + info[i].iterations / info[i].total_time;
+				} else
+					strcat (buf, "INF");
+			}
+			sprintf (buf+strlen(buf), " ms.  Throughput: %5.2f iter/sec.\n", throughput);
+			writeResults (buf);
+
+/* Benchmark next FFT */
+
+			lucasDone (&lldata);
+	          }  // End impl loop
+		} // End cpus loop
+	      } // End workers loop
+	    } // End hypercpus loop
+	  }  // End fftlen loop
+	}  // End plus1 loop
+
+/* Output completion message */
+
+	OutputStr (thread_num, "Benchmark for multiple workers complete.\n");
+	return (0);
+}
+
 /* Time a few iterations of many FFT lengths */
 
 int primeBench (
@@ -7793,7 +8111,7 @@ int primeBench (
 /* be confined to just one CPU core. */
 
 	sp_info.type = SET_PRIORITY_BENCHMARKING;
-	sp_info.thread_num = thread_num;
+	sp_info.thread_num = 0;
 	sp_info.aux_thread_num = 0;
 	SetPriority (&sp_info);
 
@@ -7833,7 +8151,7 @@ int primeBench (
 	    /* Only bench hyperthreading on one CPU and all CPUs */
 	    if (hypercpu > 1 && cpu != 1 && cpu != NUM_CPUS) continue;
 #ifdef OS_CANNOT_SET_AFFINITY
-	    /* If the OS cannot set affinity, then we an only bench hyperthreading on all CPUs */
+	    /* If the OS cannot set affinity, then we can only bench hyperthreading on all CPUs */
 	    if (hypercpu > 1 && cpu != NUM_CPUS) continue;
 #endif
 	    /* Output a message if using multi-threaded FFT */
@@ -7876,7 +8194,7 @@ int primeBench (
 		  stop_reason = lucasSetup (thread_num, fftlen * 17 + 1, plus1, &lldata);
 		  if (stop_reason) {
 			/* An error during all_bench is expected.  Continue on to next FFT length. */
-			/* An error during a norm bench is unexpected.  Sett fftlen so that we stop benching. */
+			/* An error during a norm bench is unexpected.  Set fftlen so that we stop benching. */
 			if (!all_bench) fftlen = max_FFT_length * 1024;
 			break;
 		  }
@@ -8020,11 +8338,16 @@ int primeBench (
 
 /* Now benchmark the trial factoring code */
 
-	stop_reason = factorBench (thread_num, &pkt);
-	if (stop_reason) return (stop_reason);
-	OutputStr (thread_num, "Benchmark complete.\n");
+	if (IniGetInt (INI_FILE, "BenchTrialFactoring", 0)) {
+		stop_reason = factorBench (thread_num, &pkt);
+		if (stop_reason) return (stop_reason);
+	}
 
-/* Finally, send the benchmark data to the server. */
+/* Single worker benchmark complete */
+
+	OutputStr (thread_num, "Benchmark for single worker complete.\n");
+
+/* Send the benchmark data to the server. */
 
 //bug - send bench data to server. (checkbox to allow sending data to server?)
 //only do this if guid is registered? Or should we auto-register computer
@@ -8032,6 +8355,17 @@ int primeBench (
 
 	if (!all_bench)
 		spoolMessage (PRIMENET_BENCHMARK_DATA, &pkt);
+
+/* Now benchmark running multiple workers.  This will measure the effect of memory bandwidth */
+/* on LL testing. */
+
+	if (NUM_CPUS > 1 && IniGetInt (INI_FILE, "BenchMultipleWorkers", 1)) {
+		OutputBoth (thread_num, "\n");
+		stop_reason = primeBenchMultipleWorkers (thread_num);
+		if (stop_reason) return (stop_reason);
+		OutputBoth (thread_num, "\n");
+	}
+
 	return (0);
 }
 
