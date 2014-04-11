@@ -6,20 +6,40 @@
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
-
 /* Do some work prior to launching worker threads */
 /* Windows uses this to implement boot delay. */
+/* On the Mac, we use this to disable OS X Mavericks power-saving heuristics */
+
+#ifdef __APPLE__
+#include <Foundation/NSProcessInfo.h>
+id	activity;
+int	activity_is_set = FALSE;
+#endif
 
 void PreLaunchCallback (
 	int	launch_type)
 {
+#ifdef __APPLE__
+	if (DEFEAT_POWER_SAVE) {
+		activity = [[NSProcessInfo processInfo] beginActivityWithOptions:NSActivityUserInitiated reason:@"Prime Hunting!"];
+		activity_is_set = TRUE;
+	}
+#endif
 }
 
 /* Do some work after worker threads have terminated */
+/* NOTE: We can't use DEFEAT_POWER_SAVE in the if statement because the global */
+/* variable can be changed in the preferences page before PostLaunchCallback is called. */
 
 void PostLaunchCallback (
 	int	launch_type)
 {
+#ifdef __APPLE__
+	if (activity_is_set) {
+		[[NSProcessInfo processInfo] endActivity:activity];
+		activity_is_set = FALSE;
+	}
+#endif
 }
 
 /* OSes that must poll for whether the ESC key was hit do it here. */

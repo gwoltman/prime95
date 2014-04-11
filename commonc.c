@@ -54,6 +54,7 @@ int	SILENT_VICTORY = 0;
 int	SILENT_VICTORY_PRP = 1;
 int	RUN_ON_BATTERY = 1;
 int	BATTERY_PERCENT = 0;
+int	DEFEAT_POWER_SAVE = 1;
 int	TRAY_ICON = TRUE;
 int	HIDE_ICON = FALSE;
 int	MERGE_WINDOWS = 0;		/* Flags indicating which MDI */
@@ -906,6 +907,7 @@ int readIniFiles (void)
 	SILENT_VICTORY_PRP = (int) IniGetInt (INI_FILE, "SilentVictoryPRP", 1);
 	RUN_ON_BATTERY = (int) IniGetInt (LOCALINI_FILE, "RunOnBattery", 1);
 	BATTERY_PERCENT = (int) IniGetInt (INI_FILE, "BatteryPercent", 0);
+	DEFEAT_POWER_SAVE = (int) IniGetInt (LOCALINI_FILE, "DefeatPowerSave", 1);
 
 	STRESS_TESTER = (int) IniGetInt (INI_FILE, "StressTester", 99);
 	temp = (int) IniGetInt (INI_FILE, "ErrorCheck", 0);

@@ -3,7 +3,7 @@
 /* Constants */
 
 #define VERSION		"28.5"
-#define BUILD_NUM	"1"
+#define BUILD_NUM	"2"
 /* The list of assigned OS ports follows: */
 /* Win9x (prime95) #1 */
 /* Linux (mprime)  #2 */
@@ -177,8 +177,8 @@ extern int NUM_BACKUP_FILES;		/* Between 1 and 3 backup files (or 99 */
 extern int SILENT_VICTORY;		/* Quiet find of new Mersenne prime */
 extern int SILENT_VICTORY_PRP;		/* Quiet find of new PRP */
 extern int RUN_ON_BATTERY;		/* Run program even on battery power */
-extern int BATTERY_PERCENT;		/* Pause if battery below this */
-					/* percent charged */
+extern int BATTERY_PERCENT;		/* Pause if battery below this percent charged */
+extern int DEFEAT_POWER_SAVE;		/* If possible, call OS to force computer to run at full speed */
 extern int TRAY_ICON;			/* Display tiny tray icon */
 extern int HIDE_ICON;			/* Display no icon */
 extern int MERGE_WINDOWS;		/* Flags indicating which MDI */
