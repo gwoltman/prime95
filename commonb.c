@@ -3366,10 +3366,14 @@ check_stop_code:
 	}
 
 /* If the worker is pausing because we are now on battery power, then */
-/* implement that now. */
+/* implement that now.  Semi-hack:  On Mac OS X, call the post/pre launch */
+/* callback so that we allow the OS to re-enable Intel's power saving SpeedStep */
+/* We pass in a dummy launch_type in case we might use that in the future. */
 
 	if (stop_reason == STOP_BATTERY) {
+		if (thread_num == MAIN_THREAD_NUM) PostLaunchCallback (9999);
 		implement_stop_battery (thread_num);
+		if (thread_num == MAIN_THREAD_NUM) PreLaunchCallback (9999);
 		continue;
 	}
 
@@ -7860,7 +7864,7 @@ int primeBenchMultipleWorkers (
 	char	buf[512];
 	int	workers, cpus, hypercpus, impl;
 	int	all_bench, only_time_5678, time_all_complex, plus1, is_a_5678;
-	int	bench_hyperthreading, bench_multithreading, bench_oddballs;
+	int	bench_hyperthreading, bench_multithreading, bench_oddballs, bench_one_or_all, bench_arch;
 	int	i, stop_reason;
 	unsigned long fftlen, min_FFT_length, max_FFT_length;
 	double	throughput;
@@ -7900,6 +7904,8 @@ int primeBenchMultipleWorkers (
 	bench_hyperthreading = IniGetInt (INI_FILE, "BenchHyperthreads", 1);	/* Benchmark hyperthreading */
 	bench_multithreading = IniGetInt (INI_FILE, "BenchMultithreads", 0);	/* Benchmark multi-threaded FFTs */
 	bench_oddballs = IniGetInt (INI_FILE, "BenchOddMultithreads", 0);	/* Benchmark odd multi-threaded combinations */
+	bench_one_or_all = IniGetInt (INI_FILE, "BenchOneOrAll", 0);		/* Benchmark only 1 or all cpus */
+	bench_arch = IniGetInt (INI_FILE, "BenchArch", 0);			/* CPU architecture to benchmark */
 
 /* Loop over a variety of FFT lengths */
 
@@ -7940,11 +7946,19 @@ int primeBenchMultipleWorkers (
 		    continue;
 	    }
 
+/* If requested, only benchmark one architecture */
+
+	    if (bench_arch && bench_arch != lldata.gwdata.ARCH) {
+		    lucasDone (&lldata);
+		    continue;
+	    }
+
 /* Loop over all possible multithread possibilities */
 
 	    for (hypercpus = 1; hypercpus <= (int) CPU_HYPERTHREADS; hypercpus++) {
 	      if (hypercpus > 1 && !bench_hyperthreading) break;
 	      for (cpus = 1; cpus <= (int) NUM_CPUS; cpus++) {
+		if (bench_one_or_all && cpus > 1 && cpus < NUM_CPUS) continue;
 	        for (workers = 1; workers <= cpus; workers++) {
 		  if (cpus > workers && !bench_multithreading) continue;
 		  if (cpus % workers != 0 && !bench_oddballs) continue;
@@ -8079,7 +8093,7 @@ int primeBench (
 	char	buf[512];
 	unsigned int cpu, hypercpu;
 	int	all_bench, only_time_5678, time_all_complex, plus1, stop_reason;
-	int	is_a_5678;
+	int	is_a_5678, bench_hyperthreading, bench_multithreading, bench_one_or_all, bench_arch;
 	unsigned long fftlen, min_FFT_length, max_FFT_length;
 	double	timers[2];
 	struct primenetBenchmarkData pkt;
@@ -8132,6 +8146,10 @@ int primeBench (
 	only_time_5678 = IniGetInt (INI_FILE, "OnlyBench5678", only_time_5678);
 	time_all_complex = IniGetInt (INI_FILE, "BenchAllComplex", time_all_complex);
 	all_bench = IniGetInt (INI_FILE, "AllBench", 0);	/* Benchmark all implementations of each FFT length */
+	bench_hyperthreading = IniGetInt (INI_FILE, "BenchHyperthreads", 1);	/* Benchmark hyperthreading */
+	bench_multithreading = IniGetInt (INI_FILE, "BenchMultithreads", 1);	/* Benchmark multi-threaded FFTs */
+	bench_one_or_all = IniGetInt (INI_FILE, "BenchOneOrAll", 0);		/* Benchmark only 1 or all cpus */
+	bench_arch = IniGetInt (INI_FILE, "BenchArch", 0);	/* CPU architecture to benchmark */
 
 /* Keep CPU cores busy.  This should prevent "turbo boost" from kicking in. */
 /* We do this to hopefully produce more consistent benchmarks.  We don't want to report */
@@ -8147,7 +8165,10 @@ int primeBench (
 /* Loop over all possible multithread possibilities */
 
 	for (cpu = 1; cpu <= NUM_CPUS; cpu++) {
+	  if (cpu > 1 && !bench_multithreading) continue;
+	  if (bench_one_or_all && cpu > 1 && cpu < NUM_CPUS) continue;
 	  for (hypercpu = 1; hypercpu <= CPU_HYPERTHREADS; hypercpu++) {
+	    if (hypercpu > 1 && !bench_hyperthreading) break;
 	    /* Only bench hyperthreading on one CPU and all CPUs */
 	    if (hypercpu > 1 && cpu != 1 && cpu != NUM_CPUS) continue;
 #ifdef OS_CANNOT_SET_AFFINITY
@@ -8218,6 +8239,13 @@ int primeBench (
 		  if (only_time_5678 && !is_a_5678) {
 			lucasDone (&lldata);
 			break;
+		  }
+
+/* If requested, only benchmark one architecture */
+
+		  if (bench_arch && bench_arch != lldata.gwdata.ARCH) {
+			lucasDone (&lldata);
+			continue;
 		  }
 
 /* Output a blank line between different FFT lengths when timing all implementations */
