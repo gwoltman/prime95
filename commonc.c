@@ -2535,7 +2535,7 @@ int readWorkToDoFile (void)
 	FILE	*fd;
 	unsigned int tnum, i, linenum;
 	int	rc, mangled;
-	char	line[2048], newFileName[80];
+	char	line[16384], newFileName[80];
 
 /* Grab the lock so that comm thread cannot try to add work units while */
 /* file is being read in. */
