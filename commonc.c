@@ -2973,13 +2973,16 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		goto illegal_line;
 	    }
 
-/* Trim trailing non-digit characters from known factors list */
+/* Trim trailing non-digit characters from known factors list (this should be the closing double quote) */
+/* Turn all non-digit characters into commas (they should be anyway) */
 
 	    if (w->known_factors != NULL) {
 		for (i = (unsigned int) strlen (w->known_factors);
 		     i > 0 && !isdigit (w->known_factors[i-1]);
 		     i--);
 		w->known_factors[i] = 0;
+		for (i = 0; i < (unsigned int) strlen (w->known_factors); i++)
+			if (!isdigit (w->known_factors[i])) w->known_factors[i] = ',';
 	    }
 
 /* Make sure this line of work from the file makes sense. The exponent */
