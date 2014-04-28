@@ -327,11 +327,11 @@ worktodo.txt file directly.  For example:
 The P-1 choice lets you factor numbers of the form k*b^n+c using
 the P-1 method of factoring.  You can also edit the worktodo.txt file
 directly.  For example:
-	Pminus1=k,b,n,c[,"comma-separated-list-of-known-factors"]
+	Pminus1=k,b,n,c,B1,B2[,"comma-separated-list-of-known-factors"]
 
-The PRP choice, only available on the Mac OS X version, lets you do a
-probable prime test on numbers of the form k*b^n+c.  You can also edit
-the worktodo.txt file directly.  For example:
+The PRP choice, available from the menus only in the Mac OS X version, lets you do a
+probable prime test on numbers of the form k*b^n+c.  On all OSes, you can edit
+the worktodo.txt file directly.  For example add:
 	PRP=k,b,n,c[,how_far_factored,tests_saved][,"comma-separated-list-of-known-factors"]
 where the how_far_factored and tests_saved values are used to pick
 optimal bounds for P-1 factoring prior to running the PRP test.
