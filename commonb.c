@@ -7855,7 +7855,7 @@ void primeBenchOneWorker (void *arg)
 }
 
 /* Time a few iterations of many FFT lengths on multiple workers.  This let's us */
-/* benchmark the affects of memory bandwidth limitations. */
+/* benchmark the effects of memory bandwidth limitations. */
 
 int primeBenchMultipleWorkers (
 	int	thread_num)
@@ -7871,7 +7871,7 @@ int primeBenchMultipleWorkers (
 	gwthread thread_id[MAX_NUM_WORKER_THREADS];
 	struct prime_bench_arg info[MAX_NUM_WORKER_THREADS];
 
-// Output some initial informative text
+/* Output some initial informative text */
 
 	OutputStr (thread_num, "Benchmarking multiple workers to measure the impact of memory bandwidth\n");
 
@@ -8018,6 +8018,8 @@ int primeBenchMultipleWorkers (
 
 			for (i = 0; i < workers; i++)
 				gwthread_wait_for_exit (&thread_id[i]);
+			stop_reason = stopCheck (thread_num);
+			if (stop_reason) return (stop_reason);
 
 /* Print the total throughput and average times for this FFT length */
 
