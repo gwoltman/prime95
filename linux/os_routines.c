@@ -11,19 +11,23 @@
 /* On the Mac, we use this to disable OS X Mavericks power-saving heuristics */
 
 #ifdef __APPLE__
+#ifndef COMMAND_LINE_MPRIME
 #include <Foundation/NSProcessInfo.h>
 id	activity;
 int	activity_is_set = FALSE;
+#endif
 #endif
 
 void PreLaunchCallback (
 	int	launch_type)
 {
 #ifdef __APPLE__
+#ifndef COMMAND_LINE_MPRIME
 	if (DEFEAT_POWER_SAVE) {
 		activity = [[NSProcessInfo processInfo] beginActivityWithOptions:NSActivityUserInitiated reason:@"Prime Hunting!"];
 		activity_is_set = TRUE;
 	}
+#endif
 #endif
 }
 
@@ -35,10 +39,12 @@ void PostLaunchCallback (
 	int	launch_type)
 {
 #ifdef __APPLE__
+#ifndef COMMAND_LINE_MPRIME
 	if (activity_is_set) {
 		[[NSProcessInfo processInfo] endActivity:activity];
 		activity_is_set = FALSE;
 	}
+#endif
 #endif
 }
 
