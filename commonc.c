@@ -4995,7 +4995,8 @@ static	time_t	last_time = 0;
 		if (buf != NULL) {
 			_lseek (fd, 100000L, SEEK_SET);
 			strcpy (buf, "Prior log file entries removed.\n");
-			for (p = buf + strlen (buf); (bytes_read = _read (fd, p, 50000)) != 0; p += bytes_read);
+			for (p = buf + strlen (buf); (bytes_read = _read (fd, p, 50000)) != 0; p += bytes_read)
+				/*do nothing*/;
 		       	_close (fd);
 			fd = _open (LOGFILE, _O_TEXT | _O_RDWR | _O_TRUNC, CREATE_FILE_ACCESS);
 			if (fd < 0) {
