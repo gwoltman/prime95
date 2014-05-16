@@ -19,6 +19,8 @@ New features in Version 28.5 of prime95.exe
 
 6)  There are many new options described in undoc.txt to customize the benchmarking process.
 
+7)  In build 2, added a preference to bypass some of Mac OS X Mavericks' power saving features.
+ 
 
 New features in Version 28.4 of prime95.exe
 -------------------------------------------
