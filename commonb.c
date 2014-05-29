@@ -7958,7 +7958,7 @@ int primeBenchMultipleWorkers (
 	    for (hypercpus = 1; hypercpus <= (int) CPU_HYPERTHREADS; hypercpus++) {
 	      if (hypercpus > 1 && !bench_hyperthreading) break;
 	      for (cpus = 1; cpus <= (int) NUM_CPUS; cpus++) {
-		if (bench_one_or_all && cpus > 1 && cpus < NUM_CPUS) continue;
+		if (bench_one_or_all && cpus > 1 && cpus < (int) NUM_CPUS) continue;
 	        for (workers = 1; workers <= cpus; workers++) {
 		  if (cpus > workers && !bench_multithreading) continue;
 		  if (cpus % workers != 0 && !bench_oddballs) continue;
