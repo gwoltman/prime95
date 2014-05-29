@@ -359,13 +359,13 @@ void affinity_busy_loop (void *arg)
 /* that map to the same physical CPU core to OS's numbering of logical CPUs */
 /* that map to the same physical CPU core. */
 
-char	AFFINITY_SCRAMBLE[MAX_NUM_WORKER_THREADS] = {0};
+short	AFFINITY_SCRAMBLE[MAX_NUM_WORKER_THREADS] = {0};
 char	AFFINITY_SCRAMBLE_STATE = 0;	/* 0 = not initialized, 1 = computed, 2 = read in from local.txt */
 
 void generate_affinity_scramble_thread (void *arg)
 {
-	char	mapped_cpus[MAX_NUM_WORKER_THREADS];  /* Logical CPUs whose mate has been found */
-	char	scramble[MAX_NUM_WORKER_THREADS+1];  /* Affinity scramble from local.txt */
+	char	mapped_cpus[MAX_NUM_WORKER_THREADS];	/* Logical CPUs whose mate has been found */
+	char	scramble[65];				/* Affinity scramble from local.txt.  Up to 64 affinities can be scrambled. */
 	int	mask[MAX_NUM_WORKER_THREADS/32];
 	unsigned int i, j, k, n, diff, num_successes;
 	int	saved_rdtsc_timing, debug;
@@ -580,7 +580,7 @@ no_auto_detect:
 	if (scramble[0] != '*') {
 		OutputStr (MAIN_THREAD_NUM, "Using AffinityScramble2 settings to set affinity mask.\n");
 		AFFINITY_SCRAMBLE_STATE = 2;
-		for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
+		for (i = 0; i < MAX_NUM_WORKER_THREADS && i < strlen (scramble); i++) {
 			if (scramble[i] >= '0' && scramble[i] <= '9')
 				AFFINITY_SCRAMBLE[i] = scramble[i] - '0';
 			else if (scramble[i] >= 'A' && scramble[i] <= 'Z')
