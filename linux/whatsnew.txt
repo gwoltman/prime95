@@ -19,6 +19,8 @@ New features in Version 28.5 of mprime
 
 6)  There are many new options described in undoc.txt to customize the benchmarking process.
 
+7)  Maximum number of threads supported rasied from 64 to 512.
+
 
 New features in Version 28.4 of mprime
 --------------------------------------
