@@ -769,7 +769,7 @@ again:	zpad_jmptab = NULL;
 			zpad_jmptab = asm_info.avx_cyclic_fft_info;
 		else if (gwdata->cpu_flags & CPU_SSE2)
 			zpad_jmptab = asm_info.sse2_cyclic_fft_info;
-		else zpad_jmptab =
+		else
 			zpad_jmptab = asm_info.x86_cyclic_fft_info;
 
 /* Find the table entry for the FFT that can do a mod 2^2n FFT, handling */
