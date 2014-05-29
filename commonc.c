@@ -460,8 +460,7 @@ void getCpuDescription (
 
 	sprintf (buf, "%s\nCPU speed: %.2f MHz", CPU_BRAND, UNOFFICIAL_CPU_SPEED);
 	if (NUM_CPUS > 1 && CPU_HYPERTHREADS > 1)
-		sprintf (buf + strlen (buf),
-			 ", %lu hyperthreaded cores", NUM_CPUS);
+		sprintf (buf + strlen (buf), ", %lu hyperthreaded cores", NUM_CPUS);
 	else if (NUM_CPUS > 1)
 		sprintf (buf + strlen (buf), ", %lu cores", NUM_CPUS);
 	else if (CPU_HYPERTHREADS > 1)
