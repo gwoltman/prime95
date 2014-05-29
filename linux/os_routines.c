@@ -315,6 +315,7 @@ void setThreadPriorityAndAffinity (
 
 /* I couldn't get the standard syscall0 declaration of gettid to */
 /* work in my Linux distro.  Use the direct system call instead. */
+
 	thread_id = (pid_t) syscall (__NR_gettid);
 
 /* Set priority.  Map one (prime95's lowest priority) to 19 */
@@ -328,7 +329,7 @@ void setThreadPriorityAndAffinity (
 /* determine which logical hyperthreaded CPUs map to a single physical CPU. */
 
 	CPU_ZERO (&linux_mask);
-	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++)
+	for (i = 0; i < MAX_NUM_WORKER_THREADS && i < CPU_SETSIZE; i++)
 		if (mask[i/32] & (1 << (i & 31))) CPU_SET (i, &linux_mask);
 	errcode = sched_setaffinity (thread_id, sizeof (linux_mask), &linux_mask);
 #endif
@@ -396,7 +397,7 @@ void setThreadPriorityAndAffinity (
 
 #ifdef __FreeBSD__
 	CPU_ZERO (&cset);
-	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++)
+	for (i = 0; i < MAX_NUM_WORKER_THREADS && i < CPU_SETSIZE; i++)
 		if (mask[i/32] & (1 << (i & 31))) CPU_SET (i, &cset);
 	cpuset_setaffinity (CPU_LEVEL_WHICH, CPU_WHICH_TID, -1, sizeof (cset), &cset);
 #endif
