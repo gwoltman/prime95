@@ -221,20 +221,26 @@ void outputLongLine (
 {
 	char	line[80];
 	char	*p;
-	int	i, j;
+	int	i, chars_to_output;
 
 	for (p = buf; ; ) {
+		chars_to_output = 75;			// Default split point if no natural break found
 		for (i = 0; i < 75; i++) {
 			line[i] = p[i];
-			if (p[i] == 0 || p[i] == '\n') { j = i; break; }
-			if (p[i] == ' ' || p[i] == '.' || p[i] == ',') j = i;
+			if (p[i] == 0) { chars_to_output = i; break; }
+			if (p[i] == '\n') { chars_to_output = i + 1; break; }
+			if (p[i] == ' ') { chars_to_output = i; }
+			//if (p[i] == '.') { chars_to_output = i + 1; }		// Don't split at "mersenne.org"
+			if (p[i] == ',') { chars_to_output = i + 1; }		// Do split "a,b,c"
 		}
-		line[j+1] = 0;
+		line[chars_to_output] = 0;
 		printf ("%s", line);
-		if (p[j] == 0) break;
-		if (p[j] != '\n') printf ("\n");
-		p += j + 1;
-		while (*p == ' ') p++;
+		p += chars_to_output;
+		if (*p == 0) break;
+		if (p[-1] != '\n') {			// Do not change any formatting after an explicit line break
+			printf ("\n");			// Generate a line break
+			while (*p == ' ') p++;		// Eliminate whitespace after a generated line break
+		}
 	}
 }
 
