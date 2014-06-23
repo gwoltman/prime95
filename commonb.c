@@ -2737,12 +2737,14 @@ void calc_output_frequencies (
 		else if (temp < 2.75) temp = 2.5;
 		else temp = floor (temp + 0.5);
 		*output_frequency = temp * pow (10.0, exp);
+		if (*output_frequency < 1.0) *output_frequency = 1.0;
 	}
 
 	/* Calculate the title frequency as a multiple of the output frequency */
 	title_freq = (int) IniGetInt (INI_FILE, "TitleOutputFrequency", 1);
 	if (title_freq < 1) title_freq = 1;
 	*output_title_frequency = *output_frequency / (double) title_freq;
+	if (*output_title_frequency < 1.0) *output_title_frequency = 1.0;
 }
 
 /* Truncate a percentage to the requested number of digits. */
