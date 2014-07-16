@@ -293,7 +293,7 @@ change effective.
 
 The program no longer uses hard FFT crossover points.  The soft crossovers
 have two adjustments in prime.txt:
-	SoftCrossovers=n
+	SoftCrossover=n
 	SoftCrossoverAdjust=n
 The first setting controls which exponents are examined.  The default value
 is 0.2.  This means that an exponent that is 0.2% above or below an FFT
