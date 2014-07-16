@@ -38,6 +38,8 @@
 #include "cpuid.h"
 #include "gwthread.h"
 
+#define safe_strcpy(d,s)	memmove (d, s, strlen (s) + 1)
+
 /* Global variables describing the CPU we are running on */
 
 char	CPU_BRAND[49] = "";
@@ -457,7 +459,7 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			memcpy (CPU_BRAND+40, &reg.ECX, 4);
 			memcpy (CPU_BRAND+44, &reg.EDX, 4);
 			CPU_BRAND[48] = 0;
-			while (CPU_BRAND[0] == ' ') strcpy (CPU_BRAND, CPU_BRAND+1);
+			while (CPU_BRAND[0] == ' ') safe_strcpy (CPU_BRAND, CPU_BRAND+1);
 		}
 
 /* If we got the brand string, or this is a very old CPU that perhaps */
