@@ -6899,7 +6899,7 @@ int tortureTest (
 
 /* We used to support a menu option to run the self-test for an hour on */
 /* each FFT length.  If we ever decide to resupport this option, change */
-/* the run_indefiitely variable to an argument and change the output */
+/* the run_indefinitely variable to an argument and change the output */
 /* message below. */
 
 loop:	run_indefinitely = TRUE;
