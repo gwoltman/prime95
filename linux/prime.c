@@ -1,4 +1,4 @@
-/* Copyright 1995-2013 Mersenne Research, Inc. */
+/* Copyright 1995-2014 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -278,9 +278,10 @@ int main (
 
 		VERBOSE = TRUE;
 		NO_GUI = FALSE;
-		num_threads = IniGetInt (INI_FILE, "TortureThreads",
-					 NUM_CPUS * CPU_HYPERTHREADS);
-		LaunchTortureTest (num_threads, TRUE);
+		num_threads = IniGetInt (INI_FILE, "TortureThreads", NUM_CPUS * CPU_HYPERTHREADS);
+		if (num_threads < 1) num_threads = 1;
+		if (num_threads > MAX_NUM_WORKER_THREADS) num_threads = MAX_NUM_WORKER_THREADS;
+ 		LaunchTortureTest (num_threads, TRUE);
 	}
 
 /* If this is a stress tester, then turn on menuing. */
