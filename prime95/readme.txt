@@ -428,7 +428,7 @@ only appear on one user's desktop.  Finally, if you are worried about giving
 users access to a GUI service running in the Local System account, you can
 turn off the "Allow service to interact with desktop" option in the services
 control panel applet or run the GUI-less NT service version available at
-http://mersenne.org/freesoft/  These options are more secure than
+http://mersenne.org/download/  These options are more secure than
 using the No Icon menu choice.
 
 
