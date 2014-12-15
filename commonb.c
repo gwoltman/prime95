@@ -9066,10 +9066,14 @@ pushg(&gwdata.gdata, 2);}
 
 /* Print results. */
 
-	if (isProbablePrime)
-		sprintf (buf, "%s is a probable prime! We%d: %08lX,%08lX\n",
-			 string_rep, PORT, SEC1 (w->n), error_count);
-	else
+	if (isProbablePrime) {
+		if (prp_base == 3)
+			sprintf (buf, "%s is a probable prime! We%d: %08lX,%08lX\n",
+				 string_rep, PORT, SEC1 (w->n), error_count);
+		else
+			sprintf (buf, "%s is a probable prime (%d-PRP)! We%d: %08lX,%08lX\n",
+				 string_rep, prp_base, PORT, SEC1 (w->n), error_count);
+	} else
 		sprintf (buf, "%s is not prime.  RES64: %s. We%d: %08lX,%08lX\n",
 			 string_rep, res64, PORT, SEC1 (w->n), error_count);
 	OutputStr (thread_num, buf);
