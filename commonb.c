@@ -8684,9 +8684,14 @@ begin:	gwinit (&gwdata);
 /* Also output the FFT length. */
 
 	gwfft_description (&gwdata, fft_desc);
-	sprintf (buf, "%s PRP test of %s using %s\n",
-		 (counter == 0) ? "Starting" : "Resuming",
-		 string_rep, fft_desc);
+	if (prp_base == 3)
+		sprintf (buf, "%s PRP test of %s using %s\n",
+			 (counter == 0) ? "Starting" : "Resuming",
+			 string_rep, fft_desc);
+	else
+		sprintf (buf, "%s %d-PRP test of %s using %s\n",
+			 (counter == 0) ? "Starting" : "Resuming",
+			 prp_base, string_rep, fft_desc);
 	OutputStr (thread_num, buf);
 
 /* Compute the number we are testing. */
