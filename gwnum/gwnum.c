@@ -51,7 +51,7 @@
 /* giants library.  Prime95 will set this routine pointer so that gwnum */
 /* code can cheat while keeping the gwnum library interface clean. */
 
-void (*OutputBothRoutine)(int, char *) = NULL;
+void (*OutputBothRoutine)(int, const char *) = NULL;
 #define OutputBoth(t,x)	(*OutputBothRoutine)(t,x)
 
 /* Assembly helper routines */

@@ -1,4 +1,4 @@
-/* Copyright 1995-2014 Mersenne Research, Inc. */
+/* Copyright 1995-2015 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -360,15 +360,13 @@ void create_window (
 
 /* Set the title prefix for this MDI window - only called once */
 
-void base_title (
-	int	thread_num,
-	char	*str)
+void base_title (int thread_num, const char *str)
 {
 }
 
 /* Put a title on the MDI window */
 
-void title (int thread_num, char *msg)
+void title (int thread_num, const char *msg)
 {
 }
 
@@ -377,7 +375,7 @@ void flashWindowAndBeep (void)
 	printf ("\007");
 }
 
-void RealOutputStr (int thread_num, char *buf)
+void RealOutputStr (int thread_num, const char *buf)
 {
 static	int	last_char_out_was_newline = TRUE;
 	if (VERBOSE || MENUING) {

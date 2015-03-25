@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2014 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2015 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
@@ -11,7 +11,7 @@
 | Commonc contains information used during setup and execution
 +---------------------------------------------------------------------*/
 
-char JUNK[]="Copyright 1996-2014 Mersenne Research, Inc. All rights reserved";
+static const char JUNK[]="Copyright 1996-2015 Mersenne Research, Inc. All rights reserved";
 
 char	INI_FILE[80] = {0};
 char	LOCALINI_FILE[80] = {0};
@@ -2226,7 +2226,7 @@ int PTOHasOptionChanged (
 
 void OutputSomewhere (
 	int	thread_num,
-	char	*buf)
+	const char *buf)
 {
 	if (NO_GUI) writeResults (buf);
 	else OutputStr (thread_num, buf);
@@ -2237,7 +2237,7 @@ void OutputSomewhere (
 EXTERNC
 void OutputBoth (
 	int	thread_num,
-	char	*buf)
+	const char *buf)
 {
 	OutputStr (thread_num, buf);
 	writeResults (buf);
@@ -2247,7 +2247,7 @@ void OutputBoth (
 
 void OutputStr (
 	int	thread_num,
-	char	*buf)
+	const char *buf)
 {
 
 /* Grab a lock so that multiple threads cannot output at the same time. */
@@ -2281,7 +2281,7 @@ void OutputStr (
 /* Output the prefix for every line in the buffer */ 
 
 		do {
-			char	*eol;
+			const char *eol;
 
 			eol = strchr (buf, '\n');
 			if (eol != NULL) eol++;
@@ -2315,7 +2315,7 @@ void OutputStr (
 
 void OutputStrNoTimeStamp (
 	int	thread_num,
-	char	*buf)
+	const char *buf)
 {
 	gwmutex_lock (&OUTPUT_MUTEX);
 	RealOutputStr (thread_num, buf);
@@ -4519,7 +4519,7 @@ void formatMsgForResultsFile (
 /* Open the results file and write a line to the end of it. */
 
 int writeResults (
-	char	*msg)
+	const char *msg)
 {
 static	time_t	last_time = 0;
 	time_t	this_time;
@@ -4962,7 +4962,7 @@ int unreserve (
 /* Output message to screen and prime.log file */
 
 void LogMsg (
-	char	*str)
+	const char *str)
 {
 	int	fd;
 	unsigned long filelen;

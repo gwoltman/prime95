@@ -1,4 +1,4 @@
-/* Copyright 1995-2014 Mersenne Research, Inc.  All rights reserved */
+/* Copyright 1995-2015 Mersenne Research, Inc.  All rights reserved */
 
 /* Constants */
 
@@ -290,18 +290,18 @@ int PTOHasOptionChanged (char *shadow_keyword, unsigned int *array, int tnum);
 void create_window (int thread_num);
 void destroy_window (int thread_num);
 void TileViews (void);
-void base_title (int, char *);
-void title (int, char *);
+void base_title (int, const char *);
+void title (int, const char *);
 #define	WORKING_ICON	0
 #define	IDLE_ICON	1
 void ChangeIcon (int, int);
 void BlinkIcon (int, int);
-EXTERNC void OutputBoth (int, char *);
-void OutputStr (int, char *);
-void OutputStrNoTimeStamp (int thread_num, char *buf);
-void RealOutputStr (int, char *);
-void OutputSomewhere (int, char *);
-void LogMsg (char *);
+EXTERNC void OutputBoth (int, const char *);
+void OutputStr (int, const char *);
+void OutputStrNoTimeStamp (int, const char *);
+void RealOutputStr (int, const char *);
+void OutputSomewhere (int, const char *);
+void LogMsg (const char *);
 int OutOfMemory (int);
 
 /* Structures and definitions dealing with the worktodo.ini file */
@@ -409,7 +409,7 @@ int read_checksum (int fd, unsigned long *sum);
 int write_checksum (int fd, unsigned long sum);
 
 void formatMsgForResultsFile (char *, struct work_unit *);
-int writeResults (char	*);
+int writeResults (const char *);
 
 /* Routines called by common routines */
 

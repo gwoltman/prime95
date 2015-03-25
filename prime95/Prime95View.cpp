@@ -1,4 +1,4 @@
-/* Copyright 1995-2014 Mersenne Research, Inc.  All rights reserved */
+/* Copyright 1995-2015 Mersenne Research, Inc.  All rights reserved */
 
 // Prime95View.cpp : implementation of the CPrime95View class
 //
@@ -331,7 +331,7 @@ static	int	was_iconic = TRUE;
 
 void base_title (
 	int	thread_num,
-	char	*str)
+	const char *str)
 {
 	CPrime95View *view;
 
@@ -339,7 +339,7 @@ void base_title (
 
 /* When merging windows, apply some arbitrary rules to decide which */
 /* base title to use. */
-	
+
 	if (MERGE_WINDOWS & MERGE_MAIN_WINDOW &&
 	    MERGE_WINDOWS & MERGE_COMM_WINDOW &&
 	    (MERGE_WINDOWS & MERGE_WORKER_WINDOWS || NUM_WORKER_THREADS == 1))
@@ -366,7 +366,7 @@ void base_title (
 }
 
 void CPrime95View::base_title (
-	char	*str)
+	const char *str)
 {
 	strcpy (BaseTitle, str);
 	PostMessage (WM_COMMAND, USR_TITLE, 0);
@@ -376,7 +376,7 @@ void CPrime95View::base_title (
 
 void title (
 	int	thread_num,
-	char	*str)
+	const char *str)
 {
 	CPrime95View *view;
 	char	merged_title[160];
@@ -417,7 +417,7 @@ void title (
 }
 
 void CPrime95View::title (
-	char	*str)
+	const char *str)
 {
 	strcpy (Title, str);
 	PostMessage (WM_COMMAND, USR_TITLE, 0);
@@ -760,7 +760,7 @@ void CPrime95View::OnScroll ()
 
 void RealOutputStr (
 	int	thread_num,
-	char	*str)
+	const char *str)
 {
 	CPrime95View *view;
 static	int	partial_line_output[MAX_VIEWS] = {FALSE};
@@ -834,7 +834,7 @@ static	int	partial_line_output[MAX_VIEWS] = {FALSE};
 /* Copy a string to be output to our array of lines */
 
 void CPrime95View::RealOutputStr (
-	char	*str)
+	const char *str)
 {
 	char	*p;
 

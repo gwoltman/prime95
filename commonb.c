@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2014 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2015 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
@@ -5900,7 +5900,7 @@ struct self_test_info {
 };
 
 #define MAX_SELF_TEST_ITERS	405
-struct self_test_info SELF_TEST_DATA[MAX_SELF_TEST_ITERS] = {
+const struct self_test_info SELF_TEST_DATA[MAX_SELF_TEST_ITERS] = {
 {560000001, 100, 0x7F853A0A}, {420000001, 150, 0x89665E7E},
 {280000001, 200, 0xC32CAD46}, {210000001, 300, 0x89823329},
 {140000001, 400, 0x15EF4F24}, {110000001, 500, 0x893C9000},
@@ -6107,7 +6107,7 @@ struct self_test_info SELF_TEST_DATA[MAX_SELF_TEST_ITERS] = {
 };
 
 #define MAX_SELF_TEST_ITERS2	376
-struct self_test_info SELF_TEST_DATA2[MAX_SELF_TEST_ITERS2] = {
+const struct self_test_info SELF_TEST_DATA2[MAX_SELF_TEST_ITERS2] = {
 {560000001, 100, 0x7F853A0A}, {420000001, 150, 0x89665E7E},
 {280000001, 200, 0xC32CAD46}, {210000001, 300, 0x89823329},
 {140000001, 400, 0x15EF4F24}, {110000001, 500, 0x893C9000},
@@ -6299,7 +6299,7 @@ struct self_test_info SELF_TEST_DATA2[MAX_SELF_TEST_ITERS2] = {
 };
 
 #define MAX_SELF_TEST_ITERS3	484
-struct self_test_info SELF_TEST_DATA3[MAX_SELF_TEST_ITERS3] = {
+const struct self_test_info SELF_TEST_DATA3[MAX_SELF_TEST_ITERS3] = {
 {560000001, 400, 0x5D2075F2}, {420000001, 600, 0x76973D8D},
 {280000001, 800, 0xA4B0C213}, {210000001, 1200, 0x9B0FEEA5},
 {140000001, 1600, 0xEC8F25E6}, {110000001, 2000, 0xD7EE8401},
@@ -6552,7 +6552,7 @@ int selfTestInternal (
 	int	*torture_index,	/* Index into self test data array */
 	unsigned int memory,	/* MB of memory the torture test can use */
 	void	*bigbuf,	/* Memory block for the torture test */
-	struct self_test_info *test_data, /* Self test data */
+	const struct self_test_info *test_data, /* Self test data */
 	unsigned int test_data_count,
 	int	*completed,	/* Returned count of tests completed */
 	int	*errors,	/* Returned count of self test errors */
@@ -6854,7 +6854,7 @@ int tortureTest (
 	int	num_threads)
 {
 	struct PriorityInfo sp_info;
-	struct self_test_info *test_data; /* Self test data */
+	const struct self_test_info *test_data; /* Self test data */
 	unsigned int test_data_count;
 	int	num_lengths;		/* Number of FFT lengths we will torture test */
 	unsigned long lengths[500];	/* The FFT lengths we will torture test */

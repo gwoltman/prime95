@@ -16,7 +16,7 @@
 | threads IF AND ONLY IF each uses a different gwhandle structure
 | initialized by gwinit.
 | 
-|  Copyright 2002-2014 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2015 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 #ifndef _GWNUM_H
@@ -1017,7 +1017,7 @@ void gwgiantdealloc (void *);
 /* giants library.  Prime95 will set this routine pointer so that gwnum */
 /* code can cheat while keeping the gwnum library interface clean. */
 
-extern void (*OutputBothRoutine)(int,char *);
+extern void (*OutputBothRoutine)(int, const char *);
 
 /* These routines let me time many assembly language building blocks -- used */
 /* when optimizing these building blocks. */
