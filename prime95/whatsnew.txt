@@ -1,3 +1,13 @@
+New features in Version 28.6 of prime95.exe
+-------------------------------------------
+
+1)  The "days between sending new end dates" preference now accepts values between 0.125 and
+    7.0 (was between 1 and 7).  This lets you contact the server as frequently as every three
+    hours.  This can be useful in conjunction with the server feature that sends an email to
+    you if the computer is more than one hour late contacting the server.  To turn on that
+    server feature, go to the CPUs web page, and click on the CPU, there you can turn on a
+    couple of email features.
+
 New features in Version 28.5 of prime95.exe
 -------------------------------------------
 

@@ -99,6 +99,29 @@ loop:	get_line (buf);
 
 /* Ask a number question */
 
+void askFloat (
+	char	*str,
+	float	*val,
+	float	min,
+	float	max)
+{
+	char	buf[80];
+	double	newval;
+	printf ("%s (%f): ", str, *val);
+loop:	get_line (buf);
+	if (buf[0] == 0) return;
+	newval = (float) atof (buf);
+	if (min != 0.0 || max != 0.0) {
+		if (newval < min || newval > max) {
+			printf ("Please enter a value between %f and %f. ", min, max);
+			goto loop;
+		}
+	}
+	*val = newval;
+}
+
+/* Ask a number question */
+
 void askDbl (
 	char	*str,
 	double	*val,
@@ -876,7 +899,8 @@ again:	m_hours = CPU_HOURS;
 void options_preferences (void)
 {
 	unsigned long m_iter, m_r_iter, m_disk_write_time;
-	unsigned long m_modem, m_retry, m_work, m_end_dates, m_backup;
+	unsigned long m_modem, m_retry, m_work, m_backup;
+	float	m_end_dates;
 	int	m_noise, m_battery;
 
 	m_iter = ITER_OUTPUT;
@@ -901,7 +925,7 @@ void options_preferences (void)
 	if (USE_PRIMENET)
 		askNum ("Days of work to queue up", &m_work, 1, 90);
 	if (USE_PRIMENET)
-		askNum ("Days between sending end dates", &m_end_dates, 1, 7);
+		askFloat ("Days between sending end dates", &m_end_dates, 0.125, 7);
 	askNum ("Number of Backup Files", &m_backup, 1, 3);
 	askYN ("Make noise if new Mersenne prime is found", &m_noise);
 	askYN ("Run program even when using laptop battery power", &m_battery);
@@ -927,7 +951,7 @@ void options_preferences (void)
 		IniWriteInt (INI_FILE, "NetworkRetryTime", MODEM_RETRY_TIME);
 		IniWriteInt (INI_FILE, "NetworkRetryTime2", NETWORK_RETRY_TIME);
 		IniWriteInt (INI_FILE, "DaysOfWork", DAYS_OF_WORK);
-		IniWriteInt (INI_FILE, "DaysBetweenCheckins", DAYS_BETWEEN_CHECKINS);
+		IniWriteFloat (INI_FILE, "DaysBetweenCheckins", DAYS_BETWEEN_CHECKINS);
 		IniWriteInt (INI_FILE, "NumBackupFiles", NUM_BACKUP_FILES);
 		IniWriteInt (INI_FILE, "SilentVictory", SILENT_VICTORY);
 		spoolMessage (PRIMENET_PROGRAM_OPTIONS, NULL);

@@ -2,8 +2,8 @@
 
 /* Constants */
 
-#define VERSION		"28.5"
-#define BUILD_NUM	"3"
+#define VERSION		"28.6"
+#define BUILD_NUM	"1"
 /* The list of assigned OS ports follows: */
 /* Win9x (prime95) #1 */
 /* Linux (mprime)  #2 */
@@ -177,7 +177,7 @@ extern unsigned int MODEM_RETRY_TIME;	/* How often to try sending msgs */
 					/* to primenet server whem modem off */
 extern unsigned int NETWORK_RETRY_TIME;	/* How often to try sending msgs */
 					/* to primenet server */
-extern double DAYS_BETWEEN_CHECKINS;	/* Days between sending updated */
+extern float DAYS_BETWEEN_CHECKINS;	/* Days between sending updated */
 					/* completion dates to the server */
 extern int NUM_BACKUP_FILES;		/* Between 1 and 3 backup files (or 99 */
 					/* for overwrite) */
@@ -258,12 +258,14 @@ long IniSectionGetInt (const char *, const char *, const char *, long);
 long IniSectionGetTimedInt (const char *, const char *, const char *, long, unsigned int *);
 void IniSectionWriteString (const char *, const char *, const char *, const char *);
 void IniSectionWriteInt (const char *, const char *, const char *, long);
+void IniSectionWriteFloat (const char *, const char *, const char *, float);
 void IniGetString (const char *, const char *, char *, unsigned int, const char *);
 void IniGetTimedString (const char *, const char *, char *, unsigned int, const char *, unsigned int *);
 long IniGetInt (const char *, const char *, long);
 long IniGetTimedInt (const char *, const char *, long, unsigned int *);
 void IniWriteString (const char *, const char *, const char *);
 void IniWriteInt (const char *, const char *, long);
+void IniWriteFloat (const char *, const char *, float);
 void IniFileReread (const char *);
 void processTimedIniFile (const char *);
 
