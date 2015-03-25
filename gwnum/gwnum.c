@@ -5,7 +5,7 @@
 | in the multi-precision arithmetic routines.  That is, all routines
 | that deal with the gwnum data type.
 | 
-|  Copyright 2002-2014 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2015 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -759,7 +759,7 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 
 again:	zpad_jmptab = NULL;
 	generic_jmptab = NULL;
-	if (gwdata->specific_fftlen == 0 && ! gwdata->force_general_mod &&
+	if (! gwdata->force_general_mod &&
 	    (k > 1.0 || n < 500 || abs (c) > 1) &&
 	    gwdata->qa_pick_nth_fft < 1000) {
 
@@ -784,6 +784,10 @@ again:	zpad_jmptab = NULL;
 			if ((double) n * log2b / (double) zpad_jmptab->fftlen > 26.0) goto next1;
 			if (zpad_jmptab->fftlen < gwdata->minimum_fftlen) goto next1;
 			if (! is_fft_implemented (gwdata, zpad_jmptab)) goto next1;
+
+/* If user requested a specific FFT length, then only examine that FFT size */
+
+			if (gwdata->specific_fftlen && zpad_jmptab->fftlen != gwdata->specific_fftlen) goto next1;
 
 /* Don't bother looking at this FFT length if the generic reduction would be faster */
 
@@ -856,7 +860,7 @@ again:	zpad_jmptab = NULL;
 
 /* See if this FFT length might work */
 
-			if (weighted_bits_per_output_word <= max_weighted_bits_per_output_word &&
+			if ((weighted_bits_per_output_word <= max_weighted_bits_per_output_word || gwdata->specific_fftlen) &&
 
 /* Result words are multiplied by k and the mul-by-const and any carry spread over 6 words. */
 /* Thus, the multiplied FFT result word cannot be more than 7 times bits-per-input-word */
@@ -911,18 +915,19 @@ next1:			while (zpad_jmptab->flags & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
 
 	while ((max_exp = jmptab->max_exp) != 0) {
 
-/* Check if this table entry matches the specified FFT length. */
-
-		if (gwdata->specific_fftlen) {
-			if (gwdata->specific_fftlen == jmptab->fftlen) break;
-			goto next2;
-		}
-
 /* Do a quick check on the suitability of this FFT */
 
 		if ((double) n * log2b / (double) jmptab->fftlen > 26.0) goto next2;
 		if (jmptab->fftlen < gwdata->minimum_fftlen) goto next2;
 		if (! is_fft_implemented (gwdata, jmptab)) goto next2;
+
+/* If user requested a specific FFT length, then only examine that FFT size */
+/* Always use the specific_fftlen if n is zero (a special case call from gwmap_fftlen_to_max_exponent) */
+
+		if (gwdata->specific_fftlen) {
+			if (jmptab->fftlen != gwdata->specific_fftlen) goto next2;
+			if (n == 0) break;
+		}
 
 /* Top carry adjust can only handle k values of 34 bits or less */
 
@@ -1076,10 +1081,10 @@ next1:			while (zpad_jmptab->flags & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
 			if (b != 2) weighted_bits_per_output_word += 0.3;
 		}
 
-/* If the bits in an output word is less than the maximum allowed, we can */
-/* probably use this FFT length -- though we need to do a few more tests. */
+/* If the bits in an output word is less than the maximum allowed (or the user is trying to force us */
+/* to use this FFT), then we can probably use this FFT length -- though we need to do a few more tests. */
 
-		if (weighted_bits_per_output_word <= max_weighted_bits_per_output_word) {
+		if (weighted_bits_per_output_word <= max_weighted_bits_per_output_word || gwdata->specific_fftlen) {
 			double	carries_spread_over;
 
 /* Originally, carries were spread over 4 FFT words.  Some FFT code has been */
@@ -1095,11 +1100,11 @@ next1:			while (zpad_jmptab->flags & 0x80000000) INC_JMPTAB_1 (zpad_jmptab);
 			else						// Two pass AVX/SSE2 FFTs
 				carries_spread_over = 6.0;
 				
-/* Because carries are spread over 4 words, there is a minimum limit on the bits */
-/* per word.  An FFT result word cannot be more floor(bits-per-input-word) stored */
+/* Because carries are spread over 4 words, there is a minimum value for the bits */
+/* per FFT word.  An FFT result word must fit in the floor(bits-per-input-word) stored */
 /* in the current word plus ceil (4 * bits-per-input-word) for the carries to */
 /* propagate into.  The mul-by-const during the normalization process adds to */
-/* the size of the carry. */
+/* the size of the result word. */
 
 			if (bits_per_output_word + log2maxmulbyconst >
 					(floor (b_per_input_word) + ceil (carries_spread_over * b_per_input_word)) * log2b) {
