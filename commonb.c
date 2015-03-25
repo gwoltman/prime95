@@ -19,22 +19,22 @@
 
 /* Globals for error messages */
 
-char ERRMSG0[] = "Iteration: %ld/%ld, %s";
-char ERRMSG1A[] = "ERROR: ILLEGAL SUMOUT\n";
-char ERRMSG1B[] = "ERROR: SUM(INPUTS) != SUM(OUTPUTS), %.16g != %.16g\n";
-char ERRMSG1C[] = "Possible error: round off (%.10g) > 0.40\n";
-char ERRMSG1D[] = "ERROR: Shift counter corrupt.\n";
-char ERRMSG1E[] = "ERROR: Illegal double encountered.\n";
-char ERRMSG1F[] = "ERROR: FFT data has been zeroed!\n";
-char ERRMSG2[] = "Possible hardware failure, consult the readme.txt file.\n";
-char ERRMSG3[] = "Continuing from last save file.\n";
-char ERRMSG4[] = "Waiting five minutes before restarting.\n";
-char ERRMSG5[] = "For added safety, redoing iteration using a slower, more reliable method.\n";
-char ERROK[] = "Disregard last error.  Result is reproducible and thus not a hardware problem.\n";
-char READFILEERR[] = "Error reading intermediate file: %s\n";
-char WRITEFILEERR[] = "Error writing intermediate file: %s\n";
-char ALTSAVE_MSG[] = "Trying backup intermediate file: %s\n";
-char ALLSAVEBAD_MSG[] = "All intermediate files bad.  Temporarily abandoning work unit.\n";
+static const char ERRMSG0[] = "Iteration: %ld/%ld, %s";
+static const char ERRMSG1A[] = "ERROR: ILLEGAL SUMOUT\n";
+static const char ERRMSG1B[] = "ERROR: SUM(INPUTS) != SUM(OUTPUTS), %.16g != %.16g\n";
+static const char ERRMSG1C[] = "Possible error: round off (%.10g) > 0.40\n";
+static const char ERRMSG1D[] = "ERROR: Shift counter corrupt.\n";
+static const char ERRMSG1E[] = "ERROR: Illegal double encountered.\n";
+static const char ERRMSG1F[] = "ERROR: FFT data has been zeroed!\n";
+static const char ERRMSG2[] = "Possible hardware failure, consult readme.txt file.\n";
+static const char ERRMSG3[] = "Continuing from last save file.\n";
+static const char ERRMSG4[] = "Waiting five minutes before restarting.\n";
+static const char ERRMSG5[] = "For added safety, redoing iteration using a slower, more reliable method.\n";
+static const char ERROK[] = "Disregard last error.  Result is reproducible and thus not a hardware problem.\n";
+static const char READFILEERR[] = "Error reading intermediate file: %s\n";
+static const char WRITEFILEERR[] = "Error writing intermediate file: %s\n";
+static const char ALTSAVE_MSG[] = "Trying backup intermediate file: %s\n";
+static const char ALLSAVEBAD_MSG[] = "All intermediate files bad.  Temporarily abandoning work unit.\n";
 
 /* PauseWhileRunning globals */
 
@@ -550,7 +550,7 @@ void generate_affinity_scramble_thread (void *arg)
 			if (diff == 99999) {
 				AFFINITY_SCRAMBLE_STATE = 0;
 			} else {
-				OutputStr (MAIN_THREAD_NUM, "Enough information obtained to make a reasonable guess.\n");
+				OutputStr (MAIN_THREAD_NUM, "Have enough information to make a reasonable guess.\n");
 			}
 		}
 		if (AFFINITY_SCRAMBLE_STATE == 0 && scramble[0] == '*') {
@@ -578,7 +578,7 @@ void generate_affinity_scramble_thread (void *arg)
 
 no_auto_detect:
 	if (scramble[0] != '*') {
-		OutputStr (MAIN_THREAD_NUM, "Using AffinityScramble2 settings to set affinity mask.\n");
+		OutputStr (MAIN_THREAD_NUM, "Using AffinityScramble2 setting to set affinity mask.\n");
 		AFFINITY_SCRAMBLE_STATE = 2;
 		for (i = 0; i < MAX_NUM_WORKER_THREADS && i < strlen (scramble); i++) {
 			if (scramble[i] >= '0' && scramble[i] <= '9')
@@ -1063,7 +1063,7 @@ void stop_worker_for_priority_work (
 	int	thread_num)
 {
 	if (WORKER_THREADS_ACTIVE && ! STOP_FOR_PRIORITY_WORK[thread_num]) {
-		OutputStr (thread_num, "Restarting worker to do factoring prior to an LL test.\n");
+		OutputStr (thread_num, "Restarting worker to do factoring prior to LL test.\n");
 		STOP_FOR_PRIORITY_WORK[thread_num] = 1;
 	}
 }
@@ -4071,8 +4071,8 @@ loop:	*res = factorChunk (facdata);
 
 /* Trial factor a Mersenne number prior to running a Lucas-Lehmer test */
 
-char FACMSG[] = "Trial factoring M%%ld to 2^%%d is %%.%df%%%% complete.";
-char SHORT_FACMSG[] = "Trial factoring M%ld to 2^%d.";
+static const char FACMSG[] = "Trial factoring M%%ld to 2^%%d is %%.%df%%%% complete.";
+static const char SHORT_FACMSG[] = "Trial factoring M%ld to 2^%d.";
 
 #define FACTOR_MAGICNUM		0x1567234D
 #define FACTOR_VERSION		1
@@ -5872,26 +5872,23 @@ restart:if (sleep5) OutputBoth (thread_num, ERRMSG2);
 /* Torture test code */
 /*********************/
 
-#define TORTURE1 "Beginning a continuous self-test to check your computer.\n"
+static const char TORTURE1[] = "Beginning a continuous self-test on your computer.\n";
 #if defined (__linux__) || defined (__FreeBSD__) || defined (__EMX__)
-#define TORTURE2 "Please read stress.txt.  Hit ^C to end this test.\n"
+static const char TORTURE2[] = "Please read stress.txt.  Hit ^C to end this test.\n";
 #else
-#define TORTURE2 "Please read stress.txt.  Choose Test/Stop to end this test.\n"
+static const char TORTURE2[] = "Please read stress.txt.  Choose Test/Stop to end this test.\n";
 #endif
-#define SELFMSG1A "The program will now perform a self-test to make sure the\n"
-#define SELFMSG1B "Lucas-Lehmer code is working properly on your computer.\n"
-#define SELFMSG1C "This will take about an hour.\n"
-#define SELF1 "Test %i, %i Lucas-Lehmer iterations of M%ld using %s.\n"
-#define SELFFAIL "FATAL ERROR: Final result was %08lX, expected: %08lX.\n"
-char SELFFAIL1[] = "ERROR: ILLEGAL SUMOUT\n";
-char SELFFAIL2[] = "FATAL ERROR: Resulting sum was %.16g, expected: %.16g\n";
-char SELFFAIL3[] = "FATAL ERROR: Rounding was %.10g, expected less than 0.4\n";
-char SELFFAIL4[] = "Possible hardware failure, consult readme.txt file, restarting test.\n";
-char SELFFAIL5[] = "Hardware failure detected, consult stress.txt file.\n";
-char SELFFAIL6[] = "Maximum number of warnings exceeded.\n";
+static const char SELF1[] = "Test %i, %i Lucas-Lehmer iterations of M%ld using %s.\n";
+static const char SELFFAIL[] = "FATAL ERROR: Final result was %08lX, expected: %08lX.\n";
+static const char SELFFAIL1[] = "ERROR: ILLEGAL SUMOUT\n";
+static const char SELFFAIL2[] = "FATAL ERROR: Resulting sum was %.16g, expected: %.16g\n";
+static const char SELFFAIL3[] = "FATAL ERROR: Rounding was %.10g, expected less than 0.4\n";
+static const char SELFFAIL4[] = "Possible hardware failure, consult readme.txt file, restarting test.\n";
+static const char SELFFAIL5[] = "Hardware failure detected, consult stress.txt file.\n";
+static const char SELFFAIL6[] = "Maximum number of warnings exceeded.\n";
 
-#define SELFPASS "Self-test %i%s passed!\n"
-//char SelfTestIniMask[] = "SelfTest%iPassed";
+static const char SELFPASS[] = "Self-test %i%s passed!\n";
+//static const char SelfTestIniMask[] = "SelfTest%iPassed";
 
 struct self_test_info {
 	unsigned long p;
@@ -6804,6 +6801,11 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 }
 
 #ifdef ONE_HOUR_SELF_TEST
+
+static const char SELFMSG1A[] = "The program will now perform a self-test to make sure the\n";
+static const char SELFMSG1B[] = "Lucas-Lehmer code is working properly on your computer.\n";
+static const char SELFMSG1C[] = "This will take about an hour.\n";
+
 int selfTest (
 	int	thread_num,
 	struct PriorityInfo *sp_info,
@@ -7647,8 +7649,8 @@ void bench_busy_loop (void *arg)
 
 /* Routine to benchmark the trial factoring code */
 
-#define BENCH1 "Your timings will be written to the results.txt file.\n"
-#define BENCH2 "Compare your results to other computers at http://www.mersenne.org/report_benchmarks\n"
+static const char BENCH1[] = "Your timings will be written to the results.txt file.\n";
+static const char BENCH2[] = "Compare your results to other computers at http://www.mersenne.org/report_benchmarks\n";
 
 int factorBench (
 	int	thread_num,
