@@ -7079,7 +7079,7 @@ void gianttogw (
 		}
 
 /* Otherwise (non-base 2), we do a recursive divide and conquer radix conversion. */
-/* The resursive routine writes on a, so make a copy before calling */
+/* The recursive routine writes on a, so make a copy before calling */
 
 		else {
 			if (a != newg) {
@@ -7837,7 +7837,7 @@ void gwsquare (			/* Square a number */
 /* If we are converting gwsquare calls into gwsquare_carefully calls */
 /* do so now.  Turn off option to do a partial forward FFT on the result. */
 /* NOTE: We must clear count since gwsquare_carefully calls back to this */
-/* gwsquare routine. */
+/* gwsquare routine (well, it used to -- we'll still clear the count to be safe) */
 
 	if (gwdata->square_carefully_count) {
 		int	n = gwdata->square_carefully_count;
@@ -8086,19 +8086,33 @@ void gwsquare_carefully (
 /* the randomness of tmp1.  An example is the first PRP iterations */
 /* of 2*3^599983-1 -- s is all positive values and gwadd3 thinks */
 /* there are enough extra bits to do an add quick.  This generates */
-/* a tmp1 with nearly all positive values -- very bad. */
+/* temps with nearly all positive values -- very bad. */
 
 	saved_extra_bits = gwdata->EXTRA_BITS;
 	gwdata->EXTRA_BITS = 0;
+
+/* Now do the squaring using two multiplies and several adds. */
+
+	tmp1 = gwalloc (gwdata);
+	tmp2 = gwalloc (gwdata);
+	gwstartnextfft (gwdata, 0);			/* Disable POSTFFT */
+	gwfft (gwdata, gwdata->GW_RANDOM, tmp2);
+	gwfftfftmul (gwdata, tmp2, tmp2, tmp2);		/* Compute random^2 (we could compute this once and save it) */
+	gwaddsub4 (gwdata, s, gwdata->GW_RANDOM, tmp1, s); /* Compute s+random and s-random */
+	asm_data->ADDIN_VALUE = saved_addin_value;	/* Restore the addin value */
+	gwfft (gwdata, tmp1, tmp1);
+	gwfftmul (gwdata, tmp1, s);			/* Compute (s+random)(s-random) */
+	gwadd3 (gwdata, s, tmp2, s);			/* Calc s^2 from 2 results */
 
 /* Now do the squaring using three multiplies and adds */
 /* Note that during the calculation of s*random we must relax the */
 /* SUMINP != SUMOUT limit.  This is because s may be non-random. */
 /* For example, in the first iterations of 2*3^500327-1, s is mostly */
 /* large positive values.  This means we lose some of the lower bits */
-/* of precision when we calculate SUMINP.  To combate this problem we */
+/* of precision when we calculate SUMINP.  To combat this problem we */
 /* increase MAXDIFF during the s*random calculation. */
 
+#ifdef OLD_METHOD_OF_SQUARING_CAREFULLY
 	tmp1 = gwalloc (gwdata);
 	tmp2 = gwalloc (gwdata);
 	gwstartnextfft (gwdata, 0);		/* Disable POSTFFT */
@@ -8113,6 +8127,7 @@ void gwsquare_carefully (
 	gwsubquick (gwdata, tmp2, tmp1);	/* Calc s^2 from 3 results */
 	gwaddquick (gwdata, s, s);
 	gwsub3 (gwdata, tmp1, s, s);
+#endif
 
 /* Restore state, free memory and return */
 
@@ -8153,8 +8168,37 @@ void gwmul_carefully (
 	saved_extra_bits = gwdata->EXTRA_BITS;
 	gwdata->EXTRA_BITS = 0;
 
+/* Now do the multiply using three multiplies and several adds */
+
+	tmp1 = gwalloc (gwdata);
+	tmp2 = gwalloc (gwdata);
+	tmp3 = gwalloc (gwdata);
+	tmp4 = gwalloc (gwdata);
+
+	gwstartnextfft (gwdata, 0);			/* Disable POSTFFT */
+	gwfft (gwdata, gwdata->GW_RANDOM, tmp2);
+	gwfftfftmul (gwdata, tmp2, tmp2, tmp2);		/* Compute random^2 (we could compute this once and save it) */
+
+	gwadd3 (gwdata, s, gwdata->GW_RANDOM, tmp1);	/* Compute s+random */
+	gwadd3 (gwdata, t, gwdata->GW_RANDOM, t);	/* Compute t+random */
+	asm_data->ADDIN_VALUE = saved_addin_value;	/* Restore addin value */
+	gwadd3 (gwdata, tmp1, gwdata->GW_RANDOM, tmp3);	/* Compute s+2*random */
+	gwadd3 (gwdata, t, gwdata->GW_RANDOM, tmp4);	/* Compute t+2*random */
+
+	gwfft (gwdata, tmp1, tmp1);
+	gwfftmul (gwdata, tmp1, t);			/* Compute (s+r)*(t+r) = st + rs + rt + rr + addin */
+	gwaddquick (gwdata, t, t);			/* Compute 2st + 2rs + 2rt + 2rr + 2addin */
+
+	gwfft (gwdata, tmp3, tmp3);
+	gwfftmul (gwdata, tmp3, tmp4);			/* Compute (s+2r)*(t+2r) = st + 2rs + 2rt + 4rr + addin */
+
+	gwsubquick (gwdata, tmp4, t);			/* Compute st - 2rr + addin */
+	gwaddquick (gwdata, tmp2, t);			/* Compute st - rr + addin */
+	gwadd (gwdata, tmp2, t);			/* Compute st + addin */
+
 /* Now do the multiply using four multiplies and adds */
 
+#ifdef OLD_WAY_TO_MUL_CAREFULLY
 	tmp1 = gwalloc (gwdata);
 	tmp2 = gwalloc (gwdata);
 	tmp3 = gwalloc (gwdata);
@@ -8174,6 +8218,7 @@ void gwmul_carefully (
 	gwsub (gwdata, tmp2, tmp3);		/* Subtract random^2 */
 	gwsub (gwdata, t, tmp3);
 	gwsub3 (gwdata, tmp3, tmp4, t);
+#endif
 
 /* Restore state, free memory and return */
 
