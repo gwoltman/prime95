@@ -3886,7 +3886,10 @@ int factorSetup (
 	asm_data->EXPONENT = p;
 	asm_data->cpu_flags = CPU_FLAGS;
 #ifdef X86_64
-	if (!IniGetInt (LOCALINI_FILE, "FactorUsingSSE2", 0)) asm_data->cpu_flags &= ~CPU_SSE2;
+	if (CPU_FLAGS & CPU_AVX2);		/* Use AVX2 factoring code */
+	else {
+		if (!IniGetInt (LOCALINI_FILE, "FactorUsingSSE2", 0)) asm_data->cpu_flags &= ~CPU_SSE2;
+	}
 #else
 	if (!IniGetInt (LOCALINI_FILE, "FactorUsingSSE2", 1)) asm_data->cpu_flags &= ~CPU_SSE2;
 #endif
@@ -3931,9 +3934,9 @@ int factorPassSetup (
 	TWO_TO_FACSIZE_PLUS_62	DQ	0.0
 	SSE2_LOOP_COUNTER	DD	0 */
 
-	if (asm_data->cpu_flags & CPU_SSE2) {
+	if (asm_data->cpu_flags & (CPU_AVX2 | CPU_SSE2)) {
 		unsigned long i, p, bits_in_factor;
-		uint32_t *xmm_data;
+		uint32_t *xmm_data, *ymm_data;
 
 /* Compute the number of bits in the factors we will be testing */
 
@@ -3952,22 +3955,25 @@ int factorPassSetup (
 /* Also compute the initial value. */
 
 		xmm_data = asm_data->xmm_data;
+		ymm_data = asm_data->ymm_data;
 		p = asm_data->EXPONENT;
 		for (i = 0; p > bits_in_factor + 59; i++) {
 			xmm_data[48+i*2] = (p & 1) ? 1 : 0;
 			p >>= 1;
 		}
-		xmm_data[0] =			/* XMM_INITVAL */
+		xmm_data[0] =					/* XMM_INITVAL */
 		xmm_data[2] = p >= 90 ? 0 : (1 << (p - 60));
-		xmm_data[40] = 62 - (120 - bits_in_factor);/* XMM_INIT120BS */
-		xmm_data[42] = 62 - (p - bits_in_factor);/* XMM_INITBS */
-		xmm_data[112] = i;		/* SSE2_LOOP_COUNTER */
-		*(double *)(&xmm_data[110]) =	/* TWO_TO_FACSIZE_PLUS_62 */
+		xmm_data[40] = 62 - (120 - bits_in_factor);	/* XMM_INIT120BS */
+		xmm_data[42] = 62 - (p - bits_in_factor);	/* XMM_INITBS */
+		xmm_data[44] = bits_in_factor - 61;		/* Set XMM_BS to 60 - (120 - fac_size + 1) as defined in factor64.mac */
+		xmm_data[112] = i;				/* SSE2_LOOP_COUNTER */
+		*(double *)(&xmm_data[110]) =			/* TWO_TO_FACSIZE_PLUS_62 */
 			pow ((double) 2.0, (int) (bits_in_factor + 62));
 
-/* Set XMM_BS to 60 - (120 - fac_size + 1) as defined in factor64.mac */
-
-		xmm_data[44] = bits_in_factor - 61;
+		ymm_data[0] =					/* YMM_INITVAL */
+		ymm_data[2] =
+		ymm_data[4] =
+		ymm_data[6] = p >= 90 ? 0 : (1 << (p - 60));
 	}
 
 /* Setup complete */
@@ -7312,7 +7318,7 @@ int primeSieveTest (
 			fachi = fachi * 10 + carryl;
 			if (fachi >= 4194304 ||
 			    (fachi >= 4096 && !(CPU_FLAGS & CPU_SSE2))) {
-				sprintf (buf, "%ld%s factor too big.\n", p, fac);
+				sprintf (buf, "%ld %s factor too big.\n", p, fac);
 				OutputBoth (thread_num, buf);
 				goto nextp;
 			}
@@ -7367,15 +7373,15 @@ int primeSieveTest (
 			    facdata.asm_data->FACHSW == fachi &&
 			    facdata.asm_data->FACMSW == facmid &&
 			    facdata.asm_data->FACLSW == faclo) {
-				sprintf (buf, "%ld%s factored OK.\n", p, fac);
+				sprintf (buf, "%ld %s factored OK.\n", p, fac);
 				OutputSomewhere (thread_num, buf);
 				goto nextp;
 			}
-		} while (facdata.asm_data->FACMSW == facmid);
+		} while (facdata.asm_data->FACMSW <= facmid);
 
 /* Uh oh. */
 
-bad:		sprintf (buf, "%ld%s factor not found.\n", p, fac);
+bad:		sprintf (buf, "%ld %s factor not found.\n", p, fac);
 		OutputBoth (thread_num, buf);
 
 /* If an escape key was hit, write out the results and return */

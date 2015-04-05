@@ -7,6 +7,9 @@ New features in Version 28.6 of prime95.exe
     you if the computer is more than one hour late contacting the server.  To turn on that
     server feature, go to the CPUs web page, and click on the CPU, there you can turn on a
     couple of email features.
+2)  AVX2 support for trial factoring.  About a 50% speedup over the previous version.  However,
+    all trial factoring should still be done on a GPU.  A GPU is on the order of 100 times more
+    efficient at trial factoring than a CPU!!!
 
 New features in Version 28.5 of prime95.exe
 -------------------------------------------
