@@ -2737,14 +2737,12 @@ void calc_output_frequencies (
 		else if (temp < 2.75) temp = 2.5;
 		else temp = floor (temp + 0.5);
 		*output_frequency = temp * pow (10.0, exp);
-		if (*output_frequency < 1.0) *output_frequency = 1.0;
 	}
 
-	/* Calculate the title frequency as a multiple of the output frequency */
+	/* Calculate the title frequency as a fraction of the output frequency */
 	title_freq = (int) IniGetInt (INI_FILE, "TitleOutputFrequency", 1);
 	if (title_freq < 1) title_freq = 1;
 	*output_title_frequency = *output_frequency / (double) title_freq;
-	if (*output_title_frequency < 1.0) *output_title_frequency = 1.0;
 }
 
 /* Truncate a percentage to the requested number of digits. */
@@ -5271,6 +5269,7 @@ int prime (
 	double	last_sumout = 0.0;
 	double	last_maxerr = 0.0;
 	double	output_frequency, output_title_frequency;
+	int	actual_frequency;
 	int	error_count_messages;
 
 /* Initialize */
@@ -5640,7 +5639,9 @@ begin:	gwinit (&lldata.gwdata);
 
 /* Output the title every so often */
 
-		if (counter % (int) (ITER_OUTPUT * output_title_frequency) == 0 || first_iter_msg) {
+		actual_frequency = (int) (ITER_OUTPUT * output_title_frequency);
+		if (actual_frequency < 1) actual_frequency = 1;
+		if (counter % actual_frequency == 0 || first_iter_msg) {
 			char	fmt_mask[80];
 			sprintf (fmt_mask, "%%.%df%%%% of M%%ld", PRECISION);
 			sprintf (buf, fmt_mask, trunc_percent (w->pct_complete), p);
@@ -5649,7 +5650,9 @@ begin:	gwinit (&lldata.gwdata);
 
 /* Print a message every so often */
 
-		if (counter % (int) (ITER_OUTPUT * output_frequency) == 0 || first_iter_msg) {
+		actual_frequency = (int) (ITER_OUTPUT * output_frequency);
+		if (actual_frequency < 1) actual_frequency = 1;
+		if (counter % actual_frequency == 0 || first_iter_msg) {
 			char	fmt_mask[80];
 			sprintf (fmt_mask, "Iteration: %%ld / %%ld [%%.%df%%%%]", PRECISION);
 			sprintf (buf, fmt_mask, counter, p, trunc_percent (w->pct_complete));
@@ -8541,6 +8544,7 @@ int prp (
 	double	last_sumout = 0.0;
 	double	last_maxerr = 0.0;
 	double	output_frequency, output_title_frequency;
+	int	actual_frequency;
 	char	string_rep[80];
 	int	string_rep_truncated;
 	int	error_count_messages;
@@ -8918,7 +8922,9 @@ OutputStr (thread_num, "Iteration failed.\n");
 
 /* Output the title every so often */
 
-		if (counter % (int) (ITER_OUTPUT * output_title_frequency) == 0 || first_iter_msg) {
+		actual_frequency = (int) (ITER_OUTPUT * output_title_frequency);
+		if (actual_frequency < 1) actual_frequency = 1;
+		if (counter % actual_frequency == 0 || first_iter_msg) {
 			char	fmt_mask[80];
 			sprintf (fmt_mask, "%%.%df%%%% of %%s", PRECISION);
 			sprintf (buf, fmt_mask, trunc_percent (w->pct_complete), string_rep);
@@ -8927,7 +8933,9 @@ OutputStr (thread_num, "Iteration failed.\n");
 
 /* Print a message every so often */
 
-		if (counter % (int) (ITER_OUTPUT * output_frequency) == 0 || first_iter_msg) {
+		actual_frequency = (int) (ITER_OUTPUT * output_frequency);
+		if (actual_frequency < 1) actual_frequency = 1;
+		if (counter % actual_frequency == 0 || first_iter_msg) {
 			char	fmt_mask[80];
 			sprintf (fmt_mask, "Iteration: %%ld / %%ld [%%.%df%%%%]", PRECISION);
 			sprintf (buf, fmt_mask, counter, Nlen-1, trunc_percent (w->pct_complete));
