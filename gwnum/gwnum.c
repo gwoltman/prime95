@@ -6150,7 +6150,7 @@ void gw_clear_maxerr (
 
 /* Return TRUE if we are operating near the limit of this FFT length */
 /* Input argument is the percentage to consider as near the limit. */
-/* For example, if percent is 1.0 and the FFT can handle 20 bits per word, */
+/* For example, if percent is 0.1 and the FFT can handle 20 bits per word, */
 /* then if there are more than 19.98 bits per word this function will */
 /* return TRUE. */
 
