@@ -8805,7 +8805,7 @@ gwtogiant (&gwdata, x, t1);
 				 (counter+1) % INTERIM_RESIDUES > 0));
 #ifdef CHECK_ITER
 squareg (t1);
-if (bitval (N, Nlen-2-counter)) imulg (3, t1);
+if (bitval (N, Nlen-2-counter)) imulg (prp_base, t1);
 specialmodg (&gwdata, t1);
 if (w->known_factors) {	iaddg (1, N); modg (N, t1); iaddg (-1, N); }
 gwstartnextfft (&gwdata, 0);
