@@ -1592,6 +1592,12 @@ void gwinit2 (
 	}
 	gwdata->cpu_flags = CPU_FLAGS;
 
+/* FMA3 FFTs require both AVX and FMA3 instructions.  This will always be the case when CPUID */
+/* is queried.  However, prime95 has an option to turn off just the AVX bit with CpuSupportsAVX=0. */
+/* Handle, this oddball case by also turning off FMA3. */
+
+	if (! (gwdata->cpu_flags & CPU_AVX)) gwdata->cpu_flags &= ~CPU_FMA3;
+
 /* AMD Bulldozer is faster using SSE2 rather than AVX. */
 
 	if (gwdata->cpu_flags & CPU_AVX && gwdata->cpu_flags & CPU_3DNOW_PREFETCH)
