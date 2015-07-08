@@ -5421,8 +5421,20 @@ begin:	gwinit (&lldata.gwdata);
 /* different FFT data - thus greatly reducing the chance that a CPU or program error corrupts the results. */
 
 	if (counter == 2) {
-		if (IniGetInt (INI_FILE, "InitialLLValue", 4) != 4) {
-			dbltogw (&lldata.gwdata, (double) IniGetInt (INI_FILE, "InitialLLValue", 4), lldata.lldata);
+		unsigned long S0;
+		if ((S0 = IniGetInt (INI_FILE, "InitialLLValue", 4)) != 4) {
+			if (S0 == 23) {	/* 23 is not a valid start value. Use 23 as a secret code for 2/3.  Courtesy of Batalov. */
+				giant tmp;
+				tmp = allocgiant ((p >> 5) + 5);
+				if (tmp == NULL) return (OutOfMemory (thread_num));
+				ultog (2, tmp);
+				power (tmp, p);
+				iaddg (1, tmp);
+				dbldivg (3, tmp);
+				gianttogw (&lldata.gwdata, tmp, lldata.lldata);
+			} else {
+				dbltogw (&lldata.gwdata, (double) S0, lldata.lldata);
+			}
 			lldata.units_bit = 0;
 		} else {
 			unsigned long i, word, bit_in_word;
