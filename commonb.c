@@ -22,7 +22,7 @@
 static const char ERRMSG0[] = "Iteration: %ld/%ld, %s";
 static const char ERRMSG1A[] = "ERROR: ILLEGAL SUMOUT\n";
 static const char ERRMSG1B[] = "ERROR: SUM(INPUTS) != SUM(OUTPUTS), %.16g != %.16g\n";
-static const char ERRMSG1C[] = "Possible error: round off (%.10g) > 0.40\n";
+static const char ERRMSG1C[] = "Possible error: round off (%.10g) > 0.40625\n";
 static const char ERRMSG1D[] = "ERROR: Shift counter corrupt.\n";
 static const char ERRMSG1E[] = "ERROR: Illegal double encountered.\n";
 static const char ERRMSG1F[] = "ERROR: FFT data has been zeroed!\n";
@@ -5587,7 +5587,9 @@ begin:	gwinit (&lldata.gwdata);
 /* then repeat the iteration using a safer, slower method.  This can */
 /* happen when operating near the limit of an FFT. */
 
-		if (echk && gw_get_maxerr (&lldata.gwdata) > 0.40625) {
+		if (echk &&
+		    (gw_get_maxerr (&lldata.gwdata) > 0.421875 ||			/* 27/64 */
+		     (!near_fft_limit && gw_get_maxerr (&lldata.gwdata) > 0.40625))) {	/* 26/64 */
 			if (counter == last_counter &&
 			    gw_get_maxerr (&lldata.gwdata) == last_maxerr) {
 				OutputBoth (thread_num, ERROK);
@@ -8904,7 +8906,9 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* then repeat the iteration using a safer, slower method.  This can */
 /* happen when operating near the limit of an FFT. */
 
-		if (echk && gw_get_maxerr (&gwdata) > 0.40625) {
+		if (echk &&
+		    (gw_get_maxerr (&gwdata) > 0.421875 ||			/* 27/64 */
+		     (!near_fft_limit && gw_get_maxerr (&gwdata) > 0.40625))) {	/* 26/64 */
 			if (counter == last_counter &&
 			    gw_get_maxerr (&gwdata) == last_maxerr) {
 				OutputBoth (thread_num, ERROK);
