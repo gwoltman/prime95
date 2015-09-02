@@ -520,7 +520,7 @@ int isPrime (
 	unsigned long p)
 {
 	unsigned long i;
-	for (i = 2; i * i <= p; i = (i + 1) | 1)
+	for (i = 2; i < 0xFFFF && i * i <= p; i = (i + 1) | 1)
 		if (p % i == 0) return (FALSE);
 	return (TRUE);
 }
