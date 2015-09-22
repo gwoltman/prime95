@@ -4075,7 +4075,7 @@ loop:	*res = factorChunk (facdata);
 
 /* Trial factor a Mersenne number prior to running a Lucas-Lehmer test */
 
-static const char FACMSG[] = "Trial factoring M%%ld to 2^%%d is %%.%df%%%% complete.";
+static const char FACMSG[] = "Trial factoring M%ld to 2^%d is %.*f%% complete.";
 static const char SHORT_FACMSG[] = "Trial factoring M%ld to 2^%d.";
 
 #define FACTOR_MAGICNUM		0x1567234D
@@ -4371,21 +4371,18 @@ int primeFactor (
 /* is close to zero. */
 
 			if (++iters >= ITER_OUTPUT || first_iter_msg) {
-				char	fmt_mask[80];
 				double	pct;
 				pct = trunc_percent (w->pct_complete);
 				if (first_iter_msg == 2) {
 					sprintf (buf, "M%ld to 2^%d", p, end_bits);
 				} else {
-					sprintf (fmt_mask, "%%.%df%%%% of M%%ld to 2^%%d", PRECISION);
-					sprintf (buf, fmt_mask, pct, p, end_bits);
+					sprintf (buf, "%.*f%% of M%ld to 2^%d", (int) PRECISION, pct, p, end_bits);
 				}
 				title (thread_num, buf);
 				if (first_iter_msg == 2) {
 					sprintf (buf, SHORT_FACMSG, p, end_bits);
 				} else {
-					sprintf (fmt_mask, FACMSG, PRECISION);
-					sprintf (buf, fmt_mask, p, end_bits, pct);
+					sprintf (buf, FACMSG, p, end_bits, (int) PRECISION, pct);
 				}
 				if (first_iter_msg) {
 					strcat (buf, "\n");
@@ -4401,13 +4398,8 @@ int primeFactor (
 
 /* Output informative message */
 
-			if (++iters_r >= ITER_OUTPUT_RES ||
-			    (NO_GUI && stop_reason)) {
-				char	fmt_mask[80];
-				double	pct;
-				pct = trunc_percent (w->pct_complete);
-				sprintf (fmt_mask, FACMSG, PRECISION);
-				sprintf (buf, fmt_mask, p, end_bits, pct);
+			if (++iters_r >= ITER_OUTPUT_RES || (NO_GUI && stop_reason)) {
+				sprintf (buf, FACMSG, p, end_bits, (int) PRECISION, trunc_percent (w->pct_complete));
 				strcat (buf, "\n");
 				writeResults (buf);
 				iters_r = 0;
@@ -5656,9 +5648,7 @@ begin:	gwinit (&lldata.gwdata);
 		actual_frequency = (int) (ITER_OUTPUT * output_title_frequency);
 		if (actual_frequency < 1) actual_frequency = 1;
 		if (counter % actual_frequency == 0 || first_iter_msg) {
-			char	fmt_mask[80];
-			sprintf (fmt_mask, "%%.%df%%%% of M%%ld", PRECISION);
-			sprintf (buf, fmt_mask, trunc_percent (w->pct_complete), p);
+			sprintf (buf, "%.*f%% of M%ld", (int) PRECISION, trunc_percent (w->pct_complete), p);
 			title (thread_num, buf);
 		}
 
@@ -5667,14 +5657,12 @@ begin:	gwinit (&lldata.gwdata);
 		actual_frequency = (int) (ITER_OUTPUT * output_frequency);
 		if (actual_frequency < 1) actual_frequency = 1;
 		if (counter % actual_frequency == 0 || first_iter_msg) {
-			char	fmt_mask[80];
-			sprintf (fmt_mask, "Iteration: %%ld / %%ld [%%.%df%%%%]", PRECISION);
-			sprintf (buf, fmt_mask, counter, p, trunc_percent (w->pct_complete));
+			sprintf (buf, "Iteration: %ld / %ld [%.*f%%]", counter, p, (int) PRECISION, trunc_percent (w->pct_complete));
 			/* Append a short form total errors message */
 			if (error_count_messages == 1)
 				make_error_count_message (error_count, error_count_messages,
 							  buf + strlen (buf),
-					(int) (sizeof (buf) - strlen (buf)));
+							  (int) (sizeof (buf) - strlen (buf)));
 			/* Truncate first message */
 			if (first_iter_msg) {
 				strcat (buf, ".\n");
@@ -5744,11 +5732,8 @@ begin:	gwinit (&lldata.gwdata);
 /* If an escape key was hit, write out the results and return */
 
 		if (stop_reason) {
-			char	fmt_mask[80];
-			sprintf (fmt_mask,
-				 "Stopping primality test of M%%ld at iteration %%ld [%%.%df%%%%]\n",
-				 PRECISION);
-			sprintf (buf, fmt_mask, p, counter, trunc_percent (w->pct_complete));
+			sprintf (buf, "Stopping primality test of M%ld at iteration %ld [%.*f%%]\n",
+				 p, counter, (int) PRECISION, trunc_percent (w->pct_complete));
 			OutputStr (thread_num, buf);
 			lucasDone (&lldata);
 			return (stop_reason);
@@ -8941,9 +8926,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 		actual_frequency = (int) (ITER_OUTPUT * output_title_frequency);
 		if (actual_frequency < 1) actual_frequency = 1;
 		if (counter % actual_frequency == 0 || first_iter_msg) {
-			char	fmt_mask[80];
-			sprintf (fmt_mask, "%%.%df%%%% of %%s", PRECISION);
-			sprintf (buf, fmt_mask, trunc_percent (w->pct_complete), string_rep);
+			sprintf (buf, "%.*f%% of %s", (int) PRECISION, trunc_percent (w->pct_complete), string_rep);
 			title (thread_num, buf);
 		}
 
@@ -8952,9 +8935,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 		actual_frequency = (int) (ITER_OUTPUT * output_frequency);
 		if (actual_frequency < 1) actual_frequency = 1;
 		if (counter % actual_frequency == 0 || first_iter_msg) {
-			char	fmt_mask[80];
-			sprintf (fmt_mask, "Iteration: %%ld / %%ld [%%.%df%%%%]", PRECISION);
-			sprintf (buf, fmt_mask, counter, Nlen-1, trunc_percent (w->pct_complete));
+			sprintf (buf, "Iteration: %ld / %ld [%.*f%%]", counter, Nlen-1, (int) PRECISION, trunc_percent (w->pct_complete));
 			/* Append a short form total errors message */
 			if (error_count_messages == 1)
 				make_error_count_message (error_count, error_count_messages,
@@ -9029,12 +9010,8 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* If an escape key was hit, write out the results and return */
 
 		if (stop_reason) {
-			char	fmt_mask[80];
-			sprintf (fmt_mask,
-				 "Stopping PRP test of %%s at iteration %%ld [%%.%df%%%%]\n",
-				 PRECISION);
-			sprintf (buf, fmt_mask, string_rep,
-				 counter, trunc_percent (w->pct_complete));
+			sprintf (buf, "Stopping PRP test of %s at iteration %ld [%.*f%%]\n",
+				 string_rep, counter, (int) PRECISION, trunc_percent (w->pct_complete));
 			OutputStr (thread_num, buf);
 			goto exit;
 		}
@@ -9047,8 +9024,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
 			gwtogiant (&gwdata, x, tmp);
 			if (w->known_factors) {	iaddg (1, N); modg (N, tmp); iaddg (-1, N); }
-			sprintf (buf, 
-				 "%s interim We%d residue %08lX%08lX at iteration %ld\n",
+			sprintf (buf, "%s interim We%d residue %08lX%08lX at iteration %ld\n",
 				 string_rep, PORT, (unsigned long) tmp->n[1], (unsigned long) tmp->n[0], counter);
 			OutputBoth (thread_num, buf);
 			pushg (&gwdata.gdata, 1);
