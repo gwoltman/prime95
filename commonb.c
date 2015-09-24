@@ -2465,12 +2465,8 @@ double LO_LOAD = 0.0;
 
 void read_load_average_info (void)
 {
-	char	buf[20];
-
-	IniGetString (INI_FILE, "MaxLoad", buf, sizeof (buf), "0");
-	HI_LOAD = atof (buf);
-	IniGetString (INI_FILE, "MinLoad", buf, sizeof (buf), "0");
-	LO_LOAD = atof (buf);
+	HI_LOAD = IniGetFloat (INI_FILE, "MaxLoad", 0.0);
+	LO_LOAD = IniGetFloat (INI_FILE, "MinLoad", 0.0);
 	LOAD_CHECK_TIME = IniGetInt (INI_FILE, "PauseTime", 20);
 }
 
@@ -4622,6 +4618,7 @@ int lucasSetup (
 /* Init the FFT code for squaring modulo 1.0*2^p-1.  NOTE: As a kludge for */
 /* the benchmarking and timing code, an odd FFTlen sets up the 1.0*2^p+1 FFT code. */
 
+	gwset_safety_margin (&lldata->gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
 	gwset_specific_fftlen (&lldata->gwdata, fftlen & ~1);
 	if (fftlen & 1)
 		res = gwsetup (&lldata->gwdata, 1.0, 2, p, 1);
@@ -5068,8 +5065,7 @@ int pick_fft_size (
 /* Get the info on how what percentage of exponents on either side of */
 /* an FFT crossover we will do this 1000 iteration test. */
 
-	IniGetString (INI_FILE, "SoftCrossover", buf, sizeof (buf), "0.2");
-	softpct = atof (buf) / 100.0;
+	softpct = IniGetFloat (INI_FILE, "SoftCrossover", (float) 0.2) / 100.0;
 
 /* If this exponent is not close to an FFT crossover, then we are done */
 
@@ -5086,8 +5082,7 @@ int pick_fft_size (
 	max_avg_error = 0.241 + 0.002 *
 		(log ((double) small_fftlen) - log ((double) 262144.0)) /
 		(log ((double) 4194304.0) - log ((double) 262144.0));
-	IniGetString (INI_FILE, "SoftCrossoverAdjust", buf, sizeof (buf), "0");
-	max_avg_error += atof (buf);
+	max_avg_error += IniGetFloat (INI_FILE, "SoftCrossoverAdjust", 0.0);
 
 /* Print message to let user know what is going on */
 
@@ -5160,9 +5155,7 @@ int pick_fft_size (
 int exponent_near_fft_limit (
 	gwhandle *gwdata)		/* Handle returned by gwsetup */
 {
-	char	pct[30];
-	IniGetString (INI_FILE, "NearFFTLimitPct", pct, sizeof(pct), "0.5");
-	return (gwnear_fft_limit (gwdata, atof (pct)));
+	return (gwnear_fft_limit (gwdata, IniGetFloat (INI_FILE, "NearFFTLimitPct", 0.5)));
 }
 
 /* Do an LL iteration very carefully.  This is done after a normal */
@@ -8601,6 +8594,7 @@ begin:	gwinit (&gwdata);
 	gwset_thread_callback (&gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&gwdata, sp_info);
 	gwset_specific_fftlen (&gwdata, w->forced_fftlen);
+	gwset_safety_margin (&gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
 	res = gwsetup (&gwdata, w->k, w->b, w->n, w->c);
 
 /* If we were unable to init the FFT code, then print an error message */

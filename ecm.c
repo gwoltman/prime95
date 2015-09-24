@@ -2542,6 +2542,7 @@ for ( ; ; ) {
 	gwset_num_threads (&ecmdata.gwdata, THREADS_PER_TEST[thread_num]);
 	gwset_thread_callback (&ecmdata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&ecmdata.gwdata, sp_info);
+	gwset_safety_margin (&ecmdata.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
 	gwset_specific_fftlen (&ecmdata.gwdata, w->forced_fftlen);
 	res = gwsetup (&ecmdata.gwdata, w->k, w->b, w->n, w->c);
 	if (res) {
@@ -4685,6 +4686,7 @@ restart:
 	gwset_num_threads (&pm1data.gwdata, THREADS_PER_TEST[thread_num]);
 	gwset_thread_callback (&pm1data.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&pm1data.gwdata, sp_info);
+	gwset_safety_margin (&pm1data.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
 	gwset_specific_fftlen (&pm1data.gwdata, w->forced_fftlen);
 	res = gwsetup (&pm1data.gwdata, w->k, w->b, w->n, w->c);
 	if (res) {
