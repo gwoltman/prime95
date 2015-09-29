@@ -4673,21 +4673,44 @@ void lucasDone (
 
 int generateResidue64 (
 	llhandle *lldata,
+	unsigned long p,	/* Exponent under LL test */
 	unsigned long *reshi,
 	unsigned long *reslo)
 {
+	uint64_t res64;
 	giant	tmp;
 	int	err_code;
 
 	*reshi = *reslo = 0;
-	tmp = popg (&lldata->gwdata.gdata, ((int) lldata->gwdata.bit_length >> 5) + 5);
+	tmp = popg (&lldata->gwdata.gdata, (p >> 5) + 5);
 	err_code = gwtogiant (&lldata->gwdata, lldata->lldata, tmp);
-	if (err_code < 0) return (err_code);
-	if (tmp->sign == 0) return (0);
+	if (err_code < 0) {
+		pushg (&lldata->gwdata.gdata, 1);
+		return (err_code);
+	}
+	if (tmp->sign == 0) {
+		pushg (&lldata->gwdata.gdata, 1);
+		return (0);
+	}
+
+	/* If the shift count is large, we will need some of the bottom bits too */
+	res64 = 0;
+	if (lldata->units_bit + 64 > p) {
+		if (tmp->sign > 0) res64 = tmp->n[0];
+		if (tmp->sign > 1) res64 += ((uint64_t) tmp->n[1]) << 32;
+		res64 <<= p - lldata->units_bit;
+		if (p < 64) res64 &= (((uint64_t) 1) << p) - 1;
+	}
+
+	/* Apply the shift count and get the low 64 bits */
 	gshiftright (lldata->units_bit, tmp);
-	if (tmp->sign > 0) *reslo = tmp->n[0];
-	if (tmp->sign > 1) *reshi = tmp->n[1];
+	if (tmp->sign > 0) res64 += tmp->n[0];
+	if (tmp->sign > 1) res64 += ((uint64_t) tmp->n[1]) << 32;
 	pushg (&lldata->gwdata.gdata, 1);
+
+	/* Return the calculated 64-bit residue */
+	*reslo = (uint32_t) res64;
+	*reshi = (uint32_t) (res64 >> 32);
 	return (1);
 }
 
@@ -5737,7 +5760,7 @@ begin:	gwinit (&lldata.gwdata);
 /* residues to programs that start counter at zero or one. */
 
 		if (INTERIM_RESIDUES && counter % INTERIM_RESIDUES <= 2) {
-			generateResidue64 (&lldata, &high32, &low32);
+			generateResidue64 (&lldata, p, &high32, &low32);
 			sprintf (buf, 
 				 "M%ld interim We%d residue %08lX%08lX at iteration %ld\n",
 				 p, PORT, high32, low32, counter);
@@ -5780,7 +5803,7 @@ begin:	gwinit (&lldata.gwdata);
 /* We found a prime if result is zero */
 /* Note that all values of -1 is the same as zero */
 
-	rc = generateResidue64 (&lldata, &high32, &low32);
+	rc = generateResidue64 (&lldata, p, &high32, &low32);
 	if (rc < 0) {
 		sprintf (buf, ERRMSG0, counter, p, ERRMSG1E);
 		OutputBoth (thread_num, buf);
@@ -6761,7 +6784,7 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 
 /* Compare final 32 bits with the pre-computed array of correct residues */
 
-		generateResidue64 (&lldata, &reshi, &reslo);
+		generateResidue64 (&lldata, p, &reshi, &reslo);
 		lucasDone (&lldata);
 		free (gwarray);
 		(*completed)++;
@@ -7233,7 +7256,7 @@ int lucas_QA (
 
 /* Generate residue and cleanup */
 
-		generateResidue64 (&lldata, &reshi, &reslo);
+		generateResidue64 (&lldata, p, &reshi, &reslo);
 		lucasDone (&lldata);
 		}
 
