@@ -9,7 +9,7 @@
  *  This is the only C++ routine in the gwnum library.  Since gwnum is
  *  a C based library, we declare all routines here as extern "C".
  *
- *  Copyright 2005-2014 Mersenne Research, Inc.  All rights reserved.
+ *  Copyright 2005-2015 Mersenne Research, Inc.  All rights reserved.
  *
  **************************************************************/
 
@@ -737,22 +737,19 @@ void gwsincos1plus01234567by (
 // The FFT weight for the j-th FFT word doing a b^n+c weighted transform is
 //	b ^ (ceil (j*n/FFTLEN) - j*n/FFTLEN)   *    abs(c) ^ j/FFTLEN
 //
-// NOTE:  We need to be very careful in calculating the ceiling.  We don't
-// want to ever call the ceil function on a dd_real.  This is because the
-// the calculation of "dd_real ((double) j) * dd_data->gw__num_b_per_word"
-// may result in an integer +/- some very small roundoff error.  We need to
-// make sure ceil returns the true integer result.  Failure to do this
-// for FFT length of 1474560 caused is_big_word (1474559) to return the
-// wrong result.  The modified ceil function below should do the trick.
+// NOTE:  At one point in time we seemed to have an issue with the ceil
+// function on a dd_real and created this substitute routine.  Well, that
+// had an issue with 10223*2^29588045-1.  We've gone back to the original
+// dd_real routine...
 
-dd_real gwceil (dd_real val)
+inline dd_real gwceil (dd_real val)
 {
-	return (dd_real (ceil (double (val))));
+	return (ceil (val));
 }
 
-dd_real gwfloor (dd_real val)
+inline dd_real gwfloor (dd_real val)
 {
-	return (dd_real (floor (double (val))));
+	return (floor (val));
 }
 
 extern "C"
