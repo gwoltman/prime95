@@ -735,21 +735,36 @@ void gwsincos1plus01234567by (
 // Utility routines to compute fft weights
 //
 // The FFT weight for the j-th FFT word doing a b^n+c weighted transform is
-//	b ^ (ceil (j*n/FFTLEN) - j*n/FFTLEN)   *    abs(c) ^ j/FFTLEN
+//	b ^ (ceil (j*n/FFTLEN) - j*n/FFTLEN)   *   abs(c) ^ j/FFTLEN
 //
-// NOTE:  At one point in time we seemed to have an issue with the ceil
-// function on a dd_real and created this substitute routine.  Well, that
-// had an issue with 10223*2^29588045-1.  We've gone back to the original
-// dd_real routine...
+// NOTE:  Simply using the dd_real ceil function is not a good idea.  This is
+// because when we calculate (j * (n/FFTLEN)) and the result is an exact integer,
+// then if FFTLEN is not a power of 2, the dd_real result is exact integer +/- epsilon.
+// If it is +epsilon then the ceil function returns the wrong value for us.
+// There are numerous examples, one being testing M26000208 using 1440K FFT.
+// We also cannot simply convert to a real value before applying the ceil function
+// because sometimes we need more than 53 bits of precision as happens when
+// testing 10223*2^29588045-1.
+// Our solution is to subtract a smidge before applying the ceil function.
+// Since j*n/FFTLEN is always less than FFTLEN and we don't envision handling
+// FFTs above 64M, the integer part the input to ceil will be 26 bits or less.
+// We think dd_real routines support 106 bits of precision, leaving a fractional
+// part accurate to at least 2^-80 or about 8e-25.  Thus, if we define "smidge" as
+// 1e-22 then smidge will swamp +/- epsilon and force ceil to give us the correct
+// answer while still providing a LOT more than 53 bits of precision for handling
+// j*n/FFTLEN values that are very, very close to an integer.
+// An alternative solution would be to not precompute n/FFTLEN in our calculations
+// and assume that the dd_real routines will return an exact integer when appropriate
+// for ((j*n) / FFTLEN).
 
 inline dd_real gwceil (dd_real val)
 {
-	return (ceil (val));
+	return (ceil (val - 1.0e-22));
 }
 
 inline dd_real gwfloor (dd_real val)
 {
-	return (floor (val));
+	return (floor (val + 1.0e-22));
 }
 
 extern "C"
