@@ -1032,7 +1032,7 @@ void help_about (void)
 	printf ("GIMPS: Mersenne Prime Search\n");
 	printf ("Web site: http://mersenne.org\n");
 	printf ("%s\n", app_string);
-	printf ("Copyright 1996-2015 Mersenne Research, Inc.\n");
+	printf ("Copyright 1996-2016 Mersenne Research, Inc.\n");
 	printf ("Author: George Woltman\n");
 	printf ("Email:  woltman@alum.mit.edu\n");
 	askOK ();
