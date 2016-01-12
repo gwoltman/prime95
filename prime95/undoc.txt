@@ -86,6 +86,11 @@ You can have the timings that are output to the screen be cumulative
 after each screen output.  Add this line to prime.txt:
 	CumulativeTiming=1
 
+You can change the interval between outputs of the timestamp to the results.txt file
+	ResultsFileTimestampInterval=n
+If n is zero, the timestamp will never be output.  Otherwise the timestamp will be
+written no more frequently than every n seconds.  Default for n is 300 which is 5 minutes.
+
 You can revert to the "classic" style output for worker windows doing
 Lucas-Lehmer and PRP tests.  This classic style does not display the
 ETA.  This style was in use prior to version 28.5.  In prime.txt:

@@ -4585,6 +4585,11 @@ int writeResults (
 static	time_t	last_time = 0;
 	time_t	this_time;
 	int	fd;
+	int	write_interval;
+
+/* Get the interval user-settable parameter for seconds that must have elapsed since the last time the date was output */
+
+	write_interval = IniGetInt (INI_FILE, "ResultsFileTimestampInterval", 300);
 
 /* Open file, position to end */
 
@@ -4597,11 +4602,11 @@ static	time_t	last_time = 0;
 		return (FALSE);
 	}
 
-/* If it has been at least 5 minutes since the last time stamp */
+/* If it has been at least 5 minutes (a user-adjustable value) since the last time stamp */
 /* was output, then output a new timestamp */
 
 	time (&this_time);
-	if (this_time - last_time > 300) {
+	if (write_interval && this_time - last_time > (time_t) write_interval) {
 		char	buf[32];
 		last_time = this_time;
 		buf[0] = '[';
