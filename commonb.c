@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2015 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2016 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
@@ -2633,7 +2633,7 @@ int isKnownMersennePrime (
 		p == 3021377 || p == 6972593 || p == 13466917 ||
 		p == 20996011 || p == 24036583 || p == 25964951 ||
 		p == 30402457 || p == 32582657 || p == 37156667 ||
-		p == 42643801 || p == 43112609 || p == 57885161);
+		p == 42643801 || p == 43112609 || p == 57885161 || p == 74207281);
 }
 
 /* Make a string out of a 96-bit value (a found factor) */
@@ -5447,10 +5447,15 @@ begin:	gwinit (&lldata.gwdata);
 		} else {
 			unsigned long i, word, bit_in_word;
 			uint32_t hi, lo;
+			// Generate a random initial shift count
 			srand ((unsigned) time (NULL));
 			lldata.units_bit = (rand () << 16) + rand ();
 			if (CPU_FLAGS & CPU_RDTSC) { rdtsc(&hi,&lo); lldata.units_bit += lo; }
+			// Let user override random initial shift count
+			lldata.units_bit = IniGetInt (INI_FILE, "InitialShiftCount", lldata.units_bit);
+			// Initial shift count can't be larger than p
 			lldata.units_bit = lldata.units_bit % p;
+			// Perform the initial shift
 			bitaddr (&lldata.gwdata, (lldata.units_bit + 2) % p, &word, &bit_in_word);
 			for (i = 0; i < gwfftlen (&lldata.gwdata); i++) {
 				set_fft_value (&lldata.gwdata, lldata.lldata, i, (i == word) ? (1L << bit_in_word) : 0);
