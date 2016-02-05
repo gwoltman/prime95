@@ -5,7 +5,7 @@
 | in the multi-precision arithmetic routines.  That is, all routines
 | that deal with the gwnum data type.
 | 
-|  Copyright 2002-2015 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2016 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -8075,7 +8075,7 @@ void gwsquare_carefully (
 	gwnum	s)		/* Source and destination */
 {
 	struct gwasm_data *asm_data;
-	gwnum	tmp1, tmp2;
+	gwnum	tmp1;
 	double	saved_addin_value;
 	unsigned long saved_extra_bits;
 
@@ -8086,11 +8086,10 @@ void gwsquare_carefully (
 		gw_random_number (gwdata, gwdata->GW_RANDOM);
 	}
 
-/* Save and clear the addin value */
+/* Save the addin value */
 
 	asm_data = (struct gwasm_data *) gwdata->asm_data;
 	saved_addin_value = asm_data->ADDIN_VALUE;
-	asm_data->ADDIN_VALUE = 0.0;
 
 /* Make sure we do not do addquick when computing s+random. */
 /* If we do not do this, then the non-randomness of s can swamp */
@@ -8105,46 +8104,19 @@ void gwsquare_carefully (
 /* Now do the squaring using two multiplies and several adds. */
 
 	tmp1 = gwalloc (gwdata);
-	tmp2 = gwalloc (gwdata);
 	gwstartnextfft (gwdata, 0);			/* Disable POSTFFT */
-	gwfft (gwdata, gwdata->GW_RANDOM, tmp2);
-	gwfftfftmul (gwdata, tmp2, tmp2, tmp2);		/* Compute random^2 (we could compute this once and save it) */
 	gwaddsub4 (gwdata, s, gwdata->GW_RANDOM, tmp1, s); /* Compute s+random and s-random */
-	asm_data->ADDIN_VALUE = saved_addin_value;	/* Restore the addin value */
-	gwfft (gwdata, tmp1, tmp1);
-	gwfftmul (gwdata, tmp1, s);			/* Compute (s+random)(s-random) */
-	gwadd3 (gwdata, s, tmp2, s);			/* Calc s^2 from 2 results */
-
-/* Now do the squaring using three multiplies and adds */
-/* Note that during the calculation of s*random we must relax the */
-/* SUMINP != SUMOUT limit.  This is because s may be non-random. */
-/* For example, in the first iterations of 2*3^500327-1, s is mostly */
-/* large positive values.  This means we lose some of the lower bits */
-/* of precision when we calculate SUMINP.  To combat this problem we */
-/* increase MAXDIFF during the s*random calculation. */
-
-#ifdef OLD_METHOD_OF_SQUARING_CAREFULLY
-	tmp1 = gwalloc (gwdata);
-	tmp2 = gwalloc (gwdata);
-	gwstartnextfft (gwdata, 0);		/* Disable POSTFFT */
-	gwadd3 (gwdata, s, gwdata->GW_RANDOM, tmp1); /* Compute s+random */
-	gwfft (gwdata, gwdata->GW_RANDOM, tmp2);
-	gwdata->MAXDIFF *= 1024.0;
-	gwfftmul (gwdata, tmp2, s);		/* Compute s*random */
-	gwdata->MAXDIFF /= 1024.0;
-	gwfftfftmul (gwdata, tmp2, tmp2, tmp2);	/* Compute random^2 */
-	asm_data->ADDIN_VALUE = saved_addin_value;/* Restore the addin value */
-	gwsquare (gwdata, tmp1);		/* Compute (s+random)^2 */
-	gwsubquick (gwdata, tmp2, tmp1);	/* Calc s^2 from 3 results */
-	gwaddquick (gwdata, s, s);
-	gwsub3 (gwdata, tmp1, s, s);
-#endif
+	gwmul (gwdata, tmp1, s);			/* Compute (s+random)(s-random) */
+	asm_data->ADDIN_VALUE = 0.0;			/* Clear the addin value */
+	gwfft (gwdata, gwdata->GW_RANDOM, tmp1);
+	gwfftfftmul (gwdata, tmp1, tmp1, tmp1);		/* Compute random^2 (we could compute this once and save it) */
+	gwadd3 (gwdata, s, tmp1, s);			/* Calc s^2 from 2 results */
 
 /* Restore state, free memory and return */
 
+	asm_data->ADDIN_VALUE = saved_addin_value;	/* Restore the addin value */
 	gwdata->EXTRA_BITS = saved_extra_bits;
 	gwfree (gwdata, tmp1);
-	gwfree (gwdata, tmp2);
 }
 
 /* Multiply numbers using a slower method that will have reduced */
@@ -8157,7 +8129,7 @@ void gwmul_carefully (
 	gwnum	t)		/* Source and destination */
 {
 	struct gwasm_data *asm_data;
-	gwnum	tmp1, tmp2, tmp3, tmp4;
+	gwnum	tmp1, tmp3, tmp4;
 	double	saved_addin_value;
 	unsigned long saved_extra_bits;
 
@@ -8172,9 +8144,8 @@ void gwmul_carefully (
 
 	asm_data = (struct gwasm_data *) gwdata->asm_data;
 	saved_addin_value = asm_data->ADDIN_VALUE;
-	asm_data->ADDIN_VALUE = 0.0;
 
-/* Make sure we do not do addquick when computing s+random. */
+/* Make sure we do not do addquick when computing s+random and t+random. */
 
 	saved_extra_bits = gwdata->EXTRA_BITS;
 	gwdata->EXTRA_BITS = 0;
@@ -8182,60 +8153,32 @@ void gwmul_carefully (
 /* Now do the multiply using three multiplies and several adds */
 
 	tmp1 = gwalloc (gwdata);
-	tmp2 = gwalloc (gwdata);
 	tmp3 = gwalloc (gwdata);
 	tmp4 = gwalloc (gwdata);
-
-	gwstartnextfft (gwdata, 0);			/* Disable POSTFFT */
-	gwfft (gwdata, gwdata->GW_RANDOM, tmp2);
-	gwfftfftmul (gwdata, tmp2, tmp2, tmp2);		/* Compute random^2 (we could compute this once and save it) */
 
 	gwadd3 (gwdata, s, gwdata->GW_RANDOM, tmp1);	/* Compute s+random */
 	gwadd3 (gwdata, t, gwdata->GW_RANDOM, t);	/* Compute t+random */
-	asm_data->ADDIN_VALUE = saved_addin_value;	/* Restore addin value */
 	gwadd3 (gwdata, tmp1, gwdata->GW_RANDOM, tmp3);	/* Compute s+2*random */
 	gwadd3 (gwdata, t, gwdata->GW_RANDOM, tmp4);	/* Compute t+2*random */
 
-	gwfft (gwdata, tmp1, tmp1);
-	gwfftmul (gwdata, tmp1, t);			/* Compute (s+r)*(t+r) = st + rs + rt + rr + addin */
+	gwstartnextfft (gwdata, 0);			/* Disable POSTFFT */
+	gwmul (gwdata, tmp1, t);			/* Compute (s+r)*(t+r) = st + rs + rt + rr + addin */
+	gwmul (gwdata, tmp3, tmp4);			/* Compute (s+2r)*(t+2r) = st + 2rs + 2rt + 4rr + addin */
+
+	asm_data->ADDIN_VALUE = 0.0;
+	gwfft (gwdata, gwdata->GW_RANDOM, tmp1);
+	gwfftfftmul (gwdata, tmp1, tmp1, tmp1);		/* Compute random^2 (we could compute this once and save it) */
+
 	gwaddquick (gwdata, t, t);			/* Compute 2st + 2rs + 2rt + 2rr + 2addin */
-
-	gwfft (gwdata, tmp3, tmp3);
-	gwfftmul (gwdata, tmp3, tmp4);			/* Compute (s+2r)*(t+2r) = st + 2rs + 2rt + 4rr + addin */
-
 	gwsubquick (gwdata, tmp4, t);			/* Compute st - 2rr + addin */
-	gwaddquick (gwdata, tmp2, t);			/* Compute st - rr + addin */
-	gwadd (gwdata, tmp2, t);			/* Compute st + addin */
-
-/* Now do the multiply using four multiplies and adds */
-
-#ifdef OLD_WAY_TO_MUL_CAREFULLY
-	tmp1 = gwalloc (gwdata);
-	tmp2 = gwalloc (gwdata);
-	tmp3 = gwalloc (gwdata);
-	tmp4 = gwalloc (gwdata);
-	gwcopy (gwdata, s, tmp4);
-	gwstartnextfft (gwdata, 0);		/* Disable POSTFFT */
-	gwadd3 (gwdata, s, gwdata->GW_RANDOM, tmp1); /* Compute s+random */
-	gwadd3 (gwdata, t, gwdata->GW_RANDOM, tmp3); /* Compute t+random */
-	gwfft (gwdata, gwdata->GW_RANDOM, tmp2);
-	gwdata->MAXDIFF *= 1024.0;
-	gwfftmul (gwdata, tmp2, tmp4);		/* Compute s*random */
-	gwfftmul (gwdata, tmp2, t);		/* Compute t*random */
-	gwdata->MAXDIFF /= 1024.0;
-	gwfftfftmul (gwdata, tmp2, tmp2, tmp2);	/* Compute random^2 */
-	asm_data->ADDIN_VALUE = saved_addin_value; /* Restore addin value */
-	gwmul (gwdata, tmp1, tmp3);	/* Compute (s+random)*(t+random) */
-	gwsub (gwdata, tmp2, tmp3);		/* Subtract random^2 */
-	gwsub (gwdata, t, tmp3);
-	gwsub3 (gwdata, tmp3, tmp4, t);
-#endif
+	gwaddquick (gwdata, tmp1, t);			/* Compute st - rr + addin */
+	gwadd (gwdata, tmp1, t);			/* Compute st + addin */
 
 /* Restore state, free memory and return */
 
 	gwdata->EXTRA_BITS = saved_extra_bits;
+	asm_data->ADDIN_VALUE = saved_addin_value;
 	gwfree (gwdata, tmp1);
-	gwfree (gwdata, tmp2);
 	gwfree (gwdata, tmp3);
 	gwfree (gwdata, tmp4);
 }
