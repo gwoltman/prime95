@@ -7897,7 +7897,7 @@ int primeBenchMultipleWorkers (
 	char	buf[512];
 	int	workers, cpus, hypercpus, impl;
 	int	all_bench, only_time_5678, time_all_complex, plus1, is_a_5678;
-	int	bench_hyperthreading, bench_multithreading, bench_oddballs, bench_one_or_all, bench_arch;
+	int	bench_hyperthreading, bench_multithreading, bench_oddballs, bench_one_or_all, bench_arch, bench_max_cpus;
 	int	i, stop_reason;
 	unsigned long fftlen, min_FFT_length, max_FFT_length;
 	double	throughput;
@@ -7939,6 +7939,7 @@ int primeBenchMultipleWorkers (
 	bench_oddballs = IniGetInt (INI_FILE, "BenchOddMultithreads", 0);	/* Benchmark odd multi-threaded combinations */
 	bench_one_or_all = IniGetInt (INI_FILE, "BenchOneOrAll", 0);		/* Benchmark only 1 or all cpus */
 	bench_arch = IniGetInt (INI_FILE, "BenchArch", 0);			/* CPU architecture to benchmark */
+	bench_max_cpus = IniGetInt (INI_FILE, "OnlyBenchMaxCpus", 1);		/* Benchmark all CPUs or only max CPUs */
 
 /* Loop over a variety of FFT lengths */
 
@@ -7990,7 +7991,7 @@ int primeBenchMultipleWorkers (
 
 	    for (hypercpus = 1; hypercpus <= (int) CPU_HYPERTHREADS; hypercpus++) {
 	      if (hypercpus > 1 && !bench_hyperthreading) break;
-	      for (cpus = 1; cpus <= (int) NUM_CPUS; cpus++) {
+	      for (cpus = (bench_max_cpus ? NUM_CPUS : 1); cpus <= (int) NUM_CPUS; cpus++) {
 		if (bench_one_or_all && cpus > 1 && cpus < (int) NUM_CPUS) continue;
 	        for (workers = 1; workers <= cpus; workers++) {
 		  if (cpus > workers && !bench_multithreading) continue;
@@ -8197,7 +8198,11 @@ int primeBench (
 		gwthread_create (&thread_id, &bench_busy_loop, (void *) (intptr_t) i);
 	}
 
-/* Loop over all possible multithread possibilities */
+/* If requested skip over the classic single worker benchmarks. */
+
+	if (NUM_CPUS > 1 && IniGetInt (INI_FILE, "OnlyBenchThroughput", 0)) goto throughput_only;
+
+/* Loop over all possible single-worker multithread possibilities */
 
 	for (cpu = 1; cpu <= NUM_CPUS; cpu++) {
 	  if (cpu > 1 && !bench_multithreading) continue;
@@ -8401,7 +8406,7 @@ int primeBench (
 
 /* Now benchmark the trial factoring code */
 
-	if (IniGetInt (INI_FILE, "BenchTrialFactoring", 0)) {
+	if (IniGetInt (INI_FILE, "BenchTrialFactoring", 1)) {
 		stop_reason = factorBench (thread_num, &pkt);
 		if (stop_reason) return (stop_reason);
 	}
@@ -8422,6 +8427,7 @@ int primeBench (
 /* Now benchmark running multiple workers.  This will measure the effect of memory bandwidth */
 /* on LL testing. */
 
+throughput_only:
 	if (NUM_CPUS > 1 && IniGetInt (INI_FILE, "BenchMultipleWorkers", 1)) {
 		OutputBoth (thread_num, "\n");
 		stop_reason = primeBenchMultipleWorkers (thread_num);
