@@ -23,6 +23,12 @@
 #include "gwutil.h"
 #include "gwdbldbl.h"
 
+/* Option to share sin/cos data where possible amongst several gwnum callers */
+/* There is little downside to enabling this option (uses more memory) and */
+/* little upside (very slight decrease in needed memory bandwidth). */
+
+#define SHARE_SINCOS_DATA
+
 /* Include a random number generator.  For reasons we'll discuss later */
 /* we do not want to use the C runtime library's random number generator */
 /* to initialize GW_RANDOM */
@@ -1538,6 +1544,112 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 	return (0);
 }
 
+/* Code to manage sharing sin/cos data where possible amongst several gwnum callers */
+
+#define FIXED_PASS1_SINCOS_DATA			1
+#define PASS2_REAL_SINCOS_DATA			2
+#define PASS2_COMPLEX_SINCOS_DATA		3
+
+struct shareable_sincos_data {
+	struct shareable_sincos_data *next;	/* Next in linked list of shareable data blocks */
+	double	*data;				/* Shareable data */
+	size_t	data_size;			/* Size of the shareable data */
+	int	use_count;			/* Count of times data is shared */
+};
+struct shareable_sincos_data *shareable_data = NULL;  /* Linked list of shareable data blocks */
+gwmutex	shareable_lock;				/* This mutex limits one caller into sharing routines */
+int	shareable_lock_initialized = FALSE;	/* Whether shareable mutex is initialized */
+
+/* Share sin/cos data where possible amongst several gwnum callers */
+
+double *share_sincos_data (
+	gwhandle *gwdata,	/* Placeholder for gwnum global data */
+	int	table_type,	/* Type of the sin/cos table defined above */
+	double *table,		/* Sin/cos data to share */
+	size_t	table_size)	/* Size of the sin/cos data */
+{
+#ifdef SHARE_SINCOS_DATA
+	struct shareable_sincos_data *p;	/* Ptr to a shareable data block */
+
+/* Initialize the mutex if necessary, then grab the lock */
+
+	if (!shareable_lock_initialized) {
+		gwmutex_init (&shareable_lock);
+		shareable_lock_initialized = TRUE;
+	}
+	gwmutex_lock (&shareable_lock);
+
+/* Look through the list of shareable blocks looking for a match */
+/* If we find a match, use it! */
+
+	for (p = shareable_data; p != NULL; p = p->next) {
+		if (p->data_size == table_size && !memcmp (p->data, table, table_size)) {
+			p->use_count++;
+			gwmutex_unlock (&shareable_lock);
+			return (p->data);
+		}
+	}
+
+/* Unfortunately, no match.  Copy the data so that a future gwnum caller can share the data */
+
+	p = (struct shareable_sincos_data *) malloc (sizeof (struct shareable_sincos_data));
+	if (p == NULL) {
+		gwmutex_unlock (&shareable_lock);
+		return (table);
+	}
+	p->data = (double *) aligned_malloc (table_size, 4096);
+	if (p->data == NULL) {
+		free (p);
+		gwmutex_unlock (&shareable_lock);
+		return (table);
+	}
+	memcpy (p->data, table, table_size);
+	p->data_size = table_size;
+	p->use_count = 1;
+	p->next = shareable_data;
+	shareable_data = p;
+	gwmutex_unlock (&shareable_lock);
+	return (p->data);
+#else
+	return (table);
+#endif
+}
+
+/* Free shared sin/cos data */
+
+void unshare_sincos_data (
+	double *table)		/* Possibly shared sin/cos data */
+{
+#ifdef SHARE_SINCOS_DATA
+	struct shareable_sincos_data *p;		/* Ptr to a shareable data block */
+	struct shareable_sincos_data **ptr_to_p;	/* Linked list pointer to patch */
+
+/* Ignore NULL table.  Should only happen when there are errors during gwsetup. */
+
+	if (table == NULL) return;
+
+/* Grab the lock */
+
+	gwmutex_lock (&shareable_lock);
+
+/* Look through the list of shareable blocks to find this shareable block */
+/* Decrement the use count and when it reaches zero, free the memory */
+
+	for (ptr_to_p = &shareable_data; (p = *ptr_to_p) != NULL; ptr_to_p = &p->next) {
+		if (p->data != table) continue;
+		if (--p->use_count == 0) {
+			aligned_free (p->data);
+			*ptr_to_p = p->next;
+			free (p);
+		}
+		break;
+	}
+
+/* Free the lock and return */
+
+	gwmutex_unlock (&shareable_lock);
+#endif
+}
 
 /* Initialize gwhandle for a future gwsetup call. */
 /* The gwinit function has been superceeded by gwinit2.  By passing in the */
@@ -2370,6 +2482,7 @@ int internal_gwsetup (
 			ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 			asm_data->sincos2 = tables;
 			tables = yr4dwpn_build_fixed_pass1_table (gwdata, tables);
+			asm_data->sincos2 = share_sincos_data (gwdata, FIXED_PASS1_SINCOS_DATA, asm_data->sincos2, (char *) tables - (char *) asm_data->sincos2);
 
 /* Build the sin/cos table used in complex pass 2 blocks */
 /* The pass 2 tables are the same as for a traditional radix-4 FFT */		
@@ -2377,9 +2490,11 @@ int internal_gwsetup (
 			ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 			asm_data->xsincos_complex = tables;
 			tables = yr4_build_pass2_complex_table (gwdata, tables);
+			asm_data->xsincos_complex = share_sincos_data (gwdata, PASS2_COMPLEX_SINCOS_DATA, asm_data->xsincos_complex, (char *) tables - (char *) asm_data->xsincos_complex);
 			ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 			asm_data->sincos3 = tables;
 			tables = yr4_build_pass2_real_table (gwdata, tables);
+			asm_data->sincos3 = share_sincos_data (gwdata, PASS2_REAL_SINCOS_DATA, asm_data->sincos3, (char *) tables - (char *) asm_data->sincos3);
 
 /* Allocate a table for carries.  Init with YMM_BIGVAL.  For better distribution of data */
 /* in the L2 cache, make this table contiguous with all other data used in the first pass */
@@ -2415,8 +2530,7 @@ int internal_gwsetup (
 				tables = (double *) ((char *) tables + gwdata->SCRATCH_SIZE);
 			}
 
-/* Build the table of big vs. little flags.  This cannot be last table */
-/* built as xnorm_2d macro reads 2 bytes past the end of the array. */
+/* Build the table of big vs. little flags. */
 
 			ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 			asm_data->norm_biglit_array = tables;
@@ -5375,6 +5489,10 @@ void gwdone (
 
 	term_ghandle (&gwdata->gdata);
 	if (gwdata->asm_data != NULL) {
+		struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
+		unshare_sincos_data (asm_data->sincos2);
+		unshare_sincos_data (asm_data->xsincos_complex);
+		unshare_sincos_data (asm_data->sincos3);
 		aligned_free ((char *) gwdata->asm_data - NEW_STACK_SIZE);
 		gwdata->asm_data = NULL;
 	}
