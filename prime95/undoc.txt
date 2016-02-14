@@ -444,7 +444,7 @@ In prime.txt, set
 	OnlyBench5678=0 or 1
 	BenchAllComplex=0 or 1 or 2
 	AllBench=0 or 1
-	BenchTrialFactoring=0 or 1	(default is 0)
+	BenchTrialFactoring=0 or 1	(default is 1)
 to alter these defaults.  The first to specify the range of FFT length (in K).
 Enter an n value between 1 and 32768.  Set OnlyBench5678=0 to time FFT
 lengths other than 5*2^n, 6*2^n, 7*2^n, and 8*2^n.  Set BenchAllComplex to 0 for
@@ -456,16 +456,20 @@ the optimal FFT implementations for each CPU.
 In addition to the benchmarking options above, the following options are
 available in the multiple workers benchmark
 	BenchMultipleWorkers=0 or 1	(default is 1)
-	BenchTime=n			(default is 10)
+	BenchTime=n			(default is 15)
 	BenchHyperthreads=0 or 1	(default is 1)
 	BenchMultithreads=0 or 1	(default is 0)
 	BenchOddMultithreads=0 or 1	(default is 0)
+	OnlyBenchThroughput=0 or 1	(default is 0)
+	OnlyBenchMaxCPUs=0 or 1		(default is 1)
 BenchMultipleWorkers can be used to disable benchmarking multiple workers.
 BenchTime can be used to change the number of seconds to run each benchmark.
 BenchHyperthreads controls can be used to turn off the hyperthreaded benchmarks.
 BenchMultithreads can be used to also benchmark multi-threaded FFTs (e.g. 2 workers on 4 CPUs).
 BenchOddMultithreads can be used to also benchmark asymetric multi-threaded FFTs
 combinations such as 2 workers on 3 CPUs.
+OnlyBenchThroughput can be used to disable the initial "single worker" tests.
+Set OnlyBenchMaxCPUs to zero to benchmark throughput using fewer than all CPUs.
 
 If you want to run the program on several machines this is typically done
 by carrying the program and files around on portable media such as a floppy
