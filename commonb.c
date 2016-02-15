@@ -8187,6 +8187,10 @@ int primeBench (
 	bench_one_or_all = IniGetInt (INI_FILE, "BenchOneOrAll", 0);		/* Benchmark only 1 or all cpus */
 	bench_arch = IniGetInt (INI_FILE, "BenchArch", 0);	/* CPU architecture to benchmark */
 
+/* If requested skip over the classic single worker benchmarks. */
+
+	if (NUM_CPUS > 1 && IniGetInt (INI_FILE, "OnlyBenchThroughput", 0)) goto throughput_only;
+
 /* Keep CPU cores busy.  This should prevent "turbo boost" from kicking in. */
 /* We do this to hopefully produce more consistent benchmarks.  We don't want to report */
 /* a CPU speed of 1.87 GHz and then produce a benchmark running at a boosted 3.2 GHz */
@@ -8197,10 +8201,6 @@ int primeBench (
 		gwthread thread_id;
 		gwthread_create (&thread_id, &bench_busy_loop, (void *) (intptr_t) i);
 	}
-
-/* If requested skip over the classic single worker benchmarks. */
-
-	if (NUM_CPUS > 1 && IniGetInt (INI_FILE, "OnlyBenchThroughput", 0)) goto throughput_only;
 
 /* Loop over all possible single-worker multithread possibilities */
 
