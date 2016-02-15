@@ -439,6 +439,8 @@ double *yr4dwpn_build_pass1_table (
 		delay_count = 20;
 	else if (pass1_size == 1280 && !gwdata->ALL_COMPLEX_FFT)
 		delay_count = 40;
+	else if (pass1_size == 1536 && !gwdata->ALL_COMPLEX_FFT)
+		delay_count = 48;
 	else if (pass1_size % 5 == 0 && !gwdata->ALL_COMPLEX_FFT)
 		delay_count = 10;
 	else if ((pass1_size == 256 && !gwdata->ALL_COMPLEX_FFT) ||
@@ -451,7 +453,7 @@ double *yr4dwpn_build_pass1_table (
 		delay_count = 4;
 	if (pass1_size == 128 || pass1_size == 256 || pass1_size == 320 || pass1_size == 384 ||
 	    pass1_size == 448 || pass1_size == 512 || pass1_size == 640 || pass1_size == 768 ||
-	    pass1_size == 896 || pass1_size == 1024 || pass1_size == 1280) {
+	    pass1_size == 896 || pass1_size == 1024 || pass1_size == 1280 || pass1_size == 1536) {
 		rsc = TRUE;				// Someday we can convert the pass 1 sizes above 1280 
 	}
 #endif
@@ -484,7 +486,7 @@ double *yr4dwpn_build_pass1_table (
 /* Set count of pass 1 blocks that share one set of two-to-phi grp multipliers */
 
 	if (pow2_count & 1) gwdata->wpn_count = 8;
-	else if ((gwdata->FFTLEN / gwdata->PASS2_SIZE == 1536 && !gwdata->ALL_COMPLEX_FFT) ||
+	else if ((gwdata->FFTLEN / gwdata->PASS2_SIZE == 1536 && !gwdata->ALL_COMPLEX_FFT && !rsc) ||
 		 gwdata->FFTLEN / gwdata->PASS2_SIZE == 1792 ||
 		 gwdata->FFTLEN / gwdata->PASS2_SIZE == 2048) gwdata->wpn_count = 16;
 	else gwdata->wpn_count = 4;
@@ -641,6 +643,16 @@ double *yr4dwpn_build_pass1_table (
 								ktemp = kmap[k] * final_group;
 							else
 								ktemp = bigN + kmap[k] * final_group;
+						} else if (delay_count == 48) {
+							/* 0...11 combined with one 0,2,1,5 and three 0,2,1,-1 */
+							int	kmap[48] = {0,24,12,60,   1,49,25,-23,  2,50,26,-22,
+									    3,51,27,-21,  4,52,28,-20,  5,53,29,-19,
+									    6,54,30,-18,  7,55,31,-17,  8,56,32,-16,
+									    9,57,33,-15, 10,58,34,-14, 11,59,35,-13};
+							if (kmap[k] >= 0)
+								ktemp = kmap[k] * final_group;
+							else
+								ktemp = bigN + kmap[k] * final_group;
 						} else {			/* delay_count == 8, 10, 12, or 14 */
 							/* Multipliers for the radix-16, radix-20, radix-24, or radix-28 step */
 							ktemp = k * final_group;
@@ -772,6 +784,16 @@ double *yr4dwpn_build_pass1_table (
 							int	kmap[40] = {0,20,10,50,   1,41,21,-19,  2,42,22,-18,
 									    3,43,23,-17,  4,44,24,-16,  5,45,25,-15,
 									    6,46,26,-14,  7,47,27,-13,  8,48,28,-12,  9,49,29,-11};
+							if (kmap[k] >= 0)
+								ktemp = kmap[k] * final_group;
+							else
+								ktemp = bigN + kmap[k] * final_group;
+						} else if (delay_count == 48) {
+							/* 0...11 combined with one 0,2,1,5 and three 0,2,1,-1 */
+							int	kmap[48] = {0,24,12,60,   1,49,25,-23,  2,50,26,-22,
+									    3,51,27,-21,  4,52,28,-20,  5,53,29,-19,
+									    6,54,30,-18,  7,55,31,-17,  8,56,32,-16,
+									    9,57,33,-15, 10,58,34,-14, 11,59,35,-13};
 							if (kmap[k] >= 0)
 								ktemp = kmap[k] * final_group;
 							else
@@ -1220,26 +1242,6 @@ double *yr4dwpn_build_fixed_pass1_table (
 				}
 			}
 			N = N / 20;
-			/* Sometimes we also use a fixed sin/cos table for */
-			/* the next FFT levels to further reduce memory usage. */
-#ifdef USE_REDUCED_SINCOS_FFTS
-			if (pass1_size == 1280) {
-				/* Output the sin/cos values for the complex data followed by sin/cos values for the real data */
-				for (j = 0; j < N / 4; j += pass1_increment) {
-					gwsincos12by4 (j, N, table);
-					gwsincos12by4 (j + upper_avx_word, N, table+1);
-					gwsincos12by4 (j + 2 * upper_avx_word, N, table+2);
-					gwsincos12by4 (j + 3 * upper_avx_word, N, table+3);
-					table += 16;
-					gwsincos15by4 (j, N*2, table);
-					gwsincos15by4 (j + upper_avx_word, N*2, table+1);
-					gwsincos15by4 (j + 2 * upper_avx_word, N*2, table+2);
-					gwsincos15by4 (j + 3 * upper_avx_word, N*2, table+3);
-					table += 16;
-				}
-				N = N / 4;
-			}
-#endif
 		}
 		else if (pass1_size == 384 || pass1_size == 768 || pass1_size == 1536) {
 			for (j = 0; j < N / 24; j += pass1_increment) {
@@ -1274,24 +1276,29 @@ double *yr4dwpn_build_fixed_pass1_table (
 				table += 24;
 			}
 			N = N / 8;
-			/* Sometimes we also use a fixed sin/cos table for */
-			/* the next FFT levels to further reduce memory usage. */
-			if (pass1_size == 1024 || pass1_size == 2048) {
-				/* Output the sin/cos values for the complex data followed by sin/cos values for the real data */
-				for (j = 0; j < N / 4; j += pass1_increment) {
-					gwsincos12by4 (j, N, table);
-					gwsincos12by4 (j + upper_avx_word, N, table+1);
-					gwsincos12by4 (j + 2 * upper_avx_word, N, table+2);
-					gwsincos12by4 (j + 3 * upper_avx_word, N, table+3);
-					table += 16;
-					gwsincos15by4 (j, N*2, table);
-					gwsincos15by4 (j + upper_avx_word, N*2, table+1);
-					gwsincos15by4 (j + 2 * upper_avx_word, N*2, table+2);
-					gwsincos15by4 (j + 3 * upper_avx_word, N*2, table+3);
-					table += 16;
-				}
-				N = N / 4;
+		}
+		/* Sometimes we also use a fixed sin/cos table for a four-complex in */
+		/* the next FFT levels to further reduce memory usage. */
+		if (pass1_size == 1024 ||
+#ifdef USE_REDUCED_SINCOS_FFTS
+		    pass1_size == 1280 ||
+		    pass1_size == 1536 ||
+#endif
+		    pass1_size == 2048) {
+			/* Output the sin/cos values for the complex data followed by sin/cos values for the real data */
+			for (j = 0; j < N / 4; j += pass1_increment) {
+				gwsincos12by4 (j, N, table);
+				gwsincos12by4 (j + upper_avx_word, N, table+1);
+				gwsincos12by4 (j + 2 * upper_avx_word, N, table+2);
+				gwsincos12by4 (j + 3 * upper_avx_word, N, table+3);
+				table += 16;
+				gwsincos15by4 (j, N*2, table);
+				gwsincos15by4 (j + upper_avx_word, N*2, table+1);
+				gwsincos15by4 (j + 2 * upper_avx_word, N*2, table+2);
+				gwsincos15by4 (j + 3 * upper_avx_word, N*2, table+3);
+				table += 16;
 			}
+			N = N / 4;
 		}
 	}
 

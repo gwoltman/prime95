@@ -1,4 +1,4 @@
-; Copyright 1995-2015 Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2016 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -16,7 +16,7 @@ ENDIF
 
 INCLUDE	unravel.mac
 
-VERSION_NUMBER = 2808		;; Version 28.8
+VERSION_NUMBER = 2809		;; Version 28.9
 
 ;
 ; Global variables needed by FFT setup code
@@ -4495,9 +4495,9 @@ yjmptable DD	0
 	PRCENTRY2		yfft_r4dwpn_17920K_10240_4, 30044928, I7_32
 	DD			0
 	PRCSTRT	339200000, 18874368, 0.149016
-	PRCENTRY2		yfft_r4dwpn_18M_12288_4, 33702400
-	PRCENTRY2		yfft_r4dwpn_18M_12288_2, 33702400
-	PRCENTRY2		yfft_r4dwpn_18M_12288_1, 33702400, FMA3_64
+	PRCENTRY2		yfft_r4dwpn_18M_12288_4, 18980864
+	PRCENTRY2		yfft_r4dwpn_18M_12288_2, 18980864
+	PRCENTRY2		yfft_r4dwpn_18M_12288_1, 18980864, FMA3_64
 	PRCENTRY2		yfft_r4dwpn_18M_9216_4, 28811264, I7_32
 	DD			0
 	PRCSTRT	352900000, 19660800, 0.153223
