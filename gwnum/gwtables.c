@@ -447,6 +447,7 @@ double *yr4dwpn_build_pass1_table (
 		 (pass1_size == 512 && !gwdata->ALL_COMPLEX_FFT))
 		delay_count = 8;
 	else if ((pass1_size == 512 && gwdata->ALL_COMPLEX_FFT) ||
+		 (pass1_size == 1536 && gwdata->ALL_COMPLEX_FFT) ||
 		 pass1_size == 1024)
 		delay_count = 16;
 	else
@@ -454,7 +455,7 @@ double *yr4dwpn_build_pass1_table (
 	if (pass1_size == 128 || pass1_size == 256 || pass1_size == 320 || pass1_size == 384 ||
 	    pass1_size == 448 || pass1_size == 512 || pass1_size == 640 || pass1_size == 768 ||
 	    pass1_size == 896 || pass1_size == 1024 || pass1_size == 1280 || pass1_size == 1536) {
-		rsc = TRUE;				// Someday we can convert the pass 1 sizes above 1280 
+		rsc = TRUE;				// Someday we can convert the pass 1 sizes above 1536 
 	}
 #endif
 	if (!rsc) {
@@ -1338,7 +1339,7 @@ double *yr4dwpn_build_fixed_pass1_table (
 			}
 			N = N / 3;
 		}
-		if (pass1_size == 512 || pass1_size == 1024) {
+		if (pass1_size == 512 || pass1_size == 1024 || pass1_size == 1536) {
 			/* Output the sin/cos values for the complex data */
 			for (j = 0; j < N / 4; j += pass1_increment) {
 				gwsincos12by4 (j, N, table);
