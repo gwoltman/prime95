@@ -416,7 +416,6 @@ double *yr4dwpn_build_pass1_table (
 	unsigned long group, i, j, k, N, temp, upper_avx_word;
 	int	pow2_count;
 	int	wpn4 = FALSE;		/* Flag indicating we are using wpn4 in pass 1 */
-	int	rsc = FALSE;		/* Flag indicating we are using reduced sin/cos in pass 1 */
 
 /* Initialize some needed constants */
 
@@ -430,7 +429,9 @@ double *yr4dwpn_build_pass1_table (
 /* I call these groups of sin/cos data in the last pass 1 level "delay groups". */
 
 #ifdef USE_REDUCED_SINCOS_FFTS
-	if (pass1_size % 7 == 0)
+	if (pass1_size == 1792 && !gwdata->ALL_COMPLEX_FFT)
+		delay_count = 56;
+	else if (pass1_size % 7 == 0)
 		delay_count = 14;
 	else if (pass1_size == 384 || pass1_size == 768)
 		delay_count = 12;
@@ -452,31 +453,26 @@ double *yr4dwpn_build_pass1_table (
 		delay_count = 16;
 	else
 		delay_count = 4;
-	if (pass1_size == 128 || pass1_size == 256 || pass1_size == 320 || pass1_size == 384 ||
-	    pass1_size == 448 || pass1_size == 512 || pass1_size == 640 || pass1_size == 768 ||
-	    pass1_size == 896 || pass1_size == 1024 || pass1_size == 1280 || pass1_size == 1536) {
-		rsc = TRUE;				// Someday we can convert the pass 1 sizes above 1536 
-	}
+					// To do: convert pass 1 sizes above 1792
+#else
+	if (pass1_size % 7 == 0)
+		delay_count = 14;
+	else if ((pass1_size == 384 && !gwdata->ALL_COMPLEX_FFT) ||
+		 (pass1_size == 768 && !gwdata->ALL_COMPLEX_FFT) ||
+		 (pass1_size == 1536 && !gwdata->ALL_COMPLEX_FFT))
+		delay_count = 12;
+	else if (pass1_size % 5 == 0 && !gwdata->ALL_COMPLEX_FFT)
+		delay_count = 10;
+	else if (pass1_size == 256 && !gwdata->ALL_COMPLEX_FFT)
+		delay_count = 8;
+	else if ((pass1_size == 512 && !gwdata->ALL_COMPLEX_FFT) ||
+		 (pass1_size == 1024 && !gwdata->ALL_COMPLEX_FFT) ||
+		 (pass1_size == 1536 && gwdata->ALL_COMPLEX_FFT) ||
+		 pass1_size == 2048)
+		delay_count = 16;
+	else
+		delay_count = 4;
 #endif
-	if (!rsc) {
-		if (pass1_size % 7 == 0)
-			delay_count = 14;
-		else if ((pass1_size == 384 && !gwdata->ALL_COMPLEX_FFT) ||
-			 (pass1_size == 768 && !gwdata->ALL_COMPLEX_FFT) ||
-			 (pass1_size == 1536 && !gwdata->ALL_COMPLEX_FFT))
-			delay_count = 12;
-		else if (pass1_size % 5 == 0 && !gwdata->ALL_COMPLEX_FFT)
-			delay_count = 10;
-		else if (pass1_size == 256 && !gwdata->ALL_COMPLEX_FFT)
-			delay_count = 8;
-		else if ((pass1_size == 512 && !gwdata->ALL_COMPLEX_FFT) ||
-			 (pass1_size == 1024 && !gwdata->ALL_COMPLEX_FFT) ||
-			 (pass1_size == 1536 && gwdata->ALL_COMPLEX_FFT) ||
-			 pass1_size == 2048)
-			delay_count = 16;
-		else
-			delay_count = 4;
-	}
 
 /* Count the power-of-two FFT levels after the initial FFT levels.  If odd, the */
 /* the last levels will be a radix-8, if even the last levels will be a radix-4. */
@@ -486,11 +482,16 @@ double *yr4dwpn_build_pass1_table (
 
 /* Set count of pass 1 blocks that share one set of two-to-phi grp multipliers */
 
+#ifdef USE_REDUCED_SINCOS_FFTS
 	if (pow2_count & 1) gwdata->wpn_count = 8;
-	else if ((gwdata->FFTLEN / gwdata->PASS2_SIZE == 1536 && !gwdata->ALL_COMPLEX_FFT && !rsc) ||
+	else gwdata->wpn_count = 4;
+#else
+	if (pow2_count & 1) gwdata->wpn_count = 8;
+	else if ((gwdata->FFTLEN / gwdata->PASS2_SIZE == 1536 && !gwdata->ALL_COMPLEX_FFT) ||
 		 gwdata->FFTLEN / gwdata->PASS2_SIZE == 1792 ||
 		 gwdata->FFTLEN / gwdata->PASS2_SIZE == 2048) gwdata->wpn_count = 16;
 	else gwdata->wpn_count = 4;
+#endif
 #ifdef USE_WPN4
 	{
 		gwdata->wpn_count *= 4;
@@ -529,7 +530,8 @@ double *yr4dwpn_build_pass1_table (
 /* from zero to zero) when generating the sin/cos twiddle factors for the last */
 /* levels of pass 1. */
 
-		if (rsc && (pow2_count & 1)) {
+#ifdef USE_REDUCED_SINCOS_FFTS
+		if (pow2_count & 1) {
 			N = N * 8;
 
 /* Output the complex sin/cos values needed for a standard yr8_8cl_eight_complex_djbfft */
@@ -654,6 +656,17 @@ double *yr4dwpn_build_pass1_table (
 								ktemp = kmap[k] * final_group;
 							else
 								ktemp = bigN + kmap[k] * final_group;
+						} else if (delay_count == 56) {
+							/* 0...13 combined with one 0,2,1,5 and three 0,2,1,-1 */
+							int	kmap[56] = {0,28,14,70,   1,57,29,-27,  2,58,30,-26,
+									    3,59,31,-25,  4,60,32,-24,  5,61,33,-23,
+									    6,62,34,-22,  7,63,35,-21,  8,64,36,-20,
+									    9,65,37,-19, 10,66,38,-18, 11,67,39,-17,
+									   12,68,40,-16, 13,69,41,-15};
+							if (kmap[k] >= 0)
+								ktemp = kmap[k] * final_group;
+							else
+								ktemp = bigN + kmap[k] * final_group;
 						} else {			/* delay_count == 8, 10, 12, or 14 */
 							/* Multipliers for the radix-16, radix-20, radix-24, or radix-28 step */
 							ktemp = k * final_group;
@@ -673,7 +686,7 @@ double *yr4dwpn_build_pass1_table (
 /* Output the sin/cos/premultiplier values for the radix-4 block that does the */
 /* last 2 levels in pass 1. */
 
-		else if (rsc) {
+		else {
 			N = N * 4;
 
 /* Output the complex sin/cos values needed for a standard yr4_4cl_four_complex_djbfft */
@@ -799,6 +812,17 @@ double *yr4dwpn_build_pass1_table (
 								ktemp = kmap[k] * final_group;
 							else
 								ktemp = bigN + kmap[k] * final_group;
+						} else if (delay_count == 56) {
+							/* 0...13 combined with one 0,2,1,5 and three 0,2,1,-1 */
+							int	kmap[56] = {0,28,14,70,   1,57,29,-27,  2,58,30,-26,
+									    3,59,31,-25,  4,60,32,-24,  5,61,33,-23,
+									    6,62,34,-22,  7,63,35,-21,  8,64,36,-20,
+									    9,65,37,-19, 10,66,38,-18, 11,67,39,-17,
+									   12,68,40,-16, 13,69,41,-15};
+							if (kmap[k] >= 0)
+								ktemp = kmap[k] * final_group;
+							else
+								ktemp = bigN + kmap[k] * final_group;
 						} else {			/* delay_count == 8, 10, 12, or 14 */
 							/* Multipliers for the radix-16, radix-20, radix-24, or radix-28 step */
 							ktemp = k * final_group;
@@ -820,7 +844,8 @@ double *yr4dwpn_build_pass1_table (
 /* from zero to zero) when generating the sin/cos twiddle factors for the last */
 /* levels of pass 1. */
 
-		else if (pow2_count & 1) {
+#else
+		if (pow2_count & 1) {
 			N = N * 8;
 
 /* For the yr8_sg8cl_sixteen_reals_fft8 building block, output the extra */
@@ -1015,6 +1040,7 @@ double *yr4dwpn_build_pass1_table (
 			}
 			pass1_size /= 4;
 		}
+#endif
 
 /* Output multipliers for the four complex building blocks. */
 
@@ -1284,6 +1310,7 @@ double *yr4dwpn_build_fixed_pass1_table (
 #ifdef USE_REDUCED_SINCOS_FFTS
 		    pass1_size == 1280 ||
 		    pass1_size == 1536 ||
+		    pass1_size == 1792 ||
 #endif
 		    pass1_size == 2048) {
 			/* Output the sin/cos values for the complex data followed by sin/cos values for the real data */
