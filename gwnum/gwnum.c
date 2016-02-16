@@ -1630,6 +1630,7 @@ void unshare_sincos_data (
 
 /* Grab the lock */
 
+	if (!shareable_lock_initialized) return;
 	gwmutex_lock (&shareable_lock);
 
 /* Look through the list of shareable blocks to find this shareable block */
