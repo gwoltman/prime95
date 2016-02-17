@@ -449,6 +449,7 @@ double *yr4dwpn_build_pass1_table (
 		delay_count = 8;
 	else if ((pass1_size == 512 && gwdata->ALL_COMPLEX_FFT) ||
 		 (pass1_size == 1536 && gwdata->ALL_COMPLEX_FFT) ||
+		 (pass1_size == 2048 && !gwdata->ALL_COMPLEX_FFT) ||
 		 pass1_size == 1024)
 		delay_count = 16;
 	else
@@ -484,6 +485,7 @@ double *yr4dwpn_build_pass1_table (
 
 #ifdef USE_REDUCED_SINCOS_FFTS
 	if (pow2_count & 1) gwdata->wpn_count = 8;
+	else if (gwdata->FFTLEN / gwdata->PASS2_SIZE == 2048) gwdata->wpn_count = 16;
 	else gwdata->wpn_count = 4;
 #else
 	if (pow2_count & 1) gwdata->wpn_count = 8;
@@ -633,6 +635,15 @@ double *yr4dwpn_build_pass1_table (
 						} else if (delay_count == 16) {
 							/* 0,2,1,5 combined with one 0,2,1,5 and three 0,2,1,-1 */
 							int	kmap[16] = {0,8,4,20, 2,18,10,-6, 1,17,9,-7, 5,21,13,-3};
+							if (kmap[k] >= 0)
+								ktemp = kmap[k] * final_group;
+							else
+								ktemp = bigN + kmap[k] * final_group;
+						} else if (delay_count == 32) {
+							/* 0...7 combined with one 0,2,1,5 and three 0,2,1,-1 */
+							int	kmap[32] = {0,16,8,40,    1,33,17,-15,  2,34,18,-14,
+									    3,35,19,-13,  4,36,20,-12,  5,37,21,-11,
+									    6,38,22,-10,  7,39,23,-9};
 							if (kmap[k] >= 0)
 								ktemp = kmap[k] * final_group;
 							else
@@ -789,6 +800,15 @@ double *yr4dwpn_build_pass1_table (
 						} else if (delay_count == 16) {
 							/* 0,2,1,5 combined with one 0,2,1,5 and three 0,2,1,-1 */
 							int	kmap[16] = {0,8,4,20, 2,18,10,-6, 1,17,9,-7, 5,21,13,-3};
+							if (kmap[k] >= 0)
+								ktemp = kmap[k] * final_group;
+							else
+								ktemp = bigN + kmap[k] * final_group;
+						} else if (delay_count == 32) {
+							/* 0...7 combined with one 0,2,1,5 and three 0,2,1,-1 */
+							int	kmap[32] = {0,16,8,40,    1,33,17,-15,  2,34,18,-14,
+									    3,35,19,-13,  4,36,20,-12,  5,37,21,-11,
+									    6,38,22,-10,  7,39,23,-9};
 							if (kmap[k] >= 0)
 								ktemp = kmap[k] * final_group;
 							else
