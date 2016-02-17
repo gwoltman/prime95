@@ -35151,9 +35151,10 @@ ENDIF
 ;;		16*clm cache lines to output FFT data + 12*clm+4*clm cache lines of s/c data.
 ;; A grand total of 16384 bytes with clm=4 -- easily fitting in a 32KB L1 cache.
 
+	bump	rdi, -4*clm*YMM_SCD2		;; First sin/cos ptr (for timer 25)
+
 IF (192*4*clm*64 GT GROUPING_SIZE) OR (clm GE CLM_GROUPING)
 
-	bump	rdi, -4*clm*YMM_SCD2		;; Sin/cos ptr for timer 25
 	lea	rbx, [rdi-4*clm*64-16*clm*YMM_SCD1] ;; Delayed multipliers for timer 26
 	mov	rbp, DATA_ADDR			;; Destination pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
@@ -35190,7 +35191,6 @@ b9b:	yr4_rsc_sg4cl_four_complex_fft4 rsi, 256, 64, 128, rbp, 64, blkdst, 2*blkds
 ELSE
 
 	start_timer 25
-	bump	rdi, -4*clm*YMM_SCD2		;; First sin/cos ptr
 	lea	rdx, [rdi-4*clm*64]		;; Weights ptr
 	yloop_init 48*4*clm			;; 48 iters of 4*clm
 	yloop_set_prefetch YNONE
@@ -37126,6 +37126,578 @@ b9b:	yr4_rsc_sg4cl_four_complex_fft4 rsi, 256, 64, 128, rbp, 64, blkdst, 2*blkds
 	yloop	clm, b9b, -clm*256+clmblkdst, rbp, -clm*64+4*blkdst, rdx, -clm*YMM_SCD4 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
 	yloop	8, b9b, -8*clmblkdst+clmblkdst8	;; Test loop counter, next source pointer
 	yloop	2, b9b				;; Test loop counter, next premult/sine/cosine pointer
+	yloop	16, b9a				;; Test loop counter
+	end_timer 26
+
+ENDIF
+
+;; Work on next 4*clm sets of 2048 values
+
+endlp:	ypass1_get_next_block pass2, c0b, b0b ;; Get next block and jump
+done:	yfft_footer
+	ENDM
+
+
+;; Perform a pass 1 all-complex FFT of length 2048 doubles.
+;; Memory examples are for a 2048K FFT with 10 levels done in pass 2.
+;; Sin/cos data needed: 4*4*clm*64 + 4*4*clm*YMM_SCD2 + 4*clm*YMM_SCD2 + clm*YMM_SCD2 + 16*clm*YMM_SCD1 = 74*clm 64-byte cache lines
+
+;; This pass processes 1024*clm cache lines, or 256KB if clm=4, suggesting we should use clm=1:  64KB of scratch area, 64KB of input FFT data,
+;; 64KB of prefetched FFT data, plus s/c data.  This might just barely fit in 256KB L2 cache.
+;; Actual results, show that clm=4 is better than clm=2 which is vastly better than clm=1 -- I have no idea why.
+
+yr4dwpn_pass1sc2048ac MACRO fftname, pass2_levels, clmarg
+	LOCAL	b0b, b1a, b1b, b3b, b5b, b7a, b7aa, b7b, b9a, b9b, c0b, c1b, c3b, c5a, c5b, c7b, c9a, c9aa, c9b
+	LOCAL	pass1, pass2, endlp, done, yes_fft
+
+	set_FFT_constants fftname, 0, 1, 2048, pass2_levels, clmarg
+	yfft_header pass1
+
+;; Do pass 2 (the last 10 FFT levels if this is a 2048K FFT)
+
+pass2:	start_timer 0
+	call	ypass2name
+	end_timer 0
+	cmp	ffttype, 1		;; We're done if FFTing only
+	je	done
+
+;; Do the inverse FFT
+
+	pass1_inverse_fft_setup c0b
+
+;; Do inverse FFT levels 10,11
+;; On input the 64-byte cache lines hold these data values:
+;;	0K	+1	+1	+1	1K	+1	+1	+1
+;;	2K	...
+;;	...
+;; On output the 64-byte cache lines hold these data values:
+;;	0K	+1	+1	+1	4K	+1	+1	+1
+;;	1K	...
+;;	...
+;;	3K	...
+;;	8K	...
+;;	...
+;; The output cache lines are swizzled to hold these data values:
+;;	0K	+1K	+1K	+1K	4K	+1K	+1K	+1K
+;;	8K	...
+;;	...
+
+;; Do 256 four_complex_unfft4 operations
+;;	distance between fft data elements is 1K
+;;	do 64 macros each processing 32 data values
+
+;; Do inverse FFT levels 8,9
+;; On input the 64-byte cache lines hold these data values:
+;;	0K	+1K	+1K	+1K	4K	+1K	+1K	+1K
+;;	8K	...
+;;	...
+;; On output the 64-byte cache lines hold these data values:
+;;	0K	+1K	+1K	+1K	16K	+1K	+1K	+1K
+;;	4K	...
+;;	...
+;;	12K	...
+;;	32K	...
+;;	...
+
+;; Do 256 four_complex_unfft operations
+;;	distance between fft data elements is 4K
+;;	do 64 macros each processing 32 data values
+
+;; Process data in small chunks for more L1 data cache hits
+;; This section processes chunks of 16*clm cache lines of scratch area data (+100% due to L1 prefetching next section) +
+;;		16*clm cache lines of input FFT data + 4*clm+8*clm cache lines of s/c data.
+;; A grand total of 15360 bytes with clm=4 -- easily fitting in a 32KB L1 cache.
+
+c0b:	mov	rbp, DATA_ADDR			;; Get source address
+	mov	rsi, scratch_area		;; Get address of scratch area
+	set_data_prefetch_ptrs			;; Init prefetching pointers
+
+IF (256*4*clm*64 GT GROUPING_SIZE) OR (clm GE CLM_GROUPING)
+
+	mov	rdi, PREMULT_ADDR		;; Load premult/sin/cos pointer
+	bump	rdi, clm*YMM_SCD2		;; Delayed sin/cos multipliers
+	lea	rbx, [rdi+16*clm*YMM_SCD1]	;; Sin/cos ptr for timer 17
+	yloop_init 64*4*clm			;; 64*4*clm iterations
+x64	mov	r9, 4*clmblkdst			;; Distance to the next portion of the scratch area we will process (so we can prefetch it into the L1 cache).
+
+c9a:	start_timer 16
+	mov	rdx, PREMULT_ADDR		;; Complex data sin/cos pointer
+	yr4_rsc_sg4cl_four_complex_calc_sincos rdi, rdx, clm ;; Generate clm*SCD4 sin/cos values from delayed and complex multipliers
+	bump	rdi, clm*YMM_SCD1		;; Next set of delayed sin/cos multipliers
+	end_timer 16
+c9aa:	start_timer 16
+	lea	rdx, YMM_TMPS			;; Computed clm*SCD4 sin/cos values
+	yloop_set_clm_prefetch YNONE
+	yr4_rsc_sg4cl_four_complex_unfft4_preload
+c9b:	yr4_rsc_sg4cl_four_complex_unfft4 rbp, 64, blkdst, 2*blkdst, rsi, 256, 64, 128, rdx, YMM_SCD4, clm, L1PREFETCH_ALL, ((clm MOD 2)+1)*4*blkdst ;; Prefetch short dist ahead
+	yloop	clm, c9b, -clm*256+clmblkdst, rbp, -clm*64+4*blkdst, rdx, -clm*YMM_SCD4 ;; Loop, next dest/src ptrs, restore premult/sin/cos ptr
+	yloop	4, c9b, -4*clmblkdst		;; Test loop counter, restore scratch area ptr
+	loops_undo 4*clm
+	end_timer 16
+
+	start_timer 17
+	yloop_set_clm_prefetch YSINGLE		;; Prefetch 64 blocks
+	yr4_4cl_four_complex_djbunfft_preload
+c7b:
+x64	yr4_4cl_four_complex_djbunfft rsi, 64, clmblkdst, 2*clmblkdst, rbx, YMM_SCD2, 4*clm, L1PREFETCH_ALL, r9 ;; Prefetch next scratch area section
+x32	yr4_4cl_four_complex_djbunfft rsi, 64, clmblkdst, 2*clmblkdst, rbx, YMM_SCD2, 4*clm, L1PREFETCH_ALL, 4*clmblkdst ;; Prefetch next scratch area section
+	yloop	4*clm, c7b, -4*clm*64+4*clmblkdst, rbx, -4*clm*YMM_SCD2 ;; 4*clm iterations, restore sin/cos pointer
+	end_timer 17
+
+x64	xor	r9, (clmblkdst8-4*clmblkdst) XOR (4*clmblkdst) ;; "Toggle" the distance to next scratch area
+	yloop	2, c9aa, -2*4*clmblkdst+clmblkdst8 ;; Test loop counter
+	yloop	2, c9aa				;; Test loop counter
+	yloop	16, c9a, -32*clmblkdst8		;; Test loop counter, restore source pointer
+	lea	rdi, [rbx+4*clm*YMM_SCD2]	;; Next sin/cos ptr
+
+ELSE
+
+	start_timer 16
+	yloop_init 64*4*clm			;; 64*4*clm iterations
+	mov	rbx, PREMULT_ADDR		;; Complex data sin/cos ptr
+	lea	rdi, [rbx+clm*YMM_SCD2]		;; Delayed sin/cos multipliers
+	lea	rdx, YMM_TMPS			;; Computed clm*SCD4 sin/cos values
+	yloop_set_clm_prefetch YNONE
+c9a:	yr4_rsc_sg4cl_four_complex_calc_sincos rdi, rbx, clm ;; Generate clm*SCD4 sin/cos values from delayed and complex multipliers
+	bump	rdi, clm*YMM_SCD1		;; Next set of delayed sin/cos multipliers
+	yr4_rsc_sg4cl_four_complex_unfft4_preload
+c9b:	yr4_rsc_sg4cl_four_complex_unfft4 rbp, 64, blkdst, 2*blkdst, rsi, 256, 64, 128, rdx, YMM_SCD4, clm, L1PREFETCH_ALL, ((clm MOD 2)+1)*4*blkdst ;; Prefetch short dist ahead
+	yloop	clm, c9b, -clm*256+clmblkdst, rbp, -clm*64+4*blkdst, rdx, -clm*YMM_SCD4 ;; Loop, next dest/src ptrs, restore premult/sin/cos ptr
+	yloop	8, c9b, -8*clmblkdst+clmblkdst8 ;; Test loop counter
+	yloop	2, c9b				;; Test loop counter
+	yloop	16, c9a, -32*clmblkdst8		;; Test loop counter, restore source pointer
+	end_timer 16
+
+	start_timer 17
+	yloop_init 64*4*clm			;; 64*4*clm iterations
+	yloop_set_clm_prefetch YSINGLE		;; Prefetch 64 blocks
+	yr4_4cl_four_complex_djbunfft_preload
+c7b:	yr4_4cl_four_complex_djbunfft rsi, 64, clmblkdst, 2*clmblkdst, rdi, YMM_SCD2, 4*clm, L1PREFETCH_ALL, 2*64 ;; Prefetch short dist ahead
+	yloop	4*clm, c7b, -4*clm*64+4*clmblkdst, rdi, -4*clm*YMM_SCD2 ;; 4*clm iterations, restore sin/cos pointer
+	yloop	2, c7b, -2*4*clmblkdst+clmblkdst8 ;; 2 iterations, next source pointer
+	yloop	32, c7b, -32*clmblkdst8, rdi, 4*clm*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos pointer
+	end_timer 17
+
+ENDIF
+
+;; Do inverse FFT levels 6,7
+;; On input the 64-byte cache lines hold these data values:
+;;	0K	+1K	+1K	+1K	16K	+1K	+1K	+1K
+;;	4K	...
+;;	...
+;;	12K	...
+;;	32K	...
+;;	...
+;; On output the 64-byte cache lines hold these data values:
+;;	0K	+1K	+1K	+1K	64K	+1K	+1K	+1K
+;;	4K	...
+;;	...
+;;	60K	...
+;;	128K	...
+;;	...
+
+;; Do 256 four_complex_unfft operations
+;;	distance between fft data elements is 16K
+;;	do 64 macros each processing 32 data values
+
+;; Do inverse FFT levels 4,5
+;; On input the 64-byte cache lines hold these data values:
+;;	0K	+1K	+1K	+1K	64K	+1K	+1K	+1K
+;;	4K	...
+;;	...
+;;	60K	...
+;;	128K	...
+;;	...
+;; On output the 64-byte cache lines hold these data values:
+;;	0K	+1K	+1K	+1K	256K	+1K	+1K	+1K
+;;	4K	...
+;;	...
+;;	252K	...
+;;	512K	...
+;;	...
+
+;; Do 256 four_complex_unfft operations
+;;	distance between fft data elements is 64K
+;;	do 64 macros each processing 32 data values
+
+;; Do inverse FFT levels 1,2,3
+;; On input the 64-byte cache lines hold these data values:
+;;	0K	+1K	+1K	+1K	256K	+1K	+1K	+1K
+;;	4K	...
+;;	...
+;;	252K	...
+;;	512K	...
+;;	...
+;; On output the 64-byte cache lines hold these data values:
+;;	0K	+1K	+1K	+1K	1024K	+1K	+1K	+1K
+;;	4K	...
+;;	...
+;;	1020K	...
+
+;; Do 256 four_complex_unfft operations
+;;	distance between fft data elements is 256K
+;;	do 64 macros each processing 32 data values
+
+;; Process data in small chunks for more L1 data cache hits
+;; This section processes chunks of 256 cache lines of data (+1/16 due to ineffective L1 prefetching) + 12+8+96 cache lines of s/c data.
+;; A grand total of 24832 bytes -- should fit in a 32KB L1 cache.
+
+IF (256*4*clm*64 GT GROUPING_SIZE) OR (clm GE CLM_GROUPING)
+
+	bump	rdi, 4*4*clm*64			;; Sin/cos ptr
+	lea	rdx, [rdi-4*4*clm*32]		;; Weights ptr
+	mov	rbp, sincos2			;; Load fixed premultiplier/sin/cos ptr
+	lea	rbx, [rbp+64*YMM_SCD6]		;; Second sin/cos ptr
+	yloop_init 64*4*clm			;; 64*4*clm iterations
+
+c5a:	start_timer 18
+	yloop_set_clm_prefetch YNONE
+	yr4_b4cl_wpn4_four_complex_djbunfft_preload
+c5b:	yr4_b4cl_wpn4_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdx, 32, rdi, YMM_SCD2, 4, L1PREFETCH_ALL, 2*clmblkdst8 ;; Prefetch short dist ahead
+	yloop	4, c5b, -4*64+2*clmblkdst8, rdx, -4*32, rdi, -4*YMM_SCD2 ;; Test loop counter, restore sin/cos pointer
+	yloop	16, c5b, -16*2*clmblkdst8, rdx, 4*32, rdi, 4*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptr
+	loops_undo 16*4
+	end_timer 18
+
+	start_timer 19
+	yloop_set_clm_prefetch YSINGLE		;; Prefetch 64 blocks
+	yr4_4cl_four_complex_djbunfft_preload
+c3b:	yr4_4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rbx, 0, 4
+	yloop	4, c3b, -4*64+4*clmblkdst, rbx, 4*YMM_SCD2 ;; Test loop counter, next sin/cos pointer
+	yloop	2, c3b, -2*4*clmblkdst+clmblkdst8 ;; Test loop counter, next source pointer
+	yloop	2, c3b, -2*clmblkdst8+8*clmblkdst8, rbx, -4*4*YMM_SCD2 ;; Test loop counter, next source pointer, restore sin/cos pointer
+	yloop	4, c3b, -4*8*clmblkdst8		;; Test loop counter, restore source pointer
+	loops_undo 4*4*4
+	end_timer 19
+
+	start_timer 20
+	yloop_set_clm_prefetch YNONE
+c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rbp, 0, 4
+	yloop	4, c1b, -4*64+4*clmblkdst, rbp, 4*YMM_SCD6 ;; 4 iterations, next sin/cos ptr
+	yloop	2, c1b, -2*4*clmblkdst+clmblkdst8 ;; Test loop counter, next source pointer
+	yloop	8, c1b, -8*clmblkdst8+4*64, rbp, -16*4*YMM_SCD6 ;; Test loop counter, next source pointer, restore sin/cos ptr
+	end_timer 20
+
+	yloop	clm, c5a, -clm*4*64+clmblkdst, rbx, YMM_SCD2, rbp, YMM_SCD6 ;; Test loop counter, next source pointer, next sin/cos ptrs
+	yloop	4, c5a				;; Test loop counter
+
+ELSE
+
+	start_timer 18
+	bump	rdi, 4*4*clm*64			;; Sin/cos ptr
+	lea	rdx, [rdi-4*4*clm*32]		;; Weights ptr
+	yloop_init 64*4*clm			;; 64*4*clm iterations
+	yloop_set_clm_prefetch YNONE
+	yr4_b4cl_wpn4_four_complex_djbunfft_preload
+c5b:	yr4_b4cl_wpn4_four_complex_djbunfft rsi, 64, 4*clmblkdst, clmblkdst8, rdx, 32, rdi, YMM_SCD2, 4*clm, L1PREFETCH_ALL, 2*64 ;; Prefetch short dist ahead
+	yloop	4*clm, c5b, -4*clm*64+clmblkdst ;; 4*clm iterations
+	yloop	4, c5b, -4*clmblkdst+2*clmblkdst8, rdx, -4*4*clm*32, rdi, -4*4*clm*YMM_SCD2 ;; 4*clm iterations, restore sin/cos pointers
+	yloop	16, c5b, -16*2*clmblkdst8	;; Test loop counter, restore source pointer
+	end_timer 18
+
+	start_timer 19
+	mov	rdi, sincos2			;; Load fixed premultiplier/sin/cos ptr
+	bump	rdi, 64*YMM_SCD6		;; Sin/cos ptr
+	yloop_init 64*4*clm			;; 64*4*clm iterations
+	yloop_set_clm_prefetch YSINGLE		;; Prefetch 64 blocks
+	yr4_4cl_four_complex_djbunfft_preload
+c3b:	yr4_4cl_four_complex_djbunfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, 0, 4*clm, L1PREFETCH_ALL, 2*64 ;; Prefetch short dist ahead
+	yloop	4*clm, c3b, -4*clm*64+clmblkdst, rdi, YMM_SCD2 ;; 4*clm iterations, next sin/cos data
+	yloop	8, c3b, -8*clmblkdst+clmblkdst8 ;; 8 iterations
+	yloop	2, c3b, -2*clmblkdst8+8*clmblkdst8, rdi, -16*YMM_SCD2 ;; 2 iterations, restore sin/cos pointer
+	yloop	4, c3b, -4*8*clmblkdst8		;; Test loop counter, restore source pointer
+	end_timer 19
+
+	start_timer 20
+	bump	rdi, -64*YMM_SCD6		;; Sin/cos ptr
+	yloop_init 64*4*clm			;; 64 iterations of 4*clm
+	yloop_set_clm_prefetch YNONE
+c1b:	yr4_4cl_csc_four_complex_last_djbunfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rdi, 0, 4*clm, L1PREFETCH_ALL, 2*64 ;; Prefetch short dist ahead
+	yloop	4*clm, c1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iterations
+	yloop	8, c1b, -8*clmblkdst+clmblkdst8 ;; 8 iterations
+	yloop	8, c1b				;; 8 iterations
+	end_timer 20
+
+ENDIF
+
+;; Normalize these values
+
+	pass1_normalize 1, yes_fft
+
+;; Copy data from the scratch area back to the FFT data area
+
+	copy_scratch_data_to_fft 256
+	jmp	endlp			;; Skip FFT code if flag not set
+
+;; Fire up auxiliary threads to do pass 1 forward FFT
+
+pass1:	pass1_forward_fft_setup b0b
+
+;; Copy data from the FFT data area back to the scratch area
+
+b0b:	copy_fft_data_to_scratch 256
+
+;; Do FFT levels 1,2,3
+;; On input the 64-byte cache lines hold these data values:
+;;	0K	+1K	+1K	+1K	1024K	+1K	+1K	+1K
+;;	4K	...
+;;	...
+;;	1020K	...
+;; On output the 64-byte cache lines hold these data values:
+;;	0K	+1K	+1K	+1K	256K	+1K	+1K	+1K
+;;	4K	...
+;;	...
+;;	252K	...
+;;	512K	...
+;;	...
+
+;; Do 256 four_complex_first_fft operations
+;;	distance between fft data elements is 256K
+;;	do 64 iterations each processing 32 data values
+
+;; Do FFT levels 4,5
+;; On input the 64-byte cache lines hold these data values:
+;;	0K	+1K	+1K	+1K	256K	+1K	+1K	+1K
+;;	4K	...
+;;	...
+;;	252K	...
+;;	512K	...
+;;	...
+;; On output the 64-byte cache lines hold these data values:
+;;	0K	+1K	+1K	+1K	64K	+1K	+1K	+1K
+;;	4K	...
+;;	...
+;;	60K	...
+;;	128K	...
+;;	...
+
+;; Do 256 four_complex_fft operations
+;;	distance between fft data elements is 64K
+;;	do 64 macros each processing 32 data values
+
+;; Do FFT levels 6,7
+;; On input the 64-byte cache lines hold these data values:
+;;	0K	+1K	+1K	+1K	64K	+1K	+1K	+1K
+;;	4K	...
+;;	...
+;;	60K	...
+;;	128K	...
+;;	...
+;; On output the 64-byte cache lines hold these data values:
+;;	0K	+1K	+1K	+1K	16K	+1K	+1K	+1K
+;;	4K	...
+;;	...
+;;	12K	...
+;;	32K	...
+;;	...
+
+;; Do 256 four_complex_fft operations
+;;	distance between fft data elements is 16K
+;;	do 64 macros each processing 32 data values
+
+;; Process data in small chunks for more L1 data cache hits
+;; This section processes chunks of 256 cache lines of data (+1/16 or +1/8 due to ineffective L1 prefetching) + 96+8+12 cache lines of s/c data.
+;; A grand total of 24832 bytes -- should fit in a 32KB L1 cache.
+
+yes_fft:mov	rsi, scratch_area		;; Get address of scratch area
+	set_data_prefetch_ptrs			;; Init prefetching pointers
+pfing	bump	rcx, 128*4*blkdst		;; We've already prefetched 128 blocks
+
+IF (256*4*clm*64 GT GROUPING_SIZE) OR (clm GE CLM_GROUPING)
+
+	mov	rbp, sincos2			;; Load fixed premultiplier/sin/cos ptr
+	lea	rbx, [rbp+64*YMM_SCD6]		;; Second sin/cos ptr
+	mov	rdi, PREMULT_ADDR		;; Address of sin/cos table
+	bump	rdi, 4*4*clm*64 + 4*clm*YMM_SCD2 + clm*YMM_SCD2 + 16*clm*YMM_SCD1 ;; Third sin/cos ptr
+	lea	rdx, [rdi-4*4*clm*64]		;; Weights ptr
+	yloop_init 64*4*clm			;; 64 iters of 4*clm
+
+b1a:	start_timer 22
+	yloop_set_clm_prefetch YNONE
+x64	mov	r9, 4*clmblkdst			;; A short distance ahead in the scratch area (so we can prefetch it into the L1 cache).
+b1b:
+x64	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rbp, 0, 4, L1PREFETCH_ALL, r9 ;; Prefetch a short distance ahead
+x32	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rbp, 0, 4, L1PREFETCH_ALL, clmblkdst8 ;; Prefetch a short distance ahead
+	yloop	4, b1b, -4*64+4*clmblkdst, rbp, 4*YMM_SCD6 ;; Test loop counter, next sin/cos ptr
+x64	xor	r9, (clmblkdst8-4*clmblkdst) XOR (4*clmblkdst) ;; "Toggle" the distance to next scratch area
+	yloop	2, b1b, -2*4*clmblkdst+clmblkdst8 ;; Test loop counter, next source pointer
+	yloop	8, b1b, -8*clmblkdst8, rbp, -16*4*YMM_SCD6 ;; Test loop counter, restore source pointer, restore sin/cos ptr
+	loops_undo 16*4
+	end_timer 22
+
+	start_timer 23
+	yloop_set_clm_prefetch YSINGLE		;; Prefetch 64 blocks
+	yr4_4cl_four_complex_djbfft_preload
+b3b:	yr4_4cl_four_complex_djbfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rbx, 0, 4
+	yloop	4, b3b, -4*64+4*clmblkdst, rbx, 4*YMM_SCD2 ;; Test loop counter, next sin/cos pointer
+	yloop	2, b3b, -2*4*clmblkdst+clmblkdst8 ;; Test loop counter, next source pointer
+	yloop	2, b3b, -2*clmblkdst8+8*clmblkdst8, rbx, -4*4*YMM_SCD2 ;; Test loop counter, next source pointer, restore sin/cos pointer
+	yloop	4, b3b, -4*8*clmblkdst8		;; Test loop counter, restore source pointer
+	loops_undo 4*4*4
+	end_timer 23
+
+	start_timer 24
+	yloop_set_clm_prefetch YSINGLE		;; Prefetch 64 blocks
+	yr4_b4cl_wpn4_four_complex_djbfft_preload
+b5b:	yr4_b4cl_wpn4_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdx, 32, rdi, YMM_SCD2, 4
+	yloop	4, b5b, -4*64+2*clmblkdst8, rdx, -4*32, rdi, -4*YMM_SCD2 ;; Test loop counter, restore sin/cos pointer
+	yloop	16, b5b, -16*2*clmblkdst8+4*64, rdx, 4*32, rdi, 4*YMM_SCD2 ;; Test loop counter, restore source pointer, next sin/cos ptrs
+	end_timer 24
+
+	yloop	clm, b1a, -clm*4*64+clmblkdst, rbx, YMM_SCD2, rbp, YMM_SCD6 ;; Test loop counter, next source pointer, next sin/cos ptrs
+	yloop	4, b1a, -4*clmblkdst, rdi, -4*4*clm*64-4*clm*4*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sin/cos ptr
+
+ELSE
+
+	start_timer 22
+	mov	rdi, sincos2			;; Load fixed premultiplier/sin/cos ptr
+	yloop_init 64*4*clm			;; 64 iters of 4*clm
+	yloop_set_clm_prefetch YNONE
+b1b:	yr4_4cl_csc_four_complex_first_djbfft rsi, 64, 8*clmblkdst8, 16*clmblkdst8, rdi, 0, 4*clm, L1PREFETCH_ALL, 2*64 ;; Prefetch short dist ahead
+	yloop	4*clm, b1b, -4*clm*64+clmblkdst, rdi, YMM_SCD6 ;; 4*clm iters prefetching 4*clm cache lines
+	yloop	8, b1b, -8*clmblkdst+clmblkdst8 ;; 8 iterations
+	yloop	8, b1b, -8*clmblkdst8		;; 8 iterations
+	end_timer 22
+
+	start_timer 23
+	yloop_init 64*4*clm			;; 64 iters of 4*clm
+	yloop_set_clm_prefetch YSINGLE		;; Prefetch 64 blocks
+	yr4_4cl_four_complex_djbfft_preload
+b3b:	yr4_4cl_four_complex_djbfft rsi, 64, 2*clmblkdst8, 4*clmblkdst8, rdi, 0, 4*clm, L1PREFETCH_ALL, 2*64 ;; Prefetch short dist ahead
+	yloop	4*clm, b3b, -4*clm*64+clmblkdst, rdi, YMM_SCD2 ;; 4*clm iterations, next sin/cos pointer
+	yloop	8, b3b, -8*clmblkdst+clmblkdst8 ;; Test loop counter
+	yloop	2, b3b, -2*clmblkdst8+8*clmblkdst8, rdi, -16*YMM_SCD2 ;; Test loop counter, restore sin/cos ptr
+	yloop	4, b3b, -4*8*clmblkdst8		;; Test loop counter, restore source pointer
+	end_timer 23
+
+	start_timer 24
+	mov	rdi, PREMULT_ADDR		;; Address of sin/cos table
+	bump	rdi, 4*4*clm*64 + 4*clm*YMM_SCD2 + clm*YMM_SCD2 + 16*clm*YMM_SCD1 ;; Sin/cos ptr
+	lea	rdx, [rdi-4*4*clm*64]		;; Weights ptr
+	yloop_init 64*4*clm			;; 64 iters of 4*clm
+	yloop_set_clm_prefetch YSINGLE		;; Prefetch 64 blocks
+	yr4_b4cl_wpn4_four_complex_djbfft_preload
+b5b:	yr4_b4cl_wpn4_four_complex_djbfft rsi, 64, 4*clmblkdst, clmblkdst8, rdx, 32, rdi, YMM_SCD2, 4*clm, L1PREFETCH_ALL, 2*64 ;; Prefetch short dist ahead
+	yloop	4*clm, b5b, -4*clm*64+clmblkdst	;; Test loop counter, next source pointer
+	yloop	4, b5b, -4*clmblkdst+2*clmblkdst8, rdx, -4*4*clm*32, rdi, -4*4*clm*YMM_SCD2 ;; Test loop counter, next source pointer, restore sin/cos ptrs
+	yloop	16, b5b, -16*2*clmblkdst8, rdi, -4*4*clm*64 ;; Test loop counter, restore source pointer
+	end_timer 24
+
+ENDIF
+
+;; Do FFT levels 8,9
+;; On input the 64-byte cache lines hold these data values:
+;;	0K	+1K	+1K	+1K	16K	+1K	+1K	+1K
+;;	4K	...
+;;	...
+;;	12K	...
+;;	32K	...
+;;	...
+;; On output the 64-byte cache lines hold these data values:
+;;	0K	+1K	+1K	+1K	4K	+1K	+1K	+1K
+;;	8K	...
+;;	...
+
+;; Do 256 four_complex_fft operations
+;;	distance between fft data elements is 4K
+;;	do 64 macros each processing 32 data values
+
+;; Do FFT levels 10,11
+;; On input the 64-byte cache lines hold these data values:
+;;	0K	+1K	+1K	+1K	4K	+1K	+1K	+1K
+;;	8K	...
+;;	...
+;; The input is swizzled to hold these data values:
+;;	0K	+1	+1	+1	4K	+1	+1	+1
+;;	1K	...
+;;	...
+;;	3K	...
+;;	8K	...
+;;	...
+;; On output the 64-byte cache lines hold these data values:
+;;	0K	+1	+1	+1	1K	+1	+1	+1
+;;	2K	...
+;;	...
+
+;; Do 256 four_complex_fft operations
+;;	distance between fft data elements is 1K
+;;	do 64 macros each processing 32 data values
+
+;; Process data in small chunks for more L1 data cache hits
+;; This section processes chunks of 16*clm cache lines of scratch area data (+100% due to L1 prefetching next section) +
+;;		16*clm cache lines to output FFT data + 8*clm+4*clm cache lines of s/c data.
+;; A grand total of 15360 bytes with clm=4 -- easily fitting in a 32KB L1 cache.
+
+	bump	rdi, -4*clm*YMM_SCD2		;; First sin/cos ptr (for timer 25)
+
+IF (256*4*clm*64 GT GROUPING_SIZE) OR (clm GE CLM_GROUPING)
+
+	lea	rbx, [rdi-16*clm*YMM_SCD1]	;; Delayed multipliers for timer 26
+	mov	rbp, DATA_ADDR			;; Destination pointer
+pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
+	yloop_init 64*4*clm			;; 64 iters of 4*clm
+x64	mov	r9, 4*clmblkdst			;; Distance to the next portion of the scratch area we will process (so we can prefetch it into the L1 cache).
+
+b7aa:	start_timer 26
+	mov	rdx, PREMULT_ADDR		;; Complex data sin/cos ptr
+	yr4_rsc_sg4cl_four_complex_calc_sincos rbx, rdx, clm ;; Generate clm*SCD4 sin/cos values from delayed and complex multipliers
+	bump	rbx, clm*YMM_SCD1		;; Next set of delayed multipliers
+	end_timer 26
+
+b7a:	start_timer 25
+	yloop_set_prefetch YQUARTER		;; Prefetch 64*clm cache lines
+	loops_set_alternate_prefetch_increment 74, (64+64)
+	yr4_4cl_four_complex_djbfft_preload
+b7b:
+x64	yr4_4cl_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, rdi, YMM_SCD2, 4*clm, L1PREFETCH_ALL, r9
+x32	yr4_4cl_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, rdi, YMM_SCD2, 4*clm, L1PREFETCH_ALL, 4*clmblkdst
+	yloop	4*clm, b7b, -4*clm*64, rdi, -4*clm*YMM_SCD2 ;; Test loop counter, restore source pointer, restore sin/cos ptr
+	loops_undo 4*clm
+	end_timer 25
+
+	start_timer 26
+	lea	rdx, YMM_TMPS			;; Computed clm*SCD4 sin/cos values
+	yloop_set_prefetch YQUARTER		;; Prefetch 64*clm cache lines
+	loops_set_alternate_prefetch_increment 74, (64+64)
+	yr4_rsc_sg4cl_four_complex_fft4_preload
+b9b:	yr4_rsc_sg4cl_four_complex_fft4 rsi, 256, 64, 128, rbp, 64, blkdst, 2*blkdst, rdx, YMM_SCD4, clm, L1PREFETCH_DEST_ALL, 4*blkdst
+	yloop	clm, b9b, -clm*256+clmblkdst, rbp, -clm*64+4*blkdst, rdx, -clm*YMM_SCD4 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
+	yloop	4, b9b				;; Test loop counter
+	end_timer 26
+
+x64	xor	r9, (clmblkdst8-4*clmblkdst) XOR (4*clmblkdst) ;; "Toggle" the distance to next scratch area
+	yloop	2, b7a, -2*4*clmblkdst+clmblkdst8 ;; Test loop counter, next source pointer
+	yloop	2, b7a				;; Test loop counter
+	yloop	16, b7aa			;; Test loop counter
+
+ELSE
+
+	start_timer 25
+	yloop_init 64*4*clm			;; 64 iters of 4*clm
+pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
+	yloop_set_prefetch YQUARTER		;; Prefetch 64*clm cache lines
+	yr4_4cl_four_complex_djbfft_preload
+b7b:	yr4_4cl_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, rdi, YMM_SCD2, 4*clm, L1PREFETCH_ALL, 2*64
+	yloop	4*clm, b7b, -4*clm*64+4*clmblkdst, rdi, -4*clm*YMM_SCD2 ;; Test loop counter, next source pointer, restore sin/cos ptr
+	yloop	2, b7b, -2*4*clmblkdst+clmblkdst8 ;; Test loop counter, next source pointer
+	yloop	32, b7b, -32*clmblkdst8		;; Test loop counter, restore source pointer
+	end_timer 25
+
+	start_timer 26
+	bump	rdi, -16*clm*YMM_SCD1		;; Delayed sin/cos multipliers
+	lea	rbx, [rdi-clm*YMM_SCD2]		;; Complex data sin/cos ptr (a.k.a. PREMULT_ADDR)
+	lea	rdx, YMM_TMPS			;; Computed clm*SCD4 sin/cos values
+	mov	rbp, DATA_ADDR			;; Destination pointer
+	yloop_init 64*4*clm			;; 64 iters of 4*clm
+pfing	bump	rcx, (74-64-64)*clm*64		;; Finish prefetching the sin/cos/premult data
+	yloop_set_prefetch YQUARTER		;; Prefetch 64*clm cache lines
+b9a:	yr4_rsc_sg4cl_four_complex_calc_sincos rdi, rbx, clm ;; Generate clm*SCD4 sin/cos values from delayed and complex multipliers
+	bump	rdi, clm*YMM_SCD1		;; Next set of delayed multipliers
+	yr4_rsc_sg4cl_four_complex_fft4_preload
+b9b:	yr4_rsc_sg4cl_four_complex_fft4 rsi, 256, 64, 128, rbp, 64, blkdst, 2*blkdst, rdx, YMM_SCD4, clm, L1PREFETCH_DEST_ALL, 4*blkdst
+	yloop	clm, b9b, -clm*256+clmblkdst, rbp, -clm*64+4*blkdst, rdx, -clm*YMM_SCD4 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
+	yloop	8, b9b, -8*clmblkdst+clmblkdst8	;; Test loop counter, next source pointer
+	yloop	2, b9b				;; Test loop counter
 	yloop	16, b9a				;; Test loop counter
 	end_timer 26
 
