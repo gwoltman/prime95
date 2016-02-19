@@ -23,11 +23,15 @@
 #include "gwutil.h"
 #include "gwdbldbl.h"
 
+//#define GDEBUG_MEM	1			// Print out memory used
+
 /* Option to share sin/cos data where possible amongst several gwnum callers */
 /* There is little downside to enabling this option (uses more memory) and */
 /* little upside (very slight decrease in needed memory bandwidth). */
 
+#ifndef GDEBUG_MEM
 #define SHARE_SINCOS_DATA
+#endif
 
 /* Include a random number generator.  For reasons we'll discuss later */
 /* we do not want to use the C runtime library's random number generator */
