@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2015 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2016 Mersenne Research, Inc.  All rights reserved
 | Author:  George Woltman
 | Email: woltman@alum.mit.edu
 |
@@ -404,13 +404,15 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			CPU_FLAGS |= CPU_FMA3;
 	}
 
-/* Get more feature flags.  Specifically the AVX2 flag. */
+/* Get more feature flags.  Specifically the AVX2 and PREFETCHWT1 flags. */
 
 	if (max_cpuid_value >= 7) {
 		reg.ECX = 0;
 		Cpuid (7, &reg);
 		if (((reg.EBX >> 5) & 0x1) && (CPU_FLAGS & CPU_AVX))
 			CPU_FLAGS |= CPU_AVX2;
+		if (reg.ECX & 0x1)
+			CPU_FLAGS |= CPU_PREFETCHW;
 	}
 
 /* Call CPUID with 0x80000000 argument.  It tells us how many extended CPU */

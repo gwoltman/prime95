@@ -377,6 +377,9 @@ void getCpuInfo (void)
 	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsPrefetch", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_PREFETCH;
 	if (temp == 1) CPU_FLAGS |= CPU_PREFETCH;
+	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsPrefetchw", 99);
+	if (temp == 0) CPU_FLAGS &= ~CPU_PREFETCHW;
+	if (temp == 1) CPU_FLAGS |= CPU_PREFETCHW;
 	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsSSE", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_SSE;
 	if (temp == 1) CPU_FLAGS |= CPU_SSE;
@@ -473,6 +476,7 @@ void getCpuDescription (
 //		if (CPU_FLAGS & CPU_MMX) strcat (buf, "MMX, ");
 		if (CPU_FLAGS & CPU_3DNOW) strcat (buf, "3DNow!, ");
 		else if (CPU_FLAGS & CPU_3DNOW_PREFETCH) strcat (buf, "3DNow! Prefetch, ");
+		else if (CPU_FLAGS & CPU_PREFETCHW) strcat (buf, "Prefetchw, ");
 		else if (CPU_FLAGS & CPU_PREFETCH) strcat (buf, "Prefetch, ");
 		if (CPU_FLAGS & CPU_SSE) strcat (buf, "SSE, ");
 		if (CPU_FLAGS & CPU_SSE2) strcat (buf, "SSE2, ");
