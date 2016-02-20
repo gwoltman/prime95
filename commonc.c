@@ -380,6 +380,9 @@ void getCpuInfo (void)
 	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsPrefetchw", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_PREFETCHW;
 	if (temp == 1) CPU_FLAGS |= CPU_PREFETCHW;
+	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsPrefetchwt1", 99);
+	if (temp == 0) CPU_FLAGS &= ~CPU_PREFETCHWT1;
+	if (temp == 1) CPU_FLAGS |= CPU_PREFETCHWT1;
 	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsSSE", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_SSE;
 	if (temp == 1) CPU_FLAGS |= CPU_SSE;
