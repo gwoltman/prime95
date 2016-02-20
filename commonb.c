@@ -7452,7 +7452,7 @@ int cpuid_dump (
 			reg.ECX = j;
 			Cpuid (i, &reg);
 			dumpreg ();
-			if (i != 4 && i != 11) break;
+			if (i != 4 && i != 7 && i != 11) break;
 		}
 	}
 
