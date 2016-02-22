@@ -450,31 +450,51 @@ YHALF = 4			;; Prefetch 1 cache line every 2 macro calls
 YQUARTER = 5			;; Prefetch 1 cache line every 4 macro calls
 YOTHER = 6			;; Prefetch 1 cache line every N macro calls
 
-;; Set yloop prefetching.  Plain vanilla prefetching, prefetch pointer is bumped
-;; one cache line at a time.
+;; Set yloop prefetching to L2 cache.  Plain vanilla prefetching, prefetch pointer is bumped
+;; one cache line at a time.  Used to prefetch sin/cos data in pass 1 as well as
+;; FFT data in pass 2.
 
 yloop_set_prefetch MACRO rate, arg1, arg2
-	yloop_prefetch_type = 1
-	yloop_prefetch_rw = 0			;;;; BUG, BUG, BUG:  pass1 and pass2 sin/cos data
-						;;;; should be read-only, pass 2 FFT data is read-write
-	IFNB <arg1>
-	IF (@INSTR (,@CATSTR (arg1),r)) NE 0
-		yloop_pfreg EQU arg1
-		yloop_set_rate rate, arg2
-		EXITM
-	ENDIF
-	ENDIF
+	yloop_prefetch_type = 1			;; Increment prefetch pointer by 64
+	yloop_prefetch_t2 = 0			;; Prefetch to L2 cache
+	yloop_prefetch_rw = 0			;;;; BUG, BUG, BUG:  Implement write-intent
+						;;;; when Intel chips support prefetchwt1.
 	yloop_pfreg EQU rcx
 	yloop_set_rate rate, arg1
 	ENDM
 
-;; Set yloop prefetching.  In this type of prefetching, the prefetch pointer is bumped
-;; by blkdst after clm*64 bytes are prefetched.
+;; Set yloop prefetching to L3 cache.  Prefetch pointer is bumped one cache line at a time.
+;; Used to prefetch FFT data in larger pass 2s where everything won't fit in the L2 cache.
+
+yloop_set_L3_prefetch MACRO rate, arg1, arg2
+	yloop_prefetch_type = 1			;; Increment prefetch pointer by 64
+	yloop_prefetch_t2 = 1			;; Prefetch to L3 cache
+	yloop_prefetch_rw = 0			;; Do not prefetch with write intent, anyway there
+						;; is no prefetchwt2 instruction.
+	yloop_pfreg EQU rcx
+	yloop_set_rate rate, arg1
+	ENDM
+
+;; Set yloop prefetching to L2 cache.  In this type of prefetching, the prefetch pointer is bumped
+;; by blkdst after clm*64 bytes are prefetched.  Used to prefetch FFT data in pass 1.
 
 yloop_set_clm_prefetch MACRO rate
-	yloop_prefetch_type = 2
-	yloop_prefetch_rw = 0			;;;; BUG, BUG, BUG:  this should be read-write
-						;;;; but no Intel chips support it yet.
+	yloop_prefetch_type = 2			;; Increment prefetch pointer by clm*64
+	yloop_prefetch_t2 = 0			;; Prefetch to L2 cache
+	yloop_prefetch_rw = 0			;;;; BUG, BUG, BUG:  Implement write-intent
+						;;;; when Intel chips support prefetchwt1.
+	yloop_set_rate rate
+	ENDM
+
+;; Set yloop prefetching to L3 cache.  In this type of prefetching, the prefetch pointer is bumped
+;; by blkdst after clm*64 bytes are prefetched.  Used to prefetch FFT data in larger
+;; pass 1s where data all data will not fit in the L2 cache.
+
+yloop_set_clm_L3_prefetch MACRO rate
+	yloop_prefetch_type = 2			;; Increment prefetch pointer by clm*64
+	yloop_prefetch_t2 = 1			;; Prefetch to L3 cache
+	yloop_prefetch_rw = 0			;; Do not prefetch with write intent, anyway there
+						;; is no prefetchwt2 instruction.
 	yloop_set_rate rate
 	ENDM
 
@@ -706,7 +726,12 @@ ENDM
 yprefetcht1 MACRO ops:vararg
 	;; Handle read-only prefetching
 	IF yloop_prefetch_rw EQ 0
-		prefetcht1 &ops
+		;; Handle read-only prefetching into the L2 or L3 cache
+		IF yloop_prefetch_t2 EQ 0
+			prefetcht1 &ops
+		ELSE
+			prefetcht2 &ops
+		ENDIF
 	ENDIF
 	;; Handle read-write prefetching
 	IF yloop_prefetch_rw EQ 1
