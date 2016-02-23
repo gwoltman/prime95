@@ -2392,7 +2392,7 @@ void implement_pause (
 			sprintf (buf, "Sleeping until %s\n", time_as_string);
 		else if (p->workers_affected == 1)
 			sprintf (buf, "Sleeping one worker until %s\n", time_as_string);
-		else if (data->workers_affected == MAX_NUM_WORKER_THREADS)
+		else if (p->workers_affected == MAX_NUM_WORKER_THREADS)
 			sprintf (buf, "Sleeping all workers until %s\n", time_as_string);
 		else
 			sprintf (buf, "Sleeping %d workers until %s\n", p->workers_affected, time_as_string);
