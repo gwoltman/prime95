@@ -4179,7 +4179,7 @@ void tempFileName (
 
 /* Prior to version 25.9 build 4, we did not use k or c in generating the */
 /* filename.  Thus, 10223*2^11111111+1 and 67607*2^11111111+1 would both */
-/* use the save save file -- a definite problem for Seventeen or Bust. */
+/* use the same save file -- a definite problem for Seventeen or Bust. */
 /* From now on, we will use k and c to generate the filename.  To reduce */
 /* upgrading problems, old save file names are renamed. */
 
