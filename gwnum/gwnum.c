@@ -26,8 +26,8 @@
 //#define GDEBUG_MEM	1			// Print out memory used
 
 /* Option to share sin/cos data where possible amongst several gwnum callers */
-/* There is little downside to enabling this option (uses more memory) and */
-/* little upside (very slight decrease in needed memory bandwidth). */
+/* There is little downside to enabling this option (more memory allocated) and */
+/* little upside (very slight decrease in working set size and needed memory bandwidth). */
 
 #ifndef GDEBUG_MEM
 #define SHARE_SINCOS_DATA
@@ -2733,9 +2733,11 @@ int internal_gwsetup (
 			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 			asm_data->sincos1 = tables;
 			tables = r4delay_build_fixed_premult_table (gwdata, tables);
+			asm_data->sincos1 = share_sincos_data (gwdata, FIXED_PASS1_SINCOS_DATA, asm_data->sincos1, (char *) tables - (char *) asm_data->sincos1);
 			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 			asm_data->sincos2 = tables;
 			tables = r4delay_build_fixed_pass1_table (gwdata, tables);
+			asm_data->sincos2 = share_sincos_data (gwdata, FIXED_PASS1_SINCOS_DATA, asm_data->sincos2, (char *) tables - (char *) asm_data->sincos2);
 
 /* Build the sin/cos table used in complex pass 2 blocks */
 /* The pass 2 tables are the same as for a traditional radix-4 FFT */		
@@ -2743,9 +2745,11 @@ int internal_gwsetup (
 			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 			asm_data->xsincos_complex = tables;
 			tables = r4_build_pass2_complex_table (gwdata, tables);
+			asm_data->xsincos_complex = share_sincos_data (gwdata, PASS2_COMPLEX_SINCOS_DATA, asm_data->xsincos_complex, (char *) tables - (char *) asm_data->xsincos_complex);
 			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 			asm_data->sincos3 = tables;
 			tables = r4_build_pass2_real_table (gwdata, tables);
+			asm_data->sincos3 = share_sincos_data (gwdata, PASS2_REAL_SINCOS_DATA, asm_data->sincos3, (char *) tables - (char *) asm_data->sincos3);
 
 /* Allocate a table for carries.  Init with XMM_BIGVAL.  For best */
 /* distribution of data in the L2 cache, make this table contiguous */
@@ -5495,9 +5499,10 @@ void gwdone (
 	term_ghandle (&gwdata->gdata);
 	if (gwdata->asm_data != NULL) {
 		struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
-		unshare_sincos_data (asm_data->sincos2);
-		unshare_sincos_data (asm_data->xsincos_complex);
-		unshare_sincos_data (asm_data->sincos3);
+		unshare_sincos_data (asm_data->sincos1);			// SSE2
+		unshare_sincos_data (asm_data->sincos2);			// SSE2 & AVX
+		unshare_sincos_data (asm_data->xsincos_complex);		// SSE2 & AVX
+		unshare_sincos_data (asm_data->sincos3);			// SSE2 & AVX
 		aligned_free ((char *) gwdata->asm_data - NEW_STACK_SIZE);
 		gwdata->asm_data = NULL;
 	}
