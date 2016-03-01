@@ -37112,8 +37112,8 @@ b7b:	yr4_4cl_four_complex_djbfft rsi, 64, clmblkdst, 2*clmblkdst, rdi, YMM_SCD4,
 	mov	rbp, DATA_ADDR			;; Destination pointer
 	yloop_init 64*4*clm			;; 64 iters of 4*clm
 	yloop_set_prefetch YNONE		;; Prefetch no cache lines
-	yr4_sg4cl_2sc_eight_reals_fft4_preload
-b8b:	yr4_sg4cl_2sc_eight_reals_fft4 rsi, 256, 64, 128, rbp, 64, blkdst, 2*blkdst, rdi, YMM_SCD4, rdx, YMM_SCD2, clm, L1PREFETCH_DEST_ALL, 4*blkdst
+	yr4_rsc_sg4cl_2sc_eight_reals_fft4_preload
+b8b:	yr4_rsc_sg4cl_2sc_eight_reals_fft4 rsi, 256, 64, 128, rbp, 64, blkdst, 2*blkdst, rdi, YMM_SCD4, rdx, YMM_SCD2, clm, L1PREFETCH_DEST_ALL, 4*blkdst
 	yloop	clm, b8b, -clm*256+clmblkdst, rbp, -clm*64+4*blkdst, rdi, -clm*YMM_SCD4 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
 
 	loops_reset
