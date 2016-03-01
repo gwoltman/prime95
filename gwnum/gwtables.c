@@ -1692,6 +1692,14 @@ const	int	END_OF_CHAIN = 0x4000;
 	unsigned char *p;
 	unsigned long upper_avx_word, fftlen_over_2, num_cols;
 	unsigned long group, i, j, k, m, n, num_combos;
+				int c1 = 0;
+				int cs0[2000]; int ncs0 = 0;
+				int cs1[2000]; int ncs1 = 0;
+				int cs2[2000]; int ncs2 = 0;
+				int cs3[2000]; int ncs3 = 0;
+				int cs4[2000]; int ncs4 = 0;
+				int cs5[2000]; int ncs5 = 0;
+				int cs6a[12000], cs6b[12000]; int ncs6 = 0;
 
 /* Init table of first 8 big/lit values */
 
@@ -1811,7 +1819,7 @@ GWASSERT (n <= 24);	// Lets see what the AVX limits really are!!!
 				if (is_big_word (gwdata, word + upper_avx_word)) *p += 2;
 				if (is_big_word (gwdata, word + 2 * upper_avx_word)) *p += 4;
 				if (is_big_word (gwdata, word + 3 * upper_avx_word)) *p += 8;
-   
+
 /* Set the ttp and ttmp fudge flags for two pass FFTs.  The fudge flag is */
 /* set if the col mult * the grp mult is b times the correct fft_weight, */
 /* meaning a mul by 1/b is required to generate the correct multiplier. */
@@ -1840,6 +1848,23 @@ GWASSERT (n <= 24);	// Lets see what the AVX limits really are!!!
 				if (*p & 32) *p -= 16;
 				if (*p & 128) *p -= 64;
 				*p = ((*p >> 6) + ((*p >> 4) & 0x3)) * 16 + (*p & 0xF);
+if(0){double x = gwfft_weight_exponent (gwdata->dd_data, n + k); int y = *p >> 4;
+if (x < 0.2) y = y - 0;				
+else if (x < 0.4) y = y - 1;				
+else if (x < 0.6) y = y - 2;				
+else if (x < 0.8) y = y - 3;				
+else y = y - 4;
+if (y < 0) y += 5;
+*p = (char) (y << 4) + (*p & 0xF);
+}
+				{
+					static int used[256] = {0};
+					static int count = 0;
+					if (!used[*p]){
+						used[*p] = 1;
+						count++;
+					}
+				}
 				p++;
 			}
 
@@ -1870,6 +1895,41 @@ GWASSERT (n <= 24);	// Lets see what the AVX limits really are!!!
 /* Move pointer to next big/lit table entry */
 
 			p += 2;
+			{
+				int ii;
+				if ((++c1 & 1) == 0) {
+					int val1 = (p[-2] << 8) + p[-4];
+					int val2 = (p[-1] << 8) + p[-3];
+					int val3 = (val1 << 16) + val2;
+					for (ii = 0; ii < ncs0; ii++) if (cs0[ii] == p[-2]) break;
+					if (ii == ncs0) cs0[ncs0++] = p[-2];
+					for (ii = 0; ii < ncs0; ii++) if (cs0[ii] == p[-4]) break;
+					if (ii == ncs0 && ii < 2000) cs0[ncs0++] = p[-4];
+					for (ii = 0; ii < ncs1 && ii < 2000; ii++) if (cs1[ii] == val1) break;		//67	FF
+// so we could halve the FF data
+// I'm surprised we cant do better.....
+// 1 byte reps 2 AVX words = 8 floats
+// 2 bytes reps 16 floats
+					if (ii == ncs1 && ii < 2000) cs1[ncs1++] = val1;
+					for (ii = 0; ii < ncs2 && ii < 2000; ii++) if (cs2[ii] == val2) break;		//23	BL
+					if (ii == ncs2 && ii < 2000) cs2[ncs2++] = val2;
+					for (ii = 0; ii < ncs3 && ii < 2000; ii++) if (cs3[ii] == val3) break;
+					if (ii == ncs3 && ii < 2000)
+						cs3[ncs3++] = val3;
+				}
+				if ((c1 & 3) == 0) {
+					int val4 = (p[-2] << 24) + (p[-4] << 16) + (p[-6] << 8) + p[-8];
+					int val5 = (p[-1] << 24) + (p[-3] << 16) + (p[-5] << 8) + p[-7];
+					for (ii = 0; ii < ncs4 && ii < 2000; ii++) if (cs4[ii] == val4) break;		//273	FF
+					if (ii == ncs4 && ii < 2000) cs4[ncs4++] = val4;
+					for (ii = 0; ii < ncs5 && ii < 2000; ii++) if (cs5[ii] == val5) break;		//40	BL
+// and quarter the BL data, maybe even 1/8th it
+					if (ii == ncs5 && ii < 2000) cs5[ncs5++] = val5;
+					for (ii = 0; ii < ncs6 && ii < 12000; ii++) if (cs6a[ii] == val4 && cs6b[ii] == val5) break;
+					if (ii == ncs6 && ii < 12000)
+						{cs6a[ncs6++] = val4; cs6b[ncs6] = val5;}
+				}
+			}
 		    }
 		}
 	    }
