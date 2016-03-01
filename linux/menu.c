@@ -1,16 +1,16 @@
-/* Copyright 1995-2015 Mersenne Research, Inc. */
+/* Copyright 1995-2016 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
 /* Include files */
 
-#include "prime.h"
 #ifdef __IBMC__
 #include <io.h>
 #endif
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include "prime.h"
 
 /* Get line from the user (stdin) */
 

@@ -1,9 +1,8 @@
-/* Copyright 1995-2015 Mersenne Research, Inc. */
+/* Copyright 1995-2016 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
 /* Include files needed by all ports */
-#include "prime.h"
 #include <ctype.h>
 #include <fcntl.h>
 #include <math.h>
@@ -13,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include "prime.h"
 
 /* Required Linux files */
 #ifdef __linux__
