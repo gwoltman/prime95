@@ -1,4 +1,4 @@
-; Copyright 2011-2014 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2016 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -32,7 +32,7 @@ yr8_sg8cl_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4
 	;;	2K	...
 	;;	3K	...
 
-	;; Swizzle using 8 shufpds and 8 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 8 shufpds and 8 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vmovapd	ymm1, [srcreg]			;; R1
 	vmovapd	ymm7, [srcreg+d1]		;; R2
@@ -367,7 +367,7 @@ yr8_sg8cl_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4
 	;;	2K	...
 	;;	3K	...
 
-	;; Swizzle using 8 shufpds and 8 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 8 shufpds and 8 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vmovapd	ymm1, [srcreg]			;; R1
 	vmovapd	ymm7, [srcreg+d1]		;; R2
@@ -665,7 +665,7 @@ yr8_sg8cl_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4
 	;;	2K	...
 	;;	3K	...
 
-	;; Swizzle using 8 shufpds and 8 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 8 shufpds and 8 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vmovapd	ymm1, [srcreg]			;; R1
 	vmovapd	ymm2, [srcreg+d1]		;; R2
@@ -917,8 +917,8 @@ yr8_sg8cl_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4
 ENDIF
 ;;ENDIF
 
-;; Haswell FMA3 version --- new sizzle code is between zero and two clocks faster (within our benchmarking margin of error)
-;; This code has much less use of port 5, put increases use of the port 2&3 load units.
+;; Haswell FMA3 version --- On Skylake, new sizzle code is between zero and two clocks faster (within our benchmarking margin of error)
+;; This code makes much less use of port 5, but increases use of the port 2&3 load units.
 
 IFDEF NEW_SWIZZLE_CODE
 IF (@INSTR(,%yarch,<FMA3>) NE 0)
@@ -937,7 +937,7 @@ yr8_sg8cl_eight_complex_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,e4
 	;;	2K	...
 	;;	3K	...
 
-	;; Swizzle using 8 shufpds and 8 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 8 shufpds and 8 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vmovapd	xmm1, [srcreg]					;; R1 low
 	vmovapd	xmm7, [srcreg+d1]				;; R2 low
@@ -1422,7 +1422,7 @@ yr8_sg8cl_eight_complex_unfft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,
 	vsubpd	ymm3, ymm5, ymm7		;; I4 - I8 (final I8)
 	vaddpd	ymm5, ymm5, ymm7		;; I4 + I8 (final I4)
 
-	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vmovapd	ymm7, [dstreg+32]		;; Reload final I1
 	ystore	[dstreg+e4+e2+e1], ymm4		;; Save final R8
@@ -1438,7 +1438,7 @@ yr8_sg8cl_eight_complex_unfft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,
 	ylow128s ymm6, ymm7, ymm0		;; Shuffle I1/I2 hi and I3/I4 hi (final I2)
 	yhigh128s ymm7, ymm7, ymm0		;; Shuffle I1/I2 hi and I3/I4 hi (final I4)
 
-	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vmovapd	ymm0, [dstreg]			;; Reload final R1
 	ystore	[dstreg+32], ymm5		;; Save I1
@@ -1458,7 +1458,7 @@ yr8_sg8cl_eight_complex_unfft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,
 	ylow128s ymm6, ymm0, ymm5		;; Shuffle R1/R2 hi and R3/R4 hi (final R2)
 	yhigh128s ymm0, ymm0, ymm5		;; Shuffle R1/R2 hi and R3/R4 hi (final R4)
 
-	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vmovapd	ymm5, [dstreg+e4+32]		;; Reload final I5
 	ystore	[dstreg+e2+e1+32], ymm7		;; Save I4
@@ -1476,7 +1476,7 @@ yr8_sg8cl_eight_complex_unfft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e2,
 	ylow128s ymm2, ymm5, ymm1		;; Shuffle I5/I6 hi and I7/I8 hi (final I6)
 	yhigh128s ymm5, ymm5, ymm1		;; Shuffle I5/I6 hi and I7/I8 hi (final I8)
 
-	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vmovapd	ymm1, [dstreg+e4]		;; Reload final R5
 	ystore	[dstreg+e2], ymm4		;; Save R3
@@ -3230,7 +3230,7 @@ yr8_sg8cl_2sc_sixteen_reals_fft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1,e
 	;;	2K	...
 	;;	3K	...
 
-	;; Swizzle using 8 shufpds and 8 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 8 shufpds and 8 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vmovapd	ymm1, [srcreg]			;; R1
 	vmovapd	ymm7, [srcreg+d1]		;; R2
@@ -3823,7 +3823,7 @@ yr8_sg8cl_2sc_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1
 	vaddpd	ymm5, ymm3, ymm7		;; R4 + R12 (last R4)
 	vsubpd	ymm3, ymm3, ymm7		;; R4 - R12 (last R12)
 
-	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	L1prefetch srcreg+d4+d1+L1pd, L1pt
 
@@ -3839,7 +3839,7 @@ yr8_sg8cl_2sc_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1
 	ylow128s ymm2, ymm4, ymm0		;; Shuffle R1/R2 hi and R3/R4 hi (final R2)
 	yhigh128s ymm4, ymm4, ymm0		;; Shuffle R1/R2 hi and R3/R4 hi (final R4)
 
-	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vmovapd	ymm0, [dstreg+32]		;; Reload last R9
 	ystore	[dstreg], ymm5			;; Save R1
@@ -3886,7 +3886,7 @@ yr8_sg8cl_2sc_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1
 	vaddpd	ymm6, ymm5, ymm0		;; R8 + R16 (last R8)
 	vsubpd	ymm5, ymm5, ymm0		;; R8 - R16 (last R16)
 
-	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vshufpd	ymm0, ymm2, ymm3, 0		;; Shuffle R5 and R6 to create R5/R6 low
 	vshufpd	ymm2, ymm2, ymm3, 15		;; Shuffle R5 and R6 to create R5/R6 hi
@@ -3902,7 +3902,7 @@ yr8_sg8cl_2sc_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1
 	ylow128s ymm3, ymm2, ymm1		;; Shuffle R5/R6 hi and R7/R8 hi (final R6)
 	yhigh128s ymm2, ymm2, ymm1		;; Shuffle R5/R6 hi and R7/R8 hi (final R8)
 
-	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vmovapd	ymm1, [dstreg+e4]		;; Reload last R13
 	ystore	[dstreg+e4], ymm6		;; Save R5
@@ -7610,7 +7610,7 @@ yr8_rsc_sg8cl_eight_complex_unfft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1
 	vsubpd	ymm3, ymm5, ymm7		;; I4 - I8 (final I8)
 	vaddpd	ymm5, ymm5, ymm7		;; I4 + I8 (final I4)
 
-	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vmovapd	ymm7, [dstreg+32]		;; Reload final I1
 	ystore	[dstreg+e4+e2+e1], ymm4		;; Save final R8
@@ -7626,7 +7626,7 @@ yr8_rsc_sg8cl_eight_complex_unfft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1
 	ylow128s ymm6, ymm7, ymm2		;; Shuffle I1/I2 hi and I3/I4 hi (final I2)
 	yhigh128s ymm7, ymm7, ymm2		;; Shuffle I1/I2 hi and I3/I4 hi (final I4)
 
-	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vmovapd	ymm2, [dstreg]			;; Reload final R1
 	ystore	[dstreg+32], ymm5		;; Save I1
@@ -7646,7 +7646,7 @@ yr8_rsc_sg8cl_eight_complex_unfft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1
 	ylow128s ymm6, ymm2, ymm5		;; Shuffle R1/R2 hi and R3/R4 hi (final R2)
 	yhigh128s ymm2, ymm2, ymm5		;; Shuffle R1/R2 hi and R3/R4 hi (final R4)
 
-	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vmovapd	ymm5, [dstreg+e4+32]		;; Reload final I5
 	ystore	[dstreg+e2+e1+32], ymm7		;; Save I4
@@ -7664,7 +7664,7 @@ yr8_rsc_sg8cl_eight_complex_unfft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstinc,e1
 	ylow128s ymm0, ymm5, ymm1		;; Shuffle I5/I6 hi and I7/I8 hi (final I6)
 	yhigh128s ymm5, ymm5, ymm1		;; Shuffle I5/I6 hi and I7/I8 hi (final I8)
 
-	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vmovapd	ymm1, [dstreg+e4]		;; Reload final R5
 	ystore	[dstreg+e2], ymm4		;; Save R3
@@ -9423,7 +9423,7 @@ yr8_rsc_sg8cl_2sc_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstin
 	vaddpd	ymm5, ymm3, ymm7		;; R4 + R12 (last R4)
 	vsubpd	ymm3, ymm3, ymm7		;; R4 - R12 (last R12)
 
-	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	L1prefetch srcreg+d4+d1+L1pd, L1pt
 
@@ -9439,7 +9439,7 @@ yr8_rsc_sg8cl_2sc_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstin
 	ylow128s ymm2, ymm4, ymm0		;; Shuffle R1/R2 hi and R3/R4 hi (final R2)
 	yhigh128s ymm4, ymm4, ymm0		;; Shuffle R1/R2 hi and R3/R4 hi (final R4)
 
-	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vmovapd	ymm0, [dstreg+32]		;; Reload last R9
 	ystore	[dstreg], ymm5			;; Save R1
@@ -9486,7 +9486,7 @@ yr8_rsc_sg8cl_2sc_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstin
 	vaddpd	ymm6, ymm5, ymm0		;; R8 + R16 (last R8)
 	vsubpd	ymm5, ymm5, ymm0		;; R8 - R16 (last R16)
 
-	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vshufpd	ymm0, ymm2, ymm3, 0		;; Shuffle R5 and R6 to create R5/R6 low
 	vshufpd	ymm2, ymm2, ymm3, 15		;; Shuffle R5 and R6 to create R5/R6 hi
@@ -9502,7 +9502,7 @@ yr8_rsc_sg8cl_2sc_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstin
 	ylow128s ymm3, ymm2, ymm1		;; Shuffle R5/R6 hi and R7/R8 hi (final R6)
 	yhigh128s ymm2, ymm2, ymm1		;; Shuffle R5/R6 hi and R7/R8 hi (final R8)
 
-	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	vmovapd	ymm1, [dstreg+e4]		;; Reload last R13
 	ystore	[dstreg+e4], ymm6		;; Save R5
@@ -9785,7 +9785,7 @@ yr8_rsc_sg8cl_2sc_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1,d2,d4,dstreg,dstin
 	ystore	[dstreg+e2], ymm1		;; Save R3					; 78
 	yhigh128s ymm12, ymm12, ymm4		;; Shuffle R1/R2 hi and R3/R4 hi (final R4)	; 78-79
 
-	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 2 clocks each on port 5, throughput 1)
+	;; Swizzle using 4 shufpds and 4 perm2f128  (1 or 3 clocks each on port 5, throughput 1)
 
 	ystore	[dstreg+e1], ymm5		;; Save R2					; 79
 	ylow128s ymm4, ymm6, ymm0		;; Shuffle R9/R10 low and R11/R12 low (final R9) ; 79-80
