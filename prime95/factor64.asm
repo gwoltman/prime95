@@ -1,4 +1,4 @@
-; Copyright 1995-2015 Mersenne Research, Inc., all rights reserved
+; Copyright 1995-2016 Mersenne Research, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -54,32 +54,39 @@ SSE2_LOOP_COUNTER	EQU	DWORD PTR [AD_BASE+0*SZPTR+124*4]
 
 ;; AVX2 supports 256-bit operations on integers
 ;; Use the YMM registers and the memory area below to do
-;; four trial factors simultaneouly.
+;; eight trial factors simultaneouly.
 
 ;;pad to match facasm_data structure defined in commonb.c
 YMM_INITVAL		EQU	DWORD PTR [AD_BASE+0*SZPTR+200*4]
 YMM_INVFAC		EQU	DWORD PTR [AD_BASE+0*SZPTR+208*4]
-YMM_I1			EQU	DWORD PTR [AD_BASE+0*SZPTR+216*4]
-YMM_I2			EQU	DWORD PTR [AD_BASE+0*SZPTR+224*4]
-YMM_F1			EQU	DWORD PTR [AD_BASE+0*SZPTR+232*4]
-YMM_F2			EQU	DWORD PTR [AD_BASE+0*SZPTR+240*4]
-YMM_F3			EQU	DWORD PTR [AD_BASE+0*SZPTR+248*4]
-YMM_TWO_120_MODF1	EQU	DWORD PTR [AD_BASE+0*SZPTR+256*4]
-YMM_TWO_120_MODF2	EQU	DWORD PTR [AD_BASE+0*SZPTR+264*4]
-YMM_TWO_120_MODF3	EQU	DWORD PTR [AD_BASE+0*SZPTR+272*4]
+YMM_INVFACa		EQU	DWORD PTR [AD_BASE+0*SZPTR+216*4]
+YMM_I1			EQU	DWORD PTR [AD_BASE+0*SZPTR+224*4]
+YMM_I1a			EQU	DWORD PTR [AD_BASE+0*SZPTR+232*4]
+YMM_I2			EQU	DWORD PTR [AD_BASE+0*SZPTR+240*4]
+YMM_I2a			EQU	DWORD PTR [AD_BASE+0*SZPTR+248*4]
+YMM_F1			EQU	DWORD PTR [AD_BASE+0*SZPTR+256*4]
+YMM_F1a			EQU	DWORD PTR [AD_BASE+0*SZPTR+264*4]
+YMM_F2			EQU	DWORD PTR [AD_BASE+0*SZPTR+272*4]
+YMM_F2a			EQU	DWORD PTR [AD_BASE+0*SZPTR+280*4]
+YMM_F3			EQU	DWORD PTR [AD_BASE+0*SZPTR+288*4]
+YMM_F3a			EQU	DWORD PTR [AD_BASE+0*SZPTR+296*4]
+YMM_TWO_120_MODF1	EQU	DWORD PTR [AD_BASE+0*SZPTR+304*4]
+YMM_TWO_120_MODF1a	EQU	DWORD PTR [AD_BASE+0*SZPTR+312*4]
+YMM_TWO_120_MODF2	EQU	DWORD PTR [AD_BASE+0*SZPTR+320*4]
+YMM_TWO_120_MODF2a	EQU	DWORD PTR [AD_BASE+0*SZPTR+328*4]
+YMM_TWO_120_MODF3	EQU	DWORD PTR [AD_BASE+0*SZPTR+336*4]
+YMM_TWO_120_MODF3a	EQU	DWORD PTR [AD_BASE+0*SZPTR+344*4]
 
-;XMM_COMPARE_VAL1 DD	0,0,0,0
 XMM_COMPARE_VAL1	EQU	DWORD PTR [AD_BASE+0*SZPTR+440*4]
-;XMM_COMPARE_VAL2 DD	0,0,0,0
 XMM_COMPARE_VAL2	EQU	DWORD PTR [AD_BASE+0*SZPTR+444*4]
-;XMM_COMPARE_VAL3 DD	0,0,0,0
 XMM_COMPARE_VAL3	EQU	DWORD PTR [AD_BASE+0*SZPTR+448*4]
-;YMM_COMPARE_VAL1 DD	0,0,0,0,0,0,0,0
-YMM_COMPARE_VAL1	EQU	DWORD PTR [AD_BASE+0*SZPTR+460*4]
-;YMM_COMPARE_VAL2 DD	0,0,0,0,0,0,0,0
-YMM_COMPARE_VAL2	EQU	DWORD PTR [AD_BASE+0*SZPTR+468*4]
-;YMM_COMPARE_VAL3 DD	0,0,0,0,0,0,0,0
-YMM_COMPARE_VAL3	EQU	DWORD PTR [AD_BASE+0*SZPTR+476*4]
+
+YMM_COMPARE_VAL1	EQU	DWORD PTR [AD_BASE+0*SZPTR+440*4]	;; Overlaps XMM compare values
+YMM_COMPARE_VAL1a	EQU	DWORD PTR [AD_BASE+0*SZPTR+448*4]
+YMM_COMPARE_VAL2	EQU	DWORD PTR [AD_BASE+0*SZPTR+456*4]
+YMM_COMPARE_VAL2a	EQU	DWORD PTR [AD_BASE+0*SZPTR+464*4]
+YMM_COMPARE_VAL3	EQU	DWORD PTR [AD_BASE+0*SZPTR+472*4]
+YMM_COMPARE_VAL3a	EQU	DWORD PTR [AD_BASE+0*SZPTR+480*4]
 
 ;p		DQ	0	; Mersenne prime being tested
 p			EQU	QWORD PTR [AD_BASE+0*SZPTR+510*4]
@@ -4086,8 +4093,8 @@ test74:	btr	rax, rdx		; Clear the sieve bit
 ; Compute the factor to test and 63 most significant bits of 1 / factor
 ;
 
-	mov	fac1[rdi*8], r8		; Save the factor to test
-	mov	fac1hi[rdi*8], r9
+	mov	fac1, r8		; Save the factor to test
+	mov	fac1hi, r9
 
 ;; OPT...  old 32-bit code....  convert to divpd(in both)???
 
@@ -4118,8 +4125,8 @@ test74:	btr	rax, rdx		; Clear the sieve bit
 ; Compute the factor in 30 bit chunks
 ;  OPT - just save r8/r9 and use sse2/avx instr to convert to 30 bit chunks ??? (If better, do it in 32-bit code too)
 
-	mov	r8, fac1[rdi*8] 		; Restore the factor to test
-	mov	r9, fac1hi[rdi*8]
+	mov	r8, fac1 		; Restore the factor to test
+	mov	r9, fac1hi
 	shld	r9, r8, 4
 	mov	edx, 3FFFFFFFh
 	and	rdx, r8
@@ -4133,8 +4140,8 @@ test74:	btr	rax, rdx		; Clear the sieve bit
 
 ;OPT....	replace this with a subtract 1 at loop's end and compare to XMM_F1/F2/F3???  subtract 1 must propgate carry too.
 ;OPT....	replace with SSE2 instructions that do the same thing as below
-	mov	r8, fac1[rdi*8] 		; Restore the factor to test
-	mov	r9, fac1hi[rdi*8]
+	mov	r8, fac1 		; Restore the factor to test
+	mov	r9, fac1hi
 	inc	r8
 	adc	r9, 0
 	shld	r9, r8, 4
@@ -4302,8 +4309,8 @@ test86:	btr	rax, rdx		; Clear the sieve bit
 ;
 ;; OPT...  old 32-bit code....  convert to divpd(in both)???
 
-	mov	fac1[rdi*8], r8		; Save the factor to test
-	mov	fac1hi[rdi*8], r9
+	mov	fac1, r8		; Save the factor to test
+	mov	fac1hi, r9
 
 	shld	r9, r8, 34
 	mov	temp, r9
@@ -4320,8 +4327,8 @@ test86:	btr	rax, rdx		; Clear the sieve bit
 ; Compute the factor in 30 bit chunks
 ;  OPT - just save r8/r9 and use sse2/avx instr to convert to 30 bit chunks ??? (If better, do it in 32-bit code too)
 
-	mov	r8, fac1[rdi*8] 		; Restore the factor to test
-	mov	r9, fac1hi[rdi*8]
+	mov	r8, fac1 		; Restore the factor to test
+	mov	r9, fac1hi
 	shld	r9, r8, 4
 	mov	edx, 3FFFFFFFh
 	and	rdx, r8
@@ -4335,8 +4342,8 @@ test86:	btr	rax, rdx		; Clear the sieve bit
 
 ;OPT....	replace this with a subtract 1 at loop's end and compare to XMM_F1/F2/F3???  subtract 1 must propgate carry too.
 ;OPT....	replace with SSE2 instructions that do the same thing as below
-	mov	r8, fac1[rdi*8] 		; Restore the factor to test
-	mov	r9, fac1hi[rdi*8]
+	mov	r8, fac1		; Restore the factor to test
+	mov	r9, fac1hi
 	inc	r8
 	adc	r9, 0
 	shld	r9, r8, 4
@@ -4483,7 +4490,7 @@ arem74:	mov	r8, QWORD PTR YMM_F1	; Copy first trial factor
 	mov	r8, QWORD PTR YMM_INVFAC
 	mov	QWORD PTR YMM_INVFAC[rdi*8], r8
 	inc	rdi			; One more factor queued up
-	cmp	rdi, 4			; Have enough been queued up?
+	cmp	rdi, 8			; Have enough been queued up?
 	jne	short arem74		; No, go copy another
 	jmp	ado74			; Yes, go test them
 
@@ -4505,8 +4512,8 @@ atest74:btr	rax, rdx		; Clear the sieve bit
 ;
 ;; OPT...  old 32-bit code....  convert to divpd(in both)???
 
-	mov	fac1[rdi*8], r8		; Save the factor to test
-	mov	fac1hi[rdi*8], r9
+	mov	fac1, r8		; Save the factor to test
+	mov	fac1hi, r9
 
 	shld	r9, r8, 34
 	mov	temp, r9
@@ -4522,8 +4529,8 @@ atest74:btr	rax, rdx		; Clear the sieve bit
 ; Compute the factor in 30 bit chunks
 ;  OPT - just save r8/r9 and use sse2/avx instr to convert to 30 bit chunks ??? (If better, do it in 32-bit code too)
 
-	mov	r8, fac1[rdi*8] 		; Restore the factor to test
-	mov	r9, fac1hi[rdi*8]
+	mov	r8, fac1 		; Restore the factor to test
+	mov	r9, fac1hi
 	shld	r9, r8, 4
 	mov	edx, 3FFFFFFFh
 	and	rdx, r8
@@ -4537,8 +4544,8 @@ atest74:btr	rax, rdx		; Clear the sieve bit
 
 ;OPT....	replace this with a subtract 1 at loop's end and compare to YMM_F1/F2/F3???  subtract 1 must propgate carry too.
 ;OPT....	replace with AVX2 instructions that do the same thing as below
-	mov	r8, fac1[rdi*8] 		; Restore the factor to test
-	mov	r9, fac1hi[rdi*8]
+	mov	r8, fac1 		; Restore the factor to test
+	mov	r9, fac1hi
 	inc	r8
 	adc	r9, 0
 	shld	r9, r8, 4
@@ -4551,7 +4558,7 @@ atest74:btr	rax, rdx		; Clear the sieve bit
 	mov	YMM_COMPARE_VAL1[rdi*8], r9d
 
 	inc	rdi			; One more factor queued up
-	cmp	rdi, 4			; Have enough been queued up?
+	cmp	rdi, 8			; Have enough been queued up?
 	jne	absf74			; No, go test more sieve bits
 
 ;
@@ -4594,7 +4601,24 @@ aloop74:avx2_fac 74
 	je	short awin74_3		; Yes! Factor found
 	cmp	ch, 0FFh		; See if we matched
 	je	short awin74_4		; Yes! Factor found
+
+	vpcmpeqd ymm8, ymm8, YMM_COMPARE_VAL3a	; See if remainder is factor + 1
+	vpcmpeqd ymm7, ymm7, YMM_COMPARE_VAL2a
+	vpcmpeqd ymm6, ymm6, YMM_COMPARE_VAL1a
+	vpand	ymm8, ymm8, ymm7
+	vpand	ymm8, ymm8, ymm6
+	vpmovmskb rcx, ymm8
+	cmp	cl, 0FFh		; See if we matched
+	je	short awin74_5		; Yes! Factor found
+	cmp	ch, 0FFh		; See if we matched
+	je	short awin74_6		; Yes! Factor found
+	shr	ecx, 16
+	cmp	cl, 0FFh		; See if we matched
+	je	short awin74_7		; Yes! Factor found
+	cmp	ch, 0FFh		; See if we matched
+	je	short awin74_8		; Yes! Factor found
 	jmp	short anext74		; Test next factor from sieve
+
 awin74_1:mov	edx, 0			; Factor found!!! Return it
 	jmp	short awin74
 awin74_2:mov	edx, 8			; Factor found!!! Return it
@@ -4602,6 +4626,15 @@ awin74_2:mov	edx, 8			; Factor found!!! Return it
 awin74_3:mov	edx, 16			; Factor found!!! Return it
 	jmp	short awin74
 awin74_4:mov	edx, 24			; Factor found!!! Return it
+	jmp	short awin74
+awin74_5:mov	edx, 32			; Factor found!!! Return it
+	jmp	short awin74
+awin74_6:mov	edx, 40			; Factor found!!! Return it
+	jmp	short awin74
+awin74_7:mov	edx, 48			; Factor found!!! Return it
+	jmp	short awin74
+awin74_8:mov	edx, 56			; Factor found!!! Return it
+
 awin74:	mov	eax, YMM_F3[rdx]	; Factor found!!! Return it
 	mov	ebx, YMM_F2[rdx]
 	mov	ecx, YMM_F1[rdx]
@@ -4692,7 +4725,7 @@ arem86:	mov	r8, QWORD PTR YMM_F1	; Copy first trial factor
 	mov	r8, QWORD PTR YMM_INVFAC
 	mov	QWORD PTR YMM_INVFAC[rdi*8], r8
 	inc	rdi			; One more factor queued up
-	cmp	rdi, 4			; Have enough been queued up?
+	cmp	rdi, 8			; Have enough been queued up?
 	jne	short arem86		; No, go copy another
 	jmp	ado86			; Yes, go test them
 
@@ -4714,8 +4747,8 @@ atest86:btr	rax, rdx		; Clear the sieve bit
 ;
 ;; OPT...  old 32-bit code....  convert to divpd(in both)???
 
-	mov	fac1[rdi*8], r8		; Save the factor to test
-	mov	fac1hi[rdi*8], r9
+	mov	fac1, r8		; Save the factor to test
+	mov	fac1hi, r9
 
 	shld	r9, r8, 34
 	mov	temp, r9
@@ -4731,8 +4764,8 @@ atest86:btr	rax, rdx		; Clear the sieve bit
 ; Compute the factor in 30 bit chunks
 ;  OPT - just save r8/r9 and use sse2/avx instr to convert to 30 bit chunks ??? (If better, do it in 32-bit code too)
 
-	mov	r8, fac1[rdi*8] 		; Restore the factor to test
-	mov	r9, fac1hi[rdi*8]
+	mov	r8, fac1 		; Restore the factor to test
+	mov	r9, fac1hi
 	shld	r9, r8, 4
 	mov	edx, 3FFFFFFFh
 	and	rdx, r8
@@ -4746,8 +4779,8 @@ atest86:btr	rax, rdx		; Clear the sieve bit
 
 ;OPT....	replace this with a subtract 1 at loop's end and compare to YMM_F1/F2/F3???  subtract 1 must propgate carry too.
 ;OPT....	replace with SSE2 instructions that do the same thing as below
-	mov	r8, fac1[rdi*8] 		; Restore the factor to test
-	mov	r9, fac1hi[rdi*8]
+	mov	r8, fac1 		; Restore the factor to test
+	mov	r9, fac1hi
 	inc	r8
 	adc	r9, 0
 	shld	r9, r8, 4
@@ -4760,7 +4793,7 @@ atest86:btr	rax, rdx		; Clear the sieve bit
 	mov	YMM_COMPARE_VAL1[rdi*8], r9d
 
 	inc	rdi			; One more factor queued up
-	cmp	rdi, 4			; Have enough been queued up?
+	cmp	rdi, 8			; Have enough been queued up?
 	jne	absf86			; No, go test more sieve bits
 
 ;
@@ -4803,7 +4836,24 @@ aloop86:avx2_fac 86
 	je	short awin86_3		; Yes! Factor found
 	cmp	ch, 0FFh		; See if we matched
 	je	short awin86_4		; Yes! Factor found
+
+	vpcmpeqd ymm8, ymm8, YMM_COMPARE_VAL3a	; See if remainder is factor + 1
+	vpcmpeqd ymm7, ymm7, YMM_COMPARE_VAL2a
+	vpcmpeqd ymm6, ymm6, YMM_COMPARE_VAL1a
+	vpand	ymm8, ymm8, ymm7
+	vpand	ymm8, ymm8, ymm6
+	vpmovmskb rcx, ymm8
+	cmp	cl, 0FFh		; See if we matched
+	je	short awin86_5		; Yes! Factor found
+	cmp	ch, 0FFh		; See if we matched
+	je	short awin86_6		; Yes! Factor found
+	shr	ecx, 16
+	cmp	cl, 0FFh		; See if we matched
+	je	short awin86_7		; Yes! Factor found
+	cmp	ch, 0FFh		; See if we matched
+	je	short awin86_8		; Yes! Factor found
 	jmp	short anext86		; Test next factor from sieve
+
 awin86_1:mov	edx, 0			; Factor found!!! Return it
 	jmp	short awin86
 awin86_2:mov	edx, 8			; Factor found!!! Return it
@@ -4811,6 +4861,15 @@ awin86_2:mov	edx, 8			; Factor found!!! Return it
 awin86_3:mov	edx, 16			; Factor found!!! Return it
 	jmp	short awin86
 awin86_4:mov	edx, 24			; Factor found!!! Return it
+	jmp	short awin86
+awin86_5:mov	edx, 32			; Factor found!!! Return it
+	jmp	short awin86
+awin86_6:mov	edx, 40			; Factor found!!! Return it
+	jmp	short awin86
+awin86_7:mov	edx, 48			; Factor found!!! Return it
+	jmp	short awin86
+awin86_8:mov	edx, 56			; Factor found!!! Return it
+
 awin86:	mov	eax, YMM_F3[rdx]	; Factor found!!! Return it
 	mov	ebx, YMM_F2[rdx]
 	mov	ecx, YMM_F1[rdx]
