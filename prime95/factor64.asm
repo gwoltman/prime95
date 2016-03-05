@@ -81,13 +81,6 @@ XMM_COMPARE_VAL1	EQU	DWORD PTR [AD_BASE+0*SZPTR+440*4]
 XMM_COMPARE_VAL2	EQU	DWORD PTR [AD_BASE+0*SZPTR+444*4]
 XMM_COMPARE_VAL3	EQU	DWORD PTR [AD_BASE+0*SZPTR+448*4]
 
-YMM_COMPARE_VAL1	EQU	DWORD PTR [AD_BASE+0*SZPTR+440*4]	;; Overlaps XMM compare values
-YMM_COMPARE_VAL1a	EQU	DWORD PTR [AD_BASE+0*SZPTR+448*4]
-YMM_COMPARE_VAL2	EQU	DWORD PTR [AD_BASE+0*SZPTR+456*4]
-YMM_COMPARE_VAL2a	EQU	DWORD PTR [AD_BASE+0*SZPTR+464*4]
-YMM_COMPARE_VAL3	EQU	DWORD PTR [AD_BASE+0*SZPTR+472*4]
-YMM_COMPARE_VAL3a	EQU	DWORD PTR [AD_BASE+0*SZPTR+480*4]
-
 ;p		DQ	0	; Mersenne prime being tested
 p			EQU	QWORD PTR [AD_BASE+0*SZPTR+510*4]
 ;twop		DQ	0	; Multiples of p + p
@@ -189,6 +182,7 @@ TWO_TO_30		DQ	1073741824.0				;; 2^30
 YMM_BITS28		DD	0FFFFFFFh,0,0FFFFFFFh,0,0FFFFFFFh,0,0FFFFFFFh,0
 YMM_BITS30		DD	3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0
 YMM_28TH_BIT		DD	08000000h,0,08000000h,0,08000000h,0,08000000h,0
+YMM_ONE			DD	1,0,1,0,1,0,1,0
 
 ;
 ; Prime data
@@ -4481,12 +4475,6 @@ arem74:	mov	r8, QWORD PTR YMM_F1	; Copy first trial factor
 	mov	QWORD PTR YMM_F1[rdi*8], r8
 	mov	QWORD PTR YMM_F2[rdi*8], r9
 	mov	QWORD PTR YMM_F3[rdi*8], rdx
-	mov	r8, QWORD PTR YMM_COMPARE_VAL1
-	mov	r9, QWORD PTR YMM_COMPARE_VAL2
-	mov	rdx, QWORD PTR YMM_COMPARE_VAL3
-	mov	QWORD PTR YMM_COMPARE_VAL1[rdi*8], r8
-	mov	QWORD PTR YMM_COMPARE_VAL2[rdi*8], r9
-	mov	QWORD PTR YMM_COMPARE_VAL3[rdi*8], rdx
 	mov	r8, QWORD PTR YMM_INVFAC
 	mov	QWORD PTR YMM_INVFAC[rdi*8], r8
 	inc	rdi			; One more factor queued up
@@ -4540,22 +4528,7 @@ atest74:btr	rax, rdx		; Clear the sieve bit
 	mov	YMM_F2[rdi*8], r8d
 	mov	YMM_F1[rdi*8], r9d
 
-; Compute factor + 1 for comparing against when loop is done
-
-;OPT....	replace this with a subtract 1 at loop's end and compare to YMM_F1/F2/F3???  subtract 1 must propgate carry too.
-;OPT....	replace with AVX2 instructions that do the same thing as below
-	mov	r8, fac1 		; Restore the factor to test
-	mov	r9, fac1hi
-	inc	r8
-	adc	r9, 0
-	shld	r9, r8, 4
-	mov	edx, 3FFFFFFFh
-	and	rdx, r8
-	mov	YMM_COMPARE_VAL3[rdi*8], edx
-	shr	r8, 30
-	and	r8, 3FFFFFFFh
-	mov	YMM_COMPARE_VAL2[rdi*8], r8d
-	mov	YMM_COMPARE_VAL1[rdi*8], r9d
+; Check to see if we've accumulated enough factors to test
 
 	inc	rdi			; One more factor queued up
 	cmp	rdi, 8			; Have enough been queued up?
@@ -4586,9 +4559,10 @@ aloop74:avx2_fac 74
 
 ; If result = factor + 1, then we found a divisor of 2**p - 1
 
-	vpcmpeqd ymm2, ymm2, YMM_COMPARE_VAL3	; See if remainder is factor + 1
-	vpcmpeqd ymm1, ymm1, YMM_COMPARE_VAL2
-	vpcmpeqd ymm0, ymm0, YMM_COMPARE_VAL1
+	avx2_compare
+	vpcmpeqd ymm2, ymm2, YMM_F3	; See if remainder is factor + 1
+	vpcmpeqd ymm1, ymm1, YMM_F2
+	vpcmpeqd ymm0, ymm0, YMM_F1
 	vpand	ymm2, ymm2, ymm1
 	vpand	ymm2, ymm2, ymm0
 	vpmovmskb rcx, ymm2
@@ -4602,9 +4576,9 @@ aloop74:avx2_fac 74
 	cmp	ch, 0FFh		; See if we matched
 	je	short awin74_4		; Yes! Factor found
 
-	vpcmpeqd ymm8, ymm8, YMM_COMPARE_VAL3a	; See if remainder is factor + 1
-	vpcmpeqd ymm7, ymm7, YMM_COMPARE_VAL2a
-	vpcmpeqd ymm6, ymm6, YMM_COMPARE_VAL1a
+	vpcmpeqd ymm8, ymm8, YMM_F3a	; See if remainder is factor + 1
+	vpcmpeqd ymm7, ymm7, YMM_F2a
+	vpcmpeqd ymm6, ymm6, YMM_F1a
 	vpand	ymm8, ymm8, ymm7
 	vpand	ymm8, ymm8, ymm6
 	vpmovmskb rcx, ymm8
@@ -4716,12 +4690,6 @@ arem86:	mov	r8, QWORD PTR YMM_F1	; Copy first trial factor
 	mov	QWORD PTR YMM_F1[rdi*8], r8
 	mov	QWORD PTR YMM_F2[rdi*8], r9
 	mov	QWORD PTR YMM_F3[rdi*8], rdx
-	mov	r8, QWORD PTR YMM_COMPARE_VAL1
-	mov	r9, QWORD PTR YMM_COMPARE_VAL2
-	mov	rdx, QWORD PTR YMM_COMPARE_VAL3
-	mov	QWORD PTR YMM_COMPARE_VAL1[rdi*8], r8
-	mov	QWORD PTR YMM_COMPARE_VAL2[rdi*8], r9
-	mov	QWORD PTR YMM_COMPARE_VAL3[rdi*8], rdx
 	mov	r8, QWORD PTR YMM_INVFAC
 	mov	QWORD PTR YMM_INVFAC[rdi*8], r8
 	inc	rdi			; One more factor queued up
@@ -4775,22 +4743,7 @@ atest86:btr	rax, rdx		; Clear the sieve bit
 	mov	YMM_F2[rdi*8], r8d
 	mov	YMM_F1[rdi*8], r9d
 
-; Compute factor + 1 for comparing against when loop is done
-
-;OPT....	replace this with a subtract 1 at loop's end and compare to YMM_F1/F2/F3???  subtract 1 must propgate carry too.
-;OPT....	replace with SSE2 instructions that do the same thing as below
-	mov	r8, fac1 		; Restore the factor to test
-	mov	r9, fac1hi
-	inc	r8
-	adc	r9, 0
-	shld	r9, r8, 4
-	mov	edx, 3FFFFFFFh
-	and	rdx, r8
-	mov	YMM_COMPARE_VAL3[rdi*8], edx
-	shr	r8, 30
-	and	r8, 3FFFFFFFh
-	mov	YMM_COMPARE_VAL2[rdi*8], r8d
-	mov	YMM_COMPARE_VAL1[rdi*8], r9d
+; Check to see if we've accumulated enough factors to test
 
 	inc	rdi			; One more factor queued up
 	cmp	rdi, 8			; Have enough been queued up?
@@ -4821,9 +4774,10 @@ aloop86:avx2_fac 86
 
 ; If result = factor + 1, then we found a divisor of 2**p - 1
 
-	vpcmpeqd ymm2, ymm2, YMM_COMPARE_VAL3	; See if remainder is factor + 1
-	vpcmpeqd ymm1, ymm1, YMM_COMPARE_VAL2
-	vpcmpeqd ymm0, ymm0, YMM_COMPARE_VAL1
+	avx2_compare
+	vpcmpeqd ymm2, ymm2, YMM_F3	; See if remainder is factor + 1
+	vpcmpeqd ymm1, ymm1, YMM_F2
+	vpcmpeqd ymm0, ymm0, YMM_F1
 	vpand	ymm2, ymm2, ymm1
 	vpand	ymm2, ymm2, ymm0
 	vpmovmskb rcx, ymm2
@@ -4837,9 +4791,9 @@ aloop86:avx2_fac 86
 	cmp	ch, 0FFh		; See if we matched
 	je	short awin86_4		; Yes! Factor found
 
-	vpcmpeqd ymm8, ymm8, YMM_COMPARE_VAL3a	; See if remainder is factor + 1
-	vpcmpeqd ymm7, ymm7, YMM_COMPARE_VAL2a
-	vpcmpeqd ymm6, ymm6, YMM_COMPARE_VAL1a
+	vpcmpeqd ymm8, ymm8, YMM_F3a	; See if remainder is factor + 1
+	vpcmpeqd ymm7, ymm7, YMM_F2a
+	vpcmpeqd ymm6, ymm6, YMM_F1a
 	vpand	ymm8, ymm8, ymm7
 	vpand	ymm8, ymm8, ymm6
 	vpmovmskb rcx, ymm8

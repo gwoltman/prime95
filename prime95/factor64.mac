@@ -1387,8 +1387,6 @@ invfac_ok:
 
 	vpxor	ymm2, ymm2, ymm2				;; Clear R2
 	vmovdqa	ymm1, YMMWORD PTR YMM_INITVAL			;; Load R1
-
-	vpxor	ymm8, ymm8, ymm8				;; Clear R2
 	vmovdqa	ymm7, YMMWORD PTR YMM_INITVAL			;; Load R1
 
 ;; Quotient * factor is now in ymm3, ymm0.  R1,R2 are in ymm1, ymm2.
@@ -1401,33 +1399,8 @@ invfac_ok:
 	vpsubq	ymm5, ymm2, ymm0				;; temp2 = R2 - QF2
 	vpsubd	ymm4, ymm1, ymm3				;; temp1 = R1 - QF1
 
-	vpsubq	ymm11, ymm8, ymm6				;; temp2 = R2 - QF2
+	vpsubq	ymm11, ymm2, ymm6				;; temp2 = R2 - QF2
 	vpsubd	ymm10, ymm7, ymm9				;; temp1 = R1 - QF1
-
-;; Break remainder in ymm4,ymm5 into 30 bit quantities.
-;;
-;; RES3 = temp2 & 0x3FFFFFFF		(30)
-;; temp2 >>= 30				(signed 32)
-;; RES2 = temp2 & 0x3FFFFFFF		(30)
-;; temp2 >>= 30				(signed 2)
-;; temp1 += temp2
-;; RES1 = temp1 & 0x0FFFFFFF		(28)
-
-	vpand	ymm2, ymm5, ymm15				;; RES3 = temp2 & 0x3FFFFFFF
-	vpsrlq	ymm5, ymm5, 30					;; temp2 >>= 30
-	vpand	ymm1, ymm5, ymm15				;; RES2 = temp2 & 0x3FFFFFFF
-	vpsrlq	ymm5, ymm5, 2					;; temp2 >>= 2
-	vpsrad	ymm5, ymm5, 28					;; temp2 >>= 28
-	vpaddd	ymm4, ymm4, ymm5				;; temp1 += temp2
-	vpand	ymm0, ymm4, YMMWORD PTR YMM_BITS28		;; RES1 = temp1 & 0x0FFFFFFF
-
-	vpand	ymm8, ymm11, ymm15				;; RES3 = temp2 & 0x3FFFFFFF
-	vpsrlq	ymm11, ymm11, 30				;; temp2 >>= 30
-	vpand	ymm7, ymm11, ymm15				;; RES2 = temp2 & 0x3FFFFFFF
-	vpsrlq	ymm11, ymm11, 2					;; temp2 >>= 2
-	vpsrad	ymm11, ymm11, 28				;; temp2 >>= 28
-	vpaddd	ymm10, ymm10, ymm11				;; temp1 += temp2
-	vpand	ymm6, ymm10, YMMWORD PTR YMM_BITS28		;; RES1 = temp1 & 0x0FFFFFFF
 
 	ENDM
 
@@ -1437,8 +1410,9 @@ invfac_ok:
 
 avx2_fac MACRO fac_size
 
-;; Note that at the beginning of the ymm0, ymm1, ymm2 contains the
-;; remainder to square.  This remainder can be one more bit than the
+;; Note that at the beginning of the macro ymm4, ymm5 contains the unnormalized remainder
+;; for us to square.  The first order of business is to break the remainder into 30-bit
+;; chunks in ymm0, ymm1, ymm2 to square.  This remainder can be one more bit than
 ;; fac_size.  This is because we do not perform a modulo after the optional
 ;; multiply by two at the end of this macro.
 
@@ -1492,7 +1466,32 @@ avx2_fac MACRO fac_size
 ;; easier for the CPU to schedule the instructions.  The clock counts assume
 ;; my understanding of Haswell instruction scheduling is correct.
 
-					;; A = ymm0, B = ymm1, C = ymm2
+;; Break remainder in ymm4,ymm5 into 30 bit quantities.
+;;
+;; RES3 = temp2 & 0x3FFFFFFF		(30)
+;; temp2 >>= 30				(signed 32)
+;; RES2 = temp2 & 0x3FFFFFFF		(30)
+;; temp2 >>= 30				(signed 2)
+;; temp1 += temp2
+;; RES1 = temp1 & 0x0FFFFFFF		(28)
+
+	vpand	ymm2, ymm5, ymm15				;; RES3 = temp2 & 0x3FFFFFFF
+	vpsrlq	ymm5, ymm5, 30					;; temp2 >>= 30
+	vpand	ymm1, ymm5, ymm15				;; RES2 = temp2 & 0x3FFFFFFF
+	vpsrlq	ymm5, ymm5, 2					;; temp2 >>= 2
+	vpsrad	ymm5, ymm5, 28					;; temp2 >>= 28
+	vpaddd	ymm4, ymm4, ymm5				;; temp1 += temp2
+	vpand	ymm0, ymm4, YMMWORD PTR YMM_BITS28		;; RES1 = temp1 & 0x0FFFFFFF
+
+	vpand	ymm8, ymm11, ymm15				;; RES3 = temp2 & 0x3FFFFFFF
+	vpsrlq	ymm11, ymm11, 30				;; temp2 >>= 30
+	vpand	ymm7, ymm11, ymm15				;; RES2 = temp2 & 0x3FFFFFFF
+	vpsrlq	ymm11, ymm11, 2					;; temp2 >>= 2
+	vpsrad	ymm11, ymm11, 28				;; temp2 >>= 28
+	vpaddd	ymm10, ymm10, ymm11				;; temp1 += temp2
+	vpand	ymm6, ymm10, YMMWORD PTR YMM_BITS28		;; RES1 = temp1 & 0x0FFFFFFF
+
+								;; A = ymm0, B = ymm1, C = ymm2
 
 	vpaddq	ymm3, ymm0, ymm0				;;0		2A
 	vpaddq	ymm5, ymm1, ymm1				;;0		2B
@@ -1517,7 +1516,6 @@ avx2_fac MACRO fac_size
 								;;		temp1-5 = ymm10,6,7,11,8
 
 	IF fac_size GE 75
-
 	vpsrlq	ymm3, ymm4, 30					;;6		AA_HIGH = Upper 30 bits of AA
 	vpmuludq ymm12, ymm3, YMMWORD PTR YMM_TWO_120_MODF2	;;7-11		AA_HIGH * 2_120_MODF2
 	vpaddq	ymm1, ymm1, ymm12				;;12		temp3 += AA_HIGH * 2_120_MODF2
@@ -1535,7 +1533,6 @@ avx2_fac MACRO fac_size
 	vpmuludq ymm9, ymm9, YMMWORD PTR YMM_TWO_120_MODF3a	;;	9-13	AA_HIGH * 2_120_MODF3
 	vpaddq	ymm11, ymm11, ymm9				;;	14	temp4 += AA_HIGH * 2_120_MODF3
 	vpand	ymm10, ymm10, ymm15				;;	8	temp1 = Low 30 bits of AA
-
 	ENDIF
 
 	vpsrlq	ymm3, ymm1, 30					;;8		Top bits of temp3
@@ -1705,31 +1702,6 @@ avx2_fac MACRO fac_size
 
 	vpsllq	ymm11, ymm11, xmm0			;;	22	temp2 *= 1 or 2
 	vpsllq	ymm10, ymm10, xmm0			;;	22	temp1 *= 1 or 2
-
-;; Break remainder in ymm4,ymm5 into 30 bit quantities.
-;;
-;; RES3 = temp2 & 0x3FFFFFFF		(30)
-;; temp2 >>= 30				(signed 32)
-;; RES2 = temp2 & 0x3FFFFFFF		(30)
-;; temp2 >>= 30				(signed 2)
-;; temp1 += temp2
-;; RES1 = temp1 & 0x0FFFFFFF		(28)
-
-	vpand	ymm2, ymm5, ymm15			;;23		RES3 = temp2 & 0x3FFFFFFF
-	vpsrlq	ymm5, ymm5, 30				;;23		temp2 >>= 30
-	vpand	ymm1, ymm5, ymm15			;;24		RES2 = temp2 & 0x3FFFFFFF
-	vpsrlq	ymm5, ymm5, 2				;;24		temp2 >>= 2
-	vpsrad	ymm5, ymm5, 28				;;25		temp2 >>= 28
-	vpaddd	ymm4, ymm4, ymm5			;;26		temp1 += temp2
-	vpand	ymm0, ymm4, YMMWORD PTR YMM_BITS28	;;27		RES1 = temp1 & 0x0FFFFFFF
-
-	vpand	ymm8, ymm11, ymm15			;;	23	RES3 = temp2 & 0x3FFFFFFF
-	vpsrlq	ymm11, ymm11, 30			;;	23	temp2 >>= 30
-	vpand	ymm7, ymm11, ymm15			;;	24	RES2 = temp2 & 0x3FFFFFFF
-	vpsrlq	ymm11, ymm11, 2				;;	24	temp2 >>= 2
-	vpsrad	ymm11, ymm11, 28			;;	25	temp2 >>= 28
-	vpaddd	ymm10, ymm10, ymm11			;;	26	temp1 += temp2
-	vpand	ymm6, ymm10, YMMWORD PTR YMM_BITS28	;;	27	RES1 = temp1 & 0x0FFFFFFF
 	ENDM
 
 
@@ -1741,8 +1713,9 @@ IFDEF NO_BETTER_THAN_STRAIGHTFORWARD_IMPL_ABOVE
 
 avx2_fac MACRO fac_size
 
-;; Note that at the beginning of the ymm0, ymm1, ymm2 contains the
-;; remainder to square.  This remainder can be one more bit than the
+;; Note that at the beginning of the macro ymm4, ymm5 contains the unnormalized remainder
+;; for us to square.  The first order of business is to break the remainder into 30-bit
+;; chunks in ymm0, ymm1, ymm2 to square.  This remainder can be one more bit than
 ;; fac_size.  This is because we do not perform a modulo after the optional
 ;; multiply by two at the end of this macro.
 
@@ -1798,7 +1771,31 @@ avx2_fac MACRO fac_size
 ;; get assigned to port 0 and 1.  With some instructions allowed to go to port 5,
 ;; timings should be even better than shown.
 
-					;; A = ymm0, B = ymm1, C = ymm2
+;; Break remainder in ymm4,ymm5 into 30 bit quantities.
+;;
+;; RES3 = temp2 & 0x3FFFFFFF		(30)
+;; temp2 >>= 30				(signed 32)
+;; RES2 = temp2 & 0x3FFFFFFF		(30)
+;; temp2 >>= 30				(signed 2)
+;; temp1 += temp2
+;; RES1 = temp1 & 0x0FFFFFFF		(28)
+
+	vpand	ymm2, ymm5, ymm15				;;29		RES3 = temp2 & 0x3FFFFFFF
+	vpsrlq	ymm5, ymm5, 30					;;29		temp2 >>= 30
+	vpand	ymm1, ymm5, ymm15				;;30		RES2 = temp2 & 0x3FFFFFFF
+	vpsrlq	ymm5, ymm5, 2					;;30		temp2 >>= 2
+	vpsrad	ymm5, ymm5, 28					;;31		temp2 >>= 28
+	vpaddd	ymm4, ymm4, ymm5				;;32		temp1 += temp2
+	vpand	ymm0, ymm4, YMMWORD PTR YMM_BITS28		;;32		RES1 = temp1 & 0x0FFFFFFF
+	vpand	ymm8, ymm11, ymm15				;;	31	RES3 = temp2 & 0x3FFFFFFF
+	vpsrlq	ymm11, ymm11, 30				;;	33	temp2 >>= 30
+	vpand	ymm7, ymm11, ymm15				;;	34	RES2 = temp2 & 0x3FFFFFFF
+	vpsrlq	ymm11, ymm11, 2					;;	34	temp2 >>= 2
+	vpsrad	ymm11, ymm11, 28				;;	35	temp2 >>= 28
+	vpaddd	ymm10, ymm10, ymm11				;;	36	temp1 += temp2
+	vpand	ymm6, ymm10, YMMWORD PTR YMM_BITS28		;;	36	RES1 = temp1 & 0x0FFFFFFF
+
+								;; A = ymm0, B = ymm1, C = ymm2
 
 	vpaddq	ymm3, ymm0, ymm0				;;1		2A
 	vpaddq	ymm5, ymm1, ymm1				;;1		2B
@@ -1822,7 +1819,6 @@ avx2_fac MACRO fac_size
 								;;		temp1-5 = ymm10,6,7,11,8
 
 	IF fac_size GE 75
-
 	vpsrlq	ymm3, ymm4, 30					;;9		AA_HIGH = Upper 30 bits of AA
 	vpmuludq ymm12, ymm3, YMMWORD PTR YMM_TWO_120_MODF2	;;10-14		AA_HIGH * 2_120_MODF2
 	vpmuludq ymm13, ymm3, YMMWORD PTR YMM_TWO_120_MODF1	;;10-14		AA_HIGH * 2_120_MODF1
@@ -1839,7 +1835,6 @@ avx2_fac MACRO fac_size
 	vpaddq	ymm7, ymm7, ymm14				;;	17	temp3 += AA_HIGH * 2_120_MODF2
 	vpaddq	ymm6, ymm6, ymm12				;;	17	temp2 += AA_HIGH * 2_120_MODF1
 	vpaddq	ymm11, ymm11, ymm9				;;	18	temp4 += AA_HIGH * 2_120_MODF3
-
 	ENDIF
 
 	vpsrlq	ymm3, ymm1, 30					;;10		Top bits of temp3
@@ -2004,30 +1999,30 @@ avx2_fac MACRO fac_size
 	vpsllq	ymm4, ymm4, xmm0			;;27		temp1 *= 1 or 2
 	vpsllq	ymm11, ymm11, xmm0			;;	28	temp2 *= 1 or 2
 	vpsllq	ymm10, ymm10, xmm0			;;	28	temp1 *= 1 or 2
-
-;; Break remainder in ymm4,ymm5 into 30 bit quantities.
-;;
-;; RES3 = temp2 & 0x3FFFFFFF		(30)
-;; temp2 >>= 30				(signed 32)
-;; RES2 = temp2 & 0x3FFFFFFF		(30)
-;; temp2 >>= 30				(signed 2)
-;; temp1 += temp2
-;; RES1 = temp1 & 0x0FFFFFFF		(28)
-
-	vpand	ymm2, ymm5, ymm15			;;29		RES3 = temp2 & 0x3FFFFFFF
-	vpsrlq	ymm5, ymm5, 30				;;29		temp2 >>= 30
-	vpand	ymm1, ymm5, ymm15			;;30		RES2 = temp2 & 0x3FFFFFFF
-	vpsrlq	ymm5, ymm5, 2				;;30		temp2 >>= 2
-	vpsrad	ymm5, ymm5, 28				;;31		temp2 >>= 28
-	vpaddd	ymm4, ymm4, ymm5			;;32		temp1 += temp2
-	vpand	ymm0, ymm4, YMMWORD PTR YMM_BITS28	;;32		RES1 = temp1 & 0x0FFFFFFF
-	vpand	ymm8, ymm11, ymm15			;;	31	RES3 = temp2 & 0x3FFFFFFF
-	vpsrlq	ymm11, ymm11, 30			;;	33	temp2 >>= 30
-	vpand	ymm7, ymm11, ymm15			;;	34	RES2 = temp2 & 0x3FFFFFFF
-	vpsrlq	ymm11, ymm11, 2				;;	34	temp2 >>= 2
-	vpsrad	ymm11, ymm11, 28			;;	35	temp2 >>= 28
-	vpaddd	ymm10, ymm10, ymm11			;;	36	temp1 += temp2
-	vpand	ymm6, ymm10, YMMWORD PTR YMM_BITS28	;;	36	RES1 = temp1 & 0x0FFFFFFF
 	ENDM
 
 ENDIF
+
+
+
+;; Check if remainder in ymm4,ymm5 matches is factor + 1 indicating we found a factor!
+
+avx2_compare MACRO
+	vpsubq	ymm5, ymm5, YMMWORD PTR YMM_ONE		;; Subtract one to compare result to factor
+	vpand	ymm2, ymm5, ymm15			;; RES3 = temp2 & 0x3FFFFFFF
+	vpsrlq	ymm5, ymm5, 30				;; temp2 >>= 30
+	vpand	ymm1, ymm5, ymm15			;; RES2 = temp2 & 0x3FFFFFFF
+	vpsrlq	ymm5, ymm5, 2				;; temp2 >>= 2
+	vpsrad	ymm5, ymm5, 28				;; temp2 >>= 28
+	vpaddd	ymm4, ymm4, ymm5			;; temp1 += temp2
+	vpand	ymm0, ymm4, YMMWORD PTR YMM_BITS28	;; RES1 = temp1 & 0x0FFFFFFF
+
+	vpsubq	ymm11, ymm11, YMMWORD PTR YMM_ONE	;; Subtract one to compare result to factor
+	vpand	ymm8, ymm11, ymm15			;; RES3 = temp2 & 0x3FFFFFFF
+	vpsrlq	ymm11, ymm11, 30			;; temp2 >>= 30
+	vpand	ymm7, ymm11, ymm15			;; RES2 = temp2 & 0x3FFFFFFF
+	vpsrlq	ymm11, ymm11, 2				;; temp2 >>= 2
+	vpsrad	ymm11, ymm11, 28			;; temp2 >>= 28
+	vpaddd	ymm10, ymm10, ymm11			;; temp1 += temp2
+	vpand	ymm6, ymm10, YMMWORD PTR YMM_BITS28	;; RES1 = temp1 & 0x0FFFFFFF
+	ENDM
