@@ -4560,54 +4560,56 @@ aloop74:avx2_fac 74
 ; If result = factor + 1, then we found a divisor of 2**p - 1
 
 	avx2_compare
-	vpcmpeqd ymm2, ymm2, YMM_F3	; See if remainder is factor + 1
-	vpcmpeqd ymm1, ymm1, YMM_F2
-	vpcmpeqd ymm0, ymm0, YMM_F1
+	vpcmpeqq ymm2, ymm2, YMMWORD PTR YMM_F3	; See if any remainder is factor + 1
+	vpcmpeqq ymm1, ymm1, YMMWORD PTR YMM_F2
+	vpcmpeqq ymm0, ymm0, YMMWORD PTR YMM_F1
 	vpand	ymm2, ymm2, ymm1
+	vptest	ymm2, ymm0
+	jnz	short awin74_1		; Jump if a factor found
+	vpcmpeqq ymm8, ymm8, YMMWORD PTR YMM_F3a ; See if any remainder is factor + 1
+	vpcmpeqq ymm7, ymm7, YMMWORD PTR YMM_F2a
+	vpcmpeqq ymm6, ymm6, YMMWORD PTR YMM_F1a
+	vpand	ymm8, ymm8, ymm7
+	vptest	ymm8, ymm6
+	jnz	short awin74_2		; Jump if a factor found
+
+	sub	rdi, rdi		; Clear queued factors count
+	mov	rbp, SAVED_REG5		; Restore sieve testing register
+	mov	rcx, SAVED_REG4
+	mov	rbx, SAVED_REG3
+	mov	rax, SAVED_REG2
+	mov	rsi, SAVED_REG1
+	jmp	absf74			; Test next factor from sieve
+
+awin74_1:
 	vpand	ymm2, ymm2, ymm0
 	vpmovmskb rcx, ymm2
-	cmp	cl, 0FFh		; See if we matched
-	je	short awin74_1		; Yes! Factor found
-	cmp	ch, 0FFh		; See if we matched
-	je	short awin74_2		; Yes! Factor found
-	shr	ecx, 16
-	cmp	cl, 0FFh		; See if we matched
-	je	short awin74_3		; Yes! Factor found
-	cmp	ch, 0FFh		; See if we matched
-	je	short awin74_4		; Yes! Factor found
+	sub	rdx, rdx		; See if first AVX word was the factor
+	shr	rcx, 1
+	jc	short awin74		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short awin74		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short awin74		; Yes! Factor found
+	lea	rdx, [rdx+8]		; Last AVX word must have been the factor
+	jmp	short awin74		; Yes! Factor found
 
-	vpcmpeqd ymm8, ymm8, YMM_F3a	; See if remainder is factor + 1
-	vpcmpeqd ymm7, ymm7, YMM_F2a
-	vpcmpeqd ymm6, ymm6, YMM_F1a
-	vpand	ymm8, ymm8, ymm7
+awin74_2:
 	vpand	ymm8, ymm8, ymm6
 	vpmovmskb rcx, ymm8
-	cmp	cl, 0FFh		; See if we matched
-	je	short awin74_5		; Yes! Factor found
-	cmp	ch, 0FFh		; See if we matched
-	je	short awin74_6		; Yes! Factor found
-	shr	ecx, 16
-	cmp	cl, 0FFh		; See if we matched
-	je	short awin74_7		; Yes! Factor found
-	cmp	ch, 0FFh		; See if we matched
-	je	short awin74_8		; Yes! Factor found
-	jmp	short anext74		; Test next factor from sieve
-
-awin74_1:mov	edx, 0			; Factor found!!! Return it
-	jmp	short awin74
-awin74_2:mov	edx, 8			; Factor found!!! Return it
-	jmp	short awin74
-awin74_3:mov	edx, 16			; Factor found!!! Return it
-	jmp	short awin74
-awin74_4:mov	edx, 24			; Factor found!!! Return it
-	jmp	short awin74
-awin74_5:mov	edx, 32			; Factor found!!! Return it
-	jmp	short awin74
-awin74_6:mov	edx, 40			; Factor found!!! Return it
-	jmp	short awin74
-awin74_7:mov	edx, 48			; Factor found!!! Return it
-	jmp	short awin74
-awin74_8:mov	edx, 56			; Factor found!!! Return it
+	mov	edx, 32			; See if first AVX word was the factor
+	shr	rcx, 1
+	jc	short awin74		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short awin74		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short awin74		; Yes! Factor found
+	lea	rdx, [rdx+8]		; Last AVX word must have been the factor
+;;	jmp	short awin74		; Yes! Factor found
 
 awin74:	mov	eax, YMM_F3[rdx]	; Factor found!!! Return it
 	mov	ebx, YMM_F2[rdx]
@@ -4622,14 +4624,6 @@ awin74:	mov	eax, YMM_F3[rdx]	; Factor found!!! Return it
 	mov	FACHSW, ecx
 	mov	rax, 1			; return TRUE
 	jmp	done
-
-anext74:sub	rdi, rdi		; Clear queued factors count
-	mov	rbp, SAVED_REG5		; Restore sieve testing register
-	mov	rcx, SAVED_REG4
-	mov	rbx, SAVED_REG3
-	mov	rax, SAVED_REG2
-	mov	rsi, SAVED_REG1
-	jmp	absf74			; Test next factor from sieve
 
 ;************************************
 ; For 75 to 86-bit factors using AVX2
@@ -4775,54 +4769,56 @@ aloop86:avx2_fac 86
 ; If result = factor + 1, then we found a divisor of 2**p - 1
 
 	avx2_compare
-	vpcmpeqd ymm2, ymm2, YMM_F3	; See if remainder is factor + 1
-	vpcmpeqd ymm1, ymm1, YMM_F2
-	vpcmpeqd ymm0, ymm0, YMM_F1
+	vpcmpeqq ymm2, ymm2, YMMWORD PTR YMM_F3	; See if any remainder is factor + 1
+	vpcmpeqq ymm1, ymm1, YMMWORD PTR YMM_F2
+	vpcmpeqq ymm0, ymm0, YMMWORD PTR YMM_F1
 	vpand	ymm2, ymm2, ymm1
+	vptest	ymm2, ymm0
+	jnz	short awin86_1		; Jump if a factor found
+	vpcmpeqq ymm8, ymm8, YMMWORD PTR YMM_F3a ; See if any remainder is factor + 1
+	vpcmpeqq ymm7, ymm7, YMMWORD PTR YMM_F2a
+	vpcmpeqq ymm6, ymm6, YMMWORD PTR YMM_F1a
+	vpand	ymm8, ymm8, ymm7
+	vptest	ymm8, ymm6
+	jnz	short awin86_2		; Jump if a factor found
+
+	sub	rdi, rdi		; Clear queued factors count
+	mov	rbp, SAVED_REG5		; Restore sieve testing register
+	mov	rcx, SAVED_REG4
+	mov	rbx, SAVED_REG3
+	mov	rax, SAVED_REG2
+	mov	rsi, SAVED_REG1
+	jmp	absf86			; Test next factor from sieve
+
+awin86_1:
 	vpand	ymm2, ymm2, ymm0
 	vpmovmskb rcx, ymm2
-	cmp	cl, 0FFh		; See if we matched
-	je	short awin86_1		; Yes! Factor found
-	cmp	ch, 0FFh		; See if we matched
-	je	short awin86_2		; Yes! Factor found
-	shr	ecx, 16
-	cmp	cl, 0FFh		; See if we matched
-	je	short awin86_3		; Yes! Factor found
-	cmp	ch, 0FFh		; See if we matched
-	je	short awin86_4		; Yes! Factor found
+	sub	rdx, rdx		; See if first AVX word was the factor
+	shr	rcx, 1
+	jc	short awin86		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short awin86		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short awin86		; Yes! Factor found
+	lea	rdx, [rdx+8]		; Last AVX word must have been the factor
+	jmp	short awin86		; Yes! Factor found
 
-	vpcmpeqd ymm8, ymm8, YMM_F3a	; See if remainder is factor + 1
-	vpcmpeqd ymm7, ymm7, YMM_F2a
-	vpcmpeqd ymm6, ymm6, YMM_F1a
-	vpand	ymm8, ymm8, ymm7
+awin86_2:
 	vpand	ymm8, ymm8, ymm6
 	vpmovmskb rcx, ymm8
-	cmp	cl, 0FFh		; See if we matched
-	je	short awin86_5		; Yes! Factor found
-	cmp	ch, 0FFh		; See if we matched
-	je	short awin86_6		; Yes! Factor found
-	shr	ecx, 16
-	cmp	cl, 0FFh		; See if we matched
-	je	short awin86_7		; Yes! Factor found
-	cmp	ch, 0FFh		; See if we matched
-	je	short awin86_8		; Yes! Factor found
-	jmp	short anext86		; Test next factor from sieve
-
-awin86_1:mov	edx, 0			; Factor found!!! Return it
-	jmp	short awin86
-awin86_2:mov	edx, 8			; Factor found!!! Return it
-	jmp	short awin86
-awin86_3:mov	edx, 16			; Factor found!!! Return it
-	jmp	short awin86
-awin86_4:mov	edx, 24			; Factor found!!! Return it
-	jmp	short awin86
-awin86_5:mov	edx, 32			; Factor found!!! Return it
-	jmp	short awin86
-awin86_6:mov	edx, 40			; Factor found!!! Return it
-	jmp	short awin86
-awin86_7:mov	edx, 48			; Factor found!!! Return it
-	jmp	short awin86
-awin86_8:mov	edx, 56			; Factor found!!! Return it
+	mov	edx, 32			; See if first AVX word was the factor
+	shr	rcx, 1
+	jc	short awin86		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short awin86		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short awin86		; Yes! Factor found
+	lea	rdx, [rdx+8]		; Last AVX word must have been the factor
+;;	jmp	short awin86		; Yes! Factor found
 
 awin86:	mov	eax, YMM_F3[rdx]	; Factor found!!! Return it
 	mov	ebx, YMM_F2[rdx]
@@ -4837,14 +4833,6 @@ awin86:	mov	eax, YMM_F3[rdx]	; Factor found!!! Return it
 	mov	FACHSW, ecx
 	mov	rax, 1			; return TRUE
 	jmp	done
-
-anext86:sub	rdi, rdi		; Clear queued factors count
-	mov	rbp, SAVED_REG5		; Restore sieve testing register
-	mov	rcx, SAVED_REG4
-	mov	rbx, SAVED_REG3
-	mov	rax, SAVED_REG2
-	mov	rsi, SAVED_REG1
-	jmp	absf86			; Test next factor from sieve
 
 ; Pop registers and return
 
