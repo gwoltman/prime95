@@ -1059,7 +1059,7 @@ int setN (
 			free (tmp);
 			/* w->forced_fftlen = w->n; */ /*=== too late to do this here. Moved before gwsetup() --SB. */
 			if (!w->known_factors || !strcmp (w->known_factors, "1")) {
-				p = sprintf (buf, "M%d", w->n/q); if(q != w->n/q) p += sprintf (buf+p, "/M%d", q);
+				p = sprintf (buf, "M%lu", w->n/q); if(q != w->n/q) p += sprintf (buf+p, "/M%d", q);
 				w->known_factors = (char *) malloc (p+1);
 				memcpy (w->known_factors, buf, p+1);
 			}
@@ -1080,7 +1080,7 @@ int setN (
 		free (tmp);
 		/* w->forced_fftlen = w->n; */ /*=== too late to do this here. Moved before gwsetup() --SB. */
 		if (!w->known_factors) {
-			p = sprintf (buf, "(%lld^%d%+d)", w->b, w->n/3, w->c);
+			p = sprintf (buf, "(%lu^%lu%+ld)", w->b, w->n/3, w->c);
 			w->known_factors = (char *) malloc (p+1);
 			memcpy (w->known_factors, buf, p+1);
 		}
