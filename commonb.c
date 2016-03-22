@@ -9143,7 +9143,7 @@ int primeBench (
 
 /* Now benchmark the trial factoring code */
 
-	if (IniGetInt (INI_FILE, "BenchTrialFactoring", 1)) {
+	if (IniGetInt (INI_FILE, "BenchTrialFactoring", 0)) {
 		stop_reason = factorBench (thread_num, &pkt);
 		if (stop_reason) return (stop_reason);
 	}

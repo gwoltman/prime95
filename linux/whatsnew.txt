@@ -11,6 +11,7 @@ New features in Version 28.9 of mprime
 4)  Trial factoring now defines one "iteration" as processing 128KB of sieve, or 1M possible
     factors.  In previous versions an iteration was defined as 16KB of sieve in 32-bit executables
     and 48KB in 64-bit executables.  The trial factoring benchmark still times processing 16KB of sieve.
+5)  Trial factoring in 64-bit executables is now multi-threaded.
 
 New features in Version 28.6 of mprime
 --------------------------------------
