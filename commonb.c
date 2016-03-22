@@ -4120,11 +4120,9 @@ struct facasm_data {
 	uint32_t initstart;		/* First dword in initsieve to copy (see ASM code) */
 
 	uint32_t pad[3];		/* Pad to next 64-byte cache line */
-	uint32_t xmm_data[110];		/* XMM data initialized in C code */
-	uint32_t pad2[2];		/* Pad to next 64-byte cache line */
-	uint32_t ymm_data[180];		/* YMM data initialized in C code */
+	uint32_t xmm_data[80];		/* XMM/YMM data initialized in C code */
 
-	uint32_t other_asm_temps_and_consts[60];
+	uint32_t other_asm_temps_and_consts[200];
 };
 
 /* This defines the factoring data handled in C code.  The handle */
@@ -4285,8 +4283,7 @@ int factorSetup (
 	facdata->num_threads = i;
 	facdata->sp_info = sp_info;
 
-/* Allocate memory for the assembly code global data.  We zero the struct, */
-/* asm code requires this (such as XMM_COMPARE_VALn). */
+/* Allocate memory for the assembly code global data.  We zero the struct, asm code requires this. */
 
 	facdata->asm_data = asm_data = (struct facasm_data *) aligned_malloc (sizeof (struct facasm_data), 64);
 	if (asm_data == NULL) {
@@ -4451,16 +4448,7 @@ int factorPassSetup (
 
 /* If using the AVX2 or SSE2 factoring code, do more initialization */
 /* We need to initialize much of the following data: */
-/*	XMM_INITVAL		DD	0,0,0,0
-	XMM_INVFAC		DD	0,0,0,0
-	XMM_I1			DD	0,0,0,0
-	XMM_I2			DD	0,0,0,0
-	XMM_F1			DD	0,0,0,0
-	XMM_F2			DD	0,0,0,0
-	XMM_F3			DD	0,0,0,0
-	XMM_TWO_120_MODF1	DD	0,0,0,0
-	XMM_TWO_120_MODF2	DD	0,0,0,0
-	XMM_TWO_120_MODF3	DD	0,0,0,0
+/*	YMM_INITVAL		DD	0,0,0,0,0,0,0,0
 	XMM_INIT120BS		DD	0,0
 	XMM_INITBS		DD	0,0
 	XMM_BS			DD	0,0
@@ -4480,30 +4468,26 @@ int factorPassSetup (
 /* Factors 63 bits and below use the non-SSE2 code */
 
 		if (bits_in_factor > 63) {
-			uint32_t *xmm_data, *ymm_data;
+			uint32_t *xmm_data;
 
 /* Set XMM_SHIFTER values (the first shifter value is not used). */
 /* Also compute the initial value. */
 
 			xmm_data = asm_data->xmm_data;
-			ymm_data = asm_data->ymm_data;
 			p = (unsigned long) asm_data->p;
 			for (i = 0; p > bits_in_factor + 59; i++) {
-				xmm_data[48+i*2] = (p & 1) ? 1 : 0;
+				xmm_data[16+i*2] = (p & 1) ? 1 : 0;
 				p >>= 1;
 			}
-			xmm_data[0] =					/* XMM_INITVAL */
-			xmm_data[2] = p >= 90 ? 0 : (1 << (p - 60));
-			xmm_data[40] = 62 - (120 - bits_in_factor);	/* XMM_INIT120BS */
-			xmm_data[42] = 62 - (p - bits_in_factor);	/* XMM_INITBS */
-			xmm_data[44] = bits_in_factor - 61;		/* Set XMM_BS to 60 - (120 - fac_size + 1) as defined in factor64.mac */
+			xmm_data[0] =					/* XMM_INITVAL & YMM_INITVAL */
+			xmm_data[2] =
+			xmm_data[4] =
+			xmm_data[6] = p >= 90 ? 0 : (1 << (p - 60));
+			xmm_data[8] = 62 - (120 - bits_in_factor);	/* XMM_INIT120BS */
+			xmm_data[10] = 62 - (p - bits_in_factor);	/* XMM_INITBS */
+			xmm_data[12] = bits_in_factor - 61;		/* Set XMM_BS to 60 - (120 - fac_size + 1) as defined in factor64.mac */
 			asm_data->SSE2_LOOP_COUNTER = i;
 			asm_data->TWO_TO_FACSIZE_PLUS_62 = pow ((double) 2.0, (int) (bits_in_factor + 62));
-
-			ymm_data[0] =					/* YMM_INITVAL */
-			ymm_data[2] =
-			ymm_data[4] =
-			ymm_data[6] = p >= 90 ? 0 : (1 << (p - 60));
 		}
 	}
 
@@ -5116,7 +5100,7 @@ int primeFactor (
 /* is close to zero.  We define one iteration as the time it takes to process 1Mbit of sieve. */
 
 			iters += iters_just_processed;
-			if (((iters * FACTOR_CHUNK_SIZE) >> 13) >= ITER_OUTPUT || first_iter_msg) {
+			if (((iters * FACTOR_CHUNK_SIZE) >> 7) >= ITER_OUTPUT || first_iter_msg) {
 				double	pct;
 				pct = trunc_percent (w->pct_complete);
 				if (first_iter_msg == 2) {
@@ -8127,6 +8111,7 @@ int primeSieveTest (
 		else if (i == 113) pass = 14;
 		else if (i == 119) pass = 15;
 		else goto bad;
+		facdata.num_threads = 1;
 		stop_reason = factorSetup (thread_num, p, &facdata);
 		if (stop_reason) {
 			fclose (fd);
@@ -8463,6 +8448,7 @@ int factorBench (
 
 /* Initialize for this bit length. */
 
+		facdata.num_threads = 1;
 		stop_reason = factorSetup (thread_num, 35000011, &facdata);
 		if (stop_reason) {
 			last_bench_cpu_num = NUM_CPUS;
