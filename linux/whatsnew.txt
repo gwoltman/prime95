@@ -6,8 +6,11 @@ New features in Version 28.9 of mprime
     OnlyBenchThroughput and OnlyBenchMaxCPUs.  See undoc.txt for details.
 2)  Slightly reduced the memory bandwidth requirements for several large FFTs.  May lead to
     about a 1% speed increase for users testing 100 million digit numbers.
-3)  Improved AVX2 trial factoring.  Trial factoring should still be done on a GPU.  A GPU is
-    on the order of 100 times more efficient at trial factoring than a CPU!!!
+3)  Improved AVX2 trial factoring in 64-bit executable.  Trial factoring should still be done
+    on a GPU.  A GPU is on the order of 100 times more efficient at trial factoring than a CPU!!!
+4)  Trial factoring now defines one "iteration" as processing 128KB of sieve, or 1M possible
+    factors.  In previous versions an iteration was defined as 16KB of sieve in 32-bit executables
+    and 48KB in 64-bit executables.  The trial factoring benchmark still times processing 16KB of sieve.
 
 New features in Version 28.6 of mprime
 --------------------------------------
