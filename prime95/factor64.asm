@@ -2579,6 +2579,7 @@ svlp63:	mov	rax, [rsi]		; Load word from sieve
 	lea	rsi, [rsi+8]		; Bump sieve address
 bsf63:	bsf	rdx, rax		; Look for a set bit
 	jnz	short test63		; Found one, go test the factor
+	add	rcx, facdist64      	; Add facdist * 64 to the factor
 	cmp	rsi, rbp		; End of sieve?
 	jl	short svlp63		; Loop to test next sieve qword
 
