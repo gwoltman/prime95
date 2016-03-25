@@ -719,12 +719,14 @@ again:	if (dlg.DoModal () == IDOK) {
 		}
 		spoolMessage (PRIMENET_PROGRAM_OPTIONS, NULL);
 
-		if (!IniGetInt (INI_FILE, "AskedAboutMemory", 0)) {
-			IniWriteInt (INI_FILE, "AskedAboutMemory", 1);
-			if (dlg.m_day_memory == 8 && dlg.m_night_memory == 8 &&
-			    AfxMessageBox (MSG_MEMORY, MB_YESNO | MB_ICONQUESTION) == IDYES)
-				goto again;
-		}
+// Now that Primenet almost always hands out LL assignments that are P-1'ed,
+// there is little reason to prompt user into allowing us to use more memory.
+//		if (!IniGetInt (INI_FILE, "AskedAboutMemory", 0)) {
+//			IniWriteInt (INI_FILE, "AskedAboutMemory", 1);
+//			if (dlg.m_day_memory == 8 && dlg.m_night_memory == 8 &&
+//			    AfxMessageBox (MSG_MEMORY, MB_YESNO | MB_ICONQUESTION) == IDYES)
+//				goto again;
+//		}
 	} else
 		STARTUP_IN_PROGRESS = 0;
 }
