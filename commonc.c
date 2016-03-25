@@ -918,7 +918,7 @@ int readIniFiles (void)
 	ERRCHK = (temp != 0);
 	temp = (int) IniGetInt (INI_FILE, "SumInputsErrorCheck", 0);
 	SUM_INPUTS_ERRCHK = (temp != 0);
-	NUM_WORKER_THREADS = IniGetInt (LOCALINI_FILE, "WorkerThreads", NUM_CPUS);
+	NUM_WORKER_THREADS = IniGetInt (LOCALINI_FILE, "WorkerThreads", (NUM_CPUS <= 6) ? 1 : ((NUM_CPUS + 3) / 4));
 	if (NUM_WORKER_THREADS < 1) NUM_WORKER_THREADS = 1;
 	if (NUM_WORKER_THREADS > MAX_NUM_WORKER_THREADS) NUM_WORKER_THREADS = MAX_NUM_WORKER_THREADS;
 	PRIORITY = (unsigned int) IniGetInt (INI_FILE, "Priority", 1);
@@ -926,7 +926,7 @@ int readIniFiles (void)
 	if (PRIORITY > 10) PRIORITY = 10;
 	PTOGetAll (INI_FILE, "WorkPreference", WORK_PREFERENCE, 0);
 	PTOGetAll (LOCALINI_FILE, "Affinity", CPU_AFFINITY, 100);
-	PTOGetAll (LOCALINI_FILE, "ThreadsPerTest", THREADS_PER_TEST, 1);
+	PTOGetAll (LOCALINI_FILE, "ThreadsPerTest", THREADS_PER_TEST, NUM_CPUS / NUM_WORKER_THREADS);
 	MANUAL_COMM = (int) IniGetInt (INI_FILE, "ManualComm", 0);
 	HIDE_ICON = (int) IniGetInt (INI_FILE, "HideIcon", 0);
 	TRAY_ICON = (int) IniGetInt (INI_FILE, "TrayIcon", 1);
