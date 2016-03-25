@@ -178,6 +178,11 @@ with hyperthreading disabled, this is improperly detected as a 4-core hyperthrea
 machine.  If you set NumPhysicalCores=8, then the program will set the 
 hyperthreading state properly no matter how the machine is booted.
 
+Hyperthreads rarely, if ever, help prime95's performance.  Thus, by default, one
+cannot assign hyperthreads in the Worker Windows dialog box.  To allow assigning
+hyperthreads, set this in prime.txt:
+	ConfigureHyperthreads=1
+
 The program used to do factoring and P-1 testing on exponents even if
 they were not the first entry in worktodo.txt.  The rationale was that
 if the number had a factor, the server could be contacted and another

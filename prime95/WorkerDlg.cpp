@@ -1,5 +1,7 @@
 // WorkerDlg.cpp : implementation file
 //
+// Copyright 1995-2016 Mersenne Research, Inc.  All rights reserved
+//
 
 #include "stdafx.h"
 #include "Prime95.h"
@@ -11,6 +13,18 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
+// We used to allow assigning hyperthreads in this dialog box.  However, hyperthreads
+// rarely, if ever, help in prime95's performance.  Newbies would sometimes use
+// hyperthreads to their own detriment.  Now, by default, prime95 will not allow
+// assigning hyperthreads unless the user turns on an undoc.txt feature.
+
+unsigned int user_configurable_hyperthreads ()
+{
+	if (CPU_HYPERTHREADS > 1 && IniGetInt (INI_FILE, "ConfigureHyperthreads", 0))
+		return (CPU_HYPERTHREADS);
+	return (1);
+}
+
 // In theory, the maximum number of workers should be number of logical cpus.
 // However, local.ini could specify more worker threads than logical cpus (for
 // example, when local.ini is copied from a dual-core to a single-core machine).
@@ -19,7 +33,7 @@ static char THIS_FILE[] = __FILE__;
 
 unsigned int max_num_workers (void)
 {
-	return (max (NUM_WORKER_THREADS, NUM_CPUS * CPU_HYPERTHREADS));
+	return (max (NUM_WORKER_THREADS, NUM_CPUS * user_configurable_hyperthreads ()));
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -68,15 +82,15 @@ void CWorkerDlg::DoDataExchange(CDataExchange* pDX)
 	//}}AFX_DATA_MAP
 	c_num_thread_text.EnableWindow (max_num_workers () > 1);
 	c_num_thread.EnableWindow (max_num_workers () > 1);
-	c_workgroup.EnableWindow (USE_PRIMENET || NUM_CPUS * CPU_HYPERTHREADS > 1);
+	c_workgroup.EnableWindow (USE_PRIMENET || NUM_CPUS * user_configurable_hyperthreads () > 1);
 	c_threadnum_text.EnableWindow (m_num_thread > 1);
 	c_threadnum.EnableWindow (m_num_thread > 1);
 	c_work_pref_text.EnableWindow (USE_PRIMENET);
 	c_work_pref.EnableWindow (USE_PRIMENET);
-	c_affinity_text.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > 1);
-	c_affinity.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > 1);
-	c_numcpus_text.EnableWindow (m_num_thread < NUM_CPUS * CPU_HYPERTHREADS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
-	c_numcpus.EnableWindow (m_num_thread < NUM_CPUS * CPU_HYPERTHREADS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
+	c_affinity_text.EnableWindow (NUM_CPUS * user_configurable_hyperthreads () > 1);
+	c_affinity.EnableWindow (NUM_CPUS * user_configurable_hyperthreads () > 1);
+	c_numcpus_text.EnableWindow (m_num_thread < NUM_CPUS * user_configurable_hyperthreads () || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
+	c_numcpus.EnableWindow (m_num_thread < NUM_CPUS * user_configurable_hyperthreads () || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
 }
 
 
@@ -161,6 +175,35 @@ int map_sel_to_work_pref (
 		return (PRIMENET_WP_LL_100M);
 	}
 	return (-1);
+}
+
+/* Return the suggested minimum number of cores that should be used for this work type */
+
+int min_cores_for_work_type (
+	int	work_type,
+	int	current_num_cores)
+{
+	int	cores;
+
+// Default minimum number of cores is 1.
+
+	cores = 1;
+
+// If LL testing 100M digit numbers, use at least 4 cores (or all cores)
+
+	if (work_type == PRIMENET_WP_LL_100M && cores < 4) {
+		if (NUM_CPUS < 8) cores = NUM_CPUS;
+		else cores = 4;
+	}
+
+// If we aren't using the computer 24 hours a day, then scale the minimum number of cores up
+
+	cores = cores * 24 / CPU_HOURS;
+	if (cores > (int) NUM_CPUS) cores = NUM_CPUS;
+
+// Change the number of cores if the user entered a number below the suggested number of cores
+
+	return (cores > current_num_cores ? cores : current_num_cores);
 }
 
 void CWorkerDlg::InitComboBoxText (void)
@@ -249,8 +292,8 @@ void CWorkerDlg::InitComboBoxText (void)
 	} else {
 		c_numcpus.SetWindowText ("Mixed");
 	}
-	c_numcpus_text.EnableWindow (m_num_thread < NUM_CPUS * CPU_HYPERTHREADS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
-	c_numcpus.EnableWindow (m_num_thread < NUM_CPUS * CPU_HYPERTHREADS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
+	c_numcpus_text.EnableWindow (m_num_thread < NUM_CPUS * user_configurable_hyperthreads () || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
+	c_numcpus.EnableWindow (m_num_thread < NUM_CPUS * user_configurable_hyperthreads () || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
 }
 
 
@@ -313,21 +356,36 @@ void CWorkerDlg::OnCbnKillfocusThreadNum()
 void CWorkerDlg::OnCbnKillfocusWorkType()
 {
 	int	sel, i, work_pref;
+	char	buf[10];
 
 	sel = c_work_pref.GetCurSel ();
 	if (thread_num) {
 		work_pref = map_sel_to_work_pref (sel);
-		if (work_pref != -1) m_work_pref[thread_num-1] = work_pref;
+		if (work_pref != -1) {
+			m_work_pref[thread_num-1] = work_pref;
+			m_numcpus[thread_num-1] = min_cores_for_work_type (work_pref, m_numcpus[thread_num-1]);
+			sprintf (buf, "%d", m_numcpus[thread_num-1]);
+			c_numcpus.SetWindowText (buf);
+		}
 	}
 	else if (AreAllTheSame (m_work_pref)) {
 		work_pref = map_sel_to_work_pref (sel);
-		if (work_pref != -1)
-			for (i = 0; i < MAX_NUM_WORKER_THREADS; i++)
+		if (work_pref != -1) {
+			for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
 				m_work_pref[i] = work_pref;
+				m_numcpus[i] = min_cores_for_work_type (work_pref, m_numcpus[i]);
+			}
+			sprintf (buf, "%d", m_numcpus[0]);
+			c_numcpus.SetWindowText (buf);
+		}
 	} else if (sel) {
 		work_pref = map_sel_to_work_pref (sel-1);
-		for (i = 0; i < MAX_NUM_WORKER_THREADS; i++)
+		for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
 			m_work_pref[i] = work_pref;
+			m_numcpus[i] = min_cores_for_work_type (work_pref, m_numcpus[i]);
+		}
+		sprintf (buf, "%d", m_numcpus[0]);
+		c_numcpus.SetWindowText (buf);
 	}
 }
 
@@ -364,17 +422,17 @@ void CWorkerDlg::OnEnKillfocusNumCpus()
 	if (buf[0] >= '0' && buf[0] <= '9') {
 		num_cpus = atoi (buf);
 		if (num_cpus < 1) num_cpus = 1;
-		if (num_cpus > NUM_CPUS * CPU_HYPERTHREADS)
-			num_cpus = NUM_CPUS * CPU_HYPERTHREADS;
-		sprintf (buf, "%d", num_cpus);
-		c_numcpus.SetWindowText (buf);
+		if (num_cpus > NUM_CPUS * user_configurable_hyperthreads ())
+			num_cpus = NUM_CPUS * user_configurable_hyperthreads ();
 		if (thread_num)
-			m_numcpus[thread_num-1] = num_cpus;
+			m_numcpus[thread_num-1] = num_cpus = min_cores_for_work_type (m_work_pref[thread_num-1], num_cpus);
 		else
 			for (i = 0; i < MAX_NUM_WORKER_THREADS; i++)
-				m_numcpus[i] = num_cpus;
+				m_numcpus[i] = num_cpus = min_cores_for_work_type (m_work_pref[i], num_cpus);
+		sprintf (buf, "%d", num_cpus);
+		c_numcpus.SetWindowText (buf);
 	}
-	c_numcpus_text.EnableWindow (m_num_thread < NUM_CPUS * CPU_HYPERTHREADS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
-	c_numcpus.EnableWindow (m_num_thread < NUM_CPUS * CPU_HYPERTHREADS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
+	c_numcpus_text.EnableWindow (m_num_thread < NUM_CPUS * user_configurable_hyperthreads () || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
+	c_numcpus.EnableWindow (m_num_thread < NUM_CPUS * user_configurable_hyperthreads () || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
 }
 

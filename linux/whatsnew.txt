@@ -12,6 +12,12 @@ New features in Version 28.9 of mprime
     factors.  In previous versions an iteration was defined as 16KB of sieve in 32-bit executables
     and 48KB in 64-bit executables.  The trial factoring benchmark still times processing 16KB of sieve.
 5)  Trial factoring in 64-bit executables is now multi-threaded.
+6)  On initial install, the default settings for number of workers will be set to
+    the number of cores / 4 with multithreading turned on.
+7)  The worker windows menu choice now enforces a minimum number of multi-threaded cores for some
+    work types to ensure timely completion of assignments.  Also, the worker windows menu choice
+    no longer allows assigning work to hyperthreads (they are rarely beneficial in mprime).
+    This behavior can be overridden with the ConfigureHyperthreads undoc.txt feature.
 
 New features in Version 28.6 of mprime
 --------------------------------------

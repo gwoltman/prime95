@@ -1,6 +1,6 @@
 // Prime95Doc.cpp : implementation of the CPrime95Doc class
 //
-// Copyright 1995-2015 Mersenne Research, Inc.  All rights reserved
+// Copyright 1995-2016 Mersenne Research, Inc.  All rights reserved
 //
 
 #include "stdafx.h"
@@ -344,7 +344,7 @@ again:	if (dlg.DoModal () == IDOK) {
 		total_num_threads = 0;
 		for (i = 0; i < dlg.m_num_thread; i++)
 			total_num_threads += dlg.m_numcpus[i];
-		if (total_num_threads > NUM_CPUS * CPU_HYPERTHREADS &&
+		if (total_num_threads > NUM_CPUS * user_configurable_hyperthreads () &&
 		    AfxMessageBox (MSG_THREADS, MB_YESNO | MB_ICONQUESTION) == IDYES)
 			goto again;
 
