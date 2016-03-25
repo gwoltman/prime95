@@ -832,7 +832,8 @@ void options_cpu (void)
 	m_memory_editable =
 		read_memory_settings (&day_memory, &night_memory,
 				      &day_start_time, &day_end_time);
-again:	m_hours = CPU_HOURS;
+//again:
+	m_hours = CPU_HOURS;
 	m_day_memory = day_memory;
 	m_night_memory = night_memory;
 	minutesToStr (day_start_time, m_start_time);

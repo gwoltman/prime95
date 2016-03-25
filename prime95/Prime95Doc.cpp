@@ -691,7 +691,8 @@ void CPrime95Doc::OnCpu()
 	dlg.m_end_time = buf;
 	getCpuDescription (buf, 0);
 	dlg.m_cpu_info = buf;
-again:	if (dlg.DoModal () == IDOK) {
+//again:
+	if (dlg.DoModal () == IDOK) {
 		unsigned int new_day_start_time, new_day_end_time;
 
 		if (CPU_HOURS != dlg.m_hours) {
