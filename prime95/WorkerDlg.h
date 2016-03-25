@@ -66,4 +66,3 @@ protected:
 	DECLARE_MESSAGE_MAP()
 };
 
-unsigned int user_configurable_hyperthreads ();

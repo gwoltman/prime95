@@ -10,46 +10,6 @@
 #import "AppController.h"
 #include "prime95.h"
 
-// We used to allow assigning hyperthreads in this dialog box.  However, hyperthreads
-// rarely, if ever, help in prime95's performance.  Newbies would sometimes use
-// hyperthreads to their own detriment.  Now, by default, prime95 will not allow
-// assigning hyperthreads unless the user turns on an undoc.txt feature.
-
-unsigned int user_configurable_hyperthreads ()
-{
-	if (CPU_HYPERTHREADS > 1 && IniGetInt (INI_FILE, "ConfigureHyperthreads", 0))
-		return (CPU_HYPERTHREADS);
-	return (1);
-}
-
-/* Return the suggested minimum number of cores that should be used for this work type */
-
-int min_cores_for_work_type (
-	int	work_type)
-{
-	int	cores;
-
-// Default minimum number of cores is 1.
-
-	cores = 1;
-
-// If LL testing 100M digit numbers, use at least 4 cores (or all cores)
-
-	if (work_type == PRIMENET_WP_LL_100M && cores < 4) {
-		if (NUM_CPUS < 8) cores = NUM_CPUS;
-		else cores = 4;
-	}
-
-// If we aren't using the computer 24 hours a day, then scale the minimum number of cores up
-
-	cores = cores * 24 / CPU_HOURS;
-	if (cores > (int) NUM_CPUS) cores = NUM_CPUS;
-
-// Return the minimum number of cores
-
-	return (cores);
-}
-
 int map_work_pref_to_sel (
 	int	work_pref)
 {

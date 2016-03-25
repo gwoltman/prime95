@@ -383,17 +383,17 @@ int AreAllTheSame (
 }
 
 // In theory, the maximum number of workers should be number of logical cpus.
-// However, local.ini could specify more worker threads than logical cpus (for
-// example, when local.ini is copied from a dual-core to a single-core machine).
+// However, local.txt could specify more worker threads than logical cpus (for
+// example, when local.txt is copied from a dual-core to a single-core machine).
 // We must let the user manipulate the options on these worker threads that
 // don't have a CPU to run on.
 
 unsigned int max_num_workers (void)
 {
-	if (NUM_WORKER_THREADS >= NUM_CPUS * CPU_HYPERTHREADS)
+	if (NUM_WORKER_THREADS >= NUM_CPUS * user_configurable_hyperthreads ())
 		return (NUM_WORKER_THREADS);
 	else
-		return (NUM_CPUS * CPU_HYPERTHREADS);
+		return (NUM_CPUS * user_configurable_hyperthreads ());
 }
 
 void test_worker_threads (void)
@@ -413,8 +413,7 @@ void test_worker_threads (void)
 	}
 
 again:	if (max_num_workers () > 1)
-		askNum ("Number of workers to run", &m_num_thread,
-			1, max_num_workers ());
+		askNum ("Number of workers to run", &m_num_thread, 1, max_num_workers ());
 
 	outputLongLine ("\nPick a priority between 1 and 10 where 1 is the lowest priority and 10 is the highest.  It is strongly recommended that you use the default priority of 1.  Your throughput will probably not improve by using a higher priority.  The only time you should raise the priority is when another process, such as a screen saver, is stealing CPU cycles from this program.\n");
 	askNum ("Priority", &m_priority, 1, 10);
@@ -423,17 +422,20 @@ again:	if (max_num_workers () > 1)
 		outputLongLine ("\nUse the following values to select a work type:\n  0 - Whatever makes the most sense\n  2 - Trial factoring\n 100 - First time primality tests\n  101 - Double-checking\n  102 - World record primality tests\n  4 - P-1 factoring\n  104 - 100 million digit primality tests\n  1 - Trial factoring to low limits\n  5 - ECM on small Mersenne numbers\n  6 - ECM on Fermat numbers\n");
 	}
 
-	if (USE_PRIMENET || NUM_CPUS * CPU_HYPERTHREADS > 1) {
+	if (USE_PRIMENET || NUM_CPUS * user_configurable_hyperthreads () > 1) {
 	    for (i = 0; i < m_num_thread; i++) {
 		if (m_num_thread > 1)
 			printf ("\nOptions for worker #%d\n\n", i+1);
 		else
 			printf ("\n");
 
-		if (USE_PRIMENET)
+		if (USE_PRIMENET) {
 			askNum ("Type of work to get", &m_work_pref[i], 0, 150);
+			if (m_numcpus[i] < min_cores_for_work_type (m_work_pref[i]))
+				m_numcpus[i] = min_cores_for_work_type (m_work_pref[i]);
+		}
 
-		if (NUM_CPUS * CPU_HYPERTHREADS > 1) {
+		if (NUM_CPUS * user_configurable_hyperthreads () > 1) {
 			char question[200];
 			unsigned long affinity;
 			sprintf (question,
@@ -446,20 +448,18 @@ again:	if (max_num_workers () > 1)
 			m_affinity[i] = affinity;
 		}
 
-		if (NUM_CPUS * CPU_HYPERTHREADS > m_num_thread)
-			askNum ("CPUs to use in LL test (multithreading)",
-				&m_numcpus[i], 1,
-				NUM_CPUS * CPU_HYPERTHREADS - m_num_thread + 1);
-		else
-				m_numcpus[i] = 1;
+		if (NUM_CPUS * user_configurable_hyperthreads () > 1) {
+			int min_cores, max_cores;
+			min_cores = min_cores_for_work_type (m_work_pref[i]);
+			max_cores = NUM_CPUS * user_configurable_hyperthreads () - m_num_thread + 1;
+			if (max_cores < min_cores) max_cores = min_cores;
+			askNum ("CPUs to use (multithreading)", &m_numcpus[i], min_cores, max_cores);
+		} else
+			m_numcpus[i] = 1;
 	    }
 	}
 
-//	outputLongLine ("On multi-CPU systems, performance will be enhanced if you assign each instance of the program to run on a specific CPU.\n");
-//	outputLongLine ("For example, if you have a dual-CPU machine, run one instance of mprime on CPU 0, run another instance on CPU 1.\n");
-//	askYN ("Let program run on any CPU", &m_all_cpus);
-//	if (!m_all_cpus)
-//		askNum ("Specific CPU to run on", &m_cpu, 0, 31);
+/* Ask user if they are happy with their answers */
 
 	if (askOkCancel ()) {
 		int	restart = FALSE;
@@ -472,7 +472,7 @@ again:	if (max_num_workers () > 1)
 		total_num_threads = 0;
 		for (i = 0; i < m_num_thread; i++)
 			total_num_threads += m_numcpus[i];
-		if (total_num_threads > NUM_CPUS * CPU_HYPERTHREADS) {
+		if (total_num_threads > NUM_CPUS * user_configurable_hyperthreads ()) {
 			outputLongLine (MSG_THREADS);
 			if (askYesNo ('Y')) goto again;
 		}
