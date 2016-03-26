@@ -8634,7 +8634,7 @@ int primeBenchMultipleWorkers (
 	char	buf[512];
 	int	workers, cpus, hypercpus, impl;
 	int	all_bench, only_time_5678, time_all_complex, plus1, is_a_5678;
-	int	bench_hyperthreading, bench_multithreading, bench_oddballs, bench_one_or_all, bench_arch, bench_max_cpus;
+	int	bench_hyperthreading, bench_multithreading, bench_oddballs, bench_one_or_all, bench_arch, bench_max_cpus, bench_max_workers;
 	int	i, stop_reason;
 	unsigned long fftlen, min_FFT_length, max_FFT_length;
 	double	throughput;
@@ -8677,6 +8677,7 @@ int primeBenchMultipleWorkers (
 	bench_one_or_all = IniGetInt (INI_FILE, "BenchOneOrAll", 0);		/* Benchmark only 1 or all cpus */
 	bench_arch = IniGetInt (INI_FILE, "BenchArch", 0);			/* CPU architecture to benchmark */
 	bench_max_cpus = IniGetInt (INI_FILE, "OnlyBenchMaxCpus", 1);		/* Benchmark all CPUs or only max CPUs */
+	bench_max_workers = IniGetInt (INI_FILE, "OnlyBenchMaxWorkers", 0);	/* Benchmark all worker combos or only max workers */
 
 /* Loop over a variety of FFT lengths */
 
@@ -8730,7 +8731,7 @@ int primeBenchMultipleWorkers (
 	      if (hypercpus > 1 && !bench_hyperthreading) break;
 	      for (cpus = (bench_max_cpus ? NUM_CPUS : 1); cpus <= (int) NUM_CPUS; cpus++) {
 		if (bench_one_or_all && cpus > 1 && cpus < (int) NUM_CPUS) continue;
-	        for (workers = 1; workers <= cpus; workers++) {
+	        for (workers = (bench_max_workers ? cpus : 1); workers <= cpus; workers++) {
 		  if (cpus > workers && !bench_multithreading) continue;
 		  if (cpus % workers != 0 && !bench_oddballs) continue;
 
