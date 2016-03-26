@@ -459,7 +459,7 @@ and CPU architectures.  This is only useful during the development cycle to find
 the optimal FFT implementations for each CPU.
 
 In addition to the benchmarking options above, the following options are
-available in the multiple workers benchmark
+available in the multiple workers throughput benchmark.
 	BenchMultipleWorkers=0 or 1	(default is 1)
 	BenchTime=n			(default is 15)
 	BenchHyperthreads=0 or 1	(default is 1)
@@ -467,6 +467,7 @@ available in the multiple workers benchmark
 	BenchOddMultithreads=0 or 1	(default is 0)
 	OnlyBenchThroughput=0 or 1	(default is 0)
 	OnlyBenchMaxCPUs=0 or 1		(default is 1)
+	OnlyBenchMaxWorkers=0 or 1	(default is 0)
 BenchMultipleWorkers can be used to disable benchmarking multiple workers.
 BenchTime can be used to change the number of seconds to run each benchmark.
 BenchHyperthreads controls can be used to turn off the hyperthreaded benchmarks.
@@ -475,6 +476,7 @@ BenchOddMultithreads can be used to also benchmark asymetric multi-threaded FFTs
 combinations such as 2 workers on 3 CPUs.
 OnlyBenchThroughput can be used to disable the initial "single worker" tests.
 Set OnlyBenchMaxCPUs to zero to benchmark throughput using fewer than all CPUs.
+Set OnlyBenchMaxWorkers to one to benchmark throughput using one CPU for each worker.
 
 If you want to run the program on several machines this is typically done
 by carrying the program and files around on portable media such as a floppy
