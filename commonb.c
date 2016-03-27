@@ -8691,6 +8691,7 @@ int primeBenchMultipleWorkers (
 	    gwinit (&lldata.gwdata);
 	    gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
 	    gwset_minimum_fftlen (&lldata.gwdata, fftlen);
+	    if (all_bench) lldata.gwdata.bench_pick_nth_fft = 1;
 	    stop_reason = lucasSetup (thread_num, fftlen * 17 + 1, plus1, &lldata);
 	    if (stop_reason) return (stop_reason);
 
@@ -8744,14 +8745,9 @@ int primeBenchMultipleWorkers (
 
 /* If timing all implementations of an FFT, loop through all possible implementations */
 
-		  for (impl = 0; ; impl++) {
-			if (!all_bench) {
-				if (impl >= 1) break;
-			} else {
-				if (impl == 0) {
-					lucasDone (&lldata);
-					continue;
-				}
+		  for (impl = 1; ; impl++) {
+			if (impl > 1) {
+				if (!all_bench) break;
 				gwinit (&lldata.gwdata);
 				gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
 				gwset_minimum_fftlen (&lldata.gwdata, fftlen);
