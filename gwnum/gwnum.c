@@ -1258,7 +1258,9 @@ next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
 /* Handle benchmarking case that selects the nth FFT implementation */
 /* without regard to any other consideration.  NOTE: Due to the extreme */
 /* penalty a K8 pays for using the movaps instruction that the Core and P4 */
-/* implementations use, we will not benchmark these on a K8. */
+/* implementations use, we will not benchmark these on a K8.  Also, since */
+/* FMA3 FFTs always outperform their non-FMA3 alternatives, we'll skip the */
+/* non-FMA3 FFTs. */
 
 		if (gwdata->bench_pick_nth_fft) {
 			if (jmptab->proc_ptr == prev_proc_ptrs[0]) goto next3;
@@ -1269,6 +1271,8 @@ next2:		while (jmptab->flags & 0x80000000) INC_JMPTAB_1 (jmptab);
 			if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_K8 &&
 			    (jmptab->flags & 0x1FF) != 0 &&
 			    (arch == ARCH_P4 || arch == ARCH_CORE))
+				goto next3;
+			if (gwdata->cpu_flags & CPU_FMA3 && (arch == ARCH_P4 || arch == ARCH_CORE))
 				goto next3;
 			gwdata->bench_pick_nth_fft--;
 			if (gwdata->bench_pick_nth_fft) goto next3;
