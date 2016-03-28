@@ -514,6 +514,12 @@ performance, then set AffinityScramble2 accordingly.  Let's say you think
 running the helper threads on a different physical core would be better, then
 you might set AffinityScramble2=02134657 to test out your theory.
 
+One user reported problems with setting affinity on machines with more than 64 cores.
+Until this can be properly addressed, the following options may prove helpful:
+	EnableLinuxSetPriority=0 or 1	(default is 1)
+	EnableLinuxSetAffinity=0 or 1	(default is 1)
+Set these options in prime.txt
+
 In the prime.txt file, the DaysBetweenCheckin value can be set to any value
 between 0.04 and 7.0.  Some SeventeenOrBust users want to send updates hourly.
 
