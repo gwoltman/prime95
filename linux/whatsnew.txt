@@ -6,15 +6,24 @@ New features in Version 28.9 of mprime
     OnlyBenchThroughput and OnlyBenchMaxCPUs.  See undoc.txt for details.
 2)  Slightly reduced the memory bandwidth requirements for several large FFTs.  May lead to
     about a 1% speed increase for users testing 100 million digit numbers.
-3)  Improved AVX2 trial factoring in 64-bit executable.  Trial factoring should still be done
+3)  If running more than worker, prime95 looks for any sin/cos data that it can share among
+    the workers.  Depending on the FFT sizes you are running, this could lead to a very slight
+    reduction in needed memory bandwidth.
+4)  Method for choosing the best FFT implementation changed.  In previous versions, the FFT
+    implementation that resulted in the fastest single worker timing was used.  In this version
+    the FFT implementation that had the best throughput was selected.  For FMA3 FFTs I used a
+    4-core Skylake to measure best throughput.  For AVX FFTs I used a 4-core Sandy Bridge
+    to measure best throughput.  Not many FFTs were affected, but you may see a few percent
+    variation in throughput with this version.
+5)  Improved AVX2 trial factoring in 64-bit executable.  Trial factoring should still be done
     on a GPU.  A GPU is on the order of 100 times more efficient at trial factoring than a CPU!!!
-4)  Trial factoring now defines one "iteration" as processing 128KB of sieve, or 1M possible
+6)  Trial factoring now defines one "iteration" as processing 128KB of sieve, or 1M possible
     factors.  In previous versions an iteration was defined as 16KB of sieve in 32-bit executables
     and 48KB in 64-bit executables.  The trial factoring benchmark still times processing 16KB of sieve.
-5)  Trial factoring in 64-bit executables is now multi-threaded.
-6)  On initial install, the default settings for number of workers will be set to
+7)  Trial factoring in 64-bit executables is now multi-threaded.
+8)  On initial install, the default settings for number of workers will be set to
     the number of cores / 4 with multithreading turned on.
-7)  The worker windows menu choice now enforces a minimum number of multi-threaded cores for some
+9)  The worker windows menu choice now enforces a minimum number of multi-threaded cores for some
     work types to ensure timely completion of assignments.  Also, the worker windows menu choice
     no longer allows assigning work to hyperthreads (they are rarely beneficial in mprime).
     This behavior can be overridden with the ConfigureHyperthreads undoc.txt feature.
