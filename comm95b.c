@@ -453,7 +453,8 @@ void checkPauseListCallback (void)
 
 // The code below was our original attempt, but there was a complaint that this will not
 // detect some processes running as administrator (not enough privilege to OpenProcess).
-	
+
+	{
 	LPDWORD		lpdwPIDs = NULL;
 	DWORD		dwSize, dwSize2, dwIndex;
 	char		szFileName[ MAX_PATH ];
@@ -518,6 +519,7 @@ void checkPauseListCallback (void)
 		isInPauseList (szFileName);
 	}
 ntdone:	if (lpdwPIDs) HeapFree (GetProcessHeap(), 0, lpdwPIDs);
+	}
 }
 
 #endif
