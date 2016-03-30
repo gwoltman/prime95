@@ -6,7 +6,7 @@ New features in Version 28.9 of mprime
     OnlyBenchThroughput and OnlyBenchMaxCPUs.  See undoc.txt for details.
 2)  Slightly reduced the memory bandwidth requirements for several large FFTs.  May lead to
     about a 1% speed increase for users testing 100 million digit numbers.
-3)  If running more than worker, prime95 looks for any sin/cos data that it can share among
+3)  If running more than one worker, prime95 looks for any sin/cos data that it can share among
     the workers.  Depending on the FFT sizes you are running, this could lead to a very slight
     reduction in needed memory bandwidth.
 4)  Method for choosing the best FFT implementation changed.  In previous versions, the FFT
