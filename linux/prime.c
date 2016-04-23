@@ -384,7 +384,7 @@ static	int	last_char_out_was_newline = TRUE;
 				printf ("[Main thread");
 			else if (thread_num == COMM_THREAD_NUM)
 				printf ("[Comm thread");
-			else if (NUM_WORKER_THREADS == 1)
+			else if (NUM_WORKER_THREADS == 1 && WORKER_THREADS_ACTIVE == 1)
 				printf ("[Work thread");
 			else
 				printf ("[Worker #%d", thread_num+1);
