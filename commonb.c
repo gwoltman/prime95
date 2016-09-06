@@ -5345,21 +5345,24 @@ int lucasSetup (
 	llhandle *lldata)	/* Common LL data structure */
 {
 	int	res;
+	int	c;
 
 /* Init LL data structure */
 
 	lldata->lldata = NULL;
 	lldata->units_bit = 0;
 
-/* Init the FFT code for squaring modulo 1.0*2^p-1.  NOTE: As a kludge for */
-/* the benchmarking and timing code, an odd FFTlen sets up the 1.0*2^p+1 FFT code. */
+/* As a kludge for the benchmarking and timing code, an odd FFTlen sets up gwnum for all-complex FFTs. */
+
+	c = (fftlen & 1) ? 1 : -1;
+	fftlen &= ~1;
+
+/* Init the FFT code for squaring modulo 2^p+c */
+/* Use benchmarking throughput data to select the fastest FFT implementation */
 
 	gwset_safety_margin (&lldata->gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
-	gwset_specific_fftlen (&lldata->gwdata, fftlen & ~1);
-	if (fftlen & 1)
-		res = gwsetup (&lldata->gwdata, 1.0, 2, p, 1);
-	else
-		res = gwsetup (&lldata->gwdata, 1.0, 2, p, -1);
+	gwset_specific_fftlen (&lldata->gwdata, fftlen);
+	res = gwsetup (&lldata->gwdata, 1.0, 2, p, c);
 
 /* If we were unable to init the FFT code, then print an error message */
 /* and return an error code.  There is one exception, when we are doing */
@@ -5831,7 +5834,7 @@ int pick_fft_size (
 	small_fftlen = gwmap_to_fftlen (1.0, 2,
 			(unsigned long) ((1.0 - softpct) * w->n), -1);
 	large_fftlen = gwmap_to_fftlen (1.0, 2,
-			(unsigned long) ((1.0 + softpct) * w->n), -1);
+					(unsigned long) ((1.0 + softpct) * w->n), -1);
 	if (small_fftlen == large_fftlen || large_fftlen == 0) return (0);
 
 /* Let the user be more conservative or more aggressive in picking the */
@@ -5915,55 +5918,6 @@ int exponent_near_fft_limit (
 	gwhandle *gwdata)		/* Handle returned by gwsetup */
 {
 	return (gwnear_fft_limit (gwdata, IniGetFloat (INI_FILE, "NearFFTLimitPct", 0.5)));
-}
-
-/* Do an LL iteration very carefully.  This is done after a normal */
-/* iteration gets a roundoff error above 0.40.  This careful iteration */
-/* will not generate a roundoff error. */
-
-void careful_iteration (
-	llhandle *lldata,		/* Handle from lucasSetup */
-	unsigned long p)		/* Exponent being tested */
-{
-	gwnum	hi, lo;
-	unsigned long i;
-
-/* Copy the data to hi and lo.  Zero out half the FFT data in each. */
-
-	hi = gwalloc (&lldata->gwdata);
-	lo = gwalloc (&lldata->gwdata);
-	gwcopy (&lldata->gwdata, lldata->lldata, hi);
-	gwcopy (&lldata->gwdata, lldata->lldata, lo);
-	for (i = 0; i < gwfftlen (&lldata->gwdata)/2; i++)
-		set_fft_value (&lldata->gwdata, hi, i, 0);
-	for ( ; i < gwfftlen (&lldata->gwdata); i++)
-		set_fft_value (&lldata->gwdata, lo, i, 0);
-
-/* Now do the squaring using three multiplies and adds */
-
-	gwsetnormroutine (&lldata->gwdata, 0, 0, 0);
-	gwstartnextfft (&lldata->gwdata, FALSE);
-	gwsetaddin (&lldata->gwdata, 0);
-	gwfft (&lldata->gwdata, hi, hi);
-	gwfft (&lldata->gwdata, lo, lo);
-	gwfftfftmul (&lldata->gwdata, lo, hi, lldata->lldata);
-	gwfftfftmul (&lldata->gwdata, hi, hi, hi);
-	lucas_fixup (lldata, p);
-	gwfftfftmul (&lldata->gwdata, lo, lo, lo);
-	gwaddquick (&lldata->gwdata, lldata->lldata, lldata->lldata);
-	gwaddquick (&lldata->gwdata, hi, lldata->lldata);
-	gwadd (&lldata->gwdata, lo, lldata->lldata);
-
-/* Since our error recovery code cannot cope with an error during a careful */
-/* iteration, make sure the error variable is cleared.  This shouldn't */
-/* ever happen, but two users inexplicably ran into this problem. */
-
-	gw_clear_error (&lldata->gwdata);
-
-/* Free memory and return */
-
-	gwfree (&lldata->gwdata, hi);
-	gwfree (&lldata->gwdata, lo);
 }
 
 /* Output the good news of a new prime to the screen in an infinite loop */
@@ -6228,7 +6182,7 @@ begin:	gwinit (&lldata.gwdata);
 /* can properly keep track of error counts. */
 /* Also save right after we pass an errored iteration and several */
 /* iterations before retesting an errored iteration so that we don't */
-/* have to backtrack very far to do a careful_iteration	(we don't do the */
+/* have to backtrack very far to do a gwsquare_carefully iteration (we don't do the */
 /* iteration immediately before because on the P4 a save operation will */
 /* change the FFT data and make the error non-reproducible. */
 /* Error check the last 50 iterations, before writing an */
@@ -6251,13 +6205,21 @@ begin:	gwinit (&lldata.gwdata);
 		start_timer (timers, 1);
 
 /* If we are recovering from a big roundoff error, then run one */
-/* iteration using three multiplies where half the data is zeroed. */
-/* This won't run into any roundoff problems and will protect us from */
-/* roundoff errors up to 0.6. */
+/* iteration using extra multiplies to reduce the roundoff error. */
+/* This shouldn't run into any roundoff problems and will protect us from */
+/* roundoff errors up to (1.0 - 0.40625). */
 
 		if (maxerr_recovery_mode && counter == last_counter) {
-			careful_iteration (&lldata, p);
+			gwsetnormroutine (&lldata.gwdata, 0, echk, 0);
+			gwstartnextfft (&lldata.gwdata, 0);
+			lucas_fixup (&lldata, p);
+			gwsquare_carefully (&lldata.gwdata, lldata.lldata);
 			maxerr_recovery_mode = 0;
+/* IS THIS STILL NECESSARY???? CAN IT BE FIXED???? IN PRP TOO. */
+/* Since our error recovery code cannot cope with an error during a careful */
+/* iteration, make sure the error variable is cleared.  This shouldn't */
+/* ever happen, but two users inexplicably ran into this problem. */
+			gw_clear_error (&lldata.gwdata);
 			echk = 0;
 		}
 
@@ -7888,12 +7850,8 @@ int lucas_QA (
 			if (type == 0) {		/* Typical LL test */
 				gwsetnormroutine (&lldata.gwdata, 0, (i & 63) == 37, 0);
 				gwstartnextfft (&lldata.gwdata, i < iters / 2);
-				if (i > iters / 2 && (i & 63) == 44)
-					careful_iteration (&lldata, p);
-				else {
-					lucas_fixup (&lldata, p);
-					gwsquare (&lldata.gwdata, lldata.lldata);
-				}
+				lucas_fixup (&lldata, p);
+				gwsquare (&lldata.gwdata, lldata.lldata);
 			} else if (type == 1 || type == 4) { /* Gather stats */
 				gwsetnormroutine (&lldata.gwdata, 0, 1, 0);
 				gwstartnextfft (&lldata.gwdata, i < iters / 2);
@@ -8543,6 +8501,7 @@ struct prime_bench_arg {
 	int	hyperthreads;
 	int	impl;
 	int	iterations;
+	int	error_check;
 	double	total_time;
 };
 
@@ -8598,7 +8557,7 @@ void primeBenchOneWorker (void *arg)
 
 /* Do one squaring untimed, to prime the caches and start the POSTFFT optimization going. */
 
-	gwsetnormroutine (&lldata.gwdata, 0, 0, 0);
+	gwsetnormroutine (&lldata.gwdata, 0, info->error_check, 0);
 	gwstartnextfft (&lldata.gwdata, TRUE);
 	gwsquare (&lldata.gwdata, lldata.lldata);
 
@@ -8635,6 +8594,7 @@ int primeBenchMultipleWorkers (
 	int	workers, cpus, hypercpus, impl;
 	int	all_bench, only_time_5678, time_all_complex, plus1, is_a_5678;
 	int	bench_hyperthreading, bench_multithreading, bench_oddballs, bench_one_or_all, bench_arch, bench_max_cpus, bench_max_workers;
+	int	bench_error_check;
 	int	i, stop_reason;
 	unsigned long fftlen, min_FFT_length, max_FFT_length;
 	double	throughput;
@@ -8678,6 +8638,7 @@ int primeBenchMultipleWorkers (
 	bench_arch = IniGetInt (INI_FILE, "BenchArch", 0);			/* CPU architecture to benchmark */
 	bench_max_cpus = IniGetInt (INI_FILE, "OnlyBenchMaxCpus", 1);		/* Benchmark all CPUs or only max CPUs */
 	bench_max_workers = IniGetInt (INI_FILE, "OnlyBenchMaxWorkers", 0);	/* Benchmark all worker combos or only max workers */
+	bench_error_check = IniGetInt (INI_FILE, "BenchErrorCheck", 0);		/* Benchmark round-off checking */
 
 /* Loop over a variety of FFT lengths */
 
@@ -8779,6 +8740,7 @@ int primeBenchMultipleWorkers (
 				info[i].cpu_num = i * cpus/workers + (i < cpus%workers ? i : cpus%workers);
 				info[i].threads = (cpus/workers + (i < cpus%workers ? 1 : 0)) * hypercpus;
 				info[i].hyperthreads = hypercpus;
+				info[i].error_check = bench_error_check;
 				gwthread_create_waitable (&thread_id[i], &primeBenchOneWorker, (void *) &info[i]);
 			}
 
@@ -9529,7 +9491,7 @@ gwtogiant (&gwdata, x, t1);
 /* can properly keep track of error counts. */
 /* Also save right after we pass an errored iteration and several */
 /* iterations before retesting an errored iteration so that we don't */
-/* have to backtrack very far to do a careful_iteration	(we don't do the */
+/* have to backtrack very far to do a gwsquare_carefully iteration (we don't do the */
 /* iteration immediately before because on the P4 a save operation will */
 /* change the FFT data and make the error non-reproducible. */
 /* Error check the first and last 50 iterations, before writing an */
@@ -9555,7 +9517,7 @@ gwtogiant (&gwdata, x, t1);
 /* Process this bit.  Use square carefully the first and last 30 iterations. */
 /* This should avoid any pathological non-random bit pattterns.  Also square */
 /* carefully during an error recovery. This will protect us from roundoff */
-/* errors up to 0.6. */
+/* errors up to (1.0 - 0.40625). */
 
 		gwstartnextfft (&gwdata,
 				!saving && !maxerr_recovery_mode &&
