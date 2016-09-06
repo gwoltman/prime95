@@ -4,7 +4,7 @@
 | This file contains various utility routines that may be used by gwnum
 | routines, prime95, or PRP.
 | 
-|  Copyright 2004-2009 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2004-2016 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -146,3 +146,25 @@ void large_pages_free (
 	VirtualFree (ptr, 0, MEM_RELEASE);
 #endif
 }
+
+/* Utility routines used in copying strings */
+
+void truncated_strcpy_with_len (
+	char	*buf,
+	unsigned int bufsize,
+	const char *val,
+	unsigned int valsize)
+{
+	if (valsize >= bufsize) valsize = bufsize - 1;
+	memcpy (buf, val, valsize);
+	buf[valsize] = 0;
+}
+
+void truncated_strcpy (
+	char	*buf,
+	unsigned int bufsize,
+	const char *val)
+{
+	truncated_strcpy_with_len (buf, bufsize, val, (unsigned int) strlen (val));
+}
+
