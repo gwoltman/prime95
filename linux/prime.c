@@ -135,6 +135,7 @@ int main (
 
 	(void)signal(SIGTERM, sigterm_handler);
 	(void)signal(SIGINT, sigterm_handler);
+	(void)signal(SIGHUP, SIG_IGN);	/* Per rudi_m's suggestion: http://www.mersenneforum.org/showthread.php?p=439724#post439724 */
 
 /* No buffering of output */
 
@@ -432,7 +433,7 @@ void linuxContinue (
 /* Compare this process' ID and the pid from the INI file */
 
 	my_pid = getpid ();
-	openIniFile (LOCALINI_FILE, 1);
+	IniFileReread (LOCALINI_FILE);
 	running_pid = IniGetInt (LOCALINI_FILE, "Pid", 0);
 	if (running_pid == 0 || my_pid == running_pid) goto ok;
 

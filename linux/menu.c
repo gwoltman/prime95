@@ -19,7 +19,10 @@ void get_line (
 {
 	int	len;
 	buf[0] = 0;
-	(void) fgets (buf, 80, stdin);
+	if (fgets (buf, 80, stdin) == NULL) {
+		THREAD_KILL = TRUE;	/* Kill threads and exit if EOF or error reading from terminal */
+		return;
+	}
 	len = strlen (buf);
 	if (len > 0 && buf[len-1] == '\n') buf[len-1] = 0;
 }
@@ -65,8 +68,7 @@ loop:	get_line (buf);
 	newval = atol (buf);
 	if (min || max) {
 		if (newval < min || newval > max) {
-			printf ("Please enter a value between %ld and %ld: ",
-				min, max);
+			printf ("Please enter a value between %ld and %ld: ", min, max);
 			goto loop;
 		}
 	}
@@ -89,8 +91,7 @@ loop:	get_line (buf);
 	newval = atol (buf);
 	if (min || max) {
 		if (newval < min || newval > max) {
-			printf ("Please enter a value between %ld and %ld. ",
-				min, max);
+			printf ("Please enter a value between %ld and %ld. ", min, max);
 			goto loop;
 		}
 	}
@@ -136,8 +137,7 @@ loop:	get_line (buf);
 	newval = atof (buf);
 	if (min != 0.0 || max != 0.0) {
 		if (newval < min || newval > max) {
-			printf ("Please enter a value between %g and %g. ",
-				min, max);
+			printf ("Please enter a value between %g and %g. ", min, max);
 			goto loop;
 		}
 	}
@@ -160,8 +160,7 @@ loop:	get_line (buf);
 	newval = atol (buf);
 	if (min || max) {
 		if (newval < min || newval > max) {
-			printf ("Please enter a value between %ld and %ld. ",
-				min, max);
+			printf ("Please enter a value between %ld and %ld. ", min, max);
 			goto loop;
 		}
 	}
@@ -1099,9 +1098,11 @@ void main_menu (void)
 {
 	unsigned long choice;
 
-mloop:	if (THREAD_KILL) return;
+	for ( ; ; ) {
+
+	if (THREAD_KILL) return;
 	printf ("\t     Main Menu\n");
-loop:	printf ("\n");
+	printf ("\n");
 	printf ("\t 1.  Test/Primenet\n");
 	printf ("\t 2.  Test/Worker threads\n");
 	printf ("\t 3.  Test/Status\n");
@@ -1128,8 +1129,8 @@ loop:	printf ("\n");
 	printf ("Your choice: ");
 	choice = get_number (0);
 	if (choice <= 0 || choice >= 19) {
-		printf ("\t     Invalid choice\n");
-		goto loop;
+		printf ("\t     Invalid choice\n\n");
+		continue;
 	}
 
 /* Display the main menu and switch off the users choice */
@@ -1266,5 +1267,6 @@ loop:	printf ("\n");
 		help_about_server ();
 		break;
 	}
-	goto mloop;
+
+	}
 }
