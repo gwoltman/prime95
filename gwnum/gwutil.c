@@ -15,6 +15,10 @@
 #include <stdlib.h>
 #if defined (__linux__) || defined (__HAIKU__)
 #include <malloc.h>
+#include <memory.h>
+#endif
+#ifdef __APPLE__
+#include <memory.h>
 #endif
 #include "gwcommon.h"
 #include "gwutil.h"
