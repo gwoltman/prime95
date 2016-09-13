@@ -96,7 +96,7 @@ extern int NO_GUI;
 
 /* Global variables */
 
-extern int volatile THREAD_KILL;	/* TRUE if program should terminate */
+extern int volatile KILL_MENUS;		/* TRUE if program should terminate */
 extern int MENUING;			/* TRUE when main menu active */
 
 /* Internal routines */

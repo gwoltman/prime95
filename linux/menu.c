@@ -7,10 +7,16 @@
 #ifdef __IBMC__
 #include <io.h>
 #endif
+#include <setjmp.h>
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include "prime.h"
+
+/* Global variables */
+
+jmp_buf	MENU_JMPBUF;				// Jmpbuf to abort program if a signal is encountered while in the menus or dialogs.
 
 /* Get line from the user (stdin) */
 
@@ -19,10 +25,8 @@ void get_line (
 {
 	int	len;
 	buf[0] = 0;
-	if (fgets (buf, 80, stdin) == NULL) {
-		THREAD_KILL = TRUE;	/* Kill threads and exit if EOF or error reading from terminal */
-		return;
-	}
+	if (fgets (buf, 80, stdin) == NULL) sigterm_handler (SIGTERM);	// Treat EOF the same as a termination signal
+	if (KILL_MENUS) longjmp (MENU_JMPBUF, 1); // If a signal occurred while waiting for user input, longjmp to exit menus
 	len = strlen (buf);
 	if (len > 0 && buf[len-1] == '\n') buf[len-1] = 0;
 }
@@ -193,7 +197,6 @@ loop:	get_line (buf);
 void askOK (void)
 {
 	char	str[80];
-	if (THREAD_KILL) return;
 	printf ("\nHit enter to continue: ");
 	get_line (str);
 }
@@ -203,7 +206,6 @@ void askOK (void)
 int askOkCancel (void)
 {
 	char	buf[80];
-	if (THREAD_KILL) return (FALSE);
 	printf ("\nAccept the answers above? (Y): ");
 	get_line (buf);
 	return (buf[0] == 0 || buf[0] == 'Y' || buf[0] == 'y');
@@ -215,7 +217,6 @@ int askYesNo (
 	char	dflt)
 {
 	char	buf[80];
-	if (THREAD_KILL) return (FALSE);
 	printf (" (%c): ", dflt);
 	get_line (buf);
 	if (buf[0] == 0) buf[0] = dflt;
@@ -228,7 +229,6 @@ int askYesNoCancel (
 	char	dflt)
 {
 	char	buf[80];
-	if (THREAD_KILL) return (FALSE);
 	printf (" Y=Yes, N=No, C=Cancel (%c): ", dflt);
 	get_line (buf);
 	if (buf[0] == 0) buf[0] = dflt;
@@ -1098,9 +1098,10 @@ void main_menu (void)
 {
 	unsigned long choice;
 
+	if (setjmp (MENU_JMPBUF)) return;		// Exit menus if a signal received while in the menus
+	
 	for ( ; ; ) {
 
-	if (THREAD_KILL) return;
 	printf ("\t     Main Menu\n");
 	printf ("\n");
 	printf ("\t 1.  Test/Primenet\n");
@@ -1129,7 +1130,7 @@ void main_menu (void)
 	printf ("Your choice: ");
 	choice = get_number (0);
 	if (choice <= 0 || choice >= 19) {
-		printf ("\t     Invalid choice\n\n");
+		printf ("\n\t     Invalid choice\n\n");
 		continue;
 	}
 
