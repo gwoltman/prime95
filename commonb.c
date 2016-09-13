@@ -4160,7 +4160,7 @@ typedef struct {
 	gwevent	thread_work_to_do;		/* This event is set whenever the auxiliary threads have work to do. */
 	gwevent	sieved_areas_available;		/* This event is set whenever a sieved area is made available for TF. */
 	gwevent	all_threads_done;		/* This event is set whenever the auxiliary threads are done and the */
-						/* main thread can resume.  That is, it is set if and only if num_active_threads==0 */
+						/* main thread can resume.  That is, it is set when num_active_threads==0 */
 } fachandle;
 
 /* Possible states for a sieve area */
@@ -4215,15 +4215,9 @@ void factor_auxiliary_thread (void *arg)
 		gwevent_wait (&facdata->thread_work_to_do, 0);
 		if (facdata->threads_must_exit) break;
 
-/* Increment the number of active threads so that we can tell */
-/* when all auxiliary routines have finished. */
-
-		gwmutex_lock (&facdata->thread_lock);
-		facdata->num_active_threads++;
-		gwevent_reset (&facdata->all_threads_done);
-
 /* Each thread needs its own copy of the asm_data.  Copy the structure after each factor_pass_setup */
 
+		gwmutex_lock (&facdata->thread_lock);
 		memcpy (asm_data, main_thread_asm_data, sizeof (struct facasm_data));
 		gwmutex_unlock (&facdata->thread_lock);
 
@@ -4516,8 +4510,11 @@ int factorPassSetup (
 
 /* Signal the auxiliary threads to resume working */
 
-	if (facdata->num_threads > 1)
-		gwevent_signal (&facdata->thread_work_to_do);
+	if (facdata->num_threads > 1) {
+		facdata->num_active_threads = facdata->num_threads - 1;	// Set count of active auxilary threads
+		gwevent_reset (&facdata->all_threads_done);		// Clear auxilary threads done signal
+		gwevent_signal (&facdata->thread_work_to_do);		// Start auxilary threads
+	}
 
 /* Setup complete */
 
@@ -4567,7 +4564,7 @@ int factorChunk (
 			facdata->found_hsw = 0;
 			return (1);					// Return factor found
 		}
-		// For historical reasons, caller expects fachsw/facmsw set to next factor to TF
+		// For percent complete messasges, caller expects fachsw/facmsw set to next factor to TF.
 		// factorChunkMultithreaded should have set this to a reasonable value.
 		return (2);						// Return factor not found
 	}
@@ -4587,7 +4584,8 @@ int factorChunk (
 	res = factor64_tf (asm_data);
 	facdata->num_chunks_TFed++;
 	if (res == 1) return (1);	// Return if factor found
-	// For historical reasons, caller expects fachsw/facmsw set to next factor to TF
+	// For percent complete messasges and knowing when to start the next pass,
+	// caller expects fachsw/facmsw set to next factor to TF
 	asm_data->FACHSW = (uint32_t) facdata->next_sieve_first_factor[0];
 	asm_data->FACMSW = (uint32_t) (facdata->next_sieve_first_factor[1] >> 32);
 	return (2);	// No factor found
@@ -4677,12 +4675,14 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 	facdata->num_chunks_TFed++;
 	facdata->sieve_area[i].state = SIEVE_AREA_FREE;			/* Update sieve area's state */
 	facdata->num_free_sieve_areas++;
+	// For percent complete messages, primeFactor expects fachsw/facmsw set to next factor to TF.
+	// While multithreading may mean there are some smaller values to TF, primeFactor will get the
+	// exact information by calling factorFindSmallestNotTFed before writing a save file.
+//	asm_data->FACHSW = (uint32_t) asm_data->savefac0;	//bug -- this starts next pass prematurely if we just did last sieve area!!!!
+//	asm_data->FACMSW = (uint32_t) (asm_data->savefac1 >> 32);
+	asm_data->FACHSW = (uint32_t) facdata->sieve_area[i].first_factor[0]; //instead set to first factor in sieve area just processed
+	asm_data->FACMSW = (uint32_t) (facdata->sieve_area[i].first_factor[1] >> 32);
 	gwmutex_unlock (&facdata->thread_lock);
-	// For historical reasons, primeFactor expects fachsw/facmsw set to next factor to TF.
-	// While this isn't the next factor to TF, primeFactor will get the correct information
-	// by calling factorFindSmallestNotTFed before writing a save file.
-	asm_data->FACHSW = (uint32_t) asm_data->savefac0;
-	asm_data->FACMSW = (uint32_t) (asm_data->savefac1 >> 32);
 	return (FALSE);							// Return more work to do flag
 }
 
@@ -5081,7 +5081,7 @@ int primeFactor (
 			double	currentpt;
 
 /* Do a chunk of factoring.  Usually this is just one chunk (as defined by the underlying factoring code). */
-/* However, when multithreading the auxillary threads are TFing chunks at the same time. */
+/* However, when multithreading the auxilary threads are TFing chunks at the same time. */
 			
 			start_timer (timers, 0);
 			stop_reason = factorAndVerify (thread_num, p, &facdata, &res);
