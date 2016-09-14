@@ -16,7 +16,7 @@ New features in Version 28.9 of prime95.exe
     to measure best throughput.  Not many FFTs were affected, but you may see a few percent
     variation in throughput with this version.
 5)  Improved AVX2 trial factoring in 64-bit executable.  Trial factoring should still be done
-    on a GPU.  A GPU is on the order of 100 times more efficient at trial factoring than a CPU!!!
+    on a GPU.  A GPU is over 10 times more efficient at trial factoring than a CPU!!!
 6)  Trial factoring now defines one "iteration" as processing 128KB of sieve, or 1M possible
     factors.  In previous versions an iteration was defined as 16KB of sieve in 32-bit executables
     and 48KB in 64-bit executables.  The trial factoring benchmark still times processing 16KB of sieve.
@@ -38,7 +38,7 @@ New features in Version 28.6 of prime95.exe
     server feature, go to the CPUs web page, and click on the CPU, there you can turn on a
     couple of email features.
 2)  AVX2 support for trial factoring.  About a 50% speedup over the previous version.  However,
-    all trial factoring should still be done on a GPU.  A GPU is on the order of 100 times more
+    all trial factoring should still be done on a GPU.  A GPU is over 10 times more
     efficient at trial factoring than a CPU!!!
 
 New features in Version 28.5 of prime95.exe
@@ -55,7 +55,7 @@ New features in Version 28.5 of prime95.exe
     hyperthreading is used only in the one cpu and all cpu cases.
 
 4)  Benchmarking trial factoring is now off by default.  Prime95 should not be used for trial
-    factoring.  GPUs are about 100 times more efficient at that task.
+    factoring.  GPUs are over 10 times more efficient at that task.
 
 5)  On multi-core machines, benchmarks are now run on multiple workers.  This measures the effect
     of memory bandwidth during testing and helps you select the setup that gives you the most throughput.
