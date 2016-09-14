@@ -5024,7 +5024,8 @@ retry:
 		if (header_words[1] & HEADER_FLAG_QUIT_GIMPS ||
 		    (est >= work_to_get + unreserve_threshold &&
 		     ! isWorkUnitActive (w) &&
-		     w->pct_complete == 0.0)) {
+		     w->pct_complete == 0.0 &&
+		     num_work_units >= IniGetInt (INI_FILE, "UnreserveExponents", 4))) {
 
 			if (w->assignment_uid[0]) {
 				struct primenetAssignmentUnreserve pkt;

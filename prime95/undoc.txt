@@ -371,12 +371,19 @@ to how often you want the program to check the load average.  This value
 is in seconds.
 
 Normally, the program will unreserve an exponent if it is scheduled to start
-thirty days after the Test/Primenet Days of work to get value.  You can adjust
-this interval by setting in prime.txt:
-	UnreserveDays=n
-where n is the number of days.  You should increase this value if you are
-loading up worktodo.txt with a large amount of work and do not want any of
-the work to be unreserved.
+thirty days after the Test/Primenet Days of work to get value and there are more
+than four exponents queued up for the worker.  You can adjust the days interval
+by setting in prime.txt:
+	UnreserveDays=n		(default 30)
+where n is the number of days.  You can also adjust the number of protected
+exponents in each worker with this setting in prime.txt:
+	UnreserveExponents=m	(default 4)
+where m is the number of protected exponents.  You should increase one or both of
+these values if you are loading up worktodo.txt with a large amount of work and
+do not want any of the work to be unreserved. 
+WARNING: There have been several reports of a bug in prime95's calculations for
+UnreserveDays.  Thus, we recommend using UnreserveExponents to prevent unexpected
+unreserving of work,
 
 WINDOWS ONLY:  By default, Prime95 uses RAS routines to determine if your modem
 is connected to the Internet.  Microsoft now prefers the InternetGetConnectedState
