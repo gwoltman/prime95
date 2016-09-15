@@ -66,6 +66,11 @@ void askNum (
 {
 	char	buf[80];
 	unsigned long newval;
+	if (min && min >= max) {
+		printf ("%s: %ld\n", str, min);
+		*val = min;
+		return;
+	}
 	printf ("%s (%ld): ", str, *val);
 loop:	get_line (buf);
 	if (buf[0] == 0) return;
@@ -90,6 +95,11 @@ void askInt (
 	char	buf[80];
 	long	newval;
 	printf ("%s (%ld): ", str, *val);
+	if (min && min >= max) {
+		printf ("%s: %ld\n", str, min);
+		*val = min;
+		return;
+	}
 loop:	get_line (buf);
 	if (buf[0] == 0) return;
 	newval = atol (buf);
@@ -159,6 +169,11 @@ void askNumNoDflt (
 	char	buf[80];
 	unsigned long newval;
 	printf ("%s: ", str);
+	if (min && min >= max) {
+		printf ("%s: %ld\n", str, min);
+		*val = min;
+		return;
+	}
 loop:	get_line (buf);
 	if (buf[0] == 0) goto loop;
 	newval = atol (buf);
@@ -452,6 +467,8 @@ again:	if (max_num_workers () > 1)
 			min_cores = min_cores_for_work_type (m_work_pref[i]);
 			max_cores = NUM_CPUS * user_configurable_hyperthreads () - m_num_thread + 1;
 			if (max_cores < min_cores) max_cores = min_cores;
+			if (m_numcpus[i] < min_cores) m_numcpus[i] = min_cores;
+			if (m_numcpus[i] > max_cores) m_numcpus[i] = max_cores;
 			askNum ("CPUs to use (multithreading)", &m_numcpus[i], min_cores, max_cores);
 		} else
 			m_numcpus[i] = 1;
