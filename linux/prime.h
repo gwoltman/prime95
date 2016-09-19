@@ -101,6 +101,7 @@ extern int MENUING;			/* TRUE when main menu active */
 
 /* Internal routines */
 
+void sigterm_handler(int);
 void main_menu (void);
 void linuxContinue (char *, int, int);
 void Sleep (long);
