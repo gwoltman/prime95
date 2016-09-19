@@ -404,13 +404,17 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			CPU_FLAGS |= CPU_FMA3;
 	}
 
-/* Get more feature flags.  Specifically the AVX2 and PREFETCHWT1 flags. */
+/* Get more feature flags.  Specifically the AVX2, AVX512F and PREFETCHWT1 flags. */
 
 	if (max_cpuid_value >= 7) {
 		reg.ECX = 0;
 		Cpuid (7, &reg);
 		if (((reg.EBX >> 5) & 0x1) && (CPU_FLAGS & CPU_AVX))
 			CPU_FLAGS |= CPU_AVX2;
+		if (((reg.EBX >> 16) & 0x1) && (CPU_FLAGS & CPU_AVX))
+			CPU_FLAGS |= CPU_AVX512F;
+		if (((reg.EBX >> 26) & 0x1) && (CPU_FLAGS & CPU_AVX))
+			CPU_FLAGS |= CPU_AVX512PF;
 		if (reg.ECX & 0x1)
 			CPU_FLAGS |= CPU_PREFETCHWT1;
 	}
@@ -553,6 +557,8 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			 (family == 6 && model == 90) ||
 			 (family == 6 && model == 93))
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_ATOM;
+		else if ((family == 6 && model == 87))			// Knight's Landing
+			CPU_ARCHITECTURE = CPU_ARCHITECTURE_PHI;
 		else
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_INTEL_OTHER;
 
