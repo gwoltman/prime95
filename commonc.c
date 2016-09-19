@@ -409,6 +409,9 @@ void getCpuInfo (void)
 	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsAVX2", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_AVX2;
 	if (temp == 1) CPU_FLAGS |= CPU_AVX2;
+	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsAVX512F", 99);
+	if (temp == 0) CPU_FLAGS &= ~CPU_AVX512F;
+	if (temp == 1) CPU_FLAGS |= CPU_AVX512F;
 
 /* Let the user override the L2 cache size in local.ini file */
 
@@ -485,6 +488,7 @@ void getCpuDescription (
 		if (CPU_FLAGS & CPU_AVX) strcat (buf, "AVX, ");
 		if (CPU_FLAGS & CPU_AVX2) strcat (buf, "AVX2, ");
 		if (CPU_FLAGS & (CPU_FMA3 | CPU_FMA4)) strcat (buf, "FMA, ");
+		if (CPU_FLAGS & CPU_AVX512F) strcat (buf, "AVX512F, ");
 		strcpy (buf + strlen (buf) - 2, "\n");
 	}
 	strcat (buf, "L1 cache size: ");
@@ -761,6 +765,7 @@ void nameAndReadIniFiles (
 		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_CORE ? "Core Solo/Duo" :
 		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_CORE_2 ? "Core 2" :
 		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_CORE_I7 ? "Core i3/i5/i7" :
+		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_PHI ? "Xeon Phi" :
 		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_ATOM ? "Atom" :
 		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_INTEL_OTHER ? "Unknown Intel" :
 		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_K8 ? "AMD K8" :
@@ -4841,6 +4846,7 @@ retry:
 		if (CPU_FLAGS & CPU_AVX) strcat (pkt.cpu_features, "AVX,");
 		if (CPU_FLAGS & CPU_AVX2) strcat (pkt.cpu_features, "AVX2,");
 		if (CPU_FLAGS & (CPU_FMA3 | CPU_FMA4)) strcat (pkt.cpu_features, "FMA, ");
+		if (CPU_FLAGS & CPU_AVX512F) strcat (pkt.cpu_features, "AVX512F,");
 		if (pkt.cpu_features[0])
 			pkt.cpu_features[strlen (pkt.cpu_features) - 1] = 0;
 		pkt.L1_cache_size = CPU_L1_CACHE_SIZE;
