@@ -565,7 +565,13 @@ int calculate_bif (
 		else
 			retval = BIF_FMA3;	/* Look for FFTs optimized for Haswell CPUs with FMA3 support */
 		break;
-	case CPU_ARCHITECTURE_INTEL_OTHER:	/* This is probably one of Intel's next generation CPUs */ 
+	case CPU_ARCHITECTURE_PHI:		/* Intel's Xeon Phi CPUs */		// BUG - write AVX-512 code!!!
+		if (! (gwdata->cpu_flags & CPU_FMA3))
+			retval = BIF_I7;	/* Look for FFTs optimized for Core i3/i5/i7 */
+		else
+			retval = BIF_FMA3;	/* Look for FFTs optimized for Haswell CPUs with FMA3 support */
+		break;
+	case CPU_ARCHITECTURE_INTEL_OTHER:	/* This is probably one of Intel's next generation CPUs */
 		if (! (gwdata->cpu_flags & CPU_FMA3))
 			retval = BIF_I7;	/* Look for FFTs optimized for Core i3/i5/i7 */
 		else
@@ -712,7 +718,7 @@ struct gwasm_jmptab *choose_one_pass_or_two_pass_impl (
 /* Loop through the FFT implementations to see if we find a one-pass implementation */
 /* that matches our desired "bif" value.  Otherwise, return first two-pass implementation. */
 
-	orig_jmptab = jmptab;	
+	orig_jmptab = jmptab;
 	while (jmptab->flags & 0x80000000) {
 		if ((jmptab->flags & 0x1FF) != 0) return (jmptab);
 		if (((jmptab->flags >> 13) & 0xF) == desired_bif) return (orig_jmptab);
