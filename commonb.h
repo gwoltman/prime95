@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2014 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2016 Mersenne Research, Inc.  All rights reserved
 +---------------------------------------------------------------------*/
 
 //#define SERVER_TESTING
@@ -177,7 +177,7 @@ void implementThrottle (int thread_num);
 /* Routines called by common routines */
 
 void clearThreadHandleArray (void);
-void setThreadPriorityAndAffinity (int, int *);
+void setOsThreadPriority (int);
 void registerThreadTermination (void);
 void raiseAllWorkerThreadPriority (void);
 void flashWindowAndBeep (void);

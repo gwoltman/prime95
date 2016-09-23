@@ -35,7 +35,6 @@ int volatile SUM_INPUTS_ERRCHK = 0;	/* 1 to turn on sum(inputs) != sum(outputs) 
 unsigned int PRIORITY = 1;
 unsigned int NUM_WORKER_THREADS = 1; /* Number of work threads to launch */
 unsigned int WORK_PREFERENCE[MAX_NUM_WORKER_THREADS] = {0};
-unsigned int CPU_AFFINITY[MAX_NUM_WORKER_THREADS] = {100};
 unsigned int THREADS_PER_TEST[MAX_NUM_WORKER_THREADS] = {1};
 				/* Number of threads gwnum can use in */
 				/* computations. */
@@ -91,6 +90,9 @@ unsigned int WORKTODO_COUNT = 0;/* Count of valid work lines */
 unsigned int WORKTODO_IN_USE_COUNT = 0;/* Count of work units in use */
 int	WORKTODO_CHANGED = 0;	/* Flag indicating worktodo file needs */
 				/* writing */
+
+hwloc_topology_t hwloc_topology;	/* Hardware topology */
+int	OS_CAN_SET_AFFINITY = 1;	/* hwloc supports setting CPU affinity (known exception is Apple) */
 
 #include "md5.c"
 
@@ -523,6 +525,34 @@ void getCpuDescription (
 			 CPU_L2_DATA_TLBS);
 }
 
+/* Print the machine topology as discovered by hwloc library */
+
+void topology_print_children (
+	hwloc_obj_t obj,
+        int depth)
+{
+	char type[32], attr[1024], cpuset[256], buf[1500];
+	unsigned int i;
+	if (obj == NULL) return;  // Shouldn't happen
+	hwloc_obj_type_snprintf (type, sizeof(type), obj, 0);
+	sprintf (buf, "%*s%s", 2*depth, " ", type);
+	if (obj->os_index != (unsigned) -1)
+		sprintf (buf+strlen(buf), "#%u", obj->os_index);
+	hwloc_obj_attr_snprintf (attr, sizeof(attr), obj, ", ", 1 /* verbose */);
+	if (obj->type == HWLOC_OBJ_CORE || obj->type == HWLOC_OBJ_PU)
+		hwloc_bitmap_snprintf (cpuset, sizeof(cpuset), obj->cpuset);
+	else
+		cpuset[0] = 0;
+	if (attr[0] && cpuset[0]) sprintf (buf+strlen(buf), " (%s, cpuset: %s)", attr, cpuset);
+	else if (attr[0]) sprintf (buf+strlen(buf), " (%s)", attr);
+	else if (cpuset[0]) sprintf (buf+strlen(buf), " (cpuset: %s)", cpuset);
+	strcat (buf, "\n");
+	writeResults (buf);
+	for (i = 0; i < obj->arity; i++) {
+		topology_print_children (obj->children[i], depth + 1);
+	}
+}
+
 /* Determine if a number is prime */
 
 int isPrime (
@@ -675,6 +705,12 @@ void nameAndReadIniFiles (
 {
 	char	buf[513];
 
+/* Determine the hardware topology using the hwloc library.  This library is much more */
+/* advanced than the information we previously garnered from CPUID instructions and thread timings. */
+
+	hwloc_topology_init (&hwloc_topology);
+	hwloc_topology_load (hwloc_topology);
+
 /* Initialize mutexes */
 
 	gwmutex_init (&OUTPUT_MUTEX);
@@ -748,6 +784,18 @@ void nameAndReadIniFiles (
 
 	calc_windows_guid ();
 
+/* See if setting CPU affinity is supported */
+
+	{
+		const struct hwloc_topology_support *support;
+		OS_CAN_SET_AFFINITY = 1;
+		support = hwloc_topology_get_support (hwloc_topology);
+		if (support == NULL || ! support->cpubind->set_thread_cpubind) {
+			OS_CAN_SET_AFFINITY = 0;
+			OutputStr (MAIN_THREAD_NUM, "OS does not support setting CPU affinity.\n");
+		}
+	}
+
 /* A stress tester ceases to be a stress tester if he ever turns on */
 /* primenet or has work in his worktodo.txt file */
 
@@ -786,10 +834,6 @@ void nameAndReadIniFiles (
 	}
 	strcat (buf, "\n");
 	OutputStr (MAIN_THREAD_NUM, buf);
-
-/* Dynamically determine which logical hyperthreaded CPUs map to physical CPUs */
-
-	generate_affinity_scramble ();
 
 /* Start some initial timers */
 
@@ -926,7 +970,6 @@ int readIniFiles (void)
 	if (PRIORITY < 1) PRIORITY = 1;
 	if (PRIORITY > 10) PRIORITY = 10;
 	PTOGetAll (INI_FILE, "WorkPreference", WORK_PREFERENCE, 0);
-	PTOGetAll (LOCALINI_FILE, "Affinity", CPU_AFFINITY, 100);
 	PTOGetAll (LOCALINI_FILE, "ThreadsPerTest", THREADS_PER_TEST, NUM_CPUS / NUM_WORKER_THREADS);
 	MANUAL_COMM = (int) IniGetInt (INI_FILE, "ManualComm", 0);
 	HIDE_ICON = (int) IniGetInt (INI_FILE, "HideIcon", 0);

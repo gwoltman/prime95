@@ -22,22 +22,11 @@
 #define MAX_FACTOR	2000000000	/* Largest factorable Mersenne number*/
 #define ERROR_RATE	0.018		/* Estimated error rate on clean run */
 
-/* We want to increase the max number of worker threads to 64, but 32-bit Windows */
-/* SetThreadAffinityMask only supports 32-bit masks.  So we'll assume any user that */
-/* has a machine powerful enough to need more than 32 workers will run a 64-bit OS. */
-/* 2014 UPDATE: Machines with more than 64 logical CPUs are in the works.  Windows has */
-/* a bizarre affinity mechanism so we'll keep the 64 worker restriction there. */
-/* On other OSes, we'll increase the limit to 512. */
+/* Hopefully, hwloc has no limitations regarding setting affinity.  Due to */
+/* limitations in our own old affinity code, we used to limit */
+/* Windows 32-bit to 32 workers, Windows 64-bit to 64 workers. */
 
-#ifdef X86_64
-#ifdef _WINDOWS_
-#define MAX_NUM_WORKER_THREADS 64	/* Number of launchable work threads */
-#else
-#define MAX_NUM_WORKER_THREADS 512	/* Number of launchable work threads */
-#endif
-#else
-#define MAX_NUM_WORKER_THREADS 32	/* Number of launchable work threads */
-#endif
+#define MAX_NUM_WORKER_THREADS 1024	/* Number of launchable work threads */
 
 /* Factoring limits based on complex formulas given the speed of the */
 /* factoring code vs. the speed of the Lucas-Lehmer code */
@@ -235,6 +224,12 @@ extern int GIMPS_QUIT;			/* TRUE if we just successfully */
 
 extern gwthread COMMUNICATION_THREAD;	/* Handle for comm thread.  Set when */
 					/* comm thread is active. */
+
+/* Topology variables and routines */
+
+extern hwloc_topology_t hwloc_topology;	/* Hardware topology */
+extern int OS_CAN_SET_AFFINITY;		/* hwloc supports setting CPU affinity (known exception is Apple) */
+void topology_print_children (hwloc_obj_t obj, int);
 
 /* Common routines */
 
