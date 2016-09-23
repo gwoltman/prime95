@@ -492,7 +492,7 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,295,24,50,14
 END
 
-IDD_WORKER_THREADS DIALOGEX 0, 0, 309, 207
+IDD_WORKER_THREADS DIALOGEX 0, 0, 309, 189
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Worker Windows"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
@@ -501,18 +501,16 @@ BEGIN
     EDITTEXT        IDC_THREAD,126,11,36,12
     LTEXT           "&Priority (see warnings below):",IDC_STATIC,7,30,103,8
     EDITTEXT        IDC_PRIORITY,126,29,36,12,ES_AUTOHSCROLL
-    GROUPBOX        "Worker-specific options",IDC_WORKGROUP,3,47,302,90
+    GROUPBOX        "Worker-specific options",IDC_WORKGROUP,3,47,302,72
     LTEXT           "Worker &number:",IDC_THREADNUM_TEXT,9,62,57,8
     COMBOBOX        IDC_COMBO1,90,60,105,84,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     LTEXT           "Type of &work to get:",IDC_WORK_TYPE_TEXT,9,80,66,8
     COMBOBOX        IDC_COMBO2,90,78,200,81,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "CPU &affinity:",IDC_AFFINITY_TEXT,9,98,45,8
-    COMBOBOX        IDC_COMBO3,90,96,200,67,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "&CPUs to use (multithreading):",IDC_NUMCPUS_TEXT,9,116,102,8
-    EDITTEXT        IDC_NUMCPUS,126,114,36,12
-    LTEXT           "WARNING: It is strongly recommended that you use the default priority of 1.  This program is unlikely to run any faster at a higher priority.",IDC_WARN1,7,143,293,18
-    LTEXT           "Pick a priority between 1 and 10 where 1 is the lowest priority and 10 is the highest.  Screen savers run at priority 4.  Most applications run at priority 7 or 9.",IDC_WARN2,7,162,293,18
-    LTEXT           "The only time you should raise the priority is when another process, such as a screen saver, is stealing CPU cycles from this program.",IDC_WARN3,7,181,293,18
+    LTEXT           "&CPUs to use (multithreading):",IDC_NUMCPUS_TEXT,9,98,102,8
+    EDITTEXT        IDC_NUMCPUS,126,96,36,12
+    LTEXT           "WARNING: It is strongly recommended that you use the default priority of 1.  This program is unlikely to run any faster at a higher priority.",IDC_WARN1,7,125,293,18
+    LTEXT           "Pick a priority between 1 and 10 where 1 is the lowest priority and 10 is the highest.  Screen savers run at priority 4.  Most applications run at priority 7 or 9.",IDC_WARN2,7,144,293,18
+    LTEXT           "The only time you should raise the priority is when another process, such as a screen saver, is stealing CPU cycles from this program.",IDC_WARN3,7,163,293,18
     DEFPUSHBUTTON   "OK",IDOK,255,7,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,255,24,50,14
 END

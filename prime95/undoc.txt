@@ -467,6 +467,7 @@ the optimal FFT implementations for each CPU.
 
 In addition to the benchmarking options above, the following options are
 available in the multiple workers throughput benchmark.
+	BenchOutputTopology=0 or 1	(default is 1)
 	BenchMultipleWorkers=0 or 1	(default is 1)
 	BenchTime=n			(default is 15)
 	BenchHyperthreads=0 or 1	(default is 1)
@@ -475,6 +476,7 @@ available in the multiple workers throughput benchmark.
 	OnlyBenchThroughput=0 or 1	(default is 0)
 	OnlyBenchMaxCPUs=0 or 1		(default is 1)
 	OnlyBenchMaxWorkers=0 or 1	(default is 0)
+BenchOutputTopology can be used to disable printing the machine topology in results.txt.
 BenchMultipleWorkers can be used to disable benchmarking multiple workers.
 BenchTime can be used to change the number of seconds to run each benchmark.
 BenchHyperthreads controls can be used to turn off the hyperthreaded benchmarks.
@@ -502,29 +504,11 @@ You can set MaxHighMemWorkers=n in local.txt.  This tells the program how
 wany workers are allowed to use lots of memory.  This occurs doing stage 2
 of P-1 or ECM on medium-to-large numbers.  Default is available memory / 200MB.
 
-The program makes its best guess at how the OS maps hyperthreaded logical CPU
-numbers to physical CPUs.  It also assigns workers and helper threads
-to CPUs for optimal speed.  However, bugs, new architectures, or situations we
-haven't considered may make different affinity settings desirable.  In
-local.txt set
-	AffinityScramble2=string
-Where the characters in "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz()"
-represent 64 logical CPU numbers.  For example, let's say you have a system
-with 8 logical cores with 4 workers each using a helper thread.  Also, assume
-your system has logical CPUs 0 & 4 on the same physical CPU core, 1 & 5, etc.
-If the program is properly determining which logical CPUs share the same physical
-CPU, then the program internally generates an affinity scramble string of "04152637".
-The program's default policy is to assign the worker and helper threads to the same
-physical CPU.  If the program is not properly determining which logical CPUs share the
-same physical CPU, or you think a different affinity policy would result in better
-performance, then set AffinityScramble2 accordingly.  Let's say you think
-running the helper threads on a different physical core would be better, then
-you might set AffinityScramble2=02134657 to test out your theory.
-
 One user reported problems with setting affinity on machines with more than 64 cores.
-Until this can be properly addressed, the following options may prove helpful:
-	EnableLinuxSetPriority=0 or 1	(default is 1)
-	EnableLinuxSetAffinity=0 or 1	(default is 1)
+Though this problem has been addressed, the following options may prove helpful
+if similar issues occur in the future:
+	EnableSetPriority=0 or 1	(default is 1)
+	EnableSetAffinity=0 or 1	(default is 1)
 Set these options in prime.txt
 
 In the prime.txt file, the DaysBetweenCheckin value can be set to any value

@@ -329,7 +329,6 @@ void CPrime95Doc::OnWorkerThreads()
 	dlg.m_priority = PRIORITY;
 	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
 		dlg.m_work_pref[i] = WORK_PREFERENCE[i];
-		dlg.m_affinity[i] = CPU_AFFINITY[i];
 		dlg.m_numcpus[i] = THREADS_PER_TEST[i];
 	}
 
@@ -389,18 +388,6 @@ again:	if (dlg.DoModal () == IDOK) {
 					   WORK_PREFERENCE, i,
 					   dlg.m_work_pref[i]);
 				new_options = TRUE;
-			}
-		}
-
-/* If the user changes any of the affinities record it in the INI file. */
-
-		if (dlg.AreAllTheSame (dlg.m_affinity)) {
-			PTOSetAll (LOCALINI_FILE, "Affinity", NULL,
-				   CPU_AFFINITY, dlg.m_affinity[0]);
-		} else {
-			for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
-				PTOSetOne (LOCALINI_FILE, "Affinity", NULL,
-					   CPU_AFFINITY, i, dlg.m_affinity[i]);
 			}
 		}
 

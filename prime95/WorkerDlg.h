@@ -25,9 +25,6 @@ public:
 	CStatic	c_work_pref_text;
 	CComboBox c_work_pref;
 	int	m_work_pref[MAX_NUM_WORKER_THREADS];
-	CStatic	c_affinity_text;
-	CComboBox c_affinity;
-	int	m_affinity[MAX_NUM_WORKER_THREADS];
 	CStatic	c_numcpus_text;
 	CEdit	c_numcpus;
 	int	m_numcpus[MAX_NUM_WORKER_THREADS];
@@ -60,7 +57,6 @@ protected:
 	afx_msg void OnEnKillfocusPriority();
 	afx_msg void OnCbnKillfocusThreadNum();
 	afx_msg void OnCbnKillfocusWorkType();
-	afx_msg void OnCbnKillfocusAffinity();
 	afx_msg void OnEnKillfocusNumCpus();
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
