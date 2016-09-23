@@ -10,13 +10,6 @@
 | Commonc contains information used during setup and execution
 +---------------------------------------------------------------------*/
 
-/* Set a #define for OSes where we cannot set affinities.  This will */
-/* force us into a different code path in a few places. */
-
-#ifdef __APPLE__
-#define OS_CANNOT_SET_AFFINITY
-#endif
-
 /* Globals for error messages */
 
 static const char ERRMSG0[] = "Iteration: %ld/%ld, %s";
@@ -326,472 +319,299 @@ void print_timer (
 /*    Routines dealing with thread priority and affinity      */
 /**************************************************************/
 
-/* Macros to aid in setting affinity masks */
-
-#define maskset(x)	mask[(x)/32] |= (1 << ((x) & 31))
-#define maskget(m,x)	(m[(x)/32] & (1 << ((x) & 31)))
-
-/* Busy loop to keep a physical CPU cores occupied.  This will */
-/* help us identify the hyperthreaded logical CPUs running on the */
-/* same physical CPU. */
-
-int	affinity_busy_cpu_num = 0;
-
-void affinity_busy_loop (void *arg)
-{
-	int	cpu_num, mask[MAX_NUM_WORKER_THREADS/32];
-
-/* Set the affinity so that busy loop runs on the specified CPU core */
-
-	cpu_num = (int) (intptr_t) arg;
-	memset (mask, 0, sizeof (mask));
-	maskset (cpu_num);
-	setThreadPriorityAndAffinity (8, mask);		// Call OS-specific routine to set affinity
-
-/* Stay busy until affinity_busy_cpu_num says this CPU thread should close */
-
-	affinity_busy_cpu_num = cpu_num;
-	while (affinity_busy_cpu_num == cpu_num) one_hundred_thousand_clocks ();
-}
-
-/* Try to determine which hyperthreaded logical CPUs map to the same physical CPUs. */
-/* Generate an "affinity scramble" that maps our internal numbering of logical CPUs */
-/* that map to the same physical CPU core to OS's numbering of logical CPUs */
-/* that map to the same physical CPU core. */
-
-short	AFFINITY_SCRAMBLE[MAX_NUM_WORKER_THREADS] = {0};
-char	AFFINITY_SCRAMBLE_STATE = 0;	/* 0 = not initialized, 1 = computed, 2 = read in from local.txt */
-
-void generate_affinity_scramble_thread (void *arg)
-{
-	char	mapped_cpus[MAX_NUM_WORKER_THREADS];	/* Logical CPUs whose mate has been found */
-	char	scramble[65];				/* Affinity scramble from local.txt.  Up to 64 affinities can be scrambled. */
-	int	mask[MAX_NUM_WORKER_THREADS/32];
-	unsigned int i, j, k, n, diff, num_successes;
-	int	saved_rdtsc_timing, debug;
-	double	timers[1], best_100000, test_100000, saved_100000[MAX_NUM_WORKER_THREADS];
-	gwthread thread_id;
-	char	buf[128];
-
-/* Get the optional (and rarely needed) AffinityScramble2 string from local.txt */
-
-	IniGetString (LOCALINI_FILE, "AffinityScramble2", scramble, sizeof (scramble), "*");
-
-/* Get the debug flag (0 = no debugging, 1 = output debug info, 2 = bypass auto-detection code) */
-
-	debug = IniGetInt (INI_FILE, "DebugAffinityScramble", 0);
-	if (debug == 2) {
-		AFFINITY_SCRAMBLE_STATE = 0;
-		goto no_auto_detect;
-	}
-
-/* Use the highly accurate RDTSC instruction for timings. */
-
-	saved_rdtsc_timing = RDTSC_TIMING;
-	RDTSC_TIMING = 13;
-
-/* Now search for sets of logical CPUs that comprise a physical CPU */
-
-	memset (AFFINITY_SCRAMBLE, 0xFF, sizeof (AFFINITY_SCRAMBLE));
-	memset (mapped_cpus, 0, sizeof (mapped_cpus));
-
-/* Loop over each physical CPU core */
-
-	diff = num_successes = 0;
-	for (i = 0; i < NUM_CPUS; i++) {
-
-/* Find the first logical CPU that we have associated with a physical */
-/* CPU core.  This logical CPU will become the first one associated */
-/* with this physical CPU. */
-
-		for (k = 0; k < NUM_CPUS * CPU_HYPERTHREADS; k++)
-			if (mapped_cpus[k] == 0) break;
-		AFFINITY_SCRAMBLE[i*CPU_HYPERTHREADS] = k;
-		mapped_cpus[k] = 1;
-
-/* Time the 100,000 clock routine when (hopefully) nothing is running on the CPU core */
-
-		memset (mask, 0, sizeof (mask));
-		maskset (k);
-		setThreadPriorityAndAffinity (8, mask);		// Call OS-specific routine to set affinity
-		for (n = 0; n < 10; n++) {
-			clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
-			start_timer (timers, 0);
-			one_hundred_thousand_clocks ();
-			end_timer (timers, 0);
-			if (n == 0 || timers[0] < best_100000) best_100000 = timers[0];
-		}
-
-		if (debug) {
-			sprintf (buf, "Test clocks on logical CPU #%d: %d\n", (int) k+1, (int) best_100000);
-			OutputStr (MAIN_THREAD_NUM, buf);
-		}
-
-/* Start a thread on the logical CPU.  In theory, the hyperthreaded */
-/* logical CPUs that are also running on this physical CPU will now */
-/* run at half speed.  We sleep for a tad to give the thread time to start. */
-
-		affinity_busy_cpu_num = 99999;
-		gwthread_create (&thread_id, &affinity_busy_loop, (void *) (intptr_t) k);
-		while (affinity_busy_cpu_num == 99999) Sleep (1);
-
-/* Now search for the all the hyperthreaded logical CPUs running on the */
-/* same physical CPU */
-
-		for (j = 1; j < CPU_HYPERTHREADS; j++) {
-
-/* Find an unmapped logical CPU to run timings on */
-
-			for (k = 0; k < NUM_CPUS * CPU_HYPERTHREADS; k++) {
-				if (mapped_cpus[k]) continue;
-
-/* Set this thread to run on the unmapped logical CPU */
-
-				memset (mask, 0, sizeof (mask));
-				maskset (k);
-				setThreadPriorityAndAffinity (8, mask);		// Call OS-specific routine to set affinity
-
-/* Run several timings, getting the best timing */
-
-				for (n = 0; n < 10; n++) {
-					clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
-					start_timer (timers, 0);
-					one_hundred_thousand_clocks ();
-					end_timer (timers, 0);
-					if (n == 0 || timers[0] < test_100000) test_100000 = timers[0];
-				}
-
-				if (debug) {
-					sprintf (buf, "Logical CPU %d clocks: %d\n", (int) k+1, (int) test_100000);
-					OutputStr (MAIN_THREAD_NUM, buf);
-				}
-
-/* If this thread is running at half speed then this is a hyperthreaded */
-/* logical CPU running on the same physical CPU core. */
-
-				if (test_100000 >= 1.9 * best_100000 && test_100000 <= 2.03 * best_100000)
-					break;
-
-/* Remember timing for a possible secondary test at the end of the loop */
-
-				saved_100000[k] = test_100000;
-			}
-
-/* If we didn't find a logical CPU running at half speed, go to our second */
-/* option.  Look for one logical CPU that ran significantly slower than all the others */
-/* For example, on our Core i7 one of the hyperthreaded CPUs has a best time of */
-/* approximately 178,000 clocks while all the others are the expected 100,000 clocks. */
-
-			if (k == NUM_CPUS * CPU_HYPERTHREADS) {
-				unsigned int worst_k, count_slow_cpus;
-
-				worst_k = 99999;
-				for (k = 0; k < NUM_CPUS * CPU_HYPERTHREADS; k++) {
-					if (mapped_cpus[k]) continue;
-					if (worst_k == 99999 || saved_100000[k] > saved_100000[worst_k])
-						worst_k = k;
-				}
-
-				count_slow_cpus = 0;
-				for (k = 0; k < NUM_CPUS * CPU_HYPERTHREADS; k++) {
-					if (mapped_cpus[k]) continue;
-					if (saved_100000[k] > saved_100000[worst_k] - 0.4 * test_100000)
-						count_slow_cpus++;
-				}
-
-				if (count_slow_cpus == 1) k = worst_k;
-			}
-
-/* If we found a hyperthread CPU, set the affinity scramble mask to */
-/* note the logical CPU is running on the same physical CPU core. */
-
-			if (k < NUM_CPUS * CPU_HYPERTHREADS) {
-				AFFINITY_SCRAMBLE[i*CPU_HYPERTHREADS+j] = k;
-				mapped_cpus[k] = 1;
-				num_successes++;
-
-/* Remember difference in logical CPU numbers.  We'll use this to make a good guess */
-/* of the affinity scramble string in the case where we cannot figure out every set */
-/* of logical CPUs running on physical CPUs. */
-
-				if (diff == 0 || diff == k - AFFINITY_SCRAMBLE[i*CPU_HYPERTHREADS+j-1])
-					diff = k - AFFINITY_SCRAMBLE[i*CPU_HYPERTHREADS+j-1];
-				else
-					diff = 99999;
-			}
-		}
-
-/* Terminate the thread that is running the first logical CPU of this physical CPU */
-
-		affinity_busy_cpu_num = 100000;
-	}
-	RDTSC_TIMING = saved_rdtsc_timing;
-
-/* Now handle the case where we haven't properly identified all the hyperthreaded logical CPUs */
-
-	AFFINITY_SCRAMBLE_STATE = 1;
-	if (num_successes != NUM_CPUS * (CPU_HYPERTHREADS-1)) {
-		if (diff == 0) {
-			OutputStr (MAIN_THREAD_NUM, "Unable to detect which logical CPUs are hyperthreaded.\n");
-			AFFINITY_SCRAMBLE_STATE = 0;
-		} else {
-			OutputStr (MAIN_THREAD_NUM, "Unable to detect some of the hyperthreaded logical CPUs.\n");
-			for (k = 1; k < NUM_CPUS * CPU_HYPERTHREADS; k++) {
-				if (AFFINITY_SCRAMBLE[k] == -1) {
-					j = AFFINITY_SCRAMBLE[k-1] + diff;
-					if (j < NUM_CPUS * CPU_HYPERTHREADS && !mapped_cpus[j]) {
-						AFFINITY_SCRAMBLE[k] = j;
-						mapped_cpus[j] = 1;
-					}
-					else
-						diff = 99999;
-				}
-			}
-			if (diff == 99999) {
-				AFFINITY_SCRAMBLE_STATE = 0;
-			} else {
-				OutputStr (MAIN_THREAD_NUM, "Have enough information to make a reasonable guess.\n");
-			}
-		}
-		if (AFFINITY_SCRAMBLE_STATE == 0 && scramble[0] == '*') {
-			OutputStr (MAIN_THREAD_NUM, "Assuming logical CPUs 1 and 2, 3 and 4, etc. are each from one physical CPU core.\n");
-			OutputStr (MAIN_THREAD_NUM, "To the best of my knowledge this assumption is only valid for Microsoft Windows.\n");
-			OutputStr (MAIN_THREAD_NUM, "To override this assumption, see AffinityScramble2 in undoc.txt.\n");
-		}
-	}
-
-/* Output our findings */
-
-	if (AFFINITY_SCRAMBLE_STATE == 1) {
-		for (i = 0; i < NUM_CPUS; i++) {
-			strcpy (buf, "Logical CPUs ");
-			for (j = 0; j < CPU_HYPERTHREADS; j++) {
-				sprintf (buf+strlen(buf), "%d,", (int) AFFINITY_SCRAMBLE[i*CPU_HYPERTHREADS+j] + 1);
-			}
-			strcpy (buf+strlen(buf)-1, " form one physical CPU.\n");
-			OutputStr (MAIN_THREAD_NUM, buf);
-		}
-	}
-
-/* Parse the optional string used to set the affinity mask bits */
-/* on machines where auto-detection does not work. */
-
-no_auto_detect:
-	if (scramble[0] != '*') {
-		OutputStr (MAIN_THREAD_NUM, "Using AffinityScramble2 setting to set affinity mask.\n");
-		AFFINITY_SCRAMBLE_STATE = 2;
-		for (i = 0; i < MAX_NUM_WORKER_THREADS && i < strlen (scramble); i++) {
-			if (scramble[i] >= '0' && scramble[i] <= '9')
-				AFFINITY_SCRAMBLE[i] = scramble[i] - '0';
-			else if (scramble[i] >= 'A' && scramble[i] <= 'Z')
-				AFFINITY_SCRAMBLE[i] = scramble[i] - 'A' + 10;
-			else if (scramble[i] >= 'a' && scramble[i] <= 'z')
-				AFFINITY_SCRAMBLE[i] = scramble[i] - 'a' + 36;
-			else if (scramble[i] == '(')
-				AFFINITY_SCRAMBLE[i] = 62;
-			else if (scramble[i] == ')')
-				AFFINITY_SCRAMBLE[i] = 63;
-			else
-				AFFINITY_SCRAMBLE[i] = i;  /* Illegal entry = no mapping */
-		}
-	}
-
-/* Mark all the unused logical CPU numbers as "no scramble" */
-
-	for (k = NUM_CPUS * CPU_HYPERTHREADS; k < MAX_NUM_WORKER_THREADS; k++) AFFINITY_SCRAMBLE[k] = k;
-}
-
-/* Try to determine which hyperthreaded logical CPUs map to the same physical CPUs */
-/* All our internal code uses this scheme: if there are N cpus with hyperthreading, */
-/* then physical cpu 0 is logical cpu 0 and 1, physical cpu 1 is logical cpu 2 and 3, etc. */
-/* When launching threads, we apply the dynamically generated affinity scramble computed */
-/* here to map our internal scheme to the numbering scheme that the OS is using. */
-
-void generate_affinity_scramble (void)
-{
-	gwthread thread_id;
-
-/* If the CPU does not support hyperthreading, then were done */
-/* If there is only one physical CPU, then affinity scrambling isn't needed */
-
-	if (CPU_HYPERTHREADS == 1 || NUM_CPUS == 1) return;
-
-/* There is no need to scare users with error-like messages when we can't set affinity */
-
-#ifdef OS_CANNOT_SET_AFFINITY
-	return;
-#endif
-
-/* Do the scramble computations in a separate thread to avoid changing the main thread's priority */
-
-	gwthread_create_waitable (&thread_id, &generate_affinity_scramble_thread, NULL);
-	gwthread_wait_for_exit (&thread_id);
-}
-
-	
 /* Set the thread priority correctly.  Most screen savers run at priority 4. */
 /* Most application's run at priority 9 when in foreground, 7 when in */
 /* background.  In selecting the proper thread priority I've assumed the */
 /* program usually runs in the background. */ 
 
 /* This routine is also responsible for setting the thread's CPU affinity. */
-/* If there are N cpus with hyperthreading, then physical cpu 0 is logical */
-/* cpu 0 and 1, physical cpu 1 is logical cpu 2 and 3, etc. */
 
 void SetPriority (
 	struct PriorityInfo *info)
 {
-	unsigned int i;
-	int	mask[MAX_NUM_WORKER_THREADS/32];
+	int	core_depth, num_cores, logical_CPU_depth, num_logical_CPUs;
+	int	bind_type, core, logical_CPU, error_window;
+	char	logical_CPU_string[255];
+	char	logical_CPU_substring[255];
+	char	buf[255];
+
+/* Call OS-specific routine to set the priority */
+
+	if (IniGetInt (INI_FILE, "EnableSetPriority", 1))
+		setOsThreadPriority (PRIORITY);
+
+/* Skip setting affinity if requested by user.  There is no known reason to do this at present. */
+
+	if (! IniGetInt (INI_FILE, "EnableSetAffinity", 1)) return;
+
+/* Skip setting affinity if OS does not support it.  At present time, that is Apple. */
+
+	if (!OS_CAN_SET_AFFINITY) return;
+
+/* Gather some topology information */
+
+	core_depth = hwloc_get_type_or_below_depth (hwloc_topology, HWLOC_OBJ_CORE);		// Access physical core's topology depth
+	num_cores = hwloc_get_nbobjs_by_depth (hwloc_topology, core_depth);
+	logical_CPU_depth = hwloc_get_type_or_below_depth (hwloc_topology, HWLOC_OBJ_PU);	// Access logical CPU's topology depth
+	num_logical_CPUs = hwloc_get_nbobjs_by_depth (hwloc_topology, logical_CPU_depth);
+
+/* Pick from one of several methodologies to determine affinity setting */
+
+	do {
+
+/* QA affinity.  Let threads run on any CPU. */
+
+		if (info->type == SET_PRIORITY_QA) return;
 
 /* Benchmarking affinity with no hyperthreading. */
 
-	if (info->type == SET_PRIORITY_BENCHMARKING) {
-		int	cpu;
-		cpu = info->thread_num + info->aux_thread_num;
-		memset (mask, 0, sizeof (mask));
-		for (i = 0; i < CPU_HYPERTHREADS; i++) maskset (cpu * CPU_HYPERTHREADS + i);
-	}
+		if (info->type == SET_PRIORITY_BENCHMARKING) {
+			bind_type = 0;				// Set affinity to one specific core
+			core = info->thread_num + info->aux_thread_num;
+			error_window = MAIN_THREAD_NUM;
+			break;
+		}
 
 /* Benchmarking affinity.  For hyperthreaded CPUs, we put auxiliary */
 /* threads onto the logical CPUs before moving onto the next physical CPU. */  
 
-	else if (info->type == SET_PRIORITY_BENCHMARKING_HYPER) {
-		int	cpu;
-		cpu = info->thread_num + info->aux_thread_num / CPU_HYPERTHREADS;
-		memset (mask, 0, sizeof (mask));
-		for (i = 0; i < CPU_HYPERTHREADS; i++) maskset (cpu * CPU_HYPERTHREADS + i);
-	}
+		if (info->type == SET_PRIORITY_BENCHMARKING_HYPER) {
+			bind_type = 0;				// Set affinity to one specific core
+			core = info->thread_num + info->aux_thread_num / CPU_HYPERTHREADS;
+			error_window = MAIN_THREAD_NUM;
+			break;
+		}
 
 /* Torture test affinity.  If we're running the same number of torture */
 /* tests as CPUs if the system then set affinity.  Otherwise, let the */
 /* threads run on any CPU. */
 
-	else if (info->type == SET_PRIORITY_TORTURE) {
-		if (info->num_threads == NUM_CPUS * CPU_HYPERTHREADS) {
-			memset (mask, 0, sizeof (mask));
-			maskset (info->thread_num);
-		} else if (info->num_threads == NUM_CPUS) {
-			memset (mask, 0, sizeof (mask));
-			for (i = 0; i < CPU_HYPERTHREADS; i++) maskset (info->thread_num * CPU_HYPERTHREADS + i);
-		} else
-			memset (mask, 0xFF, sizeof (mask));
-	}
-
-/* QA affinity.  Just let the threads run on any CPU. */
-
-	else if (info->type == SET_PRIORITY_QA) {
-		memset (mask, 0xFF, sizeof (mask));
-	}
-
-/* Normal worker threads.  Pay attention to the affinity option set */
-/* by the user. */
-
-/* A CPU_AFFINITY setting of 99 means "run on any CPU". */
-
-	else if (CPU_AFFINITY[info->thread_num] == 99) {
-		memset (mask, 0xFF, sizeof (mask));
-	}
-
-/* A small CPU_AFFINITY setting means run only on that CPU.  Since there is */
-/* no way to explicitly tell us which CPU to run an auxiliary thread on, */
-/* we put the auxiliary threads on the subsequent logical CPUs. */
-
-	else if (CPU_AFFINITY[info->thread_num] < 100) {
-		if (CPU_AFFINITY[info->thread_num] + info->aux_thread_num >= NUM_CPUS * CPU_HYPERTHREADS)
-			memset (mask, 0xFF, sizeof (mask));
-		else {
-			memset (mask, 0, sizeof (mask));
-			maskset (CPU_AFFINITY[info->thread_num] + info->aux_thread_num);
+		if (info->type == SET_PRIORITY_TORTURE) {
+			if (info->num_threads == NUM_CPUS * CPU_HYPERTHREADS) {
+				bind_type = 0;				// Set affinity to one specific core
+				core = info->thread_num / CPU_HYPERTHREADS;
+			} else if (info->num_threads == NUM_CPUS) {
+				bind_type = 0;				// Set affinity to one specific core
+				core = info->thread_num;
+			} else
+				return;					// Run on any core
+			error_window = MAIN_THREAD_NUM;
+			break;
 		}
-	}
 
-/* A CPU_AFFINITY setting of 100 means "smart affinity assignments". */
-/* We've now reached that case. */
+/* If user has given an explicit list of logical CPUs to set affinity to, then use that list. */
+/* Hopefully, there is no real need to ever use this feature. */
 
-/* If all worker threads are not set to smart affinity, then it is */
-/* just too hard to figure out what is best.  Just let the OS run the */
-/* threads on any CPU. */
+		error_window = info->thread_num;
+		{
+			char	section_name[32];
+			const char *p;
+			sprintf (section_name, "Worker #%d", info->thread_num+1);
+			p = IniSectionGetStringRaw (LOCALINI_FILE, section_name, "Affinity");
+			if (p != NULL) {
+				bind_type = 2;				// Set affinity to a set of logical CPUs
+				truncated_strcpy (logical_CPU_string, sizeof (logical_CPU_string), p);
+				break;
+			}
+		}
 
-	else if (! PTOIsGlobalOption (CPU_AFFINITY))
-		memset (mask, 0xFF, sizeof (mask));
+/* If number of worker threads equals number of physical cpus then run each */
+/* worker thread on its own physical CPU.  Run auxiliary threads on the same */
+/* physical CPU.  This might be advantageous on hyperthreaded CPUs.  User */
+/* should be careful to not run more auxiliary threads than available */
+/* logical CPUs created by hyperthreading. */ 
+
+		if (NUM_WORKER_THREADS == NUM_CPUS) {
+			bind_type = 0;				// Set affinity to a specific physical CPU core
+			core = info->thread_num;
+			break;
+		}
 
 /* If number of worker threads equals number of logical cpus then run each */
 /* worker thread on its own logical CPU.  If the user also has us running */
 /* auxiliary threads, then the user has made a really bad decision and a */
-/* performance hit will occur. */
+/* performance hit will occur running on the same logical CPU. */
 
-	else if (NUM_WORKER_THREADS == NUM_CPUS * CPU_HYPERTHREADS) {
-		memset (mask, 0, sizeof (mask));
-		maskset (info->thread_num);
-		if (info->aux_thread_num) memset (mask, 0xFF, sizeof (mask));
-	}
+		if (NUM_WORKER_THREADS == NUM_CPUS * CPU_HYPERTHREADS) {
+			bind_type = 1;				// Set affinity to a specific logical CPU
+			logical_CPU = info->thread_num;
+			break;
+		}
 
-/* If number of worker threads equals number of physical cpus then run each */
-/* worker thread on its own physical CPU.  Run auxiliary threads on the same */
-/* physical CPU.  This should be advantageous on hyperthreaded CPUs.  We */
-/* should be careful to not run more auxiliary threads than available */
-/* logical CPUs created by hyperthreading. */ 
+/* If total num CPUs == num_cpus or num_cpus * hyper-threads, then there is an easy path forward */
+/* Example, on a quad-core with worker 1 using 2 CPUs, and workers 2 & 3 each use 1 CPU --- no problem. */
 
-	else if (NUM_WORKER_THREADS == NUM_CPUS) {
-		memset (mask, 0, sizeof (mask));
-		for (i = 0; i < CPU_HYPERTHREADS; i++) maskset (info->thread_num * CPU_HYPERTHREADS + i);
-	}
+		{
+			int	i, worker_thread_count;
+			worker_thread_count = 0;
+			for (i = 0; i < (int) NUM_WORKER_THREADS; i++) worker_thread_count += THREADS_PER_TEST[i];
 
-/* Otherwise, just run on any CPU. */
+			if (worker_thread_count == NUM_CPUS) {
+				bind_type = 0;			// Set affinity to a specific physical CPU core
+				core = 0;
+				for (i = 0; i < info->thread_num; i++) core += THREADS_PER_TEST[i];
+				core += info->aux_thread_num;
+				break;
+			}
 
-	else
-		memset (mask, 0xFF, sizeof (mask));
+			if (worker_thread_count == NUM_CPUS * CPU_HYPERTHREADS) {
+				bind_type = 1;			// Set affinity to a specific logical CPU
+				logical_CPU = 0;
+				for (i = 0; i < info->thread_num; i++) logical_CPU += THREADS_PER_TEST[i];
+				logical_CPU += info->aux_thread_num;
+				break;
+			}
 
-/* Apply the optional affinity mask scrambling */
+/* If total num CPUs < num_cpus or num_cpus * hyper-threads, then what to do? */
+/* Leave core 0 unused for interrupts???  Bind to ceil(num-left-unassigned / num-logical-cores-left) ??? */
+/* Is this worth worrying about?  For now, just do any CPU. */
 
-	if (AFFINITY_SCRAMBLE_STATE) {
-		int	old_mask[MAX_NUM_WORKER_THREADS/32];
-		memcpy (old_mask, mask, sizeof (mask));
-		memset (mask, 0, sizeof (mask));
-		for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
-			if (maskget (old_mask, i) && AFFINITY_SCRAMBLE[i] < MAX_NUM_WORKER_THREADS)
-				maskset (AFFINITY_SCRAMBLE[i]);
+			return;
+		}
+
+/* No good rule found for setting affinity.  Simply run on any logical CPU. */
+
+		return;
+	} while (FALSE);
+
+/* Parse affinity settings specified in the INI file. */
+/* We accept several syntaxes in an INI file: */
+/*	3,6,9		Run main worker thread on logical CPU #3, run two aux threads on logical CPUs #6 & #9 */
+/*	3-4,5-6		Run main worker thread on logical CPUs #3 & #4, run aux thread on logical CPUs #5 & #6 */
+/*	{3,5,7},{4,6}	Run main worker thread on logical CPUs #3, #5, & #7, run aux thread on logical CPUs #4 & #6 */
+/*	(3,5,7),(4,6)	Run main worker thread on logical CPUs #3, #5, & #7, run aux thread on logical CPUs #4 & #6 */
+/*	[3,5-7],(4,6)	Run main worker thread on logical CPUs #3, #5, #6, & #7, run aux thread on logical CPUs #4 & #6 */
+
+	if (bind_type == 2) {		// Find the subset of the logical CPU string for this auxillary thread
+		int	i;
+		char	*p, *start, end_char;
+		for (i = 0, p = logical_CPU_string; i <= info->aux_thread_num && *p; i++) {
+			while (isspace (*p)) p++;
+			start = p;
+			end_char = 0;
+			if (*p == '{') end_char = '}';
+			if (*p == '(') end_char = ')';
+			if (*p == '[') end_char = ']';
+			if (end_char) {
+				p = strchr (start, end_char);
+				if (p == NULL) {
+					sprintf (buf, "Error parsing affinity string: %s\n", logical_CPU_string);
+					OutputStr (error_window, buf);
+					return;
+				}
+				truncated_strcpy_with_len (logical_CPU_substring, sizeof (logical_CPU_substring),
+							   start + 1, p - start - 1);
+				if (strchr (p, ',') != NULL) p = strchr (p, ',') + 1;
+				else p = p + strlen(p);
+			} else {
+				p = strchr (start, ',');
+				if (p != NULL) {
+					truncated_strcpy_with_len (logical_CPU_substring, sizeof (logical_CPU_substring),
+								   start, p - start - 1);
+					p++;
+				} else {
+					p = start + strlen (start);
+					truncated_strcpy_with_len (logical_CPU_substring, sizeof (logical_CPU_substring),
+								   start, p - start);
+				}
+			}
 		}
 	}
-
-/* When the OS does not support setting affinities, set the mask */
-/* so that we print out the proper informative message. */
-
-#ifdef OS_CANNOT_SET_AFFINITY
-	memset (mask, 0xFF, sizeof (mask));
-#endif
 
 /* Output an informative message */
 
 	if (info->type != SET_PRIORITY_BENCHMARKING && info->type != SET_PRIORITY_BENCHMARKING_HYPER &&
 	    (NUM_CPUS > 1 || CPU_HYPERTHREADS > 1)) {
-		char	buf[120];
-
 		if (info->aux_thread_num == 0)
 			strcpy (buf, "Setting affinity to run worker on ");
 		else
 			sprintf (buf, "Setting affinity to run helper thread %d on ", info->aux_thread_num);
-		if (mask[0] == -1) {
-			strcat (buf, "any logical CPU.\n");
-		} else {
-			int	i, count;
-			char	cpu_list[80];
-			for (i = count = 0; i < MAX_NUM_WORKER_THREADS; i++) {
-				if (! maskget (mask, i)) continue;
-				count++;
-				if (count == 1) sprintf (cpu_list, "%d", i+1);
-				else sprintf (cpu_list + strlen(cpu_list), ",%d", i+1);
-			}
-			sprintf (buf + strlen(buf), "logical CPU%s%s\n",
-				 (count == 1) ? " #" : "s ", cpu_list);
-		}
+		if (bind_type == 0)
+			sprintf (buf+strlen(buf), "CPU core #%d\n", core);
+		else if (bind_type == 1)
+			sprintf (buf+strlen(buf), "logical CPU #%d\n", logical_CPU);
+		else
+			sprintf (buf+strlen(buf), "logical CPUs %s\n", logical_CPU_substring);
 		OutputStr (info->thread_num, buf);
 	}
 
-/* Call OS-specific routine to set the priority and affinity */
+/* Set affinity for this thread to a specific CPU core */
 
-	setThreadPriorityAndAffinity (PRIORITY, mask);
+	if (bind_type == 0) {
+		hwloc_obj_t obj;
+		if (core >= num_cores) {		// This shouldn't happen
+			sprintf (buf, "Setting affinity to core #%d is greater than the number of cores (%d).\n", core, num_cores);
+			OutputStr (error_window, buf);
+			core %= num_cores;
+		}
+		obj = hwloc_get_obj_by_depth (hwloc_topology, core_depth, core);	/* Get proper core */
+		if (obj) {
+			if (hwloc_set_cpubind (hwloc_topology, obj->cpuset, 0)) {	/* Bind thread to all logical CPUs in the core */
+				char *str;
+				int error = errno;
+				hwloc_bitmap_asprintf (&str, obj->cpuset);
+				sprintf (buf, "Couldn't set affinity to cpuset %s: %s\n", str, strerror(error));
+				OutputStr (error_window, buf);
+				free (str);
+			}
+		}
+	}
+
+/* Set affinity for this thread to a specific logical CPU */
+
+	else if (bind_type == 1) {
+		hwloc_obj_t obj;
+		if (logical_CPU >= num_logical_CPUs) {		// This shouldn't happen
+			sprintf (buf, "Setting affinity to logical CPU #%d is greater than the number of logical CPUs (%d).\n", logical_CPU, num_logical_CPUs);
+			OutputStr (error_window, buf);
+			logical_CPU %= num_logical_CPUs;
+		}
+		obj = hwloc_get_obj_by_depth (hwloc_topology, logical_CPU_depth, logical_CPU);	/* Get proper logical CPU */
+		if (obj) {
+			if (hwloc_set_cpubind (hwloc_topology, obj->cpuset, 0)) {		/* Bind thread to one logical CPU */
+				char *str;
+				int error = errno;
+				hwloc_bitmap_asprintf (&str, obj->cpuset);
+				sprintf (buf, "Couldn't set affinity to cpuset %s: %s\n", str, strerror(error));
+				OutputStr (error_window, buf);
+				free (str);
+			}
+		}
+	}
+
+/* Set affinity for this thread to a one or more logical CPUs as specified in the INI file. */
+
+	else {
+		char *p, *dash, *comma;
+		hwloc_obj_t obj;
+		hwloc_bitmap_t cpuset;
+		int	start, end;
+
+		cpuset = hwloc_bitmap_alloc ();
+		for (p = logical_CPU_substring; ; p = comma+1) {	// Loop through comma-separated list in the logical_CPU_substring
+			start = atoi (p);
+			dash = strchr (p, '-');
+			comma = strchr (p, ',');
+			if (dash != NULL && (comma == NULL || dash < comma)) end = atoi (dash+1);
+			else end = start;
+			while (start <= end) {
+				obj = hwloc_get_obj_by_depth (hwloc_topology, logical_CPU_depth, start++);
+				if (obj) {
+					hwloc_bitmap_or (cpuset, cpuset, obj->cpuset);
+				}
+			}
+			if (comma == NULL) break;
+		}
+		if (hwloc_set_cpubind (hwloc_topology, cpuset, 0)) {		/* Set affinity to specified logical CPUs */
+			char *str;
+			int error = errno;
+			hwloc_bitmap_asprintf (&str, cpuset);
+			sprintf (buf, "Couldn't set affinity to cpuset %s: %s\n", str, strerror(error));
+			OutputStr (error_window, buf);
+			free (str);
+		}
+		hwloc_bitmap_free (cpuset);
+	}
 }
 
 /* Gwnum thread callback routine */
@@ -4120,9 +3940,9 @@ struct facasm_data {
 	uint32_t initstart;		/* First dword in initsieve to copy (see ASM code) */
 
 	uint32_t pad[3];		/* Pad to next 64-byte cache line */
-	uint32_t xmm_data[80];		/* XMM/YMM data initialized in C code */
+	uint32_t xmm_data[80];		/* XMM/YMM/ZMM data initialized in C code */
 
-	uint32_t other_asm_temps_and_consts[200];
+	uint32_t other_asm_temps_and_consts[400];
 };
 
 /* This defines the factoring data handled in C code.  The handle */
@@ -4440,15 +4260,15 @@ int factorPassSetup (
 
 	factor64_pass_setup (asm_data);
 
-/* If using the AVX2 or SSE2 factoring code, do more initialization */
+/* If using the SSE2 or AVX2 or AVX512 factoring code, do more initialization */
 /* We need to initialize much of the following data: */
-/*	YMM_INITVAL		DD	0,0,0,0,0,0,0,0
+/*	ZMM_INITVAL		DD	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 	XMM_INIT120BS		DD	0,0
 	XMM_INITBS		DD	0,0
 	XMM_BS			DD	0,0
 	XMM_SHIFTER		DD	64 DUP (0) */
 
-	if (asm_data->cpu_flags & (CPU_AVX2 | CPU_SSE2)) {
+	if (asm_data->cpu_flags & (CPU_SSE2 | CPU_AVX2 | CPU_AVX512F)) {
 		unsigned long i, p, bits_in_factor;
 
 /* Compute the number of bits in the factors we will be testing */
@@ -4470,16 +4290,16 @@ int factorPassSetup (
 			xmm_data = asm_data->xmm_data;
 			p = (unsigned long) asm_data->p;
 			for (i = 0; p > bits_in_factor + 59; i++) {
-				xmm_data[16+i*2] = (p & 1) ? 1 : 0;
+				xmm_data[24+i*2] = (p & 1) ? 1 : 0;
 				p >>= 1;
 			}
-			xmm_data[0] =					/* XMM_INITVAL & YMM_INITVAL */
-			xmm_data[2] =
-			xmm_data[4] =
-			xmm_data[6] = p >= 90 ? 0 : (1 << (p - 60));
-			xmm_data[8] = 62 - (120 - bits_in_factor);	/* XMM_INIT120BS */
-			xmm_data[10] = 62 - (p - bits_in_factor);	/* XMM_INITBS */
-			xmm_data[12] = bits_in_factor - 61;		/* Set XMM_BS to 60 - (120 - fac_size + 1) as defined in factor64.mac */
+			xmm_data[0] = xmm_data[2] =			/* XMM_INITVAL & YMM_INITVAL & ZMM_INITVAL */
+			xmm_data[4] = xmm_data[6] =
+			xmm_data[8] = xmm_data[10] =
+			xmm_data[12] = xmm_data[14] = p >= 90 ? 0 : (1 << (p - 60));
+			xmm_data[16] = 62 - (120 - bits_in_factor);	/* XMM_INIT120BS */
+			xmm_data[18] = 62 - (p - bits_in_factor);	/* XMM_INITBS */
+			xmm_data[20] = bits_in_factor - 61;		/* Set XMM_BS to 60 - (120 - fac_size + 1) as defined in factor64.mac */
 			asm_data->SSE2_LOOP_COUNTER = i;
 			asm_data->TWO_TO_FACSIZE_PLUS_62 = pow ((double) 2.0, (int) (bits_in_factor + 62));
 		}
@@ -8696,11 +8516,8 @@ int primeBenchMultipleWorkers (
 	        for (workers = (bench_max_workers ? cpus : 1); workers <= cpus; workers++) {
 		  if (cpus > workers && !bench_multithreading) continue;
 		  if (cpus % workers != 0 && !bench_oddballs) continue;
-
-#ifdef OS_CANNOT_SET_AFFINITY
 		  /* If the OS cannot set affinity, then we can only bench hyperthreading on all CPUs */
-		  if (hypercpus > 1 && cpus != NUM_CPUS) continue;
-#endif
+		  if (!OS_CAN_SET_AFFINITY && hypercpus > 1 && cpus != NUM_CPUS) continue;
 		  /* Only SSE2 code supports multi-threaded FFTs */
 		  if ((cpus > workers || hypercpus > 1) && ! (CPU_FLAGS & CPU_SSE2)) continue;  
 
@@ -8845,6 +8662,11 @@ int primeBench (
 
 	getCpuDescription (buf, 1);
 	writeResults (buf);
+	if (IniGetInt (INI_FILE, "BenchOutputTopology", 1)) {
+		writeResults ("Machine topology as determined by hwloc library:\n");
+		topology_print_children (hwloc_get_root_obj (hwloc_topology), 0);
+	}
+
 #ifdef X86_64
 	sprintf (buf, "Prime95 64-bit version %s, RdtscTiming=%d\n", VERSION, RDTSC_TIMING);
 #else
