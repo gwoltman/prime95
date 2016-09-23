@@ -67,32 +67,6 @@ int map_sel_to_work_pref (
 	return (-1);
 }
 
-int map_affinity_to_sel (
-	int	affinity)
-{
-	switch (affinity) {
-		case 99:
-			return (0);
-		case 100:
-			return (1);
-		default:
-			return (affinity+2);
-	}
-}
-
-int map_sel_to_affinity (
-	int	sel)
-{
-	switch (sel) {
-		case 0:
-			return (99);
-		case 1:
-			return (100);
-		default:
-			return (sel-2);
-	}
-}
-
 int AreAllTheSame (
 	int	*array,
 	int	len)
@@ -110,16 +84,8 @@ int AreAllTheSame (
 
 - (id)init
 {
-	int	i;
-
 	if (![super initWithWindowNibName:@"WorkerWindows"]) return nil;
 	workerData = [[NSMutableArray alloc] init];
-	affinityValues = [[NSMutableArray alloc] init];
-	[affinityValues addObject:@"Run on any CPU"];
-	[affinityValues addObject:@"Smart assignment"];
-	for (i = 0; i < NUM_CPUS * CPU_HYPERTHREADS; i++) {
-		[affinityValues addObject:[[NSString alloc] initWithFormat:@"CPU #%d", i+1]];
-	}
 	return self;
 }
 
@@ -153,8 +119,6 @@ int AreAllTheSame (
 		WorkerData *newRow = [[WorkerData alloc] init];
 		[newRow setWorkerNumber:[[NSString alloc] initWithFormat:@"Worker #%d", i+1]];
 		[newRow setTypeOfWork:map_work_pref_to_sel(WORK_PREFERENCE[i])];
-		[newRow setAffinity:map_affinity_to_sel(CPU_AFFINITY[i])];
-		[newRow setAffinityEnabled:(numWorkersMax > 1)];
 		[newRow setMultithreading:THREADS_PER_TEST[i]];
 		[newRow setMultithreadingMax:(NUM_CPUS * user_configurable_hyperthreads ())];
 		[newRow setMultithreadingEnabled:(THREADS_PER_TEST[i] > 1 || numWorkers < numWorkersMax)];
@@ -192,8 +156,6 @@ int AreAllTheSame (
 			WorkerData *newRow = [[WorkerData alloc] init];
 			[newRow setWorkerNumber:[[NSString alloc] initWithFormat:@"Worker #%d", i+1]];
 			[newRow setTypeOfWork:map_work_pref_to_sel(PRIMENET_WP_WHATEVER)];
-			[newRow setAffinity:map_affinity_to_sel(100)];
-			[newRow setAffinityEnabled:(numWorkersMax > 1)];
 			[newRow setMultithreading:1];
 			[newRow setMultithreadingMax:(NUM_CPUS * user_configurable_hyperthreads ())];
 			[newRow setMultithreadingEnabled:(_value < numWorkersMax)];
@@ -209,7 +171,7 @@ int AreAllTheSame (
 
 - (IBAction)ok:(id)sender
 {
-	int	i, tot_threads, work_prefs[MAX_NUM_WORKER_THREADS], affinities[MAX_NUM_WORKER_THREADS];
+	int	i, tot_threads, work_prefs[MAX_NUM_WORKER_THREADS];
 	int	num_cpus[MAX_NUM_WORKER_THREADS];
 	int	restart = FALSE;
 	int	new_options = FALSE;
@@ -261,7 +223,6 @@ int AreAllTheSame (
 	for (i = 0; i < numWorkers; i++) {	// examine each worker row
 		WorkerData *row = [workerData objectAtIndex:i];
 		work_prefs[i] = map_sel_to_work_pref ([row typeOfWork]);
-		affinities[i] = map_sel_to_affinity ([row affinity]);
 		num_cpus[i] = [row multithreading];
 	}
 	if (AreAllTheSame (work_prefs, numWorkers)) {
@@ -275,16 +236,6 @@ int AreAllTheSame (
 			PTOSetOne (INI_FILE, "WorkPreference", NULL,
 				   WORK_PREFERENCE, i, work_prefs[i]);
 			new_options = TRUE;
-		}
-	}
-
-/* If the user changes any of the affinities record it in the INI file. */
-
-	if (AreAllTheSame (affinities, numWorkers)) {
-		PTOSetAll (LOCALINI_FILE, "Affinity", NULL, CPU_AFFINITY, affinities[0]);
-	} else {
-		for (i = 0; i < numWorkers; i++) {
-			PTOSetOne (LOCALINI_FILE, "Affinity", NULL, CPU_AFFINITY, i, affinities[i]);
 		}
 	}
 
@@ -320,7 +271,6 @@ int AreAllTheSame (
 @synthesize numWorkersEnabled;
 @synthesize priority;
 @synthesize workerData;
-@synthesize affinityValues;
 
 @end
 
@@ -356,8 +306,6 @@ int AreAllTheSame (
 }
 
 @synthesize workerNumber;
-@synthesize affinity;
-@synthesize affinityEnabled;
 @synthesize multithreadingMax;
 @synthesize multithreadingEnabled;
 

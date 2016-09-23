@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="6751" systemVersion="13F1603" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none">
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="6751" systemVersion="13F1911" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none">
     <dependencies>
         <deployment version="1050" identifier="macosx"/>
         <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="6751"/>
@@ -101,7 +101,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <tableView verticalHuggingPriority="750" allowsExpansionToolTips="YES" columnAutoresizingStyle="lastColumnOnly" columnSelection="YES" multipleSelection="NO" autosaveColumns="NO" headerView="63" id="62">
-                                    <rect key="frame" x="0.0" y="0.0" width="593" height="19"/>
+                                    <rect key="frame" x="0.0" y="0.0" width="573" height="19"/>
                                     <autoresizingMask key="autoresizingMask"/>
                                     <size key="intercellSpacing" width="3" height="2"/>
                                     <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -152,34 +152,7 @@
                                                 <binding destination="85" name="selectedIndex" keyPath="arrangedObjects.typeOfWork" id="136"/>
                                             </connections>
                                         </tableColumn>
-                                        <tableColumn width="110" minWidth="10" maxWidth="3.4028229999999999e+38" id="68">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="CPU Affinity">
-                                                <font key="font" metaFont="smallSystem"/>
-                                                <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
-                                                <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
-                                            </tableHeaderCell>
-                                            <popUpButtonCell key="dataCell" type="bevel" title="Run on any CPU" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="bezel" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="140" id="138">
-                                                <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
-                                                <font key="font" metaFont="smallSystem"/>
-                                                <menu key="menu" title="OtherViews" id="139">
-                                                    <items>
-                                                        <menuItem title="Run on any CPU" state="on" id="140"/>
-                                                        <menuItem title="Smart assignment" id="141"/>
-                                                        <menuItem title="CPU #1" id="142"/>
-                                                        <menuItem title="CPU #2" id="143"/>
-                                                    </items>
-                                                </menu>
-                                                <connections>
-                                                    <binding destination="-2" name="contentValues" keyPath="affinityValues" id="169"/>
-                                                </connections>
-                                            </popUpButtonCell>
-                                            <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
-                                            <connections>
-                                                <binding destination="85" name="selectedIndex" keyPath="arrangedObjects.affinity" id="154"/>
-                                                <binding destination="85" name="enabled" keyPath="arrangedObjects.affinityEnabled" id="166"/>
-                                            </connections>
-                                        </tableColumn>
-                                        <tableColumn width="170" minWidth="10" maxWidth="3.4028229999999999e+38" id="70">
+                                        <tableColumn width="280" minWidth="10" maxWidth="3.4028229999999999e+38" id="70">
                                             <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="CPUs to use (multithreading)">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>

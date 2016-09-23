@@ -414,7 +414,6 @@ void test_worker_threads (void)
 {
 	unsigned long m_num_thread, m_priority;
 	unsigned long m_work_pref[MAX_NUM_WORKER_THREADS];
-	unsigned long m_affinity[MAX_NUM_WORKER_THREADS];
 	unsigned long m_numcpus[MAX_NUM_WORKER_THREADS];
 	int	i;
 
@@ -422,7 +421,6 @@ void test_worker_threads (void)
 	m_priority = PRIORITY;
 	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
 		m_work_pref[i] = WORK_PREFERENCE[i];
-		m_affinity[i] = CPU_AFFINITY[i];
 		m_numcpus[i] = THREADS_PER_TEST[i];
 	}
 
@@ -447,19 +445,6 @@ again:	if (max_num_workers () > 1)
 			askNum ("Type of work to get", &m_work_pref[i], 0, 150);
 			if (m_numcpus[i] < min_cores_for_work_type (m_work_pref[i]))
 				m_numcpus[i] = min_cores_for_work_type (m_work_pref[i]);
-		}
-
-		if (NUM_CPUS * user_configurable_hyperthreads () > 1) {
-			char question[200];
-			unsigned long affinity;
-			sprintf (question,
-				 "CPU affinity (1-%d=specific CPU, 99=any CPU, 100=smart assignment)",
-				 (int) (NUM_CPUS * CPU_HYPERTHREADS));
-			affinity = m_affinity[i];
-			if (affinity < 99) affinity++;
-			askNum (question, &affinity, 1, 100);
-			if (affinity < 99) affinity--;
-			m_affinity[i] = affinity;
 		}
 
 		if (NUM_CPUS * user_configurable_hyperthreads () > 1) {
@@ -534,18 +519,6 @@ again:	if (max_num_workers () > 1)
 					   WORK_PREFERENCE, i,
 					   m_work_pref[i]);
 				new_options = TRUE;
-			}
-		}
-
-/* If the user changes any of the affinities record it in the INI file. */
-
-		if (AreAllTheSame (m_affinity, m_num_thread)) {
-			PTOSetAll (LOCALINI_FILE, "Affinity", NULL,
-				   CPU_AFFINITY, m_affinity[0]);
-		} else {
-			for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
-				PTOSetOne (LOCALINI_FILE, "Affinity", NULL,
-					   CPU_AFFINITY, i, m_affinity[i]);
 			}
 		}
 

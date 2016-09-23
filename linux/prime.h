@@ -81,6 +81,16 @@
 
 /* The common include files */
 
+#ifndef X86_64
+#pragma pack(push)
+#pragma pack(4)			// Hwloc library was (likely) built without -malign-double
+#include <hwloc.h>
+#pragma pack(pop)
+#endif
+#ifdef X86_64
+#include <hwloc.h>
+#endif
+
 #include <time.h>
 /*#define SERVER_TESTING*/
 extern int NO_GUI;
