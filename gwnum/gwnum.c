@@ -4679,12 +4679,6 @@ void pass1_wake_up_threads (
 {
 	gwhandle *gwdata = asm_data->gwdata;
 
-/* Obtain the lock if multithreading */
-
-	if (gwdata->num_threads > 1) {
-		gwmutex_lock (&gwdata->thread_lock);
-	}
-
 /* Init pass1_state (kludge: passed in next_block parameter) */
 /* State is either 0 (forward FFT only) or 1 (inverse FFT and */
 /* optional next forward FFT) */
@@ -4771,7 +4765,6 @@ void pass1_wake_up_threads (
 
 	if (gwdata->num_threads > 1) {
 		gwevent_signal (&gwdata->thread_work_to_do);
-		gwmutex_unlock (&gwdata->thread_lock);
 	}
 }
 
@@ -5192,12 +5185,6 @@ void pass2_wake_up_threads (
 {
 	gwhandle *gwdata = asm_data->gwdata;
 
-/* Obtain the lock if multithreading */
-
-	if (gwdata->num_threads > 1) {
-		gwmutex_lock (&gwdata->thread_lock);
-	}
-
 /* Call assign_next_block twice to set up the main thread's this_block */
 /* and next_block values. */
 
@@ -5210,7 +5197,6 @@ void pass2_wake_up_threads (
 
 	if (gwdata->num_threads > 1) {
 		gwevent_signal (&gwdata->thread_work_to_do);
-		gwmutex_unlock (&gwdata->thread_lock);
 	}
 }
 
@@ -5246,10 +5232,6 @@ int pass2_get_next_block_mt (
 {
 	gwhandle *gwdata = asm_data->gwdata;
 
-/* Grab lock before reading or writing any gwdata values. */
-
-	gwmutex_lock (&gwdata->thread_lock);
-
 /* There are no more blocks to process when the next block is the same */
 /* as the block just processed.  In that case, if this is the main thread */
 /* wait for auxiliary threads to complete.  If this is an auxiliary thread */
@@ -5257,16 +5239,18 @@ int pass2_get_next_block_mt (
 
 	if (asm_data->this_block == asm_data->next_block) {
 		if (asm_data->thread_num) {
-			gwmutex_unlock (&gwdata->thread_lock);
 			return (TRUE);
 		}
-		gwmutex_unlock (&gwdata->thread_lock);
 		gwevent_wait (&gwdata->all_threads_done, 0);
 		asm_data->DIST_TO_FFTSRCARG = 0;
 		if (asm_data->ffttype == 1)
 			((uint32_t *) asm_data->DESTARG)[-7] = 3; // Set has-been-FFTed flag
 		return (TRUE);
 	}
+
+/* Grab lock before reading or writing any gwdata values. */
+
+	gwmutex_lock (&gwdata->thread_lock);
 
 /* Copy prefetched block and addresses to this block.  Get next available */
 /* block to prefetch. */
