@@ -415,8 +415,8 @@ void SetPriority (
 			}
 		}
 
-/* If number of worker threads equals number of physical cpus then run each */
-/* worker thread on its own physical CPU.  Run auxiliary threads on the same */
+/* If number of workers equals number of physical cpus then run each */
+/* worker on its own physical CPU.  Run auxiliary threads on the same */
 /* physical CPU.  This might be advantageous on hyperthreaded CPUs.  User */
 /* should be careful to not run more auxiliary threads than available */
 /* logical CPUs created by hyperthreading. */ 
@@ -427,8 +427,8 @@ void SetPriority (
 			break;
 		}
 
-/* If number of worker threads equals number of logical cpus then run each */
-/* worker thread on its own logical CPU.  If the user also has us running */
+/* If number of workers equals number of logical cpus then run each */
+/* worker on its own logical CPU.  If the user is also running */
 /* auxiliary threads, then the user has made a really bad decision and a */
 /* performance hit will occur running on the same logical CPU. */
 
@@ -442,29 +442,37 @@ void SetPriority (
 /* Example, on a quad-core with worker 1 using 2 CPUs, and workers 2 & 3 each use 1 CPU --- no problem. */
 
 		{
-			int	i, worker_thread_count;
-			worker_thread_count = 0;
-			for (i = 0; i < (int) NUM_WORKER_THREADS; i++) worker_thread_count += THREADS_PER_TEST[i];
+			int	i, worker_thread_count, threads_used_by_lower_workers;
+			worker_thread_count = threads_used_by_lower_workers = 0;
+			for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+				worker_thread_count += THREADS_PER_TEST[i];
+				if (i < info->thread_num) threads_used_by_lower_workers += THREADS_PER_TEST[i];
+			}
 
 			if (worker_thread_count == NUM_CPUS) {
 				bind_type = 0;			// Set affinity to a specific physical CPU core
-				core = 0;
-				for (i = 0; i < info->thread_num; i++) core += THREADS_PER_TEST[i];
-				core += info->aux_thread_num;
+				core = threads_used_by_lower_workers + info->aux_thread_num;
 				break;
 			}
 
 			if (worker_thread_count == NUM_CPUS * CPU_HYPERTHREADS) {
 				bind_type = 1;			// Set affinity to a specific logical CPU
-				logical_CPU = 0;
-				for (i = 0; i < info->thread_num; i++) logical_CPU += THREADS_PER_TEST[i];
-				logical_CPU += info->aux_thread_num;
+				logical_CPU = threads_used_by_lower_workers + info->aux_thread_num;
 				break;
 			}
 
-/* If total num CPUs < num_cpus or num_cpus * hyper-threads, then what to do? */
-/* Leave core 0 unused for interrupts???  Bind to ceil(num-left-unassigned / num-logical-cores-left) ??? */
-/* Is this worth worrying about?  For now, just do any CPU. */
+/* If total num threads < num_cpus we will give each thread its own CPU.  There is some anecdotal */
+/* evidence that CPU 0 is reserved for interrupt processing (on some OSes), so we leave CPU #0 unused */
+/* (hoping hwloc assigns CPU numbers the same way the OS does). */
+
+			if (worker_thread_count < (int) NUM_CPUS) {
+				bind_type = 0;			// Set affinity to a specific physical CPU core
+				core = threads_used_by_lower_workers + info->aux_thread_num + 1;
+				break;
+			}
+
+/* If total num threads is between num_cpus and num_cpus * hyper-threads, then what to do? */
+/* Our default policy is to throw our hands up in despair and simply run on any CPU. */
 
 			return;
 		}
