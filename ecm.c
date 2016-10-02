@@ -2430,7 +2430,7 @@ return 0;
 if (w->n == 600) {
 gwhandle gwdata;
 void *workbuf;
-int j, min_test, max_test, test, cnt, NUM_X87_TESTS, NUM_SSE2_TESTS, NUM_AVX_TESTS;
+int j, min_test, max_test, test, cnt, NUM_X87_TESTS, NUM_SSE2_TESTS, NUM_AVX_TESTS, NUM_AVX512_TESTS;
 #define timeit(a,n,w) (((void**)a)[0]=w,((uint32_t*)a)[2]=n,gwtimeit(a))
 
 gwinit (&gwdata);
@@ -2443,15 +2443,18 @@ max_test = IniGetInt (INI_FILE, "MaxTest", min_test);
 NUM_X87_TESTS = timeit (gwdata.asm_data, -1, NULL);
 NUM_SSE2_TESTS = timeit (gwdata.asm_data, -2, NULL);
 NUM_AVX_TESTS = timeit (gwdata.asm_data, -3, NULL);
+NUM_AVX512_TESTS = timeit (gwdata.asm_data, -4, NULL);
 //SetThreadPriority (CURRENT_THREAD, THREAD_PRIORITY_TIME_CRITICAL);
-for (j = 0; j < NUM_X87_TESTS + NUM_SSE2_TESTS + NUM_AVX_TESTS; j++) {
+for (j = 0; j < NUM_X87_TESTS + NUM_SSE2_TESTS + NUM_AVX_TESTS + NUM_AVX512_TESTS; j++) {
 	cnt = 0;
 	test = (j < NUM_X87_TESTS ? j :
 		j < NUM_X87_TESTS + NUM_SSE2_TESTS ? 1000 + j - NUM_X87_TESTS :
-			2000 + j - NUM_X87_TESTS - NUM_SSE2_TESTS);
+		j < NUM_X87_TESTS + NUM_SSE2_TESTS + NUM_AVX_TESTS ? 2000 + j - NUM_X87_TESTS - NUM_SSE2_TESTS :
+			3000 + j - NUM_X87_TESTS - NUM_SSE2_TESTS - NUM_AVX_TESTS);
 	if (min_test && (test < min_test || test > max_test)) continue;
 	if (! (CPU_FLAGS & CPU_SSE2) && test >= 1000) break;
 	if (! (CPU_FLAGS & CPU_AVX) && test >= 2000) break;
+	if (! (CPU_FLAGS & CPU_AVX512F) && test >= 3000) break;
 for (i = 1; i <= 50; i++) {
 	start_timer (timers, 0);
 	timeit (gwdata.asm_data, test, workbuf);
