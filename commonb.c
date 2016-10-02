@@ -4007,7 +4007,7 @@ EXTERNC int factor64_tf (struct facasm_data *);		/* Assembly code, TF a sieved b
 
 /* Forward declarations */
 
-int factorChunkMultithreaded (fachandle *facdata, struct facasm_data *asm_data);
+int factorChunkMultithreaded (fachandle *facdata, struct facasm_data *asm_data, int);
 
 /* Routine for auxiliary threads */
 
@@ -4052,7 +4052,7 @@ void factor_auxiliary_thread (void *arg)
 
 		for ( ; ; ) {
 			if (facdata->threads_must_exit) break;
-			if (factorChunkMultithreaded (facdata, asm_data)) break;
+			if (factorChunkMultithreaded (facdata, asm_data, TRUE)) break;
 		}
 
 /* The auxiliary threads have run out of work.  Decrement the count of */
@@ -4371,7 +4371,7 @@ int factorChunk (
 /* If enabled, use the multi-thread version of this code */
 
 	if (facdata->num_threads > 1) {
-		res = factorChunkMultithreaded (facdata, asm_data);
+		res = factorChunkMultithreaded (facdata, asm_data, FALSE);
 		// If we didn't TF a chunk (because there are no more to do) then wait
 		// for the auxiliary threads to finish up, just in case one of them
 		// finds a factor.  Set FACHSW,FACMSW so that primeFactor knows we've finished
@@ -4422,7 +4422,8 @@ int factorChunk (
 
 int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do */
 	fachandle *facdata,		/* Handle returned by factorSetup */
-	struct facasm_data *asm_data)	/* This thread's asm data */
+	struct facasm_data *asm_data,	/* This thread's asm data */
+	int	this_is_an_auxilary_thread)
 {
 	int	i, res;
 
@@ -4430,6 +4431,8 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 
 	gwmutex_lock (&facdata->thread_lock);
 	if (!facdata->a_thread_is_sieving &&				// No other threads are sieving
+	    this_is_an_auxilary_thread &&				// Don't let main thread sieve as it must frequently check for
+									// escape and output messages to screen
 	    facdata->num_free_sieve_areas &&				// There are sieve areas free to work on
 	    (facdata->num_free_sieve_areas > 10 ||			// There are a significant number of free areas to fill
 	     facdata->num_free_sieve_areas > facdata->num_threads*2 ||	// There are a significant number of free areas to fill
