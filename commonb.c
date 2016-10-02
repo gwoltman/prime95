@@ -515,12 +515,11 @@ void SetPriority (
 				p = strchr (start, ',');
 				if (p != NULL) {
 					truncated_strcpy_with_len (logical_CPU_substring, sizeof (logical_CPU_substring),
-								   start, p - start - 1);
+								   start, p - start);
 					p++;
 				} else {
+					truncated_strcpy (logical_CPU_substring, sizeof (logical_CPU_substring), start);
 					p = start + strlen (start);
-					truncated_strcpy_with_len (logical_CPU_substring, sizeof (logical_CPU_substring),
-								   start, p - start);
 				}
 			}
 		}
