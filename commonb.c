@@ -553,7 +553,7 @@ void SetPriority (
 		}
 		obj = hwloc_get_obj_by_depth (hwloc_topology, core_depth, core);	/* Get proper core */
 		if (obj) {
-			if (hwloc_set_cpubind (hwloc_topology, obj->cpuset, 0)) {	/* Bind thread to all logical CPUs in the core */
+			if (hwloc_set_cpubind (hwloc_topology, obj->cpuset, HWLOC_CPUBIND_THREAD)) { /* Bind thread to all logical CPUs in the core */
 				char *str;
 				int error = errno;
 				hwloc_bitmap_asprintf (&str, obj->cpuset);
@@ -575,7 +575,7 @@ void SetPriority (
 		}
 		obj = hwloc_get_obj_by_depth (hwloc_topology, logical_CPU_depth, logical_CPU);	/* Get proper logical CPU */
 		if (obj) {
-			if (hwloc_set_cpubind (hwloc_topology, obj->cpuset, 0)) {		/* Bind thread to one logical CPU */
+			if (hwloc_set_cpubind (hwloc_topology, obj->cpuset, HWLOC_CPUBIND_THREAD)) { /* Bind thread to one logical CPU */
 				char *str;
 				int error = errno;
 				hwloc_bitmap_asprintf (&str, obj->cpuset);
@@ -609,7 +609,7 @@ void SetPriority (
 			}
 			if (comma == NULL) break;
 		}
-		if (hwloc_set_cpubind (hwloc_topology, cpuset, 0)) {		/* Set affinity to specified logical CPUs */
+		if (hwloc_set_cpubind (hwloc_topology, cpuset, HWLOC_CPUBIND_THREAD)) {	/* Set affinity to specified logical CPUs */
 			char *str;
 			int error = errno;
 			hwloc_bitmap_asprintf (&str, cpuset);
