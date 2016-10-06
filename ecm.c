@@ -45,12 +45,6 @@ giant	QA_FACTOR = NULL;
 /* Prime utility routines */
 /**************************/
 
-/* Bit manipulation macros */
-
-#define bitset(a,i)	{ a[(i) >> 3] |= (1 << ((i) & 7)); }
-#define bitclr(a,i)	{ a[(i) >> 3] &= ~(1 << ((i) & 7)); }
-#define bittst(a,i)	(a[(i) >> 3] & (1 << ((i) & 7)))
-
 /* Use a simple sieve to find prime numbers */
 
 #define MAX_PRIMES	6542		/* Num primes < 2^16 */
