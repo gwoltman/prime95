@@ -66,7 +66,7 @@ void rangeStatusMessage (
 	    int truncated_status_msg;
 
 /* Init line formatting info */
-	    
+
 	    lines_output = 0;
 	    truncated_status_msg = FALSE;
 
