@@ -2883,7 +2883,9 @@ double work_estimate (
 	if (w->work_type == WORK_FACTOR) {
 		int	i, tf_level;
 
+#ifndef X86_64
 		can_use_multiple_threads = FALSE;
+#endif
 
 		if (w->stage[0]) tf_level = atoi (&w->stage[2]);
 		else tf_level = 0;
