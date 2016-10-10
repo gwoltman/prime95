@@ -2968,7 +2968,7 @@ double work_estimate (
 
 /* If the worker uses multiple CPUs to execute the FFT, then adjust the */
 /* time estimate.  As a rough estimate, assume the first additional CPU */
-/* reduces the time by a factor of 1.7.  Also assume each additional CPU */
+/* reduces the time by a factor of 1.9.  Also assume each additional CPU */
 /* is less beneficial.  Trial factoring is an exception -- it scales quite nicely. */
 
 	if (can_use_multiple_threads &&
@@ -2978,7 +2978,7 @@ double work_estimate (
 		cpu_value = 1.0;
 		for (i = 0; i < THREADS_PER_TEST[thread_num]; i += CPU_HYPERTHREADS) {
 			effective_num_cpus += cpu_value;
-			cpu_value *= (w->work_type == WORK_FACTOR ? 1.0 : 0.7);
+			cpu_value *= (w->work_type == WORK_FACTOR ? 1.0 : 0.9);
 		}
 		est = est / effective_num_cpus;
 	}
