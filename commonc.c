@@ -2901,7 +2901,9 @@ double work_estimate (
 	if (w->work_type == WORK_FACTOR) {
 		int	i, tf_level;
 
-#ifndef X86_64
+#ifdef X86_64
+		can_use_multiple_threads = TRUE;
+#else
 		can_use_multiple_threads = FALSE;
 #endif
 
@@ -2920,6 +2922,27 @@ double work_estimate (
 				est += timing;
 		}
 		est = est * 2000.0 / CPU_SPEED;
+
+/* Core 2 and Core I7 CPUs are faster than the Pentium 4 I benchmarked.  I presume all later Intel CPUs are as well. */
+/* AMD CPUs are faster than the Pentium 4 as well.  From the CPU benchmarks page, we find: */
+/* Our original P4, TF to 65 bits -- 2.0 GHz P4 = 20.2 ms */
+/* A 2.8 GHz Core 2 is 5.8 ms, which is 8.1 ms adjusting for different clock rates, or 2.5 times faster */
+/* A 3.3 GHz i7 980 is 4.0 ms, which is 6.6 ms adjusting for different clock rates, or 3.1 times faster */
+/* A 3.2 GHz Phenom 840 is 4.2 ms, which is 6.7 ms adjusting for different clock rates, or 3.0 times faster */
+
+		if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_CORE_2) est /= 2.5;
+		if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_CORE_I7 ||
+		    CPU_ARCHITECTURE == CPU_ARCHITECTURE_PHI ||
+		    CPU_ARCHITECTURE == CPU_ARCHITECTURE_INTEL_OTHER) est /= 3.1;
+		if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_K8 ||
+		    CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_K10 ||
+		    CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_BULLDOZER ||
+		    CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_OTHER) est /= 3.0;
+
+/* Factor in the algorithmic improvements since the Pentium 4 TF benchmark was taken */
+
+		if (CPU_FLAGS & CPU_AVX512F) est /= 4.0;
+		else if (CPU_FLAGS & CPU_AVX2) est /= 2.0;
 	}
 
 /* If testing add in the Lucas-Lehmer testing time */
@@ -2946,7 +2969,7 @@ double work_estimate (
 /* If the worker uses multiple CPUs to execute the FFT, then adjust the */
 /* time estimate.  As a rough estimate, assume the first additional CPU */
 /* reduces the time by a factor of 1.7.  Also assume each additional CPU */
-/* is less beneficial. */
+/* is less beneficial.  Trial factoring is an exception -- it scales quite nicely. */
 
 	if (can_use_multiple_threads &&
 	    THREADS_PER_TEST[thread_num] > CPU_HYPERTHREADS) {
@@ -2955,7 +2978,7 @@ double work_estimate (
 		cpu_value = 1.0;
 		for (i = 0; i < THREADS_PER_TEST[thread_num]; i += CPU_HYPERTHREADS) {
 			effective_num_cpus += cpu_value;
-			cpu_value *= 0.7;
+			cpu_value *= (w->work_type == WORK_FACTOR ? 1.0 : 0.7);
 		}
 		est = est / effective_num_cpus;
 	}
