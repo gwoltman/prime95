@@ -564,6 +564,24 @@ int isPrime (
 	return (TRUE);
 }
 
+/* Calculate the modular inverse - no error checking is performed */
+
+unsigned long modinv (unsigned long x, unsigned long f)		/* Compute 1/x mod f */
+{
+	unsigned long u = x % f;
+	unsigned long v = f;
+	unsigned long tmp, q;
+	long	c = 0, d = 1, stmp;
+
+	while (u > 1) {
+		q = u / v;
+		tmp = v; v = u % v; u = tmp;
+		stmp = c; c = d - q * c; d = stmp;
+	}
+	if (d < 0) d += f;
+	return (d);
+}
+
 /* Upper case a string */
 
 void strupper (

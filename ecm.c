@@ -1264,7 +1264,7 @@ oom:	return (OutOfMemory (thread_num));
 /* returned in factor.  Function returns stop_reason if it was */
 /* interrupted by an escape. */
 
-int modinv (
+int ecm_modinv (
 	ecmhandle *ecmdata,
 	gwnum	b,
 	giant	N,			/* Number we are factoring */
@@ -1339,7 +1339,7 @@ int grouped_modinv (
 
 /* Handle group of 1 as a special case */
 
-	if (size == 1) return (modinv (ecmdata, *b, N, factor));
+	if (size == 1) return (ecm_modinv (ecmdata, *b, N, factor));
 
 /* Handle an odd size */
 
@@ -1401,7 +1401,7 @@ int normalize (
 
 /* Compute the modular inverse and scale up the first input value */
 
-	stop_reason = modinv (ecmdata, b, N, factor);
+	stop_reason = ecm_modinv (ecmdata, b, N, factor);
 	if (stop_reason) return (stop_reason);
 	if (*factor != NULL) return (0);
 	gwmul (&ecmdata->gwdata, b, a);
@@ -1554,7 +1554,7 @@ int normalize_pool (
 
 /* Compute the modular inverse */
 
-	stop_reason = modinv (ecmdata, ecmdata->pool_modinv_value, N, factor);
+	stop_reason = ecm_modinv (ecmdata, ecmdata->pool_modinv_value, N, factor);
 	if (stop_reason) return (stop_reason);
 	if (*factor != NULL) goto exit;
 
