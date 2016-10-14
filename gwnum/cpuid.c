@@ -544,7 +544,8 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			 (family == 6 && model == 79) ||		// Core i7 (based on Broadwell-E technology)
 			 (family == 6 && model == 71) ||		// Core i7, mobile (based on Broadwell technology)
 			 (family == 6 && model == 86) ||		// Core i7, mobile (based on Broadwell technology)
-			 (family == 6 && model == 94))			// Core i7 (based on Skylake technology)
+			 (family == 6 && model == 94) ||		// Core i7 (based on Skylake technology)
+			 (family == 6 && model == 142))			// Core i7, mobile (based on Kaby Lake technology)
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_CORE_I7;
 		else if ((family == 6 && model == 28) ||
 			 (family == 6 && model == 38) ||
