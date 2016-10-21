@@ -4165,7 +4165,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 /* I'm not sure what the maximum size of these areas needs to be, old code allocated these multiples of 64KB */
 
 	for (i = 0; i < facdata->num_siever_allocs; i++) {
-		facdata->siever_info[i].primearray = malloc (3*65536);
+		facdata->siever_info[i].primearray = malloc (2*65536);
 		if (facdata->siever_info[i].primearray == NULL) goto memerr;
 	}
 
@@ -4225,8 +4225,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 			if (facdata->num_siever_groups % prime == 0) continue;	// Don't add primes that are handled by facdist
 			if (facdata->initsieve_primes % prime == 0) continue;	// Don't add primes that are handled by initsieve
 			*primearray++ = prime;	// Save the small prime
-			*primearray++ = SIEVE_SIZE_IN_BYTES * 8 / prime;  // Save minimum number of bits in sieve that will be cleared
-			primearray++;
+			primearray++;		// Skip bit-to-clear offset
 		}
 		*primearray = 0;		// Terminate the prime array
 	}
@@ -4235,7 +4234,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 /* Copy the primearray to each siever */
 
 	for (i = 1; i < facdata->num_siever_allocs; i++) {
-		memcpy (facdata->siever_info[i].primearray, facdata->siever_info[0].primearray, 3*65536);
+		memcpy (facdata->siever_info[i].primearray, facdata->siever_info[0].primearray, 2*65536);
 	}
 
 /* Init thread arrays */
