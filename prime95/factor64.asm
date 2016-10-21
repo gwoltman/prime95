@@ -30,16 +30,17 @@ facdist12K		EQU	QWORD PTR [AD_BASE+66*8]	; Distance to first factor in next siev
 savefac1		EQU	QWORD PTR [AD_BASE+67*8]	; LSW of the first factor in the sieve
 savefac0		EQU	QWORD PTR [AD_BASE+68*8]	; MSW of the first factor in the sieve
 sieve			EQU	[AD_BASE+69*8]			; Area to sieve, or an already sieved area to TF
-primearray		EQU	[AD_BASE+70*8]			; Array of primes and offsets
-initsieve		EQU	[AD_BASE+71*8]			; Array used to initialize sieve
-TWO_TO_FACSIZE_PLUS_62	EQU	QWORD PTR [AD_BASE+72*8]
+primearray		EQU	[AD_BASE+70*8]			; Array of primes
+offsetarray		EQU	[AD_BASE+71*8]			; Array of bit-to-clear offsets
+initsieve		EQU	[AD_BASE+72*8]			; Array used to initialize sieve
+TWO_TO_FACSIZE_PLUS_62	EQU	QWORD PTR [AD_BASE+73*8]
 
-FACHSW			EQU	DWORD PTR [AD_BASE+73*8+0*4]
-FACMSW			EQU	DWORD PTR [AD_BASE+73*8+1*4]
-FACLSW			EQU	DWORD PTR [AD_BASE+73*8+2*4]
-CPU_FLAGS		EQU	DWORD PTR [AD_BASE+73*8+3*4]
-SSE2_LOOP_COUNTER	EQU	DWORD PTR [AD_BASE+73*8+4*4]
-initstart		EQU	DWORD PTR [AD_BASE+73*8+5*4]	; First byte in initsieve to copy
+FACHSW			EQU	DWORD PTR [AD_BASE+74*8+0*4]
+FACMSW			EQU	DWORD PTR [AD_BASE+74*8+1*4]
+FACLSW			EQU	DWORD PTR [AD_BASE+74*8+2*4]
+CPU_FLAGS		EQU	DWORD PTR [AD_BASE+74*8+3*4]
+SSE2_LOOP_COUNTER	EQU	DWORD PTR [AD_BASE+74*8+4*4]
+initstart		EQU	DWORD PTR [AD_BASE+74*8+5*4]	; First byte in initsieve to copy
 
 ;;pad to next cache line to match facasm_data structure defined in commonb.c
 ZMM_INITVAL		EQU	DWORD PTR [AD_BASE+80*8]
@@ -1058,14 +1059,10 @@ bigrem	EQU	rdi
 litrem	EQU	r8
 
 	mov	rsi, primearray
+	mov	r9, offsetarray
 smlp:	mov	ebp, [rsi]
 	and	testp, testp
 	jz	smdn
-	cmp	testp, p
-	jne	short smok
-	mov	DWORD PTR [rsi], 0
-	jmp	short smdn
-smok:
 
 ;
 ; Let testp = an entry from our small primes array
@@ -1105,8 +1102,9 @@ eucdn2:	sub	rdx, rdx		; Divide first factor by testp
 	mov	rax, rdx		; Multiply remainder by x
 	mul	cur
 	div	testp			; rdx now contains the bit number!
-	mov	[rsi+4], edx		; Save that bit number!
-	lea	rsi, [rsi+8]		; Next primearray entry
+	mov	[r9], edx		; Save that bit number!
+	lea	rsi, [rsi+4]		; Next primearray entry
+	lea	r9, [r9+4]		; Next offsetarray entry
 	jmp	smlp
 smdn:
 
@@ -1328,16 +1326,18 @@ PROCF	factor64_sieve
 	mov	rdi, sieve		; Load address of sieve bits
 	add	rdi, sievesize		; Compute end-of-sieve address
 	mov	rbp, primearray		; Ptr to first prime in array
+	mov	r9, offsetarray		; Ptr to first offset in array
 sievelp:mov	ebx, [rbp]		; Load small prime
 	and	rbx, rbx		; See if primearray fully processed
 	jz	short sievedn		; Yes, break out of loop
-	mov	eax, [rbp+4]		; Load bit offset to clear
+	mov	eax, [r9]		; Load bit offset to clear
 	sub	rax, sievesize*8	; Make offset relative to end of the sieve
 clrlp:	btr	[rdi], rax		; Clear the sieve bit
 	add	rax, rbx		; Next bit to clear
 	js	short clrlp		; Past the end of the sieve when rax goes positive
-	mov	[rbp+4], eax		; Save bit clear offset for next time
-	lea	rbp, [rbp+8]		; Next primearray address
+	mov	[r9], eax		; Save bit clear offset for next time
+	lea	rbp, [rbp+4]		; Next primearray address
+	lea	r9, [r9+4]		; Next offsetarray address
 	jmp	short sievelp		; Work on next small prime
 
 ; Bump the first factor in sieve for the caller (caller looks at the value to decide if more sieving is needed)
