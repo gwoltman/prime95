@@ -238,7 +238,7 @@ void getCpuInfo (void);
 void getCpuDescription (char *, int);
 
 int isPrime (unsigned long p);
-unsigned long modinv (unsigned long x, unsigned long f);
+uint64_t modinv (uint64_t x, uint64_t f);
 unsigned int strToMinutes (const char	*);
 void minutesToStr (unsigned int, char *);
 void write_memory_settings (unsigned int, unsigned int, unsigned int, unsigned int);

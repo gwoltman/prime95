@@ -566,12 +566,12 @@ int isPrime (
 
 /* Calculate the modular inverse - no error checking is performed */
 
-unsigned long modinv (unsigned long x, unsigned long f)		/* Compute 1/x mod f */
+uint64_t modinv (uint64_t x, uint64_t f)		/* Compute 1/x mod f */
 {
-	unsigned long u = x % f;
-	unsigned long v = f;
-	unsigned long tmp, q;
-	long	c = 0, d = 1, stmp;
+	uint64_t u = x % f;
+	uint64_t v = f;
+	uint64_t tmp, q;
+	int64_t c = 0, d = 1, stmp;
 
 	while (u > 1) {
 		q = u / v;
