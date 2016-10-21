@@ -1105,8 +1105,8 @@ eucdn2:	sub	rdx, rdx		; Divide first factor by testp
 	mov	rax, rdx		; Multiply remainder by x
 	mul	cur
 	div	testp			; rdx now contains the bit number!
-	mov	[rsi+8], edx		; Save that bit number!
-	lea	rsi, [rsi+12]		; Next primearray entry
+	mov	[rsi+4], edx		; Save that bit number!
+	lea	rsi, [rsi+8]		; Next primearray entry
 	jmp	smlp
 smdn:
 
@@ -1314,7 +1314,7 @@ PROCF	factor64_sieve
 ; Init the sieve
 ;
 
-initsv:	mov	rdi, sieve		; Load sieve address
+	mov	rdi, sieve		; Load sieve address
 	mov	rsi, initsieve		; Load sieve initialization bits addr
 	mov	edx, initstart		; Load qword offset into initsieve
 	add	rsi, rdx		; Compute copy address
@@ -1326,23 +1326,18 @@ initsv:	mov	rdi, sieve		; Load sieve address
 ;
 
 	mov	rdi, sieve		; Load address of sieve bits
+	add	rdi, sievesize		; Compute end-of-sieve address
 	mov	rbp, primearray		; Ptr to first prime in array
 sievelp:mov	ebx, [rbp]		; Load small prime
 	and	rbx, rbx		; See if primearray fully processed
 	jz	short sievedn		; Yes, break out of loop
-	mov	ecx, [rbp+4]		; Load count of bits to clear
-	mov	eax, [rbp+8]		; Load bit offset to clear
+	mov	eax, [rbp+4]		; Load bit offset to clear
+	sub	rax, sievesize*8	; Make offset relative to end of the sieve
 clrlp:	btr	[rdi], rax		; Clear the sieve bit
 	add	rax, rbx		; Next bit to clear
-	dec	rcx			; Test count of bits to clear
-	jnz	short clrlp
-	cmp	rax, sievesize*8	; Past the end of the sieve?
-	jae	short noclr		; Yes, skip one last clear
-	btr	[rdi], rax		; Clear one final sieve bit
-	add	rax, rbx		; Next bit to clear
-noclr:	sub	rax, sievesize*8	; Calculate next sieve's bit to clear
-	mov	[rbp+8], eax		; Save bit clear offset for next time
-	lea	rbp, [rbp+12]		; Next primearray address
+	js	short clrlp		; Past the end of the sieve when rax goes positive
+	mov	[rbp+4], eax		; Save bit clear offset for next time
+	lea	rbp, [rbp+8]		; Next primearray address
 	jmp	short sievelp		; Work on next small prime
 
 ; Bump the first factor in sieve for the caller (caller looks at the value to decide if more sieving is needed)
