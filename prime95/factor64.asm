@@ -7,9 +7,6 @@
 ; This only runs on 64-bit CPUs.  For 32-bit CPUs see factor32.asm
 ;
 
-; IDEAS:
-; test where primearray loses effectiveness 
-
 TITLE   factor64
 
 INCLUDE	unravel.mac
@@ -27,26 +24,22 @@ AD_BASE		EQU	<r11>
 ;
 
 p			EQU	QWORD PTR [AD_BASE+0*8]		; Exponent of Mersenne number being trial factored
-twop			EQU	QWORD PTR [AD_BASE+1*8]		; 2*p -- useful since we factors are 1 more than multiples of 2*p
-facdists		EQU	QWORD PTR [AD_BASE+2*8]		; 64 distances between sieve factors
-facdist64		EQU	QWORD PTR [AD_BASE+66*8]	
-facdist12K		EQU	QWORD PTR [AD_BASE+67*8]	; Distance to first factor in next sieve
-savefac1		EQU	QWORD PTR [AD_BASE+68*8]	; LSW of the first factor in the sieve
-savefac0		EQU	QWORD PTR [AD_BASE+69*8]	; MSW of the first factor in the sieve
-sieve			EQU	[AD_BASE+70*8]			; Area to sieve, or an already sieved area to TF
-primearray		EQU	[AD_BASE+71*8]			; Array of primes and offsets
-initsieve		EQU	[AD_BASE+72*8]			; Array used to initialize sieve
-initlookup		EQU	[AD_BASE+73*8]			; Lookup table into initsieve
+facdists		EQU	QWORD PTR [AD_BASE+1*8]		; 64 distances between sieve factors
+facdist64		EQU	QWORD PTR [AD_BASE+65*8]	
+facdist12K		EQU	QWORD PTR [AD_BASE+66*8]	; Distance to first factor in next sieve
+savefac1		EQU	QWORD PTR [AD_BASE+67*8]	; LSW of the first factor in the sieve
+savefac0		EQU	QWORD PTR [AD_BASE+68*8]	; MSW of the first factor in the sieve
+sieve			EQU	[AD_BASE+69*8]			; Area to sieve, or an already sieved area to TF
+primearray		EQU	[AD_BASE+70*8]			; Array of primes and offsets
+initsieve		EQU	[AD_BASE+71*8]			; Array used to initialize sieve
+TWO_TO_FACSIZE_PLUS_62	EQU	QWORD PTR [AD_BASE+72*8]
 
-TWO_TO_FACSIZE_PLUS_62	EQU	QWORD PTR [AD_BASE+74*8]
-
-FACPASS			EQU	DWORD PTR [AD_BASE+75*8+0*4]
-FACHSW			EQU	DWORD PTR [AD_BASE+75*8+1*4]
-FACMSW			EQU	DWORD PTR [AD_BASE+75*8+2*4]
-FACLSW			EQU	DWORD PTR [AD_BASE+75*8+3*4]
-CPU_FLAGS		EQU	DWORD PTR [AD_BASE+75*8+4*4]
-SSE2_LOOP_COUNTER	EQU	DWORD PTR [AD_BASE+75*8+5*4]
-initstart		EQU	DWORD PTR [AD_BASE+75*8+6*4]	; First dword in initsieve to copy
+FACHSW			EQU	DWORD PTR [AD_BASE+73*8+0*4]
+FACMSW			EQU	DWORD PTR [AD_BASE+73*8+1*4]
+FACLSW			EQU	DWORD PTR [AD_BASE+73*8+2*4]
+CPU_FLAGS		EQU	DWORD PTR [AD_BASE+73*8+3*4]
+SSE2_LOOP_COUNTER	EQU	DWORD PTR [AD_BASE+73*8+4*4]
+initstart		EQU	DWORD PTR [AD_BASE+73*8+5*4]	; First byte in initsieve to copy
 
 ;;pad to next cache line to match facasm_data structure defined in commonb.c
 ZMM_INITVAL		EQU	DWORD PTR [AD_BASE+80*8]
@@ -134,31 +127,29 @@ fac4hi			EQU	QWORD PTR [AD_BASE+135*8]
 
 ;; Other variables (start after the AVX512 variables)
 
-primearray12		EQU	[AD_BASE+272*8]			; Ptr into primearray
-shifter			EQU	QWORD PTR [AD_BASE+273*8]
-shift66			EQU	QWORD PTR [AD_BASE+274*8]	; Two shift counts used in 66-bit factoring
-initval1		EQU	QWORD PTR [AD_BASE+275*8]	; Lower 64 bits of initial value for squarer
-initval0		EQU	QWORD PTR [AD_BASE+276*8]	; Upper 64 bits of initial value for squarer
-initshift		EQU	QWORD PTR [AD_BASE+277*8]	; Initial shift count to make first quotient
-initshift2		EQU	QWORD PTR [AD_BASE+278*8]	; Initial shift count to make first quotient
-initdiv0		EQU	QWORD PTR [AD_BASE+279*8]	; Value to compute 1 / factor
-shift_count		EQU	QWORD PTR [AD_BASE+280*8]	; Shift count used in squaring loop
-temp			EQU	QWORD PTR [AD_BASE+281*8]
-memshifter		EQU	QWORD PTR [AD_BASE+282*8]	; tlp66 case doesn't have a free register to store shifter
-SAVED_REG1		EQU	[AD_BASE+283*8]
-SAVED_REG2		EQU	[AD_BASE+284*8]
-SAVED_REG3		EQU	[AD_BASE+285*8]
-SAVED_REG4		EQU	[AD_BASE+286*8]
-SAVED_REG5		EQU	[AD_BASE+287*8]
-SAVED_REG6		EQU	[AD_BASE+288*8]
-facinv2_in_memory	EQU	QWORD PTR [AD_BASE+289*8]
+shifter			EQU	QWORD PTR [AD_BASE+272*8]
+shift66			EQU	QWORD PTR [AD_BASE+273*8]	; Two shift counts used in 66-bit factoring
+initval1		EQU	QWORD PTR [AD_BASE+274*8]	; Lower 64 bits of initial value for squarer
+initval0		EQU	QWORD PTR [AD_BASE+275*8]	; Upper 64 bits of initial value for squarer
+initshift		EQU	QWORD PTR [AD_BASE+276*8]	; Initial shift count to make first quotient
+initshift2		EQU	QWORD PTR [AD_BASE+277*8]	; Initial shift count to make first quotient
+initdiv0		EQU	QWORD PTR [AD_BASE+278*8]	; Value to compute 1 / factor
+shift_count		EQU	QWORD PTR [AD_BASE+279*8]	; Shift count used in squaring loop
+temp			EQU	QWORD PTR [AD_BASE+280*8]
+memshifter		EQU	QWORD PTR [AD_BASE+281*8]	; tlp66 case doesn't have a free register to store shifter
+SAVED_REG1		EQU	[AD_BASE+282*8]
+SAVED_REG2		EQU	[AD_BASE+283*8]
+SAVED_REG3		EQU	[AD_BASE+284*8]
+SAVED_REG4		EQU	[AD_BASE+285*8]
+SAVED_REG5		EQU	[AD_BASE+286*8]
+SAVED_REG6		EQU	[AD_BASE+287*8]
+facinv2_in_memory	EQU	QWORD PTR [AD_BASE+288*8]
 
 ;
 ; Global variables
 ;
 
 _GWDATA SEGMENT PAGE
-rems		DQ	1,7,17,23,31,41,47,49,71,73,79,89,97,103,113,119
 smfacendpt	DQ	100000000000h					; Limit for brute force factoring code (2^44)
 	align 16
 XMM_LOWONE		DD	1,0,0,0
@@ -178,7 +169,7 @@ ZMM_28TH_BIT		DD	08000000h,0,08000000h,0,08000000h,0,08000000h,0,08000000h,0,080
 ZMM_ONE			DD	1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0
 
 ;
-; Prime data
+; Prime data (generates all primes below 64K)
 ;
 
 sivinfo	DB	1, 2, 1, 2, 1, 2, 3, 1, 3, 2, 1, 2, 3
@@ -795,7 +786,6 @@ sivinfo	DB	1, 2, 1, 2, 1, 2, 3, 1, 3, 2, 1, 2, 3
 	DB	2, 4, 3, 2, 10, 6, 5, 12, 6, 1, 6, 5, 3, 6, 1
 	DB	3, 9, 2, 3, 3, 3, 4, 12, 3, 5, 6, 15, 7, 5, 4
 	DB	6, 3, 5, 6, 1, 9, 3, 2, 4, 2, 12, 10, 2, 4, 5
-;;; Location of "DB 0" prior to version 28.9
 	DB	6, 4, 6, 8, 3, 7, 2, 4, 2, 9, 25, 3, 3, 2, 3
 	DB	4, 3, 5, 13, 5, 3, 1, 5, 1, 5, 3, 19, 6, 2, 4
 	DB	5, 10, 3, 3, 3, 9, 5, 1, 6, 8, 1, 6, 6, 2, 13
@@ -998,19 +988,13 @@ sivinfo	DB	1, 2, 1, 2, 1, 2, 3, 1, 3, 2, 1, 2, 3
 	DB	1, 6, 8, 4, 5, 6, 4, 3, 3, 12, 2, 3, 4, 8, 3
 	DB	13, 5, 15, 1, 5, 1, 3, 2, 3, 1, 3, 12, 3, 3, 3
 	DB	15, 20, 7, 2, 10, 2, 3, 6, 6, 1, 8, 7, 27, 15, 6
-; Location of "DB 0" in version 28.9 (tested on Skylake with AVX2 factoring)
-DB 0
-IFDEF FOO
 	DB	2, 4, 3, 11, 1, 6, 9, 9, 2, 4, 0
-ENDIF
 
 	;; Align so that other GWDATA areas are aligned on a cache line
 	align 128
 _GWDATA ENDS
 
 
-initsize	EQU	7*11*13*17	; First 4 primes cleared in initsieve
-initcount	EQU	4		; Count of primes cleared in initsieve
 sievesize	EQU	00003000h	; 12KB sieve
 
 ;; Debugging macros
@@ -1044,94 +1028,10 @@ _TEXT	SEGMENT
 PROCF	setupf
 	ad_prolog 0,0,rbx,rbp,rsi,rdi
 
-; Compute various constants and addresses
-
-	mov	rax, primearray
-	add	rax, initcount*12
-	mov	primearray12, rax
-
-; Copy byte based prime array to double word based array
+; Return prime difference array
 
 	mov	rsi, OFFSET sivinfo	; Source - array of bytes
-	mov	rdi, primearray		; Destination - array of double words
-	mov	rbx, 5			; Sivinfo contains primes larger than 5
-	sub	rcx, rcx
-initlp:	mov	cl, [rsi]
-	and	cl, cl			; Test for end of table
-	jz	short tabend
-	add	rbx, rcx
-	add	rbx, rcx
-	cmp	rbx, sievesize*8	; Past maximum prime?
-	jge	short tabend
-	mov	[rdi], ebx		; Save the small prime
-	xor	rdx, rdx		; Compute minimum number of bits in
-	mov	eax, sievesize*8	; sieve that will be cleared
-	div	rbx
-	mov	[rdi+4], eax
-	inc	rsi			; Next table entry
-	lea	rdi, [rdi+12]		; Next primearray entry
-	jmp	short initlp
-tabend:	sub	rcx, rcx
-	mov	[rdi], ecx		; Zero marks last entry
-
-; Fill initsieve array with ones.  We make the table bigger than "necessary"
-; so that filling the sieve can be done in one blast.
-
-	mov	rax, -1
-	mov	rcx, initsize + sievesize / 8
-	mov	rdi, initsieve
-	rep	stosq
-
-; Clear the bits associated with the first 4 primes
-
-	mov	rsi, primearray		; Ptr to first small prime
-	mov	rdi, initsieve		; Address of initial sieve
-	mov	rbx, sieve		; Used for temporary storage
-ilp1:	mov	ecx, [rsi]		; Load small prime
-	sub	rax, rax
-ilp2:	btr	[rdi], rax		; Clear the bit
-	add	rax, rcx		; Next bit #
-	cmp	rax, initsize*64+sievesize*8; Past end of the init area?
-	jb	short ilp2
-	sub	rax, rax		; Save bit# (zero because the first
-	mov	[rbx], eax		; in initsieve was cleared for all
-					; small primes)
-	mov	rax, 64			; Compute p - 64 mod p.  This value
-ilp3:	sub	rax, rcx		; represents the bit# in the next
-	jns	short ilp3		; word that was cleared for the
-	neg	rax	    		; given small prime.  For example,
-	mov	[rbx+4], eax		; 3 - 64 mod 3 = 2.  Thus, the 2nd
-	add	rbx, 8			; bit in the second initsieve qword was
-					; cleared by small prime 3.
-	lea	rsi, [rsi+12]		; Next primearray entry
-	cmp	rsi, primearray12	; Another small prime?
-	jnz	short ilp1
-
-; Fill lookup table into initsieve
-
-	sub	rdi, rdi		; The first lookup points to the
-	sub	rax, rax		; first entry in initsieve
-ilp4:	mov	rsi, initlookup		; Set lookup table entry
-	mov	[rsi][rax*4], edi	; Set lookup table entry
-	inc	rdi			; Point to next initsieve dword
-	mov	rsi, sieve		; Array of 64 mod p info
-	mov	rbx, primearray		; Ptr to first small prime
-	sub	rax, rax		; Build the index in eax
-ilp5:	mov	ecx, [rbx]		; Load the small prime
-	mul	rcx			; Multiply index by the small prime
-	mov	edx, [rsi]		; Load bit#
-	add	edx, [rsi+4]		; Compute bit# in next dword
-ilp6:	sub	rdx, rcx		; Compute bit# mod smallp
-	jns	short ilp6
-	add	rdx, rcx
-	mov	[rsi], edx		; Save bit# for next pass
-	add	rax, rdx		; Add the bit# to the index
-	lea	rsi, [rsi+8]
-	lea	rbx, [rbx+12]		; Next primearray entry
-	cmp	rbx, primearray12	; Last small prime?
-	jne	short ilp5
-	test	rax, rax		; Is lookup table completely built?
-	jnz	short ilp4
+	mov	primearray, rsi		; Destination - array of double words
 
 ; Return
 
@@ -1148,42 +1048,6 @@ setupf	ENDP
 
 PROCF	factor64_pass_setup
 	ad_prolog 0,0,rbx,rbp,rsi,rdi
-
-; First trial factor is first number of the form 2kp + 1
-; greater than FACMSW * 2^32
-
-	mov	edi, FACHSW		; Start point * 2^64
-	mov	ebx, FACMSW		; Start point * 2^32
-	shl	rbx, 32
-
-	mov	rcx, twop		; Load twop for dividing
-	mov	rax, rdi		; Do a mod on the start point
-	xor	rdx, rdx
-	div	rcx
-	mov	rax, rbx
-	div	rcx			
-	sub	rcx, rdx		; Subtract remainder from twop
-	inc	rcx			; and add 1 to find first test factor
-	add	rbx, rcx
-	adc	rdi, 0
-
-; Make sure we have a factor with the right modulo for this pass
-
-	mov	esi, FACPASS		; Get the pass number (0 to 15)
-	mov	rbp, 120
-flp1:	mov	rax, rdi		; Do a mod 120 in two parts
-	xor	rdx, rdx
-	div	rbp
-	mov	rax, rbx		; Do a mod 120
-	div	rbp
-	mov	rax, OFFSET rems
-	cmp	rdx, [rax+rsi*8]	; Is this the desired remainder
-	jz	short flp2		; Yes, jump to flp2
-	add	rbx, twop		; No, try next factor
-	adc	rdi, 0
-	jmp	short flp1		; Loop
-flp2:	mov	savefac0, rdi
-	mov	savefac1, rbx
 
 ; Loop through all the small primes determining sieve bit to clear
 
@@ -1245,19 +1109,6 @@ eucdn2:	sub	rdx, rdx		; Divide first factor by testp
 	lea	rsi, [rsi+12]		; Next primearray entry
 	jmp	smlp
 smdn:
-
-; Use the initlookup table to determine the first dword in initsieve to copy
-
-	mov	rsi, primearray		; Ptr to first small prime
-	sub	rax, rax		; Build the index in rax
-lk1:	mul	DWORD PTR [rsi]		; Multiply index by the small prime
-	add	eax, [rsi+8]		; Add the bit# to the index
-	lea	rsi, [rsi+12]
-	cmp	rsi, primearray12	; Last small prime?
-	jne	short lk1
-	mov	rsi, initlookup		; Load the lookup table address
-	mov	eax, [rsi][rax*4]	; Load the initsieve start offset
-	mov	initstart, eax		; Save the initsieve start offset
 
 ; Pre-square the number as much as possible.  We have separate code
 ; paths for single-word and double-word trial factors.
@@ -1384,7 +1235,8 @@ smslp:	add	rcx, rcx		; Shift until top bit on
 
 ; First trial factor is 2p + 1
 
-	mov	rcx, twop
+	mov	rcx, p
+	add	rcx, rcx
 	inc	rcx
 
 ; If factor = 3 or 5 mod 8, then it can't be a factor of 2**p - 1
@@ -1421,7 +1273,8 @@ smexit:	add	rdx, rdx
 
 ; Try next possible factor
 
-smnext:	add	rcx, twop
+smnext:	add	rcx, p
+	add	rcx, p
 	cmp	rcx, rdi
 	jl	short smtest
 
@@ -1464,21 +1317,16 @@ PROCF	factor64_sieve
 initsv:	mov	rdi, sieve		; Load sieve address
 	mov	rsi, initsieve		; Load sieve initialization bits addr
 	mov	edx, initstart		; Load qword offset into initsieve
-	lea	rsi, [rsi][rdx*8]	; Compute copy address
+	add	rsi, rdx		; Compute copy address
 	mov	rcx, sievesize / 8	; Count of qwords to copy
 	rep	movsq			; Copy the qwords
-	add	rdx, sievesize / 8	; Compute next initsieve start offset
-	cmp	rdx, initsize		; Compare to table's end address
-	jle	short startok		; Jump if still within table
-	sub	rdx, initsize		; Get address back in line
-startok:mov	initstart, edx		; Save start position for next time
 
 ;
 ; Loop through the small prime array, clearing sieve bits.
 ;
 
 	mov	rdi, sieve		; Load address of sieve bits
-	mov	rbp, primearray12	; Ptr to first prime in array
+	mov	rbp, primearray		; Ptr to first prime in array
 sievelp:mov	ebx, [rbp]		; Load small prime
 	and	rbx, rbx		; See if primearray fully processed
 	jz	short sievedn		; Yes, break out of loop
@@ -4935,96 +4783,48 @@ zdo74:	mov	SAVED_REG1, rsi		; Save sieve testing registers
 ; Work on initval.
 ; This is like the zloop74 code except that we avoid the initial squaring.
 
-	avx512_fac_initval
+;	avx512_fac_initval
 
 ; Square remainder and get new remainder.
 
 	mov	edi, SSE2_LOOP_COUNTER	; Number of times to loop
-zloop74:avx512_fac 74
+zloop74:;avx512_fac 74
 	dec	edi			; Decrement loop counter
 	jnz	zloop74
 
 ; If result = factor + 1, then we found a divisor of 2**p - 1
 
-	avx512_compare
-	vpcmpeqq zmm2, zmm2, ZMMWORD PTR ZMM_F3	; See if any remainder is factor + 1
-	vpcmpeqq zmm1, zmm1, ZMMWORD PTR ZMM_F2
-	vpcmpeqq zmm0, zmm0, ZMMWORD PTR ZMM_F1
-	vpand	zmm2, zmm2, zmm1
-	vptest	zmm2, zmm0
-	jnz	short zwin74_1		; Jump if a factor found
-	vpcmpeqq zmm8, zmm8, ZMMWORD PTR ZMM_F3a ; See if any remainder is factor + 1
-	vpcmpeqq zmm7, zmm7, ZMMWORD PTR ZMM_F2a
-	vpcmpeqq zmm6, zmm6, ZMMWORD PTR ZMM_F1a
-	vpand	zmm8, zmm8, zmm7
-	vptest	zmm8, zmm6
-	jnz	zwin74_2		; Jump if a factor found
+	;avx512_compare
+;	vpcmpeqq k1, zmm0, ZMMWORD PTR ZMM_F1		; Test least significant words first, we will rarely get a false match
+;	vpcmpeqq k2, zmm6, ZMMWORD PTR ZMM_F1a
+;	kortestw k1, k2
+	jnz	short zwin74		; Jump if a factor probably found
 
+znowin74:				; No factor found, go get more to test
 	sub	rdi, rdi		; Clear queued factors count
-	mov	rbp, SAVED_REG5		; Restore sieve testing register
+	mov	rbp, SAVED_REG5		; Restore sieve testing registers
 	mov	rcx, SAVED_REG4
 	mov	rbx, SAVED_REG3
 	mov	rax, SAVED_REG2
 	mov	rsi, SAVED_REG1
 	jmp	zbsf74			; Test next factor from sieve
 
-zwin74_1:
-	vpand	zmm2, zmm2, zmm0
-	vpmovmskb rcx, zmm2
-	sub	rdx, rdx		; See if first AVX word was the factor
-	shr	rcx, 1
-	jc	zwin74			; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	zwin74			; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	zwin74			; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	zwin74			; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	short zwin74		; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	short zwin74		; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	short zwin74		; Yes! Factor found
-	lea	rdx, [rdx+8]		; Last AVX word must have been the factor
-	jmp	short zwin74		; Yes! Factor found
+zwin74:
+;	vpcmpeqq k1{k1}, zmm1, ZMMWORD PTR ZMM_F2	; Test rest of remainders for equalling factor + 1 (to comfirm factor really found)
+;	vpcmpeqq k2{k2}, zmm7, ZMMWORD PTR ZMM_F2a
+;	vpcmpeqq k1{k1}, zmm2, ZMMWORD PTR ZMM_F3
+;	vpcmpeqq k2{k2}, zmm8, ZMMWORD PTR ZMM_F3a
 
-zwin74_2:
-	vpand	zmm8, zmm8, zmm6
-	vpmovmskb rcx, zmm8
-	mov	edx, 64			; See if first AVX word was the factor
-	shr	rcx, 1
-	jc	short zwin74		; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	short zwin74		; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	short zwin74		; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	short zwin74		; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	short zwin74		; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	short zwin74		; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	short zwin74		; Yes! Factor found
-	lea	rdx, [rdx+8]		; Last AVX word must have been the factor
-;;	jmp	short zwin74		; Yes! Factor found
+;	kmovw	ecx, k1			; Create a single 16 bit mask from the 2 8-bit masks
+;	kmovw	edx, k2
+	shl	edx, 8
+	add	ecx, edx
+	bsf	rdx, rcx		; Look for a set bit
+	jz	short znowin74		; Rare case, factor was not found
 
-zwin74:	mov	eax, ZMM_F3[rdx]	; Factor found!!! Return it
-	mov	ebx, ZMM_F2[rdx]
-	mov	ecx, ZMM_F1[rdx]
+	mov	eax, ZMM_F3[rdx*8]	; Factor found!!! Return it
+	mov	ebx, ZMM_F2[rdx*8]
+	mov	ecx, ZMM_F1[rdx*8]
 	shl	eax, 2
 	shrd	eax, ebx, 2
 	shl	ebx, 2
@@ -5163,96 +4963,48 @@ zdo86:	mov	SAVED_REG1, rsi		; Save sieve testing registers
 ; Work on initval.
 ; This is like the aloop86 code except that we avoid the initial squaring.
 
-	avx512_fac_initval
+;	avx512_fac_initval
 
 ; Square remainder and get new remainder.
 
 	mov	edi, SSE2_LOOP_COUNTER	; Number of times to loop
-zloop86:avx512_fac 86
+zloop86:;avx512_fac 86
 	dec	edi			; Decrement loop counter
 	jnz	zloop86
 
 ; If result = factor + 1, then we found a divisor of 2**p - 1
 
-	avx512_compare
-	vpcmpeqq zmm2, zmm2, ZMMWORD PTR ZMM_F3	; See if any remainder is factor + 1
-	vpcmpeqq zmm1, zmm1, ZMMWORD PTR ZMM_F2
-	vpcmpeqq zmm0, zmm0, ZMMWORD PTR ZMM_F1
-	vpand	zmm2, zmm2, zmm1
-	vptest	zmm2, zmm0
-	jnz	short zwin86_1		; Jump if a factor found
-	vpcmpeqq zmm8, zmm8, ZMMWORD PTR ZMM_F3a ; See if any remainder is factor + 1
-	vpcmpeqq zmm7, zmm7, ZMMWORD PTR ZMM_F2a
-	vpcmpeqq zmm6, zmm6, ZMMWORD PTR ZMM_F1a
-	vpand	zmm8, zmm8, zmm7
-	vptest	zmm8, zmm6
-	jnz	zwin86_2		; Jump if a factor found
+	;avx512_compare
+;	vpcmpeqq k1, zmm0, ZMMWORD PTR ZMM_F1		; Test least significant words first, we will rarely get a false match
+;	vpcmpeqq k2, zmm6, ZMMWORD PTR ZMM_F1a
+;	kortestw k1, k2
+	jnz	short zwin86		; Jump if a factor probably found
 
+znowin86:				; No factor found, go get more to test
 	sub	rdi, rdi		; Clear queued factors count
-	mov	rbp, SAVED_REG5		; Restore sieve testing register
+	mov	rbp, SAVED_REG5		; Restore sieve testing registers
 	mov	rcx, SAVED_REG4
 	mov	rbx, SAVED_REG3
 	mov	rax, SAVED_REG2
 	mov	rsi, SAVED_REG1
 	jmp	zbsf86			; Test next factor from sieve
 
-zwin86_1:
-	vpand	zmm2, zmm2, zmm0
-	vpmovmskb rcx, zmm2
-	sub	rdx, rdx		; See if first AVX word was the factor
-	shr	rcx, 1
-	jc	zwin86			; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	zwin86			; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	zwin86			; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	zwin86			; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	short zwin86		; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	short zwin86		; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	short zwin86		; Yes! Factor found
-	lea	rdx, [rdx+8]		; Last AVX word must have been the factor
-	jmp	short zwin86		; Yes! Factor found
+zwin86:
+;	vpcmpeqq k1{k1}, zmm1, ZMMWORD PTR ZMM_F2	; Test rest of remainders for equalling factor + 1 (to comfirm factor really found)
+;	vpcmpeqq k2{k2}, zmm7, ZMMWORD PTR ZMM_F2a
+;	vpcmpeqq k1{k1}, zmm2, ZMMWORD PTR ZMM_F3
+;	vpcmpeqq k2{k2}, zmm8, ZMMWORD PTR ZMM_F3a
 
-zwin86_2:
-	vpand	zmm8, zmm8, zmm6
-	vpmovmskb rcx, zmm8
-	mov	edx, 64			; See if first AVX word was the factor
-	shr	rcx, 1
-	jc	short zwin86		; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	short zwin86		; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	short zwin86		; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	short zwin86		; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	short zwin86		; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	short zwin86		; Yes! Factor found
-	lea	rdx, [rdx+8]		; See if next AVX word was the factor
-	shr	rcx, 8
-	jc	short zwin86		; Yes! Factor found
-	lea	rdx, [rdx+8]		; Last AVX word must have been the factor
-;;	jmp	short zwin86		; Yes! Factor found
+;	kmovw	ecx, k1			; Create a single 16 bit mask from the 2 8-bit masks
+;	kmovw	edx, k2
+	shl	edx, 8
+	add	ecx, edx
+	bsf	rdx, rcx		; Look for a set bit
+	jz	short znowin86		; Rare case, factor was not found
 
-zwin86:	mov	eax, ZMM_F3[rdx]	; Factor found!!! Return it
-	mov	ebx, ZMM_F2[rdx]
-	mov	ecx, ZMM_F1[rdx]
+	mov	eax, ZMM_F3[rdx*8]	; Factor found!!! Return it
+	mov	ebx, ZMM_F2[rdx*8]
+	mov	ecx, ZMM_F1[rdx*8]
 	shl	eax, 2
 	shrd	eax, ebx, 2
 	shl	ebx, 2
