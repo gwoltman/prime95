@@ -3935,7 +3935,8 @@ struct facasm_data {
 	uint64_t savefac1;		/* LSW or first factor in sieve */
 	uint64_t savefac0;		/* MSW or first factor in sieve */
 	void	*sieve;			/* Area to sieve or already sieved area to TF */
-	void	*primearray;		/* Array of primes and offsets */
+	void	*primearray;		/* Array of sieving primes */
+	void	*offsetarray;		/* Array of bits-to-clear for each sieving prime */
 	void	*initsieve;		/* Array used to initialize sieve */
 	double	TWO_TO_FACSIZE_PLUS_62;	/* Constant used in SSE2/AVX2 TF code */
 
@@ -3946,7 +3947,7 @@ struct facasm_data {
 	uint32_t SSE2_LOOP_COUNTER;	/* Counter used in SSE2/AVX2 TF code */
 	uint32_t initstart;		/* First byte in initsieve to copy (see ASM code) */
 
-	uint32_t pad[8];		/* Pad to next 64-byte cache line */
+	uint32_t pad[6];		/* Pad to next 64-byte cache line */
 	uint32_t xmm_data[80];		/* XMM/YMM/ZMM data initialized in C code */
 
 	uint32_t other_asm_temps_and_consts[400];
@@ -3972,7 +3973,7 @@ typedef struct {
 	struct siever_info {
 		int	state;			/* State of this siever (see below) */
 		uint64_t next_sieve_first_factor[2]; /* First factor for next sieve area */
-		void	*primearray;		/* Small primes and offsets to bit-to-clear */
+		void	*offsetarray;		/* bit-to-clear offsets for each sieve prime */
 		uint64_t num_areas_to_sieve;	/* Count of remaining needed factor64_sieve calls for this siever */
 	} siever_info[MAX_NUM_SIEVERS];
 	int	num_siever_allocs;		/* Number of allocated sievers (residue classes of num_siever_groups) */
@@ -4165,8 +4166,8 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 /* I'm not sure what the maximum size of these areas needs to be, old code allocated these multiples of 64KB */
 
 	for (i = 0; i < facdata->num_siever_allocs; i++) {
-		facdata->siever_info[i].primearray = malloc (2*65536);
-		if (facdata->siever_info[i].primearray == NULL) goto memerr;
+		facdata->siever_info[i].offsetarray = malloc (65536);
+		if (facdata->siever_info[i].offsetarray == NULL) goto memerr;
 	}
 
 	facdata->num_sieve_areas = (facdata->num_threads <= 1) ? 1 : facdata->num_threads * 4;
@@ -4217,24 +4218,21 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 
 		setupf (asm_data);
 		pdiff = (const char *) asm_data->primearray;
-		asm_data->primearray = primearray = (uint32_t *) facdata->siever_info[0].primearray;
+		asm_data->primearray = malloc (65536);
+		if (asm_data->primearray == NULL) goto memerr;
+		primearray = (uint32_t *) asm_data->primearray;
 		maxprime = IniGetInt (INI_FILE, "MaxTFSievePrime", 65535);
+// BUG -- we should allow sieving primes higher than 64K (don't use pdiff array and asm code must
+// be changed to clear zero or more bits instead of one or more bits)
 		for (prime = 5;	*pdiff; pdiff++) {  // Loop through pdiff generating primes greater than 5
 			prime += *pdiff * 2;
 			if (prime > maxprime) break;
+			if (prime == asm_data->p) continue;			// Rare case: TF where exponent <= maxprime
 			if (facdata->num_siever_groups % prime == 0) continue;	// Don't add primes that are handled by facdist
 			if (facdata->initsieve_primes % prime == 0) continue;	// Don't add primes that are handled by initsieve
 			*primearray++ = prime;	// Save the small prime
-			primearray++;		// Skip bit-to-clear offset
 		}
 		*primearray = 0;		// Terminate the prime array
-	}
-// compress primearry -  split it into two arrays (one constant, one not)
-
-/* Copy the primearray to each siever */
-
-	for (i = 1; i < facdata->num_siever_allocs; i++) {
-		memcpy (facdata->siever_info[i].primearray, facdata->siever_info[0].primearray, 2*65536);
 	}
 
 /* Init thread arrays */
@@ -4320,6 +4318,7 @@ void factorDone (
 
 	if (asm_data != NULL) {
 		free (asm_data->initsieve);
+		free (asm_data->primearray);
 		aligned_free (asm_data);
 		facdata->asm_data = NULL;
 	}
@@ -4327,8 +4326,8 @@ void factorDone (
 /* Free the sieve areas */
 
 	for (i = 0; i < facdata->num_siever_allocs; i++) {
-		free (facdata->siever_info[i].primearray);
-		facdata->siever_info[i].primearray = NULL;
+		free (facdata->siever_info[i].offsetarray);
+		facdata->siever_info[i].offsetarray = NULL;
 	}
 	for (i = 0; i < facdata->num_sieve_areas; i++) {
 		free (facdata->sieve_area[i].sieve);
@@ -4451,7 +4450,7 @@ int factorPassSetup (
 
 /* Now let assembly code do the pass initialization */
 
-		asm_data->primearray = facdata->siever_info[i].primearray;
+		asm_data->offsetarray = facdata->siever_info[i].offsetarray;
 		factor64_pass_setup (asm_data);
 
 /* Remember the first factor, the initial offset to fill the sieve, and init siever state */
@@ -4547,7 +4546,7 @@ int factorChunk (
 	facdata->sieve_area[0].first_factor[1] = asm_data->savefac1 = facdata->siever_info[0].next_sieve_first_factor[1];
 	asm_data->initstart = mod96_32 (asm_data->savefac0, asm_data->savefac1, facdata->initsieve_primes) *
 			      facdata->one_eighth_initsieve_primes % facdata->initsieve_primes;
-	asm_data->primearray = facdata->siever_info[0].primearray;
+	asm_data->offsetarray = facdata->siever_info[0].offsetarray;
 	asm_data->sieve = facdata->sieve_area[0].sieve;
 	factor64_sieve (asm_data);
 	facdata->siever_info[0].next_sieve_first_factor[0] = asm_data->savefac0;	/* Remember next sieve's first factor */
@@ -4609,7 +4608,7 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 		int	how_many_sieved = 0;
 		facdata->num_sievers_active++;
 		facdata->siever_info[j].state = SIEVER_ACTIVE;
-		asm_data->primearray = facdata->siever_info[j].primearray;	/* Restore primearray pointer */
+		asm_data->offsetarray = facdata->siever_info[j].offsetarray;
 		while (facdata->num_free_sieve_areas && facdata->siever_info[j].num_areas_to_sieve && how_many_sieved++ < 50) {
 			for (i = facdata->last_sieve_area_for_sieve + 1; ; i++) {
 				if (i == facdata->num_sieve_areas) i = 0;
