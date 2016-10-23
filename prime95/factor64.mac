@@ -1175,7 +1175,7 @@ sse2_fac MACRO fac_size
 	psllq	xmm10, xmm0		;; temp1 *= 1 or 2
 	ENDM
 
-;; Check if remainder in xmm4,xmm5 matches is factor + 1 indicating we found a factor!
+;; Check if remainder in xmm4,xmm5 matches factor + 1 indicating we found a factor!
 
 sse2_compare MACRO
 	psubq	xmm5, XMMWORD PTR YMM_ONE ;; Subtract one to compare result to factor
@@ -1202,7 +1202,6 @@ sse2_compare MACRO
 	movdqa	xmm6, xmm10
 	pand	xmm6, XMMWORD PTR XMM_BITS28 ;; RES1 = temp1 & 0x0FFFFFFF
 	ENDM
-
 
 
 
@@ -2200,307 +2199,7 @@ avx2_fac MACRO fac_size
 	vpsllq	ymm10, ymm10, xmm0			;;	22	temp1 *= 1 or 2
 	ENDM
 
-
-
-;; Re-time on Skylake and Haswell Linux boxes
-IFDEF NO_BETTER_THAN_STRAIGHTFORWARD_IMPL_ABOVE
-
-; This macro does one iteration of the main loop.  Square a remainder and do a mod.
-
-avx2_fac MACRO fac_size
-
-;; Note that at the beginning of the macro ymm4, ymm5 contains the unnormalized remainder
-;; for us to square.  The first order of business is to break the remainder into 30-bit
-;; chunks in ymm0, ymm1, ymm2 to square.  This remainder can be one more bit than
-;; fac_size.  This is because we do not perform a modulo after the optional
-;; multiply by two at the end of this macro.
-
-;; Also note that in very rare cases the remainder could be two more bits
-;; than fac_size.  Since the calculated quotient could be one too small,
-;; the maximum remainder is 2 * (factor + epsilon).  This extremely rare
-;; extra bit should not be a problem as the code below uses 30 bit integers
-;; and it shouldn't be a problem handling one more bit.
-
-;; In the comments of this code, we'll assume fac_size is 89 bits and the
-;; input remainder is 90 bits (30 bits in each ymm register).
-
-;; rem = A,B,C (30,30,30 bits unsigned)
-;; Square rem producing a 180 bit result stored in temp1, temp3, temp5
-;; temp5 = CC				(60)
-;; temp4 = 2BC				(61)
-;; temp3 = 2AC + BB			(62 = 61 + 60)
-;; temp2 = 2AB				(61)
-;; temp1 = AA				(60)
-
-;; If fac_size is 75 bits or more (the remainder is 76 bits or more), then
-;; the squared remainder is more than 150 bits.  In this case, get the very
-;; highest bits and multiply them by 2^120 mod factor.  We'll then add
-;; these back into the squared remainder as part of our effort to create a
-;; 120 bit result.
-;;
-;; AA_HIGH = temp1 >> 30
-;; temp4 += AA_HIGH * TWO_120_MODF3
-;; temp3 += AA_HIGH * TWO_120_MODF2
-;; temp2 += AA_HIGH * TWO_120_MODF1
-;; temp1 = AA & 0x3FFFFFFF
-
-;; Combine temp1 through temp5 into 3 temporaries
-;;
-;; temp5 += (temp4 & 0x3FFFFFFF) << 30
-;; temp3 += (temp4 >> 30) + (temp2 & 0x3FFFFFFF) << 30
-;; temp1 += temp2 >> 30
-;;
-;; While doing the above we interleave work from the paragraph below.
-;;
-;; Our value is now at most 150 bits.  Take the upper 30 bits and multiply
-;; them by 2^120 mod factor.  Then add these back into the squared remainder
-;; to create a 120 bit result.
-;;
-;; Make sure we add any bits from temp3 above 2^60 into temp1
-;; temp5 += temp1 * TWO_120_MODF3
-;; temp4 += temp1 * TWO_120_MODF2
-;; temp3 += temp1 * TWO_120_MODF1
-;;
-;; Finally, we do a lot of instruction interleaving in hopes of making it
-;; easier for the CPU to schedule the instructions.  The clock counts assume
-;; my understanding of Haswell instruction scheduling is correct and all instructions
-;; get assigned to port 0 and 1.  With some instructions allowed to go to port 5,
-;; timings should be even better than shown.
-
-;; Break remainder in ymm4,ymm5 into 30 bit quantities.
-;;
-;; RES3 = temp2 & 0x3FFFFFFF		(30)
-;; temp2 >>= 30				(signed 32)
-;; RES2 = temp2 & 0x3FFFFFFF		(30)
-;; temp2 >>= 30				(signed 2)
-;; temp1 += temp2
-;; RES1 = temp1 & 0x0FFFFFFF		(28)
-
-	vpand	ymm2, ymm5, ymm15				;;29		RES3 = temp2 & 0x3FFFFFFF
-	vpsrlq	ymm5, ymm5, 30					;;29		temp2 >>= 30
-	vpand	ymm1, ymm5, ymm15				;;30		RES2 = temp2 & 0x3FFFFFFF
-	vpsrlq	ymm5, ymm5, 2					;;30		temp2 >>= 2
-	vpsrad	ymm5, ymm5, 28					;;31		temp2 >>= 28
-	vpaddd	ymm4, ymm4, ymm5				;;32		temp1 += temp2
-	vpand	ymm0, ymm4, YMMWORD PTR YMM_BITS28		;;32		RES1 = temp1 & 0x0FFFFFFF
-	vpand	ymm8, ymm11, ymm15				;;	31	RES3 = temp2 & 0x3FFFFFFF
-	vpsrlq	ymm11, ymm11, 30				;;	33	temp2 >>= 30
-	vpand	ymm7, ymm11, ymm15				;;	34	RES2 = temp2 & 0x3FFFFFFF
-	vpsrlq	ymm11, ymm11, 2					;;	34	temp2 >>= 2
-	vpsrad	ymm11, ymm11, 28				;;	35	temp2 >>= 28
-	vpaddd	ymm10, ymm10, ymm11				;;	36	temp1 += temp2
-	vpand	ymm6, ymm10, YMMWORD PTR YMM_BITS28		;;	36	RES1 = temp1 & 0x0FFFFFFF
-
-								;; A = ymm0, B = ymm1, C = ymm2
-
-	vpaddq	ymm3, ymm0, ymm0				;;1		2A
-	vpaddq	ymm5, ymm1, ymm1				;;1		2B
-	vpmuludq ymm1, ymm1, ymm1				;;2-6		temp3 = BB
-	vpmuludq ymm4, ymm0, ymm0				;;2-6		temp1 = AA
-	vpmuludq ymm3, ymm3, ymm2				;;3-7		2AC = 2A * C
-	vpaddq	ymm9, ymm6, ymm6				;;	3	2A
-	vpaddq	ymm11, ymm7, ymm7				;;	4	2B
-	vpmuludq ymm7, ymm7, ymm7				;;	4-8	temp3 = BB
-	vpmuludq ymm10, ymm6, ymm6				;;	5-9	temp1 = AA
-	vpmuludq ymm9, ymm9, ymm8				;;	5-9	2AC = 2A * C
-	vpmuludq ymm0, ymm0, ymm5				;;6-10		temp2 = 2AB = A * 2B
-	vpmuludq ymm5, ymm5, ymm2				;;6-10		temp4 = 2BC = 2B * C
-	vpmuludq ymm2, ymm2, ymm2				;;7-11		temp5 = CC
-	vpmuludq ymm6, ymm6, ymm11				;;	7-11	temp2 = 2AB = A * 2B
-	vpmuludq ymm11, ymm11, ymm8				;;	8-12	temp4 = 2BC = 2B * C
-	vpmuludq ymm8, ymm8, ymm8				;;	8-12	temp5 = CC
-	vpaddq	ymm1, ymm1, ymm3				;;9		temp3 = BB + 2AC
-	vpaddq	ymm7, ymm7, ymm9				;;	10	temp3 = BB + 2AC
-								;;		temp1-5 = ymm4,0,1,5,2
-								;;		temp1-5 = ymm10,6,7,11,8
-
-	IF fac_size GE 75
-	vpsrlq	ymm3, ymm4, 30					;;9		AA_HIGH = Upper 30 bits of AA
-	vpmuludq ymm12, ymm3, YMMWORD PTR YMM_TWO_120_MODF2	;;10-14		AA_HIGH * 2_120_MODF2
-	vpmuludq ymm13, ymm3, YMMWORD PTR YMM_TWO_120_MODF1	;;10-14		AA_HIGH * 2_120_MODF1
-	vpmuludq ymm3, ymm3, YMMWORD PTR YMM_TWO_120_MODF3	;;11-15		AA_HIGH * 2_120_MODF3
-	vpsrlq	ymm9, ymm10, 30					;;	11	AA_HIGH = Upper 30 bits of AA
-	vpmuludq ymm14, ymm9, YMMWORD PTR YMM_TWO_120_MODF2a	;;	12-16	AA_HIGH * 2_120_MODF2
-	vpaddq	ymm1, ymm1, ymm12				;;15		temp3 += AA_HIGH * 2_120_MODF2
-	vpmuludq ymm12, ymm9, YMMWORD PTR YMM_TWO_120_MODF1a	;;	12-16	AA_HIGH * 2_120_MODF1
-	vpmuludq ymm9, ymm9, YMMWORD PTR YMM_TWO_120_MODF3a	;;	13-17	AA_HIGH * 2_120_MODF3
-	vpand	ymm4, ymm4, ymm15				;;13		temp1 = Low 30 bits of AA
-	vpand	ymm10, ymm10, ymm15				;;	14	temp1 = Low 30 bits of AA
-	vpaddq	ymm0, ymm0, ymm13				;;15		temp2 += AA_HIGH * 2_120_MODF1
-	vpaddq	ymm5, ymm5, ymm3				;;16		temp4 += AA_HIGH * 2_120_MODF3
-	vpaddq	ymm7, ymm7, ymm14				;;	17	temp3 += AA_HIGH * 2_120_MODF2
-	vpaddq	ymm6, ymm6, ymm12				;;	17	temp2 += AA_HIGH * 2_120_MODF1
-	vpaddq	ymm11, ymm11, ymm9				;;	18	temp4 += AA_HIGH * 2_120_MODF3
-	ENDIF
-
-	vpsrlq	ymm3, ymm1, 30					;;10		Top bits of temp3
-	vpand	ymm1, ymm1, ymm15				;;10		temp3 = temp3 & 0x3FFFFFFF
-	vpaddq	ymm0, ymm0, ymm3				;;11		Add temp3 top bits into temp2
-	vpsrlq	ymm3, ymm0, 30					;;12		Top bits of temp2
-	vpand	ymm0, ymm0, ymm15				;;12		temp2 & 0x3FFFFFFF
-	vpsllq	ymm0, ymm0, 30					;;13		temp2 << 30
-	vpaddd	ymm4, ymm4, ymm3				;;13		Add temp2 top bits into temp1
-	vpor	ymm1, ymm1, ymm0				;;14		temp3 += temp2 << 30
-	vpmuludq ymm0, ymm4, YMMWORD PTR YMM_TWO_120_MODF2	;;14-18		temp1 * TWO_120_MODF2
-	vpmuludq ymm3, ymm4, YMMWORD PTR YMM_TWO_120_MODF1	;;15-19		temp1 * TWO_120_MODF1
-	vpmuludq ymm4, ymm4, YMMWORD PTR YMM_TWO_120_MODF3	;;15-19		temp1 * TWO_120_MODF3
-	vpsrlq	ymm9, ymm7, 30					;;	16	Top bits of temp3
-	vpand	ymm7, ymm7, ymm15				;;	16	temp3 = temp3 & 0x3FFFFFFF
-	vpaddq	ymm6, ymm6, ymm9				;;	17	Add temp3 top bits into temp2
-	vpsrlq	ymm9, ymm6, 30					;;	18	Top bits of temp2
-	vpand	ymm6, ymm6, ymm15				;;	18	temp2 & 0x3FFFFFFF
-	vpsllq	ymm6, ymm6, 30					;;	19	temp2 << 30
-	vpaddd	ymm10, ymm10, ymm9				;;	19	Add temp2 top bits into temp1
-	vpor	ymm7, ymm7, ymm6				;;	20	temp3 += temp2 << 30
-	vpmuludq ymm6, ymm10, YMMWORD PTR YMM_TWO_120_MODF2a	;;	20-24	temp1 * TWO_120_MODF2
-	vpmuludq ymm9, ymm10, YMMWORD PTR YMM_TWO_120_MODF1a	;;	21-25	temp1 * TWO_120_MODF1
-	vpmuludq ymm10, ymm10, YMMWORD PTR YMM_TWO_120_MODF3a	;;	21-25	temp1 * TWO_120_MODF3
-	vpaddq	ymm5, ymm5, ymm0				;;22		temp4 += temp1 * TWO_120_MODF2
-	vpaddq	ymm1, ymm1, ymm3				;;22		temp3 += temp1 * TWO_120_MODF1
-	vpsrlq	ymm0, ymm5, 30					;;23		temp4 >> 30
-	vpand	ymm5, ymm5, ymm15				;;23		Lower 30 bits of temp4
-	vpsllq	ymm5, ymm5, 30					;;24		(temp4 & 0x3FFFFFFF) << 30
-	vpaddq	ymm2, ymm2, ymm4				;;24		temp5 += temp1 * TWO_120_MODF3
-	vpaddq	ymm1, ymm1, ymm0				;;25		temp3 += temp4 >> 30
-	vpaddq	ymm2, ymm2, ymm5				;;25		temp5 += (temp4&0x3FFFFFFF)<<30
-	vpaddq	ymm11, ymm11, ymm6				;;	26	temp4 += temp1 * TWO_120_MODF2
-	vpaddq	ymm7, ymm7, ymm9				;;	26	temp3 += temp1 * TWO_120_MODF1
-	vpsrlq	ymm6, ymm11, 30					;;	27	temp4 >> 30
-	vpand	ymm11, ymm11, ymm15				;;	27	Lower 30 bits of temp4
-	vpsllq	ymm11, ymm11, 30				;;	28	(temp4 & 0x3FFFFFFF) << 30
-	vpaddq	ymm8, ymm8, ymm10				;;	28	temp5 += temp1 * TWO_120_MODF3
-	vpaddq	ymm7, ymm7, ymm6				;;	29	temp3 += temp4 >> 30
-	vpaddq	ymm8, ymm8, ymm11				;;	29	temp5 += (temp4&0x3FFFFFFF)<<30
-								;; Result in ymm1,ymm2
-								;; Result in ymm7,ymm8
-
-;; Squared remainder reduced to 120 bits is in ymm1, ymm2 (call them R1,R2).
-;; We'll subtract quotient * factor from this later.
-
-;; Break the upper 60 bits (R1) into 30 bit chunks (U1,U2) and multiply
-;; it by 60 bits of 1/factor (I1,I2).  This will give us the quotient
-;; (shifted left somewhat).  We only need to compute the upper 60 bits of
-;; the quotient since 120 - fac_size is less than 60.
-;;
-;; Error analysis:  Shifted quotient is up to 5.999... too small.  One for
-;; low bits of temp2, one for uncomputed I2*U2, one for if uncomputed I3 is
-;; large, one for if top 30 bits of temp5 (U3) is large, and two for carries
-;; that may have been generated by additions of temp5 and not added into U2.
-;; This is why we must shift off 3 bits for an accurate quotient, meaning
-;; a quotient accuracy of 57 bits.  Thus, using the formula described in the
-;; next section for computing the shift amount, the minimum trial factor size
-;; this code can handle is 64 bits.
-;;
-;; temp2 = I2*U1 + I1*U2	(61)
-;; temp1 = I1*U1		(60)
-;;
-;; temp1 += temp2 >> 30		(61)
-
-	vpsrlq	ymm0, ymm1, 30				;;1		U1 = upper bits of R1
-	vpand	ymm3, ymm1, ymm15			;;1		U2 = lower bits of R1
-	vpmuludq ymm4, ymm0, YMMWORD PTR YMM_I2		;;2-6		temp2 = I2 * U1
-	vmovapd ymm12, YMMWORD PTR YMM_I1
-	vpmuludq ymm5, ymm3, ymm12			;;2-6		I1 * U2
-	vpmuludq ymm0, ymm0, ymm12			;;3-7		temp1 = I1 * U1
-	vpsrlq	ymm6, ymm7, 30				;;	3	U1 = upper bits of R1
-	vpand	ymm9, ymm7, ymm15			;;	4	U2 = lower bits of R1
-	vpmuludq ymm10, ymm6, YMMWORD PTR YMM_I2a	;;	4-8	temp2 = I2 * U1
-	vmovapd ymm12, YMMWORD PTR YMM_I1a
-	vpmuludq ymm11, ymm9, ymm12			;;	5-9	I1 * U2
-	vpmuludq ymm6, ymm6, ymm12			;;	5-9	temp1 = I1 * U1
-	vpaddq	ymm4, ymm4, ymm5			;;7		temp2 += I1 * U2
-	vpsrlq	ymm4, ymm4, 30				;;8		temp2 >> 30
-	vpaddq	ymm0, ymm0, ymm4			;;9		temp1 += temp2 >> 30
-	vpaddq	ymm10, ymm10, ymm11			;;	10	temp2 += I1 * U2
-	vpsrlq	ymm10, ymm10, 30			;;	11	temp2 >> 30
-	vpaddq	ymm6, ymm6, ymm10			;;	12	temp1 += temp2 >> 30
-
-;; 60 bits of shifted quotient are now in ymm0.  R1,R2 are in ymm1,ymm2.
-
-;; Shift the quotient right to get the actual quotient.
-;; Define BS (bit shift amount). This is the amount to shift the quotient
-;; right to compute the quotient.  BS = 60 - (120 - fac_size + 1).
-;; For example, if fac_size = 75, R1/R2 is 120 bits, quotient will
-;; be 120-75+1=46 bits, temp1 is 60 bits, BS is 60-46=14 bits.
-;;
-;; Now shift right to get the quotient:
-;;
-;; Q2 = (temp1 >> BS) & 0x3FFFFFFF			(30)
-;; Q1 = temp1 >> (30 + BS)
-
-	vpsrlq	ymm0, ymm0, XMMWORD PTR XMM_BS		;;10		temp1 >> BS
-	vpsrlq	ymm3, ymm0, 30				;;11		Q1 = temp1 >> (30 + BS)
-	vpand	ymm0, ymm0, ymm15			;;12		Q2 = (temp1 >> BS) & 0x3FFFFFFF
-
-	vpsrlq	ymm6, ymm6, XMMWORD PTR XMM_BS		;;	13	temp1 >> BS
-	vpsrlq	ymm9, ymm6, 30				;;	14	Q1 = temp1 >> (30 + BS)
-	vpand	ymm6, ymm6, ymm15			;;	14	Q2 = (temp1 >> BS) & 0x3FFFFFFF
-
-;; Quotient is now in ymm3, ymm0.  R1,R2 are in ymm1, ymm2.
-
-;; Multiply quotient Q1,Q2 by factor F1,F2,F3
-;; We only need to compute bottom 90 bits.
-;;
-;; temp3 = Q2*F3				(60)
-;; temp2 = Q1*F3 + Q2*F2			(61)
-;; temp1 = Q1*F2 + Q2*F1			(61)
-;;
-;; QF2 = temp3 + ((temp2 & 0x3FFFFFFF)<<30)	(61)
-;; QF1 = temp1 + (temp2 >> 30)			(61)
-
-	vmovdqa	ymm12, YMMWORD PTR YMM_F3
-	vpmuludq ymm4, ymm3, ymm12			;;12-16		temp2 = Q1 * F3
-	vmovdqa	ymm13, YMMWORD PTR YMM_F2
-	vpmuludq ymm14, ymm0, ymm13			;;12-16		Q2 * F2
-	vpmuludq ymm3, ymm3, ymm13			;;13-17		temp1 = Q1 * F2
-	vpmuludq ymm5, ymm0, YMMWORD PTR YMM_F1		;;13-17		Q2 * F1
-	vpmuludq ymm0, ymm0, ymm12			;;14-18		temp3 = Q2 * F3
-	vmovdqa	ymm12, YMMWORD PTR YMM_F3a
-	vpmuludq ymm10, ymm9, ymm12			;;	14-18	temp2 = Q1 * F3
-	vpmuludq ymm13, ymm6, YMMWORD PTR YMM_F2a	;;	15-19	Q2 * F2
-	vpmuludq ymm9, ymm9, YMMWORD PTR YMM_F2a	;;	15-19	temp1 = Q1 * F2
-	vpmuludq ymm11, ymm6, YMMWORD PTR YMM_F1a	;;	16-20	Q2 * F1
-	vpmuludq ymm6, ymm6, ymm12			;;	16-20	temp3 = Q2 * F3
-	vpaddq	ymm4, ymm4, ymm14			;;17		temp2 += Q2 * F2
-	vpaddd	ymm3, ymm3, ymm5			;;18		temp1 += Q2 * F1
-	vpand	ymm5, ymm4, ymm15			;;18		temp2 & 0x3FFFFFFF
-	vpsrlq	ymm4, ymm4, 30				;;19		temp2 >> 30
-	vpsllq	ymm5, ymm5, 30				;;19		(temp2 & 0x3FFFFFFF) << 30
-	vpaddq	ymm0, ymm0, ymm5			;;20		QF2 = temp3 + ((temp2 & 0x3FFFFFFF)<<30)
-	vpaddd	ymm3, ymm3, ymm4			;;20		QF1 = temp1 + (temp2 >> 30)
-	vpaddq	ymm10, ymm10, ymm13			;;	21	temp2 += Q2 * F2
-	vpaddd	ymm9, ymm9, ymm11			;;	21	temp1 += Q2 * F1
-	vpand	ymm11, ymm10, ymm15			;;	22	temp2 & 0x3FFFFFFF
-	vpsrlq	ymm10, ymm10, 30			;;	22	temp2 >> 30
-	vpsllq	ymm11, ymm11, 30			;;	23	(temp2 & 0x3FFFFFFF) << 30
-	vpaddq	ymm6, ymm6, ymm11			;;	24	QF2 = temp3 + ((temp2 & 0x3FFFFFFF)<<30)
-	vpaddd	ymm9, ymm9, ymm10			;;	24	QF1 = temp1 + (temp2 >> 30)
-
-;; Quotient * factor is now in ymm3, ymm0.  R1,R2 are in ymm1, ymm2.
-
-;; Subtract QF1,QF2 from R1,R2
-;;
-;; temp2 = R2 - QF2			(signed 62)
-;; temp1 = R1 - QF1			(signed 62)
-
-	vpsubq	ymm5, ymm2, ymm0			;;25		temp2 = R2 - QF2
-	vpsubd	ymm4, ymm1, ymm3			;;25		temp1 = R1 - QF1
-	vpsubq	ymm11, ymm8, ymm6			;;	26	temp2 = R2 - QF2
-	vpsubd	ymm10, ymm7, ymm9			;;	26	temp1 = R1 - QF1
-
-;; If mul by 2 is required:  mul temp1, temp2 by 2 here
-
-	vmovdqu	xmm0, XMMWORD PTR XMM_SHIFTER[rdi*8]
-	vpsllq	ymm5, ymm5, xmm0			;;27		temp2 *= 1 or 2
-	vpsllq	ymm4, ymm4, xmm0			;;27		temp1 *= 1 or 2
-	vpsllq	ymm11, ymm11, xmm0			;;	28	temp2 *= 1 or 2
-	vpsllq	ymm10, ymm10, xmm0			;;	28	temp1 *= 1 or 2
-	ENDM
-
-ENDIF
-
-
-;; Check if remainder in ymm4,ymm5 matches is factor + 1 indicating we found a factor!
+;; Check if remainder in ymm4,ymm5 matches factor + 1 indicating we found a factor!
 
 avx2_compare MACRO
 	vpsubq	ymm5, ymm5, YMMWORD PTR YMM_ONE		;; Subtract one to compare result to factor
@@ -3082,7 +2781,7 @@ avx512_fac MACRO fac_size
 	ENDM
 
 
-;; Check if remainder in zmm4,zmm5 matches is factor + 1 indicating we found a factor!
+;; Check if remainder in zmm4,zmm5 matches factor + 1 indicating we found a factor!
 
 avx512_compare MACRO
 	vpsubq	zmm5, zmm5, ZMMWORD PTR ZMM_ONE		;; Subtract one to compare result to factor
@@ -3103,3 +2802,299 @@ avx512_compare MACRO
 	vpaddd	zmm10, zmm10, zmm11			;; temp1 += temp2
 	vpandq	zmm6, zmm10, ZMMWORD PTR ZMM_BITS28	;; RES1 = temp1 & 0x0FFFFFFF
 	ENDM
+
+
+;;****************************************************************
+;; The AVX FMA versions of the above macros (12 factors at a time)
+;;****************************************************************
+
+; This macro does some initialization work and then performs a subset of the
+; main loop working on the initial value.  This subset avoids the squaring of the
+; remainder.  The initial value can be up to 60 bits larger than the factor
+; size.
+
+avx_fma_fac_initval MACRO
+	LOCAL	large_initial_value, small_initial_value, equals_split, done
+
+;; Preload constants
+
+	lea	r8, YMM_FMA_ONE_OR_TWO				;; q2_dividend = 1-or-2 * q2_dividend + q1f1_hi
+	vmovapd	ymm15, YMMWORD PTR YMM_FMA_RND_CONST3		;; Load 3.0 * pow (2.0, (double) (51))
+	vmovapd	ymm14, YMMWORD PTR YMM_FMA_RND_CONST2		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
+
+;; Break 60 bits of factor inverse into 30 bit chunks
+
+	vmovapd	ymm0, YMMWORD PTR YMM_FMA_FAC_HI		;; Load factor hi 50 bits
+	vmulpd	ymm0, ymm0, YMMWORD PTR YMM_FMA_TWO_TO_50
+	vmovapd	ymm1, YMMWORD PTR YMM_FMA_FAC_LO		;; Load factor lo 50 bits
+
+;; Normalize factor
+
+	vaddpd	ymm2, ymm1, ymm14				;; Strip low bits from fac_lo
+	vsubpd	ymm2, ymm2, ymm14
+	vaddpd	ymm0, ymm0, ymm2				;; Form normalized fac_hi
+	vsubpd	ymm1, ymm1, ymm2				;; Form normalized fac_lo
+	vmovapd	YMMWORD PTR YMM_FMA_FAC_HI, ymm0		;; Save fac_hi
+	vmovapd	YMMWORD PTR YMM_FMA_FAC_LO, ymm1		;; Save fac_lo
+
+;; Compute factor inverse
+
+	vaddpd	ymm3, ymm0, ymm1				;; Add fac_hi and fac_lo to form factor accurate to 53 bits
+	vmovapd	ymm2, YMMWORD PTR YMM_FMA_ONE
+	vdivpd	ymm2, ymm2, ymm3				;; Compute 1 / fac
+	vmovapd	YMMWORD PTR YMM_FMA_INVFAC, ymm2		;; Save factor inverse
+
+;; Compute 2 ^ large_power mod f where large_power is the split point when calculating rem_hi^2.
+;; First we calculate q = 2^large_power * facinv
+;; Then we calculate 2^large_power - q * fac
+
+	vmovapd	ymm3, YMMWORD PTR YMM_FMA_TWOPOW_SPLIT		;; Load 2^split
+	vmovapd	ymm13, YMMWORD PTR YMM_FMA_TWOPOW_MINUS_SPLIT	;; Load 2^-split
+	yfmaddpd ymm4, ymm3, ymm2, ymm15			;; q = 2^split * facinv + rounding const
+	vsubpd	ymm4, ymm4, ymm15				;; q -= rounding const
+	yfnmaddpd ymm5, ymm4, ymm0, ymm3			;; hi = 2^split - q * fac_hi
+	yfnmaddpd ymm6, ymm4, ymm1, ymm14			;; hi_addin = -q * fac_lo + rounding const
+	vsubpd	ymm6, ymm6, ymm14				;; hi_addin -= rounding const
+	yfnmsubpd ymm4, ymm4, ymm1, ymm6			;; lo = -q* fac_lo - hi_addin
+	vaddpd	ymm5, ymm5, ymm6				;; hi += hi_addin
+	vmulpd	ymm5, ymm5, ymm13
+	vmulpd	ymm4, ymm4, ymm13
+	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW1_MODF_HI, ymm5	;; Save high bits of modf
+	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW1_MODF_LO, ymm4	;; Save low bits of modf
+
+;; Compute 2 ^ large_power+1 mod f.  Used for optional mul-by-2 after computing rem_hi^2.
+
+	vaddpd	ymm5, ymm3, ymm3				;; Make 2^(split+1) by doubling previously loaded 2^split
+	yfmaddpd ymm4, ymm5, ymm2, ymm15			;; q = 2^(split+1) * facinv + rounding const
+	vsubpd	ymm4, ymm4, ymm15				;; q -= rounding const
+	yfnmaddpd ymm3, ymm4, ymm0, ymm5			;; hi = 2^(split+1) - q * fac_hi
+	yfnmaddpd ymm6, ymm4, ymm1, ymm14			;; hi_addin = -q * fac_lo + rounding const
+	vsubpd	ymm6, ymm6, ymm14				;; hi_addin -= rounding const
+	yfnmsubpd ymm4, ymm4, ymm1, ymm6			;; lo = -q* fac_lo - hi_addin
+	vaddpd	ymm3, ymm3, ymm6				;; hi += hi_addin
+	vmulpd	ymm3, ymm3, ymm13
+	vmulpd	ymm4, ymm4, ymm13
+	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW2_MODF_HI, ymm3	;; Save high bits of modf
+	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW2_MODF_LO, ymm4	;; Save low bits of modf
+
+;; Now compute the initial remainder, using an optimized version of the main loop code.  We can save
+;; several multiplies and adds because the squared value is a power of two. 
+
+;; There are 4 options for the initial value to get a remainder of.  FMA_INITVAL_TYPE is:
+;;	-1)  initval < 2^split	(calc using small initval code)
+;;	0)   > 2^(split+1)	(calc using large initval code)
+;;	1)   == 2^split		(use twopow1_modf)
+;;	2)   == 2^(split+1)	(use twopow2_modf)
+
+;; Test which of the 4 initial value types we have.  Branch to the right code.
+
+	cmp	FMA_INITVAL_TYPE, 0
+	jl	small_initial_value
+	je	short large_initial_value
+
+;; Easiest case of all!  Remainder is either twopow1_modf or twopow2_modf
+
+;; BUG - code above could leave un-multiplied POW1 & POW2 values in registers for us to use here
+;; but we may not have free registers when doing 2 or 3 interleaved
+;; OR we could branch before calculating the twopowmodfs
+	vmovapd	ymm13, YMMWORD PTR YMM_FMA_TWOPOW_SPLIT		;; Load 2^split
+	cmp	FMA_INITVAL_TYPE, 1
+	je	short equals_split
+	vmulpd	ymm3, ymm13, YMMWORD PTR YMM_FMA_TWOPOW2_MODF_HI
+	vmulpd	ymm4, ymm13, YMMWORD PTR YMM_FMA_TWOPOW2_MODF_LO
+	jmp	done
+
+equals_split:
+	vmulpd	ymm3, ymm13, YMMWORD PTR YMM_FMA_TWOPOW1_MODF_HI
+	vmulpd	ymm4, ymm13, YMMWORD PTR YMM_FMA_TWOPOW1_MODF_LO
+	jmp	done
+
+;; Process an initial squared value that is more than 2^(split+1).  To avoid any edge cases with regards
+;; to precision of the resulting remainder, we load initial_squared_value / 2 and use the twopow2_modf values
+;; ymm0 = fachi, ymm1 = faclo, ymm2 = facinv, ymm3 = twopow2modf_hi, ymm4 = twopow2modf_lo
+
+large_initial_value:
+
+;; calc  AA-hi*TwoPowModFhi hi	* 2^(35+35)		51/50	*2^70
+;; calc  AA-hi*TwoPowModFhi lo	* 2^(35)		35	*2^35
+;; calc  AA-hi*TwoPowModFlo hi	* 2^(35)		41/40	*2^35
+;; calc  AA-hi*TwoPowModFlo lo	* 2^0			35	*2^0
+
+	vmovapd	ymm5, YMMWORD PTR YMM_FMA_INITVAL		;; Load the initial squared value/2 (known as aa_hi in main loop)
+	vmovapd	ymm13, YMMWORD PTR YMM_FMA_RND_CONST1		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW * 2))
+	yfmaddpd ymm6, ymm5, ymm3, ymm13			;; q1f1_hi = aa_hi * twopow2modf_hi + rounding const
+	vsubpd	ymm6, ymm6, ymm13				;; q1f1_hi -= rounding const
+	yfmsubpd ymm3, ymm5, ymm3, ymm6				;; q1f1_lo = aa_hi * twopow2modf_hi - q1f1_hi
+								;; q2_dividend = q1f1_hi
+								;; final_hi = q1f1_lo
+
+	yfmaddpd ymm7, ymm5, ymm4, ymm14			;; q1f2_hi = aa_hi * twopow2modf_lo + rounding const
+	vsubpd	ymm7, ymm7, ymm14				;; q1f2_hi -= rounding const
+	yfmsubpd ymm4, ymm5, ymm4, ymm7				;; q1f2_lo = aa_hi * twopow2modf_lo - q1f2_hi
+	vaddpd	ymm3, ymm3, ymm7				;; final_hi += q1f2_hi
+								;; final_lo = q1f2_lo
+
+;; calc Q2, remaining bits of quotient
+;; calc  Q2*Fhi hi	* 2^(33+35)		53	*2^68
+;; calc  Q2*Fhi lo	* 2^35			33	*2^35
+;; calc  Q2*Flo hi	* 2^(35+0)		41*	*2^35
+;; calc  Q2*Flo lo	* 2^0			35	*2^0
+
+	yfmaddpd ymm2, ymm6, ymm2, ymm15			;; q2 = q2_dividend * facinv + rounding const
+	vsubpd	ymm2, ymm2, ymm15				;; q2 -= rounding const
+
+	yfnmaddpd ymm0, ymm2, ymm0, ymm6			;; q2f1_lo = q2_dividend - q2 * fac_hi
+	vaddpd	ymm3, ymm3, ymm0				;; final_hi += q2f1_lo
+
+	yfnmaddpd ymm0, ymm2, ymm1, ymm14			;; q2f2_hi = -q2 * fac_lo + rounding const
+	vsubpd	ymm0, ymm0, ymm14				;; q2f2_hi -= rounding const
+	yfnmsubpd ymm1, ymm2, ymm1, ymm0			;; q2f2_lo = -q2 * fac_lo - q2f2_hi
+
+	vaddpd	ymm3, ymm3, ymm0				;; final_hi += q2f2_hi
+	vaddpd	ymm4, ymm4, ymm1				;; final_lo += q2f2_lo
+
+	jmp	done
+
+;; Process an initial squared value that is less than 2^split
+;; Calc q, the quotient.  Then calc initial_value - q * fac
+
+small_initial_value:
+	vmovapd	ymm3, YMMWORD PTR YMM_FMA_INITVAL		;; Load the initial squared value
+
+	yfmaddpd ymm2, ymm3, ymm2, ymm15			;; q = initial_value * facinv + rounding const
+	vsubpd	ymm2, ymm2, ymm15				;; q -= rounding const
+	yfnmaddpd ymm3, ymm2, ymm0, ymm3			;; final_hi = initial_value - q * fac_hi
+
+	yfnmaddpd ymm0, ymm2, ymm1, ymm14			;; qf2_hi = -q * fac_lo + rounding const
+	vsubpd	ymm0, ymm0, ymm14				;; qf2_hi -= rounding const
+	yfnmsubpd ymm4, ymm2, ymm1, ymm0			;; final_lo = -q * fac_lo - qf2_hi
+
+	vaddpd	ymm3, ymm3, ymm0				;; final_hi += q2f2_hi
+
+done:
+	ENDM
+
+
+; This macro does one iteration of the main loop.  Square a remainder and do a mod.
+; Note that at the beginning of the macro ymm3, ymm4 contains the semi-normalized remainder
+; for us to square.  This input number is between -fac/2*epsilon and +fac/2*epsilon.  The range
+; is not perfect because this macro's calculation of Q2 is not exact.
+
+; In the comments of this macro, for illustration purposes we'll assume fac_size is 80 bits
+; with 35 bits stored in the low word.  There is no reason to believe this code cannot handle
+; at least 96 bits.  In fact, we have simulated this macro in C code with no problems.
+
+avx_fma_fac MACRO fac_size
+
+;; AB^2 will be 160 bits.  From there, we multiply the top 40 bits by the 80-bit value 2^120 mod f.
+;; This 120-bit result plus the low 120/121 bits of AB^2 give us a 122-bit dividend in computing Q2.
+
+;; To maximize significant bits in calculating Q2, we want to maximize the precision of AA-lo and 2AB-hi.  Looking at
+;; the table below that happens when AA-lo and 2AB-hi use as small an offset as possible without exceeding 53 bits
+;; of precision.  Below that would be 34 bits in a low word.
+
+;; SQUARE rem (call rem_hi A and rem_lo B).  A is between 0 and 44.5+epsilon bits.  B is between 0 and 35 normalized bits.
+;; Unnormalized low words are the result of 1 doubling and 3 adds.  This adds 2 bits.
+
+;;					normalized		unnormalized
+;;				      max bits	offset	      max bits	offset
+;;AA-hi		* 2^(50+2*35)		40	*2^120		40	*2^120
+;;AA-lo		* 2^(2*35)		50	*2^70		50	*2^70
+;;2AB-hi	* 2^(34+36)		46/47	*2^70		48/49	*2^70
+;;2AB-lo	* 2^36			34/33	*2^36/37	34/33	*2^36/37
+;;BB-hi		* 2^(35+0)		35	*2^35		39/40	*2^35
+;;BB-lo		* 2^0			35	*2^0		35	*2^0
+
+	vmovapd	ymm15, YMMWORD PTR YMM_FMA_RND_CONST0		;; Load 3.0 * pow (2.0, (double) (51 + BITS_TOTAL + (BITS_TOTAL + 1) / 2))
+	yfmaddpd ymm0, ymm3, ymm3, ymm15			;; aa_hi = rem_hi * rem_hi + rounding const
+	vsubpd	ymm0, ymm0, ymm15				;; aa_hi -= rounding const
+	yfmsubpd ymm1, ymm3, ymm3, ymm0				;; aa_lo = rem_hi * rem_hi - aa_hi
+
+	vmovapd	ymm15, YMMWORD PTR YMM_FMA_RND_CONST1		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW * 2))
+	yfmaddpd ymm2, ymm3, ymm4, ymm15			;; ab_hi = rem_hi * rem_lo + rounding const
+	vsubpd	ymm2, ymm2, ymm15				;; ab_hi -= rounding const
+	yfmsubpd ymm3, ymm3, ymm4, ymm2				;; ab_lo = rem_hi * rem_lo - ab_hi
+
+	yfmaddpd ymm2, YMMWORD PTR YMM_FMA_TWO, ymm2, ymm1	;; q2_dividend = 2AB_hi + AA_lo
+
+	vmovapd	ymm15, YMMWORD PTR YMM_FMA_RND_CONST2		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
+	yfmaddpd ymm1, ymm4, ymm4, ymm15			;; bb_hi = rem_lo * rem_lo + rounding const
+	vsubpd	ymm1, ymm1, ymm15				;; bb_hi -= rounding const
+	yfmsubpd ymm4, ymm4, ymm4, ymm1				;; bb_lo = rem_lo * rem_lo - bb_hi
+
+	yfmaddpd ymm3, YMMWORD PTR YMM_FMA_TWO, ymm3, ymm1	;; final_hi = 2 * ab_lo + bb_hi
+
+;; ymm0 = aa_hi, ymm2 = q2_dividend, ymm3 = final_hi, ymm4 = bb_lo
+
+;; Set register if a mul by two is required this iteration
+
+	mov	edx, FMA_SHIFTER[rdi*4-4]			;; This is 32 if doubling else 0
+
+;; Since we know the power of two that aa_hi is a multiple of (aa_hi is a multiple of 2^120 in our example),
+;; we pre-calculate 2^that_power mod factor, and multiply aa-hi by this pre-calculated value.
+
+;;  Aa-hi is 41/40 bits, TwoPowModFhi is 45 bits, TwoPowModFlo is 35 bits
+;; calc  AA-hi*TwoPowModFhi hi	* 2^(35+35)		51/50	*2^70
+;; calc  AA-hi*TwoPowModFhi lo	* 2^(35)		35	*2^35
+;; calc  AA-hi*TwoPowModFlo hi	* 2^(35)		41/40	*2^35
+;; calc  AA-hi*TwoPowModFlo lo	* 2^0			35	*2^0
+
+	vmovapd	ymm15, YMMWORD PTR YMM_FMA_RND_CONST1		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW * 2))
+	yfmaddpd ymm5, ymm0, YMMWORD PTR YMM_FMA_TWOPOW1_MODF_HI[rdx], ymm15 ;; q1f1_hi = aa_hi * twopowmodf_hi[rdx] + rounding const
+	vsubpd	ymm5, ymm5, ymm15				;; q1f1_hi -= rounding const
+	yfmsubpd ymm1, ymm0, YMMWORD PTR YMM_FMA_TWOPOW1_MODF_HI[rdx], ymm5 ;; q1f1_lo = aa_hi * twopowmodf_hi[rdx] - q1f1_hi
+
+	yfmaddpd ymm2, YMMWORD PTR [r8][rdx], ymm2, ymm5	;; q2_dividend = 1-or-2 * q2_dividend + q1f1_hi
+
+	yfmaddpd ymm3, YMMWORD PTR [r8][rdx], ymm3, ymm1	;; final_hi = 1-or-2 * final_hi + q1f1_lo
+
+;; ymm0 = aa_hi, ymm2 = q2_dividend, ymm3 = final_hi, ymm4 = bb_lo
+
+	vmovapd	ymm15, YMMWORD PTR YMM_FMA_RND_CONST2		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
+	yfmaddpd ymm1, ymm0, YMMWORD PTR YMM_FMA_TWOPOW1_MODF_LO[rdx], ymm15 ;; q1f2_hi = aa_hi * twopowmodf_lo[rdx] + rounding const
+	vsubpd	ymm1, ymm1, ymm15				;; q1f2_hi -= rounding const
+	yfmsubpd ymm0, ymm0, YMMWORD PTR YMM_FMA_TWOPOW1_MODF_LO[rdx], ymm1 ;; q1f2_lo = aa_hi * twopowmodf_lo[rdx] - q1f2_hi
+
+	vaddpd	ymm3, ymm3, ymm1				;; final_hi += q1f2_hi
+
+	yfmaddpd ymm4, YMMWORD PTR [r8][rdx], ymm4, ymm0	;; final_lo = one_or_two[rdx] * bb_lo + q1f2_lo;
+
+;; ymm2 = q2_dividend, ymm3 = final_hi, ymm4 = final_lo
+
+;; calc Q2, remaining bits of quotient
+;;
+;; Q2 is 41 bits, Fhi is 45 bits, Flo is 35 bits
+;; calc  Q2*Fhi hi	* 2^(33+35)		53	*2^68
+;; calc  Q2*Fhi lo	* 2^35			33	*2^35
+;; calc  Q2*Flo hi	* 2^(35+0)		41*	*2^35
+;; calc  Q2*Flo lo	* 2^0			35	*2^0
+
+	vmovapd	ymm15, YMMWORD PTR YMM_FMA_RND_CONST3		;; Load 3.0 * pow (2.0, (double) (51))
+	yfmaddpd ymm1, ymm2, YMMWORD PTR YMM_FMA_INVFAC, ymm15	;; q2 = q2_dividend * facinv + rounding const
+	vsubpd	ymm1, ymm1, ymm15				;; q2 -= rounding const
+
+	yfnmaddpd ymm2, ymm1, YMMWORD PTR YMM_FMA_FAC_HI, ymm2	;; Calc Q2*Fhi lo in one blow:  q2f1_lo = q2_dividend - q2 * fac_hi
+	vaddpd	ymm3, ymm3, ymm2				;; final_hi += q2f1_lo
+
+	vmovapd	ymm15, YMMWORD PTR YMM_FMA_RND_CONST2		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
+	yfnmaddpd ymm0, ymm1, YMMWORD PTR YMM_FMA_FAC_LO, ymm15	;; q2f2_hi = -q2 * fac_lo + rounding const
+	vsubpd	ymm0, ymm0, ymm15				;; q2f2_hi -= rounding const
+	yfnmsubpd ymm1, ymm1, YMMWORD PTR YMM_FMA_FAC_LO, ymm0	;; q2f2_lo = -q2 * fac_lo - q2f2_hi
+
+	vaddpd	ymm3, ymm3, ymm0				;; final_hi += q2f2_hi
+	vaddpd	ymm4, ymm4, ymm1				;; final_lo += q2f2_lo
+	ENDM
+
+
+;; Check if remainder in ymm3,ymm4 is one indicating we found a factor!
+;; Normalize hi/lo so we can compare to YMM_ONE
+
+avx_fma_compare MACRO
+	vmovapd	ymm14, YMMWORD PTR YMM_FMA_RND_CONST2		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
+	vaddpd	ymm2, ymm4, ymm14				;; Strip low bits from fac_lo
+	vsubpd	ymm2, ymm2, ymm14
+	vsubpd	ymm4, ymm4, ymm2				;; Normalized fac_lo
+	vaddpd	ymm3, ymm3, ymm2				;; Normalized fac_hi
+	ENDM
+
+

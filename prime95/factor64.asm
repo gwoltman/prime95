@@ -9,6 +9,8 @@
 
 TITLE   factor64
 
+INCLUDE	yarch.mac
+INCLUDE	ybasics.mac
 INCLUDE	unravel.mac
 INCLUDE	factor64.mac
 
@@ -40,7 +42,11 @@ FACMSW			EQU	DWORD PTR [AD_BASE+74*8+1*4]
 FACLSW			EQU	DWORD PTR [AD_BASE+74*8+2*4]
 CPU_FLAGS		EQU	DWORD PTR [AD_BASE+74*8+3*4]
 SSE2_LOOP_COUNTER	EQU	DWORD PTR [AD_BASE+74*8+4*4]
-initstart		EQU	DWORD PTR [AD_BASE+74*8+5*4]	; First byte in initsieve to copy
+FMA_INITVAL_TYPE	EQU	DWORD PTR [AD_BASE+74*8+5*4]
+initstart		EQU	DWORD PTR [AD_BASE+74*8+6*4]	; First byte in initsieve to copy
+
+;; Common constants set in C code for SSE2, AVX2, and AVX512 when using
+;; factoring algorithm that uses 30-bit integer arithmetic.
 
 ;;pad to next cache line to match facasm_data structure defined in commonb.c
 ZMM_INITVAL		EQU	DWORD PTR [AD_BASE+80*8]
@@ -115,7 +121,32 @@ ZMM_TWO_120_MODF2a	EQU	DWORD PTR [AD_BASE+248*8]
 ZMM_TWO_120_MODF3	EQU	DWORD PTR [AD_BASE+256*8]
 ZMM_TWO_120_MODF3a	EQU	DWORD PTR [AD_BASE+264*8]
 
-;; Non-SSE2 and non-AVX2 and non-AVX512 queues can share the SSE2/AVX2/AVX512 memory
+;; Now the variables needed when using factoring algorithm that uses two doubles.
+;;
+;; AVX-FMA supports 256-bit operations on doubles (12 trial factors simultaneouly)
+;; Use the YMM registers and the memory area below
+;; AVX512-FMA supports 512-bit operations on doubles (40 trial factors simultaneouly)
+;; Use the YMM registers and the memory area below
+
+;;pad to next cache line to match facasm_data structure defined in commonb.c
+FMA_SHIFTER			EQU	DWORD PTR [AD_BASE+80*8]	; Up to 32 dword shifter values
+YMM_FMA_TWOPOW_SPLIT		EQU	QWORD PTR [AD_BASE+96*8]
+YMM_FMA_TWOPOW_MINUS_SPLIT	EQU	QWORD PTR [AD_BASE+100*8]
+YMM_FMA_INITVAL			EQU	QWORD PTR [AD_BASE+104*8]
+YMM_FMA_RND_CONST0		EQU	QWORD PTR [AD_BASE+108*8]	; 3 * 2^(51 + SPLIT_POINT)
+YMM_FMA_RND_CONST1		EQU	QWORD PTR [AD_BASE+112*8]	; 3 * 2^(51 + BITS_IN_LO_WORD*2)
+YMM_FMA_RND_CONST2		EQU	QWORD PTR [AD_BASE+116*8]	; 3 * 2^(51 + BITS_IN_LO_WORD)
+YMM_FMA_INVFAC			EQU	QWORD PTR [AD_BASE+120*8]
+YMM_FMA_FAC_HI			EQU	QWORD PTR [AD_BASE+124*8]
+YMM_FMA_FAC_LO			EQU	QWORD PTR [AD_BASE+128*8]
+YMM_FMA_TWOPOW1_MODF_HI		EQU	QWORD PTR [AD_BASE+132*8]
+YMM_FMA_TWOPOW2_MODF_HI		EQU	QWORD PTR [AD_BASE+136*8]
+YMM_FMA_TWOPOW1_MODF_LO		EQU	QWORD PTR [AD_BASE+140*8]
+YMM_FMA_TWOPOW2_MODF_LO		EQU	QWORD PTR [AD_BASE+144*8]
+YMM_FMA_FAC_HI50		EQU	QWORD PTR [AD_BASE+148*8]
+YMM_FMA_FAC_LO50		EQU	QWORD PTR [AD_BASE+152*8]
+
+;; Non-SSE2 and non-AVX2 and non-AVX512 queues can share the SSE2/AVX2/AVX512/FMA memory
 
 fac1			EQU	QWORD PTR [AD_BASE+128*8]	; Queued factors to test
 fac2			EQU	QWORD PTR [AD_BASE+129*8]
@@ -163,11 +194,20 @@ YMM_BITS28		DD	0FFFFFFFh,0,0FFFFFFFh,0,0FFFFFFFh,0,0FFFFFFFh,0
 YMM_BITS30		DD	3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0
 YMM_28TH_BIT		DD	08000000h,0,08000000h,0,08000000h,0,08000000h,0
 YMM_ONE			DD	1,0,1,0,1,0,1,0
+YMM_FMA_TWO_TO_50	DQ 	1125899906842624.0,1125899906842624.0,1125899906842624.0,1125899906842624.0	; 2^50
+YMM_FMA_RND_CONST3	DQ 	6755399441055744.0,6755399441055744.0,6755399441055744.0,6755399441055744.0	; 3*2^51
+YMM_FMA_ONE_OR_TWO TEXTEQU <YMM_FMA_ONE>
+YMM_FMA_ONE		DQ	1.0,1.0,1.0,1.0
+YMM_FMA_TWO		DQ	2.0,2.0,2.0,2.0
+YMM_FMA_ZERO		DQ	0.0,0.0,0.0,0.0
 	align 64
 ZMM_BITS28		DD	0FFFFFFFh,0,0FFFFFFFh,0,0FFFFFFFh,0,0FFFFFFFh,0,0FFFFFFFh,0,0FFFFFFFh,0,0FFFFFFFh,0,0FFFFFFFh,0
 ZMM_BITS30		DD	3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0
 ZMM_28TH_BIT		DD	08000000h,0,08000000h,0,08000000h,0,08000000h,0,08000000h,0,08000000h,0,08000000h,0,08000000h,0
 ZMM_ONE			DD	1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0
+
+;FOO1			DQ	53
+;FOO2			DQ	8554403169328914935
 
 ;
 ; Prime data (generates all primes below 64K)
@@ -1368,6 +1408,9 @@ PROCF	factor64_tf
 
 	mov	rbx, savefac0		; Load trial factor corresponding
 	mov	rcx, savefac1		; to first sieve bit
+	test	CPU_FLAGS, 8000h	; Is this an FMA-capable machine?
+	jnz	ftlp96			; Yes, use 45-92 bit (or more) AVX-FMA code
+
 	and	rbx, rbx		; Are we testing 65+ bit factors?
 	jz	short oneword		; No, go do 64 bits or less
 
@@ -4131,7 +4174,7 @@ test86:	btr	rax, rdx		; Clear the sieve bit
 ; Compute the factor to test and 63 most significant bits of 1 / factor
 ;; OPT...  old 32-bit code....  convert to divpd???
 
-	mov	r12, r8		; Save the factor to test
+	mov	r12, r8			; Save the factor to test
 	mov	r13, r9
 	shld	r13, r12, 34
 	mov	temp, r13
@@ -4324,7 +4367,7 @@ atest74:btr	rax, rdx		; Clear the sieve bit
 ; Compute the factor to test and 63 most significant bits of 1 / factor
 ;; OPT...  old 32-bit code....  convert to divpd???
 
-	mov	r12, r8		; Save the factor to test
+	mov	r12, r8			; Save the factor to test
 	mov	r13, r9
 	shld	r13, r12, 34
 	mov	temp, r13
@@ -4733,7 +4776,7 @@ ztest74:btr	rax, rdx		; Clear the sieve bit
 ; Compute the factor to test and 63 most significant bits of 1 / factor
 ;; OPT...  old 32-bit code....  convert to divpd???
 
-	mov	r12, r8		; Save the factor to test
+	mov	r12, r8			; Save the factor to test
 	mov	r13, r9
 	shld	r13, r12, 34
 	mov	temp, r13
@@ -5010,6 +5053,185 @@ zwin86:
 	mov	FACHSW, ecx
 	mov	rax, 1			; return TRUE
 	jmp	done
+
+
+;************************************
+; For 65 to 96-bit factors using FMA
+;************************************
+
+;
+; Check all the bits in the sieve looking for a factor to test
+;
+
+ftlp96:	mov	rsi, sieve		; Sieve address
+	lea	rbp, [rsi+sievesize]	; Sieve end address
+	xor	rdi, rdi		; Count of queued factors to be tested
+	mov	r8, rcx			; Save factor
+	mov	rcx, shift_count
+	dec	rcx
+	mov	r14, 1			; Form trial factor limit
+	ror	r14, cl
+	mov	rcx, r8			; Restore factor
+fsvlp96:mov	rax, [rsi]		; Load word from sieve
+	lea	rsi, [rsi+8]		; Bump sieve address
+fbsf96:	bsf	rdx, rax		; Look for a set bit
+	jnz	ftest96			; Found one, go test the factor
+	add	rcx, facdist64      	; Add facdist * 64 to the factor
+	adc	rbx, 0
+	cmp	rsi, rbp		; End of sieve?
+	jl	short fsvlp96		; Loop to test next sieve qword
+
+; Check queued counter
+
+	and	rdi, rdi		; Are there untested factors?
+	jnz	short frem96a		; Yes, test them
+
+; Return so caller can check for ESC
+
+	shr	rcx, 32
+	mov	FACMSW, ecx
+	mov	FACHSW, ebx
+	mov	rax, 2			; Return for ESC check
+	jmp	done
+
+; Handle overflow
+
+foflow96:and	rdi, rdi		; Are there untested factors?
+	jnz	short frem96		; Yes, go do remaining trial factors
+	mov	FACHSW, r14d		; Return end point
+	mov	FACMSW, 0
+	mov	rax, 2			; Return for ESC check
+	jmp	done
+
+; Test less-than-full queue by copying first trial factor in the queue
+
+frem96a:sub	rcx, facdist64      	; Undo the add of facdist * 64 to rcx
+	sbb	rbx, 0			; it will be re-added when we branch back to bsf96
+frem96:	mov	r8, QWORD PTR YMM_F1	; Copy first trial factor
+	mov	r9, QWORD PTR YMM_F2
+	mov	rdx, QWORD PTR YMM_F3
+	mov	QWORD PTR YMM_F1[rdi*8], r8
+	mov	QWORD PTR YMM_F2[rdi*8], r9
+	mov	QWORD PTR YMM_F3[rdi*8], rdx
+	mov	r8, QWORD PTR YMM_INVFAC
+	mov	QWORD PTR YMM_INVFAC[rdi*8], r8
+	inc	rdi			; One more factor queued up
+	cmp	rdi, 4			; Have enough been queued up?
+	jne	short frem96		; No, go copy another
+	jmp	fdo96			; Yes, go test them
+
+;
+; Gather trial factors to be tested all at once to minimize
+; processor stalls.
+;
+
+ftest96:btr	rax, rdx		; Clear the sieve bit
+	mov	r8, rcx			; Copy base factor
+	mov	r9, rbx
+	add	r8, facdists[rdx*8]	; Determine factor to test
+	adc	r9, 0
+	cmp	r9, r14			; Test for overflow
+	jae	foflow96		; Jump if overflow
+
+; Save the factor as an 50-bit integers.
+; BUG - We'd like to convert to doubles in AVX code, but this isn't easy.  Investigate later.
+; See https://software.intel.com/en-us/forums/intel-isa-extensions/topic/301988
+
+;mov	r9, FOO1
+;mov	r8, FOO2
+	shld	r9, r8, 14
+	shl	r8, 14
+	shr	r8, 14
+	mov	YMM_FMA_FAC_HI50[rdi*8], r9
+	fild	YMM_FMA_FAC_HI50[rdi*8]
+	fstp	YMM_FMA_FAC_HI[rdi*8]
+	mov	YMM_FMA_FAC_LO50[rdi*8], r8
+	fild	YMM_FMA_FAC_LO50[rdi*8]
+	fstp	YMM_FMA_FAC_LO[rdi*8]
+
+; Check to see if we've accumulated enough factors to test
+
+	inc	rdi			; One more factor queued up
+	cmp	rdi, 4			; Have enough been queued up?
+	jne	fbsf96			; No, go test more sieve bits
+
+;
+; Now test the accumulated trial factors
+;
+
+; Work on initval.
+; This is like the floop96 code except that we avoid the initial squaring.
+
+fdo96:	avx_fma_fac_initval
+
+; Repeatedly square remainder and get new remainder.
+
+	mov	edi, SSE2_LOOP_COUNTER	; Number of times to loop
+floop96:avx_fma_fac
+	dec	edi			; Decrement loop counter
+	jnz	floop96
+
+; If result = factor + 1, then we found a divisor of 2**p - 1
+
+	avx_fma_compare
+;	vpcmpeqq ymm4, ymm4, YMMWORD PTR YMM_FMA_FAC_LO	; See if any remainder is factor + 1
+;	vpcmpeqq ymm3, ymm3, YMMWORD PTR YMM_FMA_FAC_HI
+	vpcmpeqq ymm4, ymm4, YMMWORD PTR YMM_FMA_ONE	; See if any remainder is 1
+	vpcmpeqq ymm3, ymm3, YMMWORD PTR YMM_FMA_ZERO
+	vptest	ymm4, ymm3
+	jnz	short fwin96_1		; Jump if a factor found
+;	vpcmpeqq ymm8, ymm8, YMMWORD PTR YMM_F3a ; See if any remainder is factor + 1
+;	vpcmpeqq ymm7, ymm7, YMMWORD PTR YMM_F2a
+;	vpcmpeqq ymm6, ymm6, YMMWORD PTR YMM_F1a
+;	vpand	ymm8, ymm8, ymm7
+;	vptest	ymm8, ymm6
+;	jnz	short fwin96_2		; Jump if a factor found
+
+	sub	rdi, rdi		; Clear queued factors count	BUG - should already be zero
+	jmp	fbsf96			; Test next factor from sieve
+
+fwin96_1:
+	vpand	ymm4, ymm4, ymm3
+	vpmovmskb rcx, ymm4
+	sub	rdx, rdx		; See if first AVX word was the factor
+	shr	rcx, 1
+	jc	short fwin96		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short fwin96		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short fwin96		; Yes! Factor found
+	lea	rdx, [rdx+8]		; Last AVX word must have been the factor
+	jmp	short fwin96		; Yes! Factor found
+
+fwin96_2:
+;	vpand	ymm8, ymm8, ymm6
+;	vpmovmskb rcx, ymm8
+;	mov	edx, 32			; See if first AVX word was the factor
+;	shr	rcx, 1
+;	jc	short fwin96		; Yes! Factor found
+;	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+;	shr	rcx, 8
+;	jc	short fwin96		; Yes! Factor found
+;	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+;	shr	rcx, 8
+;	jc	short fwin96		; Yes! Factor found
+;	lea	rdx, [rdx+8]		; Last AVX word must have been the factor
+;;	jmp	short fwin96		; Yes! Factor found
+
+fwin96:	mov	rax, YMM_FMA_FAC_LO50[rdx]	; Factor found!!! Return it
+	mov	rbx, YMM_FMA_FAC_HI50[rdx]
+	mov	FACLSW, eax		; Save LSW (low 32 bits)
+	mov	rcx, rbx		; Form HSW
+	shr	rcx, 14
+	mov	FACHSW, ecx		; Save HSW
+	shl	rax, 14			; Form MSW
+	shld	rbx, rax, 18
+	mov	FACMSW, ebx		; Save MSW
+	mov	rax, 1			; return TRUE
+	jmp	done
+
 
 ; Pop registers and return
 
