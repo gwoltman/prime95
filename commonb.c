@@ -3938,16 +3938,17 @@ struct facasm_data {
 	void	*primearray;		/* Array of sieving primes */
 	void	*offsetarray;		/* Array of bits-to-clear for each sieving prime */
 	void	*initsieve;		/* Array used to initialize sieve */
-	double	TWO_TO_FACSIZE_PLUS_62;	/* Constant used in SSE2/AVX2 TF code */
+	double	TWO_TO_FACSIZE_PLUS_62;	/* Constant used in SSE2/AVX2/AVX512 integer TF code */
 
 	uint32_t FACHSW;		/* High word of found factor */
 	uint32_t FACMSW;		/* Middle word of found factor */
 	uint32_t FACLSW;		/* Low word of found factor */
 	uint32_t cpu_flags;		/* Copy of CPU_FLAGS */
-	uint32_t SSE2_LOOP_COUNTER;	/* Counter used in SSE2/AVX2 TF code */
+	uint32_t SSE2_LOOP_COUNTER;	/* Counter used in SSE2/AVX2/FMA/AVX512 TF code */
+	uint32_t FMA_INITVAL_TYPE;	/* Type of initval (more or less than 2^split).  Used in FMA code. */
 	uint32_t initstart;		/* First byte in initsieve to copy (see ASM code) */
 
-	uint32_t pad[6];		/* Pad to next 64-byte cache line */
+	uint32_t pad[5];		/* Pad to next 64-byte cache line */
 	uint32_t xmm_data[80];		/* XMM/YMM/ZMM data initialized in C code */
 
 	uint32_t other_asm_temps_and_consts[400];
@@ -4347,7 +4348,7 @@ int factorPassSetup (
 {
 	struct facasm_data *asm_data = facdata->asm_data;
 	uint32_t save_facmsw;
-	int	i;
+	unsigned int i, bits_in_factor;
 
 /* Save the factoring pass */
 
@@ -4358,49 +4359,94 @@ int factorPassSetup (
 	save_facmsw = asm_data->FACMSW;
 	if (asm_data->FACHSW == 0 && asm_data->FACMSW < 0x1000) asm_data->FACMSW = 0x1000;
 
-/* If using the SSE2 or AVX2 or AVX512 factoring code, do more initialization */
-/* We need to initialize much of the following data: */
+/* Compute the number of bits in the factors we will be testing */
+
+	if (asm_data->FACHSW)
+		bits_in_factor = 64, i = asm_data->FACHSW;
+	else
+		bits_in_factor = 32, i = asm_data->FACMSW;
+	while (i) bits_in_factor++, i >>= 1;
+
+/* Initialization for FMA code using 2 doubles to factor numbers 64 bits and above */
+/* If using the FMA or AVX512 FMA factoring code, we need to initialize much of the following data: */
+/*	FMA_SHIFTER		DD	32 DUP (0)	; Up to 32 dword shifter values
+	YMM_FMA_TWOPOW_SPLIT	DQ	4 DUP		; 2^split
+	YMM_FMA_INITVAL		DQ	4 DUP
+	YMM_FMA_RND_CONST0	DQ	4 DUP		; 3 * 2^(51 + SPLIT_POINT)
+	YMM_FMA_RND_CONST1	DQ	4 DUP		; 3 * 2^(51 + BITS_IN_LO_WORD*2)
+	YMM_FMA_RND_CONST2	DQ	4 DUP		; 3 * 2^(51 + BITS_IN_LO_WORD)
+*/
+
+	if (bits_in_factor >= 45 && (asm_data->cpu_flags & CPU_FMA3)) {
+		uint32_t *dword_data;
+		double	*ymm_data;
+		int	split_bits, low_bits;
+		unsigned long p;
+
+/* Calculate where we split rem_hi^2 (see ASM code in factor64.mac for full algorithm).  Calculate bits of precision in low double. */
+
+		split_bits = bits_in_factor + (bits_in_factor + 1) / 2;
+		low_bits = (split_bits - 52 + 1) / 2;
+
+/* Set FMA_SHIFTER values */
+
+		dword_data = (uint32_t *) asm_data->xmm_data;
+		p = (unsigned long) asm_data->p;
+		for (i = 0; p > 2 * bits_in_factor + 1; i++) {
+			dword_data[i] = (p & 1) ? 32 : 0;		// FMA_SHIFTER (used to decide if this is a doubling iteration)
+			p >>= 1;
+		}
+
+/* Compute the initial value and other constants. */
+
+		asm_data->FMA_INITVAL_TYPE =
+			(p < split_bits) ? -1 :
+			(p > split_bits+1) ? 0 :
+			(p == split_bits) ? 1 : 2;
+		asm_data->SSE2_LOOP_COUNTER = i;
+
+		ymm_data = (double *) &dword_data[32];
+		ymm_data[0] = ymm_data[1] = ymm_data[2] = ymm_data[3] = pow ((double) 2.0, split_bits); /* YMM_FMA_TWOPOW_SPLIT */
+		ymm_data[4] = ymm_data[5] = ymm_data[6] = ymm_data[7] = pow ((double) 2.0, -split_bits); /* YMM_FMA_TWOPOW_MINUS_SPLIT */
+		if (p > split_bits+1)
+			ymm_data[8] = ymm_data[9] = ymm_data[10] = ymm_data[11] = pow ((double) 2.0, p-1); /* YMM_FMA_INITIAL_VALUE */
+		else
+			ymm_data[8] = ymm_data[9] = ymm_data[10] = ymm_data[11] = pow ((double) 2.0, p);	/* YMM_FMA_INITIAL_VALUE */
+		ymm_data[12] = ymm_data[13] = ymm_data[14] = ymm_data[15] = 3.0 * pow ((double) 2.0, (51 + split_bits)); /* YMM_FMA_RND_CONST0 */
+		ymm_data[16] = ymm_data[17] = ymm_data[18] = ymm_data[19] = 3.0 * pow ((double) 2.0, (51 + 2*low_bits)); /* YMM_FMA_RND_CONST1 */
+		ymm_data[20] = ymm_data[21] = ymm_data[22] = ymm_data[23] = 3.0 * pow ((double) 2.0, (51 + low_bits)); /* YMM_FMA_RND_CONST2 */
+	}
+
+/* Initialization for SSE2 / AVX2 / AVX512 code using 30-bit integers to factor numbers 64 bits and above */
+/* If using the SSE2 or AVX2 or AVX512 factoring code, we need to initialize much of the following data: */
 /*	ZMM_INITVAL		DD	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 	XMM_INIT120BS		DD	0,0
 	XMM_INITBS		DD	0,0
 	XMM_BS			DD	0,0
 	XMM_SHIFTER		DD	64 DUP (0) */
 
-	if (asm_data->cpu_flags & (CPU_SSE2 | CPU_AVX2 | CPU_AVX512F)) {
-		unsigned long i, p, bits_in_factor;
-
-/* Compute the number of bits in the factors we will be testing */
-
-		if (asm_data->FACHSW)
-			bits_in_factor = 64, i = asm_data->FACHSW;
-		else
-			bits_in_factor = 32, i = asm_data->FACMSW;
-		while (i) bits_in_factor++, i >>= 1;
-
-/* Factors 63 bits and below use the non-SSE2 code */
-
-		if (bits_in_factor > 63) {
-			uint32_t *xmm_data;
+	else if (bits_in_factor >= 64 && (asm_data->cpu_flags & (CPU_SSE2 | CPU_AVX2 | CPU_AVX512F))) {
+		uint32_t *xmm_data;
+		unsigned long p;
 
 /* Set XMM_SHIFTER values (the first shifter value is not used). */
 /* Also compute the initial value. */
 
-			xmm_data = asm_data->xmm_data;
-			p = (unsigned long) asm_data->p;
-			for (i = 0; p > bits_in_factor + 59; i++) {
-				xmm_data[24+i*2] = (p & 1) ? 1 : 0;
-				p >>= 1;
-			}
-			xmm_data[0] = xmm_data[2] =			/* XMM_INITVAL & YMM_INITVAL & ZMM_INITVAL */
-			xmm_data[4] = xmm_data[6] =
-			xmm_data[8] = xmm_data[10] =
-			xmm_data[12] = xmm_data[14] = p >= 90 ? 0 : (1 << (p - 60));
-			xmm_data[16] = 62 - (120 - bits_in_factor);	/* XMM_INIT120BS */
-			xmm_data[18] = 62 - (p - bits_in_factor);	/* XMM_INITBS */
-			xmm_data[20] = bits_in_factor - 61;		/* Set XMM_BS to 60 - (120 - fac_size + 1) as defined in factor64.mac */
-			asm_data->SSE2_LOOP_COUNTER = i;
-			asm_data->TWO_TO_FACSIZE_PLUS_62 = pow ((double) 2.0, (int) (bits_in_factor + 62));
+		xmm_data = asm_data->xmm_data;
+		p = (unsigned long) asm_data->p;
+		for (i = 0; p > bits_in_factor + 59; i++) {
+			xmm_data[24+i*2] = (p & 1) ? 1 : 0;
+			p >>= 1;
 		}
+		xmm_data[0] = xmm_data[2] =			/* XMM_INITVAL & YMM_INITVAL & ZMM_INITVAL */
+		xmm_data[4] = xmm_data[6] =
+		xmm_data[8] = xmm_data[10] =
+		xmm_data[12] = xmm_data[14] = p >= 90 ? 0 : (1 << (p - 60));
+		xmm_data[16] = 62 - (120 - bits_in_factor);	/* XMM_INIT120BS */
+		xmm_data[18] = 62 - (p - bits_in_factor);	/* XMM_INITBS */
+		xmm_data[20] = bits_in_factor - 61;		/* Set XMM_BS to 60 - (120 - fac_size + 1) as defined in factor64.mac */
+		asm_data->SSE2_LOOP_COUNTER = i;
+		asm_data->TWO_TO_FACSIZE_PLUS_62 = pow ((double) 2.0, (int) (bits_in_factor + 62));
 	}
 
 /* Call the factoring setup assembly code */
@@ -8032,12 +8078,21 @@ int primeSieveTest (
 			muladdhlp (&res, &carryl, &carryh, facmid, 10);
 			facmid = res;
 			fachi = fachi * 10 + carryl;
-			if (fachi >= 4194304 ||
+			if (fachi >= 268435456 ||
+			    (fachi >= 4194304 && !(CPU_FLAGS & CPU_FMA3)) ||
 			    (fachi >= 4096 && !(CPU_FLAGS & CPU_SSE2))) {
 				sprintf (buf, "%ld %s factor too big.\n", p, fac);
 				OutputBoth (thread_num, buf);
 				goto nextp;
 			}
+		}
+
+/* See if p is too small (less than 2^44) */
+
+		if (fachi == 0 && facmid < 0x1000) {
+			sprintf (buf, "%ld %s factor too small.\n", p, fac);
+			OutputBoth (thread_num, buf);
+			goto nextp;
 		}
 
 /* See if p is a prime */
