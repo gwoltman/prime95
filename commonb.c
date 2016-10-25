@@ -4126,10 +4126,11 @@ int factorSetup (
 	facdata->sp_info = sp_info;
 
 /* Initialize maximum number of siever threads (based on a percent specified in the INI file) */
-/* For most architectures one siever can easily keep four TF threads busy -- a percentage of 20%. */
-/* Knights Landing with AVX512 may be an exception, we'll try a default of 33%. */
+/* For most architectures one siever can easily keep four TF threads busy. */
+/* For FMA architectures (our fastest TF code), one siever does not keep 4 TF threads busy, we'll try a default of 33%. */
+/* Knights Landing with AVX512 may be another exception, we'll stick with a default of 33% for now. */
 
-	pct = IniGetInt (INI_FILE, "PercentTFSieverThreads", (CPU_FLAGS & CPU_AVX512F) ? 33 : 20);
+	pct = IniGetInt (INI_FILE, "PercentTFSieverThreads", (CPU_FLAGS & CPU_FMA3) ? 33 : 25);
 	if (pct < 0) pct = 0;
 	if (pct > 100) pct = 100;
 	facdata->num_siever_threads = (pct * facdata->num_threads + 99) / 100;
