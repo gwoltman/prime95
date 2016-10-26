@@ -2210,7 +2210,7 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		OutputBoth (MAIN_THREAD_NUM, buf);
 		goto illegal_line;
 	    }
-	    if (w->work_type == WORK_FACTOR && w->n > MAX_FACTOR) {
+	    if (w->work_type == WORK_FACTOR && w->n > MAX_FACTOR && !IniGetInt (INI_FILE, "LargeTFexponents", 0)) {
 		char	buf[100];
 		sprintf (buf, "Error: Worktodo.txt file contained bad factoring assignment: %ld\n", w->n);
 		OutputBoth (MAIN_THREAD_NUM, buf);
