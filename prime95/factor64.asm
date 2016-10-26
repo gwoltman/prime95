@@ -43,7 +43,8 @@ FACLSW			EQU	DWORD PTR [AD_BASE+74*8+2*4]
 CPU_FLAGS		EQU	DWORD PTR [AD_BASE+74*8+3*4]
 SSE2_LOOP_COUNTER	EQU	DWORD PTR [AD_BASE+74*8+4*4]
 FMA_INITVAL_TYPE	EQU	DWORD PTR [AD_BASE+74*8+5*4]
-initstart		EQU	DWORD PTR [AD_BASE+74*8+6*4]	; First byte in initsieve to copy
+FMA_64_MINUS_LOW_BITS	EQU	DWORD PTR [AD_BASE+74*8+6*4]
+initstart		EQU	DWORD PTR [AD_BASE+74*8+7*4]	; First byte in initsieve to copy
 
 ;; Common constants set in C code for SSE2, AVX2, and AVX512 when using
 ;; factoring algorithm that uses 30-bit integer arithmetic.
@@ -132,43 +133,45 @@ ZMM_TWO_120_MODF3a	EQU	DWORD PTR [AD_BASE+264*8]
 FMA_SHIFTER			EQU	DWORD PTR [AD_BASE+80*8]	; Up to 32 dword shifter values
 YMM_FMA_TWOPOW_SPLIT		EQU	QWORD PTR [AD_BASE+96*8]
 YMM_FMA_TWOPOW_MINUS_SPLIT	EQU	QWORD PTR [AD_BASE+100*8]
-YMM_FMA_INITVAL			EQU	QWORD PTR [AD_BASE+104*8]
-YMM_FMA_RND_CONST0		EQU	QWORD PTR [AD_BASE+108*8]	; 3 * 2^(51 + SPLIT_POINT)
-YMM_FMA_RND_CONST1		EQU	QWORD PTR [AD_BASE+112*8]	; 3 * 2^(51 + BITS_IN_LO_WORD*2)
-YMM_FMA_RND_CONST2		EQU	QWORD PTR [AD_BASE+116*8]	; 3 * 2^(51 + BITS_IN_LO_WORD)
-YMM_FMA_INVFAC			EQU	QWORD PTR [AD_BASE+120*8]
-YMM_FMA_INVFACa			EQU	QWORD PTR [AD_BASE+124*8]
-YMM_FMA_INVFACb			EQU	QWORD PTR [AD_BASE+128*8]
-YMM_FMA_FAC_HI			EQU	QWORD PTR [AD_BASE+132*8]
-YMM_FMA_FAC_HIa			EQU	QWORD PTR [AD_BASE+136*8]
-YMM_FMA_FAC_HIb			EQU	QWORD PTR [AD_BASE+140*8]
-YMM_FMA_FAC_LO			EQU	QWORD PTR [AD_BASE+144*8]
-YMM_FMA_FAC_LOa			EQU	QWORD PTR [AD_BASE+148*8]
-YMM_FMA_FAC_LOb			EQU	QWORD PTR [AD_BASE+152*8]
-YMM_FMA_TWOPOW1_MODF_HI		EQU	QWORD PTR [AD_BASE+156*8]
-YMM_FMA_TWOPOW2_MODF_HI		EQU	QWORD PTR [AD_BASE+160*8]
-YMM_FMA_TWOPOW1_MODF_HIa	EQU	QWORD PTR [AD_BASE+164*8]
-YMM_FMA_TWOPOW2_MODF_HIa	EQU	QWORD PTR [AD_BASE+168*8]
-YMM_FMA_TWOPOW1_MODF_HIb	EQU	QWORD PTR [AD_BASE+172*8]
-YMM_FMA_TWOPOW2_MODF_HIb	EQU	QWORD PTR [AD_BASE+176*8]
-YMM_FMA_TWOPOW1_MODF_LO		EQU	QWORD PTR [AD_BASE+180*8]
-YMM_FMA_TWOPOW2_MODF_LO		EQU	QWORD PTR [AD_BASE+184*8]
-YMM_FMA_TWOPOW1_MODF_LOa	EQU	QWORD PTR [AD_BASE+188*8]
-YMM_FMA_TWOPOW2_MODF_LOa	EQU	QWORD PTR [AD_BASE+192*8]
-YMM_FMA_TWOPOW1_MODF_LOb	EQU	QWORD PTR [AD_BASE+196*8]
-YMM_FMA_TWOPOW2_MODF_LOb	EQU	QWORD PTR [AD_BASE+200*8]
-YMM_FMA_FAC_HI50		EQU	QWORD PTR [AD_BASE+204*8]
-YMM_FMA_FAC_HI50a		EQU	QWORD PTR [AD_BASE+208*8]
-YMM_FMA_FAC_HI50b		EQU	QWORD PTR [AD_BASE+212*8]
-YMM_FMA_FAC_LO50		EQU	QWORD PTR [AD_BASE+216*8]
-YMM_FMA_FAC_LO50a		EQU	QWORD PTR [AD_BASE+220*8]
-YMM_FMA_FAC_LO50b		EQU	QWORD PTR [AD_BASE+224*8]
-YMM_FMA_SAVE			EQU	QWORD PTR [AD_BASE+228*8]
-YMM_FMA_SAVEa			EQU	QWORD PTR [AD_BASE+232*8]
-YMM_FMA_SAVEb			EQU	QWORD PTR [AD_BASE+236*8]
-YMM_FMA_SAVE2			EQU	QWORD PTR [AD_BASE+240*8]
-YMM_FMA_SAVE2a			EQU	QWORD PTR [AD_BASE+244*8]
-YMM_FMA_SAVE2b			EQU	QWORD PTR [AD_BASE+248*8]
+YMM_FMA_LOW_MASK		EQU	QWORD PTR [AD_BASE+104*8]
+YMM_FMA_INITVAL			EQU	QWORD PTR [AD_BASE+108*8]
+YMM_FMA_RND_CONST0		EQU	QWORD PTR [AD_BASE+112*8]	; 3 * 2^(51 + SPLIT_POINT)
+YMM_FMA_RND_CONST1		EQU	QWORD PTR [AD_BASE+116*8]	; 3 * 2^(51 + BITS_IN_LO_WORD*2)
+YMM_FMA_RND_CONST2		EQU	QWORD PTR [AD_BASE+120*8]	; 3 * 2^(51 + BITS_IN_LO_WORD)
+YMM_FMA_TWO_TO_LO		EQU	QWORD PTR [AD_BASE+124*8]	; 2^LOW_BITS
+YMM_FMA_INVFAC			EQU	QWORD PTR [AD_BASE+128*8]
+YMM_FMA_INVFACa			EQU	QWORD PTR [AD_BASE+132*8]
+YMM_FMA_INVFACb			EQU	QWORD PTR [AD_BASE+136*8]
+YMM_FMA_FAC_HI			EQU	QWORD PTR [AD_BASE+140*8]
+YMM_FMA_FAC_HIa			EQU	QWORD PTR [AD_BASE+144*8]
+YMM_FMA_FAC_HIb			EQU	QWORD PTR [AD_BASE+148*8]
+YMM_FMA_FAC_LO			EQU	QWORD PTR [AD_BASE+152*8]
+YMM_FMA_FAC_LOa			EQU	QWORD PTR [AD_BASE+156*8]
+YMM_FMA_FAC_LOb			EQU	QWORD PTR [AD_BASE+160*8]
+YMM_FMA_TWOPOW1_MODF_HI		EQU	QWORD PTR [AD_BASE+164*8]
+YMM_FMA_TWOPOW2_MODF_HI		EQU	QWORD PTR [AD_BASE+168*8]
+YMM_FMA_TWOPOW1_MODF_HIa	EQU	QWORD PTR [AD_BASE+172*8]
+YMM_FMA_TWOPOW2_MODF_HIa	EQU	QWORD PTR [AD_BASE+176*8]
+YMM_FMA_TWOPOW1_MODF_HIb	EQU	QWORD PTR [AD_BASE+180*8]
+YMM_FMA_TWOPOW2_MODF_HIb	EQU	QWORD PTR [AD_BASE+184*8]
+YMM_FMA_TWOPOW1_MODF_LO		EQU	QWORD PTR [AD_BASE+188*8]
+YMM_FMA_TWOPOW2_MODF_LO		EQU	QWORD PTR [AD_BASE+192*8]
+YMM_FMA_TWOPOW1_MODF_LOa	EQU	QWORD PTR [AD_BASE+196*8]
+YMM_FMA_TWOPOW2_MODF_LOa	EQU	QWORD PTR [AD_BASE+200*8]
+YMM_FMA_TWOPOW1_MODF_LOb	EQU	QWORD PTR [AD_BASE+204*8]
+YMM_FMA_TWOPOW2_MODF_LOb	EQU	QWORD PTR [AD_BASE+208*8]
+YMM_FMA_FAC_HI_INT		EQU	QWORD PTR [AD_BASE+212*8]
+YMM_FMA_FAC_HI_INTa		EQU	QWORD PTR [AD_BASE+216*8]
+YMM_FMA_FAC_HI_INTb		EQU	QWORD PTR [AD_BASE+220*8]
+YMM_FMA_FAC_LO_INT		EQU	QWORD PTR [AD_BASE+224*8]
+YMM_FMA_FAC_LO_INTa		EQU	QWORD PTR [AD_BASE+228*8]
+YMM_FMA_FAC_LO_INTb		EQU	QWORD PTR [AD_BASE+232*8]
+YMM_FMA_SAVE			EQU	QWORD PTR [AD_BASE+236*8]
+YMM_FMA_SAVEa			EQU	QWORD PTR [AD_BASE+240*8]
+YMM_FMA_SAVEb			EQU	QWORD PTR [AD_BASE+244*8]
+YMM_FMA_SAVE2			EQU	QWORD PTR [AD_BASE+248*8]
+YMM_FMA_SAVE2a			EQU	QWORD PTR [AD_BASE+252*8]
+YMM_FMA_SAVE2b			EQU	QWORD PTR [AD_BASE+256*8]
 
 ;; Non-SSE2 and non-AVX2 and non-AVX512 queues can share the SSE2/AVX2/AVX512/FMA memory
 
@@ -218,10 +221,7 @@ YMM_BITS28		DD	0FFFFFFFh,0,0FFFFFFFh,0,0FFFFFFFh,0,0FFFFFFFh,0
 YMM_BITS30		DD	3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0
 YMM_28TH_BIT		DD	08000000h,0,08000000h,0,08000000h,0,08000000h,0
 YMM_ONE			DD	1,0,1,0,1,0,1,0
-YMM_FMA_TWO_TO_50	DQ 	1125899906842624.0,1125899906842624.0,1125899906842624.0,1125899906842624.0	; 2^50
 YMM_FMA_RND_CONST3	DQ 	6755399441055744.0,6755399441055744.0,6755399441055744.0,6755399441055744.0	; 3*2^51
-YMM_FMA_RND_CONST4	DQ 	7605903601369376408980219.0E6,7605903601369376408980219.0E6			; (3*2^51) * 2^50
-			DQ	7605903601369376408980219.0E6,7605903601369376408980219.0E6
 YMM_FMA_ONE_OR_TWO TEXTEQU <YMM_FMA_ONE>
 YMM_FMA_ONE		DQ	1.0,1.0,1.0,1.0
 YMM_FMA_TWO		DQ	2.0,2.0,2.0,2.0
@@ -5092,17 +5092,17 @@ zwin86:
 ftlp96:	mov	rsi, sieve		; Sieve address
 	lea	rbp, [rsi+sievesize]	; Sieve end address
 	xor	rdi, rdi		; Count of queued factors to be tested
-	mov	r8, rcx			; Save factor
+	mov	r12, rcx		; Move factor LSW to r12, we use rcx for shift counts within our loop
 	mov	rcx, shift_count
 	dec	rcx
 	mov	r14, 1			; Form trial factor limit
 	ror	r14, cl
-	mov	rcx, r8			; Restore factor
+	mov	ecx, FMA_64_MINUS_LOW_BITS ; Load constant for shifting trial factors
 fsvlp96:mov	rax, [rsi]		; Load word from sieve
 	lea	rsi, [rsi+8]		; Bump sieve address
 fbsf96:	bsf	rdx, rax		; Look for a set bit
 	jnz	ftest96			; Found one, go test the factor
-	add	rcx, facdist64      	; Add facdist * 64 to the factor
+	add	r12, facdist64      	; Add facdist * 64 to the factor
 	adc	rbx, 0
 	cmp	rsi, rbp		; End of sieve?
 	jl	short fsvlp96		; Loop to test next sieve qword
@@ -5114,8 +5114,8 @@ fbsf96:	bsf	rdx, rax		; Look for a set bit
 
 ; Return so caller can check for ESC
 
-	shr	rcx, 32
-	mov	FACMSW, ecx
+	shr	r12, 32
+	mov	FACMSW, r12d
 	mov	FACHSW, ebx
 	mov	rax, 2			; Return for ESC check
 	jmp	done
@@ -5131,12 +5131,12 @@ foflow96:and	rdi, rdi		; Are there untested factors?
 
 ; Test less-than-full queue by copying first trial factor in the queue
 
-frem96a:sub	rcx, facdist64      	; Undo the add of facdist * 64 to rcx
+frem96a:sub	r12, facdist64      	; Undo the add of facdist * 64 to rcx
 	sbb	rbx, 0			; it will be re-added when we branch back to bsf96
-frem96:	mov	r8, YMM_FMA_FAC_HI50	; Copy first trial factor
-	mov	r9, YMM_FMA_FAC_LO50
-	mov	YMM_FMA_FAC_HI50[rdi*8], r8
-	mov	YMM_FMA_FAC_LO50[rdi*8], r9
+frem96:	mov	r8, YMM_FMA_FAC_HI_INT	; Copy first trial factor
+	mov	r9, YMM_FMA_FAC_LO_INT
+	mov	YMM_FMA_FAC_HI_INT[rdi*8], r8
+	mov	YMM_FMA_FAC_LO_INT[rdi*8], r9
 	inc	rdi			; One more factor queued up
 	cmp	rdi, 12			; Have enough been queued up?
 	jne	short frem96		; No, go copy another
@@ -5148,27 +5148,26 @@ frem96:	mov	r8, YMM_FMA_FAC_HI50	; Copy first trial factor
 ;
 
 ftest96:btr	rax, rdx		; Clear the sieve bit
-	mov	r8, rcx			; Copy base factor
+	mov	r8, r12			; Copy base factor
 	mov	r9, rbx
 	add	r8, facdists[rdx*8]	; Determine factor to test
 	adc	r9, 0
 	cmp	r9, r14			; Test for overflow
 	jae	foflow96		; Jump if overflow
 
-; Save the factor as an 50-bit integers.
-; BUG - We'd like to convert to doubles in AVX code, but this isn't easy.  Investigate later.
-; See https://software.intel.com/en-us/forums/intel-isa-extensions/topic/301988
+;;;BUG - can we do the adds above in AVX?  carries are a bit of an issue
+;;;BUG - can we do the oflow check in fdo96 (reduces cost by factor of 12)
+
+; Save the factor as integers.  We will normalize and convert to doubles in AVX code.
 
 ;cmp edi, 8
 ;jne sssss
 ;mov	r9, FOO1
 ;mov	r8, FOO2
 ;sssss:
-	shld	r9, r8, 14
-	shl	r8, 14
-	shr	r8, 14
-	mov	YMM_FMA_FAC_HI50[rdi*8], r9
-	mov	YMM_FMA_FAC_LO50[rdi*8], r8
+	shld	r9, r8, cl
+	mov	YMM_FMA_FAC_HI_INT[rdi*8], r9
+	mov	YMM_FMA_FAC_LO_INT[rdi*8], r8
 
 ; Check to see if we've accumulated enough factors to test
 
@@ -5195,25 +5194,19 @@ floop96:avx_fma_fac
 ; If result = factor + 1, then we found a divisor of 2**p - 1
 
 	avx_fma_compare
-	vpcmpeqq ymm3, ymm3, YMMWORD PTR YMM_FMA_ONE	; See if any remainder is 1
-	vpcmpeqq ymm2, ymm2, YMMWORD PTR YMM_FMA_ZERO
-	vptest	ymm3, ymm2
+	vpcmpeqq ymm2, ymm2, YMMWORD PTR YMM_FMA_ONE	; See if any remainder is 1
+	vpcmpeqq ymm6, ymm6, YMMWORD PTR YMM_FMA_ONE	; See if any remainder is 1
+	vpcmpeqq ymm10, ymm10, YMMWORD PTR YMM_FMA_ONE	; See if any remainder is 1
+	vpor	ymm0, ymm2, ymm6
+	vpor	ymm0, ymm0, ymm10
+	vptest	ymm0, ymm0
 	jnz	short fwin96_1		; Jump if a factor found
-	vpcmpeqq ymm7, ymm7, YMMWORD PTR YMM_FMA_ONE	; See if any remainder is 1
-	vpcmpeqq ymm6, ymm6, YMMWORD PTR YMM_FMA_ZERO
-	vptest	ymm7, ymm6
-	jnz	short fwin96_2		; Jump if a factor found
-	vpcmpeqq ymm11, ymm11, YMMWORD PTR YMM_FMA_ONE	; See if any remainder is 1
-	vpcmpeqq ymm10, ymm10, YMMWORD PTR YMM_FMA_ZERO
-	vptest	ymm11, ymm10
-	jnz	short fwin96_3		; Jump if a factor found
 
 	sub	rdi, rdi		; Clear queued factors count	BUG - should already be zero
 	jmp	fbsf96			; Test next factor from sieve
 
 fwin96_1:
-	vpand	ymm3, ymm3, ymm2
-	vpmovmskb rcx, ymm3
+	vpmovmskb rcx, ymm2
 	sub	rdx, rdx		; See if first AVX word was the factor
 	shr	rcx, 1
 	jc	short fwin96		; Yes! Factor found
@@ -5223,13 +5216,12 @@ fwin96_1:
 	lea	rdx, [rdx+8]		; See if next AVX word was the factor
 	shr	rcx, 8
 	jc	short fwin96		; Yes! Factor found
-	lea	rdx, [rdx+8]		; Last AVX word must have been the factor
-	jmp	short fwin96		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short fwin96		; Yes! Factor found
 
-fwin96_2:
-	vpand	ymm7, ymm7, ymm6
-	vpmovmskb rcx, ymm7
-	mov	edx, 32			; See if first AVX word was the factor
+	vpmovmskb rcx, ymm6
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
 	shr	rcx, 1
 	jc	short fwin96		; Yes! Factor found
 	lea	rdx, [rdx+8]		; See if next AVX word was the factor
@@ -5238,13 +5230,12 @@ fwin96_2:
 	lea	rdx, [rdx+8]		; See if next AVX word was the factor
 	shr	rcx, 8
 	jc	short fwin96		; Yes! Factor found
-	lea	rdx, [rdx+8]		; Last AVX word must have been the factor
-	jmp	short fwin96		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short fwin96		; Yes! Factor found
 
-fwin96_3:
-	vpand	ymm11, ymm11, ymm10
-	vpmovmskb rcx, ymm11
-	mov	edx, 64			; See if first AVX word was the factor
+	vpmovmskb rcx, ymm10
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
 	shr	rcx, 1
 	jc	short fwin96		; Yes! Factor found
 	lea	rdx, [rdx+8]		; See if next AVX word was the factor
@@ -5256,15 +5247,16 @@ fwin96_3:
 	lea	rdx, [rdx+8]		; Last AVX word must have been the factor
 ;	jmp	short fwin96		; Yes! Factor found
 
-fwin96:	mov	rax, YMM_FMA_FAC_LO50[rdx]	; Factor found!!! Return it
-	mov	rbx, YMM_FMA_FAC_HI50[rdx]
+fwin96:	mov	rax, YMM_FMA_FAC_LO_INT[rdx]	; Factor found!!! Return it
+	mov	rbx, YMM_FMA_FAC_HI_INT[rdx]
+	mov	ecx, FMA_64_MINUS_LOW_BITS
+	shl	rax, cl
+	shrd	rax, rbx, cl
 	mov	FACLSW, eax		; Save LSW (low 32 bits)
-	mov	rcx, rbx		; Form HSW
-	shr	rcx, 14
-	mov	FACHSW, ecx		; Save HSW
-	shl	rax, 14			; Form MSW
-	shld	rbx, rax, 18
-	mov	FACMSW, ebx		; Save MSW
+	shr	rax, 32
+	mov	FACMSW, eax		; Save MSW
+	shr	rbx, cl
+	mov	FACHSW, ebx		; Save HSW
 	mov	rax, 1			; return TRUE
 	jmp	done
 

@@ -2825,19 +2825,12 @@ avx_fma_fac_initval MACRO
 
 ;; Break 60 bits of factor inverse into 30 bit chunks
 
-	vmovapd	ymm13, YMMWORD PTR YMM_FMA_TWO_TO_50		;; Constants for converting hi 50 bits
-	vmovapd	ymm12, YMMWORD PTR YMM_FMA_RND_CONST4		;; Constants for converting hi 50 bits
-	vpor	ymm0, ymm15, YMMWORD PTR YMM_FMA_FAC_HI50	;; Load integer factor hi 50 bits
-	vpor	ymm1, ymm15, YMMWORD PTR YMM_FMA_FAC_LO50	;; Load integer factor lo 50 bits
-	yfmsubpd ymm0, ymm0, ymm13, ymm12			;; Convert integer factor hi 50 bits times 2^50 to double 
-	vsubpd	ymm1, ymm1, ymm15				;; Convert factor lo 50 bits to double
-
-;; Normalize factor
-
-	vaddpd	ymm2, ymm1, ymm14				;; Strip low bits from fac_lo
-	vsubpd	ymm2, ymm2, ymm14
-	vaddpd	ymm0, ymm0, ymm2				;; Form normalized fac_hi
-	vsubpd	ymm1, ymm1, ymm2				;; Form normalized fac_lo
+	vmovapd	ymm13, YMMWORD PTR YMM_FMA_LOW_MASK		;; Mask for acquiring low bits
+	vpand	ymm0, ymm13, YMMWORD PTR YMM_FMA_FAC_LO_INT	;; Load integer factor low
+	vpor	ymm0, ymm0, ymm15				;; Step 1 to convert factor low to a double
+	vpor	ymm1, ymm15, YMMWORD PTR YMM_FMA_FAC_HI_INT	;; Load integer factor hi
+	yfmsubpd ymm1, ymm1, YMMWORD PTR YMM_FMA_TWO_TO_LO, ymm14 ;; Convert integer factor hi to double times 2^lo
+	vsubpd	ymm0, ymm0, ymm15				;; Step 2 to convert factor low to a double
 	vmovapd	YMMWORD PTR YMM_FMA_FAC_HI, ymm0		;; Save fac_hi
 	vmovapd	YMMWORD PTR YMM_FMA_FAC_LO, ymm1		;; Save fac_lo
 
@@ -3090,15 +3083,10 @@ avx_fma_fac MACRO fac_size
 	ENDM
 
 
-;; Check if remainder in ymm3,ymm4 is one indicating we found a factor!
-;; Normalize hi/lo so we can compare to YMM_ONE
+;; Check if remainder in ymm2,ymm3 is one indicating we found a factor!
 
 avx_fma_compare MACRO
-	vmovapd	ymm14, YMMWORD PTR YMM_FMA_RND_CONST2		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
-	vaddpd	ymm2, ymm4, ymm14				;; Strip low bits from fac_lo
-	vsubpd	ymm2, ymm2, ymm14
-	vsubpd	ymm4, ymm4, ymm2				;; Normalized fac_lo
-	vaddpd	ymm3, ymm3, ymm2				;; Normalized fac_hi
+	vaddpd	ymm2, ymm2, ymm3				;; Combine fac_hi & fac_lo
 	ENDM
 
 
@@ -3123,30 +3111,26 @@ avx_fma_fac_initval MACRO
 
 ;; Break 60 bits of factor inverse into 30 bit chunks
 
-	vmovapd	ymm13, YMMWORD PTR YMM_FMA_TWO_TO_50		;; Constants for converting hi 50 bits
-	vmovapd	ymm12, YMMWORD PTR YMM_FMA_RND_CONST4		;; Constants for converting hi 50 bits
-	vpor	ymm10, ymm15, YMMWORD PTR YMM_FMA_FAC_HI50	;; Load integer factor hi 50 bits
-	vpor	ymm0, ymm15, YMMWORD PTR YMM_FMA_FAC_LO50	;; Load integer factor lo 50 bits
-	yfmsubpd ymm10, ymm10, ymm13, ymm12			;; Convert integer factor hi 50 bits times 2^50 to double 
-	vsubpd	ymm0, ymm0, ymm15				;; Convert factor lo 50 bits to double
+	vmovapd	ymm13, YMMWORD PTR YMM_FMA_LOW_MASK		;; Mask for acquiring low bits
+	vpand	ymm0, ymm13, YMMWORD PTR YMM_FMA_FAC_LO_INT	;; Load integer factor low
+	vpand	ymm4, ymm13, YMMWORD PTR YMM_FMA_FAC_LO_INTa	;; Load integer factor low
 
-	vpor	ymm11, ymm15, YMMWORD PTR YMM_FMA_FAC_HI50a	;; Load integer factor hi 50 bits
-	vpor	ymm4, ymm15, YMMWORD PTR YMM_FMA_FAC_LO50a	;; Load integer factor lo 50 bits
-	yfmsubpd ymm11, ymm11, ymm13, ymm12			;; Convert integer factor hi 50 bits times 2^50 to double 
-	vsubpd	ymm4, ymm4, ymm15				;; Convert factor lo 50 bits to double
+	vpor	ymm0, ymm0, ymm15				;; Step 1 to convert factor low to a double
+	vpor	ymm4, ymm4, ymm15				;; Step 1 to convert factor low to a double
 
-;; Normalize factor
+	vpor	ymm10, ymm15, YMMWORD PTR YMM_FMA_FAC_HI_INT	;; Load integer factor hi
+	vpor	ymm11, ymm15, YMMWORD PTR YMM_FMA_FAC_HI_INTa	;; Load integer factor hi
 
-	vaddpd	ymm3, ymm0, ymm14				;; Strip low bits from fac_lo
-	vaddpd	ymm7, ymm4, ymm14				;; Strip low bits from fac_lo
-	vsubpd	ymm3, ymm3, ymm14
-	vsubpd	ymm7, ymm7, ymm14
-	vaddpd	ymm10, ymm10, ymm3				;; Form normalized fac_hi
-	vaddpd	ymm11, ymm11, ymm7				;; Form normalized fac_hi
-	vsubpd	ymm0, ymm0, ymm3				;; Form normalized fac_lo
-	vsubpd	ymm4, ymm4, ymm7				;; Form normalized fac_lo
+	vmovapd	ymm13, YMMWORD PTR YMM_FMA_TWO_TO_LO		;; Constant for converting integer factor hi
+	yfmsubpd ymm10, ymm10, ymm13, ymm14			;; Convert integer factor hi to double times 2^lo
+	yfmsubpd ymm11, ymm11, ymm13, ymm14			;; Convert integer factor hi to double times 2^lo
+
+	vsubpd	ymm0, ymm0, ymm15				;; Step 2 to convert factor low to a double
+	vsubpd	ymm4, ymm4, ymm15				;; Step 2 to convert factor low to a double
+
 	vmovapd	YMMWORD PTR YMM_FMA_FAC_HI, ymm10		;; Save fac_hi
 	vmovapd	YMMWORD PTR YMM_FMA_FAC_HIa, ymm11		;; Save fac_hi
+
 	vmovapd	YMMWORD PTR YMM_FMA_FAC_LO, ymm0		;; Save fac_lo
 	vmovapd	YMMWORD PTR YMM_FMA_FAC_LOa, ymm4		;; Save fac_lo
 
@@ -3515,19 +3499,11 @@ avx_fma_fac MACRO fac_size
 	ENDM
 
 
-;; Check if remainder in ymm3,ymm4 is one indicating we found a factor!
-;; Normalize hi/lo so we can compare to YMM_ONE
+;; Check if remainder in ymm2,ymm3 is one indicating we found a factor!
 
 avx_fma_compare MACRO
-	vmovapd	ymm15, YMMWORD PTR YMM_FMA_RND_CONST2		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
-	vaddpd	ymm0, ymm3, ymm15				;; Strip low bits from fac_lo
-	vsubpd	ymm0, ymm0, ymm15
-	vsubpd	ymm3, ymm3, ymm0				;; Normalized fac_lo
-	vaddpd	ymm2, ymm2, ymm0				;; Normalized fac_hi
-	vaddpd	ymm4, ymm7, ymm15				;; Strip low bits from fac_lo
-	vsubpd	ymm4, ymm4, ymm15
-	vsubpd	ymm7, ymm7, ymm4				;; Normalized fac_lo
-	vaddpd	ymm6, ymm6, ymm4				;; Normalized fac_hi
+	vaddpd	ymm2, ymm2, ymm3				;; Combine fac_hi & fac_lo
+	vaddpd	ymm6, ymm6, ymm7
 	ENDM
 
 
@@ -3552,40 +3528,32 @@ avx_fma_fac_initval MACRO
 
 ;; Break 60 bits of factor inverse into 30 bit chunks
 
-	vmovapd	ymm13, YMMWORD PTR YMM_FMA_TWO_TO_50		;; Constants for converting hi 50 bits
-	vmovapd	ymm12, YMMWORD PTR YMM_FMA_RND_CONST4		;; Constants for converting hi 50 bits
-	vpor	ymm2, ymm15, YMMWORD PTR YMM_FMA_FAC_HI50	;; Load integer factor hi 50 bits
-	vpor	ymm0, ymm15, YMMWORD PTR YMM_FMA_FAC_LO50	;; Load integer factor lo 50 bits
-	yfmsubpd ymm2, ymm2, ymm13, ymm12			;; Convert integer factor hi 50 bits times 2^50 to double 
-	vsubpd	ymm0, ymm0, ymm15				;; Convert factor lo 50 bits to double
+	vmovapd	ymm13, YMMWORD PTR YMM_FMA_LOW_MASK		;; Mask for acquiring low bits
+	vpand	ymm0, ymm13, YMMWORD PTR YMM_FMA_FAC_LO_INT	;; Load integer factor low
+	vpand	ymm4, ymm13, YMMWORD PTR YMM_FMA_FAC_LO_INTa	;; Load integer factor low
+	vpand	ymm8, ymm13, YMMWORD PTR YMM_FMA_FAC_LO_INTb	;; Load integer factor low
 
-	vpor	ymm6, ymm15, YMMWORD PTR YMM_FMA_FAC_HI50a	;; Load integer factor hi 50 bits
-	vpor	ymm4, ymm15, YMMWORD PTR YMM_FMA_FAC_LO50a	;; Load integer factor lo 50 bits
-	yfmsubpd ymm6, ymm6, ymm13, ymm12			;; Convert integer factor hi 50 bits times 2^50 to double 
-	vsubpd	ymm4, ymm4, ymm15				;; Convert factor lo 50 bits to double
+	vpor	ymm0, ymm0, ymm15				;; Step 1 to convert factor low to a double
+	vpor	ymm4, ymm4, ymm15				;; Step 1 to convert factor low to a double
+	vpor	ymm8, ymm8, ymm15				;; Step 1 to convert factor low to a double
 
-	vpor	ymm10, ymm15, YMMWORD PTR YMM_FMA_FAC_HI50b	;; Load integer factor hi 50 bits
-	vpor	ymm8, ymm15, YMMWORD PTR YMM_FMA_FAC_LO50b	;; Load integer factor lo 50 bits
-	yfmsubpd ymm10, ymm10, ymm13, ymm12			;; Convert integer factor hi 50 bits times 2^50 to double 
-	vsubpd	ymm8, ymm8, ymm15				;; Convert factor lo 50 bits to double
+	vpor	ymm2, ymm15, YMMWORD PTR YMM_FMA_FAC_HI_INT	;; Load integer factor hi
+	vpor	ymm6, ymm15, YMMWORD PTR YMM_FMA_FAC_HI_INTa	;; Load integer factor hi
+	vpor	ymm10, ymm15, YMMWORD PTR YMM_FMA_FAC_HI_INTb	;; Load integer factor hi
 
-;; Normalize factor
+	vmovapd	ymm13, YMMWORD PTR YMM_FMA_TWO_TO_LO		;; Constant for converting integer factor hi
+	yfmsubpd ymm2, ymm2, ymm13, ymm14			;; Convert integer factor hi to double times 2^lo
+	yfmsubpd ymm6, ymm6, ymm13, ymm14			;; Convert integer factor hi to double times 2^lo
+	yfmsubpd ymm10, ymm10, ymm13, ymm14			;; Convert integer factor hi to double times 2^lo
 
-	vaddpd	ymm3, ymm0, ymm14				;; Strip low bits from fac_lo
-	vaddpd	ymm7, ymm4, ymm14				;; Strip low bits from fac_lo
-	vaddpd	ymm11, ymm8, ymm14				;; Strip low bits from fac_lo
-	vsubpd	ymm3, ymm3, ymm14
-	vsubpd	ymm7, ymm7, ymm14
-	vsubpd	ymm11, ymm11, ymm14
-	vaddpd	ymm2, ymm2, ymm3				;; Form normalized fac_hi
-	vaddpd	ymm6, ymm6, ymm7				;; Form normalized fac_hi
-	vaddpd	ymm10, ymm10, ymm11				;; Form normalized fac_hi
-	vsubpd	ymm0, ymm0, ymm3				;; Form normalized fac_lo
-	vsubpd	ymm4, ymm4, ymm7				;; Form normalized fac_lo
-	vsubpd	ymm8, ymm8, ymm11				;; Form normalized fac_lo
+	vsubpd	ymm0, ymm0, ymm15				;; Step 2 to convert factor low to a double
+	vsubpd	ymm4, ymm4, ymm15				;; Step 2 to convert factor low to a double
+	vsubpd	ymm8, ymm8, ymm15				;; Step 2 to convert factor low to a double
+
 	vmovapd	YMMWORD PTR YMM_FMA_FAC_HI, ymm2		;; Save fac_hi
 	vmovapd	YMMWORD PTR YMM_FMA_FAC_HIa, ymm6		;; Save fac_hi
 	vmovapd	YMMWORD PTR YMM_FMA_FAC_HIb, ymm10		;; Save fac_hi
+
 	vmovapd	YMMWORD PTR YMM_FMA_FAC_LO, ymm0		;; Save fac_lo
 	vmovapd	YMMWORD PTR YMM_FMA_FAC_LOa, ymm4		;; Save fac_lo
 	vmovapd	YMMWORD PTR YMM_FMA_FAC_LOb, ymm8		;; Save fac_lo
@@ -4268,22 +4236,12 @@ avx_fma_fac MACRO fac_size
 	vaddpd	ymm11, ymm9, ymm14				;;*47-50; final_lo += q2f2_lo
 	ENDM
 
-;; Check if remainder in ymm3,ymm4 is one indicating we found a factor!
+;; Check if remainder in ymm2,ymm3 is one indicating we found a factor!
 ;; Normalize hi/lo so we can compare to YMM_ONE
 
 avx_fma_compare MACRO
-	vmovapd	ymm15, YMMWORD PTR YMM_FMA_RND_CONST2		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
-	vaddpd	ymm0, ymm3, ymm15				;; Strip low bits from fac_lo
-	vsubpd	ymm0, ymm0, ymm15
-	vsubpd	ymm3, ymm3, ymm0				;; Normalized fac_lo
-	vaddpd	ymm2, ymm2, ymm0				;; Normalized fac_hi
-	vaddpd	ymm4, ymm7, ymm15				;; Strip low bits from fac_lo
-	vsubpd	ymm4, ymm4, ymm15
-	vsubpd	ymm7, ymm7, ymm4				;; Normalized fac_lo
-	vaddpd	ymm6, ymm6, ymm4				;; Normalized fac_hi
-	vaddpd	ymm8, ymm11, ymm15				;; Strip low bits from fac_lo
-	vsubpd	ymm8, ymm8, ymm15
-	vsubpd	ymm11, ymm11, ymm8				;; Normalized fac_lo
-	vaddpd	ymm10, ymm10, ymm8				;; Normalized fac_hi
+	vaddpd	ymm2, ymm2, ymm3				;; Combine fac_hi & fac_lo
+	vaddpd	ymm6, ymm6, ymm7
+	vaddpd	ymm10, ymm10, ymm11
 	ENDM
 
