@@ -220,6 +220,8 @@ YMM_28TH_BIT		DD	08000000h,0,08000000h,0,08000000h,0,08000000h,0
 YMM_ONE			DD	1,0,1,0,1,0,1,0
 YMM_FMA_TWO_TO_50	DQ 	1125899906842624.0,1125899906842624.0,1125899906842624.0,1125899906842624.0	; 2^50
 YMM_FMA_RND_CONST3	DQ 	6755399441055744.0,6755399441055744.0,6755399441055744.0,6755399441055744.0	; 3*2^51
+YMM_FMA_RND_CONST4	DQ 	7605903601369376408980219.0E6,7605903601369376408980219.0E6			; (3*2^51) * 2^50
+			DQ	7605903601369376408980219.0E6,7605903601369376408980219.0E6
 YMM_FMA_ONE_OR_TWO TEXTEQU <YMM_FMA_ONE>
 YMM_FMA_ONE		DQ	1.0,1.0,1.0,1.0
 YMM_FMA_TWO		DQ	2.0,2.0,2.0,2.0
@@ -5131,10 +5133,10 @@ foflow96:and	rdi, rdi		; Are there untested factors?
 
 frem96a:sub	rcx, facdist64      	; Undo the add of facdist * 64 to rcx
 	sbb	rbx, 0			; it will be re-added when we branch back to bsf96
-frem96:	mov	r8, YMM_FMA_FAC_HI	; Copy first trial factor
-	mov	r9, YMM_FMA_FAC_LO
-	mov	YMM_FMA_FAC_HI[rdi*8], r8
-	mov	YMM_FMA_FAC_LO[rdi*8], r9
+frem96:	mov	r8, YMM_FMA_FAC_HI50	; Copy first trial factor
+	mov	r9, YMM_FMA_FAC_LO50
+	mov	YMM_FMA_FAC_HI50[rdi*8], r8
+	mov	YMM_FMA_FAC_LO50[rdi*8], r9
 	inc	rdi			; One more factor queued up
 	cmp	rdi, 12			; Have enough been queued up?
 	jne	short frem96		; No, go copy another
@@ -5166,11 +5168,7 @@ ftest96:btr	rax, rdx		; Clear the sieve bit
 	shl	r8, 14
 	shr	r8, 14
 	mov	YMM_FMA_FAC_HI50[rdi*8], r9
-	fild	YMM_FMA_FAC_HI50[rdi*8]
-	fstp	YMM_FMA_FAC_HI[rdi*8]
 	mov	YMM_FMA_FAC_LO50[rdi*8], r8
-	fild	YMM_FMA_FAC_LO50[rdi*8]
-	fstp	YMM_FMA_FAC_LO[rdi*8]
 
 ; Check to see if we've accumulated enough factors to test
 

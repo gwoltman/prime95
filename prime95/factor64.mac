@@ -2819,15 +2819,18 @@ avx_fma_fac_initval MACRO
 
 ;; Preload constants
 
-	lea	r8, YMM_FMA_ONE_OR_TWO				;; q2_dividend = 1-or-2 * q2_dividend + q1f1_hi
 	vmovapd	ymm15, YMMWORD PTR YMM_FMA_RND_CONST3		;; Load 3.0 * pow (2.0, (double) (51))
 	vmovapd	ymm14, YMMWORD PTR YMM_FMA_RND_CONST2		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
+	lea	r8, YMM_FMA_ONE_OR_TWO				;; q2_dividend = 1-or-2 * q2_dividend + q1f1_hi
 
 ;; Break 60 bits of factor inverse into 30 bit chunks
 
-	vmovapd	ymm0, YMMWORD PTR YMM_FMA_FAC_HI		;; Load factor hi 50 bits
-	vmulpd	ymm0, ymm0, YMMWORD PTR YMM_FMA_TWO_TO_50
-	vmovapd	ymm1, YMMWORD PTR YMM_FMA_FAC_LO		;; Load factor lo 50 bits
+	vmovapd	ymm13, YMMWORD PTR YMM_FMA_TWO_TO_50		;; Constants for converting hi 50 bits
+	vmovapd	ymm12, YMMWORD PTR YMM_FMA_RND_CONST4		;; Constants for converting hi 50 bits
+	vpor	ymm0, ymm15, YMMWORD PTR YMM_FMA_FAC_HI50	;; Load integer factor hi 50 bits
+	vpor	ymm1, ymm15, YMMWORD PTR YMM_FMA_FAC_LO50	;; Load integer factor lo 50 bits
+	yfmsubpd ymm0, ymm0, ymm13, ymm12			;; Convert integer factor hi 50 bits times 2^50 to double 
+	vsubpd	ymm1, ymm1, ymm15				;; Convert factor lo 50 bits to double
 
 ;; Normalize factor
 
@@ -3120,13 +3123,17 @@ avx_fma_fac_initval MACRO
 
 ;; Break 60 bits of factor inverse into 30 bit chunks
 
-	vmovapd	ymm10, YMMWORD PTR YMM_FMA_FAC_HI		;; Load factor hi 50 bits
-	vmulpd	ymm10, ymm10, YMMWORD PTR YMM_FMA_TWO_TO_50
-	vmovapd	ymm0, YMMWORD PTR YMM_FMA_FAC_LO		;; Load factor lo 50 bits
+	vmovapd	ymm13, YMMWORD PTR YMM_FMA_TWO_TO_50		;; Constants for converting hi 50 bits
+	vmovapd	ymm12, YMMWORD PTR YMM_FMA_RND_CONST4		;; Constants for converting hi 50 bits
+	vpor	ymm10, ymm15, YMMWORD PTR YMM_FMA_FAC_HI50	;; Load integer factor hi 50 bits
+	vpor	ymm0, ymm15, YMMWORD PTR YMM_FMA_FAC_LO50	;; Load integer factor lo 50 bits
+	yfmsubpd ymm10, ymm10, ymm13, ymm12			;; Convert integer factor hi 50 bits times 2^50 to double 
+	vsubpd	ymm0, ymm0, ymm15				;; Convert factor lo 50 bits to double
 
-	vmovapd	ymm11, YMMWORD PTR YMM_FMA_FAC_HIa		;; Load factor hi 50 bits
-	vmulpd	ymm11, ymm11, YMMWORD PTR YMM_FMA_TWO_TO_50
-	vmovapd	ymm4, YMMWORD PTR YMM_FMA_FAC_LOa		;; Load factor lo 50 bits
+	vpor	ymm11, ymm15, YMMWORD PTR YMM_FMA_FAC_HI50a	;; Load integer factor hi 50 bits
+	vpor	ymm4, ymm15, YMMWORD PTR YMM_FMA_FAC_LO50a	;; Load integer factor lo 50 bits
+	yfmsubpd ymm11, ymm11, ymm13, ymm12			;; Convert integer factor hi 50 bits times 2^50 to double 
+	vsubpd	ymm4, ymm4, ymm15				;; Convert factor lo 50 bits to double
 
 ;; Normalize factor
 
@@ -3545,17 +3552,22 @@ avx_fma_fac_initval MACRO
 
 ;; Break 60 bits of factor inverse into 30 bit chunks
 
-	vmovapd	ymm2, YMMWORD PTR YMM_FMA_FAC_HI		;; Load factor hi 50 bits
-	vmulpd	ymm2, ymm2, YMMWORD PTR YMM_FMA_TWO_TO_50
-	vmovapd	ymm0, YMMWORD PTR YMM_FMA_FAC_LO		;; Load factor lo 50 bits
+	vmovapd	ymm13, YMMWORD PTR YMM_FMA_TWO_TO_50		;; Constants for converting hi 50 bits
+	vmovapd	ymm12, YMMWORD PTR YMM_FMA_RND_CONST4		;; Constants for converting hi 50 bits
+	vpor	ymm2, ymm15, YMMWORD PTR YMM_FMA_FAC_HI50	;; Load integer factor hi 50 bits
+	vpor	ymm0, ymm15, YMMWORD PTR YMM_FMA_FAC_LO50	;; Load integer factor lo 50 bits
+	yfmsubpd ymm2, ymm2, ymm13, ymm12			;; Convert integer factor hi 50 bits times 2^50 to double 
+	vsubpd	ymm0, ymm0, ymm15				;; Convert factor lo 50 bits to double
 
-	vmovapd	ymm6, YMMWORD PTR YMM_FMA_FAC_HIa		;; Load factor hi 50 bits
-	vmulpd	ymm6, ymm6, YMMWORD PTR YMM_FMA_TWO_TO_50
-	vmovapd	ymm4, YMMWORD PTR YMM_FMA_FAC_LOa		;; Load factor lo 50 bits
+	vpor	ymm6, ymm15, YMMWORD PTR YMM_FMA_FAC_HI50a	;; Load integer factor hi 50 bits
+	vpor	ymm4, ymm15, YMMWORD PTR YMM_FMA_FAC_LO50a	;; Load integer factor lo 50 bits
+	yfmsubpd ymm6, ymm6, ymm13, ymm12			;; Convert integer factor hi 50 bits times 2^50 to double 
+	vsubpd	ymm4, ymm4, ymm15				;; Convert factor lo 50 bits to double
 
-	vmovapd	ymm10, YMMWORD PTR YMM_FMA_FAC_HIb		;; Load factor hi 50 bits
-	vmulpd	ymm10, ymm10, YMMWORD PTR YMM_FMA_TWO_TO_50
-	vmovapd	ymm8, YMMWORD PTR YMM_FMA_FAC_LOb		;; Load factor lo 50 bits
+	vpor	ymm10, ymm15, YMMWORD PTR YMM_FMA_FAC_HI50b	;; Load integer factor hi 50 bits
+	vpor	ymm8, ymm15, YMMWORD PTR YMM_FMA_FAC_LO50b	;; Load integer factor lo 50 bits
+	yfmsubpd ymm10, ymm10, ymm13, ymm12			;; Convert integer factor hi 50 bits times 2^50 to double 
+	vsubpd	ymm8, ymm8, ymm15				;; Convert factor lo 50 bits to double
 
 ;; Normalize factor
 
@@ -4013,7 +4025,6 @@ avx_fma_fac MACRO fac_size
 	vaddpd	ymm10, ymm10, ymm8				;;*48-51; final_hi += q2f2_hi
 	vaddpd	ymm11, ymm11, ymm14				;;*51-54; final_lo += q2f2_lo
 	ENDM
-
 
 ;; ALTERNATE IMPLEMENTATION THAT USES SAVES AND RESTORES (even better!)
 ;; Timed at 1.01 ms with Options/Benchmark on 3.4 GHz Haswell
