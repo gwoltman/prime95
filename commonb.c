@@ -4372,13 +4372,14 @@ int factorPassSetup (
 /* Initialization for FMA code using 2 doubles to factor numbers 64 bits and above */
 /* If using the FMA or AVX512 FMA factoring code, we need to initialize much of the following data: */
 /*	FMA_SHIFTER		DD	32 DUP (0)	; Up to 32 dword shifter values
-	YMM_FMA_TWOPOW_SPLIT	DQ	4 DUP		; 2^split
-	YMM_FMA_TWOPOW_MINUS_SPLIT DQ	4 DUP		; 2^-split
 	YMM_FMA_LOW_MASK	DQ	4 DUP		; Mask for low bits
-	YMM_FMA_INITVAL		DQ	4 DUP
 	YMM_FMA_RND_CONST0	DQ	4 DUP		; 3 * 2^(51 + SPLIT_POINT)
 	YMM_FMA_RND_CONST1	DQ	4 DUP		; 3 * 2^(51 + BITS_IN_LO_WORD*2)
 	YMM_FMA_RND_CONST2	DQ	4 DUP		; 3 * 2^(51 + BITS_IN_LO_WORD)
+	YMM_FMA_RND_CONST4	DQ	4 DUP		; 3 * 2^(51 - SPLIT_POINT)
+	YMM_FMA_RND_CONST5	DQ	4 DUP		; 3 * 2^(51 + BITS_IN_LO_WORD - SPLIT_POINT)
+	YMM_FMA_INITVAL		DQ	4 DUP		; Initial squared value (a power of two)
+	YMM_FMA_TWOPOW_SPLIT	DQ	4 DUP		; 2^SPLIT_POINT
 	YMM_FMA_TWO_TO_LO	DQ	4 DUP		; 2^BITS_IN_LO_WORD
 */
 
@@ -4413,18 +4414,19 @@ int factorPassSetup (
 		asm_data->FMA_64_MINUS_LOW_BITS = 64 - low_bits;
 		asm_data->SSE2_LOOP_COUNTER = i;
 
-		ymm_data = (double *) &dword_data[32];
-		ymm64_data = (uint64_t *) ymm_data;
-		ymm_data[0] = ymm_data[1] = ymm_data[2] = ymm_data[3] = pow ((double) 2.0, split_bits); /* YMM_FMA_TWOPOW_SPLIT */
-		ymm_data[4] = ymm_data[5] = ymm_data[6] = ymm_data[7] = pow ((double) 2.0, -split_bits); /* YMM_FMA_TWOPOW_MINUS_SPLIT */
-		ymm64_data[8] = ymm64_data[9] = ymm64_data[10] = ymm64_data[11] = (1ULL << low_bits) - 1; /* YMM_FMA_LOW_MASK */
+		ymm64_data = (uint64_t *) &dword_data[32];
+		ymm64_data[0] = ymm64_data[1] = ymm64_data[2] = ymm64_data[3] = (1ULL << low_bits) - 1; /* YMM_FMA_LOW_MASK */
+		ymm_data = (double *) &ymm64_data[4];
+		ymm_data[0] = ymm_data[1] = ymm_data[2] = ymm_data[3] = 3.0 * pow ((double) 2.0, (51 + split_bits)); /* YMM_FMA_RND_CONST0 */
+		ymm_data[4] = ymm_data[5] = ymm_data[6] = ymm_data[7] = 3.0 * pow ((double) 2.0, (51 + 2*low_bits)); /* YMM_FMA_RND_CONST1 */
+		ymm_data[8] = ymm_data[9] = ymm_data[10] = ymm_data[11] = 3.0 * pow ((double) 2.0, (51 + low_bits)); /* YMM_FMA_RND_CONST2 */
+		ymm_data[12] = ymm_data[13] = ymm_data[14] = ymm_data[15] = 3.0 * pow ((double) 2.0, (51 - split_bits)); /* YMM_FMA_RND_CONST4 */
+		ymm_data[16] = ymm_data[17] = ymm_data[18] = ymm_data[19] = 3.0 * pow ((double) 2.0, (51 + low_bits - split_bits)); /* YMM_FMA_RND_CONST5 */
 		if (p > split_bits+1)
-			ymm_data[12] = ymm_data[13] = ymm_data[14] = ymm_data[15] = pow ((double) 2.0, p-1); /* YMM_FMA_INITIAL_VALUE */
+			ymm_data[20] = ymm_data[21] = ymm_data[22] = ymm_data[23] = pow ((double) 2.0, p-1); /* YMM_FMA_INITIAL_VALUE */
 		else
-			ymm_data[12] = ymm_data[13] = ymm_data[14] = ymm_data[15] = pow ((double) 2.0, p);	/* YMM_FMA_INITIAL_VALUE */
-		ymm_data[16] = ymm_data[17] = ymm_data[18] = ymm_data[19] = 3.0 * pow ((double) 2.0, (51 + split_bits)); /* YMM_FMA_RND_CONST0 */
-		ymm_data[20] = ymm_data[21] = ymm_data[22] = ymm_data[23] = 3.0 * pow ((double) 2.0, (51 + 2*low_bits)); /* YMM_FMA_RND_CONST1 */
-		ymm_data[24] = ymm_data[25] = ymm_data[26] = ymm_data[27] = 3.0 * pow ((double) 2.0, (51 + low_bits)); /* YMM_FMA_RND_CONST2 */
+			ymm_data[20] = ymm_data[21] = ymm_data[22] = ymm_data[23] = pow ((double) 2.0, p); /* YMM_FMA_INITIAL_VALUE */
+		ymm_data[24] = ymm_data[25] = ymm_data[26] = ymm_data[27] = pow ((double) 2.0, split_bits); /* YMM_FMA_TWOPOW_SPLIT */
 		ymm_data[28] = ymm_data[29] = ymm_data[30] = ymm_data[31] = pow ((double) 2.0, low_bits); /* YMM_FMA_TWO_TO_LO */
 	}
 
