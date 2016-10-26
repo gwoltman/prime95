@@ -2841,36 +2841,30 @@ avx_fma_fac_initval MACRO
 	vdivpd	ymm2, ymm2, ymm3				;; Compute 1 / fac
 	vmovapd	YMMWORD PTR YMM_FMA_INVFAC, ymm2		;; Save factor inverse
 
-;; Compute 2 ^ large_power mod f where large_power is the split point when calculating rem_hi^2.
-;; First we calculate q = 2^large_power * facinv
-;; Then we calculate 2^large_power - q * fac
+;; Compute (2^split mod f) * 2^-split.  Used after calculating rem_hi^2.
 
-	vmovapd	ymm3, YMMWORD PTR YMM_FMA_TWOPOW_SPLIT		;; Load 2^split
-	vmovapd	ymm13, YMMWORD PTR YMM_FMA_TWOPOW_MINUS_SPLIT	;; Load 2^-split
-	yfmaddpd ymm4, ymm3, ymm2, ymm15			;; q = 2^split * facinv + rounding const
-	vsubpd	ymm4, ymm4, ymm15				;; q -= rounding const
-	yfnmaddpd ymm5, ymm4, ymm0, ymm3			;; hi = 2^split - q * fac_hi
-	yfnmaddpd ymm6, ymm4, ymm1, ymm14			;; hi_addin = -q * fac_lo + rounding const
-	vsubpd	ymm6, ymm6, ymm14				;; hi_addin -= rounding const
+	vmovapd	ymm13, YMMWORD PTR YMM_FMA_RND_CONST4		;; Load (3.0 * 2^51) * 2^-split
+	vaddpd	ymm4, ymm2, ymm13				;; q = 1.0 * facinv + rounding const
+	vsubpd	ymm4, ymm4, ymm13				;; q -= rounding const
+	yfnmaddpd ymm5, ymm4, ymm0, YMMWORD PTR YMM_FMA_ONE	;; hi = 1.0 - q * fac_hi
+	vmovapd	ymm12, YMMWORD PTR YMM_FMA_RND_CONST5		;; Load (3.0 * 2^(51 + LOW_BITS)) * 2^-split
+	yfnmaddpd ymm6, ymm4, ymm1, ymm12			;; hi_addin = -q * fac_lo + rounding const
+	vsubpd	ymm6, ymm6, ymm12				;; hi_addin -= rounding const
 	yfnmsubpd ymm4, ymm4, ymm1, ymm6			;; lo = -q* fac_lo - hi_addin
 	vaddpd	ymm5, ymm5, ymm6				;; hi += hi_addin
-	vmulpd	ymm5, ymm5, ymm13
-	vmulpd	ymm4, ymm4, ymm13
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW1_MODF_HI, ymm5	;; Save high bits of modf
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW1_MODF_LO, ymm4	;; Save low bits of modf
 
-;; Compute 2 ^ large_power+1 mod f.  Used for optional mul-by-2 after computing rem_hi^2.
+;; Compute (2^(split+1) mod f) * 2^-split.  Used for optional mul-by-2 after computing rem_hi^2.
 
-	vaddpd	ymm5, ymm3, ymm3				;; Make 2^(split+1) by doubling previously loaded 2^split
-	yfmaddpd ymm4, ymm5, ymm2, ymm15			;; q = 2^(split+1) * facinv + rounding const
-	vsubpd	ymm4, ymm4, ymm15				;; q -= rounding const
-	yfnmaddpd ymm3, ymm4, ymm0, ymm5			;; hi = 2^(split+1) - q * fac_hi
-	yfnmaddpd ymm6, ymm4, ymm1, ymm14			;; hi_addin = -q * fac_lo + rounding const
-	vsubpd	ymm6, ymm6, ymm14				;; hi_addin -= rounding const
+	vmovapd	ymm5, YMMWORD PTR YMM_FMA_TWO			;; Load 2.0
+	yfmaddpd ymm4, ymm5, ymm2, ymm13			;; q = 2.0 * facinv + rounding const
+	vsubpd	ymm4, ymm4, ymm13				;; q -= rounding const
+	yfnmaddpd ymm3, ymm4, ymm0, ymm5			;; hi = 2.0 - q * fac_hi
+	yfnmaddpd ymm6, ymm4, ymm1, ymm12			;; hi_addin = -q * fac_lo + rounding const
+	vsubpd	ymm6, ymm6, ymm12				;; hi_addin -= rounding const
 	yfnmsubpd ymm4, ymm4, ymm1, ymm6			;; lo = -q* fac_lo - hi_addin
 	vaddpd	ymm3, ymm3, ymm6				;; hi += hi_addin
-	vmulpd	ymm3, ymm3, ymm13
-	vmulpd	ymm4, ymm4, ymm13
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW2_MODF_HI, ymm3	;; Save high bits of modf
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW2_MODF_LO, ymm4	;; Save low bits of modf
 
@@ -3144,64 +3138,50 @@ avx_fma_fac_initval MACRO
 	vmovapd	YMMWORD PTR YMM_FMA_INVFAC, ymm8		;; Save factor inverse
 	vmovapd	YMMWORD PTR YMM_FMA_INVFACa, ymm9		;; Save factor inverse
 
-;; Compute 2 ^ large_power mod f where large_power is the split point when calculating rem_hi^2.
-;; First we calculate q = 2^large_power * facinv
-;; Then we calculate 2^large_power - q * fac
+;; Compute (2^split mod f) * 2^-split.  Used after calculating rem_hi^2.
 
-;; ymm1 = facinv, ymm2 = fac_hi, ymm0 = fac_lo 
+;; ymm0 = fac_lo, ymm8/9 = facinv, ymm10/11 = fac_hi
 
-;; BUG -- eliminate mul by two-to-minus-split.  Simply use different rounding consts:  ymm15 and ymm14 * two-to-minus-split
-
-	vmovapd	ymm12, YMMWORD PTR YMM_FMA_TWOPOW_SPLIT		;; Load 2^split
-	vmovapd	ymm13, YMMWORD PTR YMM_FMA_TWOPOW_MINUS_SPLIT	;; Load 2^-split
-	yfmaddpd ymm1, ymm12, ymm8, ymm15			;; q = 2^split * facinv + rounding const
-	yfmaddpd ymm5, ymm12, ymm9, ymm15			;; q = 2^split * facinv + rounding const
-	vsubpd	ymm1, ymm1, ymm15				;; q -= rounding const
-	vsubpd	ymm5, ymm5, ymm15				;; q -= rounding const
-	yfnmaddpd ymm2, ymm1, ymm10, ymm12			;; hi = 2^split - q * fac_hi
-	yfnmaddpd ymm6, ymm5, ymm11, ymm12			;; hi = 2^split - q * fac_hi
-	yfnmaddpd ymm3, ymm1, ymm0, ymm14			;; hi_addin = -q * fac_lo + rounding const
-	yfnmaddpd ymm7, ymm5, ymm4, ymm14			;; hi_addin = -q * fac_lo + rounding const
-	vsubpd	ymm3, ymm3, ymm14				;; hi_addin -= rounding const
-	vsubpd	ymm7, ymm7, ymm14				;; hi_addin -= rounding const
+	vmovapd	ymm13, YMMWORD PTR YMM_FMA_RND_CONST4		;; Load (3.0 * 2^51) * 2^-split
+	vaddpd	ymm1, ymm8, ymm13				;; q = 1.0 * facinv + rounding const
+	vaddpd	ymm5, ymm9, ymm13				;; q = 1.0 * facinv + rounding const
+	vsubpd	ymm1, ymm1, ymm13				;; q -= rounding const
+	vsubpd	ymm5, ymm5, ymm13				;; q -= rounding const
+	vmovapd	ymm12, YMMWORD PTR YMM_FMA_ONE			;; Load 1.0
+	yfnmaddpd ymm2, ymm1, ymm10, ymm12			;; hi = 1.0 - q * fac_hi
+	yfnmaddpd ymm6, ymm5, ymm11, ymm12			;; hi = 1.0 - q * fac_hi
+	vmovapd	ymm12, YMMWORD PTR YMM_FMA_RND_CONST5		;; Load (3.0 * 2^(51 + LOW_BITS)) * 2^-split
+	yfnmaddpd ymm3, ymm1, ymm0, ymm12			;; hi_addin = -q * fac_lo + rounding const
+	yfnmaddpd ymm7, ymm5, ymm4, ymm12			;; hi_addin = -q * fac_lo + rounding const
+	vsubpd	ymm3, ymm3, ymm12				;; hi_addin -= rounding const
+	vsubpd	ymm7, ymm7, ymm12				;; hi_addin -= rounding const
 	vaddpd	ymm2, ymm2, ymm3				;; hi += hi_addin
 	vaddpd	ymm6, ymm6, ymm7				;; hi += hi_addin
 	yfnmsubpd ymm1, ymm1, ymm0, ymm3			;; lo = -q * fac_lo - hi_addin
 	yfnmsubpd ymm5, ymm5, ymm4, ymm7			;; lo = -q * fac_lo - hi_addin
-	vmulpd	ymm2, ymm2, ymm13
-	vmulpd	ymm6, ymm6, ymm13
-	vmulpd	ymm1, ymm1, ymm13
-	vmulpd	ymm5, ymm5, ymm13
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW1_MODF_HI, ymm2	;; Save high bits of modf
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW1_MODF_HIa, ymm6	;; Save high bits of modf
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW1_MODF_LO, ymm1	;; Save low bits of modf
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW1_MODF_LOa, ymm5	;; Save low bits of modf
 
-;; Compute 2 ^ large_power+1 mod f.  Used for optional mul-by-2 after computing rem_hi^2.
+;; Compute (2^(split+1) mod f) * 2^-split.  Used for optional mul-by-2 after computing rem_hi^2.
 
-;; BUG -- eliminate mul by two-to-minus-split.  Simply use different rounding consts:  ymm15 and ymm14 * two-to-minus-split
-
-;; ymm0 = fac_lo
-
-	vaddpd	ymm12, ymm12, ymm12				;; Make 2^(split+1) by doubling previously loaded 2^split
-	yfmaddpd ymm1, ymm12, ymm8, ymm15			;; q = 2^(split+1) * facinv + rounding const
-	yfmaddpd ymm5, ymm12, ymm9, ymm15			;; q = 2^(split+1) * facinv + rounding const
-	vsubpd	ymm1, ymm1, ymm15				;; q -= rounding const
-	vsubpd	ymm5, ymm5, ymm15				;; q -= rounding const
-	yfnmaddpd ymm2, ymm1, ymm10, ymm12			;; hi = 2^(split+1) - q * fac_hi
-	yfnmaddpd ymm6, ymm5, ymm11, ymm12			;; hi = 2^(split+1) - q * fac_hi
-	yfnmaddpd ymm3, ymm1, ymm0, ymm14			;; hi_addin = -q * fac_lo + rounding const
-	yfnmaddpd ymm7, ymm5, ymm4, ymm14			;; hi_addin = -q * fac_lo + rounding const
-	vsubpd	ymm3, ymm3, ymm14				;; hi_addin -= rounding const
-	vsubpd	ymm7, ymm7, ymm14				;; hi_addin -= rounding const
+	vmovapd	ymm12, YMMWORD PTR YMM_FMA_TWO			;; Load 2.0
+	yfmaddpd ymm1, ymm12, ymm8, ymm13			;; q = 2.0 * facinv + rounding const
+	yfmaddpd ymm5, ymm12, ymm9, ymm13			;; q = 2.0 * facinv + rounding const
+	vsubpd	ymm1, ymm1, ymm13				;; q -= rounding const
+	vsubpd	ymm5, ymm5, ymm13				;; q -= rounding const
+	yfnmaddpd ymm2, ymm1, ymm10, ymm12			;; hi = 2.0 - q * fac_hi
+	yfnmaddpd ymm6, ymm5, ymm11, ymm12			;; hi = 2.0 - q * fac_hi
+	vmovapd	ymm12, YMMWORD PTR YMM_FMA_RND_CONST5		;; Load (3.0 * 2^(51 + LOW_BITS)) * 2^-split
+	yfnmaddpd ymm3, ymm1, ymm0, ymm12			;; hi_addin = -q * fac_lo + rounding const
+	yfnmaddpd ymm7, ymm5, ymm4, ymm12			;; hi_addin = -q * fac_lo + rounding const
+	vsubpd	ymm3, ymm3, ymm12				;; hi_addin -= rounding const
+	vsubpd	ymm7, ymm7, ymm12				;; hi_addin -= rounding const
 	vaddpd	ymm2, ymm2, ymm3				;; hi += hi_addin
 	vaddpd	ymm6, ymm6, ymm7				;; hi += hi_addin
 	yfnmsubpd ymm1, ymm1, ymm0, ymm3			;; lo = -q * fac_lo - hi_addin
 	yfnmsubpd ymm5, ymm5, ymm4, ymm7			;; lo = -q * fac_lo - hi_addin
-	vmulpd	ymm2, ymm2, ymm13
-	vmulpd	ymm6, ymm6, ymm13
-	vmulpd	ymm1, ymm1, ymm13
-	vmulpd	ymm5, ymm5, ymm13
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW2_MODF_HI, ymm2	;; Save high bits of modf
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW2_MODF_HIa, ymm6	;; Save high bits of modf
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW2_MODF_LO, ymm1	;; Save low bits of modf
@@ -3571,43 +3551,34 @@ avx_fma_fac_initval MACRO
 	vmovapd	YMMWORD PTR YMM_FMA_INVFACa, ymm5		;; Save factor inverse
 	vmovapd	YMMWORD PTR YMM_FMA_INVFACb, ymm9		;; Save factor inverse
 
-;; Compute 2 ^ large_power mod f where large_power is the split point when calculating rem_hi^2.
-;; First we calculate q = 2^large_power * facinv
-;; Then we calculate 2^large_power - q * fac
+;; Compute (2^split mod f) * 2^-split.  Used after calculating rem_hi^2.
 
-;; ymm1 = facinv, ymm2 = fac_hi, ymm0 = fac_lo 
+;; ymm0 = fac_lo, ymm1 = facinv, ymm2 = fac_hi
 
-;; BUG -- eliminate mul by two-to-minus-split.  Simply use different rounding consts:  ymm15 and ymm14 * two-to-minus-split
-
-	vmovapd	ymm12, YMMWORD PTR YMM_FMA_TWOPOW_SPLIT		;; Load 2^split
-	vmovapd	ymm13, YMMWORD PTR YMM_FMA_TWOPOW_MINUS_SPLIT	;; Load 2^-split
-	yfmaddpd ymm1, ymm12, ymm1, ymm15			;; q = 2^split * facinv + rounding const
-	yfmaddpd ymm5, ymm12, ymm5, ymm15			;; q = 2^split * facinv + rounding const
-	yfmaddpd ymm9, ymm12, ymm9, ymm15			;; q = 2^split * facinv + rounding const
-	vsubpd	ymm1, ymm1, ymm15				;; q -= rounding const
-	vsubpd	ymm5, ymm5, ymm15				;; q -= rounding const
-	vsubpd	ymm9, ymm9, ymm15				;; q -= rounding const
-	yfnmaddpd ymm2, ymm1, ymm2, ymm12			;; hi = 2^split - q * fac_hi
-	yfnmaddpd ymm6, ymm5, ymm6, ymm12			;; hi = 2^split - q * fac_hi
-	yfnmaddpd ymm10, ymm9, ymm10, ymm12			;; hi = 2^split - q * fac_hi
-	yfnmaddpd ymm3, ymm1, ymm0, ymm14			;; hi_addin = -q * fac_lo + rounding const
-	yfnmaddpd ymm7, ymm5, ymm4, ymm14			;; hi_addin = -q * fac_lo + rounding const
-	yfnmaddpd ymm11, ymm9, ymm8, ymm14			;; hi_addin = -q * fac_lo + rounding const
-	vsubpd	ymm3, ymm3, ymm14				;; hi_addin -= rounding const
-	vsubpd	ymm7, ymm7, ymm14				;; hi_addin -= rounding const
-	vsubpd	ymm11, ymm11, ymm14				;; hi_addin -= rounding const
+	vmovapd	ymm13, YMMWORD PTR YMM_FMA_RND_CONST4		;; Load (3.0 * 2^51) * 2^-split
+	vaddpd	ymm1, ymm1, ymm13				;; q = 1.0 * facinv + rounding const
+	vaddpd	ymm5, ymm5, ymm13				;; q = 1.0 * facinv + rounding const
+	vaddpd	ymm9, ymm9, ymm13				;; q = 1.0 * facinv + rounding const
+	vsubpd	ymm1, ymm1, ymm13				;; q -= rounding const
+	vsubpd	ymm5, ymm5, ymm13				;; q -= rounding const
+	vsubpd	ymm9, ymm9, ymm13				;; q -= rounding const
+	vmovapd	ymm12, YMMWORD PTR YMM_FMA_ONE			;; Load 1.0
+	yfnmaddpd ymm2, ymm1, ymm2, ymm12			;; hi = 1.0 - q * fac_hi
+	yfnmaddpd ymm6, ymm5, ymm6, ymm12			;; hi = 1.0 - q * fac_hi
+	yfnmaddpd ymm10, ymm9, ymm10, ymm12			;; hi = 1.0 - q * fac_hi
+	vmovapd	ymm12, YMMWORD PTR YMM_FMA_RND_CONST5		;; Load (3.0 * 2^(51 + LOW_BITS)) * 2^-split
+	yfnmaddpd ymm3, ymm1, ymm0, ymm12			;; hi_addin = -q * fac_lo + rounding const
+	yfnmaddpd ymm7, ymm5, ymm4, ymm12			;; hi_addin = -q * fac_lo + rounding const
+	yfnmaddpd ymm11, ymm9, ymm8, ymm12			;; hi_addin = -q * fac_lo + rounding const
+	vsubpd	ymm3, ymm3, ymm12				;; hi_addin -= rounding const
+	vsubpd	ymm7, ymm7, ymm12				;; hi_addin -= rounding const
+	vsubpd	ymm11, ymm11, ymm12				;; hi_addin -= rounding const
 	vaddpd	ymm2, ymm2, ymm3				;; hi += hi_addin
 	vaddpd	ymm6, ymm6, ymm7				;; hi += hi_addin
 	vaddpd	ymm10, ymm10, ymm11				;; hi += hi_addin
 	yfnmsubpd ymm1, ymm1, ymm0, ymm3			;; lo = -q * fac_lo - hi_addin
 	yfnmsubpd ymm5, ymm5, ymm4, ymm7			;; lo = -q * fac_lo - hi_addin
 	yfnmsubpd ymm9, ymm9, ymm8, ymm11			;; lo = -q * fac_lo - hi_addin
-	vmulpd	ymm2, ymm2, ymm13
-	vmulpd	ymm6, ymm6, ymm13
-	vmulpd	ymm10, ymm10, ymm13
-	vmulpd	ymm1, ymm1, ymm13
-	vmulpd	ymm5, ymm5, ymm13
-	vmulpd	ymm9, ymm9, ymm13
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW1_MODF_HI, ymm2	;; Save high bits of modf
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW1_MODF_HIa, ymm6	;; Save high bits of modf
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW1_MODF_HIb, ymm10	;; Save high bits of modf
@@ -3615,40 +3586,33 @@ avx_fma_fac_initval MACRO
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW1_MODF_LOa, ymm5	;; Save low bits of modf
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW1_MODF_LOb, ymm9	;; Save low bits of modf
 
-;; Compute 2 ^ large_power+1 mod f.  Used for optional mul-by-2 after computing rem_hi^2.
-
-;; BUG -- eliminate mul by two-to-minus-split.  Simply use different rounding consts:  ymm15 and ymm14 * two-to-minus-split
+;; Compute (2^(split+1) mod f) * 2^-split.  Used for optional mul-by-2 after computing rem_hi^2.
 
 ;; ymm0 = fac_lo
 
-	vaddpd	ymm12, ymm12, ymm12				;; Make 2^(split+1) by doubling previously loaded 2^split
-	yfmaddpd ymm1, ymm12, YMMWORD PTR YMM_FMA_INVFAC, ymm15	;; q = 2^(split+1) * facinv + rounding const
-	yfmaddpd ymm5, ymm12, YMMWORD PTR YMM_FMA_INVFACa, ymm15;; q = 2^(split+1) * facinv + rounding const
-	yfmaddpd ymm9, ymm12, YMMWORD PTR YMM_FMA_INVFACb, ymm15;; q = 2^(split+1) * facinv + rounding const
-	vsubpd	ymm1, ymm1, ymm15				;; q -= rounding const
-	vsubpd	ymm5, ymm5, ymm15				;; q -= rounding const
-	vsubpd	ymm9, ymm9, ymm15				;; q -= rounding const
-	yfnmaddpd ymm2, ymm1, YMMWORD PTR YMM_FMA_FAC_HI, ymm12	;; hi = 2^(split+1) - q * fac_hi
-	yfnmaddpd ymm6, ymm5, YMMWORD PTR YMM_FMA_FAC_HIa, ymm12;; hi = 2^(split+1) - q * fac_hi
-	yfnmaddpd ymm10, ymm9, YMMWORD PTR YMM_FMA_FAC_HIb, ymm12;; hi = 2^(split+1) - q * fac_hi
-	yfnmaddpd ymm3, ymm1, ymm0, ymm14			;; hi_addin = -q * fac_lo + rounding const
-	yfnmaddpd ymm7, ymm5, ymm4, ymm14			;; hi_addin = -q * fac_lo + rounding const
-	yfnmaddpd ymm11, ymm9, ymm8, ymm14			;; hi_addin = -q * fac_lo + rounding const
-	vsubpd	ymm3, ymm3, ymm14				;; hi_addin -= rounding const
-	vsubpd	ymm7, ymm7, ymm14				;; hi_addin -= rounding const
-	vsubpd	ymm11, ymm11, ymm14				;; hi_addin -= rounding const
+	vmovapd	ymm12, YMMWORD PTR YMM_FMA_TWO			;; Load 2.0
+	yfmaddpd ymm1, ymm12, YMMWORD PTR YMM_FMA_INVFAC, ymm13	;; q = 2.0 * facinv + rounding const
+	yfmaddpd ymm5, ymm12, YMMWORD PTR YMM_FMA_INVFACa, ymm13;; q = 2.0 * facinv + rounding const
+	yfmaddpd ymm9, ymm12, YMMWORD PTR YMM_FMA_INVFACb, ymm13;; q = 2.0 * facinv + rounding const
+	vsubpd	ymm1, ymm1, ymm13				;; q -= rounding const
+	vsubpd	ymm5, ymm5, ymm13				;; q -= rounding const
+	vsubpd	ymm9, ymm9, ymm13				;; q -= rounding const
+	yfnmaddpd ymm2, ymm1, YMMWORD PTR YMM_FMA_FAC_HI, ymm12	;; hi = 2.0 - q * fac_hi
+	yfnmaddpd ymm6, ymm5, YMMWORD PTR YMM_FMA_FAC_HIa, ymm12;; hi = 2.0 - q * fac_hi
+	yfnmaddpd ymm10, ymm9, YMMWORD PTR YMM_FMA_FAC_HIb, ymm12;; hi = 2.0 - q * fac_hi
+	vmovapd	ymm12, YMMWORD PTR YMM_FMA_RND_CONST5		;; Load (3.0 * 2^(51 + LOW_BITS)) * 2^-split
+	yfnmaddpd ymm3, ymm1, ymm0, ymm12			;; hi_addin = -q * fac_lo + rounding const
+	yfnmaddpd ymm7, ymm5, ymm4, ymm12			;; hi_addin = -q * fac_lo + rounding const
+	yfnmaddpd ymm11, ymm9, ymm8, ymm12			;; hi_addin = -q * fac_lo + rounding const
+	vsubpd	ymm3, ymm3, ymm12				;; hi_addin -= rounding const
+	vsubpd	ymm7, ymm7, ymm12				;; hi_addin -= rounding const
+	vsubpd	ymm11, ymm11, ymm12				;; hi_addin -= rounding const
 	vaddpd	ymm2, ymm2, ymm3				;; hi += hi_addin
 	vaddpd	ymm6, ymm6, ymm7				;; hi += hi_addin
 	vaddpd	ymm10, ymm10, ymm11				;; hi += hi_addin
 	yfnmsubpd ymm1, ymm1, ymm0, ymm3			;; lo = -q * fac_lo - hi_addin
 	yfnmsubpd ymm5, ymm5, ymm4, ymm7			;; lo = -q * fac_lo - hi_addin
 	yfnmsubpd ymm9, ymm9, ymm8, ymm11			;; lo = -q * fac_lo - hi_addin
-	vmulpd	ymm2, ymm2, ymm13
-	vmulpd	ymm6, ymm6, ymm13
-	vmulpd	ymm10, ymm10, ymm13
-	vmulpd	ymm1, ymm1, ymm13
-	vmulpd	ymm5, ymm5, ymm13
-	vmulpd	ymm9, ymm9, ymm13
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW2_MODF_HI, ymm2	;; Save high bits of modf
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW2_MODF_HIa, ymm6	;; Save high bits of modf
 	vmovapd	YMMWORD PTR YMM_FMA_TWOPOW2_MODF_HIb, ymm10	;; Save high bits of modf
