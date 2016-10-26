@@ -2885,14 +2885,11 @@ avx_fma_fac_initval MACRO
 
 ;; Easiest case of all!  Remainder is either twopow1_modf or twopow2_modf
 
-;; BUG - code above could leave un-multiplied POW1 & POW2 values in registers for us to use here
-;; but we may not have free registers when doing 2 or 3 interleaved
-;; OR we could branch before calculating the twopowmodfs
 	vmovapd	ymm13, YMMWORD PTR YMM_FMA_TWOPOW_SPLIT		;; Load 2^split
 	cmp	FMA_INITVAL_TYPE, 1
 	je	short equals_split
-	vmulpd	ymm3, ymm13, YMMWORD PTR YMM_FMA_TWOPOW2_MODF_HI
-	vmulpd	ymm4, ymm13, YMMWORD PTR YMM_FMA_TWOPOW2_MODF_LO
+	vmulpd	ymm3, ymm13, ymm3
+	vmulpd	ymm4, ymm13, ymm4
 	jmp	done
 
 equals_split:
@@ -3077,10 +3074,10 @@ avx_fma_fac MACRO fac_size
 	ENDM
 
 
-;; Check if remainder in ymm2,ymm3 is one indicating we found a factor!
+;; Check if remainder in ymm3,ymm4 is one indicating we found a factor!
 
 avx_fma_compare MACRO
-	vaddpd	ymm2, ymm2, ymm3				;; Combine fac_hi & fac_lo
+	vaddpd	ymm2, ymm3, ymm4				;; Combine fac_hi & fac_lo
 	ENDM
 
 
