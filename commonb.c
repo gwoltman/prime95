@@ -3946,9 +3946,10 @@ struct facasm_data {
 	uint32_t cpu_flags;		/* Copy of CPU_FLAGS */
 	uint32_t SSE2_LOOP_COUNTER;	/* Counter used in SSE2/AVX2/FMA/AVX512 TF code */
 	uint32_t FMA_INITVAL_TYPE;	/* Type of initval (more or less than 2^split).  Used in FMA code. */
+	uint32_t FMA_64_MINUS_LOW_BITS;	/* 64 minus bits in a low word.  Used in FMA code. */
 	uint32_t initstart;		/* First byte in initsieve to copy (see ASM code) */
 
-	uint32_t pad[5];		/* Pad to next 64-byte cache line */
+	uint32_t pad[4];		/* Pad to next 64-byte cache line */
 	uint32_t xmm_data[80];		/* XMM/YMM/ZMM data initialized in C code */
 
 	uint32_t other_asm_temps_and_consts[400];
@@ -4372,20 +4373,25 @@ int factorPassSetup (
 /* If using the FMA or AVX512 FMA factoring code, we need to initialize much of the following data: */
 /*	FMA_SHIFTER		DD	32 DUP (0)	; Up to 32 dword shifter values
 	YMM_FMA_TWOPOW_SPLIT	DQ	4 DUP		; 2^split
+	YMM_FMA_TWOPOW_MINUS_SPLIT DQ	4 DUP		; 2^-split
+	YMM_FMA_LOW_MASK	DQ	4 DUP		; Mask for low bits
 	YMM_FMA_INITVAL		DQ	4 DUP
 	YMM_FMA_RND_CONST0	DQ	4 DUP		; 3 * 2^(51 + SPLIT_POINT)
 	YMM_FMA_RND_CONST1	DQ	4 DUP		; 3 * 2^(51 + BITS_IN_LO_WORD*2)
 	YMM_FMA_RND_CONST2	DQ	4 DUP		; 3 * 2^(51 + BITS_IN_LO_WORD)
+	YMM_FMA_TWO_TO_LO	DQ	4 DUP		; 2^BITS_IN_LO_WORD
 */
 
 	if (bits_in_factor >= 45 && (asm_data->cpu_flags & CPU_FMA3)) {
 		uint32_t *dword_data;
 		double	*ymm_data;
+		uint64_t *ymm64_data;
 		int	split_bits, low_bits;
 		unsigned long p;
 
 /* Calculate where we split rem_hi^2 (see ASM code in factor64.mac for full algorithm).  Calculate bits of precision in low double. */
 
+		if (bits_in_factor < 50) bits_in_factor = 50;		// PrimeFactor does 2^44 to 2^50 in one pass
 		split_bits = bits_in_factor + (bits_in_factor + 1) / 2;
 		low_bits = (split_bits - 52 + 1) / 2;
 
@@ -4404,18 +4410,22 @@ int factorPassSetup (
 			(p < split_bits) ? -1 :
 			(p > split_bits+1) ? 0 :
 			(p == split_bits) ? 1 : 2;
+		asm_data->FMA_64_MINUS_LOW_BITS = 64 - low_bits;
 		asm_data->SSE2_LOOP_COUNTER = i;
 
 		ymm_data = (double *) &dword_data[32];
+		ymm64_data = (uint64_t *) ymm_data;
 		ymm_data[0] = ymm_data[1] = ymm_data[2] = ymm_data[3] = pow ((double) 2.0, split_bits); /* YMM_FMA_TWOPOW_SPLIT */
 		ymm_data[4] = ymm_data[5] = ymm_data[6] = ymm_data[7] = pow ((double) 2.0, -split_bits); /* YMM_FMA_TWOPOW_MINUS_SPLIT */
+		ymm64_data[8] = ymm64_data[9] = ymm64_data[10] = ymm64_data[11] = (1ULL << low_bits) - 1; /* YMM_FMA_LOW_MASK */
 		if (p > split_bits+1)
-			ymm_data[8] = ymm_data[9] = ymm_data[10] = ymm_data[11] = pow ((double) 2.0, p-1); /* YMM_FMA_INITIAL_VALUE */
+			ymm_data[12] = ymm_data[13] = ymm_data[14] = ymm_data[15] = pow ((double) 2.0, p-1); /* YMM_FMA_INITIAL_VALUE */
 		else
-			ymm_data[8] = ymm_data[9] = ymm_data[10] = ymm_data[11] = pow ((double) 2.0, p);	/* YMM_FMA_INITIAL_VALUE */
-		ymm_data[12] = ymm_data[13] = ymm_data[14] = ymm_data[15] = 3.0 * pow ((double) 2.0, (51 + split_bits)); /* YMM_FMA_RND_CONST0 */
-		ymm_data[16] = ymm_data[17] = ymm_data[18] = ymm_data[19] = 3.0 * pow ((double) 2.0, (51 + 2*low_bits)); /* YMM_FMA_RND_CONST1 */
-		ymm_data[20] = ymm_data[21] = ymm_data[22] = ymm_data[23] = 3.0 * pow ((double) 2.0, (51 + low_bits)); /* YMM_FMA_RND_CONST2 */
+			ymm_data[12] = ymm_data[13] = ymm_data[14] = ymm_data[15] = pow ((double) 2.0, p);	/* YMM_FMA_INITIAL_VALUE */
+		ymm_data[16] = ymm_data[17] = ymm_data[18] = ymm_data[19] = 3.0 * pow ((double) 2.0, (51 + split_bits)); /* YMM_FMA_RND_CONST0 */
+		ymm_data[20] = ymm_data[21] = ymm_data[22] = ymm_data[23] = 3.0 * pow ((double) 2.0, (51 + 2*low_bits)); /* YMM_FMA_RND_CONST1 */
+		ymm_data[24] = ymm_data[25] = ymm_data[26] = ymm_data[27] = 3.0 * pow ((double) 2.0, (51 + low_bits)); /* YMM_FMA_RND_CONST2 */
+		ymm_data[28] = ymm_data[29] = ymm_data[30] = ymm_data[31] = pow ((double) 2.0, low_bits); /* YMM_FMA_TWO_TO_LO */
 	}
 
 /* Initialization for SSE2 / AVX2 / AVX512 code using 30-bit integers to factor numbers 64 bits and above */
@@ -4515,7 +4525,6 @@ int factorPassSetup (
 		next_pow_2 = pow (2.0, temp);
 		facdata->siever_info[i].num_areas_to_sieve = (uint64_t) ((next_pow_2 - first_factor) / (double) asm_data->facdist12K) + 1;
 		facdata->total_num_areas_to_sieve += facdata->siever_info[i].num_areas_to_sieve;
-		if (temp == 50.0) break;		// Maximum of one siever for TFing below 2^50
 	}
 
 /* Init sieve area counters, clear counter of chunks processed */
@@ -8131,7 +8140,7 @@ int primeSieveTest (
 			return (stop_reason);
 		}
 		facdata.asm_data->FACHSW = fachi;
-		facdata.asm_data->FACMSW = facmid;
+		facdata.asm_data->FACMSW = facmid & ~0xFFF;
 		stop_reason = factorPassSetup (thread_num, pass, &facdata);
 		if (stop_reason) {
 			fclose (fd);
