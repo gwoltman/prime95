@@ -5089,9 +5089,10 @@ zwin86:
 ; Check all the bits in the sieve looking for a factor to test
 ;
 
+	QUEUE_COUNT = 12
 ftlp96:	mov	rsi, sieve		; Sieve address
 	lea	rbp, [rsi+sievesize]	; Sieve end address
-	xor	rdi, rdi		; Count of queued factors to be tested
+	mov	rdi, QUEUE_COUNT	; Count of queued factors to be tested
 	mov	r12, rcx		; Move factor LSW to r12, we use rcx for shift counts within our loop
 	mov	rcx, shift_count
 	dec	rcx
@@ -5109,8 +5110,8 @@ fbsf96:	bsf	rdx, rax		; Look for a set bit
 
 ; Check queued counter
 
-	and	rdi, rdi		; Are there untested factors?
-	jnz	short frem96a		; Yes, test them
+	cmp	rdi, QUEUE_COUNT	; Are there untested factors?
+	jne	short frem96a		; Yes, test them
 
 ; Return so caller can check for ESC
 
@@ -5120,26 +5121,16 @@ fbsf96:	bsf	rdx, rax		; Look for a set bit
 	mov	rax, 2			; Return for ESC check
 	jmp	done
 
-; Handle overflow
-
-foflow96:and	rdi, rdi		; Are there untested factors?
-	jnz	short frem96		; Yes, go do remaining trial factors
-	mov	FACHSW, r14d		; Return end point
-	mov	FACMSW, 0
-	mov	rax, 2			; Return for ESC check
-	jmp	done
-
 ; Test less-than-full queue by copying first trial factor in the queue
 
 frem96a:sub	r12, facdist64      	; Undo the add of facdist * 64 to rcx
 	sbb	rbx, 0			; it will be re-added when we branch back to bsf96
-frem96:	mov	r8, YMM_FMA_FAC_HI_INT	; Copy first trial factor
-	mov	r9, YMM_FMA_FAC_LO_INT
-	mov	YMM_FMA_FAC_HI_INT[rdi*8], r8
-	mov	YMM_FMA_FAC_LO_INT[rdi*8], r9
-	inc	rdi			; One more factor queued up
-	cmp	rdi, 12			; Have enough been queued up?
-	jne	short frem96		; No, go copy another
+frem96:	mov	r8, YMM_FMA_FAC_HI_INT[QUEUE_COUNT*8-8]	; Copy first trial factor
+	mov	r9, YMM_FMA_FAC_LO_INT[QUEUE_COUNT*8-8]
+	mov	YMM_FMA_FAC_HI_INT[rdi*8-8], r8
+	mov	YMM_FMA_FAC_LO_INT[rdi*8-8], r9
+	dec	rdi			; One more factor queued up
+	jnz	short frem96		; No, go copy another
 	jmp	fdo96			; Yes, go test them
 
 ;
@@ -5152,11 +5143,8 @@ ftest96:btr	rax, rdx		; Clear the sieve bit
 	mov	r9, rbx
 	add	r8, facdists[rdx*8]	; Determine factor to test
 	adc	r9, 0
-	cmp	r9, r14			; Test for overflow
-	jae	foflow96		; Jump if overflow
 
 ;;;BUG - can we do the adds above in AVX?  carries are a bit of an issue
-;;;BUG - can we do the oflow check in fdo96 (reduces cost by factor of 12)
 
 ; Save the factor as integers.  We will normalize and convert to doubles in AVX code.
 
@@ -5166,14 +5154,13 @@ ftest96:btr	rax, rdx		; Clear the sieve bit
 ;mov	r8, FOO2
 ;sssss:
 	shld	r9, r8, cl
-	mov	YMM_FMA_FAC_HI_INT[rdi*8], r9
-	mov	YMM_FMA_FAC_LO_INT[rdi*8], r8
+	mov	YMM_FMA_FAC_HI_INT[rdi*8-8], r9
+	mov	YMM_FMA_FAC_LO_INT[rdi*8-8], r8
 
 ; Check to see if we've accumulated enough factors to test
 
-	inc	rdi			; One more factor queued up
-	cmp	rdi, 12			; Have enough been queued up?
-	jne	fbsf96			; No, go test more sieve bits
+	dec	rdi			; One more factor queued up, queue full?
+	jnz	fbsf96			; No, go test more sieve bits
 
 ;
 ; Now test the accumulated trial factors
@@ -5202,7 +5189,7 @@ floop96:avx_fma_fac
 	vptest	ymm0, ymm0
 	jnz	short fwin96_1		; Jump if a factor found
 
-	sub	rdi, rdi		; Clear queued factors count	BUG - should already be zero
+	mov	rdi, QUEUE_COUNT	; Count of queued factors to be tested
 	jmp	fbsf96			; Test next factor from sieve
 
 fwin96_1:
