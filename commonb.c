@@ -4117,6 +4117,7 @@ int factorSetup (
 	struct facasm_data *asm_data;
 	int	i, pct;
 	struct PriorityInfo *sp_info;
+	int	num_small_primes;		/* Number of primes the ASM code will use for sieving */
 
 /* Clear fachandle.  A precaution to ensure factorDone won't try to free uninitialized pointers. */
 
@@ -4125,6 +4126,15 @@ int factorSetup (
 	memset (facdata, 0, sizeof (fachandle));
 	facdata->num_threads = i;
 	facdata->sp_info = sp_info;
+
+/* Allocate memory for the assembly code global data.  We zero the struct, asm code requires this. */
+
+	facdata->asm_data = asm_data = (struct facasm_data *) aligned_malloc (sizeof (struct facasm_data), 64);
+	if (asm_data == NULL) {
+memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n");
+		return (STOP_OUT_OF_MEM);
+	}
+	memset (asm_data, 0, sizeof (struct facasm_data));
 
 /* Initialize maximum number of siever threads (based on a percent specified in the INI file) */
 /* For most architectures one siever can easily keep four TF threads busy. */
@@ -4156,20 +4166,41 @@ int factorSetup (
 	else if (facdata->num_siever_groups % 7 == 0) facdata->initsieve_primes = INITSIEVE_PRIMES2;
 	else facdata->initsieve_primes = INITSIEVE_PRIMES1;
 
-/* Allocate memory for the assembly code global data.  We zero the struct, asm code requires this. */
+/* Generate the array of primes for sieving */
 
-	facdata->asm_data = asm_data = (struct facasm_data *) aligned_malloc (sizeof (struct facasm_data), 64);
-	if (asm_data == NULL) {
-memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n");
-		return (STOP_OUT_OF_MEM);
+	{
+		int	prime;			// Prime to add to the primes array
+		uint32_t *primearray;		// Array of primes we are building
+		int	maxprime;		// Maximum small prime we will sieve (for tuning)
+		int	estimated_num_primes;	// Estimated number of primes below maxprime
+		int	stop_reason;		// Error code from sieve initialization
+		void	*sieve_info;		// Handle to small primes sieving data
+
+		maxprime = IniGetInt (INI_FILE, "MaxTFSievePrime", 65535);
+		estimated_num_primes = (int) ((double) maxprime / (log ((double) maxprime) - 1.0) * 1.01);
+		asm_data->primearray = malloc (estimated_num_primes * sizeof (uint32_t));
+		if (asm_data->primearray == NULL) goto memerr;
+		primearray = (uint32_t *) asm_data->primearray;
+		sieve_info = NULL;  /* Allocate a new sieve_info */
+		stop_reason = start_sieve_with_limit (thread_num, 7, (int) sqrt ((double) maxprime) + 1, &sieve_info);
+		if (stop_reason) return (stop_reason);
+		for (num_small_primes = 0; num_small_primes < estimated_num_primes; ) {
+			prime = sieve (sieve_info);
+			if (prime > maxprime) break;
+			if (prime == asm_data->p) continue;			// Rare case: TF where exponent <= maxprime
+			if (facdata->num_siever_groups % prime == 0) continue;	// Don't add primes that are handled by facdist
+			if (facdata->initsieve_primes % prime == 0) continue;	// Don't add primes that are handled by initsieve
+			*primearray++ = prime;	// Save the small prime
+			num_small_primes++;
+		}
+		*primearray = 0;		// Terminate the prime array
 	}
-	memset (asm_data, 0, sizeof (struct facasm_data));
 
 /* Allocate more memory for sieve area(s) and sieve initialization */
 /* I'm not sure what the maximum size of these areas needs to be, old code allocated these multiples of 64KB */
 
 	for (i = 0; i < facdata->num_siever_allocs; i++) {
-		facdata->siever_info[i].offsetarray = malloc (65536);
+		facdata->siever_info[i].offsetarray = malloc (num_small_primes * sizeof (uint32_t));
 		if (facdata->siever_info[i].offsetarray == NULL) goto memerr;
 	}
 
@@ -4207,36 +4238,6 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 /* that to start copying data from the sieve initializer array.  This modular inverse lets us do that. */
 
 	facdata->one_eighth_initsieve_primes = (uint32_t) modinv (8 * asm_data->facdists[1], facdata->initsieve_primes);
-
-/* Call the factoring setup assembly code */
-/* This returns a pointer to a byte array that is the distance between primes below 64K. */
-/* This is old legacy code that we've never deleted.  We could write a simple sieve to */
-/* generate the primes.  Anyway, create the primesarray from the byte array of differences. */
-
-	{
-		const char *pdiff;		// Ptr to array of differences between primes
-		int	prime;			// Prime to add to the primes array
-		uint32_t *primearray;		// Array of primes we are building
-		int	maxprime;		// Maximum small prime we will sieve (for tuning)
-
-		setupf (asm_data);
-		pdiff = (const char *) asm_data->primearray;
-		asm_data->primearray = malloc (65536);
-		if (asm_data->primearray == NULL) goto memerr;
-		primearray = (uint32_t *) asm_data->primearray;
-		maxprime = IniGetInt (INI_FILE, "MaxTFSievePrime", 65535);
-// BUG -- we should allow sieving primes higher than 64K (don't use pdiff array and asm code must
-// be changed to clear zero or more bits instead of one or more bits)
-		for (prime = 5;	*pdiff; pdiff++) {  // Loop through pdiff generating primes greater than 5
-			prime += *pdiff * 2;
-			if (prime > maxprime) break;
-			if (prime == asm_data->p) continue;			// Rare case: TF where exponent <= maxprime
-			if (facdata->num_siever_groups % prime == 0) continue;	// Don't add primes that are handled by facdist
-			if (facdata->initsieve_primes % prime == 0) continue;	// Don't add primes that are handled by initsieve
-			*primearray++ = prime;	// Save the small prime
-		}
-		*primearray = 0;		// Terminate the prime array
-	}
 
 /* Init thread arrays */
 

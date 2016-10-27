@@ -564,6 +564,187 @@ int isPrime (
 	return (TRUE);
 }
 
+
+/* Routines that use a simple sieve to find "may be prime" numbers.  That is, numbers without any small factors. */
+/* This is used by ECM and P-1.  Also, used by 64-bit trial factoring setup code. */
+
+#define MAX_PRIMES	6542		/* Num primes < 2^16 */
+typedef struct {
+	unsigned int *primes;
+	uint64_t first_number;
+	unsigned int bit_number;
+	unsigned int num_primes;
+	unsigned int num_elimination_primes;
+	uint64_t start;
+	char	array[4096];
+} sieve_info;
+
+/* Internal routine to fill up the sieve array */
+
+void fill_sieve (
+	sieve_info *si)
+{
+	unsigned int i, fmax;
+
+/* Determine the first bit to clear */
+
+	fmax = (unsigned int)
+		sqrt ((double) (si->first_number + sizeof (si->array) * 8 * 2));
+	for (i = si->num_primes; i < si->num_elimination_primes * 2; i += 2) {
+		unsigned long f, r, bit;
+		f = si->primes[i];
+		if (f > fmax) break;
+		if (si->first_number == 3) {
+			bit = (f * f - 3) >> 1;
+		} else {
+			r = (unsigned long) (si->first_number % f);
+			if (r == 0) bit = 0;
+			else if (r & 1) bit = (f - r) / 2;
+			else bit = (f + f - r) / 2;
+			if (f == si->first_number + 2 * bit) bit += f;
+		}
+		si->primes[i+1] = bit;
+	}
+	si->num_primes = i;
+
+/* Fill the sieve with ones, then zero out the composites */
+
+	memset (si->array, 0xFF, sizeof (si->array));
+	for (i = 0; i < si->num_primes; i += 2) {
+		unsigned int f, bit;
+		f = si->primes[i];
+		for (bit = si->primes[i+1];
+		     bit < sizeof (si->array) * 8;
+		     bit += f)
+			bitclr (si->array, bit);
+		si->primes[i+1] = bit - sizeof (si->array) * 8;
+	}
+	si->bit_number = 0;
+}
+
+/* Either:  1) Recycle a sieve_info structure using the same number of small primes, OR 2) Allocate a new sieve_info structure. */
+/* In both cases, reset the sieve to start returning primes at the specified point. */
+
+int start_sieve (
+	int	thread_num,	 
+	uint64_t start,
+	void	**si_to_recycle_or_returned_new_si)	/* Recycled or returned sieving structure */
+{
+	// Default sieve eliminates numbers with factors < 64K
+	return (start_sieve_with_limit (thread_num, start, 65536, si_to_recycle_or_returned_new_si));
+}
+
+int start_sieve_with_limit (
+	int	thread_num,	 
+	uint64_t start,					/* Starting point for the sieve */
+	uint32_t max_elimination_factor,		/* Sieve eliminates composites with any factors less than this number */
+	void	**si_to_recycle_or_returned_new_si)	/* Returned sieving structure */
+{
+	sieve_info *si;
+	unsigned int i;
+
+/* Re-use or allocate the sieve structure */
+
+	if (*si_to_recycle_or_returned_new_si != NULL)
+		si = (sieve_info *) *si_to_recycle_or_returned_new_si;
+	else {
+		si = (sieve_info *) malloc (sizeof (sieve_info));
+		if (si == NULL) goto oom;
+		*si_to_recycle_or_returned_new_si = si;
+		memset (si, 0, sizeof (sieve_info));
+	}
+
+/* Remember starting point (in case its 2) and make real start odd */
+
+	if (start < 2) start = 2;
+	si->start = start;
+	start |= 1;
+
+/* See if we can just reuse the existing sieve */
+
+	if (si->first_number &&
+	    start >= si->first_number &&
+	    start < si->first_number + sizeof (si->array) * 8 * 2) {
+		si->bit_number = (unsigned int) (start - si->first_number) / 2;
+		return (0);
+	}
+
+/* Initialize sieving primes */
+
+	if (si->primes == NULL) {
+		unsigned int f;
+		unsigned int estimated_num_primes;
+		estimated_num_primes = (unsigned int) ((double) max_elimination_factor / (log ((double) max_elimination_factor) - 1.0) * 1.01);
+		si->primes = (unsigned int *) malloc (estimated_num_primes * 2 * sizeof (unsigned int));
+		if (si->primes == NULL) goto oom;
+		for (i = 0, f = 3; f <= max_elimination_factor && i < estimated_num_primes; f += 2)
+			if (isPrime (f)) si->primes[i*2] = f, i++;
+		si->num_elimination_primes = i;
+	}
+
+	si->first_number = start;
+	si->num_primes = 0;
+	fill_sieve (si);
+	return (0);
+
+/* Out of memory exit path */
+
+oom:	*si_to_recycle_or_returned_new_si = NULL;
+	free (si);
+	return (OutOfMemory (thread_num));
+}
+
+/* Return next prime from the sieve */
+
+uint64_t sieve (
+	void	*si_arg)
+{
+	sieve_info *si = (sieve_info *) si_arg;
+
+	if (si->start == 2) {
+		si->start = 3;
+		return (2);
+	}
+	for ( ; ; ) {
+		unsigned int bit;
+		if (si->bit_number == sizeof (si->array) * 8) {
+			si->first_number += 2 * sizeof (si->array) * 8;
+			fill_sieve (si);
+		}
+		bit = si->bit_number++;
+		if (bittst (si->array, bit))
+			return (si->first_number + 2 * bit);
+	}
+}
+
+/* Return next "may be prime" from the sieve */
+
+void end_sieve (
+	void	*si_arg)
+{
+	sieve_info *si = (sieve_info *) si_arg;
+	if (si == NULL) return;
+	free (si->primes);
+	free (si);
+}
+
+/* Simple routine to determine if two numbers are relatively prime */
+
+int relatively_prime (
+	unsigned long i,
+	unsigned long D)
+{
+	unsigned long f;
+	for (f = 3; f * f <= i; f += 2) {
+		if (i % f != 0) continue;
+		if (D % f == 0) return (FALSE);
+		do {
+			i = i / f;
+		} while (i % f == 0);
+	}
+	return (i == 1 || D % i != 0);
+}
+
 /* Calculate the modular inverse - no error checking is performed */
 
 uint64_t modinv (uint64_t x, uint64_t f)		/* Compute 1/x mod f */

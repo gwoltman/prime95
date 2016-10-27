@@ -41,155 +41,9 @@ int	QA_IN_PROGRESS = FALSE;
 int	QA_TYPE = 0;
 giant	QA_FACTOR = NULL;
 
-/**************************/
-/* Prime utility routines */
-/**************************/
-
-/* Use a simple sieve to find prime numbers */
-
-#define MAX_PRIMES	6542		/* Num primes < 2^16 */
-typedef struct {
-	unsigned int *primes;
-	uint64_t first_number;
-	unsigned int bit_number;
-	unsigned int num_primes;
-	uint64_t start;
-	char	array[4096];
-} sieve_info;
-
-/* Fill up the sieve array */
-
-void fill_sieve (
-	sieve_info *si)
-{
-	unsigned int i, fmax;
-
-/* Determine the first bit to clear */
-
-	fmax = (unsigned int)
-		sqrt ((double) (si->first_number + sizeof (si->array) * 8 * 2));
-	for (i = si->num_primes; i < MAX_PRIMES * 2; i += 2) {
-		unsigned long f, r, bit;
-		f = si->primes[i];
-		if (f > fmax) break;
-		if (si->first_number == 3) {
-			bit = (f * f - 3) >> 1;
-		} else {
-			r = (unsigned long) (si->first_number % f);
-			if (r == 0) bit = 0;
-			else if (r & 1) bit = (f - r) / 2;
-			else bit = (f + f - r) / 2;
-			if (f == si->first_number + 2 * bit) bit += f;
-		}
-		si->primes[i+1] = bit;
-	}
-	si->num_primes = i;
-
-/* Fill the sieve with ones, then zero out the composites */
-
-	memset (si->array, 0xFF, sizeof (si->array));
-	for (i = 0; i < si->num_primes; i += 2) {
-		unsigned int f, bit;
-		f = si->primes[i];
-		for (bit = si->primes[i+1];
-		     bit < sizeof (si->array) * 8;
-		     bit += f)
-			bitclr (si->array, bit);
-		si->primes[i+1] = bit - sizeof (si->array) * 8;
-	}
-	si->bit_number = 0;
-}
-
-/* Start sieve by filling in sieve info structure */
-
-int start_sieve (
-	sieve_info *si,
-	int	thread_num,	 
-	uint64_t start)
-{
-	unsigned int i;
-
-/* Remember starting point (in case its 2) and make real start odd */
-
-	if (start < 2) start = 2;
-	si->start = start;
-	start |= 1;
-
-/* See if we can just reuse the existing sieve */
-
-	if (si->first_number &&
-	    start >= si->first_number &&
-	    start < si->first_number + sizeof (si->array) * 8 * 2) {
-		si->bit_number = (unsigned int) (start - si->first_number) / 2;
-		return (0);
-	}
-
-/* Initialize sieve */
-
-	if (si->primes == NULL) {
-		unsigned int f;
-		si->primes = (unsigned int *)
-			     malloc (MAX_PRIMES * 2 * sizeof (unsigned int));
-		if (si->primes == NULL) goto oom;
-		for (i = 0, f = 3; i < MAX_PRIMES * 2; f += 2)
-			if (isPrime (f)) si->primes[i] = f, i += 2;
-	}
-
-	si->first_number = start;
-	si->num_primes = 0;
-	fill_sieve (si);
-	return (0);
-
-/* Out of memory exit path */
-
-oom:	return (OutOfMemory (thread_num));
-}
-
-/* Return next prime from the sieve */
-
-uint64_t sieve (
-	sieve_info *si)
-{
-	if (si->start == 2) {
-		si->start = 3;
-		return (2);
-	}
-	for ( ; ; ) {
-		unsigned int bit;
-		if (si->bit_number == sizeof (si->array) * 8) {
-			si->first_number += 2 * sizeof (si->array) * 8;
-			fill_sieve (si);
-		}
-		bit = si->bit_number++;
-		if (bittst (si->array, bit))
-			return (si->first_number + 2 * bit);
-	}
-}
-
-/* Return next prime from the sieve */
-
-void end_sieve (
-	sieve_info *si)
-{
-	free (si->primes);
-}
-
-/* Simple routine to determine if two numbers are relatively prime */
-
-int relatively_prime (
-	unsigned long i,
-	unsigned long D)
-{
-	unsigned long f;
-	for (f = 3; f * f <= i; f += 2) {
-		if (i % f != 0) continue;
-		if (D % f == 0) return (FALSE);
-		do {
-			i = i / f;
-		} while (i % f == 0);
-	}
-	return (i == 1 || D % i != 0);
-}
+/********************/
+/* Utility routines */
+/********************/
 
 /* Test if N is a probable prime */
 /* Compute i^(N-1) mod N for i = 3,5,7 */
@@ -254,7 +108,7 @@ typedef struct {
 	gwnum	*pool_values;	/* Array of values to normalize */
 	gwnum	*poolz_values;	/* Array of z values we are normalize */
 	unsigned long modinv_count; /* Stats - count of modinv calls */
-	sieve_info si;
+	void	*sieve_info;
 } ecmhandle;
 
 /* Perform cleanup functions. */
@@ -268,7 +122,7 @@ void ecm_cleanup (
 	free (ecmdata->mQx); 
 	free (ecmdata->pairings);
 	gwdone (&ecmdata->gwdata);
-	end_sieve (&ecmdata->si);
+	end_sieve (ecmdata->sieve_info);	
 	memset (ecmdata, 0, sizeof (ecmhandle));
 }
 
@@ -2299,6 +2153,7 @@ int ecm (
 
 /* Clear pointers to allocated memory */
 
+	memset (&ecmdata, 0, sizeof (ecmhandle));
 	N = NULL;
 	factor = NULL;
 	str = NULL;
@@ -2600,8 +2455,8 @@ strcpy (buf, "100 adds: ");
 print_timer (timers, 6, buf, TIMER_NL | TIMER_CLR);
 OutputStr (thread_num, buf);
 	start_timer (timers, 7);
-	start_sieve (&ecmdata.si, thread_num, 2);
-	for (i = 0; sieve (&ecmdata.si) < 0xFFFFFFFF; i++);
+	start_sieve (thread_num, 2, &ecmdata.sieve_info);
+	for (i = 0; sieve (ecmdata.sieve_info) < 0xFFFFFFFF; i++);
 	end_timer (timers, 7);
 sprintf (buf, "Sieve: %ld primes found.  ", i);
 print_timer (timers, 7, buf, TIMER_NL | TIMER_CLR);
@@ -2696,9 +2551,9 @@ OutputStr (thread_num, buf);
 
 		if (C > save_C_processed) {
 			dbltogw (&ecmdata.gwdata, 1.0, z);
-			stop_reason = start_sieve (&ecmdata.si, thread_num, save_C_processed);
+			stop_reason = start_sieve (thread_num, save_C_processed, &ecmdata.sieve_info);
 			if (stop_reason) goto exit;
-			prime = sieve (&ecmdata.si);
+			prime = sieve (ecmdata.sieve_info);
 			goto restart3;
 		}
 		
@@ -2753,10 +2608,10 @@ restart1:
 	sprintf (w->stage, "C%ldS1", curve);
 	w->pct_complete = sieve_start * one_over_B;
 	start_timer (timers, 0);
-	stop_reason = start_sieve (&ecmdata.si, thread_num, sieve_start);
+	stop_reason = start_sieve (thread_num, sieve_start, &ecmdata.sieve_info);
 	if (stop_reason) goto exit;
 	for ( ; ; ) {
-		prime = sieve (&ecmdata.si);
+		prime = sieve (ecmdata.sieve_info);
 		if (prime > B) break;
 
 /* Apply as many powers of prime as long as prime^n <= B */
@@ -3170,7 +3025,7 @@ restart3:
 /* 2 FFT per prime continuation - deals with all normalized values */
 
 		if (ecmdata.TWO_FFT_STAGE2) {
-		    for ( ; ; prime = sieve (&ecmdata.si)) {
+		    for ( ; ; prime = sieve (ecmdata.sieve_info)) {
 			if (prime < m) {	/* Do the m-D to m range */
 				i = (unsigned long) (m - prime) >> 1;
 				bitset (ecmdata.pairings, i);
@@ -3189,7 +3044,7 @@ restart3:
 /* 4 FFT per prime continuation - deals with only nQx values normalized */
 
 		else {
-		    for ( ; ; prime = sieve (&ecmdata.si)) {
+		    for ( ; ; prime = sieve (ecmdata.sieve_info)) {
 			if (prime < m) {	/* Do the m-D to m range */
 				i = (unsigned long) (m - prime) >> 1;
 				bitset (ecmdata.pairings, i);
@@ -3608,7 +3463,7 @@ typedef struct {
 	unsigned long E;	/* Suyama's power in stage 2 */
 	gwnum	*nQx;		/* Array of data used in stage 2 */
 	gwnum	*eQx;		/* Array of data used in stage 2 of P-1 */
-	sieve_info si;		/* Prime number sieve */
+	void	*sieve_info;	/* Prime number sieve */
 	uint64_t B_done;	/* We have completed calculating 3^e */
 				/* to this bound #1 */
 	uint64_t B;		/* We are trying to increase bound #1 */
@@ -3656,7 +3511,7 @@ void pm1_cleanup (
 	free (pm1data->eQx);
 	free (pm1data->bitarray);
 	gwdone (&pm1data->gwdata);
-	end_sieve (&pm1data->si);
+	end_sieve (pm1data->sieve_info);
 	memset (pm1data, 0, sizeof (pm1handle));
 }
 
@@ -4416,11 +4271,11 @@ errexit:	pm1data->bitarray_len = 0;
 
 /* Set one bit for each prime between C_start and C */
 
-	stop_reason = start_sieve (&pm1data->si, pm1data->thread_num, pm1data->C_start);
+	stop_reason = start_sieve (pm1data->thread_num, pm1data->C_start, &pm1data->sieve_info);
 	if (stop_reason) goto errexit;
-	for (prime = sieve (&pm1data->si);
+	for (prime = sieve (pm1data->sieve_info);
 	     prime <= pm1data->C;
-	     prime = sieve (&pm1data->si)) {
+	     prime = sieve (pm1data->sieve_info)) {
 		bitset (pm1data->bitarray, bitcvt (prime, pm1data));
 		stop_reason = stopCheck (pm1data->thread_num);
 		if (stop_reason) goto errexit;
@@ -4528,7 +4383,7 @@ void calc_exp (
 
 /* Find all the primes in the range and use as many powers as possible */
 
-	for ( ; *p <= B1 && (unsigned long) g->sign < len; *p = sieve (&pm1data->si)) {
+	for ( ; *p <= B1 && (unsigned long) g->sign < len; *p = sieve (pm1data->sieve_info)) {
 		uint64_t val, max;
 		val = *p;
 		max = B1 / *p;
@@ -4580,6 +4435,7 @@ int pminus1 (
 /* Clear pointers to allocated memory (so common error exit code knows */
 /* what to free) */
 
+	memset (&pm1data, 0, sizeof (pm1handle));
 	N = NULL;
 	exp = NULL;
 	factor = NULL;
@@ -4772,9 +4628,9 @@ restart:
 				goto restart2;
 			}
 			if (B < pm1data.B) pm1data.B = B;
-			stop_reason = start_sieve (&pm1data.si, thread_num, processed + 1);
+			stop_reason = start_sieve (thread_num, processed + 1, &pm1data.sieve_info);
 			if (stop_reason) goto exit;
-			prime = sieve (&pm1data.si);
+			prime = sieve (pm1data.sieve_info);
 			goto restart1;
 		}
 
@@ -4878,9 +4734,9 @@ restart0:
 	pm1data.stage = PM1_STAGE0;
 	start_timer (timers, 0);
 	start_timer (timers, 1);
-	stop_reason = start_sieve (&pm1data.si, thread_num, 2);
+	stop_reason = start_sieve (thread_num, 2, &pm1data.sieve_info);
 	if (stop_reason) goto exit;
-	prime = sieve (&pm1data.si);
+	prime = sieve (pm1data.sieve_info);
 	stage_0_limit = (pm1data.B > 1000000) ? 1000000 : pm1data.B;
 	i = ((unsigned long) (stage_0_limit * 1.5) >> 5) + 4;
 	exp = allocgiant (i);
@@ -5019,7 +4875,7 @@ restart1:
 	start_timer (timers, 1);
 	pm1data.stage = PM1_STAGE1;
 	SQRT_B = (unsigned long) sqrt ((double) pm1data.B);
-	for ( ; prime <= pm1data.B; prime = sieve (&pm1data.si)) {
+	for ( ; prime <= pm1data.B; prime = sieve (pm1data.sieve_info)) {
 
 /* Apply as many powers of prime as long as prime^n <= B */
 
@@ -5115,9 +4971,9 @@ restart1:
 
 	if (B > pm1data.B) {
 more_B:		pm1data.B = B;
-		stop_reason = start_sieve (&pm1data.si, thread_num, 2);
+		stop_reason = start_sieve (thread_num, 2, &pm1data.sieve_info);
 		if (stop_reason) goto exit;
-		prime = sieve (&pm1data.si);
+		prime = sieve (pm1data.sieve_info);
 		goto restart1;
 	}
 

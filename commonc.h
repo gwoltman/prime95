@@ -238,7 +238,13 @@ void getCpuInfo (void);
 void getCpuDescription (char *, int);
 
 int isPrime (unsigned long p);
+int start_sieve (int thread_num, uint64_t start, void **returned_si);		// Default sieve eliminates numbers with factors < 64K
+int start_sieve_with_limit (int thread_num, uint64_t start, uint32_t max_elimination_factor, void **returned_si);
+uint64_t sieve (void *si);
+void end_sieve (void *si);
 uint64_t modinv (uint64_t x, uint64_t f);
+int relatively_prime (unsigned long, unsigned long);
+
 unsigned int strToMinutes (const char	*);
 void minutesToStr (unsigned int, char *);
 void write_memory_settings (unsigned int, unsigned int, unsigned int, unsigned int);
