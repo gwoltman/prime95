@@ -288,6 +288,13 @@ maximum exponent that can be tested using the current FFT length, then the
 extra error checking is performed).  A value of 0.0 will turn off this extra
 error checking.
 
+You can tune trial factoring performance with these prime.txt settings:
+	MaxTFSievePrime=x		(default is 165000)
+	PercentTFSieverThreads=y	(default is 33 for FMA3 CPUs, otherwise 25)
+The TF code uses a small prime sieve to eliminate composite trial factors.
+Set x to the maximum small prime used by this sieve.  When multithreading TF,
+set y to be the percentage of threads that can be running the small prime sieve.
+
 WINDOWS ONLY:  When Tray Icon or No Icon is selected the "X" at the right of
 the title bar will minimize rather than exit.  You can make the program exit
 if you prefer.  In prime.txt set:
@@ -456,7 +463,6 @@ In prime.txt, set
 	OnlyBench5678=0 or 1
 	BenchAllComplex=0 or 1 or 2
 	AllBench=0 or 1
-	BenchTrialFactoring=0 or 1	(default is 1)
 to alter these defaults.  The first to specify the range of FFT length (in K).
 Enter an n value between 1 and 32768.  Set OnlyBench5678=0 to time FFT
 lengths other than 5*2^n, 6*2^n, 7*2^n, and 8*2^n.  Set BenchAllComplex to 0 for
@@ -467,6 +473,7 @@ the optimal FFT implementations for each CPU.
 
 In addition to the benchmarking options above, the following options are
 available in the multiple workers throughput benchmark.
+	BenchTrialFactoring=0 or 1	(default is 0)
 	BenchOutputTopology=0 or 1	(default is 1)
 	BenchMultipleWorkers=0 or 1	(default is 1)
 	BenchTime=n			(default is 15)
@@ -516,7 +523,7 @@ between 0.04 and 7.0.  Some SeventeenOrBust users want to send updates hourly.
 
 In local.txt, add the line
 	UseLargePages=1
-to attempt using 2MB pages under Windows Vista.  Warning: these pages will
+to attempt using 2MB pages under Windows Vista and later.  Warning: these pages will
 never be swapped out.  Thus, using this option could negatively impact
 the performance of other applications.  Also, you'll need to have
 the "Lock Pages in Memory" privilege to use this option.
