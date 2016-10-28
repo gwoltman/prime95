@@ -37,7 +37,7 @@
 			<object class="NSWindowTemplate" id="587428701">
 				<int key="NSWindowStyleMask">31</int>
 				<int key="NSWindowBacking">2</int>
-				<string key="NSWindowRect">{{410, 795}, {478, 195}}</string>
+				<string key="NSWindowRect">{{278, 562}, {478, 195}}</string>
 				<int key="NSWTFlags">-1543503872</int>
 				<string key="NSWindowTitle">Factor Number Using ECM</string>
 				<string key="NSWindowClass">NSPanel</string>
@@ -79,7 +79,7 @@
 									<nil key="NS.nil"/>
 									<object class="NSAttributedString" key="NS.nan">
 										<string key="NSString">NaN</string>
-										<dictionary key="NSAttributes" id="371694326"/>
+										<dictionary key="NSAttributes" id="998138938"/>
 									</object>
 									<real value="1" key="NS.min"/>
 									<object class="NSDecimalNumberPlaceholder" key="NS.max" id="750329519">
@@ -253,7 +253,7 @@
 									<nil key="NS.nil"/>
 									<object class="NSAttributedString" key="NS.nan">
 										<string key="NSString">NaN</string>
-										<reference key="NSAttributes" ref="371694326"/>
+										<reference key="NSAttributes" ref="998138938"/>
 									</object>
 									<real value="1" key="NS.min"/>
 									<reference key="NS.max" ref="750329519"/>
@@ -323,7 +323,7 @@
 									<nil key="NS.nil"/>
 									<object class="NSAttributedString" key="NS.nan">
 										<string key="NSString">NaN</string>
-										<reference key="NSAttributes" ref="371694326"/>
+										<reference key="NSAttributes" ref="998138938"/>
 									</object>
 									<real value="2" key="NS.min"/>
 									<reference key="NS.max" ref="750329519"/>
@@ -373,7 +373,7 @@
 									<nil key="NS.nil"/>
 									<object class="NSAttributedString" key="NS.nan">
 										<string key="NSString">NaN</string>
-										<reference key="NSAttributes" ref="371694326"/>
+										<reference key="NSAttributes" ref="998138938"/>
 									</object>
 									<reference key="NS.min" ref="750329519"/>
 									<reference key="NS.max" ref="750329519"/>
@@ -442,7 +442,7 @@
 									<nil key="NS.nil"/>
 									<object class="NSAttributedString" key="NS.nan">
 										<string key="NSString">NaN</string>
-										<reference key="NSAttributes" ref="371694326"/>
+										<reference key="NSAttributes" ref="998138938"/>
 									</object>
 									<reference key="NS.min" ref="750329519"/>
 									<reference key="NS.max" ref="750329519"/>
@@ -512,7 +512,7 @@
 									<nil key="NS.nil"/>
 									<object class="NSAttributedString" key="NS.nan">
 										<string key="NSString">NaN</string>
-										<reference key="NSAttributes" ref="371694326"/>
+										<reference key="NSAttributes" ref="998138938"/>
 									</object>
 									<real value="120" key="NS.min"/>
 									<reference key="NS.max" ref="750329519"/>
@@ -581,7 +581,7 @@
 									<nil key="NS.nil"/>
 									<object class="NSAttributedString" key="NS.nan">
 										<string key="NSString">NaN</string>
-										<reference key="NSAttributes" ref="371694326"/>
+										<reference key="NSAttributes" ref="998138938"/>
 									</object>
 									<reference key="NS.min" ref="750329519"/>
 									<reference key="NS.max" ref="750329519"/>
@@ -650,7 +650,7 @@
 									<nil key="NS.nil"/>
 									<object class="NSAttributedString" key="NS.nan">
 										<string key="NSString">NaN</string>
-										<reference key="NSAttributes" ref="371694326"/>
+										<reference key="NSAttributes" ref="998138938"/>
 									</object>
 									<reference key="NS.min" ref="750329519"/>
 									<reference key="NS.max" ref="750329519"/>
@@ -1358,7 +1358,7 @@
 				<string key="-1.IBPluginDependency">com.apple.InterfaceBuilder.CocoaPlugin</string>
 				<string key="-2.IBPluginDependency">com.apple.InterfaceBuilder.CocoaPlugin</string>
 				<string key="-3.IBPluginDependency">com.apple.InterfaceBuilder.CocoaPlugin</string>
-				<string key="1.IBPersistedLastKnownCanvasPosition">{194, 272.5}</string>
+				<string key="1.IBPersistedLastKnownCanvasPosition">{288, 273.5}</string>
 				<string key="1.IBPluginDependency">com.apple.InterfaceBuilder.CocoaPlugin</string>
 				<string key="1.IBWindowTemplateEditedContentRect">{{78, 712}, {478, 195}}</string>
 				<boolean value="YES" key="1.NSWindowTemplate.visibleAtLaunch"/>
