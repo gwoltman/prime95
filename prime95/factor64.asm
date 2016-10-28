@@ -275,64 +275,6 @@ _TEXT	SEGMENT
 PROCF	factor64_pass_setup
 	ad_prolog 0,0,rbx,rbp,rsi,rdi
 
-; Loop through all the small primes determining sieve bit to clear
-
-testp	EQU	rbp
-prev	EQU	rbx
-cur	EQU	rcx
-bigrem	EQU	rdi
-litrem	EQU	r8
-
-	mov	rsi, primearray
-	mov	r9, offsetarray
-smlp:	mov	ebp, [rsi]
-	and	testp, testp
-	jz	smdn
-
-;
-; Let testp = an entry from our small primes array
-; Let y = facdist mod testp
-; Use Euclid's greatest common denominator algorithm to compute the number
-; x such that x * y = -1 MOD testp
-; We can then use x to compute the first bit in the sieve array that needs
-; clearing.
-;
-
-	sub	prev, prev		; Set up: set bigrem = testp,
-	mov	cur, 1			; litrem = facdist mod testp
-	mov	bigrem, testp
-	sub	rdx, rdx
-	mov	rax, facdists+8
-	div	bigrem
-	mov	litrem, rdx
-euclp:	cmp	litrem, 1		; Loop ends when litrem equals 1
-	je	short eucdn
-	sub	rdx, rdx		; Compute bigrem mod litrem
-	mov	rax, bigrem
-	div	litrem
-	mov	bigrem, litrem
-	mov	litrem, rdx
-	imul	cur
-	sub	prev, rax
-	xchg	prev, cur
-	jmp	short euclp
-eucdn:	neg	cur			; set x = -cur if cur was negative
-	jns	short eucdn2
-	add	cur, testp		; else set x = testp - cur
-eucdn2:	sub	rdx, rdx		; Divide first factor by testp
-	mov	rax, savefac0
-	div	testp
-	mov	rax, savefac1
-	div	testp
-	mov	rax, rdx		; Multiply remainder by x
-	mul	cur
-	div	testp			; rdx now contains the bit number!
-	mov	[r9], edx		; Save that bit number!
-	lea	rsi, [rsi+4]		; Next primearray entry
-	lea	r9, [r9+4]		; Next offsetarray entry
-	jmp	smlp
-smdn:
-
 ; Pre-square the number as much as possible.  We have separate code
 ; paths for single-word and double-word trial factors.
 
@@ -4254,10 +4196,6 @@ ftlp96:	mov	rsi, sieve		; Sieve address
 	lea	rbp, [rsi+sievesize]	; Sieve end address
 	mov	rdi, QUEUE_COUNT	; Count of queued factors to be tested
 	mov	r12, rcx		; Move factor LSW to r12, we use rcx for shift counts within our loop
-	mov	rcx, shift_count
-	dec	rcx
-	mov	r14, 1			; Form trial factor limit
-	ror	r14, cl
 	mov	ecx, FMA_64_MINUS_LOW_BITS ; Load constant for shifting trial factors
 fsvlp96:mov	rax, [rsi]		; Load word from sieve
 	lea	rsi, [rsi+8]		; Bump sieve address
