@@ -3972,6 +3972,7 @@ typedef struct {
 	int	factoring_pass;			/* Which of the 16 factoring passes we are on */
 	uint32_t initsieve_primes;		/* Which primes are sieved when initializing from initsieve */
 	uint32_t one_eighth_initsieve_primes;	/* (1 / (8 * facdist1)) mod initsieve_primes.  Used to calculate first byte to copy from initsieve */
+	uint32_t *modinvarray;			/* Modular inverse of facdist for each sieving prime.  Used to set offsetarray. */
 	struct siever_info {
 		int	state;			/* State of this siever (see below) */
 		uint64_t next_sieve_first_factor[2]; /* First factor for next sieve area */
@@ -4010,6 +4011,7 @@ typedef struct {
 
 #define SIEVER_ACTIVE			0	/* Thread actively sieving */
 #define SIEVER_INACTIVE			1	/* Thread not actively sieving */
+#define SIEVER_UNINITIALIZED		2	/* Thread not fully initialized */
 
 /* Possible states for a sieve area */
 
@@ -4176,7 +4178,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 		int	stop_reason;		// Error code from sieve initialization
 		void	*sieve_info;		// Handle to small primes sieving data
 
-		maxprime = IniGetInt (INI_FILE, "MaxTFSievePrime", 65535);
+		maxprime = IniGetInt (INI_FILE, "MaxTFSievePrime", (CPU_FLAGS & CPU_AVX512F) ? 65535 : 165000);  // 165K is Haswell optimized
 		estimated_num_primes = (int) ((double) maxprime / (log ((double) maxprime) - 1.0) * 1.01);
 		asm_data->primearray = malloc (estimated_num_primes * sizeof (uint32_t));
 		if (asm_data->primearray == NULL) goto memerr;
@@ -4196,8 +4198,19 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 		*primearray = 0;		// Terminate the prime array
 	}
 
-/* Allocate more memory for sieve area(s) and sieve initialization */
-/* I'm not sure what the maximum size of these areas needs to be, old code allocated these multiples of 64KB */
+/* Pre-calculate useful constants the assembly code will need */
+
+	for (i = 0; i < 65; i++) asm_data->facdists[i] = i * 120 * (uint64_t) facdata->num_siever_groups * (uint64_t) p; // Compute multiples of 120 * p.
+	asm_data->facdist12K = (SIEVE_SIZE_IN_BYTES * 8) * 120 * (uint64_t) facdata->num_siever_groups * (uint64_t) p; // Distance between first factor in sieve areas
+
+/* Allocate and initialize the modular inverse of all the sieving primes */
+
+	facdata->modinvarray = malloc (num_small_primes * sizeof (uint32_t));
+	if (facdata->modinvarray == NULL) goto memerr;
+	for (i = 0; i < num_small_primes; i++)
+		facdata->modinvarray[i] = modinv (asm_data->facdists[1], ((uint32_t *)asm_data->primearray)[i]);
+
+/* Allocate more memory for sieve area(s) and sieve initialization. */
 
 	for (i = 0; i < facdata->num_siever_allocs; i++) {
 		facdata->siever_info[i].offsetarray = malloc (num_small_primes * sizeof (uint32_t));
@@ -4212,6 +4225,8 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 		facdata->sieve_area[i].state = SIEVE_AREA_FREE;
 	}
 
+/* Allocate and initialize the bytes used to initialize a sieve */
+
 	asm_data->initsieve = malloc (facdata->initsieve_primes + SIEVE_SIZE_IN_BYTES);
 	if (asm_data->initsieve == NULL) goto memerr;
 	memset (asm_data->initsieve, 0xFF, facdata->initsieve_primes + SIEVE_SIZE_IN_BYTES);
@@ -4221,6 +4236,11 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 		for (j = 0; j < (facdata->initsieve_primes + SIEVE_SIZE_IN_BYTES) * 8; j += i) bitclr (asm_data->initsieve, j);
 	}
 
+/* Each bit in the sieve represents one facdist.  We need to find the multiple of 8 (byte boundary) */
+/* to start copying data from the sieve initializer array.  This modular inverse lets us do that. */
+
+	facdata->one_eighth_initsieve_primes = (uint32_t) modinv (8 * asm_data->facdists[1], facdata->initsieve_primes);
+
 /* Init.  Note the default is to not use SSE2 TF code in 64-bit mode (unlike 32-bit prime95). */
 /* This decision was made years ago when, IIRC, Opteron's were faster using the non-SSE2 code */
 /* and the Intel CPUs of the ambivalent. */
@@ -4228,16 +4248,6 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 	asm_data->p = p;
 	asm_data->cpu_flags = CPU_FLAGS;
 	if (!IniGetInt (LOCALINI_FILE, "FactorUsingSSE2", 0)) asm_data->cpu_flags &= ~CPU_SSE2;
-
-/* Pre-calculate useful constants the assembly code will need */
-
-	for (i = 0; i < 65; i++) asm_data->facdists[i] = i * 120 * (uint64_t) facdata->num_siever_groups * (uint64_t) p; // Compute multiples of 120 * p.
-	asm_data->facdist12K = (SIEVE_SIZE_IN_BYTES * 8) * 120 * (uint64_t) facdata->num_siever_groups * (uint64_t) p; // Distance between first factor in sieve areas
-
-/* Each bit in the sieve represents one facdist.  We need to find the multiple of 8 (byte boundary) */
-/* that to start copying data from the sieve initializer array.  This modular inverse lets us do that. */
-
-	facdata->one_eighth_initsieve_primes = (uint32_t) modinv (8 * asm_data->facdists[1], facdata->initsieve_primes);
 
 /* Init thread arrays */
 
@@ -4326,6 +4336,7 @@ void factorDone (
 		aligned_free (asm_data);
 		facdata->asm_data = NULL;
 	}
+	free (facdata->modinvarray);
 
 /* Free the sieve areas */
 
@@ -4340,6 +4351,8 @@ void factorDone (
 }
 
 /* Prepare for one of the 16 factoring passes */
+/* We figure out the starting factor for each siever, and delay much of the initialization */
+/* for factorPassSetupPart2 when multithreading is at work. */
 
 void add96_64 (uint64_t *a_hi, uint64_t *a_lo, uint64_t b) { *a_lo += b; *a_hi += (*a_lo < b) ? 1 : 0; }
 uint32_t mod96_32 (uint64_t a_hi, uint64_t a_lo, uint32_t b) { return ((uint32_t) (((((((a_hi % b) << 32) + (a_lo >> 32)) % b) << 32) + (a_lo & 0xFFFFFFFF)) % b)); }
@@ -4350,24 +4363,24 @@ int factorPassSetup (
 	fachandle *facdata)		/* Handle returned by factorSetup */
 {
 	struct facasm_data *asm_data = facdata->asm_data;
-	uint32_t save_facmsw;
+	uint32_t fachsw, facmsw;
 	unsigned int i, bits_in_factor;
 
 /* Save the factoring pass */
 
 	facdata->factoring_pass = pass;
 
-/* Init some asm data, start sieving at 2^44 (we brute force below 2^44) */
+/* FACHSW/FACMSW specifies a floor for the first factor */
+/* Start sieving at or above 2^44 (we brute force below 2^44) */
 
-	save_facmsw = asm_data->FACMSW;
-	if (asm_data->FACHSW == 0 && asm_data->FACMSW < 0x1000) asm_data->FACMSW = 0x1000;
+	fachsw = asm_data->FACHSW;
+	facmsw = asm_data->FACMSW;
+	if (fachsw == 0 && facmsw < 0x1000) facmsw = 0x1000;
 
 /* Compute the number of bits in the factors we will be testing */
 
-	if (asm_data->FACHSW)
-		bits_in_factor = 64, i = asm_data->FACHSW;
-	else
-		bits_in_factor = 32, i = asm_data->FACMSW;
+	if (fachsw) i = fachsw, bits_in_factor = 64;
+	else i = facmsw, bits_in_factor = 32;
 	while (i) bits_in_factor++, i >>= 1;
 
 /* Initialization for FMA code using 2 doubles to factor numbers 64 bits and above */
@@ -4463,65 +4476,66 @@ int factorPassSetup (
 		asm_data->TWO_TO_FACSIZE_PLUS_62 = pow ((double) 2.0, (int) (bits_in_factor + 62));
 	}
 
-/* Call the factoring setup assembly code */
+/* Now let assembly code do remaining pass initialization.  Archaic stuff that never got moved to C code. */
+
+	factor64_pass_setup (asm_data);
+
+/* Determine the starting factor for each siever.  Also calculate total number of sieves we'll need to process. */
 
 	facdata->total_num_areas_to_sieve = 0;
 	for (i = 0; i < facdata->num_siever_allocs; i++) {
+		uint64_t savefac0, savefac1;
 		double temp, next_pow_2, first_factor;
 
-/* In first siever, use FACHSW/FACMSW to calculate first factor */
+/* In first siever, use fachsw/facmsw to calculate first factor */
 
 		if (i == 0) {
 			uint64_t rem;
 			uint32_t rems[16] = {1,7,17,23,31,41,47,49,71,73,79,89,97,103,113,119};
 
-			// FACHSW/FACMSW specifies a floor for the first factor
-			asm_data->savefac0 = asm_data->FACHSW;
-			asm_data->savefac1 = ((uint64_t) asm_data->FACMSW) << 32;
+			// fachsw/facmsw specifies a floor for the first factor
+
+			savefac0 = fachsw;
+			savefac1 = ((uint64_t) facmsw) << 32;
 
 			// Find next integer of the form 2kp+1
-			rem = mod96_32 (asm_data->savefac0, asm_data->savefac1, (uint32_t) asm_data->p * 2);
-			add96_64 (&asm_data->savefac0, &asm_data->savefac1, asm_data->p * 2 - rem + 1);
+			rem = mod96_32 (savefac0, savefac1, (uint32_t) asm_data->p * 2);
+			add96_64 (&savefac0, &savefac1, asm_data->p * 2 - rem + 1);
 
 			// Now make sure we have the right remainder for this factoring pass
 			for ( ; ; ) {
-				if (mod96_32 (asm_data->savefac0, asm_data->savefac1, 120) == rems[pass]) break;
-				add96_64 (&asm_data->savefac0, &asm_data->savefac1, asm_data->p * 2);
+				if (mod96_32 (savefac0, savefac1, 120) == rems[pass]) break;
+				add96_64 (&savefac0, &savefac1, asm_data->p * 2);
 			}
 		}
 
 /* For remaining sievers, add 120 * p to the previous siever's first factor */
 
 		else {
-			asm_data->savefac0 = facdata->siever_info[i-1].next_sieve_first_factor[0];
-			asm_data->savefac1 = facdata->siever_info[i-1].next_sieve_first_factor[1];
-			add96_64 (&asm_data->savefac0, &asm_data->savefac1, 120 * asm_data->p);
+			savefac0 = facdata->siever_info[i-1].next_sieve_first_factor[0];
+			savefac1 = facdata->siever_info[i-1].next_sieve_first_factor[1];
+			add96_64 (&savefac0, &savefac1, 120 * asm_data->p);
 		}
 
 /* Make sure factor is not a multiple of 7 or 11 when facdist is also a multiple of 7 or 11 */
 
 		for ( ; ; ) {
-			if ((asm_data->facdists[1] % 7 == 0 && mod96_32 (asm_data->savefac0, asm_data->savefac1, 7) == 0) ||
-			    (asm_data->facdists[1] % 11 == 0 && mod96_32 (asm_data->savefac0, asm_data->savefac1, 11) == 0))
-				add96_64 (&asm_data->savefac0, &asm_data->savefac1, 120 * asm_data->p);
+			if ((asm_data->facdists[1] % 7 == 0 && mod96_32 (savefac0, savefac1, 7) == 0) ||
+			    (asm_data->facdists[1] % 11 == 0 && mod96_32 (savefac0, savefac1, 11) == 0))
+				add96_64 (&savefac0, &savefac1, 120 * asm_data->p);
 			else
 				break;
 		}
 
-/* Now let assembly code do the pass initialization */
-
-		asm_data->offsetarray = facdata->siever_info[i].offsetarray;
-		factor64_pass_setup (asm_data);
-
 /* Remember the first factor, the initial offset to fill the sieve, and init siever state */
 
-		facdata->siever_info[i].next_sieve_first_factor[0] = asm_data->savefac0;
-		facdata->siever_info[i].next_sieve_first_factor[1] = asm_data->savefac1;
-		facdata->siever_info[i].state = SIEVER_INACTIVE;
+		facdata->siever_info[i].next_sieve_first_factor[0] = savefac0;
+		facdata->siever_info[i].next_sieve_first_factor[1] = savefac1;
+		facdata->siever_info[i].state = SIEVER_UNINITIALIZED;
 
 /* Calculate number of calls we will need to make to factor64_sieve */
 
-		first_factor = (double) asm_data->savefac0 * pow (2.0, 64.0) + (double) asm_data->savefac1;
+		first_factor = (double) savefac0 * pow (2.0, 64.0) + (double) savefac1;
 		temp = log (first_factor) / log (2.0);
 		temp = floor (temp) + 1.0;
 		if (temp < 50.0) temp = 50.0;		// primeFactor lumps 2^44 to 2^50 in one big "bit-level"
@@ -4540,6 +4554,7 @@ int factorPassSetup (
 	facdata->last_sieve_area_for_tf = 0;
 
 /* Signal the auxiliary threads to resume working */
+/* This will copy the main thread's now properly initialized asm_data to each auxilary thread */
 
 	if (facdata->num_threads > 1) {
 		facdata->num_active_threads = facdata->num_threads - 1;	// Set count of active auxilary threads
@@ -4549,10 +4564,33 @@ int factorPassSetup (
 
 /* Setup complete */
 
-	asm_data->FACMSW = save_facmsw;
 	return (0);
 }
 
+/* This is remaining initialization that each allocated siever must do before its first sieving operation this pass */
+/* We don't do this in factorPassSetup because that is single-threaded.  This routine will be executed in multi-threaded. */
+/* You might think this is no big deal, but on Knight's Landing where there are 64 or more siever areas, this single-threaded */
+/* initialization cost adds substantial elapsed time when TFing at lower bit levels.  Also, why initialize the offset data */
+/* in one thread only to use it in another thread -- can generate needless bus traffic. */
+
+void factorPassSetupPart2 (
+	fachandle *facdata,		/* Handle returned by factorSetup */
+	struct facasm_data *asm_data,	/* This thread's asm data */
+	struct siever_info *siever_info) /* Siever info to finish initializing */
+{
+	uint32_t *primep, *modinvp, *offsetp;
+
+/* Init this siever's the bit-to-clear offset array */
+
+	modinvp = facdata->modinvarray;
+	offsetp = siever_info->offsetarray;
+	for (primep = asm_data->primearray; *primep; primep++, offsetp++, modinvp++) {
+		uint32_t temp;
+		temp = mod96_32 (asm_data->savefac0, asm_data->savefac1, *primep);
+		if (temp) temp = *primep - (((uint64_t) temp * (uint64_t) *modinvp) % *primep);
+		*offsetp = temp;
+	}
+}
 
 /* Factor one "chunk" single-threaded.  The assembly code decides how big a chunk is. */
 
@@ -4607,6 +4645,10 @@ int factorChunk (
 			      facdata->one_eighth_initsieve_primes % facdata->initsieve_primes;
 	asm_data->offsetarray = facdata->siever_info[0].offsetarray;
 	asm_data->sieve = facdata->sieve_area[0].sieve;
+	if (facdata->siever_info[0].state == SIEVER_UNINITIALIZED) {
+		facdata->siever_info[0].state = SIEVER_ACTIVE;
+		factorPassSetupPart2 (facdata, asm_data, &facdata->siever_info[0]);
+	}
 	factor64_sieve (asm_data);
 	facdata->siever_info[0].next_sieve_first_factor[0] = asm_data->savefac0;	/* Remember next sieve's first factor */
 	facdata->siever_info[0].next_sieve_first_factor[1] = asm_data->savefac1;
@@ -4648,9 +4690,17 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 	     facdata->num_sieved_sieve_areas)) {			// There is no other work to do
 
 /* Find inactive siever with the most work left to do */
+/* By definition, an uninitialized siever has the most work left to do */
 
 		uint64_t best_siever = 0;
+		int	best_siever_uninitialized = FALSE;
 		for (i = 0; i < facdata->num_siever_allocs; i++) {	// keep list of inactive sievers to avoid this loop???
+			if (facdata->siever_info[i].state == SIEVER_UNINITIALIZED) {
+				best_siever_uninitialized = TRUE;
+				j = i;
+				best_siever = 1;
+				break;
+			}
 			if (facdata->siever_info[i].state == SIEVER_INACTIVE &&
 			    facdata->siever_info[i].num_areas_to_sieve > best_siever) {	// This siever has more work left to do
 				j = i;
@@ -4682,6 +4732,7 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 					      facdata->one_eighth_initsieve_primes % facdata->initsieve_primes;
 			asm_data->sieve = facdata->sieve_area[i].sieve;
 			gwmutex_unlock (&facdata->thread_lock);
+			if (best_siever_uninitialized) factorPassSetupPart2 (facdata, asm_data, &facdata->siever_info[j]);
 			factor64_sieve (asm_data);
 			gwmutex_lock (&facdata->thread_lock);
 			facdata->siever_info[j].next_sieve_first_factor[0] = asm_data->savefac0; /* Remember next sieve's first factor */
