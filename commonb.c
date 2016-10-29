@@ -3964,6 +3964,19 @@ struct facasm_data {
 #define MAX_NUM_SIEVERS		120		/* Maximum number of siever threads, see factorSetup for reasons I chose 120 */
 #define MAX_NUM_SIEVE_AREAS	1024		/* Maximum number of sieve areas, for no good reason I selected 1024 */
 
+struct siever_info {
+	int	state;			/* State of this siever (see below) */
+	uint64_t next_sieve_first_factor[2]; /* First factor for next sieve area */
+	void	*offsetarray;		/* bit-to-clear offsets for each sieve prime */
+	uint64_t num_areas_to_sieve;	/* Count of remaining needed factor64_sieve calls for this siever */
+};
+
+struct sieve_area_info {
+	int	state;			/* State of this sieve area (see below) */
+	uint64_t first_factor[2];	/* First factor of the sieved area */
+	void	*sieve;			/* The sieved bit array */
+};
+
 typedef struct {
 	int	num_threads;			/* Number of threads to use in factoring. */
 	int	num_siever_threads;		/* Number of threads that can be sieving. */
@@ -3973,21 +3986,12 @@ typedef struct {
 	uint32_t initsieve_primes;		/* Which primes are sieved when initializing from initsieve */
 	uint32_t one_eighth_initsieve_primes;	/* (1 / (8 * facdist1)) mod initsieve_primes.  Used to calculate first byte to copy from initsieve */
 	uint32_t *modinvarray;			/* Modular inverse of facdist for each sieving prime.  Used to set offsetarray. */
-	struct siever_info {
-		int	state;			/* State of this siever (see below) */
-		uint64_t next_sieve_first_factor[2]; /* First factor for next sieve area */
-		void	*offsetarray;		/* bit-to-clear offsets for each sieve prime */
-		uint64_t num_areas_to_sieve;	/* Count of remaining needed factor64_sieve calls for this siever */
-	} siever_info[MAX_NUM_SIEVERS];
+	struct siever_info siever_info[MAX_NUM_SIEVERS]; /* Info about each allocated siever */
 	int	num_siever_allocs;		/* Number of allocated sievers (residue classes of num_siever_groups) */
 	int	num_siever_groups;		/* When multihreading sieving, this is the multipler for facdist */
 	int	num_sievers_active;		/* Count of threads currently running the sieving assembly code */
 	uint64_t total_num_areas_to_sieve;	/* Count of remaining needed factor64_sieve calls */
-	struct sieve_info {
-		int	state;			/* State of this sieve area (see below) */
-		uint64_t first_factor[2];	/* First factor of the sieved area */
-		void	*sieve;			/* The sieved bit array */
-	} sieve_area[MAX_NUM_SIEVE_AREAS];
+	struct sieve_area_info sieve_area[MAX_NUM_SIEVE_AREAS]; /* Info in each sieve area */
 	int	num_sieve_areas;		/* Count of sieve areas allocated */
 	int	num_free_sieve_areas;		/* Count of sieve areas that are free */
 	int	num_sieved_sieve_areas;		/* Count of sieve areas that are sieved */
@@ -4187,7 +4191,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 		stop_reason = start_sieve_with_limit (thread_num, 7, (int) sqrt ((double) maxprime) + 1, &sieve_info);
 		if (stop_reason) return (stop_reason);
 		for (num_small_primes = 0; num_small_primes < estimated_num_primes; ) {
-			prime = sieve (sieve_info);
+			prime = (int) sieve (sieve_info);
 			if (prime > maxprime) break;
 			if (prime == asm_data->p) continue;			// Rare case: TF where exponent <= maxprime
 			if (facdata->num_siever_groups % prime == 0) continue;	// Don't add primes that are handled by facdist
@@ -4205,10 +4209,10 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 
 /* Allocate and initialize the modular inverse of all the sieving primes */
 
-	facdata->modinvarray = malloc (num_small_primes * sizeof (uint32_t));
+	facdata->modinvarray = (uint32_t *) malloc (num_small_primes * sizeof (uint32_t));
 	if (facdata->modinvarray == NULL) goto memerr;
 	for (i = 0; i < num_small_primes; i++)
-		facdata->modinvarray[i] = modinv (asm_data->facdists[1], ((uint32_t *)asm_data->primearray)[i]);
+		facdata->modinvarray[i] = (uint32_t) modinv (asm_data->facdists[1], ((uint32_t *)asm_data->primearray)[i]);
 
 /* Allocate more memory for sieve area(s) and sieve initialization. */
 
@@ -4422,9 +4426,9 @@ int factorPassSetup (
 /* Compute the initial value and other constants. */
 
 		asm_data->FMA_INITVAL_TYPE =
-			(p < split_bits) ? -1 :
-			(p > split_bits+1) ? 0 :
-			(p == split_bits) ? 1 : 2;
+			((int) p < split_bits) ? -1 :
+			((int) p > split_bits+1) ? 0 :
+			((int) p == split_bits) ? 1 : 2;
 		asm_data->FMA_64_MINUS_LOW_BITS = 64 - low_bits;
 		asm_data->SSE2_LOOP_COUNTER = i;
 
@@ -4436,10 +4440,10 @@ int factorPassSetup (
 		ymm_data[8] = ymm_data[9] = ymm_data[10] = ymm_data[11] = 3.0 * pow ((double) 2.0, (51 + low_bits)); /* YMM_FMA_RND_CONST2 */
 		ymm_data[12] = ymm_data[13] = ymm_data[14] = ymm_data[15] = 3.0 * pow ((double) 2.0, (51 - split_bits)); /* YMM_FMA_RND_CONST4 */
 		ymm_data[16] = ymm_data[17] = ymm_data[18] = ymm_data[19] = 3.0 * pow ((double) 2.0, (51 + low_bits - split_bits)); /* YMM_FMA_RND_CONST5 */
-		if (p > split_bits+1)
-			ymm_data[20] = ymm_data[21] = ymm_data[22] = ymm_data[23] = pow ((double) 2.0, p-1); /* YMM_FMA_INITIAL_VALUE */
+		if ((int) p > split_bits+1)
+			ymm_data[20] = ymm_data[21] = ymm_data[22] = ymm_data[23] = pow ((double) 2.0, (double) (p-1)); /* YMM_FMA_INITIAL_VALUE */
 		else
-			ymm_data[20] = ymm_data[21] = ymm_data[22] = ymm_data[23] = pow ((double) 2.0, p); /* YMM_FMA_INITIAL_VALUE */
+			ymm_data[20] = ymm_data[21] = ymm_data[22] = ymm_data[23] = pow ((double) 2.0, (double) p); /* YMM_FMA_INITIAL_VALUE */
 		ymm_data[24] = ymm_data[25] = ymm_data[26] = ymm_data[27] = pow ((double) 2.0, split_bits); /* YMM_FMA_TWOPOW_SPLIT */
 		ymm_data[28] = ymm_data[29] = ymm_data[30] = ymm_data[31] = pow ((double) 2.0, low_bits); /* YMM_FMA_TWO_TO_LO */
 	}
@@ -4483,7 +4487,7 @@ int factorPassSetup (
 /* Determine the starting factor for each siever.  Also calculate total number of sieves we'll need to process. */
 
 	facdata->total_num_areas_to_sieve = 0;
-	for (i = 0; i < facdata->num_siever_allocs; i++) {
+	for (i = 0; (int) i < facdata->num_siever_allocs; i++) {
 		uint64_t savefac0, savefac1;
 		double temp, next_pow_2, first_factor;
 
@@ -4583,11 +4587,11 @@ void factorPassSetupPart2 (
 /* Init this siever's the bit-to-clear offset array */
 
 	modinvp = facdata->modinvarray;
-	offsetp = siever_info->offsetarray;
-	for (primep = asm_data->primearray; *primep; primep++, offsetp++, modinvp++) {
+	offsetp = (uint32_t *) siever_info->offsetarray;
+	for (primep = (uint32_t *) asm_data->primearray; *primep; primep++, offsetp++, modinvp++) {
 		uint32_t temp;
 		temp = mod96_32 (asm_data->savefac0, asm_data->savefac1, *primep);
-		if (temp) temp = *primep - (((uint64_t) temp * (uint64_t) *modinvp) % *primep);
+		if (temp) temp = (uint32_t) (*primep - (((uint64_t) temp * (uint64_t) *modinvp) % *primep));
 		*offsetp = temp;
 	}
 }
