@@ -53,15 +53,16 @@ typedef double *gwnum;
 +---------------------------------------------------------------------*/
 
 /* This is the version number for the gwnum libraries. It changes whenever */
-/* there is a change to the gwnum code and will match the corresponding */
-/* prime95 version.  Thus, you may see some strange jumps in version */
-/* numbers.  This version number is also embedded in the assembly code and */
+/* there is a change to the gwnum code.  Since Prime95 also uses the same */
+/* version numbering scheme, you will see some strange jumps in gwnum version */
+/* numbers when there are new prime95 versions without any changes in the gwnum code. */
+/* This version number is also embedded in the assembly code and */
 /* gwsetup verifies that the version numbers match.  This prevents bugs */
 /* from accidentally linking in the wrong gwnum library. */
 
-#define GWNUM_VERSION		"28.9"
+#define GWNUM_VERSION		"28.10"
 #define GWNUM_MAJOR_VERSION	28
-#define GWNUM_MINOR_VERSION	9
+#define GWNUM_MINOR_VERSION	10
 
 /* Error codes returned by the three gwsetup routines */
 

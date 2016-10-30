@@ -2355,6 +2355,7 @@ int internal_gwsetup (
 	}
 	gwdata->asm_data = (char *) asm_data_alloc + NEW_STACK_SIZE;
 	asm_data = (struct gwasm_data *) gwdata->asm_data;
+	memset (asm_data, 0, sizeof (struct gwasm_data));
 
 /* Select the proper FFT size for this k,b,n,c combination */
 
