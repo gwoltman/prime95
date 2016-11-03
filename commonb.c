@@ -4680,7 +4680,7 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 	struct facasm_data *asm_data,	/* This thread's asm data */
 	int	aux_thread_num)		/* Auxilary thread number (or zero for main thread) */
 {
-	int	i, j, res;
+	int	i, res;
 
 /* See if we're running low on already sieved areas */
 
@@ -4698,19 +4698,20 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 /* Find inactive siever with the most work left to do */
 /* By definition, an uninitialized siever has the most work left to do */
 
-		uint64_t best_siever = 0;
-		int	best_siever_uninitialized = FALSE;
+		struct siever_info *best_siever = NULL;
+		int	best_siever_initialized;
 		for (i = 0; i < facdata->num_siever_allocs; i++) {	// keep list of inactive sievers to avoid this loop???
 			if (facdata->siever_info[i].state == SIEVER_UNINITIALIZED) {
-				best_siever_uninitialized = TRUE;
-				j = i;
-				best_siever = 1;
+				best_siever = &facdata->siever_info[i];
+				best_siever_initialized = FALSE;
 				break;
 			}
+			// Is this an inactive siever with more work left to do?
 			if (facdata->siever_info[i].state == SIEVER_INACTIVE &&
-			    facdata->siever_info[i].num_areas_to_sieve > best_siever) {	// This siever has more work left to do
-				j = i;
-				best_siever = facdata->siever_info[i].num_areas_to_sieve;
+			    (best_siever == NULL ||
+			     facdata->siever_info[i].num_areas_to_sieve > best_siever->num_areas_to_sieve)) {
+				best_siever = &facdata->siever_info[i];
+				best_siever_initialized = TRUE;
 			}
 		}
 
@@ -4719,12 +4720,12 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 /* that the small prime array stays in the L2 cache of a single thread. */
 /* Actually, we now limit loop to 50 sievings, so we can search again for inactive sievers that may be falling behind. */
 
-		if (best_siever) {					// If we found an inactive siever with work left to do...
+		if (best_siever != NULL) {				// If we found an inactive siever with work left to do...
 		int	how_many_sieved = 0;
 		facdata->num_sievers_active++;
-		facdata->siever_info[j].state = SIEVER_ACTIVE;
-		asm_data->offsetarray = facdata->siever_info[j].offsetarray;
-		while (facdata->num_free_sieve_areas && facdata->siever_info[j].num_areas_to_sieve && how_many_sieved++ < 50) {
+		best_siever->state = SIEVER_ACTIVE;
+		asm_data->offsetarray = best_siever->offsetarray;
+		while (facdata->num_free_sieve_areas && best_siever->num_areas_to_sieve && how_many_sieved++ < 50) {
 			for (i = facdata->last_sieve_area_for_sieve + 1; ; i++) {
 				if (i == facdata->num_sieve_areas) i = 0;
 				if (facdata->sieve_area[i].state == SIEVE_AREA_FREE) break;
@@ -4732,24 +4733,27 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 			facdata->last_sieve_area_for_sieve = i;
 			facdata->num_free_sieve_areas--;
 			facdata->sieve_area[i].state = SIEVE_AREA_SIEVING;		/* Update sieve area's state */
-			facdata->sieve_area[i].first_factor[0] = asm_data->savefac0 = facdata->siever_info[j].next_sieve_first_factor[0];
-			facdata->sieve_area[i].first_factor[1] = asm_data->savefac1 = facdata->siever_info[j].next_sieve_first_factor[1];
+			gwmutex_unlock (&facdata->thread_lock);
+			facdata->sieve_area[i].first_factor[0] = asm_data->savefac0 = best_siever->next_sieve_first_factor[0];
+			facdata->sieve_area[i].first_factor[1] = asm_data->savefac1 = best_siever->next_sieve_first_factor[1];
 			asm_data->initstart = mod96_32 (asm_data->savefac0, asm_data->savefac1, facdata->initsieve_primes) *
 					      facdata->one_eighth_initsieve_primes % facdata->initsieve_primes;
 			asm_data->sieve = facdata->sieve_area[i].sieve;
-			gwmutex_unlock (&facdata->thread_lock);
-			if (best_siever_uninitialized) factorPassSetupPart2 (facdata, asm_data, &facdata->siever_info[j]);
+			if (!best_siever_initialized) {
+				factorPassSetupPart2 (facdata, asm_data, best_siever);
+				best_siever_initialized = TRUE;
+			}
 			factor64_sieve (asm_data);
+			best_siever->next_sieve_first_factor[0] = asm_data->savefac0; /* Remember next sieve's first factor */
+			best_siever->next_sieve_first_factor[1] = asm_data->savefac1;
+			best_siever->num_areas_to_sieve--;
 			gwmutex_lock (&facdata->thread_lock);
-			facdata->siever_info[j].next_sieve_first_factor[0] = asm_data->savefac0; /* Remember next sieve's first factor */
-			facdata->siever_info[j].next_sieve_first_factor[1] = asm_data->savefac1;
-			facdata->siever_info[j].num_areas_to_sieve--;
 			facdata->total_num_areas_to_sieve--;
 			facdata->sieve_area[i].state = SIEVE_AREA_SIEVED;
 			facdata->num_sieved_sieve_areas++;
 			gwevent_signal (&facdata->sieved_areas_available);
 		}
-		facdata->siever_info[j].state = SIEVER_INACTIVE;
+		best_siever->state = SIEVER_INACTIVE;
 		facdata->num_sievers_active--;
 		}
 	}
