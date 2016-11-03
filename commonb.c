@@ -4074,6 +4074,10 @@ void factor_auxiliary_thread (void *arg)
 
 		gwmutex_lock (&facdata->thread_lock);
 		memcpy (asm_data, main_thread_asm_data, sizeof (struct facasm_data));
+
+/* Increment number of active threads */
+
+		facdata->num_active_threads++;
 		gwmutex_unlock (&facdata->thread_lock);
 
 /* Loop factoring chunks */
@@ -4563,7 +4567,7 @@ int factorPassSetup (
 /* This will copy the main thread's now properly initialized asm_data to each auxilary thread */
 
 	if (facdata->num_threads > 1) {
-		facdata->num_active_threads = facdata->num_threads - 1;	// Set count of active auxilary threads
+		facdata->num_active_threads = 0;			// Set count of active auxilary threads
 		gwevent_reset (&facdata->all_threads_done);		// Clear auxilary threads done signal
 		gwevent_signal (&facdata->thread_work_to_do);		// Start auxilary threads
 	}
