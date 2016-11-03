@@ -4003,6 +4003,7 @@ typedef struct {
 	uint32_t found_hsw;			/* HSW of a found factor */
 	gwthread *thread_ids;			/* Array of auxiliary thread ids */
 	unsigned int num_active_threads;	/* Count of the number of active auxiliary threads */
+	int	asm_data_initialized;		/* Flag used to make sure auxiliary threads copy valid asm_data */
 	int	threads_must_exit;		/* Flag set to force all auxiliary threads to terminate */
 	gwmutex	thread_lock;			/* This mutex limits one thread at a time in critical sections. */
 	gwevent	thread_work_to_do;		/* This event is set whenever the auxiliary threads have work to do. */
@@ -4070,9 +4071,21 @@ void factor_auxiliary_thread (void *arg)
 		gwevent_wait (&facdata->thread_work_to_do, 0);
 		if (facdata->threads_must_exit) break;
 
-/* Each thread needs its own copy of the asm_data.  Copy the structure after each factor_pass_setup */
+/* Oddly, we can get here with no work to do and asm_data not properly initialized.  Imagine this is */
+/* thread 10 of 10.  FactorPassSetup for pass 1 signals the 9 auxiliary threads to begin work.  The main */
+/* thread and 8 auxiliary threads sieve and TF all the needed chunks -- num_active_threads rises to 8, returns */
+/* to zero and all_work_done is signalled.  The main thread then goes off and starts initilizing asm_data for */
+/* pass 2.  Finally, our tenth thread wakes up and finds itself here.  If it copies asm_data incorrect results */
+/* or a crash will occur.  We created the asm_data_initialized flag to combat this problem. */
 
 		gwmutex_lock (&facdata->thread_lock);
+		if (!facdata->asm_data_initialized) {
+			gwmutex_unlock (&facdata->thread_lock);
+			continue;
+		}
+
+/* Each thread needs its own copy of the asm_data.  Copy the structure after each factor_pass_setup */
+
 		memcpy (asm_data, main_thread_asm_data, sizeof (struct facasm_data));
 
 /* Increment number of active threads */
@@ -4093,8 +4106,10 @@ void factor_auxiliary_thread (void *arg)
 
 		gwmutex_lock (&facdata->thread_lock);
 		facdata->num_active_threads--;
-		if (facdata->num_active_threads == 0)
+		if (facdata->num_active_threads == 0) {
+			facdata->asm_data_initialized = FALSE;		// Neutralize any auxiliary threads that never started
 			gwevent_signal (&facdata->all_threads_done);
+		}
 		if (facdata->threads_must_exit) {
 			gwmutex_unlock (&facdata->thread_lock);
 			break;
@@ -4564,12 +4579,13 @@ int factorPassSetup (
 	facdata->last_sieve_area_for_tf = 0;
 
 /* Signal the auxiliary threads to resume working */
-/* This will copy the main thread's now properly initialized asm_data to each auxilary thread */
+/* This will copy the main thread's now properly initialized asm_data to each auxiliary thread */
 
 	if (facdata->num_threads > 1) {
-		facdata->num_active_threads = 0;			// Set count of active auxilary threads
-		gwevent_reset (&facdata->all_threads_done);		// Clear auxilary threads done signal
-		gwevent_signal (&facdata->thread_work_to_do);		// Start auxilary threads
+		facdata->asm_data_initialized = TRUE;			// Set flag letting auxiliary threads know asm_data is valid
+		facdata->num_active_threads = 0;			// Set count of active auxiliary threads
+		gwevent_reset (&facdata->all_threads_done);		// Clear auxiliary threads done signal
+		gwevent_signal (&facdata->thread_work_to_do);		// Start auxiliary threads
 	}
 
 /* Setup complete */
@@ -4632,7 +4648,7 @@ int factorChunk (
 			gwevent_wait (&facdata->all_threads_done, 0);
 			factorFindSmallestNotTFed (facdata);
 		}
-		// If we (or an auxilary thread) found a factor, return it
+		// If we (or an auxiliary thread) found a factor, return it
 		if (facdata->found_lsw) {
 			asm_data->FACLSW = facdata->found_lsw;
 			asm_data->FACMSW = facdata->found_msw;
@@ -4682,7 +4698,7 @@ int factorChunk (
 int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do */
 	fachandle *facdata,		/* Handle returned by factorSetup */
 	struct facasm_data *asm_data,	/* This thread's asm data */
-	int	aux_thread_num)		/* Auxilary thread number (or zero for main thread) */
+	int	aux_thread_num)		/* Auxiliary thread number (or zero for main thread) */
 {
 	int	i, res;
 
@@ -5204,7 +5220,7 @@ int primeFactor (
 			double	currentpt;
 
 /* Do a chunk of factoring.  Usually this is just one chunk (as defined by the underlying factoring code). */
-/* However, when multithreading the auxilary threads are TFing chunks at the same time. */
+/* However, when multithreading the auxiliary threads are TFing chunks at the same time. */
 			
 			start_timer (timers, 0);
 			stop_reason = factorAndVerify (thread_num, p, &facdata, &res);
