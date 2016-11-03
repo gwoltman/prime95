@@ -4480,10 +4480,6 @@ int factorPassSetup (
 		asm_data->TWO_TO_FACSIZE_PLUS_62 = pow ((double) 2.0, (int) (bits_in_factor + 62));
 	}
 
-/* Now let assembly code do remaining pass initialization.  Archaic stuff that never got moved to C code. */
-
-	factor64_pass_setup (asm_data);
-
 /* Determine the starting factor for each siever.  Also calculate total number of sieves we'll need to process. */
 
 	facdata->total_num_areas_to_sieve = 0;
@@ -4547,6 +4543,12 @@ int factorPassSetup (
 		facdata->siever_info[i].num_areas_to_sieve = (uint64_t) ((next_pow_2 - first_factor) / (double) asm_data->facdist12K) + 1;
 		facdata->total_num_areas_to_sieve += facdata->siever_info[i].num_areas_to_sieve;
 	}
+
+/* Now let assembly code do remaining pass initialization.  Archaic stuff that never got moved to C code. */
+
+	asm_data->savefac0 = facdata->siever_info[0].next_sieve_first_factor[0];
+	asm_data->savefac1 = facdata->siever_info[0].next_sieve_first_factor[1];
+	factor64_pass_setup (asm_data);
 
 /* Init sieve area counters, clear counter of chunks processed */
 
