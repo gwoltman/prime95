@@ -2814,7 +2814,7 @@ avx512_compare MACRO
 ; remainder.  The initial value can be up to 60 bits larger than the factor
 ; size.
 
-avx_fma_fac_initval MACRO
+avx_fma_fac_initval MACRO avx_level
 	LOCAL	large_initial_value, small_initial_value, equals_split, done
 
 ;; Preload constants
@@ -2823,12 +2823,17 @@ avx_fma_fac_initval MACRO
 	vmovapd	ymm14, YMMWORD PTR YMM_FMA_RND_CONST2		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
 	lea	r8, YMM_FMA_ONE_OR_TWO				;; q2_dividend = 1-or-2 * q2_dividend + q1f1_hi
 
-;; Break 60 bits of factor inverse into 30 bit chunks
+;; Convert factor from 2 integers into 2 doubles
 
+IF avx_level EQ 1
+	vmovapd ymm0, YMMWORD PTR YMM_FMA_FAC_LO_INT		;; Load partially converted integer factor low
+	vmovapd ymm1, YMMWORD PTR YMM_FMA_FAC_HI_INT		;; Load partially converted integer factor hi
+ELSE
 	vmovapd	ymm13, YMMWORD PTR YMM_FMA_LOW_MASK		;; Mask for acquiring low bits
 	vpand	ymm0, ymm13, YMMWORD PTR YMM_FMA_FAC_LO_INT	;; Load integer factor low
 	vpor	ymm0, ymm0, ymm15				;; Step 1 to convert factor low to a double
 	vpor	ymm1, ymm15, YMMWORD PTR YMM_FMA_FAC_HI_INT	;; Load integer factor hi
+ENDIF
 	yfmsubpd ymm1, ymm1, YMMWORD PTR YMM_FMA_TWO_TO_LO, ymm14 ;; Convert integer factor hi to double times 2^lo
 	vsubpd	ymm0, ymm0, ymm15				;; Step 2 to convert factor low to a double
 	vmovapd	YMMWORD PTR YMM_FMA_FAC_HI, ymm0		;; Save fac_hi
@@ -3091,7 +3096,7 @@ avx_fma_compare MACRO
 ; remainder.  The initial value can be up to 60 bits larger than the factor
 ; size.
 
-avx_fma_fac_initval MACRO
+avx_fma_fac_initval MACRO avx_level
 	LOCAL	large_initial_value, small_initial_value, equals_split, done
 
 ;; Preload constants
@@ -3100,8 +3105,14 @@ avx_fma_fac_initval MACRO
 	vmovapd	ymm14, YMMWORD PTR YMM_FMA_RND_CONST2		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
 	lea	r8, YMM_FMA_ONE_OR_TWO				;; Addess of 1.0 or 2.0
 
-;; Break 60 bits of factor inverse into 30 bit chunks
+;; Convert factor from 2 integers into 2 doubles
 
+IF avx_level EQ 1
+	vmovapd ymm0, YMMWORD PTR YMM_FMA_FAC_LO_INT		;; Load partially converted integer factor low
+	vmovapd ymm4, YMMWORD PTR YMM_FMA_FAC_LO_INTa		;; Load partially converted integer factor low
+	vmovapd ymm10, YMMWORD PTR YMM_FMA_FAC_HI_INT		;; Load partially converted integer factor hi
+	vmovapd ymm11, YMMWORD PTR YMM_FMA_FAC_HI_INTa		;; Load partially converted integer factor hi
+ELSE
 	vmovapd	ymm13, YMMWORD PTR YMM_FMA_LOW_MASK		;; Mask for acquiring low bits
 	vpand	ymm0, ymm13, YMMWORD PTR YMM_FMA_FAC_LO_INT	;; Load integer factor low
 	vpand	ymm4, ymm13, YMMWORD PTR YMM_FMA_FAC_LO_INTa	;; Load integer factor low
@@ -3111,7 +3122,7 @@ avx_fma_fac_initval MACRO
 
 	vpor	ymm10, ymm15, YMMWORD PTR YMM_FMA_FAC_HI_INT	;; Load integer factor hi
 	vpor	ymm11, ymm15, YMMWORD PTR YMM_FMA_FAC_HI_INTa	;; Load integer factor hi
-
+ENDIF
 	vmovapd	ymm13, YMMWORD PTR YMM_FMA_TWO_TO_LO		;; Constant for converting integer factor hi
 	yfmsubpd ymm10, ymm10, ymm13, ymm14			;; Convert integer factor hi to double times 2^lo
 	yfmsubpd ymm11, ymm11, ymm13, ymm14			;; Convert integer factor hi to double times 2^lo
@@ -3494,7 +3505,7 @@ avx_fma_compare MACRO
 ; remainder.  The initial value can be up to 60 bits larger than the factor
 ; size.
 
-avx_fma_fac_initval MACRO
+avx_fma_fac_initval MACRO avx_level
 	LOCAL	large_initial_value, small_initial_value, equals_split, done
 
 ;; Preload constants
@@ -3503,8 +3514,17 @@ avx_fma_fac_initval MACRO
 	vmovapd	ymm14, YMMWORD PTR YMM_FMA_RND_CONST2		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
 	lea	r8, YMM_FMA_ONE_OR_TWO				;; Addess of 1.0 or 2.0
 
-;; Break 60 bits of factor inverse into 30 bit chunks
+;; Convert factor from 2 integers into 2 doubles
 
+IF avx_level EQ 1
+	vmovapd ymm0, YMMWORD PTR YMM_FMA_FAC_LO_INT		;; Load partially converted integer factor low
+	vmovapd ymm4, YMMWORD PTR YMM_FMA_FAC_LO_INTa		;; Load partially converted integer factor low
+	vmovapd ymm8, YMMWORD PTR YMM_FMA_FAC_LO_INTb		;; Load partially converted integer factor low
+
+	vmovapd ymm2, YMMWORD PTR YMM_FMA_FAC_HI_INT		;; Load partially converted integer factor hi
+	vmovapd ymm6, YMMWORD PTR YMM_FMA_FAC_HI_INTa		;; Load partially converted integer factor hi
+	vmovapd ymm10, YMMWORD PTR YMM_FMA_FAC_HI_INTb		;; Load partially converted integer factor hi
+ELSE
 	vmovapd	ymm13, YMMWORD PTR YMM_FMA_LOW_MASK		;; Mask for acquiring low bits
 	vpand	ymm0, ymm13, YMMWORD PTR YMM_FMA_FAC_LO_INT	;; Load integer factor low
 	vpand	ymm4, ymm13, YMMWORD PTR YMM_FMA_FAC_LO_INTa	;; Load integer factor low
@@ -3517,6 +3537,7 @@ avx_fma_fac_initval MACRO
 	vpor	ymm2, ymm15, YMMWORD PTR YMM_FMA_FAC_HI_INT	;; Load integer factor hi
 	vpor	ymm6, ymm15, YMMWORD PTR YMM_FMA_FAC_HI_INTa	;; Load integer factor hi
 	vpor	ymm10, ymm15, YMMWORD PTR YMM_FMA_FAC_HI_INTb	;; Load integer factor hi
+ENDIF
 
 	vmovapd	ymm13, YMMWORD PTR YMM_FMA_TWO_TO_LO		;; Constant for converting integer factor hi
 	yfmsubpd ymm2, ymm2, ymm13, ymm14			;; Convert integer factor hi to double times 2^lo
