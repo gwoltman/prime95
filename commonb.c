@@ -3678,7 +3678,7 @@ struct facasm_data {
 
 typedef struct {
 	int	num_threads;		/* Number of threads to use in factoring.  Not supported in 32-bit code. */
-	struct PriorityInfo *sp_info;		/* Priority structure for setting aux thread priority */
+	struct PriorityInfo *sp_info;	/* Priority structure for setting aux thread priority */
 	struct	facasm_data *asm_data;	/* Memory for factoring code */
 } fachandle;
 
@@ -3709,8 +3709,7 @@ int factorSetup (
 		OutputStr (thread_num, "Error allocating memory for trial factoring.\n");
 		return (STOP_OUT_OF_MEM);
 	}
-	facdata->asm_data = asm_data = (struct facasm_data *)
-		((char *) asm_data_alloc + NEW_STACK_SIZE);
+	facdata->asm_data = asm_data = (struct facasm_data *) ((char *) asm_data_alloc + NEW_STACK_SIZE);
 	memset (asm_data, 0, 65536);
 
 /* Init */
@@ -4186,7 +4185,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 	else if (facdata->num_siever_threads <= 30) facdata->num_siever_groups = 35, facdata->num_siever_allocs = 30;
 	else if (facdata->num_siever_threads <= 60) facdata->num_siever_groups = 77, facdata->num_siever_allocs = 60;
 	else facdata->num_siever_groups = 154, facdata->num_siever_allocs = 120;
-
+	
 	if (facdata->num_siever_groups % 11 == 0) facdata->initsieve_primes = INITSIEVE_PRIMES3;
 	else if (facdata->num_siever_groups % 7 == 0) facdata->initsieve_primes = INITSIEVE_PRIMES2;
 	else facdata->initsieve_primes = INITSIEVE_PRIMES1;
@@ -4266,7 +4265,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 
 /* Init.  Note the default is to not use SSE2 TF code in 64-bit mode (unlike 32-bit prime95). */
 /* This decision was made years ago when, IIRC, Opteron's were faster using the non-SSE2 code */
-/* and the Intel CPUs of the ambivalent. */
+/* and the Intel CPUs were ambivalent. */
 
 	asm_data->p = p;
 	asm_data->cpu_flags = CPU_FLAGS;
@@ -4299,7 +4298,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 		info->facdata = facdata;
 		info->thread_num = i+1;
 		/* Allocate the asm_data area and thread stack */
-		info->asm_data = (struct facasm_data *) aligned_malloc (sizeof (struct facasm_data), 64);
+		info->asm_data = (struct facasm_data *) aligned_malloc (sizeof (struct facasm_data), 128);
 		if (info->asm_data == NULL) {
 			free (info);
 			return (GWERROR_MALLOC);
@@ -5024,6 +5023,13 @@ int primeFactor (
 /* Record the amount of memory being used by this thread (1MB). */
 
 	set_memory_usage (thread_num, 0, 1);
+
+/* Note: The non-SSE2 code cannot handle factoring 80 bits and above. */
+
+	if (test_bits > 79 && !(facdata.asm_data->cpu_flags & (CPU_SSE2 | CPU_AVX | CPU_AVX2 | CPU_FMA3 | CPU_AVX512F))) {
+		OutputBoth (thread_num, "Non-SSE2 trial factoring code cannot go above 2^79.\n");
+		test_bits = 79;
+	}
 
 /* Check for a v24 continuation file.  These were named pXXXXXXX.  The */
 /* first 16 bits contained a 2 to distinguish it from a LL save file. */
@@ -8174,7 +8180,7 @@ int primeSieveTest (
 			fachi = fachi * 10 + carryl;
 			if (fachi >= 268435456 ||
 			    (fachi >= 4194304 && !(CPU_FLAGS & CPU_FMA3)) ||
-			    (fachi >= 4096 && !(CPU_FLAGS & CPU_SSE2))) {
+			    (fachi >= 32768 && !(CPU_FLAGS & CPU_SSE2))) {
 				sprintf (buf, "%ld %s factor too big.\n", p, fac);
 				OutputBoth (thread_num, buf);
 				goto nextp;
@@ -8222,6 +8228,12 @@ int primeSieveTest (
 		if (stop_reason) {
 			fclose (fd);
 			return (stop_reason);
+		}
+		if (fachi >= 32768 && !(facdata.asm_data->cpu_flags & (CPU_SSE2 | CPU_AVX | CPU_AVX2 | CPU_FMA3 | CPU_AVX512F))) {
+			sprintf (buf, "%ld %s factor too big.\n", p, fac);
+			OutputBoth (thread_num, buf);
+			factorDone (&facdata);
+			goto nextp;
 		}
 		facdata.asm_data->FACHSW = fachi;
 		facdata.asm_data->FACMSW = facmid & ~0xFFF;
