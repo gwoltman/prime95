@@ -233,8 +233,8 @@ ZMM_BITS30		DD	3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0,3FFFF
 ZMM_28TH_BIT		DD	08000000h,0,08000000h,0,08000000h,0,08000000h,0,08000000h,0,08000000h,0,08000000h,0,08000000h,0
 ZMM_ONE			DD	1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0
 
-;FOO1			DQ	4				;; The easy way to debug - enter the known factor here
-;FOO2			DQ	8059962891085285975
+;FOO1			DQ	1				;; The easy way to debug - enter the known factor here
+;FOO2			DQ	139526411510953905
 
 	;; Align so that other GWDATA areas are aligned on a cache line
 	align 128
@@ -537,23 +537,22 @@ PROCF	factor64_tf
 	mov	rbx, savefac0		; Load trial factor corresponding
 	mov	rcx, savefac1		; to first sieve bit
 	test	CPU_FLAGS, 8000h	; Is this an FMA-capable machine?
-	jnz	ftlp96			; Yes, use 45-92 bit (or more) AVX-FMA code
+	jz	short notfma		; No, use slower methods
 
+;	test	CPU_FLAGS, 100000h	; Is this an AVX512 machine?
+;	jnz	ztlp96			; Yes, use 45-92 bit (or more) AVX512-FMA code
+	test	CPU_FLAGS, 20000h	; Is this an AVX2 machine?
+	jnz	f2tlp96			; Yes, use 45-92 bit (or more) AVX2-FMA code
+	jmp	ftlp96			; No, use 45-92 bit (or more) AVX-FMA code
+
+notfma:
 	and	rbx, rbx		; Are we testing 65+ bit factors?
 	jz	short oneword		; No, go do 64 bits or less
-
-	test	CPU_FLAGS, 100000h	; Is this an AVX512 machine?
-	jz	short notavx512		; No, use non-AVX512 code
-	cmp	rbx, 400h		; Are we testing 75+ bit numbers?
-	jge	ztlp86			; Yes, use 75-86 bit AVX512 code
-	jmp	ztlp74			; No, use 65-74 bit AVX512 code
-
-notavx512:
 	test	CPU_FLAGS, 20000h	; Is this an AVX2 machine?
 	jz	short notavx2		; No, use non-AVX2 code
 	cmp	rbx, 400h		; Are we testing 75+ bit numbers?
-	jge	atlp86			; Yes, use 75-86 bit AVX2 code
-	jmp	atlp74			; No, use 65-74 bit AVX2 code
+	jge	atlp86			; Yes, use 75-86 bit AVX2 code (obsoleted by FMA code)
+	jmp	atlp74			; No, use 65-74 bit AVX2 code (obsoleted by FMA code)
 
 notavx2:
 	test	CPU_FLAGS, 200h		; Is this an SSE2 machine?
@@ -1964,10 +1963,11 @@ do64:	mov	SAVED_REG1, rsi		; Save sieve testing registers
 	mov	SAVED_REG4, rbp
 
 ; Precompute 1 / factor using Newton's method and the last 1 / factor
-; as our initial estimate.  I think this gives us about 50-ish digits
-; of precision which is enough for our needs.  Note we round up several
-; of the calculations so that the computed 1 / factor is less than the
-; actual 1 / factor.
+; as our initial estimate.  I think this gives us about 45-ish digits
+; of precision which is not enough for our needs.  For example, we miss
+; the factor 18586270485220505521 of M530539861 when multithreading.
+; Note we round up several of the calculations so that the computed
+; 1 / factor is less than the actual 1 / factor.
 
 	mov	rax, facinv3		; Load last 1 / factor
 	mul	rax
@@ -1988,6 +1988,39 @@ do64:	mov	SAVED_REG1, rsi		; Save sieve testing registers
 
 	mov	rax, fac3
 	mul	temp1
+	inc	rdx			; ceiling (f * est^2)
+	sub	facinv3, rdx		; est - f * est^2
+
+	add	facinv1, facinv1	; 1/f = 2 (est - f * est^2)
+	shl	facinv2, 1		; 1/f = 2 (est - f * est^2)
+	add	facinv3, facinv3	; 1/f = 2 (est - f * est^2)
+
+; Refine our 1 / factor estimates using another iteration of Newton's method.
+; Note we round up several of the calculations so that the computed 1 / factor
+; is less than the actual 1 / factor.
+
+	mov	rax, facinv1		; Load last 1 / factor
+	mul	rax
+	lea	temp1, [rdx+1]		; Save ceiling (est^2)
+	mov	rax, facinv2		; Load last 1 / factor
+	mul	rax
+	lea	temp2, [rdx+1]		; Save ceiling (est^2)
+	mov	rax, facinv3		; Load last 1 / factor
+	mul	rax
+	lea	temp3, [rdx+1]		; Save ceiling (est^2)
+
+	mov	rax, fac1
+	mul	temp1
+	inc	rdx			; ceiling (f * est^2)
+	sub	facinv1, rdx		; est - f * est^2
+
+	mov	rax, fac2
+	mul	temp2
+	inc	rdx			; ceiling (f * est^2)
+	sub	facinv2, rdx		; est - f * est^2
+
+	mov	rax, fac3
+	mul	temp3
 	inc	rdx			; ceiling (f * est^2)
 	sub	facinv3, rdx		; est - f * est^2
 
@@ -2333,10 +2366,11 @@ do65:	mov	SAVED_REG1, rsi		; Save sieve testing registers
 	mov	SAVED_REG4, rbp
 
 ; Precompute 1 / factor using Newton's method and the last 1 / factor
-; as our initial estimate.  I think this gives us about 50-ish digits
-; of precision which is enough for our needs.   Note we round up several
-; of the calculations so that the computed 1 / factor is less than the
-; actual 1 / factor.
+; as our initial estimate.  I think this gives us about 45-ish digits
+; of precision which is not enough for our needs.  For example, we miss
+; the factor 18586270485220505521 of M530539861 when multithreading.
+; Note we round up several of the calculations so that the computed
+; 1 / factor is less than the actual 1 / factor.
 
 	mov	rax, facinv3		; Load last 1 / factor
 	mul	rax
@@ -2363,6 +2397,45 @@ do65:	mov	SAVED_REG1, rsi		; Save sieve testing registers
 	ror	rax, 1			; Form upper 64 bits of factor
 	inc	rax			; ceiling (upper 64 bits of factor)
 	mul	temp1
+	inc	rdx			; ceiling (f * est^2)
+	sub	facinv3, rdx		; est - f * est^2
+
+	add	facinv1, facinv1	; 1/f = 2 (est - f * est^2)
+	shl	facinv2, 1		; 1/f = 2 (est - f * est^2)
+	add	facinv3, facinv3	; 1/f = 2 (est - f * est^2)
+
+; Refine our 1 / factor estimates using another iteration of Newton's method.
+; Note we round up several of the calculations so that the computed 1 / factor
+; is less than the actual 1 / factor.
+
+	mov	rax, facinv1		; Load last 1 / factor
+	mul	rax
+	lea	temp1, [rdx+1]		; Save ceiling (est^2)
+	mov	rax, facinv2		; Load last 1 / factor
+	mul	rax
+	lea	temp2, [rdx+1]		; Save ceiling (est^2)
+	mov	rax, facinv3		; Load last 1 / factor
+	mul	rax
+	lea	temp3, [rdx+1]		; Save ceiling (est^2)
+
+	mov	rax, fac1
+	ror	rax, 1			; Form upper 64 bits of factor
+	inc	rax			; ceiling (upper 64 bits of factor)
+	mul	temp1
+	inc	rdx			; ceiling (f * est^2)
+	sub	facinv1, rdx		; est - f * est^2
+
+	mov	rax, fac2
+	ror	rax, 1			; Form upper 64 bits of factor
+	inc	rax			; ceiling (upper 64 bits of factor)
+	mul	temp2
+	inc	rdx			; ceiling (f * est^2)
+	sub	facinv2, rdx		; est - f * est^2
+
+	mov	rax, fac3
+	ror	rax, 1			; Form upper 64 bits of factor
+	inc	rax			; ceiling (upper 64 bits of factor)
+	mul	temp3
 	inc	rdx			; ceiling (f * est^2)
 	sub	facinv3, rdx		; est - f * est^2
 
@@ -2713,10 +2786,11 @@ do66:	mov	SAVED_REG1, rsi		; Save sieve testing registers
 	mov	SAVED_REG6, r14
 
 ; Precompute 1 / factor using Newton's method and the last 1 / factor
-; as our initial estimate.  I think this gives us about 50-ish digits
-; of precision which is enough for our needs.   Note we round up several
-; of the calculations so that the computed 1 / factor is less than the
-; actual 1 / factor.
+; as our initial estimate.  I think this gives us about 45-ish digits
+; of precision which is not enough for our needs.  For example, we run
+; into problems with "Factor=990000793,65,66" and a large number of threads.
+; Note we round up several of the calculations so that the computed
+; 1 / factor is less than the actual 1 / factor.
 
 	mov	rax, facinv3		; Load last 1 / factor
 	mul	rax
@@ -2726,7 +2800,7 @@ do66:	mov	SAVED_REG1, rsi		; Save sieve testing registers
 	mov	facinv2, facinv3
 
 	mov	rcx, shift_count
-dec	rcx
+	dec	rcx
 
 	mov	rax, fac1hi		; Form upper 64 bits of factor
 	mov	rdx, fac1
@@ -2749,6 +2823,48 @@ dec	rcx
 	shld	rax, rdx, cl
 	inc	rax			; ceiling (upper 64 bits of factor)
 	mul	temp1
+	inc	rdx			; ceiling (f * est^2)
+	sub	facinv3, rdx		; est - f * est^2
+
+	add	facinv1, facinv1	; 1/f = 2 (est - f * est^2)
+	shl	facinv2, 1		; 1/f = 2 (est - f * est^2)
+	add	facinv3, facinv3	; 1/f = 2 (est - f * est^2)
+
+; Refine our 1 / factor estimates using another iteration of Newton's method.
+; Note we round up several of the calculations so that the computed 1 / factor
+; is less than the actual 1 / factor.
+
+	mov	rax, facinv1		; Load last 1 / factor
+	mul	rax
+	lea	temp1, [rdx+1]		; Save ceiling (est^2)
+	mov	rax, facinv2		; Load last 1 / factor
+	mul	rax
+	lea	temp2, [rdx+1]		; Save ceiling (est^2)
+	mov	rax, facinv3		; Load last 1 / factor
+	mul	rax
+	lea	temp3, [rdx+1]		; Save ceiling (est^2)
+
+	mov	rax, fac1hi		; Form upper 64 bits of factor
+	mov	rdx, fac1
+	shld	rax, rdx, cl
+	inc	rax			; ceiling (upper 64 bits of factor)
+	mul	temp1
+	inc	rdx			; ceiling (f * est^2)
+	sub	facinv1, rdx		; est - f * est^2
+
+	mov	rax, fac2hi		; Form upper 64 bits of factor
+	mov	rdx, fac2
+	shld	rax, rdx, cl
+	inc	rax			; ceiling (upper 64 bits of factor)
+	mul	temp2
+	inc	rdx			; ceiling (f * est^2)
+	sub	facinv2, rdx		; est - f * est^2
+
+	mov	rax, fac3hi		; Form upper 64 bits of factor
+	mov	rdx, fac3
+	shld	rax, rdx, cl
+	inc	rax			; ceiling (upper 64 bits of factor)
+	mul	temp3
 	inc	rdx			; ceiling (f * est^2)
 	sub	facinv3, rdx		; est - f * est^2
 
@@ -4183,9 +4299,9 @@ zwin86:
 	jmp	done
 
 
-;*******************************************************************
-; For 48 to 96-bit factors using FMA (only tested to 2^92 in C code)
-;*******************************************************************
+;********************************************************
+; For 48 to 96-bit factors using AVX and FMA (Piledriver)
+;********************************************************
 
 ;
 ; Check all the bits in the sieve looking for a factor to test
@@ -4242,19 +4358,15 @@ ftest96:btr	rax, rdx		; Clear the sieve bit
 	add	r8, facdists[rdx*8]	; Determine factor to test
 	adc	r9, 0
 
-;;;BUG - can we do the adds above in AVX?  carries are a bit of an issue
+; Save the factor as integers.  We start the normalize and convert to doubles here since we do not have AVX2 available.
 
-; Save the factor as integers.  We will normalize and convert to doubles in AVX code.
-
-;cmp edi, 8
-;jne sssss
-;mov	r9, FOO1
-;mov	r8, FOO2
-;sssss:
 	shld	r9, r8, cl
+	and	r8, YMM_FMA_LOW_MASK	; Apply mask for acquiring low bits
+	or	r8, YMM_FMA_RND_CONST3	; Add 3.0 * pow (2.0, (double) (51)) as step 1 to convert to a double
+	or	r9, YMM_FMA_RND_CONST3	; Add 3.0 * pow (2.0, (double) (51)) as step 1 to convert to a double
 	mov	YMM_FMA_FAC_HI_INT[rdi*8-8], r9
 	mov	YMM_FMA_FAC_LO_INT[rdi*8-8], r8
-
+	
 ; Check to see if we've accumulated enough factors to test
 
 	dec	rdi			; One more factor queued up, queue full?
@@ -4267,7 +4379,7 @@ ftest96:btr	rax, rdx		; Clear the sieve bit
 ; Work on initval.
 ; This is like the floop96 code except that we avoid the initial squaring.
 
-fdo96:	avx_fma_fac_initval
+fdo96:	avx_fma_fac_initval 1
 
 ; Repeatedly square remainder and get new remainder.
 
@@ -4333,6 +4445,167 @@ fwin96_1:
 ;	jmp	short fwin96		; Yes! Factor found
 
 fwin96:	mov	rax, YMM_FMA_FAC_LO_INT[rdx]	; Factor found!!! Return it
+	mov	rbx, YMM_FMA_FAC_HI_INT[rdx]
+	sub	rbx, YMM_FMA_RND_CONST3	; Subtract 3.0 * pow (2.0, (double) (51)) done as step 1 to convert to a double
+	mov	ecx, FMA_64_MINUS_LOW_BITS
+	shl	rax, cl
+	shrd	rax, rbx, cl
+	mov	FACLSW, eax		; Save LSW (low 32 bits)
+	shr	rax, 32
+	mov	FACMSW, eax		; Save MSW
+	shr	rbx, cl
+	mov	FACHSW, ebx		; Save HSW
+	mov	rax, 1			; return TRUE
+	jmp	done
+
+
+;****************************************************************************
+; For 48 to 96-bit factors using AVX2 and FMA (only tested to 2^92 in C code)
+;****************************************************************************
+
+;
+; Check all the bits in the sieve looking for a factor to test
+;
+
+	QUEUE_COUNT = 12
+f2tlp96:mov	rsi, sieve		; Sieve address
+	lea	rbp, [rsi+sievesize]	; Sieve end address
+	mov	rdi, QUEUE_COUNT	; Count of queued factors to be tested
+	mov	r12, rcx		; Move factor LSW to r12, we use rcx for shift counts within our loop
+	mov	ecx, FMA_64_MINUS_LOW_BITS ; Load constant for shifting trial factors
+f2svlp96:mov	rax, [rsi]		; Load word from sieve
+	lea	rsi, [rsi+8]		; Bump sieve address
+f2bsf96:bsf	rdx, rax		; Look for a set bit
+	jnz	f2test96		; Found one, go test the factor
+	add	r12, facdist64      	; Add facdist * 64 to the factor
+	adc	rbx, 0
+	cmp	rsi, rbp		; End of sieve?
+	jl	short f2svlp96		; Loop to test next sieve qword
+
+; Check queued counter
+
+	cmp	rdi, QUEUE_COUNT	; Are there untested factors?
+	jne	short f2rem96a		; Yes, test them
+
+; Return so caller can check for ESC
+
+	shr	r12, 32
+	mov	FACMSW, r12d
+	mov	FACHSW, ebx
+	mov	rax, 2			; Return for ESC check
+	jmp	done
+
+; Test less-than-full queue by copying first trial factor in the queue
+
+f2rem96a:sub	r12, facdist64      	; Undo the add of facdist * 64 to rcx
+	sbb	rbx, 0			; it will be re-added when we branch back to bsf96
+f2rem96:mov	r8, YMM_FMA_FAC_HI_INT[QUEUE_COUNT*8-8]	; Copy first trial factor
+	mov	r9, YMM_FMA_FAC_LO_INT[QUEUE_COUNT*8-8]
+	mov	YMM_FMA_FAC_HI_INT[rdi*8-8], r8
+	mov	YMM_FMA_FAC_LO_INT[rdi*8-8], r9
+	dec	rdi			; One more factor queued up
+	jnz	short f2rem96		; No, go copy another
+	jmp	f2do96			; Yes, go test them
+
+;
+; Gather trial factors to be tested all at once to minimize
+; processor stalls.
+;
+
+f2test96:btr	rax, rdx		; Clear the sieve bit
+	mov	r8, r12			; Copy base factor
+	mov	r9, rbx
+	add	r8, facdists[rdx*8]	; Determine factor to test
+	adc	r9, 0
+
+;;;BUG - can we do the adds above using AVX2?  carries are a bit of an issue
+
+; Save the factor as integers.  We will normalize and convert to doubles in AVX code.
+
+;mov	r9, FOO1
+;mov	r8, FOO2
+	shld	r9, r8, cl
+	mov	YMM_FMA_FAC_HI_INT[rdi*8-8], r9
+	mov	YMM_FMA_FAC_LO_INT[rdi*8-8], r8
+
+; Check to see if we've accumulated enough factors to test
+
+	dec	rdi			; One more factor queued up, queue full?
+	jnz	f2bsf96			; No, go test more sieve bits
+
+;
+; Now test the accumulated trial factors
+;
+
+; Work on initval.
+; This is like the floop96 code except that we avoid the initial squaring.
+
+f2do96:	avx_fma_fac_initval 2
+
+; Repeatedly square remainder and get new remainder.
+
+	mov	edi, SSE2_LOOP_COUNTER	; Number of times to loop
+f2loop96:avx_fma_fac
+	dec	edi			; Decrement loop counter
+	jnz	f2loop96
+
+; If result = factor + 1, then we found a divisor of 2**p - 1
+
+	avx_fma_compare
+	vpcmpeqq ymm2, ymm2, YMMWORD PTR YMM_FMA_ONE	; See if any remainder is 1
+	vpcmpeqq ymm6, ymm6, YMMWORD PTR YMM_FMA_ONE	; See if any remainder is 1
+	vpcmpeqq ymm10, ymm10, YMMWORD PTR YMM_FMA_ONE	; See if any remainder is 1
+	vpor	ymm0, ymm2, ymm6
+	vpor	ymm0, ymm0, ymm10
+	vptest	ymm0, ymm0
+	jnz	short f2win96_1		; Jump if a factor found
+
+	mov	rdi, QUEUE_COUNT	; Count of queued factors to be tested
+	jmp	f2bsf96			; Test next factor from sieve
+
+f2win96_1:
+	vpmovmskb rcx, ymm2
+	sub	rdx, rdx		; See if first AVX word was the factor
+	shr	rcx, 1
+	jc	short f2win96		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short f2win96		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short f2win96		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short f2win96		; Yes! Factor found
+
+	vpmovmskb rcx, ymm6
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 1
+	jc	short f2win96		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short f2win96		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short f2win96		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short f2win96		; Yes! Factor found
+
+	vpmovmskb rcx, ymm10
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 1
+	jc	short f2win96		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short f2win96		; Yes! Factor found
+	lea	rdx, [rdx+8]		; See if next AVX word was the factor
+	shr	rcx, 8
+	jc	short f2win96		; Yes! Factor found
+	lea	rdx, [rdx+8]		; Last AVX word must have been the factor
+;	jmp	short f2win96		; Yes! Factor found
+
+f2win96:mov	rax, YMM_FMA_FAC_LO_INT[rdx]	; Factor found!!! Return it
 	mov	rbx, YMM_FMA_FAC_HI_INT[rdx]
 	mov	ecx, FMA_64_MINUS_LOW_BITS
 	shl	rax, cl
