@@ -4185,7 +4185,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 	else if (facdata->num_siever_threads <= 30) facdata->num_siever_groups = 35, facdata->num_siever_allocs = 30;
 	else if (facdata->num_siever_threads <= 60) facdata->num_siever_groups = 77, facdata->num_siever_allocs = 60;
 	else facdata->num_siever_groups = 154, facdata->num_siever_allocs = 120;
-	
+
 	if (facdata->num_siever_groups % 11 == 0) facdata->initsieve_primes = INITSIEVE_PRIMES3;
 	else if (facdata->num_siever_groups % 7 == 0) facdata->initsieve_primes = INITSIEVE_PRIMES2;
 	else facdata->initsieve_primes = INITSIEVE_PRIMES1;
@@ -8154,6 +8154,10 @@ int primeSieveTest (
 /* Open factors file */
 
 	fd = fopen ("factors", "r");
+	if (fd == NULL) {
+		OutputBoth (thread_num, "File named 'factors' not found.\n");
+		return (0);
+	}
 
 /* Loop until all the entire range is factored */
 
@@ -8264,10 +8268,10 @@ bad:		sprintf (buf, "%ld %s factor not found.\n", p, fac);
 
 /* If an escape key was hit, write out the results and return */
 
-nextp:		stop_reason = stopCheck (thread_num);
+nextp:		factorDone (&facdata);
+		stop_reason = stopCheck (thread_num);
 		if (stop_reason) {
 			fclose (fd);
-			factorDone (&facdata);
 			return (stop_reason);
 		}
 		p = 0;
@@ -8276,7 +8280,6 @@ nextp:		stop_reason = stopCheck (thread_num);
 /* All done */
 
 	fclose (fd);
-	factorDone (&facdata);
 	return (0);
 }
 
