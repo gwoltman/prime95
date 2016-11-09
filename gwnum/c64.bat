@@ -21,6 +21,6 @@ goto makeit
 :x64_8
 call "c:\program files\microsoft visual studio 8\vc\bin\amd64\vcvarsamd64"
 :makeit
-@set path=y:\downloads\hjwasm215_x86r2;%path%
+@set path=y:\downloads\hjwasm216_x86;%path%
 nmake /f compil64
 endlocal
