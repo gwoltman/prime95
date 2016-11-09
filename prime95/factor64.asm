@@ -210,7 +210,123 @@ facinv2_in_memory	EQU	QWORD PTR [AD_BASE+288*8]
 ;
 
 _GWDATA SEGMENT PAGE
-smfacendpt	DQ	100000000000h					; Limit for brute force factoring code (2^44)
+	align 8
+smfacendpt		DQ	100000000000h					; Limit for brute force factoring code (2^44)
+
+masks19			DQ	(1 SHL 0) OR (1 SHL 19) OR (1 SHL 38) OR (1 SHL 57)
+			DQ	(1 SHL 1) OR (1 SHL 20) OR (1 SHL 39) OR (1 SHL 58)
+			DQ	(1 SHL 2) OR (1 SHL 21) OR (1 SHL 40) OR (1 SHL 59)
+			DQ	(1 SHL 3) OR (1 SHL 22) OR (1 SHL 41) OR (1 SHL 60)
+			DQ	(1 SHL 4) OR (1 SHL 23) OR (1 SHL 42) OR (1 SHL 61)
+			DQ	(1 SHL 5) OR (1 SHL 24) OR (1 SHL 43) OR (1 SHL 62)
+			DQ	(1 SHL 6) OR (1 SHL 25) OR (1 SHL 44) OR (1 SHL 63)
+			DQ	(1 SHL 7) OR (1 SHL 26) OR (1 SHL 45)
+			DQ	(1 SHL 8) OR (1 SHL 27) OR (1 SHL 46)
+			DQ	(1 SHL 9) OR (1 SHL 28) OR (1 SHL 47)
+			DQ	(1 SHL 10) OR (1 SHL 29) OR (1 SHL 48)
+			DQ	(1 SHL 11) OR (1 SHL 30) OR (1 SHL 49)
+			DQ	(1 SHL 12) OR (1 SHL 31) OR (1 SHL 50)
+			DQ	(1 SHL 13) OR (1 SHL 32) OR (1 SHL 51)
+			DQ	(1 SHL 14) OR (1 SHL 33) OR (1 SHL 52)
+			DQ	(1 SHL 15) OR (1 SHL 34) OR (1 SHL 53)
+			DQ	(1 SHL 16) OR (1 SHL 35) OR (1 SHL 54)
+			DQ	(1 SHL 17) OR (1 SHL 36) OR (1 SHL 55)
+			DQ	(1 SHL 18) OR (1 SHL 37) OR (1 SHL 56)
+
+masks23			DQ	(1 SHL 0) OR (1 SHL 23) OR (1 SHL 46)
+			DQ	(1 SHL 1) OR (1 SHL 24) OR (1 SHL 47)
+			DQ	(1 SHL 2) OR (1 SHL 25) OR (1 SHL 48)
+			DQ	(1 SHL 3) OR (1 SHL 26) OR (1 SHL 49)
+			DQ	(1 SHL 4) OR (1 SHL 27) OR (1 SHL 50)
+			DQ	(1 SHL 5) OR (1 SHL 28) OR (1 SHL 51)
+			DQ	(1 SHL 6) OR (1 SHL 29) OR (1 SHL 52)
+			DQ	(1 SHL 7) OR (1 SHL 30) OR (1 SHL 53)
+			DQ	(1 SHL 8) OR (1 SHL 31) OR (1 SHL 54)
+			DQ	(1 SHL 9) OR (1 SHL 32) OR (1 SHL 55)
+			DQ	(1 SHL 10) OR (1 SHL 33) OR (1 SHL 56)
+			DQ	(1 SHL 11) OR (1 SHL 34) OR (1 SHL 57)
+			DQ	(1 SHL 12) OR (1 SHL 35) OR (1 SHL 58)
+			DQ	(1 SHL 13) OR (1 SHL 36) OR (1 SHL 59)
+			DQ	(1 SHL 14) OR (1 SHL 37) OR (1 SHL 60)
+			DQ	(1 SHL 15) OR (1 SHL 38) OR (1 SHL 61)
+			DQ	(1 SHL 16) OR (1 SHL 39) OR (1 SHL 62)
+			DQ	(1 SHL 17) OR (1 SHL 40) OR (1 SHL 63)
+			DQ	(1 SHL 18) OR (1 SHL 41)
+			DQ	(1 SHL 19) OR (1 SHL 42)
+			DQ	(1 SHL 20) OR (1 SHL 43)
+			DQ	(1 SHL 21) OR (1 SHL 44)
+			DQ	(1 SHL 22) OR (1 SHL 45)
+
+masks29			DQ	(1 SHL 0) OR (1 SHL 29) OR (1 SHL 58)
+			DQ	(1 SHL 1) OR (1 SHL 30) OR (1 SHL 59)
+			DQ	(1 SHL 2) OR (1 SHL 31) OR (1 SHL 60)
+			DQ	(1 SHL 3) OR (1 SHL 32) OR (1 SHL 61)
+			DQ	(1 SHL 4) OR (1 SHL 33) OR (1 SHL 62)
+			DQ	(1 SHL 5) OR (1 SHL 34) OR (1 SHL 63)
+			DQ	(1 SHL 6) OR (1 SHL 35)
+			DQ	(1 SHL 7) OR (1 SHL 36)
+			DQ	(1 SHL 8) OR (1 SHL 37)
+			DQ	(1 SHL 9) OR (1 SHL 38)
+			DQ	(1 SHL 10) OR (1 SHL 39)
+			DQ	(1 SHL 11) OR (1 SHL 40)
+			DQ	(1 SHL 12) OR (1 SHL 41)
+			DQ	(1 SHL 13) OR (1 SHL 42)
+			DQ	(1 SHL 14) OR (1 SHL 43)
+			DQ	(1 SHL 15) OR (1 SHL 44)
+			DQ	(1 SHL 16) OR (1 SHL 45)
+			DQ	(1 SHL 17) OR (1 SHL 46)
+			DQ	(1 SHL 18) OR (1 SHL 47)
+			DQ	(1 SHL 19) OR (1 SHL 48)
+			DQ	(1 SHL 20) OR (1 SHL 49)
+			DQ	(1 SHL 21) OR (1 SHL 50)
+			DQ	(1 SHL 22) OR (1 SHL 51)
+			DQ	(1 SHL 23) OR (1 SHL 52)
+			DQ	(1 SHL 24) OR (1 SHL 53)
+			DQ	(1 SHL 25) OR (1 SHL 54)
+			DQ	(1 SHL 26) OR (1 SHL 55)
+			DQ	(1 SHL 27) OR (1 SHL 56)
+			DQ	(1 SHL 28) OR (1 SHL 57)
+
+masks31			DQ	(1 SHL 0) OR (1 SHL 31) OR (1 SHL 62)
+			DQ	(1 SHL 1) OR (1 SHL 32) OR (1 SHL 63)
+			DQ	(1 SHL 2) OR (1 SHL 33)
+			DQ	(1 SHL 3) OR (1 SHL 34)
+			DQ	(1 SHL 4) OR (1 SHL 35)
+			DQ	(1 SHL 5) OR (1 SHL 36)
+			DQ	(1 SHL 6) OR (1 SHL 37)
+			DQ	(1 SHL 7) OR (1 SHL 38)
+			DQ	(1 SHL 8) OR (1 SHL 39)
+			DQ	(1 SHL 9) OR (1 SHL 40)
+			DQ	(1 SHL 10) OR (1 SHL 41)
+			DQ	(1 SHL 11) OR (1 SHL 42)
+			DQ	(1 SHL 12) OR (1 SHL 43)
+			DQ	(1 SHL 13) OR (1 SHL 44)
+			DQ	(1 SHL 14) OR (1 SHL 45)
+			DQ	(1 SHL 15) OR (1 SHL 46)
+			DQ	(1 SHL 16) OR (1 SHL 47)
+			DQ	(1 SHL 17) OR (1 SHL 48)
+			DQ	(1 SHL 18) OR (1 SHL 49)
+			DQ	(1 SHL 19) OR (1 SHL 50)
+			DQ	(1 SHL 20) OR (1 SHL 51)
+			DQ	(1 SHL 21) OR (1 SHL 52)
+			DQ	(1 SHL 22) OR (1 SHL 53)
+			DQ	(1 SHL 23) OR (1 SHL 54)
+			DQ	(1 SHL 24) OR (1 SHL 55)
+			DQ	(1 SHL 25) OR (1 SHL 56)
+			DQ	(1 SHL 26) OR (1 SHL 57)
+			DQ	(1 SHL 27) OR (1 SHL 58)
+			DQ	(1 SHL 28) OR (1 SHL 59)
+			DQ	(1 SHL 29) OR (1 SHL 60)
+			DQ	(1 SHL 30) OR (1 SHL 61)
+
+masks37			DQ	(1 SHL 0) OR (1 SHL 37)
+masks41			DQ	(1 SHL 0) OR (1 SHL 41)
+masks43			DQ	(1 SHL 0) OR (1 SHL 43)
+masks47			DQ	(1 SHL 0) OR (1 SHL 47)
+masks53			DQ	(1 SHL 0) OR (1 SHL 53)
+masks59			DQ	(1 SHL 0) OR (1 SHL 59)
+masks61			DQ	(1 SHL 0) OR (1 SHL 61)
+
 	align 16
 XMM_LOWONE		DD	1,0,0,0
 XMM_HIGHONE		DD	0,0,1,0
@@ -473,7 +589,7 @@ factor64_small ENDP
 ;	Parameter ptr = rdi
 
 PROCF	factor64_sieve
-	ad_prolog 0,0,rbx,rbp,rsi,rdi
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r12,r13,r14,r15
 
 ;
 ; Init the sieve
@@ -487,25 +603,402 @@ PROCF	factor64_sieve
 	rep	movsq			; Copy the qwords
 
 ;
-; Loop through the small prime array, clearing sieve bits.
+; Loop through the small prime array, clearing sieve bits for very, very small primes
 ;
 
 	mov	rdi, sieve		; Load address of sieve bits
 	add	rdi, sievesize		; Compute end-of-sieve address
-	mov	rbp, primearray		; Ptr to first prime in array
 	mov	r9, offsetarray		; Ptr to first offset in array
+	lea	rsi, masks19		; Load address to small prime masks
+
+	mov	rbp, primearray		; Ptr to first prime in array
+	cmp	DWORD PTR [rbp], 19	; Does the small prime array start at 19 or 23?
+	jne	sv23andup		; Jump if sieving from 23 onwards
+
+; Sieve primes 19 to 61
+
+	mov	edx, [r9]		; Load bit offset to clear for prime 19
+	mov	r12d, [r9+4]		; Load bit offset to clear for prime 23
+	mov	r13d, [r9+8]		; Load bit offset to clear for prime 29
+	mov	r14d, [r9+12]		; Load bit offset to clear for prime 31
+	mov	r15d, [r9+16]		; Load bit offset to clear for prime 37
+	mov	r8d, [r9+20]		; Load bit offset to clear for prime 41
+	mov	r10d, [r9+24]		; Load bit offset to clear for prime 43
+	mov	ebp, [r9+28]		; Load bit offset to clear for prime 47
+	mov	bx, [r9+36]		; Load bit offset to clear for prime 59
+	shl	rbx, 16
+	mov	bx, [r9+32]		; Load bit offset to clear for prime 53
+	mov	r9d, [r9+40]		; Load bit offset to clear for prime 61
+
+	push	r11			; Save asm_data ptr
+	mov	r11, -sievesize		; Load loop counter and index into sieve
+smsvlp19:mov	rax, [rsi][rdx*8]	; Load mask for prime 19
+	lea	rcx, [rdx+12]		; Calc next bit to clear by either adding (19 - 64 % 19)
+	add	rdx, 12-19		; or adding (19 - 64 % 19) - 19
+	cmovs	rdx, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	or	rax, [rsi+19*8][r12*8]	; Apply mask for prime 23
+	lea	rcx, [r12+5]		; Calc next bit to clear by either adding (23 - 64 % 23)
+	add	r12, 5-23		; or adding (23 - 64 % 23) - 23
+	cmovs	r12, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	or	rax, [rsi+(19+23)*8][r13*8] ; Apply mask for prime 29
+	lea	rcx, [r13+23]		; Calc next bit to clear by either adding (29 - 64 % 29)
+	add	r13, 23-29		; or adding (29 - 64 % 29) - 29
+	cmovs	r13, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	or	rax, [rsi+(19+23+29)*8][r14*8] ; Apply mask for prime 31
+	lea	rcx, [r14+29]		; Calc next bit to clear by either adding (31 - 64 % 31)
+	add	r14, 29-31		; or adding (31 - 64 % 31) - 31
+	cmovs	r14, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, r15		; Apply mask for prime 37
+	mov	r15, [rsi+(19+23+29+31)*8] ; Load mask if bit 0 is cleared
+	shl	r15, cl			; Adjust the mask
+	or	rax, r15		; Apply the mask
+	lea	r15, [rcx+10]		; Calc next bit to clear by either adding (37 - 64 % 37)
+	add	rcx, 10-37		; or adding (37 - 64 % 37) - 37
+	cmovns	r15, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, r8			; Apply mask for prime 41
+	mov	r8, [rsi+(19+23+29+31+1)*8] ; Load mask if bit 0 is cleared
+	shl	r8, cl			; Adjust the mask
+	or	rax, r8			; Apply the mask
+	lea	r8, [rcx+18]		; Calc next bit to clear by either adding (41 - 64 % 41)
+	add	rcx, 18-41		; or adding (41 - 64 % 41) - 41
+	cmovns	r8, rcx			; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, r10		; Apply mask for prime 43
+	mov	r10, [rsi+(19+23+29+31+2)*8] ; Load mask if bit 0 is cleared
+	shl	r10, cl			; Adjust the mask
+	or	rax, r10		; Apply the mask
+	lea	r10, [rcx+22]		; Calc next bit to clear by either adding (43 - 64 % 43)
+	add	rcx, 22-43		; or adding (43 - 64 % 43) - 43
+	cmovns	r10, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, rbp		; Apply mask for prime 47
+	mov	rbp, [rsi+(19+23+29+31+3)*8] ; Load mask if bit 0 is cleared
+	shl	rbp, cl			; Adjust the mask
+	or	rax, rbp		; Apply the mask
+	lea	rbp, [rcx+30]		; Calc next bit to clear by either adding (47 - 64 % 47)
+	add	rcx, 30-47		; or adding (47 - 64 % 47) - 47
+	cmovns	rbp, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, r9			; Apply mask for prime 61
+	mov	r9, [rsi+(19+23+29+31+6)*8] ; Load mask if bit 0 is cleared
+	shl	r9, cl			; Adjust the mask
+	or	rax, r9			; Apply the mask
+	lea	r9, [rcx+58]		; Calc next bit to clear by either adding (61 - 64 % 61)
+	add	rcx, 58-61		; or adding (61 - 64 % 61) - 61
+	cmovns	r9, rcx			; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, rbx		; Apply mask for prime 53
+	mov	rbx, [rsi+(19+23+29+31+4)*8] ; Load mask if bit 0 is cleared
+	shl	rbx, cl			; Adjust the mask
+	or	rax, rbx		; Apply the mask
+
+	ror	rcx, 16			; Apply mask for prime 59
+	mov	rbx, [rsi+(19+23+29+31+5)*8] ; Load mask if bit 0 is cleared
+	shl	rbx, cl			; Adjust the mask
+	or	rax, rbx		; Apply the mask
+
+	not	rax			; Invert the mask (which is a list of bits to clear)
+	and	QWORD PTR [rdi][r11], rax ; Apply the mask
+
+	mov	rax, rcx		; Isolate bit to clear for prime 53
+	shr	rax, 48
+	lea	rbx, [rax+42]		; Calc next bit to clear by either adding (53 - 64 % 53)
+	add	rax, 42-53		; or adding (53 - 64 % 53) - 53
+	cmovs	rax, rbx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	and	rcx, 0FFh		; Isolate bit to clear for prime 59
+	lea	rbx, [rcx+54]		; Calc next bit to clear by either adding (59 - 64 % 59)
+	add	rcx, 54-59		; or adding (59 - 64 % 59) - 59
+	cmovns	rbx, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+	shl	rbx, 16			; Merge bits to clear for prime 53 and 59
+	add	rbx, rax
+
+	add	r11, 8
+	js	smsvlp19
+
+	pop	r11			; Restore asm_data ptr
+	mov	rsi, offsetarray	; Ptr to first offset in array
+	mov	[rsi], edx		; Save bit clear offset for prime 19 next time
+	mov	[rsi+4], r12d		; Save bit clear offset for prime 23 next time
+	mov	[rsi+8], r13d		; Save bit clear offset for prime 29 next time
+	mov	[rsi+12], r14d		; Save bit clear offset for prime 31 next time
+	mov	[rsi+16], r15d		; Save bit clear offset for prime 37 next time
+	mov	[rsi+20], r8d		; Save bit clear offset for prime 41 next time
+	mov	[rsi+24], r10d		; Save bit clear offset for prime 43 next time
+	mov	[rsi+28], ebp		; Save bit clear offset for prime 47 next time
+	mov	[rsi+32], bx		; Save bit clear offset for prime 53 next time
+	shr	rbx, 16
+	mov	[rsi+36], bx		; Save bit clear offset for prime 59 next time
+	mov	[rsi+40], r9d		; Save bit clear offset for prime 61 next time
+
+	mov	rbp, primearray		; Ptr to first prime in array
+	add	rbp, 44			; Next prime in primearray
+	add	rsi, 44			; Next offset in offsetarray
+	jmp	sv67andup		; Go do the one small prime at a time sieving
+
+; Sieve for small primes 23 to 61
+
+sv23andup:
+	mov	r12d, [r9]		; Load bit offset to clear for prime 23
+	mov	r13d, [r9+4]		; Load bit offset to clear for prime 29
+	mov	r14d, [r9+8]		; Load bit offset to clear for prime 31
+	mov	r15d, [r9+12]		; Load bit offset to clear for prime 37
+	mov	r8d, [r9+16]		; Load bit offset to clear for prime 41
+	mov	r10d, [r9+20]		; Load bit offset to clear for prime 43
+	mov	ebp, [r9+24]		; Load bit offset to clear for prime 47
+	mov	ebx, [r9+28]		; Load bit offset to clear for prime 53
+	mov	edx, [r9+32]		; Load bit offset to clear for prime 59
+	mov	r9d, [r9+36]		; Load bit offset to clear for prime 61
+
+	push	r11			; Save asm_data ptr
+	mov	r11, -sievesize		; Load loop counter and index into sieve
+smsvlp23:mov	rax, [rsi+19*8][r12*8]	; Apply mask for prime 23
+	lea	rcx, [r12+5]		; Calc next bit to clear by either adding (23 - 64 % 23)
+	add	r12, 5-23		; or adding (23 - 64 % 23) - 23
+	cmovs	r12, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	or	rax, [rsi+(19+23)*8][r13*8] ; Apply mask for prime 29
+	lea	rcx, [r13+23]		; Calc next bit to clear by either adding (29 - 64 % 29)
+	add	r13, 23-29		; or adding (29 - 64 % 29) - 29
+	cmovs	r13, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	or	rax, [rsi+(19+23+29)*8][r14*8] ; Apply mask for prime 31
+	lea	rcx, [r14+29]		; Calc next bit to clear by either adding (31 - 64 % 31)
+	add	r14, 29-31		; or adding (31 - 64 % 31) - 31
+	cmovs	r14, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, r15		; Apply mask for prime 37
+	mov	r15, [rsi+(19+23+29+31)*8] ; Load mask if bit 0 is cleared
+	shl	r15, cl			; Adjust the mask
+	or	rax, r15		; Apply the mask
+	lea	r15, [rcx+10]		; Calc next bit to clear by either adding (37 - 64 % 37)
+	add	rcx, 10-37		; or adding (37 - 64 % 37) - 37
+	cmovns	r15, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, r8			; Apply mask for prime 41
+	mov	r8, [rsi+(19+23+29+31+1)*8] ; Load mask if bit 0 is cleared
+	shl	r8, cl			; Adjust the mask
+	or	rax, r8			; Apply the mask
+	lea	r8, [rcx+18]		; Calc next bit to clear by either adding (41 - 64 % 41)
+	add	rcx, 18-41		; or adding (41 - 64 % 41) - 41
+	cmovns	r8, rcx			; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, r10		; Apply mask for prime 43
+	mov	r10, [rsi+(19+23+29+31+2)*8] ; Load mask if bit 0 is cleared
+	shl	r10, cl			; Adjust the mask
+	or	rax, r10		; Apply the mask
+	lea	r10, [rcx+22]		; Calc next bit to clear by either adding (43 - 64 % 43)
+	add	rcx, 22-43		; or adding (43 - 64 % 43) - 43
+	cmovns	r10, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, rbp		; Apply mask for prime 47
+	mov	rbp, [rsi+(19+23+29+31+3)*8] ; Load mask if bit 0 is cleared
+	shl	rbp, cl			; Adjust the mask
+	or	rax, rbp		; Apply the mask
+	lea	rbp, [rcx+30]		; Calc next bit to clear by either adding (47 - 64 % 47)
+	add	rcx, 30-47		; or adding (47 - 64 % 47) - 47
+	cmovns	rbp, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, rbx		; Apply mask for prime 53
+	mov	rbx, [rsi+(19+23+29+31+4)*8] ; Load mask if bit 0 is cleared
+	shl	rbx, cl			; Adjust the mask
+	or	rax, rbx		; Apply the mask
+	lea	rbx, [rcx+42]		; Calc next bit to clear by either adding (53 - 64 % 53)
+	add	rcx, 42-53		; or adding (53 - 64 % 53) - 53
+	cmovns	rbx, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, rdx		; Apply mask for prime 59
+	mov	rdx, [rsi+(19+23+29+31+5)*8] ; Load mask if bit 0 is cleared
+	shl	rdx, cl			; Adjust the mask
+	or	rax, rdx		; Apply the mask
+	lea	rdx, [rcx+54]		; Calc next bit to clear by either adding (59 - 64 % 59)
+	add	rcx, 54-59		; or adding (59 - 64 % 59) - 59
+	cmovns	rdx, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, r9			; Apply mask for prime 61
+	mov	r9, [rsi+(19+23+29+31+6)*8] ; Load mask if bit 0 is cleared
+	shl	r9, cl			; Adjust the mask
+	or	rax, r9			; Apply the mask
+	lea	r9, [rcx+58]		; Calc next bit to clear by either adding (61 - 64 % 61)
+	add	rcx, 58-61		; or adding (61 - 64 % 61) - 61
+	cmovns	r9, rcx			; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	not	rax			; Invert the mask (which is a list of bits to clear)
+	and	QWORD PTR [rdi][r11], rax ; Apply the mask
+
+	add	r11, 8
+	js	smsvlp23
+
+	pop	r11			; Restore asm_data ptr
+	mov	rsi, offsetarray	; Ptr to first offset in array
+	mov	[rsi], r12d		; Save bit clear offset for prime 23 next time
+	mov	[rsi+4], r13d		; Save bit clear offset for prime 29 next time
+	mov	[rsi+8], r14d		; Save bit clear offset for prime 31 next time
+	mov	[rsi+12], r15d		; Save bit clear offset for prime 37 next time
+	mov	[rsi+16], r8d		; Save bit clear offset for prime 41 next time
+	mov	[rsi+20], r10d		; Save bit clear offset for prime 43 next time
+	mov	[rsi+24], ebp		; Save bit clear offset for prime 47 next time
+	mov	[rsi+28], ebx		; Save bit clear offset for prime 53 next time
+	mov	[rsi+32], edx		; Save bit clear offset for prime 59 next time
+	mov	[rsi+36], r9d		; Save bit clear offset for prime 61 next time
+
+	mov	rbp, primearray		; Ptr to first prime in array
+	add	rbp, 40			; Next prime in primearray
+	add	rsi, 40			; Next offset in offsetarray
+
+;
+; Sieve small primes 67 to 101
+; On Skylake there was no advantage to going above primes 101 (we can push registers
+; rbp, rsi, r11 to free up three registers to do primes 103, 107, and 109)
+; However, accurate Skylake timings are hard to come by, so it may well pay
+; to do more small primes.
+;
+
+sv67andup:
+	mov	r12d, [rsi]		; Load bit offset to clear for prime 67
+	mov	r13d, [rsi+4]		; Load bit offset to clear for prime 71
+	mov	r14d, [rsi+8]		; Load bit offset to clear for prime 73
+	mov	r15d, [rsi+12]		; Load bit offset to clear for prime 79
+	mov	r8d, [rsi+16]		; Load bit offset to clear for prime 83
+	mov	r10d, [rsi+20]		; Load bit offset to clear for prime 89
+	mov	r9d, [rsi+24]		; Load bit offset to clear for prime 97
+	mov	ebx, [rsi+28]		; Load bit offset to clear for prime 101
+;	push	r11			; Save asm_data ptr
+;	mov	r11d, [rsi+32]		; Load bit offset to clear for prime 103
+;	push	rbp			; Save primearray ptr
+;	mov	ebp, [rsi+36]		; Load bit offset to clear for prime 107
+;	push	rsi			; Save offsetarray ptr
+;	mov	esi, [rsi+40]		; Load bit offset to clear for prime 109
+
+	mov	rcx, -sievesize		; Load loop counter and index into sieve
+smsvlp67:
+	mov	rax, [rdi][rcx]		; Get the sieve word
+
+	mov	rdx, rax		; Copy sieve word
+	btr	rax, r12		; Tentatively clear bit for prime 67
+	sub	r12, 64			; Subtract 64 from bit-to-clear offset
+	cmovns	rax, rdx		; If negative then we want to use the sieve word with the tenatively cleared bit
+	lea	rdx, [r12+67]		; Alternative bit to clear adds the small prime 67
+	cmovs	r12, rdx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rdx, rax		; Copy sieve word
+	btr	rax, r13		; Tentatively clear bit for prime 71
+	sub	r13, 64			; Subtract 64 from bit-to-clear offset
+	cmovns	rax, rdx		; If negative then we want to use the sieve word with the tenatively cleared bit
+	lea	rdx, [r13+71]		; Alternative bit to clear adds the small prime 71
+	cmovs	r13, rdx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rdx, rax		; Copy sieve word
+	btr	rax, r14		; Tentatively clear bit for prime 73
+	sub	r14, 64			; Subtract 64 from bit-to-clear offset
+	cmovns	rax, rdx		; If negative then we want to use the sieve word with the tenatively cleared bit
+	lea	rdx, [r14+73]		; Alternative bit to clear adds the small prime 73
+	cmovs	r14, rdx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rdx, rax		; Copy sieve word
+	btr	rax, r15		; Tentatively clear bit for prime 79
+	sub	r15, 64			; Subtract 64 from bit-to-clear offset
+	cmovns	rax, rdx		; If negative then we want to use the sieve word with the tenatively cleared bit
+	lea	rdx, [r15+79]		; Alternative bit to clear adds the small prime 79
+	cmovs	r15, rdx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rdx, rax		; Copy sieve word
+	btr	rax, r8			; Tentatively clear bit for prime 83
+	sub	r8, 64			; Subtract 64 from bit-to-clear offset
+	cmovns	rax, rdx		; If negative then we want to use the sieve word with the tenatively cleared bit
+	lea	rdx, [r8+83]		; Alternative bit to clear adds the small prime 83
+	cmovs	r8, rdx			; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rdx, rax		; Copy sieve word
+	btr	rax, r10		; Tentatively clear bit for prime 89
+	sub	r10, 64			; Subtract 64 from bit-to-clear offset
+	cmovns	rax, rdx		; If negative then we want to use the sieve word with the tenatively cleared bit
+	lea	rdx, [r10+89]		; Alternative bit to clear adds the small prime 89
+	cmovs	r10, rdx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rdx, rax		; Copy sieve word
+	btr	rax, r9			; Tentatively clear bit for prime 97
+	sub	r9, 64			; Subtract 64 from bit-to-clear offset
+	cmovns	rax, rdx		; If negative then we want to use the sieve word with the tenatively cleared bit
+	lea	rdx, [r9+97]		; Alternative bit to clear adds the small prime 97
+	cmovs	r9, rdx			; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rdx, rax		; Copy sieve word
+	btr	rax, rbx		; Tentatively clear bit for prime 101
+	sub	rbx, 64			; Subtract 64 from bit-to-clear offset
+	cmovns	rax, rdx		; If negative then we want to use the sieve word with the tenatively cleared bit
+	lea	rdx, [rbx+101]		; Alternative bit to clear adds the small prime 101
+	cmovs	rbx, rdx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+IFDEF DO_THREE_MORE_SMALL_PRIMES
+	mov	rdx, rax		; Copy sieve word
+	btr	rax, r11		; Tentatively clear bit for prime 103
+	sub	r11, 64			; Subtract 64 from bit-to-clear offset
+	cmovns	rax, rdx		; If negative then we want to use the sieve word with the tenatively cleared bit
+	lea	rdx, [r11+103]		; Alternative bit to clear adds the small prime 103
+	cmovs	r11, rdx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rdx, rax		; Copy sieve word
+	btr	rax, rbp		; Tentatively clear bit for prime 107
+	sub	rbp, 64			; Subtract 64 from bit-to-clear offset
+	cmovns	rax, rdx		; If negative then we want to use the sieve word with the tenatively cleared bit
+	lea	rdx, [rbp+107]		; Alternative bit to clear adds the small prime 107
+	cmovs	rbp, rdx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rdx, rax		; Copy sieve word
+	btr	rax, rsi		; Tentatively clear bit for prime 109
+	sub	rsi, 64			; Subtract 64 from bit-to-clear offset
+	cmovns	rax, rdx		; If negative then we want to use the sieve word with the tenatively cleared bit
+	lea	rdx, [rsi+109]		; Alternative bit to clear adds the small prime 109
+	cmovs	rsi, rdx		; Pick whichever is the smaller positive number as the bit to clear for next word
+ENDIF
+
+	mov	[rdi][rcx], rax		; Save the new sieve word
+	add	rcx, 8
+	js	smsvlp67
+
+;	mov	rcx, r11		; Save bit-to-clr for prime 103
+;	mov	rdx, rbp		; Save bit-to-clr for prime 107
+;	mov	rax, rsi		; Save bit-to-clr for prime 109
+;	pop	rsi			; Restore offset array ptr
+;	pop	rbp			; Restore prime array ptr
+;	pop	r11			; Restore asm_data ptr
+	mov	[rsi], r12d		; Save bit clear offset for prime 67 next time
+	mov	[rsi+4], r13d		; Save bit clear offset for prime 71 next time
+	mov	[rsi+8], r14d		; Save bit clear offset for prime 73 next time
+	mov	[rsi+12], r15d		; Save bit clear offset for prime 79 next time
+	mov	[rsi+16], r8d		; Save bit clear offset for prime 83 next time
+	mov	[rsi+20], r10d		; Save bit clear offset for prime 89 next time
+	mov	[rsi+24], r9d		; Save bit clear offset for prime 97 next time
+	mov	[rsi+28], ebx		; Save bit clear offset for prime 101 next time
+;	mov	[rsi+32], ecx		; Save bit clear offset for prime 103 next time
+;	mov	[rsi+36], edx		; Save bit clear offset for prime 107 next time
+;	mov	[rsi+40], eax		; Save bit clear offset for prime 109 next time
+
+	add	rbp, 32;+12		; Next prime in primearray
+	add	rsi, 32;+12		; Next offset in offsetarray
+
+;
+; Loop through the rest of small prime array, clearing sieve bits.
+;
+
 sievelp:mov	ebx, [rbp]		; Load small prime
 	and	rbx, rbx		; See if primearray fully processed
 	jz	short sievedn		; Yes, break out of loop
-	mov	eax, [r9]		; Load bit offset to clear
+	mov	eax, [rsi]		; Load bit offset to clear
 	sub	rax, sievesize*8	; Make offset relative to end of the sieve
 	jns	short clrdn		; If offset is positive there are no bits to clear
 clrlp:	btr	[rdi], rax		; Clear the sieve bit
 	add	rax, rbx		; Next bit to clear
 	js	short clrlp		; Past the end of the sieve when rax goes positive
-clrdn:	mov	[r9], eax		; Save bit clear offset for next time
+clrdn:	mov	[rsi], eax		; Save bit clear offset for next time
 	lea	rbp, [rbp+4]		; Next primearray address
-	lea	r9, [r9+4]		; Next offsetarray address
+	lea	rsi, [rsi+4]		; Next offsetarray address
 	jmp	short sievelp		; Work on next small prime
 
 ; Bump the first factor in sieve for the caller (caller looks at the value to decide if more sieving is needed)
@@ -517,7 +1010,7 @@ sievedn:
 
 ; Pop registers and return
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r12,r13,r14,r15
 
 factor64_sieve ENDP
 
@@ -2686,9 +3179,9 @@ win65:	mov	FACLSW, eax		; Factor found!
 	jmp	done
 
 
-;***********************************************************************
-; For 66-bit factors and above (up to 90 bits more or less).
-;***********************************************************************
+;********************************************
+; For 66-bit factors and above (up to 2^79.5)
+;********************************************
 
 ;
 ; Check all the bits in the sieve looking for a factor to test
@@ -2702,7 +3195,7 @@ tlp66:	mov	rsi, sieve		; Sieve address
 	sub	rax, rax
 	mov	r8, rcx			; Save factor
 	mov	rcx, shift_count
-dec	rcx
+	dec	rcx
 	mov	r14, 1			; Form trial factor limit
 	ror	r14, cl
 	shld	rbx, r8, cl		; Form high 64-bits of factor
