@@ -8257,6 +8257,7 @@ int primeSieveTest (
 			    facdata.asm_data->FACLSW == faclo) {
 				sprintf (buf, "%ld %s factored OK.\n", p, fac);
 				OutputSomewhere (thread_num, buf);
+				factorDone (&facdata);
 				goto nextp;
 			}
 		} while (facdata.asm_data->FACMSW <= facmid);
@@ -8268,8 +8269,8 @@ bad:		sprintf (buf, "%ld %s factor not found.\n", p, fac);
 
 /* If an escape key was hit, write out the results and return */
 
-nextp:		factorDone (&facdata);
-		stop_reason = stopCheck (thread_num);
+		factorDone (&facdata);
+nextp:		stop_reason = stopCheck (thread_num);
 		if (stop_reason) {
 			fclose (fd);
 			return (stop_reason);
