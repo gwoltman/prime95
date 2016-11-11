@@ -8251,11 +8251,14 @@ int primeSieveTest (
 /* Factor found, is it a match? */
 
 		do {
-			if (factorChunk (&facdata) != 2 &&
-			    facdata.asm_data->FACHSW == fachi &&
-			    facdata.asm_data->FACMSW == facmid &&
-			    facdata.asm_data->FACLSW == faclo) {
-				sprintf (buf, "%ld %s factored OK.\n", p, fac);
+			if (factorChunk (&facdata) != 2) {
+				if (facdata.asm_data->FACHSW == fachi &&
+				    facdata.asm_data->FACMSW == facmid &&
+				    facdata.asm_data->FACLSW == faclo) {
+					sprintf (buf, "%ld %s factored OK.\n", p, fac);
+				} else {
+					sprintf (buf, "%ld %s different factor found.\n", p, fac);
+				}
 				OutputSomewhere (thread_num, buf);
 				factorDone (&facdata);
 				goto nextp;
