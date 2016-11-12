@@ -3951,7 +3951,7 @@ struct facasm_data {
 	uint32_t pad[4];		/* Pad to next 64-byte cache line */
 	uint32_t xmm_data[80];		/* XMM/YMM/ZMM data initialized in C code */
 
-	uint32_t other_asm_temps_and_consts[400];
+	uint32_t other_asm_temps_and_consts[1000];
 };
 
 /* This defines the factoring data handled in C code.  The handle */
@@ -4163,9 +4163,9 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 /* Initialize maximum number of siever threads (based on a percent specified in the INI file) */
 /* For most architectures one siever can easily keep four TF threads busy. */
 /* For FMA architectures (our fastest TF code), one siever does not keep 4 TF threads busy, we'll try a default of 33%. */
-/* Knights Landing with AVX512 may be another exception, we'll stick with a default of 33% for now. */
+/* Knights Landing with AVX512 may be another exception, needs at least 50% sievers. */
 
-	pct = IniGetInt (INI_FILE, "PercentTFSieverThreads", (CPU_FLAGS & CPU_FMA3) ? 33 : 25);
+	pct = IniGetInt (INI_FILE, "PercentTFSieverThreads", (CPU_FLAGS & CPU_AVX512F) ? 50 : ((CPU_FLAGS & CPU_FMA3) ? 33 : 25));
 	if (pct < 0) pct = 0;
 	if (pct > 100) pct = 100;
 	facdata->num_siever_threads = (pct * facdata->num_threads + 99) / 100;
@@ -4200,7 +4200,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 		int	stop_reason;		// Error code from sieve initialization
 		void	*sieve_info;		// Handle to small primes sieving data
 
-		maxprime = IniGetInt (INI_FILE, "MaxTFSievePrime", (CPU_FLAGS & CPU_AVX512F) ? 65535 : 165000);  // 165K is Haswell optimized
+		maxprime = IniGetInt (INI_FILE, "MaxTFSievePrime", (CPU_FLAGS & CPU_AVX512F) ? 135000 : 165000);  // 165K is Haswell optimized
 		estimated_num_primes = (int) ((double) maxprime / (log ((double) maxprime) - 1.0) * 1.01);
 		asm_data->primearray = malloc (estimated_num_primes * sizeof (uint32_t));
 		if (asm_data->primearray == NULL) goto memerr;
@@ -4405,8 +4405,79 @@ int factorPassSetup (
 	else i = facmsw, bits_in_factor = 32;
 	while (i) bits_in_factor++, i >>= 1;
 
-/* Initialization for FMA code using 2 doubles to factor numbers 64 bits and above */
-/* If using the FMA or AVX512 FMA factoring code, we need to initialize much of the following data: */
+/* Initialization for AVX512 FMA code using 2 doubles to factor numbers 45 bits and above. */
+/* We need to initialize the following data: */
+/*	FMA_SHIFTER		DD	32 DUP (0)	; Up to 32 dword shifter values
+	ZMM_FMA_LOW_MASK	DQ	8 DUP		; Mask for low bits
+	ZMM_FMA_RND_CONST0	DQ	8 DUP		; 3 * 2^(51 + SPLIT_POINT)
+	ZMM_FMA_RND_CONST1	DQ	8 DUP		; 3 * 2^(51 + BITS_IN_LO_WORD*2)
+	ZMM_FMA_RND_CONST2	DQ	8 DUP		; 3 * 2^(51 + BITS_IN_LO_WORD)
+	ZMM_FMA_RND_CONST4	DQ	8 DUP		; 3 * 2^(51 - SPLIT_POINT)
+	ZMM_FMA_RND_CONST5	DQ	8 DUP		; 3 * 2^(51 + BITS_IN_LO_WORD - SPLIT_POINT)
+	ZMM_FMA_INITVAL		DQ	8 DUP		; Initial squared value (a power of two)
+	ZMM_FMA_TWOPOW_SPLIT	DQ	8 DUP		; 2^SPLIT_POINT
+	ZMM_FMA_TWO_TO_LO	DQ	8 DUP		; 2^BITS_IN_LO_WORD
+*/
+
+	if (bits_in_factor >= 45 && (asm_data->cpu_flags & CPU_AVX512F)) {
+		uint32_t *dword_data;
+		double	*zmm_data;
+		uint64_t *zmm64_data;
+		int	split_bits, low_bits;
+		unsigned long p;
+
+/* Calculate where we split rem_hi^2 (see ASM code in factor64.mac for full algorithm).  Calculate bits of precision in low double. */
+
+		if (bits_in_factor < 50) bits_in_factor = 50;		// PrimeFactor does 2^44 to 2^50 in one pass
+		split_bits = bits_in_factor + (bits_in_factor + 1) / 2;
+		low_bits = (split_bits - 52 + 1) / 2;
+
+/* Set FMA_SHIFTER values */
+
+		dword_data = (uint32_t *) asm_data->xmm_data;
+		p = (unsigned long) asm_data->p;
+		for (i = 0; p > 2 * bits_in_factor + 1; i++) {
+			dword_data[i] = (p & 1) ? 64 : 0;		// FMA_SHIFTER (used to decide if this is a doubling iteration)
+			p >>= 1;
+		}
+
+/* Compute the initial value and other constants. */
+
+		asm_data->FMA_INITVAL_TYPE =
+			((int) p < split_bits) ? -1 :
+			((int) p > split_bits+1) ? 0 :
+			((int) p == split_bits) ? 1 : 2;
+		asm_data->FMA_64_MINUS_LOW_BITS = 64 - low_bits;
+		asm_data->SSE2_LOOP_COUNTER = i;
+
+		zmm64_data = (uint64_t *) &dword_data[32];
+		zmm64_data[0] = zmm64_data[1] = zmm64_data[2] = zmm64_data[3] =
+		zmm64_data[4] = zmm64_data[5] = zmm64_data[6] = zmm64_data[7] = (1ULL << low_bits) - 1; /* ZMM_FMA_LOW_MASK */
+		zmm_data = (double *) &zmm64_data[8];
+		zmm_data[0] = zmm_data[1] = zmm_data[2] = zmm_data[3] =
+		zmm_data[4] = zmm_data[5] = zmm_data[6] = zmm_data[7] = 3.0 * pow ((double) 2.0, (51 + split_bits)); /* ZMM_FMA_RND_CONST0 */
+		zmm_data[8] = zmm_data[9] = zmm_data[10] = zmm_data[11] =
+		zmm_data[12] = zmm_data[13] = zmm_data[14] = zmm_data[15] = 3.0 * pow ((double) 2.0, (51 + 2*low_bits)); /* ZMM_FMA_RND_CONST1 */
+		zmm_data[16] = zmm_data[17] = zmm_data[18] = zmm_data[19] =
+		zmm_data[20] = zmm_data[21] = zmm_data[22] = zmm_data[23] = 3.0 * pow ((double) 2.0, (51 + low_bits)); /* ZMM_FMA_RND_CONST2 */
+		zmm_data[24] = zmm_data[25] = zmm_data[26] = zmm_data[27] =
+		zmm_data[28] = zmm_data[29] = zmm_data[30] = zmm_data[31] = 3.0 * pow ((double) 2.0, (51 - split_bits)); /* ZMM_FMA_RND_CONST4 */
+		zmm_data[32] = zmm_data[33] = zmm_data[34] = zmm_data[35] =
+		zmm_data[36] = zmm_data[37] = zmm_data[38] = zmm_data[39] = 3.0 * pow ((double) 2.0, (51 + low_bits - split_bits)); /* ZMM_FMA_RND_CONST5 */
+		if ((int) p > split_bits+1)
+			zmm_data[40] = zmm_data[41] = zmm_data[42] = zmm_data[43] =
+			zmm_data[44] = zmm_data[45] = zmm_data[46] = zmm_data[47] = pow ((double) 2.0, (double) (p-1)); /* ZMM_FMA_INITIAL_VALUE */
+		else
+			zmm_data[40] = zmm_data[41] = zmm_data[42] = zmm_data[43] =
+			zmm_data[44] = zmm_data[45] = zmm_data[46] = zmm_data[47] = pow ((double) 2.0, (double) p); /* ZMM_FMA_INITIAL_VALUE */
+		zmm_data[48] = zmm_data[49] = zmm_data[50] = zmm_data[51] =
+		zmm_data[52] = zmm_data[53] = zmm_data[54] = zmm_data[55] = pow ((double) 2.0, split_bits); /* ZMM_FMA_TWOPOW_SPLIT */
+		zmm_data[56] = zmm_data[57] = zmm_data[58] = zmm_data[59] =
+		zmm_data[60] = zmm_data[61] = zmm_data[62] = zmm_data[63] = pow ((double) 2.0, low_bits); /* ZMM_FMA_TWO_TO_LO */
+	}
+
+/* Initialization for AVX or AVX2 FMA code using 2 doubles to factor numbers 45 bits and above. */
+/* We need to initialize the following data: */
 /*	FMA_SHIFTER		DD	32 DUP (0)	; Up to 32 dword shifter values
 	YMM_FMA_LOW_MASK	DQ	4 DUP		; Mask for low bits
 	YMM_FMA_RND_CONST0	DQ	4 DUP		; 3 * 2^(51 + SPLIT_POINT)
@@ -4419,7 +4490,7 @@ int factorPassSetup (
 	YMM_FMA_TWO_TO_LO	DQ	4 DUP		; 2^BITS_IN_LO_WORD
 */
 
-	if (bits_in_factor >= 45 && (asm_data->cpu_flags & CPU_FMA3)) {
+	else if (bits_in_factor >= 45 && (asm_data->cpu_flags & CPU_FMA3)) {
 		uint32_t *dword_data;
 		double	*ymm_data;
 		uint64_t *ymm64_data;
@@ -8328,6 +8399,15 @@ int cpuid_dump (
 			dumpreg ();
 			if (i != 0x8000001D) break;
 		}
+	}
+
+/* Dump the extended GETBV (control registers) data */
+
+	Xgetbv (0, &reg);
+	dumpreg ();
+	if (IniGetInt (INI_FILE, "AdditionalGetBV", 0)) {
+		Xgetbv (IniGetInt (INI_FILE, "AdditionalGetBV", 0), &reg);
+		dumpreg ();
 	}
 
 	return (0);
