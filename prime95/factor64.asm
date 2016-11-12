@@ -174,6 +174,45 @@ YMM_FMA_SAVE2			EQU	QWORD PTR [AD_BASE+252*8]
 YMM_FMA_SAVE2a			EQU	QWORD PTR [AD_BASE+256*8]
 YMM_FMA_SAVE2b			EQU	QWORD PTR [AD_BASE+260*8]
 
+;;pad to next cache line to match facasm_data structure defined in commonb.c
+FMA_SHIFTER			EQU	DWORD PTR [AD_BASE+80*8]	; Up to 32 dword shifter values
+ZMM_FMA_LOW_MASK		EQU	QWORD PTR [AD_BASE+96*8]
+ZMM_FMA_RND_CONST0		EQU	QWORD PTR [AD_BASE+104*8]	; 3 * 2^(51 + SPLIT_POINT)
+ZMM_FMA_RND_CONST1		EQU	QWORD PTR [AD_BASE+112*8]	; 3 * 2^(51 + BITS_IN_LO_WORD*2)
+ZMM_FMA_RND_CONST2		EQU	QWORD PTR [AD_BASE+120*8]	; 3 * 2^(51 + BITS_IN_LO_WORD)
+ZMM_FMA_RND_CONST4		EQU	QWORD PTR [AD_BASE+128*8]	; 3 * 2^(51 - SPLIT_POINT)
+ZMM_FMA_RND_CONST5		EQU	QWORD PTR [AD_BASE+136*8]	; 3 * 2^(51 + BITS_IN_LO_WORD - SPLIT_POINT)
+ZMM_FMA_INITVAL			EQU	QWORD PTR [AD_BASE+144*8]	; Initial squared value (a power of two)
+ZMM_FMA_TWOPOW_SPLIT		EQU	QWORD PTR [AD_BASE+152*8]	; 2^SPLIT_POINT
+ZMM_FMA_TWO_TO_LO		EQU	QWORD PTR [AD_BASE+160*8]	; 2^LOW_BITS
+ZMM_FMA_INVFAC			EQU	QWORD PTR [AD_BASE+168*8]
+ZMM_FMA_INVFACa			EQU	QWORD PTR [AD_BASE+176*8]
+ZMM_FMA_INVFACb			EQU	QWORD PTR [AD_BASE+184*8]
+ZMM_FMA_FAC_HI			EQU	QWORD PTR [AD_BASE+192*8]
+ZMM_FMA_FAC_HIa			EQU	QWORD PTR [AD_BASE+200*8]
+ZMM_FMA_FAC_HIb			EQU	QWORD PTR [AD_BASE+208*8]
+ZMM_FMA_FAC_LO			EQU	QWORD PTR [AD_BASE+216*8]
+ZMM_FMA_FAC_LOa			EQU	QWORD PTR [AD_BASE+224*8]
+ZMM_FMA_FAC_LOb			EQU	QWORD PTR [AD_BASE+232*8]
+ZMM_FMA_TWOPOW1_MODF_HI		EQU	QWORD PTR [AD_BASE+240*8]
+ZMM_FMA_TWOPOW2_MODF_HI		EQU	QWORD PTR [AD_BASE+248*8]
+ZMM_FMA_TWOPOW1_MODF_HIa	EQU	QWORD PTR [AD_BASE+256*8]
+ZMM_FMA_TWOPOW2_MODF_HIa	EQU	QWORD PTR [AD_BASE+264*8]
+ZMM_FMA_TWOPOW1_MODF_HIb	EQU	QWORD PTR [AD_BASE+272*8]
+ZMM_FMA_TWOPOW2_MODF_HIb	EQU	QWORD PTR [AD_BASE+280*8]
+ZMM_FMA_TWOPOW1_MODF_LO		EQU	QWORD PTR [AD_BASE+288*8]
+ZMM_FMA_TWOPOW2_MODF_LO		EQU	QWORD PTR [AD_BASE+296*8]
+ZMM_FMA_TWOPOW1_MODF_LOa	EQU	QWORD PTR [AD_BASE+304*8]
+ZMM_FMA_TWOPOW2_MODF_LOa	EQU	QWORD PTR [AD_BASE+312*8]
+ZMM_FMA_TWOPOW1_MODF_LOb	EQU	QWORD PTR [AD_BASE+320*8]
+ZMM_FMA_TWOPOW2_MODF_LOb	EQU	QWORD PTR [AD_BASE+328*8]
+ZMM_FMA_FAC_HI_INT		EQU	QWORD PTR [AD_BASE+336*8]
+ZMM_FMA_FAC_HI_INTa		EQU	QWORD PTR [AD_BASE+344*8]
+ZMM_FMA_FAC_HI_INTb		EQU	QWORD PTR [AD_BASE+352*8]
+ZMM_FMA_FAC_LO_INT		EQU	QWORD PTR [AD_BASE+360*8]
+ZMM_FMA_FAC_LO_INTa		EQU	QWORD PTR [AD_BASE+368*8]
+ZMM_FMA_FAC_LO_INTb		EQU	QWORD PTR [AD_BASE+376*8]
+
 ;; Non-SSE2 and non-AVX2 and non-AVX512 queues can share the SSE2/AVX2/AVX512/FMA memory
 
 fac1			EQU	QWORD PTR [AD_BASE+128*8]	; Queued factors to test
@@ -187,23 +226,23 @@ fac4hi			EQU	QWORD PTR [AD_BASE+135*8]
 
 ;; Other variables (start after the AVX512 variables)
 
-shifter			EQU	QWORD PTR [AD_BASE+272*8]
-shift66			EQU	QWORD PTR [AD_BASE+273*8]	; Two shift counts used in 66-bit factoring
-initval1		EQU	QWORD PTR [AD_BASE+274*8]	; Lower 64 bits of initial value for squarer
-initval0		EQU	QWORD PTR [AD_BASE+275*8]	; Upper 64 bits of initial value for squarer
-initshift		EQU	QWORD PTR [AD_BASE+276*8]	; Initial shift count to make first quotient
-initshift2		EQU	QWORD PTR [AD_BASE+277*8]	; Initial shift count to make first quotient
-initdiv0		EQU	QWORD PTR [AD_BASE+278*8]	; Value to compute 1 / factor
-shift_count		EQU	QWORD PTR [AD_BASE+279*8]	; Shift count used in squaring loop
-temp			EQU	QWORD PTR [AD_BASE+280*8]
-memshifter		EQU	QWORD PTR [AD_BASE+281*8]	; tlp66 case doesn't have a free register to store shifter
-SAVED_REG1		EQU	[AD_BASE+282*8]
-SAVED_REG2		EQU	[AD_BASE+283*8]
-SAVED_REG3		EQU	[AD_BASE+284*8]
-SAVED_REG4		EQU	[AD_BASE+285*8]
-SAVED_REG5		EQU	[AD_BASE+286*8]
-SAVED_REG6		EQU	[AD_BASE+287*8]
-facinv2_in_memory	EQU	QWORD PTR [AD_BASE+288*8]
+shifter			EQU	QWORD PTR [AD_BASE+472*8]
+shift66			EQU	QWORD PTR [AD_BASE+473*8]	; Two shift counts used in 66-bit factoring
+initval1		EQU	QWORD PTR [AD_BASE+474*8]	; Lower 64 bits of initial value for squarer
+initval0		EQU	QWORD PTR [AD_BASE+475*8]	; Upper 64 bits of initial value for squarer
+initshift		EQU	QWORD PTR [AD_BASE+476*8]	; Initial shift count to make first quotient
+initshift2		EQU	QWORD PTR [AD_BASE+477*8]	; Initial shift count to make first quotient
+initdiv0		EQU	QWORD PTR [AD_BASE+478*8]	; Value to compute 1 / factor
+shift_count		EQU	QWORD PTR [AD_BASE+479*8]	; Shift count used in squaring loop
+temp			EQU	QWORD PTR [AD_BASE+480*8]
+memshifter		EQU	QWORD PTR [AD_BASE+481*8]	; tlp66 case doesn't have a free register to store shifter
+SAVED_REG1		EQU	[AD_BASE+482*8]
+SAVED_REG2		EQU	[AD_BASE+483*8]
+SAVED_REG3		EQU	[AD_BASE+484*8]
+SAVED_REG4		EQU	[AD_BASE+485*8]
+SAVED_REG5		EQU	[AD_BASE+486*8]
+SAVED_REG6		EQU	[AD_BASE+487*8]
+facinv2_in_memory	EQU	QWORD PTR [AD_BASE+488*8]
 
 ;
 ; Global variables
@@ -348,6 +387,12 @@ ZMM_BITS28		DD	0FFFFFFFh,0,0FFFFFFFh,0,0FFFFFFFh,0,0FFFFFFFh,0,0FFFFFFFh,0,0FFFF
 ZMM_BITS30		DD	3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0,3FFFFFFFh,0
 ZMM_28TH_BIT		DD	08000000h,0,08000000h,0,08000000h,0,08000000h,0,08000000h,0,08000000h,0,08000000h,0,08000000h,0
 ZMM_ONE			DD	1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0
+ZMM_FMA_RND_CONST3	DQ 	6755399441055744.0,6755399441055744.0,6755399441055744.0,6755399441055744.0	; 3*2^51
+			DQ 	6755399441055744.0,6755399441055744.0,6755399441055744.0,6755399441055744.0
+ZMM_FMA_ONE_OR_TWO TEXTEQU <ZMM_FMA_ONE>
+ZMM_FMA_ONE		DQ	1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0
+ZMM_FMA_TWO		DQ	2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0
+ZMM_FMA_ZERO		DQ	0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
 
 ;FOO1			DQ	1				;; The easy way to debug - enter the known factor here
 ;FOO2			DQ	139526411510953905
@@ -1032,8 +1077,8 @@ PROCF	factor64_tf
 	test	CPU_FLAGS, 8000h	; Is this an FMA-capable machine?
 	jz	short notfma		; No, use slower methods
 
-;	test	CPU_FLAGS, 100000h	; Is this an AVX512 machine?
-;	jnz	ztlp96			; Yes, use 45-92 bit (or more) AVX512-FMA code
+	test	CPU_FLAGS, 100000h	; Is this an AVX512 machine?
+	jnz	zftlp96			; Yes, use 45-92 bit (or more) AVX512-FMA code
 	test	CPU_FLAGS, 20000h	; Is this an AVX2 machine?
 	jnz	f2tlp96			; Yes, use 45-92 bit (or more) AVX2-FMA code
 	jmp	ftlp96			; No, use 45-92 bit (or more) AVX-FMA code
@@ -4558,21 +4603,21 @@ zdo74:	mov	SAVED_REG1, rsi		; Save sieve testing registers
 ; Work on initval.
 ; This is like the zloop74 code except that we avoid the initial squaring.
 
-;	avx512_fac_initval
+	avx512_fac_initval
 
 ; Square remainder and get new remainder.
 
 	mov	edi, SSE2_LOOP_COUNTER	; Number of times to loop
-zloop74:;avx512_fac 74
+zloop74:avx512_fac 74
 	dec	edi			; Decrement loop counter
 	jnz	zloop74
 
 ; If result = factor + 1, then we found a divisor of 2**p - 1
 
-	;avx512_compare
-;	vpcmpeqq k1, zmm0, ZMMWORD PTR ZMM_F1		; Test least significant words first, we will rarely get a false match
-;	vpcmpeqq k2, zmm6, ZMMWORD PTR ZMM_F1a
-;	kortestw k1, k2
+	avx512_compare
+	vpcmpeqq k1, zmm0, ZMMWORD PTR ZMM_F1		; Test least significant words first, we will rarely get a false match
+	vpcmpeqq k2, zmm6, ZMMWORD PTR ZMM_F1a
+	kortestw k1, k2
 	jnz	short zwin74		; Jump if a factor probably found
 
 znowin74:				; No factor found, go get more to test
@@ -4585,13 +4630,13 @@ znowin74:				; No factor found, go get more to test
 	jmp	zbsf74			; Test next factor from sieve
 
 zwin74:
-;	vpcmpeqq k1{k1}, zmm1, ZMMWORD PTR ZMM_F2	; Test rest of remainders for equalling factor + 1 (to comfirm factor really found)
-;	vpcmpeqq k2{k2}, zmm7, ZMMWORD PTR ZMM_F2a
-;	vpcmpeqq k1{k1}, zmm2, ZMMWORD PTR ZMM_F3
-;	vpcmpeqq k2{k2}, zmm8, ZMMWORD PTR ZMM_F3a
+	vpcmpeqq k1{k1}, zmm1, ZMMWORD PTR ZMM_F2	; Test rest of remainders for equalling factor + 1 (to comfirm factor really found)
+	vpcmpeqq k2{k2}, zmm7, ZMMWORD PTR ZMM_F2a
+	vpcmpeqq k1{k1}, zmm2, ZMMWORD PTR ZMM_F3
+	vpcmpeqq k2{k2}, zmm8, ZMMWORD PTR ZMM_F3a
 
-;	kmovw	ecx, k1			; Create a single 16 bit mask from the 2 8-bit masks
-;	kmovw	edx, k2
+	kmovw	ecx, k1			; Create a single 16 bit mask from the 2 8-bit masks
+	kmovw	edx, k2
 	shl	edx, 8
 	add	ecx, edx
 	bsf	rdx, rcx		; Look for a set bit
@@ -5100,6 +5145,136 @@ f2win96_1:
 
 f2win96:mov	rax, YMM_FMA_FAC_LO_INT[rdx]	; Factor found!!! Return it
 	mov	rbx, YMM_FMA_FAC_HI_INT[rdx]
+	mov	ecx, FMA_64_MINUS_LOW_BITS
+	shl	rax, cl
+	shrd	rax, rbx, cl
+	mov	FACLSW, eax		; Save LSW (low 32 bits)
+	shr	rax, 32
+	mov	FACMSW, eax		; Save MSW
+	shr	rbx, cl
+	mov	FACHSW, ebx		; Save HSW
+	mov	rax, 1			; return TRUE
+	jmp	done
+
+
+;******************************************************************************
+; For 48 to 96-bit factors using AVX512 and FMA (only tested to 2^92 in C code)
+;******************************************************************************
+
+;
+; Check all the bits in the sieve looking for a factor to test
+;
+
+	QUEUE_COUNT = 24
+zftlp96:mov	rsi, sieve		; Sieve address
+	lea	rbp, [rsi+sievesize]	; Sieve end address
+	mov	rdi, QUEUE_COUNT	; Count of queued factors to be tested
+	mov	r12, rcx		; Move factor LSW to r12, we use rcx for shift counts within our loop
+	mov	ecx, FMA_64_MINUS_LOW_BITS ; Load constant for shifting trial factors
+zfsvlp96:mov	rax, [rsi]		; Load word from sieve
+	lea	rsi, [rsi+8]		; Bump sieve address
+zfbsf96:bsf	rdx, rax		; Look for a set bit
+	jnz	zftest96		; Found one, go test the factor
+	add	r12, facdist64      	; Add facdist * 64 to the factor
+	adc	rbx, 0
+	cmp	rsi, rbp		; End of sieve?
+	jl	short zfsvlp96		; Loop to test next sieve qword
+
+; Check queued counter
+
+	cmp	rdi, QUEUE_COUNT	; Are there untested factors?
+	jne	short zfrem96a		; Yes, test them
+
+; Return so caller can check for ESC
+
+	shr	r12, 32
+	mov	FACMSW, r12d
+	mov	FACHSW, ebx
+	mov	rax, 2			; Return for ESC check
+	jmp	done
+
+; Test less-than-full queue by copying first trial factor in the queue
+
+zfrem96a:sub	r12, facdist64      	; Undo the add of facdist * 64 to rcx
+	sbb	rbx, 0			; it will be re-added when we branch back to bsf96
+zfrem96:mov	r8, ZMM_FMA_FAC_HI_INT[QUEUE_COUNT*8-8]	; Copy first trial factor
+	mov	r9, ZMM_FMA_FAC_LO_INT[QUEUE_COUNT*8-8]
+	mov	ZMM_FMA_FAC_HI_INT[rdi*8-8], r8
+	mov	ZMM_FMA_FAC_LO_INT[rdi*8-8], r9
+	dec	rdi			; One more factor queued up
+	jnz	short zfrem96		; No, go copy another
+	jmp	zfdo96			; Yes, go test them
+
+;
+; Gather trial factors to be tested all at once to minimize
+; processor stalls.
+;
+
+zftest96:btr	rax, rdx		; Clear the sieve bit
+	mov	r8, r12			; Copy base factor
+	mov	r9, rbx
+	add	r8, facdists[rdx*8]	; Determine factor to test
+	adc	r9, 0
+
+;;;BUG - can we do the adds above using AVX2?  carries are a bit of an issue
+
+; Save the factor as integers.  We will normalize and convert to doubles in AVX code.
+
+;mov	r9, FOO1
+;mov	r8, FOO2
+	shld	r9, r8, cl
+	mov	ZMM_FMA_FAC_HI_INT[rdi*8-8], r9
+	mov	ZMM_FMA_FAC_LO_INT[rdi*8-8], r8
+
+; Check to see if we've accumulated enough factors to test
+
+	dec	rdi			; One more factor queued up, queue full?
+	jnz	zfbsf96			; No, go test more sieve bits
+
+;
+; Now test the accumulated trial factors
+;
+
+; Work on initval.
+; This is like the zfloop96 code except that we avoid the initial squaring.
+
+zfdo96:	avx512_fma_fac_initval
+
+; Repeatedly square remainder and get new remainder.
+
+	mov	edi, SSE2_LOOP_COUNTER	; Number of times to loop
+zfloop96:avx512_fma_fac
+	dec	edi			; Decrement loop counter
+	jnz	zfloop96
+
+; If result = factor + 1, then we found a divisor of 2**p - 1
+
+	avx512_fma_compare
+	vpcmpeqq k1, zmm2, ZMMWORD PTR ZMM_FMA_ONE	; See if any remainder is 1
+	vpcmpeqq k2, zmm6, ZMMWORD PTR ZMM_FMA_ONE	; See if any remainder is 1
+	vpcmpeqq k3, zmm10, ZMMWORD PTR ZMM_FMA_ONE	; See if any remainder is 1
+;	korw	k5, k1, k2
+;	kortestw k5, k3
+kortestw k1, k2
+jnz short zfwin96_1
+kortestw k1, k3
+	jnz	short zfwin96_1		; Jump if a factor found
+
+	mov	rdi, QUEUE_COUNT	; Count of queued factors to be tested
+	jmp	zfbsf96			; Test next factor from sieve
+
+zfwin96_1:
+	kmovw	ecx, k3			; Merge the masks into one register
+	kmovw	edx, k2
+	shl	rcx, 8
+	or	rcx, rdx
+	kmovw	edx, k1
+	shl	rcx, 8
+	or	rcx, rdx
+	bsf	rdx, rcx		; Look for the set bit
+
+	mov	rax, ZMM_FMA_FAC_LO_INT[rdx*8]	; Factor found!!! Return it
+	mov	rbx, ZMM_FMA_FAC_HI_INT[rdx*8]
 	mov	ecx, FMA_64_MINUS_LOW_BITS
 	shl	rax, cl
 	shrd	rax, rbx, cl
