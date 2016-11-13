@@ -5251,13 +5251,10 @@ zfloop96:avx512_fma_fac
 
 	avx512_fma_compare
 	vpcmpeqq k1, zmm2, ZMMWORD PTR ZMM_FMA_ONE	; See if any remainder is 1
-	vpcmpeqq k2, zmm6, ZMMWORD PTR ZMM_FMA_ONE	; See if any remainder is 1
-	vpcmpeqq k3, zmm10, ZMMWORD PTR ZMM_FMA_ONE	; See if any remainder is 1
-;	korw	k5, k1, k2
-;	kortestw k5, k3
-kortestw k1, k2
-jnz short zfwin96_1
-kortestw k1, k3
+	vpcmpeqq k2, zmm9, ZMMWORD PTR ZMM_FMA_ONE	; See if any remainder is 1
+	vpcmpeqq k3, zmm16, ZMMWORD PTR ZMM_FMA_ONE	; See if any remainder is 1
+	korw	k5, k1, k2
+	kortestw k5, k3
 	jnz	short zfwin96_1		; Jump if a factor found
 
 	mov	rdi, QUEUE_COUNT	; Count of queued factors to be tested

@@ -4248,123 +4248,121 @@ avx512_fma_fac_initval MACRO
 
 ;; Preload constants
 
-	vmovapd	zmm15, ZMMWORD PTR ZMM_FMA_RND_CONST3		;; Load 3.0 * pow (2.0, (double) (51))
-	vmovapd	zmm14, ZMMWORD PTR ZMM_FMA_RND_CONST2		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
+	vmovapd	zmm31, ZMMWORD PTR ZMM_FMA_RND_CONST3		;; Load 3.0 * pow (2.0, (double) (51))
+	vmovapd	zmm30, ZMMWORD PTR ZMM_FMA_RND_CONST2		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
 	lea	r8, ZMM_FMA_ONE_OR_TWO				;; Addess of 1.0 or 2.0
 
 ;; Convert factor from 2 integers into 2 doubles
 
-	vmovapd	zmm13, ZMMWORD PTR ZMM_FMA_LOW_MASK		;; Mask for acquiring low bits
-	vpandq	zmm0, zmm13, ZMMWORD PTR ZMM_FMA_FAC_LO_INT	;; Load integer factor low
-	vpandq	zmm4, zmm13, ZMMWORD PTR ZMM_FMA_FAC_LO_INTa	;; Load integer factor low
-	vpandq	zmm8, zmm13, ZMMWORD PTR ZMM_FMA_FAC_LO_INTb	;; Load integer factor low
+	vmovapd	zmm29, ZMMWORD PTR ZMM_FMA_LOW_MASK		;; Mask for acquiring low bits
+	vpandq	zmm0, zmm29, ZMMWORD PTR ZMM_FMA_FAC_LO_INT	;; Load integer factor low
+	vpandq	zmm7, zmm29, ZMMWORD PTR ZMM_FMA_FAC_LO_INTa	;; Load integer factor low
+	vpandq	zmm14, zmm29, ZMMWORD PTR ZMM_FMA_FAC_LO_INTb	;; Load integer factor low
 
-	vporq	zmm0, zmm0, zmm15				;; Step 1 to convert factor low to a double
-	vporq	zmm4, zmm4, zmm15				;; Step 1 to convert factor low to a double
-	vporq	zmm8, zmm8, zmm15				;; Step 1 to convert factor low to a double
+	vporq	zmm0, zmm0, zmm31				;; Step 1 to convert factor low to a double
+	vporq	zmm7, zmm7, zmm31				;; Step 1 to convert factor low to a double
+	vporq	zmm14, zmm14, zmm31				;; Step 1 to convert factor low to a double
 
-	vporq	zmm2, zmm15, ZMMWORD PTR ZMM_FMA_FAC_HI_INT	;; Load integer factor hi
-	vporq	zmm6, zmm15, ZMMWORD PTR ZMM_FMA_FAC_HI_INTa	;; Load integer factor hi
-	vporq	zmm10, zmm15, ZMMWORD PTR ZMM_FMA_FAC_HI_INTb	;; Load integer factor hi
+	vporq	zmm2, zmm31, ZMMWORD PTR ZMM_FMA_FAC_HI_INT	;; Load integer factor hi
+	vporq	zmm9, zmm31, ZMMWORD PTR ZMM_FMA_FAC_HI_INTa	;; Load integer factor hi
+	vporq	zmm16, zmm31, ZMMWORD PTR ZMM_FMA_FAC_HI_INTb	;; Load integer factor hi
 
-	vmovapd	zmm13, ZMMWORD PTR ZMM_FMA_TWO_TO_LO		;; Constant for converting integer factor hi
-	yfmsubpd zmm2, zmm2, zmm13, zmm14			;; Convert integer factor hi to double times 2^lo
-	yfmsubpd zmm6, zmm6, zmm13, zmm14			;; Convert integer factor hi to double times 2^lo
-	yfmsubpd zmm10, zmm10, zmm13, zmm14			;; Convert integer factor hi to double times 2^lo
+	vmovapd	zmm29, ZMMWORD PTR ZMM_FMA_TWO_TO_LO		;; Constant for converting integer factor hi
+	yfmsubpd zmm2, zmm2, zmm29, zmm30			;; Convert integer factor hi to double times 2^lo
+	yfmsubpd zmm9, zmm9, zmm29, zmm30			;; Convert integer factor hi to double times 2^lo
+	yfmsubpd zmm16, zmm16, zmm29, zmm30			;; Convert integer factor hi to double times 2^lo
 
-	vsubpd	zmm0, zmm0, zmm15				;; Step 2 to convert factor low to a double
-	vsubpd	zmm4, zmm4, zmm15				;; Step 2 to convert factor low to a double
-	vsubpd	zmm8, zmm8, zmm15				;; Step 2 to convert factor low to a double
+	vsubpd	zmm0, zmm0, zmm31				;; Step 2 to convert factor low to a double
+	vsubpd	zmm7, zmm7, zmm31				;; Step 2 to convert factor low to a double
+	vsubpd	zmm14, zmm14, zmm31				;; Step 2 to convert factor low to a double
 
 	vmovapd	ZMMWORD PTR ZMM_FMA_FAC_HI, zmm2		;; Save fac_hi
-	vmovapd	ZMMWORD PTR ZMM_FMA_FAC_HIa, zmm6		;; Save fac_hi
-	vmovapd	ZMMWORD PTR ZMM_FMA_FAC_HIb, zmm10		;; Save fac_hi
+	vmovapd	ZMMWORD PTR ZMM_FMA_FAC_HIa, zmm9		;; Save fac_hi
+	vmovapd	ZMMWORD PTR ZMM_FMA_FAC_HIb, zmm16		;; Save fac_hi
 
 	vmovapd	ZMMWORD PTR ZMM_FMA_FAC_LO, zmm0		;; Save fac_lo
-	vmovapd	ZMMWORD PTR ZMM_FMA_FAC_LOa, zmm4		;; Save fac_lo
-	vmovapd	ZMMWORD PTR ZMM_FMA_FAC_LOb, zmm8		;; Save fac_lo
+	vmovapd	ZMMWORD PTR ZMM_FMA_FAC_LOa, zmm7		;; Save fac_lo
+	vmovapd	ZMMWORD PTR ZMM_FMA_FAC_LOb, zmm14		;; Save fac_lo
 
 ;; Compute factor inverse
 
 	vaddpd	zmm3, zmm2, zmm0				;; Add fac_hi and fac_lo to form factor accurate to 53 bits
-	vaddpd	zmm7, zmm6, zmm4				;; Add fac_hi and fac_lo to form factor accurate to 53 bits
-	vaddpd	zmm11, zmm10, zmm8				;; Add fac_hi and fac_lo to form factor accurate to 53 bits
-	vmovapd	zmm9, ZMMWORD PTR ZMM_FMA_ONE
-	vdivpd	zmm1, zmm9, zmm3				;; Compute 1 / fac
-	vdivpd	zmm5, zmm9, zmm7				;; Compute 1 / fac
-	vdivpd	zmm9, zmm9, zmm11				;; Compute 1 / fac
+	vaddpd	zmm10, zmm9, zmm7				;; Add fac_hi and fac_lo to form factor accurate to 53 bits
+	vaddpd	zmm17, zmm16, zmm14				;; Add fac_hi and fac_lo to form factor accurate to 53 bits
+	vmovapd	zmm27, ZMMWORD PTR ZMM_FMA_ONE
+	vdivpd	zmm1, zmm27, zmm3				;; Compute 1 / fac
+	vdivpd	zmm8, zmm27, zmm10				;; Compute 1 / fac
+	vdivpd	zmm15, zmm27, zmm17				;; Compute 1 / fac
 	vmovapd	ZMMWORD PTR ZMM_FMA_INVFAC, zmm1		;; Save factor inverse
-	vmovapd	ZMMWORD PTR ZMM_FMA_INVFACa, zmm5		;; Save factor inverse
-	vmovapd	ZMMWORD PTR ZMM_FMA_INVFACb, zmm9		;; Save factor inverse
+	vmovapd	ZMMWORD PTR ZMM_FMA_INVFACa, zmm8		;; Save factor inverse
+	vmovapd	ZMMWORD PTR ZMM_FMA_INVFACb, zmm15		;; Save factor inverse
 
 ;; Compute (2^split mod f) * 2^-split.  Used after calculating rem_hi^2.
-
-;; zmm0 = fac_lo, zmm1 = facinv, zmm2 = fac_hi
-
-	vmovapd	zmm13, ZMMWORD PTR ZMM_FMA_RND_CONST4		;; Load (3.0 * 2^51) * 2^-split
-	vaddpd	zmm1, zmm1, zmm13				;; q = 1.0 * facinv + rounding const
-	vaddpd	zmm5, zmm5, zmm13				;; q = 1.0 * facinv + rounding const
-	vaddpd	zmm9, zmm9, zmm13				;; q = 1.0 * facinv + rounding const
-	vsubpd	zmm1, zmm1, zmm13				;; q -= rounding const
-	vsubpd	zmm5, zmm5, zmm13				;; q -= rounding const
-	vsubpd	zmm9, zmm9, zmm13				;; q -= rounding const
-	vmovapd	zmm12, ZMMWORD PTR ZMM_FMA_ONE			;; Load 1.0
-	yfnmaddpd zmm2, zmm1, zmm2, zmm12			;; hi = 1.0 - q * fac_hi
-	yfnmaddpd zmm6, zmm5, zmm6, zmm12			;; hi = 1.0 - q * fac_hi
-	yfnmaddpd zmm10, zmm9, zmm10, zmm12			;; hi = 1.0 - q * fac_hi
-	vmovapd	zmm12, ZMMWORD PTR ZMM_FMA_RND_CONST5		;; Load (3.0 * 2^(51 + LOW_BITS)) * 2^-split
-	yfnmaddpd zmm3, zmm1, zmm0, zmm12			;; hi_addin = -q * fac_lo + rounding const
-	yfnmaddpd zmm7, zmm5, zmm4, zmm12			;; hi_addin = -q * fac_lo + rounding const
-	yfnmaddpd zmm11, zmm9, zmm8, zmm12			;; hi_addin = -q * fac_lo + rounding const
-	vsubpd	zmm3, zmm3, zmm12				;; hi_addin -= rounding const
-	vsubpd	zmm7, zmm7, zmm12				;; hi_addin -= rounding const
-	vsubpd	zmm11, zmm11, zmm12				;; hi_addin -= rounding const
-	vaddpd	zmm2, zmm2, zmm3				;; hi += hi_addin
-	vaddpd	zmm6, zmm6, zmm7				;; hi += hi_addin
-	vaddpd	zmm10, zmm10, zmm11				;; hi += hi_addin
-	yfnmsubpd zmm1, zmm1, zmm0, zmm3			;; lo = -q * fac_lo - hi_addin
-	yfnmsubpd zmm5, zmm5, zmm4, zmm7			;; lo = -q * fac_lo - hi_addin
-	yfnmsubpd zmm9, zmm9, zmm8, zmm11			;; lo = -q * fac_lo - hi_addin
-	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HI, zmm2	;; Save high bits of modf
-	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HIa, zmm6	;; Save high bits of modf
-	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HIb, zmm10	;; Save high bits of modf
-	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LO, zmm1	;; Save low bits of modf
-	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LOa, zmm5	;; Save low bits of modf
-	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LOb, zmm9	;; Save low bits of modf
-
 ;; Compute (2^(split+1) mod f) * 2^-split.  Used for optional mul-by-2 after computing rem_hi^2.
 
-;; zmm0 = fac_lo
+;; zmm0 = fac_lo, zmm1 = facinv, zmm2 = fac_hi, zmm27 = 1.0
 
-	vmovapd	zmm12, ZMMWORD PTR ZMM_FMA_TWO			;; Load 2.0
-	yfmaddpd zmm1, zmm12, ZMMWORD PTR ZMM_FMA_INVFAC, zmm13	;; q = 2.0 * facinv + rounding const
-	yfmaddpd zmm5, zmm12, ZMMWORD PTR ZMM_FMA_INVFACa, zmm13;; q = 2.0 * facinv + rounding const
-	yfmaddpd zmm9, zmm12, ZMMWORD PTR ZMM_FMA_INVFACb, zmm13;; q = 2.0 * facinv + rounding const
-	vsubpd	zmm1, zmm1, zmm13				;; q -= rounding const
-	vsubpd	zmm5, zmm5, zmm13				;; q -= rounding const
-	vsubpd	zmm9, zmm9, zmm13				;; q -= rounding const
-	yfnmaddpd zmm2, zmm1, ZMMWORD PTR ZMM_FMA_FAC_HI, zmm12	;; hi = 2.0 - q * fac_hi
-	yfnmaddpd zmm6, zmm5, ZMMWORD PTR ZMM_FMA_FAC_HIa, zmm12;; hi = 2.0 - q * fac_hi
-	yfnmaddpd zmm10, zmm9, ZMMWORD PTR ZMM_FMA_FAC_HIb, zmm12;; hi = 2.0 - q * fac_hi
-	vmovapd	zmm12, ZMMWORD PTR ZMM_FMA_RND_CONST5		;; Load (3.0 * 2^(51 + LOW_BITS)) * 2^-split
-	yfnmaddpd zmm3, zmm1, zmm0, zmm12			;; hi_addin = -q * fac_lo + rounding const
-	yfnmaddpd zmm7, zmm5, zmm4, zmm12			;; hi_addin = -q * fac_lo + rounding const
-	yfnmaddpd zmm11, zmm9, zmm8, zmm12			;; hi_addin = -q * fac_lo + rounding const
-	vsubpd	zmm3, zmm3, zmm12				;; hi_addin -= rounding const
-	vsubpd	zmm7, zmm7, zmm12				;; hi_addin -= rounding const
-	vsubpd	zmm11, zmm11, zmm12				;; hi_addin -= rounding const
-	vaddpd	zmm2, zmm2, zmm3				;; hi += hi_addin
-	vaddpd	zmm6, zmm6, zmm7				;; hi += hi_addin
-	vaddpd	zmm10, zmm10, zmm11				;; hi += hi_addin
-	yfnmsubpd zmm1, zmm1, zmm0, zmm3			;; lo = -q * fac_lo - hi_addin
-	yfnmsubpd zmm5, zmm5, zmm4, zmm7			;; lo = -q * fac_lo - hi_addin
-	yfnmsubpd zmm9, zmm9, zmm8, zmm11			;; lo = -q * fac_lo - hi_addin
-	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW2_MODF_HI, zmm2	;; Save high bits of modf
-	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW2_MODF_HIa, zmm6	;; Save high bits of modf
-	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW2_MODF_HIb, zmm10	;; Save high bits of modf
-	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW2_MODF_LO, zmm1	;; Save low bits of modf
-	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW2_MODF_LOa, zmm5	;; Save low bits of modf
-	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW2_MODF_LOb, zmm9	;; Save low bits of modf
+	vmovapd	zmm29, ZMMWORD PTR ZMM_FMA_RND_CONST4		;; Load (3.0 * 2^51) * 2^-split
+	vaddpd	zmm3, zmm1, zmm29				;; q = 1.0 * facinv + rounding const
+	vaddpd	zmm10, zmm8, zmm29				;; q = 1.0 * facinv + rounding const
+	vaddpd	zmm17, zmm15, zmm29				;; q = 1.0 * facinv + rounding const
+	vmovapd	zmm28, ZMMWORD PTR ZMM_FMA_TWO			;; Load 2.0
+	yfmaddpd zmm4, zmm28, zmm1, zmm29			;; q2 = 2.0 * facinv + rounding const
+	yfmaddpd zmm11, zmm28, zmm8, zmm29			;; q2 = 2.0 * facinv + rounding const
+	yfmaddpd zmm18, zmm28, zmm15, zmm29			;; q2 = 2.0 * facinv + rounding const
+	vsubpd	zmm3, zmm3, zmm29				;; q -= rounding const
+	vsubpd	zmm10, zmm10, zmm29				;; q -= rounding const
+	vsubpd	zmm17, zmm17, zmm29				;; q -= rounding const
+	vsubpd	zmm4, zmm4, zmm29				;; q2 -= rounding const
+	vsubpd	zmm11, zmm11, zmm29				;; q2 -= rounding const
+	vsubpd	zmm18, zmm18, zmm29				;; q2 -= rounding const
+	vmovapd	zmm29, ZMMWORD PTR ZMM_FMA_RND_CONST5		;; Load (3.0 * 2^(51 + LOW_BITS)) * 2^-split
+	yfnmaddpd zmm5, zmm3, zmm0, zmm29			;; hi_addin = -q * fac_lo + rounding const
+	yfnmaddpd zmm12, zmm10, zmm7, zmm29			;; hi_addin = -q * fac_lo + rounding const
+	yfnmaddpd zmm19, zmm17, zmm14, zmm29			;; hi_addin = -q * fac_lo + rounding const
+	yfnmaddpd zmm6, zmm3, zmm2, zmm27			;; hi = 1.0 - q * fac_hi
+	yfnmaddpd zmm13, zmm10, zmm9, zmm27			;; hi = 1.0 - q * fac_hi
+	yfnmaddpd zmm20, zmm17, zmm16, zmm27			;; hi = 1.0 - q * fac_hi
+	vsubpd	zmm5, zmm5, zmm29				;; hi_addin -= rounding const
+	vsubpd	zmm12, zmm12, zmm29				;; hi_addin -= rounding const
+	vsubpd	zmm19, zmm19, zmm29				;; hi_addin -= rounding const
+	yfnmaddpd zmm1, zmm4, zmm0, zmm29			;; hi_addin2 = -q2 * fac_lo + rounding const
+	yfnmaddpd zmm8, zmm11, zmm7, zmm29			;; hi_addin2 = -q2 * fac_lo + rounding const
+	yfnmaddpd zmm15, zmm18, zmm14, zmm29			;; hi_addin2 = -q2 * fac_lo + rounding const
+	vaddpd	zmm6, zmm6, zmm5				;; hi += hi_addin
+	vaddpd	zmm13, zmm13, zmm12				;; hi += hi_addin
+	vaddpd	zmm20, zmm20, zmm19				;; hi += hi_addin
+	yfnmsubpd zmm3, zmm3, zmm0, zmm5			;; lo = -q * fac_lo - hi_addin
+	yfnmsubpd zmm10, zmm10, zmm7, zmm12			;; lo = -q * fac_lo - hi_addin
+	yfnmsubpd zmm17, zmm17, zmm14, zmm19			;; lo = -q * fac_lo - hi_addin
+	vsubpd	zmm1, zmm1, zmm29				;; hi_addin2 -= rounding const
+	vsubpd	zmm8, zmm8, zmm29				;; hi_addin2 -= rounding const
+	vsubpd	zmm15, zmm15, zmm29				;; hi_addin2 -= rounding const
+	yfnmaddpd zmm5, zmm4, zmm2, zmm28			;; hi2 = 2.0 - q2 * fac_hi
+	yfnmaddpd zmm12, zmm11, zmm9, zmm28			;; hi2 = 2.0 - q2 * fac_hi
+	yfnmaddpd zmm19, zmm18, zmm16, zmm28			;; hi2 = 2.0 - q2 * fac_hi
+	yfnmsubpd zmm4, zmm4, zmm0, zmm1			;; lo2 = -q2 * fac_lo - hi_addin2
+	yfnmsubpd zmm11, zmm11, zmm7, zmm8			;; lo2 = -q2 * fac_lo - hi_addin2
+	yfnmsubpd zmm18, zmm18, zmm14, zmm15			;; lo2 = -q2 * fac_lo - hi_addin2
+	vaddpd	zmm5, zmm5, zmm1				;; hi2 += hi_addin2
+	vaddpd	zmm12, zmm12, zmm8				;; hi2 += hi_addin2
+	vaddpd	zmm19, zmm19, zmm15				;; hi2 += hi_addin2
+
+	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HI, zmm6	;; Save high bits of modf
+	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HIa, zmm13	;; Save high bits of modf
+	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HIb, zmm20	;; Save high bits of modf
+	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LO, zmm3	;; Save low bits of modf
+	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LOa, zmm10	;; Save low bits of modf
+	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LOb, zmm17	;; Save low bits of modf
+
+	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW2_MODF_HI, zmm5	;; Save high bits of modf
+	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW2_MODF_HIa, zmm12	;; Save high bits of modf
+	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW2_MODF_HIb, zmm19	;; Save high bits of modf
+	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW2_MODF_LO, zmm4	;; Save low bits of modf
+	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW2_MODF_LOa, zmm11	;; Save low bits of modf
+	vmovapd	ZMMWORD PTR ZMM_FMA_TWOPOW2_MODF_LOb, zmm18	;; Save low bits of modf
+
+;; zmm0 = fac_lo, zmm2 = fac_hi, zmm3 = twopowmodf_lo, zmm4 = twopow2modf_lo, zmm5 = twopow2modf_hi, zmm6 = twopowmodf_hi
 
 ;; Now compute the initial remainder, using an optimized version of the main loop code.  We can save
 ;; several multiplies and adds because the squared value is a power of two. 
@@ -4383,24 +4381,24 @@ avx512_fma_fac_initval MACRO
 
 ;; Easiest case of all!  Remainder is either twopow1_modf or twopow2_modf
 
-	vmovapd	zmm13, ZMMWORD PTR ZMM_FMA_TWOPOW_SPLIT		;; Load 2^split
+	vmovapd	zmm28, ZMMWORD PTR ZMM_FMA_TWOPOW_SPLIT		;; Load 2^split
 	cmp	FMA_INITVAL_TYPE, 1
 	je	short equals_split
-	vmulpd	zmm2, zmm13, zmm2				;; Return twopow2_modf
-	vmulpd	zmm3, zmm13, zmm1
-	vmulpd	zmm6, zmm13, zmm6				;; Return twopow2_modf
-	vmulpd	zmm7, zmm13, zmm5
-	vmulpd	zmm10, zmm13, zmm10				;; Return twopow2_modf
-	vmulpd	zmm11, zmm13, zmm9
+	vmulpd	zmm2, zmm28, zmm5				;; Return twopow2_modf
+	vmulpd	zmm3, zmm28, zmm4
+	vmulpd	zmm9, zmm28, zmm12				;; Return twopow2_modf
+	vmulpd	zmm10, zmm28, zmm11
+	vmulpd	zmm16, zmm28, zmm19				;; Return twopow2_modf
+	vmulpd	zmm17, zmm28, zmm18
 	jmp	done
 
 equals_split:
-	vmulpd	zmm2, zmm13, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HI ;; Return twopow1_modf
-	vmulpd	zmm3, zmm13, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LO
-	vmulpd	zmm6, zmm13, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HIa ;; Return twopow1_modf
-	vmulpd	zmm7, zmm13, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LOa
-	vmulpd	zmm10, zmm13, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HIb ;; Return twopow1_modf
-	vmulpd	zmm11, zmm13, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LOb
+	vmulpd	zmm2, zmm28, zmm6				;; Return twopow1_modf
+	vmulpd	zmm3, zmm28, zmm3
+	vmulpd	zmm9, zmm28, zmm13				;; Return twopow1_modf
+	vmulpd	zmm10, zmm28, zmm10
+	vmulpd	zmm16, zmm28, zmm20				;; Return twopow1_modf
+	vmulpd	zmm17, zmm28, zmm17
 	jmp	done
 
 ;; Process an initial squared value that is more than 2^(split+1).  To avoid any edge cases with regards
@@ -4419,89 +4417,103 @@ large_initial_value:
 ;; calc  Q2*Flo hi	* 2^(35+0)		41*	*2^35
 ;; calc  Q2*Flo lo	* 2^0			35	*2^0
 
-;; zmm0 = fac_lo, zmm1 = twopow2modf_lo, zmm2 = twopow2modf_hi
+;; zmm0 = fac_lo, zmm2 = fac_hi, zmm4 = twopow2modf_lo, zmm5 = twopow2modf_hi
 
-	vmovapd	zmm12, ZMMWORD PTR ZMM_FMA_INITVAL		;; Load the initial squared value/2 (known as aa_hi in main loop)
-	vmovapd	zmm13, ZMMWORD PTR ZMM_FMA_RND_CONST1		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW * 2))
+	vmovapd	zmm28, ZMMWORD PTR ZMM_FMA_INITVAL		;; Load the initial squared value/2 (known as aa_hi in main loop)
+	vmovapd	zmm29, ZMMWORD PTR ZMM_FMA_RND_CONST1		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW * 2))
+	yfmaddpd zmm3, zmm28, zmm5, zmm29			;; q1f1_hi = aa_hi * twopow2modf_hi + rounding const
+	yfmaddpd zmm10, zmm28, zmm12, zmm29			;; q1f1_hi = aa_hi * twopow2modf_hi + rounding const
+	yfmaddpd zmm17, zmm28, zmm19, zmm29			;; q1f1_hi = aa_hi * twopow2modf_hi + rounding const
 
-	yfmaddpd zmm0, zmm12, zmm2, zmm13			;; 1-4	; q1f1_hi = aa_hi * twopow2modf_hi + rounding const
-	yfmaddpd zmm3, zmm12, zmm1, zmm14			;; 1-4	; q1f2_hi = aa_hi * twopow2modf_lo + rounding const
-	yfmaddpd zmm4, zmm12, zmm6, zmm13			;; 2-5	; q1f1_hi = aa_hi * twopow2modf_hi + rounding const
-	yfmaddpd zmm7, zmm12, zmm5, zmm14			;; 2-5	; q1f2_hi = aa_hi * twopow2modf_lo + rounding const
-	yfmaddpd zmm8, zmm12, zmm10, zmm13			;; 3-6	; q1f1_hi = aa_hi * twopow2modf_hi + rounding const
-	yfmaddpd zmm11, zmm12, zmm9, zmm14			;; 3-6	; q1f2_hi = aa_hi * twopow2modf_lo + rounding const
-	vsubpd	zmm0, zmm0, zmm13				;; 5-8	; q1f1_hi -= rounding const (q2_dividend = q1f1_hi)
-	vsubpd	zmm3, zmm3, zmm14				;; 5-8	; q1f2_hi -= rounding const
-	vsubpd	zmm4, zmm4, zmm13				;; 6-9	; q1f1_hi -= rounding const (q2_dividend = q1f1_hi)
-	vsubpd	zmm7, zmm7, zmm14				;; 6-9	; q1f2_hi -= rounding const
-	vsubpd	zmm8, zmm8, zmm13				;; 7-10	; q1f1_hi -= rounding const (q2_dividend = q1f1_hi)
-	vsubpd	zmm11, zmm11, zmm14				;; 7-10	; q1f2_hi -= rounding const
-	yfmsubpd zmm2, zmm12, zmm2, zmm0			;; 9-12	; q1f1_lo = aa_hi * twopow2modf_hi - q1f1_hi (final_hi = q1f1_lo)
-	yfmsubpd zmm1, zmm12, zmm1, zmm3			;; 9-12	; q1f2_lo = aa_hi * twopow2modf_lo - q1f2_hi (final_lo = q1f2_lo)
-	yfmsubpd zmm6, zmm12, zmm6, zmm4			;; 10-13; q1f1_lo = aa_hi * twopow2modf_hi - q1f1_hi (final_hi = q1f1_lo)
-	yfmsubpd zmm5, zmm12, zmm5, zmm7			;; 10-13; q1f2_lo = aa_hi * twopow2modf_lo - q1f2_hi (final_lo = q1f2_lo)
-	yfmsubpd zmm10, zmm12, zmm10, zmm8			;; 11-14; q1f1_lo = aa_hi * twopow2modf_hi - q1f1_hi (final_hi = q1f1_lo)
-	yfmsubpd zmm9, zmm12, zmm9, zmm11			;; 11-14; q1f2_lo = aa_hi * twopow2modf_lo - q1f2_hi (final_lo = q1f2_lo)
-	vaddpd	zmm2, zmm2, zmm3				;; 13-16; final_hi += q1f2_hi
-	vaddpd	zmm6, zmm6, zmm7				;; 14-17; final_hi += q1f2_hi
-	vaddpd	zmm10, zmm10, zmm11				;; 15-18; final_hi += q1f2_hi
-	yfmaddpd zmm3, zmm0, ZMMWORD PTR ZMM_FMA_INVFAC, zmm15	;; 12-15; q2 = q2_dividend * facinv + rounding const
-	yfmaddpd zmm7, zmm4, ZMMWORD PTR ZMM_FMA_INVFACa, zmm15	;; 12-15; q2 = q2_dividend * facinv + rounding const
-	yfmaddpd zmm11, zmm8, ZMMWORD PTR ZMM_FMA_INVFACb, zmm15;; 13-16; q2 = q2_dividend * facinv + rounding const
-	vsubpd	zmm3, zmm3, zmm15				;; 16-19; q2 -= rounding const
-	vsubpd	zmm7, zmm7, zmm15				;; 16-19; q2 -= rounding const
-	vsubpd	zmm11, zmm11, zmm15				;; 17-20; q2 -= rounding const
-	yfnmaddpd zmm0, zmm3, ZMMWORD PTR ZMM_FMA_FAC_HI, zmm0	;; 20-23; q2f1_lo = q2_dividend - q2 * fac_hi
-	yfnmaddpd zmm4, zmm7, ZMMWORD PTR ZMM_FMA_FAC_HIa, zmm4	;; 20-23; q2f1_lo = q2_dividend - q2 * fac_hi
-	yfnmaddpd zmm8, zmm11, ZMMWORD PTR ZMM_FMA_FAC_HIb, zmm8;; 21-24; q2f1_lo = q2_dividend - q2 * fac_hi
-	vaddpd	zmm2, zmm2, zmm0				;; 24-27; final_hi += q2f1_lo
-	vaddpd	zmm6, zmm6, zmm4				;; 24-27; final_hi += q2f1_lo
-	vaddpd	zmm10, zmm10, zmm8				;; 25-28; final_hi += q2f1_lo
-	yfnmaddpd zmm0, zmm3, ZMMWORD PTR ZMM_FMA_FAC_LO, zmm14	;; 21-24; q2f2_hi = -q2 * fac_lo + rounding const
-	yfnmaddpd zmm4, zmm7, ZMMWORD PTR ZMM_FMA_FAC_LOa, zmm14;; 22-25; q2f2_hi = -q2 * fac_lo + rounding const
-	yfnmaddpd zmm8, zmm11, ZMMWORD PTR ZMM_FMA_FAC_LOb, zmm14;;22-25; q2f2_hi = -q2 * fac_lo + rounding const
-	vsubpd	zmm0, zmm0, zmm14				;; 25-28; q2f2_hi -= rounding const
-	vsubpd	zmm4, zmm4, zmm14				;; 26-29; q2f2_hi -= rounding const
-	vsubpd	zmm8, zmm8, zmm14				;; 26-29; q2f2_hi -= rounding const
-	vaddpd	zmm2, zmm2, zmm0				;; 29-32; final_hi += q2f2_hi
-	vaddpd	zmm6, zmm6, zmm4				;; 30-33; final_hi += q2f2_hi
-	vaddpd	zmm10, zmm10, zmm8				;; 30-33; final_hi += q2f2_hi
-	yfnmsubpd zmm3, zmm3, ZMMWORD PTR ZMM_FMA_FAC_LO, zmm0	;; 29-32; q2f2_lo = -q2 * fac_lo - q2f2_hi
-	yfnmsubpd zmm7, zmm7, ZMMWORD PTR ZMM_FMA_FAC_LOa, zmm4	;; 31-34; q2f2_lo = -q2 * fac_lo - q2f2_hi
-	yfnmsubpd zmm11, zmm11, ZMMWORD PTR ZMM_FMA_FAC_LOb, zmm8;;31-34; q2f2_lo = -q2 * fac_lo - q2f2_hi
-	vaddpd	zmm3, zmm1, zmm3				;; 33-36; final_lo += q2f2_lo
-	vaddpd	zmm7, zmm5, zmm7				;; 35-38; final_lo += q2f2_lo
-	vaddpd	zmm11, zmm9, zmm11				;; 35-38; final_lo += q2f2_lo
+	yfmaddpd zmm6, zmm28, zmm4, zmm30			;; q1f2_hi = aa_hi * twopow2modf_lo + rounding const
+	yfmaddpd zmm13, zmm28, zmm11, zmm30			;; q1f2_hi = aa_hi * twopow2modf_lo + rounding const
+	yfmaddpd zmm20, zmm28, zmm18, zmm30			;; q1f2_hi = aa_hi * twopow2modf_lo + rounding const
+
+	vsubpd	zmm3, zmm3, zmm29				;; q1f1_hi -= rounding const (q2_dividend = q1f1_hi)
+	vsubpd	zmm10, zmm10, zmm29				;; q1f1_hi -= rounding const (q2_dividend = q1f1_hi)
+	vsubpd	zmm17, zmm17, zmm29				;; q1f1_hi -= rounding const (q2_dividend = q1f1_hi)
+
+	vsubpd	zmm6, zmm6, zmm30				;; q1f2_hi -= rounding const
+	vsubpd	zmm13, zmm13, zmm30				;; q1f2_hi -= rounding const
+	vsubpd	zmm20, zmm20, zmm30				;; q1f2_hi -= rounding const
+
+	yfmaddpd zmm1, zmm3, ZMMWORD PTR ZMM_FMA_INVFAC, zmm31	;; q2 = q2_dividend * facinv + rounding const
+	yfmaddpd zmm8, zmm10, ZMMWORD PTR ZMM_FMA_INVFACa, zmm31;; q2 = q2_dividend * facinv + rounding const
+	yfmaddpd zmm15, zmm17, ZMMWORD PTR ZMM_FMA_INVFACb, zmm31;; q2 = q2_dividend * facinv + rounding const
+
+	yfmsubpd zmm5, zmm28, zmm5, zmm3			;; q1f1_lo = aa_hi * twopow2modf_hi - q1f1_hi (final_hi = q1f1_lo)
+	yfmsubpd zmm12, zmm28, zmm12, zmm10			;; q1f1_lo = aa_hi * twopow2modf_hi - q1f1_hi (final_hi = q1f1_lo)
+	yfmsubpd zmm19, zmm28, zmm19, zmm17			;; q1f1_lo = aa_hi * twopow2modf_hi - q1f1_hi (final_hi = q1f1_lo)
+
+	vsubpd	zmm1, zmm1, zmm31				;; q2 -= rounding const
+	vsubpd	zmm8, zmm8, zmm31				;; q2 -= rounding const
+	vsubpd	zmm15, zmm15, zmm31				;; q2 -= rounding const
+
+	yfmsubpd zmm4, zmm28, zmm4, zmm6			;; q1f2_lo = aa_hi * twopow2modf_lo - q1f2_hi (final_lo = q1f2_lo)
+	yfmsubpd zmm11, zmm28, zmm11, zmm13			;; q1f2_lo = aa_hi * twopow2modf_lo - q1f2_hi (final_lo = q1f2_lo)
+	yfmsubpd zmm18, zmm28, zmm18, zmm20			;; q1f2_lo = aa_hi * twopow2modf_lo - q1f2_hi (final_lo = q1f2_lo)
+
+	yfnmaddpd zmm2, zmm1, zmm2, zmm3			;; q2f1_lo = q2_dividend - q2 * fac_hi
+	yfnmaddpd zmm9, zmm8, zmm9, zmm10			;; q2f1_lo = q2_dividend - q2 * fac_hi
+	yfnmaddpd zmm16, zmm15, zmm16, zmm17			;; q2f1_lo = q2_dividend - q2 * fac_hi
+
+	yfnmaddpd zmm3, zmm1, zmm0, zmm30			;; q2f2_hi = -q2 * fac_lo + rounding const
+	yfnmaddpd zmm10, zmm8, zmm7, zmm30			;; q2f2_hi = -q2 * fac_lo + rounding const
+	yfnmaddpd zmm17, zmm15, zmm14, zmm30			;; q2f2_hi = -q2 * fac_lo + rounding const
+
+	vaddpd	zmm5, zmm5, zmm6				;; final_hi += q1f2_hi
+	vaddpd	zmm12, zmm12, zmm13				;; final_hi += q1f2_hi
+	vaddpd	zmm19, zmm19, zmm20				;; final_hi += q1f2_hi
+
+	vsubpd	zmm3, zmm3, zmm30				;; q2f2_hi -= rounding const
+	vsubpd	zmm10, zmm10, zmm30				;; q2f2_hi -= rounding const
+	vsubpd	zmm17, zmm17, zmm30				;; q2f2_hi -= rounding const
+
+	vaddpd	zmm2, zmm5, zmm2				;; final_hi += q2f1_lo
+	vaddpd	zmm9, zmm12, zmm9				;; final_hi += q2f1_lo
+	vaddpd	zmm16, zmm19, zmm16				;; final_hi += q2f1_lo
+
+	yfnmsubpd zmm0, zmm1, zmm0, zmm3			;; q2f2_lo = -q2 * fac_lo - q2f2_hi
+	yfnmsubpd zmm7, zmm8, zmm7, zmm10			;; q2f2_lo = -q2 * fac_lo - q2f2_hi
+	yfnmsubpd zmm14, zmm15, zmm14, zmm17			;; q2f2_lo = -q2 * fac_lo - q2f2_hi
+
+	vaddpd	zmm2, zmm2, zmm3				;; final_hi += q2f2_hi
+	vaddpd	zmm9, zmm9, zmm10				;; final_hi += q2f2_hi
+	vaddpd	zmm16, zmm16, zmm17				;; final_hi += q2f2_hi
+
+	vaddpd	zmm3, zmm4, zmm0				;; final_lo += q2f2_lo
+	vaddpd	zmm10, zmm11, zmm7				;; final_lo += q2f2_lo
+	vaddpd	zmm17, zmm18, zmm14				;; final_lo += q2f2_lo
 	jmp	done
 
 ;; Process an initial squared value that is less than 2^split
 ;; Calc q, the quotient.  Then calc initial_value - q * fac
 
-;; zmm0 = fac_lo, zmm1 = twopow2modf_lo, zmm2 = twopow2modf_hi
+;; zmm0 = fac_lo, zmm2 = fac_hi
 
 small_initial_value:
-	vmovapd	zmm12, ZMMWORD PTR ZMM_FMA_INITVAL		;; Load the initial squared value
-	yfmaddpd zmm1, zmm12, ZMMWORD PTR ZMM_FMA_INVFAC, zmm15	;; q = initial_value * facinv + rounding const
-	yfmaddpd zmm5, zmm12, ZMMWORD PTR ZMM_FMA_INVFACa, zmm15;; q = initial_value * facinv + rounding const
-	yfmaddpd zmm9, zmm12, ZMMWORD PTR ZMM_FMA_INVFACb, zmm15;; q = initial_value * facinv + rounding const
-	vsubpd	zmm1, zmm1, zmm15				;; q -= rounding const
-	vsubpd	zmm5, zmm5, zmm15				;; q -= rounding const
-	vsubpd	zmm9, zmm9, zmm15				;; q -= rounding const
-	yfnmaddpd zmm2, zmm1, ZMMWORD PTR ZMM_FMA_FAC_HI, zmm12	;; final_hi = initial_value - q * fac_hi
-	yfnmaddpd zmm6, zmm5, ZMMWORD PTR ZMM_FMA_FAC_HIa, zmm12;; final_hi = initial_value - q * fac_hi
-	yfnmaddpd zmm10, zmm9, ZMMWORD PTR ZMM_FMA_FAC_HIb, zmm12;; final_hi = initial_value - q * fac_hi
-	yfnmaddpd zmm3, zmm1, zmm0, zmm14			;; qf2_hi = -q * fac_lo + rounding const
-	yfnmaddpd zmm7, zmm5, zmm4, zmm14			;; qf2_hi = -q * fac_lo + rounding const
-	yfnmaddpd zmm11, zmm9, zmm8, zmm14			;; qf2_hi = -q * fac_lo + rounding const
-	vsubpd	zmm3, zmm3, zmm14				;; qf2_hi -= rounding const
-	vsubpd	zmm7, zmm7, zmm14				;; qf2_hi -= rounding const
-	vsubpd	zmm11, zmm11, zmm14				;; qf2_hi -= rounding const
-	vaddpd	zmm2, zmm2, zmm3				;; final_hi += q2f2_hi
-	vaddpd	zmm6, zmm6, zmm7				;; final_hi += q2f2_hi
-	vaddpd	zmm10, zmm10, zmm11				;; final_hi += q2f2_hi
-	yfnmsubpd zmm3, zmm1, zmm0, zmm3			;; final_lo = -q * fac_lo - qf2_hi
-	yfnmsubpd zmm7, zmm5, zmm4, zmm7			;; final_lo = -q * fac_lo - qf2_hi
-	yfnmsubpd zmm11, zmm9, zmm8, zmm11			;; final_lo = -q * fac_lo - qf2_hi
+	vmovapd	zmm28, ZMMWORD PTR ZMM_FMA_INITVAL		;; Load the initial squared value
+	yfmaddpd zmm3, zmm28, ZMMWORD PTR ZMM_FMA_INVFAC, zmm31	;; q = initial_value * facinv + rounding const
+	yfmaddpd zmm10, zmm28, ZMMWORD PTR ZMM_FMA_INVFACa, zmm31;; q = initial_value * facinv + rounding const
+	yfmaddpd zmm17, zmm28, ZMMWORD PTR ZMM_FMA_INVFACb, zmm31;; q = initial_value * facinv + rounding const
+	vsubpd	zmm3, zmm3, zmm31				;; q -= rounding const
+	vsubpd	zmm10, zmm10, zmm31				;; q -= rounding const
+	vsubpd	zmm17, zmm17, zmm31				;; q -= rounding const
+	yfnmaddpd zmm4, zmm3, zmm0, zmm30			;; qf2_hi = -q * fac_lo + rounding const
+	yfnmaddpd zmm11, zmm10, zmm7, zmm30			;; qf2_hi = -q * fac_lo + rounding const
+	yfnmaddpd zmm18, zmm17, zmm14, zmm30			;; qf2_hi = -q * fac_lo + rounding const
+	yfnmaddpd zmm2, zmm3, zmm2, zmm28			;; final_hi = initial_value - q * fac_hi
+	yfnmaddpd zmm9, zmm10, zmm9, zmm28			;; final_hi = initial_value - q * fac_hi
+	yfnmaddpd zmm16, zmm17, zmm16, zmm28			;; final_hi = initial_value - q * fac_hi
+	vsubpd	zmm4, zmm4, zmm30				;; qf2_hi -= rounding const
+	vsubpd	zmm11, zmm11, zmm30				;; qf2_hi -= rounding const
+	vsubpd	zmm18, zmm18, zmm30				;; qf2_hi -= rounding const
+	vaddpd	zmm2, zmm2, zmm4				;; final_hi += qf2_hi
+	vaddpd	zmm9, zmm9, zmm11				;; final_hi += qf2_hi
+	vaddpd	zmm16, zmm16, zmm18				;; final_hi += qf2_hi
+	yfnmsubpd zmm3, zmm3, zmm0, zmm4			;; final_lo = -q * fac_lo - qf2_hi
+	yfnmsubpd zmm10, zmm10, zmm7, zmm11			;; final_lo = -q * fac_lo - qf2_hi
+	yfnmsubpd zmm17, zmm17, zmm14, zmm18			;; final_lo = -q * fac_lo - qf2_hi
 
 done:
 	ENDM
@@ -4554,393 +4566,178 @@ avx512_fma_fac MACRO fac_size
 ;; calc  Q2*Flo hi	* 2^(35+0)		41*	*2^35
 ;; calc  Q2*Flo lo	* 2^0			35	*2^0
 
-;; zmm0-3 reserved for set 1, zmm4-7 reserved for set 2
-;; zmm8-11 reserved for set 3, zmm12-15 are for common use
+;; zmm0-6 reserved for set 1, zmm7-13 reserved for set 2
+;; zmm14-20 reserved for set 3, zmm21-27 reserved for set 4, zmm28-31 is for common use
 
-	vmovapd	zmm15, ZMMWORD PTR ZMM_FMA_RND_CONST0		;;	; Load 3.0 * pow (2.0, (double) (51 + BITS_TOTAL + (BITS_TOTAL + 1) / 2))
-	yfmaddpd zmm0, zmm2, zmm2, zmm15			;;*1-4	; aa_hi = rem_hi * rem_hi + rounding const
-	yfmaddpd zmm4, zmm6, zmm6, zmm15			;;*1-4	; aa_hi = rem_hi * rem_hi + rounding const
-	yfmaddpd zmm8, zmm10, zmm10, zmm15			;;*2-5	; aa_hi = rem_hi * rem_hi + rounding const
-	vsubpd	zmm0, zmm0, zmm15				;;*5-8	; aa_hi -= rounding const
-	vsubpd	zmm4, zmm4, zmm15				;;*5-8	; aa_hi -= rounding const
-	vsubpd	zmm8, zmm8, zmm15				;;*6-9	; aa_hi -= rounding const
-	yfmsubpd zmm1, zmm2, zmm2, zmm0				;;*9-12	; aa_lo = rem_hi * rem_hi - aa_hi
-	yfmsubpd zmm5, zmm6, zmm6, zmm4				;;*9-12	; aa_lo = rem_hi * rem_hi - aa_hi
-	yfmsubpd zmm9, zmm10, zmm10, zmm8			;;*10-13; aa_lo = rem_hi * rem_hi - aa_hi
+	vmovapd	zmm28, ZMMWORD PTR ZMM_FMA_RND_CONST0		;;	; Load 3.0 * pow (2.0, (double) (51 + BITS_TOTAL + (BITS_TOTAL + 1) / 2))
+	yfmaddpd zmm0, zmm2, zmm2, zmm28			;;*1-4	; aa_hi = rem_hi * rem_hi + rounding const
+	yfmaddpd zmm7, zmm9, zmm9, zmm28			;;*1-4	; aa_hi = rem_hi * rem_hi + rounding const
+	yfmaddpd zmm14, zmm16, zmm16, zmm28			;;*2-5	; aa_hi = rem_hi * rem_hi + rounding const
 
-	mov	edx, FMA_SHIFTER[rdi*4-4]			;;	; This is 32 if doubling else 0
+	vmovapd	zmm29, ZMMWORD PTR ZMM_FMA_RND_CONST1		;;	; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW * 2))
+	yfmaddpd zmm1, zmm2, zmm3, zmm29			;;*3-6	; ab_hi = rem_hi * rem_lo + rounding const
+	yfmaddpd zmm8, zmm9, zmm10, zmm29			;;*3-6	; ab_hi = rem_hi * rem_lo + rounding const
+	yfmaddpd zmm15, zmm16, zmm17, zmm29			;;*4-7	; ab_hi = rem_hi * rem_lo + rounding const
 
-;; zmm0 = aa_hi, zmm1 = aa_lo, zmm2 = rem_hi, zmm3 = rem_lo
+	vsubpd	zmm0, zmm0, zmm28				;;*5-8	; aa_hi -= rounding const
+	vsubpd	zmm7, zmm7, zmm28				;;*5-8	; aa_hi -= rounding const
+	vsubpd	zmm14, zmm14, zmm28				;;*6-9	; aa_hi -= rounding const
 
-	vmovapd	zmm14, ZMMWORD PTR ZMM_FMA_RND_CONST1		;;	; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW * 2))
-	yfmaddpd zmm15, zmm2, zmm3, zmm14			;;*2-5	; ab_hi = rem_hi * rem_lo + rounding const
-	vsubpd	zmm15, zmm15, zmm14				;;*6-9	; ab_hi -= rounding const
-	yfmaddpd zmm12, zmm0, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HI[rdx], zmm14
-								;;*10-13; q1f1_hi = aa_hi * twopowmodf_hi[rdx] + rounding const
-	yfmsubpd zmm2, zmm2, zmm3, zmm15			;; 11-14; ab_lo = rem_hi * rem_lo - ab_hi
-	yfmaddpd zmm1, ZMMWORD PTR ZMM_FMA_TWO, zmm15, zmm1	;;*13-16; q2_dividend = 2AB_hi + AA_lo
+	vsubpd	zmm1, zmm1, zmm29				;;*7-10	; ab_hi -= rounding const
+	vsubpd	zmm8, zmm8, zmm29				;;*7-10	; ab_hi -= rounding const
+	vsubpd	zmm15, zmm15, zmm29				;;*8-11	; ab_hi -= rounding const
 
-	yfmaddpd zmm15, zmm6, zmm7, zmm14			;;*3-6	; ab_hi = rem_hi * rem_lo + rounding const
-	vsubpd	zmm15, zmm15, zmm14				;;*7-10	; ab_hi -= rounding const
-	yfmaddpd zmm13, zmm4, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HIa[rdx], zmm14
+;; zmm0=aa_hi, zmm1=ab_hi, zmm2=rem_hi, zmm3=rem_lo
+
+	yfmsubpd zmm4, zmm2, zmm2, zmm0				;;*9-12	; aa_lo = rem_hi * rem_hi - aa_hi
+	yfmsubpd zmm11, zmm9, zmm9, zmm7			;;*9-12	; aa_lo = rem_hi * rem_hi - aa_hi
+	yfmsubpd zmm18, zmm16, zmm16, zmm14			;;*10-13; aa_lo = rem_hi * rem_hi - aa_hi
+
+;; zmm0=aa_hi, zmm1=ab_hi, zmm2=rem_hi, zmm3=rem_lo, zmm4=aa_lo
+
+	mov	edx, FMA_SHIFTER[rdi*4-4]			;;	; This is 64 if doubling else 0
+
+	yfmaddpd zmm5, zmm0, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HI[rdx], zmm29
 								;;*11-14; q1f1_hi = aa_hi * twopowmodf_hi[rdx] + rounding const
-	yfmsubpd zmm6, zmm6, zmm7, zmm15			;; 12-15; ab_lo = rem_hi * rem_lo - ab_hi
-	yfmaddpd zmm5, ZMMWORD PTR ZMM_FMA_TWO, zmm15, zmm5	;;*13-16; q2_dividend = 2AB_hi + AA_lo
-
-	yfmaddpd zmm15, zmm10, zmm11, zmm14			;;*3-6	; ab_hi = rem_hi * rem_lo + rounding const
-	vsubpd	zmm15, zmm15, zmm14				;;*7-10	; ab_hi -= rounding const
-	yfmaddpd zmm14, zmm8, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HIb[rdx], zmm14
+	yfmaddpd zmm12, zmm7, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HIa[rdx], zmm29
+								;;*11-14; q1f1_hi = aa_hi * twopowmodf_hi[rdx] + rounding const
+	yfmaddpd zmm19, zmm14, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HIb[rdx], zmm29
 								;;*12-15; q1f1_hi = aa_hi * twopowmodf_hi[rdx] + rounding const
-	yfmsubpd zmm10, zmm10, zmm11, zmm15			;; 14-17; ab_lo = rem_hi * rem_lo - ab_hi
-	yfmaddpd zmm9, ZMMWORD PTR ZMM_FMA_TWO, zmm15, zmm9	;;*14-17; q2_dividend = 2AB_hi + AA_lo
-
-	vmovapd	zmm15, ZMMWORD PTR ZMM_FMA_RND_CONST1		;;	; Reload 3.0 * pow (2.0, (double) (51 + BITS_LOW * 2))
-	vsubpd	zmm12, zmm12, zmm15				;;*15-18; q1f1_hi -= rounding const
-	vsubpd	zmm13, zmm13, zmm15				;;*15-18; q1f1_hi -= rounding const
-	vsubpd	zmm14, zmm14, zmm15				;;*16-19; q1f1_hi -= rounding const
-
-	vmovapd zmm15, ZMMWORD PTR [r8][rdx]			;;	; 1-or-2
-	yfmaddpd zmm1, zmm15, zmm1, zmm12			;;*19-22; q2_dividend = 1-or-2 * q2_dividend + q1f1_hi
-	yfmaddpd zmm5, zmm15, zmm5, zmm13			;;*19-22; q2_dividend = 1-or-2 * q2_dividend + q1f1_hi
-	yfmaddpd zmm9, zmm15, zmm9, zmm14			;;*20-23; q2_dividend = 1-or-2 * q2_dividend + q1f1_hi
-
-;; zmm0 = aa_hi, zmm1 = q2_dividend, zmm2 = ab_lo, zmm3 = rem_lo, zmm12/13/14 = q1f1_hi
-
-	yfmaddpd zmm15, zmm3, zmm3, ZMMWORD PTR ZMM_FMA_RND_CONST2 ;; 4-7 ; bb_hi = rem_lo * rem_lo + rounding const
-	vsubpd	zmm15, zmm15, ZMMWORD PTR ZMM_FMA_RND_CONST2	;; 8-11	; bb_hi -= rounding const
-	yfmsubpd zmm3, zmm3, zmm3, zmm15			;; 16-19; bb_lo = rem_lo * rem_lo - bb_hi
-	yfmaddpd zmm2, ZMMWORD PTR ZMM_FMA_TWO, zmm2, zmm15	;; 17-20; final_hi = 2 * ab_lo + bb_hi
-
-	yfmaddpd zmm15, zmm7, zmm7, ZMMWORD PTR ZMM_FMA_RND_CONST2 ;; 4-7 ; bb_hi = rem_lo * rem_lo + rounding const
-	vsubpd	zmm15, zmm15, ZMMWORD PTR ZMM_FMA_RND_CONST2	;; 8-11	; bb_hi -= rounding const
-	yfmsubpd zmm7, zmm7, zmm7, zmm15			;; 17-20; bb_lo = rem_lo * rem_lo - bb_hi
-	yfmaddpd zmm6, ZMMWORD PTR ZMM_FMA_TWO, zmm6, zmm15	;; 18-21; final_hi = 2 * ab_lo + bb_hi
-
-	yfmaddpd zmm15, zmm11, zmm11, ZMMWORD PTR ZMM_FMA_RND_CONST2 ;; 18-21 ; bb_hi = rem_lo * rem_lo + rounding const
-	vsubpd	zmm15, zmm15, ZMMWORD PTR ZMM_FMA_RND_CONST2	;; 22-25; bb_hi -= rounding const
-	yfmsubpd zmm11, zmm11, zmm11, zmm15			;; 26-29; bb_lo = rem_lo * rem_lo - bb_hi
-	yfmaddpd zmm10, ZMMWORD PTR ZMM_FMA_TWO, zmm10, zmm15	;; 26-29; final_hi = 2 * ab_lo + bb_hi
-
-	vmovapd zmm15, ZMMWORD PTR [r8][rdx]			;;	; 1-or-2
-	yfmsubpd zmm12, zmm0, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HI[rdx], zmm12
-								;; 20-23; q1f1_lo = aa_hi * twopowmodf_hi[rdx] - q1f1_hi
-	yfmaddpd zmm2, zmm15, zmm2, zmm12			;; 24-27; final_hi = 1-or-2 * final_hi + q1f1_lo
-	yfmsubpd zmm13, zmm4, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HIa[rdx], zmm13
-								;; 21-24; q1f1_lo = aa_hi * twopowmodf_hi[rdx] - q1f1_hi
-	yfmaddpd zmm6, zmm15, zmm6, zmm13			;; 25-28; final_hi = 1-or-2 * final_hi + q1f1_lo
-	yfmsubpd zmm14, zmm8, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HIb[rdx], zmm14
-								;; 24-27; q1f1_lo = aa_hi * twopowmodf_hi[rdx] - q1f1_hi
-	yfmaddpd zmm10, zmm15, zmm10, zmm14			;; 30-33; final_hi = 1-or-2 * final_hi + q1f1_lo
-
-;; zmm0 = aa_hi, zmm1 = q2_dividend, zmm2 = final_hi, zmm3 = bb_lo, zmm15 = 1-or-2
-
-	vmovapd	zmm15, ZMMWORD PTR ZMM_FMA_RND_CONST2		;;	; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
-	vmovapd zmm12, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LO[rdx]	;;	; Load twopowmodf_lo[rdx]
-	yfmaddpd zmm13, zmm0, zmm12, zmm15			;; 21-24; q1f2_hi = aa_hi * twopowmodf_lo[rdx] + rounding const
-	vsubpd	zmm13, zmm13, zmm15				;; 25-28; q1f2_hi -= rounding const
-	yfmsubpd zmm0, zmm0, zmm12, zmm13			;; 29-32; q1f2_lo = aa_hi * twopowmodf_lo[rdx] - q1f2_hi
-	vaddpd	zmm2, zmm2, zmm13				;; 29-32; final_hi += q1f2_hi
-
-	vmovapd zmm12, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LOa[rdx];;	; Load twopowmodf_lo[rdx]
-	yfmaddpd zmm13, zmm4, zmm12, zmm15			;; 22-25; q1f2_hi = aa_hi * twopowmodf_lo[rdx] + rounding const
-	vsubpd	zmm13, zmm13, zmm15				;; 27-30; q1f2_hi -= rounding const
-	yfmsubpd zmm4, zmm4, zmm12, zmm13			;; 31-34; q1f2_lo = aa_hi * twopowmodf_lo[rdx] - q1f2_hi
-	vaddpd	zmm6, zmm6, zmm13				;; 31-34; final_hi += q1f2_hi
-
-	vmovapd zmm12, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LOb[rdx];;	; Load twopowmodf_lo[rdx]
-	yfmaddpd zmm13, zmm8, zmm12, zmm15			;; 23-26; q1f2_hi = aa_hi * twopowmodf_lo[rdx] + rounding const
-	vsubpd	zmm13, zmm13, zmm15				;; 27-30; q1f2_hi -= rounding const
-	yfmsubpd zmm8, zmm8, zmm12, zmm13			;; 32-35; q1f2_lo = aa_hi * twopowmodf_lo[rdx] - q1f2_hi
-	vaddpd	zmm10, zmm10, zmm13				;; 32-35; final_hi += q1f2_hi
-
-;; zmm0 = q1f2_lo, zmm1 = q2_dividend, zmm2 = final_hi, zmm3 = bb_lo
-
-	vmovapd	zmm15, ZMMWORD PTR ZMM_FMA_RND_CONST3		;; Load 3.0 * pow (2.0, (double) (51))
-	yfmaddpd zmm12, zmm1, ZMMWORD PTR ZMM_FMA_INVFAC, zmm15	;;*23-26; q2 = q2_dividend * facinv + rounding const
-	yfmaddpd zmm3, ZMMWORD PTR [r8][rdx], zmm3, zmm0	;; 33-36; final_lo = one_or_two[rdx] * bb_lo + q1f2_lo;
-
-	yfmaddpd zmm13, zmm5, ZMMWORD PTR ZMM_FMA_INVFACa, zmm15;;*28-31; q2 = q2_dividend * facinv + rounding const
-	yfmaddpd zmm7, ZMMWORD PTR [r8][rdx], zmm7, zmm4	;; 35-38; final_lo = one_or_two[rdx] * bb_lo + q1f2_lo;
-
-	yfmaddpd zmm14, zmm9, ZMMWORD PTR ZMM_FMA_INVFACb, zmm15;;*28-31; q2 = q2_dividend * facinv + rounding const
-	yfmaddpd zmm11, ZMMWORD PTR [r8][rdx], zmm11, zmm8	;; 36-39; final_lo = one_or_two[rdx] * bb_lo + q1f2_lo;
-
-;; zmm1 = q2_dividend, zmm2 = final_hi, zmm3 = final_lo, zmm12/13/14 = q2
-
-	vsubpd	zmm12, zmm12, zmm15				;;*30-33; q2 -= rounding const
-	yfnmaddpd zmm0, zmm12, ZMMWORD PTR ZMM_FMA_FAC_HI, zmm1	;;*34-37; Calc Q2*Fhi lo in one blow:  q2f1_lo = q2_dividend - q2 * fac_hi
- 	vaddpd	zmm2, zmm2, zmm0				;;*38-41; final_hi += q2f1_lo
-
-	vsubpd	zmm13, zmm13, zmm15				;;*33-36; q2 -= rounding const
-	yfnmaddpd zmm4, zmm13, ZMMWORD PTR ZMM_FMA_FAC_HIa, zmm5;;*37-40; Calc Q2*Fhi lo in one blow:  q2f1_lo = q2_dividend - q2 * fac_hi
- 	vaddpd	zmm6, zmm6, zmm4				;;*41-44; final_hi += q2f1_lo
-
-	vsubpd	zmm14, zmm14, zmm15				;;*34-37; q2 -= rounding const
-	yfnmaddpd zmm8, zmm14, ZMMWORD PTR ZMM_FMA_FAC_HIb, zmm9;;*38-41; Calc Q2*Fhi lo in one blow:  q2f1_lo = q2_dividend - q2 * fac_hi
- 	vaddpd	zmm10, zmm10, zmm8				;;*42-45; final_hi += q2f1_lo
-
-;; zmm2 = final_hi, zmm3 = final_lo, zmm12/13/14 = q2
-
-	vmovapd	zmm15, ZMMWORD PTR ZMM_FMA_RND_CONST2		;;	; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
-	yfnmaddpd zmm0, zmm12, ZMMWORD PTR ZMM_FMA_FAC_LO, zmm15;;*35-38; q2f2_hi = -q2 * fac_lo + rounding const
-	vsubpd	zmm0, zmm0, zmm15				;;*39-42; q2f2_hi -= rounding const
-	yfnmsubpd zmm12, zmm12, ZMMWORD PTR ZMM_FMA_FAC_LO, zmm0;;*43-46; q2f2_lo = -q2 * fac_lo - q2f2_hi
-
-	yfnmaddpd zmm4, zmm13, ZMMWORD PTR ZMM_FMA_FAC_LOa, zmm15;;*37-40; q2f2_hi = -q2 * fac_lo + rounding const
-	vsubpd	zmm4, zmm4, zmm15				;;*41-44; q2f2_hi -= rounding const
-	yfnmsubpd zmm13, zmm13, ZMMWORD PTR ZMM_FMA_FAC_LOa, zmm4;;*45-48; q2f2_lo = -q2 * fac_lo - q2f2_hi
-
-	yfnmaddpd zmm8, zmm14, ZMMWORD PTR ZMM_FMA_FAC_LOb, zmm15;;*39-42; q2f2_hi = -q2 * fac_lo + rounding const
-	vsubpd	zmm8, zmm8, zmm15				;;*43-46; q2f2_hi -= rounding const
-	yfnmsubpd zmm14, zmm14, ZMMWORD PTR ZMM_FMA_FAC_LOb, zmm8;;*47-50; q2f2_lo = -q2 * fac_lo - q2f2_hi
-
-	vaddpd	zmm2, zmm2, zmm0				;;*44-47; final_hi += q2f2_hi
-	vaddpd	zmm3, zmm3, zmm12				;;*47-50; final_lo += q2f2_lo
-
-	vaddpd	zmm6, zmm6, zmm4				;;*45-48; final_hi += q2f2_hi
-	vaddpd	zmm7, zmm7, zmm13				;;*49-52; final_lo += q2f2_lo
-
-	vaddpd	zmm10, zmm10, zmm8				;;*48-51; final_hi += q2f2_hi
-	vaddpd	zmm11, zmm11, zmm14				;;*51-54; final_lo += q2f2_lo
-	ENDM
-
-; This macro does one iteration of the main loop.  Square a remainder and do a mod.
-; Note that at the beginning of the macro zmm2, zmm3 contains the semi-normalized remainder
-; for us to square.  This input number is between -fac/2*epsilon and +fac/2*epsilon.  The range
-; is not perfect because this macro's calculation of Q2 is not exact.
-
-; In the comments of this macro, for illustration purposes we'll assume fac_size is 80 bits
-; with 35 bits stored in the low word.  There is no reason to believe this code cannot handle
-; at least 96 bits.  In fact, we have simulated this macro in C code with no problems.
-
-avx512_fma_fac MACRO fac_size
 
-;; AB^2 will be 160 bits.  From there, we multiply the top 40 bits by the 80-bit value 2^120 mod f.
-;; This 120-bit result plus the low 120/121 bits of AB^2 give us a 122-bit dividend in computing Q2.
-
-;; To maximize significant bits in calculating Q2, we want to maximize the precision of AA-lo and 2AB-hi.  Looking at
-;; the table below that happens when AA-lo and 2AB-hi use as small an offset as possible without exceeding 53 bits
-;; of precision.  Below that would be 34 bits in a low word.
+;; zmm0=aa_hi, zmm1=ab_hi, zmm2=rem_hi, zmm3=rem_lo, zmm4=aa_lo, zmm5=q1f1_hi
 
-;; SQUARE rem (call rem_hi A and rem_lo B).  A is between 0 and 44.5+epsilon bits.  B is between 0 and 35 normalized bits.
-;; Unnormalized low words are the result of 1 doubling and 3 adds.  This adds 2 bits.
+	vmovapd	zmm28, ZMMWORD PTR ZMM_FMA_TWO
+	yfmaddpd zmm4, zmm28, zmm1, zmm4			;;*13-16; q2_dividend = 2AB_hi + AA_lo
+	yfmaddpd zmm11, zmm28, zmm8, zmm11			;;*13-16; q2_dividend = 2AB_hi + AA_lo
+	yfmaddpd zmm18, zmm28, zmm15, zmm18			;;*14-17; q2_dividend = 2AB_hi + AA_lo
 
-;;					normalized		unnormalized
-;;				      max bits	offset	      max bits	offset
-;;AA-hi		* 2^(50+2*35)		40	*2^120		40	*2^120
-;;AA-lo		* 2^(2*35)		50	*2^70		50	*2^70
-;;2AB-hi	* 2^(34+36)		46/47	*2^70		48/49	*2^70
-;;2AB-lo	* 2^36			34/33	*2^36/37	34/33	*2^36/37
-;;BB-hi		* 2^(35+0)		35	*2^35		39/40	*2^35
-;;BB-lo		* 2^0			35	*2^0		35	*2^0
+;; zmm0=aa_hi, zmm1=ab_hi, zmm2=rem_hi, zmm3=rem_lo, zmm4=q2_dividend, zmm5=q1f1_hi
 
-;; Since we know the power of two that aa_hi is a multiple of (aa_hi is a multiple of 2^120 in our example),
-;; we pre-calculate 2^that_power mod factor, and multiply aa-hi by this pre-calculated value.
+	vsubpd	zmm5, zmm5, zmm29				;;*15-18; q1f1_hi -= rounding const
+	vsubpd	zmm12, zmm12, zmm29				;;*15-18; q1f1_hi -= rounding const
+	vsubpd	zmm19, zmm19, zmm29				;;*16-19; q1f1_hi -= rounding const
 
-;; Aa-hi is 41/40 bits, TwoPowModFhi is 45 bits, TwoPowModFlo is 35 bits
-;; calc  AA-hi*TwoPowModFhi hi	* 2^(35+35)		51/50	*2^70
-;; calc  AA-hi*TwoPowModFhi lo	* 2^(35)		35	*2^35
-;; calc  AA-hi*TwoPowModFlo hi	* 2^(35)		41/40	*2^35
-;; calc  AA-hi*TwoPowModFlo lo	* 2^0			35	*2^0
+	yfmsubpd zmm2, zmm2, zmm3, zmm1				;; 17-20; ab_lo = rem_hi * rem_lo - ab_hi
+	yfmsubpd zmm9, zmm9, zmm10, zmm8			;; 17-20; ab_lo = rem_hi * rem_lo - ab_hi
+	yfmsubpd zmm16, zmm16, zmm17, zmm15			;; 18-21; ab_lo = rem_hi * rem_lo - ab_hi
 
-;; calc Q2, remaining bits of quotient
-;;
-;; Q2 is 41 bits, Fhi is 45 bits, Flo is 35 bits
-;; calc  Q2*Fhi hi	* 2^(33+35)		53	*2^68
-;; calc  Q2*Fhi lo	* 2^35			33	*2^35
-;; calc  Q2*Flo hi	* 2^(35+0)		41*	*2^35
-;; calc  Q2*Flo lo	* 2^0			35	*2^0
+;; zmm0=aa_hi, zmm2=ab_lo, zmm3=rem_lo, zmm4=q2_dividend, zmm5=q1f1_hi
 
-;; zmm0-3,12 reserved for set 1, zmm4-7,13 reserved for set 2
-;; zmm8-11,14 reserved for set 3, zmm15 is for common use
+	vmovapd zmm29, ZMMWORD PTR [r8][rdx]			;;	; 1-or-2
+	yfmaddpd zmm4, zmm29, zmm4, zmm5			;;*19-22; q2_dividend = 1-or-2 * q2_dividend + q1f1_hi
+	yfmaddpd zmm11, zmm29, zmm11, zmm12			;;*19-22; q2_dividend = 1-or-2 * q2_dividend + q1f1_hi
+	yfmaddpd zmm18, zmm29, zmm18, zmm19			;;*20-23; q2_dividend = 1-or-2 * q2_dividend + q1f1_hi
 
-	vmovapd	zmm14, ZMMWORD PTR ZMM_FMA_RND_CONST0		;;	; Load 3.0 * pow (2.0, (double) (51 + BITS_TOTAL + (BITS_TOTAL + 1) / 2))
-	yfmaddpd zmm0, zmm2, zmm2, zmm14			;;*1-4	; aa_hi = rem_hi * rem_hi + rounding const
-	yfmaddpd zmm4, zmm6, zmm6, zmm14			;;*1-4	; aa_hi = rem_hi * rem_hi + rounding const
-	yfmaddpd zmm8, zmm10, zmm10, zmm14			;;*2-5	; aa_hi = rem_hi * rem_hi + rounding const
+	yfmaddpd zmm1, zmm3, zmm3, zmm30			;; 21-24 ; bb_hi = rem_lo * rem_lo + rounding const
+	yfmaddpd zmm8, zmm10, zmm10, zmm30			;; 21-24 ; bb_hi = rem_lo * rem_lo + rounding const
+	yfmaddpd zmm15, zmm17, zmm17, zmm30			;; 22-25 ; bb_hi = rem_lo * rem_lo + rounding const
 
-	vmovapd	zmm15, ZMMWORD PTR ZMM_FMA_RND_CONST1		;;	; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW * 2))
-	yfmaddpd zmm1, zmm2, zmm3, zmm15			;;*2-5	; ab_hi = rem_hi * rem_lo + rounding const
-	yfmaddpd zmm5, zmm6, zmm7, zmm15			;;*3-6	; ab_hi = rem_hi * rem_lo + rounding const
-	yfmaddpd zmm9, zmm10, zmm11, zmm15			;;*3-6	; ab_hi = rem_hi * rem_lo + rounding const
+;; zmm0=aa_hi, zmm1=bb_hi, zmm2=ab_lo, zmm3=rem_lo, zmm4=q2_dividend, zmm5=q1f1_hi
 
-	yfmaddpd zmm12, zmm3, zmm3, ZMMWORD PTR ZMM_FMA_RND_CONST2 ;; 4-7 ; bb_hi = rem_lo * rem_lo + rounding const
-	yfmaddpd zmm13, zmm7, zmm7, ZMMWORD PTR ZMM_FMA_RND_CONST2 ;; 4-7 ; bb_hi = rem_lo * rem_lo + rounding const
+	yfmaddpd zmm6, zmm4, ZMMWORD PTR ZMM_FMA_INVFAC, zmm31	;;*23-26; q2 = q2_dividend * facinv + rounding const
+	yfmaddpd zmm13, zmm11, ZMMWORD PTR ZMM_FMA_INVFACa, zmm31;;*23-26; q2 = q2_dividend * facinv + rounding const
+	yfmaddpd zmm20, zmm18, ZMMWORD PTR ZMM_FMA_INVFACb, zmm31;;*24-27; q2 = q2_dividend * facinv + rounding const
 
-	mov	edx, FMA_SHIFTER[rdi*4-4]			;;	; This is 32 if doubling else 0
+;; zmm0=aa_hi, zmm1=bb_hi, zmm2=ab_lo, zmm3=rem_lo, zmm4=q2_dividend, zmm5=q1f1_hi, zmm6=q2
 
-	vsubpd	zmm0, zmm0, zmm14				;;*5-8	; aa_hi -= rounding const
-	vsubpd	zmm4, zmm4, zmm14				;;*5-8	; aa_hi -= rounding const
-	vsubpd	zmm8, zmm8, zmm14				;;*6-9	; aa_hi -= rounding const
+	vsubpd	zmm1, zmm1, zmm30				;; 25-28; bb_hi -= rounding const
+	vsubpd	zmm8, zmm8, zmm30				;; 25-28; bb_hi -= rounding const
+	vsubpd	zmm15, zmm15, zmm30				;; 26-29; bb_hi -= rounding const
 
-	vsubpd	zmm1, zmm1, zmm15				;;*6-9	; ab_hi -= rounding const
-	vsubpd	zmm5, zmm5, zmm15				;;*7-10	; ab_hi -= rounding const
-	vsubpd	zmm9, zmm9, zmm15				;;*7-10	; ab_hi -= rounding const
+	yfmsubpd zmm5, zmm0, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HI[rdx], zmm5
+								;; 27-30; q1f1_lo = aa_hi * twopowmodf_hi[rdx] - q1f1_hi
+	yfmsubpd zmm12, zmm7, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HIa[rdx], zmm12
+								;; 27-30; q1f1_lo = aa_hi * twopowmodf_hi[rdx] - q1f1_hi
+	yfmsubpd zmm19, zmm14, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HIb[rdx], zmm19
+								;; 28-31; q1f1_lo = aa_hi * twopowmodf_hi[rdx] - q1f1_hi
 
-	yfmaddpd zmm14, zmm11, zmm11, ZMMWORD PTR ZMM_FMA_RND_CONST2 ;; 8-11 ; bb_hi = rem_lo * rem_lo + rounding const
-	vsubpd	zmm12, zmm12, ZMMWORD PTR ZMM_FMA_RND_CONST2	;; 8-11	; bb_hi -= rounding const
+;; zmm0=aa_hi, zmm1=bb_hi, zmm2=ab_lo, zmm3=rem_lo, zmm4=q2_dividend, zmm5=q1f1_lo, zmm6=q2
 
-	vmovapd	zmm20, zmm2			;;	; Save rem_hi
-	vmovapd	zmm21, zmm6			;;	; Save rem_hi
-	vmovapd	zmm22, zmm10		;;	; Save rem_hi
+	vsubpd	zmm6, zmm6, zmm31				;;*29-32; q2 -= rounding const
+	vsubpd	zmm13, zmm13, zmm31				;;*29-32; q2 -= rounding const
+	vsubpd	zmm20, zmm20, zmm31				;;*30-33; q2 -= rounding const
 
-	yfmsubpd zmm2, zmm2, zmm2, zmm0				;;*9-12	; aa_lo = rem_hi * rem_hi - aa_hi
-	yfmsubpd zmm6, zmm6, zmm6, zmm4				;;*9-12	; aa_lo = rem_hi * rem_hi - aa_hi
-	yfmsubpd zmm10, zmm10, zmm10, zmm8			;;*10-13; aa_lo = rem_hi * rem_hi - aa_hi
+	yfmsubpd zmm3, zmm3, zmm3, zmm1				;; 31-34; bb_lo = rem_lo * rem_lo - bb_hi
+	yfmsubpd zmm10, zmm10, zmm10, zmm8			;; 31-34; bb_lo = rem_lo * rem_lo - bb_hi
+	yfmsubpd zmm17, zmm17, zmm17, zmm15			;; 32-35; bb_lo = rem_lo * rem_lo - bb_hi
 
-	vmovapd	zmm24, zmm0			;;	; Save aa_hi
-	vmovapd	zmm25, zmm4		;;	; Save aa_hi
-	vmovapd	zmm26, zmm8		;;	; Save aa_hi
+;; zmm0=aa_hi, zmm1=bb_hi, zmm2=ab_lo, zmm3=bb_lo, zmm4=q2_dividend, zmm5=q1f1_lo, zmm6=q2
 
-	yfmaddpd zmm0, zmm0, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HI[rdx], zmm15
-								;;*10-13; q1f1_hi = aa_hi * twopowmodf_hi[rdx] + rounding const
-	yfmaddpd zmm4, zmm4, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HIa[rdx], zmm15
-								;;*11-14; q1f1_hi = aa_hi * twopowmodf_hi[rdx] + rounding const
-	yfmaddpd zmm8, zmm8, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HIb[rdx], zmm15
-								;;*11-14; q1f1_hi = aa_hi * twopowmodf_hi[rdx] + rounding const
+	yfmaddpd zmm2, zmm28, zmm2, zmm1			;; 33-36; final_hi = 2 * ab_lo + bb_hi
+	yfmaddpd zmm9, zmm28, zmm9, zmm8			;; 33-36; final_hi = 2 * ab_lo + bb_hi
+	yfmaddpd zmm16, zmm28, zmm16, zmm15			;; 34-37; final_hi = 2 * ab_lo + bb_hi
 
-	vsubpd	zmm13, zmm13, ZMMWORD PTR ZMM_FMA_RND_CONST2	;; 12-15; bb_hi -= rounding const
-	vsubpd	zmm14, zmm14, ZMMWORD PTR ZMM_FMA_RND_CONST2	;; 12-15; bb_hi -= rounding const
+;; zmm0=aa_hi, zmm2=final_hi, zmm3=bb_lo, zmm4=q2_dividend, zmm5=q1f1_lo, zmm6=q2
 
-;; zmm0=q1f1_hi, zmm1=ab_hi, zmm2=aa_lo, zmm3=rem_lo, zmm12=bb_hi, SAVE=rem_hi, SAVE2=aa_hi
+	yfnmaddpd zmm4, zmm6, ZMMWORD PTR ZMM_FMA_FAC_HI, zmm4	;;*35-38; Calc Q2*Fhi lo in one blow:  q2f1_lo = q2_dividend - q2 * fac_hi
+	yfnmaddpd zmm11, zmm13, ZMMWORD PTR ZMM_FMA_FAC_HIa, zmm11;;*35-38; Calc Q2*Fhi lo in one blow:  q2f1_lo = q2_dividend - q2 * fac_hi
+	yfnmaddpd zmm18, zmm20, ZMMWORD PTR ZMM_FMA_FAC_HIb, zmm18;;*36-39; Calc Q2*Fhi lo in one blow:  q2f1_lo = q2_dividend - q2 * fac_hi
 
-	yfmaddpd zmm2, ZMMWORD PTR ZMM_FMA_TWO, zmm1, zmm2	;;*13-16; q2_dividend = 2AB_hi + AA_lo
-	yfmaddpd zmm6, ZMMWORD PTR ZMM_FMA_TWO, zmm5, zmm6	;;*13-16; q2_dividend = 2AB_hi + AA_lo
-	yfmaddpd zmm10, ZMMWORD PTR ZMM_FMA_TWO, zmm9, zmm10	;;*14-17; q2_dividend = 2AB_hi + AA_lo
+;; zmm0=aa_hi, zmm2=final_hi, zmm3=bb_lo, zmm4=q2f1_lo, zmm5=q1f1_lo, zmm6=q2
 
-;; zmm0=q1f1_hi, zmm1=ab_hi, zmm2=q2_dividend, zmm3=rem_lo, zmm12=bb_hi, SAVE=rem_hi, SAVE2=aa_hi
+	yfmaddpd zmm1, zmm0, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LO[rdx], zmm30 ;; 37-40; q1f2_hi = aa_hi * twopowmodf_lo[rdx] + rounding const
+	yfmaddpd zmm8, zmm7, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LOa[rdx], zmm30;; 37-40; q1f2_hi = aa_hi * twopowmodf_lo[rdx] + rounding const
+	yfmaddpd zmm15, zmm14, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LOb[rdx], zmm30;; 38-41; q1f2_hi = aa_hi * twopowmodf_lo[rdx] + rounding const
 
-	vsubpd	zmm0, zmm0, zmm15				;;*14-17; q1f1_hi -= rounding const
-	vsubpd	zmm4, zmm4, zmm15				;;*15-18; q1f1_hi -= rounding const
-	vsubpd	zmm8, zmm8, zmm15				;;*15-18; q1f1_hi -= rounding const
+;; zmm0=aa_hi, zmm1=q1f2_hi, zmm2=final_hi, zmm3=bb_lo, zmm4=q2f1_lo, zmm5=q1f1_lo, zmm6=q2
 
-	yfmsubpd zmm1, zmm20, zmm3, zmm1	;; 16-19; ab_lo = rem_hi * rem_lo - ab_hi
-	yfmsubpd zmm5, zmm21, zmm7, zmm5	;; 16-19; ab_lo = rem_hi * rem_lo - ab_hi
-	yfmsubpd zmm9, zmm22, zmm11, zmm9	;; 17-20; ab_lo = rem_hi * rem_lo - ab_hi
+	yfmaddpd zmm2, zmm29, zmm2, zmm5			;; 39-42; final_hi = 1-or-2 * final_hi + q1f1_lo
+	yfmaddpd zmm9, zmm29, zmm9, zmm12			;; 39-42; final_hi = 1-or-2 * final_hi + q1f1_lo
+	yfmaddpd zmm16, zmm29, zmm16, zmm19			;; 40-43; final_hi = 1-or-2 * final_hi + q1f1_lo
 
-;; zmm0=q1f1_hi, zmm1=ab_lo, zmm2=q2_dividend, zmm3=rem_lo, zmm12=bb_hi, SAVE2=aa_hi
+;; zmm0=aa_hi, zmm1=q1f2_hi, zmm2=final_hi, zmm3=bb_lo, zmm4=q2f1_lo, zmm6=q2
 
-	yfmsubpd zmm3, zmm3, zmm3, zmm12			;; 17-20; bb_lo = rem_lo * rem_lo - bb_hi
-	yfmsubpd zmm7, zmm7, zmm7, zmm13			;; 18-21; bb_lo = rem_lo * rem_lo - bb_hi
-	yfmsubpd zmm11, zmm11, zmm11, zmm14			;; 18-21; bb_lo = rem_lo * rem_lo - bb_hi
+	yfnmaddpd zmm5, zmm6, ZMMWORD PTR ZMM_FMA_FAC_LO, zmm30;;*41-44; q2f2_hi = -q2 * fac_lo + rounding const
+	yfnmaddpd zmm12, zmm13, ZMMWORD PTR ZMM_FMA_FAC_LOa, zmm30;;*41-44; q2f2_hi = -q2 * fac_lo + rounding const
+	yfnmaddpd zmm19, zmm20, ZMMWORD PTR ZMM_FMA_FAC_LOb, zmm30;;*42-45; q2f2_hi = -q2 * fac_lo + rounding const
 
-;; zmm0=q1f1_hi, zmm1=ab_lo, zmm2=q2_dividend, zmm3=bb_lo, zmm12=bb_hi, SAVE=bb_lo, SAVE2=aa_hi
+;; zmm0=aa_hi, zmm1=q1f2_hi, zmm2=final_hi, zmm3=bb_lo, zmm4=q2f1_lo, zmm5=q2f2_hi, zmm6=q2
 
-	vmovapd zmm15, ZMMWORD PTR [r8][rdx]			;;	; 1-or-2
-	yfmaddpd zmm2, zmm15, zmm2, zmm0			;;*19-22; q2_dividend = 1-or-2 * q2_dividend + q1f1_hi
-	yfmaddpd zmm6, zmm15, zmm6, zmm4			;;*19-22; q2_dividend = 1-or-2 * q2_dividend + q1f1_hi
-	yfmaddpd zmm10, zmm15, zmm10, zmm8			;;*20-23; q2_dividend = 1-or-2 * q2_dividend + q1f1_hi
+	vsubpd	zmm1, zmm1, zmm30				;; 43-46; q1f2_hi -= rounding const
+	vsubpd	zmm8, zmm8, zmm30				;; 43-46; q1f2_hi -= rounding const
+	vsubpd	zmm15, zmm15, zmm30				;; 44-47; q1f2_hi -= rounding const
 
-	vmovapd	zmm20, zmm3			;;	; Save bb_lo
-	vmovapd	zmm21, zmm7			;;	; Save bb_lo
-	vmovapd	zmm22, zmm11		;;	; Save bb_lo
+ 	vaddpd	zmm2, zmm2, zmm4				;;*45-48; final_hi += q2f1_lo
+ 	vaddpd	zmm9, zmm9, zmm11				;;*45-48; final_hi += q2f1_lo
+ 	vaddpd	zmm16, zmm16, zmm18				;;*46-49; final_hi += q2f1_lo
 
-	vmovapd zmm3, zmm24			;;	; Reload aa_hi
-	vmovapd zmm7, zmm25		;;	; Reload aa_hi
-	vmovapd zmm11, zmm26		;;	; Reload aa_hi
+;; zmm0=aa_hi, zmm1=q1f2_hi, zmm2=final_hi, zmm3=bb_lo, zmm5=q2f2_hi, zmm6=q2
 
-	yfmsubpd zmm0, zmm3, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HI[rdx], zmm0
-								;; 20-23; q1f1_lo = aa_hi * twopowmodf_hi[rdx] - q1f1_hi
-	yfmsubpd zmm4, zmm7, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HIa[rdx], zmm4
-								;; 21-24; q1f1_lo = aa_hi * twopowmodf_hi[rdx] - q1f1_hi
-	yfmsubpd zmm8, zmm11, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_HIb[rdx], zmm8
-								;; 21-24; q1f1_lo = aa_hi * twopowmodf_hi[rdx] - q1f1_hi
+	yfmsubpd zmm0, zmm0, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LO[rdx], zmm1;; 47-50; q1f2_lo = aa_hi * twopowmodf_lo[rdx] - q1f2_hi
+	yfmsubpd zmm7, zmm7, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LOa[rdx], zmm8;; 47-50; q1f2_lo = aa_hi * twopowmodf_lo[rdx] - q1f2_hi
+	yfmsubpd zmm14, zmm14, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LOb[rdx], zmm15;; 48-51; q1f2_lo = aa_hi * twopowmodf_lo[rdx] - q1f2_hi
 
-;; zmm0=q1f1_lo, zmm1=ab_lo, zmm2=q2_dividend, zmm3=aa_hi, zmm12=bb_hi, SAVE=bb_lo, SAVE2=aa_hi
+;; zmm0=q1f2_lo, zmm1=q1f2_hi, zmm2=final_hi, zmm3=bb_lo, zmm5=q2f2_hi, zmm6=q2
 
-	yfmaddpd zmm1, ZMMWORD PTR ZMM_FMA_TWO, zmm1, zmm12	;; 22-25; final_hi = 2 * ab_lo + bb_hi
-	yfmaddpd zmm5, ZMMWORD PTR ZMM_FMA_TWO, zmm5, zmm13	;; 22-25; final_hi = 2 * ab_lo + bb_hi
-	yfmaddpd zmm9, ZMMWORD PTR ZMM_FMA_TWO, zmm9, zmm14	;; 23-26; final_hi = 2 * ab_lo + bb_hi
+	vsubpd	zmm5, zmm5, zmm30				;;*49-52; q2f2_hi -= rounding const
+	vsubpd	zmm12, zmm12, zmm30				;;*49-52; q2f2_hi -= rounding const
+	vsubpd	zmm19, zmm19, zmm30				;;*50-53; q2f2_hi -= rounding const
 
-;; zmm0=q1f1_lo, zmm1=final_hi, zmm2=q2_dividend, zmm3=aa_hi, SAVE=bb_lo, SAVE2=aa_hi
+	vaddpd	zmm2, zmm2, zmm1				;; 51-54; final_hi += q1f2_hi
+	vaddpd	zmm9, zmm9, zmm8				;; 51-54; final_hi += q1f2_hi
+	vaddpd	zmm16, zmm16, zmm15				;; 52-55; final_hi += q1f2_hi
 
-	vmovapd	zmm15, ZMMWORD PTR ZMM_FMA_RND_CONST3		;;	; Load 3.0 * pow (2.0, (double) (51))
-	yfmaddpd zmm12, zmm2, ZMMWORD PTR ZMM_FMA_INVFAC, zmm15	;;*23-26; q2 = q2_dividend * facinv + rounding const
-	yfmaddpd zmm13, zmm6, ZMMWORD PTR ZMM_FMA_INVFACa, zmm15;;*24-27; q2 = q2_dividend * facinv + rounding const
-	yfmaddpd zmm14, zmm10, ZMMWORD PTR ZMM_FMA_INVFACb, zmm15;;*24-27; q2 = q2_dividend * facinv + rounding const
+;; zmm0=q1f2_lo, zmm2=final_hi, zmm3=bb_lo, zmm5=q2f2_hi, zmm6=q2
 
-;; zmm0=q1f1_lo, zmm1=final_hi, zmm2=q2_dividend, zmm3=aa_hi, zmm12=q2, SAVE=bb_lo, SAVE2=aa_hi
+	yfmaddpd zmm3, zmm29, zmm3, zmm0			;; 53-56; final_lo = one_or_two[rdx] * bb_lo + q1f2_lo
+	yfmaddpd zmm10, zmm29, zmm10, zmm7			;; 53-56; final_lo = one_or_two[rdx] * bb_lo + q1f2_lo
+	yfmaddpd zmm17, zmm29, zmm17, zmm14			;; 54-57; final_lo = one_or_two[rdx] * bb_lo + q1f2_lo
 
-	vmovapd	zmm15, ZMMWORD PTR ZMM_FMA_RND_CONST2		;;	; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
-	yfmaddpd zmm3, zmm3, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LO[rdx], zmm15 ;; 25-28; q1f2_hi = aa_hi * twopowmodf_lo[rdx] + rounding const
-	yfmaddpd zmm7, zmm7, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LOa[rdx], zmm15;; 25-28; q1f2_hi = aa_hi * twopowmodf_lo[rdx] + rounding const
-	yfmaddpd zmm11, zmm11, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LOb[rdx], zmm15;; 26-29; q1f2_hi = aa_hi * twopowmodf_lo[rdx] + rounding const
+;; zmm2=final_hi, zmm3=final_lo, zmm5=q2f2_hi, zmm6=q2
 
-;; zmm0=q1f1_lo, zmm1=final_hi, zmm2=q2_dividend, zmm3=q1f2_hi, zmm12=q2, SAVE=bb_lo, SAVE2=aa_hi
+	yfnmsubpd zmm6, zmm6, ZMMWORD PTR ZMM_FMA_FAC_LO, zmm5	;;*55-58; q2f2_lo = -q2 * fac_lo - q2f2_hi
+	yfnmsubpd zmm13, zmm13, ZMMWORD PTR ZMM_FMA_FAC_LOa, zmm12;;*55-58; q2f2_lo = -q2 * fac_lo - q2f2_hi
+	yfnmsubpd zmm20, zmm20, ZMMWORD PTR ZMM_FMA_FAC_LOb, zmm19;;*56-59; q2f2_lo = -q2 * fac_lo - q2f2_hi
 
-	vmovapd zmm15, ZMMWORD PTR [r8][rdx]			;;	; 1-or-2
-	yfmaddpd zmm1, zmm15, zmm1, zmm0			;; 26-29; final_hi = 1-or-2 * final_hi + q1f1_lo
-	yfmaddpd zmm5, zmm15, zmm5, zmm4			;; 27-30; final_hi = 1-or-2 * final_hi + q1f1_lo
-	yfmaddpd zmm9, zmm15, zmm9, zmm8			;; 27-30; final_hi = 1-or-2 * final_hi + q1f1_lo
+;; zmm2=final_hi, zmm3=final_lo, zmm5=q2f2_hi, zmm6=q2f2_lo
 
-;; zmm1=final_hi, zmm2=q2_dividend, zmm3=q1f2_hi, zmm12=q2, SAVE=bb_lo, SAVE2=aa_hi
+	vaddpd	zmm2, zmm2, zmm5				;;*57-60; final_hi += q2f2_hi
+	vaddpd	zmm9, zmm9, zmm12				;;*57-60; final_hi += q2f2_hi
+	vaddpd	zmm16, zmm16, zmm19				;;*58-62; final_hi += q2f2_hi
 
-	vmovapd	zmm15, ZMMWORD PTR ZMM_FMA_RND_CONST3		;;	; Load 3.0 * pow (2.0, (double) (51))
-	vsubpd	zmm12, zmm12, zmm15				;;*28-31; q2 -= rounding const
-	vsubpd	zmm13, zmm13, zmm15				;;*28-31; q2 -= rounding const
-	vsubpd	zmm14, zmm14, zmm15				;;*29-32; q2 -= rounding const
-
-	vmovapd	zmm15, ZMMWORD PTR ZMM_FMA_RND_CONST2		;;	; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
-	vsubpd	zmm3, zmm3, zmm15				;; 29-32; q1f2_hi -= rounding const
-	vsubpd	zmm7, zmm7, zmm15				;; 30-33; q1f2_hi -= rounding const
-	vsubpd	zmm11, zmm11, zmm15				;; 30-33; q1f2_hi -= rounding const
-
-	yfnmaddpd zmm2, zmm12, ZMMWORD PTR ZMM_FMA_FAC_HI, zmm2	;;*32-35; Calc Q2*Fhi lo in one blow:  q2f1_lo = q2_dividend - q2 * fac_hi
-	yfnmaddpd zmm6, zmm13, ZMMWORD PTR ZMM_FMA_FAC_HIa, zmm6;;*32-35; Calc Q2*Fhi lo in one blow:  q2f1_lo = q2_dividend - q2 * fac_hi
-	yfnmaddpd zmm10, zmm14, ZMMWORD PTR ZMM_FMA_FAC_HIb, zmm10;;*33-36; Calc Q2*Fhi lo in one blow:  q2f1_lo = q2_dividend - q2 * fac_hi
-
-;; zmm1=final_hi, zmm2=q2f1_lo, zmm3=q1f2_hi, zmm12=q2, SAVE=bb_lo, SAVE2=aa_hi
-
-	yfnmaddpd zmm0, zmm12, ZMMWORD PTR ZMM_FMA_FAC_LO, zmm15;;*33-36; q2f2_hi = -q2 * fac_lo + rounding const
-	yfnmaddpd zmm4, zmm13, ZMMWORD PTR ZMM_FMA_FAC_LOa, zmm15;;*34-37; q2f2_hi = -q2 * fac_lo + rounding const
-	yfnmaddpd zmm8, zmm14, ZMMWORD PTR ZMM_FMA_FAC_LOb, zmm15;;*34-37; q2f2_hi = -q2 * fac_lo + rounding const
-
-;; zmm0=q2f2_hi, zmm1=final_hi, zmm2=q2f1_lo, zmm3=q1f2_hi, zmm12=q2, SAVE=bb_lo, SAVE2=aa_hi
-
- 	vaddpd	zmm2, zmm1, zmm2				;;*36-39; final_hi += q2f1_lo
- 	vaddpd	zmm6, zmm5, zmm6				;;*36-39; final_hi += q2f1_lo
- 	vaddpd	zmm10, zmm9, zmm10				;;*37-40; final_hi += q2f1_lo
-
-;; zmm0=q2f2_hi, zmm2=final_hi, zmm3=q1f2_hi, zmm12=q2, SAVE=bb_lo, SAVE2=aa_hi
-
-	vmovapd zmm1, zmm24			;;	; Reload aa_hi
-	vmovapd zmm5, zmm25		;;	; Reload aa_hi
-	vmovapd zmm9, zmm26		;;	; Reload aa_hi
-
-	yfmsubpd zmm1, zmm1, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LO[rdx], zmm3;; 35-38; q1f2_lo = aa_hi * twopowmodf_lo[rdx] - q1f2_hi
-	yfmsubpd zmm5, zmm5, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LOa[rdx], zmm7;; 35-38; q1f2_lo = aa_hi * twopowmodf_lo[rdx] - q1f2_hi
-	yfmsubpd zmm9, zmm9, ZMMWORD PTR ZMM_FMA_TWOPOW1_MODF_LOb[rdx], zmm11;; 37-40; q1f2_lo = aa_hi * twopowmodf_lo[rdx] - q1f2_hi  (push out)
-
-;; zmm0=q2f2_hi, zmm1=q1f2_lo, zmm2=final_hi, zmm3=q1f2_hi, zmm12=q2, SAVE=bb_lo
-
-	vsubpd	zmm0, zmm0, zmm15				;;*38-41; q2f2_hi -= rounding const
-	vsubpd	zmm4, zmm4, zmm15				;;*38-41; q2f2_hi -= rounding const
-	vsubpd	zmm8, zmm8, zmm15				;;*39-42; q2f2_hi -= rounding const
-
-	vmovapd zmm15, ZMMWORD PTR [r8][rdx]			;;	; 1-or-2
-	yfmaddpd zmm1, zmm15, zmm20, zmm1	;; 39-42; final_lo = one_or_two[rdx] * bb_lo + q1f2_lo;
-	yfmaddpd zmm5, zmm15, zmm21, zmm5	;; 40-43; final_lo = one_or_two[rdx] * bb_lo + q1f2_lo;
-	yfmaddpd zmm9, zmm15, zmm22, zmm9	;; 40-43; final_lo = one_or_two[rdx] * bb_lo + q1f2_lo;
-
-;; zmm0=q2f2_hi, zmm1=final_lo, zmm2=final_hi, zmm3=q1f2_hi, zmm12=q2
-
-	vaddpd	zmm2, zmm2, zmm3				;; 41-44; final_hi += q1f2_hi
-	vaddpd	zmm6, zmm6, zmm7				;; 41-44; final_hi += q1f2_hi
-	vaddpd	zmm10, zmm10, zmm11				;; 42-45; final_hi += q1f2_hi
-
-	yfnmsubpd zmm12, zmm12, ZMMWORD PTR ZMM_FMA_FAC_LO, zmm0;;*42-45; q2f2_lo = -q2 * fac_lo - q2f2_hi
-	yfnmsubpd zmm13, zmm13, ZMMWORD PTR ZMM_FMA_FAC_LOa, zmm4;;*43-46; q2f2_lo = -q2 * fac_lo - q2f2_hi
-	yfnmsubpd zmm14, zmm14, ZMMWORD PTR ZMM_FMA_FAC_LOb, zmm8;;*43-46; q2f2_lo = -q2 * fac_lo - q2f2_hi
-
-;; zmm0=q2f2_hi, zmm1=final_lo, zmm2=final_hi, zmm12=q2f2_lo
-
-	vaddpd	zmm2, zmm2, zmm0				;;*45-48; final_hi += q2f2_hi
-	vaddpd	zmm6, zmm6, zmm4				;;*45-48; final_hi += q2f2_hi
-	vaddpd	zmm10, zmm10, zmm8				;;*46-49; final_hi += q2f2_hi
-
-	vaddpd	zmm3, zmm1, zmm12				;;*46-49; final_lo += q2f2_lo
-	vaddpd	zmm7, zmm5, zmm13				;;*47-50; final_lo += q2f2_lo
-	vaddpd	zmm11, zmm9, zmm14				;;*47-50; final_lo += q2f2_lo
+	vaddpd	zmm3, zmm3, zmm6				;;*59-62; final_lo += q2f2_lo
+	vaddpd	zmm10, zmm10, zmm13				;;*59-62; final_lo += q2f2_lo
+	vaddpd	zmm17, zmm17, zmm20				;;*60-63; final_lo += q2f2_lo
 	ENDM
 
 ;; Check if remainder in zmm2,zmm3 is one indicating we found a factor!
@@ -4948,7 +4745,7 @@ avx512_fma_fac MACRO fac_size
 
 avx512_fma_compare MACRO
 	vaddpd	zmm2, zmm2, zmm3				;; Combine fac_hi & fac_lo
-	vaddpd	zmm6, zmm6, zmm7
-	vaddpd	zmm10, zmm10, zmm11
+	vaddpd	zmm9, zmm9, zmm10
+	vaddpd	zmm16, zmm16, zmm17
 	ENDM
 
