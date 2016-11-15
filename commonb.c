@@ -8430,7 +8430,7 @@ int primeTime (
 	unsigned long i, j, saved, save_limit, num_threads;
 	char	buf[120], fft_desc[100];
 	double	time, saved_times[SAVED_LIMIT];
-	int	days, hours, minutes, stop_reason;
+	int	days, hours, minutes, stop_reason, print_every_iter;
 	uint32_t *ASM_TIMERS;
 	uint32_t best_asm_timers[32] = {0};
 	double	timers[2];
@@ -8516,6 +8516,7 @@ int primeTime (
 /* Note that for reasons unknown, we've seen cases where printing out */
 /* the times on each iteration greatly impacts P4 timings. */
 
+	print_every_iter = IniGetInt (INI_FILE, "PrintTimedIterations", 1);
 	save_limit = (p <= 4000000) ? SAVED_LIMIT : 1;
 	for (i = 0, saved = 0; i < iterations; i++) {
 
@@ -8537,6 +8538,7 @@ int primeTime (
 /* Output timer squaring times */
 
 		if (saved == save_limit || i == iterations - 1) {
+			if (print_every_iter)
 			for (j = 0; j < saved; j++) {
 				sprintf (buf, "p: %lu.  Time: ", p);
 				timers[0] = saved_times[j];
