@@ -4200,7 +4200,10 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 		int	stop_reason;		// Error code from sieve initialization
 		void	*sieve_info;		// Handle to small primes sieving data
 
-		maxprime = IniGetInt (INI_FILE, "MaxTFSievePrime", (CPU_FLAGS & CPU_AVX512F) ? 135000 : 165000);  // 165K is Haswell optimized
+		maxprime = IniGetInt (INI_FILE, "MaxTFSievePrime",
+				      (CPU_FLAGS & CPU_AVX512F) ? 95000 :	// Knights Landing
+				      (CPU_FLAGS & CPU_FMA3) ? 165000 :		// 165K is Haswell optimized
+				      1000000);					// Need more data here
 		estimated_num_primes = (int) ((double) maxprime / (log ((double) maxprime) - 1.0) * 1.01);
 		asm_data->primearray = malloc (estimated_num_primes * sizeof (uint32_t));
 		if (asm_data->primearray == NULL) goto memerr;
@@ -4537,15 +4540,15 @@ int factorPassSetup (
 		ymm_data[28] = ymm_data[29] = ymm_data[30] = ymm_data[31] = pow ((double) 2.0, low_bits); /* YMM_FMA_TWO_TO_LO */
 	}
 
-/* Initialization for SSE2 / AVX2 / AVX512 code using 30-bit integers to factor numbers 64 bits and above */
-/* If using the SSE2 or AVX2 or AVX512 factoring code, we need to initialize much of the following data: */
-/*	ZMM_INITVAL		DD	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+/* Initialization for SSE2 / AVX2 code using 30-bit integers to factor numbers 64 bits and above */
+/* If using the SSE2 or AVX2 factoring code, we need to initialize much of the following data: */
+/*	YMM_INITVAL		DD	0,0,0,0,0,0,0,0
 	XMM_INIT120BS		DD	0,0
 	XMM_INITBS		DD	0,0
 	XMM_BS			DD	0,0
 	XMM_SHIFTER		DD	64 DUP (0) */
 
-	else if (bits_in_factor >= 64 && (asm_data->cpu_flags & (CPU_SSE2 | CPU_AVX2 | CPU_AVX512F))) {
+	else if (bits_in_factor >= 64 && (asm_data->cpu_flags & (CPU_SSE2 | CPU_AVX2))) {
 		uint32_t *xmm_data;
 		unsigned long p;
 
@@ -4555,16 +4558,14 @@ int factorPassSetup (
 		xmm_data = asm_data->xmm_data;
 		p = (unsigned long) asm_data->p;
 		for (i = 0; p > bits_in_factor + 59; i++) {
-			xmm_data[24+i*2] = (p & 1) ? 1 : 0;
+			xmm_data[16+i*2] = (p & 1) ? 1 : 0;
 			p >>= 1;
 		}
-		xmm_data[0] = xmm_data[2] =			/* XMM_INITVAL & YMM_INITVAL & ZMM_INITVAL */
-		xmm_data[4] = xmm_data[6] =
-		xmm_data[8] = xmm_data[10] =
-		xmm_data[12] = xmm_data[14] = p >= 90 ? 0 : (1 << (p - 60));
-		xmm_data[16] = 62 - (120 - bits_in_factor);	/* XMM_INIT120BS */
-		xmm_data[18] = 62 - (p - bits_in_factor);	/* XMM_INITBS */
-		xmm_data[20] = bits_in_factor - 61;		/* Set XMM_BS to 60 - (120 - fac_size + 1) as defined in factor64.mac */
+		xmm_data[0] = xmm_data[2] =			/* XMM_INITVAL & YMM_INITVAL */
+		xmm_data[4] = xmm_data[6] = p >= 90 ? 0 : (1 << (p - 60));
+		xmm_data[8] = 62 - (120 - bits_in_factor);	/* XMM_INIT120BS */
+		xmm_data[10] = 62 - (p - bits_in_factor);	/* XMM_INITBS */
+		xmm_data[12] = bits_in_factor - 61;		/* Set XMM_BS to 60 - (120 - fac_size + 1) as defined in factor64.mac */
 		asm_data->SSE2_LOOP_COUNTER = i;
 		asm_data->TWO_TO_FACSIZE_PLUS_62 = pow ((double) 2.0, (int) (bits_in_factor + 62));
 	}
@@ -4776,14 +4777,13 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 
 	gwmutex_lock (&facdata->thread_lock);
 	if (facdata->num_sievers_active < facdata->num_siever_threads && // There are inactive siever threads
-// spread sievers amongst aux_thread_nums??? so that a an I7 or KNL CPU doesn't end up with 2 sievers? we always want hyperthreads to be executing at least one TF thread
-	    aux_thread_num &&						// Don't let main thread sieve as it must frequently check for
-									// escape and output messages to screen
+	    (aux_thread_num & 1) &&			// Don't let main thread sieve as it must frequently check for escape and
+							// output messages to screen.  Also spread sievers amongst aux_thread_nums so
+							// that hyperthreaded CPUs put at least one TF thread on each physical CPU.
 	    facdata->num_free_sieve_areas &&				// There are sieve areas free to work on
-// revisit these clauses
 	    (facdata->num_free_sieve_areas > 10 ||			// There are a significant number of free areas to fill
 	     facdata->num_free_sieve_areas > facdata->num_threads*2 ||	// There are a significant number of free areas to fill
-	     facdata->num_sieved_sieve_areas)) {			// There is no other work to do
+	     facdata->num_sieved_sieve_areas == 0)) {			// There is no other work to do
 
 /* Find inactive siever with the most work left to do */
 /* By definition, an uninitialized siever has the most work left to do */
