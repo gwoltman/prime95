@@ -2526,7 +2526,7 @@ avx_fma_fac_initval MACRO avx_level
 
 	vmovapd	ymm15, YMMWORD PTR YMM_FMA_RND_CONST3		;; Load 3.0 * pow (2.0, (double) (51))
 	vmovapd	ymm14, YMMWORD PTR YMM_FMA_RND_CONST2		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
-	lea	r8, YMM_FMA_ONE_OR_TWO				;; Addess of 1.0 or 2.0
+	lea	r8, YMM_FMA_ONE_OR_TWO				;; Address of 1.0 or 2.0
 
 ;; Convert factor from 2 integers into 2 doubles
 
@@ -2929,7 +2929,7 @@ avx_fma_fac_initval MACRO avx_level
 
 	vmovapd	ymm15, YMMWORD PTR YMM_FMA_RND_CONST3		;; Load 3.0 * pow (2.0, (double) (51))
 	vmovapd	ymm14, YMMWORD PTR YMM_FMA_RND_CONST2		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
-	lea	r8, YMM_FMA_ONE_OR_TWO				;; Addess of 1.0 or 2.0
+	lea	r8, YMM_FMA_ONE_OR_TWO				;; Address of 1.0 or 2.0
 
 ;; Convert factor from 2 integers into 2 doubles
 
@@ -3651,7 +3651,7 @@ avx512_fma_fac_initval MACRO
 
 	vmovapd	zmm31, ZMMWORD PTR ZMM_FMA_RND_CONST3		;; Load 3.0 * pow (2.0, (double) (51))
 	vmovapd	zmm30, ZMMWORD PTR ZMM_FMA_RND_CONST2		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
-	lea	r8, ZMM_FMA_ONE_OR_TWO				;; Addess of 1.0 or 2.0
+	lea	r8, ZMM_FMA_ONE_OR_TWO				;; Address of 1.0 or 2.0
 
 ;; Convert factor from 2 integers into 2 doubles
 

@@ -375,7 +375,6 @@ ZMM_FMA_RND_CONST3	DQ 	6755399441055744.0,6755399441055744.0,6755399441055744.0,
 ZMM_FMA_ONE_OR_TWO TEXTEQU <ZMM_FMA_ONE>
 ZMM_FMA_ONE		DQ	1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0
 ZMM_FMA_TWO		DQ	2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0
-ZMM_FMA_ZERO		DQ	0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
 
 ;FOO1			DQ	15				;; The easy way to debug - enter the known factor here
 ;FOO2			DQ	1577855855906095289
@@ -4522,9 +4521,10 @@ floop96:avx_fma_fac
 ; If result = factor + 1, then we found a divisor of 2**p - 1
 
 	avx_fma_compare
-	vcmpeqpd ymm2, ymm2, YMMWORD PTR YMM_FMA_ONE	; See if any remainder is 1
-	vcmpeqpd ymm6, ymm6, YMMWORD PTR YMM_FMA_ONE	; See if any remainder is 1
-	vcmpeqpd ymm10, ymm10, YMMWORD PTR YMM_FMA_ONE	; See if any remainder is 1
+	vmovapd	ymm0, YMMWORD PTR YMM_FMA_ONE	; See if any remainder is 1
+	vcmpeqpd ymm2, ymm2, ymm0
+	vcmpeqpd ymm6, ymm6, ymm0
+	vcmpeqpd ymm10, ymm10, ymm0
 	vorpd	ymm0, ymm2, ymm6
 	vorpd	ymm0, ymm0, ymm10
 	vptest	ymm0, ymm0
@@ -4647,10 +4647,11 @@ zfloop96:avx512_fma_fac
 ; If result = factor + 1, then we found a divisor of 2**p - 1
 
 	avx512_fma_compare
-	vpcmpeqq k1, zmm2, ZMMWORD PTR ZMM_FMA_ONE	; See if any remainder is 1
-	vpcmpeqq k2, zmm9, ZMMWORD PTR ZMM_FMA_ONE	; See if any remainder is 1
-	vpcmpeqq k3, zmm16, ZMMWORD PTR ZMM_FMA_ONE	; See if any remainder is 1
-	vpcmpeqq k4, zmm23, ZMMWORD PTR ZMM_FMA_ONE	; See if any remainder is 1
+	vmovapd	zmm0, ZMMWORD PTR ZMM_FMA_ONE	; See if any remainder is 1
+	vcmpeqpd k1, zmm2, zmm0
+	vcmpeqpd k2, zmm9, zmm0
+	vcmpeqpd k3, zmm16, zmm0
+	vcmpeqpd k4, zmm23, zmm0
 	korw	k5, k1, k2
 	korw	k5, k5, k3
 	kortestw k5, k4
