@@ -295,6 +295,11 @@ The TF code uses a small prime sieve to eliminate composite trial factors.
 Set x to the maximum small prime used by this sieve.  When multithreading TF,
 set y to be the percentage of threads that can be running the small prime sieve.
 
+You can disable the display of every iteration's timing when using Advanced/Time
+leaving just the ending summary.  Useful for machines with lots of cores.
+Put this line in prime.txt:
+	PrintTimedIterations=0
+
 WINDOWS ONLY:  When Tray Icon or No Icon is selected the "X" at the right of
 the title bar will minimize rather than exit.  You can make the program exit
 if you prefer.  In prime.txt set:
