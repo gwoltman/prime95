@@ -3639,6 +3639,14 @@ avx_fma_compare MACRO
 ;; The AVX-512 FMA versions of the above macros (32 factors at a time)
 ;;********************************************************************
 
+;; Preload constants
+
+avx512_fma_fac_init_once MACRO
+	vbroadcastsd zmm31, QWORD PTR ZMM_FMA_RND_CONST3	;; Load 3.0 * pow (2.0, (double) (51))
+	vbroadcastsd zmm30, QWORD PTR ZMM_FMA_RND_CONST2	;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
+	lea	r13, ZMM_FMA_ONE_OR_TWO				;; Address of 1.0 or 2.0
+	ENDM
+
 ; This macro does some initialization work and then performs a subset of the
 ; main loop working on the initial value.  This subset avoids the squaring of the
 ; remainder.  The initial value can be up to 60 bits larger than the factor
@@ -3647,15 +3655,9 @@ avx_fma_compare MACRO
 avx512_fma_fac_initval MACRO
 	LOCAL	large_initial_value, small_initial_value, equals_split, done
 
-;; Preload constants
-
-	vmovapd	zmm31, ZMMWORD PTR ZMM_FMA_RND_CONST3		;; Load 3.0 * pow (2.0, (double) (51))
-	vmovapd	zmm30, ZMMWORD PTR ZMM_FMA_RND_CONST2		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW))
-	lea	r8, ZMM_FMA_ONE_OR_TWO				;; Address of 1.0 or 2.0
-
 ;; Convert factor from 2 integers into 2 doubles
 
-	vmovapd	zmm29, ZMMWORD PTR ZMM_FMA_LOW_MASK		;; Mask for acquiring low bits
+	vpbroadcastq zmm29, QWORD PTR ZMM_FMA_LOW_MASK		;; Mask for acquiring low bits
 	vpandq	zmm0, zmm29, ZMMWORD PTR ZMM_FMA_FAC_LO_INT	;; Load integer factor low
 	vpandq	zmm7, zmm29, ZMMWORD PTR ZMM_FMA_FAC_LO_INTa	;; Load integer factor low
 	vpandq	zmm14, zmm29, ZMMWORD PTR ZMM_FMA_FAC_LO_INTb	;; Load integer factor low
@@ -3671,7 +3673,7 @@ avx512_fma_fac_initval MACRO
 	vporq	zmm16, zmm31, ZMMWORD PTR ZMM_FMA_FAC_HI_INTb	;; Load integer factor hi
 	vporq	zmm23, zmm31, ZMMWORD PTR ZMM_FMA_FAC_HI_INTc	;; Load integer factor hi
 
-	vmovapd	zmm29, ZMMWORD PTR ZMM_FMA_TWO_TO_LO		;; Constant for converting integer factor hi
+	vbroadcastsd zmm29, QWORD PTR ZMM_FMA_TWO_TO_LO		;; Constant for converting integer factor hi
 	yfmsubpd zmm2, zmm2, zmm29, zmm30			;; Convert integer factor hi to double times 2^lo
 	yfmsubpd zmm9, zmm9, zmm29, zmm30			;; Convert integer factor hi to double times 2^lo
 	yfmsubpd zmm16, zmm16, zmm29, zmm30			;; Convert integer factor hi to double times 2^lo
@@ -3713,7 +3715,7 @@ avx512_fma_fac_initval MACRO
 
 ;; zmm0 = fac_lo, zmm1 = facinv, zmm2 = fac_hi, zmm27 = 1.0
 
-	vmovapd	zmm29, ZMMWORD PTR ZMM_FMA_RND_CONST4		;; Load (3.0 * 2^51) * 2^-split
+	vbroadcastsd zmm29, QWORD PTR ZMM_FMA_RND_CONST4	;; Load (3.0 * 2^51) * 2^-split
 	vaddpd	zmm3, zmm1, zmm29				;; q = 1.0 * facinv + rounding const
 	vaddpd	zmm10, zmm8, zmm29				;; q = 1.0 * facinv + rounding const
 	vaddpd	zmm17, zmm15, zmm29				;; q = 1.0 * facinv + rounding const
@@ -3731,7 +3733,7 @@ avx512_fma_fac_initval MACRO
 	vsubpd	zmm11, zmm11, zmm29				;; q2 -= rounding const
 	vsubpd	zmm18, zmm18, zmm29				;; q2 -= rounding const
 	vsubpd	zmm25, zmm25, zmm29				;; q2 -= rounding const
-	vmovapd	zmm29, ZMMWORD PTR ZMM_FMA_RND_CONST5		;; Load (3.0 * 2^(51 + LOW_BITS)) * 2^-split
+	vbroadcastsd zmm29, QWORD PTR ZMM_FMA_RND_CONST5	;; Load (3.0 * 2^(51 + LOW_BITS)) * 2^-split
 	yfnmaddpd zmm5, zmm3, zmm0, zmm29			;; hi_addin = -q * fac_lo + rounding const
 	yfnmaddpd zmm12, zmm10, zmm7, zmm29			;; hi_addin = -q * fac_lo + rounding const
 	yfnmaddpd zmm19, zmm17, zmm14, zmm29			;; hi_addin = -q * fac_lo + rounding const
@@ -3810,7 +3812,7 @@ avx512_fma_fac_initval MACRO
 
 ;; Easiest case of all!  Remainder is either twopow1_modf or twopow2_modf
 
-	vmovapd	zmm28, ZMMWORD PTR ZMM_FMA_TWOPOW_SPLIT		;; Load 2^split
+	vbroadcastsd zmm28, QWORD PTR ZMM_FMA_TWOPOW_SPLIT	;; Load 2^split
 	cmp	FMA_INITVAL_TYPE, 1
 	je	short equals_split
 	vmulpd	zmm2, zmm28, zmm5				;; Return twopow2_modf
@@ -3852,8 +3854,8 @@ large_initial_value:
 
 ;; zmm0 = fac_lo, zmm2 = fac_hi, zmm4 = twopow2modf_lo, zmm5 = twopow2modf_hi
 
-	vmovapd	zmm28, ZMMWORD PTR ZMM_FMA_INITVAL		;; Load the initial squared value/2 (known as aa_hi in main loop)
-	vmovapd	zmm29, ZMMWORD PTR ZMM_FMA_RND_CONST1		;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW * 2))
+	vbroadcastsd zmm28, QWORD PTR ZMM_FMA_INITVAL		;; Load the initial squared value/2 (known as aa_hi in main loop)
+	vbroadcastsd zmm29, QWORD PTR ZMM_FMA_RND_CONST1	;; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW * 2))
 	yfmaddpd zmm3, zmm28, zmm5, zmm29			;; q1f1_hi = aa_hi * twopow2modf_hi + rounding const
 	yfmaddpd zmm10, zmm28, zmm12, zmm29			;; q1f1_hi = aa_hi * twopow2modf_hi + rounding const
 	yfmaddpd zmm17, zmm28, zmm19, zmm29			;; q1f1_hi = aa_hi * twopow2modf_hi + rounding const
@@ -3941,7 +3943,7 @@ large_initial_value:
 ;; zmm0 = fac_lo, zmm2 = fac_hi
 
 small_initial_value:
-	vmovapd	zmm28, ZMMWORD PTR ZMM_FMA_INITVAL		;; Load the initial squared value
+	vbroadcastsd zmm28, QWORD PTR ZMM_FMA_INITVAL		;; Load the initial squared value
 	yfmaddpd zmm3, zmm28, ZMMWORD PTR ZMM_FMA_INVFAC, zmm31	;; q = initial_value * facinv + rounding const
 	yfmaddpd zmm10, zmm28, ZMMWORD PTR ZMM_FMA_INVFACa, zmm31;; q = initial_value * facinv + rounding const
 	yfmaddpd zmm17, zmm28, ZMMWORD PTR ZMM_FMA_INVFACb, zmm31;; q = initial_value * facinv + rounding const
@@ -4025,13 +4027,13 @@ avx512_fma_fac MACRO fac_size
 ;; zmm0-6 reserved for set 1, zmm7-13 reserved for set 2
 ;; zmm14-20 reserved for set 3, zmm21-27 reserved for set 4, zmm28-31 is for common use
 
-	vmovapd	zmm28, ZMMWORD PTR ZMM_FMA_RND_CONST0		;;	; Load 3.0 * pow (2.0, (double) (51 + BITS_TOTAL + (BITS_TOTAL + 1) / 2))
+	vbroadcastsd zmm28, QWORD PTR ZMM_FMA_RND_CONST0	;;	; Load 3.0 * pow (2.0, (double) (51 + BITS_TOTAL + (BITS_TOTAL + 1) / 2))
 	yfmaddpd zmm0, zmm2, zmm2, zmm28			;;*1-4	; aa_hi = rem_hi * rem_hi + rounding const
 	yfmaddpd zmm7, zmm9, zmm9, zmm28			;;*1-4	; aa_hi = rem_hi * rem_hi + rounding const
 	yfmaddpd zmm14, zmm16, zmm16, zmm28			;;*2-5	; aa_hi = rem_hi * rem_hi + rounding const
 	yfmaddpd zmm21, zmm23, zmm23, zmm28			;;*2-5	; aa_hi = rem_hi * rem_hi + rounding const
 
-	vmovapd	zmm29, ZMMWORD PTR ZMM_FMA_RND_CONST1		;;	; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW * 2))
+	vbroadcastsd zmm29, QWORD PTR ZMM_FMA_RND_CONST1	;;	; Load 3.0 * pow (2.0, (double) (51 + BITS_LOW * 2))
 	yfmaddpd zmm1, zmm2, zmm3, zmm29			;;*3-6	; ab_hi = rem_hi * rem_lo + rounding const
 	yfmaddpd zmm8, zmm9, zmm10, zmm29			;;*3-6	; ab_hi = rem_hi * rem_lo + rounding const
 	yfmaddpd zmm15, zmm16, zmm17, zmm29			;;*4-7	; ab_hi = rem_hi * rem_lo + rounding const
@@ -4089,7 +4091,7 @@ avx512_fma_fac MACRO fac_size
 
 ;; zmm0=aa_hi, zmm2=ab_lo, zmm3=rem_lo, zmm4=q2_dividend, zmm5=q1f1_hi
 
-	vmovapd zmm29, ZMMWORD PTR [r8][rdx]			;;	; 1-or-2
+	vmovapd zmm29, ZMMWORD PTR [r13][rdx]			;;	; 1-or-2
 	yfmaddpd zmm4, zmm29, zmm4, zmm5			;;*19-22; q2_dividend = 1-or-2 * q2_dividend + q1f1_hi
 	yfmaddpd zmm11, zmm29, zmm11, zmm12			;;*19-22; q2_dividend = 1-or-2 * q2_dividend + q1f1_hi
 	yfmaddpd zmm18, zmm29, zmm18, zmm19			;;*20-23; q2_dividend = 1-or-2 * q2_dividend + q1f1_hi
