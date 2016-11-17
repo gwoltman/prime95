@@ -3951,7 +3951,7 @@ struct facasm_data {
 	uint32_t pad[4];		/* Pad to next 64-byte cache line */
 	uint32_t xmm_data[80];		/* XMM/YMM/ZMM data initialized in C code */
 
-	uint32_t other_asm_temps_and_consts[1000];
+	uint32_t other_asm_temps_and_consts[600];
 };
 
 /* This defines the factoring data handled in C code.  The handle */
@@ -4411,15 +4411,15 @@ int factorPassSetup (
 /* Initialization for AVX512 FMA code using 2 doubles to factor numbers 45 bits and above. */
 /* We need to initialize the following data: */
 /*	FMA_SHIFTER		DD	32 DUP (0)	; Up to 32 dword shifter values
-	ZMM_FMA_LOW_MASK	DQ	8 DUP		; Mask for low bits
-	ZMM_FMA_RND_CONST0	DQ	8 DUP		; 3 * 2^(51 + SPLIT_POINT)
-	ZMM_FMA_RND_CONST1	DQ	8 DUP		; 3 * 2^(51 + BITS_IN_LO_WORD*2)
-	ZMM_FMA_RND_CONST2	DQ	8 DUP		; 3 * 2^(51 + BITS_IN_LO_WORD)
-	ZMM_FMA_RND_CONST4	DQ	8 DUP		; 3 * 2^(51 - SPLIT_POINT)
-	ZMM_FMA_RND_CONST5	DQ	8 DUP		; 3 * 2^(51 + BITS_IN_LO_WORD - SPLIT_POINT)
-	ZMM_FMA_INITVAL		DQ	8 DUP		; Initial squared value (a power of two)
-	ZMM_FMA_TWOPOW_SPLIT	DQ	8 DUP		; 2^SPLIT_POINT
-	ZMM_FMA_TWO_TO_LO	DQ	8 DUP		; 2^BITS_IN_LO_WORD
+	ZMM_FMA_LOW_MASK	DQ	0		; Mask for low bits
+	ZMM_FMA_RND_CONST0	DQ	0		; 3 * 2^(51 + SPLIT_POINT)
+	ZMM_FMA_RND_CONST1	DQ	0		; 3 * 2^(51 + BITS_IN_LO_WORD*2)
+	ZMM_FMA_RND_CONST2	DQ	0		; 3 * 2^(51 + BITS_IN_LO_WORD)
+	ZMM_FMA_RND_CONST4	DQ	0		; 3 * 2^(51 - SPLIT_POINT)
+	ZMM_FMA_RND_CONST5	DQ	0		; 3 * 2^(51 + BITS_IN_LO_WORD - SPLIT_POINT)
+	ZMM_FMA_INITVAL		DQ	0		; Initial squared value (a power of two)
+	ZMM_FMA_TWOPOW_SPLIT	DQ	0		; 2^SPLIT_POINT
+	ZMM_FMA_TWO_TO_LO	DQ	0		; 2^BITS_IN_LO_WORD
 */
 
 	if (bits_in_factor >= 45 && (asm_data->cpu_flags & CPU_AVX512F)) {
@@ -4454,29 +4454,19 @@ int factorPassSetup (
 		asm_data->SSE2_LOOP_COUNTER = i;
 
 		zmm64_data = (uint64_t *) &dword_data[32];
-		zmm64_data[0] = zmm64_data[1] = zmm64_data[2] = zmm64_data[3] =
-		zmm64_data[4] = zmm64_data[5] = zmm64_data[6] = zmm64_data[7] = (1ULL << low_bits) - 1; /* ZMM_FMA_LOW_MASK */
-		zmm_data = (double *) &zmm64_data[8];
-		zmm_data[0] = zmm_data[1] = zmm_data[2] = zmm_data[3] =
-		zmm_data[4] = zmm_data[5] = zmm_data[6] = zmm_data[7] = 3.0 * pow ((double) 2.0, (51 + split_bits)); /* ZMM_FMA_RND_CONST0 */
-		zmm_data[8] = zmm_data[9] = zmm_data[10] = zmm_data[11] =
-		zmm_data[12] = zmm_data[13] = zmm_data[14] = zmm_data[15] = 3.0 * pow ((double) 2.0, (51 + 2*low_bits)); /* ZMM_FMA_RND_CONST1 */
-		zmm_data[16] = zmm_data[17] = zmm_data[18] = zmm_data[19] =
-		zmm_data[20] = zmm_data[21] = zmm_data[22] = zmm_data[23] = 3.0 * pow ((double) 2.0, (51 + low_bits)); /* ZMM_FMA_RND_CONST2 */
-		zmm_data[24] = zmm_data[25] = zmm_data[26] = zmm_data[27] =
-		zmm_data[28] = zmm_data[29] = zmm_data[30] = zmm_data[31] = 3.0 * pow ((double) 2.0, (51 - split_bits)); /* ZMM_FMA_RND_CONST4 */
-		zmm_data[32] = zmm_data[33] = zmm_data[34] = zmm_data[35] =
-		zmm_data[36] = zmm_data[37] = zmm_data[38] = zmm_data[39] = 3.0 * pow ((double) 2.0, (51 + low_bits - split_bits)); /* ZMM_FMA_RND_CONST5 */
+		zmm64_data[0] = (1ULL << low_bits) - 1; /* ZMM_FMA_LOW_MASK */
+		zmm_data = (double *) &zmm64_data[1];
+		zmm_data[0] = 3.0 * pow ((double) 2.0, (51 + split_bits)); /* ZMM_FMA_RND_CONST0 */
+		zmm_data[1] = 3.0 * pow ((double) 2.0, (51 + 2*low_bits)); /* ZMM_FMA_RND_CONST1 */
+		zmm_data[2] = 3.0 * pow ((double) 2.0, (51 + low_bits)); /* ZMM_FMA_RND_CONST2 */
+		zmm_data[3] = 3.0 * pow ((double) 2.0, (51 - split_bits)); /* ZMM_FMA_RND_CONST4 */
+		zmm_data[4] = 3.0 * pow ((double) 2.0, (51 + low_bits - split_bits)); /* ZMM_FMA_RND_CONST5 */
 		if ((int) p > split_bits+1)
-			zmm_data[40] = zmm_data[41] = zmm_data[42] = zmm_data[43] =
-			zmm_data[44] = zmm_data[45] = zmm_data[46] = zmm_data[47] = pow ((double) 2.0, (double) (p-1)); /* ZMM_FMA_INITIAL_VALUE */
+			zmm_data[5] = pow ((double) 2.0, (double) (p-1)); /* ZMM_FMA_INITIAL_VALUE */
 		else
-			zmm_data[40] = zmm_data[41] = zmm_data[42] = zmm_data[43] =
-			zmm_data[44] = zmm_data[45] = zmm_data[46] = zmm_data[47] = pow ((double) 2.0, (double) p); /* ZMM_FMA_INITIAL_VALUE */
-		zmm_data[48] = zmm_data[49] = zmm_data[50] = zmm_data[51] =
-		zmm_data[52] = zmm_data[53] = zmm_data[54] = zmm_data[55] = pow ((double) 2.0, split_bits); /* ZMM_FMA_TWOPOW_SPLIT */
-		zmm_data[56] = zmm_data[57] = zmm_data[58] = zmm_data[59] =
-		zmm_data[60] = zmm_data[61] = zmm_data[62] = zmm_data[63] = pow ((double) 2.0, low_bits); /* ZMM_FMA_TWO_TO_LO */
+			zmm_data[5] = pow ((double) 2.0, (double) p); /* ZMM_FMA_INITIAL_VALUE */
+		zmm_data[6] = pow ((double) 2.0, split_bits); /* ZMM_FMA_TWOPOW_SPLIT */
+		zmm_data[7] = pow ((double) 2.0, low_bits); /* ZMM_FMA_TWO_TO_LO */
 	}
 
 /* Initialization for AVX or AVX2 FMA code using 2 doubles to factor numbers 45 bits and above. */
@@ -5097,9 +5087,9 @@ int primeFactor (
 
 /* Note: The non-SSE2 code cannot handle factoring 80 bits and above. */
 
-	if (test_bits > 79 && !(facdata.asm_data->cpu_flags & (CPU_SSE2 | CPU_AVX | CPU_AVX2 | CPU_FMA3 | CPU_AVX512F))) {
-		OutputBoth (thread_num, "Non-SSE2 trial factoring code cannot go above 2^79.\n");
-		test_bits = 79;
+	if (test_bits > 78 && !(facdata.asm_data->cpu_flags & (CPU_SSE2 | CPU_AVX | CPU_AVX2 | CPU_FMA3 | CPU_AVX512F))) {
+		OutputBoth (thread_num, "Non-SSE2 trial factoring code cannot go above 2^78.\n");
+		test_bits = 78;
 	}
 
 /* Check for a v24 continuation file.  These were named pXXXXXXX.  The */
@@ -5471,11 +5461,11 @@ nextpass:	;
 				(unsigned int) w->sieve_depth : bits;
 		if (start_bits < 32)
 		    sprintf (buf,
-			     "M%ld no factor to 2^%d, Wf%d: %08lX\n",
+			     "M%ld no factor to 2^%d, Wg%d: %08lX\n",
 			     p, end_bits, PORT, SEC3 (p));
 		else
 		    sprintf (buf,
-			     "M%ld no factor from 2^%d to 2^%d, Wf%d: %08lX\n",
+			     "M%ld no factor from 2^%d to 2^%d, Wg%d: %08lX\n",
 			     p, start_bits, end_bits, PORT, SEC3 (p));
 		OutputStr (thread_num, buf);
 		formatMsgForResultsFile (buf, w);
@@ -8304,7 +8294,7 @@ int primeSieveTest (
 			fclose (fd);
 			return (stop_reason);
 		}
-		if (fachi >= 32768 && !(facdata.asm_data->cpu_flags & (CPU_SSE2 | CPU_AVX | CPU_AVX2 | CPU_FMA3 | CPU_AVX512F))) {
+		if (fachi >= 16384 && !(facdata.asm_data->cpu_flags & (CPU_SSE2 | CPU_AVX | CPU_AVX2 | CPU_FMA3 | CPU_AVX512F))) {
 			sprintf (buf, "%ld %s factor too big.\n", p, fac);
 			OutputBoth (thread_num, buf);
 			factorDone (&facdata);
