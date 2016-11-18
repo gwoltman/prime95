@@ -4160,6 +4160,14 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 	}
 	memset (asm_data, 0, sizeof (struct facasm_data));
 
+/* Init asm_data.  Note the default is to not use SSE2 TF code in 64-bit mode (unlike 32-bit prime95). */
+/* This decision was made years ago when, IIRC, Opteron's were faster using the non-SSE2 code */
+/* and the Intel CPUs were ambivalent. */
+
+	asm_data->p = p;
+	asm_data->cpu_flags = CPU_FLAGS;
+	if (!IniGetInt (LOCALINI_FILE, "FactorUsingSSE2", 0)) asm_data->cpu_flags &= ~CPU_SSE2;
+
 /* Initialize maximum number of siever threads (based on a percent specified in the INI file) */
 /* For most architectures one siever can easily keep four TF threads busy. */
 /* For FMA architectures (our fastest TF code), one siever does not keep 4 TF threads busy, we'll try a default of 33%. */
@@ -4185,6 +4193,13 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 	else if (facdata->num_siever_threads <= 30) facdata->num_siever_groups = 35, facdata->num_siever_allocs = 30;
 	else if (facdata->num_siever_threads <= 60) facdata->num_siever_groups = 77, facdata->num_siever_allocs = 60;
 	else facdata->num_siever_groups = 154, facdata->num_siever_allocs = 120;
+
+	// I think it will be more efficient to always run with 60 or more siever allocs.  If so, we should
+	// upgrade the single-threaded code to work with multiple siever allocs.
+	if (facdata->num_siever_threads > 1 &&
+	    facdata->num_siever_allocs < 60 &&
+	    IniGetInt (INI_FILE, "UseMaxSieverAllocs", 1))
+		facdata->num_siever_groups = 77, facdata->num_siever_allocs = 60;
 
 	if (facdata->num_siever_groups % 11 == 0) facdata->initsieve_primes = INITSIEVE_PRIMES3;
 	else if (facdata->num_siever_groups % 7 == 0) facdata->initsieve_primes = INITSIEVE_PRIMES2;
@@ -4214,7 +4229,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 		for (num_small_primes = 0; num_small_primes < estimated_num_primes; ) {
 			prime = (int) sieve (sieve_info);
 			if (prime > maxprime) break;
-			if (prime == asm_data->p) continue;			// Rare case: TF where exponent <= maxprime
+			if (prime == p) continue;				// Rare case: TF where exponent <= maxprime
 			if (facdata->num_siever_groups % prime == 0) continue;	// Don't add primes that are handled by facdist
 			if (facdata->initsieve_primes % prime == 0) continue;	// Don't add primes that are handled by initsieve
 			*primearray++ = prime;	// Save the small prime
@@ -4265,14 +4280,6 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 /* to start copying data from the sieve initializer array.  This modular inverse lets us do that. */
 
 	facdata->one_eighth_initsieve_primes = (uint32_t) modinv (8 * asm_data->facdists[1], facdata->initsieve_primes);
-
-/* Init.  Note the default is to not use SSE2 TF code in 64-bit mode (unlike 32-bit prime95). */
-/* This decision was made years ago when, IIRC, Opteron's were faster using the non-SSE2 code */
-/* and the Intel CPUs were ambivalent. */
-
-	asm_data->p = p;
-	asm_data->cpu_flags = CPU_FLAGS;
-	if (!IniGetInt (LOCALINI_FILE, "FactorUsingSSE2", 0)) asm_data->cpu_flags &= ~CPU_SSE2;
 
 /* Init thread arrays */
 
@@ -4407,6 +4414,7 @@ int factorPassSetup (
 	if (fachsw) i = fachsw, bits_in_factor = 64;
 	else i = facmsw, bits_in_factor = 32;
 	while (i) bits_in_factor++, i >>= 1;
+	if (bits_in_factor < 50) bits_in_factor = 50;		// PrimeFactor does 2^44 to 2^50 in one pass
 
 /* Initialization for AVX512 FMA code using 2 doubles to factor numbers 45 bits and above. */
 /* We need to initialize the following data: */
@@ -4431,7 +4439,6 @@ int factorPassSetup (
 
 /* Calculate where we split rem_hi^2 (see ASM code in factor64.mac for full algorithm).  Calculate bits of precision in low double. */
 
-		if (bits_in_factor < 50) bits_in_factor = 50;		// PrimeFactor does 2^44 to 2^50 in one pass
 		split_bits = bits_in_factor + (bits_in_factor + 1) / 2;
 		low_bits = (split_bits - 52 + 1) / 2;
 
@@ -4469,7 +4476,7 @@ int factorPassSetup (
 		zmm_data[7] = pow ((double) 2.0, low_bits); /* ZMM_FMA_TWO_TO_LO */
 	}
 
-/* Initialization for AVX or AVX2 FMA code using 2 doubles to factor numbers 45 bits and above. */
+/* Initialization for FMA code using 2 doubles to factor numbers 45 bits and above. */
 /* We need to initialize the following data: */
 /*	FMA_SHIFTER		DD	32 DUP (0)	; Up to 32 dword shifter values
 	YMM_FMA_LOW_MASK	DQ	4 DUP		; Mask for low bits
@@ -4492,7 +4499,6 @@ int factorPassSetup (
 
 /* Calculate where we split rem_hi^2 (see ASM code in factor64.mac for full algorithm).  Calculate bits of precision in low double. */
 
-		if (bits_in_factor < 50) bits_in_factor = 50;		// PrimeFactor does 2^44 to 2^50 in one pass
 		split_bits = bits_in_factor + (bits_in_factor + 1) / 2;
 		low_bits = (split_bits - 52 + 1) / 2;
 
@@ -4565,7 +4571,7 @@ int factorPassSetup (
 	facdata->total_num_areas_to_sieve = 0;
 	for (i = 0; (int) i < facdata->num_siever_allocs; i++) {
 		uint64_t savefac0, savefac1;
-		double temp, next_pow_2, first_factor;
+		double next_pow_2, first_factor;
 
 /* In first siever, use fachsw/facmsw to calculate first factor */
 
@@ -4613,14 +4619,15 @@ int factorPassSetup (
 		facdata->siever_info[i].next_sieve_first_factor[1] = savefac1;
 		facdata->siever_info[i].state = SIEVER_UNINITIALIZED;
 
-/* Calculate number of calls we will need to make to factor64_sieve */
+/* Calculate number of calls we will need to make to factor64_sieve.  Be careful when reading a save file, the first */
+/* factor could be just over the next power of two meaning there are no areas to sieve. */
 
 		first_factor = (double) savefac0 * pow (2.0, 64.0) + (double) savefac1;
-		temp = log (first_factor) / log (2.0);
-		temp = floor (temp) + 1.0;
-		if (temp < 50.0) temp = 50.0;		// primeFactor lumps 2^44 to 2^50 in one big "bit-level"
-		next_pow_2 = pow (2.0, temp);
-		facdata->siever_info[i].num_areas_to_sieve = (uint64_t) ((next_pow_2 - first_factor) / (double) asm_data->facdist12K) + 1;
+		if (log (first_factor) / log (2.0) < (double) bits_in_factor) {
+			next_pow_2 = pow (2.0, (double) bits_in_factor);
+			facdata->siever_info[i].num_areas_to_sieve = (uint64_t) ((next_pow_2 - first_factor) / (double) asm_data->facdist12K) + 1;
+		} else
+			facdata->siever_info[i].num_areas_to_sieve = 0;
 		facdata->total_num_areas_to_sieve += facdata->siever_info[i].num_areas_to_sieve;
 	}
 
@@ -4638,7 +4645,7 @@ int factorPassSetup (
 	facdata->num_chunks_TFed = 0;
 	facdata->last_sieve_area_for_sieve = 0;
 	facdata->last_sieve_area_for_tf = 0;
-
+	
 /* Signal the auxiliary threads to resume working */
 /* This will copy the main thread's now properly initialized asm_data to each auxiliary thread */
 
@@ -4824,10 +4831,10 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 				best_siever_initialized = TRUE;
 			}
 			factor64_sieve (asm_data);
-			best_siever->next_sieve_first_factor[0] = asm_data->savefac0; /* Remember next sieve's first factor */
-			best_siever->next_sieve_first_factor[1] = asm_data->savefac1;
 			best_siever->num_areas_to_sieve--;
 			gwmutex_lock (&facdata->thread_lock);
+			best_siever->next_sieve_first_factor[0] = asm_data->savefac0; /* Remember next sieve's first factor */
+			best_siever->next_sieve_first_factor[1] = asm_data->savefac1;
 			facdata->total_num_areas_to_sieve--;
 			facdata->sieve_area[i].state = SIEVE_AREA_SIEVED;
 			facdata->num_sieved_sieve_areas++;
@@ -5085,10 +5092,10 @@ int primeFactor (
 
 	set_memory_usage (thread_num, 0, 1);
 
-/* Note: The non-SSE2 code cannot handle factoring 80 bits and above. */
+/* Note: The non-SSE2 code cannot handle factoring 79 bits and above. */
 
-	if (test_bits > 78 && !(facdata.asm_data->cpu_flags & (CPU_SSE2 | CPU_AVX | CPU_AVX2 | CPU_FMA3 | CPU_AVX512F))) {
-		OutputBoth (thread_num, "Non-SSE2 trial factoring code cannot go above 2^78.\n");
+	if (test_bits > 78 && !(facdata.asm_data->cpu_flags & (CPU_SSE2 | CPU_AVX2 | CPU_FMA3 | CPU_AVX512F))) {
+		OutputBoth (thread_num, "Pre-SSE2 trial factoring code cannot go above 2^78.\n");
 		test_bits = 78;
 	}
 
@@ -5165,7 +5172,8 @@ int primeFactor (
 			    read_long (fd, &fachsw, NULL) &&
 			    read_long (fd, &facmsw, NULL) &&
 			    read_long (fd, &endpthi, NULL) &&
-			    read_long (fd, &endptlo, NULL)) {
+			    read_long (fd, &endptlo, NULL) &&
+			    (fachsw < endpthi || (fachsw == endpthi && facmsw < endptlo))) {
 				facdata.asm_data->FACHSW = fachsw;
 				facdata.asm_data->FACMSW = facmsw;
 				continuation = TRUE;
@@ -5346,6 +5354,12 @@ int primeFactor (
 
 			if (stop_reason || testSaveFilesFlag (thread_num)) {
 				factorFindSmallestNotTFed (&facdata);
+				if (facdata.asm_data->FACHSW > endpthi ||
+				    (facdata.asm_data->FACHSW == endpthi && facdata.asm_data->FACMSW >= endptlo)) {
+					if (endptlo == 0) facdata.asm_data->FACHSW = endpthi - 1;
+					else facdata.asm_data->FACHSW = endpthi;
+					facdata.asm_data->FACMSW = endptlo - 1;
+				}
 				fd = openWriteSaveFile (filename, NUM_BACKUP_FILES);
 				if (fd > 0 &&
 				    write_header (fd, FACTOR_MAGICNUM, FACTOR_VERSION, w) &&
@@ -8245,7 +8259,7 @@ int primeSieveTest (
 			fachi = fachi * 10 + carryl;
 			if (fachi >= 268435456 ||
 			    (fachi >= 4194304 && !(CPU_FLAGS & CPU_FMA3)) ||
-			    (fachi >= 32768 && !(CPU_FLAGS & CPU_SSE2))) {
+			    (fachi >= 16384 && !(CPU_FLAGS & CPU_SSE2))) {
 				sprintf (buf, "%ld %s factor too big.\n", p, fac);
 				OutputBoth (thread_num, buf);
 				goto nextp;
@@ -8294,7 +8308,7 @@ int primeSieveTest (
 			fclose (fd);
 			return (stop_reason);
 		}
-		if (fachi >= 16384 && !(facdata.asm_data->cpu_flags & (CPU_SSE2 | CPU_AVX | CPU_AVX2 | CPU_FMA3 | CPU_AVX512F))) {
+		if (fachi >= 16384 && !(facdata.asm_data->cpu_flags & (CPU_SSE2 | CPU_AVX2 | CPU_FMA3 | CPU_AVX512F))) {
 			sprintf (buf, "%ld %s factor too big.\n", p, fac);
 			OutputBoth (thread_num, buf);
 			factorDone (&facdata);
