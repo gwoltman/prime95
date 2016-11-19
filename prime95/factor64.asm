@@ -3674,7 +3674,7 @@ tlp74:	finit				; Set for 64-bit precision
 	xor	rdi, rdi		; Count of queued factors to be tested
 	mov	r8, rcx			; Save factor
 	mov	rcx, shift_count
-dec	rcx
+	dec	rcx
 	mov	r14, 1			; Form trial factor limit
 	ror	r14, cl
 	mov	rcx, r8			; Restore factor
@@ -3797,43 +3797,32 @@ loop74:	sse2_fac 74
 	pcmpeqd xmm8, XMMWORD PTR XMM_F3a ; See if any remainder is factor + 1
 	movdqa	xmm0, xmm2
 	por	xmm0, xmm8
-	ptest	xmm0, XMMWORD PTR XMM_BITS30 ; See if any least significant words indicate a possible factor
+; Can't use ptest - it is an SSE4.1 instruction
+;	ptest	xmm0, XMMWORD PTR XMM_BITS30 ; See if any least significant words indicate a possible factor
+;	jz	bsf74			; No, test next factor from sieve
+	pmovmskb rdx, xmm0		; See if any least significant words indicate a possible factor
+	and	rdx, 0F0Fh
 	jz	bsf74			; No, test next factor from sieve
 
 	sse2_compare_part2		; Convert high and middle words of the results
 	pcmpeqd xmm1, XMMWORD PTR XMM_F2
 	pcmpeqd xmm0, XMMWORD PTR XMM_F1
-	pand	xmm2, XMMWORD PTR XMM_BITS30
 	pand	xmm2, xmm1
-	ptest	xmm2, xmm0
-	jnz	short win74_1		; Jump if a factor found
+	pand	xmm2, xmm0
+	pmovmskb rdx, xmm2
+	and	rdx, 0F0Fh
+	jnz	short win74		; Jump if a factor found
 	pcmpeqd xmm7, XMMWORD PTR XMM_F2a
 	pcmpeqd xmm6, XMMWORD PTR XMM_F1a
-	pand	xmm8, XMMWORD PTR XMM_BITS30
 	pand	xmm8, xmm7
-	ptest	xmm8, xmm6
-	jnz	short win74_2		; Jump if a factor found
-	jmp	bsf74			; Test next factor from sieve
-
-win74_1:
-	pand	xmm2, xmm0
-	pmovmskb rcx, xmm2
-	sub	rdx, rdx		; See if first SSE2 word was the factor
-	shr	rcx, 1
-	jc	short win74		; Yes! Factor found
-	lea	rdx, [rdx+8]		; Last SSE2 word must have been the factor
-	jmp	short win74		; Yes! Factor found
-
-win74_2:
 	pand	xmm8, xmm6
-	pmovmskb rcx, xmm8
-	mov	edx, 16			; See if first SSE2 word was the factor
-	shr	rcx, 1
-	jc	short win74		; Yes! Factor found
-	lea	rdx, [rdx+8]		; Last SSE2 word must have been the factor
-;;	jmp	short win74		; Yes! Factor found
+	pmovmskb rdx, xmm8
+	and	rdx, 0F0Fh
+	jz	bsf74			; No factor, test next factor from sieve
+	shl	rdx, 16
 
-win74:	mov	eax, XMM_F3[rdx]	; Factor found!!! Return it
+win74:	bsf	rdx, rdx		; Look for the set bit(s)
+	mov	eax, XMM_F3[rdx]	; Factor found!!! Return it
 	mov	ebx, XMM_F2[rdx]
 	mov	ecx, XMM_F1[rdx]
 	shl	eax, 2
@@ -3984,43 +3973,32 @@ loop86:	sse2_fac 86
 	pcmpeqd xmm8, XMMWORD PTR XMM_F3a ; See if any remainder is factor + 1
 	movdqa	xmm0, xmm2
 	por	xmm0, xmm8
-	ptest	xmm0, XMMWORD PTR XMM_BITS30 ; See if any least significant words indicate a possible factor
+; Can't use ptest - it is an SSE4.1 instruction
+;	ptest	xmm0, XMMWORD PTR XMM_BITS30 ; See if any least significant words indicate a possible factor
+;	jz	bsf86			; No, test next factor from sieve
+	pmovmskb rdx, xmm0		; See if any least significant words indicate a possible factor
+	and	rdx, 0F0Fh
 	jz	bsf86			; No, test next factor from sieve
 
 	sse2_compare_part2		; Convert high and middle words of the results
 	pcmpeqd xmm1, XMMWORD PTR XMM_F2
 	pcmpeqd xmm0, XMMWORD PTR XMM_F1
-	pand	xmm2, XMMWORD PTR XMM_BITS30
 	pand	xmm2, xmm1
-	ptest	xmm2, xmm0
-	jnz	short win86_1		; Jump if a factor found
+	pand	xmm2, xmm0
+	pmovmskb rdx, xmm2
+	and	rdx, 0F0Fh
+	jnz	short win86		; Jump if a factor found
 	pcmpeqd xmm7, XMMWORD PTR XMM_F2a
 	pcmpeqd xmm6, XMMWORD PTR XMM_F1a
-	pand	xmm8, XMMWORD PTR XMM_BITS30
 	pand	xmm8, xmm7
-	ptest	xmm8, xmm6
-	jnz	short win86_2		; Jump if a factor found
-	jmp	bsf86			; Test next factor from sieve
-
-win86_1:
-	pand	xmm2, xmm0
-	pmovmskb rcx, xmm2
-	sub	rdx, rdx		; See if first SSE2 word was the factor
-	shr	rcx, 1
-	jc	short win86		; Yes! Factor found
-	lea	rdx, [rdx+8]		; Last SSE2 word must have been the factor
-	jmp	short win86		; Yes! Factor found
-
-win86_2:
 	pand	xmm8, xmm6
-	pmovmskb rcx, xmm8
-	mov	edx, 16			; See if first SSE2 word was the factor
-	shr	rcx, 1
-	jc	short win86		; Yes! Factor found
-	lea	rdx, [rdx+8]		; Last SSE2 word must have been the factor
-;;	jmp	short win86		; Yes! Factor found
+	pmovmskb rdx, xmm8
+	and	rdx, 0F0Fh
+	jz	bsf86			; No, test next factor from sieve
+	shl	rdx, 16
 
-win86:	mov	eax, XMM_F3[rdx]	; Factor found!!! Return it
+win86:	bsf	rdx, rdx		; Look for the set bit(s)
+	mov	eax, XMM_F3[rdx]	; Factor found!!! Return it
 	mov	ebx, XMM_F2[rdx]
 	mov	ecx, XMM_F1[rdx]
 	shl	eax, 2
