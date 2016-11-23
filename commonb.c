@@ -4730,7 +4730,6 @@ int factorChunk (
 		}
 		// If we (or an auxiliary thread) found a factor, end this pass and return the factor
 		if (facdata->found_count) {
-			gwevent_signal (&facdata->sieved_areas_available);
 			gwevent_wait (&facdata->all_threads_done, 0);
 			facdata->found_count--;
 			asm_data->FACLSW = facdata->found_lsw[facdata->found_count];
@@ -4813,6 +4812,7 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 			      (uint32_t) (facdata->siever_info[i].next_sieve_first_factor[1] >> 32) > facdata->found_msw[0]))) {
 				facdata->total_num_areas_to_sieve -= facdata->siever_info[i].num_areas_to_sieve;
 				facdata->siever_info[i].num_areas_to_sieve = 0;
+				gwevent_signal (&facdata->sieved_areas_available);  // Just in case a thread was waiting for this siever
 			}
 			// Does this inactive siever have more work left to do than any sievers we've looked at thusfar?
 			if (best_siever == NULL || facdata->siever_info[i].num_areas_to_sieve > best_siever->num_areas_to_sieve) {
