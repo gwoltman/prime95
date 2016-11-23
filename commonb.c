@@ -3678,6 +3678,7 @@ struct facasm_data {
 
 typedef struct {
 	int	num_threads;		/* Number of threads to use in factoring.  Not supported in 32-bit code. */
+	double	endpt;			/* Factoring limit for this pass.  Not needed in 32-bit setup. */
 	struct PriorityInfo *sp_info;	/* Priority structure for setting aux thread priority */
 	struct	facasm_data *asm_data;	/* Memory for factoring code */
 } fachandle;
@@ -3911,6 +3912,14 @@ loop:	*res = factorChunk (facdata);
 	goto loop;
 }
 
+/* Return a second or third found factor.  Can only happen in 64-bit code. */
+
+int getAnotherFactorIfAny (
+	fachandle *facdata)
+{
+	return (FALSE);
+}
+
 #endif
 
 
@@ -3979,6 +3988,7 @@ struct sieve_area_info {
 typedef struct {
 	int	num_threads;			/* Number of threads to use in factoring. */
 	int	num_siever_threads;		/* Number of threads that can be sieving. */
+	double	endpt;				/* Factoring limit for this pass */
 	struct PriorityInfo *sp_info;		/* Priority structure for setting aux thread priority */
 	struct	facasm_data *asm_data;		/* Main thread's memory for assembly factoring code */
 	int	factoring_pass;			/* Which of the 16 factoring passes we are on */
@@ -3997,9 +4007,10 @@ typedef struct {
 	int	last_sieve_area_for_sieve;	/* Last sieve area handed out for sieving */
 	int	last_sieve_area_for_tf;		/* Last sieve area handed out for TF */
 	int	num_chunks_TFed;		/* Count of chunks TFed since last call to factorChunksProcessed */
-	uint32_t found_lsw;			/* LSW of a found factor */
-	uint32_t found_msw;			/* MSW of a found factor */
-	uint32_t found_hsw;			/* HSW of a found factor */
+	uint32_t found_lsw[5];			/* LSW of a found factor */
+	uint32_t found_msw[5];			/* MSW of a found factor */
+	uint32_t found_hsw[5];			/* HSW of a found factor */
+	uint32_t found_count;			/* Count of found factors */
 	gwthread *thread_ids;			/* Array of auxiliary thread ids */
 	unsigned int num_active_threads;	/* Count of the number of active auxiliary threads */
 	int	asm_data_initialized;		/* Flag used to make sure auxiliary threads copy valid asm_data */
@@ -4339,6 +4350,7 @@ void factorDone (
 
 		facdata->threads_must_exit = TRUE;
 		gwevent_signal (&facdata->thread_work_to_do);
+		gwevent_signal (&facdata->sieved_areas_available);
 
 /* Wait for all the threads to exit.  We must do this so */
 /* that this thread can safely delete the facdata structure */
@@ -4572,7 +4584,7 @@ int factorPassSetup (
 	facdata->total_num_areas_to_sieve = 0;
 	for (i = 0; (int) i < facdata->num_siever_allocs; i++) {
 		uint64_t savefac0, savefac1;
-		double next_pow_2, first_factor;
+		double	first_factor;
 
 /* In first siever, use fachsw/facmsw to calculate first factor */
 
@@ -4624,10 +4636,9 @@ int factorPassSetup (
 /* factor could be just over the next power of two meaning there are no areas to sieve. */
 
 		first_factor = (double) savefac0 * pow (2.0, 64.0) + (double) savefac1;
-		if (log (first_factor) / log (2.0) < (double) bits_in_factor) {
-			next_pow_2 = pow (2.0, (double) bits_in_factor);
-			facdata->siever_info[i].num_areas_to_sieve = (uint64_t) ((next_pow_2 - first_factor) / (double) asm_data->facdist12K) + 1;
-		} else
+		if (facdata->endpt > first_factor)
+			facdata->siever_info[i].num_areas_to_sieve = (uint64_t) ((facdata->endpt - first_factor) / (double) asm_data->facdist12K) + 1;
+		else
 			facdata->siever_info[i].num_areas_to_sieve = 0;
 		facdata->total_num_areas_to_sieve += facdata->siever_info[i].num_areas_to_sieve;
 	}
@@ -4717,14 +4728,14 @@ int factorChunk (
 			gwevent_wait (&facdata->all_threads_done, 0);
 			factorFindSmallestNotTFed (facdata);
 		}
-		// If we (or an auxiliary thread) found a factor, return it
-		if (facdata->found_lsw) {
-			asm_data->FACLSW = facdata->found_lsw;
-			asm_data->FACMSW = facdata->found_msw;
-			asm_data->FACHSW = facdata->found_hsw;
-			facdata->found_lsw = 0;
-			facdata->found_msw = 0;
-			facdata->found_hsw = 0;
+		// If we (or an auxiliary thread) found a factor, end this pass and return the factor
+		if (facdata->found_count) {
+			gwevent_signal (&facdata->sieved_areas_available);
+			gwevent_wait (&facdata->all_threads_done, 0);
+			facdata->found_count--;
+			asm_data->FACLSW = facdata->found_lsw[facdata->found_count];
+			asm_data->FACMSW = facdata->found_msw[facdata->found_count];
+			asm_data->FACHSW = facdata->found_hsw[facdata->found_count];
 			return (1);					// Return factor found
 		}
 		// For percent complete messasges, caller expects fachsw/facmsw set to next factor to TF.
@@ -4794,10 +4805,17 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 				best_siever_initialized = FALSE;
 				break;
 			}
-			// Is this an inactive siever with more work left to do?
-			if (facdata->siever_info[i].state == SIEVER_INACTIVE &&
-			    (best_siever == NULL ||
-			     facdata->siever_info[i].num_areas_to_sieve > best_siever->num_areas_to_sieve)) {
+			if (facdata->siever_info[i].state != SIEVER_INACTIVE) continue;
+			// If a factor has been found already, only sieve areas below the found factor
+			if (facdata->found_count &&
+			    ((uint32_t) facdata->siever_info[i].next_sieve_first_factor[0] > facdata->found_hsw[0] ||
+			     ((uint32_t) facdata->siever_info[i].next_sieve_first_factor[0] == facdata->found_hsw[0] &&
+			      (uint32_t) (facdata->siever_info[i].next_sieve_first_factor[1] >> 32) > facdata->found_msw[0]))) {
+				facdata->total_num_areas_to_sieve -= facdata->siever_info[i].num_areas_to_sieve;
+				facdata->siever_info[i].num_areas_to_sieve = 0;
+			}
+			// Does this inactive siever have more work left to do than any sievers we've looked at thusfar?
+			if (best_siever == NULL || facdata->siever_info[i].num_areas_to_sieve > best_siever->num_areas_to_sieve) {
 				best_siever = &facdata->siever_info[i];
 				best_siever_initialized = TRUE;
 			}
@@ -4849,13 +4867,14 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 /* See if there are any sieved areas available to TF.  If not, wait or exit */
 
 	while (facdata->num_sieved_sieve_areas == 0) {
-		if (facdata->num_sievers_active == 0 && facdata->total_num_areas_to_sieve == 0) {
+		if ((facdata->num_sievers_active == 0 && facdata->total_num_areas_to_sieve == 0) || facdata->found_count) {
 			gwmutex_unlock (&facdata->thread_lock);
 			return (TRUE);			// Return no more work to do flag
 		}
 		gwevent_reset (&facdata->sieved_areas_available);
 		gwmutex_unlock (&facdata->thread_lock);
 		gwevent_wait (&facdata->sieved_areas_available, 0);
+		if (facdata->threads_must_exit) return (TRUE);
 		gwmutex_lock (&facdata->thread_lock);
 	}
 
@@ -4877,9 +4896,12 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 	res = factor64_tf (asm_data);
 	gwmutex_lock (&facdata->thread_lock);
 	if (res == 1) {							/* Remember a found factor */
-		facdata->found_lsw = asm_data->FACLSW;
-		facdata->found_msw = asm_data->FACMSW;
-		facdata->found_hsw = asm_data->FACHSW;
+		if (facdata->found_count < 5) {				/* I can't imagine ever finding 5 factors so close together */
+			facdata->found_lsw[facdata->found_count] = asm_data->FACLSW;
+			facdata->found_msw[facdata->found_count] = asm_data->FACMSW;
+			facdata->found_hsw[facdata->found_count] = asm_data->FACHSW;
+			facdata->found_count++;
+		}
 	}
 	facdata->num_chunks_TFed++;
 	facdata->sieve_area[i].state = SIEVE_AREA_FREE;			/* Update sieve area's state */
@@ -5011,6 +5033,19 @@ loop:	*res = factorChunk (facdata);
 	stop_reason = factorPassSetup (thread_num, facdata->factoring_pass, facdata);
 	if (stop_reason) return (stop_reason);
 	goto loop;
+}
+
+/* Return a second or third found factor.  Should be extremely rare.  Can only happen in multithreaded case. */
+
+int getAnotherFactorIfAny (
+	fachandle *facdata)
+{
+	if (facdata->num_threads <= 1 || facdata->found_count == 0) return (FALSE);
+	facdata->found_count--;
+	facdata->asm_data->FACLSW = facdata->found_lsw[facdata->found_count];
+	facdata->asm_data->FACMSW = facdata->found_msw[facdata->found_count];
+	facdata->asm_data->FACHSW = facdata->found_hsw[facdata->found_count];
+	return (TRUE);
 }
 
 #endif
@@ -5281,8 +5316,11 @@ int primeFactor (
 		    facdata.asm_data->FACMSW == 0 && pass != 0)
 			facdata.asm_data->FACMSW = 1;
 
-/* Setup the factoring program */
+/* Setup the factoring program.  factorPassSetup needs to know the endpt in the case where */
+/* we've already found a factor and we are searching for a smaller factor -- factorPassSetup */
+/* used to assume the endpt was the next power of two. */
 
+		facdata.endpt = endpt * 4294967296.0;
 		stop_reason = factorPassSetup (thread_num, pass, &facdata);
 		if (stop_reason) {
 			factorDone (&facdata);
@@ -5399,38 +5437,35 @@ int primeFactor (
 /* We'll continue to do this if the found factor is really small (less than */
 /* 2^56) or if the user sets FindSmallestFactor in prime.ini. */
 
-		find_smaller_factor =
-			(end_bits <= (unsigned int) IniGetInt (INI_FILE, "FindSmallestFactor", 56));
+		find_smaller_factor = (end_bits <= (unsigned int) IniGetInt (INI_FILE, "FindSmallestFactor", 56));
 
-/* Format and output a message */
+/* Format and output a message for each found factor */
 
-		makestr (facdata.asm_data->FACHSW,
-			 facdata.asm_data->FACMSW,
-			 facdata.asm_data->FACLSW, str);
-		sprintf (buf, "M%ld has a factor: %s (TF:%d-%d)\n", p, str, (int) w->sieve_depth, (int) test_bits);
-		OutputStr (thread_num, buf);
-		formatMsgForResultsFile (buf, w);
-		writeResults (buf);
+		do {
+			makestr (facdata.asm_data->FACHSW, facdata.asm_data->FACMSW, facdata.asm_data->FACLSW, str);
+			sprintf (buf, "M%ld has a factor: %s (TF:%d-%d)\n", p, str, (int) w->sieve_depth, (int) test_bits);
+			OutputStr (thread_num, buf);
+			formatMsgForResultsFile (buf, w);
+			writeResults (buf);
 
 /* Send assignment result to the server.  To avoid flooding the server */
 /* with small factors from users needlessly redoing factoring work, make */
-/* sure the factor is more than 50 bits or so. */
+/* sure the factor is more than 60 bits or so. */
 
-		if (strlen (str) >= 15 ||
-		    IniGetInt (INI_FILE, "SendAllFactorData", 0)) {
-			struct primenetAssignmentResult pkt;
-			memset (&pkt, 0, sizeof (pkt));
-			strcpy (pkt.computer_guid, COMPUTER_GUID);
-			strcpy (pkt.assignment_uid, w->assignment_uid);
-			strcpy (pkt.message, buf);
-			pkt.result_type = PRIMENET_AR_TF_FACTOR;
-			pkt.n = p;
-			strcpy (pkt.factor, str);
-			pkt.start_bits = (bits < report_bits) ?
-				     (unsigned int) w->sieve_depth : bits;
-			pkt.done = !find_smaller_factor;
-			spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
-		}
+			if (strlen (str) >= 19 || IniGetInt (INI_FILE, "SendAllFactorData", 0)) {
+				struct primenetAssignmentResult pkt;
+				memset (&pkt, 0, sizeof (pkt));
+				strcpy (pkt.computer_guid, COMPUTER_GUID);
+				strcpy (pkt.assignment_uid, w->assignment_uid);
+				strcpy (pkt.message, buf);
+				pkt.result_type = PRIMENET_AR_TF_FACTOR;
+				pkt.n = p;
+				strcpy (pkt.factor, str);
+				pkt.start_bits = (bits < report_bits) ? (unsigned int) w->sieve_depth : bits;
+				pkt.done = !find_smaller_factor;
+				spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
+			}
+		} while (getAnotherFactorIfAny (&facdata));
 
 /* If we're looking for smaller factors, set a new end point.  Otherwise, */
 /* skip all remaining passes. */
