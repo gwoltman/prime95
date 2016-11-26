@@ -3956,8 +3956,9 @@ struct facasm_data {
 	uint32_t FMA_INITVAL_TYPE;	/* Type of initval (more or less than 2^split).  Used in FMA code. */
 	uint32_t FMA_64_MINUS_LOW_BITS;	/* 64 minus bits in a low word.  Used in FMA code. */
 	uint32_t initstart;		/* First byte in initsieve to copy (see ASM code) */
+	uint32_t alternate_sieve_count;	/* Number of 13-small-prime AVX2 sieve sections to process */
 
-	uint32_t pad[4];		/* Pad to next 64-byte cache line */
+	uint32_t pad[3];		/* Pad to next 64-byte cache line */
 	uint32_t xmm_data[80];		/* XMM/YMM/ZMM data initialized in C code */
 
 	uint32_t other_asm_temps_and_consts[600];
@@ -4178,6 +4179,8 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 	asm_data->p = p;
 	asm_data->cpu_flags = CPU_FLAGS;
 	if (!IniGetInt (LOCALINI_FILE, "FactorUsingSSE2", 0)) asm_data->cpu_flags &= ~CPU_SSE2;
+	asm_data->alternate_sieve_count = IniGetInt (INI_FILE, "AlternateTFSieveCount", 9);
+	if (asm_data->alternate_sieve_count < 1) asm_data->alternate_sieve_count = 1;
 
 /* Initialize maximum number of siever threads (based on a percent specified in the INI file) */
 /* For most architectures one siever can easily keep four TF threads busy. */
@@ -4272,7 +4275,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 	facdata->num_sieve_areas = (facdata->num_threads <= 1) ? 1 : facdata->num_threads * 4;
 	if (facdata->num_sieve_areas > MAX_NUM_SIEVE_AREAS) facdata->num_sieve_areas = MAX_NUM_SIEVE_AREAS;
 	for (i = 0; i < facdata->num_sieve_areas; i++) {
-		facdata->sieve_area[i].sieve = malloc (SIEVE_SIZE_IN_BYTES);
+		facdata->sieve_area[i].sieve = aligned_malloc (SIEVE_SIZE_IN_BYTES, 128);
 		if (facdata->sieve_area[i].sieve == NULL) goto memerr;
 		facdata->sieve_area[i].state = SIEVE_AREA_FREE;
 	}
@@ -4390,7 +4393,7 @@ void factorDone (
 		facdata->siever_info[i].offsetarray = NULL;
 	}
 	for (i = 0; i < facdata->num_sieve_areas; i++) {
-		free (facdata->sieve_area[i].sieve);
+		aligned_free (facdata->sieve_area[i].sieve);
 		facdata->sieve_area[i].sieve = NULL;
 	}
 }
