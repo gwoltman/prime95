@@ -45,6 +45,7 @@ SSE2_LOOP_COUNTER	EQU	DWORD PTR [AD_BASE+74*8+4*4]
 FMA_INITVAL_TYPE	EQU	DWORD PTR [AD_BASE+74*8+5*4]
 FMA_64_MINUS_LOW_BITS	EQU	DWORD PTR [AD_BASE+74*8+6*4]
 initstart		EQU	DWORD PTR [AD_BASE+74*8+7*4]	; First byte in initsieve to copy
+alternate_sieve_count	EQU	DWORD PTR [AD_BASE+74*8+8*4]	; Number of AVX2 13-prime seive sections to process
 
 ;; Common constants set in C code for SSE2, AVX2 when using
 ;; factoring algorithm that uses 30-bit integer arithmetic.
@@ -369,6 +370,82 @@ YMM_FMA_ONE_OR_TWO TEXTEQU <YMM_FMA_ONE>
 YMM_FMA_ONE		DQ	1.0,1.0,1.0,1.0
 YMM_FMA_TWO		DQ	2.0,2.0,2.0,2.0
 YMM_FMA_ZERO		DQ	0.0,0.0,0.0,0.0
+
+YMM_INIT_SV19		DQ	0, -(64 MOD 19), -(128 MOD 19), -(192 MOD 19)
+YMM_INIT_SV23		DQ	0, -(64 MOD 23), -(128 MOD 23), -(192 MOD 23)
+YMM_INIT_SV29		DQ	0, -(64 MOD 29), -(128 MOD 29), -(192 MOD 29)
+YMM_INIT_SV31		DQ	0, -(64 MOD 31), -(128 MOD 31), -(192 MOD 31)
+YMM_INIT_SV37Q		DQ	0, -(64 MOD 37), -(128 MOD 37), -(192 MOD 37)
+
+YMM_INIT_SV37D		DD	0, -(32 MOD 37), -(64 MOD 37), -(96 MOD 37), -(128 MOD 37), -(160 MOD 37), -(192 MOD 37), -(224 MOD 37)
+YMM_INIT_SV41		DD	0, -(32 MOD 41), -(64 MOD 41), -(96 MOD 41), -(128 MOD 41), -(160 MOD 41), -(192 MOD 41), -(224 MOD 41)
+YMM_INIT_SV43		DD	0, -(32 MOD 43), -(64 MOD 43), -(96 MOD 43), -(128 MOD 43), -(160 MOD 43), -(192 MOD 43), -(224 MOD 43)
+YMM_INIT_SV47		DD	0, -(32 MOD 47), -(64 MOD 47), -(96 MOD 47), -(128 MOD 47), -(160 MOD 47), -(192 MOD 47), -(224 MOD 47)
+YMM_INIT_SV53		DD	0, -(32 MOD 53), -(64 MOD 53), -(96 MOD 53), -(128 MOD 53), -(160 MOD 53), -(192 MOD 53), -(224 MOD 53)
+YMM_INIT_SV59		DD	0, -(32 MOD 59), -(64 MOD 59), -(96 MOD 59), -(128 MOD 59), -(160 MOD 59), -(192 MOD 59), -(224 MOD 59)
+YMM_INIT_SV61		DD	0, -(32 MOD 61), -(64 MOD 61), -(96 MOD 61), -(128 MOD 61), -(160 MOD 61), -(192 MOD 61), -(224 MOD 61)
+YMM_INIT_SV67		DD	0, -(32 MOD 67), -(64 MOD 67), -(96 MOD 67), -(128 MOD 67), -(160 MOD 67), -(192 MOD 67), -(224 MOD 67)
+YMM_INIT_SV71		DD	0, -(32 MOD 71), -(64 MOD 71), -(96 MOD 71), -(128 MOD 71), -(160 MOD 71), -(192 MOD 71), -(224 MOD 71)
+YMM_INIT_SV73		DD	0, -(32 MOD 73), -(64 MOD 73), -(96 MOD 73), -(128 MOD 73), -(160 MOD 73), -(192 MOD 73), -(224 MOD 73)
+ YMM_INIT_SV79		DD	0, -(32 MOD 79), -(64 MOD 79), -(96 MOD 79), -(128 MOD 79), -(160 MOD 79), -(192 MOD 79), -(224 MOD 79)
+YMM_INIT_SV83		DD	0, -(32 MOD 83), -(64 MOD 83), -(96 MOD 83), -(128 MOD 83), -(160 MOD 83), -(192 MOD 83), -(224 MOD 83)
+YMM_INIT_SV89		DD	0, -(32 MOD 89), -(64 MOD 89), -(96 MOD 89), -(128 MOD 89), -(160 MOD 89), -(192 MOD 89), -(224 MOD 89)
+YMM_INIT_SV97		DD	0, -(32 MOD 97), -(64 MOD 97), -(96 MOD 97), -(128 MOD 97), -(160 MOD 97), -(192 MOD 97), -(224 MOD 97)
+YMM_INIT_SV101		DD	0, -(32 MOD 101), -(64 MOD 101), -(96 MOD 101), -(128 MOD 101), -(160 MOD 101), -(192 MOD 101), -(224 MOD 101)
+YMM_INIT_SV103		DD	0, -(32 MOD 103), -(64 MOD 103), -(96 MOD 103), -(128 MOD 103), -(160 MOD 103), -(192 MOD 103), -(224 MOD 103)
+YMM_INIT_SV107		DD	0, -(32 MOD 107), -(64 MOD 107), -(96 MOD 107), -(128 MOD 107), -(160 MOD 107), -(192 MOD 107), -(224 MOD 107)
+YMM_INIT_SV109		DD	0, -(32 MOD 109), -(64 MOD 109), -(96 MOD 109), -(128 MOD 109), -(160 MOD 109), -(192 MOD 109), -(224 MOD 109)
+YMM_INIT_SV113		DD	0, -(32 MOD 113), -(64 MOD 113), -(96 MOD 113), -(128 MOD 113), -(160 MOD 113), -(192 MOD 113), -(224 MOD 113)
+YMM_INIT_SV127		DD	0, -(32 MOD 127), -(64 MOD 127), -(96 MOD 127), -(128 MOD 127), -(160 MOD 127), -(192 MOD 127), -(224 MOD 127)
+YMM_INIT_SV131		DD	0, -(32 MOD 131), -(64 MOD 131), -(96 MOD 131), -(128 MOD 131), -(160 MOD 131), -(192 MOD 131), -(224 MOD 131)
+YMM_INIT_SV137		DD	0, -(32 MOD 137), -(64 MOD 137), -(96 MOD 137), -(128 MOD 137), -(160 MOD 137), -(192 MOD 137), -(224 MOD 137)
+YMM_INIT_SV139		DD	0, -(32 MOD 139), -(64 MOD 139), -(96 MOD 139), -(128 MOD 139), -(160 MOD 139), -(192 MOD 139), -(224 MOD 139)
+ YMM_INIT_SV149		DD	0, -(32 MOD 149), -(64 MOD 149), -(96 MOD 149), -(128 MOD 149), -(160 MOD 149), -(192 MOD 149), -(224 MOD 149)
+YMM_INIT_SV151		DD	0, -(32 MOD 151), -(64 MOD 151), -(96 MOD 151), -(128 MOD 151), -(160 MOD 151), -(192 MOD 151), -(224 MOD 151)
+YMM_INIT_SV157		DD	0, -(32 MOD 157), -(64 MOD 157), -(96 MOD 157), -(128 MOD 157), -(160 MOD 157), -(192 MOD 157), -(224 MOD 157)
+YMM_INIT_SV163		DD	0, -(32 MOD 163), -(64 MOD 163), -(96 MOD 163), -(128 MOD 163), -(160 MOD 163), -(192 MOD 163), -(224 MOD 163)
+YMM_INIT_SV167		DD	0, -(32 MOD 167), -(64 MOD 167), -(96 MOD 167), -(128 MOD 167), -(160 MOD 167), -(192 MOD 167), -(224 MOD 167)
+YMM_INIT_SV173		DD	0, -(32 MOD 173), -(64 MOD 173), -(96 MOD 173), -(128 MOD 173), -(160 MOD 173), -(192 MOD 173), -(224 MOD 173)
+YMM_INIT_SV179		DD	0, -(32 MOD 179), -(64 MOD 179), -(96 MOD 179), -(128 MOD 179), -(160 MOD 179), -(192 MOD 179), -(224 MOD 179)
+YMM_INIT_SV181		DD	0, -(32 MOD 181), -(64 MOD 181), -(96 MOD 181), -(128 MOD 181), -(160 MOD 181), -(192 MOD 181), -(224 MOD 181)
+YMM_INIT_SV191		DD	0, -(32 MOD 191), -(64 MOD 191), -(96 MOD 191), -(128 MOD 191), -(160 MOD 191), -(192 MOD 191), -(224 MOD 191)
+YMM_INIT_SV193		DD	0, -(32 MOD 193), -(64 MOD 193), -(96 MOD 193), -(128 MOD 193), -(160 MOD 193), -(192 MOD 193), -(224 MOD 193)
+YMM_INIT_SV197		DD	0, -(32 MOD 197), -(64 MOD 197), -(96 MOD 197), -(128 MOD 197), -(160 MOD 197), -(192 MOD 197), -(224 MOD 197)
+YMM_INIT_SV199		DD	0, -(32 MOD 199), -(64 MOD 199), -(96 MOD 199), -(128 MOD 199), -(160 MOD 199), -(192 MOD 199), -(224 MOD 199)
+YMM_INIT_SV211		DD	0, -(32 MOD 211), -(64 MOD 211), -(96 MOD 211), -(128 MOD 211), -(160 MOD 211), -(192 MOD 211), -(224 MOD 211)
+ YMM_INIT_SV223		DD	0, -(32 MOD 223), -(64 MOD 223), -(96 MOD 223), -(128 MOD 223), -(160 MOD 223), -(192 MOD 223), -(224 MOD 223)
+YMM_INIT_SV227		DD	0, -(32 MOD 227), -(64 MOD 227), -(96 MOD 227), -(128 MOD 227), -(160 MOD 227), -(192 MOD 227), -(224 MOD 227)
+YMM_INIT_SV229		DD	0, -(32 MOD 229), -(64 MOD 229), -(96 MOD 229), -(128 MOD 229), -(160 MOD 229), -(192 MOD 229), -(224 MOD 229)
+YMM_INIT_SV233		DD	0, -(32 MOD 233), -(64 MOD 233), -(96 MOD 233), -(128 MOD 233), -(160 MOD 233), -(192 MOD 233), -(224 MOD 233)
+YMM_INIT_SV239		DD	0, -(32 MOD 239), -(64 MOD 239), -(96 MOD 239), -(128 MOD 239), -(160 MOD 239), -(192 MOD 239), -(224 MOD 239)
+YMM_INIT_SV241		DD	0, -(32 MOD 241), -(64 MOD 241), -(96 MOD 241), -(128 MOD 241), -(160 MOD 241), -(192 MOD 241), -(224 MOD 241)
+YMM_INIT_SV251		DD	0, -(32 MOD 251), -(64 MOD 251), -(96 MOD 251), -(128 MOD 251), -(160 MOD 251), -(192 MOD 251), -(224 MOD 251)
+YMM_INIT_SV257		DD	0, -(32 MOD 257), -(64 MOD 257), -(96 MOD 257), -(128 MOD 257), -(160 MOD 257), -(192 MOD 257), -(224 MOD 257)
+YMM_INIT_SV263		DD	0, -(32 MOD 263), -(64 MOD 263), -(96 MOD 263), -(128 MOD 263), -(160 MOD 263), -(192 MOD 263), -(224 MOD 263)
+YMM_INIT_SV269		DD	0, -(32 MOD 269), -(64 MOD 269), -(96 MOD 269), -(128 MOD 269), -(160 MOD 269), -(192 MOD 269), -(224 MOD 269)
+YMM_INIT_SV271		DD	0, -(32 MOD 271), -(64 MOD 271), -(96 MOD 271), -(128 MOD 271), -(160 MOD 271), -(192 MOD 271), -(224 MOD 271)
+YMM_INIT_SV277		DD	0, -(32 MOD 277), -(64 MOD 277), -(96 MOD 277), -(128 MOD 277), -(160 MOD 277), -(192 MOD 277), -(224 MOD 277)
+YMM_INIT_SV281		DD	0, -(32 MOD 281), -(64 MOD 281), -(96 MOD 281), -(128 MOD 281), -(160 MOD 281), -(192 MOD 281), -(224 MOD 281)
+
+YMM_INIT_MASK19		DQ	0000001000000000000000000100000000000000000010000000000000000001b, -(256 MOD 19)
+YMM_INIT_MASK23		DQ	0000000000000000010000000000000000000000100000000000000000000001b, -(256 MOD 23)
+YMM_INIT_MASK29		DQ	0000010000000000000000000000000000100000000000000000000000000001b, -(256 MOD 29)
+YMM_INIT_MASK31		DQ	0100000000000000000000000000000010000000000000000000000000000001b, -(256 MOD 31)
+YMM_INIT_MASK37		DQ	0000000000000000000000000010000000000000000000000000000000000001b, -(256 MOD 37)
+
+YMM_BUMP37D		DD	-(256 MOD 37), -(256 MOD 41), -(256 MOD 43), -(256 MOD 47), -(256 MOD 53), -(256 MOD 59)
+			DD	-(256 MOD 61), -(256 MOD 67), -(256 MOD 71), -(256 MOD 73)
+			DD	-(256 MOD 79), -(256 MOD 83), -(256 MOD 89), -(256 MOD 97), -(256 MOD 101), -(256 MOD 103)
+			DD	-(256 MOD 107), -(256 MOD 109), -(256 MOD 113), -(256 MOD 127), -(256 MOD 131), -(256 MOD 137)
+			DD	-(256 MOD 139)
+			DD	-(256 MOD 149), -(256 MOD 151), -(256 MOD 157), -(256 MOD 163), -(256 MOD 167), -(256 MOD 173)
+			DD	-(256 MOD 179), -(256 MOD 181), -(256 MOD 191), -(256 MOD 193), -(256 MOD 197), -(256 MOD 199)
+			DD	-(256 MOD 211)
+			DD	-(256 MOD 223), -(256 MOD 227), -(256 MOD 229), -(256 MOD 233), -(256 MOD 239), -(256 MOD 241)
+			DD	-(256 MOD 251), -(256 MOD 257), -(256 MOD 263), -(256 MOD 269), -(256 MOD 271), -(256 MOD 277)
+			DD	-(256 MOD 281)
+YMM_MINUS256		DD	-256
+
 	align 64
 ZMM_FMA_ONE_OR_TWO TEXTEQU <ZMM_FMA_ONE>
 ZMM_FMA_ONE		DQ	1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0
@@ -617,7 +694,14 @@ PROCF	factor64_sieve
 	ad_prolog 0,0,rbx,rbp,rsi,rdi,r12,r13,r14,r15
 
 ;
-; Init the sieve
+; Use special small prime sieving code for AVX2 and AVX512 capable machines
+;
+
+	test	CPU_FLAGS, 20000h	; Is this an AVX2 machine?
+	jnz	avx2sv			; Yes, use AVX2 sieve
+
+;
+; Init the sieve, leaving rdi pointing to the end of the sieve
 ;
 
 	mov	rdi, sieve		; Load sieve address
@@ -631,13 +715,10 @@ PROCF	factor64_sieve
 ; Loop through the small prime array, clearing sieve bits for very, very small primes
 ;
 
-	mov	rdi, sieve		; Load address of sieve bits
-	add	rdi, sievesize		; Compute end-of-sieve address
+	mov	r8, primearray		; Ptr to first prime in array
 	mov	r9, offsetarray		; Ptr to first offset in array
 	lea	rsi, masks19		; Load address to small prime masks
-
-	mov	rbp, primearray		; Ptr to first prime in array
-	cmp	DWORD PTR [rbp], 19	; Does the small prime array start at 19 or 23?
+	cmp	DWORD PTR [r8], 19	; Does the small prime array start at 19 or 23?
 	jne	sv23andup		; Jump if sieving from 23 onwards
 
 ; Sieve primes 19 to 61
@@ -761,8 +842,8 @@ smsvlp19:mov	rax, [rsi][rdx*8]	; Load mask for prime 19
 	mov	[rsi+36], bx		; Save bit clear offset for prime 59 next time
 	mov	[rsi+40], r9d		; Save bit clear offset for prime 61 next time
 
-	mov	rbp, primearray		; Ptr to first prime in array
-	add	rbp, 44			; Next prime in primearray
+	mov	r8, primearray		; Ptr to first prime in array
+	add	r8, 44			; Next prime in primearray
 	add	rsi, 44			; Next offset in offsetarray
 	jmp	sv67andup		; Go do the one small prime at a time sieving
 
@@ -872,16 +953,17 @@ smsvlp23:mov	rax, [rsi+19*8][r12*8]	; Apply mask for prime 23
 	mov	[rsi+32], edx		; Save bit clear offset for prime 59 next time
 	mov	[rsi+36], r9d		; Save bit clear offset for prime 61 next time
 
-	mov	rbp, primearray		; Ptr to first prime in array
-	add	rbp, 40			; Next prime in primearray
+	mov	r8, primearray		; Ptr to first prime in array
+	add	r8, 40			; Next prime in primearray
 	add	rsi, 40			; Next offset in offsetarray
 
 ;
 ; Sieve small primes 67 to 101
 ; On Skylake there was no advantage to going above primes 101 (we can push registers
-; rbp, rsi, r11 to free up three registers to do primes 103, 107, and 109)
+; r8, rsi, r11 to free up three registers to do primes 103, 107, and 109)
 ; However, accurate Skylake timings are hard to come by, so it may well pay
-; to do more small primes.
+; to do more small primes.  Besides, Skylake uses AVX2 code path, so we should bench
+; a less capable CPU.
 ;
 
 sv67andup:
@@ -889,14 +971,14 @@ sv67andup:
 	mov	r13d, [rsi+4]		; Load bit offset to clear for prime 71
 	mov	r14d, [rsi+8]		; Load bit offset to clear for prime 73
 	mov	r15d, [rsi+12]		; Load bit offset to clear for prime 79
-	mov	r8d, [rsi+16]		; Load bit offset to clear for prime 83
+	mov	ebp, [rsi+16]		; Load bit offset to clear for prime 83
 	mov	r10d, [rsi+20]		; Load bit offset to clear for prime 89
 	mov	r9d, [rsi+24]		; Load bit offset to clear for prime 97
 	mov	ebx, [rsi+28]		; Load bit offset to clear for prime 101
 ;	push	r11			; Save asm_data ptr
 ;	mov	r11d, [rsi+32]		; Load bit offset to clear for prime 103
-;	push	rbp			; Save primearray ptr
-;	mov	ebp, [rsi+36]		; Load bit offset to clear for prime 107
+;	push	r8			; Save primearray ptr
+;	mov	r8d, [rsi+36]		; Load bit offset to clear for prime 107
 ;	push	rsi			; Save offsetarray ptr
 ;	mov	esi, [rsi+40]		; Load bit offset to clear for prime 109
 
@@ -933,11 +1015,11 @@ smsvlp67:
 	cmovs	r15, rdx		; Pick whichever is the smaller positive number as the bit to clear for next word
 
 	mov	rdx, rax		; Copy sieve word
-	btr	rax, r8			; Tentatively clear bit for prime 83
-	sub	r8, 64			; Subtract 64 from bit-to-clear offset
+	btr	rax, rbp		; Tentatively clear bit for prime 83
+	sub	rbp, 64			; Subtract 64 from bit-to-clear offset
 	cmovns	rax, rdx		; If negative then we want to use the sieve word with the tenatively cleared bit
-	lea	rdx, [r8+83]		; Alternative bit to clear adds the small prime 83
-	cmovs	r8, rdx			; Pick whichever is the smaller positive number as the bit to clear for next word
+	lea	rdx, [rbp+83]		; Alternative bit to clear adds the small prime 83
+	cmovs	rbp, rdx		; Pick whichever is the smaller positive number as the bit to clear for next word
 
 	mov	rdx, rax		; Copy sieve word
 	btr	rax, r10		; Tentatively clear bit for prime 89
@@ -969,11 +1051,11 @@ IFDEF DO_THREE_MORE_SMALL_PRIMES
 	cmovs	r11, rdx		; Pick whichever is the smaller positive number as the bit to clear for next word
 
 	mov	rdx, rax		; Copy sieve word
-	btr	rax, rbp		; Tentatively clear bit for prime 107
-	sub	rbp, 64			; Subtract 64 from bit-to-clear offset
+	btr	rax, r8			; Tentatively clear bit for prime 107
+	sub	r8, 64			; Subtract 64 from bit-to-clear offset
 	cmovns	rax, rdx		; If negative then we want to use the sieve word with the tenatively cleared bit
-	lea	rdx, [rbp+107]		; Alternative bit to clear adds the small prime 107
-	cmovs	rbp, rdx		; Pick whichever is the smaller positive number as the bit to clear for next word
+	lea	rdx, [r8+107]		; Alternative bit to clear adds the small prime 107
+	cmovs	r8, rdx			; Pick whichever is the smaller positive number as the bit to clear for next word
 
 	mov	rdx, rax		; Copy sieve word
 	btr	rax, rsi		; Tentatively clear bit for prime 109
@@ -988,16 +1070,16 @@ ENDIF
 	js	smsvlp67
 
 ;	mov	rcx, r11		; Save bit-to-clr for prime 103
-;	mov	rdx, rbp		; Save bit-to-clr for prime 107
+;	mov	rdx, r8			; Save bit-to-clr for prime 107
 ;	mov	rax, rsi		; Save bit-to-clr for prime 109
 ;	pop	rsi			; Restore offset array ptr
-;	pop	rbp			; Restore prime array ptr
+;	pop	r8			; Restore prime array ptr
 ;	pop	r11			; Restore asm_data ptr
 	mov	[rsi], r12d		; Save bit clear offset for prime 67 next time
 	mov	[rsi+4], r13d		; Save bit clear offset for prime 71 next time
 	mov	[rsi+8], r14d		; Save bit clear offset for prime 73 next time
 	mov	[rsi+12], r15d		; Save bit clear offset for prime 79 next time
-	mov	[rsi+16], r8d		; Save bit clear offset for prime 83 next time
+	mov	[rsi+16], ebp		; Save bit clear offset for prime 83 next time
 	mov	[rsi+20], r10d		; Save bit clear offset for prime 89 next time
 	mov	[rsi+24], r9d		; Save bit clear offset for prime 97 next time
 	mov	[rsi+28], ebx		; Save bit clear offset for prime 101 next time
@@ -1005,14 +1087,858 @@ ENDIF
 ;	mov	[rsi+36], edx		; Save bit clear offset for prime 107 next time
 ;	mov	[rsi+40], eax		; Save bit clear offset for prime 109 next time
 
-	add	rbp, 32;+12		; Next prime in primearray
+	add	r8, 32;+12		; Next prime in primearray
 	add	rsi, 32;+12		; Next offset in offsetarray
+	jmp	sievelp			; Sieve the rest of the small primes
+
+;
+; Sieve for small primes using AVX2 instructions
+;
+
+avx2sv:	mov	r8, primearray		; Ptr to first prime in array
+	mov	rsi, offsetarray	; Ptr to first offset in array
+	lea	r9, YMM_INIT_MASK19	; Get address of first quad-word mask & count incrementer
+	lea	r12, YMM_INIT_SV19	; Get address of first quad-word count initializer
+	lea	r10, YMM_BUMP37D	; Get address of first double-word count incrementer
+	lea	r13, YMM_INIT_SV37D	; Get address of first double-word count initializer
+
+	cmp	DWORD PTR [r8], 19	; Does the small prime array start at 19 or 23?
+	je	short avx2sv19andup	; Jump if sieving from 19 onwards
+
+; Sieve primes 23 and up using AVX2 instructions
+
+	add	r9, 16
+	add	r12, 32
+	add	r10, 4
+	add	r13, 32
+
+; Sieve primes 19 and up using AVX2 instructions
+
+avx2sv19andup:
+	vmovd	xmm0, [rsi]		; Load bit offset to clear for prime 19/23
+	vmovd	xmm1, [rsi+4]		; Load bit offset to clear for prime 23/29
+	vmovd	xmm2, [rsi+8]		; Load bit offset to clear for prime 29/31
+	vmovd	xmm3, [rsi+12]		; Load bit offset to clear for prime 31/37
+	vpbroadcastq ymm0, xmm0
+	vpbroadcastq ymm1, xmm1
+	vpbroadcastq ymm2, xmm2
+	vpbroadcastq ymm3, xmm3
+	vpbroadcastd ymm4, [rsi+16]	; Load bit offset to clear for first dword prime
+	vpbroadcastd ymm5, [rsi+20]	; Load bit offset to clear for next dword prime
+	vpbroadcastd ymm6, [rsi+24]	; Load bit offset to clear for next dword prime
+	vpbroadcastd ymm7, [rsi+28]	; Load bit offset to clear for next dword prime
+	vpbroadcastd ymm8, [rsi+32]	; Load bit offset to clear for next dword prime
+	vpbroadcastd ymm9, [rsi+36]	; Load bit offset to clear for next dword prime
+	vpbroadcastd ymm10, [rsi+40]	; Load bit offset to clear for next dword prime
+	vpbroadcastd ymm11, [rsi+44]	; Load bit offset to clear for next dword prime
+	vpbroadcastd ymm12, [rsi+48]	; Load bit offset to clear for next dword prime
+
+mov rcx, r8
+	vpaddq	ymm0, ymm0, [r12]	; Create each word's shift count from the single bit-to-clr value
+	vpsraq	ymm15, ymm0, 63		; Create mask for each negative count
+;	vmovd	xmm14, [r8]		; Load prime 19/23
+vmovd	xmm14, [rcx]		; Load prime 19/23
+	vpbroadcastq ymm14, xmm14
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddq	ymm0, ymm0, ymm15	; Make all negative counts positive
+
+	vpaddq	ymm1, ymm1, [r12+32]	; Create each word's shift count from the single bit-to-clr value
+	vpsraq	ymm15, ymm1, 63		; Create mask for each negative count
+;	vmovd	xmm14, [r8+4]		; Load prime 23/29
+vmovd	xmm14, [rcx+4]		; Load prime 23/29
+	vpbroadcastq ymm14, xmm14
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddq	ymm1, ymm1, ymm15	; Make all negative counts positive
+
+	vpaddq	ymm2, ymm2, [r12+64]	; Create each word's shift count from the single bit-to-clr value
+	vpsraq	ymm15, ymm2, 63		; Create mask for each negative count
+;	vmovd	xmm14, [r8+8]		; Load prime 29/31
+vmovd	xmm14, [rcx+8]		; Load prime 29/31
+	vpbroadcastq ymm14, xmm14
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddq	ymm2, ymm2, ymm15	; Make all negative counts positive
+
+	vpaddq	ymm3, ymm3, [r12+96]	; Create each word's shift count from the single bit-to-clr value
+	vpsraq	ymm15, ymm3, 63		; Create mask for each negative count
+;	vmovd	xmm14, [r8+12]		; Load prime 31/37
+vmovd	xmm14, [rcx+12]		; Load prime 31/37
+	vpbroadcastq ymm14, xmm14
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddq	ymm3, ymm3, ymm15	; Make all negative counts positive
+
+	vpaddd	ymm4, ymm4, [r13]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm4, 31		; Create mask for each negative count
+	vpbroadcastd ymm14, [r8+16]	; Load prime
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm4, ymm4, ymm15	; Make all negative counts positive
+
+	vpaddd	ymm5, ymm5, [r13+32]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm5, 31		; Create mask for each negative count
+	vpbroadcastd ymm14, [r8+20]	; Load prime
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm5, ymm5, ymm15	; Make all negative counts positive
+
+	vpaddd	ymm6, ymm6, [r13+64]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm6, 31		; Create mask for each negative count
+	vpbroadcastd ymm14, [r8+24]	; Load prime
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm6, ymm6, ymm15	; Make all negative counts positive
+
+	vpaddd	ymm7, ymm7, [r13+96]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm7, 31		; Create mask for each negative count
+	vpbroadcastd ymm14, [r8+28]	; Load prime
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm7, ymm7, ymm15	; Make all negative counts positive
+
+	vpaddd	ymm8, ymm8, [r13+128]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm8, 31		; Create mask for each negative count
+	vpbroadcastd ymm14, [r8+32]	; Load prime
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm8, ymm8, ymm15	; Make all negative counts positive
+
+	vpaddd	ymm9, ymm9, [r13+160]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm9, 31		; Create mask for each negative count
+	vpbroadcastd ymm14, [r8+36]	; Load prime
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm9, ymm9, ymm15	; Make all negative counts positive
+
+	vpaddd	ymm10, ymm10, [r13+192]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm10, 31	; Create mask for each negative count
+	vpbroadcastd ymm14, [r8+40]	; Load prime
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm10, ymm10, ymm15	; Make all negative counts positive
+
+	vpaddd	ymm11, ymm11, [r13+224]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm11, 31	; Create mask for each negative count
+	vpbroadcastd ymm14, [r8+44]	; Load prime
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm11, ymm11, ymm15	; Make all negative counts positive
+
+	vpaddd	ymm12, ymm12, [r13+256]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm12, 31	; Create mask for each negative count
+	vpbroadcastd ymm14, [r8+48]	; Load prime
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm12, ymm12, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm13, YMM_ONE	; Load constant 1
+
+	mov	r14, initsieve		; Load sieve initialization bits addr
+	mov	edx, initstart		; Load qword offset into initsieve
+	add	r14, rdx		; Compute copy address
+	add	r14, sievesize		; Compute end copy address
+	mov	rdx, -sievesize		; Load loop counter and index into sieve
+	mov	rdi, sieve		; Load address of sieve bits
+	add	rdi, sievesize		; Compute end-of-sieve address
+avx2svlp1:
+	vmovdqu ymm14, YMMWORD PTR [r14][rdx]	; Load AVX2 sieve word
+
+	vpbroadcastq ymm15, [r9]		; Load mask for prime 19 or 23 if we are clearing bit 0
+	vpsllvq	ymm15, ymm15, ymm0		; Shift mask for prime 19 or 23
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask for prime 19 or 23
+
+	vpbroadcastq ymm15, [r9+16]		; Load mask for prime 23 or 29 if we are clearing bit 0
+	vpsllvq	ymm15, ymm15, ymm1		; Shift mask for prime 23 or 29
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask for prime 23 or 29
+
+	vpbroadcastq ymm15, [r9+32]		; Load mask for prime 29 or 31 if we are clearing bit 0
+	vpsllvq	ymm15, ymm15, ymm2		; Shift mask for prime 29 or 31
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask for prime 29 or 31
+
+	vpbroadcastq ymm15, [r9+48]		; Load mask for prime 31 or 37 if we are clearing bit 0
+	vpsllvq	ymm15, ymm15, ymm3		; Shift mask for prime 31 or 37
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask for prime 31 or 37
+
+	vpsllvd	ymm15, ymm13, ymm4		; Shift mask for first dword prime
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm5		; Shift mask for next prime
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm6		; Shift mask for next prime
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm7		; Shift mask for next prime
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm8		; Shift mask for next prime
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm9		; Shift mask for next prime
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm10		; Shift mask for next prime
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm11		; Shift mask for next prime
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm12		; Shift mask for next prime
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vmovdqa YMMWORD PTR [rdi][rdx], ymm14	; Store AVX2 word to sieve
+
+	vpbroadcastq ymm15, [r9+8]		; Load increment for prime 19/23
+	vpaddq	ymm0, ymm0, ymm15		; Bump the counters for prime 19/23
+	vpsraq	ymm15, ymm0, 63			; Create mask for each negative count
+;	vmovd	xmm14, [r8]			; Load prime
+vmovd	xmm14, [rcx]			; Load prime
+	vpbroadcastq ymm14, xmm14		; Broadcast prime
+	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
+	vpaddq	ymm0, ymm0, ymm15		; Make all negative counts positive
+
+	vpbroadcastq ymm15, [r9+24]		; Load increment for prime 23/29
+	vpaddq	ymm1, ymm1, ymm15		; Bump the counters for prime 23/29
+	vpsraq	ymm15, ymm1, 63			; Create mask for each negative count
+;	vmovd	xmm14, [r8+4]			; Load prime
+vmovd	xmm14, [rcx+4]			; Load prime
+	vpbroadcastq ymm14, xmm14		; Broadcast prime
+	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
+	vpaddq	ymm1, ymm1, ymm15		; Make all negative counts positive
+
+	vpbroadcastq ymm15, [r9+40]		; Load increment for prime 29/31
+	vpaddq	ymm2, ymm2, ymm15		; Bump the counters for prime 29/31
+	vpsraq	ymm15, ymm2, 63			; Create mask for each negative count
+;	vmovd	xmm14, [r8+8]			; Load prime
+vmovd	xmm14, [rcx+8]			; Load prime
+	vpbroadcastq ymm14, xmm14		; Broadcast prime
+	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
+	vpaddq	ymm2, ymm2, ymm15		; Make all negative counts positive
+
+	vpbroadcastq ymm15, [r9+56]		; Load increment for prime 31/37
+	vpaddq	ymm3, ymm3, ymm15		; Bump the counters for prime 31/37
+	vpsraq	ymm15, ymm3, 63			; Create mask for each negative count
+;	vmovd	xmm14, [r8+12]			; Load prime
+vmovd	xmm14, [rcx+12]			; Load prime
+	vpbroadcastq ymm14, xmm14		; Broadcast prime
+	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
+	vpaddq	ymm3, ymm3, ymm15		; Make all negative counts positive
+
+IFDEF USE_PMINUD
+	vpbroadcastd ymm15, [r10]		; Load increment for next prime
+	vpaddd	ymm4, ymm4, ymm15		; Bump the counters
+	vpbroadcastd ymm14, [r8+16]		; Load prime
+	vpaddd	ymm14, ymm4, ymm14		; Make all negative counts positive
+	vpminud	ymm4, ymm4, ymm14		; Keep smallest positive count
+
+	vpbroadcastd ymm15, [r10+4]		; Load increment for next prime
+	vpaddd	ymm5, ymm5, ymm15		; Bump the counters
+	vpbroadcastd ymm14, [r8+20]		; Load prime
+	vpaddd	ymm14, ymm5, ymm14		; Make all negative counts positive
+	vpminud	ymm5, ymm5, ymm14		; Keep smallest positive count
+
+	vpbroadcastd ymm15, [r10+8]		; Load increment for next prime
+	vpaddd	ymm6, ymm6, ymm15		; Bump the counters for prime 43
+	vpbroadcastd ymm14, [r8+24]		; Load prime
+	vpaddd	ymm14, ymm6, ymm14		; Make all negative counts positive
+	vpminud	ymm6, ymm6, ymm14		; Keep smallest positive count
+
+	vpbroadcastd ymm15, [r10+12]		; Load increment for next prime
+	vpaddd	ymm7, ymm7, ymm15		; Bump the counters
+	vpbroadcastd ymm14, [r8+28]		; Load prime
+	vpaddd	ymm14, ymm7, ymm14		; Make all negative counts positive
+	vpminud	ymm7, ymm7, ymm14		; Keep smallest positive count
+
+	vpbroadcastd ymm15, [r10+16]		; Load increment for next prime
+	vpaddd	ymm8, ymm8, ymm15		; Bump the counters
+	vpbroadcastd ymm14, [r8+32]		; Load prime
+	vpaddd	ymm14, ymm8, ymm14		; Make all negative counts positive
+	vpminud	ymm8, ymm8, ymm14		; Keep smallest positive count
+
+	vpbroadcastd ymm15, [r10+20]		; Load increment for next prime
+	vpaddd	ymm9, ymm9, ymm15		; Bump the counters
+	vpbroadcastd ymm14, [r8+36]		; Load prime
+	vpaddd	ymm14, ymm9, ymm14		; Make all negative counts positive
+	vpminud	ymm9, ymm9, ymm14		; Keep smallest positive count
+
+	vpbroadcastd ymm15, [r10+24]		; Load increment for next prime
+	vpaddd	ymm10, ymm10, ymm15		; Bump the counters
+	vpbroadcastd ymm14, [r8+40]		; Load prime
+	vpaddd	ymm14, ymm10, ymm14		; Make all negative counts positive
+	vpminud	ymm10, ymm10, ymm14		; Keep smallest positive count
+
+	vpbroadcastd ymm15, [r10+28]		; Load increment for next prime
+	vpaddd	ymm11, ymm11, ymm15		; Bump the counters
+	vpbroadcastd ymm14, [r8+44]		; Load prime
+	vpaddd	ymm14, ymm11, ymm14		; Make all negative counts positive
+	vpminud	ymm11, ymm11, ymm14		; Keep smallest positive count
+
+	vpbroadcastd ymm15, [r10+32]		; Load increment for next prime
+	vpaddd	ymm12, ymm12, ymm15		; Bump the counters
+	vpbroadcastd ymm14, [r8+48]		; Load prime
+	vpaddd	ymm14, ymm12, ymm14		; Make all negative counts positive
+	vpminud	ymm12, ymm12, ymm14		; Keep smallest positive count
+ELSE
+	vpbroadcastd ymm15, [r10]		; Load increment for next prime
+	vpaddd	ymm4, ymm4, ymm15		; Bump the counters
+	vpsrad	ymm15, ymm4, 31			; Create mask for each negative count
+	vpbroadcastd ymm14, [r8+16]		; Load prime
+	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
+	vpaddd	ymm4, ymm4, ymm15		; Make all negative counts positive
+
+	vpbroadcastd ymm15, [r10+4]		; Load increment for next prime
+	vpaddd	ymm5, ymm5, ymm15		; Bump the counters
+	vpsrad	ymm15, ymm5, 31			; Create mask for each negative count
+	vpbroadcastd ymm14, [r8+20]		; Load prime
+	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
+	vpaddd	ymm5, ymm5, ymm15		; Make all negative counts positive
+
+	vpbroadcastd ymm15, [r10+8]		; Load increment for next prime
+	vpaddd	ymm6, ymm6, ymm15		; Bump the counters for prime 43
+	vpsrad	ymm15, ymm6, 31			; Create mask for each negative count
+	vpbroadcastd ymm14, [r8+24]		; Load prime
+	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
+	vpaddd	ymm6, ymm6, ymm15		; Make all negative counts positive
+
+	vpbroadcastd ymm15, [r10+12]		; Load increment for next prime
+	vpaddd	ymm7, ymm7, ymm15		; Bump the counters
+	vpsrad	ymm15, ymm7, 31			; Create mask for each negative count
+	vpbroadcastd ymm14, [r8+28]		; Load prime
+	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
+	vpaddd	ymm7, ymm7, ymm15		; Make all negative counts positive
+
+	vpbroadcastd ymm15, [r10+16]		; Load increment for next prime
+	vpaddd	ymm8, ymm8, ymm15		; Bump the counters
+	vpsrad	ymm15, ymm8, 31			; Create mask for each negative count
+	vpbroadcastd ymm14, [r8+32]		; Load prime
+	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
+	vpaddd	ymm8, ymm8, ymm15		; Make all negative counts positive
+
+	vpbroadcastd ymm15, [r10+20]		; Load increment for next prime
+	vpaddd	ymm9, ymm9, ymm15		; Bump the counters
+	vpsrad	ymm15, ymm9, 31			; Create mask for each negative count
+	vpbroadcastd ymm14, [r8+36]		; Load prime
+	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
+	vpaddd	ymm9, ymm9, ymm15		; Make all negative counts positive
+
+	vpbroadcastd ymm15, [r10+24]		; Load increment for next prime
+	vpaddd	ymm10, ymm10, ymm15		; Bump the counters
+	vpsrad	ymm15, ymm10, 31		; Create mask for each negative count
+	vpbroadcastd ymm14, [r8+40]		; Load prime
+	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
+	vpaddd	ymm10, ymm10, ymm15		; Make all negative counts positive
+
+	vpbroadcastd ymm15, [r10+28]		; Load increment for next prime
+	vpaddd	ymm11, ymm11, ymm15		; Bump the counters
+	vpsrad	ymm15, ymm11, 31		; Create mask for each negative count
+	vpbroadcastd ymm14, [r8+44]		; Load prime
+	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
+	vpaddd	ymm11, ymm11, ymm15		; Make all negative counts positive
+
+	vpbroadcastd ymm15, [r10+32]		; Load increment for next prime
+	vpaddd	ymm12, ymm12, ymm15		; Bump the counters
+	vpsrad	ymm15, ymm12, 31		; Create mask for each negative count
+	vpbroadcastd ymm14, [r8+48]		; Load prime
+	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
+	vpaddd	ymm12, ymm12, ymm15		; Make all negative counts positive
+ENDIF
+
+	add	rdx, 32			; Move to next AVX2 sieve word
+	js	avx2svlp1
+
+	vmovd	[rsi], xmm0		; Save bit clear offset for prime 19/23 next time
+	vmovd	[rsi+4], xmm1		; Save bit clear offset for prime 23/29 next time
+	vmovd	[rsi+8], xmm2		; Save bit clear offset for prime 29/31 next time
+	vmovd	[rsi+12], xmm3		; Save bit clear offset for prime 31/37 next time
+	vmovd	[rsi+16], xmm4		; Save bit clear offset for prime
+	vmovd	[rsi+20], xmm5		; Save bit clear offset for prime
+	vmovd	[rsi+24], xmm6		; Save bit clear offset for prime
+	vmovd	[rsi+28], xmm7		; Save bit clear offset for prime
+	vmovd	[rsi+32], xmm8		; Save bit clear offset for prime
+	vmovd	[rsi+36], xmm9		; Save bit clear offset for prime
+	vmovd	[rsi+40], xmm10		; Save bit clear offset for prime
+	vmovd	[rsi+44], xmm11		; Save bit clear offset for prime
+	vmovd	[rsi+48], xmm12		; Save bit clear offset for prime
+
+	add	r8, 52			; Next prime in primearray
+	add	rsi, 52			; Next offset in offsetarray
+	add	r10, 9*4		; Next double-word bump value
+	add	r13, 9*32		; Next double-word count initializer
+
+; Sieve more small primes using AVX2 instructions
+
+	mov	eax, 3			; Do 3 more sets of 13 small primes
+avx2sv13:
+	vpbroadcastd ymm0, [rsi]	; Load bit offset to clear
+	vpbroadcastd ymm1, [rsi+4]	; Load bit offset to clear
+	vpbroadcastd ymm2, [rsi+8]	; Load bit offset to clear
+	vpbroadcastd ymm3, [rsi+12]	; Load bit offset to clear
+	vpbroadcastd ymm4, [rsi+16]	; Load bit offset to clear
+	vpbroadcastd ymm5, [rsi+20]	; Load bit offset to clear
+	vpbroadcastd ymm6, [rsi+24]	; Load bit offset to clear
+	vpbroadcastd ymm7, [rsi+28]	; Load bit offset to clear
+	vpbroadcastd ymm8, [rsi+32]	; Load bit offset to clear
+	vpbroadcastd ymm9, [rsi+36]	; Load bit offset to clear
+	vpbroadcastd ymm10, [rsi+40]	; Load bit offset to clear
+	vpbroadcastd ymm11, [rsi+44]	; Load bit offset to clear
+	vpbroadcastd ymm12, [rsi+48]	; Load bit offset to clear
+
+	vpbroadcastd ymm14, [r8]	; Broadcast prime
+	vpaddd	ymm0, ymm0, [r13]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm0, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm0, ymm0, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+4]	; Broadcast prime
+	vpaddd	ymm1, ymm1, [r13+32]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm1, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm1, ymm1, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+8]	; Broadcast prime
+	vpaddd	ymm2, ymm2, [r13+64]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm2, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm2, ymm2, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+12]	; Broadcast prime
+	vpaddd	ymm3, ymm3, [r13+96]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm3, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm3, ymm3, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+16]	; Broadcast prime
+	vpaddd	ymm4, ymm4, [r13+128]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm4, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm4, ymm4, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+20]	; Broadcast prime
+	vpaddd	ymm5, ymm5, [r13+160]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm5, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm5, ymm5, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+24]	; Broadcast prime
+	vpaddd	ymm6, ymm6, [r13+192]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm6, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm6, ymm6, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+28]	; Broadcast prime
+	vpaddd	ymm7, ymm7, [r13+224]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm7, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm7, ymm7, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+32]	; Broadcast prime
+	vpaddd	ymm8, ymm8, [r13+256]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm8, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm8, ymm8, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+36]	; Broadcast prime
+	vpaddd	ymm9, ymm9, [r13+288]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm9, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm9, ymm9, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+40]	; Broadcast prime
+	vpaddd	ymm10, ymm10, [r13+320]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm10, 31	; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm10, ymm10, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+44]	; Broadcast prime
+	vpaddd	ymm11, ymm11, [r13+352]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm11, 31	; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm11, ymm11, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+48]	; Broadcast prime
+	vpaddd	ymm12, ymm12, [r13+384]	; Create each word's shift count from the single bit-to-clr value
+	vpsrad	ymm15, ymm12, 31	; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm12, ymm12, ymm15	; Make all negative counts positive
+
+;	vpbroadcastd ymm13, YMM_ONE	; Load constant 1
+
+	mov	rdx, -sievesize		; Load loop counter and index into sieve
+avx2svlp2:
+	vmovdqa ymm14, YMMWORD PTR [rdi][rdx]	; Load AVX2 sieve word
+
+	vpsllvd	ymm15, ymm13, ymm0		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm1		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm2		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm3		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm4		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm5		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm6		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm7		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm8		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm9		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm10		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm11		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm12		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vmovdqa YMMWORD PTR [rdi][rdx], ymm14	; Store AVX2 word to sieve
+
+	vpbroadcastd ymm15, [r10]
+	vpaddd	ymm0, ymm0, ymm15		; Bump the counters for prime
+	vpbroadcastd ymm14, [r8]		; Broadcast prime
+	vpaddd	ymm14, ymm0, ymm14		; Make all negative counts positive
+	vpminud	ymm0, ymm0, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm15, [r10+4]
+	vpaddd	ymm1, ymm1, ymm15		; Bump the counters for prime
+	vpbroadcastd ymm14, [r8+4]		; Broadcast prime
+	vpaddd	ymm14, ymm1, ymm14		; Make all negative counts positive
+	vpminud	ymm1, ymm1, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm15, [r10+8]
+	vpaddd	ymm2, ymm2, ymm15		; Bump the counters for prime
+	vpbroadcastd ymm14, [r8+8]		; Broadcast prime
+	vpaddd	ymm14, ymm2, ymm14		; Make all negative counts positive
+	vpminud	ymm2, ymm2, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm15, [r10+12]
+	vpaddd	ymm3, ymm3, ymm15		; Bump the counters for prime
+	vpbroadcastd ymm14, [r8+12]		; Broadcast prime
+	vpaddd	ymm14, ymm3, ymm14		; Make all negative counts positive
+	vpminud	ymm3, ymm3, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm15, [r10+16]
+	vpaddd	ymm4, ymm4, ymm15		; Bump the counters for prime
+	vpbroadcastd ymm14, [r8+16]		; Broadcast prime
+	vpaddd	ymm14, ymm4, ymm14		; Make all negative counts positive
+	vpminud	ymm4, ymm4, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm15, [r10+20]
+	vpaddd	ymm5, ymm5, ymm15		; Bump the counters for prime
+	vpbroadcastd ymm14, [r8+20]		; Broadcast prime
+	vpaddd	ymm14, ymm5, ymm14		; Make all negative counts positive
+	vpminud	ymm5, ymm5, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm15, [r10+24]
+	vpaddd	ymm6, ymm6, ymm15		; Bump the counters for prime
+	vpbroadcastd ymm14, [r8+24]		; Broadcast prime
+	vpaddd	ymm14, ymm6, ymm14		; Make all negative counts positive
+	vpminud	ymm6, ymm6, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm15, [r10+28]
+	vpaddd	ymm7, ymm7, ymm15		; Bump the counters for prime
+	vpbroadcastd ymm14, [r8+28]		; Broadcast prime
+	vpaddd	ymm14, ymm7, ymm14		; Make all negative counts positive
+	vpminud	ymm7, ymm7, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm15, [r10+32]
+	vpaddd	ymm8, ymm8, ymm15		; Bump the counters for prime
+	vpbroadcastd ymm14, [r8+32]		; Broadcast prime
+	vpaddd	ymm14, ymm8, ymm14		; Make all negative counts positive
+	vpminud	ymm8, ymm8, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm15, [r10+36]
+	vpaddd	ymm9, ymm9, ymm15		; Bump the counters for prime
+	vpbroadcastd ymm14, [r8+36]		; Broadcast prime
+	vpaddd	ymm14, ymm9, ymm14		; Make all negative counts positive
+	vpminud	ymm9, ymm9, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm15, [r10+40]
+	vpaddd	ymm10, ymm10, ymm15		; Bump the counters for prime
+	vpbroadcastd ymm14, [r8+40]		; Broadcast prime
+	vpaddd	ymm14, ymm10, ymm14		; Make all negative counts positive
+	vpminud	ymm10, ymm10, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm15, [r10+44]
+	vpaddd	ymm11, ymm11, ymm15		; Bump the counters for prime
+	vpbroadcastd ymm14, [r8+44]		; Broadcast prime
+	vpaddd	ymm14, ymm11, ymm14		; Make all negative counts positive
+	vpminud	ymm11, ymm11, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm15, [r10+48]
+	vpaddd	ymm12, ymm12, ymm15		; Bump the counters for prime
+	vpbroadcastd ymm14, [r8+48]		; Broadcast prime
+	vpaddd	ymm14, ymm12, ymm14		; Make all negative counts positive
+	vpminud	ymm12, ymm12, ymm14		; Keep smallest positive
+
+	add	rdx, 32			; Move to next AVX2 sieve word
+	js	avx2svlp2
+
+	vmovd	[rsi], xmm0		; Save bit clear offset for next time
+	vmovd	[rsi+4], xmm1		; Save bit clear offset for next time
+	vmovd	[rsi+8], xmm2		; Save bit clear offset for next time
+	vmovd	[rsi+12], xmm3		; Save bit clear offset for next time
+	vmovd	[rsi+16], xmm4		; Save bit clear offset for next time
+	vmovd	[rsi+20], xmm5		; Save bit clear offset for next time
+	vmovd	[rsi+24], xmm6		; Save bit clear offset for next time
+	vmovd	[rsi+28], xmm7		; Save bit clear offset for next time
+	vmovd	[rsi+32], xmm8		; Save bit clear offset for next time
+	vmovd	[rsi+36], xmm9		; Save bit clear offset for next time
+	vmovd	[rsi+40], xmm10		; Save bit clear offset for next time
+	vmovd	[rsi+44], xmm11		; Save bit clear offset for next time
+	vmovd	[rsi+48], xmm12		; Save bit clear offset for next time
+
+	add	r8, 52			; Next prime in primearray
+	add	rsi, 52			; Next offset in offsetarray
+	add	r10, 13*4		; Next double-word bump value
+	add	r13, 13*32		; Next double-word count initializer
+	dec	eax			; Do another set of 13 small primes?
+	jnz	avx2sv13
+
+; Sieve small primes above 256 using AVX2 instructions
+
+	mov	eax, alternate_sieve_count ; Do more sets of 13 small primes
+avx2sv256:
+	vpbroadcastd ymm0, [rsi]	; Load bit offset to clear
+	vpbroadcastd ymm1, [rsi+4]	; Load bit offset to clear
+	vpbroadcastd ymm2, [rsi+8]	; Load bit offset to clear
+	vpbroadcastd ymm3, [rsi+12]	; Load bit offset to clear
+	vpbroadcastd ymm4, [rsi+16]	; Load bit offset to clear
+	vpbroadcastd ymm5, [rsi+20]	; Load bit offset to clear
+	vpbroadcastd ymm6, [rsi+24]	; Load bit offset to clear
+	vpbroadcastd ymm7, [rsi+28]	; Load bit offset to clear
+	vpbroadcastd ymm8, [rsi+32]	; Load bit offset to clear
+	vpbroadcastd ymm9, [rsi+36]	; Load bit offset to clear
+	vpbroadcastd ymm10, [rsi+40]	; Load bit offset to clear
+	vpbroadcastd ymm11, [rsi+44]	; Load bit offset to clear
+	vpbroadcastd ymm12, [rsi+48]	; Load bit offset to clear
+
+	vmovapd	ymm15, YMM_INIT_SV257	; Load offsets for each dword in AVX2 count word
+	vpaddd	ymm0, ymm0, ymm15	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	ymm1, ymm1, ymm15	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	ymm2, ymm2, ymm15	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	ymm3, ymm3, ymm15	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	ymm4, ymm4, ymm15	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	ymm5, ymm5, ymm15	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	ymm6, ymm6, ymm15	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	ymm7, ymm7, ymm15	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	ymm8, ymm8, ymm15	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	ymm9, ymm9, ymm15	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	ymm10, ymm10, ymm15	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	ymm11, ymm11, ymm15	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	ymm12, ymm12, ymm15	; Create each word's shift count from the single bit-to-clr value
+
+	vpbroadcastd ymm14, [r8]	; Broadcast prime
+	vpsrad	ymm15, ymm0, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm0, ymm0, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+4]	; Broadcast prime
+	vpsrad	ymm15, ymm1, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm1, ymm1, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+8]	; Broadcast prime
+	vpsrad	ymm15, ymm2, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm2, ymm2, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+12]	; Broadcast prime
+	vpsrad	ymm15, ymm3, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm3, ymm3, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+16]	; Broadcast prime
+	vpsrad	ymm15, ymm4, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm4, ymm4, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+20]	; Broadcast prime
+	vpsrad	ymm15, ymm5, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm5, ymm5, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+24]	; Broadcast prime
+	vpsrad	ymm15, ymm6, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm6, ymm6, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+28]	; Broadcast prime
+	vpsrad	ymm15, ymm7, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm7, ymm7, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+32]	; Broadcast prime
+	vpsrad	ymm15, ymm8, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm8, ymm8, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+36]	; Broadcast prime
+	vpsrad	ymm15, ymm9, 31		; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm9, ymm9, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+40]	; Broadcast prime
+	vpsrad	ymm15, ymm10, 31	; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm10, ymm10, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+44]	; Broadcast prime
+	vpsrad	ymm15, ymm11, 31	; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm11, ymm11, ymm15	; Make all negative counts positive
+
+	vpbroadcastd ymm14, [r8+48]	; Broadcast prime
+	vpsrad	ymm15, ymm12, 31	; Create mask for each negative count
+	vpand	ymm15, ymm15, ymm14	; Change mask into value to add back to counts
+	vpaddd	ymm12, ymm12, ymm15	; Make all negative counts positive
+
+;	vpbroadcastd ymm13, YMM_ONE	; Load constant 1
+
+	mov	rdx, -sievesize		; Load loop counter and index into sieve
+avx2svlp3:
+	vmovdqa ymm14, YMMWORD PTR [rdi][rdx]	; Load AVX2 sieve word
+
+	vpsllvd	ymm15, ymm13, ymm0		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm1		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm2		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm3		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm4		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm5		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm6		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm7		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm8		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm9		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm10		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm11		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vpsllvd	ymm15, ymm13, ymm12		; Shift mask for each bit-to-clr count
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
+
+	vmovdqa YMMWORD PTR [rdi][rdx], ymm14	; Store AVX2 word to sieve
+
+	vpbroadcastd ymm15, YMM_MINUS256	; Load -256 for bumping counters
+	vpaddd	ymm0, ymm0, ymm15		; Bump the counters for prime
+	vpaddd	ymm1, ymm1, ymm15		; Bump the counters for prime
+	vpaddd	ymm2, ymm2, ymm15		; Bump the counters for prime
+	vpaddd	ymm3, ymm3, ymm15		; Bump the counters for prime
+	vpaddd	ymm4, ymm4, ymm15		; Bump the counters for prime
+	vpaddd	ymm5, ymm5, ymm15		; Bump the counters for prime
+	vpaddd	ymm6, ymm6, ymm15		; Bump the counters for prime
+	vpaddd	ymm7, ymm7, ymm15		; Bump the counters for prime
+	vpaddd	ymm8, ymm8, ymm15		; Bump the counters for prime
+	vpaddd	ymm9, ymm9, ymm15		; Bump the counters for prime
+	vpaddd	ymm10, ymm10, ymm15		; Bump the counters for prime
+	vpaddd	ymm11, ymm11, ymm15		; Bump the counters for prime
+	vpaddd	ymm12, ymm12, ymm15		; Bump the counters for prime
+
+	vpbroadcastd ymm14, [r8]		; Broadcast prime
+	vpaddd	ymm14, ymm0, ymm14		; Make all negative counts positive
+	vpminud	ymm0, ymm0, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm14, [r8+4]		; Broadcast prime
+	vpaddd	ymm14, ymm1, ymm14		; Make all negative counts positive
+	vpminud	ymm1, ymm1, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm14, [r8+8]		; Broadcast prime
+	vpaddd	ymm14, ymm2, ymm14		; Make all negative counts positive
+	vpminud	ymm2, ymm2, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm14, [r8+12]		; Broadcast prime
+	vpaddd	ymm14, ymm3, ymm14		; Make all negative counts positive
+	vpminud	ymm3, ymm3, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm14, [r8+16]		; Broadcast prime
+	vpaddd	ymm14, ymm4, ymm14		; Make all negative counts positive
+	vpminud	ymm4, ymm4, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm14, [r8+20]		; Broadcast prime
+	vpaddd	ymm14, ymm5, ymm14		; Make all negative counts positive
+	vpminud	ymm5, ymm5, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm14, [r8+24]		; Broadcast prime
+	vpaddd	ymm14, ymm6, ymm14		; Make all negative counts positive
+	vpminud	ymm6, ymm6, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm14, [r8+28]		; Broadcast prime
+	vpaddd	ymm14, ymm7, ymm14		; Make all negative counts positive
+	vpminud	ymm7, ymm7, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm14, [r8+32]		; Broadcast prime
+	vpaddd	ymm14, ymm8, ymm14		; Make all negative counts positive
+	vpminud	ymm8, ymm8, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm14, [r8+36]		; Broadcast prime
+	vpaddd	ymm14, ymm9, ymm14		; Make all negative counts positive
+	vpminud	ymm9, ymm9, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm14, [r8+40]		; Broadcast prime
+	vpaddd	ymm14, ymm10, ymm14		; Make all negative counts positive
+	vpminud	ymm10, ymm10, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm14, [r8+44]		; Broadcast prime
+	vpaddd	ymm14, ymm11, ymm14		; Make all negative counts positive
+	vpminud	ymm11, ymm11, ymm14		; Keep smallest positive
+
+	vpbroadcastd ymm14, [r8+48]		; Broadcast prime
+	vpaddd	ymm14, ymm12, ymm14		; Make all negative counts positive
+	vpminud	ymm12, ymm12, ymm14		; Keep smallest positive
+
+	add	rdx, 32			; Move to next AVX2 sieve word
+	js	avx2svlp3
+
+	vmovd	[rsi], xmm0		; Save bit clear offset for next time
+	vmovd	[rsi+4], xmm1		; Save bit clear offset for next time
+	vmovd	[rsi+8], xmm2		; Save bit clear offset for next time
+	vmovd	[rsi+12], xmm3		; Save bit clear offset for next time
+	vmovd	[rsi+16], xmm4		; Save bit clear offset for next time
+	vmovd	[rsi+20], xmm5		; Save bit clear offset for next time
+	vmovd	[rsi+24], xmm6		; Save bit clear offset for next time
+	vmovd	[rsi+28], xmm7		; Save bit clear offset for next time
+	vmovd	[rsi+32], xmm8		; Save bit clear offset for next time
+	vmovd	[rsi+36], xmm9		; Save bit clear offset for next time
+	vmovd	[rsi+40], xmm10		; Save bit clear offset for next time
+	vmovd	[rsi+44], xmm11		; Save bit clear offset for next time
+	vmovd	[rsi+48], xmm12		; Save bit clear offset for next time
+
+	add	r8, 52			; Next prime in primearray
+	add	rsi, 52			; Next offset in offsetarray
+	dec	eax			; Do another set of 13 small primes?
+	jnz	avx2sv256
+;	jmp	sievelp			; Go do the one small prime at a time sieving
 
 ;
 ; Loop through the rest of small prime array, clearing sieve bits.
 ;
 
-sievelp:mov	ebx, [rbp]		; Load small prime
+sievelp:mov	ebx, [r8]		; Load small prime
 	and	rbx, rbx		; See if primearray fully processed
 	jz	short sievedn		; Yes, break out of loop
 	mov	eax, [rsi]		; Load bit offset to clear
@@ -1022,7 +1948,7 @@ clrlp:	btr	[rdi], rax		; Clear the sieve bit
 	add	rax, rbx		; Next bit to clear
 	js	short clrlp		; Past the end of the sieve when rax goes positive
 clrdn:	mov	[rsi], eax		; Save bit clear offset for next time
-	lea	rbp, [rbp+4]		; Next primearray address
+	lea	r8, [r8+4]		; Next primearray address
 	lea	rsi, [rsi+4]		; Next offsetarray address
 	jmp	short sievelp		; Work on next small prime
 
