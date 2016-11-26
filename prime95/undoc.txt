@@ -291,13 +291,18 @@ error checking.
 You can tune trial factoring performance with these prime.txt settings:
 	MaxTFSievePrime=x		(default is 165000 for FMA CPUs, 1000000 otherwise)
 	PercentTFSieverThreads=y	(default is 33 for FMA3 CPUs, otherwise 25)
+	AlternateTFSieveCount=z		(default is 9)
 	UseMaxSieverAllocs=0 or 1	(default is 0)
 The TF code uses a small prime sieve to eliminate composite trial factors.
 Set x to the maximum small prime used by this sieve.  When multithreading TF,
 set y to be the percentage of threads that can be running the small prime sieve.
-When multithreading TF, if UseMaxSieverAllocs is one then at least 60 sievers
-will be allocated.  This will result in 9% less sieving but an increased memory
-footprint.
+On AVX2 and AVX512 cpus, the code can sieve for small primes using traditional x86
+instructions or using AVX2/AVX512 instructions. As sieve primes get larger, the
+x86 code becomes faster than the AVX2/AVX512 code.  Set z to the number of blocks
+of small primes to use the AVX2/AVX512 code path.  On my AVX2 Skylake cpu the
+optimal block count is 9.  When multithreading TF, if UseMaxSieverAllocs is one
+then at least 60 sievers will be allocated.  This will result in 9% less sieving
+but an increased memory footprint.
 
 You can disable the display of every iteration's timing when using Advanced/Time
 leaving just the ending summary.  Useful for machines with lots of cores.
