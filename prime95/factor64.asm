@@ -923,8 +923,8 @@ PROCF	factor64_sieve
 ; Use special small prime sieving code for AVX2 and AVX512 capable machines
 ;
 
-;	test	CPU_FLAGS, 100000h	; Is this an AVX512 machine?
-;	jnz	avx512sv		; Yes, use AVX512 sieve
+	test	CPU_FLAGS, 100000h	; Is this an AVX512 machine?
+	jnz	avx512sv		; Yes, use AVX512 sieve
 	test	CPU_FLAGS, 20000h	; Is this an AVX2 machine?
 	jnz	avx2sv			; Yes, use AVX2 sieve
 
@@ -2135,7 +2135,7 @@ avx512sv19andup:
 	vpbroadcastd zmm12, [rsi+48]	; Load bit offset to clear for next prime
 
 	vpaddd	zmm0, zmm0, [r13]	; Create each word's shift count from the single bit-to-clr value
-	vpaddd	zmm14, zmm0, [r8]{1to16}	; Make all negative counts positive
+	vpaddd	zmm14, zmm0, [r8]{1to16}; Make all negative counts positive
 	vpminud	zmm0, zmm0, zmm14	; Keep smallest positive count
 
 	vpaddd	zmm1, zmm1, [r13+64]	; Create each word's shift count from the single bit-to-clr value
@@ -2196,7 +2196,7 @@ avx512sv19andup:
 	mov	rdi, sieve		; Load address of sieve bits
 	add	rdi, sievesize		; Compute end-of-sieve address
 avx512svlp1:
-	vmovdqu zmm14, ZMMWORD PTR [r14][rdx]	; Load AVX512 sieve word
+	vmovdqu32 zmm14, ZMMWORD PTR [r14][rdx]	; Load AVX512 sieve word
 
 	vpbroadcastd zmm15, [r9]		; Load mask for prime 19 or 23 if we are clearing bit 0
 	vpsllvd	zmm15, zmm15, zmm0		; Shift mask for prime 19 or 23
@@ -2254,7 +2254,7 @@ avx512svlp1:
 	vpandnd	zmm14, zmm15, zmm14		; Apply shifted mask
 	vpaddd	zmm12, zmm12, [r10+48]{1to16}	; Bump the counters
 
-	vmovdqa ZMMWORD PTR [rdi][rdx], zmm14	; Store AVX512 word to sieve
+	vmovdqa32 ZMMWORD PTR [rdi][rdx], zmm14	; Store AVX512 word to sieve
 
 IFDEF USE_PMINUD
 	vpaddd	zmm14, zmm0, [r8+0]{1to16}	; Make all negative counts positive
@@ -2378,7 +2378,7 @@ ENDIF
 
 ; Sieve more small primes using AVX512 instructions
 
-	mov	eax, 3			; Do 3 more sets of 13 small primes
+	mov	eax, 6			; Do 6 more sets of 13 small primes
 avx512sv13:
 	vpbroadcastd zmm0, [rsi]	; Load bit offset to clear
 	vpbroadcastd zmm1, [rsi+4]	; Load bit offset to clear
@@ -2434,15 +2434,15 @@ avx512sv13:
 	vpaddd	zmm14, zmm9, [r8+36]{1to16}; Make all negative counts positive
 	vpminud	zmm9, zmm9, zmm14	; Keep smallest positive count
 
-	vpaddd	zmm10, zmm10, [r13+10*64]	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	zmm10, zmm10, [r13+10*64] ; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm14, zmm10, [r8+40]{1to16}; Make all negative counts positive
 	vpminud	zmm10, zmm10, zmm14	; Keep smallest positive count
 
-	vpaddd	zmm11, zmm11, [r13+11*64]	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	zmm11, zmm11, [r13+11*64] ; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm14, zmm11, [r8+44]{1to16}; Make all negative counts positive
 	vpminud	zmm11, zmm11, zmm14	; Keep smallest positive count
 
-	vpaddd	zmm12, zmm12, [r13+12*64]	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	zmm12, zmm12, [r13+12*64] ; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm14, zmm12, [r8+48]{1to16}; Make all negative counts positive
 	vpminud	zmm12, zmm12, zmm14	; Keep smallest positive count
 
@@ -2450,7 +2450,7 @@ avx512sv13:
 
 	mov	rdx, -sievesize		; Load loop counter and index into sieve
 avx512svlp2:
-	vmovdqa zmm14, ZMMWORD PTR [rdi][rdx]	; Load AVX512 sieve word
+	vmovdqa32 zmm14, ZMMWORD PTR [rdi][rdx]	; Load AVX512 sieve word
 
 	vpsllvd	zmm15, zmm13, zmm0		; Shift mask for each bit-to-clr count
 	vpandnd	zmm14, zmm15, zmm14		; Apply shifted mask
@@ -2491,7 +2491,7 @@ avx512svlp2:
 	vpsllvd	zmm15, zmm13, zmm12		; Shift mask for each bit-to-clr count
 	vpandnd	zmm14, zmm15, zmm14		; Apply shifted mask
 
-	vmovdqa ZMMWORD PTR [rdi][rdx], zmm14	; Store AVX512 word to sieve
+	vmovdqa32 ZMMWORD PTR [rdi][rdx], zmm14	; Store AVX512 word to sieve
 
 	vpaddd	zmm0, zmm0, [r10+0]{1to16}	; Bump the counters for prime
 	vpaddd	zmm14, zmm0, [r8+0]{1to16}	; Make all negative counts positive
@@ -2645,7 +2645,7 @@ avx512sv512:
 
 	mov	rdx, -sievesize		; Load loop counter and index into sieve
 avx512svlp3:
-	vmovdqa zmm14, ZMMWORD PTR [rdi][rdx]	; Load AVX512 sieve word
+	vmovdqa32 zmm14, ZMMWORD PTR [rdi][rdx]	; Load AVX512 sieve word
 
 	vpsllvd	zmm15, zmm13, zmm0		; Shift mask for each bit-to-clr count
 	vpandnd	zmm14, zmm15, zmm14		; Apply shifted mask
@@ -2686,7 +2686,7 @@ avx512svlp3:
 	vpsllvd	zmm15, zmm13, zmm12		; Shift mask for each bit-to-clr count
 	vpandnd	zmm14, zmm15, zmm14		; Apply shifted mask
 
-	vmovdqa ZMMWORD PTR [rdi][rdx], zmm14	; Store AVX512 word to sieve
+	vmovdqa32 ZMMWORD PTR [rdi][rdx], zmm14	; Store AVX512 word to sieve
 
 	vpbroadcastd zmm15, ZMM_MINUS512	; Load -512 for bumping counters
 	vpaddd	zmm0, zmm0, zmm15		; Bump the counters for prime
