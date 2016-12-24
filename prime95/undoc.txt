@@ -301,7 +301,7 @@ instructions or using AVX2/AVX512 instructions.  As sieve primes get larger, the
 x86 code is faster than the AVX2/AVX512 code.  Set z to the number of blocks
 of small primes to use the AVX2/AVX512 code path.  On my AVX2 Skylake cpu the
 optimal block count is 9.
-	UseMaxSieverAllocs=0 or 1	(default is 0)
+	UseMaxSieverAllocs=0 or 1	(default is 1)
 When multithreading TF, if UseMaxSieverAllocs is 1 then at least 60 sievers will
 be allocated.  This will result in 9% less sieving but an increased memory footprint.
 
