@@ -4234,6 +4234,8 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 				      (CPU_FLAGS & CPU_AVX512F) ? 95000 :	// Knights Landing
 				      (CPU_FLAGS & CPU_FMA3) ? 165000 :		// 165K is Haswell optimized
 				      1000000);					// Need more data here
+		if (maxprime <= 1000) maxprime = 1000;
+		if (maxprime >= 100000000) maxprime = 100000000;
 		estimated_num_primes = (int) ((double) maxprime / (log ((double) maxprime) - 1.0) * 1.01);
 		asm_data->primearray = malloc (estimated_num_primes * sizeof (uint32_t));
 		if (asm_data->primearray == NULL) goto memerr;
