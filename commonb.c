@@ -4210,10 +4210,10 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 
 	// I think it will be more efficient to always run with 60 or more siever allocs.  If so, we should
 	// upgrade the single-threaded code to work with multiple siever allocs.  I saw a tiny speed increase
-	// on Skylake, but Andreas Reinhart reports this option is slower on a variety of machines.
+	// on Skylake due to the 9% reduction in sieving at the cost of more memory consumed.
 	if (facdata->num_siever_threads > 1 &&
 	    facdata->num_siever_allocs < 60 &&
-	    IniGetInt (INI_FILE, "UseMaxSieverAllocs", 0))
+	    IniGetInt (INI_FILE, "UseMaxSieverAllocs", 1))
 		facdata->num_siever_groups = 77, facdata->num_siever_allocs = 60;
 
 	if (facdata->num_siever_groups % 11 == 0) facdata->initsieve_primes = INITSIEVE_PRIMES3;
