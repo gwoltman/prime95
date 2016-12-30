@@ -678,8 +678,8 @@ ZMM_BUMP19		DD	-(512 MOD 19), -(512 MOD 23), -(512 MOD 29), -(512 MOD 31), -(512
 			DD	20 DUP (-512)
 ZMM_MINUS512		DD	-512
 
-;FOO1			DQ	15				;; The easy way to debug - enter the known factor here
-;FOO2			DQ	1577855855906095289
+;FOO1			DQ	0				;; The easy way to debug - enter the known factor here
+;FOO2			DQ	20945362625087
 
 	;; Align so that other GWDATA areas are aligned on a cache line
 	align 128
@@ -2107,7 +2107,6 @@ avx512sv:mov	r8, primearray		; Ptr to first prime in array
 	lea	r9, YMM_INIT_MASK19	; Get address of first mask required for primes below 32
 	lea	r10, ZMM_BUMP19		; Get address of first count incrementer
 	lea	r13, ZMM_INIT_SV19	; Get address of first count initializer
-
   	cmp	DWORD PTR [r8], 19	; Does the small prime array start at 19 or 23?
 	je	short avx512sv19andup	; Jump if sieving from 19 onwards
 
@@ -2256,7 +2255,6 @@ avx512svlp1:
 
 	vmovdqa32 ZMMWORD PTR [rdi][rdx], zmm14	; Store AVX512 word to sieve
 
-IFDEF USE_PMINUD
 	vpaddd	zmm14, zmm0, [r8+0]{1to16}	; Make all negative counts positive
 	vpminud	zmm0, zmm0, zmm14		; Keep smallest positive count
 
@@ -2295,64 +2293,6 @@ IFDEF USE_PMINUD
 
 	vpaddd	zmm14, zmm12, [r8+48]{1to16}	; Make all negative counts positive
 	vpminud	zmm12, zmm12, zmm14		; Keep smallest positive count
-ELSE
-
-;;; Could try using masks, as in:
-; vpcmpgtd k1, zmm0, minus_1
-; vpaddd zmm0{k1}, zmm0, [r8+0]{1to16}
-
-	vpsrad	zmm15, zmm0, 31			; Create mask for each negative count
-	vpandd	zmm15, zmm15, [r8+0]{1to16}	; Change mask into value to add back to counts
-	vpaddd	zmm0, zmm0, zmm15		; Make all negative counts positive
-
-	vpsrad	zmm15, zmm1, 31			; Create mask for each negative count
-	vpandd	zmm15, zmm15, [r8+4]{1to16}	; Change mask into value to add back to counts
-	vpaddd	zmm1, zmm1, zmm15		; Make all negative counts positive
-
-	vpsrad	zmm15, zmm2, 31			; Create mask for each negative count
-	vpandd	zmm15, zmm15, [r8+8]{1to16}	; Change mask into value to add back to counts
-	vpaddd	zmm2, zmm2, zmm15		; Make all negative counts positive
-
-	vpsrad	zmm15, zmm3, 31			; Create mask for each negative count
-	vpandd	zmm15, zmm15, [r8+12]{1to16}	; Change mask into value to add back to counts
-	vpaddd	zmm3, zmm3, zmm15		; Make all negative counts positive
-
-	vpsrad	zmm15, zmm4, 31			; Create mask for each negative count
-	vpandd	zmm15, zmm15, [r8+16]{1to16}	; Change mask into value to add back to counts
-	vpaddd	zmm4, zmm4, zmm15		; Make all negative counts positive
-
-	vpsrad	zmm15, zmm5, 31			; Create mask for each negative count
-	vpandd	zmm15, zmm15, [r8+20]{1to16}	; Change mask into value to add back to counts
-	vpaddd	zmm5, zmm5, zmm15		; Make all negative counts positive
-
-	vpsrad	zmm15, zmm6, 31			; Create mask for each negative count
-	vpandd	zmm15, zmm15, [r8+24]{1to16}	; Change mask into value to add back to counts
-	vpaddd	zmm6, zmm6, zmm15		; Make all negative counts positive
-
-	vpsrad	zmm15, zmm7, 31			; Create mask for each negative count
-	vpandd	zmm15, zmm15, [r8+28]{1to16}	; Change mask into value to add back to counts
-	vpaddd	zmm7, zmm7, zmm15		; Make all negative counts positive
-
-	vpsrad	zmm15, zmm8, 31			; Create mask for each negative count
-	vpandd	zmm15, zmm15, [r8+32]{1to16}	; Change mask into value to add back to counts
-	vpaddd	zmm8, zmm8, zmm15		; Make all negative counts positive
-
-	vpsrad	zmm15, zmm9, 31			; Create mask for each negative count
-	vpandd	zmm15, zmm15, [r8+36]{1to16}	; Change mask into value to add back to counts
-	vpaddd	zmm9, zmm9, zmm15		; Make all negative counts positive
-
-	vpsrad	zmm15, zmm10, 31		; Create mask for each negative count
-	vpandd	zmm15, zmm15, [r8+40]{1to16}	; Change mask into value to add back to counts
-	vpaddd	zmm10, zmm10, zmm15		; Make all negative counts positive
-
-	vpsrad	zmm15, zmm11, 31		; Create mask for each negative count
-	vpandd	zmm15, zmm15, [r8+44]{1to16}	; Change mask into value to add back to counts
-	vpaddd	zmm11, zmm11, zmm15		; Make all negative counts positive
-
-	vpsrad	zmm15, zmm12, 31		; Create mask for each negative count
-	vpandd	zmm15, zmm15, [r8+48]{1to16}	; Change mask into value to add back to counts
-	vpaddd	zmm12, zmm12, zmm15		; Make all negative counts positive
-ENDIF
 
 	add	rdx, 64			; Move to next AVX512 sieve word
 	js	avx512svlp1
