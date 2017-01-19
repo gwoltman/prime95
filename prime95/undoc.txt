@@ -288,22 +288,35 @@ maximum exponent that can be tested using the current FFT length, then the
 extra error checking is performed).  A value of 0.0 will turn off this extra
 error checking.
 
-You can tune trial factoring performance with several prime.txt settings:
-	MaxTFSievePrime=x		(default is 95000 on AVX512 CPUs, 165000 on FMA CPUs, 1000000 otherwise)
+You can tune trial factoring performance with several prime.txt settings.  Probably
+only the first parameter below is worth tuning:
+	MaxTFSievePrime=x		(default is 155000 on AVX512 CPUs, 145000 on FMA CPUs, 1000000 otherwise)
 The TF code uses a small prime sieve to eliminate composite trial factors.
 Set x to the maximum small prime used by this sieve.  MaxTFSievePrime is limited
 to the range of 1,000 to 100,000,000.
-  	PercentTFSieverThreads=y	(default is 33 for FMA3 CPUs, otherwise 25)
-When multithreading TF, set y to be the percentage of threads that can be running the small prime sieve.
+	ThreadsPerTFPool=n		(default is number of hyperthreads)
+When multithreading, set n to the number of threads to group together in a "pool".
+Pooling ensures that both sieving and trial factoring will be done by threads within
+the same pool.  Thus, if the threads share a cache, locality is increased.  For example,
+on Knights Landing the best setting is 8 because 2 cores with 4 hyperthreads each
+share an L2 cache.
+  	PercentTFSieverThreads=y	(default is 50)
+When multithreading TF, set y to be the percentage of threads in each pool that can be
+running the small prime sieve.  NOTE: If y is set to 100, then pooling is turned off.
+That is, each thread sieves and then immediately TFs.  While this offers perfect locality,
+it gives slightly worse performance and I cannot explain why.  My best theory is that
+pooling improves usage of the instruction cache.
+	UseMaxSieverAllocs=0, 1, or 2	(default is 2)
+If UseMaxSieverAllocs is 1 then at least 60 sievers will be allocated, resulting
+in a 9% reduction in sieving.  If UseMaxSieverAllocs is 2 then at least 720 sievers
+will be allocated, resulting in a further reduction of 7%.  The downside is more memory
+is required and initialization of each of the 16 factoring passes is slower.  Allocating
+a lot of sievers can be detremental when factoring to low bit levels.
 	AlternateTFSieveCount=z		(default is 9)
-On AVX2 and AVX512 cpus, the code can sieve for small primes using traditional x86
-instructions or using AVX2/AVX512 instructions.  As sieve primes get larger, the
-x86 code is faster than the AVX2/AVX512 code.  Set z to the number of blocks
-of small primes to use the AVX2/AVX512 code path.  On my AVX2 Skylake cpu the
-optimal block count is 9.
-	UseMaxSieverAllocs=0 or 1	(default is 1)
-When multithreading TF, if UseMaxSieverAllocs is 1 then at least 60 sievers will
-be allocated.  This will result in 9% less sieving but an increased memory footprint.
+On AVX2 and AVX512 cpus, the code can sieve for small primes using either traditional x86
+instructions or using AVX2/AVX512 instructions.  As sieve primes get larger, the x86 code
+is faster than the AVX2/AVX512 code.  Set z to the number of blocks of small primes to use
+the AVX2/AVX512 code path.  On my AVX2 Skylake cpu the optimal block count is 9.
 
 You can disable the display of every iteration's timing when using Advanced/Time
 leaving just the ending summary.  Useful for machines with lots of cores.
