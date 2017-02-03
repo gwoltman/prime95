@@ -2611,6 +2611,7 @@ struct LaunchData {
 	unsigned int num_threads;	/* Num threads to run */
 	unsigned long p;		/* Exponent to time */
 	unsigned long iters;		/* Iterations to time */
+	int	bench_type;		/* Type of benchmark */
 	int	delay_amount;		/* Seconds to delay starting worker */
 	int	stop_reason;		/* Returned stop reason */
 };
@@ -2702,7 +2703,8 @@ int LaunchTortureTest (
 
 /* Launch a thread to do a benchmark */
 
-int LaunchBench (void)
+int LaunchBench (
+	int	bench_type)		/* 0 = Throughput, 1 = FFT timings, 2 = Trial factoring */
 {
 	struct LaunchData *ld;
 	gwthread thread_handle;
@@ -2710,6 +2712,7 @@ int LaunchBench (void)
 	ld = (struct LaunchData *) malloc (sizeof (struct LaunchData));
 	if (ld == NULL) return (OutOfMemory (MAIN_THREAD_NUM));
 	ld->num_threads = 1;
+	ld->bench_type = bench_type;
 	LAUNCH_TYPE = LD_BENCH;
 	create_worker_windows (1);
 	mark_workers_active (1);
@@ -2988,7 +2991,7 @@ void LauncherDispatch (void *arg)
 		stop_reason = primeTime (ld->thread_num, ld->p, ld->iters);
 		break;
 	case LD_BENCH:
-		stop_reason = primeBench (ld->thread_num);
+		stop_reason = primeBench (ld->thread_num, ld->bench_type);
 		break;
 	case LD_TORTURE:
 		stop_reason = tortureTest (ld->thread_num, ld->num_threads);
@@ -3857,10 +3860,10 @@ int getAnotherFactorIfAny (
 #ifdef X86_64
 
 #define SIEVE_SIZE_IN_BYTES	(12 * 1024)		// 12KB sieve in asm code
-#define INITSIEVE_PRIMES1	(7 * 11 * 13 * 17)	// Initialize sieve with these 4 primes cleared
-#define INITSIEVE_PRIMES2	(11 * 13 * 17 * 19)	// Initialize sieve with these 4 primes cleared
-#define INITSIEVE_PRIMES3	(13 * 17 * 19)		// Initialize sieve with these 3 primes cleared
-#define INITSIEVE_PRIMES4	(17 * 19)		// Initialize sieve with these 2 primes cleared
+#define INITSIEVE_PRIMES1	(7 * 11 * 13 * 17)	// Initialize sieve with these 4 primes cleared (uses 29KB)
+#define INITSIEVE_PRIMES2	(11 * 13 * 17 * 19)	// Initialize sieve with these 4 primes cleared (uses 57KB)
+#define INITSIEVE_PRIMES3	(13 * 17 * 19 * 23)	// Initialize sieve with these 4 primes cleared (uses 108KB)
+#define INITSIEVE_PRIMES4	(17 * 19 * 23)		// Initialize sieve with these 3 primes cleared (uses 19KB)
 
 /* This defines the C / assembly language communication structure */
 /* When multi-threading, each thread has its own copy of this structure */
@@ -4773,9 +4776,10 @@ int factorChunk (			/* Return 1 if factor found, 2 if factor not found */
 	// If we (or an auxiliary thread) found a factor, end this pass and return the factor
 	if (facdata->found_count) {
 		// Caller expects the pass to be complete when a found factor is returned.
-		// I think if the main thread is in a pool all by itself, there may be an
-		// already sieved area that goes untested.  We should clean this up, but it
-		// probably requires modifying the legacy 32-bit code.
+		// We should clean this up, but it would require modifying the legacy 32-bit code.
+		do {
+			res = factorChunkMultithreaded (facdata, asm_data, 0);
+		} while (!res);
 		gwevent_wait (&facdata->all_threads_done, 0);
 		facdata->found_count--;
 		asm_data->FACLSW = facdata->found_lsw[facdata->found_count];
@@ -4837,6 +4841,9 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 			int	i, best_siever;
 			uint64_t score, best_score_thusfar;
 
+			// Mark our old siever unassigned if the siever was assigned to this thread
+			if (siever->last_thread_used == aux_thread_num) siever->state = SIEVER_INACTIVE;
+
 			// If not multithreading, we simply move onto the next siever for uniform progress
 			if (facdata->num_threads == 1) {
 				best_siever = tf_thread->last_siever_used + 1;
@@ -4847,17 +4854,20 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 			// unassigned siever except when we get near the end of a pass.
 			else {
 				best_siever = -1;
-				if (siever->last_thread_used == aux_thread_num && siever->num_areas_to_sieve >= 150) {
+				if (siever->last_thread_used == aux_thread_num) {
 					best_siever = tf_thread->last_siever_used;
-					best_score_thusfar = siever->num_areas_to_sieve + 150;
+					best_score_thusfar = siever->num_areas_to_sieve;
+					if (siever->num_areas_to_sieve > 128) best_score_thusfar += 128;
+					else if (siever->num_areas_to_sieve > 64) best_score_thusfar += 64;
 				}
 				for (i = 0; i < facdata->num_sievers; i++) {
+					// We cannot steal a siever that is actively sieving
 					if (facdata->sievers[i].state == SIEVER_ASSIGNED + SIEVER_ACTIVE) continue;
-					// Generate a score for this siever.  Prefer not to select an assigned siever.
-					score = facdata->sievers[i].num_areas_to_sieve;
-					if (! (facdata->sievers[i].state & SIEVER_ASSIGNED) &&
-					    facdata->sievers[i].num_areas_to_sieve >= 20) score += 75;
+					// We don't steal sievers until we get very close to finishing
+					if ((facdata->sievers[i].state & SIEVER_ASSIGNED) &&
+					    facdata->sievers[i].num_areas_to_sieve > 20) continue;
 					// Does this inactive siever have more work left to do than any sievers we've looked at thusfar?
+					score = facdata->sievers[i].num_areas_to_sieve;
 					if (best_siever == -1 || score > best_score_thusfar) {
 						best_siever = i;
 						best_score_thusfar = score;
@@ -4865,8 +4875,6 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 				}
 			}
 
-			// Mark our old siever unassigned
-			siever->state = SIEVER_INACTIVE;
 			// Assign the best siever to this thread
 			tf_thread->last_siever_used = best_siever;
 			siever = &facdata->sievers[best_siever];
@@ -4910,8 +4918,9 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 		gwmutex_unlock (&facdata->thread_lock);
 		sieve_area->first_factor[0] = asm_data->savefac0 = siever->next_sieve_first_factor[0];
 		sieve_area->first_factor[1] = asm_data->savefac1 = siever->next_sieve_first_factor[1];
-		asm_data->initstart = mod96_32 (asm_data->savefac0, asm_data->savefac1, facdata->initsieve_primes) *
-				      facdata->one_eighth_initsieve_primes % facdata->initsieve_primes;
+		asm_data->initstart = (uint32_t)
+			((uint64_t) mod96_32 (asm_data->savefac0, asm_data->savefac1, facdata->initsieve_primes) *
+			 (uint64_t) facdata->one_eighth_initsieve_primes % facdata->initsieve_primes);
 		asm_data->sieve = sieve_area->sieve;
 		asm_data->offsetarray = siever->offsetarray;
 		if (siever_uninitialized) factorPassSetupPart2 (facdata, asm_data, siever);
@@ -8728,8 +8737,7 @@ static const char BENCH1[] = "Your timings will be written to the results.txt fi
 static const char BENCH2[] = "Compare your results to other computers at http://www.mersenne.org/report_benchmarks\n";
 
 int factorBench (
-	int	thread_num,
-	struct primenetBenchmarkData *pkt)
+	int	thread_num)
 {
 	fachandle facdata;
 	unsigned long num_lengths, i, j;
@@ -8816,16 +8824,6 @@ int factorBench (
 		sprintf (buf, "Best time for %d bit trial factors: ", bit_lengths[i]);
 		print_timer (timers, 0, buf, TIMER_NL | TIMER_MS);
 		writeResults (buf);
-
-/* Accumulate best times to send to the server */
-
-		if (pkt->num_data_points < PRIMENET_BENCH_MAX_DATAPOINTS) {
-			sprintf (pkt->data_points[pkt->num_data_points].bench,
-				 "TF%d", bit_lengths[i]);
-			pkt->data_points[pkt->num_data_points].timing = timer_value (timers, 0);
-			pkt->num_data_points++;
-		}
-
 	}
 
 /* End the threads that are looping and return */
@@ -9044,11 +9042,11 @@ int primeBenchMultipleWorkers (
 	      if (hypercpus > 1 && !bench_hyperthreading) break;
 	      for (cpus = (bench_max_cpus ? NUM_CPUS : 1); cpus <= (int) NUM_CPUS; cpus++) {
 		if (bench_one_or_all && cpus > 1 && cpus < (int) NUM_CPUS) continue;
+		/* If the OS cannot set affinity, then we can only bench hyperthreading on all CPUs */
+		if (!OS_CAN_SET_AFFINITY && hypercpus > 1 && cpus != NUM_CPUS) continue;
 	        for (workers = (bench_max_workers ? cpus : 1); workers <= cpus; workers++) {
 		  if (cpus > workers && !bench_multithreading) continue;
 		  if (cpus % workers != 0 && !bench_oddballs) continue;
-		  /* If the OS cannot set affinity, then we can only bench hyperthreading on all CPUs */
-		  if (!OS_CAN_SET_AFFINITY && hypercpus > 1 && cpus != NUM_CPUS) continue;
 		  /* Only SSE2 code supports multi-threaded FFTs */
 		  if ((cpus > workers || hypercpus > 1) && ! (CPU_FLAGS & CPU_SSE2)) continue;  
 
@@ -9154,6 +9152,7 @@ int primeBenchMultipleWorkers (
 	    } // End hypercpus loop
 	  }  // End fftlen loop
 	}  // End plus1 loop
+	OutputBoth (thread_num, "\n");
 
 /* Output completion message */
 
@@ -9161,10 +9160,11 @@ int primeBenchMultipleWorkers (
 	return (0);
 }
 
-/* Time a few iterations of many FFT lengths */
+/* Perform a benchmark.  Several are supported:  FFT throughput, FFT timings, trial factoring */
 
 int primeBench (
-	int	thread_num)
+	int	thread_num,
+	int	bench_type)
 {
 	struct PriorityInfo sp_info;
 	llhandle lldata;
@@ -9177,11 +9177,6 @@ int primeBench (
 	unsigned long fftlen, min_FFT_length, max_FFT_length;
 	double	timers[2];
 	struct primenetBenchmarkData pkt;
-
-/* Init */
-
-	memset (&pkt, 0, sizeof (pkt));
-	strcpy (pkt.computer_guid, COMPUTER_GUID);
 
 /* Output startup message */
 
@@ -9214,6 +9209,28 @@ int primeBench (
 	sp_info.aux_thread_num = 0;
 	SetPriority (&sp_info);
 
+/* Perform the requested type of benchmark */
+
+/* Throughput benchmark running multiple workers.  This will measure the effect of memory bandwidth */
+/* on LL testing.  This is the most useful benchmark for the typical GIMPS user. */
+
+	if (bench_type == 0) {
+		return (primeBenchMultipleWorkers (thread_num));
+	}
+
+/* Trial factoring benchmark. */
+
+	if (bench_type == 2) {
+		return (factorBench (thread_num));
+	}
+
+/* Fall through to the classic FFT timings benchmark. */
+
+/* Init */
+
+	memset (&pkt, 0, sizeof (pkt));
+	strcpy (pkt.computer_guid, COMPUTER_GUID);
+
 /* Decide which FFT lengths to time */
 
 	min_FFT_length = 1024;			/* Default lengths to test */
@@ -9235,10 +9252,6 @@ int primeBench (
 	bench_multithreading = IniGetInt (INI_FILE, "BenchMultithreads", 1);	/* Benchmark multi-threaded FFTs */
 	bench_one_or_all = IniGetInt (INI_FILE, "BenchOneOrAll", 0);		/* Benchmark only 1 or all cpus */
 	bench_arch = IniGetInt (INI_FILE, "BenchArch", 0);	/* CPU architecture to benchmark */
-
-/* If requested skip over the classic single worker benchmarks. */
-
-	if (NUM_CPUS > 1 && IniGetInt (INI_FILE, "OnlyBenchThroughput", 0)) goto throughput_only;
 
 /* Keep CPU cores busy.  This should prevent "turbo boost" from kicking in. */
 /* We do this to hopefully produce more consistent benchmarks.  We don't want to report */
@@ -9453,16 +9466,9 @@ int primeBench (
 
 	last_bench_cpu_num = NUM_CPUS;
 
-/* Now benchmark the trial factoring code */
-
-	if (IniGetInt (INI_FILE, "BenchTrialFactoring", 0)) {
-		stop_reason = factorBench (thread_num, &pkt);
-		if (stop_reason) return (stop_reason);
-	}
-
 /* Single worker benchmark complete */
 
-	OutputStr (thread_num, "Benchmark for single worker complete.\n");
+	OutputStr (thread_num, "FFT timings benchmark complete.\n");
 
 /* Send the benchmark data to the server. */
 
@@ -9472,17 +9478,6 @@ int primeBench (
 
 	if (!all_bench)
 		spoolMessage (PRIMENET_BENCHMARK_DATA, &pkt);
-
-/* Now benchmark running multiple workers.  This will measure the effect of memory bandwidth */
-/* on LL testing. */
-
-throughput_only:
-	if (NUM_CPUS > 1 && IniGetInt (INI_FILE, "BenchMultipleWorkers", 1)) {
-		OutputBoth (thread_num, "\n");
-		stop_reason = primeBenchMultipleWorkers (thread_num);
-		if (stop_reason) return (stop_reason);
-		OutputBoth (thread_num, "\n");
-	}
 
 	return (0);
 }
