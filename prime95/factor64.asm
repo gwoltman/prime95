@@ -1,4 +1,4 @@
-; Copyright 1995-2016 Mersenne Research, Inc., all rights reserved
+; Copyright 1995-2017 Mersenne Research, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -386,7 +386,7 @@ YMM_INIT_SV67		DD	0, -(32 MOD 67), -(64 MOD 67), -(96 MOD 67), -(128 MOD 67), -(
 YMM_INIT_SV71		DD	0, -(32 MOD 71), -(64 MOD 71), -(96 MOD 71), -(128 MOD 71), -(160 MOD 71), -(192 MOD 71), -(224 MOD 71)
 YMM_INIT_SV73		DD	0, -(32 MOD 73), -(64 MOD 73), -(96 MOD 73), -(128 MOD 73), -(160 MOD 73), -(192 MOD 73), -(224 MOD 73)
  YMM_INIT_SV79		DD	0, -(32 MOD 79), -(64 MOD 79), -(96 MOD 79), -(128 MOD 79), -(160 MOD 79), -(192 MOD 79), -(224 MOD 79)
-YMM_INIT_SV83		DD	0, -(32 MOD 83), -(64 MOD 83), -(96 MOD 83), -(128 MOD 83), -(160 MOD 83), -(192 MOD 83), -(224 MOD 83)
+ YMM_INIT_SV83		DD	0, -(32 MOD 83), -(64 MOD 83), -(96 MOD 83), -(128 MOD 83), -(160 MOD 83), -(192 MOD 83), -(224 MOD 83)
 YMM_INIT_SV89		DD	0, -(32 MOD 89), -(64 MOD 89), -(96 MOD 89), -(128 MOD 89), -(160 MOD 89), -(192 MOD 89), -(224 MOD 89)
 YMM_INIT_SV97		DD	0, -(32 MOD 97), -(64 MOD 97), -(96 MOD 97), -(128 MOD 97), -(160 MOD 97), -(192 MOD 97), -(224 MOD 97)
 YMM_INIT_SV101		DD	0, -(32 MOD 101), -(64 MOD 101), -(96 MOD 101), -(128 MOD 101), -(160 MOD 101), -(192 MOD 101), -(224 MOD 101)
@@ -399,7 +399,7 @@ YMM_INIT_SV131		DD	0, -(32 MOD 131), -(64 MOD 131), -(96 MOD 131), -(128 MOD 131
 YMM_INIT_SV137		DD	0, -(32 MOD 137), -(64 MOD 137), -(96 MOD 137), -(128 MOD 137), -(160 MOD 137), -(192 MOD 137), -(224 MOD 137)
 YMM_INIT_SV139		DD	0, -(32 MOD 139), -(64 MOD 139), -(96 MOD 139), -(128 MOD 139), -(160 MOD 139), -(192 MOD 139), -(224 MOD 139)
  YMM_INIT_SV149		DD	0, -(32 MOD 149), -(64 MOD 149), -(96 MOD 149), -(128 MOD 149), -(160 MOD 149), -(192 MOD 149), -(224 MOD 149)
-YMM_INIT_SV151		DD	0, -(32 MOD 151), -(64 MOD 151), -(96 MOD 151), -(128 MOD 151), -(160 MOD 151), -(192 MOD 151), -(224 MOD 151)
+ YMM_INIT_SV151		DD	0, -(32 MOD 151), -(64 MOD 151), -(96 MOD 151), -(128 MOD 151), -(160 MOD 151), -(192 MOD 151), -(224 MOD 151)
 YMM_INIT_SV157		DD	0, -(32 MOD 157), -(64 MOD 157), -(96 MOD 157), -(128 MOD 157), -(160 MOD 157), -(192 MOD 157), -(224 MOD 157)
 YMM_INIT_SV163		DD	0, -(32 MOD 163), -(64 MOD 163), -(96 MOD 163), -(128 MOD 163), -(160 MOD 163), -(192 MOD 163), -(224 MOD 163)
 YMM_INIT_SV167		DD	0, -(32 MOD 167), -(64 MOD 167), -(96 MOD 167), -(128 MOD 167), -(160 MOD 167), -(192 MOD 167), -(224 MOD 167)
@@ -412,7 +412,7 @@ YMM_INIT_SV197		DD	0, -(32 MOD 197), -(64 MOD 197), -(96 MOD 197), -(128 MOD 197
 YMM_INIT_SV199		DD	0, -(32 MOD 199), -(64 MOD 199), -(96 MOD 199), -(128 MOD 199), -(160 MOD 199), -(192 MOD 199), -(224 MOD 199)
 YMM_INIT_SV211		DD	0, -(32 MOD 211), -(64 MOD 211), -(96 MOD 211), -(128 MOD 211), -(160 MOD 211), -(192 MOD 211), -(224 MOD 211)
  YMM_INIT_SV223		DD	0, -(32 MOD 223), -(64 MOD 223), -(96 MOD 223), -(128 MOD 223), -(160 MOD 223), -(192 MOD 223), -(224 MOD 223)
-YMM_INIT_SV227		DD	0, -(32 MOD 227), -(64 MOD 227), -(96 MOD 227), -(128 MOD 227), -(160 MOD 227), -(192 MOD 227), -(224 MOD 227)
+ YMM_INIT_SV227		DD	0, -(32 MOD 227), -(64 MOD 227), -(96 MOD 227), -(128 MOD 227), -(160 MOD 227), -(192 MOD 227), -(224 MOD 227)
 YMM_INIT_SV229		DD	0, -(32 MOD 229), -(64 MOD 229), -(96 MOD 229), -(128 MOD 229), -(160 MOD 229), -(192 MOD 229), -(224 MOD 229)
 YMM_INIT_SV233		DD	0, -(32 MOD 233), -(64 MOD 233), -(96 MOD 233), -(128 MOD 233), -(160 MOD 233), -(192 MOD 233), -(224 MOD 233)
 YMM_INIT_SV239		DD	0, -(32 MOD 239), -(64 MOD 239), -(96 MOD 239), -(128 MOD 239), -(160 MOD 239), -(192 MOD 239), -(224 MOD 239)
@@ -424,12 +424,14 @@ YMM_INIT_SV269		DD	0, -32, -64, -96, -128, -160, -192, -224
 YMM_INIT_SV271		DD	0, -32, -64, -96, -128, -160, -192, -224
 YMM_INIT_SV277		DD	0, -32, -64, -96, -128, -160, -192, -224
 YMM_INIT_SV281		DD	0, -32, -64, -96, -128, -160, -192, -224
+YMM_INIT_SV283		DD	0, -32, -64, -96, -128, -160, -192, -224
 
 YMM_INIT_MASK19		DD	00000000000010000000000000000001b
 YMM_INIT_MASK23		DD	00000000100000000000000000000001b
 YMM_INIT_MASK29		DD	00100000000000000000000000000001b
 YMM_INIT_MASK31		DD	10000000000000000000000000000001b
 YMM_INIT_MASK37		DD	00000000000000000000000000000001b
+YMM_INIT_MASK41		DD	00000000000000000000000000000001b
 
 YMM_BUMP19		DD	-(256 MOD 19), -(256 MOD 23), -(256 MOD 29), -(256 MOD 31), -(256 MOD 37), -(256 MOD 41)
 			DD	-(256 MOD 43), -(256 MOD 47), -(256 MOD 53), -(256 MOD 59), -(256 MOD 61), -(256 MOD 67)
@@ -442,7 +444,7 @@ YMM_BUMP19		DD	-(256 MOD 19), -(256 MOD 23), -(256 MOD 29), -(256 MOD 31), -(256
 			DD	-(256 MOD 211)
 			DD	-(256 MOD 223), -(256 MOD 227), -(256 MOD 229), -(256 MOD 233), -(256 MOD 239), -(256 MOD 241)
 			DD	-(256 MOD 251), -(256 MOD 257), -(256 MOD 263), -(256 MOD 269), -(256 MOD 271), -(256 MOD 277)
-			DD	-(256 MOD 281)
+			DD	-(256 MOD 281), -(256 MOD 283)
 YMM_MINUS256		DD	-256
 
 	align 64
@@ -653,6 +655,7 @@ ZMM_INIT_SV643		DD	0, -32, -64, -96, -128, -160, -192, -224, -256, -288, -320, -
 ZMM_INIT_SV647		DD	0, -32, -64, -96, -128, -160, -192, -224, -256, -288, -320, -352, -384, -416, -448, -480
 ZMM_INIT_SV653		DD	0, -32, -64, -96, -128, -160, -192, -224, -256, -288, -320, -352, -384, -416, -448, -480
 ZMM_INIT_SV659		DD	0, -32, -64, -96, -128, -160, -192, -224, -256, -288, -320, -352, -384, -416, -448, -480
+ZMM_INIT_SV661		DD	0, -32, -64, -96, -128, -160, -192, -224, -256, -288, -320, -352, -384, -416, -448, -480
 
 ZMM_BUMP19		DD	-(512 MOD 19), -(512 MOD 23), -(512 MOD 29), -(512 MOD 31), -(512 MOD 37), -(512 MOD 41)
 			DD	-(512 MOD 43), -(512 MOD 47), -(512 MOD 53), -(512 MOD 59), -(512 MOD 61), -(512 MOD 67)
@@ -675,7 +678,7 @@ ZMM_BUMP19		DD	-(512 MOD 19), -(512 MOD 23), -(512 MOD 29), -(512 MOD 31), -(512
 			DD	-(512 MOD 449), -(512 MOD 457), -(512 MOD 461), -(512 MOD 463), -(512 MOD 467), -(512 MOD 479)
 			DD	-(512 MOD 487), -(512 MOD 491), -(512 MOD 499), -(512 MOD 503), -(512 MOD 509), -(512 MOD 521)
 			DD	-(512 MOD 523)
-			DD	20 DUP (-512)
+			DD	21 DUP (-512)
 ZMM_MINUS512		DD	-512
 
 ;FOO1			DQ	0				;; The easy way to debug - enter the known factor here
@@ -946,8 +949,9 @@ PROCF	factor64_sieve
 	mov	r8, primearray		; Ptr to first prime in array
 	mov	r9, offsetarray		; Ptr to first offset in array
 	lea	rsi, masks19		; Load address to small prime masks
-	cmp	DWORD PTR [r8], 19	; Does the small prime array start at 19 or 23?
-	jne	sv23andup		; Jump if sieving from 23 onwards
+	cmp	DWORD PTR [r8], 23	; Does the small prime array start at 19, 23 or 29?
+	je	sv23andup		; Jump if sieving from 23 onwards
+	jg	sv29andup		; Jump if sieving from 29 onwards
 
 ; Sieve primes 19 to 61
 
@@ -1184,6 +1188,108 @@ smsvlp23:mov	rax, [rsi+19*8][r12*8]	; Apply mask for prime 23
 	mov	r8, primearray		; Ptr to first prime in array
 	add	r8, 40			; Next prime in primearray
 	add	rsi, 40			; Next offset in offsetarray
+	jmp	sv67andup		; Go do the one small prime at a time sieving
+
+; Sieve for small primes 29 to 61
+
+sv29andup:
+	mov	r13d, [r9]		; Load bit offset to clear for prime 29
+	mov	r14d, [r9+4]		; Load bit offset to clear for prime 31
+	mov	r15d, [r9+8]		; Load bit offset to clear for prime 37
+	mov	r8d, [r9+12]		; Load bit offset to clear for prime 41
+	mov	r10d, [r9+16]		; Load bit offset to clear for prime 43
+	mov	ebp, [r9+20]		; Load bit offset to clear for prime 47
+	mov	ebx, [r9+24]		; Load bit offset to clear for prime 53
+	mov	edx, [r9+28]		; Load bit offset to clear for prime 59
+	mov	r9d, [r9+32]		; Load bit offset to clear for prime 61
+
+	mov	r12, -sievesize		; Load loop counter and index into sieve
+smsvlp29:mov	rax, [rsi+(19+23)*8][r13*8] ; Apply mask for prime 29
+	lea	rcx, [r13+23]		; Calc next bit to clear by either adding (29 - 64 % 29)
+	add	r13, 23-29		; or adding (29 - 64 % 29) - 29
+	cmovs	r13, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	or	rax, [rsi+(19+23+29)*8][r14*8] ; Apply mask for prime 31
+	lea	rcx, [r14+29]		; Calc next bit to clear by either adding (31 - 64 % 31)
+	add	r14, 29-31		; or adding (31 - 64 % 31) - 31
+	cmovs	r14, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, r15		; Apply mask for prime 37
+	mov	r15, [rsi+(19+23+29+31)*8] ; Load mask if bit 0 is cleared
+	shl	r15, cl			; Adjust the mask
+	or	rax, r15		; Apply the mask
+	lea	r15, [rcx+10]		; Calc next bit to clear by either adding (37 - 64 % 37)
+	add	rcx, 10-37		; or adding (37 - 64 % 37) - 37
+	cmovns	r15, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, r8			; Apply mask for prime 41
+	mov	r8, [rsi+(19+23+29+31+1)*8] ; Load mask if bit 0 is cleared
+	shl	r8, cl			; Adjust the mask
+	or	rax, r8			; Apply the mask
+	lea	r8, [rcx+18]		; Calc next bit to clear by either adding (41 - 64 % 41)
+	add	rcx, 18-41		; or adding (41 - 64 % 41) - 41
+	cmovns	r8, rcx			; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, r10		; Apply mask for prime 43
+	mov	r10, [rsi+(19+23+29+31+2)*8] ; Load mask if bit 0 is cleared
+	shl	r10, cl			; Adjust the mask
+	or	rax, r10		; Apply the mask
+	lea	r10, [rcx+22]		; Calc next bit to clear by either adding (43 - 64 % 43)
+	add	rcx, 22-43		; or adding (43 - 64 % 43) - 43
+	cmovns	r10, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, rbp		; Apply mask for prime 47
+	mov	rbp, [rsi+(19+23+29+31+3)*8] ; Load mask if bit 0 is cleared
+	shl	rbp, cl			; Adjust the mask
+	or	rax, rbp		; Apply the mask
+	lea	rbp, [rcx+30]		; Calc next bit to clear by either adding (47 - 64 % 47)
+	add	rcx, 30-47		; or adding (47 - 64 % 47) - 47
+	cmovns	rbp, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, rbx		; Apply mask for prime 53
+	mov	rbx, [rsi+(19+23+29+31+4)*8] ; Load mask if bit 0 is cleared
+	shl	rbx, cl			; Adjust the mask
+	or	rax, rbx		; Apply the mask
+	lea	rbx, [rcx+42]		; Calc next bit to clear by either adding (53 - 64 % 53)
+	add	rcx, 42-53		; or adding (53 - 64 % 53) - 53
+	cmovns	rbx, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, rdx		; Apply mask for prime 59
+	mov	rdx, [rsi+(19+23+29+31+5)*8] ; Load mask if bit 0 is cleared
+	shl	rdx, cl			; Adjust the mask
+	or	rax, rdx		; Apply the mask
+	lea	rdx, [rcx+54]		; Calc next bit to clear by either adding (59 - 64 % 59)
+	add	rcx, 54-59		; or adding (59 - 64 % 59) - 59
+	cmovns	rdx, rcx		; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	mov	rcx, r9			; Apply mask for prime 61
+	mov	r9, [rsi+(19+23+29+31+6)*8] ; Load mask if bit 0 is cleared
+	shl	r9, cl			; Adjust the mask
+	or	rax, r9			; Apply the mask
+	lea	r9, [rcx+58]		; Calc next bit to clear by either adding (61 - 64 % 61)
+	add	rcx, 58-61		; or adding (61 - 64 % 61) - 61
+	cmovns	r9, rcx			; Pick whichever is the smaller positive number as the bit to clear for next word
+
+	not	rax			; Invert the mask (which is a list of bits to clear)
+	and	QWORD PTR [rdi][r12], rax ; Apply the mask
+
+	add	r12, 8
+	js	smsvlp29
+
+	mov	rsi, offsetarray	; Ptr to first offset in array
+	mov	[rsi], r13d		; Save bit clear offset for prime 29 next time
+	mov	[rsi+4], r14d		; Save bit clear offset for prime 31 next time
+	mov	[rsi+8], r15d		; Save bit clear offset for prime 37 next time
+	mov	[rsi+12], r8d		; Save bit clear offset for prime 41 next time
+	mov	[rsi+16], r10d		; Save bit clear offset for prime 43 next time
+	mov	[rsi+20], ebp		; Save bit clear offset for prime 47 next time
+	mov	[rsi+24], ebx		; Save bit clear offset for prime 53 next time
+	mov	[rsi+28], edx		; Save bit clear offset for prime 59 next time
+	mov	[rsi+32], r9d		; Save bit clear offset for prime 61 next time
+
+	mov	r8, primearray		; Ptr to first prime in array
+	add	r8, 36			; Next prime in primearray
+	add	rsi, 36			; Next offset in offsetarray
 
 ;
 ; Sieve small primes 67 to 101
@@ -1328,12 +1434,19 @@ avx2sv:	mov	r8, primearray		; Ptr to first prime in array
 	lea	r9, YMM_INIT_MASK19	; Get address of first mask required for primes below 32
 	lea	r10, YMM_BUMP19		; Get address of first count incrementer
 	lea	r13, YMM_INIT_SV19	; Get address of first count initializer
+	cmp	DWORD PTR [r8], 23	; Does the small prime array start at 19, 23, or 29?
+	jl	short avx2sv19andup	; Jump if sieving from 19 onwards
+	je	short avx2sv23andup	; Jump if sieving from 23 onwards
 
-	cmp	DWORD PTR [r8], 19	; Does the small prime array start at 19 or 23?
-	je	short avx2sv19andup	; Jump if sieving from 19 onwards
+; Sieve primes 29 and up using AVX2 instructions
+
+	add	r9, 4
+	add	r10, 4
+	add	r13, 32
 
 ; Sieve primes 23 and up using AVX2 instructions
 
+avx2sv23andup:
 	add	r9, 4
 	add	r10, 4
 	add	r13, 32
@@ -1341,10 +1454,10 @@ avx2sv:	mov	r8, primearray		; Ptr to first prime in array
 ; Sieve primes 19/23 and up using AVX2 instructions
 
 avx2sv19andup:
-	vpbroadcastd ymm0, [rsi]	; Load bit offset to clear for prime 19/23
-	vpbroadcastd ymm1, [rsi+4]	; Load bit offset to clear for prime 23/29
-	vpbroadcastd ymm2, [rsi+8]	; Load bit offset to clear for prime 29/31
-	vpbroadcastd ymm3, [rsi+12]	; Load bit offset to clear for prime 31/37
+	vpbroadcastd ymm0, [rsi]	; Load bit offset to clear for prime 19/23/29
+	vpbroadcastd ymm1, [rsi+4]	; Load bit offset to clear for prime 23/29/31
+	vpbroadcastd ymm2, [rsi+8]	; Load bit offset to clear for prime 29/31/37
+	vpbroadcastd ymm3, [rsi+12]	; Load bit offset to clear for prime 31/37/41
 	vpbroadcastd ymm4, [rsi+16]	; Load bit offset to clear for next prime
 	vpbroadcastd ymm5, [rsi+20]	; Load bit offset to clear for next prime
 	vpbroadcastd ymm6, [rsi+24]	; Load bit offset to clear for next prime
@@ -1356,22 +1469,22 @@ avx2sv19andup:
 	vpbroadcastd ymm12, [rsi+48]	; Load bit offset to clear for next prime
 
 	vpaddd	ymm0, ymm0, [r13]	; Create each word's shift count from the single bit-to-clr value
-	vpbroadcastd ymm14, [r8]	; Load prime 19/23
+	vpbroadcastd ymm14, [r8]	; Load prime 19/23/29
 	vpaddd	ymm14, ymm0, ymm14	; Make all negative counts positive
 	vpminud	ymm0, ymm0, ymm14	; Keep smallest positive count
 
 	vpaddd	ymm1, ymm1, [r13+32]	; Create each word's shift count from the single bit-to-clr value
-	vpbroadcastd ymm14, [r8+4]	; Load prime 23/29
+	vpbroadcastd ymm14, [r8+4]	; Load prime 23/29/31
 	vpaddd	ymm14, ymm1, ymm14	; Make all negative counts positive
 	vpminud	ymm1, ymm1, ymm14	; Keep smallest positive count
 
 	vpaddd	ymm2, ymm2, [r13+64]	; Create each word's shift count from the single bit-to-clr value
-	vpbroadcastd ymm14, [r8+8]	; Load prime 29/31
+	vpbroadcastd ymm14, [r8+8]	; Load prime 29/31/37
 	vpaddd	ymm14, ymm2, ymm14	; Make all negative counts positive
 	vpminud	ymm2, ymm2, ymm14	; Keep smallest positive count
 
 	vpaddd	ymm3, ymm3, [r13+96]	; Create each word's shift count from the single bit-to-clr value
-	vpbroadcastd ymm14, [r8+12]	; Load prime 31/37
+	vpbroadcastd ymm14, [r8+12]	; Load prime 31/37/41
 	vpaddd	ymm14, ymm3, ymm14	; Make all negative counts positive
 	vpminud	ymm3, ymm3, ymm14	; Keep smallest positive count
 
@@ -1432,29 +1545,29 @@ avx2sv19andup:
 avx2svlp1:
 	vmovdqu ymm14, YMMWORD PTR [r14][rdx]	; Load AVX2 sieve word
 
-	vpbroadcastd ymm15, [r9]		; Load mask for prime 19 or 23 if we are clearing bit 0
-	vpsllvd	ymm15, ymm15, ymm0		; Shift mask for prime 19 or 23
-	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask for prime 19 or 23
-	vpbroadcastd ymm15, [r10]		; Load increment for prime 19/23
-	vpaddd	ymm0, ymm0, ymm15		; Bump the counters for prime 19/23
+	vpbroadcastd ymm15, [r9]		; Load mask for prime 19 or 23 or 29 if we are clearing bit 0
+	vpsllvd	ymm15, ymm15, ymm0		; Shift mask for prime 19 or 23 or 29
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask for prime 19 or 23 or 29
+	vpbroadcastd ymm15, [r10]		; Load increment for prime 19/23/29
+	vpaddd	ymm0, ymm0, ymm15		; Bump the counters for prime 19/23/29
 
-	vpbroadcastd ymm15, [r9+4]		; Load mask for prime 23 or 29 if we are clearing bit 0
-	vpsllvd	ymm15, ymm15, ymm1		; Shift mask for prime 23 or 29
-	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask for prime 23 or 29
-	vpbroadcastd ymm15, [r10+4]		; Load increment for prime 23/29
-	vpaddd	ymm1, ymm1, ymm15		; Bump the counters for prime 23/29
+	vpbroadcastd ymm15, [r9+4]		; Load mask for prime 23 or 29 or 31 if we are clearing bit 0
+	vpsllvd	ymm15, ymm15, ymm1		; Shift mask for prime 23 or 29 or 31
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask for prime 23 or 29 or 31
+	vpbroadcastd ymm15, [r10+4]		; Load increment for prime 23/29/31
+	vpaddd	ymm1, ymm1, ymm15		; Bump the counters for prime 23/29/31
 
-	vpbroadcastd ymm15, [r9+8]		; Load mask for prime 29 or 31 if we are clearing bit 0
-	vpsllvd	ymm15, ymm15, ymm2		; Shift mask for prime 29 or 31
-	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask for prime 29 or 31
-	vpbroadcastd ymm15, [r10+8]		; Load increment for prime 29/31
-	vpaddd	ymm2, ymm2, ymm15		; Bump the counters for prime 29/31
+	vpbroadcastd ymm15, [r9+8]		; Load mask for prime 29 or 31 or 37 if we are clearing bit 0
+	vpsllvd	ymm15, ymm15, ymm2		; Shift mask for prime 29 or 31 or 37
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask for prime 29 or 31 or 37
+	vpbroadcastd ymm15, [r10+8]		; Load increment for prime 29/31/37
+	vpaddd	ymm2, ymm2, ymm15		; Bump the counters for prime 29/31/37
 
-	vpbroadcastd ymm15, [r9+12]		; Load mask for prime 31 or 37 if we are clearing bit 0
-	vpsllvd	ymm15, ymm15, ymm3		; Shift mask for prime 31 or 37
-	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask for prime 31 or 37
-	vpbroadcastd ymm15, [r10+12]		; Load increment for prime 31/37
-	vpaddd	ymm3, ymm3, ymm15		; Bump the counters for prime 31/37
+	vpbroadcastd ymm15, [r9+12]		; Load mask for prime 31 or 37 or 41 if we are clearing bit 0
+	vpsllvd	ymm15, ymm15, ymm3		; Shift mask for prime 31 or 37 or 41
+	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask for prime 31 or 37 or 41
+	vpbroadcastd ymm15, [r10+12]		; Load increment for prime 31/37/41
+	vpaddd	ymm3, ymm3, ymm15		; Bump the counters for prime 31/37/41
 
 	vpsllvd	ymm15, ymm13, ymm4		; Shift mask for first dword prime
 	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
@@ -1469,7 +1582,7 @@ avx2svlp1:
 	vpsllvd	ymm15, ymm13, ymm6		; Shift mask for next prime
 	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
 	vpbroadcastd ymm15, [r10+24]		; Load increment for next prime
-	vpaddd	ymm6, ymm6, ymm15		; Bump the counters for prime 43
+	vpaddd	ymm6, ymm6, ymm15		; Bump the counters
 
 	vpsllvd	ymm15, ymm13, ymm7		; Shift mask for next prime
 	vpandn	ymm14, ymm15, ymm14		; Apply shifted mask
@@ -1503,7 +1616,6 @@ avx2svlp1:
 
 	vmovdqa YMMWORD PTR [rdi][rdx], ymm14	; Store AVX2 word to sieve
 
-IFDEF USE_PMINUD
 	vpbroadcastd ymm14, [r8]		; Broadcast  prime
 	vpaddd	ymm14, ymm0, ymm14		; Make all negative counts positive
 	vpminud	ymm0, ymm0, ymm14		; Keep smallest positive count
@@ -1555,80 +1667,14 @@ IFDEF USE_PMINUD
 	vpbroadcastd ymm14, [r8+48]		; Load prime
 	vpaddd	ymm14, ymm12, ymm14		; Make all negative counts positive
 	vpminud	ymm12, ymm12, ymm14		; Keep smallest positive count
-ELSE
-	vpsrad	ymm15, ymm0, 31			; Create mask for each negative count
-	vpbroadcastd ymm14, [r8]		; Broadcast  prime
-	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
-	vpaddd	ymm0, ymm0, ymm15		; Make all negative counts positive
-
-	vpsrad	ymm15, ymm1, 31			; Create mask for each negative count
-	vpbroadcastd ymm14, [r8+4]		; Broadcast prime
-	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
-	vpaddd	ymm1, ymm1, ymm15		; Make all negative counts positive
-
-	vpsrad	ymm15, ymm2, 31			; Create mask for each negative count
-	vpbroadcastd ymm14, [r8+8]		; Broadcast prime
-	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
-	vpaddd	ymm2, ymm2, ymm15		; Make all negative counts positive
-
-	vpsrad	ymm15, ymm3, 31			; Create mask for each negative count
-	vpbroadcastd ymm14, [r8+12]		; Broadcast prime
-	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
-	vpaddd	ymm3, ymm3, ymm15		; Make all negative counts positive
-
-	vpsrad	ymm15, ymm4, 31			; Create mask for each negative count
-	vpbroadcastd ymm14, [r8+16]		; Load prime
-	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
-	vpaddd	ymm4, ymm4, ymm15		; Make all negative counts positive
-
-	vpsrad	ymm15, ymm5, 31			; Create mask for each negative count
-	vpbroadcastd ymm14, [r8+20]		; Load prime
-	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
-	vpaddd	ymm5, ymm5, ymm15		; Make all negative counts positive
-
-	vpsrad	ymm15, ymm6, 31			; Create mask for each negative count
-	vpbroadcastd ymm14, [r8+24]		; Load prime
-	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
-	vpaddd	ymm6, ymm6, ymm15		; Make all negative counts positive
-
-	vpsrad	ymm15, ymm7, 31			; Create mask for each negative count
-	vpbroadcastd ymm14, [r8+28]		; Load prime
-	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
-	vpaddd	ymm7, ymm7, ymm15		; Make all negative counts positive
-
-	vpsrad	ymm15, ymm8, 31			; Create mask for each negative count
-	vpbroadcastd ymm14, [r8+32]		; Load prime
-	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
-	vpaddd	ymm8, ymm8, ymm15		; Make all negative counts positive
-
-	vpsrad	ymm15, ymm9, 31			; Create mask for each negative count
-	vpbroadcastd ymm14, [r8+36]		; Load prime
-	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
-	vpaddd	ymm9, ymm9, ymm15		; Make all negative counts positive
-
-	vpsrad	ymm15, ymm10, 31		; Create mask for each negative count
-	vpbroadcastd ymm14, [r8+40]		; Load prime
-	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
-	vpaddd	ymm10, ymm10, ymm15		; Make all negative counts positive
-
-	vpsrad	ymm15, ymm11, 31		; Create mask for each negative count
-	vpbroadcastd ymm14, [r8+44]		; Load prime
-	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
-	vpaddd	ymm11, ymm11, ymm15		; Make all negative counts positive
-
-	vpsrad	ymm15, ymm12, 31		; Create mask for each negative count
-	vpbroadcastd ymm14, [r8+48]		; Load prime
-	vpand	ymm15, ymm15, ymm14		; Change mask into value to add back to counts
-	vpaddd	ymm12, ymm12, ymm15		; Make all negative counts positive
-ENDIF
 
 	add	rdx, 32			; Move to next AVX2 sieve word
 	js	avx2svlp1
 
-	vmovd	[rsi], xmm0		; Save bit clear offset for prime 19/23 next time
-	vmovd	[rsi+4], xmm1		; Save bit clear offset for prime 23/29 next time
-	vmovd	[rsi+8], xmm2		; Save bit clear offset for prime 29/31 next time
-	vmovd	[rsi+12], xmm3		; Save bit clear offset for prime 31/37 next time
+	vmovd	[rsi], xmm0		; Save bit clear offset for prime 19/23/29 next time
+	vmovd	[rsi+4], xmm1		; Save bit clear offset for prime 23/29/31 next time
+	vmovd	[rsi+8], xmm2		; Save bit clear offset for prime 29/31/37 next time
+	vmovd	[rsi+12], xmm3		; Save bit clear offset for prime 31/37/41 next time
 	vmovd	[rsi+16], xmm4		; Save bit clear offset for prime
 	vmovd	[rsi+20], xmm5		; Save bit clear offset for prime
 	vmovd	[rsi+24], xmm6		; Save bit clear offset for prime
@@ -1894,7 +1940,7 @@ avx2sv256:
 	vpbroadcastd ymm11, [rsi+44]	; Load bit offset to clear
 	vpbroadcastd ymm12, [rsi+48]	; Load bit offset to clear
 
-	vmovapd	ymm15, YMM_INIT_SV257	; Load offsets for each dword in AVX2 count word
+	vmovdqa	ymm15, YMM_INIT_SV257	; Load offsets for each dword in AVX2 count word
 	vpaddd	ymm0, ymm0, ymm15	; Create each word's shift count from the single bit-to-clr value
 	vpaddd	ymm1, ymm1, ymm15	; Create each word's shift count from the single bit-to-clr value
 	vpaddd	ymm2, ymm2, ymm15	; Create each word's shift count from the single bit-to-clr value
@@ -2107,22 +2153,30 @@ avx512sv:mov	r8, primearray		; Ptr to first prime in array
 	lea	r9, YMM_INIT_MASK19	; Get address of first mask required for primes below 32
 	lea	r10, ZMM_BUMP19		; Get address of first count incrementer
 	lea	r13, ZMM_INIT_SV19	; Get address of first count initializer
-  	cmp	DWORD PTR [r8], 19	; Does the small prime array start at 19 or 23?
-	je	short avx512sv19andup	; Jump if sieving from 19 onwards
+  	cmp	DWORD PTR [r8], 23	; Does the small prime array start at 19, 23, or 29?
+	jl	short avx512sv19andup	; Jump if sieving from 19 onwards
+	je	short avx512sv23andup	; Jump if sieving from 23 onwards
 
-; Sieve primes 23 and up using AVX512 instructions
+; Sieve primes 29 and up using AVX512 instructions
 
 	add	r9, 4
 	add	r10, 4
 	add	r13, 64
 
-; Sieve primes 19/23 and up using AVX512 instructions
+; Sieve primes 23 and up using AVX512 instructions
+
+avx512sv23andup:
+	add	r9, 4
+	add	r10, 4
+	add	r13, 64
+
+; Sieve primes 19 and up using AVX512 instructions
 
 avx512sv19andup:
-	vpbroadcastd zmm0, [rsi]	; Load bit offset to clear for prime 19/23
-	vpbroadcastd zmm1, [rsi+4]	; Load bit offset to clear for prime 23/29
-	vpbroadcastd zmm2, [rsi+8]	; Load bit offset to clear for prime 29/31
-	vpbroadcastd zmm3, [rsi+12]	; Load bit offset to clear for prime 31/37
+	vpbroadcastd zmm0, [rsi]	; Load bit offset to clear for prime 19/23/29
+	vpbroadcastd zmm1, [rsi+4]	; Load bit offset to clear for prime 23/29/31
+	vpbroadcastd zmm2, [rsi+8]	; Load bit offset to clear for prime 29/31/37
+	vpbroadcastd zmm3, [rsi+12]	; Load bit offset to clear for prime 31/37/41
 	vpbroadcastd zmm4, [rsi+16]	; Load bit offset to clear for next prime
 	vpbroadcastd zmm5, [rsi+20]	; Load bit offset to clear for next prime
 	vpbroadcastd zmm6, [rsi+24]	; Load bit offset to clear for next prime
@@ -2141,47 +2195,47 @@ avx512sv19andup:
 	vpaddd	zmm14, zmm1, [r8+4]{1to16} ; Make all negative counts positive
 	vpminud	zmm1, zmm1, zmm14	; Keep smallest positive count
 
-	vpaddd	zmm2, zmm2, [r13+128]	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	zmm2, zmm2, [r13+2*64]	; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm14, zmm2, [r8+8]{1to16} ; Make all negative counts positive
 	vpminud	zmm2, zmm2, zmm14	; Keep smallest positive count
 
-	vpaddd	zmm3, zmm3, [r13+192]	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	zmm3, zmm3, [r13+3*64]	; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm14, zmm3, [r8+12]{1to16} ; Make all negative counts positive
 	vpminud	zmm3, zmm3, zmm14	; Keep smallest positive count
 
-	vpaddd	zmm4, zmm4, [r13+256]	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	zmm4, zmm4, [r13+4*64]	; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm14, zmm4, [r8+16]{1to16} ; Make all negative counts positive
 	vpminud	zmm4, zmm4, zmm14	; Keep smallest positive count
 
-	vpaddd	zmm5, zmm5, [r13+320]	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	zmm5, zmm5, [r13+5*64]	; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm14, zmm5, [r8+20]{1to16} ; Make all negative counts positive
 	vpminud	zmm5, zmm5, zmm14	; Keep smallest positive count
 
-	vpaddd	zmm6, zmm6, [r13+384]	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	zmm6, zmm6, [r13+6*64]	; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm14, zmm6, [r8+24]{1to16} ; Make all negative counts positive
 	vpminud	zmm6, zmm6, zmm14	; Keep smallest positive count
 
-	vpaddd	zmm7, zmm7, [r13+448]	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	zmm7, zmm7, [r13+7*64]	; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm14, zmm7, [r8+28]{1to16} ; Make all negative counts positive
 	vpminud	zmm7, zmm7, zmm14	; Keep smallest positive count
 
-	vpaddd	zmm8, zmm8, [r13+512]	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	zmm8, zmm8, [r13+8*64]	; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm14, zmm8, [r8+32]{1to16} ; Make all negative counts positive
 	vpminud	zmm8, zmm8, zmm14	; Keep smallest positive count
 
-	vpaddd	zmm9, zmm9, [r13+576]	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	zmm9, zmm9, [r13+9*64]	; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm14, zmm9, [r8+36]{1to16} ; Make all negative counts positive
 	vpminud	zmm9, zmm9, zmm14	; Keep smallest positive count
 
-	vpaddd	zmm10, zmm10, [r13+640]	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	zmm10, zmm10, [r13+10*64]; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm14, zmm10, [r8+40]{1to16} ; Make all negative counts positive
 	vpminud	zmm10, zmm10, zmm14	; Keep smallest positive count
 
-	vpaddd	zmm11, zmm11, [r13+704]	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	zmm11, zmm11, [r13+11*64]; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm14, zmm11, [r8+44]{1to16} ; Make all negative counts positive
 	vpminud	zmm11, zmm11, zmm14	; Keep smallest positive count
 
-	vpaddd	zmm12, zmm12, [r13+768]	; Create each word's shift count from the single bit-to-clr value
+	vpaddd	zmm12, zmm12, [r13+12*64]; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm14, zmm12, [r8+48]{1to16} ; Make all negative counts positive
 	vpminud	zmm12, zmm12, zmm14	; Keep smallest positive count
 
@@ -2197,25 +2251,25 @@ avx512sv19andup:
 avx512svlp1:
 	vmovdqu32 zmm14, ZMMWORD PTR [r14][rdx]	; Load AVX512 sieve word
 
-	vpbroadcastd zmm15, [r9]		; Load mask for prime 19 or 23 if we are clearing bit 0
-	vpsllvd	zmm15, zmm15, zmm0		; Shift mask for prime 19 or 23
-	vpandnd	zmm14, zmm15, zmm14		; Apply shifted mask for prime 19 or 23
-	vpaddd	zmm0, zmm0, [r10]{1to16}	; Bump the counters for prime 19/23
+	vpbroadcastd zmm15, [r9]		; Load mask for prime 19 or 23 or 29 if we are clearing bit 0
+	vpsllvd	zmm15, zmm15, zmm0		; Shift mask for prime 19 or 23 or 29
+	vpandnd	zmm14, zmm15, zmm14		; Apply shifted mask for prime 19 or 23 or 29
+	vpaddd	zmm0, zmm0, [r10]{1to16}	; Bump the counters for prime 19/23/29
 
-	vpbroadcastd zmm15, [r9+4]		; Load mask for prime 23 or 29 if we are clearing bit 0
-	vpsllvd	zmm15, zmm15, zmm1		; Shift mask for prime 23 or 29
-	vpandnd	zmm14, zmm15, zmm14		; Apply shifted mask for prime 23 or 29
-	vpaddd	zmm1, zmm1, [r10+4]{1to16}	; Bump the counters for prime 23/29
+	vpbroadcastd zmm15, [r9+4]		; Load mask for prime 23 or 29 or 31 if we are clearing bit 0
+	vpsllvd	zmm15, zmm15, zmm1		; Shift mask for prime 23 or 29 or 31
+	vpandnd	zmm14, zmm15, zmm14		; Apply shifted mask for prime 23 or 29 or 31
+	vpaddd	zmm1, zmm1, [r10+4]{1to16}	; Bump the counters for prime 23/29/31
 
-	vpbroadcastd zmm15, [r9+8]		; Load mask for prime 29 or 31 if we are clearing bit 0
-	vpsllvd	zmm15, zmm15, zmm2		; Shift mask for prime 29 or 31
-	vpandnd	zmm14, zmm15, zmm14		; Apply shifted mask for prime 29 or 31
-	vpaddd	zmm2, zmm2, [r10+8]{1to16}	; Bump the counters for prime 29/31
+	vpbroadcastd zmm15, [r9+8]		; Load mask for prime 29 or 31 or 37 if we are clearing bit 0
+	vpsllvd	zmm15, zmm15, zmm2		; Shift mask for prime 29 or 31 or 37
+	vpandnd	zmm14, zmm15, zmm14		; Apply shifted mask for prime 29 or 31 or 37
+	vpaddd	zmm2, zmm2, [r10+8]{1to16}	; Bump the counters for prime 29/31/37
 
-	vpbroadcastd zmm15, [r9+12]		; Load mask for prime 31 or 37 if we are clearing bit 0
-	vpsllvd	zmm15, zmm15, zmm3		; Shift mask for prime 31 or 37
-	vpandnd	zmm14, zmm15, zmm14		; Apply shifted mask for prime 31 or 37
-	vpaddd	zmm3, zmm3, [r10+12]{1to16}	; Bump the counters for prime 31/37
+	vpbroadcastd zmm15, [r9+12]		; Load mask for prime 31 or 37 or 41 if we are clearing bit 0
+	vpsllvd	zmm15, zmm15, zmm3		; Shift mask for prime 31 or 37 or 41
+	vpandnd	zmm14, zmm15, zmm14		; Apply shifted mask for prime 31 or 37 or 41
+	vpaddd	zmm3, zmm3, [r10+12]{1to16}	; Bump the counters for prime 31/37/41
 
 	vpsllvd	zmm15, zmm13, zmm4		; Shift mask for first dword prime
 	vpandnd	zmm14, zmm15, zmm14		; Apply shifted mask
@@ -2227,7 +2281,7 @@ avx512svlp1:
 
 	vpsllvd	zmm15, zmm13, zmm6		; Shift mask for next prime
 	vpandnd	zmm14, zmm15, zmm14		; Apply shifted mask
-	vpaddd	zmm6, zmm6, [r10+24]{1to16}	; Bump the counters for prime 43
+	vpaddd	zmm6, zmm6, [r10+24]{1to16}	; Bump the counters
 
 	vpsllvd	zmm15, zmm13, zmm7		; Shift mask for next prime
 	vpandnd	zmm14, zmm15, zmm14		; Apply shifted mask
@@ -2297,10 +2351,10 @@ avx512svlp1:
 	add	rdx, 64			; Move to next AVX512 sieve word
 	js	avx512svlp1
 
-	vmovd	[rsi], xmm0		; Save bit clear offset for prime 19/23 next time
-	vmovd	[rsi+4], xmm1		; Save bit clear offset for prime 23/29 next time
-	vmovd	[rsi+8], xmm2		; Save bit clear offset for prime 29/31 next time
-	vmovd	[rsi+12], xmm3		; Save bit clear offset for prime 31/37 next time
+	vmovd	[rsi], xmm0		; Save bit clear offset for prime 19/23/29 next time
+	vmovd	[rsi+4], xmm1		; Save bit clear offset for prime 23/29/31 next time
+	vmovd	[rsi+8], xmm2		; Save bit clear offset for prime 29/31/37 next time
+	vmovd	[rsi+12], xmm3		; Save bit clear offset for prime 31/37/41 next time
 	vmovd	[rsi+16], xmm4		; Save bit clear offset for prime
 	vmovd	[rsi+20], xmm5		; Save bit clear offset for prime
 	vmovd	[rsi+24], xmm6		; Save bit clear offset for prime
@@ -2527,7 +2581,7 @@ avx512sv512:
 	vpbroadcastd zmm11, [rsi+44]	; Load bit offset to clear
 	vpbroadcastd zmm12, [rsi+48]	; Load bit offset to clear
 
-	vmovapd	zmm15, ZMM_INIT_SV521	; Load offsets for each dword in AVX512 count word
+	vmovdqa32 zmm15, ZMM_INIT_SV521	; Load offsets for each dword in AVX512 count word
 	vpaddd	zmm0, zmm0, zmm15	; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm1, zmm1, zmm15	; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm2, zmm2, zmm15	; Create each word's shift count from the single bit-to-clr value
