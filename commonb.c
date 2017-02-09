@@ -8752,10 +8752,12 @@ int factorBench (
 /* a CPU speed of 1.87 GHz and then produce a benchmark running at a boosted 3.2 GHz */
 /* (this happens on a Core i7 Q840M processor). */
 
-	last_bench_cpu_num = 0;			// CPU #0 is benching
-	for (i = 1; i < NUM_CPUS; i++) {	// CPU #1 to NUM_CPUS-1 are busy looping
-		gwthread thread_id;
-		gwthread_create (&thread_id, &bench_busy_loop, (void *) (intptr_t) i);
+	if (IniGetInt (INI_FILE, "BenchDummyComputeWorkers", 0)) {
+		last_bench_cpu_num = 0;			// CPU #0 is benching
+		for (i = 1; i < NUM_CPUS; i++) {	// CPU #1 to NUM_CPUS-1 are busy looping
+			gwthread thread_id;
+			gwthread_create (&thread_id, &bench_busy_loop, (void *) (intptr_t) i);
+		}
 	}
 
 /* Loop over all trial factor lengths */
@@ -8942,8 +8944,9 @@ int primeBenchMultipleWorkers (
 	char	buf[512];
 	int	workers, cpus, hypercpus, impl;
 	int	all_bench, only_time_5678, time_all_complex, plus1, is_a_5678;
-	int	bench_hyperthreading, bench_multithreading, bench_oddballs, bench_one_or_all, bench_arch, bench_max_cpus, bench_max_workers;
-	int	bench_error_check;
+	int	bench_one_core, bench_all_cores, bench_in_between_cores, bench_hyperthreading, bench_arch;
+	int	bench_one_worker, bench_max_workers, bench_in_between_workers;
+	int	bench_oddballs, bench_error_check;
 	int	i, stop_reason;
 	unsigned long fftlen, min_FFT_length, max_FFT_length;
 	double	throughput;
@@ -8980,13 +8983,15 @@ int primeBenchMultipleWorkers (
 	only_time_5678 = IniGetInt (INI_FILE, "OnlyBench5678", only_time_5678);
 	time_all_complex = IniGetInt (INI_FILE, "BenchAllComplex", time_all_complex);
 	all_bench = IniGetInt (INI_FILE, "AllBench", 0);	/* Benchmark all implementations of each FFT length */
-	bench_hyperthreading = IniGetInt (INI_FILE, "BenchHyperthreads", 1);	/* Benchmark hyperthreading */
-	bench_multithreading = IniGetInt (INI_FILE, "BenchMultithreads", 0);	/* Benchmark multi-threaded FFTs */
-	bench_oddballs = IniGetInt (INI_FILE, "BenchOddMultithreads", 0);	/* Benchmark odd multi-threaded combinations */
-	bench_one_or_all = IniGetInt (INI_FILE, "BenchOneOrAll", 0);		/* Benchmark only 1 or all cpus */
 	bench_arch = IniGetInt (INI_FILE, "BenchArch", 0);			/* CPU architecture to benchmark */
-	bench_max_cpus = IniGetInt (INI_FILE, "OnlyBenchMaxCpus", 1);		/* Benchmark all CPUs or only max CPUs */
-	bench_max_workers = IniGetInt (INI_FILE, "OnlyBenchMaxWorkers", 0);	/* Benchmark all worker combos or only max workers */
+	bench_one_core = IniGetInt (INI_FILE, "BenchOneCore", 0);		/* Benchmark one cpu core case */
+	bench_all_cores = IniGetInt (INI_FILE, "BenchAllCores", 1);		/* Benchmark all cpu cores case */
+	bench_in_between_cores = IniGetInt (INI_FILE, "BenchInBetweenCores", 0);/* Benchmark other cpu core combinations */
+	bench_hyperthreading = IniGetInt (INI_FILE, "BenchHyperthreads", 1);	/* Benchmark hyperthreading */
+	bench_one_worker = IniGetInt (INI_FILE, "BenchOneWorker", 1);		/* Benchmark one worker using all CPU cores */
+	bench_max_workers = IniGetInt (INI_FILE, "BenchMaxWorkers", 1);		/* Benchmark one CPU core per worker */
+	bench_in_between_workers = IniGetInt (INI_FILE, "BenchInBetweenWorkers", 0); /* Benchmark other worker/core combinations */
+	bench_oddballs = IniGetInt (INI_FILE, "BenchOddWorkers", 1);		/* Benchmark oddball worker/core combinations */
 	bench_error_check = IniGetInt (INI_FILE, "BenchErrorCheck", 0);		/* Benchmark round-off checking */
 
 /* Loop over a variety of FFT lengths */
@@ -9038,14 +9043,18 @@ int primeBenchMultipleWorkers (
 
 /* Loop over all possible multithread possibilities */
 
-	    for (hypercpus = 1; hypercpus <= (int) CPU_HYPERTHREADS; hypercpus++) {
-	      if (hypercpus > 1 && !bench_hyperthreading) break;
-	      for (cpus = (bench_max_cpus ? NUM_CPUS : 1); cpus <= (int) NUM_CPUS; cpus++) {
-		if (bench_one_or_all && cpus > 1 && cpus < (int) NUM_CPUS) continue;
+	    for (cpus = 1; cpus <= (int) NUM_CPUS; cpus++) {
+	      if (! ((cpus == 1 && bench_one_core) ||
+	             (cpus == NUM_CPUS && bench_all_cores) ||
+	             (cpus > 1 && cpus < (int) NUM_CPUS && bench_in_between_cores))) continue;
+	      for (hypercpus = 1; hypercpus <= (int) CPU_HYPERTHREADS; hypercpus++) {
+	        if (hypercpus > 1 && !bench_hyperthreading) break;
 		/* If the OS cannot set affinity, then we can only bench hyperthreading on all CPUs */
 		if (!OS_CAN_SET_AFFINITY && hypercpus > 1 && cpus != NUM_CPUS) continue;
-	        for (workers = (bench_max_workers ? cpus : 1); workers <= cpus; workers++) {
-		  if (cpus > workers && !bench_multithreading) continue;
+	        for (workers = 1; workers <= cpus; workers++) {
+		  if (! ((workers == 1 && bench_one_worker) ||
+			 (workers == cpus && bench_max_workers) ||
+			 (workers > 1 && workers < cpus && bench_in_between_workers))) continue;
 		  if (cpus % workers != 0 && !bench_oddballs) continue;
 		  /* Only SSE2 code supports multi-threaded FFTs */
 		  if ((cpus > workers || hypercpus > 1) && ! (CPU_FLAGS & CPU_SSE2)) continue;  
@@ -9156,7 +9165,7 @@ int primeBenchMultipleWorkers (
 
 /* Output completion message */
 
-	OutputStr (thread_num, "Benchmark for multiple workers complete.\n");
+	OutputStr (thread_num, "Throughput benchmark complete.\n");
 	return (0);
 }
 
@@ -9173,7 +9182,7 @@ int primeBench (
 	char	buf[512];
 	unsigned int cpu, hypercpu;
 	int	all_bench, only_time_5678, time_all_complex, plus1, stop_reason;
-	int	is_a_5678, bench_hyperthreading, bench_multithreading, bench_one_or_all, bench_arch;
+	int	is_a_5678, bench_one_core, bench_all_cores, bench_in_between_cores, bench_hyperthreading, bench_arch;
 	unsigned long fftlen, min_FFT_length, max_FFT_length;
 	double	timers[2];
 	struct primenetBenchmarkData pkt;
@@ -9248,42 +9257,44 @@ int primeBench (
 	only_time_5678 = IniGetInt (INI_FILE, "OnlyBench5678", only_time_5678);
 	time_all_complex = IniGetInt (INI_FILE, "BenchAllComplex", time_all_complex);
 	all_bench = IniGetInt (INI_FILE, "AllBench", 0);	/* Benchmark all implementations of each FFT length */
-	bench_hyperthreading = IniGetInt (INI_FILE, "BenchHyperthreads", 1);	/* Benchmark hyperthreading */
-	bench_multithreading = IniGetInt (INI_FILE, "BenchMultithreads", 1);	/* Benchmark multi-threaded FFTs */
-	bench_one_or_all = IniGetInt (INI_FILE, "BenchOneOrAll", 0);		/* Benchmark only 1 or all cpus */
 	bench_arch = IniGetInt (INI_FILE, "BenchArch", 0);	/* CPU architecture to benchmark */
+	bench_one_core = IniGetInt (INI_FILE, "BenchOneCore", 0);		/* Benchmark one cpu core case */
+	bench_all_cores = IniGetInt (INI_FILE, "BenchAllCores", 1);		/* Benchmark all cpu cores case */
+	bench_in_between_cores = IniGetInt (INI_FILE, "BenchInBetweenCores", 0);/* Benchmark other cpu core combinations */
+	bench_hyperthreading = IniGetInt (INI_FILE, "BenchHyperthreads", 1);	/* Benchmark hyperthreading */
 
 /* Keep CPU cores busy.  This should prevent "turbo boost" from kicking in. */
 /* We do this to hopefully produce more consistent benchmarks.  We don't want to report */
 /* a CPU speed of 1.87 GHz and then produce a benchmark running at a boosted 3.2 GHz */
 /* (this happens on a Core i7 Q840M processor). */
 
-	last_bench_cpu_num = 0;			// CPU #0 is benching
-	for (i = 1; i < NUM_CPUS; i++) {	// CPU #1 to NUM_CPUS-1 are busy looping
-		gwthread thread_id;
-		gwthread_create (&thread_id, &bench_busy_loop, (void *) (intptr_t) i);
+	if (IniGetInt (INI_FILE, "BenchDummyComputeWorkers", 0)) {
+		last_bench_cpu_num = 0;			// CPU #0 is benching
+		for (i = 1; i < NUM_CPUS; i++) {	// CPU #1 to NUM_CPUS-1 are busy looping
+			gwthread thread_id;
+			gwthread_create (&thread_id, &bench_busy_loop, (void *) (intptr_t) i);
+		}
 	}
 
 /* Loop over all possible single-worker multithread possibilities */
 
 	for (cpu = 1; cpu <= NUM_CPUS; cpu++) {
-	  if (cpu > 1 && !bench_multithreading) continue;
-	  if (bench_one_or_all && cpu > 1 && cpu < NUM_CPUS) continue;
+	  if (! ((cpu == 1 && bench_one_core) ||
+	        (cpu == NUM_CPUS && bench_all_cores) ||
+	        (cpu > 1 && cpu < NUM_CPUS && bench_in_between_cores))) continue;
 	  for (hypercpu = 1; hypercpu <= CPU_HYPERTHREADS; hypercpu++) {
 	    if (hypercpu > 1 && !bench_hyperthreading) break;
 	    /* Only bench hyperthreading on one CPU and all CPUs */
 	    if (hypercpu > 1 && cpu != 1 && cpu != NUM_CPUS) continue;
-#ifdef OS_CANNOT_SET_AFFINITY
 	    /* If the OS cannot set affinity, then we can only bench hyperthreading on all CPUs */
-	    if (hypercpu > 1 && cpu != NUM_CPUS) continue;
-#endif
+	    if (!OS_CAN_SET_AFFINITY && hypercpu > 1 && cpu != NUM_CPUS) continue;
 	    /* Output a message if using multi-threaded FFT */
 	    if (cpu > 1 || hypercpu > 1) {
 	      if (! (CPU_FLAGS & CPU_SSE2)) continue;  // Only SSE2 code supports multi-threaded FFTs
 	      if (CPU_HYPERTHREADS == 1)
-	        sprintf (buf, "Timing FFTs using %d threads.\n", cpu);
+	        sprintf (buf, "Timing FFTs using %d cores.\n", cpu);
 	      else
-	        sprintf (buf, "Timing FFTs using %d threads on %d physical CPU%s.\n", cpu * hypercpu, cpu, cpu > 1 ? "s" : "");
+	        sprintf (buf, "Timing FFTs using %d threads on %d core%s.\n", cpu * hypercpu, cpu, cpu > 1 ? "s" : "");
 	      OutputBoth (thread_num, buf);
 	    }
 
@@ -9476,7 +9487,7 @@ int primeBench (
 //only do this if guid is registered? Or should we auto-register computer
 //under ANONYMOUS userid for stress-testers.
 
-	if (!all_bench)
+	if (pkt.num_data_points)
 		spoolMessage (PRIMENET_BENCHMARK_DATA, &pkt);
 
 	return (0);
