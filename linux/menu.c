@@ -487,10 +487,9 @@ again:	if (max_num_workers () > 1)
 /* the correct number of worker threads. */
 
 		if (m_num_thread != NUM_WORKER_THREADS) {
-//bug= do something with orphaned work units?
-//bug- tell server of the change?
 			NUM_WORKER_THREADS = m_num_thread;
 			IniWriteInt (LOCALINI_FILE, "WorkerThreads", NUM_WORKER_THREADS);
+			new_options = TRUE;
 			restart = TRUE;
 		}
 
@@ -956,7 +955,7 @@ void options_preferences (void)
 
 /* Options/Torture test dialog */
 
-void torture (void)
+void options_torture (void)
 {
 	unsigned long m_thread, m_type, m_minfft, m_maxfft;
 	unsigned long m_memory, m_timefft;
@@ -1015,6 +1014,75 @@ void torture (void)
 		IniWriteInt (INI_FILE, "TortureMem", mem);
 		IniWriteInt (INI_FILE, "TortureTime", m_timefft);
 		LaunchTortureTest (m_thread, TRUE);
+	}
+}
+
+/* Options/Benchmark */
+
+void options_benchmark (void)
+{
+	unsigned long m_bench_type, m_minFFT, m_maxFFT;
+	int	m_all_FFT_sizes, m_bench_one_core, m_bench_all_cores, m_bench_in_between_cores, m_hyperthreading;
+	int	m_bench_one_worker, m_bench_max_workers, m_bench_in_between_workers;
+	unsigned long m_bench_time;
+
+	m_bench_type = 0;
+	m_minFFT = IniGetInt (INI_FILE, "MinBenchFFT", 2048);
+	m_maxFFT = IniGetInt (INI_FILE, "MaxBenchFFT", 8192);
+	m_all_FFT_sizes = !IniGetInt (INI_FILE, "OnlyBench5678", 1);
+
+	m_bench_one_core = IniGetInt (INI_FILE, "BenchOneCore", 0);
+	m_bench_all_cores = IniGetInt (INI_FILE, "BenchAllCores", 1);
+	m_bench_in_between_cores = IniGetInt (INI_FILE, "BenchInBetweenCores", 0);
+	m_hyperthreading = IniGetInt (INI_FILE, "BenchHyperthreads", 1);
+
+	m_bench_one_worker = IniGetInt (INI_FILE, "BenchOneWorker", 1);
+	m_bench_max_workers = IniGetInt (INI_FILE, "BenchMaxWorkers", 1);
+	m_bench_in_between_workers = IniGetInt (INI_FILE, "BenchInBetweenWorkers", 0);
+	m_bench_time = IniGetInt (INI_FILE, "BenchTime", 15);
+
+	askNum ("Benchmark type (0 = Throughput, 1 = FFT timings, 2 = Trial factoring)", &m_bench_type, 0, 2);
+	if (m_bench_type != 2) {
+		askNum ("Minimum FFT size (in K)", &m_minFFT, 1, 32768);
+		askNum ("Maximum FFT size (in K)", &m_maxFFT, m_minFFT, 32768);
+		if (m_minFFT != m_maxFFT)
+			askYN ("Benchmark every FFT size in the range", &m_all_FFT_sizes);
+	}
+
+	if (NUM_CPUS > 1) {
+		askYN ("Benchmark using one CPU core", &m_bench_one_core);
+		askYN ("Benchmark using all CPU cores", &m_bench_all_cores);
+	}
+	if (NUM_CPUS > 2)
+		askYN ("Benchmark using remaining CPU core combinations", &m_bench_in_between_cores);
+	if (CPU_HYPERTHREADS > 1)
+		askYN ("Benchmark hyperthreading", &m_hyperthreading);
+
+	if (m_bench_type == 0) {
+		if (NUM_CPUS > 1) {
+			askYN ("Benchmark one worker using all cores", &m_bench_one_worker);
+			askYN ("Benchmark one core per worker", &m_bench_max_workers);
+		}
+		if (NUM_CPUS > 2)
+			askYN ("Benchmark other worker/core combinations", &m_bench_in_between_workers);
+		askNum ("Time to run each benchmark (in seconds)", &m_bench_time, 5, 60);
+	}
+
+	if (askOkCancel ()) {
+		IniWriteInt (INI_FILE, "MinBenchFFT", m_minFFT);
+		IniWriteInt (INI_FILE, "MaxBenchFFT", m_maxFFT);
+		IniWriteInt (INI_FILE, "OnlyBench5678", !m_all_FFT_sizes);
+
+		IniWriteInt (INI_FILE, "BenchOneCore", m_bench_one_core);
+		IniWriteInt (INI_FILE, "BenchAllCores", m_bench_all_cores);
+		IniWriteInt (INI_FILE, "BenchInBetweenCores", m_bench_in_between_cores);
+		IniWriteInt (INI_FILE, "BenchHyperthreads", m_hyperthreading);
+
+		IniWriteInt (INI_FILE, "BenchOneWorker", m_bench_one_worker);
+		IniWriteInt (INI_FILE, "BenchMaxWorkers", m_bench_max_workers);
+		IniWriteInt (INI_FILE, "BenchInBetweenWorkers", m_bench_in_between_workers);
+		IniWriteInt (INI_FILE, "BenchTime", m_bench_time);
+		LaunchBench (m_bench_type);
 	}
 }
 
@@ -1239,15 +1307,14 @@ void main_menu (void)
 /* Options/Torture Test */
 
 	case 15:
-		torture ();
+		options_torture ();
 		askOK ();
 		break;
 
 /* Options/Benchmark Test */
 
 	case 16:
-		LaunchBench ();
-		askOK ();
+		options_benchmark ();
 		break;
 
 /* Help/About */
