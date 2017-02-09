@@ -67,7 +67,7 @@
 				ProgramDataBaseFileName="c:\temp\prime95.release32.pdb"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
-				DebugInformationFormat="3"
+				DebugInformationFormat="0"
 				CompileAs="0"
 			/>
 			<Tool
@@ -89,9 +89,9 @@
 				SuppressStartupBanner="true"
 				IgnoreDefaultLibraryNames=""
 				DelayLoadDLLs="oleacc.dll;ole32.dll;oleaut32.dll;advapi32.dll;wininet.dll"
-				GenerateDebugInformation="false"
+				GenerateDebugInformation="true"
 				ProgramDatabaseFile=".\Release/prime95.pdb"
-				GenerateMapFile="false"
+				GenerateMapFile="true"
 				MapFileName=".\Release/prime95.map"
 				SubSystem="2"
 				LargeAddressAware="2"
@@ -169,7 +169,7 @@
 				ProgramDataBaseFileName="c:\temp\prime95.release64.pdb"
 				WarningLevel="3"
 				SuppressStartupBanner="true"
-				DebugInformationFormat="3"
+				DebugInformationFormat="0"
 				CompileAs="0"
 			/>
 			<Tool
@@ -191,9 +191,9 @@
 				SuppressStartupBanner="true"
 				IgnoreDefaultLibraryNames=""
 				DelayLoadDLLs="wininet.dll"
-				GenerateDebugInformation="false"
+				GenerateDebugInformation="true"
 				ProgramDatabaseFile=".\x64\Release/prime95.pdb"
-				GenerateMapFile="false"
+				GenerateMapFile="true"
 				MapFileName=".\x64\Release/prime95.map"
 				SubSystem="2"
 				LargeAddressAware="2"
@@ -564,6 +564,10 @@
 			Filter="cpp;c;cxx;rc;def;r;odl;hpj;bat;for;f90"
 			>
 			<File
+				RelativePath=".\BenchmarkDlg.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\ChildFrm.cpp"
 				>
 			</File>
@@ -692,6 +696,10 @@
 			Name="Header Files"
 			Filter="h;hpp;hxx;hm;inl;inc"
 			>
+			<File
+				RelativePath=".\BenchmarkDlg.h"
+				>
+			</File>
 			<File
 				RelativePath=".\HyperLink.h"
 				>

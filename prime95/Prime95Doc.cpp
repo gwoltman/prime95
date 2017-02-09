@@ -1,6 +1,6 @@
 // Prime95Doc.cpp : implementation of the CPrime95Doc class
 //
-// Copyright 1995-2016 Mersenne Research, Inc.  All rights reserved
+// Copyright 1995-2017 Mersenne Research, Inc.  All rights reserved
 //
 
 #include "stdafx.h"
@@ -12,6 +12,7 @@
 #include <direct.h>
 #include "math.h"
 
+#include "BenchmarkDlg.h"
 #include "CpuDlg.h"
 #include "EcmDlg.h"
 #include "ManualCommDlg.h"
@@ -768,7 +769,38 @@ void CPrime95Doc::OnUpdateBenchmark(CCmdUI* pCmdUI)
 
 void CPrime95Doc::OnBenchmark() 
 {
-	LaunchBench ();
+	CBenchmarkDlg dlg;
+
+	dlg.m_minFFT = IniGetInt (INI_FILE, "MinBenchFFT", 2048);
+	dlg.m_maxFFT = IniGetInt (INI_FILE, "MaxBenchFFT", 8192);
+	dlg.m_all_FFT_sizes = !IniGetInt (INI_FILE, "OnlyBench5678", 1);
+
+	dlg.m_bench_one_core = IniGetInt (INI_FILE, "BenchOneCore", 0);
+	dlg.m_bench_all_cores = IniGetInt (INI_FILE, "BenchAllCores", 1);
+	dlg.m_bench_in_between_cores = IniGetInt (INI_FILE, "BenchInBetweenCores", 0);
+	dlg.m_hyperthreading = IniGetInt (INI_FILE, "BenchHyperthreads", 1);
+
+	dlg.m_bench_one_worker = IniGetInt (INI_FILE, "BenchOneWorker", 1);
+	dlg.m_bench_max_workers = IniGetInt (INI_FILE, "BenchMaxWorkers", 1);
+	dlg.m_bench_in_between_workers = IniGetInt (INI_FILE, "BenchInBetweenWorkers", 0);
+	dlg.m_bench_time = IniGetInt (INI_FILE, "BenchTime", 15);
+
+	if (dlg.DoModal () == IDOK) {
+		IniWriteInt (INI_FILE, "MinBenchFFT", dlg.m_minFFT);
+		IniWriteInt (INI_FILE, "MaxBenchFFT", dlg.m_maxFFT);
+		IniWriteInt (INI_FILE, "OnlyBench5678", !dlg.m_all_FFT_sizes);
+
+		IniWriteInt (INI_FILE, "BenchOneCore", dlg.m_bench_one_core);
+		IniWriteInt (INI_FILE, "BenchAllCores", dlg.m_bench_all_cores);
+		IniWriteInt (INI_FILE, "BenchInBetweenCores", dlg.m_bench_in_between_cores);
+		IniWriteInt (INI_FILE, "BenchHyperthreads", dlg.m_hyperthreading);
+
+		IniWriteInt (INI_FILE, "BenchOneWorker", dlg.m_bench_one_worker);
+		IniWriteInt (INI_FILE, "BenchMaxWorkers", dlg.m_bench_max_workers);
+		IniWriteInt (INI_FILE, "BenchInBetweenWorkers", dlg.m_bench_in_between_workers);
+		IniWriteInt (INI_FILE, "BenchTime", dlg.m_bench_time);
+		LaunchBench (dlg.m_bench_type);
+	}
 }
 
 void CPrime95Doc::OnUpdateTorture(CCmdUI* pCmdUI)

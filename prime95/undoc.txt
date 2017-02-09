@@ -484,43 +484,29 @@ In the [Primenet] section of prime.txt enter:
 	OtherGetInfo=string
 where string is any text up to 256 bytes.
 
-The benchmarking code by default only times a subset of the large FFT sizes.
+The benchmarking dialog box lets you control many options, yet there are a few
+more that are only available using the settings below:
 In prime.txt, set
-	MinBenchFFT=n
-	MaxBenchFFT=n
-	OnlyBench5678=0 or 1
 	BenchAllComplex=0 or 1 or 2
 	AllBench=0 or 1
-to alter these defaults.  The first to specify the range of FFT length (in K).
-Enter an n value between 1 and 32768.  Set OnlyBench5678=0 to time FFT
-lengths other than 5*2^n, 6*2^n, 7*2^n, and 8*2^n.  Set BenchAllComplex to 0 for
-timing real FFTs only, 1 for real and complex FFTs, 2 for complex FFTs only.
-Set AllBench=1 to time FFT implementations optimized for other L2 cache sizes 
-and CPU architectures.  This is only useful during the development cycle to find
-the optimal FFT implementations for each CPU.
+Set BenchAllComplex to 0 for timing real FFTs only, 1 for real and complex FFTs,
+2 for complex FFTs only.  Set AllBench=1 to time FFT implementations optimized
+for other CPU architectures.  This is only useful during the development cycle
+to find the optimal FFT implementations for each CPU architecture.
 
 In addition to the benchmarking options above, the following options are
 available in the multiple workers throughput benchmark.
-	BenchTrialFactoring=0 or 1	(default is 0)
 	BenchOutputTopology=0 or 1	(default is 1)
-	BenchMultipleWorkers=0 or 1	(default is 1)
-	BenchTime=n			(default is 15)
-	BenchHyperthreads=0 or 1	(default is 1)
-	BenchMultithreads=0 or 1	(default is 0)
-	BenchOddMultithreads=0 or 1	(default is 0)
-	OnlyBenchThroughput=0 or 1	(default is 0)
-	OnlyBenchMaxCPUs=0 or 1		(default is 1)
-	OnlyBenchMaxWorkers=0 or 1	(default is 0)
+	BenchOddWorkers=0 or 1		(default is 1)
+	BenchDummyComputeWorkers=0 or 1	(default is 0)
 BenchOutputTopology can be used to disable printing the machine topology in results.txt.
-BenchMultipleWorkers can be used to disable benchmarking multiple workers.
-BenchTime can be used to change the number of seconds to run each benchmark.
-BenchHyperthreads controls can be used to turn off the hyperthreaded benchmarks.
-BenchMultithreads can be used to also benchmark multi-threaded FFTs (e.g. 2 workers on 4 CPUs).
-BenchOddMultithreads can be used to also benchmark asymetric multi-threaded FFTs
-combinations such as 2 workers on 3 CPUs.
-OnlyBenchThroughput can be used to disable the initial "single worker" tests.
-Set OnlyBenchMaxCPUs to zero to benchmark throughput using fewer than all CPUs.
-Set OnlyBenchMaxWorkers to one to benchmark throughput using one CPU for each worker.
+BenchOddWorkers can be used to disable throughput benchmarks when number of cores is not
+a multiple of the number of workers (e.g. 3 cores on 2 workers).
+BenchDummyComputeWorkers is used to disable starting dummy workers while benchmarking.
+The theory is that keep the other CPU cores busy will prevent "turbo boost" from kicking in.
+This way lead to more consistent benchmarks and more indicitive what will happen running
+this program in a real-world, all-cores-busy environment.  Option not avilable in throughput
+benchmarks. 
 
 If you want to run the program on several machines this is typically done
 by carrying the program and files around on portable media such as a floppy
