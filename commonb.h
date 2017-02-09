@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2016 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2017 Mersenne Research, Inc.  All rights reserved
 +---------------------------------------------------------------------*/
 
 //#define SERVER_TESTING
@@ -22,7 +22,7 @@
 #define ALL_WORKERS 8888	// Special value for first arg of LaunchWorkerThreads
 int LaunchWorkerThreads (int, int);
 int LaunchTortureTest (unsigned long, int);
-int LaunchBench (void);
+int LaunchBench (int);
 int LaunchAdvancedTime (unsigned long, unsigned long);
 
 /* Callback routines */
@@ -62,7 +62,7 @@ int primeContinue (int);
 int tortureTest (int, int);
 int selfTest (int, struct PriorityInfo *, struct work_unit *);
 int primeTime (int, unsigned long, unsigned long);
-int primeBench (int);
+int primeBench (int, int);
 int primeFactor (int, struct PriorityInfo *, struct work_unit *, unsigned int);
 int prime (int, struct PriorityInfo *, struct work_unit *, int);
 int prp (int, struct PriorityInfo *, struct work_unit *, int);
