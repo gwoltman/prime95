@@ -498,14 +498,14 @@ In addition to the benchmarking options above, the following options are
 available in the multiple workers throughput benchmark.
 	BenchOutputTopology=0 or 1	(default is 1)
 	BenchOddWorkers=0 or 1		(default is 1)
-	BenchDummyComputeWorkers=0 or 1	(default is 0)
+	BenchDummyWorkers=0 or 1	(default is 0)
 BenchOutputTopology can be used to disable printing the machine topology in results.txt.
 BenchOddWorkers can be used to disable throughput benchmarks when number of cores is not
 a multiple of the number of workers (e.g. 3 cores on 2 workers).
-BenchDummyComputeWorkers is used to disable starting dummy workers while benchmarking.
-The theory is that keep the other CPU cores busy will prevent "turbo boost" from kicking in.
-This way lead to more consistent benchmarks and more indicitive what will happen running
-this program in a real-world, all-cores-busy environment.  Option not avilable in throughput
+BenchDummyWorkers is used to enable starting dummy workers while benchmarking.
+The theory is that keeping the other CPU cores busy will prevent "turbo boost" from kicking in.
+This may lead to more consistent benchmarks that are more indicitive of what will happen running
+this program in a real-world, all-cores-busy environment.  Option not available in throughput
 benchmarks. 
 
 If you want to run the program on several machines this is typically done
