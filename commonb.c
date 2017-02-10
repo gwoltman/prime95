@@ -8752,7 +8752,7 @@ int factorBench (
 /* a CPU speed of 1.87 GHz and then produce a benchmark running at a boosted 3.2 GHz */
 /* (this happens on a Core i7 Q840M processor). */
 
-	if (IniGetInt (INI_FILE, "BenchDummyComputeWorkers", 0)) {
+	if (IniGetInt (INI_FILE, "BenchDummyWorkers", 0)) {
 		last_bench_cpu_num = 0;			// CPU #0 is benching
 		for (i = 1; i < NUM_CPUS; i++) {	// CPU #1 to NUM_CPUS-1 are busy looping
 			gwthread thread_id;
@@ -9268,7 +9268,7 @@ int primeBench (
 /* a CPU speed of 1.87 GHz and then produce a benchmark running at a boosted 3.2 GHz */
 /* (this happens on a Core i7 Q840M processor). */
 
-	if (IniGetInt (INI_FILE, "BenchDummyComputeWorkers", 0)) {
+	if (IniGetInt (INI_FILE, "BenchDummyWorkers", 0)) {
 		last_bench_cpu_num = 0;			// CPU #0 is benching
 		for (i = 1; i < NUM_CPUS; i++) {	// CPU #1 to NUM_CPUS-1 are busy looping
 			gwthread thread_id;
