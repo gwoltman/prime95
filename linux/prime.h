@@ -1,4 +1,4 @@
-/* Copyright 1995-2016 Mersenne Research, Inc. */
+/* Copyright 1995-2017 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -77,6 +77,13 @@
 #define stricmp(x,y)  stricmp(x,y)
 #define _commit(f)    /* no commit/fsync on OS/2 */
 #define _ftime        _ftime
+#endif
+
+/* Handle differences between 32-bit and 64-bit libraries (fstat64 not supported) */
+
+#ifndef X86_64
+#define stat64		stat
+#define fstat64		fstat
 #endif
 
 /* The common include files */

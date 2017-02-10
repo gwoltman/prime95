@@ -1,4 +1,4 @@
-/* Copyright 1995-2016 Mersenne Research, Inc. */
+/* Copyright 1995-2017 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -427,11 +427,6 @@ void linuxContinue (
 #define PROCNAME	"/proc/%d/file"
 #endif
 	pid_t	my_pid, running_pid;
-	char	filename[30];
-	int	fd;
-	struct stat filedata;
-	dev_t	dev1, dev2;
-	ino_t	inode1, inode2;
 
 /* Compare this process' ID and the pid from the INI file */
 
@@ -462,21 +457,29 @@ void linuxContinue (
 
 /* See if the two pids are running the same executable */
 
+	{
+	char	filename[30];
+	int	fd;
+	struct stat64 filedata;
+	dev_t	dev1, dev2;
+	ino64_t	inode1, inode2;
+
 	sprintf (filename, PROCNAME, my_pid);
 	fd = _open (filename, _O_RDONLY);
 	if (fd < 0) goto ok;
-	fstat (fd, &filedata);
+	fstat64 (fd, &filedata);
 	dev1 = filedata.st_dev;
 	inode1 = filedata.st_ino;
 	_close (fd);
 	sprintf (filename, PROCNAME, running_pid);
 	fd = _open (filename, _O_RDONLY);
 	if (fd < 0) goto ok;
-	fstat (fd, &filedata);
+	fstat64 (fd, &filedata);
 	dev2 = filedata.st_dev;
 	inode2 = filedata.st_ino;
 	_close (fd);
 	if (dev1 != dev2 || inode1 != inode2) goto ok;
+	}
 #endif
 
 /* The two pids are running the same executable, raise an error and return */
@@ -491,7 +494,7 @@ ok:	IniWriteInt (LOCALINI_FILE, "Pid", my_pid);
 	if (wait_flag) IniWriteInt (LOCALINI_FILE, "Pid", 0);
 }
 
-/* Implemenet the rest of the OS-specific routines */
+/* Implement the rest of the OS-specific routines */
 
 #include "os_routines.c"
 
