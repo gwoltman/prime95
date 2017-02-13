@@ -5,7 +5,7 @@
 | in the multi-precision arithmetic routines.  That is, all routines
 | that deal with the gwnum data type.
 | 
-|  Copyright 2002-2016 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2017 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -4365,6 +4365,7 @@ int pass1_state1_assign_first_block (
 			gwdata->pass1_carry_sections[largest_unfinished].start_block =
 			gwdata->pass1_carry_sections[largest_unfinished].next_block =
 				gwdata->pass1_carry_sections[largest_unfinished].last_block;
+			gwdata->pass1_carry_sections[largest_unfinished].dependent_section = -1;
 		}
 
 		/* Split the target section */
@@ -4680,6 +4681,14 @@ void pass1_wake_up_threads (
 {
 	gwhandle *gwdata = asm_data->gwdata;
 
+/* Obtain the lock if multithreading. */
+/* Why?  The other threads should be off right now, but we've seen in the debugger that it */
+/* is possible to get here with the lock held by an auxiliary thread that is finishing up. */
+
+	if (gwdata->num_threads > 1) {
+		gwmutex_lock (&gwdata->thread_lock);
+	}
+
 /* Init pass1_state (kludge: passed in next_block parameter) */
 /* State is either 0 (forward FFT only) or 1 (inverse FFT and */
 /* optional next forward FFT) */
@@ -4766,6 +4775,7 @@ void pass1_wake_up_threads (
 
 	if (gwdata->num_threads > 1) {
 		gwevent_signal (&gwdata->thread_work_to_do);
+		gwmutex_unlock (&gwdata->thread_lock);
 	}
 }
 
@@ -5019,6 +5029,7 @@ int pass1_get_next_block_mt (
 /* 1 = section being processed */
 /* 2 = section is adding carries into the next section */
 /* 3 = section is doing postfft processing of next section */
+/* 4 = section complete */
 
 /* Handle the common case, we're in the middle of processing a section */
 
@@ -5036,6 +5047,7 @@ int pass1_get_next_block_mt (
 				 (gwdata->pass1_carry_sections[dep].last_block == gwdata->num_pass1_blocks &&
 				  gwdata->pass1_carry_sections[i].start_block == 0));
 			gwdata->pass1_carry_sections[dep].can_carry_into_next = TRUE;
+			gwdata->pass1_carry_sections[i].dependent_section = -1;
 			gwevent_signal (&gwdata->can_carry_into);
 		}
 
@@ -5186,6 +5198,14 @@ void pass2_wake_up_threads (
 {
 	gwhandle *gwdata = asm_data->gwdata;
 
+/* Obtain the lock if multithreading. */
+/* Why?  The other threads should be off right now, but we've seen in the debugger that it */
+/* is possible to get here with the lock held by an auxiliary thread that is finishing up. */
+
+	if (gwdata->num_threads > 1) {
+		gwmutex_lock (&gwdata->thread_lock);
+	}
+
 /* Call assign_next_block twice to set up the main thread's this_block */
 /* and next_block values. */
 
@@ -5198,6 +5218,7 @@ void pass2_wake_up_threads (
 
 	if (gwdata->num_threads > 1) {
 		gwevent_signal (&gwdata->thread_work_to_do);
+		gwmutex_unlock (&gwdata->thread_lock);
 	}
 }
 
@@ -5239,9 +5260,7 @@ int pass2_get_next_block_mt (
 /* then return code telling the assembly code to exit. */
 
 	if (asm_data->this_block == asm_data->next_block) {
-		if (asm_data->thread_num) {
-			return (TRUE);
-		}
+		if (asm_data->thread_num) return (TRUE);
 		gwevent_wait (&gwdata->all_threads_done, 0);
 		asm_data->DIST_TO_FFTSRCARG = 0;
 		if (asm_data->ffttype == 1)
