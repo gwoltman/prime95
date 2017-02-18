@@ -4325,7 +4325,7 @@ int pass1_state1_assign_first_block (
 	if (gwdata->pass1_carry_sections[i].next_block == gwdata->pass1_carry_sections[i].last_block) {
 		unsigned int j, largest_unfinished, largest_unfinished_size, min_split_size;
 
-		/* Calculate minimum split size.  It must be a multiple of num_postfft_blocks. */
+		/* Calculate minimum split size.  It must be at least num_postfft_blocks. */
 		/* It must also be a multiple of 8 if AVX zero-padded (because of using YMM_SRC_INCR[0-7] in */
 		/* ynorm012 macros and all SSE2 FFTs because of using BIGLIT_INCR4 in xnorm012 macros. */
 		min_split_size = gwdata->num_postfft_blocks;
@@ -4339,14 +4339,14 @@ int pass1_state1_assign_first_block (
 			unsigned int size;
 
 			if (gwdata->pass1_carry_sections[j].section_state >= 2) continue;
-			/* Since each section must be at least num_postfft_blocks in size, make sure */
-			/* the section we are splitting is at least 2*num_postfft_blocks in size. */
+			/* Since new section must be at least num_postfft_blocks in size and the existing */
+			/* section is prefetching the next block, make sure we are splitting at least */
+			/* num_postfft_blocks + asm_data->cache_line_multiplier in size. */
 			/* Note: deadlocks can occur if we don't take over sections that haven't started. */
-			if (gwdata->pass1_carry_sections[j].section_state != 0 &&
-			    gwdata->pass1_carry_sections[j].last_block - gwdata->pass1_carry_sections[j].start_block <
-					gwdata->num_postfft_blocks + gwdata->num_postfft_blocks) continue;
-			/* See if this section is big enough and the largest one thusfar. */
 			size = gwdata->pass1_carry_sections[j].last_block - gwdata->pass1_carry_sections[j].next_block;
+			if (gwdata->pass1_carry_sections[j].section_state != 0 &&
+			    size < gwdata->num_postfft_blocks + asm_data->cache_line_multiplier) continue;
+			/* See if this section is big enough and the largest one thusfar. */
 			if (size > largest_unfinished_size && size >= min_split_size) {
 				largest_unfinished = j;
 				largest_unfinished_size = size;
@@ -4378,6 +4378,14 @@ int pass1_state1_assign_first_block (
 				new_size = round_up_to_multiple_of (new_size, 8);
 			if (new_size < gwdata->num_postfft_blocks) new_size = gwdata->num_postfft_blocks;
 
+			// Make sure the new size is a multiple of num_postfft_blocks.  This is necessary because
+			// a multihreaded PRP test of 66666*5^1560000-1 will fail if we don't.  It fails because the
+			// we need more than 4 carry words and the FFT has a clm of 1 (which is 4 words).  If the
+			// start_block in a section is not a multiple of num_postfft_blocks, then normval2
+			// used in ynorm012_wpn will not properly correct the big/lit flags pointer.
+			new_size = round_up_to_multiple_of (new_size, gwdata->num_postfft_blocks);
+
+			// Peel off the ending blocks of largest_unfinished section
 			gwdata->pass1_carry_sections[i].start_block =
 			gwdata->pass1_carry_sections[i].next_block =
 				gwdata->pass1_carry_sections[largest_unfinished].last_block - new_size;
@@ -4386,6 +4394,7 @@ int pass1_state1_assign_first_block (
 			gwdata->pass1_carry_sections[i].can_carry_into_next =
 				gwdata->pass1_carry_sections[largest_unfinished].can_carry_into_next;
 
+			// Shrink largest_unfinished section
 			gwdata->pass1_carry_sections[largest_unfinished].last_block -= new_size;
 			gwdata->pass1_carry_sections[largest_unfinished].can_carry_into_next = FALSE;
 			gwdata->pass1_carry_sections[i].dependent_section = largest_unfinished;
