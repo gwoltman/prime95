@@ -4756,6 +4756,13 @@ void pass1_wake_up_threads (
 				num_blocks = round_up_to_multiple_of (num_blocks, 8);
 			if (num_blocks < (int) gwdata->num_postfft_blocks) num_blocks = gwdata->num_postfft_blocks;
 
+			// Make sure the new size is a multiple of num_postfft_blocks.  This is necessary because
+			// a 5 or 7 threaded PRP test of 66666*5^1560000-1 will fail if we don't.  It fails because the
+			// we need more than 4 carry words and the FFT has a clm of 1 (which is 4 words).  If the
+			// start_block in a section is not a multiple of num_postfft_blocks, then normval2
+			// used in ynorm012_wpn will not properly correct the big/lit flags pointer.
+			num_blocks = round_up_to_multiple_of (num_blocks, gwdata->num_postfft_blocks);
+
 			/* Init section info */
 			gwdata->pass1_carry_sections[i].start_block = num_blocks_allocated;
 			gwdata->pass1_carry_sections[i].last_block = num_blocks_allocated + num_blocks;
