@@ -346,12 +346,24 @@ void getCpuInfo (void)
 /* Get the CPU info using CPUID instruction */	
 
 	guessCpuType ();
+	NUM_CPUS = CPU_CORES;
+
+/* New in version 29!  Use hwloc info to determine NUM_CPUS and CPU_HYPERTHREADS. */
+/* We still allow overriding this with INI file settings below */
+
+	{
+		int	core_depth, logical_CPU_depth;
+		core_depth = hwloc_get_type_or_below_depth (hwloc_topology, HWLOC_OBJ_CORE);	// Access physical core's topology depth
+		NUM_CPUS = hwloc_get_nbobjs_by_depth (hwloc_topology, core_depth);
+		logical_CPU_depth = hwloc_get_type_or_below_depth (hwloc_topology, HWLOC_OBJ_PU); // Access logical CPU's topology depth
+		CPU_HYPERTHREADS = hwloc_get_nbobjs_by_depth (hwloc_topology, logical_CPU_depth) / NUM_CPUS;
+	}
 
 /* Allow overriding the number of physical processors.  For historical */
 /* reasons, this code uses a variable called NUM_CPUS rather */
 /* than the CPU_CORES value set by guessCpuType. */
 
-	NUM_CPUS = IniGetInt (LOCALINI_FILE, "NumCPUs", CPU_CORES);
+	NUM_CPUS = IniGetInt (LOCALINI_FILE, "NumCPUs", NUM_CPUS);
 	temp = IniGetInt (LOCALINI_FILE, "NumPhysicalCores", 9999);
 	if (temp != 9999) {
 		CPU_HYPERTHREADS = NUM_CPUS / temp;
