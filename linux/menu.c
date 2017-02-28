@@ -1043,25 +1043,30 @@ void options_benchmark (void)
 
 	askNum ("Benchmark type (0 = Throughput, 1 = FFT timings, 2 = Trial factoring)", &m_bench_type, 0, 2);
 	if (m_bench_type != 2) {
+		printf ("\nFFT sizes to benchmark\n");
 		askNum ("Minimum FFT size (in K)", &m_minFFT, 1, 32768);
 		askNum ("Maximum FFT size (in K)", &m_maxFFT, m_minFFT, 32768);
 		if (m_minFFT != m_maxFFT)
 			askYN ("Benchmark every FFT size in the range", &m_all_FFT_sizes);
 	}
 
-	if (NUM_CPUS > 1) {
-		askYN ("Benchmark using one CPU core", &m_bench_one_core);
-		askYN ("Benchmark using all CPU cores", &m_bench_all_cores);
+	if (NUM_CPUS > 1 || CPU_HYPERTHREADS > 1) {
+		printf ("\nCPU cores to benchmark\n");
+		if (NUM_CPUS > 1) {
+			askYN ("Benchmark using one CPU core", &m_bench_one_core);
+			askYN ("Benchmark using all CPU cores", &m_bench_all_cores);
+		}
+		if (NUM_CPUS > 2)
+			askYN ("Benchmark using remaining CPU core combinations", &m_bench_in_between_cores);
+		if (CPU_HYPERTHREADS > 1)
+			askYN ("Benchmark hyperthreading", &m_hyperthreading);
 	}
-	if (NUM_CPUS > 2)
-		askYN ("Benchmark using remaining CPU core combinations", &m_bench_in_between_cores);
-	if (CPU_HYPERTHREADS > 1)
-		askYN ("Benchmark hyperthreading", &m_hyperthreading);
 
 	if (m_bench_type == 0) {
+		printf ("\nThroughput benchmark options\n");
 		if (NUM_CPUS > 1) {
-			askYN ("Benchmark one worker using all cores", &m_bench_one_worker);
-			askYN ("Benchmark one core per worker", &m_bench_max_workers);
+			askYN ("Benchmark one worker case", &m_bench_one_worker);
+			askYN ("Benchmark maximum workers case", &m_bench_max_workers);
 		}
 		if (NUM_CPUS > 2)
 			askYN ("Benchmark other worker/core combinations", &m_bench_in_between_workers);
@@ -1149,7 +1154,7 @@ void test_welcome (void)
 		USE_PRIMENET = 0;
 		IniWriteInt (INI_FILE, "UsePrimenet", USE_PRIMENET = 0);
 		STARTUP_IN_PROGRESS = 0;
-		torture ();
+		options_torture ();
 	}
 	main_menu ();
 }
