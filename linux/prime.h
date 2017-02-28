@@ -79,13 +79,6 @@
 #define _ftime        _ftime
 #endif
 
-/* Handle differences between 32-bit and 64-bit libraries (fstat64 not supported) */
-
-#ifndef X86_64
-#define stat64		stat
-#define fstat64		fstat
-#endif
-
 /* The common include files */
 
 #ifndef X86_64

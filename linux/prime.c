@@ -460,21 +460,21 @@ void linuxContinue (
 	{
 	char	filename[30];
 	int	fd;
-	struct stat64 filedata;
+	struct stat filedata;
 	dev_t	dev1, dev2;
-	ino64_t	inode1, inode2;
+	ino_t	inode1, inode2;
 
 	sprintf (filename, PROCNAME, my_pid);
 	fd = _open (filename, _O_RDONLY);
 	if (fd < 0) goto ok;
-	fstat64 (fd, &filedata);
+	fstat (fd, &filedata);
 	dev1 = filedata.st_dev;
 	inode1 = filedata.st_ino;
 	_close (fd);
 	sprintf (filename, PROCNAME, running_pid);
 	fd = _open (filename, _O_RDONLY);
 	if (fd < 0) goto ok;
-	fstat64 (fd, &filedata);
+	fstat (fd, &filedata);
 	dev2 = filedata.st_dev;
 	inode2 = filedata.st_ino;
 	_close (fd);
