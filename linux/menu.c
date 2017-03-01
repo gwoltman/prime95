@@ -821,9 +821,7 @@ void options_cpu (void)
 	char m_end_time[13];
 	char buf[512];
 
-	m_memory_editable =
-		read_memory_settings (&day_memory, &night_memory,
-				      &day_start_time, &day_end_time);
+	m_memory_editable = read_memory_settings (&day_memory, &night_memory, &day_start_time, &day_end_time);
 //again:
 	m_hours = CPU_HOURS;
 	m_day_memory = day_memory;
@@ -842,8 +840,8 @@ void options_cpu (void)
 		askNum ("Daytime P-1/ECM stage 2 memory in MB", &m_day_memory, 8, max_mem);
 		askNum ("Nighttime P-1/ECM stage 2 memory in MB", &m_night_memory, 8, max_mem);
 		if (m_day_memory != m_night_memory) {
-			askStr ("Daytime begins at", (char *) &m_start_time, 12);
-			askStr ("Daytime ends at", (char *) &m_end_time, 12);
+			askStr ("Daytime begins at", m_start_time, 12);
+			askStr ("Daytime ends at", m_end_time, 12);
 		}
 	}
 
@@ -863,8 +861,8 @@ void options_cpu (void)
 			delete_timed_event (TE_COMM_SERVER);
 			UpdateEndDates ();
 		}
-		new_day_start_time = strToMinutes ((char *) &m_start_time);
-		new_day_end_time = strToMinutes ((char *) &m_end_time);
+		new_day_start_time = strToMinutes (m_start_time);
+		new_day_end_time = strToMinutes (m_end_time);
 		if (m_memory_editable &&
 		    (day_memory != m_day_memory ||
 		     night_memory != m_night_memory ||
