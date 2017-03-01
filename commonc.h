@@ -1,9 +1,9 @@
-/* Copyright 1995-2016 Mersenne Research, Inc.  All rights reserved */
+/* Copyright 1995-2017 Mersenne Research, Inc.  All rights reserved */
 
 /* Constants */
 
 #define VERSION		"29.1"
-#define BUILD_NUM	"9"
+#define BUILD_NUM	"10"
 /* The list of assigned OS ports follows: */
 /* Win9x (prime95) #1 */
 /* Linux (mprime)  #2 */
@@ -245,7 +245,7 @@ void end_sieve (void *si);
 uint64_t modinv (uint64_t x, uint64_t f);
 int relatively_prime (unsigned long, unsigned long);
 
-unsigned int strToMinutes (const char	*);
+unsigned int strToMinutes (const char *);
 void minutesToStr (unsigned int, char *);
 void write_memory_settings (unsigned int, unsigned int, unsigned int, unsigned int);
 int read_memory_settings (unsigned int *, unsigned int *, unsigned int *, unsigned int *);
@@ -260,14 +260,14 @@ int addFileExists (void);
 void incorporateIniAddFiles (void);
 int incorporateWorkToDoAddFile (void);
 
-void PTOGetAll (char *ini_filename, char *keyword, unsigned int *array,
+void PTOGetAll (const char *ini_filename, const char *keyword, unsigned int *array,
 		unsigned int def_val);
-void PTOSetAll (char *ini_filename, char *keyword, char	*shadow_keyword,
+void PTOSetAll (const char *ini_filename, const char *keyword, const char *shadow_keyword,
 		unsigned int *array, unsigned int new_val);
-void PTOSetOne (char *ini_filename, char *keyword, char *shadow_keyword,
+void PTOSetOne (const char *ini_filename, const char *keyword, const char *shadow_keyword,
 		unsigned int *array, int tnum, unsigned int new_val);
 int PTOIsGlobalOption (unsigned int *array);
-int PTOHasOptionChanged (char *shadow_keyword, unsigned int *array, int tnum);
+int PTOHasOptionChanged (const char *shadow_keyword, unsigned int *array, int tnum);
 
 
 #define MAIN_THREAD_NUM		-2
@@ -370,10 +370,10 @@ void guess_pminus1_bounds (int, double, unsigned long, unsigned long, signed lon
 
 void strupper (char *);
 void tempFileName (struct work_unit *, char *);
-int fileExists (char *);
+int fileExists (const char *);
 
 int read_array (int fd, char *buf, unsigned long len, unsigned long *sum);
-int write_array (int fd, char *buf, unsigned long len, unsigned long *sum);
+int write_array (int fd, const char *buf, unsigned long len, unsigned long *sum);
 int read_gwnum (int fd, gwhandle *gwdata, gwnum g, unsigned long *sum);
 int write_gwnum (int fd, gwhandle *gwdata, gwnum g, unsigned long *sum);
 int read_short (int fd, short *val);
@@ -386,10 +386,8 @@ int write_longlong (int fd, uint64_t val, unsigned long *sum);
 int read_double (int fd, double *val, unsigned long *sum);
 int write_double (int fd, double dbl, unsigned long *sum);
 int read_magicnum (int fd, unsigned long magicnum);
-int read_header (int fd, unsigned long *version,
-		 struct work_unit *w, unsigned long *sum);
-int write_header (int fd, unsigned long magicnum, unsigned long version,
-		  struct work_unit *w);
+int read_header (int fd, unsigned long *version, struct work_unit *w, unsigned long *sum);
+int write_header (int fd, unsigned long magicnum, unsigned long version, struct work_unit *w);
 int read_checksum (int fd, unsigned long *sum);
 int write_checksum (int fd, unsigned long sum);
 

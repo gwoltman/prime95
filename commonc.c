@@ -1465,8 +1465,8 @@ retrc:	fclose (fd);
 /****************************************************************************/
 
 void PTOGetAll (
-	char	*ini_filename,		/* Ini file containing the options */
-	char	*keyword,		/* Ini file keyword */
+	const char *ini_filename,	/* Ini file containing the options */
+	const char *keyword,		/* Ini file keyword */
 	unsigned int *array,		/* Options array */
 	unsigned int def_val)		/* Default value */
 {
@@ -1491,9 +1491,9 @@ void PTOGetAll (
 }
 
 void PTOSetAll (
-	char	*ini_filename,		/* Ini file containing the options */
-	char	*keyword,		/* Ini file keyword */
-	char	*shadow_keyword,	/* Ini file keyword for value the */
+	const char *ini_filename,	/* Ini file containing the options */
+	const char *keyword,		/* Ini file keyword */
+	const char *shadow_keyword,	/* Ini file keyword for value the */
 					/* server has stored for this option */
 	unsigned int *array,		/* Options array */
 	unsigned int new_val)		/* New option value */
@@ -1522,9 +1522,9 @@ void PTOSetAll (
 }
 
 void PTOSetOne (
-	char	*ini_filename,		/* Ini file containing the options */
-	char	*keyword,		/* Ini file keyword */
-	char	*shadow_keyword,	/* Ini file keyword for value the */
+	const char *ini_filename,	/* Ini file containing the options */
+	const char *keyword,		/* Ini file keyword */
+	const char *shadow_keyword,	/* Ini file keyword for value the */
 					/* server has stored for this option */
 	unsigned int *array,		/* Options array */
 	int	tnum,			/* Thread number */
@@ -1579,7 +1579,7 @@ int PTOIsGlobalOption (
 }
 
 int PTOHasOptionChanged (
-	char	*shadow_keyword,	/* Ini file keyword for value the */
+	const char *shadow_keyword,	/* Ini file keyword for value the */
 					/* server has stored for this option */
 	unsigned int *array,		/* Options array */
 	int	tnum)			/* Thread number */
@@ -1748,7 +1748,7 @@ int OutOfMemory (
 /* Count commas in a string */
 
 unsigned int countCommas (
-	char *p)
+	const char *p)
 {
 	unsigned int cnt;
 	for (cnt = 0; ; cnt++) {
@@ -3256,7 +3256,7 @@ unsigned int factorLimit (
 /* Convert a string to a hash value */
 
 unsigned long string_to_hash (
-	char	*str)		/* String to hash */
+	const char *str)		/* String to hash */
 {
 	char	md5val[33];
 	int	i, j;
@@ -3557,7 +3557,7 @@ void tempFileName (
 /* See if the given file exists */
 
 int fileExists (
-	char	*filename)
+	const char *filename)
 {
 	int	fd;
 	fd = _open (filename, _O_RDONLY | _O_BINARY);
@@ -3587,7 +3587,7 @@ int read_array (
 
 int write_array (
 	int	fd,
-	char	*buf,
+	const char *buf,
 	unsigned long len,
 	unsigned long *sum)
 {
