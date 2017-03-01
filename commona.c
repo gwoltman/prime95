@@ -8,7 +8,7 @@
 | Commonb contains information used only during execution
 | Commonc contains information used during setup and execution
 |
-| Copyright 1995-2016 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2017 Mersenne Research, Inc.  All rights reserved
 +---------------------------------------------------------------------*/
 
 /* Routine to eliminate odd puctuation characters from user ID */
@@ -164,12 +164,12 @@ void rangeStatusMessage (
 		buf += strlen (buf);
 
 		time (&this_time);
-		if (est + this_time < 2147483640) {
+		if (est + (double) this_time < 2147483640.0) {
 			this_time += (long) est;
 			strcpy (timebuf, ctime (&this_time));
 			safe_strcpy (timebuf+16, timebuf+19);
 		} else
-			strcpy (timebuf, "after Jan 1 2038\n");
+			strcpy (timebuf, "after Jan 19 2038\n");
 		sprintf (buf, ", %s", timebuf);
 		buf += strlen (buf);
 		lines_output++;
