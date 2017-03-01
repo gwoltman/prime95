@@ -9,7 +9,7 @@
 // THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
 // PARTICULAR PURPOSE.
 //
-// Copyright (c) 1997-2015 Mersenne Research, Inc. All Rights Reserved.
+// Copyright (c) 1997-2017 Mersenne Research, Inc. All Rights Reserved.
 //
 //  MODULE:   primenet.c
 //
@@ -222,7 +222,7 @@ void getProxyInfo (
 	    (szProxyHost[3] == 'P' || szProxyHost[3] == 'p') &&
 	    szProxyHost[4] == ':' && szProxyHost[5] == '/' &&
 	    szProxyHost[6] == '/')
-		strcpy (szProxyHost, szProxyHost + 7);
+		safe_strcpy (szProxyHost, szProxyHost + 7);
 
 /* Get optional port number */
 
@@ -525,7 +525,7 @@ rel_url:
 			    (location[3] == 'P' || location[3] == 'p') &&
 			    location[4] == ':' && location[5] == '/' &&
 			    location[6] == '/')
-				strcpy (location, location + 7);
+				safe_strcpy (location, location + 7);
 			con_host = location;
 
 /* Get optional port number */
