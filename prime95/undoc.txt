@@ -318,6 +318,14 @@ instructions or using AVX2/AVX512 instructions.  As sieve primes get larger, the
 is faster than the AVX2/AVX512 code.  Set z to the number of blocks of small primes to use
 the AVX2/AVX512 code path.  On my AVX2 Skylake cpu the optimal block count is 9.
 
+You can control how many CPU cores and hyperthreads are used in Advanced/Time.
+Put these line in prime.txt:
+	AdvancedTimeMinCores=n		(default 1)
+	AdvancedTimeMaxCores=n		(default all cores)
+	AdvancedTimeCoresIncrement=n	(default 1)
+	AdvancedTimeMinHyperthreads=n	(default 1)
+	AdvancedTimeMaxHyperthreads=n	(default is number of hyperthreads supported by each core)
+
 You can disable the display of every iteration's timing when using Advanced/Time
 leaving just the ending summary.  Useful for machines with lots of cores.
 Put this line in prime.txt:
@@ -444,14 +452,6 @@ program down to reduce heat, then you can add this line to prime.txt:
 where n is the percentage of time the program should run.  For example,
 Throttle=40 means the program will run 40% and be idle 60% of the time.
 
-NOT IMPLEMENTED:  To limit the program's impact on computer responsiveness on a
-hyperthreaded machine the program pauses for 30 seconds if two successive iterations
-take 40% longer than a typical iteration.  You can turn this feature off or change
-how long the program pauses by adding this line to prime.txt:
-	HyperthreadingBackoff=n
-where n is zero to turn the feature off or n is the number of seconds to pause
-after two successive slow iterations.
-
 Since P-1 stage 2 runs faster with more memory available you can have the
 program only run stage 2 at night when more memory is available.  In
 prime.txt set:
@@ -508,6 +508,16 @@ This may lead to more consistent benchmarks that are more indicitive of what wil
 this program in a real-world, all-cores-busy environment.  Option not available in throughput
 benchmarks. 
 
+When benchmarking on CPUs with lots of cores, the volume of output can be overwhelming.
+You can limit which core counts are benchmarked using the prime.txt settings below:
+	BenchMinCores=n		(default 1)
+	BenchMaxCores=n		(default all cores)
+	BenchCoresIncrement=n	(default 1)
+Similarly, for thoughput benchmarks, these prime.txt settings can reduce output:
+	BenchMinWorkers=n	(default 1)
+	BenchMaxWorkers=n	(default all cores)
+	BenchWorkersIncrement=n	(default 1)
+
 If you want to run the program on several machines this is typically done
 by carrying the program and files around on portable media such as a floppy
 or USB memory stick.  In this case, you need to defeat the program's
@@ -524,6 +534,15 @@ a maximum amount of memory that one particular worker can use.
 You can set MaxHighMemWorkers=n in local.txt.  This tells the program how
 wany workers are allowed to use lots of memory.  This occurs doing stage 2
 of P-1 or ECM on medium-to-large numbers.  Default is available memory / 200MB.
+
+You can change the amount of information the program outputs while setting affinities.
+	AffinityVerbosity=0 or 1	(default is 1)
+	AffinityVerbosityTorture=0 or 1	(default is 0)
+	AffinityVerbosityTime=0 or 1	(default is 0)
+	AffinityVerbosityBench=0 or 1	(default is 0)
+These settings are made in prime.txt.  Zero for less output, one for more output.
+The first setting is for all normal work (LL, TF, ECM, P-1, PRP).  The others
+are for torture testing, Advanced/Time, and benchmarking.
 
 One user reported problems with setting affinity on machines with more than 64 cores.
 Though this problem has been addressed, the following options may prove helpful
