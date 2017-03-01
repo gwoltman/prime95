@@ -319,18 +319,19 @@ void print_timer (
 /*    Routines dealing with thread priority and affinity      */
 /**************************************************************/
 
-/* Set the thread priority correctly.  Most screen savers run at priority 4. */
+/* Set thread priority and affinity correctly.  Most screen savers run at priority 4. */
 /* Most application's run at priority 9 when in foreground, 7 when in */
 /* background.  In selecting the proper thread priority I've assumed the */
 /* program usually runs in the background. */ 
-
-/* This routine is also responsible for setting the thread's CPU affinity. */
 
 void SetPriority (
 	struct PriorityInfo *info)
 {
 	int	core_depth, num_cores, logical_CPU_depth, num_logical_CPUs;
-	int	bind_type, core, logical_CPU, error_window;
+	int	bind_type, core;
+#ifdef BIND_TYPE_1_USED
+	int	logical_CPU;
+#endif
 	char	logical_CPU_string[255];
 	char	logical_CPU_substring[255];
 	char	buf[255];
@@ -357,56 +358,57 @@ void SetPriority (
 
 /* Pick from one of several methodologies to determine affinity setting */
 
-	do {
+	switch (info->type) {
 
 /* QA affinity.  Let threads run on any CPU. */
 
-		if (info->type == SET_PRIORITY_QA) return;
+	case SET_PRIORITY_QA:
+		return;
 
-/* Benchmarking affinity with no hyperthreading. */
+/* Advanced/Time affinity.  Set affinity to appropriate core. */
 
-		if (info->type == SET_PRIORITY_BENCHMARKING) {
-			bind_type = 0;				// Set affinity to one specific core
-			core = info->thread_num + info->aux_thread_num;
-			error_window = MAIN_THREAD_NUM;
-			break;
-		}
+	case SET_PRIORITY_TIME:
+		bind_type = 0;				// Set affinity to one specific core
+		core = info->aux_thread_num / info->time_hyperthreads;
+		break;
 
-/* Benchmarking affinity.  For hyperthreaded CPUs, we put auxiliary */
-/* threads onto the logical CPUs before moving onto the next physical CPU. */  
+/* Busy loop on specified CPU core. */
 
-		if (info->type == SET_PRIORITY_BENCHMARKING_HYPER) {
-			bind_type = 0;				// Set affinity to one specific core
-			core = info->thread_num + info->aux_thread_num / CPU_HYPERTHREADS;
-			error_window = MAIN_THREAD_NUM;
-			break;
-		}
+	case SET_PRIORITY_BUSY_LOOP:
+		bind_type = 0;				// Set affinity to one specific core
+		core = info->busy_loop_cpu;
+		break;
 
 /* Torture test affinity.  If we're running the same number of torture */
 /* tests as CPUs if the system then set affinity.  Otherwise, let the */
 /* threads run on any CPU. */
 
-		if (info->type == SET_PRIORITY_TORTURE) {
-			if (info->num_threads == NUM_CPUS * CPU_HYPERTHREADS) {
-				bind_type = 0;				// Set affinity to one specific core
-				core = info->thread_num / CPU_HYPERTHREADS;
-			} else if (info->num_threads == NUM_CPUS) {
-				bind_type = 0;				// Set affinity to one specific core
-				core = info->thread_num;
-			} else
-				return;					// Run on any core
-			error_window = MAIN_THREAD_NUM;
-			break;
-		}
+	case SET_PRIORITY_TORTURE:
+		if (info->torture_num_workers * info->torture_threads_per_test == NUM_CPUS * CPU_HYPERTHREADS) {
+			bind_type = 0;				// Set affinity to one specific core
+			core = (info->worker_num * info->torture_threads_per_test + info->aux_thread_num) / CPU_HYPERTHREADS;
+		} else if (info->torture_num_workers * info->torture_threads_per_test == NUM_CPUS) {
+			bind_type = 0;				// Set affinity to one specific core
+			core = (info->worker_num * info->torture_threads_per_test + info->aux_thread_num);
+		} else
+			return;					// Run on any core
+		break;
+
+/* Benchmarking.  Set affinity to appropriate core. */
+
+	case SET_PRIORITY_BENCHMARKING:
+		bind_type = 0;				// Set affinity to one specific core
+		core = info->bench_base_cpu_num + info->aux_thread_num / info->bench_hyperthreads;
+		break;
 
 /* If user has given an explicit list of logical CPUs to set affinity to, then use that list. */
 /* Hopefully, there is no real need to ever use this feature. */
 
-		error_window = info->thread_num;
+	case SET_PRIORITY_NORMAL_WORK:
 		{
 			char	section_name[32];
 			const char *p;
-			sprintf (section_name, "Worker #%d", info->thread_num+1);
+			sprintf (section_name, "Worker #%d", info->worker_num+1);
 			p = IniSectionGetStringRaw (LOCALINI_FILE, section_name, "Affinity");
 			if (p != NULL) {
 				bind_type = 2;				// Set affinity to a set of logical CPUs
@@ -423,7 +425,7 @@ void SetPriority (
 
 		if (NUM_WORKER_THREADS == NUM_CPUS) {
 			bind_type = 0;				// Set affinity to a specific physical CPU core
-			core = info->thread_num;
+			core = info->worker_num;
 			break;
 		}
 
@@ -433,8 +435,8 @@ void SetPriority (
 /* performance hit will occur running on the same logical CPU. */
 
 		if (NUM_WORKER_THREADS == NUM_CPUS * CPU_HYPERTHREADS) {
-			bind_type = 1;				// Set affinity to a specific logical CPU
-			logical_CPU = info->thread_num;
+			bind_type = 0;				// Set affinity to a specific physical CPU core
+			core = info->worker_num / CPU_HYPERTHREADS;
 			break;
 		}
 
@@ -446,7 +448,7 @@ void SetPriority (
 			worker_thread_count = threads_used_by_lower_workers = 0;
 			for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
 				worker_thread_count += THREADS_PER_TEST[i];
-				if (i < info->thread_num) threads_used_by_lower_workers += THREADS_PER_TEST[i];
+				if (i < info->worker_num) threads_used_by_lower_workers += THREADS_PER_TEST[i];
 			}
 
 			if (worker_thread_count == NUM_CPUS) {
@@ -456,8 +458,8 @@ void SetPriority (
 			}
 
 			if (worker_thread_count == NUM_CPUS * CPU_HYPERTHREADS) {
-				bind_type = 1;			// Set affinity to a specific logical CPU
-				logical_CPU = threads_used_by_lower_workers + info->aux_thread_num;
+				bind_type = 0;			// Set affinity to a specific physical CPU core
+				core = (threads_used_by_lower_workers + info->aux_thread_num) / CPU_HYPERTHREADS;
 				break;
 			}
 
@@ -480,7 +482,7 @@ void SetPriority (
 /* No good rule found for setting affinity.  Simply run on any logical CPU. */
 
 		return;
-	} while (FALSE);
+	}
 
 /* Parse affinity settings specified in the INI file. */
 /* We accept several syntaxes in an INI file: */
@@ -504,7 +506,7 @@ void SetPriority (
 				p = strchr (start, end_char);
 				if (p == NULL) {
 					sprintf (buf, "Error parsing affinity string: %s\n", logical_CPU_string);
-					OutputStr (error_window, buf);
+					OutputStr (info->worker_num, buf);
 					return;
 				}
 				truncated_strcpy_with_len (logical_CPU_substring, sizeof (logical_CPU_substring),
@@ -527,19 +529,20 @@ void SetPriority (
 
 /* Output an informative message */
 
-	if (info->type != SET_PRIORITY_BENCHMARKING && info->type != SET_PRIORITY_BENCHMARKING_HYPER &&
-	    (NUM_CPUS > 1 || CPU_HYPERTHREADS > 1)) {
+	if (NUM_CPUS > 1 && info->verbose_flag) {
 		if (info->aux_thread_num == 0)
 			strcpy (buf, "Setting affinity to run worker on ");
 		else
 			sprintf (buf, "Setting affinity to run helper thread %d on ", info->aux_thread_num);
 		if (bind_type == 0)
 			sprintf (buf+strlen(buf), "CPU core #%d\n", core);
+#ifdef BIND_TYPE_1_USED
 		else if (bind_type == 1)
 			sprintf (buf+strlen(buf), "logical CPU #%d\n", logical_CPU);
+#endif
 		else
 			sprintf (buf+strlen(buf), "logical CPUs %s\n", logical_CPU_substring);
-		OutputStr (info->thread_num, buf);
+		OutputStr (info->worker_num, buf);
 	}
 
 /* Set affinity for this thread to a specific CPU core */
@@ -547,8 +550,8 @@ void SetPriority (
 	if (bind_type == 0) {
 		hwloc_obj_t obj;
 		if (core >= num_cores) {		// This shouldn't happen
-			sprintf (buf, "Setting affinity to core #%d is greater than the number of cores (%d).\n", core, num_cores);
-			OutputStr (error_window, buf);
+			sprintf (buf, "Error: setting affinity to core #%d which is greater than the number of cores (%d).\n", core, num_cores);
+			OutputStr (info->worker_num, buf);
 			core %= num_cores;
 		}
 		obj = hwloc_get_obj_by_depth (hwloc_topology, core_depth, core);	/* Get proper core */
@@ -557,8 +560,8 @@ void SetPriority (
 				char *str;
 				int error = errno;
 				hwloc_bitmap_asprintf (&str, obj->cpuset);
-				sprintf (buf, "Couldn't set affinity to cpuset %s: %s\n", str, strerror(error));
-				OutputStr (error_window, buf);
+				sprintf (buf, "Error: couldn't set affinity to cpuset %s: %s\n", str, strerror(error));
+				OutputStr (info->worker_num, buf);
 				free (str);
 			}
 		}
@@ -566,11 +569,12 @@ void SetPriority (
 
 /* Set affinity for this thread to a specific logical CPU */
 
+#ifdef BIND_TYPE_1_USED
 	else if (bind_type == 1) {
 		hwloc_obj_t obj;
 		if (logical_CPU >= num_logical_CPUs) {		// This shouldn't happen
-			sprintf (buf, "Setting affinity to logical CPU #%d is greater than the number of logical CPUs (%d).\n", logical_CPU, num_logical_CPUs);
-			OutputStr (error_window, buf);
+			sprintf (buf, "Error: setting affinity to logical CPU #%d which is greater than the number of logical CPUs (%d).\n", logical_CPU, num_logical_CPUs);
+			OutputStr (info->worker_num, buf);
 			logical_CPU %= num_logical_CPUs;
 		}
 		obj = hwloc_get_obj_by_depth (hwloc_topology, logical_CPU_depth, logical_CPU);	/* Get proper logical CPU */
@@ -579,14 +583,15 @@ void SetPriority (
 				char *str;
 				int error = errno;
 				hwloc_bitmap_asprintf (&str, obj->cpuset);
-				sprintf (buf, "Couldn't set affinity to cpuset %s: %s\n", str, strerror(error));
-				OutputStr (error_window, buf);
+				sprintf (buf, "Error: couldn't set affinity to cpuset %s: %s\n", str, strerror(error));
+				OutputStr (info->worker_num, buf);
 				free (str);
 			}
 		}
 	}
+#endif
 
-/* Set affinity for this thread to a one or more logical CPUs as specified in the INI file. */
+/* Set affinity for this thread to one or more logical CPUs as specified in the INI file. */
 
 	else {
 		char *p, *dash, *comma;
@@ -613,8 +618,8 @@ void SetPriority (
 			char *str;
 			int error = errno;
 			hwloc_bitmap_asprintf (&str, cpuset);
-			sprintf (buf, "Couldn't set affinity to cpuset %s: %s\n", str, strerror(error));
-			OutputStr (error_window, buf);
+			sprintf (buf, "Error: couldn't set affinity to cpuset %s: %s\n", str, strerror(error));
+			OutputStr (info->worker_num, buf);
 			free (str);
 		}
 		hwloc_bitmap_free (cpuset);
@@ -3026,7 +3031,8 @@ int primeContinue (
 /* Set the process/thread priority */
 
 	sp_info.type = SET_PRIORITY_NORMAL_WORK;
-	sp_info.thread_num = thread_num;
+	sp_info.worker_num = thread_num;
+	sp_info.verbose_flag = IniGetInt (INI_FILE, "AffinityVerbosity", 1);
 	sp_info.aux_thread_num = 0;
 	SetPriority (&sp_info);
 
@@ -6312,7 +6318,7 @@ int prime (
 /* done is if pfactor returned STOP_NOT_ENOUGH_MEM on an earlier pass. */
 /* In that case, skip onto doing the LL test until more memory becomes */
 /* available. */
-	
+
 	if ((w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK) &&
 	    ! w->pminus1ed && pass != 3) {
 		int	pass_to_pfactor;
@@ -7675,6 +7681,8 @@ int selfTestInternal (
 		gwinit (&lldata.gwdata);
 		gwset_sum_inputs_checking (&lldata.gwdata, iter & 1);
 		gwset_num_threads (&lldata.gwdata, num_threads);
+		gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
+		gwset_thread_callback_data (&lldata.gwdata, &sp_info);
 		lldata.gwdata.GW_BIGBUF = (char *) bigbuf;
 		lldata.gwdata.GW_BIGBUF_SIZE = (bigbuf != NULL) ? (size_t) memory * (size_t) 1048576 : 0;
 		stop_reason = lucasSetup (thread_num, p, fftlen, &lldata);
@@ -7899,7 +7907,7 @@ int selfTest (
 
 int tortureTest (
 	int	thread_num,
-	int	num_threads)
+	int	num_torture_workers)
 {
 	struct PriorityInfo sp_info;
 	const struct self_test_info *test_data; /* Self test data */
@@ -7918,9 +7926,11 @@ int tortureTest (
 /* Set the process/thread priority */
 
 	sp_info.type = SET_PRIORITY_TORTURE;
-	sp_info.thread_num = thread_num;
+	sp_info.worker_num = thread_num;
+	sp_info.torture_num_workers = num_torture_workers;
+	sp_info.torture_threads_per_test = IniGetInt (INI_FILE, "TortureTestThreads", 1);
+	sp_info.verbose_flag = IniGetInt (INI_FILE, "AffinityVerbosityTorture", 0);
 	sp_info.aux_thread_num = 0;
-	sp_info.num_threads = num_threads;
 	SetPriority (&sp_info);
 
 /* Init counters */
@@ -8538,7 +8548,9 @@ int primeTime (
 	struct PriorityInfo sp_info;
 #define SAVED_LIMIT	10
 	llhandle lldata;
-	unsigned long i, j, saved, save_limit, num_threads;
+	unsigned long i, j, saved, save_limit;
+	int	min_cores, max_cores, incr_cores, min_hyperthreads, max_hyperthreads;
+	int	num_cores, num_hyperthreads;
 	char	buf[120], fft_desc[100];
 	double	time, saved_times[SAVED_LIMIT];
 	int	days, hours, minutes, stop_reason, print_every_iter;
@@ -8550,7 +8562,8 @@ int primeTime (
 
 	if (p >= 9900 && p <= 9999) {
 		sp_info.type = SET_PRIORITY_QA;
-		sp_info.thread_num = thread_num;
+		sp_info.worker_num = thread_num;
+		sp_info.verbose_flag = IniGetInt (INI_FILE, "AffinityVerbosityQA", 0);
 		sp_info.aux_thread_num = 0;
 		SetPriority (&sp_info);
 
@@ -8571,130 +8584,155 @@ int primeTime (
 
 /* Set the process/thread priority */
 
-	sp_info.type = SET_PRIORITY_BENCHMARKING;
-	sp_info.thread_num = 0;
+	sp_info.type = SET_PRIORITY_TIME;
+	sp_info.worker_num = thread_num;
+	sp_info.verbose_flag = IniGetInt (INI_FILE, "AffinityVerbosityTime", 0);
 	sp_info.aux_thread_num = 0;
 	SetPriority (&sp_info);
 
-/* Loop through all possible num_thread values */
+/* Get settings from INI file */
 
-	for (num_threads = 1;
-	     num_threads <= NUM_CPUS * CPU_HYPERTHREADS;
-	     num_threads++) {
+	min_cores = IniGetInt (INI_FILE, "AdvancedTimeMinCores", 1);
+	if (min_cores < 1) min_cores = 1;
+	if (min_cores > (int) NUM_CPUS) min_cores = NUM_CPUS;
+
+	max_cores = IniGetInt (INI_FILE, "AdvancedTimeMaxCores", NUM_CPUS);
+	if (max_cores < 1) max_cores = 1;
+	if (max_cores > (int) NUM_CPUS) max_cores = NUM_CPUS;
+
+	incr_cores = IniGetInt (INI_FILE, "AdvancedTimeCoresIncrement", 1);
+	if (incr_cores < 1) incr_cores = 1;
+
+	min_hyperthreads = IniGetInt (INI_FILE, "AdvancedTimeMinHyperthreads", 1);
+	if (min_hyperthreads < 1) min_hyperthreads = 1;
+	if (min_hyperthreads > (int) CPU_HYPERTHREADS) min_hyperthreads = CPU_HYPERTHREADS;
+
+	max_hyperthreads = IniGetInt (INI_FILE, "AdvancedTimeMaxHyperthreads", CPU_HYPERTHREADS);
+	if (max_hyperthreads < 1) max_hyperthreads = 1;
+	if (max_hyperthreads > (int) CPU_HYPERTHREADS) max_hyperthreads = CPU_HYPERTHREADS;
+
+	print_every_iter = IniGetInt (INI_FILE, "PrintTimedIterations", 1);
+
+/* Loop through all possible cores and hyperthreads values */
+
+	for (num_hyperthreads = 1; num_hyperthreads <= max_hyperthreads; num_hyperthreads++) {
+		sp_info.time_hyperthreads = num_hyperthreads;
+		for (num_cores = min_cores; num_cores <= max_cores; num_cores += incr_cores) {
+			if (!OS_CAN_SET_AFFINITY && num_hyperthreads > 1 && num_cores != NUM_CPUS) continue;
 
 /* Clear all timers */
 
-	clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
+			clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
 
 /* Init the FFT code */
 
-	gwinit (&lldata.gwdata);
-	gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
-	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
-		gwset_use_large_pages (&lldata.gwdata);
-	// Here is a hack to let me time different FFT implementations.
-	// For example, 39000001 times the first 2M FFT implementation,
-	// 39000002 times the second 2M FFT implementation, etc.
-	if (IniGetInt (INI_FILE, "TimeSpecificFFTImplementations", 0))
-		lldata.gwdata.bench_pick_nth_fft = p % 100;
-	gwset_num_threads (&lldata.gwdata, num_threads);
-	gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
-	gwset_thread_callback_data (&lldata.gwdata, &sp_info);
-	stop_reason = lucasSetup (thread_num, p, IniGetInt (INI_FILE, "TimePlus1", 0), &lldata);
-	if (stop_reason) return (stop_reason);
-	ASM_TIMERS = get_asm_timers (&lldata.gwdata);
-	memset (ASM_TIMERS, 0, 32 * sizeof (uint32_t));
+			gwinit (&lldata.gwdata);
+			gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
+			if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
+				gwset_use_large_pages (&lldata.gwdata);
+			// Here is a hack to let me time different FFT implementations.
+			// For example, 39000001 times the first 2M FFT implementation,
+			// 39000002 times the second 2M FFT implementation, etc.
+			if (IniGetInt (INI_FILE, "TimeSpecificFFTImplementations", 0))
+				lldata.gwdata.bench_pick_nth_fft = p % 100;
+			gwset_num_threads (&lldata.gwdata, num_cores * num_hyperthreads);
+			gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
+			gwset_thread_callback_data (&lldata.gwdata, &sp_info);
+			stop_reason = lucasSetup (thread_num, p, IniGetInt (INI_FILE, "TimePlus1", 0), &lldata);
+			if (stop_reason) return (stop_reason);
+			ASM_TIMERS = get_asm_timers (&lldata.gwdata);
+			memset (ASM_TIMERS, 0, 32 * sizeof (uint32_t));
 
 /* Output a message about the FFT length */
 
-	gwfft_description (&lldata.gwdata, fft_desc);
-	sprintf (buf, "Using %s\n", fft_desc);
-	OutputStr (thread_num, buf);
-	title (thread_num, "Timing");
+			gwfft_description (&lldata.gwdata, fft_desc);
+			sprintf (buf, "Using %s\n", fft_desc);
+			OutputStr (thread_num, buf);
+			title (thread_num, "Timing");
 
 /* Fill data space with random values. */
 
-	generateRandomData (&lldata);
+			generateRandomData (&lldata);
 
 /* Do one squaring untimed, to prime the caches and start the */
 /* post-FFT process going. */
 
-	gwsetnormroutine (&lldata.gwdata, 0, ERRCHK != 0, 0);
-	gwstartnextfft (&lldata.gwdata, TRUE);
-	gwsquare (&lldata.gwdata, lldata.lldata);
+			gwsetnormroutine (&lldata.gwdata, 0, ERRCHK != 0, 0);
+			gwstartnextfft (&lldata.gwdata, TRUE);
+			gwsquare (&lldata.gwdata, lldata.lldata);
 
 /* Compute numbers in the lucas series */
 /* Note that for reasons unknown, we've seen cases where printing out */
 /* the times on each iteration greatly impacts P4 timings. */
 
-	print_every_iter = IniGetInt (INI_FILE, "PrintTimedIterations", 1);
-	save_limit = (p <= 4000000) ? SAVED_LIMIT : 1;
-	for (i = 0, saved = 0; i < iterations; i++) {
+			save_limit = (p <= 4000000) ? SAVED_LIMIT : 1;
+			for (i = 0, saved = 0; i < iterations; i++) {
 
 /* Time a single squaring */
 
-		start_timer (timers, 0);
-		gwsquare (&lldata.gwdata, lldata.lldata);
-		end_timer (timers, 0);
-		timers[1] += timers[0];
-		saved_times[saved++] = timers[0];
-		timers[0] = 0;
+				start_timer (timers, 0);
+				gwsquare (&lldata.gwdata, lldata.lldata);
+				end_timer (timers, 0);
+				timers[1] += timers[0];
+				saved_times[saved++] = timers[0];
+				timers[0] = 0;
 
 /* Remember the best asm timers (used when I'm optimizing assembly code) */
 
-		for (j = 0; j < 32; j++)
-			if (i == 0 || ASM_TIMERS[j] < best_asm_timers[j])
-				best_asm_timers[j] = ASM_TIMERS[j];
+				for (j = 0; j < 32; j++)
+					if (i == 0 || ASM_TIMERS[j] < best_asm_timers[j])
+						best_asm_timers[j] = ASM_TIMERS[j];
 
 /* Output timer squaring times */
 
-		if (saved == save_limit || i == iterations - 1) {
-			if (print_every_iter)
-			for (j = 0; j < saved; j++) {
-				sprintf (buf, "p: %lu.  Time: ", p);
-				timers[0] = saved_times[j];
-				print_timer (timers, 0, buf, TIMER_MS | TIMER_NL | TIMER_CLR);
-				OutputStr (thread_num, buf);
-			}
-			saved = 0;
-		}
+				if (saved == save_limit || i == iterations - 1) {
+					if (print_every_iter)
+						for (j = 0; j < saved; j++) {
+							sprintf (buf, "p: %lu.  Time: ", p);
+							timers[0] = saved_times[j];
+							print_timer (timers, 0, buf, TIMER_MS | TIMER_NL | TIMER_CLR);
+							OutputStr (thread_num, buf);
+						}
+					saved = 0;
+				}
 
 /* Abort early if so requested */
 
-		stop_reason = stopCheck (thread_num);
-		if (stop_reason) {
+				stop_reason = stopCheck (thread_num);
+				if (stop_reason) {
+					lucasDone (&lldata);
+					return (stop_reason);
+				}
+			}
 			lucasDone (&lldata);
-			return (stop_reason);
-		}
-	}
-	lucasDone (&lldata);
-	time = timer_value (timers, 1);
+			time = timer_value (timers, 1);
 
 /* Print an estimate for how long it would take to test this number */
 
-	sprintf (buf, "Iterations: %lu.  Total time: ", iterations);
-	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
-	OutputStr (thread_num, buf);
-	time = time * p / iterations;
-	days = (int) (time / 86400.0); time -= (double) days * 86400.0;
-	hours = (int) (time / 3600.0); time -= (double) hours * 3600.0;
-	minutes = (int) (time / 60.0);
-	strcpy (buf, "Estimated time to complete this exponent: ");
-	sprintf (buf+strlen(buf), days == 1 ? "%d day, " : "%d days, ", days);
-	sprintf (buf+strlen(buf), hours == 1 ? "%d hour, " : "%d hours, ", hours);
-	sprintf (buf+strlen(buf), minutes == 1 ? "%d minute.\n" : "%d minutes.\n", minutes);
-	OutputStr (thread_num, buf);
+			sprintf (buf, "Iterations: %lu.  Total time: ", iterations);
+			print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
+			OutputStr (thread_num, buf);
+			time = time * p / iterations;
+			days = (int) (time / 86400.0); time -= (double) days * 86400.0;
+			hours = (int) (time / 3600.0); time -= (double) hours * 3600.0;
+			minutes = (int) (time / 60.0);
+			strcpy (buf, "Estimated time to complete this exponent: ");
+			sprintf (buf+strlen(buf), days == 1 ? "%d day, " : "%d days, ", days);
+			sprintf (buf+strlen(buf), hours == 1 ? "%d hour, " : "%d hours, ", hours);
+			sprintf (buf+strlen(buf), minutes == 1 ? "%d minute.\n" : "%d minutes.\n", minutes);
+			OutputStr (thread_num, buf);
 
 /* I use these assembly language timers to time various chunks of */
 /* assembly code.  Print these timers out. */
 
-	for (i = 0; i < 32; i++) {
-		sprintf (buf, "timer %lu: %d\n", i, (int) best_asm_timers[i]);
-		if (best_asm_timers[i]) OutputBoth (thread_num, buf);
-	}
+			for (i = 0; i < 32; i++) {
+				sprintf (buf, "timer %lu: %d\n", i, (int) best_asm_timers[i]);
+				if (best_asm_timers[i]) OutputBoth (thread_num, buf);
+			}
 
-/* Loop through all possible thread counts */
+/* End loop through all possible cores and hyperthreads */
 
+		}
 	}
 
 /* All done */
@@ -8721,9 +8759,10 @@ void bench_busy_loop (void *arg)
 /* Set the affinity so that busy loop runs on the specified CPU core */
 
 	cpu_num = (int) (intptr_t) arg;
-	sp_info.type = SET_PRIORITY_BENCHMARKING;
-	sp_info.thread_num = cpu_num;
-	sp_info.aux_thread_num = 0;
+	sp_info.type = SET_PRIORITY_BUSY_LOOP;
+	sp_info.worker_num = MAIN_THREAD_NUM;
+	sp_info.busy_loop_cpu = cpu_num;
+	sp_info.verbose_flag = 0;
 	SetPriority (&sp_info);
 
 /* Stay busy until last_bench_cpu_num says this CPU thread should close */
@@ -8874,8 +8913,11 @@ void primeBenchOneWorker (void *arg)
 
 /* Set the affinity so that worker runs on the specified CPU core */
 
-	sp_info.type = (info->hyperthreads > 1) ? SET_PRIORITY_BENCHMARKING_HYPER : SET_PRIORITY_BENCHMARKING;
-	sp_info.thread_num = info->cpu_num;
+	sp_info.type = SET_PRIORITY_BENCHMARKING;
+	sp_info.worker_num = info->main_thread_num;
+	sp_info.verbose_flag = IniGetInt (INI_FILE, "AffinityVerbosityBench", 0);
+	sp_info.bench_base_cpu_num = info->cpu_num;
+	sp_info.bench_hyperthreads = info->hyperthreads;
 	sp_info.aux_thread_num = 0;
 	SetPriority (&sp_info);
 
@@ -8942,6 +8984,7 @@ int primeBenchMultipleWorkers (
 {
 	llhandle lldata;
 	char	buf[512];
+	int	min_cores, max_cores, incr_cores, min_workers, max_workers, incr_workers;
 	int	workers, cpus, hypercpus, impl;
 	int	all_bench, only_time_5678, time_all_complex, plus1, is_a_5678;
 	int	bench_one_core, bench_all_cores, bench_in_between_cores, bench_hyperthreading, bench_arch;
@@ -9041,9 +9084,33 @@ int primeBenchMultipleWorkers (
 		    continue;
 	    }
 
+/* For CPUs with tons of cores, we support INI settings to limit number of cores and workers to test */
+
+	    min_cores = IniGetInt (INI_FILE, "BenchMinCores", 1);
+	    if (min_cores < 1) min_cores = 1;
+	    if (min_cores > (int) NUM_CPUS) min_cores = NUM_CPUS;
+
+	    max_cores = IniGetInt (INI_FILE, "BenchMaxCores", NUM_CPUS);
+	    if (max_cores < 1) max_cores = 1;
+	    if (max_cores > (int) NUM_CPUS) max_cores = NUM_CPUS;
+
+	    incr_cores = IniGetInt (INI_FILE, "BenchCoresIncrement", 1);
+	    if (incr_cores < 1) incr_cores = 1;
+
+	    min_workers = IniGetInt (INI_FILE, "BenchMinWorkers", 1);
+	    if (min_workers < 1) min_workers = 1;
+	    if (min_workers > (int) NUM_CPUS) min_workers = NUM_CPUS;
+
+	    max_workers = IniGetInt (INI_FILE, "BenchMaxWorkers", NUM_CPUS);
+	    if (max_workers < 1) max_workers = 1;
+	    if (max_workers > (int) NUM_CPUS) max_workers = NUM_CPUS;
+
+	    incr_workers = IniGetInt (INI_FILE, "BenchWorkersIncrement", 1);
+	    if (incr_workers < 1) incr_workers = 1;
+
 /* Loop over all possible multithread possibilities */
 
-	    for (cpus = 1; cpus <= (int) NUM_CPUS; cpus++) {
+	    for (cpus = min_cores; cpus <= max_cores; cpus += incr_cores) {
 	      if (! ((cpus == 1 && bench_one_core) ||
 	             (cpus == NUM_CPUS && bench_all_cores) ||
 	             (cpus > 1 && cpus < (int) NUM_CPUS && bench_in_between_cores))) continue;
@@ -9051,7 +9118,7 @@ int primeBenchMultipleWorkers (
 	        if (hypercpus > 1 && !bench_hyperthreading) break;
 		/* If the OS cannot set affinity, then we can only bench hyperthreading on all CPUs */
 		if (!OS_CAN_SET_AFFINITY && hypercpus > 1 && cpus != NUM_CPUS) continue;
-	        for (workers = 1; workers <= cpus; workers++) {
+	        for (workers = min_workers; workers <= cpus && workers <= max_workers; workers += incr_workers) {
 		  if (! ((workers == 1 && bench_one_worker) ||
 			 (workers == cpus && bench_max_workers) ||
 			 (workers > 1 && workers < cpus && bench_in_between_workers))) continue;
@@ -9135,10 +9202,16 @@ int primeBenchMultipleWorkers (
 				sprintf (buf, "Timings for %luK%s FFT length",
 					 fftlen / 1024, plus1 ? " all-complex" : "");
 			}
-			sprintf (buf+strlen(buf), " (%d cpu%s%s, %d worker%s): ",
-				 cpus, cpus > 1 ? "s" : "",
-				 hypercpus > 1 ? " hyperthreaded" : "",
-				 workers, workers > 1 ? "s" : "");
+			if (hypercpus <= 2)
+				sprintf (buf+strlen(buf), " (%d cpu%s%s, %d worker%s): ",
+					 cpus, cpus > 1 ? "s" : "",
+					 hypercpus > 1 ? " hyperthreaded" : "",
+					 workers, workers > 1 ? "s" : "");
+			else
+				sprintf (buf+strlen(buf), " (%d cpu%s, %d threads, %d worker%s): ",
+					 cpus, cpus > 1 ? "s" : "",
+					 hypercpus * cpus,
+					 workers, workers > 1 ? "s" : "");
 
 			throughput = 0.0;
 			for (i = 0; i < workers; i++) {
@@ -9180,7 +9253,7 @@ int primeBench (
 	unsigned long i, ii, j, iterations;
 	double	best_time, total_time;
 	char	buf[512];
-	unsigned int cpu, hypercpu;
+	int	min_cores, max_cores, incr_cores, cpu, hypercpu;
 	int	all_bench, only_time_5678, time_all_complex, plus1, stop_reason;
 	int	is_a_5678, bench_one_core, bench_all_cores, bench_in_between_cores, bench_hyperthreading, bench_arch;
 	unsigned long fftlen, min_FFT_length, max_FFT_length;
@@ -9214,8 +9287,11 @@ int primeBench (
 /* be confined to just one CPU core. */
 
 	sp_info.type = SET_PRIORITY_BENCHMARKING;
-	sp_info.thread_num = 0;
+	sp_info.worker_num = thread_num;
+	sp_info.verbose_flag = IniGetInt (INI_FILE, "AffinityVerbosityBench", 0);
 	sp_info.aux_thread_num = 0;
+	sp_info.bench_base_cpu_num = 0;
+	sp_info.bench_hyperthreads = 1;
 	SetPriority (&sp_info);
 
 /* Perform the requested type of benchmark */
@@ -9276,13 +9352,26 @@ int primeBench (
 		}
 	}
 
+/* For CPUs with tons of cores, we support INI settings to limit number of cores to test */
+
+	    min_cores = IniGetInt (INI_FILE, "BenchMinCores", 1);
+	    if (min_cores < 1) min_cores = 1;
+	    if (min_cores > (int) NUM_CPUS) min_cores = NUM_CPUS;
+
+	    max_cores = IniGetInt (INI_FILE, "BenchMaxCores", NUM_CPUS);
+	    if (max_cores < 1) max_cores = 1;
+	    if (max_cores > (int) NUM_CPUS) max_cores = NUM_CPUS;
+
+	    incr_cores = IniGetInt (INI_FILE, "BenchCoresIncrement", 1);
+	    if (incr_cores < 1) incr_cores = 1;
+
 /* Loop over all possible single-worker multithread possibilities */
 
-	for (cpu = 1; cpu <= NUM_CPUS; cpu++) {
+	for (cpu = min_cores; cpu <= max_cores; cpu += incr_cores) {
 	  if (! ((cpu == 1 && bench_one_core) ||
-	        (cpu == NUM_CPUS && bench_all_cores) ||
-	        (cpu > 1 && cpu < NUM_CPUS && bench_in_between_cores))) continue;
-	  for (hypercpu = 1; hypercpu <= CPU_HYPERTHREADS; hypercpu++) {
+	        (cpu == (int) NUM_CPUS && bench_all_cores) ||
+	        (cpu > 1 && cpu < (int) NUM_CPUS && bench_in_between_cores))) continue;
+	  for (hypercpu = 1; hypercpu <= (int) CPU_HYPERTHREADS; hypercpu++) {
 	    if (hypercpu > 1 && !bench_hyperthreading) break;
 	    /* Only bench hyperthreading on one CPU and all CPUs */
 	    if (hypercpu > 1 && cpu != 1 && cpu != NUM_CPUS) continue;
@@ -9320,7 +9409,8 @@ int primeBench (
 		  if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
 			gwset_use_large_pages (&lldata.gwdata);
 		  gwset_num_threads (&lldata.gwdata, cpu * hypercpu);
-		  sp_info.type = (hypercpu > 1) ? SET_PRIORITY_BENCHMARKING_HYPER : SET_PRIORITY_BENCHMARKING;
+		  sp_info.bench_base_cpu_num = 0;
+		  sp_info.bench_hyperthreads = hypercpu;
 		  gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 		  gwset_thread_callback_data (&lldata.gwdata, &sp_info);
 		  gwset_minimum_fftlen (&lldata.gwdata, fftlen);
