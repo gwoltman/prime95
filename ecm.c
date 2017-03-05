@@ -10,7 +10,7 @@
  *	Other important ideas courtesy of Peter Montgomery.
  *
  *	c. 1997 Perfectly Scientific, Inc.
- *	c. 1998-2016 Mersenne Research, Inc.
+ *	c. 1998-2017 Mersenne Research, Inc.
  *	All Rights Reserved.
  *
  *************************************************************/
@@ -2367,7 +2367,9 @@ return 0;
 
 	gwinit (&ecmdata.gwdata);
 	gwset_sum_inputs_checking (&ecmdata.gwdata, SUM_INPUTS_ERRCHK);
-	gwset_num_threads (&ecmdata.gwdata, THREADS_PER_TEST[thread_num]);
+	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&ecmdata.gwdata);
+	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreads = IniGetInt (LOCALINI_FILE, "HyperthreadLLcount", CPU_HYPERTHREADS);
+	gwset_num_threads (&ecmdata.gwdata, CORES_PER_TEST[thread_num] * sp_info->normal_work_hyperthreads);
 	gwset_thread_callback (&ecmdata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&ecmdata.gwdata, sp_info);
 	gwset_safety_margin (&ecmdata.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
@@ -4510,9 +4512,9 @@ restart:
 
 	gwinit (&pm1data.gwdata);
 	gwset_sum_inputs_checking (&pm1data.gwdata, SUM_INPUTS_ERRCHK);
-	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
-		gwset_use_large_pages (&pm1data.gwdata);
-	gwset_num_threads (&pm1data.gwdata, THREADS_PER_TEST[thread_num]);
+	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pm1data.gwdata);
+	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreads = IniGetInt (LOCALINI_FILE, "HyperthreadLLcount", CPU_HYPERTHREADS);
+	gwset_num_threads (&pm1data.gwdata, CORES_PER_TEST[thread_num] * sp_info->normal_work_hyperthreads);
 	gwset_thread_callback (&pm1data.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&pm1data.gwdata, sp_info);
 	gwset_safety_margin (&pm1data.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));

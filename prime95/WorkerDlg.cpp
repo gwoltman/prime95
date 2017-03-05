@@ -1,6 +1,6 @@
 // WorkerDlg.cpp : implementation file
 //
-// Copyright 1995-2016 Mersenne Research, Inc.  All rights reserved
+// Copyright 1995-2017 Mersenne Research, Inc.  All rights reserved
 //
 
 #include "stdafx.h"
@@ -21,7 +21,7 @@ static char THIS_FILE[] = __FILE__;
 
 unsigned int max_num_workers (void)
 {
-	return (max (NUM_WORKER_THREADS, NUM_CPUS * user_configurable_hyperthreads ()));
+	return (max (NUM_WORKER_THREADS, NUM_CPUS));
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -60,6 +60,11 @@ void CWorkerDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_NUMCPUS_TEXT, c_numcpus_text);
 	DDX_Control(pDX, IDC_NUMCPUS, c_numcpus);
 
+	DDX_Check(pDX, IDC_HYPER_TF, m_hyper_tf);
+	DDX_Control(pDX, IDC_HYPER_TF, c_hyper_tf);
+	DDX_Check(pDX, IDC_HYPER_LL, m_hyper_ll);
+	DDX_Control(pDX, IDC_HYPER_LL, c_hyper_ll);
+
 	DDX_Control(pDX, IDC_WARN1, c_warn1_text);
 	DDX_Control(pDX, IDC_WARN2, c_warn2_text);
 	DDX_Control(pDX, IDC_WARN3, c_warn3_text);
@@ -67,13 +72,15 @@ void CWorkerDlg::DoDataExchange(CDataExchange* pDX)
 	//}}AFX_DATA_MAP
 	c_num_thread_text.EnableWindow (max_num_workers () > 1);
 	c_num_thread.EnableWindow (max_num_workers () > 1);
-	c_workgroup.EnableWindow (USE_PRIMENET || NUM_CPUS * user_configurable_hyperthreads () > 1);
+	c_workgroup.EnableWindow (USE_PRIMENET || NUM_CPUS > 1);
 	c_threadnum_text.EnableWindow (m_num_thread > 1);
 	c_threadnum.EnableWindow (m_num_thread > 1);
 	c_work_pref_text.EnableWindow (USE_PRIMENET);
 	c_work_pref.EnableWindow (USE_PRIMENET);
-	c_numcpus_text.EnableWindow (m_num_thread < NUM_CPUS * user_configurable_hyperthreads () || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
-	c_numcpus.EnableWindow (m_num_thread < NUM_CPUS * user_configurable_hyperthreads () || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
+	c_numcpus_text.EnableWindow (m_num_thread < NUM_CPUS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
+	c_numcpus.EnableWindow (m_num_thread < NUM_CPUS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
+	c_hyper_tf.EnableWindow (CPU_HYPERTHREADS > 1);
+	c_hyper_ll.EnableWindow (CPU_HYPERTHREADS > 1);
 }
 
 
@@ -218,8 +225,8 @@ void CWorkerDlg::InitComboBoxText (void)
 	} else {
 		c_numcpus.SetWindowText ("Mixed");
 	}
-	c_numcpus_text.EnableWindow (m_num_thread < NUM_CPUS * user_configurable_hyperthreads () || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
-	c_numcpus.EnableWindow (m_num_thread < NUM_CPUS * user_configurable_hyperthreads () || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
+	c_numcpus_text.EnableWindow (m_num_thread < NUM_CPUS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
+	c_numcpus.EnableWindow (m_num_thread < NUM_CPUS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
 }
 
 
@@ -328,8 +335,8 @@ void CWorkerDlg::OnEnKillfocusNumCpus()
 	if (buf[0] >= '0' && buf[0] <= '9') {
 		num_cpus = atoi (buf);
 		if (num_cpus < 1) num_cpus = 1;
-		if (num_cpus > NUM_CPUS * user_configurable_hyperthreads ())
-			num_cpus = NUM_CPUS * user_configurable_hyperthreads ();
+		if (num_cpus > NUM_CPUS)
+			num_cpus = NUM_CPUS;
 		if (thread_num) {
 			min_cores = min_cores_for_work_type (m_work_pref[thread_num-1]);
 			if (num_cpus < min_cores) num_cpus = min_cores;
@@ -349,7 +356,7 @@ void CWorkerDlg::OnEnKillfocusNumCpus()
 			}
 		}
 	}
-	c_numcpus_text.EnableWindow (m_num_thread < NUM_CPUS * user_configurable_hyperthreads () || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
-	c_numcpus.EnableWindow (m_num_thread < NUM_CPUS * user_configurable_hyperthreads () || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
+	c_numcpus_text.EnableWindow (m_num_thread < NUM_CPUS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
+	c_numcpus.EnableWindow (m_num_thread < NUM_CPUS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
 }
 

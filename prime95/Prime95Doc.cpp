@@ -328,39 +328,38 @@ void CPrime95Doc::OnWorkerThreads()
 
 	dlg.m_num_thread = NUM_WORKER_THREADS;
 	dlg.m_priority = PRIORITY;
+	dlg.m_hyper_tf = HYPERTHREAD_TF;
+	dlg.m_hyper_ll = HYPERTHREAD_LL;
 	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
 		dlg.m_work_pref[i] = WORK_PREFERENCE[i];
-		dlg.m_numcpus[i] = THREADS_PER_TEST[i];
+		dlg.m_numcpus[i] = CORES_PER_TEST[i];
 	}
 
 again:	if (dlg.DoModal () == IDOK) {
 		int	restart = FALSE;
 		int	new_options = FALSE;
-		unsigned long i, total_num_threads;
+		unsigned long i, total_num_cores;
 
-/* If the user has allocated more threads than there are CPUs, raise a */
-/* severe warning. */
+/* If the user has allocated too many cores then raise a severe warning. */
 
-		total_num_threads = 0;
-		for (i = 0; i < dlg.m_num_thread; i++)
-			total_num_threads += dlg.m_numcpus[i];
-		if (total_num_threads > NUM_CPUS * user_configurable_hyperthreads () &&
+		total_num_cores = 0;
+		for (i = 0; i < dlg.m_num_thread; i++) total_num_cores += dlg.m_numcpus[i];
+		if (total_num_cores > NUM_CPUS &&
 		    AfxMessageBox (MSG_THREADS, MB_YESNO | MB_ICONQUESTION) == IDYES)
 			goto again;
 
-/* If user is changing the number of worker threads, then make the */
+/* If user changed the number of worker threads, then make the */
 /* necessary changes.  Restart worker threads so that we are running */
 /* the correct number of worker threads. */
 
 		if (dlg.m_num_thread != NUM_WORKER_THREADS) {
-//bug- do something with orphaned work units?  
-//bug- tell server of the change?
 			NUM_WORKER_THREADS = dlg.m_num_thread;
 			IniWriteInt (LOCALINI_FILE, "WorkerThreads", NUM_WORKER_THREADS);
+			new_options = TRUE;
 			restart = TRUE;
 		}
 
-/* If user is changing the priority of worker threads, then change */
+/* If user changed the priority of worker threads, then change */
 /* the INI file.  Restart worker threads so that they are running at */
 /* the new priority. */
 
@@ -371,37 +370,40 @@ again:	if (dlg.DoModal () == IDOK) {
 			restart = TRUE;
 		}
 
-/* If the user changes any of the work preferences record it in the INI file */
+/* If the user changed any of the work preferences record it in the INI file */
 /* and tell the server */
 
 		if (dlg.AreAllTheSame (dlg.m_work_pref)) {
-			if (! PTOIsGlobalOption (WORK_PREFERENCE) ||
-			    WORK_PREFERENCE[0] != dlg.m_work_pref[0]) {
-				PTOSetAll (INI_FILE, "WorkPreference", NULL,
-					   WORK_PREFERENCE, dlg.m_work_pref[0]);
+			if (! PTOIsGlobalOption (WORK_PREFERENCE) || WORK_PREFERENCE[0] != dlg.m_work_pref[0]) {
+				PTOSetAll (INI_FILE, "WorkPreference", NULL, WORK_PREFERENCE, dlg.m_work_pref[0]);
 				new_options = TRUE;
 			}
 		} else {
 			for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
-				if (WORK_PREFERENCE[i] == dlg.m_work_pref[i])
-					continue;
-				PTOSetOne (INI_FILE, "WorkPreference", NULL,
-					   WORK_PREFERENCE, i,
-					   dlg.m_work_pref[i]);
+				if (WORK_PREFERENCE[i] == dlg.m_work_pref[i]) continue;
+				PTOSetOne (INI_FILE, "WorkPreference", NULL, WORK_PREFERENCE, i, dlg.m_work_pref[i]);
 				new_options = TRUE;
 			}
 		}
 
-/* If the user changes any of the threads_per_test record it in the INI file */
+/* If user changed any of the cores_per_test, then record it in the INI file */
 
-		if (dlg.AreAllTheSame (dlg.m_numcpus)) {
-			PTOSetAll (LOCALINI_FILE, "ThreadsPerTest", NULL,
-				   THREADS_PER_TEST, dlg.m_numcpus[0]);
-		} else {
-			for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
-				PTOSetOne (LOCALINI_FILE, "ThreadsPerTest", NULL,
-					   THREADS_PER_TEST, i, dlg.m_numcpus[i]);
-			}
+		if (dlg.AreAllTheSame (dlg.m_numcpus))
+			PTOSetAll (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, dlg.m_numcpus[0]);
+		else for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
+			PTOSetOne (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, dlg.m_numcpus[i]);
+
+/* If user changed the hyperthreading options, then save the options to the INI file */
+
+		if (dlg.m_hyper_tf != HYPERTHREAD_TF) {
+			HYPERTHREAD_TF = dlg.m_hyper_tf;
+			IniWriteInt (LOCALINI_FILE, "HyperthreadTF", HYPERTHREAD_TF);
+			restart = TRUE;
+		}
+		if (dlg.m_hyper_ll != HYPERTHREAD_LL) {
+			HYPERTHREAD_LL = dlg.m_hyper_ll;
+			IniWriteInt (LOCALINI_FILE, "HyperthreadLL", HYPERTHREAD_LL);
+			restart = TRUE;
 		}
 
 /* Send new settings to the server */

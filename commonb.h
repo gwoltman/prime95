@@ -52,6 +52,9 @@ struct PriorityInfo {
 	int	verbose_flag;		/* Output affinity messages to the worker window */
 	int	aux_thread_num;		/* Set when gwnum launches auxiliary threads */
 	union {
+		struct {		/* Normal work info */
+			int	normal_work_hyperthreads;	/* Number of hyperthreads to be assigned to same core */
+		};
 		struct {		/* Torture test info */
 			int	torture_num_workers;		/* Total number of torture test worker windows */
 			int	torture_threads_per_test;	/* Number of threads per torture test (usually one) */

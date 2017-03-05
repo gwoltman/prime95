@@ -3,7 +3,7 @@
 //  Prime95
 //
 //  Created by George Woltman on 4/26/09.
-//  Copyright 2009-2016 Mersenne Research, Inc. All rights reserved.
+//  Copyright 2009-2017 Mersenne Research, Inc. All rights reserved.
 //
 
 #import "WorkerWindowsController.h"
@@ -98,13 +98,13 @@ int AreAllTheSame (
 {
 	int	i;
 
-// In theory, the maximum number of workers should be number of logical cpus.
-// However, local.ini could specify more worker threads than logical cpus (for
+// In theory, the maximum number of workers should be the number of cpu cores.
+// However, local.ini could specify more worker threads than cpu cores (for
 // example, when local.ini is copied from a dual-core to a single-core machine).
 // We must let the user manipulate the options on these worker threads that
 // don't have a CPU to run on.
 
-	[self setNumWorkersMax:max (NUM_WORKER_THREADS, NUM_CPUS * user_configurable_hyperthreads ())];
+	[self setNumWorkersMax:max (NUM_WORKER_THREADS, NUM_CPUS)];
 	[self setNumWorkersEnabled:(numWorkersMax > 1)];
 
 // delete old rows
@@ -119,9 +119,9 @@ int AreAllTheSame (
 		WorkerData *newRow = [[WorkerData alloc] init];
 		[newRow setWorkerNumber:[[NSString alloc] initWithFormat:@"Worker #%d", i+1]];
 		[newRow setTypeOfWork:map_work_pref_to_sel(WORK_PREFERENCE[i])];
-		[newRow setMultithreading:THREADS_PER_TEST[i]];
-		[newRow setMultithreadingMax:(NUM_CPUS * user_configurable_hyperthreads ())];
-		[newRow setMultithreadingEnabled:(THREADS_PER_TEST[i] > 1 || numWorkers < numWorkersMax)];
+		[newRow setMultithreading:CORES_PER_TEST[i]];
+		[newRow setMultithreadingMax:NUM_CPUS];
+		[newRow setMultithreadingEnabled:(CORES_PER_TEST[i] > 1 || numWorkers < numWorkersMax)];
 		[workerDataArrayController addObject:newRow];
 		[newRow release];
 	}
@@ -157,7 +157,7 @@ int AreAllTheSame (
 			[newRow setWorkerNumber:[[NSString alloc] initWithFormat:@"Worker #%d", i+1]];
 			[newRow setTypeOfWork:map_work_pref_to_sel(PRIMENET_WP_WHATEVER)];
 			[newRow setMultithreading:1];
-			[newRow setMultithreadingMax:(NUM_CPUS * user_configurable_hyperthreads ())];
+			[newRow setMultithreadingMax:NUM_CPUS];
 			[newRow setMultithreadingEnabled:(_value < numWorkersMax)];
 			[workerDataArrayController addObject:newRow];
 			[newRow release];
@@ -171,42 +171,41 @@ int AreAllTheSame (
 
 - (IBAction)ok:(id)sender
 {
-	int	i, tot_threads, work_prefs[MAX_NUM_WORKER_THREADS];
+	int	i, tot_cores, work_prefs[MAX_NUM_WORKER_THREADS];
 	int	num_cpus[MAX_NUM_WORKER_THREADS];
 	int	restart = FALSE;
 	int	new_options = FALSE;
 
 	[[self window] makeFirstResponder:nil];			// End any active text field edits
 
-/* Make sure user has not allocated too many threads */
+/* Make sure user has not allocated too many cores */
 
-	for (i = 0, tot_threads = 0; i < numWorkers; i++) {	// examine each worker row
+	for (i = 0, tot_cores = 0; i < numWorkers; i++) {	// examine each worker row
 		WorkerData *row = [workerData objectAtIndex:i];
-		tot_threads += [row multithreading];
+		tot_cores += [row multithreading];
 	}
-	if (tot_threads > NUM_CPUS * user_configurable_hyperthreads ()) {
+	if (tot_cores > NUM_CPUS) {
 		NSAlert *alert = [[NSAlert alloc] init];
 		[alert addButtonWithTitle:@"OK"];
-		[alert setMessageText:@"More threads allocated than number of CPU cores.  Reduce the number of workers or CPUs to use."];
+		[alert setMessageText:@"There are not enough CPU cores to run all the workers.  Reduce the number of workers or CPU cores to use."];
 		[alert setAlertStyle:NSWarningAlertStyle];
 		[alert runModal];
 		[alert release];
 		return;
 	}
 
-/* If user is changing the number of worker threads, then make the */
+/* If user changed the number of worker threads, then make the */
 /* necessary changes.  Restart worker threads so that we are running */
 /* the correct number of worker threads. */
 
 	if (NUM_WORKER_THREADS != numWorkers) {
-//bug- do something with orphaned work units?  
-//bug- tell server of the change?
 		NUM_WORKER_THREADS = numWorkers;
 		IniWriteInt (LOCALINI_FILE, "WorkerThreads", NUM_WORKER_THREADS);
+		new_options = TRUE;
 		restart = TRUE;
 	}
 
-/* If user is changing the priority of worker threads, then change */
+/* If user changed the priority of worker threads, then change */
 /* the INI file.  Restart worker threads so that they are running at */
 /* the new priority. */
 
@@ -217,7 +216,7 @@ int AreAllTheSame (
 		restart = TRUE;
 	}
 
-/* If the user changes any of the work preferences record it in the INI file */
+/* If the user changed any of the work preferences record it in the INI file */
 /* and tell the server */
 
 	for (i = 0; i < numWorkers; i++) {	// examine each worker row
@@ -233,22 +232,17 @@ int AreAllTheSame (
 	} else {
 		for (i = 0; i < numWorkers; i++) {
 			if (WORK_PREFERENCE[i] == work_prefs[i]) continue;
-			PTOSetOne (INI_FILE, "WorkPreference", NULL,
-				   WORK_PREFERENCE, i, work_prefs[i]);
+			PTOSetOne (INI_FILE, "WorkPreference", NULL, WORK_PREFERENCE, i, work_prefs[i]);
 			new_options = TRUE;
 		}
 	}
 
-/* If the user changes any of the threads_per_test record it in the INI file */
+/* If the user changed any of the cores_per_test record it in the INI file */
 
-	if (AreAllTheSame (num_cpus, numWorkers)) {
-		PTOSetAll (LOCALINI_FILE, "ThreadsPerTest", NULL, THREADS_PER_TEST, num_cpus[0]);
-	} else {
-		for (i = 0; i < numWorkers; i++) {
-			PTOSetOne (LOCALINI_FILE, "ThreadsPerTest", NULL,
-				   THREADS_PER_TEST, i, num_cpus[i]);
-		}
-	}
+	if (AreAllTheSame (num_cpus, numWorkers))
+		PTOSetAll (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, num_cpus[0]);
+	else for (i = 0; i < numWorkers; i++)
+		PTOSetOne (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, num_cpus[i]);
 
 /* Spool message if any options changed, restart workers if necessary */
 

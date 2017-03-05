@@ -140,11 +140,11 @@ extern unsigned int NUM_WORKER_THREADS; /* Number of work threads to launch */
 extern unsigned int WORK_PREFERENCE[MAX_NUM_WORKER_THREADS];
 					/* Type of work (factoring, testing, */
 					/* etc.) to get from the server. */
-extern unsigned int CPU_AFFINITY[MAX_NUM_WORKER_THREADS];
-					/* NT Processor affinity */
-extern unsigned int THREADS_PER_TEST[MAX_NUM_WORKER_THREADS];
+extern unsigned int CORES_PER_TEST[MAX_NUM_WORKER_THREADS];
 					/* Number of threads gwnum can use */
 					/* in computations. */
+extern int HYPERTHREAD_TF;		/* TRUE if trial factoring should use hyperthreads */
+extern int HYPERTHREAD_LL;		/* TRUE if FFTs (LL, P-1, ECM, PRP) should use hyperthreads */
 extern unsigned int DAYS_OF_WORK;	/* How much work to retrieve from */
 					/* the primenet server */
 extern int STRESS_TESTER;		/* 1 if stress testing */

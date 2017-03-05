@@ -110,6 +110,8 @@
 #define IDC_DIALUP                      1033
 #define IDC_MANUAL                      1035
 #define IDC_NOW                         1036
+#define IDC_HYPER_LL			1037
+#define IDC_HYPER_TF			1038
 #define IDC_THREADNUM_TEXT              1040
 #define IDC_NUMCPUS_TEXT                1041
 #define IDC_DAY_MEMORY_TEXT             1042

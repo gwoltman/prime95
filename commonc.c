@@ -33,11 +33,11 @@ int	STRESS_TESTER = 0;
 int volatile ERRCHK = 0;
 int volatile SUM_INPUTS_ERRCHK = 0;	/* 1 to turn on sum(inputs) != sum(outputs) error checking */
 unsigned int PRIORITY = 1;
-unsigned int NUM_WORKER_THREADS = 1; /* Number of work threads to launch */
+unsigned int NUM_WORKER_THREADS = 1;	/* Number of work threads to launch */
 unsigned int WORK_PREFERENCE[MAX_NUM_WORKER_THREADS] = {0};
-unsigned int THREADS_PER_TEST[MAX_NUM_WORKER_THREADS] = {1};
-				/* Number of threads gwnum can use in */
-				/* computations. */
+unsigned int CORES_PER_TEST[MAX_NUM_WORKER_THREADS] = {1}; /* Number of threads gwnum can use in computations. */
+int	HYPERTHREAD_TF = 1;		/* TRUE if trial factoring should use hyperthreads */
+int	HYPERTHREAD_LL = 0;		/* TRUE if FFTs (LL, P-1, ECM, PRP) should use hyperthreads */
 int	MANUAL_COMM = 0;
 unsigned int volatile CPU_HOURS = 0;
 int	CLASSIC_OUTPUT = 0;
@@ -351,13 +351,8 @@ void getCpuInfo (void)
 /* New in version 29!  Use hwloc info to determine NUM_CPUS and CPU_HYPERTHREADS. */
 /* We still allow overriding this with INI file settings below */
 
-	{
-		int	core_depth, logical_CPU_depth;
-		core_depth = hwloc_get_type_or_below_depth (hwloc_topology, HWLOC_OBJ_CORE);	// Access physical core's topology depth
-		NUM_CPUS = hwloc_get_nbobjs_by_depth (hwloc_topology, core_depth);
-		logical_CPU_depth = hwloc_get_type_or_below_depth (hwloc_topology, HWLOC_OBJ_PU); // Access logical CPU's topology depth
-		CPU_HYPERTHREADS = hwloc_get_nbobjs_by_depth (hwloc_topology, logical_CPU_depth) / NUM_CPUS;
-	}
+	NUM_CPUS = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_CORE);
+	CPU_HYPERTHREADS = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_PU) / NUM_CPUS;
 
 /* Allow overriding the number of physical processors.  For historical */
 /* reasons, this code uses a variable called NUM_CPUS rather */
@@ -429,21 +424,15 @@ void getCpuInfo (void)
 
 /* Let the user override the L2 cache size in local.ini file */
 
-	CPU_L2_CACHE_SIZE =
-		IniGetInt (LOCALINI_FILE, "CpuL2CacheSize", CPU_L2_CACHE_SIZE);
-	CPU_L2_CACHE_LINE_SIZE =
-		IniGetInt (LOCALINI_FILE, "CpuL2CacheLineSize", CPU_L2_CACHE_LINE_SIZE);
-	CPU_L2_SET_ASSOCIATIVE =
-		IniGetInt (LOCALINI_FILE, "CpuL2SetAssociative", CPU_L2_SET_ASSOCIATIVE);
+	CPU_L2_CACHE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL2CacheSize", CPU_L2_CACHE_SIZE);
+	CPU_L2_CACHE_LINE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL2CacheLineSize", CPU_L2_CACHE_LINE_SIZE);
+	CPU_L2_SET_ASSOCIATIVE = IniGetInt (LOCALINI_FILE, "CpuL2SetAssociative", CPU_L2_SET_ASSOCIATIVE);
 
 /* Let the user override the L3 cache size in local.ini file */
 
-	CPU_L3_CACHE_SIZE =
-		IniGetInt (LOCALINI_FILE, "CpuL3CacheSize", CPU_L3_CACHE_SIZE);
-	CPU_L3_CACHE_LINE_SIZE =
-		IniGetInt (LOCALINI_FILE, "CpuL3CacheLineSize", CPU_L3_CACHE_LINE_SIZE);
-	CPU_L3_SET_ASSOCIATIVE =
-		IniGetInt (LOCALINI_FILE, "CpuL3SetAssociative", CPU_L3_SET_ASSOCIATIVE);
+	CPU_L3_CACHE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL3CacheSize", CPU_L3_CACHE_SIZE);
+	CPU_L3_CACHE_LINE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL3CacheLineSize", CPU_L3_CACHE_LINE_SIZE);
+	CPU_L3_SET_ASSOCIATIVE = IniGetInt (LOCALINI_FILE, "CpuL3SetAssociative", CPU_L3_SET_ASSOCIATIVE);
 
 /* Let the user override the CPUID brand string.  It should never be necessary. */
 /* However, one Athlon owner's brand string became corrupted with illegal characters. */
@@ -452,8 +441,7 @@ void getCpuInfo (void)
 
 /* Let user override the number of hyperthreads */
 
-	CPU_HYPERTHREADS =
-		IniGetInt (LOCALINI_FILE, "CpuNumHyperthreads", CPU_HYPERTHREADS);
+	CPU_HYPERTHREADS = IniGetInt (LOCALINI_FILE, "CpuNumHyperthreads", CPU_HYPERTHREADS);
 	if (CPU_HYPERTHREADS == 0) CPU_HYPERTHREADS = 1;
 
 /* Let user override the CPU architecture */
@@ -922,6 +910,15 @@ void nameAndReadIniFiles (
 	hwloc_topology_init (&hwloc_topology);
 	hwloc_topology_load (hwloc_topology);
 
+/* See if setting CPU affinity is supported */
+
+	{
+		const struct hwloc_topology_support *support;
+		OS_CAN_SET_AFFINITY = 1;
+		support = hwloc_topology_get_support (hwloc_topology);
+		if (support == NULL || ! support->cpubind->set_thread_cpubind) OS_CAN_SET_AFFINITY = 0;
+	}
+
 /* Initialize mutexes */
 
 	gwmutex_init (&OUTPUT_MUTEX);
@@ -982,8 +979,7 @@ void nameAndReadIniFiles (
 	sprintf (buf, "Mersenne number primality test program version %s\n", VERSION);
 	OutputStr (MAIN_THREAD_NUM, buf);
 
-/* Now that we have the proper file name, read the ini file into */
-/* global variables. */
+/* Now that we have the proper file name, read the ini file into global variables. */
 
 	readIniFiles ();
 
@@ -994,18 +990,6 @@ void nameAndReadIniFiles (
 /* Calculate the hopefully-never-changing Windows GUID */
 
 	calc_windows_guid ();
-
-/* See if setting CPU affinity is supported */
-
-	{
-		const struct hwloc_topology_support *support;
-		OS_CAN_SET_AFFINITY = 1;
-		support = hwloc_topology_get_support (hwloc_topology);
-		if (support == NULL || ! support->cpubind->set_thread_cpubind) {
-			OS_CAN_SET_AFFINITY = 0;
-			OutputStr (MAIN_THREAD_NUM, "OS does not support setting CPU affinity.\n");
-		}
-	}
 
 /* A stress tester ceases to be a stress tester if he ever turns on */
 /* primenet or has work in his worktodo.txt file */
@@ -1045,6 +1029,7 @@ void nameAndReadIniFiles (
 	}
 	strcat (buf, "\n");
 	OutputStr (MAIN_THREAD_NUM, buf);
+	if (!OS_CAN_SET_AFFINITY) OutputStr (MAIN_THREAD_NUM, "OS does not support setting CPU affinity.\n");
 
 /* Start some initial timers */
 
@@ -1076,6 +1061,121 @@ void initCommCode (void) {
 
 	if (USE_PRIMENET && USERID[0] == 0)
 		spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
+}
+
+/* Compute a good default value for number of workers based on NUMA / cache information from hwloc */
+
+int good_default_for_num_workers (void)
+{
+	int	packages, cores_per_package;
+
+// bug -- very likely need much more sophisticated hwloc code here.  such as factoring in sharing L3 caches,
+// NUMA, asymetric package core counts
+// warning: we'll need to mimic the more sophisticated code in read_cores_per_test
+
+/* Get a count of CPUs (not cores).  Our simple goal is to not split a worker across two physical chips. */
+
+	packages = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_PACKAGE);
+	if (packages < 1 || NUM_CPUS % packages != 0) packages = 1;
+
+/* Default to roughly 4 workers per worker */
+
+	cores_per_package = NUM_CPUS / packages;
+	return (packages * (cores_per_package <= 6 ? 1 : ((cores_per_package + 3) / 4)));
+}
+
+/* Read CoresPerTest values.  This may require upgrading ThreadsPerTest to CoresPerTest. */
+/* This INI setting changed from threads to cores in version 29.1. */
+
+void read_cores_per_test (void)
+{
+	int	i, all_the_same;
+	unsigned int temp[MAX_NUM_WORKER_THREADS];
+
+/* Get the old ThreadsPerTest values that we used to support */
+
+	PTOGetAll (LOCALINI_FILE, "ThreadsPerTest", temp, 0);
+
+/* If we found some old settings then delete them from the INI file, */
+/* convert from threads to cores as best we can, and write out the new settings */
+
+	if (temp[0] != 0) {
+		int	total_threads, trim;
+		// Sum up the number of threads, see if each worker has the same number of threads
+		for (i = 0, total_threads = 0; i < (int) NUM_WORKER_THREADS; i++) {
+			if (temp[i] <= 0) temp[i] = 1;  // In theory, can't happen
+			total_threads += temp[i];
+		}
+		// If there are more threads than cores, then some hyperthreading was probably
+		// going on.  In the new scheme of things using hyperthreading is handled via
+		// a different INI setting.  Reduce the array values until we are not
+		// oversubscribing cores.
+		for (i = 0; total_threads > (int) NUM_CPUS && i < (int) NUM_WORKER_THREADS; i++) {
+			trim = temp[i] / 2;
+			if (total_threads - trim < (int) NUM_CPUS) trim = total_threads - NUM_CPUS;
+			temp[i] -= trim;
+			total_threads -= trim;
+		}
+		// See if each worker has the same number of cores
+		for (i = 0, all_the_same = TRUE; i < (int) NUM_WORKER_THREADS; i++) {
+			if (i && temp[i] != temp[i-1]) all_the_same = FALSE;
+		}
+		// Write out the new settings
+		memset (CORES_PER_TEST, 0xFF, sizeof (CORES_PER_TEST));
+		if (all_the_same)
+			PTOSetAll (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, temp[0]);
+		else for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
+			PTOSetOne (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, temp[i]);
+		// Clear old settings
+		PTOSetAll (LOCALINI_FILE, "ThreadsPerTest", NULL, temp, 0);
+		IniWriteString (LOCALINI_FILE, "ThreadsPerTest", NULL);
+	}
+
+/* Read in the CoresPerTest values that we support as of version 29.1 */
+
+	PTOGetAll (LOCALINI_FILE, "CoresPerTest", CORES_PER_TEST, 0);
+
+/* If we did not find any settings, use hwloc's information to give us a good default setting. */
+/* For example, consider a dual CPU Xeon system with 9 cores per CPU.  A good setting for four */
+/* workers would be 4 cores, 5 cores, 4 cores, 5 cores.  That way, we do not have an LL test */
+/* spanning across CPUs. */
+
+	if (CORES_PER_TEST[0] == 0) {
+		int	packages, cores_per_package, workers, workers_this_package, cores_this_package;
+
+// bug -- very likely need much more sophisticated hwloc code here.  such as factoring in sharing L3 caches,
+// NUMA, asymetric package core counts
+// warning: we'll need to mimic the more sophisticated code in good_default_for_num_workers
+
+/* Get a count of CPUs (not cores).  Our simple goal is to not split a worker across two physical chips. */
+
+		packages = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_PACKAGE);
+		if (packages < 1 || NUM_CPUS % packages != 0) packages = 1;
+		cores_per_package = NUM_CPUS / packages;
+
+/* Decide how many workers will run on each package.  Then distribute the package's cores among those workers. */
+
+		i = 0;
+		workers = NUM_WORKER_THREADS;
+		for ( ; packages; packages--) {
+			cores_this_package = cores_per_package;
+			workers_this_package = workers / packages; workers -= workers_this_package;
+			for ( ; workers_this_package; workers_this_package--) {
+				temp[i] = cores_this_package / workers_this_package;
+				cores_this_package -= temp[i];
+			}
+		}
+
+		// See if each worker has the same number of cores
+		for (i = 0, all_the_same = TRUE; i < (int) NUM_WORKER_THREADS; i++) {
+			if (i && temp[i] != temp[i-1]) all_the_same = FALSE;
+		}
+		// Write out the new settings
+		if (all_the_same)
+			PTOSetAll (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, temp[0]);
+		else for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
+			PTOSetOne (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, temp[i]);
+	}
 }
 
 /* Read or re-read the INI files & and do other initialization */
@@ -1174,14 +1274,16 @@ int readIniFiles (void)
 	ERRCHK = (temp != 0);
 	temp = (int) IniGetInt (INI_FILE, "SumInputsErrorCheck", 0);
 	SUM_INPUTS_ERRCHK = (temp != 0);
-	NUM_WORKER_THREADS = IniGetInt (LOCALINI_FILE, "WorkerThreads", (NUM_CPUS <= 6) ? 1 : ((NUM_CPUS + 3) / 4));
+	NUM_WORKER_THREADS = IniGetInt (LOCALINI_FILE, "WorkerThreads", good_default_for_num_workers ());
 	if (NUM_WORKER_THREADS < 1) NUM_WORKER_THREADS = 1;
 	if (NUM_WORKER_THREADS > MAX_NUM_WORKER_THREADS) NUM_WORKER_THREADS = MAX_NUM_WORKER_THREADS;
 	PRIORITY = (unsigned int) IniGetInt (INI_FILE, "Priority", 1);
 	if (PRIORITY < 1) PRIORITY = 1;
 	if (PRIORITY > 10) PRIORITY = 10;
 	PTOGetAll (INI_FILE, "WorkPreference", WORK_PREFERENCE, 0);
-	PTOGetAll (LOCALINI_FILE, "ThreadsPerTest", THREADS_PER_TEST, NUM_CPUS / NUM_WORKER_THREADS);
+	read_cores_per_test ();		// Get CORES_PER_TEST array, may require upgrading old INI settings
+	HYPERTHREAD_TF = IniGetInt (LOCALINI_FILE, "HyperthreadTF", OS_CAN_SET_AFFINITY);
+	HYPERTHREAD_LL = IniGetInt (LOCALINI_FILE, "HyperthreadLL", 0);
 	MANUAL_COMM = (int) IniGetInt (INI_FILE, "ManualComm", 0);
 	HIDE_ICON = (int) IniGetInt (INI_FILE, "HideIcon", 0);
 	TRAY_ICON = (int) IniGetInt (INI_FILE, "TrayIcon", 1);
@@ -1475,18 +1577,16 @@ void PTOGetAll (
 
 /* Copy the global option setting to the entire array */
 
-	global_val = IniGetInt (ini_filename, keyword, -1);
+	global_val = IniGetInt (ini_filename, keyword, def_val);
 	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
-		if (global_val == -1) array[i] = def_val;
-		else array[i] = global_val;
+		array[i] = global_val;
 	}
 
 /* Now look for any section specific overrides */
 
 	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
 		sprintf (section_name, "Worker #%d", i+1);
-		array[i] = IniSectionGetInt (ini_filename, section_name,
-					     keyword, array[i]);
+		array[i] = IniSectionGetInt (ini_filename, section_name, keyword, array[i]);
 	}
 }
 
@@ -1516,8 +1616,7 @@ void PTOSetAll (
 		sprintf (section_name, "Worker #%d", i+1);
 		IniSectionWriteString (ini_filename, section_name, keyword, NULL);
 		if (shadow_keyword != NULL)
-			IniSectionWriteString (LOCALINI_FILE, section_name,
-					       shadow_keyword, NULL);
+			IniSectionWriteString (LOCALINI_FILE, section_name, shadow_keyword, NULL);
 	}
 }
 
@@ -1550,11 +1649,9 @@ void PTOSetOne (
 			IniWriteString (LOCALINI_FILE, shadow_keyword, NULL);
 		for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
 			sprintf (section_name, "Worker #%d", i+1);
-			IniSectionWriteInt (ini_filename, section_name,
-					    keyword, array[i]);
+			IniSectionWriteInt (ini_filename, section_name, keyword, array[i]);
 			if (shadow_keyword != NULL)
-				IniSectionWriteInt (LOCALINI_FILE, section_name,
-						    shadow_keyword, array[i]);
+				IniSectionWriteInt (LOCALINI_FILE, section_name, shadow_keyword, array[i]);
 		}
 	}
 
@@ -1564,8 +1661,7 @@ void PTOSetOne (
 	sprintf (section_name, "Worker #%d", tnum+1);
 	IniSectionWriteInt (ini_filename, section_name, keyword, new_val);
 	if (shadow_keyword != NULL)
-		IniSectionWriteInt (LOCALINI_FILE, section_name,
-				    shadow_keyword, new_val);
+		IniSectionWriteInt (LOCALINI_FILE, section_name, shadow_keyword, new_val);
 }
 
 int PTOIsGlobalOption (
@@ -2959,7 +3055,7 @@ double work_estimate (
 {
 	double	timing, est, pct_complete;
 	int	can_use_multiple_threads;
-	unsigned int i, total_threads;
+	unsigned int i, total_cores;
 
 /* I suppose there are race conditions where a deleted work unit could */
 /* get here.  Return an estimate of 0.0. */
@@ -3164,27 +3260,22 @@ double work_estimate (
 /* reduces the time by a factor of 1.9.  Also assume each additional CPU */
 /* is less beneficial.  Trial factoring is an exception -- it scales quite nicely. */
 
-	if (can_use_multiple_threads &&
-	    THREADS_PER_TEST[thread_num] > CPU_HYPERTHREADS) {
+	if (can_use_multiple_threads && CORES_PER_TEST[thread_num] > 1) {
 		double	effective_num_cpus, cpu_value;
 		effective_num_cpus = 0.0;
 		cpu_value = 1.0;
-		for (i = 0; i < THREADS_PER_TEST[thread_num]; i += CPU_HYPERTHREADS) {
+		for (i = 0; i < CORES_PER_TEST[thread_num]; i++) {
 			effective_num_cpus += cpu_value;
 			cpu_value *= (w->work_type == WORK_FACTOR ? 1.0 : 0.9);
 		}
 		est = est / effective_num_cpus;
 	}
 
-/* If the user is unwisely running more threads than there are logical */
-/* CPUs, then increase the time estimate */
+/* If the user unwisely oversubscribed the CPU cores, then increase the time estimate */
 
-	total_threads = 0;
-	for (i = 0; i < NUM_WORKER_THREADS; i++)
-		total_threads += THREADS_PER_TEST[i];
-	if (total_threads > NUM_CPUS * CPU_HYPERTHREADS)
-		est *= (double) total_threads /
-		       (double) (NUM_CPUS * CPU_HYPERTHREADS);
+	total_cores = 0;
+	for (i = 0; i < NUM_WORKER_THREADS; i++) total_cores += CORES_PER_TEST[i];
+	if (total_cores > NUM_CPUS) est *= (double) total_cores / (double) NUM_CPUS;
 
 /* Return the total estimated time in seconds */
 

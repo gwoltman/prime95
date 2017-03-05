@@ -327,7 +327,7 @@ void print_timer (
 void SetPriority (
 	struct PriorityInfo *info)
 {
-	int	core_depth, num_cores, logical_CPU_depth, num_logical_CPUs;
+	int	num_cores, num_logical_CPUs;
 	int	bind_type, core;
 #ifdef BIND_TYPE_1_USED
 	int	logical_CPU;
@@ -351,10 +351,8 @@ void SetPriority (
 
 /* Gather some topology information */
 
-	core_depth = hwloc_get_type_or_below_depth (hwloc_topology, HWLOC_OBJ_CORE);		// Access physical core's topology depth
-	num_cores = hwloc_get_nbobjs_by_depth (hwloc_topology, core_depth);
-	logical_CPU_depth = hwloc_get_type_or_below_depth (hwloc_topology, HWLOC_OBJ_PU);	// Access logical CPU's topology depth
-	num_logical_CPUs = hwloc_get_nbobjs_by_depth (hwloc_topology, logical_CPU_depth);
+	num_cores = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_CORE);
+	num_logical_CPUs = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_PU);
 
 /* Pick from one of several methodologies to determine affinity setting */
 
@@ -440,46 +438,40 @@ void SetPriority (
 			break;
 		}
 
-/* If total num CPUs == num_cpus or num_cpus * hyper-threads, then there is an easy path forward */
-/* Example, on a quad-core with worker 1 using 2 CPUs, and workers 2 & 3 each use 1 CPU --- no problem. */
+/* If total num CPUs == num_cpus, then there is an easy path forward */
+/* Example: a quad-core with worker 1 using 2 CPUs, and workers 2 & 3 each use 1 CPU --- no problem. */
 
 		{
-			int	i, worker_thread_count, threads_used_by_lower_workers;
-			worker_thread_count = threads_used_by_lower_workers = 0;
+			int	i, worker_core_count, cores_used_by_lower_workers;
+			worker_core_count = cores_used_by_lower_workers = 0;
 			for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
-				worker_thread_count += THREADS_PER_TEST[i];
-				if (i < info->worker_num) threads_used_by_lower_workers += THREADS_PER_TEST[i];
+				worker_core_count += CORES_PER_TEST[i];
+				if (i < info->worker_num) cores_used_by_lower_workers += CORES_PER_TEST[i];
 			}
 
-			if (worker_thread_count == NUM_CPUS) {
+			if (worker_core_count == NUM_CPUS) {
 				bind_type = 0;			// Set affinity to a specific physical CPU core
-				core = threads_used_by_lower_workers + info->aux_thread_num;
+				core = cores_used_by_lower_workers + info->aux_thread_num / info->normal_work_hyperthreads;
 				break;
 			}
 
-			if (worker_thread_count == NUM_CPUS * CPU_HYPERTHREADS) {
-				bind_type = 0;			// Set affinity to a specific physical CPU core
-				core = (threads_used_by_lower_workers + info->aux_thread_num) / CPU_HYPERTHREADS;
-				break;
-			}
-
-/* If total num threads < num_cpus we will give each thread its own CPU.  There is some anecdotal */
+/* If total num cores < num_cpus we will give each thread its own CPU.  There is some anecdotal */
 /* evidence that CPU 0 is reserved for interrupt processing (on some OSes), so we leave CPU #0 unused */
 /* (hoping hwloc assigns CPU numbers the same way the OS does). */
 
-			if (worker_thread_count < (int) NUM_CPUS) {
+			if (worker_core_count < (int) NUM_CPUS) {
 				bind_type = 0;			// Set affinity to a specific physical CPU core
-				core = threads_used_by_lower_workers + info->aux_thread_num + 1;
+				core = cores_used_by_lower_workers + info->aux_thread_num / info->normal_work_hyperthreads + 1;
 				break;
 			}
 
-/* If total num threads is between num_cpus and num_cpus * hyper-threads, then what to do? */
+/* If total num cores is between num_cpus is greater than num_cpus, then what to do? */
 /* Our default policy is to throw our hands up in despair and simply run on any CPU. */
 
 			return;
 		}
 
-/* No good rule found for setting affinity.  Simply run on any logical CPU. */
+/* No good rule found for setting affinity.  Simply run on any CPU. */
 
 		return;
 	}
@@ -554,7 +546,7 @@ void SetPriority (
 			OutputStr (info->worker_num, buf);
 			core %= num_cores;
 		}
-		obj = hwloc_get_obj_by_depth (hwloc_topology, core_depth, core);	/* Get proper core */
+		obj = hwloc_get_obj_by_type (hwloc_topology, HWLOC_OBJ_CORE, core);	/* Get proper core */
 		if (obj) {
 			if (hwloc_set_cpubind (hwloc_topology, obj->cpuset, HWLOC_CPUBIND_THREAD)) { /* Bind thread to all logical CPUs in the core */
 				char *str;
@@ -577,7 +569,7 @@ void SetPriority (
 			OutputStr (info->worker_num, buf);
 			logical_CPU %= num_logical_CPUs;
 		}
-		obj = hwloc_get_obj_by_depth (hwloc_topology, logical_CPU_depth, logical_CPU);	/* Get proper logical CPU */
+		obj = hwloc_get_obj_by_type (hwloc_topology, HWLOC_OBJ_PU, logical_CPU);	/* Get proper logical CPU */
 		if (obj) {
 			if (hwloc_set_cpubind (hwloc_topology, obj->cpuset, HWLOC_CPUBIND_THREAD)) { /* Bind thread to one logical CPU */
 				char *str;
@@ -607,10 +599,8 @@ void SetPriority (
 			if (dash != NULL && (comma == NULL || dash < comma)) end = atoi (dash+1);
 			else end = start;
 			while (start <= end) {
-				obj = hwloc_get_obj_by_depth (hwloc_topology, logical_CPU_depth, start++);
-				if (obj) {
-					hwloc_bitmap_or (cpuset, cpuset, obj->cpuset);
-				}
+				obj = hwloc_get_obj_by_type (hwloc_topology, HWLOC_OBJ_PU, start++);
+				if (obj) hwloc_bitmap_or (cpuset, cpuset, obj->cpuset);
 			}
 			if (comma == NULL) break;
 		}
@@ -3033,6 +3023,7 @@ int primeContinue (
 	sp_info.type = SET_PRIORITY_NORMAL_WORK;
 	sp_info.worker_num = thread_num;
 	sp_info.verbose_flag = IniGetInt (INI_FILE, "AffinityVerbosity", 1);
+	sp_info.normal_work_hyperthreads = 1;
 	sp_info.aux_thread_num = 0;
 	SetPriority (&sp_info);
 
@@ -5146,7 +5137,8 @@ begin:	factor_found = 0;
 
 /* Setup the factoring code */
 
-	facdata.num_threads = THREADS_PER_TEST[thread_num];
+	if (HYPERTHREAD_TF) sp_info->normal_work_hyperthreads = IniGetInt (LOCALINI_FILE, "HyperthreadTFcount", CPU_HYPERTHREADS);
+	facdata.num_threads = CORES_PER_TEST[thread_num] * sp_info->normal_work_hyperthreads;
 	facdata.sp_info = sp_info;
 	stop_reason = factorSetup (thread_num, p, &facdata);
 	if (stop_reason) {
@@ -6307,7 +6299,9 @@ int prime (
 
 	if ((w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK) &&
 	    ! IniGetInt (INI_FILE, "SkipTrialFactoring", 0)) {
-		stop_reason = primeFactor (thread_num, sp_info, w, 1);
+		struct PriorityInfo sp_info_copy;
+		memcpy (&sp_info_copy, sp_info, sizeof (struct PriorityInfo));
+		stop_reason = primeFactor (thread_num, &sp_info_copy, w, 1);
 		if (stop_reason) return (stop_reason);
 	}
 
@@ -6334,7 +6328,9 @@ int prime (
 
 	if ((w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK) &&
 	    ! IniGetInt (INI_FILE, "SkipTrialFactoring", 0)) {
-		stop_reason = primeFactor (thread_num, sp_info, w, 0);
+		struct PriorityInfo sp_info_copy;
+		memcpy (&sp_info_copy, sp_info, sizeof (struct PriorityInfo));
+		stop_reason = primeFactor (thread_num, &sp_info_copy, w, 0);
 		if (stop_reason) return (stop_reason);
 	}
 
@@ -6365,7 +6361,8 @@ begin:	gwinit (&lldata.gwdata);
 	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
 		gwset_use_large_pages (&lldata.gwdata);
 	gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
-	gwset_num_threads (&lldata.gwdata, THREADS_PER_TEST[thread_num]);
+	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreads = IniGetInt (LOCALINI_FILE, "HyperthreadLLcount", CPU_HYPERTHREADS);
+	gwset_num_threads (&lldata.gwdata, CORES_PER_TEST[thread_num] * sp_info->normal_work_hyperthreads);
 	gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&lldata.gwdata, sp_info);
 	stop_reason = lucasSetup (thread_num, p, w->forced_fftlen, &lldata);
@@ -9769,7 +9766,8 @@ int prp (
 begin:	gwinit (&gwdata);
 	gwsetmaxmulbyconst (&gwdata, prp_base);
 	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&gwdata);
-	gwset_num_threads (&gwdata, THREADS_PER_TEST[thread_num]);
+	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreads = IniGetInt (LOCALINI_FILE, "HyperthreadLLcount", CPU_HYPERTHREADS);
+	gwset_num_threads (&gwdata, CORES_PER_TEST[thread_num] * sp_info->normal_work_hyperthreads);
 	gwset_thread_callback (&gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&gwdata, sp_info);
 	gwset_specific_fftlen (&gwdata, w->forced_fftlen);

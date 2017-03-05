@@ -1,6 +1,6 @@
 // WorkerDlg.h : header file
 //
-// Copyright 1995-2016 Mersenne Research, Inc.  All rights reserved
+// Copyright 1995-2017 Mersenne Research, Inc.  All rights reserved
 //
 
 /////////////////////////////////////////////////////////////////////////////
@@ -28,6 +28,10 @@ public:
 	CStatic	c_numcpus_text;
 	CEdit	c_numcpus;
 	int	m_numcpus[MAX_NUM_WORKER_THREADS];
+	CButton c_hyper_tf;
+	BOOL	m_hyper_tf;
+	CButton c_hyper_ll;
+	BOOL	m_hyper_ll;
 	CStatic c_warn1_text;
 	CStatic c_warn2_text;
 	CStatic c_warn3_text;

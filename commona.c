@@ -191,18 +191,6 @@ void rangeStatusMessage (
 		sprintf (buf+strlen(buf), STAT1, ll_cnt, (long) (1.0 / prob));
 }
 
-// We used to allow assigning hyperthreads in the Worker Windows dialog box.  However,
-// hyperthreads rarely, if ever, help in prime95's performance.  Newbies would sometimes
-// use hyperthreads to their own detriment.  Now, by default, prime95 will not allow
-// assigning hyperthreads unless the user turns on an undoc.txt feature.
-
-unsigned int user_configurable_hyperthreads ()
-{
-	if (CPU_HYPERTHREADS > 1 && IniGetInt (INI_FILE, "ConfigureHyperthreads", 0))
-		return (CPU_HYPERTHREADS);
-	return (1);
-}
-
 /* Return the suggested minimum number of cores that should be used for a work type. */
 /* Used in the Worker Windows dialog box. */
 

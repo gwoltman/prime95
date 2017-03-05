@@ -181,7 +181,7 @@ DQ
                                             </connections>
                                         </tableColumn>
                                         <tableColumn width="280" minWidth="10" maxWidth="3.4028229999999999e+38" id="70">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="CPUs to use (multithreading)">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="CPU cores to use (multithreading)">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>

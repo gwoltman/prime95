@@ -408,10 +408,10 @@ int AreAllTheSame (
 
 unsigned int max_num_workers (void)
 {
-	if (NUM_WORKER_THREADS >= NUM_CPUS * user_configurable_hyperthreads ())
+	if (NUM_WORKER_THREADS >= NUM_CPUS)
 		return (NUM_WORKER_THREADS);
 	else
-		return (NUM_CPUS * user_configurable_hyperthreads ());
+		return (NUM_CPUS);
 }
 
 void test_worker_threads (void)
@@ -419,14 +419,16 @@ void test_worker_threads (void)
 	unsigned long m_num_thread, m_priority;
 	unsigned long m_work_pref[MAX_NUM_WORKER_THREADS];
 	unsigned long m_numcpus[MAX_NUM_WORKER_THREADS];
-	int	i;
+	int	i, m_hyper_tf, m_hyper_ll;
 
 	m_num_thread = NUM_WORKER_THREADS;
 	m_priority = PRIORITY;
 	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
 		m_work_pref[i] = WORK_PREFERENCE[i];
-		m_numcpus[i] = THREADS_PER_TEST[i];
+		m_numcpus[i] = CORES_PER_TEST[i];
 	}
+	m_hyper_tf = HYPERTHREAD_TF;
+	m_hyper_ll = HYPERTHREAD_LL;
 
 again:	if (max_num_workers () > 1)
 		askNum ("Number of workers to run", &m_num_thread, 1, max_num_workers ());
@@ -438,7 +440,7 @@ again:	if (max_num_workers () > 1)
 		outputLongLine ("\nUse the following values to select a work type:\n  0 - Whatever makes the most sense\n  2 - Trial factoring\n 100 - First time primality tests\n  101 - Double-checking\n  102 - World record primality tests\n  4 - P-1 factoring\n  104 - 100 million digit primality tests\n  1 - Trial factoring to low limits\n  5 - ECM on small Mersenne numbers\n  6 - ECM on Fermat numbers\n");
 	}
 
-	if (USE_PRIMENET || NUM_CPUS * user_configurable_hyperthreads () > 1) {
+	if (USE_PRIMENET || NUM_CPUS > 1) {
 	    for (i = 0; i < m_num_thread; i++) {
 		if (m_num_thread > 1)
 			printf ("\nOptions for worker #%d\n\n", i+1);
@@ -451,17 +453,22 @@ again:	if (max_num_workers () > 1)
 				m_numcpus[i] = min_cores_for_work_type (m_work_pref[i]);
 		}
 
-		if (NUM_CPUS * user_configurable_hyperthreads () > 1) {
+		if (NUM_CPUS > 1) {
 			int min_cores, max_cores;
 			min_cores = min_cores_for_work_type (m_work_pref[i]);
-			max_cores = NUM_CPUS * user_configurable_hyperthreads () - m_num_thread + 1;
+			max_cores = NUM_CPUS - m_num_thread + 1;
 			if (max_cores < min_cores) max_cores = min_cores;
 			if (m_numcpus[i] < min_cores) m_numcpus[i] = min_cores;
 			if (m_numcpus[i] > max_cores) m_numcpus[i] = max_cores;
-			askNum ("CPUs to use (multithreading)", &m_numcpus[i], min_cores, max_cores);
+			askNum ("CPU cores to use (multithreading)", &m_numcpus[i], min_cores, max_cores);
 		} else
 			m_numcpus[i] = 1;
 	    }
+	}
+
+	if (OS_CAN_SET_AFFINITY) {
+		AskYN ("Use hyperthreading for trial factoring (recommended)", &m_hyper_tf);
+		AskYN ("Use hyperthreading for LL, P-1, ECM (not recommended)", &m_hyper_ll);
 	}
 
 /* Ask user if they are happy with their answers */
@@ -469,20 +476,18 @@ again:	if (max_num_workers () > 1)
 	if (askOkCancel ()) {
 		int	restart = FALSE;
 		int	new_options = FALSE;
-		unsigned long i, total_num_threads;
+		unsigned long i, total_num_cores;
 
-/* If the user has allocated more threads than there are CPUs, raise a */
-/* severe warning. */
+/* If the user has allocated too many cores then raise a severe warning. */
 
-		total_num_threads = 0;
-		for (i = 0; i < m_num_thread; i++)
-			total_num_threads += m_numcpus[i];
-		if (total_num_threads > NUM_CPUS * user_configurable_hyperthreads ()) {
+		total_num_cores = 0;
+		for (i = 0; i < m_num_thread; i++) total_num_cores += m_numcpus[i];
+		if (total_num_cores > NUM_CPUS) {
 			outputLongLine (MSG_THREADS);
 			if (askYesNo ('Y')) goto again;
 		}
 
-/* If user is changing the number of worker threads, then make the */
+/* If user changed the number of worker threads, then make the */
 /* necessary changes.  Restart worker threads so that we are running */
 /* the correct number of worker threads. */
 
@@ -493,7 +498,7 @@ again:	if (max_num_workers () > 1)
 			restart = TRUE;
 		}
 
-/* If user is changing the priority of worker threads, then change */
+/* If user changed the priority of worker threads, then change */
 /* the INI file.  Restart worker threads so that they are running at */
 /* the new priority. */
 
@@ -504,37 +509,40 @@ again:	if (max_num_workers () > 1)
 			restart = TRUE;
 		}
 
-/* If the user changes any of the work preferences record it in the INI file */
+/* If the user changed any of the work preferences record it in the INI file */
 /* and tell the server */
 
 		if (AreAllTheSame (m_work_pref, m_num_thread)) {
-			if (! PTOIsGlobalOption (WORK_PREFERENCE) ||
-			    WORK_PREFERENCE[0] != m_work_pref[0]) {
-				PTOSetAll (INI_FILE, "WorkPreference", NULL,
-					   WORK_PREFERENCE, m_work_pref[0]);
+			if (! PTOIsGlobalOption (WORK_PREFERENCE) || WORK_PREFERENCE[0] != m_work_pref[0]) {
+				PTOSetAll (INI_FILE, "WorkPreference", NULL, WORK_PREFERENCE, m_work_pref[0]);
 				new_options = TRUE;
 			}
 		} else {
 			for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
-				if (WORK_PREFERENCE[i] == m_work_pref[i])
-					continue;
-				PTOSetOne (INI_FILE, "WorkPreference", NULL,
-					   WORK_PREFERENCE, i,
-					   m_work_pref[i]);
+				if (WORK_PREFERENCE[i] == m_work_pref[i]) continue;
+				PTOSetOne (INI_FILE, "WorkPreference", NULL, WORK_PREFERENCE, i, m_work_pref[i]);
 				new_options = TRUE;
 			}
 		}
 
-/* If the user changes any of the threads_per_test record it in the INI file */
+/* If the user changed any of the cores_per_test record it in the INI file */
 
-		if (AreAllTheSame (m_numcpus, m_num_thread)) {
-			PTOSetAll (LOCALINI_FILE, "ThreadsPerTest", NULL,
-				   THREADS_PER_TEST, m_numcpus[0]);
-		} else {
-			for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
-				PTOSetOne (LOCALINI_FILE, "ThreadsPerTest", NULL,
-					   THREADS_PER_TEST, i, m_numcpus[i]);
-			}
+		if (AreAllTheSame (m_numcpus, m_num_thread))
+			PTOSetAll (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, m_numcpus[0]);
+		else for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
+			PTOSetOne (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, m_numcpus[i]);
+
+/* If user changed the hyperthreading options, then save the options to the INI file */
+
+		if (m_hyper_tf != HYPERTHREAD_TF) {
+			HYPERTHREAD_TF = m_hyper_tf;
+			IniWriteInt (LOCALINI_FILE, "HyperthreadTF", HYPERTHREAD_TF);
+			restart = TRUE;
+		}
+		if (m_hyper_ll != HYPERTHREAD_LL) {
+			HYPERTHREAD_LL = m_hyper_ll;
+			IniWriteInt (LOCALINI_FILE, "HyperthreadLL", HYPERTHREAD_LL);
+			restart = TRUE;
 		}
 
 /* Send new settings to the server */
