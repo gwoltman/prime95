@@ -4682,7 +4682,7 @@ int factorPassSetup (
 /* Start each sieving-capable thread with a different siever */
 
 	j = 0;
-	for (i = 0; i < facdata->num_threads; i++) {
+	for (i = 0; (int) i < facdata->num_threads; i++) {
 		if (facdata->tf_threads[i].thread_can_sieve) {
 			facdata->sievers[j].last_thread_used = i;
 			facdata->sievers[j].state |= SIEVER_ASSIGNED;
@@ -4692,7 +4692,7 @@ int factorPassSetup (
 
 /* Init sieve area counters, clear counter of chunks processed */
 
-	for (i = 0; i < facdata->num_pools; i++) {
+	for (i = 0; (int) i < facdata->num_pools; i++) {
 		facdata->pools[i].num_sievers_active = 0;
 		facdata->pools[i].num_free_sieve_areas = facdata->num_sieve_areas_per_pool;
 		facdata->pools[i].num_sieved_sieve_areas = 0;
