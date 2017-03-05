@@ -466,9 +466,9 @@ again:	if (max_num_workers () > 1)
 	    }
 	}
 
-	if (OS_CAN_SET_AFFINITY) {
-		AskYN ("Use hyperthreading for trial factoring (recommended)", &m_hyper_tf);
-		AskYN ("Use hyperthreading for LL, P-1, ECM (not recommended)", &m_hyper_ll);
+	if (CPU_HYPERTHREADS > 1 && OS_CAN_SET_AFFINITY) {
+		askYN ("Use hyperthreading for trial factoring (recommended)", &m_hyper_tf);
+		askYN ("Use hyperthreading for LL, P-1, ECM (not recommended)", &m_hyper_ll);
 	}
 
 /* Ask user if they are happy with their answers */
