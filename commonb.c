@@ -9028,9 +9028,9 @@ int primeBenchMultipleWorkers (
 	bench_all_cores = IniGetInt (INI_FILE, "BenchAllCores", 1);		/* Benchmark all cpu cores case */
 	bench_in_between_cores = IniGetInt (INI_FILE, "BenchInBetweenCores", 0);/* Benchmark other cpu core combinations */
 	bench_hyperthreading = IniGetInt (INI_FILE, "BenchHyperthreads", 1);	/* Benchmark hyperthreading */
-	bench_one_worker = IniGetInt (INI_FILE, "BenchOneWorker", 1);		/* Benchmark one worker using all CPU cores */
-	bench_max_workers = IniGetInt (INI_FILE, "BenchMaxWorkers", 1);		/* Benchmark one CPU core per worker */
-	bench_in_between_workers = IniGetInt (INI_FILE, "BenchInBetweenWorkers", 0); /* Benchmark other worker/core combinations */
+	bench_one_worker = IniGetInt (INI_FILE, "BenchOneWorkerCase", 1);	/* Benchmark one worker using all CPU cores */
+	bench_max_workers = IniGetInt (INI_FILE, "BenchMaxWorkersCase", 1);	/* Benchmark one CPU core per worker */
+	bench_in_between_workers = IniGetInt (INI_FILE, "BenchInBetweenWorkerCases", 0); /* Benchmark other worker/core combinations */
 	bench_oddballs = IniGetInt (INI_FILE, "BenchOddWorkers", 1);		/* Benchmark oddball worker/core combinations */
 	bench_error_check = IniGetInt (INI_FILE, "BenchErrorCheck", 0);		/* Benchmark round-off checking */
 
