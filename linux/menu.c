@@ -1042,9 +1042,9 @@ void options_benchmark (void)
 	m_bench_in_between_cores = IniGetInt (INI_FILE, "BenchInBetweenCores", 0);
 	m_hyperthreading = IniGetInt (INI_FILE, "BenchHyperthreads", 1);
 
-	m_bench_one_worker = IniGetInt (INI_FILE, "BenchOneWorker", 1);
-	m_bench_max_workers = IniGetInt (INI_FILE, "BenchMaxWorkers", 1);
-	m_bench_in_between_workers = IniGetInt (INI_FILE, "BenchInBetweenWorkers", 0);
+	m_bench_one_worker = IniGetInt (INI_FILE, "BenchOneWorkerCase", 1);
+	m_bench_max_workers = IniGetInt (INI_FILE, "BenchMaxWorkersCase", 1);
+	m_bench_in_between_workers = IniGetInt (INI_FILE, "BenchInBetweenWorkerCases", 0);
 	m_bench_time = IniGetInt (INI_FILE, "BenchTime", 15);
 
 	askNum ("Benchmark type (0 = Throughput, 1 = FFT timings, 2 = Trial factoring)", &m_bench_type, 0, 2);
@@ -1089,9 +1089,9 @@ void options_benchmark (void)
 		IniWriteInt (INI_FILE, "BenchInBetweenCores", m_bench_in_between_cores);
 		IniWriteInt (INI_FILE, "BenchHyperthreads", m_hyperthreading);
 
-		IniWriteInt (INI_FILE, "BenchOneWorker", m_bench_one_worker);
-		IniWriteInt (INI_FILE, "BenchMaxWorkers", m_bench_max_workers);
-		IniWriteInt (INI_FILE, "BenchInBetweenWorkers", m_bench_in_between_workers);
+		IniWriteInt (INI_FILE, "BenchOneWorkerCase", m_bench_one_worker);
+		IniWriteInt (INI_FILE, "BenchMaxWorkerCase", m_bench_max_workers);
+		IniWriteInt (INI_FILE, "BenchInBetweenWorkerCases", m_bench_in_between_workers);
 		IniWriteInt (INI_FILE, "BenchTime", m_bench_time);
 		LaunchBench (m_bench_type);
 	}

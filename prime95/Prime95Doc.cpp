@@ -782,9 +782,9 @@ void CPrime95Doc::OnBenchmark()
 	dlg.m_bench_in_between_cores = IniGetInt (INI_FILE, "BenchInBetweenCores", 0);
 	dlg.m_hyperthreading = IniGetInt (INI_FILE, "BenchHyperthreads", 1);
 
-	dlg.m_bench_one_worker = IniGetInt (INI_FILE, "BenchOneWorker", 1);
-	dlg.m_bench_max_workers = IniGetInt (INI_FILE, "BenchMaxWorkers", 1);
-	dlg.m_bench_in_between_workers = IniGetInt (INI_FILE, "BenchInBetweenWorkers", 0);
+	dlg.m_bench_one_worker = IniGetInt (INI_FILE, "BenchOneWorkerCase", 1);
+	dlg.m_bench_max_workers = IniGetInt (INI_FILE, "BenchMaxWorkersCase", 1);
+	dlg.m_bench_in_between_workers = IniGetInt (INI_FILE, "BenchInBetweenWorkerCases", 0);
 	dlg.m_bench_time = IniGetInt (INI_FILE, "BenchTime", 15);
 
 	if (dlg.DoModal () == IDOK) {
@@ -797,9 +797,9 @@ void CPrime95Doc::OnBenchmark()
 		IniWriteInt (INI_FILE, "BenchInBetweenCores", dlg.m_bench_in_between_cores);
 		IniWriteInt (INI_FILE, "BenchHyperthreads", dlg.m_hyperthreading);
 
-		IniWriteInt (INI_FILE, "BenchOneWorker", dlg.m_bench_one_worker);
-		IniWriteInt (INI_FILE, "BenchMaxWorkers", dlg.m_bench_max_workers);
-		IniWriteInt (INI_FILE, "BenchInBetweenWorkers", dlg.m_bench_in_between_workers);
+		IniWriteInt (INI_FILE, "BenchOneWorkerCase", dlg.m_bench_one_worker);
+		IniWriteInt (INI_FILE, "BenchMaxWorkersCase", dlg.m_bench_max_workers);
+		IniWriteInt (INI_FILE, "BenchInBetweenWorkerCases", dlg.m_bench_in_between_workers);
 		IniWriteInt (INI_FILE, "BenchTime", dlg.m_bench_time);
 		LaunchBench (dlg.m_bench_type);
 	}

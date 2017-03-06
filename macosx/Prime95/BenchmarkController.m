@@ -34,9 +34,9 @@
 	[self setBenchAllCores:IniGetInt (INI_FILE, "BenchAllCores", 1)];
 	[self setBenchInBetweenCores:IniGetInt (INI_FILE, "BenchInBetweenCores", 0)];
 	[self setHyperthreading:IniGetInt (INI_FILE, "BenchHyperthreads", 1)];
-	[self setBenchOneWorker:IniGetInt (INI_FILE, "BenchOneWorker", 1)];
-	[self setBenchMaxWorkers:IniGetInt (INI_FILE, "BenchMaxWorkers", 1)];
-	[self setBenchInBetweenWorkers:IniGetInt (INI_FILE, "BenchInBetweenWorkers", 0)];
+	[self setBenchOneWorker:IniGetInt (INI_FILE, "BenchOneWorkerCase", 1)];
+	[self setBenchMaxWorkers:IniGetInt (INI_FILE, "BenchMaxWorkersCase", 1)];
+	[self setBenchInBetweenWorkers:IniGetInt (INI_FILE, "BenchInBetweenWorkerCases", 0)];
 	[self setBenchTime:IniGetInt (INI_FILE, "BenchTime", 15)];
 	[self setMinBenchTime:5];
 	[self setMaxBenchTime:60];
@@ -125,9 +125,9 @@
 	IniWriteInt (INI_FILE, "BenchAllCores", benchAllCores);
 	IniWriteInt (INI_FILE, "BenchInBetweenCores", benchInBetweenCores);
 	IniWriteInt (INI_FILE, "BenchHyperthreads", hyperthreading);
-	IniWriteInt (INI_FILE, "BenchOneWorker", benchOneWorker);
-	IniWriteInt (INI_FILE, "BenchMaxWorkers", benchMaxWorkers);
-	IniWriteInt (INI_FILE, "BenchInBetweenWorkers", benchInBetweenWorkers);
+	IniWriteInt (INI_FILE, "BenchOneWorkerCase", benchOneWorker);
+	IniWriteInt (INI_FILE, "BenchMaxWorkersCase", benchMaxWorkers);
+	IniWriteInt (INI_FILE, "BenchInBetweenWorkerCases", benchInBetweenWorkers);
 	IniWriteInt (INI_FILE, "BenchTime", benchTime);
 	LaunchBench (benchType);
 
