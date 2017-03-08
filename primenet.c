@@ -368,7 +368,7 @@ rel_url:
 	}
 
 /* Prevent SIGPIPE signals in OS X, BSD and other environments */
- 
+
 #ifdef SO_NOSIGPIPE
 	{
 		int	i = 1;

@@ -137,8 +137,35 @@ int main (
 /* catch termination signals */
 
 	(void)signal(SIGTERM, sigterm_handler);
-	(void)signal(SIGINT, sigterm_handler);
-	(void)signal(SIGHUP, sigterm_handler);	/* See discussion in http://www.mersenneforum.org/showthread.php?t=21496 */
+
+	/* SIGINT handling.  See discussion in http://www.mersenneforum.org/showthread.php?t=21672 */
+	if (signal(SIGINT, sigterm_handler) == SIG_DFL) {
+		/* If we are run asynchronously, keep SIGINT ignored. */
+		/* (e.g. `sh -c 'mprime & other_command'`) */
+		(void)signal(SIGHUP, SIG_DFL);
+	}
+
+	/* SIGHUP handling.  See discussions in http://www.mersenneforum.org/showthread.php?t=21496 */
+	/* and http://www.mersenneforum.org/showthread.php?t=21672 */
+	if (signal(SIGHUP, sigterm_handler) == SIG_DFL) {
+		/* If we are run through 'nohup', keep SIGHUP ignored. */
+		(void)signal(SIGHUP, SIG_DFL);
+	}
+
+	/* This code was suggested for handling SIGPIPE.  Since 99.9% of mprime installs use */
+	/* LIBCURL rather than the archaic sockets code, we ought to be OK with sigterm_handler. */
+	/* This assumes LIBCURL does not depend on the SIGPIPE signal.  That said, perhaps it */
+	/* is OK to stick with ignoring or using the default signal handler.  See the mersenneforum */
+	/* threads mentioned above for more discussion. */
+//#if !defined(SO_NOSIGPIPE) && !defined(MSG_NOSIGNAL)
+//	(void)signal(SIGPIPE, SIG_IGN);
+//#else
+//	/* SIGPIPE might be generated when user pipes stdout to another */
+//	/* program (e.g. `mprime | tee log.txt`), and that "tee" dies. */
+//	/* Handle this to terminate when we're sure we never receive */
+//	/* SIGPIPE from sockets. */
+//	(void)signal(SIGPIPE, sigterm_handler);
+//#endif
 
 /* No buffering of output */
 
