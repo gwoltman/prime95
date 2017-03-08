@@ -337,8 +337,7 @@ redirect:
 	}
 
 	if (debug) {
-		sprintf (buf, "IP-addr = %s\n",
-			 inet_ntoa (*(struct in_addr *)hp->h_addr));
+		sprintf (buf, "IP-addr = %s\n", inet_ntoa (*(struct in_addr *)hp->h_addr));
 		LogMsg (buf);
 	}
 
@@ -354,32 +353,29 @@ redirect:
 
 rel_url:
 	if ((s = socket (hp->h_addrtype, SOCK_STREAM, 0)) < 0) {
-		sprintf (buf, "Error in socket call: %d\n",
-			 getLastSocketError ());
+		sprintf (buf, "Error in socket call: %d\n", getLastSocketError ());
 		if (debug) LogMsg (buf);
 		else OutputStr (COMM_THREAD_NUM, buf);
 		return (PRIMENET_ERROR_CONNECT_FAILED);
 	}
 
 	if (connect (s, (struct sockaddr *) &sn, sizeof (sn)) < 0) {
-		sprintf (buf, "Error in connect call: %d\n",
-			 getLastSocketError ());
+		sprintf (buf, "Error in connect call: %d\n", getLastSocketError ());
 		if (debug) LogMsg (buf);
 		else OutputStr (COMM_THREAD_NUM, buf);
 		closesocket (s);
 		return (PRIMENET_ERROR_CONNECT_FAILED);
 	}
 
-/* Prevent SIGPIPE signals in Linux (and other) environments */
-
+/* Prevent SIGPIPE signals in OS X, BSD and other environments */
+ 
 #ifdef SO_NOSIGPIPE
 	{
 		int	i = 1;
 		res = setsockopt (s, SOL_SOCKET, SO_NOSIGPIPE, &i, sizeof(i));
 		if (res < 0) {
 			if (debug) {
-				sprintf (buf, "Error in NOSIGPIPE call: %d\n",
-					 getLastSocketError ());
+				sprintf (buf, "Error in NOSIGPIPE call: %d\n", getLastSocketError ());
 				LogMsg (buf);
 			}
 		}
@@ -434,19 +430,20 @@ rel_url:
 /* Send the URL request */
 
 	timeout = 90000;		/* 90 seconds */
-	res = setsockopt (s, SOL_SOCKET, SO_SNDTIMEO, (char *) &timeout,
-			  sizeof (timeout));
+	res = setsockopt (s, SOL_SOCKET, SO_SNDTIMEO, (char *) &timeout, sizeof (timeout));
 	if (res < 0) {
 		if (debug) {
-			sprintf (buf, "Error in send timeout call: %d\n",
-				 getLastSocketError ());
+			sprintf (buf, "Error in send timeout call: %d\n", getLastSocketError ());
 			LogMsg (buf);
 		}
 	}
-	res = send (s, szURL, (int) strlen (szURL), 0);
+	res = send (s, szURL, strlen (szURL), 0
+#ifdef MSG_NOSIGNAL /* Prevent SIGPIPE in Linux (and others) */
+		    | MSG_NOSIGNAL
+#endif
+		    );
 	if (res < 0) {
-		sprintf (buf, "Error in send call: %d\n",
-			 getLastSocketError ());
+		sprintf (buf, "Error in send call: %d\n", getLastSocketError ());
 		if (debug) LogMsg (buf);
 		else OutputStr (COMM_THREAD_NUM, buf);
 		closesocket (s);
@@ -461,12 +458,10 @@ rel_url:
 /* Now accumulate the response */
 
 	timeout = 90000;		/* 90 seconds */
-	res = setsockopt (s, SOL_SOCKET, SO_RCVTIMEO, (char *) &timeout,
-			  sizeof (timeout));
+	res = setsockopt (s, SOL_SOCKET, SO_RCVTIMEO, (char *) &timeout, sizeof (timeout));
 	if (res < 0) {
 		if (debug) {
-			sprintf (buf, "Error in receive timeout call: %d\n",
-				 getLastSocketError ());
+			sprintf (buf, "Error in receive timeout call: %d\n", getLastSocketError ());
 			LogMsg (buf);
 		}
 	}
@@ -474,8 +469,7 @@ rel_url:
 	while (count < cbuf) {
 		res = recv (s, szBuffer, 999, 0);
 		if (res < 0) {
-			sprintf (buf, "Error in recv call: %d\n",
-				 getLastSocketError ());
+			sprintf (buf, "Error in recv call: %d\n", getLastSocketError ());
 			if (debug) LogMsg (buf);
 			else OutputStr (COMM_THREAD_NUM, buf);
 			closesocket (s);
