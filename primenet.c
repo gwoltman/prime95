@@ -209,11 +209,16 @@ void getProxyInfo (
 {
 	char	*colon;
 
+/* Initialize return variables in case we return early */
+
+	*nProxyPort = 8080;
+	*szProxyUser = 0;
+	*szProxyPassword = 0;
+
 /* Get the host name of the optional proxy server.  If using a proxy */
 /* server strip the optional http:// prefix. */
 
-	IniSectionGetString (INI_FILE, iniSection, "ProxyHost",
-			     szProxyHost, PROXY_HOST_BUFSIZE, NULL);
+	IniSectionGetString (INI_FILE, iniSection, "ProxyHost", szProxyHost, PROXY_HOST_BUFSIZE, NULL);
 	if (szProxyHost[0] == 0) return;
 
 	if ((szProxyHost[0] == 'H' || szProxyHost[0] == 'h') &&
@@ -234,17 +239,14 @@ void getProxyInfo (
 
 /* Secure proxy - get username and password to negotiate access */
 
-	IniSectionGetString (INI_FILE, iniSection, "ProxyUser",
-			     szProxyUser, PROXY_USER_BUFSIZE, NULL);
-	IniSectionGetString (INI_FILE, iniSection, "ProxyPass",
-			     szProxyPassword, PROXY_PASSWORD_BUFSIZE, NULL);
+	IniSectionGetString (INI_FILE, iniSection, "ProxyUser", szProxyUser, PROXY_USER_BUFSIZE, NULL);
+	IniSectionGetString (INI_FILE, iniSection, "ProxyPass", szProxyPassword, PROXY_PASSWORD_BUFSIZE, NULL);
 
 /* Scramble or unscramble the password as necessary */
 
 	if (!IniSectionGetInt (INI_FILE, iniSection, "ProxyMask", 0)) {
 		scramble (szProxyPassword);
-		IniSectionWriteString (INI_FILE, iniSection,
-					"ProxyPass", szProxyPassword);
+		IniSectionWriteString (INI_FILE, iniSection, "ProxyPass", szProxyPassword);
 		IniSectionWriteInt (INI_FILE, iniSection, "ProxyMask", 1);
 	}
 	unscramble (szProxyPassword);
@@ -290,8 +292,7 @@ int pnHttpServer (char *pbuf, unsigned cbuf, char* postargs)
 /* Use MersenneIP setting so that SeventeenOrBust can use the */
 /* UseCurl=0 option. */
 
-	IniSectionGetString (INI_FILE, iniSection, "MersenneIP",
-			     szSITE, sizeof (szSITE), szSITEstr);
+	IniSectionGetString (INI_FILE, iniSection, "MersenneIP", szSITE, sizeof (szSITE), szSITEstr);
 
 /* Get information about the optional proxy server */
 

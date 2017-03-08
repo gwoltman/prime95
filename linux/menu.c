@@ -291,20 +291,19 @@ void getProxyInfo (char *, unsigned short *, char *, char *);
 
 void test_primenet (void)
 {
-	int	m_primenet, m_dialup;
+	int	m_primenet, m_dialup, m_use_proxy;
 	unsigned long m_proxy_port, m_debug;
-	char	m_userid[21], m_compid[21], m_proxy_host[121];
-	char	m_proxy_user[51], m_proxy_pwd[51], orig_proxy_pwd[51];
+	char	m_userid[21], m_compid[21], m_proxy_host[120];
+	char	m_proxy_user[50], m_proxy_pwd[50], orig_proxy_pwd[50];
 	unsigned short proxy_port;
 	int	update_computer_info, primenet_debug;
-	char	m_username[81], m_userpwd[14];
 
 	update_computer_info = FALSE;
 	primenet_debug = IniSectionGetInt (INI_FILE, "PrimeNet", "Debug", 0);
 
 	m_primenet = USE_PRIMENET;
-	if (strcmp (USERID, "ANONYMOUS") == 0)
-		m_userid[0] = 0;
+	if (USERID[0] == 0)
+		strcpy (m_userid, "ANONYMOUS");
 	else
 		strcpy (m_userid, USERID);
 	strcpy (m_compid, COMPID);
@@ -317,18 +316,26 @@ void test_primenet (void)
 	askYN ("Use PrimeNet to get work and report results", &m_primenet);
 	if (!m_primenet) goto done;
 
-	outputLongLine ("\nYou must first create your user ID at mersenne.org or leave user ID blank to run anonymously.  See the readme.txt file for details.\n");
-	askStr ("Optional user ID", m_userid, 20);
+	outputLongLine ("\nCreate a user account at https://mersenne.org/update/ or you may join GIMPS anonymously but it is not recommended.  See the readme.txt file for details.\n");
+	askStr ("Your user ID or \"ANONYMOUS\"", m_userid, 20);
 	askStr ("Optional computer name", m_compid, 20);
 
 	askYN ("Computer uses a dial-up connection to the Internet", &m_dialup);
 
-	askStr ("Optional proxy host name", m_proxy_host, 120);
-	if (!m_proxy_host[0]) goto done;
-
-	askNum ("Proxy port number", &m_proxy_port, 1, 65535);
-	askStr ("Optional proxy user name", m_proxy_user, 50);
-	askStr ("Optional proxy password", m_proxy_pwd, 50);
+	m_use_proxy = (m_proxy_host[0] != 0);
+	askYN ("Use a proxy server", &m_use_proxy);
+	if (m_use_proxy) {
+		/* Sorry but we can only ask for up to 79 chars for this */
+		/* field on the console. User that needs a longer host name */
+		/* have to write it in INI directly. */
+		askStr ("Proxy host name", m_proxy_host, 79);
+		askNum ("Proxy port number", &m_proxy_port, 1, 65535);
+		askStr ("Optional proxy user name", m_proxy_user, 49);
+		askStr ("Optional proxy password", m_proxy_pwd, 49);
+	} else {
+		m_proxy_host[0] = 0;
+	}
+ 
 	askNum ("Output debug info to prime.log (0=none, 1=some, 2=lots)", &m_debug, 0, 2);
 
 done:	if (askOkCancel ()) {
@@ -351,9 +358,6 @@ done:	if (askOkCancel ()) {
 			IniSectionWriteInt (INI_FILE, "PrimeNet", "Debug",
 					    m_debug);
 		}
-
-		if (m_userid[0] == 0)
-			strcpy (m_userid, "ANONYMOUS");
 
 		if (strcmp (USERID, m_userid) != 0) {
 			strcpy (USERID, m_userid);
