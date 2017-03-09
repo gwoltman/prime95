@@ -8785,7 +8785,7 @@ void add_bench_data_to_pkt (
 
 /* See if we already have a value for this benchmark string.  If so, replace the value if this one is better. */
 
-	for (i = 0; i < pkt->num_data_points; i++) {
+	for (i = 0; i < (int) pkt->num_data_points; i++) {
 		if (strcmp (pkt->data_points[i].bench, bench_str) == 0) {
 			if ((smaller_is_better && numeric_value < pkt->data_points[i].timing) ||
 			    (!smaller_is_better && numeric_value > pkt->data_points[i].timing))
