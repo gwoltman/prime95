@@ -8767,6 +8767,42 @@ void bench_busy_loop (void *arg)
 	while (cpu_num > last_bench_cpu_num) one_hundred_thousand_clocks ();
 }
 
+/* Routine to add a timing to benchmark packet sent to server */
+
+void add_bench_data_to_pkt (
+	struct primenetBenchmarkData *pkt,	/* Benchmarking packet to send to server */
+	const char *bench_format_mask,		/* Sprintf format mask */
+	unsigned long fftlen,			/* FFT length benchmarked */
+	double numeric_value,			/* Numeric value to send */
+	int   smaller_is_better)		/* TRUE if smaller numbers are considered "better" */
+{
+	char	bench_str[20];
+	int	i;
+
+/* Format the benchmark string */
+
+	sprintf (bench_str, bench_format_mask, fftlen / 1024);
+
+/* See if we already have a value for this benchmark string.  If so, replace the value if this one is better. */
+
+	for (i = 0; i < pkt->num_data_points; i++) {
+		if (strcmp (pkt->data_points[i].bench, bench_str) == 0) {
+			if ((smaller_is_better && numeric_value < pkt->data_points[i].timing) ||
+			    (!smaller_is_better && numeric_value > pkt->data_points[i].timing))
+				pkt->data_points[i].timing = numeric_value;
+			return;
+		}
+	}
+
+/* Append this item to the benchmark data */
+
+	if (pkt->num_data_points < PRIMENET_BENCH_MAX_DATAPOINTS) {
+		strcpy (pkt->data_points[i].bench, bench_str);
+		pkt->data_points[pkt->num_data_points].timing = numeric_value;
+		pkt->num_data_points++;
+	}
+}
+
 /* Routine to benchmark the trial factoring code */
 
 static const char BENCH1[] = "Your timings will be written to the results.txt file.\n";
@@ -8816,6 +8852,7 @@ int factorBench (
 			facdata.asm_data->FACHSW = 1L << (bit_lengths[i]-65);
 			facdata.asm_data->FACMSW = 0;
 		}
+		facdata.endpt = (facdata.asm_data->FACHSW * 4294967296.0 + facdata.asm_data->FACMSW) * 4294967296.0 * 2.0;
 		stop_reason = factorPassSetup (thread_num, 0, &facdata);
 		if (stop_reason) {
 			last_bench_cpu_num = NUM_CPUS;
@@ -8830,6 +8867,7 @@ int factorBench (
 /* Do one "iteration" untimed, to prime the caches. */
 
 		res = factorChunk (&facdata);
+		(void) factorChunksProcessed (&facdata);
 
 /* Time 10 iterations. Take best time. */
 
@@ -8846,7 +8884,7 @@ int factorBench (
 			start_timer (timers, 0);
 			res = factorChunk (&facdata);
 			end_timer (timers, 0);
-			if (j == 0 || timers[0] < best_time) best_time = timers[0];
+			if (j == 0 || timers[0] < best_time) best_time = timers[0] / factorChunksProcessed (&facdata);
 		}
 		factorDone (&facdata);
 
@@ -8992,6 +9030,12 @@ int primeBenchMultipleWorkers (
 	double	throughput;
 	gwthread thread_id[MAX_NUM_WORKER_THREADS];
 	struct prime_bench_arg info[MAX_NUM_WORKER_THREADS];
+	struct primenetBenchmarkData pkt;
+
+/* Init */
+
+	memset (&pkt, 0, sizeof (pkt));
+	strcpy (pkt.computer_guid, COMPUTER_GUID);
 
 /* Output some initial informative text */
 
@@ -9222,6 +9266,13 @@ int primeBenchMultipleWorkers (
 			sprintf (buf+strlen(buf), " ms.  Throughput: %5.2f iter/sec.\n", throughput);
 			writeResults (buf);
 
+/* Accumulate best throughput numbers to send to the server.  We send the non-hyperthreaded */
+/* all-cores timings for FFT lengths from 1M on up.  These timings should prove more useful in */
+/* comparing which CPU is are most powerful. */
+
+			if (!all_bench && is_a_5678 && !plus1 && cpus == NUM_CPUS && hypercpus == 1 && fftlen / 1024 >= 1024)
+				add_bench_data_to_pkt (&pkt, "TP%luK", fftlen, throughput, FALSE);
+
 /* Benchmark next FFT */
 
 			lucasDone (&lldata);
@@ -9232,6 +9283,15 @@ int primeBenchMultipleWorkers (
 	  }  // End fftlen loop
 	}  // End plus1 loop
 	OutputBoth (thread_num, "\n");
+
+/* Send the benchmark data to the server. */
+
+//bug - send bench data to server. (checkbox to allow sending data to server?)
+//only do this if guid is registered? Or should we auto-register computer
+//under ANONYMOUS userid for stress-testers.
+
+	if (pkt.num_data_points)
+		spoolMessage (PRIMENET_BENCHMARK_DATA, &pkt);
 
 /* Output completion message */
 
@@ -9536,21 +9596,18 @@ int primeBench (
 		  }
 		  writeResults (buf);
 
-/* Accumulate best times to send to the server.  Limit the number sent since */
-/* we can only send fifty. */
+/* Accumulate best times to send to the server.  These are the "classic" best times -- that is, */
+/* best non-hyperthreaded single-core timings for FFT lengths from 1M on up. */
 
-		  if (!all_bench && is_a_5678 && !plus1 && hypercpu == 1 &&
-		      (cpu == 1 || (fftlen / 1024 > 768 && (cpu == 2 || cpu == 4))) &&
-		      pkt.num_data_points < PRIMENET_BENCH_MAX_DATAPOINTS) {
-			if (cpu == 1)
-				sprintf (pkt.data_points[pkt.num_data_points].bench,
-					 "FFT%luK", fftlen / 1024);
-			else
-				sprintf (pkt.data_points[pkt.num_data_points].bench,
-					 "FFT%luK %dT", fftlen / 1024, cpu);
-			pkt.data_points[pkt.num_data_points].timing = timer_value (timers, 0);
-			pkt.num_data_points++;
-		  }
+		  if (!all_bench && is_a_5678 && !plus1 && cpu == 1 && hypercpu == 1 && fftlen / 1024 >= 1024)
+			add_bench_data_to_pkt (&pkt, "FFT%luK", fftlen, timer_value (timers, 0), TRUE);
+
+/* Accumulate best times to send to the server.  We send the non-hyperthreaded all-cores */
+/* timings for FFT lengths from 1M on up.  These timings should prove more useful in */
+/* comparing which CPU is are most powerful. */
+
+		  if (!all_bench && is_a_5678 && !plus1 && cpu == NUM_CPUS && hypercpu == 1 && fftlen / 1024 >= 1024)
+			add_bench_data_to_pkt (&pkt, "AC%luK", fftlen, timer_value (timers, 0), TRUE);
 
 /* Time next FFT */
 
