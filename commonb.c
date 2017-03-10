@@ -9165,7 +9165,7 @@ int primeBenchMultipleWorkers (
 			 (workers > 1 && workers < cpus && bench_in_between_workers))) continue;
 		  if (cpus % workers != 0 && !bench_oddballs) continue;
 		  /* Only SSE2 code supports multi-threaded FFTs */
-		  if ((cpus > workers || hypercpus > 1) && ! (CPU_FLAGS & CPU_SSE2)) continue;  
+		  if ((cpus > workers || hypercpus > 1) && ! (CPU_FLAGS & CPU_SSE2)) continue;
 
 /* If timing all implementations of an FFT, loop through all possible implementations */
 
@@ -9200,7 +9200,7 @@ int primeBenchMultipleWorkers (
 				info[i].fftlen = fftlen;
 				info[i].plus1 = plus1;
 				info[i].impl = impl;
-				info[i].cpu_num = i * cpus/workers + (i < cpus%workers ? i : cpus%workers);
+				info[i].cpu_num = i * (cpus/workers) + (i < cpus%workers ? i : cpus%workers);
 				info[i].threads = (cpus/workers + (i < cpus%workers ? 1 : 0)) * hypercpus;
 				info[i].hyperthreads = hypercpus;
 				info[i].error_check = bench_error_check;
