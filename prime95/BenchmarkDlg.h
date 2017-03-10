@@ -62,8 +62,8 @@ protected:
 	virtual BOOL OnInitDialog();
 	afx_msg void OnEnChangeBenchType();
 	afx_msg void OnCbnKillfocusBenchType();
-	afx_msg void OnEnChangeMinFFT();
-	afx_msg void OnEnChangeMaxFFT();
+	afx_msg void OnEnKillfocusMinFFT();
+	afx_msg void OnEnKillfocusMaxFFT();
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };

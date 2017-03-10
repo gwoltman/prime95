@@ -92,8 +92,8 @@ BEGIN_MESSAGE_MAP(CBenchmarkDlg, CDialog)
 	//{{AFX_MSG_MAP(CBenchmarkDlg)
 	ON_EN_CHANGE(IDC_COMBO1, &CBenchmarkDlg::OnEnChangeBenchType)
 	ON_CBN_KILLFOCUS(IDC_COMBO1, &CBenchmarkDlg::OnCbnKillfocusBenchType)
-	ON_EN_CHANGE(IDC_MINFFT, &CBenchmarkDlg::OnEnChangeMinFFT)
-	ON_EN_CHANGE(IDC_MAXFFT, &CBenchmarkDlg::OnEnChangeMaxFFT)
+	ON_EN_KILLFOCUS(IDC_MINFFT, &CBenchmarkDlg::OnEnKillfocusMinFFT)
+	ON_EN_KILLFOCUS(IDC_MAXFFT, &CBenchmarkDlg::OnEnKillfocusMaxFFT)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -127,12 +127,12 @@ void CBenchmarkDlg::OnCbnKillfocusBenchType()
 	UpdateData ();		// Get the values from the dialog box
 }
 
-void CBenchmarkDlg::OnEnChangeMinFFT() 
+void CBenchmarkDlg::OnEnKillfocusMinFFT()
 {
 	UpdateData ();		// Get the values from the dialog box
 }
 
-void CBenchmarkDlg::OnEnChangeMaxFFT() 
+void CBenchmarkDlg::OnEnKillfocusMaxFFT()
 {
 	UpdateData ();		// Get the values from the dialog box
 }
