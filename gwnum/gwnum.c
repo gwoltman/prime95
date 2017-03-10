@@ -583,9 +583,16 @@ int calculate_bif (
 	case CPU_ARCHITECTURE_AMD_K10:
 		retval = BIF_K10;		/* Look for FFTs optimized for K10 */
 		break;
-	case CPU_ARCHITECTURE_AMD_BULLDOZER:
+	case CPU_ARCHITECTURE_AMD_BULLDOZER:	/* Bulldozer CPUs are horrible at AVX.  Go back to K10 optimized. */
 //		retval = BIF_BULL;		/* Look for FFTs optimized for Bulldozer */
-		retval = BIF_K10;		/* Look for FFTs optimized for K10 until we write Bulldozer specific FFTs */
+		retval = BIF_K10;		/* Look for FFTs optimized for K10 */
+		break;
+	case CPU_ARCHITECTURE_AMD_ZEN:		/* For now, assume ZEN has corrected Bulldozer's sorry AVX performance */
+	case CPU_ARCHITECTURE_AMD_OTHER:	/* For no particularly good reason, assume future AMD processors do well with Intel FFTs */
+		if (! (gwdata->cpu_flags & CPU_FMA3))
+			retval = BIF_I7;	/* Look for FFTs optimized for Core i3/i5/i7 */
+		else
+			retval = BIF_FMA3;	/* Look for FFTs optimized for Intel FMA3 CPUs */
 		break;
 	case CPU_ARCHITECTURE_OTHER:		/* Probably a VIA processor */
 		if (! (gwdata->cpu_flags & CPU_AVX))
@@ -596,7 +603,6 @@ int calculate_bif (
 			retval = BIF_FMA3;	/* Look for FFTs optimized for Haswell CPUs with FMA3 support */
 		break;
 	case CPU_ARCHITECTURE_PRE_SSE2:		/* Cannot happen, gwinfo should have selected x87 FFTs */
-	case CPU_ARCHITECTURE_AMD_OTHER:	/* Bulldozer AVX FFTs are slower than SSE2 FFTs, assume same for future AMD processors */
 	default:				/* For no particularly good reason, look for FFTs optimized for Core 2 */
 		retval = BIF_CORE2;
 		break;
@@ -1731,9 +1737,11 @@ void gwinit2 (
 	if (! (gwdata->cpu_flags & CPU_AVX)) gwdata->cpu_flags &= ~CPU_FMA3;
 
 /* AMD Bulldozer is faster using SSE2 rather than AVX. */
+/* Why do we do this here when calculate_bif selects K10 FFTs???  Is it so that gwnum_map_to_timing and other */
+/* informational routines return more accurate information?   Since the code below seens to work, leave it as is. */
 
-	if (gwdata->cpu_flags & CPU_AVX && gwdata->cpu_flags & CPU_3DNOW_PREFETCH)
-		gwdata->cpu_flags &= ~CPU_AVX;
+	if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_BULLDOZER)
+		gwdata->cpu_flags &= ~(CPU_AVX | CPU_FMA3);
 }
 
 /* Allocate memory and initialize assembly code for arithmetic */
@@ -6488,7 +6496,8 @@ unsigned long gwmap_to_estimated_size (
 
 /* Speed of other AVX processors compared to a Sandy Bridge */
 
-#define REL_BULLDOZER_SPEED	1.9	/* Bulldozer is slower than a Sandy Bridge */
+#define REL_BULLDOZER_SPEED	1.9	/* Bulldozer is slower than Sandy Bridge */
+#define REL_ZEN_SPEED		1.4	/* Zen is likely slower than Sandy Bridge which has true 256-bit AVX support whereas Zen has FMA3 */
 
 /* Make a guess as to how long a squaring will take.  If the number cannot */
 /* be handled, then kludgily return 100.0. */
@@ -6522,8 +6531,10 @@ double gwmap_to_timing (
 /* AMD64s and Pentium Ms are slower than P4s. */
 
 	if (gwdata.cpu_flags & CPU_AVX) {
-		timing = 0.10 * timing + 0.90 * timing * 4100.0 / CPU_SPEED;
-		if (strstr (CPU_BRAND, "AMD")) timing *= REL_BULLDOZER_SPEED;
+		timing = 0.10 * timing + 0.90 * timing * 4100.0 / CPU_SPEED;	/* Calibrated for Sandy Bridge */
+		if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_OTHER) timing *= REL_ZEN_SPEED;  /* Complete guess for future AMD CPUs */
+		else if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_ZEN) timing *= REL_ZEN_SPEED;
+		else if (strstr (CPU_BRAND, "AMD")) timing *= REL_BULLDOZER_SPEED;
 		if (gwdata.cpu_flags & CPU_FMA3) timing *= REL_FMA3_SPEED;
 	} else if (gwdata.cpu_flags & CPU_SSE2) {
 		timing = 0.10 * timing + 0.90 * timing * 1400.0 / CPU_SPEED;
