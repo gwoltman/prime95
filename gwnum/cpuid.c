@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2016 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2017 Mersenne Research, Inc.  All rights reserved
 | Author:  George Woltman
 | Email: woltman@alum.mit.edu
 |
@@ -404,7 +404,7 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			CPU_FLAGS |= CPU_FMA3;
 	}
 
-/* Get more feature flags.  Specifically the AVX2, AVX512F and PREFETCHWT1 flags. */
+/* Get more feature flags.  Specifically the AVX2, AVX512F, AVX512PF and PREFETCHWT1 flags. */
 
 	if (max_cpuid_value >= 7) {
 		reg.ECX = 0;
@@ -1305,12 +1305,21 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 
 /* Try to determine the CPU architecture */
 
+		Cpuid (0x80000001, &reg);
+		if ((reg.ECX >> 16) & 0x1)
+			CPU_FLAGS |= CPU_FMA4;
+
 		if (! (CPU_FLAGS & CPU_SSE2))
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_PRE_SSE2;
-		else if (CPU_FLAGS & CPU_AVX) {
+		else if (family_code == 15 && extended_family >= 9)		// Future AMD processors
+			CPU_ARCHITECTURE = CPU_ARCHITECTURE_AMD_OTHER;
+		else if (family_code == 15 && extended_family == 8)
+			CPU_ARCHITECTURE = CPU_ARCHITECTURE_AMD_ZEN;
+// Do we need to check for Bobcat and Jaguar family codes here?
+// The code below will return K10 for Bobcat and Bulldozer for Jaguar
+// See https://en.wikipedia.org/wiki/List_of_AMD_CPU_microarchitectures
+		else if (CPU_FLAGS & CPU_AVX)
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_AMD_BULLDOZER;
-			CPU_FLAGS |= CPU_FMA4;
-		}
 		else if (max_extended_cpuid_value < 0x8000001A)
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_AMD_K8;
 		else {
