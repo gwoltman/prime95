@@ -439,7 +439,7 @@ rel_url:
 	}
 	res = send (s, szURL, strlen (szURL), 0
 #ifdef MSG_NOSIGNAL /* Prevent SIGPIPE in Linux (and others) */
-		    | MSG_NOSIGNAL
+		    | (int) MSG_NOSIGNAL
 #endif
 		    );
 	if (res < 0) {
