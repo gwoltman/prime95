@@ -9200,7 +9200,7 @@ int primeBenchMultipleWorkers (
 				info[i].main_thread_num = thread_num;
 				info[i].fftlen = fftlen;
 				info[i].plus1 = plus1;
-				info[i].impl = lldata.gwdata.bench_pick_nth_fft;
+				info[i].impl = (all_bench ? impl : 0);
 				info[i].cpu_num = i * (cpus/workers) + (i < cpus%workers ? i : cpus%workers);
 				info[i].threads = (cpus/workers + (i < cpus%workers ? 1 : 0)) * hypercpus;
 				info[i].hyperthreads = hypercpus;
