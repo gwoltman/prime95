@@ -920,7 +920,7 @@ factor64_small ENDP
 ;	Parameter ptr = rdi
 
 PROCF	factor64_sieve
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r12,r13,r14,r15
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r12,r13,r14,r15,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
 
 ;
 ; Use special small prime sieving code for AVX2 and AVX512 capable machines
@@ -2786,7 +2786,7 @@ sievedn:
 
 ; Pop registers and return
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r12,r13,r14,r15
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r12,r13,r14,r15,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15
 
 factor64_sieve ENDP
 
