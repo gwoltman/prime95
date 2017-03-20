@@ -113,7 +113,10 @@ int MENUING = 0;
 
 void sigterm_handler(int signo)
 {
+	int	i;
+
 	stop_workers_for_escape ();	// Gracefully stop any active worker threads
+	for (i = 0; WORKER_THREADS_STOPPING && i < 100; i++) Sleep (50);  // Give the worker threads some time to stop gracefully
 	if (signo != SIGINT) {
 		KILL_MENUS = TRUE;	// Set flag so we exit the menus
 		fclose (stdin);		// Makes fgets in menu.c return.  Thus, mprime will terminate rather than waiting for a menu choice.
