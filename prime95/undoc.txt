@@ -146,6 +146,8 @@ combination of these settings in local.txt:
 	CpuSupportsAVX=0 or 1
 	CpuSupportsFMA3=0 or 1
 	CpuSupportsFMA4=0 or 1
+	CpuSupportsAVX2=0 or 1
+	CpuSupportsAVX512F=0 or 1
 This shouldn't be necessary though as the program uses the CPUID instruction
 to see if the CPU supports these features.
 
