@@ -8,7 +8,7 @@
 | NOTE:  These routines only work if you open no more than 10 ini files.  Also,
 | you must not change the working directory at any time during program execution.
 |
-| Copyright 2016 Mersenne Research, Inc.  All rights reserved
+| Copyright 2016-2017 Mersenne Research, Inc.  All rights reserved
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -90,6 +90,8 @@ struct IniCache {
 
 gwmutex	INI_MUTEX = NULL;		/* Lock for accessing INI files */
 gwmutex	INI_ADD_MUTEX = NULL;		/* Lock for accessing INI add-in files */
+void (*INI_ERROR_CALLBACK)(const char *, int, const char *);	/* Callback routine when illegal line read from INI file. */
+								/* Arguments are file name, line number, text on the line */
 
 /* Forward declarations of internal routines */
 
@@ -750,9 +752,9 @@ static	struct IniCache *cache[10] = {0};
 		else {
 			val = strchr (line, '=');
 			if (val == NULL) {
-//BUG				char	buf[1200];
-//BUG				sprintf (buf, "Illegal line in %s: %s\n", newFileName, line);
-//BUG				OutputSomewhere (MAIN_THREAD_NUM, buf);
+				/* Unparseable line, call user error handling routine */
+				if (INI_ERROR_CALLBACK != NULL) (*INI_ERROR_CALLBACK)(filename, p->num_lines, line);
+				/* Save unparseable line as a comment */
 				p->lines[i]->keyword = NULL;
 				p->lines[i]->value = (char *) malloc (strlen (line) + 1);
 				p->lines[i]->line_type = INI_LINE_COMMENT;
