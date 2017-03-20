@@ -896,6 +896,18 @@ int read_memory_settings (
 	return (strstr (p, " during ") == NULL);
 }
 
+/* Callback routine when illegal line read from INI file. */
+
+void ini_error_handler (
+	const char *filename,
+	int	line_number,
+	const char *line_text)
+{
+	char	buf[1200];
+	sprintf (buf, "File %s, line number %d is not valid: %s\n", filename, line_number, line_text);
+	OutputSomewhere (MAIN_THREAD_NUM, buf);
+}
+
 /* Determine the names of the INI files, then read them.  This is also the */
 /* perfect time to initialize mutexes and do other initializations. */
 
@@ -973,6 +985,12 @@ void nameAndReadIniFiles (
 	MERGE_WINDOWS = (int) IniGetInt (INI_FILE, "MergeWindows", MERGE_MAINCOMM_WINDOWS);
 	create_window (MAIN_THREAD_NUM);
 	base_title (MAIN_THREAD_NUM, "Main thread");
+
+/* Set error handler for printing errors while reading INI files once the main window is created. */
+/* Yes, we did ignore errors above reading prime.txt.  However, we will reread prime.txt */
+/* and will print the error message then. */
+
+	IniSetErrorCallback (ini_error_handler);
 
 /* Output a startup message */
 
