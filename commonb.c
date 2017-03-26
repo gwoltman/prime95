@@ -4196,7 +4196,10 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 /* a multiple of 6 (non-zero remainders of 7) or 60 (non-zero remainders of 7*11) or 720 (non-zero remainders of 7*11*13). */
 
 	num_siever_threads = facdata->num_pools * num_siever_threads_per_pool;
-	if (num_siever_threads <= 30) {
+	if (num_siever_threads == 1) {
+		num_siever_groups = 1;
+		facdata->num_sievers = 1;
+	} else if (num_siever_threads <= 30) {
 		num_siever_groups = (num_siever_threads + 5) / 6 * 7;
 		facdata->num_sievers = (num_siever_threads + 5) / 6 * 6;
 	} else if (num_siever_threads <= 360) {
@@ -4207,13 +4210,17 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 		facdata->num_sievers = (num_siever_threads + 719) / 720 * 720;
 	}
 
+	// It will be more efficient to always run with 7 or more siever allocs.  The one exception
+	// is when doing QA finding known factors.
+	if (facdata->num_sievers < 60 && IniGetInt (INI_FILE, "UseMaxSieverAllocs", 3) == 1)
+		num_siever_groups = 7, facdata->num_sievers = 6;
 	// I think it will be more efficient to always run with 60 or more siever allocs.  I saw a small
 	// speed increase on Skylake due to the 9% reduction in sieving at the cost of more memory consumed.
-	if (facdata->num_sievers < 60 && IniGetInt (INI_FILE, "UseMaxSieverAllocs", 2) == 1)
+	if (facdata->num_sievers < 60 && IniGetInt (INI_FILE, "UseMaxSieverAllocs", 3) == 2)
 		num_siever_groups = 77, facdata->num_sievers = 60;
 	// Increasing allocated sievers to 720 may be pushing it.  I need to benchmark this.
 	// It is faster on Skylake, made it the default.
-	if (facdata->num_sievers < 720 && IniGetInt (INI_FILE, "UseMaxSieverAllocs", 2) == 2)
+	if (facdata->num_sievers < 720 && IniGetInt (INI_FILE, "UseMaxSieverAllocs", 3) == 3)
 		num_siever_groups = 1001, facdata->num_sievers = 720;
 
 	// Calculate with small primes will be cleared by the initialization of the sieve area.
