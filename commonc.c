@@ -393,13 +393,9 @@ void getCpuInfo (void)
 	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsSSE", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_SSE;
 	if (temp == 1) CPU_FLAGS |= CPU_SSE;
-#ifndef X86_64
 	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsSSE2", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_SSE2;
 	if (temp == 1) CPU_FLAGS |= CPU_SSE2;
-#else
-	CPU_FLAGS |= CPU_SSE2;
-#endif
 	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsSSE4", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_SSE41;
 	if (temp == 1) CPU_FLAGS |= CPU_SSE41;
