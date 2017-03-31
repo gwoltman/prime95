@@ -8430,7 +8430,14 @@ int primeSieveTest (
 			factorDone (&facdata);
 			goto nextp;
 		}
-		facdata.endpt = ((double) fachi * 4294967296.0 + (double) facmid) * 4294967296.0 * 1.1;
+		/* Set endpoint to next power of two or, to make QA with more than one siever faster, */
+		/* set endpoint to 10% higher than the factor to find. */
+		{
+			double	fltfac;
+			fltfac = ((double) fachi * 4294967296.0 + (double) facmid) * 4294967296.0 + (double) faclo;
+			facdata.endpt = pow (2.0, ceil (log (fltfac) / log (2.0)));
+			if (facdata.endpt > fltfac * 1.1) facdata.endpt = fltfac * 1.1;
+		}
 		facdata.asm_data->FACHSW = fachi;
 		facdata.asm_data->FACMSW = facmid & ~0xFFF;
 		stop_reason = factorPassSetup (thread_num, pass, &facdata);
