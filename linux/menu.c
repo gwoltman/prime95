@@ -423,13 +423,17 @@ void test_worker_threads (void)
 	unsigned long m_num_thread, m_priority;
 	unsigned long m_work_pref[MAX_NUM_WORKER_THREADS];
 	unsigned long m_numcpus[MAX_NUM_WORKER_THREADS];
-	int	i, m_hyper_tf, m_hyper_ll;
+	int	i, m_hyper_tf, m_hyper_ll, cores_assigned;
 
 	m_num_thread = NUM_WORKER_THREADS;
 	m_priority = PRIORITY;
-	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
+	for (i = 0; i < NUM_WORKER_THREADS; i++) {
 		m_work_pref[i] = WORK_PREFERENCE[i];
 		m_numcpus[i] = CORES_PER_TEST[i];
+	}
+	for ( ; i < MAX_NUM_WORKER_THREADS; i++) {
+		m_work_pref[i] = WORK_PREFERENCE[i];
+		m_numcpus[i] = 0;
 	}
 	m_hyper_tf = HYPERTHREAD_TF;
 	m_hyper_ll = HYPERTHREAD_LL;
@@ -445,6 +449,7 @@ again:	if (max_num_workers () > 1)
 	}
 
 	if (USE_PRIMENET || NUM_CPUS > 1) {
+	    cores_assigned = 0;
 	    for (i = 0; i < m_num_thread; i++) {
 		if (m_num_thread > 1)
 			printf ("\nOptions for worker #%d\n\n", i+1);
@@ -458,15 +463,18 @@ again:	if (max_num_workers () > 1)
 		}
 
 		if (NUM_CPUS > 1) {
-			int min_cores, max_cores;
+			int	min_cores, max_cores;
 			min_cores = min_cores_for_work_type (m_work_pref[i]);
-			max_cores = NUM_CPUS - m_num_thread + 1;
+			// Max cores = num_cores_unassigned - num_workers_unconfigured + 1
+			max_cores = ((int) NUM_CPUS - cores_assigned) - ((int) m_num_thread - i) + 1;
 			if (max_cores < min_cores) max_cores = min_cores;
 			if (m_numcpus[i] < min_cores) m_numcpus[i] = min_cores;
 			if (m_numcpus[i] > max_cores) m_numcpus[i] = max_cores;
 			askNum ("CPU cores to use (multithreading)", &m_numcpus[i], min_cores, max_cores);
 		} else
 			m_numcpus[i] = 1;
+
+		cores_assigned += m_numcpus[i];
 	    }
 	}
 
