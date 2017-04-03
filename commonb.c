@@ -3064,6 +3064,16 @@ int primeContinue (
 
 	    for (w = NULL; ; ) {
 
+/* Reset sp_info structure in case a previous work_unit changed these settings.  */
+/* This actually happened when a TF job set normal_work_hyperthreads, and a */
+/* subsequent LL job inappropriately started using hyperthreading. */
+
+		sp_info.type = SET_PRIORITY_NORMAL_WORK;
+		sp_info.worker_num = thread_num;
+		sp_info.verbose_flag = IniGetInt (INI_FILE, "AffinityVerbosity", 1);
+		sp_info.normal_work_hyperthreads = 1;
+		sp_info.aux_thread_num = 0;
+
 /* Read the line from the work file, break when out of lines */
 /* Skip comment lines from worktodo.ini */
 
