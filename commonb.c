@@ -8609,6 +8609,7 @@ int primeTime (
 	sp_info.worker_num = thread_num;
 	sp_info.verbose_flag = IniGetInt (INI_FILE, "AffinityVerbosityTime", 0);
 	sp_info.aux_thread_num = 0;
+	sp_info.time_hyperthreads = 1;
 	SetPriority (&sp_info);
 
 /* Get settings from INI file */
