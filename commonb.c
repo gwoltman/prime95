@@ -4212,7 +4212,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 
 	// It will be more efficient to always run with 7 or more siever allocs.  The one exception
 	// is when doing QA finding known factors.
-	if (facdata->num_sievers < 60 && IniGetInt (INI_FILE, "UseMaxSieverAllocs", 3) == 1)
+	if (facdata->num_sievers < 6 && IniGetInt (INI_FILE, "UseMaxSieverAllocs", 3) == 1)
 		num_siever_groups = 7, facdata->num_sievers = 6;
 	// I think it will be more efficient to always run with 60 or more siever allocs.  I saw a small
 	// speed increase on Skylake due to the 9% reduction in sieving at the cost of more memory consumed.
