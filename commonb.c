@@ -3957,6 +3957,7 @@ typedef struct {
 	struct PriorityInfo *sp_info;		/* Priority structure for setting aux thread priority */
 	struct	facasm_data *asm_data;		/* Main thread's memory for assembly factoring code */
 	int	factoring_pass;			/* Which of the 16 factoring passes we are on */
+	int	pass_complete;			/* Set when a factoring pass completes */
 	uint32_t initsieve_primes;		/* Which primes are sieved when initializing from initsieve */
 	uint32_t one_eighth_initsieve_primes;	/* (1 / (8 * facdist1)) mod initsieve_primes.  Used to calculate first byte to copy from initsieve */
 	uint32_t *modinvarray;			/* Modular inverse of facdist for each sieving prime.  Used to set offsetarray. */
@@ -3968,7 +3969,6 @@ typedef struct {
 	uint32_t found_hsw[5];			/* HSW of a found factor */
 	uint32_t found_count;			/* Count of found factors */
 	unsigned int num_active_threads;	/* Count of the number of active auxiliary threads */
-	int	asm_data_initialized;		/* Flag used to make sure auxiliary threads copy valid asm_data */
 	int	threads_must_exit;		/* Flag set to force all auxiliary threads to terminate */
 	gwmutex	thread_lock;			/* This mutex limits one thread at a time in critical sections. */
 	gwevent	thread_work_to_do;		/* This event is set whenever the auxiliary threads have work to do. */
@@ -4036,27 +4036,9 @@ void factor_auxiliary_thread (void *arg)
 		gwevent_wait (&facdata->thread_work_to_do, 0);
 		if (facdata->threads_must_exit) break;
 
-/* Oddly, we can get here with no work to do and asm_data not properly initialized.  Imagine this is */
-/* thread 10 of 10.  FactorPassSetup for pass 1 signals the 9 auxiliary threads to begin work.  The main */
-/* thread and 8 auxiliary threads sieve and TF all the needed chunks -- num_active_threads rises to 8, returns */
-/* to zero and all_work_done is signalled.  The main thread then goes off and starts initilizing asm_data for */
-/* pass 2.  Finally, our tenth thread wakes up and finds itself here.  If it copies asm_data incorrect results */
-/* or a crash will occur.  We created the asm_data_initialized flag to combat this problem. */
-
-		gwmutex_lock (&facdata->thread_lock);
-		if (!facdata->asm_data_initialized) {
-			gwmutex_unlock (&facdata->thread_lock);
-			continue;
-		}
-
 /* Each thread needs its own copy of the asm_data.  Copy the structure after each factor_pass_setup */
 
 		memcpy (asm_data, main_thread_asm_data, sizeof (struct facasm_data));
-
-/* Increment number of active threads */
-
-		facdata->num_active_threads++;
-		gwmutex_unlock (&facdata->thread_lock);
 
 /* Loop factoring chunks */
 
@@ -4065,25 +4047,20 @@ void factor_auxiliary_thread (void *arg)
 			if (factorChunkMultithreaded (facdata, asm_data, info->thread_num)) break;
 		}
 
-/* The auxiliary threads have run out of work.  Decrement the count of */
-/* number of active auxiliary threads.  Signal all threads done when */
-/* last auxiliary thread is done. */
+/* Reset thread_work_to_do event before looping to wait for more work AND before signalling all_threads_done */
+/* which could restart the main thread which starts the next pass and signals thread_work_to_do which we could */
+/* undo if we reset thread_work_to_do after signalling all_threads_done. */
 
 		gwmutex_lock (&facdata->thread_lock);
-		facdata->num_active_threads--;
-		if (facdata->num_active_threads == 0) {
-			facdata->asm_data_initialized = FALSE;		// Neutralize any auxiliary threads that never started
-			gwevent_signal (&facdata->all_threads_done);
-		}
-		if (facdata->threads_must_exit) {
-			gwmutex_unlock (&facdata->thread_lock);
-			break;
-		}
-
-/* Reset thread_work_to_do event before looping to wait for more work. */
-
 		gwevent_reset (&facdata->thread_work_to_do);
+
+/* The auxiliary thread has run out of work.  Decrement the count of active auxiliary threads. */
+/* Signal all threads done when last auxiliary thread is done. */
+
+		facdata->num_active_threads--;
+		if (facdata->num_active_threads == 0) gwevent_signal (&facdata->all_threads_done);
 		gwmutex_unlock (&facdata->thread_lock);
+		if (facdata->threads_must_exit) break;
 	}
 
 /* Set thread priority (1 = thread terminating) */
@@ -4338,7 +4315,6 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 	gwevent_init (&facdata->thread_work_to_do);
 	gwevent_init (&facdata->sieved_areas_available);
 	gwevent_init (&facdata->all_threads_done);
-	facdata->num_active_threads = 0;
 	gwevent_signal (&facdata->all_threads_done);
 
 /* Pre-create each auxiliary thread used in TF code. */
@@ -4719,13 +4695,13 @@ int factorPassSetup (
 	facdata->num_chunks_TFed = 0;
 	facdata->total_num_chunks_TFed = 0;
 	facdata->total_num_chunks_to_TF = facdata->total_num_areas_to_sieve;
+	facdata->pass_complete = FALSE;
 
 /* Signal the auxiliary threads to resume working */
 /* This will copy the main thread's now properly initialized asm_data to each auxiliary thread */
 
 	if (facdata->num_threads > 1) {
-		facdata->asm_data_initialized = TRUE;			// Set flag letting auxiliary threads know asm_data is valid
-		facdata->num_active_threads = 0;			// Set count of active auxiliary threads
+		facdata->num_active_threads = facdata->num_threads - 1;	// Set count of active auxiliary threads
 		gwevent_reset (&facdata->all_threads_done);		// Clear auxiliary threads done signal
 		gwevent_signal (&facdata->thread_work_to_do);		// Start auxiliary threads
 	}
@@ -4786,6 +4762,7 @@ int factorChunk (			/* Return 1 if factor found, 2 if factor not found */
 	// finds a factor.
 	if (res) {
 		gwevent_wait (&facdata->all_threads_done, 0);
+		facdata->pass_complete = TRUE;
 	}
 	// If we (or an auxiliary thread) found a factor, end this pass and return the factor
 	if (facdata->found_count) {
@@ -4795,6 +4772,7 @@ int factorChunk (			/* Return 1 if factor found, 2 if factor not found */
 			res = factorChunkMultithreaded (facdata, asm_data, 0);
 		} while (!res);
 		gwevent_wait (&facdata->all_threads_done, 0);
+		facdata->pass_complete = TRUE;
 		facdata->found_count--;
 		asm_data->FACLSW = facdata->found_lsw[facdata->found_count];
 		asm_data->FACMSW = facdata->found_msw[facdata->found_count];
@@ -4837,8 +4815,8 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 
 /* We prefer to use the same siever as last time because the bit-to-clear offsets are likely to */
 /* be in one of the CPU's caches.  When we are not close to finishing up, we switch sievers after */
-/* every 64 sievings so that we make close to uniform progress which is prefered should we need */
-/* to create a save file.  When we are close to finish up, we want every thread to end at the */
+/* every 64 sievings so that we make close to uniform progress (which is prefered should we need */
+/* to create a save file).  When we are close to finishing up, we want every thread to end at the */
 /* same time so we become very strict about selecting neediest siever. */
 
 		if (siever->last_thread_used == aux_thread_num &&		// Siever is assigned to this thread
@@ -4898,10 +4876,10 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 
 /* It is possible to get here with a siever that has no work to do (all sievers with work */
 /* to do are currently tied up sieving).  Because we try to make uniform progress for */
-/* the last 20 sievings, this should be pretty darn rare. */
+/* the last 20 sievings, this should be pretty darn rare.  */
 
 		if (siever->num_areas_to_sieve == 0) {
-			if (pool->num_sieved_sieve_areas) goto tf;
+			if (!facdata->not_really_pooling && pool->num_sieved_sieve_areas) goto tf;
 			gwevent_reset (&facdata->sieved_areas_available);
 			gwmutex_unlock (&facdata->thread_lock);
 			gwevent_wait (&facdata->sieved_areas_available, 0);
@@ -4960,7 +4938,7 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 /* See if there are any sieved areas available to TF.  If not, wait or exit */
 
 	while (pool->num_sieved_sieve_areas == 0) {
-		if (pool->num_sievers_active == 0 && facdata->total_num_areas_to_sieve == 0) {
+		if ((facdata->not_really_pooling || pool->num_sievers_active == 0) && facdata->total_num_areas_to_sieve == 0) {
 			gwmutex_unlock (&facdata->thread_lock);
 			return (TRUE);			// Return no more work to do flag
 		}
@@ -5499,7 +5477,7 @@ begin:	factor_found = 0;
 /* Test for completion */
 
 #ifdef X86_64
-			if (facdata.total_num_chunks_TFed == facdata.total_num_chunks_to_TF) goto nextpass;
+			if (facdata.pass_complete) goto nextpass;
 #else
 			if (facdata.asm_data->FACHSW > endpthi ||
 			    (facdata.asm_data->FACHSW == endpthi && facdata.asm_data->FACMSW >= endptlo))
