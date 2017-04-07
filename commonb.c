@@ -4249,6 +4249,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 			num_small_primes++;
 		}
 		*primearray = 0;		// Terminate the prime array
+		end_sieve (sieve_info);
 	}
 
 /* Pre-calculate useful constants the assembly code will need */
