@@ -8616,7 +8616,7 @@ int primeTime (
 
 /* Loop through all possible cores and hyperthreads values */
 
-	for (num_hyperthreads = 1; num_hyperthreads <= max_hyperthreads; num_hyperthreads++) {
+	for (num_hyperthreads = min_hyperthreads; num_hyperthreads <= max_hyperthreads; num_hyperthreads++) {
 		sp_info.time_hyperthreads = num_hyperthreads;
 		for (num_cores = min_cores; num_cores <= max_cores; num_cores += incr_cores) {
 			if (!OS_CAN_SET_AFFINITY && num_hyperthreads > 1 && num_cores != NUM_CPUS) continue;
