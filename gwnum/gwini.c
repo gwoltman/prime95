@@ -392,6 +392,7 @@ void IniSectionWriteNthString (		/* Write keyword's Nth string value to a specif
 {
 	struct IniCache *p;
 	unsigned int i, j, insertion_point;
+	int	lines_were_deleted;
 
 /* Open ini file */
 
@@ -405,7 +406,7 @@ void IniSectionWriteNthString (		/* Write keyword's Nth string value to a specif
 	if (section != NULL) {
 		for ( ; ; i++) {
 			if (i == p->num_lines) {
-				if (val == NULL) goto done;
+				if (val == NULL) goto nowrite_done;
 				growIniLineArray (p);
 				p->lines[i] = (struct IniLine *) malloc (sizeof (struct IniLine));
 				p->lines[i]->line_type = INI_LINE_COMMENT;
@@ -436,6 +437,7 @@ void IniSectionWriteNthString (		/* Write keyword's Nth string value to a specif
 /* Look for the keyword within this section */
 
 	insertion_point = i;
+	lines_were_deleted = FALSE;
 	for ( ; ; i++) {
 		if (i == p->num_lines ||
 		    p->lines[i]->line_type == INI_LINE_HEADER ||
@@ -444,7 +446,10 @@ void IniSectionWriteNthString (		/* Write keyword's Nth string value to a specif
 
 /* Ignore request if we are deleting line */
 
-			if (val == NULL) goto done;
+			if (val == NULL) {
+				if (lines_were_deleted) goto write_done;
+				goto nowrite_done;
+			}
 
 /* Make sure the line array has room for the new line */
 
@@ -497,12 +502,13 @@ void IniSectionWriteNthString (		/* Write keyword's Nth string value to a specif
 				for (j = i + 1; j < p->num_lines; j++) p->lines[j-1] = p->lines[j];
 				p->num_lines--;
 				i--;
+				lines_were_deleted = TRUE;
 			}
 
 /* Replace the entry if this is the nth occurrence */
 
 			else if (--nth == 0) {
-				if (strcmp (val, p->lines[i]->value) == 0) goto done;
+				if (strcmp (val, p->lines[i]->value) == 0) goto nowrite_done;
 				break;
 			}
 		}
@@ -518,11 +524,13 @@ void IniSectionWriteNthString (		/* Write keyword's Nth string value to a specif
 
 /* Write the INI file back to disk */
 
+write_done:
 	writeIniFile (p);
 
 /* Unlock and return */
 
-done:	gwmutex_unlock (&INI_MUTEX);
+nowrite_done:
+	gwmutex_unlock (&INI_MUTEX);
 }
 
 /****************************************************************************/
