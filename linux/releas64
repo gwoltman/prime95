@@ -1,5 +1,6 @@
 mkdir ../release
 rm -f ../release/*
+chmod 644 *.txt
 cp undoc.txt ../release
 cp license.txt ../release
 cp readme.txt ../release
