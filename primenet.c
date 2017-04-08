@@ -437,9 +437,9 @@ rel_url:
 			LogMsg (buf);
 		}
 	}
-	res = send (s, szURL, strlen (szURL), 0
+	res = send (s, szURL, (int) strlen (szURL), 0
 #ifdef MSG_NOSIGNAL /* Prevent SIGPIPE in Linux (and others) */
-		    | (int) MSG_NOSIGNAL
+		    | MSG_NOSIGNAL
 #endif
 		    );
 	if (res < 0) {
