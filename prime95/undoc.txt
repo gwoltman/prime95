@@ -290,7 +290,7 @@ only the first parameter below is worth tuning:
 	MaxTFSievePrime=x		(default is 155000 on AVX512 CPUs, 145000 on FMA CPUs, 1000000 otherwise)
 The TF code uses a small prime sieve to eliminate composite trial factors.
 Set x to the maximum small prime used by this sieve.  MaxTFSievePrime is limited
-to the range of 1,000 to 100,000,000.
+to the range of 5,000 to 100,000,000.
 	ThreadsPerTFPool=n		(default is number of hyperthreads)
 When multithreading, set n to the number of threads to group together in a "pool".
 Pooling ensures that both sieving and trial factoring will be done by threads within
@@ -315,7 +315,8 @@ detremental when factoring to low bit levels.
 On AVX2 and AVX512 cpus, the code can sieve for small primes using either traditional x86
 instructions or using AVX2/AVX512 instructions.  As sieve primes get larger, the x86 code
 is faster than the AVX2/AVX512 code.  Set z to the number of blocks of small primes to use
-the AVX2/AVX512 code path.  On my AVX2 Skylake cpu the optimal block count is 9.
+the AVX2/AVX512 code path.  On my AVX2 Skylake cpu the optimal block count is 9.  Using too
+large a value here can result in memory corruption depending on the MaxTFSievePrime setting.
 
 You can control how many CPU cores and hyperthreads are used in Advanced/Time.
 Put these line in prime.txt:

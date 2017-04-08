@@ -4231,7 +4231,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 				      (CPU_FLAGS & CPU_AVX512F) ? 155000 :	// Knights Landing
 				      (CPU_FLAGS & CPU_FMA3) ? 145000 :		// Skylake optimized
 				      1000000);					// Need more data here
-		if (maxprime <= 1000) maxprime = 1000;				// Enforce sensible limits on MaxTFSievePrime
+		if (maxprime <= 5000) maxprime = 5000;				// Enforce sensible limits on MaxTFSievePrime
 		if (maxprime >= 100000000) maxprime = 100000000;		// Enforce sensible limits on MaxTFSievePrime
 		estimated_num_primes = (int) ((double) maxprime / (log ((double) maxprime) - 1.0) * 1.01);
 		asm_data->primearray = malloc (estimated_num_primes * sizeof (uint32_t));
