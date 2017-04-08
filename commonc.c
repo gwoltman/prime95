@@ -1178,6 +1178,7 @@ void read_cores_per_test (void)
 			for ( ; workers_this_package; workers_this_package--) {
 				temp[i] = cores_this_package / workers_this_package;
 				cores_this_package -= temp[i];
+				i++;
 			}
 		}
 
@@ -1190,6 +1191,13 @@ void read_cores_per_test (void)
 			PTOSetAll (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, temp[0]);
 		else for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
 			PTOSetOne (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, temp[i]);
+	}
+
+/* Sanity check the CoresPerTest.  In case user hand-edited local.txt */
+
+	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+		if (CORES_PER_TEST[i] < 1) CORES_PER_TEST[i] = 1;
+		if (CORES_PER_TEST[i] > NUM_CPUS) CORES_PER_TEST[i] = NUM_CPUS;
 	}
 }
 
