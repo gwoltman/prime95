@@ -3947,7 +3947,7 @@ typedef struct {
 	int	num_pools;			/* Number of pools */
 	int	num_threads_per_pool;		/* Number of threads assigned to each pool */
 	int	num_sieve_areas_per_pool;	/* Number of 12KB sieve areas in each pool */
-	int	not_really_pooling;		/* Each thread immediately TFs a sieve areas after being sieved */
+	int	pooling;			/* If not pooling, each thread immediately TFs the sieve area after being sieved */
 	struct pool_info *pools;		/* Ptr to info about each pool */
 
 	int	num_sievers;			/* Number of allocated sievers (residue classes of num_siever_groups) */
@@ -3974,7 +3974,8 @@ typedef struct {
 	gwmutex	thread_lock;			/* This mutex limits one thread at a time in critical sections. */
 	gwevent	thread_work_to_do;		/* This event is set whenever the auxiliary threads have work to do. */
 	gwevent	sieved_areas_available;		/* This event is set whenever a sieved area is made available for TF. */
-	gwevent	all_threads_done;		/* This event is set whenever the auxiliary threads are done and the */
+	gwevent	all_threads_started;		/* This event is set whenever the auxiliary threads are done and the */
+	gwevent	all_threads_done;		/* This event is set when all the auxiliary threads have started */
 						/* main thread can resume.  That is, it is set when num_active_threads==0 */
 } fachandle;
 
@@ -4041,6 +4042,17 @@ void factor_auxiliary_thread (void *arg)
 
 		memcpy (asm_data, main_thread_asm_data, sizeof (struct facasm_data));
 
+/* Increment count of active auxiliary threads.  Once all auxiliary threads have started reset the */
+/* thread_work_to_do event and signal the all_threads_started event */
+
+		gwmutex_lock (&facdata->thread_lock);
+		facdata->num_active_threads++;
+		if (facdata->num_active_threads == facdata->num_threads - 1) {
+			gwevent_reset (&facdata->thread_work_to_do);
+			gwevent_signal (&facdata->all_threads_started);
+		}
+		gwmutex_unlock (&facdata->thread_lock);
+
 /* Loop factoring chunks */
 
 		for ( ; ; ) {
@@ -4048,16 +4060,14 @@ void factor_auxiliary_thread (void *arg)
 			if (factorChunkMultithreaded (facdata, asm_data, info->thread_num)) break;
 		}
 
-/* Reset thread_work_to_do event before looping to wait for more work AND before signalling all_threads_done */
-/* which could restart the main thread which starts the next pass and signals thread_work_to_do which we could */
-/* undo if we reset thread_work_to_do after signalling all_threads_done. */
+/* Wait for all auxiliary threads to start before we start decrementing the count of active threads */
 
-		gwmutex_lock (&facdata->thread_lock);
-		gwevent_reset (&facdata->thread_work_to_do);
+		gwevent_wait (&facdata->all_threads_started, 0);
 
 /* The auxiliary thread has run out of work.  Decrement the count of active auxiliary threads. */
 /* Signal all threads done when last auxiliary thread is done. */
 
+		gwmutex_lock (&facdata->thread_lock);
 		facdata->num_active_threads--;
 		if (facdata->num_active_threads == 0) gwevent_signal (&facdata->all_threads_done);
 		gwmutex_unlock (&facdata->thread_lock);
@@ -4154,14 +4164,14 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 /* For FMA architectures (our fastest TF code), one siever does not keep 4 TF threads busy. */
 /* Knights Landing with AVX512 is another exception, needing at least 50% sievers. */
 /* NOTE:  The pooling code that operates sieving indepenently from TFing was written first. */
-/* Subsequently, I tried sieving and immediately TFing to improve locality - I call this not_really_pooling. */
+/* Subsequently, I tried sieving and immediately TFing to improve locality (not pooling). */
 /* Despite the perfect locality, timings were a little worse on both SkyLake and Knight's Landing. */
 /* NOTE: Pooling is turned off by setting PercentTFSieverThreads to 100. */
 
 	pct = IniGetInt (INI_FILE, "PercentTFSieverThreads", 50);
 	if (pct < 1) pct = 1;
 	if (pct > 100) pct = 100;
-	facdata->not_really_pooling = (pct == 100);
+	facdata->pooling = (pct != 100);
 	num_siever_threads_per_pool = (pct * facdata->num_threads_per_pool + 99) / 100;
 
 /* Initialize threads info (what pool the thread is in and if the thread can sieve) */
@@ -4278,7 +4288,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 
 /* Allocate more memory for sieve area(s) and sieve initialization in each pool. */
 
-	if (facdata->not_really_pooling)
+	if (!facdata->pooling)
 		facdata->num_sieve_areas_per_pool = facdata->num_threads_per_pool;
 	else
 		facdata->num_sieve_areas_per_pool = facdata->num_threads_per_pool * IniGetInt (INI_FILE, "TFSieveAreasPerThread", 4);
@@ -4316,6 +4326,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 	gwmutex_init (&facdata->thread_lock);
 	gwevent_init (&facdata->thread_work_to_do);
 	gwevent_init (&facdata->sieved_areas_available);
+	gwevent_init (&facdata->all_threads_started);
 	gwevent_init (&facdata->all_threads_done);
 	gwevent_signal (&facdata->all_threads_done);
 
@@ -4381,6 +4392,7 @@ void factorDone (
 	gwmutex_destroy (&facdata->thread_lock);
 	gwevent_destroy (&facdata->thread_work_to_do);
 	gwevent_destroy (&facdata->sieved_areas_available);
+	gwevent_destroy (&facdata->all_threads_started);
 	gwevent_destroy (&facdata->all_threads_done);
 	facdata->thread_lock = NULL;
 
@@ -4703,8 +4715,9 @@ int factorPassSetup (
 /* This will copy the main thread's now properly initialized asm_data to each auxiliary thread */
 
 	if (facdata->num_threads > 1) {
-		facdata->num_active_threads = facdata->num_threads - 1;	// Set count of active auxiliary threads
-		gwevent_reset (&facdata->all_threads_done);		// Clear auxiliary threads done signal
+		facdata->num_active_threads = 0;			// Set count of active auxiliary threads
+		gwevent_reset (&facdata->all_threads_started);		// Clear all auxiliary threads started signal
+		gwevent_reset (&facdata->all_threads_done);		// Clear all auxiliary threads done signal
 		gwevent_signal (&facdata->thread_work_to_do);		// Start auxiliary threads
 	}
 
@@ -4808,7 +4821,7 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 /* See if we should do some sieving.  The thread must be one that can sieve and there must be more sieve work left to do */
 
 	if (facdata->total_num_areas_to_sieve > 0 &&				// Is any sieving needed?
-	    (facdata->not_really_pooling ||					// If not really pooling, then we can always sieve
+	    (!facdata->pooling ||						// If not pooling, then we can always sieve
 	     (tf_thread->thread_can_sieve &&					// Pooling: Is thread allowed to sieve?
 	      pool->num_free_sieve_areas &&					// Pooling: Are there sieve areas free to work on?
 	      pool->num_sieved_sieve_areas < facdata->num_threads_per_pool*2))){// Pooling: Are there adequate areas already sieved? */
@@ -4881,7 +4894,7 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 /* the last 20 sievings, this should be pretty darn rare.  */
 
 		if (siever->num_areas_to_sieve == 0) {
-			if (!facdata->not_really_pooling && pool->num_sieved_sieve_areas) goto tf;
+			if (facdata->pooling && pool->num_sieved_sieve_areas) goto tf;
 			gwevent_reset (&facdata->sieved_areas_available);
 			gwmutex_unlock (&facdata->thread_lock);
 			gwevent_wait (&facdata->sieved_areas_available, 0);
@@ -4928,10 +4941,10 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 		siever->state = SIEVER_ASSIGNED + SIEVER_INACTIVE;
 		pool->num_sievers_active--;
 
-/* If we are really pooling, then return since we did some work. */
+/* If we are pooling, then return since we did some work. */
 /* Otherwise, fall through and TF the area we just sieved. */
 
-		if (!facdata->not_really_pooling) {
+		if (facdata->pooling) {
 			gwmutex_unlock (&facdata->thread_lock);
 			return (FALSE);
 		}
@@ -4940,7 +4953,7 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 /* See if there are any sieved areas available to TF.  If not, wait or exit */
 
 	while (pool->num_sieved_sieve_areas == 0) {
-		if ((facdata->not_really_pooling || pool->num_sievers_active == 0) && facdata->total_num_areas_to_sieve == 0) {
+		if ((!facdata->pooling || pool->num_sievers_active == 0) && facdata->total_num_areas_to_sieve == 0) {
 			gwmutex_unlock (&facdata->thread_lock);
 			return (TRUE);			// Return no more work to do flag
 		}
@@ -4953,12 +4966,12 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 
 /* Find a sieved area and TF it. */
 
-	// If not really pooling we use the same sieve area as last time for better locality.
-tf:	if (facdata->not_really_pooling)
+	// If not pooling then use the same sieve area as last time for better locality.
+tf:	if (!facdata->pooling)
 		i = tf_thread->last_sieve_area_used;
 	// Otherwise, find the sieved area with smallest first factor.  Well, rather than find the smallest
 	// we just circle through the array by starting one after the last index used.  It won't take long
-	// before the smallest sieved area is handed out for TF.  */
+	// before the smallest sieved area is handed out for TF. */
 	else for (i = pool->last_sieve_area_for_tf+1; ; i++) {
 		if (i == facdata->num_sieve_areas_per_pool) i = 0;
 		if (pool->sieve_areas[i].state == SIEVE_AREA_SIEVED) break;
