@@ -1300,6 +1300,7 @@ int readIniFiles (void)
 	NUM_WORKER_THREADS = IniGetInt (LOCALINI_FILE, "WorkerThreads", good_default_for_num_workers ());
 	if (NUM_WORKER_THREADS < 1) NUM_WORKER_THREADS = 1;
 	if (NUM_WORKER_THREADS > MAX_NUM_WORKER_THREADS) NUM_WORKER_THREADS = MAX_NUM_WORKER_THREADS;
+	IniWriteInt (LOCALINI_FILE, "WorkerThreads", NUM_WORKER_THREADS); // Write in case future prime95 changes good_default_for_num_workers
 	PRIORITY = (unsigned int) IniGetInt (INI_FILE, "Priority", 1);
 	if (PRIORITY < 1) PRIORITY = 1;
 	if (PRIORITY > 10) PRIORITY = 10;
