@@ -845,11 +845,9 @@ smslp:	add	rcx, rcx		; Shift until top bit on
 	mov	r9, 1
 	shl	r9, cl
 
-; First trial factor is 2p + 1
+; First trial factor is computed in C code and stored in savefac1
 
-	mov	rcx, p
-	add	rcx, rcx
-	inc	rcx
+	mov	rcx, savefac1
 
 ; If factor = 3 or 5 mod 8, then it can't be a factor of 2**p - 1
 
@@ -893,16 +891,12 @@ smnext:	add	rcx, p
 ; No small factor found - return for ESC check
 
 	mov	rax, 2			; Return for ESC check
-	shr	rdi, 32
-	mov	FACMSW, edi		; Restart after endpt
 	jmp	short smdone
 
 ; Divisor found, return TRUE
 
 smwin:	mov	rax, 1
-	mov	FACLSW, ecx
-	shr	rcx, 32
-	mov	FACMSW, ecx
+	mov	savefac1, rcx
 	jmp	short smdone
 
 ; Pop registers and return

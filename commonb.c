@@ -3873,6 +3873,8 @@ int getAnotherFactorIfAny (
 #define INITSIEVE_PRIMES3	(13 * 17 * 19 * 23)	// Initialize sieve with these 4 primes cleared (uses 108KB)
 #define INITSIEVE_PRIMES4	(17 * 19 * 23)		// Initialize sieve with these 3 primes cleared (uses 19KB)
 
+#define MAX_TF_FOUND_COUNT	10			// Maximum number of factors we'll find in a single pass
+
 /* This defines the C / assembly language communication structure */
 /* When multi-threading, each thread has its own copy of this structure */
 
@@ -3965,9 +3967,9 @@ typedef struct {
 	int	num_chunks_TFed;		/* Count of chunks TFed since last call to factorChunksProcessed */
 	uint64_t total_num_chunks_TFed;		/* Number of chunks TFed this pass */
 	uint64_t total_num_chunks_to_TF;	/* Number of chunks to TF this pass */
-	uint32_t found_lsw[5];			/* LSW of a found factor */
-	uint32_t found_msw[5];			/* MSW of a found factor */
-	uint32_t found_hsw[5];			/* HSW of a found factor */
+	uint32_t found_lsw[MAX_TF_FOUND_COUNT];	/* LSW of a found factor */
+	uint32_t found_msw[MAX_TF_FOUND_COUNT];	/* MSW of a found factor */
+	uint32_t found_hsw[MAX_TF_FOUND_COUNT];	/* HSW of a found factor */
 	uint32_t found_count;			/* Count of found factors */
 	unsigned int num_active_threads;	/* Count of the number of active auxiliary threads */
 	int	threads_must_exit;		/* Flag set to force all auxiliary threads to terminate */
@@ -4763,10 +4765,17 @@ int factorChunk (			/* Return 1 if factor found, 2 if factor not found */
 
 /* If we're looking for factors below 2^44, use special brute force code */
 
-	if (asm_data->FACHSW == 0 && asm_data->FACMSW < 0x1000) {
-		if (facdata->factoring_pass == 0) return (factor64_small (asm_data));
-		asm_data->FACMSW = 0x1000;
-		return (2);		// Return no-factor-found
+	if (facdata->factoring_pass == 0 && asm_data->FACHSW == 0 && asm_data->FACMSW < 0x1000) {
+		asm_data->savefac1 = 2 * (uint64_t) asm_data->p + 1;		// First factor to test is 2*p+1
+		while (factor64_small (asm_data) == 1) {			// Remember the found factor
+			if (facdata->found_count < MAX_TF_FOUND_COUNT) {	// I doubt we'll find more than 10 factors
+				facdata->found_lsw[facdata->found_count] = (uint32_t) asm_data->savefac1;
+				facdata->found_msw[facdata->found_count] = (uint32_t) (asm_data->savefac1 >> 32);
+				facdata->found_hsw[facdata->found_count] = 0;
+				facdata->found_count++;
+			}
+			asm_data->savefac1 += 2 * (uint64_t) asm_data->p;	// Calculate next factor to test
+		}
 	}
 
 /* The main thread uses the same code as the auxilary threads */
@@ -5006,7 +5015,7 @@ tf:	if (!facdata->pooling)
 			gwevent_signal (&facdata->sieved_areas_available); // In case a thread was waiting for a siever we just zeroed
 		}
 		// Remember the found factor
-		if (facdata->found_count < 5) {				/* I can't imagine ever finding 5 factors so close together */
+		if (facdata->found_count < MAX_TF_FOUND_COUNT) {	/* I can't imagine finding too many factors so close together */
 			facdata->found_lsw[facdata->found_count] = asm_data->FACLSW;
 			facdata->found_msw[facdata->found_count] = asm_data->FACMSW;
 			facdata->found_hsw[facdata->found_count] = asm_data->FACHSW;
