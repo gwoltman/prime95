@@ -4537,6 +4537,7 @@ assert	jb
 win64:	mov	FACLSW, eax		; Factor found!
 	shr	rax, 32
 	mov	FACMSW, eax
+	mov	FACHSW, 0
 	mov	rax, 1			; Return TRUE
 	jmp	done
 
