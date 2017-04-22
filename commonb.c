@@ -2018,7 +2018,7 @@ void read_pause_info (void)
 void start_pause_while_running_timer (void)
 {
 	if (PAUSE_DATA == NULL) return;
-	add_timed_event (TE_PAUSE_WHILE, PAUSE_WHILE_RUNNING_FREQ);
+	add_timed_event (TE_PAUSE_WHILE, 0);		// Check for pause-while-running programs immediately
 }
 
 void stop_pause_while_running_timer (void)
