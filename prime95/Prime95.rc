@@ -540,7 +540,7 @@ BEGIN
     COMBOBOX        IDC_COMBO2,90,71,200,81,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     LTEXT           "&CPU cores to use (multithreading):",IDC_NUMCPUS_TEXT,9,91,118,8
     EDITTEXT        IDC_NUMCPUS,129,89,36,12
-    CONTROL         "Use &hyperthreading for trial factoring (recommended)",IDC_HYPER_TF,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,116,200,10
+    CONTROL         "Use &hyperthreading for trial factoring (recommended, requires 64-bit Windows)",IDC_HYPER_TF,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,116,290,10
     CONTROL         "Use h&yperthreading for LL, P-1, ECM (not recommended)",IDC_HYPER_LL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,128,200,10
     LTEXT           "WARNING: It is strongly recommended that you use the default priority of 1.  This program is unlikely to run any faster at a higher priority.",IDC_WARN1,7,141,293,18
     LTEXT           "Pick a priority between 1 and 10 where 1 is the lowest priority and 10 is the highest.  Screen savers run at priority 4.  Most applications run at priority 7 or 9.",IDC_WARN2,7,158,293,18
