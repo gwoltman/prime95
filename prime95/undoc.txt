@@ -551,6 +551,21 @@ if similar issues occur in the future:
 	EnableSetAffinity=0 or 1	(default is 1)
 Set these options in prime.txt
 
+One can override the default affinity settings with the Affinity= option in local.txt.
+Suppose you want to change which logical CPUs the second worker window uses.  Here are some
+example lines you might add to the "[Worker #2]" section of local.txt (the logical CPUs use
+the numbering scheme returned by hwloc which you can see in results.txt by doing a benchmark):
+	Affinity=3,6,9
+Run main worker thread on logical CPU #3, run two aux threads on logical CPUs #6 & #9
+	Affinity=3-4,5-6
+Run main worker thread on logical CPUs #3 & #4, run aux thread on logical CPUs #5 & #6
+	Affinity={3,5,7},{4,6}
+Run main worker thread on logical CPUs #3, #5, & #7, run aux thread on logical CPUs #4 & #6
+	Affinity=(3,5,7),(4,6)
+Run main worker thread on logical CPUs #3, #5, & #7, run aux thread on logical CPUs #4 & #6
+	Affinity=[3,5-7],(4,6)
+Run main worker thread on logical CPUs #3, #5, #6, & #7, run aux thread on logical CPUs #4 & #6
+
 In the prime.txt file, the DaysBetweenCheckin value can be set to any value
 between 0.04 and 7.0.  Some SeventeenOrBust users want to send updates hourly.
 
