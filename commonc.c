@@ -92,6 +92,8 @@ int	WORKTODO_CHANGED = 0;	/* Flag indicating worktodo file needs */
 				/* writing */
 
 hwloc_topology_t hwloc_topology;	/* Hardware topology */
+unsigned int NUM_NUMA_NODES = 1;	/* Number of NUMA nodes in the computer */
+unsigned int NUM_THREADING_NODES = 1;	/* Number of nodes where it might be beneficial to keep a worker's threads in the same node */
 int	OS_CAN_SET_AFFINITY = 1;	/* hwloc supports setting CPU affinity (known exception is Apple) */
 
 #include "md5.c"
@@ -354,9 +356,18 @@ void getCpuInfo (void)
 	NUM_CPUS = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_CORE);
 	CPU_HYPERTHREADS = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_PU) / NUM_CPUS;
 
-/* Allow overriding the number of physical processors.  For historical */
-/* reasons, this code uses a variable called NUM_CPUS rather */
-/* than the CPU_CORES value set by guessCpuType. */
+/* New in version 29, determine the number of NUMA nodes.  We may use this later on to allocate memory from the proper NUMA node. */
+/* We also compute the number of "threading nodes".  That is, number of nodes where we don't want to split a worker's thread */
+/* across 2 threading nodes.  For example, there may well be a performance penalty if a worker's threads are on two different */
+/* physical CPUS or access data from two different L3 caches. */
+// bug -- very likely need much more sophisticated hwloc code here.  such as factoring in sharing L3 caches, or asymetric cores per node
+
+	NUM_NUMA_NODES = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_NUMANODE);
+	if (NUM_NUMA_NODES < 1 || NUM_CPUS % NUM_NUMA_NODES != 0) NUM_NUMA_NODES = 1;
+	NUM_THREADING_NODES = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_PACKAGE);		// bug:  also look at L3 caches???
+	if (NUM_THREADING_NODES < 1 || NUM_CPUS % NUM_THREADING_NODES != 0) NUM_THREADING_NODES = 1;
+
+/* Allow overriding the hwloc's generated values for number of physical processors, hyperthreads, and NUMA nodes. */
 
 	NUM_CPUS = IniGetInt (LOCALINI_FILE, "NumCPUs", NUM_CPUS);
 	temp = IniGetInt (LOCALINI_FILE, "NumPhysicalCores", 9999);
@@ -365,6 +376,8 @@ void getCpuInfo (void)
 		if (CPU_HYPERTHREADS < 1) CPU_HYPERTHREADS = 1;
 		NUM_CPUS = temp;
 	}
+	NUM_NUMA_NODES = IniGetInt (LOCALINI_FILE, "NumNUMANodes", NUM_NUMA_NODES);
+	NUM_THREADING_NODES = IniGetInt (LOCALINI_FILE, "NumThreadingNodes", NUM_THREADING_NODES);
 
 /* Calculate hardware GUID (global unique identifier) using the CPUID info. */
 /* Well, it isn't unique but it is about as good as we can do and still have */
@@ -759,6 +772,42 @@ uint64_t modinv (uint64_t x, uint64_t f)		/* Compute 1/x mod f */
 	return (d);
 }
 
+/* Add val to an array.  Horrible performance for big arrays. */
+
+void sorted_add_unique (int *vals, int *numvals, int newval)
+{
+	int	i, j;
+
+	for (i = 0; i < *numvals; i++) {
+		if (vals[i] == newval) return;
+		if (vals[i] < newval) continue;
+		j = vals[i];
+		vals[i] = newval;
+		newval = j;
+	}
+	vals[*numvals] = newval;
+	(*numvals)++;
+}
+
+/* Determine is number is included in a comma separated list of ranges (e.g. "1,4-6") */
+
+int is_number_in_list (int val, const char *list)
+{
+	const char *p, *dash, *comma;
+	int	start, end;
+
+	for (p = list; ; p = comma+1) {		// Loop through comma-separated list
+		start = atoi (p);
+		dash = strchr (p, '-');
+		comma = strchr (p, ',');
+		if (dash != NULL && (comma == NULL || dash < comma)) end = atoi (dash+1);
+		else end = start;
+		if (val >= start && val <= end) return (TRUE);
+		if (comma == NULL) break;
+	}
+	return (FALSE);
+}
+
 /* Upper case a string */
 
 void strupper (
@@ -1082,21 +1131,16 @@ void initCommCode (void) {
 
 int good_default_for_num_workers (void)
 {
-	int	packages, cores_per_package;
+	int	cores_per_node;
 
 // bug -- very likely need much more sophisticated hwloc code here.  such as factoring in sharing L3 caches,
 // NUMA, asymetric package core counts
 // warning: we'll need to mimic the more sophisticated code in read_cores_per_test
 
-/* Get a count of CPUs (not cores).  Our simple goal is to not split a worker across two physical chips. */
-
-	packages = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_PACKAGE);
-	if (packages < 1 || NUM_CPUS % packages != 0) packages = 1;
-
 /* Default to roughly 4 workers per worker */
 
-	cores_per_package = NUM_CPUS / packages;
-	return (packages * (cores_per_package <= 6 ? 1 : ((cores_per_package + 3) / 4)));
+	cores_per_node = NUM_CPUS / NUM_THREADING_NODES;
+	return (NUM_THREADING_NODES * (cores_per_node <= 6 ? 1 : ((cores_per_node + 3) / 4)));
 }
 
 /* Read CoresPerTest values.  This may require upgrading ThreadsPerTest to CoresPerTest. */
@@ -1156,28 +1200,24 @@ void read_cores_per_test (void)
 /* spanning across CPUs. */
 
 	if (CORES_PER_TEST[0] == 0) {
-		int	packages, cores_per_package, workers, workers_this_package, cores_this_package;
+		int	cores_per_node, nodes, workers, workers_this_node, cores_this_node;
 
 // bug -- very likely need much more sophisticated hwloc code here.  such as factoring in sharing L3 caches,
 // NUMA, asymetric package core counts
 // warning: we'll need to mimic the more sophisticated code in good_default_for_num_workers
 
-/* Get a count of CPUs (not cores).  Our simple goal is to not split a worker across two physical chips. */
-
-		packages = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_PACKAGE);
-		if (packages < 1 || NUM_CPUS % packages != 0) packages = 1;
-		cores_per_package = NUM_CPUS / packages;
-
-/* Decide how many workers will run on each package.  Then distribute the package's cores among those workers. */
+/* Decide how many workers will run on each node.  Then distribute the cores among those workers. */
 
 		i = 0;
+		cores_per_node = NUM_CPUS / NUM_THREADING_NODES;
+		nodes = NUM_THREADING_NODES;
 		workers = NUM_WORKER_THREADS;
-		for ( ; packages; packages--) {
-			cores_this_package = cores_per_package;
-			workers_this_package = workers / packages; workers -= workers_this_package;
-			for ( ; workers_this_package; workers_this_package--) {
-				temp[i] = cores_this_package / workers_this_package;
-				cores_this_package -= temp[i];
+		for ( ; nodes; nodes--) {
+			cores_this_node = cores_per_node;
+			workers_this_node = workers / nodes; workers -= workers_this_node;
+			for ( ; workers_this_node; workers_this_node--) {
+				temp[i] = cores_this_node / workers_this_node;
+				cores_this_node -= temp[i];
 				i++;
 			}
 		}

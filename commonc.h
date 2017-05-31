@@ -2,8 +2,8 @@
 
 /* Constants */
 
-#define VERSION		"29.1"
-#define BUILD_NUM	"16"
+#define VERSION		"29.2"
+#define BUILD_NUM	"1"
 /* The list of assigned OS ports follows: */
 /* Win9x (prime95) #1 */
 /* Linux (mprime)  #2 */
@@ -228,6 +228,8 @@ extern gwthread COMMUNICATION_THREAD;	/* Handle for comm thread.  Set when */
 /* Topology variables and routines */
 
 extern hwloc_topology_t hwloc_topology;	/* Hardware topology */
+extern unsigned int NUM_NUMA_NODES;	/* Number of NUMA nodes in the computer */
+extern unsigned int NUM_THREADING_NODES;/* Number of nodes where it might be beneficial to keep a worker's threads in the same node */
 extern int OS_CAN_SET_AFFINITY;		/* hwloc supports setting CPU affinity (known exception is Apple) */
 void topology_print_children (hwloc_obj_t obj, int);
 
@@ -244,6 +246,9 @@ uint64_t sieve (void *si);
 void end_sieve (void *si);
 uint64_t modinv (uint64_t x, uint64_t f);
 int relatively_prime (unsigned long, unsigned long);
+
+void sorted_add_unique (int *, int *, int);
+int is_number_in_list (int, const char *);
 
 unsigned int strToMinutes (const char *);
 void minutesToStr (unsigned int, char *);

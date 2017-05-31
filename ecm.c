@@ -2368,7 +2368,13 @@ return 0;
 	gwinit (&ecmdata.gwdata);
 	gwset_sum_inputs_checking (&ecmdata.gwdata, SUM_INPUTS_ERRCHK);
 	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&ecmdata.gwdata);
-	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreads = IniGetInt (LOCALINI_FILE, "HyperthreadLLcount", CPU_HYPERTHREADS);
+	if (HYPERTHREAD_LL) {
+		sp_info->normal_work_hyperthreads = IniGetInt (LOCALINI_FILE, "HyperthreadLLcount", CPU_HYPERTHREADS);
+		gwset_will_hyperthread (&ecmdata.gwdata, sp_info->normal_work_hyperthreads);
+	}
+	gwset_bench_cores (&ecmdata.gwdata, NUM_CPUS);
+	gwset_bench_workers (&ecmdata.gwdata, NUM_WORKER_THREADS);
+	gwset_will_error_check_near_limit(&ecmdata.gwdata);
 	gwset_num_threads (&ecmdata.gwdata, CORES_PER_TEST[thread_num] * sp_info->normal_work_hyperthreads);
 	gwset_thread_callback (&ecmdata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&ecmdata.gwdata, sp_info);
@@ -4513,7 +4519,13 @@ restart:
 	gwinit (&pm1data.gwdata);
 	gwset_sum_inputs_checking (&pm1data.gwdata, SUM_INPUTS_ERRCHK);
 	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pm1data.gwdata);
-	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreads = IniGetInt (LOCALINI_FILE, "HyperthreadLLcount", CPU_HYPERTHREADS);
+	if (HYPERTHREAD_LL) {
+		sp_info->normal_work_hyperthreads = IniGetInt (LOCALINI_FILE, "HyperthreadLLcount", CPU_HYPERTHREADS);
+		gwset_will_hyperthread (&pm1data.gwdata, sp_info->normal_work_hyperthreads);
+	}
+	gwset_bench_cores (&pm1data.gwdata, NUM_CPUS);
+	gwset_bench_workers (&pm1data.gwdata, NUM_WORKER_THREADS);
+	gwset_will_error_check_near_limit(&pm1data.gwdata);
 	gwset_num_threads (&pm1data.gwdata, CORES_PER_TEST[thread_num] * sp_info->normal_work_hyperthreads);
 	gwset_thread_callback (&pm1data.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&pm1data.gwdata, sp_info);
