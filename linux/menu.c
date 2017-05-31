@@ -1039,71 +1039,76 @@ void options_torture (void)
 
 void options_benchmark (void)
 {
-	unsigned long m_bench_type, m_minFFT, m_maxFFT;
-	int	m_all_FFT_sizes, m_bench_one_core, m_bench_all_cores, m_bench_in_between_cores, m_hyperthreading;
-	int	m_bench_one_worker, m_bench_max_workers, m_bench_in_between_workers;
-	unsigned long m_bench_time;
+	unsigned long m_bench_type, m_minFFT, m_maxFFT, m_bench_time;
+	char	m_cores[512], m_workers[512];
+	int	m_all_complex, m_limit_FFT_sizes, m_hyperthreading, m_all_FFT_impl;
+	int	i, vals[4], numvals;
 
 	m_bench_type = 0;
 	m_minFFT = IniGetInt (INI_FILE, "MinBenchFFT", 2048);
 	m_maxFFT = IniGetInt (INI_FILE, "MaxBenchFFT", 8192);
-	m_all_FFT_sizes = !IniGetInt (INI_FILE, "OnlyBench5678", 1);
+	m_all_complex = 0;				// IniGetInt (INI_FILE, "BenchAllComplex", 0);
+	m_limit_FFT_sizes = 0;				// IniGetInt (INI_FILE, "OnlyBench5678", 1);
 
-	m_bench_one_core = IniGetInt (INI_FILE, "BenchOneCore", 0);
-	m_bench_all_cores = IniGetInt (INI_FILE, "BenchAllCores", 1);
-	m_bench_in_between_cores = IniGetInt (INI_FILE, "BenchInBetweenCores", 0);
+	sprintf (m_cores, "%lu", NUM_CPUS);
 	m_hyperthreading = IniGetInt (INI_FILE, "BenchHyperthreads", 1);
 
-	m_bench_one_worker = IniGetInt (INI_FILE, "BenchOneWorkerCase", 1);
-	m_bench_max_workers = IniGetInt (INI_FILE, "BenchMaxWorkersCase", 1);
-	m_bench_in_between_workers = IniGetInt (INI_FILE, "BenchInBetweenWorkerCases", 0);
+	// Init throughput dialog box entries
+	m_all_FFT_impl = IniGetInt (INI_FILE, "AllBench", 0);
 	m_bench_time = IniGetInt (INI_FILE, "BenchTime", 15);
+	// If testing all FFT implementations. then default to the current num_workers.
+	// Otherwise, assume user is trying to figure out how many workers to run and form a string
+	// with the most common best values for number of workers: 1, num_threading_nodes, num_cores, num_workers
+	numvals = 0;
+	sorted_add_unique (vals, &numvals, NUM_WORKER_THREADS);
+	if (!m_all_FFT_impl) {
+		sorted_add_unique (vals, &numvals, 1);
+		sorted_add_unique (vals, &numvals, NUM_THREADING_NODES);
+		sorted_add_unique (vals, &numvals, NUM_CPUS);
+	}
+	sprintf (m_workers, "%d", vals[0]);
+	for (i = 1; i < numvals; i++) sprintf (m_workers + strlen (m_workers), ",%d", vals[i]);
 
 	askNum ("Benchmark type (0 = Throughput, 1 = FFT timings, 2 = Trial factoring)", &m_bench_type, 0, 2);
 	if (m_bench_type != 2) {
-		printf ("\nFFT sizes to benchmark\n");
+		printf ("\nFFTs to benchmark\n");
 		askNum ("Minimum FFT size (in K)", &m_minFFT, 1, 32768);
 		askNum ("Maximum FFT size (in K)", &m_maxFFT, m_minFFT, 32768);
+		askYN ("Benchmark all-complex FFTs (for LLR,PFGW,PRP users)", &m_all_complex);
 		if (m_minFFT != m_maxFFT)
-			askYN ("Benchmark every FFT size in the range", &m_all_FFT_sizes);
+			askYN ("Limit FFT sizes (mimic older benchmarking code)", &m_limit_FFT_sizes);
 	}
 
 	if (NUM_CPUS > 1 || CPU_HYPERTHREADS > 1) {
 		printf ("\nCPU cores to benchmark\n");
-		if (NUM_CPUS > 1) {
-			askYN ("Benchmark using one CPU core", &m_bench_one_core);
-			askYN ("Benchmark using all CPU cores", &m_bench_all_cores);
-		}
-		if (NUM_CPUS > 2)
-			askYN ("Benchmark using remaining CPU core combinations", &m_bench_in_between_cores);
+		if (NUM_CPUS > 1)
+			askStr ("Number of CPU cores (comma separated list of ranges)", m_cores, 511);
 		if (CPU_HYPERTHREADS > 1)
 			askYN ("Benchmark hyperthreading", &m_hyperthreading);
 	}
 
 	if (m_bench_type == 0) {
 		printf ("\nThroughput benchmark options\n");
-		if (NUM_CPUS > 1) {
-			askYN ("Benchmark one worker case", &m_bench_one_worker);
-			askYN ("Benchmark maximum workers case", &m_bench_max_workers);
-		}
-		if (NUM_CPUS > 2)
-			askYN ("Benchmark other worker/core combinations", &m_bench_in_between_workers);
+		if (NUM_CPUS > 1)
+			askStr ("Number of workers (comma separated list of ranges)", m_workers, 511);
+		askYN ("Benchmark all FFT implementations to find best one for your machine", &m_all_FFT_impl);
 		askNum ("Time to run each benchmark (in seconds)", &m_bench_time, 5, 60);
 	}
+
+	if (m_bench_type <> 0)
+		m_all_FFT_impl = 0;
 
 	if (askOkCancel ()) {
 		IniWriteInt (INI_FILE, "MinBenchFFT", m_minFFT);
 		IniWriteInt (INI_FILE, "MaxBenchFFT", m_maxFFT);
-		IniWriteInt (INI_FILE, "OnlyBench5678", !m_all_FFT_sizes);
+		IniWriteInt (INI_FILE, "BenchAllComplex", m_all_complex ? 2 : 0);
+		IniWriteInt (INI_FILE, "OnlyBench5678", m_limit_FFT_sizes);
 
-		IniWriteInt (INI_FILE, "BenchOneCore", m_bench_one_core);
-		IniWriteInt (INI_FILE, "BenchAllCores", m_bench_all_cores);
-		IniWriteInt (INI_FILE, "BenchInBetweenCores", m_bench_in_between_cores);
+		IniWriteString (INI_FILE, "BenchCores", m_cores);
 		IniWriteInt (INI_FILE, "BenchHyperthreads", m_hyperthreading);
 
-		IniWriteInt (INI_FILE, "BenchOneWorkerCase", m_bench_one_worker);
-		IniWriteInt (INI_FILE, "BenchMaxWorkerCase", m_bench_max_workers);
-		IniWriteInt (INI_FILE, "BenchInBetweenWorkerCases", m_bench_in_between_workers);
+		IniWriteString (INI_FILE, "BenchWorkers", m_workers);
+		IniWriteInt (INI_FILE, "AllBench", m_all_FFT_impl);
 		IniWriteInt (INI_FILE, "BenchTime", m_bench_time);
 		LaunchBench (m_bench_type);
 	}
