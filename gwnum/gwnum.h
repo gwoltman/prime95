@@ -60,9 +60,9 @@ typedef double *gwnum;
 /* gwsetup verifies that the version numbers match.  This prevents bugs */
 /* from accidentally linking in the wrong gwnum library. */
 
-#define GWNUM_VERSION		"28.14"
-#define GWNUM_MAJOR_VERSION	28
-#define GWNUM_MINOR_VERSION	14
+#define GWNUM_VERSION		"29.2"
+#define GWNUM_MAJOR_VERSION	29
+#define GWNUM_MINOR_VERSION	2
 
 /* Error codes returned by the three gwsetup routines */
 
@@ -222,6 +222,42 @@ void gwdone (
 
 #define gwset_thread_callback(h,n)		((h)->thread_callback = n)
 #define gwset_thread_callback_data(h,d)		((h)->thread_callback_data = d)
+
+/* Prior to calling one of the gwsetup routines, you can have the library */
+/* use any previous benchmark data stored in gwnum.txt to select the */
+/* fastest FFT implementation.  This is the default behavior. */
+
+#define gwset_use_benchmarks(h)		((h)->use_benchmarks = 1)
+#define gwclear_use_benchmarks(h)	((h)->use_benchmarks = 0)
+
+/* Set if FFTs will use hyperthreading. This may affect selection of fastest */
+/* FFT implementation.  By default, it is assumed hyperthreading will not be used. */
+
+#define gwset_will_hyperthread(h,n)	((h)->will_hyperthread = n)
+#define gwclear_will_hyperthread(h)	((h)->will_hyperthread = 0)
+
+/* Set if it is known how many cores will be used in total -- either by your */
+/* program or multiple instances of your program.  By default, this value is */
+/* the number of cores on the machine, which means the user of your program will */
+/* keep all cores fully occupied with gwnum work.  This setting may affect */
+/* selection of fastest FFT implementation and can be overriden in gwnum.txt. */
+
+#define gwset_bench_cores(h,n)		((h)->bench_num_cores = n)
+
+/* Set if it is known how many independent gwnum FFTs will be active -- either by your */
+/* program or multiple instances of your program.  Prime95 calls this "worker windows". */
+/* By default, this value is the number of cores divided by number of threads.  This setting */
+/* may affect selection of fastest FFT implementation and can be overriden in gwnum.txt. */
+
+#define gwset_bench_workers(h,n)		((h)->bench_num_workers = n)
+
+/* Set if FFTs will always error check, will error check if near limit of FFT, or will */
+/* not error check.  This setting may affect selection of fastest FFT implementation. */
+/* THIS INFORMATION IS NOT USED IN THIS GWNUM VERSION. */
+
+#define gwset_will_error_check(h)		((h)->will_error_check = 1)
+#define gwset_will_error_check_near_limit(h)	((h)->will_error_check = 2)
+#define gwclear_will_error_check(h)		((h)->will_error_check = 0)
 
 /* Prior to calling one of the gwsetup routines, you can have the library */
 /* attempt to use large pages (2MB or 4MB on Intel architecture) rather than the */
@@ -795,6 +831,17 @@ struct gwasm_jmptab {
 	int32_t counts[8];
 };
 
+struct gwasm_alt_jmptab {	/* Used when pass 1 and pass 2 code is shared among FFT implementations */
+	uint32_t max_exp;	/* Maximum exponent for this FFT len */
+	uint32_t fftlen;	/* FFT length */
+	float	timing;		/* Reference machine's time for a squaring */
+	uint32_t flags;		/* Flags defined in mult.asm */
+	void	*proc_ptr;	/* Ptr to assembly coded pass 1 FFT routine */
+	void	*pass2_proc_ptr;/* Ptr to assembly coded pass 2 FFT routine */
+	uint32_t mem_needed;	/* Memory needed */
+	int32_t counts[8];
+};
+
 /* Structure for maintaining groups of blocks for each pass 1 thread to work on. */
 /* Each thread wants to work on contiguous blocks for independent carry propagation. */
 
@@ -827,10 +874,8 @@ struct gwhandle_struct {
 					/* in a base-3 Fermat PRP test. */
 	unsigned long specific_fftlen;	/* Specific fft length for gwsetup to use. */
 	unsigned long minimum_fftlen;	/* Minimum fft length for gwsetup to use. */
-	int	larger_fftlen_count;	/* Force using larger FFT sizes.  This is a */
-					/* count of how many FFT sizes to "skip over". */
-	unsigned long num_threads;	/* Number of threads to use in multiply */
-					/* routines.  Default is obviously one. */
+	unsigned long num_threads;	/* Number of threads to use in multiply routines.  Default is obviously one. */
+	char	larger_fftlen_count;	/* Force using larger FFT sizes.  This is a count of how many FFT sizes to "skip over". */
 	char	sum_inputs_checking;	/* If possible, pick an FFT implementation that */
 					/* supports the SUM(INPUTS) != SUM(OUTPUTS) error check. */
 	char	force_general_mod;	/* Forces gwsetup_general_mod to not check for a k*2^n+c reduction */
@@ -838,7 +883,13 @@ struct gwhandle_struct {
 					/* This is slower, but more immune to round off errors from */
 					/* pathological bit patterns in the modulus. */
 	char	use_large_pages;	/* FUTURE USE: Try to use 2MB/4MB pages */
-	/* End of variables affecting gwsetup */
+	char	use_benchmarks;		/* Use benchmark data in gwnum.txt to select fastest FFT implementations */
+	char	will_hyperthread;	/* Set if FFTs will use hyperthreading (affects select fastest FFT implementation) */
+	char	will_error_check;	/* Set if FFTs will error check (affects select fastest FFT implementation) */
+	int	bench_num_cores;	/* Set to expected number of cores that will FFT (affects select fastest FFT implementation) */
+	int	bench_num_workers;	/* Set to expected number of workers that will FFT (affects select fastest FFT implementation) */
+
+/* End of variables affecting gwsetup */
 
 	double	k;			/* K in K*B^N+C */
 	unsigned long b;		/* B in K*B^N+C */
@@ -852,7 +903,9 @@ struct gwhandle_struct {
 	char	RATIONAL_FFT;		/* True if bits per FFT word is integer */
 	char	POSTFFT;		/* True if starting forward FFT on a result */
 	char	GENERAL_MOD;		/* True if doing general-purpose mod as defined in gwsetup_general_mod */
-	char	UNUSED_CHARS[3];
+	char	NO_PREFETCH_FFT;	/* True if this FFT does no prefetching */
+	char	IN_PLACE_FFT;		/* True if this FFT is in-place (no scratch area) */
+	char	UNUSED_CHARS[1];
 	int	FFT_TYPE;		/* Home-grown, Radix-4, etc. */
 	int	ARCH;			/* Architecture.  Which CPU type the FFT is optimized for. */
 	void	(*GWPROCPTRS[16])(void*); /* Ptrs to assembly routines */
@@ -981,7 +1034,7 @@ double gwmap_to_timing (double, unsigned long, unsigned long, signed long);
 unsigned long gwmap_to_memused (double, unsigned long, unsigned long, signed long);
 unsigned long gwmap_fftlen_to_max_exponent (unsigned long fftlen);
 unsigned long gwmap_to_estimated_size (double, unsigned long, unsigned long, signed long);
-int gwmap_to_fft_info (gwhandle *, double, unsigned long, unsigned long, signed long);
+//int gwmap_to_fft_info (gwhandle *, double, unsigned long, unsigned long, signed long); /* DEPRECATED */
 
 /* Generate a human-readable string for k*b^n+c */
 void gw_as_string(char *buf, double k, unsigned long b, unsigned long n,
