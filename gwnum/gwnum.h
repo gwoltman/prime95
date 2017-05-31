@@ -144,6 +144,25 @@ void gwdone (
 |                    GWNUM OBSCURE GWSETUP OPTIONS                     |
 +---------------------------------------------------------------------*/
 
+/* Prior to calling one of the gwsetup routines, you can tell the library */
+/* how many threads it can use to perform a multiply. */
+
+#define gwset_num_threads(h,n)		((h)->num_threads = n)
+#define gwget_num_threads(h)		((h)->num_threads)
+
+/* Specify a call back routine for the auxiliary threads to call when they */
+/* are created.  This lets the user of the gwnum library set the thread */
+/* priority and affinity as it sees fit.  You can also specify an arbitrary */
+/* pointer to pass to the callback routine. */
+/* The callback routine must be declared as follows: */
+/*	void callback (int thread_num, int action, void *data) */
+/* If you tell gwnum to use 4 threads, it will create 3 auxiliary threads */
+/* and pass the callback routine with thread_num = 1, 2, and 3. */
+/* Action is 0 for thread starting and 1 for thread terminating. */
+
+#define gwset_thread_callback(h,n)		((h)->thread_callback = n)
+#define gwset_thread_callback_data(h,d)		((h)->thread_callback_data = d)
+
 /* Prior to calling one of the gwsetup routines, you can have the library */
 /* "play it safe" by reducing the maximum allowable bits per FFT data word. */
 /* For example, the code normally tests a maximum of 22477 bits in a 1024 */
@@ -169,6 +188,7 @@ void gwdone (
 /* implementations that support the SUM(INPUTS) != SUM(OUTPUTS) error check. */
 /* NOTE:  This error check is not available for k*b^n+c IBDWT FFTs when */
 /* c is positive.  Setting this option will have no effect. */
+/* NOTE: sum_inputs checking is only available in SSE2 FFTs and earlier. */
 
 #define gwset_sum_inputs_checking(h,b) ((h)->sum_inputs_checking = (char) (b))
 
@@ -190,53 +210,28 @@ void gwdone (
 
 #define gwset_larger_fftlen_count(h,n)	((h)->larger_fftlen_count = n)
 
-/* Prior to calling one of the gwsetup routines, you can force the library */
-/* to use a minimum fft length.  You might use this routine if you are */
-/* having roundoff errors using the normal FFT length. */
-
+/* Prior to calling one of the gwsetup routines, you can set a minimum fft length. */
+/* You might use this routine to select a larger FFT if you are having roundoff */
+/* errors using the normal FFT length (or use gwset_larger_fftlen_count).  The library */
+/* will use the first FFT meeting the minimum_fftlen criteria -- EVEN IF IT WOULD */
+/* NOT ORDINARILY DO SO!!!  Set the FFT length below the default FFT length only if */
+/* you know what you are doing!! */
 #define gwset_minimum_fftlen(h,n)	((h)->minimum_fftlen = n)
 
-/* Prior to calling one of the gwsetup routines, you can force the library */
-/* to use a specific fft length.  This should rarely (if ever) be used. */
-/* I use it occasionally for benchmarking and/or checking round off errors */
-/* at the FFT crossover points. */
-/* Only choose a specific FFT size if you know what you are doing!! */
-
-#define gwset_specific_fftlen(h,n)	((h)->specific_fftlen = n)
-
-/* Prior to calling one of the gwsetup routines, you can tell the library */
-/* how many threads it can use to perform a multiply. */
-
-#define gwset_num_threads(h,n)		((h)->num_threads = n)
-#define gwget_num_threads(h)		((h)->num_threads)
-
-/* Specify a call back routine for the auxiliary threads to call when they */
-/* are created.  This lets the user of the gwnum library set the thread */
-/* priority and affinity as it sees fit.  You can also specify an arbitrary */
-/* pointer to pass to the callback routine. */
-/* The callback routine must be declared as follows: */
-/*	void callback (int thread_num, int action, void *data) */
-/* If you tell gwnum to use 4 threads, it will create 3 auxiliary threads */
-/* and pass the callback routine with thread_num = 1, 2, and 3. */
-/* Action is 0 for thread starting and 1 for thread terminating. */
-
-#define gwset_thread_callback(h,n)		((h)->thread_callback = n)
-#define gwset_thread_callback_data(h,d)		((h)->thread_callback_data = d)
-
 /* Prior to calling one of the gwsetup routines, you can have the library */
-/* use any previous benchmark data stored in gwnum.txt to select the */
-/* fastest FFT implementation.  This is the default behavior. */
+/* use benchmark data stored in gwnum.txt to select the fastest */
+/* FFT implementation.  This is the default behavior. */
 
 #define gwset_use_benchmarks(h)		((h)->use_benchmarks = 1)
 #define gwclear_use_benchmarks(h)	((h)->use_benchmarks = 0)
 
-/* Set if FFTs will use hyperthreading. This may affect selection of fastest */
+/* Set this if FFTs will use hyperthreading. This may affect selection of fastest */
 /* FFT implementation.  By default, it is assumed hyperthreading will not be used. */
 
 #define gwset_will_hyperthread(h,n)	((h)->will_hyperthread = n)
 #define gwclear_will_hyperthread(h)	((h)->will_hyperthread = 0)
 
-/* Set if it is known how many cores will be used in total -- either by your */
+/* Set this if it is known how many cores will be used in total -- either by your */
 /* program or multiple instances of your program.  By default, this value is */
 /* the number of cores on the machine, which means the user of your program will */
 /* keep all cores fully occupied with gwnum work.  This setting may affect */
@@ -244,14 +239,14 @@ void gwdone (
 
 #define gwset_bench_cores(h,n)		((h)->bench_num_cores = n)
 
-/* Set if it is known how many independent gwnum FFTs will be active -- either by your */
+/* Set this if it is known how many independent gwnum FFTs will be active -- either by your */
 /* program or multiple instances of your program.  Prime95 calls this "worker windows". */
 /* By default, this value is the number of cores divided by number of threads.  This setting */
 /* may affect selection of fastest FFT implementation and can be overriden in gwnum.txt. */
 
-#define gwset_bench_workers(h,n)		((h)->bench_num_workers = n)
+#define gwset_bench_workers(h,n)	((h)->bench_num_workers = n)
 
-/* Set if FFTs will always error check, will error check if near limit of FFT, or will */
+/* Set this if FFTs will always error check, will error check if near limit of FFT, or will */
 /* not error check.  This setting may affect selection of fastest FFT implementation. */
 /* THIS INFORMATION IS NOT USED IN THIS GWNUM VERSION. */
 
@@ -270,6 +265,14 @@ void gwdone (
 #define gwclear_use_large_pages(h)	((h)->use_large_pages = 0)
 #define gwget_use_large_pages(h)	((h)->use_large_pages)
 #define gw_using_large_pages(h)		((h)->large_pages_ptr != NULL)
+
+/* DEPRECATED, use gwset_minimum_fftlen instead. */
+/* Prior to calling one of the gwsetup routines, you can force the library */
+/* to use a specific fft length.  This should rarely (if ever) be used. */
+/* I use it occasionally for benchmarking and/or checking round off errors */
+/* at the FFT crossover points. */
+/* Only choose a specific FFT size if you know what you are doing!! */
+#define gwset_specific_fftlen(h,n)	((h)->minimum_fftlen = n)
 
 /*---------------------------------------------------------------------+
 |                     GWNUM MEMORY ALLOCATION ROUTINES                 |
@@ -872,7 +875,6 @@ struct gwhandle_struct {
 	long	maxmulbyconst;		/* Gwsetup needs to know the maximum value the caller will use in */
 					/* gwsetmulbyconst.  The default value is 3, commonly used */
 					/* in a base-3 Fermat PRP test. */
-	unsigned long specific_fftlen;	/* Specific fft length for gwsetup to use. */
 	unsigned long minimum_fftlen;	/* Minimum fft length for gwsetup to use. */
 	unsigned long num_threads;	/* Number of threads to use in multiply routines.  Default is obviously one. */
 	char	larger_fftlen_count;	/* Force using larger FFT sizes.  This is a count of how many FFT sizes to "skip over". */
@@ -888,8 +890,7 @@ struct gwhandle_struct {
 	char	will_error_check;	/* Set if FFTs will error check (affects select fastest FFT implementation) */
 	int	bench_num_cores;	/* Set to expected number of cores that will FFT (affects select fastest FFT implementation) */
 	int	bench_num_workers;	/* Set to expected number of workers that will FFT (affects select fastest FFT implementation) */
-
-/* End of variables affecting gwsetup */
+	/* End of variables affecting gwsetup */
 
 	double	k;			/* K in K*B^N+C */
 	unsigned long b;		/* B in K*B^N+C */

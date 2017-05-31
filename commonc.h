@@ -315,7 +315,7 @@ struct work_unit {		/* One line from the worktodo file */
 	unsigned long b;	/* B in k*b^n+c */
 	unsigned long n;	/* N in k*b^n+c */
 	signed long c;		/* C in k*b^n+c */
-	unsigned long forced_fftlen;/* Forced FFT length to use.  Primarily */
+	unsigned long minimum_fftlen;/* Minimum FFT length to use.  Primarily */
 				/* used for implementing soft FFT */
 				/* crossovers.  Zero means default fftlen */
 	double	sieve_depth;	/* How far it has been trial factored */

@@ -900,10 +900,6 @@ again:	zpad_jmptab = NULL;
 			if ((double) n * log2b / (double) zpad_jmptab->fftlen > 26.0) goto next1;
 			if (zpad_jmptab->fftlen < gwdata->minimum_fftlen) goto next1;
 
-/* If user requested a specific FFT length, then only examine that FFT size */
-
-			if (gwdata->specific_fftlen && zpad_jmptab->fftlen != gwdata->specific_fftlen) goto next1;
-
 /* Don't bother looking at this FFT length if the generic reduction would be faster */
 
 			if (generic_jmptab != NULL && zpad_jmptab->timing > 3.0 * generic_jmptab->timing)
@@ -978,7 +974,7 @@ again:	zpad_jmptab = NULL;
 
 /* See if this FFT length might work */
 
-			if ((weighted_bits_per_output_word <= max_weighted_bits_per_output_word || gwdata->specific_fftlen) &&
+			if ((weighted_bits_per_output_word <= max_weighted_bits_per_output_word || gwdata->minimum_fftlen) &&
 
 /* Result words are multiplied by k and the mul-by-const and any carry spread over 6 words. */
 /* Thus, the multiplied FFT result word cannot be more than 7 times bits-per-input-word */
@@ -1039,17 +1035,13 @@ next1:			zpad_jmptab = NEXT_SET_OF_JMPTABS (zpad_jmptab);
 
 		if (log2k >= 34.0) goto next2;
 
-/* If user requested a specific FFT length, then only examine that FFT size */
-
-		if (gwdata->specific_fftlen && jmptab->fftlen != gwdata->specific_fftlen) goto next2;
-
 /* Make sure this FFT length is implemented and benchmarking does not show that a larger FFT will be faster */
 
 		if (! is_fft_implemented (gwdata, c > 0, jmptab, &best_impl_id)) goto next2;
 
-/* Always use the specific_fftlen if n is zero (a special case call from gwmap_fftlen_to_max_exponent) */
+/* Always use the minimum_fftlen if n is zero (a special case call from gwmap_fftlen_to_max_exponent) */
 
-		if (gwdata->specific_fftlen && n == 0) break;
+		if (gwdata->minimum_fftlen && n == 0) break;
 
 /* Some calculations below depend on whether this is a one-pass or two-pass FFT. */
 /* However, some FFTs have both a one-pass and two-pass implementation.  In such cases, */
@@ -1200,7 +1192,7 @@ next1:			zpad_jmptab = NEXT_SET_OF_JMPTABS (zpad_jmptab);
 /* If the bits in an output word is less than the maximum allowed (or the user is trying to force us */
 /* to use this FFT), then we can probably use this FFT length -- though we need to do a few more tests. */
 
-		if (weighted_bits_per_output_word <= max_weighted_bits_per_output_word || gwdata->specific_fftlen) {
+		if (weighted_bits_per_output_word <= max_weighted_bits_per_output_word || gwdata->minimum_fftlen) {
 			double	carries_spread_over;
 
 /* Originally, carries were spread over 4 FFT words.  Some FFT code has been */
@@ -1829,7 +1821,6 @@ void gwinit2 (
 	memset (gwdata, 0, sizeof (gwhandle));
 	gwdata->safety_margin = 0.0;
 	gwdata->maxmulbyconst = 3;
-	gwdata->specific_fftlen = 0;
 	gwdata->minimum_fftlen = 0;
 	gwdata->larger_fftlen_count = 0;
 	gwdata->num_threads = 1;
@@ -1891,7 +1882,7 @@ int gwsetup (
 
 	if (k < 1.0) return (GWERROR_K_TOO_SMALL);
 	if (k > 9007199254740991.0) return (GWERROR_K_TOO_LARGE);
-	if (gwdata->specific_fftlen == 0) {
+	if (gwdata->minimum_fftlen == 0) {
 		if (gwdata->cpu_flags & CPU_AVX) {
 			if (log2(b) * (double) n > MAX_PRIME_AVX) return (GWERROR_TOO_LARGE);
 		} else if (gwdata->cpu_flags & CPU_SSE2) {
@@ -6565,7 +6556,7 @@ unsigned long gwmap_fftlen_to_max_exponent (
 
 	gwinit (&gwdata);
 	gwclear_use_benchmarks (&gwdata);
-	gwset_specific_fftlen (&gwdata, fftlen);
+	gwset_minimum_fftlen (&gwdata, fftlen);
 	if (gwinfo (&gwdata, 1.0, 2, 0, -1)) return (0);
 	return (gwdata.jmptab->max_exp);
 }

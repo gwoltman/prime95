@@ -5693,7 +5693,7 @@ int lucasSetup (
 /* Init the FFT code for squaring modulo 2^p+c */
 
 	gwset_safety_margin (&lldata->gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
-	gwset_specific_fftlen (&lldata->gwdata, fftlen);
+	gwset_minimum_fftlen (&lldata->gwdata, fftlen);
 	if (!IniGetInt (INI_FILE, "GW_BENCH_SPECIAL", 0))
 		res = gwsetup (&lldata->gwdata, 1.0, 2, p, c);
 	else {	/* Special INI settings for my use only to benchmark any k,b,n,c value */
@@ -6162,7 +6162,7 @@ int pick_fft_size (
 
 /* If we've already calculated the best FFT size, then return */
 
-	if (w->forced_fftlen) return (0);
+	if (w->minimum_fftlen) return (0);
 
 /* Get info on what percentage of exponents on either side of */
 /* an FFT crossover we will do this 1000 iteration test. */
@@ -6235,7 +6235,7 @@ int pick_fft_size (
 /* Now decide which FFT size to use based on the average error. */
 /* Save this info in worktodo.ini so that we don't need to do this again. */
 
-	w->forced_fftlen = (avg_error <= max_avg_error) ? small_fftlen : large_fftlen;
+	w->minimum_fftlen = (avg_error <= max_avg_error) ? small_fftlen : large_fftlen;
 	stop_reason = updateWorkToDoLine (thread_num, w);
 	if (stop_reason) return (stop_reason);
 
@@ -6243,7 +6243,7 @@ int pick_fft_size (
 
 	sprintf (buf,
 		 "Final average roundoff error is %.5g, using %luK FFT for exponent %ld.\n",
-		 avg_error, w->forced_fftlen / 1024, w->n);
+		 avg_error, w->minimum_fftlen / 1024, w->n);
 	OutputBoth (thread_num, buf);
 	return (0);
 }
@@ -6392,7 +6392,7 @@ begin:	gwinit (&lldata.gwdata);
 	gwset_num_threads (&lldata.gwdata, CORES_PER_TEST[thread_num] * sp_info->normal_work_hyperthreads);
 	gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&lldata.gwdata, sp_info);
-	stop_reason = lucasSetup (thread_num, p, w->forced_fftlen, &lldata);
+	stop_reason = lucasSetup (thread_num, p, w->minimum_fftlen, &lldata);
 	if (stop_reason) return (stop_reason);
 
 /* Record the amount of memory being used by this thread. */
@@ -7896,8 +7896,8 @@ int selfTest (
 
 /* What fft length are we running? */
 
-	if (w->forced_fftlen)
-		fftlen = w->forced_fftlen;
+	if (w->minimum_fftlen)
+		fftlen = w->minimum_fftlen;
 	else
 		fftlen = gwmap_to_fftlen (1.0, 2, w->n, -1);
 
@@ -9883,7 +9883,7 @@ begin:	gwinit (&gwdata);
 	gwset_num_threads (&gwdata, CORES_PER_TEST[thread_num] * sp_info->normal_work_hyperthreads);
 	gwset_thread_callback (&gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&gwdata, sp_info);
-	gwset_specific_fftlen (&gwdata, w->forced_fftlen);
+	gwset_minimum_fftlen (&gwdata, w->minimum_fftlen);
 	gwset_safety_margin (&gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
 	res = gwsetup (&gwdata, w->k, w->b, w->n, w->c);
 

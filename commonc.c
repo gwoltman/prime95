@@ -2206,7 +2206,7 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 	    w->k = 1.0;
 	    w->b = 2;
 	    w->c = -1;
-	    w->forced_fftlen = 0;
+	    w->minimum_fftlen = 0;
 	    w->extension[0] = 0;
 
 /* Parse the optional assignment_uid */
@@ -2258,7 +2258,7 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		safe_strcpy (value, p);
 		if ((sse2 && (CPU_FLAGS & CPU_SSE2)) ||
 		    (!sse2 && ! (CPU_FLAGS & CPU_SSE2)))
-			w->forced_fftlen = fftlen;
+			w->minimum_fftlen = fftlen;
 	    }
 
 /* Parse the optional file extension to use on save files (no good use */
@@ -2550,7 +2550,7 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 	         w->work_type == WORK_DBLCHK ||
 	         w->work_type == WORK_ADVANCEDTEST) &&
 	        (w->n < MIN_PRIME ||
-		 (w->forced_fftlen == 0 &&
+		 (w->minimum_fftlen == 0 &&
 		  w->n > (unsigned long) (CPU_FLAGS & (CPU_AVX | CPU_SSE2) ? MAX_PRIME_SSE2 : MAX_PRIME)))) {
 		char	buf[80];
 		sprintf (buf, "Error: Worktodo.txt file contained bad LL exponent: %ld\n", w->n);
@@ -2578,14 +2578,14 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 /* The quick workaround here is to ignore FFT lengths from the worktodo file if that FFT */
 /* length is not supported.  This is non-optimal because the proper FFT size will */
 /* have to be recalculated. */
-
-	    if (w->forced_fftlen && gwmap_fftlen_to_max_exponent (w->forced_fftlen) == 0) {
-		    char	buf[100];
-		    sprintf (buf, "Warning: Ignoring unsupported FFT length, %ld, on line %u of worktodo.txt.\n",
-			     w->forced_fftlen, linenum);
-		    OutputBoth (MAIN_THREAD_NUM, buf);
-		    w->forced_fftlen = 0;
-	    }
+//  This should not be necessary now that we use gwnum's minimum_fftlen
+//	    if (w->minimum_fftlen && gwmap_fftlen_to_max_exponent (w->minimum_fftlen) == 0) {
+//		    char	buf[100];
+//		    sprintf (buf, "Warning: Ignoring unsupported FFT length, %ld, on line %u of worktodo.txt.\n",
+//			     w->minimum_fftlen, linenum);
+//		    OutputBoth (MAIN_THREAD_NUM, buf);
+//		    w->minimum_fftlen = 0;
+//	    }
 
 /* Do more initialization of the work_unit structure */
 
@@ -2783,15 +2783,15 @@ int writeWorkToDoFile (
 
 /* Format the FFT length */
 
-		if (w->forced_fftlen) {
+		if (w->minimum_fftlen) {
 			strcat (idbuf, "FFT");
 			if (CPU_FLAGS & CPU_SSE2) strcat (idbuf, "2");
-			if ((w->forced_fftlen & 0xFFFFF) == 0)
-				sprintf (idbuf+strlen(idbuf), "=%luM,", w->forced_fftlen >> 20);
-			else if ((w->forced_fftlen & 0x3FF) == 0)
-				sprintf (idbuf+strlen(idbuf), "=%luK,", w->forced_fftlen >> 10);
+			if ((w->minimum_fftlen & 0xFFFFF) == 0)
+				sprintf (idbuf+strlen(idbuf), "=%luM,", w->minimum_fftlen >> 20);
+			else if ((w->minimum_fftlen & 0x3FF) == 0)
+				sprintf (idbuf+strlen(idbuf), "=%luK,", w->minimum_fftlen >> 10);
 			else
-				sprintf (idbuf+strlen(idbuf), "=%lu,", w->forced_fftlen);
+				sprintf (idbuf+strlen(idbuf), "=%lu,", w->minimum_fftlen);
 		}
 
 /* Output the optional file name extension (no good use right now, */

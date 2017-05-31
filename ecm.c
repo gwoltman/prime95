@@ -905,7 +905,7 @@ int setN (
 				divg (tmp, *N);
 			}
 			free (tmp);
-			/* w->forced_fftlen = w->n; */ /*=== too late to do this here. Moved before gwsetup() --SB. */
+			/* w->minimum_fftlen = w->n; */ /*=== too late to do this here. Moved before gwsetup() --SB. */
 			if (!w->known_factors || !strcmp (w->known_factors, "1")) {
 				p = sprintf (buf, "M%lu", w->n/q); if(q != w->n/q) p += sprintf (buf+p, "/M%d", q);
 				w->known_factors = (char *) malloc (p+1);
@@ -926,7 +926,7 @@ int setN (
 		if (w->c == 1) subg (tmp, *N); else addg (tmp, *N);
 		iaddg (1, *N);
 		free (tmp);
-		/* w->forced_fftlen = w->n; */ /*=== too late to do this here. Moved before gwsetup() --SB. */
+		/* w->minimum_fftlen = w->n; */ /*=== too late to do this here. Moved before gwsetup() --SB. */
 		if (!w->known_factors) {
 			p = sprintf (buf, "(%lu^%lu%+ld)", w->b, w->n/3, w->c);
 			w->known_factors = (char *) malloc (p+1);
@@ -2379,7 +2379,7 @@ return 0;
 	gwset_thread_callback (&ecmdata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&ecmdata.gwdata, sp_info);
 	gwset_safety_margin (&ecmdata.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
-	gwset_specific_fftlen (&ecmdata.gwdata, w->forced_fftlen);
+	gwset_minimum_fftlen (&ecmdata.gwdata, w->minimum_fftlen);
 	res = gwsetup (&ecmdata.gwdata, w->k, w->b, w->n, w->c);
 	if (res) {
 		sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
@@ -4530,7 +4530,7 @@ restart:
 	gwset_thread_callback (&pm1data.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&pm1data.gwdata, sp_info);
 	gwset_safety_margin (&pm1data.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
-	gwset_specific_fftlen (&pm1data.gwdata, w->forced_fftlen);
+	gwset_minimum_fftlen (&pm1data.gwdata, w->minimum_fftlen);
 	res = gwsetup (&pm1data.gwdata, w->k, w->b, w->n, w->c);
 	if (res) {
 		sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
