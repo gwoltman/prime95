@@ -486,16 +486,6 @@ where string is any text up to 256 bytes.
 
 The benchmarking dialog box lets you control many options, yet there are a few
 more that are only available using the settings below:
-In prime.txt, set
-	BenchAllComplex=0 or 1 or 2
-	AllBench=0 or 1
-Set BenchAllComplex to 0 for timing real FFTs only, 1 for real and complex FFTs,
-2 for complex FFTs only.  Set AllBench=1 to time FFT implementations optimized
-for other CPU architectures.  This is only useful during the development cycle
-to find the optimal FFT implementations for each CPU architecture.
-
-In addition to the benchmarking options above, the following options are
-available in the multiple workers throughput benchmark.
 	BenchOutputTopology=0 or 1	(default is 1)
 	BenchOddWorkers=0 or 1		(default is 1)
 	BenchDummyWorkers=0 or 1	(default is 0)
@@ -508,7 +498,8 @@ This may lead to more consistent benchmarks that are more indicitive of what wil
 this program in a real-world, all-cores-busy environment.  Option not available in throughput
 benchmarks. 
 
-When benchmarking on CPUs with lots of cores, the volume of output can be overwhelming.
+Since benchmark dialog boxes now accept a comma separated list of ranges, this next setting is
+now obsolete.  When benchmarking on CPUs with lots of cores, the volume of output can be overwhelming.
 You can limit which core counts are benchmarked using the prime.txt settings below:
 	BenchMinCores=n		(default 1)
 	BenchMaxCores=n		(default all cores)
@@ -554,7 +545,8 @@ Set these options in prime.txt
 One can override the default affinity settings with the Affinity= option in local.txt.
 Suppose you want to change which logical CPUs the second worker window uses.  Here are some
 example lines you might add to the "[Worker #2]" section of local.txt (the logical CPUs use
-the numbering scheme returned by hwloc which you can see in results.txt by doing a benchmark):
+the zero-based numbering scheme for PU# returned by hwloc which you can see in results.txt
+by doing a benchmark):
 	Affinity=3,6,9
 Run main worker thread on logical CPU #3, run two aux threads on logical CPUs #6 & #9
 	Affinity=3-4,5-6
