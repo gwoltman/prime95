@@ -389,7 +389,8 @@ void gw_random_number (
 /* gwfft	Perform the forward Fourier transform on a number */
 /* gwsquare	Multiplies a number by itself */
 /* gwsquare_carefully  Like gwsquare but uses a slower method that will */
-/*		have a low roundoff error even if input is non-random data */
+/*		have a lower roundoff error even if input is non-random data */
+/*		NOTE: Unlike gwsquare, input cannot have been partially FFTed */
 /* gwmul(s,d)	Computes d=s*d.  NOTE: s is replaced by its FFT */
 /* gwsafemul(s,d) Like gwmul but s is not replaced with its FFT */
 /* gwfftmul(s,d) Computes d=s*d.  NOTE: s must have been previously FFTed */
@@ -397,6 +398,7 @@ void gw_random_number (
 /*		been previously FFTed */
 /* gwmul_carefully(s,d)  Like gwsafemul but uses a slower method that will */
 /*		have a lower roundoff error even if input is non-random data */
+/*		NOTE: Unlike gwsafemul, inputs cannot have been partially FFTed */
 
 /* The routines below operate on numbers that have already been FFTed. */
 
