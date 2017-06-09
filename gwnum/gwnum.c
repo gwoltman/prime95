@@ -66,11 +66,6 @@
 void (*OutputBothRoutine)(int, const char *) = NULL;
 #define OutputBoth(t,x)	(*OutputBothRoutine)(t,x)
 
-/* Allow overriding which benchmark data we use to select fastest FFT implementations */
-
-int	BENCH_NUM_CORES = 0;
-int	BENCH_NUM_WORKERS = 0;
-
 /* Assembly helper routines */
 
 struct gwinfo1_data {
@@ -710,7 +705,7 @@ int is_fft_implemented (
 /* if there is benchmark data available and that a larger FFT size will not be faster. */
 
 	if (gwdata->use_benchmarks) {
-		int	num_cores, num_workers, num_hyperthreads, error_check;
+		int	num_cores, num_workers, num_hyperthreads, i;
 
 /* Calculate the number of cores, workers, and hyperthreads for looking up the right benchmark data */
 	
@@ -719,22 +714,23 @@ int is_fft_implemented (
 			if (num_hyperthreads <= 1) num_hyperthreads = 2;	/* Minimum hyperthread count is two */
 		} else
 			num_hyperthreads = 1;
-		num_cores = BENCH_NUM_CORES;					/* Use override from gwnum.txt */
-		if (num_cores == 0) num_cores = gwdata->bench_num_cores;	/* Else use suggested value from caller */
+		num_cores = gwdata->bench_num_cores;				/* Use suggested value from caller */
 		if (num_cores == 0) num_cores = CPU_CORES;			/* Else default to all cores will be busy */
-		num_workers = BENCH_NUM_WORKERS;				/* Use override from gwnum.txt */
-		if (num_workers == 0) num_workers = gwdata->bench_num_workers;	/* Else use suggested value from caller */
+		num_workers = gwdata->bench_num_workers;			/* Use suggested value from caller */
 		if (num_workers == 0) num_workers = num_cores * num_hyperthreads / gwdata->num_threads; /* Else default worker count */
 
 /* See if the benchmark database has bench data either with or without error checking. */
 /* Once we have throughput data from the benchmark database, make sure a slightly larger */
 /* FFT length will not offer even more throughput. */
 
-		for (error_check = 0; error_check <= 1; error_check++) {
+		for (i = 0; i <= 1; i++) {
 			struct gwasm_jmptab *next_jmptab;
-			int	impl, next_impl;
+			int	error_check, impl, next_impl;
 			double	throughput, next_throughput;
 
+			if (gwdata->will_error_check == 0) error_check = i;	/* Look for no-error-checking benchmarks first */
+			if (gwdata->will_error_check == 1) error_check = !i;	/* Look for error-checking benchmarks first */
+			if (gwdata->will_error_check == 2) error_check = i;	/* Need a more sophisticated approach in this case */
 			gwbench_get_max_throughput (jmptab->fftlen, num_cores, num_workers, num_hyperthreads,
 						    all_complex, error_check, &impl, &throughput);
 			if (throughput <= 0.0) continue;
@@ -1813,8 +1809,6 @@ void gwinit2 (
 /* Read the gwnum.txt INI file */
 
 	gwbench_read_data ();
-	BENCH_NUM_CORES = IniGetInt (GWNUMINI_FILE, "BenchCores", 0);
-	BENCH_NUM_WORKERS = IniGetInt (GWNUMINI_FILE, "BenchWorkers", 0);
 
 /* Initialize gwhandle structure with the default values */
 

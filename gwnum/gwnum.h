@@ -248,7 +248,7 @@ void gwdone (
 
 /* Set this if FFTs will always error check, will error check if near limit of FFT, or will */
 /* not error check.  This setting may affect selection of fastest FFT implementation. */
-/* THIS INFORMATION IS NOT USED IN THIS GWNUM VERSION. */
+/* By default, it is assumed round off error checking will not be used for every operation. */
 
 #define gwset_will_error_check(h)		((h)->will_error_check = 1)
 #define gwset_will_error_check_near_limit(h)	((h)->will_error_check = 2)
@@ -979,8 +979,7 @@ struct gwhandle_struct {
 	uint32_t ASM_TIMERS[32];	/* Internal timers used by me to optimize code */
 	int	bench_pick_nth_fft;	/* DO NOT set this variable.  Internal hack to force the FFT selection code to */
 					/* pick the n-th possible implementation instead of the best one.  The prime95 */
-					/* benchmarking code uses this to time every FFT implementation so that we can */
-					/* find the best for a new CPU architecture */
+					/* benchmarking code uses this to time every FFT implementation. */
 	int	qa_pick_nth_fft;	/* DO NOT set this variable.  Internal hack to force the FFT selection code to */
 					/* pick the n-th possible implementation instead of the best one.  The prime95 QA */
 					/* code uses this to compare results from one FFT implementation to the (should */
@@ -1038,11 +1037,11 @@ unsigned long gwmap_to_estimated_size (double, unsigned long, unsigned long, sig
 //int gwmap_to_fft_info (gwhandle *, double, unsigned long, unsigned long, signed long); /* DEPRECATED */
 
 /* Generate a human-readable string for k*b^n+c */
-void gw_as_string(char *buf, double k, unsigned long b, unsigned long n,
-		  signed long c);
+void gw_as_string(char *buf, double k, unsigned long b, unsigned long n, signed long c);
 
 /* Other routines used internally */
 
+int gwinfo (gwhandle *, double, unsigned long, unsigned long, signed long);
 double virtual_bits_per_word (gwhandle *);
 unsigned long addr_offset (gwhandle *, unsigned long);
 double *addr (gwhandle *, gwnum, unsigned long);
