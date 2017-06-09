@@ -122,21 +122,21 @@ build421 CORE_64,		FMA3_64,		,			yr4dwpn_pass1sc1536 18M, 12288
 build421 CORE + FMA3_64,	,			,			yr4dwpn_pass1sc1536 23040K, 15360
 build421 CORE_64,		FMA3_64,		,			yr4dwpn_pass1sc1536 24M, 14
 build421 FMA3_64,		,			,			yr4dwpn_pass1sc1536 30M, 20480
-;;build421 ,			,			,			yr4dwpn_pass1sc1536 38400K, 25600
+build421 ,			,			,			yr4dwpn_pass1sc1536 38400K, 25600
 
 build421 CORE_64,		,			,			yr4dwpn_pass1sc1792 16128K, 9216
 build421 CORE + FMA3_64,	,			,			yr4dwpn_pass1sc1792 21M, 12288
 build421 CORE,			,			,			yr4dwpn_pass1sc1792 26880K, 15360
 build421 CORE,			FMA3_64,		,			yr4dwpn_pass1sc1792 28M, 14
-;;build421 ,			,			,			yr4dwpn_pass1sc1792 35840K, 20480
-;;build421 ,			,			,			yr4dwpn_pass1sc1792 44800K, 25600
+build421 FMA3_64,		,			,			yr4dwpn_pass1sc1792 35840K, 20480
+build421 FMA3_64,		,			,			yr4dwpn_pass1sc1792 44800K, 25600
 
 build421 CORE_32,		,			,			yr4dwpn_pass1sc2048 18M, 9216
 build421 CORE_32,		,			,			yr4dwpn_pass1sc2048 24M, 12288
 build421 CORE,			,			,			yr4dwpn_pass1sc2048 30M, 15360
 build421 CORE,			,			FMA3_64,		yr4dwpn_pass1sc2048 32M, 14
-;build421 ,			,			,			yr4dwpn_pass1sc2048 40M, 20480
-;build421 ,			,			,			yr4dwpn_pass1sc2048 50M, 25600
+build421 FMA3_64,		,			,			yr4dwpn_pass1sc2048 40M, 20480
+build421 FMA3_64,		,			,			yr4dwpn_pass1sc2048 50M, 25600
 
 ;build421 ,			,			,			yr4dwpn_pass1sc2560 23040K, 9216
 ;build421 ,			,			,			yr4dwpn_pass1sc2560 30M, 12288
@@ -231,14 +231,14 @@ build421 CORE_64 + FMA3_64,	,			,			yr4dwpn_pass1sc1536ac 18M, 12288
 build421 CORE    + FMA3_64,	,			,			yr4dwpn_pass1sc1536ac 23040K, 15360
 build421 CORE_64,		FMA3_64,		,			yr4dwpn_pass1sc1536ac 24M, 14
 build421 ,			,			,			yr4dwpn_pass1sc1536ac 30M, 20480
-;build421 ,			,			,			yr4dwpn_pass1sc1536ac 38400K, 25600
+build421 FMA3_64,		,			,			yr4dwpn_pass1sc1536ac 38400K, 25600
 
 build421 CORE_32,		,			,			yr4dwpn_pass1sc2048ac 18M, 9216
 build421 CORE_32,		,			,			yr4dwpn_pass1sc2048ac 24M, 12288
 build421 CORE,			,			,			yr4dwpn_pass1sc2048ac 30M, 15360
 build421 CORE,			FMA3_64,		,			yr4dwpn_pass1sc2048ac 32M, 14
-;build421 ,			,			,			yr4dwpn_pass1sc2048ac 40M, 20480
-;build421 ,			,			,			yr4dwpn_pass1sc2048ac 50M, 25600
+build421 FMA3_64,		,			,			yr4dwpn_pass1sc2048ac 40M, 20480
+build421 FMA3_64,		,			,			yr4dwpn_pass1sc2048ac 50M, 25600
 
 ;build421 ,			,			,			yr4dwpn_pass1sc2560ac 23040K, 9
 ;build421 ,			,			,			yr4dwpn_pass1sc2560ac 30M, 12288

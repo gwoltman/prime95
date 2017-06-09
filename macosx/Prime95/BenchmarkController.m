@@ -31,7 +31,7 @@
 	[self setMinFFT:IniGetInt (INI_FILE, "MinBenchFFT", 2048)];
 	[self setMaxFFT:IniGetInt (INI_FILE, "MaxBenchFFT", 8192)];
 	[self setMinBenchableFFT:4];
-	[self setMaxBenchableFFT:32768];
+	[self setMaxBenchableFFT:51200];
 	[self setErrchk:ERRCHK];			//[self setAllComplex:IniGetInt (INI_FILE, "BenchErrorCheck", 0)];
 	[self setAllComplex:0];				//[self setAllComplex:IniGetInt (INI_FILE, "BenchComplex", 0)];
 	[self setLimitFFTSizes:0];			//[self setLimitFFTSizes:IniGetInt (INI_FILE, "OnlyBench5678", 1)];
@@ -143,7 +143,7 @@
 	IniWriteInt (INI_FILE, "MinBenchFFT", minFFT);
 	IniWriteInt (INI_FILE, "MaxBenchFFT", maxFFT);
 	IniWriteInt (INI_FILE, "BenchErrorCheck", errchk);
-	IniWriteInt (INI_FILE, "BenchComplex", allComplex ? 2 : 0);
+	IniWriteInt (INI_FILE, "BenchAllComplex", allComplex ? 2 : 0);
 	IniWriteInt (INI_FILE, "OnlyBench5678", limitFFTSizes);
 	IniWriteString (INI_FILE, "BenchCores", [benchCores UTF8String]);
 	IniWriteInt (INI_FILE, "BenchHyperthreads", hyperthreading);

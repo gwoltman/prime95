@@ -632,6 +632,7 @@ loop:	m_p = 0;
 		askNum ("Worker number", &m_thread, 1, NUM_WORKER_THREADS);
 
 	askNumNoDflt ("Exponent to test", &m_p, MIN_PRIME,
+		      CPU_FLAGS & CPU_FMA3 ? MAX_PRIME_FMA3 :
 		      CPU_FLAGS & CPU_SSE2 ? MAX_PRIME_SSE2 : MAX_PRIME);
 
 	if (askOkCancel ()) {
@@ -664,6 +665,7 @@ void advanced_time (void)
 	m_iter = 10;
 
 	askNum ("Exponent to time", &m_p, MIN_PRIME,
+	        CPU_FLAGS & CPU_FMA3 ? MAX_PRIME_FMA3 :
 	        CPU_FLAGS & CPU_SSE2 ? MAX_PRIME_SSE2 : MAX_PRIME);
 	askNum ("Number of Iterations", &m_iter, 1, 1000);
 	if (askOkCancel ()) {
@@ -1021,9 +1023,13 @@ void options_torture (void)
 
 	if (m_type >= 11) {
 		askNum ("Min FFT size (in K)", &m_minfft, (CPU_FLAGS & CPU_AVX) ? 0 : 7,
-			(CPU_FLAGS & CPU_SSE2 ? MAX_FFTLEN_SSE2 : MAX_FFTLEN) / 1024);
+			CPU_FLAGS & CPU_FMA3 ? MAX_FFTLEN_FMA3 / 1024 :
+			CPU_FLAGS & CPU_SSE2 ? MAX_FFTLEN_SSE2 / 1024 :
+					       MAX_FFTLEN / 1024);
 		askNum ("Max FFT size (in K)", &m_maxfft, (CPU_FLAGS & CPU_AVX) ? 1 : 7,
-			(CPU_FLAGS & CPU_SSE2 ? MAX_FFTLEN_SSE2 : MAX_FFTLEN) / 1024);
+			CPU_FLAGS & CPU_FMA3 ? MAX_FFTLEN_FMA3 / 1024 :
+			CPU_FLAGS & CPU_SSE2 ? MAX_FFTLEN_SSE2 / 1024 :
+					       MAX_FFTLEN / 1024);
 		if (blendmemory > 8)
 			askNum ("Memory to use (in MB, 0 = in-place FFTs)", &m_memory, 0, mem);
 		askNum ("Time to run each FFT size (in minutes)", &m_timefft, 1, 60);
