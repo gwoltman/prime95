@@ -24,6 +24,7 @@ CBenchmarkDlg::CBenchmarkDlg(CWnd* pParent /*=NULL*/)
 	m_bench_type = 0;
 	m_minFFT = 0;
 	m_maxFFT = 0;
+	m_errchk = 0;
 	m_all_complex = 0;
 	m_limit_FFT_sizes = 0;
 	m_hyperthreading = 0;
@@ -47,6 +48,8 @@ void CBenchmarkDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_MAXFFT, c_maxFFT);
 	DDX_Text(pDX, IDC_MAXFFT, m_maxFFT);
 	DDV_MinMaxUInt(pDX, m_maxFFT, 1, 32768);
+	DDX_Control(pDX, IDC_ERRCHK, c_errchk);
+	DDX_Check(pDX, IDC_ERRCHK, m_errchk);
 	DDX_Control(pDX, IDC_ALL_COMPLEX, c_all_complex);
 	DDX_Check(pDX, IDC_ALL_COMPLEX, m_all_complex);
 	DDX_Control(pDX, IDC_LIMIT_FFT_SIZES, c_limit_FFT_sizes);
@@ -72,6 +75,7 @@ void CBenchmarkDlg::DoDataExchange(CDataExchange* pDX)
 	c_minFFT.EnableWindow (m_bench_type != 2);
 	c_maxFFT_text.EnableWindow (m_bench_type != 2);
 	c_maxFFT.EnableWindow (m_bench_type != 2);
+	c_errchk.EnableWindow (m_bench_type != 2);
 	c_all_complex.EnableWindow (m_bench_type != 2);
 	c_limit_FFT_sizes.EnableWindow (m_minFFT != m_maxFFT && ((m_bench_type == 0 && !m_all_FFT_impl) || m_bench_type == 1));
 	c_bench_cores_text.EnableWindow (NUM_CPUS > 1);

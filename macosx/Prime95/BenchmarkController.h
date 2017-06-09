@@ -15,6 +15,7 @@
 	int	minmaxFFTEnabled;
 	int	minBenchableFFT;
 	int	maxBenchableFFT;
+	int	errchk;
 	int	allComplex;
 	int	limitFFTSizes;
 	int	limitFFTSizesEnabled;
@@ -38,6 +39,7 @@
 @property(readwrite, assign) int minmaxFFTEnabled;
 @property(readwrite, assign) int minBenchableFFT;
 @property(readwrite, assign) int maxBenchableFFT;
+@property(readwrite, assign) int errchk;
 @property(readwrite, assign) int allComplex;
 @property(readwrite, assign) int limitFFTSizes;
 @property(readwrite, assign) int limitFFTSizesEnabled;

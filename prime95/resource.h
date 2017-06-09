@@ -88,6 +88,7 @@
 #define IDC_IN_PLACE_FFT                1017
 #define IDC_COMPID                      1017
 #define IDC_P6                          1017
+#define IDC_ERRCHK			1017
 #define IDC_USERNAME                    1018
 #define IDC_ALL_COMPLEX                 1018
 #define IDC_CORES			1019

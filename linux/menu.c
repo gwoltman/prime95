@@ -197,18 +197,22 @@ void askStr (
 	char	*val,
 	unsigned long maxlen)
 {
-	char	buf[80];
-	if (val[0])
-		printf ("%s (%s): ", str, val);
-	else
-		printf ("%s: ", str);
-loop:	get_line (buf);
-	if (buf[0] == 0) return;
-	if (strlen (buf) > maxlen) {
+	char	buf[256], default_val[256];
+
+	strcpy (default_val, val);
+	for ( ; ; ) {
+		if (default_val[0])
+			printf ("%s (%s): ", str, default_val);
+		else
+			printf ("%s: ", str);
+		get_line (buf);
+		if (strlen (buf) <= maxlen) break;
 		printf ("Maximum string length is %ld characters. ", maxlen);
-		goto loop;
+		buf[maxlen] = 0;
+		strcpy (default_val, buf);
 	}
-	strcpy (val, buf);
+	if (buf[0] == 0) strcpy (val, default_val);
+	else strcpy (val, buf);
 }
 
 /* Wait for user input - gives the user time to read the screen */
@@ -1041,12 +1045,13 @@ void options_benchmark (void)
 {
 	unsigned long m_bench_type, m_minFFT, m_maxFFT, m_bench_time;
 	char	m_cores[512], m_workers[512];
-	int	m_all_complex, m_limit_FFT_sizes, m_hyperthreading, m_all_FFT_impl;
+	int	m_errchk, m_all_complex, m_limit_FFT_sizes, m_hyperthreading, m_all_FFT_impl;
 	int	i, vals[4], numvals;
 
 	m_bench_type = 0;
 	m_minFFT = IniGetInt (INI_FILE, "MinBenchFFT", 2048);
 	m_maxFFT = IniGetInt (INI_FILE, "MaxBenchFFT", 8192);
+	m_errchk = ERRCHK;				// IniGetInt (INI_FILE, "BenchErrorCheck", 0);
 	m_all_complex = 0;				// IniGetInt (INI_FILE, "BenchAllComplex", 0);
 	m_limit_FFT_sizes = 0;				// IniGetInt (INI_FILE, "OnlyBench5678", 1);
 
@@ -1074,6 +1079,7 @@ void options_benchmark (void)
 		printf ("\nFFTs to benchmark\n");
 		askNum ("Minimum FFT size (in K)", &m_minFFT, 1, 32768);
 		askNum ("Maximum FFT size (in K)", &m_maxFFT, m_minFFT, 32768);
+		askYN ("Benchmark with round-off checking enabled", &m_errchk);
 		askYN ("Benchmark all-complex FFTs (for LLR,PFGW,PRP users)", &m_all_complex);
 		if (m_minFFT != m_maxFFT)
 			askYN ("Limit FFT sizes (mimic older benchmarking code)", &m_limit_FFT_sizes);
@@ -1101,6 +1107,7 @@ void options_benchmark (void)
 	if (askOkCancel ()) {
 		IniWriteInt (INI_FILE, "MinBenchFFT", m_minFFT);
 		IniWriteInt (INI_FILE, "MaxBenchFFT", m_maxFFT);
+		IniWriteInt (INI_FILE, "BenchErrorCheck", m_errchk);
 		IniWriteInt (INI_FILE, "BenchAllComplex", m_all_complex ? 2 : 0);
 		IniWriteInt (INI_FILE, "OnlyBench5678", m_limit_FFT_sizes);
 

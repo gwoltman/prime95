@@ -24,6 +24,8 @@ public:
 	CStatic	c_maxFFT_text;
 	CEdit	c_maxFFT;
 	UINT	m_maxFFT;
+	CButton	c_errchk;
+	BOOL	m_errchk;
 	CButton	c_all_complex;
 	BOOL	m_all_complex;
 	CButton	c_limit_FFT_sizes;

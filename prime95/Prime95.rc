@@ -340,33 +340,34 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,183,23,50,14
 END
 
-IDD_BENCHMARK DIALOGEX 0, 0, 263, 238
+IDD_BENCHMARK DIALOGEX 0, 0, 263, 251
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Benchmark"
 FONT 8, "MS Sans Serif", 0, 0, 0x0
 BEGIN
     LTEXT           "Type of &benchmark:",IDC_STATIC,7,18,68,10
     COMBOBOX        IDC_COMBO1,78,16,111,84,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    GROUPBOX        "FFTs to benchmark",IDC_STATIC,7,41,249,55
+    GROUPBOX        "FFTs to benchmark",IDC_STATIC,7,41,249,68
     LTEXT           "Mi&nimum FFT size (in K):",IDC_MINFFT_TEXT,15,53,80,10
     EDITTEXT        IDC_MINFFT,98,51,32,12
     LTEXT           "Ma&ximum FFT size (in K):",IDC_MAXFFT_TEXT,135,53,80,10
     EDITTEXT        IDC_MAXFFT,218,51,32,12
-    CONTROL         "Benchmark &all-complex FFTs (for LLR,PFGW,PRP users)",IDC_ALL_COMPLEX, "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,66,234,10
-    CONTROL         "&Limit FFT sizes (mimic older benchmarking code)",IDC_LIMIT_FFT_SIZES, "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,79,234,10
-    GROUPBOX        "CPU cores to benchmark",IDC_STATIC,7,103,249,42
-    LTEXT           "Number of CPU &cores to benchmark¹:",IDC_CORES_TEXT,15,115,120,10
-    EDITTEXT        IDC_CORES,136,113,112,12
-    CONTROL         "Benchmark &hyperthreading",IDC_HYPERTHREADING,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,128,144,10
-    GROUPBOX        "Throughput benchmark options",IDC_STATIC,7,152,249,55
-    LTEXT           "Number of &workers to benchmark¹:",IDC_WORKERS_TEXT,15,164,110,10
-    EDITTEXT        IDC_WORKERS,126,162,122,12
-    CONTROL         "Benchmark all FFT &implementations to find best one for your machine",IDC_ALL_FFT_IMPL, "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,177,228,10
-    LTEXT           "&Time to run each benchmark (in seconds):",IDC_TIMEFFT_TEXT,15,190,142,10
-    EDITTEXT        IDC_TIMEFFT,158,188,34,12
+    CONTROL         "Benchmark with &round-off checking enabled",IDC_ERRCHK, "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,66,234,10
+    CONTROL         "Benchmark &all-complex FFTs (for LLR,PFGW,PRP users)",IDC_ALL_COMPLEX, "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,79,234,10
+    CONTROL         "&Limit FFT sizes (mimic older benchmarking code)",IDC_LIMIT_FFT_SIZES, "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,92,234,10
+    GROUPBOX        "CPU cores to benchmark",IDC_STATIC,7,116,249,42
+    LTEXT           "Number of CPU &cores to benchmark¹:",IDC_CORES_TEXT,15,128,120,10
+    EDITTEXT        IDC_CORES,136,126,112,12
+    CONTROL         "Benchmark &hyperthreading",IDC_HYPERTHREADING,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,141,144,10
+    GROUPBOX        "Throughput benchmark options",IDC_STATIC,7,165,249,55
+    LTEXT           "Number of &workers to benchmark¹:",IDC_WORKERS_TEXT,15,177,110,10
+    EDITTEXT        IDC_WORKERS,126,175,122,12
+    CONTROL         "Benchmark all FFT &implementations to find best one for your machine",IDC_ALL_FFT_IMPL, "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,190,228,10
+    LTEXT           "&Time to run each benchmark (in seconds):",IDC_TIMEFFT_TEXT,15,203,142,10
+    EDITTEXT        IDC_TIMEFFT,158,201,34,12
     DEFPUSHBUTTON   "OK",IDOK,207,6,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,207,23,50,14
-    LTEXT           "¹These fields accept a comma separated list of ranges.  These examples are equivalent: '1,2,3,4' and '1-4' and '1-2,3-4' and '1-3,4'.",IDC_STATIC,7,214,250,22
+    LTEXT           "¹These fields accept a comma separated list of ranges.  These examples are equivalent: '1,2,3,4' and '1-4' and '1-2,3-4' and '1-3,4'.",IDC_STATIC,7,227,250,22
 END
 
 IDD_PRIMENET DIALOGEX 0, 0, 247, 87
