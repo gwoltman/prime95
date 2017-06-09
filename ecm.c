@@ -2374,7 +2374,7 @@ return 0;
 	}
 	gwset_bench_cores (&ecmdata.gwdata, NUM_CPUS);
 	gwset_bench_workers (&ecmdata.gwdata, NUM_WORKER_THREADS);
-	gwset_will_error_check_near_limit(&ecmdata.gwdata);
+	if (ERRCHK) gwset_will_error_check (&ecmdata.gwdata);
 	gwset_num_threads (&ecmdata.gwdata, CORES_PER_TEST[thread_num] * sp_info->normal_work_hyperthreads);
 	gwset_thread_callback (&ecmdata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&ecmdata.gwdata, sp_info);
@@ -4525,7 +4525,8 @@ restart:
 	}
 	gwset_bench_cores (&pm1data.gwdata, NUM_CPUS);
 	gwset_bench_workers (&pm1data.gwdata, NUM_WORKER_THREADS);
-	gwset_will_error_check_near_limit(&pm1data.gwdata);
+	if (ERRCHK) gwset_will_error_check (&pm1data.gwdata);
+	else gwset_will_error_check_near_limit (&pm1data.gwdata);
 	gwset_num_threads (&pm1data.gwdata, CORES_PER_TEST[thread_num] * sp_info->normal_work_hyperthreads);
 	gwset_thread_callback (&pm1data.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&pm1data.gwdata, sp_info);
@@ -5421,8 +5422,7 @@ errchk:		if (gw_test_for_error (&pm1data.gwdata) ||
 /* Print out round off error */
 
 	if (ERRCHK) {
-		sprintf (buf, "Round off: %.10g\n",
-			 gw_get_maxerr (&pm1data.gwdata));
+		sprintf (buf, "Round off: %.10g\n", gw_get_maxerr (&pm1data.gwdata));
 		OutputStr (thread_num, buf);
 		gw_clear_maxerr (&pm1data.gwdata);
 	}
