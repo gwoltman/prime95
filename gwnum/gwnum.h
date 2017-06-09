@@ -391,12 +391,12 @@ void gw_random_number (
 /* gwsquare_carefully  Like gwsquare but uses a slower method that will */
 /*		have a low roundoff error even if input is non-random data */
 /* gwmul(s,d)	Computes d=s*d.  NOTE: s is replaced by its FFT */
-/* gwsafemul	Like gwmul but s is not replaced with its FFT */
+/* gwsafemul(s,d) Like gwmul but s is not replaced with its FFT */
 /* gwfftmul(s,d) Computes d=s*d.  NOTE: s must have been previously FFTed */
 /* gwfftfftmul(s1,s2,d) Computes d=s1*s2.  Both s1 and s2 must have */
 /*		been previously FFTed */
-/* gwmul_carefully  Like gwmul but uses a slower method that will */
-/*		have a low roundoff error even if input is non-random data */
+/* gwmul_carefully(s,d)  Like gwsafemul but uses a slower method that will */
+/*		have a lower roundoff error even if input is non-random data */
 
 /* The routines below operate on numbers that have already been FFTed. */
 
