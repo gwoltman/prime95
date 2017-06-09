@@ -7,7 +7,7 @@ New features in Version 29.2 of mprime
 2)  Benchmarks are run daily for any FFT sizes that will be need within the next 7 days.
     Once enough benchmark data is accumulated, automatic benchmarks no longer take place.
 3)  Default FFT implementations for Ryzen added.
-4)  A few new benchmark sizes (up to 50M) are enabled for FMA3-capable CPUs.
+4)  A few new FFT sizes (up to 50M) are enabled for FMA3-capable CPUs.
 
 
 New features in Version 29.1 of mprime
