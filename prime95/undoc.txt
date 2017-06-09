@@ -509,6 +509,12 @@ Similarly, for thoughput benchmarks, these prime.txt settings can reduce output:
 	BenchMaxWorkers=n	(default all cores)
 	BenchWorkersIncrement=n	(default 1)
 
+The program automatically runs benchmarks to aid in optimal FFT selection.  It looks
+at worktodo.txt for upcoming exponents to test and the amount of benchmarking
+already done to decide if more benchmarks are needed.  You can disable this feature
+by adding to prime.txt:
+	AutoBench=0
+
 If you want to run the program on several machines this is typically done
 by carrying the program and files around on portable media such as a floppy
 or USB memory stick.  In this case, you need to defeat the program's
