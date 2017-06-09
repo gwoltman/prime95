@@ -31,6 +31,18 @@ extern "C" {
 						/* we need to toss benchmarking data from older gwnum versions. */
 
 /******************************************************************************
+*                                 Globals                                     *
+******************************************************************************/
+
+/* Benchmarking global variables (only set after first gwinit call). */
+/* These values are read from gwnum.txt.  If set, then gwnum uses benchmarking data */
+/* for this number of cores and workers to pick best FFT implementations. */
+/* You might check these values to run throughput benchmarks for this combination */
+
+extern int BENCH_NUM_CORES;		/* Override from gwnum.txt. Use this #cores for benchmark FFT selection */
+extern int BENCH_NUM_WORKERS;		/* Override from gwnum.txt. Use this #workers for benchmark FFT selection */
+
+/******************************************************************************
 *                                 Routines                                    *
 ******************************************************************************/
 
@@ -46,6 +58,8 @@ struct gwbench_add_struct {
 };
 void gwbench_add_data (gwhandle *, struct gwbench_add_struct *);
 void gwbench_write_data (void);
+void gwbench_get_num_benchmarks (double, unsigned long, unsigned long, signed long, unsigned long, int, int, int, int,
+				 unsigned long *, unsigned long *, int *, int *);
 
 /******************************************************************************
 *                             Internal Routines                               *

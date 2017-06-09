@@ -96,6 +96,8 @@ unsigned int NUM_NUMA_NODES = 1;	/* Number of NUMA nodes in the computer */
 unsigned int NUM_THREADING_NODES = 1;	/* Number of nodes where it might be beneficial to keep a worker's threads in the same node */
 int	OS_CAN_SET_AFFINITY = 1;	/* hwloc supports setting CPU affinity (known exception is Apple) */
 
+gwevent AUTOBENCH_EVENT;	/* Event to wake up workers after an auto-benchmark */
+
 #include "md5.c"
 
 /* Generate the application string.  This is sent to the server in a */
@@ -1098,6 +1100,19 @@ void nameAndReadIniFiles (
 /* Start some initial timers */
 
 	add_timed_event (TE_ROLLING_AVERAGE, 6*60*60);
+	if (IniGetInt (INI_FILE, "AutoBench", 1)) {
+		time_t	current_time;
+		struct tm *x;
+		int	seconds;
+		gwevent_init (&AUTOBENCH_EVENT);
+		time (&current_time);
+		x = localtime (&current_time);
+		if (x->tm_hour < 4)
+			seconds = (5 - x->tm_hour) * 60 * 60;	// Start benchmark around 5AM today
+		else
+			seconds = (29 - x->tm_hour) * 60 * 60;	// Start benchmark around 5AM tomorrow
+		add_timed_event (TE_BENCH, seconds);
+	}
 }
 
 /* Init the communications code.  We used to do this at the end of */
@@ -6127,8 +6142,7 @@ void timed_events_scheduler (void *arg)
 				UpdateEndDates ();
 				break;
 			case TE_THROTTLE:	/* Sleep due to Throttle=n event */
-				timed_events[i].time_to_fire =
-					this_time + handleThrottleTimerEvent ();
+				timed_events[i].time_to_fire = this_time + handleThrottleTimerEvent ();
 				break;
 			case TE_SAVE_FILES:	/* Timer to trigger writing save files */
 						/* Also check for add files */
@@ -6155,6 +6169,10 @@ void timed_events_scheduler (void *arg)
 			case TE_LOAD_AVERAGE:	/* Check load average event */
 				timed_events[i].active = FALSE;
 				checkLoadAverage ();
+				break;
+			case TE_BENCH:		/* Benchmark throughput for optimal FFT selection */
+				timed_events[i].time_to_fire = this_time + TE_BENCH_FREQ;
+				autoBench ();
 				break;
 			}
 		}

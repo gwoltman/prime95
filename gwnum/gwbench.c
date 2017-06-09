@@ -93,15 +93,18 @@
 
 /* Global variables */
 
-int	SQL_MUTEX_INITIALIZED = 0;
-gwmutex	SQL_MUTEX;				/* Lock for accessing SQL database */
 int	BENCH_DB_INITIALIZED = 0;
+gwmutex	SQL_MUTEX;				/* Lock for accessing SQL database */
 sqlite3 *BENCH_DB = NULL;			/* SQL database storing the bench data */
-
 int	get_max_sql_stmt_prepared = FALSE;	/* SQL stmt used in get_max_thoughput */
 sqlite3_stmt *get_max_sql_stmt;
 
-/* Forward declarations of internal routines */
+/* Allow overriding which benchmark data we use to select fastest FFT implementations */
+/* These values are read from gwnum.txt.  If set, then gwnum will use benchmarking data */
+/* for this number of cores/workers to pick best FFT implementations. */
+
+int	BENCH_NUM_CORES = 0;
+int	BENCH_NUM_WORKERS = 0;
 
 
 /****************************************************************************/
@@ -117,21 +120,20 @@ void gwbench_read_data (void)
 	int	i, errcode;
 	sqlite3_stmt *sql_stmt;
 
-/* Initialize and acquire the lock */
-
-	if (!SQL_MUTEX_INITIALIZED) {
-		gwmutex_init (&SQL_MUTEX);
-		SQL_MUTEX_INITIALIZED = 1;
-	}
-	gwmutex_lock (&SQL_MUTEX);
-
 /* Return if we've already initialized the SQL benchmark database */
 
-	if (BENCH_DB_INITIALIZED) {
-		gwmutex_unlock (&SQL_MUTEX);
-		return;
-	}
+	if (BENCH_DB_INITIALIZED) return;
 	BENCH_DB_INITIALIZED = 1;
+
+/* Initialize and acquire the lock */
+
+	gwmutex_init (&SQL_MUTEX);
+	gwmutex_lock (&SQL_MUTEX);
+
+/* Read in #cores/#workers overrides from gwnum.txt */
+
+	BENCH_NUM_CORES = IniGetInt (GWNUMINI_FILE, "BenchCores", 0);
+	BENCH_NUM_WORKERS = IniGetInt (GWNUMINI_FILE, "BenchWorkers", 0);
 
 /* Create the in-memory SQL DB */
 
@@ -443,7 +445,7 @@ int internal_implementation_id (
 	else if (pass2_size % 12 == 0) pass2_multiplier = 1, pass2_size /= 12;		// Pass2_size = 12 * 2^x
 	else if (pass2_size % 20 == 0) pass2_multiplier = 4, pass2_size /= 20;		// Pass2_size = 20 * 2^x
 	else if (pass2_size % 16 == 0) pass2_multiplier = 3, pass2_size /= 16;		// Pass2_size = 16 * 2^x
-	else  exit (1);
+	else pass2_multiplier = 7;							// Can't happen
 	for (pass2_pow2 = 0; pass2_size >= 2; pass2_pow2++, pass2_size >>= 1);
 	// Make sure error_check, all_complex, other flags are one bit
 	error_check = !!error_check;
@@ -453,8 +455,7 @@ int internal_implementation_id (
 
 /* For readability as hex, we try to start values on 4-bit boundaries */
 
-	return (
-		(all_complex << 27) + (fft_type << 24) +	// All-complex (which jmptable to use) and FFT type
+	return ((all_complex << 27) + (fft_type << 24) +	// All-complex (which jmptable to use) and FFT type
 		(no_prefetch << 21) + (in_place << 20) +	// FFT sub-type (no_prefetch and in-place)
 		(error_check << 16) +				// Normalization options that affected benchmark
 		(architecture << 12) +				// CPU architecture
@@ -493,7 +494,7 @@ int internal_implementation_ids_match (
 	else if (pass2_size % 12 == 0) pass2_multiplier = 1, pass2_size /= 12;		// Pass2_size = 12 * 2^x
 	else if (pass2_size % 20 == 0) pass2_multiplier = 4, pass2_size /= 20;		// Pass2_size = 20 * 2^x
 	else if (pass2_size % 16 == 0) pass2_multiplier = 3, pass2_size /= 16;		// Pass2_size = 16 * 2^x
-	else  exit (1);
+	else pass2_multiplier = 7;							// Can't happen
 	for (pass2_pow2 = 0; pass2_size >= 2; pass2_pow2++, pass2_size >>= 1);
 	// Strip all-complex, error-check, 32-bit flags from implementation id -- gwbench_get_max_throughput will have made sure these match.
 	impl_id &= ~0x8010008;
@@ -525,6 +526,11 @@ void gwbench_get_max_throughput (
 	*impl = -1;
 	*throughput = -1.0;
 
+/* Apply overrides from gwnum.txt */
+
+	if (BENCH_NUM_CORES) num_cores = BENCH_NUM_CORES;
+	if (BENCH_NUM_WORKERS) num_workers = BENCH_NUM_WORKERS;
+
 /* If errors occured reading bench DB, then return dont-know-the-fastest-implementation */
 
 	if (BENCH_DB == NULL) return;
@@ -543,7 +549,7 @@ void gwbench_get_max_throughput (
 	if (all_complex) impl_bits |= 0x8000000;
 	if (error_check) impl_bits |= 0x10000;
 
-/* Prepare a SQL statement to insert benchmark data */
+/* Prepare a SQL statement to get benchmark data */
 
 	if (!get_max_sql_stmt_prepared) {
 		errcode = sqlite3_prepare_v2 (BENCH_DB, "SELECT impl, avg_throughput FROM avgbest3 \
@@ -593,3 +599,154 @@ stmt_error:
 	return;
 }
 
+/* This routine lets the caller ask how many benchmarks we already have for testing k*b^n+c.  If caller decides */
+/* more benchmarks would be desirable, the range of FFT lengths is returned for caller to run throughput benchmarks. */
+
+void gwbench_get_num_benchmarks (
+	double k,
+	unsigned long b,
+	unsigned long n,
+	signed long c,
+	unsigned long minimum_fftlen,
+	int	num_cores,
+	int	num_workers,
+	int	hyperthreading,
+	int	error_check,
+	unsigned long *min_fftlen,
+	unsigned long *max_fftlen,
+	int	*all_complex,
+	int	*num_benchmarks)
+{
+	gwhandle gwdata;			/* Temporary gwnum handle */
+	int	sql_stmt_prepared, proposed_return_count;
+	sqlite3_stmt *sql_stmt;
+
+/* Return dummy data if we cannot get the number of benchmarks */
+
+	*min_fftlen = 0;
+	*max_fftlen = 0;
+	*num_benchmarks = 9999;
+
+/* If bench DB not initialized or errors occured reading bench DB, then return */
+
+	if (!BENCH_DB_INITIALIZED) return;
+	if (BENCH_DB == NULL) return;
+
+/* Get info on smallest possible FFT length for this k*b^n+c. */
+
+	gwinit (&gwdata);
+	gwclear_use_benchmarks (&gwdata);
+	gwdata.minimum_fftlen = minimum_fftlen;
+	gwdata.bench_num_cores = num_cores;
+	gwdata.bench_num_workers = num_workers;
+	gwdata.will_hyperthread = hyperthreading;
+	gwdata.bench_pick_nth_fft = 1;				// This forces smallest usable FFT length to be returned
+	if (gwinfo (&gwdata, k, b, n, c)) return;		// Return if k*b^n+c is untestable
+	minimum_fftlen = gwdata.jmptab->fftlen;			// Remember first FFT length that might need benchmarking
+	*all_complex = gwdata.ALL_COMPLEX_FFT;
+
+/* Obtain the lock to the database */
+
+	gwmutex_lock (&SQL_MUTEX);
+
+/* Loop through all the FFT lengths gwinfo might consider for testing this number. */
+/* That is, the minimum FFT length just discovered up to an FFT length 3% larger. */
+/* Query the database for how many benchmarks we have for each applicable FFT length. */
+
+	sql_stmt_prepared = FALSE;
+	proposed_return_count = 9999;
+	for ( ; ; ) {
+		int	errcode, impl_bits, count, impls;
+		unsigned long last_fftlen;
+
+/* Calculate the implentation ID bits that we must match */
+
+#ifndef X86_64
+		impl_bits = 0x8;		// 32-bit FFT bench data desired
+#else
+		impl_bits = 0;			// 64-bit FFT bench data desired
+#endif
+		if (gwdata.ALL_COMPLEX_FFT) impl_bits |= 0x8000000;
+		if (error_check) impl_bits |= 0x10000;
+
+/* Prepare a SQL statement to get benchmark data */
+/* We'll assume that the average number of benchmarks per implementation is good enough for the caller. */
+/* This will be the case if caller benchmarks all implementations.  A hand edited gwnum.txt or repeated */
+/* interrupting of benchmarks before all implmentations are benchmarked could throw this average off. */
+
+		if (!sql_stmt_prepared) {
+			errcode = sqlite3_prepare_v2 (BENCH_DB, "SELECT COUNT(*), COUNT (DISTINCT IMPL) FROM bench_data \
+								 WHERE fftlen = ?1 AND num_cores = ?2 AND num_workers = ?3 AND \
+								 num_hyperthreads = ?4 AND (impl & 0x8010008) = ?5", -1, &sql_stmt, NULL);
+			if (errcode != SQLITE_OK) goto stmt_error;
+			sql_stmt_prepared = TRUE;
+		}
+
+/* Get the throughput data (if any) */
+
+		errcode = sqlite3_bind_int (sql_stmt, 1, gwdata.jmptab->fftlen);
+		if (errcode != SQLITE_OK) goto stmt_error;
+
+		errcode = sqlite3_bind_int (sql_stmt, 2, num_cores);
+		if (errcode != SQLITE_OK) goto stmt_error;
+
+		errcode = sqlite3_bind_int (sql_stmt, 3, num_workers);
+		if (errcode != SQLITE_OK) goto stmt_error;
+
+		errcode = sqlite3_bind_int (sql_stmt, 4, hyperthreading ? 2 : 1);
+		if (errcode != SQLITE_OK) goto stmt_error;
+
+		errcode = sqlite3_bind_int (sql_stmt, 5, impl_bits);
+		if (errcode != SQLITE_OK) goto stmt_error;
+
+		errcode = sqlite3_step (sql_stmt);
+		if (errcode == SQLITE_ROW) {
+			count = sqlite3_column_int (sql_stmt, 0);
+			impls = sqlite3_column_int (sql_stmt, 1);
+		}
+		else if (errcode != SQLITE_DONE) goto stmt_error;
+		sqlite3_reset (sql_stmt);
+
+/* If the number of benchmarks is below any previous queries, then return this FFT length's number of benchmarks. */
+/* In other words, we'll return the minimum num_benchmarks value. */
+
+		if (impls == 0) {
+			proposed_return_count = 0;
+			break;
+		}
+		if (count / impls < proposed_return_count) proposed_return_count = count / impls;
+
+/* Get next FFT length, break if it is more than 3% larger than minimum FFT length */
+
+		last_fftlen = gwdata.jmptab->fftlen;
+		gwinit (&gwdata);
+		gwclear_use_benchmarks (&gwdata);
+		gwdata.minimum_fftlen = last_fftlen + 10;
+		gwdata.bench_num_cores = num_cores;
+		gwdata.bench_num_workers = num_workers;
+		gwdata.will_hyperthread = hyperthreading;
+		gwdata.bench_pick_nth_fft = 1;				// This forces smallest usable FFT length to be returned
+		if (gwinfo (&gwdata, k, b, n, c)) break;		// End loop if no larger FFT lengths are available
+		if ((double) gwdata.jmptab->fftlen > (double) minimum_fftlen * 1.03) break;
+	}
+
+/* SQL clean up */
+
+	sqlite3_finalize (sql_stmt);
+	gwmutex_unlock (&SQL_MUTEX);
+
+/* Return the FFT lengths that may need benchmarking */
+/* We need benchmark data on slightly larger FFT lengths that might be faster */
+
+	*min_fftlen = minimum_fftlen;
+	*max_fftlen = (unsigned long) ((double) minimum_fftlen * 1.03);
+	*num_benchmarks = proposed_return_count;
+	return;
+
+/* Error returns */
+
+stmt_error:
+	sqlite3_finalize (sql_stmt);
+	gwmutex_unlock (&SQL_MUTEX);
+	return;
+}

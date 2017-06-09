@@ -225,6 +225,8 @@ extern int GIMPS_QUIT;			/* TRUE if we just successfully */
 extern gwthread COMMUNICATION_THREAD;	/* Handle for comm thread.  Set when */
 					/* comm thread is active. */
 
+extern gwevent AUTOBENCH_EVENT;		/* Event to wake up workers after an auto-benchmark */
+
 /* Topology variables and routines */
 
 extern hwloc_topology_t hwloc_topology;	/* Hardware topology */
@@ -446,8 +448,9 @@ int PRIMENET (short, void *);
 #define TE_READ_INI_FILE	12	/* Reread prime.txt settings because */
 					/* a during/else time period has ended */
 #define TE_LOAD_AVERAGE		13	/* Linux/FreeBSD/Apple load average check */
+#define TE_BENCH		14	/* Generate benchmark data for best FFT selection */
 
-#define MAX_TIMED_EVENTS	14	/* Maximum number of timed events */
+#define MAX_TIMED_EVENTS	15	/* Maximum number of timed events */
 
 void init_timed_event_handler (void);
 
@@ -469,3 +472,4 @@ time_t timed_event_fire_time (
 #define TE_BATTERY_CHECK_FREQ	 15	/* Check battery every 15 sec. */
 #define TE_THROTTLE_FREQ	 5	/* Throttle every 5 sec. */
 #define TE_ROLLING_AVERAGE_FREQ	 12*60*60 /* Adjust rolling every 12 hr. */
+#define TE_BENCH_FREQ		 21*60*60 /* Generate auto-benchmark data every 21 hrs. */
