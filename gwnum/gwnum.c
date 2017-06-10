@@ -893,7 +893,7 @@ again:	zpad_jmptab = NULL;
 
 /* Do a quick check on the suitability of this FFT */
 
-			if ((double) n * log2b / (double) zpad_jmptab->fftlen > 26.0) goto next1;
+			if ((double) n * log2b / (double) zpad_jmptab->fftlen > 26.0 - 0.25 * log2 (zpad_jmptab->fftlen)) goto next1;
 			if (zpad_jmptab->fftlen < gwdata->minimum_fftlen) goto next1;
 
 /* Don't bother looking at this FFT length if the generic reduction would be faster */
@@ -1024,7 +1024,7 @@ next1:			zpad_jmptab = NEXT_SET_OF_JMPTABS (zpad_jmptab);
 
 /* Do a quick check on the suitability of this FFT */
 
-		if ((double) n * log2b / (double) jmptab->fftlen > 26.0) goto next2;
+		if ((double) n * log2b / (double) jmptab->fftlen > 26.0 - 0.25 * log2 (jmptab->fftlen)) goto next2;
 		if (jmptab->fftlen < gwdata->minimum_fftlen) goto next2;
 
 /* Top carry adjust can only handle k values of 34 bits or less */
