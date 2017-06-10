@@ -8713,6 +8713,10 @@ int primeTime (
 
 			gwinit (&lldata.gwdata);
 			gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
+			gwset_bench_cores (&lldata.gwdata, NUM_CPUS);		  // We're most likely to have bench data for this case
+			gwset_bench_workers (&lldata.gwdata, NUM_WORKER_THREADS); // We're most likely to have bench data for this case
+			if (ERRCHK) gwset_will_error_check (&lldata.gwdata);
+			else gwset_will_error_check_near_limit (&lldata.gwdata);
 			if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
 				gwset_use_large_pages (&lldata.gwdata);
 			// Here is a hack to let me time different FFT implementations.
