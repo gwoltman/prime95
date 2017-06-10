@@ -1107,7 +1107,7 @@ void options_benchmark (void)
 		askNum ("Time to run each benchmark (in seconds)", &m_bench_time, 5, 60);
 	}
 
-	if (m_bench_type <> 0)
+	if (m_bench_type != 0)
 		m_all_FFT_impl = 0;
 
 	if (askOkCancel ()) {
