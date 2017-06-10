@@ -2015,6 +2015,79 @@ void pct_complete_from_savefile (
 	w->pct_complete = 0.0;
 }
 
+/* Add a known Fermat factor to the known_factors list */
+
+void addKnownFermatFactor (
+	struct work_unit *w,	/* Work unit to modify */
+	const char *factor)	/* Known Fermat factor */
+{
+	if (w->known_factors == NULL) {
+		w->known_factors = (char *) malloc (strlen (factor) + 1);
+		if (w->known_factors != NULL) {
+			strcpy (w->known_factors, factor);
+			WORKTODO_CHANGED = TRUE;
+		}
+	}
+	else if (strstr (w->known_factors, factor) == NULL) {
+		char	*new_factor_list;
+		new_factor_list = (char *) malloc (strlen (w->known_factors) + strlen (factor) + 2);
+		if (new_factor_list != NULL) {
+			sprintf (new_factor_list, "%s,%s", w->known_factors, factor);
+			free (w->known_factors);
+			w->known_factors = new_factor_list;
+			WORKTODO_CHANGED = TRUE;
+		}
+	}
+}
+
+/* Add all known Fermat factors to the known_factors list */
+
+void addKnownFermatFactors (
+	struct work_unit *w)	/* Work unit to modify */
+{
+
+/* If this is ECM or P-1 on a Fermat number, then automatically add known Fermat factors */
+
+	if (w->k == 1.0 && w->b == 2 && w->c == 1 &&
+	    (w->work_type == WORK_ECM || w->work_type == WORK_PMINUS1) &&
+	    IniGetInt (INI_FILE, "AddKnownFermatFactors", 1)) {
+		if (w->n == 4096) addKnownFermatFactor (w, "114689");
+		if (w->n == 4096) addKnownFermatFactor (w, "26017793");
+		if (w->n == 4096) addKnownFermatFactor (w, "63766529");
+		if (w->n == 4096) addKnownFermatFactor (w, "190274191361");
+		if (w->n == 4096) addKnownFermatFactor (w, "1256132134125569");
+		if (w->n == 4096) addKnownFermatFactor (w, "568630647535356955169033410940867804839360742060818433");
+		if (w->n == 8192) addKnownFermatFactor (w, "2710954639361");
+		if (w->n == 8192) addKnownFermatFactor (w, "2663848877152141313");
+		if (w->n == 8192) addKnownFermatFactor (w, "3603109844542291969");
+		if (w->n == 8192) addKnownFermatFactor (w, "319546020820551643220672513");
+		if (w->n == 16384) addKnownFermatFactor (w, "116928085873074369829035993834596371340386703423373313");
+		if (w->n == 32768) addKnownFermatFactor (w, "1214251009");
+		if (w->n == 32768) addKnownFermatFactor (w, "2327042503868417");
+		if (w->n == 32768) addKnownFermatFactor (w, "168768817029516972383024127016961");
+		if (w->n == 65536) addKnownFermatFactor (w, "825753601");
+		if (w->n == 65536) addKnownFermatFactor (w, "188981757975021318420037633");
+		if (w->n == 131072) addKnownFermatFactor (w, "31065037602817");
+		if (w->n == 131072) addKnownFermatFactor (w, "7751061099802522589358967058392886922693580423169");
+		if (w->n == 262144) addKnownFermatFactor (w, "13631489");
+		if (w->n == 262144) addKnownFermatFactor (w, "81274690703860512587777");
+		if (w->n == 524288) addKnownFermatFactor (w, "70525124609");
+		if (w->n == 524288) addKnownFermatFactor (w, "646730219521");
+		if (w->n == 524288) addKnownFermatFactor (w, "37590055514133754286524446080499713");
+		if (w->n == 2097152) addKnownFermatFactor (w, "4485296422913");
+		if (w->n == 4194304) addKnownFermatFactor (w, "64658705994591851009055774868504577");
+		if (w->n == 8388608) addKnownFermatFactor (w, "167772161");
+		if (w->n == 33554432) addKnownFermatFactor (w, "25991531462657");
+		if (w->n == 33554432) addKnownFermatFactor (w, "204393464266227713");
+		if (w->n == 33554432) addKnownFermatFactor (w, "2170072644496392193");
+		if (w->n == 67108864) addKnownFermatFactor (w, "76861124116481");
+		if (w->n == 134217728) addKnownFermatFactor (w, "151413703311361");
+		if (w->n == 134217728) addKnownFermatFactor (w, "231292694251438081");
+		if (w->n == 268435456) addKnownFermatFactor (w, "1766730974551267606529");
+		if (w->n == 536870912) addKnownFermatFactor (w, "2405286912458753");
+	}
+}	    
+
 /* Add a work_unit to the work_unit array.  Grow the work_unit */
 /* array if necessary */
 
@@ -2549,6 +2622,10 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 			if (!isdigit (w->known_factors[i])) w->known_factors[i] = ',';
 	    }
 
+/* If this is ECM or P-1 on a Fermat number, then automatically add known Fermat factors */
+
+	    addKnownFermatFactors (w);
+
 /* Make sure this line of work from the file makes sense. The exponent */
 /* should be a prime number, bounded by values we can handle, and we */
 /* should never be asked to factor a number more than we are capable of. */
@@ -3020,6 +3097,10 @@ int addWorkToDoLine (
 	malloc_w = (struct work_unit *) malloc (sizeof (struct work_unit));
 	if (malloc_w == NULL) return (OutOfMemory (MAIN_THREAD_NUM));
 	memcpy (malloc_w, w, sizeof (struct work_unit));
+
+/* If this is ECM or P-1 on a Fermat number, then automatically add known Fermat factors */
+
+	addKnownFermatFactors (malloc_w);
 
 /* Grab the lock so that comm thread and/or worker threads do not */
 /* access structure while the other is adding/deleting lines. */
