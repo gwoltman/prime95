@@ -3458,10 +3458,12 @@ unsigned int factorLimit (
 	if (w->factor_to != 0.0) return ((unsigned int) w->factor_to);
 
 /* For LL tests, determine the optimal trial factoring end point. */
-/* This is based on timings from my 2GHz P4. */
+/* See commonc.h for how these breakeven points were calculated. */
 
 	p = w->n;
-	if (p > FAC80) test = 80;	/* Test all 80 bit factors */
+	if (p > FAC82) test = 82;	/* Test all 82 bit factors */
+	else if (p > FAC81) test = 81;	/* Test all 81 bit factors */
+	else if (p > FAC80) test = 80;	/* Test all 80 bit factors */
 	else if (p > FAC79) test = 79;	/* Test all 79 bit factors */
 	else if (p > FAC78) test = 78;	/* Test all 78 bit factors */
 	else if (p > FAC77) test = 77;	/* Test all 77 bit factors */

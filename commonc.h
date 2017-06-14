@@ -69,8 +69,12 @@
 */
 
 /* These breakeven points we're calculated on a 2.5 GHz Core 2 using 64-bit prime95 v26.6: */
+/* These should be recalculated for version 29 which now supports multithreaded TF and AVX-512 support */
+/* However, GPUs make all these numbers somewhat obsolete. */
 
-#define FAC80	600000000L	/* The actual FAC80 breakeven point is even higher! */
+#define FAC82	1071000000L
+#define FAC81	842000000L
+#define FAC80	662000000L
 #define FAC79	516800000L
 #define FAC78	408400000L
 #define FAC77	322100000L
