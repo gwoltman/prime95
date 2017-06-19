@@ -4,10 +4,13 @@ New features in Version 29.2 of prime95.exe
 1)  Throughput benchmarks of all FFT implementations are written to gwnum.txt. 
     These benchmarks will then be used to pick the best FFT implementation to use.
     This can lead to minor performance improvements.
-2)  Benchmarks are run daily for any FFT sizes that will be needed within the next 7 days.
-    Once enough benchmark data is accumulated, automatic benchmarks no longer take place.
+2)  Benchmarks are run at 5AM (and every 17 hours after that) for any FFT sizes that
+    will be needed within the next 7 days.  Once enough benchmark data is accumulated,
+    these automatic benchmarks no longer take place.
 3)  Default FFT implementations for Ryzen added.
 4)  A few new FFT sizes (up to 50M) are enabled for FMA3-capable CPUs.
+5)  ECM and P-1 on Fermat numbers will automatically add known Fermat factors to
+    the worktodo.txt entries.
 
 New features in Version 29.1 of prime95.exe
 -------------------------------------------
