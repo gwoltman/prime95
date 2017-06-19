@@ -344,6 +344,18 @@ You may need to turn off the "Start at Bootup" and exit, change the local.txt
 file, restart prime95 and turn the "Start at Bootup" option on to make this
 change effective.
 
+Most FFT sizes have several implementations.  The program uses throughput benchmark
+data to select the fastest FFT implementation.  The program assumes all CPU cores
+will be used and all worker threads will be running FFTs.  This can be overridden
+in gwnum.txt:
+	BenchCores=x
+	BenchWorkers=y
+An example:  a 4-core computer running 4 total workers with 3 workers configured for
+LL testing and one configured for trial factoring.  In this scenario, the trial factoring
+worker does not use much memory bandwidth.  You might get a faster FFT implementation
+selected by setting BenchCores=3 and BenchWorkers=3.  Of course, you'll need to generate
+throughput benchmark data for the 3 cores / 3 workers combination.
+
 The program no longer uses hard FFT crossover points.  The soft crossovers
 have two adjustments in prime.txt:
 	SoftCrossover=n
