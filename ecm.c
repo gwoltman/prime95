@@ -877,7 +877,7 @@ int setN (
 /* Create the binary representation of the number we are factoring */
 /* Allocate 5 extra words to handle any possible k value. */
 
-	bits = (unsigned long) (w->n * log ((double) w->b) / log ((double) 2.0));
+	bits = (unsigned long) (w->n * log2 (w->b));
 	*N = allocgiant ((bits >> 5) + 5);
 	if (*N == NULL) return (OutOfMemory (thread_num));
 
@@ -4019,7 +4019,7 @@ double cost_pminus1_plan (
 /* at a cost of about 1.5 multiplies per bit.  In other words, */
 /* (E+1) * E*log2(startpoint) * 1.5. */
 
-	cost = passes * (e+1) * e*log((double)(d/2))/log((double)2.0) * 1.5 +
+	cost = passes * (e+1) * e*log2(d/2) * 1.5 +
 
 /* Then there are the D/2 calls to fd_next at E multiplies each. */
 
@@ -4028,7 +4028,7 @@ double cost_pminus1_plan (
 /* Compute the eQx setup costs.  To calculate eQx values, one fd_init is */
 /* required on each pass with a start point of B. */
 
-		passes * (e+1) * e*log((double)B)/log((double)2.0) * 1.5;
+		passes * (e+1) * e*log2(B) * 1.5;
 
 /* If E=1 add the cost of (C-B)/D fd_next calls.  If E>=2, add the cost */
 /* of (C-B)/(D+D) calls to fd_next (E multiplies). */
