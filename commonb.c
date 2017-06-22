@@ -2589,7 +2589,7 @@ void calc_output_frequencies (
 			*output_frequency /= 1.8 * (gwget_num_threads (gwdata) - 1);
 		/* For prettier output (outputs likely to be a multiple of a power of 10), round the */
 		/* output frequency to the nearest (10,15,20,25,30,40,...90) times a power of ten */
-		exp = floor (log (*output_frequency) / log (10.0));
+		exp = floor (log10 (*output_frequency));
 		temp = *output_frequency * pow (10.0, -exp);
 		if (temp < 1.25) temp = 1.0;
 		else if (temp <1.75) temp = 1.5;
@@ -5329,7 +5329,7 @@ begin:	factor_found = 0;
 /* chosen the difficulty in trial factoring M100000000 to 2^64 as the */
 /* point where it is worthwhile to report results one bit at a time. */
 
-	report_bits = (unsigned long) (64.0 + log ((double) p / 100000000.0) / log (2.0));
+	report_bits = (unsigned long) (64.0 + log2 ((double) p / 100000000.0));
 	if (report_bits >= test_bits) report_bits = test_bits;
 
 /* Loop testing larger and larger factors until we've tested to the */
@@ -8508,7 +8508,7 @@ int primeSieveTest (
 		{
 			double	fltfac;
 			fltfac = ((double) fachi * 4294967296.0 + (double) facmid) * 4294967296.0 + (double) faclo;
-			facdata.endpt = pow (2.0, ceil (log (fltfac) / log (2.0)));
+			facdata.endpt = pow (2.0, ceil (log2 (fltfac)));
 			if (facdata.endpt > fltfac * 1.1) facdata.endpt = fltfac * 1.1;
 		}
 		facdata.asm_data->FACHSW = fachi;
@@ -9214,7 +9214,7 @@ int primeBenchMultipleWorkersInternal (
 			/* If the OS cannot set affinity, then we can only bench hyperthreading on all CPUs */
 			if (!OS_CAN_SET_AFFINITY && hypercpus > 1 && cpus != NUM_CPUS) continue;
 			for (workers = min_workers; workers <= cpus && workers <= max_workers; workers += incr_workers) {
-			    int	cores_per_node, nodes_left, workers_left, worker_num, core_num;
+			    int	cores_per_node, nodes_left, workers_left, worker_num, cores_left, core_num;
 
 			    if (! is_number_in_list (workers, bench_workers)) continue;
 			    if (cpus % workers != 0 && !bench_oddballs) continue;
@@ -9238,14 +9238,18 @@ int primeBenchMultipleWorkersInternal (
 			    cores_per_node = NUM_CPUS / NUM_THREADING_NODES;
 			    nodes_left = NUM_THREADING_NODES;
 			    workers_left = workers;
+			    cores_left = cpus;
 			    worker_num = 0;
-			    core_num = 0;
 			    gwevent_reset (&bench_workers_sync);
 			    while (workers_left) {
-				int	nodes_to_use, cores_this_node, workers_this_node;
-				nodes_to_use = (nodes_left + workers_left - 1) / workers_left;		// ceil (nodes_left / workers_left)
-				workers_this_node = (workers_left + nodes_left - 1) / nodes_left;	// ceil (workers_left / nodes_left)
-				cores_this_node = nodes_to_use * cores_per_node;
+				int	nodes_to_use, workers_this_node, cores_this_node;
+				core_num = (NUM_THREADING_NODES - nodes_left) * cores_per_node;
+				nodes_to_use = divide_rounding_up (nodes_left, workers_left);		// ceil (nodes_left / workers_left)
+				workers_this_node = divide_rounding_up (workers_left, nodes_left);	// ceil (workers_left / nodes_left)
+				if (workers_this_node == 1)
+					cores_this_node = divide_rounding_up (cores_left, workers_left);// ceil (cores_left / workers_left)
+				else
+					cores_this_node = divide_rounding_up (cores_left, nodes_left);	// ceil (cores_left / nodes_left)
 				for ( ; workers_this_node; workers_this_node--) {
 				    int	cores_to_use = cores_this_node / workers_this_node;
 				    info[worker_num].main_thread_num = thread_num;
@@ -9262,6 +9266,7 @@ int primeBenchMultipleWorkersInternal (
 				    worker_num++;
 				    workers_left--; 
 				}
+				nodes_left -= nodes_to_use;
 			    }
 
 /* Wait for all the workers to finish */
