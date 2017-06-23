@@ -3265,7 +3265,7 @@ double work_estimate (
 		}
 
 		timing = gwmap_to_timing (w->k, w->b, w->n, w->c);
-		bits = (int) (w->n * log2 (w->b));
+		bits = (int) (w->n * _log2 (w->b));
 		if (bits <= 80000) overhead = 1.10;
 		else if (bits >= 1500000) overhead = 1.20;
 		else overhead = 1.10 + ((double) bits - 80000.0) / 1420000.0 * (1.20 - 1.10);
