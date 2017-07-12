@@ -23,6 +23,7 @@ rbp	EQU	ebp
 rsp	EQU	esp
 ENDIF
 
+OPTION PROC:NONE
 IFDEF	X86_64
 OPTION	EVEX:1
 INCLUDE ksamd64.inc
@@ -1577,9 +1578,12 @@ pfing MACRO stmt:vararg
 	ENDIF
 	ENDM
 
-;; A handy shortcut:
+;; Handy shortcuts:
 
 Q	EQU	<QWORD PTR>
+XX	EQU	<XMMWORD PTR>
+YY	EQU	<YMMWORD PTR>
+ZZ	EQU	<ZMMWORD PTR>
 
 ;; Bump a pointer by an amount - generates no code if amount is zero
 ;; On Core 2 architecture, use add or sub as that can be dispatched to
@@ -2127,6 +2131,9 @@ ENDIF
 	ENDM
 
 PROCFP	MACRO x
+IFDEF zarch
+	PROCF	@CATSTR(&x,%zarch)
+ELSE
 IFDEF yarch
 	PROCF	@CATSTR(&x,%yarch)
 ELSE
@@ -2144,10 +2151,14 @@ ENDIF
 ENDIF
 ENDIF
 ENDIF
+ENDIF
 	ENDM
 
 
 PROCFLP	MACRO x
+IFDEF zarch
+	PROCFL	@CATSTR(&x,%zarch)
+ELSE
 IFDEF yarch
 	PROCFL	@CATSTR(&x,%yarch)
 ELSE
@@ -2165,6 +2176,7 @@ ENDIF
 ENDIF
 ENDIF
 ENDIF
+ENDIF
 	ENDM
 
 ;
@@ -2174,6 +2186,9 @@ ENDIF
 ;
 
 EXTRNP	MACRO x
+IFDEF zarch
+EXTRN	@CATSTR(&x,%zarch):PROC
+ELSE
 IFDEF yarch
 EXTRN	@CATSTR(&x,%yarch):PROC
 ELSE
@@ -2191,9 +2206,13 @@ ENDIF
 ENDIF
 ENDIF
 ENDIF
+ENDIF
 	ENDM
 
 ENDPP	MACRO x
+IFDEF zarch
+@CATSTR(&x,%zarch) ENDP
+ELSE
 IFDEF yarch
 @CATSTR(&x,%yarch) ENDP
 ELSE
@@ -2207,6 +2226,7 @@ IFDEF PPRO
 &x&PPRO ENDP
 ELSE
 &x	ENDP
+ENDIF
 ENDIF
 ENDIF
 ENDIF
