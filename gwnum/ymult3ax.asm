@@ -1,4 +1,4 @@
-; Copyright 2011-2013 Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2017 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 
@@ -2041,22 +2041,22 @@ PROCFL	gwycopyzero3
 	sub	ecx, ecx		; Offset to compare to COPYZERO
 
 	mov	al, -1			; Create 4 masks for copying values
-	mov	BYTE PTR YMM_TMP4+7, al	; Create the copy all four values mask
-	mov	BYTE PTR YMM_TMP4+15, al
-	mov	BYTE PTR YMM_TMP4+23, al
-	mov	BYTE PTR YMM_TMP4+31, al
-	mov	BYTE PTR YMM_TMP3+7, cl	; Create the copy three values mask
-	mov	BYTE PTR YMM_TMP3+15, al
-	mov	BYTE PTR YMM_TMP3+23, al
-	mov	BYTE PTR YMM_TMP3+31, al
-	mov	BYTE PTR YMM_TMP2+7, cl	; Create the copy two values mask
-	mov	BYTE PTR YMM_TMP2+15, cl
-	mov	BYTE PTR YMM_TMP2+23, al
-	mov	BYTE PTR YMM_TMP2+31, al
-	mov	BYTE PTR YMM_TMP1+7, cl	; Create the copy one value mask
-	mov	BYTE PTR YMM_TMP1+15, cl
-	mov	BYTE PTR YMM_TMP1+23, cl
-	mov	BYTE PTR YMM_TMP1+31, al
+	mov	BYTE PTR YMM_TMP4[7], al ; Create the copy all four values mask
+	mov	BYTE PTR YMM_TMP4[15], al
+	mov	BYTE PTR YMM_TMP4[23], al
+	mov	BYTE PTR YMM_TMP4[31], al
+	mov	BYTE PTR YMM_TMP3[7], cl ; Create the copy three values mask
+	mov	BYTE PTR YMM_TMP3[15], al
+	mov	BYTE PTR YMM_TMP3[23], al
+	mov	BYTE PTR YMM_TMP3[31], al
+	mov	BYTE PTR YMM_TMP2[7], cl ; Create the copy two values mask
+	mov	BYTE PTR YMM_TMP2[15], cl
+	mov	BYTE PTR YMM_TMP2[23], al
+	mov	BYTE PTR YMM_TMP2[31], al
+	mov	BYTE PTR YMM_TMP1[7], cl ; Create the copy one value mask
+	mov	BYTE PTR YMM_TMP1[15], cl
+	mov	BYTE PTR YMM_TMP1[23], cl
+	mov	BYTE PTR YMM_TMP1[31], al
 	vxorpd	ymm1, ymm1, ymm1	; Start with the copy zero values mask
 
 	mov	ebx, addcount1		; Load pass 1 blk count

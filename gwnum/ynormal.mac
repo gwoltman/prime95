@@ -1,4 +1,4 @@
-; Copyright 2011-2016 - Mersenne Research, Inc.  All rights reserved.
+; Copyright 2011-2017 - Mersenne Research, Inc.  All rights reserved.
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -7192,16 +7192,16 @@ base2	vsubsd	xmm2, xmm2, Q YMM_BIGVAL	;; Remove rounding constant
 
 ycopyzero MACRO
 	LOCAL	nz1,nz2,nz3,nz4
-	cmp	ecx, COPYZERO+3*4	;; Is this the first cache line where we copy 1 values?
+	cmp	ecx, COPYZERO[3*4]	;; Is this the first cache line where we copy 1 values?
 	jne	short nz1		;; No, jump
 	vmovapd	ymm1, YMM_TMP1		;; Yes, switch to the copy 1 values mask
-nz1:	cmp	ecx, COPYZERO+2*4	;; Is this the first cache line where we copy 2 values?
+nz1:	cmp	ecx, COPYZERO[2*4]	;; Is this the first cache line where we copy 2 values?
 	jne	short nz2		;; No, jump
 	vmovapd	ymm1, YMM_TMP2		;; Yes, switch to the copy 2 values mask
-nz2:	cmp	ecx, COPYZERO+1*4	;; Is this the first cache line where we copy 3 values?
+nz2:	cmp	ecx, COPYZERO[1*4]	;; Is this the first cache line where we copy 3 values?
 	jne	short nz3		;; No, jump
 	vmovapd	ymm1, YMM_TMP3		;; Yes, switch to the copy 3 values mask
-nz3:	cmp	ecx, COPYZERO+0*4	;; Is this the first cache line where we copy 4 values?
+nz3:	cmp	ecx, COPYZERO[0*4]	;; Is this the first cache line where we copy 4 values?
 	jne	short nz4		;; No, jump
 	vmovapd	ymm1, YMM_TMP4		;; Yes, switch to the copy 4 values mask
 nz4:	vmaskmovpd ymm0, ymm1, [rsi]	;; Conditionally load low doubles
