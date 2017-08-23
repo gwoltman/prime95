@@ -4427,7 +4427,7 @@ int pminus1 (
 	int	res, stop_reason, stage, saving, near_fft_limit, echk;
 	double	one_over_len, one_over_B, one_pair_pct;
 	double	base_pct_complete, last_output, last_output_t, last_output_r;
-	double	output_frequency, output_title_frequency;
+	double	allowable_maxerr, output_frequency, output_title_frequency;
 	int	first_iter_msg;
 	int	using_t3;	/* Indicates we are using the gwnum t3 */
 				/* to avoid a gwfftadd3 in stage 2 */
@@ -4564,6 +4564,13 @@ restart:
 
 	near_fft_limit = exponent_near_fft_limit (&pm1data.gwdata);
 	gwsetnormroutine (&pm1data.gwdata, 0, ERRCHK || near_fft_limit, 0);
+
+/* Figure out the maximum round-off error we will allow.  By default this is 27/64 when near the FFT limit and 26/64 otherwise. */
+/* We've found that this default catches errors without raising too many spurious error messages.  We let the user override */
+/* this default for user "Never Odd Or Even" who tests exponents well beyond an FFT's limit.  He does his error checking by */
+/* running the first-test and double-check simultaneously. */
+
+	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", near_fft_limit ? 0.421875 : 0.40625);
 
 /* Compute the number we are factoring */
 
@@ -4797,7 +4804,7 @@ restart0:
 
 /* Test for an error */
 
-		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwdata) >= 0.40625) goto error;
+		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) goto error;
 		bit_number++;
 
 /* Calculate our stage 1 percentage complete */
@@ -4914,8 +4921,7 @@ restart1:
 
 /* Test for an error */
 
-		if (gw_test_for_error (&pm1data.gwdata) ||
-		    gw_get_maxerr (&pm1data.gwdata) >= 0.40625) goto error;
+		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) goto error;
 
 /* Calculate our stage 1 percentage complete */
 
@@ -5174,8 +5180,7 @@ replan:	stop_reason = choose_pminus1_implementation (&pm1data, w, &using_t3);
 		if (i >= pm1data.D) break;
 		if (numrels == pm1data.rels_this_pass) break;
 		fd_next (&pm1data);
-		if (gw_test_for_error (&pm1data.gwdata) ||
-		    gw_get_maxerr (&pm1data.gwdata) >= 0.40625) goto error;
+		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) goto error;
 		stop_reason = stopCheck (thread_num);
 		if (stop_reason) {
 			fd_term (&pm1data);
@@ -5307,8 +5312,7 @@ found_a_bit:;
 
 /* Test for errors */
 
-errchk:		if (gw_test_for_error (&pm1data.gwdata) ||
-		    gw_get_maxerr (&pm1data.gwdata) >= 0.40625) goto error;
+errchk:		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) goto error;
 
 /* Output the title every so often */
 
@@ -5646,7 +5650,7 @@ bingo:	if (stage == 1)
 /* Output an error message saying we are restarting. */
 /* Sleep five minutes before restarting from last save file. */
 
-error:	if (near_fft_limit && gw_get_maxerr (&pm1data.gwdata) >= 0.40625) {
+error:	if (gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) {
 		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file.\n", gw_get_maxerr (&pm1data.gwdata));
 		OutputStr (thread_num, buf);
 	} else {
