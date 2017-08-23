@@ -15,7 +15,7 @@
 static const char ERRMSG0[] = "Iteration: %ld/%ld, %s";
 static const char ERRMSG1A[] = "ERROR: ILLEGAL SUMOUT\n";
 static const char ERRMSG1B[] = "ERROR: SUM(INPUTS) != SUM(OUTPUTS), %.16g != %.16g\n";
-static const char ERRMSG1C[] = "Possible error: round off (%.10g) > 0.40625\n";
+static const char ERRMSG1C[] = "Possible error: round off (%.10g) > %.5g\n";
 static const char ERRMSG1D[] = "ERROR: Shift counter corrupt.\n";
 static const char ERRMSG1E[] = "ERROR: Illegal double encountered.\n";
 static const char ERRMSG1F[] = "ERROR: FFT data has been zeroed!\n";
@@ -6353,7 +6353,7 @@ int prime (
 	double	last_suminp = 0.0;
 	double	last_sumout = 0.0;
 	double	last_maxerr = 0.0;
-	double	output_frequency, output_title_frequency;
+	double	allowable_maxerr, output_frequency, output_title_frequency;
 	int	actual_frequency;
 	int	error_count_messages;
 
@@ -6565,6 +6565,13 @@ begin:	gwinit (&lldata.gwdata);
 
 	near_fft_limit = exponent_near_fft_limit (&lldata.gwdata);
 
+/* Figure out the maximum round-off error we will allow.  By default this is 27/64 when near the FFT limit and 26/64 otherwise. */
+/* We've found that this default catches errors without raising too many spurious error messages.  We let the user override */
+/* this default for user "Never Odd Or Even" who tests exponents well beyond an FFT's limit.  He does his error checking by */
+/* running the first-test and double-check simultaneously. */
+
+	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", near_fft_limit ? 0.421875 : 0.40625);
+
 /* Get address of second FFT data element.  We'll use this for very */
 /* quickly checking for zeroed FFT data. */
 
@@ -6697,11 +6704,8 @@ begin:	gwinit (&lldata.gwdata);
 /* then repeat the iteration using a safer, slower method.  This can */
 /* happen when operating near the limit of an FFT. */
 
-		if (echk &&
-		    (gw_get_maxerr (&lldata.gwdata) > 0.421875 ||			/* 27/64 */
-		     (!near_fft_limit && gw_get_maxerr (&lldata.gwdata) > 0.40625))) {	/* 26/64 */
-			if (counter == last_counter &&
-			    gw_get_maxerr (&lldata.gwdata) == last_maxerr) {
+		if (echk && gw_get_maxerr (&lldata.gwdata) > allowable_maxerr) {
+			if (counter == last_counter && gw_get_maxerr (&lldata.gwdata) == last_maxerr) {
 				OutputBoth (thread_num, ERROK);
 				inc_error_count (3, &error_count);
 				gw_clear_error (&lldata.gwdata);
@@ -6711,7 +6715,7 @@ begin:	gwinit (&lldata.gwdata);
 				goto restart;
 			} else {
 				char	msg[100];
-				sprintf (msg, ERRMSG1C, gw_get_maxerr (&lldata.gwdata));
+				sprintf (msg, ERRMSG1C, gw_get_maxerr (&lldata.gwdata), allowable_maxerr);
 				sprintf (buf, ERRMSG0, counter, p, msg);
 				OutputBoth (thread_num, buf);
 				last_counter = counter;
@@ -10116,7 +10120,7 @@ int prp (
 	double	last_suminp = 0.0;
 	double	last_sumout = 0.0;
 	double	last_maxerr = 0.0;
-	double	output_frequency, output_title_frequency;
+	double	allowable_maxerr, output_frequency, output_title_frequency;
 	int	actual_frequency;
 	char	string_rep[80];
 	int	string_rep_truncated;
@@ -10332,6 +10336,13 @@ begin:	gwinit (&gwdata);
 
 	near_fft_limit = exponent_near_fft_limit (&gwdata);
 
+/* Figure out the maximum round-off error we will allow.  By default this is 27/64 when near the FFT limit and 26/64 otherwise. */
+/* We've found that this default catches errors without raising too many spurious error messages.  We let the user override */
+/* this default for user "Never Odd Or Even" who tests exponents well beyond an FFT's limit.  He does his error checking by */
+/* running the first-test and double-check simultaneously. */
+
+	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", near_fft_limit ? 0.421875 : 0.40625);
+
 /* Do the PRP test */
 
 //#define CHECK_ITER
@@ -10474,11 +10485,8 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* then repeat the iteration using a safer, slower method.  This can */
 /* happen when operating near the limit of an FFT. */
 
-		if (echk &&
-		    (gw_get_maxerr (&gwdata) > 0.421875 ||			/* 27/64 */
-		     (!near_fft_limit && gw_get_maxerr (&gwdata) > 0.40625))) {	/* 26/64 */
-			if (counter == last_counter &&
-			    gw_get_maxerr (&gwdata) == last_maxerr) {
+		if (echk && gw_get_maxerr (&gwdata) > allowable_maxerr) {
+			if (counter == last_counter && gw_get_maxerr (&gwdata) == last_maxerr) {
 				OutputBoth (thread_num, ERROK);
 				inc_error_count (3, &error_count);
 				gw_clear_error (&gwdata);
@@ -10488,7 +10496,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 				goto restart;
 			} else {
 				char	msg[100];
-				sprintf (msg, ERRMSG1C, gw_get_maxerr (&gwdata));
+				sprintf (msg, ERRMSG1C, gw_get_maxerr (&gwdata), allowable_maxerr);
 				sprintf (buf, ERRMSG0, counter+1, Nlen-1, msg);
 				OutputBoth (thread_num, buf);
 				last_counter = counter;
