@@ -9497,6 +9497,18 @@ void autoBench (void)
 	} ffts_to_bench[200];
 	struct primenetBenchmarkData pkt;
 
+/* If workers are not active, do not benchmark now */
+
+	if (!WORKER_THREADS_ACTIVE || WORKER_THREADS_STOPPING) return;
+
+/* If we're not supposed to run while on battery and we are on battery power now, then skip this benchmark */
+
+	if (!RUN_ON_BATTERY && OnBattery ()) return;
+
+/* If any worker is paused due to PauseWhileRunning, then skip auto-bench */
+
+	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) if (STOP_FOR_PAUSE[i] != NULL) return;
+
 // BUG/FEATURE -- purge bench DB of old or anomalous results so that we can replace them with new, hopefully accurate, benchmarks?
 
 /* Calculate number of cores/workers used in FFT selection process */
