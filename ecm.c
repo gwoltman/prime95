@@ -4570,7 +4570,7 @@ restart:
 /* this default for user "Never Odd Or Even" who tests exponents well beyond an FFT's limit.  He does his error checking by */
 /* running the first-test and double-check simultaneously. */
 
-	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", near_fft_limit ? 0.421875 : 0.40625);
+	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) (near_fft_limit ? 0.421875 : 0.40625));
 
 /* Compute the number we are factoring */
 

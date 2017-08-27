@@ -6570,7 +6570,7 @@ begin:	gwinit (&lldata.gwdata);
 /* this default for user "Never Odd Or Even" who tests exponents well beyond an FFT's limit.  He does his error checking by */
 /* running the first-test and double-check simultaneously. */
 
-	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", near_fft_limit ? 0.421875 : 0.40625);
+	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) (near_fft_limit ? 0.421875 : 0.40625));
 
 /* Get address of second FFT data element.  We'll use this for very */
 /* quickly checking for zeroed FFT data. */
@@ -10341,7 +10341,7 @@ begin:	gwinit (&gwdata);
 /* this default for user "Never Odd Or Even" who tests exponents well beyond an FFT's limit.  He does his error checking by */
 /* running the first-test and double-check simultaneously. */
 
-	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", near_fft_limit ? 0.421875 : 0.40625);
+	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) (near_fft_limit ? 0.421875 : 0.40625));
 
 /* Do the PRP test */
 
