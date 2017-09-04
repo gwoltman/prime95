@@ -45,10 +45,12 @@ int	OUTPUT_ROUNDOFF = 0;
 unsigned long volatile ITER_OUTPUT = 0;
 unsigned long volatile ITER_OUTPUT_RES = 999999999;
 unsigned long volatile DISK_WRITE_TIME = 30;
+unsigned long volatile JACOBI_TIME = 12; /* Run a Jacobi test every 12 hours */
 unsigned int MODEM_RETRY_TIME = 2;
 unsigned int NETWORK_RETRY_TIME = 70;
 float	DAYS_BETWEEN_CHECKINS = 1.0;
 int	NUM_BACKUP_FILES = 3;
+int	NUM_JACOBI_BACKUP_FILES = 2;
 int	SILENT_VICTORY = 0;
 int	SILENT_VICTORY_PRP = 1;
 int	RUN_ON_BATTERY = 1;
@@ -1329,6 +1331,8 @@ int readIniFiles (void)
 	if (ITER_OUTPUT_RES > 999999999) ITER_OUTPUT_RES = 999999999;
 	if (ITER_OUTPUT_RES < 1000) ITER_OUTPUT_RES = 1000;
 	DISK_WRITE_TIME = IniGetInt (INI_FILE, "DiskWriteTime", 30);
+	JACOBI_TIME = IniGetInt (INI_FILE, "JacobiErrorCheckingInterval", 12);
+	if (JACOBI_TIME < 1) JACOBI_TIME = 1;
 	MODEM_RETRY_TIME = (unsigned int) IniGetInt (INI_FILE, "NetworkRetryTime", 2);
 	if (MODEM_RETRY_TIME < 1) MODEM_RETRY_TIME = 1;
 	if (MODEM_RETRY_TIME > 300) MODEM_RETRY_TIME = 300;
@@ -1373,6 +1377,7 @@ int readIniFiles (void)
 
 	temp = (int) IniGetInt (INI_FILE, "TwoBackupFiles", 2);
 	NUM_BACKUP_FILES = (int) IniGetInt (INI_FILE, "NumBackupFiles", temp+1);
+	NUM_JACOBI_BACKUP_FILES = (int) IniGetInt (INI_FILE, "JacobiBackupFiles", 2);
 
 /* Convert the old DAY_MEMORY, NIGHT_MEMORY settings into the simpler, all-inclusive */
 /* and more powerful MEMORY setting. */
@@ -6257,6 +6262,10 @@ void timed_events_scheduler (void *arg)
 			case TE_BENCH:		/* Benchmark throughput for optimal FFT selection */
 				timed_events[i].time_to_fire = this_time + TE_BENCH_FREQ;
 				autoBench ();
+				break;
+			case TE_JACOBI:		/* Timer to trigger Jacobi error checks */
+				timed_events[i].active = FALSE;
+				JacobiTimer ();
 				break;
 			}
 		}
