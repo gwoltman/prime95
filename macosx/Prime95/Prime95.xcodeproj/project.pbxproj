@@ -474,6 +474,7 @@
 					/usr/local/lib/libhwloc.a,
 					"-lcurl",
 					"-lstdc++",
+					"-lgmp",
 				);
 				PRELINK_LIBS = "";
 				PRODUCT_NAME = Prime95;
@@ -531,6 +532,7 @@
 					/usr/local/lib/libhwloc.a,
 					"-lcurl",
 					"-lstdc++",
+					"-lgmp",
 				);
 				PRELINK_LIBS = "";
 				PRODUCT_NAME = Prime95;
