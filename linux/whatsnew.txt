@@ -1,3 +1,14 @@
+New features in Version 29.3 of mprime
+--------------------------------------
+
+1)  A new error check for LL testing has been implemented.  This error check,
+    called a Jacobi error check, has a 50% chance of detecting hardware error(s)
+    since the last time a Jacobi error check was performed.  This error check
+    takes roughly 30 seconds and is scheduled to run twice a day.  The program
+    now saves two additional intermediate files that have passed the Jacobi
+    error check.  This test requires use of the GMP (GNU multi-precision) library.
+2)  The GCD step in P-1 and ECM factoring is faster.
+
 New features in Version 29.2 of mprime
 --------------------------------------
 
