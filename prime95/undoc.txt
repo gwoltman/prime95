@@ -121,9 +121,13 @@ Lucas-Lehmer and PRP tests.  This classic style does not display the
 ETA.  This style was in use prior to version 28.5.  In prime.txt:
 	ClassicOutput=0 or 1		(default value is 0)
 
-You can also output the maximum round off error seen thusfar in the
+You can output the maximum round off error seen thusfar in the
 worker windows when doing LL or PRP tests.
 	OutputRoundoff=0 or 1		(default value is 0)
+
+You can reset the maximum round off error seen thusfar after each time
+the maximum round off is output.
+	CumulativeRoundoff=0 or 1	(default value is 1)
 
 You can update the title more frequently than the lines are output to the
 worker window.  This feature, only useful in Windows, allows you to keep
