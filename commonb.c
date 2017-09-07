@@ -6899,8 +6899,10 @@ begin:	gwinit (&lldata.gwdata);
 			else if (!CLASSIC_OUTPUT) {
 				double speed;
 				/* Append roundoff error */
-				if ((OUTPUT_ROUNDOFF || ERRCHK) && reallymaxerr >= 0.001)
+				if ((OUTPUT_ROUNDOFF || ERRCHK) && reallymaxerr >= 0.001) {
 					sprintf (buf+strlen(buf), ", roundoff: %5.3f", reallymaxerr);
+					if (!CUMULATIVE_ROUNDOFF) reallyminerr = 1.0, reallymaxerr = 0.0;
+				}
 				/* Append ms/iter */
 				speed = timer_value (timers, 0) / (double) iters;
 				sprintf (buf+strlen(buf), ", ms/iter: %6.3f", speed * 1000.0);
@@ -6915,6 +6917,7 @@ begin:	gwinit (&lldata.gwdata);
 				/* Append optional roundoff message */
 				if (ERRCHK && counter > 30) {
 					sprintf (buf+strlen(buf), ".  Round off: %10.10f to %10.10f", reallyminerr, reallymaxerr);
+					if (!CUMULATIVE_ROUNDOFF) reallyminerr = 1.0, reallymaxerr = 0.0;
 				}
 				if (CUMULATIVE_TIMING) {
 					strcat (buf, ".  Total time: ");
@@ -6999,8 +7002,7 @@ begin:	gwinit (&lldata.gwdata);
 				best_iteration_time = timers[1];
 			if (timers[1] > 1.40 * best_iteration_time) {
 				if (slow_iteration_count == 10) {
-					sprintf (buf, "Pausing %lu seconds.\n",
-						 HYPERTHREADING_BACKOFF);
+					sprintf (buf, "Pausing %lu seconds.\n", HYPERTHREADING_BACKOFF);
 					OutputStr (thread_num, buf);
 					Sleep (HYPERTHREADING_BACKOFF * 1000);
 				}
@@ -10660,8 +10662,10 @@ OutputStr (thread_num, "Iteration failed.\n");
 			else if (!CLASSIC_OUTPUT) {
 				double speed;
 				/* Append roundoff error */
-				if ((OUTPUT_ROUNDOFF || ERRCHK) && reallymaxerr >= 0.001)
+				if ((OUTPUT_ROUNDOFF || ERRCHK) && reallymaxerr >= 0.001) {
 					sprintf (buf+strlen(buf), ", roundoff: %5.3f", reallymaxerr);
+					if (!CUMULATIVE_ROUNDOFF) reallyminerr = 1.0, reallymaxerr = 0.0;
+				}
 				/* Append ms/iter */
 				speed = timer_value (timers, 0) / (double) iters;
 				sprintf (buf+strlen(buf), ", ms/iter: %6.3f", speed * 1000.0);
@@ -10676,6 +10680,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 				/* Append optional roundoff message */
 				if (ERRCHK && counter > 30) {
 					sprintf (buf+strlen(buf), ".  Round off: %10.10f to %10.10f", reallyminerr, reallymaxerr);
+					if (!CUMULATIVE_ROUNDOFF) reallyminerr = 1.0, reallymaxerr = 0.0;
 				}
 				if (CUMULATIVE_TIMING) {
 					strcat (buf, ".  Total time: ");
@@ -10806,11 +10811,6 @@ pushg(&gwdata.gdata, 2);}
 	    (!isProbablePrime && IniGetInt (INI_FILE, "OutputComposites", 1)))
 		writeResults (buf);
 
-//if (ERRCHK) {
-//	sprintf (buf, "Round off: %10.10f to %10.10f\n", reallyminerr, reallymaxerr);
-//	OutputBoth (thread_num, buf);
-//}
-
 /* Output results to the server */
 
 	{
@@ -10819,8 +10819,7 @@ pushg(&gwdata.gdata, 2);}
 		strcpy (pkt.computer_guid, COMPUTER_GUID);
 		strcpy (pkt.assignment_uid, w->assignment_uid);
 		strcpy (pkt.message, buf);
-		pkt.result_type =
-			isProbablePrime ? PRIMENET_AR_PRP_PRIME : PRIMENET_AR_PRP_RESULT;
+		pkt.result_type = isProbablePrime ? PRIMENET_AR_PRP_PRIME : PRIMENET_AR_PRP_RESULT;
 		pkt.k = w->k;
 		pkt.b = w->b;
 		pkt.n = w->n;
