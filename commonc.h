@@ -200,7 +200,8 @@ extern unsigned int PRECISION;		/* Number of decimal places to output*/
 					/* in percent complete lines */
 extern int RDTSC_TIMING;		/* True if RDTSC is used to time */
 extern int TIMESTAMPING;		/* True is timestamps to be output */
-extern int CUMULATIVE_TIMING;		/* True if outputting cumulative time*/
+extern int CUMULATIVE_TIMING;		/* True if outputting cumulative time */
+extern int CUMULATIVE_ROUNDOFF;		/* True if outputting cumulative min and max roundoff error */
 extern int SEQUENTIAL_WORK;		/* TRUE (the  default) if undocumented */
 					/* SequentialWorkToDo is set */
 extern int WELL_BEHAVED_WORK;		/* TRUE if undocumented feature */
