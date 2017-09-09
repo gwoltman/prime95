@@ -61,16 +61,10 @@ may or may not pass a Jacobi test, the last two save files have passed the Jacob
 check.  In prime.txt:
 	JacobiBackupFiles=N	(default is 2)
 
-If a Jacobi test takes 30 seconds, then the default represents an overhead of
-30 / (12 * 60 * 60) or 0.07% overhead.  Each Jacobi test has a 50% chance of
-discovering if a hardware error has occured in the last time interval.  In prime.txt:
-	JacobiErrorCheckingInterval=N	(default is 12)
-where N is in hours.
-
 You can disable Jacobi error checking which has a 50% chance of catching
 hardware errors.  You might do this if you are running the first LL test and
 double-checking LL test concurrently.  In prime.txt
-	JacobiErrorChecking=0 or 1	(default is 1)
+	JacobiErrorCheck=0 or 1	(default is 1)
 
 You can force the Options/CPU dialog to display times using AM/PM or
 a 24-hour clock format.  Otherwise, the program will make its best guess
