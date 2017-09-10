@@ -6690,14 +6690,13 @@ begin:	gwinit (&lldata.gwdata);
 /* 30 minute interval expired), and every 128th iteration. */
 
 		stop_reason = stopCheck (thread_num);
-		Jacobi_testing = Jacobi_testing_enabled && (counter == p - 1 || testJacobiFlag (thread_num));
 		saving = counter+1 != p &&
 			 (stop_reason ||
-			  Jacobi_testing ||
 			  (counter == 2 && p > 1500000) ||
 			  counter == last_counter-8 ||
 			  counter == last_counter ||
 			  testSaveFilesFlag (thread_num));
+		Jacobi_testing = Jacobi_testing_enabled && (counter+1 == p || (saving && !stop_reason && testJacobiFlag (thread_num)));
 		echk = saving || near_fft_limit || ERRCHK || (counter >= p - 50) || ((counter & 127) == 0);
 		gw_clear_maxerr (&lldata.gwdata);
 
