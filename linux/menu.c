@@ -449,7 +449,7 @@ again:	if (max_num_workers () > 1)
 	askNum ("Priority", &m_priority, 1, 10);
 
 	if (USE_PRIMENET) {
-		outputLongLine ("\nUse the following values to select a work type:\n  0 - Whatever makes the most sense\n  2 - Trial factoring\n  100 - First time primality tests\n  101 - Double-checking\n  102 - World record primality tests\n  4 - P-1 factoring\n  104 - 100 million digit primality tests\n  1 - Trial factoring to low limits\n  5 - ECM on small Mersenne numbers\n  6 - ECM on Fermat numbers\n");
+		outputLongLine ("\nUse the following values to select a work type:\n  0 - Whatever makes the most sense\n  100 - First time primality tests\n  101 - Double-checking\n  102 - World record primality tests\n  2 - Trial factoring\n  4 - P-1 factoring\n  104 - 100 million digit primality tests\n  1 - Trial factoring to low limits\n  5 - ECM on small Mersenne numbers\n  6 - ECM on Fermat numbers\n  160 - PRP on Mersenne cofactors\n  161 - PRP double-checks on Mersenne cofactors\n  8 - ECM on Mersenne cofactors\n");
 	}
 
 	if (USE_PRIMENET || NUM_CPUS > 1) {

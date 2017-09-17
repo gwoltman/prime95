@@ -133,8 +133,14 @@ int map_work_pref_to_sel (
 		return (8);
 	case PRIMENET_WP_LL_100M:
 		return (9);
-	default:
+	case PRIMENET_WP_COFACTOR_PRP:
 		return (10);
+	case PRIMENET_WP_COFACTOR_PRP_DC:
+		return (11);
+	case PRIMENET_WP_ECM_COFACTOR:
+		return (12);
+	default:
+		return (13);
 	}
 }
 
@@ -162,6 +168,12 @@ int map_sel_to_work_pref (
 		return (PRIMENET_WP_ECM_FERMAT);
 	case 9:
 		return (PRIMENET_WP_LL_100M);
+	case 10:
+		return (PRIMENET_WP_COFACTOR_PRP);
+	case 11:
+		return (PRIMENET_WP_COFACTOR_PRP_DC);
+	case 12:
+		return (PRIMENET_WP_ECM_COFACTOR);
 	}
 	return (-1);
 }
@@ -211,7 +223,10 @@ void CWorkerDlg::InitComboBoxText (void)
 	c_work_pref.AddString ("ECM on small Mersenne numbers");
 	c_work_pref.AddString ("ECM on Fermat numbers");
 	c_work_pref.AddString ("100,000,000 digit numbers to test");
-	if (sel == 10) c_work_pref.AddString ("Other");
+	c_work_pref.AddString ("PRP on Mersenne cofactors");
+	c_work_pref.AddString ("PRP double-checks on Mersenne cofactors");
+	c_work_pref.AddString ("ECM on Mersenne cofactors");
+	if (sel == 13) c_work_pref.AddString ("Other");
 	c_work_pref.SetCurSel (sel);
 
 // Populate the num cpus edit box.

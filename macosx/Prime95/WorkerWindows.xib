@@ -157,7 +157,7 @@ DQ
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
                                             </tableHeaderCell>
-                                            <popUpButtonCell key="dataCell" type="bevel" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" borderStyle="bezel" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" id="109">
+                                            <popUpButtonCell key="dataCell" type="bevel" title="ECM on Mersenne cofactors" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="bezel" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="3Ax-ld-dWx" id="109">
                                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <menu key="menu" title="OtherViews" id="110">
@@ -172,6 +172,9 @@ DQ
                                                         <menuItem title="ECM on small Mersenne numbers" id="155"/>
                                                         <menuItem title="ECM on Fermat numbers" id="156"/>
                                                         <menuItem title="100,000,000 digit numbers to test" id="157"/>
+                                                        <menuItem title="PRP on Mersenne cofactors" id="7Ya-9P-hpZ"/>
+                                                        <menuItem title="PRP double checks on Mersenne cofactors" id="h9n-d3-0HY"/>
+                                                        <menuItem title="ECM on Mersenne cofactors" state="on" id="3Ax-ld-dWx"/>
                                                     </items>
                                                 </menu>
                                             </popUpButtonCell>
