@@ -10825,6 +10825,9 @@ pushg(&gwdata.gdata, 2);}
 		pkt.c = w->c;
 		strcpy (pkt.residue, res64);
 		sprintf (pkt.error_count, "%08lX", error_count);
+		pkt.prp_base = prp_base;
+		pkt.num_known_factors = (w->known_factors == NULL) ? 0 : countCommas (w->known_factors) + 1;
+		pkt.gerbicz = FALSE;
 		pkt.fftlen = gwfftlen (&gwdata);
 		pkt.done = TRUE;
 		spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
