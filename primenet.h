@@ -1,3 +1,13 @@
+/*
+// THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
+// ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+// THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
+// PARTICULAR PURPOSE.
+//
+// Copyright (c) 1997-2017 Mersenne Research, Inc. All Rights Reserved.
+//
+*/
+
 /* Include file for primenet communication code */
 
 /* The current version number of the the PRIMENET.DLL API */
@@ -74,22 +84,27 @@ struct primenetUpdateComputerInfo {
 /* This structure is passed for the po - Program Options call */
 
 /* Valid work_preference values */
-#define PRIMENET_WP_WHATEVER	0	/* Whatever makes most sense */
-#define PRIMENET_WP_FACTOR_LMH	1	/* Factor big numbers to low limits */
-#define PRIMENET_WP_FACTOR	2	/* Trial factoring */
-#define PRIMENET_WP_PMINUS1	3	/* P-1 of small Mersennes */
-#define PRIMENET_WP_PFACTOR	4	/* P-1 of large Mersennes */
-#define PRIMENET_WP_ECM_SMALL	5	/* ECM of small Mersennes */
-#define PRIMENET_WP_ECM_FERMAT	6	/* ECM of Fermat numbers */
-#define PRIMENET_WP_ECM_CUNNINGHAM 7	/* ECM of Cunningham numbers */
-#define PRIMENET_WP_LL_FIRST	100	/* LL first time tests */
-#define PRIMENET_WP_LL_DBLCHK	101	/* LL double checks */
-#define PRIMENET_WP_WORLD_RECORD 102	/* LL result, Mersenne prime */
-#define PRIMENET_WP_LL_10M	103	/* LL 10 million digit */
-#define PRIMENET_WP_LL_100M	104	/* LL 100 million digit */
-#define PRIMENET_WP_LL_FIRST_NOFAC 105	/* LL first time tests, no trial */
-					/* factoring or P-1 factoring */
-#define PRIMENET_WP_PRP		150	/* PRP test - unimplmeneted */
+#define PRIMENET_WP_WHATEVER		0	/* Whatever makes most sense */
+#define PRIMENET_WP_FACTOR_LMH		1	/* Factor big numbers to low limits */
+#define PRIMENET_WP_FACTOR		2	/* Trial factoring */
+#define PRIMENET_WP_PMINUS1		3	/* P-1 of small Mersennes --- not supported */
+#define PRIMENET_WP_PFACTOR		4	/* P-1 of large Mersennes */
+#define PRIMENET_WP_ECM_SMALL		5	/* ECM of small Mersennes looking for first factors */
+#define PRIMENET_WP_ECM_FERMAT		6	/* ECM of Fermat numbers */
+#define PRIMENET_WP_ECM_CUNNINGHAM	7	/* ECM of Cunningham numbers --- not supported */
+#define PRIMENET_WP_ECM_COFACTOR	8	/* ECM of Mersenne cofactors */
+#define PRIMENET_WP_LL_FIRST		100	/* LL first time tests */
+#define PRIMENET_WP_LL_DBLCHK		101	/* LL double checks */
+#define PRIMENET_WP_WORLD_RECORD	102	/* LL result, Mersenne prime */
+#define PRIMENET_WP_LL_10M		103	/* LL 10 million digit --- no longer supported */
+#define PRIMENET_WP_LL_100M		104	/* LL 100 million digit */
+#define PRIMENET_WP_LL_FIRST_NOFAC	105	/* LL first time tests, no trial factoring or P-1 factoring -- superfluous */
+#define PRIMENET_WP_PRP			150	/* PRP test of big Mersennes */
+#define PRIMENET_WP_PRP_DC		151	/* PRP double checks */
+#define PRIMENET_WP_PRP_RECORD		152	/* PRP test of world record Mersennes */
+#define PRIMENET_WP_PRP_100M		153	/* PRP test of 100M digit Mersennes */
+#define PRIMENET_WP_COFACTOR_PRP	160	/* PRP test of Mersenne cofactors */
+#define PRIMENET_WP_COFACTOR_PRP_DC	161	/* PRP double check of Mersenne cofactors */
 
 struct primenetProgramOptions {
 	int32_t	versionNumber;
@@ -128,7 +143,7 @@ struct primenetProgramOptions {
 #define PRIMENET_WORK_TYPE_ECM		5
 #define PRIMENET_WORK_TYPE_FIRST_LL	100
 #define PRIMENET_WORK_TYPE_DBLCHK	101
-#define PRIMENET_WORK_TYPE_PRP		150	/* Unimplmented */
+#define PRIMENET_WORK_TYPE_PRP		150
 
 struct primenetGetAssignment {
 	int32_t	versionNumber;
@@ -202,6 +217,9 @@ struct primenetAssignmentProgress {
 	uint32_t end_date;		/* Expected completion time in sec. */
 	uint32_t next_update;		/* Next update time in seconds */
 	uint32_t fftlen;		/* FFT len being used */
+	uint32_t iteration;		/* LL/PRP iteration (zero-based) */
+	char	residue[17];		/* LL/PRP interim residue */
+	char	error_count[9];		/* LL/PRP interim error count */
 };
 
 
@@ -246,6 +264,9 @@ struct primenetAssignmentResult {
 	char	error_count[9];		/* LL result error count */
 	char	factor[201];		/* Factor found */
 	char	pad2[1];
+	uint32_t num_known_factors;	/* Num known factors used in a PRP test */
+	uint32_t gerbicz;		/* TRUE if Gerbicz error checking used in PRP test */
+	uint32_t prp_base;		/* Base used in a PRP test */
 
 	/* Returned by the server */
 

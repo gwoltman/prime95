@@ -21,6 +21,7 @@
 //            Kurowski 9/1999, 4.0 API changes for MPrime 19.x
 //	      Woltman 1/2002, Windows support and bug fixes
 //	      Woltman 10/2005, Version 5 API support, CURL library
+//	      Woltman 9/2017, Added interim residues to AP msg, added PRP support
 //
 //  ASSUMPTIONS: 1. less than 4k of data is sent or received per call
 //               2. HTTP/1.1
@@ -973,6 +974,14 @@ int format_args (char* args, short operation, void* pkt)
 			sprintf (p, "&fftlen=%d", z->fftlen);
 			p += strlen (p);
 		}
+		if (z->iteration) {
+			sprintf (p, "&iteration=%d", z->iteration);
+			p += strlen (p);
+			strcpy (p, "&res64=");
+			p = armor (p + strlen (p), z->residue);
+			strcpy (p, "&ec=");
+			p = armor (p + strlen (p), z->error_count);
+		}
 		break;
 		}
 	case PRIMENET_ASSIGNMENT_RESULT:
@@ -1062,20 +1071,24 @@ int format_args (char* args, short operation, void* pkt)
 			}
 		}
 		if (z->result_type == PRIMENET_AR_PRP_RESULT) {
-			sprintf (p, "&A=%.0f&b=%d&n=%d&c=%d",
-				 z->k, z->b, z->n, z->c);
+			sprintf (p, "&A=%.0f&b=%d&n=%d&c=%d", z->k, z->b, z->n, z->c);
 			p += strlen (p);
 			strcpy (p, "&rd=");
 			p = armor (p + strlen (p), z->residue);
 			strcpy (p, "&ec=");
 			p = armor (p + strlen (p), z->error_count);
+			if (z->prp_base) sprintf (p, "&base=%d", z->prp_base), p += strlen (p);
+			if (z->num_known_factors) sprintf (p, "&nkf=%d", z->num_known_factors), p += strlen (p);
+			if (z->gerbicz) strcpy (p, "&gbz=1"), p += strlen (p);
 		}
 		if (z->result_type == PRIMENET_AR_PRP_PRIME) {
-			sprintf (p, "&A=%.0f&b=%d&n=%d&c=%d",
-				 z->k, z->b, z->n, z->c);
+			sprintf (p, "&A=%.0f&b=%d&n=%d&c=%d", z->k, z->b, z->n, z->c);
 			p += strlen (p);
 			strcpy (p, "&ec=");
 			p = armor (p + strlen (p), z->error_count);
+			if (z->prp_base) sprintf (p, "&base=%d", z->prp_base), p += strlen (p);
+			if (z->num_known_factors) sprintf (p, "&nkf=%d", z->num_known_factors), p += strlen (p);
+			if (z->gerbicz) strcpy (p, "&gbz=1"), p += strlen (p);
 		}
 		if (z->fftlen) {
 			sprintf (p, "&fftlen=%d", z->fftlen);
