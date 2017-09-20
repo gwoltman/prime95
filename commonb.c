@@ -9798,6 +9798,11 @@ void autoBench (void)
 //	if (pkt.num_data_points)
 //		spoolMessage (PRIMENET_BENCHMARK_DATA, &pkt);
 
+/* Since restarting workers will run a Jacobi test on the latest save files, we restart the Jacobi timer */
+	
+	memset (JACOBI_ERROR_CHECK, 0, sizeof (JACOBI_ERROR_CHECK));
+	start_Jacobi_timer ();
+
 /* Restart workers */
 
 	STOP_FOR_AUTOBENCH = FALSE;
