@@ -6328,6 +6328,35 @@ void good_news (void *arg)
 	}
 }
 
+/* Rotate a p-bit giant right shift_count bits.  Used to undo shifted FFT data. */
+
+int rotateg (				/* Return false if failed due to memory allocation error */
+	giant	v,			/* Giant to rotate right */
+	unsigned long p,		/* Mersenne exponent (bit size of the giant to rotate) */
+	unsigned long shift_count,	/* Number of bits to rotate right */
+	ghandle	*gdata)			/* Handle for allocating giant temporaries */
+{
+	giant	vlo;
+
+/* If rotate count is zero, no work needed */
+
+	if (shift_count == 0) return (1);
+
+/* Convert current iteration to binary */
+
+	vlo = popg (gdata, (p >> 5) + 5);
+	if (vlo == NULL) return (0);
+
+/* Apply the shift count */
+
+	gtogshiftright (shift_count, v, vlo);		// Shift right and copy
+	gmaskbits (shift_count, v);			// Mask for the bits below the shift count
+	gshiftleft (p - shift_count, v);		// Shift the masked bits left
+	addg (vlo, v);					// Recombine the bits, now rotated
+	pushg (gdata, 1);				// Free the temporary
+	return (1);
+}
+
 /* Perform a Jacobi test on the current LL iteration.  This check has a 50% chance of catching */
 /* a calculation error.  See http://www.mersenneforum.org/showthread.php?t=22471 especially */
 /* starting at post #30. */
@@ -6337,7 +6366,7 @@ int jacobi_test (
 	unsigned long p,		/* Mersenne exponent */
 	llhandle *lldata)		/* Struct that points us to the LL data */
 {
-	giant	v, vlo;
+	giant	v;
 	mpz_t	a, b;
 	int	err_code, Jacobi_symbol;
 	double	timers[1];
@@ -6348,7 +6377,7 @@ int jacobi_test (
 	clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
 	start_timer (timers, 0);
 
-/* Convert current iteration to binary */
+/* Convert current iteration to binary.  Apply the shift count. */
 
 	v = popg (&lldata->gwdata.gdata, (p >> 5) + 5);
 	if (v == NULL) goto oom;
@@ -6358,27 +6387,20 @@ int jacobi_test (
 		pushg (&lldata->gwdata.gdata, 1);
 		return (0);
 	}
-
-/* Apply the shift count, putting the LL value in "a" */
-
-	vlo = popg (&lldata->gwdata.gdata, (p >> 5) + 5);
-	if (vlo == NULL) {
+	if (! rotateg (v, p, lldata->units_bit, &lldata->gwdata.gdata)) {
 		pushg (&lldata->gwdata.gdata, 1);
 		goto oom;
 	}
-	gtog (v, vlo);
-	gshiftright (lldata->units_bit, v);		// Shift the data above the units bit down
-	gmaskbits (lldata->units_bit, vlo);		// Get the bits below the shift count (we'll shift them left later)
+
+/* Copy the LL value to "a" */
+
 	mpz_init (a);
-	mpz_init (b);
-	gtompz (vlo, a);
-	mpz_mul_2exp (a, a, p - lldata->units_bit);	// Shift left the bits below the shift count
-	gtompz (v, b);
-	mpz_add (a, a, b);				// Add in the bits above the shift count
-	pushg (&lldata->gwdata.gdata, 2);
+	gtompz (v, a);
+	pushg (&lldata->gwdata.gdata, 1);
 
 /* Generate the Mersenne number */
 
+	mpz_init (b);
 	mpz_ui_pow_ui (b, 2, p);
 	mpz_sub_ui (b, b, 1);
 
@@ -10121,10 +10143,12 @@ int primeBench (
 /*	u32		checksum of following data */
 /*	u32		error_count */
 /*	u32		iteration counter */
+/*	u32		prp base (version number >= 2) */
+/*	u32		shift count (version number >= 2) */
 /*	gwnum		FFT data (u32 len, array u32s) */
 
 #define PRP_MAGICNUM		0x87f2a91b
-#define PRP_VERSION		1
+#define PRP_VERSION		2
 
 int writePRPSaveFile (
 	gwhandle *gwdata,
@@ -10132,7 +10156,9 @@ int writePRPSaveFile (
 	writeSaveFileState *write_save_file_state,
 	struct work_unit *w,
 	unsigned long counter,
-	unsigned long error_count)
+	unsigned long error_count,
+	unsigned long prp_base,
+	unsigned long shift_count)
 {
 	int	fd;
 	unsigned long sum = 0;
@@ -10146,6 +10172,8 @@ int writePRPSaveFile (
 
 	if (!write_long (fd, error_count, &sum)) goto err;
 	if (!write_long (fd, counter, &sum)) goto err;
+	if (!write_long (fd, prp_base, &sum)) goto err;
+	if (!write_long (fd, shift_count, &sum)) goto err;
 	if (!write_gwnum (fd, gwdata, x, &sum)) goto err;
 
 	if (!write_checksum (fd, sum)) goto err;
@@ -10167,7 +10195,9 @@ int readPRPSaveFile (
 	char	*filename,
 	struct work_unit *w,
 	unsigned long *counter,
-	unsigned long *error_count)
+	unsigned long *error_count,
+	unsigned long *prp_base,
+	unsigned long *shift_count)
 {
 	int	fd;
 	unsigned long sum, filesum, version;
@@ -10177,11 +10207,18 @@ int readPRPSaveFile (
 
 	if (!read_magicnum (fd, PRP_MAGICNUM)) goto err;
 	if (!read_header (fd, &version, w, &filesum)) goto err;
-	if (version != PRP_VERSION) goto err;
+	if (version == 0 || version > PRP_VERSION) goto err;
 
 	sum = 0;
 	if (!read_long (fd, error_count, &sum)) goto err;
 	if (!read_long (fd, counter, &sum)) goto err;
+	if (version == 1) {
+		*prp_base = 3;
+		*shift_count = 0;
+	} else {
+		if (!read_long (fd, prp_base, &sum)) goto err;
+		if (!read_long (fd, shift_count, &sum)) goto err;
+	}
 
 	if (!read_gwnum (fd, gwdata, x, &sum)) goto err;
 
@@ -10219,11 +10256,12 @@ int prp (
 {
 	gwhandle gwdata;
 	gwnum	x;
+	unsigned long units_bit;	/* For shifting FFT data -- allows more robust double-checking */
 	giant	N, tmp;
 	int	first_iter_msg, res, stop_reason;
 	int	echk, saving, near_fft_limit, sleep5, isProbablePrime;
-	unsigned long Nlen, counter, iters, error_count;
-	int	prp_base, slow_iteration_count;
+	unsigned long prp_base, Nlen, counter, iters, error_count;
+	int	slow_iteration_count;
 	double	timers[2];
 	double	inverse_Nlen;
 	double	reallyminerr = 1.0;
@@ -10281,10 +10319,9 @@ int prp (
 	if (stop_reason) return (stop_reason);
 #endif
 
-/* For testing purposes (to mimic LLRs PRP tests) we can support bases other than 3. */
-/* Note that before this becomes an official feature, the PRP base should be written */
-/* to the save file and validated on reading.  The Res64 output line should output the */
-/* non-standard base. */	
+/* By default we mimic LLR's PRP tests using PRP base 3, though we can support bases other than 3. */
+/* There is a subtle bug here.  We use the PRPBase from the INI file to init the gwnum FFT, but when */
+/* we read the save file, it may contain a prp_base that is larger than the one used to init the FFTs. */
 
 	prp_base = IniGetInt (INI_FILE, "PRPBase", 3);
 
@@ -10378,7 +10415,28 @@ begin:	gwinit (&gwdata);
 				return (0);
 			}
 			/* No save files existed, start from scratch. */
-			dbltogw (&gwdata, (double) prp_base, x);
+			/* By default we mimic LLR's PRP tests using PRP base 3, though we can support bases other than 3. */
+			prp_base = IniGetInt (INI_FILE, "PRPBase", 3);
+			/* Also, for Mersenne numbers we support FFT data shifting */
+			if (w->k == 1.0 && w->b == 2 && w->n > 1000 && w->c == -1) {
+				unsigned long word, bit_in_word;
+				// Generate a random initial shift count
+				srand ((unsigned) time (NULL));
+				units_bit = (rand () << 16) + rand ();
+				if (CPU_FLAGS & CPU_RDTSC) { uint32_t hi,lo; rdtsc(&hi,&lo); units_bit += lo; }
+				// Let user override random initial shift count
+				units_bit = IniGetInt (INI_FILE, "InitialShiftCount", units_bit);
+				// Initial shift count can't be larger than n-64 (the -64 avoids wraparound in setting intial value)
+				units_bit = units_bit % (w->n - 64);
+				// Perform the initial shift, putting at most 24-bits in a word (should be safe)
+				dbltogw (&gwdata, 0.0, x);
+				bitaddr (&gwdata, units_bit, &word, &bit_in_word);
+				set_fft_value (&gwdata, x, word, (prp_base << bit_in_word) & 0xFFFFFF);
+				set_fft_value (&gwdata, x, word+1, prp_base >> (24 - bit_in_word));
+			} else {
+				units_bit = 0;
+				dbltogw (&gwdata, (double) prp_base, x);
+			}
 			counter = 0;
 			error_count = 0;
 			first_iter_msg = FALSE;
@@ -10387,7 +10445,7 @@ begin:	gwinit (&gwdata);
 
 /* Read a PRP save file.  If successful, break out of loop. */
 
-		if (readPRPSaveFile (&gwdata, x, read_save_file_state.current_filename, w, &counter, &error_count)) {
+		if (readPRPSaveFile (&gwdata, x, read_save_file_state.current_filename, w, &counter, &error_count, &prp_base, &units_bit)) {
 			first_iter_msg = TRUE;
 			break;
 		}
@@ -10401,14 +10459,9 @@ begin:	gwinit (&gwdata);
 /* Also output the FFT length. */
 
 	gwfft_description (&gwdata, fft_desc);
-	if (prp_base == 3)
-		sprintf (buf, "%s PRP test of %s using %s\n",
-			 (counter == 0) ? "Starting" : "Resuming",
-			 string_rep, fft_desc);
-	else
-		sprintf (buf, "%s %d-PRP test of %s using %s\n",
-			 (counter == 0) ? "Starting" : "Resuming",
-			 prp_base, string_rep, fft_desc);
+	strcpy (buf, (counter == 0) ? "Starting " : "Resuming ");
+	if (prp_base != 3) sprintf (buf+strlen(buf), "%lu-", prp_base);
+	sprintf (buf+strlen(buf), "PRP test of %s using %s\n", string_rep, fft_desc);
 	OutputStr (thread_num, buf);
 
 /* Compute the number we are testing. */
@@ -10470,6 +10523,7 @@ begin:	gwinit (&gwdata);
 t1 = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 4) + 5);
 t2 = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 4) + 5);
 gwtogiant (&gwdata, x, t1);
+rotateg (t1, w->n, units_bit, &gwdata.gdata);
 #endif
 	gwsetmulbyconst (&gwdata, prp_base);
 	iters = 0;
@@ -10511,10 +10565,8 @@ gwtogiant (&gwdata, x, t1);
 		gwstartnextfft (&gwdata,
 				!saving && !maxerr_recovery_mode &&
 				counter > 35 && counter < Nlen-35 &&
-				(INTERIM_FILES == 0 ||
-				 (counter+1) % INTERIM_FILES > 0) &&
-				(INTERIM_RESIDUES == 0 ||
-				 (counter+1) % INTERIM_RESIDUES > 0));
+				(INTERIM_FILES == 0 || (counter+1) % INTERIM_FILES > 0) &&
+				(INTERIM_RESIDUES == 0 || (counter+1) % INTERIM_RESIDUES > 0));
 #ifdef CHECK_ITER
 squareg (t1);
 if (bitval (N, Nlen-2-counter)) imulg (prp_base, t1);
@@ -10537,8 +10589,12 @@ echk=1;
 		else
 			gwsquare (&gwdata, x);
 
+		units_bit <<= 1;
+		if (units_bit >= w->n) units_bit -= w->n;
+
 #ifdef CHECK_ITER
 gwtogiant (&gwdata, x, t2);
+rotateg (t2, w->n, units_bit, &gwdata.gdata);
 if (w->known_factors) {	iaddg (1, N); modg (N, t2); iaddg (-1, N); }
 if (gcompg (t1, t2) != 0)
 OutputStr (thread_num, "Iteration failed.\n");
@@ -10554,8 +10610,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* Update min/max round-off error */
 
 		if (echk) {
-			if (counter > 30 &&
-			    gw_get_maxerr (&gwdata) < reallyminerr)
+			if (counter > 30 && gw_get_maxerr (&gwdata) < reallyminerr)
 				reallyminerr = gw_get_maxerr (&gwdata);
 			if (gw_get_maxerr (&gwdata) > reallymaxerr)
 				reallymaxerr = gw_get_maxerr (&gwdata);
@@ -10585,9 +10640,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 				gw_clear_error (&gwdata);
 			} else {
 				char	msg[100];
-				sprintf (msg, ERRMSG1B,
-					 gwsuminp (&gwdata, x),
-					 gwsumout (&gwdata, x));
+				sprintf (msg, ERRMSG1B, gwsuminp (&gwdata, x), gwsumout (&gwdata, x));
 				sprintf (buf, ERRMSG0, counter+1, Nlen-1, msg);
 				OutputBoth (thread_num, buf);
 				last_counter = counter;
@@ -10713,7 +10766,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* disk-full situation) */
 
 		if (saving) {
-			if (! writePRPSaveFile (&gwdata, x, &write_save_file_state, w, counter, error_count)) {
+			if (! writePRPSaveFile (&gwdata, x, &write_save_file_state, w, counter, error_count, prp_base, units_bit)) {
 				sprintf (buf, WRITEFILEERR, filename);
 				OutputBoth (thread_num, buf);
 			}
@@ -10735,6 +10788,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 		if (INTERIM_RESIDUES && counter % INTERIM_RESIDUES == 0) {
 			tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
 			gwtogiant (&gwdata, x, tmp);
+			rotateg (tmp, w->n, units_bit, &gwdata.gdata);
 			if (w->known_factors) {	iaddg (1, N); modg (N, tmp); iaddg (-1, N); }
 			sprintf (buf, "%s interim Wf%d residue %08lX%08lX at iteration %ld\n",
 				 string_rep, PORT, (unsigned long) tmp->n[1], (unsigned long) tmp->n[0], counter);
@@ -10750,7 +10804,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			sprintf (interimfile, "%s.%03ld", filename, counter / INTERIM_FILES);
 			writeSaveFileStateInit (&state, interimfile, 0);
 			state.num_ordinary_save_files = 99;
-			writePRPSaveFile (&gwdata, x, &state, w, counter, error_count);
+			writePRPSaveFile (&gwdata, x, &state, w, counter, error_count, prp_base, units_bit);
 		}
 
 /* If ten iterations take 40% longer than a typical iteration, then */
@@ -10781,6 +10835,7 @@ pushg(&gwdata.gdata, 2);}
 
 	tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
 	gwtogiant (&gwdata, x, tmp);
+	rotateg (tmp, w->n, units_bit, &gwdata.gdata);
 	if (w->known_factors) {	iaddg (1, N); modg (N, tmp); iaddg (-1, N); }
 	isProbablePrime = isone (tmp);
 	if (!isProbablePrime) {
@@ -10792,15 +10847,17 @@ pushg(&gwdata.gdata, 2);}
 /* Print results. */
 
 	if (isProbablePrime) {
-		if (prp_base == 3)
-			sprintf (buf, "%s is a probable prime! Wf%d: %08lX,%08lX\n",
-				 string_rep, PORT, SEC1 (w->n), error_count);
-		else
-			sprintf (buf, "%s is a probable prime (%d-PRP)! Wf%d: %08lX,%08lX\n",
-				 string_rep, prp_base, PORT, SEC1 (w->n), error_count);
-	} else
-		sprintf (buf, "%s is not prime.  RES64: %s. Wf%d: %08lX,%08lX\n",
-			 string_rep, res64, PORT, SEC1 (w->n), error_count);
+		sprintf (buf, "%s is a probable prime", string_rep);
+		if (prp_base != 3) sprintf (buf+strlen(buf), " (%lu-PRP)", prp_base);
+		strcat (buf, "!");
+	} else {
+		sprintf (buf, "%s is not prime.  ", string_rep);
+		if (prp_base != 3) sprintf (buf+strlen(buf), "Base-%lu ", prp_base);
+		sprintf (buf+strlen(buf), "RES64: %s.", res64);
+	}
+	sprintf (buf+strlen(buf), " Wf%d: %08lX,", PORT, SEC1 (w->n));
+	if (units_bit) sprintf (buf+strlen(buf), "%ld,", units_bit);
+	sprintf (buf+strlen(buf), "%08lX\n", error_count);
 	OutputStr (thread_num, buf);
 	formatMsgForResultsFile (buf, w);
 
@@ -10826,6 +10883,7 @@ pushg(&gwdata.gdata, 2);}
 		strcpy (pkt.residue, res64);
 		sprintf (pkt.error_count, "%08lX", error_count);
 		pkt.prp_base = prp_base;
+		pkt.shift_count = units_bit;
 		pkt.num_known_factors = (w->known_factors == NULL) ? 0 : countCommas (w->known_factors) + 1;
 		pkt.gerbicz = FALSE;
 		pkt.fftlen = gwfftlen (&gwdata);
