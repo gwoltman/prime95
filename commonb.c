@@ -10163,7 +10163,8 @@ int writePRPSaveFile (
 	unsigned long counter,
 	unsigned long error_count,
 	unsigned long prp_base,
-	unsigned long shift_count)
+	unsigned long shift_count,
+	unsigned long is_mersenne)
 {
 	int	fd;
 	unsigned long sum = 0;
@@ -10179,6 +10180,7 @@ int writePRPSaveFile (
 	if (!write_long (fd, counter, &sum)) goto err;
 	if (!write_long (fd, prp_base, &sum)) goto err;
 	if (!write_long (fd, shift_count, &sum)) goto err;
+	if (!write_long (fd, is_mersenne, &sum)) goto err;
 	if (!write_gwnum (fd, gwdata, x, &sum)) goto err;
 
 	if (!write_checksum (fd, sum)) goto err;
@@ -10202,7 +10204,8 @@ int readPRPSaveFile (
 	unsigned long *counter,
 	unsigned long *error_count,
 	unsigned long *prp_base,
-	unsigned long *shift_count)
+	unsigned long *shift_count,
+	unsigned long *is_mersenne)		     
 {
 	int	fd;
 	unsigned long sum, filesum, version;
@@ -10220,9 +10223,11 @@ int readPRPSaveFile (
 	if (version == 1) {
 		*prp_base = 3;
 		*shift_count = 0;
+		*is_mersenne = FALSE;
 	} else {
 		if (!read_long (fd, prp_base, &sum)) goto err;
 		if (!read_long (fd, shift_count, &sum)) goto err;
+		if (!read_long (fd, is_mersenne, &sum)) goto err;
 	}
 
 	if (!read_gwnum (fd, gwdata, x, &sum)) goto err;
@@ -10251,6 +10256,52 @@ void good_news_prp (void *arg)
 	free (arg);
 }
 
+/* Divide a giant by the PRP base.  Used to optimize PRPs on Mersenne numbers. */
+
+void basedivideg (
+	giant	v,			/* Giant to rotate right */
+	unsigned long p,		/* Mersenne exponent */
+	unsigned long prp_base,		/* PRP base to divide into giant */
+	int	twice)			/* TRUE if we are to divide by PRP base twice */
+{
+	mpz_t	q, r, prp_base_z, mersenne_number, inverse_prp_base;
+
+/* Generate the Mersenne number */
+
+	mpz_init (mersenne_number);
+	mpz_ui_pow_ui (mersenne_number, 2, p);
+	mpz_sub_ui (mersenne_number, mersenne_number, 1);
+
+/* Calculate 1 / prp_base MOD Mersenne_number */
+
+	mpz_init_set_ui (prp_base_z, prp_base);
+	mpz_init (inverse_prp_base);
+	mpz_invert (inverse_prp_base, prp_base_z, mersenne_number);
+
+/* Copy the giant value to "a".  Calculate quotient and remainder dividing by PRP base. */
+/* Then calculate q + r * inverse_base to get the final result */
+
+	mpz_init (q);
+	mpz_init (r);
+	gtompz (v, q);
+	mpz_tdiv_qr (q, r, q, prp_base_z);
+	mpz_addmul (q, r, inverse_prp_base);
+	if (twice) {
+		mpz_tdiv_qr (q, r, q, prp_base_z);
+		mpz_addmul (q, r, inverse_prp_base);
+	}
+	mpz_tdiv_r (q, q, mersenne_number);
+	mpztog (q, v);
+
+/* Cleanup and return */
+
+	mpz_clear (q);
+	mpz_clear (r);
+	mpz_clear (inverse_prp_base);
+	mpz_clear (prp_base_z);
+	mpz_clear (mersenne_number);
+}
+
 /* Do a PRP test */
 
 int prp (
@@ -10265,7 +10316,7 @@ int prp (
 	giant	N, tmp;
 	int	first_iter_msg, res, stop_reason;
 	int	echk, saving, near_fft_limit, sleep5, isProbablePrime;
-	unsigned long prp_base, Nlen, counter, iters, error_count;
+	unsigned long prp_base, Nlen, counter, iters, is_mersenne, error_count;
 	int	slow_iteration_count;
 	double	timers[2];
 	double	inverse_Nlen;
@@ -10445,12 +10496,16 @@ begin:	gwinit (&gwdata);
 			counter = 0;
 			error_count = 0;
 			first_iter_msg = FALSE;
+			/* As a small optimization, Mersenne numbers are computed as a^(N+1) mod N */
+			is_mersenne = (w->k == 1.0 && w->b == 2 && w->c == -1 &&
+				       w->known_factors == NULL && IniGetInt (INI_FILE, "PRPMersenneOptimization", 1));
 			break;
 		}
 
 /* Read a PRP save file.  If successful, break out of loop. */
 
-		if (readPRPSaveFile (&gwdata, x, read_save_file_state.current_filename, w, &counter, &error_count, &prp_base, &units_bit)) {
+		if (readPRPSaveFile (&gwdata, x, read_save_file_state.current_filename, w, &counter,
+				     &error_count, &prp_base, &units_bit, &is_mersenne)) {
 			first_iter_msg = TRUE;
 			break;
 		}
@@ -10483,11 +10538,21 @@ begin:	gwinit (&gwdata);
 		goto exit;
 	}
 
-/* Subtract 1 from N to compute a^(N-1) mod N.  Get the exact bit length */
+/* As a small optimization, Mersenne numbers are computed as a^(N+1) mod N with the final result divided */
+/* by a^2.  This eliminates all mul-by-consts at the expense of one squaring and lots of bookkeepping headaches. */
+
+	if (is_mersenne) {
+		iaddg (1, N);
+		Nlen = bitlen (N);
+	}
+
+/* Standard PRP test.  Subtract 1 from N to compute a^(N-1) mod N.  Get the exact bit length */
 /* of the number.  We will perform bitlen(N)-1 squarings for the PRP test. */
 
-	iaddg (-1, N);
-	Nlen = bitlen (N);
+	else {
+		iaddg (-1, N);
+		Nlen = bitlen (N);
+	}
 
 /* Hyperthreading backoff is an option to pause the program when iterations */
 /* take longer than usual.  This is useful on hyperthreaded machines so */
@@ -10771,7 +10836,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* disk-full situation) */
 
 		if (saving) {
-			if (! writePRPSaveFile (&gwdata, x, &write_save_file_state, w, counter, error_count, prp_base, units_bit)) {
+			if (! writePRPSaveFile (&gwdata, x, &write_save_file_state, w, counter, error_count, prp_base, units_bit, is_mersenne)) {
 				sprintf (buf, WRITEFILEERR, filename);
 				OutputBoth (thread_num, buf);
 			}
@@ -10789,14 +10854,19 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* Output the 64-bit residue at specified interims.  Also output the */
 /* residues for the next two iterations so that we can compare our */
 /* residues to programs that start counter at zero or one. */
+/* Beware that if we are PRPing a Mersenne number our iteration numbers are off by one */
+/* compared to other PRP programs, we adjust accordingly. */
 
-		if (INTERIM_RESIDUES && counter % INTERIM_RESIDUES == 0) {
+		if (INTERIM_RESIDUES &&
+		    ((is_mersenne && counter > 1 && (counter-1) % INTERIM_RESIDUES == 0) ||
+		     (!is_mersenne && counter % INTERIM_RESIDUES == 0))) {
 			tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
 			gwtogiant (&gwdata, x, tmp);
 			rotateg (tmp, w->n, units_bit, &gwdata.gdata);
+			if (is_mersenne) basedivideg (tmp, w->n, prp_base, FALSE);
 			if (w->known_factors) {	iaddg (1, N); modg (N, tmp); iaddg (-1, N); }
 			sprintf (buf, "%s interim Wf%d residue %08lX%08lX at iteration %ld\n",
-				 string_rep, PORT, (unsigned long) tmp->n[1], (unsigned long) tmp->n[0], counter);
+				 string_rep, PORT, (unsigned long) tmp->n[1], (unsigned long) tmp->n[0], counter - is_mersenne);
 			OutputBoth (thread_num, buf);
 			pushg (&gwdata.gdata, 1);
 		}
@@ -10809,7 +10879,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			sprintf (interimfile, "%s.%03ld", filename, counter / INTERIM_FILES);
 			writeSaveFileStateInit (&state, interimfile, 0);
 			state.num_ordinary_save_files = 99;
-			writePRPSaveFile (&gwdata, x, &state, w, counter, error_count, prp_base, units_bit);
+			writePRPSaveFile (&gwdata, x, &state, w, counter, error_count, prp_base, units_bit, is_mersenne);
 		}
 
 /* If ten iterations take 40% longer than a typical iteration, then */
@@ -10841,15 +10911,14 @@ pushg(&gwdata.gdata, 2);}
 	tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
 	gwtogiant (&gwdata, x, tmp);
 	rotateg (tmp, w->n, units_bit, &gwdata.gdata);
+	if (is_mersenne) basedivideg (tmp, w->n, prp_base, TRUE);
 	if (w->known_factors) {	iaddg (1, N); modg (N, tmp); iaddg (-1, N); }
 	isProbablePrime = isone (tmp);
-	if (!isProbablePrime) {
-		sprintf (res64, "%08lX%08lX", (unsigned long) tmp->n[1], (unsigned long) tmp->n[0]);
-	}
+	if (!isProbablePrime) sprintf (res64, "%08lX%08lX", (unsigned long) tmp->n[1], (unsigned long) tmp->n[0]);
 	pushg (&gwdata.gdata, 1);
 	gwfree (&gwdata, x);
 
-/* Print results. */
+/* Print results */
 
 	if (isProbablePrime) {
 		sprintf (buf, "%s is a probable prime", string_rep);
