@@ -1,3 +1,14 @@
+New features in Version 29.4 of mprime
+--------------------------------------
+
+1)  GIMPS has a new sub-project -- finding (probable) prime Mersenne cofactors.
+    This sub-project has two parts:  1)  Running PRP tests  and 2) Finding
+    additional factors.  To support this new sub-project there are three
+    new work preferences:  PRP on Mersenne cofactors, PRP double-checking on
+    Mersenne cofactors, ECM on Mersenne cofactors.
+2)  Like LL tests, PRP tests now support shift counts to aid in running double-checks.
+    Shift counts are only supported for Mersenne numbers and Mersenne cofactors.
+
 New features in Version 29.3 of mprime
 --------------------------------------
 
