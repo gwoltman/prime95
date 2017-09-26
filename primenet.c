@@ -1077,8 +1077,10 @@ int format_args (char* args, short operation, void* pkt)
 			p = armor (p + strlen (p), z->residue);
 			strcpy (p, "&ec=");
 			p = armor (p + strlen (p), z->error_count);
-			if (z->prp_base) sprintf (p, "&base=%d", z->prp_base), p += strlen (p);
 			if (z->num_known_factors) sprintf (p, "&nkf=%d", z->num_known_factors), p += strlen (p);
+			if (z->prp_base) sprintf (p, "&base=%d", z->prp_base), p += strlen (p);
+			if (z->prp_residue_type) sprintf (p, "&rt=%d", z->prp_residue_type), p += strlen (p);
+			if (z->shift_count) sprintf (p, "&sc=%d", z->shift_count), p += strlen (p);
 			if (z->gerbicz) strcpy (p, "&gbz=1"), p += strlen (p);
 		}
 		if (z->result_type == PRIMENET_AR_PRP_PRIME) {
@@ -1086,8 +1088,8 @@ int format_args (char* args, short operation, void* pkt)
 			p += strlen (p);
 			strcpy (p, "&ec=");
 			p = armor (p + strlen (p), z->error_count);
-			if (z->prp_base) sprintf (p, "&base=%d", z->prp_base), p += strlen (p);
 			if (z->num_known_factors) sprintf (p, "&nkf=%d", z->num_known_factors), p += strlen (p);
+			if (z->prp_base) sprintf (p, "&base=%d", z->prp_base), p += strlen (p);
 			if (z->gerbicz) strcpy (p, "&gbz=1"), p += strlen (p);
 		}
 		if (z->fftlen) {
@@ -1455,6 +1457,8 @@ int parse_page (char *response_buf, short operation, void *pkt)
 		parse_double (s, "B2", &z->B2);
 		parse_uint (s, "CR", &z->curves);
 		parse_double (s, "saved", &z->tests_saved);
+		parse_uint (s, "base", &z->prp_base);
+		parse_uint (s, "rt", &z->prp_residue_type);
 		parse_string (s, "kf", z->known_factors, sizeof (z->known_factors));
 		break;
 		}
