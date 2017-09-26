@@ -10,6 +10,12 @@
 | Commonc contains information used during setup and execution
 +---------------------------------------------------------------------*/
 
+/* Routines missing from GMP */
+
+#define mpz_add_si(d,s,addin)	if (addin >= 0) mpz_add_ui(d,s,(unsigned int)addin); else mpz_sub_ui(d,s,(unsigned int)-addin);
+#define mpz_mul_d(d,s,flt)	{ mpz_t t; mpz_init_set_d(t,flt); mpz_mul(d,s,t); mpz_clear(t); }
+#define mpz_eq(a,b)		mpz_cmp(a,b) == 0
+
 /* Globals for error messages */
 
 static const char ERRMSG0[] = "Iteration: %ld/%ld, %s";
@@ -10164,7 +10170,7 @@ int writePRPSaveFile (
 	unsigned long error_count,
 	unsigned long prp_base,
 	unsigned long shift_count,
-	unsigned long is_mersenne)
+	unsigned long gerbicz_possible)
 {
 	int	fd;
 	unsigned long sum = 0;
@@ -10180,7 +10186,7 @@ int writePRPSaveFile (
 	if (!write_long (fd, counter, &sum)) goto err;
 	if (!write_long (fd, prp_base, &sum)) goto err;
 	if (!write_long (fd, shift_count, &sum)) goto err;
-	if (!write_long (fd, is_mersenne, &sum)) goto err;
+	if (!write_long (fd, gerbicz_possible, &sum)) goto err;
 	if (!write_gwnum (fd, gwdata, x, &sum)) goto err;
 
 	if (!write_checksum (fd, sum)) goto err;
@@ -10203,12 +10209,12 @@ int readPRPSaveFile (
 	struct work_unit *w,
 	unsigned long *counter,
 	unsigned long *error_count,
-	unsigned long *prp_base,
+	unsigned long desired_prp_base,
 	unsigned long *shift_count,
-	unsigned long *is_mersenne)		     
+	unsigned long desired_gerbicz_possible)
 {
 	int	fd;
-	unsigned long sum, filesum, version;
+	unsigned long savefile_prp_base, savefile_gerbicz_possible, sum, filesum, version;
 
 	fd = _open (filename, _O_BINARY | _O_RDONLY);
 	if (fd <= 0) return (FALSE);
@@ -10221,14 +10227,17 @@ int readPRPSaveFile (
 	if (!read_long (fd, error_count, &sum)) goto err;
 	if (!read_long (fd, counter, &sum)) goto err;
 	if (version == 1) {
-		*prp_base = 3;
+		savefile_prp_base = 3;
 		*shift_count = 0;
-		*is_mersenne = FALSE;
+		savefile_gerbicz_possible = FALSE;
 	} else {
-		if (!read_long (fd, prp_base, &sum)) goto err;
+		if (!read_long (fd, &savefile_prp_base, &sum)) goto err;
 		if (!read_long (fd, shift_count, &sum)) goto err;
-		if (!read_long (fd, is_mersenne, &sum)) goto err;
+		if (!read_long (fd, &savefile_gerbicz_possible, &sum)) goto err;
 	}
+
+	if (savefile_prp_base != desired_prp_base) goto err;
+	if (savefile_gerbicz_possible != desired_gerbicz_possible) goto err;
 
 	if (!read_gwnum (fd, gwdata, x, &sum)) goto err;
 
@@ -10256,51 +10265,134 @@ void good_news_prp (void *arg)
 	free (arg);
 }
 
-/* Divide a giant by the PRP base.  Used to optimize PRPs on Mersenne numbers. */
+/* Mul giant by a power of the PRP base.  Used in optimizing PRPs for k*2^n+c numbers. */
 
-void basedivideg (
-	giant	v,			/* Giant to rotate right */
-	unsigned long p,		/* Mersenne exponent */
-	unsigned long prp_base,		/* PRP base to divide into giant */
-	int	twice)			/* TRUE if we are to divide by PRP base twice */
+void basemulg (
+	giant	v,			/* Giant to multiply by base^power */
+	struct work_unit *w,		/* Number being tested */
+	unsigned long prp_base,		/* PRP base */
+	int	power)			/* Desired power of the PRP base */
 {
-	mpz_t	q, r, prp_base_z, mersenne_number, inverse_prp_base;
+	mpz_t	modulus, prp_base_power, tmp;
 
-/* Generate the Mersenne number */
+/* If power is zero, then multiply by base^0 is a no-op */
 
-	mpz_init (mersenne_number);
-	mpz_ui_pow_ui (mersenne_number, 2, p);
-	mpz_sub_ui (mersenne_number, mersenne_number, 1);
+	if (power == 0) return;
 
-/* Calculate 1 / prp_base MOD Mersenne_number */
+/* Generate the modulus (k*b^n+c) */
 
-	mpz_init_set_ui (prp_base_z, prp_base);
-	mpz_init (inverse_prp_base);
-	mpz_invert (inverse_prp_base, prp_base_z, mersenne_number);
+	mpz_init_set_d (modulus, w->k);
+	mpz_mul_2exp (modulus, modulus, w->n);
+	mpz_add_si (modulus, modulus, w->c);
 
-/* Copy the giant value to "a".  Calculate quotient and remainder dividing by PRP base. */
-/* Then calculate q + r * inverse_base to get the final result */
+/* Calculate prp_base^power mod k*b^n+c */
 
-	mpz_init (q);
-	mpz_init (r);
-	gtompz (v, q);
-	mpz_tdiv_qr (q, r, q, prp_base_z);
-	mpz_addmul (q, r, inverse_prp_base);
-	if (twice) {
-		mpz_tdiv_qr (q, r, q, prp_base_z);
-		mpz_addmul (q, r, inverse_prp_base);
-	}
-	mpz_tdiv_r (q, q, mersenne_number);
-	mpztog (q, v);
+	mpz_init_set_si (tmp, power);
+	mpz_init_set_ui (prp_base_power, prp_base);
+	mpz_powm (prp_base_power, prp_base_power, tmp, modulus);
+
+/* Copy the giant value to tmp.  Multiply by prp_base_power to get the final result */
+
+	gtompz (v, tmp);
+	mpz_mul (tmp, tmp, prp_base_power);
+	mpz_mod (tmp, tmp, modulus);
+	mpztog (tmp, v);
 
 /* Cleanup and return */
 
-	mpz_clear (q);
-	mpz_clear (r);
-	mpz_clear (inverse_prp_base);
-	mpz_clear (prp_base_z);
-	mpz_clear (mersenne_number);
+	mpz_clear (tmp);
+	mpz_clear (prp_base_power);
+	mpz_clear (modulus);
 }
+
+/* Compare the final giant in a PRP run.  Different PRP residue types check for different final values */
+
+int isPRPg (
+	giant	v,			/* Final result of PRP powering */
+	giant	N,			/* Number we are PRPing, (k*b^n+c)/known_factors */
+	struct work_unit *w,		/* Number being tested */
+	unsigned long prp_base,		/* PRP base */
+	int	prp_residue_type)	/* Type of PRP test performed */
+{
+	mpz_t	mpz_v, mpz_N, compare_val;
+	int	result;
+
+/* Standard Fermat PRP, test for one */
+
+	if (prp_residue_type == PRIMNET_PRP_TYPE_FERMAT) return (isone (v));
+
+/* SPRP test is PRP if result is one or minus one */
+
+	if (prp_residue_type == PRIMNET_PRP_TYPE_SPRP) {
+		if (isone (v)) return (TRUE);
+		subg (v, N); result = isone (N); addg (v, N);
+		return (result);
+	}
+
+/* Convert giants to mpz_t type */
+
+	mpz_init (mpz_v);
+	gtompz (v, mpz_v);
+	mpz_init (mpz_N);
+	gtompz (N, mpz_N);
+	mpz_init (compare_val);
+
+/* Handle the cofactor case.  We calculated v = a^(N*KF-1) mod (N*KF).  We have a PRP if (v mod N) = (a^KF) mod N */
+
+	if (prp_residue_type == PRIMNET_PRP_TYPE_COFACTOR) {
+		mpz_t	kbnc, known_factors, reduced_v;
+		// Calculate k*b^n+c
+		mpz_init (kbnc);
+		mpz_ui_pow_ui (kbnc, w->b, w->n);
+		mpz_mul_d (kbnc, kbnc, w->k);
+		mpz_add_si (kbnc, kbnc, w->c);
+		// Known factors = kbnc / N
+		mpz_init (known_factors);
+		mpz_divexact (known_factors, kbnc, mpz_N);
+		mpz_clear (kbnc);
+		// Compare val = base^(known_factors - 1) mod N
+		mpz_sub_ui (known_factors, known_factors, 1);
+		mpz_set_ui (compare_val, prp_base);
+		mpz_powm (compare_val, compare_val, known_factors, mpz_N);
+		mpz_clear (known_factors);
+		// Reduce v mod N  and compare
+		mpz_init (reduced_v);
+		mpz_mod (reduced_v, mpz_v, mpz_N);
+		result = mpz_eq (reduced_v, compare_val);
+		mpz_clear (reduced_v);
+	}
+
+/* Handle the weird cases -- Fermat and SPRP variants, one of which gpuOwl uses */
+
+	else {
+		mpz_t	power;
+
+/* Calculate the compare_value */
+
+		mpz_init (power);
+		if (prp_residue_type == PRIMNET_PRP_TYPE_FERMAT_VAR) mpz_set_si (power, - (w->c - 1));
+		else mpz_set_si (power, - (w->c - 1) / 2);
+		mpz_set_ui (compare_val, prp_base);
+		mpz_powm (compare_val, compare_val, power, mpz_N);
+		mpz_clear (power);
+
+/* Now do the comparison(s) */
+
+		result = mpz_eq (mpz_v, compare_val);
+		if (prp_residue_type == PRIMNET_PRP_TYPE_SPRP_VAR && !result) {
+			mpz_sub (compare_val, mpz_N, compare_val);	// Negate compare val
+			result = mpz_eq (mpz_v, compare_val);
+		}
+	}
+
+/* Cleanup and return */
+
+	mpz_clear (mpz_v);
+	mpz_clear (mpz_N);
+	mpz_clear (compare_val);
+	return (result);
+}
+
 
 /* Do a PRP test */
 
@@ -10313,13 +10405,14 @@ int prp (
 	gwhandle gwdata;
 	gwnum	x;
 	unsigned long units_bit;	/* For shifting FFT data -- allows more robust double-checking */
-	giant	N, tmp;
+	giant	N, exp, tmp;
 	int	first_iter_msg, res, stop_reason;
 	int	echk, saving, near_fft_limit, sleep5, isProbablePrime;
-	unsigned long prp_base, Nlen, counter, iters, is_mersenne, error_count;
+	int	prp_residue_type, gerbicz_possible, interim_counter_off_one, interim_mul, mul_final;
+	unsigned long prp_base, explen, counter, iters, error_count;
 	int	slow_iteration_count;
 	double	timers[2];
-	double	inverse_Nlen;
+	double	inverse_explen;
 	double	reallyminerr = 1.0;
 	double	reallymaxerr = 0.0;
 	double	best_iteration_time;
@@ -10337,6 +10430,10 @@ int prp (
 	char	string_rep[80];
 	int	string_rep_truncated;
 	int	error_count_messages;
+
+/* Null giants in case they get freed */
+
+	N = exp = NULL;
 
 /* See if this number needs P-1 factoring.  We treat P-1 factoring */
 /* that is part of a PRP test as priority work done in pass 1 or as */
@@ -10375,11 +10472,70 @@ int prp (
 	if (stop_reason) return (stop_reason);
 #endif
 
-/* By default we mimic LLR's PRP tests using PRP base 3, though we can support bases other than 3. */
-/* There is a subtle bug here.  We use the PRPBase from the INI file to init the gwnum FFT, but when */
-/* we read the save file, it may contain a prp_base that is larger than the one used to init the FFTs. */
+/* If the Primenet server has not specified a PRP base (for double-checking), then by default we */
+/* mimic LLR's PRP tests using PRP base 3, though we can support bases other than 3. */
 
-	prp_base = IniGetInt (INI_FILE, "PRPBase", 3);
+	if (w->prp_base) prp_base = w->prp_base;
+	else prp_base = IniGetInt (INI_FILE, "PRPBase", 3);
+
+/* If the Primenet server has not specified a PRP residue type (for double-checking), then by default we */
+/* to return a standard Fermat PRP residue on k*b^n+c (i.e. calculate base^(k*b^n+c-1)) */
+
+	if (w->prp_residue_type) prp_residue_type = w->prp_residue_type;
+	else prp_residue_type = IniGetInt (INI_FILE, "PRPResidueType", PRIMNET_PRP_TYPE_COFACTOR);
+	if (w->known_factors == NULL && prp_residue_type == PRIMNET_PRP_TYPE_COFACTOR) prp_residue_type = PRIMNET_PRP_TYPE_FERMAT;
+
+/* Below is some pseudo-code to show how various input numbers are handled for each PRP residue type (rt=residue type, */
+/* a=PRP base, E is number for the binary exponentiation code, KF=known factors).  We can do Gerbicz error checking if b=2 and */
+/* there are a long string of squarings -- which also greatly reduces the number of mul-by-small-consts when c<0. */
+/*
+   k * 2^n + c
+	if rt=1,5 E=k*2^n, gerbicz after a^k, mul interim by a^-1 if c<0, mul final by a^(c-1), compare to 1
+	if rt=3   E=k*2^n, gerbicz after a^k, mul interim by a^-1 if c<0, compare to a^-(c-1)
+	if rt=2   E=k*2^(n-1), gerbicz after a^k, mul interim by a^-1 if c<0, mul final by a^((c-1)/2), compare to +/-1
+	if rt=4   E=k*2^(n-1), gerbicz after a^k, mul interim by a^-1 if c<0, compare to +/-a^-((c-1)/2)
+
+   (k * 2^n + c) / KF
+	if rt=1-4 go to general case
+	if rt=5   E=k*2^n, gerbicz after a^k, mul interim by a^-1 if c<0, mul final by a^(c-1), compare to a^(KF-1) mod (N/KF)
+
+   (k * b^n + c) / KF
+	if rt=1   E=(k*b^n+c)/KF-1, compare to 1
+	if rt=2   E=((k*b^n+c)/KF-1)/2, compare to +/-1
+	if rt=3   E=(k*b^n+c)/KF+1, compare to a^2			(pointless case, make rt=1)
+	if rt=4   E=((k*b^n+c)/KF+1)/2, compare to +/-a			(pointless case, make rt=2)
+	if rt=5   E=k*b^n+c-1, compare mod (N/KF) to a^(KF-1)
+*/
+
+//BUG need ini option to override gerbicz posssible? && IniGetInt (INI_FILE, "PRPMersenneOptimization", 1));
+//BUG 2 options one to not do gerbicz err chk, other to not reduce mul-by-small-consts.
+
+	gerbicz_possible = (w->b == 2 && (w->known_factors == NULL || prp_residue_type == PRIMNET_PRP_TYPE_COFACTOR));
+	if (!gerbicz_possible) {
+		if (prp_residue_type == PRIMNET_PRP_TYPE_FERMAT_VAR) prp_residue_type = PRIMNET_PRP_TYPE_FERMAT;
+		else if (prp_residue_type == PRIMNET_PRP_TYPE_SPRP_VAR) prp_residue_type = PRIMNET_PRP_TYPE_SPRP;
+	}
+
+/* If k=1,b=2 and we are doing a traditional Fermat PRP implementation, then interim residues are output based on the bit */
+/* representation of N = 2^n + c - 1.  N looks like this:
+	c >= 0:		100000000000000000000000000ccc
+	c < 0:		 11111111111111111111111111ccc
+   Our implementation is always going to do binary exponentiation on 2^n.  Looking like this:
+			100000000000000000000000000000
+   Note that when c<0 we have increased the bit length of N by one bit, which makes our interim residues counter off by one
+   from what the user is expecting.  We also need to divide interim residues by the PRP base when c<0. */
+
+	interim_counter_off_one = (gerbicz_possible && w->k == 1.0 && w->c < 0);
+	interim_mul = (gerbicz_possible && w->c < 0);
+
+/* Flag the PRP tests that require multiplying the final a^exp */
+
+	if (gerbicz_possible && (prp_residue_type == PRIMNET_PRP_TYPE_FERMAT || prp_residue_type == PRIMNET_PRP_TYPE_COFACTOR))
+		mul_final = w->c - 1;
+	else if (gerbicz_possible && prp_residue_type == PRIMNET_PRP_TYPE_SPRP)
+		mul_final = (w->c - 1) / 2;
+	else
+		mul_final = 0;
 
 /* Init the FFT code for squaring modulo k*b^n+c. */
 
@@ -10416,8 +10572,23 @@ begin:	gwinit (&gwdata);
 		return (STOP_FATAL_ERROR);
 	}
 
+/* Compute the number we are testing. */
+
+	stop_reason = setN (&gwdata, thread_num, w, &N);
+	if (stop_reason) goto exit;
+
+/* If N is one, the number is already fully factored.  Print an error message. */
+
+	if (isone (N)) {
+		sprintf (buf, "PRP test of one is not allowed.  Input string was: %s\n", string_rep);
+		OutputBoth (thread_num, buf);
+		stop_reason = STOP_WORK_UNIT_COMPLETE;
+		goto exit;
+	}
+
 /* Record the amount of memory being used by this thread. */
 
+//BUG gerbicz uses more
 	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&gwdata, 1));
 
 /* Allocate memory for the PRP test */
@@ -10471,9 +10642,7 @@ begin:	gwinit (&gwdata);
 				return (0);
 			}
 			/* No save files existed, start from scratch. */
-			/* By default we mimic LLR's PRP tests using PRP base 3, though we can support bases other than 3. */
-			prp_base = IniGetInt (INI_FILE, "PRPBase", 3);
-			/* Also, for Mersenne numbers we support FFT data shifting */
+			/* For Mersenne numbers we support FFT data shifting */
 			if (w->k == 1.0 && w->b == 2 && w->n > 1000 && w->c == -1) {
 				unsigned long word, bit_in_word;
 				// Generate a random initial shift count
@@ -10496,16 +10665,13 @@ begin:	gwinit (&gwdata);
 			counter = 0;
 			error_count = 0;
 			first_iter_msg = FALSE;
-			/* As a small optimization, Mersenne numbers are computed as a^(N+1) mod N */
-			is_mersenne = (w->k == 1.0 && w->b == 2 && w->c == -1 &&
-				       w->known_factors == NULL && IniGetInt (INI_FILE, "PRPMersenneOptimization", 1));
 			break;
 		}
 
 /* Read a PRP save file.  If successful, break out of loop. */
 
 		if (readPRPSaveFile (&gwdata, x, read_save_file_state.current_filename, w, &counter,
-				     &error_count, &prp_base, &units_bit, &is_mersenne)) {
+				     &error_count, prp_base, &units_bit, gerbicz_possible)) {
 			first_iter_msg = TRUE;
 			break;
 		}
@@ -10524,35 +10690,36 @@ begin:	gwinit (&gwdata);
 	sprintf (buf+strlen(buf), "PRP test of %s using %s\n", string_rep, fft_desc);
 	OutputStr (thread_num, buf);
 
-/* Compute the number we are testing. */
+/* Calculate the exponent we will use to do our left-to-right binary exponentiation */
 
-	stop_reason = setN (&gwdata, thread_num, w, &N);
-	if (stop_reason) goto exit;
-
-/* If N is one, the number is already fully factored.  Print an error message. */
-
-	if (isone (N)) {
-		sprintf (buf, "PRP test of one is not allowed.  Input string was: %s\n", string_rep);
-		OutputBoth (thread_num, buf);
-		stop_reason = STOP_WORK_UNIT_COMPLETE;
+	exp = allocgiant ((((unsigned long) (w->n * _log2 (w->b))) >> 5) + 5);
+	if (exp == NULL) {
+		stop_reason = OutOfMemory (thread_num);
 		goto exit;
 	}
 
-/* As a small optimization, Mersenne numbers are computed as a^(N+1) mod N with the final result divided */
-/* by a^2.  This eliminates all mul-by-consts at the expense of one squaring and lots of bookkeepping headaches. */
+/* As a small optimization, base 2 numbers are computed as a^(k*2^n) or a^(k*2^(n-1)) mod N with the final result multiplied */
+/* by a^(c-1).  This eliminates tons of mul-by-consts at the expense of one squaring if k=1 and lots of bookkeepping headaches. */
 
-	if (is_mersenne) {
-		iaddg (1, N);
-		Nlen = bitlen (N);
+	if (gerbicz_possible) {
+		ultog (2, exp);
+		if (prp_residue_type == PRIMNET_PRP_TYPE_FERMAT ||
+		    prp_residue_type == PRIMNET_PRP_TYPE_FERMAT_VAR ||
+		    prp_residue_type == PRIMNET_PRP_TYPE_COFACTOR) power (exp, w->n);
+		else power (exp, w->n - 1);
+		dblmulg (w->k, exp);
 	}
 
-/* Standard PRP test.  Subtract 1 from N to compute a^(N-1) mod N.  Get the exact bit length */
-/* of the number.  We will perform bitlen(N)-1 squarings for the PRP test. */
+/* Standard PRP test.  Subtract 1 from N to compute a^(N-1) mod N */
 
 	else {
-		iaddg (-1, N);
-		Nlen = bitlen (N);
+		gtog (N, exp);
+		iaddg (-1, exp);
 	}
+
+/* Get the exact bit length of the binary exponent.  We will perform bitlen(exp)-1 squarings for the PRP test. */
+
+	explen = bitlen (exp);
 
 /* Hyperthreading backoff is an option to pause the program when iterations */
 /* take longer than usual.  This is useful on hyperthreaded machines so */
@@ -10569,8 +10736,8 @@ begin:	gwinit (&gwdata);
 /* Init vars for Test/Status and CommunicateWithServer */
 
 	strcpy (w->stage, "PRP");
-	inverse_Nlen = 1.0 / (double) (Nlen - 1);
-	w->pct_complete = (double) counter * inverse_Nlen;
+	inverse_explen = 1.0 / (double) (explen - 1);
+	w->pct_complete = (double) counter * inverse_explen;
 	calc_output_frequencies (&gwdata, &output_frequency, &output_title_frequency);
 
 /* If we are near the maximum exponent this fft length can test, then we */
@@ -10598,7 +10765,7 @@ rotateg (t1, w->n, units_bit, &gwdata.gdata);
 	gwsetmulbyconst (&gwdata, prp_base);
 	iters = 0;
 	error_count_messages = IniGetInt (INI_FILE, "ErrorCountMessages", 3);
-	while (counter < Nlen - 1) {
+	while (counter < explen - 1) {
 
 /* On first iteration create a save file so that writeNewErrorCount */
 /* can properly keep track of error counts. */
@@ -10613,12 +10780,12 @@ rotateg (t1, w->n, units_bit, &gwdata.gdata);
 
 		stop_reason = stopCheck (thread_num);
 		saving = stop_reason ||
-			 (counter == 0 && Nlen > 1500000) ||
+			 (counter == 0 && explen > 1500000) ||
 			 counter == last_counter-8 ||
 			 counter == last_counter ||
 			 testSaveFilesFlag (thread_num);
 		echk = saving || near_fft_limit || ERRCHK ||
-			counter < 50 || counter >= Nlen-51 ||
+			counter < 50 || counter >= explen-51 ||
 			((counter & 127) == 0);
 		gw_clear_maxerr (&gwdata);
 
@@ -10634,18 +10801,18 @@ rotateg (t1, w->n, units_bit, &gwdata.gdata);
 
 		gwstartnextfft (&gwdata,
 				!saving && !maxerr_recovery_mode &&
-				counter > 35 && counter < Nlen-35 &&
+				counter > 35 && counter < explen-35 &&
 				(INTERIM_FILES == 0 || (counter+1) % INTERIM_FILES > 0) &&
-				(INTERIM_RESIDUES == 0 || (counter+1) % INTERIM_RESIDUES > 0));
+				(INTERIM_RESIDUES == 0 || (counter+1-interim_counter_off_one) % INTERIM_RESIDUES > 0));
 #ifdef CHECK_ITER
 squareg (t1);
-if (bitval (N, Nlen-2-counter)) imulg (prp_base, t1);
+if (bitval (exp, explen-2-counter)) imulg (prp_base, t1);
 specialmodg (&gwdata, t1);
-if (w->known_factors) {	iaddg (1, N); modg (N, t1); iaddg (-1, N); }
+if (w->known_factors) modg (N, t1);
 gwstartnextfft (&gwdata, 0);
 echk=1;
 #endif
-		if (bitval (N, Nlen-2-counter)) {
+		if (bitval (exp, explen-2-counter)) {
 			gwsetnormroutine (&gwdata, 0, echk, 1);
 		} else {
 			gwsetnormroutine (&gwdata, 0, echk, 0);
@@ -10654,7 +10821,7 @@ echk=1;
 			gwsquare_carefully (&gwdata, x);
 			maxerr_recovery_mode = 0;
 			echk = 0;
-		} else if (counter < 30 || counter > Nlen-32)
+		} else if (counter < 30 || counter > explen-32)
 			gwsquare_carefully (&gwdata, x);
 		else
 			gwsquare (&gwdata, x);
@@ -10665,10 +10832,10 @@ echk=1;
 #ifdef CHECK_ITER
 gwtogiant (&gwdata, x, t2);
 rotateg (t2, w->n, units_bit, &gwdata.gdata);
-if (w->known_factors) {	iaddg (1, N); modg (N, t2); iaddg (-1, N); }
+if (w->known_factors) modg (N, t2);
 if (gcompg (t1, t2) != 0)
 OutputStr (thread_num, "Iteration failed.\n");
-//if (counter == 100) counter = Nlen-2;
+//if (counter == 100) counter = explen-2;
 #endif
 
 /* End iteration timing and increase count of iterations completed */
@@ -10690,7 +10857,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* then raise an error. */
 
 		if (gw_test_illegal_sumout (&gwdata)) {
-			sprintf (buf, ERRMSG0, counter+1, Nlen-1, ERRMSG1A);
+			sprintf (buf, ERRMSG0, counter+1, explen-1, ERRMSG1A);
 			OutputBoth (thread_num, buf);
 			inc_error_count (2, &error_count);
 			sleep5 = TRUE;
@@ -10711,7 +10878,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			} else {
 				char	msg[100];
 				sprintf (msg, ERRMSG1B, gwsuminp (&gwdata, x), gwsumout (&gwdata, x));
-				sprintf (buf, ERRMSG0, counter+1, Nlen-1, msg);
+				sprintf (buf, ERRMSG0, counter+1, explen-1, msg);
 				OutputBoth (thread_num, buf);
 				last_counter = counter;
 				last_suminp = gwsuminp (&gwdata, x);
@@ -10739,7 +10906,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			} else {
 				char	msg[100];
 				sprintf (msg, ERRMSG1C, gw_get_maxerr (&gwdata), allowable_maxerr);
-				sprintf (buf, ERRMSG0, counter+1, Nlen-1, msg);
+				sprintf (buf, ERRMSG0, counter+1, explen-1, msg);
 				OutputBoth (thread_num, buf);
 				last_counter = counter;
 				last_maxerr = gw_get_maxerr (&gwdata);
@@ -10752,7 +10919,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* Update counter, percentage complete */
 
 		counter++;
-		w->pct_complete = (double) counter * inverse_Nlen;
+		w->pct_complete = (double) counter * inverse_explen;
 
 /* Output the title every so often */
 
@@ -10768,7 +10935,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 		actual_frequency = (int) (ITER_OUTPUT * output_frequency);
 		if (actual_frequency < 1) actual_frequency = 1;
 		if (counter % actual_frequency == 0 || first_iter_msg) {
-			sprintf (buf, "Iteration: %ld / %ld [%.*f%%]", counter, Nlen-1, (int) PRECISION, trunc_percent (w->pct_complete));
+			sprintf (buf, "Iteration: %ld / %ld [%.*f%%]", counter, explen-1, (int) PRECISION, trunc_percent (w->pct_complete));
 			/* Append a short form total errors message */
 			if (error_count_messages == 1)
 				make_error_count_message (error_count, error_count_messages,
@@ -10794,7 +10961,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 				clear_timer (timers, 0);
 				iters = 0;
 				/* Append ETA */
-				formatETA ((Nlen - 2 - counter) * speed, buf+strlen(buf));
+				formatETA ((explen - 2 - counter) * speed, buf+strlen(buf));
 				strcat (buf, "\n");
 			}
 			/* Format the classic (pre-v28.5) message */
@@ -10827,7 +10994,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* Print a results file message every so often */
 
 		if (counter % ITER_OUTPUT_RES == 0 || (NO_GUI && stop_reason)) {
-			sprintf (buf, "Iteration %ld / %ld\n", counter, Nlen-1);
+			sprintf (buf, "Iteration %ld / %ld\n", counter, explen-1);
 			writeResults (buf);
 		}
 
@@ -10836,7 +11003,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* disk-full situation) */
 
 		if (saving) {
-			if (! writePRPSaveFile (&gwdata, x, &write_save_file_state, w, counter, error_count, prp_base, units_bit, is_mersenne)) {
+			if (! writePRPSaveFile (&gwdata, x, &write_save_file_state, w, counter, error_count, prp_base, units_bit, gerbicz_possible)) {
 				sprintf (buf, WRITEFILEERR, filename);
 				OutputBoth (thread_num, buf);
 			}
@@ -10851,22 +11018,19 @@ OutputStr (thread_num, "Iteration failed.\n");
 			goto exit;
 		}
 
-/* Output the 64-bit residue at specified interims.  Also output the */
-/* residues for the next two iterations so that we can compare our */
-/* residues to programs that start counter at zero or one. */
+/* Output the 64-bit residue at specified interims. */
 /* Beware that if we are PRPing a Mersenne number our iteration numbers are off by one */
 /* compared to other PRP programs, we adjust accordingly. */
 
-		if (INTERIM_RESIDUES &&
-		    ((is_mersenne && counter > 1 && (counter-1) % INTERIM_RESIDUES == 0) ||
-		     (!is_mersenne && counter % INTERIM_RESIDUES == 0))) {
+		if (INTERIM_RESIDUES && counter > 1 && (counter - interim_counter_off_one) % INTERIM_RESIDUES == 0) {
 			tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
 			gwtogiant (&gwdata, x, tmp);
 			rotateg (tmp, w->n, units_bit, &gwdata.gdata);
-			if (is_mersenne) basedivideg (tmp, w->n, prp_base, FALSE);
-			if (w->known_factors) {	iaddg (1, N); modg (N, tmp); iaddg (-1, N); }
+			if (interim_mul) basemulg (tmp, w, prp_base, -1);
+			if (w->known_factors && prp_residue_type != PRIMNET_PRP_TYPE_COFACTOR) modg (N, tmp);
 			sprintf (buf, "%s interim Wf%d residue %08lX%08lX at iteration %ld\n",
-				 string_rep, PORT, (unsigned long) tmp->n[1], (unsigned long) tmp->n[0], counter - is_mersenne);
+				 string_rep, PORT, (unsigned long) tmp->n[1], (unsigned long) tmp->n[0],
+				 counter - interim_counter_off_one);
 			OutputBoth (thread_num, buf);
 			pushg (&gwdata.gdata, 1);
 		}
@@ -10879,7 +11043,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			sprintf (interimfile, "%s.%03ld", filename, counter / INTERIM_FILES);
 			writeSaveFileStateInit (&state, interimfile, 0);
 			state.num_ordinary_save_files = 99;
-			writePRPSaveFile (&gwdata, x, &state, w, counter, error_count, prp_base, units_bit, is_mersenne);
+			writePRPSaveFile (&gwdata, x, &state, w, counter, error_count, prp_base, units_bit, gerbicz_possible);
 		}
 
 /* If ten iterations take 40% longer than a typical iteration, then */
@@ -10888,7 +11052,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* process runs at higher priority, hyperthreading will cause this */
 /* program to run at an equal priority, hurting responsiveness. */
 
-		if (HYPERTHREADING_BACKOFF && Nlen > 1500000) {
+		if (HYPERTHREADING_BACKOFF && explen > 1500000) {
 			if (timers[1] < best_iteration_time)
 				best_iteration_time = timers[1];
 			if (timers[1] > 1.40 * best_iteration_time) {
@@ -10911,9 +11075,9 @@ pushg(&gwdata.gdata, 2);}
 	tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
 	gwtogiant (&gwdata, x, tmp);
 	rotateg (tmp, w->n, units_bit, &gwdata.gdata);
-	if (is_mersenne) basedivideg (tmp, w->n, prp_base, TRUE);
-	if (w->known_factors) {	iaddg (1, N); modg (N, tmp); iaddg (-1, N); }
-	isProbablePrime = isone (tmp);
+	if (mul_final) basemulg (tmp, w, prp_base, mul_final);
+	if (w->known_factors && prp_residue_type != PRIMNET_PRP_TYPE_COFACTOR) modg (N, tmp);
+	isProbablePrime = isPRPg (tmp, N, w, prp_base, prp_residue_type);
 	if (!isProbablePrime) sprintf (res64, "%08lX%08lX", (unsigned long) tmp->n[1], (unsigned long) tmp->n[0]);
 	pushg (&gwdata.gdata, 1);
 	gwfree (&gwdata, x);
@@ -10927,6 +11091,7 @@ pushg(&gwdata.gdata, 2);}
 	} else {
 		sprintf (buf, "%s is not prime.  ", string_rep);
 		if (prp_base != 3) sprintf (buf+strlen(buf), "Base-%lu ", prp_base);
+		if (prp_residue_type != PRIMNET_PRP_TYPE_FERMAT) sprintf (buf+strlen(buf), "Type-%d ", prp_residue_type);
 		sprintf (buf+strlen(buf), "RES64: %s.", res64);
 	}
 	sprintf (buf+strlen(buf), " Wf%d: %08lX,", PORT, SEC1 (w->n));
@@ -10957,6 +11122,7 @@ pushg(&gwdata.gdata, 2);}
 		strcpy (pkt.residue, res64);
 		sprintf (pkt.error_count, "%08lX", error_count);
 		pkt.prp_base = prp_base;
+		pkt.prp_residue_type = prp_residue_type;
 		pkt.shift_count = units_bit;
 		pkt.num_known_factors = (w->known_factors == NULL) ? 0 : countCommas (w->known_factors) + 1;
 		pkt.gerbicz = FALSE;
@@ -11001,6 +11167,7 @@ pushg(&gwdata.gdata, 2);}
 
 exit:	gwdone (&gwdata);
 	free (N);
+	free (exp);
 	return (stop_reason);
 
 /* An error occured, output a message saying we are restarting, sleep, */
