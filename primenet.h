@@ -152,7 +152,7 @@ struct primenetGetAssignment {
 	uint32_t cpu_num;		/* CPU number */
 
 	/* Returned by the server */
-	
+
 	char	assignment_uid[33];
 	char	pad2[7];
 	uint32_t work_type;
@@ -161,15 +161,14 @@ struct primenetGetAssignment {
 	uint32_t n;			/* N in k*b^n+c */
 	int32_t	c;			/* C in k*b^n+c */
 	uint32_t has_been_pminus1ed;	/* TRUE if P-1 has been run */
-	double	how_far_factored;	/* Log base 2 of highest trial */
-					/* factor tested. */
-	double	factor_to;		/* Log base 2 of how far to trial */
-					/* factor. */
+	double	how_far_factored;	/* Log base 2 of highest trial factor tested */
+	double	factor_to;		/* Log base 2 of how far to trial factor */
 	double	B1;			/* P-1/ECM B1 */
 	double	B2;			/* P-1/ECM B2 */
-	double	tests_saved;		/* Primality tests saved if P-1 */
-					/* finds a factor */
+	double	tests_saved;		/* Primality tests saved if P-1 finds a factor */
 	uint32_t curves;		/* ECM curves to run */
+	uint32_t prp_base;		/* PRP base to use in a PRP double-check */
+	uint32_t prp_residue_type;	/* PRP residue type to return in a PRP double-check */
 	char	known_factors[2000];	/* List of known factors */
 };
 
@@ -237,6 +236,14 @@ struct primenetAssignmentProgress {
 #define PRIMENET_AR_PRP_RESULT	150	/* PRP result, not prime */
 #define PRIMENET_AR_PRP_PRIME	151	/* PRP result, probably prime */
 
+// There are (at least) 5 PRP residue types for testing N=(k*b^n+c)/d:
+#define	PRIMNET_PRP_TYPE_FERMAT		1	// Fermat PRP.  Calculate a^(N-1) mod N.  PRP if result = 1
+#define	PRIMNET_PRP_TYPE_SPRP		2	// SPRP variant.  Calculate a^((N-1)/2) mod N.  PRP if result = +/-1
+#define	PRIMNET_PRP_TYPE_FERMAT_VAR	3	// Type 1 variant,b=2,d=1. Calculate a^(N-c) mod N.  PRP if result = a^-(c-1)
+#define	PRIMNET_PRP_TYPE_SPRP_VAR	4	// Type 2 variant,b=2,d=1. Calculate a^((N-c)/2) mod N.  PRP if result = +/-a^-((c-1)/2)
+#define	PRIMNET_PRP_TYPE_COFACTOR	5	// Cofactor variant.  Calculate a^(N*d-1) mod N*d.  PRP if result = a^(d-1) mod N
+// Primenet encourages programs to return type 1 PRP residues as that has been the standard for prime95, PFGW, LLR for many years.
+
 struct primenetAssignmentResult {
 	int32_t	versionNumber;
 	char	computer_guid[33];
@@ -250,23 +257,21 @@ struct primenetAssignmentResult {
 	uint32_t n;			/* N in k*b^n+c */
 	int32_t	c;			/* C in k*b^n+c */
 	uint32_t curves;		/* ECM curves ran */
-	double	start_bits;		/* Log base 2 of starting trial */
-					/* factor tested. */
-	double	end_bits;		/* Log base 2 of ending trial */
-					/* factor tested. */
+	double	start_bits;		/* Log base 2 of starting trial factor tested. */
+	double	end_bits;		/* Log base 2 of ending trial factor tested. */
 	double	B1;			/* P-1/ECM B1 */
 	double	B2;			/* P-1/ECM B2 */
 	uint32_t stage;			/* ECM stage the factor was found */
-	uint32_t shift_count;		/* LL shift count */
-	uint32_t fftlen;		/* FFT length used, for proper */
-					/* CPU credit on server */
-	char	residue[17];		/* LL residue result */
-	char	error_count[9];		/* LL result error count */
+	uint32_t shift_count;		/* LL or PRP shift count */
+	uint32_t fftlen;		/* FFT length used, for proper CPU credit on server */
+	char	residue[17];		/* LL or PRP residue result */
+	char	error_count[9];		/* LL or PRP result error count */
 	char	factor[201];		/* Factor found */
 	char	pad2[1];
 	uint32_t num_known_factors;	/* Num known factors used in a PRP test */
 	uint32_t gerbicz;		/* TRUE if Gerbicz error checking used in PRP test */
 	uint32_t prp_base;		/* Base used in a PRP test */
+	uint32_t prp_residue_type;	/* PRP Residue type */
 
 	/* Returned by the server */
 
