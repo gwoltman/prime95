@@ -10419,7 +10419,7 @@ int prp (
 	readSaveFileState read_save_file_state; /* Manage savefile names during reading */
 	writeSaveFileState write_save_file_state; /* Manage savefile names during writing */
 	char	filename[32];
-	char	buf[400], fft_desc[100], res64[17];
+	char	buf[400], JSONbuf[2000], fft_desc[100], res64[17];
 	unsigned long last_counter = 0;		/* Iteration of last error */
 	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 	double	last_suminp = 0.0;
@@ -11106,6 +11106,54 @@ pushg(&gwdata.gdata, 2);}
 	    (!isProbablePrime && IniGetInt (INI_FILE, "OutputComposites", 1)))
 		writeResults (buf);
 
+/* Print known factors */
+
+	if (string_rep_truncated) {
+		char	*bigbuf;
+		bigbuf = (char *) malloc (strlen (w->known_factors) + 100);
+		if (bigbuf != NULL) {
+			sprintf (bigbuf, "Known factors used for PRP test were: %s\n", w->known_factors);
+			OutputBoth (thread_num, bigbuf);
+			free (bigbuf);
+		}
+	}
+
+/* Format a JSON version of the result.  An example from gpuowl follows: */
+/* {"exponent":25000000, "worktype":"PRP-3", "status":"C", "res64":"0000000000000000", */
+/* "residue-checksum":"c6b0b26c", "program":{"name":"gpuowl", "version":"1.1"}, "timestamp":"2017-09-04 23:28:16", */
+/* "errors":{"gerbicz":0}, "user":"meme", "cpu":"Vega [Radeon RX Vega] 64 @83:0.0", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
+
+	if (w->k == 1.0 && w->b == 2 && w->c == -1)
+		sprintf (JSONbuf, "{\"exponent\":%lu", w->n);
+	else
+		sprintf (JSONbuf, "{\"k\":%.0f, \"b\":%lu, \"n\":%lu, \"c\":%ld", w->k, w->b, w->n, w->c);
+	if (w->known_factors != NULL) {
+		char	fac_string[1210];
+		if (strlen (w->known_factors) <= 1200) strcpy (fac_string, w->known_factors);
+		else {
+			memcpy (fac_string, w->known_factors, 1200);
+			strcpy (fac_string+1200, "...");
+		}
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"known-factors\":\"%s\"", fac_string);
+	}
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"worktype\":\"PRP-%lu\", \"status\":\"%s\"", prp_base, isProbablePrime ? "P" : "C");
+	if (!isProbablePrime) {
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"res64\":\"%s\"", res64);
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"residue-type\":%d", prp_residue_type);
+	}
+	if (units_bit) sprintf (JSONbuf+strlen(JSONbuf), ", \"shift-count\":%ld", units_bit);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"error-code\":\"%08lX\"", error_count);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC1(w->n));
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"program\":{\"name\":\"Prime95\", \"version\":\"%s\", \"build\":%s, \"port\":%d}",
+		 VERSION, BUILD_NUM, PORT);
+	if (USERID[0]) sprintf (JSONbuf+strlen(JSONbuf), ", \"user\":\"%s\"", USERID);
+	if (COMPID[0]) sprintf (JSONbuf+strlen(JSONbuf), ", \"computer\":\"%s\"", COMPID);
+	if (w->assignment_uid[0]) sprintf (JSONbuf+strlen(JSONbuf), ", \"aid\":\"%s\"", w->assignment_uid);
+	sprintf (JSONbuf+strlen(JSONbuf), "}\n");
+	if ((isProbablePrime && IniGetInt (INI_FILE, "OutputJSONPrimes", 1)) ||
+	    (!isProbablePrime && IniGetInt (INI_FILE, "OutputJSONComposites", 1)))
+		writeResults (JSONbuf);
+
 /* Output results to the server */
 
 	{
@@ -11128,21 +11176,8 @@ pushg(&gwdata.gdata, 2);}
 		pkt.gerbicz = FALSE;
 		pkt.fftlen = gwfftlen (&gwdata);
 		pkt.done = TRUE;
+		strcpy (pkt.JSONmessage, JSONbuf);
 		spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
-	}
-
-/* Print known factors */
-
-	if (string_rep_truncated) {
-		char	*bigbuf;
-		bigbuf = (char *) malloc (strlen (w->known_factors) + 100);
-		if (bigbuf != NULL) {
-			sprintf (bigbuf,
-				 "Known factors used for PRP test were: %s\n",
-				 w->known_factors);
-			OutputBoth (thread_num, bigbuf);
-			free (bigbuf);
-		}
 	}
 
 /* Delete the continuation files. */
