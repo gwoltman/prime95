@@ -272,6 +272,7 @@ struct primenetAssignmentResult {
 	uint32_t gerbicz;		/* TRUE if Gerbicz error checking used in PRP test */
 	uint32_t prp_base;		/* Base used in a PRP test */
 	uint32_t prp_residue_type;	/* PRP Residue type */
+	char	JSONmessage[2000];	/* JSON message.  If not empty, this text is sent rather than the 201-byte message. */
 
 	/* Returned by the server */
 

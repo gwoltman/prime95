@@ -998,7 +998,11 @@ int format_args (char* args, short operation, void* pkt)
 			strcpy (p, "&k=0");
 			p += strlen (p);
 		}
-		if (z->message[0]) {
+		if (z->JSONmessage[0]) {
+			strcpy (p, "&m=");
+			p = armor (p + strlen (p), z->JSONmessage);
+		}
+		else if (z->message[0]) {
 			strcpy (p, "&m=");
 			p = armor (p + strlen (p), z->message);
 		}
