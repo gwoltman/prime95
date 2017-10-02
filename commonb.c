@@ -9643,6 +9643,12 @@ void autoBench (void)
 
 	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) if (STOP_FOR_PAUSE[i] != NULL) return;
 
+/* If there are any threads with high variable memory usage, then skip auto-bench. */
+/* We do this because restarting stage 2 can take a long time when the worker is using lots of memory. */
+
+	for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
+		if ((MEM_FLAGS[i] & (MEM_VARIABLE_USAGE | MEM_WILL_BE_VARIABLE_USAGE)) && MEM_IN_USE[i] >= 100) return;
+
 // BUG/FEATURE -- purge bench DB of old or anomalous results so that we can replace them with new, hopefully accurate, benchmarks?
 
 /* Calculate number of cores/workers used in FFT selection process */
