@@ -9647,7 +9647,7 @@ void autoBench (void)
 /* We do this because restarting stage 2 can take a long time when the worker is using lots of memory. */
 
 	for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
-		if ((MEM_FLAGS[i] & (MEM_VARIABLE_USAGE | MEM_WILL_BE_VARIABLE_USAGE)) && MEM_IN_USE[i] >= 100) return;
+		if ((MEM_FLAGS[i] & (MEM_VARIABLE_USAGE | MEM_WILL_BE_VARIABLE_USAGE)) && MEM_IN_USE[i] >= 250) return;
 
 // BUG/FEATURE -- purge bench DB of old or anomalous results so that we can replace them with new, hopefully accurate, benchmarks?
 
@@ -11147,6 +11147,7 @@ pushg(&gwdata.gdata, 2);}
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"res64\":\"%s\"", res64);
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"residue-type\":%d", prp_residue_type);
 	}
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", gwdata.FFTLEN);
 	if (units_bit) sprintf (JSONbuf+strlen(JSONbuf), ", \"shift-count\":%ld", units_bit);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"error-code\":\"%08lX\"", error_count);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC1(w->n));
