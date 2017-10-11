@@ -6374,7 +6374,7 @@ int jacobi_test (
 {
 	giant	v;
 	mpz_t	a, b;
-	int	err_code, Jacobi_symbol;
+	int	err_code, Jacobi_symbol, silent_Jacobi;
 	double	timers[1];
 	char	buf[80];
 
@@ -6412,7 +6412,8 @@ int jacobi_test (
 
 /* Free giants, compute the Jacobi symbol (a-2|Mp) */
 
-	OutputStr (thread_num, "Running Jacobi error check.  ");
+	silent_Jacobi = IniGetInt (INI_FILE, "SilentJacobi", 0);
+	if (!silent_Jacobi) OutputStr (thread_num, "Running Jacobi error check.  ");
 	mpz_sub_ui (a, a, 2);
 	if (mpz_sgn (a) < 0) mpz_add (a, a, b);
 	Jacobi_symbol = mpz_jacobi (a, b);
@@ -6421,7 +6422,8 @@ int jacobi_test (
 
 	end_timer (timers, 0);
 	sprintf (buf, "%s.  Time: %6.3f sec.\n", Jacobi_symbol == -1 ? "Passed" : "Failed", timer_value (timers, 0));
-	OutputStrNoTimeStamp (thread_num, buf);
+	if (!silent_Jacobi) OutputStrNoTimeStamp (thread_num, buf);
+	else if (Jacobi_symbol != -1) OutputStr (thread_num, "Jacobi error-check failed\n");
 
 /* Cleanup and return */
 
@@ -9501,7 +9503,7 @@ int primeBenchMultipleWorkersInternal (
 	    }  // End impl loop
 	  }  // End fftlen loop
 	}  // End plus1 loop
-	OutputBoth (thread_num, "\n");
+	OutputStr (thread_num, "\n");
 
 /* Write the benchmark data to gwnum.txt so that gwnum can select the FFT implementations with the best throughput */
 
@@ -10150,6 +10152,20 @@ int primeBench (
 /* Probable Prime Test code */
 /****************************/
 
+/* PRP state to be written to / read from PRP save files */
+
+struct prp_state {
+	unsigned long prp_base;		/* Fermat PRP base, default is 3 */
+	unsigned long units_bit;	/* For shifting FFT data -- allows more robust double-checking */
+	unsigned long counter;		/* Current "iteration" counter */
+	unsigned long error_count;	/* Count of any errors that have occurred during PRP test */
+	int	gerbicz_possible;	/* TRUE is Gerbicz error checking is possible (base 2, long run of squarings) */
+	gwnum	x;			/* The current left-to-right exponentiation value */
+	gwnum	u0;			/* First value of the Gerbicz checksum function */
+	gwnum	d;			/* Last computed value of the Gerbicz checksum function */
+	int	gerbicz_squarings;	/* Number of Gerbicz squarings remaining */
+};
+
 /* Write intermediate PRP results to a file */
 /* The PRP save file format is: */
 /*	u32		magic number  (different for ll, p-1, prp, tf, ecm) */
@@ -10162,6 +10178,7 @@ int primeBench (
 /*	u32		iteration counter */
 /*	u32		prp base (version number >= 2) */
 /*	u32		shift count (version number >= 2) */
+/*	u32		gerbicz possible (version number >= 2) */
 /*	gwnum		FFT data (u32 len, array u32s) */
 
 #define PRP_MAGICNUM		0x87f2a91b
@@ -10169,14 +10186,9 @@ int primeBench (
 
 int writePRPSaveFile (
 	gwhandle *gwdata,
-	gwnum	x,
 	writeSaveFileState *write_save_file_state,
 	struct work_unit *w,
-	unsigned long counter,
-	unsigned long error_count,
-	unsigned long prp_base,
-	unsigned long shift_count,
-	unsigned long gerbicz_possible)
+	struct prp_state *ps)
 {
 	int	fd;
 	unsigned long sum = 0;
@@ -10188,12 +10200,12 @@ int writePRPSaveFile (
 
 	if (!write_header (fd, PRP_MAGICNUM, PRP_VERSION, w)) goto err;
 
-	if (!write_long (fd, error_count, &sum)) goto err;
-	if (!write_long (fd, counter, &sum)) goto err;
-	if (!write_long (fd, prp_base, &sum)) goto err;
-	if (!write_long (fd, shift_count, &sum)) goto err;
-	if (!write_long (fd, gerbicz_possible, &sum)) goto err;
-	if (!write_gwnum (fd, gwdata, x, &sum)) goto err;
+	if (!write_long (fd, ps->error_count, &sum)) goto err;
+	if (!write_long (fd, ps->counter, &sum)) goto err;
+	if (!write_long (fd, ps->prp_base, &sum)) goto err;
+	if (!write_long (fd, ps->units_bit, &sum)) goto err;
+	if (!write_long (fd, ps->gerbicz_possible, &sum)) goto err;
+	if (!write_gwnum (fd, gwdata, ps->x, &sum)) goto err;
 
 	if (!write_checksum (fd, sum)) goto err;
 
@@ -10210,14 +10222,9 @@ err:	deleteWriteSaveFile (write_save_file_state, fd);
 
 int readPRPSaveFile (
 	gwhandle *gwdata,
-	gwnum	x,
 	char	*filename,
 	struct work_unit *w,
-	unsigned long *counter,
-	unsigned long *error_count,
-	unsigned long desired_prp_base,
-	unsigned long *shift_count,
-	unsigned long desired_gerbicz_possible)
+	struct prp_state *ps)
 {
 	int	fd;
 	unsigned long savefile_prp_base, savefile_gerbicz_possible, sum, filesum, version;
@@ -10230,22 +10237,22 @@ int readPRPSaveFile (
 	if (version == 0 || version > PRP_VERSION) goto err;
 
 	sum = 0;
-	if (!read_long (fd, error_count, &sum)) goto err;
-	if (!read_long (fd, counter, &sum)) goto err;
+	if (!read_long (fd, &ps->error_count, &sum)) goto err;
+	if (!read_long (fd, &ps->counter, &sum)) goto err;
 	if (version == 1) {
 		savefile_prp_base = 3;
-		*shift_count = 0;
+		ps->units_bit = 0;
 		savefile_gerbicz_possible = FALSE;
 	} else {
 		if (!read_long (fd, &savefile_prp_base, &sum)) goto err;
-		if (!read_long (fd, shift_count, &sum)) goto err;
+		if (!read_long (fd, &ps->units_bit, &sum)) goto err;
 		if (!read_long (fd, &savefile_gerbicz_possible, &sum)) goto err;
 	}
 
-	if (savefile_prp_base != desired_prp_base) goto err;
-	if (savefile_gerbicz_possible != desired_gerbicz_possible) goto err;
+	if (savefile_prp_base != ps->prp_base) goto err;
+	if (savefile_gerbicz_possible != ps->gerbicz_possible) goto err;
 
-	if (!read_gwnum (fd, gwdata, x, &sum)) goto err;
+	if (!read_gwnum (fd, gwdata, ps->x, &sum)) goto err;
 
 	if (filesum != sum) goto err;
 	_close (fd);
@@ -10408,14 +10415,13 @@ int prp (
 	struct work_unit *w,		/* Worktodo entry */
 	int	pass)			/* PrimeContinue pass */
 {
+	struct prp_state ps;
 	gwhandle gwdata;
-	gwnum	x;
-	unsigned long units_bit;	/* For shifting FFT data -- allows more robust double-checking */
 	giant	N, exp, tmp;
 	int	first_iter_msg, res, stop_reason;
 	int	echk, saving, near_fft_limit, sleep5, isProbablePrime;
-	int	prp_residue_type, gerbicz_possible, interim_counter_off_one, interim_mul, mul_final;
-	unsigned long prp_base, explen, counter, iters, error_count;
+	int	prp_residue_type, interim_counter_off_one, interim_mul, mul_final;
+	unsigned long explen, iters;
 	int	slow_iteration_count;
 	double	timers[2];
 	double	inverse_explen;
@@ -10436,6 +10442,7 @@ int prp (
 	char	string_rep[80];
 	int	string_rep_truncated;
 	int	error_count_messages;
+	int	max_gerbicz_incr;		/* Maximum allowable Gerbicz increment, usually 1000 (error-check every million) */
 
 /* Null giants in case they get freed */
 
@@ -10481,8 +10488,8 @@ int prp (
 /* If the Primenet server has not specified a PRP base (for double-checking), then by default we */
 /* mimic LLR's PRP tests using PRP base 3, though we can support bases other than 3. */
 
-	if (w->prp_base) prp_base = w->prp_base;
-	else prp_base = IniGetInt (INI_FILE, "PRPBase", 3);
+	if (w->prp_base) ps.prp_base = w->prp_base;
+	else ps.prp_base = IniGetInt (INI_FILE, "PRPBase", 3);
 
 /* If the Primenet server has not specified a PRP residue type (for double-checking), then by default we */
 /* to return a standard Fermat PRP residue on k*b^n+c (i.e. calculate base^(k*b^n+c-1)) */
@@ -10516,8 +10523,8 @@ int prp (
 //BUG need ini option to override gerbicz posssible? && IniGetInt (INI_FILE, "PRPMersenneOptimization", 1));
 //BUG 2 options one to not do gerbicz err chk, other to not reduce mul-by-small-consts.
 
-	gerbicz_possible = (w->b == 2 && (w->known_factors == NULL || prp_residue_type == PRIMNET_PRP_TYPE_COFACTOR));
-	if (!gerbicz_possible) {
+	ps.gerbicz_possible = (w->b == 2 && (w->known_factors == NULL || prp_residue_type == PRIMNET_PRP_TYPE_COFACTOR));
+	if (!ps.gerbicz_possible) {
 		if (prp_residue_type == PRIMNET_PRP_TYPE_FERMAT_VAR) prp_residue_type = PRIMNET_PRP_TYPE_FERMAT;
 		else if (prp_residue_type == PRIMNET_PRP_TYPE_SPRP_VAR) prp_residue_type = PRIMNET_PRP_TYPE_SPRP;
 	}
@@ -10531,14 +10538,14 @@ int prp (
    Note that when c<0 we have increased the bit length of N by one bit, which makes our interim residues counter off by one
    from what the user is expecting.  We also need to divide interim residues by the PRP base when c<0. */
 
-	interim_counter_off_one = (gerbicz_possible && w->k == 1.0 && w->c < 0);
-	interim_mul = (gerbicz_possible && w->c < 0);
+	interim_counter_off_one = (ps.gerbicz_possible && w->k == 1.0 && w->c < 0);
+	interim_mul = (ps.gerbicz_possible && w->c < 0);
 
 /* Flag the PRP tests that require multiplying the final a^exp */
 
-	if (gerbicz_possible && (prp_residue_type == PRIMNET_PRP_TYPE_FERMAT || prp_residue_type == PRIMNET_PRP_TYPE_COFACTOR))
+	if (ps.gerbicz_possible && (prp_residue_type == PRIMNET_PRP_TYPE_FERMAT || prp_residue_type == PRIMNET_PRP_TYPE_COFACTOR))
 		mul_final = w->c - 1;
-	else if (gerbicz_possible && prp_residue_type == PRIMNET_PRP_TYPE_SPRP)
+	else if (ps.gerbicz_possible && prp_residue_type == PRIMNET_PRP_TYPE_SPRP)
 		mul_final = (w->c - 1) / 2;
 	else
 		mul_final = 0;
@@ -10546,7 +10553,7 @@ int prp (
 /* Init the FFT code for squaring modulo k*b^n+c. */
 
 begin:	gwinit (&gwdata);
-	gwsetmaxmulbyconst (&gwdata, prp_base);
+	gwsetmaxmulbyconst (&gwdata, ps.prp_base);
 	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&gwdata);
 	if (HYPERTHREAD_LL) {
 		sp_info->normal_work_hyperthreads = IniGetInt (LOCALINI_FILE, "HyperthreadLLcount", CPU_HYPERTHREADS);
@@ -10599,12 +10606,13 @@ begin:	gwinit (&gwdata);
 
 /* Allocate memory for the PRP test */
 
-	x = gwalloc (&gwdata);
-	if (x == NULL) {
+	ps.x = gwalloc (&gwdata);
+	if (ps.x == NULL) {
 		gwdone (&gwdata);
 		OutputStr (thread_num, "Error allocating memory for FFT data.\n");
 		return (STOP_OUT_OF_MEM);
 	}
+//BUG -- NULL init u0 and d ??? #gerbicz_squarings
 
 /* Format the string representation of the test number */
 
@@ -10653,31 +10661,30 @@ begin:	gwinit (&gwdata);
 				unsigned long word, bit_in_word;
 				// Generate a random initial shift count
 				srand ((unsigned) time (NULL));
-				units_bit = (rand () << 16) + rand ();
-				if (CPU_FLAGS & CPU_RDTSC) { uint32_t hi,lo; rdtsc(&hi,&lo); units_bit += lo; }
+				ps.units_bit = (rand () << 16) + rand ();
+				if (CPU_FLAGS & CPU_RDTSC) { uint32_t hi,lo; rdtsc(&hi,&lo); ps.units_bit += lo; }
 				// Let user override random initial shift count
-				units_bit = IniGetInt (INI_FILE, "InitialShiftCount", units_bit);
+				ps.units_bit = IniGetInt (INI_FILE, "InitialShiftCount", ps.units_bit);
 				// Initial shift count can't be larger than n-64 (the -64 avoids wraparound in setting intial value)
-				units_bit = units_bit % (w->n - 64);
+				ps.units_bit = ps.units_bit % (w->n - 64);
 				// Perform the initial shift, putting at most 24-bits in a word (should be safe)
-				dbltogw (&gwdata, 0.0, x);
-				bitaddr (&gwdata, units_bit, &word, &bit_in_word);
-				set_fft_value (&gwdata, x, word, (prp_base << bit_in_word) & 0xFFFFFF);
-				set_fft_value (&gwdata, x, word+1, prp_base >> (24 - bit_in_word));
+				dbltogw (&gwdata, 0.0, ps.x);
+				bitaddr (&gwdata, ps.units_bit, &word, &bit_in_word);
+				set_fft_value (&gwdata, ps.x, word, (ps.prp_base << bit_in_word) & 0xFFFFFF);
+				set_fft_value (&gwdata, ps.x, word+1, ps.prp_base >> (24 - bit_in_word));
 			} else {
-				units_bit = 0;
-				dbltogw (&gwdata, (double) prp_base, x);
+				ps.units_bit = 0;
+				dbltogw (&gwdata, (double) ps.prp_base, ps.x);
 			}
-			counter = 0;
-			error_count = 0;
+			ps.counter = 0;
+			ps.error_count = 0;
 			first_iter_msg = FALSE;
 			break;
 		}
 
 /* Read a PRP save file.  If successful, break out of loop. */
 
-		if (readPRPSaveFile (&gwdata, x, read_save_file_state.current_filename, w, &counter,
-				     &error_count, prp_base, &units_bit, gerbicz_possible)) {
+		if (readPRPSaveFile (&gwdata, read_save_file_state.current_filename, w, &ps)) {
 			first_iter_msg = TRUE;
 			break;
 		}
@@ -10691,8 +10698,8 @@ begin:	gwinit (&gwdata);
 /* Also output the FFT length. */
 
 	gwfft_description (&gwdata, fft_desc);
-	strcpy (buf, (counter == 0) ? "Starting " : "Resuming ");
-	if (prp_base != 3) sprintf (buf+strlen(buf), "%lu-", prp_base);
+	strcpy (buf, (ps.counter == 0) ? "Starting " : "Resuming ");
+	if (ps.prp_base != 3) sprintf (buf+strlen(buf), "%lu-", ps.prp_base);
 	sprintf (buf+strlen(buf), "PRP test of %s using %s\n", string_rep, fft_desc);
 	OutputStr (thread_num, buf);
 
@@ -10707,12 +10714,15 @@ begin:	gwinit (&gwdata);
 /* As a small optimization, base 2 numbers are computed as a^(k*2^n) or a^(k*2^(n-1)) mod N with the final result multiplied */
 /* by a^(c-1).  This eliminates tons of mul-by-consts at the expense of one squaring if k=1 and lots of bookkeepping headaches. */
 
-	if (gerbicz_possible) {
-		ultog (2, exp);
+	if (ps.gerbicz_possible) {
 		if (prp_residue_type == PRIMNET_PRP_TYPE_FERMAT ||
 		    prp_residue_type == PRIMNET_PRP_TYPE_FERMAT_VAR ||
-		    prp_residue_type == PRIMNET_PRP_TYPE_COFACTOR) power (exp, w->n);
-		else power (exp, w->n - 1);
+		    prp_residue_type == PRIMNET_PRP_TYPE_COFACTOR)
+			ps.gerbicz_squarings = w->n;
+		else
+			ps.gerbicz_squarings = w->n - 1;
+		ultog (2, exp);
+		power (exp, ps.gerbicz_squarings);
 		dblmulg (w->k, exp);
 	}
 
@@ -10743,7 +10753,7 @@ begin:	gwinit (&gwdata);
 
 	strcpy (w->stage, "PRP");
 	inverse_explen = 1.0 / (double) (explen - 1);
-	w->pct_complete = (double) counter * inverse_explen;
+	w->pct_complete = (double) ps.counter * inverse_explen;
 	calc_output_frequencies (&gwdata, &output_frequency, &output_title_frequency);
 
 /* If we are near the maximum exponent this fft length can test, then we */
@@ -10758,6 +10768,37 @@ begin:	gwinit (&gwdata);
 
 	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) (near_fft_limit ? 0.421875 : 0.40625));
 
+/* We also implement a variation of Robert Gerbicz's error checking ideas.  See http://mersenneforum.org/showthread.php?t=22471 */
+/* In a nutshell, if PRPing k*2^n+c we calculate (prp_base^k)^(2^n) which ends with a long string of squarings. */
+/* Let u[0] = (prp_base^k), our n squarings are defined as:
+	u[i]=u[0]^(2^i) mod mp, for i=0..n
+   We define a "checksum" function below, which is updated every L-th squaring:
+	d[t]=prod(i=0,t,u[L*i]) mod mp
+   The key idea is that the checksum function can be calculated two different ways, thus the two can be compared to detect an error:
+	d[t]=d[t-1]*u[L*t] mod mp
+	d[t]=u[0]*d[t-1]^(2^L) mod mp
+   The larger L we choose, the lower the error-checking overhead cost.  For L of 1000, we catch errors every 1 million iterations
+   with an overhead of just 0.2%. */
+
+//BUG - possible and INI says do it.....
+#ifdef GERBICZ_NOT_COMPLETED
+	if (ps.gerbicz_possible) {
+		ps.u0 = gwalloc (&gwdata);
+		if (ps.u0 == NULL) {
+			gwdone (&gwdata);
+			OutputStr (thread_num, "Error allocating memory for Gerbicz error checking.\n");
+			return (STOP_OUT_OF_MEM);
+		}
+		ps.d = gwalloc (&gwdata);
+		if (ps.d == NULL) {
+			gwdone (&gwdata);
+			OutputStr (thread_num, "Error allocating memory for Gerbicz error checking.\n");
+			return (STOP_OUT_OF_MEM);
+		}
+		max_gerbicz_incr = IniGetInt (INI_FILE, "MaxGerbiczIncr", 1000);
+	}
+#endif
+
 /* Do the PRP test */
 
 //#define CHECK_ITER
@@ -10765,13 +10806,27 @@ begin:	gwinit (&gwdata);
 {giant t1, t2;
 t1 = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 4) + 5);
 t2 = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 4) + 5);
-gwtogiant (&gwdata, x, t1);
-rotateg (t1, w->n, units_bit, &gwdata.gdata);
+gwtogiant (&gwdata, ps.x, t1);
+rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 #endif
-	gwsetmulbyconst (&gwdata, prp_base);
+	gwsetmulbyconst (&gwdata, ps.prp_base);
 	iters = 0;
 	error_count_messages = IniGetInt (INI_FILE, "ErrorCountMessages", 3);
-	while (counter < explen - 1) {
+	while (ps.counter < explen - 1) {
+
+/* If this is the first iteration of a Gerbicz error-checking sequence, then */
+/* determine "L" -- the number of squarings between each Gerbicz multiplication */
+
+#ifdef GERBICZ_NOT_COMPLETED
+	if num_left == #gerbicz_squarings
+		ps.gerbicz_incr = (int) sqrt (ps.gerbicz_squarings);
+		if (ps.gerbicz_incr > max_gerbicz_incr) ps.gerbicz_incr = max_gerbicz_incr;
+		gwcopy (ps.x, ps.u0);
+		gwcopy (ps.x, ps.d);
+		next_gerbicz_mul = this_iter + ps.gerbicz_incr;
+		next_gerbicz_compare = this_iter + ps.gerbicz_incr * ps.gerbicz_incr;
+		if u0 == 2^k and k<>1 how do we verify u0??? (via duplicate squarings)
+#endif
 
 /* On first iteration create a save file so that writeNewErrorCount */
 /* can properly keep track of error counts. */
@@ -10786,13 +10841,13 @@ rotateg (t1, w->n, units_bit, &gwdata.gdata);
 
 		stop_reason = stopCheck (thread_num);
 		saving = stop_reason ||
-			 (counter == 0 && explen > 1500000) ||
-			 counter == last_counter-8 ||
-			 counter == last_counter ||
+			 (ps.counter == 0 && explen > 1500000) ||
+			 ps.counter == last_counter-8 ||
+			 ps.counter == last_counter ||
 			 testSaveFilesFlag (thread_num);
 		echk = saving || near_fft_limit || ERRCHK ||
-			counter < 50 || counter >= explen-51 ||
-			((counter & 127) == 0);
+			ps.counter < 50 || ps.counter >= explen-51 ||
+			((ps.counter & 127) == 0);
 		gw_clear_maxerr (&gwdata);
 
 /* Do one PRP iteration */
@@ -10807,41 +10862,41 @@ rotateg (t1, w->n, units_bit, &gwdata.gdata);
 
 		gwstartnextfft (&gwdata,
 				!saving && !maxerr_recovery_mode &&
-				counter > 35 && counter < explen-35 &&
-				(INTERIM_FILES == 0 || (counter+1) % INTERIM_FILES > 0) &&
-				(INTERIM_RESIDUES == 0 || (counter+1-interim_counter_off_one) % INTERIM_RESIDUES > 0));
+				ps.counter > 35 && ps.counter < explen-35 &&
+				(INTERIM_FILES == 0 || (ps.counter+1) % INTERIM_FILES > 0) &&
+				(INTERIM_RESIDUES == 0 || (ps.counter+1-interim_counter_off_one) % INTERIM_RESIDUES > 0));
 #ifdef CHECK_ITER
 squareg (t1);
-if (bitval (exp, explen-2-counter)) imulg (prp_base, t1);
+if (bitval (exp, explen-2-ps.counter)) imulg (ps.prp_base, t1);
 specialmodg (&gwdata, t1);
 if (w->known_factors) modg (N, t1);
 gwstartnextfft (&gwdata, 0);
 echk=1;
 #endif
-		if (bitval (exp, explen-2-counter)) {
+		if (bitval (exp, explen-2-ps.counter)) {
 			gwsetnormroutine (&gwdata, 0, echk, 1);
 		} else {
 			gwsetnormroutine (&gwdata, 0, echk, 0);
 		}
-		if (maxerr_recovery_mode && counter == last_counter) {
-			gwsquare_carefully (&gwdata, x);
+		if (maxerr_recovery_mode && ps.counter == last_counter) {
+			gwsquare_carefully (&gwdata, ps.x);
 			maxerr_recovery_mode = 0;
 			echk = 0;
-		} else if (counter < 30 || counter > explen-32)
-			gwsquare_carefully (&gwdata, x);
+		} else if (ps.counter < 30 || ps.counter > explen-32)
+			gwsquare_carefully (&gwdata, ps.x);
 		else
-			gwsquare (&gwdata, x);
+			gwsquare (&gwdata, ps.x);
 
-		units_bit <<= 1;
-		if (units_bit >= w->n) units_bit -= w->n;
+		ps.units_bit <<= 1;
+		if (ps.units_bit >= w->n) ps.units_bit -= w->n;
 
 #ifdef CHECK_ITER
-gwtogiant (&gwdata, x, t2);
-rotateg (t2, w->n, units_bit, &gwdata.gdata);
+gwtogiant (&gwdata, ps.x, t2);
+rotateg (t2, w->n, ps.units_bit, &gwdata.gdata);
 if (w->known_factors) modg (N, t2);
 if (gcompg (t1, t2) != 0)
 OutputStr (thread_num, "Iteration failed.\n");
-//if (counter == 100) counter = explen-2;
+//if (ps.counter == 100) ps.counter = explen-2;
 #endif
 
 /* End iteration timing and increase count of iterations completed */
@@ -10853,19 +10908,17 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* Update min/max round-off error */
 
 		if (echk) {
-			if (counter > 30 && gw_get_maxerr (&gwdata) < reallyminerr)
-				reallyminerr = gw_get_maxerr (&gwdata);
-			if (gw_get_maxerr (&gwdata) > reallymaxerr)
-				reallymaxerr = gw_get_maxerr (&gwdata);
+			if (ps.counter > 30 && gw_get_maxerr (&gwdata) < reallyminerr) reallyminerr = gw_get_maxerr (&gwdata);
+			if (gw_get_maxerr (&gwdata) > reallymaxerr) reallymaxerr = gw_get_maxerr (&gwdata);
 		}
 
 /* If the sum of the output values is an error (such as infinity) */
 /* then raise an error. */
 
 		if (gw_test_illegal_sumout (&gwdata)) {
-			sprintf (buf, ERRMSG0, counter+1, explen-1, ERRMSG1A);
+			sprintf (buf, ERRMSG0, ps.counter+1, explen-1, ERRMSG1A);
 			OutputBoth (thread_num, buf);
-			inc_error_count (2, &error_count);
+			inc_error_count (2, &ps.error_count);
 			sleep5 = TRUE;
 			goto restart;
 		}
@@ -10875,21 +10928,21 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* be perfect, check for identical results after a restart. */
 
 		if (gw_test_mismatched_sums (&gwdata)) {
-			if (counter == last_counter &&
-			    gwsuminp (&gwdata, x) == last_suminp &&
-			    gwsumout (&gwdata, x) == last_sumout) {
+			if (ps.counter == last_counter &&
+			    gwsuminp (&gwdata, ps.x) == last_suminp &&
+			    gwsumout (&gwdata, ps.x) == last_sumout) {
 				OutputBoth (thread_num, ERROK);
-				inc_error_count (3, &error_count);
+				inc_error_count (3, &ps.error_count);
 				gw_clear_error (&gwdata);
 			} else {
 				char	msg[100];
-				sprintf (msg, ERRMSG1B, gwsuminp (&gwdata, x), gwsumout (&gwdata, x));
-				sprintf (buf, ERRMSG0, counter+1, explen-1, msg);
+				sprintf (msg, ERRMSG1B, gwsuminp (&gwdata, ps.x), gwsumout (&gwdata, ps.x));
+				sprintf (buf, ERRMSG0, ps.counter+1, explen-1, msg);
 				OutputBoth (thread_num, buf);
-				last_counter = counter;
-				last_suminp = gwsuminp (&gwdata, x);
-				last_sumout = gwsumout (&gwdata, x);
-				inc_error_count (0, &error_count);
+				last_counter = ps.counter;
+				last_suminp = gwsuminp (&gwdata, ps.x);
+				last_sumout = gwsumout (&gwdata, ps.x);
+				inc_error_count (0, &ps.error_count);
 				sleep5 = TRUE;
 				goto restart;
 			}
@@ -10901,9 +10954,9 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* happen when operating near the limit of an FFT. */
 
 		if (echk && gw_get_maxerr (&gwdata) > allowable_maxerr) {
-			if (counter == last_counter && gw_get_maxerr (&gwdata) == last_maxerr) {
+			if (ps.counter == last_counter && gw_get_maxerr (&gwdata) == last_maxerr) {
 				OutputBoth (thread_num, ERROK);
-				inc_error_count (3, &error_count);
+				inc_error_count (3, &ps.error_count);
 				gw_clear_error (&gwdata);
 				OutputBoth (thread_num, ERRMSG5);
 				maxerr_recovery_mode = 1;
@@ -10912,11 +10965,11 @@ OutputStr (thread_num, "Iteration failed.\n");
 			} else {
 				char	msg[100];
 				sprintf (msg, ERRMSG1C, gw_get_maxerr (&gwdata), allowable_maxerr);
-				sprintf (buf, ERRMSG0, counter+1, explen-1, msg);
+				sprintf (buf, ERRMSG0, ps.counter+1, explen-1, msg);
 				OutputBoth (thread_num, buf);
-				last_counter = counter;
+				last_counter = ps.counter;
 				last_maxerr = gw_get_maxerr (&gwdata);
-				inc_error_count (1, &error_count);
+				inc_error_count (1, &ps.error_count);
 				sleep5 = FALSE;
 				goto restart;
 			}
@@ -10924,14 +10977,14 @@ OutputStr (thread_num, "Iteration failed.\n");
 
 /* Update counter, percentage complete */
 
-		counter++;
-		w->pct_complete = (double) counter * inverse_explen;
+		ps.counter++;
+		w->pct_complete = (double) ps.counter * inverse_explen;
 
 /* Output the title every so often */
 
 		actual_frequency = (int) (ITER_OUTPUT * output_title_frequency);
 		if (actual_frequency < 1) actual_frequency = 1;
-		if (counter % actual_frequency == 0 || first_iter_msg) {
+		if (ps.counter % actual_frequency == 0 || first_iter_msg) {
 			sprintf (buf, "%.*f%% of %s", (int) PRECISION, trunc_percent (w->pct_complete), string_rep);
 			title (thread_num, buf);
 		}
@@ -10940,11 +10993,11 @@ OutputStr (thread_num, "Iteration failed.\n");
 
 		actual_frequency = (int) (ITER_OUTPUT * output_frequency);
 		if (actual_frequency < 1) actual_frequency = 1;
-		if (counter % actual_frequency == 0 || first_iter_msg) {
-			sprintf (buf, "Iteration: %ld / %ld [%.*f%%]", counter, explen-1, (int) PRECISION, trunc_percent (w->pct_complete));
+		if (ps.counter % actual_frequency == 0 || first_iter_msg) {
+			sprintf (buf, "Iteration: %ld / %ld [%.*f%%]", ps.counter, explen-1, (int) PRECISION, trunc_percent (w->pct_complete));
 			/* Append a short form total errors message */
 			if (error_count_messages == 1)
-				make_error_count_message (error_count, error_count_messages,
+				make_error_count_message (ps.error_count, error_count_messages,
 							  buf + strlen (buf),
 							  (int) (sizeof (buf) - strlen (buf)));
 			/* Truncate first message */
@@ -10967,13 +11020,13 @@ OutputStr (thread_num, "Iteration failed.\n");
 				clear_timer (timers, 0);
 				iters = 0;
 				/* Append ETA */
-				formatETA ((explen - 2 - counter) * speed, buf+strlen(buf));
+				formatETA ((explen - 2 - ps.counter) * speed, buf+strlen(buf));
 				strcat (buf, "\n");
 			}
 			/* Format the classic (pre-v28.5) message */
 			else {
 				/* Append optional roundoff message */
-				if (ERRCHK && counter > 30) {
+				if (ERRCHK && ps.counter > 30) {
 					sprintf (buf+strlen(buf), ".  Round off: %10.10f to %10.10f", reallyminerr, reallymaxerr);
 					if (!CUMULATIVE_ROUNDOFF) reallyminerr = 1.0, reallymaxerr = 0.0;
 				}
@@ -10993,14 +11046,14 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* notice a problem without reading the results.txt file. */
 
 			if (error_count_messages >= 2 &&
-			    make_error_count_message (error_count, error_count_messages, buf, sizeof (buf)))
+			    make_error_count_message (ps.error_count, error_count_messages, buf, sizeof (buf)))
 				OutputStr (thread_num, buf);
 		}
 
 /* Print a results file message every so often */
 
-		if (counter % ITER_OUTPUT_RES == 0 || (NO_GUI && stop_reason)) {
-			sprintf (buf, "Iteration %ld / %ld\n", counter, explen-1);
+		if (ps.counter % ITER_OUTPUT_RES == 0 || (NO_GUI && stop_reason)) {
+			sprintf (buf, "Iteration %ld / %ld\n", ps.counter, explen-1);
 			writeResults (buf);
 		}
 
@@ -11009,7 +11062,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* disk-full situation) */
 
 		if (saving) {
-			if (! writePRPSaveFile (&gwdata, x, &write_save_file_state, w, counter, error_count, prp_base, units_bit, gerbicz_possible)) {
+			if (! writePRPSaveFile (&gwdata, &write_save_file_state, w, &ps)) {
 				sprintf (buf, WRITEFILEERR, filename);
 				OutputBoth (thread_num, buf);
 			}
@@ -11019,7 +11072,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 
 		if (stop_reason) {
 			sprintf (buf, "Stopping PRP test of %s at iteration %ld [%.*f%%]\n",
-				 string_rep, counter, (int) PRECISION, trunc_percent (w->pct_complete));
+				 string_rep, ps.counter, (int) PRECISION, trunc_percent (w->pct_complete));
 			OutputStr (thread_num, buf);
 			goto exit;
 		}
@@ -11028,28 +11081,28 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* Beware that if we are PRPing a Mersenne number our iteration numbers are off by one */
 /* compared to other PRP programs, we adjust accordingly. */
 
-		if (INTERIM_RESIDUES && counter > 1 && (counter - interim_counter_off_one) % INTERIM_RESIDUES == 0) {
+		if (INTERIM_RESIDUES && ps.counter > 1 && (ps.counter - interim_counter_off_one) % INTERIM_RESIDUES == 0) {
 			tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
-			gwtogiant (&gwdata, x, tmp);
-			rotateg (tmp, w->n, units_bit, &gwdata.gdata);
-			if (interim_mul) basemulg (tmp, w, prp_base, -1);
+			gwtogiant (&gwdata, ps.x, tmp);
+			rotateg (tmp, w->n, ps.units_bit, &gwdata.gdata);
+			if (interim_mul) basemulg (tmp, w, ps.prp_base, -1);
 			if (w->known_factors && prp_residue_type != PRIMNET_PRP_TYPE_COFACTOR) modg (N, tmp);
 			sprintf (buf, "%s interim Wf%d residue %08lX%08lX at iteration %ld\n",
 				 string_rep, PORT, (unsigned long) tmp->n[1], (unsigned long) tmp->n[0],
-				 counter - interim_counter_off_one);
+				 ps.counter - interim_counter_off_one);
 			OutputBoth (thread_num, buf);
 			pushg (&gwdata.gdata, 1);
 		}
 
 /* Write a save file every INTERIM_FILES iterations. */
 
-		if (INTERIM_FILES && counter % INTERIM_FILES == 0) {
+		if (INTERIM_FILES && ps.counter % INTERIM_FILES == 0) {
 			char	interimfile[32];
 			writeSaveFileState state;
-			sprintf (interimfile, "%s.%03ld", filename, counter / INTERIM_FILES);
+			sprintf (interimfile, "%s.%03ld", filename, ps.counter / INTERIM_FILES);
 			writeSaveFileStateInit (&state, interimfile, 0);
 			state.num_ordinary_save_files = 99;
-			writePRPSaveFile (&gwdata, x, &state, w, counter, error_count, prp_base, units_bit, gerbicz_possible);
+			writePRPSaveFile (&gwdata, &state, w, &ps);
 		}
 
 /* If ten iterations take 40% longer than a typical iteration, then */
@@ -11078,31 +11131,32 @@ pushg(&gwdata.gdata, 2);}
 
 /* See if we've found a probable prime.  If not, format a 64-bit residue. */
 
+//BUG -- gwfree u0 and d ???
 	tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
-	gwtogiant (&gwdata, x, tmp);
-	rotateg (tmp, w->n, units_bit, &gwdata.gdata);
-	if (mul_final) basemulg (tmp, w, prp_base, mul_final);
+	gwtogiant (&gwdata, ps.x, tmp);
+	rotateg (tmp, w->n, ps.units_bit, &gwdata.gdata);
+	if (mul_final) basemulg (tmp, w, ps.prp_base, mul_final);
 	if (w->known_factors && prp_residue_type != PRIMNET_PRP_TYPE_COFACTOR) modg (N, tmp);
-	isProbablePrime = isPRPg (tmp, N, w, prp_base, prp_residue_type);
+	isProbablePrime = isPRPg (tmp, N, w, ps.prp_base, prp_residue_type);
 	if (!isProbablePrime) sprintf (res64, "%08lX%08lX", (unsigned long) tmp->n[1], (unsigned long) tmp->n[0]);
 	pushg (&gwdata.gdata, 1);
-	gwfree (&gwdata, x);
-
+	gwfree (&gwdata, ps.x);
+			
 /* Print results */
 
 	if (isProbablePrime) {
 		sprintf (buf, "%s is a probable prime", string_rep);
-		if (prp_base != 3) sprintf (buf+strlen(buf), " (%lu-PRP)", prp_base);
+		if (ps.prp_base != 3) sprintf (buf+strlen(buf), " (%lu-PRP)", ps.prp_base);
 		strcat (buf, "!");
 	} else {
 		sprintf (buf, "%s is not prime.  ", string_rep);
-		if (prp_base != 3) sprintf (buf+strlen(buf), "Base-%lu ", prp_base);
+		if (ps.prp_base != 3) sprintf (buf+strlen(buf), "Base-%lu ", ps.prp_base);
 		if (prp_residue_type != PRIMNET_PRP_TYPE_FERMAT) sprintf (buf+strlen(buf), "Type-%d ", prp_residue_type);
 		sprintf (buf+strlen(buf), "RES64: %s.", res64);
 	}
 	sprintf (buf+strlen(buf), " Wf%d: %08lX,", PORT, SEC1 (w->n));
-	if (units_bit) sprintf (buf+strlen(buf), "%ld,", units_bit);
-	sprintf (buf+strlen(buf), "%08lX\n", error_count);
+	if (ps.units_bit) sprintf (buf+strlen(buf), "%ld,", ps.units_bit);
+	sprintf (buf+strlen(buf), "%08lX\n", ps.error_count);
 	OutputStr (thread_num, buf);
 	formatMsgForResultsFile (buf, w);
 
@@ -11142,14 +11196,14 @@ pushg(&gwdata.gdata, 2);}
 		}
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"known-factors\":\"%s\"", fac_string);
 	}
-	sprintf (JSONbuf+strlen(JSONbuf), ", \"worktype\":\"PRP-%lu\", \"status\":\"%s\"", prp_base, isProbablePrime ? "P" : "C");
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"worktype\":\"PRP-%lu\", \"status\":\"%s\"", ps.prp_base, isProbablePrime ? "P" : "C");
 	if (!isProbablePrime) {
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"res64\":\"%s\"", res64);
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"residue-type\":%d", prp_residue_type);
 	}
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", gwdata.FFTLEN);
-	if (units_bit) sprintf (JSONbuf+strlen(JSONbuf), ", \"shift-count\":%ld", units_bit);
-	sprintf (JSONbuf+strlen(JSONbuf), ", \"error-code\":\"%08lX\"", error_count);
+	if (ps.units_bit) sprintf (JSONbuf+strlen(JSONbuf), ", \"shift-count\":%ld", ps.units_bit);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"error-code\":\"%08lX\"", ps.error_count);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC1(w->n));
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"program\":{\"name\":\"Prime95\", \"version\":\"%s\", \"build\":%s, \"port\":%d}",
 		 VERSION, BUILD_NUM, PORT);
@@ -11175,10 +11229,10 @@ pushg(&gwdata.gdata, 2);}
 		pkt.n = w->n;
 		pkt.c = w->c;
 		strcpy (pkt.residue, res64);
-		sprintf (pkt.error_count, "%08lX", error_count);
-		pkt.prp_base = prp_base;
+		sprintf (pkt.error_count, "%08lX", ps.error_count);
+		pkt.prp_base = ps.prp_base;
 		pkt.prp_residue_type = prp_residue_type;
-		pkt.shift_count = units_bit;
+		pkt.shift_count = ps.units_bit;
 		pkt.num_known_factors = (w->known_factors == NULL) ? 0 : countCommas (w->known_factors) + 1;
 		pkt.gerbicz = FALSE;
 		pkt.fftlen = gwfftlen (&gwdata);
@@ -11220,7 +11274,7 @@ restart:if (sleep5) OutputBoth (thread_num, ERRMSG2);
 
 /* Update the error count in the save file */
 
-	writeNewErrorCount (filename, error_count);
+	writeNewErrorCount (filename, ps.error_count);
 
 /* Sleep five minutes before restarting */
 
