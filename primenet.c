@@ -1094,6 +1094,7 @@ int format_args (char* args, short operation, void* pkt)
 			p = armor (p + strlen (p), z->error_count);
 			if (z->num_known_factors) sprintf (p, "&nkf=%d", z->num_known_factors), p += strlen (p);
 			if (z->prp_base) sprintf (p, "&base=%d", z->prp_base), p += strlen (p);
+			if (z->shift_count) sprintf (p, "&sc=%d", z->shift_count), p += strlen (p);
 			if (z->gerbicz) strcpy (p, "&gbz=1"), p += strlen (p);
 		}
 		if (z->fftlen) {
