@@ -66,6 +66,9 @@ hardware errors.  You might do this if you are running the first LL test and
 double-checking LL test concurrently.  In prime.txt
 	JacobiErrorCheck=0 or 1	(default is 1)
 
+You can disable printing Jacobi error-checking messages using this prime.txt entry:
+	SilentJacobi=0 or 1	(default is 0)
+
 You can force the Options/CPU dialog to display times using AM/PM or
 a 24-hour clock format.  Otherwise, the program will make its best guess
 as to the proper format.  Add this line to prime.txt:
@@ -226,6 +229,10 @@ using a value of zero or one in prime.txt:
 
 You can skip the GCD in stage 1 of P-1 factoring with this prime.txt setting:
 	Stage1GCD=0
+
+You can change the default base used in PRP tests.  In prime.txt:
+	PRPBase=n		(default 3)
+The base can also be changed for individual PRP tests in worktodo.txt entries.
 
 You can have the program generate save files every n iterations.  The files
 will have a .XXX extension where XXX equals the current iteration divided
@@ -609,13 +616,15 @@ never be swapped out.  Thus, using this option could negatively impact
 the performance of other applications.  Also, you'll need to have
 the "Lock Pages in Memory" privilege to use this option.
 
-When looking for probable primes, the following 3 options are available in prime.txt:
+When looking for probable primes, the following 4 options are available in prime.txt:
 	SilentVictoryPRP=0 or 1		(default is 1)
-	OutputPrimes=0 or 1		(default is 1)
-	OutputComposites=0 or 1		(default is 1)
-Setting SilentVictory=0 will cause prime95 to make a continuous noise if a PRP is found.
-Setting	OutputPrimes=0 will cause prime95 to NOT output probable primes to results.txt.
-Setting	OutputComposites=0 will cause prime95 to NOT output composite PRP tests to results.txt.
+	OutputPrimes=0 or 1		(default is 0)
+	OutputComposites=0 or 1		(default is 0)
+	OutputJSON=0 or 1		(default is 1)
+Setting SilentVictoryPRP=0 will cause prime95 to make a continuous noise if a PRP is found.
+Setting	OutputPrimes=1 will cause prime95 to output a non-JSON message for probable primes to results.txt.
+Setting	OutputComposites=1 will cause prime95 to output a non-JSON message for composite PRP tests to results.txt.
+Setting	OutputJSON=0 will cause prime95 to not output the JSON message for PRP tests to results.txt.
 
 WINDOWS ONLY:  You can have prime95 pause when the battery level gets low.
 This will allow you to charge the battery faster.  Add the line
