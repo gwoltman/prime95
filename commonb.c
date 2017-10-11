@@ -11162,8 +11162,8 @@ pushg(&gwdata.gdata, 2);}
 
 /* Update the output file */
 
-	if ((isProbablePrime && IniGetInt (INI_FILE, "OutputPrimes", 1)) ||
-	    (!isProbablePrime && IniGetInt (INI_FILE, "OutputComposites", 1)))
+	if ((isProbablePrime && IniGetInt (INI_FILE, "OutputPrimes", 0)) ||
+	    (!isProbablePrime && IniGetInt (INI_FILE, "OutputComposites", 0)))
 		writeResults (buf);
 
 /* Print known factors */
@@ -11173,7 +11173,10 @@ pushg(&gwdata.gdata, 2);}
 		bigbuf = (char *) malloc (strlen (w->known_factors) + 100);
 		if (bigbuf != NULL) {
 			sprintf (bigbuf, "Known factors used for PRP test were: %s\n", w->known_factors);
-			OutputBoth (thread_num, bigbuf);
+			OutputStr (thread_num, bigbuf);
+			if ((isProbablePrime && IniGetInt (INI_FILE, "OutputPrimes", 0)) ||
+			    (!isProbablePrime && IniGetInt (INI_FILE, "OutputComposites", 0)))
+				writeResults (bigbuf);
 			free (bigbuf);
 		}
 	}
@@ -11183,10 +11186,11 @@ pushg(&gwdata.gdata, 2);}
 /* "residue-checksum":"c6b0b26c", "program":{"name":"gpuowl", "version":"1.1"}, "timestamp":"2017-09-04 23:28:16", */
 /* "errors":{"gerbicz":0}, "user":"meme", "cpu":"Vega [Radeon RX Vega] 64 @83:0.0", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
+	sprintf (JSONbuf, "{\"status\":\"%s\"", isProbablePrime ? "P" : "C");
 	if (w->k == 1.0 && w->b == 2 && w->c == -1)
-		sprintf (JSONbuf, "{\"exponent\":%lu", w->n);
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"exponent\":%lu", w->n);
 	else
-		sprintf (JSONbuf, "{\"k\":%.0f, \"b\":%lu, \"n\":%lu, \"c\":%ld", w->k, w->b, w->n, w->c);
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"k\":%.0f, \"b\":%lu, \"n\":%lu, \"c\":%ld", w->k, w->b, w->n, w->c);
 	if (w->known_factors != NULL) {
 		char	fac_string[1210];
 		if (strlen (w->known_factors) <= 1200) strcpy (fac_string, w->known_factors);
@@ -11196,7 +11200,7 @@ pushg(&gwdata.gdata, 2);}
 		}
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"known-factors\":\"%s\"", fac_string);
 	}
-	sprintf (JSONbuf+strlen(JSONbuf), ", \"worktype\":\"PRP-%lu\", \"status\":\"%s\"", ps.prp_base, isProbablePrime ? "P" : "C");
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"worktype\":\"PRP-%lu\"", ps.prp_base);
 	if (!isProbablePrime) {
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"res64\":\"%s\"", res64);
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"residue-type\":%d", prp_residue_type);
@@ -11211,8 +11215,7 @@ pushg(&gwdata.gdata, 2);}
 	if (COMPID[0]) sprintf (JSONbuf+strlen(JSONbuf), ", \"computer\":\"%s\"", COMPID);
 	if (w->assignment_uid[0]) sprintf (JSONbuf+strlen(JSONbuf), ", \"aid\":\"%s\"", w->assignment_uid);
 	sprintf (JSONbuf+strlen(JSONbuf), "}\n");
-	if ((isProbablePrime && IniGetInt (INI_FILE, "OutputJSONPrimes", 1)) ||
-	    (!isProbablePrime && IniGetInt (INI_FILE, "OutputJSONComposites", 1)))
+	if (IniGetInt (INI_FILE, "OutputJSON", 1))
 		writeResults (JSONbuf);
 
 /* Output results to the server */
