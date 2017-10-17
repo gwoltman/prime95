@@ -871,7 +871,6 @@ int setN (
 	giant	*N)		/* k*b^n+c as a giant */
 {
 	unsigned long bits, p;
-	FILE	*fd;
 	char	buf[2500];
 
 /* Create the binary representation of the number we are factoring */
@@ -961,33 +960,37 @@ int setN (
 
 			ctog (p, f);
 			if (gsign (f) < 1 || isone (f)) {
-				char	msg[100];
+				char	msg[1000];
 				strcpy (buf, p);
 				buf[10] = 0;
-				sprintf (msg, "Error parsing comma separated known factor list near: %s\n", buf);
+				sprintf (msg, "Error parsing known factors of %s near: '%s'\n", gwmodulo_as_string (gwdata), buf);
 				OutputStr (thread_num, msg);
+				free (f);
+				free (tmp);
+				deleteWorkToDoLine (thread_num, w, FALSE);
+				return (STOP_FOR_ABORT);
 			}
 
 /* Divide N by factor - then verify the factor */
 
-			else {
-				gtog (*N, tmp);
-				divg (f, tmp);
-				mulg (tmp, f);
-				if (gcompg (f, *N)) {
-					strcpy (buf, p);
-					comma = strchr (buf, ',');
-					if (comma != NULL) *comma = 0;
-					sprintf (buf+strlen(buf),
-						 " does not divide %s\n",
-						 gwmodulo_as_string (gwdata));
-					OutputBoth (thread_num, buf);
-				} else
-					gtog (tmp, *N);
+			gtog (*N, tmp);
+			divg (f, tmp);
+			mulg (tmp, f);
+			if (gcompg (f, *N)) {
+				strcpy (buf, p);
+				comma = strchr (buf, ',');
+				if (comma != NULL) *comma = 0;
+				sprintf (buf+strlen(buf), " does not divide %s\n", gwmodulo_as_string (gwdata));
+				OutputBoth (thread_num, buf);
+				free (f);
+				free (tmp);
+				deleteWorkToDoLine (thread_num, w, FALSE);
+				return (STOP_FOR_ABORT);
 			}
+			gtog (tmp, *N);
 
 /* Skip to next factor in list */
-			
+
 			comma = strchr (p, ',');
 			if (comma == NULL) break;
 			p = comma + 1;
@@ -997,64 +1000,8 @@ int setN (
 		return (0);
 	}
 
-/* Ignore file of known factors when QAing */
+/* Return success */
 
-	if (QA_IN_PROGRESS) return (0);
-
-/* Open file of known factors.  This code has been obsoleted by the */
-/* known factors list in worktodo.ini. */
-
-	if (w->k != 1.0 || w->b != 2 || abs(w->c) != 1) return (0);
-	fd = fopen (w->c == 1 ? "lowp.txt" : "lowm.txt", "r");
-	if (fd == NULL) return (0);
-
-/* Loop until the entire file is processed */
-/* We are looking for lines of the form: "M( 2843 )C: 142151" */
-
-	while (fscanf (fd, "%s", buf) != EOF) {
-		giant	tmp, f;
-
-		if (buf[0] != 'M' && buf[0] != 'P') continue;
-		(void) fscanf (fd, "%ld", &p);
-		if (p > w->n) break;
-		if (p < w->n) continue;
-		(void) fscanf (fd, "%s", buf);
-		if (buf[1] != 'C') continue;
-
-/* Allocate space for factor verification */
-
-		tmp = allocgiant ((bits >> 5) + 5);
-		if (tmp == NULL) return (OutOfMemory (thread_num));
-		f = allocgiant ((bits >> 5) + 5);
-		if (f == NULL) return (OutOfMemory (thread_num));
-
-/* Get the factor */
-
-		(void) fscanf (fd, "%s", buf);
-		ctog (buf, f);
-
-/* Divide N by factor - but first verify the factor */
-
-		gtog (*N, tmp);
-		divg (f, tmp);
-		mulg (tmp, f);
-		if (gcompg (f, *N)) {
-			char bigbuf[3000];
-			sprintf (bigbuf,
-				 "Factor %s in %s does not divide %s\n",
-				 buf,
-				 w->c == 1 ? "lowp.txt" : "lowm.txt",
-				 gwmodulo_as_string (gwdata));
-			OutputBoth (thread_num, bigbuf);
-		} else
-			gtog (tmp, *N);
-		free (f);
-		free (tmp);
-	}
-
-/* Close file and return */
-
-	fclose (fd);
 	return (0);
 }
 
