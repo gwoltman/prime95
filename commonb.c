@@ -3262,8 +3262,8 @@ int primeContinue (
 
 check_stop_code:
 
-/* If we are aborted a work unit (probably because it is being deleted) */
-/* then start again. */
+/* If we aborted a work unit (probably because it is being deleted) */
+/* then loop to find next work unit to process. */
 
 	if (stop_reason == STOP_ABORT) continue;
 
