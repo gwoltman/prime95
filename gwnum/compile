@@ -154,10 +154,10 @@ release\gwini.obj: gwini.c gwini.h
 debug\gwini.obj: gwini.c gwini.h
     $(cld) /Fodebug\gwini.obj gwini.c
 
-release\gwbench.obj: gwbench.c gwbench.h
+release\gwbench.obj: gwbench.c gwbench.h gwnum.h
     $(cl) /I..\sqlite-amalgamation-3180000 /Forelease\gwbench.obj gwbench.c
 
-debug\gwbench.obj: gwbench.c gwbench.h
+debug\gwbench.obj: gwbench.c gwbench.h gwnum.h
     $(cld) /I..\sqlite-amalgamation-3180000 /Fodebug\gwbench.obj gwbench.c
 
 release\gwutil.obj: gwutil.c gwutil.h
