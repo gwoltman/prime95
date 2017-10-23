@@ -10292,7 +10292,7 @@ void basemulg (
 
 	if (power == 0) return;
 
-/* Generate the modulus (k*b^n+c) */
+/* Generate the modulus (k*b^n+c), b is known to be 2 */
 
 	mpz_init_set_d (modulus, w->k);
 	mpz_mul_2exp (modulus, modulus, w->n);
@@ -10597,6 +10597,25 @@ begin:	gwinit (&gwdata);
 		OutputBoth (thread_num, buf);
 		stop_reason = STOP_WORK_UNIT_COMPLETE;
 		goto exit;
+	}
+
+/* If N is divisible by the PRP base, then basemulg will crash calculating the modular inverse. */
+/* Catch this condition here (before running a full PRP test). */
+
+	{
+		mpz_t	tmp;
+		int	is_divisible;
+
+		mpz_init (tmp);
+		gtompz (N, tmp);
+		is_divisible = mpz_divisible_ui_p (tmp, ps.prp_base);
+		mpz_clear (tmp);
+		if (is_divisible) {
+			sprintf (buf, "PRP test of %s aborted -- number is divisible by %d\n", string_rep, ps.prp_base);
+			OutputBoth (thread_num, buf);
+			stop_reason = STOP_WORK_UNIT_COMPLETE;
+			goto exit;
+		}
 	}
 
 /* Record the amount of memory being used by this thread. */
