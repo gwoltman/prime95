@@ -968,7 +968,7 @@ int setN (
 				free (f);
 				free (tmp);
 				deleteWorkToDoLine (thread_num, w, FALSE);
-				return (STOP_FOR_ABORT);
+				return (STOP_ABORT);
 			}
 
 /* Divide N by factor - then verify the factor */
@@ -985,7 +985,7 @@ int setN (
 				free (f);
 				free (tmp);
 				deleteWorkToDoLine (thread_num, w, FALSE);
-				return (STOP_FOR_ABORT);
+				return (STOP_ABORT);
 			}
 			gtog (tmp, *N);
 
