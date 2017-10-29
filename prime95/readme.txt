@@ -13,8 +13,9 @@ FILE LIST
 ---------
 
 readme.txt	This file.
-prime95.exe	The program to factor and run Lucas-Lehmer tests on
-		Mersenne numbers.
+prime95.exe	The program to factor and run Lucas-Lehmer tests on Mersenne numbers.
+*libgmp*	A library file containing the GNU multi-precision math package.
+		On some OSes you may need to copy this the system library directory.
 whatsnew.txt	A list of new features in prime95.exe.
 stress.txt	A discussion of issues relating to stress testing a computer.
 undoc.txt	A list of undocumented and unsupported features.
@@ -62,7 +63,7 @@ If you are running this program at your place of employment, you must
 first GET PERMISSION from your network administrator, boss, or both.
 This is especially true if you are installing the software on several machines.
 Many companies have policies that prohibit running unauthorized software.
-Violating that policy could result in termination and/or prosecution.
+Violating that policy could result in TERMINATION and/or PROSECUTION.
 
 
 INSTRUCTIONS FOR THE AUTOMATIC METHOD
@@ -70,6 +71,7 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
 
 1)  Download and unzip prime95.zip.
     You've probably done this already since you are reading this file.
+    If necessary install the GMP library (included).
 2)  Connect to the Internet.  Create an account at http://mersenne.org
 3)  Run prime95.exe.  You will see 4 dialog boxes:
 3a) In the welcome dialog box, choose "Join GIMPS!".
@@ -332,7 +334,7 @@ directly.  For example:
 The PRP choice, available from the menus only in the Mac OS X version, lets you do a
 probable prime test on numbers of the form k*b^n+c.  On all OSes, you can edit
 the worktodo.txt file directly.  For example add:
-	PRP=k,b,n,c[,how_far_factored,tests_saved][,"comma-separated-list-of-known-factors"]
+	PRP=k,b,n,c[,how_far_factored,tests_saved][,prp_base,residue_type][,"comma-separated-list-of-known-factors"]
 where the how_far_factored and tests_saved values are used to pick
 optimal bounds for P-1 factoring prior to running the PRP test.
 
@@ -455,17 +457,8 @@ appears in the results.txt file, then prime95's error-checking has
 detected a problem.  After waiting 5 minutes, the program will continue
 testing from the last save file.
 
-Could it be a software problem?  If the error is ILLEGAL SUMOUT and you are
-running Windows 95/98/Me, then there is some chance that this is a software
-problem.  A device driver or VxD may not be saving and restoring FPU state
-correctly.  Windows NT/2000/XP/Vista protects prime95 from bad device drivers.
-In that case ILLEGAL SUMOUT is very likely a true hardware error. The good news
-is that prime95 recovers very well from ILLEGAL SUMOUT errors.  Try seeing
-if the problem occurs only when a specific device is active or a specific
-program is running.
-
-The other two errors messages, SUMINP != SUMOUT and ROUND OFF > 0.40 are
-caused by one of two things:
+The two most common errors messages, SUMINP != SUMOUT and ROUND OFF > 0.40,
+are caused by one of two things:
 	1)  For reasons too complicated to go into here, the program's error
 	checking is not	perfect.  Some errors can be missed and some correct
 	results flagged as an error.  If you get the message "Disregard last
@@ -477,12 +470,15 @@ If you do not get the "Disregard last error..." message or this happens
 more than once, then your machine is a good candidate for a torture test.
 See the stress.txt file for more information.
 
+Could it be a software problem (bug)?  Unlikely.  Try running a torture test
+and/or asking for advice at mersenneforum.org.
+
 Running the program on a computer with hardware problems may produce
 incorrect results.  This won't hurt the GIMPS project since all results
 will be double-checked.  However, you could be wasting your CPU time.
-If you are getting several errors during each primality test, then I
-recommend using your machine to factor Mersenne numbers or run one of
-the many less strenuous distributed computing projects available.
+If you are getting errors during primality tests, then I recommend 
+changing to PRP testing which has an extremely robust error detection
+and correction mechanism.
 
 
 LUCAS-LEHMER DETAILS
@@ -566,6 +562,37 @@ PURPOSE AND NONINFRINGEMENT OF THIRD PARTY RIGHTS. IN NO EVENT SHALL THE AUTHORS
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
 ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+COPYRIGHTS (libgmp)
+-------------------
+
+Copyright 1991, 1996, 1999, 2000, 2007 Free Software Foundation, Inc.
+
+This file is part of the GNU MP Library.
+
+The GNU MP Library is free software; you can redistribute it and/or modify
+it under the terms of either:
+
+  * the GNU Lesser General Public License as published by the Free
+    Software Foundation; either version 3 of the License, or (at your
+    option) any later version.
+
+or
+
+  * the GNU General Public License as published by the Free Software
+    Foundation; either version 2 of the License, or (at your option) any
+    later version.
+
+or both in parallel, as here.
+
+The GNU MP Library is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received copies of the GNU General Public License and the
+GNU Lesser General Public License along with the GNU MP Library.  If not,
+see https://www.gnu.org/licenses/.
 
 
 OUR DISCLAIMER

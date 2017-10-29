@@ -230,10 +230,6 @@ using a value of zero or one in prime.txt:
 You can skip the GCD in stage 1 of P-1 factoring with this prime.txt setting:
 	Stage1GCD=0
 
-You can change the default base used in PRP tests.  In prime.txt:
-	PRPBase=n		(default 3)
-The base can also be changed for individual PRP tests in worktodo.txt entries.
-
 You can have the program generate save files every n iterations.  The files
 will have a .XXX extension where XXX equals the current iteration divided
 by n.  In prime.txt enter:
@@ -625,6 +621,48 @@ Setting SilentVictoryPRP=0 will cause prime95 to make a continuous noise if a PR
 Setting	OutputPrimes=1 will cause prime95 to output a non-JSON message for probable primes to results.txt.
 Setting	OutputComposites=1 will cause prime95 to output a non-JSON message for composite PRP tests to results.txt.
 Setting	OutputJSON=0 will cause prime95 to not output the JSON message for PRP tests to results.txt.
+
+When PRPing k*b^n+c and b=2, there are some optimizations possible that reduce the
+number of multiplications by a small constant.  These optimizations also allow the
+program to do very efficient and powerful Gerbicz error checking.  Although there
+should be no reason to turn off these optimizations, it can be done with this setting:
+	PRPStraightForward=0 or 1	(default is 0)
+
+When PRPing k*b^n+c, there are two types of highly-reliable error checking available.
+Gerbicz error checking is available when b=2.  It almost guarantees a correct result
+at an overhead of about 0.2%.  The second high-reliability error check is to run the
+PRP twice comparing residues along the way.  Obviously, this doubles the runtime.
+To select which error checking is performed, use the following setting in prime.txt:
+	PRPErrorChecking=0 or 1 or 2	(default is 1)
+Set to zero to disable error checking.  Set to 1 to perform Gerbicz error checking
+when b=2.  Set to 2 to do Gerbicz error checking when possible, otherwise do slow
+error checking.
+
+When doing highly-reliable error checking, the interval between compares can be
+controlled with these two settings in prime.txt:
+The intervals between comparing
+	PRPDoublecheckCompareInterval=n		(default is 100000)
+	PRPGerbiczCompareInterval=n		(default is 1000000)
+Reducing the interval will reduce how far the program "rolls back" when an error
+is detected.  It will also increase the overhead associated with error-checking.
+NOTE: For technical reasons, PRPGerbiczCompareInterval is rounded to the nearest perfect square.
+
+You can change the default base used in PRP tests.  In prime.txt:
+	PRPBase=n		(default 3)
+The base can also be changed for individual PRP tests in worktodo.txt entries making
+this option obsolete.
+
+PRP supports 5 types of residues for compatibility with other PRP programs.  If
+a is the PRP base and N is the number being tested, then the residue types are:
+1 = 64-bit residue of a^(N-1), a traditional Fermat PRP test used by most other programs
+2 = 64-bit residue of a^((N-1)/2)
+3 = 64-bit residue of a^(N-c+1), only available if b=2
+4 = 64-bit residue of a^((N-c+1)/2), only available if b=2
+5 = 64-bit residue of a^(N*known_factors-1), same as type 1 if there are no known factors
+To control which residue type is generated, use this setting in prime.txt:
+	PRPResidueType=n		(default is 5)
+The residue type can also be set for PRP tests in worktodo.txt entries making
+this option somewhat obsolete.
 
 WINDOWS ONLY:  You can have prime95 pause when the battery level gets low.
 This will allow you to charge the battery faster.  Add the line
