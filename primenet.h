@@ -95,16 +95,18 @@ struct primenetUpdateComputerInfo {
 #define PRIMENET_WP_ECM_COFACTOR	8	/* ECM of Mersenne cofactors */
 #define PRIMENET_WP_LL_FIRST		100	/* LL first time tests */
 #define PRIMENET_WP_LL_DBLCHK		101	/* LL double checks */
-#define PRIMENET_WP_WORLD_RECORD	102	/* LL result, Mersenne prime */
-#define PRIMENET_WP_LL_10M		103	/* LL 10 million digit --- no longer supported */
+#define PRIMENET_WP_LL_WORLD_RECORD	102	/* LL test of world record Mersenne */
 #define PRIMENET_WP_LL_100M		104	/* LL 100 million digit */
-#define PRIMENET_WP_LL_FIRST_NOFAC	105	/* LL first time tests, no trial factoring or P-1 factoring -- superfluous */
-#define PRIMENET_WP_PRP			150	/* PRP test of big Mersennes */
-#define PRIMENET_WP_PRP_DC		151	/* PRP double checks */
-#define PRIMENET_WP_PRP_RECORD		152	/* PRP test of world record Mersennes */
+#define PRIMENET_WP_PRP_FIRST		150	/* PRP test of big Mersennes */
+#define PRIMENET_WP_PRP_DBLCHK		151	/* PRP double checks */
+#define PRIMENET_WP_PRP_WORLD_RECORD	152	/* PRP test of world record Mersennes */
 #define PRIMENET_WP_PRP_100M		153	/* PRP test of 100M digit Mersennes */
-#define PRIMENET_WP_COFACTOR_PRP	160	/* PRP test of Mersenne cofactors */
-#define PRIMENET_WP_COFACTOR_PRP_DC	161	/* PRP double check of Mersenne cofactors */
+#define PRIMENET_WP_PRP_COFACTOR	160	/* PRP test of Mersenne cofactors */
+#define PRIMENET_WP_PRP_COFACTOR_DBLCHK	161	/* PRP double check of Mersenne cofactors */
+
+/* Obsolete work preferences */
+#define PRIMENET_WP_LL_10M		103	/* LL 10 million digit --- no longer supported */
+#define PRIMENET_WP_LL_FIRST_NOFAC	105	/* LL first time tests, no trial factoring or P-1 factoring -- superfluous */
 
 struct primenetProgramOptions {
 	int32_t	versionNumber;
