@@ -1283,7 +1283,7 @@ int readIniFiles (void)
 	if (!IniGetInt (INI_FILE, "V24OptionsConverted", 0)) {
 		IniWriteInt (INI_FILE, "V24OptionsConverted", 1);
 		if (IniGetInt (INI_FILE, "WorkPreference", 0) == 16) // Ten million digit
-			IniWriteInt (INI_FILE, "WorkPreference", PRIMENET_WP_WORLD_RECORD);
+			IniWriteInt (INI_FILE, "WorkPreference", PRIMENET_WP_LL_WORLD_RECORD);
 		else if (IniGetInt (INI_FILE, "WorkPreference", 0) == 2)
 			IniWriteInt (INI_FILE, "WorkPreference", PRIMENET_WP_LL_FIRST);
 		else if (IniGetInt (INI_FILE, "WorkPreference", 0) == 4)
