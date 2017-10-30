@@ -6458,6 +6458,7 @@ int prime (
 	unsigned long p;
 	unsigned long counter;
 	unsigned long error_count;
+	unsigned long restart_error_count = 0;	/* On a restart, use this error count rather than the one from a save file */
 	unsigned long iters;
 	readSaveFileState read_save_file_state; /* Manage savefile names during reading */
 	writeSaveFileState write_save_file_state; /* Manage savefile names during writing */
@@ -6467,8 +6468,8 @@ int prime (
 	double	reallyminerr = 1.0;
 	double	reallymaxerr = 0.0;
 	double	*addr1;
-	int	Jacobi_testing_enabled, Jacobi_testing;
-	int	first_iter_msg, saving, near_fft_limit, sleep5;
+	int	Jacobi_testing_enabled;
+	int	first_iter_msg, near_fft_limit, sleep5;
 	unsigned long high32, low32;
 	int	rc, isPrime, stop_reason;
 	char	buf[400], fft_desc[100];
@@ -6480,7 +6481,6 @@ int prime (
 	double	last_sumout = 0.0;
 	double	last_maxerr = 0.0;
 	double	allowable_maxerr, output_frequency, output_title_frequency;
-	int	actual_frequency;
 	int	error_count_messages;
 
 /* Initialize */
@@ -6621,6 +6621,11 @@ begin:	gwinit (&lldata.gwdata);
 		saveFileBad (&read_save_file_state);
 	}
 
+/* If this is a restart from an error, use the incremented error_count in restart_error_count */
+/* rather than the error_count from a save file. */
+
+	if (restart_error_count) error_count = restart_error_count;
+
 /* Hyperthreading backoff is an option to pause the program when iterations */
 /* take longer than usual.  This is useful on hyperthreaded machines so */
 /* that prime95 doesn't steal cycles from a foreground task, thus hurting */
@@ -6689,8 +6694,7 @@ begin:	gwinit (&lldata.gwdata);
 /* Also tell user the FFT length. */
 
 	gwfft_description (&lldata.gwdata, fft_desc);
-	sprintf (buf, "%s primality test of M%ld using %s\n",
-		 (counter == 2) ? "Starting" : "Resuming", p, fft_desc);
+	sprintf (buf, "%s primality test of M%ld using %s\n", (counter == 2) ? "Starting" : "Resuming", p, fft_desc);
 	OutputStr (thread_num, buf);
 
 /* If we are near the maximum exponent this fft length can test, then we */
@@ -6715,29 +6719,39 @@ begin:	gwinit (&lldata.gwdata);
 	iters = 0;
 	error_count_messages = IniGetInt (INI_FILE, "ErrorCountMessages", 3);
 	while (counter < p) {
-		int	echk;
+		int	saving, Jacobi_testing, echk, sending_residue, interim_residue, interim_file;
+		int	actual_frequency;
 
-/* On first iteration create a save file so that writeNewErrorCount */
-/* can properly keep track of error counts. */
-/* Also save right after we pass an errored iteration and several */
-/* iterations before retesting an errored iteration so that we don't */
-/* have to backtrack very far to do a gwsquare_carefully iteration (we don't do the */
-/* iteration immediately before because on the P4 a save operation will */
-/* change the FFT data and make the error non-reproducible. */
-/* Error check the last 50 iterations, before writing an */
-/* intermediate file (either user-requested stop or a */
-/* 30 minute interval expired), and every 128th iteration. */
+/* See if we should stop processing after this iteration */
 
 		stop_reason = stopCheck (thread_num);
+
+/* Save if we are stopping, right after we pass an errored iteration, several iterations before retesting */
+/* an errored iteration so that we don't have to backtrack very far to do a gwsquare_carefully iteration */
+/* (we don't do the iteration immediately before because a save operation may change the FFT data and make */
+/* the error non-reproducible), if Jacobi testing, and finally save if the save file timer has gone off. */
+
 		saving = counter+1 != p &&
-			 (stop_reason ||
-			  (counter == 2 && p > 1500000) ||
-			  counter == last_counter-8 ||
-			  counter == last_counter ||
-			  testSaveFilesFlag (thread_num));
-		Jacobi_testing = Jacobi_testing_enabled && (counter+1 == p || (saving && !stop_reason && testJacobiFlag (thread_num)));
+			 (stop_reason || counter == last_counter-8 || counter == last_counter ||
+			  Jacobi_testing || testSaveFilesFlag (thread_num));
+
+/* Run a Jacobi test on the last iteration and the first iteration after the Jacobi timer goes off that we */
+/* happen to be creating a save file.  This works around the minor issue where the save file timer and Jacobi timer */
+/* go off close to one another generating two save files just a few iterations apart. */
+
+		Jacobi_testing = Jacobi_testing_enabled && (counter+1 == p || (!stop_reason && saving && testJacobiFlag (thread_num)));
+
+/* Error check before writing an intermediate file, if near an FFT's limit, if user requested it, */
+/* the last 50 iterations, and every 128th iteration. */
+
 		echk = saving || near_fft_limit || ERRCHK || (counter >= p - 50) || ((counter & 127) == 0);
 		gw_clear_maxerr (&lldata.gwdata);
+
+/* Check if we should send residue to server, output residue to screen, or create an interediate save file */
+
+		sending_residue = ((counter+1) == 500002 || ((counter+1) % 5000000 == 2 && IniGetInt (INI_FILE, "SendInterimResidues", 1)));
+		interim_residue = (INTERIM_RESIDUES && (counter+1) % INTERIM_RESIDUES <= 2);
+		interim_file = (INTERIM_FILES && (counter+1) % INTERIM_FILES == 0);
 
 /* Do a Lucas-Lehmer iteration */
 
@@ -6769,11 +6783,9 @@ begin:	gwinit (&lldata.gwdata);
 		else {
 			gwsetnormroutine (&lldata.gwdata, 0, echk, 0);
 			gwstartnextfft (&lldata.gwdata,
-					!saving && !maxerr_recovery_mode &&
-					!Jacobi_testing &&
-					counter+1 != p &&
-					(INTERIM_FILES == 0 || (counter+1) % INTERIM_FILES > 0) &&
-					(INTERIM_RESIDUES == 0 || (counter+1) % INTERIM_RESIDUES > 2));
+					!saving && !maxerr_recovery_mode && !Jacobi_testing &&
+					!sending_residue && !interim_residue && !interim_file &&
+					counter+1 != p);
 			lucas_fixup (&lldata, p);
 			gwsquare (&lldata.gwdata, lldata.lldata);
 		}
@@ -6878,6 +6890,7 @@ begin:	gwinit (&lldata.gwdata);
 			sprintf (buf, ERRMSG0, counter, p, ERRMSG1G);
 			OutputBoth (thread_num, buf);
 			inc_error_count (4, &error_count);
+			sleep5 = FALSE;
 			goto restart;
 		}
 
@@ -6985,8 +6998,7 @@ begin:	gwinit (&lldata.gwdata);
 		}
 
 /* Write results to a file every DISK_WRITE_TIME minutes */
-/* On error, retry in 10 minutes (it could be a temporary */
-/* disk-full situation) */
+/* On error, retry in 10 minutes (it could be a temporary disk-full situation) */
 
 		if (saving) {
 			if (! writeLLSaveFile (&lldata, &write_save_file_state, w, counter, error_count)) {
@@ -7006,21 +7018,42 @@ begin:	gwinit (&lldata.gwdata);
 			return (stop_reason);
 		}
 
+/* Send the 64-bit residue to the server at specified interims.  The server will record */
+/* the residues for possible verification at a later date.  We could catch suspect computers */
+/* or malicious cheaters without doing a full double-check. */
+
+		if (sending_residue) {
+			struct primenetAssignmentProgress pkt;
+			memset (&pkt, 0, sizeof (pkt));
+			strcpy (pkt.computer_guid, COMPUTER_GUID);
+			pkt.cpu_num = thread_num;
+			strcpy (pkt.assignment_uid, w->assignment_uid);
+			strcpy (pkt.stage, w->stage);
+			pkt.pct_complete = w->pct_complete * 100.0;
+			pkt.end_date = (unsigned long) work_estimate (thread_num, w);
+			pkt.next_update = (uint32_t) (DAYS_BETWEEN_CHECKINS * 86400.0);
+			pkt.fftlen = w->fftlen;
+			pkt.iteration = counter - 2;
+			generateResidue64 (&lldata, p, &high32, &low32);
+			sprintf (pkt.residue, "%08lX%08lX", high32, low32);
+			sprintf (pkt.error_count, "%08lX", error_count);
+			spoolMessage (-PRIMENET_ASSIGNMENT_PROGRESS, &pkt);
+			OutputBoth (thread_num, buf);
+		}
+
 /* Output the 64-bit residue at specified interims.  Also output the */
 /* residues for the next two iterations so that we can compare our */
-/* residues to programs that start counter at zero or one. */
+/* residues to programs that sensibly start counter at zero or one. */
 
-		if (INTERIM_RESIDUES && counter % INTERIM_RESIDUES <= 2) {
+		if (interim_residue) {
 			generateResidue64 (&lldata, p, &high32, &low32);
-			sprintf (buf, 
-				 "M%ld interim Wf%d residue %08lX%08lX at iteration %ld\n",
-				 p, PORT, high32, low32, counter);
+			sprintf (buf, "M%ld interim Wg%d residue %08lX%08lX at iteration %ld\n", p, PORT, high32, low32, counter);
 			OutputBoth (thread_num, buf);
 		}
 
 /* Write a save file every INTERIM_FILES iterations. */
 
-		if (INTERIM_FILES && counter % INTERIM_FILES == 0) {
+		if (interim_file) {
 			char	interimfile[32];
 			writeSaveFileState state;
 			sprintf (interimfile, "%s.%03ld", filename, counter / INTERIM_FILES);
@@ -7067,11 +7100,10 @@ begin:	gwinit (&lldata.gwdata);
 /* Format the output message */
 
 	if (isPrime)
-		sprintf (buf, "M%ld is prime! Wf%d: %08lX,%08lX\n",
-			 p, PORT, SEC1 (p), error_count);
+		sprintf (buf, "M%ld is prime! Wg%d: %08lX,%08lX\n", p, PORT, SEC1 (p), error_count);
 	else
 		sprintf (buf,
-			 "M%ld is not prime. Res64: %08lX%08lX. Wf%d: %08lX,%ld,%08lX\n",
+			 "M%ld is not prime. Res64: %08lX%08lX. Wg%d: %08lX,%ld,%08lX\n",
 			 p, high32, low32, PORT,
 			 SEC2 (p, high32, low32, lldata.units_bit, error_count),
 			 lldata.units_bit, error_count);
@@ -7087,8 +7119,7 @@ begin:	gwinit (&lldata.gwdata);
 		strcpy (pkt.computer_guid, COMPUTER_GUID);
 		strcpy (pkt.assignment_uid, w->assignment_uid);
 		strcpy (pkt.message, buf);
-		pkt.result_type =
-			isPrime ? PRIMENET_AR_LL_PRIME : PRIMENET_AR_LL_RESULT;
+		pkt.result_type = isPrime ? PRIMENET_AR_LL_PRIME : PRIMENET_AR_LL_RESULT;
 		pkt.n = p;
 		sprintf (pkt.residue, "%08lX%08lX", high32, low32);
 		pkt.shift_count = lldata.units_bit;
@@ -7126,9 +7157,9 @@ begin:	gwinit (&lldata.gwdata);
 restart:if (sleep5) OutputBoth (thread_num, ERRMSG2);
 	OutputBoth (thread_num, ERRMSG3);
 
-/* Update the error count in the save file */
+/* Save the incremented error count to be used in the restart rather than the error count read from a save file */
 
-	writeNewErrorCount (filename, error_count);
+	restart_error_count = error_count;
 
 /* Sleep five minutes before restarting */
 
@@ -10537,7 +10568,7 @@ int prp (
 	gwhandle gwdata;
 	giant	N, exp, tmp;
 	int	first_iter_msg, res, stop_reason;
-	int	echk, saving, saving_highly_reliable, near_fft_limit, sleep5, isProbablePrime;
+	int	echk, near_fft_limit, sleep5, isProbablePrime;
 	int	interim_counter_off_one, interim_mul, mul_final;
 	unsigned long explen, final_counter, iters;
 	int	slow_iteration_count;
@@ -10556,7 +10587,6 @@ int prp (
 	double	last_sumout = 0.0;
 	double	last_maxerr = 0.0;
 	double	allowable_maxerr, output_frequency, output_title_frequency;
-	int	actual_frequency;
 	char	string_rep[80];
 	int	string_rep_truncated;
 	int	error_count_messages;
@@ -11033,6 +11063,8 @@ rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 	while (ps.counter < final_counter) {
 		gwnum	x;			/* Pointer to number to square */
 		unsigned long *units_bit;	/* Pointer to units_bit to update */
+		int	saving, saving_highly_reliable, sending_residue, interim_residue, interim_file;
+		int	actual_frequency;
 
 /* If this is the first iteration of a Gerbicz error-checking block, then */
 /* determine "L" -- the number of squarings between each Gerbicz multiplication */
@@ -11050,7 +11082,8 @@ rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 			} else {
 				int	gerbicz_block_size;
 				ps.state = PRP_STATE_GERB_MID_BLOCK;
-				gerbicz_block_size = IniGetInt (INI_FILE, "PRPGerbiczCompareInterval", 1000000);
+				gerbicz_block_size = (int) (IniGetFloat (INI_FILE, "PRPGerbiczCompareIntervalAdj", 1.0) *
+							    IniGetInt (INI_FILE, "PRPGerbiczCompareInterval", 1000000));
 				if (iters_left < gerbicz_block_size) gerbicz_block_size = iters_left;
 				ps.L = (unsigned long) sqrt ((double) gerbicz_block_size);
 				ps.start_counter = ps.counter;
@@ -11075,6 +11108,20 @@ rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 
 		echk = ps.counter < 50 || ps.counter >= final_counter-50 || saving || near_fft_limit || ERRCHK || ((ps.counter & 127) == 0);
 		gw_clear_maxerr (&gwdata);
+
+/* Check if we should send residue to server, output residue to screen, or create an interediate save file */
+/* Beware that if we are PRPing a Mersenne number our iteration numbers are off by one compared to other */
+/* PRP programs, we adjust accordingly. */
+
+		sending_residue = (ps.state == PRP_STATE_NORMAL || ps.state == PRP_STATE_DCHK_PASS1 || ps.state == PRP_STATE_GERB_MID_BLOCK) &&
+				  ((ps.counter+1-interim_counter_off_one) == 500000 ||
+				   ((ps.counter+1-interim_counter_off_one) % 5000000 == 0 && IniGetInt (INI_FILE, "SendInterimResidues", 1)));
+		interim_residue = INTERIM_RESIDUES &&
+				  (ps.state == PRP_STATE_NORMAL || ps.state == PRP_STATE_DCHK_PASS1 || ps.state == PRP_STATE_GERB_MID_BLOCK) &&
+				  (ps.counter > 0 && (ps.counter+1-interim_counter_off_one) % INTERIM_RESIDUES == 0);
+		interim_file = INTERIM_FILES &&
+			       (ps.state == PRP_STATE_NORMAL || ps.state == PRP_STATE_DCHK_PASS2 || ps.state == PRP_STATE_GERB_MID_BLOCK) &&
+			       (ps.counter > 0 && (ps.counter+1) % INTERIM_FILES == 0);
 
 /* Do one PRP iteration */
 
@@ -11114,8 +11161,7 @@ rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 			gwstartnextfft (&gwdata,
 					!saving && !maxerr_recovery_mode && ps.counter != ps.end_counter-1 &&
 					ps.counter > 35 && ps.counter < explen-35 &&
-					(INTERIM_FILES == 0 || (ps.counter+1) % INTERIM_FILES > 0) &&
-					(INTERIM_RESIDUES == 0 || (ps.counter+1-interim_counter_off_one) % INTERIM_RESIDUES > 0));
+					!sending_residue && !interim_residue && !interim_file);
 
 /* Process this bit.  Use square carefully the first and last 30 iterations. */
 /* This should avoid any pathological non-random bit pattterns.  Also square */
@@ -11401,15 +11447,26 @@ OutputStr (thread_num, "Iteration failed.\n");
 			ps.counter -= 1;
 		}
 		else if (ps.state == PRP_STATE_GERB_END_BLOCK_MULT) {
+			double	gerbicz_block_size_adjustment;
+			// We adjust the compare interval size downward when errors occur and upwards when they dont.
+			// That way buggy machines will lose fewer iterations when rolling back.
+			gerbicz_block_size_adjustment = IniGetFloat (INI_FILE, "PRPGerbiczCompareIntervalAdj", 1.0);
 			// compare alt_x, d (the two Gerbicz checksum values that must match)
 			if (!areTwoPRPValsEqual (&gwdata, w->n, ps.alt_x, 0, ps.d, 0)) {
 				sprintf (buf, ERRMSG7, ps.start_counter);
 				OutputBoth (thread_num, buf);
+				gerbicz_block_size_adjustment *= 0.25;		/* This will halve next L */
+				if (gerbicz_block_size_adjustment < 0.01) gerbicz_block_size_adjustment = 0.01;
+				IniWriteFloat (INI_FILE, "PRPGerbiczCompareIntervalAdj", (float) gerbicz_block_size_adjustment);
 				inc_error_count (7, &ps.error_count);
 				restart_counter = ps.start_counter;		/* rollback to this iteration */
 				sleep5 = FALSE;
 				goto restart;
 			}
+			gerbicz_block_size_adjustment *= 1.0473;		/* 30 good blocks to double L */
+			if (gerbicz_block_size_adjustment > 1.0) gerbicz_block_size_adjustment = 1.0;
+			IniWriteFloat (INI_FILE, "PRPGerbiczCompareIntervalAdj", (float) gerbicz_block_size_adjustment);
+			/* Start next Gerbicz block */
 			ps.state = PRP_STATE_GERB_START_BLOCK;
 			/* We've reached a verified iteration, create a save file and mark it highly reliable. */
 			/* But if there are less than 1000 iterations left, don't bother creating the save file. */
@@ -11441,19 +11498,42 @@ OutputStr (thread_num, "Iteration failed.\n");
 			goto exit;
 		}
 
-/* Output the 64-bit residue at specified interims. */
-/* Beware that if we are PRPing a Mersenne number our iteration numbers are off by one */
-/* compared to other PRP programs, we adjust accordingly. */
+/* Send the 64-bit residue to the server at specified interims.  The server will record */
+/* the residues for possible verification at a later date.  We could catch suspect computers */
+/* or malicious cheaters without doing a full double-check. */
 
-		if (INTERIM_RESIDUES && ps.counter > 1 && (ps.counter - interim_counter_off_one) % INTERIM_RESIDUES == 0 &&
-		    ps.state != PRP_STATE_DCHK_PASS2 && ps.state != PRP_STATE_GERB_MID_BLOCK_MULT &&
-		    ps.state != PRP_STATE_GERB_END_BLOCK && ps.state != PRP_STATE_GERB_END_BLOCK_MULT) {
+		if (sending_residue) {
+			struct primenetAssignmentProgress pkt;
+			memset (&pkt, 0, sizeof (pkt));
+			strcpy (pkt.computer_guid, COMPUTER_GUID);
+			pkt.cpu_num = thread_num;
+			strcpy (pkt.assignment_uid, w->assignment_uid);
+			strcpy (pkt.stage, w->stage);
+			pkt.pct_complete = w->pct_complete * 100.0;
+			pkt.end_date = (unsigned long) work_estimate (thread_num, w);
+			pkt.next_update = (uint32_t) (DAYS_BETWEEN_CHECKINS * 86400.0);
+			pkt.fftlen = w->fftlen;
+			pkt.iteration = ps.counter;
 			tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
 			gwtogiant (&gwdata, x, tmp);
 			rotateg (tmp, w->n, *units_bit, &gwdata.gdata);
 			if (interim_mul) basemulg (tmp, w, ps.prp_base, -1);
 			if (w->known_factors && ps.residue_type != PRIMNET_PRP_TYPE_COFACTOR) modg (N, tmp);
-			sprintf (buf, "%s interim Wf%d residue %08lX%08lX at iteration %ld\n",
+			sprintf (pkt.residue, "%08lX%08lX", (unsigned long) tmp->n[1], (unsigned long) tmp->n[0]);
+			sprintf (pkt.error_count, "%08lX", ps.error_count);
+			spoolMessage (-PRIMENET_ASSIGNMENT_PROGRESS, &pkt);
+			pushg (&gwdata.gdata, 1);
+		}
+
+/* Output the 64-bit residue at specified interims. */
+
+		if (interim_residue) {
+			tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
+			gwtogiant (&gwdata, x, tmp);
+			rotateg (tmp, w->n, *units_bit, &gwdata.gdata);
+			if (interim_mul) basemulg (tmp, w, ps.prp_base, -1);
+			if (w->known_factors && ps.residue_type != PRIMNET_PRP_TYPE_COFACTOR) modg (N, tmp);
+			sprintf (buf, "%s interim Wg%d residue %08lX%08lX at iteration %ld\n",
 				 string_rep, PORT, (unsigned long) tmp->n[1], (unsigned long) tmp->n[0],
 				 ps.counter - interim_counter_off_one);
 			OutputBoth (thread_num, buf);
@@ -11462,9 +11542,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 
 /* Write a save file every INTERIM_FILES iterations. */
 
-		if (INTERIM_FILES && ps.counter % INTERIM_FILES == 0 &&
-		    ps.state != PRP_STATE_DCHK_PASS2 && ps.state != PRP_STATE_GERB_MID_BLOCK_MULT &&
-		    ps.state != PRP_STATE_GERB_END_BLOCK && ps.state != PRP_STATE_GERB_END_BLOCK_MULT) {
+		if (interim_file) {
 			char	interimfile[32];
 			writeSaveFileState state;
 			sprintf (interimfile, "%s.%03ld", filename, ps.counter / INTERIM_FILES);
@@ -11527,7 +11605,7 @@ pushg(&gwdata.gdata, 2);}
 		if (ps.residue_type != PRIMNET_PRP_TYPE_FERMAT) sprintf (buf+strlen(buf), "Type-%d ", ps.residue_type);
 		sprintf (buf+strlen(buf), "RES64: %s.", res64);
 	}
-	sprintf (buf+strlen(buf), " Wf%d: %08lX,", PORT, SEC1 (w->n));
+	sprintf (buf+strlen(buf), " Wg%d: %08lX,", PORT, SEC1 (w->n));
 	if (ps.units_bit) sprintf (buf+strlen(buf), "%ld,", ps.units_bit);
 	sprintf (buf+strlen(buf), "%08lX\n", ps.error_count);
 	OutputStr (thread_num, buf);

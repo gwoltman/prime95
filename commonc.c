@@ -4478,9 +4478,8 @@ void spoolMessage (
 /* If this is a maintain user info message, then set the header */
 /* word appropriately.  At Scott's request also send computer info. */
 
-	else if (msgType == PRIMENET_UPDATE_COMPUTER_INFO) {
+	else if (msgType == PRIMENET_UPDATE_COMPUTER_INFO)
 		header_word |= HEADER_FLAG_UC;
-	}
 
 /* If this is a exchange program options message, then set the header */
 /* word appropriately. */
@@ -4500,7 +4499,7 @@ void spoolMessage (
 	else if (msgType == MSG_QUIT_GIMPS)
 		header_word |= HEADER_FLAG_QUIT_GIMPS;
 
-/* Otherwise this is a result, unreserve, or benchmark data */
+/* Otherwise this is a result, interim residue, unreserve, or benchmark data */
 
 	else
 		header_word |= HEADER_FLAG_MSGS;
@@ -4512,7 +4511,8 @@ void spoolMessage (
 
 /* Write out a full message */
 
-	if (msgType == PRIMENET_ASSIGNMENT_RESULT ||
+	if (msgType == -PRIMENET_ASSIGNMENT_PROGRESS ||
+	    msgType == PRIMENET_ASSIGNMENT_RESULT ||
 	    msgType == PRIMENET_ASSIGNMENT_UNRESERVE ||
 	    msgType == PRIMENET_BENCHMARK_DATA) {
 		char	buf[1024];
@@ -4524,11 +4524,10 @@ void spoolMessage (
 
 /* Append the latest message */
 
-		datalen = (msgType == PRIMENET_ASSIGNMENT_RESULT) ?
-			sizeof (struct primenetAssignmentResult) :
-			(msgType == PRIMENET_ASSIGNMENT_UNRESERVE) ?
-			sizeof (struct primenetAssignmentUnreserve) :
-			sizeof (struct primenetBenchmarkData);
+		datalen = (msgType == -PRIMENET_ASSIGNMENT_PROGRESS) ? sizeof (struct primenetAssignmentProgress) :
+			  (msgType == PRIMENET_ASSIGNMENT_RESULT) ? sizeof (struct primenetAssignmentResult) :
+			  (msgType == PRIMENET_ASSIGNMENT_UNRESERVE) ? sizeof (struct primenetAssignmentUnreserve) :
+			  sizeof (struct primenetBenchmarkData);
 		(void) _write (fd, &msgType, sizeof (short));
 		(void) _write (fd, &datalen, sizeof (short));
 		(void) _write (fd, msg, datalen);
@@ -4542,13 +4541,14 @@ void spoolMessage (
 /* complete the initial startup dialog boxes and we are not doing manual */
 /* communication and the communication thread is not already active and we */
 /* are not waiting some time to retry after a failed communication attempt. */
+/* Assignment progress reports with interim residue messages can wait. */
 
 	if (!STARTUP_IN_PROGRESS &&
 	    !MANUAL_COMM &&
 	    !COMMUNICATION_THREAD &&
-	    !is_timed_event_active (TE_COMM_SERVER))
-		gwthread_create (&COMMUNICATION_THREAD,
-				 &communicateWithServer, NULL);
+	    !is_timed_event_active (TE_COMM_SERVER) &&
+	    msgType != -PRIMENET_ASSIGNMENT_PROGRESS)
+		gwthread_create (&COMMUNICATION_THREAD, &communicateWithServer, NULL);
 
 /* Release mutex before accessing spool file */
 
@@ -4822,7 +4822,8 @@ void readMessage (
 
 /* Return if msgType is one we expected. */
 
-		if (*msgType == PRIMENET_ASSIGNMENT_RESULT ||
+		if (*msgType == PRIMENET_ASSIGNMENT_PROGRESS ||
+		    *msgType == PRIMENET_ASSIGNMENT_RESULT ||
 		    *msgType == PRIMENET_ASSIGNMENT_UNRESERVE ||
 		    *msgType == PRIMENET_BENCHMARK_DATA)
 			return;
@@ -5466,6 +5467,7 @@ retry:
 	for ( ; ; ) {
 		short	msgType;
 		union {
+			struct primenetAssignmentProgress ap;
 			struct primenetAssignmentResult ar;
 			struct primenetAssignmentUnreserve au;
 			struct primenetBenchmarkData bd;
