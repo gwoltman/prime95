@@ -2,12 +2,25 @@ New features in Version 29.4 of mprime
 --------------------------------------
 
 1)  GIMPS has a new sub-project -- finding (probable) prime Mersenne cofactors.
-    This sub-project has two parts:  1)  Running PRP tests  and 2) Finding
+    This sub-project has two parts:  1) Running PRP tests, and 2) Finding
     additional factors.  To support this new sub-project there are three
     new work preferences:  PRP on Mersenne cofactors, PRP double-checking on
     Mersenne cofactors, ECM on Mersenne cofactors.
 2)  Like LL tests, PRP tests now support shift counts to aid in running double-checks.
     Shift counts are only supported for Mersenne numbers and Mersenne cofactors.
+3)  PRP tests now support a type of low overhead error checking that almost guarantees
+    correct results even on flaky hardware.  We call this Gerbicz error-checking after
+    it was proposed by Robert Gerbicz at mersenneforum.org.  This error-check only
+    works for base-2 numbers.
+4)  Because PRP tests are highly reliable, we now offer the option to do PRP tests
+    instead of Lucas-Lehmer primality tests.  There are 3 new work preferences
+    similar to LL work preferences:  first-time PRP tests, world record PRP tests,
+    PRP tests on 100 million digit numbers, and PRP double-checking.
+    If you are looking for a 100 million digit prime, PRP testsing is recommended
+    rather than LL testing.
+5)  For non-base-2 PRP tests, there is a new option to run each iteration twice and
+    rollback if a mismatch occurs.  Useful only on flaky hardware due to the obvious
+    high overhead.
 
 New features in Version 29.3 of mprime
 --------------------------------------
@@ -33,7 +46,6 @@ New features in Version 29.2 of mprime
 4)  A few new FFT sizes (up to 50M) are enabled for FMA3-capable CPUs.
 5)  ECM and P-1 on Fermat numbers will automatically add known Fermat factors to
     the worktodo.txt entries.
-
 
 New features in Version 29.1 of mprime
 --------------------------------------
