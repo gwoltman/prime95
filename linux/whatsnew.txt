@@ -16,7 +16,7 @@ New features in Version 29.4 of mprime
     instead of Lucas-Lehmer primality tests.  There are 3 new work preferences
     similar to LL work preferences:  first-time PRP tests, world record PRP tests,
     PRP tests on 100 million digit numbers, and PRP double-checking.
-    If you are looking for a 100 million digit prime, PRP testsing is recommended
+    If you are looking for a 100 million digit prime, PRP testing is recommended
     rather than LL testing.
 5)  For non-base-2 PRP tests, there is a new option to run each iteration twice and
     rollback if a mismatch occurs.  Useful only on flaky hardware due to the obvious

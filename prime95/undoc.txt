@@ -622,30 +622,29 @@ Setting	OutputPrimes=1 will cause prime95 to output a non-JSON message for proba
 Setting	OutputComposites=1 will cause prime95 to output a non-JSON message for composite PRP tests to results.txt.
 Setting	OutputJSON=0 will cause prime95 to not output the JSON message for PRP tests to results.txt.
 
-When PRPing k*b^n+c and b=2, there are some optimizations possible that reduce the
-number of multiplications by a small constant.  These optimizations also allow the
-program to do very efficient and powerful Gerbicz error checking.  Although there
-should be no reason to turn off these optimizations, it can be done with this setting:
-	PRPStraightForward=0 or 1	(default is 0)
-
 When PRPing k*b^n+c, there are two types of highly-reliable error checking available.
 Gerbicz error checking is available when b=2.  It almost guarantees a correct result
 at an overhead of about 0.2%.  The second high-reliability error check is to run the
 PRP twice comparing residues along the way.  Obviously, this doubles the runtime.
-To select which error checking is performed, use the following setting in prime.txt:
+To select which error checking is performed or to disable error-checking, use the
+following setting in prime.txt:
 	PRPErrorChecking=0 or 1 or 2	(default is 1)
-Set to zero to disable error checking.  Set to 1 to perform Gerbicz error checking
-when b=2.  Set to 2 to do Gerbicz error checking when possible, otherwise do slow
-error checking.
+Set to zero to disable high-reliability error checking.  Set to 1 to perform Gerbicz
+high-reliability error checking whenever possible, otherwise no error checking.  Set
+to 2 to do Gerbicz high-reliability error checking whenever possible, otherwise do the
+much slower error check of doing each iteration twice and periodicly comparing residues.
 
 When doing highly-reliable error checking, the interval between compares can be
 controlled with these two settings in prime.txt:
-The intervals between comparing
-	PRPDoublecheckCompareInterval=n		(default is 100000)
 	PRPGerbiczCompareInterval=n		(default is 1000000)
+	PRPDoublecheckCompareInterval=n		(default is 100000)
 Reducing the interval will reduce how far the program "rolls back" when an error
 is detected.  It will also increase the overhead associated with error-checking.
 NOTE: For technical reasons, PRPGerbiczCompareInterval is rounded to the nearest perfect square.
+ALSO NOTE:  The program automatically adjusts the Gerbicz interval downward when an error is
+detected.  This will reduce the amount of time "lost" rolling back to the last verified good
+iteration after an error is detected.  Over time, the Gerbicz interval will be adjusted back
+upward after many successful compares.
 
 You can change the default base used in PRP tests.  In prime.txt:
 	PRPBase=n		(default 3)
@@ -663,6 +662,13 @@ To control which residue type is generated, use this setting in prime.txt:
 	PRPResidueType=n		(default is 5)
 The residue type can also be set for PRP tests in worktodo.txt entries making
 this option somewhat obsolete.
+
+When PRPing k*b^n+c and b=2, there are some optimizations possible that reduce the
+number of small constant multiplications.  Although there should be no reason to turn
+off these optimizations, it can be done with this setting in prime.txt:
+	PRPStraightForward=1		(default is 0)
+NOTE: Selecting the straight forward (no optimization) code path disables the very
+efficient and powerful Gerbicz error checking.
 
 WINDOWS ONLY:  You can have prime95 pause when the battery level gets low.
 This will allow you to charge the battery faster.  Add the line
