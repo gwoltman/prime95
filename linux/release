@@ -8,6 +8,7 @@ cp whatsnew.txt ../release
 cp stress.txt ../release
 cp mprime ../release
 cd ../release
+cp -P /usr/local/lib/libgmp.so* .
 tar -czvf ../mprime.tgz *
 rm *
 cd ..
