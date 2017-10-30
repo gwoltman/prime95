@@ -623,7 +623,8 @@ Setting	OutputComposites=1 will cause prime95 to output a non-JSON message for c
 Setting	OutputJSON=0 will cause prime95 to not output the JSON message for PRP tests to results.txt.
 
 When PRPing k*b^n+c, there are two types of highly-reliable error checking available.
-Gerbicz error checking is available when b=2.  It almost guarantees a correct result
+Gerbicz error checking is available when b=2 and there are either no known factors or
+residue type (see following paragraphs) is 5.  It almost guarantees a correct result
 at an overhead of about 0.2%.  The second high-reliability error check is to run the
 PRP twice comparing residues along the way.  Obviously, this doubles the runtime.
 To select which error checking is performed or to disable error-checking, use the
