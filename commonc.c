@@ -4528,6 +4528,8 @@ void spoolMessage (
 			  (msgType == PRIMENET_ASSIGNMENT_RESULT) ? sizeof (struct primenetAssignmentResult) :
 			  (msgType == PRIMENET_ASSIGNMENT_UNRESERVE) ? sizeof (struct primenetAssignmentUnreserve) :
 			  sizeof (struct primenetBenchmarkData);
+		// Undo the ugly msgType hack for sending interim residues
+		if (msgType == -PRIMENET_ASSIGNMENT_PROGRESS) msgType = PRIMENET_ASSIGNMENT_PROGRESS;
 		(void) _write (fd, &msgType, sizeof (short));
 		(void) _write (fd, &datalen, sizeof (short));
 		(void) _write (fd, msg, datalen);
