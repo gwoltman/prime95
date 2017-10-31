@@ -6475,8 +6475,8 @@ int prime (
 	char	buf[400], fft_desc[100];
 	int	slow_iteration_count;
 	double	best_iteration_time;
-	unsigned long last_counter = 0;		/* Iteration of last error */
-	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
+	unsigned long last_counter = 0xFFFFFFFF;	/* Iteration of last error */
+	int	maxerr_recovery_mode = 0;		/* Big roundoff err rerun */
 	double	last_suminp = 0.0;
 	double	last_sumout = 0.0;
 	double	last_maxerr = 0.0;
@@ -10581,7 +10581,7 @@ int prp (
 	writeSaveFileState write_save_file_state; /* Manage savefile names during writing */
 	char	filename[32];
 	char	buf[400], JSONbuf[2000], fft_desc[100], res64[17];
-	unsigned long last_counter = 0;		/* Iteration of last error */
+	unsigned long last_counter = 0xFFFFFFFF;/* Iteration of last error */
 	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 	double	last_suminp = 0.0;
 	double	last_sumout = 0.0;
@@ -11114,6 +11114,7 @@ rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 /* PRP programs, we adjust accordingly. */
 
 		sending_residue = (ps.state == PRP_STATE_NORMAL || ps.state == PRP_STATE_DCHK_PASS1 || ps.state == PRP_STATE_GERB_MID_BLOCK) &&
+				  ps.counter > 0 &&
 				  ((ps.counter+1-interim_counter_off_one) == 500000 ||
 				   ((ps.counter+1-interim_counter_off_one) % 5000000 == 0 && IniGetInt (INI_FILE, "SendInterimResidues", 1)));
 		interim_residue = INTERIM_RESIDUES &&
@@ -11665,7 +11666,7 @@ pushg(&gwdata.gdata, 2);}
 	{
 		time_t rawtime;
 		time (&rawtime);
-		strftime (JSONbuf+strlen(JSONbuf), 80, ", \"timestamp\":\"%F %T\"", gmtime (&rawtime));
+		strftime (JSONbuf+strlen(JSONbuf), 80, ", \"timestamp\":\"%Y-%m-%d %H:%M:%S\"", gmtime (&rawtime));
 	}
 	if (ps.error_check_type == PRP_ERRCHK_DBLCHK)
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"errors\":{\"dblchk\":%lu}", (ps.error_count >> 20) & 0xF);
