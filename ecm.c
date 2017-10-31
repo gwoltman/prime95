@@ -1038,7 +1038,7 @@ int gcd (
 /* If a factor was found, save it in FAC */
 
 	if (mpz_cmp_ui (a, 1) && mpz_cmp (a, b)) {
-		*factor = allocgiant (mpz_sizeinbase (a, 32));
+		*factor = allocgiant ((int) mpz_sizeinbase (a, 32));
 		if (*factor == NULL) goto oom;
 		mpztog (a, *factor);
 	} else
