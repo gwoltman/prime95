@@ -4889,14 +4889,17 @@ int sendMessage (
 		LogMsg (buf);
 		break;
 	case PRIMENET_ASSIGNMENT_PROGRESS:
-		{
+		aid_to_text (info, ((struct primenetAssignmentProgress *)pkt)->assignment_uid);
+		if (((struct primenetAssignmentProgress *)pkt)->iteration) {
+			sprintf (buf, "Sending interim residue %d for %s", ((struct primenetAssignmentProgress *)pkt)->iteration, info);
+			LogMsg (buf);
+		} else {
 			time_t	this_time;
 			char	timebuf[30];
 			time (&this_time);
 			this_time += ((struct primenetAssignmentProgress *)pkt)->end_date;
 			strcpy (timebuf, ctime (&this_time)+4);
 			safe_strcpy (timebuf+6, timebuf+15);
-			aid_to_text (info, ((struct primenetAssignmentProgress *)pkt)->assignment_uid);
 			sprintf (buf, "Sending expected completion date for %s: %s", info, timebuf);
 			LogMsg (buf);
 		}
