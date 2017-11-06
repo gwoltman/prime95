@@ -7029,7 +7029,6 @@ begin:	gwinit (&lldata.gwdata);
 			sprintf (pkt.residue, "%08lX%08lX", high32, low32);
 			sprintf (pkt.error_count, "%08lX", error_count);
 			spoolMessage (-PRIMENET_ASSIGNMENT_PROGRESS, &pkt);
-			OutputBoth (thread_num, buf);
 		}
 
 /* Output the 64-bit residue at specified interims.  Also output the */
