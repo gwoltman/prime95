@@ -9437,6 +9437,7 @@ int primeBenchMultipleWorkersInternal (
 				    workers_left--; 
 				}
 				nodes_left -= nodes_to_use;
+				cores_left -= nodes_to_use * cores_per_node;
 			    }
 
 /* Wait for all the workers to finish */
