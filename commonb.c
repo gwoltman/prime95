@@ -6478,10 +6478,14 @@ int prime (
 
 	p = w->n;
 
-/* Grab setting from INI file.  Fast Jacobi testing was introduced in GMP version 5.0.0. */
+/* Grab setting from INI file.  Fast (sub-quadratic) Jacobi testing was introduced in GMP version 5.1.0. */
 
 	Jacobi_testing_enabled = IniGetInt (INI_FILE, "JacobiErrorCheck", 1);
-	if (atoi (gmp_version) < 5) Jacobi_testing_enabled = FALSE;
+	{
+		int	major_ver, minor_ver;
+		sscanf (gmp_version, "%d.%d", &major_ver, &minor_ver);
+		if (major_ver < 5 || (major_ver == 5 && minor_ver < 1)) Jacobi_testing_enabled = FALSE;
+	}
 
 /* Do some of the trial factoring.  We treat factoring that is part of a */
 /* LL test as priority work (done in pass 1).  We don't do all the trial */
@@ -10763,7 +10767,7 @@ begin:	gwinit (&gwdata);
 		is_divisible = mpz_divisible_ui_p (tmp, ps.prp_base);
 		mpz_clear (tmp);
 		if (is_divisible) {
-			sprintf (buf, "PRP test of %s aborted -- number is divisible by %u\n", string_rep, ps.prp_base);
+			sprintf (buf, "PRP test of %s aborted -- number is divisible by %u\n", gwmodulo_as_string (&gwdata), ps.prp_base);
 			OutputBoth (thread_num, buf);
 			stop_reason = STOP_WORK_UNIT_COMPLETE;
 			goto exit;
@@ -11335,7 +11339,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 				clear_timer (timers, 0);
 				iters = 0;
 				/* Append ETA */
-				formatETA ((final_counter - ps.counter - 1) * speed, buf+strlen(buf));
+				formatETA ((final_counter - ps.counter) * speed, buf+strlen(buf));
 				strcat (buf, "\n");
 			}
 			/* Format the classic (pre-v28.5) message */
