@@ -7018,7 +7018,7 @@ begin:	gwinit (&lldata.gwdata);
 /* the residues for possible verification at a later date.  We could catch suspect computers */
 /* or malicious cheaters without doing a full double-check. */
 
-		if (sending_residue) {
+		if (sending_residue && w->assignment_uid[0]) {
 			struct primenetAssignmentProgress pkt;
 			memset (&pkt, 0, sizeof (pkt));
 			strcpy (pkt.computer_guid, COMPUTER_GUID);
@@ -9671,7 +9671,7 @@ void autoBench (void)
 
 /* If workers are not active, do not benchmark now */
 
-	if (!WORKER_THREADS_ACTIVE || WORKER_THREADS_STOPPING) return;
+	if (!WORKER_THREADS_ACTIVE || WORKER_THREADS_STOPPING || LAUNCH_TYPE != LD_CONTINUE) return;
 
 /* If we're not supposed to run while on battery and we are on battery power now, then skip this benchmark */
 
@@ -11499,7 +11499,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* the residues for possible verification at a later date.  We could catch suspect computers */
 /* or malicious cheaters without doing a full double-check. */
 
-		if (sending_residue) {
+		if (sending_residue && w->assignment_uid[0]) {
 			struct primenetAssignmentProgress pkt;
 			memset (&pkt, 0, sizeof (pkt));
 			strcpy (pkt.computer_guid, COMPUTER_GUID);
