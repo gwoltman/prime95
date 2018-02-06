@@ -2645,7 +2645,7 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 /* should be a prime number, bounded by values we can handle, and we */
 /* should never be asked to factor a number more than we are capable of. */
 
-	    if (w->k == 1.0 && w->b == 2 && !isPrime (w->n) && w->c == -1 &&
+	    if (w->k == 1.0 && w->b == 2 && !isPrime (w->n) && w->c == -1 && w->known_factors == NULL &&
 		w->work_type != WORK_ECM && w->work_type != WORK_PMINUS1 &&
 		!(w->work_type == WORK_PRP && IniGetInt (INI_FILE, "PhiExtensions", 0))) {
 		char	buf[80];
