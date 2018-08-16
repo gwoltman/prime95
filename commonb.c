@@ -530,7 +530,9 @@ void SetPriority (
 /* Output an informative message */
 
 	if (NUM_CPUS > 1 && info->verbose_flag) {
-		if (info->aux_thread_num == 0)
+		if (info->aux_hyperthread)
+			sprintf (buf, "Setting affinity to run prefetching hyperthread on ");
+		else if (info->aux_thread_num == 0)
 			strcpy (buf, "Setting affinity to run worker on ");
 		else
 			sprintf (buf, "Setting affinity to run helper thread %d on ", info->aux_thread_num);
@@ -634,18 +636,19 @@ void SetAuxThreadPriority (int aux_thread_num, int action, void *data)
 {
 	struct PriorityInfo sp_info;
 
-/* Handle thread start action.  Set the thread priority. */
+/* Handle thread start and hyperthread start action.  Set the thread priority. */
 
-	if (action == 0) {
+	if (action == 0 || action == 10) {
 		memcpy (&sp_info, data, sizeof (struct PriorityInfo));
 		sp_info.aux_thread_num = aux_thread_num;
+		sp_info.aux_hyperthread = (action == 10);
 		SetPriority (&sp_info);
 	}
 
-/* Handle thread terminate action.  Remove thread handle from list */
+/* Handle thread terminate and hyperthread terminate action.  Remove thread handle from list */
 /* of active worker threads. */
 
-	if (action == 1) {
+	if (action == 1 || action == 11) {
 		registerThreadTermination ();
 	}
 }
@@ -3113,11 +3116,11 @@ int primeContinue (
 
 /* Set the process/thread priority */
 
+	memset (&sp_info, 0, sizeof (sp_info));
 	sp_info.type = SET_PRIORITY_NORMAL_WORK;
 	sp_info.worker_num = thread_num;
 	sp_info.verbose_flag = IniGetInt (INI_FILE, "AffinityVerbosity", 1);
 	sp_info.normal_work_hyperthreads = 1;
-	sp_info.aux_thread_num = 0;
 	SetPriority (&sp_info);
 
 /* Loop until the ESC key is hit or the entire work-to-do INI file */
@@ -5782,8 +5785,7 @@ typedef struct {		/* Some of the data kept during LL test */
 	unsigned long units_bit; /* Shift count */
 } llhandle;
 
-/* Prepare for running a Lucas-Lehmer test.  Caller must have already */
-/* called gwinit. */
+/* Prepare for running a Lucas-Lehmer test.  Caller must have already called gwinit. */
 
 int lucasSetup (
 	int	thread_num,	/* Worker thread number */
@@ -6554,8 +6556,8 @@ int prime (
 /* Setup the LL test */
 
 begin:	gwinit (&lldata.gwdata);
-	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
-		gwset_use_large_pages (&lldata.gwdata);
+	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&lldata.gwdata);
+	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&lldata.gwdata);
 	gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
 	if (HYPERTHREAD_LL) {
 		sp_info->normal_work_hyperthreads = IniGetInt (LOCALINI_FILE, "HyperthreadLLcount", CPU_HYPERTHREADS);
@@ -8177,12 +8179,12 @@ int tortureTest (
 
 /* Set the process/thread priority */
 
+	memset (&sp_info, 0, sizeof (sp_info));
 	sp_info.type = SET_PRIORITY_TORTURE;
 	sp_info.worker_num = thread_num;
 	sp_info.torture_num_workers = num_torture_workers;
 	sp_info.torture_threads_per_test = IniGetInt (INI_FILE, "TortureTestThreads", 1);
 	sp_info.verbose_flag = IniGetInt (INI_FILE, "AffinityVerbosityTorture", 0);
-	sp_info.aux_thread_num = 0;
 	SetPriority (&sp_info);
 
 /* Init counters */
@@ -8820,10 +8822,10 @@ int primeTime (
 /* Look for special values to run QA suites */
 
 	if (p >= 9900 && p <= 9999) {
+		memset (&sp_info, 0, sizeof (sp_info));
 		sp_info.type = SET_PRIORITY_QA;
 		sp_info.worker_num = thread_num;
 		sp_info.verbose_flag = IniGetInt (INI_FILE, "AffinityVerbosityQA", 0);
-		sp_info.aux_thread_num = 0;
 		SetPriority (&sp_info);
 
 		if (p >= 9994 && p <= 9999)
@@ -8843,10 +8845,10 @@ int primeTime (
 
 /* Set the process/thread priority */
 
+	memset (&sp_info, 0, sizeof (sp_info));
 	sp_info.type = SET_PRIORITY_TIME;
 	sp_info.worker_num = thread_num;
 	sp_info.verbose_flag = IniGetInt (INI_FILE, "AffinityVerbosityTime", 0);
-	sp_info.aux_thread_num = 0;
 	sp_info.time_hyperthreads = 1;
 	SetPriority (&sp_info);
 
@@ -8892,8 +8894,8 @@ int primeTime (
 			gwset_bench_workers (&lldata.gwdata, NUM_WORKER_THREADS); // We're most likely to have bench data for this case
 			if (ERRCHK) gwset_will_error_check (&lldata.gwdata);
 			else gwset_will_error_check_near_limit (&lldata.gwdata);
-			if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
-				gwset_use_large_pages (&lldata.gwdata);
+			if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&lldata.gwdata);
+			if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&lldata.gwdata);
 			// Here is a hack to let me time different FFT implementations.
 			// For example, 39000001 times the first 2M FFT implementation,
 			// 39000002 times the second 2M FFT implementation, etc.
@@ -9023,10 +9025,10 @@ void bench_busy_loop (void *arg)
 /* Set the affinity so that busy loop runs on the specified CPU core */
 
 	cpu_num = (int) (intptr_t) arg;
+	memset (&sp_info, 0, sizeof (sp_info));
 	sp_info.type = SET_PRIORITY_BUSY_LOOP;
 	sp_info.worker_num = MAIN_THREAD_NUM;
 	sp_info.busy_loop_cpu = cpu_num;
-	sp_info.verbose_flag = 0;
 	SetPriority (&sp_info);
 
 /* Stay busy until last_bench_cpu_num says this CPU thread should close */
@@ -9215,12 +9217,12 @@ void primeBenchOneWorker (void *arg)
 
 /* Set the affinity so that worker runs on the specified CPU core */
 
+	memset (&sp_info, 0, sizeof (sp_info));
 	sp_info.type = SET_PRIORITY_BENCHMARKING;
 	sp_info.worker_num = info->main_thread_num;
 	sp_info.verbose_flag = IniGetInt (INI_FILE, "AffinityVerbosityBench", 0);
 	sp_info.bench_base_cpu_num = info->cpu_num;
 	sp_info.bench_hyperthreads = info->hyperthreads;
-	sp_info.aux_thread_num = 0;
 	SetPriority (&sp_info);
 
 /* Initialize this FFT length */
@@ -9481,7 +9483,7 @@ int primeBenchMultipleWorkersInternal (
 					 lldata.gwdata.FFT_TYPE, lldata.gwdata.ARCH,
 					 fftlen / (lldata.gwdata.PASS2_SIZE ? lldata.gwdata.PASS2_SIZE : 1),
 					 lldata.gwdata.PASS2_SIZE,
-					 lldata.gwdata.PASS1_CACHE_LINES / ((CPU_FLAGS & CPU_AVX) ? 4 : 2));
+					 lldata.gwdata.PASS1_CACHE_LINES / ((CPU_FLAGS & CPU_AVX512F) ? 8 : ((CPU_FLAGS & CPU_AVX) ? 4 : 2)));
 			    } else {
 				sprintf (buf, "Timings for %luK%s FFT length",
 					 fftlen / 1024, plus1 ? " all-complex" : "");
@@ -9669,7 +9671,7 @@ void autoBench (void)
 	} ffts_to_bench[200];
 	struct primenetBenchmarkData pkt;
 
-/* If workers are not active, do not benchmark now */
+/* If workers are not active or we're not doing normal work, do not benchmark now */
 
 	if (!WORKER_THREADS_ACTIVE || WORKER_THREADS_STOPPING || LAUNCH_TYPE != LD_CONTINUE) return;
 
@@ -9910,11 +9912,10 @@ int primeBench (
 /* This is required so that any threads spawned by getCpuSpeed will not */
 /* be confined to just one CPU core. */
 
+	memset (&sp_info, 0, sizeof (sp_info));
 	sp_info.type = SET_PRIORITY_BENCHMARKING;
 	sp_info.worker_num = thread_num;
 	sp_info.verbose_flag = IniGetInt (INI_FILE, "AffinityVerbosityBench", 0);
-	sp_info.aux_thread_num = 0;
-	sp_info.bench_base_cpu_num = 0;
 	sp_info.bench_hyperthreads = 1;
 	SetPriority (&sp_info);
 
@@ -10017,8 +10018,8 @@ int primeBench (
 
 		  gwinit (&lldata.gwdata);
 		  gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
-		  if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0))
-			gwset_use_large_pages (&lldata.gwdata);
+		  if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&lldata.gwdata);
+		  if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&lldata.gwdata);
 		  gwset_num_threads (&lldata.gwdata, cpu * hypercpu);
 		  sp_info.bench_base_cpu_num = 0;
 		  sp_info.bench_hyperthreads = hypercpu;
@@ -10132,7 +10133,7 @@ int primeBench (
 				 lldata.gwdata.FFT_TYPE, lldata.gwdata.ARCH,
 				 fftlen / (lldata.gwdata.PASS2_SIZE ? lldata.gwdata.PASS2_SIZE : 1),
 				 lldata.gwdata.PASS2_SIZE,
-				 lldata.gwdata.PASS1_CACHE_LINES / ((CPU_FLAGS & CPU_AVX) ? 4 : 2));
+				 lldata.gwdata.PASS1_CACHE_LINES / ((CPU_FLAGS & CPU_AVX512F) ? 8 : ((CPU_FLAGS & CPU_AVX) ? 4 : 2)));
 			timers[0] = best_time;
 			print_timer (timers, 0, buf, TIMER_MS);
 			timers[0] = total_time / iterations;
@@ -10576,7 +10577,8 @@ int prp (
 	readSaveFileState read_save_file_state; /* Manage savefile names during reading */
 	writeSaveFileState write_save_file_state; /* Manage savefile names during writing */
 	char	filename[32];
-	char	buf[400], JSONbuf[2000], fft_desc[100], res64[17];
+	char	buf[400], JSONbuf[4000], fft_desc[100], res64[17], res2048[513];
+	int	have_res2048;
 	unsigned long last_counter = 0xFFFFFFFF;/* Iteration of last error */
 	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 	double	last_suminp = 0.0;
@@ -10711,6 +10713,7 @@ int prp (
 begin:	gwinit (&gwdata);
 	gwsetmaxmulbyconst (&gwdata, ps.prp_base);
 	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&gwdata);
+	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&gwdata);
 	if (HYPERTHREAD_LL) {
 		sp_info->normal_work_hyperthreads = IniGetInt (LOCALINI_FILE, "HyperthreadLLcount", CPU_HYPERTHREADS);
 		gwset_will_hyperthread (&gwdata, sp_info->normal_work_hyperthreads);
@@ -11431,6 +11434,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			}
 			// At block's end, rollback counter to do "L" squarings of alt_x to create second Gerbicz checksum value
 			else {
+				if (IniGetInt (INI_FILE, "GerbiczVerbosity", 1) > 1) OutputStr (thread_num, "Start Gerbicz error check.\n");
 				ps.state = PRP_STATE_GERB_END_BLOCK;
 				ps.counter -= ps.L;
 			}
@@ -11459,6 +11463,10 @@ OutputStr (thread_num, "Iteration failed.\n");
 				restart_counter = ps.start_counter;		/* rollback to this iteration */
 				sleep5 = FALSE;
 				goto restart;
+			}
+			if (IniGetInt (INI_FILE, "GerbiczVerbosity", 1)) {
+				sprintf (buf, "Gerbicz error check passed at iteration %ld.\n", ps.counter);
+				OutputStr (thread_num, buf);
 			}
 			gerbicz_block_size_adjustment *= 1.0473;		/* 30 good blocks to double L */
 			if (gerbicz_block_size_adjustment > 1.0) gerbicz_block_size_adjustment = 1.0;
@@ -11586,7 +11594,13 @@ pushg(&gwdata.gdata, 2);}
 	if (mul_final) basemulg (tmp, w, ps.prp_base, mul_final);
 	if (w->known_factors && ps.residue_type != PRIMNET_PRP_TYPE_COFACTOR) modg (N, tmp);
 	isProbablePrime = isPRPg (tmp, N, w, ps.prp_base, ps.residue_type);
-	if (!isProbablePrime) sprintf (res64, "%08lX%08lX", (unsigned long) tmp->n[1], (unsigned long) tmp->n[0]);
+	if (!isProbablePrime) {
+		sprintf (res64, "%08lX%08lX", (unsigned long) tmp->n[1], (unsigned long) tmp->n[0]);
+		if (have_res2048 = (tmp->sign > 64)) {
+			int i;
+			for (i = 63; i >= 0; i--) sprintf (res2048+504-i*8, "%08lX", (unsigned long) tmp->n[i]);
+		}
+	}
 	pushg (&gwdata.gdata, 1);
 	gwfree (&gwdata, ps.x);
 			
@@ -11652,6 +11666,8 @@ pushg(&gwdata.gdata, 2);}
 	if (!isProbablePrime) {
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"res64\":\"%s\"", res64);
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"residue-type\":%d", ps.residue_type);
+		if (have_res2048 && IniGetInt (INI_FILE, "OutputRes2048", 1))
+			sprintf (JSONbuf+strlen(JSONbuf), ", \"res2048\":\"%s\"", res2048);
 	}
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", gwdata.FFTLEN);
 	if (ps.units_bit) sprintf (JSONbuf+strlen(JSONbuf), ", \"shift-count\":%ld", ps.units_bit);
