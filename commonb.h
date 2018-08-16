@@ -51,6 +51,7 @@ struct PriorityInfo {
 	int	worker_num;		/* Worker number -- output informative messages to this worker's window */
 	int	verbose_flag;		/* Output affinity messages to the worker window */
 	int	aux_thread_num;		/* Set when gwnum launches auxiliary threads */
+	int	aux_hyperthread;	/* Set when gwnum launches auxiliary hyperthreads */
 	union {
 		struct {		/* Normal work info */
 			int	normal_work_hyperthreads;	/* Number of hyperthreads to be assigned to same core */
