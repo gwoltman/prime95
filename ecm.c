@@ -2225,10 +2225,10 @@ void *workbuf;
 int j, min_test, max_test, test, cnt, NUM_X87_TESTS, NUM_SSE2_TESTS, NUM_AVX_TESTS, NUM_AVX512_TESTS;
 #define timeit(a,n,w) (((void**)a)[0]=w,((uint32_t*)a)[2]=n,gwtimeit(a))
 
-gwinit (&gwdata);
+gwinit (&gwdata); gwdata.cpu_flags &= ~CPU_AVX512F;
 gwsetup (&gwdata, 1.0, 2, 10000000, -1);
-workbuf = (void *) aligned_malloc (40000000, 4096);
-memset (workbuf, 0, 40000000);
+workbuf = (void *) aligned_malloc (400000000, 4096);
+memset (workbuf, 0, 400000000);
 RDTSC_TIMING = 2;
 min_test = IniGetInt (INI_FILE, "MinTest", 0);
 max_test = IniGetInt (INI_FILE, "MaxTest", min_test);
@@ -2243,6 +2243,11 @@ for (j = 0; j < NUM_X87_TESTS + NUM_SSE2_TESTS + NUM_AVX_TESTS + NUM_AVX512_TEST
 		j < NUM_X87_TESTS + NUM_SSE2_TESTS ? 1000 + j - NUM_X87_TESTS :
 		j < NUM_X87_TESTS + NUM_SSE2_TESTS + NUM_AVX_TESTS ? 2000 + j - NUM_X87_TESTS - NUM_SSE2_TESTS :
 			3000 + j - NUM_X87_TESTS - NUM_SSE2_TESTS - NUM_AVX_TESTS);
+	if (test == 3000 && CPU_FLAGS & CPU_AVX512F) {
+		gwdone (&gwdata);
+		gwinit (&gwdata);
+		gwsetup (&gwdata, 1.0, 2, 10000000, -1);
+	}
 	if (min_test && (test < min_test || test > max_test)) continue;
 	if (! (CPU_FLAGS & CPU_SSE2) && test >= 1000) break;
 	if (! (CPU_FLAGS & CPU_AVX) && test >= 2000) break;
@@ -2311,6 +2316,7 @@ return 0;
 	gwinit (&ecmdata.gwdata);
 	gwset_sum_inputs_checking (&ecmdata.gwdata, SUM_INPUTS_ERRCHK);
 	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&ecmdata.gwdata);
+	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&ecmdata.gwdata);
 	if (HYPERTHREAD_LL) {
 		sp_info->normal_work_hyperthreads = IniGetInt (LOCALINI_FILE, "HyperthreadLLcount", CPU_HYPERTHREADS);
 		gwset_will_hyperthread (&ecmdata.gwdata, sp_info->normal_work_hyperthreads);
@@ -4380,6 +4386,7 @@ restart:
 	gwinit (&pm1data.gwdata);
 	gwset_sum_inputs_checking (&pm1data.gwdata, SUM_INPUTS_ERRCHK);
 	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pm1data.gwdata);
+	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&pm1data.gwdata);
 	if (HYPERTHREAD_LL) {
 		sp_info->normal_work_hyperthreads = IniGetInt (LOCALINI_FILE, "HyperthreadLLcount", CPU_HYPERTHREADS);
 		gwset_will_hyperthread (&pm1data.gwdata, sp_info->normal_work_hyperthreads);
