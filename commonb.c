@@ -10411,17 +10411,17 @@ int areTwoPRPValsEqual (
 	unsigned long units_bit2)	/* Shift count #2 */
 {
 	giant	tmp1, tmp2;
-	int	diff;
+	int	diff, err_code1, err_code2;
 
 	tmp1 = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 5);
-	gwtogiant (gwdata, val1, tmp1);
+	err_code1 = gwtogiant (gwdata, val1, tmp1) || isZero (tmp1);
 	rotateg (tmp1, p, units_bit1, &gwdata->gdata);
 	tmp2 = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 5);
-	gwtogiant (gwdata, val2, tmp2);
+	err_code2 = gwtogiant (gwdata, val2, tmp2) || isZero (tmp2);
 	rotateg (tmp2, p, units_bit2, &gwdata->gdata);
 	diff = gcompg (tmp1, tmp2);
 	pushg (&gwdata->gdata, 2);
-	return (!diff);
+	return (err_code1 == 0 && err_code2 == 0 && !diff);
 }
 
 /* Mul giant by a power of the PRP base.  Used in optimizing PRPs for k*2^n+c numbers. */
@@ -10478,11 +10478,11 @@ int isPRPg (
 
 /* Standard Fermat PRP, test for one */
 
-	if (prp_residue_type == PRIMNET_PRP_TYPE_FERMAT) return (isone (v));
+	if (prp_residue_type == PRIMENET_PRP_TYPE_FERMAT) return (isone (v));
 
 /* SPRP test is PRP if result is one or minus one */
 
-	if (prp_residue_type == PRIMNET_PRP_TYPE_SPRP) {
+	if (prp_residue_type == PRIMENET_PRP_TYPE_SPRP) {
 		if (isone (v)) return (TRUE);
 		subg (v, N); result = isone (N); addg (v, N);
 		return (result);
@@ -10498,7 +10498,7 @@ int isPRPg (
 
 /* Handle the cofactor case.  We calculated v = a^(N*KF-1) mod (N*KF).  We have a PRP if (v mod N) = (a^KF) mod N */
 
-	if (prp_residue_type == PRIMNET_PRP_TYPE_COFACTOR) {
+	if (prp_residue_type == PRIMENET_PRP_TYPE_COFACTOR) {
 		mpz_t	kbnc, known_factors, reduced_v;
 		// Calculate k*b^n+c
 		mpz_init (kbnc);
@@ -10529,7 +10529,7 @@ int isPRPg (
 /* Calculate the compare_value */
 
 		mpz_init (power);
-		if (prp_residue_type == PRIMNET_PRP_TYPE_FERMAT_VAR) mpz_set_si (power, - (w->c - 1));
+		if (prp_residue_type == PRIMENET_PRP_TYPE_FERMAT_VAR) mpz_set_si (power, - (w->c - 1));
 		else mpz_set_si (power, - (w->c - 1) / 2);
 		mpz_set_ui (compare_val, prp_base);
 		mpz_powm (compare_val, compare_val, power, mpz_N);
@@ -10538,7 +10538,7 @@ int isPRPg (
 /* Now do the comparison(s) */
 
 		result = mpz_eq (mpz_v, compare_val);
-		if (prp_residue_type == PRIMNET_PRP_TYPE_SPRP_VAR && !result) {
+		if (prp_residue_type == PRIMENET_PRP_TYPE_SPRP_VAR && !result) {
 			mpz_sub (compare_val, mpz_N, compare_val);	// Negate compare val
 			result = mpz_eq (mpz_v, compare_val);
 		}
@@ -10643,8 +10643,8 @@ int prp (
 /* to return a standard Fermat PRP residue on k*b^n+c (i.e. calculate base^(k*b^n+c-1)) */
 
 	if (w->prp_residue_type) ps.residue_type = w->prp_residue_type;
-	else ps.residue_type = IniGetInt (INI_FILE, "PRPResidueType", PRIMNET_PRP_TYPE_COFACTOR);
-	if (w->known_factors == NULL && ps.residue_type == PRIMNET_PRP_TYPE_COFACTOR) ps.residue_type = PRIMNET_PRP_TYPE_FERMAT;
+	else ps.residue_type = IniGetInt (INI_FILE, "PRPResidueType", PRIMENET_PRP_TYPE_COFACTOR);
+	if (w->known_factors == NULL && ps.residue_type == PRIMENET_PRP_TYPE_COFACTOR) ps.residue_type = PRIMENET_PRP_TYPE_FERMAT;
 
 /* Below is some pseudo-code to show how various input numbers are handled for each PRP residue type (rt=residue type, */
 /* a=PRP base, E is number for the binary exponentiation code, KF=known factors).  We can do Gerbicz error checking if b=2 and */
@@ -10674,10 +10674,10 @@ int prp (
 	if (IniGetInt (INI_FILE, "PRPStraightForward", 0))
 		ps.two_power_opt = FALSE;
 	else
-		ps.two_power_opt = (w->b == 2 && (w->known_factors == NULL || ps.residue_type == PRIMNET_PRP_TYPE_COFACTOR));
+		ps.two_power_opt = (w->b == 2 && (w->known_factors == NULL || ps.residue_type == PRIMENET_PRP_TYPE_COFACTOR));
 	if (!ps.two_power_opt) {
-		if (ps.residue_type == PRIMNET_PRP_TYPE_FERMAT_VAR) ps.residue_type = PRIMNET_PRP_TYPE_FERMAT;
-		else if (ps.residue_type == PRIMNET_PRP_TYPE_SPRP_VAR) ps.residue_type = PRIMNET_PRP_TYPE_SPRP;
+		if (ps.residue_type == PRIMENET_PRP_TYPE_FERMAT_VAR) ps.residue_type = PRIMENET_PRP_TYPE_FERMAT;
+		else if (ps.residue_type == PRIMENET_PRP_TYPE_SPRP_VAR) ps.residue_type = PRIMENET_PRP_TYPE_SPRP;
 	}
 
 /* If k=1,b=2 and we are doing a traditional Fermat PRP implementation, then interim residues are output based on the bit */
@@ -10694,9 +10694,9 @@ int prp (
 
 /* Flag the PRP tests that require multiplying the final a^exp to account for c */
 
-	if (ps.two_power_opt && (ps.residue_type == PRIMNET_PRP_TYPE_FERMAT || ps.residue_type == PRIMNET_PRP_TYPE_COFACTOR))
+	if (ps.two_power_opt && (ps.residue_type == PRIMENET_PRP_TYPE_FERMAT || ps.residue_type == PRIMENET_PRP_TYPE_COFACTOR))
 		mul_final = w->c - 1;
-	else if (ps.two_power_opt && ps.residue_type == PRIMNET_PRP_TYPE_SPRP)
+	else if (ps.two_power_opt && ps.residue_type == PRIMENET_PRP_TYPE_SPRP)
 		mul_final = (w->c - 1) / 2;
 	else
 		mul_final = 0;
@@ -10912,9 +10912,9 @@ begin:	gwinit (&gwdata);
 
 	if (ps.two_power_opt) {
 		int	gerbicz_squarings;
-		if (ps.residue_type == PRIMNET_PRP_TYPE_FERMAT ||
-		    ps.residue_type == PRIMNET_PRP_TYPE_FERMAT_VAR ||
-		    ps.residue_type == PRIMNET_PRP_TYPE_COFACTOR)
+		if (ps.residue_type == PRIMENET_PRP_TYPE_FERMAT ||
+		    ps.residue_type == PRIMENET_PRP_TYPE_FERMAT_VAR ||
+		    ps.residue_type == PRIMENET_PRP_TYPE_COFACTOR)
 			gerbicz_squarings = w->n;
 		else
 			gerbicz_squarings = w->n - 1;
@@ -11090,6 +11090,10 @@ rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 				ps.end_counter = ps.counter + ps.L * ps.L;
 				gwcopy (&gwdata, ps.x, ps.u0);
 				gwcopy (&gwdata, ps.x, ps.d);
+				if (IniGetInt (INI_FILE, "GerbiczVerbosity", 1) > 1) {
+					sprintf (buf, "Start Gerbicz block of size %ld at iteration %ld.\n", ps.L * ps.L, ps.start_counter);
+					OutputBoth (thread_num, buf);
+				}
 			}
 		}
 
@@ -11224,20 +11228,19 @@ OutputStr (thread_num, "Iteration failed.\n");
 		}
 
 /* If the sum of the output values is an error (such as infinity) then raise an error. */
+/* This kind of error is apt to persist, so always restart from last save file. */
 
 		if (gw_test_illegal_sumout (&gwdata)) {
 			sprintf (buf, ERRMSG0, ps.counter+1, final_counter, ERRMSG1A);
 			OutputBoth (thread_num, buf);
 			inc_error_count (2, &ps.error_count);
-			if (ps.error_check_type == PRP_ERRCHK_NONE) {
-				sleep5 = TRUE;
-				goto restart;
-			}
+			sleep5 = TRUE;
+			goto restart;
 		}
 
-/* Check that the sum of the input numbers squared is approximately */
-/* equal to the sum of unfft results.  Since this check may not */
-/* be perfect, check for identical results after a restart. */
+/* Check that the sum of the input numbers squared is approximately equal to the sum of unfft results. */
+/* Since checking floats for equality is imperfect, check for identical results after a restart. */
+/* Note that if the SUMOUT value is extremely large the result is surely corrupt and we must rollback. */
 
 		if (gw_test_mismatched_sums (&gwdata)) {
 			if (ps.counter == last_counter &&
@@ -11252,7 +11255,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 				sprintf (buf, ERRMSG0, ps.counter+1, final_counter, msg);
 				OutputBoth (thread_num, buf);
 				inc_error_count (0, &ps.error_count);
-				if (ps.error_check_type == PRP_ERRCHK_NONE) {
+				if (ps.error_check_type == PRP_ERRCHK_NONE || abs (gwsumout (&gwdata, x)) > 1.0e40) {
 					last_counter = ps.counter;
 					last_suminp = gwsuminp (&gwdata, x);
 					last_sumout = gwsumout (&gwdata, x);
@@ -11262,10 +11265,11 @@ OutputStr (thread_num, "Iteration failed.\n");
 			}
 		}
 
-/* Check for excessive roundoff error.  If round off is too large, repeat */
-/* the iteration to see if this was a hardware error.  If it was repeatable */
-/* then repeat the iteration using a safer, slower method.  This can */
-/* happen when operating near the limit of an FFT. */
+/* Check for excessive roundoff error.  If round off is too large, repeat the iteration to see if this was */
+/* a hardware error.  If it was repeatable then repeat the iteration using a safer, slower method.  This can */
+/* happen when operating near the limit of an FFT.  NOTE: with the introduction of Gerbicz error-checking we */
+/* ignore some of these errors as the Gerbicz check will catch any problems later.  However, if the round off */
+/* error is really large, then results are certainly corrupt and we roll back immmediately. */
 
 		if (echk && gw_get_maxerr (&gwdata) > allowable_maxerr) {
 			if (ps.counter == last_counter && gw_get_maxerr (&gwdata) == last_maxerr) {
@@ -11282,7 +11286,8 @@ OutputStr (thread_num, "Iteration failed.\n");
 				sprintf (buf, ERRMSG0, ps.counter+1, final_counter, msg);
 				OutputBoth (thread_num, buf);
 				inc_error_count (1, &ps.error_count);
-				if (ps.error_check_type == PRP_ERRCHK_NONE) {
+				if (ps.error_check_type == PRP_ERRCHK_NONE ||
+				    gw_get_maxerr (&gwdata) > IniGetFloat (INI_FILE, "RoundoffRollbackError", (float) 0.475)) {
 					last_counter = ps.counter;
 					last_maxerr = gw_get_maxerr (&gwdata);
 					sleep5 = FALSE;
@@ -11523,7 +11528,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			gwtogiant (&gwdata, x, tmp);
 			rotateg (tmp, w->n, *units_bit, &gwdata.gdata);
 			if (interim_mul) basemulg (tmp, w, ps.prp_base, -1);
-			if (w->known_factors && ps.residue_type != PRIMNET_PRP_TYPE_COFACTOR) modg (N, tmp);
+			if (w->known_factors && ps.residue_type != PRIMENET_PRP_TYPE_COFACTOR) modg (N, tmp);
 			sprintf (pkt.residue, "%08lX%08lX", (unsigned long) tmp->n[1], (unsigned long) tmp->n[0]);
 			sprintf (pkt.error_count, "%08lX", ps.error_count);
 			spoolMessage (-PRIMENET_ASSIGNMENT_PROGRESS, &pkt);
@@ -11537,7 +11542,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			gwtogiant (&gwdata, x, tmp);
 			rotateg (tmp, w->n, *units_bit, &gwdata.gdata);
 			if (interim_mul) basemulg (tmp, w, ps.prp_base, -1);
-			if (w->known_factors && ps.residue_type != PRIMNET_PRP_TYPE_COFACTOR) modg (N, tmp);
+			if (w->known_factors && ps.residue_type != PRIMENET_PRP_TYPE_COFACTOR) modg (N, tmp);
 			sprintf (buf, "%s interim Wg%d residue %08lX%08lX at iteration %ld\n",
 				 string_rep, PORT, (unsigned long) tmp->n[1], (unsigned long) tmp->n[0],
 				 ps.counter - interim_counter_off_one);
@@ -11592,7 +11597,7 @@ pushg(&gwdata.gdata, 2);}
 	gwtogiant (&gwdata, ps.x, tmp);
 	rotateg (tmp, w->n, ps.units_bit, &gwdata.gdata);
 	if (mul_final) basemulg (tmp, w, ps.prp_base, mul_final);
-	if (w->known_factors && ps.residue_type != PRIMNET_PRP_TYPE_COFACTOR) modg (N, tmp);
+	if (w->known_factors && ps.residue_type != PRIMENET_PRP_TYPE_COFACTOR) modg (N, tmp);
 	isProbablePrime = isPRPg (tmp, N, w, ps.prp_base, ps.residue_type);
 	if (!isProbablePrime) {
 		sprintf (res64, "%08lX%08lX", (unsigned long) tmp->n[1], (unsigned long) tmp->n[0]);
@@ -11613,7 +11618,7 @@ pushg(&gwdata.gdata, 2);}
 	} else {
 		sprintf (buf, "%s is not prime.  ", string_rep);
 		if (ps.prp_base != 3) sprintf (buf+strlen(buf), "Base-%u ", ps.prp_base);
-		if (ps.residue_type != PRIMNET_PRP_TYPE_FERMAT) sprintf (buf+strlen(buf), "Type-%d ", ps.residue_type);
+		if (ps.residue_type != PRIMENET_PRP_TYPE_FERMAT) sprintf (buf+strlen(buf), "Type-%d ", ps.residue_type);
 		sprintf (buf+strlen(buf), "RES64: %s.", res64);
 	}
 	sprintf (buf+strlen(buf), " Wg%d: %08lX,", PORT, SEC1 (w->n));
