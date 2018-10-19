@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2017 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2018 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
@@ -5790,7 +5790,7 @@ typedef struct {		/* Some of the data kept during LL test */
 int lucasSetup (
 	int	thread_num,	/* Worker thread number */
 	unsigned long p,	/* Exponent to test */
-	unsigned long fftlen,	/* Specific FFT length to use, or zero */
+	unsigned long fftlen,	/* Specific FFT length to use or zero.  Add one to test all-complex. */
 	llhandle *lldata)	/* Common LL data structure */
 {
 	int	res;
@@ -8806,6 +8806,7 @@ int primeTime (
 	unsigned long p,
 	unsigned long iterations)
 {
+static	int	time_all_complex = 0;	/* TRUE if we should time all-complex FFTs */
 	struct PriorityInfo sp_info;
 #define SAVED_LIMIT	10
 	llhandle lldata;
@@ -8819,7 +8820,7 @@ int primeTime (
 	uint32_t best_asm_timers[32] = {0};
 	double	timers[2];
 
-/* Look for special values to run QA suites */
+/* Look for special values to run QA suites or manage settings */
 
 	if (p >= 9900 && p <= 9999) {
 		memset (&sp_info, 0, sizeof (sp_info));
@@ -8838,6 +8839,10 @@ int primeTime (
 			return (primeSieveTest (thread_num));
 		if (p == 9950)
 			return (cpuid_dump (thread_num));
+		if (p == 9951) {
+			time_all_complex = !time_all_complex;
+			return (0);
+		}
 		if (p >= 9900 && p <= 9919)
 			return (test_randomly (thread_num, &sp_info));
 		return (test_all_impl (thread_num, &sp_info));
@@ -8904,7 +8909,7 @@ int primeTime (
 			gwset_num_threads (&lldata.gwdata, num_cores * num_hyperthreads);
 			gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 			gwset_thread_callback_data (&lldata.gwdata, &sp_info);
-			stop_reason = lucasSetup (thread_num, p, IniGetInt (INI_FILE, "TimePlus1", 0), &lldata);
+			stop_reason = lucasSetup (thread_num, p, time_all_complex, &lldata);
 			if (stop_reason) return (stop_reason);
 			ASM_TIMERS = get_asm_timers (&lldata.gwdata);
 			memset (ASM_TIMERS, 0, 32 * sizeof (uint32_t));
@@ -9381,6 +9386,11 @@ int primeBenchMultipleWorkersInternal (
 			stop_reason = lucasSetup (thread_num, fftlen * 17 + 1, fftlen + plus1, &lldata);
 			if (stop_reason) break;	// Assume stop_reason set because there are no more implementations for this FFT
 		}
+
+/* Hack for my use only.  This let's me quickly run gwinit on every FFT implementation so that I can determine */
+/* the memory needed value to fill in the tables in mult.asm. */
+
+		if (IniGetInt (INI_FILE, "gwinit_only", 0)) continue;
 
 /* Loop over all possible multithread possibilities */
 
@@ -11255,7 +11265,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 				sprintf (buf, ERRMSG0, ps.counter+1, final_counter, msg);
 				OutputBoth (thread_num, buf);
 				inc_error_count (0, &ps.error_count);
-				if (ps.error_check_type == PRP_ERRCHK_NONE || abs (gwsumout (&gwdata, x)) > 1.0e40) {
+                if (ps.error_check_type == PRP_ERRCHK_NONE || fabs (gwsumout (&gwdata, x)) > 1.0e40) {
 					last_counter = ps.counter;
 					last_suminp = gwsuminp (&gwdata, x);
 					last_sumout = gwsumout (&gwdata, x);
@@ -11600,8 +11610,9 @@ pushg(&gwdata.gdata, 2);}
 	if (w->known_factors && ps.residue_type != PRIMENET_PRP_TYPE_COFACTOR) modg (N, tmp);
 	isProbablePrime = isPRPg (tmp, N, w, ps.prp_base, ps.residue_type);
 	if (!isProbablePrime) {
-		sprintf (res64, "%08lX%08lX", (unsigned long) tmp->n[1], (unsigned long) tmp->n[0]);
-		if (have_res2048 = (tmp->sign > 64)) {
+		sprintf (res64, "%08lX%08lX", (unsigned long) (tmp->sign > 1 ? tmp->n[1] : 0), (unsigned long) tmp->n[0]);
+		have_res2048 = (tmp->sign > 64);
+		if (have_res2048) {
 			int i;
 			for (i = 63; i >= 0; i--) sprintf (res2048+504-i*8, "%08lX", (unsigned long) tmp->n[i]);
 		}
