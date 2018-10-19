@@ -145,14 +145,13 @@ void calc_hardware_guid (void)
 
 /* Sometimes a user might want to run the program on several machines. */
 /* Typically this is done by carrying the program and files around on a */
-/* portable media such as floppy or USB memory stick.  In this case, */
+/* portable media such as a USB memory stick.  In this case, */
 /* we need to defeat the code that automatically detects hardware changes. */
 /* The FixedHardwareUID INI option tells us to get the Windows and */
 /* hardware hashes from the INI file rather than calculating them. */
 
 	if (FIXED_GUIDS) {
-		IniGetString (INI_FILE, "HardwareGUID", HARDWARE_GUID,
-			      sizeof (HARDWARE_GUID), HARDWARE_GUID);
+		IniGetString (INI_FILE, "HardwareGUID", HARDWARE_GUID, sizeof (HARDWARE_GUID), HARDWARE_GUID);
 		IniWriteString (INI_FILE, "HardwareGUID", HARDWARE_GUID);
 	}
 }
@@ -185,7 +184,7 @@ void calc_windows_guid (void)
 
 /* Sometimes a user might want to run the program on several machines. */
 /* Typically this is done by carrying the program and files around on a */
-/* portable media such as floppy or USB memory stick.  In this case, */
+/* portable media such as a USB memory stick.  In this case, */
 /* we need to defeat the code that automatically detects hardware changes. */
 /* The FixedHardwareUID INI option tells us to get the Windows and */
 /* hardware hashes from the INI file rather than calculating them. */
@@ -195,8 +194,7 @@ void calc_windows_guid (void)
 /* generate a CPU_IDENTITY_MISMATCH error in this case. */
 
 	if (FIXED_GUIDS) {
-		IniGetString (INI_FILE, "WindowsGUID", WINDOWS_GUID,
-			      sizeof (WINDOWS_GUID), WINDOWS_GUID);
+		IniGetString (INI_FILE, "WindowsGUID", WINDOWS_GUID, sizeof (WINDOWS_GUID), WINDOWS_GUID);
 		IniWriteString (INI_FILE, "WindowsGUID", WINDOWS_GUID);
 	}
 }
@@ -3802,13 +3800,13 @@ void tempFileName (
 /* From now on, we will use k and c to generate the filename.  To reduce */
 /* upgrading problems, old save file names are renamed. */
 
-	if (w->k != 1.0 || abs(w->c) != 1) {
+	if (w->k != 1.0 || labs(w->c) != 1) {
 		char	v258_filename[32];
 		strcpy (v258_filename, buf);
 		buf[1] = 0;
 		if (w->k != 1.0) sprintf (buf+strlen(buf), "%g", fmod (w->k, 1000000.0));
 		sprintf (buf+strlen(buf), "_%ld", p);
-		if (abs(w->c) != 1) sprintf (buf+strlen(buf), "_%d", abs(w->c) % 1000);
+		if (labs(w->c) != 1) sprintf (buf+strlen(buf), "_%ld", labs(w->c) % 1000);
 		rename (v258_filename, buf);
 		if (buf[0] == 'p') {
 			v258_filename[0] = buf[0] = 'q';
