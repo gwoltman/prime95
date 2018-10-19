@@ -2,7 +2,7 @@
 | This file contains various utility routines that may be used by gwnum
 | routines, prime95, or other consumers of gwnum.
 | 
-|  Copyright 2004-2016 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2004-2018 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 #ifndef _GWUTIL_H
@@ -30,8 +30,9 @@ void * aligned_offset_malloc (size_t size, size_t alignment, size_t mod);
 void * aligned_malloc (size_t size, size_t alignment);
 void  aligned_free (void *ptr);
 
-/* Large page allocation routines */
+/* Large/huge page allocation routines */
 
+int large_pages_supported ();
 void * large_pages_malloc (size_t size);
 void large_pages_free (void *ptr);
 
