@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2017 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2018 Mersenne Research, Inc.  All rights reserved
 | Author:  George Woltman
 | Email: woltman@alum.mit.edu
 |
@@ -547,8 +547,9 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			 (family == 6 && model == 86) ||		// Core i7, mobile (based on Broadwell technology)
 			 (family == 6 && model == 94) ||		// Core i7 (based on Skylake technology)
 			 (family == 6 && model == 142) ||		// Core i7, (based on Kaby Lake technology)
-			 (family == 6 && model == 158) ||		// Core i7, mobile (based on Kaby Lake technology)
-			 (family == 6 && model == 168))			// Core i7, (based on Coffee Lake technology)
+			 (family == 6 && model == 158) ||		// Core i7, mobile (based on Coffee Lake technology)
+			 (family == 6 && model == 168) ||		// Core i7, (based on Coffee Lake technology)
+			 (family == 6 && model == 78))			// Core i3/i5/i7, mobile (based on Skylake technology)
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_CORE_I7;
 		else if ((family == 6 && model == 28) ||
 			 (family == 6 && model == 38) ||
