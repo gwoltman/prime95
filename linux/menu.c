@@ -1,4 +1,4 @@
-/* Copyright 1995-2017 Mersenne Research, Inc. */
+/* Copyright 1995-2018 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -1083,8 +1083,8 @@ void options_benchmark (void)
 	askNum ("Benchmark type (0 = Throughput, 1 = FFT timings, 2 = Trial factoring)", &m_bench_type, 0, 2);
 	if (m_bench_type != 2) {
 		printf ("\nFFTs to benchmark\n");
-		askNum ("Minimum FFT size (in K)", &m_minFFT, 1, 32768);
-		askNum ("Maximum FFT size (in K)", &m_maxFFT, m_minFFT, 32768);
+		askNum ("Minimum FFT size (in K)", &m_minFFT, 1, 65536);
+		askNum ("Maximum FFT size (in K)", &m_maxFFT, m_minFFT, 65536);
 		askYN ("Benchmark with round-off checking enabled", &m_errchk);
 		askYN ("Benchmark all-complex FFTs (for LLR,PFGW,PRP users)", &m_all_complex);
 		if (m_minFFT != m_maxFFT)
