@@ -38,7 +38,7 @@ void rangeStatusMessage (
 	char	*buf,
 	unsigned int buflen)		/* Originally coded for a 2000 character buffer */
 {
-	unsigned int tnum, ll_cnt, lines_per_worker;
+	unsigned int tnum, ll_and_prp_cnt, lines_per_worker;
 	double	prob, est;
 	char	*orig_buf;
 
@@ -49,11 +49,10 @@ void rangeStatusMessage (
 
 /* Init.  Default is 32 lines in a 2000 character buffer */
 
-	lines_per_worker = (unsigned int)
-		IniGetInt (INI_FILE, "StatusLines", buflen / 62) / NUM_WORKER_THREADS;
+	lines_per_worker = (unsigned int) IniGetInt (INI_FILE, "StatusLines", buflen / 62) / NUM_WORKER_THREADS;
 	if (lines_per_worker < 3) lines_per_worker = 3;
 	orig_buf = buf;
-	ll_cnt = 0;
+	ll_and_prp_cnt = 0;
 	prob = 0.0;
 	strcpy (buf, STAT0);
 	buf += strlen (buf);
@@ -99,18 +98,35 @@ void rangeStatusMessage (
 		bits = (unsigned int) w->sieve_depth;
 		if (bits < 32) bits = 32;
 		if (w->work_type == WORK_TEST) {
-			ll_cnt++;
+			ll_and_prp_cnt++;
 			if (w->pminus1ed)
 				prob += (double) ((bits - 1) * 1.803) / w->n;
 			else
 				prob += (double) ((bits - 1) * 1.733) / w->n;
 		}
 		if (w->work_type == WORK_DBLCHK) {
-			ll_cnt++;
+			ll_and_prp_cnt++;
 			if (w->pminus1ed)
 				prob += (double) ((bits - 1) * 1.803 * ERROR_RATE) / w->n;
 			else
 				prob += (double) ((bits - 1) * 1.733 * ERROR_RATE) / w->n;
+		}
+
+// BUG - how do we determine difference between 1st-time tests and dbl-checks
+// BUG - we need data on PRP error rate -- it will be close to zero
+		if (w->work_type == WORK_PRP && w->n > 80000000) {
+			ll_and_prp_cnt++;
+			if (w->pminus1ed)
+				prob += (double) ((bits - 1) * 1.803) / w->n;
+			else
+				prob += (double) ((bits - 1) * 1.733) / w->n;
+		}
+		else if (w->work_type == WORK_PRP) {
+			ll_and_prp_cnt++;
+			if (w->pminus1ed)
+				prob += (double) ((bits - 1) * 1.803 * ERROR_RATE/100) / w->n;
+			else
+				prob += (double) ((bits - 1) * 1.733 * ERROR_RATE/100) / w->n;
 		}
 
 /* Adjust our time estimate */
@@ -185,10 +201,10 @@ void rangeStatusMessage (
 
 /* Print message estimating our probability of success */
 
-	if (ll_cnt == 1)
+	if (ll_and_prp_cnt == 1)
 		sprintf (buf+strlen(buf), STAT1a, (long) (1.0 / prob));
-	if (ll_cnt > 1)
-		sprintf (buf+strlen(buf), STAT1, ll_cnt, (long) (1.0 / prob));
+	if (ll_and_prp_cnt > 1)
+		sprintf (buf+strlen(buf), STAT1, ll_and_prp_cnt, (long) (1.0 / prob));
 }
 
 /* Return the suggested minimum number of cores that should be used for a work preference. */
