@@ -1,7 +1,7 @@
 # Assembler command lines
 #
-# HJWasm is a MASM-compatible assembler that is supported much better than MASM.
-# It can be downloaded at http://www.terraspace.co.uk/hjwasm.html
+# Uasm is a MASM-compatible assembler that is supported much better than MASM.
+# It can be downloaded at http://www.terraspace.co.uk/uasm.html
 #
 # objconv comes courtesy of Agner Fog.  Download available at
 # http://www.agner.org/optimize/#objconv
