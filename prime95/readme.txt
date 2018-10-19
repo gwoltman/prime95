@@ -14,8 +14,8 @@ FILE LIST
 
 readme.txt	This file.
 prime95.exe	The program to factor and run Lucas-Lehmer tests on Mersenne numbers.
-*libgmp*	A library file containing the GNU multi-precision math package.
-		On some OSes you may need to copy this the system library directory.
+libgmp*		A library file containing the GNU multi-precision math package.
+		On some OSes you may need to copy this to the system library directory.
 whatsnew.txt	A list of new features in prime95.exe.
 stress.txt	A discussion of issues relating to stress testing a computer.
 undoc.txt	A list of undocumented and unsupported features.
