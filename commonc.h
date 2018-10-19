@@ -1,8 +1,8 @@
-/* Copyright 1995-2017 Mersenne Research, Inc.  All rights reserved */
+/* Copyright 1995-2018 Mersenne Research, Inc.  All rights reserved */
 
 /* Constants */
 
-#define VERSION		"29.4"
+#define VERSION		"29.5"
 #define BUILD_NUM	"2"
 /* The list of assigned OS ports follows: */
 /* Win9x (prime95) #1 */
@@ -19,7 +19,7 @@
 /* FreeBSD 64-bit  #12 */
 
 #define MIN_PRIME	5L		/* Smallest testable prime */
-#define MAX_FACTOR	2000000000	/* Largest factorable Mersenne number*/
+#define MAX_FACTOR	2000000000	/* Largest factorable Mersenne number */
 #define ERROR_RATE	0.018		/* Estimated error rate on clean run */
 
 /* Hopefully, hwloc has no limitations regarding setting affinity.  Due to */
@@ -145,8 +145,7 @@ extern unsigned int WORK_PREFERENCE[MAX_NUM_WORKER_THREADS];
 					/* Type of work (factoring, testing, */
 					/* etc.) to get from the server. */
 extern unsigned int CORES_PER_TEST[MAX_NUM_WORKER_THREADS];
-					/* Number of threads gwnum can use */
-					/* in computations. */
+					/* Number of threads gwnum can use in computations. */
 extern int HYPERTHREAD_TF;		/* TRUE if trial factoring should use hyperthreads */
 extern int HYPERTHREAD_LL;		/* TRUE if FFTs (LL, P-1, ECM, PRP) should use hyperthreads */
 extern unsigned int DAYS_OF_WORK;	/* How much work to retrieve from */
