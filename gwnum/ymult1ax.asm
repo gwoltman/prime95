@@ -1888,7 +1888,6 @@ nb2dn:	mov	rsi, DESTARG		; Address of squared number
 	jmp	cmnend			; All done, go cleanup
 
 nb2rdn:	mov	rsi, DESTARG		; Address of squared number
-	ynorm_top_carry_1d noexec, noexec ; Adjust top carry when k > 1
 	ynorm_1d_cleanup noexec, noexec, noexec ; Add in carries
 	jmp	cmnend			; All done, go cleanup
 
@@ -1898,7 +1897,6 @@ b2dn:	mov	rsi, DESTARG		; Address of squared number
 	jmp	cmnend			; All done, go cleanup
 
 b2rdn:	mov	rsi, DESTARG		; Address of squared number
-	ynorm_top_carry_1d noexec, exec	; Adjust top carry when k > 1
 	ynorm_1d_cleanup noexec, exec, noexec ; Add in carries
 
 ; Normalize SUMOUT value by multiplying by 1 / (fftlen/2).
