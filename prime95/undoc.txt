@@ -554,8 +554,8 @@ by adding to prime.txt:
 	AutoBench=0
 
 If you want to run the program on several machines this is typically done
-by carrying the program and files around on portable media such as a floppy
-or USB memory stick.  In this case, you need to defeat the program's
+by carrying the program and files around on portable media such as a
+USB memory stick.  In this case, you need to defeat the program's
 automatic detection of hardware changes.  To do this, in prime.txt set
 	FixedHardwareUID=1
 
