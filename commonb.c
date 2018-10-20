@@ -5704,13 +5704,9 @@ nextpass:	;
 		start_bits = (end_bits == report_bits) ?
 				(unsigned int) w->sieve_depth : bits;
 		if (start_bits < 32)
-		    sprintf (buf,
-			     "M%ld no factor to 2^%d, Wg%d: %08lX\n",
-			     p, end_bits, PORT, SEC3 (p));
+		    sprintf (buf, "M%ld no factor to 2^%d, Wh%d: %08lX\n", p, end_bits, PORT, SEC3 (p));
 		else
-		    sprintf (buf,
-			     "M%ld no factor from 2^%d to 2^%d, Wg%d: %08lX\n",
-			     p, start_bits, end_bits, PORT, SEC3 (p));
+		    sprintf (buf, "M%ld no factor from 2^%d to 2^%d, Wh%d: %08lX\n", p, start_bits, end_bits, PORT, SEC3 (p));
 		OutputStr (thread_num, buf);
 		formatMsgForResultsFile (buf, w);
 		writeResults (buf);
@@ -7044,7 +7040,7 @@ begin:	gwinit (&lldata.gwdata);
 
 		if (interim_residue) {
 			generateResidue64 (&lldata, p, &high32, &low32);
-			sprintf (buf, "M%ld interim Wg%d residue %08lX%08lX at iteration %ld\n", p, PORT, high32, low32, counter);
+			sprintf (buf, "M%ld interim Wh%d residue %08lX%08lX at iteration %ld\n", p, PORT, high32, low32, counter);
 			OutputBoth (thread_num, buf);
 		}
 
@@ -7097,10 +7093,10 @@ begin:	gwinit (&lldata.gwdata);
 /* Format the output message */
 
 	if (isPrime)
-		sprintf (buf, "M%ld is prime! Wg%d: %08lX,%08lX\n", p, PORT, SEC1 (p), error_count);
+		sprintf (buf, "M%ld is prime! Wh%d: %08lX,%08lX\n", p, PORT, SEC1 (p), error_count);
 	else
 		sprintf (buf,
-			 "M%ld is not prime. Res64: %08lX%08lX. Wg%d: %08lX,%ld,%08lX\n",
+			 "M%ld is not prime. Res64: %08lX%08lX. Wh%d: %08lX,%ld,%08lX\n",
 			 p, high32, low32, PORT,
 			 SEC2 (p, high32, low32, lldata.units_bit, error_count),
 			 lldata.units_bit, error_count);
@@ -11553,7 +11549,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			rotateg (tmp, w->n, *units_bit, &gwdata.gdata);
 			if (interim_mul) basemulg (tmp, w, ps.prp_base, -1);
 			if (w->known_factors && ps.residue_type != PRIMENET_PRP_TYPE_COFACTOR) modg (N, tmp);
-			sprintf (buf, "%s interim Wg%d residue %08lX%08lX at iteration %ld\n",
+			sprintf (buf, "%s interim Wh%d residue %08lX%08lX at iteration %ld\n",
 				 string_rep, PORT, (unsigned long) tmp->n[1], (unsigned long) tmp->n[0],
 				 ps.counter - interim_counter_off_one);
 			OutputBoth (thread_num, buf);
@@ -11632,7 +11628,7 @@ pushg(&gwdata.gdata, 2);}
 		if (ps.residue_type != PRIMENET_PRP_TYPE_FERMAT) sprintf (buf+strlen(buf), "Type-%d ", ps.residue_type);
 		sprintf (buf+strlen(buf), "RES64: %s.", res64);
 	}
-	sprintf (buf+strlen(buf), " Wg%d: %08lX,", PORT, SEC1 (w->n));
+	sprintf (buf+strlen(buf), " Wh%d: %08lX,", PORT, SEC1 (w->n));
 	if (ps.units_bit) sprintf (buf+strlen(buf), "%ld,", ps.units_bit);
 	sprintf (buf+strlen(buf), "%08lX\n", ps.error_count);
 	OutputStr (thread_num, buf);

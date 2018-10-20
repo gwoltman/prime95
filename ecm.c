@@ -10,7 +10,7 @@
  *	Other important ideas courtesy of Peter Montgomery.
  *
  *	c. 1997 Perfectly Scientific, Inc.
- *	c. 1998-2017 Mersenne Research, Inc.
+ *	c. 1998-2018 Mersenne Research, Inc.
  *	All Rights Reserved.
  *
  *************************************************************/
@@ -3129,7 +3129,7 @@ more_curves:
 
 /* Output line to results file indicating the number of curves run */
 
-	sprintf (buf, "%s completed %u ECM %s, B1=%.0f, B2=%.0f, Wg%d: %08lX\n",
+	sprintf (buf, "%s completed %u ECM %s, B1=%.0f, B2=%.0f, Wh%d: %08lX\n",
 		 gwmodulo_as_string (&ecmdata.gwdata), w->curves_to_do,
 		 w->curves_to_do == 1 ? "curve" : "curves",
 		 (double) B, (double) C, PORT, SEC5 (w->n, B, C));
@@ -5342,7 +5342,7 @@ msg_and_exit:
 		else
 			sprintf (buf+strlen(buf), ", B2=%.0f, E=%lu", (double) C, pm1data.E);
 	}
-	sprintf (buf+strlen(buf), ", Wg%d: %08lX\n", PORT, SEC5 (w->n, B, C));
+	sprintf (buf+strlen(buf), ", Wh%d: %08lX\n", PORT, SEC5 (w->n, B, C));
 	OutputStr (thread_num, buf);
 	formatMsgForResultsFile (buf, w);
 	writeResults (buf);
