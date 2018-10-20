@@ -32,7 +32,7 @@ ENDIF
 SSE2_CASES	EQU	216
 AVX_CASES	EQU	300
 IFDEF X86_64
-AVX512_CASES	EQU	124
+AVX512_CASES	EQU	132
 ELSE
 AVX512_CASES	EQU	0
 ENDIF
@@ -1896,6 +1896,7 @@ ARCH EQU SKX
 INCLUDE zarch.mac
 INCLUDE zbasics.mac
 INCLUDE zmult.mac
+INCLUDE zonepass.mac
 INCLUDE zr4.mac
 INCLUDE znormal.mac
 INCLUDE znormal_zpad.mac
@@ -2353,7 +2354,7 @@ av512case15:	scatter_read_sequential_write8 1280*7680*8, 5 ; Read/write 78MB
 ;;100
 	zr12_csc_wpn_twelve_complex_first_djbfft_preload
 	avx512mac 1536, 16384, 0, zr12_csc_wpn_twelve_complex_first_djbfft rsi, 12*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
-	avx512mac 1526, 262144, 0, zr12_csc_wpn_twelve_complex_first_djbfft rsi, 12*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
+	avx512mac 1536, 262144, 0, zr12_csc_wpn_twelve_complex_first_djbfft rsi, 12*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
 	zr12_csc_wpn_twelve_complex_last_djbunfft_preload
 	avx512mac 1536, 16384, 0, zr12_csc_wpn_twelve_complex_last_djbunfft rsi, 12*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
 	avx512mac 1536, 262144, 0, zr12_csc_wpn_twelve_complex_last_djbunfft rsi, 12*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
@@ -2367,6 +2368,20 @@ av512case15:	scatter_read_sequential_write8 1280*7680*8, 5 ; Read/write 78MB
 	avx512mac 1536, 262144, 0, zr12_wpn_twentyfour_reals_last_unfft rsi, 12*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
 
 ;;108
+	zsf_onepass_real_fft_wrapper_preload
+	avx512mac 1024, 16384, 0, zsf_onepass_real_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
+	avx512mac 1024, 262144, 0, zsf_onepass_real_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
+	zs_onepass_real_unfft_wrapper_preload
+	avx512mac 1024, 16384, 0, zs_onepass_real_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, 1
+	avx512mac 1024, 262144, 0, zs_onepass_real_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, 1
+	zsf_onepass_complex_fft_wrapper_preload
+	avx512mac 1024, 16384, 0, zsf_onepass_complex_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, r15, 0, rdi, 16, rdx, 0, 1
+	avx512mac 1024, 262144, 0, zsf_onepass_complex_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, r15, 0, rdi, 16, rdx, 0, 1
+	zs_onepass_complex_unfft_wrapper_preload
+	avx512mac 1024, 16384, 0, zs_onepass_complex_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, r15, 0, rdi, 16, 1
+	avx512mac 1024, 262144, 0, zs_onepass_complex_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, r15, 0, rdi, 16, 1
+
+;;116
 	znorm_wpn_preload noexec, noexec, noexec, noexec	;; ttp, zero, echk, const
 	avx512znormmac 1536, 16384, 0, znorm_wpn noexec, noexec, noexec, noexec
 	avx512znormmac 1536, 262144, 0, znorm_wpn noexec, noexec, noexec, noexec
@@ -2380,7 +2395,7 @@ av512case15:	scatter_read_sequential_write8 1280*7680*8, 5 ; Read/write 78MB
 	avx512znormmac 1536, 16384, 0, znorm_wpn noexec, noexec, exec, exec
 	avx512znormmac 1536, 262144, 0, znorm_wpn noexec, noexec, exec, exec
 
-;;116
+;;124
 	znorm_wpn_preload exec, noexec, noexec, noexec	;; ttp, zero, echk, const
 	avx512znormmac 1536, 16384, 0, znorm_wpn exec, noexec, noexec, noexec
 	avx512znormmac 1536, 262144, 0, znorm_wpn exec, noexec, noexec, noexec
