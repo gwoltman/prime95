@@ -7819,7 +7819,7 @@ void gwsetaddin (
 {
 	unsigned long word, b_in_word;
 
-	ASSERTG (gwdata->k == 1.0 || abs (gwdata->c) == 1);
+	ASSERTG (gwdata->k == 1.0 || labs (gwdata->c) == 1);
 
 /* In a zero-padded FFT, the value is added into ZPAD0 */
 
