@@ -16,160 +16,258 @@ zsf_onepass_real_fft_wrapper_preload MACRO
 	ENDM
 
 zsf_onepass_real_fft_wrapper MACRO srcreg,srcinc,d1,d2,d4,colreg,colinc,maskreg,maskinc,grpreg,grpinc,maxrpt,L1pt,L1pd
+	vmovapd zmm30, [grpreg+0*64]		;; group multiplier for R1-R8
+	vmulpd	zmm14, zmm30, [srcreg+rbx]	;; apply the group multiplier to R1			; 1-4		n 5
+	vmulpd	zmm2, zmm30, [srcreg+rbx+d1]	;; apply the group multiplier to R2			; 1-4		n 6
+
+	vmulpd	zmm10, zmm30, [srcreg+rbx+d2]	;; apply the group multiplier to R3			; 2-5		n 7
+	vmulpd	zmm6, zmm30, [srcreg+rbx+d2+d1]	;; apply the group multiplier to R4			; 2-5		n 8
+
+	vmulpd	zmm16, zmm30, [srcreg+rbx+d4]	;; apply the group multiplier to R5			; 3-6		n 9
+	vmulpd	zmm8, zmm30, [srcreg+rbx+d4+d1]	;; apply the group multiplier to R6			; 3-6		n 10
+
+	vmulpd	zmm12, zmm30, [srcreg+rbx+d4+d2];; apply the group multiplier to R7			; 4-7		n 11
+	vmulpd	zmm4, zmm30, [srcreg+rbx+d4+d2+d1];; apply the group multiplier to R8			; 4-7		n 12
+
+	vmovapd zmm31, [grpreg+1*64]		;; group multiplier for R9-R16
+	vbroadcastsd zmm30, [colreg+0*8]	;; Load col multiplier for R1/R9
+	vmulpd	zmm14, zmm14, zmm30		;; apply the col multiplier to R1			; 5-8		n 14
+	vmulpd	zmm20, zmm31, zmm30		;; unfudged multiplier for R9				; 5-8		n 15
+
+	vbroadcastsd zmm30, [colreg+1*8]	;; Load col multiplier for R2/R10
+	vmulpd	zmm2, zmm2, zmm30		;; apply the col multiplier to R2			; 6-9		n 16
+	vmulpd	zmm21, zmm31, zmm30		;; unfudged multiplier for R10				; 6-9		n 17
+
+	vbroadcastsd zmm30, [colreg+2*8]	;; Load col multiplier for R3/R11
+	vmulpd	zmm10, zmm10, zmm30		;; apply the col multiplier to R3			; 7-10		n 18
+	vmulpd	zmm22, zmm31, zmm30		;; unfudged multiplier for R11				; 7-10		n 19
+
+	vbroadcastsd zmm30, [colreg+3*8]	;; Load col multiplier for R4/R12
+	vmulpd	zmm6, zmm6, zmm30		;; apply the col multiplier to R4			; 8-11		n 20
+	vmulpd	zmm23, zmm31, zmm30		;; unfudged multiplier for R12				; 8-11		n 21
+
+	vbroadcastsd zmm30, [colreg+4*8]	;; Load col multiplier for R5/R13
+	vmulpd	zmm16, zmm16, zmm30		;; apply the col multiplier to R5			; 9-12		n 26
+	vmulpd	zmm24, zmm31, zmm30		;; unfudged multiplier for R13				; 9-12		n 27
+
+	vbroadcastsd zmm30, [colreg+5*8]	;; Load col multiplier for R6/R14
+	vmulpd	zmm8, zmm8, zmm30		;; apply the col multiplier to R6			; 10-13		n 32
+	vmulpd	zmm25, zmm31, zmm30		;; unfudged multiplier for R14				; 10-13		n 33
+
+	vbroadcastsd zmm30, [colreg+6*8]	;; Load col multiplier for R7/R15
+	vmulpd	zmm12, zmm12, zmm30		;; apply the col multiplier to R7			; 11-14		n 34
+	vmulpd	zmm26, zmm31, zmm30		;; unfudged multiplier for R15				; 11-14		n 35
+
 	mov	r14, [maskreg+0*8]		;; Load uncompressed fudge flags
-
-	kmovw	k1, r14d			;; Load R1 and R9 fudge factor mask			; 1
-	kshiftrw k2, k1, 8			;; R9's fudge						; 2
-	vmovapd zmm14, [grpreg+0*64]		;; group multiplier for R1
-	vmulpd	zmm14{k1}, zmm14, zmm28		;; fudged group multiplier for R1			; 2-5
-	vmovapd zmm20, [grpreg+1*64]		;; group multiplier for R9
-	vmulpd	zmm20{k2}, zmm20, zmm28		;; fudged group multiplier for R9			; 3-6
-
+	vbroadcastsd zmm30, [colreg+7*8]	;; Load col multiplier for R8/R16
+	kmovw	k1, r14d			;; Load R1 and R9 fudge factor mask			; 12		n 13
+	vmulpd	zmm4, zmm4, zmm30		;; apply the col multiplier to R8			; 12-15		n 36
 	shr	r14, 16				;; Next 16 bits of fudge flags
-	kmovw	k1, r14d			;; Load R2 and R10 fudge factor mask			; 3
-	kshiftrw k2, k1, 8			;; R10's fudge						; 4
-	vmovapd zmm2, [grpreg+0*64]		;; group multiplier for R2
-	vmulpd	zmm2{k1}, zmm2, zmm28		;; fudged group multiplier for R2			; 4-7
-	vmovapd zmm21, [grpreg+1*64]		;; group multiplier for R10
-	vmulpd	zmm21{k2}, zmm21, zmm28		;; fudged group multiplier for R10			; 5-8
 
-	shr	r14, 16				;; Next 16 bits of fudge flags
-	kmovw	k1, r14d			;; Load R3 and R11 fudge factor mask			; 5
-	kshiftrw k2, k1, 8			;; R11's fudge						; 6
-	vmovapd zmm10, [grpreg+0*64]		;; group multiplier for R3
-	vmulpd	zmm10{k1}, zmm10, zmm28		;; fudged group multiplier for R3			; 6-9
-	vmovapd zmm22, [grpreg+1*64]		;; group multiplier for R11
-	vmulpd	zmm22{k2}, zmm22, zmm28		;; fudged group multiplier for R11			; 7-10
-
-	shr	r14, 16				;; Next 16 bits of fudge flags
-	kmovw	k1, r14d			;; Load R4 and R12 fudge factor mask			; 7
-	kshiftrw k2, k1, 8			;; R12's fudge						; 8
-	vmovapd zmm6, [grpreg+0*64]		;; group multiplier for R4
-	vmulpd	zmm6{k1}, zmm6, zmm28		;; fudged group multiplier for R4			; 8-11
-	vmovapd zmm23, [grpreg+1*64]		;; group multiplier for R12
-	vmulpd	zmm23{k2}, zmm23, zmm28		;; fudged group multiplier for R12			; 9-12
-
-
-	mov	r14, [maskreg+1*8]		;; Load uncompressed fudge flags
-
-	kmovw	k1, r14d			;; Load R5 and R13 fudge factor mask			; 9
-	kshiftrw k2, k1, 8			;; R13's fudge						; 10
-	vmovapd zmm16, [grpreg+0*64]		;; group multiplier for R5
-	vmulpd	zmm16{k1}, zmm16, zmm28		;; fudged group multiplier for R5			; 10-13
-	vmovapd zmm24, [grpreg+1*64]		;; group multiplier for R13
-	vmulpd	zmm24{k2}, zmm24, zmm28		;; fudged group multiplier for R13			; 11-14
-
-	shr	r14, 16				;; Next 16 bits of fudge flags
-	kmovw	k1, r14d			;; Load R6 and R14 fudge factor mask			; 11
-	kshiftrw k2, k1, 8			;; R14's fudge						; 12
-	vmovapd zmm8, [grpreg+0*64]		;; group multiplier for R6
-	vmulpd	zmm8{k1}, zmm8, zmm28		;; fudged group multiplier for R6			; 12-15
-	vmovapd zmm25, [grpreg+1*64]		;; group multiplier for R14
-	vmulpd	zmm25{k2}, zmm25, zmm28		;; fudged group multiplier for R14			; 13-16
-
-	shr	r14, 16				;; Next 16 bits of fudge flags
-	kmovw	k1, r14d			;; Load R7 and R15 fudge factor mask			; 13
-	kshiftrw k2, k1, 8			;; R15's fudge						; 14
-	vmovapd zmm12, [grpreg+0*64]		;; group multiplier for R7
-	vmulpd	zmm12{k1}, zmm12, zmm28		;; fudged group multiplier for R7			; 14-17
-	vmovapd zmm26, [grpreg+1*64]		;; group multiplier for R15
-	vmulpd	zmm26{k2}, zmm26, zmm28		;; fudged group multiplier for R15			; 15-18
-
-	shr	r14, 16				;; Next 16 bits of fudge flags
-	kmovw	k1, r14d			;; Load R8 and R16 fudge factor mask			; 15
-	kshiftrw k2, k1, 8			;; R16's fudge						; 16
-	vmovapd zmm4, [grpreg+0*64]		;; group multiplier for R8
-	vmulpd	zmm4{k1}, zmm4, zmm28		;; fudged group multiplier for R8			; 16-19
-	vmovapd zmm27, [grpreg+1*64]		;; group multiplier for R16
-	vmulpd	zmm27{k2}, zmm27, zmm28		;; fudged group multiplier for R16			; 17-20
-
-	vmulpd	zmm2, zmm2, [srcreg+rbx+d1]	;; apply the fudged group multiplier to R2		; 17-20		n 
-	vmulpd	zmm14, zmm14, [srcreg+rbx]	;; apply the fudged group multiplier to R1		; 18-21
-	vmulpd	zmm6, zmm6, [srcreg+rbx+d2+d1]	;; apply the fudged group multiplier to R4		; 18-21		n 
-	vmulpd	zmm10, zmm10, [srcreg+rbx+d2]	;; apply the fudged group multiplier to R3		; 19-22
-	vmulpd	zmm8, zmm8, [srcreg+rbx+d4+d1]	;; apply the fudged group multiplier to R6		; 19-22		n 
-	vmulpd	zmm16, zmm16, [srcreg+rbx+d4]	;; apply the fudged group multiplier to R5		; 20-23
-	vmulpd	zmm4, zmm4, [srcreg+rbx+d4+d2+d1];; apply the fudged group multiplier to R8		; 20-23		n 
-	vmulpd	zmm12, zmm12, [srcreg+rbx+d4+d2];; apply the fudged group multiplier to R7		; 21-24
-
-	bump	maskreg, maskinc
+	kshiftrw k2, k1, 8			;; R9's fudge						; 13		n 15
+	vmulpd	zmm27, zmm31, zmm30		;; unfudged multiplier for R16				; 13-16		n 37
 	bump	grpreg, grpinc
 
-	vmovapd	zmm0, [srcreg+rbx+d1+64]	;; r10
-	zfmaddpd zmm1, zmm0, zmm21, zmm2	;; r2+r10*fudged_group_mult				; 21-24		n 
-	zfnmaddpd zmm2, zmm0, zmm21, zmm2	;; r2-r10*fudged_group_mult				; 22-25		n 
+	kmovw	k3, r14d			;; Load R2 and R10 fudge factor mask			; 14		n 15
+	vmulpd	zmm14{k1}, zmm14, zmm28		;; apply fudge to R1					; 14-17		n 22
+	shr	r14, 16				;; Next 16 bits of fudge flags
 
-	vmovapd	zmm0, [srcreg+rbx+d2+d1+64]	;; r12
-	zfmaddpd zmm5, zmm0, zmm23, zmm6	;; r4+r12*fudged_group_mult				; 22-25		n 
-	zfnmaddpd zmm6, zmm0, zmm23, zmm6	;; r4-r12*fudged_group_mult				; 23-26		n 
-
-	vmovapd	zmm0, [srcreg+rbx+d4+d1+64]	;; r14
-	zfmaddpd zmm7, zmm0, zmm25, zmm8	;; r6+r14*fudged_group_mult				; 23-26		n 
-	zfnmaddpd zmm8, zmm0, zmm25, zmm8	;; r6-r14*fudged_group_mult				; 24-27		n 
-
-	vmovapd	zmm0, [srcreg+rbx+d4+d2+d1+64]	;; r16
-	zfmaddpd zmm3, zmm0, zmm27, zmm4	;; r8+r16*fudged_group_mult				; 24-27		n 
-	zfnmaddpd zmm4, zmm0, zmm27, zmm4	;; r8-r16*fudged_group_mult				; 25-28		n 
-
-	vmovapd	zmm0, [srcreg+rbx+64]		;; r9
-	zfmaddpd zmm13, zmm0, zmm20, zmm14	;; r1+r9*fudged_group_mult				; 25-28		n 
-	zfnmaddpd zmm14, zmm0, zmm20, zmm14	;; r1-r9*fudged_group_mult				; 26-29		n 
-
-	vmovapd	zmm0, [srcreg+rbx+d4+64]	;; r13
-	zfmaddpd zmm15, zmm0, zmm24, zmm16	;; r5+r13*fudged_group_mult				; 26-29		n 
-	zfnmaddpd zmm16, zmm0, zmm24, zmm16	;; r5-r13*fudged_group_mult				; 27-30		n 
-
-	vmovapd	zmm0, [srcreg+rbx+d2+64]	;; r11
-	zfmaddpd zmm9, zmm0, zmm22, zmm10	;; r3+r11*fudged_group_mult				; 27-30		n 
-	zfnmaddpd zmm10, zmm0, zmm22, zmm10	;; r3-r11*fudged_group_mult				; 28-31		n 
-
-	vmovapd	zmm0, [srcreg+rbx+d4+d2+64]	;; r15
-	zfmaddpd zmm11, zmm0, zmm26, zmm12	;; r7+r15*fudged_group_mult				; 28-31		n 
-	zfnmaddpd zmm12, zmm0, zmm26, zmm12	;; r7-r15*fudged_group_mult				; 29-32		n 
-
-	L1prefetch srcreg+L1pd, L1pt
-	L1prefetch srcreg+64+L1pd, L1pt
-	L1prefetch srcreg+d1+L1pd, L1pt
-	L1prefetch srcreg+d1+64+L1pd, L1pt
-	L1prefetch srcreg+d2+L1pd, L1pt
-	L1prefetch srcreg+d2+64+L1pd, L1pt
-	L1prefetch srcreg+d2+d1+L1pd, L1pt
-	L1prefetch srcreg+d2+d1+64+L1pd, L1pt
-	L1prefetch srcreg+d4+L1pd, L1pt
-	L1prefetch srcreg+d4+64+L1pd, L1pt
-	L1prefetch srcreg+d4+d1+L1pd, L1pt
-	L1prefetch srcreg+d4+d1+64+L1pd, L1pt
-	L1prefetch srcreg+d4+d2+L1pd, L1pt
-	L1prefetch srcreg+d4+d2+64+L1pd, L1pt
-	L1prefetch srcreg+d4+d2+d1+L1pd, L1pt
-	L1prefetch srcreg+d4+d2+d1+64+L1pd, L1pt
-
-	vmulpd	zmm13, zmm13, [colreg+0*8]{1to8};; apply the col multiplier to R1/R9			; 17-20
-	vmulpd	zmm14, zmm14, [colreg+0*8]{1to8};; apply the col multiplier to R1/R9			; 17-20
-	vmulpd	zmm1, zmm1, [colreg+1*8]{1to8}	;; apply the col multiplier to R2/R10			; 17-20
-	vmulpd	zmm2, zmm2, [colreg+1*8]{1to8}	;; apply the col multiplier to R2/R10			; 17-20
-	vmulpd	zmm9, zmm9, [colreg+2*8]{1to8}	;; apply the col multiplier to R3/R11			; 17-20
-	vmulpd	zmm10, zmm10, [colreg+2*8]{1to8};; apply the col multiplier to R3/R11			; 17-20
-	vmulpd	zmm5, zmm5, [colreg+3*8]{1to8}	;; apply the col multiplier to R4/R12			; 17-20
-	vmulpd	zmm6, zmm6, [colreg+3*8]{1to8}	;; apply the col multiplier to R4/R12			; 17-20
-	vmulpd	zmm15, zmm15, [colreg+4*8]{1to8};; apply the col multiplier to R5/R13			; 17-20
-	vmulpd	zmm16, zmm16, [colreg+4*8]{1to8};; apply the col multiplier to R5/R13			; 17-20
-	vmulpd	zmm7, zmm7, [colreg+5*8]{1to8}	;; apply the col multiplier to R6/R14			; 17-20
-	vmulpd	zmm8, zmm8, [colreg+5*8]{1to8}	;; apply the col multiplier to R6/R14			; 17-20
-	vmulpd	zmm11, zmm11, [colreg+6*8]{1to8};; apply the col multiplier to R7/R15			; 17-20
-	vmulpd	zmm12, zmm12, [colreg+6*8]{1to8};; apply the col multiplier to R7/R15			; 17-20
-	vmulpd	zmm3, zmm3, [colreg+7*8]{1to8}	;; apply the col multiplier to R8/R16			; 17-20
-	vmulpd	zmm4, zmm4, [colreg+7*8]{1to8}	;; apply the col multiplier to R8/R16			; 17-20
-
+	kshiftrw k4, k3, 8			;; R10's fudge						; 15		n 17
+	vmulpd	zmm20{k2}, zmm20, zmm28		;; fudged multiplier for R9				; 15-18		n 22
 	bump	colreg, colinc
 
-	zscatter srcreg,d1,d2,d4,zmm13,zmm1,zmm9,zmm5,zmm15,zmm7,zmm11,zmm3,zmm31
-	zscatter srcreg+64,d1,d2,d4,zmm14,zmm2,zmm10,zmm6,zmm16,zmm8,zmm12,zmm4,zmm31
+	kmovw	k1, r14d			;; Load R3 and R11 fudge factor mask			; 16		n 17
+	vmulpd	zmm2{k3}, zmm2, zmm28		;; apply fudge to R2					; 16-19		n 23
+	shr	r14, 16				;; Next 16 bits of fudge flags
+
+	kshiftrw k2, k1, 8			;; R11's fudge						; 17		n 19
+	vmulpd	zmm21{k4}, zmm21, zmm28		;; fudged multiplier for R10				; 17-20		n 23
+
+	kmovw	k3, r14d			;; Load R4 and R12 fudge factor mask			; 18		n 19
+	vmulpd	zmm10{k1}, zmm10, zmm28		;; apply fudge to R3					; 18-21		n 24
+
+	mov	r14, [maskreg+1*8]		;; Load uncompressed fudge flags
+	kshiftrw k4, k3, 8			;; R12's fudge						; 19		n 21
+	vmulpd	zmm22{k2}, zmm22, zmm28		;; fudged multiplier for R11				; 19-22		n 24
+	bump	maskreg, maskinc
+
+	kmovw	k1, r14d			;; Load R5 and R13 fudge factor mask			; 20		n 21
+	vmulpd	zmm6{k3}, zmm6, zmm28		;; apply fudge to R4					; 20-23		n 25
+	shr	r14, 16				;; Next 16 bits of fudge flags
+	vmovapd	zmm17, [srcreg+rbx+64]		;; r9
+
+	kshiftrw k2, k1, 8			;; R13's fudge						; 21		n 27
+	vmulpd	zmm23{k4}, zmm23, zmm28		;; fudged multiplier for R12				; 21-24		n 25
+	vmovapd	zmm18, [srcreg+rbx+d1+64]	;; r10
+
+	kmovw	k3, r14d			;; Load R6 and R14 fudge factor mask			; 22		n 23
+	zfmaddpd zmm13, zmm17, zmm20, zmm14	;; r1+r9*fudged_mult					; 22-25		n 28
+	shr	r14, 16				;; Next 16 bits of fudge flags
+	vmovapd	zmm0, [srcreg+rbx+d2+64]	;; r11
+
+	kshiftrw k4, k3, 8			;; R14's fudge						; 23		n 33
+	zfmaddpd zmm1, zmm18, zmm21, zmm2	;; r2+r10*fudged_mult					; 23-26		n 28
+	vmovapd	zmm19, [srcreg+rbx+d2+d1+64]	;; r12
+
+	kmovw	k5, r14d			;; Load R7 and R15 fudge factor mask			; 24		n 25
+	zfmaddpd zmm9, zmm0, zmm22, zmm10	;; r3+r11*fudged_mult					; 24-27		n 30
+	shr	r14, 16				;; Next 16 bits of fudge flags
+	vmovapd	zmm29, [srcreg+rbx+d4+64]	;; r13
+
+	kshiftrw k6, k5, 8			;; R15's fudge						; 25		n 35
+	zfmaddpd zmm5, zmm19, zmm23, zmm6	;; r4+r12*fudged_mult					; 25-28		n 30
+	L1prefetch srcreg+L1pd, L1pt
+
+	kmovw	k7, r14d			;; Load R8 and R16 fudge factor mask			; 26		n 27
+	vmulpd	zmm16{k1}, zmm16, zmm28		;; apply fudge to R5					; 26-29		n 38
+	L1prefetch srcreg+64+L1pd, L1pt
+
+	kshiftrw k1, k7, 8			;; R16's fudge						; 27		n 37
+	vmulpd	zmm24{k2}, zmm24, zmm28		;; fudged multiplier for R13				; 27-30		n 38
+
+;	zscatter srcreg,d1,d2,d4,zmm13,zmm1,zmm3,zmm9,zmm15,zmm7,zmm11,zmm3,zmm31
+;	zscatter srcreg+64,d1,d2,d4,zmm14,zmm2,zmm4,zmm10,zmm16,zmm8,zmm12,zmm6,zmm30
+
+	vshufpd	zmm31, zmm13, zmm1, 00000000b	;; d1_6 d0_6 d1_4 d0_4 d1_2 d0_2 d1_0 d0_0 R1/R2	; 28		n 32
+	zfnmaddpd zmm14, zmm17, zmm20, zmm14	;; r1-r9*fudged_mult					; 28-31		n 36
+	vmovapd	zmm17, [srcreg+rbx+d4+d1+64]	;; r14
+
+	vshufpd	zmm13, zmm13, zmm1, 11111111b	;; d1_7 d0_7 d1_5 d0_5 d1_3 d0_3 d1_1 d0_1 R1/R2	; 29		n 34
+	zfnmaddpd zmm2, zmm18, zmm21, zmm2	;; r2-r10*fudged_mult					; 29-32		n 36
+	vmovapd	zmm20, [srcreg+rbx+d4+d2+64]	;; r15
+
+	vshufpd	zmm1, zmm9, zmm5, 00000000b	;; d3_6 d2_6 d3_4 d2_4 d3_2 d2_2 d3_0 d2_0 R3/R4	; 30		n 32
+	zfnmaddpd zmm10, zmm0, zmm22, zmm10	;; r3-r11*fudged_mult					; 30-33		n 38
+	vmovapd	zmm18, [srcreg+rbx+d4+d2+d1+64]	;; r16
+
+	vshufpd	zmm9, zmm9, zmm5, 11111111b	;; d3_7 d2_7 d3_5 d2_5 d3_3 d2_3 d3_1 d2_1 R3/R4	; 31		n 34
+	zfnmaddpd zmm6, zmm19, zmm23, zmm6	;; r4-r12*fudged_mult					; 31-34		n 38
+	L1prefetch srcreg+d1+L1pd, L1pt
+
+	vshuff64x2 zmm5, zmm31, zmm1, 10001000b ;; d3_4 d2_4 d3_0 d2_0 d1_4 d0_4 d1_0 d0_0		; 32-34		n 56
+	vmulpd	zmm8{k3}, zmm8, zmm28		;; apply fudge to R6					; 32-35		n 39
+	L1prefetch srcreg+d1+64+L1pd, L1pt
+
+	vshuff64x2 zmm31, zmm31, zmm1, 11011101b ;; d3_6 d2_6 d3_2 d2_2 d1_6 d0_6 d1_2 d0_2		; 33-35		n 58
+	vmulpd	zmm25{k4}, zmm25, zmm28		;; fudged multiplier for R14				; 33-36		n 39
+	L1prefetch srcreg+d2+L1pd, L1pt
+
+	vshuff64x2 zmm1, zmm13, zmm9, 10001000b ;; d3_5 d2_5 d3_1 d2_1 d1_5 d0_5 d1_1 d0_1		; 34-36		n 60
+	vmulpd	zmm12{k5}, zmm12, zmm28		;; apply fudge to R7					; 34-37		n 42
+	L1prefetch srcreg+d2+64+L1pd, L1pt
+
+	vshuff64x2 zmm13, zmm13, zmm9, 11011101b ;; d3_7 d2_7 d3_3 d2_3 d1_7 d0_7 d1_3 d0_3		; 35-37		n 62
+	vmulpd	zmm26{k6}, zmm26, zmm28		;; fudged multiplier for R15				; 35-38		n 42
+	L1prefetch srcreg+d2+d1+L1pd, L1pt
+
+	vshufpd	zmm30, zmm14, zmm2, 00000000b	;; d1_6 d0_6 d1_4 d0_4 d1_2 d0_2 d1_0 d0_0 R9/R10	; 36		n 40
+	vmulpd	zmm4{k7}, zmm4, zmm28		;; apply fudge to R8					; 36-39		n 43
+	L1prefetch srcreg+d2+d1+64+L1pd, L1pt
+
+	vshufpd	zmm14, zmm14, zmm2, 11111111b	;; d1_7 d0_7 d1_5 d0_5 d1_3 d0_3 d1_1 d0_1 R9/R10	; 37		n 42
+	vmulpd	zmm27{k1}, zmm27, zmm28		;; fudged multiplier for R16				; 37-40		n 43
+	L1prefetch srcreg+d4+L1pd, L1pt
+
+	vshufpd	zmm2, zmm10, zmm6, 00000000b	;; d3_6 d2_6 d3_4 d2_4 d3_2 d2_2 d3_0 d2_0 R11/R12	; 38		n 40
+	zfmaddpd zmm15, zmm29, zmm24, zmm16	;; r5+r13*fudged_mult					; 38-41		n 44
+	L1prefetch srcreg+d4+64+L1pd, L1pt
+
+	vshufpd	zmm10, zmm10, zmm6, 11111111b	;; d3_7 d2_7 d3_5 d2_5 d3_3 d2_3 d3_1 d2_1 R11/R12	; 39		n 42
+	zfmaddpd zmm7, zmm17, zmm25, zmm8	;; r6+r14*fudged_mult					; 39-42		n 44
+	L1prefetch srcreg+d4+d1+L1pd, L1pt
+
+	vshuff64x2 zmm6, zmm30, zmm2, 10001000b ;; d3_4 d2_4 d3_0 d2_0 d1_4 d0_4 d1_0 d0_0		; 40-42		n 68
+	zfnmaddpd zmm16, zmm29, zmm24, zmm16	;; r5-r13*fudged_mult					; 40-43		n 46
+	L1prefetch srcreg+d4+d1+64+L1pd, L1pt
+
+	vshuff64x2 zmm30, zmm30, zmm2, 11011101b ;; d3_6 d2_6 d3_2 d2_2 d1_6 d0_6 d1_2 d0_2		; 41-43		n 70
+	zfnmaddpd zmm8, zmm17, zmm25, zmm8	;; r6-r14*fudged_mult					; 41-44		n 46
+	L1prefetch srcreg+d4+d2+L1pd, L1pt
+
+	vshuff64x2 zmm2, zmm14, zmm10, 10001000b ;; d3_5 d2_5 d3_1 d2_1 d1_5 d0_5 d1_1 d0_1		; 42-44		n 72
+	zfmaddpd zmm11, zmm20, zmm26, zmm12	;; r7+r15*fudged_mult					; 42-45		n 48
+	L1prefetch srcreg+d4+d2+64+L1pd, L1pt
+
+	vshuff64x2 zmm14, zmm14, zmm10, 11011101b ;; d3_7 d2_7 d3_3 d2_3 d1_7 d0_7 d1_3 d0_3		; 43-45		n 74
+	zfmaddpd zmm3, zmm18, zmm27, zmm4	;; r8+r16*fudged_mult					; 43-46		n 48
+	L1prefetch srcreg+d4+d2+d1+L1pd, L1pt
+
+	vshufpd	zmm9, zmm15, zmm7, 00000000b	;; d5_6 d4_6 d5_4 d4_4 d5_2 d4_2 d5_0 d4_0 R5/R6	; 44		n 52
+	zfnmaddpd zmm12, zmm20, zmm26, zmm12	;; r7-r15*fudged_mult					; 44-47		n 50
+	L1prefetch srcreg+d4+d2+d1+64+L1pd, L1pt
+
+	vshufpd	zmm15, zmm15, zmm7, 11111111b	;; d5_7 d4_7 d5_5 d4_5 d5_3 d4_3 d5_1 d4_1 R5/R6	; 45		n 54
+	zfnmaddpd zmm4, zmm18, zmm27, zmm4	;; r8-r16*fudged_mult					; 45-48		n 50
+
+	vshufpd	zmm10, zmm16, zmm8, 00000000b	;; d5_6 d4_6 d5_4 d4_4 d5_2 d4_2 d5_0 d4_0 R13/R14	; 46		n 64
+	vshufpd	zmm16, zmm16, zmm8, 11111111b	;; d5_7 d4_7 d5_5 d4_5 d5_3 d4_3 d5_1 d4_1 R13/R14	; 47		n 66
+
+	vshufpd	zmm7, zmm11, zmm3, 00000000b	;; d7_6 d6_6 d7_4 d6_4 d7_2 d6_2 d7_0 d6_0 R7/R8	; 48		n 52
+	vshufpd	zmm11, zmm11, zmm3, 11111111b	;; d7_7 d6_7 d7_5 d6_5 d7_3 d6_3 d7_1 d6_1 R7/R8	; 49		n 54
+
+	vshufpd	zmm8, zmm12, zmm4, 00000000b	;; d7_6 d6_6 d7_4 d6_4 d7_2 d6_2 d7_0 d6_0 R15/R16	; 50		n 64
+	vshufpd	zmm12, zmm12, zmm4, 11111111b	;; d7_7 d6_7 d7_5 d6_5 d7_3 d6_3 d7_1 d6_1 R15/R16	; 51		n 66
+
+	vshuff64x2 zmm3, zmm9, zmm7, 10001000b ;; d7_4 d6_4 d7_0 d6_0 d5_4 d4_4 d5_0 d4_0		; 52-54		n 56
+	vshuff64x2 zmm9, zmm9, zmm7, 11011101b ;; d7_6 d6_6 d7_2 d6_2 d5_6 d4_6 d5_2 d4_2		; 53-55		n 58
+	vshuff64x2 zmm7, zmm15, zmm11, 10001000b ;; d7_5 d6_5 d7_1 d6_1 d5_5 d4_5 d5_1 d4_1		; 54-56		n 60
+	vshuff64x2 zmm15, zmm15, zmm11, 11011101b ;; d7_7 d6_7 d7_3 d6_3 d5_7 d4_7 d5_3 d4_3		; 55-57		n 62
+
+	vshuff64x2 zmm11, zmm5, zmm3, 10001000b ;; d7_0 d6_0 d5_0 d4_0 d3_0 d2_0 d1_0 d0_0		; 56-58
+	vshuff64x2 zmm5, zmm5, zmm3, 11011101b ;; d7_4 d6_4 d5_4 d4_4 d3_4 d2_4 d1_4 d0_4		; 57-59
+	vshuff64x2 zmm3, zmm31, zmm9, 10001000b ;; d7_1 d6_1 d5_1 d4_1 d3_1 d2_1 d1_1 d0_1		; 58-60
+	vshuff64x2 zmm31, zmm31, zmm9, 11011101b ;; d7_5 d6_5 d5_5 d4_5 d3_5 d2_5 d1_5 d0_5		; 59-61
+	zstore	[srcreg], zmm11										; 59
+
+	vshuff64x2 zmm9, zmm1, zmm7, 10001000b ;; d7_2 d6_2 d5_2 d4_2 d3_2 d2_2 d1_2 d0_2		; 60-62
+	zstore	[srcreg+d4], zmm5									; 60
+
+	vshuff64x2 zmm1, zmm1, zmm7, 11011101b ;; d7_6 d6_6 d5_6 d4_6 d3_6 d2_6 d1_6 d0_6		; 61-63
+	zstore	[srcreg+d2], zmm3									; 61
+
+	vshuff64x2 zmm7, zmm13, zmm15, 10001000b ;; d7_3 d6_3 d5_3 d4_3 d3_3 d2_3 d1_3 d0_3		; 62-64
+	zstore	[srcreg+d4+d2], zmm31									; 62
+
+	vshuff64x2 zmm13, zmm13, zmm15, 11011101b ;; d7_7 d6_7 d5_7 d4_7 d3_7 d2_7 d1_7 d0_7		; 63-65
+	zstore	[srcreg+d1], zmm9									; 63
+
+	vshuff64x2 zmm4, zmm10, zmm8, 10001000b ;; d7_4 d6_4 d7_0 d6_0 d5_4 d4_4 d5_0 d4_0		; 64-66		n 68
+	zstore	[srcreg+d4+d1], zmm1									; 64
+
+	vshuff64x2 zmm10, zmm10, zmm8, 11011101b ;; d7_6 d6_6 d7_2 d6_2 d5_6 d4_6 d5_2 d4_2		; 65-67		n 70
+	zstore	[srcreg+d2+d1], zmm7									; 65
+
+	vshuff64x2 zmm8, zmm16, zmm12, 10001000b ;; d7_5 d6_5 d7_1 d6_1 d5_5 d4_5 d5_1 d4_1		; 66-68		n 72
+	zstore	[srcreg+d4+d2+d1], zmm13								; 66
+
+	vshuff64x2 zmm16, zmm16, zmm12, 11011101b ;; d7_7 d6_7 d7_3 d6_3 d5_7 d4_7 d5_3 d4_3		; 67-69		n 74
+
+	vshuff64x2 zmm12, zmm6, zmm4, 10001000b ;; d7_0 d6_0 d5_0 d4_0 d3_0 d2_0 d1_0 d0_0		; 68-70
+	vshuff64x2 zmm6, zmm6, zmm4, 11011101b ;; d7_4 d6_4 d5_4 d4_4 d3_4 d2_4 d1_4 d0_4		; 69-71
+	vshuff64x2 zmm4, zmm30, zmm10, 10001000b ;; d7_1 d6_1 d5_1 d4_1 d3_1 d2_1 d1_1 d0_1		; 70-72
+	vshuff64x2 zmm30, zmm30, zmm10, 11011101b ;; d7_5 d6_5 d5_5 d4_5 d3_5 d2_5 d1_5 d0_5		; 71-73
+	zstore	[srcreg+64], zmm12									; 71
+
+	vshuff64x2 zmm10, zmm2, zmm8, 10001000b ;; d7_2 d6_2 d5_2 d4_2 d3_2 d2_2 d1_2 d0_2		; 72-74
+	zstore	[srcreg+d4+64], zmm6									; 72
+
+	vshuff64x2 zmm2, zmm2, zmm8, 11011101b ;; d7_6 d6_6 d5_6 d4_6 d3_6 d2_6 d1_6 d0_6		; 73-75
+	zstore	[srcreg+d2+64], zmm4									; 73
+
+	vshuff64x2 zmm8, zmm14, zmm16, 10001000b ;; d7_3 d6_3 d5_3 d4_3 d3_3 d2_3 d1_3 d0_3		; 74-76
+	zstore	[srcreg+d4+d2+64], zmm30								; 74
+
+	vshuff64x2 zmm14, zmm14, zmm16, 11011101b ;; d7_7 d6_7 d5_7 d4_7 d3_7 d2_7 d1_7 d0_7		; 75-77
+	zstore	[srcreg+d1+64], zmm10									; 75
+
+	zstore	[srcreg+d4+d1+64], zmm2									; 76
+	zstore	[srcreg+d2+d1+64], zmm8									; 77
+	zstore	[srcreg+d4+d2+d1+64], zmm14								; 78
 	bump	srcreg, srcinc
 	ENDM
 
 
-;; Wrapper macro that takes two reals, swizzles data, and applies weights.  Output will be suitable for use by a pass 2 FFT macro.
+ ;; Wrapper macro that takes two reals, swizzles data, and applies weights.  Output will be suitable for use by a pass 2 FFT macro.
 
 zs_onepass_real_unfft_wrapper_preload MACRO
 	zgather_preload
@@ -305,7 +403,6 @@ zs_onepass_real_unfft_wrapper MACRO srcreg,srcinc,d1,d2,d4,colreg,colinc,maskreg
 	zstore	[srcreg+d4+d2+d1+64], zmm6	;; Save R16						; 58+2
 	bump	srcreg, srcinc
 	ENDM
-
 
 
 ;; Wrapper macro that takes two reals, swizzles data, and applies weights.  Output will be suitable for use by a pass 2 FFT macro.
