@@ -1384,7 +1384,7 @@ double *zr4dwpn_build_fudge_table (
 
 		// Create the XOR masks
 		compressed_fudges = (uint64_t *) asm_data->compressed_fudges;
-		memset (compressed_fudges, 0, num_grp_mults / sizeof (char));
+		memset (compressed_fudges, 0, num_grp_mults / 8);	// One bit used per grp_mult
 		norm_grp_mults = (double *) asm_data->norm_grp_mults;
 		for (i = 0; i < num_grp_mults; i++) if (norm_grp_mults[i] < norm_grp_mults[i&63]) bitset (compressed_fudges, i);
 		num_fudges = num_grp_mults / 64;
