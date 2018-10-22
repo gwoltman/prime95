@@ -3463,9 +3463,8 @@ zr8_cmn_sixteen_reals_eight_complex_fft_final_preload MACRO swiz
 	vbroadcastsd zmm29, ZMM_P383
 swiz	vmovdqa64 zmm28, ZMM_GATHER_DISTS	;; 64-bit gather distances of 0, d1, d2, d2+d1, d4, d4+d1, d4+d2, d4+d2+d1
 swiz	kxnorw	k2, k0, k0			;; Set k2 mask to all ones
-	mov	rcx, 11111110b
-	kmovw	k7, ecx
-	knotw	k6, k7
+	kshiftlw k7, k2, 1			;; Set k7 to 11111110b
+	knotw	k6, k7				;; Set k6 to 00000001b
 	ENDM
 zr8_cmn_sixteen_reals_eight_complex_fft_final MACRO swiz,srcreg,srcinc,d1,d2,d4,maxrpt,L1pt,L1pd
 no swiz	vmovsd	xmm0, Q [srcreg]		;; R1+R9 (new R1)
@@ -3801,9 +3800,8 @@ zr8_cmn_sixteen_reals_eight_complex_with_mult_preload MACRO swiz
 	vbroadcastsd zmm29, ZMM_P383
 swiz	vmovdqa64 zmm28, ZMM_GATHER_DISTS	;; 64-bit gather distances of 0, d1, d2, d2+d1, d4, d4+d1, d4+d2, d4+d2+d1
 swiz	kxnorw	k2, k0, k0			;; Set k2 mask to all ones
-	mov	rcx, 11111110b
-	kmovw	k7, ecx
-	knotw	k6, k7
+	kshiftlw k7, k2, 1			;; Set k7 to 11111110b
+	knotw	k6, k7				;; Set k6 to 00000001b
 	ENDM
 zr8_cmn_sixteen_reals_eight_complex_with_mult MACRO swiz,srcreg,srcinc,d1,d2,d4,maxrpt,L1pt,L1pd
 	zmult7	srcreg, srcreg+rbp
@@ -4535,9 +4533,8 @@ zr8_cmn_sixteen_reals_eight_complex_with_mulf_preload MACRO swiz
 	vbroadcastsd zmm29, ZMM_P383
 swiz	vmovdqa64 zmm28, ZMM_GATHER_DISTS	;; 64-bit gather distances of 0, d1, d2, d2+d1, d4, d4+d1, d4+d2, d4+d2+d1
 swiz	kxnorw	k2, k0, k0			;; Set k2 mask to all ones
-	mov	rcx, 11111110b
-	kmovw	k7, ecx
-	knotw	k6, k7
+	kshiftlw k7, k2, 1			;; Set k7 to 11111110b
+	knotw	k6, k7				;; Set k6 to 00000001b
 	ENDM
 zr8_cmn_sixteen_reals_eight_complex_with_mulf MACRO swiz,srcreg,srcinc,d1,d2,d4,maxrpt,L1pt,L1pd
 	zmult7	srcreg+rbx, srcreg+rbp
@@ -5035,9 +5032,8 @@ zr8_cmn_sixteen_reals_eight_complex_with_square_preload MACRO swiz
 	vbroadcastsd zmm28, ZMM_TWO
 swiz	vmovdqa64 zmm27, ZMM_GATHER_DISTS	;; 64-bit gather distances of 0, d1, d2, d2+d1, d4, d4+d1, d4+d2, d4+d2+d1
 swiz	kxnorw	k2, k0, k0			;; Set k2 mask to all ones
-	mov	rcx, 11111110b
-	kmovw	k7, ecx
-	knotw	k6, k7
+	kshiftlw k7, k2, 1			;; Set k7 to 11111110b
+	knotw	k6, k7				;; Set k6 to 00000001b
 	ENDM
 zr8_cmn_sixteen_reals_eight_complex_with_square MACRO swiz,srcreg,srcinc,d1,d2,d4,maxrpt,L1pt,L1pd
 	zsquare7 srcreg
@@ -5708,7 +5704,7 @@ swiz	vscatterqpd [srcreg+zmm27*1+64+48] {k1}, zmm2	;; Scatter store I7
 
 ;; BUG - this works, but was written prior to our realization that we really need swizzling versions
 UNUSEDzr8_sixteen_reals_eight_complex_fft_final_preload MACRO
-	mov	rcx, 11111110b
+	mov	rcx, 11111110b			;; BUG - using rcx trashes prefetching pointer
 	kmovw	k7, ecx
 	knotw	k6, k7
 	vbroadcastsd zmm0, ZMM_HALF		;; BUG - create a ZMM_ONE constant
