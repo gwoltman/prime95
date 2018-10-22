@@ -2100,7 +2100,7 @@ do_nothing_plus_L1prefetch MACRO srcreg,srcinc,d1,d2,d4,screg,scinc,maxrpt,L1pt,
 	ENDM
 
 
-;; A new zgather macro with non-standard ordering of the output
+;; A new improved zgather macro (more balanced port usage)
 
 zzgather_preload MACRO unused
 	mov	eax, 11110000b
@@ -2111,83 +2111,40 @@ zzgather_preload MACRO unused
 zzgather MACRO srcreg,d1,d2,d4,r1,r2,r3,r4,r5,r6,r7,r8, r9
 	vmovapd	r3, [srcreg]			;; d0_7	d0_6 d0_5 d0_4 d0_3 d0_2 d0_1 d0_0
 	vmovapd	r5, [srcreg+d1]			;; d1_7	d1_6 d1_5 d1_4 d1_3 d1_2 d1_1 d1_0
-	vmovapd	r6, [srcreg+d2]			;; d2_7	d2_6 d2_5 d2_4 d2_3 d2_2 d2_1 d2_0
-	vmovapd	r4, [srcreg+d2+d1]		;; d3_7	d3_6 d3_5 d3_4 d3_3 d3_2 d3_1 d3_0
-	vmovapd	r7, [srcreg+d4]			;; d4_7	d4_6 d4_5 d4_4 d4_3 d4_2 d4_1 d4_0
-	vmovapd	r9, [srcreg+d4+d1]		;; d5_7	d5_6 d5_5 d5_4 d5_3 d5_2 d5_1 d5_0
+	vmovapd	r6, [srcreg+d4]			;; d4_7	d4_6 d4_5 d4_4 d4_3 d4_2 d4_1 d4_0
+	vmovapd	r4, [srcreg+d4+d1]		;; d5_7	d5_6 d5_5 d5_4 d5_3 d5_2 d5_1 d5_0
+	vmovapd	r7, [srcreg+d2]			;; d2_7	d2_6 d2_5 d2_4 d2_3 d2_2 d2_1 d2_0
+	vmovapd	r9, [srcreg+d2+d1]		;; d3_7	d3_6 d3_5 d3_4 d3_3 d3_2 d3_1 d3_0
 	vmovapd	r1, [srcreg+d4+d2]		;; d6_7	d6_6 d6_5 d6_4 d6_3 d6_2 d6_1 d6_0
 	vmovapd	r8, [srcreg+d4+d2+d1]		;; d7_7	d7_6 d7_5 d7_4 d7_3 d7_2 d7_1 d7_0
 
-	vbroadcastf64x4	r3{k2}, [srcreg+d4]	;; d4_3 d4_2 d4_1 d4_0 d0_3 d0_2 d0_1 d0_0
-	vbroadcastf64x4	r5{k2}, [srcreg+d4+d1]	;; d5_3 d5_2 d5_1 d5_0 d1_3 d1_2 d1_1 d1_0
-	vbroadcastf64x4	r6{k2}, [srcreg+d4+d2]	;; d6_3 d6_2 d6_1 d6_0 d2_3 d2_2 d2_1 d2_0
-	vbroadcastf64x4	r4{k2}, [srcreg+d4+d2+d1];;d7_3 d7_2 d7_1 d7_0 d3_3 d3_2 d3_1 d3_0
-	vbroadcastf64x4	r7{k3}, [srcreg+32]	;; d4_7	d4_6 d4_5 d4_4 d0_7 d0_6 d0_5 d0_4
-	vbroadcastf64x4	r9{k3}, [srcreg+d1+32]	;; d5_7	d5_6 d5_5 d5_4 d1_7 d1_6 d1_5 d1_4
-	vbroadcastf64x4	r1{k3}, [srcreg+d2+32]	;; d6_7	d6_6 d6_5 d6_4 d2_7 d2_6 d2_5 d2_4
-	vbroadcastf64x4	r8{k3}, [srcreg+d2+d1+32]; d7_7	d7_6 d7_5 d7_4 d3_7 d3_6 d3_5 d3_4
+	vbroadcastf64x4	r3{k2}, [srcreg+d2]	;; d2_3 d2_2 d2_1 d2_0 d0_3 d0_2 d0_1 d0_0
+	vbroadcastf64x4	r5{k2}, [srcreg+d2+d1]	;; d3_3 d3_2 d3_1 d3_0 d1_3 d1_2 d1_1 d1_0
+	vbroadcastf64x4	r6{k2}, [srcreg+d4+d2]	;; d6_3 d6_2 d6_1 d6_0 d4_3 d4_2 d4_1 d4_0
+	vbroadcastf64x4	r4{k2}, [srcreg+d4+d2+d1];;d7_3 d7_2 d7_1 d7_0 d5_3 d5_2 d5_1 d5_0
+	vbroadcastf64x4	r7{k3}, [srcreg+32]	;; d2_7 d2_6 d2_5 d2_4 d0_7 d0_6 d0_5 d0_4
+	vbroadcastf64x4	r9{k3}, [srcreg+d1+32]	;; d3_7 d3_6 d3_5 d3_4 d1_7 d1_6 d1_5 d1_4
+	vbroadcastf64x4	r1{k3}, [srcreg+d4+32]	;; d6_7	d6_6 d6_5 d6_4 d4_7 d4_6 d4_5 d4_4
+	vbroadcastf64x4	r8{k3}, [srcreg+d4+d1+32]; d7_7	d7_6 d7_5 d7_4 d5_7 d5_6 d5_5 d5_4
 
-	vshufpd	r2, r3, r5, 00000000b		;; d5_2 d4_2 d5_0 d4_0 d1_2 d0_2 d1_0 d0_0
-	vshufpd	r5, r3, r5, 11111111b		;; d5_3 d4_3 d5_1 d4_1 d1_3 d0_3 d1_1 d0_1
-	vshufpd	r3, r6, r4, 00000000b		;; d7_2 d6_2 d7_0 d6_0 d3_2 d2_2 d3_0 d2_0
-	vshufpd	r4, r6, r4, 11111111b		;; d7_3 d6_3 d7_1 d6_1 d3_3 d2_3 d3_1 d2_1
-	vshufpd	r6, r7, r9, 00000000b		;; d5_6 d4_6 d5_4 d4_4 d1_6 d0_6 d1_4 d0_4
-	vshufpd	r9, r7, r9, 11111111b		;; d5_7 d4_7 d5_5 d4_5 d1_7 d0_7 d1_5 d0_5
-	vshufpd	r7, r1, r8, 00000000b		;; d7_6 d6_6 d7_4 d6_4 d3_6 d2_6 d3_4 d2_4
-	vshufpd	r8, r1, r8, 11111111b		;; d7_7 d6_7 d7_5 d6_5 d3_7 d2_7 d3_5 d2_5
+	vshufpd	r2, r3, r5, 00000000b		;; d3_2 d2_2 d3_0 d2_0 d1_2 d0_2 d1_0 d0_0
+	vshufpd	r5, r3, r5, 11111111b		;; d3_3 d2_3 d3_1 d2_1 d1_3 d0_3 d1_1 d0_1
+	vshufpd	r3, r6, r4, 00000000b		;; d7_2 d6_2 d7_0 d6_0 d5_2 d4_2 d5_0 d4_0
+	vshufpd	r4, r6, r4, 11111111b		;; d7_3 d6_3 d7_1 d6_1 d5_3 d4_3 d5_1 d4_1
+	vshufpd	r6, r7, r9, 00000000b		;; d3_6 d2_6 d3_4 d2_4 d1_6 d0_6 d1_4 d0_4
+	vshufpd	r9, r7, r9, 11111111b		;; d3_7 d2_7 d3_5 d2_5 d1_7 d0_7 d1_5 d0_5
+	vshufpd	r7, r1, r8, 00000000b		;; d7_6 d6_6 d7_4 d6_4 d5_6 d4_6 d5_4 d4_4
+	vshufpd	r8, r1, r8, 11111111b		;; d7_7 d6_7 d7_5 d6_5 d5_7 d4_7 d5_5 d4_5
 
-	vshuff64x2 r1, r2, r3, 10001000b	;; d7_0 d6_0 d3_0 d2_0 d5_0 d4_0 d1_0 d0_0
-	vshuff64x2 r3, r2, r3, 11011101b	;; d7_2 d6_2 d3_2 d2_2 d5_2 d4_2 d1_2 d0_2
-	vshuff64x2 r2, r5, r4, 10001000b	;; d7_1 d6_1 d3_1 d2_1 d5_1 d4_1 d1_1 d0_1
-	vshuff64x2 r4, r5, r4, 11011101b	;; d7_3 d6_3 d3_3 d2_3 d5_3 d4_3 d1_3 d0_3
-	vshuff64x2 r5, r6, r7, 00100010b	;; d7_4 d6_4 d3_4 d2_4 d5_4 d4_4 d5_4 d4_4
-	vshuff64x2 r7, r6, r7, 01110111b	;; d7_6 d6_6 d3_6 d2_6 d5_6 d4_6 d5_6 d4_6
-	vshuff64x2 r6, r9, r8, 00100010b	;; d7_5 d6_5 d3_5 d2_5 d5_5 d4_5 d5_5 d4_5
-	vshuff64x2 r8, r9, r8, 01110111b	;; d7_7 d6_7 d3_7 d2_7 d5_7 d4_7 d5_7 d4_7
+	vshuff64x2 r1, r2, r3, 10001000b	;; d7_0 d6_0 d5_0 d4_0 d3_0 d2_0 d1_0 d0_0
+	vshuff64x2 r3, r2, r3, 11011101b	;; d7_2 d6_2 d5_2 d4_2 d3_2 d2_2 d1_2 d0_2
+	vshuff64x2 r2, r5, r4, 10001000b	;; d7_1 d6_1 d5_1 d4_1 d3_1 d2_1 d1_1 d0_1
+	vshuff64x2 r4, r5, r4, 11011101b	;; d7_3 d6_3 d5_3 d4_3 d3_3 d2_3 d1_3 d0_3
+	vshuff64x2 r5, r6, r7, 10001000b	;; d7_4 d6_4 d5_4 d4_4 d3_4 d2_4 d1_4 d0_4
+	vshuff64x2 r7, r6, r7, 11011101b	;; d7_6 d6_6 d5_6 d4_6 d3_6 d2_6 d1_6 d0_6
+	vshuff64x2 r6, r9, r8, 10001000b	;; d7_5 d6_5 d5_5 d4_5 d3_5 d2_5 d1_5 d0_5
+	vshuff64x2 r8, r9, r8, 11011101b	;; d7_7 d6_7 d5_7 d4_7 d3_7 d2_7 d1_7 d0_7
 	ENDM
-
-zzscatter_preload MACRO
-	ENDM
-zzscatter MACRO srcreg,d1,d2,d4,r1,r2,r3,r4,r5,r6,r7,r8, r9   ,yr1,yr2,yr3,yr4,yr5,yr6,yr7,yr8, yr9
-	vshufpd	r9, r1, r2, 00000000b	;; d1_6 d0_6 d1_4 d0_4 d1_2 d0_2 d1_0 d0_0
-	vshufpd	r1, r1, r2, 11111111b	;; d1_7 d0_7 d1_5 d0_5 d1_3 d0_3 d1_1 d0_1
-	vshufpd	r2, r3, r4, 00000000b	;; d3_6 d2_6 d3_4 d2_4 d3_2 d2_2 d3_0 d2_0
-	vshufpd	r3, r3, r4, 11111111b	;; d3_7 d2_7 d3_5 d2_5 d3_3 d2_3 d3_1 d2_1
-	vshufpd	r4, r5, r6, 00000000b	;; d5_6 d4_6 d5_4 d4_4 d5_2 d4_2 d5_0 d4_0
-	vshufpd	r5, r5, r6, 11111111b	;; d5_7 d4_7 d5_5 d4_5 d5_3 d4_3 d5_1 d4_1
-	vshufpd	r6, r7, r8, 00000000b	;; d7_6 d6_6 d7_4 d6_4 d7_2 d6_2 d7_0 d6_0
-	vshufpd	r7, r7, r8, 11111111b	;; d7_7 d6_7 d7_5 d6_5 d7_3 d6_3 d7_1 d6_1
-
-	vshuff64x2 r8, r9, r2, 10001000b ;; d3_4 d2_4 d3_0 d2_0 d1_4 d0_4 d1_0 d0_0
-	vshuff64x2 r9, r9, r2, 11011101b ;; d3_6 d2_6 d3_2 d2_2 d1_6 d0_6 d1_2 d0_2
-	vshuff64x2 r2, r1, r3, 10001000b ;; d3_5 d2_5 d3_1 d2_1 d1_5 d0_5 d1_1 d0_1
-	vshuff64x2 r1, r1, r3, 11011101b ;; d3_7 d2_7 d3_3 d2_3 d1_7 d0_7 d1_3 d0_3
-	vshuff64x2 r3, r4, r6, 10001000b ;; d7_4 d6_4 d7_0 d6_0 d5_4 d4_4 d5_0 d4_0
-	vshuff64x2 r4, r4, r6, 11011101b ;; d7_6 d6_6 d7_2 d6_2 d5_6 d4_6 d5_2 d4_2
-	vshuff64x2 r6, r5, r7, 10001000b ;; d7_5 d6_5 d7_1 d6_1 d5_5 d4_5 d5_1 d4_1
-	vshuff64x2 r5, r5, r7, 11011101b ;; d7_7 d6_7 d7_3 d6_3 d5_7 d4_7 d5_3 d4_3
-
-;	vextractf64x4 YMMWORD PTR [rsi+32], zmm0, 1 ;; d7_0 d6_0 d5_0 d4_0 d3_0 d2_0 d1_0 d0_0
-
-	vextractf64x4 YMMWORD PTR [srcreg+32], r8, 1 ;; d7_0 d6_0 d5_0 d4_0 d3_0 d2_0 d1_0 d0_0
-	vextractf64x4 YMMWORD PTR [srcreg+d1+32], r3, 1 ;; d7_4 d6_4 d5_4 d4_4 d3_4 d2_4 d1_4 d0_4
-	vextractf64x4 YMMWORD PTR [srcreg+d2+32], r9, 1 ;; d7_1 d6_1 d5_1 d4_1 d3_1 d2_1 d1_1 d0_1
-	vextractf64x4 YMMWORD PTR [srcreg+d2+d1+32], r4, 1 ;; d7_5 d6_5 d5_5 d4_5 d3_5 d2_5 d1_5 d0_5
-	vextractf64x4 YMMWORD PTR [srcreg+d4+32], r2, 1 ;; d7_2 d6_2 d5_2 d4_2 d3_2 d2_2 d1_2 d0_2
-	vextractf64x4 YMMWORD PTR [srcreg+d4+d1+32], r6, 1 ;; d7_6 d6_6 d5_6 d4_6 d3_6 d2_6 d1_6 d0_6
-	vextractf64x4 YMMWORD PTR [srcreg+d4+d2+32], r1, 1 ;; d7_3 d6_3 d5_3 d4_3 d3_3 d2_3 d1_3 d0_3
-	vextractf64x4 YMMWORD PTR [srcreg+d4+d2+d1+32], r5, 1 ;; d7_7 d6_7 d5_7 d4_7 d3_7 d2_7 d1_7 d0_7
-
-	zstore	[srcreg], yr8
-	zstore	[srcreg+d1], yr3
-	zstore	[srcreg+d2], yr9
-	zstore	[srcreg+d2+d1], yr4
-	zstore	[srcreg+d4], yr2
-	zstore	[srcreg+d4+d1], yr6
-	zstore	[srcreg+d4+d2], yr1
-	zstore	[srcreg+d4+d2+d1], yr5
-	ENDM
-
 
 
 ; This code reads/writes 64MB (1M cache lines) in contiguous blocks.  Timings are done
