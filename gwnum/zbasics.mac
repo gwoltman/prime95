@@ -477,20 +477,20 @@ zscatter MACRO srcreg,d1,d2,d4,r1,r2,r3,r4,r5,r6,r7,r8,     r9
 
 	vshuff64x2 r7, r8, r3, 10001000b ;; d7_0 d6_0 d5_0 d4_0 d3_0 d2_0 d1_0 d0_0
 	vshuff64x2 r8, r8, r3, 11011101b ;; d7_4 d6_4 d5_4 d4_4 d3_4 d2_4 d1_4 d0_4
-	vshuff64x2 r3, r9, r4, 10001000b ;; d7_1 d6_1 d5_1 d4_1 d3_1 d2_1 d1_1 d0_1
-	vshuff64x2 r9, r9, r4, 11011101b ;; d7_5 d6_5 d5_5 d4_5 d3_5 d2_5 d1_5 d0_5
-	vshuff64x2 r4, r2, r6, 10001000b ;; d7_2 d6_2 d5_2 d4_2 d3_2 d2_2 d1_2 d0_2
-	vshuff64x2 r2, r2, r6, 11011101b ;; d7_6 d6_6 d5_6 d4_6 d3_6 d2_6 d1_6 d0_6
+	vshuff64x2 r3, r9, r4, 10001000b ;; d7_2 d6_2 d5_2 d4_2 d3_2 d2_2 d1_2 d0_2
+	vshuff64x2 r9, r9, r4, 11011101b ;; d7_6 d6_6 d5_6 d4_6 d3_6 d2_6 d1_6 d0_6
+	vshuff64x2 r4, r2, r6, 10001000b ;; d7_1 d6_1 d5_1 d4_1 d3_1 d2_1 d1_1 d0_1
+	vshuff64x2 r2, r2, r6, 11011101b ;; d7_5 d6_5 d5_5 d4_5 d3_5 d2_5 d1_5 d0_5
 	vshuff64x2 r6, r1, r5, 10001000b ;; d7_3 d6_3 d5_3 d4_3 d3_3 d2_3 d1_3 d0_3
 	vshuff64x2 r1, r1, r5, 11011101b ;; d7_7 d6_7 d5_7 d4_7 d3_7 d2_7 d1_7 d0_7
 
 	zstore	[srcreg], r7
-	zstore	[srcreg+d1], r4
-	zstore	[srcreg+d2], r3
-	zstore	[srcreg+d2+d1], r6
 	zstore	[srcreg+d4], r8
-	zstore	[srcreg+d4+d1], r2
+	zstore	[srcreg+d2], r3
 	zstore	[srcreg+d4+d2], r9
+	zstore	[srcreg+d1], r4
+	zstore	[srcreg+d4+d1], r2
+	zstore	[srcreg+d2+d1], r6
 	zstore	[srcreg+d4+d2+d1], r1
 	ENDM
 
