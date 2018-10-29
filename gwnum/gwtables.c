@@ -69,44 +69,58 @@ double *zr4dwpn_build_pass1_table (
 
 	if (gwdata->PASS1_SIZE == 0) {
 
-/* Output the 8 column multipliers and 8 inverse column multipliers used in the pass 1 wrapper routines */
+/* Output the 8 column multipliers and 8 inverse column multipliers used in real pass 1 wrapper routines. */
+/* Unlike two-pass FFTs, the 1/FFTLEN correction is applied in the inverse group multiplier rather than the */
+/* inverse column multiplier.  This lets us save one clock in the unfft wrapper. */
 
-		{
+		if (!gwdata->ALL_COMPLEX_FFT) {
 			double *weights, *inverse_weights;
 			weights = table;
 			inverse_weights = weights + 8;
 			table = inverse_weights + 8;
 			for (i = 0; i < 8; i++) {
-				gwfft_weights3 (gwdata->dd_data, i, weights, NULL, inverse_weights);
+				gwfft_weights3 (gwdata->dd_data, i, weights, inverse_weights, NULL);
 				weights++;
 				inverse_weights++;
 			}
 		}
 
-/* Compute the roots-of-minus-one premultipliers.  The root-of-minus-one premultiplier is */
-/* for 2N, and a root-of-minus-one-of-2N is the same as a root unity for 4N. */
+/* For the all complex pass 1 FFT wrapper, we combine the premultiplier sine with the column weight to save a few clocks. */
+/* In the all complex pass 1 unFFT wrapper, we must multiply the precomputed premultiplier sine * weight by 1/weight^2 to get */
+/* the premultiplier sine * inverse column weight. */
+/* Compute the roots-of-minus-one premultipliers.  The root-of-minus-one premultiplier is for 2N, and a root-of-minus-one-of-2N is */
+/* the same as a root unity for 4N.  We output the cosine/sine value and the sine value premultiplied by the column weight. */
 
-		if (gwdata->ALL_COMPLEX_FFT) {
+		else {
+			double	*inverse_weights, colweights[128];
+
+			/* Generate the 8 inverse column weights (squared) */
+			inverse_weights = table;
+			table = inverse_weights + 8;
+			for (i = 0; i < 8; i++) *inverse_weights++ = gwfft_weight_inverse_squared (gwdata->dd_data, i);
+			/* Generate the 8 column weights in a scratch area */
+			gwfft_colweights (gwdata->dd_data, &colweights, 8);
+			/* Generate the complex premultipliers times the column weights */
 			N = gwdata->FFTLEN / 2;			/* Number of complex values */
 			upper_avx512_word = 8;
 			for (j = 0; j < gwdata->FFTLEN / 2; j += 8 * upper_avx512_word) {
-				gwsincos1plus01234567by8 (j, 1, N * 4, table);
-				gwsincos1plus01234567by8 (j + upper_avx512_word, 1, N * 4, table + 1);
-				gwsincos1plus01234567by8 (j + 2 * upper_avx512_word, 1, N * 4, table + 2);
-				gwsincos1plus01234567by8 (j + 3 * upper_avx512_word, 1, N * 4, table + 3);
-				gwsincos1plus01234567by8 (j + 4 * upper_avx512_word, 1, N * 4, table + 4);
-				gwsincos1plus01234567by8 (j + 5 * upper_avx512_word, 1, N * 4, table + 5);
-				gwsincos1plus01234567by8 (j + 6 * upper_avx512_word, 1, N * 4, table + 6);
-				gwsincos1plus01234567by8 (j + 7 * upper_avx512_word, 1, N * 4, table + 7);
+				gwsincos1plus01234567by8_colweighted (j, 1, N * 4, &colweights, table);
+				gwsincos1plus01234567by8_colweighted (j + upper_avx512_word, 1, N * 4, &colweights, table + 1);
+				gwsincos1plus01234567by8_colweighted (j + 2 * upper_avx512_word, 1, N * 4, &colweights, table + 2);
+				gwsincos1plus01234567by8_colweighted (j + 3 * upper_avx512_word, 1, N * 4, &colweights, table + 3);
+				gwsincos1plus01234567by8_colweighted (j + 4 * upper_avx512_word, 1, N * 4, &colweights, table + 4);
+				gwsincos1plus01234567by8_colweighted (j + 5 * upper_avx512_word, 1, N * 4, &colweights, table + 5);
+				gwsincos1plus01234567by8_colweighted (j + 6 * upper_avx512_word, 1, N * 4, &colweights, table + 6);
+				gwsincos1plus01234567by8_colweighted (j + 7 * upper_avx512_word, 1, N * 4, &colweights, table + 7);
 				table += 128;
 			}
 		}
 
 /* Reserve space for the group multiplier fudge flags. There are FFTLEN fudge flags which takes FFTLEN / 8 bytes. */
-/* One pass FFTs do not compress the fudge flags. */
+/* One pass FFTs do not compress the fudge flags and one-eighth of the fudge flags are known to be zero and not output. */
 /* For zero-padded FFTs, the fudge flags could be half the size, but we have not implemented that. */
 
-		table = (double *) ((char *) table + gwdata->FFTLEN / 8);
+		table = (double *) ((char *) table + gwdata->FFTLEN / 8 * 7 / 8);
 
 /* Reserve space for the big/little flags. There are FFTLEN big/lit flags which takes FFTLEN / 8 bytes. */
 /* The big/lit flags will be compressed at an 8:1 ratio, thus FFTLEN / 64 bytes are needed. */
@@ -1289,11 +1303,15 @@ double *zr4dwpn_build_norm_table (
 
 			if ((gwdata->ZERO_PADDED_FFT || gwdata->RATIONAL_FFT) && k) continue;
 
-/* Call quad-precision routine to compute group multipliers.  For a two-pass all-complex FFT, we save a multiply by */
-/* precomputing the group multiplier times the sine value of the roots-of-minus-one premultiplier. */
+/* Call quad-precision routine to compute group multipliers.  For one-pass FFTs, we save a multiply in the unfft wrapper */
+/* by applying the 1/FFTLEN correction in the inverse group multiplier rather than the inverse column multiplier. */
+/* For a two-pass all-complex FFT, we save a multiply by precomputing the group multiplier times the sine value of */
+/* the roots-of-minus-one premultiplier. */
 
 			grp = i + k + avx512_word;
-			if (!gwdata->ALL_COMPLEX_FFT || gwdata->PASS1_SIZE == 0) {
+			if (gwdata->PASS1_SIZE == 0) {
+				ttmp = gwfft_weight_inverse_over_fftlen (gwdata->dd_data, grp);
+			} else if (!gwdata->ALL_COMPLEX_FFT) {
 				ttmp = gwfft_weight_inverse (gwdata->dd_data, grp);
 			} else {
 				/* Compute the roots-of-minus-one premultiplier.  The root-of-minus-one */
@@ -1331,7 +1349,7 @@ double *zr4dwpn_build_fudge_table (
 		delay_count = 1;
 		upper_avx512_word = 8;
 		// Calculate number of fudge bytes written to each variable data block
-		varblock_fudge_data_size = gwdata->FFTLEN / 8;
+		varblock_fudge_data_size = gwdata->FFTLEN / 8 * 7 / 8;
 	} else {
 		delay_count = zr4dwpn_delay_count (gwdata);
 		upper_avx512_word = gwdata->PASS2_SIZE;
@@ -1427,8 +1445,9 @@ double *zr4dwpn_build_fudge_table (
 			    }
 			    // One-pass FFTs do not compress the fudge flags
 			    if (gwdata->PASS1_SIZE == 0) {
-				// Output the uncompressed fudge flags
-				*p++ = (unsigned char) mask;
+				// The first col multiplier is always 1.0 and the one-pass wrapper takes advantage of this.
+				// Do not generate fudge flags when col = 0.  Otherwise, output the uncompressed fudge flags.
+				if (col != 0) *p++ = (unsigned char) mask;
 			    }
 			    // Two-pass FFTs compress the fudge flags using the XOR mask and index into the compressed fudges array
 			    else {

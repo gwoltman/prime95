@@ -2147,7 +2147,7 @@ zzgather MACRO srcreg,d1,d2,d4,r1,r2,r3,r4,r5,r6,r7,r8, r9
 	ENDM
 
 
-; This code reads/writes 64MB (1M cache lines) in contiguous blocks.  Timings are done
+; this code reads/writes 64MB (1M cache lines) in contiguous blocks.  Timings are done
 ; on 4 memory sizes.  4KB will operate on the L1 cache only, 128KB will operate on the
 ; L2 cache only, 2MB will operate on the L3 cache and 32MB will operate on main memory.
 
@@ -2326,17 +2326,17 @@ av512case15:	scatter_read_sequential_write8 1280*7680*8, 5 ; Read/write 78MB
 
 ;;108
 	zsf_onepass_real_fft_wrapper_preload
-	avx512mac 1024, 16384, 0, zsf_onepass_real_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
-	avx512mac 1024, 262144, 0, zsf_onepass_real_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
+	avx512mac 1024, 16384, 0, zsf_onepass_real_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 14, rdx, 0, 1
+	avx512mac 1024, 262144, 0, zsf_onepass_real_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 14, rdx, 0, 1
 	zs_onepass_real_unfft_wrapper_preload
-	avx512mac 1024, 16384, 0, zs_onepass_real_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, 1
-	avx512mac 1024, 262144, 0, zs_onepass_real_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, 1
+	avx512mac 1024, 16384, 0, zs_onepass_real_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 14, 1
+	avx512mac 1024, 262144, 0, zs_onepass_real_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 14, 1
 	zsf_onepass_complex_fft_wrapper_preload
-	avx512mac 1024, 16384, 0, zsf_onepass_complex_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, r15, 0, rdi, 16, rdx, 0, 1
-	avx512mac 1024, 262144, 0, zsf_onepass_complex_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, r15, 0, rdi, 16, rdx, 0, 1
+	avx512mac 1024, 16384, 0, zsf_onepass_complex_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 14, rdx, 0, 1
+	avx512mac 1024, 262144, 0, zsf_onepass_complex_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 14, rdx, 0, 1
 	zs_onepass_complex_unfft_wrapper_preload
-	avx512mac 1024, 16384, 0, zs_onepass_complex_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, r15, 0, rdi, 16, 1
-	avx512mac 1024, 262144, 0, zs_onepass_complex_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, r15, 0, rdi, 16, 1
+	avx512mac 1024, 16384, 0, zs_onepass_complex_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, r15, 0, rdi, 14, 1
+	avx512mac 1024, 262144, 0, zs_onepass_complex_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, r15, 0, rdi, 14, 1
 
 ;;116
 	znorm_wpn_preload noexec, noexec, noexec, noexec	;; ttp, zero, echk, const
