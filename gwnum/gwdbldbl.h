@@ -116,6 +116,9 @@ void gwsincos012by_weighted (void *, unsigned long, unsigned long, unsigned long
 #define gwsincos15by4_weighted(a,b,c,d,e,f)	gwsincos15by_weighted(a,b,c,d,e,f,4)
 void gwsincos15by_weighted (void *, unsigned long, unsigned long, unsigned long, unsigned long, double *, int);
 
+#define gwsincos1plus01234567by8_colweighted(a,b,c,d,e)	gwsincos1plusby_colweighted(a,b,c,d,e,8,8)
+void gwsincos1plusby_colweighted (unsigned long, unsigned long, unsigned long, void *, double *, int, int);
+
 #define gwsincos123by1_special7(a,b,c)		gwsincos123by_special7(a,b,c,1)
 #define gwsincos123by8_special7(a,b,c)		gwsincos123by_special7(a,b,c,8)
 void gwsincos123by_special7 (unsigned long, unsigned long, double *, int);
@@ -129,6 +132,7 @@ void gwfft_weight_setup (void *, int, double, unsigned long, unsigned long, sign
 double gwfft_weight (void *, unsigned long);
 double gwfft_weight_sloppy (void *, unsigned long);
 double gwfft_weight_inverse (void *, unsigned long);
+double gwfft_weight_inverse_squared (void *, unsigned long);
 double gwfft_weight_inverse_sloppy (void *, unsigned long);
 double gwfft_weight_inverse_over_fftlen (void *, unsigned long);
 void gwfft_weights3 (void *, unsigned long, double *, double *, double *);
@@ -141,6 +145,7 @@ double gwfft_partial_weight (void *, unsigned long, unsigned long);
 double gwfft_partial_weight_sloppy (void *, unsigned long, unsigned long);
 double gwfft_partial_weight_inverse (void *, unsigned long, unsigned long);
 double gwfft_partial_weight_inverse_sloppy (void *, unsigned long, unsigned long);
+void gwfft_colweights (void *, void *, int);
 
 #ifdef __cplusplus
 }
