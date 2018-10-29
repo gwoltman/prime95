@@ -65,7 +65,7 @@ zr4dwpn_pass1sc2 MACRO
 	mov	ecx, addcount1			;; Loop FFTLEN / 128 times
 	sub	rax, rax			;; Clear 4KB counter
 	zsf_onepass_real_fft_wrapper_preload
-b1b:	zsf_onepass_real_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 128, 1, L1PREFETCH_ALL, 8*128
+b1b:	zsf_onepass_real_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 14, rdx, 128, 1, L1PREFETCH_ALL, 8*128
 	add	al, 256/4			;; Check for every fourth iteration
 	jnc	short b1c			;; Jump if not a 4KB boundary
 	add	rsi, fourKBgapsize		;; Apply the 4KB padding
@@ -106,7 +106,7 @@ type4:	start_timer 0
 	mov	ecx, addcount1			;; Loop FFTLEN / 128 times
 	sub	rax, rax			;; Clear 4KB counter
 	zs_onepass_real_unfft_wrapper_preload
-c1b:	zs_onepass_real_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, 1, L1PREFETCH_ALL, 8*128
+c1b:	zs_onepass_real_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 14, 1, L1PREFETCH_ALL, 8*128
 	add	al, 256/4			;; Check for every fourth iteration
 	jnc	short c1c			;; Jump if not a 4KB boundary
 	add	rsi, fourKBgapsize		;; Apply the 4KB padding
@@ -181,15 +181,15 @@ zr4dwpn_pass1sc2ac MACRO
 	start_timer 20
 	mov	rsi, DESTARG			;; FFT destination
  	mov	rbx, DIST_TO_FFTSRCARG		;; Distance to source FFT data
-	mov	r15, sincos2			;; Addr of column multipliers and complex premultipliers
-	lea	r13, [r15+16*8]			;; Premultiplier data is after 8 column multipliers and 8 inverse column multipliers
+	mov	r15, sincos2			;; Addr of inverse column multipliers and complex premultipliers
+	lea	r13, [r15+8*8]			;; Premultiplier data is after 8 inverse column multipliers
 	mov	ecx, addcount1			;; Loop FFTLEN / 128 times
 	imul	rdi, rcx, ZMM_SCD8		;; Compute size of premultiplier data
 	add	rdi, r13			;; Fudge flags are after premultiplier data
 	mov	rdx, norm_grp_mults		;; Addr of the group multipliers
 	sub	rax, rax			;; Clear 4KB counter
 	zsf_onepass_complex_fft_wrapper_preload
-b1b:	zsf_onepass_complex_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r13, ZMM_SCD8, r15, 0, rdi, 16, rdx, 128, 1, L1PREFETCH_ALL, 8*128
+b1b:	zsf_onepass_complex_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r13, ZMM_SCD8, rdi, 14, rdx, 128, 1, L1PREFETCH_ALL, 8*128
 	add	al, 256/4			;; Check for every fourth iteration
 	jnc	short b1c			;; Jump if not a 4KB boundary
 	add	rsi, fourKBgapsize		;; Apply the 4KB padding
@@ -224,15 +224,14 @@ type4:	start_timer 0
 
 	start_timer 21
 	mov	rsi, DESTARG			;; Get address of FFT data
-	mov	r15, sincos2			;; Addr of column multipliers and complex premultipliers
-	lea	r13, [r15+16*8]			;; Premultiplier data is after 8 column multipliers and 8 inverse column multipliers
-	bump	r15, 8*8			;; Inverse column multipliers
+	mov	r15, sincos2			;; Addr of inverse column multipliers and complex premultipliers
+	lea	r13, [r15+8*8]			;; Premultiplier data is after 8 inverse column multipliers
 	mov	ecx, addcount1			;; Loop FFTLEN / 128 times
 	imul	rdi, rcx, ZMM_SCD8		;; Compute size of premultiplier data
 	add	rdi, r13			;; Fudge flags are after premultiplier data
 	sub	rax, rax			;; Clear 4KB counter
 	zs_onepass_complex_unfft_wrapper_preload
-c1b:	zs_onepass_complex_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r13, ZMM_SCD8, r15, 0, rdi, 16, 1, L1PREFETCH_ALL, 8*128
+c1b:	zs_onepass_complex_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r13, ZMM_SCD8, r15, 0, rdi, 14, 1, L1PREFETCH_ALL, 8*128
 	add	al, 256/4			;; Check for every fourth iteration
 	jnc	short c1c			;; Jump if not a 4KB boundary
 	add	rsi, fourKBgapsize		;; Apply the 4KB padding
