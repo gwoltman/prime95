@@ -43,12 +43,13 @@
 
 /* Handy macros to improve readability */
 
-#define log2(n)		(log((double)(n)) / log (2.0))
-#define logb(n)		(log((double)(n)) / log ((double)(b)))
+#define log2(n)				(log((double)(n)) / log (2.0))
+#define logb(n)				(log((double)(n)) / log ((double)(b)))
 #define divide_rounding_up(a,b)		((a + (b) - 1) / (b))
 #define divide_rounding_down(a,b)	((a) / (b))
 #define round_up_to_multiple_of(a,b)	(divide_rounding_up (a, b) * (b))
 #define round_down_to_multiple_of(a,b)	(divide_rounding_down (a, b) * (b))
+#define fltmod(a,b)			((double)(a) - floor ((double)(a) / (double)(b)) * (double)(b))
 
 /* MSVC6 has trouble with the pow function using integer arguments. */
 /* For example, "(unsigned long) pow (5.0, 7.0)" returns 78124 instead */
@@ -2360,11 +2361,9 @@ int gwsetup_general_mod_giant (
 	gianttogw (gwdata, g, gwdata->GW_MODULUS_FFT);
 	gwfft (gwdata, gwdata->GW_MODULUS_FFT, gwdata->GW_MODULUS_FFT);
 
-/* Calculate number of words to zero during the copy prior to calculating */
-/* the quotient. */
+/* Calculate number of words to zero during the copy prior to calculating the quotient. */
 
-	gwdata->GW_ZEROWORDSLOW = (unsigned long)
-			floor ((double) bits / gwdata->avg_num_b_per_word);
+	gwdata->GW_ZEROWORDSLOW = (unsigned long) floor ((double) bits / gwdata->avg_num_b_per_word);
 
 /* A quick emulate_mod refresher: */
 /* 1) The maximum size of a quotient is gwdata->n/2 bits due to the */
@@ -2776,7 +2775,7 @@ int internal_gwsetup (
 /* This leaves us with the following simple algorithm: */
 /*	cnt = count of bits in bigbase */
 /*	RNDVAL = 3*2^51 / 2^cnt */
-/*	RNDVAL += (bigbase - RNDVAL % bigbase) */
+/*	RNDVAL += (bigbase - RNDVAL % bigbase) % bigbase */
 /*	RNDVAL *= 2^cnt */
 
 		asm_data->u.zmm.ZMM_LARGE_BASE = big_word;				/* Upper limit */
@@ -2787,7 +2786,7 @@ int internal_gwsetup (
 		cnt = (int) log2 (big_word) + 1;
 		asm_data->u.zmm.ZMM_RNDVAL = 3.0 * 131072.0 * 131072.0 * 131072.0;	/* Rounding value */
 		asm_data->u.zmm.ZMM_RNDVAL /= pow (2.0, cnt);
-		asm_data->u.zmm.ZMM_RNDVAL += big_word - (asm_data->u.zmm.ZMM_RNDVAL - floor (asm_data->u.zmm.ZMM_RNDVAL / big_word) * big_word);
+		asm_data->u.zmm.ZMM_RNDVAL += fltmod (big_word - fltmod (asm_data->u.zmm.ZMM_RNDVAL, big_word), big_word);
 		asm_data->u.zmm.ZMM_RNDVAL *= pow (2.0, cnt);
 
 		asm_data->u.zmm.ZMM_RNDVAL_TIMES_LARGE_BASE = asm_data->u.zmm.ZMM_RNDVAL * big_word - asm_data->u.zmm.ZMM_RNDVAL;
@@ -4286,7 +4285,7 @@ int internal_gwsetup (
 
 		num_b_in_k = (unsigned long) ceil (logb (k));
 		asm_data->CARRY_ADJUST1 = pow ((double) b, num_b_in_k);
-		carry_adjust_1_mod_k = asm_data->CARRY_ADJUST1 - floor (asm_data->CARRY_ADJUST1 / k) * k;
+		carry_adjust_1_mod_k = fltmod (asm_data->CARRY_ADJUST1, k);
 		asm_data->CARRY_ADJUST1_HI = floor (carry_adjust_1_mod_k / 131072.0);
 		asm_data->CARRY_ADJUST1_LO = carry_adjust_1_mod_k - asm_data->CARRY_ADJUST1_HI * 131072.0;
 		asm_data->TWO_TO_17 = 131072.0;
