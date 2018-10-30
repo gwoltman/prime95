@@ -8013,33 +8013,39 @@ void raw_gwsetaddin (
 		}
 	}
 
-/* Rational FFTs are not normalized, don't need to apply a weight to the addin value. */
-/* Exceptions are two-pass all-complex AVX-512 FFTs which have a sine component as part of the inverse group multiplier */
-/* and one-pass AVX-512 FFTs which apply the 1/FFTLEN correction in the inverse group multiplier . */
+/* Handle AVX-512 FFTs.  They are normalized differently than FMA3 and earlier FFTs */
 
-	if (gwdata->RATIONAL_FFT && !(gwdata->cpu_flags & CPU_AVX512F && (gwdata->ALL_COMPLEX_FFT || gwdata->PASS1_SIZE == 0)))
-		asm_data->ADDIN_VALUE = val;
+	if (gwdata->cpu_flags & CPU_AVX512F) {
+
+/* Rational FFTs are not normalized, don't need to apply a weight to the addin value. */
+/* Exceptions are two-pass all-complex FFTs which have a sine component as part of the inverse group multiplier */
+/* and one-pass FFTs which apply the 1/FFTLEN correction in the inverse group multiplier. */
+
+		if (gwdata->RATIONAL_FFT && !(gwdata->ALL_COMPLEX_FFT || gwdata->PASS1_SIZE == 0)) {
+			asm_data->ADDIN_VALUE = val;
+		}
 
 /* AVX-512 FFT's ADDIN_VALUE is partially normalized (since we moved the weighting from the last_unfft macro to the normalize */
-/* code to take advantage of an FMA opportunity.  Apply a partial weight to the addin value.  Worse yet, if it's an all-complex */
+/* code to take advantage of an FMA opportunity.  Apply a partial weight to the addin value.  Also, if it's an all-complex */
 /* FFT then we need to adjust for the roots-of-minus-one sine optimization too. */
 
-	else if (gwdata->cpu_flags & CPU_AVX512F) {
-		unsigned long upper_avx512_word, grp;
-		double	ttmp;
-		// Mimic code from building inverse multipliers in zr4dwpn_build_norm_table
-		upper_avx512_word = (gwdata->PASS1_SIZE == 0) ? 8 : gwdata->PASS2_SIZE;
-		grp = word - word % upper_avx512_word;
-		if (gwdata->PASS1_SIZE == 0)
-			ttmp = gwfft_weight_inverse_over_fftlen (gwdata->dd_data, grp);
-		else if (!gwdata->ALL_COMPLEX_FFT)
-			ttmp = gwfft_weight_inverse (gwdata->dd_data, grp);
 		else {
-			unsigned long sine_word;
-			sine_word = grp % (gwdata->FFTLEN / 2);
-			gwfft_weights_times_sine (gwdata->dd_data, grp, sine_word, gwdata->FFTLEN * 2, NULL, &ttmp);
+			unsigned long upper_avx512_word, grp;
+			double	ttmp;
+			// Mimic code from building inverse multipliers in zr4dwpn_build_norm_table
+			upper_avx512_word = (gwdata->PASS1_SIZE == 0) ? 8 : gwdata->PASS2_SIZE;
+			grp = word - word % upper_avx512_word;
+			if (gwdata->PASS1_SIZE == 0)
+				ttmp = gwfft_weight_inverse_over_fftlen (gwdata->dd_data, grp);
+			else if (!gwdata->ALL_COMPLEX_FFT)
+				ttmp = gwfft_weight_inverse (gwdata->dd_data, grp);
+			else {
+				unsigned long sine_word;
+				sine_word = grp % (gwdata->FFTLEN / 2);
+				gwfft_weights_times_sine (gwdata->dd_data, grp, sine_word, gwdata->FFTLEN * 2, NULL, &ttmp);
+			}
+			asm_data->ADDIN_VALUE = val / ttmp;
 		}
-		asm_data->ADDIN_VALUE = val / ttmp;
 	}
 
 /* Handle r4dwpn FFTs which are only partially normalized */
