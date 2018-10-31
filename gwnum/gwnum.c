@@ -7781,7 +7781,8 @@ void gwstartnextfft (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	int	state)		/* New value for POSTFFT */
 {
-	if (!gwdata->GENERAL_MOD) {
+	/* Option is not supported for generic modular reduction and one-pass FFTs */
+	if (!gwdata->GENERAL_MOD && gwdata->PASS1_SIZE) {
 		gwdata->POSTFFT = state;
 		if (! (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX | CPU_SSE2))) {	// Copy state to asm_data for x87 FFTs
 			struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
