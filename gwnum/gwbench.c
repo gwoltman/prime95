@@ -172,15 +172,17 @@ void gwbench_read_data (void)
 
 	for (i = 1; ; i++) {
 		int	fftlen, bench_length, num_cores, num_workers, num_hyperthreads, impl_id;
-		char	bench_date[80];
+		char	fftlen_multiplier[30], bench_date[80];
 		double	throughput;
 
 		IniGetNthString (GWNUMINI_FILE, "BenchData", i, bench_data, sizeof (bench_data), NULL);
 		if (bench_data[0] == 0) break;
 
-		sscanf (bench_data, "%dK,%d,%d,%d,%08X,%10s,%d,%lf",
-			&fftlen, &num_cores, &num_workers, &num_hyperthreads, &impl_id, bench_date, &bench_length, &throughput);
-		fftlen <<= 10;
+		sscanf (bench_data, "%d%s,%d,%d,%d,%08X,%10s,%d,%lf",
+			&fftlen, fftlen_multiplier, &num_cores, &num_workers, &num_hyperthreads,
+			&impl_id, bench_date, &bench_length, &throughput);
+		if (fftlen_multiplier[0] == 'K' || fftlen_multiplier[0] == 'k') fftlen <<= 10;
+		if (fftlen_multiplier[0] == 'M' || fftlen_multiplier[0] == 'm') fftlen <<= 20;
 
 //				validate (sanity check) data before writing it
 
@@ -296,7 +298,6 @@ void gwbench_write_data (void)
 		if (errcode != SQLITE_ROW) goto stmt_error;
 
 		fftlen = sqlite3_column_int (sql_stmt, 0);
-		fftlen >>= 10;
 		num_cores = sqlite3_column_int (sql_stmt, 1);
 		num_workers = sqlite3_column_int (sql_stmt, 2);
 		num_hyperthreads = sqlite3_column_int (sql_stmt, 3);
@@ -305,8 +306,9 @@ void gwbench_write_data (void)
 		bench_length = sqlite3_column_int (sql_stmt, 6);
 		throughput = sqlite3_column_double (sql_stmt, 7);
 
-		sprintf (bench_data, "%dK,%d,%d,%d,%08X,%s,%d,%.2f",
-			 fftlen, num_cores, num_workers, num_hyperthreads, impl_id, bench_date, bench_length, throughput);
+		sprintf (bench_data, "%d%s,%d,%d,%d,%08X,%s,%d,%.2f",
+			 (fftlen & 0x3FF) ? fftlen : fftlen >> 10, (fftlen & 0x3FF) ? "" : "K",
+			 num_cores, num_workers, num_hyperthreads, impl_id, bench_date, bench_length, throughput);
 
 		IniWriteNthString (GWNUMINI_FILE, "BenchData", i, bench_data);
 	}

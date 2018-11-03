@@ -9347,13 +9347,6 @@ int primeBenchMultipleWorkersInternal (
 		    break;
 	    }
 
-/* Only bench FFT lengths that are a multiple of 1K */
-
-	    if (fftlen & 0x3FF) {
-		    lucasDone (&lldata);
-		    continue;
-	    }
-
 /* If requested, only bench PFAs of 5,6,7,8 */
 
 	    for (i = fftlen; i >= 9 && (i & 1) == 0; i >>= 1);
@@ -9406,8 +9399,10 @@ int primeBenchMultipleWorkersInternal (
 
 /* Output start message for this benchmark */
 
-			    sprintf (buf, "Timing %luK%s FFT, %d core%s%s, %d worker%s.  ",
-				     fftlen / 1024, plus1 ? " all-complex" : "",
+			    sprintf (buf, "Timing %lu%s%s FFT, %d core%s%s, %d worker%s.  ",
+				     (fftlen & 0x3FF) ? fftlen : fftlen / 1024,
+				     (fftlen & 0x3FF) ? "" : "K",
+				     plus1 ? " all-complex" : "",
 				     cpus, cpus > 1 ? "s" : "",
 				     hypercpus > 1 ? " hyperthreaded" : "",
 				     workers, workers > 1 ? "s" : "");
@@ -9484,15 +9479,19 @@ int primeBenchMultipleWorkersInternal (
 
 			    if (all_bench) {
 				sprintf (buf,
-					 "FFTlen=%luK%s, Type=%d, Arch=%d, Pass1=%lu, Pass2=%lu, clm=%lu",
-					 fftlen / 1024, plus1 ? " all-complex" : "",
+					 "FFTlen=%lu%s%s, Type=%d, Arch=%d, Pass1=%lu, Pass2=%lu, clm=%lu",
+					 (fftlen & 0x3FF) ? fftlen : fftlen / 1024,
+					 (fftlen & 0x3FF) ? "" : "K",
+					 plus1 ? " all-complex" : "",
 					 lldata.gwdata.FFT_TYPE, lldata.gwdata.ARCH,
 					 fftlen / (lldata.gwdata.PASS2_SIZE ? lldata.gwdata.PASS2_SIZE : 1),
 					 lldata.gwdata.PASS2_SIZE,
 					 lldata.gwdata.PASS1_CACHE_LINES / ((CPU_FLAGS & CPU_AVX512F) ? 8 : ((CPU_FLAGS & CPU_AVX) ? 4 : 2)));
 			    } else {
-				sprintf (buf, "Timings for %luK%s FFT length",
-					 fftlen / 1024, plus1 ? " all-complex" : "");
+				sprintf (buf, "Timings for %lu%s%s FFT length",
+					 (fftlen & 0x3FF) ? fftlen : fftlen / 1024,
+					 (fftlen & 0x3FF) ? "" : "K",
+					 plus1 ? " all-complex" : "");
 			    }
 			    if (hypercpus <= 2)
 				sprintf (buf+strlen(buf), " (%d core%s%s, %d worker%s): ",
