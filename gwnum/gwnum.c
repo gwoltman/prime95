@@ -3502,6 +3502,7 @@ int internal_gwsetup (
 		asm_data->u.zmm.ZMM_TWO = 2.0;
 		asm_data->u.zmm.ZMM_ONE = 1.0;
 		asm_data->u.zmm.ZMM_SQRTHALF = sqrt (0.5);
+		asm_data->u.zmm.ZMM_SQRT2 = sqrt (2.0);
 		asm_data->u.zmm.ZMM_ABSVAL[0] = 0xFFFFFFFF;
 		asm_data->u.zmm.ZMM_ABSVAL[1] = 0x7FFFFFFF;
 		asm_data->u.zmm.ZMM_B = (double) b;
@@ -3540,18 +3541,14 @@ int internal_gwsetup (
 /* Copy computed assembly constants */
 
 		asm_data->u.zmm.ZMM_P951 = asm_values[0];
-		asm_data->u.zmm.ZMM_P618 = asm_values[1];
+		asm_data->u.zmm.ZMM_P588_P951 = asm_values[1];
 		asm_data->u.zmm.ZMM_P309 = asm_values[2];
-		asm_data->u.zmm.ZMM_P588 = asm_values[4];
 		asm_data->u.zmm.ZMM_P809 = -asm_values[6];
 		asm_data->u.zmm.ZMM_P866 = asm_values[8];
-		asm_data->u.zmm.ZMM_P975 = asm_values[11];
 		asm_data->u.zmm.ZMM_P623 = asm_values[14];
 		asm_data->u.zmm.ZMM_P223 = -asm_values[17];
 		asm_data->u.zmm.ZMM_P901 = -asm_values[18];
-		asm_data->u.zmm.ZMM_P924 = asm_values[20];
 		asm_data->u.zmm.ZMM_P383 = asm_values[21];
-		asm_data->u.zmm.ZMM_P782 = asm_values[22];
 		asm_data->u.zmm.ZMM_P434 = asm_values[23];
 		asm_data->u.zmm.ZMM_P975_P434 = asm_values[24];
 		asm_data->u.zmm.ZMM_P782_P434 = asm_values[25];
@@ -3563,10 +3560,8 @@ int internal_gwsetup (
 		asm_data->u.zmm.ZMM_P966_P707 = asm_values[29];
 		asm_data->u.zmm.ZMM_P924_P383 = asm_values[30];
 		asm_data->u.zmm.ZMM_P981_P195 = asm_values[31];
-		//asm_data->u.zmm.ZMM_P981 = asm_values[32];
 		asm_data->u.zmm.ZMM_P195 = asm_values[33];
 		asm_data->u.zmm.ZMM_P831_P556 = asm_values[34];
-		asm_data->u.zmm.ZMM_P556 = asm_values[36];
 		asm_data->u.zmm.ZMM_P556_P195 = asm_values[37];
 	}
 
