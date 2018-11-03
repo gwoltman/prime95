@@ -625,6 +625,51 @@ void gwcos1plusby (
 	END_x86_FIX
 }
 
+/* Special version for 8-complex and 16-real macros that multiplies some sine values by SQRTHALF */
+
+#ifdef TRY_SQRT2_TO_REDUCE_ROUNDOFF
+extern "C"
+void gwsincos1234by_sqrthalf (
+	unsigned long x,
+	unsigned long N,
+	double	*results,
+	int	incr)
+{
+	dd_real arg1, sine, cosine, sine2, cosine2, sine3, cosine3, sine4, cosine4;
+	dd_real sqrthalf;
+
+	x86_FIX
+	sqrthalf = sqrt (dd_real (0.5));
+	arg1 = dd_real::_2pi * (double) x / (double) N;
+	sincos (arg1, sine, cosine);
+	results[0] = sine * sqrthalf;
+	results[0] += epsilon;		/* Protect against divide by zero */
+	results[incr] = cosine * sqrthalf / results[0];
+	results += incr + incr;
+
+	sine2 = sine * cosine * 2.0;
+	cosine2 = sqr (cosine) - sqr (sine);
+	results[0] = sine2;
+	results[0] += epsilon;		/* Protect against divide by zero */
+	results[incr] = cosine2 / results[0];
+	results += incr + incr;
+
+	sine3 = sine * cosine2 + sine2 * cosine;
+	cosine3 = cosine * cosine2 - sine * sine2;
+	results[0] = sine3 * sqrthalf;
+	results[0] += epsilon;		/* Protect against divide by zero */
+	results[incr] = cosine3 * sqrthalf / results[0];
+	results += incr + incr;
+
+	sine4 = sine2 * cosine2 * 2.0;
+	cosine4 = sqr (cosine2) - sqr (sine2);
+	results[0] = sine4;
+	results[0] += epsilon;		/* Protect against divide by zero */
+	results[incr] = cosine4 / results[0];
+	END_x86_FIX
+}
+#endif
+
 /* Special version for 14-reals (and 7-complex) macro multiplies sine values by 0.434^(2/3) */
 
 extern "C"

@@ -119,6 +119,9 @@ void gwsincos15by_weighted (void *, unsigned long, unsigned long, unsigned long,
 #define gwsincos1plus01234567by8_colweighted(a,b,c,d,e)	gwsincos1plusby_colweighted(a,b,c,d,e,8,8)
 void gwsincos1plusby_colweighted (unsigned long, unsigned long, unsigned long, void *, double *, int, int);
 
+#define gwsincos1234by8_sqrthalf(a,b,c)		gwsincos1234by_sqrthalf(a,b,c,8)
+void gwsincos1234by_sqrthalf (unsigned long, unsigned long, double *, int);
+
 #define gwsincos123by1_special7(a,b,c)		gwsincos123by_special7(a,b,c,1)
 #define gwsincos123by8_special7(a,b,c)		gwsincos123by_special7(a,b,c,8)
 void gwsincos123by_special7 (unsigned long, unsigned long, double *, int);
