@@ -517,6 +517,18 @@ double *zr4dwpn_build_pass1_table (
 					gwsincos1234by8 (temp + 5 * upper_avx512_word, N, table+5);
 					gwsincos1234by8 (temp + 6 * upper_avx512_word, N, table+6);
 					gwsincos1234by8 (temp + 7 * upper_avx512_word, N, table+7);
+#ifdef TRY_SQRT2_TO_REDUCE_ROUNDOFF
+{
+	gwsincos1234by8_sqrthalf (temp, N, table);
+	gwsincos1234by8_sqrthalf (temp + upper_avx512_word, N, table+1);
+	gwsincos1234by8_sqrthalf (temp + 2 * upper_avx512_word, N, table+2);
+	gwsincos1234by8_sqrthalf (temp + 3 * upper_avx512_word, N, table+3);
+	gwsincos1234by8_sqrthalf (temp + 4 * upper_avx512_word, N, table+4);
+	gwsincos1234by8_sqrthalf (temp + 5 * upper_avx512_word, N, table+5);
+	gwsincos1234by8_sqrthalf (temp + 6 * upper_avx512_word, N, table+6);
+	gwsincos1234by8_sqrthalf (temp + 7 * upper_avx512_word, N, table+7);
+}
+#endif
 					table += 64;
 
 /* The zr8_csc_sixteen_real building blocks require extra sin/cos values.  The sixteen_real doubles N */
@@ -676,6 +688,18 @@ double *zr4dwpn_build_fixed_pass1_table (
 				gwsincos1234by8 (j + 5 * upper_avx512_word, N, table+5);
 				gwsincos1234by8 (j + 6 * upper_avx512_word, N, table+6);
 				gwsincos1234by8 (j + 7 * upper_avx512_word, N, table+7);
+#ifdef TRY_SQRT2_TO_REDUCE_ROUNDOFF
+{
+	gwsincos1234by8_sqrthalf (j, N, table);
+	gwsincos1234by8_sqrthalf (j + upper_avx512_word, N, table+1);
+	gwsincos1234by8_sqrthalf (j + 2 * upper_avx512_word, N, table+2);
+	gwsincos1234by8_sqrthalf (j + 3 * upper_avx512_word, N, table+3);
+	gwsincos1234by8_sqrthalf (j + 4 * upper_avx512_word, N, table+4);
+	gwsincos1234by8_sqrthalf (j + 5 * upper_avx512_word, N, table+5);
+	gwsincos1234by8_sqrthalf (j + 6 * upper_avx512_word, N, table+6);
+	gwsincos1234by8_sqrthalf (j + 7 * upper_avx512_word, N, table+7);
+}
+#endif
 				table += 64;
 			}
 			N = N / 8;
@@ -853,6 +877,18 @@ double *zr4_build_pass2_complex_table (
 			gwsincos1234by8 (i+5, N, table+5);
 			gwsincos1234by8 (i+6, N, table+6);
 			gwsincos1234by8 (i+7, N, table+7);
+#ifdef TRY_SQRT2_TO_REDUCE_ROUNDOFF
+if (N > 64) {
+	gwsincos1234by8_sqrthalf (i, N, table);
+	gwsincos1234by8_sqrthalf (i+1, N, table+1);
+	gwsincos1234by8_sqrthalf (i+2, N, table+2);
+	gwsincos1234by8_sqrthalf (i+3, N, table+3);
+	gwsincos1234by8_sqrthalf (i+4, N, table+4);
+	gwsincos1234by8_sqrthalf (i+5, N, table+5);
+	gwsincos1234by8_sqrthalf (i+6, N, table+6);
+	gwsincos1234by8_sqrthalf (i+7, N, table+7);
+}
+#endif
 			table += 64;
 		}
 		N = N / 8;
