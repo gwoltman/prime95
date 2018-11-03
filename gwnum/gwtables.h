@@ -224,45 +224,43 @@ struct gwasm_data {
 		double	ZMM_TWO;		/* 2.0 - used in last FFT level squaring code */
 		double	ZMM_ONE;		/* 1.0 - used in expanding reduced sin/cos */
 
-		double	ZMM_P981_P195;		/* Used in one-pass all-complex premultipliers */
-		//double	ZMM_P981;		/* Used in one-pass all-complex premultipliers */
-		double	ZMM_P195;		/* Used in one-pass all-complex premultipliers */
+		double	ZMM_P981_P195;		/* Used in 32-real macros */
+		double	ZMM_P195;		/* Used in 32-real macros */
 
-		double	ZMM_P831_P556;		/* Used in one-pass all-complex premultipliers */
-		double	ZMM_P556_P195;		/* Used in 32-reals */
-		double	ZMM_P556;		/* Used in one-pass all-complex premultipliers */
+		double	ZMM_P831_P556;		/* Used in 32-real macros */
+		double	ZMM_P556_P195;		/* Used in 32-real macros */
 
-		double	ZMM_P924_P383;		/* Used in one-pass all-complex premultipliers and in 16-reals macros */
-		double	ZMM_P383;		/* Used in one-pass all-complex premultipliers */
-		double	ZMM_P924;		/* Used in one-pass all-complex premultipliers */
+		double	ZMM_UNUSED_DBL;
 
-		double	ZMM_P866;		/* Used in three-complex building blocks */
-		double	ZMM_P588;		/* Used in five-complex and 20-reals macros */
+		double	ZMM_P924_P383;		/* Used in 16-real, 16-complex, 32-real macros */
+		double	ZMM_P383;		/* Used in 16-real, 16-complex, 32-real macros */
 
-		double	ZMM_P309;
-		double	ZMM_P809;
+		double	ZMM_SQRT2;		/* Used in 8-complex, 16-real macros (special versions to reduce roundoff error) */
 
-		double	ZMM_P951;
-		double	ZMM_P618;		/* used in five-complex and 20-reals (.588/.951) */
+		double	ZMM_P866;		/* Used in 6-complex, 12-real, 12-complex, 24-real macros */
+		double	ZMM_UNUSED_DBL3;
 
-		double	ZMM_P975;		/* Used in radix-7 macros */
-		double	ZMM_P782;
+		double	ZMM_P309;		/* Used in 5-complex, 10-real, 10-complex, 20-real macros */
+		double	ZMM_P809;		/* Used in 5-complex, 10-real, 10-complex, 20-real macros */
+		double	ZMM_P951;		/* Used in 5-complex, 10-real, 10-complex, 20-real macros */
+		double	ZMM_P588_P951;		/* Used in 5-complex, 10-real, 10-complex, 20-real macros */
 
-		double	ZMM_P623;
-		double	ZMM_P901;
+		double	ZMM_UNUSED_DBL4;
+		double	ZMM_UNUSED_DBL5;
 
-		double	ZMM_P434;
-		double	ZMM_P223;
-
-		double	ZMM_P975_P434;		/* used in 14-real macros */
-		double	ZMM_P782_P434;
-		double	ZMM_P901_P434;
-		double	ZMM_P623_P434;
-		double	ZMM_P223_P434;
-		double	ZMM_P1_P434;
+		double	ZMM_P623;		/* Used in 7-complex, 14-real macros */
+		double	ZMM_P901;		/* Used in 7-complex, 14-real macros */
+		double	ZMM_P434;		/* Used in 7-complex, 14-real macros */
+		double	ZMM_P223;		/* Used in 7-complex, 14-real macros */
+		double	ZMM_P975_P434;		/* Used in 7-complex, 14-real macros */
+		double	ZMM_P782_P434;		/* Used in 7-complex, 14-real macros */
+		double	ZMM_P901_P434;		/* Used in 14-real macros */
+		double	ZMM_P623_P434;		/* Used in 14-real macros */
+		double	ZMM_P223_P434;		/* Used in 14-real macros */
+		double	ZMM_P1_P434;		/* Used in 14-real macros */
 
 		double	ZMM_P259_P707;		/* Used in 24-real macros */
-		double	ZMM_P966_P707;
+		double	ZMM_P966_P707;		/* Used in 24-real macros */
 
 		double	ZMM_B;			/* Used in first and last levels of two pass FFT */
 		double	ZMM_ONE_OVER_B;
