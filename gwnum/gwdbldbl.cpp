@@ -83,9 +83,20 @@ struct gwdbldbl_constants {
 
 /* Now write all the routines that use the dd_real package. */
 
+/* This routine is used by me to analyze the rounding error due to converting from dd_real to double. */
+/* Sometimes I have a choice of how to arrange sin/cos values in the building block macros. */
+/* I use this routine to select an arrangement that minimizes roundoff errors. */
 
-/* Utility routine to compute many of the constants used by the */
-/* assembly language code */
+double dderr (dd_real x) {
+	double	y = double (x);
+	double	err = double (fabs (x - y));
+	double	absx = double (fabs (x));
+	double	pcterr = err / absx * pow (2, 53.0);
+	double	rounderr = err * pow (2.0, 53.0 - ceil (log(absx)/log(2.0)));
+	return (y);
+}
+
+/* Utility routine to compute many of the constants used by the assembly language code */
 
 extern "C"
 void gwasm_constants (
@@ -139,7 +150,7 @@ void gwasm_constants (
 
 	x86_FIX
 
-/* Initialize the five_reals sine-cosine data. */
+/* Initialize the five-complex sine/cosine data. */
 /* NOTE: When computing cosine / sine, divide by the 64-bit sine not the */
 /* extra precision sine since macros will multiply by the 64-bit sine. */
 
@@ -170,7 +181,7 @@ void gwasm_constants (
 	P433 = double (sine1 * 0.5);		// 0.5 * P866
 	P577 = double (dd_real (0.5) / sine1);	// 0.5 / 0.866
 
-/* Initialize the seven_reals sine-cosine data. */
+/* Initialize the seven-complex sine/cosine data. */
 
 	arg = dd_real::_2pi / 7.0;		// 2*PI * 1 / 7
 	sincos (arg, sine1, cosine1);		// cosine (0.623), sine (0.782)
@@ -196,12 +207,12 @@ void gwasm_constants (
 	P782 = double (sine1);
 	P434 = double (sine3);
 
-	P975_P434 = double (sine2 / sine3);
-	P782_P434 = double (sine1 / sine3);
-	P901_P434 = double (-cosine3 / sine3);
-	P623_P434 = double (cosine1 / sine3);
-	P223_P434 = double (-cosine2 / sine3);
-	P1_P434 = double (1.0 / sine3);
+	P975_P434 = double (sine2 / P434);
+	P782_P434 = double (sine1 / P434);
+	P901_P434 = double (-cosine3 / P434);
+	P623_P434 = double (cosine1 / P434);
+	P223_P434 = double (-cosine2 / P434);
+	P1_P434 = 1.0 / P434;
 
 /* Initialize the 24-reals sine-cosine data. */
 
