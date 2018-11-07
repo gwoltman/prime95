@@ -950,7 +950,7 @@ struct gwhandle_struct {
 	int	GWERROR;		/* Set if an error is detected */
 	double	MAXDIFF;		/* Maximum allowable difference between sum of inputs and outputs */
 	double	fft_count;		/* Count of forward and inverse FFTs */
-	struct gwasm_jmptab *jmptab;	/* ASM jmptable pointer */
+	const struct gwasm_jmptab *jmptab; /* ASM jmptable pointer */
 	void	*asm_data;		/* Memory allocated for ASM global data */
 	void	*dd_data;		/* Memory allocated for gwdbldbl global data */
 	ghandle	gdata;			/* Structure that allows sharing giants and gwnum memory allocations */

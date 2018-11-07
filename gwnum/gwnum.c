@@ -70,14 +70,14 @@ void (*OutputBothRoutine)(int, const char *) = NULL;
 /* Assembly helper routines */
 
 struct gwinfo1_data {
-	struct gwasm_jmptab *sse2_cyclic_fft_info; /* SSE2 mersenne mod FFT info */
-	struct gwasm_jmptab *sse2_negacyclic_fft_info; /* SSE2 2^N+1 mod FFT */
-	struct gwasm_jmptab *x86_cyclic_fft_info; /* x86 mersenne mod FFT */
-	struct gwasm_jmptab *x86_negacyclic_fft_info; /* x86 2^N+1 mod FFT */
-	struct gwasm_jmptab *avx_cyclic_fft_info; /* AVX mersenne mod FFT */
-	struct gwasm_jmptab *avx_negacyclic_fft_info; /* AVX 2^N+1 mod FFT */
-	struct gwasm_jmptab *avx512_cyclic_fft_info; /* AVX mersenne mod FFT */
-	struct gwasm_jmptab *avx512_negacyclic_fft_info; /* AVX 2^N+1 mod FFT */
+	const struct gwasm_jmptab *sse2_cyclic_fft_info; /* SSE2 mersenne mod FFT info */
+	const struct gwasm_jmptab *sse2_negacyclic_fft_info; /* SSE2 2^N+1 mod FFT */
+	const struct gwasm_jmptab *x86_cyclic_fft_info; /* x86 mersenne mod FFT */
+	const struct gwasm_jmptab *x86_negacyclic_fft_info; /* x86 2^N+1 mod FFT */
+	const struct gwasm_jmptab *avx_cyclic_fft_info; /* AVX mersenne mod FFT */
+	const struct gwasm_jmptab *avx_negacyclic_fft_info; /* AVX 2^N+1 mod FFT */
+	const struct gwasm_jmptab *avx512_cyclic_fft_info; /* AVX mersenne mod FFT */
+	const struct gwasm_jmptab *avx512_negacyclic_fft_info; /* AVX 2^N+1 mod FFT */
 	uint32_t version;			/* Gwnum lib version number */
 };
 
@@ -729,29 +729,29 @@ int calculate_bif (
 }
 
 /* Ugly little macros to bump jmptable pointer to next procedure entry or to next count */
-static __inline struct gwasm_jmptab *INC_JMPTAB (struct gwasm_jmptab *x)
+static __inline const struct gwasm_jmptab *INC_JMPTAB (const struct gwasm_jmptab *x)
 {
-	if (x->flags & 0x40000000) return ((struct gwasm_jmptab *) ((char *)(x) + sizeof(uint32_t) + 2*sizeof(void*) + sizeof(uint32_t)));
-	return ((struct gwasm_jmptab *) ((char *)(x) + sizeof(uint32_t) + sizeof(void*) + sizeof(uint32_t)));
+	if (x->flags & 0x40000000) return ((const struct gwasm_jmptab *) ((const char *)(x) + sizeof(uint32_t) + 2*sizeof(void*) + sizeof(uint32_t)));
+	return ((const struct gwasm_jmptab *) ((const char *)(x) + sizeof(uint32_t) + sizeof(void*) + sizeof(uint32_t)));
 }
-static __inline struct gwasm_jmptab *LAST_JMPTAB (struct gwasm_jmptab *x)
+static __inline const struct gwasm_jmptab *LAST_JMPTAB (const struct gwasm_jmptab *x)
 {
-	struct gwasm_jmptab *next;
+	const struct gwasm_jmptab *next;
 	for ( ; (next = INC_JMPTAB (x))->flags & 0x80000000; x = next);
 	return (x);
 }
-static __inline struct gwasm_jmptab *NEXT_SET_OF_JMPTABS (struct gwasm_jmptab *x)
+static __inline const struct gwasm_jmptab *NEXT_SET_OF_JMPTABS (const struct gwasm_jmptab *x)
 {
 	// Handle case where there are no FFT implementations
-	if (x->flags == 0) return ((struct gwasm_jmptab *) &x->proc_ptr);
+	if (x->flags == 0) return ((const struct gwasm_jmptab *) &x->proc_ptr);
 	// Get pointer to the last FFT implementation
 	x = LAST_JMPTAB (x);
 	// Adjust for jmptab containing two proc ptrs
-	if (x->flags & 0x40000000) x = (struct gwasm_jmptab *) ((char *)(x) + sizeof(void*));
+	if (x->flags & 0x40000000) x = (const struct gwasm_jmptab *) ((const char *)(x) + sizeof(void*));
 	// Skip non-zero counts
-	while (x->counts[0]) x = (struct gwasm_jmptab *) ((char *)(x) + sizeof(int32_t));
+	while (x->counts[0]) x = (const struct gwasm_jmptab *) ((const char *)(x) + sizeof(int32_t));
 	// Next set of jmptabs is after the zero count
-	return ((struct gwasm_jmptab *) &x->counts[1]);
+	return ((const struct gwasm_jmptab *) &x->counts[1]);
 }
 
 /* This routine checks to see if there is an FFT implementation for this FFT length and */
@@ -762,7 +762,7 @@ static __inline struct gwasm_jmptab *NEXT_SET_OF_JMPTABS (struct gwasm_jmptab *x
 int is_fft_implemented (
 	gwhandle *gwdata,		/* Gwnum global data */
 	int	all_complex,		/* TRUE if this jmptab entry if from the all-complex FFT table */
-	struct gwasm_jmptab *jmptab,	/* Jmptable entry from mult.asm to examine */
+	const struct gwasm_jmptab *jmptab, /* Jmptable entry from mult.asm to examine */
 	int	*best_impl_id)		/* Returned ID of the best FFT implementation as determined by the benchmark database */
 {
 	int	desired_bif;		/* The "best implementation for" value we will look for. */
@@ -838,7 +838,7 @@ int is_fft_implemented (
 /* FFT length will not offer even more throughput. */
 
 		for (i = 0; i <= 1; i++) {
-			struct gwasm_jmptab *next_jmptab;
+			const struct gwasm_jmptab *next_jmptab;
 			int	error_check, no_r4dwpn, impl, next_impl;
 			double	throughput, next_throughput;
 
@@ -880,11 +880,11 @@ int is_fft_implemented (
 /* However, some FFTs have both a one-pass and two-pass implementation.  In such cases, */
 /* we must make sure that jmptab points to the implementation that we will actually use. */
 
-struct gwasm_jmptab *choose_one_pass_or_two_pass_impl (
+const struct gwasm_jmptab *choose_one_pass_or_two_pass_impl (
 	gwhandle *gwdata,	/* Gwnum global data */
-	struct gwasm_jmptab *jmptab)
+	const struct gwasm_jmptab *jmptab)
 {
-	struct gwasm_jmptab *orig_jmptab;	
+	const struct gwasm_jmptab *orig_jmptab;	
 	int	desired_bif;		/* The "best implementation for" value we will look for. */
 					/* See mult.asm for defined BIF_ values. */
 
@@ -940,7 +940,7 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 	signed long c)		/* C in K*B^N+C. Must be rel. prime to K. */
 {
 	struct gwinfo1_data asm_info;
-	struct gwasm_jmptab *jmptab, *zpad_jmptab, *generic_jmptab, *impl_jmptab;
+	const struct gwasm_jmptab *jmptab, *zpad_jmptab, *generic_jmptab, *impl_jmptab;
 	int	best_impl_id, zpad_best_impl_id;
 	double	log2k, logbk, log2b, log2c, log2maxmulbyconst;
 	double	max_bits_per_input_word, max_bits_per_output_word;
@@ -1766,7 +1766,7 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 			}
 		} else if (gwdata->cpu_flags & CPU_SSE2) {
 			if (gwdata->PASS2_SIZE == 0) {
-				struct gwasm_jmptab *last_jmptab;
+				const struct gwasm_jmptab *last_jmptab;
 				/* Copy 7 counts for one pass SSE2 FFTs.  The counts are after the last jmptab entry */
 				last_jmptab = LAST_JMPTAB (jmptab);
 				asm_data->addcount1 = last_jmptab->counts[0];
@@ -2192,7 +2192,7 @@ int gwsetup_general_mod_giant (
 	signed long c;
 	unsigned long d;
 	unsigned long safety_bits;
-	struct gwasm_jmptab *info;
+	const struct gwasm_jmptab *info;
 	int	error_code;
 	unsigned long fftlen, max_exponent, desired_n;
 	giant	modified_modulus, tmp;
@@ -2445,7 +2445,7 @@ int gwsetup_without_mod (
 	gwhandle *gwdata,	/* Placeholder for gwnum global data */
 	unsigned long n)	/* Maximum number of bits in OUTPUT numbers. */
 {
-	struct gwasm_jmptab *info;
+	const struct gwasm_jmptab *info;
 	unsigned long fftlen, max_exponent, desired_n;
 	int	error_code;
 
@@ -2611,7 +2611,7 @@ int internal_gwsetup (
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
 	signed long c)		/* C in K*B^N+C. Must be rel. prime to K. */
 {
-	struct gwasm_jmptab *info;
+	const struct gwasm_jmptab *info;
 	void	*asm_data_alloc;
 	struct gwasm_data *asm_data;
 	int	error_code;
