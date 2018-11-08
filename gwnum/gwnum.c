@@ -927,6 +927,24 @@ const struct gwasm_jmptab *choose_one_pass_or_two_pass_impl (
 	return (orig_jmptab);
 }
 
+/* FMA3 FFTs compared to AVX FFTs have on average 7% less round off error.  This lets us have a higher max exponent. */
+/* Increase max_exp by (1-SQRT(.93)) * FFTlen.  We'll be a little more conservative for smaller FFT lengths. */
+
+unsigned long adjusted_max_exponent (
+	const gwhandle *gwdata,			/* Gwnum global data */
+	const struct gwasm_jmptab *jmptab)	/* Jmptable entry */
+{
+	unsigned long max_exp;
+
+	max_exp = jmptab->max_exp;
+	if (max_exp == 0) return (0);
+	if (!(gwdata->cpu_flags & CPU_AVX512F) && gwdata->cpu_flags & CPU_FMA3) {
+		if (jmptab->fftlen >= 8192) max_exp += (int) (0.035635 * (double) jmptab->fftlen);
+		else if (jmptab->fftlen >= 2048) max_exp += (int) (0.017656 * (double) jmptab->fftlen);
+	}
+	return (max_exp);
+}
+
 /* This routine used to be in assembly language.  It scans the assembly */
 /* code arrays looking for the best FFT size to implement our k*b^n+c FFT. */
 /* Returns 0 for IBDWT FFTs, 1 for zero padded FFTs, or a gwsetup error */
@@ -999,7 +1017,7 @@ again:	zpad_jmptab = NULL;
 /* non-zero-padded FFT length later.  The zeroes in the upper half of FFT */
 /* input data let us get about another 0.3 bits per input word. */
 
-		while ((max_exp = zpad_jmptab->max_exp) != 0) {
+		while ((max_exp = adjusted_max_exponent (gwdata, zpad_jmptab)) != 0) {
 
 /* Do a quick check on the suitability of this FFT */
 
@@ -1134,7 +1152,7 @@ next1:			zpad_jmptab = NEXT_SET_OF_JMPTABS (zpad_jmptab);
 /* Find the table entry using either the specified fft length or */
 /* the smallest FFT length that can handle the k,b,n,c being tested. */
 
-	while ((max_exp = jmptab->max_exp) != 0) {
+	while ((max_exp = adjusted_max_exponent (gwdata, jmptab)) != 0) {
 
 /* Do a quick check on the suitability of this FFT */
 
@@ -2286,7 +2304,7 @@ int gwsetup_general_mod_giant (
 	if (error_code) return (error_code);
 	info = gwdata->jmptab;
 	fftlen = info->fftlen;
-	max_exponent = info->max_exp;
+	max_exponent = adjusted_max_exponent (gwdata, info);
 
 /* Our FFTs don't handle cases where there are few bits per word because */
 /* carries must be propagated over too many words.  Arbitrarily insist */
@@ -2464,7 +2482,7 @@ int gwsetup_without_mod (
 	info = gwdata->jmptab;
 	if (error_code) return (error_code);
 
-	max_exponent = info->max_exp;
+	max_exponent = adjusted_max_exponent (gwdata, info);
 	fftlen = info->fftlen;
 
 /* If possible, increase n to the next multiple of FFT length.  This is */
@@ -2734,7 +2752,7 @@ int internal_gwsetup (
 /* supports.  We this in gwnear_fft_limit.  Note that zero padded FFTs */
 /* can support an extra 0.3 bits per word because of the all the zeroes. */
 
-	gwdata->fft_max_bits_per_word = (double) info->max_exp / (double) gwdata->FFTLEN;
+	gwdata->fft_max_bits_per_word = (double) adjusted_max_exponent (gwdata, info) / (double) gwdata->FFTLEN;
 	if (gwdata->ZERO_PADDED_FFT) gwdata->fft_max_bits_per_word += 0.3;
 
 /* Compute extra bits - the number of adds we can tolerate without */
@@ -7338,7 +7356,7 @@ unsigned long gwmap_fftlen_to_max_exponent (
 	gwclear_use_benchmarks (&gwdata);
 	gwset_minimum_fftlen (&gwdata, fftlen);
 	if (gwinfo (&gwdata, 1.0, 2, 0, -1)) return (0);
-	return (gwdata.jmptab->max_exp);
+	return (adjusted_max_exponent (&gwdata, gwdata.jmptab));
 }
 
 /* Given an fft length, determine how much memory is used for normalization */
