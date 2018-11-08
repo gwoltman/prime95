@@ -6234,9 +6234,10 @@ int pick_fft_size (
 	large_fftlen = gwmap_to_fftlen (1.0, 2, (unsigned long) ((1.0 + softpct) * w->n), -1);
 	if (small_fftlen == large_fftlen || large_fftlen == 0) return (0);
 
-/* Let the user be more conservative or more aggressive in picking the */
-/* acceptable average error.  By default, we accept an average error */
-/* between 0.241 and 0.243 depending on the FFT size. */
+/* Let the user be more conservative or more aggressive in picking the acceptable average error. */
+/* By default, we accept an average error between 0.241 and 0.243 depending on the FFT size. */
+/* NOTE: This code was written when the maximum FFT length was 4M.  The code below now allows an */
+/* average error of almost 0.245 for the largest FFT legngths.  I think that will be OK. */
 
 	max_avg_error = 0.241 + 0.002 *
 		(log ((double) small_fftlen) - log ((double) 262144.0)) /
