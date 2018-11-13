@@ -250,14 +250,14 @@ struct gwasm_data {
 
 		double	ZMM_P623;		/* Used in 7-complex, 14-real macros */
 		double	ZMM_P901;		/* Used in 7-complex, 14-real macros */
-		double	ZMM_P434;		/* Used in 7-complex, 14-real macros */
+		double	ZMM_P975;		/* Used in 7-complex, 14-real macros */
 		double	ZMM_P223;		/* Used in 7-complex, 14-real macros */
-		double	ZMM_P975_P434;		/* Used in 7-complex, 14-real macros */
-		double	ZMM_P782_P434;		/* Used in 7-complex, 14-real macros */
-		double	ZMM_P901_P434;		/* Used in 14-real macros */
-		double	ZMM_P623_P434;		/* Used in 14-real macros */
-		double	ZMM_P223_P434;		/* Used in 14-real macros */
-		double	ZMM_P1_P434;		/* Used in 14-real macros */
+		double	ZMM_P434_P975;		/* Used in 7-complex, 14-real macros */
+		double	ZMM_P782_P975;		/* Used in 7-complex, 14-real macros */
+		double	ZMM_P901_P975;		/* Used in 14-real macros */
+		double	ZMM_P623_P975;		/* Used in 14-real macros */
+		double	ZMM_P223_P975;		/* Used in 14-real macros */
+		double	ZMM_P1_P975;		/* Used in 7-complex, 14-real macros */
 
 		double	ZMM_P259_P707;		/* Used in 24-real macros */
 		double	ZMM_P966_P707;		/* Used in 24-real macros */
