@@ -115,7 +115,7 @@ void gwasm_constants (
 #define P433			asm_values[9]
 #define P577			asm_values[10]
 #define P975			asm_values[11]
-#define P445			asm_values[12]
+#define P434_P975		asm_values[12]
 #define P180			asm_values[13]
 #define P623			asm_values[14]
 #define M358			asm_values[15]
@@ -141,10 +141,11 @@ void gwasm_constants (
 #define P831			asm_values[35]
 #define P556			asm_values[36]
 #define P556_P195		asm_values[37]
-#define P901_P434		asm_values[38]
-#define P623_P434		asm_values[39]
-#define P223_P434		asm_values[40]
-#define P1_P434			asm_values[41]
+#define P901_P975		asm_values[38]
+#define P623_P975		asm_values[39]
+#define P223_P975		asm_values[40]
+#define P1_P975			asm_values[41]
+#define P782_P975		asm_values[42]
 
 /* Do some initial setup */
 
@@ -192,27 +193,24 @@ void gwasm_constants (
 	arg = arg * 1.5;			// 2*PI * 3 / 7
 	sincos (arg, sine3, cosine3);		// cosine (-.901), sine (0.434)
 
+	P782 = double (sine1);
 	P975 = double (sine2);
-	P445 = double (sine3 / P975);		// 0.434 / 0.975
-	P180 = double (sine1 / P975 / P445);	// 0.782 / (0.975 * 0.445)
-
+	P434 = double (sine3);
 	P623 = double (cosine1);
-	M358 = double (cosine2 / P623);		// -0.223 / 0.623
-	P404 = double (cosine3 / P623 / M358);	// -.901 / (.623 * -.358)
-
 	M223 = double (cosine2);
 	M901 = double (cosine3);
+
+	P434_P975 = double (sine3 / P975);	// 0.434 / 0.975
+	P180 = double (sine1 / P975 / P434_P975); // 0.782 / (0.975 * 0.445)
+	M358 = double (cosine2 / P623);		// -0.223 / 0.623
+	P404 = double (cosine3 / P623 / M358);	// -.901 / (.623 * -.358)
 	M691 = double (cosine1 / M901);		// 0.623 / -0.901
 
-	P782 = double (sine1);
-	P434 = double (sine3);
-
-	P975_P434 = double (sine2 / P434);
-	P782_P434 = double (sine1 / P434);
-	P901_P434 = double (-cosine3 / P434);
-	P623_P434 = double (cosine1 / P434);
-	P223_P434 = double (-cosine2 / P434);
-	P1_P434 = 1.0 / P434;
+	P782_P975 = double (sine1 / P975);
+	P901_P975 = double (-cosine3 / P975);
+	P623_P975 = double (cosine1 / P975);
+	P223_P975 = double (-cosine2 / P975);
+	P1_P975 = 1.0 / P975;
 
 /* Initialize the 24-reals sine-cosine data. */
 
@@ -681,7 +679,7 @@ void gwsincos1234by_sqrthalf (
 }
 #endif
 
-/* Special version for 14-reals (and 7-complex) macro multiplies sine values by 0.434^(2/3) */
+/* Special version for 14-reals (and 7-complex) macro multiplies sine values by 0.975^(2/3) */
 
 extern "C"
 void gwsincos123by_special7 (
@@ -691,11 +689,11 @@ void gwsincos123by_special7 (
 	int	incr)
 {
 	dd_real arg1, sine, cosine, sine2, cosine2, sine3, cosine3, tmp;
-	dd_real sine434, multiplier;
+	dd_real sine975, multiplier;
 
-	arg1 = dd_real::_2pi * 3.0 / 7.0;		// 2*PI * 3 / 7
-	sine434 = sin (arg1);				// sine (0.434)
-	multiplier = exp (log (sine434) * 2.0 / 3.0);	// 0.434 ^ (2/3)
+	arg1 = dd_real::_2pi * 2.0 / 7.0;		// 2*PI * 2 / 7
+	sine975 = sin (arg1);				// sine (0.975)
+	multiplier = exp (log (sine975) * 2.0 / 3.0);	// 0.975 ^ (2/3)
 
 	x86_FIX
 	arg1 = dd_real::_2pi * (double) x / (double) N;
@@ -720,7 +718,7 @@ void gwsincos123by_special7 (
 	END_x86_FIX
 }
 
-/* Special version for 14-reals (and 7-complex) macro multiplies sine values by 0.434^(2/3) */
+/* Special version for 14-reals (and 7-complex) macro multiplies sine values by 0.975^(2/3) */
 
 extern "C"
 void gwsincos135by_special7 (
@@ -730,11 +728,11 @@ void gwsincos135by_special7 (
 	int	incr)
 {
 	dd_real arg1, sine, cosine, sine2, cosine2, sine3, cosine3, sine5, cosine5, tmp;
-	dd_real sine434, multiplier;
+	dd_real sine975, multiplier;
 
-	arg1 = dd_real::_2pi * 3.0 / 7.0;		// 2*PI * 3 / 7
-	sine434 = sin (arg1);				// sine (0.434)
-	multiplier = exp (log (sine434) * 2.0 / 3.0);	// 0.434 ^ (2/3)
+	arg1 = dd_real::_2pi * 2.0 / 7.0;		// 2*PI * 2 / 7
+	sine975 = sin (arg1);				// sine (0.975)
+	multiplier = exp (log (sine975) * 2.0 / 3.0);	// 0.975 ^ (2/3)
 
 	x86_FIX
 	arg1 = dd_real::_2pi * (double) x / (double) N;

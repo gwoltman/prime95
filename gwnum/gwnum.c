@@ -2636,7 +2636,7 @@ int internal_gwsetup (
 	unsigned long mem_needed;
 	double	*tables;		/* Pointer tables we are building */
 	unsigned long pass1_size;
-	double	small_word, big_word, temp, asm_values[44];
+	double	small_word, big_word, temp, asm_values[50];
 
 /* Remember the arguments */
 
@@ -3567,13 +3567,13 @@ int internal_gwsetup (
 		asm_data->u.zmm.ZMM_P223 = -asm_values[17];
 		asm_data->u.zmm.ZMM_P901 = -asm_values[18];
 		asm_data->u.zmm.ZMM_P383 = asm_values[21];
-		asm_data->u.zmm.ZMM_P434 = asm_values[23];
-		asm_data->u.zmm.ZMM_P975_P434 = asm_values[24];
-		asm_data->u.zmm.ZMM_P782_P434 = asm_values[25];
-		asm_data->u.zmm.ZMM_P901_P434 = asm_values[38];
-		asm_data->u.zmm.ZMM_P623_P434 = asm_values[39];
-		asm_data->u.zmm.ZMM_P223_P434 = asm_values[40];
-		asm_data->u.zmm.ZMM_P1_P434 = asm_values[41];
+		asm_data->u.zmm.ZMM_P975 = asm_values[11];
+		asm_data->u.zmm.ZMM_P434_P975 = asm_values[12];
+		asm_data->u.zmm.ZMM_P782_P975 = asm_values[42];
+		asm_data->u.zmm.ZMM_P901_P975 = asm_values[38];
+		asm_data->u.zmm.ZMM_P623_P975 = asm_values[39];
+		asm_data->u.zmm.ZMM_P223_P975 = asm_values[40];
+		asm_data->u.zmm.ZMM_P1_P975 = asm_values[41];
 		asm_data->u.zmm.ZMM_P259_P707 = asm_values[28];
 		asm_data->u.zmm.ZMM_P966_P707 = asm_values[29];
 		asm_data->u.zmm.ZMM_P924_P383 = asm_values[30];
