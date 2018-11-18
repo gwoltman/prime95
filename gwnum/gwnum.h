@@ -1036,9 +1036,9 @@ struct gwhandle_struct {
 
 #define MAX_PRIME	79300000L	/* Maximum number of x87 bits */
 #define MAX_PRIME_SSE2	595800000L	/* SSE2 bit limit */
-#define MAX_PRIME_AVX	595800000L	/* AVX bit limit */
-#define MAX_PRIME_FMA3	921400000L	/* FMA3 bit limit */
-#define MAX_PRIME_AVX512 1181000000L	/* AVX-512 bit limit */
+#define MAX_PRIME_AVX	595700000L	/* AVX bit limit */
+#define MAX_PRIME_FMA3	922600000L	/* FMA3 bit limit */
+#define MAX_PRIME_AVX512 1169000000L	/* AVX-512 bit limit */
 #define MAX_FFTLEN	4194304L	/* 4M FFT max for x87 */
 #define MAX_FFTLEN_SSE2	33554432L	/* 32M FFT max for SSE2 */
 #define MAX_FFTLEN_AVX	33554432L	/* 32M FFT max for AVX */
