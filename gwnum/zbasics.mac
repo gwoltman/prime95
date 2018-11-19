@@ -360,58 +360,6 @@ zfnmsubsd MACRO dest, mulval1, mulval2, addval
 ;; Macros to gather load or scatter store 8 registers with an 8x8 transpose
 ;;
 
-;; Implement using the gather and scatter instructions.  Much less code, but slower on all known architectures.
-
-zgather_preload MACRO zreg
-	gatherreg EQU zreg
-	;; BUG - there are two possible gather_dists to load
-	vmovdqa64 zreg, ZMM_GATHER_DISTS	;; 64-bit gather/scatter distances of 0, d1, d2, d2+d1, d4, d4+d1, d4+d2, d4+d2+d1
-	kxnorw	k2, k0, k0			;; Set k2 mask to all ones
-	ENDM
-zgather MACRO srcreg,d1,d2,d4,r1,r2,r3,r4,r5,r6,r7,r8, r9
-	kmovw	k1, k2
-	vgatherqpd r1 {k1}, [srcreg+gatherreg*1+0]		;; Gather load R1
-	kmovw	k1, k2
-	vgatherqpd r2 {k1}, [srcreg+gatherreg*1+8]		;; Gather load R2
-	kmovw	k1, k2
-	vgatherqpd r3 {k1}, [srcreg+gatherreg*1+16]		;; Gather load R3
-	kmovw	k1, k2
-	vgatherqpd r4 {k1}, [srcreg+gatherreg*1+24]		;; Gather load R4
-	kmovw	k1, k2
-	vgatherqpd r5 {k1}, [srcreg+gatherreg*1+32]		;; Gather load R5
-	kmovw	k1, k2
-	vgatherqpd r6 {k1}, [srcreg+gatherreg*1+40]		;; Gather load R6
-	kmovw	k1, k2
-	vgatherqpd r7 {k1}, [srcreg+gatherreg*1+48]		;; Gather load R7
-	kmovw	k1, k2
-	vgatherqpd r8 {k1}, [srcreg+gatherreg*1+56]		;; Gather load R8
-	ENDM
-
-zscatter_preload MACRO zreg
-	scatterreg EQU zreg
-	;; BUG - there are two possible gather_dists to load
-	vmovdqa64 zreg, ZMM_GATHER_DISTS	;; 64-bit gather/scatter distances of 0, d1, d2, d2+d1, d4, d4+d1, d4+d2, d4+d2+d1
-	kxnorw	k2, k0, k0			;; Set k2 mask to all ones
-	ENDM
-zscatter MACRO srcreg,d1,d2,d4,r1,r2,r3,r4,r5,r6,r7,r8, r9
-	kmovw	k1, k2
-	vscatterqpd [srcreg+scatterreg*1+0] {k1}, r1		;; Scatter store R1
-	kmovw	k1, k2
-	vscatterqpd [srcreg+scatterreg*1+8] {k1}, r2		;; Scatter store R2
-	kmovw	k1, k2
-	vscatterqpd [srcreg+scatterreg*1+16] {k1}, r3		;; Scatter store R3
-	kmovw	k1, k2
-	vscatterqpd [srcreg+scatterreg*1+24] {k1}, r4		;; Scatter store R4
-	kmovw	k1, k2
-	vscatterqpd [srcreg+scatterreg*1+32] {k1}, r5		;; Scatter store R5
-	kmovw	k1, k2
-	vscatterqpd [srcreg+scatterreg*1+40] {k1}, r6		;; Scatter store R6
-	kmovw	k1, k2
-	vscatterqpd [srcreg+scatterreg*1+48] {k1}, r7		;; Scatter store R7
-	kmovw	k1, k2
-	vscatterqpd [srcreg+scatterreg*1+56] {k1}, r8		;; Scatter store R8
-	ENDM
-
 ;; For SkylakeX, it is faster to load and shuffle rather than using the gather instruction
 
 zgather_preload MACRO unused
