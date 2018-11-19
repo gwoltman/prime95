@@ -3543,19 +3543,6 @@ int internal_gwsetup (
 		}
 		gwsetmulbyconst (gwdata, gwdata->maxmulbyconst);
 
-/* Two-pass FFTs use gather/scatter instructions in both pass 1 and pass 2.  Compute the distances. */
-
-// BUG - Unused????
-		/* Swizzling distances */
-		asm_data->u.zmm.ZMM_GATHER_DISTS[0] = 0*128;
-		asm_data->u.zmm.ZMM_GATHER_DISTS[1] = 1*128;
-		asm_data->u.zmm.ZMM_GATHER_DISTS[2] = 2*128;
-		asm_data->u.zmm.ZMM_GATHER_DISTS[3] = 3*128;
-		asm_data->u.zmm.ZMM_GATHER_DISTS[4] = 4*128;
-		asm_data->u.zmm.ZMM_GATHER_DISTS[5] = 5*128;
-		asm_data->u.zmm.ZMM_GATHER_DISTS[6] = 6*128;
-		asm_data->u.zmm.ZMM_GATHER_DISTS[7] = 7*128;
-
 /* Copy computed assembly constants */
 
 		asm_data->u.zmm.ZMM_P951 = asm_values[0];
