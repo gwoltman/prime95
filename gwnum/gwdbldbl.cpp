@@ -205,8 +205,10 @@ void gwasm_constants (
 	M358 = double (cosine2 / P623);		// -0.223 / 0.623
 	P404 = double (cosine3 / P623 / M358);	// -.901 / (.623 * -.358)
 	M691 = double (cosine1 / M901);		// 0.623 / -0.901
+	P782_P434 = double (sine1 / P434);	// 0.782 / 0.434
+	P975_P434 = double (sine2 / P434);	// 0.975 / 0.434
 
-	P782_P975 = double (sine1 / P975);
+	P782_P975 = double (sine1 / P975);	// Radix-7 constants for AVX-512
 	P901_P975 = double (-cosine3 / P975);
 	P623_P975 = double (cosine1 / P975);
 	P223_P975 = double (-cosine2 / P975);
