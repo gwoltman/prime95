@@ -18,7 +18,7 @@
 #include <memory.h>
 #include <sys/mman.h>
 #endif
-#ifdef __APPLE__
+#if defined (__APPLE__) || defined (__FreeBSD__)
 #include <memory.h>
 #include <sys/mman.h>
 #include <mach/vm_statistics.h>
@@ -196,7 +196,7 @@ void * large_pages_malloc (
 #elif defined (__linux__)
 	p = mmap (NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
 	if (p == MAP_FAILED) return (NULL);
-#elif defined (__APPLE__)
+#elif defined (__APPLE__) || defined (__FreeBSD__)
 	p = mmap (NULL, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, VM_FLAGS_SUPERPAGE_SIZE_2MB, 0);
 	if (p == MAP_FAILED) return (NULL);
 #else
@@ -228,7 +228,7 @@ void large_pages_free (
 
 #ifdef _WIN32
 	VirtualFree (q, 0, MEM_RELEASE);
-#elif defined (__linux__) || defined (__APPLE__)
+#elif defined (__linux__) || defined (__APPLE__) || defined (__FreeBSD__)
 	munmap (q, size);
 #endif
 }
