@@ -50,6 +50,7 @@
 #define round_up_to_multiple_of(a,b)	(divide_rounding_up (a, b) * (b))
 #define round_down_to_multiple_of(a,b)	(divide_rounding_down (a, b) * (b))
 #define fltmod(a,b)			((double)(a) - floor ((double)(a) / (double)(b)) * (double)(b))
+#define round_to_cache_line(p)		(void *) (((intptr_t)(p) + 63) & ~63)
 
 /* MSVC6 has trouble with the pow function using integer arguments. */
 /* For example, "(unsigned long) pow (5.0, 7.0)" returns 78124 instead */
@@ -2818,6 +2819,7 @@ int internal_gwsetup (
 		ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 		gwdata->pass1_var_data = tables;
 		tables = zr4dwpn_build_pass1_table (gwdata, tables);
+		tables = round_to_cache_line (tables);
 		/* The wrapper for "one-pass" FFTs does not use a fixed sin/cos table, but it does access the variable data using sincos2 */
 		if (gwdata->PASS1_SIZE == 0) {
 			asm_data->sincos2 = gwdata->pass1_var_data;
@@ -2826,6 +2828,7 @@ int internal_gwsetup (
 			asm_data->sincos2 = tables;
 			tables = zr4dwpn_build_fixed_pass1_table (gwdata, tables);
 			asm_data->sincos2 = share_sincos_data (gwdata, FIXED_PASS1_SINCOS_DATA, asm_data->sincos2, (char *) tables - (char *) asm_data->sincos2);
+			tables = round_to_cache_line (tables);
 		}
 
 /* Build the sin/cos table used in complex pass 2 blocks */
@@ -2835,10 +2838,12 @@ int internal_gwsetup (
 		asm_data->xsincos_complex = tables;
 		tables = zr4_build_pass2_complex_table (gwdata, tables);
 		asm_data->xsincos_complex = share_sincos_data (gwdata, PASS2_COMPLEX_SINCOS_DATA, asm_data->xsincos_complex, (char *) tables - (char *) asm_data->xsincos_complex);
+		tables = round_to_cache_line (tables);
 		ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 		asm_data->sincos3 = tables;
 		tables = zr4_build_pass2_real_table (gwdata, tables);
 		asm_data->sincos3 = share_sincos_data (gwdata, PASS2_REAL_SINCOS_DATA, asm_data->sincos3, (char *) tables - (char *) asm_data->sincos3);
+		tables = round_to_cache_line (tables);
 
 /* Allocate a table for carries.  For better distribution of data in the caches, make this table contiguous with all */
 /* other data used in the first pass (scratch area, normalization tables, etc.)  Note that we put the tables that */
@@ -2858,6 +2863,7 @@ int internal_gwsetup (
 		ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 		asm_data->norm_grp_mults = tables;
 		tables = zr4dwpn_build_norm_table (gwdata, tables);
+		tables = round_to_cache_line (tables);
 
 /* Reserve room for the pass 1 scratch area. */
 
@@ -2865,15 +2871,16 @@ int internal_gwsetup (
 			ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 			asm_data->scratch_area = tables;
 			tables = (double *) ((char *) tables + gwdata->SCRATCH_SIZE);
+			tables = round_to_cache_line (tables);
 		}
 
 /* Build the table of big vs. little flags.  Build the table of fudge factor flags */
 
 		ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 		tables = zr4dwpn_build_biglit_table (gwdata, tables);
-		tables += (8 - (tables - gwdata->gwnum_memory)) & 7;
+		tables = round_to_cache_line (tables);
 		tables = zr4dwpn_build_fudge_table (gwdata, tables);
-		tables += (8 - (tables - gwdata->gwnum_memory)) & 7;
+		tables = round_to_cache_line (tables);
 
 #ifdef GDEBUG_MEM
 		{
