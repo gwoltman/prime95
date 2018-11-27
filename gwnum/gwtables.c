@@ -19,7 +19,8 @@
 #define USE_WPN4
 #define USE_REDUCED_SINCOS_FFTS
 
-#define bitset(a,i)	{ ((char *)a)[(i) >> 3] |= (1 << ((i) & 7)); }
+#define round_to_cache_line(p)	(void *) (((intptr_t)(p) + 63) & ~63)
+#define bitset(a,i)		{ ((char *)a)[(i) >> 3] |= (1 << ((i) & 7)); }
 
 /* Find the power of two greater than or equal to N. */
 
@@ -133,7 +134,7 @@ double *zr4dwpn_build_pass1_table (
 
 /* Round memory usage to a multiple of the cache line size */
 
-		table += (8 - (table - gwdata->gwnum_memory)) & 7;
+		table = round_to_cache_line(table);
 		gwdata->pass1_var_data_size = (unsigned long) ((char *) table - (char *) gwdata->pass1_var_data);
 
 /* Return address of the end of the table */
@@ -568,7 +569,7 @@ double *zr4dwpn_build_pass1_table (
 /* Round pass 1 group's memory usage to a multiple of the cache line size */
 /* Calculate the size of each pass 1 group's sin/cos/premult data for pass1_get_next_block */
 
-		table += (8 - (table - gwdata->gwnum_memory)) & 7;
+		table = round_to_cache_line(table);
 		if (group == 0) gwdata->pass1_var_data_size = (unsigned long) ((char *) table - (char *) gwdata->pass1_var_data);
 	}
 
