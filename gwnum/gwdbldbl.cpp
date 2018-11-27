@@ -62,6 +62,7 @@ struct gwdbldbl_constants {
 	dd_real gw__logb_abs_c_div_fftlen;
 	dd_real gw__fftlen_inverse;
 	dd_real gw__over_fftlen;
+	dd_real gw__over_sqrt_fftlen;
 	double	gwdbl__b;
 	double	gwdbl__b_inverse;
 	double	gwdbl__fractional_b_per_word;
@@ -829,6 +830,7 @@ void gwfft_weight_setup (
 		dd_data->gw__logb_abs_c_div_fftlen = log (dd_real (abs ((int) c))) / dd_data->gw__logb * dd_data->gw__fftlen_inverse;
 		dd_data->gw__over_fftlen = dd_real (k * 2.0) * dd_data->gw__fftlen_inverse;
 	}
+	dd_data->gw__over_sqrt_fftlen = sqrt (dd_data->gw__over_fftlen);
 	dd_data->gwdbl__b = (double) b;
 	dd_data->gwdbl__b_inverse = 1.0 / (double) b;
 	dd_data->integral_b_per_word = (unsigned long) double (gwfloor (dd_data->gw__num_b_per_word));
@@ -855,6 +857,24 @@ double gwfft_weight (
 	bpower = gwceil (temp) - temp;
 	if (! dd_data->gw__c_is_one) bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) j;
 	result = exp (dd_data->gw__logb * bpower);
+	END_x86_FIX
+	return (double (result));
+}
+
+// Like the above, but multiplies the weight by sqrt (2/FFTLEN).
+
+extern "C"
+double gwfft_weight_over_sqrt_fftlen (
+	void	*dd_data_arg,
+	unsigned long j)
+{
+	dd_real temp, bpower, result;
+
+	x86_FIX
+	temp = (double) j * dd_data->gw__num_b_per_word;
+	bpower = gwceil (temp) - temp;
+	if (! dd_data->gw__c_is_one) bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) j;
+	result = exp (dd_data->gw__logb * bpower) * dd_data->gw__over_sqrt_fftlen;
 	END_x86_FIX
 	return (double (result));
 }

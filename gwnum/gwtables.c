@@ -1291,11 +1291,11 @@ double *zr4dwpn_build_norm_table (
 	}
 
 /* Second build of the tables.  The group multipliers must be rebuilt in the same order as used by the zr8/12_first_fft macros. */
-/* This only needs to be done for two-pass all-complex FFTs where we did not precompute the group multiplier times the sine value of */
-/* the roots-of-minus-one premultiplier or the case where abs(c) != 1. */
+/* This needs to be done for one-pass FFTs, two-pass all-complex FFTs where we did not precompute the group multiplier times */
+/* the sine value of the roots-of-minus-one premultiplier, and the case where abs(c) != 1. */
 
 	else {
-	    if ((gwdata->PASS1_SIZE && gwdata->ALL_COMPLEX_FFT) || labs (gwdata->c) != 1)
+	    if (gwdata->PASS1_SIZE == 0 || (gwdata->PASS1_SIZE && gwdata->ALL_COMPLEX_FFT) || labs (gwdata->c) != 1)
 	    for (i = 0; i < gwdata->FFTLEN / 2 / delay_count; i += 8 * upper_avx512_word) {
 		for (j = 0; j < gwdata->FFTLEN / 2; j += gwdata->FFTLEN / 2 / delay_count) {
 		    for (k = 0; k < gwdata->FFTLEN; k += gwdata->FFTLEN / 2) {
@@ -1308,19 +1308,21 @@ double *zr4dwpn_build_norm_table (
 
 //BUG				if (gwdata->ZERO_PADDED_FFT && grp >= gwdata->FFTLEN / 2) continue;
 
-/* Call quad-precision routine to compute group multipliers.  For an all-complex FFT, we save a multiply by */
-/* precomputing the group multiplier times the sine value of the roots-of-minus-one premultiplier. */
+/* Call quad-precision routine to compute group multipliers.  For one-pass FFTs, we save a multiply in the unfft wrapper */
+/* by shifting the multiplication by 2/FFTLEN to the group multiplier.  For two-pass all-complex FFTs, we save a multiply */
+/* by precomputing the group multiplier times the sine value of the roots-of-minus-one premultiplier. */
 
 				grp = i + j + k + avx512_word;
-				if (!gwdata->ALL_COMPLEX_FFT || gwdata->PASS1_SIZE == 0) {
-					ttp = gwfft_weight (gwdata->dd_data, grp);
-				} else {
+				if (gwdata->PASS1_SIZE == 0)
+					ttp = gwfft_weight_over_sqrt_fftlen (gwdata->dd_data, grp);
+				else if (gwdata->PASS1_SIZE && gwdata->ALL_COMPLEX_FFT) {
 					/* Compute the roots-of-minus-one premultiplier.  The root-of-minus-one */
 					/* premultiplier is for 2N, and a root-of-minus-one-of-2N is the same as */
 					/* a root unity for 4N (where N is the number of complex values = FFTLEN/2). */
 					sine_word = i + j + avx512_word;
 					gwfft_weights_times_sine (gwdata->dd_data, grp, sine_word, gwdata->FFTLEN * 2, &ttp, NULL);
-				}
+				} else
+					ttp = gwfft_weight (gwdata->dd_data, grp);
 				*weights++ = ttp;
 			}
 		    }
@@ -1339,23 +1341,18 @@ double *zr4dwpn_build_norm_table (
 
 			if ((gwdata->ZERO_PADDED_FFT || gwdata->RATIONAL_FFT) && k) continue;
 
-/* Call quad-precision routine to compute group multipliers.  For one-pass FFTs, we save a multiply in the unfft wrapper */
-/* by applying the 1/FFTLEN correction in the inverse group multiplier rather than the inverse column multiplier. */
-/* For a two-pass all-complex FFT, we save a multiply by precomputing the group multiplier times the sine value of */
-/* the roots-of-minus-one premultiplier. */
+/* Call quad-precision routine to compute group multipliers.  For two-pass all-complex FFTs, we save a multiply by */
+/* precomputing the group multiplier times the sine value of the roots-of-minus-one premultiplier. */
 
 			grp = i + k + avx512_word;
-			if (gwdata->PASS1_SIZE == 0) {
-				ttmp = gwfft_weight_inverse_over_fftlen (gwdata->dd_data, grp);
-			} else if (!gwdata->ALL_COMPLEX_FFT) {
-				ttmp = gwfft_weight_inverse (gwdata->dd_data, grp);
-			} else {
+			if (gwdata->PASS1_SIZE && gwdata->ALL_COMPLEX_FFT) {
 				/* Compute the roots-of-minus-one premultiplier.  The root-of-minus-one */
 				/* premultiplier is for 2N, and a root-of-minus-one-of-2N is the same as */
 				/* a root unity for 4N (where N is the number of complex values = FFTLEN/2). */
 				unsigned long sine_word = i + avx512_word;
 				gwfft_weights_times_sine (gwdata->dd_data, grp, sine_word, gwdata->FFTLEN * 2, NULL, &ttmp);
-			}
+			} else
+				ttmp = gwfft_weight_inverse (gwdata->dd_data, grp);
 			*inverse_weights++ = ttmp;
 		    }
 		}

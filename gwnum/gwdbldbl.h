@@ -133,6 +133,7 @@ void gwsincos135by_special7 (unsigned long, unsigned long, double *, int);
 void *gwdbldbl_data_alloc (void);
 void gwfft_weight_setup (void *, int, double, unsigned long, unsigned long, signed long, unsigned long);
 double gwfft_weight (void *, unsigned long);
+double gwfft_weight_over_sqrt_fftlen (void *, unsigned long);
 double gwfft_weight_sloppy (void *, unsigned long);
 double gwfft_weight_inverse (void *, unsigned long);
 double gwfft_weight_inverse_squared (void *, unsigned long);
