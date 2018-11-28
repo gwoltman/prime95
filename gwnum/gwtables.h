@@ -215,11 +215,15 @@ struct gwasm_data {
 		double	ZMM_RNDVAL_OVER_SMALL_BASE; /* Used to round double to integer */
 
 		double	ZMM_K_LO;		/* k, bottom big word bits */
-		double	ZMM_K_HI;		/* k, top bits */
+		double	ZMM_K_HI_OVER_SMALL_BASE; /* k, top bits */
+		double	ZMM_K_HI_OVER_LARGE_BASE; /* k, top bits */
 		double	ZMM_K_TIMES_MULCONST_LO; /* k*mulconst, low big word bits */
-		double	ZMM_K_TIMES_MULCONST_HI; /* k*mulconst, top bits */
+		double	ZMM_K_TIMES_MULCONST_HI_OVER_SMALL_BASE; /* k*mulconst, top bits */
+		double	ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE; /* k*mulconst, top bits */
 
+		double	ZMM_TWO;		/* 2.0 - used in 64-complex macros */
 		double	ZMM_HALF;		/* 0.5, used in 12-real, 12-complex, 24-real, 128-real macros */
+		double	ZMM_P924_P383;		/* Used in 128-real, 16-real, 16-complex, 32-real macros */
 
 		// Next 4 values must be in this order and on a 256-bit boundary
 		double	ZMM_ONE;		/* 1.0 - used in 128-real and expanding reduced sin/cos */
@@ -227,9 +231,6 @@ struct gwasm_data {
 		double	ZMM_SQRTHALF;		/* SQRT(0.5) - used in 128-real and many other macros */
 		double	ZMM_P383_1;		/* Used in 128-real macros */
 		// End of 4 values that must be in this particular order and on a 256-bit boundary
-
-		double	ZMM_P924_P383;		/* Used in 128-real, 16-real, 16-complex, 32-real macros */
-		double	ZMM_TWO;		/* 2.0 - used in 64-complex macros */
 
 		double	ZMM_P981_P195;		/* Used in 32-real macros */
 		double	ZMM_P195;		/* Used in 32-real macros */
@@ -239,14 +240,12 @@ struct gwasm_data {
 		double	ZMM_SQRT2;		/* Used in 8-complex, 16-real macros (special versions to reduce roundoff error) */
 
 		double	ZMM_P866;		/* Used in 6-complex, 12-real, 12-complex, 24-real macros */
-		double	ZMM_UNUSED_DBL3;
 
 		double	ZMM_P309;		/* Used in 5-complex, 10-real, 10-complex, 20-real macros */
 		double	ZMM_P809;		/* Used in 5-complex, 10-real, 10-complex, 20-real macros */
 		double	ZMM_P951;		/* Used in 5-complex, 10-real, 10-complex, 20-real macros */
 		double	ZMM_P588_P951;		/* Used in 5-complex, 10-real, 10-complex, 20-real macros */
 
-		double	ZMM_UNUSED_DBL4;
 		double	ZMM_UNUSED_DBL5;
 
 		double	ZMM_P623;		/* Used in 7-complex, 14-real macros */

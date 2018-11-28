@@ -245,10 +245,10 @@ int avx512_prctab_index (gwhandle *gwdata, int z, int e, int c)
 		index += 4;
 		if (e) index += 4;
 		if (!c) {
-			if (asm_data->u.zmm.ZMM_K_HI == 0.0) index += 1;
+			if (asm_data->u.zmm.ZMM_K_HI_OVER_SMALL_BASE == 0.0) index += 1;
 		} else {
 			index += 2;
-			if (asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI == 0.0) index += 1;
+			if (asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_SMALL_BASE == 0.0) index += 1;
 		}
 	}
 	return (index);
@@ -3542,11 +3542,13 @@ int internal_gwsetup (
 /* 2^49 should give us enough room to handle a carry and still round properly. */	
 
 		if (k * big_word < 562949953421312.0) {
-			asm_data->u.zmm.ZMM_K_HI = 0.0;
 			asm_data->u.zmm.ZMM_K_LO = k;
+			asm_data->u.zmm.ZMM_K_HI_OVER_SMALL_BASE = 0.0;
+			asm_data->u.zmm.ZMM_K_HI_OVER_LARGE_BASE = 0.0;
 		} else {
-			asm_data->u.zmm.ZMM_K_HI = floor (k / big_word) * big_word;
-			asm_data->u.zmm.ZMM_K_LO = k - asm_data->u.zmm.ZMM_K_HI;
+			asm_data->u.zmm.ZMM_K_HI_OVER_LARGE_BASE = floor (k / big_word);
+			asm_data->u.zmm.ZMM_K_HI_OVER_SMALL_BASE = floor (k / big_word) * (double) b;
+			asm_data->u.zmm.ZMM_K_LO = k - asm_data->u.zmm.ZMM_K_HI_OVER_LARGE_BASE * big_word;
 		}
 		gwsetmulbyconst (gwdata, gwdata->maxmulbyconst);
 
@@ -5320,7 +5322,8 @@ void auxiliary_thread (void *arg)
 			asm_data->ADDIN_VALUE = main_thread_asm_data->ADDIN_VALUE;
 			if (gwdata->cpu_flags & CPU_AVX512F) {
 				asm_data->u.zmm.ZMM_MULCONST = main_thread_asm_data->u.zmm.ZMM_MULCONST;
-				asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI = main_thread_asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI;
+				asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE = main_thread_asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE;
+				asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_SMALL_BASE = main_thread_asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_SMALL_BASE;
 				asm_data->u.zmm.ZMM_K_TIMES_MULCONST_LO = main_thread_asm_data->u.zmm.ZMM_K_TIMES_MULCONST_LO;
 				asm_data->u.zmm.ZMM_MINUS_C_TIMES_MULCONST = main_thread_asm_data->u.zmm.ZMM_MINUS_C_TIMES_MULCONST;
 			} else if (gwdata->cpu_flags & CPU_AVX) {
@@ -7697,11 +7700,13 @@ void gwsetmulbyconst (
 /* 2^49 should give us enough room to handle a carry and still round properly. */	
 
 		if (fabs (ktimesval) * big_word < 562949953421312.0) {
-			asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI = 0.0;
+			asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE = 0.0;
+			asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_SMALL_BASE = 0.0;
 			asm_data->u.zmm.ZMM_K_TIMES_MULCONST_LO = ktimesval;
 		} else {
-			asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI = floor (ktimesval / big_word) * big_word;
-			asm_data->u.zmm.ZMM_K_TIMES_MULCONST_LO = ktimesval - asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI;
+			asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE = floor (ktimesval / big_word);
+			asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_SMALL_BASE = asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE * (double) gwdata->b;
+			asm_data->u.zmm.ZMM_K_TIMES_MULCONST_LO = ktimesval - asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE * big_word;
 		}
 	}
 

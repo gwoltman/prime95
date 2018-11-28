@@ -129,8 +129,7 @@ no ttp	vsubsd	xmmval, xmmval, xmm14			;; val_lo = val+RNDVAL - tmp+RNDVAL = val 
 ; SUB 33-36	new val1 = x_lo = x+RNDVAL - tmp3+RNDVAL = x - rnd(x/base)*base = x%base
 ;
 ; FMA 29-32	next carry2 = val2_hi * -c*mulconst + x_hi+RNDVAL
-; FMA anytime	if khi	adjusted_k_hi = k_hi / base	(k_hi is a multiple of large_base)
-; FMA 33-36	if khi	next carry2 = val1_lo * adjusted_k_hi + next carry2
+; FMA 33-36	if khi	next carry2 = val1_lo * k_hi/base + next carry2
 ;
 ; MUL 37-40	new val1 = new val1 * ttp
 
@@ -187,10 +186,10 @@ const		vbroadcastsd zmm29, ZMM_MINUS_C_TIMES_MULCONST
 		vbroadcastsd zmm27, ZMM_SMALL_BASE_INVERSE		;; 1 / small_word_base
 		vbroadcastsd zmm26, ZMM_RNDVAL_TIMES_SMALL_BASE		;; RNDVAL * small_word_base - RNDVAL
 		vbroadcastsd zmm25, ZMM_RNDVAL_OVER_SMALL_BASE		;; RNDVAL / small_word_base - RNDVAL
-no const	vbroadcastsd zmm24, ZMM_K_LO
+no const	vbroadcastsd zmm24, ZMM_K_LO				;; k_lo
 const		vbroadcastsd zmm24, ZMM_K_TIMES_MULCONST_LO
-khi no const	vmulpd	zmm31, zmm27, ZMM_K_HI{1to8}			;; Adjusted_k_hi = k_hi / base
-khi const	vmulpd	zmm31, zmm27, ZMM_K_TIMES_MULCONST_HI{1to8}
+khi no const	vbroadcastsd zmm31, ZMM_K_HI_OVER_SMALL_BASE{1to8}	;; k_hi / small_word_base
+khi const	vbroadcastsd zmm31, ZMM_K_TIMES_MULCONST_HI_OVER_SMALL_BASE{1to8}
 	ENDM
 znorm_wpn_zpad_noechk_nottp MACRO const, khi
 	vaddpd	zmm12, zmm30, [rsi+64]		; 1-4	;; val5+RNDVAL = RNDVAL + value5
@@ -253,10 +252,10 @@ znorm_wpn_zpad_noechk_nottp MACRO const, khi
 	vsubpd	zmm13, zmm13, zmm21		; 35-38 ;; new val2 = x2_lo = x2+RNDVAL - tmp10+RNDVAL = x2 - rnd(x2/base)*base = x2%base
 	vsubpd	zmm14, zmm14, zmm22		; 36-39 ;; new val1 = x3_lo = x3+RNDVAL - tmp11+RNDVAL = x1 - rnd(x3/base)*base = x3%base
 	vsubpd	zmm15, zmm15, zmm23		; 36-39 ;; new val2 = x4_lo = x4+RNDVAL - tmp12+RNDVAL = x2 - rnd(x4/base)*base = x4%base
-khi	zfmaddpd zmm4, zmm8, zmm31, zmm4	; 37-40 ;; if khi next carry5 = val1_lo * adjusted_k_hi + next carry5
-khi	zfmaddpd zmm5, zmm9, zmm31, zmm5	; 37-40 ;; if khi next carry6 = val2_lo * adjusted_k_hi + next carry6
-khi	zfmaddpd zmm6, zmm10, zmm31, zmm6	; 38-41 ;; if khi next carry7 = val3_lo * adjusted_k_hi + next carry7
-khi	zfmaddpd zmm7, zmm11, zmm31, zmm7	; 38-41 ;; if khi next carry8 = val4_lo * adjusted_k_hi + next carry8
+khi	zfmaddpd zmm4, zmm8, zmm31, zmm4	; 37-40 ;; if khi next carry5 = val1_lo * k_hi/base + next carry5
+khi	zfmaddpd zmm5, zmm9, zmm31, zmm5	; 37-40 ;; if khi next carry6 = val2_lo * k_hi/base + next carry6
+khi	zfmaddpd zmm6, zmm10, zmm31, zmm6	; 38-41 ;; if khi next carry7 = val3_lo * k_hi/base + next carry7
+khi	zfmaddpd zmm7, zmm11, zmm31, zmm7	; 38-41 ;; if khi next carry8 = val4_lo * k_hi/base + next carry8
 
 	zstore	[rsi], zmm12		;; Save value1
 	zstore	[rsi+r14], zmm13	;; Save value2
@@ -278,10 +277,8 @@ const		vbroadcastsd zmm29, ZMM_MINUS_C_TIMES_MULCONST
 		vbroadcastsd zmm27, ZMM_SMALL_BASE_INVERSE		;; 1 / small_word_base
 		vbroadcastsd zmm26, ZMM_RNDVAL_TIMES_SMALL_BASE		;; RNDVAL * small_word_base - RNDVAL
 		vbroadcastsd zmm25, ZMM_RNDVAL_OVER_SMALL_BASE		;; RNDVAL / small_word_base - RNDVAL
-khi no const	vmulpd	zmm24, zmm27, ZMM_K_HI{1to8}			;; Adjusted_k_hi = k_hi / base
-khi const	vmulpd	zmm24, zmm27, ZMM_K_TIMES_MULCONST_HI{1to8}
-no khi no const	vbroadcastsd zmm24, ZMM_K_LO
-no khi const	vbroadcastsd zmm24, ZMM_K_TIMES_MULCONST_LO
+no const	vbroadcastsd zmm24, ZMM_K_LO
+const		vbroadcastsd zmm24, ZMM_K_TIMES_MULCONST_LO
 	ENDM
 znorm_wpn_zpad_echk_nottp MACRO const, khi
 	vaddpd	zmm8, zmm0, [rsi]		; 1-4	;; val1+RNDVAL = carry1+RNDVAL + value1
@@ -370,16 +367,10 @@ znorm_wpn_zpad_echk_nottp MACRO const, khi
 	vsubpd	zmm10, zmm10, zmm22		; 20-23	;; val3_lo = val3+RNDVAL - tmp3+RNDVAL = val3 - rnd(val3/base)*base = val3%base
 	vsubpd	zmm11, zmm11, zmm23		; 20-23	;; val4_lo = val4+RNDVAL - tmp4+RNDVAL = val4 - rnd(val4/base)*base = val4%base
 
-no khi	zfmaddpd zmm12, zmm8, zmm24, zmm12	; 23-26 ;; x1+RNDVAL += val1_lo * k_lo
-no khi	zfmaddpd zmm13, zmm9, zmm24, zmm13	; 23-26 ;; x2+RNDVAL += val2_lo * k_lo
-no khi	zfmaddpd zmm14, zmm10, zmm24, zmm14	; 24-27 ;; x3+RNDVAL += val3_lo * k_lo
-no khi	zfmaddpd zmm15, zmm11, zmm24, zmm15	; 24-27 ;; x4+RNDVAL += val4_lo * k_lo
-khi no const	vbroadcastsd zmm23, ZMM_K_LO
-khi const	vbroadcastsd zmm23, ZMM_K_TIMES_MULCONST_LO
-khi	zfmaddpd zmm12, zmm8, zmm23, zmm12	; 23-26 ;; x1+RNDVAL += val1_lo * k_lo
-khi	zfmaddpd zmm13, zmm9, zmm23, zmm13	; 23-26 ;; x2+RNDVAL += val2_lo * k_lo
-khi	zfmaddpd zmm14, zmm10, zmm23, zmm14	; 24-27 ;; x3+RNDVAL += val3_lo * k_lo
-khi	zfmaddpd zmm15, zmm11, zmm23, zmm15	; 24-27 ;; x4+RNDVAL += val4_lo * k_lo
+	zfmaddpd zmm12, zmm8, zmm24, zmm12	; 23-26 ;; x1+RNDVAL += val1_lo * k_lo
+	zfmaddpd zmm13, zmm9, zmm24, zmm13	; 23-26 ;; x2+RNDVAL += val2_lo * k_lo
+	zfmaddpd zmm14, zmm10, zmm24, zmm14	; 24-27 ;; x3+RNDVAL += val3_lo * k_lo
+	zfmaddpd zmm15, zmm11, zmm24, zmm15	; 24-27 ;; x4+RNDVAL += val4_lo * k_lo
 
 	zfmsubpd zmm4, zmm12, zmm27, zmm25	; 27-30 ;; x1_hi+RNDVAL = (x1+RNDVAL) / base - (RNDVAL/base-RNDVAL) = rnd(x1/base)+RNDVAL
 	zfmsubpd zmm5, zmm13, zmm27, zmm25	; 27-30 ;; x2_hi+RNDVAL = (x2+RNDVAL) / base - (RNDVAL/base-RNDVAL) = rnd(x2/base)+RNDVAL
@@ -397,10 +388,12 @@ khi	zfmaddpd zmm15, zmm11, zmm23, zmm15	; 24-27 ;; x4+RNDVAL += val4_lo * k_lo
 	vsubpd	zmm13, zmm13, zmm21		; 35-38 ;; new val2 = x2_lo = x2+RNDVAL - tmp10+RNDVAL = x2 - rnd(x2/base)*base = x2%base
 	vsubpd	zmm14, zmm14, zmm22		; 36-39 ;; new val1 = x3_lo = x3+RNDVAL - tmp11+RNDVAL = x1 - rnd(x3/base)*base = x3%base
 	vsubpd	zmm15, zmm15, zmm23		; 36-39 ;; new val2 = x4_lo = x4+RNDVAL - tmp12+RNDVAL = x2 - rnd(x4/base)*base = x4%base
-khi	zfmaddpd zmm4, zmm8, zmm24, zmm4	; 37-40 ;; if khi next carry5 = val1_lo * adjusted_k_hi + next carry5
-khi	zfmaddpd zmm5, zmm9, zmm24, zmm5	; 37-40 ;; if khi next carry6 = val2_lo * adjusted_k_hi + next carry6
-khi	zfmaddpd zmm6, zmm10, zmm24, zmm6	; 38-41 ;; if khi next carry7 = val3_lo * adjusted_k_hi + next carry7
-khi	zfmaddpd zmm7, zmm11, zmm24, zmm7	; 38-41 ;; if khi next carry8 = val4_lo * adjusted_k_hi + next carry8
+khi no const	vbroadcastsd zmm23, ZMM_K_HI_OVER_SMALL_BASE{1to8}	;; k_hi / small_word_base
+khi const	vbroadcastsd zmm23, ZMM_K_TIMES_MULCONST_HI_OVER_SMALL_BASE{1to8}
+khi	zfmaddpd zmm4, zmm8, zmm23, zmm4	; 37-40 ;; if khi next carry5 = val1_lo * k_hi/base + next carry5
+khi	zfmaddpd zmm5, zmm9, zmm23, zmm5	; 37-40 ;; if khi next carry6 = val2_lo * k_hi/base + next carry6
+khi	zfmaddpd zmm6, zmm10, zmm23, zmm6	; 38-41 ;; if khi next carry7 = val3_lo * k_hi/base + next carry7
+khi	zfmaddpd zmm7, zmm11, zmm23, zmm7	; 38-41 ;; if khi next carry8 = val4_lo * k_hi/base + next carry8
 
 	zstore	[rsi], zmm12		;; Save value1
 	zstore	[rsi+r14], zmm13	;; Save value2
@@ -491,10 +484,6 @@ const	vbroadcastsd zmm28, ZMM_K_TIMES_MULCONST_LO
 	zfmaddpd zmm13, zmm9, zmm28, zmm13	; 25-28 ;; x2 += val2_lo * k_lo
 	zfmaddpd zmm14, zmm10, zmm28, zmm14	; 26-29 ;; x3 += val3_lo * k_lo
 	zfmaddpd zmm15, zmm11, zmm28, zmm15	; 26-29 ;; x4 += val4_lo * k_lo
-khi	vmulpd	zmm8, zmm8, zmm16		;*23-26	;; adjusted_val1_lo = val1_lo / base (k_hi is a multiple of large_base)
-khi	vmulpd	zmm9, zmm9, zmm17		;*23-26	;; adjusted_val2_lo = val2_lo / base (k_hi is a multiple of large_base)
-khi	vmulpd	zmm10, zmm10, zmm18		;*24-27	;; adjusted_val3_lo = val3_lo / base (k_hi is a multiple of large_base)
-khi	vmulpd	zmm11, zmm11, zmm19		;*24-27	;; adjusted_val4_lo = val4_lo / base (k_hi is a multiple of large_base)
 	zfmaddpd zmm16, zmm12, zmm16, zmm30	; 29-32 ;; x1_hi+RNDVAL = x1 / base + RNDVAL = rnd(x1/base)+RNDVAL
 	zfmaddpd zmm17, zmm13, zmm17, zmm30	; 29-32 ;; x2_hi+RNDVAL = x2 / base + RNDVAL = rnd(x2/base)+RNDVAL
 	zfmaddpd zmm18, zmm14, zmm18, zmm30	; 30-33 ;; x3_hi+RNDVAL = x3 / base + RNDVAL = rnd(x3/base)+RNDVAL
@@ -503,6 +492,14 @@ khi	vmulpd	zmm11, zmm11, zmm19		;*24-27	;; adjusted_val4_lo = val4_lo / base (k_
 	vsubpd	zmm5, zmm17, zmm30		; 33-36	;; x2_hi = x2_hi+RNDVAL - RNDVAL
 	vsubpd	zmm6, zmm18, zmm30		; 34-37	;; x3_hi = x3_hi+RNDVAL - RNDVAL
 	vsubpd	zmm7, zmm19, zmm30		; 34-37	;; x4_hi = x4_hi+RNDVAL - RNDVAL
+khi no const	vbroadcastsd zmm28, ZMM_K_HI_OVER_SMALL_BASE
+khi no const	vbroadcastsd zmm19, ZMM_K_HI_OVER_LARGE_BASE
+khi const	vbroadcastsd zmm28, ZMM_K_TIMES_MULCONST_HI_OVER_SMALL_BASE
+khi const	vbroadcastsd zmm19, ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE
+khi	vblendmpd zmm16 {k1}, zmm28, zmm19	; 35	;; Create (k_hi/base) constant
+khi	vblendmpd zmm17 {k2}, zmm28, zmm19	; 35	;; Create (k_hi/base) constant
+khi	vblendmpd zmm18 {k3}, zmm28, zmm19	; 36	;; Create (k_hi/base) constant
+khi	vblendmpd zmm19 {k4}, zmm28, zmm19	; 36	;; Create (k_hi/base) constant
 	zfnmaddpd zmm12, zmm4, zmm24, zmm12	; 37-40 ;; new val1 = x1_lo = x1 - x1_hi * base = x1%base
 	zfnmaddpd zmm13, zmm5, zmm25, zmm13	; 37-40 ;; new val2 = x2_lo = x2 - x2_hi * base = x2%base
 	zfnmaddpd zmm14, zmm6, zmm26, zmm14	; 38-41 ;; new val3 = x3_lo = x3 - x3_hi * base = x3%base
@@ -511,12 +508,10 @@ khi	vmulpd	zmm11, zmm11, zmm19		;*24-27	;; adjusted_val4_lo = val4_lo / base (k_
 	zfmaddpd zmm5, zmm21, zmm29, zmm5	; 39-42 ;; next carry6 = val6_hi * -c*mulconst + x2_hi
 	zfmaddpd zmm6, zmm22, zmm29, zmm6	; 40-43 ;; next carry7 = val7_hi * -c*mulconst + x3_hi
 	zfmaddpd zmm7, zmm23, zmm29, zmm7	; 40-43 ;; next carry8 = val8_hi * -c*mulconst + x4_hi
-khi no const	vbroadcastsd zmm28, ZMM_K_HI
-khi const	vbroadcastsd zmm28, ZMM_K_TIMES_MULCONST_HI
-khi	zfmaddpd zmm4, zmm8, zmm28, zmm4	;*41-44 ;; if khi next carry5 = adjusted_val1_lo * k_hi + next carry5
-khi	zfmaddpd zmm5, zmm9, zmm28, zmm5	;*41-44 ;; if khi next carry6 = adjusted_val2_lo * k_hi + next carry6
-khi	zfmaddpd zmm6, zmm10, zmm28, zmm6	;*42-45 ;; if khi next carry7 = adjusted_val3_lo * k_hi + next carry7
-khi	zfmaddpd zmm7, zmm11, zmm28, zmm7	;*42-45 ;; if khi next carry8 = adjusted_val4_lo * k_hi + next carry8
+khi	zfmaddpd zmm4, zmm8, zmm16, zmm4	;*43-46 ;; if khi next carry5 = val1_lo * k_hi/base + next carry5
+khi	zfmaddpd zmm5, zmm9, zmm17, zmm5	;*43-46 ;; if khi next carry6 = val2_lo * k_hi/base + next carry6
+khi	zfmaddpd zmm6, zmm10, zmm18, zmm6	;*44-47 ;; if khi next carry7 = val3_lo * k_hi/base + next carry7
+khi	zfmaddpd zmm7, zmm11, zmm19, zmm7	;*43-47 ;; if khi next carry8 = val4_lo * k_hi/base + next carry8
 
 	zstore	[rsi], zmm12		;; Save value1
 	zstore	[rsi+r14], zmm13	;; Save value2
@@ -649,10 +644,6 @@ const	vbroadcastsd zmm28, ZMM_K_TIMES_MULCONST_LO
 	zfmaddpd zmm13, zmm9, zmm28, zmm13	; 25-28 ;; x2 += val2_lo * k_lo
 	zfmaddpd zmm14, zmm10, zmm28, zmm14	; 26-29 ;; x3 += val3_lo * k_lo
 	zfmaddpd zmm15, zmm11, zmm28, zmm15	; 26-29 ;; x4 += val4_lo * k_lo
-khi	vmulpd	zmm8, zmm8, zmm16		;*23-26	;; adjusted_val1_lo = val1_lo / base (k_hi is a multiple of large_base)
-khi	vmulpd	zmm9, zmm9, zmm17		;*23-26	;; adjusted_val2_lo = val2_lo / base (k_hi is a multiple of large_base)
-khi	vmulpd	zmm10, zmm10, zmm18		;*24-27	;; adjusted_val3_lo = val3_lo / base (k_hi is a multiple of large_base)
-khi	vmulpd	zmm11, zmm11, zmm19		;*24-27	;; adjusted_val4_lo = val4_lo / base (k_hi is a multiple of large_base)
 	zfmaddpd zmm16, zmm12, zmm16, zmm30	; 29-32 ;; x1_hi+RNDVAL = x1 / base + RNDVAL = rnd(x1/base)+RNDVAL
 	zfmaddpd zmm17, zmm13, zmm17, zmm30	; 29-32 ;; x2_hi+RNDVAL = x2 / base + RNDVAL = rnd(x2/base)+RNDVAL
 	zfmaddpd zmm18, zmm14, zmm18, zmm30	; 30-33 ;; x3_hi+RNDVAL = x3 / base + RNDVAL = rnd(x3/base)+RNDVAL
@@ -661,6 +652,14 @@ khi	vmulpd	zmm11, zmm11, zmm19		;*24-27	;; adjusted_val4_lo = val4_lo / base (k_
 	vsubpd	zmm5, zmm17, zmm30		; 33-36	;; x2_hi = x2_hi+RNDVAL - RNDVAL
 	vsubpd	zmm6, zmm18, zmm30		; 34-37	;; x3_hi = x3_hi+RNDVAL - RNDVAL
 	vsubpd	zmm7, zmm19, zmm30		; 34-37	;; x4_hi = x4_hi+RNDVAL - RNDVAL
+khi no const	vbroadcastsd zmm28, ZMM_K_HI_OVER_SMALL_BASE
+khi no const	vbroadcastsd zmm19, ZMM_K_HI_OVER_LARGE_BASE
+khi const	vbroadcastsd zmm28, ZMM_K_TIMES_MULCONST_HI_OVER_SMALL_BASE
+khi const	vbroadcastsd zmm19, ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE
+khi	vblendmpd zmm16 {k1}, zmm28, zmm19	; 35	;; Create (k_hi/base) constant
+khi	vblendmpd zmm17 {k2}, zmm28, zmm19	; 35	;; Create (k_hi/base) constant
+khi	vblendmpd zmm18 {k3}, zmm28, zmm19	; 36	;; Create (k_hi/base) constant
+khi	vblendmpd zmm19 {k4}, zmm28, zmm19	; 36	;; Create (k_hi/base) constant
 	zfnmaddpd zmm12, zmm4, zmm24, zmm12	; 37-40 ;; new val1 = x1_lo = x1 - x1_hi * base = x1%base
 	zfnmaddpd zmm13, zmm5, zmm25, zmm13	; 37-40 ;; new val2 = x2_lo = x2 - x2_hi * base = x2%base
 	zfnmaddpd zmm14, zmm6, zmm26, zmm14	; 38-41 ;; new val3 = x3_lo = x3 - x3_hi * base = x3%base
@@ -669,12 +668,10 @@ khi	vmulpd	zmm11, zmm11, zmm19		;*24-27	;; adjusted_val4_lo = val4_lo / base (k_
 	zfmaddpd zmm5, zmm21, zmm29, zmm5	; 39-42 ;; next carry6 = val6_hi * -c*mulconst + x2_hi
 	zfmaddpd zmm6, zmm22, zmm29, zmm6	; 40-43 ;; next carry7 = val7_hi * -c*mulconst + x3_hi
 	zfmaddpd zmm7, zmm23, zmm29, zmm7	; 40-43 ;; next carry8 = val8_hi * -c*mulconst + x4_hi
-khi no const	vbroadcastsd zmm28, ZMM_K_HI
-khi const	vbroadcastsd zmm28, ZMM_K_TIMES_MULCONST_HI
-khi	zfmaddpd zmm4, zmm8, zmm28, zmm4	;*41-44 ;; if khi next carry5 = adjusted_val1_lo * k_hi + next carry5
-khi	zfmaddpd zmm5, zmm9, zmm28, zmm5	;*41-44 ;; if khi next carry6 = adjusted_val2_lo * k_hi + next carry6
-khi	zfmaddpd zmm6, zmm10, zmm28, zmm6	;*42-45 ;; if khi next carry7 = adjusted_val3_lo * k_hi + next carry7
-khi	zfmaddpd zmm7, zmm11, zmm28, zmm7	;*42-45 ;; if khi next carry8 = adjusted_val4_lo * k_hi + next carry8
+khi	zfmaddpd zmm4, zmm8, zmm16, zmm4	;*43-46 ;; if khi next carry5 = val1_lo * k_hi/base + next carry5
+khi	zfmaddpd zmm5, zmm9, zmm17, zmm5	;*43-46 ;; if khi next carry6 = val2_lo * k_hi/base + next carry6
+khi	zfmaddpd zmm6, zmm10, zmm18, zmm6	;*44-47 ;; if khi next carry7 = val3_lo * k_hi/base + next carry7
+khi	zfmaddpd zmm7, zmm11, zmm19, zmm7	;*43-47 ;; if khi next carry8 = val4_lo * k_hi/base + next carry8
 
 	zstore	[rsi], zmm12		;; Save value1
 	zstore	[rsi+r14], zmm13	;; Save value2
@@ -1363,12 +1360,12 @@ zadd_carry_rows_zpad_nottp_preload MACRO
 	vbroadcastsd zmm26, ZMM_RNDVAL_TIMES_SMALL_BASE		;; RNDVAL * small_word_base - RNDVAL
 	vbroadcastsd zmm25, ZMM_RNDVAL_OVER_SMALL_BASE		;; RNDVAL / small_word_base - RNDVAL
 	vbroadcastsd zmm29, ZMM_K_LO				;; k_lo
-	vbroadcastsd zmm24, ZMM_K_HI				;; k_hi
+	vbroadcastsd zmm24, ZMM_K_HI_OVER_SMALL_BASE		;; k_hi / small_word_base
 	cmp	const_fft, 0					;; Are we also multiplying by a constant?
 	je	short noncon					;; Jump if not const
 	vbroadcastsd zmm29, ZMM_K_TIMES_MULCONST_LO		;; k_lo * mulconst
-	vbroadcastsd zmm24, ZMM_K_TIMES_MULCONST_HI		;; k_hi * mulconst
-noncon:	vmulpd	zmm24, zmm24, zmm27				;; k_hi * optional mulconst / base
+	vbroadcastsd zmm24, ZMM_K_TIMES_MULCONST_HI_OVER_SMALL_BASE ;; k_hi * mulconst / small_word_base
+noncon:	
 	ENDM
 
 zadd_carry_rows_zpad_nottp MACRO
@@ -1397,7 +1394,7 @@ cloop:	vmovapd	zmm12, zmm0				;; Copy input carry1+RNDVAL
 	zfmaddpd zmm8, zmm12, zmm29, zmm8	; 13-16 ;; x1+RNDVAL += carry1_lo * k_lo
 	zfmsubpd zmm4, zmm8, zmm27, zmm25	; 17-20 ;; x1_hi+RNDVAL = (x1+RNDVAL) / base - (RNDVAL/base-RNDVAL) = rnd(x1/base)+RNDVAL (next carry5)
 	zfmsubpd zmm16, zmm4, zmm28, zmm26	; 21-24 ;; tmp5+RNDVAL = (x1_hi+RNDVAL) * base - (RNDVAL*base-RNDVAL) = rnd(x1/base)*base+RNDVAL
-	zfmaddpd zmm4, zmm12, zmm24, zmm4	; 22-25 ;; next carry5 = carry1_lo * adjusted_k_hi + next carry5
+	zfmaddpd zmm4, zmm12, zmm24, zmm4	; 22-25 ;; next carry5 = carry1_lo * k_hi/base + next carry5
 	vsubpd	zmm8, zmm8, zmm16		; 25-28 ;; new val1 = x1_lo = x1+RNDVAL - tmp5+RNDVAL = x1 - rnd(x1/base)*base = x1%base
 
 	vmovapd	zmm13, zmm1				;; Copy input carry2+RNDVAL
@@ -1408,7 +1405,7 @@ cloop:	vmovapd	zmm12, zmm0				;; Copy input carry1+RNDVAL
 	zfmaddpd zmm9, zmm13, zmm29, zmm9	; 13-16 ;; x2+RNDVAL += carry2_lo * k_lo
 	zfmsubpd zmm5, zmm9, zmm27, zmm25	; 17-20 ;; x2_hi+RNDVAL = (x2+RNDVAL) / base - (RNDVAL/base-RNDVAL) = rnd(x2/base)+RNDVAL (next carry6)
 	zfmsubpd zmm17, zmm5, zmm28, zmm26	; 21-24 ;; tmp6+RNDVAL = (x2_hi+RNDVAL) * base - (RNDVAL*base-RNDVAL) = rnd(x2/base)*base+RNDVAL
-	zfmaddpd zmm5, zmm13, zmm24, zmm5	; 22-25 ;; next carry6 = carry2_lo * adjusted_k_hi + next carry6
+	zfmaddpd zmm5, zmm13, zmm24, zmm5	; 22-25 ;; next carry6 = carry2_lo * k_hi/base + next carry6
 	vsubpd	zmm9, zmm9, zmm17		; 25-28 ;; new val2 = x2_lo = x2+RNDVAL - tmp6+RNDVAL = x2 - rnd(x2/base)*base = x2%base
 
 	vmovapd	zmm14, zmm2				;; Copy input carry3+RNDVAL
@@ -1419,7 +1416,7 @@ cloop:	vmovapd	zmm12, zmm0				;; Copy input carry1+RNDVAL
 	zfmaddpd zmm10, zmm14, zmm29, zmm10	; 13-16 ;; x3+RNDVAL += carry3_lo * k_lo
 	zfmsubpd zmm6, zmm10, zmm27, zmm25	; 17-20 ;; x3_hi+RNDVAL = (x3+RNDVAL) / base - (RNDVAL/base-RNDVAL) = rnd(x3/base)+RNDVAL (next carry7)
 	zfmsubpd zmm18, zmm6, zmm28, zmm26	; 21-24 ;; tmp7+RNDVAL = (x3_hi+RNDVAL) * base - (RNDVAL*base-RNDVAL) = rnd(x3/base)*base+RNDVAL
-	zfmaddpd zmm6, zmm14, zmm24, zmm6	; 22-25 ;; next carry7 = carry3_lo * adjusted_k_hi + next carry7
+	zfmaddpd zmm6, zmm14, zmm24, zmm6	; 22-25 ;; next carry7 = carry3_lo * k_hi/base + next carry7
 	vsubpd	zmm10, zmm10, zmm18		; 25-28 ;; new val3 = x3_lo = x3+RNDVAL - tmp7+RNDVAL = x3 - rnd(x3/base)*base = x3%base
 
 	vmovapd	zmm15, zmm3				;; Copy input carry4+RNDVAL
@@ -1430,7 +1427,7 @@ cloop:	vmovapd	zmm12, zmm0				;; Copy input carry1+RNDVAL
 	zfmaddpd zmm11, zmm15, zmm29, zmm11	; 13-16 ;; x4+RNDVAL += carry4_lo * k_lo
 	zfmsubpd zmm7, zmm11, zmm27, zmm25	; 17-20 ;; x4_hi+RNDVAL = (x4+RNDVAL) / base - (RNDVAL/base-RNDVAL) = rnd(x4/base)+RNDVAL (next carry8)
 	zfmsubpd zmm19, zmm7, zmm28, zmm26	; 21-24 ;; tmp8+RNDVAL = (x4_hi+RNDVAL) * base - (RNDVAL*base-RNDVAL) = rnd(x4/base)*base+RNDVAL
-	zfmaddpd zmm7, zmm15, zmm24, zmm7	; 22-25 ;; next carry8 = carry4_lo * adjusted_k_hi + next carry8
+	zfmaddpd zmm7, zmm15, zmm24, zmm7	; 22-25 ;; next carry8 = carry4_lo * k_hi/base + next carry8
 	vsubpd	zmm11, zmm11, zmm19		; 25-28 ;; new val4 = x4_lo = x4+RNDVAL - tmp8+RNDVAL = x4 - rnd(x4/base)*base = x4%base
 
 	zstore	[rsi], zmm8			;; Save new val1
@@ -1497,12 +1494,13 @@ zadd_carry_rows_zpad_ttp_preload MACRO
 	vbroadcastsd zmm26, ZMM_LARGE_BASE			;; large_word_base
 	vbroadcastsd zmm25, ZMM_LARGE_BASE_INVERSE		;; 1 / large_word_base
 	vbroadcastsd zmm29, ZMM_K_LO				;; k_lo
-	vbroadcastsd zmm24, ZMM_K_HI				;; k_hi
+	vbroadcastsd zmm24, ZMM_K_HI_OVER_SMALL_BASE		;; k_hi / small_word_base
+	vbroadcastsd zmm31, ZMM_K_HI_OVER_LARGE_BASE		;; k_hi / large_word_base
 	cmp	const_fft, 0					;; Are we also multiplying by a constant?
 	je	short noncon					;; Jump if not const
 	vbroadcastsd zmm29, ZMM_K_TIMES_MULCONST_LO		;; k_lo * mulconst
-	vbroadcastsd zmm24, ZMM_K_TIMES_MULCONST_HI		;; k_hi * mulconst
-	vpxorq	zmm31, zmm31, zmm31				;; Zero
+	vbroadcastsd zmm24, ZMM_K_TIMES_MULCONST_HI_OVER_SMALL_BASE ;; k_hi * mulconst / small_word_base
+	vbroadcastsd zmm31, ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE ;; k_hi * mulconst / large_word_base
 noncon:
 	ENDM
 
@@ -1545,11 +1543,11 @@ cloop:	;; BUG -- pipeline below
 	vblendmpd zmm20 {k1}, zmm28, zmm26		;; Create (base) constant
 	zfnmaddpd zmm12, zmm0, zmm20, zmm12	; 9-12	;; carry1_lo = carry1 - carry1_hi * base = carry1 - rnd(carry1/base)*base = carry1%base
 	zfmaddpd zmm8, zmm12, zmm29, zmm8	; 13-16 ;; x1 += carry1_lo * k_lo
-	vmulpd	zmm12, zmm12, zmm16		; 13-16	;; adjusted_carry1_lo = carry1_lo / base
 	zfmaddpd zmm4, zmm8, zmm16, zmm30	; 17-20 ;; x1_hi+RNDVAL = x1 / base + RNDVAL = rnd(x1/base)+RNDVAL
+	vblendmpd zmm16 {k1}, zmm24, zmm31	; 18	;; Create (k_hi/base) constant
 	vsubpd	zmm4, zmm4, zmm30		; 21-24 ;; x1_hi = x1_hi+RNDVAL - RNDVAL = rnd(x1/base) (next carry5)
 	zfnmaddpd zmm8, zmm4, zmm20, zmm8	; 25-28 ;; new val1 = x1_lo = x1 - x1_hi * base = x1 - rnd(x1/base)*base = x1%base
-	zfmaddpd zmm4, zmm12, zmm24, zmm4	; 25-28 ;; next carry5 = adjusted_carry1_lo * k_hi + next carry5
+	zfmaddpd zmm4, zmm12, zmm16, zmm4	; 25-28 ;; next carry5 = carry1_lo * k_hi/base + next carry5
 
 	kshiftrw k2, k1, 8
 	vblendmpd zmm17 {k2}, zmm27, zmm25		;; Create (1/base) constant
@@ -1560,11 +1558,11 @@ cloop:	;; BUG -- pipeline below
 	vblendmpd zmm21 {k2}, zmm28, zmm26		;; Create (base) constant
 	zfnmaddpd zmm13, zmm1, zmm21, zmm13	; 9-12	;; carry2_lo = carry2 - carry2_hi * base = carry2 - rnd(carry2/base)*base = carry2%base
 	zfmaddpd zmm9, zmm13, zmm29, zmm9	; 13-16 ;; x2 += carry2_lo * k_lo
-	vmulpd	zmm13, zmm13, zmm17		; 13-16	;; adjusted_carry2_lo = carry2_lo / base
 	zfmaddpd zmm5, zmm9, zmm17, zmm30	; 17-20 ;; x2_hi+RNDVAL = x2 / base + RNDVAL = rnd(x2/base)+RNDVAL
+	vblendmpd zmm17 {k2}, zmm24, zmm31	; 18	;; Create (k_hi/base) constant
 	vsubpd	zmm5, zmm5, zmm30		; 21-24 ;; x2_hi = x2_hi+RNDVAL - RNDVAL = rnd(x2/base) (next carry6)
 	zfnmaddpd zmm9, zmm5, zmm21, zmm9	; 25-28 ;; new val2 = x2_lo = x2 - x2_hi * base = x2 - rnd(x2/base)*base = x2%base
-	zfmaddpd zmm5, zmm13, zmm24, zmm5	; 25-28 ;; next carry6 = adjusted_carry2_lo * k_hi + next carry6
+	zfmaddpd zmm5, zmm13, zmm17, zmm5	; 25-28 ;; next carry6 = carry2_lo * k_hi/base + next carry6
 
 	kmovw	k3, WORD PTR [r12+rdx*4+2]		;; Load 2 big vs. little flags (16-bit load - we use 8-bits)
 	vblendmpd zmm18 {k3}, zmm27, zmm25		;; Create (1/base) constant
@@ -1575,11 +1573,11 @@ cloop:	;; BUG -- pipeline below
 	vblendmpd zmm22 {k3}, zmm28, zmm26		;; Create (base) constant
 	zfnmaddpd zmm14, zmm2, zmm22, zmm14	; 9-12	;; carry3_lo = carry3 - carry3_hi * base = carry3 - rnd(carry3/base)*base = carry3%base
 	zfmaddpd zmm10, zmm14, zmm29, zmm10	; 13-16 ;; x3 += carry3_lo * k_lo
-	vmulpd	zmm14, zmm14, zmm18		; 13-16	;; adjusted_carry3_lo = carry3_lo / base
 	zfmaddpd zmm6, zmm10, zmm18, zmm30	; 17-20 ;; x3_hi+RNDVAL = x3 / base + RNDVAL = rnd(x3/base)+RNDVAL
+	vblendmpd zmm18 {k3}, zmm24, zmm31	; 18	;; Create (k_hi/base) constant
 	vsubpd	zmm6, zmm6, zmm30		; 21-24 ;; x3_hi = x3_hi+RNDVAL - RNDVAL = rnd(x3/base) (next carry7)
 	zfnmaddpd zmm10, zmm6, zmm22, zmm10	; 25-28 ;; new val3 = x3_lo = x3 - x3_hi * base = x3 - rnd(x3/base)*base = x3%base
-	zfmaddpd zmm6, zmm14, zmm24, zmm6	; 25-28 ;; next carry7 = adjusted_carry3_lo * k_hi + next carry7
+	zfmaddpd zmm6, zmm14, zmm18, zmm6	; 25-28 ;; next carry7 = carry3_lo * k_hi/base + next carry7
 
 	kshiftrw k4, k3, 8
 	vblendmpd zmm19 {k4}, zmm27, zmm25		;; Create (1/base) constant
@@ -1590,27 +1588,28 @@ cloop:	;; BUG -- pipeline below
 	vblendmpd zmm23 {k4}, zmm28, zmm26		;; Create (base) constant
 	zfnmaddpd zmm15, zmm3, zmm23, zmm15	; 9-12	;; carry4_lo = carry4 - carry4_hi * base = carry4 - rnd(carry4/base)*base = carry4%base
 	zfmaddpd zmm11, zmm15, zmm29, zmm11	; 13-16 ;; x4 += carry4_lo * k_lo
-	vmulpd	zmm15, zmm15, zmm19		; 13-16	;; adjusted_carry4_lo = carry4_lo / base
 	zfmaddpd zmm7, zmm11, zmm19, zmm30	; 17-20 ;; x4_hi+RNDVAL = x4 / base + RNDVAL = rnd(x4/base)+RNDVAL
+	vblendmpd zmm19 {k4}, zmm24, zmm31	; 18	;; Create (k_hi/base) constant
 	vsubpd	zmm7, zmm7, zmm30		; 21-24 ;; x4_hi = x4_hi+RNDVAL - RNDVAL = rnd(x4/base) (next carry8)
 	zfnmaddpd zmm11, zmm7, zmm23, zmm11	; 25-28 ;; new val4 = x4_lo = x4 - x4_hi * base = x4 - rnd(x4/base)*base = x4%base
-	zfmaddpd zmm7, zmm15, zmm24, zmm7	; 25-28 ;; next carry8 = adjusted_carry4_lo * k_hi + next carry8
+	zfmaddpd zmm7, zmm15, zmm19, zmm7	; 25-28 ;; next carry8 = carry4_lo * k_hi/base + next carry8
 
 	zstore	[rsi], zmm8			;; Save new val1
 	zstore	[rsi+r14], zmm9			;; Save new val2
 	zstore	[r13], zmm10			;; Save new val3
 	zstore	[r13+r14], zmm11		;; Save new val4
 
-	vcmpneqpd k1, zmm0, zmm31		;; Are any non-zero carries remaining to propagate?
-	vcmpneqpd k2, zmm1, zmm31
-	vcmpneqpd k3, zmm2, zmm31
-	vcmpneqpd k4, zmm3, zmm31
+	vpxorq	zmm8, zmm8, zmm8		;; Zero
+	vcmpneqpd k1, zmm0, zmm8		;; Are any non-zero carries remaining to propagate?
+	vcmpneqpd k2, zmm1, zmm8
+	vcmpneqpd k3, zmm2, zmm8
+	vcmpneqpd k4, zmm3, zmm8
 	korw	k5, k1, k2
 	korw	k6, k3, k4
-	vcmpneqpd k1, zmm4, zmm31		;; Are any non-zero carries remaining to propagate?
-	vcmpneqpd k2, zmm5, zmm31
-	vcmpneqpd k3, zmm6, zmm31
-	vcmpneqpd k4, zmm7, zmm31
+	vcmpneqpd k1, zmm4, zmm8		;; Are any non-zero carries remaining to propagate?
+	vcmpneqpd k2, zmm5, zmm8
+	vcmpneqpd k3, zmm6, zmm8
+	vcmpneqpd k4, zmm7, zmm8
 	korw	k1, k1, k2
 	korw	k2, k3, k4
 	korw	k3, k5, k6
