@@ -1037,18 +1037,20 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 				prefetch_stride = (reg.EDX & 0x3FF);
 				if (prefetch_stride == 0) prefetch_stride = 64;
 				/* Not documented, but 45nm core 2 returns prefetch_stride of 1 */
+				/* Skylake-X returns an incorrect value for L2 cache size.  To compensate, in version 29.5 */
+				/* we've made the code below supercede any previous cache size calculations. */
 				if (prefetch_stride == 1) prefetch_stride = 64;
-				if (CPU_L1_CACHE_SIZE == -1 && cache_level == 1) {
+				if (cache_level == 1) {
 					CPU_L1_CACHE_SIZE = (associativity * partitions * line_size * sets) >> 10;
 					CPU_L1_SET_ASSOCIATIVE = associativity;
 					CPU_L1_CACHE_LINE_SIZE = prefetch_stride;
 				}
-				if (CPU_L2_CACHE_SIZE == -1 && cache_level == 2) {
+				if (cache_level == 2) {
 					CPU_L2_CACHE_SIZE = (associativity * partitions * line_size * sets) >> 10;
 					CPU_L2_SET_ASSOCIATIVE = associativity;
 					CPU_L2_CACHE_LINE_SIZE = prefetch_stride;
 				}
-				if (CPU_L3_CACHE_SIZE == -1 && cache_level == 3) {
+				if (cache_level == 3) {
 					CPU_L3_CACHE_SIZE = (associativity * partitions * line_size * sets) >> 10;
 					CPU_L3_SET_ASSOCIATIVE = associativity;
 					CPU_L3_CACHE_LINE_SIZE = prefetch_stride;
