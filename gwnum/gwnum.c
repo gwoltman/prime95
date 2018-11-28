@@ -2741,13 +2741,12 @@ int internal_gwsetup (
 	small_word = pow ((double) b, gwdata->NUM_B_PER_SMALL_WORD);
 	big_word = (double) b * small_word;
 
-/* Set a flag if this is a rational FFT.  That is, an FFT where all the */
-/* weighting factors are 1.0.  This happens when abs(c) is 1 and every */
-/* FFT word has the same number of b's.  The assembly code can make some */
-/* obvious optimizations when all the FFT weights are one. */
+/* Set a flag if this is a rational FFT.  That is, an FFT where all the weighting factors are 1.0. */
+/* This happens when zero-padded or abs(c) is 1, and every FFT word has the same number of b's. */
+/* The assembly code can make some obvious optimizations when all the FFT weights are one. */
 
 	gwdata->RATIONAL_FFT = asm_data->RATIONAL_FFT =
-		((double) gwdata->NUM_B_PER_SMALL_WORD == gwdata->avg_num_b_per_word) && (labs (c) == 1);
+		((double) gwdata->NUM_B_PER_SMALL_WORD == gwdata->avg_num_b_per_word) && (gwdata->ZERO_PADDED_FFT || labs (c) == 1);
 
 /* Remember the maximum number of bits per word that this FFT length */
 /* supports.  We this in gwnear_fft_limit.  Note that zero padded FFTs */
