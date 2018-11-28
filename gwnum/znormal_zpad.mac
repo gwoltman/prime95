@@ -8,11 +8,11 @@
 ;
 
 
-; Zero padded FFTs can be used for calculations mod k*2^n+c where k and/or c are too large to use a traditional
-; discrete weighted transform.  We use an FFT that calculates modulo 2^(2n)-1.  The top half of the FFT is zero
+; Zero padded FFTs can be used for calculations mod k*b^n+c where k and/or c are too large to use a traditional
+; discrete weighted transform.  We use an FFT that calculates modulo b^(2n)-1.  The top half of the FFT is zero
 ; except for the lowest 4 words which represent a value between 0 and k.
 ;
-; Note that to store a value x in the FFT, we actually store the value x/k mod k*2^n+c.  When we square or multiply
+; Note that to store a value x in the FFT, we actually store the value x/k mod k*b^n+c.  When we square or multiply
 ; a number we get a result that is maultiplied by 1/k^2.  We transform this back to 1/k format by doing a multiply
 ; by k in the normalization routines that round to integers and propagate carries.  Also note that result values in
 ; the upper half wrap to the lower half by multipling by -c and dividing by k -- the multiply by k and divide by k
@@ -20,8 +20,8 @@
 ;
 ; Before doing an FFT squaring or multiplication the 4 non-zero words in the upper half and the top 3 words in the
 ; lower half are saved for later special post-processing.  After the FFT squaring or multiplication, we must undo
-; the 7 values that were in excess of 2^(2n) that wrapped around and were added to the lowest values in the result.
-; These 7 values in excess of 2^(2n) are computed from the 7 words we saved prior to squaring or multiplication.
+; the 7 values that were in excess of b^(2n) that wrapped around and were added to the lowest values in the result.
+; These 7 values in excess of b^(2n) are computed from the 7 words we saved prior to squaring or multiplication.
 ; Instead, those 7 values are wrapped to upper half by multiplying by -c.
 ;
 ; And finally, the 7 values in the upper half are divided by k.  The remainder is stored in 4 words of the upper half.
@@ -69,6 +69,7 @@ no ttp	vsubsd	xmmval, xmmval, xmm14			;; val_lo = val+RNDVAL - tmp+RNDVAL = val 
 	ENDM
 
 ;; Same as above except we know that first zpad word in an irrational FFT is a large word
+;; and the first zpad word in a rational FFT is a small word.
 split_first_zpad7_word MACRO ttp, xmmval, xmmcarry
 ttp	zfmsubsd xmmcarry, xmmval, xmm25, xmm21		;; val_hi+RNDVAL = (val+RNDVAL) / base - (RNDVAL/base-RNDVAL) = rnd(val/base)+RNDVAL
 ttp	zfmsubsd xmm14, xmmcarry, xmm27, xmm23		;; tmp+RNDVAL = (val_hi+RNDVAL) * base - (RNDVAL*base-RNDVAL) = rnd(val/base)*base+RNDVAL
@@ -2012,8 +2013,8 @@ ttp	kshiftrw k1, k1, 1			;; Next big vs. little flag
 zpad_final_div_by_k MACRO ttp
 	LOCAL	smallk, mediumk, div_k_done
 
-	;; Divide the upper zpad data above 2^n by k.  Store the integer part in ZMM_TMP
-	;; and the remainder in ZPAD0.  Later we will wrap the integer part
+	;; Divide the upper zpad data above b^n by k.  Store the integer part in xmm6-xmm11
+	;; and the remainder in xmm3.  Later we will wrap the integer part
 	;; down to the bottom of the FFT data area (multiply by -c).
 	;; And we will store the remainder in the upper half of the FFT data area.
 
