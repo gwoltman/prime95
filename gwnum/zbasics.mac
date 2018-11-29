@@ -402,9 +402,63 @@ zgather MACRO srcreg,d1,d2,d4,r1,r2,r3,r4,r5,r6,r7,r8, r9
 	vshuff64x2 r8, r9, r8, 11011101b ;; d7_7 d6_7 d5_7 d4_7 d3_7 d2_7 d1_7 d0_7
 	ENDM
 
+;;; New better swizzle (for Skylake-X)!!!!!  Uses vblendmpd instructions that run on port 0 and 5
+
+zgather_preload MACRO unused
+	set	k6 = 00110011b			;; Constant for vblendmpd instructions
+						;; Constant for vpermt2pd instructions
+						;; 0=src2,1=dest-is-src   xxx = double#
+	set	zmm30 = 0+4 8+4 0+6 8+6 0+0 8+0 0+2 8+2
+	set	zmm29 = 0+5 8+5 0+7 8+7 0+1 8+1 0+3 8+3
+	ENDM
+zgather MACRO srcreg,d1,d2,d4,r1,r2,r3,r4,r5,r6,r7,r8, r9
+	;; Further possible optimization include using unaligned vmovupd and/or vbroadcastf64 instructions
+	vmovapd	zmm0, [srcreg+64]		;; d0_7	d0_6 d0_5 d0_4 d0_3 d0_2 d0_1 d0_0
+	vmovapd	zmm1, [srcreg+d1+64]		;; d1_7	d1_6 d1_5 d1_4 d1_3 d1_2 d1_1 d1_0
+	vmovapd	zmm2, [srcreg+d2+64]		;; d2_7	d2_6 d2_5 d2_4 d2_3 d2_2 d2_1 d2_0
+	vmovapd	zmm3, [srcreg+d2+d1+64]		;; d3_7	d3_6 d3_5 d3_4 d3_3 d3_2 d3_1 d3_0
+	vmovapd	zmm4, [srcreg+d4+64]		;; d4_7	d4_6 d4_5 d4_4 d4_3 d4_2 d4_1 d4_0
+	vmovapd	zmm5, [srcreg+d4+d1+64]		;; d5_7	d5_6 d5_5 d5_4 d5_3 d5_2 d5_1 d5_0
+	vmovapd	zmm6, [srcreg+d4+d2+64]		;; d6_7	d6_6 d6_5 d6_4 d6_3 d6_2 d6_1 d6_0
+	vmovapd	zmm7, [srcreg+d4+d2+d1+64]	;; d7_7	d7_6 d7_5 d7_4 d7_3 d7_2 d7_1 d7_0
+
+	;; Shuffle the 4-aparts
+	vshuff64x2 zmm8, zmm0, zmm4, 01000100b	;; d4_3 d4_2 d4_1 d4_0 d0_3 d0_2 d0_1 d0_0
+	vshuff64x2 zmm9, zmm0, zmm4, 11101110b	;; d4_7	d4_6 d4_5 d4_4 d0_7 d0_6 d0_5 d0_4
+	vshuff64x2 zmm10, zmm1, zmm5, 01000100b ;; d5_3 d5_2 d5_1 d5_0 d1_3 d1_2 d1_1 d1_0
+	vshuff64x2 zmm11, zmm1, zmm5, 11101110b ;; d5_7	d5_6 d5_5 d5_4 d1_7 d1_6 d1_5 d1_4
+	vshuff64x2 zmm12, zmm2, zmm6, 00010001b ;; d6_1 d6_0 d6_3 d6_2 d2_1 d2_0 d2_3 d2_2
+	vshuff64x2 zmm13, zmm2, zmm6, 10111011b ;; d6_5	d6_4 d6_7 d6_6 d2_5 d2_4 d2_7 d2_6
+	vshuff64x2 zmm14, zmm3, zmm7, 00010001b ;; d7_1 d7_0 d7_3 d7_2 d3_1 d3_0 d3_3 d3_2
+	vshuff64x2 zmm15, zmm3, zmm7, 10111011b ;; d7_5	d7_4 d7_7 d7_6 d3_5 d3_4 d3_7 d3_6
+
+	;; Blend in the 2-aparts
+	vblendmpd zmm16 {k6}, zmm12, zmm8	;; d6_1 d6_0 d4_1 d4_0 d2_1 d2_0 d0_1 d0_0
+	vblendmpd zmm17 {k6}, zmm8, zmm12	;; d4_3 d4_2 d6_3 d6_2 d0_3 d0_2 d2_3 d2_2
+	vblendmpd zmm18 {k6}, zmm13, zmm9	;; d6_5 d6_4 d4_5 d4_4 d2_5 d2_4 d0_5 d0_4
+	vblendmpd zmm19 {k6}, zmm9, zmm13	;; d4_7 d4_6 d6_7 d6_6 d0_7 d0_6 d2_7 d2_6
+	vblendmpd zmm20 {k6}, zmm14, zmm10	;; d7_1 d7_0 d5_1 d5_0 d3_1 d3_0 d1_1 d1_0
+	vblendmpd zmm21 {k6}, zmm10, zmm14	;; d5_3 d5_2 d7_3 d7_2 d1_3 d1_2 d3_3 d3_2
+	vblendmpd zmm22 {k6}, zmm15, zmm11	;; d7_5 d7_4 d5_5 d5_4 d3_5 d3_4 d1_5 d1_4
+	vblendmpd zmm23 {k6}, zmm11, zmm15	;; d5_7 d5_6 d7_7 d7_6 d1_7 d1_6 d3_7 d3_6
+
+	;; Shufffle or permute in the 1-aparts
+	vshufpd	zmm0, zmm16, zmm20, 00000000b	;; d7_0 d6_0 d5_0 d4_0 d3_0 d2_0 d1_0 d0_0
+	vshufpd	zmm1, zmm16, zmm20, 11111111b	;; d7_1 d6_1 d5_1 d4_1 d3_1 d2_1 d1_1 d0_1
+	vmovapd zmm2, zmm17
+	vpermt2pd zmm2, zmm30, zmm21		;; d7_2 d6_2 d5_2 d4_2 d3_2 d2_2 d1_2 d0_2
+	vpermt2pd zmm17, zmm29, zmm21		;; d7_3 d6_3 d5_3 d4_3 d3_3 d2_3 d1_3 d0_3
+	vshufpd	zmm4, zmm18, zmm22, 00000000b 	;; d7_4 d6_4 d5_4 d4_4 d3_4 d2_4 d1_4 d0_4
+	vshufpd	zmm5, zmm18, zmm22, 11111111b	;; d7_5 d6_5 d5_5 d4_5 d3_5 d2_5 d1_5 d0_5
+	vmovapd zmm6, zmm19
+	vpermt2pd zmm6, zmm30, zmm23		;; d7_6 d6_6 d5_6 d4_6 d3_6 d2_6 d1_6 d0_6
+	vpermt2pd zmm19, zmm29, zmm23		;; d7_7 d6_7 d5_7 d4_7 d3_7 d2_7 d1_7 d0_7
+	ENDM
+
 zscatter_preload MACRO unused
 	ENDM
 zscatter MACRO srcreg,d1,d2,d4,r1,r2,r3,r4,r5,r6,r7,r8,     r9
+	;; BUG - use new swizzle code from zgather above
 	vshufpd	r9, r1, r2, 00000000b	;; d1_6 d0_6 d1_4 d0_4 d1_2 d0_2 d1_0 d0_0
 	vshufpd	r1, r1, r2, 11111111b	;; d1_7 d0_7 d1_5 d0_5 d1_3 d0_3 d1_1 d0_1
 	vshufpd	r2, r3, r4, 00000000b	;; d3_6 d2_6 d3_4 d2_4 d3_2 d2_2 d3_0 d2_0
