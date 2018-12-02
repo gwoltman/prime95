@@ -32,7 +32,7 @@ ENDIF
 SSE2_CASES	EQU	216
 AVX_CASES	EQU	300
 IFDEF X86_64
-AVX512_CASES	EQU	132
+AVX512_CASES	EQU	140
 ELSE
 AVX512_CASES	EQU	0
 ENDIF
@@ -293,7 +293,7 @@ loop1:  vmovapd  zmm0, [rsi]		;; Read cache lines
 
 clocks50 MACRO
 	REPEAT 50
-	vandpd zmm0, zmm0, zmm1
+	vpandq zmm0, zmm0, zmm1
 	ENDM
 	ENDM
 
@@ -912,12 +912,15 @@ lab:	mov	rbx, 0			;; Offset for some avx macros (s.b. non-zero for with_mult mac
 	mov	rbp, 524288+256		;; Offset for mulf avx macros
 	mov	r12, norm_grp_mults
 	mov	r13, r12
+	mov	r8, 128			;; d1reg for "rsc" macros
+	mov	r9, 384			;; d3reg for "rsc" macros
 	mov	eax, outer_iters
 	mov	ecx, odd_iters
 	mov	SRCARG, rdi		;; Save work buf addr
 av0a:	mov	rdi, SRCARG		;; Reload work buf addr (sincos data)
 	lea	rsi, [rdi+262144+4096+64] ;; Source & dest ptr
-	lea	rdx, [rsi+262144+256]	;; Destination for "g" macros, grp multipliers for first macros
+	lea	rdx, [rsi+262144+256]	;; Destination for "rsc" macros
+	lea	r10, [rdx+512]		;; src4reg/dst4reg for "rsc" macros
 	lea	r15, [rdx+262144+256+64] ;; s/c data for first macros
 IF avx512_case_num-1 EQ IACA_TEST_CASE
 IACA_START
@@ -2099,7 +2102,6 @@ do_nothing_plus_L1prefetch MACRO srcreg,srcinc,d1,d2,d4,screg,scinc,maxrpt,L1pt,
 	bump	srcreg, srcinc
 	ENDM
 
-
 ; this code reads/writes 64MB (1M cache lines) in contiguous blocks.  Timings are done
 ; on 4 memory sizes.  4KB will operate on the L1 cache only, 128KB will operate on the
 ; L2 cache only, 2MB will operate on the L3 cache and 32MB will operate on main memory.
@@ -2278,6 +2280,16 @@ av512case15:	scatter_read_sequential_write8 1280*7680*8, 5 ; Read/write 78MB
 	avx512mac 1536, 262144, 0, zr12_wpn_twentyfour_reals_last_unfft rsi, 12*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
 
 ;;108
+	avx512mac 1024, 16384, 0, zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rdx, 1024, r8, r9, r10, rdi, ZMM_SCD8, 1
+	avx512mac 1024, 262144, 0, zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rdx, 1024, r8, r9, r10, rdi, ZMM_SCD8, 1
+	avx512mac 1024, 16384, 0, zr8_rsc_wpn_sgreg_eight_complex_unfft8 rdx, 1024, r8, r9, r10, rsi, 1024, 128, 256, 512, rdi, ZMM_SCD8, 1
+	avx512mac 1024, 262144, 0, zr8_rsc_wpn_sgreg_eight_complex_unfft8 rdx, 1024, r8, r9, r10, rsi, 1024, 128, 256, 512, rdi, ZMM_SCD8, 1
+	avx512mac 1024, 16384, 0, zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rdx, 1024, r8, r9, r10, rdi, 0, rdi, 0, rdi, ZMM_SCD8, 1
+	avx512mac 1024, 262144, 0, zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rdx, 1024, r8, r9, r10, rdi, 0, rdi, 0, rdi, ZMM_SCD8, 1
+	avx512mac 1024, 16384, 0, zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rdx, 1024, r8, r9, r10, rsi, 1024, 128, 256, 512, rdi, 0, rdi, 0, rdi, ZMM_SCD8, 1
+	avx512mac 1024, 262144, 0, zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rdx, 1024, r8, r9, r10, rsi, 1024, 128, 256, 512, rdi, 0, rdi, 0, rdi, ZMM_SCD8, 1
+
+;;116
 	zsf_onepass_real_fft_wrapper_preload
 	avx512mac 1024, 16384, 0, zsf_onepass_real_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 14, rdx, 0, 1
 	avx512mac 1024, 262144, 0, zsf_onepass_real_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 14, rdx, 0, 1
@@ -2291,7 +2303,7 @@ av512case15:	scatter_read_sequential_write8 1280*7680*8, 5 ; Read/write 78MB
 	avx512mac 1024, 16384, 0, zs_onepass_complex_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, r15, 0, rdi, 14, 1
 	avx512mac 1024, 262144, 0, zs_onepass_complex_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, r15, 0, rdi, 14, 1
 
-;;116
+;;124
 	znorm_wpn_preload noexec, noexec, noexec, noexec	;; ttp, zero, echk, const
 	avx512znormmac 1536, 16384, 0, znorm_wpn noexec, noexec, noexec, noexec
 	avx512znormmac 1536, 262144, 0, znorm_wpn noexec, noexec, noexec, noexec
@@ -2305,7 +2317,7 @@ av512case15:	scatter_read_sequential_write8 1280*7680*8, 5 ; Read/write 78MB
 	avx512znormmac 1536, 16384, 0, znorm_wpn noexec, noexec, exec, exec
 	avx512znormmac 1536, 262144, 0, znorm_wpn noexec, noexec, exec, exec
 
-;;124
+;;132
 	znorm_wpn_preload exec, noexec, noexec, noexec	;; ttp, zero, echk, const
 	avx512znormmac 1536, 16384, 0, znorm_wpn exec, noexec, noexec, noexec
 	avx512znormmac 1536, 262144, 0, znorm_wpn exec, noexec, noexec, noexec
