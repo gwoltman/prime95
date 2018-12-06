@@ -919,7 +919,7 @@ lab:	mov	rbx, 0			;; Offset for some avx macros (s.b. non-zero for with_mult mac
 	mov	SRCARG, rdi		;; Save work buf addr
 av0a:	mov	rdi, SRCARG		;; Reload work buf addr (sincos data)
 	lea	rsi, [rdi+262144+4096+64] ;; Source & dest ptr
-	lea	rdx, [rsi+262144+256]	;; Destination for "rsc" macros
+	lea	rdx, [rsi+524288+8192+256] ;; Destination for "rsc" macros
 	lea	r10, [rdx+512]		;; src4reg/dst4reg for "rsc" macros
 	lea	r15, [rdx+262144+256+64] ;; s/c data for first macros
 IF avx512_case_num-1 EQ IACA_TEST_CASE
@@ -2280,13 +2280,13 @@ av512case15:	scatter_read_sequential_write8 1280*7680*8, 5 ; Read/write 78MB
 	avx512mac 1536, 262144, 0, zr12_wpn_twentyfour_reals_last_unfft rsi, 12*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
 
 ;;108
-	avx512mac 1024, 16384, 0, zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rdx, 1024, r8, r9, r10, rdi, ZMM_SCD8, 1
+	avx512mac 1024, 8192, 0, zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rdx, 1024, r8, r9, r10, rdi, ZMM_SCD8, 1
 	avx512mac 1024, 262144, 0, zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rdx, 1024, r8, r9, r10, rdi, ZMM_SCD8, 1
-	avx512mac 1024, 16384, 0, zr8_rsc_wpn_sgreg_eight_complex_unfft8 rdx, 1024, r8, r9, r10, rsi, 1024, 128, 256, 512, rdi, ZMM_SCD8, 1
+	avx512mac 1024, 8192, 0, zr8_rsc_wpn_sgreg_eight_complex_unfft8 rdx, 1024, r8, r9, r10, rsi, 1024, 128, 256, 512, rdi, ZMM_SCD8, 1
 	avx512mac 1024, 262144, 0, zr8_rsc_wpn_sgreg_eight_complex_unfft8 rdx, 1024, r8, r9, r10, rsi, 1024, 128, 256, 512, rdi, ZMM_SCD8, 1
-	avx512mac 1024, 16384, 0, zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rdx, 1024, r8, r9, r10, rdi, 0, rdi, 0, rdi, ZMM_SCD8, 1
+	avx512mac 1024, 8192, 0, zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rdx, 1024, r8, r9, r10, rdi, 0, rdi, 0, rdi, ZMM_SCD8, 1
 	avx512mac 1024, 262144, 0, zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rdx, 1024, r8, r9, r10, rdi, 0, rdi, 0, rdi, ZMM_SCD8, 1
-	avx512mac 1024, 16384, 0, zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rdx, 1024, r8, r9, r10, rsi, 1024, 128, 256, 512, rdi, 0, rdi, 0, rdi, ZMM_SCD8, 1
+	avx512mac 1024, 8192, 0, zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rdx, 1024, r8, r9, r10, rsi, 1024, 128, 256, 512, rdi, 0, rdi, 0, rdi, ZMM_SCD8, 1
 	avx512mac 1024, 262144, 0, zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rdx, 1024, r8, r9, r10, rsi, 1024, 128, 256, 512, rdi, 0, rdi, 0, rdi, ZMM_SCD8, 1
 
 ;;116
