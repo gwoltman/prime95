@@ -65,7 +65,7 @@ gwzaddq3 ENDP
 
 	; Irrational, not zero-padded
 PROCFL	gwzadd3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -110,13 +110,13 @@ add2:	znorm_op_wpn vaddpd, exec		; Add and normalize four low/high FFT word pair
 
 	znorm_op_wpn_save_carries		; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzadd3 ENDP
 
 
 	; Rational, not zero-padded
 PROCFL	gwzaddr3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -152,13 +152,13 @@ add2r:	znorm_op_wpn vaddpd, noexec		; Add and normalize four low/high FFT word p
 
 	znorm_op_wpn_save_carries		; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzaddr3 ENDP
 
 
 	; Irrational, zero-padded
 PROCFL	gwzaddzp3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -205,13 +205,13 @@ add2zp:	znorm_op_wpn_zpad vaddpd, exec		; Add and normalize four low/high FFT wo
 
 	znorm_op_wpn_zpad_save_carries		; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzaddzp3 ENDP
 
 
 	; Rational, zero-padded
 PROCFL	gwzaddrzp3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -247,7 +247,7 @@ add2rzp:znorm_op_wpn_zpad vaddpd, noexec	; Add and normalize four low/high FFT w
 
 	znorm_op_wpn_zpad_save_carries		; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzaddrzp3 ENDP
 
 
@@ -297,7 +297,7 @@ gwzsubq3 ENDP
 
 	; Irrational, not zero-padded
 PROCFL	gwzsub3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -341,13 +341,13 @@ sub2:	znorm_op_wpn vsubpd, exec		; Subtract and normalize four low/high FFT word
 
 	znorm_op_wpn_save_carries		; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzsub3 ENDP
 
 
 	; Rational, not zero-padded
 PROCFL	gwzsubr3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -383,13 +383,13 @@ sub2r:	znorm_op_wpn vsubpd, noexec		; Subtract and normalize four low/high FFT w
 
 	znorm_op_wpn_save_carries		; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzsubr3 ENDP
 
 
 	; Irrational, zero-padded
 PROCFL	gwzsubzp3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -436,13 +436,13 @@ sub2zp:	znorm_op_wpn_zpad vsubpd, exec		; Subtract and normalize four low/high F
 
 	znorm_op_wpn_zpad_save_carries		; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzsubzp3 ENDP
 
 
 	; Rational, zero-padded
 PROCFL	gwzsubrzp3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -478,7 +478,7 @@ sub2rzp:znorm_op_wpn_zpad vsubpd, noexec	; Subtract and normalize four low/high 
 
 	znorm_op_wpn_zpad_save_carries		; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzsubrzp3 ENDP
 
 
@@ -535,7 +535,7 @@ gwzaddsubq3 ENDP
 
 	; Irrational, not zero-padded
 PROCFL	gwzaddsub3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -584,13 +584,13 @@ as2:	znorm_addsub_wpn exec			; Add & subtract and normalize four low/high FFT wo
 
 	znorm_addsub_wpn_save_carries		; Save carries in the two carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzaddsub3 ENDP
 
 
 	; Rational, not zero-padded
 PROCFL	gwzaddsubr3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -631,13 +631,13 @@ as2r:	znorm_addsub_wpn noexec			; Add & subtract and normalize four low/high FFT
 
 	znorm_addsub_wpn_save_carries		; Save carries in the two carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzaddsubr3 ENDP
 
 
 	; Irrational, zero-padded
 PROCFL	gwzaddsubzp3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -689,13 +689,13 @@ as2zp:	znorm_addsub_wpn_zpad exec		; Add & subtract and normalize four low/high 
 
 	znorm_addsub_wpn_zpad_save_carries	; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzaddsubzp3 ENDP
 
 
 	; Rational, zero-padded
 PROCFL	gwzaddsubrzp3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -736,7 +736,7 @@ as2rzp:	znorm_addsub_wpn_zpad noexec		; Add & subtract and normalize four low/hi
 
 	znorm_addsub_wpn_zpad_save_carries	; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzaddsubrzp3 ENDP
 
 ;;
@@ -771,7 +771,7 @@ gwzaddsr3 ENDP
 
 	; Irrational version, not zero-padded
 PROCFL	gwzmuls3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of destination
 	mov	rbx, DESTARG			; Address of destination
 
@@ -812,13 +812,13 @@ mul2:	znorm_smallmul_wpn exec			; Multiply and normalize four low/high FFT word 
 
 	znorm_smallmul_wpn_save_carries		; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzmuls3 ENDP
 
 
 	; Rational version, not zero-padded
 PROCFL	gwzmulsr3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of destination
 	mov	rbx, DESTARG			; Address of destination
 
@@ -851,13 +851,13 @@ mul2r:	znorm_smallmul_wpn noexec		; Multiply and normalize four low/high FFT wor
 
 	znorm_smallmul_wpn_save_carries		; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzmulsr3 ENDP
 
 
 	; Irrational version, zero-padded
 PROCFL	gwzmulszp3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of destination
 	mov	rbx, DESTARG			; Address of destination
 
@@ -901,13 +901,13 @@ mul2zp:	znorm_smallmul_wpn_zpad exec		; Multiply and normalize four low/high FFT
 
 	znorm_smallmul_wpn_zpad_save_carries	; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzmulszp3 ENDP
 
 
 	; Rational version, zero-padded
 PROCFL	gwzmulsrzp3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of destination
 	mov	rbx, DESTARG			; Address of destination
 
@@ -940,7 +940,7 @@ mul2rzp:znorm_smallmul_wpn_zpad noexec		; Multiply and normalize four low/high F
 
 	znorm_smallmul_wpn_zpad_save_carries	; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzmulsrzp3 ENDP
 
 ;;
@@ -949,10 +949,10 @@ gwzmulsrzp3 ENDP
 
 	; Irrational version
 PROCFL	gwz3_apply_carries
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rax, ZMM_OP_CARRIES_ROUTINE
 	call	rax
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwz3_apply_carries ENDP
 
 
