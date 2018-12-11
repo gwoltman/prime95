@@ -2537,18 +2537,13 @@ void implementThrottle (
 int isKnownMersennePrime (
 	unsigned long p)
 {
-	return (p == 2 || p == 3 || p == 5 || p == 7 || p == 13 || p == 17 ||
-		p == 19 || p == 31 || p == 61 || p == 89 || p == 107 ||
-		p == 127 || p == 521 || p == 607 || p == 1279 || p == 2203 ||
-		p == 2281 || p == 3217 || p == 4253 || p == 4423 ||
-		p == 9689 || p == 9941 || p == 11213 || p == 19937 ||
-		p == 21701 || p == 23209 || p == 44497 || p == 86243 ||
-		p == 110503 || p == 132049 || p == 216091 || p == 756839 ||
-		p == 859433 || p == 1257787 || p == 1398269 || p == 2976221 ||
-		p == 3021377 || p == 6972593 || p == 13466917 ||
-		p == 20996011 || p == 24036583 || p == 25964951 ||
-		p == 30402457 || p == 32582657 || p == 37156667 ||
-		p == 42643801 || p == 43112609 || p == 57885161 || p == 74207281 || p == 77232917);
+	return (p == 2 || p == 3 || p == 5 || p == 7 || p == 13 || p == 17 || p == 19 || p == 31 || p == 61 || p == 89 || p == 107 ||
+		p == 127 || p == 521 || p == 607 || p == 1279 || p == 2203 || p == 2281 || p == 3217 || p == 4253 || p == 4423 ||
+		p == 9689 || p == 9941 || p == 11213 || p == 19937 || p == 21701 || p == 23209 || p == 44497 || p == 86243 ||
+		p == 110503 || p == 132049 || p == 216091 || p == 756839 || p == 859433 || p == 1257787 || p == 1398269 || p == 2976221 ||
+		p == 3021377 || p == 6972593 || p == 13466917 || p == 20996011 || p == 24036583 || p == 25964951 || p == 30402457 ||
+		p == 32582657 || p == 37156667 || p == 42643801 || p == 43112609 || p == 57885161 || p == 74207281 || p == 77232917 ||
+		p == 82589933);
 }
 
 /* Make a string out of a 96-bit value (a found factor) */
@@ -11261,7 +11256,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 				sprintf (buf, ERRMSG0, ps.counter+1, final_counter, msg);
 				OutputBoth (thread_num, buf);
 				inc_error_count (0, &ps.error_count);
-                if (ps.error_check_type == PRP_ERRCHK_NONE || fabs (gwsumout (&gwdata, x)) > 1.0e40) {
+				if (ps.error_check_type == PRP_ERRCHK_NONE || fabs (gwsumout (&gwdata, x)) > 1.0e40) {
 					last_counter = ps.counter;
 					last_suminp = gwsuminp (&gwdata, x);
 					last_sumout = gwsumout (&gwdata, x);
