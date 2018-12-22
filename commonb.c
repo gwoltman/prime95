@@ -6218,6 +6218,13 @@ int pick_fft_size (
 
 	if (w->minimum_fftlen) return (0);
 
+/* Starting in version 29.5, we created a spreadsheet to calculate FFT crossovers based on average roundoff error */
+/* of sample exponents (previously it was based on volatile maximum roundoff error, which led to inconsistent crossovers). */
+/* We're discontinuing running the code below by default and relying on gwnum having set crossovers properly. */
+/* Users can use the ExtraSafetyMargin INI setting to shift the crossovers up or down a little bit. */
+
+	if (!IniGetInt (INI_FILE, "OldStyleSoftCrossover", 0)) return (0);
+
 /* Get info on what percentage of exponents on either side of */
 /* an FFT crossover we will do this 1000 iteration test. */
 
