@@ -382,8 +382,20 @@ worker does not use much memory bandwidth.  You might get a faster FFT implement
 selected by setting BenchCores=3 and BenchWorkers=3.  Of course, you'll need to generate
 throughput benchmark data for the 3 cores / 3 workers combination.
 
-The program no longer uses hard FFT crossover points.  The soft crossovers
-have two adjustments in prime.txt:
+One can adjust FFT crossover points up or down.  In prime.txt use the setting:
+	ExtraSafetymargin=n		(recommend n between 0.01 and -0.01)
+For each FFT size, the program uses a pre-calculated maximum number of bits that can be
+safely stored in each FFT word.  This INI setting reduces the pre-calculated maximum
+by n bits.  If n is a positive number, the maximum bits per FFT word is reduced, which
+reduces round off errors.  If n is a negative number, the maximum bits per FFT word is
+increased, which increases round off errors.  Values of n below -0.025 could be pretty
+dangerous.
+
+The program used to have soft FFT crossover points.  This feature has been disabled by
+default as the pre-computed hard FFT crossover points have improved.  You can re-enable
+soft crossovers by setting in prime.txt:
+	OldStyleSoftCrossover=1
+The soft crossovers have two adjustments in prime.txt:
 	SoftCrossover=n
 	SoftCrossoverAdjust=n
 The first setting controls which exponents are examined.  The default value
