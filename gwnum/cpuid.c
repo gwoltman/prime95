@@ -390,33 +390,26 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			CPU_FLAGS |= CPU_SSE42;
 
 /* If hardware supports AVX that doesn't mean the OS supports AVX. */
-/* See if OS supports XGETBV, then see if OS supports AVX. */
+/* See if OS supports XGETBV, then see if OS supports AVX, FMA, and AVX-512. */
 
-		if ((reg.ECX >> 28) & 0x1) {
-			if ((reg.ECX >> 27) & 0x1) {
-				struct cpuid_data getbv_reg;
-				Xgetbv (0, &getbv_reg);
-				if ((getbv_reg.EAX & 6) == 6) CPU_FLAGS |= CPU_AVX;
-			}
-		}
+		if ((reg.ECX >> 27) & 0x1) {
+			struct cpuid_data getbv_reg;
+			Xgetbv (0, &getbv_reg);
 
-		if (((reg.ECX >> 12) & 0x1) && (CPU_FLAGS & CPU_AVX))
-			CPU_FLAGS |= CPU_FMA3;
-	}
+			if (((reg.ECX >> 28) & 0x1) && ((getbv_reg.EAX & 6) == 6)) CPU_FLAGS |= CPU_AVX;
+			if (((reg.ECX >> 12) & 0x1) && (CPU_FLAGS & CPU_AVX)) CPU_FLAGS |= CPU_FMA3;
 
 /* Get more feature flags.  Specifically the AVX2, AVX512F, AVX512PF and PREFETCHWT1 flags. */
 
-	if (max_cpuid_value >= 7) {
-		reg.ECX = 0;
-		Cpuid (7, &reg);
-		if (((reg.EBX >> 5) & 0x1) && (CPU_FLAGS & CPU_AVX))
-			CPU_FLAGS |= CPU_AVX2;
-		if (((reg.EBX >> 16) & 0x1) && (CPU_FLAGS & CPU_AVX))
-			CPU_FLAGS |= CPU_AVX512F;
-		if (((reg.EBX >> 26) & 0x1) && (CPU_FLAGS & CPU_AVX))
-			CPU_FLAGS |= CPU_AVX512PF;
-		if (reg.ECX & 0x1)
-			CPU_FLAGS |= CPU_PREFETCHWT1;
+			if (max_cpuid_value >= 7) {
+				reg.ECX = 0;
+				Cpuid (7, &reg);
+				if (((reg.EBX >> 5) & 0x1) && (CPU_FLAGS & CPU_AVX)) CPU_FLAGS |= CPU_AVX2;
+				if (((reg.EBX >> 16) & 0x1) && ((getbv_reg.EAX & 0xE0) == 0xE0)) CPU_FLAGS |= CPU_AVX512F;
+				if (((reg.EBX >> 26) & 0x1) && (CPU_FLAGS & CPU_AVX512F)) CPU_FLAGS |= CPU_AVX512PF;
+				if (reg.ECX & 0x1) CPU_FLAGS |= CPU_PREFETCHWT1;
+			}
+		}
 	}
 
 /* Call CPUID with 0x80000000 argument.  It tells us how many extended CPU */
