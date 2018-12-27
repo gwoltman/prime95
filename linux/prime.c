@@ -98,6 +98,7 @@ int volatile KILL_MENUS = 0;
 int NO_GUI = 1;
 int VERBOSE = 0;
 int MENUING = 0;
+char pidfile[256];
 
 /* Common code */
 
@@ -185,6 +186,10 @@ int main (
 		(void) _chdir (buf);
 	}
 
+/* Default pid file is mprime.pid */
+
+	strcpy (pidfile, "mprime.pid");
+
 /* Initialize gwnum call back routines.  Using callback routines lets the */
 /* gwnum library have a nice clean interface for users that do not need */
 /* additional functionality that only prime95 uses. */
@@ -244,6 +249,13 @@ int main (
 			MENUING = 1;
 			NO_GUI = FALSE;
 			break;
+
+/* -P - use a different pidfile */
+
+		case 'P':
+		case 'p':
+			strcpy (pidfile, p);
+			break; 
 
 /* -S - status */
 
@@ -370,7 +382,7 @@ int main (
 
 /* Invalid args message */
 
-usage:	printf ("Usage: mprime [-cdhmstv] [-aN] [-wDIR]\n");
+usage:	printf ("Usage: mprime [-cdhmstv] [-aN] [-wDIR] [-pPIDFILE]\n");
 	printf ("-c\tContact the PrimeNet server, then exit.\n");
 	printf ("-d\tPrint detailed information to stdout.\n");
 	printf ("-h\tPrint this.\n");
@@ -380,6 +392,7 @@ usage:	printf ("Usage: mprime [-cdhmstv] [-aN] [-wDIR]\n");
 	printf ("-v\tPrint the version number.\n");
 	printf ("-aN\tUse an alternate set of INI and output files (obsolete).\n");
 	printf ("-wDIR\tRun from a different working directory.\n");
+	printf ("-pPIDFILE\tFilename for the PID file.  Default is mprime.pid.\n");
 	printf ("\n");
 	return (1);
 }
@@ -446,8 +459,7 @@ void ChangeIcon (int thread_num, int x)
 
 void linuxContinue (
 	char	*error_message,
-	int	thread_num,		/* Specific worker to launch or */
-					/* special value ALL_WORKERS */
+	int	thread_num,		/* Specific worker to launch or special value ALL_WORKERS */
 	int	wait_flag)
 {
 #ifdef __linux__
@@ -457,6 +469,7 @@ void linuxContinue (
 #define PROCNAME	"/proc/%d/file"
 #endif
 	pid_t	my_pid, running_pid;
+	int	pid_fd;
 
 /* Compare this process' ID and the pid from the INI file */
 
@@ -520,7 +533,15 @@ void linuxContinue (
 /* All is OK, save our pid, run, then delete our pid */
 
 ok:	IniWriteInt (LOCALINI_FILE, "Pid", my_pid);
+	pid_fd = _open (pidfile, _O_CREAT | _O_TRUNC | _O_WRONLY | _O_TEXT, CREATE_FILE_ACCESS);
+	if (pid_fd >= 0) {
+		char	buf[30];
+		sprintf (buf, "%d", my_pid);
+		_write (pid_fd, buf, strlen (buf));
+		_close (pid_fd);
+	}
 	LaunchWorkerThreads (thread_num, wait_flag);
+	_unlink (pidfile);
 	if (wait_flag) IniWriteInt (LOCALINI_FILE, "Pid", 0);
 }
 
