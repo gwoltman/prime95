@@ -6084,38 +6084,49 @@ int make_error_count_message (
 	}
 
 	if (message_type == 2) {
-		if (count_total == 1)
-			strcpy (counts_buf, "1 error");
-		else
-			sprintf (counts_buf, "%d errors", count_total);
-		if (count_repeatable >= 1)
-			sprintf (local_buf, ", %d were repeatable (not errors)", count_repeatable);
+		sprintf (counts_buf, "%d error%s", count_total, count_total > 1 ? "s": "");
+		if (count_repeatable == 1) {
+			strcpy (local_buf, ", 1 was repeatable (not an error)");
+			strcat (counts_buf, local_buf);
+		} else if (count_repeatable > 1) {
+			sprintf (local_buf, ", %d%s were repeatable (not errors)",
+				 count_repeatable, count_repeatable == 0x3F ? " or more" : "");
+			strcat (counts_buf, local_buf);
+		}
 	}
 
 	if (message_type == 3) {
 		if (count_jacobi >= 1) {
-			sprintf (local_buf, "%d Jacobi errors, ", count_jacobi);
+			sprintf (local_buf, "%d%s Jacobi error%s, ",
+				 count_jacobi, count_jacobi == 0xF ? " or more" : "", count_jacobi > 1 ? "s" : "");
 			strcat (counts_buf, local_buf);
 		}
 		if (count_gerbicz >= 1) {
-			sprintf (local_buf, "%d Gerbicz/double-check errors, ", count_gerbicz);
+			sprintf (local_buf, "%d%s Gerbicz/double-check error%s, ",
+				 count_gerbicz, count_gerbicz == 0xF ? " or more" : "", count_gerbicz > 1 ? "s" : "");
 			strcat (counts_buf, local_buf);
 		}
 		if (count_roundoff >= 1) {
-			sprintf (local_buf, "%d ROUNDOFF > 0.4, ", count_roundoff);
+			sprintf (local_buf, "%d%s ROUNDOFF > 0.4, ",
+				 count_roundoff, count_roundoff == 0x3F ? " or more" : "");
 			strcat (counts_buf, local_buf);
 		}
 		if (count_suminp >= 1) {
-			sprintf (local_buf, "%d SUM(INPUTS) != SUM(OUTPUTS), ", count_suminp);
+			sprintf (local_buf, "%d%s SUM(INPUTS) != SUM(OUTPUTS), ",
+				 count_suminp, count_suminp == 0xF ? " or more" : "");
 			strcat (counts_buf, local_buf);
 		}
 		if (count_illegal_sumout >= 1) {
-			sprintf (local_buf, "%d ILLEGAL SUMOUT, ", count_illegal_sumout);
+			sprintf (local_buf, "%d%s ILLEGAL SUMOUT, ",
+				 count_illegal_sumout, count_illegal_sumout == 0xF ? " or more" : "");
 			strcat (counts_buf, local_buf);
 		}
 		counts_buf[strlen(counts_buf)-2] = 0;
 		if (count_repeatable >= 1) {
-			sprintf (local_buf, "of which %d were repeatable (not hardware errors)", count_repeatable);
+			if (count_repeatable == 1)
+				strcpy (local_buf, "of which 1 was repeatable (not a hardware error)");
+			else
+				sprintf (local_buf, "of which %d were repeatable (not hardware errors)", count_repeatable);
 			if (strlen (counts_buf) <= 40) strcat (counts_buf, " ");
 			else strcat (counts_buf, "\n");
 			strcat (counts_buf, local_buf);
