@@ -10837,18 +10837,24 @@ begin:	gwinit (&gwdata);
 
 /* Format the string representation of the test number */
 
-	strcpy (string_rep, gwmodulo_as_string (&gwdata));
-	if (w->known_factors == NULL)
-		string_rep_truncated = FALSE;
-	else if (strlen (w->known_factors) < 40) {
-		char	*p;
-		strcat (string_rep, "/");
-		strcat (string_rep, w->known_factors);
-		while ((p = strchr (string_rep, ',')) != NULL) *p = '/';
+	if (w->known_factors == NULL) {
+		strcpy (string_rep, gwmodulo_as_string (&gwdata));
 		string_rep_truncated = FALSE;
 	} else {
-		strcat (string_rep, "/known_factors");
-		string_rep_truncated = TRUE;
+		if (strchr (gwmodulo_as_string (&gwdata), '^') == NULL)
+			strcpy (string_rep, gwmodulo_as_string (&gwdata));
+		else
+			sprintf (string_rep, "(%s)", gwmodulo_as_string (&gwdata));
+		if (strlen (w->known_factors) < 40) {
+			char	*p;
+			strcat (string_rep, "/");
+			strcat (string_rep, w->known_factors);
+			while ((p = strchr (string_rep, ',')) != NULL) *p = '/';
+			string_rep_truncated = FALSE;
+		} else {
+			strcat (string_rep, "/known_factors");
+			string_rep_truncated = TRUE;
+		}
 	}
 
 /* Init the title */
