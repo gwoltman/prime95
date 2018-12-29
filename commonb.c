@@ -10515,7 +10515,7 @@ int isPRPg (
 	gtompz (N, mpz_N);
 	mpz_init (compare_val);
 
-/* Handle the cofactor case.  We calculated v = a^(N*KF-1) mod (N*KF).  We have a PRP if (v mod N) = (a^KF) mod N */
+/* Handle the cofactor case.  We calculated v = a^(N*KF-1) mod (N*KF).  We have a PRP if (v mod N) = (a^(KF-1)) mod N */
 
 	if (prp_residue_type == PRIMENET_PRP_TYPE_COFACTOR) {
 		mpz_t	kbnc, known_factors, reduced_v;
@@ -10659,7 +10659,7 @@ int prp (
 	else ps.prp_base = IniGetInt (INI_FILE, "PRPBase", 3);
 
 /* If the Primenet server has not specified a PRP residue type (for double-checking), then by default we */
-/* to return a standard Fermat PRP residue on k*b^n+c (i.e. calculate base^(k*b^n+c-1)) */
+/* return a standard Fermat PRP residue on k*b^n+c (i.e. calculate base^(k*b^n+c-1)) */
 
 	if (w->prp_residue_type) ps.residue_type = w->prp_residue_type;
 	else ps.residue_type = IniGetInt (INI_FILE, "PRPResidueType", PRIMENET_PRP_TYPE_COFACTOR);
@@ -10932,8 +10932,9 @@ begin:	gwinit (&gwdata);
 		goto exit;
 	}
 
-/* As a small optimization, base 2 numbers are computed as a^(k*2^n) or a^(k*2^(n-1)) mod N with the final result multiplied by */
-/* a^(c-1).  This eliminates tons of mul-by-consts at the expense of lots of bookkeepping headaches and one squaring if k=1 and c<0. */
+/* As a small optimization, base 2 numbers are computed as a^(k*2^n) or a^(k*2^(n-1)) mod N with the final result */
+/* multiplied by a^(c-1).  This eliminates tons of mul-by-consts at the expense of lots of bookkeepping headaches */
+/* and one squaring if k=1 and c<0. */
 
 	if (ps.two_power_opt) {
 		int	gerbicz_squarings;
@@ -10946,6 +10947,16 @@ begin:	gwinit (&gwdata);
 		ultog (2, exp);
 		power (exp, gerbicz_squarings);
 		dblmulg (w->k, exp);
+	}
+
+/* PRP co-factor test.  Do a PRP test on k*b^n+c rather than (k*b^n+c)/known_factors. */
+
+	else if (ps.residue_type == PRIMENET_PRP_TYPE_COFACTOR) {
+		ultog (w->b, exp);
+		power (exp, w->n);
+		dblmulg (w->k, exp);
+		iaddg (w->c, exp);
+		iaddg (-1, exp);
 	}
 
 /* Standard PRP test.  Subtract 1 from N to compute a^(N-1) mod N */
