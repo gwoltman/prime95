@@ -136,6 +136,7 @@ int main (
 	int	contact_server = 0;
 	int	torture_test = 0;
 	int	i, nice_level;
+	int	pid_fd;
 	char	*p;
 
 /* catch termination signals */
@@ -296,6 +297,15 @@ int main (
 		}
 	}
 
+/* Create the pidfile */
+
+	pid_fd = _open (pidfile, _O_CREAT | _O_TRUNC | _O_WRONLY | _O_TEXT, CREATE_FILE_ACCESS);
+	if (pid_fd >= 0) {
+		sprintf (buf, "%d", (int) getpid ());
+		_write (pid_fd, buf, strlen (buf));
+		_close (pid_fd);
+	}
+
 /* Determine the names of the INI files, read them, do other initialization. */
 /* Skip the comm code initialization if we are just displaying the status */
 /* or running a torture test */
@@ -375,6 +385,10 @@ int main (
 /* to delay writing the file. */
 
 	writeWorkToDoFile (TRUE);
+
+/* Delete the pidfile */
+
+	_unlink (pidfile);
 
 /* All done */
 
@@ -469,7 +483,6 @@ void linuxContinue (
 #define PROCNAME	"/proc/%d/file"
 #endif
 	pid_t	my_pid, running_pid;
-	int	pid_fd;
 
 /* Compare this process' ID and the pid from the INI file */
 
@@ -533,15 +546,7 @@ void linuxContinue (
 /* All is OK, save our pid, run, then delete our pid */
 
 ok:	IniWriteInt (LOCALINI_FILE, "Pid", my_pid);
-	pid_fd = _open (pidfile, _O_CREAT | _O_TRUNC | _O_WRONLY | _O_TEXT, CREATE_FILE_ACCESS);
-	if (pid_fd >= 0) {
-		char	buf[30];
-		sprintf (buf, "%d", my_pid);
-		_write (pid_fd, buf, strlen (buf));
-		_close (pid_fd);
-	}
 	LaunchWorkerThreads (thread_num, wait_flag);
-	_unlink (pidfile);
 	if (wait_flag) IniWriteInt (LOCALINI_FILE, "Pid", 0);
 }
 
