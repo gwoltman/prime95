@@ -7866,6 +7866,7 @@ int selfTestInternal (
 	void	*bigbuf,	/* Memory block for the torture test */
 	const struct self_test_info *test_data, /* Self test data */
 	unsigned int test_data_count,
+	int	disabled_cpu_flags, /* Which CPU instructions we should not use */	      
 	int	*completed,	/* Returned count of tests completed */
 	int	*errors,	/* Returned count of self test errors */
 	int	*warnings)	/* Returned count of self test warnings */
@@ -7942,6 +7943,7 @@ int selfTestInternal (
 /* For a better variety of tests, enable SUM(INPUTS) != SUM(OUTPUTS) checking half the time. */
 
 		gwinit (&lldata.gwdata);
+		lldata.gwdata.cpu_flags &= ~disabled_cpu_flags;
 		gwclear_use_benchmarks (&lldata.gwdata);
 		gwset_sum_inputs_checking (&lldata.gwdata, iter & 1);
 		gwset_num_threads (&lldata.gwdata, num_threads);
@@ -8164,7 +8166,7 @@ int selfTest (
 	tests_completed = 0;
 	self_test_errors = 0;
 	self_test_warnings = 0;
-	return (selfTestInternal (thread_num, sp_info, fftlen, 60, NULL, 0, NULL,
+	return (selfTestInternal (thread_num, sp_info, fftlen, 60, NULL, 0, NULL, 0,
 				  &tests_completed, &self_test_errors, &self_test_warnings));
 }
 #endif
@@ -8179,7 +8181,7 @@ int tortureTest (
 	int	num_lengths;		/* Number of FFT lengths we will torture test */
 	unsigned long lengths[500];	/* The FFT lengths we will torture test */
 	int	data_index[500];	/* Last exponent tested for each FFT length */
-	int	test_time;
+	int	test_time, disabled_cpu_flags;
 	int	tests_completed, self_test_errors, self_test_warnings;
 	int	i, run_indefinitely, stop_reason;
 	unsigned long fftlen, min_fft, max_fft;
@@ -8249,14 +8251,15 @@ loop:	run_indefinitely = TRUE;
 /* Enumerate the FFT lengths we will torture test. */
 
 	num_lengths = 0;
-	fftlen = gwmap_to_fftlen (1.0, 2, 15 * min_fft, -1);
+	disabled_cpu_flags = IniGetInt (INI_FILE, "TortureWeak", 0);
+	fftlen = gwmap_with_cpu_flags_to_fftlen (CPU_FLAGS & ~disabled_cpu_flags, 1.0, 2, 15 * min_fft, -1);
 	while (fftlen <= max_fft) {
-		unsigned long max_exponent = gwmap_fftlen_to_max_exponent (fftlen);
+		unsigned long max_exponent = gwmap_with_cpu_flags_fftlen_to_max_exponent (CPU_FLAGS & ~disabled_cpu_flags, fftlen);
 		if (fftlen >= min_fft && max_exponent > test_data[test_data_count-1].p) {
 			lengths[num_lengths] = fftlen;
 			data_index[num_lengths++] = 0;
 		}
-		fftlen = gwmap_to_fftlen (1.0, 2, max_exponent + 100, -1);
+		fftlen = gwmap_with_cpu_flags_to_fftlen (CPU_FLAGS & ~disabled_cpu_flags, 1.0, 2, max_exponent + 100, -1);
 		if (fftlen == 0) break;
 	}
 
@@ -8286,8 +8289,8 @@ loop:	run_indefinitely = TRUE;
 	for ( ; ; ) {
 	    for (i = 0; i < num_lengths; i++) {
 		stop_reason =
-			selfTestInternal (thread_num, &sp_info, lengths[i], test_time, &data_index[i],
-					  memory, bigbuf, test_data, test_data_count, &tests_completed,
+			selfTestInternal (thread_num, &sp_info, lengths[i], test_time, &data_index[i], memory, bigbuf,
+					  test_data, test_data_count, disabled_cpu_flags, &tests_completed,
 					  &self_test_errors, &self_test_warnings);
 		if (stop_reason) {
 			char	buf[120];
