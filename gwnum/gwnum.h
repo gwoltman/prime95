@@ -1049,9 +1049,11 @@ struct gwhandle_struct {
 /* Many of these routines only work for k*b^n+c FFTs. */
 
 unsigned long gwmap_to_fftlen (double, unsigned long, unsigned long, signed long);
+unsigned long gwmap_with_cpu_flags_to_fftlen (int, double, unsigned long, unsigned long, signed long);
 double gwmap_to_timing (double, unsigned long, unsigned long, signed long);
 unsigned long gwmap_to_memused (double, unsigned long, unsigned long, signed long);
 unsigned long gwmap_fftlen_to_max_exponent (unsigned long fftlen);
+unsigned long gwmap_with_cpu_flags_fftlen_to_max_exponent (int, unsigned long fftlen);
 unsigned long gwmap_to_estimated_size (double, unsigned long, unsigned long, signed long);
 //int gwmap_to_fft_info (gwhandle *, double, unsigned long, unsigned long, signed long); /* DEPRECATED */
 
