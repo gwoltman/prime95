@@ -40,6 +40,11 @@
 #define IDD_TIME                        134
 #define IDD_PREFERENCES                 135
 #define IDC_CURSOR2                     135
+#define IDC_AVX512			136
+#define IDC_FMA3			137
+#define IDC_AVX				138
+#define IDC_SSE2			139
+#define IDC_WEAKTORTUREGROUP		140
 #define IDD_PRIMENET                    145
 #define IDD_BENCHMARK			146
 #define IDD_MANUAL_COMM                 149

@@ -4,6 +4,7 @@ New features in Version 29.5 of prime95.exe
 1)  Support added for AVX-512 FFTs.
 2)  FMA3 FFTs now have slightly higher FFT crossover points.  Soft crossovers are
     no longer used by default.  See undoc.txt.
+3)  New torture test dialog box options.
 
 New features in Version 29.4 of prime95.exe
 -------------------------------------------

@@ -1,3 +1,7 @@
+//
+// Copyright 1995-2018 Mersenne Research, Inc.  All rights reserved
+//
+
 #pragma once
 #include "afxwin.h"
 
@@ -29,6 +33,10 @@ public:
 	BOOL m_in_place_fft;
 	int m_memory;
 	int m_timefft;
+	int m_avx512;
+	int m_fma3;
+	int m_avx;
+	int m_sse2;
 	CStatic c_minfft_text;
 	CEdit c_minfft;
 	CStatic c_maxfft_text;
@@ -38,6 +46,10 @@ public:
 	CEdit c_memory;
 	CStatic c_timefft_text;
 	CEdit c_timefft;
+	CButton c_avx512;
+	CButton c_fma3;
+	CButton c_avx;
+	CButton c_sse2;
 
 	int	m_blendmemory;
 

@@ -984,6 +984,7 @@ void options_torture (void)
 	unsigned long m_thread, m_type, m_minfft, m_maxfft;
 	unsigned long m_memory, m_timefft;
 	unsigned long mem, blendmemory;
+	int	m_weak, m_avx512, m_fma3, m_avx, m_sse2;
 
 	m_thread = NUM_CPUS * CPU_HYPERTHREADS;
 	mem = physical_memory ();
@@ -1021,15 +1022,28 @@ void options_torture (void)
 		m_memory = blendmemory;
 	}
 
+	// Ask about running a less stressful torture test.  Stop on first negative answer.
+	// X86-64 cannot go any lower than SSE2.
+	m_weak = m_avx512 = m_fma3 = m_avx = m_sse2 = 0;
+	askYN ("Run a weaker torture test (not recommended)", &m_weak);
+	if (m_weak && CPU_FLAGS & CPU_AVX512F) askYN ("Disable AVX-512", &m_avx512), m_weak = m_avx512;
+	if (m_weak && CPU_FLAGS & CPU_FMA3) askYN ("Disable AVX2 (fused multiply add)", &m_fma3), m_weak = m_fma3;
+	if (m_weak && CPU_FLAGS & CPU_AVX) askYN ("Disable AVX", &m_avx), m_weak = m_avx;
+#ifndef X86_64
+	if (m_weak && CPU_FLAGS & CPU_SSE2) askYN ("Disable SSE2", &m_sse2), m_weak = m_sse2;
+#endif
+
 	if (m_type >= 11) {
-		askNum ("Min FFT size (in K)", &m_minfft, (CPU_FLAGS & CPU_AVX) ? 0 : 7,
-			CPU_FLAGS & CPU_FMA3 ? MAX_FFTLEN_FMA3 / 1024 :
-			CPU_FLAGS & CPU_SSE2 ? MAX_FFTLEN_SSE2 / 1024 :
-					       MAX_FFTLEN / 1024);
+		askNum ("Min FFT size (in K)", &m_minfft, (CPU_FLAGS & CPU_AVX && !m_avx) ? 0 : 7,
+			CPU_FLAGS & CPU_AVX512F && !m_avx512 ? MAX_FFTLEN_AVX512 / 1024 :
+			CPU_FLAGS & CPU_FMA3 && !m_fma3 ? MAX_FFTLEN_FMA3 / 1024 :
+			CPU_FLAGS & CPU_SSE2 && !m_sse2 ? MAX_FFTLEN_SSE2 / 1024 :
+							  MAX_FFTLEN / 1024);
 		askNum ("Max FFT size (in K)", &m_maxfft, (CPU_FLAGS & CPU_AVX) ? 1 : 7,
-			CPU_FLAGS & CPU_FMA3 ? MAX_FFTLEN_FMA3 / 1024 :
-			CPU_FLAGS & CPU_SSE2 ? MAX_FFTLEN_SSE2 / 1024 :
-					       MAX_FFTLEN / 1024);
+			CPU_FLAGS & CPU_AVX512F && !m_avx512 ? MAX_FFTLEN_AVX512 / 1024 :
+			CPU_FLAGS & CPU_FMA3 && !m_fma3 ? MAX_FFTLEN_FMA3 / 1024 :
+			CPU_FLAGS & CPU_SSE2 && !m_sse2 ? MAX_FFTLEN_SSE2 / 1024 :
+							  MAX_FFTLEN / 1024);
 		if (blendmemory > 8)
 			askNum ("Memory to use (in MB, 0 = in-place FFTs)", &m_memory, 0, mem);
 		askNum ("Time to run each FFT size (in minutes)", &m_timefft, 1, 60);
@@ -1041,6 +1055,8 @@ void options_torture (void)
 		mem = m_memory / m_thread;
 		IniWriteInt (INI_FILE, "TortureMem", mem);
 		IniWriteInt (INI_FILE, "TortureTime", m_timefft);
+		m_weak = m_avx512 * CPU_AVX512F + m_fma3 * CPU_FMA3 + m_avx * CPU_AVX + m_sse2 * CPU_SSE2;
+		IniWriteInt (INI_FILE, "TortureWeak", m_weak);
 		LaunchTortureTest (m_thread, TRUE);
 	}
 }

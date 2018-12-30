@@ -1,5 +1,7 @@
 // TortureDlg.cpp : implementation file
 //
+// Copyright 1995-2018 Mersenne Research, Inc.  All rights reserved
+//
 
 #include "stdafx.h"
 #include "Prime95.h"
@@ -19,6 +21,10 @@ CTortureDlg::CTortureDlg(CWnd* pParent /*=NULL*/)
 	, m_memory(0)
 	, m_timefft(0)
 	, m_blendmemory(0)
+	, m_avx512(0)
+	, m_fma3(0)
+	, m_avx(0)
+	, m_sse2(0)
 {
 }
 
@@ -37,18 +43,26 @@ void CTortureDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_MINFFT, m_minfft);
 	DDV_MinMaxInt(pDX, m_minfft,
 		(CPU_FLAGS & CPU_AVX) ? 0 : 7,
+		(CPU_FLAGS & CPU_AVX512F) ? MAX_FFTLEN_AVX512 / 1024 :
 		(CPU_FLAGS & CPU_FMA3) ? MAX_FFTLEN_FMA3 / 1024 :
 		(CPU_FLAGS & CPU_SSE2) ? MAX_FFTLEN_SSE2 / 1024 :
 					 MAX_FFTLEN / 1024);
 	DDX_Text(pDX, IDC_MAXFFT, m_maxfft);
 	DDV_MinMaxInt(pDX, m_maxfft,
 		(CPU_FLAGS & CPU_AVX) ? 1 : 7,
+		(CPU_FLAGS & CPU_AVX512F) ? MAX_FFTLEN_AVX512 / 1024 :
 		(CPU_FLAGS & CPU_FMA3) ? MAX_FFTLEN_FMA3 / 1024 :
 		(CPU_FLAGS & CPU_SSE2) ? MAX_FFTLEN_SSE2 / 1024 :
 					 MAX_FFTLEN / 1024);
 	DDX_Check(pDX, IDC_IN_PLACE_FFT, m_in_place_fft);
 	DDX_Text(pDX, IDC_MEMORY, m_memory);
 	DDX_Text(pDX, IDC_TIMEFFT, m_timefft);
+	DDX_Check(pDX, IDC_AVX512, m_avx512);
+	DDX_Check(pDX, IDC_FMA3, m_fma3);
+	DDX_Check(pDX, IDC_AVX, m_avx);
+#ifndef X86_64
+	DDX_Check(pDX, IDC_SSE2, m_sse2);
+#endif
 	DDX_Control(pDX, IDC_MINFFT_TEXT, c_minfft_text);
 	DDX_Control(pDX, IDC_MINFFT, c_minfft);
 	DDX_Control(pDX, IDC_MAXFFT_TEXT, c_maxfft_text);
@@ -58,6 +72,12 @@ void CTortureDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_MEMORY, c_memory);
 	DDX_Control(pDX, IDC_TIMEFFT_TEXT, c_timefft_text);
 	DDX_Control(pDX, IDC_TIMEFFT, c_timefft);
+	DDX_Control(pDX, IDC_AVX512, c_avx512);
+	DDX_Control(pDX, IDC_FMA3, c_fma3);
+	DDX_Control(pDX, IDC_AVX, c_avx);
+#ifndef X86_64
+	DDX_Control(pDX, IDC_SSE2, c_sse2);
+#endif
 	c_thread_text.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > 1);
 	c_thread.EnableWindow (NUM_CPUS * CPU_HYPERTHREADS > 1);
 	c_minfft_text.EnableWindow (m_torture_type == 3);
@@ -69,6 +89,12 @@ void CTortureDlg::DoDataExchange(CDataExchange* pDX)
 	c_memory.EnableWindow (m_torture_type == 3 && !m_in_place_fft);
 	c_timefft_text.EnableWindow (m_torture_type == 3);
 	c_timefft.EnableWindow (m_torture_type == 3);
+	c_avx512.EnableWindow (CPU_FLAGS & CPU_AVX512F);
+	c_fma3.EnableWindow (CPU_FLAGS & CPU_FMA3);
+	c_avx.EnableWindow (CPU_FLAGS & CPU_AVX);
+#ifndef X86_64
+	c_sse2.EnableWindow (CPU_FLAGS & CPU_SSE2);
+#endif
 }
 
 

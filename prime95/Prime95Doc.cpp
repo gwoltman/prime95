@@ -1,6 +1,6 @@
 // Prime95Doc.cpp : implementation of the CPrime95Doc class
 //
-// Copyright 1995-2017 Mersenne Research, Inc.  All rights reserved
+// Copyright 1995-2018 Mersenne Research, Inc.  All rights reserved
 //
 
 #include "stdafx.h"
@@ -854,12 +854,15 @@ void CPrime95Doc::OnTorture()
 	dlg.m_memory = dlg.m_blendmemory;
 	dlg.m_timefft = 3;
 	if (dlg.DoModal () == IDOK) {
+		int	m_weak;
 		IniWriteInt (INI_FILE, "MinTortureFFT", dlg.m_minfft);
 		IniWriteInt (INI_FILE, "MaxTortureFFT", dlg.m_maxfft);
 		mem = dlg.m_memory / dlg.m_thread;
 		if (dlg.m_in_place_fft) mem = 8;
 		IniWriteInt (INI_FILE, "TortureMem", mem);
 		IniWriteInt (INI_FILE, "TortureTime", dlg.m_timefft);
+		m_weak = dlg.m_avx512 * CPU_AVX512F + dlg.m_fma3 * CPU_FMA3 + dlg.m_avx * CPU_AVX + dlg.m_sse2 * CPU_SSE2;
+		IniWriteInt (INI_FILE, "TortureWeak", m_weak);
 		LaunchTortureTest (dlg.m_thread, FALSE);
 	}
 }
