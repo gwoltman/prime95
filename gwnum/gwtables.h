@@ -265,10 +265,10 @@ struct gwasm_data {
 		double	ZMM_B;			/* Used in first and last levels of two pass FFT */
 		double	ZMM_ONE_OVER_B;
 
-		double	ZMM_UNUSED_DOUBLES1[1];
+		int64_t	ZMM_PERMUTE1;		/* Permute indices for swizzling.  Used in one-pass wrapper, rsc macros */
+		int64_t	ZMM_PERMUTE2;		/* Permute indices for swizzling.  Used in one-pass wrapper, rsc macros */
 
 		void	*ZMM_OP_CARRIES_ROUTINE; /* Routine to propagate carries after an add/sub/addsub/smallmul op in 2-pass FFTs */
-		int64_t	unused_zmm_quarter_dist;	/* In one-pass FFT, distance to FFTLEN/4 data element */  //BUG - delete me
 		double	unused_maxerr_doubles[8];	/* Used in normalization macros */
 		
 		int64_t	unused_zmm_gather_dists[8];	/* Gather/scatter distances in one-pass FFT or pass 2 of two-pass FFT */
