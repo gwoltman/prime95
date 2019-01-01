@@ -6443,8 +6443,8 @@ void gwdone (
 	if (gwdata->large_pages_ptr != NULL) {
 		large_pages_free (gwdata->large_pages_ptr);
 		gwdata->large_pages_ptr = NULL;
-	} else
-		aligned_free (gwdata->gwnum_memory);
+	}
+	aligned_free (gwdata->gwnum_memory);
 	gwdata->gwnum_memory = NULL;
 }
 
