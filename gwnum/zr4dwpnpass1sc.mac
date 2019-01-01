@@ -345,13 +345,12 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 1*8*clm			;; 1 iter of 8*clm iterations
 	zloop_set_clm_prefetch ZQUAD		;; Prefetch 2 of 64 blocks of clm*128 bytes
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 c8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
 	zloop	clm, c8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64, r12, -clm*128+8*blkdstreg, r14, -clm*128+8*blkdstreg ;; Loop, next src/dest ptrs, restore sin/cos ptr
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	;jmp	c9aa
 
 	loops_reset
@@ -474,13 +473,12 @@ b1b:	zr8_wpn_sixteen_reals_first_fft rsi, 128, clmblkdst, 2*clmblkdst, 4*clmblkd
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 1*8*clm			;; 1 iter of 8*clm
 	zloop_set_prefetch ZQUAD		;; Prefetch 4*clm cache lines (0.5 short of optimal)
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	;jmp	b9aa
 
 	loops_reset
@@ -572,9 +570,9 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 1*8*clm			;; 1 iter of 8*clm iterations
 	zloop_set_clm_prefetch ZQUAD		;; Prefetch 16 blocks of clm*128
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 c9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed, and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed sin/cos multipliers
 c9b:	zr8_rsc_wpn_sgreg_eight_complex_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
@@ -690,10 +688,10 @@ b1b:	zr8_csc_wpn_eight_complex_first_djbfft rsi, 128, clmblkdst, 2*clmblkdst, 4*
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 1*8*clm			;; 1 iter of 8*clm
 	zloop_set_prefetch ZQUAD		;; Prefetch 32*clm times
 	zloop_set_alternate_prefetch_increment 26*2+1, 32*2  ;; Prefetch approximately 26.5*clm cache lines in those 32*clm prefetches
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 b9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed multipliers
 b9b:	zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, clm, L1PREFETCH_DEST_ALL
@@ -785,13 +783,12 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 12*clm			;; 12 iters of clm
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
 	zloop_set_clm_prefetch ZQUAD		;; Prefetch 2 of 96 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 c8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
 	zloop	clm, c8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64, r12, -clm*128+8*blkdstreg, r14, -clm*128+8*blkdstreg ;; Loop, next src/dest ptrs, restore sin/cos ptr
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	;jmp	c9aa
 
 	loops_reset
@@ -912,13 +909,12 @@ b1b:	zr12_wpn_twentyfour_reals_first_fft rsi, 128, clmblkdst, 2*clmblkdst, 4*clm
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 12*clm			;; 12 iters of clm
 	zloop_set_prefetch ZQUAD		;; Prefetch 4*clm cache lines (1.75 short of optimal)
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	;jmp	b9aa
 
 	loops_reset
@@ -1010,9 +1006,9 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 12*clm			;; 12 iters of clm
 	zloop_set_clm_prefetch ZQUAD		;; Prefetch 24 of 96 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 c9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed, and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed sin/cos multipliers
 c9b:	zr8_rsc_wpn_sgreg_eight_complex_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
@@ -1128,10 +1124,10 @@ b1b:	zr12_csc_wpn_twelve_complex_first_djbfft rsi, 128, clmblkdst, 2*clmblkdst, 
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 12*clm			;; 12 iters of clm
 	zloop_set_prefetch ZTRIPLE		;; Prefetch 36*clm cache lines (??? too many)
 	zloop_set_alternate_prefetch_increment 34*4+3, 36*4  ;; Prefetch approximately 34.75*clm cache lines in those 36*clm prefetches
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 b9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed multipliers
 b9b:	zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, clm, L1PREFETCH_DEST_ALL
@@ -1224,13 +1220,12 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 5*8*clm			;; 5 iters of 8*clm iterations
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 40 of 320 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 c8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
 	zloop	clm, c8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64, r12, -clm*128+8*blkdstreg, r14, -clm*128+8*blkdstreg ;; Loop, next src/dest ptrs, restore sin/cos ptr
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	jmp	c9aa
 
 	loops_reset
@@ -1449,14 +1444,13 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 5*8*clm			;; 5 iters of 8*clm
 	zloop_set_prefetch ZTRIPLE		;; Prefetch 120*clm times
 	zloop_set_alternate_prefetch_increment 98*2+1, 120*2  ;; Prefetch approximately 98.5*clm cache lines in those 120*clm prefetches
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	jmp	b9aa
 
 	loops_reset
@@ -1550,9 +1544,9 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 5*8*clm			;; 5 iters of 8*clm iterations
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 40 of 320 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 c9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed, and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed sin/cos multipliers
 c9b:	zr8_rsc_wpn_sgreg_eight_complex_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
@@ -1746,10 +1740,10 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 5*8*clm			;; 5 iters of 8*clm
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 80*clm cache lines
 	zloop_set_alternate_prefetch_increment 60*2+1, 80*2  ;; Prefetch approximately 60.5*clm cache lines in those 80*clm prefetches
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 b9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed multipliers
 b9b:	zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, clm, L1PREFETCH_DEST_ALL
@@ -1844,13 +1838,12 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 6*8*clm			;; 6 iters of 8*clm iterations
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 48 of 384 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 c8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
 	zloop	clm, c8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64, r12, -clm*128+8*blkdstreg, r14, -clm*128+8*blkdstreg ;; Loop, next src/dest ptrs, restore sin/cos ptr
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	jmp	c9aa
 
 	loops_reset
@@ -2069,14 +2062,13 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 6*8*clm			;; 6 iters of 8*clm
 	zloop_set_prefetch ZTRIPLE		;; Prefetch 144*clm times
 	zloop_set_alternate_prefetch_increment 131, 144  ;; Prefetch approximately 131*clm cache lines in those 144*clm prefetches
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	jmp	b9aa
 
 	loops_reset
@@ -2170,9 +2162,9 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 6*8*clm			;; 6 iters of 8*clm iterations
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 48 of 384 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 c9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed, and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed sin/cos multipliers
 c9b:	zr8_rsc_wpn_sgreg_eight_complex_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
@@ -2366,10 +2358,10 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 6*8*clm			;; 6 iters of 8*clm
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 96*clm cache lines
 	zloop_set_alternate_prefetch_increment 77, 96  ;; Prefetch approximately 77*clm cache lines in those 96*clm prefetches
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 b9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed multipliers
 b9b:	zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, clm, L1PREFETCH_DEST_ALL
@@ -2464,13 +2456,12 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 7*8*clm			;; 7 iters of 8*clm iterations
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 56 of 448 blocks of clm*128 bytes
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 c8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
 	zloop	clm, c8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64, r12, -clm*128+8*blkdstreg, r14, -clm*128+8*blkdstreg ;; Loop, next src/dest ptrs, restore sin/cos ptr
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	jmp	c9aa
 
 	loops_reset
@@ -2689,14 +2680,13 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 7*8*clm			;; 7 iters of 8*clm
 	zloop_set_prefetch ZTRIPLE		;; Prefetch 168*clm times
 	zloop_set_alternate_prefetch_increment 131*2+1, 168*2  ;; Prefetch approximately 131.5*clm cache lines in those 168*clm prefetches
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	jmp	b9aa
 
 	loops_reset
@@ -2790,9 +2780,9 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 7*8*clm			;; 7 iters of 8*clm iterations
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 56 of 448 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 c9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed, and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed sin/cos multipliers
 c9b:	zr8_rsc_wpn_sgreg_eight_complex_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
@@ -2986,10 +2976,10 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 7*8*clm			;; 7 iters of 8*clm
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 112*clm cache lines
 	zloop_set_alternate_prefetch_increment 77*2+1, 112*2  ;; Prefetch approximately 77.5*clm cache lines in those 112*clm prefetches
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 b9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed multipliers
 b9b:	zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, clm, L1PREFETCH_DEST_ALL
@@ -3084,14 +3074,13 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 ;;	zloop_init 12*5*clm			;; 12 iters of 5*clm iterations
 	zloop_init 12*5*clm  *2			;; 12 iters of 5*clm iterations	(work around loops "add al, 1" bug)
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
 	zloop_set_clm_prefetch ZQUAD		;; Prefetch 120 of 480 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 c8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
 	zloop	clm, c8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64, r12, -clm*128+8*blkdstreg, r14, -clm*128+8*blkdstreg ;; Loop, next src/dest ptrs, restore sin/cos ptr
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	jmp	c9aa
 
 	loops_reset
@@ -3310,15 +3299,14 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 ;;	zloop_init 12*5*clm			;; 12 iters of 5*clm
 	zloop_init 12*5*clm  *2			;; 12 iters of 5*clm iterations	(work around loops "add al, 1" bug)
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 120*clm times
 	zloop_set_alternate_prefetch_increment 107*4+3, 120*4  ;; Prefetch approximately 107.75*clm cache lines in those 120*clm prefetches
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	jmp	b9aa
 
 	loops_reset
@@ -3412,10 +3400,10 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 ;;	zloop_init 12*5*clm			;; 12 iters of 5*clm iterations
 	zloop_init 12*5*clm  *2			;; 12 iters of 5*clm iterations	(work around loops "add al, 1" bug)
 	zloop_set_clm_prefetch ZQUAD		;; Prefetch 120 of 480 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 c9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed, and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed sin/cos multipliers
 c9b:	zr8_rsc_wpn_sgreg_eight_complex_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
@@ -3609,11 +3597,11 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 ;;	zloop_init 12*5*clm			;; 12 iters of 5*clm
 	zloop_init 12*5*clm  *2			;; 12 iters of 5*clm iterations	(work around loops "add al, 1" bug)
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 120*clm cache lines
 	zloop_set_alternate_prefetch_increment 69*4+3, 120*4  ;; Prefetch approximately 69.75*clm cache lines in those 120*clm prefetches
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 b9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed multipliers
 b9b:	zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, clm, L1PREFETCH_DEST_ALL
@@ -3708,13 +3696,12 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 8*8*clm			;; 8 iters of 8*clm iterations
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 64 of 512 blocks of clm*128 bytes
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 c8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
 	zloop	clm, c8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64, r12, -clm*128+8*blkdstreg, r14, -clm*128+8*blkdstreg ;; Loop, next src/dest ptrs, restore sin/cos ptr
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	jmp	c9aa
 
 	loops_reset
@@ -3933,14 +3920,13 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 8*8*clm			;; 8 iters of 8*clm
 	zloop_set_prefetch ZTRIPLE		;; Prefetch 192*clm times
 	zloop_set_alternate_prefetch_increment 164, 192  ;; Prefetch approximately 164*clm cache lines in those 192*clm prefetches
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	jmp	b9aa
 
 	loops_reset
@@ -4034,9 +4020,9 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 8*8*clm			;; 8 iters of 8*clm iterations
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 64 of 512 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 c9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed, and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed sin/cos multipliers
 c9b:	zr8_rsc_wpn_sgreg_eight_complex_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
@@ -4230,10 +4216,10 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 8*8*clm			;; 8 iters of 8*clm
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 128*clm cache lines
 	zloop_set_alternate_prefetch_increment 94, 128  ;; Prefetch approximately 94*clm cache lines in those 128*clm prefetches
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 b9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed multipliers
 b9b:	zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, clm, L1PREFETCH_DEST_ALL
@@ -4328,14 +4314,13 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 ;;	zloop_init 12*6*clm			;; 12 iters of 6*clm iterations
 	zloop_init 12*6*clm  *2			;; 12 iters of 6*clm iterations	(work around loops "add al, 1" bug)
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
 	zloop_set_clm_prefetch ZQUAD		;; Prefetch 144 of 576 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 c8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
 	zloop	clm, c8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64, r12, -clm*128+8*blkdstreg, r14, -clm*128+8*blkdstreg ;; Loop, next src/dest ptrs, restore sin/cos ptr
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	jmp	c9aa
 
 	loops_reset
@@ -4554,15 +4539,14 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 ;;	zloop_init 12*6*clm			;; 12 iters of 6*clm
 	zloop_init 12*6*clm  *2			;; 12 iters of 6*clm iterations	(work around loops "add al, 1" bug)
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 144*clm times
 	zloop_set_alternate_prefetch_increment 140*2+1, 144*2  ;; Prefetch approximately 140.5*clm cache lines in those 144*clm prefetches
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	jmp	b9aa
 
 	loops_reset
@@ -4656,10 +4640,10 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 ;;	zloop_init 12*6*clm			;; 12 iters of 6*clm iterations
 	zloop_init 12*6*clm  *2			;; 12 iters of 6*clm iterations	(work around loops "add al, 1" bug)
 	zloop_set_clm_prefetch ZQUAD		;; Prefetch 144 of 576 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 c9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed, and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed sin/cos multipliers
 c9b:	zr8_rsc_wpn_sgreg_eight_complex_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
@@ -4853,11 +4837,11 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 ;;	zloop_init 12*6*clm			;; 12 iters of 6*clm
 	zloop_init 12*6*clm  *2			;; 12 iters of 6*clm iterations	(work around loops "add al, 1" bug)
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 144*clm cache lines
 	zloop_set_alternate_prefetch_increment 86*2+1, 144*2  ;; Prefetch approximately 86.5*clm cache lines in those 144*clm prefetches
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 b9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed multipliers
 b9b:	zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, clm, L1PREFETCH_DEST_ALL
@@ -4952,13 +4936,12 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 10*8*clm			;; 10 iters of 8*clm iterations
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 80 of 640 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 c8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
 	zloop	clm, c8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64, r12, -clm*128+8*blkdstreg, r14, -clm*128+8*blkdstreg ;; Loop, next src/dest ptrs, restore sin/cos ptr
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	jmp	c9aa
 
 	loops_reset
@@ -5178,14 +5161,13 @@ ENDIF
 
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 10*8*clm			;; 10 iters of 8*clm
 	zloop_set_prefetch ZTRIPLE		;; Prefetch 240*clm times
 	zloop_set_alternate_prefetch_increment 196, 240  ;; Prefetch approximately 196*clm cache lines in those 240*clm prefetches
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	jmp	b9aa
 
 	loops_reset
@@ -5279,9 +5261,9 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 10*8*clm			;; 10 iters of 8*clm iterations
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 80 of 640 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 c9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed, and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed sin/cos multipliers
 c9b:	zr8_rsc_wpn_sgreg_eight_complex_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
@@ -5476,10 +5458,10 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 10*8*clm			;; 10 iters of 8*clm
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 160*clm times
 	zloop_set_alternate_prefetch_increment 111, 160  ;; Prefetch approximately 111*clm cache lines in those 160*clm prefetches
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 b9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed multipliers
 b9b:	zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, clm, L1PREFETCH_DEST_ALL
@@ -5573,14 +5555,13 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 ;;	zloop_init 12*7*clm			;; 12 iters of 7*clm iterations
 	zloop_init 12*7*clm  *2			;; 12 iters of 7*clm iterations	(work around loops "add al, 1" bug)
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 84 of 672 blocks of clm*128 bytes
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 c8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
 	zloop	clm, c8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64, r12, -clm*128+8*blkdstreg, r14, -clm*128+8*blkdstreg ;; Loop, next src/dest ptrs, restore sin/cos ptr
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	jmp	c9aa
 
 	loops_reset
@@ -5799,15 +5780,14 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 ;;	zloop_init 12*7*clm			;; 12 iters of 7*clm
 	zloop_init 12*7*clm  *2			;; 12 iters of 7*clm iterations	(work around loops "add al, 1" bug)
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 168*clm times
 	zloop_set_alternate_prefetch_increment 141*4+3, 168*4  ;; Prefetch approximately 141.75*clm cache lines in those 168*clm prefetches
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	jmp	b9aa
 
 	loops_reset
@@ -5901,10 +5881,10 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 ;;	zloop_init 12*7*clm			;; 12 iters of 7*clm iterations
 	zloop_init 12*7*clm  *2			;; 12 iters of 7*clm iterations	(work around loops "add al, 1" bug)
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 84 of 672 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 c9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed, and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed sin/cos multipliers
 c9b:	zr8_rsc_wpn_sgreg_eight_complex_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
@@ -6098,11 +6078,11 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 ;;	zloop_init 12*7*clm			;; 12 iters of 7*clm
 	zloop_init 12*7*clm  *2			;; 12 iters of 7*clm iterations	(work around loops "add al, 1" bug)
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 168*clm cache lines
 	zloop_set_alternate_prefetch_increment 87*4+3, 168*4  ;; Prefetch approximately 87.25*clm cache lines in those 168*clm prefetches
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 b9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed multipliers
 b9b:	zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, clm, L1PREFETCH_DEST_ALL
@@ -6197,13 +6177,12 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 12*8*clm			;; 12 iters of 8*clm iterations
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 96 of 768 blocks of clm*128 bytes
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 c8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
 	zloop	clm, c8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64, r12, -clm*128+8*blkdstreg, r14, -clm*128+8*blkdstreg ;; Loop, next src/dest ptrs, restore sin/cos ptr
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	jmp	c9aa
 
 	loops_reset
@@ -6421,14 +6400,13 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 12*8*clm			;; 12 iters of 8*clm
 	zloop_set_prefetch ZTRIPLE		;; Prefetch 288*clm times
 	zloop_set_alternate_prefetch_increment 230, 288  ;; Prefetch approximately 230*clm cache lines in those 288*clm prefetches
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	jmp	b9aa
 
 	loops_reset
@@ -6522,9 +6500,9 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 12*8*clm			;; 12 iters of 8*clm iterations
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 96 of 768 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 c9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed, and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed sin/cos multipliers
 c9b:	zr8_rsc_wpn_sgreg_eight_complex_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
@@ -6718,10 +6696,10 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 12*8*clm			;; 12 iters of 8*clm
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 192*clm cache lines
 	zloop_set_alternate_prefetch_increment 128, 192  ;; Prefetch approximately 111*clm cache lines in those 192*clm prefetches
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 b9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed multipliers
 b9b:	zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, clm, L1PREFETCH_DEST_ALL
@@ -6816,13 +6794,12 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 12*8*clm			;; 12 iters of 8*clm iterations
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 96 of 768 blocks of clm*128 bytes
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 c8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
 	zloop	clm, c8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64, r12, -clm*128+8*blkdstreg, r14, -clm*128+8*blkdstreg ;; Loop, next src/dest ptrs, restore sin/cos ptr
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	jmp	c9aa
 
 	loops_reset
@@ -7041,14 +7018,13 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 12*8*clm			;; 12 iters of 8*clm
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 192*clm times
 	zloop_set_alternate_prefetch_increment 174, 192  ;; Prefetch approximately 174*clm cache lines in those 192*clm prefetches
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	jmp	b9aa
 
 	loops_reset
@@ -7142,9 +7118,9 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 12*8*clm			;; 12 iters of 8*clm iterations
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 96 of 768 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 c9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed, and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed sin/cos multipliers
 c9b:	zr8_rsc_wpn_sgreg_eight_complex_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
@@ -7338,10 +7314,10 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 12*8*clm			;; 12 iters of 8*clm
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 192*clm cache lines
 	zloop_set_alternate_prefetch_increment 104, 192  ;; Prefetch approximately 104*clm cache lines in those 192*clm prefetches
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 b9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed multipliers
 b9b:	zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, clm, L1PREFETCH_DEST_ALL
@@ -7436,14 +7412,13 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 ;;BUG	zloop_init 12*10*clm			;; 12 iters of 10*clm iterations
 	zloop_init 12*10*clm  *2		;; 12 iters of 10*clm iterations	(work around loops "add al, 1" bug)
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
 	zloop_set_clm_prefetch ZSINGLE		;; Prefetch 60 of 960 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 c8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
 	zloop	clm, c8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64, r12, -clm*128+8*blkdstreg, r14, -clm*128+8*blkdstreg ;; Loop, next src/dest ptrs, restore sin/cos ptr
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	jmp	c9aa
 
 	loops_reset
@@ -7663,15 +7638,14 @@ ENDIF
 
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 ;;BUG	zloop_init 12*10*clm			;; 12 iters of 10*clm iterations
 	zloop_init 12*10*clm  *2		;; 12 iters of 10*clm iterations	(work around loops "add al, 1" bug)
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 240*clm times
 	zloop_set_alternate_prefetch_increment 206*2+1, 240*2  ;; Prefetch approximately 206.5*clm cache lines in those 240*clm prefetches
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	jmp	b9aa
 
 	loops_reset
@@ -7765,10 +7739,10 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 ;;BUG	zloop_init 12*10*clm			;; 12 iters of 10*clm iterations
 	zloop_init 12*10*clm  *2		;; 12 iters of 10*clm iterations	(work around loops "add al, 1" bug)
 	zloop_set_clm_prefetch ZSINGLE		;; Prefetch 60 of 960 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 c9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed, and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed sin/cos multipliers
 c9b:	zr8_rsc_wpn_sgreg_eight_complex_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
@@ -7963,11 +7937,11 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 ;;BUG	zloop_init 12*10*clm			;; 12 iters of 10*clm iterations
 	zloop_init 12*10*clm  *2		;; 12 iters of 10*clm iterations	(work around loops "add al, 1" bug)
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 240*clm times
 	zloop_set_alternate_prefetch_increment 121*2+1, 240*2  ;; Prefetch approximately 121*clm cache lines in those 240*clm prefetches
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 b9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed multipliers
 b9b:	zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, clm, L1PREFETCH_DEST_ALL
@@ -8062,13 +8036,12 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 16*8*clm			;; 16 iters of 8*clm iterations
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 128 of 1024 blocks of clm*128 bytes
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 c8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
 	zloop	clm, c8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64, r12, -clm*128+8*blkdstreg, r14, -clm*128+8*blkdstreg ;; Loop, next src/dest ptrs, restore sin/cos ptr
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	jmp	c9aa
 
 	loops_reset
@@ -8290,14 +8263,13 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 16*8*clm			;; 16 iters of 8*clm
 	zloop_set_prefetch ZTRIPLE		;; Prefetch 384*clm times
 	zloop_set_alternate_prefetch_increment 296, 384  ;; Prefetch approximately 296*clm cache lines in those 384*clm prefetches
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	jmp	b9aa
 
 	loops_reset
@@ -8392,9 +8364,9 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 16*8*clm			;; 16 iters of 8*clm iterations
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 128 of 1024 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 c9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed, and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed sin/cos multipliers
 c9b:	zr8_rsc_wpn_sgreg_eight_complex_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
@@ -8591,10 +8563,10 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 16*8*clm			;; 16 iters of 8*clm
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 256*clm cache lines
 	zloop_set_alternate_prefetch_increment 162, 256  ;; Prefetch approximately 162*clm cache lines in those 256*clm prefetches
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 b9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed multipliers
 b9b:	zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, clm, L1PREFETCH_DEST_ALL
@@ -8690,14 +8662,13 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 ;;	zloop_init 12*12*clm			;; 12 iters of 12*clm iterations
 	zloop_init 12*12*clm  *2		;; 12 iters of 12*clm iterations (work around loops "add al, 1" bug)
 	zloop_set_clm_prefetch ZQUAD		;; Prefetch 288 of 1152 blocks of clm*128 bytes
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 c8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
 	zloop	clm, c8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64, r12, -clm*128+8*blkdstreg, r14, -clm*128+8*blkdstreg ;; Loop, next src/dest ptrs, restore sin/cos ptr
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	jmp	c9aa
 
 	loops_reset
@@ -8915,15 +8886,14 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 ;;	zloop_init 12*12*clm			;; 12 iters of 12*clm
 	zloop_init 12*12*clm  *2		;; 12 iters of 12*clm iterations (work around loops "add al, 1" bug)
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 288*clm times
 	zloop_set_alternate_prefetch_increment 241, 288  ;; Prefetch approximately 241*clm cache lines in those 288*clm prefetches
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	jmp	b9aa
 
 	loops_reset
@@ -9017,10 +8987,10 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 ;;	zloop_init 12*12*clm			;; 12 iters of 12*clm iterations
 	zloop_init 12*12*clm  *2		;; 12 iters of 12*clm iterations (work around loops "add al, 1" bug)
 	zloop_set_clm_prefetch ZQUAD		;; Prefetch 288 of 1152 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 c9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed, and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed sin/cos multipliers
 c9b:	zr8_rsc_wpn_sgreg_eight_complex_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
@@ -9214,11 +9184,11 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 ;;	zloop_init 12*12*clm			;; 12 iters of 12*clm
 	zloop_init 12*12*clm  *2		;; 12 iters of 12*clm iterations (work around loops "add al, 1" bug)
 	zloop_set_prefetch ZSINGLE		;; Prefetch 144*clm cache lines
 	zloop_set_alternate_prefetch_increment 139, 144  ;; Prefetch approximately 139*clm cache lines in those 144*clm prefetches
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 b9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed multipliers
 b9b:	zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, clm, L1PREFETCH_DEST_ALL
@@ -9313,13 +9283,12 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 12*16*clm			;; 12 iters of 16*clm iterations
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 192 of 1536 blocks of clm*128 bytes
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 c8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
 	zloop	clm, c8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64, r12, -clm*128+8*blkdstreg, r14, -clm*128+8*blkdstreg ;; Loop, next src/dest ptrs, restore sin/cos ptr
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	jmp	c9aa
 
 	loops_reset
@@ -9541,14 +9510,13 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 12*16*clm			;; 12 iters of 16*clm
 	zloop_set_prefetch ZDOUBLE		;; Prefetch 384*clm times
 	zloop_set_alternate_prefetch_increment 308, 384  ;; Prefetch approximately 308*clm cache lines in those 384*clm prefetches
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	jmp	b9aa
 
 	loops_reset
@@ -9643,9 +9611,9 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 12*16*clm			;; 12 iters of 16*clm iterations
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 192 of 1536 blocks of clm*128 bytes
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 c9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed, and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed sin/cos multipliers
 c9b:	zr8_rsc_wpn_sgreg_eight_complex_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
@@ -9842,10 +9810,10 @@ ENDIF
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_only_preload		;; Preload constants before calling zloop_init
 	zloop_init 12*16*clm			;; 12 iters of 16*clm
 	zloop_set_prefetch ZSINGLE		;; Prefetch 192*clm times
 	zloop_set_alternate_prefetch_increment 174, 192  ;; Prefetch approximately 174*clm cache lines in those 192*clm prefetches
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 b9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, clm ;; Generate clm*SCD8 sin/cos values from weights, delayed and complex multipliers
 	bump	rdi, clm*ZMM_SCD1		;; Next set of delayed multipliers
 b9b:	zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, clm, L1PREFETCH_DEST_ALL
@@ -9943,13 +9911,12 @@ c0b:	start_timer 16
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 10*8*clm			;; 10 iters of 8*clm iterations
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
 	zloop_set_clm_prefetch ZQUAD		;; Prefetch 20 blocks of 8*clm*128 bytes
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 c8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
 	zloop	clm, c8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64, r12, -clm*128+8*blkdstreg, r14, -clm*128+8*blkdstreg ;; Loop, next src/dest ptrs, restore sin/cos ptr
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	jmp	c9aa
 
 	loops_reset
@@ -10143,14 +10110,13 @@ b2b:	zr10_ten_complex_djbfft rsi, 128, clmblkdst, rdi, ZMM_SCD10, 8*clm, L1PREFE
 	lea	r13, [rbp+4*blkdstreg]		;; Dest+4*blkdst pointer
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 10*8*clm			;; 10 iters of 8*clm
 	zloop_set_prefetch ZTRIPLE		;; Prefetch 240*clm times
 	zloop_set_alternate_prefetch_increment 212, 240  ;; Prefetch approximately 212*clm cache lines in those 240*clm prefetches
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	jmp	b9aa
 
 	loops_reset
@@ -10318,13 +10284,12 @@ xyz2:	vmovapd	zmm0, [rbp]
 	bump2	r12, (clm MOD 2), 8*blkdstreg	;; L1 prefetch pointer part 2
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 10*8*clm			;; 10 iters of 8*clm iterations
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
 	zloop_set_clm_prefetch ZDOUBLE		;; Prefetch 20 blocks of 8*clm*128 bytes
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 c8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 128, blkdstreg, blkdst3reg, r13, rsi, 1024, 128, 256, 512, rdx, 0*ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
 	zloop	clm, c8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, r9, -clm*64, r12, -clm*128+8*blkdstreg, r14, -clm*128+8*blkdstreg ;; Loop, next src/dest ptrs, restore sin/cos ptr
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	jmp	c9aa
 data= 16cl = 1KB, dest = 1kb
 s/c=16cl = 1kb
@@ -10517,14 +10482,13 @@ b2b:	zr10_ten_complex_djbfft rsi, 128, clmblkdst, rdi, ZMM_SCD10, 8*clm, L1PREFE
 
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 10*8*clm			;; 10 iters of 8*clm
 	zloop_set_prefetch ZTRIPLE		;; Prefetch 240*clm times
 	zloop_set_alternate_prefetch_increment 212, 240  ;; Prefetch approximately 212*clm cache lines in those 240*clm prefetches
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	jmp	b9aa
 
 	loops_reset
@@ -10622,6 +10586,7 @@ c0b:	start_timer 16
 	mov	r8, pass2blkdst			;; blkdst
 	lea	r10, [2*blkdstreg+blkdstreg]	;; 3*blkdst
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init clm*8*10			;; clm iters of 8*10 iterations
 IF clm EQ 4
 	zloop_set_clm_prefetch ZQUAD		;; Prefetch 80 of 640 blocks of clm*128 bytes
@@ -10635,10 +10600,8 @@ c9:	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, 1 ;; Generate SCD8 sin
 	lea	r13, [rbp+4*blkdstreg]		;; Source+4*blkdst pointer
 	lea	r12, [rbp+8*blkdstreg]		;; L1 prefetch pointer
 	lea	r14, [r12+4*blkdstreg]		;; L1 prefetch pointer + 4*blkdst
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8_preload
 ;; BUG re-org real and complex s/c data into one SCD8 -- see non-temporal
 	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rbp, 8*blkdstreg, blkdstreg, blkdst3reg, r13, rsi, clmblkdst, 128, 256, 512, ZMM_TMPS, 0, r9, 0, rbx+clm*ZMM_SCD4, 0, 1, L1PREFETCH_ALL, r12, r14 ;; Prefetch short dist ahead
-	zr8_rsc_wpn_sgreg_eight_complex_unfft8_preload
 	jmp	c9c
 c9a:	zr8_rsc_wpn_eight_complex_calc_sincos r9, rdi, rbx, 1 ;; Generate SCD8 sin/cos values from wpn weights, delayed and complex multipliers
 	bump	rdi, clm*ZMM_SCD1			;; Next delayed sin/cos ptr
@@ -10828,14 +10791,13 @@ b2c:	zloop	8, b2b, -8*10*clmblkdst+128, rdi, ZMM_SCD10 ;; Test loop counter, nex
 
 pfing	mov	rcx, PREMULT_PREFETCH		;; Load premult/sin/cos prefetch pointer
 
+	zr8_rsc_complex_and_real_preload	;; Preload constants before calling zloop_init
 	zloop_init 10*8*clm			;; 10 iters of 8*clm
 	zloop_set_prefetch ZTRIPLE		;; Prefetch 240*clm times
 	zloop_set_alternate_prefetch_increment 212, 240  ;; Prefetch approximately 212*clm cache lines in those 240*clm prefetches
 	zr8_rsc_wpn_eight_complex_calc_sincos_simple r9, rbx, clm ;; Generate clm*SCD8 sin/cos values from delayed and complex multipliers
-	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8_preload
 b8b:	zr8_rsc_wpn_sgreg_2sc_sixteen_reals_fft8 rsi, 1024, 128, 256, 512, rbp, 128, blkdstreg, blkdst3reg, r13, rdx, ZMM_SCD8, r9, 64, rdi, ZMM_SCD4, clm, L1PREFETCH_DEST_ALL
 	zloop	clm, b8b, -clm*1024+clmblkdst, rbp, -clm*128+8*blkdstreg, r13, -clm*128+8*blkdstreg, rdx, -clm*ZMM_SCD8, r9, -clm*64 ;; Loop, next source/dest pointers, restore premult/sine/cosine pointer
-	zr8_rsc_wpn_sgreg_eight_complex_fft8_preload
 	jmp	b9aa
 
 	loops_reset
