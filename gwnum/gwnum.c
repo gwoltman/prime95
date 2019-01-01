@@ -769,6 +769,11 @@ int is_fft_implemented (
 	int	desired_bif;		/* The "best implementation for" value we will look for. */
 					/* See mult.asm for defined BIF_ values. */
 
+/* If there are no implementations, return false.  This can happen SSE2 and earlier where there were no best-impl-for settings. */
+/* An example is the SSE2 FFT length 2000K in 32-bit mode. */
+
+	if (!(jmptab->flags & 0x80000000)) return (FALSE);
+
 /* Determine the "bif" value we will look for.  Often this is a straight-forward mapping from */
 /* the CPU_ARCHITECTURE.  However, for some CPU architectures, like Pentium M and Core Solo, we */
 /* don't have jmptable entries detailing the fastest FFT implementations for those architectures. */
@@ -3497,7 +3502,7 @@ int internal_gwsetup (
 			// AVX-512 FFTs (due to rounding compressed fudges/biglits within each variable block to a cache line boundary)
 			// may allocate a little too much memory when clm != 1.  Allow a small discrepancy without complaining.
 			if (gwdata->cpu_flags & CPU_AVX512F && gwdata->PASS1_CACHE_LINES > 8) {
-				if (mem_used > mem_needed || mem_used < (int) (mem_needed * .98)) {
+				if ((int) mem_used > (int) mem_needed || (int) mem_used < (int) (mem_needed * .98)) {
 					sprintf (buf, "FFTlen: %d, mem needed should be approximately: %d\n",
 						 (int) gwdata->FFTLEN, (int) (mem_used - gwdata->SCRATCH_SIZE));
 					OutputBoth (0, buf);
