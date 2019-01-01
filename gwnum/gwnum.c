@@ -1013,6 +1013,10 @@ again:	zpad_jmptab = NULL;
 		else
 			zpad_jmptab = asm_info.x86_cyclic_fft_info;
 
+/* If no jmptable was found (should only happen if caller has disabled all but the x87 CPU_FLAGS in 64-bit mode */
+
+		if (zpad_jmptab == NULL) return (GWERROR_TOO_LARGE);
+
 /* Find the table entry for the FFT that can do a mod 2^2n FFT, handling */
 /* k and c in the normalization routines.  We will compare this to the */
 /* non-zero-padded FFT length later.  The zeroes in the upper half of FFT */
@@ -1149,6 +1153,10 @@ next1:			zpad_jmptab = NEXT_SET_OF_JMPTABS (zpad_jmptab);
 		else
 			jmptab = asm_info.x86_negacyclic_fft_info;
 	}
+
+/* If no jmptable was found (should only happen if caller has disabled all but the x87 CPU_FLAGS in 64-bit mode */
+
+	if (jmptab == NULL) return (GWERROR_TOO_LARGE);
 
 /* Find the table entry using either the specified fft length or */
 /* the smallest FFT length that can handle the k,b,n,c being tested. */
@@ -2113,6 +2121,12 @@ int gwsetup (
 		gcd = cg->n[0];
 	}
 
+/* The smallest AVX-512F FFT is length 1K.  Limited testing has indicated that less than 5 bits per FFT word */
+/* can result in carry propagation errors.  For small k*b^n+c values switch do not use AVX-512 instructions. */
+
+	if (log2(b) * (double) n < 5.0 * 1024.0)
+		gwdata->cpu_flags &= ~CPU_AVX512F;
+
 /* Call the internal setup routine when we can.  Gcd (k, c) must be 1, */
 /* k * mulbyconst and c * mulbyconst cannot be too large.  Also, the FFT */
 /* code has bugs when there are too few bits per FFT.  Rather than make */
@@ -2124,7 +2138,6 @@ int gwsetup (
 	    k * gwdata->maxmulbyconst <= MAX_ZEROPAD_K &&
 	    labs (c) * gwdata->maxmulbyconst <= MAX_ZEROPAD_C &&
 	    log2(b) * (double) n >= 350.0 &&
-//BUG - AVX-512F may need 16 * 350.0 limit for same number of bits-per-word.  switching to AVX2 would be faster than general mod.
 	    (b == 2 || (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX | CPU_SSE2))) &&
 	    !gwdata->force_general_mod) {
 		error_code = internal_gwsetup (gwdata, k, b, n, c);
@@ -3577,6 +3590,11 @@ int internal_gwsetup (
 		asm_data->u.zmm.ZMM_P195 = asm_values[33];
 		asm_data->u.zmm.ZMM_P831_P556 = asm_values[34];
 		asm_data->u.zmm.ZMM_P556_P195 = asm_values[37];
+
+/* Swizzling indices used in vpermt2pd */
+
+		asm_data->u.zmm.ZMM_PERMUTE1 = 0x0c040e0608000a02ULL;
+		asm_data->u.zmm.ZMM_PERMUTE2 = 0x0d050f0709010b03ULL;
 	}
 
 /* Init constants for AVX FFT routines */
@@ -7329,11 +7347,22 @@ unsigned long gwmap_to_fftlen (
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
 	signed long c)		/* C in K*B^N+C. Must be rel. prime to K. */
 {
+	return (gwmap_with_cpu_flags_to_fftlen (0, k, b, n, c));
+}
+
+unsigned long gwmap_with_cpu_flags_to_fftlen (
+	int	cpu_flags,
+	double	k,		/* K in K*B^N+C. Must be a positive integer. */
+	unsigned long b,	/* B in K*B^N+C. */
+	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
+	signed long c)		/* C in K*B^N+C. Must be rel. prime to K. */
+{
 	gwhandle gwdata;	/* Temporary gwnum handle */
 
 /* Get pointer to fft info and return the FFT length */
 
 	gwinit (&gwdata);
+	if (cpu_flags) gwdata.cpu_flags = cpu_flags;
 	gwclear_use_benchmarks (&gwdata);
 	if (gwinfo (&gwdata, k, b, n, c)) return (0);
 	return (gwdata.jmptab->fftlen);
@@ -7345,11 +7374,19 @@ unsigned long gwmap_to_fftlen (
 unsigned long gwmap_fftlen_to_max_exponent (
 	unsigned long fftlen)
 {
+	return (gwmap_with_cpu_flags_fftlen_to_max_exponent (0, fftlen));
+}
+
+unsigned long gwmap_with_cpu_flags_fftlen_to_max_exponent (
+	int	cpu_flags,
+	unsigned long fftlen)
+{
 	gwhandle gwdata;	/* Temporary gwnum handle */
 
 /* Get pointer to fft info and return the maximum exponent for the FFT length */
 
 	gwinit (&gwdata);
+	if (cpu_flags) gwdata.cpu_flags = cpu_flags;
 	gwclear_use_benchmarks (&gwdata);
 	gwset_minimum_fftlen (&gwdata, fftlen);
 	if (gwinfo (&gwdata, 1.0, 2, 0, -1)) return (0);
