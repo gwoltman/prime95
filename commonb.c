@@ -9473,10 +9473,11 @@ int primeBenchMultipleWorkersInternal (
 				gwthread_wait_for_exit (&thread_id[i]);
 			    stop_reason = stopCheck (thread_num);
 			    if (stop_reason) {
-				    if (all_bench) gwbench_write_data ();	/* Write accumulated benchmark data to gwnum.txt */
-				    gwmutex_destroy (&bench_workers_mutex);
-				    gwevent_destroy (&bench_workers_sync);
-				    return (stop_reason);
+				if (all_bench) gwbench_write_data ();	/* Write accumulated benchmark data to gwnum.txt */
+				lucasDone (&lldata);
+				gwmutex_destroy (&bench_workers_mutex);
+				gwevent_destroy (&bench_workers_sync);
+				return (stop_reason);
 			    }
 
 /* Print the total throughput and average times for this FFT length */
