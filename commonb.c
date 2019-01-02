@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2018 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2019 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
@@ -9385,7 +9385,6 @@ int primeBenchMultipleWorkersInternal (
 	    for (impl = 1; ; impl++) {
 		if (impl > 1) {
 			if (!all_bench) break;
-			lucasDone (&lldata);
 			gwinit (&lldata.gwdata);
 			gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
 			lldata.gwdata.bench_pick_nth_fft = impl;
@@ -9396,7 +9395,10 @@ int primeBenchMultipleWorkersInternal (
 /* Hack for my use only.  This let's me quickly run gwinit on every FFT implementation so that I can determine */
 /* the memory needed value to fill in the tables in mult.asm. */
 
-		if (IniGetInt (INI_FILE, "gwinit_only", 0)) continue;
+		if (IniGetInt (INI_FILE, "gwinit_only", 0)) {
+			lucasDone (&lldata);
+			continue;
+		}
 
 /* Loop over all possible multithread possibilities */
 
