@@ -769,9 +769,15 @@ int is_fft_implemented (
 	int	desired_bif;		/* The "best implementation for" value we will look for. */
 					/* See mult.asm for defined BIF_ values. */
 
-/* If there are no implementations, return false.  This can happen SSE2 and earlier where there were no best-impl-for settings. */
-/* An example is the SSE2 FFT length 2000K in 32-bit mode. */
+/* If there are no implementations, return false.  This can happen for SSE2 and earlier implementations where there are no best-impl-for */
+/* settings or only for an architecture (K8) we can't run.  Examples include SSE2 FFT lengths 2000K and 3456K in 32-bit mode. */
 
+	if (! (gwdata->cpu_flags & CPU_3DNOW_PREFETCH)) {
+		for ( ; jmptab->flags & 0x80000000; jmptab = INC_JMPTAB (jmptab)) {
+			int	arch = (jmptab->flags >> 17) & 0xF;
+			if (arch != ARCH_K8 && arch != ARCH_K10) break;
+		}
+	}
 	if (!(jmptab->flags & 0x80000000)) return (FALSE);
 
 /* Determine the "bif" value we will look for.  Often this is a straight-forward mapping from */
