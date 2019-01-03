@@ -660,7 +660,7 @@ void SetAuxThreadPriority (int aux_thread_num, int action, void *data)
 
 /* This routine checks if the worker thread needs to be stopped for any */
 /* reason whatsoever.  If the worker thread should stop, a stop reason */
-/* is returned.  The routine is declared EXTERNC becasue it can be called */
+/* is returned.  The routine is declared EXTERNC because it can be called */
 /* by the C code in giants that does GCD. */
 
 EXTERNC int stopCheck (
@@ -707,8 +707,7 @@ EXTERNC int stopCheck (
 
 	if (STOP_FOR_BATTERY) return (STOP_BATTERY);
 
-/* If we are on battery power, stop processing all worker */
-/* threads until we cease running on the battery. */
+/* Check if we need to do an auto-benchmark */
 
 	if (STOP_FOR_AUTOBENCH) return (STOP_AUTOBENCH);
 
@@ -9286,9 +9285,12 @@ void primeBenchOneWorker (void *arg)
 		end_timer (timers, 0);
 		// If any of the bench workers have finished, then do not imclude this timing
 		if (bench_worker_finished) break;
-		// Add in this timing.  If time exceeds our limit, end this worker
+		// Add in this timing.  If time exceeds our limit, end this worker.
+		// Note: the timer should never be <= 0, but I have seen unexplained timer behavior in the past.
+		// Just to be safe from infinite loops, if the timer is zero or less, assume the iteration took 1 second.
 		info->iterations++;
-		info->total_time += timer_value (timers, 0);
+		if (timer_value (timers, 0) <= 0.0) info->total_time += 1.0;
+		else info->total_time += timer_value (timers, 0);
 		if (info->total_time > bench_workers_time) {
 			bench_worker_finished = TRUE;
 			break;
