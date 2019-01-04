@@ -302,6 +302,12 @@ If this is set to 8MB or less, then the torture test does FFTs in-place.  This
 may be more stressful but could miss memory errors that only occur at a
 specific physical address.
 
+You can control whether a blend torture test alternates between using lots of RAM
+and running in-place with this prime.txt setting:
+	TortureAlternateInPlace=0 or 1	(default is 1)
+The blend test defaults to alternating to test different scenarios that might cause
+a hardware failure.  Turning alternating off will do a better job of stressing all RAM.
+
 The program normally does round-off error checking every 128 iterations.
 When you are testing an exponent near the limit of an FFT length, the program
 does this error checking every iteration.  
