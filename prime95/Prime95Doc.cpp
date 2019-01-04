@@ -1,6 +1,6 @@
 // Prime95Doc.cpp : implementation of the CPrime95Doc class
 //
-// Copyright 1995-2018 Mersenne Research, Inc.  All rights reserved
+// Copyright 1995-2019 Mersenne Research, Inc.  All rights reserved
 //
 
 #include "stdafx.h"
@@ -805,18 +805,20 @@ void CPrime95Doc::OnBenchmark()
 	dlg.m_bench_workers = default_workers_string;
 
 	if (dlg.DoModal () == IDOK) {
-		IniWriteInt (INI_FILE, "MinBenchFFT", dlg.m_minFFT);
-		IniWriteInt (INI_FILE, "MaxBenchFFT", dlg.m_maxFFT);
-		IniWriteInt (INI_FILE, "BenchErrorCheck", dlg.m_errchk);
-		IniWriteInt (INI_FILE, "BenchAllComplex", dlg.m_all_complex ? 2 : 0);
-		IniWriteInt (INI_FILE, "OnlyBench5678", dlg.m_limit_FFT_sizes);
-
+		if (dlg.m_bench_type != 2) {
+			IniWriteInt (INI_FILE, "MinBenchFFT", dlg.m_minFFT);
+			IniWriteInt (INI_FILE, "MaxBenchFFT", dlg.m_maxFFT);
+			IniWriteInt (INI_FILE, "BenchErrorCheck", dlg.m_errchk);
+			IniWriteInt (INI_FILE, "BenchAllComplex", dlg.m_all_complex ? 2 : 0);
+			IniWriteInt (INI_FILE, "OnlyBench5678", dlg.m_limit_FFT_sizes);
+		}
 		IniWriteString (INI_FILE, "BenchCores", dlg.m_bench_cores);
 		IniWriteInt (INI_FILE, "BenchHyperthreads", dlg.m_hyperthreading);
-
-		IniWriteString (INI_FILE, "BenchWorkers", dlg.m_bench_workers);
-		IniWriteInt (INI_FILE, "AllBench", dlg.m_all_FFT_impl);
-		IniWriteInt (INI_FILE, "BenchTime", dlg.m_bench_time);
+		if (dlg.m_bench_type == 0) {
+			IniWriteString (INI_FILE, "BenchWorkers", dlg.m_bench_workers);
+			IniWriteInt (INI_FILE, "AllBench", dlg.m_all_FFT_impl);
+			IniWriteInt (INI_FILE, "BenchTime", dlg.m_bench_time);
+		}
 		LaunchBench (dlg.m_bench_type);
 	}
 }
