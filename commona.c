@@ -8,7 +8,7 @@
 | Commonb contains information used only during execution
 | Commonc contains information used during setup and execution
 |
-| Copyright 1995-2017 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2019 Mersenne Research, Inc.  All rights reserved
 +---------------------------------------------------------------------*/
 
 /* Routine to eliminate odd puctuation characters from user ID */
@@ -112,21 +112,19 @@ void rangeStatusMessage (
 				prob += (double) ((bits - 1) * 1.733 * ERROR_RATE) / w->n;
 		}
 
-// BUG - how do we determine difference between 1st-time tests and dbl-checks
-// BUG - we need data on PRP error rate -- it will be close to zero
-		if (w->work_type == WORK_PRP && w->n > 80000000) {
-			ll_and_prp_cnt++;
-			if (w->pminus1ed)
-				prob += (double) ((bits - 1) * 1.803) / w->n;
-			else
-				prob += (double) ((bits - 1) * 1.733) / w->n;
-		}
-		else if (w->work_type == WORK_PRP) {
-			ll_and_prp_cnt++;
-			if (w->pminus1ed)
-				prob += (double) ((bits - 1) * 1.803 * ERROR_RATE/100) / w->n;
-			else
-				prob += (double) ((bits - 1) * 1.733 * ERROR_RATE/100) / w->n;
+		if (w->work_type == WORK_PRP && w->known_factors == NULL) {
+// BUG - how do we determine difference between 1st-time tests and dbl-checks.  Hack is n > 80000000.
+			if (w->n > 80000000) {
+				ll_and_prp_cnt++;
+				if (w->pminus1ed)
+					prob += (double) ((bits - 1) * 1.803) / w->n;
+				else
+					prob += (double) ((bits - 1) * 1.733) / w->n;
+			}
+			else {
+				ll_and_prp_cnt++;
+				prob += (double) ((bits - 1) * 1.733 * PRP_ERROR_RATE/100) / w->n;
+			}
 		}
 
 /* Adjust our time estimate */
