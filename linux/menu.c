@@ -988,7 +988,10 @@ void options_torture (void)
 
 	m_thread = NUM_CPUS * CPU_HYPERTHREADS;
 	mem = physical_memory ();
-	if (mem >= 2000) {
+	// New in 29.5, default to all but 2.5GB of memory for the blend test.
+	if (mem >= 4500) {
+		blendmemory = GetSuggestedMemory (mem - 2500);
+	} else if (mem >= 2000) {
 		blendmemory = GetSuggestedMemory (1600);
 	} else if (mem >= 500) {
 		blendmemory = GetSuggestedMemory (mem - 256);

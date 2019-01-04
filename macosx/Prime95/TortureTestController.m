@@ -3,7 +3,7 @@
 //  Prime95
 //
 //  Created by George Woltman on 4/25/09.
-//  Copyright 2009-2017 Mersenne Research, Inc. All rights reserved.
+//  Copyright 2009-2019 Mersenne Research, Inc. All rights reserved.
 //
 
 #import "TortureTestController.h"
@@ -37,7 +37,11 @@
 	[self setMaxFFTSize:4096];
 
 	mem = physical_memory ();
-	if (mem >= 2000) {
+	// New in 29.5 default to all but 2.5GB
+	if (mem >= 4500) {
+		blendMemory = GetSuggestedMemory (mem - 2500);
+		in_place_fft = FALSE;
+	} else if (mem >= 2000) {
 		blendMemory = GetSuggestedMemory (1600);
 		in_place_fft = FALSE;
 	} else if (mem >= 500) {
