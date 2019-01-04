@@ -7876,7 +7876,7 @@ int selfTestInternal (
 	char	buf[120];
 //	char	iniName[32];
 	time_t	start_time, current_time;
-	int	stop_reason;
+	int	alternate_in_place, stop_reason;
 
 /* Set the title */
 
@@ -7885,8 +7885,10 @@ int selfTestInternal (
 /* Decide how many threads the torture test can use.  This should only */
 /* really be needed for QA purposes as the user can probably create more */
 /* more stress by running one torture test window for each CPU core. */
+/* Get flag indicating if we should alternate use-lots-of-mem with run-in-place. */
 
 	num_threads = IniGetInt (INI_FILE, "TortureTestThreads", 1);
+	alternate_in_place = IniGetInt (INI_FILE, "TortureAlternateInPlace", 1);
 
 /* Determine the range from which we'll choose an exponent to test. */
 
@@ -7963,7 +7965,7 @@ int selfTestInternal (
 
 /* Determine how many gwnums we can allocate in the memory we are given */
 
-		if (memory <= 8 || (iter & 1) == 0)
+		if (memory <= 8 || (alternate_in_place && (iter & 1) == 0))
 			num_gwnums = 1;
 		else {
 			num_gwnums = cvt_mem_to_gwnums (&lldata.gwdata, memory);
@@ -8095,8 +8097,9 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 
 		i++;
 
-/* Has time expired? */
+/* Has time expired?  Also break if the minimum specifiable time was selected (a poor man's run-only-test-per-FFT flag) */
 
+		if (test_time == 1) break;
 		time (&current_time);
 		if ((unsigned int) (current_time - start_time) >= test_time * 60) break;
 	}
