@@ -8097,11 +8097,12 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 
 		i++;
 
-/* Has time expired?  Also break if the minimum specifiable time was selected (a poor man's run-only-test-per-FFT flag) */
+/* Has time (rounded to nearest minute) expired?  Also break if the minimum */
+/* specifiable time was selected (a poor man's run-only-test-per-FFT flag) */
 
 		if (test_time == 1) break;
 		time (&current_time);
-		if ((unsigned int) (current_time - start_time) >= test_time * 60) break;
+		if ((unsigned int) (current_time - start_time) + 30 >= test_time * 60) break;
 	}
 
 /* Save our position in self test data array for next time torture test */
