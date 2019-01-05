@@ -227,7 +227,7 @@ void test_it_all (
 	giant	g, g2, g3;
 	int	i, ii, res, nth_fft, num_squarings;
 	double	diff, maxdiff;
-	char	buf[200], fft_desc[100];
+	char	buf[256], fft_desc[200];
 
 /* Init */
 
