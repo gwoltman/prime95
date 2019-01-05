@@ -9,7 +9,7 @@
 // THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
 // PARTICULAR PURPOSE.
 //
-// Copyright (c) 1997-2017 Mersenne Research, Inc. All Rights Reserved.
+// Copyright (c) 1997-2019 Mersenne Research, Inc. All Rights Reserved.
 //
 //  MODULE:   primenet.c
 //
@@ -22,6 +22,7 @@
 //	      Woltman 1/2002, Windows support and bug fixes
 //	      Woltman 10/2005, Version 5 API support, CURL library
 //	      Woltman 9/2017, Added interim residues to AP msg, added PRP support
+//	      Woltman 9/2019, Added PRP dblchk support
 //
 //  ASSUMPTIONS: 1. less than 4k of data is sent or received per call
 //               2. HTTP/1.1
@@ -1464,6 +1465,7 @@ int parse_page (char *response_buf, short operation, void *pkt)
 		parse_double (s, "saved", &z->tests_saved);
 		parse_uint (s, "base", &z->prp_base);
 		parse_uint (s, "rt", &z->prp_residue_type);
+		parse_uint (s, "dc", &z->prp_dblchk);
 		parse_string (s, "kf", z->known_factors, sizeof (z->known_factors));
 		break;
 		}

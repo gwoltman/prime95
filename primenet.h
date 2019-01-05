@@ -4,7 +4,7 @@
 // THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
 // PARTICULAR PURPOSE.
 //
-// Copyright (c) 1997-2017 Mersenne Research, Inc. All Rights Reserved.
+// Copyright (c) 1997-2019 Mersenne Research, Inc. All Rights Reserved.
 //
 */
 
@@ -171,6 +171,7 @@ struct primenetGetAssignment {
 	uint32_t curves;		/* ECM curves to run */
 	uint32_t prp_base;		/* PRP base to use in a PRP double-check */
 	uint32_t prp_residue_type;	/* PRP residue type to return in a PRP double-check */
+	uint32_t prp_dblchk;		/* True is this is a PRP double-check */
 	char	known_factors[2000];	/* List of known factors */
 };
 
