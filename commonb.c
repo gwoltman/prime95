@@ -6474,7 +6474,7 @@ int prime (
 	int	first_iter_msg, near_fft_limit, sleep5;
 	unsigned long high32, low32;
 	int	rc, isPrime, stop_reason;
-	char	buf[400], fft_desc[100];
+	char	buf[400], fft_desc[200];
 	int	slow_iteration_count;
 	double	best_iteration_time;
 	unsigned long last_counter = 0xFFFFFFFF;	/* Iteration of last error */
@@ -7873,7 +7873,7 @@ int selfTestInternal (
 	llhandle lldata;
 	unsigned long k, limit, num_threads;
 	unsigned int i, iter;
-	char	buf[120];
+	char	buf[256];
 //	char	iniName[32];
 	time_t	start_time, current_time;
 	int	alternate_in_place, stop_reason;
@@ -7907,7 +7907,7 @@ int selfTestInternal (
 /* time runs out */
 
 	for (iter = 1; ; iter++) {
-		char	fft_desc[100];
+		char	fft_desc[200];
 		unsigned long p, reshi, reslo;
 		unsigned int ll_iters, num_gwnums;
 		gwnum	*gwarray, g;
@@ -7949,7 +7949,7 @@ int selfTestInternal (
 		gwset_sum_inputs_checking (&lldata.gwdata, iter & 1);
 		gwset_num_threads (&lldata.gwdata, num_threads);
 		gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
-		gwset_thread_callback_data (&lldata.gwdata, &sp_info);
+		gwset_thread_callback_data (&lldata.gwdata, sp_info);
 		lldata.gwdata.GW_BIGBUF = (char *) bigbuf;
 		lldata.gwdata.GW_BIGBUF_SIZE = (bigbuf != NULL) ? (size_t) memory * (size_t) 1048576 : 0;
 		stop_reason = lucasSetup (thread_num, p, fftlen, &lldata);
@@ -8829,7 +8829,7 @@ static	int	time_all_complex = 0;	/* TRUE if we should time all-complex FFTs */
 	unsigned long i, j, saved, save_limit;
 	int	min_cores, max_cores, incr_cores, min_hyperthreads, max_hyperthreads;
 	int	num_cores, num_hyperthreads;
-	char	buf[120], fft_desc[100];
+	char	buf[256], fft_desc[200];
 	double	time, saved_times[SAVED_LIMIT];
 	int	days, hours, minutes, stop_reason, print_every_iter;
 	uint32_t *ASM_TIMERS;
@@ -10608,7 +10608,7 @@ int prp (
 	readSaveFileState read_save_file_state; /* Manage savefile names during reading */
 	writeSaveFileState write_save_file_state; /* Manage savefile names during writing */
 	char	filename[32];
-	char	buf[400], JSONbuf[4000], fft_desc[100], res64[17], res2048[513];
+	char	buf[400], JSONbuf[4000], fft_desc[200], res64[17], res2048[513];
 	int	have_res2048;
 	unsigned long last_counter = 0xFFFFFFFF;/* Iteration of last error */
 	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
