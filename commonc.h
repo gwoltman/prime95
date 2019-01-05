@@ -339,6 +339,7 @@ struct work_unit {		/* One line from the worktodo file */
 	double	tests_saved;	/* Pfactor - primality tests saved if a factor is found */
 	unsigned int prp_base;	/* PRP base to use */	
 	int	prp_residue_type; /* PRP residue to output -- see primenet.h */
+	int	prp_dblchk;	/* True if this is a doublecheck of a previous PRP */
 	char	*known_factors;	/* ECM, P-1, PRP - list of known factors */
 	char	*comment;	/* Comment line in worktodo.ini */
 		/* Runtime variables */

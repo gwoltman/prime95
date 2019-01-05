@@ -2577,13 +2577,15 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 
 /* Handle PRP= lines.									*/
 /*	PRP=k,b,n,c[,how_far_factored,tests_saved[,base,residue_type]][,known_factors]	*/
+/*	PRPDC=k,b,n,c[,how_far_factored,tests_saved[,base,residue_type]][,known_factors]*/
 /* A tests_saved value of 0.0 will bypass any P-1 factoring				*/
 /* The PRP residue type is defined in primenet.h					*/
 
-	    else if (_stricmp (keyword, "PRP") == 0) {
+	    else if (_stricmp (keyword, "PRP") == 0 || _stricmp (keyword, "PRPDC") == 0) {
 		char	*q;
 
 		w->work_type = WORK_PRP;
+		w->prp_dblchk = (keyword[3] != 0);
 		w->k = atof (value);
 		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
 		sscanf (q+1, "%lu,%lu,%ld", &w->b, &w->n, &w->c);
@@ -2972,7 +2974,7 @@ int writeWorkToDoFile (
 			break;
 
 		case WORK_PRP:
-			sprintf (buf, "PRP=%s%.0f,%lu,%lu,%ld", idbuf, w->k, w->b, w->n, w->c);
+			sprintf (buf, "PRP%s=%s%.0f,%lu,%lu,%ld", w->prp_dblchk ? "DC" : "", idbuf, w->k, w->b, w->n, w->c);
 			if (w->tests_saved > 0.0 || w->prp_base || w->prp_residue_type) {
 				sprintf (buf + strlen (buf), ",%g,%g", w->sieve_depth, w->tests_saved);
 				if (w->prp_base || w->prp_residue_type)
@@ -5791,6 +5793,7 @@ retry:
 			w.tests_saved = pkt1.tests_saved;
 			w.prp_base = pkt1.prp_base;
 			w.prp_residue_type = pkt1.prp_residue_type;
+			w.prp_dblchk = pkt1.prp_dblchk;
 			break;
 		default:
 			sprintf (buf, "Received unknown work type: %lu.\n", (unsigned long) pkt1.work_type);
