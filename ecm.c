@@ -2077,7 +2077,7 @@ int ecm (
 	unsigned long i, j, curve, min_memory;
 	readSaveFileState read_save_file_state;	/* Manage savefile names during reading */
 	writeSaveFileState write_save_file_state; /* Manage savefile names during writing */
-	char	filename[32], buf[255], fft_desc[100];
+	char	filename[32], buf[255], fft_desc[200];
 	int	res, stop_reason, stage, first_iter_msg;
 	gwnum	x, z, t1, t2, gg;
 	gwnum	Q2x, Q2z, Qiminus2x, Qiminus2z, Qdiffx, Qdiffz;
@@ -4421,7 +4421,7 @@ restart:
 /* Output message about the FFT length chosen */
 
 	{
-		char	fft_desc[100];
+		char	fft_desc[200];
 		gwfft_description (&pm1data.gwdata, fft_desc);
 		sprintf (buf, "Using %s\n", fft_desc);
 		OutputStr (thread_num, buf);
