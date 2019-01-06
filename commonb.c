@@ -1812,8 +1812,7 @@ void implement_stop_battery (
 /*              Routine dealing auto-benchmark                */
 /**************************************************************/
 
-/* Stopping while on battery power, restart thread only when AC power */
-/* is restored. */
+/* Stop temporarily to perform an automatic benchmark */
 
 void implement_stop_autobench (
 	int	thread_num)
@@ -9476,7 +9475,7 @@ int primeBenchMultipleWorkersInternal (
 /* Wait for all the workers to finish */
 
 			    for (i = 0; i < workers; i++)
-				gwthread_wait_for_exit (&thread_id[i]);
+				    gwthread_wait_for_exit (&thread_id[i]);
 			    stop_reason = stopCheck (thread_num);
 			    if (stop_reason) {
 				if (all_bench) gwbench_write_data ();	/* Write accumulated benchmark data to gwnum.txt */
@@ -11157,7 +11156,8 @@ rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 /* Round off error check the first and last 50 iterations, before writing a save file, near an FFT size's limit, */
 /* or check every iteration option is set, and every 128th iteration. */
 
-		echk = ps.counter < 50 || ps.counter >= final_counter-50 || saving || near_fft_limit || ERRCHK || ((ps.counter & 127) == 0);
+		echk = ERRCHK || ps.counter < 50 || ps.counter >= final_counter-50 || saving ||
+		       (ps.error_check_type == PRP_ERRCHK_NONE && (near_fft_limit || ((ps.counter & 127) == 0)));
 		gw_clear_maxerr (&gwdata);
 
 /* Check if we should send residue to server, output residue to screen, or create an interediate save file */
