@@ -1,4 +1,4 @@
-; Copyright 2011-2018 - Mersenne Research, Inc.  All rights reserved.
+; Copyright 2011-2019 - Mersenne Research, Inc.  All rights reserved.
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -2492,12 +2492,12 @@ cloop:
 	vsubpd	zmm7, zmm7, zmm30
 	vaddpd	zmm8, zmm0, [rsi]		;; Values1 += carry
 	vaddpd	zmm9, zmm1, [rsi+r14]		;; Values2 += carry
-	vaddpd	zmm9, zmm1, [r13]		;; Values3 += carry
-	vaddpd	zmm9, zmm1, [r13+r14]		;; Values4 += carry
-	vaddpd	zmm9, zmm1, [rsi+64]		;; Values5 += carry
-	vaddpd	zmm9, zmm1, [rsi+r14+64]	;; Values6 += carry
-	vaddpd	zmm9, zmm1, [r13+64]		;; Values7 += carry
-	vaddpd	zmm9, zmm1, [r13+r14+64]	;; Values8 += carry
+	vaddpd	zmm10, zmm2, [r13]		;; Values3 += carry
+	vaddpd	zmm11, zmm3, [r13+r14]		;; Values4 += carry
+	vaddpd	zmm12, zmm4, [rsi+64]		;; Values5 += carry
+	vaddpd	zmm13, zmm5, [rsi+r14+64]	;; Values6 += carry
+	vaddpd	zmm14, zmm6, [r13+64]		;; Values7 += carry
+	vaddpd	zmm15, zmm7, [r13+r14+64]	;; Values8 += carry
 	zstore	[rsi], zmm8			;; Save value1
 	zstore	[rsi+r14], zmm9			;; Save value2
 	zstore	[r13], zmm10			;; Save value3
@@ -2670,12 +2670,12 @@ cloop:
 	vsubpd	zmm7, zmm7, zmm30
 	vaddpd	zmm8, zmm0, [rsi]		;; Values1 += carry
 	vaddpd	zmm9, zmm1, [rsi+r14]		;; Values2 += carry
-	vaddpd	zmm9, zmm1, [r13]		;; Values3 += carry
-	vaddpd	zmm9, zmm1, [r13+r14]		;; Values4 += carry
-	vaddpd	zmm9, zmm1, [rsi+64]		;; Values5 += carry
-	vaddpd	zmm9, zmm1, [rsi+r14+64]	;; Values6 += carry
-	vaddpd	zmm9, zmm1, [r13+64]		;; Values7 += carry
-	vaddpd	zmm9, zmm1, [r13+r14+64]	;; Values8 += carry
+	vaddpd	zmm10, zmm2, [r13]		;; Values3 += carry
+	vaddpd	zmm11, zmm3, [r13+r14]		;; Values4 += carry
+	vaddpd	zmm12, zmm4, [rsi+64]		;; Values5 += carry
+	vaddpd	zmm13, zmm5, [rsi+r14+64]	;; Values6 += carry
+	vaddpd	zmm14, zmm6, [r13+64]		;; Values7 += carry
+	vaddpd	zmm15, zmm7, [r13+r14+64]	;; Values8 += carry
 	zstore	[rsi], zmm8			;; Save value1
 	zstore	[rsi+r14], zmm9			;; Save value2
 	zstore	[r13], zmm10			;; Save value3
