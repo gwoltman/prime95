@@ -521,6 +521,13 @@ You can use the old sockets communication code instead of the robust CURL librar
 Add this line to the [PrimeNet] section of prime.txt:
 	UseCURL=0
 
+When using CURL, you can control whether the program automatically tries again
+without using the proxy server when a request fails using the proxy server.
+In the [Primenet] section of prime.txt enter:
+	TryNoProxyAfterProxyFailure=0 or 1	(default 1)
+This feature is new in 29.5.  Prior versions essentially implemented 
+TryNoProxyAfterProxyFailure=0
+
 When not using CURL , you can control what type of URLs are used to contact the
 PrimeNet server.  In the [Primenet] section of prime.txt enter:
 	UseFullURL=n
