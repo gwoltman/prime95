@@ -416,9 +416,10 @@ void *x87_prctab[] = { x87_explode(array_entry) NULL };
 #endif
 #define is_valid_double(x)	(! isnan (x) && ! isinf (x))
 
-/* Special flag value set in the gwnum freeable field */
+/* More #defines */
 
-#define GWFREED_TEMPORARILY	0x80000000
+#define	GWINIT_WAS_CALLED_VALUE	0xAA12BB34	/* Special value checked by gwsetup to ensure gwinit was called */
+#define GWFREED_TEMPORARILY	0x80000000	/* Special flag value set in the gwnum freeable field */
 
 /* Forward declarations */
 
@@ -2022,9 +2023,9 @@ void gwinit2 (
 	gwdata->use_irrational_general_mod = 0;
 	gwdata->use_large_pages = 0;
 	gwdata->use_benchmarks = 1;
+	gwdata->mem_needed = GWINIT_WAS_CALLED_VALUE;	/* Special code checked by gwsetup to ensure gwinit was called */
 
-/* Init structure that allows giants and gwnum code to share */
-/* allocated memory */
+/* Init structure that allows giants and gwnum code to share allocated memory */
 
 	init_ghandle (&gwdata->gdata);
 	gwdata->gdata.allocate = &gwgiantalloc;
@@ -2073,6 +2074,10 @@ int gwsetup (
 	int	gcd, error_code, setup_completed;
 	double	orig_k;
 	unsigned long orig_n;
+
+/* Make sure gwinit was called */
+
+	if (gwdata->mem_needed != GWINIT_WAS_CALLED_VALUE) return (GWERROR_NO_INIT);
 
 /* Return delayed errors from gwinit2 */
 
@@ -2239,6 +2244,10 @@ int gwsetup_general_mod_giant (
 	int	error_code;
 	unsigned long fftlen, max_exponent, desired_n;
 	giant	modified_modulus, tmp;
+
+/* Make sure gwinit was called */
+
+	if (gwdata->mem_needed != GWINIT_WAS_CALLED_VALUE) return (GWERROR_NO_INIT);
 
 /* Return delayed errors from gwinit2 */
 
@@ -2491,6 +2500,10 @@ int gwsetup_without_mod (
 	const struct gwasm_jmptab *info;
 	unsigned long fftlen, max_exponent, desired_n;
 	int	error_code;
+
+/* Make sure gwinit was called */
+
+	if (gwdata->mem_needed != GWINIT_WAS_CALLED_VALUE) return (GWERROR_NO_INIT);
 
 /* Return delayed errors from gwinit2 */
 
@@ -6358,55 +6371,57 @@ prefetches2 += (int) asm_data->pass2blkdst / 64;
 void multithread_term (
 	gwhandle *gwdata)
 {
-	struct gwasm_data *asm_data;
-	unsigned long i;
+	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
+	int	i;
 
-/* Free up memory */
+/* If we are multithreading AND multithreading was initialized properly, then wait for compute threads to exit */
+/* before we free memory. */
 
-	free (gwdata->pass1_carry_sections);
-	gwdata->pass1_carry_sections = NULL;
+	if (gwdata->num_threads > 1 && gwdata->thread_lock != NULL) {
 
-/* Set variable that tells all auxiliary threads and hyperthreads to terminate */
+/* Set variable that tells all auxiliary threads and hyperthreads to terminate. */
+/* I'm not positive this needs to obtain the thread lock, better safe than sorry. */
 
-	gwdata->threads_must_exit = TRUE;
+		gwmutex_lock (&gwdata->thread_lock);
+		gwdata->threads_must_exit = TRUE;
+		gwmutex_unlock (&gwdata->thread_lock);
 
-/* Wait for the optional prefetching hyperthread to finish before we delete the shared asm_data structure */
+/* Fire up auxiliary compute threads so they can exit */
 
-	asm_data = (struct gwasm_data *) gwdata->asm_data;
+		gwevent_signal (&gwdata->thread_work_to_do);
+
+/* Wait for all compute threads to exit.  We must do this so */
+/* that this thread can safely delete the gwdata structure */
+
+		for (i = 0; i < (int) gwdata->num_threads - 1; i++)
+			if (gwdata->thread_ids[i]) gwthread_wait_for_exit (&gwdata->thread_ids[i]);
+
+/* Free up multithreading memory */
+
+		free (gwdata->thread_ids);
+		gwdata->thread_ids = NULL;
+
+/* Free up the multithread resources */
+
+		gwmutex_destroy (&gwdata->thread_lock);
+		gwevent_destroy (&gwdata->thread_work_to_do);
+		gwevent_destroy (&gwdata->all_threads_done);
+		gwevent_destroy (&gwdata->can_carry_into);
+		gwdata->thread_lock = NULL;
+	}
+
+/* Wait for the optional prefetching hyperthread to finish */
+
 	if (asm_data != NULL && asm_data->hyperthread_id) {
 		gwevent_signal (&asm_data->hyperthread_work_to_do);
 		gwthread_wait_for_exit (&asm_data->hyperthread_id);
 		gwevent_destroy (&asm_data->hyperthread_work_to_do);
 	}
 
-/* Return if we aren't multithreading or multithreading was not initialized */
+/* Free up memory allocated by multithread_init */
 
-	if (gwdata->num_threads <= 1) return;
-	if (gwdata->thread_lock == NULL) return;
-
-/* Fire up auxiliary compute threads */
-
-	gwevent_signal (&gwdata->thread_work_to_do);
-
-/* Wait for all compute threads to exit.  We must do this so */
-/* that this thread can safely delete the gwdata structure */
-
-	for (i = 0; i < gwdata->num_threads - 1; i++)
-		if (gwdata->thread_ids[i])
-			gwthread_wait_for_exit (&gwdata->thread_ids[i]);
-
-/* Free up memory */
-
-	free (gwdata->thread_ids);
-	gwdata->thread_ids = NULL;
-
-/* Now free up the multithread resources */
-
-	gwmutex_destroy (&gwdata->thread_lock);
-	gwevent_destroy (&gwdata->thread_work_to_do);
-	gwevent_destroy (&gwdata->all_threads_done);
-	gwevent_destroy (&gwdata->can_carry_into);
-	gwdata->thread_lock = NULL;
+	free (gwdata->pass1_carry_sections);
+	gwdata->pass1_carry_sections = NULL;
 }
 
 /* Cleanup any memory allocated for multi-precision math */

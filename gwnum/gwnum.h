@@ -16,7 +16,7 @@
 | threads IF AND ONLY IF each uses a different gwhandle structure
 | initialized by gwinit.
 | 
-|  Copyright 2002-2018 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2019 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 #ifndef _GWNUM_H
@@ -66,8 +66,7 @@ typedef double *gwnum;
 
 /* Error codes returned by the three gwsetup routines */
 
-#define GWERROR_VERSION		1001	/* GWNUM.H and FFT assembly code */
-					/* version numbers do not match. */
+#define GWERROR_VERSION		1001	/* GWNUM.H and FFT assembly code version numbers do not match. */
 #define GWERROR_TOO_LARGE	1002	/* Number too large for the FFTs */
 #define GWERROR_K_TOO_SMALL	1003	/* k < 1 is not supported */
 #define GWERROR_K_TOO_LARGE	1004	/* k > 53 bits is not supported */
@@ -77,6 +76,7 @@ typedef double *gwnum;
 #define GWERROR_STRUCT_SIZE_MISMATCH 1007 /* Gwhandle structure size from gwinit call doesn't match size */
 					/* when gwnum.c was compiled.  Check compiler alignment switches. */
 #define GWERROR_TOO_SMALL	1008	/* Gwsetup called on a number <= 1 */
+#define GWERROR_NO_INIT		1009	/* gwinit was not called prior to gwsetup */
 #define GWERROR_INTERNAL	2000	/* 2000 and up are "impossible" internal errors. */
 
 /* Error codes returned by gwtobinary, gwtogiant, and get_fft_value */
@@ -913,7 +913,7 @@ struct gwhandle_struct {
 	unsigned long FFTLEN;		/* The FFT size we are using */
 	unsigned long PASS1_SIZE;	/* Number of real values FFTed in pass 1. */
 	unsigned long PASS2_SIZE;	/* Number of complex values FFTed in pass 2. */
-	int	cpu_flags;		/* Copy of CPU_FLAGS at time gwsetup was called (just in case CPU_FLAGS changes) */
+	int	cpu_flags;		/* Copy of CPU_FLAGS at time gwinit was called (just in case CPU_FLAGS changes) */
 	char	ZERO_PADDED_FFT;	/* True if doing a zero pad FFT */
 	char	ALL_COMPLEX_FFT;	/* True if using all-complex FFTs */
 	char	RATIONAL_FFT;		/* True if bits per FFT word is integer */
