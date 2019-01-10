@@ -2088,25 +2088,25 @@ ttp	kmovw	k1, WORD PTR ZMM_FIRST_BIGLIT_VALUES ;; Load 8 big vs. little flags
 	zrounding_single ttp, zmm0, zmm2, k1
 	vmovsd	Q [rsi], xmm0			;; Save value1
 
-	add	rsi, ZMM_SRC_INCR1		;; Next source pointer
+	add	rsi, ZMM_SRC_INCR		;; Next source pointer
 ttp	kshiftrw k1, k1, 1			;; Next big vs. little flag
 	vaddsd	xmm0, xmm2, [rsi]		;; x2 = FFT data + carry
 	zrounding_single ttp, zmm0, zmm2, k1
 	vmovsd	Q [rsi], xmm0			;; Save value2
 
-	add	rsi, ZMM_SRC_INCR2		;; Next source pointer
+	add	rsi, ZMM_SRC_INCR		;; Next source pointer
 ttp	kshiftrw k1, k1, 1			;; Next big vs. little flag
 	vaddsd	xmm0, xmm2, [rsi]		;; x3 = FFT data + carry
 	zrounding_single ttp, zmm0, zmm2, k1
 	vmovsd	Q [rsi], xmm0			;; Save value3
 
-	add	rsi, ZMM_SRC_INCR3		;; Next source pointer
+	add	rsi, ZMM_SRC_INCR		;; Next source pointer
 ttp	kshiftrw k1, k1, 1			;; Next big vs. little flag
 	vaddsd	xmm0, xmm2, [rsi]		;; x4 = FFT data + carry
 	zrounding_single ttp, zmm0, zmm2, k1
 	vmovsd	Q [rsi], xmm0			;; Save value4
 
-	add	rsi, ZMM_SRC_INCR4		;; Next source pointer
+	add	rsi, ZMM_SRC_INCR		;; Next source pointer
 	vsubsd	xmm2, xmm2, xmm30		;; Remove RNDVAL from carry
 	vaddsd	xmm0, xmm2, [rsi]		;; new value5 = FFT data + carry
 	vmovsd	Q [rsi], xmm0			;; Save value5

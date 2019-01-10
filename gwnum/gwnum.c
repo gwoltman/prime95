@@ -2919,16 +2919,15 @@ int internal_gwsetup (
 		}
 #endif
 
-/* Create offsets for carry propagation code to step through norm array */
+/* Create offsets for carry propagation code to step through eight FFT data elements */
 
-//BUG - is this used anymore?
-		asm_data->u.zmm.ZMM_SRC_INCR7 = (intptr_t) addr_offset (gwdata, 7) - (intptr_t) addr_offset (gwdata, 6);
-		asm_data->u.zmm.ZMM_SRC_INCR6 = (intptr_t) addr_offset (gwdata, 6) - (intptr_t) addr_offset (gwdata, 5);
-		asm_data->u.zmm.ZMM_SRC_INCR5 = (intptr_t) addr_offset (gwdata, 5) - (intptr_t) addr_offset (gwdata, 4);
-		asm_data->u.zmm.ZMM_SRC_INCR4 = (intptr_t) addr_offset (gwdata, 4) - (intptr_t) addr_offset (gwdata, 3);
-		asm_data->u.zmm.ZMM_SRC_INCR3 = (intptr_t) addr_offset (gwdata, 3) - (intptr_t) addr_offset (gwdata, 2);
-		asm_data->u.zmm.ZMM_SRC_INCR2 = (intptr_t) addr_offset (gwdata, 2) - (intptr_t) addr_offset (gwdata, 1);
-		asm_data->u.zmm.ZMM_SRC_INCR1 = (intptr_t) addr_offset (gwdata, 1) - (intptr_t) addr_offset (gwdata, 0);
+		asm_data->u.zmm.ZMM_SRC_INCR = (intptr_t) addr_offset (gwdata, 1) - (intptr_t) addr_offset (gwdata, 0);
+		ASSERTG (asm_data->u.zmm.ZMM_SRC_INCR == (intptr_t) addr_offset (gwdata, 2) - (intptr_t) addr_offset (gwdata, 1));
+		ASSERTG (asm_data->u.zmm.ZMM_SRC_INCR == (intptr_t) addr_offset (gwdata, 3) - (intptr_t) addr_offset (gwdata, 2));
+		ASSERTG (asm_data->u.zmm.ZMM_SRC_INCR == (intptr_t) addr_offset (gwdata, 4) - (intptr_t) addr_offset (gwdata, 3));
+		ASSERTG (asm_data->u.zmm.ZMM_SRC_INCR == (intptr_t) addr_offset (gwdata, 5) - (intptr_t) addr_offset (gwdata, 4));
+		ASSERTG (asm_data->u.zmm.ZMM_SRC_INCR == (intptr_t) addr_offset (gwdata, 6) - (intptr_t) addr_offset (gwdata, 5));
+		ASSERTG (asm_data->u.zmm.ZMM_SRC_INCR == (intptr_t) addr_offset (gwdata, 7) - (intptr_t) addr_offset (gwdata, 6));
 	}
 
 /* Initialize tables for AVX FFT code */
@@ -4729,11 +4728,11 @@ void xcopy_7_words (
 		char	*srcp;
 		srcp = (char *) srcarg + 64;
 		destarg[-8] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[3];	/* Copy 1st word above halfway point */
-		srcp += asm_data->u.zmm.ZMM_SRC_INCR1;
+		srcp += asm_data->u.zmm.ZMM_SRC_INCR;
 		destarg[-7] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[4]; /* Copy 2nd word */
-		srcp += asm_data->u.zmm.ZMM_SRC_INCR2;
+		srcp += asm_data->u.zmm.ZMM_SRC_INCR;
 		destarg[-6] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[5]; /* Copy 3rd word */
-		srcp += asm_data->u.zmm.ZMM_SRC_INCR3;
+		srcp += asm_data->u.zmm.ZMM_SRC_INCR;
 		destarg[-5] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[6]; /* Copy 4th word */
 	}
 	else if (gwdata->cpu_flags & CPU_AVX) {
@@ -4777,11 +4776,11 @@ void xcopy_4_words (
 		char	*srcp;
 		srcp = (char *) srcarg + 64;
 		srcarg[-8] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[3];	/* Copy 1st word above halfway point */
-		srcp += asm_data->u.zmm.ZMM_SRC_INCR1;
+		srcp += asm_data->u.zmm.ZMM_SRC_INCR;
 		srcarg[-7] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[4]; /* Copy 2nd word */
-		srcp += asm_data->u.zmm.ZMM_SRC_INCR2;
+		srcp += asm_data->u.zmm.ZMM_SRC_INCR;
 		srcarg[-6] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[5]; /* Copy 3rd word */
-		srcp += asm_data->u.zmm.ZMM_SRC_INCR3;
+		srcp += asm_data->u.zmm.ZMM_SRC_INCR;
 		srcarg[-5] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[6]; /* Copy 4th word */
 	}
 	else if (gwdata->cpu_flags & CPU_AVX) {
