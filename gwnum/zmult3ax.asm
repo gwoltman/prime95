@@ -1,4 +1,4 @@
-; Copyright 2011-2018 Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2019 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 
@@ -65,7 +65,7 @@ gwzaddq3 ENDP
 
 	; Irrational, not zero-padded
 PROCFL	gwzadd3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -84,39 +84,38 @@ PROCFL	gwzadd3
 add0:	mov	r8, normval2			; Load count of clms in 4KB chunk
 add1:	mov	r10d, cache_line_multiplier	; Load clm*8.  This affects how we step through the big/lit array.
 add2:	znorm_op_wpn vaddpd, exec		; Add and normalize four low/high FFT word pairs (64 values)
-	add	rsi, pass2blkdst		; Next src ptr
-	add	rcx, pass2blkdst		; Next src ptr
-	add	rbx, pass2blkdst		; Next dest ptr
+	mov	r9, pass2blkdst
+	add	rsi, r9				; Next src ptr
+	add	rcx, r9				; Next src ptr
+	add	rbx, r9				; Next dest ptr
 	bump	rdi, 1				; Next big/lit ptr
 	add	eax, 0x80000000/4		; Loop 8 times (8 pass 2 blocks in each pass 1 block)
 	jnc	add2
-;;bug/opt pass1blkdst happens to be in r13 -- it might not be if we go to quarter dists
-	sub	rsi, pass1blkdst		; Adjust pointers
-	sub	rcx, pass1blkdst
-	sub	rbx, pass1blkdst
-	bump	rsi, 128
-	bump	rcx, 128
-	bump	rbx, 128
+	lea	r9, [r13-128]			; pass1blkdst - 128
+	sub	rsi, r9				; Adjust pointers
+	sub	rcx, r9
+	sub	rbx, r9
 	sub	r10, 8				; We just finished 8 of the cache_line_multiplier
 	jnz	add2
 	add	rdi, normval3			; Next big/lit ptr
 	dec	r8				; Loop until 4KB processed
 	jnz	add1				; Loop til done
-	add	rsi, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rcx, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rbx, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
+	mov	r9, fourKBgapsize
+	add	rsi, r9				; Skip 64 to 192 bytes every 4KB
+	add	rcx, r9				; Skip 64 to 192 bytes every 4KB
+	add	rbx, r9				; Skip 64 to 192 bytes every 4KB
 	dec	rax				; Loop until pass 1 block completed
 	jnz	add0
 
 	znorm_op_wpn_save_carries		; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzadd3 ENDP
 
 
 	; Rational, not zero-padded
 PROCFL	gwzaddr3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -131,28 +130,28 @@ PROCFL	gwzaddr3
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
 add0r:	mov	r8d, normval1			; Load count of loword/highword pairs in 4KB chunk
 add2r:	znorm_op_wpn vaddpd, noexec		; Add and normalize four low/high FFT word pairs (64 values)
-	add	rsi, pass2blkdst		; Next src ptr
-	add	rcx, pass2blkdst		; Next src ptr
-	add	rbx, pass2blkdst		; Next dest ptr
+	mov	r9, pass2blkdst
+	add	rsi, r9				; Next src ptr
+	add	rcx, r9				; Next src ptr
+	add	rbx, r9				; Next dest ptr
 	add	eax, 0x80000000/4		; Loop 8 times (8 pass 2 blocks in each pass 1 block)
 	jnc	add2r
-	sub	rsi, pass1blkdst		; Adjust pointers
-	sub	rcx, pass1blkdst
-	sub	rbx, pass1blkdst
-	bump	rsi, 128
-	bump	rcx, 128
-	bump	rbx, 128
+	lea	r9, [r13-128]			; pass1blkdst - 128
+	sub	rsi, r9				; Adjust pointers
+	sub	rcx, r9
+	sub	rbx, r9
 	dec	r8				; Loop until 4KB processed
 	jnz	add2r				; Loop til done
-	add	rsi, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rcx, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rbx, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
+	mov	r9, fourKBgapsize
+	add	rsi, r9				; Skip 64 to 192 bytes every 4KB
+	add	rcx, r9				; Skip 64 to 192 bytes every 4KB
+	add	rbx, r9				; Skip 64 to 192 bytes every 4KB
 	dec	eax				; Loop until pass 1 block completed
 	jnz	add0r
 
 	znorm_op_wpn_save_carries		; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzaddr3 ENDP
 
 
@@ -211,7 +210,7 @@ gwzaddzp3 ENDP
 
 	; Rational, zero-padded
 PROCFL	gwzaddrzp3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -226,28 +225,28 @@ PROCFL	gwzaddrzp3
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
 add0rzp:mov	r8d, normval1			; Load count of loword/highword pairs in 4KB chunk
 add2rzp:znorm_op_wpn_zpad vaddpd, noexec	; Add and normalize four low/high FFT word pairs (64 values)
-	add	rsi, pass2blkdst		; Next src ptr
-	add	rcx, pass2blkdst		; Next src ptr
-	add	rbx, pass2blkdst		; Next dest ptr
+	mov	r9, pass2blkdst
+	add	rsi, r9				; Next src ptr
+	add	rcx, r9				; Next src ptr
+	add	rbx, r9				; Next dest ptr
 	add	eax, 0x80000000/4		; Loop 8 times (8 pass 2 blocks in each pass 1 block)
 	jnc	add2rzp
-	sub	rsi, pass1blkdst		; Adjust source pointers
-	sub	rcx, pass1blkdst
-	sub	rbx, pass1blkdst
-	bump	rsi, 128
-	bump	rcx, 128
-	bump	rbx, 128
+	lea	r9, [r13-128]			; pass1blkdst - 128
+	sub	rsi, r9				; Adjust source pointers
+	sub	rcx, r9
+	sub	rbx, r9
 	dec	r8				; Loop until 4KB processed
 	jnz	add2rzp				; Loop til done
-	add	rsi, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rcx, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rbx, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
+	mov	r9, fourKBgapsize
+	add	rsi, r9				; Skip 64 to 192 bytes every 4KB
+	add	rcx, r9				; Skip 64 to 192 bytes every 4KB
+	add	rbx, r9				; Skip 64 to 192 bytes every 4KB
 	dec	eax				; Loop until pass 1 block completed
 	jnz	add0rzp
 
 	znorm_op_wpn_zpad_save_carries		; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzaddrzp3 ENDP
 
 
@@ -297,7 +296,7 @@ gwzsubq3 ENDP
 
 	; Irrational, not zero-padded
 PROCFL	gwzsub3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -316,38 +315,38 @@ PROCFL	gwzsub3
 sub0:	mov	r8, normval2			; Load count of clms in 4KB chunk
 sub1:	mov	r10d, cache_line_multiplier	; Load clm*8.  This affects how we step through the big/lit array.
 sub2:	znorm_op_wpn vsubpd, exec		; Subtract and normalize four low/high FFT word pairs (64 values)
-	add	rsi, pass2blkdst		; Next src ptr
-	add	rcx, pass2blkdst		; Next src ptr
-	add	rbx, pass2blkdst		; Next dest ptr
+	mov	r9, pass2blkdst
+	add	rsi, r9				; Next src ptr
+	add	rcx, r9				; Next src ptr
+	add	rbx, r9				; Next dest ptr
 	bump	rdi, 1				; Next big/lit ptr
 	add	eax, 0x80000000/4		; Loop 8 times (8 pass 2 blocks in each pass 1 block)
 	jnc	sub2
-	sub	rsi, pass1blkdst		; Adjust source pointers
-	sub	rcx, pass1blkdst
-	sub	rbx, pass1blkdst
-	bump	rsi, 128
-	bump	rcx, 128
-	bump	rbx, 128
+	lea	r9, [r13-128]			; pass1blkdst - 128
+	sub	rsi, r9				; Adjust source pointers
+	sub	rcx, r9
+	sub	rbx, r9
 	sub	r10, 8				; We just finished 8 of the cache_line_multiplier
 	jnz	sub2
 	add	rdi, normval3			; Next big/lit ptr
 	dec	r8				; Loop until 4KB processed
 	jnz	sub1				; Loop til done
-	add	rsi, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rcx, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rbx, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
+	mov	r9, fourKBgapsize
+	add	rsi, r9				; Skip 64 to 192 bytes every 4KB
+	add	rcx, r9				; Skip 64 to 192 bytes every 4KB
+	add	rbx, r9				; Skip 64 to 192 bytes every 4KB
 	dec	eax				; Loop until pass 1 block completed
 	jnz	sub0
 
 	znorm_op_wpn_save_carries		; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzsub3 ENDP
 
 
 	; Rational, not zero-padded
 PROCFL	gwzsubr3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -362,28 +361,28 @@ PROCFL	gwzsubr3
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
 sub0r:	mov	r8d, normval1			; Load count of loword/highword pairs in 4KB chunk
 sub2r:	znorm_op_wpn vsubpd, noexec		; Subtract and normalize four low/high FFT word pairs (64 values)
-	add	rsi, pass2blkdst		; Next src ptr
-	add	rcx, pass2blkdst		; Next src ptr
-	add	rbx, pass2blkdst		; Next dest ptr
+	mov	r9, pass2blkdst
+	add	rsi, r9				; Next src ptr
+	add	rcx, r9				; Next src ptr
+	add	rbx, r9				; Next dest ptr
 	add	eax, 0x80000000/4		; Loop 8 times (8 pass 2 blocks in each pass 1 block)
 	jnc	sub2r
-	sub	rsi, pass1blkdst		; Adjust source pointers
-	sub	rcx, pass1blkdst
-	sub	rbx, pass1blkdst
-	bump	rsi, 128
-	bump	rcx, 128
-	bump	rbx, 128
+	lea	r9, [r13-128]			; pass1blkdst - 128
+	sub	rsi, r9				; Adjust source pointers
+	sub	rcx, r9
+	sub	rbx, r9
 	dec	r8				; Loop until 4KB processed
 	jnz	sub2r				; Loop til done
-	add	rsi, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rcx, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rbx, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
+	mov	r9, fourKBgapsize
+	add	rsi, r9				; Skip 64 to 192 bytes every 4KB
+	add	rcx, r9				; Skip 64 to 192 bytes every 4KB
+	add	rbx, r9				; Skip 64 to 192 bytes every 4KB
 	dec	eax				; Loop until pass 1 block completed
 	jnz	sub0r
 
 	znorm_op_wpn_save_carries		; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzsubr3 ENDP
 
 
@@ -442,7 +441,7 @@ gwzsubzp3 ENDP
 
 	; Rational, zero-padded
 PROCFL	gwzsubrzp3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -457,28 +456,28 @@ PROCFL	gwzsubrzp3
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
 sub0rzp:mov	r8d, normval1			; Load count of loword/highword pairs in 4KB chunk
 sub2rzp:znorm_op_wpn_zpad vsubpd, noexec	; Subtract and normalize four low/high FFT word pairs (64 values)
-	add	rsi, pass2blkdst		; Next src ptr
-	add	rcx, pass2blkdst		; Next src ptr
-	add	rbx, pass2blkdst		; Next dest ptr
+	mov	r9, pass2blkdst
+	add	rsi, r9				; Next src ptr
+	add	rcx, r9				; Next src ptr
+	add	rbx, r9				; Next dest ptr
 	add	eax, 0x80000000/4		; Loop 8 times (8 pass 2 blocks in each pass 1 block)
 	jnc	sub2rzp
-	sub	rsi, pass1blkdst		; Adjust source pointers
-	sub	rcx, pass1blkdst
-	sub	rbx, pass1blkdst
-	bump	rsi, 128
-	bump	rcx, 128
-	bump	rbx, 128
+	lea	r9, [r13-128]			; pass1blkdst - 128
+	sub	rsi, r9				; Adjust source pointers
+	sub	rcx, r9
+	sub	rbx, r9
 	dec	r8				; Loop until 4KB processed
 	jnz	sub2rzp				; Loop til done
-	add	rsi, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rcx, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rbx, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
+	mov	r9, fourKBgapsize
+	add	rsi, r9				; Skip 64 to 192 bytes every 4KB
+	add	rcx, r9				; Skip 64 to 192 bytes every 4KB
+	add	rbx, r9				; Skip 64 to 192 bytes every 4KB
 	dec	eax				; Loop until pass 1 block completed
 	jnz	sub0rzp
 
 	znorm_op_wpn_zpad_save_carries		; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzsubrzp3 ENDP
 
 
@@ -535,7 +534,7 @@ gwzaddsubq3 ENDP
 
 	; Irrational, not zero-padded
 PROCFL	gwzaddsub3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -555,42 +554,41 @@ PROCFL	gwzaddsub3
 as0:	mov	r8, normval2			; Load count of clms in 4KB chunk
 as1:	mov	r10d, cache_line_multiplier	; Load clm*8.  This affects how we step through the big/lit array.
 as2:	znorm_addsub_wpn exec			; Add & subtract and normalize four low/high FFT word pairs (64 values)
-	add	rsi, pass2blkdst		; Next src ptr
-	add	rcx, pass2blkdst		; Next src ptr
-	add	rbx, pass2blkdst		; Next dest ptr
-	add	rbp, pass2blkdst		; Next dest ptr
+	mov	r9, pass2blkdst
+	add	rsi, r9				; Next src ptr
+	add	rcx, r9				; Next src ptr
+	add	rbx, r9				; Next dest ptr
+	add	rbp, r9				; Next dest ptr
 	bump	rdi, 1				; Next big/lit ptr
 	add	eax, 0x80000000/4		; Loop 8 times (8 pass 2 blocks in each pass 1 block)
 	jnc	as2
-	sub	rsi, pass1blkdst		; Adjust source pointers
-	sub	rcx, pass1blkdst
-	sub	rbx, pass1blkdst
-	sub	rbp, pass1blkdst
-	bump	rsi, 128
-	bump	rcx, 128
-	bump	rbx, 128
-	bump	rbp, 128
+	lea	r9, [r13-128]			; pass1blkdst - 128
+	sub	rsi, r9				; Adjust source pointers
+	sub	rcx, r9
+	sub	rbx, r9
+	sub	rbp, r9
 	sub	r10, 8				; We just finished 8 of the cache_line_multiplier
 	jnz	as2
 	add	rdi, normval3			; Next big/lit ptr
 	dec	r8				; Loop until 4KB processed
 	jnz	as1				; Loop til done
-	add	rsi, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rcx, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rbx, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rbp, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
+	mov	r9, fourKBgapsize
+	add	rsi, r9				; Skip 64 to 192 bytes every 4KB
+	add	rcx, r9				; Skip 64 to 192 bytes every 4KB
+	add	rbx, r9				; Skip 64 to 192 bytes every 4KB
+	add	rbp, r9				; Skip 64 to 192 bytes every 4KB
 	dec	eax				; Loop until pass 1 block completed
 	jnz	as0
 
 	znorm_addsub_wpn_save_carries		; Save carries in the two carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzaddsub3 ENDP
 
 
 	; Rational, not zero-padded
 PROCFL	gwzaddsubr3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -606,32 +604,31 @@ PROCFL	gwzaddsubr3
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
 as0r:	mov	r8d, normval1			; Load count of loword/highword pairs in 4KB chunk
 as2r:	znorm_addsub_wpn noexec			; Add & subtract and normalize four low/high FFT word pair (64 values)
-	add	rsi, pass2blkdst		; Next src ptr
-	add	rcx, pass2blkdst		; Next src ptr
-	add	rbx, pass2blkdst		; Next dest ptr
-	add	rbp, pass2blkdst		; Next dest ptr
+	mov	r9, pass2blkdst
+	add	rsi, r9				; Next src ptr
+	add	rcx, r9				; Next src ptr
+	add	rbx, r9				; Next dest ptr
+	add	rbp, r9				; Next dest ptr
 	add	eax, 0x80000000/4		; Loop 8 times (8 pass 2 blocks in each pass 1 block)
 	jnc	as2r
-	sub	rsi, pass1blkdst		; Adjust source pointers
-	sub	rcx, pass1blkdst
-	sub	rbx, pass1blkdst
-	sub	rbp, pass1blkdst
-	bump	rsi, 128
-	bump	rcx, 128
-	bump	rbx, 128
-	bump	rbp, 128
+	lea	r9, [r13-128]			; pass1blkdst - 128
+	sub	rsi, r9				; Adjust source pointers
+	sub	rcx, r9
+	sub	rbx, r9
+	sub	rbp, r9
 	dec	r8				; Loop until 4KB processed
 	jnz	as2r				; Loop til done
-	add	rsi, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rcx, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rbx, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rbp, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
+	mov	r9, fourKBgapsize
+	add	rsi, r9				; Skip 64 to 192 bytes every 4KB
+	add	rcx, r9				; Skip 64 to 192 bytes every 4KB
+	add	rbx, r9				; Skip 64 to 192 bytes every 4KB
+	add	rbp, r9				; Skip 64 to 192 bytes every 4KB
 	dec	eax				; Loop until pass 1 block completed
 	jnz	as0r
 
 	znorm_addsub_wpn_save_carries		; Save carries in the two carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzaddsubr3 ENDP
 
 
@@ -695,7 +692,7 @@ gwzaddsubzp3 ENDP
 
 	; Rational, zero-padded
 PROCFL	gwzaddsubrzp3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
@@ -711,32 +708,31 @@ PROCFL	gwzaddsubrzp3
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
 as0rzp:	mov	r8d, normval1			; Load count of loword/highword pairs in 4KB chunk
 as2rzp:	znorm_addsub_wpn_zpad noexec		; Add & subtract and normalize four low/high FFT word pairs (64 values)
-	add	rsi, pass2blkdst		; Next src ptr
-	add	rcx, pass2blkdst		; Next src ptr
-	add	rbx, pass2blkdst		; Next dest ptr
-	add	rbp, pass2blkdst		; Next dest ptr
+	mov	r9, pass2blkdst
+	add	rsi, r9				; Next src ptr
+	add	rcx, r9				; Next src ptr
+	add	rbx, r9				; Next dest ptr
+	add	rbp, r9				; Next dest ptr
 	add	eax, 0x80000000/4		; Loop 8 times (8 pass 2 blocks in each pass 1 block)
 	jnc	as2rzp
-	sub	rsi, pass1blkdst		; Adjust source pointers
-	sub	rcx, pass1blkdst
-	sub	rbx, pass1blkdst
-	sub	rbp, pass1blkdst
-	bump	rsi, 128
-	bump	rcx, 128
-	bump	rbx, 128
-	bump	rbp, 128
+	lea	r9, [r13-128]			; pass1blkdst - 128
+	sub	rsi, r9				; Adjust source pointers
+	sub	rcx, r9
+	sub	rbx, r9
+	sub	rbp, r9
 	dec	r8				; Loop until 4KB processed
 	jnz	as2rzp				; Loop til done
-	add	rsi, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rcx, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rbx, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rbp, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
+	mov	r9, fourKBgapsize
+	add	rsi, r9				; Skip 64 to 192 bytes every 4KB
+	add	rcx, r9				; Skip 64 to 192 bytes every 4KB
+	add	rbx, r9				; Skip 64 to 192 bytes every 4KB
+	add	rbp, r9				; Skip 64 to 192 bytes every 4KB
 	dec	eax				; Loop until pass 1 block completed
 	jnz	as0rzp
 
 	znorm_addsub_wpn_zpad_save_carries	; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzaddsubrzp3 ENDP
 
 ;;
@@ -771,7 +767,7 @@ gwzaddsr3 ENDP
 
 	; Irrational version, not zero-padded
 PROCFL	gwzmuls3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of destination
 	mov	rbx, DESTARG			; Address of destination
 
@@ -796,10 +792,9 @@ mul2:	znorm_smallmul_wpn exec			; Multiply and normalize four low/high FFT word 
 	bump	rdi, 1				; Next big/lit ptr
 	add	eax, 0x80000000/4		; Loop 8 times (8 pass 2 blocks in each pass 1 block)
 	jnc	mul2
-	sub	rsi, pass1blkdst		; Adjust source pointers
-	sub	rbx, pass1blkdst
-	bump	rsi, 128
-	bump	rbx, 128
+	lea	r9, [r13-128]			; pass1blkdst - 128
+	sub	rsi, r9				; Adjust source pointers
+	sub	rbx, r9
 	sub	r10, 8				; We just finished 8 of the cache_line_multiplier
 	jnz	mul2
 	add	rdi, normval3			; Next big/lit ptr
@@ -812,13 +807,13 @@ mul2:	znorm_smallmul_wpn exec			; Multiply and normalize four low/high FFT word 
 
 	znorm_smallmul_wpn_save_carries		; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzmuls3 ENDP
 
 
 	; Rational version, not zero-padded
 PROCFL	gwzmulsr3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of destination
 	mov	rbx, DESTARG			; Address of destination
 
@@ -838,10 +833,9 @@ mul2r:	znorm_smallmul_wpn noexec		; Multiply and normalize four low/high FFT wor
 	add	rbx, pass2blkdst		; Next dest ptr
 	add	eax, 0x80000000/4		; Loop 8 times (8 pass 2 blocks in each pass 1 block)
 	jnc	mul2r
-	sub	rsi, pass1blkdst		; Adjust source pointers
-	sub	rbx, pass1blkdst
-	bump	rsi, 128
-	bump	rbx, 128
+	lea	r9, [r13-128]			; pass1blkdst - 128
+	sub	rsi, r9				; Adjust source pointers
+	sub	rbx, r9
 	dec	r8				; Loop until 4KB processed
 	jnz	mul2r				; Loop til done
 	add	rsi, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
@@ -851,7 +845,7 @@ mul2r:	znorm_smallmul_wpn noexec		; Multiply and normalize four low/high FFT wor
 
 	znorm_smallmul_wpn_save_carries		; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzmulsr3 ENDP
 
 
@@ -907,7 +901,7 @@ gwzmulszp3 ENDP
 
 	; Rational version, zero-padded
 PROCFL	gwzmulsrzp3
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of destination
 	mov	rbx, DESTARG			; Address of destination
 
@@ -927,10 +921,9 @@ mul2rzp:znorm_smallmul_wpn_zpad noexec		; Multiply and normalize four low/high F
 	add	rbx, pass2blkdst		; Next dest ptr
 	add	eax, 0x80000000/4		; Loop 8 times (8 pass 2 blocks in each pass 1 block)
 	jnc	mul2rzp
-	sub	rsi, pass1blkdst		; Adjust source pointers
-	sub	rbx, pass1blkdst
-	bump	rsi, 128
-	bump	rbx, 128
+	lea	r9, [r13-128]			; pass1blkdst - 128
+	sub	rsi, r9				; Adjust source pointers
+	sub	rbx, r9
 	dec	r8				; Loop until 4KB processed
 	jnz	mul2rzp				; Loop til done
 	add	rsi, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
@@ -940,7 +933,7 @@ mul2rzp:znorm_smallmul_wpn_zpad noexec		; Multiply and normalize four low/high F
 
 	znorm_smallmul_wpn_zpad_save_carries	; Save carries in the carries array
 
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzmulsrzp3 ENDP
 
 ;;
