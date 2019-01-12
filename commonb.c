@@ -7891,7 +7891,7 @@ int selfTestInternal (
 
 /* Determine the range from which we'll choose an exponent to test. */
 
-	limit = gwmap_fftlen_to_max_exponent (fftlen);
+	limit = gwmap_with_cpu_flags_fftlen_to_max_exponent (CPU_FLAGS & ~disabled_cpu_flags, fftlen);
 
 /* Get the current time */
 
