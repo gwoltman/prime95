@@ -104,6 +104,21 @@ void pause_for_count (int count);
 #define norm_routines	10
 #define zerohigh_routines 14
 
+#define addr_gw_fft(h)		((h)->GWPROCPTRS[0])
+#define addr_gw_add(h)		((h)->GWPROCPTRS[1])
+#define addr_gw_addq(h)		((h)->GWPROCPTRS[2])
+#define addr_gw_addf(h)		((h)->GWPROCPTRS[2])
+#define addr_gw_sub(h)		((h)->GWPROCPTRS[3])
+#define addr_gw_subq(h)		((h)->GWPROCPTRS[4])
+#define addr_gw_subf(h)		((h)->GWPROCPTRS[4])
+#define addr_gw_addsub(h)	((h)->GWPROCPTRS[5])
+#define addr_gw_addsubq(h)	((h)->GWPROCPTRS[6])
+#define addr_gw_addsubf(h)	((h)->GWPROCPTRS[6])
+#define addr_gw_copyzero(h)	((h)->GWPROCPTRS[7])
+#define addr_gw_adds(h)		((h)->GWPROCPTRS[8])
+#define addr_gw_muls(h)		((h)->GWPROCPTRS[9])
+#define call_op(p,a)		(*p)(a)
+
 /* Macro to aid in build prctabs (a prctab is an array of pointers to assembly routines) */
 
 #define extern_decl(name)		extern void (*name)(void);
@@ -7696,8 +7711,7 @@ void gwcopyzero (
 /* This is in preparation for multi-thread support */
 
 	if (gwdata->cpu_flags & CPU_AVX512F) {
-//BUG - multithread this, support AVX too, update whatsnew
-//BUG - change asm to process more than 16 doubles at a time?
+		//BUG - multithread this?? support AVX too?? change asm to process more than 16 doubles at a time?
 		int	i, num_blks, blk_containing_n;
 
 		if (gwdata->PASS1_SIZE == 0)
@@ -9548,6 +9562,62 @@ static __inline void *biglit_data_ptr (
 	else return (p + (i * gwdata->PASS1_CACHE_LINES * 2 / 8));
 }
 
+/* Perform a multithreaded add/sub/addsub/smallmul operation */
+
+void multithread_op (
+	gwhandle *gwdata,		/* Handle initialized by gwsetup */
+	gwnum	s1,			/* Source #1 */
+	gwnum	s2,			/* Source #2 */
+	gwnum	d1,			/* Destination #1 */
+	gwnum	d2,			/* Destination #2 (if operation is addsub) */
+	void	(*asm_proc)(void*),	/* Pointer to assembly routine that will perform the operation */
+	int	is_quick)		/* TRUE if this is a "quick" operation that does not require carry propagation */
+{
+	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
+	int	i, num_blks;
+	void	*d2_carries;
+
+// At present only our AVX-512 code supports multithreaded operations
+//	if (gwdata->cpu_flags & CPU_AVX512F) {
+		asm_data->zero_fft = 0;
+		asm_data->const_fft = 0;
+		asm_data->add_sub_smallmul_op = 1;
+		num_blks = asm_data->addcount1;
+		if (d2 != NULL && !is_quick) d2_carries = aligned_malloc (num_blks * 16 * sizeof (double), 128);
+		for (i = 0; i < num_blks; i += (is_quick ? 1 : 4)) {
+			asm_data->SRCARG = (char *) s1 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
+			asm_data->SRC2ARG = (char *) s2 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
+			asm_data->DESTARG = (char *) d1 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
+			asm_data->DEST2ARG = (char *) d2 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
+			asm_data->data_addr = (char *) asm_data->carries + i * 128;	// Addr to store dest #1 carries
+			asm_data->premult_addr = (char *) d2_carries + i * 128;		// Addr to store dest #2 carries
+			asm_data->norm_ptr1 = biglit_data_ptr (gwdata, i);
+			call_op (asm_proc, asm_data);
+		}
+		// Do the final carry propagations for the dest #1
+		if (!is_quick) {
+			asm_data->DESTARG = d1;		// Start of the FFT data
+			asm_data->data_addr = d1;	// FFT addr to apply carries
+			asm_data->norm_ptr1 = biglit_data_ptr (gwdata, 0);
+			asm_data->this_block = 0;
+			gwz3_apply_carries (asm_data);
+		}
+		// Do the final carry propagations for the destination #2 result
+		if (d2 != NULL && !is_quick) {
+			void	*original_carries_array;
+			original_carries_array = asm_data->carries;
+			asm_data->carries = d2_carries;
+			asm_data->DESTARG = d2;		// Start of the FFT data
+			asm_data->data_addr = d2;	// FFT addr to apply carries
+			asm_data->norm_ptr1 = biglit_data_ptr (gwdata, 0);
+			asm_data->this_block = 0;
+			gwz3_apply_carries (asm_data);
+			asm_data->carries = original_carries_array;
+			aligned_free (d2_carries);
+		}
+//	}
+}
+
 /*********************************************************/
 /* Wrapper routines for the add and sub assembly code    */
 /*********************************************************/
@@ -9580,15 +9650,7 @@ void gwadd3quick (		/* Add two numbers without normalizing */
 /* Do an AVX-512 addquick */
 
 	if (gwdata->cpu_flags & CPU_AVX512F) {
-//BUG - multithread this, support AVX too, update whatsnew
-		int	i, num_blks;
-		num_blks = asm_data->addcount1;
-		for (i = 0; i < num_blks; i++) {
-			asm_data->SRCARG = (char *) s1 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->SRC2ARG = (char *) s2 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->DESTARG = (char *) d + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			gw_addq (gwdata, asm_data);
-		}
+		multithread_op (gwdata, s1, s2, d, NULL, addr_gw_addq (gwdata), TRUE);
 	}
 
 /* Do the add the old way -- single-threaded in assembly code */
@@ -9629,15 +9691,7 @@ void gwsub3quick (		/* Compute s1 - s2 without normalizing */
 /* Do an AVX-512 subquick */
 
 	if (gwdata->cpu_flags & CPU_AVX512F) {
-//BUG - multithread this, support AVX too, update whatsnew
-		int	i, num_blks;
-		num_blks = asm_data->addcount1;
-		for (i = 0; i < num_blks; i++) {
-			asm_data->SRCARG = (char *) s2 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->SRC2ARG = (char *) s1 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->DESTARG = (char *) d + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			gw_subq (gwdata, asm_data);
-		}
+		multithread_op (gwdata, s2, s1, d, NULL, addr_gw_subq (gwdata), TRUE);
 	}
 
 /* Do the subtract the old way -- single-threaded in assembly code */
@@ -9681,16 +9735,7 @@ void gwaddsub4quick (		/* Add & sub two numbers without normalizing */
 /* Do an AVX-512 addsubquick */
 
 	if (gwdata->cpu_flags & CPU_AVX512F) {
-//BUG - multithread this, support AVX too, update whatsnew
-		int	i, num_blks;
-		num_blks = asm_data->addcount1;
-		for (i = 0; i < num_blks; i++) {
-			asm_data->SRCARG = (char *) s1 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->SRC2ARG = (char *) s2 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->DESTARG = (char *) d1 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->DEST2ARG = (char *) d2 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			gw_addsubq (gwdata, asm_data);
-		}
+		multithread_op (gwdata, s1, s2, d1, d2, addr_gw_addsubq (gwdata), TRUE);
 	}
 
 /* Do the add & subtract the old way -- single-threaded in assembly code */
@@ -9732,26 +9777,7 @@ void gwadd3 (			/* Add two numbers normalizing if needed */
 /* Do an AVX-512 add */
 
 	if (gwdata->cpu_flags & CPU_AVX512F) {
-//BUG - multithread this, support AVX too, update whatsnew
-		int	i, num_blks;
-		asm_data->zero_fft = 0;
-		asm_data->const_fft = 0;
-		asm_data->add_sub_smallmul_op = 1;
-		num_blks = asm_data->addcount1;
-		for (i = 0; i < num_blks; i += 4) {
-			asm_data->SRCARG = (char *) s1 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->SRC2ARG = (char *) s2 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->DESTARG = (char *) d + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->data_addr = (char *) asm_data->carries + i * 128;	// Addr to store carries
-			asm_data->norm_ptr1 = biglit_data_ptr (gwdata, i);
-			gw_add (gwdata, asm_data);
-		}
-		// Do the final carry propagation
-		asm_data->DESTARG = d;		// Start of the FFT data
-		asm_data->data_addr = d;	// FFT addr to apply carries
-		asm_data->norm_ptr1 = biglit_data_ptr (gwdata, 0);
-		asm_data->this_block = 0;
-		gwz3_apply_carries (asm_data);
+		multithread_op (gwdata, s1, s2, d, NULL, addr_gw_add (gwdata), FALSE);
 	}
 
 /* Do the add the old way -- single-threaded in assembly code */
@@ -9796,27 +9822,7 @@ void gwsub3 (			/* Compute s1 - s2 normalizing if needed */
 /* Do an AVX-512 subtract */
 
 	if (gwdata->cpu_flags & CPU_AVX512F) {
-//BUG - multithread this, support AVX too, update whatsnew
-		int	i, num_blks;
-		asm_data->zero_fft = 0;
-		asm_data->const_fft = 0;
-		asm_data->add_sub_smallmul_op = 1;
-		num_blks = asm_data->addcount1;
-		// Do normalized subtracts 4 blocks at a time
-		for (i = 0; i < num_blks; i += 4) {
-			asm_data->SRCARG = (char *) s2 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->SRC2ARG = (char *) s1 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->DESTARG = (char *) d + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->data_addr = (char *) asm_data->carries + i * 128;	// Addr to store carries
-			asm_data->norm_ptr1 = biglit_data_ptr (gwdata, i);
-			gw_sub (gwdata, asm_data);
-		}
-		// Do the final carry propagation
-		asm_data->DESTARG = d;		// Start of the FFT data
-		asm_data->data_addr = d;	// FFT addr to apply carries
-		asm_data->norm_ptr1 = biglit_data_ptr (gwdata, 0);
-		asm_data->this_block = 0;
-		gwz3_apply_carries (asm_data);
+		multithread_op (gwdata, s2, s1, d, NULL, addr_gw_sub (gwdata), FALSE);
 	}
 
 /* Do the add the old way -- single-threaded in assembly code */
@@ -9862,42 +9868,7 @@ void gwaddsub4 (		/* Add & sub two nums normalizing if needed */
 /* Do an AVX-512 add/sub */
 
 	if (gwdata->cpu_flags & CPU_AVX512F) {
-//BUG - multithread this, support AVX too, update whatsnew
-		int	i, num_blks;
-		void	*subtract_carries, *original_carries_array;
-
-		asm_data->zero_fft = 0;
-		asm_data->const_fft = 0;
-		asm_data->add_sub_smallmul_op = 1;
-		num_blks = asm_data->addcount1;
-		subtract_carries = aligned_malloc (num_blks * 16 * sizeof (double), 128);
-		for (i = 0; i < num_blks; i += 4) {
-			asm_data->SRCARG = (char *) s1 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->SRC2ARG = (char *) s2 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->DESTARG = (char *) d1 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->DEST2ARG = (char *) d2 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->data_addr = (char *) asm_data->carries + i * 128;	// Addr to store add carries
-			asm_data->premult_addr = (char *) subtract_carries + i * 128;	// Addr to store subtract carries
-			asm_data->norm_ptr1 = biglit_data_ptr (gwdata, i);
-			gw_addsub (gwdata, asm_data);
-		}
-		// Do the final carry propagations for the add result
-		asm_data->DESTARG = d1;		// Start of the FFT data
-		asm_data->data_addr = d1;	// FFT addr to apply carries
-		asm_data->norm_ptr1 = biglit_data_ptr (gwdata, 0);
-		asm_data->this_block = 0;
-		gwz3_apply_carries (asm_data);
-
-		// Do the final carry propagations for the subtract result
-		original_carries_array = asm_data->carries;
-		asm_data->carries = subtract_carries;
-		asm_data->DESTARG = d2;		// Start of the FFT data
-		asm_data->data_addr = d2;	// FFT addr to apply carries
-		asm_data->norm_ptr1 = biglit_data_ptr (gwdata, 0);
-		asm_data->this_block = 0;
-		gwz3_apply_carries (asm_data);
-		asm_data->carries = original_carries_array;
-		aligned_free (subtract_carries);
+		multithread_op (gwdata, s1, s2, d1, d2, addr_gw_addsub (gwdata), FALSE);
 	}
 
 /* Do the add & subtract the old way -- single-threaded in assembly code */
@@ -9954,15 +9925,7 @@ void gwfftadd3 (		/* Add two FFTed numbers */
 /* Do an AVX-512 addquick */
 
 	if (gwdata->cpu_flags & CPU_AVX512F) {
-//BUG - multithread this, support AVX too, update whatsnew
-		int	i, num_blks;
-		num_blks = asm_data->addcount1;
-		for (i = 0; i < num_blks; i++) {
-			asm_data->SRCARG = (char *) s1 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->SRC2ARG = (char *) s2 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->DESTARG = (char *) d + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			gw_addf (gwdata, asm_data);
-		}
+		multithread_op (gwdata, s1, s2, d, NULL, addr_gw_addf (gwdata), TRUE);
 	}
 
 /* Do the add the old way -- single-threaded in assembly code */
@@ -10009,16 +9972,8 @@ void gwfftsub3 (		/* Compute FFTed s1 - FFTed s2 */
 
 /* Do an AVX-512 subquick */
 
-	if (gwdata->cpu_flags & CPU_AVX512F && gwdata->PASS2_SIZE) {
-//BUG - multithread this, support AVX too, update whatsnew
-		int	i, num_blks;
-		num_blks = asm_data->addcount1;
-		for (i = 0; i < num_blks; i++) {
-			asm_data->SRCARG = (char *) s2 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->SRC2ARG = (char *) s1 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->DESTARG = (char *) d + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			gw_subf (gwdata, asm_data);
-		}
+	if (gwdata->cpu_flags & CPU_AVX512F) {
+		multithread_op (gwdata, s2, s1, d, NULL, addr_gw_subf (gwdata), TRUE);
 	}
 
 /* Do the subtract the old way -- single-threaded in assembly code */
@@ -10072,16 +10027,7 @@ void gwfftaddsub4 (		/* Add & sub two FFTed numbers */
 /* Do an AVX-512 addsubquick */
 
 	if (gwdata->cpu_flags & CPU_AVX512F) {
-//BUG - multithread this, support AVX too, update whatsnew
-		int	i, num_blks;
-		num_blks = asm_data->addcount1;
-		for (i = 0; i < num_blks; i++) {
-			asm_data->SRCARG = (char *) s1 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->SRC2ARG = (char *) s2 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->DESTARG = (char *) d1 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->DEST2ARG = (char *) d2 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			gw_addsubf (gwdata, asm_data);
-		}
+		multithread_op (gwdata, s1, s2, d1, d2, addr_gw_addsubf (gwdata), TRUE);
 	}
 
 /* Do the add & subtract the old way -- single-threaded in assembly code */
@@ -10220,26 +10166,8 @@ void gwsmallmul (
 /* Do an AVX-512 small mul */
 
 	else if (gwdata->cpu_flags & CPU_AVX512F) {
-//BUG - multithread this, support AVX too, update whatsnew
-		int	i, num_blks;
-		asm_data->zero_fft = 0;
-		asm_data->const_fft = 0;
-		asm_data->add_sub_smallmul_op = 1;
-		num_blks = asm_data->addcount1;
-		for (i = 0; i < num_blks; i += 4) {
-			asm_data->DBLARG = mult;
-			asm_data->SRCARG = (char *) g + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->DESTARG = (char *) g + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->data_addr = (char *) asm_data->carries + i * 128;	// Addr to store carries
-			asm_data->norm_ptr1 = biglit_data_ptr (gwdata, i);
-			gw_muls (gwdata, asm_data);
-		}
-		// Do the final carry propagation
-		asm_data->DESTARG = g;		// Start of the FFT data
-		asm_data->data_addr = g;	// FFT addr to apply carries
-		asm_data->norm_ptr1 = biglit_data_ptr (gwdata, 0);
-		asm_data->this_block = 0;
-		gwz3_apply_carries (asm_data);
+		asm_data->DBLARG = mult;
+		multithread_op (gwdata, g, NULL, g, NULL, addr_gw_muls (gwdata), FALSE);
 	}
 
 /* Do the small mul the old way -- single-threaded in assembly code */
