@@ -21,7 +21,7 @@
 #define MIN_PRIME	5L		/* Smallest testable prime */
 #define MAX_FACTOR	2000000000	/* Largest factorable Mersenne number */
 #define ERROR_RATE	0.018		/* Estimated LL error rate on clean run */
-#define PRP_ERROR_RATE	0.001		/* Estimated PRP error rate (assumes Gerbicz error-checking) */
+#define PRP_ERROR_RATE	0.0001		/* Estimated PRP error rate (assumes Gerbicz error-checking) */
 
 /* Hopefully, hwloc has no limitations regarding setting affinity.  Due to */
 /* limitations in our own old affinity code, we used to limit */
