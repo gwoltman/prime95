@@ -1,4 +1,4 @@
-; Copyright 2011-2017 Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2019 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 
@@ -34,8 +34,7 @@ PROCFL	gwyaddq3
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
-	mov	ebx, addcount1		; Load pass 1 blk count
-	shl	ebx, 2			; Convert to a pass 2 block count
+	mov	ebx, 4			; Four pass 2 blks in one pass 1 block
 qadd0:	mov	eax, normval4		; Load count of 4KB chunks in a block
 qadd1:	mov	edi, normval1		; Load count of clms in 4KB
 	imul	edi, cache_line_multiplier ; Compute cache lines in 4KB chunk
@@ -671,8 +670,7 @@ PROCFL	gwysubq3
 	mov	rcx, SRCARG		; Address of first number
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination
-	mov	ebx, addcount1		; Load pass 1 blk count
-	shl	ebx, 2			; Convert to a pass 2 block count
+	mov	ebx, 4			; Four pass 2 blks in one pass 1 block
 qsub0:	mov	eax, normval4		; Load count of 4KB chunks in a block
 qsub1:	mov	edi, normval1		; Load count of clms in 4KB
 	imul	edi, cache_line_multiplier ; Compute cache lines in 4KB chunk
@@ -1307,8 +1305,7 @@ PROCFL	gwyaddsubq3
 	mov	rdx, SRC2ARG		; Address of second number
 	mov	rsi, DESTARG		; Address of destination #1
 	mov	rbp, DEST2ARG	  	; Address of destination #2
-	mov	ebx, addcount1		; Load pass 1 blk count
-	shl	ebx, 2			; Convert to a pass 2 block count
+	mov	ebx, 4			; Four pass 2 blks in one pass 1 block
 qaddsub0:mov	eax, normval4		; Load count of 4KB chunks in a block
 qaddsub1:mov	edi, normval1		; Load count of clms in 4KB
 	imul	edi, cache_line_multiplier ; Compute cache lines in 4KB chunk
