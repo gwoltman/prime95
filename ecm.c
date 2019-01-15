@@ -1067,7 +1067,6 @@ int ecm_modinv (
 	giant	*factor)		/* Factor found, if any */
 {
 	giant	v;
-	int	stop_reason;
 
 /* Convert input number to binary */
 
@@ -1075,7 +1074,11 @@ int ecm_modinv (
 	if (v == NULL) goto oom;
 	gwtogiant (&ecmdata->gwdata, b, v);
 
-/* Let the invg code use gwnum b's memory. */
+#ifdef MODINV_USING_GIANTS
+
+	int	stop_reason;
+
+/* Let the invg code use gwnum b's memory.  This code is slower, but at least it is interruptible. */
 /* Compute 1/v mod N */
 
 	gwfree_temporarily (&ecmdata->gwdata, b);
@@ -1103,6 +1106,49 @@ int ecm_modinv (
 		*factor = NULL;
 		gianttogw (&ecmdata->gwdata, v, b);
 	}
+
+/* Use the faster GMP library to do an extended GCD which gives us 1/v mod N */
+
+#else
+	mpz_t	__v, __N, __gcd, __inv;
+
+/* Do the extended GCD */
+
+	mpz_init (__v);
+	mpz_init (__N);
+	mpz_init (__gcd);
+	mpz_init (__inv);
+	gtompz (v, __v);
+	gtompz (N, __N);
+	mpz_gcdext (__gcd, __inv, NULL, __v, __N);
+	mpz_clear (__v);
+
+/* If a factor was found (gcd != 1), save it in FAC */
+
+	if (mpz_cmp_ui (__gcd, 1)) {
+		*factor = allocgiant ((int) mpz_sizeinbase (__gcd, 32));
+		if (*factor == NULL) goto oom;
+		mpztog (__gcd, *factor);
+	}
+
+/* Otherwise, convert the inverse to FFT-ready form */
+
+	else {
+		*factor = NULL;
+		if (mpz_sgn (__inv) < 0) mpz_add (__inv, __inv, __N);
+		mpztog (__inv, v);
+		gianttogw (&ecmdata->gwdata, v, b);
+	}
+
+/* Cleanup and return */
+
+	mpz_clear (__gcd);
+	mpz_clear (__inv);
+	mpz_clear (__N);
+#endif
+
+/* Clean up */
+
 	pushg (&ecmdata->gwdata.gdata, 1);
 
 /* Increment count and return */
@@ -1114,6 +1160,7 @@ int ecm_modinv (
 
 oom:	return (OutOfMemory (ecmdata->thread_num));
 }
+
 
 /* Computes the modular inverse of an array of numbers */
 /* Uses extra multiplications to make only one real modinv call */
