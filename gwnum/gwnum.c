@@ -460,6 +460,7 @@ long nonbase2_gianttogw (
 void raw_gwsetaddin (gwhandle *gwdata, unsigned long word, double val);
 int multithread_init (gwhandle *gwdata);
 void multithread_term (gwhandle *gwdata);
+void do_multithread_op_work (gwhandle *gwdata, struct gwasm_data *asm_data);
 void pass1_aux_entry_point (void*);
 void pass2_aux_entry_point (void*);
 void create_auxiliary_hyperthread (struct gwasm_data *);
@@ -4897,6 +4898,12 @@ void xcopy_3_words_after_gwcarries (
 			((char *) srcarg + asm_data->HIGH_WORD3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];
 }
 
+/* Possible states for the (mis-named) gwdata->pass1_state variable */
+/* 0 = pass 1 forward fft */
+/* 1 = pass 1 inverse fft */
+#define	PASS1_STATE_PASS2		999		/* Auxiliary thread is doing pass 2 work */
+#define	PASS1_STATE_MULTITHREAD_OP	4000		/* Auxiliary thread is doing add/sub/addsub/smallmul work */
+
 /* Inline routines for the processing blocks in multi-thread code below */
 
 /* Calculate pass 1 block address.  Note that SSE2 block addresses are */
@@ -5315,19 +5322,39 @@ void auxiliary_thread (void *arg)
 
 	create_auxiliary_hyperthread (asm_data);
 
-/* Loop waiting for work to do.  The main thread will signal the */
-/* thread_work_to_do event whenever there is work for the auxiliary */
-/* thread to do. */
+/* Loop waiting for work to do.  The main thread will signal the thread_work_to_do event */
+/* whenever there is work for the auxiliary thread(s) to do. */
 
 	for ( ; ; ) {
 		gwevent_wait (&gwdata->thread_work_to_do, 0);
-		gwmutex_lock (&gwdata->thread_lock);
 
 /* If threads are to exit, break out of this work loop */
 
-		if (gwdata->threads_must_exit) {
+		if (gwdata->threads_must_exit) break;
+
+/* WARNING: We can get here with no work to do (and with the main thread moved on thinking all auxiliary threads are done). */
+/* For example, consider an 8-thread example.  The main thread signals the 7 auxiliary threads to start.  Six of the threads */
+/* can wake up, complete the work, and signal gwdata->all_threads_done when gwdata->num_active_threads returns to zero. */
+/* The main thread catches the signal and continues on.  The seventh auxiliary thread can now get scheduled by the OS */
+/* and end up here. */
+
+		gwmutex_lock (&gwdata->thread_lock);
+		if (gwdata->catch_straggler_threads) {
 			gwmutex_unlock (&gwdata->thread_lock);
-			break;
+			continue;
+		}
+
+/* Increment the number of active threads so that we can tell when all auxiliary routines have finished. */
+
+		gwdata->num_active_threads++;
+
+/* If we are to do add/sub/addsub/smallmul work, copy a little bit of state and go do the work */
+
+		if (gwdata->pass1_state == PASS1_STATE_MULTITHREAD_OP) {
+			asm_data->DBLARG = main_thread_asm_data->DBLARG;
+			gwmutex_unlock (&gwdata->thread_lock);
+			do_multithread_op_work (gwdata, asm_data);
+			goto aux_out_of_work_unlocked;
 		}
 
 /* Copy the main thread's asm_data's DESTARG for proper next_block */
@@ -5342,23 +5369,17 @@ void auxiliary_thread (void *arg)
 
 		asm_data->this_block = 0;
 		if (gwdata->pass1_state == 0) {
-			if (gwdata->next_block >= gwdata->num_pass1_blocks) goto aux_done;
+			if (gwdata->next_block >= gwdata->num_pass1_blocks) goto aux_out_of_work_locked;
 			pass1_state0_assign_first_block (gwdata, asm_data);
 			pass1_state0_assign_next_block (gwdata, asm_data);
 		} else if (gwdata->pass1_state == 1) {
-			if (! pass1_state1_assign_first_block (gwdata, asm_data)) goto aux_done;
+			if (! pass1_state1_assign_first_block (gwdata, asm_data)) goto aux_out_of_work_locked;
 			pass1_state1_assign_next_block (gwdata, asm_data);
 		} else {
-			if (gwdata->next_block >= gwdata->num_pass2_blocks) goto aux_done;
+			if (gwdata->next_block >= gwdata->num_pass2_blocks) goto aux_out_of_work_locked;
 			pass2_assign_first_block (gwdata, asm_data);
 			pass2_assign_next_block (gwdata, asm_data);
 		}
-
-/* Increment the number of active threads so that we can tell */
-/* when all auxiliary routines have finished. */
-
-		gwdata->num_active_threads++;
-		gwevent_reset (&gwdata->all_threads_done);
 
 /* Copy some data from the main thread's asm_data to this thread.  We only */
 /* need to copy data that can change for each multiply call */
@@ -5407,23 +5428,26 @@ void auxiliary_thread (void *arg)
 /* Now call the assembly code to do some work! */
 
 		gwmutex_unlock (&gwdata->thread_lock);
-		if (gwdata->pass1_state < 999)
+		if (gwdata->pass1_state < PASS1_STATE_PASS2)
 			pass1_aux_entry_point (asm_data);
 		else
 			pass2_aux_entry_point (asm_data);
+
+/* The auxiliary thread has run out of work.  Decrement the count of number of active auxiliary threads. */
+/* Signal all threads done when last auxiliary thread is done. */
+
+aux_out_of_work_unlocked:
 		gwmutex_lock (&gwdata->thread_lock);
-
-/* The auxiliary threads have run out of work.  Decrement the count of */
-/* number of active auxiliary threads.  Signal all threads done when */
-/* last auxiliary thread is done. */
-
+aux_out_of_work_locked:
 		gwdata->num_active_threads--;
-		if (gwdata->num_active_threads == 0)
+		if (gwdata->num_active_threads == 0) {
+			gwdata->catch_straggler_threads = TRUE;
 			gwevent_signal (&gwdata->all_threads_done);
+		}
 
 /* Reset thread_work_to_do event before looping to wait for more work. */
 
-aux_done:	gwevent_reset (&gwdata->thread_work_to_do);
+		gwevent_reset (&gwdata->thread_work_to_do);
 		gwmutex_unlock (&gwdata->thread_lock);
 	}
 
@@ -5563,6 +5587,8 @@ void pass1_wake_up_threads (
 /* Signal the auxiliary threads to resume working */
 
 	if (gwdata->num_threads > 1) {
+		gwdata->catch_straggler_threads = FALSE;
+		gwevent_reset (&gwdata->all_threads_done);
 		gwevent_signal (&gwdata->thread_work_to_do);
 		gwmutex_unlock (&gwdata->thread_lock);
 	}
@@ -5994,7 +6020,7 @@ void pass2_wake_up_threads (
 
 /* Call assign_block twice to set up the main thread's this_block and next_block values. */
 
-	gwdata->pass1_state = 999;
+	gwdata->pass1_state = PASS1_STATE_PASS2;
 	gwdata->next_block = 0;
 	pass2_assign_first_block (gwdata, asm_data);
 	pass2_assign_next_block (gwdata, asm_data);
@@ -6002,6 +6028,8 @@ void pass2_wake_up_threads (
 /* Signal the auxiliary threads to resume working */
 
 	if (gwdata->num_threads > 1 && gwdata->PASS1_SIZE) {
+		gwdata->catch_straggler_threads = FALSE;
+		gwevent_reset (&gwdata->all_threads_done);
 		gwevent_signal (&gwdata->thread_work_to_do);
 		gwmutex_unlock (&gwdata->thread_lock);
 	}
@@ -6326,7 +6354,7 @@ wakeups++;
 // data (plus variable & fixed s/c data and group multipliers) before next block data for optimal LRU settings
 // (assumes prefetch of data already in cache is quick), 3) use NOPs or delays between prefetch instructions
 
-		if (gwdata->pass1_state < 999) {			// In pass 1
+		if (gwdata->pass1_state < PASS1_STATE_PASS2) {			// In pass 1
 			int	pass1_size, i;
 			int	current_block;
 
@@ -6338,7 +6366,7 @@ wakeups++;
 			pass1_size = gwdata->PASS1_SIZE;
 			for (i = 0; i < pass1_size / 2; i++) {
 				// Check for change in compute thread's current block
-				if (gwdata->pass1_state >= 999 || current_block != asm_data->this_block) break;
+				if (gwdata->pass1_state >= PASS1_STATE_PASS2 || current_block != asm_data->this_block) break;
 				// Prefetch some cache lines
 				prefetchL2 (prefetch_ptr, asm_data->cache_line_multiplier / 4);
 prefetches1 += asm_data->cache_line_multiplier / 4;
@@ -6346,7 +6374,7 @@ prefetches1 += asm_data->cache_line_multiplier / 4;
 			}
 
 			// Check for change in compute thread's current block
-			if (gwdata->pass1_state >= 999 || current_block != asm_data->this_block) continue;
+			if (gwdata->pass1_state >= PASS1_STATE_PASS2 || current_block != asm_data->this_block) continue;
 
 			// Prefetch the sin/cos data
 			prefetch_ptr = pass1_premult_addr (gwdata, asm_data->next_block);
@@ -6363,7 +6391,7 @@ prefetches1 += gwdata->pass1_var_data_size / 64;
 			current_block = asm_data->this_block;
 
 			// Check for change in compute thread's current block
-			if (gwdata->pass1_state < 999 || current_block != asm_data->this_block) continue;
+			if (gwdata->pass1_state < PASS1_STATE_PASS2 || current_block != asm_data->this_block) continue;
 
 			// Prefetch the FFT data
 // BUG - break this into smaller chunks?
@@ -6395,14 +6423,9 @@ void multithread_term (
 	if (gwdata->num_threads > 1 && gwdata->thread_lock != NULL) {
 
 /* Set variable that tells all auxiliary threads and hyperthreads to terminate. */
-/* I'm not positive this needs to obtain the thread lock, better safe than sorry. */
+/* Fire up auxiliary compute threads so they can exit. */
 
-		gwmutex_lock (&gwdata->thread_lock);
 		gwdata->threads_must_exit = TRUE;
-		gwmutex_unlock (&gwdata->thread_lock);
-
-/* Fire up auxiliary compute threads so they can exit */
-
 		gwevent_signal (&gwdata->thread_work_to_do);
 
 /* Wait for all compute threads to exit.  We must do this so */
@@ -9562,6 +9585,20 @@ static __inline void *biglit_data_ptr (
 	else return (p + (i * gwdata->PASS1_CACHE_LINES * 2 / 8));
 }
 
+/* Structure to share add/sub/addsub/smallmul data amongst all the compute threads */
+
+struct multithread_op_data {
+	gwnum	s1;			/* Source #1 */
+	gwnum	s2;			/* Source #2 */
+	gwnum	d1;			/* Destination #1 */
+	gwnum	d2;			/* Destination #2 (if operation is addsub) */
+	void	(*asm_proc)(void*);	/* Pointer to assembly routine that will perform the operation */
+	int	is_quick;		/* TRUE if this is a "quick" operation that does not require carry propagation */
+	int	num_blks;		/* Number of "blocks" to process */
+	void	*d1_carries;		/* Carries area for destination #1 calculations */
+	void	*d2_carries;		/* Carries area for destination #2 calculations */
+};
+
 /* Perform a multithreaded add/sub/addsub/smallmul operation */
 
 void multithread_op (
@@ -9574,27 +9611,53 @@ void multithread_op (
 	int	is_quick)		/* TRUE if this is a "quick" operation that does not require carry propagation */
 {
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
-	int	i, num_blks;
-	void	*d2_carries;
+	struct multithread_op_data data;
 
 // At present only our AVX-512 code supports multithreaded operations
 //	if (gwdata->cpu_flags & CPU_AVX512F) {
+
+/* Initialize the structure to share necessary info amongst the compute threads */
+
+		data.s1 = s1;
+		data.s2 = s2;
+		data.d1 = d1;
+		data.d2 = d2;
+		data.asm_proc = asm_proc;
+		data.is_quick = is_quick;
+		data.num_blks = asm_data->addcount1;
+		data.d1_carries = asm_data->carries;
+		// BUG/OPT - use scratch area rather than aligned_malloc?  one-pass FFTs are an issue.  We'd need to make
+		// sure scratch area is big enough and pre-allocate area for one-pass FFTs
+		if (d2 != NULL && !is_quick) data.d2_carries = aligned_malloc (data.num_blks * 16 * sizeof (double), 128);
+
+/* Wake up the auxiliary threads */
+
+		gwdata->pass1_state = PASS1_STATE_MULTITHREAD_OP;
+		gwdata->multithread_op_data = &data;
+		gwdata->next_block = 0;
+		if (gwdata->num_threads > 1) {
+			gwdata->catch_straggler_threads = FALSE;
+			gwevent_reset (&gwdata->all_threads_done);
+			gwevent_signal (&gwdata->thread_work_to_do);
+		}
+
+/* Call subroutine to work on blocks just like the auxiliary threads */
+
+		do_multithread_op_work (gwdata, asm_data);
+
+/* Wait for auxiliary threads to finish */
+
+		if (gwdata->num_threads > 1)
+			gwevent_wait (&gwdata->all_threads_done, 0);
+
+/* Set flags used in processing carries */
+
 		asm_data->zero_fft = 0;
 		asm_data->const_fft = 0;
 		asm_data->add_sub_smallmul_op = 1;
-		num_blks = asm_data->addcount1;
-		if (d2 != NULL && !is_quick) d2_carries = aligned_malloc (num_blks * 16 * sizeof (double), 128);
-		for (i = 0; i < num_blks; i += (is_quick ? 1 : 4)) {
-			asm_data->SRCARG = (char *) s1 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->SRC2ARG = (char *) s2 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->DESTARG = (char *) d1 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->DEST2ARG = (char *) d2 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->data_addr = (char *) asm_data->carries + i * 128;	// Addr to store dest #1 carries
-			asm_data->premult_addr = (char *) d2_carries + i * 128;		// Addr to store dest #2 carries
-			asm_data->norm_ptr1 = biglit_data_ptr (gwdata, i);
-			call_op (asm_proc, asm_data);
-		}
-		// Do the final carry propagations for the dest #1
+
+/* Do the final carry propagations for the dest #1 */
+
 		if (!is_quick) {
 			asm_data->DESTARG = d1;		// Start of the FFT data
 			asm_data->data_addr = d1;	// FFT addr to apply carries
@@ -9602,20 +9665,57 @@ void multithread_op (
 			asm_data->this_block = 0;
 			gwz3_apply_carries (asm_data);
 		}
-		// Do the final carry propagations for the destination #2 result
+
+/* Do the final carry propagations for the destination #2 result */
+
 		if (d2 != NULL && !is_quick) {
-			void	*original_carries_array;
-			original_carries_array = asm_data->carries;
-			asm_data->carries = d2_carries;
+			asm_data->carries = data.d2_carries;
 			asm_data->DESTARG = d2;		// Start of the FFT data
 			asm_data->data_addr = d2;	// FFT addr to apply carries
 			asm_data->norm_ptr1 = biglit_data_ptr (gwdata, 0);
 			asm_data->this_block = 0;
 			gwz3_apply_carries (asm_data);
-			asm_data->carries = original_carries_array;
-			aligned_free (d2_carries);
+			asm_data->carries = data.d1_carries;
+			aligned_free (data.d2_carries);
 		}
 //	}
+}
+
+/* Routine for the main thread and auxiliary threads to do add/sub/addsub/smallmul work */
+
+void do_multithread_op_work (
+	gwhandle *gwdata,		/* Handle initialized by gwsetup */
+	struct gwasm_data *asm_data)	/* This thread's asm_data */
+{
+	struct multithread_op_data *data = (struct multithread_op_data *) gwdata->multithread_op_data;
+
+/* Loop processing blocks */
+
+	for ( ; ; ) {
+		int	i;
+
+/* Get next block to process */
+
+		if (gwdata->num_threads > 1) gwmutex_lock (&gwdata->thread_lock);
+		i = gwdata->next_block;
+		gwdata->next_block += (data->is_quick ? 1 : 4);
+		if (gwdata->num_threads > 1) gwmutex_unlock (&gwdata->thread_lock);
+
+/* Break out of loop when there are no more blocks to process */
+
+		if (i >= data->num_blks) break;
+
+/* Process the block */
+
+		asm_data->SRCARG = (char *) data->s1 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
+		asm_data->SRC2ARG = (char *) data->s2 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
+		asm_data->DESTARG = (char *) data->d1 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
+		asm_data->DEST2ARG = (char *) data->d2 + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
+		asm_data->data_addr = (char *) data->d1_carries + i * 128;	// Addr to store dest #1 carries
+		asm_data->premult_addr = (char *) data->d2_carries + i * 128;	// Addr to store dest #2 carries
+		asm_data->norm_ptr1 = biglit_data_ptr (gwdata, i);
+		call_op (data->asm_proc, asm_data);
+	}
 }
 
 /*********************************************************/

@@ -976,7 +976,8 @@ struct gwhandle_struct {
 					/* main thread can resume.  That is, it is set if and only if num_active_threads==0 */
 	gwevent can_carry_into;		/* This event signals pass 1 sections that the block they are waiting on to carry */
 					/* into may now be ready. */
-	int	threads_must_exit;	/* Flag set to force all auxiliary threads to terminate */
+	short	threads_must_exit;	/* Flag set to force all auxiliary threads to terminate */
+	short	catch_straggler_threads;/* Flag set when auxiliary threads have finished their work */
 	int	pass1_state;		/* Mainly used to keep track of what we are doing in pass 1 of an FFT.  See */
 					/* pass1_get_next_block for details.  Also, 999 means we are in pass 2 of the FFT. */
 	void	*pass1_var_data;	/* pass1 variable sin/cos/premultiplier/fudge/biglit data */
@@ -991,6 +992,7 @@ struct gwhandle_struct {
 	unsigned long num_postfft_blocks; /* Number of data blocks that must delay forward fft because POSTFFT is set. */
 	gwthread *thread_ids;		/* Array of auxiliary thread ids */
 	struct pass1_carry_sections *pass1_carry_sections; /* Array of pass1 sections for carry propagation */
+	void	*multithread_op_data;	/* Data shared amongst add/sub/addsub/smallmul compute threads */
 	uint32_t ASM_TIMERS[32];	/* Internal timers used by me to optimize code */
 	int	bench_pick_nth_fft;	/* DO NOT set this variable.  Internal hack to force the FFT selection code to */
 					/* pick the n-th possible implementation instead of the best one.  The prime95 */
