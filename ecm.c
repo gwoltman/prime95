@@ -10,7 +10,7 @@
  *	Other important ideas courtesy of Peter Montgomery.
  *
  *	c. 1997 Perfectly Scientific, Inc.
- *	c. 1998-2018 Mersenne Research, Inc.
+ *	c. 1998-2019 Mersenne Research, Inc.
  *	All Rights Reserved.
  *
  *************************************************************/
@@ -1123,9 +1123,9 @@ int ecm_modinv (
 	mpz_gcdext (__gcd, __inv, NULL, __v, __N);
 	mpz_clear (__v);
 
-/* If a factor was found (gcd != 1), save it in FAC */
+/* If a factor was found (gcd != 1 && gcd != N), save it in FAC */
 
-	if (mpz_cmp_ui (__gcd, 1)) {
+	if (mpz_cmp_ui (__gcd, 1) && mpz_cmp (__gcd, __N)) {
 		*factor = allocgiant ((int) mpz_sizeinbase (__gcd, 32));
 		if (*factor == NULL) goto oom;
 		mpztog (__gcd, *factor);
