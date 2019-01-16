@@ -25,7 +25,6 @@ char	COMPID[21] = {0};
 char	COMPUTER_GUID[33] = {0};
 char	HARDWARE_GUID[33] = {0};
 char	WINDOWS_GUID[33] = {0};
-int	FIXED_GUIDS = 0;
 int	USE_PRIMENET = 0;
 int	DIAL_UP = 0;
 unsigned int DAYS_OF_WORK = 5;
@@ -150,7 +149,7 @@ void calc_hardware_guid (void)
 /* The FixedHardwareUID INI option tells us to get the Windows and */
 /* hardware hashes from the INI file rather than calculating them. */
 
-	if (FIXED_GUIDS) {
+	if (IniGetInt (INI_FILE, "FixedHardwareUID", 0)) {
 		IniGetString (INI_FILE, "HardwareGUID", HARDWARE_GUID, sizeof (HARDWARE_GUID), HARDWARE_GUID);
 		IniWriteString (INI_FILE, "HardwareGUID", HARDWARE_GUID);
 	}
@@ -193,7 +192,7 @@ void calc_windows_guid (void)
 /* WindowsGUID when run on a Windows machine.  The server must not */
 /* generate a CPU_IDENTITY_MISMATCH error in this case. */
 
-	if (FIXED_GUIDS) {
+	if (IniGetInt (INI_FILE, "FixedHardwareUID", 0)) {
 		IniGetString (INI_FILE, "WindowsGUID", WINDOWS_GUID, sizeof (WINDOWS_GUID), WINDOWS_GUID);
 		IniWriteString (INI_FILE, "WindowsGUID", WINDOWS_GUID);
 	}
@@ -233,8 +232,7 @@ void generate_computer_guid (void)
 	time_t	current_time;
 
 	time (&current_time);
-	sprintf (buf, "%s%d%f%d",
-		 CPU_BRAND, CPU_SIGNATURE, CPU_SPEED, (int) current_time);
+	sprintf (buf, "%s%d%f%d", CPU_BRAND, CPU_SIGNATURE, CPU_SPEED, (int) current_time);
 	md5 (COMPUTER_GUID, buf);
 	IniWriteString (LOCALINI_FILE, "ComputerGUID", COMPUTER_GUID);
 
@@ -246,7 +244,7 @@ void generate_computer_guid (void)
 	clearCachedProgramOptions ();
 
 /* Since we're generating a new computer GUID, we can use the latest, */
-/* most robust version of caluculating the Windows GUID. */
+/* most robust version of calculating the Windows GUID. */
 
 	IniWriteInt (INI_FILE, "WGUID_version", 2);
 	calc_windows_guid ();
@@ -1294,8 +1292,6 @@ int readIniFiles (void)
 /* Put commonly used options in global variables */
 
 	IniGetString (LOCALINI_FILE, "ComputerGUID", COMPUTER_GUID, sizeof (COMPUTER_GUID), NULL);
-	FIXED_GUIDS = IniGetInt (INI_FILE, "FixedHardwareUID", 0);
-
 	IniGetString (INI_FILE, "V5UserID", USERID, sizeof (USERID), NULL);
 	IniGetString (LOCALINI_FILE, "ComputerID", COMPID, sizeof (COMPID), NULL);
 	sanitizeString (COMPID);
