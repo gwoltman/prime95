@@ -10,7 +10,7 @@
 | on the end user machine looking for an FFT implementation that is faster than the
 | default selection.
 |
-| Copyright 2017-2018 Mersenne Research, Inc.  All rights reserved.
+| Copyright 2017-2019 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -172,19 +172,23 @@ void gwbench_read_data (void)
 
 	for (i = 1; ; i++) {
 		int	fftlen, bench_length, num_cores, num_workers, num_hyperthreads, impl_id;
-		char	fftlen_multiplier[30], bench_date[80];
+		char	fftlen_multiplier, bench_date[80];
 		double	throughput;
 
 		IniGetNthString (GWNUMINI_FILE, "BenchData", i, bench_data, sizeof (bench_data), NULL);
 		if (bench_data[0] == 0) break;
 
-		sscanf (bench_data, "%d%s,%d,%d,%d,%08X,%10s,%d,%lf",
-			&fftlen, fftlen_multiplier, &num_cores, &num_workers, &num_hyperthreads,
+		sscanf (bench_data, "%d%c,%d,%d,%d,%08X,%10s,%d,%lf",
+			&fftlen, &fftlen_multiplier, &num_cores, &num_workers, &num_hyperthreads,
 			&impl_id, bench_date, &bench_length, &throughput);
-		if (fftlen_multiplier[0] == 'K' || fftlen_multiplier[0] == 'k') fftlen <<= 10;
-		if (fftlen_multiplier[0] == 'M' || fftlen_multiplier[0] == 'm') fftlen <<= 20;
+		if (fftlen_multiplier == 'K' || fftlen_multiplier == 'k') fftlen <<= 10;
+		if (fftlen_multiplier == 'M' || fftlen_multiplier == 'm') fftlen <<= 20;
 
-//				validate (sanity check) data before writing it
+// validate (sanity check) data before writing it
+
+		if (num_cores < 1 || num_workers < 1 || throughput <= 0.0) continue;
+
+// Add the benchmark data to our SQL table
 
 		errcode = sqlite3_bind_int (sql_stmt, 1, fftlen);
 		if (errcode != SQLITE_OK) goto stmt_error;
