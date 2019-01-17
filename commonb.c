@@ -9188,12 +9188,13 @@ int factorBench (
 		OutputStrNoTimeStamp (thread_num, buf);
 		sprintf (buf, "Best time for %d bit trial factors: ", bit_lengths[i]);
 		print_timer (timers, 0, buf, TIMER_NL | TIMER_MS);
-		writeResults (buf);
+		writeResultsBench (buf);
 	}
 
 /* End the threads that are looping and return */
 
 	last_bench_cpu_num = NUM_CPUS;
+	writeResultsBench ("\n");
 	return (0);
 }
 
@@ -9539,7 +9540,7 @@ int primeBenchMultipleWorkersInternal (
 					strcat (buf, "INF");
 			    }
 			    sprintf (buf+strlen(buf), " ms.  Throughput: %5.2f iter/sec.\n", throughput);
-			    writeResults (buf);
+			    writeResultsBench (buf);
 
 /* Write the benchmark data to gwnum's SQL database so that gwnum can select the FFT implementation with the best throughput */
 
@@ -9572,6 +9573,7 @@ int primeBenchMultipleWorkersInternal (
 	  }  // End fftlen loop
 	}  // End plus1 loop
 	OutputStr (thread_num, "\n");
+	writeResultsBench ("\n");
 
 /* Write the benchmark data to gwnum.txt so that gwnum can select the FFT implementations with the best throughput */
 
@@ -9920,14 +9922,14 @@ int primeBench (
 
 	title (thread_num, "Benchmarking");
 	OutputStr (thread_num, BENCH1);
-	OutputBoth (thread_num, BENCH2);
+	OutputBothBench (thread_num, BENCH2);
 
 /* Output to the results file a full CPU description */
 
 	getCpuDescription (buf, 1);
-	writeResults (buf);
+	writeResultsBench (buf);
 	if (IniGetInt (INI_FILE, "BenchOutputTopology", 1)) {
-		writeResults ("Machine topology as determined by hwloc library:\n");
+		writeResultsBench ("Machine topology as determined by hwloc library:\n");
 		topology_print_children (hwloc_get_root_obj (hwloc_topology), 0);
 	}
 
@@ -9936,7 +9938,7 @@ int primeBench (
 #else
 	sprintf (buf, "Prime95 32-bit version %s, RdtscTiming=%d\n", VERSION, RDTSC_TIMING);
 #endif
-	writeResults (buf);
+	writeResultsBench (buf);
 
 /* Set the process/thread priority AFTER getting the CPU description. */
 /* This is required so that any threads spawned by getCpuSpeed will not */
@@ -10026,7 +10028,7 @@ int primeBench (
 	        sprintf (buf, "Timing FFTs using %d cores.\n", cpu);
 	      else
 	        sprintf (buf, "Timing FFTs using %d threads on %d core%s.\n", cpu * hypercpu, cpu, cpu > 1 ? "s" : "");
-	      OutputBoth (thread_num, buf);
+	      OutputBothBench (thread_num, buf);
 	    }
 
 /* Set global that makes sure we are running the correct number of busy loops */
@@ -10094,7 +10096,7 @@ int primeBench (
 
 /* Output a blank line between different FFT lengths when timing all implementations */
 
-		  if (all_bench && impl == 1) writeResults ("\n");
+		  if (all_bench && impl == 1) writeResultsBench ("\n");
 
 /* Compute the number of iterations to time.  This is based on the fact that it doesn't */
 /* take too long for my 1400 MHz P4 to run 10 iterations of a 1792K FFT. */
@@ -10178,7 +10180,7 @@ int primeBench (
 			strcat (buf, ", avg: ");
 			print_timer (timers, 0, buf, TIMER_NL | TIMER_MS);
 		  }
-		  writeResults (buf);
+		  writeResultsBench (buf);
 
 /* Accumulate best times to send to the server.  These are the "classic" best times -- that is, */
 /* best non-hyperthreaded single-core timings for FFT lengths from 1M on up. */
@@ -10208,6 +10210,7 @@ int primeBench (
 /* Single worker benchmark complete */
 
 	OutputStr (thread_num, "FFT timings benchmark complete.\n");
+	writeResultsBench ("\n");
 
 /* Send the benchmark data to the server. */
 

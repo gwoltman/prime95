@@ -17,8 +17,10 @@ char	INI_FILE[80] = {0};
 char	LOCALINI_FILE[80] = {0};
 char	WORKTODO_FILE[80] = {0};
 char	RESFILE[80] = {0};
+char	RESFILEBENCH[80] = {0};
 char	SPOOL_FILE[80] = {0};
 char	LOGFILE[80] = {0};
+char	*RESFILES[2] = {RESFILE, RESFILEBENCH};
 
 char	USERID[21] = {0};
 char	COMPID[21] = {0};
@@ -557,7 +559,7 @@ void topology_print_children (
 	else if (attr[0]) sprintf (buf+strlen(buf), " (%s)", attr);
 	else if (cpuset[0]) sprintf (buf+strlen(buf), " (cpuset: %s)", cpuset);
 	strcat (buf, "\n");
-	writeResults (buf);
+	writeResultsBench (buf);
 	for (i = 0; i < obj->arity; i++) {
 		topology_print_children (obj->children[i], depth + 1);
 	}
@@ -990,6 +992,7 @@ void nameAndReadIniFiles (
 		strcpy (LOCALINI_FILE, "local.txt");
 		strcpy (WORKTODO_FILE, "worktodo.txt");
 		strcpy (RESFILE, "results.txt");
+		strcpy (RESFILEBENCH, "results.bench.txt");
 		strcpy (SPOOL_FILE, "prime.spl");
 		strcpy (LOGFILE, "prime.log");
 	} else {
@@ -997,6 +1000,7 @@ void nameAndReadIniFiles (
 		sprintf (LOCALINI_FILE, "loca%04d.txt", named_ini_files);
 		sprintf (WORKTODO_FILE, "work%04d.txt", named_ini_files);
 		sprintf (RESFILE, "resu%04d.txt", named_ini_files);
+		sprintf (RESFILEBENCH, "resu%04d.bench.txt", named_ini_files);
 		sprintf (SPOOL_FILE, "prim%04d.spl", named_ini_files);
 		sprintf (LOGFILE, "prim%04d.log", named_ini_files);
 	}
@@ -1007,6 +1011,7 @@ void nameAndReadIniFiles (
 	IniGetString (INI_FILE, "local.ini", LOCALINI_FILE, 80, LOCALINI_FILE);
 	IniGetString (INI_FILE, "worktodo.ini", WORKTODO_FILE, 80, WORKTODO_FILE);
 	IniGetString (INI_FILE, "results.txt", RESFILE, 80, RESFILE);
+	IniGetString (INI_FILE, "results.bench.txt", RESFILEBENCH, 80, RESFILEBENCH);
 	IniGetString (INI_FILE, "prime.spl", SPOOL_FILE, 80, SPOOL_FILE);
 	IniGetString (INI_FILE, "prime.log", LOGFILE, 80, LOGFILE);
 	IniGetString (INI_FILE, "prime.ini", INI_FILE, 80, INI_FILE);
@@ -1802,6 +1807,16 @@ void OutputBoth (
 {
 	OutputStr (thread_num, buf);
 	writeResults (buf);
+}
+
+/* Output string to both the screen and results.bench file */
+
+void OutputBothBench (
+	int	thread_num,
+	const char *buf)
+{
+	OutputStr (thread_num, buf);
+	writeResultsBench (buf);
 }
 
 /* Output string to screen.  Prefix it with an optional timestamp. */
@@ -4200,15 +4215,20 @@ void formatMsgForResultsFile (
 	strcpy (buf, newbuf);
 }
 
-/* Open the results file and write a line to the end of it. */
+/* Open a results file and write a line to the end of it. */
 
-int writeResults (
+int writeResultsInternal (
+	int	which_results_file,	/* 0 = results.txt, 1 = results.bench.txt */
 	const char *msg)
 {
-static	time_t	last_time = 0;
+static	time_t	last_time[2] = {0};
 	time_t	this_time;
 	int	fd;
 	int	write_interval;
+
+/* Sanity check the input argument */
+
+	if (which_results_file < 0 || which_results_file > 1) which_results_file = 0;
 
 /* Get the interval user-settable parameter for seconds that must have elapsed since the last time the date was output */
 
@@ -4217,7 +4237,7 @@ static	time_t	last_time = 0;
 /* Open file, position to end */
 
 	gwmutex_lock (&OUTPUT_MUTEX);
-	fd = _open (RESFILE, _O_TEXT | _O_RDWR | _O_CREAT | _O_APPEND, CREATE_FILE_ACCESS);
+	fd = _open (RESFILES[which_results_file], _O_TEXT | _O_RDWR | _O_CREAT | _O_APPEND, CREATE_FILE_ACCESS);
 	if (fd < 0) {
 		gwmutex_unlock (&OUTPUT_MUTEX);
 		LogMsg ("Error opening results file to output this message:\n");
@@ -4229,9 +4249,9 @@ static	time_t	last_time = 0;
 /* was output, then output a new timestamp */
 
 	time (&this_time);
-	if (write_interval && this_time - last_time > (time_t) write_interval) {
+	if (write_interval && this_time - last_time[which_results_file] > (time_t) write_interval) {
 		char	buf[32];
-		last_time = this_time;
+		last_time[which_results_file] = this_time;
 		buf[0] = '[';
 		strcpy (buf+1, ctime (&this_time));
 		buf[25] = ']';
@@ -4253,6 +4273,22 @@ fail:	_close (fd);
 	LogMsg ("Error writing message to results file:\n");
 	LogMsg (msg);
 	return (FALSE);
+}
+
+/* Open the results file and write a line to the end of it. */
+
+int writeResults (
+	const char *msg)
+{
+	return (writeResultsInternal (0, msg));
+}
+
+/* Open the results.bench file and write a line to the end of it. */
+
+int writeResultsBench (
+	const char *msg)
+{
+	return (writeResultsInternal (1, msg));
 }
 
 

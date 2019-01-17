@@ -3,7 +3,7 @@
 /* Constants */
 
 #define VERSION		"29.5"
-#define BUILD_NUM	"7"
+#define BUILD_NUM	"8"
 /* The list of assigned OS ports follows: */
 /* Win9x (prime95) #1 */
 /* Linux (mprime)  #2 */
@@ -132,6 +132,7 @@ extern char INI_FILE[80];		/* Name of the prime INI file */
 extern char LOCALINI_FILE[80];		/* Name of the local INI file */
 extern char WORKTODO_FILE[80];		/* Name of the work-to-do INI file */
 extern char RESFILE[80];		/* Name of the results file */
+extern char RESFILEBENCH[80];		/* Name of the results.bench file */
 extern char SPOOL_FILE[80];		/* Name of the spool file */
 extern char LOGFILE[80];		/* Name of the server log file */
 
@@ -297,6 +298,7 @@ void title (int, const char *);
 void ChangeIcon (int, int);
 void BlinkIcon (int, int);
 EXTERNC void OutputBoth (int, const char *);
+void OutputBothBench (int, const char *);
 void OutputStr (int, const char *);
 void OutputStrNoTimeStamp (int, const char *);
 void RealOutputStr (int, const char *);
@@ -410,6 +412,7 @@ int write_checksum (int fd, unsigned long sum);
 
 void formatMsgForResultsFile (char *, struct work_unit *);
 int writeResults (const char *);
+int writeResultsBench (const char *);
 
 /* Routines called by common routines */
 
