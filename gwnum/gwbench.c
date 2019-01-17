@@ -181,6 +181,10 @@ void gwbench_read_data (void)
 		sscanf (bench_data, "%d%c,%d,%d,%d,%08X,%10s,%d,%lf",
 			&fftlen, &fftlen_multiplier, &num_cores, &num_workers, &num_hyperthreads,
 			&impl_id, bench_date, &bench_length, &throughput);
+		if (fftlen_multiplier == ',') 
+			sscanf (bench_data, "%d,%d,%d,%d,%08X,%10s,%d,%lf",
+				&fftlen, &num_cores, &num_workers, &num_hyperthreads,
+				&impl_id, bench_date, &bench_length, &throughput);
 		if (fftlen_multiplier == 'K' || fftlen_multiplier == 'k') fftlen <<= 10;
 		if (fftlen_multiplier == 'M' || fftlen_multiplier == 'm') fftlen <<= 20;
 
