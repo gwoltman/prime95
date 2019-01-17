@@ -6473,7 +6473,7 @@ int prime (
 	int	first_iter_msg, near_fft_limit, sleep5;
 	unsigned long high32, low32;
 	int	rc, isPrime, stop_reason;
-	char	buf[400], fft_desc[200];
+	char	buf[400], JSONbuf[4000], fft_desc[200];
 	int	slow_iteration_count;
 	double	best_iteration_time;
 	unsigned long last_counter = 0xFFFFFFFF;	/* Iteration of last error */
@@ -7116,6 +7116,30 @@ begin:	gwinit (&lldata.gwdata);
 	formatMsgForResultsFile (buf, w);
 	rc = writeResults (buf);
 
+/* Format a JSON version of the result.  An example follows: */
+/* {"exponent":25000000, "worktype":"LL", "status":"C", "res64":"0123456789ABCDEF", "fft-length":4096000, */
+/* "residue-checksum":"c6b0b26c", "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
+/* "errors":{"roundoff":0}, "user":"gw_2", "cpu":"bedroom_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
+
+	sprintf (JSONbuf, "{\"status\":\"%s\"", isPrime ? "P" : "C");
+	JSONaddexponent (JSONbuf, w);
+	if (!isPrime) sprintf (JSONbuf+strlen(JSONbuf), ", \"res64\":\"%08lX%08lX\"", high32, low32);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", lldata.gwdata.FFTLEN);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"shift-count\":%ld", lldata.units_bit);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"error-code\":\"%08lX\"", error_count);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC2 (p, high32, low32, lldata.units_bit, error_count));
+	JSONaddprogramandtimestamp (JSONbuf);
+	if (error_count & 0x3FF0) {
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"errors\":{");
+		if (error_count & 0x3F00) sprintf (JSONbuf+strlen(JSONbuf), "\"Roundoff\":%lu, ", (error_count >> 8) & 0x3F);
+		if (error_count & 0xF0) sprintf (JSONbuf+strlen(JSONbuf), "\"Jacobi\":%lu, ", (error_count >> 4) & 0xF);
+		JSONbuf[strlen(JSONbuf)-2] = 0;
+		sprintf (JSONbuf+strlen(JSONbuf), "}");
+	}
+	JSONaddusercomputerAID (JSONbuf, w);
+	sprintf (JSONbuf+strlen(JSONbuf), "}\n");
+	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
+
 /* Send results to the server if they might possibly be of interest */
 
 	if (p > 1000000 && (!isPrime || !isKnownMersennePrime (p))) {
@@ -7131,11 +7155,11 @@ begin:	gwinit (&lldata.gwdata);
 		sprintf (pkt.error_count, "%08lX", error_count);
 		pkt.fftlen = gwfftlen (&lldata.gwdata);
 		pkt.done = TRUE;
+		strcpy (pkt.JSONmessage, JSONbuf);
 		spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
 	}
 
-/* Delete the continuation files - assuming the results file write */
-/* was successful. */
+/* Delete the continuation files - assuming the results file write was successful. */
 
 	if (!isPrime || isKnownMersennePrime (p)) {
 		if (rc) unlinkSaveFiles (&write_save_file_state);
@@ -11706,10 +11730,7 @@ pushg(&gwdata.gdata, 2);}
 /* "errors":{"gerbicz":0}, "user":"meme", "cpu":"Vega [Radeon RX Vega] 64 @83:0.0", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
 	sprintf (JSONbuf, "{\"status\":\"%s\"", isProbablePrime ? "P" : "C");
-	if (w->k == 1.0 && w->b == 2 && w->c == -1)
-		sprintf (JSONbuf+strlen(JSONbuf), ", \"exponent\":%lu", w->n);
-	else
-		sprintf (JSONbuf+strlen(JSONbuf), ", \"k\":%.0f, \"b\":%lu, \"n\":%lu, \"c\":%ld", w->k, w->b, w->n, w->c);
+	JSONaddexponent (JSONbuf, w);
 	if (w->known_factors != NULL) {
 		char	fac_string[1210];
 		if (strlen (w->known_factors) <= 1200) strcpy (fac_string, w->known_factors);
@@ -11730,22 +11751,14 @@ pushg(&gwdata.gdata, 2);}
 	if (ps.units_bit) sprintf (JSONbuf+strlen(JSONbuf), ", \"shift-count\":%ld", ps.units_bit);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"error-code\":\"%08lX\"", ps.error_count);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC1(w->n));
-	sprintf (JSONbuf+strlen(JSONbuf), ", \"program\":{\"name\":\"Prime95\", \"version\":\"%s\", \"build\":%s, \"port\":%d}",
-		 VERSION, BUILD_NUM, PORT);
-	{
-		time_t rawtime;
-		time (&rawtime);
-		strftime (JSONbuf+strlen(JSONbuf), 80, ", \"timestamp\":\"%Y-%m-%d %H:%M:%S\"", gmtime (&rawtime));
-	}
+	JSONaddprogramandtimestamp (JSONbuf);
 	if (ps.error_check_type == PRP_ERRCHK_DBLCHK)
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"errors\":{\"dblchk\":%lu}", (ps.error_count >> 20) & 0xF);
 	if (ps.error_check_type == PRP_ERRCHK_GERBICZ)
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"errors\":{\"gerbicz\":%lu}", (ps.error_count >> 20) & 0xF);
-	if (USERID[0]) sprintf (JSONbuf+strlen(JSONbuf), ", \"user\":\"%s\"", USERID);
-	if (COMPID[0]) sprintf (JSONbuf+strlen(JSONbuf), ", \"computer\":\"%s\"", COMPID);
-	if (w->assignment_uid[0]) sprintf (JSONbuf+strlen(JSONbuf), ", \"aid\":\"%s\"", w->assignment_uid);
+	JSONaddusercomputerAID (JSONbuf, w);
 	sprintf (JSONbuf+strlen(JSONbuf), "}\n");
-	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResults (JSONbuf);
+	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
 
 /* Output results to the server */
 

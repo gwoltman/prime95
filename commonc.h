@@ -413,6 +413,10 @@ int write_checksum (int fd, unsigned long sum);
 void formatMsgForResultsFile (char *, struct work_unit *);
 int writeResults (const char *);
 int writeResultsBench (const char *);
+int writeResultsJSON (const char *);
+void JSONaddexponent (char *JSONbuf, struct work_unit *w);
+void JSONaddprogramandtimestamp (char *JSONbuf);
+void JSONaddusercomputerAID (char *JSONbuf, struct work_unit *w);
 
 /* Routines called by common routines */
 

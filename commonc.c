@@ -18,9 +18,10 @@ char	LOCALINI_FILE[80] = {0};
 char	WORKTODO_FILE[80] = {0};
 char	RESFILE[80] = {0};
 char	RESFILEBENCH[80] = {0};
+char	RESFILEJSON[80] = {0};
 char	SPOOL_FILE[80] = {0};
 char	LOGFILE[80] = {0};
-char	*RESFILES[2] = {RESFILE, RESFILEBENCH};
+char	*RESFILES[3] = {RESFILE, RESFILEBENCH, RESFILEJSON};
 
 char	USERID[21] = {0};
 char	COMPID[21] = {0};
@@ -993,6 +994,7 @@ void nameAndReadIniFiles (
 		strcpy (WORKTODO_FILE, "worktodo.txt");
 		strcpy (RESFILE, "results.txt");
 		strcpy (RESFILEBENCH, "results.bench.txt");
+		strcpy (RESFILEJSON, "results.json.txt");
 		strcpy (SPOOL_FILE, "prime.spl");
 		strcpy (LOGFILE, "prime.log");
 	} else {
@@ -1001,6 +1003,7 @@ void nameAndReadIniFiles (
 		sprintf (WORKTODO_FILE, "work%04d.txt", named_ini_files);
 		sprintf (RESFILE, "resu%04d.txt", named_ini_files);
 		sprintf (RESFILEBENCH, "resu%04d.bench.txt", named_ini_files);
+		sprintf (RESFILEJSON, "resu%04d.json.txt", named_ini_files);
 		sprintf (SPOOL_FILE, "prim%04d.spl", named_ini_files);
 		sprintf (LOGFILE, "prim%04d.log", named_ini_files);
 	}
@@ -1012,6 +1015,7 @@ void nameAndReadIniFiles (
 	IniGetString (INI_FILE, "worktodo.ini", WORKTODO_FILE, 80, WORKTODO_FILE);
 	IniGetString (INI_FILE, "results.txt", RESFILE, 80, RESFILE);
 	IniGetString (INI_FILE, "results.bench.txt", RESFILEBENCH, 80, RESFILEBENCH);
+	IniGetString (INI_FILE, "results.json.txt", RESFILEJSON, 80, RESFILEJSON);
 	IniGetString (INI_FILE, "prime.spl", SPOOL_FILE, 80, SPOOL_FILE);
 	IniGetString (INI_FILE, "prime.log", LOGFILE, 80, LOGFILE);
 	IniGetString (INI_FILE, "prime.ini", INI_FILE, 80, INI_FILE);
@@ -1905,6 +1909,40 @@ int OutOfMemory (
 {
 	OutputStr (thread_num, "Out of memory!\n");
 	return (STOP_OUT_OF_MEM);
+}
+
+/* Append exponent or kbnc to JSON message */
+
+void JSONaddexponent (
+	char	*JSONbuf,
+	struct work_unit *w)
+{
+	if (w->k == 1.0 && w->b == 2 && w->c == -1) sprintf (JSONbuf+strlen(JSONbuf), ", \"exponent\":%lu", w->n);
+	else sprintf (JSONbuf+strlen(JSONbuf), ", \"k\":%.0f, \"b\":%lu, \"n\":%lu, \"c\":%ld", w->k, w->b, w->n, w->c);
+}
+
+/* Append program and timestamp to JSON message */
+
+void JSONaddprogramandtimestamp (
+	char	*JSONbuf)
+{
+	time_t rawtime;
+
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"program\":{\"name\":\"Prime95\", \"version\":\"%s\", \"build\":%s, \"port\":%d}",
+		 VERSION, BUILD_NUM, PORT);
+	time (&rawtime);
+	strftime (JSONbuf+strlen(JSONbuf), 80, ", \"timestamp\":\"%Y-%m-%d %H:%M:%S\"", gmtime (&rawtime));
+}
+
+/* Append user, computer, assignment ID to JSON message */
+
+void JSONaddusercomputerAID (
+	char	*JSONbuf,
+	struct work_unit *w)
+{
+	if (USERID[0]) sprintf (JSONbuf+strlen(JSONbuf), ", \"user\":\"%s\"", USERID);
+	if (COMPID[0]) sprintf (JSONbuf+strlen(JSONbuf), ", \"computer\":\"%s\"", COMPID);
+	if (w != NULL && w->assignment_uid[0]) sprintf (JSONbuf+strlen(JSONbuf), ", \"aid\":\"%s\"", w->assignment_uid);
 }
 
 /****************************************************************************/
@@ -4228,7 +4266,7 @@ static	time_t	last_time[2] = {0};
 
 /* Sanity check the input argument */
 
-	if (which_results_file < 0 || which_results_file > 1) which_results_file = 0;
+	if (which_results_file < 0 || which_results_file > 2) which_results_file = 0;
 
 /* Get the interval user-settable parameter for seconds that must have elapsed since the last time the date was output */
 
@@ -4289,6 +4327,14 @@ int writeResultsBench (
 	const char *msg)
 {
 	return (writeResultsInternal (1, msg));
+}
+
+/* Open the results.json file and write a line to the end of it. */
+
+int writeResultsJSON (
+	const char *msg)
+{
+	return (writeResultsInternal (2, msg));
 }
 
 
