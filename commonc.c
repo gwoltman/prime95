@@ -1913,7 +1913,7 @@ int OutOfMemory (
 
 /* Append exponent or kbnc to JSON message */
 
-void JSONaddexponent (
+void JSONaddExponent (
 	char	*JSONbuf,
 	struct work_unit *w)
 {
@@ -1923,7 +1923,7 @@ void JSONaddexponent (
 
 /* Append program and timestamp to JSON message */
 
-void JSONaddprogramandtimestamp (
+void JSONaddProgramTimestamp (
 	char	*JSONbuf)
 {
 	time_t rawtime;
@@ -1936,7 +1936,7 @@ void JSONaddprogramandtimestamp (
 
 /* Append user, computer, assignment ID to JSON message */
 
-void JSONaddusercomputerAID (
+void JSONaddUserComputerAID (
 	char	*JSONbuf,
 	struct work_unit *w)
 {
