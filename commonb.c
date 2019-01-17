@@ -5640,13 +5640,13 @@ begin:	factor_found = 0;
 /* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
 /* "user":"gw_2", "cpu":"office_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
-			sprintf (JSONbuf, "{\"status\":\"F\"");
+			strcpy (JSONbuf, "{\"status\":\"F\"");
 			JSONaddExponent (JSONbuf, w);
-			sprintf (JSONbuf+strlen(JSONbuf), ", \"worktype\":\"TF\"");
+			strcat (JSONbuf, ", \"worktype\":\"TF\"");
 			sprintf (JSONbuf+strlen(JSONbuf), ", \"factor\":\"%s\"", str);
 			JSONaddProgramTimestamp (JSONbuf);
 			JSONaddUserComputerAID (JSONbuf, w);
-			sprintf (JSONbuf+strlen(JSONbuf), "}\n");
+			strcat (JSONbuf, "}\n");
 			if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
 
 /* Send assignment result to the server.  To avoid flooding the server */
@@ -5719,18 +5719,18 @@ nextpass:	;
 
 /* Format a JSON version of the result.  An example follows: */
 /* {"status":"NF", "exponent":25000000, "worktype":"TF", "start-bit":73, "end-bit":74, */
-/* "security-code":"c6b0b26c", "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
+/* "security-code":"C6B0B26C", "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
 /* "user":"gw_2", "cpu":"laptop1", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
-		sprintf (JSONbuf, "{\"status\":\"NF\"");
+		strcpy (JSONbuf, "{\"status\":\"NF\"");
 		JSONaddExponent (JSONbuf, w);
-		sprintf (JSONbuf+strlen(JSONbuf), ", \"worktype\":\"TF\"");
+		strcat (JSONbuf, ", \"worktype\":\"TF\"");
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"start-bit\":%d", start_bits);
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"end-bit\":%d", end_bits);
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC3 (p));
 		JSONaddProgramTimestamp (JSONbuf);
 		JSONaddUserComputerAID (JSONbuf, w);
-		sprintf (JSONbuf+strlen(JSONbuf), "}\n");
+		strcat (JSONbuf, "}\n");
 		if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
 
 /* Send no factor found message to the server for each bit */
@@ -7146,13 +7146,13 @@ begin:	gwinit (&lldata.gwdata);
 
 /* Format a JSON version of the result.  An example follows: */
 /* {"status":"C", "exponent":25000000, "worktype":"LL", "res64":"0123456789ABCDEF", "fft-length":4096000, */
-/* "shift-count":1234567, "error-code":"00010000", "security-code":"c6b0b26c", */
+/* "shift-count":1234567, "error-code":"00010000", "security-code":"C6B0B26C", */
 /* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
 /* "errors":{"roundoff":2}, "user":"gw_2", "cpu":"bedroom_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
 	sprintf (JSONbuf, "{\"status\":\"%s\"", isPrime ? "P" : "C");
 	JSONaddExponent (JSONbuf, w);
-	sprintf (JSONbuf+strlen(JSONbuf), ", \"worktype\":\"LL\"");
+	strcat (JSONbuf, ", \"worktype\":\"LL\"");
 	if (!isPrime) sprintf (JSONbuf+strlen(JSONbuf), ", \"res64\":\"%08lX%08lX\"", high32, low32);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", lldata.gwdata.FFTLEN);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"shift-count\":%ld", lldata.units_bit);
@@ -7160,14 +7160,14 @@ begin:	gwinit (&lldata.gwdata);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC2 (p, high32, low32, lldata.units_bit, error_count));
 	JSONaddProgramTimestamp (JSONbuf);
 	if (error_count & 0x3FF0) {
-		sprintf (JSONbuf+strlen(JSONbuf), ", \"errors\":{");
+		strcat (JSONbuf, ", \"errors\":{");
 		if (error_count & 0x3F00) sprintf (JSONbuf+strlen(JSONbuf), "\"Roundoff\":%lu, ", (error_count >> 8) & 0x3F);
 		if (error_count & 0xF0) sprintf (JSONbuf+strlen(JSONbuf), "\"Jacobi\":%lu, ", (error_count >> 4) & 0xF);
 		JSONbuf[strlen(JSONbuf)-2] = 0;
-		sprintf (JSONbuf+strlen(JSONbuf), "}");
+		strcat (JSONbuf, "}");
 	}
 	JSONaddUserComputerAID (JSONbuf, w);
-	sprintf (JSONbuf+strlen(JSONbuf), "}\n");
+	strcat (JSONbuf, "}\n");
 	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
 
 /* Send results to the server if they might possibly be of interest */
@@ -11757,7 +11757,7 @@ pushg(&gwdata.gdata, 2);}
 /* Format a JSON version of the result.  An example follows: */
 /* {"status":"C", "exponent":25000000, "known-factors":"12345,67890", "worktype":"PRP-3", "res64":"0123456789ABCDEF", */
 /* "residue-type":1, "res2048":"BigLongString", "fft-length":4096000, "shift-count":1234567, "error-code":"00010000", */
-/* "security-code":"c6b0b26c", "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
+/* "security-code":"C6B0B26C", "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
 /* "errors":{"gerbicz":0}, "user":"gw_2", "cpu":"basement", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
 	sprintf (JSONbuf, "{\"status\":\"%s\"", isProbablePrime ? "P" : "C");
@@ -11788,7 +11788,7 @@ pushg(&gwdata.gdata, 2);}
 	if (ps.error_check_type == PRP_ERRCHK_GERBICZ)
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"errors\":{\"gerbicz\":%lu}", (ps.error_count >> 20) & 0xF);
 	JSONaddUserComputerAID (JSONbuf, w);
-	sprintf (JSONbuf+strlen(JSONbuf), "}\n");
+	strcat (JSONbuf, "}\n");
 	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
 
 /* Output results to the server */

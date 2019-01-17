@@ -2124,7 +2124,7 @@ int ecm (
 	unsigned long i, j, curve, min_memory;
 	readSaveFileState read_save_file_state;	/* Manage savefile names during reading */
 	writeSaveFileState write_save_file_state; /* Manage savefile names during writing */
-	char	filename[32], buf[255], fft_desc[200];
+	char	filename[32], buf[255], JSONbuf[4000], fft_desc[200];
 	int	res, stop_reason, stage, first_iter_msg;
 	gwnum	x, z, t1, t2, gg;
 	gwnum	Q2x, Q2z, Qiminus2x, Qiminus2z, Qdiffx, Qdiffz;
@@ -3184,8 +3184,25 @@ more_curves:
 	formatMsgForResultsFile (buf, w);
 	writeResults (buf);
 
-/* Send ECM completed message to the server.  Although don't do it for */
-/* puny B1 values. */
+/* Format a JSON version of the result.  An example follows: */
+/* {"status":"NF", "exponent":45581713, "worktype":"ECM", "bounds":{"b1":50000, "b2":5000000}, */
+/* "curves":5, "fft-length":5120, "security-code":"39AB1238", */
+/* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
+/* "user":"gw_2", "cpu":"work_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
+
+	strcpy (JSONbuf, "{\"status\":\"NF\"");
+	JSONaddExponent (JSONbuf, w);
+	strcat (JSONbuf, ", \"worktype\":\"ECM\"");
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"bounds\":{\"b1\":%.0f, \"b2\":%.0f}", (double) B, (double) C);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"curves\":%u", w->curves_to_do);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", ecmdata.gwdata.FFTLEN);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, B, C));
+	JSONaddProgramTimestamp (JSONbuf);
+	JSONaddUserComputerAID (JSONbuf, w);
+	strcat (JSONbuf, "}\n");
+	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
+
+/* Send ECM completed message to the server.  Although don't do it for puny B1 values. */
 
 	if (B >= 10000 || IniGetInt (INI_FILE, "SendAllFactorData", 0)) {
 		struct primenetAssignmentResult pkt;
@@ -3203,6 +3220,7 @@ more_curves:
 		pkt.curves = w->curves_to_do;
 		pkt.fftlen = gwfftlen (&ecmdata.gwdata);
 		pkt.done = TRUE;
+		strcpy (pkt.JSONmessage, JSONbuf);
 		spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
 	}
 
@@ -3227,11 +3245,9 @@ oom:	stop_reason = OutOfMemory (thread_num);
 
 /* Print a message, we found a factor! */
 
-bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n",
-		 curve, stage);
+bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n", curve, stage);
 	writeResults (buf);
-	sprintf (buf, "Sigma=%.0f, B1=%.0f, B2=%.0f.\n",
-		 sigma, (double) B, (double) C);
+	sprintf (buf, "Sigma=%.0f, B1=%.0f, B2=%.0f.\n", sigma, (double) B, (double) C);
 	writeResults (buf);
 
 /* Allocate memory for the string representation of the factor and for */
@@ -3247,8 +3263,7 @@ bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n",
 /* Validate the factor we just found */
 
 	if (!testFactor (&ecmdata.gwdata, w, factor)) {
-		sprintf (msg, "ERROR: Bad factor for %s found: %s\n",
-			 gwmodulo_as_string (&ecmdata.gwdata), str);
+		sprintf (msg, "ERROR: Bad factor for %s found: %s\n", gwmodulo_as_string (&ecmdata.gwdata), str);
 		OutputBoth (thread_num, msg);
 		OutputStr (thread_num, "Restarting ECM curve from scratch.\n");
 		continueECM = TRUE;
@@ -3264,6 +3279,27 @@ bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n",
 	formatMsgForResultsFile (msg, w);
 	writeResults (msg);
 
+/* Format a JSON version of the result.  An example follows: */
+/* {"status":"F", "exponent":45581713, "worktype":"ECM", "factor":"430639100587696027847",
+/* "bounds":{"b1":50000, "b2":5000000}, "sigma":"123456789123456" */
+/* "curves":5, "fft-length":5120, "security-code":"39AB1238", */
+/* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
+/* "user":"gw_2", "cpu":"work_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
+
+	strcpy (JSONbuf, "{\"status\":\"F\"");
+	JSONaddExponent (JSONbuf, w);
+	strcat (JSONbuf, ", \"worktype\":\"ECM\"");
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"factor\":\"%s\"", str);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"bounds\":{\"b1\":%.0f, \"b2\":%.0f}", (double) B, (double) C);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"sigma\":%.0f", sigma);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"curves\":%u", curve);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", ecmdata.gwdata.FFTLEN);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, B, C));
+	JSONaddProgramTimestamp (JSONbuf);
+	JSONaddUserComputerAID (JSONbuf, w);
+	strcat (JSONbuf, "}\n");
+	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
+
 /* See if the cofactor is prime and set flag if we will be continuing ECM */
 
 	continueECM = IniGetInt (INI_FILE, "ContinueECM", 0);
@@ -3278,8 +3314,7 @@ bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n",
 /* with small factors from users needlessly redoing factoring work, make */
 /* sure the factor is more than 50 bits or so. */
 
-	if (strlen (str) >= 15 ||
-	    IniGetInt (INI_FILE, "SendAllFactorData", 0)) {
+	if (strlen (str) >= 15 || IniGetInt (INI_FILE, "SendAllFactorData", 0)) {
 		struct primenetAssignmentResult pkt;
 		memset (&pkt, 0, sizeof (pkt));
 		strcpy (pkt.computer_guid, COMPUTER_GUID);
@@ -3297,6 +3332,7 @@ bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n",
 		pkt.stage = stage;
 		pkt.fftlen = gwfftlen (&ecmdata.gwdata);
 		pkt.done = !continueECM;
+		strcpy (pkt.JSONmessage, JSONbuf);
 		spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
 
 /* If continuing ECM, subtract the curves we just reported from the */
@@ -4336,7 +4372,7 @@ int pminus1 (
 	gwnum	x, gg, tmp_gwnum, t3;
 	readSaveFileState read_save_file_state;	/* Manage savefile names during reading */
 	writeSaveFileState write_save_file_state; /* Manage savefile names during writing */
-	char	filename[32], buf[255], testnum[100];
+	char	filename[32], buf[255], JSONbuf[4000], testnum[100];
 	int	have_save_file;
 	int	res, stop_reason, stage, saving, near_fft_limit, echk;
 	double	one_over_len, one_over_B, one_pair_pct;
@@ -5381,8 +5417,7 @@ restart4:
 /* Output line to results file indicating P-1 run */
 
 msg_and_exit:
-	sprintf (buf, "%s completed P-1, B1=%.0f",
-		 gwmodulo_as_string (&pm1data.gwdata), (double) B);
+	sprintf (buf, "%s completed P-1, B1=%.0f", gwmodulo_as_string (&pm1data.gwdata), (double) B);
 	if (C > B) {
 		if (pm1data.E <= 2)
 			sprintf (buf+strlen(buf), ", B2=%.0f", (double) C);
@@ -5393,6 +5428,29 @@ msg_and_exit:
 	OutputStr (thread_num, buf);
 	formatMsgForResultsFile (buf, w);
 	writeResults (buf);
+
+/* Format a JSON version of the result.  An example follows: */
+/* {"status":"NF", "exponent":45581713, "worktype":"P-1", "bounds":{"b1":50000, "b2":5000000, "brent-suyama":6}, */
+/* "fft-length":5120, "security-code":"39AB1238", */
+/* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
+/* "user":"gw_2", "cpu":"work_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
+
+	strcpy (JSONbuf, "{\"status\":\"NF\"");
+	JSONaddExponent (JSONbuf, w);
+	strcat (JSONbuf, ", \"worktype\":\"P-1\"");
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"bounds\":{\"b1\":%.0f, ", (double) B);
+	if (C > B) {
+		sprintf (JSONbuf+strlen(JSONbuf), "\"b2\":%.0f, ", (double) C);
+		if (pm1data.E > 2) sprintf (JSONbuf+strlen(JSONbuf), "\"brent-suyama\":%lu, ", pm1data.E);
+	}
+	JSONbuf[strlen(JSONbuf)-2] = 0;
+	strcat (JSONbuf, "}");
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", pm1data.gwdata.FFTLEN);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, B, C));
+	JSONaddProgramTimestamp (JSONbuf);
+	JSONaddUserComputerAID (JSONbuf, w);
+	strcat (JSONbuf, "}\n");
+	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
 
 /* Send P-1 completed message to the server.  Although don't do it for puny */
 /* B1 values as this is just the user tinkering with P-1 factoring. */
@@ -5411,8 +5469,8 @@ msg_and_exit:
 		pkt.B1 = (double) B;
 		pkt.B2 = (double) C;
 		pkt.fftlen = gwfftlen (&pm1data.gwdata);
-		pkt.done = (w->work_type == WORK_PMINUS1 ||
-			    w->work_type == WORK_PFACTOR);
+		pkt.done = (w->work_type == WORK_PMINUS1 || w->work_type == WORK_PFACTOR);
+		strcpy (pkt.JSONmessage, JSONbuf);
 		spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
 	}
 
@@ -5492,8 +5550,7 @@ bingo:	if (stage == 1)
 /* Validate the factor we just found */
 
 	if (!testFactor (&pm1data.gwdata, w, factor)) {
-		sprintf (msg, "ERROR: Bad factor for %s found: %s\n",
-			 gwmodulo_as_string (&pm1data.gwdata), str);
+		sprintf (msg, "ERROR: Bad factor for %s found: %s\n", gwmodulo_as_string (&pm1data.gwdata), str);
 		OutputBoth (thread_num, msg);
 		unlinkSaveFiles (&write_save_file_state);
 		OutputStr (thread_num, "Restarting P-1 from scratch.\n");
@@ -5516,12 +5573,36 @@ bingo:	if (stage == 1)
 	formatMsgForResultsFile (msg, w);
 	writeResults (msg);
 
+/* Format a JSON version of the result.  An example follows: */
+/* {"status":"F", "exponent":45581713, "worktype":"P-1", "factor":"430639100587696027847",
+/* "bounds":{"b1":50000, "b2":5000000, "brent-suyama":6}, */
+/* "fft-length":5120, "security-code":"39AB1238", */
+/* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
+/* "user":"gw_2", "cpu":"work_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
+
+	strcpy (JSONbuf, "{\"status\":\"F\"");
+	JSONaddExponent (JSONbuf, w);
+	strcat (JSONbuf, ", \"worktype\":\"P-1\"");
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"factor\":\"%s\"", str);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"bounds\":{\"b1\":%.0f, ", (double) B);
+	if (stage > 1) {
+		sprintf (JSONbuf+strlen(JSONbuf), "\"b2\":%.0f, ", (double) C);
+		if (pm1data.E > 2) sprintf (JSONbuf+strlen(JSONbuf), "\"brent-suyama\":%lu, ", pm1data.E);
+	}
+	JSONbuf[strlen(JSONbuf)-2] = 0;
+	strcat (JSONbuf, "}");
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", pm1data.gwdata.FFTLEN);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, B, C));
+	JSONaddProgramTimestamp (JSONbuf);
+	JSONaddUserComputerAID (JSONbuf, w);
+	strcat (JSONbuf, "}\n");
+	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
+
 /* Send assignment result to the server.  To avoid flooding the server */
 /* with small factors from users needlessly redoing factoring work, make */
 /* sure the factor is more than 50 bits or so. */
 
-	if (strlen (str) >= 15 ||
-	    IniGetInt (INI_FILE, "SendAllFactorData", 0)) {
+	if (strlen (str) >= 15 || IniGetInt (INI_FILE, "SendAllFactorData", 0)) {
 		struct primenetAssignmentResult pkt;
 		memset (&pkt, 0, sizeof (pkt));
 		strcpy (pkt.computer_guid, COMPUTER_GUID);
@@ -5537,6 +5618,7 @@ bingo:	if (stage == 1)
 		pkt.B2 = (double) (stage == 1 ? 0 : C);
 		pkt.fftlen = gwfftlen (&pm1data.gwdata);
 		pkt.done = TRUE;
+		strcpy (pkt.JSONmessage, JSONbuf);
 		spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
 	}
 
