@@ -1,4 +1,4 @@
-; Copyright 1995-2018 - Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2019 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -1574,12 +1574,10 @@ ENDIF
 ; to find the fastest implementation to include in the final release.
 
 ;IMPL_ALL_CORE = 1
-;IMPL_ALL_FMA3 = 1
 ;IMPL_ALL_P4 = 1
 ;IMPL_ALL_P4TP = 1
 ;IMPL_ALL_K8 = 1
 ;IMPL_ALL_K10 = 1
-;IMPL_ALL_BULL = 1
 
 ; Handy macro to only include statement if we are prefetching
 

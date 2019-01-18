@@ -1,4 +1,4 @@
-; Copyright 1995-2018 Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2019 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -77,7 +77,6 @@ ENDIF
 
 	MAYBE_P4 = 01000000h		; This _P4 implementation may be best on some CPUs
 	MAYBE_CORE = 02000000h		; This _CORE implementation may be best on some CPUs
-	MAYBE_FMA3 = 04000000h		; This _FMA3 implementation may be best on some CPUs
 	MAYBE_K8 = 08000000h		; This _K8 implementation may be best on some CPUs
 	MAYBE_K10 = 10000000h		; This _K10 implementation may be best on some CPUs
 
@@ -124,8 +123,6 @@ IFDEF X86_64
 	MAYBE_P4_64 = MAYBE_P4
 	MAYBE_CORE_32 = 0
 	MAYBE_CORE_64 = MAYBE_CORE
-	MAYBE_FMA3_32 = 0
-	MAYBE_FMA3_64 = MAYBE_FMA3
 	MAYBE_K8_32 = 0
 	MAYBE_K8_64 = MAYBE_K8
 	MAYBE_K10_32 = 0
@@ -151,8 +148,6 @@ ELSE
 	MAYBE_P4_64 = 0
 	MAYBE_CORE_32 = MAYBE_CORE
 	MAYBE_CORE_64 = 0
-	MAYBE_FMA3_32 = MAYBE_FMA3
-	MAYBE_FMA3_64 = 0
 	MAYBE_K8_32 = MAYBE_K8
 	MAYBE_K8_64 = 0
 	MAYBE_K10_32 = MAYBE_K10
@@ -220,11 +215,6 @@ PRCENTRY2 MACRO procname, mem_needed, best_impl_for
 	IFDEF IMPL_ALL_CORE
 		bif = bif OR MAYBE_CORE
 	ENDIF
-	IFDEF IMPL_ALL_FMA3
-	IF (@INSTR (,&procname,yfft)) NE 0
-		bif = bif OR MAYBE_FMA3
-	ENDIF
-	ENDIF
 	IF (@INSTR (,&procname,_op)) EQ 0
 	IFDEF IMPL_ALL_P4
 		bif = bif OR P4_1024
@@ -271,11 +261,9 @@ PRCENTRY2 MACRO procname, mem_needed, best_impl_for
 	ENDIF
 	IF (bif AND FMA3) NE 0
 		PRCENTRY3 @CATSTR(procname, <_FMA3>), mem_needed, FMA3
-		bif = bif AND NOT MAYBE_FMA3
 	ENDIF
 	IF (bif AND RYZEN) NE 0
 		PRCENTRY3 @CATSTR(procname, <_FMA3>), mem_needed, RYZEN
-		bif = bif AND NOT MAYBE_FMA3
 	ENDIF
 	IF (bif AND SKX) NE 0
 		PRCENTRY3 @CATSTR(procname, <_SKX>), mem_needed, SKX
@@ -312,9 +300,6 @@ PRCENTRY2 MACRO procname, mem_needed, best_impl_for
 	IF (bif AND MAYBE_CORE) NE 0
 		PRCENTRY3 @CATSTR(procname, <_CORE>), mem_needed, 0
 	ENDIF
-	IF (bif AND MAYBE_FMA3) NE 0
-		PRCENTRY3 @CATSTR(procname, <_FMA3>), mem_needed, 0
-	ENDIF
 	IF (bif AND MAYBE_K8) NE 0
 		PRCENTRY3 @CATSTR(procname, <_K8>), mem_needed, 0
 	ENDIF
@@ -330,9 +315,6 @@ PRCENTRY2A MACRO procname, mem_needed, best_impl_for
 	;; When building a special version for timing all implementations,
 	;; don't bother creating these specialized entries.
 	IFDEF IMPL_ALL_CORE
-		exitm
-	ENDIF
-	IFDEF IMPL_ALL_FMA3
 		exitm
 	ENDIF
 	IFDEF IMPL_ALL_P4
