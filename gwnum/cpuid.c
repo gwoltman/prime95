@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2018 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2019 Mersenne Research, Inc.  All rights reserved
 | Author:  George Woltman
 | Email: woltman@alum.mit.edu
 |
@@ -553,7 +553,8 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			 (family == 6 && model == 76) ||
 			 (family == 6 && model == 77) ||
 			 (family == 6 && model == 90) ||
-			 (family == 6 && model == 93))
+			 (family == 6 && model == 93) ||
+			 (family == 6 && model == 92))			// Apollo Lake, mobile/laptop
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_ATOM;
 		else if ((family == 6 && model == 87))			// Knight's Landing
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_PHI;
