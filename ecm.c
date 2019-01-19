@@ -3280,7 +3280,7 @@ bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n", curve, sta
 	writeResults (msg);
 
 /* Format a JSON version of the result.  An example follows: */
-/* {"status":"F", "exponent":45581713, "worktype":"ECM", "factor":"430639100587696027847",
+/* {"status":"F", "exponent":45581713, "worktype":"ECM", "factor":"430639100587696027847", */
 /* "bounds":{"b1":50000, "b2":5000000}, "sigma":"123456789123456" */
 /* "curves":5, "fft-length":5120, "security-code":"39AB1238", */
 /* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
@@ -3292,7 +3292,7 @@ bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n", curve, sta
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"factor\":\"%s\"", str);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"bounds\":{\"b1\":%.0f, \"b2\":%.0f}", (double) B, (double) C);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"sigma\":%.0f", sigma);
-	sprintf (JSONbuf+strlen(JSONbuf), ", \"curves\":%u", curve);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"curves\":%lu", curve);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", ecmdata.gwdata.FFTLEN);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, B, C));
 	JSONaddProgramTimestamp (JSONbuf);
@@ -5574,7 +5574,7 @@ bingo:	if (stage == 1)
 	writeResults (msg);
 
 /* Format a JSON version of the result.  An example follows: */
-/* {"status":"F", "exponent":45581713, "worktype":"P-1", "factor":"430639100587696027847",
+/* {"status":"F", "exponent":45581713, "worktype":"P-1", "factor":"430639100587696027847", */
 /* "bounds":{"b1":50000, "b2":5000000, "brent-suyama":6}, */
 /* "fft-length":5120, "security-code":"39AB1238", */
 /* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
