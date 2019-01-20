@@ -281,32 +281,11 @@ factoring code.  This is not an efficient way to verify factors as it
 goes through the entire sieving process and trial factoring many
 potential factors. 
 
-You can control which FFT sizes are tested by the torture test.  In prime.txt
-you can set:
-	MinTortureFFT=n
-	MaxTortureFFT=m
-Where n and m are in "K".  The default for n and m is 8 and 1024 which will
-run tests on FFT sizes rom 8K to 1024K.  Set n to 8 and m to 16 and you will
-run only small FFT sizes.  These FFTs will fit in the L2 cache and may be
-more stressful to the CPU.
-
-You can control how many minutes each FFT size is tested by the torture test.
-In prime.txt set:
-	TortureTime=n
-The default value is 15 minutes.
-
-You can control how much memory the torture test uses.  In prime.txt set:
-	TortureMem=n
-The default value is the larger of your daytime and nighttime memory settings.
-If this is set to 8MB or less, then the torture test does FFTs in-place.  This
-may be more stressful but could miss memory errors that only occur at a
-specific physical address.
-
-You can control whether a blend torture test alternates between using lots of RAM
-and running in-place with this prime.txt setting:
+You can control whether a torture test using lots of RAM alternates between 
+running in-place and using lots of RAM with this prime.txt setting:
 	TortureAlternateInPlace=0 or 1	(default is 1)
-The blend test defaults to alternating to test different scenarios that might cause
-a hardware failure.  Turning alternating off will do a better job of stressing all RAM.
+The torture test defaults to alternating to try different scenarios that might cause
+a hardware failure.  Turning alternating off may do a better job of stressing all RAM.
 
 The program normally does round-off error checking every 128 iterations.
 When you are testing an exponent near the limit of an FFT length, the program
