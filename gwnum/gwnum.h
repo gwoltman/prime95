@@ -382,27 +382,25 @@ void gw_random_number (
 /* gwswap	Quickly swaps two gw numbers */
 /* gwcopy(s,d)	Copies gwnum s to d */
 /* gwadd	Adds two numbers and normalizes result if necessary */
-/* gwsub	Subtracts first number from second number and normalizes */
-/*		result if necessary */
+/* gwsub	Subtracts first number from second number and normalizes result if necessary */
 /* gwadd3quick	Adds two numbers WITHOUT normalizing */
 /* gwsub3quick	Subtracts second number from first WITHOUT normalizing */
 /* gwadd3	Adds two numbers and normalizes them if necessary */
-/* gwsub3	Subtracts second number from first number and normalizes */
-/*		result if necessary */
-/* gwaddsub	Adds and subtracts 2 numbers (first+second and first-second) */
-/*		normalizes the results if necessary */
+/* gwsub3	Subtracts second number from first number and normalizes result if necessary */
+/* gwaddsub	Adds and subtracts 2 numbers (first+second and first-second) normalizes the results if necessary */
 /* gwaddsub4	Like, gwaddsub but can store results in separate variables */
 /* gwaddsub4quick Like, gwaddsub4 but will not do a normalize */
 /* gwfft	Perform the forward Fourier transform on a number */
 /* gwsquare	Multiplies a number by itself */
+/* gwsquare2	Multiplies a number by itself, takes a source and destination */
 /* gwsquare_carefully  Like gwsquare but uses a slower method that will */
 /*		have a lower roundoff error even if input is non-random data */
 /*		NOTE: Unlike gwsquare, input cannot have been partially FFTed */
+/* gwsquare2_carefully  Like gwsquare_carefully but takes a source and destination */
 /* gwmul(s,d)	Computes d=s*d.  NOTE: s is replaced by its FFT */
 /* gwsafemul(s,d) Like gwmul but s is not replaced with its FFT */
 /* gwfftmul(s,d) Computes d=s*d.  NOTE: s must have been previously FFTed */
-/* gwfftfftmul(s1,s2,d) Computes d=s1*s2.  Both s1 and s2 must have */
-/*		been previously FFTed */
+/* gwfftfftmul(s1,s2,d) Computes d=s1*s2.  Both s1 and s2 must have been previously FFTed */
 /* gwmul_carefully(s,d)  Like gwsafemul but uses a slower method that will */
 /*		have a lower roundoff error even if input is non-random data */
 /*		NOTE: Unlike gwsafemul, inputs cannot have been partially FFTed */
@@ -417,6 +415,8 @@ void gw_random_number (
 /* gwfftaddsub4	Like, gwfftaddsub but stores results in separate variables */
 
 #define gwswap(s,d)	{gwnum t; t = s; s = d; d = t;}
+#define gwsquare(h,s)	gwsquare2 (h,s,s)
+#define gwsquare_carefully(h,s)	gwsquare2_carefully (h,s,s)
 #define gwaddquick(h,s,d) gwadd3quick (h,s,d,d)
 #define gwsubquick(h,s,d) gwsub3quick (h,d,s,d)
 #define gwadd(h,s,d)	gwadd3 (h,s,d,d)
@@ -461,9 +461,10 @@ void gwfft (			/* Forward FFT */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	s,		/* Source number */
 	gwnum	d);		/* Destination (can overlap source) */
-void gwsquare (			/* Square a number */
+void gwsquare2 (		/* Square a number */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s);		/* Source and destination */
+	gwnum	s,		/* Source */
+	gwnum	d);		/* Destination */
 void gwmul (			/* Multiply source with dest */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	s,		/* Source number (changed to FFTed source!) */
@@ -551,9 +552,10 @@ void gwset_square_carefully_count (
 /* round-off error on non-random input data.  Caller must make sure the */
 /* input number has not been partially (via gwstartnextfft) or fully FFTed. */
 
-void gwsquare_carefully (
+void gwsquare2_carefully (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s);		/* Source and destination */
+	gwnum	s,		/* Source */
+	gwnum	d);		/* Destination */
 
 void gwmul_carefully (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */

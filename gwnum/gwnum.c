@@ -9208,9 +9208,10 @@ void gwfft (			/* Forward FFT */
 	((uint32_t *) d)[-7] = 3; // Set has-been-FFTed flag
 }
 
-void gwsquare (			/* Square a number */
+void gwsquare2 (		/* Square a number */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s)		/* Source and destination */
+	gwnum	s,		/* Source */
+	gwnum	d)		/* Destination */
 {
 	struct gwasm_data *asm_data;
 	uint32_t norm_count;
@@ -9227,7 +9228,7 @@ void gwsquare (			/* Square a number */
 		int	n = gwdata->square_carefully_count;
 		if (n > 1) gwstartnextfft (gwdata, 0);
 		gwdata->square_carefully_count = 0;
-		gwsquare_carefully (gwdata, s);
+		gwsquare2_carefully (gwdata, s, d);
 		gwdata->square_carefully_count = n - 1;
 		return;
 	}
@@ -9240,17 +9241,17 @@ void gwsquare (			/* Square a number */
 
 	asm_data = (struct gwasm_data *) gwdata->asm_data;
 	asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->NORMNUM];
-	asm_data->DESTARG = s;
-	asm_data->DIST_TO_FFTSRCARG = 0;
+	asm_data->DESTARG = d;
+	asm_data->DIST_TO_FFTSRCARG = (intptr_t) s - (intptr_t) d;
 	asm_data->DIST_TO_MULSRCARG = 0;
 	asm_data->ffttype = 2;
 	asm_data->zero_fft = 0;
 	asm_data->const_fft = gwdata->NORMNUM & 2;
 	asm_data->add_sub_smallmul_op = 0;
 	gw_fft (gwdata, asm_data);
-	if (! is_valid_double (gwsumout (gwdata, s))) gwdata->GWERROR |= 1;
+	if (! is_valid_double (gwsumout (gwdata, d))) gwdata->GWERROR |= 1;
 	gwdata->fft_count += 2.0;
-	((uint32_t *) s)[-7] = gwdata->POSTFFT; // Set has-been-partially-FFTed flag
+	((uint32_t *) d)[-7] = gwdata->POSTFFT; // Set has-been-partially-FFTed flag
 
 /* Adjust if necessary the SUM(INPUTS) vs. SUM(OUTPUTS).  If norm_count */
 /* is more than one, then the sums will be larger than normal.  This */
@@ -9259,22 +9260,22 @@ void gwsquare (			/* Square a number */
 	if (norm_count != 1) {
 		double	adjustment;
 		adjustment = 1.0 / ((double) norm_count * (double) norm_count);
-		gwsuminp (gwdata, s) *= adjustment;
-		gwsumout (gwdata, s) *= adjustment;
+		gwsuminp (gwdata, d) *= adjustment;
+		gwsumout (gwdata, d) *= adjustment;
 	}
 
 /* Test SUM(INPUTS) vs. SUM(OUTPUTS) */
 
-	sumdiff = gwsuminp (gwdata, s) - gwsumout (gwdata, s);
+	sumdiff = gwsuminp (gwdata, d) - gwsumout (gwdata, d);
 	if (fabs (sumdiff) > gwdata->MAXDIFF) gwdata->GWERROR |= 2; 
 
 /* Reset the unnormalized add count */
 
-	((uint32_t *) s)[-1] = 1;
+	((uint32_t *) d)[-1] = 1;
 
 /* Emulate mod with 2 multiplies case */
 
-	if (gwdata->GENERAL_MOD) emulate_mod (gwdata, s);
+	if (gwdata->GENERAL_MOD) emulate_mod (gwdata, d);
 }
 
 void gwfftmul (			/* Multiply already FFTed source with dest */
@@ -9449,9 +9450,10 @@ void gwset_square_carefully_count (
 /* round-off error on non-random input data.  Caller must make sure the */
 /* input number has not been partially or fully FFTed. */
 
-void gwsquare_carefully (
+void gwsquare2_carefully (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s)		/* Source and destination */
+	gwnum	s,		/* Source */
+	gwnum	d)		/* Destination */
 {
 	struct gwasm_data *asm_data;
 	gwnum	tmp1;
@@ -9484,12 +9486,12 @@ void gwsquare_carefully (
 
 	tmp1 = gwalloc (gwdata);
 	gwstartnextfft (gwdata, 0);			/* Disable POSTFFT */
-	gwaddsub4 (gwdata, s, gwdata->GW_RANDOM, tmp1, s); /* Compute s+random and s-random */
-	gwmul (gwdata, tmp1, s);			/* Compute (s+random)(s-random) */
+	gwaddsub4 (gwdata, s, gwdata->GW_RANDOM, tmp1, d); /* Compute s+random and s-random */
+	gwmul (gwdata, tmp1, d);			/* Compute (s+random)(s-random) */
 	asm_data->ADDIN_VALUE = 0.0;			/* Clear the addin value */
 	gwfft (gwdata, gwdata->GW_RANDOM, tmp1);
 	gwfftfftmul (gwdata, tmp1, tmp1, tmp1);		/* Compute random^2 (we could compute this once and save it) */
-	gwadd3 (gwdata, s, tmp1, s);			/* Calc s^2 from 2 results */
+	gwadd3 (gwdata, d, tmp1, d);			/* Calc s^2 from 2 results */
 
 /* Restore state, free memory and return */
 
