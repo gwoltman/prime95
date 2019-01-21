@@ -361,20 +361,23 @@ void getCpuInfo (void)
 /* Get the CPU info using CPUID instruction */	
 
 	guessCpuType ();
-	NUM_CPUS = CPU_CORES;
 
-/* New in version 29!  Use hwloc info to determine NUM_CPUS and CPU_HYPERTHREADS. */
-/* We still allow overriding this with INI file settings below */
+/* New in version 29!  Use hwloc info to determine NUM_CPUS and CPU_HYPERTHREADS.  Also get number of NUMA nodes */
+/* which we may use later on to allocate memory from the proper NUMA node. */
+/* We still allow overriding these settings using the INI file. */
 
 	NUM_CPUS = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_CORE);
 	CPU_HYPERTHREADS = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_PU) / NUM_CPUS;
+	NUM_NUMA_NODES = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_NUMANODE);
+	if (NUM_NUMA_NODES < 1 || NUM_CPUS % NUM_NUMA_NODES != 0) NUM_NUMA_NODES = 1;
 
-/* New in version 29.5, get L1/L2/L3/L4 total cache size for use in determining torture test FFT sizes */
+/* New in version 29.5, get L1/L2/L3/L4 total cache size for use in determining torture test FFT sizes. */
+/* Overwrite cpuid's linesize and associativity with hwloc's */
 
-	CPU_TOTAL_L1_CACHE_SIZE = 0;
-	CPU_TOTAL_L2_CACHE_SIZE = 0;
-	CPU_TOTAL_L3_CACHE_SIZE = 0;
-	CPU_TOTAL_L4_CACHE_SIZE = 0;
+	CPU_TOTAL_L1_CACHE_SIZE = CPU_NUM_L1_CACHES = 0;
+	CPU_TOTAL_L2_CACHE_SIZE = CPU_NUM_L2_CACHES = 0;
+	CPU_TOTAL_L3_CACHE_SIZE = CPU_NUM_L3_CACHES = 0;
+	CPU_TOTAL_L4_CACHE_SIZE = CPU_NUM_L4_CACHES = 0;
 	for (depth = 0; depth < hwloc_topology_get_depth (hwloc_topology); depth++) {
 		for (i = 0; i < (int) hwloc_get_nbobjs_by_depth (hwloc_topology, depth); i++) {
 			obj = hwloc_get_obj_by_depth (hwloc_topology, depth, i);
@@ -382,14 +385,20 @@ void getCpuInfo (void)
 			if (obj->type == HWLOC_OBJ_L1CACHE) {
 				CPU_TOTAL_L1_CACHE_SIZE += (uint32_t) (obj->attr->cache.size >> 10);
 				CPU_NUM_L1_CACHES++;
+				if (obj->attr->cache.linesize > 0) CPU_L1_CACHE_LINE_SIZE = obj->attr->cache.linesize;
+				if (obj->attr->cache.associativity > 0) CPU_L1_SET_ASSOCIATIVE = obj->attr->cache.associativity;
 			}
 			else if (obj->type == HWLOC_OBJ_L2CACHE) {
 				CPU_TOTAL_L2_CACHE_SIZE += (uint32_t) (obj->attr->cache.size >> 10);
 				CPU_NUM_L2_CACHES++;
+				if (obj->attr->cache.linesize > 0) CPU_L2_CACHE_LINE_SIZE = obj->attr->cache.linesize;
+				if (obj->attr->cache.associativity > 0) CPU_L2_SET_ASSOCIATIVE = obj->attr->cache.associativity;
 			}
 			else if (obj->type == HWLOC_OBJ_L3CACHE) {
 				CPU_TOTAL_L3_CACHE_SIZE += (uint32_t) (obj->attr->cache.size >> 10);
 				CPU_NUM_L3_CACHES++;
+				if (obj->attr->cache.linesize > 0) CPU_L3_CACHE_LINE_SIZE = obj->attr->cache.linesize;
+				if (obj->attr->cache.associativity > 0) CPU_L3_SET_ASSOCIATIVE = obj->attr->cache.associativity;
 			}
 			else if (obj->type == HWLOC_OBJ_L4CACHE) {
 				CPU_TOTAL_L4_CACHE_SIZE += (uint32_t) (obj->attr->cache.size >> 10);
@@ -398,28 +407,12 @@ void getCpuInfo (void)
 		}
 	}
 
-/* New in version 29, determine the number of NUMA nodes.  We may use this later on to allocate memory from the proper NUMA node. */
-/* We also compute the number of "threading nodes".  That is, number of nodes where we don't want to split a worker's thread */
-/* across 2 threading nodes.  For example, there may well be a performance penalty if a worker's threads are on two different */
-/* physical CPUS or access data from two different L3 caches. */
-// bug -- very likely need much more sophisticated hwloc code here.  such as factoring in sharing L3 caches, or asymetric cores per node
+/* Overwrite the cache info calculated via CPUID as hwloc's info is more detailed and I believe more reliable. */
+/* We are transitioning away from using the cache size global variables computed by the CPUID code. */
 
-	NUM_NUMA_NODES = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_NUMANODE);
-	if (NUM_NUMA_NODES < 1 || NUM_CPUS % NUM_NUMA_NODES != 0) NUM_NUMA_NODES = 1;
-	NUM_THREADING_NODES = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_PACKAGE);		// bug:  also look at L3 caches???
-	if (NUM_THREADING_NODES < 1 || NUM_CPUS % NUM_THREADING_NODES != 0) NUM_THREADING_NODES = 1;
-
-/* Allow overriding the hwloc's generated values for number of physical processors, hyperthreads, and NUMA nodes. */
-
-	NUM_CPUS = IniGetInt (LOCALINI_FILE, "NumCPUs", NUM_CPUS);
-	temp = IniGetInt (LOCALINI_FILE, "NumPhysicalCores", 9999);
-	if (temp != 9999) {
-		CPU_HYPERTHREADS = NUM_CPUS / temp;
-		if (CPU_HYPERTHREADS < 1) CPU_HYPERTHREADS = 1;
-		NUM_CPUS = temp;
-	}
-	NUM_NUMA_NODES = IniGetInt (LOCALINI_FILE, "NumNUMANodes", NUM_NUMA_NODES);
-	NUM_THREADING_NODES = IniGetInt (LOCALINI_FILE, "NumThreadingNodes", NUM_THREADING_NODES);
+	if (CPU_NUM_L1_CACHES) CPU_L1_CACHE_SIZE = CPU_TOTAL_L1_CACHE_SIZE / CPU_NUM_L1_CACHES;
+	if (CPU_NUM_L2_CACHES) CPU_L2_CACHE_SIZE = CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES;
+	if (CPU_NUM_L3_CACHES) CPU_L3_CACHE_SIZE = CPU_TOTAL_L3_CACHE_SIZE / CPU_NUM_L3_CACHES;
 
 /* Calculate hardware GUID (global unique identifier) using the CPUID info. */
 /* Well, it isn't unique but it is about as good as we can do and still have */
@@ -473,31 +466,53 @@ void getCpuInfo (void)
 	if (temp == 0) CPU_FLAGS &= ~CPU_AVX512F;
 	if (temp == 1) CPU_FLAGS |= CPU_AVX512F;
 
-/* Let the user override the L2 cache size in local.ini file */
+/* Let the user override the L1/L2/L3/L4 cache size in local.txt file */
 
+	CPU_TOTAL_L1_CACHE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL1TotalCacheSize", CPU_TOTAL_L1_CACHE_SIZE);
+	CPU_NUM_L1_CACHES = IniGetInt (LOCALINI_FILE, "CpuL1NumCaches", CPU_NUM_L1_CACHES);
+
+	CPU_TOTAL_L2_CACHE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL2TotalCacheSize", CPU_TOTAL_L2_CACHE_SIZE);
+	CPU_NUM_L2_CACHES = IniGetInt (LOCALINI_FILE, "CpuL2NumCaches", CPU_NUM_L2_CACHES);
 	CPU_L2_CACHE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL2CacheSize", CPU_L2_CACHE_SIZE);
 	CPU_L2_CACHE_LINE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL2CacheLineSize", CPU_L2_CACHE_LINE_SIZE);
 	CPU_L2_SET_ASSOCIATIVE = IniGetInt (LOCALINI_FILE, "CpuL2SetAssociative", CPU_L2_SET_ASSOCIATIVE);
 
-/* Let the user override the L3 cache size in local.ini file */
-
+	CPU_TOTAL_L3_CACHE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL3TotalCacheSize", CPU_TOTAL_L3_CACHE_SIZE);
+	CPU_NUM_L3_CACHES = IniGetInt (LOCALINI_FILE, "CpuL3NumCaches", CPU_NUM_L3_CACHES);
 	CPU_L3_CACHE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL3CacheSize", CPU_L3_CACHE_SIZE);
 	CPU_L3_CACHE_LINE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL3CacheLineSize", CPU_L3_CACHE_LINE_SIZE);
 	CPU_L3_SET_ASSOCIATIVE = IniGetInt (LOCALINI_FILE, "CpuL3SetAssociative", CPU_L3_SET_ASSOCIATIVE);
+
+	CPU_TOTAL_L4_CACHE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL4TotalCacheSize", CPU_TOTAL_L4_CACHE_SIZE);
+	CPU_NUM_L4_CACHES = IniGetInt (LOCALINI_FILE, "CpuL4NumCaches", CPU_NUM_L4_CACHES);
 
 /* Let the user override the CPUID brand string.  It should never be necessary. */
 /* However, one Athlon owner's brand string became corrupted with illegal characters. */
 	
 	IniGetString (LOCALINI_FILE, "CpuBrand", CPU_BRAND, sizeof(CPU_BRAND), CPU_BRAND);
 
-/* Let user override the number of hyperthreads */
+/* Allow overriding the hwloc's generated values for number of physical processors, hyperthreads, and NUMA nodes. */
 
+	NUM_CPUS = IniGetInt (LOCALINI_FILE, "NumCPUs", NUM_CPUS);
+	if (NUM_CPUS == 0) NUM_CPUS = 1;
 	CPU_HYPERTHREADS = IniGetInt (LOCALINI_FILE, "CpuNumHyperthreads", CPU_HYPERTHREADS);
 	if (CPU_HYPERTHREADS == 0) CPU_HYPERTHREADS = 1;
+	NUM_NUMA_NODES = IniGetInt (LOCALINI_FILE, "NumNUMANodes", NUM_NUMA_NODES);
+	if (NUM_NUMA_NODES == 0) NUM_NUMA_NODES = 1;
 
 /* Let user override the CPU architecture */
 
 	CPU_ARCHITECTURE = IniGetInt (LOCALINI_FILE, "CpuArchitecture", CPU_ARCHITECTURE);
+
+/* We also compute the number of "threading nodes".  That is, number of nodes where we don't want to split a worker's threads */
+/* across 2 threading nodes.  For example, there may well be a performance penalty if a worker's threads are on two different */
+/* physical CPUS or access data from two different L3 caches. */
+// bug -- may need much more sophisticated hwloc code here, such as handling asymetric cores or caches per threading node
+
+	NUM_THREADING_NODES = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_PACKAGE);
+	if (CPU_NUM_L3_CACHES > NUM_THREADING_NODES) NUM_THREADING_NODES = CPU_NUM_L3_CACHES;
+	NUM_THREADING_NODES = IniGetInt (LOCALINI_FILE, "NumThreadingNodes", NUM_THREADING_NODES);
+	if (NUM_THREADING_NODES < 1 || NUM_CPUS % NUM_THREADING_NODES != 0) NUM_THREADING_NODES = 1;
 
 /* Now get the CPU speed */
 
@@ -543,23 +558,41 @@ void getCpuDescription (
 		if (CPU_FLAGS & CPU_AVX512F) strcat (buf, "AVX512F, ");
 		strcpy (buf + strlen (buf) - 2, "\n");
 	}
+
 	strcat (buf, "L1 cache size: ");
-	if (CPU_L1_CACHE_SIZE < 0) strcat (buf, "unknown");
-	else sprintf (buf + strlen (buf), "%d KB", CPU_L1_CACHE_SIZE);
+	if (CPU_NUM_L1_CACHES <= 0) strcat (buf, "unknown");
+	if (CPU_NUM_L1_CACHES > 1) sprintf (buf + strlen (buf), "%dx", CPU_NUM_L1_CACHES);
+	if (CPU_NUM_L1_CACHES >= 1) sprintf (buf + strlen (buf), "%d KB", CPU_TOTAL_L1_CACHE_SIZE / CPU_NUM_L1_CACHES);
+	
 	strcat (buf, ", L2 cache size: ");
-	if (CPU_L2_CACHE_SIZE < 0) strcat (buf, "unknown\n");
-	else {
-		if (CPU_L2_CACHE_SIZE & 0x3FF)
-			sprintf (buf + strlen (buf), "%d KB\n", CPU_L2_CACHE_SIZE);
+	if (CPU_NUM_L2_CACHES <= 0) strcat (buf, "unknown");
+	if (CPU_NUM_L2_CACHES > 1) sprintf (buf + strlen (buf), "%dx", CPU_NUM_L2_CACHES);
+	if (CPU_NUM_L2_CACHES >= 1) {
+		if ((CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES) & 0x3FF)
+			sprintf (buf + strlen (buf), "%d KB", CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES);
 		else
-			sprintf (buf + strlen (buf), "%d MB\n", CPU_L2_CACHE_SIZE >> 10);
+			sprintf (buf + strlen (buf), "%d MB", CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES / 1024);
 	}
-	if (CPU_L3_CACHE_SIZE > 0) {
-		if (CPU_L3_CACHE_SIZE & 0x3FF)
-			sprintf (buf + strlen (buf) - 1, ", L3 cache size: %d KB\n", CPU_L3_CACHE_SIZE);
+
+	if (CPU_NUM_L3_CACHES > 0) {
+		strcat (buf, CPU_NUM_L4_CACHES > 0 ? "\n" : ", ");
+		strcat (buf, "L3 cache size: ");
+		if (CPU_NUM_L3_CACHES > 1) sprintf (buf + strlen (buf), "%dx", CPU_NUM_L3_CACHES);
+		if ((CPU_TOTAL_L3_CACHE_SIZE / CPU_NUM_L3_CACHES) & 0x3FF)
+			sprintf (buf + strlen (buf), "%d KB", CPU_TOTAL_L3_CACHE_SIZE / CPU_NUM_L3_CACHES);
 		else
-			sprintf (buf + strlen (buf) - 1, ", L3 cache size: %d MB\n", CPU_L3_CACHE_SIZE >> 10);
+			sprintf (buf + strlen (buf), "%d MB", CPU_TOTAL_L3_CACHE_SIZE / CPU_NUM_L3_CACHES / 1024);
 	}
+
+	if (CPU_NUM_L4_CACHES > 0) {
+		strcat (buf, ", L4 cache size: ");
+		if (CPU_NUM_L4_CACHES > 1) sprintf (buf + strlen (buf), "%dx", CPU_NUM_L4_CACHES);
+		if ((CPU_TOTAL_L4_CACHE_SIZE / CPU_NUM_L4_CACHES) & 0x3FF)
+			sprintf (buf + strlen (buf), "%d KB", CPU_TOTAL_L4_CACHE_SIZE / CPU_NUM_L4_CACHES);
+		else
+			sprintf (buf + strlen (buf), "%d MB", CPU_TOTAL_L4_CACHE_SIZE / CPU_NUM_L4_CACHES / 1024);
+	}
+
 	if (! long_desc) return;
 	strcat (buf, "L1 cache line size: ");
 	if (CPU_L1_CACHE_LINE_SIZE < 0) strcat (buf, "unknown\n");
@@ -567,12 +600,6 @@ void getCpuDescription (
 	strcat (buf, "L2 cache line size: ");
 	if (CPU_L2_CACHE_LINE_SIZE < 0) strcat (buf, "unknown\n");
 	else sprintf (buf+strlen(buf), "%d bytes\n", CPU_L2_CACHE_LINE_SIZE);
-	if (CPU_L1_DATA_TLBS > 0)
-		sprintf (buf + strlen (buf), "L1 TLBS: %d\n", CPU_L1_DATA_TLBS);
-	if (CPU_L2_DATA_TLBS > 0)
-		sprintf (buf + strlen (buf), "%sTLBS: %d\n",
-			 CPU_L1_DATA_TLBS > 0 ? "L2 " : "",
-			 CPU_L2_DATA_TLBS);
 }
 
 /* Print the machine topology as discovered by hwloc library */
@@ -1127,16 +1154,21 @@ void nameAndReadIniFiles (
 		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_ZEN ? "AMD Zen" :
 		 CPU_ARCHITECTURE == CPU_ARCHITECTURE_OTHER ? "Not Intel and not AMD" : "Undefined");
 	strcat (buf, "L2 cache size: ");
-	if (CPU_L2_CACHE_SIZE < 0) strcat (buf, "unknown");
-	else if (CPU_L2_CACHE_SIZE & 0x3FF)
-		sprintf (buf + strlen (buf), "%d KB", CPU_L2_CACHE_SIZE);
-	else
-		sprintf (buf + strlen (buf), "%d MB", CPU_L2_CACHE_SIZE >> 10);
-	if (CPU_L3_CACHE_SIZE > 0) {
-		if (CPU_L3_CACHE_SIZE & 0x3FF)
-			sprintf (buf + strlen (buf), ", L3 cache size: %d KB", CPU_L3_CACHE_SIZE);
+	if (CPU_NUM_L2_CACHES <= 0) strcat (buf, "unknown");
+	if (CPU_NUM_L2_CACHES > 1) sprintf (buf + strlen (buf), "%dx", CPU_NUM_L2_CACHES);
+	if (CPU_NUM_L2_CACHES >= 1) {
+		if ((CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES) & 0x3FF)
+			sprintf (buf + strlen (buf), "%d KB", CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES);
 		else
-			sprintf (buf + strlen (buf), ", L3 cache size: %d MB", CPU_L3_CACHE_SIZE >> 10);
+			sprintf (buf + strlen (buf), "%d MB", CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES / 1024);
+	}
+	if (CPU_NUM_L3_CACHES > 0) {
+		strcat (buf, ", L3 cache size: ");
+		if (CPU_NUM_L3_CACHES > 1) sprintf (buf + strlen (buf), "%dx", CPU_NUM_L3_CACHES);
+		if ((CPU_TOTAL_L3_CACHE_SIZE / CPU_NUM_L3_CACHES) & 0x3FF)
+			sprintf (buf + strlen (buf), "%d KB", CPU_TOTAL_L3_CACHE_SIZE / CPU_NUM_L3_CACHES);
+		else
+			sprintf (buf + strlen (buf), "%d MB", CPU_TOTAL_L3_CACHE_SIZE / CPU_NUM_L3_CACHES / 1024);
 	}
 	strcat (buf, "\n");
 	OutputStr (MAIN_THREAD_NUM, buf);
