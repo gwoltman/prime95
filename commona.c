@@ -30,8 +30,8 @@ void sanitizeString (
 /* Create a status report message from the work-to-do file */
 
 #define STAT0 "Below is a report on the work you have queued and any expected completion dates.\n"
-#define STAT1 "The chance that one of the %d exponents you are testing will yield a %sprime is about 1 in %llu. "
-#define STAT1a "The chance that the exponent you are testing will yield a %sprime is about 1 in %llu. "
+#define STAT1 "The chance that one of the %d exponents you are testing will yield a %sprime is about 1 in %lld. "
+#define STAT1a "The chance that the exponent you are testing will yield a %sprime is about 1 in %lld. "
 #define STAT3 "No work queued up.\n"
 
 void rangeStatusMessage (
@@ -188,9 +188,9 @@ void rangeStatusMessage (
 /* Print message estimating our probability of success */
 
 	if (ll_and_prp_cnt == 1)
-		sprintf (buf+strlen(buf), STAT1a, mersennes ? "Mersenne " : "", (uint64_t) (1.0 / prob));
+		sprintf (buf+strlen(buf), STAT1a, mersennes ? "Mersenne " : "", (long long) (1.0 / prob));
 	if (ll_and_prp_cnt > 1)
-		sprintf (buf+strlen(buf), STAT1, ll_and_prp_cnt, mersennes ? "Mersenne " : "", (uint64_t) (1.0 / prob));
+		sprintf (buf+strlen(buf), STAT1, ll_and_prp_cnt, mersennes ? "Mersenne " : "", (long long) (1.0 / prob));
 }
 
 /* Return the suggested minimum number of cores that should be used for a work preference. */
