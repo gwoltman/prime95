@@ -984,11 +984,11 @@ void options_torture (void)
 	unsigned long m_thread, m_type, m_minfft, m_maxfft;
 	unsigned long m_memory, m_timefft;
 	unsigned long mem, blendmemory;
-	int	m_weak, m_avx512, m_fma3, m_avx, m_sse2;
+	int	m_custom, m_weak, m_avx512, m_fma3, m_avx, m_sse2;
 
 	m_thread = NUM_CPUS * CPU_HYPERTHREADS;
 	mem = physical_memory ();
-	// New in 29.5, default to all but 2.5GB of memory for the blend test.
+	// New in 29.5, default to all but 2.5GB of memory for the large FFT and blend test.
 	if (mem >= 4500) {
 		blendmemory = GetSuggestedMemory (mem - 2500);
 	} else if (mem >= 2000) {
@@ -1000,29 +1000,56 @@ void options_torture (void)
 	} else {
 		blendmemory = 8;
 	}
-	m_timefft = 3;
 
+	// Get number of threads to run.  It will affect our FFT size calculations.
 	if (NUM_CPUS * CPU_HYPERTHREADS > 1)
-		askNum ("Number of torture test threads to run", &m_thread,
-			1, NUM_CPUS * CPU_HYPERTHREADS);
+		askNum ("Number of torture test threads to run", &m_thread, 1, NUM_CPUS * CPU_HYPERTHREADS);
 
-	outputLongLine ("Choose a type of torture test to run.\n  1 = Small FFTs (maximum heat and FPU stress, data fits in L2 cache, RAM not tested much).\n  2 = In-place large FFTs (maximum power consumption, some RAM tested).\n  3 = Blend (tests some of everything, lots of RAM tested).\n  11,12,13 = Allows you to fine tune the above three selections.\nBlend is the default.  NOTE: if you fail the blend test, but can pass the small FFT test then your problem is likely bad memory or a bad memory controller.\n");
-	m_type = 3;
-	askNum ("Type of torture test to run", &m_type, 1, 13);
-
-	if (m_type == 1 || m_type == 11) {
-		m_minfft = 8;
-		m_maxfft = 64;
-		m_memory = 0;
-	}
-	else if (m_type == 2 || m_type == 12) {
-		m_minfft = 128;
-		m_maxfft = 1024;
-		m_memory = 0;
+	// Ask which torture test to run
+	m_type = 4;
+	if (CPU_TOTAL_L4_CACHE_SIZE) {
+		outputLongLine ("Choose a type of torture test to run.\n  1 = Smallest FFTs (tests L1/L2 caches, maximum power/heat/CPU stress).\n  2 = Small FFTs (tests L1/L2/L3 caches, high power/heat/CPU stress).\n  3 = Medium FFTs (tests L1/L2/L3/L4 caches, high power/heat/CPU stress).\n  4 = Large FFTs (stresses memory controller and RAM).\n  5 = Blend (tests all of the above).\nBlend is the default.  NOTE: if you fail the blend test but pass the smaller FFT tests then your problem is likely bad memory or bad memory controller.\n");
+		askNum ("Type of torture test to run", &m_type, 1, 5);
+	} else if (CPU_TOTAL_L3_CACHE_SIZE) {
+		outputLongLine ("Choose a type of torture test to run.\n  1 = Smallest FFTs (tests L1/L2 caches, maximum power/heat/CPU stress).\n  2 = Small FFTs (tests L1/L2/L3 caches, high power/heat/CPU stress).\n  3 = Large FFTs (stresses memory controller and RAM).\n  4 = Blend (tests all of the above).\nBlend is the default.  NOTE: if you fail the blend test but pass the smaller FFT tests then your problem is likely bad memory or bad memory controller.\n");
+		askNum ("Type of torture test to run", &m_type, 1, 4);
+		if (m_type >= 3) m_type++;
 	} else {
-		m_minfft = 8;
-		m_maxfft = 4096;
-		m_memory = blendmemory;
+		outputLongLine ("Choose a type of torture test to run.\n  1 = Smallest FFTs (tests L1/L2 caches, maximum power/heat/CPU stress).\n  2 = Large FFTs (stresses memory controller and RAM).\n  3 = Blend (tests all of the above).\nBlend is the default.  NOTE: if you fail the blend test but pass the smaller FFT tests then your problem is likely bad memory or bad memory controller.\n");
+		askNum ("Type of torture test to run", &m_type, 1, 3);
+		if (m_type >= 2) m_type += 2;
+	}
+
+	// Calculate default FFT sizes
+	{
+		int	minfft, maxfft;
+		tortureTestDefaultSizes (m_type - 1, m_thread, &minfft, &maxfft);
+		m_minfft = minfft, m_maxfft = maxfft;
+	}
+	if (m_minfft < 4) m_minfft = 4;
+	if (m_maxfft < m_minfft) m_maxfft = m_minfft;
+	if (m_maxfft > 32768) m_maxfft = 32768;
+
+	// Assign other options
+	m_memory = (m_type <= 3 ? 0 : blendmemory);
+	m_timefft = (m_thread > NUM_CPUS ? 6 : 3);
+
+	// Let user customize
+	m_custom = FALSE;
+	askYN ("Customize settings", &m_custom);
+	if (m_custom) {
+		askNum ("Min FFT size (in K)", &m_minfft, 4,
+			CPU_FLAGS & CPU_AVX512F && !m_avx512 ? MAX_FFTLEN_AVX512 / 1024 :
+			CPU_FLAGS & CPU_FMA3 && !m_fma3 ? MAX_FFTLEN_FMA3 / 1024 :
+			CPU_FLAGS & CPU_SSE2 && !m_sse2 ? MAX_FFTLEN_SSE2 / 1024 :
+							  MAX_FFTLEN / 1024);
+		askNum ("Max FFT size (in K)", &m_maxfft, m_minfft,
+			CPU_FLAGS & CPU_AVX512F && !m_avx512 ? MAX_FFTLEN_AVX512 / 1024 :
+			CPU_FLAGS & CPU_FMA3 && !m_fma3 ? MAX_FFTLEN_FMA3 / 1024 :
+			CPU_FLAGS & CPU_SSE2 && !m_sse2 ? MAX_FFTLEN_SSE2 / 1024 :
+							  MAX_FFTLEN / 1024);
+		askNum ("Memory to use (in MB, 0 = in-place FFTs)", &m_memory, 0, mem);
+		askNum ("Time to run each FFT size (in minutes)", &m_timefft, 1, 60);
 	}
 
 	// Ask about running a less stressful torture test.  Stop on first negative answer.
@@ -1036,27 +1063,10 @@ void options_torture (void)
 	if (m_weak && CPU_FLAGS & CPU_SSE2) askYN ("Disable SSE2", &m_sse2), m_weak = m_sse2;
 #endif
 
-	if (m_type >= 11) {
-		askNum ("Min FFT size (in K)", &m_minfft, (CPU_FLAGS & CPU_AVX && !m_avx) ? 0 : 7,
-			CPU_FLAGS & CPU_AVX512F && !m_avx512 ? MAX_FFTLEN_AVX512 / 1024 :
-			CPU_FLAGS & CPU_FMA3 && !m_fma3 ? MAX_FFTLEN_FMA3 / 1024 :
-			CPU_FLAGS & CPU_SSE2 && !m_sse2 ? MAX_FFTLEN_SSE2 / 1024 :
-							  MAX_FFTLEN / 1024);
-		askNum ("Max FFT size (in K)", &m_maxfft, (CPU_FLAGS & CPU_AVX) ? 1 : 7,
-			CPU_FLAGS & CPU_AVX512F && !m_avx512 ? MAX_FFTLEN_AVX512 / 1024 :
-			CPU_FLAGS & CPU_FMA3 && !m_fma3 ? MAX_FFTLEN_FMA3 / 1024 :
-			CPU_FLAGS & CPU_SSE2 && !m_sse2 ? MAX_FFTLEN_SSE2 / 1024 :
-							  MAX_FFTLEN / 1024);
-		if (blendmemory > 8)
-			askNum ("Memory to use (in MB, 0 = in-place FFTs)", &m_memory, 0, mem);
-		askNum ("Time to run each FFT size (in minutes)", &m_timefft, 1, 60);
-	}
-
 	if (askOkCancel ()) {
 		IniWriteInt (INI_FILE, "MinTortureFFT", m_minfft);
 		IniWriteInt (INI_FILE, "MaxTortureFFT", m_maxfft);
-		mem = m_memory / m_thread;
-		IniWriteInt (INI_FILE, "TortureMem", mem);
+		IniWriteInt (INI_FILE, "TortureMem", m_memory);
 		IniWriteInt (INI_FILE, "TortureTime", m_timefft);
 		m_weak = m_avx512 * CPU_AVX512F + m_fma3 * CPU_FMA3 + m_avx * CPU_AVX + m_sse2 * CPU_SSE2;
 		IniWriteInt (INI_FILE, "TortureWeak", m_weak);

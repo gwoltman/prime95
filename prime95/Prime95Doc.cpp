@@ -833,8 +833,8 @@ void CPrime95Doc::OnTorture()
 	CTortureDlg dlg;
 	int	mem;
 
-	dlg.m_minfft = 8;
-	dlg.m_maxfft = 4096;
+	dlg.m_minfft = 4;
+	dlg.m_maxfft = (CPU_TOTAL_L4_CACHE_SIZE ? 32768 : 8192);
 	dlg.m_thread = NUM_CPUS * CPU_HYPERTHREADS;
 	mem = physical_memory ();
 	// New in 29.5, raise the default memory used to all but 2.5GB on 64-bit machines.  Almost all machines today have
@@ -842,35 +842,34 @@ void CPrime95Doc::OnTorture()
 #ifdef X86_64
 	if (mem >= 4500) {
 		dlg.m_blendmemory = GetSuggestedMemory (mem - 2500);
-		dlg.m_in_place_fft = FALSE;
+		dlg.m_in_place = FALSE;
 	} else
 #endif
 	// These are the pre 29.5 memory defaults.
 	if (mem >= 3000) {
 		dlg.m_blendmemory = GetSuggestedMemory (2000);
-		dlg.m_in_place_fft = FALSE;
+		dlg.m_in_place = FALSE;
 	} else if (mem >= 2000) {
 		dlg.m_blendmemory = GetSuggestedMemory (1500);
-		dlg.m_in_place_fft = FALSE;
+		dlg.m_in_place = FALSE;
 	} else if (mem >= 500) {
 		dlg.m_blendmemory = GetSuggestedMemory (mem - 256);
-		dlg.m_in_place_fft = FALSE;
+		dlg.m_in_place = FALSE;
 	} else if (mem >= 200) {
 		dlg.m_blendmemory = GetSuggestedMemory (mem / 2);
-		dlg.m_in_place_fft = TRUE;
+		dlg.m_in_place = TRUE;
 	} else {
 		dlg.m_blendmemory = 8;
-		dlg.m_in_place_fft = TRUE;
+		dlg.m_in_place = TRUE;
 	}
 	dlg.m_memory = dlg.m_blendmemory;
-	dlg.m_timefft = 3;
+	dlg.m_timefft = CPU_HYPERTHREADS * 3;
 	if (dlg.DoModal () == IDOK) {
 		int	m_weak;
 		IniWriteInt (INI_FILE, "MinTortureFFT", dlg.m_minfft);
 		IniWriteInt (INI_FILE, "MaxTortureFFT", dlg.m_maxfft);
-		mem = dlg.m_memory / dlg.m_thread;
-		if (dlg.m_in_place_fft) mem = 8;
-		IniWriteInt (INI_FILE, "TortureMem", mem);
+		if (dlg.m_in_place) dlg.m_memory = 8;
+		IniWriteInt (INI_FILE, "TortureMem", dlg.m_memory);
 		IniWriteInt (INI_FILE, "TortureTime", dlg.m_timefft);
 		m_weak = dlg.m_avx512 * CPU_AVX512F + dlg.m_fma3 * CPU_FMA3 + dlg.m_avx * CPU_AVX + dlg.m_sse2 * CPU_SSE2;
 		IniWriteInt (INI_FILE, "TortureWeak", m_weak);

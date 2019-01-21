@@ -2,6 +2,8 @@
 // Microsoft Visual C++ generated include file.
 // Used by Prime95.rc
 //
+// Copyright 1995-2019 Mersenne Research, Inc.  All rights reserved
+//
 #define IDH_PRIMENET                    11
 #define IDH_WORKER_THREADS              12
 #define IDH_VACATION                    13
@@ -129,10 +131,12 @@
 #define IDC_END_TIME_TEXT               1052
 #define IDC_END_TIME                    1053
 #define IDC_CPU_INFO                    1056
-#define IDC_L2_CACHE                    1058
-#define IDC_BLEND                       1059
-#define IDC_IN_PLACE                    1060
-#define IDC_CUSTOM                      1061
+#define IDC_L2_CACHE                    1057
+#define IDC_L3_CACHE                    1058
+#define IDC_L4_CACHE                    1059
+#define IDC_LARGE_FFT                   1060
+#define IDC_BLEND                       1061
+#define IDC_CUSTOM                      1062
 #define IDC_LINK                        1067
 #define IDC_APP_STRING                  1068
 #define IDC_WARN1                       1070
