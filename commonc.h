@@ -237,6 +237,14 @@ extern gwevent AUTOBENCH_EVENT;		/* Event to wake up workers after an auto-bench
 /* Topology variables and routines */
 
 extern hwloc_topology_t hwloc_topology;	/* Hardware topology */
+extern uint32_t CPU_TOTAL_L1_CACHE_SIZE;/* Sum of all the L1 caches in KB as determined by hwloc */
+extern uint32_t CPU_TOTAL_L2_CACHE_SIZE;/* Sum of all the L2 caches in KB as determined by hwloc */
+extern uint32_t CPU_TOTAL_L3_CACHE_SIZE;/* Sum of all the L3 caches in KB as determined by hwloc */
+extern uint32_t CPU_TOTAL_L4_CACHE_SIZE;/* Sum of all the L4 caches in KB as determined by hwloc */
+extern uint32_t CPU_NUM_L1_CACHES;	/* Number of L1 caches as determined by hwloc */
+extern uint32_t CPU_NUM_L2_CACHES;	/* Number of L2 caches as determined by hwloc */
+extern uint32_t CPU_NUM_L3_CACHES;	/* Number of L3 caches as determined by hwloc */
+extern uint32_t CPU_NUM_L4_CACHES;	/* Number of L4 caches as determined by hwloc */
 extern unsigned int NUM_NUMA_NODES;	/* Number of NUMA nodes in the computer */
 extern unsigned int NUM_THREADING_NODES;/* Number of nodes where it might be beneficial to keep a worker's threads in the same node */
 extern int OS_CAN_SET_AFFINITY;		/* hwloc supports setting CPU affinity (known exception is Apple) */

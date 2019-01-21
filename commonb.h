@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2017 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2019 Mersenne Research, Inc.  All rights reserved
 +---------------------------------------------------------------------*/
 
 //#define SERVER_TESTING
@@ -80,6 +80,7 @@ void create_worker_windows (int num_threads);
 void Launcher (void *arg);
 void LauncherDispatch (void *arg);
 int primeContinue (int);
+void tortureTestDefaultSizes (int torture_type, int num_threads, int *minfft, int *maxfft);
 int tortureTest (int, int);
 int selfTest (int, struct PriorityInfo *, struct work_unit *);
 int primeTime (int, unsigned long, unsigned long);

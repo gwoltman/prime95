@@ -97,6 +97,14 @@ int	WORKTODO_CHANGED = 0;	/* Flag indicating worktodo file needs */
 				/* writing */
 
 hwloc_topology_t hwloc_topology;	/* Hardware topology */
+uint32_t CPU_TOTAL_L1_CACHE_SIZE = 0;	/* Sum of all the L1 caches in KB as determined by hwloc */
+uint32_t CPU_TOTAL_L2_CACHE_SIZE = 0;	/* Sum of all the L2 caches in KB as determined by hwloc */
+uint32_t CPU_TOTAL_L3_CACHE_SIZE = 0;	/* Sum of all the L3 caches in KB as determined by hwloc */
+uint32_t CPU_TOTAL_L4_CACHE_SIZE = 0;	/* Sum of all the L4 caches in KB as determined by hwloc */
+uint32_t CPU_NUM_L1_CACHES = 0;		/* Number of L1 caches as determined by hwloc */
+uint32_t CPU_NUM_L2_CACHES = 0;		/* Number of L2 caches as determined by hwloc */
+uint32_t CPU_NUM_L3_CACHES = 0;		/* Number of L3 caches as determined by hwloc */
+uint32_t CPU_NUM_L4_CACHES = 0;		/* Number of L4 caches as determined by hwloc */
 unsigned int NUM_NUMA_NODES = 1;	/* Number of NUMA nodes in the computer */
 unsigned int NUM_THREADING_NODES = 1;	/* Number of nodes where it might be beneficial to keep a worker's threads in the same node */
 int	OS_CAN_SET_AFFINITY = 1;	/* hwloc supports setting CPU affinity (known exception is Apple) */
@@ -347,7 +355,8 @@ void getCpuSpeed (void)
 
 void getCpuInfo (void)
 {
-	int	temp;
+	int	depth, i, temp;
+	hwloc_obj_t obj;
 
 /* Get the CPU info using CPUID instruction */	
 
@@ -359,6 +368,35 @@ void getCpuInfo (void)
 
 	NUM_CPUS = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_CORE);
 	CPU_HYPERTHREADS = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_PU) / NUM_CPUS;
+
+/* New in version 29.5, get L1/L2/L3/L4 total cache size for use in determining torture test FFT sizes */
+
+	CPU_TOTAL_L1_CACHE_SIZE = 0;
+	CPU_TOTAL_L2_CACHE_SIZE = 0;
+	CPU_TOTAL_L3_CACHE_SIZE = 0;
+	CPU_TOTAL_L4_CACHE_SIZE = 0;
+	for (depth = 0; depth < hwloc_topology_get_depth (hwloc_topology); depth++) {
+		for (i = 0; i < (int) hwloc_get_nbobjs_by_depth (hwloc_topology, depth); i++) {
+			obj = hwloc_get_obj_by_depth (hwloc_topology, depth, i);
+			if (obj == NULL) break; // can't happen
+			if (obj->type == HWLOC_OBJ_L1CACHE) {
+				CPU_TOTAL_L1_CACHE_SIZE += (uint32_t) (obj->attr->cache.size >> 10);
+				CPU_NUM_L1_CACHES++;
+			}
+			else if (obj->type == HWLOC_OBJ_L2CACHE) {
+				CPU_TOTAL_L2_CACHE_SIZE += (uint32_t) (obj->attr->cache.size >> 10);
+				CPU_NUM_L2_CACHES++;
+			}
+			else if (obj->type == HWLOC_OBJ_L3CACHE) {
+				CPU_TOTAL_L3_CACHE_SIZE += (uint32_t) (obj->attr->cache.size >> 10);
+				CPU_NUM_L3_CACHES++;
+			}
+			else if (obj->type == HWLOC_OBJ_L4CACHE) {
+				CPU_TOTAL_L4_CACHE_SIZE += (uint32_t) (obj->attr->cache.size >> 10);
+				CPU_NUM_L4_CACHES++;
+			}
+		}
+	}
 
 /* New in version 29, determine the number of NUMA nodes.  We may use this later on to allocate memory from the proper NUMA node. */
 /* We also compute the number of "threading nodes".  That is, number of nodes where we don't want to split a worker's thread */
@@ -473,8 +511,7 @@ void getCpuDescription (
 	int	long_desc)		/* True for a very long description */
 {
 
-/* Recalculate the CPU speed in case speed step has changed the original */
-/* settings. */
+/* Recalculate the CPU speed in case speed step has changed the original settings. */
 
 	getCpuSpeed ();
 
@@ -507,9 +544,9 @@ void getCpuDescription (
 		strcpy (buf + strlen (buf) - 2, "\n");
 	}
 	strcat (buf, "L1 cache size: ");
-	if (CPU_L1_CACHE_SIZE < 0) strcat (buf, "unknown\n");
-	else sprintf (buf + strlen (buf), "%d KB\n", CPU_L1_CACHE_SIZE);
-	strcat (buf, "L2 cache size: ");
+	if (CPU_L1_CACHE_SIZE < 0) strcat (buf, "unknown");
+	else sprintf (buf + strlen (buf), "%d KB", CPU_L1_CACHE_SIZE);
+	strcat (buf, ", L2 cache size: ");
 	if (CPU_L2_CACHE_SIZE < 0) strcat (buf, "unknown\n");
 	else {
 		if (CPU_L2_CACHE_SIZE & 0x3FF)
