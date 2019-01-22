@@ -3185,7 +3185,7 @@ more_curves:
 	writeResults (buf);
 
 /* Format a JSON version of the result.  An example follows: */
-/* {"status":"NF", "exponent":45581713, "worktype":"ECM", "bounds":{"b1":50000, "b2":5000000}, */
+/* {"status":"NF", "exponent":45581713, "worktype":"ECM", "b1":50000, "b2":5000000, */
 /* "curves":5, "fft-length":5120, "security-code":"39AB1238", */
 /* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
 /* "user":"gw_2", "cpu":"work_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
@@ -3193,7 +3193,7 @@ more_curves:
 	strcpy (JSONbuf, "{\"status\":\"NF\"");
 	JSONaddExponent (JSONbuf, w);
 	strcat (JSONbuf, ", \"worktype\":\"ECM\"");
-	sprintf (JSONbuf+strlen(JSONbuf), ", \"bounds\":{\"b1\":%.0f, \"b2\":%.0f}", (double) B, (double) C);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"b1\":%.0f, \"b2\":%.0f", (double) B, (double) C);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"curves\":%u", w->curves_to_do);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", ecmdata.gwdata.FFTLEN);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, B, C));
@@ -3280,8 +3280,8 @@ bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n", curve, sta
 	writeResults (msg);
 
 /* Format a JSON version of the result.  An example follows: */
-/* {"status":"F", "exponent":45581713, "worktype":"ECM", "factor":"430639100587696027847", */
-/* "bounds":{"b1":50000, "b2":5000000}, "sigma":"123456789123456" */
+/* {"status":"F", "exponent":45581713, "worktype":"ECM", "factors":"430639100587696027847", */
+/* "b1":50000, "b2":5000000, "sigma":"123456789123456" */
 /* "curves":5, "fft-length":5120, "security-code":"39AB1238", */
 /* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
 /* "user":"gw_2", "cpu":"work_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
@@ -3289,8 +3289,8 @@ bingo:	sprintf (buf, "ECM found a factor in curve #%ld, stage #%d\n", curve, sta
 	strcpy (JSONbuf, "{\"status\":\"F\"");
 	JSONaddExponent (JSONbuf, w);
 	strcat (JSONbuf, ", \"worktype\":\"ECM\"");
-	sprintf (JSONbuf+strlen(JSONbuf), ", \"factor\":\"%s\"", str);
-	sprintf (JSONbuf+strlen(JSONbuf), ", \"bounds\":{\"b1\":%.0f, \"b2\":%.0f}", (double) B, (double) C);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"factors\":\"%s\"", str);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"b1\":%.0f, \"b2\":%.0f", (double) B, (double) C);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"sigma\":%.0f", sigma);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"curves\":%lu", curve);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", ecmdata.gwdata.FFTLEN);
@@ -5430,7 +5430,7 @@ msg_and_exit:
 	writeResults (buf);
 
 /* Format a JSON version of the result.  An example follows: */
-/* {"status":"NF", "exponent":45581713, "worktype":"P-1", "bounds":{"b1":50000, "b2":5000000, "brent-suyama":6}, */
+/* {"status":"NF", "exponent":45581713, "worktype":"P-1", "b1":50000, "b2":5000000, "brent-suyama":6, */
 /* "fft-length":5120, "security-code":"39AB1238", */
 /* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
 /* "user":"gw_2", "cpu":"work_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
@@ -5438,13 +5438,11 @@ msg_and_exit:
 	strcpy (JSONbuf, "{\"status\":\"NF\"");
 	JSONaddExponent (JSONbuf, w);
 	strcat (JSONbuf, ", \"worktype\":\"P-1\"");
-	sprintf (JSONbuf+strlen(JSONbuf), ", \"bounds\":{\"b1\":%.0f, ", (double) B);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"b1\":%.0f", (double) B);
 	if (C > B) {
-		sprintf (JSONbuf+strlen(JSONbuf), "\"b2\":%.0f, ", (double) C);
-		if (pm1data.E > 2) sprintf (JSONbuf+strlen(JSONbuf), "\"brent-suyama\":%lu, ", pm1data.E);
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"b2\":%.0f", (double) C);
+		if (pm1data.E > 2) sprintf (JSONbuf+strlen(JSONbuf), ", \"brent-suyama\":%lu", pm1data.E);
 	}
-	JSONbuf[strlen(JSONbuf)-2] = 0;
-	strcat (JSONbuf, "}");
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", pm1data.gwdata.FFTLEN);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, B, C));
 	JSONaddProgramTimestamp (JSONbuf);
@@ -5574,8 +5572,8 @@ bingo:	if (stage == 1)
 	writeResults (msg);
 
 /* Format a JSON version of the result.  An example follows: */
-/* {"status":"F", "exponent":45581713, "worktype":"P-1", "factor":"430639100587696027847", */
-/* "bounds":{"b1":50000, "b2":5000000, "brent-suyama":6}, */
+/* {"status":"F", "exponent":45581713, "worktype":"P-1", "factors":"430639100587696027847", */
+/* "b1":50000, "b2":5000000, "brent-suyama":6, */
 /* "fft-length":5120, "security-code":"39AB1238", */
 /* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
 /* "user":"gw_2", "cpu":"work_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
@@ -5583,14 +5581,12 @@ bingo:	if (stage == 1)
 	strcpy (JSONbuf, "{\"status\":\"F\"");
 	JSONaddExponent (JSONbuf, w);
 	strcat (JSONbuf, ", \"worktype\":\"P-1\"");
-	sprintf (JSONbuf+strlen(JSONbuf), ", \"factor\":\"%s\"", str);
-	sprintf (JSONbuf+strlen(JSONbuf), ", \"bounds\":{\"b1\":%.0f, ", (double) B);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"factors\":\"%s\"", str);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"b1\":%.0f", (double) B);
 	if (stage > 1) {
-		sprintf (JSONbuf+strlen(JSONbuf), "\"b2\":%.0f, ", (double) C);
-		if (pm1data.E > 2) sprintf (JSONbuf+strlen(JSONbuf), "\"brent-suyama\":%lu, ", pm1data.E);
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"b2\":%.0f", (double) C);
+		if (pm1data.E > 2) sprintf (JSONbuf+strlen(JSONbuf), ", \"brent-suyama\":%lu", pm1data.E);
 	}
-	JSONbuf[strlen(JSONbuf)-2] = 0;
-	strcat (JSONbuf, "}");
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", pm1data.gwdata.FFTLEN);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, B, C));
 	JSONaddProgramTimestamp (JSONbuf);
