@@ -6724,28 +6724,6 @@ void gwfreeall (
 	}
 }
 
-/* Copy one gwnum to another gwnum */
-
-void gwcopy (			/* Copy a gwnum */
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s,		/* Source */
-	gwnum	d)		/* Dest */
-{
-	uint32_t free_offset;
-
-/* Load the one piece of information that should not be copied over */
-
-	free_offset = ((uint32_t *) d)[-8];
-
-/* Copy the data and 96-byte header */
-
-	memmove ((char *) d - GW_HEADER_SIZE, (char *) s - GW_HEADER_SIZE, ((uint32_t *) s)[-2] + GW_HEADER_SIZE);
-
-/* Restore the one piece of information that should not be copied over */
-
-	((uint32_t *) d)[-8] = free_offset;
-}
-
 /* To optimize use of the L1 cache we scramble the FFT data. */
 /* Consult the assembly language code for better descriptions of this */
 /* shuffling process.  This C code must accurately reflect the shuffling */
@@ -9624,9 +9602,38 @@ void multithread_op (
 	data.asm_proc = asm_proc;
 	data.is_quick = is_quick;
 
+/* Handle gwcopy for all architectures */
+//BUG - is there a better alternative to memcpy esp. built with our MSVC 2005 environment?  Like using SSE/AVX/AVX-512 loads and stores.
+//BUG - is there any particular advantage to aligning moves on 128, 256, or 4096 byte boundary?
+
+	if (asm_proc == NULL) {
+		int	size, movesize;
+
+		size = ((uint32_t *) s1)[-2] + GW_HEADER_SIZE;
+		data.s1 = (gwnum) ((char *) data.s1 - GW_HEADER_SIZE);
+		data.d1 = (gwnum) ((char *) data.d1 - GW_HEADER_SIZE);
+
+		// Move any bytes before a 128-byte boundary
+		if ((intptr_t) data.s1 & 127) {
+			movesize = 128 - (int) ((intptr_t) data.s1 & 127);
+			memcpy (data.d1, data.s1, movesize);
+			size -= movesize;
+			data.s1 = (gwnum) ((char *) data.s1 + movesize);
+			data.d1 = (gwnum) ((char *) data.d1 + movesize);
+		}
+
+		// Calculate number of 4KB blocks
+		data.num_blks = size >> 12;
+
+		// Move any bytes after last 4KB block
+		if (size & 4095) {
+			memcpy ((char *) data.d1 + data.num_blks * 4096, (char *) data.s1 + data.num_blks * 4096, size & 4095);
+		}
+	}
+
 /* Initialize the structure to share necessary info amongst the AVX-512 compute threads */
 
-	if (gwdata->cpu_flags & CPU_AVX512F) {
+	else if (gwdata->cpu_flags & CPU_AVX512F) {
 		data.num_blks = asm_data->addcount1;
 		data.d1_carries = asm_data->carries;
 		// BUG/OPT - use scratch area rather than aligned_malloc?  one-pass FFTs are an issue.  We'd need to make
@@ -9743,9 +9750,32 @@ void do_multithread_op_work (
 {
 	struct multithread_op_data *data = (struct multithread_op_data *) gwdata->multithread_op_data;
 
+/* Loop processing gwcopy blocks (4KB) */
+
+	if (data->asm_proc == NULL) {
+		for ( ; ; ) {
+			int	i;
+
+/* Get next block to process */
+
+			if (gwdata->num_threads > 1) gwmutex_lock (&gwdata->thread_lock);
+			i = gwdata->next_block;
+			gwdata->next_block++;
+			if (gwdata->num_threads > 1) gwmutex_unlock (&gwdata->thread_lock);
+
+/* Break out of loop when there are no more blocks to process */
+
+			if (i >= data->num_blks) break;
+
+/* Move a 4KB block */
+
+			memcpy ((char *) data->d1 + i * 4096, (char *) data->s1 + i * 4096, 4096);
+		}
+	}
+
 /* Loop processing AVX-512 blocks */
 
-	if (gwdata->cpu_flags & CPU_AVX512F) {
+	else if (gwdata->cpu_flags & CPU_AVX512F) {
 		for ( ; ; ) {
 			int	i;
 
@@ -9803,6 +9833,31 @@ void do_multithread_op_work (
 			call_op (data->asm_proc, asm_data);
 		}
 	}
+}
+
+/* Copy one gwnum to another gwnum */
+
+void gwcopy (			/* Copy a gwnum */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	s,		/* Source */
+	gwnum	d)		/* Dest */
+{
+	uint32_t free_offset;
+
+/* Load the one piece of information that should not be copied over */
+
+	free_offset = ((uint32_t *) d)[-8];
+
+/* Copy the data and 96-byte header */
+
+	if (gwdata->num_threads > 1)
+		multithread_op (gwdata, s, NULL, d, NULL, NULL, TRUE);
+	else
+		memmove ((char *) d - GW_HEADER_SIZE, (char *) s - GW_HEADER_SIZE, ((uint32_t *) s)[-2] + GW_HEADER_SIZE);
+
+/* Restore the one piece of information that should not be copied over */
+
+	((uint32_t *) d)[-8] = free_offset;
 }
 
 /*********************************************************/
