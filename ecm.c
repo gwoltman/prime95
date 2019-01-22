@@ -232,6 +232,7 @@ oom:	return (OutOfMemory (ecmdata->thread_num));
 /* Like ell_add except that x1, z1, xdiff, and zdiff have been FFTed */
 /* NOTE: x2 and z2 represent the FFTs of (x2+z2) and (x2-z2) respectively. */
 
+#ifdef ELL_ADD_SPECIAL_USED
 int ell_add_special (
 	ecmhandle *ecmdata,
 	gwnum 	x1,
@@ -264,6 +265,49 @@ int ell_add_special (
 	gwfftmul (&ecmdata->gwdata, xdiff, t1);
 	gwcopy (&ecmdata->gwdata, t2, x3);
 	gwcopy (&ecmdata->gwdata, t1, z3);
+	gwfree (&ecmdata->gwdata, t1);
+	gwfree (&ecmdata->gwdata, t2);
+	return (0);
+
+/* Out of memory exit path */
+
+oom:	return (OutOfMemory (ecmdata->thread_num));
+}
+#endif
+
+/* Like ell_add except that x1, z1, xdiff, and zdiff have been FFTed */
+/* NOTE: x2 and z2 represent the FFTs of (x2+z2) and (x2-z2) respectively. */
+/* ALSO: Like ell_add_special except x3 is returned in zdiff and z3 is returned in xdiff */
+/* caller must then gwswap xdiff and zdiff.  This save two gwcopies. */
+
+int ell_add_special2 (
+	ecmhandle *ecmdata,
+	gwnum 	x1,
+	gwnum 	z1,
+	gwnum 	x2,
+	gwnum 	z2,
+	gwnum	xdiff,
+	gwnum	zdiff)
+{				/* 10 FFTs */
+	gwnum	t1, t2;
+	t1 = gwalloc (&ecmdata->gwdata);
+	if (t1 == NULL) goto oom;
+	t2 = gwalloc (&ecmdata->gwdata);
+	if (t2 == NULL) goto oom;
+	gwfftaddsub4 (&ecmdata->gwdata, x1, z1, t1, t2);/* Calc (x1 + z1) and (z1 - z1) */
+	gwfftfftmul (&ecmdata->gwdata, z2, t1, t1);	/* t1 = (x1 + z1)(x2 - z2) */
+	gwfftfftmul (&ecmdata->gwdata, x2, t2, t2);	/* t2 = (x1 - z1)(x2 + z2) */
+	gwaddsub (&ecmdata->gwdata, t2, t1);		/* Calc t2 + t1 and t2 - t1 */
+	gwstartnextfft (&ecmdata->gwdata, TRUE);	/* x3 = (t2 + t1)^2 * zdiff */
+	gwsquare (&ecmdata->gwdata, t2);
+	gwfft (&ecmdata->gwdata, t2, t2);
+	gwstartnextfft (&ecmdata->gwdata, FALSE);
+	gwfftfftmul (&ecmdata->gwdata, t2, zdiff, zdiff); /* Return x3 in zdiff */
+	gwstartnextfft (&ecmdata->gwdata, TRUE);	/* z3 = (t2 - t1)^2 * xdiff */
+	gwsquare (&ecmdata->gwdata, t1);
+	gwfft (&ecmdata->gwdata, t1, t1);
+	gwstartnextfft (&ecmdata->gwdata, FALSE);
+	gwfftfftmul (&ecmdata->gwdata, t1, xdiff, xdiff); /* Return z3 in xdiff */
 	gwfree (&ecmdata->gwdata, t1);
 	gwfree (&ecmdata->gwdata, t2);
 	return (0);
@@ -1647,10 +1691,10 @@ int mQ_next (
 /* by Q^2D to get the next Q^m value */
 
 	if (!ecmdata->TWO_FFT_STAGE2) {
-		stop_reason = ell_add_special (ecmdata, ecmdata->Qmx, ecmdata->Qmz,
-					       ecmdata->Q2Dxplus1, ecmdata->Q2Dxminus1,
-					       ecmdata->Qprevmx, ecmdata->Qprevmz,
-					       ecmdata->Qprevmx, ecmdata->Qprevmz);
+		stop_reason = ell_add_special2 (ecmdata, ecmdata->Qmx, ecmdata->Qmz,
+					        ecmdata->Q2Dxplus1, ecmdata->Q2Dxminus1,
+						ecmdata->Qprevmx, ecmdata->Qprevmz);
+		gwswap (ecmdata->Qprevmx, ecmdata->Qprevmz);
 		if (stop_reason) return (stop_reason);
 		gwswap (ecmdata->Qmx, ecmdata->Qprevmx);
 		gwswap (ecmdata->Qmz, ecmdata->Qprevmz);
@@ -1667,10 +1711,10 @@ int mQ_next (
 
 	if (ecmdata->mQx_count == 0) {
 		for ( ; ecmdata->mQx_count < ecmdata->E; ecmdata->mQx_count++) {
-			stop_reason = ell_add_special (ecmdata, ecmdata->Qmx, ecmdata->Qmz,
-						       ecmdata->Q2Dxplus1, ecmdata->Q2Dxminus1,
-						       ecmdata->Qprevmx, ecmdata->Qprevmz,
-						       ecmdata->Qprevmx, ecmdata->Qprevmz);
+			stop_reason = ell_add_special2 (ecmdata, ecmdata->Qmx, ecmdata->Qmz,
+						        ecmdata->Q2Dxplus1, ecmdata->Q2Dxminus1,
+						        ecmdata->Qprevmx, ecmdata->Qprevmz);
+			gwswap (ecmdata->Qprevmx, ecmdata->Qprevmz);
 			if (stop_reason) return (stop_reason);
 			gwswap (ecmdata->Qmx, ecmdata->Qprevmx);
 			gwswap (ecmdata->Qmz, ecmdata->Qprevmz);
@@ -2872,8 +2916,8 @@ restart3:
 /* MEMPEAK: 8 + nQx-1 + 2 for ell_add temporaries */
 
 	for (i = 3; i < ecmdata.D; i = i + 2) {
-		ell_add_special (&ecmdata, Qiminus2x, Qiminus2z, Q2x, Q2z,
-				 Qdiffx, Qdiffz, Qdiffx, Qdiffz);
+		ell_add_special2 (&ecmdata, Qiminus2x, Qiminus2z, Q2x, Q2z, Qdiffx, Qdiffz);
+		gwswap (Qdiffx, Qdiffz);
 
 		if (gw_test_for_error (&ecmdata.gwdata)) goto error;
 
@@ -2906,12 +2950,12 @@ restart3:
 /* MEMUSED: 8 + nQx gwnums (AD4, 6 for computing nQx, nQx vals, modinv_val) */
 /* MEMPEAK: 8 + nQx + 2 for ell_add temporaries */
 
-	ell_add_special (&ecmdata, Qiminus2x, Qiminus2z, Q2x, Q2z,
-			 Qdiffx, Qdiffz, Qdiffx, Qdiffz);
+	ell_add_special2 (&ecmdata, Qiminus2x, Qiminus2z, Q2x, Q2z, Qdiffx, Qdiffz);
+	gwswap (Qdiffx, Qdiffz);
 	gwfftaddsub (&ecmdata.gwdata, Q2x, Q2z); /* Recompute fft of Q2x,Q2z */
 	ell_begin_fft (&ecmdata, Qdiffx, Qdiffz, Qdiffx, Qdiffz);
-	ell_add_special (&ecmdata, Qiminus2x, Qiminus2z, Qdiffx, Qdiffz,
-			 Q2x, Q2z, Q2x, Q2z);
+	ell_add_special2 (&ecmdata, Qiminus2x, Qiminus2z, Qdiffx, Qdiffz, Q2x, Q2z);
+	gwswap (Q2x, Q2z);
 	gwfft (&ecmdata.gwdata, Q2x, Q2x); gwfft (&ecmdata.gwdata, Q2z, Q2z);
 	stop_reason = add_to_normalize_pool (&ecmdata, Q2x, Q2z, 1);
 	if (stop_reason) goto exit;
