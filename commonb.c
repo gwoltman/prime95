@@ -6674,7 +6674,7 @@ begin:	gwinit (&lldata.gwdata);
 
 /* Init the title */
 
-	sprintf (buf, "%ld / %ld", counter, p);
+	sprintf (buf, "Iteration %ld of LL M%ld", counter, p);
 	title (thread_num, buf);
 
 /* Init vars for Test/Status and CommunicateWithServer */
@@ -6959,7 +6959,7 @@ begin:	gwinit (&lldata.gwdata);
 		actual_frequency = (int) (ITER_OUTPUT * output_title_frequency);
 		if (actual_frequency < 1) actual_frequency = 1;
 		if (counter % actual_frequency == 0 || first_iter_msg) {
-			sprintf (buf, "%.*f%% of M%ld", (int) PRECISION, trunc_percent (w->pct_complete), p);
+			sprintf (buf, "%.*f%% of LL M%ld", (int) PRECISION, trunc_percent (w->pct_complete), p);
 			title (thread_num, buf);
 		}
 
@@ -11212,7 +11212,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 		actual_frequency = (int) (ITER_OUTPUT * output_title_frequency);
 		if (actual_frequency < 1) actual_frequency = 1;
 		if (ps.counter % actual_frequency == 0 || first_iter_msg) {
-			sprintf (buf, "%.*f%% of %s", (int) PRECISION, trunc_percent (w->pct_complete), string_rep);
+			sprintf (buf, "%.*f%% of PRP %s", (int) PRECISION, trunc_percent (w->pct_complete), string_rep);
 			title (thread_num, buf);
 		}
 
