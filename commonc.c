@@ -5533,8 +5533,10 @@ retry:
 
 		memset (&pkt, 0, sizeof (pkt));
 		strcpy (pkt.computer_guid, COMPUTER_GUID);
-		strcpy (pkt.hardware_guid, HARDWARE_GUID);
-		strcpy (pkt.windows_guid, WINDOWS_GUID);
+		if (!IniGetInt (INI_FILE, "FixedHardwareUID", 0)) {
+			strcpy (pkt.hardware_guid, HARDWARE_GUID);
+			strcpy (pkt.windows_guid, WINDOWS_GUID);
+		}
 		generate_application_string (pkt.application);
 		strcpy (pkt.cpu_model, CPU_BRAND);
 		pkt.cpu_features[0] = 0;
