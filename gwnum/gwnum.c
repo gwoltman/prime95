@@ -5322,8 +5322,16 @@ void auxiliary_thread (void *arg)
 
 	create_auxiliary_hyperthread (asm_data);
 
-/* Loop waiting for work to do.  The main thread will signal the thread_work_to_do event */
-/* whenever there is work for the auxiliary thread(s) to do. */
+/* This describes the various valid states for synchronizing the main and auxiliary threads.  We use four variables/mutexes. */
+/* work_to_do	all_threads_done    catch_stragglers	num_active_threads */
+/* FALSE	FALSE			FALSE		0			inital state */
+/* TRUE		FALSE			FALSE		0			start aux workers */
+/* TRUE		FALSE			FALSE		> 0			one or more aux workers active */
+/* FALSE	FALSE			FALSE		> 0			some aux workers active, some finished */
+/* FALSE	TRUE			TRUE		0			aux workers finished (but some could still wake up) */
+
+/* Loop waiting for work to do.  The main thread signals the thread_work_to_do event whenever there is work */
+/* for the auxiliary thread(s) to do. */
 
 	for ( ; ; ) {
 		gwevent_wait (&gwdata->thread_work_to_do, 0);
@@ -5336,7 +5344,7 @@ void auxiliary_thread (void *arg)
 /* For example, consider an 8-thread example.  The main thread signals the 7 auxiliary threads to start.  Six of the threads */
 /* can wake up, complete the work, and signal gwdata->all_threads_done when gwdata->num_active_threads returns to zero. */
 /* The main thread catches the signal and continues on.  The seventh auxiliary thread can now get scheduled by the OS */
-/* and end up here. */
+/* and end up here.  The catch_straggler_threads flag handles was created to handle this situation. */
 
 		gwmutex_lock (&gwdata->thread_lock);
 		if (gwdata->catch_straggler_threads) {
@@ -9657,9 +9665,11 @@ void multithread_op (
 	gwdata->multithread_op_data = &data;
 	gwdata->next_block = 0;
 	if (gwdata->num_threads > 1) {
+		gwmutex_lock (&gwdata->thread_lock);
 		gwdata->catch_straggler_threads = FALSE;
 		gwevent_reset (&gwdata->all_threads_done);
 		gwevent_signal (&gwdata->thread_work_to_do);
+		gwmutex_unlock (&gwdata->thread_lock);
 	}
 
 /* Call subroutine to work on blocks just like the auxiliary threads */
