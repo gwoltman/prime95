@@ -15,16 +15,16 @@
 #include <stdlib.h>
 #if defined (__linux__) || defined (__HAIKU__)
 #include <malloc.h>
-#include <memory.h>
 #include <sys/mman.h>
 #endif
 #if defined (__APPLE__) || defined (__FreeBSD__)
-#include <memory.h>
 #include <sys/mman.h>
 #include <mach/vm_statistics.h>
 #endif
 #include "gwcommon.h"
 #include "gwutil.h"
+#include <memory.h>
+#include <string.h>
 
 
 /* Aligned malloc routines.  MSVC 8 supports these in the C runtime library. */
