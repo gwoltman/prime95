@@ -504,9 +504,9 @@ FONT 8, "MS Sans Serif", 0, 0, 0x0
 BEGIN
     LTEXT           "Number of torture test &threads to run:",IDC_THREAD_TEXT,8,9,119,10
     EDITTEXT        IDC_THREAD,132,7,36,12
-    CONTROL         "Smallest FFTs (tests L1/L&2 caches, maximum power/heat/CPU stress)",IDC_L2_CACHE,
+    CONTROL         "Smallest FFTs (tests L1/L&2 caches, high power/heat/CPU stress)",IDC_L2_CACHE,
                     "Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,7,23,282,10
-    CONTROL         "Small FFTs (tests L1/L2/L&3 caches, high power/heat/CPU stress)",IDC_L3_CACHE,
+    CONTROL         "Small FFTs (tests L1/L2/L&3 caches, maximum power/heat/CPU stress)",IDC_L3_CACHE,
                     "Button",BS_AUTORADIOBUTTON,7,36,253,10
     CONTROL         "Medium FFTs (tests L1/L2/L3/L&4 caches)",IDC_L4_CACHE,
                     "Button",BS_AUTORADIOBUTTON,7,49,253,10
@@ -525,9 +525,9 @@ BEGIN
     LTEXT           "&Time to run each FFT size (in minutes):",IDC_TIMEFFT_TEXT,15,145,122,8
     EDITTEXT        IDC_TIMEFFT,146,143,29,12
     GROUPBOX        "Run a Weaker Torture Test (not recommended)",IDC_WEAKTORTUREGROUP,7,165,251,42,WS_GROUP
-    CONTROL         "&Disable AVX-512",IDC_AVX512,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,177,100,10
-    CONTROL         "&Disable AVX2 (fused multiply-add)",IDC_FMA3,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,119,177,136,10
-    CONTROL         "&Disable AVX",IDC_AVX,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,191,100,10
+    CONTROL         "Disable AVX-&512",IDC_AVX512,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,177,100,10
+    CONTROL         "Disable AVX2 (&fused multiply-add)",IDC_FMA3,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,119,177,136,10
+    CONTROL         "Disable AV&X",IDC_AVX,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,191,100,10
 #ifndef X86_64
     CONTROL         "&Disable SSE2",IDC_SSE2,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,119,191,100,10
 #endif
@@ -593,8 +593,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 29,5,1,0
- PRODUCTVERSION 29,5,0,0
+ FILEVERSION 29,6,1,0
+ PRODUCTVERSION 29,6,0,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -610,12 +610,12 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "FileDescription", "PRIME95 Application"
-            VALUE "FileVersion", "29, 5, 1, 0"
+            VALUE "FileVersion", "29, 6, 1, 0"
             VALUE "InternalName", "PRIME95"
             VALUE "LegalCopyright", "Copyright © 1996-2019, Mersenne Research Inc."
             VALUE "OriginalFilename", "PRIME95.EXE"
             VALUE "ProductName", "PRIME95 Application"
-            VALUE "ProductVersion", "29, 5, 0, 0"
+            VALUE "ProductVersion", "29, 6, 0, 0"
         END
     END
     BLOCK "VarFileInfo"
