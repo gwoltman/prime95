@@ -183,6 +183,7 @@ void read_pause_info (void);
 void checkPauseWhileRunning (void);
 void implement_pause (int thread_num);
 int is_LowMemWhileRunning_active (int thread_num);
+void isInPauseList (char *program_name);
 
 /* Load average routines */
 
