@@ -31,12 +31,10 @@
 #endif
 #if defined (__linux__) || defined (__FreeBSD__) || defined (__APPLE__) || defined (__HAIKU__)
 #include <sys/time.h>
-#define _timeb	timeb
-#define _ftime	ftime
 #endif
-#include <sys/timeb.h>
 #include "cpuid.h"
 #include "gwthread.h"
+#include "gwutil.h"
 
 #define safe_strcpy(d,s)	memmove (d, s, strlen (s) + 1)
 
@@ -1516,7 +1514,7 @@ void guessCpuSpeed (void)
 /* Otherwise use the low resolution timer to measure CPU speed */
 
 	else {
-		struct _timeb temp, start_time, end_time;
+		struct timeval temp, start_time, end_time;
 		uint32_t start_hi, start_lo, end_hi, end_lo;
 		double	speed1, speed2, speed3, avg_speed, elapsed_time;
 		int	tries;
@@ -1535,17 +1533,17 @@ void guessCpuSpeed (void)
 
 /* Loop waiting for low resolution timer to change */
 
-			_ftime (&temp);
+			gettimeofday (&temp, NULL);
 			do
-				_ftime (&start_time);
-			while (temp.millitm == start_time.millitm);
+				gettimeofday (&start_time, NULL);
+			while (temp.tv_usec == start_time.tv_usec);
 			rdtsc (&start_hi, &start_lo);
 
 /* Now loop waiting for timer to change again */
 
 			do
-				_ftime (&end_time);
-			while (start_time.millitm == end_time.millitm);
+				gettimeofday (&end_time, NULL);
+			while (start_time.tv_usec == end_time.tv_usec);
 			rdtsc (&end_hi, &end_lo);
 
 /* Compute elapsed time.  Since most PCs have a low resolution clock */
@@ -1553,17 +1551,13 @@ void guessCpuSpeed (void)
 /* to 1 / 18.2 seconds, then assume the elapsed time is */
 /* 1 / 18.206... = 0.054925493 seconds. */
 
-			elapsed_time = (end_time.time - start_time.time) +
-				  ((int) end_time.millitm -
-				   (int) start_time.millitm) / 1000.0;
+			elapsed_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
 			if (elapsed_time >= 0.049 && elapsed_time <= 0.061)
 				elapsed_time = 0.054925493;
 
 /* Compute speed based on number of clocks in the time interval */
 
-			speed1 = (end_hi * 4294967296.0 + end_lo -
-				  start_hi * 4294967296.0 - start_lo) /
-				 elapsed_time / 1000000.0;
+			speed1 = (end_hi * 4294967296.0 + end_lo - start_hi * 4294967296.0 - start_lo) / elapsed_time / 1000000.0;
 
 /* Caclulate average of last 3 speeds.  Loop if this average isn't */
 /* very close to all of the last three speed calculations. */
