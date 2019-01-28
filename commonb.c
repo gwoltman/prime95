@@ -225,9 +225,9 @@ void start_timer (
 		rdtsc (&hi, &lo);
 		timers[i] -= (double) hi * 4294967296.0 + lo;
 	} else {
-		struct _timeb timeval;
-		_ftime (&timeval);
-		timers[i] -= (double) timeval.time * 1000.0 + timeval.millitm;
+		struct timeval start_time;
+		gettimeofday (&start_time, NULL);
+		timers[i] -= (double) start_time.tv_sec * 1000000.0 + start_time.tv_usec;
 	}
 }
 
@@ -242,9 +242,9 @@ void end_timer (
 		rdtsc (&hi, &lo);
 		timers[i] += (double) hi * 4294967296.0 + lo;
 	} else {
-		struct _timeb timeval;
-		_ftime (&timeval);
-		timers[i] += (double) timeval.time * 1000.0 + timeval.millitm;
+		struct timeval end_time;
+		gettimeofday (&end_time, NULL);
+		timers[i] += (double) end_time.tv_sec * 1000000.0 + end_time.tv_usec;
 	}
 }
 
@@ -265,7 +265,7 @@ double timer_value (
 	else if (RDTSC_TIMING > 10 && (CPU_FLAGS & CPU_RDTSC))
 		return (timers[i] / CPU_SPEED / 1000000.0);
 	else
-		return (timers[i] / 1000.0);
+		return (timers[i] / 1000000.0);
 }
 
 #define TIMER_NL	0x1
@@ -11550,7 +11550,7 @@ pushg(&gwdata.gdata, 2);}
 	}
 
 /* Format a JSON version of the result.  An example follows: */
-/* {"status":"C", "exponent":25000000, "known-factors":"12345,67890", "worktype":"PRP-3", "res64":"0123456789ABCDEF", */
+/* {"status":"C", "exponent":25000000, "known-factors":["12345","67890"], "worktype":"PRP-3", "res64":"0123456789ABCDEF", */
 /* "residue-type":1, "res2048":"BigLongString", "fft-length":4096000, "shift-count":1234567, "error-code":"00010000", */
 /* "security-code":"C6B0B26C", "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
 /* "errors":{"gerbicz":0}, "user":"gw_2", "cpu":"basement", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
@@ -11559,12 +11559,21 @@ pushg(&gwdata.gdata, 2);}
 	JSONaddExponent (JSONbuf, w);
 	if (w->known_factors != NULL) {
 		char	fac_string[1210];
-		if (strlen (w->known_factors) <= 1200) strcpy (fac_string, w->known_factors);
-		else {
-			memcpy (fac_string, w->known_factors, 1200);
-			strcpy (fac_string+1200, "...");
+		char	*in, *out;
+		fac_string[0] = 0;
+		// Copy known factors changing commas to quote-comma-quote
+		for (in = w->known_factors, out = fac_string; ; in++) {
+			if (*in == ',') {
+				strcpy (out, "\",\"");
+				out += 3;
+			} else if (out - fac_string > 1200) {
+				strcpy (out, "...");
+				break;
+			} else
+				*out++ = *in;
+			if (*in == 0) break;
 		}
-		sprintf (JSONbuf+strlen(JSONbuf), ", \"known-factors\":\"%s\"", fac_string);
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"known-factors\":[\"%s\"]", fac_string);
 	}
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"worktype\":\"PRP-%u\"", ps.prp_base);
 	if (!isProbablePrime) {
