@@ -1,4 +1,4 @@
-/* Copyright 1995-2017 Mersenne Research, Inc. */
+/* Copyright 1995-2019 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -25,7 +25,6 @@
 #include <sys/resource.h>
 #include <sys/sysinfo.h>
 #include <sys/time.h>
-#include <sys/timeb.h>
 #endif
 
 /* Required Mac OS X files */
@@ -38,7 +37,6 @@
 #include <sys/resource.h>
 #include <sys/sysctl.h>
 #include <sys/time.h>
-#include <sys/timeb.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/ps/IOPowerSources.h>
 #include <IOKit/ps/IOPSKeys.h>
@@ -56,7 +54,6 @@
 #include <sys/sysctl.h>
 #include <sys/types.h>
 #include <sys/time.h>
-#include <sys/timeb.h>
 #endif
 
 /* Required OS/2 header files */
@@ -67,7 +64,6 @@
 #include <direct.h>
 #include <io.h>
 #include <process.h>
-#include <sys/timeb.h>
 typedef int pid_t;
 #include "dosqss.h"
 #endif
@@ -78,7 +74,6 @@ typedef int pid_t;
 #include <unistd.h>
 #include <sys/resource.h>
 #include <sys/time.h>
-#include <sys/timeb.h>
 #endif
 
 /* Required Haiku files */
@@ -89,7 +84,6 @@ typedef int pid_t;
 #include <sys/resource.h>
 #include <sys/types.h>
 #include <sys/time.h>
-#include <sys/timeb.h>
 #endif
 
 /* Globals */
