@@ -1136,7 +1136,6 @@ void flashWindowAndBeep ()
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/timeb.h>
 #include <gwutil.h>
 
 #ifdef X86_64
@@ -1144,12 +1143,12 @@ void flashWindowAndBeep ()
 #else
 #define PORT	1
 #endif
+#include "comm95b.c"
+#include "comm95c.c"
 #include "commona.c"
 #include "commonb.c"
 #include "commonc.c"
 #include "ecm.c"
-#include "comm95b.c"
-#include "comm95c.c"
 #include "primenet.c"
 #include "gwtest.c"
 
