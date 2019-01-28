@@ -4,11 +4,14 @@
 | This file contains various utility routines that may be used by gwnum
 | routines, prime95, or other consumers of gwnum.
 | 
-|  Copyright 2004-2018 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2004-2019 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
 
+#include <stdlib.h>
+#include <memory.h>
+#include <string.h>
 #ifdef _WIN32
 #include "windows.h"
 #endif
@@ -23,8 +26,6 @@
 #endif
 #include "gwcommon.h"
 #include "gwutil.h"
-#include <memory.h>
-#include <string.h>
 
 
 /* Aligned malloc routines.  MSVC 8 supports these in the C runtime library. */
@@ -253,4 +254,30 @@ void truncated_strcpy (
 {
 	truncated_strcpy_with_len (buf, bufsize, val, (unsigned int) strlen (val));
 }
+
+/* Utility time routine available in Linux but not Windows */
+
+#ifdef _WIN32
+int gettimeofday (
+	struct timeval *tp,
+	void	*tzp)
+{
+	// This magic number is the number of 100 nanosecond intervals since January 1, 1601 (UTC)
+	// until 00:00:00 January 1, 1970 
+	static const uint64_t EPOCH = ((uint64_t) 116444736000000000ULL);
+
+	SYSTEMTIME  system_time;
+	FILETIME    file_time;
+	uint64_t    time;
+
+	GetSystemTime (&system_time);
+	SystemTimeToFileTime (&system_time, &file_time);
+	time =  ((uint64_t) file_time.dwLowDateTime);
+	time += ((uint64_t) file_time.dwHighDateTime) << 32;
+
+	tp->tv_sec  = (long) ((time - EPOCH) / 10000000L);
+	tp->tv_usec = (long) (system_time.wMilliseconds * 1000);
+	return 0;
+}
+#endif
 
