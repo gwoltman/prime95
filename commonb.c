@@ -53,6 +53,7 @@ int	PAUSE_MUTEX_INITIALIZED = 0;
 gwmutex	PAUSE_MUTEX;		/* Lock for accessing pause globals */
 struct pause_info *PAUSE_DATA = NULL;
 int	PAUSE_WHILE_RUNNING_FREQ = 10;
+int	PAUSEABLE_WORKERS_RUNNING = FALSE;
 
 /* Globals for stopping and starting worker threads */
 
@@ -2090,10 +2091,10 @@ void read_pause_info (void)
 	if (seconds_until_reread)
 		add_timed_event (TE_READ_PAUSE_DATA, seconds_until_reread);
 
-/* If the pause timer is active, then call checkPauseWhileRunning so that */
+/* If the pauseable workers are running, then call checkPauseWhileRunning so that */
 /* we can decide which workers need to be paused based on this new pause info. */
 
-	if (is_timed_event_active (TE_PAUSE_WHILE)) {
+	if (PAUSEABLE_WORKERS_RUNNING) {
 		delete_timed_event (TE_PAUSE_WHILE);
 		checkPauseWhileRunning ();
 	}
@@ -2105,12 +2106,14 @@ void read_pause_info (void)
 
 void start_pause_while_running_timer (void)
 {
+	PAUSEABLE_WORKERS_RUNNING = TRUE;
 	if (PAUSE_DATA == NULL) return;
 	add_timed_event (TE_PAUSE_WHILE, 0);		// Check for pause-while-running programs immediately
 }
 
 void stop_pause_while_running_timer (void)
 {
+	PAUSEABLE_WORKERS_RUNNING = FALSE;
 	delete_timed_event (TE_PAUSE_WHILE);
 }
 
@@ -2241,10 +2244,10 @@ void checkPauseWhileRunning (void)
 /* If there are any pause-for-specific program entries, then we must reset */
 /* the timer to check the pause list in a few seconds.  If there are only */
 /* star (match any program) entries, then we don't need to check the pause */
-/* list until new PauseWhileRunning info is read from the INI file.  However, */
-/* do not delete the timer as read_pause_info checks for the timer being active! */	
+/* list until new PauseWhileRunning info is read from the INI file. */
 
-	add_timed_event (TE_PAUSE_WHILE, named_program_entries ? PAUSE_WHILE_RUNNING_FREQ : 1000000);
+	if (named_program_entries)
+		add_timed_event (TE_PAUSE_WHILE, PAUSE_WHILE_RUNNING_FREQ);
 }
 
 /* This routine is called by the OS-specific routine that gets the process */
