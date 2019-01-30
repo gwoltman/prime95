@@ -554,12 +554,15 @@ void SetPriority (
 		int	num_cores;
 		hwloc_obj_t obj;
 		num_cores = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_CORE);
+		if (num_cores < 1) num_cores = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_PU);
+		if (num_cores < 1) num_cores = 1;	// This shouldn't happen
 		if (core >= num_cores) {		// This shouldn't happen
 			sprintf (buf, "Error setting affinity to core #%d.  There are %d cores.\n", core+1, num_cores);
 			OutputStr (info->worker_num, buf);
 			core %= num_cores;
 		}
-		obj = hwloc_get_obj_by_type (hwloc_topology, HWLOC_OBJ_CORE, core);	/* Get proper core */
+		obj = hwloc_get_obj_by_type (hwloc_topology, HWLOC_OBJ_CORE, core);			/* Get proper core */
+		if (obj == NULL) obj = hwloc_get_obj_by_type (hwloc_topology, HWLOC_OBJ_PU, core);	/* Get proper core */
 		if (obj) {
 			if (hwloc_set_cpubind (hwloc_topology, obj->cpuset, HWLOC_CPUBIND_THREAD)) { /* Bind thread to all logical CPUs in the core */
 				char *str;

@@ -367,7 +367,10 @@ void getCpuInfo (void)
 /* We still allow overriding these settings using the INI file. */
 
 	NUM_CPUS = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_CORE);
+	if (NUM_CPUS < 1) NUM_CPUS = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_PU);
+	if (NUM_CPUS < 1) NUM_CPUS = 1;				// Shouldn't happen
 	CPU_HYPERTHREADS = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_PU) / NUM_CPUS;
+	if (CPU_HYPERTHREADS < 1) CPU_HYPERTHREADS = 1;		// Shouldn't happen
 	NUM_NUMA_NODES = hwloc_get_nbobjs_by_type (hwloc_topology, HWLOC_OBJ_NUMANODE);
 	if (NUM_NUMA_NODES < 1 || NUM_CPUS % NUM_NUMA_NODES != 0) NUM_NUMA_NODES = 1;
 
@@ -381,7 +384,7 @@ void getCpuInfo (void)
 	for (depth = 0; depth < hwloc_topology_get_depth (hwloc_topology); depth++) {
 		for (i = 0; i < (int) hwloc_get_nbobjs_by_depth (hwloc_topology, depth); i++) {
 			obj = hwloc_get_obj_by_depth (hwloc_topology, depth, i);
-			if (obj == NULL) break; // can't happen
+			if (obj == NULL || obj->attr == NULL) break; // can't happen
 			if (obj->type == HWLOC_OBJ_L1CACHE) {
 				CPU_TOTAL_L1_CACHE_SIZE += (uint32_t) (obj->attr->cache.size >> 10);
 				CPU_NUM_L1_CACHES++;
