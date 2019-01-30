@@ -20,9 +20,12 @@
 #include <malloc.h>
 #include <sys/mman.h>
 #endif
-#if defined (__APPLE__) || defined (__FreeBSD__)
+#if defined (__APPLE__)
 #include <sys/mman.h>
 #include <mach/vm_statistics.h>
+#endif
+#if defined (__FreeBSD__)
+#include <sys/mman.h>
 #endif
 #include "gwcommon.h"
 #include "gwutil.h"
@@ -197,8 +200,11 @@ void * large_pages_malloc (
 #elif defined (__linux__)
 	p = mmap (NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
 	if (p == MAP_FAILED) return (NULL);
-#elif defined (__APPLE__) || defined (__FreeBSD__)
+#elif defined (__APPLE__)
 	p = mmap (NULL, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, VM_FLAGS_SUPERPAGE_SIZE_2MB, 0);
+	if (p == MAP_FAILED) return (NULL);
+#elif defined (__FreeBSD__)
+	p = mmap (NULL, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE | MAP_ALIGNED_SUPER, -1, 0);
 	if (p == MAP_FAILED) return (NULL);
 #else
 	return (NULL);
