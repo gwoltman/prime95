@@ -1,18 +1,18 @@
 # Makefile for FreeBSD 10.0 64-bit mprime
 #
-# Install the curl package.  This will be installed to %%LOCALBASE%% by default.
+# Install the curl package.  This will be installed to $(LOCALBASE) by default.
 #
 # Hwloc can be downloaded from https://www.open-mpi.org/projects/hwloc/
 # Configure hwloc with --enable-static --disable-shared --disable-pci --disable-cuda --disable-gl
 #
 
 CC = cc
-CFLAGS = -I.. -I../gwnum -I%%LOCALBASE%%/include -DX86_64 -O2
+CFLAGS = -I.. -I../gwnum -I$(LOCALBASE)/include -DX86_64 -O2
 
 CPP = cc
 CPPFLAGS = -I.. -I../gwnum -DX86_64 -O2
 
-LFLAGS = -L%%LOCALBASE%%/lib -Wl,-M
+LFLAGS = -L$(LOCALBASE)/lib -Wl,-M
 LIBS = ../gwnum/gwnum.a ../gwnum/gwnum.ld -lm -lpthread -lhwloc -lcurl -lstdc++ -lcompat -lgmp
 
 FACTOROBJ = factor64.o
