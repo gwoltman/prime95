@@ -11633,7 +11633,7 @@ pushg(&gwdata.gdata, 2);}
 
 /* Output good news to the screen in an infinite loop */
 
-	if (isProbablePrime && !SILENT_VICTORY_PRP) {
+	if (isProbablePrime && !SILENT_VICTORY_PRP && (w->k != 1.0 || w->b != 2 || !isKnownMersennePrime (w->n) || w->c != -1)) {
 		gwthread thread_handle;
 		char	*arg;
 		arg = (char *) malloc (strlen (string_rep) + 1);
