@@ -6300,6 +6300,7 @@ int multithread_init (
 void create_auxiliary_hyperthread (			/* Create the prefetching hyperthread for one of the compute threads */
 	struct gwasm_data *asm_data)
 {
+#ifdef AUX_HYPER
 	gwhandle *gwdata;
 
 	gwdata = asm_data->gwdata;
@@ -6414,6 +6415,7 @@ prefetches2 += (int) asm_data->pass2blkdst / 64;
 
 	if (gwdata->thread_callback != NULL)
 		(*gwdata->thread_callback) (asm_data->thread_num, 11, gwdata->thread_callback_data);
+#endif
 }
 
 
@@ -6433,8 +6435,10 @@ void multithread_term (
 /* Set variable that tells all auxiliary threads and hyperthreads to terminate. */
 /* Fire up auxiliary compute threads so they can exit. */
 
+		gwmutex_lock (&gwdata->thread_lock);
 		gwdata->threads_must_exit = TRUE;
 		gwevent_signal (&gwdata->thread_work_to_do);
+		gwmutex_unlock (&gwdata->thread_lock);
 
 /* Wait for all compute threads to exit.  We must do this so */
 /* that this thread can safely delete the gwdata structure */
