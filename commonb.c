@@ -3629,7 +3629,7 @@ typedef struct write_save_file_state {
 	char	base_filename[80];
 	int	num_ordinary_save_files;
 	int	num_special_save_files;		/* Example: Number of save files to keep that passed the Jacobi error check */
-	int	special;			/* Which ordinary save file is also special (zero if none) */
+	uint64_t special;			/* Bit array for which ordinary save files are special */
 } writeSaveFileState;
 
 /* Prepare for writing save files */
@@ -3642,7 +3642,7 @@ void writeSaveFileStateInit (
 	strcpy (state->base_filename, filename);
 	state->num_ordinary_save_files = NUM_BACKUP_FILES;
 	state->num_special_save_files = num_special_save_files;
-	state->special = 0;			/* Init with "no ordinary file is special" */
+	state->special = 0;			/* Init with "no ordinary files are special" */
 }
 
 /* Open the save file for writing.  Either overwrite or generate a temporary */
@@ -3692,9 +3692,13 @@ void closeWriteSaveFile (
 
 	if (state->num_ordinary_save_files == 99) return;
 
-/* Decide how many save files need renaming */
+/* Save files that are special will be one step further down the chain after renaming */
 
-	rename_count = (state->special == state->num_ordinary_save_files) ?
+	state->special <<= 1;
+
+/* Decide how many save files need renaming (does the last ordinary file deserve to move into the special save files?) */
+
+	rename_count = bittst (&state->special, state->num_ordinary_save_files) ?
 			       state->num_ordinary_save_files + state->num_special_save_files : state->num_ordinary_save_files;
 
 /* Delete the last file in the rename chain */
@@ -3714,12 +3718,14 @@ void closeWriteSaveFile (
 		rename (src_filename, dest_filename);
 		strcpy (dest_filename, src_filename);
 	}
+}
 
-/* If there was an ordinary save file that was special, it is one step further down the chain */
-/* or has finally reached the special save files. */
+/* Mark the current save file as special (a super good save file -- Jacobi or Gerbicz checked) */
 
-	if (state->special > 0 && state->special < state->num_ordinary_save_files) state->special++;
-	else state->special = 0;
+void setWriteSaveFileSpecial (
+	writeSaveFileState *state)
+{
+	state->special |= 1;
 }
 
 /* Close and delete the save file we were writing.  This is done */
@@ -6652,7 +6658,7 @@ begin:	gwinit (&lldata.gwdata);
 		    counter <= w->n &&
 		    (!Jacobi_testing_enabled || jacobi_test (thread_num, p, &lldata))) {
 			first_iter_msg = TRUE;
-			if (Jacobi_testing_enabled) write_save_file_state.special = 1;
+			if (Jacobi_testing_enabled) setWriteSaveFileSpecial (&write_save_file_state);
 			break;
 		}
 
@@ -7045,7 +7051,7 @@ begin:	gwinit (&lldata.gwdata);
 				sprintf (buf, WRITEFILEERR, filename);
 				OutputBoth (thread_num, buf);
 			}
-			if (Jacobi_testing) write_save_file_state.special = 1;
+			if (Jacobi_testing) setWriteSaveFileSpecial (&write_save_file_state);
 		}
 
 /* If an escape key was hit, write out the results and return */
@@ -11095,6 +11101,7 @@ echk=1;
 			if (maxerr_recovery_mode && ps.counter == last_counter) {
 				gwsquare_carefully (&gwdata, x);
 				maxerr_recovery_mode = 0;
+				last_counter = 0xFFFFFFFF;
 				echk = 0;
 			} else if (ps.counter < 30 || ps.counter >= final_counter-30)
 				gwsquare_carefully (&gwdata, x);
@@ -11141,6 +11148,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			sprintf (buf, ERRMSG0, ps.counter+1, final_counter, ERRMSG1A);
 			OutputBoth (thread_num, buf);
 			inc_error_count (2, &ps.error_count);
+			restart_counter = ps.counter;		/* rollback to this iteration or earlier */
 			sleep5 = TRUE;
 			goto restart;
 		}
@@ -11166,6 +11174,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 					last_counter = ps.counter;
 					last_suminp = gwsuminp (&gwdata, x);
 					last_sumout = gwsumout (&gwdata, x);
+					restart_counter = ps.counter;		/* rollback to this iteration or earlier */
 					sleep5 = TRUE;
 					goto restart;
 				}
@@ -11185,6 +11194,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 				gw_clear_error (&gwdata);
 				OutputBoth (thread_num, ERRMSG5);
 				maxerr_recovery_mode = 1;
+				restart_counter = ps.counter;		/* rollback to this iteration or earlier */
 				sleep5 = FALSE;
 				goto restart;
 			} else {
@@ -11197,6 +11207,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 				    gw_get_maxerr (&gwdata) > IniGetFloat (INI_FILE, "RoundoffRollbackError", (float) 0.475)) {
 					last_counter = ps.counter;
 					last_maxerr = gw_get_maxerr (&gwdata);
+					restart_counter = ps.counter;		/* rollback to this iteration or earlier */
 					sleep5 = FALSE;
 					goto restart;
 				}
@@ -11403,7 +11414,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			// Mark save files that contain verified computations.  This will keep the save file
 			// for a longer period of time (i.e. will not be replaced by a save file that does
 			// not also contain verified computations).
-			if (saving_highly_reliable) write_save_file_state.special = 1;
+			if (saving_highly_reliable) setWriteSaveFileSpecial (&write_save_file_state);
 		}
 
 /* If an escape key was hit, write out the results and return */
