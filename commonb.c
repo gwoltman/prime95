@@ -10988,6 +10988,7 @@ rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 				ps.state = PRP_STATE_GERB_MID_BLOCK;
 				gerbicz_block_size = (int) (IniGetFloat (INI_FILE, "PRPGerbiczCompareIntervalAdj", 1.0) *
 							    IniGetInt (INI_FILE, "PRPGerbiczCompareInterval", 1000000));
+				if (gerbicz_block_size < 16) gerbicz_block_size = 16;
 				if (iters_left < gerbicz_block_size) gerbicz_block_size = iters_left;
 				ps.L = (unsigned long) sqrt ((double) gerbicz_block_size);
 				ps.start_counter = ps.counter;
@@ -11368,7 +11369,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 				sprintf (buf, ERRMSG7, ps.start_counter);
 				OutputBoth (thread_num, buf);
 				gerbicz_block_size_adjustment *= 0.25;		/* This will halve next L */
-				if (gerbicz_block_size_adjustment < 0.01) gerbicz_block_size_adjustment = 0.01;
+				if (gerbicz_block_size_adjustment < 0.001) gerbicz_block_size_adjustment = 0.001;
 				IniWriteFloat (INI_FILE, "PRPGerbiczCompareIntervalAdj", (float) gerbicz_block_size_adjustment);
 				inc_error_count (7, &ps.error_count);
 				restart_counter = ps.start_counter;		/* rollback to this iteration */
@@ -11385,8 +11386,8 @@ OutputStr (thread_num, "Iteration failed.\n");
 			/* Start next Gerbicz block */
 			ps.state = PRP_STATE_GERB_START_BLOCK;
 			/* We've reached a verified iteration, create a save file and mark it highly reliable. */
-			/* But if there are less than 1000 iterations left, don't bother creating the save file. */
-			if (final_counter - ps.counter >= 1000) {
+			/* But if there are less than 1000 iterations left on a reliable machine, don't bother creating the save file. */
+			if (final_counter - ps.counter >= 1000 || gerbicz_block_size_adjustment < 1.0) {
 				saving = TRUE;
 				saving_highly_reliable = TRUE;
 			}
