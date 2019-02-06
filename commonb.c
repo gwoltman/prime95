@@ -10602,6 +10602,12 @@ int prp (
 	if (echk == 1) ps.error_check_type = ps.two_power_opt ? PRP_ERRCHK_GERBICZ : PRP_ERRCHK_NONE;
 	if (echk == 2) ps.error_check_type = ps.two_power_opt ? PRP_ERRCHK_GERBICZ : PRP_ERRCHK_DBLCHK;
 
+/* Init the write save file state.  This remembers which save files are Gerbicz-checked.  Do this initialization */
+/* before the restart for roundoff errors so that error recovery does not destroy thw write save file state. */
+
+	tempFileName (w, filename);
+	writeSaveFileStateInit (&write_save_file_state, filename, NUM_JACOBI_BACKUP_FILES);
+
 /* Init the FFT code for squaring modulo k*b^n+c */
 
 begin:	gwinit (&gwdata);
@@ -10740,9 +10746,7 @@ begin:	gwinit (&gwdata);
 /* Loop reading from save files (and backup save files).  Limit number of backup */
 /* files we try to read in case there is an error deleting bad save files. */
 
-	tempFileName (w, filename);
 	readSaveFileStateInit (&read_save_file_state, thread_num, filename);
-	writeSaveFileStateInit (&write_save_file_state, filename, NUM_JACOBI_BACKUP_FILES);
 	for ( ; ; ) {
 
 /* If there are no more save files, start off with the 1st PRP squaring. */
