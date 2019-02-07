@@ -8643,6 +8643,13 @@ int gwtogiant (
 	int	err_code;
 	unsigned long limit;
 
+/* Set result to zero in case of error.  If caller does not check the returned error code */
+/* a result value of zero is less likely to cause problems/crashes. */
+
+	v->sign = 0;
+
+/* Sanity check the input number */
+
 	if (((uint32_t *) gg)[-7] == 3) return (GWERROR_FFT); /* Test the FFTed flag */
 	if (((uint32_t *) gg)[-7] == 1) return (GWERROR_PARTIAL_FFT); /* Test the FFT-started flag */
 
@@ -9074,6 +9081,8 @@ void raw_gwfftmul (
 	asm_data->const_fft = gwdata->NORMNUM & 2;
 	asm_data->add_sub_smallmul_op = 0;
 	gw_fft (gwdata, asm_data);
+//if (rand() % 100 < 1) *d += 1.0;			// Generate random errors (for caller to test error recovery)
+//if (rand() % 1000 < 2) *d += 1.0E200 * 1.0E200;
 	if (! is_valid_double (gwsumout (gwdata, d))) gwdata->GWERROR |= 1;
 	gwdata->fft_count += 2.0;
 	((uint32_t *) d)[-7] = gwdata->POSTFFT; // Set has-been-partially-FFTed flag
@@ -9239,6 +9248,8 @@ void gwsquare2 (		/* Square a number */
 	asm_data->const_fft = gwdata->NORMNUM & 2;
 	asm_data->add_sub_smallmul_op = 0;
 	gw_fft (gwdata, asm_data);
+//if (rand() % 100 < 1) *d += 1.0;			// Generate random errors (for caller to test error recovery)
+//if (rand() % 1000 < 2) *d += 1.0E200 * 1.0E200;
 	if (! is_valid_double (gwsumout (gwdata, d))) gwdata->GWERROR |= 1;
 	gwdata->fft_count += 2.0;
 	((uint32_t *) d)[-7] = gwdata->POSTFFT; // Set has-been-partially-FFTed flag
@@ -9319,6 +9330,8 @@ void gwfftfftmul (		/* Multiply two already FFTed sources */
 	asm_data->const_fft = gwdata->NORMNUM & 2;
 	asm_data->add_sub_smallmul_op = 0;
 	gw_fft (gwdata, asm_data);
+//if (rand() % 100 < 1) *d += 1.0;			// Generate random errors (for caller to test error recovery)
+//if (rand() % 1000 < 2) *d += 1.0E200 * 1.0E200;
 	if (! is_valid_double (gwsumout (gwdata, d))) gwdata->GWERROR |= 1;
 	gwdata->fft_count += 1.0;
 	((uint32_t *) d)[-7] = gwdata->POSTFFT; // Set has-been-partially-FFTed flag
