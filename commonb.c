@@ -32,6 +32,7 @@ static const char ERRMSG4[] = "Waiting five minutes before restarting.\n";
 static const char ERRMSG5[] = "For added safety, redoing iteration using a slower, more reliable method.\n";
 static const char ERRMSG6[] = "ERROR: Comparing PRP double-check values failed.  Rolling back to iteration %lu.\n";
 static const char ERRMSG7[] = "ERROR: Comparing Gerbicz checksum values failed.  Rolling back to iteration %lu.\n";
+static const char ERRMSG8[] = "ERROR: Invalid FFT data.  Restarting from last save file.\n";
 static const char ERROK[] = "Disregard last error.  Result is reproducible and thus not a hardware problem.\n";
 static const char READFILEERR[] = "Error reading intermediate file: %s\n";
 static const char WRITEFILEERR[] = "Error writing intermediate file: %s\n";
@@ -6601,6 +6602,12 @@ int prime (
 	}
 #endif
 
+/* Init the write save file state.  This remembers which save files are Jacobi-checked.  Do this initialization */
+/* before the restart for roundoff errors so that error recovery does not destroy thw write save file state. */
+
+	tempFileName (w, filename);
+	writeSaveFileStateInit (&write_save_file_state, filename, NUM_JACOBI_BACKUP_FILES);
+
 /* Setup the LL test */
 
 begin:	gwinit (&lldata.gwdata);
@@ -6628,9 +6635,7 @@ begin:	gwinit (&lldata.gwdata);
 /* Loop reading from save files (and backup save files).  Limit number of backup */
 /* files we try to read in case there is an error deleting bad save files. */
 
-	tempFileName (w, filename);
 	readSaveFileStateInit (&read_save_file_state, thread_num, filename);
-	writeSaveFileStateInit (&write_save_file_state, filename, NUM_JACOBI_BACKUP_FILES);
 	for ( ; ; ) {
 
 /* If there are no more save files, start off with the 1st Lucas number. */
@@ -7080,7 +7085,12 @@ begin:	gwinit (&lldata.gwdata);
 			pkt.next_update = (uint32_t) (DAYS_BETWEEN_CHECKINS * 86400.0);
 			pkt.fftlen = w->fftlen;
 			pkt.iteration = counter - 2;
-			generateResidue64 (&lldata, p, &high32, &low32);
+			if (generateResidue64 (&lldata, p, &high32, &low32)) {
+				OutputBoth (thread_num, ERRMSG8);
+				inc_error_count (2, &error_count);
+				sleep5 = TRUE;
+				goto restart;
+			}
 			sprintf (pkt.residue, "%08lX%08lX", high32, low32);
 			sprintf (pkt.error_count, "%08lX", error_count);
 			spoolMessage (-PRIMENET_ASSIGNMENT_PROGRESS, &pkt);
@@ -7091,8 +7101,13 @@ begin:	gwinit (&lldata.gwdata);
 /* residues to programs that sensibly start counter at zero or one. */
 
 		if (interim_residue) {
-			generateResidue64 (&lldata, p, &high32, &low32);
-			sprintf (buf, "M%ld interim Wh%d residue %08lX%08lX at iteration %ld\n", p, PORT, high32, low32, counter);
+			if (generateResidue64 (&lldata, p, &high32, &low32)) {
+				OutputBoth (thread_num, ERRMSG8);
+				inc_error_count (2, &error_count);
+				sleep5 = TRUE;
+				goto restart;
+			}
+			sprintf (buf, "M%ld interim LL residue %08lX%08lX at iteration %ld\n", p, high32, low32, counter);
 			OutputBoth (thread_num, buf);
 		}
 
@@ -10184,7 +10199,8 @@ int writePRPSaveFile (
 	if (!write_long (fd, ps->next_mul_counter, &sum)) goto err;
 	if (!write_long (fd, ps->end_counter, &sum)) goto err;
 	if (!write_gwnum (fd, gwdata, ps->x, &sum)) goto err;
-	if (ps->state != PRP_STATE_NORMAL && ps->state != PRP_STATE_GERB_START_BLOCK && ps->state != PRP_STATE_GERB_MID_BLOCK) {
+	if (ps->state != PRP_STATE_NORMAL && ps->state != PRP_STATE_GERB_START_BLOCK &&
+	    ps->state != PRP_STATE_GERB_MID_BLOCK && ps->state != PRP_STATE_GERB_MID_BLOCK_MULT) {
 		if (!write_gwnum (fd, gwdata, ps->alt_x, &sum)) goto err;
 	}
 	if (ps->state != PRP_STATE_NORMAL && ps->state != PRP_STATE_GERB_START_BLOCK &&
@@ -10261,7 +10277,8 @@ int readPRPSaveFile (
 	}
 
 	if (!read_gwnum (fd, gwdata, ps->x, &sum)) goto err;
-	if (ps->state != PRP_STATE_NORMAL && ps->state != PRP_STATE_GERB_START_BLOCK && ps->state != PRP_STATE_GERB_MID_BLOCK) {
+	if (ps->state != PRP_STATE_NORMAL && ps->state != PRP_STATE_GERB_START_BLOCK &&
+	    ps->state != PRP_STATE_GERB_MID_BLOCK && ps->state != PRP_STATE_GERB_MID_BLOCK_MULT) {
 		if (!read_gwnum (fd, gwdata, ps->alt_x, &sum)) goto err;
 	}
 	if (ps->state != PRP_STATE_NORMAL && ps->state != PRP_STATE_GERB_START_BLOCK &&
@@ -10564,10 +10581,8 @@ int prp (
 /* Set flag if we will perform power-of-two optimizations.  These optimizations reduce the number of mul-by-small constants */
 /* by computing a^(k*2^n) which gives us a long run of simple squarings.  These squarings let us do Gerbicz error checking. */
 
-	if (IniGetInt (INI_FILE, "PRPStraightForward", 0))
-		ps.two_power_opt = FALSE;
-	else
-		ps.two_power_opt = (w->b == 2 && (w->known_factors == NULL || ps.residue_type == PRIMENET_PRP_TYPE_COFACTOR));
+	ps.two_power_opt = (!IniGetInt (INI_FILE, "PRPStraightForward", 0) && w->b == 2 &&
+			    (w->known_factors == NULL || ps.residue_type == PRIMENET_PRP_TYPE_COFACTOR));
 	if (!ps.two_power_opt) {
 		if (ps.residue_type == PRIMENET_PRP_TYPE_FERMAT_VAR) ps.residue_type = PRIMENET_PRP_TYPE_FERMAT;
 		else if (ps.residue_type == PRIMENET_PRP_TYPE_SPRP_VAR) ps.residue_type = PRIMENET_PRP_TYPE_SPRP;
@@ -11056,6 +11071,8 @@ rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 /* If we are doing one of the Gerbicz multiplies (not a squaring), then handle that here */
 
 		if (ps.state == PRP_STATE_GERB_MID_BLOCK_MULT) {
+			// At block's end, copy d to alt_x in preparation for alternate method of computing Gerbicz checksum
+			if (ps.counter+1 == ps.end_counter) gwcopy (&gwdata, ps.d, ps.alt_x);
 			gwstartnextfft (&gwdata, 0);		/* Do not start next forward FFT */
 			gwsetnormroutine (&gwdata, 0, 1, 0);	/* Always roundoff error check multiplies */
 			gwsafemul (&gwdata, ps.x, ps.d);	/* "Safe" multiply that does not change ps.x */
@@ -11156,7 +11173,8 @@ OutputStr (thread_num, "Iteration failed.\n");
 			sprintf (buf, ERRMSG0, ps.counter+1, final_counter, ERRMSG1A);
 			OutputBoth (thread_num, buf);
 			inc_error_count (2, &ps.error_count);
-			restart_counter = ps.counter;		/* rollback to this iteration or earlier */
+			last_counter = ps.counter;		/* create save files before and after this iteration */
+			restart_counter = -1;			/* rollback to any save file */
 			sleep5 = TRUE;
 			goto restart;
 		}
@@ -11351,8 +11369,6 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* NOTE: We do not need to worry about shift_counts in the checksum, both checksums will end up with the same shift count. */
 
 		if (ps.state == PRP_STATE_GERB_MID_BLOCK && ps.counter == ps.next_mul_counter) {
-			// At block's end, copy d to alt_x in preparation for alternate method of computing Gerbicz checksum
-			if (ps.counter == ps.end_counter) gwcopy (&gwdata, ps.d, ps.alt_x);
 			// Back counter up by one and do one multiply in the computation of first Gerbicz checksum value
 			ps.state = PRP_STATE_GERB_MID_BLOCK_MULT;
 			ps.counter -= 1;
@@ -11449,9 +11465,17 @@ OutputStr (thread_num, "Iteration failed.\n");
 			pkt.end_date = (unsigned long) work_estimate (thread_num, w);
 			pkt.next_update = (uint32_t) (DAYS_BETWEEN_CHECKINS * 86400.0);
 			pkt.fftlen = w->fftlen;
-			pkt.iteration = ps.counter;
+			pkt.iteration = ps.counter - interim_counter_off_one;
 			tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
-			gwtogiant (&gwdata, x, tmp);
+			if (gwtogiant (&gwdata, x, tmp)) {
+				pushg (&gwdata.gdata, 1);
+				OutputBoth (thread_num, ERRMSG8);
+				inc_error_count (2, &ps.error_count);
+				last_counter = ps.counter;		/* create save files before and after this iteration */
+				restart_counter = -1;			/* rollback to any save file */
+				sleep5 = TRUE;
+				goto restart;
+			}
 			rotateg (tmp, w->n, *units_bit, &gwdata.gdata);
 			if (interim_mul) basemulg (tmp, w, ps.prp_base, -1);
 			if (w->known_factors && ps.residue_type != PRIMENET_PRP_TYPE_COFACTOR) modg (N, tmp);
@@ -11465,12 +11489,20 @@ OutputStr (thread_num, "Iteration failed.\n");
 
 		if (interim_residue) {
 			tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
-			gwtogiant (&gwdata, x, tmp);
+			if (gwtogiant (&gwdata, x, tmp)) {
+				pushg (&gwdata.gdata, 1);
+				OutputBoth (thread_num, ERRMSG8);
+				inc_error_count (2, &ps.error_count);
+				last_counter = ps.counter;		/* create save files before and after this iteration */
+				restart_counter = -1;			/* rollback to any save file */
+				sleep5 = TRUE;
+				goto restart;
+			}
 			rotateg (tmp, w->n, *units_bit, &gwdata.gdata);
 			if (interim_mul) basemulg (tmp, w, ps.prp_base, -1);
 			if (w->known_factors && ps.residue_type != PRIMENET_PRP_TYPE_COFACTOR) modg (N, tmp);
-			sprintf (buf, "%s interim Wh%d residue %08lX%08lX at iteration %ld\n",
-				 string_rep, PORT, (unsigned long) tmp->n[1], (unsigned long) tmp->n[0],
+			sprintf (buf, "%s interim PRP residue %08lX%08lX at iteration %ld\n",
+				 string_rep, (unsigned long) tmp->n[1], (unsigned long) tmp->n[0],
 				 ps.counter - interim_counter_off_one);
 			OutputBoth (thread_num, buf);
 			pushg (&gwdata.gdata, 1);
@@ -11520,7 +11552,14 @@ pushg(&gwdata.gdata, 2);}
 /* See if we've found a probable prime.  If not, format a 64-bit residue. */
 
 	tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
-	gwtogiant (&gwdata, ps.x, tmp);
+	if (gwtogiant (&gwdata, ps.x, tmp)) {
+		pushg (&gwdata.gdata, 1);
+		OutputBoth (thread_num, ERRMSG8);
+		inc_error_count (2, &ps.error_count);
+		restart_counter = -1;			/* rollback to any save file */
+		sleep5 = TRUE;
+		goto restart;
+	}
 	rotateg (tmp, w->n, ps.units_bit, &gwdata.gdata);
 	if (mul_final) basemulg (tmp, w, ps.prp_base, mul_final);
 	if (w->known_factors && ps.residue_type != PRIMENET_PRP_TYPE_COFACTOR) modg (N, tmp);
@@ -11535,7 +11574,7 @@ pushg(&gwdata.gdata, 2);}
 	}
 	pushg (&gwdata.gdata, 1);
 	gwfree (&gwdata, ps.x);
-			
+
 /* Print results */
 
 	if (isProbablePrime) {
