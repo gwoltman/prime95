@@ -623,11 +623,13 @@ at an overhead of about 0.2%.  The second high-reliability error check is to run
 PRP twice comparing residues along the way.  Obviously, this doubles the runtime.
 To select which error checking is performed or to disable error-checking, use the
 following setting in prime.txt:
-	PRPErrorChecking=0 or 1 or 2	(default is 1)
+	PRPErrorChecking=0 or 1 or 2 or 3	(default is 1)
 Set to zero to disable high-reliability error checking.  Set to 1 to perform Gerbicz
 high-reliability error checking whenever possible, otherwise no error checking.  Set
 to 2 to do Gerbicz high-reliability error checking whenever possible, otherwise do the
 much slower error check of doing each iteration twice and periodicly comparing residues.
+Set to 3 to force the much slower error check of doing each iteration twice and periodicly
+comparing residues.
 
 When doing highly-reliable error checking, the interval between compares can be
 controlled with these two settings in prime.txt:
@@ -650,8 +652,8 @@ PRP supports 5 types of residues for compatibility with other PRP programs.  If
 a is the PRP base and N is the number being tested, then the residue types are:
 1 = 64-bit residue of a^(N-1), a traditional Fermat PRP test used by most other programs
 2 = 64-bit residue of a^((N-1)/2)
-3 = 64-bit residue of a^(N-c+1), only available if b=2
-4 = 64-bit residue of a^((N-c+1)/2), only available if b=2
+3 = 64-bit residue of a^(N+1), only available if b=2
+4 = 64-bit residue of a^((N+1)/2), only available if b=2
 5 = 64-bit residue of a^(N*known_factors-1), same as type 1 if there are no known factors
 To control which residue type is generated, use this setting in prime.txt:
 	PRPResidueType=n		(default is 5)
