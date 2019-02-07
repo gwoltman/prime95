@@ -10485,10 +10485,9 @@ int prp (
 	unsigned long restart_error_count = 0;	/* On a restart, use this error count rather than the one from a save file */
 	long	restart_counter = -1;		/* On a restart, this specifies how far back to rollback save files */
 
-/* Null gwnums and giants in case they get freed */
+/* Init PRP state */
 
 	memset (&ps, 0, sizeof (ps));
-	N = exp = NULL;
 
 /* See if this number needs P-1 factoring.  We treat P-1 factoring */
 /* that is part of a PRP test as priority work done in pass 1 or as */
@@ -10601,6 +10600,7 @@ int prp (
 	if (echk == 0) ps.error_check_type = PRP_ERRCHK_NONE;
 	if (echk == 1) ps.error_check_type = ps.two_power_opt ? PRP_ERRCHK_GERBICZ : PRP_ERRCHK_NONE;
 	if (echk == 2) ps.error_check_type = ps.two_power_opt ? PRP_ERRCHK_GERBICZ : PRP_ERRCHK_DBLCHK;
+	if (echk == 3) ps.error_check_type = PRP_ERRCHK_DBLCHK;
 
 /* Init the write save file state.  This remembers which save files are Gerbicz-checked.  Do this initialization */
 /* before the restart for roundoff errors so that error recovery does not destroy thw write save file state. */
@@ -10608,9 +10608,13 @@ int prp (
 	tempFileName (w, filename);
 	writeSaveFileStateInit (&write_save_file_state, filename, NUM_JACOBI_BACKUP_FILES);
 
+/* Null gwnums and giants in case they get freed */
+
+begin:	N = exp = NULL;
+
 /* Init the FFT code for squaring modulo k*b^n+c */
 
-begin:	gwinit (&gwdata);
+	gwinit (&gwdata);
 	gwsetmaxmulbyconst (&gwdata, ps.prp_base);
 	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&gwdata);
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&gwdata);
@@ -11335,8 +11339,8 @@ OutputStr (thread_num, "Iteration failed.\n");
 				ps.state = PRP_STATE_GERB_START_BLOCK;
 			}
 			/* We've reached a verified iteration, create a save file and mark it highly reliable. */
-			/* But if there are less than 1000 iterations left, don't bother creating the save file. */
-			if (final_counter - ps.counter >= 1000) {
+			/* But if there are less than 1000 iterations left on a reliable machine, don't bother creating the save file. */
+			if (final_counter - ps.counter >= 1000 || ps.error_count > 0) {
 				saving = TRUE;
 				saving_highly_reliable = TRUE;
 			}
@@ -11689,5 +11693,6 @@ restart:if (sleep5) OutputBoth (thread_num, ERRMSG2);
 
 	gwdone (&gwdata);
 	free (N);
+	free (exp);
 	goto begin;
 }
