@@ -4043,16 +4043,18 @@ int write_gwnum (
 
 	tmp = popg (&gwdata->gdata, ((int) gwdata->bit_length >> 5) + 10);
 	if (tmp == NULL) return (FALSE);
-	gwtogiant (gwdata, g, tmp);
+	if (gwtogiant (gwdata, g, tmp)) goto err;
 	len = tmp->sign;
-	if (len == 0) return (FALSE);
-	if (!write_long (fd, len, sum)) return (FALSE);
+	if (len == 0) goto err;
+	if (!write_long (fd, len, sum)) goto err;
 	bytes = len * sizeof (uint32_t);
-	if (_write (fd, tmp->n, bytes) != bytes) return (FALSE);
+	if (_write (fd, tmp->n, bytes) != bytes) goto err;
 	*sum = (uint32_t) (*sum + len);
 	for (i = 0; i < len; i++) *sum = (uint32_t) (*sum + tmp->n[i]);
 	pushg (&gwdata->gdata, 1);
 	return (TRUE);
+err:	pushg (&gwdata->gdata, 1);
+	return (FALSE);
 }
 
 /* Routines to read and write values from and to a save file */
