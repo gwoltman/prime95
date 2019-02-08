@@ -72,10 +72,12 @@ int isProbablePrime (
 		}
 		gwfree (gwdata, t2);
 		x = popg (&gwdata->gdata, ((int) gwdata->bit_length >> 5) + 10);
-		gwtogiant (gwdata, t1, x);
-		modgi (&gwdata->gdata, N, x);
-		iaddg (-i, x);
-		if (!isZero (x)) retval = FALSE;	/* Not a prime */
+		if (gwtogiant (gwdata, t1, x)) retval = FALSE;	/* Technically, prime status is unknown on an unexpected error */
+		else {
+			modgi (&gwdata->gdata, N, x);
+			iaddg (-i, x);
+			if (!isZero (x)) retval = FALSE;	/* Not a prime */
+		}
 		pushg (&gwdata->gdata, 1);
 	}
 	gwfree (gwdata, t1);
@@ -1064,13 +1066,20 @@ int gcd (
 	giant	v;
 	mpz_t	a, b;
 
+/* Assume a factor will not be found */
+
+	*factor = NULL;
+
 /* Convert input number to binary */
 
 	v = popg (&gwdata->gdata, ((int) gwdata->bit_length >> 5) + 10);
 	if (v == NULL) goto oom;
-	gwtogiant (gwdata, gg, v);
+	if (gwtogiant (gwdata, gg, v)) {	// On unexpected error, return no factor found
+		pushg (&gwdata->gdata, 1);
+		return (0);
+	}
 
-/* Do the GCD and let the gcdg code use gwnum gg's memory. */
+/* Do the GCD */
 
 	mpz_init (a);
 	mpz_init (b);
@@ -1085,8 +1094,7 @@ int gcd (
 		*factor = allocgiant ((int) mpz_sizeinbase (a, 32));
 		if (*factor == NULL) goto oom;
 		mpztog (a, *factor);
-	} else
-		*factor = NULL;
+	}
 
 /* Cleanup and return */
 
@@ -1116,7 +1124,10 @@ int ecm_modinv (
 
 	v = popg (&ecmdata->gwdata.gdata, ((int) ecmdata->gwdata.bit_length >> 5) + 10);
 	if (v == NULL) goto oom;
-	gwtogiant (&ecmdata->gwdata, b, v);
+	if (gwtogiant (&ecmdata->gwdata, b, v)) {
+		// On unexpected, should-never-happen error, return out-of-memory for lack of a better error message
+		goto oom;
+	}
 
 #ifdef MODINV_USING_GIANTS
 
@@ -2781,7 +2792,7 @@ skip_stage_2:	start_timer (timers, 0);
 
 			gx = popg (&ecmdata.gwdata.gdata, ((int) ecmdata.gwdata.bit_length >> 5) + 10);
 			if (gx == NULL) goto oom;
-			gwtogiant (&ecmdata.gwdata, x, gx);
+			if (gwtogiant (&ecmdata.gwdata, x, gx)) goto oom;  // Unexpected error, return oom for lack of a better error message
 			modgi (&ecmdata.gwdata.gdata, N, gx);
 
 			msglen = N->sign * 8 + 5;
