@@ -10988,7 +10988,7 @@ begin:	N = exp = NULL;
 {giant t1, t2;
 t1 = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 4) + 5);
 t2 = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 4) + 5);
-gwtogiant (&gwdata, ps.x, t1);
+(void) gwtogiant (&gwdata, ps.x, t1);
 rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 #endif
 	gwsetmulbyconst (&gwdata, ps.prp_base);
@@ -11137,7 +11137,7 @@ echk=1;
 			if (*units_bit >= w->n) *units_bit -= w->n;
 
 #ifdef CHECK_ITER
-gwtogiant (&gwdata, ps.x, t2);
+(void) gwtogiant (&gwdata, ps.x, t2);
 rotateg (t2, w->n, ps.units_bit, &gwdata.gdata);
 if (w->known_factors) modg (N, t2);
 if (gcompg (t1, t2) != 0)
