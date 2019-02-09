@@ -105,7 +105,7 @@ time-only with seconds.
 
 You can have the timings that are output to the screen be cumulative
 (from program restart or start of a new exponent) rather than resetting
-after each screen output.  Add this line to prime.txt:
+after each screen output (ClassicOutput=1 only).  Add this line to prime.txt:
 	CumulativeTiming=1
 
 You can change the interval between outputs of the timestamp to the results.txt file
