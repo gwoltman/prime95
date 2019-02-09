@@ -7775,6 +7775,7 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 
 			if (gw_test_illegal_sumout (&lldata.gwdata)) {
 				OutputBoth (thread_num, SELFFAIL1);
+				flashWindowAndBeep ();
 				(*warnings)++;
 				if (*warnings < 100) {
 					OutputBoth (thread_num, SELFFAIL4);
@@ -7793,6 +7794,7 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 				sprintf (buf, SELFFAIL2, gwsumout (&lldata.gwdata, g), gwsuminp (&lldata.gwdata, g));
 				OutputBoth (thread_num, buf);
 				OutputBoth (thread_num, SELFFAIL5);
+				flashWindowAndBeep ();
 				(*errors)++;
 				lucasDone (&lldata);
 				free (gwarray);
@@ -7805,6 +7807,7 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 				sprintf (buf, SELFFAIL3, gw_get_maxerr (&lldata.gwdata));
 				OutputBoth (thread_num, buf);
 				OutputBoth (thread_num, SELFFAIL5);
+				flashWindowAndBeep ();
 				(*errors)++;
 				lucasDone (&lldata);
 				free (gwarray);
@@ -7842,6 +7845,7 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 			sprintf (buf, SELFFAIL, reshi, test_data[i].reshi);
 			OutputBoth (thread_num, buf);
 			OutputBoth (thread_num, SELFFAIL5);
+			flashWindowAndBeep ();
 			(*errors)++;
 			return (STOP_FATAL_ERROR);
 		}
