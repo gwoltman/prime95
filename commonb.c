@@ -33,6 +33,7 @@ static const char ERRMSG5[] = "For added safety, redoing iteration using a slowe
 static const char ERRMSG6[] = "ERROR: Comparing PRP double-check values failed.  Rolling back to iteration %lu.\n";
 static const char ERRMSG7[] = "ERROR: Comparing Gerbicz checksum values failed.  Rolling back to iteration %lu.\n";
 static const char ERRMSG8[] = "ERROR: Invalid FFT data.  Restarting from last save file.\n";
+static const char ERRMSG9[] = "ERROR: Invalid PRP state.  Restarting from last save file.\n";
 static const char ERROK[] = "Disregard last error.  Result is reproducible and thus not a hardware problem.\n";
 static const char READFILEERR[] = "Error reading intermediate file: %s\n";
 static const char WRITEFILEERR[] = "Error writing intermediate file: %s\n";
@@ -6072,7 +6073,7 @@ void inc_error_count (
 	else if (type == 4) addin = 1 << 4, maxval = 0x0F << 4;		// Jacobi error check
 	else if (type == 1) addin = 1 << 8, maxval = 0x3F << 8;		// Roundoff > 0.4
 	else if (type == 5) orin = 1 << 14;				// Zeroed FFT data
-	else if (type == 6) orin = 1 << 15;				// Units bit counter corrupted
+	else if (type == 6) orin = 1 << 15;				// Units bit, counter, or other value corrupted
 	else if (type == 2) addin = 1 << 16, maxval = 0xF << 16;	// ILLEGAL SUMOUT
 	else if (type == 7) addin = 1 << 20, maxval = 0xF << 20;	// High reliability (Gerbicz or dblchk) PRP error
 	else if (type == 3) addin = 1 << 24, maxval = 0x3F << 24;	// Repeatable error
@@ -10937,7 +10938,7 @@ begin:	N = exp = NULL;
 		}
 
 /* The next easiest case is double-the-work error-checking comparing residues at specified intervals */
-	
+
 		if (ps.error_check_type == PRP_ERRCHK_DBLCHK) {
 			ps.state = PRP_STATE_DCHK_PASS1;
 			ps.start_counter = 0;
@@ -10972,6 +10973,7 @@ begin:	N = exp = NULL;
 				ps.state = PRP_STATE_DCHK_PASS1;
 				ps.start_counter = 0;
 				ps.end_counter = (int) _log2 (w->k);
+// BUG
 				gwcopy (&gwdata, ps.x, ps.alt_x);
 				ps.alt_units_bit = ps.units_bit;
 			} else {
@@ -11018,15 +11020,19 @@ rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 				ps.alt_units_bit = ps.units_bit;
 			} else {
 				int	gerbicz_block_size;
+				double	adjustment;
 				ps.state = PRP_STATE_GERB_MID_BLOCK;
-				gerbicz_block_size = (int) (IniGetFloat (INI_FILE, "PRPGerbiczCompareIntervalAdj", 1.0) *
-							    IniGetInt (INI_FILE, "PRPGerbiczCompareInterval", 1000000));
-				if (gerbicz_block_size < 16) gerbicz_block_size = 16;
-				if (iters_left < gerbicz_block_size) gerbicz_block_size = iters_left;
+				adjustment = IniGetFloat (INI_FILE, "PRPGerbiczCompareIntervalAdj", 1.0);
+				if (adjustment < 0.001 || adjustment > 1.0) adjustment = 0.5;
+				gerbicz_block_size = (int) (adjustment * IniGetInt (INI_FILE, "PRPGerbiczCompareInterval", 1000000));
+				if (gerbicz_block_size < 25) gerbicz_block_size = 25;
+				if (gerbicz_block_size > iters_left) gerbicz_block_size = iters_left;
 				ps.L = (unsigned long) sqrt ((double) gerbicz_block_size);
 				ps.start_counter = ps.counter;
 				ps.next_mul_counter = ps.counter + ps.L;
 				ps.end_counter = ps.counter + ps.L * ps.L;
+//xxxx install copy protection
+//BUG change save file format						
 				gwcopy (&gwdata, ps.x, ps.u0);
 				gwcopy (&gwdata, ps.x, ps.d);
 				if (IniGetInt (INI_FILE, "GerbiczVerbosity", 1) > 1) {
@@ -11336,35 +11342,55 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* If double-checking, at end of pass 1 rollback counter and start computing alt_x. */
 /* If double-checking, at end of pass 2 compare values and move onto next block. */
 
-		if (ps.state == PRP_STATE_DCHK_PASS1 && ps.counter == ps.end_counter) {
-			ps.state = PRP_STATE_DCHK_PASS2;
-			ps.counter = ps.start_counter;
-		}
-		if (ps.state == PRP_STATE_DCHK_PASS2 && ps.counter == ps.end_counter) {
-			if (!areTwoPRPValsEqual (&gwdata, w->n, ps.x, ps.units_bit, ps.alt_x, ps.alt_units_bit)) {
-				sprintf (buf, ERRMSG6, ps.start_counter);
-				OutputBoth (thread_num, buf);
-				inc_error_count (7, &ps.error_count);
-				restart_counter = ps.start_counter;		/* rollback to this iteration */
+		if (ps.state == PRP_STATE_DCHK_PASS1) {
+			if (ps.counter < ps.end_counter);		// Do next iteration
+			else if (ps.counter == ps.end_counter) {	// Switch to alt_x computations
+				ps.state = PRP_STATE_DCHK_PASS2;
+				ps.counter = ps.start_counter;
+			} else {					// Can't happen
+				OutputBoth (thread_num, ERRMSG9);
+				inc_error_count (6, &ps.error_count);
+				restart_counter = -1;			/* rollback to any save file */
 				sleep5 = FALSE;
 				goto restart;
 			}
-			/* If doing a full double-check, start next block of iterations */
-			if (ps.error_check_type == PRP_ERRCHK_DBLCHK) {
-				ps.state = PRP_STATE_DCHK_PASS1;
-				ps.start_counter = ps.counter;
-				ps.end_counter = ps.start_counter + IniGetInt (INI_FILE, "PRPDoublecheckCompareInterval", 100000);
-				if (ps.end_counter > final_counter) ps.end_counter = final_counter;
-			}
-			/* Otherwise, we're doing a Gerbicz error-check.  Start next Gerbicz block. */
-			else {
-				ps.state = PRP_STATE_GERB_START_BLOCK;
-			}
-			/* We've reached a verified iteration, create a save file and mark it highly reliable. */
-			/* But if there are less than 1000 iterations left on a reliable machine, don't bother creating the save file. */
-			if (final_counter - ps.counter >= 1000 || ps.error_count > 0) {
-				saving = TRUE;
-				saving_highly_reliable = TRUE;
+		}
+		if (ps.state == PRP_STATE_DCHK_PASS2) {
+			if (ps.counter < ps.end_counter);		// Do next iteration
+			else if (ps.counter == ps.end_counter) {	// Switch to alt_x computations
+				if (!areTwoPRPValsEqual (&gwdata, w->n, ps.x, ps.units_bit, ps.alt_x, ps.alt_units_bit)) {
+					sprintf (buf, ERRMSG6, ps.start_counter);
+					OutputBoth (thread_num, buf);
+					inc_error_count (7, &ps.error_count);
+					restart_counter = ps.start_counter;		/* rollback to this iteration */
+					sleep5 = FALSE;
+					goto restart;
+				}
+				/* If doing a full double-check, start next block of iterations */
+				if (ps.error_check_type == PRP_ERRCHK_DBLCHK) {
+					ps.state = PRP_STATE_DCHK_PASS1;
+					ps.start_counter = ps.counter;
+					ps.end_counter = ps.start_counter + IniGetInt (INI_FILE, "PRPDoublecheckCompareInterval", 100000);
+					if (ps.end_counter > final_counter) ps.end_counter = final_counter;
+				}
+				/* Otherwise, we're doing the first or last few iterations of a Gerbicz error-check. */
+				/* Set state to start next Gerbicz block (in case we just computed prp_base^k). */
+				else {
+					ps.state = PRP_STATE_GERB_START_BLOCK;
+				}
+				/* We've reached a verified iteration, create a save file and mark it highly reliable. */
+				/* But if there are less than 1000 iterations left on a reliable machine */
+				/* don't bother creating the save file. */
+				if (final_counter - ps.counter >= 1000 || ps.error_count > 0) {
+					saving = TRUE;
+					saving_highly_reliable = TRUE;
+				}
+			} else {					// Can't happen
+				OutputBoth (thread_num, ERRMSG9);
+				inc_error_count (6, &ps.error_count);
+				restart_counter = -1;			/* rollback to any save file */
+				sleep5 = FALSE;
+				goto restart;
 			}
 		}
 
@@ -11372,37 +11398,61 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* Also check if this is the L^2-th iteration where we switch to an alternate method of computing the checksum. */
 /* NOTE: We do not need to worry about shift_counts in the checksum, both checksums will end up with the same shift count. */
 
-		if (ps.state == PRP_STATE_GERB_MID_BLOCK && ps.counter == ps.next_mul_counter) {
-			// Back counter up by one and do one multiply in the computation of first Gerbicz checksum value
-			ps.state = PRP_STATE_GERB_MID_BLOCK_MULT;
-			ps.counter -= 1;
+		if (ps.state == PRP_STATE_GERB_MID_BLOCK) {
+			if (ps.counter < ps.next_mul_counter);		// Do next iteration
+			else if (ps.counter == ps.next_mul_counter) {	// Do one checksum multiply next
+				// Back counter up by one and do one multiply in the computation of first Gerbicz checksum value
+				ps.state = PRP_STATE_GERB_MID_BLOCK_MULT;
+				ps.counter -= 1;
+			} else {					// Can't happen
+				OutputBoth (thread_num, ERRMSG9);
+				inc_error_count (6, &ps.error_count);
+				restart_counter = -1;			/* rollback to any save file */
+				sleep5 = FALSE;
+				goto restart;
+			}
 		}
 		else if (ps.state == PRP_STATE_GERB_MID_BLOCK_MULT) {
-			// If in middle of Gerbicz block, do another "L" squarings
-			if (ps.counter != ps.end_counter) {
+			if (ps.counter < ps.end_counter) {		// In middle of Gerbicz block, do another "L" squarings
 				ps.state = PRP_STATE_GERB_MID_BLOCK;
 				ps.next_mul_counter += ps.L;
 			}
-			// At block's end, rollback counter to do "L" squarings of alt_x to create second Gerbicz checksum value
-			else {
+			else if (ps.counter == ps.end_counter) {	// At end of Gerbicz block, switch to "L" squarings
+									// of alt_x to create second Gerbicz checksum value
 				if (IniGetInt (INI_FILE, "GerbiczVerbosity", 1) > 1) OutputStr (thread_num, "Start Gerbicz error check.\n");
 				ps.state = PRP_STATE_GERB_END_BLOCK;
 				ps.counter -= ps.L;
+			} else {					// Can't happen
+				OutputBoth (thread_num, ERRMSG9);
+				inc_error_count (6, &ps.error_count);
+				restart_counter = -1;			/* rollback to any save file */
+				sleep5 = FALSE;
+				goto restart;
 			}
 		}
 
 /* If Gerbicz error-checking and we've finished computing the alternate checksum, then compare the two checksums */
 /* and start next Gerbicz block. */
 
-		if (ps.state == PRP_STATE_GERB_END_BLOCK && ps.counter == ps.end_counter) {
-			ps.state = PRP_STATE_GERB_END_BLOCK_MULT;
-			ps.counter -= 1;
+		if (ps.state == PRP_STATE_GERB_END_BLOCK) {
+			if (ps.counter < ps.end_counter);		// Do next iteration in computing alternate checksum
+			else if (ps.counter == ps.end_counter) {	// Next do final multiply in computing alternate checksum
+				ps.state = PRP_STATE_GERB_END_BLOCK_MULT;
+				ps.counter -= 1;
+			} else {					// Can't happen
+				OutputBoth (thread_num, ERRMSG9);
+				inc_error_count (6, &ps.error_count);
+				restart_counter = -1;			/* rollback to any save file */
+				sleep5 = FALSE;
+				goto restart;
+			}
 		}
 		else if (ps.state == PRP_STATE_GERB_END_BLOCK_MULT) {
 			double	gerbicz_block_size_adjustment;
 			// We adjust the compare interval size downward when errors occur and upwards when they dont.
 			// That way buggy machines will lose fewer iterations when rolling back.
 			gerbicz_block_size_adjustment = IniGetFloat (INI_FILE, "PRPGerbiczCompareIntervalAdj", 1.0);
+			if (gerbicz_block_size_adjustment < 0.001 || gerbicz_block_size_adjustment > 1.0) gerbicz_block_size_adjustment = 0.5;
 			// compare alt_x, d (the two Gerbicz checksum values that must match)
 			if (!areTwoPRPValsEqual (&gwdata, w->n, ps.alt_x, 0, ps.d, 0)) {
 				sprintf (buf, ERRMSG7, ps.start_counter);
@@ -11552,6 +11602,18 @@ pushg(&gwdata.gdata, 2);}
 	gwfree (&gwdata, ps.alt_x);
 	gwfree (&gwdata, ps.u0);
 	gwfree (&gwdata, ps.d);
+
+/* Make sure PRP state is valid.  We cannot be in the middle of a double-check or in the middle of a Gerbicz block */
+
+	if (ps.state != PRP_STATE_NORMAL && ps.state != PRP_STATE_DCHK_PASS1 && ps.state != PRP_STATE_GERB_START_BLOCK) {
+		OutputBoth (thread_num, ERRMSG9);
+		inc_error_count (6, &ps.error_count);
+		restart_counter = -1;			/* rollback to any save file */
+		sleep5 = FALSE;
+		goto restart;
+	}
+
+	//BUG ???   get and compare residue from both x and alt_x????
 
 /* See if we've found a probable prime.  If not, format a 64-bit residue. */
 
