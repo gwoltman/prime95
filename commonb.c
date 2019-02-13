@@ -7086,7 +7086,7 @@ begin:	gwinit (&lldata.gwdata);
 			pkt.next_update = (uint32_t) (DAYS_BETWEEN_CHECKINS * 86400.0);
 			pkt.fftlen = w->fftlen;
 			pkt.iteration = counter - 2;
-			if (generateResidue64 (&lldata, p, &high32, &low32)) {
+			if (generateResidue64 (&lldata, p, &high32, &low32) < 0) {
 				OutputBoth (thread_num, ERRMSG8);
 				inc_error_count (2, &error_count);
 				sleep5 = TRUE;
@@ -7102,7 +7102,7 @@ begin:	gwinit (&lldata.gwdata);
 /* residues to programs that sensibly start counter at zero or one. */
 
 		if (interim_residue) {
-			if (generateResidue64 (&lldata, p, &high32, &low32)) {
+			if (generateResidue64 (&lldata, p, &high32, &low32) < 0) {
 				OutputBoth (thread_num, ERRMSG8);
 				inc_error_count (2, &error_count);
 				sleep5 = TRUE;
