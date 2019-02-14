@@ -46,7 +46,7 @@ gwnum64.lib: amd64\release\cpuid.obj amd64\release\gwnum.obj amd64\release\gwtab
 	     amd64\ymult3.obj amd64\ymult3a_core.obj amd64\ymult3a_fma3.obj amd64\ymult3ax.obj \
 	     amd64\yr4dwpn_core.obj amd64\yr4dwpn3_core.obj amd64\yr4dwpn4_core.obj amd64\yr4dwpn5_core.obj \
 	     amd64\yr4dwpn_fma3.obj amd64\yr4dwpn3_fma3.obj amd64\yr4dwpn4_fma3.obj amd64\yr4dwpn5_fma3.obj \
-	     amd64\zmult3.obj amd64\zmult3a_skx.obj amd64\zmult3ax.obj amd64\zr4dwpn_skx.obj \
+	     amd64\zmult3.obj amd64\zmult3a_skx.obj amd64\zmult3ax.obj amd64\zr4dwpn_skx.obj amd64\zr4dwpn2_skx.obj \
 	     amd64\cpuidhlp.obj amd64\hyperhlp.obj amd64\mult.obj amd64\gianthlp.obj amd64\timeit.obj
     del gwnum64.lib
     lib /OUT:gwnum64.lib amd64\release\*.obj amd64\*.obj
@@ -67,7 +67,7 @@ gwnum64d.lib: amd64\debug\cpuid.obj amd64\debug\gwnum.obj amd64\debug\gwtables.o
 	      amd64\ymult3.obj amd64\ymult3a_core.obj amd64\ymult3a_fma3.obj amd64\ymult3ax.obj \
 	      amd64\yr4dwpn_core.obj amd64\yr4dwpn3_core.obj amd64\yr4dwpn4_core.obj amd64\yr4dwpn5_core.obj \
 	      amd64\yr4dwpn_fma3.obj amd64\yr4dwpn3_fma3.obj amd64\yr4dwpn4_fma3.obj amd64\yr4dwpn5_fma3.obj \
-	      amd64\zmult3.obj amd64\zmult3a_skx.obj amd64\zmult3ax.obj amd64\zr4dwpn_skx.obj \
+	      amd64\zmult3.obj amd64\zmult3a_skx.obj amd64\zmult3ax.obj amd64\zr4dwpn_skx.obj amd64\zr4dwpn2_skx.obj \
 	      amd64\cpuidhlp.obj amd64\hyperhlp.obj amd64\mult.obj amd64\gianthlp.obj amd64\timeit.obj
     del gwnum64d.lib
     lib /OUT:gwnum64d.lib amd64\debug\*.obj amd64\*.obj
@@ -86,7 +86,7 @@ linux64\gwnum.a: linux64\xmult1ax.obj linux64\xmult2.obj linux64\xmult2a_core.ob
 		 linux64\ymult3.obj linux64\ymult3a_core.obj linux64\ymult3a_fma3.obj linux64\ymult3ax.obj \
 		 linux64\yr4dwpn_core.obj linux64\yr4dwpn3_core.obj linux64\yr4dwpn4_core.obj linux64\yr4dwpn5_core.obj \
 		 linux64\yr4dwpn_fma3.obj linux64\yr4dwpn3_fma3.obj linux64\yr4dwpn4_fma3.obj linux64\yr4dwpn5_fma3.obj \
-		 linux64\zmult3.obj linux64\zmult3a_skx.obj linux64\zmult3ax.obj linux64\zr4dwpn_skx.obj \
+		 linux64\zmult3.obj linux64\zmult3a_skx.obj linux64\zmult3ax.obj linux64\zr4dwpn_skx.obj linux64\zr4dwpn2_skx.obj \
 		 linux64\cpuidhlp.obj linux64\hyperhlp.obj linux64\mult.obj linux64\gianthlp.obj linux64\timeit.obj
     attrib -r linux64\gwnum.a
     del linux64\gwnum.a
@@ -109,7 +109,7 @@ macosx64\gwnum.a: linux64\xmult1ax.obj linux64\xmult2.obj linux64\xmult2a_core.o
 		  linux64\ymult3.obj linux64\ymult3a_core.obj linux64\ymult3a_fma3.obj linux64\ymult3ax.obj \
 		  linux64\yr4dwpn_core.obj linux64\yr4dwpn3_core.obj linux64\yr4dwpn4_core.obj linux64\yr4dwpn5_core.obj \
 		  linux64\yr4dwpn_fma3.obj linux64\yr4dwpn3_fma3.obj linux64\yr4dwpn4_fma3.obj linux64\yr4dwpn5_fma3.obj \
-		  linux64\zmult3.obj linux64\zmult3a_skx.obj linux64\zmult3ax.obj linux64\zr4dwpn_skx.obj \
+		  linux64\zmult3.obj linux64\zmult3a_skx.obj linux64\zmult3ax.obj linux64\zr4dwpn_skx.obj linux64\zr4dwpn2_skx.obj \
 		  linux64\cpuidhlp.obj linux64\hyperhlp.obj macosx64\mult.obj linux64\gianthlp.obj linux64\timeit.obj
     attrib -r macosx64\gwnum.a
     del /q macosx64\foo
@@ -442,9 +442,13 @@ amd64\zmult3ax.obj: zmult3ax.asm zmult.mac znormal.mac znormal_zpad.mac
     $(masm64) /DARCH=BLEND /Foamd64\zmult3ax.obj zmult3ax.asm
     strip amd64\zmult3ax.obj
 
-amd64\zr4dwpn_skx.obj: zr4dwpn.asm zmult.mac zr4dwpnpass1sc.mac zr4dwpnpass2.mac zonepass.mac zr4.mac zr5.mac zr6.mac zr7.mac zr8.mac zr10.mac zr12.mac zr16.mac zr64.mac
+amd64\zr4dwpn_skx.obj: zr4dwpn.asm zmult.mac zr4dwpnpass1sc.mac zonepass.mac zr4.mac zr5.mac zr6.mac zr7.mac zr8.mac zr10.mac zr12.mac zr16.mac
     $(masm64) /DARCH=SKX /Foamd64\zr4dwpn_skx.obj zr4dwpn.asm
     strip amd64\zr4dwpn_skx.obj
+
+amd64\zr4dwpn2_skx.obj: zr4dwpn2.asm zmult.mac zr4dwpnpass2.mac zr4.mac zr5.mac zr6.mac zr7.mac zr8.mac zr10.mac zr12.mac zr16.mac zr64.mac
+    $(masm64) /DARCH=SKX /Foamd64\zr4dwpn2_skx.obj zr4dwpn2.asm
+    strip amd64\zr4dwpn2_skx.obj
 
 amd64\cpuidhlp.obj: cpuidhlp.asm
     $(masm64) /Foamd64\cpuidhlp.obj cpuidhlp.asm
@@ -653,8 +657,11 @@ linux64\zmult3a_skx.obj: zmult3a.asm zmult.mac znormal.mac znormal_zpad.mac
 linux64\zmult3ax.obj: zmult3ax.asm zmult.mac znormal.mac znormal_zpad.mac
     $(masm64lx) /DARCH=BLEND /Folinux64\zmult3ax.obj zmult3ax.asm
 
-linux64\zr4dwpn_skx.obj: zr4dwpn.asm zmult.mac zr4dwpnpass1sc.mac zr4dwpnpass2.mac zonepass.mac zr4.mac zr5.mac zr6.mac zr7.mac zr8.mac zr10.mac zr12.mac zr16.mac zr64.mac
+linux64\zr4dwpn_skx.obj: zr4dwpn.asm zmult.mac zr4dwpnpass1sc.mac zonepass.mac zr4.mac zr5.mac zr6.mac zr7.mac zr8.mac zr10.mac zr12.mac zr16.mac
     $(masm64lx) /DARCH=SKX /Folinux64\zr4dwpn_skx.obj zr4dwpn.asm
+
+linux64\zr4dwpn2_skx.obj: zr4dwpn2.asm zmult.mac zr4dwpnpass2.mac zr4.mac zr5.mac zr6.mac zr7.mac zr8.mac zr10.mac zr12.mac zr16.mac zr64.mac
+    $(masm64lx) /DARCH=SKX /Folinux64\zr4dwpn2_skx.obj zr4dwpn2.asm
 
 linux64\cpuidhlp.obj: cpuidhlp.asm
     $(masm64lx) /Folinux64\cpuidhlp.obj cpuidhlp.asm
