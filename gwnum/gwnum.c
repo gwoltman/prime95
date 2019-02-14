@@ -9080,6 +9080,8 @@ void raw_gwfftmul (
 	asm_data->zero_fft = (asm_data->NORMRTN == gwdata->GWPROCPTRS[zerohigh_routines + (gwdata->NORMNUM & 1)]);
 	asm_data->const_fft = gwdata->NORMNUM & 2;
 	asm_data->add_sub_smallmul_op = 0;
+//if (rand() % 100 < 1) *s += 1.0;			// Generate random errors (for caller to test error recovery)
+//if (rand() % 1000 < 2) *s += 1.0E200 * 1.0E200;
 	gw_fft (gwdata, asm_data);
 //if (rand() % 100 < 1) *d += 1.0;			// Generate random errors (for caller to test error recovery)
 //if (rand() % 1000 < 2) *d += 1.0E200 * 1.0E200;
@@ -9247,6 +9249,8 @@ void gwsquare2 (		/* Square a number */
 	asm_data->zero_fft = 0;
 	asm_data->const_fft = gwdata->NORMNUM & 2;
 	asm_data->add_sub_smallmul_op = 0;
+//if (rand() % 100 < 1) *s += 1.0;			// Generate random errors (for caller to test error recovery)
+//if (rand() % 1000 < 2) *s += 1.0E200 * 1.0E200;
 	gw_fft (gwdata, asm_data);
 //if (rand() % 100 < 1) *d += 1.0;			// Generate random errors (for caller to test error recovery)
 //if (rand() % 1000 < 2) *d += 1.0E200 * 1.0E200;
@@ -9329,6 +9333,10 @@ void gwfftfftmul (		/* Multiply two already FFTed sources */
 	asm_data->zero_fft = 0;
 	asm_data->const_fft = gwdata->NORMNUM & 2;
 	asm_data->add_sub_smallmul_op = 0;
+//if (rand() % 100 < 1) *s += 1.0;			// Generate random errors (for caller to test error recovery)
+//if (rand() % 1000 < 2) *s += 1.0E200 * 1.0E200;
+//if (rand() % 100 < 1) *s2 += 1.0;			// Generate random errors (for caller to test error recovery)
+//if (rand() % 1000 < 2) *s2 += 1.0E200 * 1.0E200;
 	gw_fft (gwdata, asm_data);
 //if (rand() % 100 < 1) *d += 1.0;			// Generate random errors (for caller to test error recovery)
 //if (rand() % 1000 < 2) *d += 1.0E200 * 1.0E200;
@@ -9877,10 +9885,12 @@ void gwcopy (			/* Copy a gwnum */
 
 /* Copy the data and 96-byte header */
 
+//if (rand() % 100 < 3) *s += 1.0;			// Generate random errors (for caller to test error recovery)
 	if (gwdata->num_threads > 1)
 		multithread_op (gwdata, s, NULL, d, NULL, NULL, TRUE);
 	else
 		memmove ((char *) d - GW_HEADER_SIZE, (char *) s - GW_HEADER_SIZE, ((uint32_t *) s)[-2] + GW_HEADER_SIZE);
+//if (rand() % 100 < 5) *d += 1.0;			// Generate random errors (for caller to test error recovery)
 
 /* Restore the one piece of information that should not be copied over */
 
