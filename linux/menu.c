@@ -988,11 +988,13 @@ void options_torture (void)
 
 	m_thread = NUM_CPUS * CPU_HYPERTHREADS;
 	mem = physical_memory ();
-	// New in 29.5, default to all but 2.5GB of memory for the large FFT and blend test.
-	if (mem >= 4500) {
-		blendmemory = GetSuggestedMemory (mem - 2500);
+	// New in 29.5, default to all but 3GB of memory for the large FFT and blend test.
+	// On my Skylake-X linux machine mprime crashes if it uses all but 2.5GB (maybe due
+	// to large pages allocated by a running production mprime).
+	if (mem >= 5000) {
+		blendmemory = GetSuggestedMemory (mem - 3000);
 	} else if (mem >= 2000) {
-		blendmemory = GetSuggestedMemory (1600);
+		blendmemory = GetSuggestedMemory (mem - 512);
 	} else if (mem >= 500) {
 		blendmemory = GetSuggestedMemory (mem - 256);
 	} else if (mem >= 200) {
