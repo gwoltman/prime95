@@ -14,6 +14,7 @@ New features in Version 29.6 of mprime
 7)  JSON results are now available for all work performed.  JSON results are
     written to results.json.txt.
 8)  Default memory available for prime95 changed from 8MB to 1/16th of RAM.
+9)  PRP tests with Gerbicz error checking are more immune to hardware errors.
 
 New features in Version 29.4 of mprime
 --------------------------------------
