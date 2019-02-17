@@ -12,7 +12,7 @@ CFLAGS = -I.. -I../gwnum -I$(LOCALBASE)/include -DX86_64 -O2
 CPP = cc
 CPPFLAGS = -I.. -I../gwnum -DX86_64 -O2
 
-LFLAGS = -L$(LOCALBASE)/lib -Wl,-M
+LFLAGS = -fpie -L$(LOCALBASE)/lib -Wl,-M
 LIBS = ../gwnum/gwnum.a ../gwnum/gwnum.ld -lm -lpthread -lhwloc -lcurl -lstdc++ -lcompat -lgmp
 
 FACTOROBJ = factor64.o
