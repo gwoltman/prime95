@@ -1250,17 +1250,8 @@ zr8_rsc_wpn_eight_complex_calc_sincos_simple1 MACRO weights, src2, dest
 zr8_rsc_complex_only_preload MACRO
 	mov	eax, 00110011b			;; For vblendmpd during swizzle
 	kmovw	k7, eax
-;; BUG - load constants from memory -- fewer instructions
-	mov	rax, 0c040e0608000a02h		;; Init vector index-consts needed by vpermt2pd instructions
-	vmovq	xmm0, rax
-;	vpmovzxbq zmm31, ZMM_PERMUTE1		;; zmm31 = 8+4 0+4 8+6 0+6 8+0 0+0 8+2 0+2
-;UASM BUG	vpmovzxbq zmm31, xmm0		;; zmm31 = 8+4 0+4 8+6 0+6 8+0 0+0 8+2 0+2 [msw at left]
-	DB  62h, 62h, 7dh, 48h, 32h, 0f8h ;      vpmovzxbq zmm29,xmm0
-	mov	rax, 0d050f0709010b03h
-	vmovq	xmm0, rax
-;	vpmovzxbq zmm30, ZMM_PERMUTE2		;; zmm30 = 8+5 0+5 8+7 0+7 8+1 0+1 8+3 0+3
-;UASM BUG	vpmovzxbq zmm30, xmm0		;; zmm30 = 8+5 0+5 8+7 0+7 8+1 0+1 8+3 0+3
-	DB  62h, 62h, 7dh, 48h, 32h, 0f0h ;      vpmovzxbq zmm30,xmm0
+	vpmovzxbq zmm31, ZMM_PERMUTE1		;; zmm31 = 8+4 0+4 8+6 0+6 8+0 0+0 8+2 0+2 [msw at left]
+	vpmovzxbq zmm30, ZMM_PERMUTE2		;; zmm30 = 8+5 0+5 8+7 0+7 8+1 0+1 8+3 0+3
 	vbroadcastsd zmm29, ZMM_SQRTHALF
 	ENDM
 
@@ -2914,15 +2905,8 @@ zr8_wpn_sixteen_reals_last_unfft MACRO srcreg,srcinc,d1,d2,d4,screg,scinc,maskre
 zr8_rsc_complex_and_real_preload MACRO
 	mov	eax, 00110011b			;; For vblendmpd during swizzle
 	kmovw	k7, eax
-;; BUG - load constants from memory -- fewer instructions
-	mov	rax, 0c040e0608000a02h		;; Init vector index-consts needed by vpermt2pd instructions
-	vmovq	xmm0, rax
-;UASM BUG	vpmovzxbq zmm31, xmm0		;; zmm31 = 8+4 0+4 8+6 0+6 8+0 0+0 8+2 0+2 [msw at left]
-	DB  62h, 62h, 7dh, 48h, 32h, 0f8h ;      vpmovzxbq zmm29,xmm0
-	mov	rax, 0d050f0709010b03h
-	vmovq	xmm0, rax
-;UASM BUG	vpmovzxbq zmm30, xmm0		;; zmm30 = 8+5 0+5 8+7 0+7 8+1 0+1 8+3 0+3
-	DB  62h, 62h, 7dh, 48h, 32h, 0f0h ;      vpmovzxbq zmm30,xmm0
+	vpmovzxbq zmm31, ZMM_PERMUTE1		;; zmm31 = 8+4 0+4 8+6 0+6 8+0 0+0 8+2 0+2 [msw at left]
+	vpmovzxbq zmm30, ZMM_PERMUTE2		;; zmm30 = 8+5 0+5 8+7 0+7 8+1 0+1 8+3 0+3
 	vbroadcastsd zmm29, ZMM_SQRTHALF
 	vbroadcastsd zmm28, ZMM_P924_P383
 	vbroadcastsd zmm27, ZMM_P383
