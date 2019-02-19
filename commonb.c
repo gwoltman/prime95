@@ -11044,9 +11044,11 @@ rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 				ps.state = PRP_STATE_DCHK_PASS1;
 				ps.start_counter = ps.counter;
 				ps.end_counter = final_counter;
-				gwadd3 (&gwdata, ps.alt_x, ps.alt_x, ps.alt_x);
-				ps.alt_units_bit = ps.units_bit + 1;
-				if (ps.alt_units_bit >= w->n) ps.alt_units_bit -= w->n;
+				if (ps.alt_units_bit) {		// Only Mersennes support shift counts
+					gwadd3 (&gwdata, ps.alt_x, ps.alt_x, ps.alt_x);
+					ps.alt_units_bit = ps.alt_units_bit + 1;
+					if (ps.alt_units_bit >= w->n) ps.alt_units_bit -= w->n;
+				}
 			} else {
 				int	gerbicz_block_size;
 				double	adjustment;
