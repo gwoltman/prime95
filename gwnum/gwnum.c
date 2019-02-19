@@ -688,8 +688,13 @@ int calculate_bif (
 	case CPU_ARCHITECTURE_AMD_K10:
 		retval = BIF_K10;		/* Look for FFTs optimized for K10 */
 		break;
-	case CPU_ARCHITECTURE_AMD_BULLDOZER:	/* Bulldozer CPUs are horrible at AVX.  Go back to K10 optimized. */
-		retval = BIF_K10;		/* Look for FFTs optimized for K10 */
+	case CPU_ARCHITECTURE_AMD_BULLDOZER:	/* Bulldozer is horrible at AVX.  Gwinit turns off AVX & FMA3 to get K10 optimized. */
+		if (gwdata->cpu_flags & CPU_FMA3)  /* Should only happen during torture test */
+			retval = BIF_FMA3;	/* FMA3 FFTs */
+		else if (gwdata->cpu_flags & CPU_AVX)  /* Should only happen during torture test */
+			retval = BIF_I7;	/* AVX without FMA3 FFTs */
+		else
+			retval = BIF_K10;	/* Look for FFTs optimized for K10 */
 		break;
 	case CPU_ARCHITECTURE_AMD_ZEN:		/* Look for FFTs optimized for Ryzen */
 		if (! (gwdata->cpu_flags & CPU_FMA3))
