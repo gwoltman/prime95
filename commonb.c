@@ -7702,7 +7702,14 @@ int selfTestInternal (
 /* systems, enable SUM(INPUTS) != SUM(OUTPUTS) checking on the first test. */
 /* For a better variety of tests, enable SUM(INPUTS) != SUM(OUTPUTS) checking half the time. */
 
-		gwinit (&lldata.gwdata);
+		// Gwinit normally does not allow Bulldozer to run AVX or FMA3 FFTs.  For torture
+		// testing purposes we will allow running these FFTs.
+		if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_BULLDOZER) {
+			CPU_ARCHITECTURE = CPU_ARCHITECTURE_AMD_ZEN;
+			gwinit (&lldata.gwdata);
+			CPU_ARCHITECTURE = CPU_ARCHITECTURE_AMD_BULLDOZER;
+		} else
+			gwinit (&lldata.gwdata);
 		lldata.gwdata.cpu_flags &= ~disabled_cpu_flags;
 		gwclear_use_benchmarks (&lldata.gwdata);
 		gwset_sum_inputs_checking (&lldata.gwdata, iter & 1);
