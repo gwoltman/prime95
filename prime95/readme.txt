@@ -26,6 +26,8 @@ local.txt	Like prime.txt, this file contains more preferences.
 worktodo.txt	A list of exponents the program will be factoring
 		and/or Lucas-Lehmer testing.
 results.txt	Prime95.exe writes its results to this file.
+results.json.txt Prime95.exe writes results to this file in an easy-to-parse JSON format.
+results.bench.txt Prime95.exe writes benchmark results to this file.
 prime.log	A text file listing all messages that have been sent
 		to the PrimeNet server.
 prime.spl	A binary file of messages that have not yet been sent to
@@ -207,7 +209,7 @@ and I suspect memory is thrashing.  More casual users will probably want
 to set the daytime memory to 8MB so they don't have to worry about prime95
 impacting system performance.
 
-If at all in doubt, leave the settings at 8MB.  The worst that will
+If at all in doubt, change the setting to 8MB.  The worst that will
 happen is you end up running a Lucas-Lehmer primality test when stage 2
 of P-1 factoring would have found a factor.
 
