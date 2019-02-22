@@ -606,15 +606,18 @@ never be swapped out.  Thus, using this option could negatively impact
 the performance of other applications.  Also, you'll need to have
 the "Lock Pages in Memory" privilege to use this option.
 
-When looking for probable primes, the following 4 options are available in prime.txt:
+JSON messages for all work types is new in version 29.6.  You can turn off JSON
+messages with this prime.txt option:
+	OutputJSON=0 or 1		(default is 1)
+Setting	OutputJSON=0 will stop prime95 from outputting JSON messages to results.json.txt.
+
+When looking for probable primes, the following 3 options are available in prime.txt:
 	SilentVictoryPRP=0 or 1		(default is 1)
 	OutputPrimes=0 or 1		(default is 0)
 	OutputComposites=0 or 1		(default is 0)
-	OutputJSON=0 or 1		(default is 1)
 Setting SilentVictoryPRP=0 will cause prime95 to make a continuous noise if a PRP is found.
-Setting	OutputPrimes=1 will cause prime95 to output a non-JSON message for probable primes to results.txt.
-Setting	OutputComposites=1 will cause prime95 to output a non-JSON message for composite PRP tests to results.txt.
-Setting	OutputJSON=0 will cause prime95 to not output the JSON message for PRP tests to results.txt.
+Setting	OutputPrimes=1 will cause prime95 to output non-JSON messages for probable primes to results.txt.
+Setting	OutputComposites=1 will cause prime95 to output non-JSON messages for composite PRP tests to results.txt.
 
 When PRPing k*b^n+c, there are two types of highly-reliable error checking available.
 Gerbicz error checking is available when b=2 and there are either no known factors or
