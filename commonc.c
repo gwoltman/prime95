@@ -597,12 +597,12 @@ void getCpuDescription (
 	}
 
 	if (! long_desc) return;
-	strcat (buf, "L1 cache line size: ");
-	if (CPU_L1_CACHE_LINE_SIZE < 0) strcat (buf, "unknown\n");
-	else sprintf (buf+strlen(buf), "%d bytes\n", CPU_L1_CACHE_LINE_SIZE);
-	strcat (buf, "L2 cache line size: ");
-	if (CPU_L2_CACHE_LINE_SIZE < 0) strcat (buf, "unknown\n");
-	else sprintf (buf+strlen(buf), "%d bytes\n", CPU_L2_CACHE_LINE_SIZE);
+	strcat (buf, "\nL1 cache line size: ");
+	if (CPU_L1_CACHE_LINE_SIZE < 0) strcat (buf, "unknown");
+	else sprintf (buf+strlen(buf), "%d bytes", CPU_L1_CACHE_LINE_SIZE);
+	strcat (buf, ", L2 cache line size: ");
+	if (CPU_L2_CACHE_LINE_SIZE < 0) strcat (buf, "unknown");
+	else sprintf (buf+strlen(buf), "%d bytes", CPU_L2_CACHE_LINE_SIZE);
 }
 
 /* Print the machine topology as discovered by hwloc library */
