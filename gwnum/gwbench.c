@@ -228,6 +228,7 @@ void gwbench_read_data (void)
 
 /* Create a view to examine the best 3 throughput numbers for each FFT implementation */
 
+empty_the_db:
 	errcode = sqlite3_exec (BENCH_DB,
 				"CREATE VIEW best3 AS \
 					SELECT * FROM bench_data x WHERE rowid IN ( \
@@ -263,7 +264,6 @@ stmt_error:
 db_error:
 	sqlite3_close_v2 (BENCH_DB);
 	BENCH_DB = NULL;
-empty_the_db:
 	gwmutex_unlock (&SQL_MUTEX);
 }
 
@@ -584,7 +584,7 @@ void gwbench_get_max_throughput (
 							 WHERE fftlen = ?1 AND num_cores = ?2 AND num_workers = ?3 AND \
 								num_hyperthreads = ?4 AND (impl & 0x8010008) = ?5 AND \
 								(impl & 0x7000000) <> ?6 AND \
-								(impl & 0xF000) = ?7 \
+								((impl & 0xF000) = ?7) \
 							 ORDER BY avg_throughput DESC LIMIT 1", -1, &get_max_sql_stmt, NULL);
 		if (errcode != SQLITE_OK) goto stmt_error;
 		get_max_sql_stmt_prepared = TRUE;
