@@ -421,9 +421,9 @@ void getCpuInfo (void)
 /* Note that the CPUID code in gwnum is not good at determining the number of L2 and L3 caches. */
 /* Fortunately, it should be rare that we rely on the CPUID code. */
 
-	if (CPU_NUM_L1_CACHES == 0 && CPU_L1_CACHE_SIZE) CPU_TOTAL_L1_CACHE_SIZE = CPU_L1_CACHE_SIZE * NUM_CPUS, CPU_NUM_L1_CACHES = NUM_CPUS;
-	if (CPU_NUM_L2_CACHES == 0 && CPU_L2_CACHE_SIZE) CPU_TOTAL_L2_CACHE_SIZE = CPU_L2_CACHE_SIZE, CPU_NUM_L2_CACHES = 1;
-	if (CPU_NUM_L3_CACHES == 0 && CPU_L3_CACHE_SIZE) CPU_TOTAL_L3_CACHE_SIZE = CPU_L3_CACHE_SIZE, CPU_NUM_L3_CACHES = 1;
+	if (CPU_NUM_L1_CACHES == 0 && CPU_L1_CACHE_SIZE > 0) CPU_TOTAL_L1_CACHE_SIZE = CPU_L1_CACHE_SIZE * NUM_CPUS, CPU_NUM_L1_CACHES = NUM_CPUS;
+	if (CPU_NUM_L2_CACHES == 0 && CPU_L2_CACHE_SIZE > 0) CPU_TOTAL_L2_CACHE_SIZE = CPU_L2_CACHE_SIZE, CPU_NUM_L2_CACHES = 1;
+	if (CPU_NUM_L3_CACHES == 0 && CPU_L3_CACHE_SIZE > 0) CPU_TOTAL_L3_CACHE_SIZE = CPU_L3_CACHE_SIZE, CPU_NUM_L3_CACHES = 1;
 
 /* Calculate hardware GUID (global unique identifier) using the CPUID info. */
 /* Well, it isn't unique but it is about as good as we can do and still have */
