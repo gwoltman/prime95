@@ -1028,8 +1028,9 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 
 /* The smallest AVX-512F FFT is length 1K.  Limited testing has indicated that less than 5 bits per FFT word */
 /* can result in carry propagation errors.  For small k*b^n+c values switch to not using AVX-512 instructions. */
+/* Don't catch the n==0 case from gwmap_with_cpu_flags_fftlen_to_max_exponent. */
 
-	if (log2b * (double) n < 5.0 * 1024.0)
+	if (n && log2b * (double) n < 5.0 * 1024.0)
 		gwdata->cpu_flags &= ~CPU_AVX512F;
 
 /* First, see what FFT length we would get if we emulate the k*b^n+c modulo */
