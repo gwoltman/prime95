@@ -5650,14 +5650,14 @@ begin:	factor_found = 0;
 			writeResults (buf);
 
 /* Format a JSON version of the result.  An example follows: */
-/* {"status":"F", "exponent":45581713, "worktype":"TF", "factors":"430639100587696027847", */
+/* {"status":"F", "exponent":45581713, "worktype":"TF", "factors":["430639100587696027847"], */
 /* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
 /* "user":"gw_2", "cpu":"office_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
 			strcpy (JSONbuf, "{\"status\":\"F\"");
 			JSONaddExponent (JSONbuf, w);
 			strcat (JSONbuf, ", \"worktype\":\"TF\"");
-			sprintf (JSONbuf+strlen(JSONbuf), ", \"factors\":\"%s\"", str);
+			sprintf (JSONbuf+strlen(JSONbuf), ", \"factors\":[\"%s\"]", str);
 			JSONaddProgramTimestamp (JSONbuf);
 			JSONaddUserComputerAID (JSONbuf, w);
 			strcat (JSONbuf, "}\n");
