@@ -7948,56 +7948,51 @@ void tortureTestDefaultSizes (
 	int	*minfft,		// Minimum FFT size to run
 	int	*maxfft)		// Maximum FFT size to run
 {
-	int	affinity;		// Set if affinity settings will ensure all workers are assigned different cores
 	int	min_adjusted_L2_cache_size, min_adjusted_L3_cache_size, min_adjusted_L4_cache_size;
 	int	max_adjusted_L2_cache_size, max_adjusted_L3_cache_size, max_adjusted_L4_cache_size;
 
-	// Determine if the threads can be evenly distributed across cores using affinity
-	if (OS_CAN_SET_AFFINITY && num_threads % NUM_CPUS == 0) affinity = num_threads / NUM_CPUS;
-	else affinity = 0;
+/* BUG/FEATURE - we should change torture test affinity to predictably distribute torture threads amongst the caches. */
+/* This would let us test larger FFT sizes when user changes the default setting of torture threads to a non-multiple of NUM_CPUS. */
 
-	// Determine how much cache torture test workers will have access to.  This is predictable when affinity is
-	// used to uniformly distribute torture threads amongst cores.  If affinity cannot do that we need to compute
-	// the best case and worst case scenarios.
+/* Determine how much cache each torture test worker should access.  This is tricky in the case where the number of threads is */
+/* not a multiple of NUM_CPUS.  This is because we do not know how the OS will distribute threads amongst the cores.  For example, */
+/* picture a 18-core CPU with two L3 caches.  If there are 9 torture threads the OS could put all of the torture threads on one L3 */
+/* cache leaving the other L3 cache idle, or it could put 4 threads on one L3 cache and 5 on the other. */
+
 	min_adjusted_L2_cache_size = max_adjusted_L2_cache_size = 0;
 	min_adjusted_L3_cache_size = max_adjusted_L3_cache_size = 0;
 	min_adjusted_L4_cache_size = max_adjusted_L4_cache_size = 0;
+
 	if (CPU_NUM_L2_CACHES) {
-		int	min_workers_per_L2_cache, max_workers_per_L2_cache;
-		if (affinity)
-			min_workers_per_L2_cache = max_workers_per_L2_cache = affinity;
-		else {
-			max_workers_per_L2_cache = NUM_CPUS * CPU_HYPERTHREADS / CPU_NUM_L2_CACHES;
-			min_workers_per_L2_cache = num_threads / CPU_NUM_L2_CACHES;
-			if (num_threads < max_workers_per_L2_cache) max_workers_per_L2_cache = num_threads;
-			if (min_workers_per_L2_cache < 1) min_workers_per_L2_cache = 1;
-		}
+		int	cores_per_L2_cache, min_workers_per_L2_cache, max_workers_per_L2_cache;
+
+		cores_per_L2_cache = NUM_CPUS / CPU_NUM_L2_CACHES;
+
+		min_workers_per_L2_cache = divide_rounding_up (num_threads, CPU_NUM_L2_CACHES);
+		max_workers_per_L2_cache = num_threads / NUM_CPUS * cores_per_L2_cache + _intmin (num_threads % NUM_CPUS, cores_per_L2_cache);
+
 		max_adjusted_L2_cache_size = CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES / min_workers_per_L2_cache;
 		min_adjusted_L2_cache_size = CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES / max_workers_per_L2_cache;
 	}
+
 	if (CPU_NUM_L3_CACHES) {
-		int	min_workers_per_L3_cache, max_workers_per_L3_cache;
-		if (affinity)
-			min_workers_per_L3_cache = max_workers_per_L3_cache = affinity;
-		else {
-			max_workers_per_L3_cache = NUM_CPUS * CPU_HYPERTHREADS / CPU_NUM_L3_CACHES;
-			min_workers_per_L3_cache = num_threads / CPU_NUM_L3_CACHES;
-			if (num_threads < max_workers_per_L3_cache) max_workers_per_L3_cache = num_threads;
-			if (min_workers_per_L3_cache < 1) min_workers_per_L3_cache = 1;
-		}
+		int	cores_per_L3_cache, min_workers_per_L3_cache, max_workers_per_L3_cache;
+
+		cores_per_L3_cache = NUM_CPUS / CPU_NUM_L3_CACHES;
+		min_workers_per_L3_cache = divide_rounding_up (num_threads, CPU_NUM_L3_CACHES);
+		max_workers_per_L3_cache = num_threads / NUM_CPUS * cores_per_L3_cache + _intmin (num_threads % NUM_CPUS, cores_per_L3_cache);
+
 		max_adjusted_L3_cache_size = CPU_TOTAL_L3_CACHE_SIZE / CPU_NUM_L3_CACHES / min_workers_per_L3_cache;
 		min_adjusted_L3_cache_size = CPU_TOTAL_L3_CACHE_SIZE / CPU_NUM_L3_CACHES / max_workers_per_L3_cache;
 	}
+
 	if (CPU_NUM_L4_CACHES) {
-		int	min_workers_per_L4_cache, max_workers_per_L4_cache;
-		if (affinity)
-			min_workers_per_L4_cache = max_workers_per_L4_cache = affinity;
-		else {
-			max_workers_per_L4_cache = NUM_CPUS * CPU_HYPERTHREADS / CPU_NUM_L4_CACHES;
-			min_workers_per_L4_cache = num_threads / CPU_NUM_L4_CACHES;
-			if (num_threads < max_workers_per_L4_cache) max_workers_per_L4_cache = num_threads;
-			if (min_workers_per_L4_cache < 1) min_workers_per_L4_cache = 1;
-		}
+		int	cores_per_L4_cache, min_workers_per_L4_cache, max_workers_per_L4_cache;
+
+		cores_per_L4_cache = NUM_CPUS / CPU_NUM_L4_CACHES;
+		min_workers_per_L4_cache = divide_rounding_up (num_threads, CPU_NUM_L4_CACHES);
+		max_workers_per_L4_cache = num_threads / NUM_CPUS * cores_per_L4_cache + _intmin (num_threads % NUM_CPUS, cores_per_L4_cache);
+
 		max_adjusted_L4_cache_size = CPU_TOTAL_L4_CACHE_SIZE / CPU_NUM_L4_CACHES / min_workers_per_L4_cache;
 		min_adjusted_L4_cache_size = CPU_TOTAL_L4_CACHE_SIZE / CPU_NUM_L4_CACHES / max_workers_per_L4_cache;
 	}
