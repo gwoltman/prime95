@@ -11067,7 +11067,7 @@ rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 				gwswap (ps.alt_x, ps.u0);		// Set u0 to a copy of x
 				gwcopy (&gwdata, ps.x, ps.d);		// Set d[0] to a copy of x
 				if (IniGetInt (INI_FILE, "GerbiczVerbosity", 1) > 1) {
-					sprintf (buf, "Start Gerbicz block of size %ld at iteration %ld.\n", ps.L * ps.L, ps.start_counter);
+					sprintf (buf, "Start Gerbicz block of size %ld at iteration %ld.\n", ps.L * ps.L, ps.start_counter+1);
 					OutputBoth (thread_num, buf);
 				}
 			}
