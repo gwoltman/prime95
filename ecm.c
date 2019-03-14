@@ -5630,7 +5630,7 @@ bingo:	if (stage == 1)
 	writeResults (msg);
 
 /* Format a JSON version of the result.  An example follows: */
-/* {"status":"F", "exponent":45581713, "worktype":"P-1", "factors":"430639100587696027847", */
+/* {"status":"F", "exponent":45581713, "worktype":"P-1", "factors":["430639100587696027847"], */
 /* "b1":50000, "b2":5000000, "brent-suyama":6, */
 /* "fft-length":5120, "security-code":"39AB1238", */
 /* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
@@ -5639,7 +5639,7 @@ bingo:	if (stage == 1)
 	strcpy (JSONbuf, "{\"status\":\"F\"");
 	JSONaddExponent (JSONbuf, w);
 	strcat (JSONbuf, ", \"worktype\":\"P-1\"");
-	sprintf (JSONbuf+strlen(JSONbuf), ", \"factors\":\"%s\"", str);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"factors\":[\"%s\"]", str);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"b1\":%.0f", (double) B);
 	if (stage > 1) {
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"b2\":%.0f", (double) C);
