@@ -567,12 +567,17 @@ void SetPriority (
 		if (obj == NULL) obj = hwloc_get_obj_by_type (hwloc_topology, HWLOC_OBJ_PU, core);	/* Get proper core */
 		if (obj) {
 			if (hwloc_set_cpubind (hwloc_topology, obj->cpuset, HWLOC_CPUBIND_THREAD)) { /* Bind thread to all logical CPUs in the core */
-				char *str;
-				int error = errno;
-				hwloc_bitmap_asprintf (&str, obj->cpuset);
-				sprintf (buf, "Error setting affinity to cpuset %s: %s\n", str, strerror(error));
+				char	str[80];
+				int	error = errno;
+				hwloc_bitmap_snprintf (str, sizeof (str), obj->cpuset);
+				sprintf (buf, "Error setting affinity to cpuset %s: %s\n", str, strerror (error));
 				OutputStr (info->worker_num, buf);
-				free (str);
+			}
+			else if (info->verbose_flag >= 2) {
+				char	str[80];
+				hwloc_bitmap_snprintf (str, sizeof (str), obj->cpuset);
+				sprintf (buf, "Affinity set to cpuset %s\n", str);
+				OutputStr (info->worker_num, buf);
 			}
 		}
 	}
@@ -592,12 +597,17 @@ void SetPriority (
 		obj = hwloc_get_obj_by_type (hwloc_topology, HWLOC_OBJ_PU, logical_CPU);	/* Get proper logical CPU */
 		if (obj) {
 			if (hwloc_set_cpubind (hwloc_topology, obj->cpuset, HWLOC_CPUBIND_THREAD)) { /* Bind thread to one logical CPU */
-				char *str;
-				int error = errno;
-				hwloc_bitmap_asprintf (&str, obj->cpuset);
-				sprintf (buf, "Error setting affinity to cpuset %s: %s\n", str, strerror(error));
+				char	str[80];
+				int	error = errno;
+				hwloc_bitmap_snprintf (str, sizeof (str), obj->cpuset);
+				sprintf (buf, "Error setting affinity to cpuset %s: %s\n", str, strerror (error));
 				OutputStr (info->worker_num, buf);
-				free (str);
+			}
+			else if (info->verbose_flag >= 2) {
+				char	str[80];
+				hwloc_bitmap_snprintf (str, sizeof (str), obj->cpuset);
+				sprintf (buf, "Affinity set to cpuset %s\n", str);
+				OutputStr (info->worker_num, buf);
 			}
 		}
 	}
@@ -625,12 +635,17 @@ void SetPriority (
 			if (comma == NULL) break;
 		}
 		if (hwloc_set_cpubind (hwloc_topology, cpuset, HWLOC_CPUBIND_THREAD)) {	/* Set affinity to specified logical CPUs */
-			char *str;
-			int error = errno;
-			hwloc_bitmap_asprintf (&str, cpuset);
-			sprintf (buf, "Error setting affinity to cpuset %s: %s\n", str, strerror(error));
+			char	str[80];
+			int	error = errno;
+			hwloc_bitmap_snprintf (str, sizeof (str), cpuset);
+			sprintf (buf, "Error setting affinity to cpuset %s: %s\n", str, strerror (error));
 			OutputStr (info->worker_num, buf);
-			free (str);
+		}
+		else if (info->verbose_flag >= 2) {
+			char	str[80];
+			hwloc_bitmap_snprintf (str, sizeof (str), cpuset);
+			sprintf (buf, "Affinity set to cpuset %s\n", str);
+			OutputStr (info->worker_num, buf);
 		}
 		hwloc_bitmap_free (cpuset);
 	}
