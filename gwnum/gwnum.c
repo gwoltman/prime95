@@ -2863,8 +2863,10 @@ int internal_gwsetup (
 		asm_data->u.zmm.ZMM_SMALL_BASE = small_word;				/* Lower limit */
 		asm_data->u.zmm.ZMM_SMALL_BASE_INVERSE = 1.0 / small_word;		/* Lower limit inverse */
 
-		// Use small_word for rational FFTs as there are no big_words (and big_word might exceed fatal 2^26)
-		rndval_base = (gwdata->RATIONAL_FFT ? small_word : big_word);
+		// Use small_word for FFTs where there are no big words (and big_word might exceed fatal 2^26)
+		// This is more than just RATIONAL_FFTs (e.g. 117^3072-5).
+		rndval_base = ((double) gwdata->NUM_B_PER_SMALL_WORD == gwdata->avg_num_b_per_word ? small_word : big_word);
+		ASSERTG (rndval_base < 67108864.0);
 		cnt = (int) log2 (rndval_base) + 1;
 		asm_data->u.zmm.ZMM_RNDVAL = 3.0 * 131072.0 * 131072.0 * 131072.0;	/* Rounding value */
 		asm_data->u.zmm.ZMM_RNDVAL /= pow (2.0, cnt);
