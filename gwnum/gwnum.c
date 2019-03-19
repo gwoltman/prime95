@@ -8400,6 +8400,7 @@ void gianttogw (
 
 		limit = (unsigned long) ceil ((double) bitlen (a) / (gwdata->avg_num_b_per_word * log2 (gwdata->b)));
 		if (limit > gwdata->FFTLEN) limit = gwdata->FFTLEN;
+		if (gwdata->ZERO_PADDED_FFT && limit > gwdata->FFTLEN / 2 +4) limit = gwdata->FFTLEN / 2 + 4;
 
 /* Now convert the giant to FFT format.  For base 2 we simply copy bits.  */
 
@@ -8428,7 +8429,7 @@ void gianttogw (
 				if (i == limit - 1) value = binval;
 				else value = binval & mask;
 				value = value + carry;
-				if (value > (mask >> 1) && bits > 1 && i != gwdata->FFTLEN - 1) {
+				if (value > (mask >> 1) && bits > 1 && i != limit - 1) {
 					value = value - (mask + 1);
 					carry = 1;
 				} else {
@@ -8449,6 +8450,9 @@ void gianttogw (
 					binval |= (*e1 >> (32 - bits_in_next_binval)) << (32 - bits);
 					bits_in_next_binval -= bits;
 				}
+			}
+			for ( ; i < gwdata->FFTLEN; i++) {
+				set_fft_value (gwdata, g, i, 0);
 			}
 		}
 
