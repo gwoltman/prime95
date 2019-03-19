@@ -1071,8 +1071,7 @@ again:	zpad_jmptab = NULL;
 
 /* Don't bother looking at this FFT length if the generic reduction would be faster */
 
-			if (generic_jmptab != NULL && zpad_jmptab->timing > 3.0 * generic_jmptab->timing)
-				goto next1;
+			if (generic_jmptab != NULL && zpad_jmptab->timing > 3.0 * generic_jmptab->timing) goto next1;
 
 /* Make sure this FFT length is implemented and benchmarking does not show that a larger FFT will be faster */
 
@@ -1163,6 +1162,15 @@ again:	zpad_jmptab = NULL;
 /* Move past procedure entries and counts to next jmptable entry */
 
 next1:			zpad_jmptab = NEXT_SET_OF_JMPTABS (zpad_jmptab);
+		}
+
+/* Some k/b/n/c values can't be handled by AVX-512 FFTs because there are relatively few small FFT sizes available. */
+/* In these cases, we'll retry using FMA3 FFTs.  One example is 15312853462553*2^5257+1.  NOTE:  There may be non-base2 cases */
+/* where we could use a zero-padded FMA3 FFT, but instead we'll end up selecting a generic reduction AVX-512 FFT. */
+
+		if (zpad_jmptab->max_exp == 0 && gwdata->cpu_flags & CPU_AVX512F && b == 2 && n < 100000) {
+			gwdata->cpu_flags &= ~CPU_AVX512F;
+			goto again;
 		}
 	}
 
