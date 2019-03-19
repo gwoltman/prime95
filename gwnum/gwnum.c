@@ -1149,17 +1149,13 @@ again:	zpad_jmptab = NULL;
 /* Thus, the multiplied FFT result word cannot be more than 7 times bits-per-input-word */
 /* (bits-per-input-word are stored in the current word and the 6 words we propagate carries to). */
 
-			    bits_per_output_word + log2k + log2maxmulbyconst <=
-						    floor (7.0 * b_per_input_word) * log2b &&
+			    bits_per_output_word + log2k + log2maxmulbyconst <= floor (7.0 * b_per_input_word) * log2b &&
 
-/* The high part of upper result words are multiplied by c and the mul-by-const.  This must */
-/* not exceed 51 bits. */
+/* The high part of upper result words are multiplied by c and the mul-by-const.  This must not exceed 51 bits. */
 
-			    bits_per_output_word - floor (b_per_input_word) * log2b +
-						    log2c + log2maxmulbyconst <= 51.0) {
+			    bits_per_output_word - floor (b_per_input_word) * log2b + log2c + log2maxmulbyconst <= 51.0) {
 
-/* We can use this FFT. */
-/* Look for a non-zero-padded FFT that might be even faster. */
+/* We can use this FFT.  Look for a non-zero-padded FFT that might be even faster. */
 
 				break;
 			}
@@ -2807,9 +2803,8 @@ int internal_gwsetup (
 	gwdata->RATIONAL_FFT = asm_data->RATIONAL_FFT =
 		((double) gwdata->NUM_B_PER_SMALL_WORD == gwdata->avg_num_b_per_word) && (gwdata->ZERO_PADDED_FFT || labs (c) == 1);
 
-/* Remember the maximum number of bits per word that this FFT length */
-/* supports.  We this in gwnear_fft_limit.  Note that zero padded FFTs */
-/* can support an extra 0.3 bits per word because of the all the zeroes. */
+/* Remember the maximum number of bits per word that this FFT length supports.  We use this in gwnear_fft_limit. */
+/* Note that zero padded FFTs can support an extra 0.3 bits per word because of the all the zeroes. */
 
 	gwdata->fft_max_bits_per_word = (double) adjusted_max_exponent (gwdata, info) / (double) gwdata->FFTLEN;
 	if (gwdata->ZERO_PADDED_FFT) gwdata->fft_max_bits_per_word += 0.3;
@@ -2831,7 +2826,7 @@ int internal_gwsetup (
 /* Initialize tables for r4dwpn AVX-512 FFT code */
 
 	if (gwdata->cpu_flags & CPU_AVX512F) {
-		int	cnt;
+		int	rndval_base, cnt;
 
 /* Compute the normalization constants.  The rounding constant, a value larger than 3*2^51, is chosen such that */
 /* it is a multiple of big_word and RNDVAL * big_word - RNDVAL fits in 53 bits. */
@@ -2860,10 +2855,12 @@ int internal_gwsetup (
 		asm_data->u.zmm.ZMM_SMALL_BASE = small_word;				/* Lower limit */
 		asm_data->u.zmm.ZMM_SMALL_BASE_INVERSE = 1.0 / small_word;		/* Lower limit inverse */
 
-		cnt = (int) log2 (big_word) + 1;
+		// Use small_word for rational FFTs as there are no big_words (and big_word might exceed fatal 2^26)
+		rndval_base = (gwdata->RATIONAL_FFT ? small_word : big_word);
+		cnt = (int) log2 (rndval_base) + 1;
 		asm_data->u.zmm.ZMM_RNDVAL = 3.0 * 131072.0 * 131072.0 * 131072.0;	/* Rounding value */
 		asm_data->u.zmm.ZMM_RNDVAL /= pow (2.0, cnt);
-		asm_data->u.zmm.ZMM_RNDVAL += fltmod (big_word - fltmod (asm_data->u.zmm.ZMM_RNDVAL, big_word), big_word);
+		asm_data->u.zmm.ZMM_RNDVAL += fltmod (rndval_base - fltmod (asm_data->u.zmm.ZMM_RNDVAL, rndval_base), rndval_base);
 		asm_data->u.zmm.ZMM_RNDVAL *= pow (2.0, cnt);
 
 		asm_data->u.zmm.ZMM_RNDVAL_TIMES_LARGE_BASE = asm_data->u.zmm.ZMM_RNDVAL * big_word - asm_data->u.zmm.ZMM_RNDVAL;
@@ -7794,15 +7791,14 @@ void gwsetmulbyconst (
 /* to split k*mulconst if k*mulconst * big_word exceeds what a floating point register can hold. */
 /* 2^49 should give us enough room to handle a carry and still round properly. */	
 
-		if (fabs (ktimesval) * big_word < 562949953421312.0) {
+		if (fabs (ktimesval) * big_word < 562949953421312.0)
 			asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE = 0.0;
-			asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_SMALL_BASE = 0.0;
-			asm_data->u.zmm.ZMM_K_TIMES_MULCONST_LO = ktimesval;
-		} else {
+		else if (ktimesval > 0.0)
 			asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE = floor (ktimesval / big_word);
-			asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_SMALL_BASE = asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE * (double) gwdata->b;
-			asm_data->u.zmm.ZMM_K_TIMES_MULCONST_LO = ktimesval - asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE * big_word;
-		}
+		else
+			asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE = -floor (-ktimesval / big_word);
+		asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_SMALL_BASE = asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE * (double) gwdata->b;
+		asm_data->u.zmm.ZMM_K_TIMES_MULCONST_LO = ktimesval - asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE * big_word;
 	}
 
 /* Adjust the AVX assembly language constants affected by mulbyconst */
@@ -7820,19 +7816,20 @@ void gwsetmulbyconst (
 /* to split k*mulconst if k*mulconst * big_word exceeds what a floating point register can hold. */
 /* 2^49 should give us enough room to handle a carry and still round properly. */	
 
-		if (fabs (ktimesval) * big_word < 562949953421312.0) {
+		if (fabs (ktimesval) * big_word < 562949953421312.0)
 			asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[0] = asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[1] =
 			asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[2] = asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[3] = 0.0;
-			asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[0] = asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[1] =
-			asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[2] = asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[3] = ktimesval;
-		} else {
+		else if (ktimesval > 0.0)
 			asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[0] = asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[1] =
 			asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[2] = asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[3] =
 				floor (ktimesval / big_word) * big_word;
-			asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[0] = asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[1] =
-			asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[2] = asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[3] =
-				ktimesval - asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[0];
-		}
+		else
+			asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[0] = asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[1] =
+			asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[2] = asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[3] =
+				-floor (-ktimesval / big_word) * big_word;
+		asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[0] = asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[1] =
+		asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[2] = asm_data->u.ymm.YMM_K_TIMES_MULCONST_LO[3] =
+			ktimesval - asm_data->u.ymm.YMM_K_TIMES_MULCONST_HI[0];
 	}
 
 /* Adjust the SSE2 assembly language constants affected by mulbyconst */
@@ -7848,15 +7845,16 @@ void gwsetmulbyconst (
 /* to split k*mulconst if k*mulconst * big_word exceeds what a floating point register can hold. */
 /* 2^49 should give us enough room to handle a carry and still round properly. */	
 
-		if (fabs (ktimesval) * big_word < 562949953421312.0) {
+		if (fabs (ktimesval) * big_word < 562949953421312.0)
 			asm_data->u.xmm.XMM_K_TIMES_MULCONST_HI[0] = asm_data->u.xmm.XMM_K_TIMES_MULCONST_HI[1] = 0.0;
-			asm_data->u.xmm.XMM_K_TIMES_MULCONST_LO[0] = asm_data->u.xmm.XMM_K_TIMES_MULCONST_LO[1] = ktimesval;
-		} else {
-			asm_data->u.xmm.XMM_K_TIMES_MULCONST_HI[0] =
-			asm_data->u.xmm.XMM_K_TIMES_MULCONST_HI[1] = floor (ktimesval / big_word) * big_word;
-			asm_data->u.xmm.XMM_K_TIMES_MULCONST_LO[0] =
-			asm_data->u.xmm.XMM_K_TIMES_MULCONST_LO[1] = ktimesval - asm_data->u.xmm.XMM_K_TIMES_MULCONST_HI[0];
-		}
+		else if (ktimesval > 0.0)
+			asm_data->u.xmm.XMM_K_TIMES_MULCONST_HI[0] = asm_data->u.xmm.XMM_K_TIMES_MULCONST_HI[1] =
+				floor (ktimesval / big_word) * big_word;
+		else
+			asm_data->u.xmm.XMM_K_TIMES_MULCONST_HI[0] = asm_data->u.xmm.XMM_K_TIMES_MULCONST_HI[1] =
+				-floor (-ktimesval / big_word) * big_word;
+		asm_data->u.xmm.XMM_K_TIMES_MULCONST_LO[0] =
+		asm_data->u.xmm.XMM_K_TIMES_MULCONST_LO[1] = ktimesval - asm_data->u.xmm.XMM_K_TIMES_MULCONST_HI[0];
 	}
 
 /* Adjust the x87 assembly language constants affected by mulbyconst */
