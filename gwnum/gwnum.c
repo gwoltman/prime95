@@ -1125,7 +1125,9 @@ again:	zpad_jmptab = NULL;
 				2.0 * (num_b_in_big_word * log2b - 1.0) +
 				0.6 * log2 (num_big_words + num_small_words / pow (2.0, log2b / 0.6));
 
-/* And compute the weighted values as per the formulas described later */
+/* And compute the weighted values as per the formulas described later.  In 29.7 we added the log2b < 12.5 case (to match */
+/* the non-zero-padded code) as 27904^53415-7 was choosing a zero-padded 200K AVX-512 FFT and getting roundoffs frequently */
+/* above 0.4 and rarely above 0.5.  We need to do a careful analysis using average round error to fine tune this adjustment further. */
 
 			max_weighted_bits_per_output_word =
 				2.0 * max_bits_per_input_word + 0.6 * log2 (zpad_jmptab->fftlen / 2 + 4);
@@ -1138,7 +1140,7 @@ again:	zpad_jmptab = NULL;
 				weighted_bits_per_output_word -=
 					((log2b <= 3.0) ? (log2b - 1.0) / 2.0 :
 					 (log2b <= 6.0) ? 1.0 + (log2b - 3.0) / 3.0 :
-							  2.0 + (log2b - 6.0) / 6.0);
+					 (log2b <= 12.5) ? 2.0 + (log2b - 6.0) / 6.5 : 3.0);
 
 /* See if this FFT length might work */
 
