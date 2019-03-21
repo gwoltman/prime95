@@ -2124,6 +2124,8 @@ int gwsetup (
 	if (gwdata->minimum_fftlen == 0) {
 		if (gwdata->cpu_flags & CPU_AVX512F) {
 			if (log2(b) * (double) n > MAX_PRIME_AVX512) return (GWERROR_TOO_LARGE);
+		} else if (gwdata->cpu_flags & CPU_FMA3) {
+			if (log2(b) * (double) n > MAX_PRIME_FMA3) return (GWERROR_TOO_LARGE);
 		} else if (gwdata->cpu_flags & CPU_AVX) {
 			if (log2(b) * (double) n > MAX_PRIME_AVX) return (GWERROR_TOO_LARGE);
 		} else if (gwdata->cpu_flags & CPU_SSE2) {
