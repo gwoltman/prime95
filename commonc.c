@@ -105,6 +105,9 @@ uint32_t CPU_NUM_L1_CACHES = 0;		/* Number of L1 caches as determined by hwloc *
 uint32_t CPU_NUM_L2_CACHES = 0;		/* Number of L2 caches as determined by hwloc */
 uint32_t CPU_NUM_L3_CACHES = 0;		/* Number of L3 caches as determined by hwloc */
 uint32_t CPU_NUM_L4_CACHES = 0;		/* Number of L4 caches as determined by hwloc */
+int	CPU_L2_CACHE_INCLUSIVE = -1;	/* 1 if inclusive, 0 if exclusive, -1 if not known */
+int	CPU_L3_CACHE_INCLUSIVE = -1;	/* 1 if inclusive, 0 if exclusive, -1 if not known */
+int	CPU_L4_CACHE_INCLUSIVE = -1;	/* 1 if inclusive, 0 if exclusive, -1 if not known */
 unsigned int NUM_NUMA_NODES = 1;	/* Number of NUMA nodes in the computer */
 unsigned int NUM_THREADING_NODES = 1;	/* Number of nodes where it might be beneficial to keep a worker's threads in the same node */
 int	OS_CAN_SET_AFFINITY = 1;	/* hwloc supports setting CPU affinity (known exception is Apple) */
@@ -356,8 +359,7 @@ void getCpuSpeed (void)
 void getCpuInfo (void)
 {
 	int	depth, i, temp;
-	hwloc_obj_t obj;
-
+			
 /* Get the CPU info using CPUID instruction */	
 
 	guessCpuType ();
@@ -381,8 +383,14 @@ void getCpuInfo (void)
 	CPU_TOTAL_L2_CACHE_SIZE = CPU_NUM_L2_CACHES = 0;
 	CPU_TOTAL_L3_CACHE_SIZE = CPU_NUM_L3_CACHES = 0;
 	CPU_TOTAL_L4_CACHE_SIZE = CPU_NUM_L4_CACHES = 0;
+	CPU_L2_CACHE_INCLUSIVE = -1;
+	CPU_L3_CACHE_INCLUSIVE = -1;
+	CPU_L4_CACHE_INCLUSIVE = -1;
 	for (depth = 0; depth < hwloc_topology_get_depth (hwloc_topology); depth++) {
 		for (i = 0; i < (int) hwloc_get_nbobjs_by_depth (hwloc_topology, depth); i++) {
+			hwloc_obj_t obj;
+			const char *inclusive;
+
 			obj = hwloc_get_obj_by_depth (hwloc_topology, depth, i);
 			if (obj == NULL || obj->attr == NULL) break; // can't happen
 			if (obj->type == HWLOC_OBJ_L1CACHE) {
@@ -396,16 +404,22 @@ void getCpuInfo (void)
 				CPU_NUM_L2_CACHES++;
 				if (obj->attr->cache.linesize > 0) CPU_L2_CACHE_LINE_SIZE = obj->attr->cache.linesize;
 				if (obj->attr->cache.associativity > 0) CPU_L2_SET_ASSOCIATIVE = obj->attr->cache.associativity;
+				inclusive = hwloc_obj_get_info_by_name (obj, "Inclusive");
+				if (inclusive != NULL) 	CPU_L2_CACHE_INCLUSIVE = atoi (inclusive);
 			}
 			else if (obj->type == HWLOC_OBJ_L3CACHE) {
 				CPU_TOTAL_L3_CACHE_SIZE += (uint32_t) (obj->attr->cache.size >> 10);
 				CPU_NUM_L3_CACHES++;
 				if (obj->attr->cache.linesize > 0) CPU_L3_CACHE_LINE_SIZE = obj->attr->cache.linesize;
 				if (obj->attr->cache.associativity > 0) CPU_L3_SET_ASSOCIATIVE = obj->attr->cache.associativity;
+				inclusive = hwloc_obj_get_info_by_name (obj, "Inclusive");
+				if (inclusive != NULL) 	CPU_L3_CACHE_INCLUSIVE = atoi (inclusive);
 			}
 			else if (obj->type == HWLOC_OBJ_L4CACHE) {
 				CPU_TOTAL_L4_CACHE_SIZE += (uint32_t) (obj->attr->cache.size >> 10);
 				CPU_NUM_L4_CACHES++;
+				inclusive = hwloc_obj_get_info_by_name (obj, "Inclusive");
+				if (inclusive != NULL) 	CPU_L4_CACHE_INCLUSIVE = atoi (inclusive);
 			}
 		}
 	}
