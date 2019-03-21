@@ -7988,6 +7988,11 @@ void tortureTestDefaultSizes (
 
 		max_adjusted_L2_cache_size = CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES / min_workers_per_L2_cache;
 		min_adjusted_L2_cache_size = CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES / max_workers_per_L2_cache;
+
+		if (CPU_L2_CACHE_INCLUSIVE == 0 && CPU_NUM_L1_CACHES) {
+			max_adjusted_L2_cache_size += CPU_TOTAL_L1_CACHE_SIZE / CPU_NUM_L1_CACHES;
+			min_adjusted_L2_cache_size += CPU_TOTAL_L1_CACHE_SIZE / CPU_NUM_L1_CACHES;
+		}
 	}
 
 	if (CPU_NUM_L3_CACHES) {
@@ -7999,6 +8004,11 @@ void tortureTestDefaultSizes (
 
 		max_adjusted_L3_cache_size = CPU_TOTAL_L3_CACHE_SIZE / CPU_NUM_L3_CACHES / min_workers_per_L3_cache;
 		min_adjusted_L3_cache_size = CPU_TOTAL_L3_CACHE_SIZE / CPU_NUM_L3_CACHES / max_workers_per_L3_cache;
+
+		if (CPU_L3_CACHE_INCLUSIVE == 0) {
+			max_adjusted_L3_cache_size += max_adjusted_L2_cache_size;
+			min_adjusted_L3_cache_size += min_adjusted_L2_cache_size;
+		}
 	}
 
 	if (CPU_NUM_L4_CACHES) {
@@ -8010,26 +8020,31 @@ void tortureTestDefaultSizes (
 
 		max_adjusted_L4_cache_size = CPU_TOTAL_L4_CACHE_SIZE / CPU_NUM_L4_CACHES / min_workers_per_L4_cache;
 		min_adjusted_L4_cache_size = CPU_TOTAL_L4_CACHE_SIZE / CPU_NUM_L4_CACHES / max_workers_per_L4_cache;
+
+		if (CPU_L4_CACHE_INCLUSIVE == 0) {
+			max_adjusted_L4_cache_size += max_adjusted_L3_cache_size;
+			min_adjusted_L4_cache_size += min_adjusted_L3_cache_size;
+		}
 	}
 
 
 /* Select FFT sizes that will overflow smaller caches and fit within the requested larger cache */
-	
+
 	if (torture_type == 0) {		// L2 cache
 		*minfft = 4;
 		*maxfft = min_adjusted_L2_cache_size / 12;
 	}
 	if (torture_type == 1) {		// L3 cache
-		*minfft = max_adjusted_L2_cache_size / 6;
+		*minfft = max_adjusted_L2_cache_size / 7;
 		*maxfft = min_adjusted_L3_cache_size / 12;
 	}
 	if (torture_type == 2) {		// L4 cache
-		*minfft = max_adjusted_L3_cache_size / 6;
+		*minfft = max_adjusted_L3_cache_size / 7;
 		*maxfft = min_adjusted_L4_cache_size / 12;
 	}
 	if (torture_type == 3) {		// Large FFT
 		*minfft = (max_adjusted_L4_cache_size ? max_adjusted_L4_cache_size :
-			   max_adjusted_L3_cache_size ? max_adjusted_L3_cache_size : max_adjusted_L2_cache_size) / 6;
+			   max_adjusted_L3_cache_size ? max_adjusted_L3_cache_size : max_adjusted_L2_cache_size) / 7;
 		*maxfft = (CPU_TOTAL_L4_CACHE_SIZE ? 32768 : 8192);
 	}
 	if (torture_type == 4) {		// Blend
