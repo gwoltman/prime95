@@ -405,7 +405,7 @@ void getCpuInfo (void)
 				if (obj->attr->cache.linesize > 0) CPU_L2_CACHE_LINE_SIZE = obj->attr->cache.linesize;
 				if (obj->attr->cache.associativity > 0) CPU_L2_SET_ASSOCIATIVE = obj->attr->cache.associativity;
 				inclusive = hwloc_obj_get_info_by_name (obj, "Inclusive");
-				if (inclusive != NULL) 	CPU_L2_CACHE_INCLUSIVE = atoi (inclusive);
+				if (inclusive != NULL) CPU_L2_CACHE_INCLUSIVE = atoi (inclusive);
 			}
 			else if (obj->type == HWLOC_OBJ_L3CACHE) {
 				CPU_TOTAL_L3_CACHE_SIZE += (uint32_t) (obj->attr->cache.size >> 10);
@@ -413,13 +413,13 @@ void getCpuInfo (void)
 				if (obj->attr->cache.linesize > 0) CPU_L3_CACHE_LINE_SIZE = obj->attr->cache.linesize;
 				if (obj->attr->cache.associativity > 0) CPU_L3_SET_ASSOCIATIVE = obj->attr->cache.associativity;
 				inclusive = hwloc_obj_get_info_by_name (obj, "Inclusive");
-				if (inclusive != NULL) 	CPU_L3_CACHE_INCLUSIVE = atoi (inclusive);
+				if (inclusive != NULL) CPU_L3_CACHE_INCLUSIVE = atoi (inclusive);
 			}
 			else if (obj->type == HWLOC_OBJ_L4CACHE) {
 				CPU_TOTAL_L4_CACHE_SIZE += (uint32_t) (obj->attr->cache.size >> 10);
 				CPU_NUM_L4_CACHES++;
 				inclusive = hwloc_obj_get_info_by_name (obj, "Inclusive");
-				if (inclusive != NULL) 	CPU_L4_CACHE_INCLUSIVE = atoi (inclusive);
+				if (inclusive != NULL) CPU_L4_CACHE_INCLUSIVE = atoi (inclusive);
 			}
 		}
 	}
@@ -501,15 +501,18 @@ void getCpuInfo (void)
 	CPU_L2_CACHE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL2CacheSize", CPU_L2_CACHE_SIZE);
 	CPU_L2_CACHE_LINE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL2CacheLineSize", CPU_L2_CACHE_LINE_SIZE);
 	CPU_L2_SET_ASSOCIATIVE = IniGetInt (LOCALINI_FILE, "CpuL2SetAssociative", CPU_L2_SET_ASSOCIATIVE);
+	CPU_L2_CACHE_INCLUSIVE = IniGetInt (LOCALINI_FILE, "CpuL2CacheInclusive", CPU_L2_CACHE_INCLUSIVE);
 
 	CPU_TOTAL_L3_CACHE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL3TotalCacheSize", CPU_TOTAL_L3_CACHE_SIZE);
 	CPU_NUM_L3_CACHES = IniGetInt (LOCALINI_FILE, "CpuL3NumCaches", CPU_NUM_L3_CACHES);
 	CPU_L3_CACHE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL3CacheSize", CPU_L3_CACHE_SIZE);
 	CPU_L3_CACHE_LINE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL3CacheLineSize", CPU_L3_CACHE_LINE_SIZE);
 	CPU_L3_SET_ASSOCIATIVE = IniGetInt (LOCALINI_FILE, "CpuL3SetAssociative", CPU_L3_SET_ASSOCIATIVE);
+	CPU_L3_CACHE_INCLUSIVE = IniGetInt (LOCALINI_FILE, "CpuL3CacheInclusive", CPU_L3_CACHE_INCLUSIVE);
 
 	CPU_TOTAL_L4_CACHE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL4TotalCacheSize", CPU_TOTAL_L4_CACHE_SIZE);
 	CPU_NUM_L4_CACHES = IniGetInt (LOCALINI_FILE, "CpuL4NumCaches", CPU_NUM_L4_CACHES);
+	CPU_L4_CACHE_INCLUSIVE = IniGetInt (LOCALINI_FILE, "CpuL4CacheInclusive", CPU_L4_CACHE_INCLUSIVE);
 
 /* Let the user override the CPUID brand string.  It should never be necessary. */
 /* However, one Athlon owner's brand string became corrupted with illegal characters. */
