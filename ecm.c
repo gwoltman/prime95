@@ -2462,10 +2462,8 @@ return 0;
 
 /* Optionally do a probable prime test */
 
-	if (IniGetInt (INI_FILE, "ProbablePrimeTest", 0) &&
-	    isProbablePrime (&ecmdata.gwdata, N)) {
-		sprintf (buf, "%s is a probable prime\n",
-			 gwmodulo_as_string (&ecmdata.gwdata));
+	if (IniGetInt (INI_FILE, "ProbablePrimeTest", 0) && isProbablePrime (&ecmdata.gwdata, N)) {
+		sprintf (buf, "%s is a probable prime\n", gwmodulo_as_string (&ecmdata.gwdata));
 		OutputStr (thread_num, buf);
 	}
 
@@ -2654,7 +2652,7 @@ restart0:
 		if (CPU_FLAGS & CPU_RDTSC) rdtsc (&hi, &lo);
 		sigma += lo ^ hi ^ ((unsigned long) rand () << 16);
 	} while (sigma <= 5.0);
-	if (w->curve > 5.0) sigma = w->curve;
+	if (w->curve > 5.0 && w->curve < 9007199254740992.0) sigma = w->curve;
 	curve_start_msg (&ecmdata, thread_num, curve, sigma, B, C);
 	stop_reason = choose12 (&ecmdata, w, x, z, sigma, &Ad4, N, &factor);
 	if (stop_reason) goto exit;
