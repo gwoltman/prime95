@@ -1336,9 +1336,16 @@ next1:			zpad_jmptab = NEXT_SET_OF_JMPTABS (zpad_jmptab);
 /* the weighted_bits_per_output_word for irrational FFTs as using another log2b bits. */
 
 		max_weighted_bits_per_output_word = 2.0 * max_bits_per_input_word + 0.6 * log2 (jmptab->fftlen);
-		if (k == 1.0 && n % jmptab->fftlen == 0)
-			weighted_bits_per_output_word =	bits_per_output_word;
-		else {
+		if (k == 1.0 && n % jmptab->fftlen == 0) {
+			/* New in 29.7: 1889^20480+1 was generating too large a roundoff using a 10K AVX-512 FFT. */
+			/* Testing shows that an irrational FFT has about twice the average roundoff error as a */
+			/* rational FFT (equals one bit in the output word).  But comparing 2^204800+1 and 2^204801+1 */
+			/* in a 10K FFT, our code calculates a two bit difference between weighted_bits_per_output_word */
+			/* and max_weighted_bits_per_output_word.  The proper solution is to correct the calculation of */
+			/* max_weighted_bits_per_output_word and irrational weighted_bits_per_output_word.  However, */
+			/* I'm a little leery of changing that working code so I'm just adding one to the rational case here. */
+			weighted_bits_per_output_word =	bits_per_output_word + 1.0;
+		} else {
 			weighted_bits_per_output_word =
 				2.0 * ((b_per_input_word + 1.0) * log2b - 1.0) +
 				0.6 * log2 (jmptab->fftlen) + log2k + 1.7 * log2c;
@@ -2838,7 +2845,8 @@ int internal_gwsetup (
 /* Initialize tables for r4dwpn AVX-512 FFT code */
 
 	if (gwdata->cpu_flags & CPU_AVX512F) {
-		int	rndval_base, cnt;
+		double	rndval_base;
+		int	cnt;
 
 /* Compute the normalization constants.  The rounding constant, a value larger than 3*2^51, is chosen such that */
 /* it is a multiple of big_word and RNDVAL * big_word - RNDVAL fits in 53 bits. */
