@@ -215,19 +215,16 @@ AppController *myAppController;			// Global variable to allow access to this obj
 	}
 
 	if (theAction == @selector(testContinue:)) {
-		[item setTitle:
-			(NUM_WORKER_THREADS > 1 &&
-			 active_workers_count () != WORKER_THREADS_ACTIVE - 1 ?
+		[item setTitle:((!WORKER_THREADS_ACTIVE && NUM_WORKER_THREADS > 1) ||
+				(WORKER_THREADS_ACTIVE && active_workers_count () != WORKER_THREADS_ACTIVE - 1)) ?
 				@"Continue..." : @"Continue")];
-		if ((!WORKER_THREADS_ACTIVE || active_workers_count () != WORKER_THREADS_ACTIVE) &&
-		    (USE_PRIMENET || WORKTODO_COUNT)) return YES;
+		if ((!WORKER_THREADS_ACTIVE && (USE_PRIMENET || WORKTODO_COUNT)) ||
+		    (WORKER_THREADS_ACTIVE && active_workers_count () != WORKER_THREADS_ACTIVE)) return YES;
 		return NO;
 	}
 
 	if (theAction == @selector(testStop:)) {
-		[item setTitle:
-			(NUM_WORKER_THREADS > 1 && active_workers_count () != 1 ?
-				@"Stop..." : @"Stop")];
+		[item setTitle:(active_workers_count () > 1 ? @"Stop..." : @"Stop")];
 		if (WORKER_THREADS_ACTIVE && !WORKER_THREADS_STOPPING) return YES;
 		return NO;
 	}
