@@ -426,18 +426,16 @@ void CPrime95Doc::OnRangeStatus()
 
 void CPrime95Doc::OnUpdateContinueSwitcher(CCmdUI* pCmdUI) 
 {
-	pCmdUI->SetText (NUM_WORKER_THREADS > 1 &&
-			 active_workers_count () != WORKER_THREADS_ACTIVE - 1 ?
-				 "&Continue..." : "&Continue");
-	pCmdUI->Enable ((!WORKER_THREADS_ACTIVE ||
-			 active_workers_count () != WORKER_THREADS_ACTIVE) &&
-			(USE_PRIMENET || WORKTODO_COUNT));
+	pCmdUI->SetText (((!WORKER_THREADS_ACTIVE && NUM_WORKER_THREADS > 1) ||
+			  (WORKER_THREADS_ACTIVE && active_workers_count () != WORKER_THREADS_ACTIVE - 1)) ? "&Continue..." : "&Continue");
+	pCmdUI->Enable ((!WORKER_THREADS_ACTIVE && (USE_PRIMENET || WORKTODO_COUNT)) ||
+			(WORKER_THREADS_ACTIVE && active_workers_count () != WORKER_THREADS_ACTIVE));
 }
 
 void CPrime95Doc::OnContinueSwitcher() 
 {
-	if (NUM_WORKER_THREADS > 1 &&
-	    active_workers_count () != WORKER_THREADS_ACTIVE - 1) {
+	if ((!WORKER_THREADS_ACTIVE && NUM_WORKER_THREADS > 1) ||
+	    (WORKER_THREADS_ACTIVE && active_workers_count () != WORKER_THREADS_ACTIVE - 1)) {
 		// Start the dialog box
 		CStartDlg dlg;
 
@@ -461,13 +459,14 @@ void CPrime95Doc::OnContinue()
 
 void CPrime95Doc::OnUpdateStopSwitcher(CCmdUI* pCmdUI) 
 {
-	pCmdUI->SetText (NUM_WORKER_THREADS > 1 && active_workers_count () != 1 ? "St&op..." : "St&op");
+	// Set text to "Stop..." if multiple workers or torture threads are running
+	pCmdUI->SetText (active_workers_count () > 1 ? "St&op..." : "St&op");
 	pCmdUI->Enable (WORKER_THREADS_ACTIVE && !WORKER_THREADS_STOPPING);
 }
 
 void CPrime95Doc::OnStopSwitcher() 
 {
-	if (NUM_WORKER_THREADS > 1 && active_workers_count () != 1) {
+	if (active_workers_count () > 1) {
 		// Start the dialog box
 		CStopDlg dlg;
 
@@ -478,7 +477,7 @@ void CPrime95Doc::OnStopSwitcher()
 				stop_one_worker (dlg.m_thread-1);
 		}
 	} else {
-		// Stop the thread
+		// Stop the one active thread
 		OnStop ();
 	}
 }
