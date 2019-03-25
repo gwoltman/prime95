@@ -3,7 +3,7 @@
 //  Prime95
 //
 //  Created by George Woltman on 4/17/09.
-//  Copyright 2009-2017 Mersenne Research, Inc. All rights reserved.
+//  Copyright 2009-2019 Mersenne Research, Inc. All rights reserved.
 //
 
 #import "AppController.h"
@@ -216,7 +216,7 @@ AppController *myAppController;			// Global variable to allow access to this obj
 
 	if (theAction == @selector(testContinue:)) {
 		[item setTitle:((!WORKER_THREADS_ACTIVE && NUM_WORKER_THREADS > 1) ||
-				(WORKER_THREADS_ACTIVE && active_workers_count () != WORKER_THREADS_ACTIVE - 1)) ?
+				(WORKER_THREADS_ACTIVE && active_workers_count () != WORKER_THREADS_ACTIVE - 1) ?
 				@"Continue..." : @"Continue")];
 		if ((!WORKER_THREADS_ACTIVE && (USE_PRIMENET || WORKTODO_COUNT)) ||
 		    (WORKER_THREADS_ACTIVE && active_workers_count () != WORKER_THREADS_ACTIVE)) return YES;
