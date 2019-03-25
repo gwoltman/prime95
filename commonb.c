@@ -1928,7 +1928,7 @@ void mark_workers_active (
 void start_one_worker (
 	int	thread_num)
 {
-	if (thread_num < 0 || thread_num > (int) NUM_WORKER_THREADS) {
+	if (thread_num < 0 || thread_num >= (int) WORKER_THREADS_ACTIVE) {
 		OutputStr (MAIN_THREAD_NUM, "Worker thread number out of range.\n");
 		return;
 	}
@@ -1945,7 +1945,7 @@ void start_one_worker (
 void stop_one_worker (
 	int	thread_num)
 {
-	if (thread_num < 0 || thread_num > (int) NUM_WORKER_THREADS) {
+	if (thread_num < 0 || thread_num >= (int) WORKER_THREADS_ACTIVE) {
 		OutputStr (MAIN_THREAD_NUM, "Worker thread number out of range.\n");
 		return;
 	}
@@ -2750,12 +2750,11 @@ int LaunchWorkerThreads (
 	struct LaunchData *ld;
 	gwthread thread_handle;
 
-/* If workers are already active, then call routine that restarts */
-/* individual workers. */
+/* If workers are already active, then call routine that restarts individual workers. */
 
 	if (WORKER_THREADS_ACTIVE && (LAUNCH_TYPE == LD_CONTINUE || LAUNCH_TYPE == LD_TORTURE)) {
 		if (thread_num == ALL_WORKERS) {
-			for (thread_num = 0; thread_num < (int) NUM_WORKER_THREADS; thread_num++)
+			for (thread_num = 0; thread_num < (int) WORKER_THREADS_ACTIVE; thread_num++)
 				if (! ACTIVE_WORKERS[thread_num])
 					start_one_worker (thread_num);
 		} else
@@ -8227,10 +8226,10 @@ loop:	run_indefinitely = TRUE;
 /* Clean up */
 
 	aligned_free (bigbuf);
+	bigbuf = NULL;
 
 /* If this was a user requested stop, then wait for a restart */
 
-//BUG??? - what is this???
 	while (stop_reason == STOP_WORKER) {
 		implement_stop_one_worker (thread_num);
 		stop_reason = stopCheck (thread_num);
