@@ -837,11 +837,11 @@ void CPrime95Doc::OnTorture()
 	dlg.m_maxfft = (CPU_TOTAL_L4_CACHE_SIZE ? 32768 : 8192);
 	dlg.m_thread = NUM_CPUS * CPU_HYPERTHREADS;
 	mem = physical_memory ();
-	// New in 29.5, raise the default memory used to all but 2.5GB on 64-bit machines.  Almost all machines today have
-	// more than 4.5GB of memory installed.  If memory serves me, there may be issues in Win32 allocating more than 2GB.
+	// New in 29.5, raise the default memory used to all but 3GB on 64-bit machines.  Almost all machines today have
+	// more than 5GB of memory installed.  If memory serves me, there may be issues in Win32 allocating more than 2GB.
 #ifdef X86_64
-	if (mem >= 4500) {
-		dlg.m_blendmemory = GetSuggestedMemory (mem - 2500);
+	if (mem >= 5000) {
+		dlg.m_blendmemory = GetSuggestedMemory (mem - 3000);
 		dlg.m_in_place = FALSE;
 	} else
 #endif
