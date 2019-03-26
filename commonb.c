@@ -1915,8 +1915,7 @@ void check_for_priority_work (void)
 /**************************************************************/
 
 void mark_workers_active (
-	int	thread_num)	/* Number of workers to mark active */
-				/* or (<= 0) the only worker to mark */
+	int	thread_num)	/* Number of workers to mark active or (<= 0) the only worker to mark */
 {
 	int	i;
 
@@ -2711,6 +2710,7 @@ void formatETA (
 struct LaunchData {
 	int	thread_num;		/* This thread number */
 	unsigned int num_threads;	/* Num threads to run */
+	int	num_to_mark_active;	/* Number of threads to mark active in a call to mark_workers_active call */
 	unsigned long p;		/* Exponent to time */
 	unsigned long iters;		/* Iterations to time */
 	int	bench_type;		/* Type of benchmark */
@@ -2769,7 +2769,7 @@ int LaunchWorkerThreads (
 	ld->num_threads = NUM_WORKER_THREADS;
 	LAUNCH_TYPE = LD_CONTINUE;
 	create_worker_windows (NUM_WORKER_THREADS);
-	mark_workers_active (thread_num == ALL_WORKERS ? NUM_WORKER_THREADS : -thread_num);
+	ld->num_to_mark_active = (thread_num == ALL_WORKERS ? NUM_WORKER_THREADS : -thread_num);
 	if (wait_flag) {
 		gwthread_create_waitable (&thread_handle, &Launcher, ld);
 		gwthread_wait_for_exit (&thread_handle);
@@ -2793,7 +2793,7 @@ int LaunchTortureTest (
 	ld->num_threads = num_threads;
 	LAUNCH_TYPE = LD_TORTURE;
 	create_worker_windows (num_threads);
-	mark_workers_active (num_threads);
+	ld->num_to_mark_active = num_threads;
 	if (wait_flag) {
 		gwthread_create_waitable (&thread_handle, &Launcher, ld);
 		gwthread_wait_for_exit (&thread_handle);
@@ -2816,7 +2816,7 @@ int LaunchBench (
 	ld->bench_type = bench_type;
 	LAUNCH_TYPE = LD_BENCH;
 	create_worker_windows (1);
-	mark_workers_active (1);
+	ld->num_to_mark_active = 1;
 	gwthread_create (&thread_handle, &Launcher, ld);
 	return (0);
 }
@@ -2839,7 +2839,7 @@ int LaunchAdvancedTime (
 	ld->iters = iters;
 	LAUNCH_TYPE = LD_TIME;
 	create_worker_windows (ld->num_threads);
-	mark_workers_active (ld->num_threads);
+	ld->num_to_mark_active = ld->num_threads;
 	gwthread_create (&thread_handle, &Launcher, ld);
 	return (0);
 }
@@ -2873,6 +2873,7 @@ void Launcher (void *arg)
 
 	WORKER_THREADS_ACTIVE = ld->num_threads;
 	WORKER_THREADS_STOPPING = FALSE;
+	mark_workers_active (ld->num_to_mark_active);
 
 /* Output a starting worker threads message */
 
