@@ -281,6 +281,21 @@ AppController *myAppController;			// Global variable to allow access to this obj
 		return NO;
 	}
 
+	if (theAction == @selector(advancedTime:)) {
+		if (!WORKER_THREADS_STOPPING) return YES;
+		return NO;
+	}
+
+	if (theAction == @selector(optionsTortureTest:)) {
+		if (!WORKER_THREADS_STOPPING) return YES;
+		return NO;
+	}
+
+	if (theAction == @selector(optionsBenchmark:)) {
+		if (!WORKER_THREADS_STOPPING) return YES;
+		return NO;
+	}
+
 	return YES;
 }
 
