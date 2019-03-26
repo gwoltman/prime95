@@ -516,7 +516,7 @@ void CPrime95Doc::OnTest()
 
 void CPrime95Doc::OnUpdateTime(CCmdUI* pCmdUI) 
 {
-	pCmdUI->Enable (TRUE);
+	pCmdUI->Enable (!WORKER_THREADS_STOPPING);
 }
 
 void CPrime95Doc::OnTime() 
@@ -765,7 +765,7 @@ void CPrime95Doc::OnPreferences()
 
 void CPrime95Doc::OnUpdateBenchmark(CCmdUI* pCmdUI) 
 {
-	pCmdUI->Enable (TRUE);
+	pCmdUI->Enable (!WORKER_THREADS_STOPPING);
 }
 
 void CPrime95Doc::OnBenchmark() 
@@ -824,7 +824,7 @@ void CPrime95Doc::OnBenchmark()
 
 void CPrime95Doc::OnUpdateTorture(CCmdUI* pCmdUI)
 {
-	pCmdUI->Enable (TRUE);
+	pCmdUI->Enable (!WORKER_THREADS_STOPPING);
 }
 
 void CPrime95Doc::OnTorture() 
@@ -924,8 +924,7 @@ void CPrime95Doc::OnHide()
 
 void CPrime95Doc::OnUpdateService(CCmdUI* pCmdUI)
 {
-	pCmdUI->SetText (canModifyServices () ?
-				"Start at Bootup" : "Start at Logon");
+	pCmdUI->SetText (canModifyServices () ? "Start at Bootup" : "Start at Logon");
 	pCmdUI->Enable (!NTSERVICENAME[0] || WINDOWS95_SERVICE);
 	pCmdUI->SetCheck (WINDOWS95_SERVICE);
 }
