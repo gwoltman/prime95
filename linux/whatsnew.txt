@@ -1,4 +1,4 @@
-New features in Version 29.7 of mprime
+New features in Version 29.8 of mprime
 --------------------------------------
 
 1)  Support added for AVX-512 FFTs.
