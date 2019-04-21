@@ -245,10 +245,18 @@ For example, Pfactor=1,2,10000157,-1,64,2.0
 You can reduce the number of times worktodo.txt is read and written by
 setting in prime.txt:
 	WellBehavedWork=1
-This only works for worktodo.txt files that contain only Factor= lines.
-Only turn this on if you have BIG worktodo.txt files and each Factor=
-operation does not take much time.  You must stop the program before manually
-editing the worktodo.txt file.
+This feature is useful for BIG worktodo.txt files that are modified often due
+to worktodo entries that don't take much time to complete.  The worktodo.txt
+file will be written at most once every half hour.  A side benefit the initial
+reading of worktodo.txt is much faster.  The downside is a computer crash may
+leave you with a worktodo.txt file that contains some entries for work that
+has already completed.
+
+Editing the worktodo.txt file while the prime95/mprime is running is not always safe.
+Rather than exiting prime95/mprime, editing worktodo.txt, and restarting, you can
+create a worktodo.add file.  Prime95/mprime will periodically look for worktodo.add
+and append the entries from each "[Worker #]" section.  Then the worktodo.add file
+will be deleted.
 
 In Advanced/Time, you can enter a value between 9994 and 9999 for the
 exponent to run a QA script.  The QA file looks like this:
