@@ -9711,25 +9711,25 @@ void autoBench (void)
 // might mean gwbench_get_num_benchmarks SQL stmt needs tweaking
 
 		stop_reason = primeBenchMultipleWorkersInternal (
-			MAIN_THREAD_NUM,					/* Output messages to main window */
+			MAIN_THREAD_NUM,				/* Output messages to main window */
 			&pkt,
-			ffts_to_bench[i].min_fftlen / 1024,			/* Minimum FFT length (in K) to bench */
-			ffts_to_bench[i].max_fftlen / 1024,			/* Maximum FFT length (in K) to bench */
-			FALSE,							/* Do not limit FFT sizes benchmarked */
+			ffts_to_bench[i].min_fftlen / 1024,		/* Minimum FFT length (in K) to bench */
+			ffts_to_bench[i].max_fftlen / 1024,		/* Maximum FFT length (in K) to bench */
+			FALSE,						/* Do not limit FFT sizes benchmarked */
 			ffts_to_bench[i].all_complex,
-			TRUE,							/* Benchmark all FFT implementations */
+			TRUE,						/* Benchmark all FFT implementations */
 			bench_cores,
-			HYPERTHREAD_LL,						/* Benchmark hyperthreading if LL testing uses hyperthreads */
+			HYPERTHREAD_LL,					/* Benchmark hyperthreading if LL testing uses hyperthreads */
 			bench_workers,
-			0,							/* Do not limit CPU architectures benchmarked */
-			0,							/* Oddball worker/core combinations option does not apply */
-			ERRCHK,							/* Benchmark round-off checking */
-			num_cores,						/* Min cores */
-			num_cores,						/* Max cores */
-			1,							/* Core increment */
-			num_workers,						/* Min workers */
-			num_workers,						/* Max workers */
-			1);							/* Worker increment */
+			0,						/* Do not limit CPU architectures benchmarked */
+			1,						/* Oddball worker/core combos might help gwnum FFT selection */
+			ERRCHK,						/* Benchmark round-off checking */
+			num_cores,					/* Min cores */
+			num_cores,					/* Max cores */
+			1,						/* Core increment */
+			num_workers,					/* Min workers */
+			num_workers,					/* Max workers */
+			1);						/* Worker increment */
 
 /* If benchmark was stopped, run no more benchmarks */
 
