@@ -530,6 +530,14 @@ void getCpuInfo (void)
 	NUM_NUMA_NODES = IniGetInt (LOCALINI_FILE, "NumNUMANodes", NUM_NUMA_NODES);
 	if (NUM_NUMA_NODES == 0) NUM_NUMA_NODES = 1;
 
+/* Apply sane corrections if NUM_CPUs was reduced significantly) */
+
+	if (CPU_NUM_L1_CACHES > NUM_CPUS) CPU_NUM_L1_CACHES = NUM_CPUS;
+	if (CPU_NUM_L2_CACHES > NUM_CPUS) CPU_NUM_L2_CACHES = NUM_CPUS;
+	if (CPU_NUM_L3_CACHES > NUM_CPUS) CPU_NUM_L3_CACHES = NUM_CPUS;
+	if (CPU_NUM_L4_CACHES > NUM_CPUS) CPU_NUM_L4_CACHES = NUM_CPUS;
+	if (NUM_NUMA_NODES > NUM_CPUS) NUM_NUMA_NODES = NUM_CPUS;
+
 /* Let user override the CPU architecture */
 
 	CPU_ARCHITECTURE = IniGetInt (LOCALINI_FILE, "CpuArchitecture", CPU_ARCHITECTURE);
