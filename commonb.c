@@ -8952,7 +8952,7 @@ void add_bench_data_to_pkt (
 
 /* Routine to benchmark the trial factoring code */
 
-static const char BENCH1[] = "Your timings will be written to the results.txt file.\n";
+static const char BENCH1[] = "Your timings will be written to the results.bench.txt file.\n";
 static const char BENCH2[] = "Compare your results to other computers at http://www.mersenne.org/report_benchmarks\n";
 
 int factorBench (
