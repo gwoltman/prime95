@@ -623,7 +623,8 @@ When looking for probable primes, the following 3 options are available in prime
 	SilentVictoryPRP=0 or 1		(default is 1)
 	OutputPrimes=0 or 1		(default is 0)
 	OutputComposites=0 or 1		(default is 0)
-Setting SilentVictoryPRP=0 will cause prime95 to make a continuous noise if a PRP is found.
+Setting SilentVictoryPRP=0 will cause prime95 to make a continuous noise if a
+non-Mersenne PRP is found (SilentVictory=0 or 1 applies to both Mersenne LL and PRP).
 Setting	OutputPrimes=1 will cause prime95 to output non-JSON messages for probable primes to results.txt.
 Setting	OutputComposites=1 will cause prime95 to output non-JSON messages for composite PRP tests to results.txt.
 
