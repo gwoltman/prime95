@@ -478,11 +478,11 @@ void getCpuInfo (void)
 	if (temp == 0) CPU_FLAGS &= ~(CPU_3DNOW + CPU_3DNOW_PREFETCH);
 	if (temp == 1) CPU_FLAGS |= (CPU_3DNOW + CPU_3DNOW_PREFETCH);
 	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsAVX", 99);
-	if (temp == 0) CPU_FLAGS &= ~CPU_AVX;
+	if (temp == 0) CPU_FLAGS &= ~(CPU_AVX | CPU_FMA3);
 	if (temp == 1) CPU_FLAGS |= CPU_AVX;
 	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsFMA3", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_FMA3;
-	if (temp == 1) CPU_FLAGS |= CPU_FMA3;
+	if (temp == 1) CPU_FLAGS |= (CPU_AVX | CPU_FMA3);
 	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsFMA4", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_FMA4;
 	if (temp == 1) CPU_FLAGS |= CPU_FMA4;
