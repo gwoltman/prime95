@@ -86,7 +86,7 @@ available.  Choose one of these values for n (default is 1):
 	0 - use the system clock.
 	1 - use RDTSC but do not output clock counts.
 	2 - use RDTSC and output clock counts.
-The above values will only have an affect if a high resolution system clock
+The above values will only have an effect if a high resolution system clock
 is not available.  You can force the program to bypass the high resolution clock
 by adding 10 to one of the values above.  In prime.txt, enter
 	RdtscTiming=n
