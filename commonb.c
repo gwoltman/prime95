@@ -5769,7 +5769,7 @@ nextpass:	;
 /* the server with needless data, do not send small bit level */
 /* messages - that work has already been done. */
 
-		if (end_bits >= 50 || IniGetInt (INI_FILE, "SendAllFactorData", 0)) {
+		if (end_bits >= 60 || IniGetInt (INI_FILE, "SendAllFactorData", 0)) {
 			struct primenetAssignmentResult pkt;
 			memset (&pkt, 0, sizeof (pkt));
 			strcpy (pkt.computer_guid, COMPUTER_GUID);
@@ -9126,7 +9126,11 @@ void primeBenchOneWorker (void *arg)
 
 	gwmutex_lock (&bench_workers_mutex);
 	num_bench_workers_initialized++;
-	if (num_bench_workers_initialized == num_bench_workers) gwevent_signal (&bench_workers_sync);
+	if (num_bench_workers_initialized == num_bench_workers) {
+		if (IniGetInt (INI_FILE, "BenchInitCompleteMessage", 0))
+			OutputStr (info->main_thread_num, "Benchmark initialization complete.\n");
+		gwevent_signal (&bench_workers_sync);
+	}
 	gwmutex_unlock (&bench_workers_mutex);
 	gwevent_wait (&bench_workers_sync, 0);
 
