@@ -9328,11 +9328,11 @@ int primeBenchMultipleWorkersInternal (
 				    gwthread_create_waitable (&thread_id[worker_num], &primeBenchOneWorker, (void *) &info[worker_num]);
 				    core_num += cores_to_use;
 				    cores_this_node -= cores_to_use;
+				    cores_left -= cores_to_use;
 				    worker_num++;
 				    workers_left--; 
 				}
 				nodes_left -= nodes_to_use;
-				cores_left -= nodes_to_use * cores_per_node;
 			    }
 
 /* Wait for all the workers to finish */
