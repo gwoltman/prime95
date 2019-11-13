@@ -340,6 +340,14 @@ leaving just the ending summary.  Useful for machines with lots of cores.
 Put this line in prime.txt:
 	PrintTimedIterations=0
 
+LINUX/FREEBSD ONLY:  When mprime runs out of work to do, it normally loops waiting for the
+server to assign more work.  This prime.txt option can be used to have mprime exit
+when all workers runs out of work.  Note this probably only makes sense when UsePrimenet=0
+or when UsePrimenet=1 and NoMoreWork=1.
+	ExitWhenOutOfWork=n
+where n is the number of seconds to wait before exiting.  Waiting several seconds
+gives mprime some time to send the last results to the server.
+
 WINDOWS ONLY:  When Tray Icon or No Icon is selected the "X" at the right of
 the title bar will minimize rather than exit.  You can make the program exit
 if you prefer.  In prime.txt set:
