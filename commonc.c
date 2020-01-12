@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2019 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2020 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
@@ -11,7 +11,7 @@
 | Commonc contains information used during setup and execution
 +---------------------------------------------------------------------*/
 
-static const char JUNK[]="Copyright 1996-2019 Mersenne Research, Inc. All rights reserved";
+static const char JUNK[]="Copyright 1996-2020 Mersenne Research, Inc. All rights reserved";
 
 char	INI_FILE[80] = {0};
 char	LOCALINI_FILE[80] = {0};
@@ -1747,9 +1747,12 @@ static	int	worktodo_add_disabled = FALSE;
 		worktodo_add_disabled = TRUE;
 	}
 
-/* Now reprocess the combined and freshly written worktodo.txt file */
+/* Reprocess the combined and freshly written worktodo.txt file.  Spool message to check the work queue, */
+/* this will get assignment IDs and send completion dates for the newly added work. */
 
-	return (readWorkToDoFile ());
+	rc = readWorkToDoFile ();
+	spoolMessage (MSG_CHECK_WORK_QUEUE, NULL);
+	return (rc);
 
 /* Handle an error during the reading of the add file */
 
