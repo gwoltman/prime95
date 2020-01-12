@@ -4923,6 +4923,7 @@ static	time_t	last_time = 0;
 void kbnc_to_text (
 	char	*buf,
 	int	primenet_work_type,
+	int	prp_dblchk,
 	double	k,
 	unsigned long b,
 	unsigned long n,
@@ -4954,7 +4955,7 @@ void kbnc_to_text (
 		work_type_str = "P-1";
 		break;
 	case PRIMENET_WORK_TYPE_PRP:
-		work_type_str = "PRP";
+		work_type_str = prp_dblchk ? "PRPDC" : "PRP";
 		break;
 	default:
 		work_type_str = "Unknown work type";
@@ -5073,7 +5074,7 @@ int sendMessage (
 		break;
 	case PRIMENET_REGISTER_ASSIGNMENT:
 		kbnc_to_text (info,
-			      ((struct primenetRegisterAssignment *)pkt)->work_type,
+			      ((struct primenetRegisterAssignment *)pkt)->work_type, 0,
 			      ((struct primenetRegisterAssignment *)pkt)->k,
 			      ((struct primenetRegisterAssignment *)pkt)->b,
 			      ((struct primenetRegisterAssignment *)pkt)->n,
@@ -5138,6 +5139,7 @@ int sendMessage (
 	case PRIMENET_GET_ASSIGNMENT:
 		kbnc_to_text (info,
 			      ((struct primenetGetAssignment *)pkt)->work_type,
+			      ((struct primenetGetAssignment *)pkt)->prp_dblchk,
 			      ((struct primenetGetAssignment *)pkt)->k,
 			      ((struct primenetGetAssignment *)pkt)->b,
 			      ((struct primenetGetAssignment *)pkt)->n,
