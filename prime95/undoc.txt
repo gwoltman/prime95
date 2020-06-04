@@ -229,6 +229,12 @@ You can have the program output residues every n iterations.  The default
 value is the InterimFiles value.  In prime.txt enter:
 	InterimResidues=n
 
+If doing P-1 with a very large B1, the program uses about 8MB of memory to
+pre-calculate the product of all small primes below 40 million.  The primes above
+40 million are processed using a slightly slower method.  You can elect to use
+more memory to move the 40 million threshold higher.  In prime.txt enter:
+	MaxStage0Prime=n
+
 By default P-1 work does not delete the save files when the work unit completes.
 This lets you run P-1 to a higher bound at a later date.  You can force
 the program to delete save files by adding this line to prime.txt:
@@ -352,14 +358,6 @@ WINDOWS ONLY:  When Tray Icon or No Icon is selected the "X" at the right of
 the title bar will minimize rather than exit.  You can make the program exit
 if you prefer.  In prime.txt set:
 	ExitOnX=1
-
-WINDOWS  ONLY: You can change the Windows NT/2000/XP service name and service
-display name.  The default for both is "Prime95 Service".  In local.txt, set:
-	ServiceName=your service name
-	DisplayName=your service display name
-You may need to turn off the "Start at Bootup" and exit, change the local.txt
-file, restart prime95 and turn the "Start at Bootup" option on to make this
-change effective.
 
 Most FFT sizes have several implementations.  The program uses throughput benchmark
 data to select the fastest FFT implementation.  The program assumes all CPU cores
