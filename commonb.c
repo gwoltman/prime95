@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2019 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2020 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
@@ -6810,11 +6810,9 @@ begin:	gwinit (&lldata.gwdata);
 /* Save if we are stopping, right after we pass an errored iteration, several iterations before retesting */
 /* an errored iteration so that we don't have to backtrack very far to do a gwsquare_carefully iteration */
 /* (we don't do the iteration immediately before because a save operation may change the FFT data and make */
-/* the error non-reproducible), if Jacobi testing, and finally save if the save file timer has gone off. */
+/* the error non-reproducible), and finally save if the save file timer has gone off. */
 
-		saving = counter+1 != p &&
-			 (stop_reason || counter == last_counter-8 || counter == last_counter ||
-			  Jacobi_testing || testSaveFilesFlag (thread_num));
+		saving = counter+1 != p && (stop_reason || counter == last_counter-8 || counter == last_counter || testSaveFilesFlag (thread_num));
 
 /* Run a Jacobi test on the last iteration and the first iteration after the Jacobi timer goes off that we */
 /* happen to be creating a save file.  This works around the minor issue where the save file timer and Jacobi timer */
