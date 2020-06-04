@@ -99,10 +99,6 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
 5)  Disable screen savers or use the "blank screen" screen saver.  If this
     is not practical, consider raising prime95's priority to 4 or 5.
 
-    The "Start at Bootup" menu choice (on by default) will run prime95
-    every time you boot your computer.  The "Start at Bootup" choice
-    became "Start at Logon" starting with Windows Vista.
-
 
 MANUAL METHOD INSTRUCTIONS
 --------------------------
@@ -120,10 +116,6 @@ MANUAL METHOD INSTRUCTIONS
     is not practical, consider raising prime95's priority to 4 or 5.
 4)  When done with your exponents, use the web pages again to send the
     file "results.txt" to the PrimeNet server and get more work.
-
-    The "Start at Bootup" menu choice (on by default) will run prime95
-    every time you boot your computer.  The "Start at Bootup" choice
-    became "Start at Logon" starting with Windows Vista.
 
 
 NOTES
@@ -410,42 +402,11 @@ prime95 a second time.  Alternatively, you can turn this feature off by
 editing prime.txt and change the line "HideIcon=1" to "HideIcon=0",
 then reboot.
 
-Checking the "Start at Bootup" menu choice will run prime95 as a service
-that starts when your computer boots up.  Windows NT/2000/XP users need
-administrator privileges to use this feature.  Vista has eliminated support
-for running prime95 as a service.  Running prime95 as a service is better than
-creating a shortcut to prime95 in the startup folder because services run even
-when no one is logged on.  These are the details you should be aware of:
-	In Windows 95/98/Me:
-The HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunServices
-registry entry is created.  You will not be able to tell any difference between
-prime95 running as a service and prime95 running as an ordinary process.
-	Windows Vista/7/8 and Windows NT/2000/XP without admin privileges:
-In this case the menu text is changed to "Start at Logon".  The
-HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run registry entry
-is created.  Prime95 will run only when you are logged in.
-	In Windows NT/2000/XP with administrator privileges:
-There are a few minor quirks when running as a service.  You shouldn't run
-into these quirks in normal operation.  You can only change this option once
-and it will take effect when you exit the program.  The prime95 window will
-only appear on one user's desktop.  Finally, if you are worried about giving
-users access to a GUI service running in the Local System account, you can
-turn off the "Allow service to interact with desktop" option in the services
-control panel applet or run the GUI-less NT service version available at
-http://mersenne.org/download/  These options are more secure than
-using the No Icon menu choice.
 
 
 COMMAND LINE ARGUMENTS
 ----------------------
 
--An		Obsolete.
-		This is used to run two or more copies of prime95
-		from the same directory.  Using this command line argument
-		causes prime95 to use a different set of filenames for the
-		INI files, the results file, the log file, and the spool file.
-		Just use a different value of n for each copy of
-		prime95.exe you start.
 -t		Run the torture test.  Same as Options/Torture Test.
 -Wdirectory	This tells prime95 to find all its files in a different
 		directory than the executable.

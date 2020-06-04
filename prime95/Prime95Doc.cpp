@@ -1,6 +1,6 @@
 // Prime95Doc.cpp : implementation of the CPrime95Doc class
 //
-// Copyright 1995-2019 Mersenne Research, Inc.  All rights reserved
+// Copyright 1995-2020 Mersenne Research, Inc.  All rights reserved
 //
 
 #include "stdafx.h"
@@ -300,7 +300,6 @@ void CPrime95Doc::OnQuitGimps()
 //bug - either delete file, or delete all work_units and write the file.
 //bug			IniDeleteAllLines (WORKTODO_FILE);
 			stop_workers_for_escape ();
-			if (WINDOWS95_SERVICE) OnService ();
 		}
 	} else {
 		int	res;
@@ -915,25 +914,67 @@ void CPrime95Doc::OnHide()
 	IniWriteInt (INI_FILE, "TrayIcon", TRAY_ICON);
 }
 
-// When running as an NT service we can delete the service (it will take
-// effect when the service is stopped), but we cannot recreate the service
-// until the next time prime95 is run.  Thus, disable this menu choice once
-// an NT service has turned this option off.  Also, some NT users do not
-// have permission to create and delete services.  For those users, change
-// the menu text to "Start at logon."
+// Check the menu item if start at logon is enabled
+
+static int startup_at_logon_set;
 
 void CPrime95Doc::OnUpdateService(CCmdUI* pCmdUI)
 {
-	pCmdUI->SetText (canModifyServices () ? "Start at Bootup" : "Start at Logon");
-	pCmdUI->Enable (!NTSERVICENAME[0] || WINDOWS95_SERVICE);
-	pCmdUI->SetCheck (WINDOWS95_SERVICE);
+	char	pathname[512];
+	DWORD	rc, dwtype;
+	DWORD	len = sizeof(pathname);
+
+/* See if there is an entry for prime95 */
+
+	rc = RegGetValueA (HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Run", "Prime95", RRF_RT_REG_SZ, &dwtype, pathname, &len);
+	startup_at_logon_set = (rc == ERROR_SUCCESS && pathname[0]);
+	pCmdUI->Enable (1);
+	pCmdUI->SetCheck (startup_at_logon_set);
 }
 
 void CPrime95Doc::OnService() 
 {
-	WINDOWS95_SERVICE = !WINDOWS95_SERVICE;
-	IniWriteInt (INI_FILE, "Windows95Service", WINDOWS95_SERVICE);
-	Service95 ();
+	char	regkey[20];
+	char	pathname[512];
+	HKEY	hkey;
+	DWORD	rc, disposition;
+
+/* Get handle to the registry entry */
+
+	if (RegCreateKeyEx (
+			HKEY_CURRENT_USER,
+			"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+			0,
+			NULL,
+			REG_OPTION_NON_VOLATILE,
+			KEY_ALL_ACCESS,
+			NULL,
+			&hkey,
+			&disposition) != ERROR_SUCCESS) {
+		OutputStr (MAIN_THREAD_NUM, "Can't access Run registry key.\n");
+		return;
+	}
+
+/* Now create or delete an entry for prime95 */
+
+	strcpy (regkey, "Prime95");
+	startup_at_logon_set = !startup_at_logon_set;
+	if (startup_at_logon_set) {
+		GetModuleFileName (NULL, pathname, sizeof (pathname));		/* Get pathname of executable */
+		rc = RegSetValueEx (hkey, regkey, 0, REG_SZ,
+				(BYTE *) pathname, (DWORD) strlen (pathname) + 1);
+		if (rc != ERROR_SUCCESS) {
+			OutputStr (MAIN_THREAD_NUM, "Can't write Run registry entry.\n");
+			return;
+		}
+	} else {
+		rc = RegDeleteValue (hkey, regkey);
+		if (rc != ERROR_SUCCESS && rc != ERROR_FILE_NOT_FOUND){
+			OutputStr (MAIN_THREAD_NUM, "Can't delete Run registry entry.\n");
+			return;
+		}
+	}
+	RegCloseKey (hkey);
 }
 
 // Window menu
@@ -1083,7 +1124,6 @@ void CPrime95Doc::OnWelcome()
 		IniWriteInt (INI_FILE, "StressTester", 0);
 		USE_PRIMENET = 1;
 		IniWriteInt (INI_FILE, "UsePrimenet", 1);
-		if (!WINDOWS95_SERVICE) OnService ();
 		OnPrimenet();
 		if (USE_PRIMENET && STARTUP_IN_PROGRESS) OnCpu ();
 		if (USE_PRIMENET && STARTUP_IN_PROGRESS) OnWorkerThreads ();

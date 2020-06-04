@@ -5,7 +5,7 @@
  * Comm95b contains information used only during execution
  * Comm95c contains information used during setup and execution
  *
- * Copyright 1995-2016 Mersenne Research, Inc.  All rights reserved
+ * Copyright 1995-2020 Mersenne Research, Inc.  All rights reserved
  *
  */ 
 
@@ -16,48 +16,6 @@ HANDLE	THREAD_HANDLES[MAX_THREAD_HANDLES] = {0};
 int	NUM_THREAD_HANDLES = 0;
 
 /* Common routines */
-
-/* Is this Windows 95/98 or Windows NT? */
-
-int isWindows95 ()
-{
-	OSVERSIONINFO info;
-
-	info.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-	if (GetVersionEx (&info)) {
-		return (info.dwPlatformId == VER_PLATFORM_WIN32_WINDOWS);
-	}
-	return (FALSE);
-}
-
-/* Is this Windows 2000 or a later Windows NT version? */
-
-int isWindows2000 ()
-{
-	OSVERSIONINFO info;
-
-	info.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-	if (GetVersionEx (&info)) {
-		return (info.dwPlatformId == VER_PLATFORM_WIN32_NT &&
-			info.dwMajorVersion >= 5);
-	}
-	return (FALSE);
-}
-
-/* Is this Windows Vista or a later Windows version? */
-
-int isWindowsVista ()
-{
-	OSVERSIONINFO info;
-
-	info.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-	if (GetVersionEx (&info)) {
-		return (info.dwPlatformId == VER_PLATFORM_WIN32_NT &&
-			info.dwMajorVersion >= 6);
-	}
-	return (FALSE);
-}
-
 
 /* Clear the array of active thread handles */
 
@@ -135,10 +93,8 @@ void raiseAllWorkerThreadPriority (void)
 /* setting affinity to run on any CPU. */
 
 	for (i = 0; i < NUM_THREAD_HANDLES; i++) {
-		SetThreadPriority (THREAD_HANDLES[i],
-				   THREAD_PRIORITY_ABOVE_NORMAL);
-		if (! isWindows95 ())
-			SetThreadAffinityMask (THREAD_HANDLES[i], -1);
+		SetThreadPriority (THREAD_HANDLES[i], THREAD_PRIORITY_ABOVE_NORMAL);
+		SetThreadAffinityMask (THREAD_HANDLES[i], -1);
 	}
 }
 
