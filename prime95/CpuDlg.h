@@ -13,6 +13,7 @@ public:
 // Dialog Data
 	//{{AFX_DATA(CCpuDlg)
 	enum { IDD = IDD_CPU };
+	UINT	m_disk;
 	UINT	m_hours;
 	CString	m_start_time;
 	CString	m_end_time;
