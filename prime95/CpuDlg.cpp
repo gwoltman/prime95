@@ -19,6 +19,7 @@ CCpuDlg::CCpuDlg(CWnd* pParent /*=NULL*/)
 	: CDialog(CCpuDlg::IDD, pParent)
 {
 	//{{AFX_DATA_INIT(CCpuDlg)
+	m_disk = 0;
 	m_hours = 0;
 	m_start_time = _T("");
 	m_end_time = _T("");
@@ -33,6 +34,8 @@ void CCpuDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
 	//{{AFX_DATA_MAP(CCpuDlg)
+	DDX_Text(pDX, IDC_DISK, m_disk);
+	DDV_MinMaxUInt(pDX, m_disk, 1, 999);
 	DDX_Text(pDX, IDC_HOURS, m_hours);
 	DDV_MinMaxUInt(pDX, m_hours, 1, 24);
 	DDX_Text(pDX, IDC_START_TIME, m_start_time);

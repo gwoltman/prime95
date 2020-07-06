@@ -2,8 +2,8 @@
 
 /* Constants */
 
-#define VERSION		"29.8"
-#define BUILD_NUM	"8"
+#define VERSION		"30.1"
+#define BUILD_NUM	"1"
 /* The list of assigned OS ports follows: */
 /* Win9x (prime95) #1 */
 /* Linux (mprime)  #2 */
@@ -158,6 +158,7 @@ extern int volatile SUM_INPUTS_ERRCHK;	/* 1 to turn on sum(inputs) != sum(output
 extern unsigned int PRIORITY;		/* Desired priority level */
 extern int MANUAL_COMM;			/* Set on if user explicitly starts */
 					/* all communication with the server */
+extern unsigned int volatile CPU_WORKER_DISK_SPACE; /* Disk space in GB each worker is allowed to use */
 extern unsigned int volatile CPU_HOURS;	/* Hours per day program will run */
 extern int CLASSIC_OUTPUT;		/* LL and PRP output to worker windows should use the pre-v28.5 classic style */
 extern int OUTPUT_ROUNDOFF;		/* LL and PRP output to worker windows shound include the roundoff error */
@@ -310,6 +311,7 @@ void ChangeIcon (int, int);
 void BlinkIcon (int, int);
 EXTERNC void OutputBoth (int, const char *);
 void OutputBothBench (int, const char *);
+void OutputBothErrno (int);
 void OutputStr (int, const char *);
 void OutputStrNoTimeStamp (int, const char *);
 void RealOutputStr (int, const char *);
