@@ -841,7 +841,7 @@ void advanced_quit (void)
 void options_cpu (void)
 {
 	unsigned int day_memory, night_memory, day_start_time, day_end_time;
-	unsigned long m_hours, m_day_memory, m_night_memory, max_mem;
+	unsigned long m_disk, m_hours, m_day_memory, m_night_memory, max_mem;
 	int	m_memory_editable;
 	char m_start_time[13];
 	char m_end_time[13];
@@ -849,12 +849,14 @@ void options_cpu (void)
 
 	m_memory_editable = read_memory_settings (&day_memory, &night_memory, &day_start_time, &day_end_time);
 //again:
+	m_disk = CPU_WORKER_DISK_SPACE;
 	m_hours = CPU_HOURS;
 	m_day_memory = day_memory;
 	m_night_memory = night_memory;
 	minutesToStr (day_start_time, m_start_time);
 	minutesToStr (day_end_time, m_end_time);
 
+	askNum ("Disk space each worker is allowed to use (in GB)", &m_disk, 1, 999);
 	askNum ("Hours per day this program will run", &m_hours, 1, 24);
 
 	printf ("\nPlease see the readme.txt file for important\n");
@@ -876,6 +878,11 @@ void options_cpu (void)
 
 	if (askOkCancel ()) {
 		unsigned int new_day_start_time, new_day_end_time;
+
+		if (CPU_WORKER_DISK_SPACE != m_disk) {
+			CPU_WORKER_DISK_SPACE = m_disk;
+			IniWriteInt (LOCALINI_FILE, "WorkerDiskSpace", CPU_WORKER_DISK_SPACE);
+		}
 
 		if (CPU_HOURS != m_hours) {
 			CPU_HOURS = m_hours;

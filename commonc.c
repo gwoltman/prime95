@@ -41,6 +41,7 @@ unsigned int CORES_PER_TEST[MAX_NUM_WORKER_THREADS] = {1}; /* Number of threads 
 int	HYPERTHREAD_TF = 1;		/* TRUE if trial factoring should use hyperthreads */
 int	HYPERTHREAD_LL = 0;		/* TRUE if FFTs (LL, P-1, ECM, PRP) should use hyperthreads */
 int	MANUAL_COMM = 0;
+unsigned int volatile CPU_WORKER_DISK_SPACE = 0;
 unsigned int volatile CPU_HOURS = 0;
 int	CLASSIC_OUTPUT = 0;
 int	OUTPUT_ROUNDOFF = 0;
@@ -1417,6 +1418,10 @@ int readIniFiles (void)
 	DAYS_OF_WORK = (unsigned int) IniGetInt (INI_FILE, "DaysOfWork", 3);
 	if (DAYS_OF_WORK > 180) DAYS_OF_WORK = 180;
 
+	CPU_WORKER_DISK_SPACE = (unsigned int) IniGetInt (LOCALINI_FILE, "WorkerDiskSpace", 5);
+	if (CPU_WORKER_DISK_SPACE < 1) CPU_WORKER_DISK_SPACE = 1;
+	if (CPU_WORKER_DISK_SPACE > 999) CPU_WORKER_DISK_SPACE = 999;
+
 	CPU_HOURS = (unsigned int) IniGetInt (LOCALINI_FILE, "CPUHours", 24);
 	if (CPU_HOURS < 1) CPU_HOURS = 1;
 	if (CPU_HOURS > 24) CPU_HOURS = 24;
@@ -1932,6 +1937,32 @@ void OutputBothBench (
 {
 	OutputStr (thread_num, buf);
 	writeResultsBench (buf);
+}
+
+/* Output errno and useful description to both the screen and results file */
+// BUG - need LINUX version of this routine
+void OutputBothErrno (
+	int	thread_num)
+{
+	int	errnum;
+	unsigned long dos_errnum;
+	char	errtxt[512];
+	char	buf[1024];
+
+	_get_errno (&errnum);
+	if (errnum) {
+		strerror_s (errtxt, sizeof (errtxt), errnum);
+		sprintf (buf, "Errno: %d, %s\n", errnum, errtxt);
+		OutputBoth (thread_num, buf);
+		_set_errno (0);
+	}
+
+	_get_doserrno (&dos_errnum);
+	if (dos_errnum) {
+		sprintf (buf, "DOSerrno: %ld\n", dos_errnum);
+		OutputBoth (thread_num, buf);
+		_set_doserrno (0);
+	}
 }
 
 /* Output string to screen.  Prefix it with an optional timestamp. */
