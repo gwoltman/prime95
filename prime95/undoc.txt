@@ -30,6 +30,16 @@ is the same as 0:00-8:00).  The above example lets the program use 500MB
 during the week from 5:30PM to 8:30AM and all day on weekends.  Otherwise
 (weekdays from 8:30AM to 5:30PM), the program can use only 200MB.
 
+You can control some of the PRP proof behavior.  In local.txt,
+	PreallocateDisk=0 or 1		(default is 1)
+will control whether disk space to hold the PRP proof residues is
+allocated at the beginning of the PRP test to insure we do not run out
+of disk space midway through the PRP test.
+	ResidueFileDir=path		(default is blank)
+Directory (must include trailing forward or backward slash) to store the
+residues file.  The default is "blank" which stores the big interim residues file
+in the same directory as the executable.
+
 You can control whether the program does extra error checking on every
 iteration of a primality test.  This runs a little bit slower.  Windows
 user can control these options from the Advanced Menu.  Linux users must
@@ -466,12 +476,6 @@ do not want any of the work to be unreserved.
 WARNING: There have been several reports of a bug in prime95's calculations for
 UnreserveDays.  Thus, we recommend using UnreserveExponents to prevent unexpected
 unreserving of work,
-
-WINDOWS ONLY:  By default, Prime95 uses RAS routines to determine if your modem
-is connected to the Internet.  Microsoft now prefers the InternetGetConnectedState
-call in WININET.DLL.  To use this method instead of the RAS routines, add this
-line to prime.txt:
-	AlternateModemDetection=1
 
 LINUX ONLY: Mprime supports 4 different ways of checking if your computer
 is connected to the internet.  Set RouteRequired=n in [PrimeNet] section

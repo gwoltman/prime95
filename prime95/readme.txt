@@ -4,18 +4,22 @@ Welcome to the Great Internet Mersenne Prime Search!
 To use this program you must agree to the terms and conditions,
 prize rules, etc. at http://mersenne.org/legal/
 
-In case you ever forget, the GIMPS web site is at http://mersenne.org
-My email address is woltman@alum.mit.edu.  For networking questions,
-contact Scott Kurowski at primenet@mersenne.org.
+The GIMPS web site is at http://mersenne.org
+Help is available at http://mersenneforum.org
+My email address is woltman@alum.mit.edu
 
 
 FILE LIST
 ---------
 
 readme.txt	This file.
-prime95.exe	The program to factor and run Lucas-Lehmer tests on Mersenne numbers.
-libgmp*		A library file containing the GNU multi-precision math package.
-		On some OSes you may need to copy this to the system library directory.
+prime95.exe	The windows program to trial factor and primality test Mersenne numbers.
+mprime		The Linux program to trial factor and primality test Mersenne numbers.
+libgmp*		A library containing the GNU multi-precision math package.
+libhwloc*	A library containing routines to analyze your hardware (cores, cache sizes, etc.)
+libcurl*	A library containing routines to send and receive internet messages.
+libcrypto*, libssl*	Libraries required by libcurl.
+		On some OSes you may need to copy libraries to the system library directory.
 whatsnew.txt	A list of new features in prime95.exe.
 stress.txt	A discussion of issues relating to stress testing a computer.
 undoc.txt	A list of undocumented and unsupported features.
@@ -23,17 +27,16 @@ prime.txt	A file containing your preferences.  The menu choices
 		and dialog boxes are used to change your preferences.
 local.txt	Like prime.txt, this file contains more preferences.
 		The reason there are two files is discussed later.
-worktodo.txt	A list of exponents the program will be factoring
-		and/or Lucas-Lehmer testing.
+worktodo.txt	A list of exponents the program will be factoring and/or Lucas-Lehmer testing.
 results.txt	Prime95.exe writes its results to this file.
 results.json.txt Prime95.exe writes results to this file in an easy-to-parse JSON format.
 results.bench.txt Prime95.exe writes benchmark results to this file.
-prime.log	A text file listing all messages that have been sent
-		to the PrimeNet server.
-prime.spl	A binary file of messages that have not yet been sent to
-		the PrimeNet server.
-pNNNNNNN,pNNNNNNN.buN	Intermediate files produced by prime95.exe to resume
-			computation where it left off.
+gwnum.txt	A file containing benchmark data.  Used to tune FFTs for your particular machine. 
+prime.log	A text file listing all messages that have been sent to the PrimeNet server.
+prime.spl	A binary file of messages that have not yet been sent to the PrimeNet server.
+pNNNNNNN,pNNNNNNN.buN	Intermediate files produced by prime95.exe to resume computation where it left off.
+pNNNNNNN.residues	Large intermediate file produced during PRP test for constructing a PRP proof.
+pNNNNNNN.proof		PRP proof file.
 eNNNNNNN,eNNNNNNN.buN	Intermediate files produced during ECM factoring.
 fNNNNNNN,fNNNNNNN.buN	Intermediate files produced during trial factoring.
 mNNNNNNN,mNNNNNNN.buN	Intermediate files produced during P-1 factoring.
@@ -46,7 +49,11 @@ This program is used to find Mersenne Prime numbers.  See
 http://www.utm.edu/research/primes/mersenne.shtml for a good
 description of Mersenne primes.  Mersenne numbers can be proved
 composite (not prime) by either finding a factor or by running
-a Lucas-Lehmer primality test.
+a PRP (PRobable Prime) or Lucas-Lehmer primality test.
+
+The preferred primality test is PRP because it allows vastly superior error checking
+as well as the ability to generate a separate proof file that proves the test was
+run and the results were correct.
 
 
 INSTRUCTIONS
@@ -154,6 +161,26 @@ Choose the "Connection..." button in the Test/Primenet dialog box.  Fill in
 the proxy information.
 
 
+CONTROLLING DISK SPACE USAGE
+----------------------------
+
+PRP primality testing generates a proof file that eliminates the need to double-check test results.
+Generating these proofs requires lots of temporary disk space.  Proof files must be uploaded to the
+server which could be an issue for some users with limited bandwidth.
+
+PRP proofs are a little more efficient when using a larger proof power.  However, this requires more
+disk space and internet bandwidth.  The table below shows resource usage for several proof powers
+and exponents.
+
+Proof                              Temp disk space / Proof file size
+Power         Exponent=100,000,000         Exponent=200,000,000            Exponent=332,000,000
+8               3.2GB / 113MB                  6.4GB / 225MB                  10.6GB / 373MB
+9               6.4GB / 125MB                  12.8GB / 250MB                 21.2GB / 415MB
+10             12.8GB / 138MB                  25.6GB / 275MB                 42.4GB / 457MB
+
+Prime95 has settings to limit the disk space used by each worker.
+
+
 SETTING P-1/ECM STAGE 2 MEMORY
 ------------------------------
 
@@ -189,21 +216,20 @@ stage 2 of P-1 factoring.
 
 	Exponent	Minimum		Reasonable	Desirable
 	--------	-------		----------	---------
-	70000000	 140MB		  440MB		 740MB
+	100000000	 200MB		  650MB		 1100MB
 	333000000	 620MB		  2060MB	 3500MB
 
-For example, my machine is a dual-processor with 4GB of memory.
-I guess Windows and the programs I normally use can survive on 512MB of
-memory.  Thus, I set memory to (4096 - 512) or 3500MB.  This is my
+For example, my machine is a dual-processor with 8GB of memory.
+I guess Windows and the programs I normally use can survive on 2GB of
+memory.  Thus, I set memory to (8192 - 2048) or 6000MB.  This is my
 nighttime setting.  During the day, I run more programs, so I set memory
-to 1000MB.  I can always stop prime95 if it is doing stage 2 P-1 factoring
+to 2000MB.  I can always stop prime95 if it is doing stage 2 P-1 factoring
 and I suspect memory is thrashing.  More casual users will probably want
 to set the daytime memory to 8MB so they don't have to worry about prime95
 impacting system performance.
 
-If at all in doubt, change the setting to 8MB.  The worst that will
-happen is you end up running a Lucas-Lehmer primality test when stage 2
-of P-1 factoring would have found a factor.
+If at all in doubt, change the setting to 8MB.  The worst that will  happen is you
+end up running a primality test when stage 2 of P-1 factoring would have found a factor.
 
 
 PROGRAM OUTPUT
@@ -215,28 +241,26 @@ Factoring M400037 to 2^54 is 3.02% complete. Time: 0.121 sec.
 	This means prime95 is trying to find a small factor of 2^400037-1.
 	It is 3.02% of the way though looking at factors below 2^54.  When
 	this completes it may start looking for factors less than 2^55.
-Iteration: 941400 / 1667747 [56.45%].  Per iteration time: 0.109 sec.
-	This means prime95 just finished the 941400th iteration of a
-	Lucas-Lehmer primality test.  The program must execute 1667747
-	iterations to complete the primality test.  The average iteration
-	took 0.109 seconds.
+Iteration: 9414000 / 96774711 [9.73%].  Per iteration time: 0.109 sec.
+	This means prime95 just finished the 9414000th iteration of a
+	primality test.  The program must execute 96774711 iterations to
+	complete the primality test.  The average iteration took 0.109 seconds.
 
 The results file and screen will include lines that look like:
 
 M2645701 has a factor: 13412891051374103
-	This means to 2^2645701-1 is not prime.  It is divisible
-	by 13412891051374103.
+	This means to 2^2645701-1 is not prime.  It is divisible by 13412891051374103.
 M2123027 no factor to 2^57, WV1: 14780E25
 	This means 2^2123027-1 has no factors less than 2^57.  The Mersenne
-	number may or may not be prime.  A Lucas-Lehmer test is needed
+	number may or may not be prime.  A primality test is needed
 	to determine the primality of the Mersenne number.  WV1 is
 	the program version number.  14780E25 is a checksum to guard
 	against email transmission errors.
 M1992031 is not prime. Res64: 6549369F4962ADE0. WV1: B253EF24,1414032,00000000
-	This means 2^1992031-1 is not prime - a Lucas-Lehmer test says so.
-	The last 64 bits of the last number in the Lucas-Lehmer sequence
+	This means 2^1992031-1 is not prime - a primality test says so.
+	The last 64 bits of the last number in the primality test sequence
 	is 6549369F4962ADE0.  At some future date, another person will verify
-	this 64-bit result by rerunning the Lucas-Lehmer test.  WV1 is the
+	this 64-bit result by rerunning the primality test.  WV1 is the
 	program	version number.  B253EF24 is a checksum to guard against email
 	transmission errors.  1414032 can be ignored it is used as part
 	of the double-checking process.  The final 00000000 value is a set
@@ -420,8 +444,7 @@ appears in the results.txt file, then prime95's error-checking has
 detected a problem.  After waiting 5 minutes, the program will continue
 testing from the last save file.
 
-The two most common errors messages, SUMINP != SUMOUT and ROUND OFF > 0.40,
-are caused by one of two things:
+The most common errors message is ROUND OFF > 0.40 caused by one of two things:
 	1)  For reasons too complicated to go into here, the program's error
 	checking is not	perfect.  Some errors can be missed and some correct
 	results flagged as an error.  If you get the message "Disregard last
@@ -444,17 +467,25 @@ changing to PRP testing which has an extremely robust error detection
 and correction mechanism.
 
 
-LUCAS-LEHMER DETAILS
---------------------
+FERMAT PRP AND LUCAS-LEHMER DETAILS
+-----------------------------------
 
-This program uses the Lucas-Lehmer primality test to see if 2**p-1 is prime.
+This program uses a Fermat probable prime test (PRP) to see if 2^p-1 is prime.
+The Fermat PRP test is defined as:
+	2^p-1 is probably prime if 3^((2^p-1)-1) = 1 mod (2^p - 1)
+	This is equivalent to 3^(2^p-1) = 3 mod (2^p - 1)
+	This is equivalent to 3^(2^p) = 9 mod (2^p - 1)
+This is simply p squarings modulo 2^p-1.
+
+This program can aldo perform a Lucas-Lehmer primality test to see if 2^p-1 is prime.
 The Lucas sequence is defined as:
 	L[1] = 4
-	L[n+1] = (L[n]**2 - 2) mod (2**p - 1)
-2**p-1 is prime if and only if L[p-1] = 0.
+	L[n+1] = (L[n]^2 - 2) mod (2^p - 1)
+2^p-1 is prime if and only if L[p-1] = 0.
+This requires p-2 squarings modulo 2^p-1 and p-2 subtractions of 2.
 
 This program uses a discrete weighted transform (see Mathematics of
-Computation, January 1994) to square numbers in the Lucas-Lehmer sequence.
+Computation, January 1994) to square numbers mod 2^p - 1.
 
 
 COPYRIGHTS (hwloc library)

@@ -667,6 +667,7 @@ void CPrime95Doc::OnCpu()
 	char	buf[512];
 	unsigned int day_memory, night_memory, day_start_time, day_end_time;
 
+	dlg.m_disk = CPU_WORKER_DISK_SPACE;
 	dlg.m_hours = CPU_HOURS;
 	dlg.m_memory_editable =
 		read_memory_settings (&day_memory, &night_memory,
@@ -682,6 +683,11 @@ void CPrime95Doc::OnCpu()
 //again:
 	if (dlg.DoModal () == IDOK) {
 		unsigned int new_day_start_time, new_day_end_time;
+
+		if (CPU_WORKER_DISK_SPACE != dlg.m_disk) {
+			CPU_WORKER_DISK_SPACE = dlg.m_disk;
+			IniWriteInt (LOCALINI_FILE, "WorkerDiskSpace", CPU_WORKER_DISK_SPACE);
+		}
 
 		if (CPU_HOURS != dlg.m_hours) {
 			CPU_HOURS = dlg.m_hours;
