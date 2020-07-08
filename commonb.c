@@ -28,7 +28,6 @@ static const char ERRMSG6[] = "ERROR: Comparing PRP double-check values failed. 
 static const char ERRMSG7[] = "ERROR: Comparing Gerbicz checksum values failed.  Rolling back to iteration %lu.\n";
 static const char ERRMSG8[] = "ERROR: Invalid FFT data.  Restarting from last save file.\n";
 static const char ERRMSG9[] = "ERROR: Invalid PRP state.  Restarting from last save file.\n";
-static const char ERRMSG10[] = "Aborting PRP proof.\n";
 static const char ERROK[] = "Disregard last error.  Result is reproducible and thus not a hardware problem.\n";
 static const char READFILEERR[] = "Error reading intermediate file: %s\n";
 static const char WRITEFILEERR[] = "Error writing intermediate file: %s\n";
@@ -5635,6 +5634,7 @@ begin:	factor_found = 0;
 				else {
 					sprintf (buf, WRITEFILEERR, filename);
 					OutputBoth (thread_num, buf);
+					OutputBothErrno (thread_num);
 					if (fd > 0) deleteWriteSaveFile (&write_save_file_state, fd);
 				}
 				if (stop_reason) {
@@ -10104,6 +10104,7 @@ int primeBench (
 /* PRP state to be written to / read from PRP save files */
 
 struct prp_state {
+	int	thread_num;		/* Copy of thread_num passed to prp.  Allows subroutines to output error messages. */
 	gwnum	x;			/* The current value in our left-to-right exponentiation */
 	unsigned long counter;		/* Current "iteration" counter */
 	unsigned long units_bit;	/* For shifting FFT data -- allows more robust double-checking */
@@ -10126,6 +10127,12 @@ struct prp_state {
 	int	hashlen;		/* Size (in bits) of proof hashes.  Must be between 32 and 64 inclusive */
 	int	isProbablePrime;	/* True is PRP test found a probable prime */
 	int	have_res2048;		/* True if a 2048-bit residue is available */
+	char	residues_filename[500];	/* Filename for the proof interim residues */
+	int	residue_size;		/* Size of one proof residue in bytes */
+	int	max_emergency_allocs;	/* Maximum allowable number of emergency proof residues to store in memory */
+	int	num_emergency_allocs;	/* Number of emergency proof residues in memory */
+	char	**emergency_allocs;	/* Array of emergency memory allocs */
+	int	first_emergency_residue_number; /* Residue number of first entry in emergency_allocs */
 	char	res2048[513];		/* 2048-bit residue at end of PRP test */
 	char	res64[17];		/* 64-bit residue at end of PRP test */
 };
@@ -10143,6 +10150,321 @@ struct prp_state {
 #define PRP_STATE_GERB_END_BLOCK	25	/* After L^2 squarings, do alt squarings to compute 2nd Gerbicz compare value */
 #define PRP_STATE_GERB_END_BLOCK_MULT	26	/* After L alt squarings, do one last mul to compute checksum #2 */
 #define PRP_STATE_GERB_FINAL_MULT	27	/* Do one last mul to compute checksum #1 and then compare checksum values */
+
+/* Create and optionally pre-fill the PRP proof interim residues file */
+
+void createProofResiduesFile (
+	gwhandle *gwdata,
+	struct prp_state *ps,
+	int	prefill)
+{
+	int	fd, i, j;
+	uint64_t total_size, randomizer, *p;
+	char	buf[65536];
+
+// Create the file to hold the interim proof residues
+
+	fd = _open (ps->residues_filename, _O_BINARY | _O_WRONLY | _O_TRUNC | _O_CREAT, CREATE_FILE_ACCESS);
+	if (fd < 0) {
+		sprintf (buf, "Cannot create PRP proof interim residues file: %s\n", ps->residues_filename);
+		OutputBoth (ps->thread_num, buf);
+		OutputBothErrno (ps->thread_num);
+		OutputBoth (ps->thread_num, "PRP test will use emergency memory to hold interim proof residues in hopes the file can be created later.\n");
+		return;
+	}
+
+// Prefill the disk space with random data in case some kind of disk compression is being used
+
+	if (prefill) {
+		// Output a message
+		sprintf (buf, "Preallocating disk space for the proof interim residues file %s\n", ps->residues_filename);
+		OutputStr (ps->thread_num, buf);
+
+		// Create a buffer filled with random data
+		srand ((unsigned) time (NULL));
+		for (i = 0; i < sizeof (buf); i++) buf[i] = rand() & 0xFF;
+
+		// Calculate how much disk space we need to fill
+		total_size = (1ULL << ps->proof_power) * (uint64_t) ps->residue_size;
+
+		// Write out the random bytes, randomize them some more each time
+		for (i = 0; i < (int) divide_rounding_up (total_size, sizeof (buf)); i++) {
+			if (_write (fd, buf, sizeof (buf)) != sizeof (buf)) {
+				int	new_power;
+				sprintf (buf, "Error pre-allocating proof interim residues file\n");
+				OutputBoth (ps->thread_num, buf);
+				OutputBothErrno (ps->thread_num);
+
+				// Calculate a new proof power based on the size we were able to allocate
+				if (i <= 63) new_power = 0;	// We couldn't allocate enough disk space for a proof power of 6
+				else if (i <= 127) new_power = 6;
+				else if (i <= 255) new_power = 7;
+				else if (i <= 511) new_power = 8;
+				else if (i <= 1023) new_power = 9;
+				else new_power = 10;
+
+				// Truncate the file size to the requirements of the new proof power
+				if (new_power) {
+					if (_chsize_s (fd, (1ULL << new_power) * (uint64_t) ps->residue_size) < 0) {
+						// Could not truncate the file, stick with the original proof power and
+						// use emergency memory in hopes the problem goes away (network disk offline).
+						new_power = 0;
+					}
+				}
+
+				// Use the new proof power, output a message
+				if (new_power) {
+					sprintf (buf, "Will use proof power %d instead of %d.\n", new_power, ps->proof_power);
+					OutputBoth (ps->thread_num, buf);
+					ps->proof_power = new_power;
+				} else {
+					OutputBoth (ps->thread_num, "PRP test will use emergency memory to hold interim proof residues in hopes the problem resolves itself.\n");
+				}
+				break;
+			}
+
+			// More randomizing the data
+			p = (uint64_t *) buf;
+			randomizer = p[i & (sizeof (buf) / 8 - 1)] << 1;
+			for (j = 0; j < sizeof (buf) / 8; j++) *p++ ^= randomizer;
+		}
+	}
+
+// Close file and return
+
+	_close (fd);
+}
+
+/* Output one of the PRP Proof intermediate residues */
+
+void outputProofResidue (
+	gwhandle *gwdata,
+	struct prp_state *ps,
+	int	residue_number,			/* Can be zero to indicate output emergency residues sitting in memory */
+	giant	g)				/* Can be NULL to indicate output emergency residues sitting in memory */
+{
+	int	i, fd;
+
+/* If a new residue was passed in, allocate buffer and convert from giant to zero-padded binary */
+
+	if (residue_number) {
+		char	*buf, *p;
+
+/* If we are out of emergency memory, make one last try at writing residues to disk */
+
+		if (ps->num_emergency_allocs == ps->max_emergency_allocs) {
+			outputProofResidue (gwdata, ps, 0, NULL);
+			if (ps->num_emergency_allocs == ps->max_emergency_allocs) {
+				OutputBoth (ps->thread_num, "No more emergency memory is available to hold interim proof residues.\n");
+				goto abort_proof;
+			}
+		}
+
+// Allocate next emergency memory entry (in case we have a write error and need to leave the residue in memory).
+
+		buf = (char *) malloc (round_up_to_multiple_of (ps->residue_size, 4));
+		if (buf == NULL) {
+			OutputStr (ps->thread_num, "Emergency memory allocation error.\n");
+			goto abort_proof;
+		}
+		ps->emergency_allocs[ps->num_emergency_allocs++] = buf;
+		if (ps->num_emergency_allocs == 1) ps->first_emergency_residue_number = residue_number;
+
+// Format giant as a little-Endian zero-padded fixed size number of bytes
+
+		memset (buf, 0, ps->residue_size);
+		for (i = 0, p = buf; i < g->sign; i++, p += 4) {
+			p[0] = g->n[i] & 0xFF;
+			p[1] = (g->n[i] >> 8) & 0xFF;
+			p[2] = (g->n[i] >> 16) & 0xFF;
+			p[3] = (g->n[i] >> 24) & 0xFF;
+		}
+	}
+
+/* If there are no residues to write, we are done */
+
+	if (ps->num_emergency_allocs == 0) return;
+
+/* Now attempt to write residue(s) to the interim residues file */
+/* If an error occurs, we'll keep the residue in emergency memory and hope */
+/* the disk full error or network disk offline error resolves itself */
+
+	fd = _open (ps->residues_filename, _O_BINARY | _O_WRONLY | _O_CREAT, CREATE_FILE_ACCESS);
+	if (fd < 0) {
+		char	buf[1000];
+		sprintf (buf, "Cannot open PRP proof interim residues file: %s\n", ps->residues_filename);
+		OutputBoth (ps->thread_num, buf);
+		OutputBothErrno (ps->thread_num);
+		OutputStr (ps->thread_num, "Keeping proof interim residues in emergency memory in hopes problem will resolve itself.\n");
+		OutputStr (ps->thread_num, "Errors such as disk full and network disk offline can be temporary.\n");
+		return;
+	}
+
+// Output all the residues we've been saving in memory
+
+	while (ps->num_emergency_allocs) {
+
+		// Write residue to the file
+		if (_lseeki64 (fd, ((int64_t) ps->first_emergency_residue_number - 1) * (int64_t) ps->residue_size, SEEK_SET) < 0 ||
+		    _write (fd, ps->emergency_allocs[0], ps->residue_size) != ps->residue_size) {
+			char	buf[1000];
+			sprintf (buf, "Error writing to PRP proof interim residues file: %s\n", ps->residues_filename);
+			OutputBoth (ps->thread_num, buf);
+			OutputBothErrno (ps->thread_num);
+			OutputStr (ps->thread_num, "Keeping proof interim residues in emergency memory in hopes problem will resolve itself.\n");
+			OutputStr (ps->thread_num, "Errors such as disk full and network disk offline can be temporary.\n");
+			break;
+		}
+
+		// Free memory, shuffle the emergency array down
+		free (ps->emergency_allocs[0]);
+		ps->num_emergency_allocs--;
+		memmove (ps->emergency_allocs, ps->emergency_allocs + 1, ps->num_emergency_allocs * sizeof (char *));
+		ps->first_emergency_residue_number++;
+	}
+
+// All done
+
+	_close (fd);
+	return;
+
+// We've held residues in emergency memory for as long as we can.  The errors writing interim residues to disk have not gone away.
+// Sadly, we must abort doing the PRP proof.
+
+abort_proof:
+	OutputBoth (ps->thread_num, "Aborting PRP proof.\n");
+	for (i = 0; i < ps->num_emergency_allocs; i++) free (ps->emergency_allocs[i]);
+	ps->num_emergency_allocs = 0;
+	_unlink (ps->residues_filename);
+	ps->proof_power = 0;
+}
+
+#include "exponentiate.c"
+#include "proof_hash.c"
+
+// Read a residue from the big residues file or emergency memory
+int readResidue (
+	struct prp_state *ps,
+	gwhandle *gwdata,
+	int	fd,
+	int	residue_number,		/* From 1 to 2^N.  Residue 0 was not written to the file. */
+	gwnum	x)
+{
+	int	i;
+	uint32_t *array;		/* Array to contain the binary value */
+	uint32_t arraylen;		/* Size of the array */
+
+	// Allocate an array for binary value
+	arraylen = divide_rounding_up (ps->residue_size, 4);
+	array = (uint32_t *) malloc (arraylen * sizeof(uint32_t));
+	if (array == NULL) goto err2;
+	array[arraylen-1] = 0;		// Zero-pad the top few bytes
+
+	// If residue is in emergency memory, copy it from there
+	if (ps->num_emergency_allocs && residue_number >= ps->first_emergency_residue_number) {
+		memcpy (array, ps->emergency_allocs[residue_number - ps->first_emergency_residue_number], ps->residue_size);
+	}
+
+	// Read the residue from the interim residues file
+	else {
+		if (_lseeki64 (fd, ((int64_t) residue_number - 1) * (int64_t) ps->residue_size, SEEK_SET) < 0) goto err1;
+		if (_read (fd, array, ps->residue_size) != ps->residue_size) goto err1;
+	}
+
+	// Convert from an array of bytes (LSB to MSB) to an array of uint32_t
+	for (i = 0; i < (int) arraylen; i++) {
+		uint32_t val;
+		val = ((unsigned char *)&array[i])[3];
+		val = (val << 8) + ((unsigned char *)&array[i])[2];
+		val = (val << 8) + ((unsigned char *)&array[i])[1];
+		val = (val << 8) + ((unsigned char *)&array[i])[0];
+		array[i] = val;
+	}
+
+	// Convert gwnum to binary
+	binarytogw (gwdata, array, arraylen, x);
+	free (array);
+	return (1);
+
+	// BUG print error messages
+err1:	free (array);
+err2:	return (0);
+}
+
+// Output a residue to the proof file
+int writeResidue (
+	struct prp_state *ps,
+	gwhandle *gwdata,
+	int	fd,
+	gwnum	x)
+{
+	long	len;
+	int	i;
+	uint32_t *array;		/* Array to contain the binary value */
+	uint32_t arraylen;		/* Size of the array */
+
+// BUGs - what do we do about errors writing proof residues?  Try again? Abort proof, delete file? Set flag saying no more PRP Proof work allowed?
+// Is their a way to check available disk space before the PRP test begins?  Should we pre-allocate the disk space?
+// hash or checksum residues?  
+
+	// Allocate an array for binary value
+	arraylen = divide_rounding_up (ps->residue_size, 4);
+	array = (uint32_t *) malloc (divide_rounding_up (ps->residue_size, 4) * sizeof(uint32_t));
+	if (array == NULL) goto err2;
+
+	// Convert gwnum to binary
+	len = gwtobinary (gwdata, x, array, arraylen);
+	if (len < 0) goto err1;
+
+	// Convert from an array of uint32_t to an array of bytes (LSB to MSB).  Zero-pad if necessary.
+	for (i = 0; i < len; i++) {
+		uint32_t val = array[i];
+		((unsigned char *)&array[i])[0] = val & 0xFF;
+		((unsigned char *)&array[i])[1] = (val >> 8) & 0xFF;
+		((unsigned char *)&array[i])[2] = (val >> 16) & 0xFF;
+		((unsigned char *)&array[i])[3] = (val >> 24) & 0xFF;
+	}
+	for ( ; i < (int) arraylen; i++) array[i] = 0;
+
+	// Write the residue
+	if (_write (fd, array, ps->residue_size) != ps->residue_size) goto err1;
+	free (array);
+	return (1);
+
+	// BUG print error messages
+err1:	free (array);
+err2:	return (0);
+}
+
+// Cool recursive routine to efficiently calculate a Middle residue value
+// Comes from analyzing an example that combines 16 values to form one Middle:
+// (((r0^h3 * r1)^h2 * r2^h3 * r3)^h1 * (r4^h3 * r5)^h2 * r6^h3 * r7)^h0 * ((r8^h3 * r9)^h2 * r10^h3 * r11)^h1 * (r12^h3 * r13)^h2 * r14^h3 * r15
+
+int calc_middle (
+	struct prp_state *ps,
+	gwhandle *gwdata,
+	int	fd,			// File handle to array of residues
+	int	base,			// Recursion range start
+	int	end,			// Recursion range end
+	int	i,			// Process 2^i values
+	uint64_t *hash_array,		// Array of hashes
+	gwnum	result)			// Return result here
+{
+	gwnum	tmp;
+	int	retcode;
+	if (i == 0) return (readResidue (ps, gwdata, fd, (base + end) / 2, result));	// Read and return the one residue
+	// Recurse on the first half
+	retcode = calc_middle (ps, gwdata, fd, base, base + (end - base) / 2, i - 1, hash_array + 1, result);
+	if (!retcode) return (retcode);
+	exponentiate (gwdata, result, *hash_array);
+	// Recurse on the second half
+	tmp = gwalloc (gwdata);
+	retcode = calc_middle (ps, gwdata, fd, base + (end - base) / 2, end, i - 1, hash_array + 1, tmp);
+	if (!retcode) return (retcode);
+	gwmul (gwdata, tmp, result);
+	gwfree (gwdata, tmp);
+	return (1);
+}
 
 /* Write intermediate PRP results to a file */
 /* The PRP save file format is: */
@@ -10182,6 +10504,18 @@ int writePRPSaveFile (
 {
 	int	fd;
 	unsigned long sum = 0;
+
+/* If there are interim proof residues sitting in emergency memory, do not write a save file.  This is because */
+/* We do not want to resume from such a save file and skip writing one or more of the proof interim residues. */
+
+	if (ps->num_emergency_allocs) {
+		outputProofResidue (gwdata, ps, 0, NULL);		// Try again to write the emergency residues
+		if (ps->num_emergency_allocs) {
+			OutputBoth (ps->thread_num, "Cannot create save files while holding proof interim residues in emergency memory.\n");
+			OutputStr (ps->thread_num, "Continuing without creating this save file.\n");
+			return (0);
+		}
+	}
 
 /* Now save to the intermediate file */
 
@@ -10356,250 +10690,6 @@ int readPRPSaveFile (
 	return (TRUE);
 err:	_close (fd);
 	return (FALSE);
-}
-
-/* Create and optionally pre-fill the PRP proof interim residues file */
-
-void createProofResiduesFile (
-	int	thread_num,
-	gwhandle *gwdata,
-	char	*filename,
-	struct prp_state *ps,
-	int	prefill)
-{
-	int	fd, i, j, residue_size;
-	uint64_t total_size, randomizer, *p;
-	char	buf[65536];
-
-// Create the file to hold the interim proof residues
-
-	fd = _open (filename, _O_BINARY | _O_WRONLY | _O_TRUNC | _O_CREAT, CREATE_FILE_ACCESS);
-	if (fd < 0) {
-		sprintf (buf, "Cannot create PRP proof interim residues file: %s\n", filename);
-		OutputBoth (thread_num, buf);
-		OutputBothErrno (thread_num);
-		OutputBoth (thread_num, "PRP test will not produce a PRP proof\n");
-		return;
-	}
-
-// Prefill the disk space with random data in case some kind of disk compression is being used
-
-	if (prefill) {
-		// Output a message
-		sprintf (buf, "Preallocating disk space for the proof interim residues file %s\n", filename);
-		OutputStr (thread_num, buf);
-
-		// Create a buffer filled with random data
-		srand ((unsigned) time (NULL));
-		for (i = 0; i < sizeof (buf); i++) buf[i] = rand() & 0xFF;
-
-		// Calculate how much disk space we need to fill
-		residue_size = divide_rounding_up ((int) ceil(gwdata->bit_length), 8);
-//BUG - assumes last residue not written
-		total_size = ((1ULL << ps->proof_power) - 1) * (uint64_t) residue_size;
-
-		// Write out the random bytes, randomize them some more each time
-		for (i = 0; i < (int) divide_rounding_up (total_size, sizeof (buf)); i++) {
-			if (_write (fd, buf, sizeof (buf)) != sizeof (buf)) {
-				_close (fd);
-				_unlink (filename);
-				sprintf (buf, "Error pre-allocating proof interim residues file\n");
-				OutputBoth (thread_num, buf);
-				OutputBothErrno (thread_num);
-				if (ps->proof_power > 6) {
-					OutputBoth (thread_num, "Will try using a smaller proof power\n");
-					ps->proof_power--;
-					return (createProofResiduesFile (thread_num, gwdata, filename, ps, prefill));
-				}
-				OutputBoth (thread_num, "PRP test will not produce a PRP proof\n");
-				return;
-			}
-			// More randomizing the data
-			p = (uint64_t *) buf;
-			randomizer = p[i & (sizeof (buf) / 8 - 1)] << 1;
-			for (j = 0; j < sizeof (buf) / 8; j++) *p++ ^= randomizer;
-		}
-	}
-
-// Close file and return
-
-	_close (fd);
-}
-
-/* Output one of the PRP Proof intermediate residues */
-
-int outputProofResidue (
-	int	thread_num,
-	gwhandle *gwdata,
-	char	*filename,
-	int	residue_number,
-	giant	g)
-{
-	int	fd, retcode = 0;
-// BUGs - what do we do about errors writing proof residues?  Try again? Abort proof, delete file? Set flag saying no more PRP Proof work allowed?
-// Is their a way to check available disk space before the PRP test begins?  Should we pre-allocate the disk space?
-// Hash or checksum or Reed-Solomon error-correct residues ?  
-	fd = _open (filename, _O_BINARY | _O_WRONLY, CREATE_FILE_ACCESS);
-	if (fd < 0) {
-		char	buf[1000];
-		sprintf (buf, "Cannot open PRP proof interim residues file: %s\n", filename);
-		OutputBoth (thread_num, buf);
-		OutputBothErrno (thread_num);
-		retcode = -2;
-		goto err3;
-	}
-
-	// Format gwnum as a fixed size number of bytesr 
-	char	*buf, *p;
-	int	i, residue_size;
-	residue_size = divide_rounding_up ((int) ceil(gwdata->bit_length), 8);
-	buf = (char *) malloc (round_up_to_multiple_of (residue_size, 4));
-	if (buf == NULL) {
-		OutputStr (thread_num, "Memory allocation error\n");
-		retcode = -1;
-		goto err2;
-	}
-	memset (buf, 0, residue_size);
-	for (i = 0, p = buf; i < g->sign; i++, p += 4) {
-		p[0] = g->n[i] & 0xFF;
-		p[1] = (g->n[i] >> 8) & 0xFF;
-		p[2] = (g->n[i] >> 16) & 0xFF;
-		p[3] = (g->n[i] >> 24) & 0xFF;
-	}
-
-	// Write gwnum to the file
-	if (_lseeki64 (fd, ((int64_t) residue_number - 1) * (int64_t) residue_size, SEEK_SET) < 0 ||
-	    _write (fd, buf, residue_size) != residue_size) {
-		sprintf (buf, "Error writing to PRP proof interim residues file\n");
-		OutputBoth (thread_num, buf);
-		OutputBothErrno (thread_num);
-		retcode = -2;
-		goto err1;
-	}
-
-err1:	free (buf);
-err2:	_close (fd);
-err3:	return (retcode);
-}
-
-#include "exponentiate.c"
-#include "proof_hash.c"
-
-// Read a residue from the big residues file
-void readResidue (
-	gwhandle *gwdata,
-	int	fd,
-	int	residue_number,		/* From 1 to 2^N.  Residue 0 was not written to the file. */
-	gwnum	x)
-{
-	int	i, residue_size;
-	uint32_t *array;		/* Array to contain the binary value */
-	uint32_t arraylen;		/* Size of the array */
-
-// BUGs - what do we do about errors writing proof residues?  Try again? Abort proof, delete file? Set flag saying no more PRP Proof work allowed?
-// Is their a way to check available disk space before the PRP test begins?  Should we pre-allocate the disk space?
-// hash or checksum residues?  
-
-	// Allocate an array for binary value
-	residue_size = divide_rounding_up ((int) ceil(gwdata->bit_length), 8);
-	arraylen = divide_rounding_up (residue_size, 4);
-	array = (uint32_t *) malloc (arraylen * sizeof(uint32_t));
-	if (array == NULL) goto err2;
-
-	// Read the residue
-	if (_lseeki64 (fd, ((int64_t) residue_number - 1) * (int64_t) residue_size, SEEK_SET) < 0) goto err1;
-	array[arraylen-1] = 0;
-	if (_read (fd, array, residue_size) != residue_size) goto err1;
-
-	// Convert from an array of bytes (LSB to MSB) to an array of uint32_t
-	for (i = 0; i < (int) arraylen; i++) {
-		uint32_t val;
-		val = ((unsigned char *)&array[i])[3];
-		val = (val << 8) + ((unsigned char *)&array[i])[2];
-		val = (val << 8) + ((unsigned char *)&array[i])[1];
-		val = (val << 8) + ((unsigned char *)&array[i])[0];
-		array[i] = val;
-	}
-
-	// Convert gwnum to binary
-	binarytogw (gwdata, array, arraylen, x);
-	free (array);
-	return;
-
-	// BUG print error messages
-err1:	free (array);
-err2:	return;
-}
-
-// Output a residue to the proof file
-int writeResidue (
-	gwhandle *gwdata,
-	int	fd,
-	gwnum	x)
-{
-	long	len;
-	int	i, residue_size;
-	uint32_t *array;		/* Array to contain the binary value */
-	uint32_t arraylen;		/* Size of the array */
-
-// BUGs - what do we do about errors writing proof residues?  Try again? Abort proof, delete file? Set flag saying no more PRP Proof work allowed?
-// Is their a way to check available disk space before the PRP test begins?  Should we pre-allocate the disk space?
-// hash or checksum residues?  
-
-	// Allocate an array for binary value
-	residue_size = divide_rounding_up ((int) ceil (gwdata->bit_length), 8);
-	arraylen = divide_rounding_up (residue_size, 4);
-	array = (uint32_t *) malloc (divide_rounding_up (residue_size, 4) * sizeof(uint32_t));
-	if (array == NULL) goto err2;
-
-	// Convert gwnum to binary
-	len = gwtobinary (gwdata, x, array, arraylen);
-	if (len < 0) goto err1;
-
-	// Convert from an array of uint32_t to an array of bytes (LSB to MSB).  Zero-pad if necessary.
-	for (i = 0; i < len; i++) {
-		uint32_t val = array[i];
-		((unsigned char *)&array[i])[0] = val & 0xFF;
-		((unsigned char *)&array[i])[1] = (val >> 8) & 0xFF;
-		((unsigned char *)&array[i])[2] = (val >> 16) & 0xFF;
-		((unsigned char *)&array[i])[3] = (val >> 24) & 0xFF;
-	}
-	for ( ; i < (int) arraylen; i++) array[i] = 0;
-
-	// Write the residue
-	if (_write (fd, array, residue_size) != residue_size) goto err1;
-	free (array);
-	return (1);
-
-	// BUG print error messages
-err1:	free (array);
-err2:	return (0);
-}
-
-// Cool recursive routine to efficiently calculate a Middle residue value
-// Comes from analyzing an example that combines 16 values to form one Middle:
-// (((r0^h3 * r1)^h2 * r2^h3 * r3)^h1 * (r4^h3 * r5)^h2 * r6^h3 * r7)^h0 * ((r8^h3 * r9)^h2 * r10^h3 * r11)^h1 * (r12^h3 * r13)^h2 * r14^h3 * r15
-
-void calc_middle (
-	gwhandle *gwdata,
-	int	fd,			// File handle to array of residues
-	int	base,			// Recursion range start
-	int	end,			// Recursion range end
-	int	i,			// Process 2^i values
-	uint64_t *hash_array,		// Array of hashes
-	gwnum	result)			// Return result here
-{
-	gwnum	tmp;
-	if (i == 0) {			// Read and return the one residue
-		readResidue (gwdata, fd, (base + end) / 2, result);
-		return;
-	}
-	calc_middle (gwdata, fd, base, base + (end - base) / 2, i - 1, hash_array + 1, result);
-	exponentiate (gwdata, result, *hash_array);
-	tmp = gwalloc (gwdata);
-	calc_middle (gwdata, fd, base + (end - base) / 2, end, i - 1, hash_array + 1, tmp);
-	gwmul (gwdata, tmp, result);
-	gwfree (gwdata, tmp);
 }
 
 /* Output the good news of a new probable prime to the screen in an infinite loop */
@@ -10783,7 +10873,7 @@ int prp (
 	struct prp_state ps;
 	gwhandle gwdata;
 	giant	N, exp, tmp;
-	int	first_iter_msg, res, stop_reason;
+	int	first_iter_msg, i, res, stop_reason;
 	int	echk, near_fft_limit, sleep5;
 	int	interim_counter_off_one, interim_mul, mul_final;
 	unsigned long explen, final_counter, iters;
@@ -10795,7 +10885,7 @@ int prp (
 	double	best_iteration_time;
 	readSaveFileState read_save_file_state; /* Manage savefile names during reading */
 	writeSaveFileState write_save_file_state; /* Manage savefile names during writing */
-	char	filename[32], residues_filename[500];
+	char	filename[32];
 	char	buf[1000], JSONbuf[4000], fft_desc[200];
 	unsigned long last_counter = 0xFFFFFFFF;/* Iteration of last error */
 	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
@@ -10815,6 +10905,7 @@ int prp (
 /* Init PRP state */
 
 	memset (&ps, 0, sizeof (ps));
+	ps.thread_num = thread_num;
 
 /* See if this number needs P-1 factoring.  We treat P-1 factoring */
 /* that is part of a PRP test as priority work done in pass 1 or as */
@@ -11179,12 +11270,25 @@ begin:	N = exp = NULL;
 	sprintf (buf+strlen(buf), "PRP test of %s using %s\n", string_rep, fft_desc);
 	OutputStr (thread_num, buf);
 
-/* Create and pre-fill the interim residues file for the PRP proof */
+// Calculate the maximum number of proof residues we will keep in memory when unable to write
+// interim proof residues because the disk is full or network disk is offline.
 
-	IniGetString (LOCALINI_FILE, "ResidueFileDir", residues_filename, sizeof (residues_filename), NULL);
-	sprintf (residues_filename + strlen (residues_filename), "%s.residues", filename);
-	if (ps.proof_power && ps.counter == 0) {
-		createProofResiduesFile (thread_num, &gwdata, residues_filename, &ps, IniGetInt (LOCALINI_FILE, "PreallocateDisk", 1));
+	if (ps.proof_power) {
+		int	max_emergency_memory;
+
+		max_emergency_memory = IniGetInt (INI_FILE, "MaxEmergencyMemory", 1024);
+		ps.residue_size = divide_rounding_up ((int) ceil(gwdata.bit_length), 8);
+		ps.max_emergency_allocs = (int) ((double) max_emergency_memory * 1000000.0 / (double) ps.residue_size);
+		if (ps.max_emergency_allocs < 1) ps.max_emergency_allocs = 1;
+		if (ps.max_emergency_allocs > (1 << ps.proof_power)) ps.max_emergency_allocs = (1 << ps.proof_power);
+		ps.emergency_allocs = (char **) malloc (ps.max_emergency_allocs * sizeof (char *));
+
+// Create and optionally prefill the proof interim residues file
+
+		IniGetString (LOCALINI_FILE, "ResidueFileDir", ps.residues_filename, sizeof (ps.residues_filename), NULL);
+		sprintf (ps.residues_filename + strlen (ps.residues_filename), "%s.residues", filename);
+		if (ps.counter == 0)
+			createProofResiduesFile (&gwdata, &ps, IniGetInt (LOCALINI_FILE, "PreallocateDisk", 1));
 	}
 	excess_squarings = round_up_to_multiple_of (w->n, 1 << ps.proof_power) - w->n;
 
@@ -11193,8 +11297,8 @@ begin:	N = exp = NULL;
 	if (ps.proof_power) {
 		double	disk_space, proof_file_size;
 
-		disk_space = (double) (1 << ps.proof_power) * (double) (w->n / 8);
-		proof_file_size = (double) (ps.proof_power + 1) * (double) (w->n / 8);
+		disk_space = (double) (1 << ps.proof_power) * (double) ps.residue_size;
+		proof_file_size = (double) (ps.proof_power + 1) * (double) ps.residue_size;
 		sprintf (buf, "PRP proof using power=%d and %d-bit hash size.\n", ps.proof_power, ps.hashlen);
 		OutputStr (thread_num, buf);
 		sprintf (buf, "Proof requires %.1fGB of temporary disk space and uploading a %.0fMB proof file.\n",
@@ -11734,7 +11838,6 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* Output a PRP proof residue every (n+excess_squarings)/(2^proof) iterations. */
 
 		if (proof_residue) {
-			int	retcode;
 			tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
 			if (gwtogiant (&gwdata, x, tmp) || tmp->sign <= 0) {
 				pushg (&gwdata.gdata, 1);
@@ -11746,19 +11849,9 @@ OutputStr (thread_num, "Iteration failed.\n");
 				goto restart;
 			}
 			rotateg (tmp, w->n, *units_bit, &gwdata.gdata);
-			retcode = outputProofResidue (thread_num, &gwdata, residues_filename,
-						      (ps.counter - initial_log2k_iters) / ((w->n + excess_squarings) >> ps.proof_power), tmp);
+			outputProofResidue (&gwdata, &ps,
+					    (ps.counter - initial_log2k_iters) / ((w->n + excess_squarings) >> ps.proof_power), tmp);
 			pushg (&gwdata.gdata, 1);
-			if (retcode == -1) {				/* Some error code like out-of-memory that maybe will go away */
-				sleep5 = TRUE;
-				goto restart;
-			}
-			if (retcode == -2) {				/* An error that means we should abort trying to create proof */
-				OutputBoth (thread_num, ERRMSG10);
-				sprintf (buf, "%s.residues", filename);
-				_unlink (buf);
-				ps.proof_power = 0;
-			}
 		}
 
 /* See if we found a probable prime, generate final residue for composites */
@@ -12143,9 +12236,13 @@ pushg(&gwdata.gdata, 2);}
 
 // Open the PRP residues file, create the PRP proof file
 
-		fd = _open (residues_filename, _O_BINARY | _O_RDONLY);
+		fd = _open (ps.residues_filename, _O_BINARY | _O_RDONLY);
+//BUG - what if this is due to a simple NFS error?  We must wait for error to "clear up"
+// Have an INI option controlling how diligently we should wait for I/O error to clear up?
+// Wait how long for proof file to work?
+// Do not sleep5 as that restarts from last save file and deletes emergency memory
 		if (fd < 0) {
-			sprintf (buf, "Proof generation failed.  Cannot open PRP proof interim residues file: %s\n", residues_filename);
+			sprintf (buf, "Proof generation failed.  Cannot open PRP proof interim residues file: %s\n", ps.residues_filename);
 			OutputBoth (thread_num, buf);
 			OutputBothErrno (thread_num);
 			goto noproof1;
@@ -12190,15 +12287,14 @@ pushg(&gwdata.gdata, 2);}
 		strcat (buf, "\n");
 		if (_write (fdout, buf, strlen (buf)) != strlen (buf)) goto writeerr;
 
-// BUG - isn't final residue in ps.x???   If so, why bother writing final residue to residues file??
 		// Output final residue
-		readResidue (&gwdata, fd, (1 << ps.proof_power), B);
-		if (!writeResidue (&gwdata, fdout, B)) goto writeerr;
+		if (!readResidue (&ps, &gwdata, fd, (1 << ps.proof_power), B)) goto writeerr;	//BUG - its a read err,
+		if (!writeResidue (&ps, &gwdata, fdout, ps.x)) goto writeerr;
 
 // Write the middle residue, M0, unadulterated
 
-		readResidue (&gwdata, fd, (1 << ps.proof_power) / 2, M);
-		if (!writeResidue (&gwdata, fdout, M)) goto writeerr;
+		if (!readResidue (&ps, &gwdata, fd, (1 << ps.proof_power) / 2, M)) goto writeerr;	//BUG - its a read err,
+		if (!writeResidue (&ps, &gwdata, fdout, M)) goto writeerr;
 
 // Init for computing remaining middles
 
@@ -12218,8 +12314,8 @@ pushg(&gwdata.gdata, 2);}
 			h[i] = truncate_hash (thish, ps.hashlen);
 			sprintf (buf, "hash%d = %" PRIX64 "\n", i, h[i]);
 			OutputStr (thread_num, buf);
-			calc_middle (&gwdata, fd, 0, 1 << ps.proof_power, i + 1, h, M);
-			if (!writeResidue (&gwdata, fdout, M)) goto writeerr;
+			if (!calc_middle (&ps, &gwdata, fd, 0, 1 << ps.proof_power, i + 1, h, M)) goto writeerr;	// BUG - its a readerr
+			if (!writeResidue (&ps, &gwdata, fdout, M)) goto writeerr;
 		}
 
 // Check if an error occurred before publishing our proof
@@ -12252,7 +12348,7 @@ noproof1:	_close (fd);
 
 // Delete the residues file
 
-proof_done:	_unlink (residues_filename);
+proof_done:	_unlink (ps.residues_filename);
 	}
 
 /* Free up some memory */
@@ -12344,9 +12440,8 @@ proof_done:	_unlink (residues_filename);
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"errors\":{\"dblchk\":%lu}", (ps.error_count >> 20) & 0xF);
 	if (ps.error_check_type == PRP_ERRCHK_GERBICZ)
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"errors\":{\"gerbicz\":%lu}", (ps.error_count >> 20) & 0xF);
-	if (ps.proof_power) {
+	if (ps.proof_power)
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"proof\":{\"version\":1, \"power\":%d, \"hashsize\":%d}", ps.proof_power, ps.hashlen);
-	}
 	JSONaddUserComputerAID (JSONbuf, w);
 	strcat (JSONbuf, "}\n");
 	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
@@ -12402,6 +12497,8 @@ proof_done:	_unlink (residues_filename);
 exit:	gwdone (&gwdata);
 	free (N);
 	free (exp);
+	for (i = 0; i < ps.num_emergency_allocs; i++) free (ps.emergency_allocs[i]);
+	free (ps.emergency_allocs);
 	return (stop_reason);
 
 /* An error occured, output a message saying we are restarting, sleep, */
@@ -12426,5 +12523,9 @@ restart:if (sleep5) OutputBoth (thread_num, ERRMSG2);
 	gwdone (&gwdata);
 	free (N);
 	free (exp);
+	for (i = 0; i < ps.num_emergency_allocs; i++) free (ps.emergency_allocs[i]);
+	free (ps.emergency_allocs);
+	ps.emergency_allocs = NULL;
+	ps.num_emergency_allocs = 0;
 	goto begin;
 }
