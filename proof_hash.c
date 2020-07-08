@@ -4,7 +4,6 @@
 | Auxiliary hash routines for proof generator and proof verifier
 +---------------------------------------------------------------------*/
 
-#include "malloc.h"
 #include "memory.h"
 #include "sha3.h"
 #include "sha3.c"
@@ -81,10 +80,11 @@ uint64_t truncate_hash (
 	hash256_t h,			// 256-bit hash value
 	int	hashlen)		// Length in bits (up to 64) for returned hash value
 {
+	int	i;
 	uint64_t temp64 = 0;
 
 	// Create a 64-bit hash from the first 8 bytes of the 256-bit hash
-	for (int i = 7; i >= 0; i--) temp64 = (temp64 << 8) + h[i];
+	for (i = 7; i >= 0; i--) temp64 = (temp64 << 8) + h[i];
 
 	// Mask the value and return
 	if (hashlen >= 64) return (temp64);
@@ -95,7 +95,9 @@ uint64_t truncate_hash (
 char *hash_to_string (
 	hash256_t h)			// 256-bit hash value
 {
+	int	i;
 static	char retbuf[65];		// returned character string
-	for (int i = 31; i >= 0; i--) sprintf (retbuf+(31-i)*2, "%02X", (int) h[i]);
+	
+	for (i = 31; i >= 0; i--) sprintf (retbuf+(31-i)*2, "%02X", (int) h[i]);
 	return (retbuf);
 }
