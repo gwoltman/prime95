@@ -116,6 +116,7 @@ int	OS_CAN_SET_AFFINITY = 1;	/* hwloc supports setting CPU affinity (known excep
 gwevent AUTOBENCH_EVENT;	/* Event to wake up workers after an auto-benchmark */
 
 #include "md5.c"
+#include "errno.h"
 
 /* Generate the application string.  This is sent to the server in a */
 /* UC (Update Computer info) call.  It is also displayed in the */
@@ -1940,14 +1941,15 @@ void OutputBothBench (
 }
 
 /* Output errno and useful description to both the screen and results file */
-// BUG - need LINUX version of this routine
+
 void OutputBothErrno (
 	int	thread_num)
 {
+	char	buf[1024];
+#if WIN32
 	int	errnum;
 	unsigned long dos_errnum;
 	char	errtxt[512];
-	char	buf[1024];
 
 	_get_errno (&errnum);
 	if (errnum) {
@@ -1963,6 +1965,12 @@ void OutputBothErrno (
 		OutputBoth (thread_num, buf);
 		_set_doserrno (0);
 	}
+#else
+	if (errno) {
+		sprintf (buf, "Errno: %d, %s\n", errno, strerror (errno));
+		OutputBoth (thread_num, buf);
+	}
+#endif
 }
 
 /* Output string to screen.  Prefix it with an optional timestamp. */

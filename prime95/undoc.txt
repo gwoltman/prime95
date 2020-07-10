@@ -39,6 +39,14 @@ of disk space midway through the PRP test.
 Directory (must include trailing forward or backward slash) to store the
 residues file.  The default is "blank" which stores the big interim residues file
 in the same directory as the executable.
+	MaxEmergencyMemory=n		(default is 1024)
+Maximum amount of memory in MB each PRP worker can use to store proof residues
+when the disk is full or a network disk is offline.  This allows the PRP test to
+continue in hopes the disk full or disk offline error is resolved in a timely manner.
+	MaxProofgenWaits=n		(default is 48*60/5 = 48 hours)
+Maximum number of 5 minute waits to execute when an error occurs during proof generation.
+An error should only occur for disk full or disk offline.  We hope the disk problem
+will resolve itself within 2 days.
 
 You can control whether the program does extra error checking on every
 iteration of a primality test.  This runs a little bit slower.  Windows
