@@ -56,6 +56,15 @@ err2: err1:
 }
 
 
+// Return 256-bit sha3 hash of a gwnum converted to binary
+void sha3_gwnum (
+	gwhandle *gwdata,
+	gwnum	x,
+	hash256_t *result)
+{
+	sha3_hash_and_gwnum (gwdata, NULL, x, result);
+}
+
 // Build the proof root hash using the final residue
 void roothash (
 	gwhandle *gwdata,

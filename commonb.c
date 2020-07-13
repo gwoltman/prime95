@@ -1870,6 +1870,7 @@ void stop_priority_work_timer (void)
 int isPriorityWork (
 	struct work_unit *w)
 {
+	if (w->work_type == WORK_CERT) return (TRUE);
 	if (w->work_type == WORK_ADVANCEDTEST) return (TRUE);
 	if ((w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK) &&
 	    (w->sieve_depth < w->factor_to || !w->pminus1ed))
@@ -3227,6 +3228,12 @@ int primeContinue (
 
 		if (w->work_type == WORK_PRP) {
 			stop_reason = prp (thread_num, &sp_info, w, pass);
+		}
+
+/* Do proof certification work */
+
+		if (w->work_type == WORK_CERT) {
+			stop_reason = cert (thread_num, &sp_info, w, pass);
 		}
 
 /* Set us back to default memory usage */
@@ -6628,7 +6635,7 @@ int prime (
 #endif
 
 /* Init the write save file state.  This remembers which save files are Jacobi-checked.  Do this initialization */
-/* before the restart for roundoff errors so that error recovery does not destroy thw write save file state. */
+/* before the restart for roundoff errors so that error recovery does not destroy the write save file state. */
 
 	tempFileName (w, filename);
 	writeSaveFileStateInit (&write_save_file_state, filename, NUM_JACOBI_BACKUP_FILES);
@@ -10555,7 +10562,7 @@ int writePRPSaveFile (			// Returns TRUE if successful
 	if (!write_array (fd, ps->res2048, 512, &sum)) goto writeerr;
 	if (!write_array (fd, ps->res64, 16, &sum)) goto writeerr;
 	if (!write_gwnum (fd, gwdata, ps->x, &sum)) {
-		sprintf (buf, "Error writing FFT data named x to PRP save file %s\n", write_save_file_state->base_filename);
+		sprintf (buf, "Error writing FFT data named x, state %d, to PRP save file %s\n", ps->state, write_save_file_state->base_filename);
 		OutputBoth (ps->thread_num, buf);
 		OutputBothErrno (ps->thread_num);
 		goto err;
@@ -10608,7 +10615,7 @@ err:	deleteWriteSaveFile (write_save_file_state, fd);
 	return (FALSE);
 }
 
-/* Read the data portion of an intermediate PRP results file */
+/* Read the data portion of an intermediate PRP save file */
 
 int readPRPSaveFile (
 	gwhandle *gwdata,		/* Handle to gwnum */
@@ -12123,15 +12130,12 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* Write results to a file every DISK_WRITE_TIME minutes */
 
 		if (saving) {
-			if (! writePRPSaveFile (&gwdata, &write_save_file_state, w, &ps)) {
-				sprintf (buf, WRITEFILEERR, filename);
-				OutputBoth (thread_num, buf);
-				OutputBothErrno (thread_num);
+			if (writePRPSaveFile (&gwdata, &write_save_file_state, w, &ps)) {
+				// Mark save files that contain verified computations.  This will keep the save file
+				// for a longer period of time (i.e. will not be replaced by a save file that does
+				// not also contain verified computations).
+				if (saving_highly_reliable) setWriteSaveFileSpecial (&write_save_file_state);
 			}
-			// Mark save files that contain verified computations.  This will keep the save file
-			// for a longer period of time (i.e. will not be replaced by a save file that does
-			// not also contain verified computations).
-			if (saving_highly_reliable) setWriteSaveFileSpecial (&write_save_file_state);
 		}
 
 /* If an escape key was hit, write out the results and return */
@@ -12209,11 +12213,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			sprintf (interimfile, "%s.%03ld", filename, ps.counter / INTERIM_FILES);
 			writeSaveFileStateInit (&state, interimfile, 0);
 			state.num_ordinary_save_files = 99;
-			if (! writePRPSaveFile (&gwdata, &state, w, &ps)) {
-				sprintf (buf, WRITEFILEERR, interimfile);
-				OutputBoth (thread_num, buf);
-				OutputBothErrno (thread_num);
-			}
+			writePRPSaveFile (&gwdata, &state, w, &ps);
 		}
 
 /* If ten iterations take 40% longer than a typical iteration, then */
@@ -12606,3 +12606,5 @@ restart:if (sleep5) OutputBoth (thread_num, ERRMSG2);
 	ps.num_emergency_allocs = 0;
 	goto begin;
 }
+
+#include "cert.c"

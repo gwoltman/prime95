@@ -329,6 +329,7 @@ int OutOfMemory (int);
 #define WORK_PMINUS1		5
 #define WORK_PFACTOR		6
 #define WORK_PRP		10
+#define WORK_CERT		11
 #define WORK_NONE		100	/* Comment line in worktodo.ini */
 #define WORK_DELETED		101	/* Deleted work_unit */
 
@@ -355,6 +356,7 @@ struct work_unit {		/* One line from the worktodo file */
 	unsigned int prp_base;	/* PRP base to use */	
 	int	prp_residue_type; /* PRP residue to output -- see primenet.h */
 	int	prp_dblchk;	/* True if this is a doublecheck of a previous PRP */
+	int	cert_squarings; /* Number of squarings required for PRP proof certification */
 	char	*known_factors;	/* ECM, P-1, PRP - list of known factors */
 	char	*comment;	/* Comment line in worktodo.ini */
 		/* Runtime variables */

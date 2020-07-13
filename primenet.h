@@ -71,7 +71,7 @@ struct primenetUpdateComputerInfo {
 	char	computer_name[21];
 
 	/* Returned by the server */
-	
+
 	char	user_name[33];
 	char	pad[1];			/* For 4-byte alignment */
 	uint32_t options_counter;	/* Number of times options have been */
@@ -146,6 +146,7 @@ struct primenetProgramOptions {
 #define PRIMENET_WORK_TYPE_FIRST_LL	100
 #define PRIMENET_WORK_TYPE_DBLCHK	101
 #define PRIMENET_WORK_TYPE_PRP		150
+#define PRIMENET_WORK_TYPE_CERT		200
 
 struct primenetGetAssignment {
 	int32_t	versionNumber;
@@ -238,6 +239,7 @@ struct primenetAssignmentProgress {
 #define PRIMENET_AR_LL_PRIME	101	/* LL result, Mersenne prime */
 #define PRIMENET_AR_PRP_RESULT	150	/* PRP result, not prime */
 #define PRIMENET_AR_PRP_PRIME	151	/* PRP result, probably prime */
+#define PRIMENET_AR_CERT	200	/* Certification result */
 
 // There are (at least) 5 PRP residue types for testing N=(k*b^n+c)/d:
 #define	PRIMENET_PRP_TYPE_FERMAT	1	// Fermat PRP.  Calculate a^(N-1) mod N.  PRP if result = 1

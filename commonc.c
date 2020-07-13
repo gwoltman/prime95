@@ -2815,6 +2815,20 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		}
 	    }
 
+/* Handle Cert= lines.  Certifying a PRP proof.		*/
+/*	Cert=k,b,n,c,num_squarings			*/
+
+	    else if (_stricmp (keyword, "Cert") == 0) {
+		char	*q;
+
+		w->work_type = WORK_CERT;
+		w->k = atof (value);
+		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
+		sscanf (q+1, "%lu,%lu,%ld,%d", &w->b, &w->n, &w->c, &w->cert_squarings);
+		for (i = 1; i <= 3; i++)
+			if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+	    }
+
 /* Uh oh.  We have a worktodo.txt line we cannot process. */
 
 	    else if (_stricmp (keyword, "AdvancedFactor") == 0) {
@@ -3119,13 +3133,11 @@ int writeWorkToDoFile (
 			break;
 
 		case WORK_TEST:
-			sprintf (buf, "Test=%s%lu,%.0f,%d",
-				 idbuf, w->n, w->sieve_depth, w->pminus1ed);
+			sprintf (buf, "Test=%s%lu,%.0f,%d", idbuf, w->n, w->sieve_depth, w->pminus1ed);
 			break;
 
 		case WORK_DBLCHK:
-			sprintf (buf, "DoubleCheck=%s%lu,%.0f,%d",
-				 idbuf, w->n, w->sieve_depth, w->pminus1ed);
+			sprintf (buf, "DoubleCheck=%s%lu,%.0f,%d", idbuf, w->n, w->sieve_depth, w->pminus1ed);
 			break;
 
 		case WORK_ADVANCEDTEST:
@@ -3133,38 +3145,25 @@ int writeWorkToDoFile (
 			break;
 
 		case WORK_FACTOR:
-			sprintf (buf, "Factor=%s%ld,%.0f,%.0f",
-				 idbuf, w->n, w->sieve_depth, w->factor_to);
+			sprintf (buf, "Factor=%s%ld,%.0f,%.0f", idbuf, w->n, w->sieve_depth, w->factor_to);
 			break;
 
 		case WORK_PFACTOR:
-			sprintf (buf, "Pfactor=%s%.0f,%lu,%lu,%ld,%g,%g",
-				 idbuf, w->k, w->b, w->n, w->c, w->sieve_depth,
-				 w->tests_saved);
+			sprintf (buf, "Pfactor=%s%.0f,%lu,%lu,%ld,%g,%g", idbuf, w->k, w->b, w->n, w->c, w->sieve_depth, w->tests_saved);
 			break;
 
 		case WORK_ECM:
-			sprintf (buf,
-				 "ECM2=%s%.0f,%lu,%lu,%ld,%.0f,%.0f,%u",
-				 idbuf, w->k, w->b, w->n, w->c, w->B1, w->B2,
-				 w->curves_to_do);
+			sprintf (buf, "ECM2=%s%.0f,%lu,%lu,%ld,%.0f,%.0f,%u", idbuf, w->k, w->b, w->n, w->c, w->B1, w->B2, w->curves_to_do);
 			if (w->B2_start > w->B1)
-				sprintf (buf + strlen (buf),
-					 ",%.0f,%.0f",
-					 w->curve, w->B2_start);
+				sprintf (buf + strlen (buf), ",%.0f,%.0f", w->curve, w->B2_start);
 			else if (w->curve)
-				sprintf (buf + strlen (buf),
-					 ",%.0f",
-					 w->curve);
+				sprintf (buf + strlen (buf), ",%.0f", w->curve);
 			if (w->known_factors != NULL)
-				sprintf (buf + strlen (buf),
-					 ",\"%s\"",
-					 w->known_factors);
+				sprintf (buf + strlen (buf), ",\"%s\"", w->known_factors);
 			break;
 
 		case WORK_PMINUS1:
-			sprintf (buf, "Pminus1=%s%.0f,%lu,%lu,%ld,%.0f,%.0f",
-				 idbuf, w->k, w->b, w->n, w->c, w->B1, w->B2);
+			sprintf (buf, "Pminus1=%s%.0f,%lu,%lu,%ld,%.0f,%.0f", idbuf, w->k, w->b, w->n, w->c, w->B1, w->B2);
 			if (w->sieve_depth > 0.0)
 				sprintf (buf + strlen (buf), ",%.0f", w->sieve_depth);
 			if (w->B2_start > w->B1)
@@ -3182,6 +3181,10 @@ int writeWorkToDoFile (
 			}
 			if (w->known_factors != NULL)
 				sprintf (buf + strlen (buf), ",\"%s\"", w->known_factors);
+			break;
+
+		case WORK_CERT:
+			sprintf (buf, "Cert=%s%.0f,%lu,%lu,%ld,%d", idbuf, w->k, w->b, w->n, w->c, w->cert_squarings);
 			break;
 		}
 
@@ -3629,6 +3632,13 @@ double work_estimate (
 		if (w->stage[0] == 'P') est *= (1.0 - pct_complete);
 	}
 
+/* If PRPing add in the PRP testing time */
+
+	if (w->work_type == WORK_CERT) {
+		est = w->cert_squarings * gwmap_to_timing (w->k, w->b, w->n, w->c);
+		if (w->stage[0] == 'C') est *= (1.0 - pct_complete);
+	}
+
 /* Factor in the hours per day the computer is running and the */
 /* rolling average */
 
@@ -3970,6 +3980,7 @@ void tempFileName (
 	if (w->work_type == WORK_FACTOR) buf[0] = 'f';
 	if (w->work_type == WORK_ECM) buf[0] = 'e';
 	if (w->work_type == WORK_PMINUS1 || w->work_type == WORK_PFACTOR) buf[0] = 'm';
+	if (w->work_type == WORK_CERT) buf[0] = 'c';
 
 /* Prior to version 25.9 build 5, the pfactor work type used p as the */
 /* first letter, we now use m.  To reduce upgrading problems, old save */
@@ -4119,16 +4130,35 @@ int write_gwnum (
 	unsigned long *sum)
 {
 	giant	tmp;
+	int	retcode;
 	unsigned long i, len, bytes;
 
 	tmp = popg (&gwdata->gdata, ((int) gwdata->bit_length >> 5) + 10);
-	if (tmp == NULL) return (FALSE);
-	if (gwtogiant (gwdata, g, tmp)) goto err;
+	if (tmp == NULL) {
+		OutputBoth (MAIN_THREAD_NUM, "In write_gwnum, unexpected popg failure\n");
+		return (FALSE);
+	}
+	retcode = gwtogiant (gwdata, g, tmp);
+	if (retcode) {
+		OutputBoth (MAIN_THREAD_NUM, "In write_gwnum, unexpected gwtogiant failure, retcode %d\n", retcode);
+		goto err;
+	}
 	len = tmp->sign;
-	if (len == 0) goto err;
-	if (!write_long (fd, len, sum)) goto err;
+	if (len == 0) {
+		OutputBoth (MAIN_THREAD_NUM, "In write_gwnum, unexpected len == 0 failure\n");
+		goto err;
+	}
+	if (!write_long (fd, len, sum)) {
+		OutputBoth (MAIN_THREAD_NUM, "In write_gwnum, unexpected write_long failure\n");
+		goto err;
+	}
 	bytes = len * sizeof (uint32_t);
-	if (_write (fd, tmp->n, bytes) != bytes) goto err;
+	if (_write (fd, tmp->n, bytes) != bytes) {
+		char	buf[200];
+		sprintf (buf, "In write_gwnum, unexpected write failure len = %lu\n", len);
+		OutputBoth (MAIN_THREAD_NUM, buf);
+		goto err;
+	}
 	*sum = (uint32_t) (*sum + len);
 	for (i = 0; i < len; i++) *sum = (uint32_t) (*sum + tmp->n[i]);
 	pushg (&gwdata->gdata, 1);
