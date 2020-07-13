@@ -4140,7 +4140,9 @@ int write_gwnum (
 	}
 	retcode = gwtogiant (gwdata, g, tmp);
 	if (retcode) {
-		OutputBoth (MAIN_THREAD_NUM, "In write_gwnum, unexpected gwtogiant failure, retcode %d\n", retcode);
+		char	buf[200];
+		sprintf (buf, "In write_gwnum, unexpected gwtogiant failure, retcode %d\n", retcode);
+		OutputBoth (MAIN_THREAD_NUM, buf);
 		goto err;
 	}
 	len = tmp->sign;

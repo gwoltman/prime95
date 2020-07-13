@@ -11646,11 +11646,12 @@ rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 				units_bit = &ps.alt_units_bit;
 			}
 
-/* Decide if we can start the next forward FFT.  This is faster, but leaves the result in an "unsavable-to-disk" state. */
+/* Decide if we can start the next forward FFT.  This is faster but leaves the result in an "unsavable-to-disk" state. */
 
 			gwstartnextfft (&gwdata,
-					!saving && !maxerr_recovery_mode && ps.counter != ps.end_counter-1 && ps.counter != final_residue_counter-1 &&
-					ps.counter > 35 && ps.counter < explen-35 &&
+					!saving && !maxerr_recovery_mode && ps.counter != ps.next_mul_counter-1 &&
+					ps.counter != ps.end_counter-1 && ps.counter != final_residue_counter-1 &&
+					((ps.counter > 35 && ps.counter < explen-35) || (ps.counter > explen+35 && ps.counter < final_counter)) &&
 					!proof_residue && !sending_residue && !interim_residue && !interim_file);
 
 /* Process this bit.  Use square carefully the first and last 30 iterations. */
@@ -11676,7 +11677,7 @@ echk=1;
 				maxerr_recovery_mode = 0;
 				last_counter = 0xFFFFFFFF;
 				echk = 0;
-			} else if (ps.counter < 30 || ps.counter >= final_counter-30)
+			} else if (ps.counter < 30 || (ps.counter >= explen - 30 && ps.counter <= explen + 30))
 				gwsquare_carefully (&gwdata, x);
 			else
 				gwsquare (&gwdata, x);
