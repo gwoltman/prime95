@@ -115,9 +115,6 @@ int	OS_CAN_SET_AFFINITY = 1;	/* hwloc supports setting CPU affinity (known excep
 
 gwevent AUTOBENCH_EVENT;	/* Event to wake up workers after an auto-benchmark */
 
-#include "md5.c"
-#include "errno.h"
-
 /* Generate the application string.  This is sent to the server in a */
 /* UC (Update Computer info) call.  It is also displayed in the */
 /* Help/About dialog box. */
@@ -1941,6 +1938,8 @@ void OutputBothBench (
 }
 
 /* Output errno and useful description to both the screen and results file */
+
+#include "errno.h"
 
 void OutputBothErrno (
 	int	thread_num)
@@ -6062,6 +6061,13 @@ retry:
 			w.prp_base = pkt1.prp_base;
 			w.prp_residue_type = pkt1.prp_residue_type;
 			w.prp_dblchk = pkt1.prp_dblchk;
+			break;
+		case PRIMENET_WORK_TYPE_CERT:
+			w.work_type = WORK_CERT;
+			w.k = pkt1.k;
+			w.b = pkt1.b;
+			w.c = pkt1.c;
+			w.cert_squarings = pkt1.num_squarings;
 			break;
 		default:
 			sprintf (buf, "Received unknown work type: %lu.\n", (unsigned long) pkt1.work_type);

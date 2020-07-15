@@ -6446,6 +6446,53 @@ int rotateg (				/* Return false if failed due to memory allocation error */
 	return (1);
 }
 
+/* Rotate a gwnum right n bits.  Only works on Mersenne numbers. */
+
+int gwrotate_right (			// Returns TRUE if successful
+	gwhandle *gwdata,
+	gwnum	x,
+	int	shift_count)
+{
+	giant	tmp;
+
+	ASSERTG (gwdata->k == 1.0 && gwdata->b == 2 && gwdata->c == -1);
+	if (shift_count == 0) return (TRUE);
+
+/* This is not the most efficient solution as the caller often will immediately convert the result to binary. */
+/* However, it produces more readable code and we don't think this happens often enough to worry about optimization. */
+/* We could have two flavors, one that returns a giant and one that returns a gwnum. */
+
+	tmp = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 5);
+	if (tmp == NULL) return (FALSE);
+
+	if (gwtogiant (gwdata, x, tmp)) {
+		pushg (&gwdata->gdata, 1);
+		return (FALSE);
+	}
+
+	// Rotate
+	rotateg (tmp, gwdata->n, shift_count, &gwdata->gdata);
+
+	// Convert back to gwnum
+	gianttogw (gwdata, tmp, x);
+
+	// Cleanup and return
+	pushg (&gwdata->gdata, 1);
+	return (TRUE);
+}
+
+/* Rotate a gwnum right n bits.  Only works on Mersenne numbers. */
+
+int gwrotate_left (			// Returns TRUE if successful
+	gwhandle *gwdata,
+	gwnum	x,
+	int	shift_count)
+{
+	ASSERTG (gwdata->k == 1.0 && gwdata->b == 2 && gwdata->c == -1);
+	if (shift_count == 0) return (TRUE);
+	return (gwrotate_right (gwdata, x, gwdata->n - shift_count));
+}
+
 /* Perform a Jacobi test on the current LL iteration.  This check has a 50% chance of catching */
 /* a calculation error.  See http://www.mersenneforum.org/showthread.php?t=22471 especially */
 /* starting at post #30. */
@@ -10946,6 +10993,7 @@ int prp (
 	unsigned long excess_squarings;		/* Number of extra squarings we are doing in order to generate a PRP proof */
 	unsigned long initial_log2k_iters, final_residue_counter;
 	int	proof_residue;			/* True if this iteration must output a PRP proof residue */
+	char	proof_hash[33];			/* 128-bit MD5 hash of the proof file */
 
 /* Init PRP state */
 
@@ -12403,6 +12451,10 @@ pushg(&gwdata.gdata, 2);}
 			_close (fd);
 			_close (fdout);
 			_unlink (ps.residues_filename);
+
+// Generate an MD5 hash of the proof file.  This will be a unique identifier to thwart a bad actor from uploading a counterfeit proof file */
+
+			md5_file (proof_hash, proof_filename);
 			break;
 
 // Cleanup after a proof failure, close and delete proof files
@@ -12479,7 +12531,7 @@ pfail1:
 /* {"status":"C", "exponent":25000000, "known-factors":["12345","67890"], "worktype":"PRP-3", "res64":"0123456789ABCDEF", */
 /* "residue-type":1, "res2048":"BigLongString", "fft-length":4096000, "shift-count":1234567, "error-code":"00010000", */
 /* "security-code":"C6B0B26C", "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
-/* "proof":{"version":1, "power":8, "hashsize":64}, */
+/* "proof":{"version":1, "power":8, "hashsize":64, "md5":"0123456789abcdef0123456789abcdef"}, */
 /* "errors":{"gerbicz":0}, "user":"gw_2", "cpu":"basement", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
 	sprintf (JSONbuf, "{\"status\":\"%s\"", ps.isProbablePrime ? "P" : "C");
@@ -12519,7 +12571,8 @@ pfail1:
 	if (ps.error_check_type == PRP_ERRCHK_GERBICZ)
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"errors\":{\"gerbicz\":%lu}", (ps.error_count >> 20) & 0xF);
 	if (ps.proof_power)
-		sprintf (JSONbuf+strlen(JSONbuf), ", \"proof\":{\"version\":1, \"power\":%d, \"hashsize\":%d}", ps.proof_power, ps.hashlen);
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"proof\":{\"version\":1, \"power\":%d, \"hashsize\":%d, \"md5\":\"%s\"}",
+					 ps.proof_power, ps.hashlen, proof_hash);
 	JSONaddUserComputerAID (JSONbuf, w);
 	strcat (JSONbuf, "}\n");
 	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
@@ -12545,6 +12598,10 @@ pfail1:
 		pkt.num_known_factors = (w->known_factors == NULL) ? 0 : countCommas (w->known_factors) + 1;
 		pkt.gerbicz = (ps.error_check_type != PRP_ERRCHK_NONE);
 		pkt.fftlen = gwfftlen (&gwdata);
+		if (ps.proof_power) {
+			pkt.proof_power = ps.proof_power;
+			strcpy (pkt.proof_hash, proof_hash);
+		}
 		pkt.done = TRUE;
 		strcpy (pkt.JSONmessage, JSONbuf);
 		spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);

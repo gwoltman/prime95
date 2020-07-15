@@ -117,7 +117,6 @@ int cert (
 	int	pass)			/* PrimeContinue pass */
 {
 	struct cert_state cs;
-	giant	tmp;
 	int	first_iter_msg, res, stop_reason;
 	int	echk, near_fft_limit;
 	unsigned long iters;
@@ -286,12 +285,7 @@ int cert (
 /* Set the proper starting value and state if no save file was present */
 
 	if (cs.counter == 0) {
-
-
-
-
-
-	int	i, fd, residue_size;
+	int	i, residue_size;
 	uint32_t *array;		/* Array to contain the binary value */
 	uint32_t arraylen;		/* Size of the array */
 
@@ -301,8 +295,15 @@ int cert (
 	array = (uint32_t *) malloc (arraylen * sizeof(uint32_t));
 	array[arraylen-1] = 0;		// Zero-pad the top few bytes
 
-	fd = _open ("p0216091.cert", _O_RDONLY);
-	_read (fd, array, residue_size);
+PrimenetGetData (w->assignment_uid, array, residue_size);
+
+//BUG - get start value from server
+
+
+// BUG - find a way to commonize this code?? -- used in verifier, server_proof, proof_hash, read/write residue in prime95, etc
+//	int fd = _open ("p0216091.cert", _O_RDONLY);
+//	_read (fd, array, residue_size);
+//	_close (fd);
 
 	// Convert from an array of bytes (LSB to MSB) to an array of uint32_t
 	for (i = 0; i < (int) arraylen; i++) {
@@ -318,20 +319,14 @@ int cert (
 	binarytogw (&cs.gwdata, array, arraylen, cs.x);
 	free (array);
 
-cs.units_bit = 0;
 
 
+	// Generate a random initial shift count.  Initial shift count can't be larger than n.
+	// Perform the initial rotate left.
+	srand ((unsigned) time (NULL));
+	cs.units_bit = ((rand () << 16) + rand ()) % w->n;
+	gwrotate_left (&cs.gwdata, cs.x, cs.units_bit);
 
-
-//BUG - get start value from server
-		// Generate a random initial shift count
-//		srand ((unsigned) time (NULL));
-//		cs.units_bit = (rand () << 16) + rand ();
-		// Initial shift count can't be larger than n
-//		cs.units_bit = cs.units_bit % w->n;
-		// Perform the initial shift
-// convert shifted binary to gwnum
-//gwbinarytogw
 	}
 
 /* Do the certification */
@@ -480,24 +475,14 @@ cs.units_bit = 0;
 
 /* Undo the shift count, generate the 256-bit SHA-3 hash */
 
-//BUG-- ugh this is messy, we have a routine that will convert a gwnum to sha3
-//BUG--- how about multiplying gwnum by 2^n-units_bit?
-//BUG-- or rotate and convert back to gwnum?
-//BUG--- a new gwnum routine that does this???  to hide this ugliness?? this could then be optimized (somehow) if called often enough
-	tmp = popg (&cs.gwdata.gdata, ((unsigned long) cs.gwdata.bit_length >> 5) + 5);
-	if (gwtogiant (&cs.gwdata, cs.x, tmp) || tmp->sign <= 0) {
-		pushg (&cs.gwdata.gdata, 1);
+	if (!gwrotate_right (&cs.gwdata, cs.x, cs.units_bit)) {
 		OutputBoth (thread_num, ERRMSG8);
 		inc_error_count (2, &cs.error_count);
 		stop_reason = STOP_ABORT;			// This will restart from last save file
 		goto exit;
 	}
-	rotateg (tmp, w->n, cs.units_bit, &cs.gwdata.gdata);
-
-
-sha3_gwnum (&cs.gwdata, cs.x, &hash);
-
-	pushg (&cs.gwdata.gdata, 1);
+// bug - handle errors from sha3-gwnum
+	sha3_gwnum (&cs.gwdata, cs.x, &hash);
 
 /* Free up some memory */
 
@@ -549,7 +534,7 @@ sha3_gwnum (&cs.gwdata, cs.x, &hash);
 		pkt.b = w->b;
 		pkt.n = w->n;
 		pkt.c = w->c;
-//BUG pkt.sha3 = ???
+		strcpy (pkt.cert_hash, hash_to_string (hash));
 		sprintf (pkt.error_count, "%08lX", cs.error_count);
 		pkt.shift_count = cs.units_bit;
 		pkt.fftlen = gwfftlen (&cs.gwdata);
