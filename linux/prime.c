@@ -1,4 +1,4 @@
-/* Copyright 1995-2019 Mersenne Research, Inc. */
+/* Copyright 1995-2020 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -97,6 +97,7 @@ char pidfile[256];
 /* Common code */
 
 #include "gwutil.h"
+#include "md5.c"
 #include "commona.c"
 #include "commonb.c"
 #include "commonc.c"

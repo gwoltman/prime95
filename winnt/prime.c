@@ -19,6 +19,7 @@
 #define PORT	5
 #include "gwnum.h"
 #include "gwutil.h"
+#include "md5.c"
 #include "commona.c"
 #include "commonb.c"
 #include "commonc.c"

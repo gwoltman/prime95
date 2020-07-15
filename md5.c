@@ -314,7 +314,7 @@ void md5_raw_input (
 	MD5_CTX context;
 	unsigned char digest[16];
 	int	i;
-  
+
 	MD5Init (&context);
 	MD5Update (&context, buf, len);
 	MD5Final (digest, &context);
@@ -343,3 +343,34 @@ void md5 (
 #undef GG
 #undef HH
 #undef II
+
+/* Digests a File and returns the 32-byte hex string output */
+
+void md5_file (
+	char output[33],
+	const char *filename)
+{
+	MD5_CTX context;
+	unsigned char digest[16];
+	FILE *f;
+	char	buf[16384];
+	int	i;
+
+	MD5Init (&context);
+
+	f = fopen (filename, "rb");
+	for ( ; ; ) {
+		i = fread (&buf, 1, sizeof (buf), f);
+		if (i <= 0) break;
+		MD5Update (&context, (unsigned char *) buf, i);
+	}
+	fclose (f);
+
+	MD5Final (digest, &context);
+
+	for (i = 0; i < 16; i++) {
+		sprintf (output, "%02x", digest[i]);
+		output += 2;
+	}
+}
+

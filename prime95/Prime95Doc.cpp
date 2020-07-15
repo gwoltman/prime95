@@ -1187,6 +1187,7 @@ void flashWindowAndBeep ()
 #else
 #define PORT	1
 #endif
+#include "md5.c"
 #include "comm95b.c"
 #include "comm95c.c"
 #include "commona.c"

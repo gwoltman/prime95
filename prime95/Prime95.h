@@ -50,7 +50,7 @@ public:
 
 // Implementation
 
-	//{{AFX_MSG(CPrime95App)
+	//{{AFX_MSG(CPrime95App
 	afx_msg void OnAppAbout();
 		// NOTE - the ClassWizard will add and remove member functions here.
 		//    DO NOT EDIT what you see in these blocks of generated code !
