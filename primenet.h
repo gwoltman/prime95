@@ -4,7 +4,7 @@
 // THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
 // PARTICULAR PURPOSE.
 //
-// Copyright (c) 1997-2019 Mersenne Research, Inc. All Rights Reserved.
+// Copyright (c) 1997-2020 Mersenne Research, Inc. All Rights Reserved.
 //
 */
 
@@ -173,6 +173,7 @@ struct primenetGetAssignment {
 	uint32_t prp_base;		/* PRP base to use in a PRP double-check */
 	uint32_t prp_residue_type;	/* PRP residue type to return in a PRP double-check */
 	uint32_t prp_dblchk;		/* True is this is a PRP double-check */
+	uint32_t num_squarings;		/* Certification number of squarings */
 	char	known_factors[2000];	/* List of known factors */
 };
 
@@ -248,6 +249,7 @@ struct primenetAssignmentProgress {
 #define	PRIMENET_PRP_TYPE_SPRP_VAR	4	// Type 2 variant,b=2,d=1. Calculate a^((N-c)/2) mod N.  PRP if result = +/-a^-((c-1)/2)
 #define	PRIMENET_PRP_TYPE_COFACTOR	5	// Cofactor variant.  Calculate a^(N*d-1) mod N*d.  PRP if result = a^(d-1) mod N
 // Primenet encourages programs to return type 1 PRP residues as that has been the standard for prime95, PFGW, LLR for many years.
+// Primenet encourages programs to return type 5 PRP residues for cofactor tests as that allows Gerbicz-error checking and proofs.
 
 struct primenetAssignmentResult {
 	int32_t	versionNumber;
@@ -272,11 +274,14 @@ struct primenetAssignmentResult {
 	char	residue[17];		/* LL or PRP residue result */
 	char	error_count[9];		/* LL or PRP result error count */
 	char	factor[201];		/* Factor found */
-	char	pad2[1];
+	char	cert_hash[65];		/* Certification's 256-bit SHA-3 hash */
+	char	proof_hash[33];		/* Proof file's 128-bit MD5 hash */
+	char	pad2[3];
 	uint32_t num_known_factors;	/* Num known factors used in a PRP test */
 	uint32_t gerbicz;		/* TRUE if Gerbicz error checking used in PRP test */
 	uint32_t prp_base;		/* Base used in a PRP test */
 	uint32_t prp_residue_type;	/* PRP Residue type */
+	uint32_t proof_power;		/* Zero if no proof, else power used in proof */
 	char	JSONmessage[2000];	/* JSON message.  If not empty, this text is sent rather than the 201-byte message. */
 
 	/* Returned by the server */
@@ -368,4 +373,10 @@ struct primenetPingServer {
 #define PRIMENET_ERROR_CURL_PERFORM	1101
 
 #define PRIMENET_ERROR_MODEM_OFF	2000
+
+/* In 2020, we added some new routines to support PRP proofs. */
+
+/* This routine gets the initial certification data from the server. */
+
+int PrimenetGetData (char *, void *, int);
 

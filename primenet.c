@@ -698,6 +698,7 @@ int format_args (char* args, short operation, void* pkt)
 			if (z->prp_residue_type) sprintf (p, "&rt=%d", z->prp_residue_type), p += strlen (p);
 			if (z->shift_count) sprintf (p, "&sc=%d", z->shift_count), p += strlen (p);
 			if (z->gerbicz) strcpy (p, "&gbz=1"), p += strlen (p);
+			if (z->proof_power) sprintf (p, "&pp=%d&ph=%s", z->proof_power, z->proof_hash), p += strlen (p);
 		}
 		if (z->result_type == PRIMENET_AR_PRP_PRIME) {
 			sprintf (p, "&A=%.0f&b=%d&n=%d&c=%d", z->k, z->b, z->n, z->c);
@@ -708,6 +709,17 @@ int format_args (char* args, short operation, void* pkt)
 			if (z->prp_base) sprintf (p, "&base=%d", z->prp_base), p += strlen (p);
 			if (z->shift_count) sprintf (p, "&sc=%d", z->shift_count), p += strlen (p);
 			if (z->gerbicz) strcpy (p, "&gbz=1"), p += strlen (p);
+			if (z->proof_power) sprintf (p, "&pp=%d&ph=%s", z->proof_power, z->proof_hash), p += strlen (p);
+		}
+		if (z->result_type == PRIMENET_AR_CERT) {
+			sprintf (p, "&A=%.0f&b=%d&n=%d&c=%d", z->k, z->b, z->n, z->c);
+			p += strlen (p);
+			strcpy (p, "&s3=");
+			p = armor (p + strlen (p), z->cert_hash);
+			strcpy (p, "&ec=");
+			p = armor (p + strlen (p), z->error_count);
+			if (z->shift_count) sprintf (p, "&sc=%d", z->shift_count), p += strlen (p);
+			if (z->proof_power) sprintf (p, "&pp=%u&ph=%s", z->proof_power, z->proof_hash), p += strlen (p);
 		}
 		if (z->fftlen) {
 			sprintf (p, "&fftlen=%d", z->fftlen);
@@ -1078,6 +1090,7 @@ int parse_page (char *response_buf, short operation, void *pkt)
 		parse_uint (s, "rt", &z->prp_residue_type);
 		parse_uint (s, "dc", &z->prp_dblchk);
 		parse_string (s, "kf", z->known_factors, sizeof (z->known_factors));
+		parse_uint (s, "ns", &z->num_squarings);
 		break;
 		}
 	case PRIMENET_REGISTER_ASSIGNMENT:
@@ -1146,5 +1159,202 @@ int PRIMENET (short operation, void *pkt)
 /* Extract results from returned page into packet */
 
 	return (parse_page (pbuf, operation, pkt));
+}
+
+
+
+/* This callback routine assembles the server's response to our proof_get_data request */
+
+struct GetDataArg {
+	void	*buf;
+	int	bufsize;
+	int	received;
+	char	MD5[16];		// Expected MD5 hash of the residue
+};
+
+size_t WriteMemoryCallbackGetData (
+	void	*ptr,
+	size_t	size,
+	size_t	nmemb,
+	void	*data)
+{
+	size_t realsize = size * nmemb;
+	struct GetDataArg *info = (struct GetDataArg *) data;
+
+/* Truncate response to fit in our buffer (even though should not be necessary) */
+//BUG - fill in MD5 hash too
+
+	if (info->received + realsize <= info->bufsize) {
+		memcpy ((char *) info->buf + info->received, ptr, realsize);
+	} else {
+		memcpy ((char *) info->buf + info->received, ptr, info->bufsize - info->received);
+	}
+	info->received += realsize;
+	return realsize;
+}
+
+/* This callback is for dumping out cURL debug information */
+
+int curl_trace_getdata (
+	CURL	*handle,
+	curl_infotype type,
+	char	*data,
+	size_t	size,
+	void	*userp)
+{
+	char	*text;
+	char	buf[4096];
+	int	len;
+
+	switch (type) {
+	case CURLINFO_TEXT:
+		text = "== Info";
+		break;
+	case CURLINFO_HEADER_OUT:
+		text = "=> Send header";
+		break;
+	case CURLINFO_DATA_OUT:
+		text = "=> Send data";
+		break;
+	case CURLINFO_HEADER_IN:
+		text = "<= Recv header";
+		break;
+	case CURLINFO_DATA_IN:
+		text = "<= Recv data";
+		size = 0;
+		break;
+	case CURLINFO_SSL_DATA_IN:
+		text = "<= Recv SSL data";
+		size = 0;
+		break;
+	case CURLINFO_SSL_DATA_OUT:
+		text = "<= Send SSL data";
+		break;
+	default: /* in case a new one is introduced to shock us */
+		return 0;
+	}
+
+/* Output the data. */
+
+	strcpy (buf, text);
+	strcat (buf, ": ");
+	len = (int) strlen (buf);
+	memcpy (buf + len, data, size);
+	if (data[size-1] != '\n') {
+		buf[len + size] = '\n';
+		buf[len + size + 1] = 0;
+	} else
+		buf[len + size] = 0;
+	LogMsg (buf);
+
+	return 0;
+}
+
+/* This routine gets the initial certification data from the server. */
+/* Much of it is a copy of the pnHttpServerCURL routine */
+
+int PrimenetGetData (char *aid, void *pbuf, int bufsize)
+{
+	CURL	*curl;
+	CURLcode res;
+	int	try_proxy, debug;
+	char	url[512], buf[600], errbuf[CURL_ERROR_SIZE];
+	char	szProxyHost[PROXY_HOST_BUFSIZE];
+	char	szProxyUser[PROXY_USER_BUFSIZE];
+	char	szProxyPassword[PROXY_PASSWORD_BUFSIZE];
+	unsigned short nProxyPort;
+
+/* Get debug logging flag */
+
+	debug = IniSectionGetInt (INI_FILE, iniSection, "Debug", 0);
+ 
+/* Loop to try with proxy, then after a failure without proxy.  Ixfd64 requested this */
+/* feature here:  https://www.mersenneforum.org/showpost.php?p=505557&postcount=415 */
+
+	for (try_proxy = 1; ; try_proxy = 0) {
+
+/* Init the cURL structures */
+
+		curl = curl_easy_init ();
+		if (curl == NULL) return (PRIMENET_ERROR_CURL_INIT);
+		curl_easy_setopt (curl, CURLOPT_NOPROGRESS, 1);
+
+/* Give curl library the HTTP string to send */
+
+		sprintf (url, "http://mersenne.org/proof_get_data/?aid=%s", aid);
+		curl_easy_setopt (curl, CURLOPT_URL, url);
+		curl_easy_setopt (curl, CURLOPT_SSL_VERIFYPEER, FALSE);
+		if (debug) {
+			sprintf (buf, "URL: %s\n", url);
+			LogMsg (buf);
+		}
+
+/* Get information about the optional proxy server */
+
+		if (try_proxy) {
+			getProxyInfo (szProxyHost, &nProxyPort, szProxyUser, szProxyPassword);
+			if (szProxyHost[0]) {
+				curl_easy_setopt (curl, CURLOPT_PROXY, szProxyHost);
+				curl_easy_setopt (curl, CURLOPT_PROXYPORT, (long) nProxyPort);
+//bug?				curl_easy_setopt (curl, CURLOPT_PROXYTYPE, ???);
+				if (szProxyUser[0]) {
+					sprintf (buf, "%s:%s", szProxyUser, szProxyPassword);
+					curl_easy_setopt (curl, CURLOPT_PROXYUSERPWD, buf);
+					curl_easy_setopt (curl, CURLOPT_PROXYAUTH, CURLAUTH_ANY);
+				}
+			}
+		}
+
+/* Setup function to receive the response */
+
+		struct GetDataArg info;
+		info.received = 0;
+		info.buf = pbuf;
+		info.bufsize = bufsize;
+		curl_easy_setopt (curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallbackGetData);
+		curl_easy_setopt (curl, CURLOPT_WRITEDATA, (void *) &info);
+
+/* Output verbose debug information */
+
+		if (debug >= 2) {
+			curl_easy_setopt (curl, CURLOPT_DEBUGFUNCTION, curl_trace_getdata);
+			curl_easy_setopt (curl, CURLOPT_DEBUGDATA, NULL);
+			/* the DEBUGFUNCTION has no effect until we enable VERBOSE */
+			curl_easy_setopt (curl, CURLOPT_VERBOSE, 1);
+		}
+
+/* Send the URL request */
+
+		curl_easy_setopt (curl, CURLOPT_FOLLOWLOCATION, 1);
+		curl_easy_setopt (curl, CURLOPT_NOSIGNAL, 1);
+		curl_easy_setopt (curl, CURLOPT_CONNECTTIMEOUT, 180);
+		curl_easy_setopt (curl, CURLOPT_TIMEOUT, 180);
+		curl_easy_setopt (curl, CURLOPT_ERRORBUFFER, errbuf);
+		res = curl_easy_perform (curl);
+		if (res != CURLE_OK) {
+			sprintf (buf, "CURL library error: %s\n", errbuf);
+			LogMsg (buf);
+			OutputStr (COMM_THREAD_NUM, buf);
+			curl_easy_cleanup (curl);
+			// By default, try again without using a proxy server
+			if (try_proxy && szProxyHost[0] && IniSectionGetInt (INI_FILE, iniSection, "TryNoProxyAfterProxyFailure", 1))
+				continue;
+			return (PRIMENET_ERROR_CURL_PERFORM);
+		}
+
+// BUG - check the MD5 hash, if not matching retry N times then give up
+
+/* Success, break out of loop */
+
+		break;
+	}
+
+/* Cleanup */
+
+	curl_easy_cleanup (curl);
+
+/* Return success */
+
+	return (PRIMENET_NO_ERROR);
 }
 
