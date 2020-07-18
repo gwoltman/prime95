@@ -1,7 +1,7 @@
 New features in Version 30.1 of prime95.exe
 -------------------------------------------
 
-1) PRP proofs.  This allows us to double-check a PRP test at less than 1% of the cost of a PRP test!
+1) PRP proofs.  This allows us to double-check a PRP test at less than 1% of the cost of a full PRP test!
    PRP proofs require lots of temporary disk space.  See readme.txt for details.
    PRP proofs require uploading a large proof file.  See readme.txt for details.
    PRP proof verifications require downloading a modest verification file.  See readme.txt for details.

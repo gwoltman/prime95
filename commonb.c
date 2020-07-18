@@ -10496,6 +10496,7 @@ int writeResidue (			// Returns TRUE if successful
 	}
 
 	// Success
+	free (array);
 	return (TRUE);
 }
 
@@ -12531,7 +12532,7 @@ pfail1:
 /* {"status":"C", "exponent":25000000, "known-factors":["12345","67890"], "worktype":"PRP-3", "res64":"0123456789ABCDEF", */
 /* "residue-type":1, "res2048":"BigLongString", "fft-length":4096000, "shift-count":1234567, "error-code":"00010000", */
 /* "security-code":"C6B0B26C", "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
-/* "proof":{"version":1, "power":8, "hashsize":64, "md5":"0123456789abcdef0123456789abcdef"}, */
+/* "proof":{"version":1, "power":8, "hashsize":64, "MD5":"0123456789abcdef0123456789abcdef"}, */
 /* "errors":{"gerbicz":0}, "user":"gw_2", "cpu":"basement", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
 	sprintf (JSONbuf, "{\"status\":\"%s\"", ps.isProbablePrime ? "P" : "C");
@@ -12571,7 +12572,7 @@ pfail1:
 	if (ps.error_check_type == PRP_ERRCHK_GERBICZ)
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"errors\":{\"gerbicz\":%lu}", (ps.error_count >> 20) & 0xF);
 	if (ps.proof_power)
-		sprintf (JSONbuf+strlen(JSONbuf), ", \"proof\":{\"version\":1, \"power\":%d, \"hashsize\":%d, \"md5\":\"%s\"}",
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"proof\":{\"version\":1, \"power\":%d, \"hashsize\":%d, \"MD5\":\"%s\"}",
 					 ps.proof_power, ps.hashlen, proof_hash);
 	JSONaddUserComputerAID (JSONbuf, w);
 	strcat (JSONbuf, "}\n");
