@@ -52,8 +52,8 @@
 #define _write		write
 #define _lseek		lseek
 #if defined (__linux__)
-#define _lseeki64	lseek64
-#define _chsize_s	ftruncate64
+#define _lseeki64	lseek
+#define _chsize_s	ftruncate
 #else
 #define _lseeki64	lseek
 #define _chsize_s	ftruncate
