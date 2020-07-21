@@ -5027,6 +5027,9 @@ void kbnc_to_text (
 	case PRIMENET_WORK_TYPE_PRP:
 		work_type_str = prp_dblchk ? "PRPDC" : "PRP";
 		break;
+	case PRIMENET_WORK_TYPE_CERT:
+		work_type_str = "CERT";
+		break;
 	default:
 		work_type_str = "Unknown work type";
 		break;
@@ -5973,10 +5976,68 @@ retry:
 		!USE_PRIMENET)
 		    continue;
 
+
+
+
+
+
+
+/* Occassionally get certification work from the server */
+// BUG - test priority work flag / sequential-work-to-do
+// BUG - rate limit this
+	if (num_work_units < IniGetInt (INI_FILE, "MaxExponents", 15)) {
+		struct primenetGetAssignment pkt1;
+		struct work_unit w;
+
+/* Get a certification work unit to process */
+
+		memset (&pkt1, 0, sizeof (pkt1));
+		strcpy (pkt1.computer_guid, COMPUTER_GUID);
+		pkt1.cpu_num = tnum;
+		pkt1.get_cert_work = 1;
+		LOCKED_WORK_UNIT = NULL;
+		rc = sendMessage (PRIMENET_GET_ASSIGNMENT, &pkt1);
+		// Ignore errors, we expect this work to only be available sometimes
+		if (rc == 0) {	
+			talked_to_server = TRUE;
+
+/* Format the work_unit structure based on the work_type */
+
+			if (pkt1.work_type != PRIMENET_WORK_TYPE_CERT) {
+				sprintf (buf, "Received unknown work type: %lu.\n", (unsigned long) pkt1.work_type);
+				LogMsg (buf);
+				goto error_exit;
+			}
+			memset (&w, 0, sizeof (w));
+			w.work_type = WORK_CERT;
+			strcpy (w.assignment_uid, pkt1.assignment_uid);
+			w.k = 1.0;
+			w.b = 2;
+			w.n = pkt1.n;
+			w.c = -1;
+			w.cert_squarings = pkt1.num_squarings;
+
+/* Write the exponent to our worktodo file */
+
+			stop_reason = addWorkToDoLine (tnum, &w);
+			if (stop_reason) goto error_exit;
+		}
+	}
+
+
+
+
+
+
+
+
+
+
+
+
 /* If we don't have enough work to do, get more work from the server. */
 
 	    while (est < work_to_get &&
-		   ! IniGetInt (INI_FILE, "NoMoreWork", 0) &&
 		   num_work_units < IniGetInt (INI_FILE, "MaxExponents", 15)) {
 		struct primenetGetAssignment pkt1;
 		struct primenetAssignmentProgress pkt2;
@@ -6061,13 +6122,6 @@ retry:
 			w.prp_base = pkt1.prp_base;
 			w.prp_residue_type = pkt1.prp_residue_type;
 			w.prp_dblchk = pkt1.prp_dblchk;
-			break;
-		case PRIMENET_WORK_TYPE_CERT:
-			w.work_type = WORK_CERT;
-			w.k = pkt1.k;
-			w.b = pkt1.b;
-			w.c = pkt1.c;
-			w.cert_squarings = pkt1.num_squarings;
 			break;
 		default:
 			sprintf (buf, "Received unknown work type: %lu.\n", (unsigned long) pkt1.work_type);
