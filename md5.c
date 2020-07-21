@@ -360,7 +360,7 @@ void md5_file (
 
 	f = fopen (filename, "rb");
 	for ( ; ; ) {
-		i = fread (&buf, 1, sizeof (buf), f);
+		i = (int) fread (&buf, 1, sizeof (buf), f);
 		if (i <= 0) break;
 		MD5Update (&context, (unsigned char *) buf, i);
 	}
