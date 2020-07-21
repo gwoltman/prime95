@@ -151,7 +151,8 @@ struct primenetProgramOptions {
 struct primenetGetAssignment {
 	int32_t	versionNumber;
 	char	computer_guid[33];
-	char	pad[3];
+	char	get_cert_work;		/* TRUE if we are trying to get some certification work */
+	char	pad[2];
 	uint32_t cpu_num;		/* CPU number */
 
 	/* Returned by the server */
@@ -378,5 +379,5 @@ struct primenetPingServer {
 
 /* This routine gets the initial certification data from the server. */
 
-int PrimenetGetData (char *, void *, int);
+int PrimenetGetData (char *, void *, int, char *);
 

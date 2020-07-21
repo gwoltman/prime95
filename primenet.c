@@ -560,6 +560,7 @@ int format_args (char* args, short operation, void* pkt)
 		p = armor (p + strlen (p), z->computer_guid);
 		sprintf (p, "&c=%d", z->cpu_num);
 		p += strlen (p);
+		if (z->get_cert_work) strcpy (p, "&cert=1"), p += strlen (p);
 		break;
 		}
 	case PRIMENET_ASSIGNMENT_PROGRESS:
@@ -719,7 +720,6 @@ int format_args (char* args, short operation, void* pkt)
 			strcpy (p, "&ec=");
 			p = armor (p + strlen (p), z->error_count);
 			if (z->shift_count) sprintf (p, "&sc=%d", z->shift_count), p += strlen (p);
-			if (z->proof_power) sprintf (p, "&pp=%u&ph=%s", z->proof_power, z->proof_hash), p += strlen (p);
 		}
 		if (z->fftlen) {
 			sprintf (p, "&fftlen=%d", z->fftlen);
@@ -1169,7 +1169,7 @@ struct GetDataArg {
 	void	*buf;
 	int	bufsize;
 	int	received;
-	char	MD5[16];		// Expected MD5 hash of the residue
+	char	*MD5;		// Buffer for the MD5 hash of the residue - first 32 bytes of the result
 };
 
 size_t WriteMemoryCallbackGetData (
@@ -1178,18 +1178,32 @@ size_t WriteMemoryCallbackGetData (
 	size_t	nmemb,
 	void	*data)
 {
-	size_t realsize = size * nmemb;
 	struct GetDataArg *info = (struct GetDataArg *) data;
+	size_t realsize = size * nmemb;
+	size_t bytes_to_copy = realsize;
 
-/* Truncate response to fit in our buffer (even though should not be necessary) */
-//BUG - fill in MD5 hash too
+/* Copy the first 32 bytes of the response to MD5 */
 
-	if (info->received + realsize <= info->bufsize) {
-		memcpy ((char *) info->buf + info->received, ptr, realsize);
-	} else {
-		memcpy ((char *) info->buf + info->received, ptr, info->bufsize - info->received);
+	if (info->received < 32) {
+		size_t len = (info->received + bytes_to_copy > 32) ? 32 - info->received : bytes_to_copy;
+		memcpy ((char *) info->MD5 + info->received, ptr, len);
+		info->received += (int) len;
+		ptr = (char *) ptr + len;
+		bytes_to_copy -= (int) len;
 	}
-	info->received += realsize;
+
+/* If there are more bytes to copy, fill the write buffer. */
+/* Truncate response to fit in our buffer (even though should not be necessary) */
+
+	if (bytes_to_copy) {
+		size_t	buf_received = info->received - 32;
+		if (buf_received + bytes_to_copy <= info->bufsize) {
+			memcpy ((char *) info->buf + buf_received, ptr, bytes_to_copy);
+		} else {
+			memcpy ((char *) info->buf + buf_received, ptr, info->bufsize - buf_received);
+		}
+		info->received += (int) bytes_to_copy;
+	}
 	return realsize;
 }
 
@@ -1253,7 +1267,7 @@ int curl_trace_getdata (
 /* This routine gets the initial certification data from the server. */
 /* Much of it is a copy of the pnHttpServerCURL routine */
 
-int PrimenetGetData (char *aid, void *pbuf, int bufsize)
+int PrimenetGetData (char *aid, void *pbuf, int bufsize, char *md5)
 {
 	CURL	*curl;
 	CURLcode res;
@@ -1311,6 +1325,8 @@ int PrimenetGetData (char *aid, void *pbuf, int bufsize)
 		info.received = 0;
 		info.buf = pbuf;
 		info.bufsize = bufsize;
+		info.MD5 = md5;
+		memset (md5, 0, 33);
 		curl_easy_setopt (curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallbackGetData);
 		curl_easy_setopt (curl, CURLOPT_WRITEDATA, (void *) &info);
 
@@ -1341,8 +1357,6 @@ int PrimenetGetData (char *aid, void *pbuf, int bufsize)
 				continue;
 			return (PRIMENET_ERROR_CURL_PERFORM);
 		}
-
-// BUG - check the MD5 hash, if not matching retry N times then give up
 
 /* Success, break out of loop */
 
