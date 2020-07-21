@@ -295,15 +295,17 @@ int cert (
 	array = (uint32_t *) malloc (arraylen * sizeof(uint32_t));
 	array[arraylen-1] = 0;		// Zero-pad the top few bytes
 
-PrimenetGetData (w->assignment_uid, array, residue_size);
-
-//BUG - get start value from server
-
+	{
+		char	md5[33], residue_md5[33];
+		PrimenetGetData (w->assignment_uid, array, residue_size, md5);
+		md5_raw_input (residue_md5, (unsigned char *) array, residue_size);
+		if (strcmp (md5, residue_md5) != 0) {
+			OutputBoth (thread_num, "MD5 of downloaded residue does not match\n");
+			; // BUG - do something
+		}
+	}
 
 // BUG - find a way to commonize this code?? -- used in verifier, server_proof, proof_hash, read/write residue in prime95, etc
-//	int fd = _open ("p0216091.cert", _O_RDONLY);
-//	_read (fd, array, residue_size);
-//	_close (fd);
 
 	// Convert from an array of bytes (LSB to MSB) to an array of uint32_t
 	for (i = 0; i < (int) arraylen; i++) {
