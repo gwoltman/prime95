@@ -70,7 +70,7 @@ int	RDTSC_TIMING = 1;
 int	TIMESTAMPING = 1;
 int	CUMULATIVE_TIMING = 0;
 int	CUMULATIVE_ROUNDOFF = 1;
-int	SEQUENTIAL_WORK = 1;
+int	SEQUENTIAL_WORK = -1;
 int	WELL_BEHAVED_WORK = 0;
 unsigned long INTERIM_FILES = 0;
 unsigned long INTERIM_RESIDUES = 0;
@@ -1526,7 +1526,7 @@ int readIniFiles (void)
 	TIMESTAMPING = IniGetInt (INI_FILE, "TimeStamp", 1);
 	CUMULATIVE_TIMING = IniGetInt (INI_FILE, "CumulativeTiming", 0);
 	CUMULATIVE_ROUNDOFF = IniGetInt (INI_FILE, "CumulativeRoundoff", 1);
-	SEQUENTIAL_WORK = IniGetInt (INI_FILE, "SequentialWorkToDo", 1);
+	SEQUENTIAL_WORK = IniGetInt (INI_FILE, "SequentialWorkToDo", -1);
 	WELL_BEHAVED_WORK = IniGetInt (INI_FILE, "WellBehavedWork", 0);
 
 	read_pause_info ();
@@ -5143,7 +5143,7 @@ int sendMessage (
 		OutputStr (COMM_THREAD_NUM, "Contacting PrimeNet Server.\n");
 		break;
 	case PRIMENET_GET_ASSIGNMENT:
-		LogMsg ("Getting assignment from server\n");
+		if (!((struct primenetGetAssignment *)pkt)->get_cert_work) LogMsg ("Getting assignment from server\n");
 		break;
 	case PRIMENET_REGISTER_ASSIGNMENT:
 		kbnc_to_text (info,
@@ -5177,8 +5177,7 @@ int sendMessage (
 		LogMsg (buf);
 		break;
 	case PRIMENET_ASSIGNMENT_RESULT:
-		sprintf (buf, "Sending result to server: %s\n",
-			 ((struct primenetAssignmentResult *)pkt)->message);
+		sprintf (buf, "Sending result to server: %s\n", ((struct primenetAssignmentResult *)pkt)->message);
 		LogMsg (buf);
 		break;
 	case PRIMENET_BENCHMARK_DATA:
@@ -5544,6 +5543,7 @@ static	int	send_message_retry_count = 0;
 	double	est, work_to_get, unreserve_threshold;
 	int	rc, stop_reason;
 	int	talked_to_server = FALSE;
+	int	can_get_cert_work;
 	int	server_options_counter, retry_count;
 	char	buf[1000];
 
@@ -5631,7 +5631,7 @@ retry:
 
 	_close (fd);
 	gwmutex_unlock (&SPOOL_FILE_MUTEX);
-	
+
 /* Make sure we don't pummel the server with data.  Suppose user uses */
 /* Advanced/Factor to find tiny factors again.  At least, make sure */
 /* he only sends the data once every 5 minutes. */
@@ -5830,6 +5830,23 @@ retry:
 		msg_offset = new_offset;
 	}
 
+/* See if we can request certification work.  Certification work must be done ASAP to reduce disk space used by PrimeNet server. */
+/* Thus, it is priority work.  Some options turn off priority work which precludes getting certification work. */
+/* We are only allowed one certification assignment at a time (part of our spread the load amongst many users philosophy). */
+/* We may also introduce rate limiting to reduce bandwidth consumed. */
+
+// BUG - rate limit this
+	can_get_cert_work = TRUE;
+	if (WELL_BEHAVED_WORK || SEQUENTIAL_WORK == 1) can_get_cert_work = FALSE;
+	for (tnum = 0; tnum < NUM_WORKER_THREADS; tnum++) {
+		struct work_unit *w;
+		for (w = NULL; ; ) {
+			w = getNextWorkToDoLine (tnum, w, SHORT_TERM_USE);
+			if (w == NULL) break;
+			if (w->work_type == WORK_CERT) can_get_cert_work = FALSE;
+		}
+	}
+
 /* Loop over all worker threads to get enough work for each thread */
 
 	unreserve_threshold = IniGetInt (INI_FILE, "UnreserveDays", 30) * 86400.0;
@@ -5837,6 +5854,7 @@ retry:
 	for (tnum = 0; tnum < NUM_WORKER_THREADS; tnum++) {
 	    struct work_unit *w;
 	    int	num_work_units;
+	    int	first_work_unit_interruptable = TRUE;
 
 /* Get work to do until we've accumulated enough to keep us busy for */
 /* a while.  If we have too much work to do, lets give some back. */
@@ -5878,6 +5896,14 @@ retry:
 			if (stop_reason) goto error_exit;
 			continue;
 		}
+
+/* If this is the first work unit for this worker, clear flag if it might be costly to interrupt it with priority work */
+/* This would be P-1 (especially) or ECM where stage 2 setup can be expensive.  Also PRP tests that are near done should */
+/* be completed ASAP to free up the temp disk space they are using.  Actually, any work that is near done, the user might */
+/* be watching with anticipation for its completion. */
+
+		if (est == 0.0 && (w->work_type == WORK_PMINUS1 || w->work_type == WORK_ECM || w->pct_complete > 0.85))
+			first_work_unit_interruptable = FALSE;
 
 /* Adjust our time estimate */
 
@@ -5976,18 +6002,15 @@ retry:
 		!USE_PRIMENET)
 		    continue;
 
+/* Occassionally get certification work from the server.  P-1 and ECM stage 2 may have significant costs */
+/* with an interruption to do priority work.  Also, lots of work_units is not a typical setup -- may indicate */
+/* a large worktodo.txt file with high costs reading and writing it. */
 
-
-
-
-
-
-/* Occassionally get certification work from the server */
-// BUG - test priority work flag / sequential-work-to-do
-// BUG - rate limit this
-	if (num_work_units < IniGetInt (INI_FILE, "MaxExponents", 15)) {
+	    if (can_get_cert_work && first_work_unit_interruptable && num_work_units < 10) {
 		struct primenetGetAssignment pkt1;
 		struct work_unit w;
+
+		can_get_cert_work = FALSE;	// Only one worker can get certification work
 
 /* Get a certification work unit to process */
 
@@ -6022,23 +6045,11 @@ retry:
 			stop_reason = addWorkToDoLine (tnum, &w);
 			if (stop_reason) goto error_exit;
 		}
-	}
-
-
-
-
-
-
-
-
-
-
-
+	    }
 
 /* If we don't have enough work to do, get more work from the server. */
 
-	    while (est < work_to_get &&
-		   num_work_units < IniGetInt (INI_FILE, "MaxExponents", 15)) {
+	    while (est < work_to_get && num_work_units < IniGetInt (INI_FILE, "MaxExponents", 15)) {
 		struct primenetGetAssignment pkt1;
 		struct primenetAssignmentProgress pkt2;
 		struct work_unit w;

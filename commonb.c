@@ -1856,7 +1856,7 @@ void implement_stop_autobench (
 
 void start_priority_work_timer (void)
 {
-	if (SEQUENTIAL_WORK) return;
+	if (SEQUENTIAL_WORK == 1) return;
 	add_timed_event (TE_PRIORITY_WORK, TE_PRIORITY_WORK_FREQ);
 }
 
@@ -1872,11 +1872,13 @@ int isPriorityWork (
 {
 	if (w->work_type == WORK_CERT) return (TRUE);
 	if (w->work_type == WORK_ADVANCEDTEST) return (TRUE);
-	if ((w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK) &&
-	    (w->sieve_depth < w->factor_to || !w->pminus1ed))
-		return (TRUE);
-	if (w->work_type == WORK_PRP && w->tests_saved > 0.0)
-		return (TRUE);
+	if (SEQUENTIAL_WORK == 0) {
+		if ((w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK) &&
+		    (w->sieve_depth < w->factor_to || !w->pminus1ed))
+			return (TRUE);
+		if (w->work_type == WORK_PRP && w->tests_saved > 0.0)
+			return (TRUE);
+	}
 	return (FALSE);
 }
 
@@ -3163,7 +3165,7 @@ int primeContinue (
 /* factoring is stalled because of low memory. */
 /* Skip first pass on large well-behaved work files. */
 
-	for (pass = (WELL_BEHAVED_WORK || SEQUENTIAL_WORK) ? 2 : 1;
+	for (pass = (WELL_BEHAVED_WORK || SEQUENTIAL_WORK == 1) ? 2 : 1;
 	     pass <= 3;
 	     pass++) {
 
@@ -11135,14 +11137,13 @@ int prp (
 
 	if (ps.two_power_opt && (ps.residue_type == PRIMENET_PRP_TYPE_FERMAT || ps.residue_type == PRIMENET_PRP_TYPE_COFACTOR)) {
 		double	hashlen_adjust = ps.hashlen / 64.0;
-		int	best_power = (double) w->n > hashlen_adjust * 720e6 ? 12 :
-				     (double) w->n > hashlen_adjust * 180e6 ? 11 :
-				     (double) w->n > hashlen_adjust * 45e6 ? 10 :
-				     (double) w->n > hashlen_adjust * 11e6 ? 9 :
-				     (double) w->n > hashlen_adjust * 3e6 ? 8 :
-				     (double) w->n > hashlen_adjust * 750e3 ? 7 :
-				     (double) w->n > hashlen_adjust * 180e3 ? 6 :
-				     (double) w->n > hashlen_adjust * 40e3 ? 5 : 0;
+		int	best_power = (double) w->n > hashlen_adjust * 427e6 ? 11 :
+				     (double) w->n > hashlen_adjust * 108e6 ? 10 :
+				     (double) w->n > hashlen_adjust * 27e6 ? 9 :
+				     (double) w->n > hashlen_adjust * 6.7e6 ? 8 :
+				     (double) w->n > hashlen_adjust * 1.7e6 ? 7 :
+				     (double) w->n > hashlen_adjust * 420e3 ? 6 :
+				     (double) w->n > hashlen_adjust * 105e3 ? 5 : 0;
 		int	power_adjust;
 
 		// Default proof power based on disk space the worker is allowed to consume
@@ -12376,7 +12377,7 @@ pushg(&gwdata.gdata, 2);}
 
 			sprintf (buf, "PRP PROOF\nVERSION=1\nHASHSIZE=%d\nPOWER=%d\n", ps.hashlen, ps.proof_power);
 			if (ps.prp_base != 3) sprintf (buf+strlen(buf), "BASE=%u\n", ps.prp_base);
-			if (_write (fdout, buf, strlen (buf)) != strlen (buf)) {
+			if (_write (fdout, buf, (unsigned int) strlen (buf)) != (int) strlen (buf)) {
 				OutputBoth (thread_num, "Error writing proof file header.\n");
 				OutputBothErrno (thread_num);
 				goto pfail3;
@@ -12393,7 +12394,7 @@ pushg(&gwdata.gdata, 2);}
 				while ((p = strchr (buf, ',')) != NULL) *p = '/';
 			}
 			strcat (buf, "\n");
-			if (_write (fdout, buf, strlen (buf)) != strlen (buf)) {
+			if (_write (fdout, buf, (unsigned int) strlen (buf)) != (int) strlen (buf)) {
 				OutputBoth (thread_num, "Error writing proof file header.\n");
 				OutputBothErrno (thread_num);
 				goto pfail3;
@@ -12532,7 +12533,7 @@ pfail1:
 /* {"status":"C", "exponent":25000000, "known-factors":["12345","67890"], "worktype":"PRP-3", "res64":"0123456789ABCDEF", */
 /* "residue-type":1, "res2048":"BigLongString", "fft-length":4096000, "shift-count":1234567, "error-code":"00010000", */
 /* "security-code":"C6B0B26C", "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
-/* "proof":{"version":1, "power":8, "hashsize":64, "MD5":"0123456789abcdef0123456789abcdef"}, */
+/* "proof":{"version":1, "power":8, "hashsize":64, "md5":"0123456789abcdef0123456789abcdef"}, */
 /* "errors":{"gerbicz":0}, "user":"gw_2", "cpu":"basement", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
 	sprintf (JSONbuf, "{\"status\":\"%s\"", ps.isProbablePrime ? "P" : "C");
@@ -12572,7 +12573,7 @@ pfail1:
 	if (ps.error_check_type == PRP_ERRCHK_GERBICZ)
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"errors\":{\"gerbicz\":%lu}", (ps.error_count >> 20) & 0xF);
 	if (ps.proof_power)
-		sprintf (JSONbuf+strlen(JSONbuf), ", \"proof\":{\"version\":1, \"power\":%d, \"hashsize\":%d, \"MD5\":\"%s\"}",
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"proof\":{\"version\":1, \"power\":%d, \"hashsize\":%d, \"md5\":\"%s\"}",
 					 ps.proof_power, ps.hashlen, proof_hash);
 	JSONaddUserComputerAID (JSONbuf, w);
 	strcat (JSONbuf, "}\n");

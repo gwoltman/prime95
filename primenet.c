@@ -941,9 +941,12 @@ int parse_page (char *response_buf, short operation, void *pkt)
 		return (PRIMENET_ERROR_PNERRORDETAIL);
 	}
 
-/* If result is non-zero print out an error message */
+/* If result is non-zero print out an error message (unless this is a get cert assignment request) */
 
-	if (res) {
+	if (res && operation == PRIMENET_GET_ASSIGNMENT && ((struct primenetGetAssignment *) pkt)->get_cert_work) {
+		;  // Fail get cert work silently
+	}
+	else if (res) {
 		char	buf[2000];
 		char	*resmsg;
 
@@ -1007,7 +1010,7 @@ int parse_page (char *response_buf, short operation, void *pkt)
 		}
 
 /* Print out the error code, text, and details */
-		
+
 		sprintf (buf, "PrimeNet error %d: %s\n", res, resmsg);
 		LogMsg (buf);
 		sprintf (buf, "%s\n", errtxt);

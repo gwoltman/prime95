@@ -204,13 +204,11 @@ extern int RDTSC_TIMING;		/* True if RDTSC is used to time */
 extern int TIMESTAMPING;		/* True is timestamps to be output */
 extern int CUMULATIVE_TIMING;		/* True if outputting cumulative time */
 extern int CUMULATIVE_ROUNDOFF;		/* True if outputting cumulative min and max roundoff error */
-extern int SEQUENTIAL_WORK;		/* TRUE (the  default) if undocumented */
-					/* SequentialWorkToDo is set */
-extern int WELL_BEHAVED_WORK;		/* TRUE if undocumented feature */
-					/* "well behaved worktodo file" */
-					/* is on.  This reduces the number */
-					/* of times worktodo.ini is read */
-					/* and written. */
+extern int SEQUENTIAL_WORK;		/* 1 (the  default from early 2000's to 2020) -- No work is priority work */
+					/* 0 (the default from 1996 to early 2000's) -- LL/PRP tests needing TF and P-1 are priority work */
+					/* -1 (the default from 2020 on) -- Only certification work is priority work */
+extern int WELL_BEHAVED_WORK;		/* TRUE if undocumented feature "well behaved worktodo file" is on. */
+					/* This reduces the number of times worktodo.ini is read and written. */
 extern unsigned long INTERIM_FILES;	/* Create save file every N iters */  
 extern unsigned long INTERIM_RESIDUES;	/* Print residue every N iterations */
 extern unsigned long HYPERTHREADING_BACKOFF; /* Pause prime95 if iterations */
