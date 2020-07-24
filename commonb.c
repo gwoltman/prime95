@@ -927,7 +927,7 @@ void stop_worker_for_priority_work (
 	int	thread_num)
 {
 	if (WORKER_THREADS_ACTIVE && ! STOP_FOR_PRIORITY_WORK[thread_num]) {
-		OutputStr (thread_num, "Restarting worker to do factoring prior to LL test.\n");
+		OutputStr (thread_num, "Restarting worker to do priority work.\n");
 		STOP_FOR_PRIORITY_WORK[thread_num] = 1;
 	}
 }
