@@ -138,10 +138,6 @@ int cert (
 	memset (&cs, 0, sizeof (cs));
 	cs.thread_num = thread_num;
 
-/* Done with pass 1 priority work.  Return to do more priority work. */
-
-//BUG	if (pass == 1) return (0);
-
 /* We only expect certifications on Mersenne numbers from the primenet server */
 
 	if (w->k != 1.0 || w->b != 2 || w->c != -1) {
@@ -295,13 +291,22 @@ int cert (
 	array = (uint32_t *) malloc (arraylen * sizeof(uint32_t));
 	array[arraylen-1] = 0;		// Zero-pad the top few bytes
 
+/* Contact PrimeNet for the starting residue */
+
 	{
 		char	md5[33], residue_md5[33];
-		PrimenetGetData (w->assignment_uid, array, residue_size, md5);
+		if (PrimenetGetData (w->assignment_uid, array, residue_size, md5) != PRIMENET_NO_ERROR) {
+			OutputBoth (thread_num, "Error getting CERT starting value.  Will try again later.\n");
+			free (array);
+			stop_reason = STOP_ABORT;
+			goto exit;
+		}
 		md5_raw_input (residue_md5, (unsigned char *) array, residue_size);
 		if (strcmp (md5, residue_md5) != 0) {
-			OutputBoth (thread_num, "MD5 of downloaded residue does not match\n");
-			; // BUG - do something
+			OutputBoth (thread_num, "MD5 of downloaded starting value does not match.  Will try again later.\n");
+			free (array);
+			stop_reason = STOP_ABORT;
+			goto exit;
 		}
 	}
 
@@ -320,7 +325,6 @@ int cert (
 	// Convert binary to gwnum
 	binarytogw (&cs.gwdata, array, arraylen, cs.x);
 	free (array);
-
 
 
 	// Generate a random initial shift count.  Initial shift count can't be larger than n.
