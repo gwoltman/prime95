@@ -5976,7 +5976,8 @@ retry:
 			strcpy (pkt2.assignment_uid, w->assignment_uid);
 			strcpy (pkt2.stage, w->stage);
 			pkt2.pct_complete = w->pct_complete * 100.0;
-			pkt2.end_date = (unsigned long) est;
+			// Cert work is priority work that should complete within a half a day
+			pkt2.end_date = (unsigned long) ((w_>work_type == WORK_CERT) ? 43200.0 : est);
 			pkt2.next_update = (uint32_t) (DAYS_BETWEEN_CHECKINS * 86400.0);
 			pkt2.fftlen = w->fftlen;
 			LOCKED_WORK_UNIT = w;

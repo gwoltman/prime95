@@ -164,7 +164,7 @@ void rangeStatusMessage (
 
 		time (&this_time);
 		if (est + (double) this_time < 2147483640.0) {
-			this_time += (long) est;
+			this_time += (long) ((w->work_type == WORK_CERT) ? 43200.0 : est);
 			strcpy (timebuf, ctime (&this_time));
 			safe_strcpy (timebuf+16, timebuf+19);
 		} else
