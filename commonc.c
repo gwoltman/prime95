@@ -1479,6 +1479,24 @@ int readIniFiles (void)
 	if (PRIORITY < 1) PRIORITY = 1;
 	if (PRIORITY > 10) PRIORITY = 10;
 	PTOGetAll (INI_FILE, "WorkPreference", WORK_PREFERENCE, 0);
+	// Upgrade pre-v30 users from LL to PRP
+	if (!IniGetInt (INI_FILE, "V30OptionsConverted", 0)) {
+		int	i, all_the_same = TRUE;
+		for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
+			if (WORK_PREFERENCE[i] == PRIMENET_WP_LL_FIRST) WORK_PREFERENCE[i] = PRIMENET_WP_PRP_FIRST;
+			if (WORK_PREFERENCE[i] == PRIMENET_WP_LL_10M) WORK_PREFERENCE[i] = PRIMENET_WP_PRP_FIRST;
+			if (WORK_PREFERENCE[i] == PRIMENET_WP_LL_FIRST_NOFAC) WORK_PREFERENCE[i] = PRIMENET_WP_PRP_FIRST;
+			if (WORK_PREFERENCE[i] == PRIMENET_WP_LL_WORLD_RECORD) WORK_PREFERENCE[i] = PRIMENET_WP_PRP_WORLD_RECORD;
+			if (WORK_PREFERENCE[i] == PRIMENET_WP_LL_100M) WORK_PREFERENCE[i] = PRIMENET_WP_PRP_100M;
+			if (i && WORK_PREFERENCE[i] != WORK_PREFERENCE[i-1]) all_the_same = FALSE;
+		}
+		if (all_the_same)
+			PTOSetAll (INI_FILE, "WorkPreference", NULL, WORK_PREFERENCE, WORK_PREFERENCE[0]);
+		else for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
+			PTOSetOne (INI_FILE, "WorkPreference", NULL, WORK_PREFERENCE, i, WORK_PREFERENCE[i]);
+		spoolMessage (PRIMENET_PROGRAM_OPTIONS, NULL);
+		IniWriteInt (INI_FILE, "V30OptionsConverted", 1);
+	}
 	read_cores_per_test ();		// Get CORES_PER_TEST array, may require upgrading old INI settings
 	HYPERTHREAD_TF = IniGetInt (LOCALINI_FILE, "HyperthreadTF", OS_CAN_SET_AFFINITY);
 	HYPERTHREAD_LL = IniGetInt (LOCALINI_FILE, "HyperthreadLL", 0);
@@ -5488,7 +5506,7 @@ int sendProgramOptions (
 				PTOSetAll (INI_FILE, "WorkPreference", "SrvrPO1", WORK_PREFERENCE, WORK_PREFERENCE[0]);
 			else
 				PTOSetOne (INI_FILE, "WorkPreference", "SrvrPO1", WORK_PREFERENCE, tnum, WORK_PREFERENCE[tnum]);
-        }
+		}
 		if (tnum == -1) {
 			IniWriteInt (LOCALINI_FILE, "SrvrPO2", PRIORITY);
 			IniWriteInt (LOCALINI_FILE, "SrvrPO3", DAYS_OF_WORK);
@@ -5977,7 +5995,7 @@ retry:
 			strcpy (pkt2.stage, w->stage);
 			pkt2.pct_complete = w->pct_complete * 100.0;
 			// Cert work is priority work that should complete within a half a day
-			pkt2.end_date = (unsigned long) ((w_>work_type == WORK_CERT) ? 43200.0 : est);
+			pkt2.end_date = (unsigned long) ((w->work_type == WORK_CERT) ? 43200.0 : est);
 			pkt2.next_update = (uint32_t) (DAYS_BETWEEN_CHECKINS * 86400.0);
 			pkt2.fftlen = w->fftlen;
 			LOCKED_WORK_UNIT = w;

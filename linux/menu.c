@@ -449,7 +449,7 @@ again:	if (max_num_workers () > 1)
 	askNum ("Priority", &m_priority, 1, 10);
 
 	if (USE_PRIMENET) {
-		outputLongLine ("\nUse the following values to select a work type:\n  0 - Whatever makes the most sense\n  100 - First time LL tests\n  102 - World record LL tests\n  101 - Double-check LL tests\n  150 - First time PRP tests\n  152 - World record PRP tests\n  151 - Double-check PRP tests\n  2 - Trial factoring\n  4 - P-1 factoring\n  153 - 100 million digit PRP tests\n  104 - 100 million digit LL tests (not recommended)\n  160 - First time PRP on Mersenne cofactors\n  161 - Double-check PRP on Mersenne cofactors\n  5 - ECM for first factors of Mersenne numbers\n  8 - ECM on Mersenne cofactors\n  6 - ECM on Fermat numbers\n  1 - Trial factoring to low limits\n");
+		outputLongLine ("\nUse the following values to select a work type:\n  0 - Whatever makes the most sense\n 150 - First time PRP tests\n  152 - World record PRP tests\n  101 - Double-check LL tests\n  151 - Double-check PRP tests\n  2 - Trial factoring\n  4 - P-1 factoring\n  153 - 100 million digit PRP tests\n  160 - First time PRP on Mersenne cofactors\n  161 - Double-check PRP on Mersenne cofactors\n  5 - ECM for first factors of Mersenne numbers\n  8 - ECM on Mersenne cofactors\n  6 - ECM on Fermat numbers\n  1 - Trial factoring to low limits\n");
 	}
 
 	if (USE_PRIMENET || NUM_CPUS > 1) {
@@ -484,7 +484,7 @@ again:	if (max_num_workers () > 1)
 
 	if (CPU_HYPERTHREADS > 1 && OS_CAN_SET_AFFINITY) {
 		askYN ("Use hyperthreading for trial factoring (recommended)", &m_hyper_tf);
-		askYN ("Use hyperthreading for LL, P-1, ECM (not recommended)", &m_hyper_ll);
+		askYN ("Use hyperthreading for PRP, LL, P-1, ECM (not recommended)", &m_hyper_ll);
 	}
 
 /* Ask user if they are happy with their answers */

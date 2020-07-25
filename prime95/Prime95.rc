@@ -284,15 +284,15 @@ STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "CPU Settings and Information"
 FONT 8, "MS Sans Serif", 0, 0, 0x0
 BEGIN
-    LTEXT           "Disk space each worker is allowed to use (in &GB):",IDC_STATIC,7,8,155,10
-    EDITTEXT        IDC_DISK,162,6,36,12
-    LTEXT           "Estimated &hours per day this program will run:",IDC_STATIC,7,21,155,10
-    EDITTEXT        IDC_HOURS,162,19,36,12
+    LTEXT           "Disk space each worker is allowed to use (in &GB):",IDC_STATIC,7,8,162,10
+    EDITTEXT        IDC_DISK,169,6,36,12
+    LTEXT           "Estimated &hours per day this program will run:",IDC_STATIC,7,21,162,10
+    EDITTEXT        IDC_HOURS,169,19,36,12
     LTEXT           "Please see the readme.txt file for important information on the P-1/ECM stage 2 memory settings.",IDC_STATIC,7,34,181,16
-    LTEXT           "&Daytime P-1/ECM stage 2 memory (in MB):",IDC_DAY_MEMORY_TEXT,7,56,155,10
-    EDITTEXT        IDC_DAY_MEMORY,162,54,36,12
-    LTEXT           "&Nighttime P-1/ECM stage 2 memory (in MB):",IDC_NIGHT_MEMORY_TEXT,7,69,155,10
-    EDITTEXT        IDC_NIGHT_MEMORY,162,67,36,12
+    LTEXT           "&Daytime P-1/ECM stage 2 memory (in MB):",IDC_DAY_MEMORY_TEXT,7,56,162,10
+    EDITTEXT        IDC_DAY_MEMORY,169,54,36,12
+    LTEXT           "&Nighttime P-1/ECM stage 2 memory (in MB):",IDC_NIGHT_MEMORY_TEXT,7,69,162,10
+    EDITTEXT        IDC_NIGHT_MEMORY,169,67,36,12
     LTEXT           "Daytime &begins:",IDC_START_TIME_TEXT,7,84,51,10
     EDITTEXT        IDC_START_TIME,61,82,37,12,ES_AUTOHSCROLL
     LTEXT           "&ends:",IDC_END_TIME_TEXT,106,84,20,10
@@ -562,7 +562,7 @@ BEGIN
     EDITTEXT        IDC_NUMCPUS,129,89,36,12
     CONTROL         "Use &hyperthreading for trial factoring (recommended, requires 64-bit Windows)",IDC_HYPER_TF,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,116,290,10
-    CONTROL         "Use h&yperthreading for LL, P-1, ECM (not recommended)",IDC_HYPER_LL,
+    CONTROL         "Use h&yperthreading for PRP, LL, P-1, ECM (not recommended)",IDC_HYPER_LL,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,128,200,10
     LTEXT           "WARNING: It is strongly recommended that you use the default priority of 1.  This program is unlikely to run any faster at a higher priority.",IDC_WARN1,7,141,293,18
     LTEXT           "Pick a priority between 1 and 10 where 1 is the lowest priority and 10 is the highest.  Screen savers run at priority 4.  Most applications run at priority 7 or 9.",IDC_WARN2,7,158,293,18
