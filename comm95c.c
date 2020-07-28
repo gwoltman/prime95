@@ -451,3 +451,26 @@ int OnBattery (void)
 	return (FALSE);
 }
 
+/* Get list of file names from the current working directory ending in .proof */
+
+int ProofFileNames (char filenames[50][255])	// Returns number of matching filenames
+{
+	HANDLE hFind;
+	WIN32_FIND_DATA FindFileData;
+	int	num_files;
+
+	num_files = 0;
+	if ((hFind = FindFirstFile ("*.proof", &FindFileData)) != INVALID_HANDLE_VALUE) do {
+		if (num_files < 50) strcpy (filenames[num_files++], FindFileData.cFileName);
+	} while (FindNextFile (hFind, &FindFileData));
+	FindClose (hFind);
+	return (num_files);
+}
+
+/* Get the character that separates directories in a pathname */
+
+char getDirectorySeparator ()
+{
+	return ('\\');
+}
+

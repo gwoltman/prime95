@@ -923,6 +923,7 @@ void strupper (
 }
 
 /* Convert a string (e.g "11:30 AM") to minutes since midnight */
+/* The result is from 0 to 1440 inclusive.  This allow specifying 00:00 - 24:00 to mean "all day" */
 
 unsigned int strToMinutes (
 	const char *buf)
@@ -937,7 +938,7 @@ unsigned int strToMinutes (
 	if (hours == 12) hours -= 12;
 	if (pm) hours += 12;
 	minutes = hours * 60 + minutes;
-	minutes %= 1440;  // In case user entered 24:00 or 11:60 PM
+	if (minutes > 1440) minutes %= 1440;
 	return (minutes);
 }
 
@@ -1228,6 +1229,10 @@ void nameAndReadIniFiles (
 			seconds = (29 - x->tm_hour) * 60 * 60;	// Start benchmark around 5AM tomorrow
 		add_timed_event (TE_BENCH, seconds);
 	}
+
+/* Start the proof uploading thread */
+
+	gwthread_create (&UPLOAD_THREAD, &proofUploader, NULL);
 }
 
 /* Init the communications code.  We used to do this at the end of */
@@ -4066,6 +4071,26 @@ int fileExists (
 	return (1);
 }
 
+/* Create a file name from an optional directory name and a file name.  The directory name */
+/* may or may not end in a slash. */
+
+void DirPlusFilename (
+	char	*dir,				// Full pathname returned here
+	const char *filename)
+{
+	if (dir[0]) {
+		char	slash = getDirectorySeparator ();
+		int	len = (int) strlen (dir);
+
+		// Append slash if not already there
+		if (dir[len-1] != slash) {
+			dir[len] = slash;
+			dir[len+1] = 0;
+		}
+	}
+	strcat (dir, filename);
+}
+
 /* Routines to read and write a byte array from and to a save file */
 
 int read_array (
@@ -4553,6 +4578,7 @@ int writeResultsJSON (
 #define SPOOL_FILE_MSG_OFFSET (4 * sizeof (uint32_t))
 
 gwthread COMMUNICATION_THREAD = 0;	/* Handle for comm thread */
+gwthread UPLOAD_THREAD = 0;		/* Handle for proof file upload thread */
 gwmutex	SPOOL_FILE_MUTEX;		/* Lock governing spool file access */
 int	GET_PING_INFO = 0;		/* Flag to get ping info */
 int	GLOBAL_SEND_MSG_COUNT = 0;	/* Used to detect hung comm threads */
@@ -5056,6 +5082,8 @@ void kbnc_to_text (
 	sprintf (buf, "%s %s", work_type_str, num);
 }
 
+/* Turn assignment ID into something prettier */
+
 void aid_to_text (
 	char	*buf,
 	char	*aid)
@@ -5079,7 +5107,6 @@ void aid_to_text (
 	}
 	sprintf (buf, "assignment %s", aid);
 }
-
 
 /* Read a spooled message */
 
@@ -5853,7 +5880,7 @@ retry:
 /* We are only allowed one certification assignment at a time (part of our spread the load amongst many users philosophy). */
 /* We may also introduce rate limiting to reduce bandwidth consumed. */
 
-// BUG - rate limit this
+// BUG - rate limit this?? Naturally limited by 6 hour priority work timer? Do we need more control?
 	can_get_cert_work = TRUE;
 	if (WELL_BEHAVED_WORK || SEQUENTIAL_WORK == 1) can_get_cert_work = FALSE;
 	for (tnum = 0; tnum < NUM_WORKER_THREADS; tnum++) {
@@ -6205,27 +6232,26 @@ retry:
 	    }
 	}
 
-/* Set some ini flags after we've successfully quit gimps */
+/* Set some ini flags after we've successfully quit gimps.  It may take a while to get all the proof files sent. */
 
+	char	proof_files[50][255];		// We can send up to 50 proof files
 	if ((header_words[1] & HEADER_FLAG_QUIT_GIMPS && USE_PRIMENET) ||
-	    (IniGetInt (INI_FILE, "NoMoreWork", 0) && WORKTODO_COUNT == 0)) {
+	    (IniGetInt (INI_FILE, "NoMoreWork", 0) && WORKTODO_COUNT == 0 && ProofFileNames (proof_files) == 0)) {
 		USE_PRIMENET = 0;
 		IniWriteInt (INI_FILE, "UsePrimenet", 0);
 		IniWriteInt (INI_FILE, "NoMoreWork", 0);
 		OutputSomewhere (COMM_THREAD_NUM, "Successfully quit GIMPS.\n");
 	}
 
-/* After sending new completion dates remember the current time */
-/* so that we can send new completion dates in a month.  Set a timer */
-/* to send them again. */
+/* After sending new completion dates remember the current time so that we can send new completion dates in a day. */
+/* Set a timer to send them again. */
 
 	else if (header_words[1] & HEADER_FLAG_END_DATES) {
 		time_t current_time;
 		time (&current_time);
 		IniWriteInt (LOCALINI_FILE, "LastEndDatesSent", (long) current_time);
 		if (!MANUAL_COMM)
-			add_timed_event (TE_COMPLETION_DATES,
-					 (int) (DAYS_BETWEEN_CHECKINS * 86400.0));
+			add_timed_event (TE_COMPLETION_DATES, (int) (DAYS_BETWEEN_CHECKINS * 86400.0));
 	}
 
 /* Delete the spool file. However, we don't delete the file if any writes */
@@ -6653,3 +6679,80 @@ void timed_events_scheduler (void *arg)
 
 	}
 }
+
+/* Are we in the proof upload time window */
+
+int inUploadWindow (int *minutes_to_start)
+{
+	char	timebuf[80];
+	unsigned int start_time, end_time, current_time;	// In minutes since midnight
+	time_t	current_t;
+	struct tm *x;
+
+/* Get upload times from INI file */
+
+	IniGetString (LOCALINI_FILE, "UploadStartTime", timebuf, sizeof (timebuf), "00:00");
+	start_time = strToMinutes (timebuf);
+	IniGetString (LOCALINI_FILE, "UploadEndTime", timebuf, sizeof (timebuf), "24:00");
+	end_time = strToMinutes (timebuf);
+
+// BUG - Enforce a minimum upload window of 2 hours.  (make this user settable?)
+	if ((start_time <= end_time && start_time + 120 > end_time) ||
+	    (start_time > end_time && start_time + 120 > end_time + 1440))
+		end_time = (start_time + 120) % 1440;
+
+/* Get the current time */
+
+	time (&current_t);
+	x = localtime (&current_t);
+	current_time = x->tm_hour * 60 + x->tm_min;
+
+/* Return optional minutes until start time begins */
+
+	if (minutes_to_start != NULL)
+		*minutes_to_start = (1440 + start_time - current_time) % 1440;
+
+/* Return TRUE if the current time is between start time and end time */
+
+	if (start_time <= end_time) return (current_time >= start_time && current_time <= end_time);
+	return (current_time >= start_time || current_time <= end_time);
+}
+
+/* This routine runs in its own thread continuously looking for proof files to upload */
+
+void proofUploader (void *arg)
+{
+	char	proof_files[50][255];		// We can send up to 50 proof files
+	int	i, minutes_to_start, num_proof_files;
+
+/* Loop forever */
+
+	for ( ; ; ) {
+
+/* If we are not in the upload time window, pause until we are (or one hour, in case user changes time window from dialog box) */
+
+		if (!inUploadWindow (&minutes_to_start)) {
+			if (minutes_to_start > 60) minutes_to_start = 60;
+			Sleep (minutes_to_start * 60 * 1000);
+			continue;
+		}
+
+/* Start sending all the proof files in the directory */
+
+		// Get the proof files sitting in our directory
+		num_proof_files = ProofFileNames (proof_files);
+		if (num_proof_files < 0) {
+			OutputBoth (COMM_THREAD_NUM, "Unable to get list of proof files in the current directory\n");
+			num_proof_files = 0;
+		}
+
+		for (i = 0; i < num_proof_files && inUploadWindow (NULL); i++) {
+			ProofUpload (proof_files[i]);
+		}
+
+/* Sleep for one hour to look for more proof files */
+
+		Sleep (60 * 60 * 1000);
+	}
+}
+

@@ -2,7 +2,7 @@
 
 /* Constants */
 
-#define VERSION		"30.1"
+#define VERSION		"30.2"
 #define BUILD_NUM	"1"
 /* The list of assigned OS ports follows: */
 /* Win9x (prime95) #1 */
@@ -228,8 +228,8 @@ extern unsigned int WORKTODO_COUNT;	/* Count of valid work lines */
 extern int GIMPS_QUIT;			/* TRUE if we just successfully */
 					/* quit the GIMPS project */
 
-extern gwthread COMMUNICATION_THREAD;	/* Handle for comm thread.  Set when */
-					/* comm thread is active. */
+extern gwthread COMMUNICATION_THREAD;	/* Handle for comm thread.  Set when comm thread is active. */
+extern gwthread UPLOAD_THREAD;		/* Handle for proof file upload thread */
 
 extern gwevent AUTOBENCH_EVENT;		/* Event to wake up workers after an auto-benchmark */
 
@@ -403,6 +403,7 @@ void guess_pminus1_bounds (int, double, unsigned long, unsigned long, signed lon
 void strupper (char *);
 void tempFileName (struct work_unit *, char *);
 int fileExists (const char *);
+void DirPlusFilename (char *, const char *);
 
 int read_array (int fd, char *buf, unsigned long len, unsigned long *sum);
 int write_array (int fd, const char *buf, unsigned long len, unsigned long *sum);
@@ -454,10 +455,16 @@ void spoolMessage (short, void *);
 void spoolExistingResultsFile (void);
 int unreserve (unsigned long);
 void salvageCorruptSpoolFile (void);
+void proofUploader (void *);
 
 int LoadPrimeNet (void);
 void UnloadPrimeNet (void);
 int PRIMENET (short, void *);
+int ProofFileNames (char filenames[50][255]);
+void ProofUpload (char *);
+int ProofGetData (char *, void *, int, char *);
+char getDirectorySeparator ();
+
 
 /******************************************************************************
 *                           Timed Events Handler                              *

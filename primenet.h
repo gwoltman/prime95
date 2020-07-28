@@ -375,9 +375,3 @@ struct primenetPingServer {
 
 #define PRIMENET_ERROR_MODEM_OFF	2000
 
-/* In 2020, we added some new routines to support PRP proofs. */
-
-/* This routine gets the initial certification data from the server. */
-
-int PrimenetGetData (char *, void *, int, char *);
-

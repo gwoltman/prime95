@@ -669,9 +669,7 @@ void CPrime95Doc::OnCpu()
 
 	dlg.m_disk = CPU_WORKER_DISK_SPACE;
 	dlg.m_hours = CPU_HOURS;
-	dlg.m_memory_editable =
-		read_memory_settings (&day_memory, &night_memory,
-				      &day_start_time, &day_end_time);
+	dlg.m_memory_editable = read_memory_settings (&day_memory, &night_memory, &day_start_time, &day_end_time);
 	dlg.m_day_memory = day_memory;
 	dlg.m_night_memory = night_memory;
 	minutesToStr (day_start_time, buf);
@@ -708,8 +706,7 @@ void CPrime95Doc::OnCpu()
 		    night_memory != dlg.m_night_memory ||
 		    day_start_time != new_day_start_time ||
 		    day_end_time != new_day_end_time) {
-			write_memory_settings (dlg.m_day_memory, dlg.m_night_memory,
-					       new_day_start_time, new_day_end_time);
+			write_memory_settings (dlg.m_day_memory, dlg.m_night_memory, new_day_start_time, new_day_end_time);
 			mem_settings_have_changed ();
 		}
 		spoolMessage (PRIMENET_PROGRAM_OPTIONS, NULL);
@@ -1187,6 +1184,8 @@ void flashWindowAndBeep ()
 #else
 #define PORT	1
 #endif
+#include "cJSON.h"
+#include "cJSON.c"
 #include "md5.c"
 #include "comm95b.c"
 #include "comm95c.c"
@@ -1195,6 +1194,8 @@ void flashWindowAndBeep ()
 #include "commonc.c"
 #include "ecm.c"
 #include "primenet.c"
+#include "proof_upload.c"
+#include "proof_getdata.c"
 #include "gwtest.c"
 
 /* Do some work prior to launching worker threads */

@@ -63,7 +63,9 @@
 #define safe_strcpy(d,s)	memmove (d, s, strlen (s) + 1)
 #ifdef GDEBUG
 #undef strcpy
-#define strcpy(d,s)	assert((d) >= ((s)+strlen(s)+1) || (s) >= (d)+strlen(s)+1), safe_strcpy(d,s)
+//#define strcpy(d,s)	assert((d) >= ((s)+strlen(s)+1) || (s) >= (d)+strlen(s)+1), safe_strcpy(d,s)
+#define strcpy(d,s)	debug_strcpy(d,s)
+__inline char *debug_strcpy(char *d, const char *s) {assert((d) >= ((s)+strlen(s)+1) || (s) >= (d)+strlen(s)+1); return (char *) safe_strcpy(d,s); }
 #endif
 
 /* Routines missing from GMP */

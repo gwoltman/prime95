@@ -295,7 +295,7 @@ int cert (
 
 	{
 		char	md5[33], residue_md5[33];
-		if (PrimenetGetData (w->assignment_uid, array, residue_size, md5) != PRIMENET_NO_ERROR) {
+		if (ProofGetData (w->assignment_uid, array, residue_size, md5) != PRIMENET_NO_ERROR) {
 			OutputBoth (thread_num, "Error getting CERT starting value.  Will try again later.\n");
 			free (array);
 			stop_reason = STOP_ABORT;

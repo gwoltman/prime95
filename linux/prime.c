@@ -97,12 +97,16 @@ char pidfile[256];
 /* Common code */
 
 #include "gwutil.h"
+#include "cJSON.h"
+#include "cJSON.c"
 #include "md5.c"
 #include "commona.c"
 #include "commonb.c"
 #include "commonc.c"
 #include "ecm.c"
 #include "primenet.c"
+#include "proof_upload.c"
+#include "proof_getdata.c"
 #include "gwtest.c"
 
 /* Signal handlers */

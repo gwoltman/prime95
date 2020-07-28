@@ -214,17 +214,22 @@ Where n is the number of physical CPUs or cores, not logical CPUs created by
 hyperthreading. Choose 1 for non-hyperthreaded and 2 for hyperthreaded. Finally,
 s is the speed in MHz.
 
-The program used to do factoring and P-1 testing on exponents even if
-they were not the first entry in worktodo.txt.  The rationale was that
-if the number had a factor, the server could be contacted and another
-exponent reserved.  This avoids the possible scenario where the LL test
-for the first worktodo.txt line completes, a factor is quickly found for
-the second line in worktodo.txt and the computer now sits idle until
-the server can be contacted.  This behavior was confusing, especially
-to newcomers.  To restore this old behavior add this line to prime.txt:
-	SequentialWorkToDo=0
-One added benefit is time estimates in Test/Status will be more accurate
-because we'll know no factors will be found and the LL test must be run.
+The program sometimes performs work from worktodo.txt out-of-order.
+(1) Certification work is done quickly as these assignments have a very short
+expiration period.
+(2) Any necessary trial factoring and P-1 testing on exponents reserved for a
+prime test can be done early.  This option exists for for users without an
+always-on Internet connection.  If early factoring finds a factor, the server
+can be contacted and another exponent reserved avoiding the possible scenario
+where a prime test for the first worktodo.txt line completes, a factor is quickly
+found for the second line in worktodo.txt and the computer now sits idle until
+the server can be contacted.  This behavior can be confusing, especially
+to newcomers.
+The option to control what work can be done early is in prime.txt:
+	SequentialWorkToDo=n		(default is -1)
+If n is 1, work will never be done out of order,  You will not get certification
+assignments.  If n is -1, only certification work will be done out of order.
+If n is 0, certification and early factoring will be done out of order.
 
 The program will restrict how many exponents can be added to worktodo.txt.
 To override this, change prime.txt:
@@ -715,3 +720,23 @@ a value from -20 to +19.  In FreeBSD and Mac OS X you can select a value
 between -20 and 20.  Higher numbers represent a "nicer" program (lower priority).
 In all OSes, a zero nice level means run at the normal priority.
 
+
+
+
+
+
+
+**Should these be in local.ini of prime.ini?????   Fix now or forever hold our peace!
+** Most (all?) of the resource limiters are in local.txt!
+
+**	CPU_WORKER_DISK_SPACE = (unsigned int) IniGetInt (LOCALINI_FILE, "WorkerDiskSpace", 5);
+	ps.proof_power = IniGetInt (INI_FILE, "ProofPower", ps.proof_power);
+	power_adjust = IniGetInt (INI_FILE, "ProofPowerAdjust", 0);
+	max_emergency_memory = IniGetInt (INI_FILE, "MaxEmergencyMemory", 1024);	(change to localini)
+**	IniGetString (LOCALINI_FILE, "ProofArchiveDir", archive_filename, sizeof (archive_filename), NULL);
+**		IniGetString (LOCALINI_FILE, "ResidueFileDir", );			(change to ProofResiduesDir, update all my machines)
+**		createProofResiduesFile (&gwdata, &ps, IniGetInt (LOCALINI_FILE, "PreallocateDisk", 1));
+	bandwidth_rate_limit_flt = IniSectionGetFloat (INI_FILE, "PrimeNet", "UploadRateLimit", 0.25);	// Rate limit in Mbps
+	max_chunk_size_flt = IniSectionGetFloat (INI_FILE, "PrimeNet", "UploadChunkSize", max_chunk_size_flt);
+	bandwidth_rate_limit_flt = IniSectionGetFloat (INI_FILE, "PrimeNet", "DownloadRateLimit", 0.0);	// Rate limit in Mbps
+put upload start/end time in Primenet section too.

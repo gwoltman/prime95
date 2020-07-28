@@ -7315,7 +7315,7 @@ begin:	gwinit (&lldata.gwdata);
 
 	if (isPrime && !SILENT_VICTORY && !isKnownMersennePrime (p)) {
 		gwthread thread_handle;
-		gwthread_create (&thread_handle, &good_news, (void *) p);
+		gwthread_create (&thread_handle, &good_news, (void *) (intptr_t) p);
 	}
 
 /* All done */
@@ -11381,7 +11381,8 @@ begin:	N = exp = NULL;
 // Create and optionally prefill the proof interim residues file
 
 		IniGetString (LOCALINI_FILE, "ResidueFileDir", ps.residues_filename, sizeof (ps.residues_filename), NULL);
-		sprintf (ps.residues_filename + strlen (ps.residues_filename), "%s.residues", filename);
+		DirPlusFilename (ps.residues_filename, filename);
+		strcat (ps.residues_filename, ".residues");
 		if (ps.counter == 0)
 			createProofResiduesFile (&gwdata, &ps, IniGetInt (LOCALINI_FILE, "PreallocateDisk", 1));
 	}
@@ -12425,7 +12426,7 @@ pushg(&gwdata.gdata, 2);}
 			for (i = 0, prevh = &rooth; i < ps.proof_power - 1; i++, prevh = &thish) {
 				hash (&gwdata, prevh, M, &thish);
 				h[i] = truncate_hash (thish, ps.hashlen);
-				sprintf (buf, "hash%d = %" PRIX64 "\n", i, h[i]);
+				sprintf (buf, "hash%d = %016" PRIX64 "\n", i, h[i]);
 				OutputStr (thread_num, buf);
 				if (!calc_middle (&ps, &gwdata, fd, 0, 1 << ps.proof_power, i + 1, h, M)) goto pfail3;
 				if (!writeResidue (&ps, &gwdata, fdout, M)) goto pfail3;

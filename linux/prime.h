@@ -51,13 +51,9 @@
 #define _read		read
 #define _write		write
 #define _lseek		lseek
-#if defined (__linux__)
 #define _lseeki64	lseek
+#define _fseeki64	fseek
 #define _chsize_s	ftruncate
-#else
-#define _lseeki64	lseek
-#define _chsize_s	ftruncate
-#endif
 #define _unlink		unlink
 #define _creat		creat
 #define _chdir		chdir

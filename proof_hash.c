@@ -106,7 +106,7 @@ char *hash_to_string (
 {
 	int	i;
 static	char retbuf[65];		// returned character string
-	
+
 	for (i = 31; i >= 0; i--) sprintf (retbuf+(31-i)*2, "%02X", (int) h[i]);
 	return (retbuf);
 }
