@@ -12343,6 +12343,7 @@ pushg(&gwdata.gdata, 2);}
 			uint64_t h[20];
 			hash256_t rooth, *prevh, thish;
 			gwnum	B = ps.x, M = ps.alt_x;		// Alias already allocated gwnums to conform to Mihai's naming scheme
+			char	tmp_proof_filename[504];
 			char	proof_filename[500];
 
 // Open the PRP residues file, create the PRP proof file
@@ -12355,7 +12356,8 @@ pushg(&gwdata.gdata, 2);}
 				goto pfail1;
 			}
 			sprintf (proof_filename, "%s.proof", filename);
-			fdout = _open (proof_filename, _O_BINARY | _O_WRONLY | _O_TRUNC | _O_CREAT, CREATE_FILE_ACCESS);
+			sprintf (tmp_proof_filename, "%s.proof.tmp", filename);
+			fdout = _open (tmp_proof_filename, _O_BINARY | _O_WRONLY | _O_TRUNC | _O_CREAT, CREATE_FILE_ACCESS);
 			if (fdout < 0) {
 				sprintf (buf, "Cannot create PRP proof file: %s\n", proof_filename);
 				OutputBoth (thread_num, buf);
@@ -12453,6 +12455,10 @@ pushg(&gwdata.gdata, 2);}
 			OutputStr (thread_num, buf);
 			_close (fd);
 			_close (fdout);
+			if (!rename (tmp_proof_filename, proof_filename)) {
+				sprintf (buf, "Error renaming from %s to %s\n", tmp_proof_filename, proof_filename);
+				OutputBoth (thread_num, buf);
+			}
 			_unlink (ps.residues_filename);
 
 // Generate an MD5 hash of the proof file.  This will be a unique identifier to thwart a bad actor from uploading a counterfeit proof file */
