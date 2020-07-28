@@ -102,7 +102,6 @@ BEGIN
         MENUITEM "P-&1...",                     IDM_PMINUS1
         MENUITEM "&ECM...",                     IDM_ECM
         MENUITEM SEPARATOR
-        MENUITEM "&SUM(INPUTS) error checking", IDM_SUMINP_ERRCHK
         MENUITEM "&Round off checking",         IDM_ERRCHK
         MENUITEM "&Manual Communication...",    IDM_MANUALCOMM
         MENUITEM SEPARATOR
@@ -167,7 +166,6 @@ BEGIN
         MENUITEM "P-&1...",                     IDM_PMINUS1
         MENUITEM "&ECM...",                     IDM_ECM
         MENUITEM SEPARATOR
-        MENUITEM "&SUM(INPUTS) error checking", IDM_SUMINP_ERRCHK
         MENUITEM "&Round off checking",         IDM_ERRCHK
         MENUITEM "&Manual Communication...",    IDM_MANUALCOMM
         MENUITEM SEPARATOR
@@ -725,7 +723,6 @@ STRINGTABLE
 BEGIN
     IDM_CONTINUE_SWITCHER   "Start work"
     IDM_STOP_SWITCHER       "Stop work"
-    IDM_SUMINP_ERRCHK       "Enable SUM(INPUTS) != SUM(OUTPUTS) extra error checking"
     IDM_ERRCHK              "Enable ROUND OFF > 0.40 extra error checking"
     IDM_TEST                "Run Lucas-Lehmer primality test on a specific Mersenne number"
     IDM_TIME                "Estimate time it will take to run a primality test"

@@ -161,7 +161,6 @@
 #define IDM_CONTINUE                    32771
 #define IDM_STOP_SWITCHER               32772
 #define IDM_STOP                        32773
-#define IDM_SUMINP_ERRCHK               32774
 #define IDM_ERRCHK                      32775
 #define IDM_TEST                        32777
 #define IDM_TIME                        32778

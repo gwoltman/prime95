@@ -46,8 +46,6 @@ protected:
 	afx_msg void OnUpdateStopSwitcher(CCmdUI* pCmdUI);
 	afx_msg void OnStopSwitcher();
 	afx_msg void OnStop();
-	afx_msg void OnUpdateSuminpErrchk(CCmdUI* pCmdUI);
-	afx_msg void OnSuminpErrchk();
 	afx_msg void OnUpdateErrchk(CCmdUI* pCmdUI);
 	afx_msg void OnErrchk();
 	afx_msg void OnCpu();
