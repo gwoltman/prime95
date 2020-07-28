@@ -1232,7 +1232,8 @@ void nameAndReadIniFiles (
 
 /* Start the proof uploading thread */
 
-	gwthread_create (&UPLOAD_THREAD, &proofUploader, NULL);
+	if (IniSectionGetInt (INI_FILE, "PrimeNet", "ProofUploads", 1))
+		gwthread_create (&UPLOAD_THREAD, &proofUploader, NULL);
 }
 
 /* Init the communications code.  We used to do this at the end of */
@@ -6691,9 +6692,9 @@ int inUploadWindow (int *minutes_to_start)
 
 /* Get upload times from INI file */
 
-	IniGetString (LOCALINI_FILE, "UploadStartTime", timebuf, sizeof (timebuf), "00:00");
+	IniSectionGetString (INI_FILE, "PrimeNet", "UploadStartTime", timebuf, sizeof (timebuf), "00:00");
 	start_time = strToMinutes (timebuf);
-	IniGetString (LOCALINI_FILE, "UploadEndTime", timebuf, sizeof (timebuf), "24:00");
+	IniSectionGetString (INI_FILE, "PrimeNet", "UploadEndTime", timebuf, sizeof (timebuf), "24:00");
 	end_time = strToMinutes (timebuf);
 
 // BUG - Enforce a minimum upload window of 2 hours.  (make this user settable?)
