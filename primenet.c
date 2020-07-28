@@ -829,7 +829,7 @@ char *find_id (
 	return (NULL);
 }
 
-int parse_string (
+int primenet_parse_string (
 	char	*buf,
 	char	*id,
 	char	*result_buf,
@@ -845,7 +845,7 @@ int parse_string (
 	return (TRUE);
 }
 
-int parse_multiline_string (
+int primenet_parse_multiline_string (
 	char	*buf,
 	char	*id,
 	char	*result_buf,
@@ -871,7 +871,7 @@ int parse_multiline_string (
 	return (TRUE);
 }
 
-int parse_int (
+int primenet_parse_int (
 	char	*buf,
 	char	*id,
 	int32_t	*result)
@@ -884,7 +884,7 @@ int parse_int (
 	return (TRUE);
 }
 
-int parse_uint (
+int primenet_parse_uint (
 	char	*buf,
 	char	*id,
 	uint32_t *result)
@@ -897,7 +897,7 @@ int parse_uint (
 	return (TRUE);
 }
 
-void parse_double (
+void primenet_parse_double (
 	char	*buf,
 	char	*id,
 	double	*result)
@@ -911,11 +911,11 @@ void parse_double (
 
 
 /*
-// parse_page: reads the server response page tokens and values
+// primenet_parse_page: reads the server response page tokens and values
 //             and converts these back into a C structure
 */
 
-int parse_page (char *response_buf, short operation, void *pkt)
+int primenet_parse_page (char *response_buf, short operation, void *pkt)
 
 {
 	char	*s;
@@ -925,7 +925,7 @@ int parse_page (char *response_buf, short operation, void *pkt)
 /* Get result code, which is always first */
 
 	s = response_buf;
-	if (!parse_int (s, "pnErrorResult", &res)) {
+	if (!primenet_parse_int (s, "pnErrorResult", &res)) {
 		LogMsg ("PnErrorResult value missing.  Full response was:\n");
 		LogMsg (response_buf);
 
@@ -938,7 +938,7 @@ int parse_page (char *response_buf, short operation, void *pkt)
 			
 		return (PRIMENET_ERROR_PNERRORRESULT);
 	}
-	if (!parse_multiline_string (s, "pnErrorDetail", errtxt, sizeof (errtxt))) {
+	if (!primenet_parse_multiline_string (s, "pnErrorDetail", errtxt, sizeof (errtxt))) {
 		LogMsg ("PnErrorDetail string missing\n");
 		return (PRIMENET_ERROR_PNERRORDETAIL);
 	}
@@ -1036,11 +1036,11 @@ int parse_page (char *response_buf, short operation, void *pkt)
 		struct primenetUpdateComputerInfo *z;
 
 		z = (struct primenetUpdateComputerInfo *) pkt;
-		parse_string (s, "g", z->computer_guid, sizeof (z->computer_guid));
-		parse_string (s, "u", z->user_id, sizeof (z->user_id));
-		parse_string (s, "un", z->user_name, sizeof (z->user_name));
-		parse_string (s, "cn", z->computer_name, sizeof (z->computer_name));
-		parse_uint (s, "od", &z->options_counter);
+		primenet_parse_string (s, "g", z->computer_guid, sizeof (z->computer_guid));
+		primenet_parse_string (s, "u", z->user_id, sizeof (z->user_id));
+		primenet_parse_string (s, "un", z->user_name, sizeof (z->user_name));
+		primenet_parse_string (s, "cn", z->computer_name, sizeof (z->computer_name));
+		primenet_parse_uint (s, "od", &z->options_counter);
 
 		if (!strcmp (z->user_id, "admin_user_anon"))
 			strcpy (z->user_id, "ANONYMOUS");
@@ -1053,24 +1053,24 @@ int parse_page (char *response_buf, short operation, void *pkt)
 
 		z = (struct primenetProgramOptions *) pkt;
 		z->num_workers = -1;
-		parse_int (s, "nw", &z->num_workers);
+		primenet_parse_int (s, "nw", &z->num_workers);
 		z->work_preference = -1;
-		parse_int (s, "w", &z->work_preference);
+		primenet_parse_int (s, "w", &z->work_preference);
 		z->priority = -1;
-		parse_int (s, "Priority", &z->priority);
+		primenet_parse_int (s, "Priority", &z->priority);
 		z->daysOfWork = -1;
-		parse_int (s, "DaysOfWork", &z->daysOfWork);
+		primenet_parse_int (s, "DaysOfWork", &z->daysOfWork);
 		z->dayMemory = -1;
-		parse_int (s, "DayMemory", &z->dayMemory);
+		primenet_parse_int (s, "DayMemory", &z->dayMemory);
 		z->nightMemory = -1;
-		parse_int (s, "NightMemory", &z->nightMemory);
+		primenet_parse_int (s, "NightMemory", &z->nightMemory);
 		z->dayStartTime = -1;
-		parse_int (s, "DayStartTime", &z->dayStartTime);
+		primenet_parse_int (s, "DayStartTime", &z->dayStartTime);
 		z->nightStartTime = -1;
-		parse_int (s, "NightStartTime", &z->nightStartTime);
+		primenet_parse_int (s, "NightStartTime", &z->nightStartTime);
 		z->runOnBattery = -1;
-		parse_int (s, "RunOnBattery", &z->runOnBattery);
-		parse_uint (s, "od", &z->options_counter);
+		primenet_parse_int (s, "RunOnBattery", &z->runOnBattery);
+		primenet_parse_uint (s, "od", &z->options_counter);
 		break;
 		}
 	case PRIMENET_GET_ASSIGNMENT:
@@ -1078,24 +1078,24 @@ int parse_page (char *response_buf, short operation, void *pkt)
 		struct primenetGetAssignment *z;
 
 		z = (struct primenetGetAssignment *) pkt;
-		parse_string (s, "k", z->assignment_uid, sizeof (z->assignment_uid));
-		parse_uint (s, "w", &z->work_type);
-		parse_double (s, "A", &z->k);
-		parse_uint (s, "b", &z->b);
-		parse_uint (s, "n", &z->n);
-		parse_int (s, "c", &z->c);
-		parse_uint (s, "p1", &z->has_been_pminus1ed);
-		parse_double (s, "sf", &z->how_far_factored);
-		parse_double (s, "ef", &z->factor_to);
-		parse_double (s, "B1", &z->B1);
-		parse_double (s, "B2", &z->B2);
-		parse_uint (s, "CR", &z->curves);
-		parse_double (s, "saved", &z->tests_saved);
-		parse_uint (s, "base", &z->prp_base);
-		parse_uint (s, "rt", &z->prp_residue_type);
-		parse_uint (s, "dc", &z->prp_dblchk);
-		parse_string (s, "kf", z->known_factors, sizeof (z->known_factors));
-		parse_uint (s, "ns", &z->num_squarings);
+		primenet_parse_string (s, "k", z->assignment_uid, sizeof (z->assignment_uid));
+		primenet_parse_uint (s, "w", &z->work_type);
+		primenet_parse_double (s, "A", &z->k);
+		primenet_parse_uint (s, "b", &z->b);
+		primenet_parse_uint (s, "n", &z->n);
+		primenet_parse_int (s, "c", &z->c);
+		primenet_parse_uint (s, "p1", &z->has_been_pminus1ed);
+		primenet_parse_double (s, "sf", &z->how_far_factored);
+		primenet_parse_double (s, "ef", &z->factor_to);
+		primenet_parse_double (s, "B1", &z->B1);
+		primenet_parse_double (s, "B2", &z->B2);
+		primenet_parse_uint (s, "CR", &z->curves);
+		primenet_parse_double (s, "saved", &z->tests_saved);
+		primenet_parse_uint (s, "base", &z->prp_base);
+		primenet_parse_uint (s, "rt", &z->prp_residue_type);
+		primenet_parse_uint (s, "dc", &z->prp_dblchk);
+		primenet_parse_string (s, "kf", z->known_factors, sizeof (z->known_factors));
+		primenet_parse_uint (s, "ns", &z->num_squarings);
 		break;
 		}
 	case PRIMENET_REGISTER_ASSIGNMENT:
@@ -1103,7 +1103,7 @@ int parse_page (char *response_buf, short operation, void *pkt)
 		struct primenetRegisterAssignment *z;
 
 		z = (struct primenetRegisterAssignment *) pkt;
-		parse_string (s, "k", z->assignment_uid, sizeof (z->assignment_uid));
+		primenet_parse_string (s, "k", z->assignment_uid, sizeof (z->assignment_uid));
 		break;
 		}
 	case PRIMENET_ASSIGNMENT_PROGRESS:
@@ -1119,7 +1119,7 @@ int parse_page (char *response_buf, short operation, void *pkt)
 		struct primenetPingServer *z;
 
 		z = (struct primenetPingServer *) pkt;
-		parse_string (s, "r", z->ping_response, sizeof (z->ping_response));
+		primenet_parse_string (s, "r", z->ping_response, sizeof (z->ping_response));
 		break;
 		}
 	}
@@ -1163,5 +1163,5 @@ int PRIMENET (short operation, void *pkt)
 
 /* Extract results from returned page into packet */
 
-	return (parse_page (pbuf, operation, pkt));
+	return (primenet_parse_page (pbuf, operation, pkt));
 }
