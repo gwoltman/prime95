@@ -298,6 +298,10 @@ void gwfree (
 void gwfreeall (
 	gwhandle *gwdata);	/* Handle initialized by gwsetup */
 
+/* Free internal memory that can be safely freed.  Call this prior to using a lot of gwnum memory. */
+/* There may be some internal gwnum memory that can be safely freed. */
+#define gwfree_internal_memory(h) (gwfree((h), (h)->GW_RANDOM), (h)->GW_RANDOM = NULL)
+
 /*---------------------------------------------------------------------+
 |                        GWNUM CONVERSION ROUTINES                     |
 +---------------------------------------------------------------------*/

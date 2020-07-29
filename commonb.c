@@ -11371,7 +11371,7 @@ begin:	N = exp = NULL;
 	if (ps.proof_power) {
 		int	max_emergency_memory;
 
-		max_emergency_memory = IniGetInt (INI_FILE, "MaxEmergencyMemory", 1024);
+		max_emergency_memory = IniGetInt (LOCALINI_FILE, "MaxEmergencyMemory", 1024);
 		ps.residue_size = divide_rounding_up ((int) ceil(gwdata.bit_length), 8);
 		ps.max_emergency_allocs = (int) ((double) max_emergency_memory * 1000000.0 / (double) ps.residue_size);
 		if (ps.max_emergency_allocs < 1) ps.max_emergency_allocs = 1;
@@ -12302,10 +12302,12 @@ pushg(&gwdata.gdata, 2);}
 		goto restart;
 	}
 
-// Free up some memory, jut in case proof generation needs it
+// Free up some memory, just in case proof generation needs it
 
 	gwfree (&gwdata, ps.u0);
 	gwfree (&gwdata, ps.d);
+	gwfree (&gwdata, ps.alt_x);
+	gwfree_internal_memory (&gwdata);
 
 /* Generate the PRP proof file */
 
@@ -12342,7 +12344,7 @@ pushg(&gwdata.gdata, 2);}
 			int	fd, fdout, i;
 			uint64_t h[20];
 			hash256_t rooth, *prevh, thish;
-			gwnum	B = ps.x, M = ps.alt_x;		// Alias already allocated gwnums to conform to Mihai's naming scheme
+			gwnum	M = ps.x;			// Reuse the one gwnum that we did not free
 			char	tmp_proof_filename[504];
 			char	proof_filename[500];
 
@@ -12404,19 +12406,17 @@ pushg(&gwdata.gdata, 2);}
 			}
 
 			// Output final residue
-			if (!readResidue (&ps, &gwdata, fd, (1 << ps.proof_power), B)) goto pfail3;
-			if (!writeResidue (&ps, &gwdata, fdout, ps.x)) goto pfail3;
-
-// Write the middle residue, M0, unadulterated
-
-			if (!readResidue (&ps, &gwdata, fd, (1 << ps.proof_power) / 2, M)) goto pfail3;
+			if (!readResidue (&ps, &gwdata, fd, (1 << ps.proof_power), M)) goto pfail3;
 			if (!writeResidue (&ps, &gwdata, fdout, M)) goto pfail3;
 
-// Init for computing remaining middles
-
-			roothash (&gwdata, B, &rooth);
+			// Init root hash for computing middles
+			roothash (&gwdata, M, &rooth);
 			sprintf (buf, "Root hash = %s\n", hash_to_string (rooth));
 			OutputStr (thread_num, buf);
+
+			// Write the middle residue, M0, unadulterated
+			if (!readResidue (&ps, &gwdata, fd, (1 << ps.proof_power) / 2, M)) goto pfail3;
+			if (!writeResidue (&ps, &gwdata, fdout, M)) goto pfail3;
 
 // Iteratively computes:
 //	h0 = hash(rootH, M0)
@@ -12455,7 +12455,7 @@ pushg(&gwdata.gdata, 2);}
 			OutputStr (thread_num, buf);
 			_close (fd);
 			_close (fdout);
-			if (!rename (tmp_proof_filename, proof_filename)) {
+			if (rename (tmp_proof_filename, proof_filename)) {
 				sprintf (buf, "Error renaming from %s to %s\n", tmp_proof_filename, proof_filename);
 				OutputBoth (thread_num, buf);
 			}
@@ -12492,10 +12492,9 @@ pfail1:
 		}
 	}
 
-/* Free up some memory */
+/* Free up remaining memory */
 
 	gwfree (&gwdata, ps.x);
-	gwfree (&gwdata, ps.alt_x);
 
 /* Print results */
 
