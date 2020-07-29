@@ -5879,9 +5879,7 @@ retry:
 /* See if we can request certification work.  Certification work must be done ASAP to reduce disk space used by PrimeNet server. */
 /* Thus, it is priority work.  Some options turn off priority work which precludes getting certification work. */
 /* We are only allowed one certification assignment at a time (part of our spread the load amongst many users philosophy). */
-/* We may also introduce rate limiting to reduce bandwidth consumed. */
 
-// BUG - rate limit this?? Naturally limited by 6 hour priority work timer? Do we need more control?
 	can_get_cert_work = TRUE;
 	if (WELL_BEHAVED_WORK || SEQUENTIAL_WORK == 1) can_get_cert_work = FALSE;
 	for (tnum = 0; tnum < NUM_WORKER_THREADS; tnum++) {
@@ -5891,6 +5889,43 @@ retry:
 			if (w == NULL) break;
 			if (w->work_type == WORK_CERT) can_get_cert_work = FALSE;
 		}
+	}
+
+/* Certification work is rate limited two ways.  By MB downloaded and by CPU time consumed */
+/* Update these rate limits and disable getting certification work if either limit has been reached. */
+
+	if (can_get_cert_work) {
+		float	max_daily_MB_limit, max_daily_CPU_limit;
+		float	daily_MB_limit_remaining, daily_CPU_limit_remaining;
+		time_t	current_time, last_update_time;
+		float	days_since_last_update;
+
+		max_daily_MB_limit = IniSectionGetFloat (INI_FILE, "PrimeNet", "DownloadDailyLimit", 40.0); // Daily download limit in MB
+		max_daily_CPU_limit = IniGetFloat (LOCALINI_FILE, "CertDailyCPULimit", 10.0); // Cert Daily cpu limit (1.0 = 1% of 2015 quadcore)
+
+		daily_MB_limit_remaining = IniGetFloat (LOCALINI_FILE, "CertDailyMBRemaining", max_daily_MB_limit);
+		daily_CPU_limit_remaining = IniGetFloat (LOCALINI_FILE, "CertDailyCPURemaining", max_daily_CPU_limit);
+
+		// Calc how many days have elapsed since unused quotas (daily_MB_limit_remaining, daily_CPU_limit_remaining) were updated
+		time (&current_time);
+		last_update_time = IniGetInt (LOCALINI_FILE, "CertDailyRemainingLastUpdate", 0);
+		days_since_last_update = (float) (current_time - last_update_time) / (float) 86400.0;
+		if (days_since_last_update < 0.0) days_since_last_update = 0.0;
+		IniWriteInt (LOCALINI_FILE, "CertDailyRemainingLastUpdate", (unsigned long) current_time);
+
+		// Increase remaining unused quotas based upon time elapsed since last update
+		daily_MB_limit_remaining += days_since_last_update * max_daily_MB_limit;
+		if (daily_MB_limit_remaining > max_daily_MB_limit) daily_MB_limit_remaining = max_daily_MB_limit;
+		daily_CPU_limit_remaining += days_since_last_update * max_daily_CPU_limit;
+		if (daily_CPU_limit_remaining > max_daily_MB_limit) daily_CPU_limit_remaining = max_daily_CPU_limit;
+
+		// Save the updated quotas
+		IniWriteFloat (LOCALINI_FILE, "CertDailyMBRemaining", daily_MB_limit_remaining);
+		IniWriteFloat (LOCALINI_FILE, "CertDailyCPURemaining", daily_CPU_limit_remaining);
+
+		// Disable getting cert work if either quota exceeded
+		if (daily_MB_limit_remaining <= 0.0 || daily_CPU_limit_remaining <= 0.0)
+			can_get_cert_work = FALSE;
 	}
 
 /* Loop over all worker threads to get enough work for each thread */
@@ -6064,11 +6099,11 @@ retry:
 		memset (&pkt1, 0, sizeof (pkt1));
 		strcpy (pkt1.computer_guid, COMPUTER_GUID);
 		pkt1.cpu_num = tnum;
-		pkt1.get_cert_work = 1;
+		pkt1.get_cert_work = IniGetFloat (LOCALINI_FILE, "CertDailyCPULimit", 10.0); // Helps server decide cert exponent size
 		LOCKED_WORK_UNIT = NULL;
 		rc = sendMessage (PRIMENET_GET_ASSIGNMENT, &pkt1);
 		// Ignore errors, we expect this work to only be available sometimes
-		if (rc == 0) {	
+		if (rc == 0) {
 			talked_to_server = TRUE;
 
 /* Format the work_unit structure based on the work_type */
@@ -6091,6 +6126,24 @@ retry:
 
 			stop_reason = addWorkToDoLine (tnum, &w);
 			if (stop_reason) goto error_exit;
+
+/* Update the daily cert quotas */
+
+			float	daily_MB_limit_remaining, daily_CPU_limit_remaining, daily_CPU_quota_used;
+			daily_MB_limit_remaining = IniGetFloat (LOCALINI_FILE, "CertDailyMBRemaining", 40.0);
+			daily_CPU_limit_remaining = IniGetFloat (LOCALINI_FILE, "CertDailyCPURemaining", 10.0);
+
+			// Decrease remaining unused quotas based expected work required for this cert
+			// A daily CPU limit of 1.0 is equals 1% of the work a 2015 quad-core CPU can do in a day.
+			// My dream machine CPUs from then can do 111,000 squarings of 97.3M in 1/100th of a day.
+			daily_MB_limit_remaining -= (float) w.n / (float) 8388608.0;	// Expected MB to download
+			daily_CPU_quota_used = (float) w.cert_squarings / (float) 110000.0;	// Adjust for num_squarings 
+			daily_CPU_quota_used *= (float) pow (2.1, _log2 ((float) w.n / (float) 97300000.0));	// Adjust (roughly) for FFT timing difference
+			daily_CPU_limit_remaining -= daily_CPU_quota_used;
+
+			// Save the updated quotas
+			IniWriteFloat (LOCALINI_FILE, "CertDailyMBRemaining", daily_MB_limit_remaining);
+			IniWriteFloat (LOCALINI_FILE, "CertDailyCPURemaining", daily_CPU_limit_remaining);
 		}
 	    }
 

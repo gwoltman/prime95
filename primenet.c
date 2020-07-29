@@ -562,7 +562,7 @@ int format_args (char* args, short operation, void* pkt)
 		p = armor (p + strlen (p), z->computer_guid);
 		sprintf (p, "&c=%d", z->cpu_num);
 		p += strlen (p);
-		if (z->get_cert_work) strcpy (p, "&cert=1"), p += strlen (p);
+		if (z->get_cert_work != 0.0) sprintf (p, "&cert=%f", z->get_cert_work), p += strlen (p);
 		break;
 		}
 	case PRIMENET_ASSIGNMENT_PROGRESS:

@@ -151,9 +151,10 @@ struct primenetProgramOptions {
 struct primenetGetAssignment {
 	int32_t	versionNumber;
 	char	computer_guid[33];
-	char	get_cert_work;		/* TRUE if we are trying to get some certification work */
-	char	pad[2];
+	char	pad[3];
 	uint32_t cpu_num;		/* CPU number */
+	float	get_cert_work;		/* If we are trying to get some certification work, this is set to CertDailyCPULimit */
+					/* so server can steer bigger cert jobs to clients willing to do them. */
 
 	/* Returned by the server */
 

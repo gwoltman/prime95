@@ -506,7 +506,7 @@ time_t timed_event_fire_time (
 	int	event_number);		/* Which event to get fire time of */
 
 #define TE_WORK_QUEUE_CHECK_FREQ 6*60*60 /* Check work queue every 6 hrs. */
-#define TE_PRIORITY_WORK_FREQ	 6*60*60 /* Check priority work every 6 hrs. */
+#define TE_PRIORITY_WORK_FREQ	 1*60*60 /* Check priority work every hour. */
 #define TE_BATTERY_CHECK_FREQ	 15	/* Check battery every 15 sec. */
 #define TE_THROTTLE_FREQ	 5	/* Throttle every 5 sec. */
 #define TE_ROLLING_AVERAGE_FREQ	 12*60*60 /* Adjust rolling every 12 hr. */
