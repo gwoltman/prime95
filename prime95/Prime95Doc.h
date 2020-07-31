@@ -49,6 +49,7 @@ protected:
 	afx_msg void OnUpdateErrchk(CCmdUI* pCmdUI);
 	afx_msg void OnErrchk();
 	afx_msg void OnCpu();
+	afx_msg void OnResources();
 	afx_msg void OnPreferences();
 	afx_msg void OnUpdateTest(CCmdUI* pCmdUI);
 	afx_msg void OnTest();

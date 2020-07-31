@@ -286,6 +286,7 @@
     <ClCompile Include="Prime95Doc.cpp" />
     <ClCompile Include="Prime95View.cpp" />
     <ClCompile Include="PrimenetDlg.cpp" />
+    <ClCompile Include="ResourcesDlg.cpp" />
     <ClCompile Include="StartDlg.cpp" />
     <ClCompile Include="StdAfx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -456,6 +457,7 @@ makehm /h /a afxhh.h IDW_,HIDW_,0x50000 "%(Filename)%(Extension)" &gt;&gt; "hlp\
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">hlp\HTMLDefines.h;%(Outputs)</Outputs>
     </CustomBuild>
+    <ClInclude Include="ResourcesDlg.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="TortureDlg.h" />
     <ClInclude Include="UserDlg.h" />

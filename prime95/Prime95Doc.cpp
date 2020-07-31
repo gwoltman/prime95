@@ -19,6 +19,7 @@
 #include "Pminus1Dlg.h"
 #include "PreferencesDlg.h"
 #include "PrimeNetDlg.h"
+#include "ResourcesDlg.h"
 #include "StartDlg.h"
 #include "StopDlg.h"
 #include "TestDlg.h"
@@ -54,6 +55,7 @@ BEGIN_MESSAGE_MAP(CPrime95Doc, CDocument)
 	ON_UPDATE_COMMAND_UI(IDM_ERRCHK, OnUpdateErrchk)
 	ON_COMMAND(IDM_ERRCHK, OnErrchk)
 	ON_COMMAND(IDM_CPU, OnCpu)
+	ON_COMMAND(IDM_RESOURCES, OnResources)
 	ON_COMMAND(IDM_PREFERENCES, OnPreferences)
 	ON_UPDATE_COMMAND_UI(IDM_TEST, OnUpdateTest)
 	ON_COMMAND(IDM_TEST, OnTest)
@@ -324,9 +326,6 @@ void CPrime95Doc::OnWorkerThreads()
 	int	i;
 
 	dlg.m_num_thread = NUM_WORKER_THREADS;
-	dlg.m_priority = PRIORITY;
-	dlg.m_hyper_tf = HYPERTHREAD_TF;
-	dlg.m_hyper_ll = HYPERTHREAD_LL;
 	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
 		dlg.m_work_pref[i] = WORK_PREFERENCE[i];
 		dlg.m_numcpus[i] = CORES_PER_TEST[i];
@@ -356,17 +355,6 @@ again:	if (dlg.DoModal () == IDOK) {
 			restart = TRUE;
 		}
 
-/* If user changed the priority of worker threads, then change */
-/* the INI file.  Restart worker threads so that they are running at */
-/* the new priority. */
-
-		if (PRIORITY != dlg.m_priority) {
-			PRIORITY = dlg.m_priority;
-			IniWriteInt (INI_FILE, "Priority", PRIORITY);
-			new_options = TRUE;
-			restart = TRUE;
-		}
-
 /* If the user changed any of the work preferences record it in the INI file */
 /* and tell the server */
 
@@ -389,19 +377,6 @@ again:	if (dlg.DoModal () == IDOK) {
 			PTOSetAll (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, dlg.m_numcpus[0]);
 		else for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
 			PTOSetOne (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, dlg.m_numcpus[i]);
-
-/* If user changed the hyperthreading options, then save the options to the INI file */
-
-		if (dlg.m_hyper_tf != HYPERTHREAD_TF) {
-			HYPERTHREAD_TF = dlg.m_hyper_tf;
-			IniWriteInt (LOCALINI_FILE, "HyperthreadTF", HYPERTHREAD_TF);
-			restart = TRUE;
-		}
-		if (dlg.m_hyper_ll != HYPERTHREAD_LL) {
-			HYPERTHREAD_LL = dlg.m_hyper_ll;
-			IniWriteInt (LOCALINI_FILE, "HyperthreadLL", HYPERTHREAD_LL);
-			restart = TRUE;
-		}
 
 /* Send new settings to the server */
 
@@ -651,27 +626,12 @@ void CPrime95Doc::OnCpu()
 {
 	CCpuDlg dlg;
 	char	buf[512];
-	unsigned int day_memory, night_memory, day_start_time, day_end_time;
 
-	dlg.m_disk = CPU_WORKER_DISK_SPACE;
 	dlg.m_hours = CPU_HOURS;
-	dlg.m_memory_editable = read_memory_settings (&day_memory, &night_memory, &day_start_time, &day_end_time);
-	dlg.m_day_memory = day_memory;
-	dlg.m_night_memory = night_memory;
-	minutesToStr (day_start_time, buf);
-	dlg.m_start_time = buf;
-	minutesToStr (day_end_time, buf);
-	dlg.m_end_time = buf;
 	getCpuDescription (buf, 0);
 	dlg.m_cpu_info = buf;
 //again:
 	if (dlg.DoModal () == IDOK) {
-		unsigned int new_day_start_time, new_day_end_time;
-
-		if (CPU_WORKER_DISK_SPACE != dlg.m_disk) {
-			CPU_WORKER_DISK_SPACE = dlg.m_disk;
-			IniWriteInt (LOCALINI_FILE, "WorkerDiskSpace", CPU_WORKER_DISK_SPACE);
-		}
 
 		if (CPU_HOURS != dlg.m_hours) {
 			CPU_HOURS = dlg.m_hours;
@@ -684,19 +644,6 @@ void CPrime95Doc::OnCpu()
 			UpdateEndDates ();
 		}
 
-/* Save the new information */
-
-		new_day_start_time = strToMinutes ((char *)(LPCTSTR) dlg.m_start_time);
-		new_day_end_time = strToMinutes ((char *)(LPCTSTR) dlg.m_end_time);
-		if (day_memory != dlg.m_day_memory ||
-		    night_memory != dlg.m_night_memory ||
-		    day_start_time != new_day_start_time ||
-		    day_end_time != new_day_end_time) {
-			write_memory_settings (dlg.m_day_memory, dlg.m_night_memory, new_day_start_time, new_day_end_time);
-			mem_settings_have_changed ();
-		}
-		spoolMessage (PRIMENET_PROGRAM_OPTIONS, NULL);
-
 // Now that Primenet almost always hands out LL assignments that are P-1'ed,
 // there is little reason to prompt user into allowing us to use more memory.
 //		if (!IniGetInt (INI_FILE, "AskedAboutMemory", 0)) {
@@ -707,6 +654,33 @@ void CPrime95Doc::OnCpu()
 //		}
 	} else
 		STARTUP_IN_PROGRESS = 0;
+}
+
+void CPrime95Doc::OnResources() 
+{
+	CResourcesDlg dlg;
+	char	timebuf[20];
+
+	dlg.m_disk = CPU_WORKER_DISK_SPACE;
+	dlg.m_upload_bandwidth = IniSectionGetFloat (INI_FILE, "PrimeNet", "UploadRateLimit", 0.25);
+	if (dlg.m_upload_bandwidth <= 0.0 || dlg.m_upload_bandwidth > 10000.0) dlg.m_upload_bandwidth = 10000.0;
+	IniSectionGetString (INI_FILE, "PrimeNet", "UploadStartTime", timebuf, sizeof (timebuf), "00:00");
+	minutesToStr (strToMinutes (timebuf), timebuf);
+	dlg.m_upload_start = timebuf;
+	IniSectionGetString (INI_FILE, "PrimeNet", "UploadEndTime", timebuf, sizeof (timebuf), "24:00");
+	minutesToStr (strToMinutes (timebuf), timebuf);
+	dlg.m_upload_end = timebuf;
+	dlg.m_download_mb = IniSectionGetInt (INI_FILE, "PrimeNet", "DownloadDailyLimit", 40);
+	if (dlg.DoModal () == IDOK) {
+		CPU_WORKER_DISK_SPACE = dlg.m_disk;
+		IniWriteInt (LOCALINI_FILE, "WorkerDiskSpace", CPU_WORKER_DISK_SPACE);
+		IniSectionWriteFloat (INI_FILE, "PrimeNet", "UploadRateLimit", dlg.m_upload_bandwidth);
+		strcpy (timebuf, (const char *) dlg.m_upload_start);
+		IniSectionWriteString (INI_FILE, "PrimeNet", "UploadStartTime", timebuf);
+		strcpy (timebuf, (const char *) dlg.m_upload_end);
+		IniSectionWriteString (INI_FILE, "PrimeNet", "UploadEndTime", timebuf);
+		IniSectionWriteInt (INI_FILE, "PrimeNet", "DownloadDailyLimit", dlg.m_download_mb);
+	}
 }
 
 void CPrime95Doc::OnPreferences() 

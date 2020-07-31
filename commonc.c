@@ -5900,8 +5900,8 @@ retry:
 		time_t	current_time, last_update_time;
 		float	days_since_last_update;
 
-		max_daily_MB_limit = IniSectionGetFloat (INI_FILE, "PrimeNet", "DownloadDailyLimit", 40.0); // Daily download limit in MB
-		max_daily_CPU_limit = IniGetFloat (LOCALINI_FILE, "CertDailyCPULimit", 10.0); // Cert Daily cpu limit (1.0 = 1% of 2015 quadcore)
+		max_daily_MB_limit = (float) IniSectionGetInt (INI_FILE, "PrimeNet", "DownloadDailyLimit", 40); // Daily download limit in MB
+		max_daily_CPU_limit = (float) IniGetInt (LOCALINI_FILE, "CertDailyCPULimit", 10); // Cert Daily cpu limit (1.0 = 1% of 2015 quadcore)
 
 		daily_MB_limit_remaining = IniGetFloat (LOCALINI_FILE, "CertDailyMBRemaining", max_daily_MB_limit);
 		daily_CPU_limit_remaining = IniGetFloat (LOCALINI_FILE, "CertDailyCPURemaining", max_daily_CPU_limit);

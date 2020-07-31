@@ -7,6 +7,8 @@ New features in Version 30.1/30.2 of prime95.exe
    PRP proof verifications require downloading a modest verification file.  See readme.txt for details.
 2) Proofs automatically uploaded to server in 30.2.
 3) First time LL, World-record LL, 100M-digit LL work preference is deprecated.
+4) New resource limits menu choice and dialog box.  Consult readme.txt before making changes to these settings.
+   Some options previously in Test/Worker Windows and Options/CPU are moved to the resources dialog box.
 
 New features in Version 29.8 of prime95.exe
 -------------------------------------------

@@ -33,7 +33,6 @@ CWorkerDlg::CWorkerDlg(CWnd* pParent /*=NULL*/)
 {
 	//{{AFX_DATA_INIT(CWorkerDlg)
 	m_num_thread = 1;
-	m_priority = 1;
 	thread_num = 0;
 	//}}AFX_DATA_INIT
 }
@@ -47,8 +46,6 @@ void CWorkerDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_THREAD, c_num_thread);
 	DDX_Text(pDX, IDC_THREAD, m_num_thread);
 	DDV_MinMaxUInt(pDX, m_num_thread, 1, max_num_workers ());
-	DDX_Text(pDX, IDC_PRIORITY, m_priority);
-	DDV_MinMaxUInt(pDX, m_priority, 1, 10);
 	DDX_Control(pDX, IDC_WORKGROUP, c_workgroup);
 
 	DDX_Control(pDX, IDC_THREADNUM_TEXT, c_threadnum_text);
@@ -60,15 +57,6 @@ void CWorkerDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_NUMCPUS_TEXT, c_numcpus_text);
 	DDX_Control(pDX, IDC_NUMCPUS, c_numcpus);
 
-	DDX_Check(pDX, IDC_HYPER_TF, m_hyper_tf);
-	DDX_Control(pDX, IDC_HYPER_TF, c_hyper_tf);
-	DDX_Check(pDX, IDC_HYPER_LL, m_hyper_ll);
-	DDX_Control(pDX, IDC_HYPER_LL, c_hyper_ll);
-
-	DDX_Control(pDX, IDC_WARN1, c_warn1_text);
-	DDX_Control(pDX, IDC_WARN2, c_warn2_text);
-	DDX_Control(pDX, IDC_WARN3, c_warn3_text);
-
 	//}}AFX_DATA_MAP
 	c_num_thread_text.EnableWindow (max_num_workers () > 1);
 	c_num_thread.EnableWindow (max_num_workers () > 1);
@@ -79,16 +67,12 @@ void CWorkerDlg::DoDataExchange(CDataExchange* pDX)
 	c_work_pref.EnableWindow (USE_PRIMENET);
 	c_numcpus_text.EnableWindow (m_num_thread < NUM_CPUS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
 	c_numcpus.EnableWindow (m_num_thread < NUM_CPUS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
-	c_hyper_tf.EnableWindow (CPU_HYPERTHREADS > 1);
-	c_hyper_ll.EnableWindow (CPU_HYPERTHREADS > 1);
 }
 
 
 BEGIN_MESSAGE_MAP(CWorkerDlg, CDialog)
 	//{{AFX_MSG_MAP(CWorkerDlg)
 	ON_EN_KILLFOCUS(IDC_THREAD, &CWorkerDlg::OnEnKillfocusNumThread)
-	ON_EN_SETFOCUS(IDC_PRIORITY, &CWorkerDlg::OnEnSetfocusPriority)
-	ON_EN_KILLFOCUS(IDC_PRIORITY, &CWorkerDlg::OnEnKillfocusPriority)
 	ON_CBN_SELCHANGE(IDC_COMBO1, &CWorkerDlg::OnCbnKillfocusThreadNum)
 	ON_CBN_KILLFOCUS(IDC_COMBO1, &CWorkerDlg::OnCbnKillfocusThreadNum)
 	ON_CBN_KILLFOCUS(IDC_COMBO2, &CWorkerDlg::OnCbnKillfocusWorkType)
@@ -257,10 +241,6 @@ BOOL CWorkerDlg::OnInitDialog()
 {
 	CDialog::OnInitDialog();
 
-	c_warn1_text.EnableWindow (FALSE);
-	c_warn2_text.EnableWindow (FALSE);
-	c_warn3_text.EnableWindow (FALSE);
-
 	InitComboBoxText ();
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
@@ -284,20 +264,6 @@ void CWorkerDlg::OnEnKillfocusNumThread()
 				// Might change thread_num if we reduced
 				// number of worker threads
 	}
-}
-
-void CWorkerDlg::OnEnSetfocusPriority()
-{
-	c_warn1_text.EnableWindow (TRUE);
-	c_warn2_text.EnableWindow (TRUE);
-	c_warn3_text.EnableWindow (TRUE);
-}
-
-void CWorkerDlg::OnEnKillfocusPriority()
-{
-	c_warn1_text.EnableWindow (FALSE);
-	c_warn2_text.EnableWindow (FALSE);
-	c_warn3_text.EnableWindow (FALSE);
 }
 
 void CWorkerDlg::OnCbnKillfocusThreadNum()

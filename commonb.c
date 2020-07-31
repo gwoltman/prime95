@@ -846,7 +846,7 @@ void restart_one_waiting_worker (
 void stop_workers_for_escape (void)
 {
 	if (WORKER_THREADS_ACTIVE) {
-		OutputStr (MAIN_THREAD_NUM, "Stopping all worker threads.\n");
+		OutputStr (MAIN_THREAD_NUM, "Stopping all worker windows.\n");
 		WORKER_THREADS_STOPPING = TRUE;
 		restart_waiting_workers (RESTART_ALL);
 		raiseAllWorkerThreadPriority ();
@@ -863,7 +863,7 @@ void stop_workers_for_restart (void)
 	if (WORKER_THREADS_ACTIVE &&
 	    LAUNCH_TYPE == LD_CONTINUE &&
 	    ! STOP_FOR_RESTART) {
-		OutputStr (MAIN_THREAD_NUM, "Restarting all worker threads.\n");
+		OutputStr (MAIN_THREAD_NUM, "Restarting all worker windows.\n");
 		STOP_FOR_RESTART = TRUE;
 		restart_waiting_workers (RESTART_ALL);
 		if (NUM_WORKER_THREADS > WORKER_THREADS_ACTIVE)
@@ -877,7 +877,7 @@ void stop_workers_for_restart (void)
 void stop_workers_for_add_files (void)
 {
 	if (WORKER_THREADS_ACTIVE && ! STOP_FOR_RESTART) {
-		OutputStr (MAIN_THREAD_NUM, "Restarting all worker threads to process .add file.\n");
+		OutputStr (MAIN_THREAD_NUM, "Restarting all worker windows to process .add file.\n");
 		STOP_FOR_RESTART = TRUE;
 		restart_waiting_workers (RESTART_ALL);
 	}
@@ -890,7 +890,7 @@ void stop_workers_for_add_files (void)
 void stop_workers_for_reread_ini (void)
 {
 	if (WORKER_THREADS_ACTIVE && ! STOP_FOR_REREAD_INI) {
-		OutputStr (MAIN_THREAD_NUM, "Restarting all worker threads with new timed INI settings.\n");
+		OutputStr (MAIN_THREAD_NUM, "Restarting all worker windows with new timed INI settings.\n");
 		STOP_FOR_REREAD_INI = TRUE;
 		restart_waiting_workers (RESTART_ALL);
 	}
@@ -3023,7 +3023,7 @@ again:	clearThreadHandleArray ();
 /* NUM_WORKER_THREADS. */
 
 	if (stop_reason == STOP_RESTART) {
-		OutputStr (MAIN_THREAD_NUM, "Restarting all worker threads using new settings.\n");
+		OutputStr (MAIN_THREAD_NUM, "Restarting all worker windows using new settings.\n");
 		goto again;
 	}
 
@@ -3032,7 +3032,7 @@ again:	clearThreadHandleArray ();
 /* is a change to NUM_WORKER_THREADS. */
 
 	if (stop_reason == STOP_REREAD_INI) {
-		OutputStr (MAIN_THREAD_NUM, "Restarting all worker threads using new timed prime.txt settings.\n");
+		OutputStr (MAIN_THREAD_NUM, "Restarting all worker windows using new timed prime.txt settings.\n");
 		goto again;
 	}
 
@@ -11380,7 +11380,7 @@ begin:	N = exp = NULL;
 
 // Create and optionally prefill the proof interim residues file
 
-		IniGetString (LOCALINI_FILE, "ResidueFileDir", ps.residues_filename, sizeof (ps.residues_filename), NULL);
+		IniGetString (LOCALINI_FILE, "ProofResiduesDir", ps.residues_filename, sizeof (ps.residues_filename), NULL);
 		DirPlusFilename (ps.residues_filename, filename);
 		strcat (ps.residues_filename, ".residues");
 		if (ps.counter == 0)
