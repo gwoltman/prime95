@@ -34,6 +34,7 @@ results.bench.txt Prime95.exe writes benchmark results to this file.
 gwnum.txt	A file containing benchmark data.  Used to tune FFTs for your particular machine. 
 prime.log	A text file listing all messages that have been sent to the PrimeNet server.
 prime.spl	A binary file of messages that have not yet been sent to the PrimeNet server.
+cNNNNNNN,cNNNNNNN.buN	Intermediate files produced during certification runs.
 pNNNNNNN,pNNNNNNN.buN	Intermediate files produced by prime95.exe to resume computation where it left off.
 pNNNNNNN.residues	Large intermediate file produced during PRP test for constructing a PRP proof.
 pNNNNNNN.proof		PRP proof file.
@@ -55,6 +56,22 @@ The preferred primality test is PRP because it allows vastly superior error chec
 as well as the ability to generate a separate proof file that proves the test was
 run and the results were correct.
 
+WHERE TO GET HELP
+-----------------
+
+The best help is available by asking a question at mersenneforum.org.  It can be
+a little overwhelming at first.  Especially with acronyms commonly used as a
+shorthand (there even used in this file).  So here is a quick list of some of
+the more common acronyms.
+	PRP - PRobable Prime test (this is how we find new Mersenne primes)
+	LL - Lucas-Lehmer test (this is how we used to find new primes)
+	DC - Double-Checking (LL tests must be double-checked with a second LL test)
+	TF - Trial Factoring (can eliminate some candidates cheaply)
+	P-1 - P-1 factoring (also eliminates candidates cheaply)
+	ECM - Elliptic Curve Method factoring (used in an effort to fully factor tiny Mersennes)
+	CERT - CERTification (certifies PRP proofs, better and cheaper than a DC) 
+	GEC - Gerbicz Error Checking (powerful error cheking and recovery for PRP tests)
+	GPU72 - subproject to TF candidates on GPUs (GPUs TF much better than CPUs)
 
 INSTRUCTIONS
 ------------
@@ -91,14 +108,8 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
     progress.
 3c) In the third dialog box, fill in roughly how many hours a day you leave
     your computer running.  Click OK (just close the dialog box on a Mac).
-3d) In the fourth dialog box, leave the "Use Primenet..." checkbox
-    checked.  Do not turn this checkbox off even if you disconnect
-    from the Internet.   Check the "Use a dial-up..." checkbox
-    if you use a modem to connect to the Internet.  Note that prime95
-    will not dial-up to connect to the Internet, rather it waits
-    for a time when you are already connected to contact the server.
-    Click OK.  Prime95 will now contact the PrimeNet server to get some
-    work for your computer to do.
+3d) In the fourth dialog box, choose the number of workers you want to
+    run.  Choose the type of work you want each worker to perform.
 4a) If a proxy server is the causing connection troubles, see the
     later section on "SETTING UP A PROXY SERVER".
 4b) If the program will not connect to the server, then
@@ -113,11 +124,9 @@ MANUAL METHOD INSTRUCTIONS
 1)  Visit http://mersenne.org/update/ to create a userid for yourself and
     http://mersenne.org/manual_assignment/ to get an exponent or two to
     work on.  Copy these exponents to a file called worktodo.txt.
-2)  Run prime95.exe.  You will see 3 dialog boxes:
+2)  Run prime95.exe.  You will see 2 dialog boxes:
 2a) In the welcome dialog box, choose "Join GIMPS!".
-2b) In the second dialog box, fill in roughly how many hours a day you leave
-    your computer running.  Click OK.
-2c) In the third dialog box, uncheck "Use PrimeNet to get work and report
+2b) In the second dialog box, uncheck "Use PrimeNet to get work and report
     results", click OK.
 3)  Disable screen savers or use the "blank screen" screen saver.  If this
     is not practical, consider raising prime95's priority to 4 or 5.
@@ -125,8 +134,8 @@ MANUAL METHOD INSTRUCTIONS
     file "results.txt" to the PrimeNet server and get more work.
 
 
-NOTES
------
+WARNINGS and NOTES
+------------------
 
 Running prime95 may SIGNIFICANTLY INCREASE YOUR ELECTRIC BILL.  The amount
 depends on your computer and your local electric rates.
@@ -137,34 +146,30 @@ to disk.  This program also saves intermediate results to disk every 30 minutes
 in case there is a power failure.
 
 You can compare your computer's speed with other users by checking the
-web page http://mersenne.org/report_benchmarks/.  If you are much slower
+web page https://mersenne.org/report_benchmarks/.  If you are much slower
 than comparable machines, utilities such as Task Manager are available
 that can find programs that are using CPU cycles.
 
 You can get several reports of your PrimeNet activity at any time
-by logging in at http://mersenne.org/.
+by logging in at https://mersenne.org/.
 
 If you have overclocked your machine, I recommend running the torture
-test for a day.  The longer you run the torture test the greater the
+test for a few hours.  The longer you run the torture test the greater the
 chance that you will uncover possible problems caused by overheating
 or overstressed memory.
 
 Depending on the exponent being tested, the program may decide that it
-would be wise to invest some time checking for small factors before
-running a Lucas-Lehmer test.
+would be wise to invest some time checking for small factors using trial
+factoring or P-1 factoring before running a primality test.
 
 
-SETTING UP A PROXY SERVER
--------------------------
+CONTROLLING RESOURCE USAGE
+--------------------------
 
-Choose the "Connection..." button in the Test/Primenet dialog box.  Fill in
-the proxy information.
+The Options/Resource Limits dialog box contains important settings to control
+the program's resource usage.
 
-
-CONTROLLING DISK SPACE USAGE
-----------------------------
-
-PRP primality testing generates a proof file that eliminates the need to double-check test results.
+The PRP primality test generates a proof file that eliminates the need to double-check your results.
 Generating these proofs requires lots of temporary disk space.  Proof files must be uploaded to the
 server which could be an issue for some users with limited bandwidth.
 
@@ -178,58 +183,143 @@ Power         Exponent=100,000,000         Exponent=200,000,000            Expon
 9               6.4GB / 125MB                  12.8GB / 250MB                 21.2GB / 415MB
 10             12.8GB / 138MB                  25.6GB / 275MB                 42.4GB / 457MB
 
-Prime95 has settings to limit the disk space used by each worker.
+After the proof is uploaded to the server it is pre-processed creating a smaller file that
+must be downloaded by users doing proof certification work.  Proof certification work is
+very fast (250 or 500 times faster than the original PRP test).  By default, your computer
+is signed up for occasional proof certification work. 
+
+Temporary disk usage
+--------------------
+
+This setting limits the amount of temporary disk space used BY EACH WORKER doing PRP work.
+See the table above for how that affects proof power.  A proof power of 8 or more is desirable,
+but a proof power of 7 is acceptable.
+
+Upload bandwidth limit
+----------------------
+
+For most home users, download speed is faster than upload speed.  If upload speed is not limited,
+it can seriously impact download speeds.  I recommend not using more than 10% of your upload bandwidth.
+The default setting is 0.25Mbps.  This uploads a 100MB proof file in about an hour.  If the upload
+is interrupted, it will automatically resume from where it left off at a later time.
+
+Upload time period
+------------------
+
+You can further reduce impact on network performance by scheduling uploads for off hours when
+network traffic is light.
 
 
-SETTING P-1/ECM STAGE 2 MEMORY
-------------------------------
+Download limit for certification work
+-------------------------------------
 
-Stage 2 of P-1 factoring step prior to running a Lucas-Lehmer test is
-slightly more effective if it is given more memory to work with.  However,
-if you let the program use too much memory then the performance of ALL programs
-will suffer.  The good news is that 98% of the time the program uses a minimal
-amount of memory.  In fact, the program will work just fine if you never
-let it use more than the minimum.
+This controls the number of MB that can be downloaded in a day for certification work.  It is highly
+unlikely there will be enough certification work available to satisfy the default setting of 40MB / day.
+If you are on a metered connection or do not wish to devote any CPU time to certification work
+then you can set this to zero and you will not be assigned certification work.
 
-So how do you intelligently choose the memory settings?  Below
-are some steps you might take to figure this out:
+ 
+ADVANCED RESOURCE USAGE
+-----------------------
 
-1)  Be conservative.  It is better to set the memory too low
-than too high.  Setting the value too high can cause thrashing which
-slows down all programs.  Remember, the program will only use the
-extra memory in stage 2 of P-1 factoring (about 12 hours a month).
+These resource settings shouldn't be changed for most users.
 
-2)  Start with how much memory is installed in your machine.  Allow a
-reasonable amount of memory for the OS and whatever background tasks
-you run (say 100 or 200MB).  This represents the maximum value you should use.
-The program won't let you enter more than 90% of installed memory.
+Directory for large temporary files
+-----------------------------------
 
-3)  Assuming you run your machine 24 hours a day, what hours of the
-day do you not use your computer?  Make these your nighttime hours and
-let the program use a lot of memory during these hours.  But reduce this
-value if you also run batch jobs at night.
+The large temporary files needed for PRP proofs are stored in the same directory as the program.
+If another disk drive or a network disk has considerably more free space, you can use this
+setting to name a different directory to store the large temporary proof files.
 
-4)  Factor in the information below about minimum, reasonable, and
-desirable memory amounts for some sample exponents.  If you choose a
-value below the minimum, that is OK.  The program will simply skip
+Directory to hold archived proofs
+---------------------------------
+
+The server deletes the uploaded proof files once the result has been certified.  If you would
+like to archive your proof files for posterity, name the directory to store the proofs.  After
+uploading to the server, the proof files will be moved to this directory.
+
+Daytime and nighttime P-1/ECM stage 2 memory
+--------------------------------------------
+
+On occasion, you may be assigned an exponent that needs P-1 factoring prior to running a
+primality test.  Or you might have chosen to do P-1 or ECM work (possibly because you do
+not want to devote disk space for large PRP files).  In these situations, the program can
+do stage 2 slightly more effectively if it is given more memory to work with.  However,
+if you let the program use too much memory then the performance of ALL programs will suffer
+due to thrashing.  
+
+That is, most of the time this setting is not used and even with minimal settings the program
+will work just fine.  Should you decide to change these settings, how do you choose intelligently?
+Below are some steps you might take to figure this out:
+
+1)  Be conservative.  It is better to set the memory too low than too high.  Setting the value
+too high can cause thrashing which slows down all programs.
+
+2)  Start with how much memory is installed in your machine.  Allow a reasonable amount of memory
+for the OS and whatever background tasks you run (say 0.5 to 2.0GB).  This represents the maximum
+value you should use.  The program won't let you enter more than 90% of installed memory.
+
+3)  Assuming you run your machine 24 hours a day, what hours of the day do you not use your computer?
+Make these your nighttime hours and let the program use a lot of memory during these hours.  But
+reduce this value if you also run batch jobs at night.
+
+4)  Factor in the information below about minimum, reasonable, and desirable memory amounts for some
+sample exponents.  If you choose a value below the minimum, that is OK.  The program will simply skip
 stage 2 of P-1 factoring.
 
 	Exponent	Minimum		Reasonable	Desirable
 	--------	-------		----------	---------
-	100000000	 200MB		  650MB		 1100MB
-	333000000	 620MB		  2060MB	 3500MB
+	100000000	 0.2GB		  0.7GB		 1.1GB
+	333000000	 0.7GB		  2.1GB		 3.5GB
 
-For example, my machine is a dual-processor with 8GB of memory.
-I guess Windows and the programs I normally use can survive on 2GB of
-memory.  Thus, I set memory to (8192 - 2048) or 6000MB.  This is my
-nighttime setting.  During the day, I run more programs, so I set memory
-to 2000MB.  I can always stop prime95 if it is doing stage 2 P-1 factoring
-and I suspect memory is thrashing.  More casual users will probably want
-to set the daytime memory to 8MB so they don't have to worry about prime95
-impacting system performance.
+For example, my machine is a dual-processor with 8GB of memory.  I guess Windows and the programs I
+normally use can survive on 2GB of memory.  Thus, I set memory to 6.0GB.  This is my nighttime setting.
+During the day, I run more programs, so I set memory to 1.5GB.  I can always stop prime95 if it is
+doing stage 2 P-1 factoring and I suspect memory is thrashing.  More casual users might want to set the
+daytime memory to 0.5GB so they never have to worry about prime95 impacting system performance.
 
-If at all in doubt, change the setting to 8MB.  The worst that will  happen is you
-end up running a primality test when stage 2 of P-1 factoring would have found a factor.
+Max emergency memory
+--------------------
+
+If the program cannot write to the large temporary file, it will use emergency memory to store data
+in hopes that it can later successfully write to the temporary file.  For me, this gives me about a day
+to correct a network drive that has gone offline.  If you use a local disk to store you large temporary
+proof files, then emergency memory might be used if the local disk were full.
+
+CPU Priority
+------------
+
+It is strongly recommended that you use the default priority of 1.  This program is unlikely to run any
+faster at a higher priority.  Priority 1 is the lowest priority and 10 is the highest.  Screen savers
+run at priority 4.  Most applications run at priority 7 or 9.  The only time you should raise the
+priority is when another background process, such as a screen saver, is not leaving many spare CPU
+cycles for this program.
+
+Certification work limit
+------------------------
+
+This setting limits the maximum amount of CPU time that will be spent doing certification work.  It is
+highly unlikely there will be enough certification work available to satisfy the default setting of 10%.
+If every user does their share of certification work, then there will only be enough work for less
+than 0.5% of your CPU time.
+
+NOTE: Technically, the default limit is not 10% of your CPU, but rather 10% of the work a typical 2015
+quad-core CPU can perform in a day.
+
+Use hyperthreading
+------------------
+
+Except for trial factoring, which is best left for GPUs to do, hyperthreading often offers no performance
+benefit while using more electricity.  You can try test if hyperthreading speeds up your worker windows by
+selecting these options.
+
+
+
+SETTING UP A PROXY SERVER
+-------------------------
+
+Choose the "Connection..." button in the Test/Primenet dialog box.  Fill in
+the proxy information.
 
 
 PROGRAM OUTPUT
@@ -275,17 +365,18 @@ M11213 is prime! WV1: 579A579A
 RUNNING PRIME95 ON SEVERAL COMPUTERS
 ------------------------------------
 
-The easiest way to do this is to first set up prime95 on one computer.
+The obvious way is to download and install on each computer following the
+instructions above.  Use Test/Primenet to give each computer the same
+user id and different computer name.
+
+Another way to do this is to first set up prime95 on one computer.
 Next copy all the files to the second computer.  Delete the local.txt
 file and worktodo.txt files.  These files contain information that
 is specific to the first computer.  Start prime95 on the second
 computer and use Test/Primenet to give the second computer a unique
-computer name.  Repeat this process for all the computers you wish to
+computer name.  Check the resource limits dialog box for any further
+needed changes.  Repeat this process for all the computers you wish to
 run prime95 on.
-
-If you do not follow the instruction above, be sure you use 
-Test/Primenet to give each computer the same
-user id and different computer name.
 
 
 TEST MENU
@@ -295,16 +386,12 @@ The PrimeNet menu choice identifies your computer to the server.
 The "Use PrimeNet..." option can be turned on to switch from the
 manual method to the automatic method.
 
-The Worker Threads menu choice is used to choose the type of work
-you'd like to execute as well as adjust priority and affinity.
-You should not need to change the priority.  You might raise the priority
-if you just cannot live without a screen saver, or if you are running some
-ill-behaved program that is using CPU cycles for no good reason.
-The work type should usually be left set to "Whatever makes the most sense".
-However, if you are running a slow computer and don't mind waiting several
-months for a single Lucas-Lehmer test to complete OR you are running a faster
-computer and get better thoughput if one core does an easier type of work,
-then choose a different type of work to do.
+The Worker Windows menu choice is used to choose the type of work
+you'd prefer to execute.  The work preference should usually be left
+set to "Whatever makes the most sense".  However, if you are running a
+slow computer and don't mind waiting several months for a single primality
+test to complete OR you are running a faster computer and prefer
+faster work types, then choose a different work preference.
 
 The Status menu choice will tell you what exponents you are working on.
 It will also estimate how long that will take and your chances of finding
@@ -338,7 +425,7 @@ test will take to test the exponent 876543, choose Advanced/Time and
 enter 876543 for 100 iterations.
 
 The ECM choice lets you factor numbers of the form k*b^n+c using the
-Elliptic Curve Method of factoring.  ECM requires a minimum of 192 times
+Elliptic Curve Method of factoring.  ECM requires a memory minimum of 192 times
 the FFT size.  Thus, ECM factoring of F20 which uses a 64K FFT will use
 a minimum of 192 * 64K or 12MB of memory.  You can also edit the
 worktodo.txt file directly.  For example:
@@ -356,10 +443,7 @@ the worktodo.txt file directly.  For example add:
 where the how_far_factored and tests_saved values are used to pick
 optimal bounds for P-1 factoring prior to running the PRP test.
 
-SUM(INPUTS) error checking.  Selecting this option will run an extra error
-check on every iteration.  This will slow down the primality test slightly.
-
-Round off checking.  This option will slow the program down by several percent.
+Round off checking.  This option will slow the program down a little.
 This option displays the smallest and largest "convolution error".  The
 convolution error must be less than 0.49 or the results will be incorrect.
 There really is no good reason to turn this option on.
@@ -387,44 +471,42 @@ OPTIONS MENU
 ------------
 
 The CPU menu choice tells you what CPU the program has detected and
-lets you set how much memory the program can use (see the earlier section
-on "Setting available memory".
+lets you set how many hours a day you expect to run the program.  This setting
+is used to give better estimated completion dates in Test / Status.  It may
+also affect what work you are assigned in for "What makes the most sense" work
+preference.
 
-The Preferences menu choice lets you control how often a line is
-written to the main window and how often a line is written to
-the results file.  It also lets you change how often
-intermediate files (to guard against power failure and crashes)
-are created.  You can control how often the program checks to
-see if you are connected to the Internet.  The program polls
-whenever it has new data to send to or work to get from the PrimeNet
-server.  If you are low on disk space, you can select one intermediate 
-file instead of two.  However, if you crash in the middle of writing
-the one intermediate file, you may have to restart an exponent from
-scratch.  You can also tell the program to be quiet, rather than 
-beeping like crazy, if a new Mersenne prime is found.  You can also
-make prime95 go idle whenever your laptop is running on battery power
-(may not work under Windows NT/2000/XP).
+The Resource limits menu choice lets you set several important resource limitations
+for the program.  These were discussed extensively above.
+
+The Preferences menu choice lets you control how often lines are written to the
+main window and how often lines are written to the results file.  It also lets
+you change how often intermediate files (to guard against power failure and crashes)
+are created.  You can control how often the program checks to see if you are connected
+to the Internet.  The program polls whenever it has new data to send to or work to get
+from the PrimeNet server.  If you are low on disk space, you can select one intermediate 
+file instead of more.  However, if you crash in the middle of writing the one intermediate
+file, you may have to restart an exponent from scratch.  You can also tell the program to
+be quiet, rather than beeping like crazy, if a new Mersenne prime is found.  You can also
+make prime95 go idle whenever your laptop is running on battery power.
 
 The Torture Test choice will run a continuous self test.  This is great
 for testing machines for hardware problems.  See the file stress.txt
 for a more in-depth discussion of stress testing and hardware problems.
 
-The Benchmark choice times the program on several FFT lengths.  You can
-then compare your computer's speed to others list at
-http://mersenne.org/report_benchmarks/
+The Benchmark choice determines your computer's throughput on several FFT lengths.
+Use this to decide the best number of worker windows to run.
 
 The Tray Icon choice will cause prime95 to have a small icon on the taskbar
 when it is minimized.  You can activate or hide the program by double-clicking
 on the small icon.  If you place the cursor over the small icon, a tooltip will
 display the current status.
 
-The No Icon choice is only enabled if the Advanced Menu is activated
-with the password.  Using this menu choice means there will be no
-prime95 icon on the taskbar once you minimize the program - making it very
-hard to reactivate!  You can reactivate the program by trying to execute
-prime95 a second time.  Alternatively, you can turn this feature off by
-editing prime.txt and change the line "HideIcon=1" to "HideIcon=0",
-then reboot.
+The No Icon choice means there will be no prime95 icon on the taskbar once you
+minimize the program - making it very hard to reactivate!  You can reactivate
+the program by trying to execute prime95 a second time.  Alternatively, you can
+turn this feature off by editing prime.txt and change the line "HideIcon=1" to
+"HideIcon=0", then reboot.
 
 
 
@@ -459,12 +541,10 @@ See the stress.txt file for more information.
 Could it be a software problem (bug)?  Unlikely.  Try running a torture test
 and/or asking for advice at mersenneforum.org.
 
-Running the program on a computer with hardware problems may produce
-incorrect results.  This won't hurt the GIMPS project since all results
-will be double-checked.  However, you could be wasting your CPU time.
-If you are getting errors during primality tests, then I recommend 
-changing to PRP testing which has an extremely robust error detection
-and correction mechanism.
+Running the program on a computer with hardware problems will still produce
+correct PRP results.  PRP primality tests have exceptionally strong error 
+recovery mechanisms.  Plus, the final result can be proven correct with a
+quick certification of the PRP proof file.
 
 
 FERMAT PRP AND LUCAS-LEHMER DETAILS
@@ -477,12 +557,15 @@ The Fermat PRP test is defined as:
 	This is equivalent to 3^(2^p) = 9 mod (2^p - 1)
 This is simply p squarings modulo 2^p-1.
 
-This program can aldo perform a Lucas-Lehmer primality test to see if 2^p-1 is prime.
+This program can also perform a Lucas-Lehmer primality test to see if 2^p-1 is prime.
 The Lucas sequence is defined as:
 	L[1] = 4
 	L[n+1] = (L[n]^2 - 2) mod (2^p - 1)
 2^p-1 is prime if and only if L[p-1] = 0.
 This requires p-2 squarings modulo 2^p-1 and p-2 subtractions of 2.
+
+Fermat PRP testing is greatly preferred over Lucas-Lehmer testing because
+of the robust error recovery and quick proof file verification.
 
 This program uses a discrete weighted transform (see Mathematics of
 Computation, January 1994) to square numbers mod 2^p - 1.

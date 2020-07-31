@@ -30,32 +30,41 @@ is the same as 0:00-8:00).  The above example lets the program use 500MB
 during the week from 5:30PM to 8:30AM and all day on weekends.  Otherwise
 (weekdays from 8:30AM to 5:30PM), the program can use only 200MB.
 
-You can control some of the PRP proof behavior.  In local.txt,
+There are some additional PRP proof controls that are not available in the
+Resource Limits dialog box.  In local.txt,
 	PreallocateDisk=0 or 1		(default is 1)
 will control whether disk space to hold the PRP proof residues is
 allocated at the beginning of the PRP test to insure we do not run out
-of disk space midway through the PRP test.
-	ResidueFileDir=path		(default is blank)
-Directory (must include trailing forward or backward slash) to store the
-residues file.  The default is "blank" which stores the big interim residues file
-in the same directory as the executable.
-	MaxEmergencyMemory=n		(default is 1024)
-Maximum amount of memory in MB each PRP worker can use to store proof residues
-when the disk is full or a network disk is offline.  This allows the PRP test to
-continue in hopes the disk full or disk offline error is resolved in a timely manner.
+of disk space midway through the PRP test.  In prime.txt,
 	MaxProofgenWaits=n		(default is 48*60/5 = 48 hours)
 Maximum number of 5 minute waits to execute when an error occurs during proof generation.
-An error should only occur for disk full or disk offline.  We hope the disk problem
-will resolve itself within 2 days.
+An error should only occur if a disk is full or offline.  We hope the disk problem
+will resolve itself within 2 days and proof generation can complete.  In prime.txt,
+	ProofPower=x			(x can be from 5 to 12)
+	ProofPowerAdjust=y		(y can be from -2 to +3)
+these override the selection of proof power based on temporary disk space available.
+ProofPower sets the proof power to x.  ProofPowerAdjust is added to the proof power
+calculated based on temporary disk space.  If the proof power is higher than the
+optimal proof power, then the proof power is reduced to the optimal proof power.
+I don't see anyt reason to ever use these 2 settings.  In the Primenet section of prime.txt,
+	ProofUploads=0 or 1		(default is 1)
+	UploadChunkSize=n		(in MB, between 1 and 8)
+One can disable proof uploads.  You will be responsible for taking the proof files
+to a machine that is doing proof uploads.  One might have a script that moves proofs
+to a central machine for uploading -- to make sure at most one upload is in progress
+at any time.  You can choose an the "chunk" size for uploading.  The default is based
+on your upload rate limit.  Slow uploads are done 1MB at a time, fast uploads use
+larger chunks.
 
 You can control whether the program does extra error checking on every
 iteration of a primality test.  This runs a little bit slower.  Windows
-user can control these options from the Advanced Menu.  Linux users must
-add one or both of these lines to prime.txt to control these options:
+user can control the first of these options from the Advanced Menu.
+Add one or both of these lines to prime.txt to control these options:
 	ErrorCheck=0 or 1
 	SumInputsErrorCheck=0 or 1
 The first line controls "ROUNDOFF > 0.4" error checks, the second line
-controls "SUM(INPUTS) != SUM(OUTPUTS)" error checks.
+controls "SUM(INPUTS) != SUM(OUTPUTS)" error checks available in
+pre-AVX FFTs (which makes it pretty much obsolete).
 
 You can control how the "count of errors during this test" message
 is output with every screen update.  These messages only appear if
@@ -720,23 +729,3 @@ a value from -20 to +19.  In FreeBSD and Mac OS X you can select a value
 between -20 and 20.  Higher numbers represent a "nicer" program (lower priority).
 In all OSes, a zero nice level means run at the normal priority.
 
-
-
-
-
-
-
-**Should these be in local.ini of prime.ini?????   Fix now or forever hold our peace!
-** Most (all?) of the resource limiters are in local.txt!
-
-**	CPU_WORKER_DISK_SPACE = (unsigned int) IniGetInt (LOCALINI_FILE, "WorkerDiskSpace", 5);
-	ps.proof_power = IniGetInt (INI_FILE, "ProofPower", ps.proof_power);
-	power_adjust = IniGetInt (INI_FILE, "ProofPowerAdjust", 0);
-	max_emergency_memory = IniGetInt (INI_FILE, "MaxEmergencyMemory", 1024);	(change to localini)
-**	IniGetString (LOCALINI_FILE, "ProofArchiveDir", archive_filename, sizeof (archive_filename), NULL);
-**		IniGetString (LOCALINI_FILE, "ResidueFileDir", );			(change to ProofResiduesDir, update all my machines)
-**		createProofResiduesFile (&gwdata, &ps, IniGetInt (LOCALINI_FILE, "PreallocateDisk", 1));
-	bandwidth_rate_limit_flt = IniSectionGetFloat (INI_FILE, "PrimeNet", "UploadRateLimit", 0.25);	// Rate limit in Mbps
-	max_chunk_size_flt = IniSectionGetFloat (INI_FILE, "PrimeNet", "UploadChunkSize", max_chunk_size_flt);
-	bandwidth_rate_limit_flt = IniSectionGetFloat (INI_FILE, "PrimeNet", "DownloadRateLimit", 0.0);	// Rate limit in Mbps
-put upload start/end time in Primenet section too.
