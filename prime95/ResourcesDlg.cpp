@@ -24,6 +24,7 @@ CResourcesDlg::CResourcesDlg(CWnd* pParent /*=NULL*/)
 	m_upload_start = _T("");
 	m_upload_end = _T("");
 	m_download_mb = 0;
+	m_can_upload = 0;
 	//}}AFX_DATA_INIT
 }
 
@@ -42,7 +43,19 @@ void CResourcesDlg::DoDataExchange(CDataExchange* pDX)
 	DDV_MaxChars(pDX, m_upload_end, 8);
 	DDX_Text(pDX, IDC_DOWNLOAD_MB, m_download_mb);
 	DDV_MinMaxUInt(pDX, m_download_mb, 0, 100);
+	DDX_Control(pDX, IDC_UPLOAD_BANDWIDTH_TEXT, c_upload_bandwidth_text);
+	DDX_Control(pDX, IDC_UPLOAD_BANDWIDTH, c_upload_bandwidth);
+	DDX_Control(pDX, IDC_UPLOAD_START_TEXT, c_upload_start_text);
+	DDX_Control(pDX, IDC_UPLOAD_START, c_upload_start);
+	DDX_Control(pDX, IDC_UPLOAD_END_TEXT, c_upload_end_text);
+	DDX_Control(pDX, IDC_UPLOAD_END, c_upload_end);
 	//}}AFX_DATA_MAP
+	c_upload_bandwidth_text.EnableWindow (m_can_upload);
+	c_upload_bandwidth.EnableWindow (m_can_upload);
+	c_upload_start_text.EnableWindow (m_can_upload);
+	c_upload_start.EnableWindow (m_can_upload);
+	c_upload_end_text.EnableWindow (m_can_upload);
+	c_upload_end.EnableWindow (m_can_upload);
 }
 
 
@@ -58,12 +71,13 @@ END_MESSAGE_MAP()
 /////////////////////////////////////////////////////////////////////////////
 // CResourcesDlg message handlers
 
-void CResourcesDlg::OnAdvanced() 
+void CResourcesDlg::OnAdvanced()
 {
 	CResourcesAdvancedDlg dlg;
 	unsigned int day_memory, night_memory, day_start_time, day_end_time;
 	char	buf[512];
 
+	UpdateData ();		// Get the values from the dialog box (specifically, update m_download_mb)
 	IniGetString (LOCALINI_FILE, "ProofResiduesDir", buf, sizeof (buf), NULL);
 	dlg.m_temp_dir = buf;
 	IniGetString (LOCALINI_FILE, "ProofArchiveDir", buf, sizeof (buf), NULL);
@@ -80,6 +94,8 @@ void CResourcesDlg::OnAdvanced()
 	dlg.m_cert_cpu = IniGetInt (LOCALINI_FILE, "CertDailyCPULimit", 10);
 	dlg.m_hyper_tf = HYPERTHREAD_TF;
 	dlg.m_hyper_ll = HYPERTHREAD_LL;
+	dlg.m_can_upload = m_can_upload;
+	dlg.m_can_download = (m_download_mb != 0);
 	if (dlg.DoModal () == IDOK) {
 		unsigned int new_day_start_time, new_day_end_time;
 		int	restart = FALSE;
@@ -155,6 +171,8 @@ CResourcesAdvancedDlg::CResourcesAdvancedDlg(CWnd* pParent /*=NULL*/)
 	m_cert_cpu = 0;
 	m_hyper_tf = FALSE;
 	m_hyper_ll = FALSE;
+	m_can_upload = 0;
+	m_can_download = 0;
 	//}}AFX_DATA_INIT
 }
 
@@ -165,6 +183,8 @@ void CResourcesAdvancedDlg::DoDataExchange(CDataExchange* pDX)
 	//{{AFX_DATA_MAP(PrimenetDlg)
 
 	DDX_Text(pDX, IDC_TEMP_DIR, m_temp_dir);
+	DDX_Control(pDX, IDC_ARCHIVE_DIR_TEXT, c_archive_dir_text);
+	DDX_Control(pDX, IDC_ARCHIVE_DIR, c_archive_dir);
 	DDX_Text(pDX, IDC_ARCHIVE_DIR, m_archive_dir);
 	DDX_Text(pDX, IDC_START_TIME, m_start_time);
 	DDX_Text(pDX, IDC_END_TIME, m_end_time);
@@ -176,15 +196,21 @@ void CResourcesAdvancedDlg::DoDataExchange(CDataExchange* pDX)
 	DDV_MinMaxFloat(pDX, m_emergency_mem, 0.0, (float) (0.25 * physical_memory () / 1024.0));
 	DDX_Text(pDX, IDC_PRIORITY, m_priority);
 	DDV_MinMaxUInt(pDX, m_priority, 1, 10);
+	DDX_Control(pDX, IDC_CERT_CPU_TEXT, c_cert_cpu_text);
+	DDX_Control(pDX, IDC_CERT_CPU, c_cert_cpu);
 	DDX_Text(pDX, IDC_CERT_CPU, m_cert_cpu);
 	DDV_MinMaxUInt(pDX, m_cert_cpu, 1, 100);
 	DDX_Check(pDX, IDC_HYPER_TF, m_hyper_tf);
 	DDX_Check(pDX, IDC_HYPER_LL, m_hyper_ll);
 	DDX_Control(pDX, IDC_HYPER_TF, c_hyper_tf);
 	DDX_Control(pDX, IDC_HYPER_LL, c_hyper_ll);
+	//}}AFX_DATA_MAP
+	c_archive_dir_text.EnableWindow (m_can_upload);
+	c_archive_dir.EnableWindow (m_can_upload);
+	c_cert_cpu_text.EnableWindow (m_can_download);
+	c_cert_cpu.EnableWindow (m_can_download);
 	c_hyper_tf.EnableWindow (CPU_HYPERTHREADS > 1);
 	c_hyper_ll.EnableWindow (CPU_HYPERTHREADS > 1);
-	//}}AFX_DATA_MAP
 }
 
 

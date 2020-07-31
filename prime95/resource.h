@@ -69,8 +69,11 @@
 #define IDC_BACKUP                      1001
 #define IDC_BATTERY                     1002
 #define IDC_LIMIT_FFT_SIZES             1003
+#define IDC_UPLOAD_BANDWIDTH_TEXT       1003
 #define IDC_CORES_TEXT                  1004
+#define IDC_UPLOAD_START_TEXT           1004
 #define IDC_P                           1005
+#define IDC_UPLOAD_END_TEXT             1005
 #define IDC_DISK                        1006
 #define IDC_TEMP_DIR                    1006
 #define IDC_HOURS                       1007
@@ -90,8 +93,10 @@
 #define IDC_DOWNLOAD_MB			1010
 #define IDC_MAXFFT                      1011
 #define IDC_WORK                        1011
+#define IDC_CERT_CPU_TEXT               1011
 #define IDC_NUM_CURVES                  1012
 #define IDC_TIMEFFT                     1012
+#define IDC_ARCHIVE_DIR_TEXT            1012
 #define IDC_THREAD                      1013
 #define IDC_THREAD_TEXT                 1014
 #define IDC_USERID                      1015

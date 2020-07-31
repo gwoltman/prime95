@@ -34,7 +34,7 @@
 // See Prime95.cpp for the implementation of this class
 //
 
-class CPrime95App : public CWinAppEx
+class CPrime95App : public CWinApp
 {
 public:
 	CPrime95App();

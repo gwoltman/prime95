@@ -301,11 +301,11 @@ BEGIN
     LTEXT           "&Temporary disk space limit (GB / worker):",IDC_STATIC,12,18,149,10
     EDITTEXT        IDC_DISK,155,16,36,12,ES_AUTOHSCROLL
     GROUPBOX        "Network resources",IDC_STATIC,8,40,233,58
-    LTEXT           "&Upload bandwidth limit (Mbps):",IDC_STATIC,12,52,158,10
+    LTEXT           "&Upload bandwidth limit (Mbps):",IDC_UPLOAD_BANDWIDTH_TEXT,12,52,158,10
     EDITTEXT        IDC_UPLOAD_BANDWIDTH,192,50,36,12,ES_AUTOHSCROLL
-    LTEXT           "Upload large files during time period:",IDC_STATIC,12,67,123,10
+    LTEXT           "Upload large files during time period:",IDC_UPLOAD_START_TEXT,12,67,123,10
     EDITTEXT        IDC_UPLOAD_START,136,65,36,12,ES_AUTOHSCROLL
-    CTEXT           "to",IDC_STATIC,176,67,12,10,SS_NOPREFIX
+    CTEXT           "to",IDC_UPLOAD_END_TEXT,176,67,12,10,SS_NOPREFIX
     EDITTEXT        IDC_UPLOAD_END,192,65,36,12,ES_AUTOHSCROLL
     LTEXT           "&Download limit for certification work (MB / day):",IDC_STATIC,12,82,168,10
     EDITTEXT        IDC_DOWNLOAD_MB,192,80,36,12,ES_AUTOHSCROLL
@@ -322,7 +322,7 @@ BEGIN
     GROUPBOX        "Disk resources",IDC_STATIC,8,8,230,69
     LTEXT           "Optional directory to hold large &temporary files:",IDC_STATIC,12,18,177,10
     EDITTEXT        IDC_TEMP_DIR,12,30,218,12,ES_AUTOHSCROLL
-    LTEXT           "Optional directory to hold &archived proofs:",IDC_STATIC,12,47,177,10
+    LTEXT           "Optional directory to hold &archived proofs:",IDC_ARCHIVE_DIR_TEXT,12,47,177,10
     EDITTEXT        IDC_ARCHIVE_DIR,12,59,218,12,ES_AUTOHSCROLL
     GROUPBOX        "Memory resources",IDC_STATIC,8,83,278,73
     LTEXT           "&Daytime P-1/ECM stage 2 memory (GB):",IDC_DAY_MEMORY_TEXT,12,98,162,10
@@ -338,7 +338,7 @@ BEGIN
     GROUPBOX        "CPU resources",IDC_STATIC,8,161,279,74
     LTEXT           "&Priority (priority of 1 is highly recommended, see readme.txt):",IDC_STATIC,12,174,188,8
     EDITTEXT        IDC_PRIORITY,214,172,36,12,ES_AUTOHSCROLL
-    LTEXT           "&Certification work limit (% of CPU time):",IDC_STATIC,12,188,188,8
+    LTEXT           "&Certification work limit (% of CPU time):",IDC_CERT_CPU_TEXT,12,188,188,8
     EDITTEXT        IDC_CERT_CPU,214,186,36,12,ES_AUTOHSCROLL
     CONTROL         "Use &hyperthreading for trial factoring (recommended, requires 64-bit Windows)",IDC_HYPER_TF,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,12,203,268,10

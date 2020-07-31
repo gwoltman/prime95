@@ -18,6 +18,13 @@ public:
 	CString m_upload_start;
 	CString m_upload_end;
 	UINT	m_download_mb;
+	BOOL	m_can_upload;
+	CStatic	c_upload_bandwidth_text;
+	CEdit	c_upload_bandwidth;
+	CStatic	c_upload_start_text;
+	CEdit	c_upload_start;
+	CStatic	c_upload_end_text;
+	CEdit	c_upload_end;
 	//}}AFX_DATA
 
 
@@ -52,6 +59,8 @@ public:
 	//{{AFX_DATA(PrimenetDlg)
 	enum { IDD = IDD_ADVANCED_RESOURCES };
 	CString	m_temp_dir;
+	CStatic	c_archive_dir_text;
+	CEdit	c_archive_dir;
 	CString	m_archive_dir;
 	float	m_day_memory;
 	float	m_night_memory;
@@ -59,11 +68,15 @@ public:
 	CString	m_end_time;
 	float	m_emergency_mem;
 	UINT	m_priority;
+	CStatic	c_cert_cpu_text;
+	CEdit	c_cert_cpu;
 	UINT	m_cert_cpu;
 	CButton c_hyper_tf;
 	BOOL	m_hyper_tf;
 	CButton c_hyper_ll;
 	BOOL	m_hyper_ll;
+	BOOL	m_can_upload;
+	BOOL	m_can_download;
 	//}}AFX_DATA
 
 // Overrides

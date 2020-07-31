@@ -665,12 +665,13 @@ void CPrime95Doc::OnResources()
 	dlg.m_upload_bandwidth = IniSectionGetFloat (INI_FILE, "PrimeNet", "UploadRateLimit", 0.25);
 	if (dlg.m_upload_bandwidth <= 0.0 || dlg.m_upload_bandwidth > 10000.0) dlg.m_upload_bandwidth = 10000.0;
 	IniSectionGetString (INI_FILE, "PrimeNet", "UploadStartTime", timebuf, sizeof (timebuf), "00:00");
-	minutesToStr (strToMinutes (timebuf), timebuf);
+	if (strcmp (timebuf, "00:00") != 0) minutesToStr (strToMinutes (timebuf), timebuf);
 	dlg.m_upload_start = timebuf;
 	IniSectionGetString (INI_FILE, "PrimeNet", "UploadEndTime", timebuf, sizeof (timebuf), "24:00");
-	minutesToStr (strToMinutes (timebuf), timebuf);
+	if (strcmp (timebuf, "24:00") != 0) minutesToStr (strToMinutes (timebuf), timebuf);
 	dlg.m_upload_end = timebuf;
 	dlg.m_download_mb = IniSectionGetInt (INI_FILE, "PrimeNet", "DownloadDailyLimit", 40);
+	dlg.m_can_upload = IniSectionGetInt (INI_FILE, "PrimeNet", "ProofUploads", 1);
 	if (dlg.DoModal () == IDOK) {
 		CPU_WORKER_DISK_SPACE = dlg.m_disk;
 		IniWriteInt (LOCALINI_FILE, "WorkerDiskSpace", CPU_WORKER_DISK_SPACE);
