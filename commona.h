@@ -1,4 +1,4 @@
-/* Copyright 1995-2017 Mersenne Research, Inc.  All rights reserved */
+/* Copyright 1995-2020 Mersenne Research, Inc.  All rights reserved */
 
 /* Common strings */
 
@@ -7,6 +7,7 @@
 #define PING_ERROR	"Unable to get version information from PrimeNet server."
 #define MSG_MEMORY  "You have left the available memory fields at 8 megabytes.  You can increase your chances of finding a Mersenne prime very slightly if you let the program occasionally use more memory.  The readme.txt file has more information.  Do you want to let the program use more memory?"
 #define MSG_THREADS "You have allocated more cores than are available.  This is likely to GREATLY REDUCE performance.  Do you want to correct this?"
+#define MSG_100M "The 100 million digit work preference requires setting per-worker temporary disk space to 12GB or more.  Work preference changed to first-time primality testing."
 
 /* Common routines */
 

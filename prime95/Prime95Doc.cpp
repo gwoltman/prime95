@@ -336,6 +336,20 @@ again:	if (dlg.DoModal () == IDOK) {
 		int	new_options = FALSE;
 		unsigned long i, total_num_cores;
 
+/* If the user has selected 100M tests and per-worker temp disk is not enough for a power=8 proof, then do not permit it. */
+
+		if (CPU_WORKER_DISK_SPACE < 12) {
+			int	changed = FALSE;
+			for (i = 0; i < dlg.m_num_thread; i++) {
+				if (dlg.m_work_pref[i] == PRIMENET_WP_PRP_100M) {
+					dlg.m_work_pref[i] = PRIMENET_WP_PRP_FIRST;
+					changed = TRUE;
+				}
+			}
+			if (changed)
+				AfxMessageBox (MSG_100M, MB_ICONEXCLAMATION | MB_OK);
+		}
+
 /* If the user has allocated too many cores then raise a severe warning. */
 
 		total_num_cores = 0;
