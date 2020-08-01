@@ -485,7 +485,7 @@ int ProofFileNames (char filenames[50][255])	// Returns number of matching filen
 	while ((entry = readdir(dir)) != NULL) {
 
 		/* check if the pattern matches */
-		if (entry->d_name && strstr (entry->d_name, ".proof") != NULL) {
+		if (strstr (entry->d_name, ".proof") != NULL) {
 			if (num_files < 50) strcpy (filenames[num_files++], entry->d_name);
 		}
 	}

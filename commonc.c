@@ -6084,7 +6084,7 @@ retry:
 		!USE_PRIMENET)
 		    continue;
 
-/* Occassionally get certification work from the server.  P-1 and ECM stage 2 may have significant costs */
+/* Occasionally get certification work from the server.  P-1 and ECM stage 2 may have significant costs */
 /* with an interruption to do priority work.  Also, lots of work_units is not a typical setup -- may indicate */
 /* a large worktodo.txt file with high costs reading and writing it. */
 

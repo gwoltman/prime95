@@ -11154,7 +11154,7 @@ int prp (
 		// Provide two more (undocumented) ways for the user to override our default proof power.
 		ps.proof_power = IniGetInt (INI_FILE, "ProofPower", ps.proof_power);
 		power_adjust = IniGetInt (INI_FILE, "ProofPowerAdjust", 0);
-		if (power_adjust > 3) power_adjust = 3;
+		if (power_adjust > 2) power_adjust = 2;
 		if (power_adjust < -2) power_adjust = -2;
 		ps.proof_power += power_adjust;
 		if (ps.proof_power > best_power) ps.proof_power = best_power;

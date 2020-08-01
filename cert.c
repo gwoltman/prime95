@@ -383,7 +383,7 @@ int cert (
 		if (echk && gw_get_maxerr (&cs.gwdata) > allowable_maxerr) {
 			char	msg[100];
 			sprintf (msg, ERRMSG1C, gw_get_maxerr (&cs.gwdata), allowable_maxerr);
-			sprintf (buf, ERRMSG0, cs.counter+1, w->cert_squarings, msg);
+			sprintf (buf, ERRMSG0, cs.counter+1, (long) w->cert_squarings, msg);
 			OutputBoth (thread_num, buf);
 			inc_error_count (1, &cs.error_count);
 		}
@@ -408,7 +408,7 @@ int cert (
 		if (actual_frequency < 1) actual_frequency = 1;
 		if (cs.counter % actual_frequency == 0 || first_iter_msg) {
 			sprintf (buf, "Iteration: %ld / %ld [%.*f%%]",
-				 cs.counter, w->cert_squarings, (int) PRECISION, trunc_percent (w->pct_complete));
+				 cs.counter, (long) w->cert_squarings, (int) PRECISION, trunc_percent (w->pct_complete));
 			/* Append a short form total errors message */
 			if ((error_count_messages & 0xFF) == 1)
 				make_error_count_message (cs.error_count, error_count_messages, buf + strlen (buf),
