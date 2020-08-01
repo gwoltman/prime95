@@ -100,10 +100,8 @@ void CResourcesDlg::OnAdvanced()
 		unsigned int new_day_start_time, new_day_end_time;
 		int	restart = FALSE;
 
-		strcpy (buf, (const char *) dlg.m_temp_dir);
-		IniWriteString (LOCALINI_FILE, "ProofResiduesDir", buf);
-		strcpy (buf, (const char *) dlg.m_archive_dir);
-		IniWriteString (LOCALINI_FILE, "ProofArchiveDir", buf);
+		IniWriteString (LOCALINI_FILE, "ProofResiduesDir", (const char *) dlg.m_temp_dir);
+		IniWriteString (LOCALINI_FILE, "ProofArchiveDir", (const char *) dlg.m_archive_dir);
 
 /* Save the new memory settings */
 

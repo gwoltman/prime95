@@ -49,12 +49,14 @@ optimal proof power, then the proof power is reduced to the optimal proof power.
 I don't see anyt reason to ever use these 2 settings.  In the Primenet section of prime.txt,
 	ProofUploads=0 or 1		(default is 1)
 	UploadChunkSize=n		(in MB, between 1 and 8)
+	DownloadRateLimit=n		(in Mbps, default is 0 which means unlimited)
 One can disable proof uploads.  You will be responsible for taking the proof files
 to a machine that is doing proof uploads.  One might have a script that moves proofs
 to a central machine for uploading -- to make sure at most one upload is in progress
 at any time.  You can choose an the "chunk" size for uploading.  The default is based
 on your upload rate limit.  Slow uploads are done 1MB at a time, fast uploads use
-larger chunks.
+larger chunks.  Rate limiting the downloads is available but I don't see the need
+to ever use this as certification downloads are only around a dozen megabytes.
 
 You can control whether the program does extra error checking on every
 iteration of a primality test.  This runs a little bit slower.  Windows

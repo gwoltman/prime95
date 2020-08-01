@@ -690,10 +690,8 @@ void CPrime95Doc::OnResources()
 		CPU_WORKER_DISK_SPACE = dlg.m_disk;
 		IniWriteInt (LOCALINI_FILE, "WorkerDiskSpace", CPU_WORKER_DISK_SPACE);
 		IniSectionWriteFloat (INI_FILE, "PrimeNet", "UploadRateLimit", dlg.m_upload_bandwidth);
-		strcpy (timebuf, (const char *) dlg.m_upload_start);
-		IniSectionWriteString (INI_FILE, "PrimeNet", "UploadStartTime", timebuf);
-		strcpy (timebuf, (const char *) dlg.m_upload_end);
-		IniSectionWriteString (INI_FILE, "PrimeNet", "UploadEndTime", timebuf);
+		IniSectionWriteString (INI_FILE, "PrimeNet", "UploadStartTime", (const char *) dlg.m_upload_start);
+		IniSectionWriteString (INI_FILE, "PrimeNet", "UploadEndTime", (const char *) dlg.m_upload_end);
 		IniSectionWriteInt (INI_FILE, "PrimeNet", "DownloadDailyLimit", dlg.m_download_mb);
 	}
 }
