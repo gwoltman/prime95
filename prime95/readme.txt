@@ -2,10 +2,10 @@
 Welcome to the Great Internet Mersenne Prime Search!
 
 To use this program you must agree to the terms and conditions,
-prize rules, etc. at http://mersenne.org/legal/
+prize rules, etc. at https://mersenne.org/legal/
 
-The GIMPS web site is at http://mersenne.org
-Help is available at http://mersenneforum.org
+The GIMPS web site is at https://mersenne.org
+Help is available at https://mersenneforum.org
 My email address is woltman@alum.mit.edu
 
 
@@ -34,6 +34,7 @@ results.bench.txt Prime95.exe writes benchmark results to this file.
 gwnum.txt	A file containing benchmark data.  Used to tune FFTs for your particular machine. 
 prime.log	A text file listing all messages that have been sent to the PrimeNet server.
 prime.spl	A binary file of messages that have not yet been sent to the PrimeNet server.
+mprime.pid	Linux only.  The PID of the currently running mprime.
 cNNNNNNN,cNNNNNNN.buN	Intermediate files produced during certification runs.
 pNNNNNNN,pNNNNNNN.buN	Intermediate files produced by prime95.exe to resume computation where it left off.
 pNNNNNNN.residues	Large intermediate file produced during PRP test for constructing a PRP proof.
@@ -47,7 +48,7 @@ WHAT IS THIS PROGRAM?
 ---------------------
 
 This program is used to find Mersenne Prime numbers.  See
-http://www.utm.edu/research/primes/mersenne.shtml for a good
+https://primes.utm.edu/mersenne/index.html for a good
 description of Mersenne primes.  Mersenne numbers can be proved
 composite (not prime) by either finding a factor or by running
 a PRP (PRobable Prime) or Lucas-Lehmer primality test.
@@ -76,12 +77,21 @@ the more common acronyms.
 INSTRUCTIONS
 ------------
 
-There are two ways to use this program.  The automatic way uses
-a central server, which we call the PrimeNet server, to get work to do
-and report your results.  You do not need a permanent connection to the Internet.
+Create a directory to hold the executable and associated files.  Make sure you have
+write access to this new directory.  In Windows, this may mean choosing a different
+directory than the standard Windows unzip utility suggests!  Unzip your download
+into this new directory.  
+
+Now run the program.  In Windows, double-click on prime95.  In Linux, FreeBSD,
+Mac OS X command line version, cd to the directory and type "./mprime -m".
+You may need to install the included libraries.
+
+There are two ways to use this program.  The automatic way uses a central server,
+which we call the PrimeNet server, to get work to do and report your results.
+You do not need a permanent connection to the Internet.
 
 The second method is the manual method.  It requires a little more work
-and monitoring.  I recommend this for computers with no Internet access
+and monitoring.  This is recommended for computers with no Internet access
 or with some kind of firewall problem that prevents the automatic method
 from working.
 
@@ -95,41 +105,37 @@ Violating that policy could result in TERMINATION and/or PROSECUTION.
 INSTRUCTIONS FOR THE AUTOMATIC METHOD
 -------------------------------------
 
-1)  Download and unzip prime95.zip.
-    You've probably done this already since you are reading this file.
-    If necessary install the GMP library (included).
-2)  Connect to the Internet.  Create an account at http://mersenne.org
-3)  Run prime95.exe.  You will see 4 dialog boxes:
-3a) In the welcome dialog box, choose "Join GIMPS!".
-3b) In the second dialog box, enter your user id and optional computer name.
+1)  Connect to the Internet.  Create an account at https://mersenne.org
+2)  Run prime95.exe.  You will see 4 dialog boxes:
+2a) In the welcome dialog box, choose "Join GIMPS!".
+2b) In the second dialog box, enter your user id and optional computer name.
     If you are using several computers, use the same user ID but a unique computer
     name on each machine.  An easy-to-remember user ID will be helpful if you
-    plan to visit the PrimeNet server's web page to view reports on your
-    progress.
-3c) In the third dialog box, fill in roughly how many hours a day you leave
+    plan to visit the PrimeNet server's web page to view reports on your progress.
+2c) In the third dialog box, fill in roughly how many hours a day you leave
     your computer running.  Click OK (just close the dialog box on a Mac).
-3d) In the fourth dialog box, choose the number of workers you want to
+2d) In the fourth dialog box, choose the number of workers you want to
     run.  Choose the type of work you want each worker to perform.
-4a) If a proxy server is the causing connection troubles, see the
+3a) If a proxy server is the causing connection troubles, see the
     later section on "SETTING UP A PROXY SERVER".
-4b) If the program will not connect to the server, then
+3b) If the program will not connect to the server, then
     you will have to use the manual method described below.
-5)  Disable screen savers or use the "blank screen" screen saver.  If this
+4)  Disable screen savers or use the "blank screen" screen saver.  If this
     is not practical, consider raising prime95's priority to 4 or 5.
 
 
 MANUAL METHOD INSTRUCTIONS
 --------------------------
 
-1)  Visit http://mersenne.org/update/ to create a userid for yourself and
-    http://mersenne.org/manual_assignment/ to get an exponent or two to
+1)  Visit https://mersenne.org/update/ to create a userid for yourself and
+    https://mersenne.org/manual_assignment/ to get an exponent or two to
     work on.  Copy these exponents to a file called worktodo.txt.
-2)  Run prime95.exe.  You will see 2 dialog boxes:
+2)  Run prime95.exe or mprime.  You will see 2 dialog boxes:
 2a) In the welcome dialog box, choose "Join GIMPS!".
 2b) In the second dialog box, uncheck "Use PrimeNet to get work and report
     results", click OK.
 3)  Disable screen savers or use the "blank screen" screen saver.  If this
-    is not practical, consider raising prime95's priority to 4 or 5.
+    is not practical, consider raising the program's priority to 4 or 5.
 4)  When done with your exponents, use the web pages again to send the
     file "results.txt" to the PrimeNet server and get more work.
 
@@ -137,7 +143,7 @@ MANUAL METHOD INSTRUCTIONS
 WARNINGS and NOTES
 ------------------
 
-Running prime95 may SIGNIFICANTLY INCREASE YOUR ELECTRIC BILL.  The amount
+Running this program may SIGNIFICANTLY INCREASE YOUR ELECTRIC BILL.  The amount
 depends on your computer and your local electric rates.
 
 It can take many CPU weeks to test a large Mersenne number.  This program
@@ -328,11 +334,11 @@ PROGRAM OUTPUT
 On screen you will see:
 
 Factoring M400037 to 2^54 is 3.02% complete. Time: 0.121 sec.
-	This means prime95 is trying to find a small factor of 2^400037-1.
+	This means prime95/mprime is trying to find a small factor of 2^400037-1.
 	It is 3.02% of the way though looking at factors below 2^54.  When
 	this completes it may start looking for factors less than 2^55.
 Iteration: 9414000 / 96774711 [9.73%].  Per iteration time: 0.109 sec.
-	This means prime95 just finished the 9414000th iteration of a
+	This means prime95/mprime just finished the 9414000th iteration of a
 	primality test.  The program must execute 96774711 iterations to
 	complete the primality test.  The average iteration took 0.109 seconds.
 
@@ -345,38 +351,38 @@ M2123027 no factor to 2^57, WV1: 14780E25
 	number may or may not be prime.  A primality test is needed
 	to determine the primality of the Mersenne number.  WV1 is
 	the program version number.  14780E25 is a checksum to guard
-	against email transmission errors.
+	against transmission errors.
 M1992031 is not prime. Res64: 6549369F4962ADE0. WV1: B253EF24,1414032,00000000
 	This means 2^1992031-1 is not prime - a primality test says so.
 	The last 64 bits of the last number in the primality test sequence
 	is 6549369F4962ADE0.  At some future date, another person will verify
 	this 64-bit result by rerunning the primality test.  WV1 is the
-	program	version number.  B253EF24 is a checksum to guard against email
+	program	version number.  B253EF24 is a checksum to guard against
 	transmission errors.  1414032 can be ignored it is used as part
 	of the double-checking process.  The final 00000000 value is a set
 	of 4 counters.  These count the number of errors that occurred during
 	the Lucas-Lehmer test.
 M11213 is prime! WV1: 579A579A
 	This means 2^11213-1 is a Mersenne prime!  WV1 is the program
-	version number.  579A579A is a checksum to guard against email
+	version number.  579A579A is a checksum to guard against
 	transmission errors.
 
 
-RUNNING PRIME95 ON SEVERAL COMPUTERS
-------------------------------------
+INSTALLING ON SEVERAL COMPUTERS
+-------------------------------
 
 The obvious way is to download and install on each computer following the
 instructions above.  Use Test/Primenet to give each computer the same
 user id and different computer name.
 
-Another way to do this is to first set up prime95 on one computer.
+Another way to do this is to first set up one computer.
 Next copy all the files to the second computer.  Delete the local.txt
 file and worktodo.txt files.  These files contain information that
-is specific to the first computer.  Start prime95 on the second
+is specific to the first computer.  Start prime95/mprime on the second
 computer and use Test/Primenet to give the second computer a unique
 computer name.  Check the resource limits dialog box for any further
 needed changes.  Repeat this process for all the computers you wish to
-run prime95 on.
+run prime95/mprime.
 
 
 TEST MENU
@@ -397,7 +403,7 @@ The Status menu choice will tell you what exponents you are working on.
 It will also estimate how long that will take and your chances of finding
 a new Mersenne prime.
 
-The Continue menu choice lets you resume prime95 after you have stopped it.
+The Continue menu choice lets you resume prime95/mprime after you have stopped it.
 
 The Stop menu choice lets you stop the program.  When you continue,
 you will pick up right where you left off.  This is the same as hitting
@@ -463,8 +469,8 @@ done on the unreserved exponent will be lost.
 The Quit GIMPS menu choice is used when you no longer want this computer
 to work on the GIMPS project.  You may rejoin at a later date.
 If you are a PrimeNet user your unfinished work will be returned to the
-server.  If you are a manual user, you need to send me email containing
-your results.txt file.
+server.  If you are a manual user, submit your final results to
+the web page https://mersenne.org/manual_result
 
 
 OPTIONS MENU
@@ -488,7 +494,7 @@ from the PrimeNet server.  If you are low on disk space, you can select one inte
 file instead of more.  However, if you crash in the middle of writing the one intermediate
 file, you may have to restart an exponent from scratch.  You can also tell the program to
 be quiet, rather than beeping like crazy, if a new Mersenne prime is found.  You can also
-make prime95 go idle whenever your laptop is running on battery power.
+make prime95/mprime go idle whenever your laptop is running on battery power.
 
 The Torture Test choice will run a continuous self test.  This is great
 for testing machines for hardware problems.  See the file stress.txt
@@ -509,12 +515,25 @@ turn this feature off by editing prime.txt and change the line "HideIcon=1" to
 "HideIcon=0", then reboot.
 
 
-
-COMMAND LINE ARGUMENTS
-----------------------
+PRIME95 COMMAND LINE ARGUMENTS
+------------------------------
 
 -t		Run the torture test.  Same as Options/Torture Test.
 -Wdirectory	This tells prime95 to find all its files in a different
+		directory than the executable.
+
+MPRIME COMMAND LINE ARGUMENTS
+----------------------------
+
+-c		Contact the PrimeNet server then exit.  Useful for
+		scheduling server communication as a cron job or
+		as part of a script that dials an ISP.
+-d		Prints more detailed information to stdout.  Normally
+		mprime does not send any output to stdout.
+-m		Bring up the menus to set mprime's preferences.
+-t		Run the torture test.  Same as Options/Torture Test.
+-v		Print the version number of mprime.
+-Wdirectory	This tells mprime to find all its files in a different
 		directory than the executable.
 
 
@@ -522,7 +541,7 @@ POSSIBLE HARDWARE FAILURE
 -------------------------
 
 If the message "Possible hardware failure, consult the readme file."
-appears in the results.txt file, then prime95's error-checking has
+appears in the results.txt file, then prime95/mprime's error-checking has
 detected a problem.  After waiting 5 minutes, the program will continue
 testing from the last save file.
 
