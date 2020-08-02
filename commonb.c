@@ -10506,6 +10506,8 @@ int writeResidue (			// Returns TRUE if successful
 // Comes from analyzing an example that combines 16 values to form one Middle:
 // (((r0^h3 * r1)^h2 * r2^h3 * r3)^h1 * (r4^h3 * r5)^h2 * r6^h3 * r7)^h0 * ((r8^h3 * r9)^h2 * r10^h3 * r11)^h1 * (r12^h3 * r13)^h2 * r14^h3 * r15
 
+#ifdef EASY_TO_READ_CODE
+
 int calc_middle (			// Returns TRUE is successful
 	struct prp_state *ps,
 	gwhandle *gwdata,
@@ -10528,6 +10530,58 @@ int calc_middle (			// Returns TRUE is successful
 	gwfree (gwdata, tmp);
 	return (TRUE);
 }
+
+#else					// This version saves one memory allocation
+
+int calc_middle_mult (struct prp_state *, gwhandle *, int, int, int, int, uint64_t *, gwnum);
+
+int calc_middle (			// Returns TRUE is successful
+	struct prp_state *ps,
+	gwhandle *gwdata,
+	int	fd,			// File handle to array of residues
+	int	base,			// Recursion range start
+	int	end,			// Recursion range end
+	int	i,			// Process 2^i values
+	uint64_t *hash_array,		// Array of hashes
+	gwnum	result)			// Return result here
+{
+	if (i == 0) return (readResidue (ps, gwdata, fd, (base + end) / 2, result));	// Read and return the one residue
+	// Recurse on the first half
+	if (!calc_middle (ps, gwdata, fd, base, base + (end - base) / 2, i - 1, hash_array + 1, result)) return (FALSE);
+	exponentiate (gwdata, result, *hash_array);
+	// Recurse on the second half
+	if (!calc_middle_mult (ps, gwdata, fd, base + (end - base) / 2, end, i - 1, hash_array + 1, result)) return (FALSE);
+	return (TRUE);
+}
+
+int calc_middle_mult (			// Returns TRUE is successful
+	struct prp_state *ps,
+	gwhandle *gwdata,
+	int	fd,			// File handle to array of residues
+	int	base,			// Recursion range start
+	int	end,			// Recursion range end
+	int	i,			// Process 2^i values
+	uint64_t *hash_array,		// Array of hashes
+	gwnum	result)			// Multiply result into here
+{
+	gwnum	tmp = gwalloc (gwdata);
+	if (i == 0) {
+		if (!readResidue (ps, gwdata, fd, (base + end) / 2, tmp)) return (FALSE);	// Read and multiply the one residue
+		gwmul (gwdata, tmp, result);
+		gwfree (gwdata, tmp);
+		return (TRUE);
+	}
+	// Recurse on the first half
+	if (!calc_middle (ps, gwdata, fd, base, base + (end - base) / 2, i - 1, hash_array + 1, tmp)) return (FALSE);
+	exponentiate (gwdata, tmp, *hash_array);
+	gwmul (gwdata, tmp, result);
+	gwfree (gwdata, tmp);
+	// Recurse on the second half
+	if (!calc_middle_mult (ps, gwdata, fd, base + (end - base) / 2, end, i - 1, hash_array + 1, result)) return (FALSE);
+	return (TRUE);
+}
+
+#endif
 
 /* Write intermediate PRP results to a file */
 /* The PRP save file format is: */
