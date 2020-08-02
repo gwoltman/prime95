@@ -95,6 +95,7 @@ void exponentiate (gwhandle *gwdata, gwnum x, uint64_t power)
 		if ((power & current_bit) == 0) continue;
 		// We have a window starting with a set bit, see if we want to apply x^1, x^3, x^5, or x^7
 		if (power & (current_bit >> 2)) {
+			gwstartnextfft (gwdata, 1);
 			gwsquare (gwdata, x);
 			gwsquare (gwdata, x);
 			if (power & (current_bit >> 1)) {	// Apply x^7
@@ -108,6 +109,7 @@ void exponentiate (gwhandle *gwdata, gwnum x, uint64_t power)
 			current_bit >>= 2;
 		} else {
 			if (power & (current_bit >> 1)) {	// Apply x^3
+				gwstartnextfft (gwdata, 1);
 				gwsquare (gwdata, x);
 				gwstartnextfft (gwdata, current_bit != 2);
 				gwfftmul (gwdata, x3, x);
