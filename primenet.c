@@ -1096,6 +1096,21 @@ int primenet_parse_page (char *response_buf, short operation, void *pkt)
 		primenet_parse_uint (s, "dc", &z->prp_dblchk);
 		primenet_parse_string (s, "kf", z->known_factors, sizeof (z->known_factors));
 		primenet_parse_uint (s, "ns", &z->num_squarings);
+		// Parse emergency PRP proof params that we hope to never use
+		if (z->work_type == PRIMENET_WORK_TYPE_PRP) {
+			uint32_t proof_power = 0;
+			uint32_t proof_hashlen = 0;
+			primenet_parse_uint (s, "pp", &proof_power);
+			primenet_parse_uint (s, "ph", &proof_hashlen);
+			if (proof_power == 0)
+				IniSectionWriteString (INI_FILE, iniSection, "ProofPower", NULL);
+			else
+				IniSectionWriteInt (INI_FILE, iniSection, "ProofPower", proof_power);
+			if (proof_hashlen == 0)
+				IniSectionWriteString (INI_FILE, iniSection, "ProofHashLength", NULL);
+			else
+				IniSectionWriteInt (INI_FILE, iniSection, "ProofHashLength", proof_hashlen);
+		}
 		break;
 		}
 	case PRIMENET_REGISTER_ASSIGNMENT:

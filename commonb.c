@@ -11185,9 +11185,11 @@ int prp (
 /* Users rarely change defaults. */
 
 	ps.proof_power = 0;
-	ps.hashlen = 64;   //BUG - user override?  Primenet server override?  in worktodo.txt entry?
-//BUG - verify hashlen between 32 and 64
-//BUG - do we need to save hashlen in save file?  It can be changed anytime before proof file generated.
+	// We have a way for the PrimeNet server to change (reduce) the default hashlen.  This would reduce server proof
+	// processing load somewhat.  We hope to never use this option.
+	ps.hashlen = IniSectionGetInt (INI_FILE, "PrimeNet", "ProofHashLength", 64);
+	if (ps.hashlen < 32) ps.hashlen = 32;
+	if (ps.hashlen > 64) ps.hashlen = 64;
 
 	if (ps.two_power_opt && (ps.residue_type == PRIMENET_PRP_TYPE_FERMAT || ps.residue_type == PRIMENET_PRP_TYPE_COFACTOR)) {
 		double	hashlen_adjust = ps.hashlen / 64.0;
@@ -11212,6 +11214,10 @@ int prp (
 		if (power_adjust < -2) power_adjust = -2;
 		ps.proof_power += power_adjust;
 		if (ps.proof_power > best_power) ps.proof_power = best_power;
+
+		// We have a way for the PrimeNet server to change (reduce) the proof power.  This would reduce server proof
+		// processing load somewhat and reduce the bandwidth required for obtaining proof files.  We hope to never use this option.
+		ps.proof_power = IniSectionGetInt (INI_FILE, "PrimeNet", "ProofPower", ps.proof_power);
 	}
 
 /* Init the write save file state.  This remembers which save files are Gerbicz-checked.  Do this initialization */
