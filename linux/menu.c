@@ -484,6 +484,37 @@ again:	if (max_num_workers () > 1)
 		int	new_options = FALSE;
 		unsigned long i, total_num_cores;
 
+/* If the user has selected 100M tests and per-worker temp disk is not enough for a power=8 proof, then do not permit it. */
+
+		if (CPU_WORKER_DISK_SPACE < 12.0) {
+			int	changed = FALSE;
+			for (i = 0; i < m_num_thread; i++) {
+				if (m_work_pref[i] == PRIMENET_WP_PRP_100M) {
+					m_work_pref[i] = PRIMENET_WP_PRP_FIRST;
+					changed = TRUE;
+				}
+			}
+			if (changed) {
+				OutputLongLine (MSG_100M);
+				AskOK ();
+			}
+		}
+
+/* If the user has selected first-time tests and per-worker temp disk is not enough for a power=6 proof, then warn the user. */
+
+		if (CPU_WORKER_DISK_SPACE < 1.5) {
+			int	warn = FALSE;
+			for (i = 0; i < m_num_thread; i++) {
+				if (m_work_pref[i] == PRIMENET_WP_PRP_FIRST || m_work_pref[i] == PRIMENET_WP_PRP_WORLD_RECORD) {
+					warn = TRUE;
+				}
+			}
+			if (warn) {
+				OutputLongLine (MSG_FIRST);
+				AskOK ();
+			}
+		}
+
 /* If the user has allocated too many cores then raise a severe warning. */
 
 		total_num_cores = 0;
@@ -905,6 +936,11 @@ void options_resources (void)
 		int	restart = FALSE;
 		unsigned int new_day_start_time, new_day_end_time;
 
+		// Raise a warning if uesr drops the temp disk space below the threshold for first time work.
+		if (CPU_WORKER_DISK_SPACE >= 1.5 && m_disk < 1.5) {
+			OutputLongLine (MSG_DISK);
+			askOK ();
+		}
 		CPU_WORKER_DISK_SPACE = m_disk;
 		IniWriteFloat (LOCALINI_FILE, "WorkerDiskSpace", CPU_WORKER_DISK_SPACE);
 		IniSectionWriteFloat (INI_FILE, "PrimeNet", "UploadRateLimit", m_upload_bandwidth);

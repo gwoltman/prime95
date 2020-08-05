@@ -350,6 +350,19 @@ again:	if (dlg.DoModal () == IDOK) {
 				AfxMessageBox (MSG_100M, MB_ICONEXCLAMATION | MB_OK);
 		}
 
+/* If the user has selected first-time tests and per-worker temp disk is not enough for a power=6 proof, then warn the user. */
+
+		if (CPU_WORKER_DISK_SPACE < 1.5) {
+			int	warn = FALSE;
+			for (i = 0; i < dlg.m_num_thread; i++) {
+				if (dlg.m_work_pref[i] == PRIMENET_WP_PRP_FIRST || dlg.m_work_pref[i] == PRIMENET_WP_PRP_WORLD_RECORD) {
+					warn = TRUE;
+				}
+			}
+			if (warn)
+				AfxMessageBox (MSG_FIRST, MB_ICONEXCLAMATION | MB_OK);
+		}
+
 /* If the user has allocated too many cores then raise a severe warning. */
 
 		total_num_cores = 0;
@@ -687,6 +700,10 @@ void CPrime95Doc::OnResources()
 	dlg.m_download_mb = IniSectionGetInt (INI_FILE, "PrimeNet", "DownloadDailyLimit", 40);
 	dlg.m_can_upload = IniSectionGetInt (INI_FILE, "PrimeNet", "ProofUploads", 1);
 	if (dlg.DoModal () == IDOK) {
+		// Raise a warning if uesr drops the temp disk space below the threshold for first time work.
+		if (CPU_WORKER_DISK_SPACE >= 1.5 && dlg.m_disk < 1.5) {
+			AfxMessageBox (MSG_DISK, MB_ICONEXCLAMATION | MB_OK);
+		}
 		CPU_WORKER_DISK_SPACE = dlg.m_disk;
 		IniWriteFloat (LOCALINI_FILE, "WorkerDiskSpace", CPU_WORKER_DISK_SPACE);
 		IniSectionWriteFloat (INI_FILE, "PrimeNet", "UploadRateLimit", dlg.m_upload_bandwidth);

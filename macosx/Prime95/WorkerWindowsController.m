@@ -202,7 +202,6 @@ int AreAllTheSame (
 			}
 		}
 		if (changed) {
-			AfxMessageBox (MSG_100M, MB_ICONEXCLAMATION | MB_OK);
 			NSAlert *alert = [[NSAlert alloc] init];
 			[alert addButtonWithTitle:@"OK"];
 			[alert setMessageText:@"The 100 million digit work preference requires setting per-worker temporary disk space to 12GB or more.  Work preference changed to first-time primality testing."];
@@ -211,6 +210,27 @@ int AreAllTheSame (
 			[alert release];
 		}
 	}
+
+/* If the user has selected first-time tests and per-worker temp disk is not enough for a power=6 proof, then warn the user. */
+
+		if (CPU_WORKER_DISK_SPACE < 1.5) {
+			int	warn = FALSE;
+			for (i = 0; i < numWorkers; i++) {
+				WorkerData *row = [workerData objectAtIndex:i];
+				if (map_sel_to_work_pref ([row typeOfWork]) == PRIMENET_WP_PRP_FIRST ||
+				    map_sel_to_work_pref ([row typeOfWork]) == PRIMENET_WP_PRP_WORLD_RECORD) {
+					warn = TRUE;
+				}
+			}
+			if (warn) {
+				NSAlert *alert = [[NSAlert alloc] init];
+				[alert addButtonWithTitle:@"OK"];
+				[alert setMessageText:@"The first time prime test work preference may require setting per-worker temporary disk space to at least 1.5GB.""];
+				[alert setAlertStyle:NSWarningAlertStyle];
+				[alert runModal];
+				[alert release];
+			}
+		}
 
 /* Make sure user has not allocated too many cores */
 
