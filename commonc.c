@@ -41,7 +41,7 @@ unsigned int CORES_PER_TEST[MAX_NUM_WORKER_THREADS] = {1}; /* Number of threads 
 int	HYPERTHREAD_TF = 1;		/* TRUE if trial factoring should use hyperthreads */
 int	HYPERTHREAD_LL = 0;		/* TRUE if FFTs (LL, P-1, ECM, PRP) should use hyperthreads */
 int	MANUAL_COMM = 0;
-float volatile CPU_WORKER_DISK_SPACE = 5.0;
+float volatile CPU_WORKER_DISK_SPACE = 6.0;
 unsigned int volatile CPU_HOURS = 0;
 int	CLASSIC_OUTPUT = 0;
 int	OUTPUT_ROUNDOFF = 0;
@@ -1422,7 +1422,7 @@ int readIniFiles (void)
 	DAYS_OF_WORK = (unsigned int) IniGetInt (INI_FILE, "DaysOfWork", 3);
 	if (DAYS_OF_WORK > 180) DAYS_OF_WORK = 180;
 
-	CPU_WORKER_DISK_SPACE = IniGetFloat (LOCALINI_FILE, "WorkerDiskSpace", 5.0);
+	CPU_WORKER_DISK_SPACE = IniGetFloat (LOCALINI_FILE, "WorkerDiskSpace", 6.0);
 	if (CPU_WORKER_DISK_SPACE < 0.0) CPU_WORKER_DISK_SPACE = 0.0;
 	if (CPU_WORKER_DISK_SPACE > 1000.0) CPU_WORKER_DISK_SPACE = 1000.0;
 

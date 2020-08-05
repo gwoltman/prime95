@@ -185,21 +185,23 @@ and exponents.
 
 Proof                              Temp disk space / Proof file size
 Power         Exponent=100,000,000         Exponent=200,000,000            Exponent=332,000,000
+7               1.6GB / 100MB                  3.2GB / 200MB                  5.3GB / 332MB
 8               3.2GB / 113MB                  6.4GB / 225MB                  10.6GB / 373MB
 9               6.4GB / 125MB                  12.8GB / 250MB                 21.2GB / 415MB
 10             12.8GB / 138MB                  25.6GB / 275MB                 42.4GB / 457MB
 
 After the proof is uploaded to the server it is pre-processed creating a smaller file that
 must be downloaded by users doing proof certification work.  Proof certification work is
-very fast (250 or 500 times faster than the original PRP test).  By default, your computer
-is signed up for occasional proof certification work. 
+very fast (128, 256, 512, or 1024 times faster than the original PRP test depending on proof
+power).  By default, your computer is signed up for occasional proof certification work.
 
 Temporary disk usage
 --------------------
 
 This setting limits the amount of temporary disk space used BY EACH WORKER doing PRP work.
 See the table above for how that affects proof power.  A proof power of 8 or more is desirable,
-but a proof power of 7 is acceptable.
+but a proof power of 7 is acceptable.  The default limit of 6GB will use a proof power of 8
+for exponents you are likely to be assigned for first time tests over the next several years.
 
 Upload bandwidth limit
 ----------------------
@@ -214,7 +216,6 @@ Upload time period
 
 You can further reduce impact on network performance by scheduling uploads for off hours when
 network traffic is light.
-
 
 Download limit for certification work
 -------------------------------------
@@ -287,10 +288,10 @@ daytime memory to 0.5GB so they never have to worry about prime95 impacting syst
 Max emergency memory
 --------------------
 
-If the program cannot write to the large temporary file, it will use emergency memory to store data
-in hopes that it can later successfully write to the temporary file.  For me, this gives me about a day
-to correct a network drive that has gone offline.  If you use a local disk to store you large temporary
-proof files, then emergency memory might be used if the local disk were full.
+If the program cannot write to the large temporary file, it will use emergency memory to hold data in
+hopes that it can later be successfully written to the temporary file.  For me, this gives me about a day
+to correct a network drive that has gone offline.  If you use a local disk to store your large temporary
+proof files then emergency memory might be used if the local disk is full.
 
 CPU Priority
 ------------
@@ -306,7 +307,7 @@ Certification work limit
 
 This setting limits the maximum amount of CPU time that will be spent doing certification work.  It is
 highly unlikely there will be enough certification work available to satisfy the default setting of 10%.
-If every user does their share of certification work, then there will only be enough work for less
+If every user does their share of certification work then there will only be enough work for less
 than 0.5% of your CPU time.
 
 NOTE: Technically, the default limit is not 10% of your CPU, but rather 10% of the work a typical 2015
