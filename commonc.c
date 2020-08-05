@@ -41,7 +41,7 @@ unsigned int CORES_PER_TEST[MAX_NUM_WORKER_THREADS] = {1}; /* Number of threads 
 int	HYPERTHREAD_TF = 1;		/* TRUE if trial factoring should use hyperthreads */
 int	HYPERTHREAD_LL = 0;		/* TRUE if FFTs (LL, P-1, ECM, PRP) should use hyperthreads */
 int	MANUAL_COMM = 0;
-unsigned int volatile CPU_WORKER_DISK_SPACE = 0;
+float volatile CPU_WORKER_DISK_SPACE = 5.0;
 unsigned int volatile CPU_HOURS = 0;
 int	CLASSIC_OUTPUT = 0;
 int	OUTPUT_ROUNDOFF = 0;
@@ -1422,9 +1422,9 @@ int readIniFiles (void)
 	DAYS_OF_WORK = (unsigned int) IniGetInt (INI_FILE, "DaysOfWork", 3);
 	if (DAYS_OF_WORK > 180) DAYS_OF_WORK = 180;
 
-	CPU_WORKER_DISK_SPACE = (unsigned int) IniGetInt (LOCALINI_FILE, "WorkerDiskSpace", 5);
-	if (CPU_WORKER_DISK_SPACE < 1) CPU_WORKER_DISK_SPACE = 1;
-	if (CPU_WORKER_DISK_SPACE > 999) CPU_WORKER_DISK_SPACE = 999;
+	CPU_WORKER_DISK_SPACE = IniGetFloat (LOCALINI_FILE, "WorkerDiskSpace", 5.0);
+	if (CPU_WORKER_DISK_SPACE < 0.0) CPU_WORKER_DISK_SPACE = 0.0;
+	if (CPU_WORKER_DISK_SPACE > 1000.0) CPU_WORKER_DISK_SPACE = 1000.0;
 
 	CPU_HOURS = (unsigned int) IniGetInt (LOCALINI_FILE, "CPUHours", 24);
 	if (CPU_HOURS < 1) CPU_HOURS = 1;
@@ -6159,6 +6159,7 @@ retry:
 		memset (&pkt1, 0, sizeof (pkt1));
 		strcpy (pkt1.computer_guid, COMPUTER_GUID);
 		pkt1.cpu_num = tnum;
+		pkt1.temp_disk_space = CPU_WORKER_DISK_SPACE;
 		LOCKED_WORK_UNIT = NULL;
 		rc = sendMessage (PRIMENET_GET_ASSIGNMENT, &pkt1);
 		if (rc) goto error_exit;

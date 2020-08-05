@@ -563,6 +563,7 @@ int format_args (char* args, short operation, void* pkt)
 		sprintf (p, "&c=%d", z->cpu_num);
 		p += strlen (p);
 		if (z->get_cert_work != 0.0) sprintf (p, "&cert=%f", z->get_cert_work), p += strlen (p);
+		if (z->temp_disk_space != 0.0) sprintf (p, "&disk=%f", z->temp_disk_space), p += strlen (p);
 		break;
 		}
 	case PRIMENET_ASSIGNMENT_PROGRESS:

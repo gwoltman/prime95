@@ -19,7 +19,7 @@ CResourcesDlg::CResourcesDlg(CWnd* pParent /*=NULL*/)
 	: CDialog(CResourcesDlg::IDD, pParent)
 {
 	//{{AFX_DATA_INIT(CResourcesDlg)
-	m_disk = 0;
+	m_disk = 0.0;
 	m_upload_bandwidth = 0.0;
 	m_upload_start = _T("");
 	m_upload_end = _T("");
@@ -34,7 +34,7 @@ void CResourcesDlg::DoDataExchange(CDataExchange* pDX)
 	CDialog::DoDataExchange(pDX);
 	//{{AFX_DATA_MAP(CResourcesDlg)
 	DDX_Text(pDX, IDC_DISK, m_disk);
-	DDV_MinMaxUInt(pDX, m_disk, 0, 100);
+	DDV_MinMaxFloat(pDX, m_disk, (float) 0.0, (float) 1000.0);
 	DDX_Text(pDX, IDC_UPLOAD_BANDWIDTH, m_upload_bandwidth);
 	DDV_MinMaxFloat(pDX, m_upload_bandwidth, (float) 0.05, (float) 10000.0);
 	DDX_Text(pDX, IDC_UPLOAD_START, m_upload_start);

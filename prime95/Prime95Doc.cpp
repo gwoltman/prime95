@@ -338,7 +338,7 @@ again:	if (dlg.DoModal () == IDOK) {
 
 /* If the user has selected 100M tests and per-worker temp disk is not enough for a power=8 proof, then do not permit it. */
 
-		if (CPU_WORKER_DISK_SPACE < 12) {
+		if (CPU_WORKER_DISK_SPACE < 12.0) {
 			int	changed = FALSE;
 			for (i = 0; i < dlg.m_num_thread; i++) {
 				if (dlg.m_work_pref[i] == PRIMENET_WP_PRP_100M) {
@@ -688,7 +688,7 @@ void CPrime95Doc::OnResources()
 	dlg.m_can_upload = IniSectionGetInt (INI_FILE, "PrimeNet", "ProofUploads", 1);
 	if (dlg.DoModal () == IDOK) {
 		CPU_WORKER_DISK_SPACE = dlg.m_disk;
-		IniWriteInt (LOCALINI_FILE, "WorkerDiskSpace", CPU_WORKER_DISK_SPACE);
+		IniWriteFloat (LOCALINI_FILE, "WorkerDiskSpace", CPU_WORKER_DISK_SPACE);
 		IniSectionWriteFloat (INI_FILE, "PrimeNet", "UploadRateLimit", dlg.m_upload_bandwidth);
 		IniSectionWriteString (INI_FILE, "PrimeNet", "UploadStartTime", (const char *) dlg.m_upload_start);
 		IniSectionWriteString (INI_FILE, "PrimeNet", "UploadEndTime", (const char *) dlg.m_upload_end);

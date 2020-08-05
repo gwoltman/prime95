@@ -13,7 +13,7 @@ public:
 // Dialog Data
 	//{{AFX_DATA(CResourcesDlg)
 	enum { IDD = IDD_RESOURCES };
-	UINT	m_disk;
+	float	m_disk;
 	float	m_upload_bandwidth;
 	CString m_upload_start;
 	CString m_upload_end;

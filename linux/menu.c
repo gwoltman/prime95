@@ -837,8 +837,8 @@ void options_cpu (void)
 
 void options_resources (void)
 {
-	unsigned long m_disk, m_download_mb, m_priority, m_cert_cpu;
-	float	m_upload_bandwidth, m_day_memory, m_night_memory, m_emergency_mem;
+	unsigned long m_download_mb, m_priority, m_cert_cpu;
+	float	m_disk, m_upload_bandwidth, m_day_memory, m_night_memory, m_emergency_mem;
 	char	m_upload_start[20], m_upload_end[20], m_temp_dir[512], m_archive_dir[512];
 	char	m_start_time[13], m_end_time[13];
 	int	can_upload, m_hyper_tf, m_hyper_ll, m_memory_editable;
@@ -868,7 +868,7 @@ void options_resources (void)
 	m_hyper_ll = HYPERTHREAD_LL;
 	can_upload = IniSectionGetInt (INI_FILE, "PrimeNet", "ProofUploads", 1);
 
-	askNum ("Temporary disk space limit in GB/worker", &m_disk, 0, 100);
+	askFloat ("Temporary disk space limit in GB/worker", &m_disk, 0.0, 1000.0);
 	if (can_upload) {
 		askFloat ("Upload bandwidth limit in Mbps", &m_upload_bandwidth, 0.05, 10000.0);
 		askStr ("Upload large files time period start", m_upload_start, 8);
@@ -906,7 +906,7 @@ void options_resources (void)
 		unsigned int new_day_start_time, new_day_end_time;
 
 		CPU_WORKER_DISK_SPACE = m_disk;
-		IniWriteInt (LOCALINI_FILE, "WorkerDiskSpace", CPU_WORKER_DISK_SPACE);
+		IniWriteFloat (LOCALINI_FILE, "WorkerDiskSpace", CPU_WORKER_DISK_SPACE);
 		IniSectionWriteFloat (INI_FILE, "PrimeNet", "UploadRateLimit", m_upload_bandwidth);
 		IniSectionWriteString (INI_FILE, "PrimeNet", "UploadStartTime", m_upload_start);
 		IniSectionWriteString (INI_FILE, "PrimeNet", "UploadEndTime", m_upload_end);

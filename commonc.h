@@ -158,7 +158,7 @@ extern int volatile SUM_INPUTS_ERRCHK;	/* 1 to turn on sum(inputs) != sum(output
 extern unsigned int PRIORITY;		/* Desired priority level */
 extern int MANUAL_COMM;			/* Set on if user explicitly starts */
 					/* all communication with the server */
-extern unsigned int volatile CPU_WORKER_DISK_SPACE; /* Disk space in GB each worker is allowed to use */
+extern float volatile CPU_WORKER_DISK_SPACE; /* Disk space in GB each worker is allowed to use */
 extern unsigned int volatile CPU_HOURS;	/* Hours per day program will run */
 extern int CLASSIC_OUTPUT;		/* LL and PRP output to worker windows should use the pre-v28.5 classic style */
 extern int OUTPUT_ROUNDOFF;		/* LL and PRP output to worker windows shound include the roundoff error */
