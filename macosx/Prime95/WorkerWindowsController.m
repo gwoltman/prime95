@@ -20,30 +20,28 @@ int map_work_pref_to_sel (
 		return (1);
 	case PRIMENET_WP_PRP_WORLD_RECORD:
 		return (2);
-	case PRIMENET_WP_LL_DBLCHK:
-		return (3);
 	case PRIMENET_WP_PRP_DBLCHK:
-		return (4);
+		return (3);
 	case PRIMENET_WP_FACTOR:
-		return (5);
+		return (4);
 	case PRIMENET_WP_PFACTOR:
-		return (6);
+		return (5);
 	case PRIMENET_WP_PRP_100M:
-		return (7);
+		return (6);
 	case PRIMENET_WP_PRP_COFACTOR:
-		return (8);
+		return (7);
 	case PRIMENET_WP_PRP_COFACTOR_DBLCHK:
-		return (9);
+		return (8);
 	case PRIMENET_WP_ECM_SMALL:
-		return (10);
+		return (9);
 	case PRIMENET_WP_ECM_COFACTOR:
-		return (11);
+		return (10);
 	case PRIMENET_WP_ECM_FERMAT:
-		return (12);
+		return (11);
 	case PRIMENET_WP_FACTOR_LMH:
-		return (13);
+		return (12);
 	default:
-		return (14);
+		return (13);
 	}
 }
 
@@ -58,26 +56,24 @@ int map_sel_to_work_pref (
 	case 2:
 		return (PRIMENET_WP_PRP_WORLD_RECORD);
 	case 3:
-		return (PRIMENET_WP_LL_DBLCHK);
-	case 4:
 		return (PRIMENET_WP_PRP_DBLCHK);
-	case 5:
+	case 4:
 		return (PRIMENET_WP_FACTOR);
-	case 6:
+	case 5:
 		return (PRIMENET_WP_PFACTOR);
-	case 7:
+	case 6:
 		return (PRIMENET_WP_PRP_100M);
-	case 8:
+	case 7:
 		return (PRIMENET_WP_PRP_COFACTOR);
-	case 9:
+	case 8:
 		return (PRIMENET_WP_PRP_COFACTOR_DBLCHK);
-	case 10:
+	case 9:
 		return (PRIMENET_WP_ECM_SMALL);
-	case 11:
+	case 10:
 		return (PRIMENET_WP_ECM_COFACTOR);
-	case 12:
+	case 11:
 		return (PRIMENET_WP_ECM_FERMAT);
-	case 13:
+	case 12:
 		return (PRIMENET_WP_FACTOR_LMH);
 	}
 	return (-1);
@@ -193,6 +189,28 @@ int AreAllTheSame (
 	int	new_options = FALSE;
 
 	[[self window] makeFirstResponder:nil];			// End any active text field edits
+
+/* If the user has selected 100M tests and per-worker temp disk is not enough for a power=8 proof, then do not permit it. */
+
+	if (CPU_WORKER_DISK_SPACE < 12.0) {
+		int	changed = FALSE;
+		for (i = 0; i < numWorkers; i++) {
+			WorkerData *row = [workerData objectAtIndex:i];
+			if (map_sel_to_work_pref ([row typeOfWork]) == PRIMENET_WP_PRP_100M) {
+				[row setTypeOfWork:map_work_pref_to_sel(PRIMENET_WP_PRP_FIRST)];
+				changed = TRUE;
+			}
+		}
+		if (changed) {
+			AfxMessageBox (MSG_100M, MB_ICONEXCLAMATION | MB_OK);
+			NSAlert *alert = [[NSAlert alloc] init];
+			[alert addButtonWithTitle:@"OK"];
+			[alert setMessageText:@"The 100 million digit work preference requires setting per-worker temporary disk space to 12GB or more.  Work preference changed to first-time primality testing."];
+			[alert setAlertStyle:NSWarningAlertStyle];
+			[alert runModal];
+			[alert release];
+		}
+	}
 
 /* Make sure user has not allocated too many cores */
 

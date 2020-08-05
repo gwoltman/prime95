@@ -103,30 +103,28 @@ int map_work_pref_to_sel (
 		return (1);
 	case PRIMENET_WP_PRP_WORLD_RECORD:
 		return (2);
-	case PRIMENET_WP_LL_DBLCHK:
-		return (3);
 	case PRIMENET_WP_PRP_DBLCHK:
-		return (4);
+		return (3);
 	case PRIMENET_WP_FACTOR:
-		return (5);
+		return (4);
 	case PRIMENET_WP_PFACTOR:
-		return (6);
+		return (5);
 	case PRIMENET_WP_PRP_100M:
-		return (7);
+		return (6);
 	case PRIMENET_WP_PRP_COFACTOR:
-		return (8);
+		return (7);
 	case PRIMENET_WP_PRP_COFACTOR_DBLCHK:
-		return (9);
+		return (8);
 	case PRIMENET_WP_ECM_SMALL:
-		return (10);
+		return (9);
 	case PRIMENET_WP_ECM_COFACTOR:
-		return (11);
+		return (10);
 	case PRIMENET_WP_ECM_FERMAT:
-		return (12);
+		return (11);
 	case PRIMENET_WP_FACTOR_LMH:
-		return (13);
+		return (12);
 	default:
-		return (14);
+		return (13);
 	}
 }
 
@@ -141,26 +139,24 @@ int map_sel_to_work_pref (
 	case 2:
 		return (PRIMENET_WP_PRP_WORLD_RECORD);
 	case 3:
-		return (PRIMENET_WP_LL_DBLCHK);
-	case 4:
 		return (PRIMENET_WP_PRP_DBLCHK);
-	case 5:
+	case 4:
 		return (PRIMENET_WP_FACTOR);
-	case 6:
+	case 5:
 		return (PRIMENET_WP_PFACTOR);
-	case 7:
+	case 6:
 		return (PRIMENET_WP_PRP_100M);
-	case 8:
+	case 7:
 		return (PRIMENET_WP_PRP_COFACTOR);
-	case 9:
+	case 8:
 		return (PRIMENET_WP_PRP_COFACTOR_DBLCHK);
-	case 10:
+	case 9:
 		return (PRIMENET_WP_ECM_SMALL);
-	case 11:
+	case 10:
 		return (PRIMENET_WP_ECM_COFACTOR);
-	case 12:
+	case 11:
 		return (PRIMENET_WP_ECM_FERMAT);
-	case 13:
+	case 12:
 		return (PRIMENET_WP_FACTOR_LMH);
 	}
 	return (-1);
@@ -204,8 +200,7 @@ void CWorkerDlg::InitComboBoxText (void)
 	c_work_pref.AddString ("Whatever makes the most sense");
 	c_work_pref.AddString ("First time prime tests");
 	c_work_pref.AddString ("World record sized numbers to prime test");
-	c_work_pref.AddString ("Double-check LL prime tests");
-	c_work_pref.AddString ("Double-check PRP prime tests");
+	c_work_pref.AddString ("Double-check prime tests");
 	c_work_pref.AddString ("Trial factoring");
 	c_work_pref.AddString ("P-1 factoring");
 	c_work_pref.AddString ("100,000,000 digit numbers to prime test");
@@ -215,7 +210,7 @@ void CWorkerDlg::InitComboBoxText (void)
 	c_work_pref.AddString ("ECM on Mersenne cofactors");
 	c_work_pref.AddString ("ECM on Fermat numbers");
 	c_work_pref.AddString ("Trial factoring to low limits");
-	if (sel == 14) c_work_pref.AddString ("Other");
+	if (sel == 13) c_work_pref.AddString ("Other");
 	c_work_pref.SetCurSel (sel);
 
 // Populate the num cpus edit box.

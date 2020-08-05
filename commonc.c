@@ -1485,7 +1485,7 @@ int readIniFiles (void)
 	if (PRIORITY < 1) PRIORITY = 1;
 	if (PRIORITY > 10) PRIORITY = 10;
 	PTOGetAll (INI_FILE, "WorkPreference", WORK_PREFERENCE, 0);
-	// Upgrade pre-v30 users from LL to PRP
+	// Upgrade pre-v30 users from LL to PRP, combine LL-DC and PRP-DC into one work preference
 	if (!IniGetInt (INI_FILE, "V30OptionsConverted", 0)) {
 		int	i, all_the_same = TRUE;
 		for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
@@ -1494,6 +1494,7 @@ int readIniFiles (void)
 			if (WORK_PREFERENCE[i] == PRIMENET_WP_LL_FIRST_NOFAC) WORK_PREFERENCE[i] = PRIMENET_WP_PRP_FIRST;
 			if (WORK_PREFERENCE[i] == PRIMENET_WP_LL_WORLD_RECORD) WORK_PREFERENCE[i] = PRIMENET_WP_PRP_WORLD_RECORD;
 			if (WORK_PREFERENCE[i] == PRIMENET_WP_LL_100M) WORK_PREFERENCE[i] = PRIMENET_WP_PRP_100M;
+			if (WORK_PREFERENCE[i] == PRIMENET_WP_LL_DBLCHK) WORK_PREFERENCE[i] = PRIMENET_WP_PRP_DBLCHK;
 			if (i && WORK_PREFERENCE[i] != WORK_PREFERENCE[i-1]) all_the_same = FALSE;
 		}
 		if (all_the_same)
