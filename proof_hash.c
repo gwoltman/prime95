@@ -10,15 +10,16 @@
 
 typedef unsigned char hash256_t[32];		// A 256-bit hash value
 
-void sha3_hash_and_gwnum (
+int sha3_hash_and_gwnum (
 	gwhandle *gwdata,
 	hash256_t *prepend_hash,
 	gwnum	x,
 	hash256_t *result)
 {
 	int	residue_size, arraylen, i, len;
-	uint32_t *array;
+	uint32_t *array = NULL;
 	sha3_ctx_t sha3;
+	int	retcode = 0;
 
 	// Init the sha3 structure.  Process the prepend hash.
 	sha3_init (&sha3, 32);
@@ -28,11 +29,11 @@ void sha3_hash_and_gwnum (
 	residue_size = divide_rounding_up ((int) ceil (gwdata->bit_length), 8);
 	arraylen = divide_rounding_up (residue_size, 4);
 	array = (uint32_t *) malloc (divide_rounding_up (residue_size, 4) * sizeof(uint32_t));
-	if (array == NULL) goto err2;
+	if (array == NULL) goto err;
 
 	// Convert gwnum to binary
 	len = gwtobinary (gwdata, x, array, arraylen);
-	if (len < 0) goto err1;
+	if (len < 0) goto err;
 
 	// Convert from an array of uint32_t to an array of bytes (LSB to MSB).  Zero-pad if necessary.
 	for (i = 0; i < len; i++) {
@@ -48,30 +49,31 @@ void sha3_hash_and_gwnum (
 	sha3_update (&sha3, array, residue_size);
 	sha3_final (result, &sha3);
 
-//BUG
-err2: err1:
+	// Return success
+	retcode = 1;
 
-	// Free memory
-	free (array);
+	// Free memory and return
+err:	if (array != NULL) free (array);
+	return (retcode);
 }
 
 
 // Return 256-bit sha3 hash of a gwnum converted to binary
-void sha3_gwnum (
+int sha3_gwnum (
 	gwhandle *gwdata,
 	gwnum	x,
 	hash256_t *result)
 {
-	sha3_hash_and_gwnum (gwdata, NULL, x, result);
+	return (sha3_hash_and_gwnum (gwdata, NULL, x, result));
 }
 
 // Build the proof root hash using the final residue
-void roothash (
+int roothash (
 	gwhandle *gwdata,
 	gwnum	x,
 	hash256_t *result)
 {
-	sha3_hash_and_gwnum (gwdata, NULL, x, result);
+	return (sha3_hash_and_gwnum (gwdata, NULL, x, result));
 }
 
 // Build next hash from previous hash prepended to a gwnum residue

@@ -281,20 +281,19 @@ int cert (
 /* Set the proper starting value and state if no save file was present */
 
 	if (cs.counter == 0) {
-	int	i, residue_size;
-	uint32_t *array;		/* Array to contain the binary value */
-	uint32_t arraylen;		/* Size of the array */
+		int	i, residue_size;
+		uint32_t *array;		/* Array to contain the binary value */
+		uint32_t arraylen;		/* Size of the array */
+		char	md5[33], residue_md5[33];
 
-	// Allocate an array for binary value
-	residue_size = divide_rounding_up ((int) ceil(cs.gwdata.bit_length), 8);
-	arraylen = divide_rounding_up (residue_size, 4);
-	array = (uint32_t *) malloc (arraylen * sizeof(uint32_t));
-	array[arraylen-1] = 0;		// Zero-pad the top few bytes
+		// Allocate an array for binary value
+		residue_size = divide_rounding_up ((int) ceil(cs.gwdata.bit_length), 8);
+		arraylen = divide_rounding_up (residue_size, 4);
+		array = (uint32_t *) malloc (arraylen * sizeof(uint32_t));
+		array[arraylen-1] = 0;		// Zero-pad the top few bytes
 
 /* Contact PrimeNet for the starting residue */
 
-	{
-		char	md5[33], residue_md5[33];
 		if (ProofGetData (w->assignment_uid, array, residue_size, md5) != PRIMENET_NO_ERROR) {
 			OutputBoth (thread_num, "Error getting CERT starting value.  Will try again later.\n");
 			free (array);
@@ -308,31 +307,28 @@ int cert (
 			stop_reason = STOP_ABORT;
 			goto exit;
 		}
-	}
 
 // BUG - find a way to commonize this code?? -- used in verifier, server_proof, proof_hash, read/write residue in prime95, etc
 
-	// Convert from an array of bytes (LSB to MSB) to an array of uint32_t
-	for (i = 0; i < (int) arraylen; i++) {
-		uint32_t val;
-		val = ((unsigned char *)&array[i])[3];
-		val = (val << 8) + ((unsigned char *)&array[i])[2];
-		val = (val << 8) + ((unsigned char *)&array[i])[1];
-		val = (val << 8) + ((unsigned char *)&array[i])[0];
-		array[i] = val;
-	}
+		// Convert from an array of bytes (LSB to MSB) to an array of uint32_t
+		for (i = 0; i < (int) arraylen; i++) {
+			uint32_t val;
+			val = ((unsigned char *)&array[i])[3];
+			val = (val << 8) + ((unsigned char *)&array[i])[2];
+			val = (val << 8) + ((unsigned char *)&array[i])[1];
+			val = (val << 8) + ((unsigned char *)&array[i])[0];
+			array[i] = val;
+		}
 
-	// Convert binary to gwnum
-	binarytogw (&cs.gwdata, array, arraylen, cs.x);
-	free (array);
+		// Convert binary to gwnum
+		binarytogw (&cs.gwdata, array, arraylen, cs.x);
+		free (array);
 
-
-	// Generate a random initial shift count.  Initial shift count can't be larger than n.
-	// Perform the initial rotate left.
-	srand ((unsigned) time (NULL));
-	cs.units_bit = ((rand () << 16) + rand ()) % w->n;
-	gwrotate_left (&cs.gwdata, cs.x, cs.units_bit);
-
+		// Generate a random initial shift count.  Initial shift count can't be larger than n.
+		// Perform the initial rotate left.
+		srand ((unsigned) time (NULL));
+		cs.units_bit = ((rand () << 16) + rand ()) % w->n;
+		gwrotate_left (&cs.gwdata, cs.x, cs.units_bit);
 	}
 
 /* Do the certification */
@@ -481,14 +477,13 @@ int cert (
 
 /* Undo the shift count, generate the 256-bit SHA-3 hash */
 
-	if (!gwrotate_right (&cs.gwdata, cs.x, cs.units_bit)) {
+	if (!gwrotate_right (&cs.gwdata, cs.x, cs.units_bit) ||
+	    !sha3_gwnum (&cs.gwdata, cs.x, &hash)) {
 		OutputBoth (thread_num, ERRMSG8);
 		inc_error_count (2, &cs.error_count);
 		stop_reason = STOP_ABORT;			// This will restart from last save file
 		goto exit;
 	}
-// bug - handle errors from sha3-gwnum
-	sha3_gwnum (&cs.gwdata, cs.x, &hash);
 
 /* Free up some memory */
 
