@@ -73,7 +73,7 @@ size_t UploadWriteMemoryCallback (
 
 /* Truncate response to fit in our buffer (even though should not be necessary) */
 
-	if (info->received + realsize <= info->bufsize) {
+	if (info->received + (int) realsize <= info->bufsize) {
 		memcpy ((char *) info->buf + info->received, ptr, realsize);
 	} else {
 		memcpy ((char *) info->buf + info->received, ptr, info->bufsize - info->received);
@@ -96,7 +96,7 @@ size_t UploadReadMemoryCallback (
 
 /* Truncate response to fit in our buffer (even though should not be necessary) */
 
-	if (info->received + realsize <= info->bufsize) {
+	if (info->received + (int) realsize <= info->bufsize) {
 		memcpy ((char *) info->buf + info->received, ptr, realsize);
 	} else {
 		memcpy ((char *) info->buf + info->received, ptr, info->bufsize - info->received);

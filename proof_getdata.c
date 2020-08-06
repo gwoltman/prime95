@@ -38,7 +38,7 @@ size_t GetDataWriteMemoryCallback (
 
 	if (bytes_to_copy) {
 		size_t	buf_received = info->received - 32;
-		if (buf_received + bytes_to_copy <= info->bufsize) {
+		if ((int) buf_received + (int) bytes_to_copy <= info->bufsize) {
 			memcpy ((char *) info->buf + buf_received, ptr, bytes_to_copy);
 		} else {
 			memcpy ((char *) info->buf + buf_received, ptr, info->bufsize - buf_received);
