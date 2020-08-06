@@ -292,6 +292,17 @@ void Decode (
    (((uint32_t)input[j+2]) << 16) | (((uint32_t)input[j+3]) << 24);
 }
 
+/* Convert a digest to a 32 byte hex string output. */
+void md5_digest_to_string (
+	char output[33],
+	unsigned char digest[16])
+{
+	int	i;
+	for (i = 0; i < 16; i++) {
+		sprintf (output+i*2, "%02x", digest[i]);
+	}
+}
+
 /* Digests a string and converts to 16 byte output. */
 void md5_raw_output (
 	unsigned char output[16],
@@ -299,13 +310,13 @@ void md5_raw_output (
 {
 	MD5_CTX context;
 	unsigned int len = (unsigned int) strlen (string);
-  
+
 	MD5Init (&context);
 	MD5Update (&context, (unsigned char *) string, len);
 	MD5Final (output, &context);
 }
 
-/* Digests a string and converts to 32 byte hex string output. */
+/* Digests a buffer and converts to 32 byte hex string output. */
 void md5_raw_input (
 	char output[33],
 	unsigned char *buf,
@@ -313,16 +324,11 @@ void md5_raw_input (
 {
 	MD5_CTX context;
 	unsigned char digest[16];
-	int	i;
 
 	MD5Init (&context);
 	MD5Update (&context, buf, len);
 	MD5Final (digest, &context);
-
-	for (i = 0; i < 16; i++) {
-		sprintf (output, "%02x", digest[i]);
-		output += 2;
-	}
+	md5_digest_to_string (output, digest);
 }
 
 /* Digests a string and converts to 32 byte hex string output. */
@@ -367,10 +373,6 @@ void md5_file (
 	fclose (f);
 
 	MD5Final (digest, &context);
-
-	for (i = 0; i < 16; i++) {
-		sprintf (output, "%02x", digest[i]);
-		output += 2;
-	}
+	md5_digest_to_string (output, digest);
 }
 

@@ -12513,7 +12513,7 @@ pushg(&gwdata.gdata, 2);}
 				if (!writeResidue (&ps, &gwdata, fdout, M, &context)) goto pfail;
 			}
 			MD5Final (digest, &context);
-			for (i = 0; i < 16; i++) sprintf (MD5_output+i*2, "%02x", digest[i]);
+			md5_digest_to_string (MD5_output, digest);
 
 // Close input and output files
 

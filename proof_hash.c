@@ -77,13 +77,13 @@ int roothash (
 }
 
 // Build next hash from previous hash prepended to a gwnum residue
-void hash (
+int hash (
 	gwhandle *gwdata,
 	hash256_t *prevh,
 	gwnum	x,
 	hash256_t *result)
 {
-	sha3_hash_and_gwnum (gwdata, prevh, x, result);
+	return (sha3_hash_and_gwnum (gwdata, prevh, x, result));
 }
 
 // Truncate hash to given number of bits (up to 64)
