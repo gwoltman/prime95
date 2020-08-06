@@ -300,7 +300,7 @@ int cert (
 			stop_reason = STOP_ABORT;
 			goto exit;
 		}
-		md5_raw_input (residue_md5, (unsigned char *) array, residue_size);
+		md5_hexdigest_buffer (residue_md5, array, residue_size);
 		if (strcmp (md5, residue_md5) != 0) {
 			OutputBoth (thread_num, "MD5 of downloaded starting value does not match.  Will try again later.\n");
 			free (array);

@@ -39,7 +39,7 @@ void archiveOrDelete (FILE **fd, char *filename, char fileMD5[33])
 
 		// Compare the MD5s
 		fclose (fdout);
-		md5_file (archiveMD5, archive_filename);
+		md5_hexdigest_file (archiveMD5, archive_filename);
 		if (strcmp (fileMD5, archiveMD5) != 0) {
 			sprintf (buf, "Error copy proof file to archive %s\n", archive_filename);
 			OutputBoth (COMM_THREAD_NUM, buf);
@@ -153,7 +153,7 @@ void ProofUpload (char *filename)
 
 // Compute the MD5 of the proof file
 
-	md5_file (fileMD5, filename);
+	md5_hexdigest_file (fileMD5, filename);
 	sprintf (buf, "MD5 of %s is %s\n", filename, fileMD5);
 	OutputStr (COMM_THREAD_NUM, buf);
 
@@ -358,7 +358,7 @@ void ProofUpload (char *filename)
 		}
 
 		// Create the MD5 hash
-		md5_raw_input (chunkMD5, (unsigned char *) chunk, datasize);
+		md5_hexdigest_buffer (chunkMD5, chunk, datasize);
 
 		// Create the upload chunk URL
 		sprintf (url, "%s&FileMD5=%s&DataOffset=%" PRIu64 "&DataSize=%d&DataMD5=%s", base_url, fileMD5, chunk_start, datasize, chunkMD5);

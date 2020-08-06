@@ -10185,6 +10185,7 @@ struct prp_state {
 	int	have_res2048;		/* True if a 2048-bit residue is available */
 	char	residues_filename[500];	/* Filename for the proof interim residues */
 	int	residue_size;		/* Size of one proof residue in bytes */
+	int	md5_residues;		/* True if storing MD5 hash of residue along with the residue */
 	int	max_emergency_allocs;	/* Maximum allowable number of emergency proof residues to store in memory */
 	int	num_emergency_allocs;	/* Number of emergency proof residues in memory */
 	char	**emergency_allocs;	/* Array of emergency memory allocs */
@@ -10241,7 +10242,10 @@ void createProofResiduesFile (
 		for (i = 0; i < sizeof (buf); i++) buf[i] = rand() & 0xFF;
 
 		// Calculate how much disk space we need to fill
-		total_size = (1ULL << ps->proof_power) * (uint64_t) ps->residue_size;
+		if (!ps->md5_residues)
+			total_size = (1ULL << ps->proof_power) * (uint64_t) ps->residue_size;
+		else
+			total_size = (1ULL << ps->proof_power) * (uint64_t) (ps->residue_size + 16);
 
 		// Write out the random bytes, randomize them some more each time
 		for (i = 0; i < (int) divide_rounding_up (total_size, sizeof (buf)); i++) {
@@ -10261,7 +10265,7 @@ void createProofResiduesFile (
 
 				// Truncate the file size to the requirements of the new proof power
 				if (new_power) {
-					if (_chsize_s (fd, (1ULL << new_power) * (uint64_t) ps->residue_size) < 0) {
+					if (_chsize_s (fd, (1ULL << new_power) * (uint64_t) (ps->residue_size + 16)) < 0) {
 						// Could not truncate the file, stick with the original proof power and
 						// use emergency memory in hopes the problem goes away (network disk offline).
 						new_power = 0;
@@ -10361,15 +10365,35 @@ void outputProofResidue (
 	while (ps->num_emergency_allocs) {
 
 		// Write residue to the file
-		if (_lseeki64 (fd, ((int64_t) ps->first_emergency_residue_number - 1) * (int64_t) ps->residue_size, SEEK_SET) < 0 ||
-		    _write (fd, ps->emergency_allocs[0], ps->residue_size) != ps->residue_size) {
-			char	buf[1000];
-			sprintf (buf, "Error writing to PRP proof interim residues file: %s\n", ps->residues_filename);
-			OutputBoth (ps->thread_num, buf);
-			OutputBothErrno (ps->thread_num);
-			OutputStr (ps->thread_num, "Keeping proof interim residues in emergency memory in hopes problem will resolve itself.\n");
-			OutputStr (ps->thread_num, "Errors such as disk full and network disk offline can be temporary.\n");
-			break;
+		if (!ps->md5_residues) {		// Version 30.1 and 30.2
+			if (_lseeki64 (fd, ((int64_t) ps->first_emergency_residue_number - 1) * (int64_t) ps->residue_size, SEEK_SET) < 0 ||
+			    _write (fd, ps->emergency_allocs[0], ps->residue_size) != ps->residue_size) {
+				char	buf[1000];
+				sprintf (buf, "Error writing to PRP proof interim residues file: %s\n", ps->residues_filename);
+				OutputBoth (ps->thread_num, buf);
+				OutputBothErrno (ps->thread_num);
+				OutputStr (ps->thread_num, "Keeping proof interim residues in emergency memory in hopes problem will resolve itself.\n");
+				OutputStr (ps->thread_num, "Errors such as disk full and network disk offline can be temporary.\n");
+				break;
+			}
+		}
+
+		// Write MD5(residue) and residue to the file
+		else {
+			unsigned char MD5[16];
+			md5_digest_buffer (MD5, ps->emergency_allocs[0], ps->residue_size);
+			if (_lseeki64 (fd, ((int64_t) ps->first_emergency_residue_number - 1) * (int64_t) (ps->residue_size + 16), SEEK_SET) < 0 ||
+			    _write (fd, MD5, 16) != 16 ||
+			    _write (fd, ps->emergency_allocs[0], ps->residue_size) != ps->residue_size) {
+				char	buf[1000];
+				sprintf (buf, "Error writing to PRP proof interim residues file: %s\n", ps->residues_filename);
+				OutputBoth (ps->thread_num, buf);
+				OutputBothErrno (ps->thread_num);
+				OutputStr (ps->thread_num, "Keeping proof interim residues in emergency memory in hopes problem will resolve itself.\n");
+				OutputStr (ps->thread_num, "Errors such as disk full and network disk offline can be temporary.\n");
+				break;
+			}
+// BUG - read md5 and data and compare?  reopen file beforehand?  
 		}
 
 		// Free memory, shuffle the emergency array down
@@ -10426,12 +10450,32 @@ int readResidue (			/* Returns TRUE if successful */
 
 	// Read the residue from the interim residues file
 	else {
-		if (_lseeki64 (fd, ((int64_t) residue_number - 1) * (int64_t) ps->residue_size, SEEK_SET) < 0 ||
-		    _read (fd, array, ps->residue_size) != ps->residue_size) {
-			OutputBoth (ps->thread_num, "Error reading PRP proof interim residues file.\n");
-			OutputBothErrno (ps->thread_num);
-			free (array);
-			return (FALSE);
+		if (!ps->md5_residues) {	// 30.1 and 30.2 only
+			if (_lseeki64 (fd, ((int64_t) residue_number - 1) * (int64_t) ps->residue_size, SEEK_SET) < 0 ||
+			    _read (fd, array, ps->residue_size) != ps->residue_size) {
+				OutputBoth (ps->thread_num, "Error reading PRP proof interim residues file.\n");
+				OutputBothErrno (ps->thread_num);
+				free (array);
+				return (FALSE);
+			}
+		}
+		else {
+			unsigned char expected_MD5[16];	/* Expected MD5 hash of the residue */
+			unsigned char actual_MD5[16];	/* Actual MD5 hash of the residue */
+			if (_lseeki64 (fd, ((int64_t) residue_number - 1) * (int64_t) (ps->residue_size + 16), SEEK_SET) < 0 ||
+			    _read (fd, expected_MD5, 16) != 16 ||
+			    _read (fd, array, ps->residue_size) != ps->residue_size) {
+				OutputBoth (ps->thread_num, "Error reading PRP proof interim residues file.\n");
+				OutputBothErrno (ps->thread_num);
+				free (array);
+				return (FALSE);
+			}
+			md5_digest_buffer (actual_MD5, array, ps->residue_size);
+			if (memcmp (expected_MD5, actual_MD5, 16) != 0) {
+				OutputBoth (ps->thread_num, "MD5 error reading PRP proof interim residues file.\n");
+				free (array);
+				return (FALSE);
+			}
 		}
 	}
 
@@ -10497,7 +10541,7 @@ int writeResidue (			// Returns TRUE if successful
 		free (array);
 		return (FALSE);
 	}
-	if (context != NULL) MD5Update (context, (unsigned char *) array, ps->residue_size);
+	if (context != NULL) MD5Update (context, array, ps->residue_size);
 
 	// Success
 	free (array);
@@ -10607,13 +10651,19 @@ int calc_middle_mult (			// Returns TRUE is successful
 /*	u32		error-checking next Gerbicz multiply counter (version number >= 3) */
 /*	u32		error-checking end counter (version number >= 3) */
 /*	u32		proof power (version number >= 5) */
+/*	u32		proof hash length (version number >= 5) */
+/*	u32		isProbablePrime flag (version number >= 5) */
+/*	u32		have_res2048 flag (version number >= 5) */
+/*	char[512]	res2048 (version number >= 5) */
+/*	char[16]	res64 (version number >= 5) */
+/*	u32		md5_residues flag (version number >= 6) */
 /*	gwnum		FFT data for x (u32 len, array u32s) */
 /*	gwnum		FFT data for alt_x (u32 len, array u32s) (version number >= 3) */
 /*	gwnum		FFT data for u0 (u32 len, array u32s) (version number >= 3) */
 /*	gwnum		FFT data for d (u32 len, array u32s) (version number >= 3) */
 
 #define PRP_MAGICNUM		0x87f2a91b
-#define PRP_VERSION		5
+#define PRP_VERSION		6
 
 int writePRPSaveFile (			// Returns TRUE if successful
 	gwhandle *gwdata,
@@ -10667,6 +10717,7 @@ int writePRPSaveFile (			// Returns TRUE if successful
 	if (!write_long (fd, ps->have_res2048, &sum)) goto writeerr;
 	if (!write_array (fd, ps->res2048, 512, &sum)) goto writeerr;
 	if (!write_array (fd, ps->res64, 16, &sum)) goto writeerr;
+	if (!write_long (fd, ps->md5_residues, &sum)) goto writeerr;
 	if (!write_gwnum (fd, gwdata, ps->x, &sum)) {
 		sprintf (buf, "Error writing FFT data named x, state %d, to PRP save file %s\n", ps->state, write_save_file_state->base_filename);
 		OutputBoth (ps->thread_num, buf);
@@ -10783,7 +10834,6 @@ int readPRPSaveFile (
 		ps->state = PRP_STATE_NORMAL;
 		ps->error_check_type = PRP_ERRCHK_NONE;
 	}
-
 		
 	// Read in fields introduced in version 5
 	if (version >= 5) {
@@ -10802,6 +10852,15 @@ int readPRPSaveFile (
 		ps->res64[16] = 0;
 	} else {
 		ps->proof_power = 0;
+	}
+
+	// Read in fields introduced in version 6
+	if (version >= 6) {
+		unsigned long savefile_md5_residues;
+		if (!read_long (fd, &savefile_md5_residues, &sum)) goto err;
+		ps->md5_residues = savefile_md5_residues;
+	} else {
+		ps->md5_residues = 0;
 	}
 
 	// In version 3, we did not delay the final multiply in calculation of checksum #1.
@@ -11192,6 +11251,8 @@ int prp (
 	ps.hashlen = IniSectionGetInt (INI_FILE, "PrimeNet", "ProofHashLength", 64);
 	if (ps.hashlen < 32) ps.hashlen = 32;
 	if (ps.hashlen > 64) ps.hashlen = 64;
+	// Turn on storing MD5 hash of interim residues.  Versions 30.1 and 30.2 did not do this.
+	ps.md5_residues = TRUE;
 
 	if (ps.two_power_opt && (ps.residue_type == PRIMENET_PRP_TYPE_FERMAT || ps.residue_type == PRIMENET_PRP_TYPE_COFACTOR)) {
 		double	hashlen_adjust = ps.hashlen / 64.0;
@@ -11455,7 +11516,7 @@ begin:	N = exp = NULL;
 	if (ps.proof_power) {
 		double	disk_space, proof_file_size;
 
-		disk_space = (double) (1 << ps.proof_power) * (double) ps.residue_size;
+		disk_space = (double) (1 << ps.proof_power) * (double) (ps.residue_size + 16);
 		proof_file_size = (double) (ps.proof_power + 1) * (double) ps.residue_size;
 		sprintf (buf, "PRP proof using power=%d and %d-bit hash size.\n", ps.proof_power, ps.hashlen);
 		OutputStr (thread_num, buf);
@@ -12458,7 +12519,7 @@ pushg(&gwdata.gdata, 2);}
 				OutputBothErrno (thread_num);
 				goto pfail;
 			}
-			MD5Update (&context, (unsigned char *) buf, (unsigned int) strlen (buf));
+			MD5Update (&context, buf, (unsigned int) strlen (buf));
 
 			// Output number.  Enclose non-Mersennes with known factors in parentheses.  Append known factors.
 			sprintf (buf, "NUMBER=");
@@ -12476,7 +12537,7 @@ pushg(&gwdata.gdata, 2);}
 				OutputBothErrno (thread_num);
 				goto pfail;
 			}
-			MD5Update (&context, (unsigned char *) buf, (unsigned int) strlen (buf));
+			MD5Update (&context, buf, (unsigned int) strlen (buf));
 
 			// Output final residue
 			if (!readResidue (&ps, &gwdata, fd, (1 << ps.proof_power), M)) goto pfail;
@@ -12513,7 +12574,7 @@ pushg(&gwdata.gdata, 2);}
 				if (!writeResidue (&ps, &gwdata, fdout, M, &context)) goto pfail;
 			}
 			MD5Final (digest, &context);
-			md5_digest_to_string (MD5_output, digest);
+			md5_hexdigest_from_digest (MD5_output, digest);
 
 // Close input and output files
 
@@ -12523,7 +12584,7 @@ pushg(&gwdata.gdata, 2);}
 // Generate an MD5 hash of the proof file.  This will be a unique identifier to thwart a bad actor from uploading a counterfeit proof file.
 // Compare the MD5 generated during output to the MD5 generated by re-reading the file			
 
-			md5_file (proof_hash, tmp_proof_filename);
+			md5_hexdigest_file (proof_hash, tmp_proof_filename);
 			if (strcmp (MD5_output, proof_hash) != 0) {
 				OutputBoth (thread_num, "The MD5 hash of the proof file is not correct.\n");
 				goto pfail;

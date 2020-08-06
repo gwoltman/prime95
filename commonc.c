@@ -153,7 +153,7 @@ void calc_hardware_guid (void)
 	char	buf[500];
 
 	sprintf (buf, "%s%d", CPU_BRAND, CPU_SIGNATURE);
-	md5 (HARDWARE_GUID, buf);
+	md5_hexdigest_string (HARDWARE_GUID, buf);
 
 /* Sometimes a user might want to run the program on several machines. */
 /* Typically this is done by carrying the program and files around on a */
@@ -189,7 +189,7 @@ void calc_windows_guid (void)
 		getWindowsSerialNumber_2 (buf);
 		getWindowsSID_2 (buf + strlen (buf));
 	}
-	md5 (WINDOWS_GUID, buf);
+	md5_hexdigest_string (WINDOWS_GUID, buf);
 #else
 	WINDOWS_GUID[0] = 0;
 #endif
@@ -246,7 +246,7 @@ void generate_computer_guid (void)
 
 	time (&current_time);
 	sprintf (buf, "%s%d%f%d", CPU_BRAND, CPU_SIGNATURE, CPU_SPEED, (int) current_time);
-	md5 (COMPUTER_GUID, buf);
+	md5_hexdigest_string (COMPUTER_GUID, buf);
 	IniWriteString (LOCALINI_FILE, "ComputerGUID", COMPUTER_GUID);
 
 /* Clear out local copies of what we think the server knows about this computer */
@@ -3771,7 +3771,7 @@ unsigned long string_to_hash (
 
 /* Use md5 to generate a number to hash */
 
-	md5 (md5val, str);
+	md5_hexdigest_string (md5val, str);
 	for (i = 0, p = md5val, hash = 0; i < 4; i++) {
 		for (j = 0, val = 0; j < 8; j++, p++) {
 			val = (val << 4) +
