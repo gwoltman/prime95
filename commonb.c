@@ -10730,7 +10730,7 @@ int generateProofFile (
 // partially overwritten after the proof was generated.  Determine how many proofs have been written based on the
 // size of the file.  Silently ignore attempts at overwriting.
 
-		int proofs_written = (int) (proof_file_start_offset / (ps->residue_size << ps->proof_power));
+		int proofs_written = (int) (proof_file_start_offset / ((ps->proof_power + 1) * ps->residue_size));
 		if (proofs_written >= proof_number) {
 			_close (fd);
 			_close (fdout);
@@ -12077,7 +12077,8 @@ rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 /* Beware that if we are PRPing a Mersenne number our iteration numbers are off by one compared to other */
 /* PRP programs, we adjust accordingly. */
 
-		sending_residue = (ps.state == PRP_STATE_NORMAL || ps.state == PRP_STATE_DCHK_PASS1 || ps.state == PRP_STATE_GERB_MID_BLOCK) &&
+		sending_residue = ps.proof_power == 0 &&
+				  (ps.state == PRP_STATE_NORMAL || ps.state == PRP_STATE_DCHK_PASS1 || ps.state == PRP_STATE_GERB_MID_BLOCK) &&
 				  ps.counter > 0 &&
 				  ((ps.counter+1-interim_counter_off_one) == 500000 ||
 				   ((ps.counter+1-interim_counter_off_one) % 5000000 == 0 && IniGetInt (INI_FILE, "SendInterimResidues", 1)));
