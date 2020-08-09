@@ -1100,13 +1100,19 @@ int primenet_parse_page (char *response_buf, short operation, void *pkt)
 		// Parse emergency PRP proof params that we hope to never use
 		if (z->work_type == PRIMENET_WORK_TYPE_PRP) {
 			uint32_t proof_power = 0;
+			uint32_t proof_power_mult = 0;
 			uint32_t proof_hashlen = 0;
 			primenet_parse_uint (s, "pp", &proof_power);
+			primenet_parse_uint (s, "ppm", &proof_power_mult);
 			primenet_parse_uint (s, "ph", &proof_hashlen);
 			if (proof_power == 0)
 				IniSectionWriteString (INI_FILE, iniSection, "ProofPower", NULL);
 			else
 				IniSectionWriteInt (INI_FILE, iniSection, "ProofPower", proof_power);
+			if (proof_power_mult == 0)
+				IniSectionWriteString (INI_FILE, iniSection, "ProofPowerMult", NULL);
+			else
+				IniSectionWriteInt (INI_FILE, iniSection, "ProofPowerMult", proof_power_mult);
 			if (proof_hashlen == 0)
 				IniSectionWriteString (INI_FILE, iniSection, "ProofHashLength", NULL);
 			else

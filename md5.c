@@ -350,9 +350,10 @@ void md5_hexdigest_string (
 
 /* Digests a file and returns the 16-byte output */
 
-void md5_digest_file (
+void md5_digest_file_from_offset (
 	unsigned char digest[16],
-	const char *filename)
+	const char *filename,
+	int64_t	offset)
 {
 	MD5_CTX context;
 	FILE *f;
@@ -362,6 +363,7 @@ void md5_digest_file (
 	MD5Init (&context);
 
 	f = fopen (filename, "rb");
+	if (offset) _fseeki64 (f, offset, SEEK_SET);
 	for ( ; ; ) {
 		i = (int) fread (&buf, 1, sizeof (buf), f);
 		if (i <= 0) break;
@@ -372,14 +374,29 @@ void md5_digest_file (
 	MD5Final (digest, &context);
 }
 
+void md5_digest_file (
+	unsigned char digest[16],
+	const char *filename)
+{
+	md5_digest_file_from_offset (digest, filename, 0);
+}
+
 /* Digests a file and returns the 32-byte hex string output */
+
+void md5_hexdigest_file_from_offset (
+	char output[33],
+	const char *filename,
+	int64_t	offset)
+{
+	unsigned char digest[16];
+	md5_digest_file_from_offset (digest, filename, offset);
+	md5_hexdigest_from_digest (output, digest);
+}
 
 void md5_hexdigest_file (
 	char output[33],
 	const char *filename)
 {
-	unsigned char digest[16];
-	md5_digest_file (digest, filename);
-	md5_hexdigest_from_digest (output, digest);
+	md5_hexdigest_file_from_offset (output, filename, 0);
 }
 
