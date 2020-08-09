@@ -10725,6 +10725,19 @@ int generateProofFile (
 		// Get starting file offset for later rereading for MD5 comparison hash
 		proof_file_start_offset = _lseeki64 (fdout, 0, SEEK_END);
 
+// We need to be careful in the case where user rolls back to a much older save file.  If we've written out
+// one or more proofs then we cannot overwrite them as the needed interim residues file was deleted or may have been
+// partially overwritten after the proof was generated.  Determine how many proofs have been written based on the
+// size of the file.  Silently ignore attempts at overwriting.
+
+		int proofs_written = (int) (proof_file_start_offset / (ps->residue_size << ps->proof_power));
+		if (proofs_written >= proof_number) {
+			_close (fd);
+			_close (fdout);
+			gwfree (gwdata, M);
+			break;
+		}
+
 // Reset counters and errors, turn on error checking
 
 		gwdata->fft_count = 0;			// Reset count of FFTs performed
