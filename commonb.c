@@ -10662,10 +10662,13 @@ int generateProofFile (
 //		M1 = residue[topK/4]^h0 * residue[3*topK/4].
 //		M2 = r[topK/8]^(h1*h0) * r[3*topK/8]^h0 * r[5*topK/8]^h1 * r[7*topK/8], etc.
 
-// Get the maximum number of 5 minute waits trying to generate the proof file
+// Get the maximum number of 5 minute waits trying to generate the proof file.
+// We must store the current counter in the INI file when our loop is interrupted by a stop_reason.
+// Otherwise, an infinite loop could occur with the wait counter reset after each interruprion.
 
 	proofgen_waits = IniGetInt (INI_FILE, "MaxProofgenWaits", 48 * 60 / 5);		// Default is 48 hours
 	if (proofgen_waits < 1) proofgen_waits = 1;
+	proofgen_waits = IniGetInt (LOCALINI_FILE, "CurrentProofgenWaits", proofgen_waits);
 
 // Output startup message
 
@@ -10901,8 +10904,15 @@ pfail:		if (fd >= 0) _close (fd);
 
 		OutputStr (ps->thread_num, "Waiting 5 minutes to try proof generation again.\n");
 		stop_reason = SleepFive (ps->thread_num);
-		if (stop_reason) return (stop_reason);
+		if (stop_reason) {
+			IniWriteInt (LOCALINI_FILE, "CurrentProofgenWaits", proofgen_waits);
+			return (stop_reason);
+		}
 	}
+
+// Clear the waits counter, return no-need-to-stop code
+
+	IniWriteString (LOCALINI_FILE, "CurrentProofgenWaits", NULL);
 	return (0);
 }
 
