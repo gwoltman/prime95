@@ -6802,6 +6802,12 @@ void proofUploader (void *arg)
 			num_proof_files = 0;
 		}
 
+		// There is a race condition where this proof uploading thread could attempt to send the proof file
+		// before the results reporting thread has submitted the results of the PRP test.  This results in a
+		// harmless "Unauthorized" error message.  Here is a rather low-tech "solution" to make this less likely.
+		if (num_proof_files) Sleep (5 * 60 * 1000);	// Sleep 5 more minutes
+
+		// Send each file
 		for (i = 0; i < num_proof_files && inUploadWindow (NULL); i++) {
 			ProofUpload (proof_files[i]);
 		}
