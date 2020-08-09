@@ -185,15 +185,18 @@ and exponents.
 
 Proof                              Temp disk space / Proof file size
 Power         Exponent=100,000,000         Exponent=200,000,000            Exponent=332,000,000
-7               1.6GB / 100MB                  3.2GB / 200MB                  5.3GB / 332MB
+7               1.6GB / 200MB*                 3.2GB / 400MB*                 5.3GB / 664MB*
 8               3.2GB / 113MB                  6.4GB / 225MB                  10.6GB / 373MB
 9               6.4GB / 125MB                  12.8GB / 250MB                 21.2GB / 415MB
 10             12.8GB / 138MB                  25.6GB / 275MB                 42.4GB / 457MB
 
 After the proof is uploaded to the server it is pre-processed creating a smaller file that
 must be downloaded by users doing proof certification work.  Proof certification work is
-very fast (128, 256, 512, or 1024 times faster than the original PRP test depending on proof
+very fast (256, 512, or 1024 times faster than the original PRP test depending on proof
 power).  By default, your computer is signed up for occasional proof certification work.
+
+*For proof power 7, tt is possible to cut the proof file size in half but this doubles the
+work required by the user doing the certification.  See undoc.txt.
 
 Temporary disk usage
 --------------------
