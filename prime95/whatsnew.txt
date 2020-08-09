@@ -1,5 +1,5 @@
-New features in Version 30.1/30.2 of prime95.exe
-------------------------------------------------
+New features in Version 30.1/30.2/30.3 of prime95.exe
+-----------------------------------------------------
 
 1) PRP proofs.  This allows GIMPS to double-check a PRP test at less than 1% of the cost of a full PRP test!
    PRP proofs require lots of temporary disk space.  See readme.txt for details.
@@ -9,6 +9,8 @@ New features in Version 30.1/30.2 of prime95.exe
 3) First time LL, World-record LL, 100M-digit LL work preference is deprecated.
 4) New resource limits menu choice and dialog box.  Consult readme.txt before making changes to these settings.
    Some options previously in Test/Worker Windows and Options/CPU are moved to the resources dialog box.
+5) LL-DC and PRP-DC combined into a single work preference.
+6) Warning raised if temporary disk space is less than 1.5GB -- you may not get first time prime tests.
 
 New features in Version 29.8 of prime95.exe
 -------------------------------------------
